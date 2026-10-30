@@ -23,12 +23,13 @@ struct LegTrace
 end
 
 """
-    LegTrace(ship, leg, weather, departure)
+    LegTrace(table, leg, weather, departure)
 
 Re-evaluate the ship models along the path of `leg`, one entry per edge, with the
-weather at the start of the edge as the routing saw it.
+weather at the start of the edge and the fly-or-stow choice as the routing saw them.
 """
-function LegTrace(ship::Ship, leg::Leg, weather, departure)
+function LegTrace(table::PerformanceTable, leg::Leg, weather, departure)
+    (; ship) = table
     edge_count = length(leg.path) - 1
     trace = LegTrace((zeros(edge_count) for _ in 1:13)...)
     for i in 1:edge_count
@@ -39,18 +40,18 @@ function LegTrace(ship::Ship, leg::Leg, weather, departure)
         wind_speed = hypot(east, north)
         angle = true_wind_angle(east, north, wind_speed, course)
         wave_height, wave_period, wave_from = waves(weather, lat, lon, departure + time)
+        heading = wave_heading(wave_from, course)
         added = added_resistance(ship.seakeeping, ship.env, speed, wave_height, wave_period,
-            wave_heading(wave_from, course))
-        thrust, force = best_trim(ship, speed, wind_speed, angle)
-        thrust += added
+            heading)
+        point = lookup(table, speed, wind_speed, angle, wave_height, wave_period, heading)
+        force = point.flying ? last(best_trim(ship, speed, wind_speed, angle)) : NO_RIG_FORCE
         leeway, induced_drag = leeway_drag(ship.hull, ship.env, speed, abs(force.side))
-        delivered = delivered_power(ship.propeller, ship.env, speed, thrust)
         trace.lat[i], trace.lon[i], trace.time[i], trace.speed[i] = lat, lon, time, speed
         trace.course[i], trace.wind_speed[i] = course, wind_speed
         trace.true_wind_angle[i], trace.rig_thrust[i] = angle, force.thrust
         trace.leeway[i], trace.induced_drag[i] = leeway, induced_drag
         trace.wave_height[i], trace.added_resistance[i] = wave_height, added
-        trace.fuel_power[i] = fuel_power(ship.powertrain, delivered)
+        trace.fuel_power[i] = point.fuel_power
     end
     return trace
 end

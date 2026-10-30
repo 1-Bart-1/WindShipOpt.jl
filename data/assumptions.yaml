@@ -30,46 +30,46 @@ sea_roughness_length:
 # --- reference hull, geometrically scaled with length ---
 reference_length:
   value: 85.0
-  low: 85.0
-  high: 85.0
+  low: 84.0
+  high: 88.0
   unit: m
-  reason: "Waterline length of a typical ~3500 dwt short-sea general cargo coaster; fixed anchor for scaling."
+  reason: "Real 3,800 dwt coasters: Damen Combi Freighter 3850 Lpp 84.97 m, Conoship CIP3800 Lpp 84.19 m; waterline length is ~2-4 % longer (MAN ES, Basic Principles of Ship Propulsion, 2018)."
 reference_beam:
-  value: 13.5
-  low: 13.0
-  high: 14.5
+  value: 13.2
+  low: 12.5
+  high: 14.0
   unit: m
-  reason: "L/B ~ 6.3, typical for coasters of this length."
+  reason: "Damen CF3850 12.5 m, Conoship CIP3800 13.2 m, Ferus Smit 4300 14.0 m (builder datasheets)."
 reference_draft:
   value: 5.5
-  low: 5.0
-  high: 6.0
+  low: 5.25
+  high: 5.95
   unit: m
-  reason: "B/T ~ 2.5, typical loaded draft for a coaster of this beam."
+  reason: "Conoship CIP3800 5.25 m, Damen CF3850 5.48 m, Ferus Smit 4300 5.95 m at summer draft (builder datasheets)."
 block_coefficient:
-  value: 0.75
-  low: 0.70
-  high: 0.80
+  value: 0.83
+  low: 0.78
+  high: 0.87
   unit: "-"
-  reason: "Full-bodied coaster form; a finer hull trades cargo volume for lower resistance."
+  reason: "MAN ES (2018) lists coasters at C_B 0.70-0.85; Watson-Gilfillan gives 0.79 at Fn 0.20; the dimensions and deadweight of the CF3850 and CIP3800 imply 0.85 or more. With 13.2 m beam it reproduces ~3,800 dwt."
 midship_coefficient:
-  value: 0.98
-  low: 0.97
-  high: 0.99
+  value: 0.99
+  low: 0.98
+  high: 0.995
   unit: "-"
-  reason: "Typical for cargo ships with small bilge radius."
+  reason: "Kerlen's regression gives 0.995 and Benford's 0.997 at C_B 0.83."
 centre_of_buoyancy:
-  value: 1.0
-  low: -1.0
-  high: 2.5
+  value: 2.0
+  low: 0.5
+  high: 3.0
   unit: "% of L forward of midships"
-  reason: "Full hulls carry their centre of buoyancy slightly forward of midships."
+  reason: "Full hulls carry the centre of buoyancy forward; Schneekluth's regression gives about +2.8 % at C_P 0.84."
 bulb_area_ratio:
   value: 0.06
   low: 0.0
   high: 0.10
   unit: "-"
-  reason: "Transverse bulb area over midship area; small bulbs are common on modern coasters, zero means no bulb."
+  reason: "Engineering assumption, no coaster data found; many coasters have plain bows, hence the low end of zero."
 bulb_height_ratio:
   value: 0.4
   low: 0.3
@@ -81,7 +81,7 @@ appendage_area_ratio:
   low: 0.015
   high: 0.03
   unit: "-"
-  reason: "Wetted appendage area (rudder, bilge keels) over L*T; rudder area alone is ~1.5-2 % of L*T."
+  reason: "Engineering assumption: rudder area alone is ~1.5-2 % of L*T; no coaster source found."
 appendage_form_factor:
   value: 1.5
   low: 1.3
@@ -89,35 +89,35 @@ appendage_form_factor:
   unit: "-"
   reason: "Holtrop's value for a rudder behind the skeg (1+k2 = 1.5-2.0)."
 lightship_fraction:
-  value: 0.29
+  value: 0.28
   low: 0.25
-  high: 0.33
+  high: 0.32
   unit: "-"
-  reason: "Lightship over full-load displacement for general cargo coasters (~1400 t of ~4800 t)."
+  reason: "Coasters carry 70-74 % of their displacement as deadweight (Barlas, coaster main-dimension study); general cargo 65-80 %."
 stores_mass:
   value: 50.0
   low: 30.0
   high: 80.0
   unit: t
-  reason: "Fresh water, lube oil, provisions and crew; roughly constant across coaster sizes."
+  reason: "Engineering assumption, no source found."
 max_froude_number:
-  value: 0.32
-  low: 0.30
-  high: 0.35
+  value: 0.28
+  low: 0.25
+  high: 0.3
   unit: "-"
-  reason: "Upper speed limit; above this a full coaster hull meets the wave-making wall and Holtrop's low-speed formula loses accuracy."
+  reason: "Holtrop-Mennen is validated up to about Fn 0.30 for general cargo ships; full coasters sail at Fn 0.23-0.29 (MAN ES 2018, coasters at 13-16 kn)."
 metacentric_height_ratio:
   value: 0.075
   low: 0.05
   high: 0.10
   unit: "-"
-  reason: "Loaded GM over beam (~1 m at 13.5 m beam); low GM makes the ship roll gently but heel more under a rig."
+  reason: "Engineering assumption giving GM ~1 m; only minimums are published: GM >= 0.15 m (IMO IS Code), GM >= 0.3 m for wind-assisted ships (DNV WAPS rules, via MARIN report 77001-1-SEA, 2025)."
 heel_limit:
   value: 8.0
   low: 5.0
   high: 12.0
   unit: deg
-  reason: "Steady heel tolerated on a cargo ship before cargo securing and crew comfort suffer."
+  reason: "ShipCLEAN reefs sails above 8 deg (Tillig & Ringsberg 2020, Ocean Eng. 211); the ITTC wind-assisted ships committee suggests 5 deg as a first reference; DNV allows 12 deg steady-wind heel (MARIN 2025)."
 entrance_length_ratio:
   value: 0.22
   low: 0.15
@@ -135,19 +135,19 @@ leeway_limit:
   low: 6.0
   high: 15.0
   unit: deg
-  reason: "Beyond this the slender-body hull side-force model is no longer linear and rudder drag grows fast."
+  reason: "Validity limit of the linear hull side-force model; captive tests on wind-assisted hulls cover 0-10 deg and ShipCLEAN reefs at 10 deg rudder angle (Tillig & Ringsberg 2020). No operational limit found."
 deck_mount_height:
   value: 4.0
   low: 3.0
-  high: 6.0
+  high: 5.0
   unit: m
-  reason: "Freeboard plus hatch coaming of the reference hull, where a wing foot or kite mast stands; scales with length."
+  reason: "Freeboard of real coasters is 1.5-2.0 m (CF3850, Ferus 4300, CIP3800 depth minus draft) plus a hatch coaming; no coaming height found."
 superstructure_height:
   value: 10.0
   low: 8.0
   high: 14.0
   unit: m
-  reason: "Height of the frontal windage area (deckhouse plus hull above water) of the reference hull; scales with length."
+  reason: "Engineering assumption, no source found."
 windage_drag_coefficient:
   value: 0.7
   low: 0.5
@@ -157,249 +157,249 @@ windage_drag_coefficient:
 
 # --- propulsion ---
 propeller_diameter_ratio:
-  value: 0.65
-  low: 0.6
-  high: 0.75
+  value: 0.5
+  low: 0.45
+  high: 0.65
   unit: "-"
-  reason: "Propeller diameter over draft for a single-screw coaster."
+  reason: "Damen CF3850 2.6 m on 5.48 m draft (0.47), Ferus 4300 3.2 m on 5.95 m (0.54); electric drives allow larger, slower propellers, hence the high end."
 thrust_deduction_ratio:
   value: 0.6
   low: 0.5
-  high: 0.7
+  high: 0.75
   unit: "-"
-  reason: "Thrust deduction over wake fraction; classic single-screw estimate t ~ 0.6 w."
+  reason: "t = 0.6 w (MAN ES 2018, Taylor), which equals MAN's alternative t = 0.27 C_B at C_B 0.83."
 propeller_viscous_efficiency:
-  value: 0.82
-  low: 0.75
-  high: 0.88
+  value: 0.8
+  low: 0.72
+  high: 0.85
   unit: "-"
-  reason: "Ratio of real open-water efficiency to the ideal actuator-disk efficiency; gives eta_o ~ 0.6-0.7 at normal loading, as for B-series propellers."
+  reason: "Engineering assumption: open-water efficiency is typically 0.55-0.70 (MAN ES 2018), which this factor reproduces on the actuator-disk efficiency; no direct source."
 shaft_efficiency:
-  value: 0.97
+  value: 0.96
   low: 0.95
-  high: 0.98
+  high: 0.97
   unit: "-"
-  reason: "Gearbox and shaft bearings of a mechanical drive."
+  reason: "Shaft with reduction gear 0.95-0.96 (MAN ES 2018)."
 electric_chain_efficiency:
-  value: 0.93
-  low: 0.90
-  high: 0.95
+  value: 0.9
+  low: 0.85
+  high: 0.93
   unit: "-"
-  reason: "Generator, converter and propulsion motor in series for a diesel-electric drive."
+  reason: "Electrical losses of 9.4 % for a 5 MW low-voltage plant, up to 15 % below 1 MW (Wartsila, Johannesen & Heine 2021); alternator, switchboard, converter and motor."
 vlsfo_engine_efficiency:
   value: 0.44
   low: 0.42
-  high: 0.47
-  unit: "-"
-  reason: "Peak brake efficiency of a medium-speed four-stroke engine on VLSFO."
-methanol_genset_efficiency:
-  value: 0.42
-  low: 0.38
   high: 0.45
   unit: "-"
-  reason: "Peak electrical efficiency of a medium-speed methanol dual-fuel genset; slightly below diesel."
+  reason: "Wartsila 20: 190 g/kWh (0.444); MAN L21/31: 189-195 g/kWh (0.43-0.45) depending on attached pumps (project guide 2024)."
+methanol_engine_efficiency:
+  value: 0.44
+  low: 0.42
+  high: 0.45
+  unit: "-"
+  reason: "Brake efficiency; methanol engines run at equal efficiency to diesel (Wartsila W32 Methanol launch 2022; FCBI Methanol as a Marine Fuel 2015). The alternator sits in the electric chain."
 part_load_penalty:
-  value: 0.3
-  low: 0.15
-  high: 0.45
+  value: 0.2
+  low: 0.1
+  high: 0.3
   unit: "-"
-  reason: "Efficiency loss coefficient a in eta = eta_peak (1 - a (1 - load)^2); gives ~17 % higher consumption per kWh at 25 % load."
+  reason: "Fitted to the MAN L21/31 SFOC table at 25-100 % load: 0.14-0.27 depending on speed and attached pumps."
 genset_count:
   value: 3
   low: 2
   high: 4
   unit: "-"
-  reason: "Diesel-electric coasters run 2-4 gensets so that running units stay near their efficient load."
+  reason: "The Damen CF3850 has three gensets; note that the smallest medium-speed methanol genset found is ~1 MW (MAN L21/31DF-M), so smaller units may not exist off the shelf."
 hotel_load:
   value: 60.0
   low: 40.0
   high: 100.0
   unit: kW
-  reason: "Accommodation, navigation, pumps and cargo-hold ventilation of a coaster at sea."
+  reason: "Engineering assumption, no at-sea figure found; the CF3850's harbour gensets are 111-118 kWe."
 service_speed:
-  value: 11.0
-  low: 10.0
+  value: 10.5
+  low: 9.5
   high: 12.0
   unit: kn
-  reason: "Typical coaster service speed; sizes installed power."
+  reason: "Conoship CIP3800 10 kn on 750 kW; the Damen CF3850's 11.8 kn is at 3 m ballast draft, so loaded speed is lower."
 sea_margin:
   value: 0.15
   low: 0.10
-  high: 0.25
+  high: 0.3
   unit: "-"
-  reason: "Standard power margin over calm water for wind, waves and fouling."
+  reason: "Typically 10-30 %, historically 15 % (MAN ES 2018)."
 engine_rating_fraction:
   value: 0.9
-  low: 0.85
+  low: 0.75
   high: 0.9
   unit: "-"
-  reason: "Service power as a fraction of maximum continuous rating."
+  reason: "Engine margin historically 10 %, up to 25 % (MAN ES 2018)."
 
 # --- rigid wing ---
 wing_aspect_ratio:
   value: 2.0
   low: 1.5
-  high: 3.0
+  high: 4.0
   unit: "-"
-  reason: "Height over chord of installed rigid wings (WindWings ~ 37.5 m x 20 m)."
+  reason: "Installed wings span AR 1.9-3.8: WindWings 37.5 m x 20 m (BAR Technologies), Oceanbird Wing 560 40 m x 14 m, AYRO Oceanwings 363 m^2 at 37 m."
 wing_endplate_factor:
-  value: 1.6
-  low: 1.2
+  value: 1.4
+  low: 1.0
   high: 1.8
   unit: "-"
-  reason: "Effective over geometric aspect ratio from the deck acting as a partial mirror plane at the wing foot."
+  reason: "Mirror-image theory gives 2.0 for a wing sealed to the deck; a root gap lowers it. No measured value found, so the base sits between free (1.0) and sealed (2.0)."
 wing_max_lift_coefficient:
   value: 1.8
   low: 1.4
   high: 2.2
   unit: "-"
-  reason: "Two-element flapped wing sail; three-element designs claim more, a plain symmetric profile reaches ~1.2."
+  reason: "Two-element wingsail section reaches CL 1.95-2.65 in 2D CFD (Yao 2026, Ocean Eng. 362); a finite wing is lower, a double-flap wingsail measured 1.68 (Kapal journal)."
 wing_profile_drag_coefficient:
   value: 0.02
   low: 0.015
   high: 0.03
   unit: "-"
-  reason: "Zero-lift drag of a thick flapped profile at full-scale Reynolds number."
+  reason: "Zero-lift drag of a thick flapped section at full-scale Reynolds number; with the separation factor it reproduces section CD 0.12 at CL 1.95 (Yao 2026)."
 wing_separation_drag_factor:
-  value: 0.01
-  low: 0.0
-  high: 0.03
+  value: 0.03
+  low: 0.01
+  high: 0.05
   unit: "-"
-  reason: "Extra drag growing with CL^2 from profile separation near maximum lift."
+  reason: "Fitted so that CD = 0.02 + 0.03 CL^2 matches the 2D two-element section CD of 0.12 at CL 1.95 and 0.24 at CL 2.65 (Yao 2026)."
 wing_span_efficiency:
   value: 0.9
   low: 0.8
   high: 0.95
   unit: "-"
-  reason: "Oswald factor of a tapered wing with tip vortex."
+  reason: "Generic Oswald factor of a tapered wing; no wingsail-specific source found."
 wing_interference_factor:
   value: 0.9
   low: 0.75
   high: 1.0
   unit: "-"
-  reason: "Thrust loss from wings shadowing each other and the deckhouse; published multi-wing studies show 5-25 %."
+  reason: "3D CFD: three sails gave 3x one sail's thrust, five sails 3.83x (EMSA/CE Delft 2023, Potential of Wind-Assisted Propulsion); at moderate wind angles interaction can even help (Bordogna et al. 2018)."
 wing_spacing:
   value: 1.5
   low: 1.2
   high: 2.0
   unit: chord lengths
-  reason: "Deck length taken by one wing, so that neighbouring wings interfere acceptably."
+  reason: "Engineering assumption: Bordogna et al. (2018) show the gap is a key parameter but give no rule."
 deck_length_fraction:
   value: 0.75
   low: 0.65
   high: 0.8
   unit: "-"
-  reason: "Part of the ship length available for wing foundations (between forecastle and deckhouse)."
+  reason: "Engineering assumption: part of the length between forecastle and deckhouse; no source found."
 max_air_draft:
   value: 45.0
   low: 35.0
   high: 60.0
   unit: m
-  reason: "Height above the waterline that the route's ports and bridges allow; folding wings would relax it at extra cost."
+  reason: "User assumption: WindWings reach ~45 m above deck and fold for port; no air-draft data found for the route's ports and bridges."
 wing_mass_per_area:
   value: 0.12
   low: 0.08
-  high: 0.18
+  high: 0.27
   unit: t/m^2
-  reason: "Rigid wing plus foundation and slewing gear; published wing sails weigh ~0.1-0.17 t per m^2."
+  reason: "Hard sails weigh 45-100 t for 280-1,000 m^2 including foundation (EMSA 2023, Table 4), 0.10-0.16 t/m^2; the largest wings reach ~0.27 (Oceanbird ~150 t for 560 m^2)."
 wing_cost_per_area:
-  value: 2500.0
-  low: 1500.0
-  high: 4000.0
+  value: 2000.0
+  low: 1200.0
+  high: 3000.0
   unit: USD/m^2
-  reason: "Rough estimate from reported rigid wing sail prices of about USD 1.5-2.5 M for a ~750 m^2 unit plus installation; no firm source."
+  reason: "EMSA 2023 Table 7: 438-876 kEUR per hard-sail unit plus 109-219 kEUR retrofit, ~1,100-1,950 EUR/m^2 installed; Atkinson et al. (2018) USD 2.5 M for 1,400 m^2. Small units cost more per m^2."
 wing_lifetime:
   value: 20.0
   low: 15.0
   high: 25.0
   unit: years
-  reason: "Structural steel and composite rig, maintained with the hull."
+  reason: "EMSA (2023) takes more than 20 years for wind-propulsion assets; rotor sails are designed for ~25 years."
 
 # --- kite ---
 kite_lift_coefficient:
-  value: 0.9
-  low: 0.7
+  value: 0.8
+  low: 0.6
   high: 1.0
   unit: "-"
-  reason: "Leading-edge inflatable or ram-air kite in powered crosswind flight."
+  reason: "Measured on the V3 LEI kite in traction: CL 0.7-1.0 (Oehler & Schmehl 2019, WES 4), 0.59-0.69 (van der Vlugt et al. 2019); 0.8 in Faggiani & Schmehl (2018). Projected area."
 kite_drag_coefficient:
-  value: 0.15
-  low: 0.12
-  high: 0.2
+  value: 0.2
+  low: 0.15
+  high: 0.25
   unit: "-"
-  reason: "Kite and bridle drag; gives a kite-only glide ratio near 6."
+  reason: "Kite-only glide ratio about 4 in traction (Oehler & Schmehl 2019; van der Vlugt et al. 2019: 3.6-4.0), 4-5 for SkySails towing kites (Erhard & Strauch 2013); CD 0.2 in Faggiani & Schmehl (2018)."
 tether_drag_coefficient:
   value: 1.1
   low: 1.0
   high: 1.2
   unit: "-"
-  reason: "Cylinder in crossflow at the tether's Reynolds number."
+  reason: "Cylinder CD 1.1 at tether Reynolds numbers 2.7e3-8.2e3 (van der Vlugt et al. 2019, Table 1)."
 tether_stress:
-  value: 5.0e8
-  low: 3.5e8
-  high: 7.0e8
+  value: 400000000.0
+  low: 250000000.0
+  high: 600000000.0
   unit: Pa
-  reason: "Working stress of a Dyneema tether, about a third of its breaking stress; sets tether diameter from the maximum force."
+  reason: "Working stress in published AWE designs: ~0.40 GPa (Faggiani & Schmehl 2018) and ~0.24 GPa (van der Vlugt et al. 2019); SK78 rope breaks at ~1.1 GPa (Marlow 12 mm), so a safety factor of ~2.8."
 tether_length:
   value: 400.0
   low: 250.0
   high: 600.0
   unit: m
-  reason: "Puts the kite at ~150-250 m altitude, above most of the wind shear, without excessive tether drag."
+  reason: "SkySails ship kites used a ~300 m towing line (Erhard & Strauch 2013) and flew 100-300 m above the ship (NOAA VOS 2009); Kitepower's default tether is 350 m."
 kite_elevation:
-  value: 30.0
-  low: 25.0
-  high: 40.0
+  value: 25.0
+  low: 15.0
+  high: 35.0
   unit: deg
-  reason: "Elevation of the figure-eight centre; lower gives more horizontal pull but risks ground contact in the turns."
+  reason: "Horizontal figure-eights centred near 15 deg give the most propulsive force (Dadd, Hudson & Shenoi 2011); power-generating kites fly at ~27 deg (van der Vlugt et al. 2019). The ground clearance of the turns limits how low."
 kite_max_azimuth:
   value: 60.0
   low: 45.0
   high: 70.0
   unit: deg
-  reason: "Largest angle between pattern centre and downwind that still keeps the kite powered and controllable."
+  reason: "Engineering assumption: no source found; dynamic kite thrust falls fast at smaller wind angles (EMSA 2023)."
 kite_pattern_efficiency:
   value: 0.8
   low: 0.65
   high: 0.9
   unit: "-"
-  reason: "Cycle-averaged over pattern-centre tether force, covering turns, gravity and off-centre flight; to be calibrated against SymbolicAWEModels."
+  reason: "Engineering assumption, to be calibrated with SymbolicAWEModels; Dadd et al. (2011) report 16.7 t time-averaged force from a 300 m^2 kite on 300 m lines at 6.2 m/s as a check."
 kite_min_wind:
   value: 6.0
   low: 4.0
   high: 8.0
   unit: m/s
-  reason: "Lowest apparent wind at kite altitude for a launch and sustained flight."
+  reason: "SkySails ship kites could not launch below Beaufort 3 (NOAA VOS 2009); SkySails Power and Kitepower launch above 5 m/s, Kyo above 6 m/s."
 kite_max_wind:
   value: 25.0
   low: 20.0
   high: 30.0
   unit: m/s
-  reason: "Above this the kite must be landed for structural and control reasons."
+  reason: "SkySails ship kites were designed up to Beaufort 8; SkySails Power cuts out at 25 m/s at 200 m."
 kite_max_force_per_area:
-  value: 1.0
-  low: 0.7
-  high: 1.5
+  value: 0.5
+  low: 0.4
+  high: 1.0
   unit: kN/m^2
-  reason: "Depower limit on tether force; SkySails rated ~320 kN on a 320 m^2 kite."
+  reason: "Maximum wing loading 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2); SkySails ~16 t on 300 m^2 (0.52). SkySails' 320 kN claim on 320 m^2 is the high end."
 kite_attach_height:
   value: 10.0
   low: 6.0
   high: 15.0
   unit: m
-  reason: "Height of the tether attachment on the bow mast above the waterline; sets the kite's heeling arm."
+  reason: "Engineering assumption: tether attachment on the bow mast; no source found."
 canopy_cost_per_area:
   value: 300.0
   low: 150.0
   high: 500.0
   unit: USD/m^2
   reason: "Finished LEI canopy with bladders, bridles and reinforcements per m^2 of projected area. Faggiani & Schmehl (2018) put a 100 m^2 (72 m^2 projected) kite at EUR 22 k in series production (~330 USD/m^2 projected); cloth alone is ~17 USD/m^2 (Dacron, Sailrite) on ~1.4 m^2 of surface per projected m^2, the rest is labour and margin."
-canopy_replacement_interval:
-  value: 1.0
-  low: 0.5
-  high: 12.0
-  unit: months
-  reason: "Assumed by the user: UV, flutter and pattern loading wear out an LEI canopy flown most of the time at sea. The decisive and least known kite parameter."
+canopy_lifetime:
+  value: 4000.0
+  low: 2000.0
+  high: 8000.0
+  unit: flight hours
+  reason: "Kitepower Falcon datasheet rates its kite at 4,000 h. A racing sail is the lower bound: an IMOCA carries only 8 sails, delivered new, through a nonstop Vendee Globe of ~27,700 nm in 65-80 days (~1,600-1,900 h; vendeeglobe.org). A more durable canopy lasts longer."
 tether_price:
   value: 80.0
   low: 40.0
@@ -412,18 +412,18 @@ tether_rope_density:
   high: 650.0
   unit: kg/m^3
   reason: "Rope mass over its nominal circular cross-section, from Marlow D12 78 at 10 mm: 4.65 kg per 100 m."
-tether_replacement_interval:
-  value: 1.0
-  low: 1.0
-  high: 12.0
-  unit: months
-  reason: "Assumed by the user. Without pumping the tether is not cycled over the drum under load, so it will likely last longer than on a ground-generation system."
+tether_lifetime:
+  value: 4000.0
+  low: 2000.0
+  high: 16000.0
+  unit: flight hours
+  reason: "Dyneema tethers of a pumping system last 3 months to 2 years (DEADALUS project, Ampyx/DSM), ~2,000-17,000 h if flown continuously; without pumping the tether is not cycled over the drum under load."
 winch_cost_per_force:
-  value: 0.25
-  low: 0.1
-  high: 0.5
+  value: 0.1
+  low: 0.03
+  high: 0.3
   unit: USD/N
-  reason: "Holding winch with brake and a small motor: it only reels slowly for launch and landing, so its cost follows line pull, like a marine mooring winch (~50 k USD for 20 t pull), not generator power."
+  reason: "Marine mooring winches sell for ~0.01-0.05 USD/N of line pull without class approval or controls; a reeling AWE generator winch costs ~0.27 EUR/N (Faggiani & Schmehl 2018). A holding winch sits in between."
 launch_system_cost_coefficient:
   value: 10000.0
   low: 5000.0
@@ -439,115 +439,115 @@ control_unit_cost:
 kite_integration_cost:
   value: 150000.0
   low: 50000.0
-  high: 500000.0
+  high: 600000.0
   unit: USD
-  reason: "Per-ship automation, bridge integration, installation and class approval. Unverified estimate; the high end covers a one-off installation without a product line behind it."
+  reason: "EMSA 2023 Table 7 gives 51-351 kEUR newbuild or 85-586 kEUR retrofit installation for a kite system plus 10 kEUR training; the whole SkySails 320 m^2 system sold for ~EUR 1 M (EU LIFE WINTECC)."
 kite_mass_per_area:
   value: 0.05
-  low: 0.03
-  high: 0.08
+  low: 0.01
+  high: 0.15
   unit: t/m^2
-  reason: "Launch mast, winch, tether and control pod over kite area; the canopy itself is negligible."
+  reason: "Engineering assumption: a 160 m^2 SkySails set-up weighed ~2 t (0.013 t/m^2, weak source), the kite alone under 1 t (EMSA 2023); 0.05 covers a heavier holding winch and mast."
 kite_lifetime:
   value: 15.0
   low: 10.0
   high: 20.0
   unit: years
-  reason: "Launch mast, winch and control unit; canopy and tether are replaced on their own intervals."
+  reason: "Launch mast, winch and control unit; canopy and tether wear per flight hour."
 
 # --- economics ---
 discount_rate:
   value: 0.08
-  low: 0.05
+  low: 0.06
   high: 0.12
   unit: "-"
-  reason: "Cost of capital for a small shipowner; a startup pays more, a corporate parent less."
+  reason: "Damodaran (Jan 2026) puts the WACC of Shipbuilding & Marine at 6.7 %; a small private owner pays more, a startup up to 12 %."
 hull_lifetime:
   value: 25.0
   low: 20.0
   high: 30.0
   unit: years
-  reason: "Economic life of a coaster."
+  reason: "Average ship demolition age has stayed above 27 years since 2019 and fell to 23 in the 2016 slump (Breakwave Advisors 2025)."
 hull_cost_per_lightship:
   value: 6000.0
-  low: 4500.0
-  high: 8000.0
+  low: 4000.0
+  high: 8500.0
   unit: USD/t
-  reason: "Newbuild coaster without propulsion plant at ~USD 8-9 M for 1400 t lightship (Asian yard)."
+  reason: "No coaster contract price is public. Meriaura ordered two 6,750 dwt EcoTraders at Royal Bodewes for ~EUR 34 M (Cision, Apr 2024), ~7,000-7,800 USD/t lightship for a Dutch build; Chinese yards are cheaper. Lightship from the Damen CF3850 (3,800 dwt on ~5,050 t displacement)."
 mechanical_propulsion_cost:
   value: 500.0
-  low: 400.0
+  low: 350.0
   high: 700.0
   unit: USD/kW
-  reason: "Four-stroke engine, gearbox, shaft and propeller."
+  reason: "Engineering estimate: a medium-speed engine package sells for ~EUR 300-350/kW (anecdotal, boatdesign.net) plus gearbox, shaft and propeller; no study-grade source found."
 electric_propulsion_cost:
   value: 900.0
-  low: 700.0
-  high: 1200.0
+  low: 750.0
+  high: 1300.0
   unit: USD/kW
-  reason: "Methanol gensets, switchboard, converters and propulsion motor; diesel-electric costs more than mechanical."
+  reason: "Diesel-electric gensets EUR 350/kW and motor EUR 120/kW (EU fact sheet Diesel-Electric Propulsion, 2019) plus converter, and a methanol premium of ~EUR 210/kW for engine and fuel system (FCBI for the Methanol Institute, via Sustainable Ships 2023)."
 crew_cost:
   value: 500000.0
   low: 350000.0
   high: 800000.0
   unit: USD/year
-  reason: "Seven crew at about USD 70 k each including travel; minimum manning hardly changes with coaster size."
+  reason: "Engineering assumption, no public source for coaster crew cost: ~1,370 USD/day fits a mixed crew of seven, while 3,000 dwt coasters earned only ~1,500-2,000 USD/day on time charter in 2024 (ISM), which implies low-cost crewing; an all-EU crew is at the high end."
 maintenance_fraction:
   value: 0.03
   low: 0.02
   high: 0.05
   unit: 1/year
-  reason: "Maintenance and insurance over capital cost per year."
+  reason: "Engineering assumption: maintenance alone is commonly put at 2-5 % of ship value per year; insurance comes on top, hence the high end."
 port_cost_per_call:
   value: 15000.0
   low: 8000.0
   high: 30000.0
   unit: USD
-  reason: "Port dues, pilotage and agency for a coaster call."
+  reason: "Engineering assumption, no published per-call cost; Rotterdam dues scale with GT and pilotage is compulsory at Pointe-a-Pitre above 50 m. An agent's proforma would settle it."
 port_time_per_call:
   value: 2.0
   low: 1.0
   high: 4.0
   unit: days
-  reason: "Loading or discharge of a general cargo coaster."
+  reason: "Engineering assumption: loading or discharging ~3,000 t of general cargo; no source searched."
 availability:
   value: 0.92
   low: 0.88
   high: 0.95
   unit: "-"
-  reason: "Share of the year the ship trades; the rest is dry-docking and repairs."
+  reason: "Engineering assumption: dry-docking every 2.5 years plus repairs; no source found."
 cargo_value:
-  value: 2000.0
-  low: 500.0
-  high: 10000.0
+  value: 2500.0
+  low: 1500.0
+  high: 4000.0
   unit: USD/t
-  reason: "Mixed general cargo; premium niche cargo (coffee, rum, cacao) sits at the high end."
+  reason: "Guadeloupe imported ~EUR 3.9 bn on 2.37 Mt in 2024 (IEDOM annual report): ~EUR 1,650/t over all imports and up to ~EUR 3,000/t for non-bulk goods."
 backhaul_fraction:
-  value: 0.5
-  low: 0.2
-  high: 0.8
+  value: 0.3
+  low: 0.15
+  high: 0.5
   unit: "-"
-  reason: "Return cargo over outbound cargo; Caribbean exports are smaller than imports."
+  reason: "Guadeloupe shipped 0.72 Mt out against 2.37 Mt in during 2024 (IEDOM annual report), including petroleum re-exports."
 fuel_reserve_factor:
   value: 1.3
-  low: 1.2
-  high: 1.5
+  low: 1.15
+  high: 1.4
   unit: "-"
-  reason: "Tank capacity over the largest leg consumption seen in the weather sample."
+  reason: "Engineering assumption: tank capacity over the largest leg consumption in the weather sample; no source found."
 
 # --- fuel and carbon ---
 vlsfo_price:
-  value: 14.5
+  value: 16.0
   low: 12.0
-  high: 18.0
+  high: 19.0
   unit: USD/GJ
-  reason: "About USD 600/t at 41 GJ/t, the 2025-2026 range."
+  reason: "Rotterdam VLSFO averaged ~663 USD/t over 2026 and was 778 USD/t on 29 Oct 2026 (Ship & Bunker), at 41 GJ/t."
 vlsfo_carbon_intensity:
   value: 0.076
   low: 0.076
-  high: 0.080
+  high: 0.077
   unit: tCO2/GJ
-  reason: "3.114 tCO2/t tank-to-wake over 41 GJ/t; well-to-wake adds ~10 %."
+  reason: "EU MRV default 3.114 tCO2/t for heavy fuel oil (Delegated Regulation (EU) 2016/2071) over 41 GJ/t; tank-to-wake."
 vlsfo_heating_value:
   value: 41.0
   low: 40.5
@@ -557,9 +557,9 @@ vlsfo_heating_value:
 e_methanol_price:
   value: 60.0
   low: 40.0
-  high: 90.0
+  high: 120.0
   unit: USD/GJ
-  reason: "DNV/IRENA range for e-methanol around 2030; low end assumes cheap renewable power, high end today's pilot plants."
+  reason: "IRENA & Methanol Institute (2021), Innovation Outlook Renewable Methanol: 800-1,600 USD/t (40-80 USD/GJ) with biogenic CO2, 1,200-2,400 USD/t (60-120 USD/GJ) with direct air capture; no offtake price is public."
 methanol_heating_value:
   value: 19.9
   low: 19.9
@@ -569,12 +569,12 @@ methanol_heating_value:
 carbon_price:
   value: 90.0
   low: 60.0
-  high: 150.0
+  high: 130.0
   unit: USD/tCO2
-  reason: "EU ETS around EUR 80/t; FuelEU penalties are not modelled separately."
+  reason: "December-2026 EUA traded EUR 79-82/t in July 2026 (GMK Center); analysts expect EUR 93 for 2026 and EUR 107 for 2027 (SteelOrbis)."
 carbon_coverage:
-  value: 0.5
-  low: 0.5
+  value: 0.0
+  low: 0.0
   high: 1.0
   unit: "-"
-  reason: "EU ETS charges half of the emissions of voyages between the EU and third countries; 1.0 models a global levy."
+  reason: "A 3,500 dwt coaster measures ~2,500 GT (Damen CF3850: 2,570 GT), below the 5,000 GT threshold of EU ETS and FuelEU, so it pays nothing today. A July 2026 Commission proposal would bring smaller ships into the ETS from 2031; Rotterdam-Guadeloupe is then an intra-EU voyage counted in full."

@@ -102,7 +102,7 @@ function Ship(design::ShipDesign, assumptions::Assumptions)
         installed_power=service_output * (1 + assumptions[:sea_margin]) /
                         assumptions[:engine_rating_fraction],
         unit_count=electric ? Int(assumptions[:genset_count]) : 1,
-        peak_efficiency=electric ? assumptions[:methanol_genset_efficiency] :
+        peak_efficiency=electric ? assumptions[:methanol_engine_efficiency] :
                         assumptions[:vlsfo_engine_efficiency],
         part_load_penalty=assumptions[:part_load_penalty],
         transmission_efficiency=transmission, hotel_load)

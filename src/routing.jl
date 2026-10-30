@@ -119,34 +119,36 @@ end
 """
     Leg
 
-Optimal passage along a corridor: fuel energy [J], fuel cost [USD], duration [h] and
-the path as (latitude, longitude, time [h], speed [m/s]) per stage.
+Optimal passage along a corridor: fuel energy [J], fuel cost [USD], hours the rig was
+flown, duration [h] and the path as (latitude, longitude, time [h], speed [m/s]) per stage.
 """
 struct Leg
     fuel_energy::Float64
     fuel_cost::Float64
+    flight_hours::Float64
     duration::Float64
     path::Vector{NTuple{4, Float64}}
 end
 
 """
-    route(corridor, table, fuel, weather, departure; time_cost, speeds, time_step=3.0,
+    route(corridor, table, weather, departure; time_cost, speeds, time_step=3.0,
           max_duration=50 * 24.0)
 
 Weather routing by forward dynamic programming over (stage, lateral node, arrival time
-bin). Minimises fuel cost plus `time_cost` [USD/h] times duration for a departure at
-`departure` [h]; `speeds` in m/s default to whole knots up to the ship's maximum speed,
-times in hours. Returns `nothing` if no path arrives
-within `max_duration`.
+bin). Minimises fuel cost plus rig wear plus `time_cost` [USD/h] times duration for a
+departure at `departure` [h]; `speeds` in m/s default to whole knots up to the ship's
+maximum speed, times in hours. Returns `nothing` if no path arrives within
+`max_duration`.
 """
-function route(corridor::Corridor, table::PerformanceTable, fuel::Fuel, weather,
-        departure; time_cost, speeds=(4:max_knots(table)) .* KNOT, time_step=3.0,
+function route(corridor::Corridor, table::PerformanceTable, weather, departure; time_cost, speeds=(4:max_knots(table)) .* KNOT, time_step=3.0,
         max_duration=50 * 24.0)
     stage_count, lateral_count = size(corridor.lat)
     bins = ceil(Int, max_duration / time_step)
     cost = fill(Inf, lateral_count, bins, stage_count)
     elapsed = zeros(lateral_count, bins, stage_count)
     energy = zeros(lateral_count, bins, stage_count)
+    flight_hours = zeros(lateral_count, bins, stage_count)
+    price = table.ship.fuel.price
     parent = zeros(Int32, lateral_count, bins, stage_count)
     chosen_speed = zeros(Float32, lateral_count, bins, stage_count)
     start = centre_index(corridor)
@@ -168,21 +170,24 @@ function route(corridor::Corridor, table::PerformanceTable, fuel::Fuel, weather,
                 heading = wave_heading(wave_from, course)
                 length = corridor.edge_length[stage, lateral, step]
                 for speed in speeds
-                    power = lookup(table, speed, wind_speed, angle, wave_height,
+                    point = lookup(table, speed, wind_speed, angle, wave_height,
                         wave_period, heading)
-                    isfinite(power) || continue
+                    isfinite(point.fuel_power) || continue
                     duration = length / speed / 3600
                     arrival = time + duration
                     next_bin = floor(Int, arrival / time_step) + 1
                     next_bin <= bins || continue
-                    fuel_energy = power * duration * 3600
-                    total = cost[lateral, bin, stage] + fuel_energy * fuel.price +
-                            time_cost * duration
+                    fuel_energy = point.fuel_power * duration * 3600
+                    flown = point.flying ? duration : 0.0
+                    total = cost[lateral, bin, stage] + fuel_energy * price +
+                            table.wear_cost * flown + time_cost * duration
                     total < cost[next, next_bin, stage + 1] || continue
                     cost[next, next_bin, stage + 1] = total
                     elapsed[next, next_bin, stage + 1] = arrival
                     energy[next, next_bin, stage + 1] = energy[lateral, bin, stage] +
                                                         fuel_energy
+                    flight_hours[next, next_bin, stage + 1] =
+                        flight_hours[lateral, bin, stage] + flown
                     parent[next, next_bin, stage + 1] = (lateral - 1) * bins + bin
                     chosen_speed[next, next_bin, stage + 1] = speed
                 end
@@ -193,8 +198,8 @@ function route(corridor::Corridor, table::PerformanceTable, fuel::Fuel, weather,
     isfinite(total) || return nothing
     path = trace_path(corridor, elapsed, parent, chosen_speed, start, best_bin, bins)
     fuel_energy = energy[start, best_bin, stage_count]
-    return Leg(fuel_energy, fuel_energy * fuel.price, elapsed[start, best_bin, stage_count],
-        path)
+    return Leg(fuel_energy, fuel_energy * price, flight_hours[start, best_bin, stage_count],
+        elapsed[start, best_bin, stage_count], path)
 end
 
 function trace_path(corridor, elapsed, parent, chosen_speed, lateral, bin, bins)

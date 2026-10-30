@@ -14,17 +14,17 @@ labels = ["e-methanol", "wing 800 m²", "kite 400 m²"]
 colours = Makie.wong_colors()[1:3]
 ships = [Ship(design, assumptions) for design in designs]
 hourly = [WindShipOpt.time_cost(ShipCosts(ship, assumptions), assumptions) for ship in ships]
-tables = [PerformanceTable(ship) for ship in ships]
+tables = [PerformanceTable(ship, assumptions) for ship in ships]
 port_hours = 24assumptions[:port_time_per_call]
 
 function round_trip_traces(index, departure)
-    ship, table = ships[index], tables[index]
-    out = route(outbound, table, ship.fuel, weather, departure; time_cost=hourly[index])
+    table = tables[index]
+    out = route(outbound, table, weather, departure; time_cost=hourly[index])
     back_departure = departure + out.duration + port_hours
-    back = route(inbound, table, ship.fuel, weather, back_departure;
+    back = route(inbound, table, weather, back_departure;
         time_cost=hourly[index])
-    return LegTrace(ship, out, weather, departure),
-    LegTrace(ship, back, weather, back_departure)
+    return LegTrace(table, out, weather, departure),
+    LegTrace(table, back, weather, back_departure)
 end
 
 traces = Matrix{Any}(undef, length(designs), length(departures))

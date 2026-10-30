@@ -21,8 +21,8 @@ Threads.@threads for i in eachindex(designs)
     results[i] = round_trip(ship, outbound, inbound, weather, departures, assumptions)
 end
 
-@printf("%-9s %6s %6s %6s | %8s %8s %8s %6s %6s %7s %7s\n", "kind", "L [m]", "wing",
-    "kite", "USD/tkm", "MJ/tkm", "gCO2/tkm", "out d", "back d", "cargo t", "P kW")
+@printf("%-9s %6s %6s %6s | %8s %8s %8s %6s %6s %7s %7s %6s\n", "kind", "L [m]", "wing",
+    "kite", "USD/tkm", "MJ/tkm", "gCO2/tkm", "out d", "back d", "cargo t", "P kW", "flown")
 for (design, result) in zip(designs, results)
     @printf("%-9s %6.0f %6.0f %6.0f | ", design.kind, design.length, design.wing_area,
         design.kite_area)
@@ -30,7 +30,7 @@ for (design, result) in zip(designs, results)
         println("infeasible")
         continue
     end
-    @printf("%8.4f %8.4f %8.2f %6.1f %6.1f %7.0f %7.0f\n", result.cost_per_tonne_km,
+    @printf("%8.4f %8.4f %8.2f %6.1f %6.1f %7.0f %7.0f %5.0f%%\n", result.cost_per_tonne_km,
         result.fuel_per_tonne_km, result.carbon_per_tonne_km, result.outbound_days,
-        result.return_days, result.cargo, result.installed_power)
+        result.return_days, result.cargo, result.installed_power, 100result.flight_share)
 end

@@ -8,7 +8,7 @@ Capital, fixed annual cost and cargo capacity of a ship, excluding fuel.
 struct ShipCosts
     "capital cost [USD]"
     capital::Float64
-    "annuity, crew, maintenance and kite canopy and tether replacement [USD/year]"
+    "annuity, crew and maintenance [USD/year]"
     fixed_annual::Float64
     "deadweight at design draft [t]"
     deadweight::Float64
@@ -43,19 +43,37 @@ function rig_costs(rig::WingRig, assumptions)
 end
 
 function rig_costs(rig::KiteRig, assumptions)
-    canopy = assumptions[:canopy_cost_per_area] * rig.area
-    tether_mass = assumptions[:tether_rope_density] * π * rig.tether_diameter^2 / 4 *
-                  rig.tether_length
-    tether = assumptions[:tether_price] * tether_mass
+    canopy, tether = consumable_costs(rig, assumptions)
     hardware = assumptions[:winch_cost_per_force] * rig.max_force +
                assumptions[:launch_system_cost_coefficient] * sqrt(rig.area) +
                assumptions[:control_unit_cost] + assumptions[:kite_integration_cost]
-    capital = hardware + canopy + tether
     annuity = capital_recovery(assumptions[:discount_rate], assumptions[:kite_lifetime]) *
               hardware
-    replacements = 12canopy / assumptions[:canopy_replacement_interval] +
-                   12tether / assumptions[:tether_replacement_interval]
-    return capital, assumptions[:kite_mass_per_area] * rig.area, annuity + replacements
+    return hardware + canopy + tether, assumptions[:kite_mass_per_area] * rig.area, annuity
+end
+
+"""
+    consumable_costs(rig, assumptions)
+
+Price of one canopy and one tether [USD].
+"""
+function consumable_costs(rig::KiteRig, assumptions)
+    tether_mass = assumptions[:tether_rope_density] * π * rig.tether_diameter^2 / 4 *
+                  rig.tether_length
+    return assumptions[:canopy_cost_per_area] * rig.area,
+    assumptions[:tether_price] * tether_mass
+end
+
+"""
+    wear_cost(rig, assumptions)
+
+Canopy and tether wear per hour the rig is flown [USD/h]; zero for rigs that do not wear.
+"""
+wear_cost(rig, assumptions) = 0.0
+
+function wear_cost(rig::KiteRig, assumptions)
+    canopy, tether = consumable_costs(rig, assumptions)
+    return canopy / assumptions[:canopy_lifetime] + tether / assumptions[:tether_lifetime]
 end
 
 """
@@ -94,6 +112,22 @@ struct RoundTrip
     capital::Float64
     "installed engine or genset power [kW]"
     installed_power::Float64
+    "share of sea time the rig is flown [-]"
+    flight_share::Float64
+end
+
+"""
+    route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly)
+
+Outbound and return [`Leg`](@ref) for one departure, or `nothing` if either fails.
+"""
+function route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly)
+    out = route(outbound, table, weather, departure; time_cost=hourly)
+    isnothing(out) && return nothing
+    back = route(inbound, table, weather, departure + out.duration + port_hours;
+        time_cost=hourly)
+    isnothing(back) && return nothing
+    return out, back
 end
 
 """
@@ -107,21 +141,16 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
         departures, assumptions::Assumptions)
     costs = ShipCosts(ship, assumptions)
     hourly = time_cost(costs, assumptions)
-    table = PerformanceTable(ship)
+    table = PerformanceTable(ship, assumptions)
     port_hours = 24assumptions[:port_time_per_call]
-    legs = map(departures) do departure
-        out = route(outbound, table, ship.fuel, weather, departure; time_cost=hourly)
-        isnothing(out) && return nothing
-        back = route(inbound, table, ship.fuel, weather,
-            departure + out.duration + port_hours; time_cost=hourly)
-        isnothing(back) && return nothing
-        return out, back
-    end
+    legs = [route_round_trip(table, outbound, inbound, weather, departure, port_hours,
+                hourly) for departure in departures]
     any(isnothing, legs) && return nothing
     out_energy = mean(first(pair).fuel_energy for pair in legs)
     back_energy = mean(last(pair).fuel_energy for pair in legs)
     out_hours = mean(first(pair).duration for pair in legs)
     back_hours = mean(last(pair).duration for pair in legs)
+    flight_hours = mean(first(pair).flight_hours + last(pair).flight_hours for pair in legs)
     largest_leg = maximum(max(first(pair).fuel_energy, last(pair).fuel_energy)
                           for pair in legs)
     tank = assumptions[:fuel_reserve_factor] * largest_leg / ship.fuel.heating_value / 1e3
@@ -129,12 +158,12 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
     cargo > 0 || return nothing
     energy = out_energy + back_energy
     round_trip_hours = out_hours + back_hours + 2port_hours
-    voyage_cost = energy * ship.fuel.price + 2assumptions[:port_cost_per_call] +
-                  hourly * round_trip_hours
+    voyage_cost = energy * ship.fuel.price + table.wear_cost * flight_hours +
+                  2assumptions[:port_cost_per_call] + hourly * round_trip_hours
     tonne_km = cargo * (outbound.track_length +
                         assumptions[:backhaul_fraction] * inbound.track_length) / 1e3
     return RoundTrip(ship.design, voyage_cost / tonne_km, energy / 1e9,
         energy / 1e6 / tonne_km, energy * ship.fuel.carbon_intensity * 1e3 / tonne_km,
         out_hours / 24, back_hours / 24, cargo, costs.capital,
-        ship.powertrain.installed_power / 1e3)
+        ship.powertrain.installed_power / 1e3, flight_hours / (out_hours + back_hours))
 end

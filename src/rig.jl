@@ -169,7 +169,7 @@ end
 
 Cycle-averaged kite force with the pattern centre at `azimuth` [rad] off the apparent
 downwind direction, from the quasi-steady crosswind model without reeling, depowered to
-the fraction `power` of the tether force; `power = 0` is the stowed kite.
+the fraction `power` of the tether force.
 """
 function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_speed,
         (azimuth, power))
@@ -191,4 +191,4 @@ function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_sp
 end
 
 trim_settings(rig::KiteRig) = Iterators.product(
-    range(-rig.max_azimuth, rig.max_azimuth; length=25), range(0.0, 1.0; length=9))
+    range(-rig.max_azimuth, rig.max_azimuth; length=25), range(0.125, 1.0; length=8))
