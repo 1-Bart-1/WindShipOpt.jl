@@ -8,7 +8,7 @@ Capital, fixed annual cost and cargo capacity of a ship, excluding fuel.
 struct ShipCosts
     "capital cost [USD]"
     capital::Float64
-    "annuity, crew, maintenance and kite upkeep [USD/year]"
+    "annuity, crew, maintenance and kite canopy and tether replacement [USD/year]"
     fixed_annual::Float64
     "deadweight at design draft [t]"
     deadweight::Float64
@@ -43,11 +43,19 @@ function rig_costs(rig::WingRig, assumptions)
 end
 
 function rig_costs(rig::KiteRig, assumptions)
-    capital = assumptions[:kite_cost_per_area] * rig.area
+    canopy = assumptions[:canopy_cost_per_area] * rig.area
+    tether_mass = assumptions[:tether_rope_density] * π * rig.tether_diameter^2 / 4 *
+                  rig.tether_length
+    tether = assumptions[:tether_price] * tether_mass
+    hardware = assumptions[:winch_cost_per_force] * rig.max_force +
+               assumptions[:launch_system_cost_coefficient] * sqrt(rig.area) +
+               assumptions[:control_unit_cost] + assumptions[:kite_integration_cost]
+    capital = hardware + canopy + tether
     annuity = capital_recovery(assumptions[:discount_rate], assumptions[:kite_lifetime]) *
-              capital
-    upkeep = assumptions[:kite_maintenance_per_area] * rig.area
-    return capital, assumptions[:kite_mass_per_area] * rig.area, annuity + upkeep
+              hardware
+    replacements = 12canopy / assumptions[:canopy_replacement_interval] +
+                   12tether / assumptions[:tether_replacement_interval]
+    return capital, assumptions[:kite_mass_per_area] * rig.area, annuity + replacements
 end
 
 """

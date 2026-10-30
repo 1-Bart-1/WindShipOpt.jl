@@ -122,6 +122,8 @@ Base.@kwdef struct KiteRig
     drag_coefficient::Float64
     "tether drag lumped at the kite, as a coefficient on kite area [-]"
     tether_drag_coefficient::Float64
+    "tether diameter [m]"
+    tether_diameter::Float64
     tether_length::Float64
     "elevation of the pattern centre [rad]"
     elevation::Float64
@@ -152,7 +154,7 @@ function KiteRig(area::Real, hull::Hull, assumptions::Assumptions)
         drag_coefficient=assumptions[:kite_drag_coefficient],
         tether_drag_coefficient=assumptions[:tether_drag_coefficient] * tether_diameter *
                                 tether_length / (4area),
-        tether_length,
+        tether_diameter, tether_length,
         elevation=deg2rad(assumptions[:kite_elevation]),
         max_azimuth=deg2rad(assumptions[:kite_max_azimuth]),
         pattern_efficiency=assumptions[:kite_pattern_efficiency],

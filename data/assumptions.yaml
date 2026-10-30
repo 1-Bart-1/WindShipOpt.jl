@@ -376,30 +376,72 @@ kite_attach_height:
   high: 15.0
   unit: m
   reason: "Height of the tether attachment on the bow mast above the waterline; sets the kite's heeling arm."
+canopy_cost_per_area:
+  value: 300.0
+  low: 150.0
+  high: 500.0
+  unit: USD/m^2
+  reason: "Finished LEI canopy with bladders, bridles and reinforcements per m^2 of projected area. Faggiani & Schmehl (2018) put a 100 m^2 (72 m^2 projected) kite at EUR 22 k in series production (~330 USD/m^2 projected); cloth alone is ~17 USD/m^2 (Dacron, Sailrite) on ~1.4 m^2 of surface per projected m^2, the rest is labour and margin."
+canopy_replacement_interval:
+  value: 1.0
+  low: 0.5
+  high: 12.0
+  unit: months
+  reason: "Assumed by the user: UV, flutter and pattern loading wear out an LEI canopy flown most of the time at sea. The decisive and least known kite parameter."
+tether_price:
+  value: 80.0
+  low: 40.0
+  high: 300.0
+  unit: USD/kg
+  reason: "Large-diameter Dyneema SK78 rope in bulk; Faggiani & Schmehl (2018) imply ~80 EUR/kg, retail small diameters sell at 300-350 USD/kg (Marlow D12 via Mauripro/Binks)."
+tether_rope_density:
+  value: 600.0
+  low: 550.0
+  high: 650.0
+  unit: kg/m^3
+  reason: "Rope mass over its nominal circular cross-section, from Marlow D12 78 at 10 mm: 4.65 kg per 100 m."
+tether_replacement_interval:
+  value: 1.0
+  low: 1.0
+  high: 12.0
+  unit: months
+  reason: "Assumed by the user. Without pumping the tether is not cycled over the drum under load, so it will likely last longer than on a ground-generation system."
+winch_cost_per_force:
+  value: 0.25
+  low: 0.1
+  high: 0.5
+  unit: USD/N
+  reason: "Holding winch with brake and a small motor: it only reels slowly for launch and landing, so its cost follows line pull, like a marine mooring winch (~50 k USD for 20 t pull), not generator power."
+launch_system_cost_coefficient:
+  value: 10000.0
+  low: 5000.0
+  high: 25000.0
+  unit: USD/m
+  reason: "Telescopic launch and recovery mast with docking, times the square root of kite area as in Faggiani & Schmehl (2018); ~140 k USD at 200 m^2. Ship-mounted and marinised, so far above their 4.8 k EUR for a land unit. Unverified estimate."
+control_unit_cost:
+  value: 30000.0
+  low: 5000.0
+  high: 80000.0
+  unit: USD
+  reason: "Kite control unit with steering actuators, sensors and radio; Faggiani & Schmehl (2018) assume 3 k EUR in series production, prototypes cost an order of magnitude more."
+kite_integration_cost:
+  value: 150000.0
+  low: 50000.0
+  high: 500000.0
+  unit: USD
+  reason: "Per-ship automation, bridge integration, installation and class approval. Unverified estimate; the high end covers a one-off installation without a product line behind it."
 kite_mass_per_area:
   value: 0.05
   low: 0.03
   high: 0.08
   unit: t/m^2
   reason: "Launch mast, winch, tether and control pod over kite area; the canopy itself is negligible."
-kite_cost_per_area:
-  value: 6000.0
-  low: 3000.0
-  high: 12000.0
-  unit: USD/m^2
-  reason: "Rough estimate for a complete automated launch and recovery system; no public price for small systems, hence the wide range."
-kite_maintenance_per_area:
-  value: 800.0
-  low: 300.0
-  high: 2000.0
-  unit: USD/m^2/year
-  reason: "Canopy and tether replacement every 1-2 years plus inspection; the largest unknown of kite operation."
 kite_lifetime:
   value: 15.0
   low: 10.0
   high: 20.0
   unit: years
-  reason: "Launch mast, winch and control system; canopy and tether wear sits in kite maintenance."
+  reason: "Launch mast, winch and control unit; canopy and tether are replaced on their own intervals."
 
 # --- economics ---
 discount_rate:
