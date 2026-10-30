@@ -163,13 +163,14 @@ function KiteRig(area::Real, hull::Hull, assumptions::Assumptions)
 end
 
 """
-    rig_force(rig::KiteRig, env, wind_10m, true_angle, ship_speed, azimuth)
+    rig_force(rig::KiteRig, env, wind_10m, true_angle, ship_speed, (azimuth, power))
 
 Cycle-averaged kite force with the pattern centre at `azimuth` [rad] off the apparent
-downwind direction, from the quasi-steady crosswind model without reeling.
+downwind direction, from the quasi-steady crosswind model without reeling, depowered to
+the fraction `power` of the tether force; `power = 0` is the stowed kite.
 """
 function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_speed,
-        azimuth)
+        (azimuth, power))
     altitude = rig.tether_length * sin(rig.elevation)
     wind = wind_at_height(env, wind_10m, altitude)
     speed, angle = apparent_wind(wind, true_angle, ship_speed)
@@ -180,11 +181,12 @@ function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_sp
     radial_wind = speed * cos(rig.elevation) * cos(azimuth)
     tether_force = rig.pattern_efficiency * 0.5env.air_density * rig.area * resultant *
                    radial_wind^2 * (1 + glide_ratio^2)
-    tether_force = min(tether_force, rig.max_force)
+    tether_force = power * min(tether_force, rig.max_force)
     horizontal = tether_force * cos(rig.elevation)
     direction = angle + π + azimuth
     side = horizontal * sin(direction)
     return RigForce(horizontal * cos(direction), side, side * rig.attach_height)
 end
 
-trim_settings(rig::KiteRig) = range(-rig.max_azimuth, rig.max_azimuth; length=25)
+trim_settings(rig::KiteRig) = Iterators.product(
+    range(-rig.max_azimuth, rig.max_azimuth; length=25), range(0.0, 1.0; length=9))

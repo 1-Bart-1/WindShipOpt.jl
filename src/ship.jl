@@ -142,25 +142,16 @@ end
 """
     best_thrust(ship, speed, wind_10m, true_angle)
 
-Lowest required propeller thrust [N] over all rig trims, including a stowed kite.
+Lowest required propeller thrust [N] over all rig trims.
 """
 best_thrust(ship::Ship{Nothing}, speed, wind_10m, true_angle) =
     required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE)
 
-function best_thrust(ship::Ship{WingRig}, speed, wind_10m, true_angle)
-    return minimum(trim_settings(ship.rig)) do lift_coefficient
-        force = rig_force(ship.rig, ship.env, wind_10m, true_angle, speed, lift_coefficient)
+function best_thrust(ship::Ship, speed, wind_10m, true_angle)
+    return minimum(trim_settings(ship.rig)) do trim
+        force = rig_force(ship.rig, ship.env, wind_10m, true_angle, speed, trim)
         required_thrust(ship, speed, wind_10m, true_angle, force)
     end
-end
-
-function best_thrust(ship::Ship{KiteRig}, speed, wind_10m, true_angle)
-    stowed = required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE)
-    flown = minimum(trim_settings(ship.rig)) do azimuth
-        force = rig_force(ship.rig, ship.env, wind_10m, true_angle, speed, azimuth)
-        required_thrust(ship, speed, wind_10m, true_angle, force)
-    end
-    return min(stowed, flown)
 end
 
 function calm_output_power(ship::Ship, speed)
