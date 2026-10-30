@@ -30,3 +30,16 @@ end
     @test 350e3 < effective_power < 800e3
     @test 700 < ship.powertrain.installed_power / 1e3 < 1500
 end
+
+# Mittendorf et al. (2022), Fig. 3: C_AW of C_B ≥ 0.70 hulls peaks at ~5-10 in head waves
+# near λ/L = 1-1.3 and stays within about ±2 in following waves.
+@testset "SNNM added resistance has the measured head and following wave magnitudes" begin
+    assumptions = Assumptions()
+    env = Environment(assumptions)
+    seakeeping = SeakeepingHull(Hull(85.0, assumptions), assumptions)
+    coefficient(ratio, heading) = added_resistance_coefficient(seakeeping, env, 10KNOT,
+        sqrt(2π * env.gravity / (ratio * 85.0)), heading)
+    head_peak = maximum(coefficient(ratio, π) for ratio in 0.8:0.05:1.5)
+    @test 5 < head_peak < 10
+    @test all(abs(coefficient(ratio, 0.0)) < 2 for ratio in 0.3:0.1:3.0)
+end

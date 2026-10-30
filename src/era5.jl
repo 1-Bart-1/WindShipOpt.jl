@@ -1,0 +1,119 @@
+"""
+    GriddedFields
+
+Variables on a regular (lon, lat, time) grid, memory-mapped from the files written by
+`scripts/download_era5.jl`.
+"""
+struct GriddedFields
+    lats::Vector{Float64}
+    lons::Vector{Float64}
+    "hours from the weather origin to the first stored time [h]"
+    time_offset::Float64
+    step_hours::Float64
+    fields::Dict{String, Array{Float32, 3}}
+end
+
+function GriddedFields(directory::AbstractString, origin::DateTime)
+    grid = TOML.parsefile(joinpath(directory, "grid.toml"))
+    lats = Float64.(grid["lats"])
+    lons = Float64.(grid["lons"])
+    field_size = length(lons) * length(lats)
+    fields = Dict{String, Array{Float32, 3}}()
+    for name in grid["variables"]
+        path = joinpath(directory, "$name.f32")
+        steps = filesize(path) ÷ (field_size * sizeof(Float32))
+        fields[name] = Mmap.mmap(path, Array{Float32, 3}, (length(lons), length(lats), steps))
+    end
+    offset = Dates.value(DateTime(grid["first_time"]) - origin) / 3_600_000
+    return GriddedFields(lats, lons, offset, grid["step_hours"], fields)
+end
+
+step_count(fields::GriddedFields) = minimum(size(field, 3) for field in values(fields.fields))
+
+"""
+    ERA5Weather(directory)
+
+ERA5 10 m wind and sea state read from `directory`, with time in hours after the first
+stored wind field.
+"""
+struct ERA5Weather
+    origin::DateTime
+    wind::GriddedFields
+    waves::GriddedFields
+end
+
+function ERA5Weather(directory::AbstractString=joinpath(pkgdir(@__MODULE__), "era5"))
+    grid = TOML.parsefile(joinpath(directory, "wind", "grid.toml"))
+    origin = DateTime(grid["first_time"])
+    waves = GriddedFields(joinpath(directory, "waves"), origin)
+    direction = waves.fields["direction"]
+    waves.fields["direction_east"] = sind.(direction)
+    waves.fields["direction_north"] = cosd.(direction)
+    return ERA5Weather(origin, GriddedFields(joinpath(directory, "wind"), origin), waves)
+end
+
+"hours of weather available from the origin [h]"
+duration(weather::ERA5Weather) = min(
+    weather.wind.time_offset + (step_count(weather.wind) - 1) * weather.wind.step_hours,
+    weather.waves.time_offset + (step_count(weather.waves) - 1) * weather.waves.step_hours)
+
+function cell(axis::Vector{Float64}, value)
+    position = clamp((value - first(axis)) / (axis[2] - axis[1]) + 1, 1, length(axis))
+    index = min(floor(Int, position), length(axis) - 1)
+    return index, position - index
+end
+
+"""
+    stencil(fields, lat, lon, time)
+
+The eight grid corners around a point as ((lon index, lat index, time index), weight).
+"""
+function stencil(fields::GriddedFields, lat, lon, time)
+    i, x = cell(fields.lons, lon)
+    j, y = cell(fields.lats, lat)
+    steps = step_count(fields)
+    position = clamp((time - fields.time_offset) / fields.step_hours + 1, 1, steps)
+    k = min(floor(Int, position), steps - 1)
+    t = position - k
+    return (((i + di, j + dj, k + dk), wx * wy * wt)
+            for (di, wx) in ((0, 1 - x), (1, x)), (dj, wy) in ((0, 1 - y), (1, y)),
+                (dk, wt) in ((0, 1 - t), (1, t)))
+end
+
+"""
+    sample(fields, arrays, lat, lon, time)
+
+Trilinear interpolation of each array in the tuple `arrays`, leaving land points (NaN)
+out of the weighting; NaN where all corners are land.
+"""
+function sample(fields::GriddedFields, arrays::NTuple{N}, lat, lon, time) where {N}
+    totals = ntuple(_ -> 0.0, N)
+    weight_sum = 0.0
+    for (index, weight) in stencil(fields, lat, lon, time)
+        corner = map(array -> Float64(array[index...]), arrays)
+        any(isnan, corner) && continue
+        totals = totals .+ weight .* corner
+        weight_sum += weight
+    end
+    return totals ./ weight_sum
+end
+
+function wind(weather::ERA5Weather, lat, lon, time)
+    fields = weather.wind.fields
+    return sample(weather.wind, (fields["u10"], fields["v10"]), lat, lon, time)
+end
+
+"""
+    waves(weather, lat, lon, time)
+
+Significant wave height [m], peak period [s] and the direction the waves come from
+[rad clockwise from north]; zero height on land.
+"""
+function waves(weather::ERA5Weather, lat, lon, time)
+    fields = weather.waves.fields
+    height, period, east, north = sample(weather.waves, (fields["height"],
+            fields["period"], fields["direction_east"], fields["direction_north"]),
+        lat, lon, time)
+    isnan(height) && return 0.0, 0.0, 0.0
+    return height, period, atan(east, north)
+end

@@ -1,15 +1,11 @@
-# Figures of routed voyages Rotterdam - Guadeloupe on synthetic weather: routes on a map,
-# what happens along one passage, wind-only polars, and the wind angles actually sailed.
+# Figures of routed voyages Rotterdam - Guadeloupe: routes on a map, what happens along a
+# winter passage, wind-only polars, and the wind angles actually sailed.
 using CairoMakie
 using Statistics
 using WindShipOpt
 using WindShipOpt: is_land
 
-assumptions = Assumptions()
-mask = north_atlantic_mask()
-outbound, inbound = caribbean_corridors(mask)
-weather = SyntheticWeather()
-departures = [24.0 * (30 * month + 1) for month in 0:11]
+include("setup.jl")
 output = mkpath(joinpath(@__DIR__, "..", "output"))
 
 designs = [ShipDesign(:methanol, 85.0), ShipDesign(:wing, 85.0; wing_area=800.0),
@@ -51,10 +47,11 @@ function draw_wind!(axis, time)
 end
 
 # Map: outbound and return route of each design for two departures.
-for (month, column) in ((1, 1), (7, 7))
+summer = findfirst(departure -> departure >= 24 * 181, departures)
+for (season, column) in (("winter", 1), ("summer", summer))
     figure = Figure(; size=(1300, 600))
     for (leg_index, title) in ((1, "outbound"), (2, "return"))
-        axis = Axis(figure[1, leg_index]; title="$title, departure month $month",
+        axis = Axis(figure[1, leg_index]; title="$title, $season departure",
             xlabel="longitude [°]", ylabel="latitude [°]", aspect=DataAspect(),
             limits=(-68, 8, 8, 56))
         draw_land!(axis)
@@ -72,19 +69,21 @@ for (month, column) in ((1, 1), (7, 7))
         end
         leg_index == 1 && axislegend(axis; position=:lb)
     end
-    save(joinpath(output, "routes_month_$month.png"), figure)
+    save(joinpath(output, "routes_$season.png"), figure)
 end
 
 # Along one outbound passage.
-figure = Figure(; size=(1100, 1100))
+figure = Figure(; size=(1100, 1400))
 quantities = [
     ("speed [kn]", trace -> trace.speed ./ KNOT),
     ("true wind angle [°]", trace -> rad2deg.(trace.true_wind_angle)),
     ("10 m wind [m/s]", trace -> trace.wind_speed),
+    ("wave height [m]", trace -> trace.wave_height),
+    ("wave resistance [kN]", trace -> trace.added_resistance ./ 1e3),
     ("rig thrust [kN]", trace -> trace.rig_thrust ./ 1e3),
     ("leeway drag [kN]", trace -> trace.induced_drag ./ 1e3),
     ("fuel power [kW]", trace -> trace.fuel_power ./ 1e3)]
-for (leg_index, title) in ((1, "outbound, January"), (2, "return, January"))
+for (leg_index, title) in ((1, "outbound, winter"), (2, "return, winter"))
     for (row, (ylabel, quantity)) in enumerate(quantities)
         axis = Axis(figure[row, leg_index]; ylabel, title=row == 1 ? title : "",
             xlabel=row == length(quantities) ? "time [days]" : "")
@@ -96,7 +95,7 @@ for (leg_index, title) in ((1, "outbound, January"), (2, "return, January"))
         row == 1 && leg_index == 1 && axislegend(axis; position=:rb)
     end
 end
-save(joinpath(output, "passage_january.png"), figure)
+save(joinpath(output, "passage_winter.png"), figure)
 
 # Wind-only speed polars.
 figure = Figure(; size=(1100, 500))
@@ -116,7 +115,7 @@ save(joinpath(output, "polars.png"), figure)
 # True wind angles sailed over all departures, weighted by time.
 figure = Figure(; size=(1100, 450))
 for (leg_index, title) in ((1, "outbound"), (2, "return"))
-    axis = Axis(figure[1, leg_index]; title="true wind angle sailed, $title, 12 departures",
+    axis = Axis(figure[1, leg_index]; title="true wind angle sailed, $title, $(length(departures)) departures",
         xlabel="true wind angle [°]", ylabel="share of time")
     for (i, label) in enumerate(labels)
         angles_sailed = Float64[]

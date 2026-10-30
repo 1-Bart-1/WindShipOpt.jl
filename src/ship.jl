@@ -51,7 +51,9 @@ struct Ship{R}
     design::ShipDesign
     env::Environment
     hull::Hull
+    "Holtrop wave-making coefficients of the calm-water resistance"
     wave_coefficients::WaveCoefficients
+    seakeeping::SeakeepingHull
     propeller::Propeller
     powertrain::Powertrain
     rig::R
@@ -82,31 +84,29 @@ function Ship(design::ShipDesign, assumptions::Assumptions)
     stiffness = displacement_mass(hull, env) * env.gravity *
                 assumptions[:metacentric_height_ratio] * hull.beam
     electric = design.kind != :vlsfo
-    sizing_powertrain = Powertrain(; installed_power=Inf, unit_count=1,
-        peak_efficiency=1.0, part_load_penalty=0.0,
-        transmission_efficiency=electric ? assumptions[:electric_chain_efficiency] :
-                                assumptions[:shaft_efficiency],
-        hotel_load=1e3assumptions[:hotel_load])
-    ship = Ship(design, env, hull, WaveCoefficients(hull), Propeller(hull, assumptions),
-        sizing_powertrain, rig, electric ? e_methanol(assumptions) : vlsfo(assumptions),
+    transmission = electric ? assumptions[:electric_chain_efficiency] :
+                   assumptions[:shaft_efficiency]
+    hotel_load = 1e3assumptions[:hotel_load]
+    hull_parts = (design, env, hull, WaveCoefficients(hull), SeakeepingHull(hull, assumptions),
+        Propeller(hull, assumptions))
+    other_parts = (rig, electric ? e_methanol(assumptions) : vlsfo(assumptions),
         hull.beam * assumptions[:superstructure_height] * scale,
         assumptions[:windage_drag_coefficient], stiffness,
         deg2rad(assumptions[:heel_limit]), deg2rad(assumptions[:leeway_limit]),
         assumptions[:max_froude_number] * sqrt(env.gravity * hull.length))
-    service_speed = assumptions[:service_speed] * KNOT
-    service_output = calm_output_power(ship, service_speed)
-    installed_power = service_output * (1 + assumptions[:sea_margin]) /
-                      assumptions[:engine_rating_fraction]
-    powertrain = Powertrain(; installed_power,
+    unlimited = Powertrain(; installed_power=Inf, unit_count=1, peak_efficiency=1.0,
+        part_load_penalty=0.0, transmission_efficiency=transmission, hotel_load)
+    service_output = calm_output_power(Ship(hull_parts..., unlimited, other_parts...),
+        assumptions[:service_speed] * KNOT)
+    powertrain = Powertrain(;
+        installed_power=service_output * (1 + assumptions[:sea_margin]) /
+                        assumptions[:engine_rating_fraction],
         unit_count=electric ? Int(assumptions[:genset_count]) : 1,
         peak_efficiency=electric ? assumptions[:methanol_genset_efficiency] :
                         assumptions[:vlsfo_engine_efficiency],
         part_load_penalty=assumptions[:part_load_penalty],
-        transmission_efficiency=sizing_powertrain.transmission_efficiency,
-        hotel_load=sizing_powertrain.hotel_load)
-    return Ship(design, env, hull, ship.wave_coefficients, ship.propeller, powertrain, rig,
-        ship.fuel, ship.windage_area, ship.windage_drag_coefficient, stiffness,
-        ship.heel_limit, ship.leeway_limit, ship.max_speed)
+        transmission_efficiency=transmission, hotel_load)
+    return Ship(hull_parts..., powertrain, other_parts...)
 end
 
 function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions)
@@ -165,17 +165,4 @@ function calm_output_power(ship::Ship, speed)
     delivered = delivered_power(ship.propeller, ship.env, speed, thrust)
     return delivered / ship.powertrain.transmission_efficiency +
            ship.powertrain.hotel_load
-end
-
-"""
-    fuel_power(ship, speed, wind_10m, true_angle)
-
-Fuel energy rate [W] at `speed` [m/s] through the water in a 10 m wind of `wind_10m`
-[m/s] from `true_angle` [rad] off the bow, or `Inf` if infeasible.
-"""
-function fuel_power(ship::Ship, speed, wind_10m, true_angle)
-    thrust = best_thrust(ship, speed, wind_10m, true_angle)
-    isfinite(thrust) || return Inf
-    delivered = delivered_power(ship.propeller, ship.env, speed, thrust)
-    return fuel_power(ship.powertrain, delivered)
 end

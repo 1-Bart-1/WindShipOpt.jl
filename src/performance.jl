@@ -1,45 +1,64 @@
 """
     PerformanceTable
 
-Fuel energy rate of one ship tabulated over speed through the water, 10 m true wind
-speed and true wind angle, for fast lookup during routing.
+Propeller thrust a ship needs, tabulated for fast lookup during routing: in calm water
+over (speed through the water, 10 m true wind, true wind angle) with the best rig trim,
+and the added resistance in waves per unit significant wave height squared over (speed,
+peak period, wave heading). The two add up, assuming waves do not change the rig forces.
 """
-struct PerformanceTable{I}
-    "fuel power [W] as a function of (speed [m/s], wind [m/s], true wind angle [rad])"
-    fuel_power::I
+struct PerformanceTable{S, C, W}
+    ship::S
+    "required thrust [N] at (speed [m/s], wind [m/s], true wind angle [rad])"
+    calm_thrust::C
+    "added resistance over H_s^2 [N/m^2] at (speed [m/s], peak period [s], heading [rad])"
+    wave_resistance::W
     speeds::Vector{Float64}
     max_wind::Float64
 end
 
-"fuel power stored for infeasible conditions, so interpolation stays finite [W]"
-const INFEASIBLE_POWER = 1e12
+"thrust stored for infeasible conditions, so interpolation stays finite [N]"
+const INFEASIBLE_THRUST = 1e9
 
 """
-    PerformanceTable(ship; speeds, winds=0:1.0:30, angles=0:7.5:180)
+    PerformanceTable(ship; speeds, winds=0:1.0:30, angles=0:7.5:180, periods=3:1.0:18,
+                     headings=0:15:180)
 
-Tabulate [`fuel_power`](@ref) of `ship`; `speeds` in m/s default to 0.25 m/s steps up to
-the ship's maximum speed, `angles` are in degrees.
+Tabulate the thrust of `ship`; `speeds` in m/s default to 0.25 m/s steps up to the ship's
+maximum speed, `angles` and `headings` are in degrees, `periods` in seconds.
 """
 function PerformanceTable(ship::Ship; speeds=range(1.5, ship.max_speed; step=0.25),
-        winds=0:1.0:30, angles=0:7.5:180)
+        winds=0:1.0:30, angles=0:7.5:180, periods=3:1.0:18, headings=0:15:180)
     speeds = collect(Float64, speeds)
-    angles_rad = deg2rad.(collect(Float64, angles))
     winds = collect(Float64, winds)
-    table = [min(fuel_power(ship, speed, wind, angle), INFEASIBLE_POWER)
-             for speed in speeds, wind in winds, angle in angles_rad]
-    interpolant = extrapolate(
-        interpolate((speeds, winds, angles_rad), table, Gridded(Linear())), Flat())
-    return PerformanceTable(interpolant, speeds, last(winds))
+    angles = deg2rad.(collect(Float64, angles))
+    periods = collect(Float64, periods)
+    headings = deg2rad.(collect(Float64, headings))
+    calm = [min(best_thrust(ship, speed, wind, angle), INFEASIBLE_THRUST)
+            for speed in speeds, wind in winds, angle in angles]
+    waves = [added_resistance(ship.seakeeping, ship.env, speed, 1.0, period, heading)
+             for speed in speeds, period in periods, heading in headings]
+    calm_thrust = extrapolate(interpolate((speeds, winds, angles), calm, Gridded(Linear())),
+        Flat())
+    wave_resistance = extrapolate(
+        interpolate((speeds, periods, headings), waves, Gridded(Linear())), Flat())
+    return PerformanceTable(ship, calm_thrust, wave_resistance, speeds, last(winds))
 end
 
 """
-    lookup(table, speed, wind, angle)
+    lookup(table, speed, wind, angle, wave_height, wave_period, wave_heading)
 
-Interpolated fuel power [W], or `Inf` where any neighbouring table entry is infeasible.
+Fuel power [W] from the tabulated thrust, or `Inf` where the rig limits are exceeded
+nearby in the table or the installed power is not enough.
 """
-function lookup(table::PerformanceTable, speed, wind, angle)
-    power = table.fuel_power(speed, min(wind, table.max_wind), angle)
-    return power < 1e-3INFEASIBLE_POWER ? power : Inf
+function lookup(table::PerformanceTable, speed, wind, angle, wave_height=0.0,
+        wave_period=0.0, wave_heading=0.0)
+    thrust = table.calm_thrust(speed, min(wind, table.max_wind), angle)
+    thrust < 1e-3INFEASIBLE_THRUST || return Inf
+    if wave_height > 0
+        thrust += wave_height^2 * table.wave_resistance(speed, wave_period, wave_heading)
+    end
+    (; ship) = table
+    return fuel_power(ship.powertrain, delivered_power(ship.propeller, ship.env, speed, thrust))
 end
 
 max_knots(table::PerformanceTable) = floor(Int, last(table.speeds) / KNOT)

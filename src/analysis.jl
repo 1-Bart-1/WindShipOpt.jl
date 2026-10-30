@@ -2,8 +2,9 @@
     LegTrace
 
 What happens on each stage of a routed leg: position [deg], time [h], speed [m/s],
-course [rad from north], 10 m wind [m/s], true wind angle [rad], rig thrust [N], leeway
-[rad], leeway-induced drag [N] and fuel power [W].
+course [rad from north], 10 m wind [m/s], true wind angle [rad], significant wave height
+[m], added resistance in waves [N], rig thrust [N], leeway [rad], leeway-induced drag [N]
+and fuel power [W].
 """
 struct LegTrace
     lat::Vector{Float64}
@@ -13,6 +14,8 @@ struct LegTrace
     course::Vector{Float64}
     wind_speed::Vector{Float64}
     true_wind_angle::Vector{Float64}
+    wave_height::Vector{Float64}
+    added_resistance::Vector{Float64}
     rig_thrust::Vector{Float64}
     leeway::Vector{Float64}
     induced_drag::Vector{Float64}
@@ -27,7 +30,7 @@ weather at the start of the edge as the routing saw it.
 """
 function LegTrace(ship::Ship, leg::Leg, weather, departure)
     edge_count = length(leg.path) - 1
-    trace = LegTrace((zeros(edge_count) for _ in 1:11)...)
+    trace = LegTrace((zeros(edge_count) for _ in 1:13)...)
     for i in 1:edge_count
         lat, lon, time, _ = leg.path[i]
         next_lat, next_lon, _, speed = leg.path[i + 1]
@@ -35,13 +38,18 @@ function LegTrace(ship::Ship, leg::Leg, weather, departure)
         east, north = wind(weather, lat, lon, departure + time)
         wind_speed = hypot(east, north)
         angle = true_wind_angle(east, north, wind_speed, course)
+        wave_height, wave_period, wave_from = waves(weather, lat, lon, departure + time)
+        added = added_resistance(ship.seakeeping, ship.env, speed, wave_height, wave_period,
+            wave_heading(wave_from, course))
         thrust, force = best_trim(ship, speed, wind_speed, angle)
+        thrust += added
         leeway, induced_drag = leeway_drag(ship.hull, ship.env, speed, abs(force.side))
         delivered = delivered_power(ship.propeller, ship.env, speed, thrust)
         trace.lat[i], trace.lon[i], trace.time[i], trace.speed[i] = lat, lon, time, speed
         trace.course[i], trace.wind_speed[i] = course, wind_speed
         trace.true_wind_angle[i], trace.rig_thrust[i] = angle, force.thrust
         trace.leeway[i], trace.induced_drag[i] = leeway, induced_drag
+        trace.wave_height[i], trace.added_resistance[i] = wave_height, added
         trace.fuel_power[i] = fuel_power(ship.powertrain, delivered)
     end
     return trace

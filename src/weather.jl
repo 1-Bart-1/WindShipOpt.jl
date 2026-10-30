@@ -50,3 +50,10 @@ function wind(weather::SyntheticWeather, lat, lon, time)
     end
     return east, north
 end
+
+"""
+    waves(weather::SyntheticWeather, lat, lon, time)
+
+Calm sea: the synthetic weather has no waves.
+"""
+waves(::SyntheticWeather, lat, lon, time) = (0.0, 0.0, 0.0)

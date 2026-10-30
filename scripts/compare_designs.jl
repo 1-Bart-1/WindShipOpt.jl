@@ -1,13 +1,6 @@
-# Round trip Rotterdam - Guadeloupe for the four ship kinds over a small design grid,
-# on synthetic weather.
+# Round trip Rotterdam - Guadeloupe for the four ship kinds over a small design grid.
 using Printf
-using WindShipOpt
-
-assumptions = Assumptions()
-mask = north_atlantic_mask()
-outbound, inbound = caribbean_corridors(mask)
-weather = SyntheticWeather()
-departures = [24.0 * (30 * month + 1) for month in 0:11]
+include("setup.jl")
 
 lengths = [60.0, 85.0, 110.0]
 designs = ShipDesign[]

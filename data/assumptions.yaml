@@ -118,6 +118,18 @@ heel_limit:
   high: 12.0
   unit: deg
   reason: "Steady heel tolerated on a cargo ship before cargo securing and crew comfort suffer."
+entrance_length_ratio:
+  value: 0.22
+  low: 0.15
+  high: 0.30
+  unit: "-"
+  reason: "Length of the bow entrance over waterline length; Holtrop's run length gives 0.26 L for the reference hull and the forward centre of buoyancy makes the entrance somewhat shorter."
+pitch_gyration_ratio:
+  value: 0.25
+  low: 0.22
+  high: 0.28
+  unit: "-"
+  reason: "Pitch radius of gyration over length; 0.25 is the standard estimate for conventional cargo ships (ITTC)."
 leeway_limit:
   value: 10.0
   low: 6.0

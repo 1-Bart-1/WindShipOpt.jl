@@ -156,17 +156,20 @@ function route(corridor::Corridor, table::PerformanceTable, fuel::Fuel, weather,
         for bin in 1:bins
             isfinite(cost[lateral, bin, stage]) || continue
             time = elapsed[lateral, bin, stage]
-            east, north = wind(weather, corridor.lat[stage, lateral],
-                corridor.lon[stage, lateral], departure + time)
+            lat, lon = corridor.lat[stage, lateral], corridor.lon[stage, lateral]
+            east, north = wind(weather, lat, lon, departure + time)
             wind_speed = hypot(east, north)
+            wave_height, wave_period, wave_from = waves(weather, lat, lon, departure + time)
             for step in 1:(2MAX_LATERAL_STEP + 1)
                 course = corridor.edge_course[stage, lateral, step]
                 isnan(course) && continue
                 next = lateral + step - MAX_LATERAL_STEP - 1
                 angle = true_wind_angle(east, north, wind_speed, course)
+                heading = wave_heading(wave_from, course)
                 length = corridor.edge_length[stage, lateral, step]
                 for speed in speeds
-                    power = lookup(table, speed, wind_speed, angle)
+                    power = lookup(table, speed, wind_speed, angle, wave_height,
+                        wave_period, heading)
                     isfinite(power) || continue
                     duration = length / speed / 3600
                     arrival = time + duration
@@ -233,3 +236,11 @@ function caribbean_corridors(mask::LandMask)
     inbound = return_corridor(Corridor(channel, [guadeloupe], mask), mask)
     return outbound, inbound
 end
+
+"""
+    wave_heading(wave_from, course)
+
+Wave heading relative to the ship [rad]: π when the waves come from straight ahead, 0
+when they come from astern; both angles clockwise from north.
+"""
+wave_heading(wave_from, course) = π - abs(rem2pi(wave_from - course, RoundNearest))
