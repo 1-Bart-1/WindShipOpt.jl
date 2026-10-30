@@ -1,0 +1,5 @@
+/Manifest*.toml
+!/Manifest-v*.toml.default
+/LocalPreferences.toml
+/output/
+.claude

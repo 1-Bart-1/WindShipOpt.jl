@@ -1,0 +1,526 @@
+# Every model assumption: base `value`, `low`/`high` bounds for the sensitivity sweep,
+# `unit`, and the `reason` the value was chosen.
+
+# --- environment ---
+water_density:
+  value: 1025.0
+  low: 1020.0
+  high: 1028.0
+  unit: kg/m^3
+  reason: "Standard sea water at 15 °C; varies little along the route."
+water_viscosity:
+  value: 1.19e-6
+  low: 1.05e-6
+  high: 1.35e-6
+  unit: m^2/s
+  reason: "Sea water at 15 °C (ITTC); tropical water is warmer and less viscous."
+air_density:
+  value: 1.225
+  low: 1.18
+  high: 1.25
+  unit: kg/m^3
+  reason: "ISA sea level; humid tropical air is a few percent lighter."
+sea_roughness_length:
+  value: 2.0e-4
+  low: 1.0e-4
+  high: 1.0e-3
+  unit: m
+  reason: "Typical open-ocean roughness for a logarithmic wind profile (Charnock regime at moderate wind)."
+
+# --- reference hull, geometrically scaled with length ---
+reference_length:
+  value: 85.0
+  low: 85.0
+  high: 85.0
+  unit: m
+  reason: "Waterline length of a typical ~3500 dwt short-sea general cargo coaster; fixed anchor for scaling."
+reference_beam:
+  value: 13.5
+  low: 13.0
+  high: 14.5
+  unit: m
+  reason: "L/B ~ 6.3, typical for coasters of this length."
+reference_draft:
+  value: 5.5
+  low: 5.0
+  high: 6.0
+  unit: m
+  reason: "B/T ~ 2.5, typical loaded draft for a coaster of this beam."
+block_coefficient:
+  value: 0.75
+  low: 0.70
+  high: 0.80
+  unit: "-"
+  reason: "Full-bodied coaster form; a finer hull trades cargo volume for lower resistance."
+midship_coefficient:
+  value: 0.98
+  low: 0.97
+  high: 0.99
+  unit: "-"
+  reason: "Typical for cargo ships with small bilge radius."
+centre_of_buoyancy:
+  value: 1.0
+  low: -1.0
+  high: 2.5
+  unit: "% of L forward of midships"
+  reason: "Full hulls carry their centre of buoyancy slightly forward of midships."
+bulb_area_ratio:
+  value: 0.06
+  low: 0.0
+  high: 0.10
+  unit: "-"
+  reason: "Transverse bulb area over midship area; small bulbs are common on modern coasters, zero means no bulb."
+bulb_height_ratio:
+  value: 0.4
+  low: 0.3
+  high: 0.6
+  unit: "-"
+  reason: "Bulb area centre above keel over draft; Holtrop advises at most 0.6."
+appendage_area_ratio:
+  value: 0.02
+  low: 0.015
+  high: 0.03
+  unit: "-"
+  reason: "Wetted appendage area (rudder, bilge keels) over L*T; rudder area alone is ~1.5-2 % of L*T."
+appendage_form_factor:
+  value: 1.5
+  low: 1.3
+  high: 2.0
+  unit: "-"
+  reason: "Holtrop's value for a rudder behind the skeg (1+k2 = 1.5-2.0)."
+lightship_fraction:
+  value: 0.29
+  low: 0.25
+  high: 0.33
+  unit: "-"
+  reason: "Lightship over full-load displacement for general cargo coasters (~1400 t of ~4800 t)."
+stores_mass:
+  value: 50.0
+  low: 30.0
+  high: 80.0
+  unit: t
+  reason: "Fresh water, lube oil, provisions and crew; roughly constant across coaster sizes."
+max_froude_number:
+  value: 0.32
+  low: 0.30
+  high: 0.35
+  unit: "-"
+  reason: "Upper speed limit; above this a full coaster hull meets the wave-making wall and Holtrop's low-speed formula loses accuracy."
+metacentric_height_ratio:
+  value: 0.075
+  low: 0.05
+  high: 0.10
+  unit: "-"
+  reason: "Loaded GM over beam (~1 m at 13.5 m beam); low GM makes the ship roll gently but heel more under a rig."
+heel_limit:
+  value: 8.0
+  low: 5.0
+  high: 12.0
+  unit: deg
+  reason: "Steady heel tolerated on a cargo ship before cargo securing and crew comfort suffer."
+leeway_limit:
+  value: 10.0
+  low: 6.0
+  high: 15.0
+  unit: deg
+  reason: "Beyond this the slender-body hull side-force model is no longer linear and rudder drag grows fast."
+deck_mount_height:
+  value: 4.0
+  low: 3.0
+  high: 6.0
+  unit: m
+  reason: "Freeboard plus hatch coaming of the reference hull, where a wing foot or kite mast stands; scales with length."
+superstructure_height:
+  value: 10.0
+  low: 8.0
+  high: 14.0
+  unit: m
+  reason: "Height of the frontal windage area (deckhouse plus hull above water) of the reference hull; scales with length."
+windage_drag_coefficient:
+  value: 0.7
+  low: 0.5
+  high: 0.9
+  unit: "-"
+  reason: "Peak longitudinal wind coefficient of a cargo ship hull and deckhouse (Blendermann range 0.5-0.9)."
+
+# --- propulsion ---
+propeller_diameter_ratio:
+  value: 0.65
+  low: 0.6
+  high: 0.75
+  unit: "-"
+  reason: "Propeller diameter over draft for a single-screw coaster."
+thrust_deduction_ratio:
+  value: 0.6
+  low: 0.5
+  high: 0.7
+  unit: "-"
+  reason: "Thrust deduction over wake fraction; classic single-screw estimate t ~ 0.6 w."
+propeller_viscous_efficiency:
+  value: 0.82
+  low: 0.75
+  high: 0.88
+  unit: "-"
+  reason: "Ratio of real open-water efficiency to the ideal actuator-disk efficiency; gives eta_o ~ 0.6-0.7 at normal loading, as for B-series propellers."
+shaft_efficiency:
+  value: 0.97
+  low: 0.95
+  high: 0.98
+  unit: "-"
+  reason: "Gearbox and shaft bearings of a mechanical drive."
+electric_chain_efficiency:
+  value: 0.93
+  low: 0.90
+  high: 0.95
+  unit: "-"
+  reason: "Generator, converter and propulsion motor in series for a diesel-electric drive."
+vlsfo_engine_efficiency:
+  value: 0.44
+  low: 0.42
+  high: 0.47
+  unit: "-"
+  reason: "Peak brake efficiency of a medium-speed four-stroke engine on VLSFO."
+methanol_genset_efficiency:
+  value: 0.42
+  low: 0.38
+  high: 0.45
+  unit: "-"
+  reason: "Peak electrical efficiency of a medium-speed methanol dual-fuel genset; slightly below diesel."
+part_load_penalty:
+  value: 0.3
+  low: 0.15
+  high: 0.45
+  unit: "-"
+  reason: "Efficiency loss coefficient a in eta = eta_peak (1 - a (1 - load)^2); gives ~17 % higher consumption per kWh at 25 % load."
+genset_count:
+  value: 3
+  low: 2
+  high: 4
+  unit: "-"
+  reason: "Diesel-electric coasters run 2-4 gensets so that running units stay near their efficient load."
+hotel_load:
+  value: 60.0
+  low: 40.0
+  high: 100.0
+  unit: kW
+  reason: "Accommodation, navigation, pumps and cargo-hold ventilation of a coaster at sea."
+service_speed:
+  value: 11.0
+  low: 10.0
+  high: 12.0
+  unit: kn
+  reason: "Typical coaster service speed; sizes installed power."
+sea_margin:
+  value: 0.15
+  low: 0.10
+  high: 0.25
+  unit: "-"
+  reason: "Standard power margin over calm water for wind, waves and fouling."
+engine_rating_fraction:
+  value: 0.9
+  low: 0.85
+  high: 0.9
+  unit: "-"
+  reason: "Service power as a fraction of maximum continuous rating."
+
+# --- rigid wing ---
+wing_aspect_ratio:
+  value: 2.0
+  low: 1.5
+  high: 3.0
+  unit: "-"
+  reason: "Height over chord of installed rigid wings (WindWings ~ 37.5 m x 20 m)."
+wing_endplate_factor:
+  value: 1.6
+  low: 1.2
+  high: 1.8
+  unit: "-"
+  reason: "Effective over geometric aspect ratio from the deck acting as a partial mirror plane at the wing foot."
+wing_max_lift_coefficient:
+  value: 1.8
+  low: 1.4
+  high: 2.2
+  unit: "-"
+  reason: "Two-element flapped wing sail; three-element designs claim more, a plain symmetric profile reaches ~1.2."
+wing_profile_drag_coefficient:
+  value: 0.02
+  low: 0.015
+  high: 0.03
+  unit: "-"
+  reason: "Zero-lift drag of a thick flapped profile at full-scale Reynolds number."
+wing_separation_drag_factor:
+  value: 0.01
+  low: 0.0
+  high: 0.03
+  unit: "-"
+  reason: "Extra drag growing with CL^2 from profile separation near maximum lift."
+wing_span_efficiency:
+  value: 0.9
+  low: 0.8
+  high: 0.95
+  unit: "-"
+  reason: "Oswald factor of a tapered wing with tip vortex."
+wing_interference_factor:
+  value: 0.9
+  low: 0.75
+  high: 1.0
+  unit: "-"
+  reason: "Thrust loss from wings shadowing each other and the deckhouse; published multi-wing studies show 5-25 %."
+wing_spacing:
+  value: 1.5
+  low: 1.2
+  high: 2.0
+  unit: chord lengths
+  reason: "Deck length taken by one wing, so that neighbouring wings interfere acceptably."
+deck_length_fraction:
+  value: 0.75
+  low: 0.65
+  high: 0.8
+  unit: "-"
+  reason: "Part of the ship length available for wing foundations (between forecastle and deckhouse)."
+max_air_draft:
+  value: 45.0
+  low: 35.0
+  high: 60.0
+  unit: m
+  reason: "Height above the waterline that the route's ports and bridges allow; folding wings would relax it at extra cost."
+wing_mass_per_area:
+  value: 0.12
+  low: 0.08
+  high: 0.18
+  unit: t/m^2
+  reason: "Rigid wing plus foundation and slewing gear; published wing sails weigh ~0.1-0.17 t per m^2."
+wing_cost_per_area:
+  value: 2500.0
+  low: 1500.0
+  high: 4000.0
+  unit: USD/m^2
+  reason: "Rough estimate from reported rigid wing sail prices of about USD 1.5-2.5 M for a ~750 m^2 unit plus installation; no firm source."
+wing_lifetime:
+  value: 20.0
+  low: 15.0
+  high: 25.0
+  unit: years
+  reason: "Structural steel and composite rig, maintained with the hull."
+
+# --- kite ---
+kite_lift_coefficient:
+  value: 0.9
+  low: 0.7
+  high: 1.0
+  unit: "-"
+  reason: "Leading-edge inflatable or ram-air kite in powered crosswind flight."
+kite_drag_coefficient:
+  value: 0.15
+  low: 0.12
+  high: 0.2
+  unit: "-"
+  reason: "Kite and bridle drag; gives a kite-only glide ratio near 6."
+tether_drag_coefficient:
+  value: 1.1
+  low: 1.0
+  high: 1.2
+  unit: "-"
+  reason: "Cylinder in crossflow at the tether's Reynolds number."
+tether_stress:
+  value: 5.0e8
+  low: 3.5e8
+  high: 7.0e8
+  unit: Pa
+  reason: "Working stress of a Dyneema tether, about a third of its breaking stress; sets tether diameter from the maximum force."
+tether_length:
+  value: 400.0
+  low: 250.0
+  high: 600.0
+  unit: m
+  reason: "Puts the kite at ~150-250 m altitude, above most of the wind shear, without excessive tether drag."
+kite_elevation:
+  value: 30.0
+  low: 25.0
+  high: 40.0
+  unit: deg
+  reason: "Elevation of the figure-eight centre; lower gives more horizontal pull but risks ground contact in the turns."
+kite_max_azimuth:
+  value: 60.0
+  low: 45.0
+  high: 70.0
+  unit: deg
+  reason: "Largest angle between pattern centre and downwind that still keeps the kite powered and controllable."
+kite_pattern_efficiency:
+  value: 0.8
+  low: 0.65
+  high: 0.9
+  unit: "-"
+  reason: "Cycle-averaged over pattern-centre tether force, covering turns, gravity and off-centre flight; to be calibrated against SymbolicAWEModels."
+kite_min_wind:
+  value: 6.0
+  low: 4.0
+  high: 8.0
+  unit: m/s
+  reason: "Lowest apparent wind at kite altitude for a launch and sustained flight."
+kite_max_wind:
+  value: 25.0
+  low: 20.0
+  high: 30.0
+  unit: m/s
+  reason: "Above this the kite must be landed for structural and control reasons."
+kite_max_force_per_area:
+  value: 1.0
+  low: 0.7
+  high: 1.5
+  unit: kN/m^2
+  reason: "Depower limit on tether force; SkySails rated ~320 kN on a 320 m^2 kite."
+kite_attach_height:
+  value: 10.0
+  low: 6.0
+  high: 15.0
+  unit: m
+  reason: "Height of the tether attachment on the bow mast above the waterline; sets the kite's heeling arm."
+kite_mass_per_area:
+  value: 0.05
+  low: 0.03
+  high: 0.08
+  unit: t/m^2
+  reason: "Launch mast, winch, tether and control pod over kite area; the canopy itself is negligible."
+kite_cost_per_area:
+  value: 6000.0
+  low: 3000.0
+  high: 12000.0
+  unit: USD/m^2
+  reason: "Rough estimate for a complete automated launch and recovery system; no public price for small systems, hence the wide range."
+kite_maintenance_per_area:
+  value: 800.0
+  low: 300.0
+  high: 2000.0
+  unit: USD/m^2/year
+  reason: "Canopy and tether replacement every 1-2 years plus inspection; the largest unknown of kite operation."
+kite_lifetime:
+  value: 15.0
+  low: 10.0
+  high: 20.0
+  unit: years
+  reason: "Launch mast, winch and control system; canopy and tether wear sits in kite maintenance."
+
+# --- economics ---
+discount_rate:
+  value: 0.08
+  low: 0.05
+  high: 0.12
+  unit: "-"
+  reason: "Cost of capital for a small shipowner; a startup pays more, a corporate parent less."
+hull_lifetime:
+  value: 25.0
+  low: 20.0
+  high: 30.0
+  unit: years
+  reason: "Economic life of a coaster."
+hull_cost_per_lightship:
+  value: 6000.0
+  low: 4500.0
+  high: 8000.0
+  unit: USD/t
+  reason: "Newbuild coaster without propulsion plant at ~USD 8-9 M for 1400 t lightship (Asian yard)."
+mechanical_propulsion_cost:
+  value: 500.0
+  low: 400.0
+  high: 700.0
+  unit: USD/kW
+  reason: "Four-stroke engine, gearbox, shaft and propeller."
+electric_propulsion_cost:
+  value: 900.0
+  low: 700.0
+  high: 1200.0
+  unit: USD/kW
+  reason: "Methanol gensets, switchboard, converters and propulsion motor; diesel-electric costs more than mechanical."
+crew_cost:
+  value: 500000.0
+  low: 350000.0
+  high: 800000.0
+  unit: USD/year
+  reason: "Seven crew at about USD 70 k each including travel; minimum manning hardly changes with coaster size."
+maintenance_fraction:
+  value: 0.03
+  low: 0.02
+  high: 0.05
+  unit: 1/year
+  reason: "Maintenance and insurance over capital cost per year."
+port_cost_per_call:
+  value: 15000.0
+  low: 8000.0
+  high: 30000.0
+  unit: USD
+  reason: "Port dues, pilotage and agency for a coaster call."
+port_time_per_call:
+  value: 2.0
+  low: 1.0
+  high: 4.0
+  unit: days
+  reason: "Loading or discharge of a general cargo coaster."
+availability:
+  value: 0.92
+  low: 0.88
+  high: 0.95
+  unit: "-"
+  reason: "Share of the year the ship trades; the rest is dry-docking and repairs."
+cargo_value:
+  value: 2000.0
+  low: 500.0
+  high: 10000.0
+  unit: USD/t
+  reason: "Mixed general cargo; premium niche cargo (coffee, rum, cacao) sits at the high end."
+backhaul_fraction:
+  value: 0.5
+  low: 0.2
+  high: 0.8
+  unit: "-"
+  reason: "Return cargo over outbound cargo; Caribbean exports are smaller than imports."
+fuel_reserve_factor:
+  value: 1.3
+  low: 1.2
+  high: 1.5
+  unit: "-"
+  reason: "Tank capacity over the largest leg consumption seen in the weather sample."
+
+# --- fuel and carbon ---
+vlsfo_price:
+  value: 14.5
+  low: 12.0
+  high: 18.0
+  unit: USD/GJ
+  reason: "About USD 600/t at 41 GJ/t, the 2025-2026 range."
+vlsfo_carbon_intensity:
+  value: 0.076
+  low: 0.076
+  high: 0.080
+  unit: tCO2/GJ
+  reason: "3.114 tCO2/t tank-to-wake over 41 GJ/t; well-to-wake adds ~10 %."
+vlsfo_heating_value:
+  value: 41.0
+  low: 40.5
+  high: 41.5
+  unit: MJ/kg
+  reason: "Lower heating value of VLSFO."
+e_methanol_price:
+  value: 60.0
+  low: 40.0
+  high: 90.0
+  unit: USD/GJ
+  reason: "DNV/IRENA range for e-methanol around 2030; low end assumes cheap renewable power, high end today's pilot plants."
+methanol_heating_value:
+  value: 19.9
+  low: 19.9
+  high: 19.9
+  unit: MJ/kg
+  reason: "Lower heating value of methanol."
+carbon_price:
+  value: 90.0
+  low: 60.0
+  high: 150.0
+  unit: USD/tCO2
+  reason: "EU ETS around EUR 80/t; FuelEU penalties are not modelled separately."
+carbon_coverage:
+  value: 0.5
+  low: 0.5
+  high: 1.0
+  unit: "-"
+  reason: "EU ETS charges half of the emissions of voyages between the EU and third countries; 1.0 models a global levy."
