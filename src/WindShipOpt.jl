@@ -18,8 +18,9 @@ export Propeller, Powertrain, delivered_power
 export ShipDesign, Ship, Fuel, fuel_power
 export PerformanceTable, lookup
 export LandMask, north_atlantic_mask, SyntheticWeather, wind
-export Corridor, return_corridor, Leg, route
+export Corridor, return_corridor, caribbean_corridors, centre_index, Leg, route
 export ShipCosts, RoundTrip, round_trip, KNOT, NAUTICAL_MILE
+export LegTrace, sailing_speed
 
 include("assumptions.jl")
 include("hull.jl")
@@ -31,5 +32,6 @@ include("geography.jl")
 include("weather.jl")
 include("routing.jl")
 include("economics.jl")
+include("analysis.jl")
 
 end

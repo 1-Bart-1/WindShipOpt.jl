@@ -140,19 +140,25 @@ function required_thrust(ship::Ship, speed, wind_10m, true_angle, force::RigForc
 end
 
 """
-    best_thrust(ship, speed, wind_10m, true_angle)
+    best_trim(ship, speed, wind_10m, true_angle)
 
-Lowest required propeller thrust [N] over all rig trims.
+Lowest required propeller thrust [N] over all rig trims, and the rig force at that trim.
 """
-best_thrust(ship::Ship{Nothing}, speed, wind_10m, true_angle) =
-    required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE)
+best_trim(ship::Ship{Nothing}, speed, wind_10m, true_angle) =
+    required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE), NO_RIG_FORCE
 
-function best_thrust(ship::Ship, speed, wind_10m, true_angle)
-    return minimum(trim_settings(ship.rig)) do trim
+function best_trim(ship::Ship, speed, wind_10m, true_angle)
+    best = (Inf, NO_RIG_FORCE)
+    for trim in trim_settings(ship.rig)
         force = rig_force(ship.rig, ship.env, wind_10m, true_angle, speed, trim)
-        required_thrust(ship, speed, wind_10m, true_angle, force)
+        thrust = required_thrust(ship, speed, wind_10m, true_angle, force)
+        thrust < first(best) && (best = (thrust, force))
     end
+    return best
 end
+
+best_thrust(ship::Ship, speed, wind_10m, true_angle) =
+    first(best_trim(ship, speed, wind_10m, true_angle))
 
 function calm_output_power(ship::Ship, speed)
     thrust = best_thrust(ship, speed, 0.0, 0.0)

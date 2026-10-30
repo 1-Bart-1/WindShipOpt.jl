@@ -5,10 +5,7 @@ using WindShipOpt
 
 assumptions = Assumptions()
 mask = north_atlantic_mask()
-channel = [(51.98, 4.05), (51.05, 1.60), (50.05, -1.50), (48.80, -6.00)]
-guadeloupe = (16.15, -61.20)
-outbound = Corridor(channel, guadeloupe, mask)
-inbound = return_corridor(outbound, mask)
+outbound, inbound = caribbean_corridors(mask)
 weather = SyntheticWeather()
 departures = [24.0 * (30 * month + 1) for month in 0:11]
 

@@ -41,3 +41,5 @@ function lookup(table::PerformanceTable, speed, wind, angle)
     power = table.fuel_power(speed, min(wind, table.max_wind), angle)
     return power < 1e-3INFEASIBLE_POWER ? power : Inf
 end
+
+max_knots(table::PerformanceTable) = floor(Int, last(table.speeds) / KNOT)

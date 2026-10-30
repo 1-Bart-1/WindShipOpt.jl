@@ -123,8 +123,8 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
     round_trip_hours = out_hours + back_hours + 2port_hours
     voyage_cost = energy * ship.fuel.price + 2assumptions[:port_cost_per_call] +
                   hourly * round_trip_hours
-    tonne_km = cargo * (1 + assumptions[:backhaul_fraction]) *
-               outbound.track_length / 1e3
+    tonne_km = cargo * (outbound.track_length +
+                        assumptions[:backhaul_fraction] * inbound.track_length) / 1e3
     return RoundTrip(ship.design, voyage_cost / tonne_km, energy / 1e9,
         energy / 1e6 / tonne_km, energy * ship.fuel.carbon_intensity * 1e3 / tonne_km,
         out_hours / 24, back_hours / 24, cargo, costs.capital,

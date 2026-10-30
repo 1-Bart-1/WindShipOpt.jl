@@ -1,0 +1,6 @@
+[deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+WindShipOpt = "af4f4564-3121-48a2-9343-5e03b1d5231d"
+
+[sources]
+WindShipOpt = {path = ".."}

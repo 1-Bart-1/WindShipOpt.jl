@@ -3,3 +3,5 @@
 /LocalPreferences.toml
 /output/
 .claude
+/scripts/Manifest*.toml
+!/scripts/Manifest-v*.toml.default
