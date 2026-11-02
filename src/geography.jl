@@ -67,7 +67,7 @@ end
     north_atlantic_mask()
 
 Coarse mask of the Atlantic islands and the coast from Brittany to Guinea, with about
-20 nm of margin; to be replaced by a real coastline dataset.
+20 nm of margin.
 """
 function north_atlantic_mask()
     islands = [Island(39.4, -31.2, 60e3), Island(38.6, -28.0, 110e3),

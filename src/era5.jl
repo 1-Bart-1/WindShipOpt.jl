@@ -24,7 +24,8 @@ function GriddedFields(directory::AbstractString, origin::DateTime)
     for name in grid["variables"]
         path = joinpath(directory, "$name.f32")
         steps = filesize(path) ÷ (field_size * sizeof(Float32))
-        fields[name] = Mmap.mmap(path, Array{Float32, 3}, (length(lons), length(lats), steps))
+        fields[name] = Mmap.mmap(path, Array{Float32, 3},
+            (length(lons), length(lats), steps))
     end
     offset = Dates.value(DateTime(grid["first_time"]) - origin) / 3_600_000
     steps = minimum(size(field, 3) for field in values(fields))
@@ -63,9 +64,10 @@ function ERA5Weather(directory::AbstractString=joinpath(pkgdir(@__MODULE__), "er
 end
 
 "hours of weather available from the origin [h]"
-duration(weather::ERA5Weather) = min(
-    weather.wind.time_offset + (step_count(weather.wind) - 1) * weather.wind.step_hours,
-    weather.waves.time_offset + (step_count(weather.waves) - 1) * weather.waves.step_hours)
+duration(weather::ERA5Weather) = min(last_time(weather.wind), last_time(weather.waves))
+
+last_time(fields::GriddedFields) =
+    fields.time_offset + (step_count(fields) - 1) * fields.step_hours
 
 function cell(axis::Vector{Float64}, value)
     position = clamp((value - first(axis)) / (axis[2] - axis[1]) + 1, 1, length(axis))

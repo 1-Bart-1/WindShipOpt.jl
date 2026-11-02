@@ -139,7 +139,6 @@ friction_coefficient(reynolds) = 0.075 / (log10(reynolds) - 2)^2
 Speed-independent coefficients of the Holtrop wave resistance formula for Fn ≤ 0.4.
 """
 struct WaveCoefficients
-    entrance_angle::Float64
     c1::Float64
     c2::Float64
     c5::Float64
@@ -175,7 +174,7 @@ function WaveCoefficients(hull::Hull)
           -1.69385 + (length / displacement_volume^(1 / 3) - 8) / 2.36
     lambda = length / beam < 12 ? 1.446prismatic - 0.03length / beam :
              1.446prismatic - 0.36
-    return WaveCoefficients(entrance_angle, c1, c2, c5, m1, c15, lambda)
+    return WaveCoefficients(c1, c2, c5, m1, c15, lambda)
 end
 
 function wave_resistance(hull::Hull, env::Environment, coefficients::WaveCoefficients,
@@ -208,7 +207,7 @@ function transom_resistance(hull::Hull, env::Environment, speed)
 end
 
 """
-    correlation_allowance(hull)
+    correlation_allowance(hull, coefficients)
 
 Holtrop's model-ship correlation coefficient C_A [-].
 """

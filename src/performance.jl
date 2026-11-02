@@ -28,8 +28,7 @@ end
     interval_index(knots, value)
 
 Number of `knots` below `value`, clamped to the intervals of `knots`: the index
-`searchsortedfirst(knots, value) - 1` would give, found from the uniform spacing of the
-end knots and corrected towards the neighbours where the knots are not uniform.
+`searchsortedfirst(knots, value) - 1` would give.
 """
 function interval_index(knots::Vector{Float64}, value)
     last_interval = length(knots) - 1
@@ -110,24 +109,20 @@ struct PerformanceTable{S}
     max_wave_height::Float64
 end
 
-"thrust stored for infeasible conditions, so interpolation stays finite [N]"
+"thrust stored for infeasible conditions [N]"
 const INFEASIBLE_THRUST = 1e9
 
 """
-    PerformanceTable(ship, assumptions; speeds, winds=0:1.0:30, angles=0:7.5:180,
-                     periods=3:1.0:18, headings=0:15:180)
+    PerformanceTable(ship, assumptions)
 
-Tabulate the thrust of `ship`; `speeds` in m/s default to 0.25 m/s steps up to the ship's
-maximum speed, `angles` and `headings` are in degrees, `periods` in seconds.
+Tabulate the thrust of `ship`.
 """
-function PerformanceTable(ship::Ship, assumptions::Assumptions;
-        speeds=range(1.5, ship.max_speed; step=0.25), winds=0:1.0:30, angles=0:7.5:180,
-        periods=3:1.0:18, headings=0:15:180)
-    speeds = collect(Float64, speeds)
-    winds = collect(Float64, winds)
-    angles = deg2rad.(collect(Float64, angles))
-    periods = collect(Float64, periods)
-    headings = deg2rad.(collect(Float64, headings))
+function PerformanceTable(ship::Ship, assumptions::Assumptions)
+    speeds = collect(Float64, range(1.5, ship.max_speed; step=0.25))
+    winds = collect(Float64, 0:1.0:30)
+    angles = deg2rad.(collect(Float64, 0:7.5:180))
+    periods = collect(Float64, 3:1.0:18)
+    headings = deg2rad.(collect(Float64, 0:15:180))
     calm_grid = (speeds, winds, angles)
     flown_thrust, rig_power = trim_tables(ship, ship.rig, calm_grid)
     standing = standing_rig(ship.rig)
@@ -311,7 +306,7 @@ function kite_aloft(rig::KiteRig, table, speed, headwind, crosswind, wave_height
            rig.min_flight_wind <= apparent <= rig.max_wind
 end
 
-function fuel_power(table::PerformanceTable, speed, thrust, rig_power=0.0)
+function fuel_power(table::PerformanceTable, speed, thrust, rig_power)
     thrust < 1e-3INFEASIBLE_THRUST || return Inf
     (; ship) = table
     delivered = delivered_power(ship.propeller, ship.env, speed, thrust)
@@ -415,13 +410,12 @@ struct RouteTable{T <: PerformanceTable}
 end
 
 """
-    RouteTable(table, speeds=(4:max_knots(table)) .* KNOT)
+    RouteTable(table)
 
-[`RouteTable`](@ref) of `table` at `speeds` [m/s], by default whole knots up to the
-ship's maximum speed.
+[`RouteTable`](@ref) of `table` at whole knots from 4 up to the ship's maximum speed.
 """
-function RouteTable(table::PerformanceTable, speeds=(4:max_knots(table)) .* KNOT)
-    speeds = collect(Float64, speeds)
+function RouteTable(table::PerformanceTable)
+    speeds = collect(Float64, (4:max_knots(table)) .* KNOT)
     slices = [SpeedSlice(table, KnotWeight(table.speeds, speed)) for speed in speeds]
     return RouteTable(table, speeds, slices, FuelBound(table, speeds))
 end
