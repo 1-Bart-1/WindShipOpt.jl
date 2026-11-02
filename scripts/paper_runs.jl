@@ -173,7 +173,7 @@ function open_run(fidelity, names, resume)
     record["git_commit"] = git_output("rev-parse", "HEAD")
     record["git_branch"] = git_output("rev-parse", "--abbrev-ref", "HEAD")
     record["git_dirty"] = !isempty(changed_files())
-    record["requested"] = string.(names)
+    record["requested"] = union(record["requested"], string.(names))
     run = PaperRun(directory, fidelity, record, 0, 0)
     write_record(run)
     println(resumed ? "resuming" : "new", " run ", directory)
@@ -272,10 +272,11 @@ end
 """
     finish_run!(run)
 
-Mark `run` finished at the current time in its record.
+Mark `run` finished at the current time in its record, once every step asked of it is done.
 """
 function finish_run!(run)
     isnothing(run.directory) && return
+    all(name -> step_done(run, name), run.record["requested"]) || return
     run.record["finished"] = string(floor(now(), Second))
     write_record(run)
 end
