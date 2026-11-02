@@ -89,7 +89,7 @@ That later paper uses a different, newer regression ("Y'_β = ½πκ + 1.9257(C_
 - **Secondary confirmation.** A lecture by P.-Å. Kvick (Linnaeus University, "Roderkrafter", slide "Conventional rudder (minimum area) — Classification guidance") gives "A_r = (d L/100)[1 + 25(B/L)²]". The same slide gives the Reed's alternative "A_r = d L / F, F 60–70".
 - **Wording seen only in a search snippet.** A ScienceDirect topic page (book chapter citing Molland & Turnock 2007 and Brix 1993) was summarised by a search engine as "Det Norske Veritas recommends: (6.91) A_R/(L·T) ≥ 0.01·(1 + 25(B/L)²)". The page itself returned HTTP 403, so this is not a verified quote.
 
-Which form to use is #17.
+#17 chose the January 2000 form.
 
 ## 4. Taylor wake fraction w = 0.5C_B − 0.05 and t = 0.6w (`src/propulsion.jl`)
 
@@ -157,5 +157,4 @@ What each open check needs; `sources.csv` records whether we hold it.
 - Discrepancies 1.1 and 1.2: the Mittendorf et al. reference code, https://gitlab.gbar.dtu.dk/mamit/RAW_Formula.
 - Attribution of the hull side-force formula: Inoue et al. (1981) and Kijima et al. (1990).
 - X'_vv data on the leeway drag: Yasukawa & Yoshimura (2015).
-- The factor 25 in a primary source: the 1972 DNV rules, Molland & Turnock (2007) or Brix (1993).
 - Primary attribution of w = 0.5C_B − 0.05: Carlton (2012) or Taylor (1933).
