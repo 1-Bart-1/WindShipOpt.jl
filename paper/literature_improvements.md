@@ -97,8 +97,8 @@ limited to a maximum value of 1.0" (p. 15), and notes a 10° geometric limit
 our case study" (p. 15); ShipCLEAN reefs at "δmax = 10°" (Tillig OE p. 17).
 Kramer's rudder area is "right above 2% of the underwater hull lateral area …
 Bertram (2012) states that this variable is typically around 1.5% for cargo
-ships" (p. 3); our DNV formula gives 1.6 % of LT for the coaster **[calc]**,
-consistent with Bertram.
+ships" (p. 3); our DNV formula gives 1.8 % of LT for the coaster **[calc]**,
+between Bertram and Kramer.
 
 **Expected effect.** None today (the rudder carries no load with the rig at
 x_h); with proposal 1 it roughly doubles rudder induced drag. Do 1 and 2
