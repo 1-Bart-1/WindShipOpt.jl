@@ -1,0 +1,81 @@
+\section{Model inputs}
+\label{sec:inputs}
+
+\Cref{tab:inputs} lists every input that matters for the results, ranked by its effect, with its base value, the low and high bounds of the sensitivity runs, its unit, its effect and its full source note; an input without a published source is marked as an engineering estimate or assumption. An input matters when moving it from its low to its high bound changes the cost saving of a rig by at least half a percentage point, or the cost of a ship without a rig by at least 2\,\%, on any of three ships: the \SI{140}{m} reference ship on e-methanol to Guadeloupe, a Kamsarmax bulk carrier on VLSFO to Tubarão and a Neo-Panamax container ship on e-methanol to New York, each with the best size of each rig. All inputs, with their ranges and sources, are in the assumptions file of the model's repository. The ship classes are in \cref{tab:classes} and the sources of their values in \cref{tab:class_sources}. \Cref{tab:numerics} gives the grids, solver settings and physical constants, which have no range; the published regressions the model uses (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) are applied with their published coefficients.
+
+{\footnotesize
+\setlength{\LTcapwidth}{\textwidth}
+\setlength{\extrarowheight}{1.5pt}
+\InputIfFileExists{sections/input_tables}{}{\tbd{Input tables pending: run the input\_tables step.}}
+
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{12.2cm}@{}}
+\caption{Sources of the ship class data in \cref{tab:classes}.}
+\label{tab:class_sources}\\
+\toprule
+Class & Sources \\
+\midrule
+\endfirsthead
+\multicolumn{2}{@{}l}{\cref{tab:class_sources} (continued)}\\
+\toprule
+Class & Sources \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\InputIfFileExists{sections/class_sources}{}{}
+\end{longtable}
+
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}p{4.8cm}>{\raggedright\arraybackslash}p{6.6cm}@{}}
+\caption{Grids, solver settings and constants. Corridor spacings are given at the resolution of the results, four times the base spacing of 90 and \SI{60}{nmi}.}
+\label{tab:numerics}\\
+\toprule
+Setting & Value & Use \\
+\midrule
+\endfirsthead
+\multicolumn{3}{@{}l}{\cref{tab:numerics} (continued)}\\
+\toprule
+Setting & Value & Use \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\multicolumn{3}{@{}l}{\textit{Performance table}}\\
+speed through the water & \SI{1.5}{m/s} to the speed at $F_n=0.28$, steps of \SI{0.25}{m/s} & thrust and fuel power tables \\
+true wind at \SI{10}{m} & 0 to \SI{30}{m/s}, steps of \SI{1}{m/s} & stronger wind is held at \SI{30}{m/s} \\
+true wind angle & 0 to \SI{180}{\degree}, steps of \SI{7.5}{\degree} & \\
+peak period & 3 to \SI{18}{s}, steps of \SI{1}{s} & table of $R_\mathrm{aw}/H_s^2$ \\
+wave heading & 0 to \SI{180}{\degree}, steps of \SI{15}{\degree} & table of $R_\mathrm{aw}/H_s^2$ \\
+wave frequencies & 0.1 to \SI{6}{rad/s}, 240 points & spectral integral of $R_\mathrm{aw}$ \\
+wing trim & $C_L$ from 0 to $C_{L,\max}$, 37 settings & best trim \\
+rotor trim & spin ratio 0 to 4, steps of 0.25 & best trim \\
+\multicolumn{3}{@{}l}{\textit{Kite pattern table}}\\
+apparent wind & 3 to \SI{30}{m/s}, steps of \SI{3}{m/s} & pattern search \\
+course off apparent downwind & 0 to \SI{180}{\degree}, steps of \SI{15}{\degree} & pattern search \\
+side-force weights & 0, 0.5, 1, 3 & kite trim settings \\
+wind reference elevation & \SI{25}{\degree} on the tether & height of the apparent wind of the table \\
+lowest angle of attack & first angle with $C_L\geq0.05$ & lower bound of the search \\
+points per pattern & 48 & time average of the tether force \\
+pattern search & Nelder--Mead, 200 iterations, three starts and the best eight of the previous wind speed & figure eights \\
+parked kite & 12 angles of attack, elevations 10 to \SI{70}{\degree} in steps of \SI{5}{\degree}, both sides & kite at rest at the edge of the wind window \\
+\multicolumn{3}{@{}l}{\textit{Corridors and routing}}\\
+ocean stage spacing & \SI{360}{nmi} & corridor stages \\
+Channel stage spacing & \SI{30}{nmi} & fixed waypoints from Rotterdam to Ushant, no lateral freedom \\
+lateral node spacing & \SI{240}{nmi} & nodes across the track \\
+corridor half width & \SI{2400}{nmi} & reach of the nodes to either side of the track \\
+lateral step & up to 3 nodes per stage & edges between stages \\
+lateral direction smoothing & 8 stages to either side & direction of the node rows \\
+land check along edges & every \SI{20}{nmi} & removes edges over land \\
+coastal clearance & \SI{50}{nmi}, on rings at 25 and \SI{50}{nmi} of 16 bearings & nodes near land \\
+coastal penalty & cost of an edge into a node near land doubled & objective only \\
+island disks & island radius plus about \SI{20}{nmi} & land mask \\
+time bin & \SI{3}{h} & state of the dynamic programme \\
+longest passage & 50 days & time bins \\
+speeds & whole knots from 4 to the ship's maximum & edge choices \\
+re-planning interval & \SI{24}{h} & forecast-limited router \\
+departures & every 14 days from 1 January 2017 to 100 days before the end of 2019; every sixth (12) in all runs, every twelfth (6) for the input screening & weather sample \\
+\multicolumn{3}{@{}l}{\textit{Constants}}\\
+gravitational acceleration & \SI{9.81}{m/s^2} & \\
+Earth radius & \SI{6371}{km} & great-circle distances \\
+nautical mile & \SI{1852}{m} & \\
+hours in a year & 8760 & annual costs \\
+\end{longtable}}

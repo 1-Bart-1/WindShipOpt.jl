@@ -1,0 +1,15 @@
+\section{Model checks}
+\label{sec:checks}
+
+These checks run with the model and say what it reproduces and where it departs from measurements.
+
+\begin{itemize}
+\item \textbf{Calm-water resistance.} The resistance components of the worked example of \citet{holtrop1982}\tbd{ (source not read)} come out within 5\,\% each, and the correlation allowance within 0.5\,\%.
+\item \textbf{Calibrated class power.} At its service speed and design draught every standard class except the coaster needs the calm-water delivered power of its source design to $10^{-6}$, through its resistance factor $f_R$ of 0.61 to 0.99 (\cref{sec:ships}). Uncalibrated, on the worked \num{50000}~t MR tanker of \citet{man2011} with its \SI{6.8}{m} propeller, the model needs 7\,\% more power than MAN's light propeller curve at \SI{14}{kn}.
+\item \textbf{Coaster power.} The \SI{85}{m} coaster needs \SIrange{350}{800}{kW} effective power at \SI{11}{kn} and gets \SIrange{700}{1500}{kW} installed. Real \num{3500}-tonne coasters install about \SI{1.5}{MW} for \SI{12.5}{kn} \tbd{cite}.
+\item \textbf{Added resistance.} The non-dimensional added resistance peaks between 5 and 10 in head waves and stays within $\pm2$ in following waves, as in the data behind \citet{mittendorf2022}.
+\item \textbf{Kite without mass.} The quasi-steady kite without mass carries exactly the crosswind tension of \citet{loyd1980}\tbd{ (source not read)}, to a relative error below $10^{-6}$.
+\item \tbd{\textbf{Kite against a published prediction.} Pending the full text of \citet{dadd2011}: compare the pull of a \SI{300}{m^2} kite on \SI{300}{m} of tether in \SI{6.2}{m/s} wind with their prediction.}
+\item \textbf{Fuel saving against operation.} A \SI{160}{m^2} kite on a \SI{130}{m} VLSFO ship, the size that flew on cargo ships, saves 6.7\,\% of fuel on the routed round trip. The Beluga SkySails saved 5\,\% on its average route mix and 10 to 12\,\% on North Atlantic and North Pacific routes \citep{wintecc2009}. Without the flight drag the saving is the same within the routing noise, because a kite this small reaches its force limit either way. Our routed figures remain an upper bound: the router sees the weather ahead, and launch, recovery and failures cost nothing.
+\item \textbf{Routing grid.} Routed at corridor resolutions from \SI{360}{nmi} down to \SI{45}{nmi} between stages, the cost per tonne-kilometre of a \SI{140}{m} e-methanol ship to Guadeloupe changes by at most 0.9\,\% without a rig and 2.9\,\% with one, and the cost saving of each rig by at most 1.6 points; the order of the rigs does not change. The coarser grids are slightly optimistic for every option alike.
+\end{itemize}

@@ -1,0 +1,180 @@
+\section{Results}
+\label{sec:results}
+
+The results first show what each rig gives, then compare the rigs by fuel, between the two deck rigs, by route and class, over the life of the kite's canopy and by rig size, check the robustness of the comparison, and end with the situations in which each rig comes out ahead. Figures on the scaled family of ships on the route to Guadeloupe show how a result comes about; the figures over the thirteen classes and six routes carry the results themselves.
+
+\subsection{What each rig gives}
+\label{sec:res_forces}
+
+\Cref{fig:rig_polar} shows the thrust and side force of the three rigs on a \SI{140}{m} ship at \SI{10.5}{kn} in a \SI{10}{m/s} wind, each at its best setting. A rotor at its working spin ratio has a lift coefficient of 9.5, a wing at most 1.8 (\cref{sec:deck_rigs}), so a square metre of rotor pulls about five times as hard as a square metre of wing. The \SI{400}{m^2} of rotors pull hardest from close-hauled to beam reach and the \SI{800}{m^2} kite from a broad reach to dead downwind, where its thrust keeps rising while that of the rotors falls away; the \SI{800}{m^2} of wing sails pull least at every angle. Side force follows the lift: the rotors push the ship sideways hardest close-hauled, with about twice their peak thrust, the kite carries a large side force up to beam reach, and the hull and rudder pay for both with leeway and rudder drag.
+
+\begin{figure}[tbp]
+\centering
+\plot{rig_polar}
+\caption{Thrust (top) and side force (bottom) over the true wind angle of an \SI{800}{m^2} kite, \SI{800}{m^2} of wing sails and \SI{400}{m^2} of rotors on a \SI{140}{m} ship at \SI{10.5}{kn} in a \SI{10}{m/s} wind at \SI{10}{m}, each at the setting that needs the least engine power.}
+\label{fig:rig_polar}
+\end{figure}
+
+On a voyage the router turns this thrust into fuel or speed. \Cref{fig:passage} follows one winter passage to Guadeloupe. The ship without a rig stays close to the great circle, while the ships with a rig route further south into the trade winds. The kite pulls in long bursts: while it flies, its ship speeds up and its fuel power drops to almost nothing, and between flights it sails on the engine, so the kite ship arrives days before the others. The rotors and wing sails pull more steadily and less, and their ships keep closer to the speed of the ship without a rig.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{passage}
+\caption{One outbound passage to Guadeloupe, departing on 1 January 2017, of a \SI{140}{m} e-methanol ship without a rig and with a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails or \SI{800}{m^2} of rotors: (a) the routed tracks with the great circle dotted, over the \SI{10}{m} wind six days after departure, (b) speed through the water, (c) rig thrust and (d) fuel power over the passage, as 12-hour moving averages.}
+\label{fig:passage}
+\end{figure*}
+
+\subsection{Fuel price and the value of wind}
+\label{sec:res_fuel}
+
+\Cref{fig:class_comparison} gives the cost saving per tonne-kilometre of the best size of each rig on every class, against the same ship without a rig on the same fuel. On VLSFO at today's prices the best rig of each class saves 0.9\,\% on the coaster to 9.8\,\% on the Megamax container ship on average over the routes, and 2 to 5\,\% on most classes. Wing sails cost more than they save on the coaster and on the feeder and Panamax container ships, and save at most 0.1\,\% on the Handysize, Ultramax and Kamsarmax bulk carriers. On e-methanol the rotors save 13.6\,\% on average over all classes and routes, the kite 11.6\,\% and the wing sails 6.8\,\%, half as much as the rotors. On hydrogen each rig saves 1.5 to 2.7 points less, 11.2, 8.9 and 5.3\,\%, in part because fuel is a smaller part of the cost of a hydrogen ship: 29\,\% against 35\,\% on e-methanol for the \SI{200}{m} ship to Guadeloupe (\cref{fig:breakdown}). On VLSFO the saving grows with the size of the ship, to 6.9\,\% on the VLCC and 9.8\,\% on the Megamax, but on e-methanol it hardly does: the rotors save 13 to 17\,\% on every bulk carrier, tanker and the car carrier, but only 9 to 11\,\% on the container ships, which sail fastest. There the kite saves more than the rotors, 11.0 to 12.2\,\% on e-methanol, as it does on the VLCC. The route spreads the saving more than the class: on e-methanol the rotors save 17.7\,\% on average to Tubarão and 17.0\,\% to New York, but 11.6\,\% to Dakar and only 3.1\,\% on the short route to Bilbao.
+
+The rigs are sized for cost, not for fuel, so the fuel they save is larger than their cost saving (\cref{tab:fuel}): the fuel the cheapest rig saves pays for the rig as well. On e-methanol the cheapest rotors save 27 to 45\,\% of the fuel of each class, the cheapest kite 31 to 44\,\% and the cheapest wing sails 10 to 31\,\%; on VLSFO, with smaller rigs, 9 to 30, 14 to 22 and 2 to 11\,\%. We compare on cost and fuel energy and give CO$_2$ only for VLSFO. E-methanol made from captured CO$_2$ returns that carbon at the stack and hydrogen holds none, so we count both as zero tank-to-wake, and on these drives the rigs save fuel energy and money but no CO$_2$ in this accounting; on VLSFO the CO$_2$ saved is the fuel saved times a fixed factor. A well-to-wake account of e-methanol depends on how its hydrogen and carbon are produced, which is outside this comparison.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{class_comparison}
+\caption{Cost saving of the best size of each rig for the thirteen ship classes with a VLSFO (a), an e-methanol (b) and a hydrogen (c) drive: the mean over the six routes (marker) and the range over them (bar).}
+\label{fig:class_comparison}
+\end{figure*}
+
+\begin{table*}[tbp]
+\centering
+\footnotesize
+\caption{Fuel energy saved by the cheapest size of each rig on each ship class with each drive, the mean over the six routes, in percent of the fuel of the same ship without a rig, and the tank-to-wake CO$_2$ of each class on VLSFO without a rig. On VLSFO the CO$_2$ saved equals the fuel saved.}
+\label{tab:fuel}
+\InputIfFileExists{sections/fuel_table}{}{\tbd{Fuel table pending: run the fuel\_table step.}}
+\end{table*}
+
+\Cref{fig:premium} shows how much of the cost premium of an e-methanol or hydrogen ship over a fossil-fuelled one each rig closes. Without a rig, e-methanol raises the cost per tonne-kilometre by 56 to 60\,\% over VLSFO on the scaled ships and hydrogen by 51 to 55\,\%. The rotors close 40\,\% of the e-methanol premium on the \SI{85}{m} ship and 55\,\% on the \SI{200}{m} ship, the kite 29 to 42\,\% and the wing sails 23 to 26\,\%; of the hydrogen premium they close 36 to 55, 22 to 39 and 17 to 26\,\%. Every rig closes more on a larger ship, and none comes near 100\,\%: with its rotors the e-methanol ship still costs 25 to 34\,\% more per tonne-kilometre than the same ship on VLSFO without a rig.
+
+\begin{figure}[tbp]
+\centering
+\plot{premium}
+\caption{Share of the cost premium of an e-methanol (solid) and a hydrogen ship (dashed) over the same ship on VLSFO without a rig that the best size of each rig closes, over waterline length on the route to Guadeloupe. At 100\,\% a ship on that fuel with that rig costs as much per tonne-kilometre as a fossil-fuelled ship today.}
+\label{fig:premium}
+\end{figure}
+
+Sizing a rig for the lowest cost leaves fuel unsaved that a larger rig would save at a small extra cost. \Cref{fig:abatement} traces cost against fuel saved as each rig grows from small to the largest that fits. Where a curve returns to the cost of the same ship without a rig, the rig saves the most fuel it can at no extra cost: \tbd{fuel saved at break-even per rig and drive}. On VLSFO the slope beyond that point is the cost of the CO$_2$ abated, \tbd{USD per tonne}. \Cref{tab:payback} gives the discounted payback time of the cheapest size of each rig: the years until its yearly saving, before its own capital charges, repays its price at the discount rate. On e-methanol and hydrogen every rig pays back within a few years on every class: the kite in 0.5 to 1.3 years, the rotors in 1.1 to 3.5 and the wing sails in 1.7 to 4.4. On VLSFO the kite takes 1.0 to 8.9 years and the rotors 1.4 to 9.7, and the wing sails 2.1 to 38 years, and on the coaster and the Panamax container ship they never pay back.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{abatement}
+\caption{Cost per tonne-kilometre against the fuel energy saved, relative to the same ship on VLSFO without a rig, for every size of each rig on the \SI{140}{m} ship to Guadeloupe (top) and a Kamsarmax bulk carrier to Tubarão (bottom), one column per drive. The black point is the ship without a rig on that drive; each line runs from the smallest rig to the largest that fits on deck.}
+\label{fig:abatement}
+\end{figure*}
+
+\begin{table*}[tbp]
+\centering
+\footnotesize
+\caption{Discounted payback time in years of the cheapest size of each rig on each ship class, the median over the six routes, at the base discount rate; a dash where the median rig does not pay back within its life.}
+\label{tab:payback}
+\InputIfFileExists{sections/payback_table}{}{\tbd{Payback table pending: run the payback\_table step.}}
+\end{table*}
+
+\subsection{Wing sails and rotors}
+\label{sec:res_deck}
+
+Wing sails and rotors are priced on the same basis and both last 20 years (\cref{sec:costs,sec:inputs}). A square metre of rotor costs about three times a square metre of wing and pulls about five times as hard (\cref{fig:rig_polar}). \Cref{fig:breakdown} shows where the cost goes. The cheapest wing sails and rotors add about the same capital and maintenance: with \SI{800}{m^2} of wings or \SI{400}{m^2} of rotors the \SI{85}{m} e-methanol ship pays USD~6.88 or 7.04 per \num{1000}~tkm, and with \SI{3000}{m^2} or \SI{1600}{m^2} the \SI{200}{m} ship USD~1.38 or 1.41. The difference is the fuel: the rotors leave USD~2.95 and 0.84 of fuel per \num{1000}~tkm on the two ships, the wings 3.95 and 1.27. On e-methanol the rotors therefore save twice what the wings save (\cref{fig:class_comparison}). On VLSFO fuel is too small a part of a small ship's cost for wings to pay. On the \SI{85}{m} ship it is a quarter of the cost; the cheapest wing rig, \SI{400}{m^2}, saves 11\,\% of it, USD~0.28 per \num{1000}~tkm, and adds USD~0.46 of capital and maintenance, while \SI{200}{m^2} of rotors save 25\,\% of the fuel, USD~0.63, for USD~0.55.
+
+\begin{figure}[tbp]
+\centering
+\plot{breakdown}
+\caption{Cost per tonne-kilometre, in USD per \num{1000}~tkm, split into its parts on the route to Guadeloupe for an \SI{85}{m} and a \SI{200}{m} ship on VLSFO without a rig, and on e-methanol and hydrogen without a rig and with the cheapest size of each rig, whose area is given with each bar. Capital includes the fuel store.}
+\label{fig:breakdown}
+\end{figure}
+
+\subsection{Routes and ship classes}
+\label{sec:res_routes}
+
+\Cref{fig:winner_map} names the rig that lowers the cost most on every class and route. Rotors come out ahead in 48 of the 78 cells on e-methanol, 58 on hydrogen and 56 on VLSFO, and the kite in the other 30 on e-methanol, 20 on hydrogen and 16 on VLSFO, where no rig pays in the remaining six cells, five of them on the route to Bilbao. Wing sails lead in none. The kite's wins fall in two groups. On e-methanol it leads on the Neo-Panamax container ship on every route and on the Panamax, feeder and Megamax container ships and the VLCC on four or five of the six, where the rotors give less (\cref{sec:res_fuel}); and it leads on the route to Bilbao, 11 of its 30 wins, where every rig saves little. \Cref{fig:route_comparison} shows how the route sets the saving. It is largest on the long ocean routes, to Tubarão, New York, Guadeloupe and Houston, smaller to Dakar and smallest on the short route to Bilbao, a round trip of eight and a half days for the \SI{140}{m} ship, on which the kite flies 20 to 30\,\% of the time instead of about half and the best rig saves less than 4\,\% on e-methanol. The order of the rigs changes less with the route than with the ship: on the \SI{140}{m} ship on e-methanol the rotors lead on every route but Bilbao, where kite and rotors are level. \tbd{Explain the route pattern from the wind angles of \cref{fig:wind_angle} once recomputed.}
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{winner_map}
+\caption{The rig that lowers the cost per tonne-kilometre most for each ship class and route, with a VLSFO (a), an e-methanol (b) and a hydrogen (c) drive. The number is its cost saving in percent and the shade grows with it; in grey cells no rig pays and the number is the smallest loss.}
+\label{fig:winner_map}
+\end{figure*}
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{route_comparison}
+\caption{Cost saving of the better of two sizes of each rig against the same ship without a rig, per route, for ships of \SIlist{85;140;200}{m} with a VLSFO (top), an e-methanol (middle) and a hydrogen (bottom) drive: kites of \SIlist{800;3200}{m^2}, wing sails of \SIlist{800;1500}{m^2} and rotors of \SIlist{400;800}{m^2}, of which only \SI{400}{m^2} fits on the \SI{85}{m} ship. On the \SI{200}{m} ship the rotors are smaller than their best size of \cref{fig:rig_comparison}.}
+\label{fig:route_comparison}
+\end{figure*}
+
+\subsection{Canopy life and the kite}
+\label{sec:res_life}
+
+The kite's hardware is cheap and it pulls hard (\cref{fig:rig_polar}), but its canopy wears out: an \SI{800}{m^2} kite needs a new canopy of USD~\num{170000} every \num{2900} flight hours (\cref{sec:costs}), and the wear is 6 to 7\,\% of the cost of the e-methanol and hydrogen ships with the cheapest kite in \cref{fig:breakdown}, and 12\,\% with the \SI{6400}{m^2} kite of the \SI{200}{m} hydrogen ship. \Cref{fig:life} varies the life of canopy and tether together. The kite's saving rises steeply with their life and passes the rotor's on every ship and route of the figure. On e-methanol the \SI{140}{m} ship needs a canopy life of \tbd{2200} flight hours to Guadeloupe, \tbd{1800} to New York and \tbd{2200} to Houston, and the Kamsarmax \tbd{2900} to Tubarão; on VLSFO the crossing lies at \tbd{3300}, \tbd{3300}, \tbd{3500} and \tbd{4500} flight hours. The base life is \num{2900} flight hours, and nothing published supports a canopy life above \num{4000} for any kite (\cref{sec:inputs}): on e-methanol the kite and the rotor are level within the plausible range of canopy life on all four, and on VLSFO the kite leads only near or beyond its upper end.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{life}
+\caption{Cost saving of the best size of kite over the life of its canopy, with the tether life scaled by the same factor, against the best size of wing sails and of rotors, with a VLSFO (a) and an e-methanol (b) drive: the mean over the \SI{140}{m} ship and a Kamsarmax bulk carrier on all six routes (line) and the range over these twelve cases (bars). The grey dashed line marks the base canopy life of \num{2900} flight hours; the black dash-dotted line the mean saving at which the e-methanol ship costs as much per tonne-kilometre as the same ship on VLSFO without a rig. At the right end neither canopy nor tether wears.}
+\label{fig:life}
+\end{figure*}
+
+\subsection{Rig size}
+\label{sec:res_size}
+
+\Cref{fig:class_sizes} gives the rig area that lowers the cost most on each class, and \cref{fig:rig_comparison} how the saving changes with area on the scaled family. On most large ships the best wing sails and rotors are the largest that fit on deck. On e-methanol the cheapest wing rig fills the deck on four to six of the six routes on every class but the coaster, and the cheapest rotors do so on the tankers, the Capesize, the car carrier and the two largest container ships, with up to 15 wings and 23 rotors on the Megamax container ship, 12 and 18 on the Neo-Panamax and 11 and 16 on the VLCC. On these ships the size of the deck rigs, and with it their saving, is set by the deck, a physical limit, and not by their cost. The best kite reaches \SI{16000}{m^2}, the upper bound of the search, on the Megamax container ship on every route and drive, and on e-methanol on the Neo-Panamax container ship and the VLCC on five of the six routes, against \SI{1000}{m^2} for the largest ship kite designed so far \citep{airseas_seawing_web}. That bound is a limit of the model, not an optimum, so on these three ships the kite's best size and saving are not known, only that they are at least this large. At the other end the best kite of the coaster on VLSFO is the smallest searched, \SI{500}{m^2}, on every route. Around its best size the saving falls slowly towards larger rigs and fast towards smaller ones (\cref{fig:rig_comparison}). On the \SI{140}{m} e-methanol ship the kite saves 13.9\,\% at \SI{1600}{m^2}, 13.5\,\% at \SI{3200}{m^2} and 11.1\,\% at \SI{800}{m^2}, close to the largest designed; on the \SI{200}{m} ship an \SI{800}{m^2} kite saves 7.5\,\% against 14.9\,\% at \SI{3200}{m^2}. Half the best rotor area costs the \SI{140}{m} ship 3.9 points, 15.1 against 19.0\,\%, and half the best wing area 2.9 points. \Cref{sec:discussion} takes up what these sizes mean.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{class_sizes}
+\caption{The rig area that lowers the cost per tonne-kilometre most for each ship class with a VLSFO (a), an e-methanol (b) and a hydrogen (c) drive: the geometric mean over the six routes (marker) and the range over them (bar). The number next to the wings and rotors is the median number of units at that size. Kites were searched from \SIrange{500}{16000}{m^2}, wings and rotors from a fifth to all of what fits on deck.}
+\label{fig:class_sizes}
+\end{figure*}
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{rig_comparison}
+\caption{Cost saving against the same ship without a rig on the route to Guadeloupe, for every size of kite, wing sails and rotors (rows) and ship length (columns), with a VLSFO (a), an e-methanol (b) and a hydrogen (c) drive. The outlined cell is the best size of each rig on each ship; blank cells are sizes that do not fit on deck or were not run. Wings and rotors were run on three of the five lengths.}
+\label{fig:rig_comparison}
+\end{figure*}
+
+\subsection{Robustness}
+\label{sec:res_robustness}
+
+Three changes to the model move the savings on the \SI{140}{m} e-methanol ship to Guadeloupe by several points, but none of them moves the rotors out of the lead. The largest is the forecast (\cref{fig:forecast}). Re-planned daily on a forecast of 7 days, the \SI{3200}{m^2} kite saves 9.7\,\% instead of 13.5\,\%, the wing sails 7.2 instead of 9.0\,\% and the rotors 18.1 instead of 19.0\,\%; on a forecast of 3 days they save 5.3, 6.3 and 13.5\,\%. The kite loses most from a short forecast, and on 3 days the wing sails pass it. Without its flight drag (\cref{sec:kite}) the kite saves 1.4 to 2.0 points more on e-methanol and 0.6 to 0.8 points more on VLSFO, on kites of \SIlist{800;3200}{m^2} on the \SIlist{140;200}{m} ships. A higher aspect ratio gains more: the \SI{800}{m^2} kite on the \SI{140}{m} ship saves 14.7\,\% at an aspect ratio of 5 and 15.3\,\% at 8, against 11.1\,\% at 3, and on VLSFO 2.4 and 2.7\,\% against 1.2\,\%. \tbd{Input screening and component prices, from the sensitivity and components figures once recomputed; state for each whether it changes the order of the rigs.}
+
+\begin{figure}[tbp]
+\centering
+\plot{forecast}
+\caption{Cost saving of a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails and \SI{800}{m^2} of rotors on the \SI{140}{m} e-methanol ship to Guadeloupe, routed with perfect foresight and re-planned every 24 hours on forecasts of 7 and 3 days, each against the ship without a rig routed the same way.}
+\label{fig:forecast}
+\end{figure}
+
+\subsection{Kite and rotors together}
+\label{sec:res_combination}
+
+A kite needs only a launch mast at the forward end of the deck and leaves the deck behind it free, so it can be added to a row of rotors. \Cref{fig:combination} compares the best pair of kite and rotors, from kites of \SIlist{400;800;1600}{m^2} over rotors filling a fifth, half and all of the deck left behind the launch mast, with the best of kites of \SIlist{400;800;1600;3200}{m^2} and the same rotors alone. On e-methanol the pair saves only \tbd{0.3} points more than the better single rig on the \SI{140}{m} ship and \tbd{0.1} on the Kamsarmax, at most \tbd{1} point on the best route, and on VLSFO it saves \tbd{0.7} and \tbd{0.2} points less; it keeps only \tbd{about 60}\,\% of the sum of the two single-rig savings. The likely reason, which we did not separate from the data, is that the two rigs saturate: in a moderate wind either alone covers most of the propulsive power the ship needs at the speed the router picks, so the second rig adds thrust where little is left to replace. Where the rotors leave most to gain, the kite adds least: it does not fly in light wind, least of all downwind, where the apparent wind is lowest, and close-hauled it gives little, so over much of the voyage the rotors work alone. Where both pull, their side forces add up in the hull's balance, and the extra leeway and rudder drag take back part of the thrust, although the kite's side force at the launch mast, ahead of the hull's lateral centre, offsets some of the rotors' yaw moment close-hauled. Each rig keeps its full capital and annual cost, so the combination pays twice for gains that overlap.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{combination}
+\caption{Kite and rotors together on the \SI{140}{m} ship and the Kamsarmax bulk carrier with a VLSFO and an e-methanol drive: (a) cost saving against the ship without a rig of the best kite of \SIlist{400;800;1600;3200}{m^2}, the best rotors at a fifth, half and all of the deck capacity left behind the kite's launch mast, and the best pair of a kite of \SIlist{400;800;1600}{m^2} and those rotors flown together; (b) the saving of that pair over the better of the best kite and the best rotors alone. Bars are the mean over the six routes, whiskers the range over them.}
+\label{fig:combination}
+\end{figure*}
+
+\subsection{Which rig, when}
+\label{sec:res_situations}
+
+\Cref{fig:situations} changes one input at a time on the \SI{140}{m} e-methanol ship to Guadeloupe and on a Kamsarmax bulk carrier to Tubarão, each time with the best of a few sizes of each rig. The fuel price decides most: on VLSFO between \SIrange{8}{30}{USD/GJ} the rotors lead throughout and save \tbd{0.7} to \tbd{11}\,\% on the \SI{140}{m} ship, while the wing sails pay only above about \tbd{20}\,USD/GJ. On e-methanol the rotors lead up to about \tbd{64}\,USD/GJ and the kite above it, by \tbd{2} points at \SI{120}{USD/GJ}; on the Kamsarmax the rotors lead over the whole range. At \SI{30}{USD/GJ} every rig saves \tbd{1 to 2} points more on e-methanol than on VLSFO, so the two drives do not join into one curve. A higher cargo value raises the cost of time, the router sails faster and every saving shrinks, the kite's fastest: from \tbd{25} to \tbd{9.5}\,\% between \SIrange{1000}{20000}{USD/t}, where it draws level with the rotors. A higher discount rate weighs on the capital-heavy rotors and wings more than on the kite, but between 4 and 16\,\% the rotors lose \tbd{10.6} points and the kite \tbd{8.5}, and they draw level only at the top of the range. No change to the wing sails makes them compete: at a quarter of their price they save \tbd{14}\,\% against the rotors' \tbd{23}\,\% on the \SI{140}{m} ship, and a life of 10 to 30 years moves them by \tbd{2} points. A higher rotor surface speed moves the saving by less than \tbd{0.2} points between \SIrange{35}{65}{m/s}, so in this model the surface speed does not limit the rotor, and the aspect ratio of the rotors moves their saving by \tbd{1} point on the \SI{140}{m} ship and \tbd{3} on the Kamsarmax, up and down with the number of rotors that fit.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{situations}
+\caption{Cost saving of the best size of each rig, from kites of \SIlist{800;1600;3200;6400}{m^2}, wing sails of \SIlist{800;1500;3000}{m^2} and rotors of \SIlist{400;800;1600}{m^2} on the \SI{140}{m} ship to Guadeloupe (solid) and around the class study's best sizes on a Kamsarmax bulk carrier to Tubarão (dashed), with one input changed at a time from its base (dashed grey line; the panel title gives the base value): (a) the fuel price, VLSFO up to \SI{30}{USD/GJ} and e-methanol from there; (b) the value of the cargo, on the \SI{140}{m} ship only; (c) the discount rate; (d) the life of the wing sails; (e) the unit and area price of the wing sails together; (f) the highest surface speed of the rotors; (g) the height over diameter of the rotors at the same highest rotor. All but (a) are on e-methanol. The rotor coefficients are the ShipCLEAN fit for an aspect ratio of 6, so (g) captures only the rotors' geometry, number, spacing and interference, not the change of their lift and drag with aspect ratio.}
+\label{fig:situations}
+\end{figure*}
+
+\Cref{fig:wind_angle} shows where on a voyage each rig earns its saving, from the routed round trips of the \SI{140}{m} e-methanol ship with the reference size of each rig, the edges of each routed track sorted by true wind angle. Without a rig the ship spends \tbd{26}\,\% of its time at sea close-hauled, below \SI{60}{\degree}, \tbd{27}\,\% abeam and \tbd{48}\,\% downwind, beyond \SI{120}{\degree}, but the routes differ: homeward from Dakar and Tubarão half of the time is close-hauled, homeward from New York \tbd{75}\,\% is downwind. Close-hauled the kite gives almost nothing, \tbd{6}\,kN on average, against \tbd{58}\,kN of the rotors; abeam and downwind the \SI{3200}{m^2} kite pulls \tbd{350} and \tbd{420}\,kN, the \SI{800}{m^2} of rotors \tbd{210} and \tbd{160}. The kite earns \tbd{60}\,\% of its propulsive work downwind, the rotors and wing sails about \tbd{60}\,\% abeam. Per dollar of rig cost, kite wear included, the rotors give the most thrust on every route but Bilbao, \tbd{80 to 88}\,kN per USD~\num{1000} a day; the kite comes closest on the route to New York, \tbd{74} against \tbd{80}, where the homeward leg runs before the westerlies.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{wind_angle}
+\caption{Where the wind comes from and where each rig pulls, from the weather-routed round trips of the \SI{140}{m} e-methanol ship over the sampled departures on every route: (a) share of the time at sea without a rig in each band of true wind angle, outbound (left bar) and homeward (right bar); (b) mean thrust of a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails and \SI{800}{m^2} of rotors in each band over all routes, each on its own routed track; (c) share of each rig's propulsive work, thrust times distance, from each band per route; (d) mean thrust at sea over the rig's cost per day at sea: the fixed cost it adds to the ship, spread over the round trip with its port calls, plus canopy and tether wear and launches of the kite.}
+\label{fig:wind_angle}
+\end{figure*}
