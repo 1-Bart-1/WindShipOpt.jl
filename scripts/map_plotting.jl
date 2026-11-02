@@ -1,5 +1,5 @@
-# Map layers shared by the route figures: land from the land mask, wind arrows and
-# smoothed tracks.
+# Map layers shared by the route figures: land from the land mask, wind arrows, smoothed
+# tracks and great circles.
 using WindShipOpt: is_land
 
 """
@@ -15,13 +15,13 @@ function draw_land!(axis, mask; lons=-75:0.25:10, lats=5:0.25:56)
 end
 
 """
-    draw_wind!(axis, weather, time; scale=0.18, lons=-74:4:8, lats=8:4:54)
+    draw_wind!(axis, weather, time; scale, lons=-74:4:8, lats=8:4:54)
 
 10 m wind arrows of `weather` at `time` [h] at the grid points `lons` and `lats` [deg].
 """
-function draw_wind!(axis, weather, time; scale=0.18, lons=-74:4:8, lats=8:4:54)
+function draw_wind!(axis, weather, time; scale, lons=-74:4:8, lats=8:4:54)
     points = [Point2f(lon, lat) for lon in lons for lat in lats]
-    vectors = [Vec2f(wind(weather, p[2], p[1], time)...) for p in points]
+    vectors = [Vec2f(wind(weather, point[2], point[1], time)...) for point in points]
     arrows2d!(axis, points, vectors .* Float32(scale); color=(:black, 0.35))
 end
 
@@ -35,8 +35,8 @@ function smooth_track(lons, lats)
     points = Point2f.(lons, lats)
     for _ in 1:3
         smoothed = [first(points)]
-        for (a, b) in zip(points[1:(end - 1)], points[2:end])
-            push!(smoothed, 0.75a + 0.25b, 0.25a + 0.75b)
+        for (here, ahead) in zip(points[1:(end - 1)], points[2:end])
+            push!(smoothed, 0.75here + 0.25ahead, 0.25here + 0.75ahead)
         end
         push!(smoothed, last(points))
         points = smoothed
@@ -45,19 +45,21 @@ function smooth_track(lons, lats)
 end
 
 """
-    great_circle(start, finish; points=100)
+    great_circle(start, finish)
 
 Longitudes and latitudes [deg] of the shortest path over the sphere between two path
 points given as (lat, lon, ...).
 """
-function great_circle(start, finish; points=100)
-    a, b = unit_vector(start[1], start[2]), unit_vector(finish[1], finish[2])
-    angle = acos(clamp(sum(a .* b), -1, 1))
+function great_circle(start, finish)
+    start_vector = unit_vector(start[1], start[2])
+    finish_vector = unit_vector(finish[1], finish[2])
+    angle = acos(clamp(sum(start_vector .* finish_vector), -1, 1))
     lons, lats = Float64[], Float64[]
-    for fraction in range(0, 1; length=points)
-        p = (sin((1 - fraction) * angle) .* a .+ sin(fraction * angle) .* b) ./ sin(angle)
-        push!(lons, atand(p[2], p[1]))
-        push!(lats, asind(p[3]))
+    for fraction in range(0, 1; length=100)
+        position = (sin((1 - fraction) * angle) .* start_vector .+
+                    sin(fraction * angle) .* finish_vector) ./ sin(angle)
+        push!(lons, atand(position[2], position[1]))
+        push!(lats, asind(position[3]))
     end
     return lons, lats
 end

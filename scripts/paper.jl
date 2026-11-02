@@ -2,11 +2,11 @@
 # environment:
 #
 #     include("paper.jl")
-#     paper()                          # every step: data, then figures and tables
-#     paper(; fidelity=:final)         # at the final resolution; :draft is faster
-#     paper(:designs, :rig_comparison) # only these steps
-#     paper(:figures)                  # all figures from the latest data
-#     paper(; resume=true)             # continue the latest unfinished run unasked
+#     paper(; fidelity=:final)                 # every step: data, then figures and tables
+#     paper(; fidelity=:draft)                 # the same, faster and marked as a draft
+#     paper(:designs, :routes; fidelity=:draft)  # only these steps
+#     paper(:figures; fidelity=:final)         # all figures from the latest final data
+#     paper(; fidelity=:draft, resume=true)    # continue the latest unfinished run unasked
 #
 # Data steps write CSV files to a run directory output/runs/<start time>/ with the record
 # run.toml and the finished round trips, so that a run cut short resumes; without `resume`
@@ -59,15 +59,16 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :abatement => abatement_figure, :combination => combination_figure]
 
 """
-    paper(names...; fidelity=:draft, resume=nothing)
+    paper(names...; fidelity, resume=nothing)
 
 Run the named steps, or every data step and then every figure and table step when no name
 is given, at `fidelity` (:draft or :final); `:data` and `:figures` run all steps of that
 kind. Any step but figures and tables alone runs in a new or resumed run: `resume` true
 takes the latest unfinished run at `fidelity`, false none, and nothing asks on stdin.
-Steps that run has done are skipped. A final run errors on a dirty tree or unpushed commit.
+Steps that run has done are skipped, and it counts as finished once every step asked of it
+is done. A final run errors on a dirty tree or unpushed commit.
 """
-function paper(names::Symbol...; fidelity=:draft, resume=nothing)
+function paper(names::Symbol...; fidelity, resume=nothing)
     haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
     steps = isempty(names) ? [data_steps; output_steps] :
             [step for name in names for step in selected_steps(name)]
