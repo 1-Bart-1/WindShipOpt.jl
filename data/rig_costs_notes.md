@@ -117,8 +117,7 @@ Per m² of sail area, base: 0.13 t/m² with 60 % steel (mast, structure, foundat
 | Base | 1,000           | 260          | 1,940              | 1,530     | 1,360     | 1,270       |
 | High | 2,300           | 525          | 4,180              | 3,350     | 3,000     | 2,830       |
 
-The base matches EMSA's 2021 asset cost for small hard sails (1,815 USD/m² at 280 m²) and exceeds it for large ones (1,016 USD/m² at 1,000 m²), while the high case brackets the WindWings price (3,400 USD/m² at 750 m²). EMSA's hard-sail row already reads like a series or target price, not a first-of-a-kind one. The finding: a series wing is cheaper than today's 2,000 USD/m² installed in `assumptions.yaml` mostly because that figure includes installation; ex works the base at 500 m² is ~1,530 USD/m², and ~1,760 installed at +15 %.
-
+The base matches EMSA's 2021 asset cost for small hard sails (1,815 USD/m² at 280 m²) and exceeds it for large ones (1,016 USD/m² at 1,000 m²), while the high case brackets the WindWings price (3,400 USD/m² at 750 m²). EMSA's hard-sail row already reads like a series or target price, not a first-of-a-kind one.
 Installation: no wing-specific figure exists; EMSA 2023 applies the same 15 % newbuild and +10 % retrofit to hard sails (Table 7).
 
 ## 3. Cargo capacity lost to deck rigs
@@ -158,7 +157,7 @@ Cars travel inside a PCTC; the weather deck is not a cargo deck, so a wing there
 
 Cargo sits below deck, so no cargo volume is lost; the cost is deadweight (the rig's mass) and interference with hatch covers, grabs and shore cranes. Solutions in service: Anemoi longitudinal rails on _Afros_ (2018, about 200 port calls) and transverse rails on the Kamsarmax _TR Lady_ (three 24×5 m rotors); five folding 35×5 m rotors on the 400,000 dwt _Sohar Max_, moved from the centreline to port or starboard during cargo operations (Lloyd's Register, Dec 2023); Norsepower hydraulic tilting foundation as an option (Norsepower 2025); WindWings fold flat. No price premium for rails, folding or tilting was found. Estimate: +5–20 % on the unit price for a hydraulic tilt or rail system (cylinders, hinge or bogie, power pack, longer foundation), base +10 %.
 
-## Proposed model inputs
+## First estimates, superseded by `cost_basis_notes.md` §5
 
 | Name                                       | Value   | Low    | High    | Unit             | Source                                                                                                                                                           | Strength                                 |
 | ------------------------------------------ | ------- | ------ | ------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |

@@ -25,6 +25,6 @@ This repository holds a ship and rig cost model, and a paper built on it: "Towin
 
 ## Running
 
-- Use Julia 1.12, with `Manifest-v1.12.toml.default` and `scripts/Manifest-v1.12.toml.default` copied to `Manifest-v1.12.toml` next to them.
+- Install with `./bin/install -y`; use Julia 1.12.
 - `paper(names...; fidelity, resume)` in `scripts/paper.jl` runs the studies. Each run writes to `output/runs/<stamp>/`, with its code hash and commit in `run.toml`.
-- A final run refuses a dirty tree or an unpushed commit, and its commit must be recorded in the metadata.
+- A final run refuses a dirty tree or an unpushed commit.

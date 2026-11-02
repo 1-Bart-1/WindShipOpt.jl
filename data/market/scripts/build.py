@@ -18,6 +18,7 @@ SIZE_EDGES = [(1e3, "<1 Mt"), (1e4, "1-10 Mt"), (5e4, "10-50 Mt"), (float("inf")
 DIST_EDGES = [(500, "<500 km"), (1500, "500-1500 km"), (4000, "1500-4000 km"),
               (10000, "4000-10000 km"), (float("inf"), ">10000 km")]
 PORT_CODE = re.compile(r"^[A-Z]{2}_[0-9][A-Z0-9]{5}$")
+UK_PARTNERS = ("UK", "UK_1", "UK_9")
 
 
 def size_class(kt):
@@ -97,7 +98,7 @@ def main(base):
     def partner_locations(port, partner):
         """[(lat, lon, weight, size class)] standing for the partner seen from `port`."""
         country = partner.split("_")[0]
-        if country in reporting and partner not in ("UK", "UK_1", "UK_9"):
+        if country in reporting and partner not in UK_PARTNERS:
             candidates = [q for q in ports_by_country[country] if q != port
                           and (partner == country or q.startswith(partner))]
             weights = {q: mirror.get((q, port[:2]), 0.0) for q in candidates}
@@ -140,7 +141,7 @@ def main(base):
             if kt <= 0:
                 continue
             country = partner.split("_")[0]
-            dedup = 0.5 if country in reporting and partner not in ("UK", "UK_1", "UK_9") else 1.0
+            dedup = 0.5 if country in reporting and partner not in UK_PARTNERS else 1.0
             dist = None if partner in UNKNOWN else pair_distance(port, partner)
             record = dict(rep_port=port, rep_name=rep_names.get(port, ""), rep_country=port[:2],
                         rep_size_class=size_class(throughput[port]), partner=partner,
@@ -169,7 +170,7 @@ def main(base):
     print(f"{len(out_rows)} flow rows; {len(bad)} of {len(checks)} groups where leaf sum != TOTAL")
     for c in bad[:10]:
         print("  ", c)
-    summarise(base, out_rows, throughput)
+    summarise(base, out_rows)
 
 
 def write_csv(path, rows):
@@ -202,7 +203,7 @@ def partner_size_split(row):
     return [(k, float(v)) for k, v in (item.split("=") for item in row["partner_size_mix"].split(";"))]
 
 
-def summarise(base, rows, throughput):
+def summarise(base, rows):
     known = [r for r in rows if r["distance_class"] != "unknown"]
     tables = {
         "summary_by_size_class.csv": share_table(
