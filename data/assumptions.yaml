@@ -543,13 +543,13 @@ canopy_cloth_weight:
   low: 60.0
   high: 200.0
   unit: g/m^2
-  reason: "Weight of the polyester ripstop of the canopy: the cheapest in a sweep over 40-200 g/m^2 on the 140 m e-methanol ship to Guadeloupe and New York with 1,600 and 3,200 m^2 kites, 100-110 g/m^2 by a parabola in log weight; 71 and 200 g/m^2 cost 0.4-1.9 % more. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+  reason: "Weight of the polyester ripstop of the canopy. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
 canopy_wear_rate:
   value: 0.13
   low: 0.052
   high: 0.26
   unit: g/m^2/h
-  reason: "Cloth weight lost per flight hour to flexing, flutter, chafe and seam wear, at 100 g/m^2, in the law life = weight * ln(margin) / rate. Set by owner decision on #4; sources and range in the canopy data note."
+  reason: "Cloth weight lost per flight hour to flexing, flutter, chafe and seam wear, at 100 g/m^2, in the law life = weight * ln(margin) / rate. Engineering estimate: nothing measures this rate on polyester canopy cloth. Maker statements, on our estimates of their cloth weights, imply a median of 0.12 and a span of 0.04-0.26: structural sail life of 3,500-4,000 h (Quantum 2015), Kubicek balloon cloth of 45-77 g/m^2 at 400 to over 1,000 h, SUP'AIR tandem paragliders at about 800 h."
 canopy_wear_lifetime:
   value: 0.0
   low: 2000.0
@@ -567,13 +567,13 @@ canopy_wear_weight_exponent:
   low: 1.0
   high: 1.5
   unit: "-"
-  reason: "Power of the cloth weight, over 100 g/m^2, in the mechanical wear life: an assumption; balloon cloth claims give 1.5."
+  reason: "Power of the cloth weight, over 100 g/m^2, in the mechanical wear life: an assumption; the Kubicek balloon cloth lives imply 1.5."
 canopy_retirement_strength:
   value: 0.0
   low: 0.27
   high: 0.7
   unit: "-"
-  reason: "Share of the new strength at which a canopy is retired however large its margin; 0 flies it to the force limit alone. The bounds span regulated fabric, which retires at 27-70 % of new strength."
+  reason: "Share of the new strength at which a canopy is retired however large its margin; 0 flies it to the force limit alone. The wear rate is rescaled to keep the wear life at 100 g/m^2. The bounds span the retirement limits of regulated fabric."
 canopy_life_factor:
   value: 1.0
   low: 0.5
@@ -633,7 +633,7 @@ cloth_uv_dose_per_weight:
   low: 0.4
   high: 1.7
   unit: MJ/m^2 per g/m^2
-  reason: "UV dose (295-385 nm) per g/m^2 of cloth weight that leaves 1/e of the strength, with the damaged surface layer a smaller share of heavier cloth. Raw polyester loses ~85 % of its strength in a year outdoors (Poly-Fiber 2006), 1.6 MJ/m^2 per g/m^2 for ~95 g/m^2 aircraft cloth at 300 MJ/m^2 a year; PA66 paraglider cloth of 34-42 g/m^2 lost 35-64 % of its warp strength after 72 h in a QUV tester at 0.76 W/m^2/nm (Maslanka et al. 2023), ~0.4-0.8 MJ/m^2 per g/m^2."
+  reason: "UV dose (295-385 nm) per g/m^2 that leaves 1/e of the strength of cloth of 100 g/m^2; other weights follow canopy_uv_weight_exponent. Raw polyester loses ~85 % of its strength in a year outdoors (Poly-Fiber 2006), 1.6 MJ/m^2 per g/m^2 for ~95 g/m^2 aircraft cloth at 300 MJ/m^2 a year; PA66 paraglider cloth of 34-42 g/m^2 lost 35-64 % of its warp strength after 72 h in a QUV tester at 0.76 W/m^2/nm (Maslanka et al. 2023), ~0.4-0.8 MJ/m^2 per g/m^2."
 canopy_uv_dose_rate:
   value: 0.02
   low: 0.012

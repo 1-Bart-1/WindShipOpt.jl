@@ -39,7 +39,7 @@ Base.@kwdef struct Hull
     displacement_volume::Float64
     "midship section coefficient [-]"
     midship_coefficient::Float64
-    "waterplane area coefficient [-]"
+    "waterplane area coefficient, estimated at the capped prismatic coefficient [-]"
     waterplane_coefficient::Float64
     "longitudinal centre of buoyancy forward of midships [% of length]"
     centre_of_buoyancy::Float64
@@ -77,13 +77,14 @@ end
 
 Hull of the given main dimensions [m] and block coefficient, with the form ratios of the
 reference coaster, its centre of buoyancy [% of length] unless given, and the factor on
-its calm-water resistance.
+its calm-water resistance. Its form terms stop at the prismatic coefficient
+`holtrop_max_prismatic`, while its displacement stays that of `block`.
 """
 function Hull(length, beam, draft, block, assumptions::Assumptions;
         centre_of_buoyancy=assumptions[:centre_of_buoyancy], resistance_factor=1.0)
     midship = assumptions[:midship_coefficient]
     max_prismatic = assumptions[:holtrop_max_prismatic]
-    prismatic = min(block / midship, max_prismatic)
+    prismatic = prismatic_coefficient(block, midship, max_prismatic)
     return Hull(; length, beam, draft,
         displacement_volume=length * beam * draft * block,
         midship_coefficient=midship,
@@ -97,8 +98,9 @@ end
 
 block_coefficient(hull::Hull) =
     hull.displacement_volume / (hull.length * hull.beam * hull.draft)
-prismatic_coefficient(hull::Hull) =
-    min(block_coefficient(hull) / hull.midship_coefficient, hull.max_prismatic)
+prismatic_coefficient(block, midship, max_prismatic) = min(block / midship, max_prismatic)
+prismatic_coefficient(hull::Hull) = prismatic_coefficient(block_coefficient(hull),
+    hull.midship_coefficient, hull.max_prismatic)
 displacement_mass(hull::Hull, env::Environment) =
     env.water_density * hull.displacement_volume
 

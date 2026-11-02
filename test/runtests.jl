@@ -123,10 +123,21 @@ end
     fixed = canopy(:canopy_wear_lifetime => 2000.0)
     @test fixed.wear_lifetime == 2000
     @test fixed.uv_lifetime ≈ canopy().uv_lifetime
-    # retirement at a share of the new strength shortens both clocks
+    # retirement shortens the UV clock and keeps the observed wear life at 100 g/m^2
     retired = canopy(:canopy_retirement_strength => 0.5)
     @test retired.uv_lifetime ≈ canopy().uv_lifetime * log(2) / log(margin(100))
+    @test retired.wear_lifetime ≈ canopy().wear_lifetime
+    for (share, life) in ((0.7, 834), (0.46, 1219), (0.27, 1451))
+        @test canopy(:canopy_retirement_strength => share).lifetime ≈ life atol = 1
+    end
+    # cloth whose force limit comes before the retirement share flies to the force limit
+    light, light_retired = (canopy(:canopy_cloth_weight => 20.0,
+            :canopy_retirement_strength => share) for share in (0.0, 0.27))
+    @test light_retired.uv_lifetime ≈ light.uv_lifetime
+    # the life factor scales the whole life, a fixed wear life included
     @test canopy(:canopy_life_factor => 2.0).lifetime ≈ 2canopy().lifetime
+    @test canopy(:canopy_wear_lifetime => 2000.0,
+        :canopy_life_factor => 2.0).wear_lifetime == 4000
 end
 
 @testset "hulls fuller than Holtrop's range use the formulas at its limit" begin
