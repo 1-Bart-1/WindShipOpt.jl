@@ -22,12 +22,15 @@ struct SeakeepingHull
     pitch_gyration::Float64
     "SNNM parameter set for the block coefficient"
     x::NTuple{29, Float64}
+    "JONSWAP peak enhancement factor of the sea it meets [-]"
+    peakedness::Float64
 end
 
 function SeakeepingHull(hull::Hull, assumptions::Assumptions)
     return SeakeepingHull(hull, assumptions[:entrance_length_ratio] * hull.length,
         run_length(hull), assumptions[:pitch_gyration_ratio],
-        block_coefficient(hull) >= 0.70 ? SNNM_FULL : SNNM_FINE)
+        block_coefficient(hull) >= 0.70 ? SNNM_FULL : SNNM_FINE,
+        assumptions[:wave_peakedness])
 end
 
 """
@@ -82,10 +85,12 @@ end
     following_motion(seakeeping, froude, speed, frequency, wavelength, heading, g)
 
 Motion part of C_AW from beam to following waves. In following waves it follows the
-energy-exchange rule of Liu & Papanikolaou (2020): minus the zero-speed head-wave value
-at rest, zero at a quarter of the wave phase speed, the zero-speed head-wave value at half
-of it, and beyond that the head-wave value at the relative Froude number. Between beam
-and following waves it is interpolated linearly in heading.
+energy-exchange rule of Liu & Papanikolaou (2020) as summarised by Mittendorf et al.
+(2022), applied to the whole motion term: minus the zero-speed head-wave value at rest,
+zero at a quarter of the wave phase speed, the zero-speed head-wave value at half of it,
+and beyond that the head-wave value at the relative Froude number. Between beam and
+following waves the whole motion term is interpolated linearly in heading, a
+simplification of Mittendorf et al. (2022), who interpolate only a1.
 """
 function following_motion(seakeeping::SeakeepingHull, froude, speed, frequency, wavelength,
         heading, g)
@@ -154,11 +159,11 @@ function reflection_coefficient(seakeeping::SeakeepingHull, froude, speed, frequ
 end
 
 """
-    jonswap(frequency, significant_height, peak_period; peakedness=3.3)
+    jonswap(frequency, significant_height, peak_period; peakedness)
 
 JONSWAP wave spectrum density [m^2 s/rad] at `frequency` [rad/s].
 """
-function jonswap(frequency, significant_height, peak_period; peakedness=3.3)
+function jonswap(frequency, significant_height, peak_period; peakedness)
     peak = 2π / peak_period
     width = frequency <= peak ? 0.07 : 0.09
     shape = exp(-(frequency - peak)^2 / (2width^2 * peak^2))
@@ -176,12 +181,13 @@ function added_resistance(seakeeping::SeakeepingHull, env::Environment, speed,
     significant_height > 0 && peak_period > 0 || return 0.0
     (; hull) = seakeeping
     scale = env.water_density * env.gravity * hull.beam^2 / hull.length
-    frequencies = range(0.15, 3.0; length=120)
+    frequencies = range(0.1, 6.0; length=240)
     step = frequencies[2] - frequencies[1]
     total = sum(frequencies) do frequency
         coefficient = added_resistance_coefficient(seakeeping, env, speed, frequency,
             heading)
-        return coefficient * jonswap(frequency, significant_height, peak_period)
+        return coefficient * jonswap(frequency, significant_height, peak_period;
+            peakedness=seakeeping.peakedness)
     end
     return 2scale * total * step
 end

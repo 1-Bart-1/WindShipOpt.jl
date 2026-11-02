@@ -6,11 +6,11 @@ against a conventional VLSFO coaster, with weather routing on a long ocean route
 """
 module WindShipOpt
 
-using Interpolations: Flat, Gridded, Linear, extrapolate, interpolate
 using Random: Random
 using Statistics: mean
 using Dates: DateTime, Dates
 using Mmap: Mmap
+using Optim: Optim
 using TOML: TOML
 using YAML: YAML
 
@@ -20,15 +20,18 @@ export SeakeepingHull, added_resistance, added_resistance_coefficient, jonswap
 export WingRig, KiteRig, RigForce, rig_force, apparent_wind
 export Propeller, Powertrain, delivered_power
 export ShipDesign, Ship, Fuel, fuel_power
-export PerformanceTable, lookup
-export LandMask, north_atlantic_mask, SyntheticWeather, ERA5Weather, wind, waves
-export Corridor, return_corridor, caribbean_corridors, centre_index, Leg, route
+export PerformanceTable, RouteTable, lookup
+export LandMask, GridMask, north_atlantic_mask, SyntheticWeather, ERA5Weather, wind, waves
+export Corridor, return_corridor, route_corridors, centre_index, Leg, route
+export ForecastWeather, forecast_route, ShipClass, ship_classes
 export ShipCosts, RoundTrip, round_trip, KNOT, NAUTICAL_MILE
 export LegTrace, sailing_speed
 
 include("assumptions.jl")
 include("hull.jl")
 include("waves.jl")
+include("pattern.jl")
+include("canopy.jl")
 include("rig.jl")
 include("propulsion.jl")
 include("ship.jl")

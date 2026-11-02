@@ -10,6 +10,8 @@ struct GriddedFields
     "hours from the weather origin to the first stored time [h]"
     time_offset::Float64
     step_hours::Float64
+    "stored times common to all fields"
+    steps::Int
     fields::Dict{String, Array{Float32, 3}}
 end
 
@@ -25,10 +27,11 @@ function GriddedFields(directory::AbstractString, origin::DateTime)
         fields[name] = Mmap.mmap(path, Array{Float32, 3}, (length(lons), length(lats), steps))
     end
     offset = Dates.value(DateTime(grid["first_time"]) - origin) / 3_600_000
-    return GriddedFields(lats, lons, offset, grid["step_hours"], fields)
+    steps = minimum(size(field, 3) for field in values(fields))
+    return GriddedFields(lats, lons, offset, grid["step_hours"], steps, fields)
 end
 
-step_count(fields::GriddedFields) = minimum(size(field, 3) for field in values(fields.fields))
+step_count(fields::GriddedFields) = fields.steps
 
 """
     ERA5Weather(directory)
@@ -40,6 +43,10 @@ struct ERA5Weather
     origin::DateTime
     wind::GriddedFields
     waves::GriddedFields
+    "east and north 10 m wind [m/s] per (longitude, latitude, time)"
+    wind_arrays::NTuple{2, Array{Float32, 3}}
+    "wave height [m], peak period [s] and east and north direction components, same axes"
+    wave_arrays::NTuple{4, Array{Float32, 3}}
 end
 
 function ERA5Weather(directory::AbstractString=joinpath(pkgdir(@__MODULE__), "era5"))
@@ -49,7 +56,10 @@ function ERA5Weather(directory::AbstractString=joinpath(pkgdir(@__MODULE__), "er
     direction = waves.fields["direction"]
     waves.fields["direction_east"] = sind.(direction)
     waves.fields["direction_north"] = cosd.(direction)
-    return ERA5Weather(origin, GriddedFields(joinpath(directory, "wind"), origin), waves)
+    wind = GriddedFields(joinpath(directory, "wind"), origin)
+    return ERA5Weather(origin, wind, waves, (wind.fields["u10"], wind.fields["v10"]),
+        (waves.fields["height"], waves.fields["period"], waves.fields["direction_east"],
+            waves.fields["direction_north"]))
 end
 
 "hours of weather available from the origin [h]"
@@ -98,10 +108,8 @@ function sample(fields::GriddedFields, arrays::NTuple{N}, lat, lon, time) where 
     return totals ./ weight_sum
 end
 
-function wind(weather::ERA5Weather, lat, lon, time)
-    fields = weather.wind.fields
-    return sample(weather.wind, (fields["u10"], fields["v10"]), lat, lon, time)
-end
+wind(weather::ERA5Weather, lat, lon, time) =
+    sample(weather.wind, weather.wind_arrays, lat, lon, time)
 
 """
     waves(weather, lat, lon, time)
@@ -110,10 +118,33 @@ Significant wave height [m], peak period [s] and the direction the waves come fr
 [rad clockwise from north]; zero height on land.
 """
 function waves(weather::ERA5Weather, lat, lon, time)
-    fields = weather.waves.fields
-    height, period, east, north = sample(weather.waves, (fields["height"],
-            fields["period"], fields["direction_east"], fields["direction_north"]),
-        lat, lon, time)
+    height, period, east, north = sample(weather.waves, weather.wave_arrays, lat, lon, time)
     isnan(height) && return 0.0, 0.0, 0.0
     return height, period, atan(east, north)
+end
+
+"""
+    GridMask(weather, islands)
+
+Land mask from the cells of the ERA5 wave grid that carry no wave data, plus `islands`
+too small for that grid; everything outside the grid counts as land.
+"""
+struct GridMask
+    lats::Vector{Float64}
+    lons::Vector{Float64}
+    "land per (longitude, latitude) cell"
+    land::BitMatrix
+    islands::Vector{Island}
+end
+
+GridMask(weather::ERA5Weather, islands::Vector{Island}) = GridMask(weather.waves.lats,
+    weather.waves.lons, isnan.(weather.waves.fields["height"][:, :, 1]), islands)
+
+function is_land(mask::GridMask, lat, lon)
+    on_island(mask.islands, lat, lon) && return true
+    first(mask.lats) <= lat <= last(mask.lats) || return true
+    first(mask.lons) <= lon <= last(mask.lons) || return true
+    i = argmin(abs.(mask.lons .- lon))
+    j = argmin(abs.(mask.lats .- lat))
+    return mask.land[i, j]
 end
