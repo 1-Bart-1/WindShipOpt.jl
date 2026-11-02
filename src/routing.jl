@@ -173,7 +173,7 @@ struct Leg
     path::Vector{NTuple{5, Float64}}
 end
 
-"kite down, parked aloft or flying patterns, as the mode of an edge"
+# kite down, parked aloft or flying patterns, as the mode of an edge
 const STOWED, PARKED, FLYING = 0, 1, 2
 
 """
