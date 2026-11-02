@@ -3,26 +3,28 @@
 using CairoMakie
 using Statistics
 using WindShipOpt
-using WindShipOpt: is_land
 
 include("setup.jl")
+include("map_plotting.jl")
 output = mkpath(joinpath(@__DIR__, "..", "output"))
+outbound, inbound = corridors(:caribbean, 8)
 
-designs = [ShipDesign(:methanol, 85.0), ShipDesign(:wing, 85.0; wing_area=800.0),
-    ShipDesign(:kite, 85.0; kite_area=400.0)]
+designs = [ShipDesign(:methanol, 85.0), ShipDesign(:methanol, 85.0; wing_area=800.0),
+    ShipDesign(:methanol, 85.0; kite_area=400.0)]
 labels = ["e-methanol", "wing 800 m²", "kite 400 m²"]
 colours = Makie.wong_colors()[1:3]
 ships = [Ship(design, assumptions) for design in designs]
-hourly = [WindShipOpt.time_cost(ShipCosts(ship, assumptions), assumptions) for ship in ships]
+hourly = [WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
+          for ship in ships]
 tables = [PerformanceTable(ship, assumptions) for ship in ships]
 port_hours = 24assumptions[:port_time_per_call]
 
 function round_trip_traces(index, departure)
     table = tables[index]
-    out = route(outbound, table, weather, departure; time_cost=hourly[index])
+    out = route(outbound, table, weather, departure; time_cost=first(hourly[index]))
     back_departure = departure + out.duration + port_hours
     back = route(inbound, table, weather, back_departure;
-        time_cost=hourly[index])
+        time_cost=last(hourly[index]))
     return LegTrace(table, out, weather, departure),
     LegTrace(table, back, weather, back_departure)
 end
@@ -30,20 +32,6 @@ end
 traces = Matrix{Any}(undef, length(designs), length(departures))
 Threads.@threads for job in CartesianIndices(traces)
     traces[job] = round_trip_traces(job[1], departures[job[2]])
-end
-
-function draw_land!(axis)
-    lats = range(5, 56; step=0.25)
-    lons = range(-70, 10; step=0.25)
-    land = [is_land(mask, lat, lon) for lon in lons, lat in lats]
-    heatmap!(axis, lons, lats, land; colormap=[:transparent, (:grey, 0.6)])
-end
-
-function draw_wind!(axis, time)
-    lons, lats = -66:4:6, 8:4:54
-    points = [Point2f(lon, lat) for lon in lons for lat in lats]
-    vectors = [Vec2f(wind(weather, p[2], p[1], time)...) for p in points]
-    arrows2d!(axis, points, vectors .* 0.18f0; color=(:black, 0.35))
 end
 
 # Map: outbound and return route of each design for two departures.
@@ -54,9 +42,9 @@ for (season, column) in (("winter", 1), ("summer", summer))
         axis = Axis(figure[1, leg_index]; title="$title, $season departure",
             xlabel="longitude [°]", ylabel="latitude [°]", aspect=DataAspect(),
             limits=(-68, 8, 8, 56))
-        draw_land!(axis)
+        draw_land!(axis, mask)
         first_trace = traces[1, column][leg_index]
-        draw_wind!(axis, departures[column] + mean(first_trace.time))
+        draw_wind!(axis, weather, departures[column] + mean(first_trace.time))
         corridor = leg_index == 1 ? outbound : inbound
         band = findall(vec(any(corridor.water; dims=1)))
         for lateral in (first(band), centre_index(corridor), last(band))
@@ -81,7 +69,7 @@ quantities = [
     ("wave height [m]", trace -> trace.wave_height),
     ("wave resistance [kN]", trace -> trace.added_resistance ./ 1e3),
     ("rig thrust [kN]", trace -> trace.rig_thrust ./ 1e3),
-    ("leeway drag [kN]", trace -> trace.induced_drag ./ 1e3),
+    ("leeway and rudder drag [kN]", trace -> trace.balance_drag ./ 1e3),
     ("fuel power [kW]", trace -> trace.fuel_power ./ 1e3)]
 for (leg_index, title) in ((1, "outbound, winter"), (2, "return, winter"))
     for (row, (ylabel, quantity)) in enumerate(quantities)
@@ -115,7 +103,8 @@ save(joinpath(output, "polars.png"), figure)
 # True wind angles sailed over all departures, weighted by time.
 figure = Figure(; size=(1100, 450))
 for (leg_index, title) in ((1, "outbound"), (2, "return"))
-    axis = Axis(figure[1, leg_index]; title="true wind angle sailed, $title, $(length(departures)) departures",
+    axis = Axis(figure[1, leg_index];
+        title="true wind angle sailed, $title, $(length(departures)) departures",
         xlabel="true wind angle [°]", ylabel="share of time")
     for (i, label) in enumerate(labels)
         angles_sailed = Float64[]

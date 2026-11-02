@@ -1,6 +1,11 @@
-# Download ERA5 for the North Atlantic into era5/<group>/, one Float32 file per variable
-# plus grid.toml. Wind: WeatherBench2's 1.5° 6-hourly copy (small chunks). Waves: ARCO-ERA5
-# 0.25° hourly, thinned to 0.5° and 12-hourly. Resumable: rerun to continue.
+# Download ERA5 for one region into era5/<group>/ (North Atlantic) or
+# era5/<region>/<group>/, one Float32 file per variable plus grid.toml. The region is the
+# ERA5_REGION environment variable:
+# - "atlantic" (default): Rotterdam to the Caribbean
+# - "north_sea": Rotterdam to Norway and Iceland
+# - "atlantic_wide": the Atlantic from Brazil and the US Gulf to Europe
+# Wind: WeatherBench2's 1.5° 6-hourly copy (small chunks). Waves: ARCO-ERA5 0.25° hourly,
+# thinned to 0.5° and 12-hourly. Resumable: rerun to continue.
 using Blosc
 using Dates
 using Downloads
@@ -11,9 +16,12 @@ arco = "$bucket/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3"
 weatherbench = "$bucket/weatherbench2/datasets/era5/" *
                "1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr"
 years = 2017:2019
-lat_range = (5.0, 56.0)
-lon_range = (-75.0, 10.0)
-output = joinpath(@__DIR__, "..", "era5")
+region = get(ENV, "ERA5_REGION", "atlantic")
+lat_range, lon_range, subdirectory = Dict(
+    "atlantic" => ((5.0, 56.0), (-75.0, 10.0), ""),
+    "north_sea" => ((50.0, 67.0), (-25.0, 14.0), "north_sea"),
+    "atlantic_wide" => ((-35.0, 56.0), (-100.0, 10.0), "atlantic_wide"))[region]
+output = joinpath(@__DIR__, "..", "era5", subdirectory)
 
 function fetch(url)
     for attempt in 1:6
