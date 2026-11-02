@@ -57,6 +57,8 @@ Base.@kwdef struct Hull
     appendage_form_factor::Float64
     "factor on the Holtrop calm-water resistance calibrating it to a source design [-]"
     resistance_factor::Float64 = 1.0
+    "largest prismatic coefficient the Holtrop formulas are evaluated at [-]"
+    max_prismatic::Float64 = 1.0
 end
 
 """
@@ -80,12 +82,13 @@ its calm-water resistance.
 function Hull(length, beam, draft, block, assumptions::Assumptions;
         centre_of_buoyancy=assumptions[:centre_of_buoyancy], resistance_factor=1.0)
     midship = assumptions[:midship_coefficient]
-    prismatic = block / midship
+    max_prismatic = assumptions[:holtrop_max_prismatic]
+    prismatic = min(block / midship, max_prismatic)
     return Hull(; length, beam, draft,
         displacement_volume=length * beam * draft * block,
         midship_coefficient=midship,
         waterplane_coefficient=0.763 * (prismatic + 0.34),
-        centre_of_buoyancy, resistance_factor,
+        centre_of_buoyancy, resistance_factor, max_prismatic,
         bulb_area=assumptions[:bulb_area_ratio] * beam * draft * midship,
         bulb_height=assumptions[:bulb_height_ratio] * draft,
         appendage_area=assumptions[:appendage_area_ratio] * length * draft,
@@ -94,7 +97,8 @@ end
 
 block_coefficient(hull::Hull) =
     hull.displacement_volume / (hull.length * hull.beam * hull.draft)
-prismatic_coefficient(hull::Hull) = block_coefficient(hull) / hull.midship_coefficient
+prismatic_coefficient(hull::Hull) =
+    min(block_coefficient(hull) / hull.midship_coefficient, hull.max_prismatic)
 displacement_mass(hull::Hull, env::Environment) =
     env.water_density * hull.displacement_volume
 

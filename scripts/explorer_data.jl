@@ -37,9 +37,7 @@ Price changes at which the checked designs are rerun, as (label, values by input
 """
 function explorer_changes()
     rate = assumptions.entries[:discount_rate]
-    return [("canopy life ×2",
-            (cloth_uv_dose_per_weight=2assumptions[:cloth_uv_dose_per_weight],
-                canopy_wear_lifetime=2assumptions[:canopy_wear_lifetime])),
+    return [("canopy life ×2", (canopy_life_factor=2assumptions[:canopy_life_factor],)),
         ("fuel −30 %", fuel_prices(0.7)), ("fuel +30 %", fuel_prices(1.3)),
         ("discount rate low", (discount_rate=rate.low,)),
         ("discount rate high", (discount_rate=rate.high,)),

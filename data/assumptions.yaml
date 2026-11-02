@@ -52,6 +52,12 @@ block_coefficient:
   high: 0.87
   unit: "-"
   reason: "MAN ES (2018) lists coasters at C_B 0.70-0.85; Watson-Gilfillan gives 0.79 at Fn 0.20; the dimensions and deadweight of the CF3850 and CIP3800 imply 0.85 or more. With 13.2 m beam it reproduces ~3,800 dwt."
+holtrop_max_prismatic:
+  value: 0.85
+  low: 0.85
+  high: 1.0
+  unit: "-"
+  reason: "Largest prismatic coefficient at which the Holtrop-Mennen formulas are evaluated: the top of the tanker and bulk carrier range 0.73-0.85 and of the range of validity 0.55-0.85 tabulated by Ortigosa et al. (2009), second-hand, since Holtrop and Mennen (1982) and Holtrop (1984) state no numbers; the 1982 paper limits the method to hulls resembling its average ship and calls its high-block adjustments tentative. 1 leaves the hull uncapped."
 midship_coefficient:
   value: 0.99
   low: 0.98
@@ -538,12 +544,42 @@ canopy_cloth_weight:
   high: 200.0
   unit: g/m^2
   reason: "Weight of the polyester ripstop of the canopy: the cheapest in a sweep over 40-200 g/m^2 on the 140 m e-methanol ship to Guadeloupe and New York with 1,600 and 3,200 m^2 kites, 100-110 g/m^2 by a parabola in log weight; 71 and 200 g/m^2 cost 0.4-1.9 % more. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+canopy_wear_rate:
+  value: 0.13
+  low: 0.052
+  high: 0.26
+  unit: g/m^2/h
+  reason: "Cloth weight lost per flight hour to flexing, flutter, chafe and seam wear, at 100 g/m^2, in the law life = weight * ln(margin) / rate. Set by owner decision on #4; sources and range in the canopy data note."
 canopy_wear_lifetime:
-  value: 4000.0
+  value: 0.0
   low: 2000.0
-  high: 10000.0
+  high: 5000.0
   unit: flight hours
-  reason: "Flight hours until flexing, flutter, chafe at launch and landing and seam wear end a canopy whose cloth sunlight does not weaken: woven polyester sails last 1,700-4,000 h under steady load (Quantum 2015) and Kitepower rates its pumping kite at 4,000 h (Kitepower 2024); paraglider cloth loses porosity, not strength, in flex tests (Maslanka et al. 2023)."
+  reason: "Fixed life against mechanical wear that replaces the wear law; 0 uses the law. The bounds are the sensitivity of a life independent of cloth weight."
+canopy_uv_weight_exponent:
+  value: 0.4
+  low: 0.1
+  high: 1.0
+  unit: "-"
+  reason: "Power of the cloth weight, over 100 g/m^2, in the UV life: 0.40 +/- 0.12 pooled over 40-1,500 g/m^2, 0.1 +/- 0.4 in one nine-weight sailcloth series; details in the canopy data note."
+canopy_wear_weight_exponent:
+  value: 1.0
+  low: 1.0
+  high: 1.5
+  unit: "-"
+  reason: "Power of the cloth weight, over 100 g/m^2, in the mechanical wear life: an assumption; balloon cloth claims give 1.5."
+canopy_retirement_strength:
+  value: 0.0
+  low: 0.27
+  high: 0.7
+  unit: "-"
+  reason: "Share of the new strength at which a canopy is retired however large its margin; 0 flies it to the force limit alone. The bounds span regulated fabric, which retires at 27-70 % of new strength."
+canopy_life_factor:
+  value: 1.0
+  low: 0.5
+  high: 8.0
+  unit: "-"
+  reason: "Factor on the canopy life, 1 in the base case, for the studies that vary the life as a whole."
 canopy_cloth_area_ratio:
   value: 3.5
   low: 3.0
@@ -669,7 +705,7 @@ kite_parked_wear_fraction:
   low: 0.2
   high: 1.0
   unit: "-"
-  reason: "Engineering estimate of canopy and tether wear per hour parked at the edge of the wind window over wear per hour flying patterns: less load cycling, the same exposure to sun and flutter."
+  reason: "Engineering estimate of mechanical wear of canopy and tether per hour parked at the edge of the wind window over the same per hour flying patterns: less load cycling. UV ageing runs at its full rate while parked."
 kite_max_wind:
   value: 25.0
   low: 20.0

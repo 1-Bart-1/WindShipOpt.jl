@@ -101,6 +101,56 @@ end
     @test WindShipOpt.Canopy(heavy).lifetime > WindShipOpt.Canopy(light).lifetime
 end
 
+@testset "canopy life follows the wear law and its sensitivities" begin
+    canopy(changes...) = WindShipOpt.Canopy(foldl((values, change) -> with_value(values,
+            change...), changes; init=with_value(assumptions, :canopy_cloth_weight, 100.0)))
+    uv_rate = assumptions[:canopy_uv_dose_rate] / assumptions[:cloth_uv_dose_per_weight]
+    wear_rate = assumptions[:canopy_wear_rate]
+    tension = 1e3assumptions[:kite_max_force_per_area] * assumptions[:canopy_panel_radius]
+    margin(weight) = assumptions[:cloth_specific_strength] * weight /
+                     (assumptions[:canopy_strength_factor] * tension)
+    # at the normalising weight the exponents do not matter
+    @test canopy().lifetime ≈ 100log(margin(100)) / (uv_rate + wear_rate)
+    @test canopy(:canopy_uv_weight_exponent => 1.0).lifetime ≈ canopy().lifetime
+    # UV life grows with weight^0.4, mechanical life with weight^1
+    heavy = canopy(:canopy_cloth_weight => 200.0)
+    @test heavy.uv_lifetime ≈ 100 * 2^0.4 * log(margin(200)) / uv_rate
+    @test heavy.wear_lifetime ≈ 200log(margin(200)) / wear_rate
+    @test 1 / heavy.lifetime ≈ 1 / heavy.uv_lifetime + 1 / heavy.wear_lifetime
+    steep = canopy(:canopy_cloth_weight => 200.0, :canopy_wear_weight_exponent => 1.5)
+    @test steep.wear_lifetime ≈ 100 * 2^1.5 * log(margin(200)) / wear_rate
+    # a fixed mechanical life replaces the wear law and leaves the UV life alone
+    fixed = canopy(:canopy_wear_lifetime => 2000.0)
+    @test fixed.wear_lifetime == 2000
+    @test fixed.uv_lifetime ≈ canopy().uv_lifetime
+    # retirement at a share of the new strength shortens both clocks
+    retired = canopy(:canopy_retirement_strength => 0.5)
+    @test retired.uv_lifetime ≈ canopy().uv_lifetime * log(2) / log(margin(100))
+    @test canopy(:canopy_life_factor => 2.0).lifetime ≈ 2canopy().lifetime
+end
+
+@testset "hulls fuller than Holtrop's range use the formulas at its limit" begin
+    env = Environment(assumptions)
+    classes = ship_classes()
+    uncapped = with_value(assumptions, :holtrop_max_prismatic, 1.0)
+    full = classes["Kamsarmax bulk carrier"]
+    capped_hull, free_hull = (Hull(full, values) for values in (assumptions, uncapped))
+    @test WindShipOpt.prismatic_coefficient(capped_hull) == 0.85
+    @test WindShipOpt.prismatic_coefficient(free_hull) ≈ 0.88 / 0.99
+    # the true displacement stays, and the calibration still meets the source design
+    @test capped_hull.displacement_volume == free_hull.displacement_volume
+    service = full.service_speed * WindShipOpt.KNOT
+    @test resistance(capped_hull, env, service) ≈ resistance(free_hull, env, service)
+    @test capped_hull.resistance_factor > free_hull.resistance_factor
+    # less of the excess wave resistance at service speed means more resistance when slow
+    slow = 0.7service
+    @test resistance(capped_hull, env, slow) > 1.05resistance(free_hull, env, slow)
+    # a class inside the range does not move
+    inside = classes["VLCC"]
+    @test resistance(Hull(inside, assumptions), env, 6.0) ==
+          resistance(Hull(inside, uncapped), env, 6.0)
+end
+
 # Tillig & Ringsberg (2020) give a lift coefficient of about 9.5 at spin ratio 3.
 @testset "rotor coefficients reproduce the ShipCLEAN lift at spin ratio 3" begin
     lift, drag, power = WindShipOpt.rotor_coefficients(3.0)
@@ -122,6 +172,20 @@ function uniform_kite(hull, assumptions)
         attach_position=WindShipOpt.launch_mast_position(hull, assumptions),
         wind_speeds=collect(3.0:3.0:30.0), courses=deg2rad.(0.0:15.0:180.0),
         side_weights=[0.0, 1.0], forces=fill(pattern, 10, 13, 2))
+end
+
+@testset "a parked kite ages in the sun at the full rate and wears less" begin
+    rig = uniform_kite(Hull(140.0, assumptions), assumptions)
+    canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
+    life = WindShipOpt.Canopy(assumptions)
+    fraction = assumptions[:kite_parked_wear_fraction]
+    @test WindShipOpt.parked_wear_cost(rig, assumptions) ≈
+          canopy * (1 / life.uv_lifetime + fraction / life.wear_lifetime) +
+          fraction * tether / assumptions[:tether_lifetime]
+    @test WindShipOpt.wear_cost(rig, assumptions) ≈
+          canopy / life.lifetime + tether / assumptions[:tether_lifetime]
+    still = with_value(assumptions, :kite_parked_wear_fraction, 0.0)
+    @test WindShipOpt.parked_wear_cost(rig, still) ≈ canopy / life.uv_lifetime
 end
 
 @testset "combined rig force is the sum of kite and rotor forces at a fixed trim" begin

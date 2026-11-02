@@ -205,7 +205,7 @@ end
 
 "inputs of the situation study that stand for a factor on several assumptions at once"
 scaled_inputs = Dict(
-    :kite_life => (:cloth_uv_dose_per_weight, :canopy_wear_lifetime, :tether_lifetime),
+    :kite_life => (:canopy_life_factor, :tether_lifetime),
     :wing_price => (:wing_unit_cost, :wing_cost_per_area))
 
 """
@@ -804,7 +804,7 @@ function components_data()
             :docking_head_cost, :control_unit_cost,
             :control_unit_cost_per_area, :kite_integration_fraction,
             :canopy_making_cost_per_area, :tether_price, :cloth_uv_dose_per_weight,
-            :canopy_wear_lifetime, :tether_lifetime],
+            :canopy_wear_rate, :tether_lifetime],
         "wings" => [:wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction,
             :retractable_rig_premium, :wing_lifetime],
         "rotors" => [:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
