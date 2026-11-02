@@ -112,9 +112,7 @@ Indices of the cheapest design of each rig, and of the ship without a rig, on ea
 """
 function checked_designs(cases, trips)
     chosen = Int[]
-    for (class, drive, route) in explorer_check_ships, rig in ("none", "kite", "wings",
-        "rotors")
-
+    for (class, drive, route) in explorer_check_ships, rig in all_rigs
         best = 0
         for k in eachindex(cases)
             (cases[k].class, cases[k].drive, cases[k].route, cases[k].rig) ==
@@ -126,19 +124,6 @@ function checked_designs(cases, trips)
         best > 0 && push!(chosen, best)
     end
     return chosen
-end
-
-"""
-    changed_assumptions(changes)
-
-The base assumptions with the inputs of the named tuple `changes` at its values.
-"""
-function changed_assumptions(changes)
-    changed = assumptions
-    for (name, value) in pairs(changes)
-        changed = with_value(changed, name, value)
-    end
-    return changed
 end
 
 """
@@ -158,10 +143,8 @@ Name, label and tonne-km per tonne of cargo of route `name`, with the backhaul s
 the return leg.
 """
 function explorer_route(name)
-    out, back = run_corridors(name)
-    tonne_km_per_tonne = (out.track_length +
-                          assumptions[:backhaul_fraction] * back.track_length) / 1e3
-    return (; name=string(name), label=route_label(name), tonne_km_per_tonne)
+    return (; name=string(name), label=route_label(name),
+        tonne_km_per_tonne=tonne_km_per_tonne(name))
 end
 
 """

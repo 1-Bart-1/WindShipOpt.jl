@@ -969,57 +969,13 @@ carbon_coverage:
   unit: "-"
   reason: "A 3,500 dwt coaster measures ~2,500 GT (Damen CF3850: 2,570 GT), below the 5,000 GT threshold of EU ETS and FuelEU, so it pays nothing today. A July 2026 Commission proposal would bring smaller ships into the ETS from 2031; Rotterdam-Guadeloupe is then an intra-EU voyage counted in full."
 
-# --- island delivery chains ---
-island_quay_depth:
-  value: 9.75
-  low: 9.0
-  high: 10.6
-  unit: m
-  reason: "Roseau/Woodbridge Bay quay depth (CDB, Transforming the Caribbean Port Services Industry, c.2016, p.99); Kingstown 9.75 m, St John's 10.6 m, Grenada 9.0 m."
-hub_draft_limit:
-  value: 11.5
-  low: 11.5
-  high: 11.5
-  unit: m
-  reason: "Maximum draft at Pointe-a-Pitre/Jarry, ships of ~2,500 TEU (CPDP Debat public Port de Guadeloupe, synthesis of the DMAO)."
-under_keel_clearance:
-  value: 0.5
-  low: 0.3
-  high: 1.0
-  unit: m
-  reason: "Engineering assumption, no source searched: static under-keel clearance at a sheltered quay."
-transshipment_lift_cost:
-  value: 125.0
-  low: 125.0
-  high: 250.0
-  unit: USD/lift
-  reason: "DP World Caucedo 2026 transshipment tariff per lift; the tariff does not say whether both lifts at the hub are billed, so the high end bills each lift."
-transshipment_lifts:
-  value: 1.0
-  low: 1.0
-  high: 2.0
-  unit: "-"
-  reason: "Lifts billed per box at the hub: one by the Caucedo tariff reading, two if discharge and reload are billed separately."
+# --- cargo units ---
 cargo_per_teu:
   value: 10.2
   low: 8.0
   high: 14.0
   unit: t
   reason: "Mean cargo mass per loaded TEU handled in EU ports (Eurostat)."
-hub_dwell:
-  value: 5.0
-  low: 3.0
-  high: 12.0
-  unit: days
-  reason: "Transshipment takes more than 5 days (IDB, Caribbean Regional Action Plan on Freight Logistics, TN-712, 2014); Kingston container dwell exceeded 12 days in May (Port Technology)."
-feeder_market_price:
-  value: 3352.0
-  low: 2127.0
-  high: 4577.0
-  unit: USD/TEU
-  reason: "Hapag-Lloyd Eastern Caribbean feeder charge per 20' box to Dominica, St Kitts & Nevis, Antigua, St Lucia and Grenada, Oct 2026 to Mar 2027 (Container News, 15 Sep 2026); the base is the midpoint. A market price, not a cost."
-
-# --- cargo units ---
 teu_tare_mass:
   value: 1.85
   low: 1.85

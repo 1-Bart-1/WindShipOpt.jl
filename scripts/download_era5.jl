@@ -62,13 +62,12 @@ function weatherbench_source()
     lats = decode(Float64, "$weatherbench/latitude/0")
     lons = signed_lon.(decode(Float64, "$weatherbench/longitude/0"))
     rows = sort(findall(lat -> in_range(lat, lat_range), lats); by=row -> lats[row])
-    columns = sortperm(lons)
-    columns = filter(column -> in_range(lons[column], lon_range), columns)
+    columns = filter(column -> in_range(lons[column], lon_range), sortperm(lons))
     origin = DateTime(1959)
-    steps = [Dates.value(DateTime(year) - origin) ÷ 21_600_000 for year in years]
-    first_step = first(steps)
+    first_step = Dates.value(DateTime(first(years)) - origin) ÷ 21_600_000
     last_step = Dates.value(DateTime(last(years) + 1) - origin) ÷ 21_600_000 - 1
-    chunks = [(chunk, [step - 8chunk + 1 for step in max(8chunk, first_step):min(8chunk + 7, last_step)])
+    chunks = [(chunk, [step - 8chunk + 1
+                       for step in max(8chunk, first_step):min(8chunk + 7, last_step)])
               for chunk in (first_step ÷ 8):(last_step ÷ 8)]
     times = [origin + Hour(6step) for step in first_step:last_step]
     read_chunk(url) = reshape(decode(Float32, url), length(lats), length(lons), 8)
@@ -77,13 +76,13 @@ function weatherbench_source()
         times, read_chunk)
 end
 
-function arco_source(step_hours)
+function arco_source()
     lats = collect(90.0:-0.25:-90.0)
     lons = signed_lon.(collect(0.0:0.25:359.75))
     rows = reverse(findall(lat -> in_range(lat, lat_range) && iszero(mod(lat, 0.5)), lats))
     columns = filter(column -> in_range(lons[column], lon_range) &&
                                    iszero(mod(lons[column], 0.5)), sortperm(lons))
-    times = collect(DateTime(first(years)):Hour(step_hours):DateTime(last(years), 12, 31, 12))
+    times = collect(DateTime(first(years)):Hour(12):DateTime(last(years), 12, 31, 12))
     chunks = [(Dates.value(time - DateTime(1900)) ÷ 3_600_000, [1]) for time in times]
     read_chunk(url) = permutedims(reshape(decode(Float32, url), 1440, 721, 1), (2, 1, 3))
     variables = Dict("height" => "significant_height_of_combined_wind_waves_and_swell",
@@ -103,20 +102,24 @@ function download(source::Source, group)
     end
     field_bytes = length(source.lats) * length(source.lons) * sizeof(Float32)
     files = Dict(name => open(joinpath(directory, "$name.f32"), "a+") for name in names)
-    done = minimum(filesize(joinpath(directory, "$name.f32")) ÷ field_bytes for name in names)
+    done = minimum(filesize(joinpath(directory, "$name.f32")) ÷ field_bytes
+                   for name in names)
     for io in values(files)
         truncate(io, done * field_bytes)
         seekend(io)
     end
-    chunk_start = findfirst(i -> sum(length(last(c)) for c in source.chunks[1:i]) > done,
+    chunk_start = findfirst(
+        i -> sum(length(last(entry)) for entry in source.chunks[1:i]) > done,
         eachindex(source.chunks))
     isnothing(chunk_start) && return println(group, " complete")
-    skip = done - sum(length(last(c)) for c in source.chunks[1:(chunk_start - 1)]; init=0)
+    skip = done - sum(length(last(entry)) for entry in source.chunks[1:(chunk_start - 1)];
+        init=0)
     for batch in Iterators.partition(chunk_start:length(source.chunks), 8)
         jobs = [(name, index) for index in batch for name in names]
         blocks = asyncmap(jobs; ntasks=16) do (name, index)
             chunk = first(source.chunks[index])
-            block = source.read_chunk("$(source.store)/$(source.variables[name])/$chunk.0.0")
+            url = "$(source.store)/$(source.variables[name])/$chunk.0.0"
+            block = source.read_chunk(url)
             return block[source.rows, source.columns, last(source.chunks[index])]
         end
         for ((name, index), block) in zip(jobs, blocks)
@@ -134,4 +137,4 @@ function download(source::Source, group)
 end
 
 download(weatherbench_source(), "wind")
-download(arco_source(12), "waves")
+download(arco_source(), "waves")

@@ -33,7 +33,7 @@ on 2026-10-31.
 4. Flows between two reporting countries appear at both ends, so they get weight
    0.5 (`dedup_weight`).
 5. Sea distance: shortest path over a hand-built sea-lane graph
-   (`scripts/seagraph.py`, about 190 waypoints, with the Kiel, Suez and Panama
+   (`scripts/seagraph.py`, 185 waypoints, with the Kiel, Suez and Panama
    canals). Each port joins the graph at its nearest waypoint. Checks against
    published distances from Rotterdam (Shanghai, Houston, New York, Santos,
    Gdansk, Singapore, Genoa, Sabetta) agree within 5–10%. `sea_km_no_suez`
@@ -49,7 +49,7 @@ on 2026-10-31.
 | `port_throughput_2024.csv`             | 545 main ports: throughput, coordinates, size class                                     |
 | `summary_by_*.csv`                     | shares of tonnes and tonne-km by size class, distance, cargo, cargo × distance, partner |
 | `top20_pairs_RTM_ANR_HAM.csv`          | top 20 Rotterdam / Antwerp-Bruges / Hamburg pairs by tonne-km                           |
-| `north_europe_route_groups_2024.csv`   | NL, BE, DE North Sea and FR Atlantic ports by partner region                            |
+| `north_europe_route_groups_2024.csv`   | NL, BE, DE North Sea and FR Atlantic ports by partner region; `scripts/route_groups.py` |
 | `imo_ghg4_transport_work_*.csv`        | 2018 transport work by ship type and size, and its share by dwt class                   |
 | `unctad_tonne_miles_by_cargo.csv`      | world tonne-miles by cargo (2023–24 partly read off a chart; 2018 from IMO Table 71)    |
 

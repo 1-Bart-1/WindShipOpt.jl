@@ -1,5 +1,5 @@
-# Data steps of the paper: each runs the round trips of one study and writes one CSV file
-# to the directory of the run in use. Included by paper.jl.
+# Data steps of the paper: each runs one study and writes its data files to the directory
+# of the run in use. Included by paper.jl.
 
 "drives compared where the drive is a dimension of the study"
 study_drives = (:vlsfo, :methanol, :hydrogen)
@@ -59,7 +59,8 @@ end
 
 Write `name` to the directory of the run in use with the given label `columns` of each
 case and the cost [USD/tkm], fuel [MJ/tkm], CO2 [kg/tkm], round-trip days, kite flight and
-parked shares, kite launches per round trip and cargo [t] of each feasible trip.
+parked shares, kite launches per round trip, cargo [t] and whether the rig retracts, of
+each feasible trip.
 """
 function write_trips(name, cases, trips, columns...)
     open(run_file(name), "w") do io
@@ -139,19 +140,31 @@ function write_pattern(paths, forces, model, max_force, min_elevation, wind, cou
 end
 
 """
-    kite_market_prices(assumptions)
+    changed_assumptions(changes)
 
-`assumptions` with every kite hardware and canopy price and the market price factor at
-their high bounds, close to the prices of the kite systems sold so far.
+The base assumptions with the inputs of the named tuple `changes` at its values.
 """
-function kite_market_prices(assumptions)
-    for name in (:winch_fixed_cost, :winch_cost_per_force, :launch_mast_mass_coefficient,
+function changed_assumptions(changes)
+    changed = assumptions
+    for (name, value) in pairs(changes)
+        changed = with_value(changed, name, value)
+    end
+    return changed
+end
+
+"""
+    kite_market_prices()
+
+The assumptions with every kite hardware and canopy price and the market price factor at
+their high bounds.
+"""
+function kite_market_prices()
+    names = (:winch_fixed_cost, :winch_cost_per_force, :launch_mast_mass_coefficient,
         :docking_head_cost, :control_unit_cost, :control_unit_cost_per_area,
         :kite_integration_fraction, :canopy_making_cost_per_area,
         :canopy_cloth_base_price, :canopy_cloth_price_per_weight, :market_price_factor)
-        assumptions = with_value(assumptions, name, assumptions.entries[name].high)
-    end
-    return assumptions
+    return changed_assumptions(NamedTuple(name => assumptions.entries[name].high
+                                          for name in names))
 end
 
 "design keyword of each rig"
@@ -171,11 +184,14 @@ Length of the 140 m reference ship, or the ship class of name `ship`, for a desi
 """
 study_hull(ship) = ship == "140 m" ? 140.0 : ship_classes()[ship]
 
-"reference size of each rig on the 140 m ship, close to the best on e-methanol"
+"reference size of each rig on the 140 m ship"
 reference_rigs = [("kite", 3200.0), ("wings", 1500.0), ("rotors", 800.0)]
 
+"the rigs, as named in the output"
+rig_names = ("kite", "wings", "rotors")
+
 "the ship without a rig and the rigs, as named in the output"
-all_rigs = ("none", "kite", "wings", "rotors")
+all_rigs = ("none", rig_names...)
 
 """
     scaled(names, factor)
@@ -183,11 +199,8 @@ all_rigs = ("none", "kite", "wings", "rotors")
 The assumptions with each input in `names` at `factor` times its base value.
 """
 function scaled(names, factor)
-    changed = assumptions
-    for name in names
-        changed = with_value(changed, name, factor * assumptions[name])
-    end
-    return changed
+    return changed_assumptions(NamedTuple(name => factor * assumptions[name]
+                                          for name in names))
 end
 
 "inputs of the situation study that stand for a factor on several assumptions at once"
@@ -231,7 +244,7 @@ situation_inputs = Dict(:vlsfo_price => ((8.0, 12.0, 22.0, 30.0), all_rigs),
     :wing_price => ((0.25, 0.5, 0.75, 1.5), ("wings",)),
     :rotor_max_surface_speed => ((35.0, 40.0, 55.0, 65.0), ("rotors",)))
 
-"rig sizes [m^2] of each ship of the situation study, around the best of the class study"
+"rig sizes [m^2] of each ship of the situation study"
 situation_sizes = Dict(
     "140 m" => Dict("kite" => (800.0, 1600.0, 3200.0, 6400.0),
         "wings" => (800.0, 1500.0, 2400.0), "rotors" => (400.0, 800.0, 1600.0)),
@@ -385,9 +398,7 @@ sea [USD/h]: wind_angle.csv.
 function wind_angle_data()
     cases = vec([(name, rig, area) for name in route_names,
                  (rig, area) in [("none", 0.0); reference_rigs]])
-    for (rig, area) in reference_rigs
-        rig == "kite" && Ship(ShipDesign(:methanol, 140.0; kite_area=area), assumptions)
-    end
+    Ship(ShipDesign(:methanol, 140.0; kite_area=Dict(reference_rigs)["kite"]), assumptions)
     results = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         results[k] = angle_sums(cases[k]...)
@@ -439,31 +450,40 @@ function cost_parts(ship, trip, case_assumptions)
 end
 
 """
+    tonne_km_per_tonne(name)
+
+Tonne-km per tonne of outbound cargo of a round trip on route `name`, with the backhaul
+share of the return leg.
+"""
+function tonne_km_per_tonne(name)
+    outbound, inbound = run_corridors(name)
+    return (outbound.track_length +
+            assumptions[:backhaul_fraction] * inbound.track_length) / 1e3
+end
+
+"""
     designs_data()
 
 The design grid on the route to Guadeloupe: length, the [`study_drives`](@ref) and size of
-each rig, a carbon price on VLSFO, kites without flight drag and at market prices, kite
-aspect ratio and canopy life, with the cost per tonne-km split into its parts: designs.csv.
+each rig, a carbon price on VLSFO, kites without flight drag and at market prices, and kite
+aspect ratio, with the cost per tonne-km split into its parts: designs.csv.
 """
 function designs_data()
     taxed = with_value(assumptions, :carbon_coverage, 1.0)
     rigid = with_value(assumptions, :kite_flight_drag, 0.0)
-    market = kite_market_prices(assumptions)
+    market = kite_market_prices()
     cases = []
     for length in (85.0, 110.0, 140.0, 170.0, 200.0), drive in study_drives,
         area in (0.0, 400.0, 800.0, 1600.0, 3200.0, 6400.0)
 
         push!(cases, trip_case(ShipDesign(drive, length; kite_area=area); scenario="base"))
     end
-    for length in (85.0, 140.0, 200.0), drive in study_drives
-        for area in (400.0, 800.0, 1500.0, 3000.0)
-            push!(cases, trip_case(ShipDesign(drive, length; wing_area=area);
-                scenario="base"))
-        end
-        for area in (200.0, 400.0, 800.0, 1600.0)
-            push!(cases, trip_case(ShipDesign(drive, length; rotor_area=area);
-                scenario="base"))
-        end
+    for length in (85.0, 140.0, 200.0), drive in study_drives,
+        (rig, areas) in (("wings", (400.0, 800.0, 1500.0, 3000.0)),
+            ("rotors", (200.0, 400.0, 800.0, 1600.0))), area in areas
+
+        push!(cases, trip_case(ShipDesign(drive, length; rig_size(rig, area)...);
+            scenario="base"))
     end
     for length in (85.0, 140.0, 170.0, 200.0), area in (0.0, 1600.0, 3200.0)
         push!(cases, trip_case(ShipDesign(:vlsfo, length; kite_area=area);
@@ -480,9 +500,7 @@ function designs_data()
             kite_aspect_ratio=aspect_ratio); scenario="aspect"))
     end
     trips = round_trips(cases, sampled_departures())
-    outbound, inbound = run_corridors(:caribbean)
-    tonne_km_per_tonne = (outbound.track_length +
-                          assumptions[:backhaul_fraction] * inbound.track_length) / 1e3
+    work_per_tonne = tonne_km_per_tonne(:caribbean)
     open(run_file("designs.csv"), "w") do io
         println(io, "scenario,drive,length,kite_area,kite_aspect_ratio,wing_area,",
             "rotor_area,cost,fuel,carbon,outbound_days,return_days,cargo,capital,",
@@ -490,20 +508,20 @@ function designs_data()
             "capital_cost,interest_cost")
         for (case, trip) in zip(cases, trips)
             isnothing(trip) && continue
-            write_design(io, case, trip, tonne_km_per_tonne)
+            write_design(io, case, trip, work_per_tonne)
         end
     end
 end
 
 """
-    write_design(io, case, trip, tonne_km_per_tonne)
+    write_design(io, case, trip, work_per_tonne)
 
-One row of designs.csv.
+One row of designs.csv, with the tonne-km per tonne of cargo `work_per_tonne`.
 """
-function write_design(io, case, trip, tonne_km_per_tonne)
+function write_design(io, case, trip, work_per_tonne)
     (; design) = case
     parts = cost_parts(Ship(design, case.assumptions), trip, case.assumptions)
-    tonne_km = trip.cargo * tonne_km_per_tonne
+    tonne_km = trip.cargo * work_per_tonne
     @printf(io, "%s,%s,%.0f,%.0f,%.0f,%.0f,%.0f,%.6f,%.5f,%.3f,%.2f,%.2f,%.0f,%.0f,",
         case.scenario, design.drive, design.length, design.kite_area,
         design.kite_aspect_ratio, design.wing_area, design.rotor_area,
@@ -523,14 +541,12 @@ Ships of three lengths and the [`study_drives`](@ref) without a rig and with two
 each rig on every route: routes.csv.
 """
 function routes_data()
-    rigs = [("none", (;)), ("kite", (kite_area=800.0,)), ("kite", (kite_area=3200.0,)),
-        ("wings", (wing_area=800.0,)), ("wings", (wing_area=1500.0,)),
-        ("rotors", (rotor_area=400.0,)), ("rotors", (rotor_area=800.0,))]
-    cases = [trip_case(ShipDesign(drive, length; area...); route=name, drive, length,
-                 rig, area=sum(values(area); init=0.0))
-             for length in (85.0, 140.0, 200.0), drive in study_drives,
-                 (rig, area) in rigs, name in route_names]
-    cases = vec(cases)
+    rigs = [("none", 0.0), ("kite", 800.0), ("kite", 3200.0), ("wings", 800.0),
+        ("wings", 1500.0), ("rotors", 400.0), ("rotors", 800.0)]
+    cases = vec([trip_case(ShipDesign(drive, length; rig_size(rig, area)...); route=name,
+                     drive, length, rig, area)
+                 for length in (85.0, 140.0, 200.0), drive in study_drives,
+                     (rig, area) in rigs, name in route_names])
     write_trips("routes.csv", cases, round_trips(cases, sampled_departures()), :route,
         :drive, :length, :rig, :area)
 end
@@ -607,19 +623,18 @@ end
 """
     snap_area(area)
 
-`area` [m^2] rounded to the nearest step of a fourth power of two, so that searches on
-different routes try the same kites and share their pattern tables.
+`area` [m^2] rounded to the nearest step of a fourth power of two.
 """
 snap_area(area) = 2.0^(round(4log2(area)) / 4)
 
 """
-    classes_data(; rounds=run_settings().size_rounds)
+    classes_data()
 
 The standard ship classes on every route with the [`study_drives`](@ref) without a rig,
 and with the cheapest size of each rig found by a search over three starting sizes and
-`rounds` more sizes from [`next_size`](@ref): classes.csv.
+`size_rounds` more sizes from [`next_size`](@ref): classes.csv.
 """
-function classes_data(; rounds=run_settings().size_rounds)
+function classes_data()
     sampled = sampled_departures()
     cases, searches = [], Dict{Tuple, Vector{Tuple{Float64, Float64}}}()
     for class in values(ship_classes()), drive in study_drives, route in route_names
@@ -632,7 +647,7 @@ function classes_data(; rounds=run_settings().size_rounds)
         end
     end
     trips = round_trips(cases, sampled)
-    for round in 1:rounds
+    for _ in 1:run_settings().size_rounds
         record_sizes!(searches, cases, trips)
         classes = ship_classes()
         batch = []
@@ -708,7 +723,7 @@ function sensitivity_ships()
         ("Neo-Panamax container ship", :methanol, :new_york))
         areas = NamedTuple(Symbol(rig) => rig_size(rig,
                 best_area(classes_table, name, string(route), string(drive), rig))
-                           for rig in ("kite", "wings", "rotors"))
+                           for rig in rig_names)
         push!(ships, (name, ShipDesign(drive, classes[name]), route, areas))
     end
     return ships
@@ -720,7 +735,7 @@ end
 Every input with a range, except those of studies outside the paper.
 """
 screened_inputs() = sort([name for (name, entry) in assumptions.entries
-                          if entry.low != entry.high && name ∉ inputs_outside_paper])
+                          if entry.low != entry.high])
 
 """
     sensitivity_data()
@@ -736,7 +751,7 @@ function sensitivity_data()
                 case_assumptions = bound_assumptions(name, bound)
                 push!(cases, trip_case(bare; assumptions=case_assumptions, route, ship,
                     rig="none", input=name, bound))
-                for rig in ("kite", "wings", "rotors")
+                for rig in rig_names
                     design = ShipDesign(; bare.drive, bare.length, bare.class,
                         getproperty(areas, Symbol(rig))...)
                     push!(cases, trip_case(design; assumptions=case_assumptions, route,
@@ -764,11 +779,10 @@ function abatement_data()
     cases = []
     for (ship, route) in abatement_ships, drive in study_drives
         hull = Ship(ShipDesign(drive, study_hull(ship)), assumptions).hull
+        fractions = [0.1, 0.2, 0.35, 0.5, 0.7, 1.0]
         sizes = Dict("none" => [0.0], "kite" => [400.0 * 2^(k / 2) for k in 0:10],
-            "wings" => [fraction * largest_area(WingRig, hull)
-                        for fraction in (0.1, 0.2, 0.35, 0.5, 0.7, 1.0)],
-            "rotors" => [fraction * largest_area(WindShipOpt.RotorRig, hull)
-                         for fraction in (0.1, 0.2, 0.35, 0.5, 0.7, 1.0)])
+            "wings" => fractions .* largest_area(WingRig, hull),
+            "rotors" => fractions .* largest_area(WindShipOpt.RotorRig, hull))
         for rig in all_rigs, area in sizes[rig]
             design = ShipDesign(drive, study_hull(ship); rig_size(rig, area)...)
             push!(cases, trip_case(design; route, ship, drive, rig, area))
@@ -823,9 +837,8 @@ A 140 m e-methanol ship to Guadeloupe without a rig and with each rig, routed at
 resolutions of 8, 4 and 2 times the base spacing: convergence.csv.
 """
 function convergence_data()
-    rigs = [("none", (;)), ("kite", (kite_area=1600.0,)), ("wings", (wing_area=1500.0,)),
-        ("rotors", (rotor_area=800.0,))]
-    cases = vec([trip_case(ShipDesign(:methanol, 140.0; area...); rig, scale)
+    rigs = [("none", 0.0), ("kite", 1600.0), ("wings", 1500.0), ("rotors", 800.0)]
+    cases = vec([trip_case(ShipDesign(:methanol, 140.0; rig_size(rig, area)...); rig, scale)
                  for (rig, area) in rigs, scale in (8.0, 4.0, 2.0)])
     write_trips("convergence.csv", cases, round_trips(cases, sampled_departures()), :rig,
         :scale)

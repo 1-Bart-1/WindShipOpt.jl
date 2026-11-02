@@ -6,15 +6,15 @@ This file checks the kite cost inputs of `assumptions.yaml` (built up in
 business case. Built 2026-11-01. Currency: 1.16 USD/EUR, as in
 `assumptions.yaml`; prices are not escalated to a common year unless stated.
 "Estimate" marks a number that no source states, with the reasoning next to it.
-The scripts behind the numbers are throwaway Python, not part of the repo.
 
 ## 0. What is being validated
 
 Market price = manufacturing cost × `market_price_factor` 2.0; hardware gets +15
 % installation (newbuild); the tether is costed at its 79 USD/kg purchase price.
 Maximum tether force is 0.5 kN/m² × projected area A, mast height √A, tether 13
-spans long at 0.4 GPa. The prices below were recomputed from the yaml values and
-match the figures given for this check.
+spans long at 0.4 GPa. The prices below are a snapshot of the yaml values of
+2026-11-01, so their mast and docking head columns and hardware totals predate the
+model's taller mast and area-scaled docking head.
 
 | Projected area | Winch (market) | Mast  | Docking head | Control unit | Hardware incl. installation | Canopy  | Tether |
 | -------------- | -------------- | ----- | ------------ | ------------ | --------------------------- | ------- | ------ |
@@ -118,7 +118,7 @@ Published AWE LCOE for comparison:
   the ship is at sea in suitable wind (estimate below: ~2,000 h a year) at a
   steadier load. Per flight hour the pumping canopy wears at least as fast.
 
-### Verdict on task 1
+### Verdict on the AWE check
 
 Our shared components do not give an absurdly low AWE LCOE. The base, 250–260
 EUR/MWh, is above every published AWE estimate except SkySails' own target and
@@ -276,7 +276,7 @@ unit 50 the cost is (50/1,000)^−0.234 = 2.0× the series cost at LR 15 %.
   2025 (funding-news aggregator Techleap, Jul 2025, page not reachable; search
   snippet only).
 
-**Verdict on task 3:** our prices are those of an Nth-of-a-kind product after
+**Verdict on production volume:** our prices are those of an Nth-of-a-kind product after
 ~1,000 cumulative units, about 50–100× the ship kites built so far. They are a
 mature-market scenario, not the price a shipowner can buy at today.
 
@@ -356,11 +356,9 @@ Suggested changes:
 
 | Input                                                                                             | Change                                                                                                                                                                                                  | Why                                                                                                            |
 | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `launch_mast_cost_per_height`                                                                     | make the mast cost ∝ height², 830 USD/m at the 35 m reference (Airseas, 1,000 m²): 23.7 × h² USD (estimate); unchanged at 1,000 m², 0.37× at 160 m², 2.5× at 8,000 m²                                   | a tube that stands at 89 m needs a cross-section that grows with height; Faggiani's launch cost grows as A^1.5 |
-| `docking_head_cost`                                                                               | scale with kite area, e.g. 37 k × (A / 1,000 m²)^0.5 (estimate)                                                                                                                                         | it must grip and stow a canopy whose mass grows with area                                                      |
 | `winch_cost_per_force`                                                                            | run the high value (0.084 USD/N) for kites above ~3,200 m²                                                                                                                                              | brake loads above ~150 t are in the custom anchor-handling-winch class                                         |
 | `market_price_factor`                                                                             | keep 2.0 as the mature-market base; add a near-term case at 2.5 together with high mast, head and winch values, which comes to ~2× the base system price, the cost at unit ~50 on a 15 % learning curve | the base corresponds to ~1,000 cumulative units                                                                |
-| `canopy_cost_per_area`, `canopy_lifetime`, `tether_price`, `tether_lifetime`, `control_unit_cost` | keep                                                                                                                                                                                                    | supported by the cross-industry and AWE checks                                                                 |
+| canopy cost and life, `tether_price`, `tether_lifetime`, `control_unit_cost`                      | keep                                                                                                                                                                                                    | supported by the cross-industry and AWE checks                                                                 |
 
 Report the kite results as a series-production scenario, and state alongside
 them that the business behind it needs ~USD 200 M of funding, ~150–200 systems a

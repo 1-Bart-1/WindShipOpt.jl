@@ -52,14 +52,16 @@ RU_BALT = [("Ust-Luga", 59.68, 28.40, .4), ("Primorsk", 60.35, 28.67, .4), ("St 
 CN = [("Shanghai", 30.63, 122.07, .35), ("Ningbo", 29.93, 121.85, .25), ("Qingdao", 36.0, 120.3, .15),
       ("Shenzhen", 22.57, 114.27, .15), ("Tianjin", 38.97, 117.78, .1)]
 EG_MED = [("Alexandria", 31.18, 29.87, .4), ("Port Said", 31.25, 32.3, .3), ("Damietta", 31.47, 31.77, .3)]
+RU_ALL = RU_BALT[:2] + [("Novorossiysk", 44.72, 37.79, .3), ("Murmansk", 68.97, 33.05, .1), ("Sabetta", 71.27, 72.07, .2)]
+SA_ALL = [("Jeddah", 21.47, 39.15, .3), ("Ras Tanura", 26.64, 50.16, .4), ("Jubail", 27.03, 49.66, .3)]
+IL_MED = [("Haifa", 32.82, 35.0, .6), ("Ashdod", 31.83, 34.63, .4)]
+EG_ALL = EG_MED[:2] + [("Ain Sokhna", 29.6, 32.35, .3)]
+MA_ALL = [("Tanger Med", 35.88, -5.5, .4), ("Casablanca", 33.6, -7.6, .3), ("Jorf Lasfar", 33.12, -8.63, .3)]
 
 PARTNER_REPS = {
     "UK": UK, "UK_1": UK, "UK_9": UK, "UK_2": [("Douglas", 54.15, -4.47, 1)],
     "UK_3": [("St Helier", 49.18, -2.11, 1)], "GI": [("Gibraltar", 36.14, -5.36, 1)],
-    "RU": RU_BALT[:2] + [("Novorossiysk", 44.72, 37.79, .3), ("Murmansk", 68.97, 33.05, .1),
-                         ("Sabetta", 71.27, 72.07, .2)],
-    "RU_9": RU_BALT[:2] + [("Novorossiysk", 44.72, 37.79, .3), ("Murmansk", 68.97, 33.05, .1),
-                           ("Sabetta", 71.27, 72.07, .2)],
+    "RU": RU_ALL, "RU_9": RU_ALL,
     "RU_1": [("Novorossiysk", 44.72, 37.79, .7), ("Tuapse", 44.1, 39.07, .3)],
     "RU_2": RU_BALT, "RU_5": RU_BALT, "RU_6": [("Kaliningrad", 54.70, 20.4, 1)],
     "RU_3": [("Sabetta", 71.27, 72.07, 1)], "RU_4": [("Murmansk", 68.97, 33.05, 1)],
@@ -86,18 +88,16 @@ PARTNER_REPS = {
     "PK": [("Karachi", 24.83, 66.98, 1)], "LK": [("Colombo", 6.95, 79.85, 1)], "BD": [("Chittagong", 22.3, 91.8, 1)],
     "MM": [("Yangon", 16.77, 96.17, 1)], "KH": [("Sihanoukville", 10.63, 103.5, 1)],
     "AE": [("Jebel Ali", 25.0, 55.06, .5), ("Fujairah", 25.17, 56.37, .3), ("Ruwais", 24.12, 52.73, .2)],
-    "SA": [("Jeddah", 21.47, 39.15, .3), ("Ras Tanura", 26.64, 50.16, .4), ("Jubail", 27.03, 49.66, .3)],
-    "SA_9": [("Jeddah", 21.47, 39.15, .3), ("Ras Tanura", 26.64, 50.16, .4), ("Jubail", 27.03, 49.66, .3)],
+    "SA": SA_ALL, "SA_9": SA_ALL,
     "SA_1": [("Jeddah", 21.47, 39.15, .5), ("Yanbu", 24.0, 38.05, .5)],
     "SA_2": [("Ras Tanura", 26.64, 50.16, .5), ("Jubail", 27.03, 49.66, .5)],
     "QA": [("Ras Laffan", 25.9, 51.58, 1)], "KW": [("Mina al Ahmadi", 29.07, 48.17, 1)],
     "IQ": [("Basra Oil Terminal", 29.68, 48.8, 1)], "IR": [("Bandar Abbas", 27.1, 56.07, 1)],
     "OM": [("Sohar", 24.5, 56.62, 1)], "BH": [("Khalifa Bin Salman", 26.2, 50.7, 1)],
     "YE": [("Aden", 12.8, 44.97, 1)], "JO": [("Aqaba", 29.5, 34.98, 1)],
-    "IL": [("Haifa", 32.82, 35.0, .6), ("Ashdod", 31.83, 34.63, .4)],
-    "IL_1": [("Haifa", 32.82, 35.0, .6), ("Ashdod", 31.83, 34.63, .4)], "IL_9": [("Haifa", 32.82, 35.0, 1)],
+    "IL": IL_MED, "IL_1": IL_MED, "IL_9": [("Haifa", 32.82, 35.0, 1)],
     "IL_2": [("Eilat", 29.55, 34.95, 1)], "LB": [("Beirut", 33.9, 35.52, 1)], "SY": [("Latakia", 35.52, 35.77, 1)],
-    "EG": EG_MED[:2] + [("Ain Sokhna", 29.6, 32.35, .3)], "EG_9": EG_MED[:2] + [("Ain Sokhna", 29.6, 32.35, .3)],
+    "EG": EG_ALL, "EG_9": EG_ALL,
     "EG_1": EG_MED, "EG_2": [("Ain Sokhna", 29.6, 32.35, 1)],
     "GE": [("Poti", 42.15, 41.65, .5), ("Batumi", 41.65, 41.63, .5)], "AZ": [("Batumi", 41.65, 41.63, 1)],
     "KZ": [("Novorossiysk", 44.72, 37.79, 1)], "TM": [("Batumi", 41.65, 41.63, 1)],
@@ -108,8 +108,7 @@ PARTNER_REPS = {
     "MC": [("Monaco", 43.73, 7.42, 1)], "CH": [("Rotterdam", 51.95, 4.05, 1)], "AT": [("Constanta", 44.17, 28.65, 1)],
     "HU": [("Constanta", 44.17, 28.65, 1)], "SK": [("Constanta", 44.17, 28.65, 1)], "CZ": [("Hamburg", 53.55, 9.97, 1)],
     "LU": [("Antwerp", 51.28, 4.30, 1)], "LI": [("Rotterdam", 51.95, 4.05, 1)],
-    "MA": [("Tanger Med", 35.88, -5.5, .4), ("Casablanca", 33.6, -7.6, .3), ("Jorf Lasfar", 33.12, -8.63, .3)],
-    "MA_9": [("Tanger Med", 35.88, -5.5, .4), ("Casablanca", 33.6, -7.6, .3), ("Jorf Lasfar", 33.12, -8.63, .3)],
+    "MA": MA_ALL, "MA_9": MA_ALL,
     "MA_1": [("Tanger Med", 35.88, -5.5, .7), ("Nador", 35.27, -2.93, .3)],
     "MA_2": [("Casablanca", 33.6, -7.6, .5), ("Jorf Lasfar", 33.12, -8.63, .5)],
     "DZ": [("Arzew", 35.85, -0.3, .4), ("Skikda", 36.88, 6.9, .3), ("Algiers", 36.77, 3.07, .3)],
@@ -156,4 +155,4 @@ PARTNER_REPS = {
 }
 
 # country code -> fallback for reporting countries without usable mirror data
-REPORTING_FALLBACK = {"EE": [("Muuga", 59.50, 24.95, 1)], "UK": UK}
+REPORTING_FALLBACK = {"EE": [("Muuga", 59.50, 24.95, 1)]}

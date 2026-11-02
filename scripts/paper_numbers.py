@@ -1,6 +1,7 @@
-"""Print the numbers the results text quotes, from the CSV files of the latest finished
-run paper.jl made in output/runs/. Run: python3 -I scripts/paper_numbers.py [section ...],
-with the section names of SECTIONS; all sections without one."""
+"""Print the numbers of the design, route, class, forecast, screening and component studies,
+from the CSV files of the latest finished run paper.jl made in output/runs/. Run:
+python3 -I scripts/paper_numbers.py [section ...], with the section names of SECTIONS; all
+sections without one."""
 import csv
 import os
 import sys
@@ -26,6 +27,7 @@ def latest_finished_run():
 RESULTS = latest_finished_run()
 DRIVES = ("vlsfo", "methanol", "hydrogen")
 RIGS = ("kite", "wings", "rotors")
+RIG_COLUMNS = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
 
 
 def table(name):
@@ -54,8 +56,7 @@ def designs_summary():
             if reference is None:
                 continue
             line = [f"{drive:8s} {length:>4s} m bare {1e3 * reference:.2f}"]
-            for rig, column in (("kite", "kite_area"), ("wings", "wing_area"),
-                                ("rotors", "rotor_area")):
+            for rig, column in RIG_COLUMNS:
                 options = [r for r in rows if r["scenario"] == "base" and
                            r["drive"] == drive and r["length"] == length and
                            float(r[column]) > 0]
@@ -68,9 +69,9 @@ def designs_summary():
             print(" | ".join(line))
     print("== scenarios")
     for r in rows:
-        if r["scenario"] in ("base",):
+        if r["scenario"] == "base":
             continue
-        key = ("carbon" if r["scenario"].startswith("carbon") else "base", r["drive"],
+        key = ("carbon" if r["scenario"] == "carbon" else "base", r["drive"],
                r["length"])
         reference = bare.get(key)
         if reference:
@@ -86,8 +87,7 @@ def designs_summary():
             if not fossil or not green:
                 continue
             line = [f"{drive:8s} {length:>4s} m premium {100 * (green / fossil - 1):.0f}%"]
-            for rig, column in (("kite", "kite_area"), ("wings", "wing_area"),
-                                ("rotors", "rotor_area")):
+            for rig, column in RIG_COLUMNS:
                 options = [float(r["cost"]) for r in rows if r["scenario"] == "base" and
                            r["drive"] == drive and r["length"] == length and
                            float(r[column]) > 0]
@@ -105,7 +105,7 @@ def routes_summary():
             if r["rig"] == "none"}
     for (route, drive, length), reference in sorted(bare.items()):
         line = [f"{route:10s} {drive:8s} {length:>4s}"]
-        for rig in ("kite", "wings", "rotors"):
+        for rig in RIGS:
             options = [float(r["cost"]) for r in rows if r["route"] == route and
                        r["drive"] == drive and r["length"] == length and r["rig"] == rig]
             if options:
@@ -227,14 +227,14 @@ def other_summaries():
     rows = table("sensitivity.csv")
     cost = {(r["ship"], r["rig"], r["input"], r["bound"]): float(r["cost"]) for r in rows}
     for ship in sorted({r["ship"] for r in rows}):
-        for rig in ("kite", "wings", "rotors"):
+        for rig in RIGS:
             swings = []
-            for (s, g, name, bound) in cost:
-                if s != ship or g != rig or bound != "low":
+            for (case_ship, case_rig, name, bound) in cost:
+                if case_ship != ship or case_rig != rig or bound != "low":
                     continue
-                keys = [(ship, g, name, b) for b in ("low", "high")] + \
-                       [(ship, "none", name, b) for b in ("low", "high")]
-                if not all(k in cost for k in keys):
+                keys = [(ship, case_rig, name, side) for side in ("low", "high")] + \
+                       [(ship, "none", name, side) for side in ("low", "high")]
+                if not all(key in cost for key in keys):
                     continue
                 low = saving(cost[keys[0]], cost[keys[2]])
                 high = saving(cost[keys[1]], cost[keys[3]])
@@ -245,7 +245,7 @@ def other_summaries():
     rows = table("components.csv")
     bare = [float(r["cost"]) for r in rows if r["rig"] == "none"]
     if bare:
-        for rig in ("kite", "wings", "rotors"):
+        for rig in RIGS:
             base = [float(r["cost"]) for r in rows
                     if r["rig"] == rig and r["input"] == "none"]
             if not base:

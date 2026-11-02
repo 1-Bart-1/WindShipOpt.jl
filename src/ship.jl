@@ -4,7 +4,6 @@
 Fuel burned on board, with its price including any carbon charge.
 """
 struct Fuel
-    name::Symbol
     "price including carbon charge [USD/J]"
     price::Float64
     "lower heating value [J/kg]"
@@ -16,12 +15,12 @@ end
 function vlsfo(assumptions::Assumptions)
     intensity = assumptions[:vlsfo_carbon_intensity]
     carbon_charge = assumptions[:carbon_price] * assumptions[:carbon_coverage] * intensity
-    return Fuel(:vlsfo, (assumptions[:vlsfo_price] + carbon_charge) / 1e9,
+    return Fuel((assumptions[:vlsfo_price] + carbon_charge) / 1e9,
         1e6assumptions[:vlsfo_heating_value], intensity * 1e3 / 1e9)
 end
 
-e_methanol(assumptions::Assumptions) = Fuel(:e_methanol,
-    assumptions[:e_methanol_price] / 1e9, 1e6assumptions[:methanol_heating_value], 0.0)
+e_methanol(assumptions::Assumptions) = Fuel(assumptions[:e_methanol_price] / 1e9,
+    1e6assumptions[:methanol_heating_value], 0.0)
 
 """
     hydrogen(assumptions)
@@ -34,7 +33,7 @@ function hydrogen(assumptions::Assumptions)
     stack_wear = assumptions[:fuel_cell_efficiency] * assumptions[:fuel_cell_stack_share] *
                  assumptions[:fuel_cell_system_cost] / assumptions[:fuel_cell_stack_life] /
                  3.6e6
-    return Fuel(:hydrogen, assumptions[:hydrogen_price] / heating_value + stack_wear,
+    return Fuel(assumptions[:hydrogen_price] / heating_value + stack_wear,
         heating_value, 0.0)
 end
 
@@ -167,12 +166,12 @@ csv_fields(line) = [strip(field, '"') for field in
                     eachmatch(r"(\"[^\"]*\"|[^,]*)(,|$)", line) .|> first][1:(end - 1)]
 
 """
-    ship_classes(path=data/ship_classes.csv)
+    ship_classes()
 
-Standard ship classes by name, from a CSV file with one class per row.
+Standard ship classes by name, from `data/ship_classes.csv` with one class per row.
 """
-function ship_classes(path=joinpath(pkgdir(@__MODULE__), "data", "ship_classes.csv"))
-    lines = readlines(path)
+function ship_classes()
+    lines = readlines(joinpath(pkgdir(@__MODULE__), "data", "ship_classes.csv"))
     header = csv_fields(first(lines))
     classes = Dict{String, ShipClass}()
     for line in lines[2:end]
@@ -338,7 +337,7 @@ function rated_delivered_power(ship::Ship, assumptions::Assumptions)
     isnothing(class) || return 1e3class.power * assumptions[:shaft_efficiency]
     speed = assumptions[:service_speed] * KNOT
     calm = delivered_power(ship.propeller, ship.env, speed,
-        best_thrust(ship, speed, 0.0, 0.0))
+        first(best_trim(ship, ship.rig, speed, 0.0, 0.0)))
     return calm * (1 + assumptions[:sea_margin]) / assumptions[:engine_rating_fraction]
 end
 
@@ -436,6 +435,3 @@ function best_trim(ship::Ship, rig, speed, wind_10m, true_angle)
     end
     return best
 end
-
-best_thrust(ship::Ship, speed, wind_10m, true_angle) =
-    first(best_trim(ship, ship.rig, speed, wind_10m, true_angle))

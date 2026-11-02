@@ -6,8 +6,6 @@ Audit of every wing input against published data, and a check on whether the mod
 
 The wings lose for physical reasons, not because their inputs are unfair. The wing polar reproduces the one measured full-scale average, BAR's 1.5 t of fuel per WindWing per day. Per unit, one 750 m² WindWing gives about the same mean thrust as one 35 × 5 m rotor in the model (39 against 41 kN). Rotors win because a deck takes about four rotors for every three wings, and a rotor costs and weighs less than a wing of equal thrust. Three inputs are pessimistic for wings: lift ceiling, interference and lifetime. One input is strongly optimistic: wing mass. The rotor coefficients sit at the optimistic end of the rotor literature. Corrected together, the inputs leave the 140 m e-methanol ship to Guadeloupe where it was: wings save 3.0 % and rotors 8.4 % on today's code. Even the most wing-friendly set found here (7.3 %) stays below the rotors (8.4 %) unless the rotors' lift is also taken down to CFD or wind-tunnel level.
 
-**The paper's numbers are stale.** The current code gives a cost saving of 3.0 % for the best wing size and 8.4 % for 800 m² of rotors on this ship. `output/paper/situations.csv` has 11.2 % and 22.8 %. The 0.25 price case is 13.9 % there. `src/` and `assumptions.yaml` have changed since those files were written; a clean session with no overrides reproduced the new numbers. The wing-to-rotor ratio is about the same in both (0.36 now, 0.49 then), so the conclusions below hold. The paper must be regenerated before any number is quoted.
-
 ## 1. Polars
 
 ### What the model does
@@ -70,7 +68,7 @@ The model's per-m² ratio sits at the wing-friendly end of the published compari
 - **Per tonne.** The model has 90 t per WindWing and 110 t per rotor. Real figures are about 200 t per WindWing ("Each wing weighs roughly 200 tonnes", Riviera/DNV 2024) and 80 t per rotor (Norsepower 2025: 56 t plus a 24 t foundation). Real rotors give about 2.5 times the thrust per tonne. The model's wing mass is the one input clearly biased in favour of wings (§5).
 - **Per deck length.** One 35 × 5 m rotor needs 3D = 15 m; one WindWing needs 1.5c = 30 m. On 105 m of usable deck the model fits four 34.6 m rotors but only three wings (2,440 m² at most).
 
-The rotor side is generous. Tillig & Ringsberg (2020, p. 8) report that their full-scale fit sits above model-scale and CFD data. They also note that it agrees worse at high spin ratios, and that SR 1.5–2.5 is the typical optimum. The model trims rotors up to SR 4. Scaling rotor lift to the CFD level (×0.89) cuts the rotor saving from 8.4 to 7.0 %. Scaling to wind-tunnel level (×0.68) cuts it to 4.1 %. Capping SR at 3 lowers mean rotor thrust by 7 %. Reynolds effects favour the full-scale fit (Tillig), so the base is defensible. The rotor's range, however, should reach down to the CFD level (proposal in §7).
+The rotor side is generous. Tillig & Ringsberg (2020, p. 8) report that their full-scale fit sits above model-scale and CFD data. They also note that it agrees worse at high spin ratios, and that SR 1.5–2.5 is the typical optimum. The model trims rotors up to SR 4. Scaling rotor lift to the CFD level (×0.89) cuts the rotor saving from 8.4 to 7.0 %. Scaling to wind-tunnel level (×0.68) cuts it to 4.1 %. Capping SR at 3 lowers mean rotor thrust by 7 %. Reynolds effects favour the full-scale fit (Tillig), so the base is defensible. The rotor's range reaches down to the CFD level (`rotor_lift_factor`).
 
 ## 3. Interference
 
@@ -143,58 +141,6 @@ Today's code, draft fidelity. "Wings max" is the largest wing area that fits, 2,
 | Rotor lift × 0.68 (wind-tunnel level)                                  |                |           | 4.1 %         |
 
 The best estimate leaves the wings where they were, because the aerodynamic gains (+1.6 pp) and the mass correction (−1.9 pp) cancel. Wings beat rotors only when every wing input is at its optimistic end and the rotor's lift is at its pessimistic end.
-
-## Proposed changes
-
-`assumptions.yaml`:
-
-```yaml
-wing_max_lift_coefficient:
-  value: 2.0
-  low: 1.6
-  high: 2.5
-  unit: "-"
-  reason: "3D lift ceiling of a multi-element wing sail: AR 2 wings reach 1.70-1.73 with a 30 % flap (Reche-Vilanova et al. 2021, Table 5), a single NACA0015 sail 1.08 (Xu et al. 2025, Table 4); BAR claims 2.5 times the lift of a single element for its three-element WindWing. Two-element sections reach 1.95-2.65 in 2D (Yao 2026)."
-wing_endplate_factor:
-  value: 1.4
-  low: 1.1
-  high: 2.0
-  unit: "-"
-  reason: "Effective over geometric aspect ratio from the deck mirror: 2.0 sealed, 1.36 at a root gap of 1 % of span, 1.21 at 5 %, 1.09 at 20 % (minimum induced drag, Trefftz plane). WindWings stand about 7.5 m and the Oceanbird wing about 6 m above deck on pedestals (BAR; Oceanbird), the low bound."
-wing_interference_amplitude:
-  value: 0.30
-  low: 0.15
-  high: 0.72
-  unit: "-"
-  reason: "Loss amplitude of the wing array factor: 0.44 fits sails held at one angle of attack in 3D RANS (Malmek et al. 2024) and IDDES (Xu et al. 2025); independent sheeting recovers 0-80 % of the loss depending on wind angle (van Reen 2026), a third taken here."
-wing_mass_per_area:
-  value: 0.25
-  low: 0.12
-  high: 0.36
-  unit: t/m^2
-  reason: "Wing with pedestal and foundation: WindWing about 200 t for 750 m^2 (DNV via Riviera 2024), Oceanbird Wing 560 about 200 t with foundation (Oceanbird); smaller hard sails 0.10-0.16 (EMSA 2023, Table 4; AYRO OW RE 45 t for 363 m^2)."
-wing_lifetime:
-  value: 25.0
-  low: 20.0
-  high: 30.0
-  unit: years
-  reason: "Oceanbird designs the Wing 560 for 25 years and BAR's builder claims 25 years; EMSA (2023) takes more than 20 years for wind-propulsion assets."
-rotor_lifetime:
-  value: 25.0
-  low: 20.0
-  high: 30.0
-  unit: years
-  reason: "Anemoi states a 25-year design life; EMSA (2023) takes more than 20 years for wind-propulsion assets."
-```
-
-The `wing_cost_per_area` reason should add that the model is 0–44 % above EMSA's 2021 hard-sail asset range while the press puts a WindWing at 3,400 USD/m².
-
-Code changes, as diff descriptions:
-
-1. `src/rig.jl`: give `WingRig` a stalled branch. Add a field `stalled_drag_coefficient` (new key `wing_stalled_drag_coefficient`: 1.2, range 1.0–1.4, the normal-force coefficient of a low-AR plate). Extend `trim_settings(::WingRig)` with angles of attack from 25° to 90°. For those trims `rig_force` takes CL = CD90 sin α cos α and CD = CD0 + CD90 sin² α. This corrects the downwind polar, a factor of 2.3 at 180°, at almost no cost effect.
-2. `src/rig.jl`, `WingRig(total_area, hull, assumptions)`: if the endplate factor is lowered to the pedestal case, subtract the pedestal height from `max_height` as well (new key `wing_pedestal_height`, about 7 m from BAR's 45 m top for a 37.5 m wing). Otherwise do neither.
-3. Rotors, for fairness of the comparison: give the rotor lift a range in the sensitivity study. The low end is 0.89 times the ShipCLEAN fit (CFD, Li 2012) and is better than a hard cap. This is a new key that multiplies `rotor_coefficients` lift; it needs care against `CLEAN_CODE.md` §6 and is justified only because the screening needs the range.
-4. `scripts/paper_data.jl`, `situation_sizes["140 m"]["wings"]`: replace 3,000 m², which does not fit, with the largest area that does fit (about 2,400 m²).
 
 ## Sources to download (paywalled or unreadable here)
 

@@ -4,9 +4,9 @@ const SNNM_FULL = (6.99, 0.425, 70.92, 2.0, 3.013, 0.9, 3.726, 0.281, 1.388, 3.8
     0.778, 19.241, 3.029, 3.845, 3.123, 4.527)
 
 "SNNM parameters x1…x29 for hulls with C_B < 0.70 (Mittendorf et al. 2022, Table 2)"
-const SNNM_FINE = (4.06, 0.705, 56.23, 1.185, 4.057, 0.65, 2.25, 0.134, 1.626, 3.585, 29.107,
-    10.868, 9.878, 480.961, 2.62, 123.163, 1.745, 0.107, 3.5, 0.825, 0.125, 1.03, 1.201,
-    0.723, 13.630, 5.0, 3.15, 2.897, 5.552)
+const SNNM_FINE = (4.06, 0.705, 56.23, 1.185, 4.057, 0.65, 2.25, 0.134, 1.626, 3.585,
+    29.107, 10.868, 9.878, 480.961, 2.62, 123.163, 1.745, 0.107, 3.5, 0.825, 0.125, 1.03,
+    1.201, 0.723, 13.630, 5.0, 3.15, 2.897, 5.552)
 
 """
     SeakeepingHull
@@ -42,11 +42,8 @@ Mittendorf et al. 2022); `heading` [rad] is π in head and 0 in following waves.
 """
 function added_resistance_coefficient(seakeeping::SeakeepingHull, env::Environment, speed,
         frequency, heading)
-    (; hull, x) = seakeeping
-    length, beam, draft = hull.length, hull.beam, hull.draft
     g = env.gravity
-    block = block_coefficient(hull)
-    froude = speed / sqrt(g * length)
+    froude = speed / sqrt(g * seakeeping.hull.length)
     wavelength = 2π * g / frequency^2
     reflection = reflection_coefficient(seakeeping, froude, speed, frequency, wavelength,
         heading, g)
@@ -110,7 +107,8 @@ end
 SNNM draft coefficient α_T* for the share of the wave reflected by a hull of this draft.
 """
 draft_coefficient(x, effective_draft, wavelength, length) =
-    1 - exp(-x[26] * π * (effective_draft / wavelength - effective_draft / (x[27] * length)))
+    1 - exp(-x[26] * π *
+            (effective_draft / wavelength - effective_draft / (x[27] * length)))
 
 """
     segment_reflection(entrance_angle, shifted_angle, speed_term, heading)
@@ -142,10 +140,12 @@ function reflection_coefficient(seakeeping::SeakeepingHull, froude, speed, frequ
     stern = -scale * draft_coefficient(x, stern_draft, wavelength, length)
     total = 0.0
     if bow_angle <= heading <= π
-        total += bow * segment_reflection(bow_angle, bow_angle - heading, speed_term, heading)
+        total += bow *
+                 segment_reflection(bow_angle, bow_angle - heading, speed_term, heading)
     end
     if π - bow_angle <= heading <= π
-        total += bow * segment_reflection(bow_angle, bow_angle + heading, speed_term, heading)
+        total += bow *
+                 segment_reflection(bow_angle, bow_angle + heading, speed_term, heading)
     end
     if 0 <= heading <= π - stern_angle
         total += stern *
