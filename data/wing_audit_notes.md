@@ -195,14 +195,3 @@ Code changes, as diff descriptions:
 2. `src/rig.jl`, `WingRig(total_area, hull, assumptions)`: if the endplate factor is lowered to the pedestal case, subtract the pedestal height from `max_height` as well (new key `wing_pedestal_height`, about 7 m from BAR's 45 m top for a 37.5 m wing). Otherwise do neither.
 3. Rotors, for fairness of the comparison: give the rotor lift a range in the sensitivity study. The low end is 0.89 times the ShipCLEAN fit (CFD, Li 2012) and is better than a hard cap. This is a new key that multiplies `rotor_coefficients` lift; it needs care against `CLEAN_CODE.md` §6 and is justified only because the screening needs the range.
 4. `scripts/paper_data.jl`, `situation_sizes["140 m"]["wings"]`: replace 3,000 m², which does not fit, with the largest area that does fit (about 2,400 m²).
-
-## Sources to download (paywalled or unreadable here)
-
-- Cargill, _first wind-powered ocean vessel maiden voyage_ release, 13 Mar 2024 (https://www.cargill.com/2024/first-wind-powered-ocean-vessel-maiden-voyage, returned 403).
-- DNV interim report on _Pyxis Ocean_ (not public).
-- Yao 2026, Ocean Eng. 362: the source of the current CD fit; not in `paper/literature_pdfs/`.
-- Persson et al. 2019, the SILL wing sail model and its single-sail 3D RANS polar (cited by Malmek 2024, Fig. 8).
-- Bordogna, Keuning, Huijsmans, Belloli, Int. Shipbuild. Prog. 65(3) 2018, doi:10.3233/ISP-180143: wind tunnel tests of two rigid sails.
-- Marimon Giovannetti et al. 2022, three-wingsail wind tunnel tests (WPCC/Oceanbird).
-- Wielgosz et al. 2025, single-sail experiments behind Xu 2025.
-- Norsepower brochure 2025 (open), for the motor kW of the 35 × 5 m rotor.

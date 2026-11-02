@@ -2,18 +2,18 @@
 
 Working notes for the paper "Kites, wing sails or rotors: where each wind-assisted propulsion technology pays on cargo ships, from coasters to Panamax size". BibTeX keys refer to `literature.bib`, or to `refs.bib` where marked (refs). Compiled 2026-10-31.
 
-**How the entries were verified.** Every DOI below was resolved through doi.org and Crossref, which returned the title, authors, volume and pages used in `literature.bib`. Reports without a DOI were checked on the publisher's own page (EMSA, ICCT, EU LIFE, Tyndall/Manchester, TU Delft repository, Journées de l'Hydrodynamique proceedings). "Abstract-level" means the numbers come from the abstract or the publisher's summary, not from reading the full text. Where I read the full text (Tillig & Ringsberg 2020, Lu & Ringsberg 2020, EMSA 2023, ICCT 2023, Podeur et al. 2016) I say so.
+**How the entries were verified.** Every DOI below was resolved through doi.org and Crossref, which returned the title, authors, volume and pages used in `literature.bib`. Reports without a DOI were checked on the publisher's own page (EMSA, ICCT, EU LIFE, Tyndall/Manchester, TU Delft repository, Journées de l'Hydrodynamique proceedings). `sources.csv` records what is held and what has been read.
 
 ## 1. Papers that compare several wind technologies
 
 **traut2014** — Traut, M., Gilbert, P., Walsh, C., Bows, A., Filippone, A., Stansby, P., Wood, R. (2014). Propulsive power contribution of a kite and a Flettner rotor on selected shipping routes. _Applied Energy_ 113, 362–372. DOI 10.1016/j.apenergy.2013.07.026.
 
-- Compares: one Flettner rotor of 175 m² and one towing kite of 500 m². (Full text read.)
+- Compares: one Flettner rotor of 175 m² and one towing kite of 500 m².
 - Method: performance models of rotor and kite combined with wind data along five trade routes. Fixed ship speed, great-circle routes, no routing, no economics. The kite is a force model, not a trajectory optimisation from geometry.
 - Numbers: average power contribution 193–373 kW per rotor and 127–461 kW for the kite; which device wins depends on the route; the rotor varies less. Their conclusions give main-engine fuel savings of 2–24 % (rotor) and 1–32 % (kite); their Table 1 gives 2–21 % and 1–32 % of propulsive power demand. Route means are about equal: 244 kW rotor, 250 kW kite. Three rotors on a 5500 dwt general cargo ship could supply more than half the main-engine power when slow steaming.
 - Relevance: the closest predecessor in _Applied Energy_. Same question (kite vs rotor, route dependence), but no wing sails, no ship-size sweep, no routing and no cost. Our kite comparison against rotors must be read against theirs.
 
-**lu2020** — Lu, R., Ringsberg, J. W. (2020). Ship energy performance study of three wind-assisted ship propulsion technologies including a parametric study of the Flettner rotor technology. _Ships and Offshore Structures_ 15(3), 249–258. DOI 10.1080/17445302.2019.1612544. (Full text read.)
+**lu2020** — Lu, R., Ringsberg, J. W. (2020). Ship energy performance study of three wind-assisted ship propulsion technologies including a parametric study of the Flettner rotor technology. _Ships and Offshore Structures_ 15(3), 249–258. DOI 10.1080/17445302.2019.1612544.
 
 - Compares: Flettner rotor, wingsail, DynaRig. No kite.
 - Method: 4-DOF performance model (ShipJOURNEY/ShipCLEAN family) on recorded voyages; constant ETA; no routing ("smart routing ... is likely to increase the fuel savings even" further, they write).
@@ -21,7 +21,7 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 - Numbers: 5.6–8.9 % fuel saving; the rotor gives the largest, then the wingsail, then the DynaRig. Rotor size and operation must match ship type, speed, route and weather.
 - Relevance: a like-for-like rotor/wing comparison with a 4-DOF force balance. It is the comparison we extend: we add the kite, ship size, routing and cost.
 
-**bentin2016** — Bentin, M., Zastrau, D., Schlaak, M., Freye, D., Elsner, R., Kotzur, S. (2016). A new routing optimization tool – influence of wind and waves on fuel consumption of ships with and without wind assisted ship propulsion systems. _Transportation Research Procedia_ 14, 153–162. DOI 10.1016/j.trpro.2016.05.051. (Abstract-level; secondary sources.)
+**bentin2016** — Bentin, M., Zastrau, D., Schlaak, M., Freye, D., Elsner, R., Kotzur, S. (2016). A new routing optimization tool – influence of wind and waves on fuel consumption of ships with and without wind assisted ship propulsion systems. _Transportation Research Procedia_ 14, 153–162. DOI 10.1016/j.trpro.2016.05.051.
 
 - Compares: ships with and without WASP inside a weather-routing tool (A*-type path search on a tree of candidate routes).
 - Relevance: one of the first to put WASP inside route optimisation. Exact technologies and percentages not confirmed from the full text.
@@ -39,7 +39,7 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 - Method: no weather routing; market/barrier analysis with simple economics.
 - Relevance: the only source I found that states a ship-size ranking across kite, rotor and wing. Our result on which rig suits which size can be checked against it.
 
-**emsa2023** (refs) — Laursen, R., Patel, H., Sofiadi, D., Zhu, R., Nelissen, D., Van Seters, D., Pang, E. (ABS, CE Delft, Arcsilea) (2023). _Potential of Wind-Assisted Propulsion for Shipping._ EMSA, Lisbon. (Full text read.)
+**emsa2023** (refs) — Laursen, R., Patel, H., Sofiadi, D., Zhu, R., Nelissen, D., Van Seters, D., Pang, E. (ABS, CE Delft, Arcsilea) (2023). _Potential of Wind-Assisted Propulsion for Shipping._ EMSA, Lisbon.
 
 - Compares: rotor sails, hard sails, suction wings, kites, soft sails, turbines, by literature review and a break-even techno-economic analysis.
 - Method: computes the main-engine fuel saving each WAPS must reach to cover its annual cost over 15 years, by ship segment and size (e.g. bulk carriers), for newbuild and retrofit, for low/central/high fuel prices, 2023/2030/2050. No voyage simulation, no routing.
@@ -51,7 +51,7 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 - 6-DOF performance prediction for rotor sails, rigid wings and DynaRigs from main particulars and a published aero database; validated against Maersk Pelican (LR2 tanker, rotors). No kite, no routing, no cost.
 - Relevance: methodological peer to our force balance.
 
-**sturrup2023** — Sturrup, E., Stolz, D. (2023). _Jones Act shipping case studies: the feasibility of U.S. domestic green corridors utilizing hydrogen and wind-assist technologies._ ICCT white paper. (Full text read, executive summary.)
+**sturrup2023** — Sturrup, E., Stolz, D. (2023). _Jones Act shipping case studies: the feasibility of U.S. domestic green corridors utilizing hydrogen and wind-assist technologies._ ICCT white paper.
 
 - Compares: rigid wing sails vs rotor sails on four US domestic vessels that run on liquid hydrogen with fuel cells.
 - Findings: rotor output varies strongly with route, heading and season; wing sails always give net positive energy but about 40 % less annual energy than rotors; one rotor or wing saves tens of thousands of dollars of hydrogen a year.
@@ -75,7 +75,7 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 
 **tillig2019** — Tillig, F., Ringsberg, J. W. (2019). A 4 DOF simulation model developed for fuel consumption prediction of ships at sea. _Ships and Offshore Structures_ 14(sup1), 112–120. DOI 10.1080/17445302.2018.1559912. The 4-DOF (surge, sway, roll, yaw) extension; the template for our leeway/heel/rudder balance.
 
-**tillig2020** (refs) — Tillig, F., Ringsberg, J. W. (2020). Design, operation and analysis of wind-assisted cargo ships. _Ocean Engineering_ 211, 107603. DOI 10.1016/j.oceaneng.2020.107603. (Full text read.)
+**tillig2020** (refs) — Tillig, F., Ringsberg, J. W. (2020). Design, operation and analysis of wind-assisted cargo ships. _Ocean Engineering_ 211, 107603. DOI 10.1016/j.oceaneng.2020.107603.
 
 - Flettner rotors only, 11 arrangements, on a tanker (Pacific route) and a RoRo (Baltic route), with low-aspect-ratio wing theory for the hull at drift, aerodynamic interaction and individual rpm control. Fuel saving 30 % (tanker, up to 36 % with centreboards) and 14 % (RoRo, 16.8 % with centreboards); payback times at 500–700 EUR/t. Rpm control adds 1–2 points. Routes fixed; the paper concludes that "sophisticated weather routing" is needed. Source of our rotor coefficients.
 
@@ -124,13 +124,13 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 
 **penloup2021** — Penloup, Q., Roncin, K., Parlier, Y. (2021). Influence of kite characteristics on propulsive power applied to ship auxiliary propulsion. _Journal of Sailing Technology_ 6(1), 173–192. DOI 10.5957/jst/2021.6.1.173. Design of experiments on lift coefficient, glide angle, maximum wing load and tether length; **the maximum wing load explains over 50 % of the gain**, tether length is second above 70° TWA, glide angle matters most close-hauled. Relevance: directly supports our force limit (0.5 kN/m²) as the governing parameter for small kites.
 
-**podeur2016** — Podeur, V., Merdrignac, D., Behrel, M., Roncin, K., Fonti, C., Jochum, C., Parlier, Y., Renaud, P. (2016). Voyage simulation for fuel economy assessment: practical application to kite auxiliary propulsion for merchant ship. _15es Journées de l'Hydrodynamique_, Brest. (Full abstract read.) Multi-year time-domain voyage simulation with ECMWF data; validated against in-service consumption (underestimates by 12 %); 2200 TEU container ship with an 800 m² kite on Halifax–Le Havre: 12.1 % at 16 kn, 6.7 % at 19 kn over five years. Relevance: the nearest kite study to ours in method (multi-year reanalysis on a North Atlantic route); fixed route and speed, no cost.
+**podeur2016** — Podeur, V., Merdrignac, D., Behrel, M., Roncin, K., Fonti, C., Jochum, C., Parlier, Y., Renaud, P. (2016). Voyage simulation for fuel economy assessment: practical application to kite auxiliary propulsion for merchant ship. _15es Journées de l'Hydrodynamique_, Brest. Multi-year time-domain voyage simulation with ECMWF data; validated against in-service consumption (underestimates by 12 %); 2200 TEU container ship with an 800 m² kite on Halifax–Le Havre: 12.1 % at 16 kn, 6.7 % at 19 kn over five years. Relevance: the nearest kite study to ours in method (multi-year reanalysis on a North Atlantic route); fixed route and speed, no cost.
 
 **bigi2020** — Bigi, N., Roncin, K., Leroux, J.-B., Parlier, Y. (2020). Ship towed by kite: investigation of the dynamic coupling. _Journal of Marine Science and Engineering_ 8(7), 486. DOI 10.3390/jmse8070486. Zero-mass kite coupled to seakeeping; lock-in near wave frequency; mean kite force can rise while roll falls. Relevance: justifies our quasi-steady time-averaged kite force as a first-order model.
 
 **ran2013** — Ran, H., Janson, C.-E., Allenström, B. (2013). Auxiliary kite propulsion contribution to ship thrust. _OMAE2013_, Vol. 8. DOI 10.1115/OMAE2013-11458. Simplified kite on a Panamax tanker; engine-power reduction in following to beam seas; manoeuvring and course keeping.
 
-**wintecc2009** — EU LIFE project WINTECC (LIFE06 ENV/D/000479), Beluga Fleet Management and SkySails, 2006–2009. (Project record read.) MS Beluga SkySails: **5 % fuel saving (165 t fuel, 530 t CO2 per year) on an average route mix, 10–12 % on North Atlantic and North Pacific routes**; kite pull up to 17 t; 5 % worth 135 000–220 000 EUR/year at 430–700 EUR/t; payback 2–3 years if the average saving were 10 %. Relevance: **the primary source for our 160 m² validation target**, better than emsa2023 (§10).
+**wintecc2009** — EU LIFE project WINTECC (LIFE06 ENV/D/000479), Beluga Fleet Management and SkySails, 2006–2009. MS Beluga SkySails: **5 % fuel saving (165 t fuel, 530 t CO2 per year) on an average route mix, 10–12 % on North Atlantic and North Pacific routes**; kite pull up to 17 t; 5 % worth 135 000–220 000 EUR/year at 430–700 EUR/t; payback 2–3 years if the average saving were 10 %. Relevance: **the primary source for our 160 m² validation target**, better than emsa2023 (§10).
 
 **noaa2009** (refs) — NOAA VOS, Mariners Weather Log, April 2009: SkySails operating limits (launch above Beaufort 3).
 
@@ -208,7 +208,6 @@ No paper I found sweeps waterline length continuously for several rigs at once w
 ## 10. Remarks on the current draft
 
 - `checks.tex` says "Ships that flew towing kites reported savings of 5 to 10 % \citep{emsa2023}". EMSA does not give that range: it quotes 10–35 % from Beluga SkySails trials (via Díaz 2020) and 10–15 % from the provider. The 5 % average and 10–12 % North Atlantic figures are from the EU LIFE WINTECC record. Suggest: "MS Beluga SkySails, with the 160 m² kite, saved 5 % on its average route mix and 10–12 % on North Atlantic routes \citep{wintecc2009}." Our 6.7 % on Rotterdam–Guadeloupe sits inside that range.
-- `model.tex` cites emsa2023 for the wing interference factor κ = 0.9; I did not find that number in the EMSA text. Check the source.
 - Leloup's kite model and Penloup's DOE both treat the maximum wing load as the binding limit; that backs our 0.5 kN/m² cap and the finding that a 160 m² kite saturates.
 
 ## 11. Comparison table

@@ -5,12 +5,9 @@ text in `literature_pdfs/`. Page numbers are the printed page numbers of the
 source (journal page, article page, or report page "Page X of 270"), not the PDF
 page index. Quotes come from `pdftotext -layout`; only line-break hyphens,
 ligatures and footnote markers were repaired or dropped, and `[...]` marks
-omissions. Papers whose full text could not be obtained are **not** summarised;
-they are in the "Need download" list.
-
-Read in full (7): Lu & Ringsberg 2020; Tillig & Ringsberg 2020 (OE); Tillig et
-al. 2020 (TRD); CE Delft et al. 2016; EMSA 2023; Podeur et al. 2016; Erhard &
-Strauch 2013 (arXiv version).
+omissions. Erhard & Strauch 2013 was read via
+arXiv; the IEEE version may differ in pagination. `sources.csv` records what is
+held and what has been read.
 
 ---
 
@@ -475,34 +472,6 @@ or fuel savings.
 force model driven by apparent wind, which is what a voyage-scale model needs,
 and gives real system sizes (160–320 m², 300 m line, ~2 MW). It gives no fuel or
 cost numbers, so it is a modelling citation only, not a performance benchmark.
-
----
-
-## Need download
-
-Full text not obtained, so **not summarised**. Reason in brackets.
-
-| #  | Paper                                                                                                                                                                                                                                                                                                         | DOI                            | Best URL                                                                                                                                                                                              |
-| -- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1  | Traut, Gilbert, Walsh, Bows, Filippone, Stansby, Wood (2014). Propulsive power contribution of a kite and a Flettner rotor on selected shipping routes. _Applied Energy_ 113:362–372 [CC BY, but ScienceDirect, CORE and Manchester all serve bot challenges]                                                 | 10.1016/j.apenergy.2013.07.026 | https://www.sciencedirect.com/science/article/pii/S0306261913005928/pdf ; https://research.manchester.ac.uk/files/29637590/POST-PEER-REVIEW-PUBLISHERS.PDF ; https://core.ac.uk/download/74043377.pdf |
-| 2  | Bentin et al. (2016). A new routing optimization tool – influence of wind and waves on fuel consumption of ships with and without WASP. _Transportation Research Procedia_ 14:153–162 [gold OA, ScienceDirect bot check]                                                                                      | 10.1016/j.trpro.2016.05.051    | https://www.sciencedirect.com/science/article/pii/S2352146516300515/pdf                                                                                                                               |
-| 3  | Bentin et al. (2018). Perspectives for a wind assisted ship propulsion. _Int. J. Maritime Engineering_ 160(A1) [journal download requires login; HS Emden-Leer OPUS record returns 410]                                                                                                                       | 10.5750/ijme.v160iA1.1043      | https://www.intmaritimeengineering.org/index.php/ijme/article/download/1043/257                                                                                                                       |
-| 4  | Mason et al. (2023). Mitigating stochastic uncertainty from weather routing for ships with wind propulsion. _Ocean Engineering_ 281:114674 [CC BY, Cloudflare]                                                                                                                                                | 10.1016/j.oceaneng.2023.114674 | https://research.manchester.ac.uk/files/261527005/Mason_et_al_2023_.pdf ; https://core.ac.uk/download/565369577.pdf                                                                                   |
-| 5  | Kramer, Steen (2022). Sail-induced resistance on a wind-powered cargo ship. _Ocean Engineering_ 261:111688 [CC BY; NTNU/NVA file API returns Forbidden]                                                                                                                                                       | 10.1016/j.oceaneng.2022.111688 | https://hdl.handle.net/11250/3058195 ; https://core.ac.uk/download/646180658.pdf                                                                                                                      |
-| 6  | Naaijen, Koster, Dallinga (2006). On the power savings by an auxiliary kite propulsion system. _Int. Shipbuilding Progress_ 53(4):255–279 [paywalled; no repository copy found]                                                                                                                               | 10.3233/SHP-2006-isp013        | https://journals.sagepub.com/doi/10.3233/SHP-2006-isp013 ; https://www.marin.nl/en/publications/on-the-power-savings-by-an-auxiliary-kite-propulsion                                                  |
-| 7  | Dadd, Hudson, Shenoi (2011). Determination of kite forces using three-dimensional flight trajectories for ship propulsion. _Renewable Energy_ 36:2667–2678 [closed; Southampton record has no file]                                                                                                           | 10.1016/j.renene.2011.01.027   | https://eprints.soton.ac.uk/183895/                                                                                                                                                                   |
-| 8  | Leloup et al. (2016). A continuous and analytical modeling for kites as auxiliary propulsion devoted to merchant ships, including fuel saving estimation. _Renewable Energy_ 86:483–496 [closed; HAL record has no file]                                                                                      | 10.1016/j.renene.2015.08.036   | https://hal.science/hal-01282824                                                                                                                                                                      |
-| 9  | Penloup et al. (2021). Influence of kite characteristics on propulsive power applied to ship auxiliary propulsion. _J. Sailing Technology_ 6:173–192 [HAL record has no file; onepetro behind Cloudflare]                                                                                                     | 10.5957/jst/2021.6.1.173       | https://hal.science/hal-03359669 ; https://onepetro.org/JST                                                                                                                                           |
-| 10 | Huang, Souppez (2025). State of the art in wind assisted ship propulsion for maritime decarbonisation and sustainable shipping: a systematic review. _J. Sailing Technology_ 10:258–278 [onepetro behind Cloudflare; title confirmed via Crossref]                                                            | 10.5957/jst/2025.10.1.258      | https://doi.org/10.5957/jst/2025.10.1.258                                                                                                                                                             |
-| 11 | **New, not in the original list.** Dhainaut, Sacher, Leroux (2025). A large-scale optimization framework for simultaneous design and routing of wind-assisted ships. _J. Sailing Technology_ 10:92–125 [onepetro Cloudflare; HAL bot check]. **Read before claiming novelty for joint rig design + routing.** | 10.5957/jst/2025.10.1.92       | https://onepetro.org/JST/article-pdf/10/01/92/4994833/sname-jst-2025-05.pdf ; https://hal.science/hal-05126646                                                                                        |
-| 12 | **New.** Hansen, Hochkirch, Hollenbach et al. (2025). Wind propulsion performance prediction impact on bulk carrier business case. _J. Sailing Technology_ 10:1–18 [onepetro]                                                                                                                                 | 10.5957/jst/2025.10.1.1        | https://doi.org/10.5957/jst/2025.10.1.1                                                                                                                                                               |
-| 13 | **New.** Wendling, Lagemann (2025). How to discretise a ship's voyage when optimising for high fractions of wind propulsion? _J. Sailing Technology_ 10:352–388 [onepetro]                                                                                                                                    | 10.5957/jst/2025.10.1.352      | https://doi.org/10.5957/jst/2025.10.1.352                                                                                                                                                             |
-| 14 | Podeur et al. (2018). Fuel economy assessment tool for auxiliary kite propulsion of merchant ship. _La Houille Blanche_ 2018(1) — journal version of §6 [redirects to Taylor & Francis; ENSTA HAL bot check]                                                                                                  | 10.1051/lhb/2018001            | https://ensta.hal.science/hal-01784372                                                                                                                                                                |
-
-Notes on the list: the DOI 10.1016/j.renene.2011.01.024 is **not** Dadd et al.
-(it resolves to a wind-turbine wake paper); the correct DOI is
-10.1016/j.renene.2011.01.027. Erhard & Strauch 2013 was read via arXiv; the IEEE
-version may differ in pagination.
 
 ---
 

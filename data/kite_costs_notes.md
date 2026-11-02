@@ -2,7 +2,7 @@
 
 Sources behind the kite cost inputs. Built 2026-10-31. The system is a traction kite flown in figure-eights from the bow; the winch only reels for launch and landing and otherwise holds the tether. Currency conversions use 1.16 USD/EUR, the rate already used in `assumptions.yaml`. "Estimate" marks a number that no source states; the reasoning follows it. Retail prices were read on 2026-10-31.
 
-## Primary documents (downloaded and read)
+## Primary documents
 
 | Short name        | Document                                                                                                                                                                                    | URL                                                                                                                       |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
@@ -125,14 +125,7 @@ The only rating from a kite maker is Kitepower's 4,000 h for a 60–80 m² pumpi
 
 A ship tether is not cycled over the drum under load, so the pumping mechanism that sets the Joshi and DEADALUS lives is absent, and creep at the mean towing load (DSM) allows far more than 4,000 h. But the tether leaves the bow over a fairlead or sheave and swings with every figure-eight, bending the same short section under full load ~100 times an hour (estimate: one loop every 30–40 s), a count comparable to the Joshi drum cycles; abrasion, UV and handling at launch and landing add to it. No fixed-length towing tether life is published. `tether_lifetime` stays at 4,000 h (2,000–16,000): the low end is the shortest pumping life, the high end the SK78 creep life in warm exposed conditions.
 
-### Sources to download or request
-
-- Coutinho, Joshi et al., _Life-Cycle Analysis of a Soft-Kite AWE System_, AWEC 2024 extended abstract and K. Coutinho's TU Delft MSc thesis (kite and tether replacement counts for the Kitepower 100 kW system): https://research.tudelft.nl/en/publications/life-cycle-analysis-of-a-soft-kite-airborne-wind-energy-system/ and https://repository.tudelft.nl/record/uuid:5211217a-2fcd-40a8-be8c-17ebffe87dc5 (bot check / connection refused).
-- DEADALUS project report, Ampyx Power and DSM: https://www.energy-innovation.nl/documents/330/project-deadalus-design-and-testing-of-a-tether-system-for-a-megawatt-scale.pdf (bot check).
-- Bosman et al., _Airborne Wind Energy Tethers with High-Modulus Polyethylene Fibers_, in _Airborne Wind Energy_, Springer 2013, doi:10.1007/978-3-642-39965-7_33 (paywalled; source of the Joshi fatigue curve).
-- Cherubini et al., _Airborne Wind Energy Systems: A review of the technologies_, _RSER_ 51, 2015, doi:10.1016/j.rser.2015.07.053 (paywalled).
-- _The impact of UV-protective finish on the natural weathering of high-strength fabrics used in LTA applications_, _Polym. Degrad. Stab._ 2026, https://www.sciencedirect.com/science/article/abs/pii/S0141391026001953 (paywalled).
-- Kitepower, SkySails Power (Mauritius, PN-14) and K Line/Oceanicwing: measured canopy replacement intervals and fleet flight hours, which none has published; ask directly.
+Kitepower, SkySails Power (Mauritius, PN-14) and K Line/Oceanicwing have published no measured canopy replacement intervals or fleet flight hours; ask them directly.
 
 ### Answer
 
