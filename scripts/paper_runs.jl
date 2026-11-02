@@ -12,6 +12,23 @@ departures and the rounds of the rig size search.
 fidelities = Dict(:draft => (corridor_scale=8.0, departure_step=12, size_rounds=1),
     :final => (corridor_scale=4.0, departure_step=6, size_rounds=2))
 
+"""
+    mark_fidelity(path, fidelity, steps, figures)
+
+Keep the paper's draft marker at `path` true of its `figures`: a draft call drawing any of
+them sets it, a final call drawing them all clears it, and any other call of `steps` leaves
+it alone.
+"""
+function mark_fidelity(path, fidelity, steps, figures)
+    drawn = intersect(steps, figures)
+    if fidelity == :final
+        issetequal(drawn, figures) && write(path, "")
+    elseif !isempty(drawn)
+        write(path, "\\tbd{Results at draft fidelity: corridors twice as coarse and half " *
+            "the departures of the final run.}\n")
+    end
+end
+
 "directory with one directory per run, named by the time the run started"
 runs_directory = normpath(joinpath(root, "output", "runs"))
 

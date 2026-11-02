@@ -356,3 +356,18 @@ end
     PaperRuns.finish_run!(rest)
     @test !is_open()
 end
+
+@testset "the paper's draft marker stays until a final call redraws every figure" begin
+    marker = tempname()
+    write(marker, "")
+    figures = [:capital, :premium]
+    is_marked(fidelity, steps) = begin
+        PaperRuns.mark_fidelity(marker, fidelity, steps, figures)
+        !isempty(read(marker, String))
+    end
+    @test !is_marked(:draft, [:designs])
+    @test is_marked(:draft, [:premium])
+    @test is_marked(:final, [:designs])
+    @test is_marked(:final, [:capital])
+    @test !is_marked(:final, [:designs, :capital, :premium])
+end

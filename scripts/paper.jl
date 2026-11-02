@@ -83,9 +83,8 @@ function paper(names::Symbol...; fidelity, resume=nothing)
         run_step!(paper_run, name, step)
     end
     finish_run!(paper_run)
-    write(joinpath(sections, "fidelity.tex"), fidelity == :final ? "" :
-        "\\tbd{Results at draft fidelity: corridors twice as coarse and half the " *
-        "departures of the final run.}\n")
+    mark_fidelity(joinpath(sections, "fidelity.tex"), fidelity, first.(steps),
+        first.(output_steps))
     return nothing
 end
 
