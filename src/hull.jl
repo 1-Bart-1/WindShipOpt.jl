@@ -262,8 +262,8 @@ lateral_centre(hull::Hull) = 2hull.draft / side_force_slope(hull)
 """
     rudder_area(hull)
 
-Rudder area [m^2] by the DNV guidance of January 2000,
-A = T L / 100 (1 + 50 C_B^2 (B/L)^2).
+Rudder area [m^2]: the minimum the DNV guidance of January 2000 recommends directly behind
+a propeller, A = T L / 100 (1 + 50 C_B^2 (B/L)^2).
 """
 rudder_area(hull::Hull) =
     hull.draft * hull.length / 100 *
