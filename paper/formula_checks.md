@@ -80,13 +80,16 @@ That later paper uses a different, newer regression ("Y'_β = ½πκ + 1.9257(C_
 
 ## 3. Rudder area A = TL/100 [1 + 25(B/L)²] (`rudder_area`)
 
-**Verdict: not verifiable in a primary source. The formula is confirmed only by secondary material, and the current DNV class rules do not contain it.**
+**Verdict: the code's form is attributed to the 1972 DNV rules by a secondary source only. DNV's January 2000 rule, the earliest edition read, has a block coefficient, and the two agree only at C_B ≈ 0.707. It is guidance, not a requirement.**
 
+- **DNV, January 2000.** Pt. 3 Ch. 3 Sec. 2, C 106, guidance note, p. 9: "Rudders (one or more) working directly behind a propeller should preferably have a total area not less than:" A = (TL/100)[1 + 50 C_B²(B/L)²]. The note adds that the area "should be increased" for ships that often manoeuvre in harbours.
+- **Waters & Blume, PIANC 2002, p. 7.** "In 1972, Det Norske Veritas' (DNV) rules included a formula", with the factor 25, and "The DNV (2000) rules have subsequently been refined to account for vessel block coefficient". They give no 1972 reference.
+- **Effect [calc].** At L 85, B 13.2, T 5.5 m the factor 25 gives 7.49 m². The 2000 form gives −10.5 % at C_B 0.60, −0.8 % at 0.70, +10.5 % at 0.80 and +16.7 % at 0.85.
 - **Current DNV rules.** The 2012 DNV Rules for Classification of Ships, Pt. 3 Ch. 3 (rules.dnv.com `ts303.pdf`), Sec. 2 on rudders, define "A = area of rudder blade in m², including area of flap" only for scantlings. I found no minimum-area formula in that document.
 - **Secondary confirmation.** A lecture by P.-Å. Kvick (Linnaeus University, "Roderkrafter", slide "Conventional rudder (minimum area) — Classification guidance") gives "A_r = (d L/100)[1 + 25(B/L)²]". The same slide gives the Reed's alternative "A_r = d L / F, F 60–70".
 - **Wording seen only in a search snippet.** A ScienceDirect topic page (book chapter citing Molland & Turnock 2007 and Brix 1993) was summarised by a search engine as "Det Norske Veritas recommends: (6.91) A_R/(L·T) ≥ 0.01·(1 + 25(B/L)²)". The page itself returned HTTP 403, so this is not a verified quote.
 
-This wording points to an older DNV recommendation, quoted as a minimum, not "the DNV area". Suggested correction: write "the minimum rudder area recommended by DNV, A_r ≥ TL/100 [1 + 25(B/L)²] (Brix 1993; Molland & Turnock 2007)" once one of those books is checked.
+Which form to use is #17.
 
 ## 4. Taylor wake fraction w = 0.5C_B − 0.05 and t = 0.6w (`src/propulsion.jl`)
 
@@ -156,5 +159,5 @@ What each open check needs; `sources.csv` records whether we hold it.
 - Discrepancies 1.1 and 1.2: the Mittendorf et al. reference code, https://gitlab.gbar.dtu.dk/mamit/RAW_Formula.
 - Attribution of the hull side-force formula: Inoue et al. (1981) and Kijima et al. (1990).
 - X'_vv data on the leeway drag: Yasukawa & Yoshimura (2015).
-- DNV rudder-area quote with page: Molland & Turnock (2007) or Brix (1993).
+- The factor 25 in a primary source: the 1972 DNV rules, Molland & Turnock (2007) or Brix (1993).
 - Primary attribution of w = 0.5C_B − 0.05: Carlton (2012) or Taylor (1933).

@@ -474,6 +474,22 @@ cost numbers, so it is a modelling citation only, not a performance benchmark.
 
 ---
 
+## 8. Bentin, Kotzur, Schlaak, Zastrau & Freye 2018 — kite, rotor and DynaRig with routing
+
+**Citation.** Bentin, M., Kotzur, S., Schlaak, M., Zastrau, D., Freye, D. (2018). Perspectives for a wind assisted ship propulsion. _Int. J. Maritime Engineering_ 160(A1), A-1 to A-10. doi:10.5750/ijme.v160iA1.1043; the PDF prints doi 10.3940/rina.ijme.2018.a1.439.
+
+- **Set-up.** One kite (800 m²), four rotors (25 × 4 m) and a three-mast DynaRig (800 m² each), sized so the "wind force is about the same for the three systems for lateral winds" (p. A-6), on a 17,500 dwt carrier, a 37,600 dwt bulker and a 114,000 dwt tanker (p. A-2). All results shown are for the carrier at a fixed 13 kn, one journey a week in 2008 on analysis weather (p. A-7).
+- **Results.** Baltimore to Wilhelmshaven, great circle and routed: rotor 21 and 31 %, DynaRig 25 and 35 %, kite 23 and 29 %. The reverse direction: 14 and 24 %, 21 and 33 %, 10 and 19 % (Table 2, p. A-8). Routing adds about 5 h to 294 h (p. A-8).
+- **Balance.** None. Thrust is subtracted from the required power, "P_e(WASP) = P_e − P_e(WPS)" (p. A-2). The words leeway, drift, heel, rudder and side force do not occur. "Interactions between different units (rotors or masts) on the ship are neglected" (p. A-6). There is no wing sail.
+- **Cost.** Numbers, but no cost model: a "rough estimation" that a rig on windy routes "might be profitable for a fuel prices of the order of 500 €/to (profitability after 5 years) or 250 €/to (profitability after 10 years)", with "Details will be discussed elsewhere" (p. A-9). There are no rig prices and no cost per tonne-km. "With the price of the actual fuel used in seagoing ships a profitability is not yet given" (p. A-9).
+
+## 9. Citations checked against the source
+
+- **Cayon, Gaunaa & Schmehl 2023.** Supports the Vortex Step Method: "a 3D nonlinear vortex step method coupled with viscous 2D airfoil polars" (p. 1). It tests leading-edge inflatable kites only, not a ram-air wing, and builds on "the method described in [27,28]" (p. 5). It names "the inability to deal with stall" (p. 15), and its drag is "still considerably smaller" than experiment (p. 15).
+- **IMO 2023, MEPC.377(80).** "to reach net-zero GHG emissions by or around, i.e. close to, 2050, taking into account different national circumstances" (Annex 15, p. 6). Checkpoints are 20 to 30 % by 2030 and 70 to 80 % by 2040 (p. 6), on a well-to-wake basis (p. 5).
+- **Loyd 1980.** Never prints the formula the model section gives. His closed form is Eq. 13, "L = ½ρC_L A (V_w − V_L)² (L/D_K)²" (p. 108), with tension about equal to lift, so against it the model's tension is higher by (1 + 1/G²)^1.5: 9.5 % at G = 4 and 1.5 % at G = 10 **[calc]**. Eqs. 39–41 (p. 110) with no weight and no reeling give the model's formula exactly **[calc]**, so a citation should name those equations.
+- **Rasp et al. 2024, arXiv v2, not the journal version.** The 1.5° and six hours are evaluation choices in the paper (p. 9), which says of the data only "A subset of the ERA5 dataset is available on the cloud" (p. 4). The WeatherBench 2 data guide (weatherbench2.readthedocs.io, read 2026-11-02) lists `1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr`, which is the copy itself.
+
 ## Gap statement (grounded only in the full texts above)
 
 - **No paper read compares kite, rigid wingsail and Flettner rotor with one ship
@@ -481,8 +497,8 @@ cost numbers, so it is a modelling citation only, not a performance benchmark.
   (plus turbine) but ignores side force ("presented estimates are
   over-optimistic in ignoring side force effects", p. 119); Lu & Ringsberg 2020
   has the 4-DOF balance but no kite; Tillig & Ringsberg 2020 is rotor-only;
-  Podeur et al. 2016 is kite-only with drift neglected (p. 3).
-- **None of them routes the wind-assisted ship.** Lu & Ringsberg (p. 253),
+  Podeur et al. 2016 is kite-only with drift neglected (p. 3); Bentin et al. 2018 has kite, rotor and DynaRig but no wing sail and no side force.
+- **Only Bentin et al. 2018 routes all its rigs, at one speed, ship and size.** Lu & Ringsberg (p. 253),
   Tillig & Ringsberg (p. 18), CE Delft (p. 117) and Podeur (great circle, p. 3)
   all use fixed routes; three of them say routing would raise savings. EMSA
   reports the only quantified routing benefit as "1.9% of the reduction" (p.

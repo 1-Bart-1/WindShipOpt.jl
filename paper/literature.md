@@ -28,9 +28,9 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 
 **bentin2018** — Bentin, M., Kotzur, S., Schlaak, M., Zastrau, D., Freye, D. (2018). Perspectives for a wind assisted ship propulsion. _International Journal of Maritime Engineering_ 160(A1). DOI 10.5750/ijme.v160iA1.1043. (Crossref lists the record date as 2021; the volume is the 2018 one.)
 
-- Compares: kite, Flettner rotor and DynaRig on sea-going cargo ships (bulker, multipurpose carrier, tanker), with route optimisation.
-- Findings (abstract): route optimisation raises the saving "significantly"; the longer voyage stays within the accepted supply-chain uncertainty and can be capped in the optimiser; savings depend on system, route, ship type, speed and weather; cost-effectiveness depends on fuel price, ship speed and emission policy (no full cost model reported in the abstract).
-- Relevance: the closest earlier work to ours in scope (kite + rotor + sail + routing + several ship types). What it lacks, as far as the abstract shows: a cost per tonne-km, a kite modelled from geometry, a leeway/heel/rudder balance, and alternative fuels. **We must cite it and say so.**
+- Compares: kite, Flettner rotor and DynaRig, one size each, routed on three routes; results shown only for a 17,500 dwt carrier at 13 kn. Full notes in `literature_core.md` §8.
+- Findings: routing adds about 10 percentage points on the North Atlantic, up to 35 % saving with the DynaRig, for about 2 % more voyage time.
+- Relevance: the closest earlier work to ours. It has no wing sail, no leeway, heel or rudder balance, one speed, and cost only as a rough break-even fuel price of 500 €/t over 5 years or 250 €/t over 10. **We must cite it and say so.**
 
 **cedelft2016** — CE Delft, Tyndall Centre, Fraunhofer ISI, Chalmers (2016). _Study on the analysis of market potentials and market barriers for wind propulsion technologies for ships._ European Commission, DG Climate Action. DOI 10.2834/68747.
 
