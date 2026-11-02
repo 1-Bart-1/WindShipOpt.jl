@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Starts Julia on this repo's project for a person at a terminal; arguments pass through.
+set -euo pipefail
+
+repo=$(dirname "${BASH_SOURCE[0]}")/..
+major=$("$repo/bin/julia_version")
+
+exec julia "+$major" --project="$repo" -t auto "$@"
