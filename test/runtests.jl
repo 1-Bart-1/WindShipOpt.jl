@@ -260,36 +260,17 @@ end
 
 corridor, table, hourly = wing_coaster_routing()
 
-@testset "bounded route equals the unpruned dynamic programme" begin
+@testset "route guided by a cost to go equals the full dynamic programme" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
     workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2), 400,
         size(corridor.lat, 1))
     for coastal_penalty in (0.0, 1.0)
         leg = route(corridor, table, weather, departure; time_cost=hourly, coastal_penalty)
-        full = WindShipOpt.route_pass(workspace, corridor, table, weather, departure,
-            corridor.water; time_cost=hourly, time_step=3.0, first_stage=1,
+        full = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
+            time_cost=hourly, time_step=3.0, first_stage=1,
             first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty)
         @test leg.objective == full.objective
         @test leg.path == full.path
-    end
-end
-
-@testset "search band holds the coarse path and rivals pass it on the asked side" begin
-    leg = route(corridor, table, SyntheticWeather(), 24.0 * 31; time_cost=hourly)
-    band = WindShipOpt.band_nodes(corridor, leg, 1)
-    rows = [WindShipOpt.nearest_lateral(corridor, stage, point[1], point[2])
-            for (stage, point) in enumerate(leg.path)]
-    @test all(band[stage, rows[stage]] for stage in eachindex(rows))
-    @test !any(band .& .!corridor.water)
-    for side in (-1, 1)
-        rival = WindShipOpt.rival_nodes(corridor, leg, 1, side)
-        @test !any(rival .& .!corridor.water)
-        blocked = [stage for stage in eachindex(rows)
-                   if rival[stage, :] != corridor.water[stage, :]]
-        @test length(blocked) == 1
-        stage = only(blocked)
-        @test all(side * (lateral - rows[stage]) > WindShipOpt.BAND_ROWS
-                  for lateral in axes(rival, 2) if rival[stage, lateral])
     end
 end
 

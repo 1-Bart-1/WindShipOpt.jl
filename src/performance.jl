@@ -69,11 +69,14 @@ end
 Bilinear interpolation of the matrix `values` at the [`KnotWeight`](@ref)s `y` and `z`
 of its rows and columns; its entries are numbers or tuples of numbers.
 """
-plane_value(values, y::KnotWeight, z::KnotWeight) = y.upper .*
-    line_value(values, y.index + 1, z) .+ y.lower .* line_value(values, y.index, z)
-
-line_value(values, j, z::KnotWeight) =
-    @inbounds z.upper .* values[j, z.index + 1] .+ z.lower .* values[j, z.index]
+function plane_value(values, y::KnotWeight, z::KnotWeight)
+    j, k = y.index, z.index
+    corners = @inbounds (values[j + 1, k + 1], values[j + 1, k], values[j, k + 1],
+        values[j, k])
+    return map((upper_upper, upper_lower, lower_upper, lower_lower) ->
+            y.upper * (z.upper * upper_upper + z.lower * upper_lower) +
+            y.lower * (z.upper * lower_upper + z.lower * lower_lower), corners...)
+end
 
 """
     PerformanceTable
@@ -314,99 +317,19 @@ function fuel_power(table::PerformanceTable, speed, thrust, rig_power)
         delivered + rig_power * ship.powertrain.transmission_efficiency)
 end
 
-"""
-    FuelBound
-
-Lower bound on the fuel power [`lookup`](@ref) returns at each of a set of speeds, from
-the least calm thrust and added resistance over the cells of the grids of a
-[`PerformanceTable`](@ref).
-"""
-struct FuelBound
-    "fuel power [W] that no larger thrust undercuts, per (thrust step, speed)"
-    fuel_power::Matrix{Float64}
-    "least calm thrust [N] per (speed, wind cell) over all angles and lower wind cells"
-    least_calm_thrust::Matrix{Float64}
-    "least added resistance over H_s^2 [N/m^2] per speed over all wave cells"
-    least_wave_resistance::Vector{Float64}
-end
-
-"thrust step of the fuel power in a [`FuelBound`](@ref) [N]"
-const BOUND_THRUST_STEP = 500.0
-
-"""
-    FuelBound(table, speeds)
-
-[`FuelBound`](@ref) of `table` at `speeds` [m/s].
-"""
-function FuelBound(table::PerformanceTable, speeds)
-    speed_weights = [KnotWeight(table.speeds, speed) for speed in speeds]
-    _, winds, angles = table.flown_thrust.knots
-    _, periods, headings = table.wave_resistance.knots
-    calm = [min(cell_floor(table.flown_thrust, weight, j, k),
-                cell_floor(table.stowed_thrust, weight, j, k))
-            for weight in speed_weights, j in 1:(length(winds) - 1),
-                k in 1:(length(angles) - 1)]
-    waves = [cell_floor(table.wave_resistance, weight, j, k)
-             for weight in speed_weights, j in 1:(length(periods) - 1),
-                 k in 1:(length(headings) - 1)]
-    rig_power = min(0.0, value_floor(table.rig_power.values),
-        value_floor(table.stowed_power.values))
-    thrusts = 0:BOUND_THRUST_STEP:(1e-3INFEASIBLE_THRUST)
-    fuel = [(1 - 1e-9) * fuel_power(table, speed, thrust, rig_power)
-            for thrust in thrusts, speed in speeds]
-    least_calm = accumulate(min, dropdims(minimum(calm; dims=3); dims=3); dims=2)
-    return FuelBound(fuel, least_calm, vec(minimum(waves; dims=(2, 3))))
-end
-
-"""
-    value_floor(values)
-
-Least of `values`, lowered by the rounding error a linear interpolation between them can
-make.
-"""
-value_floor(values) = minimum(values) - 1e-9maximum(abs, values)
-
-"""
-    cell_floor(table, speed_weight, j, k)
-
-Least value of `table` at the speed of `speed_weight` over the corners of cell (`j`,
-`k`) of the other two dimensions, lowered by the rounding error of interpolating there.
-"""
-function cell_floor(table::LinearTable, speed_weight::KnotWeight, j, k)
-    i = speed_weight.index
-    corners = view(table.values, i:(i + 1), j:(j + 1), k:(k + 1))
-    least = minimum(
-        speed_weight.upper * corners[2, y, z] + speed_weight.lower * corners[1, y, z]
-        for y in 1:2, z in 1:2)
-    return least - 1e-9maximum(abs, corners)
-end
-
-"""
-    bound_fuel_power(bound, speed_index, thrust)
-
-Fuel power [W] that no thrust above `thrust` [N] undercuts at speed number `speed_index`
-of `bound`.
-"""
-function bound_fuel_power(bound::FuelBound, speed_index, thrust)
-    thrust >= 2BOUND_THRUST_STEP || return bound.fuel_power[1, speed_index]
-    knot = min(floor(Int, thrust * (1 / BOUND_THRUST_STEP)), size(bound.fuel_power, 1))
-    return bound.fuel_power[knot, speed_index]
-end
-
 max_knots(table::PerformanceTable) = floor(Int, last(table.speeds) / KNOT)
 
 """
     RouteTable
 
 A [`PerformanceTable`](@ref) at the speeds the router tries, with the
-[`SpeedSlice`](@ref) and the [`FuelBound`](@ref) at each.
+[`SpeedSlice`](@ref) at each.
 """
 struct RouteTable{T <: PerformanceTable}
     table::T
     "routing speeds [m/s], ascending"
     speeds::Vector{Float64}
     slices::Vector{SpeedSlice}
-    bound::FuelBound
 end
 
 """
@@ -417,7 +340,7 @@ end
 function RouteTable(table::PerformanceTable)
     speeds = collect(Float64, (4:max_knots(table)) .* KNOT)
     slices = [SpeedSlice(table, KnotWeight(table.speeds, speed)) for speed in speeds]
-    return RouteTable(table, speeds, slices, FuelBound(table, speeds))
+    return RouteTable(table, speeds, slices)
 end
 
 edge_fuels(table::RouteTable, speed_index, condition::SeaCondition) = edge_fuels(
