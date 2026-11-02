@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Starts Julia on this repo's project for a person at a terminal; arguments pass through.
+set -euo pipefail
+
+repo=$(dirname "${BASH_SOURCE[0]}")/..
+
+default_manifest=$(basename "$repo"/Manifest-v*.toml.default)
+major=${default_manifest#Manifest-v}
+major=${major%.toml.default}
+
+exec julia "+$major" --project="$repo" -t auto "$@"
