@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Installs the tracked manifests of this repo and precompiles them.
+set -euo pipefail
+
+usage() {
+    cat <<USAGE
+Usage: ./bin/install [-y] [--update] [-h]
+
+Copies each tracked Manifest-v<major>.toml.default over its live manifest, instantiates
+and precompiles, for the root project and scripts/ where it has one.
+
+  -y        run with no terminal and never prompt; juliaup must already have the channel
+  --update  Pkg.update against the live manifests; the .default files stay untouched
+  -h        show this help
+USAGE
+}
+
+update=false
+for arg in "$@"; do
+    case "$arg" in
+        -y) ;;
+        --update) update=true ;;
+        -h | --help) usage; exit 0 ;;
+        *) usage >&2; exit 2 ;;
+    esac
+done
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+major=$(./bin/julia_version)
+
+install_project() {
+    local project=$1
+    local action="Pkg.instantiate()"
+    if $update; then
+        action="Pkg.update()"
+    else
+        cp "$project/Manifest-v$major.toml.default" "$project/Manifest-v$major.toml"
+    fi
+    julia "+$major" --project="$project" -e "using Pkg; $action; Pkg.precompile()"
+}
+
+install_project .
+if [[ -f scripts/Project.toml ]]; then
+    install_project scripts
+fi

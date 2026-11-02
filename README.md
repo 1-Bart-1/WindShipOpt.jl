@@ -16,9 +16,8 @@ Every number the model assumes, with its sensitivity range and the reason for it
 ## Running
 
 ```bash
-cp Manifest-v1.12.toml.default Manifest-v1.12.toml
-juliaserver launch .
-juliaserver run . scripts/compare_designs.jl -o
+./bin/install
+./bin/run_julia scripts/compare_designs.jl
 ```
 
 ## Status
