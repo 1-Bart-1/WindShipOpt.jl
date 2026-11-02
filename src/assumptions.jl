@@ -12,17 +12,17 @@ struct Assumption
 end
 
 """
-    Assumptions(path=joinpath(pkgdir(WindShipOpt), "data", "assumptions.yaml"))
+    Assumptions()
 
-All model assumptions, read from a YAML file. Index with a symbol to get the base value:
-`assumptions[:e_methanol_price]`.
+All model assumptions, read from `data/assumptions.yaml`. Index with a symbol to get the
+base value: `assumptions[:e_methanol_price]`.
 """
 struct Assumptions
     entries::Dict{Symbol, Assumption}
 end
 
-function Assumptions(path::AbstractString=default_assumptions_path())
-    raw = YAML.load_file(path)
+function Assumptions()
+    raw = YAML.load_file(joinpath(pkgdir(@__MODULE__), "data", "assumptions.yaml"))
     entries = Dict{Symbol, Assumption}()
     for (name, entry) in raw
         entries[Symbol(name)] = Assumption(entry["value"], entry["low"], entry["high"],
@@ -30,8 +30,6 @@ function Assumptions(path::AbstractString=default_assumptions_path())
     end
     return Assumptions(entries)
 end
-
-default_assumptions_path() = joinpath(pkgdir(@__MODULE__), "data", "assumptions.yaml")
 
 Base.getindex(assumptions::Assumptions, name::Symbol) = assumptions.entries[name].value
 

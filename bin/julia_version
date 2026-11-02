@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Prints the Julia version named by this repo's one tracked root manifest.
+set -euo pipefail
+shopt -s nullglob
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+default_manifests=(Manifest-v*.toml.default)
+if ((${#default_manifests[@]} != 1)); then
+    echo "expected one tracked root manifest, found: ${default_manifests[*]:-none}" >&2
+    exit 1
+fi
+
+major=${default_manifests[0]#Manifest-v}
+echo "${major%.toml.default}"

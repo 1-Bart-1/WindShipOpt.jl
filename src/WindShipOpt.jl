@@ -1,8 +1,8 @@
 """
     WindShipOpt
 
-Design optimisation of wind-assisted coasters (rigid wing or towing kite on e-methanol)
-against a conventional VLSFO coaster, with weather routing on a long ocean route.
+Design optimisation of wind-assisted merchant ships (wings, rotors or a towing kite, on
+VLSFO, e-methanol or hydrogen), with weather routing on long ocean routes.
 """
 module WindShipOpt
 
@@ -25,7 +25,7 @@ export LandMask, GridMask, north_atlantic_mask, SyntheticWeather, ERA5Weather, w
 export Corridor, return_corridor, route_corridors, centre_index, Leg, route
 export ForecastWeather, forecast_route, ShipClass, ship_classes
 export ShipCosts, RoundTrip, round_trip, KNOT, NAUTICAL_MILE
-export LegTrace, sailing_speed
+export LegTrace
 
 include("assumptions.jl")
 include("hull.jl")

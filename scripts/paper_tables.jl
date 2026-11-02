@@ -1,11 +1,6 @@
-# Table steps of the paper: the inputs of data/assumptions.yaml that matter, ranked by
-# their effect, and the ship classes from data/ship_classes.csv, written as LaTeX to
-# paper/sections/.
-# Included by paper.jl.
-
-"inputs of the island delivery chains, a study that is not part of the paper"
-inputs_outside_paper = [:island_quay_depth, :hub_draft_limit, :under_keel_clearance,
-    :transshipment_lift_cost, :transshipment_lifts, :hub_dwell, :feeder_market_price]
+# Table steps of the paper, written as LaTeX to paper/sections/: the inputs of
+# data/assumptions.yaml that matter ranked by effect, the ship classes from
+# data/ship_classes.csv, and the fuel saving and payback of each rig. Included by paper.jl.
 
 """
     latex_escape(text)
@@ -90,7 +85,7 @@ function screened_saving(table, ship, rig, input, bound)
     with_rig = screened_cost(table, ship, rig, input, bound)
     bare = screened_cost(table, ship, "none", input, bound)
     (isempty(with_rig) || isempty(bare)) && return NaN
-    return 100 * (1 - only(with_rig) / only(bare))
+    return percent_saving(only(with_rig), only(bare))
 end
 
 """
@@ -122,7 +117,7 @@ bound of `input`, over the rigs with both trips.
 """
 function saving_change(table, ship, input)
     change = 0.0
-    for rig in ("kite", "wings", "rotors")
+    for rig in rig_names
         swing = abs(screened_saving(table, ship, rig, input, "high") -
                     screened_saving(table, ship, rig, input, "low"))
         isfinite(swing) && (change = max(change, swing))
@@ -173,7 +168,6 @@ is printed as ∞.
 """
 function class_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
-    assumptions = Assumptions()
     notes = class_source_notes()
     open(joinpath(sections, "class_sources.tex"), "w") do io
         for class in classes
@@ -193,7 +187,7 @@ function class_table()
             "tiers & limit [m] & calls [\\%] & delay [h] \\\\")
         println(io, "\\midrule")
         for class in classes
-            write_class_row(io, class, assumptions)
+            write_class_row(io, class)
         end
         println(io, "\\bottomrule")
         println(io, "\\end{tabular}")
@@ -202,11 +196,11 @@ function class_table()
 end
 
 """
-    write_class_row(io, class, assumptions)
+    write_class_row(io, class)
 
 One row of the ship class table.
 """
-function write_class_row(io, class, assumptions)
+function write_class_row(io, class)
     delay = isfinite(class.fixed_rig_port_hours) ?
             latex_number(class.fixed_rig_port_hours) : "\$\\infty\$"
     println(io, latex_escape(class.name), " & ", latex_number(class.length), " & ",
@@ -295,7 +289,7 @@ One row of the fuel table: the CO2 of `class` on VLSFO without a rig and the fue
 function write_fuel_row(io, table, class)
     bare = rows(table, "class" => class, "drive" => "vlsfo", "rig" => "none")
     cells = [@sprintf("%.1f", mean(table["carbon"][bare]))]
-    for (drive, _) in drive_labels, rig in ("kite", "wings", "rotors")
+    for (drive, _) in drive_labels, rig in rig_names
         savings = [fuel_saving(table, class, drive, route, rig)
                    for route in unique(table["route"])]
         filter!(isfinite, savings)
@@ -311,12 +305,11 @@ Fuel energy [%] that the cheapest size of `rig` saves against the same class wit
 rig on one drive and route; `NaN` where a trip is missing.
 """
 function fuel_saving(table, class, drive, route, rig)
-    case = ("class" => class, "drive" => drive, "route" => route)
-    bare = rows(table, case..., "rig" => "none")
-    options = rows(table, case..., "rig" => rig)
-    (isempty(bare) || isempty(options)) && return NaN
-    cheapest = options[argmin(table["cost"][options])]
-    return 100 * (1 - table["fuel"][cheapest] / only(table["fuel"][bare]))
+    bare = rows(table, "class" => class, "drive" => drive, "route" => route,
+        "rig" => "none")
+    cheapest = cheapest_row(table, class, route, drive, rig)
+    (isempty(bare) || isnothing(cheapest)) && return NaN
+    return percent_saving(table["fuel"][cheapest], only(table["fuel"][bare]))
 end
 
 """
@@ -335,7 +328,7 @@ function payback_table()
         println(io, "\\midrule")
         for class in class_order(table)
             cells = String[]
-            for (drive, _) in drive_labels, rig in ("kite", "wings", "rotors")
+            for (drive, _) in drive_labels, rig in rig_names
                 years = [payback_years(table, class, drive, route, rig)
                          for route in unique(table["route"])]
                 push!(cells, payback_cell(years))
@@ -353,7 +346,6 @@ Median of the payback `years` over the routes, a dash when the median rig never 
 back.
 """
 function payback_cell(years)
-    isempty(years) && return "--"
     middle = sort(years)[cld(length(years), 2)]
     return isfinite(middle) ? @sprintf("%.1f", middle) : "--"
 end
@@ -366,11 +358,10 @@ charges and at the transport work of the rig ship, repays the rig's price at the
 discount rate; `Inf` where it never does within the rig's life.
 """
 function payback_years(table, class, drive, route, rig)
-    case = ("class" => class, "drive" => drive, "route" => route)
-    bare = rows(table, case..., "rig" => "none")
-    options = rows(table, case..., "rig" => rig)
-    (isempty(bare) || isempty(options)) && return Inf
-    best = options[argmin(table["cost"][options])]
+    bare = rows(table, "class" => class, "drive" => drive, "route" => route,
+        "rig" => "none")
+    best = cheapest_row(table, class, route, drive, rig)
+    (isempty(bare) || isnothing(best)) && return Inf
     design = ShipDesign(Symbol(drive), ship_classes()[class];
         rig_size(rig, table["area"][best])...)
     ship = Ship(design, assumptions)

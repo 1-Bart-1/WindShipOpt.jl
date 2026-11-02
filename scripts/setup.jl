@@ -1,8 +1,7 @@
 # Shared by the scripts: the weather, the departure times and the route corridors. Uses
 # the ERA5 data in era5/atlantic_wide/ with its land mask and all routes when it is there,
 # and the synthetic weather with the Caribbean route otherwise. Corridors are built on
-# first use by `corridors`, at a scale relative to stages of 90 nmi; 4 keeps costs within
-# 3 % of a grid 8 times finer.
+# first use by `corridors`, at a scale relative to stages of 90 nmi.
 using WindShipOpt
 
 assumptions = Assumptions()

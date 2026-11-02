@@ -154,8 +154,6 @@ TEU slots that a rig takes from the deck of a container ship: every wing, rotor 
 mast blocks the on-deck stack of the rows it covers over one 40 ft bay, all tiers up,
 while the holds below stay in use; a kite over a standing rig blocks both.
 """
-blocked_slots(rig, class, assumptions) = 0.0
-
 function blocked_slots(rig, class::ShipClass, assumptions)
     footprint = deck_footprint(rig, assumptions)
     rows = ceil((footprint + assumptions[:deck_rig_clearance]) /
@@ -210,18 +208,20 @@ rig_costs(::Nothing, assumptions) = (0.0, 0.0, 0.0)
 rig_costs(rig::CombinedRig, assumptions) =
     rig_costs(rig.kite, assumptions) .+ rig_costs(rig.standing, assumptions)
 
-function rig_costs(rig::WingRig, assumptions)
-    capital = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions))
-    annuity = capital_recovery(assumptions[:discount_rate], assumptions[:wing_lifetime]) *
-              capital
-    return capital, assumptions[:wing_mass_per_area] * total_area(rig), annuity
-end
+rig_costs(rig::WingRig, assumptions) =
+    deck_rig_costs(rig, assumptions, :wing_lifetime, :wing_mass_per_area)
+rig_costs(rig::RotorRig, assumptions) =
+    deck_rig_costs(rig, assumptions, :rotor_lifetime, :rotor_mass_per_area)
 
-function rig_costs(rig::RotorRig, assumptions)
+"""
+    deck_rig_costs(rig, assumptions, lifetime, mass_per_area)
+
+[`rig_costs`](@ref) of wings or rotors, with the names of their assumptions.
+"""
+function deck_rig_costs(rig, assumptions, lifetime, mass_per_area)
     capital = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions))
-    annual = capital_recovery(assumptions[:discount_rate], assumptions[:rotor_lifetime]) *
-             capital
-    return capital, assumptions[:rotor_mass_per_area] * total_area(rig), annual
+    annuity = capital_recovery(assumptions[:discount_rate], assumptions[lifetime]) * capital
+    return capital, assumptions[mass_per_area] * total_area(rig), annuity
 end
 
 function rig_costs(rig::KiteRig, assumptions)
@@ -241,18 +241,20 @@ docking head, control unit and integration of a kite, without its canopy and tet
 """
 rig_price_parts(::Nothing, assumptions) = (;)
 
-function rig_price_parts(rig::WingRig, assumptions)
-    units = rig.count * assumptions[:wing_unit_cost]
-    surface = assumptions[:wing_cost_per_area] * total_area(rig)
-    return (; units, surface,
-        installation=assumptions[:wing_installation_fraction] * (units + surface))
-end
+rig_price_parts(rig::WingRig, assumptions) = deck_price_parts(rig, assumptions,
+    :wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction)
+rig_price_parts(rig::RotorRig, assumptions) = deck_price_parts(rig, assumptions,
+    :rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction)
 
-function rig_price_parts(rig::RotorRig, assumptions)
-    units = rig.count * assumptions[:rotor_unit_cost]
-    surface = assumptions[:rotor_cost_per_area] * total_area(rig)
-    return (; units, surface,
-        installation=assumptions[:rotor_installation_fraction] * (units + surface))
+"""
+    deck_price_parts(rig, assumptions, unit_cost, cost_per_area, fraction)
+
+[`rig_price_parts`](@ref) of wings or rotors, with the names of their assumptions.
+"""
+function deck_price_parts(rig, assumptions, unit_cost, cost_per_area, fraction)
+    units = rig.count * assumptions[unit_cost]
+    surface = assumptions[cost_per_area] * total_area(rig)
+    return (; units, surface, installation=assumptions[fraction] * (units + surface))
 end
 
 function rig_price_parts(rig::KiteRig, assumptions)
@@ -280,13 +282,11 @@ Price of one canopy and one tether [USD]: the canopy at its manufacturing cost t
 market price factor, the tether at its purchase price.
 """
 function consumable_costs(rig::KiteRig, assumptions)
-    tether_mass = assumptions[:tether_rope_density] * π * rig.tether_diameter^2 / 4 *
-                  rig.tether_length
+    tether_mass = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
     canopy = assumptions[:market_price_factor] * Canopy(assumptions).cost_per_area *
              rig.area
     return canopy, assumptions[:tether_price] * tether_mass
 end
-consumable_costs(rig::CombinedRig, assumptions) = consumable_costs(rig.kite, assumptions)
 
 """
     wear_cost(rig, assumptions)
@@ -330,8 +330,7 @@ end
     time_cost(costs, assumptions, cargo)
 
 Cost of one hour at sea with `cargo` [t] on board [USD/h]: the fixed annual cost spread
-over the trading hours plus the interest on the cargo. Minimising fuel cost plus this
-time cost over a leg minimises the cost per tonne-kilometre.
+over the trading hours plus the interest on the cargo.
 """
 time_cost(costs::ShipCosts, assumptions::Assumptions, cargo) =
     costs.fixed_annual / (8760assumptions[:availability]) +

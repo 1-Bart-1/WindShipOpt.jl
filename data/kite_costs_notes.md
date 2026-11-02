@@ -40,7 +40,7 @@ Sources behind the kite cost inputs. Built 2026-10-31. The system is a traction 
 - Early 2012: 40 of 80 staff laid off; "around ten towing kites sold, but not all of them installed yet"; shipowners would not invest "around one million euros in a towing kite" given their uncertain situation and no bank support (t-online/dpa, 11 Feb 2012, https://www.t-online.de/finanzen/aktuelles/wirtschaft/id_53937564/skysails-zugdrachen-ziehen-nicht-richtig.html). "Four are currently in operation worldwide on freighters and trawlers"; the last kite was sold almost a year earlier (NWZ, 2012, https://www.nwzonline.de/wirtschaft/gegenwind-fuer-schiffsdrachen_a_1,0,530192929.html).
 - 2015: only two ships using the system; Wrage blames the post-2008 shipping slump (CNBC, 14 Sep 2015, https://www.cnbc.com/2015/09/14/how-kites-can-save-the-planet--or-the-shipping-industry.html).
 - SkySails GmbH filed for insolvency on 7 Mar 2016 and the wind-propulsion part was liquidated in April 2016 (CE Delft 2016 §4.5.2, citing Handelsregister). SkySails Group kept a yacht system (2016–2018) and moved to power generation; SkySails Power GmbH itself filed for insolvency on 9 Dec 2025 (Energie & Management, 12 Dec 2025, cited by de.wikipedia).
-- Your "~2012" is half right: sales stopped in 2011–2012, but the marine business formally ended with the 2016 insolvency. The reasons given are economic (shipping crisis, falling oil price, payback many years, lower-than-promised savings) plus the operational limits above. No source blames a single technical failure.
+- Sales stopped in 2011–2012, but the marine business formally ended with the 2016 insolvency. The reasons given are economic (shipping crisis, falling oil price, payback many years, lower-than-promised savings) plus the operational limits above. No source blames a single technical failure.
 
 ### What a system cost
 
@@ -87,7 +87,7 @@ Retail prices fall with size and level out near 130–150 USD per flat m² at th
 
 ### Canopy lifetime
 
-Updated 2026-11-01. "Flight hours" means hours flown or set under load. A ship kite flies figure-eights at a fixed tether length (steady towing load, no reeling under load); an AWE pumping kite powers and depowers every 60–100 s cycle. A sail is loaded steadily, never flies crosswind at 3–5× wind speed, carries far lower loading per m² and flexes and luffs less than a kite; both suffer UV, but a kite is stowed out of the sun when not flying while a sail stays rigged (covered or furled) between uses. Sail life read in hours is therefore a ceiling on UV-limited life and an upper guide for flex life. Conversions: miles at the stated average speed; days × 24 h for races where the mainsail is set throughout.
+"Flight hours" means hours flown or set under load. A ship kite flies figure-eights at a fixed tether length (steady towing load, no reeling under load); an AWE pumping kite powers and depowers every 60–100 s cycle. A sail is loaded steadily, never flies crosswind at 3–5× wind speed, carries far lower loading per m² and flexes and luffs less than a kite; both suffer UV, but a kite is stowed out of the sun when not flying while a sail stays rigged (covered or furled) between uses. Sail life read in hours is therefore a ceiling on UV-limited life and an upper guide for flex life. Conversions: miles at the stated average speed; days × 24 h for races where the mainsail is set throughout.
 
 | Date      | Item                                                                                  | Figure                                                                                        | Hours under load (conversion)                       | Type, size, load regime                                                              | Status                       | Source (file in `paper/literature_pdfs/`)                                                                    |
 | --------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -127,7 +127,7 @@ A ship tether is not cycled over the drum under load, so the pumping mechanism t
 
 Kitepower, SkySails Power (Mauritius, PN-14) and K Line/Oceanicwing have published no measured canopy replacement intervals or fleet flight hours; ask them directly.
 
-### Answer
+### Choice of canopy type
 
 SkySails and Airseas both chose ram-air because it is the type that scales to several hundred m²; an LEI is easier to hold, depower and recover from the water but is unproven above ~100 m². For a ship kite of 300–1,000 m², ram-air (with an inflated leading-edge stiffener, as SkySails patented) is the defensible choice; LEI fits kites of ≤100–150 m². Launch and landing reliability depends on the handling system more than on canopy type, and no source quantifies it for either.
 
@@ -189,7 +189,7 @@ AmSteel-Blue is 100 % Dyneema (Samson does not state SK75 or SK78, https://www.s
 - **IMO GreenVoyage2050**: USD 0.25–4.2 M for 160–5,000 m², maintenance 2 % a year, kite usable 20–30 % of the time.
 - Traut et al. (_Applied Energy_ 113, 2014), Dadd et al. (2010), Naaijen et al. (2006), Leloup (2016): performance studies; none found with hardware costs. Their full texts were not checked for cost tables.
 
-## Proposed model inputs
+## First estimates, superseded by `cost_basis_notes.md` §5
 
 | Name                          | Value                         | Low            | High            | Unit                  | Source                                                                                                                                                          |
 | ----------------------------- | ----------------------------- | -------------- | --------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -208,10 +208,3 @@ AmSteel-Blue is 100 % Dyneema (Samson does not state SK75 or SK78, https://www.s
 | kite_maintenance_fraction     | 0.05                          | 0.02           | 0.05            | of CAPEX per year     | EMSA 2023 (5 % for kites); IMO GreenVoyage2050 (2 %).                                                                                                           |
 
 Check against whole-system prices (estimate): a 1,000 m² system with these inputs costs ~USD 0.6 M before integration (canopy 180 k, mast 186 k, tether 500 m × 2.5 kg/m × 80 = 100 k, winch at 1,000 kN 65 k, pod 30 k, plus ~40 k for ship-side controls), against EMSA's EUR 2.3 M asset cost for the largest unit and SkySails' ~EUR 1 M for 320 m². That gap is the difference between a series price and the prototype prices in every public figure; the model should be run at the EMSA high end as a sensitivity.
-
-### Differences from `assumptions.yaml`
-
-- `winch_cost_per_force` 0.1 USD/N with no fixed part overprices large winches (USD 160 k at 1,600 kN) and underprices small ones; the split above is closer to the data.
-- `control_unit_cost` USD 30 k is fine for 1,000 m² but does not scale with kite area.
-- `launch_system_cost_coefficient` (10 k USD per √m²) gives USD 316 k at 1,000 m², higher than the estimate here (USD 186 k); both are unverified.
-- `canopy_cost_per_area` 300 USD per projected m² is at the top of the LEI range above and over the ram-air range; the yaml text calls it LEI while `canopy_mass_per_area` assumes a ram-air canopy. Pick one type.

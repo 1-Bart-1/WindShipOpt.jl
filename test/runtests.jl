@@ -9,11 +9,14 @@ const PAPER_HULL = Hull(; length=205.0, beam=32.0, draft=10.0, displacement_volu
     bulb_area=20.0, bulb_height=4.0, transom_area=16.0, stern_shape=10.0,
     appendage_area=50.0, appendage_form_factor=1.5)
 
+assumptions = Assumptions()
+
 @testset "Holtrop components match the published example at 25 kn" begin
     speed = 25KNOT
     coefficients = WaveCoefficients(PAPER_HULL)
     @test wetted_surface(PAPER_HULL) ≈ 7381.45 rtol = 1e-3
-    @test friction_coefficient(speed * 205 / PAPER_ENV.water_viscosity) ≈ 0.001390 rtol = 2e-3
+    reynolds = speed * 205 / PAPER_ENV.water_viscosity
+    @test friction_coefficient(reynolds) ≈ 0.001390 rtol = 2e-3
     @test coefficients.c2 ≈ 0.7595 rtol = 1e-3
     @test coefficients.c5 ≈ 0.9592 rtol = 1e-3
     @test coefficients.m1 ≈ -2.1274 rtol = 1e-3
@@ -24,7 +27,6 @@ end
 
 # ~3500 dwt coasters install ~1.5 MW for 12.5 kn, about 1 MW at 11 kn by the cube law.
 @testset "coaster resistance and power are in the range of real coasters" begin
-    assumptions = Assumptions()
     ship = Ship(ShipDesign(:vlsfo, 85.0), assumptions)
     effective_power = resistance(ship.hull, ship.env, 11KNOT) * 11KNOT
     @test 350e3 < effective_power < 800e3
@@ -34,7 +36,6 @@ end
 # Mittendorf et al. (2022), Fig. 3: C_AW of C_B ≥ 0.70 hulls peaks at ~5-10 in head waves
 # near λ/L = 1-1.3 and stays within about ±2 in following waves.
 @testset "SNNM added resistance has the measured head and following wave magnitudes" begin
-    assumptions = Assumptions()
     env = Environment(assumptions)
     seakeeping = SeakeepingHull(Hull(85.0, assumptions), assumptions)
     coefficient(ratio, heading) = added_resistance_coefficient(seakeeping, env, 10KNOT,
@@ -54,8 +55,8 @@ end
     _, tension, _ = WindShipOpt.steering_point(kite, (10.0, 0.0, 0.0), radial, heading,
         (0.0, 0.0, 0.0), Inf)
     radial_wind = 10.0 * cos(elevation)
-    @test tension ≈ 0.5 * 1.225 * 100.0 * hypot(1.0, 0.2) * radial_wind^2 * (1 + 25) rtol =
-        1e-6
+    crosswind_tension = 0.5 * 1.225 * 100.0 * hypot(1.0, 0.2) * radial_wind^2 * (1 + 25)
+    @test tension ≈ crosswind_tension rtol = 1e-6
 end
 
 """
@@ -72,8 +73,8 @@ function best_pattern_path(model, max_force, assumptions, course)
     path = NTuple{3, Float64}[]
     steered = WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters), 12.0,
         max_force; path)
-    return WindShipOpt.objective(problem, steered) ≈ WindShipOpt.objective(problem, force),
-    path
+    return WindShipOpt.objective(problem, steered) ≈
+           WindShipOpt.objective(problem, force), path
 end
 
 "least angle [rad] of a pattern's `path` off the apparent downwind direction"
@@ -82,7 +83,6 @@ least_off_wind(path) = minimum(acos(first(position)) for position in path)
 # A sweep keeps the kite in the outer half of the wind window, more than 45° off the
 # apparent downwind direction; a figure eight crosses the window's centre.
 @testset "upwind the kite sweeps along the window edge rather than parking" begin
-    assumptions = Assumptions()
     model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     upwind_steered, upwind = best_pattern_path(model, max_force, assumptions, deg2rad(120))
     @test upwind_steered
@@ -92,7 +92,7 @@ least_off_wind(path) = minimum(acos(first(position)) for position in path)
 end
 
 @testset "heavier canopy cloth raises the minimum flight wind and the canopy life" begin
-    light, heavy = (with_value(Assumptions(), :canopy_cloth_weight, weight)
+    light, heavy = (with_value(assumptions, :canopy_cloth_weight, weight)
                     for weight in (40.0, 160.0))
     light_wind, heavy_wind = (
         WindShipOpt.min_flight_wind(first(WindShipOpt.kite_model(800.0, 3.0, cloth)), cloth)
@@ -125,7 +125,6 @@ function uniform_kite(hull, assumptions)
 end
 
 @testset "combined rig force is the sum of kite and rotor forces at a fixed trim" begin
-    assumptions = Assumptions()
     env = Environment(assumptions)
     hull = Hull(140.0, assumptions)
     kite = uniform_kite(hull, assumptions)
@@ -143,7 +142,6 @@ end
 end
 
 @testset "kite launch mast takes the forward deck from the rotor row" begin
-    assumptions = Assumptions()
     hull = Hull(140.0, assumptions)
     reserve = WindShipOpt.launch_mast_reserve(assumptions)
     alone = WindShipOpt.RotorRig(800.0, hull, assumptions)
@@ -159,27 +157,26 @@ end
 end
 
 @testset "a rig ship is sized near the bare ship in calm water" begin
-    assumptions = Assumptions()
     bare = Ship(ShipDesign(:vlsfo, 140.0), assumptions)
     rotors = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=300.0), assumptions)
     @test rotors.powertrain.installed_power ≈ bare.powertrain.installed_power rtol = 0.02
 end
 
 @testset "rotor ships pay for the spin power in the routing lookup" begin
-    assumptions = Assumptions()
     ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=300.0), assumptions)
     table = PerformanceTable(ship, assumptions)
     speed, wind, angle = 5.0, 12.0, π / 2
     power = table.rig_power(speed, wind, angle)
     @test power > 0
     @test lookup(table, speed, wind, angle).fuel_power ≈
-          WindShipOpt.fuel_power(table, speed, table.flown_thrust(speed, wind, angle), power)
+          WindShipOpt.fuel_power(table, speed, table.flown_thrust(speed, wind, angle),
+              power)
 end
 
 @testset "fixed rigs cost port time where they block cargo or bridges" begin
-    assumptions = Assumptions()
     classes = ship_classes()
-    rotors(class) = WindShipOpt.RotorRig(800.0, Hull(classes[class], assumptions), assumptions)
+    rotors(class) = WindShipOpt.RotorRig(800.0, Hull(classes[class], assumptions),
+        assumptions)
     port_hours(class) = WindShipOpt.fixed_rig_port_hours(rotors(class), classes[class],
         assumptions)
     @test port_hours("Panamax container ship") == Inf
@@ -189,7 +186,6 @@ end
 end
 
 @testset "a volume-limited ship's cargo ignores rig mass below the mass limit" begin
-    assumptions = Assumptions()
     teu = WindShipOpt.CargoUnit(:teu, assumptions)
     feeder(rig_mass) = WindShipOpt.CargoHold(21000.0, 21000.0 - rig_mass, 1600.0, teu)
     full = 1600 * teu.cargo
@@ -202,7 +198,6 @@ end
 end
 
 @testset "empty boxes take container slots and tare but carry no cargo" begin
-    assumptions = Assumptions()
     teu = WindShipOpt.CargoUnit(:teu, assumptions)
     loaded = 1 - assumptions[:empty_container_share]
     @test teu.cargo ≈ loaded * assumptions[:cargo_per_teu]
@@ -210,7 +205,6 @@ end
 end
 
 @testset "a class ship's drive delivers the shaft power of its source engine" begin
-    assumptions = Assumptions()
     class = ship_classes()["feeder container ship"]
     shaft = 1e3class.power * assumptions[:shaft_efficiency]
     for drive in (:vlsfo, :methanol, :hydrogen)
@@ -222,7 +216,6 @@ end
 
 @testset "a class hull's calm-water delivered power at service speed matches its \
           source design" begin
-    assumptions = Assumptions()
     for class in values(ship_classes())
         isnan(class.source_load) && continue
         ship = Ship(ShipDesign(:vlsfo, class), assumptions)
@@ -230,12 +223,12 @@ end
         thrust = resistance(ship.hull, ship.env, speed)
         source = 1e3class.power * class.source_load * assumptions[:shaft_efficiency] /
                  (1 + assumptions[:source_sea_margin])
-        @test delivered_power(ship.propeller, ship.env, speed, thrust) ≈ source rtol = 1e-6
+        delivered = delivered_power(ship.propeller, ship.env, speed, thrust)
+        @test delivered ≈ source rtol = 1e-6
     end
 end
 
 @testset "a hydrogen ship's tank volume and mass follow its largest leg" begin
-    assumptions = Assumptions()
     class = ship_classes()["feeder container ship"]
     ship = Ship(ShipDesign(:hydrogen, class), assumptions)
     leg = 2e12
@@ -258,7 +251,6 @@ Caribbean outbound corridor at scale 8 with the route table and hourly cost of a
 e-methanol coaster with 400 m^2 of wings.
 """
 function wing_coaster_routing()
-    assumptions = Assumptions()
     corridor, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     ship = Ship(ShipDesign(:methanol, 85.0; wing_area=400.0), assumptions)
     table = RouteTable(PerformanceTable(ship, assumptions))
@@ -266,8 +258,9 @@ function wing_coaster_routing()
     first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions))
 end
 
+corridor, table, hourly = wing_coaster_routing()
+
 @testset "bounded route equals the unpruned dynamic programme" begin
-    corridor, table, hourly = wing_coaster_routing()
     weather, departure = SyntheticWeather(), 24.0 * 31
     workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2), 400,
         size(corridor.lat, 1))
@@ -282,7 +275,6 @@ end
 end
 
 @testset "search band holds the coarse path and rivals pass it on the asked side" begin
-    corridor, table, hourly = wing_coaster_routing()
     leg = route(corridor, table, SyntheticWeather(), 24.0 * 31; time_cost=hourly)
     band = WindShipOpt.band_nodes(corridor, leg, 1)
     rows = [WindShipOpt.nearest_lateral(corridor, stage, point[1], point[2])
@@ -321,13 +313,11 @@ WindShipOpt.waves(seas::HeadSeas, lat, lon, time) =
     (seas.height, seas.period, seas.wave_from) : (0.0, 0.0, 0.0)
 
 @testset "the ship slows where it cannot hold the commanded speed" begin
-    corridor, table, hourly = wing_coaster_routing()
     last_stage, centre = size(corridor.lat, 1), centre_index(corridor)
     destination = (corridor.lat[last_stage, centre], corridor.lon[last_stage, centre])
-    wave_from = corridor.edge_course[last_stage - 1, centre,
-        WindShipOpt.MAX_LATERAL_STEP + 1]
-    seas = HeadSeas(destination, 60NAUTICAL_MILE, wave_from, 3.5, 9.0)
     stage, step = last_stage - 1, WindShipOpt.MAX_LATERAL_STEP + 1
+    wave_from = corridor.edge_course[stage, centre, step]
+    seas = HeadSeas(destination, 60NAUTICAL_MILE, wave_from, 3.5, 9.0)
     commanded = searchsortedfirst(table.speeds, 8KNOT)
     start = WindShipOpt.EdgeSample(table.table, seas, corridor, stage, centre, step, 0.0,
         0.0)
@@ -339,4 +329,45 @@ WindShipOpt.waves(seas::HeadSeas, lat, lon, time) =
     @test hours > corridor.edge_length[stage, centre, step] / table.speeds[commanded] / 3600
     storm = HeadSeas(destination, 60NAUTICAL_MILE, wave_from, 8.0, 9.0)
     @test isnothing(route(corridor, table, storm, 0.0; time_cost=hourly))
+end
+
+module PaperRuns
+root = pkgdir(Main.WindShipOpt)
+include(joinpath(root, "scripts", "paper_runs.jl"))
+runs_directory = mktempdir()
+end
+
+@testset "a run counts as finished only once every step it was asked for is done" begin
+    write_data(run, name) = PaperRuns.run_step!(run, name,
+        () -> touch(joinpath(run.directory, "$name.csv")))
+    is_open() = !PaperRuns.is_finished(last(only(PaperRuns.fidelity_runs(:draft))))
+    run = PaperRuns.open_run(:draft, [:designs, :routes], false)
+    write_data(run, :designs)
+    @test is_open()
+    narrower = PaperRuns.open_run(:draft, [:designs], true)
+    PaperRuns.finish_run!(narrower)
+    @test is_open()
+    rest = PaperRuns.open_run(:draft, [:routes], true)
+    write_data(rest, :routes)
+    rm(joinpath(rest.directory, "designs.csv"))
+    PaperRuns.finish_run!(rest)
+    @test is_open()
+    write_data(rest, :designs)
+    PaperRuns.finish_run!(rest)
+    @test !is_open()
+end
+
+@testset "the paper's draft marker stays until a final call redraws every figure" begin
+    marker = tempname()
+    write(marker, "")
+    figures = [:capital, :premium]
+    is_marked(fidelity, steps) = begin
+        PaperRuns.mark_fidelity(marker, fidelity, steps, figures)
+        !isempty(read(marker, String))
+    end
+    @test !is_marked(:draft, [:designs])
+    @test is_marked(:draft, [:premium])
+    @test is_marked(:final, [:designs])
+    @test is_marked(:final, [:capital])
+    @test !is_marked(:final, [:designs, :capital, :premium])
 end

@@ -1,6 +1,5 @@
-# Figure steps of the paper: each reads the CSV files the data steps write to the run in
-# use (or the kite polars and geometry in data/kite_polars/) and saves one PDF to
-# paper/figures/. Included by paper.jl.
+# Figure steps of the paper: each saves one PDF to paper/figures/, from the CSV files of
+# the run in use, the data in data/kite_polars/ or the model itself. Included by paper.jl.
 
 figures = mkpath(joinpath(root, "paper", "figures"))
 polars = joinpath(root, "data", "kite_polars")
@@ -18,6 +17,8 @@ drive_labels = [string(drive) => Dict(:vlsfo => "VLSFO", :methanol => "e-methano
 "(drive, panel title) of the panels (a), (b), (c) of a figure with one panel per drive"
 drive_panels = [(drive, "($(Char('a' + k - 1))) $label")
                 for (k, (drive, label)) in enumerate(drive_labels)]
+"each rig with its area column in designs.csv"
+rig_area_columns = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
 
 """
     read_table(path)
@@ -104,6 +105,13 @@ function rows(table, conditions...)
 end
 
 """
+    percent_saving(cost, reference)
+
+Saving [%] of `cost` against `reference`.
+"""
+percent_saving(cost, reference) = 100 * (1 - cost / reference)
+
+"""
     pattern_figure()
 
 Optimal flight paths seen from the ship over the course off apparent downwind, in light
@@ -188,7 +196,6 @@ size of each rig on each ship is outlined.
 """
 function rig_comparison_figure()
     designs = read_table(data_file("designs.csv"))
-    kinds = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
     lengths = sort(unique(designs["length"]))
     figure = Figure(size=(page_width, 330))
     for (column, (drive, title)) in enumerate(drive_panels)
@@ -196,7 +203,7 @@ function rig_comparison_figure()
         cells = Tuple{Int, Int, Float64}[]
         best = Tuple{Int, Int}[]
         row = 0
-        for (kind, column_name) in kinds
+        for (kind, column_name) in rig_area_columns
             areas = sort(unique(designs[column_name][rows(designs, "scenario" => "base",
                 "drive" => drive)]))
             areas = filter(>(0), areas)
@@ -215,8 +222,8 @@ function rig_comparison_figure()
                     chosen = rows(designs, "scenario" => "base", "drive" => drive,
                         "length" => length, column_name => area)
                     saving = isempty(chosen) ? NaN :
-                             100 * (1 - designs["cost"][only(chosen)] /
-                                        designs["cost"][only(bare)])
+                             percent_saving(designs["cost"][only(chosen)],
+                                 designs["cost"][only(bare)])
                     push!(savings, saving)
                     isfinite(saving) && push!(cells, (i, first_row + k - 1, saving))
                 end
@@ -251,13 +258,12 @@ end
 """
     route_figure()
 
-Weather-routed passages on the four routes of a 140 m e-methanol ship without a rig and
+Weather-routed passages on every route of a 140 m e-methanol ship without a rig and
 with a 3200 m^2 kite, for a winter and a summer departure, over the 10 m wind five days
 after departure; solid outbound, dashed homeward.
 """
 function route_figure()
-    designs = (("no rig", ShipDesign(:methanol, 140.0)),
-        ("kite 3200 m²", ShipDesign(:methanol, 140.0; kite_area=3200.0)))
+    designs = (ShipDesign(:methanol, 140.0), ShipDesign(:methanol, 140.0; kite_area=3200.0))
     port_hours = 24assumptions[:port_time_per_call]
     seasons = (("winter", 1), ("summer", findfirst(>=(24 * 181), departures)))
     figure = Figure(size=(page_width, 300))
@@ -270,7 +276,7 @@ function route_figure()
         departure = departures[index]
         draw_wind!(axis, weather, departure + 24 * 5; scale=0.12, lons=-98:6:10,
             lats=-24:6:56)
-        for (k, (label, design)) in enumerate(designs)
+        for (k, design) in enumerate(designs)
             ship = Ship(design, assumptions)
             table = PerformanceTable(ship, assumptions)
             out_hourly, back_hourly = WindShipOpt.leg_time_costs(ShipCosts(ship,
@@ -316,16 +322,15 @@ function window_mean(edges, values, low, high)
 end
 
 """
-    moving_average(times, values; window=12.0)
+    moving_average(times, values)
 
-Hourly samples [h] and the centred moving average over `window` [h] of the piecewise
-constant `values`, each holding from its time to the next.
+Hourly samples [h] and the centred 12 h moving average of the piecewise constant `values`,
+each holding from its time to the next.
 """
-function moving_average(times, values; window=12.0)
+function moving_average(times, values)
     edges = [times; last(times) + (last(times) - times[end - 1])]
     hours = range(first(times), last(edges); step=1.0)
-    return hours, [window_mean(edges, values, hour - window / 2, hour + window / 2)
-                   for hour in hours]
+    return hours, [window_mean(edges, values, hour - 6.0, hour + 6.0) for hour in hours]
 end
 
 """
@@ -384,7 +389,7 @@ end
 Cost saving [%] of the best size of each rig against the class without a rig on one
 route and drive, as a Dict of rig name to saving; missing rigs are left out.
 """
-best_savings(table, class, route, drive) = rig_savings(table, ("kite", "wings", "rotors"),
+best_savings(table, class, route, drive) = rig_savings(table, rig_names,
     "class" => class, "route" => route, "drive" => drive)
 
 """
@@ -402,7 +407,7 @@ function rig_savings(table, rigs, conditions...)
     for rig in rigs
         chosen = rows(table, conditions..., "rig" => rig)
         isempty(chosen) && continue
-        savings[rig] = 100 * (1 - minimum(table["cost"][chosen]) / reference)
+        savings[rig] = percent_saving(minimum(table["cost"][chosen]), reference)
     end
     return savings
 end
@@ -429,13 +434,12 @@ function class_comparison_figure()
     names = class_order(table)
     routes_seen = unique(table["route"])
     figure = Figure(size=(page_width, 330))
-    kinds = ("kite", "wings", "rotors")
     for (column, (drive, title)) in enumerate(drive_panels)
         axis = Axis(figure[1, column]; title, xlabel="cost saving [%]",
             yticks=(eachindex(names), names), yreversed=true,
             yticklabelsvisible=column == 1)
         vlines!(axis, 0; color=:gray, linewidth=0.5)
-        for (j, kind) in enumerate(kinds), (i, name) in enumerate(names)
+        for (j, kind) in enumerate(rig_names), (i, name) in enumerate(names)
             values = [get(best_savings(table, name, route, drive), kind, NaN)
                       for route in routes_seen]
             values = filter(isfinite, values)
@@ -453,16 +457,26 @@ function class_comparison_figure()
 end
 
 """
+    cheapest_row(table, class, route, drive, rig)
+
+Row of `table` with the lowest cost of `rig` for one class, route and drive, or `nothing`
+where the rig was not run.
+"""
+function cheapest_row(table, class, route, drive, rig)
+    chosen = rows(table, "class" => class, "route" => route, "drive" => drive,
+        "rig" => rig)
+    return isempty(chosen) ? nothing : chosen[argmin(table["cost"][chosen])]
+end
+
+"""
     best_area(table, class, route, drive, rig)
 
 Area [m^2] of the size of `rig` with the lowest cost for one class, route and drive, or
 `NaN` where the rig was not run.
 """
 function best_area(table, class, route, drive, rig)
-    chosen = rows(table, "class" => class, "route" => route, "drive" => drive,
-        "rig" => rig)
-    isempty(chosen) && return NaN
-    return table["area"][chosen[argmin(table["cost"][chosen])]]
+    best = cheapest_row(table, class, route, drive, rig)
+    return isnothing(best) ? NaN : table["area"][best]
 end
 
 """
@@ -473,10 +487,8 @@ Median over the routes of the number of units of `rig` at its cheapest size on `
 function median_units(table, class, drive, rig)
     counts = Int[]
     for route in unique(table["route"])
-        chosen = rows(table, "class" => class, "route" => route, "drive" => drive,
-            "rig" => rig)
-        isempty(chosen) || push!(counts, round(Int,
-            table["units"][chosen[argmin(table["cost"][chosen])]]))
+        best = cheapest_row(table, class, route, drive, rig)
+        isnothing(best) || push!(counts, round(Int, table["units"][best]))
     end
     return sort(counts)[cld(length(counts), 2)]
 end
@@ -493,13 +505,12 @@ function class_size_figure()
     names = class_order(table)
     routes_seen = unique(table["route"])
     figure = Figure(size=(page_width, 330))
-    kinds = ("kite", "wings", "rotors")
     ticks = [100, 1000, 10000]
     for (column, (drive, title)) in enumerate(drive_panels)
         axis = Axis(figure[1, column]; title, xlabel="best rig area [m²]", xscale=log10,
             xticks=(ticks, string.(ticks)), yticks=(eachindex(names), names),
             yreversed=true, yticklabelsvisible=column == 1)
-        for (j, kind) in enumerate(kinds), (i, name) in enumerate(names)
+        for (j, kind) in enumerate(rig_names), (i, name) in enumerate(names)
             areas = filter(isfinite, [best_area(table, name, route, drive, kind)
                                       for route in routes_seen])
             isempty(areas) && continue
@@ -628,11 +639,12 @@ function wind_climate_figure()
             for i in 1:(length(edges) - 1)
                 inside = edges[i] .<= angles .< edges[i + 1]
                 radius = 0.0
-                for k in 1:(length(speed_classes) - 1)
-                    share = 100 * count(inside .& (speed_classes[k] .<= speeds .<
-                                                   speed_classes[k + 1])) / length(angles)
+                for class_index in 1:(length(speed_classes) - 1)
+                    share = 100 * count(inside .& (speed_classes[class_index] .<= speeds .<
+                                                   speed_classes[class_index + 1])) /
+                            length(angles)
                     sector!(axis, side * deg2rad(edges[i] + 7.5), deg2rad(14), radius,
-                        radius + share; color=colours[k])
+                        radius + share; color=colours[class_index])
                     radius += share
                 end
             end
@@ -643,7 +655,7 @@ function wind_climate_figure()
                 (:right, :center)], color=:gray30)
         k == 1 && text!(axis, Float64.(rings) .* sind(135), Float64.(rings) .*
                                                                  cosd(135);
-            text=["$r %" for r in rings], fontsize=8.5, color=:gray50,
+            text=["$radius %" for radius in rings], fontsize=8.5, color=:gray50,
             align=(:left, :top))
     end
     Legend(figure[4, 1:2], [PolyElement(color=colour) for colour in colours], class_labels,
@@ -680,15 +692,11 @@ function route_comparison_figure()
             ylabel=column == 1 ? "cost saving [%]" : "")
         hlines!(axis, 0; color=:gray, linewidth=0.5)
         for (j, kind) in enumerate(kinds), (i, name) in enumerate(names)
-            base = rows(routes_table, "route" => name, "drive" => drive,
-                "length" => ship_length, "rig" => "none")
-            chosen = rows(routes_table, "route" => name, "drive" => drive,
-                "length" => ship_length, "rig" => kind)
-            (isempty(base) || isempty(chosen)) && continue
-            saving = 100 * (1 - minimum(routes_table["cost"][chosen]) /
-                                only(routes_table["cost"][base]))
-            barplot!(axis, [i + (j - 2) * 0.27], [saving]; width=0.25, color=palette[j],
-                label=i == 1 ? kind : nothing)
+            savings = rig_savings(routes_table, (kind,), "route" => name, "drive" => drive,
+                "length" => ship_length)
+            haskey(savings, kind) || continue
+            barplot!(axis, [i + (j - 2) * 0.27], [savings[kind]]; width=0.25,
+                color=palette[j], label=i == 1 ? kind : nothing)
         end
         row < length(drive_labels) && hidexdecorations!(axis; grid=false, ticks=false)
     end
@@ -724,8 +732,7 @@ function premium_figure()
     hlines!(axis, [0, 100]; color=:gray70, linewidth=0.5)
     lengths = sort(unique(designs["length"]))
     for (drive, linestyle) in (("methanol", :solid), ("hydrogen", :dash)),
-        (k, (label, column_name)) in enumerate((("kite", "kite_area"),
-            ("wings", "wing_area"), ("rotors", "rotor_area")))
+        (k, (label, column_name)) in enumerate(rig_area_columns)
 
         shares = [premium_closed(designs, drive, length, column_name) for length in lengths]
         valid = isfinite.(shares)
@@ -782,8 +789,7 @@ function breakdown_figure()
     cases = Tuple{String, String, Union{Nothing, String}}[("VLSFO", "vlsfo", nothing)]
     for (label, drive) in (("e-meth.", "methanol"), ("hydrogen", "hydrogen"))
         push!(cases, (label, drive, nothing))
-        for (rig, column) in (("kite", "kite_area"), ("wings", "wing_area"),
-            ("rotors", "rotor_area"))
+        for (rig, column) in rig_area_columns
             push!(cases, ("$label + $rig", drive, column))
         end
     end
@@ -873,23 +879,23 @@ feasible.
 function situation_savings(table, ship, route, drive, input)
     values = sort([base_value(input); collect(first(situation_inputs[input]))])
     savings = fill(NaN, 3, length(values))
-    for (j, value) in enumerate(values), (i, rig) in enumerate(("kite", "wings", "rotors"))
+    for (j, value) in enumerate(values), (i, rig) in enumerate(rig_names)
         bare = situation_cost(table, ship, route, drive, input, value, "none")
         cost = situation_cost(table, ship, route, drive, input, value, rig)
-        isfinite(cost) && (savings[i, j] = 100 * (1 - cost / bare))
+        isfinite(cost) && (savings[i, j] = percent_saving(cost, bare))
     end
     return values, savings
 end
 
 """
-    leader_spans(positions, savings)
+    leader_starts(positions, savings)
 
-Spans of `positions` over which one rig (row of `savings`) saves most, as (start, stop,
-row), with the boundaries where the lead changes interpolated linearly in `positions`.
+Positions from which each leading rig (row of `savings`) saves most, as (start, row), with
+the boundaries where the lead changes interpolated linearly in `positions`.
 """
-function leader_spans(positions, savings)
+function leader_starts(positions, savings)
     leaders = [argmax(replace(savings[:, j], NaN => -Inf)) for j in eachindex(positions)]
-    spans = Tuple{Float64, Float64, Int}[]
+    starts = Tuple{Float64, Int}[]
     start = first(positions)
     for j in 1:(length(positions) - 1)
         before, after = leaders[j], leaders[j + 1]
@@ -899,11 +905,11 @@ function leader_spans(positions, savings)
         share = all(isfinite, (gap_left, gap_right)) ? gap_left / (gap_left - gap_right) :
                 0.5
         crossing = positions[j] + share * (positions[j + 1] - positions[j])
-        push!(spans, (start, crossing, before))
+        push!(starts, (start, before))
         start = crossing
     end
-    push!(spans, (start, last(positions), last(leaders)))
-    return spans
+    push!(starts, (start, last(leaders)))
+    return starts
 end
 
 """
@@ -916,7 +922,7 @@ function parity_saving(table, ship, route)
     base = ("ship" => ship, "route" => string(route), "input" => "base", "rig" => "none")
     fossil, green = (only(table["cost"][rows(table, base..., "drive" => drive)])
                      for drive in ("vlsfo", "methanol"))
-    return 100 * (1 - fossil / green)
+    return percent_saving(fossil, green)
 end
 
 """
@@ -926,8 +932,8 @@ Print the input value from which each rig of `savings` leads; `to_value` maps
 `positions` back to input values.
 """
 function print_leaders(name, input, positions, savings, to_value)
-    leads = [(round(to_value(start); sigdigits=3), ("kite", "wings", "rotors")[row])
-             for (start, _, row) in leader_spans(positions, savings)]
+    leads = [(round(to_value(start); sigdigits=3), rig_names[row])
+             for (start, row) in leader_starts(positions, savings)]
     println("  ", name, ", ", input, ": ", join(["$rig from $value" for (value, rig) in
                                                 leads], ", "))
 end
@@ -1007,7 +1013,6 @@ function life_figure()
     save(joinpath(figures, "life.pdf"), figure; pt_per_unit=print_scale)
 end
 
-
 """
 Panels of the situation figure as (title, x label, inputs with their drive, scale of the
 x axis, factor from value to axis, x ticks); the fuel panel joins VLSFO and e-methanol
@@ -1050,9 +1055,8 @@ end
 
 Cost saving of the best size of each rig on the 140 m e-methanol ship to Guadeloupe
 (solid) and a Kamsarmax to Tubarão (dashed) with one input changed at a time, the fuel
-price on VLSFO below 30 USD/GJ and on e-methanol above; the background shows the rig
-that saves most on the 140 m ship and the dashed grey lines the base inputs. Prints
-where the lead changes.
+price on VLSFO below 30 USD/GJ and on e-methanol above; the dashed grey lines show the
+base inputs. Prints where the lead changes.
 """
 function situations_figure()
     table = read_table(data_file("situations.csv"))
@@ -1186,8 +1190,7 @@ end
 
 Cost per tonne-km against the fuel energy saved for every size of each rig on the ships
 of the abatement study, relative to the same ship on VLSFO without a rig, one column per
-drive. Where a curve crosses zero cost the rig saves the most fuel at no
-extra cost; on VLSFO its slope beyond is the cost of the CO2 abated.
+drive.
 """
 function abatement_figure()
     table = read_table(data_file("abatement.csv"))
@@ -1205,7 +1208,7 @@ function abatement_figure()
         hlines!(axis, 0; color=:gray50, linewidth=0.6)
         scatter!(axis, [0.0], [100 * (table["cost"][bare] / fossil - 1)]; color=:black,
             markersize=6)
-        for (k, rig) in enumerate(("kite", "wings", "rotors"))
+        for (k, rig) in enumerate(rig_names)
             chosen = rows(table, "ship" => name, "drive" => drive, "rig" => rig)
             chosen = chosen[sortperm(table["area"][chosen])]
             saved = 100 .* (1 .- table["fuel"][chosen] ./ table["fuel"][bare])
@@ -1232,7 +1235,7 @@ of the twelve inputs that move it most, as a tornado around the base saving.
 function sensitivity_figure()
     table = read_table(data_file("sensitivity.csv"))
     figure = Figure(size=(page_width, 320))
-    for (column, rig) in enumerate(("kite", "wings", "rotors"))
+    for (column, rig) in enumerate(rig_names)
         base = screened_saving(table, "140 m", rig, "none", "value")
         swings = [(input, screened_saving(table, "140 m", rig, input, "low"),
                       screened_saving(table, "140 m", rig, input, "high"))
@@ -1268,17 +1271,17 @@ function component_figure()
     table = read_table(data_file("components.csv"))
     bare = only(table["cost"][rows(table, "rig" => "none")])
     figure = Figure(size=(page_width, 260))
-    for (column, rig) in enumerate(("kite", "wings", "rotors"))
+    for (column, rig) in enumerate(rig_names)
         base_cost = only(table["cost"][rows(table, "rig" => rig, "input" => "none")])
-        base = 100 * (1 - base_cost / bare)
+        base = percent_saving(base_cost, bare)
         inputs = filter(!=("none"), unique(table["input"][rows(table, "rig" => rig)]))
         effects = Tuple{String, Float64, Float64}[]
         for input in inputs
             chosen = rows(table, "rig" => rig, "input" => input)
             better = minimum(table["cost"][chosen])
             worse = maximum(table["cost"][chosen])
-            push!(effects, (input, 100 * (1 - better / bare) - base,
-                100 * (1 - worse / bare) - base))
+            push!(effects, (input, percent_saving(better, bare) - base,
+                percent_saving(worse, bare) - base))
         end
         sort!(effects; by=effect -> effect[2])
         labels = [replace(first(effect), "_" => " ") for effect in effects]
@@ -1312,7 +1315,7 @@ function forecast_figure()
     for (j, (days, label)) in enumerate(horizons)
         bare = only(table["cost"][rows(table, "rig" => "none", "horizon_days" => days)])
         costs = [only(table["cost"][rows(table, "rig" => rig, "horizon_days" => days)])
-                 for rig in ("kite", "wings", "rotors")]
+                 for rig in rig_names]
         savings = 100 .* (1 .- costs ./ bare)
         barplot!(axis, (1:3) .+ (j - 2) * 0.27, savings; width=0.25, color=palette[j],
             label)
@@ -1349,17 +1352,17 @@ function combination_figure()
     linkxaxes!(saving_axis, gain_axis)
     hidexdecorations!(saving_axis)
     rowsize!(figure.layout, 2, Relative(0.4))
-    for (g, (ship, drive)) in enumerate(groups)
+    for (group, (ship, drive)) in enumerate(groups)
         savings = [rig_savings(table, first.(combination_rigs), "ship" => ship,
                        "route" => string(route), "drive" => drive)
                    for route in route_names]
         for (k, (rig, _, colour)) in enumerate(combination_rigs)
             values = [saving[rig] for saving in savings]
-            range_bar!(saving_axis, g + 0.27(k - 2), values, 0.25, colour)
+            range_bar!(saving_axis, group + 0.27(k - 2), values, 0.25, colour)
         end
         gains = [saving["kite+rotors"] - max(saving["kite"], saving["rotors"])
                  for saving in savings]
-        range_bar!(gain_axis, g, gains, 0.4, palette[4])
+        range_bar!(gain_axis, group, gains, 0.4, palette[4])
         print_combination(ship, drive, savings, gains)
     end
     for axis in (saving_axis, gain_axis)

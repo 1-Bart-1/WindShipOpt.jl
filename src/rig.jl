@@ -299,6 +299,14 @@ Base.@kwdef struct KiteRig
 end
 
 """
+    rope_mass(diameter, rope_length, assumptions)
+
+Mass [kg] of `rope_length` [m] of tether rope of `diameter` [m].
+"""
+rope_mass(diameter, rope_length, assumptions) =
+    assumptions[:tether_rope_density] * π * diameter^2 / 4 * rope_length
+
+"""
     bridle_lines(area, aspect_ratio, max_force, assumptions)
 
 Drag coefficient on the projected area and mass [kg] of a bridle whose lines run from
@@ -312,8 +320,7 @@ function bridle_lines(area, aspect_ratio, max_force, assumptions::Assumptions)
     line_length = assumptions[:bridle_cascade_factor] * count *
                   assumptions[:bridle_height_ratio] * span
     drag = assumptions[:tether_drag_coefficient] * line_length * diameter / area
-    mass = assumptions[:tether_rope_density] * π * diameter^2 / 4 * line_length
-    return drag, mass
+    return drag, rope_mass(diameter, line_length, assumptions)
 end
 
 """
@@ -330,8 +337,7 @@ function kite_model(area, aspect_ratio, assumptions::Assumptions)
     tether_length = assumptions[:tether_length_ratio] * span
     tether_drag = assumptions[:tether_drag_coefficient] * tether_diameter * tether_length /
                   (4area)
-    tether_mass = assumptions[:tether_rope_density] * π * tether_diameter^2 / 4 *
-                  tether_length
+    tether_mass = rope_mass(tether_diameter, tether_length, assumptions)
     bridle_drag, bridle_mass = bridle_lines(area, aspect_ratio, max_force, assumptions)
     mass = Canopy(assumptions).mass_per_area * area + bridle_mass +
            assumptions[:control_unit_mass] + tether_mass / 2

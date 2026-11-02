@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Updates every package and writes the resolved manifests to the tracked .default files.
+set -euo pipefail
+shopt -s nullglob
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+default_manifests=(Manifest-v*.toml.default scripts/Manifest-v*.toml.default)
+
+for default_manifest in "${default_manifests[@]}"; do
+    cp "$default_manifest" "${default_manifest%.default}"
+done
+
+./bin/install -y --update
+
+for default_manifest in "${default_manifests[@]}"; do
+    cp "${default_manifest%.default}" "$default_manifest"
+done

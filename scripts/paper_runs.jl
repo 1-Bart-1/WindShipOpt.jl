@@ -12,6 +12,23 @@ departures and the rounds of the rig size search.
 fidelities = Dict(:draft => (corridor_scale=8.0, departure_step=12, size_rounds=1),
     :final => (corridor_scale=4.0, departure_step=6, size_rounds=2))
 
+"""
+    mark_fidelity(path, fidelity, steps, figures)
+
+Keep the paper's draft marker at `path` true of its `figures`: a draft call drawing any of
+them sets it, a final call drawing them all clears it, and any other call of `steps` leaves
+it alone.
+"""
+function mark_fidelity(path, fidelity, steps, figures)
+    drawn = intersect(steps, figures)
+    if fidelity == :final
+        issetequal(drawn, figures) && write(path, "")
+    elseif !isempty(drawn)
+        write(path, "\\tbd{Results at draft fidelity: corridors twice as coarse and half " *
+            "the departures of the final run.}\n")
+    end
+end
+
 "directory with one directory per run, named by the time the run started"
 runs_directory = normpath(joinpath(root, "output", "runs"))
 
@@ -173,7 +190,7 @@ function open_run(fidelity, names, resume)
     record["git_commit"] = git_output("rev-parse", "HEAD")
     record["git_branch"] = git_output("rev-parse", "--abbrev-ref", "HEAD")
     record["git_dirty"] = !isempty(changed_files())
-    record["requested"] = string.(names)
+    record["requested"] = union(record["requested"], string.(names))
     run = PaperRun(directory, fidelity, record, 0, 0)
     write_record(run)
     println(resumed ? "resuming" : "new", " run ", directory)
@@ -272,10 +289,11 @@ end
 """
     finish_run!(run)
 
-Mark `run` finished at the current time in its record.
+Mark `run` finished at the current time in its record, once every step asked of it is done.
 """
 function finish_run!(run)
     isnothing(run.directory) && return
+    all(name -> step_done(run, name), run.record["requested"]) || return
     run.record["finished"] = string(floor(now(), Second))
     write_record(run)
 end
