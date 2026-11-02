@@ -3,9 +3,6 @@
 set -euo pipefail
 
 repo=$(dirname "${BASH_SOURCE[0]}")/..
-
-default_manifest=$(basename "$repo"/Manifest-v*.toml.default)
-major=${default_manifest#Manifest-v}
-major=${major%.toml.default}
+major=$("$repo/bin/julia_version")
 
 exec julia "+$major" --project="$repo" -t auto "$@"

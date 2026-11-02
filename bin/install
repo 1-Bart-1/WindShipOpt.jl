@@ -9,7 +9,7 @@ Usage: ./bin/install [-y] [--update] [-h]
 Copies each tracked Manifest-v<major>.toml.default over its live manifest, instantiates
 and precompiles, for the root project and scripts/ where it has one.
 
-  -y        run with no terminal, on the Julia already on the machine (never prompts)
+  -y        run with no terminal and never prompt; juliaup must already have the channel
   --update  Pkg.update against the live manifests; the .default files stay untouched
   -h        show this help
 USAGE
@@ -27,9 +27,7 @@ done
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-default_manifest=$(ls Manifest-v*.toml.default)
-major=${default_manifest#Manifest-v}
-major=${major%.toml.default}
+major=$(./bin/julia_version)
 
 install_project() {
     local project=$1
