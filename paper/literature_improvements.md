@@ -159,7 +159,8 @@ parameter is the one that shows the most influence on the propulsive force. Over
 p. 190: gain "rising about 50% in average, when doubled".
 
 **Change.** Keep 0.5 as base if the Faggiani/Kitepower basis is preferred, but
-(a) add the Paulig/Penloup values to the `reason`, (b) make sure the tornado
+(a) the `reason` gives the 1.0 bound from the SkyPower100 final report (Junge et
+al. 2023, sec. I.4, "Flächenlasten bis zu 1 kN/m²"), (b) make sure the tornado
 runs the 1.0 bound, and (c) state in `model.tex` that the limit is below the
 SkySails design value. `discussion.tex` ("We hold both at the values of today's
 kites") is then accurate only with this caveat. **Effect:** large on kite size

@@ -513,7 +513,7 @@ tether_length_ratio:
   low: 10.0
   high: 20.0
   unit: "-"
-  reason: "Tether length over projected span, held during flight and changed only at launch and landing (Erhard & Strauch 2013): SkySails flew its 160 m^2 kite, ~23 m span at an assumed projected aspect ratio of 3.3, on an operational towing line of 300 m (Erhard & Strauch 2013, Fig. 18), the longest relative length flown on a ship; its 320 m^2 kite flew on 360 m, ~11 spans (Penloup et al. 2021). The high bound is the top of the design study of Penloup et al. (2021), L/sqrt(A) = 33.5."
+  reason: "Tether length over projected span, held during flight and changed only at launch and landing (Erhard & Strauch 2013): SkySails flew its 160 m^2 kite, ~23 m span at an assumed projected aspect ratio of 3.3, on an operational towing line of 300 m (Erhard & Strauch 2013, Fig. 18), the longest relative length flown on a ship; Paulig et al. (2013), as cited by Penloup et al. (2021), compute a 320 m^2 kite on a 360 m tether, ~11 spans. The high bound is the top of the design study of Penloup et al. (2021), L/sqrt(A) = 33.5, ~18.5 spans at that aspect ratio."
 kite_min_elevation:
   value: 8.0
   low: 5.0
@@ -681,7 +681,7 @@ kite_max_force_per_area:
   low: 0.4
   high: 1.0
   unit: kN/m^2
-  reason: "Maximum wing loading 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2); SkySails ~16 t on 300 m^2 (0.52). SkySails' 320 kN claim on 320 m^2 is the high end. The high bound is the design value of 100 kg/m^2 used in earlier ship-kite models (Penloup et al. 2021)."
+  reason: "Maximum wing loading 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2); SkySails ~16 t on 300 m^2 (0.52). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4)."
 kite_attach_height:
   value: 10.0
   low: 6.0
