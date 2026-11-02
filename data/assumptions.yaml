@@ -57,7 +57,7 @@ holtrop_max_prismatic:
   low: 0.85
   high: 1.0
   unit: "-"
-  reason: "Largest prismatic coefficient at which the Holtrop-Mennen formulas are evaluated: the top of the tanker and bulk carrier range 0.73-0.85 and of the range of validity 0.55-0.85 tabulated by Ortigosa et al. (2009), second-hand, since Holtrop and Mennen (1982) and Holtrop (1984) state no numbers; the 1982 paper limits the method to hulls resembling its average ship and calls its high-block adjustments tentative. 1 leaves the hull uncapped."
+  reason: "Largest prismatic coefficient at which the Holtrop-Mennen formulas are evaluated: the top of the tanker and bulk carrier range 0.73-0.85 and of the range of validity 0.55-0.85 tabulated by Ortigosa et al. (2009), second-hand, since Holtrop and Mennen (1982) and the pages of Holtrop (1984) we could read state no numbers; the 1982 paper limits the method to hulls resembling its average ship and calls its high-block adjustments tentative. 1 leaves the hull uncapped."
 midship_coefficient:
   value: 0.99
   low: 0.98
