@@ -1,0 +1,26 @@
+ship_type,dwt_class,transport_work,transport_work_unit,share_within_type,supply_work_billion_dwt_nm,supply_share_within_type,source_bins
+Bulk carrier,<10k,97.6,billion cargo tonne-nm,0.0037,162.3,0.0032,0-9999 dwt (avg 4271 dwt; exact)
+Bulk carrier,10-35k,1574.8,billion cargo tonne-nm,0.0593,2631.6,0.052,10000-34999 dwt (avg 27303 dwt; exact)
+Bulk carrier,35-60k,4861.7,billion cargo tonne-nm,0.1831,8463.0,0.1671,35000-59999 dwt (avg 49487 dwt; exact)
+Bulk carrier,60-100k,7974.7,billion cargo tonne-nm,0.3004,15365.9,0.3035,60000-99999 dwt (avg 76147 dwt; exact)
+Bulk carrier,>100k,12039.4,billion cargo tonne-nm,0.4535,24009.6,0.4742,100000-199999 dwt (avg 169868 dwt; exact); 200000-+ dwt (avg 251667 dwt; exact)
+General cargo,<10k,933.4,billion cargo tonne-nm,0.3981,1406.8,0.3702,0-4999 dwt (avg 2104 dwt; exact); 5000-9999 dwt (avg 6985 dwt; exact)
+General cargo,10-35k,439.4,billion cargo tonne-nm,0.1874,742.7,0.1954,10000-19999 dwt (avg 13423 dwt; exact)
+General cargo,35-60k,971.6,billion cargo tonne-nm,0.4144,1650.6,0.4344,20000-+ dwt (avg 36980 dwt; straddles; assigned by avg dwt)
+General cargo,60-100k,0.0,billion cargo tonne-nm,0.0,0.0,0.0,
+General cargo,>100k,0.0,billion cargo tonne-nm,0.0,0.0,0.0,
+Container,<10k,283.3,billion cargo tonne-nm,0.0187,427.4,0.0175,0-999 teu (avg 8438 dwt; TEU bin mapped by avg dwt)
+Container,10-35k,2091.2,billion cargo tonne-nm,0.1378,3388.8,0.1384,1000-1999 teu (avg 19051 dwt; TEU bin mapped by avg dwt); 2000-2999 teu (avg 34894 dwt; TEU bin mapped by avg dwt)
+Container,35-60k,2304.1,billion cargo tonne-nm,0.1518,3752.4,0.1532,3000-4999 teu (avg 52372 dwt; TEU bin mapped by avg dwt)
+Container,60-100k,2496.9,billion cargo tonne-nm,0.1646,4111.1,0.1679,5000-7999 teu (avg 74661 dwt; TEU bin mapped by avg dwt)
+Container,>100k,7998.4,billion cargo tonne-nm,0.5271,12806.9,0.523,8000-11999 teu (avg 110782 dwt; TEU bin mapped by avg dwt); 12000-14499 teu (avg 149023 dwt; TEU bin mapped by avg dwt); 14500-19999 teu (avg 179871 dwt; TEU bin mapped by avg dwt); 20000-+ teu (avg 195615 dwt; TEU bin mapped by avg dwt)
+Oil tanker,<10k,380.3,billion cargo tonne-nm,0.0254,556.9,0.0174,0-4999 dwt (avg 3158 dwt; exact); 5000-9999 dwt (avg 6789 dwt; exact)
+Oil tanker,10-35k,63.6,billion cargo tonne-nm,0.0043,117.2,0.0037,10000-19999 dwt (avg 14733 dwt; exact)
+Oil tanker,35-60k,524.7,billion cargo tonne-nm,0.0351,1243.2,0.0389,20000-59999 dwt (avg 43750 dwt; straddles; assigned by avg dwt)
+Oil tanker,60-100k,780.6,billion cargo tonne-nm,0.0522,1704.2,0.0533,60000-79999 dwt (avg 72826 dwt; exact)
+Oil tanker,>100k,13195.0,billion cargo tonne-nm,0.883,28372.2,0.8868,80000-119999 dwt (avg 109262 dwt; straddles; assigned by avg dwt); 120000-199999 dwt (avg 155878 dwt; exact); 200000-+ dwt (avg 307866 dwt; exact)
+Chemical tanker,<10k,422.7,billion cargo tonne-nm,0.1022,565.6,0.0885,0-4999 dwt (avg 4080 dwt; exact); 5000-9999 dwt (avg 7276 dwt; exact)
+Chemical tanker,10-35k,1528.8,billion cargo tonne-nm,0.3695,2209.7,0.3458,10000-19999 dwt (avg 15324 dwt; exact); 20000-39999 dwt (avg 32492 dwt; straddles; assigned by avg dwt)
+Chemical tanker,35-60k,2186.0,billion cargo tonne-nm,0.5283,3615.4,0.5657,40000-+ dwt (avg 48796 dwt; straddles; assigned by avg dwt)
+Chemical tanker,60-100k,0.0,billion cargo tonne-nm,0.0,0.0,0.0,
+Chemical tanker,>100k,0.0,billion cargo tonne-nm,0.0,0.0,0.0,

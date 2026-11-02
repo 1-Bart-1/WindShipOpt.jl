@@ -1,0 +1,12 @@
+category,length,speed,power,sea_days,fuel_per_day,fuel,fleet,source
+demersal trawler towing,41,3.5,1470,164,6.2,MGO,9140,"Damen/Hakvoort 41 m beam trawler (Marine Link); 3.5 kn deep-water trawl (Frontiers in Marine Science 2022); days and fleet: IMO Fourth GHG Study 2020 Table 35, all fishing; fuel: beam-trawl fleet average 7311 L/day (Turenhout, WUR 2015)"
+beam trawler towing,41,6.0,1470,164,6.2,MGO,9140,"Trawl speed up to 7 kn (Depestele et al., ICES CM 2007); otherwise as demersal trawler"
+longliner steaming,62,12.0,1920,164,,MGO,9140,"ST-156 XL Autoline 61.8 m, 1920 kW (Yanmar); 12 kn service of a 59 m Damen longliner (Knud E. Hansen 2019); days and fleet: IMO all fishing"
+coaster,85,8.8,1454,170,3.5,VLSFO,4880,"IMO Fourth GHG Study 2020 Table 35, general cargo 0-4999 dwt: speed at sea, power, days, main-engine fuel"
+feeder container ship,150,13.4,12083,210,24.3,VLSFO,1271,"IMO Fourth GHG Study 2020 Table 35, container 1000-1999 TEU"
+Handysize bulk carrier,180,11.0,5941,177,15.8,VLSFO,2014,"IMO Fourth GHG Study 2020 Table 35, bulk 10-35k dwt"
+Kamsarmax bulk carrier,229,11.4,9748,214,22.9,VLSFO,3409,"IMO Fourth GHG Study 2020 Table 35, bulk 60-100k dwt"
+ro-ro cargo ship,200,15.2,19505,199,55.8,VLSFO,89,"IMO Fourth GHG Study 2020 Table 35, ro-ro 15k dwt and over"
+MR tanker,183,11.9,8929,201,23.4,VLSFO,1289,"IMO Fourth GHG Study 2020 Table 35, chemical tanker 40k dwt and over"
+research vessel,72.5,10.0,1752,275,,MGO,99,"R/V Neil Armstrong 72.5 m, 10 kn sustained, 1752 kW propulsion (WHOI); 275 days Ocean class target (UNOLS); Europe 99 vessels (European Marine Board 2019)"
+ocean tug and barge,43,10.0,2685,,6.1,MGO,,"Britoil 21: 43 m, 2685 kW, 7200 L MGO/day at 10 kn economic speed (Britoil 2024)"

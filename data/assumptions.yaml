@@ -20,12 +20,12 @@ air_density:
   high: 1.25
   unit: kg/m^3
   reason: "ISA sea level; humid tropical air is a few percent lighter."
-sea_roughness_length:
-  value: 2.0e-4
-  low: 1.0e-4
-  high: 1.0e-3
-  unit: m
-  reason: "Typical open-ocean roughness for a logarithmic wind profile (Charnock regime at moderate wind)."
+wind_shear_exponent:
+  value: 0.05
+  low: 0.04
+  high: 0.08
+  unit: "-"
+  reason: "Exponent of the mean power-law wind profile over the sea from 10 m to kite height: matches the mean ERA5 model-level profiles over the study region in 2018 (1.12, 1.18 and 1.22 times the 10 m wind at 100, 270 and 540 m; own analysis of Hersbach et al. 2020). The low bound is the trade-wind belt (1.17 at 540 m), the high bound the North Atlantic north of 40 deg N and the IJmuiden lidar, which follow a logarithmic profile with 0.2 mm roughness up to 315 m (Kalverla 2020, Ch. 2; Schelbergen et al. 2020)."
 
 # --- reference hull, geometrically scaled with length ---
 reference_length:
@@ -130,12 +130,30 @@ pitch_gyration_ratio:
   high: 0.28
   unit: "-"
   reason: "Pitch radius of gyration over length; 0.25 is the standard estimate for conventional cargo ships (ITTC)."
+wave_peakedness:
+  value: 3.3
+  low: 1.0
+  high: 5.0
+  unit: "-"
+  reason: "Peak enhancement factor of the JONSWAP spectrum: 3.3 is the mean of the JONSWAP measurements (Hasselmann et al. 1973); DNV-RP-C205 relates it to peak period and wave height, from 1 (Pierson-Moskowitz, fully developed sea) to 5 (steep wind sea)."
 leeway_limit:
   value: 10.0
   low: 6.0
   high: 15.0
   unit: deg
   reason: "Validity limit of the linear hull side-force model; captive tests on wind-assisted hulls cover 0-10 deg and ShipCLEAN reefs at 10 deg rudder angle (Tillig & Ringsberg 2020). No operational limit found."
+rudder_aspect_ratio:
+  value: 1.6
+  low: 1.4
+  high: 3.0
+  unit: "-"
+  reason: "Effective aspect ratio of a rudder of geometric aspect ratio 1.5-2: CFD of a wind-powered cargo ship gives 0.93 times the geometric value, not the doubling of a mirror plane (Kramer & Steen 2022); the high bound is that doubling."
+rudder_max_lift:
+  value: 1.0
+  low: 0.8
+  high: 1.3
+  unit: "-"
+  reason: "Engineering assumption: highest rudder lift coefficient spent on balancing the rig; free-stream rudder sections stall near 1.2-1.4 and some lift is kept for steering in waves."
 deck_mount_height:
   value: 4.0
   low: 3.0
@@ -234,6 +252,12 @@ engine_rating_fraction:
   high: 0.9
   unit: "-"
   reason: "Engine margin historically 10 %, up to 25 % (MAN ES 2018)."
+source_sea_margin:
+  value: 0.15
+  low: 0.10
+  high: 0.25
+  unit: "-"
+  reason: "Sea margin inside the engine power of the class source designs, taken out to calibrate their calm-water resistance: 15 % in every MAN ES table used (bulk carriers 2022 Tables 4-6, MR tankers 2019 Table 1, container vessels 2024 Table 19) and in the Knud E. Hansen PCTC consumptions; designers choose 10-30 %, historically 15 % (MAN ES 2023)."
 
 # --- rigid wing ---
 wing_aspect_ratio:
@@ -244,16 +268,16 @@ wing_aspect_ratio:
   reason: "Installed wings span AR 1.9-3.8: WindWings 37.5 m x 20 m (BAR Technologies), Oceanbird Wing 560 40 m x 14 m, AYRO Oceanwings 363 m^2 at 37 m."
 wing_endplate_factor:
   value: 1.4
-  low: 1.0
-  high: 1.8
+  low: 1.1
+  high: 2.0
   unit: "-"
-  reason: "Mirror-image theory gives 2.0 for a wing sealed to the deck; a root gap lowers it. No measured value found, so the base sits between free (1.0) and sealed (2.0)."
+  reason: "Effective over geometric aspect ratio from the deck mirror: 2.0 sealed, 1.36 at a root gap of 1 % of span, 1.21 at 5 %, 1.09 at 20 % (minimum induced drag, Trefftz plane). WindWings stand about 7.5 m and the Oceanbird wing about 6 m above deck on pedestals (BAR; Oceanbird), the low bound."
 wing_max_lift_coefficient:
-  value: 1.8
-  low: 1.4
-  high: 2.2
+  value: 2.0
+  low: 1.6
+  high: 2.5
   unit: "-"
-  reason: "Two-element wingsail section reaches CL 1.95-2.65 in 2D CFD (Yao 2026, Ocean Eng. 362); a finite wing is lower, a double-flap wingsail measured 1.68 (Kapal journal)."
+  reason: "3D lift ceiling of a multi-element wing sail: AR 2 wings reach 1.70-1.73 with a 30 % flap (Reche-Vilanova et al. 2021, Table 5), a single NACA0015 sail 1.08 (Xu et al. 2025, Table 4); BAR claims 2.5 times the lift of a single element for its three-element WindWing. Two-element sections reach 1.95-2.65 in 2D (Yao 2026)."
 wing_profile_drag_coefficient:
   value: 0.02
   low: 0.015
@@ -266,24 +290,42 @@ wing_separation_drag_factor:
   high: 0.05
   unit: "-"
   reason: "Fitted so that CD = 0.02 + 0.03 CL^2 matches the 2D two-element section CD of 0.12 at CL 1.95 and 0.24 at CL 2.65 (Yao 2026)."
+wing_stalled_drag_coefficient:
+  value: 1.2
+  low: 1.0
+  high: 1.4
+  unit: "-"
+  reason: "Normal-force coefficient of a stalled low-aspect-ratio wing across the flow, which a wing sail turned square to the wind gives downwind; engineering estimate from flat plates of aspect ratio 2-5, about 1.2."
 wing_span_efficiency:
   value: 0.9
   low: 0.8
   high: 0.95
   unit: "-"
   reason: "Generic Oswald factor of a tapered wing; no wingsail-specific source found."
-wing_interference_factor:
-  value: 0.9
-  low: 0.75
-  high: 1.0
+wing_interference_amplitude:
+  value: 0.30
+  low: 0.15
+  high: 0.72
   unit: "-"
-  reason: "3D CFD: three sails gave 3x one sail's thrust, five sails 3.83x (EMSA/CE Delft 2023, Potential of Wind-Assisted Propulsion); at moderate wind angles interaction can even help (Bordogna et al. 2018)."
+  reason: "Loss amplitude of the wing array factor: 0.44 fits sails held at one angle of attack in 3D RANS (Malmek et al. 2024) and IDDES (Xu et al. 2025); independent sheeting recovers 0-80 % of the loss depending on wind angle (van Reen 2026), a third taken here."
+wing_interference_decay:
+  value: 2.86
+  low: 2.0
+  high: 4.0
+  unit: chord lengths
+  reason: "Engineering estimate of the decay length of the wing array loss: no 3D data beyond 1.9 chords; set so that the loss is below 1 % at the 10-chord optimum of 2D RANS (Wang et al. 2024)."
+wing_max_height:
+  value: 40.0
+  low: 35.0
+  high: 45.0
+  unit: m
+  reason: "Height of the largest wing sails built: the Oceanbird Wing 560 on the Tirranna is 40 m tall and 14 m wide (Alfa Laval 2026); the WindWings on the Pyxis Ocean are 37.5 m (gCaptain 2023)."
 wing_spacing:
   value: 1.5
   low: 1.2
   high: 2.0
   unit: chord lengths
-  reason: "Engineering assumption: Bordogna et al. (2018) show the gap is a key parameter but give no rule."
+  reason: "Closest spacing of wings over their chord at which wings turning about a quarter-chord pivot clear each other, also the aerodynamic minimum of Wang et al. (2024)."
 deck_length_fraction:
   value: 0.75
   low: 0.65
@@ -295,39 +337,165 @@ max_air_draft:
   low: 35.0
   high: 60.0
   unit: m
-  reason: "User assumption: WindWings reach ~45 m above deck and fold for port; no air-draft data found for the route's ports and bridges."
+  reason: "Highest point of a deployed deck rig above the waterline; tilting or folding rigs pass under lower bridges. Panama new locks allow 57.9 m, the Kiel Canal ~40 m."
 wing_mass_per_area:
-  value: 0.12
-  low: 0.08
-  high: 0.27
+  value: 0.25
+  low: 0.12
+  high: 0.36
   unit: t/m^2
-  reason: "Hard sails weigh 45-100 t for 280-1,000 m^2 including foundation (EMSA 2023, Table 4), 0.10-0.16 t/m^2; the largest wings reach ~0.27 (Oceanbird ~150 t for 560 m^2)."
+  reason: "Wing with pedestal and foundation: WindWing about 200 t for 750 m^2 (DNV via Riviera 2024), Oceanbird Wing 560 about 200 t with foundation (Oceanbird); smaller hard sails 0.10-0.16 (EMSA 2023, Table 4; AYRO OW RE 45 t for 363 m^2)."
+wing_unit_cost:
+  value: 66000.0
+  low: 27000.0
+  high: 153000.0
+  unit: USD
+  reason: "Engineering estimate of the manufacturing cost of a wing sail's controls, hydraulic power pack and 600 h of assembly; tilting or retraction is in the retractable rig premium."
 wing_cost_per_area:
-  value: 2000.0
-  low: 1200.0
-  high: 3000.0
+  value: 665.0
+  low: 310.0
+  high: 1760.0
   unit: USD/m^2
-  reason: "EMSA 2023 Table 7: 438-876 kEUR per hard-sail unit plus 109-219 kEUR retrofit, ~1,100-1,950 EUR/m^2 installed; Atkinson et al. (2018) USD 2.5 M for 1,400 m^2. Small units cost more per m^2."
+  reason: "Manufacturing cost per m^2 of sail from 0.13 t/m^2 (EMSA 2023, Table 4; OceanWings; Oceanbird) of tubular and stiffened steel, composite and slewing parts at NREL and WISDEM costs."
+wing_installation_fraction:
+  value: 0.15
+  low: 0.10
+  high: 0.25
+  unit: "-"
+  reason: "Installation over unit price: 15 % on a newbuild, 25 % as a retrofit (EMSA 2023, Table 7)."
 wing_lifetime:
+  value: 25.0
+  low: 20.0
+  high: 30.0
+  unit: years
+  reason: "Oceanbird designs the Wing 560 for 25 years and BAR's builder claims 25 years; EMSA (2023) takes more than 20 years for wind-propulsion assets."
+rotor_aspect_ratio:
+  value: 6.0
+  low: 5.0
+  high: 7.0
+  unit: "-"
+  reason: "Height over diameter of the rotor the ShipCLEAN coefficients hold for (Tillig & Ringsberg 2020); Norsepower builds 24x4, 30x5 and 35x5 m, Eco Flettner 18x3 m."
+rotor_max_wind:
   value: 20.0
   low: 15.0
   high: 25.0
-  unit: years
-  reason: "EMSA (2023) takes more than 20 years for wind-propulsion assets; rotor sails are designed for ~25 years."
-
-# --- kite ---
-kite_lift_coefficient:
-  value: 0.8
-  low: 0.6
+  unit: m/s
+  reason: "Apparent wind above which the rotors stop spinning and only their drag remains (Tillig & Ringsberg 2020, Table 3)."
+rotor_max_height:
+  value: 35.0
+  low: 30.0
+  high: 40.0
+  unit: m
+  reason: "Height of the largest rotors built: 35x5 m tilting Norsepower rotors for the SC Connector (Marine Log 2020) and five 35x5 m Anemoi rotors on the Sohar Max (gCaptain)."
+rotor_spacing:
+  value: 3.0
+  low: 2.5
+  high: 5.0
+  unit: diameters
+  reason: "Closest spacing of rotors over their diameter, the closest measured (Bordogna et al. 2020, quoted by Tillig & Ringsberg 2020); end discs are two diameters wide."
+rotor_max_surface_speed:
+  value: 47.0
+  low: 40.0
+  high: 50.0
+  unit: m/s
+  reason: "Norsepower 30x5 m at 180 rpm (EMSA 2023); Eco Flettner 18x3 m at 280 rpm gives 44 m/s."
+rotor_lift_factor:
+  value: 1.0
+  low: 0.89
   high: 1.0
   unit: "-"
-  reason: "Measured on the V3 LEI kite in traction: CL 0.7-1.0 (Oehler & Schmehl 2019, WES 4), 0.59-0.69 (van der Vlugt et al. 2019); 0.8 in Faggiani & Schmehl (2018). Projected area."
-kite_drag_coefficient:
-  value: 0.2
-  low: 0.15
+  reason: "Factor on the lift of the ShipCLEAN rotor fit, CL 9.5 at spin ratio 3 corrected with full-scale measurements (Tillig & Ringsberg 2020); CFD gives 8.5 (Li et al. 2012), the low bound."
+rotor_interference_amplitude:
+  value: 0.38
+  low: 0.0
+  high: 0.65
+  unit: "-"
+  reason: "Loss amplitude of the rotor array factor 1 - (1 - 1/n) A exp(-s/s0), averaged over apparent wind angles of a reaching ship: a pair 3 diameters apart loses 4-8 % in the wind tunnel at spin ratio 2 (Bordogna et al. 2020, Figs. 17-18), two to four rotors 9 diameters apart ~1 % (Han et al. 2025). The high bound is the fit with a free decay length."
+rotor_interference_decay:
+  value: 2.72
+  low: 1.8
+  high: 3.5
+  unit: diameters
+  reason: "Decay length of the rotor array loss, fitted to the wind-angle worst case of the Bordogna et al. (2020) pair at 3, 7.5 and 15 diameters; the low bound is the free fit with both parameters."
+market_price_factor:
+  value: 2.0
+  low: 1.6
+  high: 2.5
+  unit: "-"
+  reason: "Market price over manufacturing cost for wings, rotors and kites alike: production overhead of 1.37 times direct cost (NREL blade cost model) over one minus a gross margin of 30 %, between Vestas (13 %) and European machinery (45 %, Damodaran 2026)."
+rotor_unit_cost:
+  value: 74000.0
+  low: 36000.0
+  high: 165000.0
+  unit: USD
+  reason: "Manufacturing cost of one rotor's fixed parts: least-squares line through bottom-up costs of Norsepower 2025 rotors at NREL composite and WISDEM steel costs; times the market price factor it reproduces Norsepower's 2019 prices to within -13 % to +6 %."
+rotor_cost_per_area:
+  value: 2040.0
+  low: 1260.0
+  high: 4270.0
+  unit: USD/m^2
+  reason: "Manufacturing cost per m^2 of height times diameter, the slope of the same line."
+rotor_installation_fraction:
+  value: 0.15
+  low: 0.10
   high: 0.25
   unit: "-"
-  reason: "Kite-only glide ratio about 4 in traction (Oehler & Schmehl 2019; van der Vlugt et al. 2019: 3.6-4.0), 4-5 for SkySails towing kites (Erhard & Strauch 2013); CD 0.2 in Faggiani & Schmehl (2018)."
+  reason: "Installation over unit price, the foundation being in the unit price: 15 % on a newbuild, 25 % as a retrofit (EMSA 2023, Table 7)."
+rotor_lifetime:
+  value: 25.0
+  low: 20.0
+  high: 30.0
+  unit: years
+  reason: "Anemoi states a 25-year design life; EMSA (2023) takes more than 20 years for wind-propulsion assets."
+retractable_rig_premium:
+  value: 0.12
+  low: 0.08
+  high: 0.20
+  unit: "-"
+  reason: "Extra price of tilting, folding or rails that lower wings and rotors for cargo handling and bridges, over the fixed rig price: bottom-up estimate of the hydraulics, hinge and foundation steel (10-17 % for a tilting 35 x 5 m rotor of 56 t); such systems are in service (Norsepower tilting, Anemoi rails and folding, WindWings folding) but unpriced."
+ballast_draft_fraction:
+  value: 0.55
+  low: 0.45
+  high: 0.65
+  unit: "-"
+  reason: "Draft in ballast over design draft, at which bulk carriers and tankers arrive at loading berths and their air draft is highest; engineering estimate."
+restricted_call_days:
+  value: 2.0
+  low: 1.0
+  high: 3.0
+  unit: days
+  reason: "Time lost per port call barred by air draft, in waiting for tide or river stage (0.5-1 day) or repositioning to another cargo (1-3 days); engineering estimate, no published figure."
+container_row_pitch:
+  value: 2.5
+  low: 2.45
+  high: 2.55
+  unit: m
+  reason: "Width of one container row across the deck: a Panamax of 32.3 m beam carries 13 rows, an APL post-Panamax of 39.4 m beam 16."
+deck_rig_clearance:
+  value: 1.0
+  low: 0.5
+  high: 2.0
+  unit: m
+  reason: "Engineering estimate of the clear width a deck rig needs beside its footprint for lashing and access, added before counting the container rows it blocks."
+launch_mast_width:
+  value: 1.0
+  low: 0.6
+  high: 2.5
+  unit: m
+  reason: "Engineering estimate of the deck footprint of the kite's static launch mast with its foundation, a tube of ~0.8 m diameter."
+wing_pedestal_width:
+  value: 2.5
+  low: 2.0
+  high: 14.0
+  unit: m
+  reason: "Engineering estimate of the deck footprint of a wing raised on a pedestal above the container stacks; the high bound is a 14 m chord wing rooted at hatch level."
+rotor_mass_per_area:
+  value: 0.63
+  low: 0.3
+  high: 0.7
+  unit: t/m^2
+  reason: "Eco Flettner 18x3 m weighs 34 t with a typical foundation (Interreg WASP, Annika Braren); a Norsepower 30x5 m is ~42 t without foundation (EMSA 2023)."
+
+# --- kite ---
 tether_drag_coefficient:
   value: 1.1
   low: 1.0
@@ -340,36 +508,168 @@ tether_stress:
   high: 600000000.0
   unit: Pa
   reason: "Working stress in published AWE designs: ~0.40 GPa (Faggiani & Schmehl 2018) and ~0.24 GPa (van der Vlugt et al. 2019); SK78 rope breaks at ~1.1 GPa (Marlow 12 mm), so a safety factor of ~2.8."
-tether_length:
-  value: 400.0
-  low: 250.0
-  high: 600.0
+tether_length_ratio:
+  value: 13.0
+  low: 10.0
+  high: 20.0
+  unit: "-"
+  reason: "Tether length over projected span, held during flight and changed only at launch and landing (Erhard & Strauch 2013): SkySails flew its 160 m^2 kite, ~23 m span at an assumed projected aspect ratio of 3.3, on an operational towing line of 300 m (Erhard & Strauch 2013, Fig. 18), the longest relative length flown on a ship; its 320 m^2 kite flew on 360 m, ~11 spans (Penloup et al. 2021). The high bound is the top of the design study of Penloup et al. (2021), L/sqrt(A) = 33.5."
+kite_min_elevation:
+  value: 8.0
+  low: 5.0
+  high: 15.0
+  unit: deg
+  reason: "Engineering assumption: lowest tether elevation of a pattern, keeping the kite clear of the waves and the ship's superstructure."
+kite_min_turn_radius:
+  value: 2.0
+  low: 1.2
+  high: 3.6
+  unit: "-"
+  reason: "Smallest radius of the kite's path through the air over its projected span: the SkySails turn rate law gives a yaw rate g v_a delta, so a turn radius 1/(g delta), with g = 0.03-0.05 rad/m for the 160 m^2 kite and curve deflections delta of 40-70 % of the steering range (Erhard & Strauch 2013, Eq. 7, Section VIII); 1/(0.04 x 0.55) = 45 m, or 2.0 spans of ~23 m, with bounds 29 m and 83 m."
+kite_stall_margin:
+  value: 2.0
+  low: 1.0
+  high: 4.0
+  unit: deg
+  reason: "Engineering assumption: margin below the angle of maximum lift that the bridle trim keeps in gusts."
+canopy_cloth_weight:
+  value: 100.0
+  low: 60.0
+  high: 200.0
+  unit: g/m^2
+  reason: "Weight of the polyester ripstop of the canopy: the cheapest in a sweep over 40-200 g/m^2 on the 140 m e-methanol ship to Guadeloupe and New York with 1,600 and 3,200 m^2 kites, 100-110 g/m^2 by a parabola in log weight; 71 and 200 g/m^2 cost 0.4-1.9 % more. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+canopy_wear_lifetime:
+  value: 4000.0
+  low: 2000.0
+  high: 10000.0
+  unit: flight hours
+  reason: "Flight hours until flexing, flutter, chafe at launch and landing and seam wear end a canopy whose cloth sunlight does not weaken: woven polyester sails last 1,700-4,000 h under steady load (Quantum 2015) and Kitepower rates its pumping kite at 4,000 h (Kitepower 2024); paraglider cloth loses porosity, not strength, in flex tests (Maslanka et al. 2023)."
+canopy_cloth_area_ratio:
+  value: 3.5
+  low: 3.0
+  high: 4.3
+  unit: "-"
+  reason: "Cloth sewn into a ram-air canopy per m^2 of projected area: 3.0 m^2 per flat m^2 for two skins, ribs and diagonals (2.6-3.7), 1.17 flat m^2 per projected m^2; paragliders weigh 0.19-0.21 kg per flat m^2 with ~35 g/m^2 cloth (Advance Alpha 8, NOVA Prion and Mentor 2)."
+canopy_mass_overhead:
+  value: 0.05
+  low: 0.02
+  high: 0.2
+  unit: kg/m^2
+  reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is load patches for the ~1 t point loads of a ship kite (Thedens 2015). With 60 g/m^2 cloth it gives 0.26 kg/m^2, as a 160 m^2 SkySails kite of ~40 kg (pressetext 2008)."
+canopy_cloth_base_price:
+  value: 11.0
+  low: 6.0
+  high: 17.0
+  unit: USD/m^2
+  reason: "Price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: least-squares line through retail prices of polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT, 9.9 USD/m^2 plus 0.027 USD/m^2 per g/m^2 with 2.8 USD/m^2 scatter (extremtextil.de, Sailrite, Jones Airfoils, 2026-11-01); makers pay less."
+canopy_cloth_price_per_weight:
+  value: 0.031
+  low: 0.02
+  high: 0.05
+  unit: USD/g
+  reason: "Rise of the price of a sewn m^2 of cloth per g/m^2 of cloth weight, from the same line; within Dacron sailcloth the price grows with weight to the power 0.6-1.0."
+canopy_making_cost_per_area:
+  value: 57.0
+  low: 16.0
+  high: 179.0
+  unit: USD/m^2
+  reason: "Manufacturing cost per m^2 of projected area of a ram-air canopy besides its cloth: per flat m^2 1.5 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2; with 36 g/m^2 cloth it reproduces 98 USD/m^2, which times the market price factor matches sport kite retail prices."
+cloth_specific_strength:
+  value: 170.0
+  low: 110.0
+  high: 210.0
+  unit: N/m per g/m^2
+  reason: "Tensile strength of canopy cloth over its weight: 150-210 for Porcher Skytex 26-55 g/m^2 (ISO 1421 minimum and mean, Porcher 2006), Teijin Icarex 37 g/m^2 and triple ripstop polyester 53 g/m^2, and uncoated aircraft polyester of 63-115 g/m^2 (Poly-Fiber 2014); 110 for hard-finished sailcloth of 165-180 g/m^2. Strength grows with weight to the power 0.73-1.0 within one cloth family."
+canopy_panel_radius:
+  value: 0.5
+  low: 0.25
+  high: 1.7
   unit: m
-  reason: "SkySails ship kites used a ~300 m towing line (Erhard & Strauch 2013) and flew 100-300 m above the ship (NOAA VOS 2009); Kitepower's default tether is 350 m."
-kite_elevation:
-  value: 25.0
-  low: 15.0
-  high: 35.0
-  unit: deg
-  reason: "Horizontal figure-eights centred near 15 deg give the most propulsive force (Dadd, Hudson & Shenoi 2011); power-generating kites fly at ~27 deg (van der Vlugt et al. 2019). The ground clearance of the turns limits how low."
-kite_max_azimuth:
-  value: 60.0
-  low: 45.0
-  high: 70.0
-  unit: deg
-  reason: "Engineering assumption: no source found; dynamic kite thrust falls fast at smaller wind angles (EMSA 2023)."
-kite_pattern_efficiency:
+  reason: "Billow radius of the canopy skin between ribs, which with the pressure across the skin sets its tension per unit length (Wang & He 2018), held fixed over kite size by adding cells and tapes. Paragliders have ~0.2 m cells on a 2.2 m chord (Nova Mentor 6); the high bound is cells of the same proportions on a 3,200 m^2 kite of 33 m chord."
+canopy_strength_factor:
+  value: 5.0
+  low: 3.0
+  high: 8.0
+  unit: "-"
+  reason: "Engineering estimate of the strength the aged cloth must keep over the tension of the skin at the force limit: the pressure across the skin near the leading edge of ~2-2.5 times the wing loading times a safety factor of 2-3; paraglider cloth works at safety factors of 3.9-6.0 at a 5.6 g load (Maslanka et al. 2023)."
+cloth_uv_dose_per_weight:
   value: 0.8
-  low: 0.65
+  low: 0.4
+  high: 1.7
+  unit: MJ/m^2 per g/m^2
+  reason: "UV dose (295-385 nm) per g/m^2 of cloth weight that leaves 1/e of the strength, with the damaged surface layer a smaller share of heavier cloth. Raw polyester loses ~85 % of its strength in a year outdoors (Poly-Fiber 2006), 1.6 MJ/m^2 per g/m^2 for ~95 g/m^2 aircraft cloth at 300 MJ/m^2 a year; PA66 paraglider cloth of 34-42 g/m^2 lost 35-64 % of its warp strength after 72 h in a QUV tester at 0.76 W/m^2/nm (Maslanka et al. 2023), ~0.4-0.8 MJ/m^2 per g/m^2."
+canopy_uv_dose_rate:
+  value: 0.02
+  low: 0.012
+  high: 0.035
+  unit: MJ/m^2/h
+  reason: "UV dose (295-385 nm) on the canopy per flight hour, for a kite flown day and night and stowed out of the sun on deck: Florida receives 320 MJ/m^2 a year (Q-Lab 2026), 0.037 MJ/m^2 per hour of the year, of which a skin facing up the tether at ~25 deg elevation sees about 60 %; the low bound is the North Atlantic, the high bound the trade-wind belt facing the sun."
+control_unit_mass:
+  value: 100.0
+  low: 50.0
+  high: 300.0
+  unit: kg
+  reason: "Engineering assumption: airborne steering pod with actuators, battery and radio below the kite."
+bridle_rows:
+  value: 4.0
+  low: 3.0
+  high: 5.0
+  unit: "-"
+  reason: "Chordwise rows of line attachment points; paragliders use three to four (A-D) lines per span station."
+bridle_spacing:
+  value: 0.4
+  low: 0.3
+  high: 0.6
+  unit: "-"
+  reason: "Engineering assumption: spanwise distance between attachment points over the mean chord, from paraglider line plans."
+bridle_height_ratio:
+  value: 0.7
+  low: 0.5
   high: 0.9
   unit: "-"
-  reason: "Engineering assumption, to be calibrated with SymbolicAWEModels; Dadd et al. (2011) report 16.7 t time-averaged force from a 300 m^2 kite on 300 m lines at 6.2 m/s as a check."
-kite_min_wind:
-  value: 6.0
-  low: 4.0
-  high: 8.0
-  unit: m/s
-  reason: "SkySails ship kites could not launch below Beaufort 3 (NOAA VOS 2009); SkySails Power and Kitepower launch above 5 m/s, Kyo above 6 m/s."
+  reason: "Engineering assumption: bridle length from canopy to control unit over projected span; paraglider lines are ~7-8 m on ~11 m span."
+bridle_cascade_factor:
+  value: 0.6
+  low: 0.4
+  high: 1.0
+  unit: "-"
+  reason: "Engineering assumption: total bridle line length over the number of attachment lines times bridle height, from cascading lines into fewer main lines; 1 is no cascading."
+kite_flight_drag:
+  value: 0.08
+  low: 0.0
+  high: 0.12
+  unit: "-"
+  reason: "Drag on the projected area that the design-shape model lacks in flight: deformation, control unit and steering. The V3 wing reaches L/D 8.6 in the wind tunnel (Poland et al. 2025) but 3.6-4.0 in traction with bridle and control unit (van der Vlugt et al. 2019), 4-5 for SkySails towing kites (Erhard & Strauch 2013); 0.08 brings the aspect-ratio-3 kite with bridle to 4 at CL 0.8; 0 is a kite that keeps its design shape in flight."
+kite_max_wave_height:
+  value: 4.0
+  low: 3.0
+  high: 6.0
+  unit: m
+  reason: "Engineering assumption: highest significant wave height at which the kite is launched and flown, the upper end of rough seas (sea state 5). SkySails operators reported few launch opportunities in heavy seas (CE Delft 2016) without a number."
+kite_parking_margin:
+  value: 1.3
+  low: 1.1
+  high: 1.8
+  unit: "-"
+  reason: "Engineering estimate of the apparent wind a kite needs to be launched, parked or flown over the wind at which its lift at maximum lift coefficient carries its flying mass: margin for gusts, tether sag and control. The ship makes the launch wind by heading into the wind, as SkySails did (WirtschaftsWoche 2008); kites on land launch above 5 m/s and fly down to 2 m/s (Kitepower 2024)."
+kite_cycle_crew_cost:
+  value: 150.0
+  low: 50.0
+  high: 500.0
+  unit: USD
+  reason: "Engineering estimate of the crew time of one launch and landing: two crew for about an hour each, plus preparation."
+kite_cycle_damage_probability:
+  value: 0.002
+  low: 0.0005
+  high: 0.01
+  unit: "-"
+  reason: "Engineering estimate of the chance that one launch and landing damages the canopy beyond repair; SkySails operators reported components that did not stand the conditions at sea (CE Delft 2016) without a rate."
+kite_parked_wear_fraction:
+  value: 0.5
+  low: 0.2
+  high: 1.0
+  unit: "-"
+  reason: "Engineering estimate of canopy and tether wear per hour parked at the edge of the wind window over wear per hour flying patterns: less load cycling, the same exposure to sun and flutter."
 kite_max_wind:
   value: 25.0
   low: 20.0
@@ -381,25 +681,13 @@ kite_max_force_per_area:
   low: 0.4
   high: 1.0
   unit: kN/m^2
-  reason: "Maximum wing loading 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2); SkySails ~16 t on 300 m^2 (0.52). SkySails' 320 kN claim on 320 m^2 is the high end."
+  reason: "Maximum wing loading 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2); SkySails ~16 t on 300 m^2 (0.52). SkySails' 320 kN claim on 320 m^2 is the high end. The high bound is the design value of 100 kg/m^2 used in earlier ship-kite models (Penloup et al. 2021)."
 kite_attach_height:
   value: 10.0
   low: 6.0
   high: 15.0
   unit: m
   reason: "Engineering assumption: tether attachment on the bow mast; no source found."
-canopy_cost_per_area:
-  value: 300.0
-  low: 150.0
-  high: 500.0
-  unit: USD/m^2
-  reason: "Finished LEI canopy with bladders, bridles and reinforcements per m^2 of projected area. Faggiani & Schmehl (2018) put a 100 m^2 (72 m^2 projected) kite at EUR 22 k in series production (~330 USD/m^2 projected); cloth alone is ~17 USD/m^2 (Dacron, Sailrite) on ~1.4 m^2 of surface per projected m^2, the rest is labour and margin."
-canopy_lifetime:
-  value: 4000.0
-  low: 2000.0
-  high: 8000.0
-  unit: flight hours
-  reason: "Kitepower Falcon datasheet rates its kite at 4,000 h. A racing sail is the lower bound: an IMOCA carries only 8 sails, delivered new, through a nonstop Vendee Globe of ~27,700 nm in 65-80 days (~1,600-1,900 h; vendeeglobe.org). A more durable canopy lasts longer."
 tether_price:
   value: 80.0
   low: 40.0
@@ -413,35 +701,95 @@ tether_rope_density:
   unit: kg/m^3
   reason: "Rope mass over its nominal circular cross-section, from Marlow D12 78 at 10 mm: 4.65 kg per 100 m."
 tether_lifetime:
-  value: 4000.0
-  low: 2000.0
-  high: 16000.0
+  value: 8000.0
+  low: 4000.0
+  high: 40000.0
   unit: flight hours
-  reason: "Dyneema tethers of a pumping system last 3 months to 2 years (DEADALUS project, Ampyx/DSM), ~2,000-17,000 h if flown continuously; without pumping the tether is not cycled over the drum under load."
+  reason: "Flight hours a Dyneema tether flies before replacement at a fixed length, bent only at the tow point; none measured. The Ampyx Power 5 MW design replaces the tether section reeled over the drum every year but the fixed section after 7 years, at 312 MPa (van Hagen et al. 2023), about 40,000 flight hours; bending fatigue over a drum gives ~4,000 h at 0.4 GPa (Joshi 2025 model). Pumping tethers last 3 months to 2 years (DEADALUS, Ampyx/DSM)."
+winch_fixed_cost:
+  value: 27000.0
+  low: 11000.0
+  high: 81000.0
+  unit: USD
+  reason: "Engineering estimate of the manufacturing cost of the motor, drive, sensors, controls, frame and assembly of a holding winch from component prices."
 winch_cost_per_force:
-  value: 0.1
-  low: 0.03
-  high: 0.3
+  value: 0.024
+  low: 0.01
+  high: 0.084
   unit: USD/N
-  reason: "Marine mooring winches sell for ~0.01-0.05 USD/N of line pull without class approval or controls; a reeling AWE generator winch costs ~0.27 EUR/N (Faggiani & Schmehl 2018). A holding winch sits in between."
-launch_system_cost_coefficient:
-  value: 10000.0
-  low: 5000.0
-  high: 25000.0
-  unit: USD/m
-  reason: "Telescopic launch and recovery mast with docking, times the square root of kite area as in Faggiani & Schmehl (2018); ~140 k USD at 200 m^2. Ship-mounted and marinised, so far above their 4.8 k EUR for a land unit. Unverified estimate."
+  reason: "Engineering estimate of the manufacturing cost per N of brake holding force: drum, brake and frame steel at 5 kg/kN and a gearbox for a quarter of the holding force at WISDEM gearbox cost."
+launch_mast_height_ratio:
+  value: 1.15
+  low: 0.8
+  high: 1.5
+  unit: "-"
+  reason: "Launch mast height over the square root of projected kite area: SkySails 15 m for 160 m^2 (Next Nature 2007), Airseas 35 m for 1,000 m^2, SkySails Power Kyo 29 m for 450 m^2."
+launch_mast_max_height:
+  value: 35.0
+  low: 29.0
+  high: 60.0
+  unit: m
+  reason: "Tallest kite launch mast at sea, the 35 m Airseas mast; larger kites are flown from a mast of this height, beyond any built launch system."
+launch_mast_base_mass:
+  value: 0.5
+  low: 0.3
+  high: 1.0
+  unit: t
+  reason: "Engineering estimate of the launch mast mass that does not scale with the kite: the smallest tube, platform and ladder of a mast that carries a 3 t docking head at 0.5 g."
+launch_mast_mass_coefficient:
+  value: 4.1e-4
+  low: 2.7e-4
+  high: 8.9e-4
+  unit: t/m^(7/3)
+  reason: "Engineering estimate of the steel mass of a telescopic launch mast, the base mass plus this coefficient times area^(2/3) times height^(5/3), for a tubular section that holds a launch pull of a tenth of the tether force; the tether runs to a deck tow point, not over the mast (Erhard & Strauch 2013)."
+launch_mast_steel_cost:
+  value: 2.51
+  low: 1.3
+  high: 5.2
+  unit: USD/kg
+  reason: "Manufacturing cost of fabricated tubular steel, 1.93 USD/kg (NREL WISDEM, Farkas & Jarmai), with 30 % added for the foundation."
+launch_mast_telescope_factor:
+  value: 2.5
+  low: 2.2
+  high: 5.0
+  unit: "-"
+  reason: "Price of the hydraulic telescopic launch mast over the steel cost of a static one: hydraulic marine cranes sell at 5.5-17 USD/kg against 1.0-1.6 USD/kg for steel monopoles, so the low bound is the cheapest crane per kg. The mast retracts because a kite parked aloft swings its tether round it; the SkySails ships used a telescopic mast."
+docking_head_cost:
+  value: 37000.0
+  low: 15000.0
+  high: 100000.0
+  unit: USD
+  reason: "Engineering estimate of the manufacturing cost of the slewing ring, gripper, hydraulics, inflation fan, controls and assembly of the docking head of a 1,000 m^2 kite."
+docking_head_reference_area:
+  value: 1000.0
+  low: 1000.0
+  high: 1000.0
+  unit: m^2
+  reason: "Kite area the docking head cost refers to, that of the Airseas system; the head grows with the square root of kite area, as the mast that carries it does."
+docking_head_area_exponent:
+  value: 0.5
+  low: 0.33
+  high: 1.0
+  unit: "-"
+  reason: "Exponent of the growth of the docking head cost with kite area: engineering estimate, as the launch mast that carries the head grows with the square root of area; the high bound is growth in proportion to canopy area."
 control_unit_cost:
-  value: 30000.0
-  low: 5000.0
-  high: 80000.0
+  value: 11000.0
+  low: 6000.0
+  high: 22000.0
   unit: USD
-  reason: "Kite control unit with steering actuators, sensors and radio; Faggiani & Schmehl (2018) assume 3 k EUR in series production, prototypes cost an order of magnitude more."
-kite_integration_cost:
-  value: 150000.0
-  low: 50000.0
-  high: 600000.0
-  unit: USD
-  reason: "EMSA 2023 Table 7 gives 51-351 kEUR newbuild or 85-586 kEUR retrofit installation for a kite system plus 10 kEUR training; the whole SkySails 320 m^2 system sold for ~EUR 1 M (EU LIFE WINTECC)."
+  reason: "Engineering estimate of the manufacturing cost of the flight computer, housing, battery and assembly of a series control unit."
+control_unit_cost_per_area:
+  value: 15.0
+  low: 8.0
+  high: 30.0
+  unit: USD/m^2
+  reason: "Engineering estimate of the manufacturing cost of the three steering actuators, which grow with kite area: 3 x 5 kUSD at 1,000 m^2."
+kite_integration_fraction:
+  value: 0.15
+  low: 0.15
+  high: 0.25
+  unit: "-"
+  reason: "Installation over hardware price: 15 % on a newbuild, 25 % as a retrofit (EMSA 2023, Table 7)."
 kite_mass_per_area:
   value: 0.05
   low: 0.01
@@ -468,12 +816,24 @@ hull_lifetime:
   high: 30.0
   unit: years
   reason: "Average ship demolition age has stayed above 27 years since 2019 and fell to 23 in the 2016 slump (Breakwave Advisors 2025)."
-hull_cost_per_lightship:
-  value: 6000.0
-  low: 4000.0
-  high: 8500.0
-  unit: USD/t
-  reason: "No coaster contract price is public. Meriaura ordered two 6,750 dwt EcoTraders at Royal Bodewes for ~EUR 34 M (Cision, Apr 2024), ~7,000-7,800 USD/t lightship for a Dutch build; Chinese yards are cheaper. Lightship from the Damen CF3850 (3,800 dwt on ~5,050 t displacement)."
+newbuild_price:
+  value: 1.19e7
+  low: 1.0e7
+  high: 2.0e7
+  unit: USD
+  reason: "Price of a conventional cargo ship of the reference deadweight from an Asian yard: least-squares power law through Udupi Cochin's 3,800 dwt general cargo ships (~USD 11.6 M each, Onmanorama 15 Jun 2023) and the KOBC 33k/64k/82k dwt bulker assessments of USD 31.25/35.78/38.22 M (ShipUniverse, 8 Oct 2026). A Dutch build costs more: Royal Bodewes 6,750 dwt EcoTrader ~EUR 17 M (Meriaura, Apr 2024)."
+newbuild_reference_deadweight:
+  value: 3800.0
+  low: 3800.0
+  high: 3800.0
+  unit: t
+  reason: "Deadweight at which newbuild_price is quoted (Udupi Cochin 3,800 dwt series)."
+newbuild_price_exponent:
+  value: 0.40
+  low: 0.22
+  high: 0.46
+  unit: "-"
+  reason: "Exponent of price over deadweight from the same fit; 0.46 between 3,800 and 33,000 dwt, 0.22 between 33,000 and 82,000 dwt. Country of build differs between the small and large ships."
 mechanical_propulsion_cost:
   value: 500.0
   low: 350.0
@@ -492,24 +852,54 @@ crew_cost:
   high: 800000.0
   unit: USD/year
   reason: "Engineering assumption, no public source for coaster crew cost: ~1,370 USD/day fits a mixed crew of seven, while 3,000 dwt coasters earned only ~1,500-2,000 USD/day on time charter in 2024 (ISM), which implies low-cost crewing; an all-EU crew is at the high end."
+crew_cost_exponent:
+  value: 0.15
+  low: 0.0
+  high: 0.3
+  unit: "-"
+  reason: "Exponent of crew cost over deadweight relative to the reference coaster: Handysize opex USD 4,500/day at 34.7k dwt and Supramax USD 4,910/day at 58.6k dwt (Pacific Basin 2024 interim report) minus maintenance_fraction of their newbuild price leaves ~USD 0.71-0.74 M/year of crew cost, against the 0.5 M coaster value. Drewry puts manning at over half of opex."
 maintenance_fraction:
   value: 0.03
   low: 0.02
   high: 0.05
   unit: 1/year
   reason: "Engineering assumption: maintenance alone is commonly put at 2-5 % of ship value per year; insurance comes on top, hence the high end."
-port_cost_per_call:
-  value: 15000.0
-  low: 8000.0
-  high: 30000.0
+depth_draft_ratio:
+  value: 1.32
+  low: 1.27
+  high: 1.40
+  unit: "-"
+  reason: "Moulded depth over draft: coasters have 1.5-2.0 m freeboard on 5.25-5.95 m draft (CF3850, Ferus 4300, CIP3800), so 1.27-1.36."
+loading_port_dues:
+  value: 0.381
+  low: 0.25
+  high: 0.381
+  unit: EUR/GT
+  reason: "Port of Rotterdam tariffs 2026: EUR 0.314/GT for bulk and unscheduled general cargo ships plus the EUR 0.067/GT sustainability component, before the ESI discount (Tables 1-3)."
+discharge_port_dues:
+  value: 0.1524
+  low: 0.1524
+  high: 0.6135
+  unit: EUR/m^3
+  reason: "Grand Port Maritime de la Guadeloupe, Droits de Port 2026 (Tarif 45), zone A, per m^3 of length x beam x summer draught: general cargo ships of 65 m or more EUR 0.0964 inward plus 0.0560 outward; bulk carriers 0.3757 plus 0.2378."
+port_service_cost:
+  value: 5000.0
+  low: 2000.0
+  high: 15000.0
   unit: USD
-  reason: "Engineering assumption, no published per-call cost; Rotterdam dues scale with GT and pilotage is compulsory at Pointe-a-Pitre above 50 m. An agent's proforma would settle it."
+  reason: "Engineering assumption, no source found: pilotage, towage, mooring and agency per call. The Dutch pilotage tables (ACM, Besluit loodsgeldtarieven 2026) were not extracted."
+usd_per_eur:
+  value: 1.16
+  low: 1.05
+  high: 1.20
+  unit: USD/EUR
+  reason: "Engineering assumption: exchange rate in 2026, not checked against a quote."
 port_time_per_call:
   value: 2.0
   low: 1.0
   high: 4.0
   unit: days
-  reason: "Engineering assumption: loading or discharging ~3,000 t of general cargo; no source searched."
+  reason: "Engineering assumption, independent of ship size: no current loading or discharge rate benchmark found (USDA tender terms of 2002-2011 give 5,000 t/day loading and 2,000 t/day discharging for bulkers)."
 availability:
   value: 0.92
   low: 0.88
@@ -578,3 +968,171 @@ carbon_coverage:
   high: 1.0
   unit: "-"
   reason: "A 3,500 dwt coaster measures ~2,500 GT (Damen CF3850: 2,570 GT), below the 5,000 GT threshold of EU ETS and FuelEU, so it pays nothing today. A July 2026 Commission proposal would bring smaller ships into the ETS from 2031; Rotterdam-Guadeloupe is then an intra-EU voyage counted in full."
+
+# --- island delivery chains ---
+island_quay_depth:
+  value: 9.75
+  low: 9.0
+  high: 10.6
+  unit: m
+  reason: "Roseau/Woodbridge Bay quay depth (CDB, Transforming the Caribbean Port Services Industry, c.2016, p.99); Kingstown 9.75 m, St John's 10.6 m, Grenada 9.0 m."
+hub_draft_limit:
+  value: 11.5
+  low: 11.5
+  high: 11.5
+  unit: m
+  reason: "Maximum draft at Pointe-a-Pitre/Jarry, ships of ~2,500 TEU (CPDP Debat public Port de Guadeloupe, synthesis of the DMAO)."
+under_keel_clearance:
+  value: 0.5
+  low: 0.3
+  high: 1.0
+  unit: m
+  reason: "Engineering assumption, no source searched: static under-keel clearance at a sheltered quay."
+transshipment_lift_cost:
+  value: 125.0
+  low: 125.0
+  high: 250.0
+  unit: USD/lift
+  reason: "DP World Caucedo 2026 transshipment tariff per lift; the tariff does not say whether both lifts at the hub are billed, so the high end bills each lift."
+transshipment_lifts:
+  value: 1.0
+  low: 1.0
+  high: 2.0
+  unit: "-"
+  reason: "Lifts billed per box at the hub: one by the Caucedo tariff reading, two if discharge and reload are billed separately."
+cargo_per_teu:
+  value: 10.2
+  low: 8.0
+  high: 14.0
+  unit: t
+  reason: "Mean cargo mass per loaded TEU handled in EU ports (Eurostat)."
+hub_dwell:
+  value: 5.0
+  low: 3.0
+  high: 12.0
+  unit: days
+  reason: "Transshipment takes more than 5 days (IDB, Caribbean Regional Action Plan on Freight Logistics, TN-712, 2014); Kingston container dwell exceeded 12 days in May (Port Technology)."
+feeder_market_price:
+  value: 3352.0
+  low: 2127.0
+  high: 4577.0
+  unit: USD/TEU
+  reason: "Hapag-Lloyd Eastern Caribbean feeder charge per 20' box to Dominica, St Kitts & Nevis, Antigua, St Lucia and Grenada, Oct 2026 to Mar 2027 (Container News, 15 Sep 2026); the base is the midpoint. A market price, not a cost."
+
+# --- cargo units ---
+teu_tare_mass:
+  value: 1.85
+  low: 1.85
+  high: 2.3
+  unit: t
+  reason: "Tare per TEU of the 40 ft dry container, 3.7 t, that carries most TEU; a 20 ft box weighs 2.3 t (Hapag-Lloyd container specification; Eurostat maritime manual 3.5.4). Eurostat's goods weight, on which cargo_per_teu rests, excludes it (manual 3.4.1)."
+empty_container_share:
+  value: 0.188
+  low: 0.16
+  high: 0.188
+  unit: "-"
+  reason: "Empty TEU over all TEU handled in EU27 main ports: 18.8 % in 2024, 16.0-18.8 % over 2010-2024 (Eurostat mar_mg_am_cvh, loading status EMPTY and TOTAL). An empty box takes a slot and its tare but carries no cargo."
+teu_volume:
+  value: 38.3
+  low: 33.2
+  high: 38.3
+  unit: m^3
+  reason: "Space of one TEU slot taken by a fuel tank: the external 20 ft box of ISO 668, 6.058 x 2.438 x 2.591 m, as ICCT counts it (Mao et al. 2020); the low bound is the internal volume (Hapag-Lloyd)."
+cargo_per_ceu:
+  value: 1.3
+  low: 1.15
+  high: 1.6
+  unit: t
+  reason: "Cargo per CEU of car-deck space: a PCTC hull of 8,600 CEU is optimised for 8,000-15,000 t of payload (Knud E. Hansen 8,600 CEU DF PCTC), 1.3 t at its design deadweight; new EU cars weigh 1.56 t in running order (ICCT 2025, EEA data) and take about 1.33 CEU, 1.17 t/CEU; the 6,500 CEU Future Way's design deadweight gives ~1.6."
+ceu_volume:
+  value: 24.0
+  low: 17.0
+  high: 30.0
+  unit: m^3
+  reason: "Car-deck space per CEU that a fuel tank displaces: 8.4 m^2 of deck per CEU (Hoegh Target 71,400 m^2 for 8,500 CEU; Knud E. Hansen 8,600 and 6,500 CEU designs 8.41-8.45) times a deck pitch of 2.9 m (depth over car decks of the same designs); the low bound is the 2.0 m clear height, the high bound the enclosed volume per CEU from gross tonnage."
+
+# --- hydrogen drive ---
+hydrogen_price:
+  value: 6.5
+  low: 3.3
+  high: 10.8
+  unit: USD/kg
+  reason: "Liquid green hydrogen bunkered around 2030, 54 (28-90) USD/GJ at 120 MJ/kg: production 4 (2-7) USD/kg in good export regions (IEA Global Hydrogen Review 2025, pp. 94-97; 2024, p. 83), liquefaction 2.0 (1.0-2.8) USD/kg (DOE record 19001: 2.75 at 27 t/d today; IRENA 2022 Table 6.3 for 2030, levelised at 8 %), terminal and bunkering 0.5 (0.3-1.0) USD/kg (DOE 19001: terminal 0.39)."
+hydrogen_heating_value:
+  value: 120.0
+  low: 120.0
+  high: 120.0
+  unit: MJ/kg
+  reason: "Lower heating value of hydrogen."
+fuel_cell_system_cost:
+  value: 1080.0
+  low: 995.0
+  high: 1620.0
+  unit: USD/kW
+  reason: "Marine PEM system with balance of plant and DC/DC converter in 2030: Clean Hydrogen JU SRIA target 1,000 EUR/kW (Annex 4, Table 17); EMSA 2023 920 EUR/kW (Table 75), the low bound; the high bound is the SRIA 2024 target of 1,500 EUR/kW, at 1.08 USD/EUR."
+electric_drive_cost:
+  value: 485.0
+  low: 220.0
+  high: 600.0
+  unit: USD/kW
+  reason: "Motor, converter and switchboard of an electric drive without its gensets: electric_propulsion_cost less a methanol genset of 265 + 120 EUR/kW (Kanchiralla et al. 2022); the low bound is motor and gearbox alone, 200 EUR/kW (EMSA 2023, Table 76). No source prices converters separately."
+fuel_cell_efficiency:
+  value: 0.48
+  low: 0.45
+  high: 0.56
+  unit: "-"
+  reason: "LHV efficiency of a PEM system at rated power net of balance of plant: PowerCell Marine System 200 uses 13 kg/h at 200 kW (46 %), the DOE heavy-duty model 56 % new and 50 % at end of life (record 24004); studies use a constant 54-55 % (Mao et al. 2020; EMSA 2023), close to the datasheet peaks of 53-60 %."
+fuel_cell_part_load_penalty:
+  value: -0.35
+  low: -0.53
+  high: -0.27
+  unit: "-"
+  reason: "Negative: PEM efficiency rises at part load, to the 60 % peak near a quarter load of the PowerCell MS200 (fit -0.53) and 64.5 % of the DOE model (-0.27); the quadratic misses the drop below ~25 % load, where Ballard's FCwave stops (55 of 200 kW)."
+fuel_cell_string_count:
+  value: 16
+  low: 8
+  high: 32
+  unit: "-"
+  reason: "Independently switched fuel-cell units: PowerCell's 6 MW concept has two blocks of sixteen 200 kW modules on a DC bus, each with its own converter (Marine System 200 datasheet)."
+fuel_cell_min_load:
+  value: 0.275
+  low: 0.2
+  high: 0.3
+  unit: "-"
+  reason: "Lowest load of a running fuel-cell unit, below which its balance of plant makes efficiency fall: the Ballard FCwave's minimum power is 55 of 200 kW (2021 specification); the efficiency curve peaks near a quarter load (PowerCell MS200, DOE record 24004)."
+fuel_cell_chain_efficiency:
+  value: 0.92
+  low: 0.90
+  high: 0.94
+  unit: "-"
+  reason: "Fuel cell to shaft: motor, gearbox and control at 0.98 each (Kanchiralla et al. 2022, 2023) gives 0.94; the diesel-electric chain without its 0.97 alternator gives 0.93, less a DC/DC converter per module."
+fuel_cell_stack_life:
+  value: 25000.0
+  low: 15000.0
+  high: 40000.0
+  unit: h
+  reason: "Operating hours at rated power before stack replacement: DOE heavy-duty design life 25,000 h (record 26002); Ballard FCwave >15,000 h (2024 datasheet); the SRIA 2024 maritime target 40,000 h includes stack swaps."
+fuel_cell_stack_share:
+  value: 0.6
+  low: 0.5
+  high: 1.0
+  unit: "-"
+  reason: "Stack replacement over fuel-cell system price: the stack is 60-63 % of system cost (DOE records 24004, 26002); EMSA 2023 and Kanchiralla et al. replace the whole system, the high bound."
+lh2_tank_cost:
+  value: 55.0
+  low: 25.0
+  high: 100.0
+  unit: USD/kg
+  reason: "Vacuum-insulated type C LH2 tank with fuel supply system per kg of hydrogen held: 50,310 EUR per tonne (EMSA 2023, Table 17, from Korberg et al. 2021); stationary tanks 15-45 USD/kg, a spherical one ~100 (IRENA 2022, p. 74)."
+lh2_tank_gravimetric_density:
+  value: 0.10
+  low: 0.07
+  high: 0.15
+  unit: "-"
+  reason: "Hydrogen over the mass of the filled tank system: ~9 kg of steel per kg H2 for LH2 storage (IRENA 2022, p. 76, from Sandia); no ship-tank datum found, bounds by judgement."
+lh2_tank_volumetric_density:
+  value: 38.0
+  low: 33.0
+  high: 42.0
+  unit: kg/m^3
+  reason: "Hydrogen per m^3 of hold space taken by the insulated tank and fuel system: 40 (Mao et al. 2020, from Minnehan & Pratt 2017), 4.6 MJ/L contained (EMSA 2023, Table 16); a sphere in a cubic space 33, the MF Hydra's 4 t tank of 10 x 3.5 m 42 (Norled 2021). Boil-off of 0.05-0.25 %/day (IRENA 2022, p. 23; IEA 2024, p. 221) feeds the fuel cells and costs nothing at sea."

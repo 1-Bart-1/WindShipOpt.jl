@@ -1,0 +1,14 @@
+region,mt,bn_tkm,share_of_range_tkm,share_of_eu_tkm,mean_km,cargo_mix_by_tkm
+East Asia,84.5,1671.4,0.214,0.095,19768,containers=0.79;liquid bulk=0.08;dry bulk=0.08;other general cargo=0.03;ro-ro=0.02
+SE Asia / India,67.4,978.0,0.125,0.056,14517,containers=0.68;liquid bulk=0.22;dry bulk=0.06;other general cargo=0.05;ro-ro=0.00
+US Gulf,76.6,724.2,0.093,0.041,9449,liquid bulk=0.80;dry bulk=0.11;containers=0.07;other general cargo=0.02;ro-ro=0.00
+Brazil / River Plate,52.4,551.6,0.071,0.031,10530,dry bulk=0.53;liquid bulk=0.22;containers=0.21;other general cargo=0.03;ro-ro=0.00
+Middle East Gulf,44.2,516.8,0.066,0.029,11701,liquid bulk=0.77;containers=0.21;dry bulk=0.01;other general cargo=0.01;ro-ro=0.01
+US East / Canada,75.1,471.7,0.06,0.027,6279,dry bulk=0.42;containers=0.32;liquid bulk=0.20;other general cargo=0.03;ro-ro=0.02
+West Africa,50.9,417.6,0.054,0.024,8201,liquid bulk=0.67;containers=0.18;dry bulk=0.12;ro-ro=0.02;other general cargo=0.01
+North Africa / Levant,47.6,215.5,0.028,0.012,4529,liquid bulk=0.39;containers=0.38;dry bulk=0.21;ro-ro=0.01;other general cargo=0.01
+UK / Ireland,144.4,101.0,0.013,0.006,699,ro-ro=0.37;liquid bulk=0.35;containers=0.14;dry bulk=0.11;other general cargo=0.03
+EU Mediterranean,16.0,67.6,0.009,0.004,4238,liquid bulk=0.41;containers=0.36;dry bulk=0.16;other general cargo=0.07;ro-ro=0.01
+Baltic,39.8,64.2,0.008,0.004,1613,containers=0.39;liquid bulk=0.24;dry bulk=0.22;other general cargo=0.12;ro-ro=0.03
+Norway,32.2,42.8,0.005,0.002,1330,liquid bulk=0.47;dry bulk=0.40;containers=0.09;other general cargo=0.03;ro-ro=0.01
+Atlantic Iberia,12.5,21.5,0.003,0.001,1727,liquid bulk=0.28;containers=0.26;dry bulk=0.25;ro-ro=0.14;other general cargo=0.08
