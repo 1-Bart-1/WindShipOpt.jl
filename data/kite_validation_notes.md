@@ -12,8 +12,9 @@ business case. Built 2026-11-01. Currency: 1.16 USD/EUR, as in
 Market price = manufacturing cost × `market_price_factor` 2.0; hardware gets +15
 % installation (newbuild); the tether is costed at its 79 USD/kg purchase price.
 Maximum tether force is 0.5 kN/m² × projected area A, mast height √A, tether 13
-spans long at 0.4 GPa. The prices below were recomputed from the yaml values of
-2026-11-01, when the mast height ratio was 1.0; it is now 1.15.
+spans long at 0.4 GPa. The prices below are a snapshot of the yaml values of
+2026-11-01, so their mast and docking head columns and hardware totals predate the
+model's taller mast and area-scaled docking head.
 
 | Projected area | Winch (market) | Mast  | Docking head | Control unit | Hardware incl. installation | Canopy  | Tether |
 | -------------- | -------------- | ----- | ------------ | ------------ | --------------------------- | ------- | ------ |

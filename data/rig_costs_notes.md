@@ -118,6 +118,7 @@ Per m² of sail area, base: 0.13 t/m² with 60 % steel (mast, structure, foundat
 | High | 2,300           | 525          | 4,180              | 3,350     | 3,000     | 2,830       |
 
 The base matches EMSA's 2021 asset cost for small hard sails (1,815 USD/m² at 280 m²) and exceeds it for large ones (1,016 USD/m² at 1,000 m²), while the high case brackets the WindWings price (3,400 USD/m² at 750 m²). EMSA's hard-sail row already reads like a series or target price, not a first-of-a-kind one.
+
 Installation: no wing-specific figure exists; EMSA 2023 applies the same 15 % newbuild and +10 % retrofit to hard sails (Table 7).
 
 ## 3. Cargo capacity lost to deck rigs

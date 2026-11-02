@@ -94,7 +94,7 @@ Chinese hydraulic cranes sell at 4–17× the per-kg price of a static Chinese m
 | launch_mast_launch_load_fraction | 0.1    | 0.05   | 0.3    | of F_max     | Estimate: kite held at the zenith near zero lift; SkySails says the docking receptacle takes mainly small drag (US 7,866,271).                                              |
 | launch_mast_foundation_fraction  | 0.3    | 0.2    | 0.5    | of mast mass | Unchanged from `cost_basis_notes.md` §4.2 (estimate).                                                                                                                       |
 | launch_mast_steel_cost           | 1.93   | 1.37   | 3.11   | USD/kg       | Tubular shell manufacturing cost from `cost_basis_notes.md`; China monopoles sell at 1.0–1.6 USD/kg.                                                                        |
-| launch_mast_telescope_factor     | 2.5    | 1.5    | 5      | –            | Estimate: Chinese hydraulic marine cranes sell at 5.5–17 USD/kg against 1.0–1.6 USD/kg for static monopoles, less the slewing and hoist the docking head covers.            |
+| launch_mast_telescope_factor     | 2.5    | 2.2    | 5      | –            | Estimate: Chinese hydraulic marine cranes sell at 5.5–17 USD/kg against 1.0–1.6 USD/kg for static monopoles, less the slewing and hoist the docking head covers.            |
 | launch_mast_carries_tether       | false  | false  | true   | –            | SkySails tow rope ends at a foredeck tow point (seminar report; WO 2013/164446); true is the sheave-at-top sensitivity, 2.4–3.8× the mast mass.                             |
 
-The docking head is still a fixed 37 kUSD; it holds a kite whose mass and launch pull grow with A, so it should scale too, but no source was found to set the rate.
+The docking head costs 37 kUSD at 1,000 m² and scales with √A (`docking_head_area_exponent` 0.5, 0.33–1.0), since it holds a kite whose mass and launch pull grow with A; no source sets the rate.
