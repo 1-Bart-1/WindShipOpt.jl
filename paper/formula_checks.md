@@ -154,6 +154,7 @@ What each open check needs; `sources.csv` records whether we hold it.
 
 - Following-wave rule (check 1.2), in particular the magnitude at zero speed: Liu & Papanikolaou (2020).
 - Discrepancies 1.1 and 1.2: the Mittendorf et al. reference code, https://gitlab.gbar.dtu.dk/mamit/RAW_Formula.
+- Attribution of the hull side-force formula: Inoue et al. (1981) and Kijima et al. (1990).
 - X'_vv data on the leeway drag: Yasukawa & Yoshimura (2015).
 - DNV rudder-area quote with page: Molland & Turnock (2007) or Brix (1993).
 - Primary attribution of w = 0.5C_B − 0.05: Carlton (2012) or Taylor (1933).

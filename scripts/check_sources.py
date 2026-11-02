@@ -13,6 +13,7 @@ from pathlib import Path
 PAPER = Path(__file__).resolve().parent.parent / "paper"
 SOURCE_DIR = Path("/var/lib/windship/literature_pdfs")
 STATUSES = {"read_in_full", "partial", "abstract_only", "held_unread", "missing"}
+NEEDS_FILE = {"read_in_full", "held_unread"}
 CITE = re.compile(r"\\[A-Za-z]*cite[A-Za-z]*\*?(?:\[[^\]]*\])*\{([^}]*)\}")
 COMMENT = re.compile(r"(?<!\\)%.*")
 
@@ -33,7 +34,7 @@ def row_problems(row, source_dir):
     if status not in STATUSES:
         return [f"{key}: unknown status {status!r}"]
     if not name:
-        return [f"{key}: status {status} names no file"] if status == "held_unread" else []
+        return [f"{key}: status {status} names no file"] if status in NEEDS_FILE else []
     if status == "missing":
         return [f"{key}: status missing but names {name}"]
     path = source_dir / name
@@ -45,7 +46,7 @@ def row_problems(row, source_dir):
 
 
 def problems(paper, source_dir):
-    """Every way the index in `paper` disagrees with its citations and with `source_dir`."""
+    """What is wrong with the rows of the index in `paper` and the keys its sections cite."""
     with (paper / "sources.csv").open(newline="", encoding="utf-8") as index:
         rows = list(csv.DictReader(index))
     found = [line for row in rows for line in row_problems(row, source_dir)]

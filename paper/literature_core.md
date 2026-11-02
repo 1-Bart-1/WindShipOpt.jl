@@ -5,9 +5,8 @@ text in `literature_pdfs/`. Page numbers are the printed page numbers of the
 source (journal page, article page, or report page "Page X of 270"), not the PDF
 page index. Quotes come from `pdftotext -layout`; only line-break hyphens,
 ligatures and footnote markers were repaired or dropped, and `[...]` marks
-omissions. Erhard & Strauch 2013 was read via
-arXiv; the IEEE version may differ in pagination. `sources.csv` records what is
-held and what has been read.
+omissions. Erhard & Strauch 2013 was read via arXiv; the IEEE version may differ
+in pagination. `sources.csv` records what is held and what has been read.
 
 ---
 
@@ -475,7 +474,7 @@ cost numbers, so it is a modelling citation only, not a performance benchmark.
 
 ---
 
-## Gap statement (grounded only in the seven full texts above)
+## Gap statement (grounded only in the full texts above)
 
 - **No paper read compares kite, rigid wingsail and Flettner rotor with one ship
   model that includes the side-force balance.** CE Delft 2016 has all three
