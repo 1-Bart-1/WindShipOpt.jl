@@ -540,46 +540,16 @@ kite_stall_margin:
   reason: "Engineering assumption: margin below the angle of maximum lift that the bridle trim keeps in gusts."
 canopy_cloth_weight:
   value: 200.0
-  low: 60.0
-  high: 300.0
+  low: 200.0
+  high: 200.0
   unit: g/m^2
-  reason: "Weight of the polyester ripstop of the canopy. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2. The lightest cloth within one percentage point of saving of the cheapest on the 140 m e-methanol ship to Guadeloupe and New York; a fixed 2,000 h wear life would favour the low bound instead."
-canopy_wear_rate:
-  value: 0.13
-  low: 0.052
-  high: 0.26
-  unit: g/m^2/h
-  reason: "Strength-equivalent cloth weight lost per flight hour to flexing, flutter, chafe, folding and seam wear, at 100 g/m^2, in the law life = weight * ln(margin) / rate. Engineering estimate: nothing measures this rate on polyester canopy cloth. Maker statements, on our estimates of their cloth weights, tensions and UV doses, imply a median of 0.10 on structural life and 0.19 on shape life once UV is removed, spanning 0.04-0.40, and 0.13 is our choice between them: sail structural life of 3,500-4,000 h (Flynn 2015), Kubicek balloon cloth of 45-77 g/m^2 at 400 to over 1,000 h (Kubicek 2026), a SUP'AIR tandem paraglider at the porosity limit near 800 h (SUP'AIR 2016), a maxi show kite at over 300 flying days (Lynn 2007). Tension cycling does not explain it: woven polyester kept its strength over 12,000 cycles at half to three-quarters of breaking strain (Nosraty 2013). Details in canopy_life_notes.md."
-canopy_wear_lifetime:
-  value: 0.0
-  low: 2000.0
-  high: 5000.0
+  reason: "Weight of the polyester ripstop of the canopy, fixed with the goal canopy_life: under a life that does not depend on it the lightest cloth would always win. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+canopy_life:
+  value: 4000.0
+  low: 1200.0
+  high: 6900.0
   unit: flight hours
-  reason: "Fixed life against mechanical wear that replaces the wear law; 0 uses the law. The bounds are the sensitivity of a life independent of cloth weight."
-canopy_uv_weight_exponent:
-  value: 0.4
-  low: 0.1
-  high: 1.0
-  unit: "-"
-  reason: "Power of the cloth weight, over 100 g/m^2, in the UV life: 0.40 +/- 0.12 pooled over polyester of 40-1,500 g/m^2, 0.1 +/- 0.4 in one sailcloth series of 177-415 g/m^2 (Ceylan et al. 2023); 1 is rejected by the pool. Fit in canopy_life_notes.md."
-canopy_wear_weight_exponent:
-  value: 1.0
-  low: 1.0
-  high: 1.5
-  unit: "-"
-  reason: "Power of the cloth weight, over 100 g/m^2, in the mechanical wear life: an assumption, no data set tests it on canopy cloth; the Kubicek 2026 balloon cloth lives, at about constant tension over weight, imply 1.5."
-canopy_retirement_strength:
-  value: 0.0
-  low: 0.27
-  high: 0.7
-  unit: "-"
-  reason: "Share of the new strength at which a canopy is retired however large its margin; 0 flies it to the force limit alone. The wear rate is rescaled to keep the wear life at 100 g/m^2. The bounds span the retirement limits of regulated fabric: 70 % of the required new strength of cotton and linen aircraft cloth (FAA AC 43.13-1B), not of the actual new strength this share applies to; at most 46 % and 27 % of the stated new strength for balloon cloth of 58 and 90 g/m^2 (Lindstrand), a 30 lb grab test against a strip value, our ratios."
-canopy_life_factor:
-  value: 1.0
-  low: 0.5
-  high: 8.0
-  unit: "-"
-  reason: "Factor on the canopy life, 1 in the base case, for the studies that vary the life as a whole."
+  reason: "Development goal for the life of a canopy of 200 g/m^2 cloth, not a prediction. Strength decay under UV and a wear rate from makers' statements gives 3,800 h, and each input changed alone gives the bounds; the 3,800 h rests on those statements, not on a measurement of a kite. Derivation in canopy_life_notes.md."
 canopy_cloth_area_ratio:
   value: 3.5
   low: 3.0
@@ -610,36 +580,6 @@ canopy_making_cost_per_area:
   high: 179.0
   unit: USD/m^2
   reason: "Manufacturing cost per m^2 of projected area of a ram-air canopy besides its cloth: per flat m^2 1.5 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2; with 36 g/m^2 cloth it reproduces 98 USD/m^2, which times the market price factor matches sport kite retail prices."
-cloth_specific_strength:
-  value: 170.0
-  low: 110.0
-  high: 210.0
-  unit: N/m per g/m^2
-  reason: "Tensile strength of canopy cloth over its weight: 150-210 for Porcher Skytex 26-55 g/m^2 (ISO 1421 minimum and mean, Porcher 2006), Teijin Icarex 37 g/m^2 and triple ripstop polyester 53 g/m^2, and uncoated aircraft polyester of 63-115 g/m^2 (Poly-Fiber 2014); 207-211 for one polyester sailcloth of 480 g/m^2 (Ambroziak and Klosowski 2018); 110 for hard-finished sailcloth of 165-180 g/m^2. Strength grows with weight to the power 0.73-1.0 within one cloth family, which no canopy cloth above 55 g/m^2 confirms."
-canopy_panel_radius:
-  value: 0.5
-  low: 0.25
-  high: 1.7
-  unit: m
-  reason: "Billow radius of the canopy skin between ribs, which with the pressure across the skin sets its tension per unit length (Wang & He 2018), held fixed over kite size by adding cells and tapes. Paragliders have ~0.2 m cells on a 2.2 m chord (Nova Mentor 6); the high bound is cells of the same proportions on a 3,200 m^2 kite of 33 m chord."
-canopy_strength_factor:
-  value: 5.0
-  low: 3.0
-  high: 8.0
-  unit: "-"
-  reason: "Engineering estimate of the strength the aged cloth must keep over the tension of the skin at the force limit: the pressure across the skin near the leading edge of ~2-2.5 times the wing loading times a safety factor of 2-3; paraglider cloth works at safety factors of 3.9-6.0 at a 5.6 g load (Maslanka et al. 2023). It retires 200 g/m^2 cloth at 4 % of new strength, far below regulated limits; see canopy_retirement_strength."
-cloth_uv_dose_per_weight:
-  value: 0.7
-  low: 0.35
-  high: 1.6
-  unit: MJ/m^2 per g/m^2
-  reason: "UV dose (295-385 nm) per g/m^2 that leaves 1/e of the strength of cloth of 100 g/m^2; other weights follow canopy_uv_weight_exponent. From a pooled fit of polyester without UV blockers, outdoors with measured dose and in lamps times 3, D0(100 g/m^2) = 63 MJ/m^2 pooled and 72 MJ/m^2 on field data alone (Stevens et al. 2018, Lodi et al. 2008, Ceylan et al. 2023, Asadi et al. 2021, Uzumcu et al. 2024, Dekanic et al. 2023, Hunt 2022). Low: light polyester with a thin finish; high: 2.3 times, a PU coat or the top of the outdoor data. Fit in canopy_life_notes.md."
-canopy_uv_dose_rate:
-  value: 0.02
-  low: 0.012
-  high: 0.035
-  unit: MJ/m^2/h
-  reason: "UV dose (295-385 nm) on the canopy per flight hour, for a kite flown day and night and stowed out of the sun on deck: Florida receives 320 MJ/m^2 a year (Q-Lab 2026), 0.037 MJ/m^2 per hour of the year, of which a skin facing up the tether at ~25 deg elevation sees about 60 %, our estimate: no source measures the dose on a kite skin. The low bound is the North Atlantic, the high bound the trade-wind belt facing the sun."
 control_unit_mass:
   value: 100.0
   low: 50.0
@@ -705,7 +645,7 @@ kite_parked_wear_fraction:
   low: 0.2
   high: 1.0
   unit: "-"
-  reason: "Engineering estimate of mechanical wear of canopy and tether per hour parked at the edge of the wind window over the same per hour flying patterns: less load cycling. UV ageing runs at its full rate while parked."
+  reason: "Engineering estimate of the wear of canopy and tether per hour parked at the edge of the wind window over the same per hour flying patterns: the same sun, less load cycling."
 kite_max_wind:
   value: 25.0
   low: 20.0
