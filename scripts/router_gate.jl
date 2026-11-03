@@ -3,7 +3,6 @@
 #
 #   julia +1.12 --project=. -t auto scripts/router_gate.jl <out_dir> [reference_dir]
 #   julia +1.12 --project=. -t auto scripts/router_gate.jl --reference <out_dir>
-#
 #   julia +1.12 --project=. -t auto scripts/router_gate.jl --fresh <reference_dir> <out_dir>
 #
 # Writes gate_<scale>.csv to <out_dir>, a line per finished case; a rerun on the same code
