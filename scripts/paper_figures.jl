@@ -167,7 +167,8 @@ pressure that force implies over the canopy, and a cell whose skin carries the t
 function draw_force_balance!(axis, area, force, radius)
     pressure = force / area
     style = (shaftwidth=1.5, tipwidth=7, tiplength=7)
-    arc(centre, reach, sweep) = [centre .+ reach .* (cos(angle), sin(angle)) for angle in sweep]
+    arc(centre, reach, sweep) = [centre .+ reach .* (cos(angle), sin(angle))
+                                 for angle in sweep]
     lines!(axis, arc((0.0, -1.0), 2.0, range(π / 4, 3π / 4; length=40)); color=:black,
         linewidth=2)
     wedge = [(x, sqrt(4 - x^2) - 1.0) for x in range(-1.2, 1.2; length=5)]
@@ -176,7 +177,8 @@ function draw_force_balance!(axis, area, force, radius)
     arrows2d!(axis, [0.0], [0.8], [0.0], [-2.3]; color=palette[1], style...)
     text!(axis, 0.0, 1.5; text=@sprintf("p = F / A = %.0f N/m²", pressure), fontsize=9,
         align=(:center, :bottom), color=palette[2])
-    text!(axis, 0.2, -0.9; text=@sprintf("tether F = %.1f MN\nA = %.0f m²", force / 1e6, area),
+    text!(axis, 0.2, -0.9;
+        text=@sprintf("tether F = %.1f MN\nA = %.0f m²", force / 1e6, area),
         fontsize=9, align=(:left, :center), color=palette[1])
     left, right = (3.6, 0.0), (6.0, 0.0)
     centre = ((left[1] + right[1]) / 2, -0.75)
@@ -237,7 +239,8 @@ function canopy_tension_figure()
     hlines!(force, maximum(loads) * area / 1e6; color=palette[3], linestyle=:dot)
     margin = WindShipOpt.strength_margin(assumptions[:canopy_cloth_weight], assumptions)
     text!(force, times[end], mean_load * area / 1e6;
-        text=@sprintf("mean %.2f MN, %.2f kN/m", mean_load * area / 1e6, tension(mean_load)), fontsize=8,
+        text=@sprintf("mean %.2f MN, %.2f kN/m", mean_load * area / 1e6,
+            tension(mean_load)), fontsize=8,
         align=(:right, :top), color=palette[2])
     text!(force, times[1], maximum(loads) * area / 1e6;
         text=@sprintf("peak %.2f MN, %.2f kN/m\nnew cloth %.0f kN/m, M = %.1f",

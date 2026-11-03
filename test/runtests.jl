@@ -94,7 +94,8 @@ end
     force = WindShipOpt.PatternForce(model, pattern, 12.0, max_force; path)
     load = 0.5model.air_density * 12.0^2 * model.area
     cycle = WindShipOpt.cycle_tension(path)
-    pull = ntuple(axis -> sum(step.tension * step.time * step.radial[axis] for step in path), 3)
+    pull = ntuple(axis -> sum(step.tension * step.time * step.radial[axis] for step in path),
+        3)
     @test all(pull ./ (cycle.period * load) .≈ force.force)
     @test cycle.peak ≈ force.peak_tension * load
     @test cycle.low <= cycle.mean <= cycle.peak <= max_force
@@ -171,7 +172,8 @@ end
     margin(weight) = WindShipOpt.strength_margin(weight, wide)
     @test margin(20.0) < 1 < margin(40.0)
     @test margin(40.0) ≈ 2margin(20.0)
-    @test_throws ErrorException WindShipOpt.Canopy(with_value(wide, :canopy_cloth_weight, 20.0))
+    @test_throws ErrorException WindShipOpt.Canopy(with_value(wide, :canopy_cloth_weight,
+        20.0))
     @test WindShipOpt.Canopy(with_value(wide, :canopy_cloth_weight, 40.0)).lifetime > 0
 end
 

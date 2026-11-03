@@ -112,8 +112,8 @@ end
 """
     best_pattern_cycle(model, max_force, min_elevation, wind, course, side_weight)
 
-Force of the optimal pattern at apparent wind `wind` [m/s] and `course` [°], the steps of its
-steered cycle, and whether the kite does better parked than on that cycle.
+Force of the optimal pattern at apparent wind `wind` [m/s] and `course` [°], the steps of
+its steered cycle, and whether the kite does better parked than on that cycle.
 """
 function best_pattern_cycle(model, max_force, min_elevation, wind, course, side_weight)
     problem = WindShipOpt.PatternProblem(model, max_force, min_elevation, wind,
@@ -520,7 +520,8 @@ function tension_summary(io, area, cycles)
     per_hour = sum(row.hours * 3600 / row.period for row in steered) / sum(hours)
     limited = sum(row.hours for row in cycles if row.peak >= 0.995limit; init=0.0) /
               sum(hours)
-    @printf(io, "%.0f,%.0f,%.1f,%.1f,%.3f,%.3f,%.1f,%.1f,%.1f,%.1f,%.1f\n", area, sum(hours),
+    @printf(io, "%.0f,%.0f,%.1f,%.1f,%.3f,%.3f,%.1f,%.1f,%.1f,%.1f,%.1f\n", area,
+        sum(hours),
         average(:mean), average(:peak), limited, 1 - sum(weights) / sum(hours), per_hour,
         weighted_quantile(periods, weights, 0.5), weighted_quantile(periods, weights, 0.9),
         weighted_quantile(ranges, weights, 0.5), weighted_quantile(ranges, weights, 0.9))
@@ -597,7 +598,8 @@ end
 
 Write the row `row` of [`pattern_cycles`](@ref) to canopy_tension.csv.
 """
-write_cycle(io, area, row) = @printf(io, "%.0f,%.0f,%.0f,%.1f,%.2f,%d,%.1f,%.1f,%.1f,%.1f\n",
+write_cycle(io, area, row) = @printf(io,
+    "%.0f,%.0f,%.0f,%.1f,%.2f,%d,%.1f,%.1f,%.1f,%.1f\n",
     area, row.wind, row.course, row.side_weight, row.hours, row.parked, row.mean, row.peak,
     row.low, row.period)
 
@@ -982,8 +984,9 @@ cell_scaled_radius_ratio = 0.061
 """
     cloth_assumptions(name, bound, area, weight)
 
-Assumptions of a cloth study case: `name` at `bound`, or with `bound` `:chord` the skin radius
-of cells grown with a kite of `area` [m^2] at aspect ratio 3, at cloth `weight` [g/m^2].
+Assumptions of a cloth study case: `name` at `bound`, or with `bound` `:chord` the skin
+radius of cells grown with a kite of `area` [m^2] at aspect ratio 3, at cloth `weight`
+[g/m^2].
 """
 function cloth_assumptions(name, bound, area, weight)
     varied = bound == :chord ?
@@ -1004,8 +1007,8 @@ cloth_departure_step = 4
 
 Each kite of `cloth_kites` at every weight of `cloth_weights`, at the base inputs, at the
 bounds of each of `cloth_inputs` that differ from the base and with its cells grown with it,
-with the same ships without a rig: cloth.csv. Cases whose new cloth is too weak for the force
-limit are listed in cloth_infeasible.csv with their margin.
+with the same ships without a rig: cloth.csv. Cases whose new cloth is too weak for the
+force limit are listed in cloth_infeasible.csv with their margin.
 """
 function cloth_data()
     variants = [(:none, :value); [(name, bound) for name in cloth_inputs
