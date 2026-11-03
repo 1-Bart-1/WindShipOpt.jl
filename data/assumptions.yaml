@@ -675,7 +675,7 @@ rigid_drive_cost:
   low: 0.08
   high: 0.3
   unit: USD/W
-  reason: "On-board drivetrain at the figure of Bauer et al. (2018)."
+  reason: "Drivetrain at the estimate of Bauer et al. (2018, p.14), 0.15 $/W with its power electronics, there including those of the ground station; scaled from hobby motor prices."
 rigid_drive_margin:
   value: 1.33
   low: 1.2
@@ -699,7 +699,7 @@ rigid_perch_width:
   low: 4.0
   high: 12.0
   unit: m
-  reason: "Deck width one perch takes: the M600 perch boom is 7.8 m (Echeverri et al. 2020, Part II, p.58)."
+  reason: "Deck length one perch takes: the M600 perch boom is 7.8 m long on a panel 3.8 m wide, which is the low bound (Echeverri et al. 2020, Part II, p.58)."
 rigid_station_mass:
   value: 20.0
   low: 10.0

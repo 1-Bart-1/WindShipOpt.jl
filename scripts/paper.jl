@@ -37,7 +37,7 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :sensitivity => sensitivity_data, :situations_data => situations_data,
     :wind_angle_data => wind_angle_data, :abatement_data => abatement_data,
     :components => components_data, :combination_data => combination_data,
-    :rigid_kite_data => rigid_kite_data,
+    :rigid_scaling_data => rigid_scaling_data, :rigid_kite_data => rigid_kite_data,
     :convergence => convergence_data]
 
 "steps outside the paper, run only by name: the data of the companion website"
@@ -57,7 +57,8 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
     :class_table => class_table, :fuel_table => fuel_table,
     :payback_table => payback_table,
-    :abatement => abatement_figure, :combination => combination_figure]
+    :abatement => abatement_figure, :combination => combination_figure,
+    :rigid_scaling => rigid_scaling_figure, :rigid_kite => rigid_kite_figure]
 
 """
     paper(names...; fidelity, resume=nothing)

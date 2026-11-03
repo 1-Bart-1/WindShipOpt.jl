@@ -1403,3 +1403,112 @@ function print_combination(ship, drive, savings, gains)
     println(isempty(kept) ? "no route where both single rigs save" :
             @sprintf("keeps %.0f %% of the summed savings", 100mean(kept)))
 end
+
+"""
+    rigid_scaling_figure()
+
+Beam thrust of rigid kites and a soft kite over apparent wind, and price per unit of thrust
+at 12 m/s over area for the mass exponents of the scaling study. Prints the scaling table.
+"""
+function rigid_scaling_figure()
+    table = read_table(data_file("rigid_scaling.csv"))
+    figure = Figure(size=(page_width, 230))
+    thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
+        xlabel="apparent wind [m/s]", ylabel="thrust [kN]")
+    price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
+        xlabel="kite area [m²]", ylabel="price per thrust [USD/kN]")
+    curves = (("rigid", 30.0), ("rigid", 54.0), ("rigid", 100.0), ("rigid", 300.0),
+        ("soft", 1000.0))
+    for (k, (kind, area)) in enumerate(curves)
+        exponent = kind == "rigid" ? 3.0 : 0.0
+        chosen = rows(table, "kind" => kind, "area" => area, "exponent" => exponent)
+        lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
+            color=palette[k], label="$kind $(round(Int, area)) m²")
+    end
+    series = [("rigid", 2.7, :dash), ("rigid", 3.0, :solid), ("rigid", 3.3, :dot),
+        ("soft", 0.0, :solid)]
+    for (kind, exponent, linestyle) in series
+        at_twelve = rows(table, "kind" => kind, "exponent" => exponent, "wind" => 12.0)
+        areas, prices = table["area"][at_twelve], table["price"][at_twelve]
+        per_thrust = 1e3 .* prices ./ table["thrust"][at_twelve]
+        label = kind == "soft" ? "soft kite" : "rigid, mass ∝ span^$exponent"
+        lines!(price_axis, areas, per_thrust; linestyle, label,
+            color=kind == "soft" ? palette[5] : palette[1])
+        kind == "rigid" && exponent == 3.0 && for i in eachindex(areas)
+            row = at_twelve[i]
+            @printf("  %3.0f m2: span %.0f m, mass %.1f t, stall %.0f m/s, hover %.1f MW, ",
+                areas[i], table["span"][row], 1e-3table["mass"][row], table["stall"][row],
+                1e-6table["hover_power"][row])
+            @printf("flies from %.0f m/s, %.0f kN at 12 m/s, %.1f MUSD\n",
+                table["lowest_wind"][row], 1e-3table["thrust"][row], 1e-6prices[i])
+        end
+    end
+    axislegend(thrust_axis; position=:lt, framevisible=false, labelsize=8)
+    axislegend(price_axis; position=:lt, framevisible=false, labelsize=8)
+    save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"rigs of the rigid kite figure with their legend labels and colours"
+rigid_kite_rigs = (("kite", "best soft kite", palette[1]), ("wings", "best wings", palette[2]),
+    ("rotors", "best rotors", palette[3]), ("rigid base", "best rigid kites", palette[4]),
+    ("rigid optimistic", "best rigid kites, favourable inputs", palette[5]))
+
+"""
+    rigid_kite_figure()
+
+Cost saving against no rig of the best size of each rig of `rigid_kite_rigs` on each ship
+and drive of the rigid kite study, as the mean over the routes with the range of the
+routes. Prints the means and the rigid fleets each scenario prefers.
+"""
+function rigid_kite_figure()
+    table = read_table(data_file("rigid_kite.csv"))
+    groups = vec([(ship, drive) for drive in ("vlsfo", "methanol"),
+                  ship in combination_ships])
+    figure = Figure(size=(page_width, 240))
+    axis = Axis(figure[1, 1]; ylabel="cost saving [%]",
+        xticks=(eachindex(groups),
+            ["$(replace(ship, " bulk carrier" => ""))\n$(Dict(drive_labels)[drive])"
+             for (ship, drive) in groups]))
+    names = first.(rigid_kite_rigs)
+    for (group, (ship, drive)) in enumerate(groups)
+        savings = [rig_savings(table, names, "ship" => ship, "route" => string(route),
+                       "drive" => drive) for route in route_names]
+        for (k, (rig, _, colour)) in enumerate(rigid_kite_rigs)
+            range_bar!(axis, group + 0.17(k - 3), [saving[rig] for saving in savings], 0.15,
+                colour)
+        end
+        print_rigid_kite(table, ship, drive, savings)
+    end
+    hlines!(axis, 0; color=:gray50, linewidth=0.6)
+    Legend(figure[2, 1], [PolyElement(color=colour) for (_, _, colour) in rigid_kite_rigs],
+        collect(getindex.(rigid_kite_rigs, 2)); orientation=:horizontal, nbanks=2,
+        framevisible=false, labelsize=9, patchsize=(12, 8))
+    save(joinpath(figures, "rigid_kite.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    print_rigid_kite(table, ship, drive, savings)
+
+Print for one ship and drive the mean saving [%] of each rig over the routes, the routes on
+which rigid kites lead and the most frequent best fleet of each scenario.
+"""
+function print_rigid_kite(table, ship, drive, savings)
+    @printf("  %s, %s:", ship, drive)
+    for (rig, _, _) in rigid_kite_rigs
+        @printf(" %s %.1f (%.1f to %.1f) %%,", rig, mean(saving[rig] for saving in savings),
+            extrema(saving[rig] for saving in savings)...)
+    end
+    println()
+    for scenario in ("rigid base", "rigid optimistic")
+        best = map(route_names) do route
+            chosen = rows(table, "ship" => ship, "drive" => drive, "route" => string(route),
+                "rig" => scenario)
+            row = chosen[argmin(table["cost"][chosen])]
+            "$(round(Int, table["count"][row])) x $(round(Int, table["unit"][row]))"
+        end
+        leads = count(saving -> saving[scenario] > maximum(saving[rig]
+                for rig in ("kite", "wings", "rotors")), savings)
+        println("    $scenario: best fleets ", join(best, ", "), "; leads on ", leads,
+            " of ", length(route_names), " routes")
+    end
+end

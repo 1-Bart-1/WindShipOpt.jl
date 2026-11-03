@@ -461,19 +461,29 @@ function lowest_flying_wind(wind_speeds, forces)
 end
 
 """
-    rigid_kite_rig(total_area, hull, assumptions)
+    rigid_kites_fit(count, hull, assumptions)
+
+Whether `count` perches of rigid kites of the unit area of the assumptions stand one span
+apart along the deck of `hull`.
+"""
+function rigid_kites_fit(count, hull::Hull, assumptions::Assumptions)
+    span = sqrt(assumptions[:rigid_unit_area] * assumptions[:rigid_aspect_ratio])
+    return count * span <= assumptions[:deck_length_fraction] * hull.length
+end
+
+"""
+    rigid_kite_rig(total_area, hull, assumptions; courses, side_weights)
 
 Rigid VTOL kites of about `total_area` [m^2] together on `hull`, each of the unit area of
-the assumptions, or `nothing` where their perches do not fit one span apart on deck.
+the assumptions and with a pattern table over `courses` [rad] and `side_weights`, or
+`nothing` where they do not fit ([`rigid_kites_fit`](@ref)).
 """
-function rigid_kite_rig(total_area, hull::Hull, assumptions::Assumptions)
+function rigid_kite_rig(total_area, hull::Hull, assumptions::Assumptions;
+        courses=deg2rad.(0.0:15.0:180.0), side_weights=[0.0, 0.5, 1.0, 3.0])
     area = assumptions[:rigid_unit_area]
     count = max(round(Int, total_area / area), 1)
+    rigid_kites_fit(count, hull, assumptions) || return nothing
     model, max_force, tether_diameter, airframe = rigid_kite_model(area, count, assumptions)
-    span = sqrt(area * assumptions[:rigid_aspect_ratio])
-    count * span <= assumptions[:deck_length_fraction] * hull.length || return nothing
-    courses = deg2rad.(0.0:15.0:180.0)
-    side_weights = [0.0, 0.5, 1.0, 3.0]
     forces = pattern_table(model, max_force, assumptions, RIGID_WIND_SPEEDS, courses,
         side_weights)
     return KiteRig(; area, tether_diameter, model.tether_length,

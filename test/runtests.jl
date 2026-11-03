@@ -541,6 +541,15 @@ function rigid_fleet(count, assumptions)
         attach_position=0.0, wind_speeds, courses, side_weights, forces, airframe)
 end
 
+@testset "rigid kites stand one span apart within the deck" begin
+    hull = PAPER_HULL
+    span = sqrt(54.0 * assumptions[:rigid_aspect_ratio])
+    room = floor(Int, assumptions[:deck_length_fraction] * hull.length / span)
+    @test WindShipOpt.rigid_kites_fit(room, hull, assumptions)
+    @test !WindShipOpt.rigid_kites_fit(room + 1, hull, assumptions)
+    @test isnothing(WindShipOpt.rigid_kite_rig((room + 1) * 54.0, hull, assumptions))
+end
+
 @testset "more rigid kites pull, weigh and cost in proportion" begin
     env = Environment(assumptions)
     one, three = rigid_fleet(1, assumptions), rigid_fleet(3, assumptions)
