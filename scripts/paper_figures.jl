@@ -158,44 +158,94 @@ function pattern_figure()
 end
 
 """
+    draw_force_balance!(axis, area, force, radius)
+
+Draw on `axis` the path from tether force to cloth tension of a kite of `area` [m^2], at
+tether force `force` [N] and billow radius `radius` [m]: the kite pulled by its tether, the
+pressure that force implies over the canopy, and a cell whose skin carries the tension.
+"""
+function draw_force_balance!(axis, area, force, radius)
+    pressure = force / area
+    style = (shaftwidth=1.5, tipwidth=7, tiplength=7)
+    arc(centre, reach, sweep) = [centre .+ reach .* (cos(angle), sin(angle)) for angle in sweep]
+    lines!(axis, arc((0.0, -1.0), 2.0, range(π / 4, 3π / 4; length=40)); color=:black,
+        linewidth=2)
+    wedge = [(x, sqrt(4 - x^2) - 1.0) for x in range(-1.2, 1.2; length=5)]
+    arrows2d!(axis, first.(wedge), last.(wedge), zeros(5), fill(0.4, 5); color=palette[2],
+        style...)
+    arrows2d!(axis, [0.0], [0.8], [0.0], [-2.3]; color=palette[1], style...)
+    text!(axis, 0.0, 1.5; text=@sprintf("p = F / A = %.0f N/m²", pressure), fontsize=9,
+        align=(:center, :bottom), color=palette[2])
+    text!(axis, 0.2, -0.9; text=@sprintf("tether F = %.1f MN\nA = %.0f m²", force / 1e6, area),
+        fontsize=9, align=(:left, :center), color=palette[1])
+    left, right = (3.6, 0.0), (6.0, 0.0)
+    centre = ((left[1] + right[1]) / 2, -0.75)
+    reach = hypot(left[1] - centre[1], centre[2])
+    opening = atan(-centre[2], right[1] - centre[1])
+    lines!(axis, arc(centre, reach, range(opening, π - opening; length=40)); color=:black,
+        linewidth=2)
+    lines!(axis, [left, (left[1], -1.3)]; color=:gray60, linewidth=2)
+    lines!(axis, [right, (right[1], -1.3)]; color=:gray60, linewidth=2)
+    arrows2d!(axis, [centre[1]], [centre[2]], [0.0], [reach]; color=:gray40, style...)
+    text!(axis, centre[1] + 0.1, -0.1; text=@sprintf("R = %.1f m", radius), fontsize=9,
+        align=(:left, :center))
+    for (corner, side) in ((left, 1), (right, -1))
+        arrows2d!(axis, [corner[1]], [corner[2]], [0.8side * sin(opening)],
+            [0.8cos(opening)]; color=palette[3], style...)
+    end
+    text!(axis, centre[1], 1.25; text=@sprintf("T = p R = %.0f N/m", pressure * radius),
+        fontsize=9, align=(:center, :bottom), color=palette[3])
+    text!(axis, left[1] - 0.1, -0.8; text="rib", fontsize=8, align=(:right, :center),
+        color=:gray40)
+    arrows2d!(axis, [2.4], [0.3], [0.8], [0.0]; color=:gray60, style...)
+    hidedecorations!(axis)
+    hidespines!(axis)
+end
+
+"""
     canopy_tension_figure()
 
-Cloth tension per unit width, the tether force per projected area times the billow radius
-of that kite:
-(a) over one optimal cycle at three conditions for the smallest and largest kite, (b) the
-share of flight hours whose cycle stays below a tension, by its mean and its peak.
+From tether force to cloth tension on the reference kite: (a) the force balance at the force
+limit, (b) tether force and cloth tension over one optimal cycle, with its mean and peak.
 """
 function canopy_tension_figure()
-    radius(area) = WindShipOpt.billow_radius(sqrt(area / 3), assumptions)
-    histories = read_table(data_file("canopy_tension_history.csv"))
-    cycles = read_table(data_file("canopy_tension.csv"))
-    figure = Figure(size=(page_width, 220))
-    history = Axis(figure[1, 1]; xlabel="time in the cycle [s]",
-        ylabel="tension [N/m]", title="(a) over one cycle")
-    for (i, (wind, course)) in enumerate(tension_histories),
-        (area, style) in ((800.0, :solid), (3200.0, :dash))
-
-        chosen = rows(histories, "area" => area, "wind" => wind, "course" => course)
-        lines!(history, histories["time"][chosen], radius(area) .* histories["load"][chosen];
-            color=palette[i], linestyle=style,
-            label="$(round(Int, wind)) m/s, $(round(Int, course))°, " *
-                  "$(round(Int, area)) m²")
-    end
-    Legend(figure[1, 2], history; framevisible=false, labelsize=8)
-    share = Axis(figure[1, 3]; xlabel="tension [N/m]", ylabel="share of flight hours",
-        title="(b) over the routes")
-    for (i, area) in enumerate(tension_areas), (column, style) in (("mean", :solid),
-        ("peak", :dash))
-
-        chosen = rows(cycles, "area" => area)
-        order = sortperm(cycles[column][chosen])
-        hours = cycles["hours"][chosen][order]
-        stairs!(share, radius(area) .* cycles[column][chosen][order],
-            cumsum(hours) ./ sum(hours);
-            color=palette[i], linestyle=style,
-            label="$(round(Int, area)) m², $column")
-    end
-    axislegend(share; position=:lt, framevisible=false, labelsize=8)
+    area = Dict(reference_rigs)["kite"]
+    wind, course = tension_histories[2]
+    radius = WindShipOpt.billow_radius(reference_chord, assumptions)
+    limit = 1e3assumptions[:kite_max_force_per_area] * area
+    table = read_table(data_file("canopy_tension_history.csv"))
+    chosen = rows(table, "area" => area, "wind" => wind, "course" => course)
+    times, loads = table["time"][chosen], table["load"][chosen]
+    steps = diff([times; 2times[end] - times[end - 1]])
+    mean_load = sum(loads .* steps) / sum(steps)
+    figure = Figure(size=(page_width, 210))
+    balance = Axis(figure[1, 1]; aspect=DataAspect(), limits=(-2.2, 6.4, -1.8, 2.0),
+        title="(a) from tether force to cloth tension")
+    draw_force_balance!(balance, area, limit, radius)
+    tension(load) = load * radius / 1e3
+    force = Axis(figure[1, 2]; xlabel="time in the cycle [s]", ylabel="tether force [MN]",
+        title=@sprintf("(b) one cycle, %.0f m/s, %.0f° off downwind", wind, course))
+    cloth = Axis(figure[1, 2]; ylabel="cloth tension [kN/m]", yaxisposition=:right)
+    hidespines!(cloth)
+    hidexdecorations!(cloth)
+    lowest = 0.9minimum(loads)
+    highest = 1.05maximum(loads)
+    ylims!(force, lowest * area / 1e6, highest * area / 1e6)
+    ylims!(cloth, tension(lowest), tension(highest))
+    lines!(force, times, loads .* area ./ 1e6; color=palette[1], linewidth=1.5)
+    hlines!(force, mean_load * area / 1e6; color=palette[2], linestyle=:dash)
+    hlines!(force, maximum(loads) * area / 1e6; color=palette[3], linestyle=:dot)
+    margin = WindShipOpt.strength_margin(assumptions[:canopy_cloth_weight], reference_chord,
+        assumptions)
+    text!(force, times[end], mean_load * area / 1e6;
+        text=@sprintf("mean %.2f MN, %.2f kN/m", mean_load * area / 1e6, tension(mean_load)), fontsize=8,
+        align=(:right, :top), color=palette[2])
+    text!(force, times[1], maximum(loads) * area / 1e6;
+        text=@sprintf("peak %.2f MN, %.2f kN/m; new cloth %.0f kN/m, M = %.1f",
+            maximum(loads) * area / 1e6, tension(maximum(loads)),
+            assumptions[:cloth_specific_strength] * assumptions[:canopy_cloth_weight] / 1e3,
+            margin), fontsize=8, align=(:left, :bottom), color=palette[3])
+    colsize!(figure.layout, 1, Relative(0.52))
     save(joinpath(figures, "canopy_tension.pdf"), figure; pt_per_unit=print_scale)
 end
 
