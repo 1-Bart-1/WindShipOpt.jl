@@ -219,7 +219,7 @@ function canopy_tension_figure()
     steps = diff([times; 2times[end] - times[end - 1]])
     mean_load = sum(loads .* steps) / sum(steps)
     figure = Figure(size=(page_width, 210))
-    balance = Axis(figure[1, 1]; aspect=DataAspect(), limits=(-2.2, 6.4, -1.8, 2.0),
+    balance = Axis(figure[1, 1]; aspect=DataAspect(), limits=(-2.2, 7.0, -1.8, 2.0),
         title="(a) from tether force to cloth tension")
     draw_force_balance!(balance, area, limit, radius)
     tension(load) = load * radius / 1e3
@@ -229,7 +229,7 @@ function canopy_tension_figure()
     hidespines!(cloth)
     hidexdecorations!(cloth)
     lowest = 0.9minimum(loads)
-    highest = 1.05maximum(loads)
+    highest = 1.12maximum(loads)
     ylims!(force, lowest * area / 1e6, highest * area / 1e6)
     ylims!(cloth, tension(lowest), tension(highest))
     lines!(force, times, loads .* area ./ 1e6; color=palette[1], linewidth=1.5)
@@ -241,7 +241,7 @@ function canopy_tension_figure()
         text=@sprintf("mean %.2f MN, %.2f kN/m", mean_load * area / 1e6, tension(mean_load)), fontsize=8,
         align=(:right, :top), color=palette[2])
     text!(force, times[1], maximum(loads) * area / 1e6;
-        text=@sprintf("peak %.2f MN, %.2f kN/m; new cloth %.0f kN/m, M = %.1f",
+        text=@sprintf("peak %.2f MN, %.2f kN/m\nnew cloth %.0f kN/m, M = %.1f",
             maximum(loads) * area / 1e6, tension(maximum(loads)),
             assumptions[:cloth_specific_strength] * assumptions[:canopy_cloth_weight] / 1e3,
             margin), fontsize=8, align=(:left, :bottom), color=palette[3])
