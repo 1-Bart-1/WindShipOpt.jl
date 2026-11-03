@@ -852,6 +852,43 @@ function sensitivity_data()
         :rig, :input, :bound)
 end
 
+"input of each rig holding the share of its units' round trips out of service"
+out_of_service_inputs = Dict("kite" => "kite_out_of_service",
+    "wings" => "wing_out_of_service", "rotors" => "rotor_out_of_service")
+
+"""
+    service_shares(rig)
+
+Shares of its units' round trips [-] that `rig` is routed at: none, the low bound, base and
+high bound of its input, and up to all of them for the limits past its range.
+"""
+function service_shares(rig)
+    entry = assumptions.entries[Symbol(out_of_service_inputs[rig])]
+    return sort(unique([0.0, entry.low, entry.value, entry.high, 0.25, 0.5, 0.75, 1.0]))
+end
+
+"""
+    availability_data()
+
+Each ship of [`sensitivity_ships`](@ref) without a rig, and with each rig at its
+[`service_shares`](@ref): availability.csv.
+"""
+function availability_data()
+    cases = []
+    for (ship, bare, route, areas) in sensitivity_ships()
+        push!(cases, trip_case(bare; route, ship, rig="none", share=0.0))
+        for rig in rig_names, share in service_shares(rig)
+            input = Symbol(out_of_service_inputs[rig])
+            design = ShipDesign(; bare.drive, bare.length, bare.class,
+                getproperty(areas, Symbol(rig))...)
+            push!(cases, trip_case(design;
+                assumptions=with_value(assumptions, input, share), route, ship, rig, share))
+        end
+    end
+    write_trips("availability.csv", cases,
+        round_trips(cases, sampled_departures(; screening=true)), :ship, :rig, :share)
+end
+
 "ships of the abatement study as (name, route)"
 abatement_ships = (("140 m", :caribbean), ("Kamsarmax bulk carrier", :tubarao))
 
