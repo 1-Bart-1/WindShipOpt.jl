@@ -617,11 +617,12 @@ rigid_rotor_fill:
   unit: "-"
   reason: "Share of rotors counted for a rotor out in hover, 6 of 8 (Echeverri et al. 2020, Part I, Eq. 89)."
 rigid_hover_air_density:
-  value: 0.95
+  value: 1.225
   low: 0.95
   high: 1.225
   unit: kg/m^3
-  reason: "Design air density of Makani's hover sizing (Echeverri et al. 2020, Part I, Eq. 89); a ship at sea has the high bound."
+  reason: "Standard air at sea level, where a ship's kite hovers; the low bound is the design density of Makani's hover sizing (Echeverri et al. 2020, Part I, Eq. 89)."
+
 rigid_hover_efficiency:
   value: 0.71
   low: 0.6

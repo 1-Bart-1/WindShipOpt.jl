@@ -13,7 +13,7 @@ m = 1852 kg × (S/54)^(κ/2), κ = 3, band 2.7-3.3, with the aspect ratio held.
 - With on-board rotors, the only evidence is Makani's two designs, about κ = 2.5 from their real spans. That is not a fit.
 - For ground-generation wings Sommerfeld et al. (2022) sweep κ over 2.7-3.3 as an assumption, against AP2 (5.5 m, 36.8 kg). van Hagen et al. (2023) use 2.7-3.0.
 - Joshi et al. (2025, Table 10) give 700 kg at 20 m² to 10663 kg at 160 m² for horizontal-launch designs, about κ 2.5-3.2 between their optima, and state that VTOL "will have a different scaling due to the additional motors" (p.700).
-- Eijkelhof et al. (2020) design a 150 m² wing of 6885 kg, against 7.1 t from this law at κ = 3.
+- Eijkelhof et al. (2020) design a 150 m² wing of 6885 kg, against 8.6 t from this law at κ = 3 and 6.8 t at κ = 2.5; from the MX2 anchor it gives κ ≈ 2.57.
 - The M600 came out 40-70 % over its targets (Part I), so the risk is upward; the high bound of the reference mass covers 40 %.
 
 ## Launch

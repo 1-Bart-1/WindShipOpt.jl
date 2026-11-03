@@ -359,8 +359,11 @@ has_rig(design::ShipDesign) =
         design.rigid_kite_area))
 
 function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions)
-    design.rigid_kite_area > 0 &&
+    if design.rigid_kite_area > 0
+        any(>(0), (design.wing_area, design.kite_area, design.rotor_area)) &&
+            throw(ArgumentError("rigid kites fly alone on a design"))
         return rigid_kite_rig(design.rigid_kite_area, hull, assumptions)
+    end
     design.wing_area > 0 && design.rotor_area > 0 &&
         throw(ArgumentError("a design carries wings or rotors, not both"))
     standing_type, standing_area = design.wing_area > 0 ? (WingRig, design.wing_area) :

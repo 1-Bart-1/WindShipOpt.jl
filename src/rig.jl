@@ -318,11 +318,29 @@ struct RigidAirframe
     tether_mass::Float64
     "electric power of one kite in hover [W]"
     hover_power::Float64
+    "area of the disc of the loop all the kites share [m^2]"
+    loop_area::Float64
 end
 
 "kites flying from one ship"
 kite_count(::KiteRig) = 1
 kite_count(rig::KiteRig{RigidAirframe}) = rig.airframe.count
+
+"""
+    loop_interaction(rig, force_area)
+
+Force of each kite of `rig` over that of a lone kite, where a lone kite in the free stream
+makes `force_area` [m^2], its force over dynamic pressure: momentum theory on the disc of
+one shared loop gives each kite (1 - a)^2 of it, with a = C / (4 + C) for the disc's free
+stream thrust coefficient C.
+"""
+loop_interaction(::KiteRig, force_area) = 1.0
+
+function loop_interaction(rig::KiteRig{RigidAirframe}, force_area)
+    (; count, loop_area) = rig.airframe
+    lone = force_area / loop_area
+    return ((4 + lone) / (4 + count * lone))^2
+end
 
 """
     rope_mass(diameter, rope_length, assumptions)
@@ -448,7 +466,7 @@ function rigid_kite_model(area, count, assumptions::Assumptions)
         deg2rad(assumptions[:kite_stall_margin]),
         assumptions[:rigid_min_turn_radius] * span, true)
     airframe = RigidAirframe(count, mass, tether_mass,
-        hover_power(mass + tether_mass, area, assumptions))
+        hover_power(mass + tether_mass, area, assumptions), π * model.min_turn_radius^2)
     return model, max_force, tether_diameter, airframe
 end
 
@@ -540,8 +558,9 @@ end
     rig_force(rig::KiteRig, env, wind_10m, true_angle, ship_speed, trim)
 
 Force of the best pattern for side weight number `trim`, interpolated in newtons over
-apparent wind speed and course, held to the tether limit and summed over the kites; no
-force where the kite cannot fly or the wind is below the table.
+apparent wind speed and course, reduced by [`loop_interaction`](@ref), held to the tether
+limit and summed over the kites; no force where the kite cannot fly or the wind is below
+the table.
 """
 function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_speed, trim)
     wind = wind_at_height(env, wind_10m, rig.reference_height)
@@ -560,7 +579,9 @@ function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_sp
         downwind += row_weight * column_weight * load * force[1]
         crosswind += row_weight * column_weight * load * force[2]
     end
-    limit = kite_count(rig) * min(1.0, rig.max_force / hypot(downwind, crosswind))
+    lone = hypot(downwind, crosswind)
+    interaction = loop_interaction(rig, lone / (0.5env.air_density * speed^2))
+    limit = kite_count(rig) * min(interaction, rig.max_force / lone)
     direction = angle + π
     thrust = limit * (downwind * cos(direction) - crosswind * sin(direction))
     side = limit * (downwind * sin(direction) + crosswind * cos(direction))

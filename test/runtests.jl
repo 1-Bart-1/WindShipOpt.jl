@@ -575,7 +575,8 @@ end
     @test airframe.tether_mass ≈ 275 rtol=0.05
     @test airframe.mass ≈ 1852
     @test force ≈ 300e3 rtol=0.01
-    @test WindShipOpt.hover_power(2180.0, 54.0, assumptions) ≈ 900e3 rtol=0.05
+    makani_air = with_value(assumptions, :rigid_hover_air_density, 0.95)
+    @test WindShipOpt.hover_power(2180.0, 54.0, makani_air) ≈ 900e3 rtol=0.05
     tether_drag = assumptions[:rigid_tether_drag_coefficient] * diameter *
                   model.tether_length / (4 * 54.0)
     @test tether_drag ≈ 0.152 - 0.123 rtol=0.05
@@ -649,11 +650,25 @@ end
     @test isnothing(WindShipOpt.rigid_kite_rig((room + 1) * 54.0, hull, assumptions))
 end
 
-@testset "more rigid kites pull, weigh and cost in proportion" begin
+"lone kite's force over dynamic pressure [m^2] at 12 m/s true wind dead astern at 5 m/s"
+function lone_force_area(rig, env)
+    wind = WindShipOpt.wind_at_height(env, 12.0, rig.reference_height)
+    speed = first(WindShipOpt.apparent_wind(wind, π, 5.0))
+    return rig_force(rig, env, 12.0, π, 5.0, 1).thrust / (0.5env.air_density * speed^2)
+end
+
+@testset "more rigid kites weigh and cost in proportion and pull less per kite" begin
     env = Environment(assumptions)
     one, three = rigid_fleet(1, assumptions), rigid_fleet(3, assumptions)
     pull(rig) = rig_force(rig, env, 12.0, π, 5.0, 1).thrust
-    @test pull(three) ≈ 3pull(one)
+    force_area = lone_force_area(one, env)
+    @test WindShipOpt.loop_interaction(one, force_area) ≈ 1
+    interaction = WindShipOpt.loop_interaction(three, force_area)
+    @test interaction < 1
+    lone = force_area / three.airframe.loop_area
+    induction = 3lone / (4 + 3lone)
+    @test 3lone * (1 - induction)^2 ≈ 4induction * (1 - induction)
+    @test pull(three) ≈ 3interaction * pull(one)
     @test WindShipOpt.deck_units(three) == 3
     @test WindShipOpt.deck_footprint(one, assumptions) == assumptions[:rigid_perch_width]
     @test all(WindShipOpt.rig_costs(three, assumptions) .≈
@@ -679,7 +694,10 @@ end
     @test kites_in_service ≈ 0.9 * 4
     flying = WindShipOpt.kite_count(down) / 4
     pull(rig) = rig_force(rig, env, 12.0, π, 5.0, 1).thrust
-    @test pull(down) ≈ flying * pull(fleet)
+    force_area = lone_force_area(rigid_fleet(1, changed), env)
+    @test pull(down) ≈ WindShipOpt.kite_count(down) *
+                       WindShipOpt.loop_interaction(down, force_area) *
+                       pull(rigid_fleet(1, changed))
     @test WindShipOpt.wear_cost(down, changed) ≈
           flying * WindShipOpt.wear_cost(fleet, changed)
     @test WindShipOpt.cycle_cost(down, changed) ≈

@@ -929,7 +929,25 @@ function combination_data()
 end
 
 "rigid kites [number, m^2 each] of the rigid kite study"
-rigid_kite_fleets = vec([(count, unit) for count in (1, 2, 4), unit in (30.0, 54.0, 100.0)])
+rigid_kite_fleets = [vec([(count, unit) for count in (1, 2, 3, 4, 6, 8),
+                          unit in (30.0, 54.0, 100.0)]);
+    [(1, unit) for unit in (200.0, 300.0, 500.0)]]
+
+"inputs where the low bound favours a rigid kite"
+rigid_low_favours = (:rigid_tether_price, :rigid_tether_density,
+    :rigid_tether_drag_coefficient, :rigid_structure_cost_per_mass,
+    :rigid_structure_cost_per_area, :rigid_avionics_cost, :rigid_drive_cost,
+    :rigid_drive_margin, :rigid_ship_power_cost, :rigid_perch_cost, :rigid_perch_width,
+    :rigid_station_mass, :rigid_upkeep_per_area, :rigid_cycle_loss_probability,
+    :rigid_idle_rotor_drag, :rigid_hover_energy_price, :rigid_hover_minutes,
+    :rigid_hover_thrust_ratio, :rigid_mass_exponent, :rigid_profile_drag,
+    :rigid_min_turn_radius, :kite_out_of_service)
+
+"inputs where the high bound favours a rigid kite"
+rigid_high_favours = (:rigid_lifetime, :rigid_max_wave_height, :rigid_max_wind,
+    :rigid_max_lift, :rigid_span_efficiency, :rigid_max_force_per_area,
+    :rigid_tether_stress, :rigid_rotor_area_ratio, :rigid_rotor_fill,
+    :rigid_hover_air_density, :rigid_hover_efficiency)
 
 """
     rigid_assumptions(scenario, unit)
@@ -940,18 +958,18 @@ The assumptions of the rigid kite study at a kite of `unit` [m^2]: at base value
 function rigid_assumptions(scenario, unit)
     base = with_value(assumptions, :rigid_unit_area, unit)
     scenario == "base" && return base
-    favourable = (:rigid_tether_price, :rigid_structure_cost_per_mass,
-        :rigid_structure_cost_per_area, :rigid_avionics_cost, :rigid_drive_cost,
-        :rigid_drive_margin, :rigid_ship_power_cost, :rigid_perch_cost, :rigid_perch_width,
-        :rigid_station_mass, :rigid_upkeep_per_area, :rigid_cycle_loss_probability,
-        :rigid_idle_rotor_drag, :rigid_hover_energy_price, :kite_out_of_service)
-    for name in favourable
+    for name in rigid_low_favours
         base = with_value(base, name, base.entries[name].low)
     end
-    base = with_value(base, :rigid_lifetime, base.entries[:rigid_lifetime].high)
-    return with_value(base, :rigid_max_wave_height,
-        base.entries[:rigid_max_wave_height].high)
+    for name in rigid_high_favours
+        base = with_value(base, name, base.entries[name].high)
+    end
+    return base
 end
+
+"total areas [m^2] of `rig_type` at the shares of the deck of the rigid kite study"
+deck_shares(rig_type, hull) =
+    [share * largest_area(rig_type, hull) for share in (0.2, 0.5, 1.0)]
 
 """
     rigid_kite_data()
@@ -965,11 +983,11 @@ function rigid_kite_data()
     cases = []
     for ship in combination_ships, drive in (:vlsfo, :methanol), route in route_names
         hull = Hull(study_hull(ship), assumptions)
-        deck(type) = [(fraction * largest_area(type, hull)) for fraction in (0.2, 0.5, 1.0)]
         sizes = [("none", (;));
             [("kite", (; kite_area)) for kite_area in combination_kites];
-            [("rotors", (; rotor_area)) for rotor_area in deck(WindShipOpt.RotorRig)];
-            [("wings", (; wing_area)) for wing_area in deck(WingRig)]]
+            [("rotors", (; rotor_area))
+             for rotor_area in deck_shares(WindShipOpt.RotorRig, hull)];
+            [("wings", (; wing_area)) for wing_area in deck_shares(WingRig, hull)]]
         for (rig, size) in sizes
             design = ShipDesign(drive, study_hull(ship); size...)
             push!(cases, trip_case(design; route, ship, drive, rig, count=0, unit=0.0))

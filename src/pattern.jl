@@ -130,8 +130,7 @@ end
     flying_airspeed(residual)
 
 Lowest airspeed [m/s] on a rising scan where `residual` says the kite makes more lift than
-its balance needs, or `nothing` where it never does: a heavy wing makes too little at rest
-and flies only once it is moving fast enough.
+its balance needs, or `nothing` where it never does.
 """
 function flying_airspeed(residual)
     first(residual(1e-3)) < 0 && return 1e-3
@@ -518,8 +517,7 @@ const MAX_CONE = deg2rad(40)
 """
     search_starts(problem, starts)
 
-The `starts` worth a search: all of them for a steered kite, whose patterns nearly all fly,
-and the best three for a wing, most of whose loops do not.
+The `starts` worth a search: all of them for a steered kite and the best three for a wing.
 """
 function search_starts(problem::PatternProblem, starts)
     problem.model.flies_loops || return starts

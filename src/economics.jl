@@ -542,8 +542,9 @@ down_rig(::KiteRig, working_share) = nothing
 
 function down_rig(rig::KiteRig{RigidAirframe}, working_share)
     deck_units(rig) > 1 || return nothing
-    (; count, mass, tether_mass, hover_power) = rig.airframe
-    airframe = RigidAirframe(working_share * count, mass, tether_mass, hover_power)
+    (; count, mass, tether_mass, hover_power, loop_area) = rig.airframe
+    airframe = RigidAirframe(working_share * count, mass, tether_mass, hover_power,
+        loop_area)
     parts = (getfield(rig, name) for name in fieldnames(KiteRig) if name != :airframe)
     return KiteRig(parts..., airframe)
 end
