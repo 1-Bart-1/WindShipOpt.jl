@@ -59,21 +59,22 @@ end
 
 Write `name` to the directory of the run in use with the given label `columns` of each
 case and the cost [USD/tkm], fuel [MJ/tkm], CO2 [kg/tkm], round-trip days, kite flight and
-parked shares, kite launches per round trip, cargo [t] and whether the rig retracts, of
-each feasible trip.
+parked shares, kite launches and forced landings per round trip, cargo [t] and whether the
+rig retracts, of each feasible trip.
 """
 function write_trips(name, cases, trips, columns...)
     open(run_file(name), "w") do io
         println(io, join([collect(string.(columns)); ["cost", "fuel", "carbon", "days",
-            "flight_share", "parked_share", "launches", "cargo", "retractable"]], ","))
+            "flight_share", "parked_share", "launches", "forced_landings", "cargo",
+            "retractable"]], ","))
         for (case, trip) in zip(cases, trips)
             isnothing(trip) && continue
             labels = [csv_value(getproperty(case, column)) for column in columns]
-            @printf(io, "%s,%.6f,%.5f,%.3f,%.2f,%.3f,%.3f,%.2f,%.0f,%s\n",
+            @printf(io, "%s,%.6f,%.5f,%.3f,%.2f,%.3f,%.3f,%.2f,%.2f,%.0f,%s\n",
                 join(labels, ","), trip.cost_per_tonne_km, trip.fuel_per_tonne_km,
                 trip.carbon_per_tonne_km, trip.outbound_days + trip.return_days,
-                trip.flight_share, trip.parked_share, trip.launches, trip.cargo,
-                trip.retractable)
+                trip.flight_share, trip.parked_share, trip.launches, trip.forced_landings,
+                trip.cargo, trip.retractable)
         end
     end
 end
@@ -110,8 +111,9 @@ end
 
 The 140 m e-methanol ship on every route without a rig, with the reference wings and
 rotors, and with kites of 800, 1,600 and 3,200 m^2 at the low, base and high launch cost
-with parking on and off: launch_parking.csv. Then what parking through a lull costs against
-landing, per kite, wind and angle: lull.csv.
+with parking on and off, and at base launch cost with launches by day only:
+launch_parking.csv. Then what parking through a lull costs against landing, per kite, wind
+and angle: lull.csv.
 """
 function launch_parking_data()
     cases = []
@@ -119,7 +121,7 @@ function launch_parking_data()
         for (rig, area) in (("none", 0.0), ("wings", 1500.0), ("rotors", 800.0))
             design = ShipDesign(:methanol, 140.0; rig_size(rig, area)...)
             push!(cases, trip_case(design; route, rig, area, launch_cost="value",
-                parking=true))
+                parking=true, night=true))
         end
         for area in (800.0, 1600.0, 3200.0), launch_cost in (:low, :value, :high),
             parking in (true, false)
@@ -127,12 +129,18 @@ function launch_parking_data()
             design = ShipDesign(:methanol, 140.0; rig_size("kite", area)...)
             push!(cases, trip_case(design;
                 assumptions=launch_cost_assumptions(launch_cost; parking), route,
-                rig="kite", area, launch_cost=string(launch_cost), parking))
+                rig="kite", area, launch_cost=string(launch_cost), parking, night=true))
+        end
+        for area in (800.0, 1600.0, 3200.0)
+            design = ShipDesign(:methanol, 140.0; rig_size("kite", area)...)
+            push!(cases, trip_case(design;
+                assumptions=with_value(assumptions, :kite_night_launch, 0.0), route,
+                rig="kite", area, launch_cost="value", parking=true, night=false))
         end
     end
     write_trips("launch_parking.csv", cases,
         round_trips(cases, sampled_departures()), :route, :rig, :area, :launch_cost,
-        :parking)
+        :parking, :night)
     write_lulls("lull.csv", (800.0, 1600.0, 3200.0))
 end
 
@@ -141,8 +149,9 @@ end
 
 Write `name`: for the 140 m e-methanol ship at 6 m/s with a kite of each of `areas`, over
 10 m wind and true wind angle, the fuel a parked and a flying kite add to a stowed one
-[USD/h], the parked wear [USD/h], the cost of one launch and landing [USD] and the lull [h]
-beyond which landing is cheaper than parking; `Inf` where parking saves money.
+[USD/h], the parked wear [USD/h], the cost of one launch and landing [USD], with the flight
+saving lost while it lasts in a 10 m/s wind at that angle, and the lull [h] beyond which
+landing is cheaper than parking; `Inf` where parking saves money.
 """
 function write_lulls(name, areas)
     speed = 6.0
@@ -152,15 +161,20 @@ function write_lulls(name, areas)
             ship = Ship(ShipDesign(:methanol, 140.0; rig_size("kite", area)...), assumptions)
             table = PerformanceTable(ship, assumptions)
             price = ship.fuel.price * 3600
+            weight = WindShipOpt.KnotWeight(table.speeds, speed)
             for wind in 4.0:2.0:12.0, angle in 0.0:45.0:180.0
                 condition = WindShipOpt.SeaCondition(table, wind, deg2rad(angle), 0.0, 8.0, 0.0)
-                flown, stowed, parked = WindShipOpt.edge_fuels(table, speed,
-                    WindShipOpt.KnotWeight(table.speeds, speed), condition)
+                flown, stowed, parked = WindShipOpt.edge_fuels(table, speed, weight,
+                    condition)
                 hourly = (parked - stowed) * price + table.parked_wear_cost
+                after = WindShipOpt.SeaCondition(table, 10.0, deg2rad(angle), 0.0, 8.0, 0.0)
+                after_flown, after_stowed = WindShipOpt.edge_fuels(table, speed, weight,
+                    after)
+                cycle = table.cycle_cost + table.handling_hours *
+                                           max(after_stowed - after_flown, 0.0) * price
                 @printf(io, "%.0f,%.0f,%.0f,%.1f,%.1f,%.1f,%.1f,%.1f\n", area, wind, angle,
                     (parked - stowed) * price, (flown - stowed) * price,
-                    table.parked_wear_cost, table.cycle_cost,
-                    hourly > 0 ? table.cycle_cost / hourly : Inf)
+                    table.parked_wear_cost, cycle, hourly > 0 ? cycle / hourly : Inf)
             end
         end
     end
@@ -435,7 +449,8 @@ function rig_cost_per_hour(ship, bare, legs, case_assumptions)
     (; rig) = ship
     wear = sum(WindShipOpt.wear_cost(rig, case_assumptions) * leg.flight_hours +
                WindShipOpt.parked_wear_cost(rig, case_assumptions) * leg.parked_hours +
-               WindShipOpt.cycle_cost(rig, case_assumptions) * leg.launches
+               WindShipOpt.cycle_cost(rig, case_assumptions) * leg.launches +
+               WindShipOpt.forced_landing_cost(rig, case_assumptions) * leg.forced_landings
                for pair in legs for leg in pair)
     return (fixed / (8760case_assumptions[:availability]) * hours + wear) / sea_hours
 end
@@ -524,7 +539,9 @@ function cost_parts(ship, trip, case_assumptions)
         wear=(WindShipOpt.wear_cost(ship.rig, case_assumptions) * trip.flight_share +
               WindShipOpt.parked_wear_cost(ship.rig, case_assumptions) *
               trip.parked_share) * sea_hours +
-             WindShipOpt.cycle_cost(ship.rig, case_assumptions) * trip.launches,
+             WindShipOpt.cycle_cost(ship.rig, case_assumptions) * trip.launches +
+             WindShipOpt.forced_landing_cost(ship.rig, case_assumptions) *
+             trip.forced_landings,
         port=WindShipOpt.port_costs(ship.hull, case_assumptions),
         crew=crew / trading_hours * hours,
         capital=(costs.fixed_annual - crew) / trading_hours * hours + store,

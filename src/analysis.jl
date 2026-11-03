@@ -20,8 +20,8 @@ Re-evaluate the ship models along the path of `leg` at the start of every edge a
 that time and place. The ship holds the edge's commanded speed where it can and the
 [`held_speed`](@ref) elsewhere; a kite flies where [`kite_aloft`](@ref) allows and the
 edge's mode is flying or only a flying kite holds the speed, parks where the mode is
-parked, and the [`standing_rig`](@ref) always stands. It can differ from the router's edge cost: the
-[`sail_edge!`](@ref) points with the kite managed per point.
+parked, and the [`standing_rig`](@ref) always stands. It can differ from the router's edge
+cost: the [`sail_edge!`](@ref) points with the kite managed per point.
 """
 function LegTrace(table::PerformanceTable, leg::Leg, weather, departure; interval=Inf)
     route_table = RouteTable(table)
@@ -61,7 +61,7 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
         heading)
     crosswind, headwind = kite_wind(table.table, wind_speed) .* sincos(angle)
     held, flown_power, stowed_power, parked_power = held_speed(table, speed_index,
-        EdgeSample(condition, headwind, crosswind))
+        EdgeSample(condition, headwind, crosswind, is_daylight(lon, time)))
     speed = table.speeds[max(held, 1)]
     standing = standing_rig(ship.rig)
     aloft = kite_aloft(table.table, speed, headwind, crosswind, wave_height)

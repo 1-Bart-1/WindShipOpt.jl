@@ -519,7 +519,7 @@ tether_length_ratio:
   low: 10.0
   high: 20.0
   unit: "-"
-  reason: "Tether length over projected span, held during flight and changed only at launch and landing (Erhard & Strauch 2013): SkySails flew its 160 m^2 kite, ~23 m span at an assumed projected aspect ratio of 3.3, on an operational towing line of 300 m (Erhard & Strauch 2013, Fig. 18), the longest relative length flown on a ship; Paulig et al. (2013), as cited by Penloup et al. (2021), compute a 320 m^2 kite on a 360 m tether, ~11 spans. The high bound is the top of the design study of Penloup et al. (2021), L/sqrt(A) = 33.5, ~18.5 spans at that aspect ratio."
+  reason: "Tether length over projected span, held during flight and changed only at launch and landing (Erhard & Strauch 2013): SkySails flew its 160 m^2 kite, ~23 m span at an assumed projected aspect ratio of 3.3, on an operational towing line of 300 m (Erhard & Strauch 2013, Fig. 18), the longest relative length flown on a ship; the low and high bounds are estimates, a tether a quarter shorter and half as long again."
 kite_min_elevation:
   value: 8.0
   low: 5.0
@@ -677,11 +677,29 @@ kite_flight_drag:
   unit: "-"
   reason: "Drag on the projected area that the design-shape model lacks in flight: deformation, control unit and steering. The V3 wing reaches L/D 8.6 in the wind tunnel (Poland et al. 2025) but 3.6-4.0 in traction with bridle and control unit (van der Vlugt et al. 2019), 4-5 for SkySails towing kites (Erhard & Strauch 2013); 0.08 brings the aspect-ratio-3 kite with bridle to 4 at CL 0.8; 0 is a kite that keeps its design shape in flight."
 kite_max_wave_height:
+  value: 5.0
+  low: 4.0
+  high: 7.0
+  unit: m
+  reason: "Estimate, no source gives a number: highest significant wave height at which a kite aloft stays up. A kite far above the sea feels the ship's motion only through its tether, so we set this one metre above the landing limit."
+kite_landing_max_wave_height:
   value: 4.0
   low: 3.0
-  high: 6.0
+  high: 5.0
   unit: m
-  reason: "Estimate, no source gives a number: highest significant wave height at which a kite stays up, the upper end of rough seas (sea state 5). It is also the limit for landing, so a kite that may stay up can come down."
+  reason: "Estimate, no source gives a number: highest significant wave height for a landing that is not forced, the upper end of rough seas (sea state 5). The SkySails supplier reported limited launch opportunities in heavy sea (CE Delft 2016) without a number."
+kite_landing_max_wind:
+  value: 20.0
+  low: 15.0
+  high: 25.0
+  unit: m/s
+  reason: "Highest apparent wind for a landing that is not forced: the stowage of a full-size land kite was designed for up to 20 m/s (Junge et al. 2023), which also calls landing more time-critical than launch. The bounds are estimates."
+kite_forced_landing_loss_probability:
+  value: 0.05
+  low: 0.01
+  high: 0.2
+  unit: "-"
+  reason: "Estimate, no source gives a rate: chance of losing the kite with its tether and control unit in a landing outside the landing limits, the only way down once wind or sea exceed the stay-up limits or at the end of a leg."
 kite_launch_max_wave_height:
   value: 3.0
   low: 2.0
@@ -706,12 +724,18 @@ kite_launch_max_wind:
   high: 20.0
   unit: m/s
   reason: "Estimate, no source gives a launch limit: highest apparent wind for a launch, the top of Beaufort 7, one step below the Beaufort 8 flight limit of SkySails ship kites. SkySails on land reports landing as more time-critical than launch and reliable under nominal wind (Junge et al. 2023)."
+kite_night_launch:
+  value: 1.0
+  low: 0.0
+  high: 1.0
+  unit: "-"
+  reason: "Whether a kite is launched at night: 1 yes, 0 only between 06:00 and 18:00 local solar time. Operators said the SkySails kite could only be operated at daylight (CE Delft 2016); land kites have flown through the night (Fagiano et al. 2022, Junge et al. 2023). No source gives a night limit for a launch."
 kite_cycle_crew_cost:
-  value: 35.0
-  low: 10.0
-  high: 260.0
+  value: 85.0
+  low: 20.0
+  high: 380.0
   unit: USD
-  reason: "Estimate, no source gives crew or hours per launch: crew time per launch and landing. Low officer and rating for 0.5 h; base officer and two ratings for 1.5 h; high officer and three ratings for 3 h at EU rates. Rates 12 and 6 USD/h from the crew cost here, split by rank with the ITF/ILO 2025 scale."
+  reason: "Estimate, no source gives crew or hours per launch: crew time per launch and landing. Low officer and rating for 0.5 h; base officer and two ratings for 1.5 h; high officer and three ratings for 3 h at EU rates. Rates 29 and 14 USD/h per hour worked, from the crew cost here over about 3,650 worked hours per berth a year (estimate, 10 h a day), split by rank with the ITF/ILO 2025 scale."
 kite_cycle_damage_probability:
   value: 0.002
   low: 0.0005

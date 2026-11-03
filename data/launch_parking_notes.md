@@ -1,6 +1,6 @@
 # Launching, landing and parking a ship kite
 
-Sources behind the launch, landing and parking inputs in `assumptions.yaml`. "Estimate" marks a number no source states. Page numbers are PDF pages of the copy read; three of the papers are preprints, so they are not the journal's. Nothing here comes from the Beyond the Sea project, whose papers (Bigi 2018, Penloup 2021) were not used for any figure.
+Sources behind the launch, landing and parking inputs in `assumptions.yaml`. "Estimate" marks a number no source states. Page numbers are PDF pages of the copy read; three of the papers are preprints, so they are not the journal's. Nothing here comes from the Beyond the Sea project.
 
 ## Sources read in full
 
@@ -19,7 +19,7 @@ Sources behind the launch, landing and parking inputs in `assumptions.yaml`. "Es
 | Konstruktionspraxis | Höltkemeier, _SkySails - das Segelschiff der Zukunft_ | Launch and landing 10-20 min each |
 | PSB 081893 | Relative Workshop, _Recommended Lifetime on Vector Tandem Components_, 1993, reissued 2003 | Main canopy replaced after 600 jumps, on "tandem malfunction and equipment failures" |
 
-Not read: Anhang B of SkyPower100 (confidential; holds its sections on stowage, trim and durability); Brabeck's talk at the STG and Paulig et al. 2013, both unobtainable here.
+Not read: Anhang B of SkyPower100 (confidential; holds its sections on stowage, trim and durability); Brabeck's talk at the STG, unobtainable here.
 
 ## What no source gives
 
@@ -27,7 +27,7 @@ After reading the above in full, no source gives any of these for a ship kite or
 
 ## Parked forces
 
-A parked kite is a kite at rest on its tether, with air speed equal to the apparent wind. We compute it with the same force balance as the flying kite and give the ship its thrust, side force and yaw moment through the same chain. Tether drag is part of the balance, as in flight. The position is free: at each wind and course the model picks the elevation (10-70 deg), side and angle of attack that make the ship's task least costly, under the side weight of the trim, so a parked kite does not sit where it hurts most. On a beam reach it even gives useful thrust, since at rest a kite is a sail (CE Delft 2016, p. 26).
+A parked kite is a kite at rest on its tether, with air speed equal to the apparent wind. We compute it with the same force balance as the flying kite and give the ship its thrust, side force and yaw moment through the same chain. Tether drag is part of the balance, as in flight. The position is free: at each wind and course the model picks the elevation (10-85 deg), side and angle of attack that make the ship's task least costly, under the side weight of the trim, so a parked kite does not sit where it hurts most. On a beam reach it even gives useful thrust, since at rest a kite is a sail (CE Delft 2016, p. 26).
 
 Model values, 140 m ship kites, base 200 g/m^2 cloth, side weight 0. Thrust is along the course; a negative thrust is the drag penalty Bart asked about. Course is off the apparent downwind direction, so 180 deg is dead into the apparent wind.
 
@@ -56,14 +56,16 @@ What is known of ram-air kites holding position: neutral states are published on
 | Limit | Launch | Stay up | Landing |
 | --- | --- | --- | --- |
 | Lowest apparent wind | 5 m/s (3-6), or the stay-up wind if higher | Equation (park) | None |
-| Highest apparent wind | 17 m/s (13-20), estimate | 25 m/s (20-35) | None in the model |
-| Significant wave height | 3 m (2-4), estimate | 4 m (3-6), estimate | Same as staying up in the limit, but always allowed |
+| Highest apparent wind | 17 m/s (13-20), estimate | 25 m/s (20-30) | 20 m/s (15-25) |
+| Significant wave height | 3 m (2-4), estimate | 5 m (4-7), estimate | 4 m (3-5), estimate |
 
-A kite aloft that meets a limit must land at that point, at stowed fuel. There is no case where it cannot: landing has no limit of its own. That is a simplification, not a finding. SkyPower100 calls landing more time-critical than launch (p. 20) and designed its stowage for up to 20 m/s, so a landing at 25 m/s is unproven. Tightening stay-up to what landing can do would shrink flight at the top end only. A leg must end with the kite down, so a stay cannot run through port approach; the kite must be down by the last stage and the landing's cost is part of the launch.
+The landing wind is the design limit of the stowage of a full-size land kite, 20 m/s, a target (SkyPower100, p. 20); that report also calls landing more time-critical than launch. So the three limits differ, and a kite may be up where it should not land. What keeps it from being stranded is that it can always come down, at a price: a landing outside the landing limits is forced, with a 5 % chance (1-20 %, estimate) of losing the kite, tether and control unit, against 0.05 % for a normal cycle. With the weather known, the router lands ahead of the limit; with a forecast it may be caught out and pay. A kite that reaches a stay-up limit must land at that point. Where only a flying kite holds the ship's speed, it stays up until it has to land.
 
-Launch wind. The launch wind is the apparent wind on the ship's course. At 6 m/s dead downwind it stays under 5 m/s for true winds from 1 to 11 m/s, so such a launch must wait or turn. The router sees the wait: it may launch only where the limit holds. The turn is priced as a mean cost per launch below, not routed. Sources disagree on whether a turn is needed: one hand launch needed one (WiWo 2008), the patent's mast head rotates and is silent on it. Launch wind sources: Beaufort 3 for SkySails ships (`kite_costs_notes.md`), 3 m/s and 5 m/s measured against an assumed 6 on land (Fagiano 2022, SkyPower100). The Beaufort 4-8 of Verivox 2007 is a plan written before service.
+Port approach. A leg ends with the kite down at its last sample point, about 15 nmi from port, so no leg ends on a stay, and a landing there can be forced. Along the fixed coastal stages before it the kite may still fly and launch: the model has no limit for traffic lanes or pilotage, and no source gives one.
 
-Night and port. The model has no night limit. Charterers said the kite "could only be operated at daylight" (CE Delft 2016, p. 75, speakers not separated), but flight through the night has been reported on land (Fagiano 2022, SkyPower100 from 2020) and SkySails reported 120 h non-stop at sea. The discussion treats this as the weakest assumption, and the launch-per-trip and flight-share results below show what is at stake.
+Launch wind. The launch wind is the apparent wind on the ship's course. At 6 m/s dead downwind it stays under 5 m/s for true winds from 1 to 11 m/s, so such a launch waits. A turn would not help there: the kite could not stay up back on course, since the stay-up wind of 5.1-5.4 m/s is as strict as the launch wind at the base values. So the low-wind limit needs no turn in the router. What may need one is a launch in a head wind, which pre-service plans ruled out (Verivox 2007) and which no source sizes, so it is priced as a mean cost per launch below, not routed. Sources disagree on whether a turn is needed: one hand launch needed one (WiWo 2008), the patent's mast head rotates and is silent on it. Launch wind sources: Beaufort 3 for SkySails ships (`kite_costs_notes.md`), 3 m/s and 5 m/s measured against an assumed 6 on land (Fagiano 2022, SkyPower100). The Beaufort 4-8 of Verivox 2007 is a plan written before service.
+
+Night. The base case has no night limit, and a study case launches only between 06:00 and 18:00 local solar time, taken without the season; landing stays allowed at night, or a kite up at dusk could not come down. Charterers said the kite "could only be operated at daylight" (CE Delft 2016, p. 75, speakers not separated), but flight through the night has been reported on land (Fagiano 2022, SkyPower100 from 2020) and SkySails reported 120 h non-stop at sea. The discussion treats this as the weakest assumption.
 
 ## Launch cost
 
@@ -71,16 +73,18 @@ Per launch and landing, in `cycle_cost`: `(1 + retry) * (crew + tear * canopy + 
 
 | Input | Low | Base | High | Basis |
 | --- | --- | --- | --- | --- |
-| Crew [USD] | 10 | 35 | 260 | Estimate. Officer and rating for 0.5 h; officer and two ratings for 1.5 h; officer and three ratings for 3 h at EU rates |
+| Crew [USD] | 20 | 85 | 380 | Estimate. Officer and rating for 0.5 h; officer and two ratings for 1.5 h; officer and three ratings for 3 h at EU rates |
 | Tear ending the canopy, per attempt | 0.05 % | 0.2 % | 1 % | Estimate |
 | Loss at sea, per attempt | 0.01 % | 0.05 % | 0.5 % | Estimate, no basis in data |
 | Retry, per attempt | 2 % | 5 % | 20 % | Estimate, no basis in data |
-| Turn, mean per launch [USD] | 0 | 130 | 900 | Estimate: 0.1 h (0-0.7) at about 1,270 USD/h of hire and fuel |
+| Turn, mean per launch [USD] | 0 | 130 | 900 | Estimate: 0.1 h (0-0.7) at about 1,270 USD/h of hire and fuel of the 140 m ship, held for every ship size |
 | Launch [min] | 15 | 25 | 45 | Estimate on 10-20 min at 160 m^2 and a 30 min claim at 1,000 m^2 |
 | Landing and stowing [min] | 15 | 30 | 60 | Estimate on the same, plus a land stowage hang of 15 min |
 
-Crew. The old USD 150 assumed two crew for an hour at a loaded rate; the ranks on the crew cost in this file give far less. The crew's own view is not in it: charterers found the system too labour-intensive for rotating crews (CE Delft 2016, p. 75), and SkyPower100 first underrated its staff need, then cut it strongly (pp. 58-59, 64). A launch was hand-flown at first and automated later, on ships and on land.
+Crew. Rates are USD 29 for an officer and USD 14 for a rating per hour worked: the crew cost of USD 500,000 for seven over about 3,650 worked hours per berth a year, 10 h a day (estimate), split by rank. The hours are on board anyway, so this is the crew's time rather than a cash cost, and it says nothing of the workload: charterers found the system too labour-intensive for rotating crews (CE Delft 2016, p. 75), and SkyPower100 first underrated its staff need, then cut it strongly (pp. 58-59, 64). A launch was hand-flown at first and automated later, on ships and on land.
 
 Tear. Service limits of skydiving canopies, such as 1 in 600 jumps for a tandem main (PSB 081893), rest on malfunctions and failures and are retirement counts, mostly coating and porosity, so they set only the order of magnitude and not the rate. Gradual wear from flogging, folding and packing at launch and landing is in the canopy life, so `kite_cycle_damage_probability` holds only a discrete tear that ends the canopy.
+
+Forced landing. A landing outside the limits is charged at 5 % (1-20 %) of canopy, tether and control unit, an estimate with no data behind it, and counted apart from the launches.
 
 Who charges what. Time out of service, repair events, and failures of the winch, control unit, tether and mast belong to rig availability. A launch failure that needs only another try is charged here, one that takes the rig out of service is not.

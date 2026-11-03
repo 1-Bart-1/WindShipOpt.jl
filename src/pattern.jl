@@ -415,10 +415,15 @@ Angles of attack [rad] a parked kite of [`KiteModel`](@ref) `model` can hold: th
 force coefficient is at least the fraction `depower` of the one just below stall.
 """
 function parked_angles(model::KiteModel, depower)
-    coefficient(angle) = hypot(KiteAero(model, angle).lift, KiteAero(model, angle).drag)
-    least = depower * coefficient(model.stall_angle)
+    least = depower * force_coefficient(model, model.stall_angle)
     return [angle for angle in range(model.lowest_angle, model.stall_angle; length=12)
-            if coefficient(angle) >= least]
+            if force_coefficient(model, angle) >= least]
+end
+
+"force coefficient of the kite of `model` at angle of attack `angle` [rad]"
+function force_coefficient(model::KiteModel, angle)
+    (; lift, drag) = KiteAero(model, angle)
+    return hypot(lift, drag)
 end
 
 """
@@ -442,23 +447,21 @@ end
 
 Force of the best parked position for each apparent wind speed, course and side weight, by
 the same [`objective`](@ref) as a flight pattern. A wind speed in which no position holds
-takes the force coefficients of the next stronger one.
+takes the force coefficients of the nearest one in which one does.
 """
 function parked_table(model::KiteModel, max_force, assumptions::Assumptions, wind_speeds,
         courses, side_weights)
     angles = parked_angles(model, assumptions[:kite_parked_depower])
     min_elevation = deg2rad(assumptions[:kite_min_elevation])
+    positions = [parked_positions(model, angles, max_force, min_elevation, wind)
+                 for wind in wind_speeds]
+    holding = findall(!isempty, positions)
     forces = fill(NO_PATTERN, length(wind_speeds), length(courses), length(side_weights))
-    for i in reverse(eachindex(wind_speeds))
-        positions = parked_positions(model, angles, max_force, min_elevation,
-            wind_speeds[i])
-        for j in eachindex(courses), k in eachindex(side_weights)
-            problem = PatternProblem(model, max_force, min_elevation, wind_speeds[i],
-                courses[j], side_weights[k])
-            forces[i, j, k] = isempty(positions) ?
-                              forces[min(i + 1, length(wind_speeds)), j, k] :
-                              argmin(force -> objective(problem, force), positions)
-        end
+    for i in eachindex(wind_speeds), j in eachindex(courses), k in eachindex(side_weights)
+        nearest = holding[argmin(abs.(holding .- i))]
+        problem = PatternProblem(model, max_force, min_elevation, wind_speeds[nearest],
+            courses[j], side_weights[k])
+        forces[i, j, k] = argmin(force -> objective(problem, force), positions[nearest])
     end
     return forces
 end

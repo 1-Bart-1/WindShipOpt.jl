@@ -326,15 +326,35 @@ cycle_cost(rig, assumptions) = 0.0
 cycle_cost(rig::CombinedRig, assumptions) = cycle_cost(rig.kite, assumptions)
 
 function cycle_cost(rig::KiteRig, assumptions)
-    canopy, tether = consumable_costs(rig, assumptions)
-    control_unit = assumptions[:control_unit_cost] +
-                   assumptions[:control_unit_cost_per_area] * rig.area
+    canopy, _ = consumable_costs(rig, assumptions)
     attempt = assumptions[:kite_cycle_crew_cost] +
               assumptions[:kite_cycle_damage_probability] * canopy +
-              assumptions[:kite_cycle_loss_probability] * (canopy + tether + control_unit)
+              assumptions[:kite_cycle_loss_probability] * lost_kite_cost(rig, assumptions)
     return (1 + assumptions[:kite_launch_retry_probability]) * attempt +
            assumptions[:kite_cycle_course_cost]
 end
+
+"""
+    lost_kite_cost(rig, assumptions)
+
+Cost of a kite lost in the water with its tether and control unit [USD].
+"""
+function lost_kite_cost(rig::KiteRig, assumptions)
+    canopy, tether = consumable_costs(rig, assumptions)
+    return canopy + tether + assumptions[:control_unit_cost] +
+           assumptions[:control_unit_cost_per_area] * rig.area
+end
+
+"""
+    forced_landing_cost(rig, assumptions)
+
+Expected cost of one kite landing outside the landing limits [USD], the chance of losing
+the kite then times its cost; zero for other rigs.
+"""
+forced_landing_cost(rig, assumptions) = 0.0
+forced_landing_cost(rig::CombinedRig, assumptions) = forced_landing_cost(rig.kite, assumptions)
+forced_landing_cost(rig::KiteRig, assumptions) =
+    assumptions[:kite_forced_landing_loss_probability] * lost_kite_cost(rig, assumptions)
 
 """
     time_cost(costs, assumptions, cargo)
@@ -410,6 +430,8 @@ struct RoundTrip
     parked_share::Float64
     "kite launches per round trip"
     launches::Float64
+    "kite landings outside the landing limits per round trip"
+    forced_landings::Float64
     "whether the wings or rotors are retractable, the cheaper option for the ship"
     retractable::Bool
 end
@@ -487,6 +509,8 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
     flight_hours = mean(first(pair).flight_hours + last(pair).flight_hours for pair in legs)
     parked_hours = mean(first(pair).parked_hours + last(pair).parked_hours for pair in legs)
     launches = mean(first(pair).launches + last(pair).launches for pair in legs)
+    forced_landings = mean(first(pair).forced_landings + last(pair).forced_landings
+                           for pair in legs)
     largest_leg = maximum(max(first(pair).fuel_energy, last(pair).fuel_energy)
                           for pair in legs)
     store = fuel_store(ship, largest_leg, assumptions)
@@ -497,7 +521,7 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
     store_cost = store_round_trip_cost(store.price, round_trip_hours, assumptions)
     running_cost = energy * ship.fuel.price + table.wear_cost * flight_hours +
                    table.parked_wear_cost * parked_hours + table.cycle_cost * launches +
-                   port_costs(ship.hull, assumptions) + store_cost
+                   table.forced_landing_cost * forced_landings + port_costs(ship.hull, assumptions) + store_cost
     retractable_cost = voyage_time_cost(costs, assumptions, cargo, out_hours, back_hours,
         port_hours)
     fixed = ShipCosts(ship, assumptions; retractable=false)
@@ -513,5 +537,5 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
         energy / 1e6 / tonne_km, energy * ship.fuel.carbon_intensity * 1e3 / tonne_km,
         out_hours / 24, back_hours / 24, cargo, capital,
         ship.powertrain.installed_power / 1e3, flight_hours / (out_hours + back_hours),
-        parked_hours / (out_hours + back_hours), launches, retractable)
+        parked_hours / (out_hours + back_hours), launches, forced_landings, retractable)
 end
