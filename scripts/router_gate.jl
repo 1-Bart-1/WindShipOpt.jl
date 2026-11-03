@@ -71,7 +71,8 @@ Write the results of a gate run to `path`, one line per case.
 """
 function write_gate(path, cases, trips, seconds)
     open(path, "w") do io
-        println(io, "ship,rig,route,scale,cost,fuel,days,flight,parked,launches,cargo,seconds")
+        println(io,
+            "ship,rig,route,scale,cost,fuel,days,flight,parked,launches,cargo,seconds")
         for (case, trip, time) in zip(cases, trips, seconds)
             values = isnothing(trip) ? fill("NA", 7) : repr.((trip.cost_per_tonne_km,
                 trip.fuel_per_tonne_km, trip.outbound_days + trip.return_days,
@@ -135,7 +136,8 @@ Compare the gate file `path` with `reference_path`, printing each case; whether 
 """
 function gate_passes(path, reference_path)
     new, reference = read_gate(path), read_gate(reference_path)
-    return all([case_passes(new, reference, key) for key in sort!(collect(keys(reference)))])
+    return all([case_passes(new, reference, key)
+                for key in sort!(collect(keys(reference)))])
 end
 
 """
