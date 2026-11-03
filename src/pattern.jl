@@ -121,6 +121,23 @@ function steering_residual(kite::KiteAero, wind, radial, heading, turn, tether_l
 end
 
 """
+    flying_airspeed(residual)
+
+Lowest airspeed [m/s] on a rising scan where `residual` says the kite makes more lift than
+its balance needs, or `nothing` where it never does: a heavy kite makes too little at rest
+and flies only once it is moving fast enough.
+"""
+function flying_airspeed(residual)
+    first(residual(1e-3)) < 0 && return 1e-3
+    speed = 1.0
+    while speed < 400
+        first(residual(speed)) < 0 && return speed
+        speed *= 1.25
+    end
+    return nothing
+end
+
+"""
     steering_point(kite, wind, radial, heading, turn, tether_length)
 
 Quasi-steady airspeed [m/s], tether tension [N] and ground velocity [m/s] of a kite held
@@ -131,8 +148,9 @@ function steering_point(kite::KiteAero, wind, radial, heading, turn, tether_leng
     dot3(wind, radial) > 0 || return nothing
     residual(airspeed) = steering_residual(kite, wind, radial, heading, turn, tether_length,
         airspeed)
-    first(residual(1e-3)) < 0 || return nothing
-    low, high = 1e-3, 1.0
+    low = flying_airspeed(residual)
+    isnothing(low) && return nothing
+    high = 2low
     point = residual(high)
     while first(point) < 0
         high *= 2

@@ -101,6 +101,19 @@ least_off_wind(path) = minimum(acos(first(position)) for position in path)
     @test downwind_steered && least_off_wind(downwind) < π / 4
 end
 
+@testset "a heavy wing flies crosswind though it cannot hang at rest" begin
+    wing = WindShipOpt.KiteAero(60.0, 1.25, 0.15, 1500.0, 1.225, 9.81)
+    off_wind, wind = 1.3, (14.0, 0.0, 0.0)
+    radial = WindShipOpt.window_position(off_wind, π / 2)
+    heading = (0.0, -1.0, 0.0)
+    still = (0.0, 0.0, 0.0)
+    @test first(WindShipOpt.steering_residual(wing, wind, radial, heading, still, 300.0,
+        1e-3)) > 0
+    airspeed, tension, _ = WindShipOpt.steering_point(wing, wind, radial, heading, still,
+        300.0)
+    @test airspeed > 15 && tension > 0
+end
+
 @testset "heavier canopy cloth raises the minimum flight wind and the canopy life" begin
     light, heavy = (with_value(assumptions, :canopy_cloth_weight, weight)
                     for weight in (40.0, 160.0))
@@ -193,6 +206,34 @@ function uniform_kite(hull, assumptions)
         attach_position=WindShipOpt.launch_mast_position(hull, assumptions),
         wind_speeds=collect(3.0:3.0:30.0), courses=deg2rad.(0.0:15.0:180.0),
         side_weights=[0.0, 1.0], forces=fill(pattern, 10, 13, 2))
+end
+
+@testset "a table with a pattern below the minimum flight wind gives the ship no force" begin
+    rig = uniform_kite(Hull(140.0, assumptions), assumptions)
+    env = Environment(assumptions)
+    apparent_wind_10m(speed) = speed / WindShipOpt.wind_at_height(env, 1.0,
+        rig.reference_height)
+    trim = first(WindShipOpt.trim_settings(rig))
+    @test WindShipOpt.rig_force(rig, env, apparent_wind_10m(3.9), π / 2, 0.0, trim) ===
+          WindShipOpt.NO_RIG_FORCE
+    @test WindShipOpt.rig_force(rig, env, apparent_wind_10m(4.1), π / 2, 0.0, trim).thrust != 0
+end
+
+@testset "a kite launched at its minimum flight wind can hang at rest before it steers" begin
+    function hangs(model, wind)
+        return any(Iterators.product(range(model.lowest_angle, model.stall_angle; length=12),
+            deg2rad.(10:5:70))) do (angle, elevation)
+            force = WindShipOpt.parked_force(WindShipOpt.KiteAero(model, angle), elevation, 1,
+                wind)
+            return isfinite(force.peak_tension)
+        end
+    end
+    for area in (400.0, 800.0, 1600.0, 3200.0, 8000.0, 16000.0)
+        model = first(WindShipOpt.kite_model(area, 3.0, assumptions))
+        wind = WindShipOpt.min_flight_wind(model, assumptions)
+        @test hangs(model, wind)
+        @test !hangs(model, wind / assumptions[:kite_parking_margin] * 0.95)
+    end
 end
 
 @testset "a parked kite ages in the sun at the full rate and wears less" begin
