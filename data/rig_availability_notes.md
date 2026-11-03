@@ -56,7 +56,7 @@ Kites flew about 1-2.5 % of sea hours over the fleet's life (ours, with 250 sea 
 
 ## What the model does
 
-**Base case.** All three rigs share one base of 3 % of round trips out of service per unit, from Estraden's operator ("could be used 97% of the time"), the one long statement not made by a maker. That the 97 % holds per unit, per round trip and only while the wind would allow use is our reading: the source gives no denominator and speaks of the two rotors together, so the table below also shows all units failing together. For the kite, which has no figure, the 3 % is our assumption, so that a missing record neither credits nor penalises it.
+**Base case.** All three rigs share one goal of 3 % of round trips out of service per unit, from Estraden's operator ("could be used 97% of the time"), the one long statement not made by a maker. That the 97 % holds per unit, per round trip and only while the wind would allow use is our reading: the source gives no denominator and speaks of the two rotors together, so the table below also shows all units failing together. For the kite, which has no figure, the 3 % is our assumption, so that a missing record neither credits nor penalises it.
 
 **Range.** The low bound is the best figure stated for each rig, and for the kite our assumption equal to the rotors'. The high bound is one estimate of ours for all three: 15 %, from two long outages a year of 20 days each in 250 sea days. The inputs of that sum are unsourced for every rig, and at 1-4 outages of 10-30 days it runs from 4 to 48 %, so the break-even shares below say more than the bound. The worst stated figure is Afros at 5 %.
 
