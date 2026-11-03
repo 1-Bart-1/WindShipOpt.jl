@@ -16,6 +16,17 @@ m = 1852 kg × (S/54)^(κ/2), κ = 3, band 2.7-3.3, with the aspect ratio held.
 - Eijkelhof et al. (2020) design a 150 m² wing of 6885 kg, against 8.6 t from this law at κ = 3 and 6.8 t at κ = 2.5; from the MX2 anchor it gives κ ≈ 2.57.
 - The M600 came out 40-70 % over its targets (Part I), so the risk is upward; the high bound of the reference mass covers 40 %.
 
+## Makani's released code
+
+Config and databases of google/makani at commit 1d66923 (Apache-2.0). The flight logs are in a Google Cloud listing that needs a signed-in account, and could not be fetched, so nothing here is checked against raw flight data. A pulling kite differs from Makani's generating kite as follows.
+
+- Rotors: generating costs CD 0.09-0.18 on MX2's area, windmilling 0.019-0.022 at 40-50 m/s and 0.042 at 60 m/s from the rotor table (simulated). A rotor held slow costs 0.10-0.13, so idle has to mean windmilling. The pattern search charges the idle value alone.
+- Airspeed: without generating drag a kite at the same lift coefficient flies faster, by (1+k) CD_sys / (CD_sys + CD_idle), 1.33-1.50 times at k = 0.5, so the tether limit arrives earlier. The balance of forces gives this by itself, and the airspeeds of the release are not used.
+- Polar: the CL 1.81 and CD 0.123 of Part I are the zero-incidence row of the wing database, with no rotors or bridle in it, so nothing is subtracted. M600's parasitic offset from a flight glide is 0.075 against MX2's assumed 0.005, the largest open risk, carried in the high bound of the profile drag.
+- Mass: M600's motor-generators and controllers are 411 kg of 1561 kg, but a rotor out in hover needs 107 kW and 637 N m per rotor against 112 kW and 675 N m generating, so the peak rating of a hover-only drive does not fall, and no mass saving can be claimed. Its continuous duty does fall; no figure follows from the release.
+- Hover: electrical to shaft efficiency 0.88.
+- Wind: M600's takeoff window was 5-11 m/s in its test plan.
+
 ## Launch
 
 Why VTOL on a ship: it is the only launch here that fits a deck and has flown from a floating base.

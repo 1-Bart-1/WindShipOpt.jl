@@ -575,8 +575,9 @@ end
     @test airframe.tether_mass ≈ 275 rtol=0.05
     @test airframe.mass ≈ 1852
     @test force ≈ 300e3 rtol=0.01
-    makani_air = with_value(assumptions, :rigid_hover_air_density, 0.95)
-    @test WindShipOpt.hover_power(2180.0, 54.0, makani_air) ≈ 900e3 rtol=0.05
+    makani_hover = with_value(with_value(assumptions, :rigid_hover_air_density, 0.95),
+        :rigid_hover_efficiency, 0.71)
+    @test WindShipOpt.hover_power(2180.0, 54.0, makani_hover) ≈ 900e3 rtol=0.05
     tether_drag = assumptions[:rigid_tether_drag_coefficient] * diameter *
                   model.tether_length / (4 * 54.0)
     @test tether_drag ≈ 0.152 - 0.123 rtol=0.05

@@ -547,9 +547,10 @@ rigid_max_lift:
 rigid_profile_drag:
   value: 0.03
   low: 0.02
-  high: 0.05
+  high: 0.054
   unit: "-"
-  reason: "Brings the kite to the CD 0.123 of the MX2 design at CL 1.81 (Echeverri et al. 2020, Part I, Table 1) with span efficiency 0.9."
+  reason: "Brings the kite to the CD 0.123 of the MX2 design at CL 1.81 (Echeverri et al. 2020, Part I, Table 1) with span efficiency 0.9. High bound: M600's parasitic offset of 0.075 from a flight glide, scaled by area to 0.046 on MX2, with the 0.022 of windmilling rotors a glide already holds taken out (Makani code release, config/m600/sim/aero_sim.py)."
+
 rigid_span_efficiency:
   value: 0.9
   low: 0.8
@@ -557,11 +558,12 @@ rigid_span_efficiency:
   unit: "-"
   reason: "Engineering assumption for a straight high-aspect-ratio wing."
 rigid_idle_rotor_drag:
-  value: 0.01
-  low: 0.0
-  high: 0.03
+  value: 0.022
+  low: 0.01
+  high: 0.042
   unit: "-"
-  reason: "Drag of the idle rotors on the wing area of a kite that only pulls. Engineering estimate: no public figure, Makani gives only that windmilling is a minimum-drag configuration (Echeverri et al. 2020, Part I, p.326)."
+  reason: "Drag of the windmilling rotors on the wing area of a kite that only pulls: from Makani's rotor table at zero aero power, eight rotors with disc area 0.615 of the wing area, at 40-50 m/s; the low bound is 4-6 degrees more blade pitch, the high bound 60 m/s (Makani code release, database/m600/rotor_rev4.json). A simulated table; a stopped rotor is not in it."
+
 rigid_min_turn_radius:
   value: 3.46
   low: 2.9
@@ -624,11 +626,12 @@ rigid_hover_air_density:
   reason: "Standard air at sea level, where a ship's kite hovers; the low bound is the design density of Makani's hover sizing (Echeverri et al. 2020, Part I, Eq. 89)."
 
 rigid_hover_efficiency:
-  value: 0.71
-  low: 0.6
-  high: 0.8
+  value: 0.62
+  low: 0.56
+  high: 0.71
   unit: "-"
-  reason: "Rotor and drive efficiency in hover (Echeverri et al. 2020, Part I, Eq. 89)."
+  reason: "Electric power to hover power: rotor figure 0.71 of Echeverri et al. (2020, Part I, Eq. 89) times the electrical to shaft efficiency 0.88 of the Makani code release (config/m600/control/rotor_control.py); the high bound is the rotor alone."
+
 rigid_hover_minutes:
   value: 6.0
   low: 3.0
