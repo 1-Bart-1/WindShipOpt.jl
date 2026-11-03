@@ -111,66 +111,55 @@ function input_effects()
 end
 
 """
-    share_costs(sensitivity, availability, ship, rig)
+    share_costs(table, ship, rig)
 
-The shares out of service [-] and costs per tonne-km of `rig` on `ship`, ascending in the
-share: the bounds and base of its input from the `sensitivity` table and the larger shares
-from the `availability` table.
+The shares out of service [-] and costs per tonne-km of `rig` on `ship` in the availability
+`table`, ascending in the share.
 """
-function share_costs(sensitivity, availability, ship, rig)
-    input = out_of_service_inputs[rig]
-    entry = assumptions.entries[Symbol(input)]
-    points = Dict(entry.low => only(screened_cost(sensitivity, ship, rig, input, "low")),
-        entry.value => only(screened_cost(sensitivity, ship, rig, "none", "value")),
-        entry.high => only(screened_cost(sensitivity, ship, rig, input, "high")))
-    picked = rows(availability, "ship" => ship, "rig" => rig)
-    for (share, cost) in zip(availability["share"][picked], availability["cost"][picked])
-        points[share] = cost
-    end
-    shares = sort(collect(keys(points)))
-    return shares, [points[share] for share in shares]
+function share_costs(table, ship, rig)
+    picked = rows(table, "ship" => ship, "rig" => rig)
+    order = sortperm(table["share"][picked])
+    return table["share"][picked][order], table["cost"][picked][order]
 end
 
-"""
-    share_at_cost(shares, costs, cost)
+"cost per tonne-km at `share` of the (shares, costs) `curve` of [`share_costs`](@ref)"
+curve_cost((shares, costs), share) = costs[findfirst(≈(share), shares)]
 
-Share [-] at which the rising `costs` over `shares` reach `cost`, linearly between the
-points; `NaN` if they never do, and the first share if they start above it.
-"""
-function share_at_cost(shares, costs, cost)
-    costs[1] >= cost && return shares[1]
-    k = findfirst(>=(cost), costs)
-    isnothing(k) && return NaN
-    return shares[k - 1] +
-           (shares[k] - shares[k - 1]) * (cost - costs[k - 1]) / (costs[k] - costs[k - 1])
-end
+"cost saving [%] against `bare` at `share` if all units on the `curve` fail together"
+whole_rig_saving((_, costs), share, bare) =
+    percent_saving(costs[1] + share * (costs[end] - costs[1]), bare)
 
 """
     availability_rows()
 
-For each screened ship and rig: cost saving [%] with its own input at the low bound, base
-and high bound, the share out of service at which it stops paying for itself and at which
-it falls behind the next rig at base, `NaN` for the last rig.
+For each screened ship and each rig, best first at base: cost saving [%] with its input at
+the low bound, base and high bound, the shares [-] at which it stops paying for itself and
+falls behind the next rig at base, `NaN` for the last rig, and the saving at base and high
+bound and share behind the next rig if its units all fail together.
 """
 function availability_rows()
-    sensitivity = read_table(data_file("sensitivity.csv"))
-    availability = read_table(data_file("availability.csv"))
+    table = read_table(data_file("availability.csv"))
     result = []
-    for ship in unique(sensitivity["ship"])
-        bare = only(screened_cost(sensitivity, ship, "none", "none", "value"))
-        base = Dict(rig => only(screened_cost(sensitivity, ship, rig, "none", "value"))
-                    for rig in rig_names)
+    for ship in unique(table["ship"])
+        bare = only(share_costs(table, ship, "none")[2])
+        curves = Dict(rig => share_costs(table, ship, rig) for rig in rig_names)
+        entries = Dict(rig => assumptions.entries[Symbol(out_of_service_inputs[rig])]
+                       for rig in rig_names)
+        base = Dict(rig => curve_cost(curves[rig], entries[rig].value) for rig in rig_names)
         ranked = sort(collect(rig_names); by=rig -> base[rig])
         for (rank, rig) in enumerate(ranked)
-            input = out_of_service_inputs[rig]
-            shares, costs = share_costs(sensitivity, availability, ship, rig)
-            behind_next = rank < length(ranked) ?
-                          share_at_cost(shares, costs, base[ranked[rank + 1]]) : NaN
+            curve, entry = curves[rig], entries[rig]
+            next_cost = rank < length(ranked) ? base[ranked[rank + 1]] : Inf
             push!(result, (; ship, rig,
-                low=screened_saving(sensitivity, ship, rig, input, "low"),
+                low=percent_saving(curve_cost(curve, entry.low), bare),
                 base=percent_saving(base[rig], bare),
-                high=screened_saving(sensitivity, ship, rig, input, "high"),
-                stops_paying=share_at_cost(shares, costs, bare), behind_next))
+                high=percent_saving(curve_cost(curve, entry.high), bare),
+                stops_paying=WindShipOpt.share_at_cost(curve..., bare),
+                behind_next=WindShipOpt.share_at_cost(curve..., next_cost),
+                whole_base=whole_rig_saving(curve, entry.value, bare),
+                whole_high=whole_rig_saving(curve, entry.high, bare),
+                whole_behind=WindShipOpt.share_at_cost([0.0, 1.0],
+                    [curve[2][1], curve[2][end]], next_cost)))
         end
     end
     return result
@@ -183,16 +172,19 @@ Write the [`availability_rows`](@ref) to paper/sections/availability_table.tex.
 """
 function availability_table()
     open(joinpath(sections, "availability_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}llrrrrr@{}}\n\\toprule")
+        println(io, "\\begin{tabular}{@{}llrrrrrrrr@{}}\n\\toprule")
         println(io, " & & \\multicolumn{3}{c}{Saving [\\%], out of service at} & ",
-            "\\multicolumn{2}{c}{Out of service [\\%] where} \\\\")
-        println(io, "\\cmidrule(lr){3-5}\\cmidrule(lr){6-7}")
-        println(io, "Ship & Rig & low & base & high & pays no more & behind next \\\\")
+            "\\multicolumn{2}{c}{Out of service [\\%] where} & ",
+            "\\multicolumn{3}{c}{All units fail together} \\\\")
+        println(io, "\\cmidrule(lr){3-5}\\cmidrule(lr){6-7}\\cmidrule(lr){8-10}")
+        println(io, "Ship & Rig & low & base & high & pays no more & behind next & ",
+            "base & high & behind next \\\\")
         println(io, "\\midrule")
         for row in availability_rows()
-            @printf(io, "%s & %s & %.1f & %.1f & %.1f & %s & %s \\\\\n", row.ship, row.rig,
-                row.low, row.base, row.high, share_cell(row.stops_paying),
-                share_cell(row.behind_next))
+            @printf(io, "%s & %s & %.1f & %.1f & %.1f & %s & %s & %.1f & %.1f & %s \\\\\n",
+                row.ship, row.rig, row.low, row.base, row.high,
+                share_cell(row.stops_paying), share_cell(row.behind_next), row.whole_base,
+                row.whole_high, share_cell(row.whole_behind))
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end

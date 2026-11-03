@@ -498,8 +498,10 @@ service_states(::Nothing, assumptions) = [(1.0, nothing)]
 function service_states(rig::CombinedRig, assumptions)
     kite = out_of_service_share(rig.kite, assumptions)
     any_down, working_share = unit_outage(rig.standing, assumptions)
-    return with_share([(1 - kite - any_down, rig), (kite, rig.standing),
-        (any_down, CombinedRig(rig.kite, DownRig(rig.standing, working_share)))])
+    down = DownRig(rig.standing, working_share)
+    return with_share([((1 - kite) * (1 - any_down), rig),
+        (kite * (1 - any_down), rig.standing),
+        ((1 - kite) * any_down, CombinedRig(rig.kite, down)), (kite * any_down, down)])
 end
 
 with_share(states) = filter(state -> first(state) > 0, states)
@@ -559,8 +561,8 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
     (; energy, out_hours, back_hours, flight_hours, parked_hours, launches, rig_cost) =
         map((values...) -> sum(shares .* values), getproperty.(passages, :means)...)
     reserve = assumptions[:fuel_reserve_factor]
-    largest_leg = maximum(passage.largest_leg / (k == 1 ? 1 : reserve)
-                          for (k, passage) in enumerate(passages))
+    largest_leg = maximum(passage.largest_leg / (rig === ship.rig ? 1 : reserve)
+                          for ((_, rig), passage) in zip(states, passages))
     store = fuel_store(ship, largest_leg, assumptions)
     cargo = cargo_mass(costs.hold, store.mass, store.volume)
     cargo > 0 || return nothing

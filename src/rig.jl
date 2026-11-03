@@ -42,6 +42,10 @@ const NO_RIG_FORCE = RigForce(0.0, 0.0, 0.0, 0.0)
 Base.:+(a::RigForce, b::RigForce) = RigForce(a.thrust + b.thrust, a.side + b.side,
     a.heeling_moment + b.heeling_moment, a.yaw_moment + b.yaw_moment, a.power + b.power)
 
+"rig force scaled by a share [-], field by field"
+Base.:*(share::Real, force::RigForce) = RigForce(share * force.thrust, share * force.side,
+    share * force.heeling_moment, share * force.yaw_moment, share * force.power)
+
 """
     array_factor(count, spacing, amplitude, decay)
 
@@ -506,7 +510,8 @@ standing_rig(::Union{KiteRig, Nothing}) = nothing
     DownRig
 
 Wings or rotors with only the share `working_share` of their units in service, the rest
-still on deck: wings feathered at no lift, rotors stopped.
+still on deck: wings feathered at no lift, rotors stopped. The array keeps the interference
+of all its units.
 """
 struct DownRig{R}
     rig::R
@@ -524,12 +529,7 @@ function rig_force(down::DownRig, env::Environment, wind_10m, true_angle, ship_s
     working = rig_force(down.rig, env, wind_10m, true_angle, ship_speed, setting)
     stopped = rig_force(down.rig, env, wind_10m, true_angle, ship_speed,
         stopped_setting(down.rig))
-    share = down.working_share
-    return RigForce(share * working.thrust + (1 - share) * stopped.thrust,
-        share * working.side + (1 - share) * stopped.side,
-        share * working.heeling_moment + (1 - share) * stopped.heeling_moment,
-        share * working.yaw_moment + (1 - share) * stopped.yaw_moment,
-        share * working.power + (1 - share) * stopped.power)
+    return down.working_share * working + (1 - down.working_share) * stopped
 end
 
 standing_rig(down::DownRig) = down

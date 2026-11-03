@@ -346,12 +346,12 @@ end
 corridor, table, hourly = wing_coaster_routing()
 
 """
-    trip_with_share(design, name, share, corridors)
+    trip_with_share(design, name, share, corridors, base=assumptions)
 
-Round trip of `design` in synthetic weather with the input `name` at `share`.
+Round trip of `design` in synthetic weather with the input `name` of `base` at `share`.
 """
-function trip_with_share(design, name, share, corridors)
-    changed = with_value(assumptions, name, share)
+function trip_with_share(design, name, share, corridors, base=assumptions)
+    changed = with_value(base, name, share)
     return round_trip(Ship(design, changed), corridors..., SyntheticWeather(),
         [24.0 * 31, 24.0 * 200], changed)
 end
@@ -408,6 +408,40 @@ end
         with_value(assumptions, :kite_out_of_service, 0.1)))
     @test isnothing(last(kite_down))
     @test first(kite_down) ≈ 0.1
+end
+
+@testset "a kite and the rotors beside it fail independently of each other" begin
+    hull = Hull(140.0, assumptions)
+    rotors = WindShipOpt.RotorRig(800.0, hull, assumptions)
+    rig = WindShipOpt.CombinedRig(uniform_kite(hull, assumptions), rotors)
+    changed = with_value(with_value(assumptions, :kite_out_of_service, 0.5),
+        :rotor_out_of_service, 0.03)
+    states = WindShipOpt.service_states(rig, changed)
+    both_up = 0.97^rotors.count
+    @test length(states) == 4
+    @test sum(first, states) ≈ 1
+    @test first(states[1]) ≈ 0.5both_up
+    @test first(states[2]) ≈ 0.5both_up
+    @test first(states[4]) ≈ 0.5 * (1 - both_up)
+    @test states[2][2] === rotors
+    @test states[4][2] isa WindShipOpt.DownRig
+end
+
+@testset "the store holds the working leg with its reserve, a leg rig-down without" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    design = ShipDesign(:methanol, 85.0; rotor_area=200.0)
+    cargo(share, reserve) = trip_with_share(design, :rotor_out_of_service, share, corridors,
+        with_value(assumptions, :fuel_reserve_factor, reserve)).cargo
+    @test cargo(0.0, 2.0) < cargo(0.0, 1.1)
+    @test cargo(1.0, 2.0) ≈ cargo(1.0, 1.1)
+end
+
+@testset "a rig's break-even share lies where its cost curve reaches the level" begin
+    shares, costs = [0.0, 0.5, 1.0], [1.0, 2.0, 4.0]
+    @test WindShipOpt.share_at_cost(shares, costs, 1.5) ≈ 0.25
+    @test WindShipOpt.share_at_cost(shares, costs, 3.0) ≈ 0.75
+    @test WindShipOpt.share_at_cost(shares, costs, 0.5) == 0.0
+    @test isnan(WindShipOpt.share_at_cost(shares, costs, 5.0))
 end
 
 @testset "bounded route equals the unpruned dynamic programme" begin
