@@ -158,6 +158,23 @@ Three changes to the model move the savings on the \SI{140}{m} e-methanol ship t
 \InputIfFileExists{sections/availability_table}{}{\tbd{Availability table pending: run the availability\_table step.}}
 \end{table}
 
+\subsection{Crashes a rig can take}
+\label{sec:res_crashes}
+
+No crash is charged in the base case, and no source gives a crash rate for any rig. \Cref{tab:crashes} therefore asks how many crashes a year each rig can take, which needs no rate: the number at which it stops paying for itself and the number at which it falls behind the next rig. A kite that crashes costs its control unit and half of its canopy and tether, as wear already charges the other half: USD \num{301000} at \SI{1600}{m^2}, \num{615000} at \SI{3200}{m^2} and \num{1310000} at \SI{6400}{m^2}. A lost wing or rotor costs one new unit with its installation, USD \num{700000} to \num{1125000}.
+
+The limits are small, which is the case for a goal of none. A \SI{3200}{m^2} kite stops paying at 2.8 crashes a year on the \SI{140}{m} ship, one per \num{1000} flight hours, and at 0.69 on the Kamsarmax, one per \num{3300} flight hours. Both are shorter than the canopy life goal of \num{4000} flight hours, and the fleet's whole record is about \num{1800} flight hours \citep{skysails2018}. It falls behind the wings at 1.1 and 0.64 crashes a year. A point of saving is worth about eight times as much on the Neo-Panamax: its \SI{6400}{m^2} kite pays up to 9.7 crashes a year, yet falls behind the rotors at 0.64. On all three ships a smaller kite can take more crashes before it stops paying, because one crash costs less: on the \SI{140}{m} ship the \SI{1600}{m^2} kite takes 5.4 a year at a slightly higher saving than the \SI{3200}{m^2} kite. Deck rigs have no more room: rotors stop paying at 1.1 to 1.6 lost units a year on the \SI{140}{m} ship and 0.51 to 0.62 on the Kamsarmax, wings at 0.66 to 0.83 and at under 0.04. The table gives what each rig can take and does not say which rig crashes more often.
+
+These limits are upper bounds. They charge money only: the time out after a crash is the share out of service of \cref{tab:availability}, charged separately, and recovery and repair are left out for every rig. A limit scales inversely with the cost of one event, so damage costing a tenth of a lost unit is allowed ten times as often. ``Behind next'' holds the next rig free of events. The saving carries an error of 0.4 to 1.0 points with 12 departures (\cref{sec:routing}) and more with the six of this study. For a \SI{3200}{m^2} kite that is at least 0.07 to 0.16 crashes a year on the \SI{140}{m} ship and the Kamsarmax, and for a \SI{6400}{m^2} kite 0.25 to 0.6 on the Neo-Panamax. A smaller limit means none, as for the rotors' lead on the \SI{140}{m} ship. \tbd{Sizes are half, once and twice those fixed by hand, and the best kite sits at the edge of that range on the \SI{140}{m} ship and the Neo-Panamax; recheck on the class study. These savings include the canopy life goal of \num{4000} flight hours and the lower launch damage, while \cref{tab:availability} and its text predate them: there the kite lags the rotors on the Neo-Panamax, here at \SI{6400}{m^2} it leads them, 15.5 to 13.9\,\%. Rerun that table with the goals table.}
+
+\begin{table}[tbp]
+\centering
+\caption{For each ship, rig and size at the base inputs: cost saving, the cost of one crash, the crashes a year at which the size pays no more and at which it falls behind the best size of the next rig, zero if it already is, and a kite's flight hours a year. Money only, with no time out, recovery or repair; the next rig has no events.}
+\label{tab:crashes}
+\small
+\InputIfFileExists{sections/crash_table}{}{\tbd{Crash table pending: run the crash\_table step.}}
+\end{table}
+
 \subsection{Kite and rotors together}
 \label{sec:res_combination}
 
