@@ -978,7 +978,8 @@ cloth_weights = (40.0, 60.0, 100.0, 140.0, 200.0, 250.0, 300.0)
 "canopy life inputs the cloth study takes to their bounds, one at a time"
 cloth_inputs = (:canopy_wear_rate, :canopy_wear_lifetime, :canopy_uv_weight_exponent,
     :canopy_wear_weight_exponent, :canopy_retirement_strength, :cloth_uv_dose_per_weight,
-    :canopy_uv_dose_rate, :cloth_specific_strength, :canopy_strength_factor)
+    :canopy_uv_dose_rate, :cloth_specific_strength, :canopy_strength_factor,
+    :canopy_billow_ratio)
 
 "drive, route and kite area [m^2] of each case of the cloth study on the 140 m ship"
 cloth_kites = ((:methanol, :caribbean, 1600.0), (:methanol, :caribbean, 3200.0),
@@ -988,9 +989,9 @@ cloth_kites = ((:methanol, :caribbean, 1600.0), (:methanol, :caribbean, 3200.0),
 """
     cloth_data()
 
-Each kite of `cloth_kites` at every weight of `cloth_weights`, at the base inputs and at
-the bounds of each of `cloth_inputs` that differ from the base, with the same ships
-without a rig: cloth.csv.
+Each kite of `cloth_kites` at every weight of `cloth_weights` strong enough for its force
+limit, at the base inputs and at the bounds of each of `cloth_inputs` that differ from the
+base, with the same ships without a rig: cloth.csv.
 """
 function cloth_data()
     variants = [(:none, :value); [(name, bound) for name in cloth_inputs
@@ -1006,6 +1007,8 @@ function cloth_data()
         for (name, bound) in variants
             case_assumptions = with_value(bound_assumptions(name, bound),
                 :canopy_cloth_weight, weight)
+            WindShipOpt.strength_margin(weight, sqrt(area / 3), case_assumptions) > 1 ||
+                continue
             push!(cases, trip_case(ShipDesign(drive, 140.0; kite_area=area);
                 assumptions=case_assumptions, route, drive, area, weight, input=name,
                 bound))
