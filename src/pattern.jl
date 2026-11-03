@@ -354,8 +354,8 @@ end
 Average over one loop of `pattern` in a uniform apparent wind of `wind_speed` [m/s], time
 weighted, with the speed of the wing paying for the weight along its path and depowering
 by [`limited_point`](@ref) wherever the tension would exceed `max_tension` [N];
-`NO_PATTERN` where a point has no balance or the wing stalls at the top. Positions are
-pushed to `path` when given.
+`NO_PATTERN` where a point has no balance or the wing stalls at the top. Each
+[`PatternStep`](@ref) of the loop is pushed to `path` when given.
 """
 function PatternForce(model::KiteModel, pattern::LoopPattern, wind_speed, max_tension;
         path=nothing)
@@ -389,7 +389,7 @@ function PatternForce(model::KiteModel, pattern::LoopPattern, wind_speed, max_te
         air_distance += airspeed * time
         peak = max(peak, tension)
         lowest, highest = min(lowest, radial[3]), max(highest, radial[3])
-        isnothing(path) || push!(path, radial)
+        isnothing(path) || push!(path, (; radial, tension, time))
     end
     holds_speed(model, air_distance / duration, model.tether_length * (highest - lowest)) ||
         return NO_PATTERN

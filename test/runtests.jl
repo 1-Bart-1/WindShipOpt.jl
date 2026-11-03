@@ -88,17 +88,23 @@ function best_pattern_path(model, max_force, assumptions, course)
 end
 
 @testset "steps of a flown cycle give the pattern's force and peak" begin
-    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
-    pattern = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15))
-    path = WindShipOpt.PatternStep[]
-    force = WindShipOpt.PatternForce(model, pattern, 12.0, max_force; path)
-    load = 0.5model.air_density * 12.0^2 * model.area
-    period = sum(step.time for step in path)
-    pull_along(axis) = sum(step.tension * step.time * step.radial[axis] for step in path)
-    pull = ntuple(pull_along, 3)
-    @test all(pull ./ (period * load) .≈ force.force)
-    @test maximum(step.tension for step in path) ≈ force.peak_tension * load
-    @test maximum(step.tension for step in path) <= max_force
+    soft, soft_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    rigid, rigid_force, = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
+    steered = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15))
+    loop = WindShipOpt.LoopPattern(π / 2, 0.8, 0.3, deg2rad(8))
+    for (model, max_force, pattern, wind) in
+        ((soft, soft_force, steered, 12.0), (rigid, rigid_force, loop, 30.0))
+        path = WindShipOpt.PatternStep[]
+        force = WindShipOpt.PatternForce(model, pattern, wind, max_force; path)
+        load = 0.5model.air_density * wind^2 * model.area
+        period = sum(step.time for step in path)
+        pull_along(axis) = sum(step.tension * step.time * step.radial[axis]
+        for step in path)
+        pull = ntuple(pull_along, 3)
+        @test all(pull ./ (period * load) .≈ force.force)
+        @test maximum(step.tension for step in path) ≈ force.peak_tension * load
+        @test maximum(step.tension for step in path) <= max_force
+    end
 end
 
 "least angle [rad] of a pattern's `path` off the apparent downwind direction"
