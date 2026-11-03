@@ -291,6 +291,18 @@ end
     @test force.force == steered.force
 end
 
+@testset "a kite flies a pattern in light wind that pulls harder than parking there" begin
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    course = deg2rad(60.0)
+    winds = [6.0, 9.0]
+    flown = WindShipOpt.compute_pattern_table(model, max_force, assumptions, winds,
+        [course], [0.0])
+    parked = WindShipOpt.parked_table(model, max_force, assumptions, winds, [course], [0.0])
+    thrust(force) = force.force[1] * cos(course) + force.force[2] * sin(course)
+    @test isfinite(flown[1].peak_tension)
+    @test thrust(flown[1]) > thrust(parked[1])
+end
+
 @testset "the router burns the parked kite's drag and a parked kite can pull downwind" begin
     table, _ = kite_coaster()
     ship_table = table.table
@@ -307,6 +319,18 @@ end
     off, _ = kite_coaster(kite_parking=0.0)
     @test WindShipOpt.edge_fuels(off, 4, head)[3] == Inf
     @test WindShipOpt.edge_fuels(off, 4, head)[2] ≈ stowed
+end
+
+@testset "a lull is worth parking through only as long as its cost stays under a landing" begin
+    table, _ = kite_coaster()
+    ship_table = table.table
+    upwind = WindShipOpt.parking_lull(ship_table, 5.0, 12.0, 0.0, 10.0)
+    @test upwind.stays_up && upwind.parked_cost > 0
+    @test upwind.hours ≈ upwind.cycle / (upwind.parked_cost + ship_table.parked_wear_cost)
+    @test upwind.cycle >= ship_table.cycle_cost
+    @test WindShipOpt.parking_lull(ship_table, 5.0, 15.0, π, 10.0).hours == Inf
+    downwind_calm = WindShipOpt.parking_lull(ship_table, 5.0, 4.0, π, 10.0)
+    @test !downwind_calm.stays_up && downwind_calm.hours == 0
 end
 
 @testset "a parked kite beyond its tether limit keeps the nearest force it can hold" begin

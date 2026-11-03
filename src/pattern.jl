@@ -484,7 +484,7 @@ end
     pattern_table(model, max_force, assumptions, wind_speeds, courses, side_weights)
 
 Best pattern force for each apparent wind speed, course and side weight, warm-starting
-each speed from the previous one. A kite seen before reuses its table: from this
+each speed from the next stronger one. A kite seen before reuses its table: from this
 session, or from the disk cache in output/pattern_tables/, keyed by every field of the
 kite model and the source of this file, so that a change to either computes the tables
 afresh.
@@ -520,8 +520,8 @@ function compute_pattern_table(model::KiteModel, max_force, assumptions::Assumpt
     cases = vec(collect(Iterators.product(eachindex(courses), eachindex(side_weights))))
     Threads.@threads :greedy for (j, k) in cases
         starts = pattern_starts(courses[j])
-        for (i, wind_speed) in enumerate(wind_speeds)
-            problem = PatternProblem(model, max_force, min_elevation, wind_speed,
+        for i in reverse(eachindex(wind_speeds))
+            problem = PatternProblem(model, max_force, min_elevation, wind_speeds[i],
                 courses[j], side_weights[k])
             forces[i, j, k], best = optimal_pattern(problem, starts)
             starts = vcat([best], pattern_starts(courses[j]))

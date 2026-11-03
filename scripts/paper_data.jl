@@ -147,34 +147,22 @@ end
 """
     write_lulls(name, areas)
 
-Write `name`: for the 140 m e-methanol ship at 6 m/s with a kite of each of `areas`, over
-10 m wind and true wind angle, the fuel a parked and a flying kite add to a stowed one
-[USD/h], the parked wear [USD/h], the cost of one launch and landing [USD], with the flight
-saving lost while it lasts in a 10 m/s wind at that angle, and the lull [h] beyond which
-landing is cheaper than parking; `Inf` where parking saves money.
+Write `name`: [`parking_lull`](@ref) for the 140 m e-methanol ship at 5 m/s with a kite of
+each of `areas`, over 10 m wind and true wind angle, with the flight saving lost to a
+landing and launch taken in a 10 m/s wind at that angle.
 """
 function write_lulls(name, areas)
-    speed = 6.0
     open(run_file(name), "w") do io
-        println(io, "area,wind,angle,parked_fuel,flown_fuel,parked_wear,cycle,lull")
+        println(io,
+            "area,wind,angle,stays_up,parked_cost,flown_cost,parked_wear,cycle,lull")
         for area in areas
-            ship = Ship(ShipDesign(:methanol, 140.0; rig_size("kite", area)...), assumptions)
-            table = PerformanceTable(ship, assumptions)
-            price = ship.fuel.price * 3600
-            weight = WindShipOpt.KnotWeight(table.speeds, speed)
+            design = ShipDesign(:methanol, 140.0; rig_size("kite", area)...)
+            table = PerformanceTable(Ship(design, assumptions), assumptions)
             for wind in 4.0:2.0:12.0, angle in 0.0:45.0:180.0
-                condition = WindShipOpt.SeaCondition(table, wind, deg2rad(angle), 0.0, 8.0, 0.0)
-                flown, stowed, parked = WindShipOpt.edge_fuels(table, speed, weight,
-                    condition)
-                hourly = (parked - stowed) * price + table.parked_wear_cost
-                after = WindShipOpt.SeaCondition(table, 10.0, deg2rad(angle), 0.0, 8.0, 0.0)
-                after_flown, after_stowed = WindShipOpt.edge_fuels(table, speed, weight,
-                    after)
-                cycle = table.cycle_cost + table.handling_hours *
-                                           max(after_stowed - after_flown, 0.0) * price
-                @printf(io, "%.0f,%.0f,%.0f,%.1f,%.1f,%.1f,%.1f,%.1f\n", area, wind, angle,
-                    (parked - stowed) * price, (flown - stowed) * price,
-                    table.parked_wear_cost, cycle, hourly > 0 ? cycle / hourly : Inf)
+                lull = WindShipOpt.parking_lull(table, 5.0, wind, deg2rad(angle), 10.0)
+                @printf(io, "%.0f,%.0f,%.0f,%d,%.1f,%.1f,%.1f,%.1f,%.1f\n", area, wind,
+                    angle, lull.stays_up, lull.parked_cost, lull.flown_cost,
+                    table.parked_wear_cost, lull.cycle, lull.hours)
             end
         end
     end

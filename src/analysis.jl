@@ -1,4 +1,31 @@
 """
+    parking_lull(table, speed, wind, angle, recovery_wind)
+
+What parking through a lull costs against landing, for a kite at ship `speed` [m/s] in a
+10 m `wind` [m/s] at true wind `angle` [rad] and calm sea, once the wind is back at
+`recovery_wind`: `stays_up`, whether it can park there; `parked_cost` and `flown_cost`, the
+fuel cost of parked and flying over stowed [USD/h]; `cycle`, a landing and launch with the
+flight saving lost while they last [USD]; `hours`, the lull beyond which landing is cheaper,
+zero where it cannot park and `Inf` where parking pays by itself.
+"""
+function parking_lull(table::PerformanceTable, speed, wind, angle, recovery_wind)
+    weight = KnotWeight(table.speeds, speed)
+    fuels(wind_10m) = edge_fuels(table, speed, weight,
+        SeaCondition(table, wind_10m, angle, 0.0, 8.0, 0.0))
+    price = table.ship.fuel.price * 3600
+    flown, stowed, parked = fuels(wind)
+    crosswind, headwind = kite_wind(table, wind) .* sincos(angle)
+    stays_up = isfinite(parked) && kite_aloft(table, speed, headwind, crosswind, 0.0)
+    recovered_flown, recovered_stowed = fuels(recovery_wind)
+    cycle = table.cycle_cost +
+            table.handling_hours * max(recovered_stowed - recovered_flown, 0.0) * price
+    hourly = (parked - stowed) * price + table.parked_wear_cost
+    hours = !stays_up ? 0.0 : hourly > 0 ? cycle / hourly : Inf
+    return (; stays_up, parked_cost=(parked - stowed) * price,
+        flown_cost=(flown - stowed) * price, cycle, hours)
+end
+
+"""
     LegTrace
 
 What happens on each stage of a routed leg: time [h], speed held [m/s], true wind angle

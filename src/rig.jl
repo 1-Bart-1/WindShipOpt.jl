@@ -387,7 +387,7 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
     scale = hull.length / assumptions[:reference_length]
     model, max_force, tether_diameter = kite_model(area, aspect_ratio, assumptions)
     tether_length = model.tether_length
-    wind_speeds = collect(3.0:3.0:30.0)
+    wind_speeds = [3.0:1.0:9.0; 10.5; 12.0:3.0:30.0]
     courses = deg2rad.(0.0:15.0:180.0)
     side_weights = [0.0, 0.5, 1.0, 3.0]
     stay_wind = min_flight_wind(model, assumptions)
