@@ -111,49 +111,52 @@ end
 
 The 140 m e-methanol ship on every route without a rig, with the reference wings and
 rotors, and with kites of 800, 1,600 and 3,200 m^2 at the low, base and high launch cost
-with parking on and off, at base launch cost with launches by day only, and at base launch
-cost with no rig ever out of service: launch_parking.csv. Then what parking through a lull
+with parking on and off, with parking on at the low and high parked wear, with launches by
+day only, and at base launch cost with no rig ever out of service: launch_parking.csv. Then what parking through a lull
 costs against landing, per kite, wind and angle: lull.csv.
 """
 function launch_parking_data()
+    parked = with_value(assumptions, :kite_parking, 1.0)
     always_in_service = reduce((changed, input) -> with_value(changed, input, 0.0),
-        Symbol.(values(out_of_service_inputs)); init=assumptions)
+        Symbol.(values(out_of_service_inputs)); init=parked)
     cases = []
+    labels = (; launch_cost="value", parking=true, parked_wear="value", night=true,
+        service=true)
     for route in route_names
         for (rig, area) in (("none", 0.0), ("wings", 1500.0), ("rotors", 800.0))
             design = ShipDesign(:methanol, 140.0; rig_size(rig, area)...)
-            push!(cases, trip_case(design; route, rig, area, launch_cost="value",
-                parking=true, night=true, service=true))
+            push!(cases, trip_case(design; labels..., route, rig, area))
             rig == "none" && continue
-            push!(cases, trip_case(design; assumptions=always_in_service, route, rig, area,
-                launch_cost="value", parking=true, night=true, service=false))
-        end
-        for area in (800.0, 1600.0, 3200.0), launch_cost in (:low, :value, :high),
-            parking in (true, false)
-
-            design = ShipDesign(:methanol, 140.0; rig_size("kite", area)...)
-            push!(cases, trip_case(design;
-                assumptions=launch_cost_assumptions(launch_cost; parking), route,
-                rig="kite", area, launch_cost=string(launch_cost), parking, night=true,
-                service=true))
+            push!(cases, trip_case(design; labels..., assumptions=always_in_service, route,
+                rig, area, service=false))
         end
         for area in (800.0, 1600.0, 3200.0)
             design = ShipDesign(:methanol, 140.0; rig_size("kite", area)...)
-            push!(cases, trip_case(design;
-                assumptions=with_value(assumptions, :kite_night_launch, 0.0), route,
-                rig="kite", area, launch_cost="value", parking=true, night=false,
-                service=true))
+            kite = (; labels..., route, rig="kite", area)
+            for launch_cost in (:low, :value, :high), parking in (true, false)
+                push!(cases, trip_case(design; kite...,
+                    assumptions=launch_cost_assumptions(launch_cost; parking),
+                    launch_cost=string(launch_cost), parking))
+            end
+            for parked_wear in (:low, :high)
+                push!(cases, trip_case(design; kite...,
+                    assumptions=with_value(parked, :kite_parked_wear_fraction,
+                        getfield(assumptions.entries[:kite_parked_wear_fraction],
+                            parked_wear)),
+                    parked_wear=string(parked_wear)))
+            end
+            push!(cases, trip_case(design; kite...,
+                assumptions=with_value(parked, :kite_night_launch, 0.0), night=false))
             for parking in (true, false)
-                push!(cases, trip_case(design;
+                push!(cases, trip_case(design; kite...,
                     assumptions=with_value(always_in_service, :kite_parking,
-                        Float64(parking)), route, rig="kite", area, launch_cost="value",
-                    parking, night=true, service=false))
+                        Float64(parking)), parking, service=false))
             end
         end
     end
     write_trips("launch_parking.csv", cases,
         round_trips(cases, sampled_departures()), :route, :rig, :area, :launch_cost,
-        :parking, :night, :service)
+        :parking, :parked_wear, :night, :service)
     write_lulls("lull.csv", (800.0, 1600.0, 3200.0))
 end
 
@@ -165,12 +168,13 @@ each of `areas`, over 10 m wind and true wind angle, with the flight saving lost
 landing and launch taken in a 10 m/s wind at that angle.
 """
 function write_lulls(name, areas)
+    parked = with_value(assumptions, :kite_parking, 1.0)
     open(run_file(name), "w") do io
         println(io,
             "area,wind,angle,stays_up,parked_cost,flown_cost,parked_wear,cycle,lull")
         for area in areas
             design = ShipDesign(:methanol, 140.0; rig_size("kite", area)...)
-            table = PerformanceTable(Ship(design, assumptions), assumptions)
+            table = PerformanceTable(Ship(design, parked), parked)
             for wind in 4.0:2.0:12.0, angle in 0.0:45.0:180.0
                 lull = WindShipOpt.parking_lull(table, 5.0, wind, deg2rad(angle), 10.0)
                 @printf(io, "%.0f,%.0f,%.0f,%d,%.1f,%.1f,%.1f,%.1f,%.1f\n", area, wind,
