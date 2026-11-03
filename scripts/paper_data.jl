@@ -585,10 +585,11 @@ function pattern_cycles(area, hours, rig, min_elevation)
         side_weight = rig.side_weights[k]
         force, path, parked = best_pattern_cycle(model, max_force, min_elevation, wind,
             course, side_weight)
-        load = 0.5model.air_density * wind^2
-        held = parked ? (mean=force.peak_tension * load, peak=force.peak_tension * load,
-                low=force.peak_tension * load, period=NaN) :
-               map(/, WindShipOpt.cycle_tension(path), (area, area, area, 1.0))
+        steady = force.peak_tension * 0.5model.air_density * wind^2
+        cycle = parked ? nothing : WindShipOpt.cycle_tension(path)
+        held = parked ? (mean=steady, peak=steady, low=steady, period=NaN) :
+               (mean=cycle.mean / area, peak=cycle.peak / area, low=cycle.low / area,
+            period=cycle.period)
         cycles[n] = (; wind, course, side_weight, hours=hours[points[n]], parked, held...)
     end
     return identity.(cycles)
