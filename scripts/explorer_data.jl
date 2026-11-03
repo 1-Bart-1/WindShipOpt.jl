@@ -37,7 +37,7 @@ Price changes at which the checked designs are rerun, as (label, values by input
 """
 function explorer_changes()
     rate = assumptions.entries[:discount_rate]
-    return [("canopy life ×2", (canopy_life_factor=2assumptions[:canopy_life_factor],)),
+    return [("canopy life ×2", (canopy_life=2assumptions[:canopy_life],)),
         ("fuel −30 %", fuel_prices(0.7)), ("fuel +30 %", fuel_prices(1.3)),
         ("discount rate low", (discount_rate=rate.low,)),
         ("discount rate high", (discount_rate=rate.high,)),
@@ -97,7 +97,7 @@ function explorer_input_entries()
     canopy = WindShipOpt.Canopy(assumptions)
     for (name, value, unit) in ((:canopy_cost_per_area, canopy.cost_per_area, "USD/m^2"),
         (:canopy_lifetime, canopy.lifetime, "flight hours"))
-        entries[name] = Assumption(value, value, value, unit, "derived from the cloth")
+        entries[name] = Assumption(value, value, value, unit, "derived from the cloth and the goal")
     end
     return entries
 end
