@@ -1,6 +1,7 @@
 # Table steps of the paper, written as LaTeX to paper/sections/: the inputs of
 # data/assumptions.yaml that matter ranked by effect, the ship classes from
-# data/ship_classes.csv, and the fuel saving and payback of each rig. Included by paper.jl.
+# data/ship_classes.csv, the fuel saving and payback of each rig, and its availability
+# limits. Included by paper.jl.
 
 """
     latex_escape(text)
@@ -108,6 +109,88 @@ function input_effects()
     end
     return effects
 end
+
+"""
+    share_costs(table, ship, rig)
+
+The shares out of service [-] and costs per tonne-km of `rig` on `ship` in the availability
+`table`, ascending in the share.
+"""
+function share_costs(table, ship, rig)
+    picked = rows(table, "ship" => ship, "rig" => rig)
+    order = sortperm(table["share"][picked])
+    return table["share"][picked][order], table["cost"][picked][order]
+end
+
+"cost per tonne-km at `share` of the (shares, costs) `curve` of [`share_costs`](@ref)"
+curve_cost((shares, costs), share) = costs[findfirst(≈(share), shares)]
+
+"cost saving [%] against `bare` at `share` if all units on the `curve` fail together"
+whole_rig_saving((_, costs), share, bare) =
+    percent_saving(costs[1] + share * (costs[end] - costs[1]), bare)
+
+"""
+    availability_rows()
+
+For each screened ship and each rig, best first at base: cost saving [%] with its input at
+the low bound, base and high bound, the shares [-] at which it stops paying for itself and
+falls behind the next rig at base, `NaN` for the last rig, and the saving at base and high
+bound and share behind the next rig if its units all fail together.
+"""
+function availability_rows()
+    table = read_table(data_file("availability.csv"))
+    result = []
+    for ship in unique(table["ship"])
+        bare = only(share_costs(table, ship, "none")[2])
+        curves = Dict(rig => share_costs(table, ship, rig) for rig in rig_names)
+        entries = Dict(rig => assumptions.entries[Symbol(out_of_service_inputs[rig])]
+                       for rig in rig_names)
+        base = Dict(rig => curve_cost(curves[rig], entries[rig].value) for rig in rig_names)
+        ranked = sort(collect(rig_names); by=rig -> base[rig])
+        for (rank, rig) in enumerate(ranked)
+            curve, entry = curves[rig], entries[rig]
+            next_cost = rank < length(ranked) ? base[ranked[rank + 1]] : Inf
+            push!(result, (; ship, rig,
+                low=percent_saving(curve_cost(curve, entry.low), bare),
+                base=percent_saving(base[rig], bare),
+                high=percent_saving(curve_cost(curve, entry.high), bare),
+                stops_paying=WindShipOpt.share_at_cost(curve..., bare),
+                behind_next=WindShipOpt.share_at_cost(curve..., next_cost),
+                whole_base=whole_rig_saving(curve, entry.value, bare),
+                whole_high=whole_rig_saving(curve, entry.high, bare),
+                whole_behind=WindShipOpt.share_at_cost([0.0, 1.0],
+                    [curve[2][1], curve[2][end]], next_cost)))
+        end
+    end
+    return result
+end
+
+"""
+    availability_table()
+
+Write the [`availability_rows`](@ref) to paper/sections/availability_table.tex.
+"""
+function availability_table()
+    open(joinpath(sections, "availability_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}llrrrrrrrr@{}}\n\\toprule")
+        println(io, " & & \\multicolumn{3}{c}{Saving [\\%], out of service at} & ",
+            "\\multicolumn{2}{c}{Out of service [\\%] where} & ",
+            "\\multicolumn{3}{c}{All units fail together} \\\\")
+        println(io, "\\cmidrule(lr){3-5}\\cmidrule(lr){6-7}\\cmidrule(lr){8-10}")
+        println(io, "Ship & Rig & low & base & high & pays no more & behind next & ",
+            "base & high & behind next \\\\")
+        println(io, "\\midrule")
+        for row in availability_rows()
+            @printf(io, "%s & %s & %.1f & %.1f & %.1f & %s & %s & %.1f & %.1f & %s \\\\\n",
+                row.ship, row.rig, row.low, row.base, row.high,
+                share_cell(row.stops_paying), share_cell(row.behind_next), row.whole_base,
+                row.whole_high, share_cell(row.whole_behind))
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+share_cell(share) = isnan(share) ? "--" : @sprintf("%.0f", 100share)
 
 """
     saving_change(table, ship, input)
