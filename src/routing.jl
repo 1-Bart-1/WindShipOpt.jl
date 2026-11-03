@@ -439,17 +439,18 @@ trapezoid_weight(k, count) = (k == 1 || k == count ? 0.5 : 1.0) / (count - 1)
 
 Highest routing speed number up to `speed_index` of the [`RouteTable`](@ref) `table`
 that the ship can hold at the [`EdgeSample`](@ref) `sample` with the rig stowed, or with
-a kite flying where [`kite_aloft`](@ref) allows, with the fuel power [W] flown and stowed
-there; speed number 0 if it cannot hold the lowest.
+a kite flying where [`kite_aloft`](@ref) allows, with the fuel power [W] flown, stowed and
+parked there; speed number 0 if it cannot hold the lowest.
 """
 function held_speed(table::RouteTable, speed_index, sample::EdgeSample)
     for i in speed_index:-1:1
-        flown, stowed = edge_fuels(table, i, sample.condition)
-        isfinite(stowed) && return i, flown, stowed
+        flown, stowed, parked = edge_fuels(table, i, sample.condition)
+        isfinite(stowed) && return i, flown, stowed, parked
         isfinite(flown) && kite_aloft(table.table, table.speeds[i], sample.headwind,
-            sample.crosswind, sample.condition.wave_height) && return i, flown, stowed
+            sample.crosswind, sample.condition.wave_height) &&
+            return i, flown, stowed, parked
     end
-    return 0, Inf, Inf
+    return 0, Inf, Inf, Inf
 end
 
 """
@@ -466,6 +467,8 @@ struct SailedPoint
     "fuel power with the rig stowed at the held speed [W]; `Inf` where only a flying kite
     holds it"
     stowed::Float64
+    "fuel power with the kite parked at the held speed [W]; `Inf` where it cannot park"
+    parked::Float64
     "hours of the edge the point stands for [h]"
     hours::Float64
 end
@@ -477,9 +480,9 @@ end
 `table`, at the [`held_speed`](@ref), standing for `distance` [m] of the edge.
 """
 function SailedPoint(table::RouteTable, sample::EdgeSample, speed_index, distance)
-    held, flown, stowed = held_speed(table, speed_index, sample)
+    held, flown, stowed, parked = held_speed(table, speed_index, sample)
     hours = held == 0 ? Inf : distance / table.speeds[held] / 3600
-    return SailedPoint(sample, held, flown, stowed, hours)
+    return SailedPoint(sample, held, flown, stowed, parked, hours)
 end
 
 """
@@ -552,7 +555,7 @@ const NO_TALLY = EdgeTally(Inf, 0.0, 0.0, 0.0, 0)
 `mode`, after a launch at `cycle_cost` [USD] if `launched`.
 """
 function extend(tally::EdgeTally, power, hours, wear, mode, launched, prices, cycle_cost)
-    energy = power * hours * 3600
+    energy = hours > 0 ? power * hours * 3600 : 0.0
     return EdgeTally(tally.cost + energy * prices.fuel + wear * hours +
                      launched * cycle_cost, tally.energy + energy,
         tally.flight_hours + (mode == FLYING) * hours,
@@ -570,20 +573,24 @@ Cheapest ways through the [`SailedPoint`](@ref)s of an edge on the [`RouteTable`
 point if `aloft`, as [`EdgeTally`](@ref)s. At each point a kite down burns the stowed
 fuel, and cannot be down where only a flying kite holds the speed; where
 [`kite_aloft`](@ref) allows, a kite aloft flies or parks, whichever is cheaper there, and
-a kite down may launch; landing is free. Wings and rotors stay down,
-burning their fuel with the rig standing.
+where [`kite_launchable`](@ref) allows, a kite down may launch. A kite aloft can come down
+at any point, also where the limits end its stay, and its cost is part of the launch. Wings
+and rotors stay down, burning their fuel with the rig standing.
 """
 function kite_passage(table::RouteTable, points, aloft, prices)
     start = EdgeTally(0.0, 0.0, 0.0, 0.0, 0)
     down, up = aloft ? (NO_TALLY, start) : (start, NO_TALLY)
     for point in points
-        allowed = kite_aloft(table.table, table.speeds[point.speed_index],
-            point.sample.headwind, point.sample.crosswind,
-            point.sample.condition.wave_height)
+        speed = table.speeds[point.speed_index]
+        (; headwind, crosswind) = point.sample
+        wave_height = point.sample.condition.wave_height
         next_down = extend(cheaper(down, up), point.stowed, point.hours, 0.0, STOWED,
             false, prices, table.table.cycle_cost)
-        up = allowed ? cheaper(aloft_tally(table.table, up, point, false, prices),
-            aloft_tally(table.table, down, point, true, prices)) : NO_TALLY
+        stays = kite_aloft(table.table, speed, headwind, crosswind, wave_height) ?
+                aloft_tally(table.table, up, point, false, prices) : NO_TALLY
+        launches = kite_launchable(table.table, speed, headwind, crosswind, wave_height) ?
+                   aloft_tally(table.table, down, point, true, prices) : NO_TALLY
+        up = cheaper(stays, launches)
         down = next_down
     end
     return down, up
@@ -593,14 +600,19 @@ end
     aloft_tally(table, tally, point, launched, prices)
 
 `tally` followed by the [`SailedPoint`](@ref) `point` with the kite flying or parked,
-whichever is cheaper there, after a launch if `launched`.
+whichever is cheaper there. If `launched`, the point starts with the launch and landing of
+the flight at stowed fuel, as far as the point lasts.
 """
 function aloft_tally(table::PerformanceTable, tally, point, launched, prices)
-    parked = extend(tally, point.stowed, point.hours, table.parked_wear_cost, PARKED,
-        launched, prices, table.cycle_cost)
+    handling = launched ? min(table.handling_hours, point.hours) : 0.0
+    handled = extend(tally, point.stowed, handling, 0.0, STOWED, launched, prices,
+        table.cycle_cost)
+    hours = point.hours - handling
+    parked = extend(handled, point.parked, hours, table.parked_wear_cost, PARKED, false,
+        prices, table.cycle_cost)
     isfinite(point.flown) && point.flown !== point.stowed || return parked
-    return cheaper(parked, extend(tally, point.flown, point.hours, table.wear_cost, FLYING,
-        launched, prices, table.cycle_cost))
+    return cheaper(parked, extend(handled, point.flown, hours, table.wear_cost, FLYING,
+        false, prices, table.cycle_cost))
 end
 
 """
@@ -614,7 +626,8 @@ point at its least fuel, the rest at no less than `rate` [USD/m].
 function may_improve(here, penalty, first::SailedPoint, rate, distance, commanded, prices,
         budget)
     isfinite(first.hours) || return false
-    first_cost = min(first.flown, first.stowed) * first.hours * 3600 * prices.fuel
+    least_fuel = min(first.flown, first.stowed, first.parked)
+    first_cost = least_fuel * first.hours * 3600 * prices.fuel
     rest = distance * (1 - trapezoid_weight(1, edge_intervals(commanded) + 1))
     least_cost = here + edge_objective(penalty, first_cost, first.hours, prices) +
                  rate * rest
@@ -979,9 +992,9 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
             end
         end
     end
-    objective, best = findmin(view(cost, centre_index(corridor), :, :, stage_count))
+    objective, bin = findmin(view(cost, centre_index(corridor), :, 1, stage_count))
     isfinite(objective) || return nothing
-    return traced_leg(workspace, corridor, table, (centre_index(corridor), Tuple(best)...,
+    return traced_leg(workspace, corridor, table, (centre_index(corridor), bin, 1,
         stage_count), first_stage)
 end
 
@@ -1109,7 +1122,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
                 step, departure + time, speed_index)
             isfinite(hours) || return nothing
             down, up = kite_passage(table, points, aloft, prices)
-            aloft = up.cost < down.cost
+            aloft = stage + 1 < stage_count && up.cost < down.cost
             tally = aloft ? up : down
             penalty = edge_penalty(corridor, stage, next, coastal_penalty)
             objective += edge_objective(penalty, tally.cost, hours, prices)

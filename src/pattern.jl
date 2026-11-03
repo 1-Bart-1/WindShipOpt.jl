@@ -387,9 +387,9 @@ const MAX_HEADING = deg2rad(170)
 """
     optimal_pattern(problem, starts)
 
-Best steered pattern from Nelder-Mead runs from each parameter vector in `starts`, or the
-best parked kite when that is better; returns its [`PatternForce`](@ref), `NO_PATTERN`
-where nothing flies, and the parameters of the best steered pattern for warm starts.
+Best steered pattern from Nelder-Mead runs from each parameter vector in `starts`; returns
+its [`PatternForce`](@ref), `NO_PATTERN` where nothing flies, and its parameters for warm
+starts.
 """
 function optimal_pattern(problem::PatternProblem, starts)
     (; model) = problem
@@ -405,17 +405,62 @@ function optimal_pattern(problem::PatternProblem, starts)
         value < best_value || continue
         best_force, best_value, best_parameters = force, value, parameters
     end
-    load = 0.5model.air_density * problem.wind_speed^2 * model.area
-    for angle in range(model.lowest_angle, model.stall_angle; length=12),
-        elevation in deg2rad.(10:5:70), side in (-1, 1)
-
-        force = parked_force(KiteAero(model, angle), elevation, side, problem.wind_speed)
-        load * force.peak_tension <= problem.max_tension || continue
-        value = objective(problem, force)
-        value < best_value || continue
-        best_force, best_value = force, value
-    end
     return best_force, best_parameters
+end
+
+"""
+    parked_angles(model, depower)
+
+Angles of attack [rad] a parked kite of [`KiteModel`](@ref) `model` can hold: those whose
+force coefficient is at least the fraction `depower` of the one just below stall.
+"""
+function parked_angles(model::KiteModel, depower)
+    coefficient(angle) = hypot(KiteAero(model, angle).lift, KiteAero(model, angle).drag)
+    least = depower * coefficient(model.stall_angle)
+    return [angle for angle in range(model.lowest_angle, model.stall_angle; length=12)
+            if coefficient(angle) >= least]
+end
+
+"""
+    parked_positions(model, angles, max_tension, min_elevation, wind_speed)
+
+Every [`parked_force`](@ref) of `model` at the `angles` of attack [rad], along the edge of
+the wind window from `min_elevation` [rad] to overhead on both sides, in a uniform apparent
+wind of `wind_speed` [m/s] within the tether limit `max_tension` [N].
+"""
+function parked_positions(model::KiteModel, angles, max_tension, min_elevation, wind_speed)
+    load = 0.5model.air_density * wind_speed^2 * model.area
+    forces = [parked_force(KiteAero(model, angle), elevation, side, wind_speed)
+              for angle in angles, elevation in deg2rad.(10:5:85), side in (-1, 1)]
+    return filter(forces) do force
+        load * force.peak_tension <= max_tension && force.lowest_elevation >= min_elevation
+    end
+end
+
+"""
+    parked_table(model, max_force, assumptions, wind_speeds, courses, side_weights)
+
+Force of the best parked position for each apparent wind speed, course and side weight, by
+the same [`objective`](@ref) as a flight pattern. A wind speed in which no position holds
+takes the force coefficients of the next stronger one.
+"""
+function parked_table(model::KiteModel, max_force, assumptions::Assumptions, wind_speeds,
+        courses, side_weights)
+    angles = parked_angles(model, assumptions[:kite_parked_depower])
+    min_elevation = deg2rad(assumptions[:kite_min_elevation])
+    forces = fill(NO_PATTERN, length(wind_speeds), length(courses), length(side_weights))
+    for i in reverse(eachindex(wind_speeds))
+        positions = parked_positions(model, angles, max_force, min_elevation,
+            wind_speeds[i])
+        for j in eachindex(courses), k in eachindex(side_weights)
+            problem = PatternProblem(model, max_force, min_elevation, wind_speeds[i],
+                courses[j], side_weights[k])
+            forces[i, j, k] = isempty(positions) ?
+                              forces[min(i + 1, length(wind_speeds)), j, k] :
+                              argmin(force -> objective(problem, force), positions)
+        end
+    end
+    return forces
 end
 
 """

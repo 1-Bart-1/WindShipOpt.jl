@@ -19,8 +19,8 @@ Re-evaluate the ship models along the path of `leg` at the start of every edge a
 `interval` [h] along it, with positions interpolated along the edge and the weather at
 that time and place. The ship holds the edge's commanded speed where it can and the
 [`held_speed`](@ref) elsewhere; a kite flies where [`kite_aloft`](@ref) allows and the
-edge's mode is flying or only a flying kite holds the speed, and the
-[`standing_rig`](@ref) always stands. It can differ from the router's edge cost: the
+edge's mode is flying or only a flying kite holds the speed, parks where the mode is
+parked, and the [`standing_rig`](@ref) always stands. It can differ from the router's edge cost: the
 [`sail_edge!`](@ref) points with the kite managed per point.
 """
 function LegTrace(table::PerformanceTable, leg::Leg, weather, departure; interval=Inf)
@@ -35,7 +35,7 @@ function LegTrace(table::PerformanceTable, leg::Leg, weather, departure; interva
             share = (sample_time - time) / (next_time - time)
             push_trace_point!(trace, route_table, weather, departure,
                 lat + share * (next_lat - lat), lon + share * (next_lon - lon), sample_time,
-                searchsortedfirst(route_table.speeds, speed), course, mode == FLYING)
+                searchsortedfirst(route_table.speeds, speed), course, mode)
         end
     end
     return trace
@@ -43,14 +43,14 @@ end
 
 """
     push_trace_point!(trace, table, weather, departure, lat, lon, time, speed_index,
-                      course, kite_flying)
+                      course, mode)
 
 Append to `trace` the ship models at one point of a leg at commanded speed number
-`speed_index` of the [`RouteTable`](@ref) `table`, with a kite flown if `kite_flying` and
+`speed_index` of the [`RouteTable`](@ref) `table`, with a kite in the edge's `mode` where
 it can stay aloft there.
 """
 function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lon, time,
-        speed_index, course, kite_flying)
+        speed_index, course, mode)
     (; ship) = table.table
     east, north = wind(weather, lat, lon, departure + time)
     wind_speed = hypot(east, north)
@@ -60,17 +60,19 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     condition = SeaCondition(table.table, wind_speed, angle, wave_height, wave_period,
         heading)
     crosswind, headwind = kite_wind(table.table, wind_speed) .* sincos(angle)
-    held, flown_power, stowed_power = held_speed(table, speed_index,
+    held, flown_power, stowed_power, parked_power = held_speed(table, speed_index,
         EdgeSample(condition, headwind, crosswind))
     speed = table.speeds[max(held, 1)]
     standing = standing_rig(ship.rig)
-    flown = standing === ship.rig || (kite_flying || !isfinite(stowed_power)) &&
-            isfinite(flown_power) &&
-            kite_aloft(table.table, speed, headwind, crosswind, wave_height)
-    force = last(best_trim(ship, flown ? ship.rig : standing, speed, wind_speed, angle))
+    aloft = kite_aloft(table.table, speed, headwind, crosswind, wave_height)
+    flown = standing === ship.rig || (mode == FLYING || !isfinite(stowed_power)) &&
+            isfinite(flown_power) && aloft
+    parked = !flown && mode == PARKED && isfinite(parked_power) && aloft
+    carried = flown ? ship.rig : parked ? parked_rig(ship.rig) : standing
+    force = last(best_trim(ship, carried, speed, wind_speed, angle))
     push!(trace.time, time)
     push!(trace.speed, speed)
     push!(trace.true_wind_angle, angle)
     push!(trace.rig_thrust, force.thrust)
-    push!(trace.fuel_power, flown ? flown_power : stowed_power)
+    push!(trace.fuel_power, flown ? flown_power : parked ? parked_power : stowed_power)
 end

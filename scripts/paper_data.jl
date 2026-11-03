@@ -87,6 +87,85 @@ csv_value(value::AbstractString) = occursin(' ', value) ? "\"$value\"" : value
 csv_value(value::Real) = isinteger(value) ? string(Int(value)) : string(value)
 csv_value(value) = string(value)
 
+"inputs that together make up the cost of one launch and landing of a kite"
+launch_cost_inputs = (:kite_cycle_crew_cost, :kite_cycle_damage_probability,
+    :kite_cycle_loss_probability, :kite_launch_retry_probability, :kite_cycle_course_cost,
+    :kite_launch_minutes, :kite_landing_minutes)
+
+"""
+    launch_cost_assumptions(bound; parking=true)
+
+Inputs with every one of `launch_cost_inputs` at its `bound` (`:low`, `:high` or `:value`),
+and with parking aloft on or off.
+"""
+function launch_cost_assumptions(bound; parking=true)
+    case = with_value(assumptions, :kite_parking, parking ? 1.0 : 0.0)
+    return foldl(launch_cost_inputs; init=case) do inputs, name
+        with_value(inputs, name, getfield(assumptions.entries[name], bound))
+    end
+end
+
+"""
+    launch_parking_data()
+
+The 140 m e-methanol ship on every route without a rig, with the reference wings and
+rotors, and with kites of 800, 1,600 and 3,200 m^2 at the low, base and high launch cost
+with parking on and off: launch_parking.csv. Then what parking through a lull costs against
+landing, per kite, wind and angle: lull.csv.
+"""
+function launch_parking_data()
+    cases = []
+    for route in route_names
+        for (rig, area) in (("none", 0.0), ("wings", 1500.0), ("rotors", 800.0))
+            design = ShipDesign(:methanol, 140.0; rig_size(rig, area)...)
+            push!(cases, trip_case(design; route, rig, area, launch_cost="value",
+                parking=true))
+        end
+        for area in (800.0, 1600.0, 3200.0), launch_cost in (:low, :value, :high),
+            parking in (true, false)
+
+            design = ShipDesign(:methanol, 140.0; rig_size("kite", area)...)
+            push!(cases, trip_case(design;
+                assumptions=launch_cost_assumptions(launch_cost; parking), route,
+                rig="kite", area, launch_cost=string(launch_cost), parking))
+        end
+    end
+    write_trips("launch_parking.csv", cases,
+        round_trips(cases, sampled_departures()), :route, :rig, :area, :launch_cost,
+        :parking)
+    write_lulls("lull.csv", (800.0, 1600.0, 3200.0))
+end
+
+"""
+    write_lulls(name, areas)
+
+Write `name`: for the 140 m e-methanol ship at 6 m/s with a kite of each of `areas`, over
+10 m wind and true wind angle, the fuel a parked and a flying kite add to a stowed one
+[USD/h], the parked wear [USD/h], the cost of one launch and landing [USD] and the lull [h]
+beyond which landing is cheaper than parking; `Inf` where parking saves money.
+"""
+function write_lulls(name, areas)
+    speed = 6.0
+    open(run_file(name), "w") do io
+        println(io, "area,wind,angle,parked_fuel,flown_fuel,parked_wear,cycle,lull")
+        for area in areas
+            ship = Ship(ShipDesign(:methanol, 140.0; rig_size("kite", area)...), assumptions)
+            table = PerformanceTable(ship, assumptions)
+            price = ship.fuel.price * 3600
+            for wind in 4.0:2.0:12.0, angle in 0.0:45.0:180.0
+                condition = WindShipOpt.SeaCondition(table, wind, deg2rad(angle), 0.0, 8.0, 0.0)
+                flown, stowed, parked = WindShipOpt.edge_fuels(table, speed,
+                    WindShipOpt.KnotWeight(table.speeds, speed), condition)
+                hourly = (parked - stowed) * price + table.parked_wear_cost
+                @printf(io, "%.0f,%.0f,%.0f,%.1f,%.1f,%.1f,%.1f,%.1f\n", area, wind, angle,
+                    (parked - stowed) * price, (flown - stowed) * price,
+                    table.parked_wear_cost, table.cycle_cost,
+                    hourly > 0 ? table.cycle_cost / hourly : Inf)
+            end
+        end
+    end
+end
+
 """
     patterns_data()
 
@@ -124,8 +203,11 @@ function write_pattern(paths, forces, model, max_force, min_elevation, wind, cou
     path = NTuple{3, Float64}[]
     steered = WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters), wind,
         max_force; path)
-    parked = WindShipOpt.objective(problem, steered) >
-             WindShipOpt.objective(problem, force) + 1e-9
+    parked_force = WindShipOpt.parked_table(model, max_force, assumptions, [wind],
+        [deg2rad(course)], [side_weight])[1]
+    parked = WindShipOpt.objective(problem, force) >
+             WindShipOpt.objective(problem, parked_force) + 1e-9
+    parked && (force = parked_force)
     load = 0.5model.air_density * wind^2 * model.area
     downwind, crosswind, _ = load .* force.force
     thrust = downwind * cosd(course) + crosswind * sind(course)

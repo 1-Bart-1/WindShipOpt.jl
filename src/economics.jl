@@ -318,16 +318,22 @@ parked_wear_cost(rig, assumptions) =
 """
     cycle_cost(rig, assumptions)
 
-Cost of one launch and landing of a kite [USD]: crew time and the expected loss of a
-canopy; zero for other rigs.
+Cost of one launch and landing of a kite [USD]: per launch attempt the crew time, the
+expected canopy torn beyond repair and the expected loss at sea of canopy, tether and
+control unit, plus any turn for the launch; zero for other rigs.
 """
 cycle_cost(rig, assumptions) = 0.0
 cycle_cost(rig::CombinedRig, assumptions) = cycle_cost(rig.kite, assumptions)
 
 function cycle_cost(rig::KiteRig, assumptions)
-    canopy, _ = consumable_costs(rig, assumptions)
-    return assumptions[:kite_cycle_crew_cost] +
-           assumptions[:kite_cycle_damage_probability] * canopy
+    canopy, tether = consumable_costs(rig, assumptions)
+    control_unit = assumptions[:control_unit_cost] +
+                   assumptions[:control_unit_cost_per_area] * rig.area
+    attempt = assumptions[:kite_cycle_crew_cost] +
+              assumptions[:kite_cycle_damage_probability] * canopy +
+              assumptions[:kite_cycle_loss_probability] * (canopy + tether + control_unit)
+    return (1 + assumptions[:kite_launch_retry_probability]) * attempt +
+           assumptions[:kite_cycle_course_cost]
 end
 
 """

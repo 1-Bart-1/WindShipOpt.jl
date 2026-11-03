@@ -91,10 +91,14 @@ struct PerformanceTable{S}
     flown_thrust::LinearTable
     "required thrust with the kite stowed [N], same grid"
     stowed_thrust::LinearTable
+    "required thrust with the kite parked aloft [N], same grid"
+    parked_thrust::LinearTable
     "power the flown rig draws from the engines [W], same grid"
     rig_power::LinearTable
     "power the rig draws from the engines with the kite stowed [W], same grid"
     stowed_power::LinearTable
+    "power the rig draws from the engines with the kite parked [W], same grid"
+    parked_power::LinearTable
     "added resistance over H_s^2 [N/m^2] at (speed [m/s], peak period [s], heading [rad])"
     wave_resistance::LinearTable
     "wear cost of flying the rig [USD/h]"
@@ -103,10 +107,14 @@ struct PerformanceTable{S}
     parked_wear_cost::Float64
     "cost of one launch and landing of a kite [USD]"
     cycle_cost::Float64
+    "time one launch and landing of a kite gives no force on the ship [h]"
+    handling_hours::Float64
     speeds::Vector{Float64}
     max_wind::Float64
-    "highest significant wave height at which the rig is flown [m]"
+    "highest significant wave height at which a kite stays up and can land [m]"
     max_wave_height::Float64
+    "highest significant wave height at which a kite is launched [m]"
+    launch_wave_height::Float64
 end
 
 "thrust stored for infeasible conditions [N]"
@@ -128,13 +136,31 @@ function PerformanceTable(ship::Ship, assumptions::Assumptions)
     standing = standing_rig(ship.rig)
     stowed_thrust, stowed_power = standing === ship.rig ? (flown_thrust, rig_power) :
                                   trim_tables(ship, standing, calm_grid)
+    parked_thrust, parked_power = parked_tables(ship, assumptions, calm_grid, flown_thrust,
+        rig_power)
     waves = [added_resistance(ship.seakeeping, ship.env, speed, 1.0, period, heading)
              for speed in speeds, period in periods, heading in headings]
-    return PerformanceTable(ship, flown_thrust, stowed_thrust, rig_power, stowed_power,
-        LinearTable((speeds, periods, headings), waves),
+    return PerformanceTable(ship, flown_thrust, stowed_thrust, parked_thrust, rig_power,
+        stowed_power, parked_power, LinearTable((speeds, periods, headings), waves),
         wear_cost(ship.rig, assumptions), parked_wear_cost(ship.rig, assumptions),
-        cycle_cost(ship.rig, assumptions), speeds, last(winds),
-        max_wave_height(ship.rig, assumptions))
+        cycle_cost(ship.rig, assumptions), handling_hours(ship.rig, assumptions), speeds,
+        last(winds), max_wave_height(ship.rig, assumptions),
+        launch_wave_height(ship.rig, assumptions))
+end
+
+"""
+    parked_tables(ship, assumptions, calm_grid, flown_thrust, rig_power)
+
+Required thrust [N] and rig power [W] with the kite of `ship` parked over `calm_grid`:
+infeasible where parking is switched off, and the given flown tables for a rig without a
+kite, whose rig stands as it always does.
+"""
+function parked_tables(ship::Ship, assumptions, calm_grid, flown_thrust, rig_power)
+    parked = parked_rig(ship.rig)
+    parked === ship.rig && return flown_thrust, rig_power
+    assumptions[:kite_parking] > 0 && return trim_tables(ship, parked, calm_grid)
+    return LinearTable(calm_grid, fill(INFEASIBLE_THRUST, size(flown_thrust.values))),
+    rig_power
 end
 
 """
@@ -153,12 +179,35 @@ end
 """
     max_wave_height(rig, assumptions)
 
-Highest significant wave height [m] at which a kite is launched and flown; wings and
+Highest significant wave height [m] at which a kite stays up and can still land; wings and
 rotors stand in any sea.
 """
 max_wave_height(rig, assumptions) = Inf
 max_wave_height(::KiteRig, assumptions) = assumptions[:kite_max_wave_height]
 max_wave_height(rig::CombinedRig, assumptions) = max_wave_height(rig.kite, assumptions)
+
+"""
+    launch_wave_height(rig, assumptions)
+
+Highest significant wave height [m] at which a kite is launched; wings and rotors stand in
+any sea.
+"""
+launch_wave_height(rig, assumptions) = Inf
+launch_wave_height(::KiteRig, assumptions) = assumptions[:kite_launch_max_wave_height]
+launch_wave_height(rig::CombinedRig, assumptions) =
+    launch_wave_height(rig.kite, assumptions)
+
+"""
+    handling_hours(rig, assumptions)
+
+Time [h] one launch, with its retries, and one landing of a kite give no force on the ship;
+zero for other rigs.
+"""
+handling_hours(rig, assumptions) = 0.0
+handling_hours(rig::CombinedRig, assumptions) = handling_hours(rig.kite, assumptions)
+handling_hours(::KiteRig, assumptions) =
+    ((1 + assumptions[:kite_launch_retry_probability]) * assumptions[:kite_launch_minutes] +
+     assumptions[:kite_landing_minutes]) / 60
 
 """
     OperatingPoint
@@ -204,7 +253,7 @@ Fuel power is `Inf` where no option is feasible.
 function lookup(table::PerformanceTable, speed, wind, angle, wave_height=0.0,
         wave_period=0.0, wave_heading=0.0)
     condition = SeaCondition(table, wind, angle, wave_height, wave_period, wave_heading)
-    flown, stowed = edge_fuels(table, speed, KnotWeight(table.speeds, speed), condition)
+    flown, stowed, _ = edge_fuels(table, speed, KnotWeight(table.speeds, speed), condition)
     flown === stowed && return OperatingPoint(flown, false)
     price = table.ship.fuel.price * 3600
     return flown * price + table.wear_cost < stowed * price ? OperatingPoint(flown, true) :
@@ -218,9 +267,9 @@ A [`PerformanceTable`](@ref) at one speed, interpolated bilinearly over the knot
 other two dimensions.
 """
 struct SpeedSlice
-    "(flown thrust [N], stowed thrust [N], flown and stowed rig power [W]) at (wind knot,
-    angle knot)"
-    calm::Matrix{NTuple{4, Float64}}
+    "(flown, stowed and parked thrust [N], flown, stowed and parked rig power [W]) at (wind
+    knot, angle knot)"
+    calm::Matrix{NTuple{6, Float64}}
     "added resistance over H_s^2 [N/m^2] at (period knot, heading knot)"
     wave_resistance::Matrix{Float64}
 end
@@ -233,8 +282,10 @@ end
 SpeedSlice(table::PerformanceTable, speed_weight::KnotWeight) = SpeedSlice(
     tuple.(speed_plane(table.flown_thrust, speed_weight),
         speed_plane(table.stowed_thrust, speed_weight),
+        speed_plane(table.parked_thrust, speed_weight),
         speed_plane(table.rig_power, speed_weight),
-        speed_plane(table.stowed_power, speed_weight)),
+        speed_plane(table.stowed_power, speed_weight),
+        speed_plane(table.parked_power, speed_weight)),
     speed_plane(table.wave_resistance, speed_weight))
 
 """
@@ -252,22 +303,23 @@ speed_plane(table::LinearTable, speed_weight::KnotWeight) =
     edge_fuels(table, speed, speed_weight, condition)
     edge_fuels(route_table, speed_index, condition)
 
-Fuel power [W] with the rig flown and with any kite stowed at `speed` [m/s] from its
-[`SpeedSlice`](@ref), from its [`KnotWeight`](@ref) on `table.speeds`, or at routing
-speed number `speed_index` of a [`RouteTable`](@ref); the same value for a rig without a
-kite, which always stands, and `Inf` for a kite flown in too high a sea.
+Fuel power [W] with the rig flown, with any kite stowed and with it parked at `speed` [m/s]
+from its [`SpeedSlice`](@ref), from its [`KnotWeight`](@ref) on `table.speeds`, or at
+routing speed number `speed_index` of a [`RouteTable`](@ref); the same value for a rig
+without a kite, which always stands, and `Inf` for a kite up in too high a sea.
 """
 function edge_fuels(table::PerformanceTable, speed, slice::SpeedSlice,
         condition::SeaCondition)
     (; wind, angle, wave_height) = condition
     waves = wave_height > 0 ? wave_height^2 * plane_value(slice.wave_resistance,
         condition.wave_period, condition.wave_heading) : 0.0
-    flown_thrust, stowed_thrust, rig_power, stowed_power = plane_value(slice.calm, wind,
-        angle)
+    flown_thrust, stowed_thrust, parked_thrust, rig_power, stowed_power, parked_power =
+        plane_value(slice.calm, wind, angle)
     flown = fuel_power(table, speed, flown_thrust + waves, rig_power)
-    table.stowed_thrust === table.flown_thrust && return flown, flown
+    table.stowed_thrust === table.flown_thrust && return flown, flown, flown
     stowed = fuel_power(table, speed, stowed_thrust + waves, stowed_power)
-    return (wave_height > table.max_wave_height ? Inf : flown), stowed
+    wave_height > table.max_wave_height && return Inf, stowed, Inf
+    return flown, stowed, fuel_power(table, speed, parked_thrust + waves, parked_power)
 end
 
 edge_fuels(table::PerformanceTable, speed, speed_weight::KnotWeight,
@@ -289,10 +341,10 @@ kite_wind(rig::CombinedRig, table, wind_10m) = kite_wind(rig.kite, table, wind_1
 """
     kite_aloft(table, speed, headwind, crosswind, wave_height)
 
-Whether a kite can be launched and stay up at ship `speed` [m/s] in significant wave
-height `wave_height` [m], from the components of the true wind at its reference height
-from ahead and from abeam [m/s]: the apparent wind carries its weight and the sea allows
-launch and landing; never for ships without a kite.
+Whether a kite can stay up at ship `speed` [m/s] in significant wave height `wave_height`
+[m], from the components of the true wind at its reference height from ahead and from abeam
+[m/s]: the apparent wind carries its weight and the sea still allows a landing, so a kite
+that may stay up may also come down; never for ships without a kite.
 """
 kite_aloft(table::PerformanceTable, speed, headwind, crosswind, wave_height) =
     kite_aloft(table.ship.rig, table, speed, headwind, crosswind, wave_height)
@@ -304,6 +356,25 @@ function kite_aloft(rig::KiteRig, table, speed, headwind, crosswind, wave_height
     apparent = hypot(headwind + speed, crosswind)
     return wave_height <= table.max_wave_height &&
            rig.min_flight_wind <= apparent <= rig.max_wind
+end
+
+"""
+    kite_launchable(table, speed, headwind, crosswind, wave_height)
+
+Whether a kite can be launched on the ship's course under the arguments of
+[`kite_aloft`](@ref): it can stay up there, and wind and sea are inside the launch limits.
+"""
+kite_launchable(table::PerformanceTable, speed, headwind, crosswind, wave_height) =
+    kite_launchable(table.ship.rig, table, speed, headwind, crosswind, wave_height)
+kite_launchable(rig, table, speed, headwind, crosswind, wave_height) = false
+kite_launchable(rig::CombinedRig, table, speed, headwind, crosswind, wave_height) =
+    kite_launchable(rig.kite, table, speed, headwind, crosswind, wave_height)
+
+function kite_launchable(rig::KiteRig, table, speed, headwind, crosswind, wave_height)
+    apparent = hypot(headwind + speed, crosswind)
+    return kite_aloft(rig, table, speed, headwind, crosswind, wave_height) &&
+           wave_height <= table.launch_wave_height &&
+           rig.launch_min_wind <= apparent <= rig.launch_max_wind
 end
 
 function fuel_power(table::PerformanceTable, speed, thrust, rig_power)
@@ -343,14 +414,15 @@ function FuelBound(table::PerformanceTable, speeds)
     _, winds, angles = table.flown_thrust.knots
     _, periods, headings = table.wave_resistance.knots
     calm = [min(cell_floor(table.flown_thrust, weight, j, k),
-                cell_floor(table.stowed_thrust, weight, j, k))
+                cell_floor(table.stowed_thrust, weight, j, k),
+                cell_floor(table.parked_thrust, weight, j, k))
             for weight in speed_weights, j in 1:(length(winds) - 1),
                 k in 1:(length(angles) - 1)]
     waves = [cell_floor(table.wave_resistance, weight, j, k)
              for weight in speed_weights, j in 1:(length(periods) - 1),
                  k in 1:(length(headings) - 1)]
     rig_power = min(0.0, value_floor(table.rig_power.values),
-        value_floor(table.stowed_power.values))
+        value_floor(table.stowed_power.values), value_floor(table.parked_power.values))
     thrusts = 0:BOUND_THRUST_STEP:(1e-3INFEASIBLE_THRUST)
     fuel = [(1 - 1e-9) * fuel_power(table, speed, thrust, rig_power)
             for thrust in thrusts, speed in speeds]
