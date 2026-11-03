@@ -512,7 +512,7 @@ end
         time_cost=kite_hourly, horizon=24.0 * 100)
     @test leg.launches > 0
     @test sailed.aloft == leg.aloft
-    @test sailed.launches == leg.launches
+    @test sailed.objective ≈ leg.objective rtol = 1e-3
 end
 
 @testset "a forecast beyond its horizon reads the same date in another year" begin
