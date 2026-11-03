@@ -123,9 +123,14 @@ function case_passes(new, reference, key)
         @printf("%-34s cost %+.5f %%\n", join(key, " "), 100change)
         return abs(change) <= BARE_COST_TOLERANCE
     end
-    change = saving(new, key) - saving(reference, key)
-    @printf("%-34s saving %6.2f, change %+.3f points\n", join(key, " "), saving(new, key),
-        change)
+    new_saving, reference_saving = saving(new, key), saving(reference, key)
+    if isnothing(new_saving) != isnothing(reference_saving)
+        println(join(key, " "), ": feasibility of the ship without a rig differs")
+        return false
+    end
+    isnothing(new_saving) && return true
+    change = new_saving - reference_saving
+    @printf("%-34s saving %6.2f, change %+.3f points\n", join(key, " "), new_saving, change)
     return abs(change) <= SAVING_TOLERANCE
 end
 
@@ -141,15 +146,13 @@ function gate_passes(path, reference_path)
 end
 
 """
-    run_gate(out_dir, reference_dir=nothing; scales=(2.0, 4.0), settings=RouterSettings())
+    gate_scales(out_dir, reference_dir, scales)
 
-Run the gate at `scales` under the router `settings`, writing to `out_dir`; whether every
-case is inside the tolerances of the files in `reference_dir`.
+Run the gate at `scales` under the router settings in force, writing to `out_dir`; whether
+every case is inside the tolerances of the files in `reference_dir`, if any.
 """
-function run_gate(out_dir, reference_dir=nothing; scales=(2.0, 4.0),
-        settings=WindShipOpt.RouterSettings())
+function gate_scales(out_dir, reference_dir, scales)
     mkpath(out_dir)
-    WindShipOpt.ROUTER_SETTINGS[] = settings
     passed = true
     for scale in scales
         cases = gate_cases(scale)
@@ -163,6 +166,16 @@ function run_gate(out_dir, reference_dir=nothing; scales=(2.0, 4.0),
     end
     return passed
 end
+
+"""
+    run_gate(out_dir, reference_dir=nothing; scales=(2.0, 4.0), settings=RouterSettings())
+
+[`gate_scales`](@ref) under the router `settings`.
+"""
+run_gate(out_dir, reference_dir=nothing; scales=(2.0, 4.0),
+    settings=WindShipOpt.RouterSettings()) =
+    WindShipOpt.with_router_settings(() -> gate_scales(out_dir, reference_dir, scales),
+        settings)
 
 if abspath(PROGRAM_FILE) == @__FILE__
     settings = WindShipOpt.RouterSettings(search_margins=(Inf, Inf))

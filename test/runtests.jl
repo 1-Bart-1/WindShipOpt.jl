@@ -455,6 +455,44 @@ end
     known = ForecastWeather(SyntheticWeather(), 100.0, 48.0)
     @test WindShipOpt.wind(known, 40.0, -30.0, 120.0) ==
           WindShipOpt.wind(known.weather, 40.0, -30.0, 120.0)
+    beyond = 160.0
+    @test WindShipOpt.wind(known, 40.0, -30.0, beyond) ==
+          WindShipOpt.wind(known.weather, 40.0, -30.0, beyond + WindShipOpt.FORECAST_SHIFT)
+    @test WindShipOpt.wind(known, 40.0, -30.0, beyond) !=
+          WindShipOpt.wind(known.weather, 40.0, -30.0, beyond)
+end
+
+@testset "a search that cuts off the best path and overruns its limit widens" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    (; time_step) = WindShipOpt.ROUTER_SETTINGS[]
+    stage_count = size(corridor.lat, 1)
+    workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2),
+        ceil(Int, 1200 / time_step), stage_count)
+    options = (; time_step, time_cost=hourly, first_stage=1,
+        first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty=1.0)
+    best = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
+        options...)
+    stage = stage_count - 2
+    best_node = findfirst(==(best.path[stage][2]), view(corridor.lon, stage, :))
+    values = zeros(size(corridor.lat, 2), 200, 2, stage_count)
+    values[best_node, :, :, stage] .= Inf
+    to_go = WindShipOpt.CostToGo(values)
+    detour = WindShipOpt.route_pass(workspace, corridor, table, weather, departure, to_go,
+        floatmax(); options...)
+    @test detour.objective > best.objective
+    leg = WindShipOpt.searched_leg(workspace, corridor, table, weather, departure, to_go,
+        (prevfloat(detour.objective),); options...)
+    @test leg.objective == best.objective
+end
+
+@testset "router settings return to those in force after a call under others" begin
+    earlier = WindShipOpt.ROUTER_SETTINGS[]
+    other = WindShipOpt.RouterSettings(time_step=3.0)
+    in_force = WindShipOpt.with_router_settings(() -> WindShipOpt.ROUTER_SETTINGS[], other)
+    @test in_force == other
+    @test WindShipOpt.ROUTER_SETTINGS[] == earlier
+    @test_throws ErrorException WindShipOpt.with_router_settings(() -> error("stop"), other)
+    @test WindShipOpt.ROUTER_SETTINGS[] == earlier
 end
 
 module PaperRuns

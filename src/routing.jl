@@ -302,6 +302,22 @@ end
 const ROUTER_SETTINGS = Ref(RouterSettings())
 
 """
+    with_router_settings(call, settings)
+
+The result of `call()` with the [`RouterSettings`](@ref) `settings` in force, and those in
+force before it afterwards.
+"""
+function with_router_settings(call, settings::RouterSettings)
+    earlier = ROUTER_SETTINGS[]
+    ROUTER_SETTINGS[] = settings
+    try
+        return call()
+    finally
+        ROUTER_SETTINGS[] = earlier
+    end
+end
+
+"""
     EdgeSample
 
 Wind and waves at one point of an edge.
@@ -599,7 +615,7 @@ function CostToGo(corridor::Corridor, table::RouteTable, weather, departure; tim
     for stage in (stage_count - 1):-1:first_stage, lateral in 1:lateral_count
         corridor.water[stage, lateral] || continue
         sailed = along[stage] - along[first_stage]
-        earliest = 0.8sailed / fastest / 3600
+        earliest = SHORTEST_SAILED_SHARE * sailed / fastest / 3600
         latest = sailed / slowest / 3600 + REACH_SLACK
         for knot in max(1, floor(Int, earliest / COST_TO_GO_STEP)):min(knots,
             ceil(Int, latest / COST_TO_GO_STEP) + 1)
@@ -613,6 +629,9 @@ end
 
 "hours a [`CostToGo`](@ref) searches beyond the arrival at the lowest routing speed [h]"
 const REACH_SLACK = 96.0
+
+"least distance sailed to a stage, as a share of the distance along the centre line [-]"
+const SHORTEST_SAILED_SHARE = 0.8
 
 """
     fill_knot!(to_go, corridor, table, weather, departure, prices, coastal_penalty, stage,
@@ -686,8 +705,8 @@ nodes near land cost `coastal_penalty` more in the objective, not in the fuel an
 leg reports.
 
 The time bins and the states searched follow `ROUTER_SETTINGS`: those within a margin of a
-[`CostToGo`](@ref), wider where that leaves no path, then all of them. Returns `nothing`
-if no path arrives within 1200 h.
+[`CostToGo`](@ref), wider where that leaves no path within the margin, then all of them.
+Returns `nothing` if no path arrives within 1200 h.
 """
 function route(corridor::Corridor, table::RouteTable, weather, departure; time_cost,
         first_stage=1, first_lateral=centre_index(corridor), first_aloft=false,
@@ -702,12 +721,8 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
         to_go = CostToGo(corridor, table, weather, departure; time_cost, first_stage,
             coastal_penalty)
         estimate = to_go(first_lateral, first_aloft + 1, first_stage, 0.0)
-        for margin in search_margins
-            leg = route_pass(workspace, corridor, table, weather, departure, to_go,
-                (1 + margin) * estimate; options...)
-            isnothing(leg) || return leg
-        end
-        return route_pass(workspace, corridor, table, weather, departure; options...)
+        return searched_leg(workspace, corridor, table, weather, departure, to_go,
+            (1 .+ search_margins) .* estimate; options...)
     finally
         release_workspace(workspace)
     end
@@ -715,6 +730,22 @@ end
 
 route(corridor::Corridor, table::PerformanceTable, weather, departure; options...) =
     route(corridor, RouteTable(table), weather, departure; options...)
+
+"""
+    searched_leg(workspace, corridor, table, weather, departure, to_go, limits; options...)
+
+The [`Leg`](@ref) of the first [`route_pass`](@ref) under `limits` [USD] that ends within
+its limit, else of a pass over all states, which is `nothing` if no path arrives.
+"""
+function searched_leg(workspace, corridor, table, weather, departure, to_go, limits;
+        options...)
+    for limit in limits
+        leg = route_pass(workspace, corridor, table, weather, departure, to_go, limit;
+            options...)
+        !isnothing(leg) && leg.objective <= limit && return leg
+    end
+    return route_pass(workspace, corridor, table, weather, departure; options...)
+end
 
 """
     route_pass(workspace, corridor, table, weather, departure, to_go=nothing, limit=Inf;

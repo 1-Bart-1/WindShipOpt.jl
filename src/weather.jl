@@ -28,6 +28,9 @@ function SyntheticWeather(; seed=1)
     return SyntheticWeather(2π .* rand(rng, 3), wavenumbers, frequencies)
 end
 
+"hours of weather available from the origin: synthetic weather never ends [h]"
+duration(weather::SyntheticWeather) = Inf
+
 """
     wind(weather, lat, lon, time)
 
