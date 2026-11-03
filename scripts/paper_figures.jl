@@ -1509,13 +1509,13 @@ scaling table.
 """
 function rigid_scaling_figure()
     table = read_table(data_file("rigid_scaling.csv"))
-    figure = Figure(size=(page_width, 230))
+    figure = Figure(size=(page_width, 270))
     thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
         xlabel="apparent wind [m/s]", ylabel="thrust [kN]")
     price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
-        xlabel="kite area [m²]", ylabel="price per thrust [USD/kN]")
+        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="price per thrust [USD/kN]")
     annual_axis = Axis(figure[1, 3]; title="(c) cost a year at 12 m/s", xscale=log10,
-        xlabel="kite area [m²]", ylabel="annual cost per thrust [USD/kN]")
+        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="annual cost per thrust [USD/kN]")
     curves = (("rigid", 30.0), ("rigid", 54.0), ("rigid", 100.0), ("rigid", 300.0),
         ("soft", 1000.0))
     for (k, (kind, area)) in enumerate(curves)
@@ -1547,8 +1547,10 @@ function rigid_scaling_figure()
                 table["lowest_wind"][row], 1e-3table["thrust"][row], 1e-6prices[i])
         end
     end
-    axislegend(thrust_axis; position=:lt, framevisible=false, labelsize=8)
-    axislegend(price_axis; position=:lt, framevisible=false, labelsize=8)
+    for (row, axis) in enumerate((thrust_axis, price_axis))
+        Legend(figure[row + 1, 1:3], axis; orientation=:horizontal, framevisible=false,
+            labelsize=8)
+    end
     save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
 end
 
