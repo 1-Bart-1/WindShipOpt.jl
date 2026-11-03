@@ -539,11 +539,11 @@ kite_stall_margin:
   unit: deg
   reason: "Engineering assumption: margin below the angle of maximum lift that the bridle trim keeps in gusts."
 canopy_cloth_weight:
-  value: 100.0
+  value: 200.0
   low: 60.0
-  high: 200.0
+  high: 300.0
   unit: g/m^2
-  reason: "Weight of the polyester ripstop of the canopy. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+  reason: "Weight of the polyester ripstop of the canopy. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2. The lightest cloth within one percentage point of saving of the cheapest on the 140 m e-methanol ship to Guadeloupe and New York; a fixed 2,000 h wear life would favour the low bound instead."
 canopy_wear_rate:
   value: 0.13
   low: 0.052
