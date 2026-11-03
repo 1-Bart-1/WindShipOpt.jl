@@ -89,7 +89,7 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
         heading)
     crosswind, headwind = kite_wind(table.table, wind_speed) .* sincos(angle)
     held, flown_power, stowed_power, parked_power = held_speed(table, speed_index,
-        EdgeSample(condition, headwind, crosswind, is_daylight(lon, time)))
+        EdgeSample(condition, headwind, crosswind, is_daylight(lon, departure + time)))
     speed = table.speeds[max(held, 1)]
     standing = standing_rig(ship.rig)
     aloft = kite_aloft(table.table, speed, headwind, crosswind, wave_height)

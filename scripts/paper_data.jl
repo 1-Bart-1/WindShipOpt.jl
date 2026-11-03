@@ -112,8 +112,9 @@ end
 The 140 m e-methanol ship on every route without a rig, with the reference wings and
 rotors, and with kites of 800, 1,600 and 3,200 m^2 at the low, base and high launch cost
 with parking on and off, with parking on at the low and high parked wear, and with parking
-on and off with launches by day only and with no rig ever out of service: launch_parking.csv.
-Then what parking through a lull costs against landing, per kite, wind and angle: lull.csv.
+on and off with launches by day only and with no rig ever out of service:
+launch_parking.csv. Then what parking through a lull costs against landing, per kite, wind
+and angle: lull.csv.
 """
 function launch_parking_data()
     parked = with_value(assumptions, :kite_parking, 1.0)

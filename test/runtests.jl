@@ -158,7 +158,8 @@ end
 function uniform_kite(hull, assumptions)
     pattern = WindShipOpt.PatternForce((0.3, 0.8, 0.2), 1.0, 0.3)
     return KiteRig(; area=800.0, tether_diameter=0.05, tether_length=300.0,
-        reference_height=120.0, max_wind=30.0, min_flight_wind=4.0, min_parked_wind=4.0, launch_min_wind=5.0,
+        reference_height=120.0, max_wind=30.0, min_flight_wind=4.0, min_parked_wind=4.0,
+        launch_min_wind=5.0,
         launch_max_wind=17.0,
         launch_max_wave_height=assumptions[:kite_launch_max_wave_height],
         night_launch=assumptions[:kite_night_launch] > 0, landing_max_wind=20.0,
@@ -202,7 +203,7 @@ function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0, day
     return WindShipOpt.SailedPoint(sample, held, flown, stowed, parked, hours)
 end
 
-@testset "a parked kite holds the tether force balance and drags a ship sailing upwind" begin
+@testset "a parked kite holds the tether balance and drags a ship sailing upwind" begin
     model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     wind, course = 12.0, deg2rad(180)
     grid = ([wind], [0.0, course], [3.0])
@@ -268,7 +269,7 @@ end
     @test !isnothing(point) && point[1] > wind
 end
 
-@testset "no pattern gives force under the launch wind, so speeding up to launch gains nothing" begin
+@testset "no pattern gives force under the launch wind" begin
     for area in (800.0, 3200.0)
         model, max_force, tether_diameter = WindShipOpt.kite_model(area, 3.0, assumptions)
         tether = WindShipOpt.rope_mass(tether_diameter, model.tether_length, assumptions)
@@ -303,7 +304,7 @@ end
     @test !isempty(WindShipOpt.parked_positions(model, angles, max_force, elevation, stay))
 end
 
-@testset "a parked rig has real force at every table wind and drags a ship sailing upwind" begin
+@testset "a parked rig has force at every table wind and drags a ship upwind" begin
     hull = Hull(140.0, assumptions)
     env = Environment(assumptions)
     uniform = uniform_kite(hull, assumptions)
@@ -321,7 +322,7 @@ end
     @test upwind_thrust(1600.0) < upwind_thrust(800.0)
 end
 
-@testset "the steered table holds a steered pattern even where parking would be better" begin
+@testset "the steered table holds a steered pattern even where parking is better" begin
     model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     problem = WindShipOpt.PatternProblem(model, max_force,
         deg2rad(assumptions[:kite_min_elevation]), 12.0, π, 0.0)
@@ -361,7 +362,7 @@ end
     @test WindShipOpt.edge_fuels(off, 4, head)[2] ≈ stowed
 end
 
-@testset "a lull is worth parking through only as long as its cost stays under a landing" begin
+@testset "a lull is worth parking through only while it costs less than a landing" begin
     table, _ = kite_coaster()
     ship_table = table.table
     upwind = WindShipOpt.parking_lull(ship_table, 5.0, 12.0, 0.0, 10.0)
@@ -387,7 +388,7 @@ end
     @test forces[3, 2, 1].force == forces[2, 2, 1].force
 end
 
-@testset "a kite launches inside the launch limits and stays up in seas above its landing limit" begin
+@testset "a kite launches inside its limits and stays up above its landing limit" begin
     table, prices = kite_coaster()
     launch_sea, stay_sea, over_sea = 2.0, 3.5, 5.5
     passage(points, aloft) = WindShipOpt.kite_passage(table, points, aloft, prices)
@@ -405,11 +406,12 @@ end
     @test isfinite(kept_up.cost)
 end
 
-@testset "launch and landing give no force for their duration and the launch pays for both" begin
+@testset "launch and landing give no force while they last and the launch pays both" begin
     table, prices = kite_coaster()
     ship_table = table.table
     @test ship_table.handling_hours ≈
-          (1.05 * assumptions[:kite_launch_minutes] + assumptions[:kite_landing_minutes]) / 60
+          (1.05 * assumptions[:kite_launch_minutes] +
+           assumptions[:kite_landing_minutes]) / 60
     point = kite_point(table, 2.0, 4.0)
     start = WindShipOpt.EdgeTally(0.0, 0.0, 0.0, 0.0, 0, 0)
     launched = WindShipOpt.aloft_tally(ship_table, start, point, true, true, prices)
@@ -441,7 +443,7 @@ end
     @test passage([rising, storm]).forced_landings == 1
 end
 
-@testset "a kite launches by day only when night launches are off, and still lands at night" begin
+@testset "with night launches off a kite launches by day and still lands at night" begin
     table, prices = kite_coaster(kite_night_launch=0.0)
     day = kite_point(table, 2.0, 4.0)
     night = kite_point(table, 2.0, 4.0; daylight=false)
@@ -484,7 +486,8 @@ end
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
     flown = WindShipOpt.wear_cost(rig, assumptions)
-    @test flown ≈ canopy / assumptions[:canopy_life] + tether / assumptions[:tether_lifetime]
+    @test flown ≈
+          canopy / assumptions[:canopy_life] + tether / assumptions[:tether_lifetime]
     @test WindShipOpt.parked_wear_cost(rig, assumptions) ≈
           assumptions[:kite_parked_wear_fraction] * flown
     shorter = with_value(assumptions, :canopy_life, 2000.0)
@@ -659,7 +662,7 @@ end
           bare_trip.fuel_energy rtol = 1e-3
 end
 
-@testset "a kite out of service makes its launches and forced landings pro rata and pays them" begin
+@testset "a kite out of service makes and pays launches and forced landings pro rata" begin
     corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
     hard = with_value(assumptions, :kite_landing_max_wave_height, 0.0)
@@ -670,7 +673,8 @@ end
     @test half.forced_landings ≈ working.forced_landings / 2
     @test half.launches ≈ working.launches / 2
     dearer = with_value(hard, :kite_forced_landing_loss_probability, 2e-5)
-    @test trip_with_share(kite, :kite_out_of_service, 0.5, corridors, dearer).cost_per_tonne_km >
+    @test trip_with_share(kite, :kite_out_of_service, 0.5, corridors,
+        dearer).cost_per_tonne_km >
           half.cost_per_tonne_km
 end
 
