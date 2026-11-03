@@ -293,19 +293,6 @@ function PatternForce(model::KiteModel, pattern::SteeringPattern, wind_speed, ma
 end
 
 """
-    cycle_tension(path)
-
-Time-weighted mean, peak and lowest tether tension [N] and the period [s] of the flown cycle
-of [`PatternStep`](@ref)s `path`.
-"""
-function cycle_tension(path)
-    period = sum(step.time for step in path)
-    tensions = [step.tension for step in path]
-    mean = sum(step.tension * step.time for step in path) / period
-    return (; mean, peak=maximum(tensions), low=minimum(tensions), period)
-end
-
-"""
     parked_force(kite, elevation, side, wind_speed)
 
 Tether force of the kite parked at `elevation` [rad] on the `side` (+1 or -1) of the
