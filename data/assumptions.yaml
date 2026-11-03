@@ -711,13 +711,13 @@ kite_parking_margin:
   low: 1.1
   high: 1.8
   unit: "-"
-  reason: "Estimate of the apparent wind a kite needs to stay up, parked or flying, over the wind at which its lift at maximum lift coefficient carries its flying mass: margin for gusts, tether sag and control. A land kite stayed up in about 6 m/s aloft, the lowest wind it met (Fagiano et al. 2022)."
+  reason: "Estimate of the apparent wind a kite with no airspeed of its own needs, parked or at lift-off, over the wind at which its lift at maximum lift coefficient carries its mass: margin for gusts, tether sag, control and the climb. A land kite stayed up in about 6 m/s aloft, the lowest wind it met (Fagiano et al. 2022)."
 kite_launch_min_wind:
   value: 5.0
   low: 3.0
   high: 6.0
   unit: m/s
-  reason: "Lowest apparent wind for a launch where it exceeds the stay-up wind. SkySails ships: not below Beaufort 3, 3.4-5.4 m/s (Konrad 2009). SkySails on land: 3 m/s (Fagiano et al. 2022), and 5 m/s measured against an assumed 6 (Junge et al. 2023). Kitepower Falcon: 5 m/s (Kitepower 2024)."
+  reason: "Lowest apparent wind for a launch where it exceeds the wind derived from lift-off and flight. SkySails ships: not below Beaufort 3, 3.4-5.4 m/s (Konrad 2009). SkySails on land: 3 m/s (Fagiano et al. 2022), and 5 m/s measured against an assumed 6 (Junge et al. 2023). Kitepower Falcon: 5 m/s (Kitepower 2024)."
 kite_launch_max_wind:
   value: 17.0
   low: 13.0
@@ -737,17 +737,17 @@ kite_cycle_crew_cost:
   unit: USD
   reason: "Estimate, no source gives crew or hours per launch: crew time per launch and landing. Low officer and rating for 0.5 h; base officer and two ratings for 1.5 h; high officer and three ratings for 3 h at EU rates. Rates 29 and 14 USD/h per hour worked, from the crew cost here over about 3,650 worked hours per berth a year (estimate, 10 h a day), split by rank with the ITF/ILO 2025 scale."
 kite_cycle_damage_probability:
-  value: 0.002
-  low: 0.0005
+  value: 0.00005
+  low: 0.00001
   high: 0.01
   unit: "-"
-  reason: "Estimate, no rate exists for a ship or large kite: chance per launch attempt of a tear that ends the canopy. Gradual wear from flogging and folding is in the canopy life. Service limits of skydiving canopies, about 0.17 % per jump, are retirement counts and only set the order of magnitude."
+  reason: "Goal, half of about 1 in 10,000 per cycle for canopy or kite lost, shared with the loss at sea. No rate exists for a ship or large kite; the high bound holds today's estimates. Chance per launch attempt of a tear that ends the canopy. Gradual wear from flogging and folding is in the canopy life. Service limits of skydiving canopies, about 0.17 % per jump, are retirement counts and only set the order of magnitude."
 kite_cycle_loss_probability:
-  value: 0.0005
-  low: 0.0001
+  value: 0.00005
+  low: 0.00001
   high: 0.005
   unit: "-"
-  reason: "Estimate, no source gives a rate: chance per launch attempt of losing the kite in the water with its tether and control unit."
+  reason: "Goal, half of about 1 in 10,000 per cycle for canopy or kite lost, shared with the tear. No source gives a rate; the high bound holds today's estimates. Chance per launch attempt of losing the kite in the water with its tether and control unit."
 kite_launch_retry_probability:
   value: 0.05
   low: 0.02

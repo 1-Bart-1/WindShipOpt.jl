@@ -597,11 +597,11 @@ Cheapest ways through the [`SailedPoint`](@ref)s of an edge on the [`RouteTable`
 `table` that end with the kite down and with it aloft, for a kite aloft before the first
 point if `aloft`, as [`EdgeTally`](@ref)s. At each point a kite down burns the stowed
 fuel, and cannot be down where only a flying kite holds the speed; where
-[`kite_aloft`](@ref) allows, a kite aloft flies or parks, whichever is cheaper there, and
-where [`kite_launchable`](@ref) allows, a kite down may launch. A kite aloft can come down
-at any point: its cost is part of the launch, and outside [`kite_landable`](@ref) it is a
-[`forced_landing`](@ref). Wings and rotors stay down, burning their fuel with the rig
-standing.
+[`kite_aloft`](@ref) allows, a kite aloft flies or, where [`kite_parkable`](@ref), parks,
+whichever is cheaper there, and where [`kite_launchable`](@ref) allows, a kite down may
+launch. A kite aloft can come down at any point: its cost is part of the launch, and outside
+[`kite_landable`](@ref) it is a [`forced_landing`](@ref). Wings and rotors stay down,
+burning their fuel with the rig standing.
 """
 function kite_passage(table::RouteTable, points, aloft, prices)
     start = EdgeTally(0.0, 0.0, 0.0, 0.0, 0, 0)
@@ -614,10 +614,12 @@ function kite_passage(table::RouteTable, points, aloft, prices)
                   forced_landing(up, table.table.forced_landing_cost)
         next_down = extend(cheaper(down, landing), point.stowed, point.hours, 0.0, STOWED,
             false, prices, table.table.cycle_cost)
+        parkable = kite_parkable(table.table, speed, headwind, crosswind)
         stays = kite_aloft(table.table, speed, headwind, crosswind, wave_height) ?
-                aloft_tally(table.table, up, point, false, prices) : NO_TALLY
+                aloft_tally(table.table, up, point, parkable, false, prices) : NO_TALLY
         launches = kite_launchable(table.table, speed, headwind, crosswind, wave_height,
-            daylight) ? aloft_tally(table.table, down, point, true, prices) : NO_TALLY
+            daylight) ? aloft_tally(table.table, down, point, parkable, true, prices) :
+                   NO_TALLY
         up = cheaper(stays, launches)
         down = next_down
     end
@@ -625,19 +627,20 @@ function kite_passage(table::RouteTable, points, aloft, prices)
 end
 
 """
-    aloft_tally(table, tally, point, launched, prices)
+    aloft_tally(table, tally, point, parkable, launched, prices)
 
-`tally` followed by the [`SailedPoint`](@ref) `point` with the kite flying or parked,
-whichever is cheaper there. If `launched`, the point starts with the launch and landing of
-the flight at stowed fuel; where they outlast the point, the excess comes off its flying or
-parked hours, which then count negative against the hours that follow.
+`tally` followed by the [`SailedPoint`](@ref) `point` with the kite flying or, if
+`parkable`, parked, whichever is cheaper there. If `launched`, the point starts with the
+launch and landing of the flight at stowed fuel; where they outlast the point, the excess
+comes off its flying or parked hours, which then count negative against the hours that
+follow.
 """
-function aloft_tally(table::PerformanceTable, tally, point, launched, prices)
+function aloft_tally(table::PerformanceTable, tally, point, parkable, launched, prices)
     handling = launched ? table.handling_hours : 0.0
     handled = extend(tally, point.stowed, handling, 0.0, STOWED, launched, prices,
         table.cycle_cost)
     hours = point.hours - handling
-    parked = isfinite(point.parked) ?
+    parked = parkable && isfinite(point.parked) ?
              extend(handled, point.parked, hours, table.parked_wear_cost, PARKED, false,
         prices, table.cycle_cost) : NO_TALLY
     isfinite(point.flown) && point.flown !== point.stowed || return parked
