@@ -326,6 +326,17 @@ function Ship(design::ShipDesign, assumptions::Assumptions)
 end
 
 """
+    with_rig(ship, rig)
+
+`ship` with its aerodynamics from `rig`, everything else as it was built.
+"""
+with_rig(ship::Ship, rig) = Ship(ship.design, ship.env, ship.hull, ship.wave_coefficients,
+    ship.seakeeping, ship.propeller, ship.powertrain, rig, ship.fuel, ship.windage_area,
+    ship.windage_drag_coefficient, ship.righting_stiffness, ship.heel_limit,
+    ship.leeway_limit, ship.rudder_area, ship.rudder_aspect_ratio, ship.rudder_max_lift,
+    ship.max_speed)
+
+"""
     rated_delivered_power(ship, assumptions)
 
 Power [W] delivered to the propeller at the rating of the main engine of `ship`: the

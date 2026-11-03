@@ -146,6 +146,18 @@ Three changes to the model move the savings on the \SI{140}{m} e-methanol ship t
 \label{fig:forecast}
 \end{figure}
 
+\subsection{Rigs out of service}
+\label{sec:res_availability}
+
+\Cref{tab:availability} gives the cost saving of each rig at the low, base and high share of round trips out of service, and the shares at which it stops paying for itself and falls behind the next rig. At the base of 3\,\% for every rig, the rotors lose 0.57 points of cost saving, the kite 0.52 and the wings 0.37 on the \SI{140}{m} e-methanol ship to Guadeloupe, against no outage at all; the Kamsarmax rigs lose 0.15 to 0.39 points and the Neo-Panamax rigs 0.23 to 0.41. On all three ships the order is rotors, kite, wings at the low, base and high share alike, so an outage shared by all rigs does not change which leads. The order changes only if one rig is worse off than the others. With the others at base, the rotors fall behind the kite at 27, 28 and 13\,\% of each rotor's round trips on the \SI{140}{m} ship, the Kamsarmax and the Neo-Panamax, and the kite behind the wings at 33, 50 and 50\,\%. The Neo-Panamax figure of 13\,\% lies inside the input range, so there the rotors' lead of 1.2 points is not settled by the record. If all units of a rig fail together, the rotors fall behind at 17, 21 and 7\,\%, and at the high share for both rigs the kite leads the rotors on the Neo-Panamax, 11.1 to 10.9\,\%. Most rigs pay for themselves far beyond any reported outage, up to 40 to 97\,\%. The exception is the wings on the Kamsarmax, which save 0.3\,\% at base, stop paying at 7\,\% and lose money at the high share. A rig that never works costs more than no rig, as it still carries capital and mass: on the \SI{140}{m} ship 2.3\,\% more for the stowed kite, 6.0\,\% for the feathered wings and 10.3\,\% for the stopped rotors. \tbd{Rig sizes on the Kamsarmax and the Neo-Panamax are fixed by hand until the class study; recheck on the final run.}
+
+\begin{table}[tbp]
+\centering
+\caption{Cost saving (\%) at the low, base and high share out of service of each rig's input, the share (\%) at which the rig pays no more and at which it falls behind the next rig at base, and the same if all units of a rig fail together, on a straight line between all working and all down.}
+\label{tab:availability}
+\InputIfFileExists{sections/availability_table}{}{\tbd{Availability table pending: run the availability\_table step.}}
+\end{table}
+
 \subsection{Kite and rotors together}
 \label{sec:res_combination}
 
