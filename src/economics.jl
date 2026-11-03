@@ -289,31 +289,26 @@ function consumable_costs(rig::KiteRig, assumptions)
 end
 
 """
-    wear_cost(rig, assumptions; mechanical=1)
+    wear_cost(rig, assumptions)
 
-Canopy and tether wear per hour the rig is flown [USD/h], with the mechanical wear at the
-share `mechanical` of its flying rate and UV ageing at its full rate; zero for rigs that
-do not wear.
+Canopy and tether wear per hour the rig is flown [USD/h]; zero for rigs that do not wear.
 """
-wear_cost(rig, assumptions; mechanical=1.0) = 0.0
-wear_cost(rig::CombinedRig, assumptions; mechanical=1.0) =
-    wear_cost(rig.kite, assumptions; mechanical)
+wear_cost(rig, assumptions) = 0.0
+wear_cost(rig::CombinedRig, assumptions) = wear_cost(rig.kite, assumptions)
 
-function wear_cost(rig::KiteRig, assumptions; mechanical=1.0)
+function wear_cost(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
-    life = Canopy(assumptions)
-    return canopy * (1 / life.uv_lifetime + mechanical / life.wear_lifetime) +
-           mechanical * tether / assumptions[:tether_lifetime]
+    return canopy / Canopy(assumptions).lifetime + tether / assumptions[:tether_lifetime]
 end
 
 """
     parked_wear_cost(rig, assumptions)
 
-Canopy and tether wear per hour a kite is parked aloft [USD/h]: the same sun as in flight,
-less mechanical wear; zero for other rigs.
+Canopy and tether wear per hour a kite is parked aloft [USD/h]: the share
+`kite_parked_wear_fraction` of [`wear_cost`](@ref); zero for other rigs.
 """
 parked_wear_cost(rig, assumptions) =
-    wear_cost(rig, assumptions; mechanical=assumptions[:kite_parked_wear_fraction])
+    assumptions[:kite_parked_wear_fraction] * wear_cost(rig, assumptions)
 
 """
     cycle_cost(rig, assumptions)
