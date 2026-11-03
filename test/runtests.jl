@@ -799,3 +799,25 @@ end
     @test is_marked(:final, [:capital])
     @test !is_marked(:final, [:designs, :capital, :premium])
 end
+
+@testset "one crash costs a control unit, half the wearing parts, or one deck unit" begin
+    hull = Hull(140.0, assumptions)
+    kite = uniform_kite(hull, assumptions)
+    canopy, tether = WindShipOpt.consumable_costs(kite, assumptions)
+    control_unit = assumptions[:control_unit_cost] +
+                   assumptions[:control_unit_cost_per_area] * kite.area
+    @test WindShipOpt.crash_cost(kite, assumptions) ≈ control_unit + (canopy + tether) / 2
+    for rig_type in (WingRig, WindShipOpt.RotorRig)
+        rig = rig_type(800.0, hull, assumptions)
+        @test rig.count > 1
+        @test WindShipOpt.crash_cost(rig, assumptions) * rig.count ≈
+              first(WindShipOpt.rig_costs(rig, assumptions))
+    end
+end
+
+@testset "the crashes a year at break-even use up the cost gap exactly" begin
+    cost, target, work, crash = 0.012, 0.015, 2e9, 4e5
+    crashes = WindShipOpt.events_to_cost(cost, target, work, crash)
+    @test cost + crashes * crash / work ≈ target
+    @test WindShipOpt.events_to_cost(target, cost, work, crash) == 0
+end

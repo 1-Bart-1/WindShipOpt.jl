@@ -117,3 +117,12 @@ function share_at_cost(shares, costs, cost)
     return shares[k - 1] +
            (shares[k] - shares[k - 1]) * (cost - costs[k - 1]) / (costs[k] - costs[k - 1])
 end
+
+"""
+    events_to_cost(cost, target_cost, yearly_work, event_cost)
+
+Events a year, each costing `event_cost` [USD], that raise a transport `cost` [USD per
+tonne-km] to `target_cost` at `yearly_work` [tonne-km]; zero if it is already above.
+"""
+events_to_cost(cost, target_cost, yearly_work, event_cost) =
+    max(target_cost - cost, 0.0) * yearly_work / event_cost

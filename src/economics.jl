@@ -346,6 +346,21 @@ function lost_kite_cost(rig::KiteRig, assumptions)
 end
 
 """
+    crash_cost(rig, assumptions)
+
+Cost [USD] of one kite crashed or one wing or rotor lost, beyond the wear already charged:
+a kite's control unit and half of its canopy and tether, on average halfway through their
+life when lost, or the price of one wing or rotor with its installation.
+"""
+function crash_cost(rig::KiteRig, assumptions)
+    canopy, tether = consumable_costs(rig, assumptions)
+    return lost_kite_cost(rig, assumptions) - (canopy + tether) / 2
+end
+
+crash_cost(rig::Union{WingRig, RotorRig}, assumptions) =
+    first(rig_costs(rig, assumptions)) / deck_units(rig)
+
+"""
     forced_landing_cost(rig, assumptions)
 
 Expected cost of one kite landing outside the landing limits [USD], the chance of losing
