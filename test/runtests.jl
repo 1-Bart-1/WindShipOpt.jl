@@ -80,15 +80,28 @@ function best_pattern_path(model, max_force, assumptions, course)
         deg2rad(assumptions[:kite_min_elevation]), 12.0, course, 0.0)
     force, parameters = WindShipOpt.optimal_pattern(problem,
         WindShipOpt.pattern_starts(course))
-    path = NTuple{3, Float64}[]
+    path = WindShipOpt.PatternStep[]
     steered = WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters), 12.0,
         max_force; path)
     return WindShipOpt.objective(problem, steered) ≈
            WindShipOpt.objective(problem, force), path
 end
 
+@testset "steps of a flown cycle give the pattern's force, peak and period" begin
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    pattern = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15))
+    path = WindShipOpt.PatternStep[]
+    force = WindShipOpt.PatternForce(model, pattern, 12.0, max_force; path)
+    load = 0.5model.air_density * 12.0^2 * model.area
+    cycle = WindShipOpt.cycle_tension(path)
+    pull = ntuple(axis -> sum(step.tension * step.time * step.radial[axis] for step in path), 3)
+    @test all(pull ./ (cycle.period * load) .≈ force.force)
+    @test cycle.peak ≈ force.peak_tension * load
+    @test cycle.low <= cycle.mean <= cycle.peak <= max_force
+end
+
 "least angle [rad] of a pattern's `path` off the apparent downwind direction"
-least_off_wind(path) = minimum(acos(first(position)) for position in path)
+least_off_wind(path) = minimum(acos(first(step.radial)) for step in path)
 
 # A sweep keeps the kite in the outer half of the wind window, more than 45° off the
 # apparent downwind direction; a figure eight crosses the window's centre.
@@ -108,15 +121,18 @@ end
         WindShipOpt.min_flight_wind(first(WindShipOpt.kite_model(800.0, 3.0, cloth)), cloth)
         for cloth in (light, heavy))
     @test heavy_wind > light_wind
-    @test WindShipOpt.Canopy(heavy).lifetime > WindShipOpt.Canopy(light).lifetime
+    @test WindShipOpt.Canopy(heavy, 16.0).lifetime > WindShipOpt.Canopy(light, 16.0).lifetime
 end
 
 @testset "canopy life follows the wear law and its sensitivities" begin
+    chord = sqrt(3200 / 3)
     canopy(changes...) = WindShipOpt.Canopy(foldl((values, change) -> with_value(values,
-            change...), changes; init=with_value(assumptions, :canopy_cloth_weight, 100.0)))
+            change...), changes; init=with_value(assumptions, :canopy_cloth_weight, 100.0)),
+        chord)
     uv_rate = assumptions[:canopy_uv_dose_rate] / assumptions[:cloth_uv_dose_per_weight]
     wear_rate = assumptions[:canopy_wear_rate]
-    tension = 1e3assumptions[:kite_max_force_per_area] * assumptions[:canopy_panel_radius]
+    tension = 1e3assumptions[:kite_max_force_per_area] *
+              assumptions[:canopy_billow_ratio] * chord
     margin(weight) = assumptions[:cloth_specific_strength] * weight /
                      (assumptions[:canopy_strength_factor] * tension)
     # the lives the paper's derivation quotes at its base inputs
@@ -151,6 +167,17 @@ end
     @test canopy(:canopy_life_factor => 2.0).lifetime ≈ 2canopy().lifetime
     @test canopy(:canopy_wear_lifetime => 2000.0,
         :canopy_life_factor => 2.0).wear_lifetime == 4000
+end
+
+@testset "a larger kite of the same proportions loads its cloth harder and ages it sooner" begin
+    small, large = (WindShipOpt.Canopy(assumptions, sqrt(area / 3)) for area in (800, 3200))
+    @test WindShipOpt.billow_radius(2.0, assumptions) ≈
+          2WindShipOpt.billow_radius(1.0, assumptions)
+    @test WindShipOpt.strength_margin(200.0, 16.0, assumptions) ≈
+          2WindShipOpt.strength_margin(200.0, 32.0, assumptions)
+    @test large.lifetime < small.lifetime
+    @test large.mass_per_area == small.mass_per_area
+    @test large.cost_per_area == small.cost_per_area
 end
 
 @testset "hulls fuller than Holtrop's range use the formulas at its limit" begin
@@ -190,7 +217,7 @@ end
 """
 function uniform_kite(hull, assumptions)
     pattern = WindShipOpt.PatternForce((0.3, 0.8, 0.2), 1.0, 0.3)
-    return KiteRig(; area=800.0, tether_diameter=0.05, tether_length=300.0,
+    return KiteRig(; area=800.0, chord=16.0, tether_diameter=0.05, tether_length=300.0,
         reference_height=120.0, max_wind=30.0, min_flight_wind=4.0, max_force=1e6,
         attach_height=10.0,
         attach_position=WindShipOpt.launch_mast_position(hull, assumptions),
@@ -201,7 +228,7 @@ end
 @testset "a parked kite ages in the sun at the full rate and wears less" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
-    life = WindShipOpt.Canopy(assumptions)
+    life = WindShipOpt.Canopy(assumptions, rig.chord)
     fraction = assumptions[:kite_parked_wear_fraction]
     @test WindShipOpt.parked_wear_cost(rig, assumptions) ≈
           canopy * (1 / life.uv_lifetime + fraction / life.wear_lifetime) +

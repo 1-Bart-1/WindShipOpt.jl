@@ -158,6 +158,48 @@ function pattern_figure()
 end
 
 """
+    canopy_tension_figure()
+
+Cloth tension per unit width, the tether force per projected area times the billow radius
+of that kite:
+(a) over one optimal cycle at three conditions for the smallest and largest kite, (b) the
+share of flight hours whose cycle stays below a tension, by its mean and its peak.
+"""
+function canopy_tension_figure()
+    radius(area) = WindShipOpt.billow_radius(sqrt(area / 3), assumptions)
+    histories = read_table(data_file("canopy_tension_history.csv"))
+    cycles = read_table(data_file("canopy_tension.csv"))
+    figure = Figure(size=(page_width, 220))
+    history = Axis(figure[1, 1]; xlabel="time in the cycle [s]",
+        ylabel="tension [N/m]", title="(a) over one cycle")
+    for (i, (wind, course)) in enumerate(tension_histories),
+        (area, style) in ((800.0, :solid), (3200.0, :dash))
+
+        chosen = rows(histories, "area" => area, "wind" => wind, "course" => course)
+        lines!(history, histories["time"][chosen], radius(area) .* histories["load"][chosen];
+            color=palette[i], linestyle=style,
+            label="$(round(Int, wind)) m/s, $(round(Int, course))°, " *
+                  "$(round(Int, area)) m²")
+    end
+    Legend(figure[1, 2], history; framevisible=false, labelsize=8)
+    share = Axis(figure[1, 3]; xlabel="tension [N/m]", ylabel="share of flight hours",
+        title="(b) over the routes")
+    for (i, area) in enumerate(tension_areas), (column, style) in (("mean", :solid),
+        ("peak", :dash))
+
+        chosen = rows(cycles, "area" => area)
+        order = sortperm(cycles[column][chosen])
+        hours = cycles["hours"][chosen][order]
+        stairs!(share, radius(area) .* cycles[column][chosen][order],
+            cumsum(hours) ./ sum(hours);
+            color=palette[i], linestyle=style,
+            label="$(round(Int, area)) m², $column")
+    end
+    axislegend(share; position=:lt, framevisible=false, labelsize=8)
+    save(joinpath(figures, "canopy_tension.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
     rig_polar_figure()
 
 Thrust and side force of the best trim over true wind angle on a 140 m ship at 10.5 kn in
@@ -946,7 +988,7 @@ with no wear one step beyond the longest life.
 """
 function life_position(factor)
     longest = maximum(filter(!=(no_wear), collect(first(situation_inputs[:kite_life]))))
-    life = WindShipOpt.Canopy(assumptions).lifetime
+    life = WindShipOpt.Canopy(assumptions, reference_chord).lifetime
     return log2((factor == no_wear ? 2longest : factor) * life)
 end
 
@@ -974,7 +1016,7 @@ function life_figure()
     factors = sort([1.0; collect(first(situation_inputs[:kite_life]))])
     positions = life_position.(factors)
     labels = [factor == no_wear ? "no\nwear" :
-              @sprintf("%g", factor * WindShipOpt.Canopy(assumptions).lifetime / 1e3)
+              @sprintf("%g", factor * WindShipOpt.Canopy(assumptions, reference_chord).lifetime / 1e3)
               for factor in factors]
     figure = Figure(size=(page_width, 250))
     for (column, (drive, drive_label)) in enumerate(((:vlsfo, "VLSFO"),

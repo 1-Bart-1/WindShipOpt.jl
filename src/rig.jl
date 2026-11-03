@@ -273,6 +273,8 @@ direction and the weight given to side force; each weight is one trim.
 Base.@kwdef struct KiteRig
     "projected kite area [m^2]"
     area::Float64
+    "mean chord [m]"
+    chord::Float64
     "tether diameter [m]"
     tether_diameter::Float64
     tether_length::Float64
@@ -339,7 +341,7 @@ function kite_model(area, aspect_ratio, assumptions::Assumptions)
                   (4area)
     tether_mass = rope_mass(tether_diameter, tether_length, assumptions)
     bridle_drag, bridle_mass = bridle_lines(area, aspect_ratio, max_force, assumptions)
-    mass = Canopy(assumptions).mass_per_area * area + bridle_mass +
+    mass = Canopy(assumptions, area / span).mass_per_area * area + bridle_mass +
            assumptions[:control_unit_mass] + tether_mass / 2
     polar = KitePolar(aspect_ratio)
     stall = argmax(polar.lift)
@@ -376,7 +378,7 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
     wind_speeds = collect(3.0:3.0:30.0)
     courses = deg2rad.(0.0:15.0:180.0)
     side_weights = [0.0, 0.5, 1.0, 3.0]
-    return KiteRig(; area, tether_diameter, tether_length,
+    return KiteRig(; area, chord=sqrt(area / aspect_ratio), tether_diameter, tether_length,
         reference_height=tether_length * sin(deg2rad(25)),
         max_wind=assumptions[:kite_max_wind],
         min_flight_wind=min_flight_wind(model, assumptions), max_force,

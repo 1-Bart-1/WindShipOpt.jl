@@ -283,7 +283,7 @@ market price factor, the tether at its purchase price.
 """
 function consumable_costs(rig::KiteRig, assumptions)
     tether_mass = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
-    canopy = assumptions[:market_price_factor] * Canopy(assumptions).cost_per_area *
+    canopy = assumptions[:market_price_factor] * Canopy(assumptions, rig.chord).cost_per_area *
              rig.area
     return canopy, assumptions[:tether_price] * tether_mass
 end
@@ -301,7 +301,7 @@ wear_cost(rig::CombinedRig, assumptions; mechanical=1.0) =
 
 function wear_cost(rig::KiteRig, assumptions; mechanical=1.0)
     canopy, tether = consumable_costs(rig, assumptions)
-    life = Canopy(assumptions)
+    life = Canopy(assumptions, rig.chord)
     return canopy * (1 / life.uv_lifetime + mechanical / life.wear_lifetime) +
            mechanical * tether / assumptions[:tether_lifetime]
 end

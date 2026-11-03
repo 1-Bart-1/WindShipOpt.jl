@@ -616,12 +616,12 @@ cloth_specific_strength:
   high: 210.0
   unit: N/m per g/m^2
   reason: "Tensile strength of canopy cloth over its weight: 150-210 for Porcher Skytex 26-55 g/m^2 (ISO 1421 minimum and mean, Porcher 2006), Teijin Icarex 37 g/m^2 and triple ripstop polyester 53 g/m^2, and uncoated aircraft polyester of 63-115 g/m^2 (Poly-Fiber 2014); 207-211 for one polyester sailcloth of 480 g/m^2 (Ambroziak and Klosowski 2018); 110 for hard-finished sailcloth of 165-180 g/m^2. Strength grows with weight to the power 0.73-1.0 within one cloth family, which no canopy cloth above 55 g/m^2 confirms."
-canopy_panel_radius:
-  value: 0.5
-  low: 0.25
-  high: 1.7
-  unit: m
-  reason: "Billow radius of the canopy skin between ribs, which with the pressure across the skin sets its tension per unit length (Wang & He 2018), held fixed over kite size by adding cells and tapes. Paragliders have ~0.2 m cells on a 2.2 m chord (Nova Mentor 6); the high bound is cells of the same proportions on a 3,200 m^2 kite of 33 m chord."
+canopy_billow_ratio:
+  value: 0.061
+  low: 0.015
+  high: 0.085
+  unit: "-"
+  reason: "Area-averaged radius the skin billows to between ribs over the mean chord, from the cell equilibrium of Wang & He 2018 over a NACA 4415 section at a cell height over width of 1.6 (Nova Mentor 6, 59 cells of 0.20 m on a 2.2 m chord, whose 1 m^2 of ribs per flat m^2 is canopy_cloth_area_ratio): all cell proportions held, so radius and tension grow with the chord. The bounds are a cell height over width of 1, and 0.5 m held on a 3,200 m^2 kite by spanwise tapes the model does not charge."
 canopy_strength_factor:
   value: 5.0
   low: 3.0

@@ -21,12 +21,20 @@ end
 const CLOTH_REFERENCE_WEIGHT = 100.0
 
 """
-    strength_margin(weight, assumptions)
+    billow_radius(chord, assumptions)
 
-New strength of cloth of `weight` [g/m^2] over the strength the force limit needs [-].
+Area-averaged radius [m] the skin billows to between the ribs of a kite of mean `chord` [m].
 """
-function strength_margin(weight, assumptions)
-    tension = 1e3assumptions[:kite_max_force_per_area] * assumptions[:canopy_panel_radius]
+billow_radius(chord, assumptions) = assumptions[:canopy_billow_ratio] * chord
+
+"""
+    strength_margin(weight, chord, assumptions)
+
+New strength of cloth of `weight` [g/m^2] over the strength the force limit needs on a kite
+of mean `chord` [m] [-].
+"""
+function strength_margin(weight, chord, assumptions)
+    tension = 1e3assumptions[:kite_max_force_per_area] * billow_radius(chord, assumptions)
     return assumptions[:cloth_specific_strength] * weight /
            (assumptions[:canopy_strength_factor] * tension)
 end
@@ -50,27 +58,27 @@ decay_life(weight, exponent, loss, rate) =
     CLOTH_REFERENCE_WEIGHT * (weight / CLOTH_REFERENCE_WEIGHT)^exponent * loss / rate
 
 """
-    Canopy(assumptions)
+    Canopy(assumptions, chord)
 
-[`Canopy`](@ref) of cloth weight `canopy_cloth_weight`: cloth plus a fixed overhead for
+[`Canopy`](@ref) of cloth weight `canopy_cloth_weight` on a kite of mean `chord` [m]: cloth plus a fixed overhead for
 mass and cost. Its life combines, as rates, a UV life and a wear life, each a
 [`decay_life`](@ref) to the [`strength_loss`](@ref). A retirement share rescales the wear
 rate so that the wear life at the reference weight stays as observed; a nonzero
 `canopy_wear_lifetime` replaces the wear life by that fixed span.
 """
-function Canopy(assumptions::Assumptions)
+function Canopy(assumptions::Assumptions, chord)
     weight = assumptions[:canopy_cloth_weight]
     cloth_area = assumptions[:canopy_cloth_area_ratio]
     cloth_price = assumptions[:canopy_cloth_base_price] +
                   assumptions[:canopy_cloth_price_per_weight] * weight
-    margin = strength_margin(weight, assumptions)
-    margin > 1 || error("canopy cloth of $weight g/m^2 is too weak for the force limit")
+    margin = strength_margin(weight, chord, assumptions)
+    margin > 1 || error("cloth of $weight g/m^2 is too weak for a $chord m chord")
     retirement = assumptions[:canopy_retirement_strength]
     loss = strength_loss(margin, retirement)
     life_factor = assumptions[:canopy_life_factor]
     uv_lifetime = life_factor * decay_life(weight, assumptions[:canopy_uv_weight_exponent],
         loss, assumptions[:canopy_uv_dose_rate] / assumptions[:cloth_uv_dose_per_weight])
-    reference_margin = strength_margin(CLOTH_REFERENCE_WEIGHT, assumptions)
+    reference_margin = strength_margin(CLOTH_REFERENCE_WEIGHT, chord, assumptions)
     wear_rate = assumptions[:canopy_wear_rate] *
                 strength_loss(reference_margin, retirement) / log(reference_margin)
     fixed_lifetime = assumptions[:canopy_wear_lifetime]

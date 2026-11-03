@@ -1,15 +1,17 @@
 """
     LegTrace
 
-What happens on each stage of a routed leg: time [h], speed held [m/s], true wind angle
-[rad], rig thrust [N] and fuel power [W].
+What happens on each stage of a routed leg: time [h], speed held [m/s], true wind speed at
+10 m [m/s] and angle [rad], rig thrust [N], fuel power [W] and whether a kite flies.
 """
 struct LegTrace
     time::Vector{Float64}
     speed::Vector{Float64}
+    wind_speed::Vector{Float64}
     true_wind_angle::Vector{Float64}
     rig_thrust::Vector{Float64}
     fuel_power::Vector{Float64}
+    kite_flown::Vector{Bool}
 end
 
 """
@@ -25,7 +27,7 @@ edge's mode is flying or only a flying kite holds the speed, and the
 """
 function LegTrace(table::PerformanceTable, leg::Leg, weather, departure; interval=Inf)
     route_table = RouteTable(table)
-    trace = LegTrace((Float64[] for _ in 1:5)...)
+    trace = LegTrace((Float64[] for _ in 1:6)..., Bool[])
     for i in 1:(length(leg.path) - 1)
         lat, lon, time, _ = leg.path[i]
         next_lat, next_lon, next_time, speed, mode = leg.path[i + 1]
@@ -70,7 +72,9 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     force = last(best_trim(ship, flown ? ship.rig : standing, speed, wind_speed, angle))
     push!(trace.time, time)
     push!(trace.speed, speed)
+    push!(trace.wind_speed, wind_speed)
     push!(trace.true_wind_angle, angle)
     push!(trace.rig_thrust, force.thrust)
     push!(trace.fuel_power, flown ? flown_power : stowed_power)
+    push!(trace.kite_flown, flown && standing !== ship.rig)
 end

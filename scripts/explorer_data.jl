@@ -94,7 +94,7 @@ explorer's cost model reads, derived from the cloth by [`WindShipOpt.Canopy`](@r
 """
 function explorer_input_entries()
     entries = Dict(name => assumptions.entries[name] for name in explorer_inputs)
-    canopy = WindShipOpt.Canopy(assumptions)
+    canopy = WindShipOpt.Canopy(assumptions, reference_chord)
     for (name, value, unit) in ((:canopy_cost_per_area, canopy.cost_per_area, "USD/m^2"),
         (:canopy_lifetime, canopy.lifetime, "flight hours"))
         entries[name] = Assumption(value, value, value, unit, "derived from the cloth")

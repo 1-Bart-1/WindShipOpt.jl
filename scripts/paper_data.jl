@@ -110,6 +110,25 @@ function patterns_data()
 end
 
 """
+    best_pattern_cycle(model, max_force, min_elevation, wind, course, side_weight)
+
+Force of the optimal pattern at apparent wind `wind` [m/s] and `course` [°], the steps of its
+steered cycle, and whether the kite does better parked than on that cycle.
+"""
+function best_pattern_cycle(model, max_force, min_elevation, wind, course, side_weight)
+    problem = WindShipOpt.PatternProblem(model, max_force, min_elevation, wind,
+        deg2rad(course), side_weight)
+    force, parameters = WindShipOpt.optimal_pattern(problem,
+        WindShipOpt.pattern_starts(deg2rad(course)))
+    path = WindShipOpt.PatternStep[]
+    steered = WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters), wind,
+        max_force; path)
+    parked = WindShipOpt.objective(problem, steered) >
+             WindShipOpt.objective(problem, force) + 1e-9
+    return force, path, parked
+end
+
+"""
     write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
                   side_weight)
 
@@ -117,15 +136,8 @@ Optimise one pattern and write its force and, for a steered pattern, its path.
 """
 function write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
         side_weight)
-    problem = WindShipOpt.PatternProblem(model, max_force, min_elevation, wind,
-        deg2rad(course), side_weight)
-    force, parameters = WindShipOpt.optimal_pattern(problem,
-        WindShipOpt.pattern_starts(deg2rad(course)))
-    path = NTuple{3, Float64}[]
-    steered = WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters), wind,
-        max_force; path)
-    parked = WindShipOpt.objective(problem, steered) >
-             WindShipOpt.objective(problem, force) + 1e-9
+    force, path, parked = best_pattern_cycle(model, max_force, min_elevation, wind, course,
+        side_weight)
     load = 0.5model.air_density * wind^2 * model.area
     downwind, crosswind, _ = load .* force.force
     thrust = downwind * cosd(course) + crosswind * sind(course)
@@ -133,7 +145,7 @@ function write_pattern(paths, forces, model, max_force, min_elevation, wind, cou
     @printf(forces, "%.0f,%.0f,%.1f,%.1f,%.1f,%d\n", wind, course, side_weight, thrust,
         side, parked)
     parked && return
-    for (x, y, z) in [path; path[1:1]]
+    for (x, y, z) in getfield.([path; path[1:1]], :radial)
         @printf(paths, "%.0f,%.0f,%.1f,%.5f,%.5f\n", wind, course, side_weight,
             atan(y, x), asin(z))
     end
@@ -186,6 +198,9 @@ study_hull(ship) = ship == "140 m" ? 140.0 : ship_classes()[ship]
 
 "reference size of each rig on the 140 m ship"
 reference_rigs = [("kite", 3200.0), ("wings", 1500.0), ("rotors", 800.0)]
+
+"mean chord [m] of the reference kite, at the base aspect ratio of 3"
+reference_chord = sqrt(Dict(reference_rigs)["kite"] / 3)
 
 "the rigs, as named in the output"
 rig_names = ("kite", "wings", "rotors")
@@ -411,6 +426,197 @@ function wind_angle_data()
                     direction, band, hours, thrust_hours, work, rig_cost)
             end
         end
+    end
+end
+
+"kite areas [m^2] on the 140 m e-methanol ship whose cloth load the paper reports"
+tension_areas = (800.0, 1600.0, 3200.0)
+
+"apparent wind [m/s] and course [°] of the cycles drawn as a tension history"
+tension_histories = ((12.0, 135.0), (12.0, 90.0), (18.0, 90.0))
+
+"""
+    add_flown_hours!(hours, ship, trace)
+
+Add each hourly point of `trace` where the kite flies to `hours`, over the apparent wind,
+course and trim of the rig's pattern table, shared between grid points as
+[`rig_force`](@ref) interpolates between them.
+"""
+function add_flown_hours!(hours, ship, trace)
+    (; rig, env) = ship
+    for i in eachindex(trace.time)
+        trace.kite_flown[i] || continue
+        wind_10m, angle, speed = trace.wind_speed[i], trace.true_wind_angle[i],
+        trace.speed[i]
+        force = last(WindShipOpt.best_trim(ship, rig, speed, wind_10m, angle))
+        trim = findfirst(trim -> WindShipOpt.rig_force(rig, env, wind_10m, angle, speed,
+                trim) === force, WindShipOpt.trim_settings(rig))
+        wind = WindShipOpt.wind_at_height(env, wind_10m, rig.reference_height)
+        apparent, off_bow = WindShipOpt.apparent_wind(wind, angle, speed)
+        row, row_weight = WindShipOpt.table_weights(rig.wind_speeds, apparent)
+        column, column_weight = WindShipOpt.table_weights(rig.courses, π - off_bow)
+        for (j, wind_share) in ((row, 1 - row_weight), (row + 1, row_weight)),
+            (k, course_share) in ((column, 1 - column_weight), (column + 1, column_weight))
+
+            hours[j, k, trim] += wind_share * course_share
+        end
+    end
+    return hours
+end
+
+"""
+    flown_hours(area, name)
+
+Flight hours of a kite of `area` [m^2] on the 140 m e-methanol ship, routed out and home on
+route `name` over the sampled departures, over its pattern table's grid, and that kite rig.
+"""
+function flown_hours(area, name)
+    ship = Ship(ShipDesign(:methanol, 140.0; kite_area=area), assumptions)
+    table = PerformanceTable(ship, assumptions)
+    out_hourly, back_hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions)
+    route_table = RouteTable(table)
+    out_corridor, back_corridor = run_corridors(name)
+    port_hours = 24assumptions[:port_time_per_call]
+    (; wind_speeds, courses, side_weights) = ship.rig
+    hours = zeros(length(wind_speeds), length(courses), length(side_weights))
+    for departure in sampled_departures()
+        out = route(out_corridor, route_table, weather, departure; time_cost=out_hourly)
+        back_departure = departure + out.duration + port_hours
+        back = route(back_corridor, route_table, weather, back_departure;
+            time_cost=back_hourly)
+        for (leg, start) in ((out, departure), (back, back_departure))
+            add_flown_hours!(hours, ship,
+                LegTrace(table, leg, weather, start; interval=1.0))
+        end
+    end
+    return hours, ship.rig
+end
+
+"""
+    weighted_quantile(values, weights, share)
+
+Smallest of `values` with at least `share` of `weights` at or below it.
+"""
+function weighted_quantile(values, weights, share)
+    order = sortperm(values)
+    position = findfirst(>=(share * sum(weights)), cumsum(weights[order]))
+    return values[order[position]]
+end
+
+"""
+    tension_summary(io, area, cycles)
+
+Write one row of canopy_tension_summary.csv from the rows `cycles` of one kite: over its
+flight hours the mean load and cycle peak [N/m^2], the share of hours whose cycle reaches
+the force limit, that parked, the cycles per hour, and the median and 90th percentile of the
+period [s] and of the range within a cycle [N/m^2].
+"""
+function tension_summary(io, area, cycles)
+    hours = getfield.(cycles, :hours)
+    limit = 1e3assumptions[:kite_max_force_per_area]
+    average(field) = sum(getfield.(cycles, field) .* hours) / sum(hours)
+    steered = [row for row in cycles if !row.parked]
+    weights = getfield.(steered, :hours)
+    periods = getfield.(steered, :period)
+    ranges = [row.peak - row.low for row in steered]
+    per_hour = sum(row.hours * 3600 / row.period for row in steered) / sum(hours)
+    limited = sum(row.hours for row in cycles if row.peak >= 0.995limit; init=0.0) /
+              sum(hours)
+    @printf(io, "%.0f,%.0f,%.1f,%.1f,%.3f,%.3f,%.1f,%.1f,%.1f,%.1f,%.1f\n", area, sum(hours),
+        average(:mean), average(:peak), limited, 1 - sum(weights) / sum(hours), per_hour,
+        weighted_quantile(periods, weights, 0.5), weighted_quantile(periods, weights, 0.9),
+        weighted_quantile(ranges, weights, 0.5), weighted_quantile(ranges, weights, 0.9))
+end
+
+"""
+    canopy_tension_data()
+
+Tether force per projected area over the optimal pattern of every condition the routed kites
+of `tension_areas` fly in: canopy_tension.csv per grid point with its flight hours,
+canopy_tension_summary.csv per kite, and canopy_tension_history.csv with the tether force
+over one cycle at `tension_histories`.
+"""
+function canopy_tension_data()
+    cases = vec(collect(Iterators.product(tension_areas, route_names)))
+    Ship(ShipDesign(:methanol, 140.0; kite_area=first(tension_areas)), assumptions)
+    routed = Vector{Any}(undef, length(cases))
+    Threads.@threads :greedy for k in eachindex(cases)
+        routed[k] = flown_hours(cases[k]...)
+    end
+    min_elevation = deg2rad(assumptions[:kite_min_elevation])
+    open(run_file("canopy_tension.csv"), "w") do table
+        open(run_file("canopy_tension_summary.csv"), "w") do summary
+            println(table, "area,wind,course,side_weight,hours,parked,mean,peak,low,period")
+            println(summary, "area,hours,mean,peak,at_limit,parked,cycles_per_hour," *
+                             "period_median,period_90,range_median,range_90")
+            for area in tension_areas
+                results = [result for (result, case) in zip(routed, cases)
+                           if first(case) == area]
+                hours = sum(first.(results))
+                rig = last(first(results))
+                cycles = pattern_cycles(area, hours, rig, min_elevation)
+                foreach(row -> write_cycle(table, area, row), cycles)
+                tension_summary(summary, area, cycles)
+            end
+        end
+    end
+    open(run_file("canopy_tension_history.csv"), "w") do io
+        println(io, "area,wind,course,time,load")
+        for area in tension_areas, (wind, course) in tension_histories
+            write_history(io, area, wind, course, min_elevation)
+        end
+    end
+end
+
+"""
+    pattern_cycles(area, hours, rig, min_elevation)
+
+One row per grid point of `rig` flown for some of `hours`: its flight hours, whether it is
+parked and its mean, peak and lowest load [N/m^2] and period [s] over the optimal pattern.
+"""
+function pattern_cycles(area, hours, rig, min_elevation)
+    model, max_force, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+    points = findall(>(0), hours)
+    cycles = Vector{Any}(undef, length(points))
+    Threads.@threads :greedy for n in eachindex(points)
+        i, j, k = Tuple(points[n])
+        wind, course = rig.wind_speeds[i], rad2deg(rig.courses[j])
+        side_weight = rig.side_weights[k]
+        force, path, parked = best_pattern_cycle(model, max_force, min_elevation, wind,
+            course, side_weight)
+        load = 0.5model.air_density * wind^2
+        held = parked ? (mean=force.peak_tension * load, peak=force.peak_tension * load,
+                low=force.peak_tension * load, period=NaN) :
+               map(/, WindShipOpt.cycle_tension(path), (area, area, area, 1.0))
+        cycles[n] = (; wind, course, side_weight, hours=hours[points[n]], parked, held...)
+    end
+    return identity.(cycles)
+end
+
+"""
+    write_cycle(io, area, row)
+
+Write the row `row` of [`pattern_cycles`](@ref) to canopy_tension.csv.
+"""
+write_cycle(io, area, row) = @printf(io, "%.0f,%.0f,%.0f,%.1f,%.2f,%d,%.1f,%.1f,%.1f,%.1f\n",
+    area, row.wind, row.course, row.side_weight, row.hours, row.parked, row.mean, row.peak,
+    row.low, row.period)
+
+"""
+    write_history(io, area, wind, course, min_elevation)
+
+Write the tether force per projected area [N/m^2] over one optimal cycle without side force
+of a kite of `area` [m^2] at apparent wind `wind` [m/s] and `course` [°].
+"""
+function write_history(io, area, wind, course, min_elevation)
+    model, max_force, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+    _, path, _ = best_pattern_cycle(model, max_force, min_elevation, wind, course, 0.0)
+    time = 0.0
+    for step in path
+        @printf(io, "%.0f,%.0f,%.0f,%.2f,%.1f\n", area, wind, course, time,
+            step.tension / area)
+        time += step.time
     end
 end
 
