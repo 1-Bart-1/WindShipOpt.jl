@@ -121,23 +121,20 @@ end
         WindShipOpt.min_flight_wind(first(WindShipOpt.kite_model(800.0, 3.0, cloth)), cloth)
         for cloth in (light, heavy))
     @test heavy_wind > light_wind
-    @test WindShipOpt.Canopy(heavy, 16.0).lifetime > WindShipOpt.Canopy(light, 16.0).lifetime
+    @test WindShipOpt.Canopy(heavy).lifetime > WindShipOpt.Canopy(light).lifetime
 end
 
 @testset "canopy life follows the wear law and its sensitivities" begin
-    chord = sqrt(3200 / 3)
     canopy(changes...) = WindShipOpt.Canopy(foldl((values, change) -> with_value(values,
-            change...), changes; init=with_value(assumptions, :canopy_cloth_weight, 100.0)),
-        chord)
+            change...), changes; init=with_value(assumptions, :canopy_cloth_weight, 100.0)))
     uv_rate = assumptions[:canopy_uv_dose_rate] / assumptions[:cloth_uv_dose_per_weight]
     wear_rate = assumptions[:canopy_wear_rate]
-    tension = 1e3assumptions[:kite_max_force_per_area] *
-              assumptions[:canopy_billow_ratio] * chord
+    tension = 1e3assumptions[:kite_max_force_per_area] * assumptions[:canopy_panel_radius]
     margin(weight) = assumptions[:cloth_specific_strength] * weight /
                      (assumptions[:canopy_strength_factor] * tension)
     # the lives the paper's derivation quotes at its base inputs
-    @test canopy(:canopy_cloth_weight => 200.0).lifetime ≈ 2217 atol = 1
-    @test canopy().lifetime ≈ 774 atol = 1
+    @test canopy(:canopy_cloth_weight => 200.0).lifetime ≈ 4070 atol = 1
+    @test canopy().lifetime ≈ 1787 atol = 1
     # at the normalising weight the exponents do not matter
     @test canopy().lifetime ≈ 100log(margin(100)) / (uv_rate + wear_rate)
     @test canopy(:canopy_uv_weight_exponent => 1.0).lifetime ≈ canopy().lifetime
@@ -156,11 +153,11 @@ end
     retired = canopy(:canopy_retirement_strength => 0.5)
     @test retired.uv_lifetime ≈ canopy().uv_lifetime * log(2) / log(margin(100))
     @test retired.wear_lifetime ≈ canopy().wear_lifetime
-    for (share, life) in ((0.7, 538), (0.46, 701), (0.27, 774))
+    for (share, life) in ((0.7, 794), (0.46, 1210), (0.27, 1477))
         @test canopy(:canopy_retirement_strength => share).lifetime ≈ life atol = 1
     end
     # cloth whose force limit comes before the retirement share flies to the force limit
-    light, light_retired = (canopy(:canopy_cloth_weight => 40.0,
+    light, light_retired = (canopy(:canopy_cloth_weight => 20.0,
             :canopy_retirement_strength => share) for share in (0.0, 0.27))
     @test light_retired.uv_lifetime ≈ light.uv_lifetime
     # the life factor scales the whole life, a fixed wear life included
@@ -169,15 +166,13 @@ end
         :canopy_life_factor => 2.0).wear_lifetime == 4000
 end
 
-@testset "a larger kite of the same proportions loads its cloth harder and ages it sooner" begin
-    small, large = (WindShipOpt.Canopy(assumptions, sqrt(area / 3)) for area in (800, 3200))
-    @test WindShipOpt.billow_radius(2.0, assumptions) ≈
-          2WindShipOpt.billow_radius(1.0, assumptions)
-    @test WindShipOpt.strength_margin(200.0, 16.0, assumptions) ≈
-          2WindShipOpt.strength_margin(200.0, 32.0, assumptions)
-    @test large.lifetime < small.lifetime
-    @test large.mass_per_area == small.mass_per_area
-    @test large.cost_per_area == small.cost_per_area
+@testset "cloth too weak for the force limit has a margin below one and no canopy" begin
+    wide = with_value(assumptions, :canopy_panel_radius, 2.0)
+    margin(weight) = WindShipOpt.strength_margin(weight, wide)
+    @test margin(20.0) < 1 < margin(40.0)
+    @test margin(40.0) ≈ 2margin(20.0)
+    @test_throws ErrorException WindShipOpt.Canopy(with_value(wide, :canopy_cloth_weight, 20.0))
+    @test WindShipOpt.Canopy(with_value(wide, :canopy_cloth_weight, 40.0)).lifetime > 0
 end
 
 @testset "hulls fuller than Holtrop's range use the formulas at its limit" begin
@@ -217,7 +212,7 @@ end
 """
 function uniform_kite(hull, assumptions)
     pattern = WindShipOpt.PatternForce((0.3, 0.8, 0.2), 1.0, 0.3)
-    return KiteRig(; area=800.0, chord=16.0, tether_diameter=0.05, tether_length=300.0,
+    return KiteRig(; area=800.0, tether_diameter=0.05, tether_length=300.0,
         reference_height=120.0, max_wind=30.0, min_flight_wind=4.0, max_force=1e6,
         attach_height=10.0,
         attach_position=WindShipOpt.launch_mast_position(hull, assumptions),
@@ -228,7 +223,7 @@ end
 @testset "a parked kite ages in the sun at the full rate and wears less" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
-    life = WindShipOpt.Canopy(assumptions, rig.chord)
+    life = WindShipOpt.Canopy(assumptions)
     fraction = assumptions[:kite_parked_wear_fraction]
     @test WindShipOpt.parked_wear_cost(rig, assumptions) ≈
           canopy * (1 / life.uv_lifetime + fraction / life.wear_lifetime) +

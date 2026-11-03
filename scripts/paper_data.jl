@@ -199,9 +199,6 @@ study_hull(ship) = ship == "140 m" ? 140.0 : ship_classes()[ship]
 "reference size of each rig on the 140 m ship"
 reference_rigs = [("kite", 3200.0), ("wings", 1500.0), ("rotors", 800.0)]
 
-"mean chord [m] of the reference kite, at the base aspect ratio of 3"
-reference_chord = sqrt(Dict(reference_rigs)["kite"] / 3)
-
 "the rigs, as named in the output"
 rig_names = ("kite", "wings", "rotors")
 
@@ -979,7 +976,23 @@ cloth_weights = (40.0, 60.0, 100.0, 140.0, 200.0, 250.0, 300.0)
 cloth_inputs = (:canopy_wear_rate, :canopy_wear_lifetime, :canopy_uv_weight_exponent,
     :canopy_wear_weight_exponent, :canopy_retirement_strength, :cloth_uv_dose_per_weight,
     :canopy_uv_dose_rate, :cloth_specific_strength, :canopy_strength_factor,
-    :canopy_billow_ratio)
+    :canopy_panel_radius)
+
+"skin radius over mean chord [-] of a kite whose cells grow with its chord"
+cell_scaled_radius_ratio = 0.061
+
+"""
+    cloth_assumptions(name, bound, area, weight)
+
+Assumptions of a cloth study case: `name` at `bound`, or with `bound` `:chord` the skin radius
+of cells grown with a kite of `area` [m^2] at aspect ratio 3, at cloth `weight` [g/m^2].
+"""
+function cloth_assumptions(name, bound, area, weight)
+    varied = bound == :chord ?
+             with_value(assumptions, name, cell_scaled_radius_ratio * sqrt(area / 3)) :
+             bound_assumptions(name, bound)
+    return with_value(varied, :canopy_cloth_weight, weight)
+end
 
 "drive, route and kite area [m^2] of each case of the cloth study on the 140 m ship"
 cloth_kites = ((:methanol, :caribbean, 1600.0), (:methanol, :caribbean, 3200.0),
@@ -989,26 +1002,30 @@ cloth_kites = ((:methanol, :caribbean, 1600.0), (:methanol, :caribbean, 3200.0),
 """
     cloth_data()
 
-Each kite of `cloth_kites` at every weight of `cloth_weights` strong enough for its force
-limit, at the base inputs and at the bounds of each of `cloth_inputs` that differ from the
-base, with the same ships without a rig: cloth.csv.
+Each kite of `cloth_kites` at every weight of `cloth_weights`, at the base inputs, at the
+bounds of each of `cloth_inputs` that differ from the base and with its cells grown with it,
+with the same ships without a rig: cloth.csv. Cases whose new cloth is too weak for the force
+limit are listed in cloth_infeasible.csv with their margin.
 """
 function cloth_data()
     variants = [(:none, :value); [(name, bound) for name in cloth_inputs
                                   for bound in (:low, :high)
                                   if getproperty(assumptions.entries[name], bound) !=
-                                     assumptions[name]]]
+                                     assumptions[name]]; (:canopy_panel_radius, :chord)]
     cases = []
+    infeasible = []
     for (drive, route) in unique(kite[1:2] for kite in cloth_kites)
         push!(cases, trip_case(ShipDesign(drive, 140.0); route, drive, area=0.0,
             weight=0.0, input=:none, bound=:value))
     end
     for (drive, route, area) in cloth_kites, weight in cloth_weights
         for (name, bound) in variants
-            case_assumptions = with_value(bound_assumptions(name, bound),
-                :canopy_cloth_weight, weight)
-            WindShipOpt.strength_margin(weight, sqrt(area / 3), case_assumptions) > 1 ||
+            case_assumptions = cloth_assumptions(name, bound, area, weight)
+            margin = WindShipOpt.strength_margin(weight, case_assumptions)
+            if margin <= 1
+                push!(infeasible, (; drive, route, area, weight, name, bound, margin))
                 continue
+            end
             push!(cases, trip_case(ShipDesign(drive, 140.0; kite_area=area);
                 assumptions=case_assumptions, route, drive, area, weight, input=name,
                 bound))
@@ -1017,6 +1034,12 @@ function cloth_data()
     write_trips("cloth.csv", cases,
         round_trips(cases, sampled_departures(; screening=true)), :drive, :route, :area,
         :weight, :input, :bound)
+    open(run_file("cloth_infeasible.csv"), "w") do io
+        println(io, "drive,route,area,weight,input,bound,margin")
+        for case in infeasible
+            println(io, join(csv_value.(values(case)), ","))
+        end
+    end
 end
 
 "ships of the abatement study as (name, route)"

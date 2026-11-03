@@ -211,7 +211,7 @@ limit, (b) tether force and cloth tension over one optimal cycle, with its mean 
 function canopy_tension_figure()
     area = Dict(reference_rigs)["kite"]
     wind, course = tension_histories[2]
-    radius = WindShipOpt.billow_radius(reference_chord, assumptions)
+    radius = assumptions[:canopy_panel_radius]
     limit = 1e3assumptions[:kite_max_force_per_area] * area
     table = read_table(data_file("canopy_tension_history.csv"))
     chosen = rows(table, "area" => area, "wind" => wind, "course" => course)
@@ -235,8 +235,7 @@ function canopy_tension_figure()
     lines!(force, times, loads .* area ./ 1e6; color=palette[1], linewidth=1.5)
     hlines!(force, mean_load * area / 1e6; color=palette[2], linestyle=:dash)
     hlines!(force, maximum(loads) * area / 1e6; color=palette[3], linestyle=:dot)
-    margin = WindShipOpt.strength_margin(assumptions[:canopy_cloth_weight], reference_chord,
-        assumptions)
+    margin = WindShipOpt.strength_margin(assumptions[:canopy_cloth_weight], assumptions)
     text!(force, times[end], mean_load * area / 1e6;
         text=@sprintf("mean %.2f MN, %.2f kN/m", mean_load * area / 1e6, tension(mean_load)), fontsize=8,
         align=(:right, :top), color=palette[2])
@@ -1038,7 +1037,7 @@ with no wear one step beyond the longest life.
 """
 function life_position(factor)
     longest = maximum(filter(!=(no_wear), collect(first(situation_inputs[:kite_life]))))
-    life = WindShipOpt.Canopy(assumptions, reference_chord).lifetime
+    life = WindShipOpt.Canopy(assumptions).lifetime
     return log2((factor == no_wear ? 2longest : factor) * life)
 end
 
@@ -1066,7 +1065,7 @@ function life_figure()
     factors = sort([1.0; collect(first(situation_inputs[:kite_life]))])
     positions = life_position.(factors)
     labels = [factor == no_wear ? "no\nwear" :
-              @sprintf("%g", factor * WindShipOpt.Canopy(assumptions, reference_chord).lifetime / 1e3)
+              @sprintf("%g", factor * WindShipOpt.Canopy(assumptions).lifetime / 1e3)
               for factor in factors]
     figure = Figure(size=(page_width, 250))
     for (column, (drive, drive_label)) in enumerate(((:vlsfo, "VLSFO"),
