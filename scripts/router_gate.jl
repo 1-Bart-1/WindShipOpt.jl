@@ -2,10 +2,12 @@
 # compares the saving of each rig against the same ship without a rig with a reference.
 #
 #   julia +1.12 --project=. -t auto scripts/router_gate.jl <out_dir> [reference_dir]
+#   julia +1.12 --project=. -t auto scripts/router_gate.jl --reference <out_dir>
 #
-# Writes gate_<scale>.csv to <out_dir>. Given a reference directory holding gate_<scale>.csv
-# or dense_<scale>.csv, prints the change per case and exits 1 if a saving moves by more
-# than `SAVING_TOLERANCE` points.
+# Writes gate_<scale>.csv to <out_dir>. Given a reference directory holding gate_<scale>.csv,
+# prints the change per case and exits 1 if a saving moves by more than `SAVING_TOLERANCE`
+# points. `--reference` searches every state, which makes such a directory. A convergence
+# check is `run_gate` with other `RouterSettings`, compared the same way.
 using Printf
 include(joinpath(@__DIR__, "setup.jl"))
 
@@ -136,23 +138,15 @@ function gate_passes(path, reference_path)
 end
 
 """
-    reference_file(directory, scale)
+    run_gate(out_dir, reference_dir=nothing; scales=(2.0, 4.0), settings=RouterSettings())
 
-The gate file of `scale` in the reference `directory`.
+Run the gate at `scales` under the router `settings`, writing to `out_dir`; whether every
+case is inside the tolerances of the files in `reference_dir`.
 """
-function reference_file(directory, scale)
-    names = ("gate_$(Int(scale)).csv", "dense_$(Int(scale)).csv")
-    return joinpath(directory, names[findfirst(name -> isfile(joinpath(directory, name)), names)])
-end
-
-"""
-    run_gate(out_dir, reference_dir=nothing; scales=(2.0, 4.0))
-
-Run the gate at `scales`, writing to `out_dir`; whether every case is inside the
-tolerances of the files in `reference_dir`.
-"""
-function run_gate(out_dir, reference_dir=nothing; scales=(2.0, 4.0))
+function run_gate(out_dir, reference_dir=nothing; scales=(2.0, 4.0),
+        settings=WindShipOpt.RouterSettings())
     mkpath(out_dir)
+    WindShipOpt.ROUTER_SETTINGS[] = settings
     passed = true
     for scale in scales
         cases = gate_cases(scale)
@@ -162,11 +156,13 @@ function run_gate(out_dir, reference_dir=nothing; scales=(2.0, 4.0))
         @printf("scale %.0f: %d of %d feasible, %.0f s wall, %.0f s summed\n", scale,
             count(!isnothing, trips), length(trips), wall, sum(seconds))
         isnothing(reference_dir) && continue
-        passed &= gate_passes(path, reference_file(reference_dir, scale))
+        passed &= gate_passes(path, joinpath(reference_dir, basename(path)))
     end
     return passed
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
+    settings = WindShipOpt.RouterSettings(search_margins=(Inf, Inf))
+    first(ARGS) == "--reference" && (run_gate(ARGS[2]; settings); exit(0))
     exit(run_gate(ARGS...) ? 0 : 1)
 end

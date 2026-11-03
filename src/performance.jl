@@ -110,6 +110,8 @@ struct PerformanceTable{S}
     max_wind::Float64
     "highest significant wave height at which the rig is flown [m]"
     max_wave_height::Float64
+    "true wind at a kite's reference height per unit of 10 m wind [-]; zero without a kite"
+    kite_wind_factor::Float64
 end
 
 "thrust stored for infeasible conditions [N]"
@@ -137,7 +139,7 @@ function PerformanceTable(ship::Ship, assumptions::Assumptions)
         LinearTable((speeds, periods, headings), waves),
         wear_cost(ship.rig, assumptions), parked_wear_cost(ship.rig, assumptions),
         cycle_cost(ship.rig, assumptions), speeds, last(winds),
-        max_wave_height(ship.rig, assumptions))
+        max_wave_height(ship.rig, assumptions), kite_wind_factor(ship.rig, ship.env))
 end
 
 """
@@ -278,16 +280,14 @@ edge_fuels(table::PerformanceTable, speed, speed_weight::KnotWeight,
     edge_fuels(table, speed, SpeedSlice(table, speed_weight), condition)
 
 """
-    kite_wind(table, wind_10m)
+    kite_wind_factor(rig, env)
 
-True wind speed [m/s] at the reference height of a kite for a 10 m wind `wind_10m`
-[m/s]; zero for ships without a kite.
+True wind at the reference height of a kite per unit of 10 m wind [-]; zero for ships
+without a kite.
 """
-kite_wind(table::PerformanceTable, wind_10m) = kite_wind(table.ship.rig, table, wind_10m)
-kite_wind(rig, table, wind_10m) = 0.0
-kite_wind(rig::KiteRig, table, wind_10m) =
-    wind_at_height(table.ship.env, wind_10m, rig.reference_height)
-kite_wind(rig::CombinedRig, table, wind_10m) = kite_wind(rig.kite, table, wind_10m)
+kite_wind_factor(rig, env) = 0.0
+kite_wind_factor(rig::KiteRig, env) = wind_at_height(env, 1.0, rig.reference_height)
+kite_wind_factor(rig::CombinedRig, env) = kite_wind_factor(rig.kite, env)
 
 """
     kite_aloft(table, speed, headwind, crosswind, wave_height)
