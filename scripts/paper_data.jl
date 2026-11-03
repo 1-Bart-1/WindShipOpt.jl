@@ -111,6 +111,25 @@ function patterns_data()
 end
 
 """
+    best_pattern_cycle(model, max_force, min_elevation, wind, course, side_weight)
+
+Force of the optimal pattern at apparent wind `wind` [m/s] and `course` [°], the steps of
+its steered cycle, and whether the kite does better parked than on that cycle.
+"""
+function best_pattern_cycle(model, max_force, min_elevation, wind, course, side_weight)
+    problem = WindShipOpt.PatternProblem(model, max_force, min_elevation, wind,
+        deg2rad(course), side_weight)
+    force, parameters = WindShipOpt.optimal_pattern(problem,
+        WindShipOpt.pattern_starts(deg2rad(course)))
+    path = WindShipOpt.PatternStep[]
+    steered = WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters), wind,
+        max_force; path)
+    parked = WindShipOpt.objective(problem, steered) >
+             WindShipOpt.objective(problem, force) + 1e-9
+    return force, path, parked
+end
+
+"""
     write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
                   side_weight)
 
@@ -118,15 +137,8 @@ Optimise one pattern and write its force and, for a steered pattern, its path.
 """
 function write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
         side_weight)
-    problem = WindShipOpt.PatternProblem(model, max_force, min_elevation, wind,
-        deg2rad(course), side_weight)
-    force, parameters = WindShipOpt.optimal_pattern(problem,
-        WindShipOpt.pattern_starts(deg2rad(course)))
-    path = NTuple{3, Float64}[]
-    steered = WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters), wind,
-        max_force; path)
-    parked = WindShipOpt.objective(problem, steered) >
-             WindShipOpt.objective(problem, force) + 1e-9
+    force, path, parked = best_pattern_cycle(model, max_force, min_elevation, wind, course,
+        side_weight)
     load = 0.5model.air_density * wind^2 * model.area
     downwind, crosswind, _ = load .* force.force
     thrust = downwind * cosd(course) + crosswind * sind(course)
@@ -134,7 +146,7 @@ function write_pattern(paths, forces, model, max_force, min_elevation, wind, cou
     @printf(forces, "%.0f,%.0f,%.1f,%.1f,%.1f,%d\n", wind, course, side_weight, thrust,
         side, parked)
     parked && return
-    for (x, y, z) in [path; path[1:1]]
+    for (x, y, z) in getfield.([path; path[1:1]], :radial)
         @printf(paths, "%.0f,%.0f,%.1f,%.5f,%.5f\n", wind, course, side_weight,
             atan(y, x), asin(z))
     end
@@ -411,6 +423,28 @@ function wind_angle_data()
                 @printf(io, "%s,%s,%.0f,%s,%s,%.2f,%.1f,%.4f,%.2f\n", name, rig, area,
                     direction, band, hours, thrust_hours, work, rig_cost)
             end
+        end
+    end
+end
+
+"""
+    canopy_tension_data()
+
+Tether tension [N] and duration [s] of each step of one optimal cycle of the reference kite
+at apparent wind `wind` and `course` without side force: canopy_tension_history.csv.
+"""
+function canopy_tension_data(; wind=12.0, course=90.0)
+    area = Dict(reference_rigs)["kite"]
+    model, max_force, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+    min_elevation = deg2rad(assumptions[:kite_min_elevation])
+    _, path, _ = best_pattern_cycle(model, max_force, min_elevation, wind, course, 0.0)
+    open(run_file("canopy_tension_history.csv"), "w") do io
+        println(io, "wind,course,time,duration,tension")
+        time = 0.0
+        for step in path
+            @printf(io, "%.0f,%.0f,%.2f,%.3f,%.0f\n", wind, course, time, step.time,
+                step.tension)
+            time += step.time
         end
     end
 end

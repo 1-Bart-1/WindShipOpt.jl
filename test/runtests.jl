@@ -80,15 +80,29 @@ function best_pattern_path(model, max_force, assumptions, course)
         deg2rad(assumptions[:kite_min_elevation]), 12.0, course, 0.0)
     force, parameters = WindShipOpt.optimal_pattern(problem,
         WindShipOpt.pattern_starts(course))
-    path = NTuple{3, Float64}[]
+    path = WindShipOpt.PatternStep[]
     steered = WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters), 12.0,
         max_force; path)
     return WindShipOpt.objective(problem, steered) ≈
            WindShipOpt.objective(problem, force), path
 end
 
+@testset "steps of a flown cycle give the pattern's force and peak" begin
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    pattern = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15))
+    path = WindShipOpt.PatternStep[]
+    force = WindShipOpt.PatternForce(model, pattern, 12.0, max_force; path)
+    load = 0.5model.air_density * 12.0^2 * model.area
+    period = sum(step.time for step in path)
+    pull_along(axis) = sum(step.tension * step.time * step.radial[axis] for step in path)
+    pull = ntuple(pull_along, 3)
+    @test all(pull ./ (period * load) .≈ force.force)
+    @test maximum(step.tension for step in path) ≈ force.peak_tension * load
+    @test maximum(step.tension for step in path) <= max_force
+end
+
 "least angle [rad] of a pattern's `path` off the apparent downwind direction"
-least_off_wind(path) = minimum(acos(first(position)) for position in path)
+least_off_wind(path) = minimum(acos(first(step.radial)) for step in path)
 
 # A sweep keeps the kite in the outer half of the wind window, more than 45° off the
 # apparent downwind direction; a figure eight crosses the window's centre.
