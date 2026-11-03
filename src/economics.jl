@@ -326,6 +326,21 @@ function cycle_cost(rig::KiteRig, assumptions)
 end
 
 """
+    crash_cost(rig, assumptions)
+
+Hardware one crash destroys [USD]: a kite's canopy, tether and control unit, or one unit of
+wings or rotors at its share of the rig's capital.
+"""
+crash_cost(rig::Union{WingRig, RotorRig}, assumptions) =
+    first(rig_costs(rig, assumptions)) / rig.count
+
+function crash_cost(rig::KiteRig, assumptions)
+    control_unit = assumptions[:market_price_factor] *
+                   rig_price_parts(rig, assumptions).control_unit
+    return sum(consumable_costs(rig, assumptions)) + control_unit
+end
+
+"""
     time_cost(costs, assumptions, cargo)
 
 Cost of one hour at sea with `cargo` [t] on board [USD/h]: the fixed annual cost spread

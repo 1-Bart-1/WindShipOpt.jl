@@ -913,19 +913,6 @@ function leader_starts(positions, savings)
 end
 
 """
-    parity_saving(table, ship, route)
-
-Cost saving [%] at which `ship` on e-methanol costs as much per tonne-km as the same ship
-on VLSFO without a rig on `route`, from the base rows of situations.csv.
-"""
-function parity_saving(table, ship, route)
-    base = ("ship" => ship, "route" => string(route), "input" => "base", "rig" => "none")
-    fossil, green = (only(table["cost"][rows(table, base..., "drive" => drive)])
-                     for drive in ("vlsfo", "methanol"))
-    return percent_saving(fossil, green)
-end
-
-"""
     print_leaders(name, input, positions, savings, to_value)
 
 Print the input value from which each rig of `savings` leads; `to_value` maps
@@ -938,80 +925,11 @@ function print_leaders(name, input, positions, savings, to_value)
                                                 leads], ", "))
 end
 
-"""
-    life_position(factor)
-
-Axis position of a canopy life of `factor` times the base: log2 of the flight hours,
-with no wear one step beyond the longest life.
-"""
-function life_position(factor)
-    longest = maximum(filter(!=(no_wear), collect(first(situation_inputs[:kite_life]))))
-    life = WindShipOpt.Canopy(assumptions).lifetime
-    return log2((factor == no_wear ? 2longest : factor) * life)
-end
-
-"ships and routes the life figure averages over"
-life_cases = [(ship, route) for ship in ("140 m", "Kamsarmax bulk carrier")
-              for route in route_names]
-
 "legend entries of the best size of each rig, a line with markers for the kite"
 rig_entries() = [[LineElement(color=palette[1], linewidth=1.3),
         MarkerElement(color=palette[1], marker=:circle, markersize=5)],
     LineElement(color=palette[2], linewidth=1.3), LineElement(color=palette[3],
         linewidth=1.3)]
-
-"""
-    life_figure()
-
-Cost saving of the best kite over the life of its canopy, with the tether lasting
-proportionally longer, against the best wings and rotors, on a VLSFO (a) and an
-e-methanol (b) drive: the mean over the ships and routes of `life_cases` and bars over
-their range, and the saving at which an e-methanol ship costs as much as the VLSFO ship
-without a rig. Prints the canopy life [h] from which each rig leads on average.
-"""
-function life_figure()
-    table = read_table(data_file("situations.csv"))
-    factors = sort([1.0; collect(first(situation_inputs[:kite_life]))])
-    positions = life_position.(factors)
-    labels = [factor == no_wear ? "no\nwear" :
-              @sprintf("%g", factor * WindShipOpt.Canopy(assumptions).lifetime / 1e3)
-              for factor in factors]
-    figure = Figure(size=(page_width, 250))
-    for (column, (drive, drive_label)) in enumerate(((:vlsfo, "VLSFO"),
-        (:methanol, "e-methanol")))
-
-        axis = Axis(figure[1, column]; title="($('a' + column - 1)) $drive_label",
-            xticks=(positions, labels), xlabel="canopy life [1000 flight hours]",
-            ylabel=column == 1 ? "cost saving [%]" : "")
-        cases = [last(situation_savings(table, ship, route, drive, :kite_life))
-                 for (ship, route) in life_cases]
-        savings = mean(cases)
-        print_leaders(drive_label, :kite_life, positions, savings, exp2)
-        vlines!(axis, life_position(1.0); color=:gray40, linestyle=(:dash, :loose),
-            linewidth=0.9)
-        hlines!(axis, 0; color=:gray50, linewidth=0.6)
-        drive == :methanol && hlines!(axis,
-            mean(parity_saving(table, ship, route) for (ship, route) in life_cases);
-            color=:black, linestyle=:dashdot, linewidth=1.0)
-        for (k, offset) in ((1, 0.0), (2, -0.12), (3, 0.12))
-            low = [minimum(case[k, j] for case in cases) for j in eachindex(positions)]
-            high = [maximum(case[k, j] for case in cases) for j in eachindex(positions)]
-            rangebars!(axis, positions .+ offset, low, high; color=(palette[k], 0.6),
-                whiskerwidth=4, linewidth=0.9)
-            lines!(axis, positions, savings[k, :]; color=palette[k], linewidth=1.3)
-            k == 1 && scatter!(axis, positions, savings[k, :]; color=palette[k],
-                markersize=5)
-        end
-        xlims!(axis, first(positions) - 0.3, last(positions) + 0.3)
-    end
-    Legend(figure[2, 1:2],
-        [rig_entries(); LineElement(color=:gray40, linestyle=(:dash, :loose));
-            LineElement(color=:black, linestyle=:dashdot)],
-        ["kite, best size", "wings, best size", "rotors, best size",
-            "base canopy life", "e-methanol at the cost of VLSFO without a rig"];
-        orientation=:horizontal, nbanks=2, framevisible=false, labelsize=9)
-    save(joinpath(figures, "life.pdf"), figure; pt_per_unit=print_scale)
-end
 
 """
 Panels of the situation figure as (title, x label, inputs with their drive, scale of the
