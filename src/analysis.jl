@@ -74,3 +74,17 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     push!(trace.rig_thrust, force.thrust)
     push!(trace.fuel_power, flown ? flown_power : stowed_power)
 end
+
+"""
+    share_at_cost(shares, costs, cost)
+
+Share [-] at which the rising `costs` over ascending `shares` reach `cost`, linearly between
+the points; `NaN` if they never do, and the first share if they start above it.
+"""
+function share_at_cost(shares, costs, cost)
+    costs[1] >= cost && return shares[1]
+    k = findfirst(>=(cost), costs)
+    isnothing(k) && return NaN
+    return shares[k - 1] +
+           (shares[k] - shares[k - 1]) * (cost - costs[k - 1]) / (costs[k] - costs[k - 1])
+end

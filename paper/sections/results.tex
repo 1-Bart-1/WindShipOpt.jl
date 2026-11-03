@@ -106,12 +106,12 @@ Wing sails and rotors are priced on the same basis and both last 20 years (\cref
 \subsection{Canopy life and the kite}
 \label{sec:res_life}
 
-The kite's hardware is cheap and it pulls hard (\cref{fig:rig_polar}), but its canopy wears out: an \SI{800}{m^2} kite needs a new canopy of USD~\num{190000} every \num{3800} flight hours (\cref{sec:costs}), and the wear is \tbd{6 to 7}\,\% of the cost of the e-methanol and hydrogen ships with the cheapest kite in \cref{fig:breakdown}, and \tbd{12}\,\% with the \SI{6400}{m^2} kite of the \SI{200}{m} hydrogen ship. \Cref{fig:life} varies the life of canopy and tether together. The kite's saving rises steeply with their life and passes the rotor's on every ship and route of the figure. On e-methanol the \SI{140}{m} ship needs a canopy life of \tbd{2200} flight hours to Guadeloupe, \tbd{1800} to New York and \tbd{2200} to Houston, and the Kamsarmax \tbd{2900} to Tubarão; on VLSFO the crossing lies at \tbd{3300}, \tbd{3300}, \tbd{3500} and \tbd{4500} flight hours. The base life is \num{3800} flight hours in a range of \num{1200} to \num{6900}, and no maker states more than \num{4000} for any kite or sail (\cref{sec:canopy_life}): \tbd{on e-methanol the kite and the rotor are level within that range on all four, and on VLSFO the kite leads only near or beyond its upper end.}
+The kite's hardware is cheap and it pulls hard (\cref{fig:rig_polar}), but its canopy wears out: an \SI{800}{m^2} kite needs a new canopy of USD~\num{190000} every \num{4000} flight hours (\cref{sec:costs}), and the wear is \tbd{6 to 7}\,\% of the cost of the e-methanol and hydrogen ships with the cheapest kite in \cref{fig:breakdown}, and \tbd{12}\,\% with the \SI{6400}{m^2} kite of the \SI{200}{m} hydrogen ship. \Cref{fig:life} varies the life of canopy and tether together. The kite's saving rises steeply with their life and passes the rotor's on every ship and route of the figure. On e-methanol the \SI{140}{m} ship needs a canopy life of \tbd{2200} flight hours to Guadeloupe, \tbd{1800} to New York and \tbd{2200} to Houston, and the Kamsarmax \tbd{2900} to Tubarão; on VLSFO the crossing lies at \tbd{3300}, \tbd{3300}, \tbd{3500} and \tbd{4500} flight hours. The goal is \num{4000} flight hours, against \num{3800} derived from makers' statements in a range of \num{1200} to \num{6900}, and no maker states more than \num{4000} for any kite or sail (\cref{sec:canopy_life}): \tbd{on e-methanol the kite and the rotor are level within that range on all four, and on VLSFO the kite leads only near or beyond its upper end.}
 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{life}
-\caption{Cost saving of the best size of kite over the life of its canopy, with the tether life scaled by the same factor, against the best size of wing sails and of rotors, with a VLSFO (a) and an e-methanol (b) drive: the mean over the \SI{140}{m} ship and a Kamsarmax bulk carrier on all six routes (line) and the range over these twelve cases (bars). The grey dashed line marks the base canopy life of \num{3800} flight hours; the black dash-dotted line the mean saving at which the e-methanol ship costs as much per tonne-kilometre as the same ship on VLSFO without a rig. At the right end neither canopy nor tether wears.}
+\caption{Cost saving of the best size of kite over the life of its canopy, with the tether life scaled by the same factor, against the best size of wing sails and of rotors, with a VLSFO (a) and an e-methanol (b) drive: the mean over the \SI{140}{m} ship and a Kamsarmax bulk carrier on all six routes (line) and the range over these twelve cases (bars). The grey dashed line marks the goal canopy life of \num{4000} flight hours; the black dash-dotted line the mean saving at which the e-methanol ship costs as much per tonne-kilometre as the same ship on VLSFO without a rig. At the right end neither canopy nor tether wears.}
 \label{fig:life}
 \end{figure*}
 
@@ -145,6 +145,18 @@ Three changes to the model move the savings on the \SI{140}{m} e-methanol ship t
 \caption{Cost saving of a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails and \SI{800}{m^2} of rotors on the \SI{140}{m} e-methanol ship to Guadeloupe, routed with perfect foresight and re-planned every 24 hours on forecasts of 7 and 3 days, each against the ship without a rig routed the same way.}
 \label{fig:forecast}
 \end{figure}
+
+\subsection{Rigs out of service}
+\label{sec:res_availability}
+
+\Cref{tab:availability} gives the cost saving of each rig at the low, base and high share of round trips out of service, and the shares at which it stops paying for itself and falls behind the next rig. At the base of 3\,\% for every rig, the rotors lose 0.57 points of cost saving, the kite 0.52 and the wings 0.37 on the \SI{140}{m} e-methanol ship to Guadeloupe, against no outage at all; the Kamsarmax rigs lose 0.15 to 0.39 points and the Neo-Panamax rigs 0.23 to 0.41. On all three ships the order is rotors, kite, wings at the low, base and high share alike, so an outage shared by all rigs does not change which leads. The order changes only if one rig is worse off than the others. With the others at base, the rotors fall behind the kite at 27, 28 and 13\,\% of each rotor's round trips on the \SI{140}{m} ship, the Kamsarmax and the Neo-Panamax, and the kite behind the wings at 33, 50 and 50\,\%. The Neo-Panamax figure of 13\,\% lies inside the input range, so there the rotors' lead of 1.2 points is not settled by the record. If all units of a rig fail together, the rotors fall behind at 17, 21 and 7\,\%, and at the high share for both rigs the kite leads the rotors on the Neo-Panamax, 11.1 to 10.9\,\%. Most rigs pay for themselves far beyond any reported outage, up to 40 to 97\,\%. The exception is the wings on the Kamsarmax, which save 0.3\,\% at base, stop paying at 7\,\% and lose money at the high share. A rig that never works costs more than no rig, as it still carries capital and mass: on the \SI{140}{m} ship 2.3\,\% more for the stowed kite, 6.0\,\% for the feathered wings and 10.3\,\% for the stopped rotors. \tbd{Rig sizes on the Kamsarmax and the Neo-Panamax are fixed by hand until the class study; recheck on the final run.}
+
+\begin{table}[tbp]
+\centering
+\caption{Cost saving (\%) at the low, base and high share out of service of each rig's input, the share (\%) at which the rig pays no more and at which it falls behind the next rig at base, and the same if all units of a rig fail together, on a straight line between all working and all down.}
+\label{tab:availability}
+\InputIfFileExists{sections/availability_table}{}{\tbd{Availability table pending: run the availability\_table step.}}
+\end{table}
 
 \subsection{Kite and rotors together}
 \label{sec:res_combination}

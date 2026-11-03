@@ -204,8 +204,11 @@ function draw_force_balance!(axis, area, force, radius)
     hidespines!(axis)
 end
 
-"area-averaged radius [m] the canopy skin billows to between ribs, in the cloth check"
-skin_radius = 0.4
+"area-averaged radius [m] the canopy skin bulges to between ribs, in the cloth check"
+skin_radius = 0.5
+
+"strength over weight [N/m per g/m^2] of new canopy cloth, in the cloth check"
+cloth_specific_strength = 170.0
 
 """
     canopy_tension_figure()
@@ -221,8 +224,7 @@ function canopy_tension_figure()
     mean_force = sum(forces .* table["duration"]) / sum(table["duration"])
     peak_force = maximum(forces)
     tension(force) = 1e3force / area * skin_radius
-    strength = assumptions[:cloth_specific_strength] * assumptions[:canopy_cloth_weight] /
-               1e3
+    strength = cloth_specific_strength * assumptions[:canopy_cloth_weight] / 1e3
     figure = Figure(size=(page_width, 210))
     balance = Axis(figure[1, 1]; aspect=DataAspect(), limits=(-3.0, 7.0, -1.8, 2.0),
         title="(a) from tether force to cloth tension")

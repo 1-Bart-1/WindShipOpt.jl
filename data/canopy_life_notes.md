@@ -1,10 +1,10 @@
 # Canopy life: the derivation and its data
 
-How the canopy life in `src/canopy.jl` follows from sources. The paper's subsection "Canopy life" is the short form. **[est]** marks our estimate; **[claim]** a maker's or seller's statement with no test shown; **[meas]** a measurement with its method stated. `paper/sources.csv` says which sources were read in full.
+The case that the canopy life goal of 4,000 flight hours at 200 g/m² (`canopy_life` in `assumptions.yaml`) is realistic. The model takes the goal as an input and holds none of the decay below; the formula and its inputs are here so a reader can recompute every life. The paper's subsection "Canopy life" is the short form. **[est]** marks our estimate; **[claim]** a maker's or seller's statement with no test shown; **[meas]** a measurement with its method stated. `paper/sources.csv` says which sources were read in full.
 
 ## Result
 
-Life at 200 g/m² is 3,800 flight hours. The bounds give 2,200-6,900 h on the wear rate alone and 1,200-6,900 h over every sensitivity below, each changed alone. That is not a joint range: every input at its short-life bound together gives 1,100 h, or 300 h retired at 70 % of new, and at its long-life bound 18,000 h [est]. No data say how the inputs vary together, so we do not read these corners as likely. We cannot narrow this: no polyester ram-air canopy has a published life, and the wear rate is not derived from physics.
+The decay gives 3,800 flight hours at 200 g/m². It rests on makers' statements, since wear is three quarters of the decay and no test sets its rate. The bounds give 2,200-6,900 h on the wear rate alone and 1,200-6,900 h over every sensitivity below, each changed alone. That is not a joint range: every input at its short-life bound together gives 1,100 h, or 300 h retired at 70 % of new, and at its long-life bound 18,000 h [est]. No data say how the inputs vary together, so we do not read these corners as likely. We cannot narrow this: no polyester ram-air canopy has a published life, and the wear rate is not derived from physics.
 
 ## The law
 

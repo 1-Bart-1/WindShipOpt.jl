@@ -115,56 +115,21 @@ least_off_wind(path) = minimum(acos(first(step.radial)) for step in path)
     @test downwind_steered && least_off_wind(downwind) < π / 4
 end
 
-@testset "heavier canopy cloth raises the minimum flight wind and the canopy life" begin
+@testset "heavier canopy cloth raises the minimum flight wind" begin
     light, heavy = (with_value(assumptions, :canopy_cloth_weight, weight)
                     for weight in (40.0, 160.0))
     light_wind, heavy_wind = (
         WindShipOpt.min_flight_wind(first(WindShipOpt.kite_model(800.0, 3.0, cloth)), cloth)
         for cloth in (light, heavy))
     @test heavy_wind > light_wind
-    @test WindShipOpt.Canopy(heavy).lifetime > WindShipOpt.Canopy(light).lifetime
 end
 
-@testset "canopy life follows the wear law and its sensitivities" begin
-    canopy(changes...) = WindShipOpt.Canopy(foldl((values, change) -> with_value(values,
-            change...), changes; init=with_value(assumptions, :canopy_cloth_weight, 100.0)))
-    uv_rate = assumptions[:canopy_uv_dose_rate] / assumptions[:cloth_uv_dose_per_weight]
-    wear_rate = assumptions[:canopy_wear_rate]
-    tension = 1e3assumptions[:kite_max_force_per_area] * assumptions[:canopy_panel_radius]
-    margin(weight) = assumptions[:cloth_specific_strength] * weight /
-                     (assumptions[:canopy_strength_factor] * tension)
-    # the lives the paper's derivation quotes at its base inputs
-    @test canopy(:canopy_cloth_weight => 200.0).lifetime ≈ 3812 atol = 1
-    @test canopy().lifetime ≈ 1646 atol = 1
-    # at the normalising weight the exponents do not matter
-    @test canopy().lifetime ≈ 100log(margin(100)) / (uv_rate + wear_rate)
-    @test canopy(:canopy_uv_weight_exponent => 1.0).lifetime ≈ canopy().lifetime
-    # UV life grows with weight^0.4, mechanical life with weight^1
-    heavy = canopy(:canopy_cloth_weight => 200.0)
-    @test heavy.uv_lifetime ≈ 100 * 2^0.4 * log(margin(200)) / uv_rate
-    @test heavy.wear_lifetime ≈ 200log(margin(200)) / wear_rate
-    @test 1 / heavy.lifetime ≈ 1 / heavy.uv_lifetime + 1 / heavy.wear_lifetime
-    steep = canopy(:canopy_cloth_weight => 200.0, :canopy_wear_weight_exponent => 1.5)
-    @test steep.wear_lifetime ≈ 100 * 2^1.5 * log(margin(200)) / wear_rate
-    # a fixed mechanical life replaces the wear law and leaves the UV life alone
-    fixed = canopy(:canopy_wear_lifetime => 2000.0)
-    @test fixed.wear_lifetime == 2000
-    @test fixed.uv_lifetime ≈ canopy().uv_lifetime
-    # retirement shortens the UV clock and keeps the observed wear life at 100 g/m^2
-    retired = canopy(:canopy_retirement_strength => 0.5)
-    @test retired.uv_lifetime ≈ canopy().uv_lifetime * log(2) / log(margin(100))
-    @test retired.wear_lifetime ≈ canopy().wear_lifetime
-    for (share, life) in ((0.7, 770), (0.46, 1155), (0.27, 1396))
-        @test canopy(:canopy_retirement_strength => share).lifetime ≈ life atol = 1
-    end
-    # cloth whose force limit comes before the retirement share flies to the force limit
-    light, light_retired = (canopy(:canopy_cloth_weight => 20.0,
-            :canopy_retirement_strength => share) for share in (0.0, 0.27))
-    @test light_retired.uv_lifetime ≈ light.uv_lifetime
-    # the life factor scales the whole life, a fixed wear life included
-    @test canopy(:canopy_life_factor => 2.0).lifetime ≈ 2canopy().lifetime
-    @test canopy(:canopy_wear_lifetime => 2000.0,
-        :canopy_life_factor => 2.0).wear_lifetime == 4000
+@testset "canopy life is the goal input, whatever the cloth weight" begin
+    @test WindShipOpt.Canopy(assumptions).lifetime == 4000
+    @test assumptions[:canopy_cloth_weight] == 200
+    goal = with_value(assumptions, :canopy_life, 1200.0)
+    @test WindShipOpt.Canopy(goal).lifetime == 1200
+    @test WindShipOpt.Canopy(with_value(goal, :canopy_cloth_weight, 60.0)).lifetime == 1200
 end
 
 @testset "hulls fuller than Holtrop's range use the formulas at its limit" begin
@@ -212,18 +177,15 @@ function uniform_kite(hull, assumptions)
         side_weights=[0.0, 1.0], forces=fill(pattern, 10, 13, 2))
 end
 
-@testset "a parked kite ages in the sun at the full rate and wears less" begin
+@testset "a parked kite wears at a share of its flying rate" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
-    life = WindShipOpt.Canopy(assumptions)
-    fraction = assumptions[:kite_parked_wear_fraction]
+    flown = WindShipOpt.wear_cost(rig, assumptions)
+    @test flown ≈ canopy / assumptions[:canopy_life] + tether / assumptions[:tether_lifetime]
     @test WindShipOpt.parked_wear_cost(rig, assumptions) ≈
-          canopy * (1 / life.uv_lifetime + fraction / life.wear_lifetime) +
-          fraction * tether / assumptions[:tether_lifetime]
-    @test WindShipOpt.wear_cost(rig, assumptions) ≈
-          canopy / life.lifetime + tether / assumptions[:tether_lifetime]
-    still = with_value(assumptions, :kite_parked_wear_fraction, 0.0)
-    @test WindShipOpt.parked_wear_cost(rig, still) ≈ canopy / life.uv_lifetime
+          assumptions[:kite_parked_wear_fraction] * flown
+    shorter = with_value(assumptions, :canopy_life, 2000.0)
+    @test WindShipOpt.wear_cost(rig, shorter) - flown ≈ canopy / 4000
 end
 
 @testset "combined rig force is the sum of kite and rotor forces at a fixed trim" begin
@@ -361,6 +323,105 @@ function wing_coaster_routing()
 end
 
 corridor, table, hourly = wing_coaster_routing()
+
+"""
+    trip_with_share(design, name, share, corridors, base=assumptions)
+
+Round trip of `design` in synthetic weather with the input `name` of `base` at `share`.
+"""
+function trip_with_share(design, name, share, corridors, base=assumptions)
+    changed = with_value(base, name, share)
+    return round_trip(Ship(design, changed), corridors..., SyntheticWeather(),
+        [24.0 * 31, 24.0 * 200], changed)
+end
+
+@testset "a rig out of service keeps its cost and saves no fuel while down" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    bare_trip = round_trip(Ship(ShipDesign(:methanol, 85.0), assumptions), corridors...,
+        SyntheticWeather(), [24.0 * 31, 24.0 * 200], assumptions)
+    for (design, name) in ((ShipDesign(:methanol, 85.0; wing_area=400.0),
+            :wing_out_of_service),
+        (ShipDesign(:methanol, 85.0; rotor_area=200.0), :rotor_out_of_service),
+        (ShipDesign(:methanol, 85.0; kite_area=400.0), :kite_out_of_service))
+        low, high, down = [trip_with_share(design, name, share, corridors)
+                           for share in (0.1, 0.5, 1.0)]
+        @test low.fuel_energy < high.fuel_energy < down.fuel_energy
+        @test low.cost_per_tonne_km < high.cost_per_tonne_km < down.cost_per_tonne_km
+        @test down.cost_per_tonne_km > bare_trip.cost_per_tonne_km
+        @test down.fuel_energy >= 0.999bare_trip.fuel_energy
+        @test down.launches == 0
+    end
+    kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
+    @test trip_with_share(kite, :kite_out_of_service, 1.0, corridors).fuel_energy ≈
+          bare_trip.fuel_energy rtol = 1e-3
+end
+
+@testset "stopped rotors and feathered wings are only drag in a head wind" begin
+    for design in (ShipDesign(:methanol, 85.0; wing_area=400.0),
+        ShipDesign(:methanol, 85.0; rotor_area=200.0))
+        ship = Ship(design, assumptions)
+        down = WindShipOpt.DownRig(ship.rig, 0.0)
+        bare_thrust = first(WindShipOpt.best_trim(ship, nothing, 5.0, 10.0, 0.0))
+        down_thrust, force = WindShipOpt.best_trim(ship, down, 5.0, 10.0, 0.0)
+        @test down_thrust > bare_thrust
+        @test force.thrust < 0
+        @test force.power == 0
+    end
+end
+
+@testset "a rig with one unit down keeps its mean capacity and half the force" begin
+    ship = Ship(ShipDesign(:methanol, 140.0; rotor_area=800.0), assumptions)
+    changed = with_value(assumptions, :rotor_out_of_service, 0.1)
+    units = ship.rig.count
+    states = WindShipOpt.service_states(ship.rig, changed)
+    @test first(first(states)) ≈ 0.9^units
+    @test sum(first, states) ≈ 1
+    @test first(last(states)) * (1 - last(states)[2].working_share) ≈ 0.1
+    half = WindShipOpt.DownRig(ship.rig, 0.5)
+    stopped = rig_force(half.rig, ship.env, 10.0, deg2rad(90), 5.0, 0.0)
+    spinning = rig_force(half.rig, ship.env, 10.0, deg2rad(90), 5.0, 2.0)
+    @test rig_force(half, ship.env, 10.0, deg2rad(90), 5.0, 2.0).thrust ≈
+          (stopped.thrust + spinning.thrust) / 2
+    kite = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_down = last(WindShipOpt.service_states(kite.rig,
+        with_value(assumptions, :kite_out_of_service, 0.1)))
+    @test isnothing(last(kite_down))
+    @test first(kite_down) ≈ 0.1
+end
+
+@testset "a kite and the rotors beside it fail independently of each other" begin
+    hull = Hull(140.0, assumptions)
+    rotors = WindShipOpt.RotorRig(800.0, hull, assumptions)
+    rig = WindShipOpt.CombinedRig(uniform_kite(hull, assumptions), rotors)
+    changed = with_value(with_value(assumptions, :kite_out_of_service, 0.5),
+        :rotor_out_of_service, 0.03)
+    states = WindShipOpt.service_states(rig, changed)
+    both_up = 0.97^rotors.count
+    @test length(states) == 4
+    @test sum(first, states) ≈ 1
+    @test first(states[1]) ≈ 0.5both_up
+    @test first(states[2]) ≈ 0.5both_up
+    @test first(states[4]) ≈ 0.5 * (1 - both_up)
+    @test states[2][2] === rotors
+    @test states[4][2] isa WindShipOpt.DownRig
+end
+
+@testset "the store holds the working leg with its reserve, a leg rig-down without" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    design = ShipDesign(:methanol, 85.0; rotor_area=200.0)
+    cargo(share, reserve) = trip_with_share(design, :rotor_out_of_service, share, corridors,
+        with_value(assumptions, :fuel_reserve_factor, reserve)).cargo
+    @test cargo(0.0, 2.0) < cargo(0.0, 1.1)
+    @test cargo(1.0, 2.0) ≈ cargo(1.0, 1.1)
+end
+
+@testset "a rig's break-even share lies where its cost curve reaches the level" begin
+    shares, costs = [0.0, 0.5, 1.0], [1.0, 2.0, 4.0]
+    @test WindShipOpt.share_at_cost(shares, costs, 1.5) ≈ 0.25
+    @test WindShipOpt.share_at_cost(shares, costs, 3.0) ≈ 0.75
+    @test WindShipOpt.share_at_cost(shares, costs, 0.5) == 0.0
+    @test isnan(WindShipOpt.share_at_cost(shares, costs, 5.0))
+end
 
 @testset "bounded route equals the unpruned dynamic programme" begin
     weather, departure = SyntheticWeather(), 24.0 * 31

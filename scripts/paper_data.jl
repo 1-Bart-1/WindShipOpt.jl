@@ -217,7 +217,7 @@ end
 
 "inputs of the situation study that stand for a factor on several assumptions at once"
 scaled_inputs = Dict(
-    :kite_life => (:canopy_life_factor, :tether_lifetime),
+    :kite_life => (:canopy_life, :tether_lifetime),
     :wing_price => (:wing_unit_cost, :wing_cost_per_area))
 
 """
@@ -799,48 +799,41 @@ function sensitivity_data()
         :rig, :input, :bound)
 end
 
-"cloth weights [g/m^2] of the cloth study"
-cloth_weights = (60.0, 100.0, 140.0, 200.0, 250.0, 300.0)
-
-"canopy life inputs the cloth study takes to their bounds, one at a time"
-cloth_inputs = (:canopy_wear_rate, :canopy_wear_lifetime, :canopy_wear_weight_exponent,
-    :canopy_retirement_strength)
-
-"route and kite area [m^2] of each case of the cloth study on the 140 m e-methanol ship"
-cloth_kites = ((:caribbean, 1600.0), (:caribbean, 3200.0), (:new_york, 1600.0),
-    (:new_york, 3200.0))
-
-"every how many departures the cloth study samples, at any fidelity"
-cloth_departure_step = 4
+"input of each rig holding the share of its units' round trips out of service"
+out_of_service_inputs = Dict("kite" => "kite_out_of_service",
+    "wings" => "wing_out_of_service", "rotors" => "rotor_out_of_service")
 
 """
-    cloth_data()
+    service_shares(rig)
 
-Each kite of `cloth_kites` at every weight of `cloth_weights`, at the base inputs and at
-the bounds of each of `cloth_inputs` that differ from the base, with the same ships
-without a rig: cloth.csv.
+Shares of its units' round trips [-] that `rig` is routed at: none, the low bound, base and
+high bound of its input, and up to all of them for the limits past its range.
 """
-function cloth_data()
-    variants = [(:none, :value); [(name, bound) for name in cloth_inputs
-                                  for bound in (:low, :high)
-                                  if getproperty(assumptions.entries[name], bound) !=
-                                     assumptions[name]]]
+function service_shares(rig)
+    entry = assumptions.entries[Symbol(out_of_service_inputs[rig])]
+    return sort(unique([0.0, entry.low, entry.value, entry.high, 0.25, 0.5, 0.75, 1.0]))
+end
+
+"""
+    availability_data()
+
+Each ship of [`sensitivity_ships`](@ref) without a rig, and with each rig at its
+[`service_shares`](@ref): availability.csv.
+"""
+function availability_data()
     cases = []
-    for route in unique(kite[1] for kite in cloth_kites)
-        push!(cases, trip_case(ShipDesign(:methanol, 140.0); route, drive=:methanol,
-            area=0.0, weight=0.0, input=:none, bound=:value))
-    end
-    for (route, area) in cloth_kites, weight in cloth_weights
-        for (name, bound) in variants
-            case_assumptions = with_value(bound_assumptions(name, bound),
-                :canopy_cloth_weight, weight)
-            push!(cases, trip_case(ShipDesign(:methanol, 140.0; kite_area=area);
-                assumptions=case_assumptions, route, drive=:methanol, area, weight,
-                input=name, bound))
+    for (ship, bare, route, areas) in sensitivity_ships()
+        push!(cases, trip_case(bare; route, ship, rig="none", share=0.0))
+        for rig in rig_names, share in service_shares(rig)
+            input = Symbol(out_of_service_inputs[rig])
+            design = ShipDesign(; bare.drive, bare.length, bare.class,
+                getproperty(areas, Symbol(rig))...)
+            push!(cases, trip_case(design;
+                assumptions=with_value(assumptions, input, share), route, ship, rig, share))
         end
     end
-    trips = round_trips(cases, departures[1:cloth_departure_step:end])
-    write_trips("cloth.csv", cases, trips, :drive, :route, :area, :weight, :input, :bound)
+    write_trips("availability.csv", cases,
+        round_trips(cases, sampled_departures(; screening=true)), :ship, :rig, :share)
 end
 
 "ships of the abatement study as (name, route)"
@@ -881,8 +874,7 @@ function components_data()
             :launch_mast_mass_coefficient, :launch_mast_telescope_factor,
             :docking_head_cost, :control_unit_cost,
             :control_unit_cost_per_area, :kite_integration_fraction,
-            :canopy_making_cost_per_area, :tether_price, :cloth_uv_dose_per_weight,
-            :canopy_wear_rate, :tether_lifetime],
+            :canopy_making_cost_per_area, :tether_price, :canopy_life, :tether_lifetime],
         "wings" => [:wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction,
             :retractable_rig_premium, :wing_lifetime],
         "rotors" => [:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
