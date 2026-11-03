@@ -158,6 +158,7 @@ rotors stand in any sea.
 """
 max_wave_height(rig, assumptions) = Inf
 max_wave_height(::KiteRig, assumptions) = assumptions[:kite_max_wave_height]
+max_wave_height(::KiteRig{RigidAirframe}, assumptions) = assumptions[:rigid_max_wave_height]
 max_wave_height(rig::CombinedRig, assumptions) = max_wave_height(rig.kite, assumptions)
 
 """

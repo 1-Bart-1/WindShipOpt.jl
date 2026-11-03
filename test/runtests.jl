@@ -456,3 +456,102 @@ end
     @test is_marked(:final, [:capital])
     @test !is_marked(:final, [:designs, :capital, :premium])
 end
+
+@testset "a heavy wing flies crosswind though it cannot hang at rest" begin
+    wing = WindShipOpt.KiteAero(60.0, 1.25, 0.15, 1500.0, 1.225, 9.81)
+    off_wind, wind = 1.3, (14.0, 0.0, 0.0)
+    radial = WindShipOpt.window_position(off_wind, π / 2)
+    heading = (0.0, -1.0, 0.0)
+    still = (0.0, 0.0, 0.0)
+    @test first(WindShipOpt.steering_residual(wing, wind, radial, heading, still, 300.0,
+        1e-3)) > 0
+    airspeed, tension, _ = WindShipOpt.steering_point(wing, wind, radial, heading, still,
+        300.0)
+    @test airspeed > 15 && tension > 0
+end
+
+@testset "a rigid wing of the MX2 design matches its published numbers" begin
+    model, force, diameter, airframe = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
+    @test diameter ≈ 0.0294 rtol=0.01
+    @test airframe.tether_mass ≈ 275 rtol=0.05
+    @test airframe.mass ≈ 1852
+    @test force ≈ 300e3 rtol=0.01
+    @test WindShipOpt.hover_power(2180.0, 54.0, assumptions) ≈ 900e3 rtol=0.05
+    tether_drag = assumptions[:rigid_tether_drag_coefficient] * diameter *
+                  model.tether_length / (4 * 54.0)
+    @test tether_drag ≈ 0.152 - 0.123 rtol=0.05
+    polar = WindShipOpt.rigid_polar(assumptions)
+    lift = 1.81
+    angle = lift / (polar.lift[2] / polar.angle_of_attack[2])
+    @test WindShipOpt.polar_value(polar, polar.drag, angle) ≈ 0.123 rtol=0.02
+end
+
+"""
+    best_thrust(model, force, wind_speed)
+
+Thrust [N] of the best pattern of `model` under tension limit `force` [N] on a beam course
+in `wind_speed` [m/s], zero where nothing flies, with its pattern force.
+"""
+function best_thrust(model, force, wind_speed)
+    problem = WindShipOpt.PatternProblem(model, force, deg2rad(8), wind_speed, π / 2, 0.0)
+    pattern_force, _ = WindShipOpt.optimal_pattern(problem,
+        WindShipOpt.pattern_starts(model, π / 2))
+    isfinite(pattern_force.peak_tension) || return 0.0, pattern_force
+    return 0.5model.air_density * wind_speed^2 * model.area * pattern_force.force[2],
+    pattern_force
+end
+
+@testset "a rigid wing loops within its tether limit and needs more wind as it grows" begin
+    small, small_force, = WindShipOpt.rigid_kite_model(30.0, 1, assumptions)
+    large, large_force, = WindShipOpt.rigid_kite_model(300.0, 1, assumptions)
+    @test first(best_thrust(small, small_force, 6.0)) > 0
+    @test first(best_thrust(large, large_force, 6.0)) == 0
+    thrust, pattern_force = best_thrust(large, large_force, 14.0)
+    @test thrust > 0
+    load = 0.5large.air_density * 14.0^2 * large.area
+    @test pattern_force.peak_tension * load <= large_force * 1.001
+    @test rad2deg(pattern_force.lowest_elevation) >= 8 - 0.01
+end
+
+@testset "a wing stalling at the top of its loop does not fly the loop" begin
+    model, = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
+    stall = sqrt(2model.mass * model.gravity /
+                 (model.air_density * model.area * maximum(model.polar.lift)))
+    @test WindShipOpt.holds_speed(model, 2stall, 0.0)
+    @test !WindShipOpt.holds_speed(model, 2stall, 4stall^2 / model.gravity)
+end
+
+"""
+    rigid_fleet(count, assumptions)
+
+Rigid kites of 54 m^2 with a two-point force table of 100 kN downwind per kite at every
+wind speed.
+"""
+function rigid_fleet(count, assumptions)
+    model, max_force, tether_diameter, airframe = WindShipOpt.rigid_kite_model(54.0, count,
+        assumptions)
+    wind_speeds = [5.0, 30.0]
+    courses = [0.0, π]
+    side_weights = [0.0]
+    forces = [WindShipOpt.PatternForce(
+                  (1e5 / (0.5 * model.air_density * speed^2 * 54.0), 0.0, 0.0), 1.0, 0.5)
+              for speed in wind_speeds, _ in courses, _ in side_weights]
+    return KiteRig(; area=54.0, tether_diameter, model.tether_length, reference_height=10.0,
+        max_wind=25.0, min_flight_wind=5.0, max_force, attach_height=10.0,
+        attach_position=0.0, wind_speeds, courses, side_weights, forces, airframe)
+end
+
+@testset "more rigid kites pull, weigh and cost in proportion" begin
+    env = Environment(assumptions)
+    one, three = rigid_fleet(1, assumptions), rigid_fleet(3, assumptions)
+    pull(rig) = rig_force(rig, env, 12.0, π, 5.0, 1).thrust
+    @test pull(three) ≈ 3pull(one)
+    @test WindShipOpt.deck_units(three) == 3
+    @test WindShipOpt.deck_footprint(one, assumptions) == assumptions[:rigid_perch_width]
+    @test all(WindShipOpt.rig_costs(three, assumptions) .≈
+              3 .* WindShipOpt.rig_costs(one, assumptions))
+    @test WindShipOpt.wear_cost(three, assumptions) ≈ 3WindShipOpt.wear_cost(one, assumptions)
+    @test WindShipOpt.cycle_cost(three, assumptions) ≈
+          3WindShipOpt.cycle_cost(one, assumptions)
+    @test WindShipOpt.max_wave_height(one, assumptions) == assumptions[:rigid_max_wave_height]
+end

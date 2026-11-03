@@ -40,7 +40,8 @@ function round_trips(cases, departures)
     isempty(paths) || mkpath(dirname(first(paths)))
     cached = isfile.(paths)
     for (case, is_cached) in zip(cases, cached)
-        !is_cached && case.design.kite_area > 0 && Ship(case.design, case.assumptions)
+        !is_cached && max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
+            Ship(case.design, case.assumptions)
     end
     trips = Vector{Any}(nothing, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
@@ -888,4 +889,57 @@ function combination_data()
     end
     write_trips("combination.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :route, :drive, :rig, :kite_area, :rotor_area)
+end
+
+"rigid kites [number, m^2 each] of the rigid kite study"
+rigid_kite_fleets = vec([(count, unit) for count in (1, 2, 4), unit in (30.0, 54.0, 100.0)])
+
+"""
+    rigid_assumptions(scenario, unit)
+
+The assumptions of the rigid kite study at a kite of `unit` [m^2]: at base values for
+"base", and for "optimistic" with every rigid kite input at the bound that favours it.
+"""
+function rigid_assumptions(scenario, unit)
+    base = with_value(assumptions, :rigid_unit_area, unit)
+    scenario == "base" && return base
+    favourable = (:rigid_tether_price, :rigid_structure_cost_per_mass,
+        :rigid_structure_cost_per_area, :rigid_avionics_cost, :rigid_drive_cost,
+        :rigid_drive_margin, :rigid_ship_power_cost, :rigid_perch_cost, :rigid_perch_width,
+        :rigid_station_mass, :rigid_upkeep_per_area, :rigid_cycle_loss_probability,
+        :rigid_idle_rotor_drag, :rigid_hover_energy_price)
+    for name in favourable
+        base = with_value(base, name, base.entries[name].low)
+    end
+    base = with_value(base, :rigid_lifetime, base.entries[:rigid_lifetime].high)
+    return with_value(base, :rigid_max_wave_height, base.entries[:rigid_max_wave_height].high)
+end
+
+"""
+    rigid_kite_data()
+
+Each ship of `combination_ships` on every route on VLSFO and e-methanol without a rig, with
+each soft kite of `combination_kites`, with rotors and wings at each share of the deck, and
+with each fleet of `rigid_kite_fleets` at base and optimistic inputs: rigid_kite.csv.
+"""
+function rigid_kite_data()
+    cases = []
+    for ship in combination_ships, drive in (:vlsfo, :methanol), route in route_names
+        hull = Hull(study_hull(ship), assumptions)
+        deck(type) = [(fraction * largest_area(type, hull)) for fraction in (0.2, 0.5, 1.0)]
+        sizes = [("none", (;)); [("kite", (; kite_area)) for kite_area in combination_kites];
+            [("rotors", (; rotor_area)) for rotor_area in deck(WindShipOpt.RotorRig)];
+            [("wings", (; wing_area)) for wing_area in deck(WingRig)]]
+        for (rig, size) in sizes
+            design = ShipDesign(drive, study_hull(ship); size...)
+            push!(cases, trip_case(design; route, ship, drive, rig, count=0, unit=0.0))
+        end
+        for (count, unit) in rigid_kite_fleets, scenario in ("base", "optimistic")
+            design = ShipDesign(drive, study_hull(ship); rigid_kite_area=count * unit)
+            push!(cases, trip_case(design; assumptions=rigid_assumptions(scenario, unit),
+                route, ship, drive, rig="rigid " * scenario, count, unit))
+        end
+    end
+    write_trips("rigid_kite.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :route, :drive, :rig, :count, :unit)
 end

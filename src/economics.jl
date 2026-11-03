@@ -168,8 +168,9 @@ blocked_slots(rig::CombinedRig, class::ShipClass, assumptions) =
 deck_footprint(rig::RotorRig, assumptions) = rig.diameter
 deck_footprint(::WingRig, assumptions) = assumptions[:wing_pedestal_width]
 deck_footprint(::KiteRig, assumptions) = assumptions[:launch_mast_width]
+deck_footprint(::KiteRig{RigidAirframe}, assumptions) = assumptions[:rigid_perch_width]
 deck_units(rig::Union{WingRig, RotorRig}) = rig.count
-deck_units(::KiteRig) = 1
+deck_units(rig::KiteRig) = kite_count(rig)
 deck_units(rig::CombinedRig) = deck_units(rig.kite) + deck_units(rig.standing)
 deck_footprint(::Nothing, assumptions) = 0.0
 deck_units(::Nothing) = 0
@@ -232,6 +233,16 @@ function rig_costs(rig::KiteRig, assumptions)
     return hardware + canopy + tether, assumptions[:kite_mass_per_area] * rig.area, annuity
 end
 
+function rig_costs(rig::KiteRig{RigidAirframe}, assumptions)
+    _, tether = consumable_costs(rig, assumptions)
+    (; count, mass) = rig.airframe
+    ship_side = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions))
+    airframe = rigid_airframe_price(rig, assumptions)
+    recovery = capital_recovery(assumptions[:discount_rate], assumptions[:rigid_lifetime])
+    tonnes = count * (assumptions[:rigid_station_mass] + 1e-3 * mass)
+    return ship_side + airframe + tether, tonnes, recovery * (ship_side + airframe)
+end
+
 """
     rig_price_parts(rig, assumptions)
 
@@ -272,6 +283,15 @@ function rig_price_parts(rig::KiteRig, assumptions)
                      assumptions[:docking_head_area_exponent],
         control_unit=assumptions[:control_unit_cost] +
                      assumptions[:control_unit_cost_per_area] * rig.area)
+    return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
+end
+
+function rig_price_parts(rig::KiteRig{RigidAirframe}, assumptions)
+    (; count, hover_power) = rig.airframe
+    parts = (winch=count * (assumptions[:winch_fixed_cost] +
+                  assumptions[:winch_cost_per_force] * rig.max_force),
+        perch=count * assumptions[:rigid_perch_cost],
+        ship_power=count * assumptions[:rigid_ship_power_cost] * hover_power)
     return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
 end
 
@@ -328,6 +348,47 @@ function cycle_cost(rig::KiteRig, assumptions)
     canopy, _ = consumable_costs(rig, assumptions)
     return assumptions[:kite_cycle_crew_cost] +
            assumptions[:kite_cycle_damage_probability] * canopy
+end
+
+"""
+    rigid_airframe_price(rig, assumptions)
+
+Market price of the kites of `rig` alone: structure by mass and area, avionics and
+on-board drive [USD].
+"""
+function rigid_airframe_price(rig::KiteRig{RigidAirframe}, assumptions)
+    (; count, mass, hover_power) = rig.airframe
+    one = assumptions[:rigid_structure_cost_per_mass] * mass +
+          assumptions[:rigid_structure_cost_per_area] * rig.area +
+          assumptions[:rigid_avionics_cost] +
+          assumptions[:rigid_drive_cost] * assumptions[:rigid_drive_margin] * hover_power
+    return assumptions[:market_price_factor] * count * one
+end
+
+function consumable_costs(rig::KiteRig{RigidAirframe}, assumptions)
+    (; count, tether_mass) = rig.airframe
+    return 0.0, count * assumptions[:rigid_tether_price] * tether_mass
+end
+
+function wear_cost(rig::KiteRig{RigidAirframe}, assumptions; mechanical=1.0)
+    _, tether = consumable_costs(rig, assumptions)
+    upkeep = assumptions[:rigid_upkeep_per_area] * rig.area * rig.airframe.count
+    return mechanical * (tether / assumptions[:tether_lifetime] + upkeep)
+end
+
+"""
+    cycle_cost(rig::KiteRig{RigidAirframe}, assumptions)
+
+Cost of launching and landing all kites of `rig` once [USD]: crew time, the expected loss
+of a kite and the energy of the hover.
+"""
+function cycle_cost(rig::KiteRig{RigidAirframe}, assumptions)
+    (; count, hover_power) = rig.airframe
+    energy = hover_power * assumptions[:rigid_hover_minutes] / 60 / 1e3
+    return count * (assumptions[:kite_cycle_crew_cost] +
+            assumptions[:rigid_hover_energy_price] * energy) +
+           assumptions[:rigid_cycle_loss_probability] *
+           rigid_airframe_price(rig, assumptions)
 end
 
 """

@@ -268,10 +268,11 @@ trim_settings(rig::RotorRig) = 0.0:0.25:4.0
 
 Towing kite on a fixed-length tether from a mast on the bow, with the force of its best
 flight pattern tabulated over apparent wind speed, course off the apparent downwind
-direction and the weight given to side force; each weight is one trim.
+direction and the weight given to side force; each weight is one trim. `airframe` is a
+[`RigidAirframe`](@ref) for rigid VTOL kites and `nothing` for a soft kite.
 """
-Base.@kwdef struct KiteRig
-    "projected kite area [m^2]"
+Base.@kwdef struct KiteRig{A}
+    "projected area of one kite [m^2]"
     area::Float64
     "tether diameter [m]"
     tether_diameter::Float64
@@ -296,7 +297,28 @@ Base.@kwdef struct KiteRig
     side_weights::Vector{Float64}
     "best pattern force over dynamic pressure and area per speed, course and weight"
     forces::Array{PatternForce, 3}
+    airframe::A = nothing
 end
+
+"""
+    RigidAirframe
+
+What rigid VTOL kites add to a tether and a pattern table.
+"""
+struct RigidAirframe
+    "kites on the ship, each with its own tether, winch and perch"
+    count::Int
+    "mass of one kite with its rotors, without the tether [kg]"
+    mass::Float64
+    "mass of one tether [kg]"
+    tether_mass::Float64
+    "electric power of one kite in hover [W]"
+    hover_power::Float64
+end
+
+"kites flying from one ship"
+kite_count(::KiteRig) = 1
+kite_count(rig::KiteRig{RigidAirframe}) = rig.airframe.count
 
 """
     rope_mass(diameter, rope_length, assumptions)
@@ -347,7 +369,7 @@ function kite_model(area, aspect_ratio, assumptions::Assumptions)
         assumptions[:kite_flight_drag] + bridle_drag + tether_drag,
         polar.angle_of_attack[findfirst(>=(0.05), polar.lift)],
         polar.angle_of_attack[stall] - deg2rad(assumptions[:kite_stall_margin]),
-        assumptions[:kite_min_turn_radius] * span)
+        assumptions[:kite_min_turn_radius] * span, false)
     return model, max_force, tether_diameter
 end
 
@@ -361,6 +383,108 @@ coefficient carries its flying mass.
 min_flight_wind(model::KiteModel, assumptions::Assumptions) =
     assumptions[:kite_parking_margin] * sqrt(2model.mass * model.gravity /
         (model.air_density * model.area * maximum(model.polar.lift)))
+
+"""
+    rigid_polar(assumptions)
+
+Polar of a rigid wing against angle of attack from zero lift: lift-curve slope of a finite
+wing up to the highest lift coefficient, profile drag plus induced drag.
+"""
+function rigid_polar(assumptions::Assumptions)
+    aspect_ratio = assumptions[:rigid_aspect_ratio]
+    slope = 2π / (1 + 2 / aspect_ratio)
+    highest = assumptions[:rigid_max_lift]
+    angles = collect(range(0.0, highest / slope + deg2rad(2); length=25))
+    lift = min.(slope .* angles, highest)
+    drag = assumptions[:rigid_profile_drag] .+
+           lift .^ 2 ./ (π * aspect_ratio * assumptions[:rigid_span_efficiency])
+    return KitePolar(angles, lift, drag)
+end
+
+"""
+    hover_power(mass, area, assumptions)
+
+Electric power [W] that hovers `mass` [kg] of kite and tether on a wing of `area` [m^2]:
+momentum theory at the rotor area, thrust margin and air density of the assumptions.
+"""
+function hover_power(mass, area, assumptions::Assumptions)
+    thrust = assumptions[:rigid_hover_thrust_ratio] * Environment(assumptions).gravity * mass
+    disc = assumptions[:rigid_rotor_area_ratio] * area
+    return sqrt(thrust^3 /
+                (2assumptions[:rigid_hover_air_density] *
+                 assumptions[:rigid_rotor_fill] * disc)) /
+           assumptions[:rigid_hover_efficiency]
+end
+
+"""
+    rigid_kite_model(area, count, assumptions)
+
+[`KiteModel`](@ref) of one rigid VTOL kite of `area` [m^2], its tether force limit [N],
+tether diameter [m] and the [`RigidAirframe`](@ref) of `count` such kites.
+"""
+function rigid_kite_model(area, count, assumptions::Assumptions)
+    env = Environment(assumptions)
+    max_force = 1e3assumptions[:rigid_max_force_per_area] * area
+    tether_diameter = sqrt(4max_force / (π * assumptions[:rigid_tether_stress]))
+    span = sqrt(area * assumptions[:rigid_aspect_ratio])
+    tether_length = assumptions[:rigid_tether_length_ratio] * span
+    tether_mass = assumptions[:rigid_tether_density] * π * tether_diameter^2 / 4 *
+                  tether_length
+    mass = assumptions[:rigid_reference_mass] *
+           (area / assumptions[:rigid_reference_area])^
+           (assumptions[:rigid_mass_exponent] / 2)
+    drag = assumptions[:rigid_idle_rotor_drag] +
+           assumptions[:rigid_tether_drag_coefficient] * tether_diameter * tether_length /
+           (4area)
+    polar = rigid_polar(assumptions)
+    model = KiteModel(area, mass + tether_mass / 2, tether_length, env.air_density,
+        env.gravity, polar, drag, polar.angle_of_attack[findfirst(>=(0.05), polar.lift)],
+        polar.angle_of_attack[argmax(polar.lift)] - deg2rad(assumptions[:kite_stall_margin]),
+        assumptions[:rigid_min_turn_radius] * span, true)
+    airframe = RigidAirframe(count, mass, tether_mass,
+        hover_power(mass + tether_mass, area, assumptions))
+    return model, max_force, tether_diameter, airframe
+end
+
+"apparent wind speeds [m/s] of a rigid kite's pattern table"
+const RIGID_WIND_SPEEDS = [4.0:1.0:10.0; 12.0; 14.0; 17.0; 20.0; 25.0; 30.0]
+
+"""
+    lowest_flying_wind(wind_speeds, forces)
+
+Lowest of `wind_speeds` [m/s] at which the pattern table `forces` flies on any course.
+"""
+function lowest_flying_wind(wind_speeds, forces)
+    flying = findfirst(i -> any(force -> isfinite(force.peak_tension),
+            view(forces, i, :, :)), eachindex(wind_speeds))
+    return isnothing(flying) ? Inf : wind_speeds[flying]
+end
+
+"""
+    rigid_kite_rig(total_area, hull, assumptions)
+
+Rigid VTOL kites of about `total_area` [m^2] together on `hull`, each of the unit area of
+the assumptions, or `nothing` where their perches do not fit one span apart on deck.
+"""
+function rigid_kite_rig(total_area, hull::Hull, assumptions::Assumptions)
+    area = assumptions[:rigid_unit_area]
+    count = max(round(Int, total_area / area), 1)
+    model, max_force, tether_diameter, airframe = rigid_kite_model(area, count, assumptions)
+    span = sqrt(area * assumptions[:rigid_aspect_ratio])
+    count * span <= assumptions[:deck_length_fraction] * hull.length || return nothing
+    courses = deg2rad.(0.0:15.0:180.0)
+    side_weights = [0.0, 0.5, 1.0, 3.0]
+    forces = pattern_table(model, max_force, assumptions, RIGID_WIND_SPEEDS, courses,
+        side_weights)
+    return KiteRig(; area, tether_diameter, model.tether_length,
+        reference_height=model.tether_length * sin(deg2rad(25)),
+        max_wind=assumptions[:rigid_max_wind],
+        min_flight_wind=lowest_flying_wind(RIGID_WIND_SPEEDS, forces), max_force,
+        attach_height=assumptions[:kite_attach_height] * hull.length /
+                      assumptions[:reference_length],
+        attach_position=lateral_centre(hull), wind_speeds=RIGID_WIND_SPEEDS, courses,
+        side_weights, forces, airframe)
+end
 
 """
     KiteRig(area, aspect_ratio, hull, assumptions; attach_position=lateral_centre(hull))
@@ -400,8 +524,8 @@ end
     rig_force(rig::KiteRig, env, wind_10m, true_angle, ship_speed, trim)
 
 Force of the best pattern for side weight number `trim`, interpolated in newtons over
-apparent wind speed and course and held to the tether limit; no force where the kite
-cannot fly or the wind is below the table.
+apparent wind speed and course, held to the tether limit and summed over the kites; no
+force where the kite cannot fly or the wind is below the table.
 """
 function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_speed, trim)
     wind = wind_at_height(env, wind_10m, rig.reference_height)
@@ -420,7 +544,7 @@ function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_sp
         downwind += row_weight * column_weight * load * force[1]
         crosswind += row_weight * column_weight * load * force[2]
     end
-    limit = min(1.0, rig.max_force / hypot(downwind, crosswind))
+    limit = kite_count(rig) * min(1.0, rig.max_force / hypot(downwind, crosswind))
     direction = angle + π
     thrust = limit * (downwind * cos(direction) - crosswind * sin(direction))
     side = limit * (downwind * sin(direction) + crosswind * cos(direction))
