@@ -321,6 +321,19 @@ function trip_with_share(design, name, share, corridors, base=assumptions)
         [24.0 * 31, 24.0 * 200], changed)
 end
 
+@testset "launch cost at the loss goal is mostly crew, and a crash costs the lost hardware" begin
+    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
+    canopy, tether = WindShipOpt.consumable_costs(kite, assumptions)
+    @test WindShipOpt.cycle_cost(kite, assumptions) ≈
+          assumptions[:kite_cycle_crew_cost] +
+          assumptions[:kite_cycle_damage_probability] * canopy
+    @test WindShipOpt.cycle_cost(kite, assumptions) < 1.2assumptions[:kite_cycle_crew_cost]
+    @test WindShipOpt.crash_cost(kite, assumptions) > canopy + tether
+    rotors = Ship(ShipDesign(:methanol, 140.0; rotor_area=800.0), assumptions).rig
+    @test WindShipOpt.crash_cost(rotors, assumptions) * rotors.count ≈
+          first(WindShipOpt.rig_costs(rotors, assumptions))
+end
+
 @testset "a rig out of service keeps its cost and saves no fuel while down" begin
     corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     bare_trip = round_trip(Ship(ShipDesign(:methanol, 85.0), assumptions), corridors...,

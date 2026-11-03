@@ -135,21 +135,22 @@ function goal_rows()
     canopy = @sprintf("\\num{%.0f} h at %.0f g/m\$^2\$", assumptions[:canopy_life],
         assumptions[:canopy_cloth_weight])
     service = @sprintf("%.0f\\,\\%%", 100assumptions[:kite_out_of_service])
-    loss = string("1 in \\num{", round(Int, 1 / assumptions[:kite_cycle_damage_probability]),
-        "}")
+    loss = @sprintf("1 in \\num{%.0f}", 1 / assumptions[:kite_cycle_damage_probability])
     crew = @sprintf("USD~%.0f per cycle", assumptions[:kite_cycle_crew_cost])
     deck = @sprintf("%.0f years", assumptions[:rotor_lifetime])
     return [("Canopy life", "kite", canopy,
             "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements"),
         ("Rig life", "rigid kite", "15 years", "M600 flew 22 h in all"),
         ("Rig life", "wings, rotors", deck,
-            "stated design life; about 6 years on the longest record"),
-        ("Out of service", "all", service, "one rotor operator's 97\\,\\%; nothing for kites"),
+            "stated design life; about 8 years on record for rotors, 2 for wings"),
+        ("Out of service", "all", service,
+            "one rotor operator's 97\\,\\%; nothing for kites"),
         ("Crash in flight", "kites", "none",
-            "no record for a ship; M600 lost all four kites in twenty crosswind flights"),
+            string("no record for a ship; M600 lost all four kites in twenty crosswind ",
+                "flights, three of them in hover or landing \\citep{echeverri2020part1}")),
         ("Unit lost", "wings, rotors", "none", "none reported, and no duty to report one"),
         ("Lost per launch and landing", "kites", loss,
-            "our estimates: 0.2\\,\\% kite, 0.05\\,\\% rigid kite; no record"),
+            "our estimates: 0.2\\,\\% kite, 0.05\\,\\% rigid kite; no record for a ship"),
         ("Launch and landing crew", "kites", crew, "our estimate")]
 end
 
@@ -219,7 +220,8 @@ function missed_goal_rows()
             trip = only(rows(service, "ship" => ship, "rig" => rig, "share" =>
                     assumptions[Symbol(out_of_service_inputs[rig])]))
             work = yearly_work(service["cargo"][trip], service["days"][trip], route)
-            limits(quantity) = (quantity(bare), isnan(next_cost) ? NaN : quantity(next_cost))
+            limits(quantity) = (quantity(bare),
+                isnan(next_cost) ? NaN : quantity(next_cost))
             is_kite = rig == "kite"
             push!(result, (; ship, rig, saving=percent_saving(goal[rig], bare),
                 saving_short=is_kite ? percent_saving(
@@ -249,8 +251,9 @@ function missed_goals_table()
             "\\multicolumn{3}{c}{Out of service [\\%] where} \\\\")
         println(io, "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}\\cmidrule(lr){7-8}",
             "\\cmidrule(lr){9-11}")
-        println(io, "Ship & Rig & at goals & at \\num{2000} h & pays no more & behind next & ",
-            "pays no more & behind next & pays no more & behind next & all units \\\\")
+        println(io, "Ship & Rig & at goals & at \\num{2000} h & ",
+            "pays no more & behind next & pays no more & behind next & ",
+            "pays no more & behind next & all units \\\\")
         println(io, "\\midrule")
         for row in missed_goal_rows()
             cells = [row.ship; row.rig; @sprintf("%.1f", row.saving);
