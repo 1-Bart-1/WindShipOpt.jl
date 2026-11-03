@@ -217,9 +217,7 @@ function scaled(names, factor)
 end
 
 "inputs of the situation study that stand for a factor on several assumptions at once"
-scaled_inputs = Dict(
-    :kite_life => (:canopy_life, :tether_lifetime),
-    :wing_price => (:wing_unit_cost, :wing_cost_per_area))
+scaled_inputs = Dict(:wing_price => (:wing_unit_cost, :wing_cost_per_area))
 
 """
     situation_assumptions(input, value)
@@ -240,19 +238,15 @@ Value of `input` in the base assumptions; 1 for an input of `scaled_inputs`.
 """
 base_value(input) = haskey(scaled_inputs, input) ? 1.0 : assumptions[input]
 
-"factor on the kite life that stands for no wear"
-no_wear = 1e6
-
 """
 Values besides the base of each input of the situation study, and the rigs whose cost
 it changes. Prices are in USD/GJ, cargo value in USD/t, lifetimes in years, the rotor
-surface speed in m/s; kite life and wing price are factors.
+surface speed in m/s; the wing price is a factor.
 """
 situation_inputs = Dict(:vlsfo_price => ((8.0, 12.0, 22.0, 30.0), all_rigs),
     :e_methanol_price => ((30.0, 40.0, 90.0, 120.0), all_rigs),
     :cargo_value => ((1000.0, 5000.0, 10000.0, 20000.0), all_rigs),
     :discount_rate => ((0.04, 0.06, 0.1, 0.12, 0.16), all_rigs),
-    :kite_life => ((0.5, 2.0, 4.0, 8.0, no_wear), ("kite",)),
     :wing_lifetime => ((10.0, 15.0, 25.0, 30.0), ("wings",)),
     :wing_price => ((0.25, 0.5, 0.75, 1.5), ("wings",)),
     :rotor_max_surface_speed => ((35.0, 40.0, 55.0, 65.0), ("rotors",)))
@@ -266,18 +260,14 @@ situation_sizes = Dict(
 
 """
 Ship, route, drive and inputs of each part of the situation study: every input on the
-140 m reference ship to Guadeloupe, all but the cargo value on a Kamsarmax to Tubarão,
-and the kite life on both ships on every route.
+140 m reference ship to Guadeloupe and all but the cargo value on a Kamsarmax to Tubarão.
 """
-situation_studies = [
-    [("140 m", :caribbean, :vlsfo, [:vlsfo_price]),
-        ("140 m", :caribbean, :methanol, [:e_methanol_price, :cargo_value, :discount_rate,
-            :wing_lifetime, :wing_price, :rotor_max_surface_speed]),
-        ("Kamsarmax bulk carrier", :tubarao, :vlsfo, [:vlsfo_price]),
-        ("Kamsarmax bulk carrier", :tubarao, :methanol, [:e_methanol_price, :discount_rate,
-            :wing_lifetime, :wing_price, :rotor_max_surface_speed])];
-    [(ship, route, drive, [:kite_life]) for ship in ("140 m", "Kamsarmax bulk carrier")
-     for route in route_names for drive in (:vlsfo, :methanol)]]
+situation_studies = [("140 m", :caribbean, :vlsfo, [:vlsfo_price]),
+    ("140 m", :caribbean, :methanol, [:e_methanol_price, :cargo_value, :discount_rate,
+        :wing_lifetime, :wing_price, :rotor_max_surface_speed]),
+    ("Kamsarmax bulk carrier", :tubarao, :vlsfo, [:vlsfo_price]),
+    ("Kamsarmax bulk carrier", :tubarao, :methanol, [:e_methanol_price, :discount_rate,
+        :wing_lifetime, :wing_price, :rotor_max_surface_speed])]
 
 """
     situation_cases(ship, route, drive, input)
@@ -835,6 +825,24 @@ function availability_data()
     end
     write_trips("availability.csv", cases,
         round_trips(cases, sampled_departures(; screening=true)), :ship, :rig, :share)
+end
+
+"canopy lives [flight hours] the kite is routed at for the missed-goal table"
+canopy_lives = (500.0, 750.0, 1000.0, 1500.0, 2000.0, 3000.0, 4000.0, 6000.0, 8000.0,
+    16000.0)
+
+"""
+    canopy_life_data()
+
+The kite of each ship of [`sensitivity_ships`](@ref) at each of `canopy_lives`, its size
+and every other input held: canopy_life.csv.
+"""
+function canopy_life_data()
+    cases = [trip_case(ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...);
+                 assumptions=with_value(assumptions, :canopy_life, life), route, ship, life)
+             for (ship, bare, route, areas) in sensitivity_ships(), life in canopy_lives]
+    write_trips("canopy_life.csv", vec(cases),
+        round_trips(vec(cases), sampled_departures(; screening=true)), :ship, :life)
 end
 
 "ships of the abatement study as (name, route)"
