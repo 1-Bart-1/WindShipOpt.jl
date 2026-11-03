@@ -62,7 +62,6 @@ function gate_trips(cases, sampled)
     return trips, seconds
 end
 
-
 """
     write_gate(path, cases, trips, seconds)
 

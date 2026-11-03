@@ -262,12 +262,13 @@ corridor, table, hourly = wing_coaster_routing()
 
 @testset "route guided by a cost to go equals the full dynamic programme" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
-    workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2), 400,
-        size(corridor.lat, 1))
+    (; time_step) = WindShipOpt.ROUTER_SETTINGS[]
+    workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2),
+        ceil(Int, 1200 / time_step), size(corridor.lat, 1))
     for coastal_penalty in (0.0, 1.0)
         leg = route(corridor, table, weather, departure; time_cost=hourly, coastal_penalty)
         full = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
-            time_cost=hourly, time_step=3.0, first_stage=1,
+            time_cost=hourly, time_step, first_stage=1,
             first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty)
         @test leg.objective == full.objective
         @test leg.path == full.path
@@ -309,6 +310,21 @@ WindShipOpt.waves(seas::HeadSeas, lat, lon, time) =
     @test hours > corridor.edge_length[stage, centre, step] / table.speeds[commanded] / 3600
     storm = HeadSeas(destination, 60NAUTICAL_MILE, wave_from, 8.0, 9.0)
     @test isnothing(route(corridor, table, storm, 0.0; time_cost=hourly))
+end
+
+@testset "an edge is sampled at most the asked hours apart at the commanded speed" begin
+    weather, stage, centre = SyntheticWeather(), 1, centre_index(corridor)
+    step = WindShipOpt.MAX_LATERAL_STEP + 1
+    start = WindShipOpt.EdgeSample(table.table, weather, corridor, stage, centre, step, 0.0,
+        24.0)
+    speed_index = length(table.speeds)
+    commanded = corridor.edge_length[stage, centre, step] / table.speeds[speed_index] / 3600
+    points = WindShipOpt.SailedPoint[]
+    for sample_hours in (commanded / 4, commanded / 2)
+        WindShipOpt.sail_edge!(points, start, table, weather, corridor, stage, centre, step,
+            24.0, speed_index, sample_hours * 1.001)
+        @test length(points) == round(Int, commanded / sample_hours) + 1
+    end
 end
 
 @testset "a passage from a later stage continues the optimal path" begin
