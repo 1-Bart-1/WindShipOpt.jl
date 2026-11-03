@@ -765,6 +765,49 @@ function sensitivity_data()
         :rig, :input, :bound)
 end
 
+"cloth weights [g/m^2] of the cloth study"
+cloth_weights = (40.0, 60.0, 100.0, 140.0, 200.0, 250.0, 300.0)
+
+"canopy life inputs the cloth study takes to their bounds, one at a time"
+cloth_inputs = (:canopy_wear_rate, :canopy_wear_lifetime, :canopy_uv_weight_exponent,
+    :canopy_wear_weight_exponent, :canopy_retirement_strength, :cloth_uv_dose_per_weight)
+
+"drive, route and kite area [m^2] of each case of the cloth study on the 140 m ship"
+cloth_kites = ((:methanol, :caribbean, 1600.0), (:methanol, :caribbean, 3200.0),
+    (:methanol, :new_york, 1600.0), (:methanol, :new_york, 3200.0),
+    (:vlsfo, :caribbean, 3200.0))
+
+"""
+    cloth_data()
+
+Each kite of `cloth_kites` at every weight of `cloth_weights`, at the base inputs and at
+the bounds of each of `cloth_inputs` that differ from the base, with the same ships
+without a rig: cloth.csv.
+"""
+function cloth_data()
+    variants = [(:none, :value); [(name, bound) for name in cloth_inputs
+                                  for bound in (:low, :high)
+                                  if getproperty(assumptions.entries[name], bound) !=
+                                     assumptions[name]]]
+    cases = []
+    for (drive, route) in unique(kite[1:2] for kite in cloth_kites)
+        push!(cases, trip_case(ShipDesign(drive, 140.0); route, drive, area=0.0,
+            weight=0.0, input=:none, bound=:value))
+    end
+    for (drive, route, area) in cloth_kites, weight in cloth_weights
+        for (name, bound) in variants
+            case_assumptions = with_value(bound_assumptions(name, bound),
+                :canopy_cloth_weight, weight)
+            push!(cases, trip_case(ShipDesign(drive, 140.0; kite_area=area);
+                assumptions=case_assumptions, route, drive, area, weight, input=name,
+                bound))
+        end
+    end
+    write_trips("cloth.csv", cases,
+        round_trips(cases, sampled_departures(; screening=true)), :drive, :route, :area,
+        :weight, :input, :bound)
+end
+
 "ships of the abatement study as (name, route)"
 abatement_ships = (("140 m", :caribbean), ("Kamsarmax bulk carrier", :tubarao))
 
