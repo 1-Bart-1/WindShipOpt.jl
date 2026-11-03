@@ -214,7 +214,7 @@ function kite_coaster(; kwargs...)
         init=assumptions)
     bare = Ship(ShipDesign(:methanol, 85.0), inputs)
     kite = uniform_kite(bare.hull, inputs)
-    ship = Ship((name == :rig ? kite : getfield(bare, name) for name in fieldnames(Ship))...)
+    ship = WindShipOpt.with_rig(bare, kite)
     table = RouteTable(PerformanceTable(ship, inputs))
     return table, (; fuel=ship.fuel.price, time=500.0)
 end
@@ -226,7 +226,8 @@ end
 across the ship with `headwind` [m/s] from ahead and waves of `wave_height` [m].
 """
 function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0, daylight=true)
-    condition = WindShipOpt.SeaCondition(table.table, 12.0, π / 2, wave_height, 8.0, π / 2)
+    condition = WindShipOpt.SeaCondition(table.table, 12.0, π / 2, wave_height, 8.0,
+        π / 2)
     sample = WindShipOpt.EdgeSample(condition, headwind, 0.0, daylight)
     held, flown, stowed, parked = WindShipOpt.held_speed(table, speed_index, sample)
     return WindShipOpt.SailedPoint(sample, held, flown, stowed, parked, hours)
@@ -341,7 +342,8 @@ end
     angles = WindShipOpt.parked_angles(model, 1.0)
     @test isempty(WindShipOpt.parked_positions(model, angles, weak_tether,
         deg2rad(assumptions[:kite_min_elevation]), 30.0))
-    forces = WindShipOpt.parked_table(model, weak_tether, depowerless, winds, [0.0, π], [0.0])
+    forces = WindShipOpt.parked_table(model, weak_tether, depowerless, winds, [0.0, π],
+        [0.0])
     @test all(force -> all(isfinite, force.force), forces)
     @test forces[3, 2, 1].force == forces[2, 2, 1].force
 end
@@ -619,6 +621,21 @@ end
     kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
     @test trip_with_share(kite, :kite_out_of_service, 1.0, corridors).fuel_energy ≈
           bare_trip.fuel_energy rtol = 1e-3
+end
+
+@testset "a kite out of service makes its launches and forced landings pro rata and pays them" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
+    hard = with_value(assumptions, :kite_landing_max_wave_height, 0.0)
+    cheap = with_value(hard, :kite_forced_landing_loss_probability, 1e-5)
+    working = trip_with_share(kite, :kite_out_of_service, 0.0, corridors, cheap)
+    half = trip_with_share(kite, :kite_out_of_service, 0.5, corridors, cheap)
+    @test working.forced_landings > 0
+    @test half.forced_landings ≈ working.forced_landings / 2
+    @test half.launches ≈ working.launches / 2
+    dearer = with_value(hard, :kite_forced_landing_loss_probability, 2e-5)
+    @test trip_with_share(kite, :kite_out_of_service, 0.5, corridors, dearer).cost_per_tonne_km >
+          half.cost_per_tonne_km
 end
 
 @testset "stopped rotors and feathered wings are only drag in a head wind" begin

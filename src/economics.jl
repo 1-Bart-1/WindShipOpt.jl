@@ -367,7 +367,8 @@ Expected cost of one kite landing outside the landing limits [USD], the chance o
 the kite then times its cost; zero for other rigs.
 """
 forced_landing_cost(rig, assumptions) = 0.0
-forced_landing_cost(rig::CombinedRig, assumptions) = forced_landing_cost(rig.kite, assumptions)
+forced_landing_cost(rig::CombinedRig, assumptions) =
+    forced_landing_cost(rig.kite, assumptions)
 forced_landing_cost(rig::KiteRig, assumptions) =
     assumptions[:kite_forced_landing_loss_probability] * lost_kite_cost(rig, assumptions)
 
@@ -554,8 +555,8 @@ with_share(states) = filter(state -> first(state) > 0, states)
                      port_hours, horizon)
 
 Mean fuel energy [J], outbound and return hours, kite flight and parked hours, launches,
-forced landings and rig running cost [USD] of `ship` per round trip over `departures`, with the largest
-leg's fuel energy [J]; `nothing` if any passage is infeasible.
+forced landings and rig running cost [USD] of `ship` per round trip over `departures`,
+with the largest leg's fuel energy [J]; `nothing` if any passage is infeasible.
 """
 function service_passages(ship::Ship, outbound, inbound, weather, departures, assumptions,
         hourly, port_hours, horizon)
@@ -603,9 +604,9 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
                 for (_, rig) in states]
     any(isnothing, passages) && return nothing
     shares = first.(states)
+    means = map((values...) -> sum(shares .* values), getproperty.(passages, :means)...)
     (; energy, out_hours, back_hours, flight_hours, parked_hours, launches, forced_landings,
-        rig_cost) =
-        map((values...) -> sum(shares .* values), getproperty.(passages, :means)...)
+    rig_cost) = means
     reserve = assumptions[:fuel_reserve_factor]
     largest_leg = maximum(passage.largest_leg / (rig === ship.rig ? 1 : reserve)
                           for ((_, rig), passage) in zip(states, passages))
