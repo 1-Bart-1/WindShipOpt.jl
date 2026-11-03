@@ -573,7 +573,7 @@ canopy_retirement_strength:
   low: 0.27
   high: 0.7
   unit: "-"
-  reason: "Share of the new strength at which a canopy is retired however large its margin; 0 flies it to the force limit alone. The wear rate is rescaled to keep the wear life at 100 g/m^2. The bounds span the retirement limits of regulated fabric: 70 % of the required new strength for aircraft cloth (FAA AC 43.13-1B), 46 % and 27 % of the stated new strength for balloon cloth of 58 and 90 g/m^2 (Lindstrand), against a grab test of 30 lb, our ratios."
+  reason: "Share of the new strength at which a canopy is retired however large its margin; 0 flies it to the force limit alone. The wear rate is rescaled to keep the wear life at 100 g/m^2. The bounds span the retirement limits of regulated fabric: 70 % of the required new strength of cotton and linen aircraft cloth (FAA AC 43.13-1B), not of the actual new strength this share applies to; at most 46 % and 27 % of the stated new strength for balloon cloth of 58 and 90 g/m^2 (Lindstrand), a 30 lb grab test against a strip value, our ratios."
 canopy_life_factor:
   value: 1.0
   low: 0.5
@@ -633,7 +633,7 @@ cloth_uv_dose_per_weight:
   low: 0.35
   high: 1.6
   unit: MJ/m^2 per g/m^2
-  reason: "UV dose (295-385 nm) per g/m^2 that leaves 1/e of the strength of cloth of 100 g/m^2; other weights follow canopy_uv_weight_exponent. From a pooled fit of polyester without UV blockers, outdoors with measured dose and in lamps times 3, D0(100 g/m^2) = 64-72 MJ/m^2 (Stevens et al. 2018, Lodi et al. 2008, Ceylan et al. 2023, Asadi et al. 2021, Uzumcu et al. 2024, Dekanic et al. 2023, Hunt 2022). Low: light polyester with a thin finish; high: 2.3 times, a PU coat or the top of the outdoor data. Fit in canopy_life_notes.md."
+  reason: "UV dose (295-385 nm) per g/m^2 that leaves 1/e of the strength of cloth of 100 g/m^2; other weights follow canopy_uv_weight_exponent. From a pooled fit of polyester without UV blockers, outdoors with measured dose and in lamps times 3, D0(100 g/m^2) = 63 MJ/m^2 pooled and 72 MJ/m^2 on field data alone (Stevens et al. 2018, Lodi et al. 2008, Ceylan et al. 2023, Asadi et al. 2021, Uzumcu et al. 2024, Dekanic et al. 2023, Hunt 2022). Low: light polyester with a thin finish; high: 2.3 times, a PU coat or the top of the outdoor data. Fit in canopy_life_notes.md."
 canopy_uv_dose_rate:
   value: 0.02
   low: 0.012
