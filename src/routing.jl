@@ -686,8 +686,8 @@ nodes near land cost `coastal_penalty` more in the objective, not in the fuel an
 leg reports.
 
 The time bins and the states searched follow `ROUTER_SETTINGS`: those within a margin of a
-[`CostToGo`](@ref), wider where that leaves no path, then all of them. Returns `nothing` if no path arrives within
-1200 h.
+[`CostToGo`](@ref), wider where that leaves no path, then all of them. Returns `nothing`
+if no path arrives within 1200 h.
 """
 function route(corridor::Corridor, table::RouteTable, weather, departure; time_cost,
         first_stage=1, first_lateral=centre_index(corridor), first_aloft=false,
@@ -696,8 +696,8 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
     max_duration = 1200.0
     options = (; time_step, time_cost, first_stage, first_lateral, first_aloft,
         coastal_penalty)
-    workspace = acquire_workspace(size(corridor.lat, 2), ceil(Int, max_duration / time_step),
-        size(corridor.lat, 1))
+    workspace = acquire_workspace(size(corridor.lat, 2),
+        ceil(Int, max_duration / time_step), size(corridor.lat, 1))
     try
         to_go = CostToGo(corridor, table, weather, departure; time_cost, first_stage,
             coastal_penalty)

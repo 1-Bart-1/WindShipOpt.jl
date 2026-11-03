@@ -355,7 +355,8 @@ end
 @testset "a ship on a long forecast handles its kite as the plan does" begin
     ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
     kite_table = RouteTable(PerformanceTable(ship, assumptions))
-    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions))
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
     weather, departure = SyntheticWeather(), 24.0 * 121
     leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
     sailed = forecast_route(corridor, kite_table, weather, departure;

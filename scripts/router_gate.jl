@@ -4,10 +4,11 @@
 #   julia +1.12 --project=. -t auto scripts/router_gate.jl <out_dir> [reference_dir]
 #   julia +1.12 --project=. -t auto scripts/router_gate.jl --reference <out_dir>
 #
-# Writes gate_<scale>.csv to <out_dir>. Given a reference directory holding gate_<scale>.csv,
-# prints the change per case and exits 1 if a saving moves by more than `SAVING_TOLERANCE`
-# points. `--reference` searches every state, which makes such a directory. A convergence
-# check is `run_gate` with other `RouterSettings`, compared the same way.
+# Writes gate_<scale>.csv to <out_dir>. Given a reference directory holding
+# gate_<scale>.csv, prints the change per case and exits 1 if a saving moves by more than
+# `SAVING_TOLERANCE` points. `--reference` searches every state, which makes such a
+# directory. A convergence check is `run_gate` with other `RouterSettings`, compared the
+# same way.
 using Printf
 include(joinpath(@__DIR__, "setup.jl"))
 
@@ -32,7 +33,8 @@ function gate_cases(scale)
         rigs = (("none", (;)), ("kite", (; kite_area=kite)), ("wings", (; wing_area=wings)),
             ("rotors", (; rotor_area=rotors)))
         for (rig, area) in rigs, route in (:caribbean, :new_york, :tubarao)
-            push!(cases, (; ship, rig, route, scale, design=ShipDesign(arguments...; area...)))
+            design = ShipDesign(arguments...; area...)
+            push!(cases, (; ship, rig, route, scale, design))
         end
     end
     return cases
