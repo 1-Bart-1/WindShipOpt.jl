@@ -302,14 +302,57 @@ WindShipOpt.waves(seas::HeadSeas, lat, lon, time) =
     commanded = searchsortedfirst(table.speeds, 8KNOT)
     start = WindShipOpt.EdgeSample(table.table, seas, corridor, stage, centre, step, 0.0,
         0.0)
-    first = WindShipOpt.first_point(table, start, corridor, stage, centre, step, commanded)
     points = WindShipOpt.SailedPoint[]
-    hours = WindShipOpt.sail_edge!(points, first, table, seas, corridor, stage, centre,
+    hours = WindShipOpt.sail_edge!(points, start, table, seas, corridor, stage, centre,
         step, 0.0, commanded)
     @test 0 < last(points).speed_index < commanded
     @test hours > corridor.edge_length[stage, centre, step] / table.speeds[commanded] / 3600
     storm = HeadSeas(destination, 60NAUTICAL_MILE, wave_from, 8.0, 9.0)
     @test isnothing(route(corridor, table, storm, 0.0; time_cost=hourly))
+end
+
+@testset "a passage from a later stage continues the optimal path" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    leg = route(corridor, table, weather, departure; time_cost=hourly)
+    stage = (length(leg.path) + 1) ÷ 2
+    lat, lon, time = leg.path[stage]
+    rest = route(corridor, table, weather, departure + time; time_cost=hourly,
+        first_stage=stage,
+        first_lateral=WindShipOpt.nearest_lateral(corridor, stage, lat, lon))
+    @test length(rest.path) == size(corridor.lat, 1) - stage + 1
+    @test rest.path[1][1:2] == (lat, lon)
+    @test rest.duration + time ≈ leg.duration rtol = 0.05
+    @test rest.fuel_energy < leg.fuel_energy
+end
+
+@testset "a ship re-planning on a long forecast sails close to perfect foresight" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    leg = route(corridor, table, weather, departure; time_cost=hourly)
+    sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly,
+        horizon=24.0 * 100)
+    @test length(sailed.path) == size(corridor.lat, 1)
+    @test sailed.path[end][1:2] == leg.path[end][1:2]
+    @test sailed.objective ≈ leg.objective rtol = 0.01
+    @test sailed.duration > 0 && sailed.fuel_energy > 0
+end
+
+@testset "a ship on a long forecast handles its kite as the plan does" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions))
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+    sailed = forecast_route(corridor, kite_table, weather, departure;
+        time_cost=kite_hourly, horizon=24.0 * 100)
+    @test leg.launches > 0
+    @test sailed.aloft == leg.aloft
+    @test sailed.launches == leg.launches
+end
+
+@testset "a forecast beyond its horizon reads the same date in another year" begin
+    known = ForecastWeather(SyntheticWeather(), 100.0, 48.0)
+    @test WindShipOpt.wind(known, 40.0, -30.0, 120.0) ==
+          WindShipOpt.wind(known.weather, 40.0, -30.0, 120.0)
 end
 
 module PaperRuns
