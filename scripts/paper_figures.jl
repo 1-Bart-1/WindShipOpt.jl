@@ -1449,7 +1449,8 @@ function rigid_scaling_figure()
 end
 
 "rigs of the rigid kite figure with their legend labels and colours"
-rigid_kite_rigs = (("kite", "best soft kite", palette[1]), ("wings", "best wings", palette[2]),
+rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
+    ("wings", "best wings", palette[2]),
     ("rotors", "best rotors", palette[3]), ("rigid base", "best rigid kites", palette[4]),
     ("rigid optimistic", "best rigid kites, favourable inputs", palette[5]))
 

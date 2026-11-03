@@ -658,8 +658,32 @@ end
     @test WindShipOpt.deck_footprint(one, assumptions) == assumptions[:rigid_perch_width]
     @test all(WindShipOpt.rig_costs(three, assumptions) .≈
               3 .* WindShipOpt.rig_costs(one, assumptions))
-    @test WindShipOpt.wear_cost(three, assumptions) ≈ 3WindShipOpt.wear_cost(one, assumptions)
+    @test WindShipOpt.wear_cost(three, assumptions) ≈
+          3WindShipOpt.wear_cost(one, assumptions)
     @test WindShipOpt.cycle_cost(three, assumptions) ≈
           3WindShipOpt.cycle_cost(one, assumptions)
-    @test WindShipOpt.max_wave_height(one, assumptions) == assumptions[:rigid_max_wave_height]
+    @test WindShipOpt.max_wave_height(one, assumptions) ==
+          assumptions[:rigid_max_wave_height]
+end
+
+@testset "a failed rigid kite grounds itself and leaves the others flying" begin
+    changed = with_value(assumptions, :kite_out_of_service, 0.1)
+    fleet = rigid_fleet(4, changed)
+    env = Environment(changed)
+    states = WindShipOpt.service_states(fleet, changed)
+    @test first(first(states)) ≈ 0.9^4
+    share, down = last(states)
+    @test share ≈ 1 - 0.9^4
+    kites_in_service = sum(first(state) * WindShipOpt.kite_count(last(state))
+                           for state in states)
+    @test kites_in_service ≈ 0.9 * 4
+    flying = WindShipOpt.kite_count(down) / 4
+    pull(rig) = rig_force(rig, env, 12.0, π, 5.0, 1).thrust
+    @test pull(down) ≈ flying * pull(fleet)
+    @test WindShipOpt.wear_cost(down, changed) ≈
+          flying * WindShipOpt.wear_cost(fleet, changed)
+    @test WindShipOpt.cycle_cost(down, changed) ≈
+          flying * WindShipOpt.cycle_cost(fleet, changed)
+    lone = rigid_fleet(1, changed)
+    @test isnothing(last(last(WindShipOpt.service_states(lone, changed))))
 end

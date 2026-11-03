@@ -944,12 +944,13 @@ function rigid_assumptions(scenario, unit)
         :rigid_structure_cost_per_area, :rigid_avionics_cost, :rigid_drive_cost,
         :rigid_drive_margin, :rigid_ship_power_cost, :rigid_perch_cost, :rigid_perch_width,
         :rigid_station_mass, :rigid_upkeep_per_area, :rigid_cycle_loss_probability,
-        :rigid_idle_rotor_drag, :rigid_hover_energy_price)
+        :rigid_idle_rotor_drag, :rigid_hover_energy_price, :kite_out_of_service)
     for name in favourable
         base = with_value(base, name, base.entries[name].low)
     end
     base = with_value(base, :rigid_lifetime, base.entries[:rigid_lifetime].high)
-    return with_value(base, :rigid_max_wave_height, base.entries[:rigid_max_wave_height].high)
+    return with_value(base, :rigid_max_wave_height,
+        base.entries[:rigid_max_wave_height].high)
 end
 
 """
@@ -965,7 +966,8 @@ function rigid_kite_data()
     for ship in combination_ships, drive in (:vlsfo, :methanol), route in route_names
         hull = Hull(study_hull(ship), assumptions)
         deck(type) = [(fraction * largest_area(type, hull)) for fraction in (0.2, 0.5, 1.0)]
-        sizes = [("none", (;)); [("kite", (; kite_area)) for kite_area in combination_kites];
+        sizes = [("none", (;));
+            [("kite", (; kite_area)) for kite_area in combination_kites];
             [("rotors", (; rotor_area)) for rotor_area in deck(WindShipOpt.RotorRig)];
             [("wings", (; wing_area)) for wing_area in deck(WingRig)]]
         for (rig, size) in sizes
@@ -1029,8 +1031,8 @@ function rigid_scaling_data()
             price = first(WindShipOpt.rig_costs(rig, changed))
             for i in eachindex(rig.wind_speeds)
                 println(file, join(("rigid", area, exponent, span, mass, stall, hover_power,
-                        rig.min_flight_wind, price, rig.wind_speeds[i], beam_thrust(rig, i)),
-                    ","))
+                        rig.min_flight_wind, price, rig.wind_speeds[i],
+                        beam_thrust(rig, i)), ","))
             end
         end
         for area in rigid_scaling_soft_kites
@@ -1038,8 +1040,8 @@ function rigid_scaling_data()
             price = first(WindShipOpt.rig_costs(rig, assumptions))
             for i in eachindex(rig.wind_speeds)
                 println(file, join(("soft", area, 0.0, 0.0, 0.0, 0.0, 0.0,
-                        rig.min_flight_wind, price, rig.wind_speeds[i], beam_thrust(rig, i)),
-                    ","))
+                        rig.min_flight_wind, price, rig.wind_speeds[i],
+                        beam_thrust(rig, i)), ","))
             end
         end
     end

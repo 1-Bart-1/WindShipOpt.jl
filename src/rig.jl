@@ -310,8 +310,8 @@ end
 What rigid VTOL kites add to a tether and a pattern table.
 """
 struct RigidAirframe
-    "kites on the ship, each with its own tether, winch and perch"
-    count::Int
+    "kites in service, a mean where some are down, each with tether, winch and perch"
+    count::Float64
     "mass of one kite with its rotors, without the tether [kg]"
     mass::Float64
     "mass of one tether [kg]"
@@ -412,7 +412,8 @@ Electric power [W] that hovers `mass` [kg] of kite and tether on a wing of `area
 momentum theory at the rotor area, thrust margin and air density of the assumptions.
 """
 function hover_power(mass, area, assumptions::Assumptions)
-    thrust = assumptions[:rigid_hover_thrust_ratio] * Environment(assumptions).gravity * mass
+    gravity = Environment(assumptions).gravity
+    thrust = assumptions[:rigid_hover_thrust_ratio] * gravity * mass
     disc = assumptions[:rigid_rotor_area_ratio] * area
     return sqrt(thrust^3 /
                 (2assumptions[:rigid_hover_air_density] *
@@ -443,7 +444,8 @@ function rigid_kite_model(area, count, assumptions::Assumptions)
     polar = rigid_polar(assumptions)
     model = KiteModel(area, mass + tether_mass / 2, tether_length, env.air_density,
         env.gravity, polar, drag, polar.angle_of_attack[findfirst(>=(0.05), polar.lift)],
-        polar.angle_of_attack[argmax(polar.lift)] - deg2rad(assumptions[:kite_stall_margin]),
+        polar.angle_of_attack[argmax(polar.lift)] -
+        deg2rad(assumptions[:kite_stall_margin]),
         assumptions[:rigid_min_turn_radius] * span, true)
     airframe = RigidAirframe(count, mass, tether_mass,
         hover_power(mass + tether_mass, area, assumptions))

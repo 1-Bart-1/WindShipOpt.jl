@@ -540,14 +540,22 @@ end
 down_rig(rig::Union{WingRig, RotorRig}, working_share) = DownRig(rig, working_share)
 down_rig(::KiteRig, working_share) = nothing
 
+function down_rig(rig::KiteRig{RigidAirframe}, working_share)
+    deck_units(rig) > 1 || return nothing
+    (; count, mass, tether_mass, hover_power) = rig.airframe
+    airframe = RigidAirframe(working_share * count, mass, tether_mass, hover_power)
+    parts = (getfield(rig, name) for name in fieldnames(KiteRig) if name != :airframe)
+    return KiteRig(parts..., airframe)
+end
+
 """
     service_states(rig, assumptions)
 
 What of `rig` works over a year as (share of the round trips, rig) pairs, the working rig
 first, leaving out states with no share. Trips with a unit down hold the mean of the units
-working, so the rig keeps its mean capacity. A kite out of service is stowed, wings or
-rotors stand as a [`DownRig`](@ref), and each part of a [`CombinedRig`](@ref) fails on its
-own.
+working, so the rig keeps its mean capacity. A lone kite out of service is stowed, of
+several rigid kites the others fly, wings or rotors stand as a [`DownRig`](@ref), and each
+part of a [`CombinedRig`](@ref) fails on its own.
 """
 function service_states(rig, assumptions)
     any_down, working_share = unit_outage(rig, assumptions)
