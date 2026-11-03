@@ -141,14 +141,3 @@ Today's code, draft fidelity. "Wings max" is the largest wing area that fits, 2,
 | Rotor lift × 0.68 (wind-tunnel level)                                  |                |           | 4.1 %         |
 
 The best estimate leaves the wings where they were, because the aerodynamic gains (+1.6 pp) and the mass correction (−1.9 pp) cancel. Wings beat rotors only when every wing input is at its optimistic end and the rotor's lift is at its pessimistic end.
-
-## Sources to download (paywalled or unreadable here)
-
-- Cargill, _first wind-powered ocean vessel maiden voyage_ release, 13 Mar 2024 (https://www.cargill.com/2024/first-wind-powered-ocean-vessel-maiden-voyage, returned 403).
-- DNV interim report on _Pyxis Ocean_ (not public).
-- Yao 2026, Ocean Eng. 362: the source of the current CD fit; not in `paper/literature_pdfs/`.
-- Persson et al. 2019, the SILL wing sail model and its single-sail 3D RANS polar (cited by Malmek 2024, Fig. 8).
-- Bordogna, Keuning, Huijsmans, Belloli, Int. Shipbuild. Prog. 65(3) 2018, doi:10.3233/ISP-180143: wind tunnel tests of two rigid sails.
-- Marimon Giovannetti et al. 2022, three-wingsail wind tunnel tests (WPCC/Oceanbird).
-- Wielgosz et al. 2025, single-sail experiments behind Xu 2025.
-- Norsepower brochure 2025 (open), for the motor kW of the 35 × 5 m rotor.

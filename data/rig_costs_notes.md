@@ -2,7 +2,7 @@
 
 Sources behind a series-production price for Flettner rotors and rigid wing sails, on the same basis as the kite in `kite_costs_notes.md` (component prices, then a multiplier for assembly, test and margin, then installation as a fraction), and behind the container slots a deck rig costs. Built 2026-10-31. Currency conversions use 1.16 USD/EUR, the rate in `assumptions.yaml`. "Estimate" marks a number that no source states; the reasoning follows it.
 
-## Primary documents (downloaded and read)
+## Primary documents
 
 | Short name            | Document                                                                                                                                                                     | URL                                                                                                                                          |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
