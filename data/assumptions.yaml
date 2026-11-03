@@ -723,12 +723,12 @@ rigid_upkeep_per_area:
   unit: USD/m^2/h
   reason: "Maintenance per flight hour: Makani's budget of USD 33/h and bottom-up USD 14/h for a kite of about 54 m^2, on a service interval of 6 months (Echeverri et al. 2020, Part I, pp.120-122)."
 rigid_cycle_loss_probability:
-  value: 0.0005
+  value: 0.0001
   low: 0.0001
   high: 0.005
   unit: "-"
-  reason: "Engineering estimate of the chance that one launch and landing loses a kite, for a mature system. M600 lost all four kites in twenty crosswind flights (Echeverri et al. 2020, Part I, p.261), so the base value assumes a maturity not yet shown."
-# --- kite ---
+  reason: "Goal: one kite lost in 10,000 launches and landings, not a measured rate; today's engineering estimate is 0.0005. M600 lost all four crosswind kites in twenty crosswind flights (Echeverri et al. 2020, Part I, p.261): SN2 and SN5 in hover, SN4 in a hard glide landing and SN3 in a mid-air breakup (pp.262-263), so three of the four at the end of a flight."
+
 tether_drag_coefficient:
   value: 1.1
   low: 1.0
