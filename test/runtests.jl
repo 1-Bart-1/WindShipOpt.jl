@@ -418,6 +418,14 @@ end
     @test isnan(WindShipOpt.share_at_cost(shares, costs, 5.0))
 end
 
+@testset "a canopy life limit lies where the cost reaches the level, and only there" begin
+    lives, costs = [4000.0, 1000.0, 2000.0], [1.25, 2.0, 1.5]
+    @test WindShipOpt.life_at_cost(lives, costs, 1.75) ≈ 4000 / 3
+    @test isnan(WindShipOpt.life_at_cost(lives, costs, 3.0))
+    @test isnan(WindShipOpt.life_at_cost(lives, costs, 1.0))
+    @test isnan(WindShipOpt.life_at_cost(lives, costs, NaN))
+end
+
 @testset "bounded route equals the unpruned dynamic programme" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
     workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2), 400,

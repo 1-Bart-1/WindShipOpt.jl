@@ -1,7 +1,7 @@
 # Table steps of the paper, written as LaTeX to paper/sections/: the inputs of
 # data/assumptions.yaml that matter ranked by effect, the ship classes from
-# data/ship_classes.csv, the fuel saving and payback of each rig, and the goals
-# limits. Included by paper.jl.
+# data/ship_classes.csv, the fuel saving and payback of each rig, the goals and what
+# missing one costs. Included by paper.jl.
 
 """
     latex_escape(text)
@@ -125,24 +125,31 @@ end
 "cost per tonne-km at `share` of the (shares, costs) `curve` of [`share_costs`](@ref)"
 curve_cost((shares, costs), share) = costs[findfirst(≈(share), shares)]
 
+"value of the input `name` in years, as a table cell"
+years(name) = @sprintf("%.0f years", assumptions[name])
+
 """
     goal_rows()
 
 The goals behind the results as (goal, rigs, value, what is known today), each value read
-from the input that holds it.
+from the input that holds it, but for the rigid kite's life, which no input holds.
 """
 function goal_rows()
     canopy = @sprintf("\\num{%.0f} h at %.0f g/m\$^2\$", assumptions[:canopy_life],
         assumptions[:canopy_cloth_weight])
-    service = @sprintf("%.0f\\,\\%%", 100assumptions[:kite_out_of_service])
+    service = @sprintf("%.0f\\,\\%%",
+        100only(unique(assumptions[Symbol(out_of_service_inputs[rig])]
+                       for rig in rig_names)))
     loss = @sprintf("1 in \\num{%.0f}", 1 / assumptions[:kite_cycle_damage_probability])
     crew = @sprintf("USD~%.0f per cycle", assumptions[:kite_cycle_crew_cost])
-    deck = @sprintf("%.0f years", assumptions[:rotor_lifetime])
     return [("Canopy life", "kite", canopy,
             "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements"),
-        ("Rig life", "rigid kite", "15 years", "M600 flew 22 h in all"),
-        ("Rig life", "wings, rotors", deck,
-            "stated design life; about 8 years on record for rotors, 2 for wings"),
+        ("Rig life", "rigid kite", "15 years",
+            "M600 flew 22 h of crosswind in all \\citep{echeverri2020part1}"),
+        ("Rig life", "wings", years(:wing_lifetime),
+            "stated design life; about 2 years on record"),
+        ("Rig life", "rotors", years(:rotor_lifetime),
+            "stated design life; about 8 years on record"),
         ("Out of service", "all", service,
             "one rotor operator's 97\\,\\%; nothing for kites"),
         ("Crash in flight", "kites", "none",
@@ -170,17 +177,9 @@ function goals_table()
     end
 end
 
-"""
-    life_at_cost(lives, costs, cost)
-
-Canopy life [flight hours] at which a kite with `costs` over `lives` reaches `cost`, linear
-in the inverse of the life, which the wear follows; `NaN` if within none of `lives`.
-"""
-function life_at_cost(lives, costs, cost)
-    order = sortperm(lives; rev=true)
-    inverse = WindShipOpt.share_at_cost(1 ./ lives[order], costs[order], cost)
-    return 1 / inverse
-end
+"canopy life [h] at which `rig` reaches `cost` on the (lives, costs) `curve`; kite only"
+kite_life_at_cost(rig, curve, cost) =
+    rig == "kite" ? WindShipOpt.life_at_cost(curve..., cost) : NaN
 
 """
     missed_goal_rows()
@@ -188,7 +187,8 @@ end
 For each screened ship and each rig, best first at the goals: cost saving [%], and where it
 stops paying and falls behind the next rig (`NaN` for the last) the canopy life [h] and the
 share out of service [-], that share also for all units failing together; for the kite its
-saving [%] at a canopy life of 2,000 h.
+saving [%] at a canopy life of 2,000 h and the life at which it passes the rig ahead; the
+points of saving [%] its share out of service costs at the goal.
 """
 function missed_goal_rows()
     service = read_table(data_file("availability.csv"))
@@ -206,16 +206,18 @@ function missed_goal_rows()
         for (rank, rig) in enumerate(ranked)
             curve = curves[rig]
             next_cost = rank < length(ranked) ? goal[ranked[rank + 1]] : NaN
-            limits(quantity) = (quantity(bare),
-                isnan(next_cost) ? NaN : quantity(next_cost))
-            is_kite = rig == "kite"
-            push!(result, (; ship, rig, saving=percent_saving(goal[rig], bare),
-                saving_short=is_kite ? percent_saving(
-                    life_curve[2][findfirst(==(2000.0), life_curve[1])], bare) : NaN,
-                life=limits(cost -> is_kite ? life_at_cost(life_curve..., cost) : NaN),
-                share=limits(cost -> WindShipOpt.share_at_cost(curve..., cost)),
-                whole_behind=isnan(next_cost) ? NaN :
-                             WindShipOpt.share_at_cost([0.0, 1.0],
+            ahead_cost = rank > 1 ? goal[ranked[rank - 1]] : NaN
+            saving_short = rig == "kite" ?
+                           percent_saving(curve_cost(life_curve, 2000.0), bare) : NaN
+            saving = percent_saving(goal[rig], bare)
+            push!(result, (; ship, rig, saving, saving_short,
+                service_points=percent_saving(curve[2][1], bare) - saving,
+                life=(kite_life_at_cost(rig, life_curve, bare),
+                    kite_life_at_cost(rig, life_curve, next_cost)),
+                passes=kite_life_at_cost(rig, life_curve, ahead_cost),
+                share=(WindShipOpt.share_at_cost(curve..., bare),
+                    WindShipOpt.share_at_cost(curve..., next_cost)),
+                whole_behind=WindShipOpt.share_at_cost([0.0, 1.0],
                     [curve[2][1], curve[2][end]], next_cost)))
         end
     end
@@ -225,7 +227,9 @@ end
 """
     missed_goals_table()
 
-Write the [`missed_goal_rows`](@ref) to paper/sections/missed_goals_table.tex.
+Write the [`missed_goal_rows`](@ref) to paper/sections/missed_goals_table.tex and print what
+the text takes from them besides: the points each rig's outages cost and the life at which
+the kite passes the rig ahead.
 """
 function missed_goals_table()
     open(joinpath(sections, "missed_goals_table.tex"), "w") do io
@@ -243,6 +247,8 @@ function missed_goals_table()
                      share_cell.(row.share)...;
                      share_cell(row.whole_behind)]
             println(io, join(cells, " & "), " \\\\")
+            @printf("%s, %s: outages cost %.2f points, passes the next up at %s h\n",
+                row.ship, row.rig, row.service_points, dash_cell(row.passes, "%.0f"))
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end

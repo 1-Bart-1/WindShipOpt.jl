@@ -639,7 +639,7 @@ kite_cycle_damage_probability:
   low: 0.00002
   high: 0.002
   unit: "-"
-  reason: "Goal, not a record: at most about 1 in 10,000 launches and landings ends the canopy. High is our estimate of today, a loss about every 77 round trips at 6.5 launches each; no rate exists for a ship or large kite, and SkySails operators reported components that did not stand the conditions at sea (CE Delft 2016) without one."
+  reason: "Goal, not a record: at most about 1 in 10,000 launches and landings ends the canopy. High is our estimate of today, a loss about every 80 round trips at about six launches each; no rate exists for a ship or large kite, and SkySails operators reported components that did not stand the conditions at sea (CE Delft 2016) without one."
 kite_parked_wear_fraction:
   value: 0.5
   low: 0.2
@@ -906,21 +906,21 @@ wing_out_of_service:
   low: 0.004
   high: 0.15
   unit: "-"
-  reason: "Goal, the same for all rigs: share of round trips with a wing out of service though the wind would allow it; units fail independently. Base: our reading of the operator of the rotor ship Estraden, 97 % usable, undefined (Spliethoff), the same for all rigs. Low: 99.6 % operational availability on Canopee, maker with owner, undefined (OceanWings 2025). High: our estimate, the same for all rigs. See data/rig_availability_notes.md."
+  reason: "Goal, the same for all rigs: share of round trips with a wing out of service though the wind would allow it; units fail independently. Base: our reading of the operator of the rotor ship Estraden, 97 % usable, undefined (Spliethoff). Low: 99.6 % operational availability on Canopee, maker with owner, undefined (OceanWings 2025). High: our estimate. See data/rig_availability_notes.md."
 
 rotor_out_of_service:
   value: 0.03
   low: 0.01
   high: 0.15
   unit: "-"
-  reason: "Goal, the same for all rigs: share of round trips with a rotor out of service though the wind would allow it; units fail independently. Base: our reading of Estraden's operator, 97 % usable over about 6 years, undefined (Spliethoff). Low: maker's above 99 % on Estraden (Kuuskoski 2018). High: our estimate, the same for all rigs. See data/rig_availability_notes.md."
+  reason: "Goal, the same for all rigs: share of round trips with a rotor out of service though the wind would allow it; units fail independently. Base: our reading of Estraden's operator, 97 % usable over about 6 years, undefined (Spliethoff). Low: maker's above 99 % on Estraden (Kuuskoski 2018). High: our estimate. See data/rig_availability_notes.md."
 
 kite_out_of_service:
   value: 0.03
   low: 0.01
   high: 0.15
   unit: "-"
-  reason: "Goal, the same for all rigs: share of round trips with the kite out of service though the wind and sea would allow it. No source gives a figure for any ship kite. Base and low: our assumption, the same as the rotors. High: our estimate, the same for all rigs. See data/rig_availability_notes.md."
+  reason: "Goal, the same for all rigs: share of round trips with the kite out of service though the wind and sea would allow it. No source gives a figure for any ship kite. Base and low: our assumption, the same as the rotors. High: our estimate. See data/rig_availability_notes.md."
 
 # --- fuel and carbon ---
 vlsfo_price:
