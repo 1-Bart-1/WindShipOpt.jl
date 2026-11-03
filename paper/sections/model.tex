@@ -200,6 +200,26 @@ Source & Cloth & $w$ [g/m²] & Life $L$ [h] & Ends on & $T/w$ [N/m per g/m²] & 
 
 \paragraph{Why the goal is within reach} Other industries never had this much reason to chase canopy life, and a ship kite does. A paraglider is built as light as a pilot will carry and a sail is replaced for its shape, while a ship kite pays for its canopy by the hour flown, so that every hour of life goes straight to its transport cost. This is our argument, not a measurement. Cloth four to seven times heavier than a paraglider's is already in the goal, and the finish may matter more than the weight: a TiO$_2$ coating multiplied $D_0$ by 3.8 on one polyester \citep{hunt2022} and a polyurethane coat by 1.7 to 6 \citep{uzumcu2024}, though no such coating is in the \num{3800} hours.
 
+\subsection{Cloth tension at the force limit}
+\label{sec:cloth_check}
+
+Canopy life enters the results as a goal, so this check feeds no cost. It asks whether the cloth has strength to spare at that goal, and follows the tether force to the cloth (\cref{fig:canopy_tension}). The tether force $F$ is carried by a pressure $p=F/A$ over the canopy, and a skin bulging to radius $R$ between ribs carries $T=pR$ per unit width. Bridle attachment points carry more but are reinforced, so the area average is the baseline. It is not the highest tension: the pressure is higher towards the leading edge, and the top skin of a cell carries $p(1+1/C_L)$ \citep{wang2018}, about 2.3 times $p$ at $C_L=0.8$.
+
+The force comes from the flown pattern of \cref{sec:kite}, on the ship's own kite with no scaling from a smaller one. The \SI{3200}{m^2} kite in \SI{12}{m/s} of apparent wind, \SI{90}{\degree} off downwind, flies a cycle of \SI{76}{s}, or 47 cycles an hour. Its tether force runs from 1.14 to \SI{1.60}{MN}, with a mean of \SI{1.52}{MN}, and stays at the force limit for 74\,\% of the cycle. The peak is the mean times 1.05. The force limit caps the peak at $p=\SI{500}{N/m^2}$ on every kite and in every wind.
+
+We state one radius for every kite size, the $R=\SI{0.5}{m}$ of \cref{sec:canopy_life}. The cell equilibrium of \citet{wang2018} supports it: averaged over the chord of a section 15\,\% thick, our assumption, the cells of the \SI{160}{m^2} SkySails kite give \SI{0.41}{m}, with 38 cells over \SI{15.2}{m} of projected span and a largest chord of \SI{9.26}{m} \citep{folkersma2020}, about \SI{0.43}{m} wide once flattened by our estimate. Holding it on a larger kite takes more cells and, by the same equilibrium, more than ribs: cells of that width on the \SI{32.7}{m} chord of the \SI{3200}{m^2} kite bulge to \SI{1.2}{m}, so a radius of \SI{0.5}{m} needs spanwise tapes as well. We found no published cell layout of a towing kite larger than this one.
+
+The peak sets the check, since the end of a canopy's life comes at its peak load. The cloth carries \SI{250}{N/m} at the peak and \SI{238}{N/m} on average. New cloth of \SI{200}{g/m^2} at \SI{170}{N/m} per g/m² holds \SI{34}{kN/m}, 136 times the peak. With the leading-edge pressure the margin is still about 60 times, and at a radius of \SI{1.2}{m} it is 55 times. At a quarter of its new strength the cloth holds 34 times the area-averaged peak. Skin tension at the area average therefore leaves ample margin at the goal, on the strength the cloth keeps.
+
+This does not show that a canopy reaches \SI{4000}{h}. A strength margin says nothing of leaks or seams, which can end a canopy first. The quasi-steady model gives the load over the pattern and leaves out gusts, ship motion and launch loads. It does not resolve flutter, the largest unknown in the wear rate. Fatigue goes by range and cycles, not by a mean: here a range of \SI{71}{N/m} at the area average, some \num{190000} cycles in \SI{4000}{h} if every cycle were this one, and no test of canopy cloth at that load. All of this is a model of the kite, so it does not validate the kite's pull against independent work; that stays the check against a published prediction in \cref{sec:checks}.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{canopy_tension}
+\caption{From tether force to cloth tension on the \SI{3200}{m^2} kite at $R=\SI{0.5}{m}$. (a) The force balance at the force limit: the tether force, the pressure it implies over the canopy, and the tension in a skin bulging between two ribs. (b) Tether force and area-averaged cloth tension over one optimal cycle in \SI{12}{m/s} of apparent wind, \SI{90}{\degree} off downwind, with the mean, the peak and the strength of new cloth of \SI{200}{g/m^2}.}
+\label{fig:canopy_tension}
+\end{figure*}
+
 \subsection{Performance table}
 
 The router needs the ship's fuel power millions of times, so the model tabulates it. For every speed through the water in steps of \SI{0.25}{m/s}, true wind speed at \SI{10}{m} in steps of \SI{1}{m/s} and true wind angle in steps of \SI{7.5}{\degree}, the table stores the thrust \cref{eq:thrust} without waves, once with the rig at its best setting and once with the rig stowed, and the rig power. Waves add to the thrust from the separate table of $R_\mathrm{aw}/H_s^2$; we assume that waves do not change the rig forces. Whether a kite is down, parked or flying is left to the router; wings and rotors cannot be stowed and stay at their best setting.

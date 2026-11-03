@@ -36,7 +36,8 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
     :sensitivity => sensitivity_data, :availability_data => availability_data,
     :situations_data => situations_data,
-    :wind_angle_data => wind_angle_data, :abatement_data => abatement_data,
+    :wind_angle_data => wind_angle_data, :canopy_tension => canopy_tension_data,
+    :abatement_data => abatement_data,
     :components => components_data, :combination_data => combination_data,
     :convergence => convergence_data]
 
@@ -46,6 +47,7 @@ website_steps = [:explorer => explorer_data]
 "figure and table steps, each reading the data files and writing one output"
 output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :capital => capital_figure, :patterns_figure => pattern_figure,
+    :canopy_tension_figure => canopy_tension_figure,
     :rig_polar => rig_polar_figure, :routes_figure => route_figure,
     :wind_climate => wind_climate_figure, :passage => passage_figure,
     :premium => premium_figure, :breakdown => breakdown_figure,
