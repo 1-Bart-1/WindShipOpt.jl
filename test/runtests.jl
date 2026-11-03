@@ -208,31 +208,32 @@ function uniform_kite(hull, assumptions)
         side_weights=[0.0, 1.0], forces=fill(pattern, 10, 13, 2))
 end
 
-@testset "a table with a pattern below the minimum flight wind gives the ship no force" begin
+@testset "a pattern below the minimum flight wind gives the ship no force" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     env = Environment(assumptions)
-    apparent_wind_10m(speed) = speed / WindShipOpt.wind_at_height(env, 1.0,
-        rig.reference_height)
     trim = first(WindShipOpt.trim_settings(rig))
-    @test WindShipOpt.rig_force(rig, env, apparent_wind_10m(3.9), π / 2, 0.0, trim) ===
-          WindShipOpt.NO_RIG_FORCE
-    @test WindShipOpt.rig_force(rig, env, apparent_wind_10m(4.1), π / 2, 0.0, trim).thrust != 0
+    force_at(speed) = WindShipOpt.rig_force(rig, env,
+        speed / WindShipOpt.wind_at_height(env, 1.0, rig.reference_height), π / 2, 0.0,
+        trim)
+    @test force_at(3.9) === WindShipOpt.NO_RIG_FORCE
+    @test force_at(4.1).thrust != 0
 end
 
-@testset "a kite launched at its minimum flight wind can hang at rest before it steers" begin
-    function hangs(model, wind)
-        return any(Iterators.product(range(model.lowest_angle, model.stall_angle; length=12),
-            deg2rad.(10:5:70))) do (angle, elevation)
-            force = WindShipOpt.parked_force(WindShipOpt.KiteAero(model, angle), elevation, 1,
-                wind)
-            return isfinite(force.peak_tension)
-        end
+"whether `model` can hang at rest in `wind` [m/s] at some angle of attack and elevation"
+function hangs_at_rest(model, wind)
+    angles = range(model.lowest_angle, model.stall_angle; length=12)
+    return any(Iterators.product(angles, deg2rad.(10:5:70))) do (angle, elevation)
+        kite = WindShipOpt.KiteAero(model, angle)
+        return isfinite(WindShipOpt.parked_force(kite, elevation, 1, wind).peak_tension)
     end
+end
+
+@testset "a kite at its minimum flight wind can hang at rest before it steers" begin
     for area in (400.0, 800.0, 1600.0, 3200.0, 8000.0, 16000.0)
         model = first(WindShipOpt.kite_model(area, 3.0, assumptions))
         wind = WindShipOpt.min_flight_wind(model, assumptions)
-        @test hangs(model, wind)
-        @test !hangs(model, wind / assumptions[:kite_parking_margin] * 0.95)
+        @test hangs_at_rest(model, wind)
+        @test !hangs_at_rest(model, wind / assumptions[:kite_parking_margin] * 0.95)
     end
 end
 
