@@ -80,7 +80,7 @@ function best_pattern_path(model, max_force, assumptions, course)
         deg2rad(assumptions[:kite_min_elevation]), 12.0, course, 0.0)
     force, parameters = WindShipOpt.optimal_pattern(problem,
         WindShipOpt.pattern_starts(course))
-    path = NTuple{3, Float64}[]
+    path = WindShipOpt.PatternStep[]
     steered = WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters), 12.0,
         max_force; path)
     parked = only(WindShipOpt.parked_table(model, max_force, assumptions, [12.0], [course],
@@ -89,8 +89,22 @@ function best_pattern_path(model, max_force, assumptions, course)
     path
 end
 
+@testset "steps of a flown cycle give the pattern's force and peak" begin
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    pattern = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15))
+    path = WindShipOpt.PatternStep[]
+    force = WindShipOpt.PatternForce(model, pattern, 12.0, max_force; path)
+    load = 0.5model.air_density * 12.0^2 * model.area
+    period = sum(step.time for step in path)
+    pull_along(axis) = sum(step.tension * step.time * step.radial[axis] for step in path)
+    pull = ntuple(pull_along, 3)
+    @test all(pull ./ (period * load) .≈ force.force)
+    @test maximum(step.tension for step in path) ≈ force.peak_tension * load
+    @test maximum(step.tension for step in path) <= max_force
+end
+
 "least angle [rad] of a pattern's `path` off the apparent downwind direction"
-least_off_wind(path) = minimum(acos(first(position)) for position in path)
+least_off_wind(path) = minimum(acos(first(step.radial)) for step in path)
 
 # A sweep keeps the kite in the outer half of the wind window, more than 45° off the
 # apparent downwind direction; a figure eight crosses the window's centre.
@@ -641,6 +655,15 @@ function trip_with_share(design, name, share, corridors, base=assumptions)
         [24.0 * 31, 24.0 * 200], changed)
 end
 
+@testset "launch cost at the loss goal is mostly crew" begin
+    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
+    canopy, _ = WindShipOpt.consumable_costs(kite, assumptions)
+    @test WindShipOpt.cycle_cost(kite, assumptions) ≈
+          assumptions[:kite_cycle_crew_cost] +
+          assumptions[:kite_cycle_damage_probability] * canopy
+    @test WindShipOpt.cycle_cost(kite, assumptions) < 1.2assumptions[:kite_cycle_crew_cost]
+end
+
 @testset "a rig out of service keeps its cost and saves no fuel while down" begin
     corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     bare_trip = round_trip(Ship(ShipDesign(:methanol, 85.0), assumptions), corridors...,
@@ -743,6 +766,14 @@ end
     @test WindShipOpt.share_at_cost(shares, costs, 3.0) ≈ 0.75
     @test WindShipOpt.share_at_cost(shares, costs, 0.5) == 0.0
     @test isnan(WindShipOpt.share_at_cost(shares, costs, 5.0))
+end
+
+@testset "a canopy life limit lies where the cost reaches the level, and only there" begin
+    lives, costs = [4000.0, 1000.0, 2000.0], [1.25, 2.0, 1.5]
+    @test WindShipOpt.life_at_cost(lives, costs, 1.75) ≈ 4000 / 3
+    @test isnan(WindShipOpt.life_at_cost(lives, costs, 3.0))
+    @test isnan(WindShipOpt.life_at_cost(lives, costs, 1.0))
+    @test isnan(WindShipOpt.life_at_cost(lives, costs, NaN))
 end
 
 @testset "bounded route equals the unpruned dynamic programme" begin

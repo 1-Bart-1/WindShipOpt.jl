@@ -1,7 +1,21 @@
 \section{Results}
 \label{sec:results}
 
-The results first show what each rig gives, then compare the rigs by fuel, between the two deck rigs, by route and class, over the life of the kite's canopy and by rig size, check the robustness of the comparison, and end with the situations in which each rig comes out ahead. Figures on the scaled family of ships on the route to Guadeloupe show how a result comes about; the figures over the thirteen classes and six routes carry the results themselves.
+The results first state the goals they rest on and show what each rig gives, then compare the rigs by fuel, between the two deck rigs, by route and class and by rig size, check the robustness of the comparison, report what a missed goal costs, and end with the situations in which each rig comes out ahead. Figures on the scaled family of ships on the route to Guadeloupe show how a result comes about; the figures over the thirteen classes and six routes carry the results themselves.
+
+\subsection{The goals each rig must reach}
+\label{sec:res_goals}
+
+Every saving below is what a rig saves if it reaches the goals of \cref{tab:goals}, not a forecast of what it saves today. A goal is an input that development can change: how long a rig lasts, how often it is out of service or lost, and how far its launch is automated. The launch crew counts because automating the launch is development; the ship's own crew cost, port fees, array interference and the like do not change with money spent on the rig, so they stay estimates with ranges (\cref{sec:inputs}). All rigs are held to goals on the same basis, and the gap to today differs: rotors have years of service to set against their goals and wing sails a few, while no kite has a service record, so the kite's gap is the larger and rests on the least evidence.
+
+\begin{table*}[tbp]
+\centering
+\caption{The goals behind the results, and what is known today.}
+\label{tab:goals}
+\InputIfFileExists{sections/goals_table}{}{\tbd{Goals table pending: run the goals\_table step.}}
+\end{table*}
+
+The canopy goal asks for little more than the \num{3800} flight hours we derive from sunlight and makers' statements (\cref{sec:canopy_life}), but that derivation has a range of \numrange{1200}{6900} hours and no canopy has a published life. It holds at a fixed cloth of \SI{200}{g/m^2}, since with a fixed life a lighter cloth would always look cheaper. A crash goal of none is the only one that fits: a kite that falls into the sea beside a ship in a seaway will not be accepted on a merchant ship, whatever the hardware costs, and M600, the largest kite flown, lost all four kites that flew crosswind in twenty crosswind flights, one in a mid-air breakup and three in hover or landing \citep{echeverri2020part1}. The loss per launch and landing has to come down with it. Our estimate of today, 0.2\,\% per cycle, loses a canopy about every 77 round trips on the \SI{140}{m} ship at 6.5 launches each, once in about nine years for one ship but about ten times a year in a fleet of a hundred. At the goal of 1 in \num{10000} the kite launches more often, 8.4 times a round trip, and the same fleet loses one in about a year and a half. One launch and landing of an \SI{800}{m^2} kite then costs USD~169 instead of USD~525, and of a \SI{3200}{m^2} kite USD~225 instead of USD~\num{1650}, of which USD~150 is crew in each case, so at the goal the launch cost is almost all crew and no longer grows with the kite.
 
 \subsection{What each rig gives}
 \label{sec:res_forces}
@@ -103,18 +117,6 @@ Wing sails and rotors are priced on the same basis and both last 20 years (\cref
 \label{fig:route_comparison}
 \end{figure*}
 
-\subsection{Canopy life and the kite}
-\label{sec:res_life}
-
-The kite's hardware is cheap and it pulls hard (\cref{fig:rig_polar}), but its canopy wears out: an \SI{800}{m^2} kite needs a new canopy of USD~\num{190000} every \num{4000} flight hours (\cref{sec:costs}), and the wear is \tbd{6 to 7}\,\% of the cost of the e-methanol and hydrogen ships with the cheapest kite in \cref{fig:breakdown}, and \tbd{12}\,\% with the \SI{6400}{m^2} kite of the \SI{200}{m} hydrogen ship. \Cref{fig:life} varies the life of canopy and tether together. The kite's saving rises steeply with their life and passes the rotor's on every ship and route of the figure. On e-methanol the \SI{140}{m} ship needs a canopy life of \tbd{2200} flight hours to Guadeloupe, \tbd{1800} to New York and \tbd{2200} to Houston, and the Kamsarmax \tbd{2900} to Tubarão; on VLSFO the crossing lies at \tbd{3300}, \tbd{3300}, \tbd{3500} and \tbd{4500} flight hours. The goal is \num{4000} flight hours, against \num{3800} derived from makers' statements in a range of \num{1200} to \num{6900}, and no maker states more than \num{4000} for any kite or sail (\cref{sec:canopy_life}): \tbd{on e-methanol the kite and the rotor are level within that range on all four, and on VLSFO the kite leads only near or beyond its upper end.}
-
-\begin{figure*}[tbp]
-\centering
-\plot[\textwidth]{life}
-\caption{Cost saving of the best size of kite over the life of its canopy, with the tether life scaled by the same factor, against the best size of wing sails and of rotors, with a VLSFO (a) and an e-methanol (b) drive: the mean over the \SI{140}{m} ship and a Kamsarmax bulk carrier on all six routes (line) and the range over these twelve cases (bars). The grey dashed line marks the goal canopy life of \num{4000} flight hours; the black dash-dotted line the mean saving at which the e-methanol ship costs as much per tonne-kilometre as the same ship on VLSFO without a rig. At the right end neither canopy nor tether wears.}
-\label{fig:life}
-\end{figure*}
-
 \subsection{Rig size}
 \label{sec:res_size}
 
@@ -146,17 +148,22 @@ Three changes to the model move the savings on the \SI{140}{m} e-methanol ship t
 \label{fig:forecast}
 \end{figure}
 
-\subsection{Rigs out of service}
-\label{sec:res_availability}
+\subsection{If a goal is missed}
+\label{sec:res_missed}
 
-\Cref{tab:availability} gives the cost saving of each rig at the low, base and high share of round trips out of service, and the shares at which it stops paying for itself and falls behind the next rig. At the base of 3\,\% for every rig, the rotors lose 0.57 points of cost saving, the kite 0.52 and the wings 0.37 on the \SI{140}{m} e-methanol ship to Guadeloupe, against no outage at all; the Kamsarmax rigs lose 0.15 to 0.39 points and the Neo-Panamax rigs 0.23 to 0.41. On all three ships the order is rotors, kite, wings at the low, base and high share alike, so an outage shared by all rigs does not change which leads. The order changes only if one rig is worse off than the others. With the others at base, the rotors fall behind the kite at 27, 28 and 13\,\% of each rotor's round trips on the \SI{140}{m} ship, the Kamsarmax and the Neo-Panamax, and the kite behind the wings at 33, 50 and 50\,\%. The Neo-Panamax figure of 13\,\% lies inside the input range, so there the rotors' lead of 1.2 points is not settled by the record. If all units of a rig fail together, the rotors fall behind at 17, 21 and 7\,\%, and at the high share for both rigs the kite leads the rotors on the Neo-Panamax, 11.1 to 10.9\,\%. Most rigs pay for themselves far beyond any reported outage, up to 40 to 97\,\%. The exception is the wings on the Kamsarmax, which save 0.3\,\% at base, stop paying at 7\,\% and lose money at the high share. A rig that never works costs more than no rig, as it still carries capital and mass: on the \SI{140}{m} ship 2.3\,\% more for the stowed kite, 6.0\,\% for the feathered wings and 10.3\,\% for the stopped rotors. \tbd{Rig sizes on the Kamsarmax and the Neo-Panamax are fixed by hand until the class study; recheck on the final run.}
+\Cref{tab:missed_goals} gives, for three ships with their rig sizes held, the canopy life and the share out of service at which each rig stops paying for itself and falls behind the next rig, each with the other goals met. The development that reaching a goal takes is not charged to any rig, so these limits show what development may cost, not whether it pays. Reaching the canopy goal is worth paying for: against a canopy of \num{2000} flight hours it adds 4.4 points of saving on the \SI{140}{m} e-methanol ship, 2.3 on the Kamsarmax and 3.2 on the Neo-Panamax, and at \num{2000} hours the kite is behind the wing sails on the first two. The kite stops paying at about \num{950} flight hours on the \SI{140}{m} ship and \num{1500} on the Kamsarmax, and still pays at the shortest life swept, 500 hours, on the Neo-Panamax. Canopy life alone hardly puts it ahead of the rotors: it passes them at about \num{8300} flight hours on the \SI{140}{m} ship and \num{8200} on the Neo-Panamax, twice the goal, and not at all on the Kamsarmax.
 
-\begin{table}[tbp]
+\tbd{Crash limits, folded into \cref{tab:missed_goals} when the crash table lands: the crashes a year each rig can take, with the cost of one crash. They are small numbers, which is the case for the goal of none.}
+
+An outage shared by all rigs does not change which leads, as all lose about alike: 3\,\% costs the rotors 0.47 points, the kite 0.45 and the wings 0.33 on the \SI{140}{m} ship. The order changes only if one rig misses its goal alone. The rotors then fall behind the kite at 28, 37 and 16\,\% of each rotor's round trips on the three ships, and at 17, 27 and 7\,\% if all units fail together, so on the Neo-Panamax the rotors' lead rests on the service goal. Every rig keeps paying far beyond any reported outage: until 52 to 95\,\% of round trips, and the wings on the Kamsarmax until 26\,\%. A rig that never works costs more than no rig, as it still carries capital and mass: on the \SI{140}{m} ship 2.4\,\% more for the stowed kite, 6.1\,\% for the feathered wings and 10.5\,\% for the stopped rotors.
+
+\begin{table*}[tbp]
 \centering
-\caption{Cost saving (\%) at the low, base and high share out of service of each rig's input, the share (\%) at which the rig pays no more and at which it falls behind the next rig at base, and the same if all units of a rig fail together, on a straight line between all working and all down.}
-\label{tab:availability}
-\InputIfFileExists{sections/availability_table}{}{\tbd{Availability table pending: run the availability\_table step.}}
-\end{table}
+\footnotesize
+\caption{Where each rig stops paying (pays no more) and falls behind the next rig at the goals (behind next) if one goal is missed and the others are met: the \SI{140}{m} e-methanol ship to Guadeloupe, the Kamsarmax bulk carrier on VLSFO to Tubar\~ao and the Neo-Panamax container ship on e-methanol to New York, with rig sizes held. Out of service counts a unit's round trips, last with all units failing together. Dashes: canopy life applies to the kite, the last rig has no next, and some limits lie outside the \numrange{500}{16000} flight hours or the shares swept.}
+\label{tab:missed_goals}
+\InputIfFileExists{sections/missed_goals_table}{}{\tbd{Missed-goal table pending: run the missed\_goals\_table step.}}
+\end{table*}
 
 \subsection{Kite and rotors together}
 \label{sec:res_combination}

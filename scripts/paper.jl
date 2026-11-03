@@ -35,8 +35,9 @@ include("paper_tables.jl")
 data_steps = [:patterns => patterns_data, :designs => designs_data,
     :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
     :sensitivity => sensitivity_data, :availability_data => availability_data,
-    :situations_data => situations_data,
-    :wind_angle_data => wind_angle_data, :abatement_data => abatement_data,
+    :canopy_life_data => canopy_life_data, :situations_data => situations_data,
+    :wind_angle_data => wind_angle_data, :canopy_tension => canopy_tension_data,
+    :abatement_data => abatement_data,
     :components => components_data, :combination_data => combination_data,
     :launch_parking => launch_parking_data, :convergence => convergence_data]
 
@@ -46,17 +47,19 @@ website_steps = [:explorer => explorer_data]
 "figure and table steps, each reading the data files and writing one output"
 output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :capital => capital_figure, :patterns_figure => pattern_figure,
+    :canopy_tension_figure => canopy_tension_figure,
     :rig_polar => rig_polar_figure, :routes_figure => route_figure,
     :wind_climate => wind_climate_figure, :passage => passage_figure,
     :premium => premium_figure, :breakdown => breakdown_figure,
     :rig_comparison => rig_comparison_figure, :route_comparison => route_comparison_figure,
     :class_comparison => class_comparison_figure, :class_sizes => class_size_figure,
-    :winner_map => winner_map_figure, :life => life_figure,
-    :situations_figure => situations_figure, :wind_angle_figure => wind_angle_figure,
+    :winner_map => winner_map_figure, :situations_figure => situations_figure,
+    :wind_angle_figure => wind_angle_figure,
     :sensitivity_figure => sensitivity_figure, :components_figure => component_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
     :class_table => class_table, :fuel_table => fuel_table,
-    :payback_table => payback_table, :availability_table => availability_table,
+    :payback_table => payback_table, :goals_table => goals_table,
+    :missed_goals_table => missed_goals_table,
     :abatement => abatement_figure, :combination => combination_figure]
 
 """
