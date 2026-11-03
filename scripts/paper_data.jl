@@ -94,13 +94,13 @@ launch_cost_inputs = (:kite_cycle_crew_cost, :kite_cycle_damage_probability,
     :kite_launch_minutes, :kite_landing_minutes)
 
 """
-    launch_cost_assumptions(bound; parking=true)
+    launch_cost_assumptions(bound, parking)
 
 Inputs with every one of `launch_cost_inputs` at its `bound` (`:low`, `:high` or `:value`),
 and with parking aloft on or off.
 """
-function launch_cost_assumptions(bound; parking=true)
-    case = with_value(assumptions, :kite_parking, parking ? 1.0 : 0.0)
+function launch_cost_assumptions(bound, parking)
+    case = with_value(assumptions, :kite_parking, Float64(parking))
     return foldl(launch_cost_inputs; init=case) do inputs, name
         with_value(inputs, name, getfield(assumptions.entries[name], bound))
     end
@@ -111,14 +111,15 @@ end
 
 The 140 m e-methanol ship on every route without a rig, with the reference wings and
 rotors, and with kites of 800, 1,600 and 3,200 m^2 at the low, base and high launch cost
-with parking on and off, with parking on at the low and high parked wear, with launches by
-day only, and at base launch cost with no rig ever out of service: launch_parking.csv. Then what parking through a lull
-costs against landing, per kite, wind and angle: lull.csv.
+with parking on and off, with parking on at the low and high parked wear, and with parking
+on and off with launches by day only and with no rig ever out of service: launch_parking.csv.
+Then what parking through a lull costs against landing, per kite, wind and angle: lull.csv.
 """
 function launch_parking_data()
     parked = with_value(assumptions, :kite_parking, 1.0)
     always_in_service = reduce((changed, input) -> with_value(changed, input, 0.0),
         Symbol.(values(out_of_service_inputs)); init=parked)
+    day_only = with_value(assumptions, :kite_night_launch, 0.0)
     cases = []
     labels = (; launch_cost="value", parking=true, parked_wear="value", night=true,
         service=true)
@@ -135,7 +136,7 @@ function launch_parking_data()
             kite = (; labels..., route, rig="kite", area)
             for launch_cost in (:low, :value, :high), parking in (true, false)
                 push!(cases, trip_case(design; kite...,
-                    assumptions=launch_cost_assumptions(launch_cost; parking),
+                    assumptions=launch_cost_assumptions(launch_cost, parking),
                     launch_cost=string(launch_cost), parking))
             end
             for parked_wear in (:low, :high)
@@ -145,9 +146,10 @@ function launch_parking_data()
                             parked_wear)),
                     parked_wear=string(parked_wear)))
             end
-            push!(cases, trip_case(design; kite...,
-                assumptions=with_value(parked, :kite_night_launch, 0.0), night=false))
             for parking in (true, false)
+                push!(cases, trip_case(design; kite...,
+                    assumptions=with_value(day_only, :kite_parking, Float64(parking)),
+                    parking, night=false))
                 push!(cases, trip_case(design; kite...,
                     assumptions=with_value(always_in_service, :kite_parking,
                         Float64(parking)), parking, service=false))

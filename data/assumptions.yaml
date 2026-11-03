@@ -725,11 +725,11 @@ kite_parked_depower:
   unit: "-"
   reason: "Estimate, no source gives a ram-air figure: lowest force coefficient a parked kite can hold over the one just below stall. Leading-edge inflatable kites reach 0.25-0.33 (van der Vlugt et al. 2019); a SkySails 30 m^2 prototype had no depower (Erhard and Strauch 2015), and depower on a full-size ram-air wing flew in 2022 with no ratio published (Junge et al. 2023)."
 kite_parking:
-  value: 1.0
+  value: 0.0
   low: 0.0
   high: 1.0
   unit: "-"
-  reason: "Whether a kite may park aloft: 1 yes, 0 no. No source reports sustained parking of any kite; published neutral positions are low-force phases of launch, recovery or reel-in (Erhard and Strauch 2013, Fagiano et al. 2022)."
+  reason: "Whether a kite may park aloft: 1 yes, 0 no. Off in the base case, on as a sensitivity: no source reports sustained parking of any kite, published neutral positions being low-force phases of launch, recovery or reel-in (Erhard and Strauch 2013, Fagiano et al. 2022), and the router would hold a parked kite for days at a wear rate that is only an estimate."
 kite_max_wind:
   value: 25.0
   low: 20.0

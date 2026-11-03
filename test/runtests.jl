@@ -174,12 +174,13 @@ end
 """
     kite_coaster(; kwargs...)
 
-Route table of an 85 m e-methanol coaster towed by a [`uniform_kite`](@ref), with inputs
-of `assumptions` changed by `kwargs`, and hourly cost and fuel price as router prices.
+Route table of an 85 m e-methanol coaster towed by a [`uniform_kite`](@ref), with parking
+on and inputs of `assumptions` changed by `kwargs`, and hourly cost and fuel price as router
+prices.
 """
 function kite_coaster(; kwargs...)
     inputs = foldl((case, input) -> with_value(case, first(input), last(input)), kwargs;
-        init=assumptions)
+        init=with_value(assumptions, :kite_parking, 1.0))
     bare = Ship(ShipDesign(:methanol, 85.0), inputs)
     kite = uniform_kite(bare.hull, inputs)
     ship = WindShipOpt.with_rig(bare, kite)
