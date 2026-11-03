@@ -158,9 +158,9 @@ end
 
 Optimal passage along a corridor: fuel energy [J], fuel cost [USD], hours a kite flew
 patterns and hours it was parked aloft, its launches and forced landings, duration [h],
-the objective the router minimises [USD] and the path as (latitude, longitude, time [h], commanded speed
-[m/s], mode) per stage, the mode of the edge into the stage being the one the kite spent
-most of the edge in: 0 down, 1 parked and 2 flying.
+the objective the router minimises [USD] and the path as (latitude, longitude, time [h],
+commanded speed [m/s], mode) per stage, the mode of the edge into the stage being the one
+the kite spent most of the edge in: 0 down, 1 parked and 2 flying.
 """
 struct Leg
     fuel_energy::Float64

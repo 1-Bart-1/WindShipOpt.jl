@@ -134,6 +134,8 @@ Launch cost. With parking off, a launch and landing at base costs little: the lo
 
 Time out of service. With no rig ever out of service, each kite gains 0.1-0.6 points with parking off and the wings and rotors 0.2-0.6. Parking's gain and the ranking stay as above, within 0.2 points.
 
+Launching by day only. With parking off, launching only between 06:00 and 18:00 costs 0.1-2.4 points, median 0.6, the most at 3,200 m^2, and removes up to 3.4 launches per round trip, median 0.7. Flight share moves by no more than 0.05, since a kite up at dusk stays up. The best kite stays ahead of the wings on every route, by 1.1-6.2 points, and on Bilbao it falls from 0.8 ahead of the rotor to 0.1 behind, within the noise. Parking's gain under this limit is much the same: 0.1-4.3 points, median 1.0.
+
 Flight. With parking off the kite flies 21-57 % of the trip and makes 2-11 launches per round trip. With parking on it flies 11-49 % and parks 10-40 %. The 3,200 m^2 kite flies least and parks most.
 
 Savings [%] against the same ship with no rig, at launch costs low, base and high, draft run on 72 departures, each case the mean over them:
