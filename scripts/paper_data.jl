@@ -970,13 +970,11 @@ function sensitivity_data()
 end
 
 "cloth weights [g/m^2] of the cloth study"
-cloth_weights = (40.0, 60.0, 100.0, 140.0, 200.0, 250.0, 300.0)
+cloth_weights = (60.0, 100.0, 140.0, 200.0, 250.0, 300.0)
 
 "canopy life inputs the cloth study takes to their bounds, one at a time"
-cloth_inputs = (:canopy_wear_rate, :canopy_wear_lifetime, :canopy_uv_weight_exponent,
-    :canopy_wear_weight_exponent, :canopy_retirement_strength, :cloth_uv_dose_per_weight,
-    :canopy_uv_dose_rate, :cloth_specific_strength, :canopy_strength_factor,
-    :canopy_panel_radius)
+cloth_inputs = (:canopy_wear_rate, :canopy_wear_lifetime, :canopy_wear_weight_exponent,
+    :canopy_retirement_strength, :canopy_panel_radius)
 
 "skin radius over mean chord [-] of a kite whose cells grow with its chord"
 cell_scaled_radius_ratio = 0.061
@@ -994,10 +992,12 @@ function cloth_assumptions(name, bound, area, weight)
     return with_value(varied, :canopy_cloth_weight, weight)
 end
 
-"drive, route and kite area [m^2] of each case of the cloth study on the 140 m ship"
-cloth_kites = ((:methanol, :caribbean, 1600.0), (:methanol, :caribbean, 3200.0),
-    (:methanol, :new_york, 1600.0), (:methanol, :new_york, 3200.0),
-    (:vlsfo, :caribbean, 3200.0))
+"route and kite area [m^2] of each case of the cloth study on the 140 m e-methanol ship"
+cloth_kites = ((:caribbean, 1600.0), (:caribbean, 3200.0), (:new_york, 1600.0),
+    (:new_york, 3200.0))
+
+"every how many departures the cloth study samples, at any fidelity"
+cloth_departure_step = 4
 
 """
     cloth_data()
@@ -1014,28 +1014,27 @@ function cloth_data()
                                      assumptions[name]]; (:canopy_panel_radius, :chord)]
     cases = []
     infeasible = []
-    for (drive, route) in unique(kite[1:2] for kite in cloth_kites)
-        push!(cases, trip_case(ShipDesign(drive, 140.0); route, drive, area=0.0,
-            weight=0.0, input=:none, bound=:value))
+    for route in unique(kite[1] for kite in cloth_kites)
+        push!(cases, trip_case(ShipDesign(:methanol, 140.0); route, drive=:methanol,
+            area=0.0, weight=0.0, input=:none, bound=:value))
     end
-    for (drive, route, area) in cloth_kites, weight in cloth_weights
+    for (route, area) in cloth_kites, weight in cloth_weights
         for (name, bound) in variants
             case_assumptions = cloth_assumptions(name, bound, area, weight)
             margin = WindShipOpt.strength_margin(weight, case_assumptions)
             if margin <= 1
-                push!(infeasible, (; drive, route, area, weight, name, bound, margin))
+                push!(infeasible, (; route, area, weight, name, bound, margin))
                 continue
             end
-            push!(cases, trip_case(ShipDesign(drive, 140.0; kite_area=area);
-                assumptions=case_assumptions, route, drive, area, weight, input=name,
-                bound))
+            push!(cases, trip_case(ShipDesign(:methanol, 140.0; kite_area=area);
+                assumptions=case_assumptions, route, drive=:methanol, area, weight,
+                input=name, bound))
         end
     end
-    write_trips("cloth.csv", cases,
-        round_trips(cases, sampled_departures(; screening=true)), :drive, :route, :area,
-        :weight, :input, :bound)
+    trips = round_trips(cases, departures[1:cloth_departure_step:end])
+    write_trips("cloth.csv", cases, trips, :drive, :route, :area, :weight, :input, :bound)
     open(run_file("cloth_infeasible.csv"), "w") do io
-        println(io, "drive,route,area,weight,input,bound,margin")
+        println(io, "route,area,weight,input,bound,margin")
         for case in infeasible
             println(io, join(csv_value.(values(case)), ","))
         end
