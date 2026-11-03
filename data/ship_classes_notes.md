@@ -16,7 +16,7 @@ Sources behind every value in `ship_classes.csv`. Built 2026-10-31. Units: m, kn
 - `fleet`: IMO Table 35 "Type 1 and 2" vessels (international, AIS-observed, 2018) in the matching size bin.
 - `fuel_share`: CO2 of the bin over total 2018 shipping CO2 in Table 35 (1,056.5 Mt, international + domestic + fishing; matches the study's 1,056 Mt headline). CO2 stands in for fuel; HFO, MGO and LNG differ by a few percent in carbon factor.
 
-## Primary documents (all downloaded and read)
+## Primary documents
 
 | Short name    | Document                                                                                                          | URL                                                                                                                      |
 | ------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
