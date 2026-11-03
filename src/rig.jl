@@ -532,6 +532,7 @@ standing_rig(::Union{KiteRig, Nothing}) = nothing
 patterns; a rig without a kite is itself.
 """
 parked_rig(rig) = rig
-parked_rig(rig::KiteRig) = KiteRig((name == :forces ? rig.parked_forces : getfield(rig, name)
+parked_rig(rig::KiteRig) = KiteRig((name == :forces ? rig.parked_forces :
+                                    getfield(rig, name)
                                     for name in fieldnames(KiteRig))...)
 parked_rig(rig::CombinedRig) = CombinedRig(parked_rig(rig.kite), rig.standing)
