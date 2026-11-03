@@ -455,42 +455,120 @@ store_round_trip_cost(price, hours, assumptions::Assumptions) =
      assumptions[:maintenance_fraction]) * price * hours / (8760assumptions[:availability])
 
 """
+    out_of_service_share(rig, assumptions)
+
+Share of the round trips [-] that a unit of `rig` sails out of service.
+"""
+out_of_service_share(::WingRig, assumptions) = assumptions[:wing_out_of_service]
+out_of_service_share(::RotorRig, assumptions) = assumptions[:rotor_out_of_service]
+out_of_service_share(::KiteRig, assumptions) = assumptions[:kite_out_of_service]
+
+"""
+    unit_outage(rig, assumptions)
+
+Share of the round trips with any of the units of `rig` out of service [-], each out for
+the share given by its input and independent of the others, and the mean share of the
+units still working on those trips [-].
+"""
+function unit_outage(rig, assumptions)
+    share = out_of_service_share(rig, assumptions)
+    any_down = 1 - (1 - share)^deck_units(rig)
+    return any_down, any_down > 0 ? 1 - share / any_down : 1.0
+end
+
+down_rig(rig::Union{WingRig, RotorRig}, working_share) = DownRig(rig, working_share)
+down_rig(::KiteRig, working_share) = nothing
+
+"""
+    service_states(rig, assumptions)
+
+What of `rig` works over a year as (share of the round trips, rig) pairs, the working rig
+first, leaving out states with no share. Trips with a unit down hold the mean of the units
+working, so the rig keeps its mean capacity. A kite out of service is stowed, wings or
+rotors stand as a [`DownRig`](@ref), and each part of a [`CombinedRig`](@ref) fails on its
+own.
+"""
+function service_states(rig, assumptions)
+    any_down, working_share = unit_outage(rig, assumptions)
+    return with_share([(1 - any_down, rig), (any_down, down_rig(rig, working_share))])
+end
+
+service_states(::Nothing, assumptions) = [(1.0, nothing)]
+
+function service_states(rig::CombinedRig, assumptions)
+    kite = out_of_service_share(rig.kite, assumptions)
+    any_down, working_share = unit_outage(rig.standing, assumptions)
+    down = DownRig(rig.standing, working_share)
+    return with_share([((1 - kite) * (1 - any_down), rig),
+        (kite * (1 - any_down), rig.standing),
+        ((1 - kite) * any_down, CombinedRig(rig.kite, down)), (kite * any_down, down)])
+end
+
+with_share(states) = filter(state -> first(state) > 0, states)
+
+"""
+    service_passages(ship, outbound, inbound, weather, departures, assumptions, hourly,
+                     port_hours, horizon)
+
+Mean fuel energy [J], outbound and return hours, kite flight and parked hours, launches
+and rig running cost [USD] of `ship` per round trip over `departures`, with the largest
+leg's fuel energy [J]; `nothing` if any passage is infeasible.
+"""
+function service_passages(ship::Ship, outbound, inbound, weather, departures, assumptions,
+        hourly, port_hours, horizon)
+    table = PerformanceTable(ship, assumptions)
+    route_table = RouteTable(table)
+    legs = fetch.([Threads.@spawn route_round_trip(route_table, outbound, inbound, weather,
+                       departure, port_hours, hourly, horizon) for departure in departures])
+    any(isnothing, legs) && return nothing
+    flight_hours = mean(first(pair).flight_hours + last(pair).flight_hours for pair in legs)
+    parked_hours = mean(first(pair).parked_hours + last(pair).parked_hours for pair in legs)
+    launches = mean(first(pair).launches + last(pair).launches for pair in legs)
+    means = (energy=mean(first(pair).fuel_energy + last(pair).fuel_energy for pair in legs),
+        out_hours=mean(first(pair).duration for pair in legs),
+        back_hours=mean(last(pair).duration for pair in legs),
+        flight_hours, parked_hours, launches,
+        rig_cost=table.wear_cost * flight_hours + table.parked_wear_cost * parked_hours +
+                 table.cycle_cost * launches)
+    largest_leg = maximum(max(first(pair).fuel_energy, last(pair).fuel_energy)
+                          for pair in legs)
+    return (; means, largest_leg)
+end
+
+"""
     round_trip(ship, outbound, inbound, weather, departures, assumptions; horizon=Inf)
 
 Route `ship` out along `outbound` and back along `inbound` for each departure time
-[h], and turn the mean result into the cost per tonne-km of the transport service. With
-a finite forecast `horizon` [h] the router knows the weather only that far ahead.
-Wings and rotors are fixed or retractable, whichever costs less. The router prices time
-at the hold's cargo before the fuel store. Returns `nothing` if any passage is
-infeasible or the fuel store leaves no cargo.
+[h] in each of its [`service_states`](@ref), and turn the result averaged over the
+departures and the states into the cost per tonne-km of the transport service. With a
+finite forecast `horizon` [h] the router knows the weather only that far ahead. Wings and
+rotors are fixed or retractable, whichever costs less. The router prices time at the
+hold's cargo before the fuel store, and the store also holds the largest leg with a unit
+down, without its reserve. Returns `nothing` if any passage is infeasible or the
+fuel store leaves no cargo.
 """
 function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
         departures, assumptions::Assumptions; horizon=Inf)
     costs = ShipCosts(ship, assumptions)
-    table = PerformanceTable(ship, assumptions)
     port_hours = 24assumptions[:port_time_per_call]
-    route_table = RouteTable(table)
     hourly = leg_time_costs(costs, assumptions)
-    legs = fetch.([Threads.@spawn route_round_trip(route_table, outbound, inbound, weather,
-                       departure, port_hours, hourly, horizon) for departure in departures])
-    any(isnothing, legs) && return nothing
-    out_energy = mean(first(pair).fuel_energy for pair in legs)
-    back_energy = mean(last(pair).fuel_energy for pair in legs)
-    out_hours = mean(first(pair).duration for pair in legs)
-    back_hours = mean(last(pair).duration for pair in legs)
-    flight_hours = mean(first(pair).flight_hours + last(pair).flight_hours for pair in legs)
-    parked_hours = mean(first(pair).parked_hours + last(pair).parked_hours for pair in legs)
-    launches = mean(first(pair).launches + last(pair).launches for pair in legs)
-    largest_leg = maximum(max(first(pair).fuel_energy, last(pair).fuel_energy)
-                          for pair in legs)
+    states = service_states(ship.rig, assumptions)
+    passages = [service_passages(with_rig(ship, rig), outbound, inbound, weather,
+                    departures, assumptions, hourly, port_hours, horizon)
+                for (_, rig) in states]
+    any(isnothing, passages) && return nothing
+    shares = first.(states)
+    (; energy, out_hours, back_hours, flight_hours, parked_hours, launches, rig_cost) =
+        map((values...) -> sum(shares .* values), getproperty.(passages, :means)...)
+    reserve = assumptions[:fuel_reserve_factor]
+    largest_leg = maximum(passage.largest_leg / (rig === ship.rig ? 1 : reserve)
+                          for ((_, rig), passage) in zip(states, passages))
     store = fuel_store(ship, largest_leg, assumptions)
     cargo = cargo_mass(costs.hold, store.mass, store.volume)
     cargo > 0 || return nothing
-    energy = out_energy + back_energy
     round_trip_hours = out_hours + back_hours + 2port_hours
     store_cost = store_round_trip_cost(store.price, round_trip_hours, assumptions)
-    running_cost = energy * ship.fuel.price + table.wear_cost * flight_hours +
-                   table.parked_wear_cost * parked_hours + table.cycle_cost * launches +
+    running_cost = energy * ship.fuel.price + rig_cost +
                    port_costs(ship.hull, assumptions) + store_cost
     retractable_cost = voyage_time_cost(costs, assumptions, cargo, out_hours, back_hours,
         port_hours)
