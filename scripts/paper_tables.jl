@@ -168,7 +168,7 @@ Write the [`goal_rows`](@ref) to paper/sections/goals_table.tex.
 """
 function goals_table()
     open(joinpath(sections, "goals_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}lllp{0.42\\textwidth}@{}}\n\\toprule")
+        println(io, "\\begin{tabular}{@{}lllp{0.40\\textwidth}@{}}\n\\toprule")
         println(io, "Goal & Rig & Value & Today \\\\\n\\midrule")
         for row in goal_rows()
             println(io, join(row, " & "), " \\\\")
