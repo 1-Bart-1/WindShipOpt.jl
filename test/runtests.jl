@@ -33,6 +33,16 @@ end
     @test 700 < ship.powertrain.installed_power / 1e3 < 1500
 end
 
+# DNV Rules for Ships, January 2000, Pt. 3 Ch. 3 Sec. 2, guidance note, p. 9.
+@testset "rudder area follows the DNV 2000 guidance and grows with block coefficient" begin
+    hull = Hull(85.0, assumptions)
+    @test (hull.length, hull.beam, hull.draft) == (85.0, 13.2, 5.5)
+    @test WindShipOpt.block_coefficient(hull) ≈ 0.83
+    @test WindShipOpt.rudder_area(hull) ≈ 8.56 atol = 0.005
+    @test WindShipOpt.rudder_area(Hull(85.0, 13.2, 5.5, 0.60, assumptions)) <
+          WindShipOpt.rudder_area(hull)
+end
+
 # Mittendorf et al. (2022), Fig. 3: C_AW of C_B ≥ 0.70 hulls peaks at ~5-10 in head waves
 # near λ/L = 1-1.3 and stays within about ±2 in following waves.
 @testset "SNNM added resistance has the measured head and following wave magnitudes" begin

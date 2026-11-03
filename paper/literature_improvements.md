@@ -97,8 +97,8 @@ limited to a maximum value of 1.0" (p. 15), and notes a 10° geometric limit
 our case study" (p. 15); ShipCLEAN reefs at "δmax = 10°" (Tillig OE p. 17).
 Kramer's rudder area is "right above 2% of the underwater hull lateral area …
 Bertram (2012) states that this variable is typically around 1.5% for cargo
-ships" (p. 3); our DNV formula gives 1.6 % of LT for the coaster **[calc]**,
-consistent with Bertram.
+ships" (p. 3); our DNV formula gives 1.8 % of LT for the coaster **[calc]**,
+between Bertram and Kramer.
 
 **Expected effect.** None today (the rudder carries no load with the rig at
 x_h); with proposal 1 it roughly doubles rudder induced drag. Do 1 and 2
@@ -159,7 +159,8 @@ parameter is the one that shows the most influence on the propulsive force. Over
 p. 190: gain "rising about 50% in average, when doubled".
 
 **Change.** Keep 0.5 as base if the Faggiani/Kitepower basis is preferred, but
-(a) add the Paulig/Penloup values to the `reason`, (b) make sure the tornado
+(a) the `reason` gives the 1.0 bound from the SkyPower100 final report (Junge et
+al. 2023, sec. I.4, "Flächenlasten bis zu 1 kN/m²"), (b) make sure the tornado
 runs the 1.0 bound, and (c) state in `model.tex` that the limit is below the
 SkySails design value. `discussion.tex` ("We hold both at the values of today's
 kites") is then accurate only with this caveat. **Effect:** large on kite size

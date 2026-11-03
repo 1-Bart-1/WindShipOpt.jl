@@ -1,6 +1,6 @@
 # Formula and citation checks
 
-Checked 2026-10-31 against the primary sources where they were accessible. Page numbers are the printed page numbers of the source unless marked "pdf p.". Newly downloaded PDFs are in `paper/literature_pdfs/` (`oehler2019.pdf`, `vandervlugt2019.pdf` = arXiv 1705.04133v2, `kim2021.pdf`) with `.txt` conversions next to them.
+Checked 2026-10-31 against the primary sources where they were accessible. Page numbers are the printed page numbers of the source unless marked "pdf p.". `vandervlugt2019.pdf` is arXiv 1705.04133v2.
 
 ## 1. SNNM added resistance (`src/waves.jl`) against Mittendorf et al. (2022)
 
@@ -39,7 +39,7 @@ Source: `mittendorf2022.pdf`, DTU Orbit postprint, publisher's PDF (pdf p. = pri
 
 The code matches points (2) to (5): zero at U/V_c = 1/4, the zero-speed head value at 1/2, linear in U in between, and the head-wave formula at Fn_r above that, continuous at U = V_c/2. On point (1), Mittendorf says only that the value is negative. The code's choice of exactly minus the zero-speed head-wave value at U = 0, which is what `(4ratio - 1)` implies, is not stated in Mittendorf. It is also unclear whether Fn_r in (5), and Fn = 0 in (3), apply to a1 only or to a2 and ω̄ as well. The code applies them to all three.
 
-Liu & Papanikolaou (2020) is closed access (Unpaywall: `"oa_status":"closed"`) and could not be checked. The reference implementation (https://gitlab.gbar.dtu.dk/mamit/RAW_Formula) timed out. The rule is therefore only partly verifiable; see Need download.
+Liu & Papanikolaou (2020) is closed access (Unpaywall: `"oa_status":"closed"`) and could not be checked. The reference implementation (https://gitlab.gbar.dtu.dk/mamit/RAW_Formula) timed out. The rule is therefore only partly verifiable; see Open checks.
 
 **Discrepancy 1.3, spectral integration (`added_resistance`).** The factor 2 and the form R_AW = 2 ∫ (R_AW/ζ_a²) S(ω) dω, written as `2scale * Σ C_AW S Δω` with scale = ρgB²/L, are correct and match the irregular-wave equation in `model.tex`. Mittendorf does not give the irregular-wave formula; the paper only says "the calculation of the mean added resistance in irregular waves is trivial given a suitable (directional) wave energy density spectrum and under the assumption of linear superposition" (p. 14).
 
@@ -80,13 +80,16 @@ That later paper uses a different, newer regression ("Y'_β = ½πκ + 1.9257(C_
 
 ## 3. Rudder area A = TL/100 [1 + 25(B/L)²] (`rudder_area`)
 
-**Verdict: not verifiable in a primary source. The formula is confirmed only by secondary material, and the current DNV class rules do not contain it.**
+**Verdict: the code's form is attributed to the 1972 DNV rules by a secondary source only. DNV's January 2000 rule, the earliest edition read, has a block coefficient, and the two agree only at C_B ≈ 0.707. It is guidance, not a requirement.**
 
+- **DNV, January 2000.** Pt. 3 Ch. 3 Sec. 2, C 106, guidance note, p. 9: "Rudders (one or more) working directly behind a propeller should preferably have a total area not less than:" A = (TL/100)[1 + 50 C_B²(B/L)²]. The note adds that the area "should be increased" for ships that often manoeuvre in harbours.
+- **Waters & Blume, PIANC 2002, p. 7.** "In 1972, Det Norske Veritas' (DNV) rules included a formula", with the factor 25, and "The DNV (2000) rules have subsequently been refined to account for vessel block coefficient". They give no 1972 reference.
+- **Effect [calc].** At L 85, B 13.2, T 5.5 m the factor 25 gives 7.49 m². The 2000 form gives −10.5 % at C_B 0.60, −0.8 % at 0.70, +10.5 % at 0.80 and +16.7 % at 0.85.
 - **Current DNV rules.** The 2012 DNV Rules for Classification of Ships, Pt. 3 Ch. 3 (rules.dnv.com `ts303.pdf`), Sec. 2 on rudders, define "A = area of rudder blade in m², including area of flap" only for scantlings. I found no minimum-area formula in that document.
 - **Secondary confirmation.** A lecture by P.-Å. Kvick (Linnaeus University, "Roderkrafter", slide "Conventional rudder (minimum area) — Classification guidance") gives "A_r = (d L/100)[1 + 25(B/L)²]". The same slide gives the Reed's alternative "A_r = d L / F, F 60–70".
 - **Wording seen only in a search snippet.** A ScienceDirect topic page (book chapter citing Molland & Turnock 2007 and Brix 1993) was summarised by a search engine as "Det Norske Veritas recommends: (6.91) A_R/(L·T) ≥ 0.01·(1 + 25(B/L)²)". The page itself returned HTTP 403, so this is not a verified quote.
 
-This wording points to an older DNV recommendation, quoted as a minimum, not "the DNV area". Suggested correction: write "the minimum rudder area recommended by DNV, A_r ≥ TL/100 [1 + 25(B/L)²] (Brix 1993; Molland & Turnock 2007)" once one of those books is checked.
+#17 chose the January 2000 form.
 
 ## 4. Taylor wake fraction w = 0.5C_B − 0.05 and t = 0.6w (`src/propulsion.jl`)
 
@@ -146,12 +149,12 @@ van der Vlugt et al. (2019), p. 3 (arXiv pagination): "The aerodynamic drag of t
 
 `tether_drag` in `src/rig.jl` uses `C_D,t d L / (4A)` added to the kite drag coefficient, which is the same as ¼·½ρ C_D,t d L v_a². This matches, provided A is the same reference area as the kite polar (van der Vlugt uses the projected area S). Suggested citation: van der Vlugt et al. (2019) and Argatov et al. (2009).
 
-## Need download
+## Open checks
 
-1. Liu, S., Papanikolaou, A. (2020). Regression analysis of experimental data for added resistance in waves of arbitrary heading and development of a semi-empirical formula. Ocean Engineering 206:107357. doi 10.1016/j.oceaneng.2020.107357. Closed access: https://doi.org/10.1016/j.oceaneng.2020.107357 (try NTUA or ResearchGate author copy). Needed for the following-wave rule (check 1.2), in particular the magnitude at U = 0 and whether Fn_r and Fn = 0 apply to a1 only.
-2. Mittendorf et al. reference code: https://gitlab.gbar.dtu.dk/mamit/RAW_Formula (connection timed out from the sandbox). This would settle discrepancies 1.1 and 1.2 directly.
-3. Inoue, S., Hirano, M., Kijima, K. (1981). Hydrodynamic derivatives on ship manoeuvring. International Shipbuilding Progress 28(321):112–125. doi 10.3233/ISP-1981-2832103. https://content.iospress.com/articles/international-shipbuilding-progress/isp28-321-03
-4. Kijima, K., Katsuno, T., Nakiri, Y., Furukawa, Y. (1990). On the manoeuvring performance of a ship with the parameter of loading condition. J. Soc. Naval Arch. Japan 168:141–148. doi 10.2534/jjasnaoe1968.1990.168_141. https://www.jstage.jst.go.jp/article/jjasnaoe1968/1990/168/1990_168_141/_article (the PDF link needs a browser).
-5. Yasukawa, H., Yoshimura, Y. (2015). Introduction of MMG standard method for ship maneuvering predictions. J. Mar. Sci. Technol. 20:37–52. doi 10.1007/s00773-014-0293-y. Open access: https://link.springer.com/article/10.1007/s00773-014-0293-y (Springer blocked the scripted download). Useful for X'_vv data on the leeway drag.
-6. Molland, A.F., Turnock, S.R. (2007). Marine Rudders and Control Surfaces. Butterworth-Heinemann. doi 10.1016/B978-0-7506-6944-3.X5000-2. Alternatively Brix, J. (ed.) (1993), Manoeuvring Technical Manual, Seehafen Verlag. Either is needed for the DNV rudder-area quote with page.
-7. Carlton, J. (2012). Marine Propellers and Propulsion, 3rd ed. Elsevier. doi 10.1016/C2010-0-68327-0. Alternatively Taylor, D.W. (1933), The Speed and Power of Ships. Needed for the primary attribution of w = 0.5C_B − 0.05.
+What each open check needs; `sources.csv` records whether we hold it.
+
+- Following-wave rule (check 1.2), in particular the magnitude at zero speed: Liu & Papanikolaou (2020).
+- Discrepancies 1.1 and 1.2: the Mittendorf et al. reference code, https://gitlab.gbar.dtu.dk/mamit/RAW_Formula.
+- Attribution of the hull side-force formula: Inoue et al. (1981) and Kijima et al. (1990).
+- X'_vv data on the leeway drag: Yasukawa & Yoshimura (2015).
+- Primary attribution of w = 0.5C_B − 0.05: Carlton (2012) or Taylor (1933).
