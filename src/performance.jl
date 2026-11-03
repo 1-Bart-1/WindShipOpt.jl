@@ -348,6 +348,20 @@ function kite_aloft(rig::KiteRig, table, speed, headwind, crosswind, wave_height
 end
 
 """
+    kite_parkable(table, speed, headwind, crosswind)
+
+Whether a kite aloft has the apparent wind to stay up at rest, under the arguments of
+[`kite_aloft`](@ref).
+"""
+kite_parkable(table::PerformanceTable, speed, headwind, crosswind) =
+    kite_parkable(table.ship.rig, speed, headwind, crosswind)
+kite_parkable(rig, speed, headwind, crosswind) = false
+kite_parkable(rig::CombinedRig, speed, headwind, crosswind) =
+    kite_parkable(rig.kite, speed, headwind, crosswind)
+kite_parkable(rig::KiteRig, speed, headwind, crosswind) =
+    hypot(headwind + speed, crosswind) >= rig.min_parked_wind
+
+"""
     kite_launchable(table, speed, headwind, crosswind, wave_height, daylight)
 
 Whether a kite can be launched on the ship's course under the arguments of
@@ -355,8 +369,8 @@ Whether a kite can be launched on the ship's course under the arguments of
 it is `daylight` or launches run at night too.
 """
 kite_launchable(table::PerformanceTable, speed, headwind, crosswind, wave_height,
-    daylight) = kite_launchable(table.ship.rig, table, speed, headwind, crosswind, wave_height,
-    daylight)
+    daylight) = kite_launchable(table.ship.rig, table, speed, headwind, crosswind,
+    wave_height, daylight)
 kite_launchable(rig, table, speed, headwind, crosswind, wave_height, daylight) = false
 kite_launchable(rig::CombinedRig, table, speed, headwind, crosswind, wave_height,
     daylight) = kite_launchable(rig.kite, table, speed, headwind, crosswind, wave_height,

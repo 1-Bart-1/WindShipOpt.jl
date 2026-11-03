@@ -15,7 +15,8 @@ function parking_lull(table::PerformanceTable, speed, wind, angle, recovery_wind
     price = table.ship.fuel.price * 3600
     flown, stowed, parked = fuels(wind)
     crosswind, headwind = kite_wind(table, wind) .* sincos(angle)
-    stays_up = isfinite(parked) && kite_aloft(table, speed, headwind, crosswind, 0.0)
+    stays_up = isfinite(parked) && kite_aloft(table, speed, headwind, crosswind, 0.0) &&
+               kite_parkable(table, speed, headwind, crosswind)
     recovered_flown, recovered_stowed = fuels(recovery_wind)
     cycle = table.cycle_cost +
             table.handling_hours * max(recovered_stowed - recovered_flown, 0.0) * price

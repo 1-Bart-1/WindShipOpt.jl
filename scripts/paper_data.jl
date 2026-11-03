@@ -111,17 +111,22 @@ end
 
 The 140 m e-methanol ship on every route without a rig, with the reference wings and
 rotors, and with kites of 800, 1,600 and 3,200 m^2 at the low, base and high launch cost
-with parking on and off, and at base launch cost with launches by day only:
-launch_parking.csv. Then what parking through a lull costs against landing, per kite, wind
-and angle: lull.csv.
+with parking on and off, at base launch cost with launches by day only, and at base launch
+cost with no rig ever out of service: launch_parking.csv. Then what parking through a lull
+costs against landing, per kite, wind and angle: lull.csv.
 """
 function launch_parking_data()
+    always_in_service = reduce((changed, input) -> with_value(changed, input, 0.0),
+        Symbol.(values(out_of_service_inputs)); init=assumptions)
     cases = []
     for route in route_names
         for (rig, area) in (("none", 0.0), ("wings", 1500.0), ("rotors", 800.0))
             design = ShipDesign(:methanol, 140.0; rig_size(rig, area)...)
             push!(cases, trip_case(design; route, rig, area, launch_cost="value",
-                parking=true, night=true))
+                parking=true, night=true, service=true))
+            rig == "none" && continue
+            push!(cases, trip_case(design; assumptions=always_in_service, route, rig, area,
+                launch_cost="value", parking=true, night=true, service=false))
         end
         for area in (800.0, 1600.0, 3200.0), launch_cost in (:low, :value, :high),
             parking in (true, false)
@@ -129,18 +134,26 @@ function launch_parking_data()
             design = ShipDesign(:methanol, 140.0; rig_size("kite", area)...)
             push!(cases, trip_case(design;
                 assumptions=launch_cost_assumptions(launch_cost; parking), route,
-                rig="kite", area, launch_cost=string(launch_cost), parking, night=true))
+                rig="kite", area, launch_cost=string(launch_cost), parking, night=true,
+                service=true))
         end
         for area in (800.0, 1600.0, 3200.0)
             design = ShipDesign(:methanol, 140.0; rig_size("kite", area)...)
             push!(cases, trip_case(design;
                 assumptions=with_value(assumptions, :kite_night_launch, 0.0), route,
-                rig="kite", area, launch_cost="value", parking=true, night=false))
+                rig="kite", area, launch_cost="value", parking=true, night=false,
+                service=true))
+            for parking in (true, false)
+                push!(cases, trip_case(design;
+                    assumptions=with_value(always_in_service, :kite_parking,
+                        Float64(parking)), route, rig="kite", area, launch_cost="value",
+                    parking, night=true, service=false))
+            end
         end
     end
     write_trips("launch_parking.csv", cases,
         round_trips(cases, sampled_departures()), :route, :rig, :area, :launch_cost,
-        :parking, :night)
+        :parking, :night, :service)
     write_lulls("lull.csv", (800.0, 1600.0, 3200.0))
 end
 

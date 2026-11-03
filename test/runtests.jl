@@ -190,7 +190,7 @@ end
 function uniform_kite(hull, assumptions)
     pattern = WindShipOpt.PatternForce((0.3, 0.8, 0.2), 1.0, 0.3)
     return KiteRig(; area=800.0, tether_diameter=0.05, tether_length=300.0,
-        reference_height=120.0, max_wind=30.0, min_flight_wind=4.0, launch_min_wind=5.0,
+        reference_height=120.0, max_wind=30.0, min_flight_wind=4.0, min_parked_wind=4.0, launch_min_wind=5.0,
         launch_max_wind=17.0,
         launch_max_wave_height=assumptions[:kite_launch_max_wave_height],
         night_launch=assumptions[:kite_night_launch] > 0, landing_max_wind=20.0,
@@ -256,9 +256,79 @@ end
     @test length(WindShipOpt.parked_angles(model, 1.0)) == 1
 end
 
-@testset "a parked kite stays up down to the wind the flight limit allows" begin
+"""
+    lowest_steady_wind(model, radial, heading)
+
+Lowest apparent wind [m/s], by bisection, in which `model` holds a straight steady flight
+along `heading` at unit `radial` position at some flying angle of attack.
+"""
+function lowest_steady_wind(model, radial, heading)
+    angles = range(model.lowest_angle, model.stall_angle; length=48)
+    flies(wind) = any(angles) do angle
+        kite = WindShipOpt.KiteAero(model, angle)
+        return !isnothing(WindShipOpt.steering_point(kite, (wind, 0.0, 0.0), radial,
+            heading, (0.0, 0.0, 0.0), model.tether_length))
+    end
+    low, high = 0.1, 20.0
+    for _ in 1:30
+        middle = (low + high) / 2
+        flies(middle) ? (high = middle) : (low = middle)
+    end
+    return high
+end
+
+@testset "the closed forms for the lowest wind match the steady force balance" begin
+    model, _, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    elevation = deg2rad(25.0)
+    radial = (cos(elevation), 0.0, sin(elevation))
+    level = lowest_steady_wind(model, radial, (0.0, 1.0, 0.0))
+    @test WindShipOpt.crosswind_min_wind(model, elevation) ≈ level rtol = 0.03
+    climbing = lowest_steady_wind(model, radial, (-sin(elevation), 0.0, cos(elevation)))
+    @test WindShipOpt.climbing_min_wind(model, elevation) ≈ climbing rtol = 0.03
+    @test level < WindShipOpt.static_wind(model.mass, model) < climbing
+end
+
+@testset "a heavy kite that cannot hang at rest still flies once moving" begin
+    model, _, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    wind = 0.8WindShipOpt.static_wind(model.mass, model)
+    kite = WindShipOpt.KiteAero(model, model.stall_angle)
+    elevation = deg2rad(25.0)
+    point = WindShipOpt.steering_point(kite, (wind, 0.0, 0.0),
+        (cos(elevation), 0.0, sin(elevation)), (0.0, 1.0, 0.0), (0.0, 0.0, 0.0),
+        model.tether_length)
+    @test !isnothing(point) && point[1] > wind
+end
+
+@testset "no pattern gives force under the launch wind, so speeding up to launch gains nothing" begin
+    for area in (800.0, 3200.0)
+        model, max_force, tether_diameter = WindShipOpt.kite_model(area, 3.0, assumptions)
+        tether = WindShipOpt.rope_mass(tether_diameter, model.tether_length, assumptions)
+        launch = WindShipOpt.launch_min_wind(model, tether, assumptions)
+        @test launch >= WindShipOpt.min_flight_wind(model, assumptions)
+        @test launch >= assumptions[:kite_launch_min_wind]
+        forces = WindShipOpt.compute_pattern_table(model, max_force, assumptions,
+            [launch - 0.5], deg2rad.(0.0:15.0:180.0), [0.0])
+        @test all(force -> !isfinite(force.force[1]), forces)
+    end
+end
+
+@testset "a kite aloft under its parking wind can fly but not park" begin
+    table, prices = kite_coaster()
+    rig = table.table.ship.rig
+    point = kite_point(table, 2.0, 1.0; speed_index=3)
+    tally = WindShipOpt.EdgeTally(0.0, 0.0, 0.0, 0.0, 0, 0)
+    parks = WindShipOpt.aloft_tally(table.table, tally, point, true, false, prices)
+    flies = WindShipOpt.aloft_tally(table.table, tally, point, false, false, prices)
+    @test parks.cost <= flies.cost
+    @test flies.parked_hours == 0
+    @test rig.min_parked_wind >= rig.min_flight_wind
+    @test WindShipOpt.kite_parkable(table.table, 0.0, rig.min_parked_wind, 0.0)
+    @test !WindShipOpt.kite_parkable(table.table, 0.0, 0.9rig.min_parked_wind, 0.0)
+end
+
+@testset "a parked kite holds a position down to its parking wind" begin
     model, max_force, _ = WindShipOpt.kite_model(3200.0, 3.0, assumptions)
-    stay = WindShipOpt.min_flight_wind(model, assumptions)
+    stay = WindShipOpt.min_parked_wind(model, assumptions)
     angles = WindShipOpt.parked_angles(model, assumptions[:kite_parked_depower])
     elevation = deg2rad(assumptions[:kite_min_elevation])
     @test !isempty(WindShipOpt.parked_positions(model, angles, max_force, elevation, stay))
@@ -373,13 +443,13 @@ end
           (1.05 * assumptions[:kite_launch_minutes] + assumptions[:kite_landing_minutes]) / 60
     point = kite_point(table, 2.0, 4.0)
     start = WindShipOpt.EdgeTally(0.0, 0.0, 0.0, 0.0, 0, 0)
-    launched = WindShipOpt.aloft_tally(ship_table, start, point, true, prices)
-    stayed = WindShipOpt.aloft_tally(ship_table, start, point, false, prices)
+    launched = WindShipOpt.aloft_tally(ship_table, start, point, true, true, prices)
+    stayed = WindShipOpt.aloft_tally(ship_table, start, point, true, false, prices)
     @test launched.flight_hours + launched.parked_hours ≈ 4.0 - ship_table.handling_hours
     @test stayed.flight_hours + stayed.parked_hours ≈ 4.0
     @test launched.cost > stayed.cost + ship_table.cycle_cost
     short = kite_point(table, 2.0, ship_table.handling_hours / 2)
-    brief = WindShipOpt.aloft_tally(ship_table, start, short, true, prices)
+    brief = WindShipOpt.aloft_tally(ship_table, start, short, true, true, prices)
     @test brief.flight_hours + brief.parked_hours ≈ -ship_table.handling_hours / 2
     @test isfinite(brief.cost)
 end
@@ -435,7 +505,7 @@ end
     control_unit = assumptions[:market_price_factor] *
                    WindShipOpt.rig_price_parts(rig, assumptions).control_unit
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
-          1.05 * (85 + 0.002canopy + 0.0005 * (canopy + tether + control_unit)) + 130
+          1.05 * (85 + 0.00005canopy + 0.00005 * (canopy + tether + control_unit)) + 130
     @test WindShipOpt.forced_landing_cost(rig, assumptions) ≈
           0.05 * (canopy + tether + control_unit)
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0

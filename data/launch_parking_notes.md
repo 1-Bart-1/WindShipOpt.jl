@@ -45,25 +45,43 @@ Where to park. The force is lowest near the top of the window, and the model rea
 
 Depower. The parked kite holds a force coefficient between 0.7 and 1 of its value just below stall, at angles of attack 11.6-20 deg, L/D 3.8-3.9. That lies in the 3-4.5 reported for soft kites at rest or in reel-in (Erhard 2013, p. 6; Oehler 2019, p. 14; van der Vlugt 2019, p. 11). The bound of 0.7 is our estimate. The 0.25-0.33 of van der Vlugt 2019 is a coefficient ratio on leading-edge inflatable wings of 14 and 25 m^2, and its 0.25 force set-point is imposed by the controller. On ram-air wings Erhard 2015 had no depower, and SkyPower100 flew a depowering actuator in 2022 with no ratio published. The low bound 0.3 tests the leading-edge figure; the high bound 1 is a wing with no depower.
 
-Stay-up wind. Equation (park) of the paper gives 5.1-5.4 m/s at 800-3,200 m^2 with the 200 g/m^2 cloth; a position holds from about 4.3-4.5 m/s in the model. Fagiano 2022 reports flight in about 6 m/s aloft, the lowest wind met, which bounds the minimum from above only.
+Stay-up wind. A parked kite stays up from 1.3 times the wind that carries its weight at rest: 5.1-5.4 m/s at 800-3,200 m^2 with the 200 g/m^2 cloth; a position holds from about 4.3-4.5 m/s in the model. Fagiano 2022 reports flight in about 6 m/s aloft, the lowest wind met, which bounds the minimum from above only.
 
 Control work. No source gives a number for holding a kite. Erhard 2013 flies neutral mode with a plain PID on azimuth (p. 9) against deflections of 40-70 % of range in the pattern (p. 8); we charge no separate energy for holding.
 
 What is known of ram-air kites holding position: neutral states are published only as short low-force phases of launch, recovery or reel-in (Erhard 2013, p. 3; Erhard 2015, p. 3; Fagiano 2022, p. 9; SkyPower100, pp. 8, 36). The nearest force measurement is 1-2 kN against 4-8 kN in the power phase on 30 m^2 at 7.5 m/s (Erhard 2015, Fig. 21, read by eye), while reeling in, so it is lower than holding at fixed length. The long flights, 42 h and 120 h, were powered flight. Whether a ram-air kite holds station for hours in a seaway is unknown, so parking is an unproven operation; gusts and downwinds can cause free flight (Erhard 2013, pp. 2, 9).
 
+## Lowest wind
+
+Derivation and formulas are in the paper's subsection on the lowest wind, and one definition covers any wing from its polar and mass. Base kites, apparent wind in m/s, 200 g/m^2 cloth, polar and drag at the angle of attack that serves best, 8 deg elevation:
+
+| Area [m^2] | Mass [kg] | Level crosswind | Steady climb | At rest, parked (x1.3) | Lift-off without tether (x1.3) | Launch |
+| --- | --- | --- | --- | --- | --- | --- |
+| 800 | 903 | 1.64 | 3.86 | 5.07 | 4.5 | 5.0 |
+| 1,600 | 1,875 | 1.67 | 3.93 | 5.16 | 4.4 | 5.0 |
+| 3,200 | 4,127 | 1.75 | 4.12 | 5.41 | 4.3 | 5.0 |
+
+Both moving forms match the steady force balance solved numerically to 3 %, in a test. Where they stop holding: the level form leaves out climbing, turning, the azimuth and wind shear; the climb form holds a steady climb, with no energy from speed. With a position theta off downwind, the forms scale with cos(elevation)/cos(theta)^2 under the root.
+
+Against the pattern search. First flight at 5 m/s at 800 m^2, and 5-6 m/s at 3,200 m^2, on courses with the wind from behind; 8-10.5 m/s on upwind courses, where theta is large: at 8 deg elevation and 60 deg of azimuth the climb form gives 8 m/s, as the search does. No pattern below 4 m/s on any course. So the climb form is the limit in the model, and the level form's 1.7 m/s would need a pattern that climbs on its momentum. The Kitepower kite is said to fly down to 2 m/s (Kitepower 2024), so real kites may do better than the model at the light end: a bias against the kite, in a band where the wind that the ship makes comes from ahead and the kite pulls little.
+
+The factor 1.3. It stays only for a kite with no air speed of its own, parked or at lift-off, as an estimate. It came off flight, which has air speed in reserve. The pattern search also stopped refusing a wing that cannot hang at rest at zero air speed, the same fix as the rigid kite's.
+
+Steaming up to launch. It never gains in the model: no pattern gives force under the launch wind (test), so a kite launched on extra ship speed gives nothing once the ship slows back down, and launching later costs less. Ship-made wind also comes from ahead, where the kite pulls least. If flight were modelled down to the level form this would be worth another look. The base 140 m ship could not do it anyway: with the kite stowed its engine holds 5 m/s but not 6 m/s in a 3 m/s beam wind.
+
 ## Limits
 
 | Limit | Launch | Stay up | Landing |
 | --- | --- | --- | --- |
-| Lowest apparent wind | 5 m/s (3-6), or the stay-up wind if higher | Equation (park) | None |
+| Lowest apparent wind | 5 m/s (3-6), or lift-off or flight if higher | Flying: climb wind, 3.9-4.1 m/s. Parked: 5.1-5.4 m/s | None |
 | Highest apparent wind | 17 m/s (13-20), estimate | 25 m/s (20-30) | 20 m/s (15-25) |
 | Significant wave height | 3 m (2-4), estimate | 5 m (4-7), estimate | 4 m (3-5), estimate |
 
-The landing wind is the design limit of the stowage of a full-size land kite, 20 m/s, a target (SkyPower100, p. 20); that report also calls landing more time-critical than launch. So the three limits differ, and a kite may be up where it should not land. What keeps it from being stranded is that it can always come down, at a price: a landing outside the landing limits is forced, with a 5 % chance (1-20 %, estimate) of losing the kite, tether and control unit, against 0.05 % for a normal cycle. With the weather known, the router lands ahead of the limit; with a forecast it may be caught out and pay. A kite that reaches a stay-up limit must land at that point. Where only a flying kite holds the ship's speed, it stays up until it has to land.
+The landing wind is the design limit of the stowage of a full-size land kite, 20 m/s, a target (SkyPower100, p. 20); that report also calls landing more time-critical than launch. So the three limits differ, and a kite may be up where it should not land. What keeps it from being stranded is that it can always come down, at a price: a landing outside the landing limits is forced, with a 5 % chance (1-20 %, estimate) of losing the kite, tether and control unit, against 0.005 % for a normal cycle. With the weather known, the router lands ahead of the limit; with a forecast it may be caught out and pay. A kite that reaches a stay-up limit must land at that point. Where only a flying kite holds the ship's speed, it stays up until it has to land.
 
 Port approach. A leg ends with the kite down at its last sample point, about 15 nmi from port, so no leg ends on a stay, and a landing there can be forced. Along the fixed coastal stages before it the kite may still fly and launch: the model has no limit for traffic lanes or pilotage, and no source gives one.
 
-Launch wind. The launch wind is the apparent wind on the ship's course. At 6 m/s dead downwind it stays under 5 m/s for true winds from 1 to 11 m/s, so such a launch waits. A turn would not help there: the kite could not stay up back on course, since the stay-up wind of 5.1-5.4 m/s is as strict as the launch wind at the base values. So the low-wind limit needs no turn in the router. What may need one is a launch in a head wind, which pre-service plans ruled out (Verivox 2007) and which no source sizes, so it is priced as a mean cost per launch below, not routed. Sources disagree on whether a turn is needed: one hand launch needed one (WiWo 2008), the patent's mast head rotates and is silent on it. Launch wind sources: Beaufort 3 for SkySails ships (`kite_costs_notes.md`), 3 m/s and 5 m/s measured against an assumed 6 on land (Fagiano 2022, SkyPower100). The Beaufort 4-8 of Verivox 2007 is a plan written before service.
+Launch wind. The launch wind is the apparent wind on the ship's course. At 6 m/s dead downwind it stays under 5 m/s for true winds from 1 to 11 m/s, so such a launch waits. A turn would not help there: no pattern gives force under the launch wind, so the kite would give nothing back on course. So the low-wind limit needs no turn in the router. What may need one is a launch in a head wind, which pre-service plans ruled out (Verivox 2007) and which no source sizes, so it is priced as a mean cost per launch below, not routed. Sources disagree on whether a turn is needed: one hand launch needed one (WiWo 2008), the patent's mast head rotates and is silent on it. Launch wind sources: Beaufort 3 for SkySails ships (`kite_costs_notes.md`), 3 m/s and 5 m/s measured against an assumed 6 on land (Fagiano 2022, SkyPower100). The Beaufort 4-8 of Verivox 2007 is a plan written before service.
 
 Night. The base case has no night limit, and a study case launches only between 06:00 and 18:00 local solar time, taken without the season; landing stays allowed at night, or a kite up at dusk could not come down. Charterers said the kite "could only be operated at daylight" (CE Delft 2016, p. 75, speakers not separated), but flight through the night has been reported on land (Fagiano 2022, SkyPower100 from 2020) and SkySails reported 120 h non-stop at sea. The discussion treats this as the weakest assumption.
 
@@ -74,12 +92,14 @@ Per launch and landing, in `cycle_cost`: `(1 + retry) * (crew + tear * canopy + 
 | Input | Low | Base | High | Basis |
 | --- | --- | --- | --- | --- |
 | Crew [USD] | 20 | 85 | 380 | Estimate. Officer and rating for 0.5 h; officer and two ratings for 1.5 h; officer and three ratings for 3 h at EU rates |
-| Tear ending the canopy, per attempt | 0.05 % | 0.2 % | 1 % | Estimate |
-| Loss at sea, per attempt | 0.01 % | 0.05 % | 0.5 % | Estimate, no basis in data |
+| Tear ending the canopy, per attempt | 0.001 % | 0.005 % | 1 % | Goal for the base, half of about 1 in 10,000 per cycle; 0.2 % is our estimate of today, inside the range |
+| Loss at sea, per attempt | 0.001 % | 0.005 % | 0.5 % | Goal for the base, the other half; 0.05 % is our estimate of today, no basis in data |
 | Retry, per attempt | 2 % | 5 % | 20 % | Estimate, no basis in data |
 | Turn, mean per launch [USD] | 0 | 130 | 900 | Estimate: 0.1 h (0-0.7) at about 1,270 USD/h of hire and fuel of the 140 m ship, held for every ship size |
 | Launch [min] | 15 | 25 | 45 | Estimate on 10-20 min at 160 m^2 and a 30 min claim at 1,000 m^2 |
 | Landing and stowing [min] | 15 | 30 | 60 | Estimate on the same, plus a land stowage hang of 15 min |
+
+Total per cycle at base: USD 242, 265 and 314 at 800, 1,600 and 3,200 m^2. At today's estimates of tear and loss it would be about USD 740, 1,270 and 2,350, read from the formula.
 
 Crew. Rates are USD 29 for an officer and USD 14 for a rating per hour worked: the crew cost of USD 500,000 for seven over about 3,650 worked hours per berth a year, 10 h a day (estimate), split by rank. The hours are on board anyway, so this is the crew's time rather than a cash cost, and it says nothing of the workload: charterers found the system too labour-intensive for rotating crews (CE Delft 2016, p. 75), and SkyPower100 first underrated its staff need, then cut it strongly (pp. 58-59, 64). A launch was hand-flown at first and automated later, on ships and on land.
 
