@@ -1527,7 +1527,8 @@ function rigid_scaling_figure()
     series = [("rigid", 2.5, :solid), ("rigid", 3.0, :dash), ("rigid", 3.3, :dot),
         ("soft", 0.0, :solid)]
     for (kind, exponent, linestyle) in series
-        at_twelve = rows(table, "kind" => kind, "exponent" => exponent, "wind" => 12.0)
+        at_twelve = filter(row -> table["thrust"][row] > 0,
+            rows(table, "kind" => kind, "exponent" => exponent, "wind" => 12.0))
         areas, prices = table["area"][at_twelve], table["price"][at_twelve]
         per_thrust = 1e3 .* prices ./ table["thrust"][at_twelve]
         annual_per_thrust = 1e3 .* table["annual"][at_twelve] ./ table["thrust"][at_twelve]
