@@ -206,7 +206,7 @@ end
 
 "inputs of the situation study that stand for a factor on several assumptions at once"
 scaled_inputs = Dict(
-    :kite_life => (:canopy_life_factor, :tether_lifetime),
+    :kite_life => (:canopy_life, :tether_lifetime),
     :wing_price => (:wing_unit_cost, :wing_cost_per_area))
 
 """
@@ -841,8 +841,7 @@ function components_data()
             :launch_mast_mass_coefficient, :launch_mast_telescope_factor,
             :docking_head_cost, :control_unit_cost,
             :control_unit_cost_per_area, :kite_integration_fraction,
-            :canopy_making_cost_per_area, :tether_price, :cloth_uv_dose_per_weight,
-            :canopy_wear_rate, :tether_lifetime],
+            :canopy_making_cost_per_area, :tether_price, :canopy_life, :tether_lifetime],
         "wings" => [:wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction,
             :retractable_rig_premium, :wing_lifetime],
         "rotors" => [:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
@@ -1029,9 +1028,6 @@ function annual_kite_cost(rig, assumptions)
            WindShipOpt.cycle_cost(rig, assumptions) * kite_year.launches
 end
 
-"the assumptions with the canopy wearing out at its goal of 4000 flight hours"
-canopy_goal_assumptions() = with_value(assumptions, :canopy_wear_lifetime, 4000.0)
-
 """
     beam_thrust(rig, i)
 
@@ -1076,10 +1072,9 @@ function rigid_scaling_data()
             end
         end
         for area in rigid_scaling_soft_kites
-            goal = canopy_goal_assumptions()
-            rig = KiteRig(area, 3.0, hull, goal)
-            price = first(WindShipOpt.rig_costs(rig, goal))
-            annual = annual_kite_cost(rig, goal)
+            rig = KiteRig(area, 3.0, hull, assumptions)
+            price = first(WindShipOpt.rig_costs(rig, assumptions))
+            annual = annual_kite_cost(rig, assumptions)
             for i in eachindex(rig.wind_speeds)
                 println(file, join(("soft", area, 0.0, 0.0, 0.0, 0.0, 0.0,
                         rig.min_flight_wind, price, annual, rig.wind_speeds[i],
