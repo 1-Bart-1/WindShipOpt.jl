@@ -8,7 +8,7 @@ The Makani MX2 design is the anchor (Echeverri et al. 2020, Part I, Tables 1 and
 
 ## Mass law
 
-m = 1852 kg × (S/54)^(κ/2), κ = 3, band 2.7-3.3, with the aspect ratio held.
+m = 1852 kg × (S/54)^(κ/2), κ = 2.5, band 2.2-3.3, with the aspect ratio held. The routed size study also runs κ = 3.
 
 - With on-board rotors, the only evidence is Makani's two designs, about κ = 2.5 from their real spans. That is not a fit.
 - For ground-generation wings Sommerfeld et al. (2022) sweep κ over 2.7-3.3 as an assumption, against AP2 (5.5 m, 36.8 kg). van Hagen et al. (2023) use 2.7-3.0.

@@ -364,7 +364,7 @@ function PatternForce(model::KiteModel, pattern::LoopPattern, wind_speed, max_te
     around = (0.0, -sin(axis_roll), cos(axis_roll))
     segment = 2π * model.tether_length * sin(cone) / LOOP_POINTS
     total = (0.0, 0.0, 0.0)
-    duration = peak = 0.0
+    duration = air_distance = peak = 0.0
     lowest, highest = Inf, -Inf
     for i in 1:LOOP_POINTS
         phase = 2π * i / LOOP_POINTS
@@ -377,16 +377,18 @@ function PatternForce(model::KiteModel, pattern::LoopPattern, wind_speed, max_te
         point = limited_point(model, pattern.angle_of_attack, wind, radial, heading, turn,
             max_tension, along_path)
         isnothing(point) && return NO_PATTERN
-        airspeed, tension, _ = point
-        time = segment / airspeed
+        airspeed, tension, ground = point
+        ground_speed = dot3(ground, heading)
+        ground_speed > 0 || return NO_PATTERN
+        time = segment / ground_speed
         total = total .+ (tension * time) .* radial
         duration += time
+        air_distance += airspeed * time
         peak = max(peak, tension)
         lowest, highest = min(lowest, radial[3]), max(highest, radial[3])
         isnothing(path) || push!(path, radial)
     end
-    mean_speed = LOOP_POINTS * segment / duration
-    holds_speed(model, mean_speed, model.tether_length * (highest - lowest)) ||
+    holds_speed(model, air_distance / duration, model.tether_length * (highest - lowest)) ||
         return NO_PATTERN
     load = 0.5model.air_density * wind_speed^2 * model.area
     return PatternForce(total ./ (duration * load), peak / load, asin(lowest))

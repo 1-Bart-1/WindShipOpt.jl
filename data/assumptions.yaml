@@ -527,11 +527,12 @@ rigid_reference_area:
   unit: m^2
   reason: "Wing area of the MX2 design that the mass law is anchored on."
 rigid_mass_exponent:
-  value: 3.0
-  low: 2.7
+  value: 2.5
+  low: 2.2
   high: 3.3
   unit: "-"
-  reason: "Exponent of mass on span at fixed aspect ratio. Bending-driven structure at fixed wing loading goes as the cube; 2.7-3.3 is the sweep of Sommerfeld et al. (2022), more conservative than the published 2.2-2.6, and van Hagen et al. (2023) use 2.7-3.0. Only two designs with on-board power exist, so this is an assumption and not a fit."
+  reason: "Exponent of mass on span at fixed aspect ratio. Makani's two designs with on-board power give about 2.5 from their real spans, Eijkelhof et al. (2020) about 2.57 from the same anchor, and the published range is 2.2-2.6 (data/rigid_kite_notes.md). Bending-driven structure at fixed wing loading goes as the cube, and Sommerfeld et al. (2022) sweep up to 3.3 as an assumption, which is the high bound. Few designs and no large wing built, so this is an estimate and not a fit."
+
 rigid_max_force_per_area:
   value: 5.56
   low: 4.6

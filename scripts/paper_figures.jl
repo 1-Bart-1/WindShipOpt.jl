@@ -1407,8 +1407,9 @@ end
 """
     rigid_scaling_figure()
 
-Beam thrust of rigid kites and a soft kite over apparent wind, and price per unit of thrust
-at 12 m/s over area for the mass exponents of the scaling study. Prints the scaling table.
+Beam thrust of rigid kites and a soft kite over apparent wind, and price and annual cost per
+unit of thrust at 12 m/s over area for the mass exponents of the scaling study. Prints the
+scaling table.
 """
 function rigid_scaling_figure()
     table = read_table(data_file("rigid_scaling.csv"))
@@ -1417,24 +1418,30 @@ function rigid_scaling_figure()
         xlabel="apparent wind [m/s]", ylabel="thrust [kN]")
     price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
         xlabel="kite area [m²]", ylabel="price per thrust [USD/kN]")
+    annual_axis = Axis(figure[1, 3]; title="(c) cost a year at 12 m/s", xscale=log10,
+        xlabel="kite area [m²]", ylabel="annual cost per thrust [USD/kN]")
     curves = (("rigid", 30.0), ("rigid", 54.0), ("rigid", 100.0), ("rigid", 300.0),
         ("soft", 1000.0))
     for (k, (kind, area)) in enumerate(curves)
-        exponent = kind == "rigid" ? 3.0 : 0.0
+        exponent = kind == "rigid" ? 2.5 : 0.0
         chosen = rows(table, "kind" => kind, "area" => area, "exponent" => exponent)
         lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
             color=palette[k], label="$kind $(round(Int, area)) m²")
     end
-    series = [("rigid", 2.7, :dash), ("rigid", 3.0, :solid), ("rigid", 3.3, :dot),
+    series = [("rigid", 2.5, :solid), ("rigid", 3.0, :dash), ("rigid", 3.3, :dot),
         ("soft", 0.0, :solid)]
     for (kind, exponent, linestyle) in series
         at_twelve = rows(table, "kind" => kind, "exponent" => exponent, "wind" => 12.0)
         areas, prices = table["area"][at_twelve], table["price"][at_twelve]
         per_thrust = 1e3 .* prices ./ table["thrust"][at_twelve]
+        annual_per_thrust = 1e3 .* table["annual"][at_twelve] ./ table["thrust"][at_twelve]
         label = kind == "soft" ? "soft kite" : "rigid, mass ∝ span^$exponent"
-        lines!(price_axis, areas, per_thrust; linestyle, label,
-            color=kind == "soft" ? palette[5] : palette[1])
-        kind == "rigid" && exponent == 3.0 && for i in eachindex(areas)
+        colour = kind == "soft" ? palette[5] : palette[1]
+        lines!(price_axis, areas, per_thrust; linestyle, label, color=colour)
+        lines!(annual_axis, areas, annual_per_thrust; linestyle, color=colour)
+        @printf("  %s %.1f: USD/kN a year %s\n", kind, exponent,
+            join(round.(Int, annual_per_thrust), ", "))
+        kind == "rigid" && exponent == 2.5 && for i in eachindex(areas)
             row = at_twelve[i]
             @printf("  %3.0f m2: span %.0f m, mass %.1f t, stall %.0f m/s, hover %.1f MW, ",
                 areas[i], table["span"][row], 1e-3table["mass"][row], table["stall"][row],
@@ -1446,6 +1453,76 @@ function rigid_scaling_figure()
     axislegend(thrust_axis; position=:lt, framevisible=false, labelsize=8)
     axislegend(price_axis; position=:lt, framevisible=false, labelsize=8)
     save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"lines of the rigid size figure with the column selecting their fleets"
+rigid_size_lines = (("one wing", "count" => 1.0), ("30 m² each", "unit" => 30.0),
+    ("54 m² each", "unit" => 54.0), ("100 m² each", "unit" => 100.0))
+
+"""
+    rigid_size_figure()
+
+Cost saving against no rig over the total area of rigid kites on each ship on VLSFO, as the
+mean over the routes, one line per area of a kite and one for a single wing of any area,
+solid for the base mass law and dashed for span cubed. Prints every fleet by saving.
+"""
+function rigid_size_figure()
+    table = read_table(data_file("rigid_kite.csv"))
+    figure = Figure(size=(page_width, 230))
+    for (k, ship) in enumerate(combination_ships)
+        axis = Axis(figure[1, k]; title=ship, xscale=log10, xlabel="total area [m²]",
+            ylabel=k == 1 ? "cost saving [%]" : "")
+        for (scenario, linestyle) in (("rigid base", :solid), ("rigid cubic", :dash))
+            print_rigid_sizes(table, ship, scenario)
+            for (colour, (label, fleets)) in enumerate(rigid_size_lines)
+                points = sort(fleet_savings(table, ship, scenario, fleets))
+                lines!(axis, getindex.(points, 1), getindex.(points, 2); linestyle, label,
+                    color=palette[colour])
+            end
+        end
+        k == 1 && axislegend(axis; unique=true, position=:lb, framevisible=false,
+            labelsize=8)
+    end
+    save(joinpath(figures, "rigid_size.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    fleet_savings(table, ship, scenario, fleets)
+
+(total area [m^2], mean saving [%] over the routes on VLSFO, kites, area of each [m^2]) of
+the rows of `scenario` on `ship` that the column pair `fleets` selects, those flown on
+every route.
+"""
+function fleet_savings(table, ship, scenario, fleets)
+    chosen = rows(table, "ship" => ship, "drive" => "vlsfo", "rig" => scenario, fleets)
+    points = NTuple{4, Float64}[]
+    for (count, unit) in unique(zip(table["count"][chosen], table["unit"][chosen]))
+        savings = Float64[]
+        for route in route_names
+            filters = ("ship" => ship, "route" => string(route), "drive" => "vlsfo")
+            bare = table["cost"][only(rows(table, filters..., "rig" => "none"))]
+            fleet = rows(table, filters..., "rig" => scenario, "unit" => unit,
+                "count" => count)
+            isempty(fleet) || push!(savings, 100 * (1 - table["cost"][only(fleet)] / bare))
+        end
+        length(savings) == length(route_names) || continue
+        push!(points, (count * unit, mean(savings), count, unit))
+    end
+    return points
+end
+
+"""
+    print_rigid_sizes(table, ship, scenario)
+
+Print the mean saving [%] over the routes on VLSFO of every fleet of `scenario` on `ship`,
+best first.
+"""
+function print_rigid_sizes(table, ship, scenario)
+    println("  $ship, $scenario:")
+    fleets = fleet_savings(table, ship, scenario, "rig" => scenario)
+    for (_, saving, count, unit) in sort(fleets; by=point -> -point[2])
+        @printf("    %.0f x %.0f m²: %.2f %%\n", count, unit, saving)
+    end
 end
 
 "rigs of the rigid kite figure with their legend labels and colours"
