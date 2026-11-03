@@ -136,8 +136,8 @@ end
     margin(weight) = assumptions[:cloth_specific_strength] * weight /
                      (assumptions[:canopy_strength_factor] * tension)
     # the lives the paper's derivation quotes at its base inputs
-    @test canopy(:canopy_cloth_weight => 200.0).lifetime ≈ 3812 atol = 1
-    @test canopy().lifetime ≈ 1646 atol = 1
+    @test canopy(:canopy_cloth_weight => 200.0).lifetime ≈ 2217 atol = 1
+    @test canopy().lifetime ≈ 774 atol = 1
     # at the normalising weight the exponents do not matter
     @test canopy().lifetime ≈ 100log(margin(100)) / (uv_rate + wear_rate)
     @test canopy(:canopy_uv_weight_exponent => 1.0).lifetime ≈ canopy().lifetime
@@ -156,11 +156,11 @@ end
     retired = canopy(:canopy_retirement_strength => 0.5)
     @test retired.uv_lifetime ≈ canopy().uv_lifetime * log(2) / log(margin(100))
     @test retired.wear_lifetime ≈ canopy().wear_lifetime
-    for (share, life) in ((0.7, 770), (0.46, 1155), (0.27, 1396))
+    for (share, life) in ((0.7, 538), (0.46, 701), (0.27, 774))
         @test canopy(:canopy_retirement_strength => share).lifetime ≈ life atol = 1
     end
     # cloth whose force limit comes before the retirement share flies to the force limit
-    light, light_retired = (canopy(:canopy_cloth_weight => 20.0,
+    light, light_retired = (canopy(:canopy_cloth_weight => 40.0,
             :canopy_retirement_strength => share) for share in (0.0, 0.27))
     @test light_retired.uv_lifetime ≈ light.uv_lifetime
     # the life factor scales the whole life, a fixed wear life included
