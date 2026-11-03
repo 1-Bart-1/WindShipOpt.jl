@@ -457,35 +457,49 @@ store_round_trip_cost(price, hours, assumptions::Assumptions) =
 """
     out_of_service_share(rig, assumptions)
 
-Share of the round trips [-] that `rig` sails out of service; zero without a rig.
+Share of the round trips [-] that a unit of `rig` sails out of service.
 """
-out_of_service_share(::Nothing, assumptions) = 0.0
 out_of_service_share(::WingRig, assumptions) = assumptions[:wing_out_of_service]
 out_of_service_share(::RotorRig, assumptions) = assumptions[:rotor_out_of_service]
 out_of_service_share(::KiteRig, assumptions) = assumptions[:kite_out_of_service]
 
-down_rig(rig::Union{WingRig, RotorRig}) = DownRig(rig)
-down_rig(::KiteRig) = nothing
+"""
+    unit_outage(rig, assumptions)
+
+Share of the round trips with any of the units of `rig` out of service [-], each out for
+the share given by its input and independent of the others, and the mean share of the
+units still working on those trips [-].
+"""
+function unit_outage(rig, assumptions)
+    share = out_of_service_share(rig, assumptions)
+    any_down = 1 - (1 - share)^deck_units(rig)
+    return any_down, any_down > 0 ? 1 - share / any_down : 1.0
+end
+
+down_rig(rig::Union{WingRig, RotorRig}, working_share) = DownRig(rig, working_share)
+down_rig(::KiteRig, working_share) = nothing
 
 """
     service_states(rig, assumptions)
 
 What of `rig` works over a year as (share of the round trips, rig) pairs, the working rig
-first, leaving out states with no share. A kite out of service is stowed, wings or rotors
-stand as a [`DownRig`](@ref), and each part of a [`CombinedRig`](@ref) fails on its own.
+first, leaving out states with no share. Trips with a unit down hold the mean of the units
+working, so the rig keeps its mean capacity. A kite out of service is stowed, wings or
+rotors stand as a [`DownRig`](@ref), and each part of a [`CombinedRig`](@ref) fails on its
+own.
 """
 function service_states(rig, assumptions)
-    share = out_of_service_share(rig, assumptions)
-    return with_share([(1 - share, rig), (share, down_rig(rig))])
+    any_down, working_share = unit_outage(rig, assumptions)
+    return with_share([(1 - any_down, rig), (any_down, down_rig(rig, working_share))])
 end
 
 service_states(::Nothing, assumptions) = [(1.0, nothing)]
 
 function service_states(rig::CombinedRig, assumptions)
     kite = out_of_service_share(rig.kite, assumptions)
-    standing = out_of_service_share(rig.standing, assumptions)
-    return with_share([(1 - kite - standing, rig), (kite, rig.standing),
-        (standing, CombinedRig(rig.kite, DownRig(rig.standing)))])
+    any_down, working_share = unit_outage(rig.standing, assumptions)
+    return with_share([(1 - kite - any_down, rig), (kite, rig.standing),
+        (any_down, CombinedRig(rig.kite, DownRig(rig.standing, working_share)))])
 end
 
 with_share(states) = filter(state -> first(state) > 0, states)
@@ -527,8 +541,8 @@ Route `ship` out along `outbound` and back along `inbound` for each departure ti
 departures and the states into the cost per tonne-km of the transport service. With a
 finite forecast `horizon` [h] the router knows the weather only that far ahead. Wings and
 rotors are fixed or retractable, whichever costs less. The router prices time at the
-hold's cargo before the fuel store, and the store also holds the largest leg with the rig
-out of service, without its reserve. Returns `nothing` if any passage is infeasible or the
+hold's cargo before the fuel store, and the store also holds the largest leg with a unit
+down, without its reserve. Returns `nothing` if any passage is infeasible or the
 fuel store leaves no cargo.
 """
 function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,

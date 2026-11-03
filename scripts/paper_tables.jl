@@ -110,62 +110,70 @@ function input_effects()
     return effects
 end
 
-"input of each rig holding the share of round trips it sails out of service"
-out_of_service_inputs = Dict("kite" => "kite_out_of_service",
-    "wings" => "wing_out_of_service", "rotors" => "rotor_out_of_service")
-
 """
-    cost_at_share(table, ship, rig, share)
+    share_costs(sensitivity, availability, ship, rig)
 
-Cost per tonne-km of `rig` on `ship` with the share `share` of its round trips out of
-service, on the straight line through the low and high bound of its input in the screening
-`table`.
+The shares out of service [-] and costs per tonne-km of `rig` on `ship`, ascending in the
+share: the bounds and base of its input from the `sensitivity` table and the larger shares
+from the `availability` table.
 """
-function cost_at_share(table, ship, rig, share)
+function share_costs(sensitivity, availability, ship, rig)
     input = out_of_service_inputs[rig]
-    (; low, high) = assumptions.entries[Symbol(input)]
-    low_cost = only(screened_cost(table, ship, rig, input, "low"))
-    high_cost = only(screened_cost(table, ship, rig, input, "high"))
-    return low_cost + (share - low) * (high_cost - low_cost) / (high - low)
+    entry = assumptions.entries[Symbol(input)]
+    points = Dict(entry.low => only(screened_cost(sensitivity, ship, rig, input, "low")),
+        entry.value => only(screened_cost(sensitivity, ship, rig, "none", "value")),
+        entry.high => only(screened_cost(sensitivity, ship, rig, input, "high")))
+    picked = rows(availability, "ship" => ship, "rig" => rig)
+    for (share, cost) in zip(availability["share"][picked], availability["cost"][picked])
+        points[share] = cost
+    end
+    shares = sort(collect(keys(points)))
+    return shares, [points[share] for share in shares]
 end
 
 """
-    share_at_cost(table, ship, rig, cost)
+    share_at_cost(shares, costs, cost)
 
-Share of round trips out of service [-] at which `rig` on `ship` costs `cost` per
-tonne-km, the inverse of [`cost_at_share`](@ref).
+Share [-] at which the rising `costs` over `shares` reach `cost`, linearly between the
+points; `NaN` if they never do, and the first share if they start above it.
 """
-function share_at_cost(table, ship, rig, cost)
-    at_none = cost_at_share(table, ship, rig, 0.0)
-    return (cost - at_none) / (cost_at_share(table, ship, rig, 1.0) - at_none)
+function share_at_cost(shares, costs, cost)
+    costs[1] >= cost && return shares[1]
+    k = findfirst(>=(cost), costs)
+    isnothing(k) && return NaN
+    return shares[k - 1] +
+           (shares[k] - shares[k - 1]) * (cost - costs[k - 1]) / (costs[k] - costs[k - 1])
 end
 
 """
     availability_rows()
 
-For each screened ship and rig in sensitivity.csv: cost saving [%] with its own input at the
-low bound, base and high bound, the share out of service at which it stops paying for
-itself and at which it falls behind the next rig at base, `NaN` where it does not lead.
+For each screened ship and rig: cost saving [%] with its own input at the low bound, base
+and high bound, the share out of service at which it stops paying for itself, and the
+share at which it falls behind the next rig at base, `NaN` where it does not lead.
 """
 function availability_rows()
-    table = read_table(data_file("sensitivity.csv"))
-    rows = []
-    for ship in unique(table["ship"])
-        bare = only(screened_cost(table, ship, "none", "none", "value"))
-        base = Dict(rig => only(screened_cost(table, ship, rig, "none", "value"))
+    sensitivity = read_table(data_file("sensitivity.csv"))
+    availability = read_table(data_file("availability.csv"))
+    result = []
+    for ship in unique(sensitivity["ship"])
+        bare = only(screened_cost(sensitivity, ship, "none", "none", "value"))
+        base = Dict(rig => only(screened_cost(sensitivity, ship, rig, "none", "value"))
                     for rig in rig_names)
         ranked = sort(collect(rig_names); by=rig -> base[rig])
         for rig in rig_names
             input = out_of_service_inputs[rig]
-            lead_lost = rig == first(ranked) ?
-                        share_at_cost(table, ship, rig, base[ranked[2]]) : NaN
-            push!(rows, (; ship, rig, low=screened_saving(table, ship, rig, input, "low"),
+            shares, costs = share_costs(sensitivity, availability, ship, rig)
+            lead_lost = rig == first(ranked) ? share_at_cost(shares, costs, base[ranked[2]]) :
+                        NaN
+            push!(result, (; ship, rig,
+                low=screened_saving(sensitivity, ship, rig, input, "low"),
                 base=percent_saving(base[rig], bare),
-                high=screened_saving(table, ship, rig, input, "high"),
-                stops_paying=share_at_cost(table, ship, rig, bare), lead_lost))
+                high=screened_saving(sensitivity, ship, rig, input, "high"),
+                stops_paying=share_at_cost(shares, costs, bare), lead_lost))
         end
     end
-    return rows
+    return result
 end
 
 """
@@ -182,13 +190,15 @@ function availability_table()
         println(io, "Ship & Rig & low & base & high & pays no more & loses the lead \\\\")
         println(io, "\\midrule")
         for row in availability_rows()
-            lead = isnan(row.lead_lost) ? "--" : @sprintf("%.0f", 100row.lead_lost)
-            @printf(io, "%s & %s & %.1f & %.1f & %.1f & %.0f & %s \\\\\n", row.ship,
-                row.rig, row.low, row.base, row.high, 100row.stops_paying, lead)
+            @printf(io, "%s & %s & %.1f & %.1f & %.1f & %s & %s \\\\\n", row.ship, row.rig,
+                row.low, row.base, row.high, share_cell(row.stops_paying),
+                share_cell(row.lead_lost))
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
 end
+
+share_cell(share) = isnan(share) ? "--" : @sprintf("%.0f", 100share)
 
 """
     saving_change(table, ship, input)

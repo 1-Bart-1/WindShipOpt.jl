@@ -505,16 +505,31 @@ standing_rig(::Union{KiteRig, Nothing}) = nothing
 """
     DownRig
 
-Wings or rotors out of service, still standing on deck: wings feathered at no lift, rotors
-stopped.
+Wings or rotors with only the share `working_share` of their units in service, the rest
+still on deck: wings feathered at no lift, rotors stopped.
 """
 struct DownRig{R}
     rig::R
+    working_share::Float64
 end
 
-rig_force(down::DownRig, env::Environment, wind_10m, true_angle, ship_speed, setting) =
-    rig_force(down.rig, env, wind_10m, true_angle, ship_speed, setting)
+stopped_setting(rig::WingRig) = (0.0, drag_coefficient(rig, 0.0))
+stopped_setting(::RotorRig) = 0.0
 
-trim_settings(down::DownRig{WingRig}) = [(0.0, drag_coefficient(down.rig, 0.0))]
-trim_settings(::DownRig{RotorRig}) = [0.0]
+trim_settings(down::DownRig) = down.working_share > 0 ? trim_settings(down.rig) :
+                               [stopped_setting(down.rig)]
+
+function rig_force(down::DownRig, env::Environment, wind_10m, true_angle, ship_speed,
+        setting)
+    working = rig_force(down.rig, env, wind_10m, true_angle, ship_speed, setting)
+    stopped = rig_force(down.rig, env, wind_10m, true_angle, ship_speed,
+        stopped_setting(down.rig))
+    share = down.working_share
+    return RigForce(share * working.thrust + (1 - share) * stopped.thrust,
+        share * working.side + (1 - share) * stopped.side,
+        share * working.heeling_moment + (1 - share) * stopped.heeling_moment,
+        share * working.yaw_moment + (1 - share) * stopped.yaw_moment,
+        share * working.power + (1 - share) * stopped.power)
+end
+
 standing_rig(down::DownRig) = down
