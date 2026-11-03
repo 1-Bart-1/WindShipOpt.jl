@@ -34,7 +34,8 @@ include("paper_tables.jl")
 "data steps in the order they run, each writing one or two data files"
 data_steps = [:patterns => patterns_data, :designs => designs_data,
     :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
-    :sensitivity => sensitivity_data, :situations_data => situations_data,
+    :sensitivity => sensitivity_data, :availability_data => availability_data,
+    :situations_data => situations_data,
     :wind_angle_data => wind_angle_data, :abatement_data => abatement_data,
     :components => components_data, :combination_data => combination_data,
     :launch_parking => launch_parking_data, :convergence => convergence_data]
@@ -55,7 +56,7 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :sensitivity_figure => sensitivity_figure, :components_figure => component_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
     :class_table => class_table, :fuel_table => fuel_table,
-    :payback_table => payback_table,
+    :payback_table => payback_table, :availability_table => availability_table,
     :abatement => abatement_figure, :combination => combination_figure]
 
 """
