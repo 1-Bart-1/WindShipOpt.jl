@@ -432,8 +432,8 @@ end
 @testset "cycle cost sums crew, tear, loss, retry and turn" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
-    control_unit = assumptions[:control_unit_cost] +
-                   assumptions[:control_unit_cost_per_area] * rig.area
+    control_unit = assumptions[:market_price_factor] *
+                   WindShipOpt.rig_price_parts(rig, assumptions).control_unit
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
           1.05 * (85 + 0.002canopy + 0.0005 * (canopy + tether + control_unit)) + 130
     @test WindShipOpt.forced_landing_cost(rig, assumptions) ≈
@@ -821,8 +821,8 @@ end
     hull = Hull(140.0, assumptions)
     kite = uniform_kite(hull, assumptions)
     canopy, tether = WindShipOpt.consumable_costs(kite, assumptions)
-    control_unit = assumptions[:control_unit_cost] +
-                   assumptions[:control_unit_cost_per_area] * kite.area
+    control_unit = assumptions[:market_price_factor] *
+                   WindShipOpt.rig_price_parts(kite, assumptions).control_unit
     @test WindShipOpt.crash_cost(kite, assumptions) ≈ control_unit + (canopy + tether) / 2
     for rig_type in (WingRig, WindShipOpt.RotorRig)
         rig = rig_type(800.0, hull, assumptions)
@@ -830,6 +830,14 @@ end
         @test WindShipOpt.crash_cost(rig, assumptions) * rig.count ≈
               first(WindShipOpt.rig_costs(rig, assumptions))
     end
+end
+
+@testset "each rig is measured against the next dearer rig, the dearest against none" begin
+    costs = Dict("kite" => 2.0, "wings" => 1.0, "rotors" => 3.0)
+    ranked = WindShipOpt.ranked_with_next(costs)
+    @test first.(ranked) == ["wings", "kite", "rotors"]
+    @test last.(ranked)[1:2] == [2.0, 3.0]
+    @test isnan(last(ranked[3]))
 end
 
 @testset "the crashes a year at break-even use up the cost gap exactly" begin

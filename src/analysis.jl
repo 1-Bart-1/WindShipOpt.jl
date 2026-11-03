@@ -119,6 +119,18 @@ function share_at_cost(shares, costs, cost)
 end
 
 """
+    ranked_with_next(costs)
+
+The rigs of the dictionary `costs`, cheapest first, as pairs of rig and the cost of the next
+rig, `NaN` for the last.
+"""
+function ranked_with_next(costs)
+    ranked = sort(collect(keys(costs)); by=rig -> costs[rig])
+    return [rig => (rank < length(ranked) ? costs[ranked[rank + 1]] : NaN)
+            for (rank, rig) in enumerate(ranked)]
+end
+
+"""
     events_to_cost(cost, target_cost, yearly_work, event_cost)
 
 Events a year, each costing `event_cost` [USD], that raise a transport `cost` [USD per

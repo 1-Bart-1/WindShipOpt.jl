@@ -146,10 +146,8 @@ function availability_rows()
         entries = Dict(rig => assumptions.entries[Symbol(out_of_service_inputs[rig])]
                        for rig in rig_names)
         base = Dict(rig => curve_cost(curves[rig], entries[rig].value) for rig in rig_names)
-        ranked = sort(collect(rig_names); by=rig -> base[rig])
-        for (rank, rig) in enumerate(ranked)
+        for (rig, next_cost) in WindShipOpt.ranked_with_next(base)
             curve, entry = curves[rig], entries[rig]
-            next_cost = rank < length(ranked) ? base[ranked[rank + 1]] : Inf
             push!(result, (; ship, rig,
                 low=percent_saving(curve_cost(curve, entry.low), bare),
                 base=percent_saving(base[rig], bare),
@@ -207,9 +205,7 @@ function crash_rows()
         bare = only(table["cost"][rows(table, "ship" => ship, "rig" => "none")])
         best = Dict(rig => minimum(table["cost"][rows(table, "ship" => ship, "rig" => rig)])
                     for rig in rig_names)
-        ranked = sort(collect(rig_names); by=rig -> best[rig])
-        for (rank, rig) in enumerate(ranked)
-            next_cost = rank < length(ranked) ? best[ranked[rank + 1]] : NaN
+        for (rig, next_cost) in WindShipOpt.ranked_with_next(best)
             for row in rows(table, "ship" => ship, "rig" => rig)
                 push!(result, crash_row(table, row, bare, next_cost))
             end
@@ -254,15 +250,15 @@ function crash_table()
         println(io, "\\midrule")
         for row in crash_rows()
             @printf(io, "%s & %s & %.0f & %.1f & %.0f & %s & %s & %s \\\\\n", row.ship,
-                row.rig, row.area, row.saving, row.crash / 1e3, crash_cell(row.stops_paying),
-                crash_cell(row.behind_next),
+                row.rig, row.area, row.saving, row.crash / 1e3,
+                crash_cell(row.stops_paying), crash_cell(row.behind_next),
                 row.rig == "kite" ? @sprintf("%.0f", row.flight_hours) : "--")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
 end
 
-crash_cell(crashes) = isnan(crashes) ? "--" : @sprintf("%.2f", crashes)
+crash_cell(crashes) = isnan(crashes) ? "--" : string(round(crashes; sigdigits=2))
 
 """
     saving_change(table, ship, input)

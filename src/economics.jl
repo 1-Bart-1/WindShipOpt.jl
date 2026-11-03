@@ -337,12 +337,12 @@ end
 """
     lost_kite_cost(rig, assumptions)
 
-Cost of a kite lost in the water with its tether and control unit [USD].
+Cost of a kite lost in the water with its tether and control unit [USD], at market prices.
 """
 function lost_kite_cost(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
-    return canopy + tether + assumptions[:control_unit_cost] +
-           assumptions[:control_unit_cost_per_area] * rig.area
+    control_unit = rig_price_parts(rig, assumptions).control_unit
+    return canopy + tether + assumptions[:market_price_factor] * control_unit
 end
 
 """
