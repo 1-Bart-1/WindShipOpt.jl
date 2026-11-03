@@ -4,11 +4,15 @@
 #   julia +1.12 --project=. -t auto scripts/router_gate.jl <out_dir> [reference_dir]
 #   julia +1.12 --project=. -t auto scripts/router_gate.jl --reference <out_dir>
 #
-# Writes gate_<scale>.csv to <out_dir>. Given a reference directory holding
-# gate_<scale>.csv, prints the change per case and exits 1 if a saving moves by more than
-# `SAVING_TOLERANCE` points. `--reference` searches every state, which makes such a
-# directory. A convergence check is `run_gate` with other `RouterSettings`, compared the
-# same way.
+#   julia +1.12 --project=. -t auto scripts/router_gate.jl --fresh <reference_dir> <out_dir>
+#
+# Writes gate_<scale>.csv to <out_dir>, a line per finished case; a rerun on the same code
+# and settings routes only the cases missing there, so another run needs an empty directory.
+# Given a reference directory holding gate_<scale>.csv, prints the change per case and exits
+# 1 if a saving moves by more than `SAVING_TOLERANCE` points. `--reference` searches every
+# state, which makes such a directory. `--fresh` makes the reference and compares with it, a
+# scale at a time and in one process, so both see the same code and inputs. A convergence
+# check is `run_gate` with other `RouterSettings`, compared the same way.
 using Printf
 include(joinpath(@__DIR__, "setup.jl"))
 
@@ -17,6 +21,12 @@ SAVING_TOLERANCE = 0.02
 
 "largest relative change of the cost of a ship without a rig that passes the gate [-]"
 BARE_COST_TOLERANCE = 2e-4
+
+"first line of a gate file"
+GATE_HEADER = "ship,rig,route,scale,cost,fuel,days,flight,parked,launches,cargo,seconds"
+
+"router settings of a reference run: every state is searched"
+REFERENCE_SETTINGS = WindShipOpt.RouterSettings(search_margins=(Inf, Inf))
 
 """
     gate_cases(scale)
@@ -41,45 +51,41 @@ function gate_cases(scale)
 end
 
 """
-    gate_trips(cases, sampled)
+    gate_line(case, trip, seconds)
 
-Round trip of each of `cases` over the departures `sampled`, threaded, and the seconds
-each took; `nothing` for a ship that does not exist or a passage that fails.
+The line of a gate file for `case`, `trip` being `nothing` where it is infeasible.
 """
-function gate_trips(cases, sampled)
-    for case in cases
-        case.design.kite_area > 0 && Ship(case.design, assumptions)
-        corridors(case.route, case.scale)
-    end
-    trips = Vector{Any}(nothing, length(cases))
-    seconds = zeros(length(cases))
-    Threads.@threads :greedy for k in eachindex(cases)
-        case = cases[k]
-        seconds[k] = @elapsed begin
-            ship = Ship(case.design, assumptions)
-            trips[k] = isnothing(ship) ? nothing : round_trip(ship,
-                corridors(case.route, case.scale)..., weather, sampled, assumptions)
-        end
-    end
-    return trips, seconds
+function gate_line(case, trip, seconds)
+    values = isnothing(trip) ? fill("NA", 7) : repr.((trip.cost_per_tonne_km,
+        trip.fuel_per_tonne_km, trip.outbound_days + trip.return_days, trip.flight_share,
+        trip.parked_share, trip.launches, trip.cargo))
+    return join((case.ship, case.rig, case.route, case.scale, values...,
+            round(seconds; digits=2)), ",")
 end
 
 """
-    write_gate(path, cases, trips, seconds)
+    gate_trips(path, cases, sampled)
 
-Write the results of a gate run to `path`, one line per case.
+Route the round trip over the departures `sampled` of each of `cases` not yet in the gate
+file `path`, threaded, adding each line to the file as its case finishes.
 """
-function write_gate(path, cases, trips, seconds)
-    open(path, "w") do io
-        println(io,
-            "ship,rig,route,scale,cost,fuel,days,flight,parked,launches,cargo,seconds")
-        for (case, trip, time) in zip(cases, trips, seconds)
-            values = isnothing(trip) ? fill("NA", 7) : repr.((trip.cost_per_tonne_km,
-                trip.fuel_per_tonne_km, trip.outbound_days + trip.return_days,
-                trip.flight_share, trip.parked_share, trip.launches, trip.cargo))
-            println(io, join((case.ship, case.rig, case.route, case.scale, values...,
-                    round(time; digits=2)), ","))
+function gate_trips(path, cases, sampled)
+    isfile(path) || write(path, GATE_HEADER * "\n")
+    finished = keys(read_gate(path))
+    waiting = filter(case -> (case.ship, case.rig, String(case.route)) ∉ finished, cases)
+    for case in waiting
+        case.design.kite_area > 0 && Ship(case.design, assumptions)
+        corridors(case.route, case.scale)
+    end
+    file_lock = ReentrantLock()
+    Threads.@threads :greedy for case in waiting
+        seconds = @elapsed begin
+            ship = Ship(case.design, assumptions)
+            trip = isnothing(ship) ? nothing : round_trip(ship,
+                corridors(case.route, case.scale)..., weather, sampled, assumptions)
         end
+        line = gate_line(case, trip, seconds)
+        lock(() -> open(io -> println(io, line), path, "a"), file_lock)
     end
 end
 
@@ -155,12 +161,9 @@ function gate_scales(out_dir, reference_dir, scales)
     mkpath(out_dir)
     passed = true
     for scale in scales
-        cases = gate_cases(scale)
-        wall = @elapsed trips, seconds = gate_trips(cases, departures[1:6:end])
         path = joinpath(out_dir, "gate_$(Int(scale)).csv")
-        write_gate(path, cases, trips, seconds)
-        @printf("scale %.0f: %d of %d feasible, %.0f s wall, %.0f s summed\n", scale,
-            count(!isnothing, trips), length(trips), wall, sum(seconds))
+        wall = @elapsed gate_trips(path, gate_cases(scale), departures[1:6:end])
+        @printf("scale %.0f: all cases in %s after %.0f s\n", scale, path, wall)
         isnothing(reference_dir) && continue
         passed &= gate_passes(path, joinpath(reference_dir, basename(path)))
     end
@@ -168,17 +171,35 @@ function gate_scales(out_dir, reference_dir, scales)
 end
 
 """
-    run_gate(out_dir, reference_dir=nothing; scales=(2.0, 4.0), settings=RouterSettings())
+    run_gate(out_dir, reference_dir=nothing; scales=(4.0, 2.0), settings=RouterSettings())
 
 [`gate_scales`](@ref) under the router `settings`.
 """
-run_gate(out_dir, reference_dir=nothing; scales=(2.0, 4.0),
+run_gate(out_dir, reference_dir=nothing; scales=(4.0, 2.0),
     settings=WindShipOpt.RouterSettings()) =
     WindShipOpt.with_router_settings(() -> gate_scales(out_dir, reference_dir, scales),
         settings)
 
+"""
+    fresh_gate(reference_dir, out_dir; scales=(4.0, 2.0))
+
+Make the reference in `reference_dir` and run the gate against it in `out_dir`, a scale at a
+time; whether every case is inside the tolerances.
+"""
+function fresh_gate(reference_dir, out_dir; scales=(4.0, 2.0))
+    passed = true
+    for scale in scales
+        run_gate(reference_dir; scales=(scale,), settings=REFERENCE_SETTINGS)
+        passed &= run_gate(out_dir, reference_dir; scales=(scale,))
+    end
+    return passed
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
-    settings = WindShipOpt.RouterSettings(search_margins=(Inf, Inf))
-    first(ARGS) == "--reference" && (run_gate(ARGS[2]; settings); exit(0))
+    if first(ARGS) == "--reference"
+        run_gate(ARGS[2]; settings=REFERENCE_SETTINGS)
+        exit(0)
+    end
+    first(ARGS) == "--fresh" && exit(fresh_gate(ARGS[2:end]...) ? 0 : 1)
     exit(run_gate(ARGS...) ? 0 : 1)
 end
