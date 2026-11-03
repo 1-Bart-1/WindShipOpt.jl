@@ -505,7 +505,7 @@ end
     control_unit = assumptions[:control_unit_cost] +
                    assumptions[:control_unit_cost_per_area] * rig.area
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
-          1.05 * (85 + 0.002canopy + 0.0005 * (canopy + tether + control_unit)) + 130
+          1.05 * (85 + 0.00005canopy + 0.00005 * (canopy + tether + control_unit)) + 130
     @test WindShipOpt.forced_landing_cost(rig, assumptions) ≈
           0.05 * (canopy + tether + control_unit)
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
