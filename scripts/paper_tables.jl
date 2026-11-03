@@ -183,27 +183,18 @@ function life_at_cost(lives, costs, cost)
 end
 
 """
-    crashes_a_year(cost, limit, work, rig)
-
-Crashes a year [1/year] that take a rig from `cost` to `limit` [USD/tkm] at the transport
-`work` [tkm/year], each destroying [`crash_cost`](@ref) of `rig`.
-"""
-crashes_a_year(cost, limit, work, rig) =
-    (limit - cost) * work / WindShipOpt.crash_cost(rig, assumptions)
-
-"""
     missed_goal_rows()
 
 For each screened ship and each rig, best first at the goals: cost saving [%], and where it
-stops paying and falls behind the next rig (`NaN` for the last) the canopy life [h], the
-crashes a year and the share out of service [-], that share also for all units failing
-together; for the kite its saving [%] at a canopy life of 2,000 h.
+stops paying and falls behind the next rig (`NaN` for the last) the canopy life [h] and the
+share out of service [-], that share also for all units failing together; for the kite its
+saving [%] at a canopy life of 2,000 h.
 """
 function missed_goal_rows()
     service = read_table(data_file("availability.csv"))
     lives = read_table(data_file("canopy_life.csv"))
     result = []
-    for (ship, design, route, areas) in sensitivity_ships()
+    for ship in unique(service["ship"])
         bare = only(share_costs(service, ship, "none")[2])
         curves = Dict(rig => share_costs(service, ship, rig) for rig in rig_names)
         goal = Dict(rig => curve_cost(curves[rig],
@@ -215,11 +206,6 @@ function missed_goal_rows()
         for (rank, rig) in enumerate(ranked)
             curve = curves[rig]
             next_cost = rank < length(ranked) ? goal[ranked[rank + 1]] : NaN
-            built = Ship(ShipDesign(; design.drive, design.length, design.class,
-                    getproperty(areas, Symbol(rig))...), assumptions)
-            trip = only(rows(service, "ship" => ship, "rig" => rig, "share" =>
-                    assumptions[Symbol(out_of_service_inputs[rig])]))
-            work = yearly_work(service["cargo"][trip], service["days"][trip], route)
             limits(quantity) = (quantity(bare),
                 isnan(next_cost) ? NaN : quantity(next_cost))
             is_kite = rig == "kite"
@@ -227,7 +213,6 @@ function missed_goal_rows()
                 saving_short=is_kite ? percent_saving(
                     life_curve[2][findfirst(==(2000.0), life_curve[1])], bare) : NaN,
                 life=limits(cost -> is_kite ? life_at_cost(life_curve..., cost) : NaN),
-                crashes=limits(cost -> crashes_a_year(goal[rig], cost, work, built.rig)),
                 share=limits(cost -> WindShipOpt.share_at_cost(curve..., cost)),
                 whole_behind=isnan(next_cost) ? NaN :
                              WindShipOpt.share_at_cost([0.0, 1.0],
@@ -244,21 +229,18 @@ Write the [`missed_goal_rows`](@ref) to paper/sections/missed_goals_table.tex.
 """
 function missed_goals_table()
     open(joinpath(sections, "missed_goals_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}llrrrrrrrrr@{}}\n\\toprule")
+        println(io, "\\begin{tabular}{@{}llrrrrrrr@{}}\n\\toprule")
         println(io, " & & \\multicolumn{2}{c}{Saving [\\%]} & ",
             "\\multicolumn{2}{c}{Canopy life [h] where} & ",
-            "\\multicolumn{2}{c}{Crashes a year where} & ",
             "\\multicolumn{3}{c}{Out of service [\\%] where} \\\\")
-        println(io, "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}\\cmidrule(lr){7-8}",
-            "\\cmidrule(lr){9-11}")
+        println(io, "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}\\cmidrule(lr){7-9}")
         println(io, "Ship & Rig & at goals & at \\num{2000} h & ",
-            "pays no more & behind next & pays no more & behind next & ",
-            "pays no more & behind next & all units \\\\")
+            "pays no more & behind next & pays no more & behind next & all units \\\\")
         println(io, "\\midrule")
         for row in missed_goal_rows()
             cells = [row.ship; row.rig; @sprintf("%.1f", row.saving);
                      dash_cell(row.saving_short, "%.1f"); dash_cell.(row.life, "%.0f")...;
-                     dash_cell.(row.crashes, "%.2f")...; share_cell.(row.share)...;
+                     share_cell.(row.share)...;
                      share_cell(row.whole_behind)]
             println(io, join(cells, " & "), " \\\\")
         end
@@ -514,20 +496,6 @@ function payback_cell(years)
 end
 
 """
-    yearly_work(cargo, days, route)
-
-Transport work a year [tkm] of a ship carrying `cargo` [t] on `route`, a round trip taking
-`days` at sea.
-"""
-function yearly_work(cargo, days, route)
-    outbound, inbound = run_corridors(Symbol(route))
-    tonne_km = cargo * (outbound.track_length +
-                        assumptions[:backhaul_fraction] * inbound.track_length) / 1e3
-    hours = 24days + 48assumptions[:port_time_per_call]
-    return tonne_km * 8760assumptions[:availability] / hours
-end
-
-"""
     payback_years(table, class, drive, route, rig)
 
 Years until the yearly cash saving of the cheapest size of `rig`, before its own capital
@@ -551,8 +519,13 @@ function payback_years(table, class, drive, route, rig)
                rig == "wings" ? assumptions[:wing_lifetime] : assumptions[:rotor_lifetime]
     charges = (WindShipOpt.capital_recovery(rate, lifetime) +
                assumptions[:maintenance_fraction]) * price
-    work = yearly_work(table["cargo"][best], table["days"][best], route)
-    saving = (only(table["cost"][bare]) - table["cost"][best]) * work + charges
+    outbound, inbound = run_corridors(Symbol(route))
+    tonne_km = table["cargo"][best] * (outbound.track_length +
+                                       assumptions[:backhaul_fraction] *
+                                       inbound.track_length) / 1e3
+    hours = 24table["days"][best] + 48assumptions[:port_time_per_call]
+    yearly_work = tonne_km * 8760assumptions[:availability] / hours
+    saving = (only(table["cost"][bare]) - table["cost"][best]) * yearly_work + charges
     saving > rate * price || return Inf
     years = -log(1 - rate * price / saving) / log(1 + rate)
     return years <= lifetime ? years : Inf
