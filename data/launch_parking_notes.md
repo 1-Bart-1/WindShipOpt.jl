@@ -108,3 +108,53 @@ Tear. Service limits of skydiving canopies, such as 1 in 600 jumps for a tandem 
 Forced landing. A landing outside the limits is charged at 5 % (1-20 %) of canopy, tether and control unit, an estimate with no data behind it, and counted apart from the launches.
 
 Who charges what. Time out of service, repair events, and failures of the winch, control unit, tether and mast belong to rig availability. A launch failure that needs only another try is charged here, one that takes the rig out of service is not.
+
+## Result
+
+Parking is not worth building on, and the base case leaves it off. On the 140 m e-methanol ship, parking on raises the kite's saving by 0.2-3.5 points, median 1.1. If a parked hour wears as much as a flown one, that falls to -0.2 to 2.0, median 0.6. Router noise in this draft run is up to 0.8 points, read from cases where a dearer input came out cheaper.
+
+It is not lull bridging. Parked stretches last a median of 33, 52 and 69 h at 800, 1,600 and 3,200 m^2, and 94-98 % of parked hours lie in stretches over a day, at a mean pull of 14, 33 and 117 kN. The router is sailing on a kite at rest for days: at 45 deg off the wind and up to 12 m/s, a parked kite saves more fuel than a flown one or within 5 % of it (`lull.csv`), at half the wear, an estimate. Launches do not fall: they rise on 16 of 18 cases. No source reports this operation.
+
+A real lull. Into the wind, parking is cheaper than a landing and launch for 0.7-2.7 h, the shorter the bigger the kite and the stronger the wind (5 m/s ship speed, 4-12 m/s of wind, `lull.csv`). At 45 deg off the wind it pays for 19-66 h at 4 m/s and by itself from 6 m/s; from 90 deg it pays by itself wherever the kite can stay up. A parked kite needs 5.1-5.4 m/s of apparent wind, above the 3.9-4.1 m/s of a flying one, so a lull that drops below flight also drops below parking, and the kite comes down anyway.
+
+Ranking. The best kite against the rotor, in saving points on each route:
+
+| Route | Off | On | On, wear 1 | Off, high launch cost | Off, against wings |
+| --- | --- | --- | --- | --- | --- |
+| Caribbean | -0.6 | +0.4 | 0.0 | -3.0 | +6.4 |
+| New York | -2.5 | +0.5 | -1.3 | -6.2 | +2.4 |
+| Bilbao | +0.8 | +3.1 | +2.5 | -2.6 | +2.8 |
+| Dakar | -3.2 | -2.7 | -3.2 | -6.4 | +3.3 |
+| Houston | -2.3 | +0.9 | -0.6 | -5.4 | +5.3 |
+| Tubarão | -3.7 | -2.4 | -3.5 | -6.3 | +5.7 |
+
+So parking moves the kite past the rotor on Caribbean, New York and Houston at half wear, by no more than the noise on two of them, and at full wear on none. That move rests on the wear estimate and on an operation nobody has shown, which is why it stays a sensitivity. Setting `kite_parking` to 1 restores it.
+
+Launch cost. With parking off, a launch and landing at base costs little: the low bound adds 0-0.5 points, 1.3 on New York at 800 m^2, where 0.16 forced landings per round trip are charged. All launch inputs at their high bound together take 1.4-7.1 points, the most at 3,200 m^2, and put the best kite behind the rotor on every route and behind the wings on New York and Bilbao. At today's estimates of tears and losses a cycle costs USD 740-2,350 instead of 242-314, read from the formula, so the result rests on the goal being met. The high bounds are joint, a worst case rather than a likely one; each input also enters the sensitivity study alone.
+
+Time out of service. With no rig ever out of service, each kite gains 0.1-0.6 points with parking off and the wings and rotors 0.2-0.6. Parking's gain and the ranking stay as above, within 0.2 points.
+
+Flight. With parking off the kite flies 21-57 % of the trip and makes 2-11 launches per round trip. With parking on it flies 11-49 % and parks 10-40 %. The 3,200 m^2 kite flies least and parks most.
+
+Savings [%] against the same ship with no rig, at launch costs low, base and high, draft run on 72 departures, each case the mean over them:
+
+| Route | Area [m^2] | Off, low | Off, base | Off, high | On, low | On, base | On, high | On, wear 1 | Launches off/on | Flight share off/on | Parked share on |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Caribbean | 800 | 11.9 | 11.8 | 9.5 | 12.3 | 12.0 | 9.9 | 11.8 | 7.0 / 7.4 | 0.52 / 0.47 | 0.10 |
+| Caribbean | 1,600 | 13.6 | 13.5 | 11.1 | 14.7 | 14.4 | 11.1 | 14.1 | 6.1 / 6.5 | 0.56 / 0.48 | 0.13 |
+| Caribbean | 3,200 | 10.6 | 10.4 | 5.3 | 12.8 | 12.4 | 7.4 | 11.2 | 5.5 / 7.6 | 0.41 / 0.28 | 0.28 |
+| New York | 800 | 10.4 | 9.1 | 6.3 | 11.1 | 9.5 | 7.2 | 10.3 | 9.2 / 8.6 | 0.47 / 0.40 | 0.17 |
+| New York | 1,600 | 12.4 | 11.9 | 8.2 | 13.1 | 12.9 | 9.5 | 12.4 | 9.9 / 10.2 | 0.48 / 0.38 | 0.22 |
+| New York | 3,200 | 11.9 | 11.4 | 4.3 | 14.3 | 14.9 | 8.5 | 13.1 | 8.9 / 10.0 | 0.37 / 0.23 | 0.30 |
+| Bilbao | 800 | 2.5 | 2.5 | 0.1 | 4.7 | 4.5 | 2.2 | 2.4 | 1.9 / 2.1 | 0.28 / 0.26 | 0.16 |
+| Bilbao | 1,600 | 3.3 | 3.2 | -0.6 | 6.3 | 5.8 | 2.0 | 5.2 | 2.1 / 2.4 | 0.25 / 0.21 | 0.23 |
+| Bilbao | 3,200 | 3.8 | 3.5 | -0.8 | 4.9 | 4.7 | 0.2 | 3.9 | 1.9 / 2.1 | 0.21 / 0.11 | 0.23 |
+| Dakar | 800 | 9.6 | 9.4 | 7.7 | 10.0 | 9.7 | 8.3 | 9.3 | 5.2 / 5.5 | 0.46 / 0.39 | 0.17 |
+| Dakar | 1,600 | 11.7 | 11.5 | 8.3 | 12.3 | 11.9 | 9.2 | 11.5 | 5.0 / 5.2 | 0.48 / 0.37 | 0.20 |
+| Dakar | 3,200 | 9.3 | 9.1 | 4.0 | 12.3 | 12.1 | 6.2 | 9.9 | 4.4 / 5.0 | 0.42 / 0.20 | 0.34 |
+| Houston | 800 | 9.2 | 9.0 | 6.7 | 10.2 | 9.9 | 7.2 | 9.2 | 10.2 / 10.8 | 0.53 / 0.47 | 0.13 |
+| Houston | 1,600 | 12.1 | 12.0 | 8.9 | 13.0 | 13.1 | 9.8 | 12.7 | 10.0 / 11.2 | 0.51 / 0.44 | 0.16 |
+| Houston | 3,200 | 12.3 | 12.1 | 6.0 | 15.5 | 15.2 | 9.5 | 13.8 | 11.0 / 11.2 | 0.40 / 0.26 | 0.27 |
+| Tubarão | 800 | 11.7 | 11.5 | 10.1 | 11.9 | 11.7 | 10.4 | 11.5 | 7.8 / 8.9 | 0.56 / 0.49 | 0.15 |
+| Tubarão | 1,600 | 15.3 | 15.1 | 12.5 | 16.0 | 15.8 | 13.7 | 15.3 | 7.6 / 7.8 | 0.57 / 0.47 | 0.21 |
+| Tubarão | 3,200 | 13.5 | 13.3 | 8.3 | 16.5 | 16.3 | 11.8 | 14.0 | 7.4 / 7.1 | 0.46 / 0.25 | 0.40 |
