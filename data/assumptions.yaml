@@ -961,6 +961,27 @@ fuel_reserve_factor:
   unit: "-"
   reason: "Engineering assumption: tank capacity over the largest leg consumption in the weather sample; no source found."
 
+wing_out_of_service:
+  value: 0.03
+  low: 0.004
+  high: 0.10
+  unit: "-"
+  reason: "Share of round trips with the wings out of service though the wind would allow them. Base: our assumption, the same for all rigs, from the operator of the rotor ship Estraden (97 % usable, Spliethoff). Low: 99.6 % operational availability on Canopee, maker with owner, undefined (OceanWings 2025). High: our estimate. See data/rig_availability_notes.md."
+
+rotor_out_of_service:
+  value: 0.03
+  low: 0.01
+  high: 0.10
+  unit: "-"
+  reason: "Share of round trips with the rotors out of service though the wind would allow them. Base: Estraden's operator, 97 % usable over about 6 years, undefined (Spliethoff). Low: maker's above 99 % on Estraden (Kuuskoski 2018). High: our estimate. See data/rig_availability_notes.md."
+
+kite_out_of_service:
+  value: 0.03
+  low: 0.01
+  high: 0.50
+  unit: "-"
+  reason: "Share of round trips with the kite out of service though the wind and sea would allow it. No source gives a figure for any ship kite. Base and low: our assumption, the same as the rotors. High: our estimate from outage arithmetic with unsourced inputs. See data/rig_availability_notes.md."
+
 # --- fuel and carbon ---
 vlsfo_price:
   value: 16.0

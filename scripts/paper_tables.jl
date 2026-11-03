@@ -1,6 +1,7 @@
 # Table steps of the paper, written as LaTeX to paper/sections/: the inputs of
 # data/assumptions.yaml that matter ranked by effect, the ship classes from
-# data/ship_classes.csv, and the fuel saving and payback of each rig. Included by paper.jl.
+# data/ship_classes.csv, the fuel saving and payback of each rig, and its availability
+# limits. Included by paper.jl.
 
 """
     latex_escape(text)
@@ -107,6 +108,86 @@ function input_effects()
         effects[Symbol(input)] = (; saving, cost)
     end
     return effects
+end
+
+"input of each rig holding the share of round trips it sails out of service"
+out_of_service_inputs = Dict("kite" => "kite_out_of_service",
+    "wings" => "wing_out_of_service", "rotors" => "rotor_out_of_service")
+
+"""
+    cost_at_share(table, ship, rig, share)
+
+Cost per tonne-km of `rig` on `ship` with the share `share` of its round trips out of
+service, on the straight line through the low and high bound of its input in the screening
+`table`.
+"""
+function cost_at_share(table, ship, rig, share)
+    input = out_of_service_inputs[rig]
+    (; low, high) = assumptions.entries[Symbol(input)]
+    low_cost = only(screened_cost(table, ship, rig, input, "low"))
+    high_cost = only(screened_cost(table, ship, rig, input, "high"))
+    return low_cost + (share - low) * (high_cost - low_cost) / (high - low)
+end
+
+"""
+    share_at_cost(table, ship, rig, cost)
+
+Share of round trips out of service [-] at which `rig` on `ship` costs `cost` per
+tonne-km, the inverse of [`cost_at_share`](@ref).
+"""
+function share_at_cost(table, ship, rig, cost)
+    at_none = cost_at_share(table, ship, rig, 0.0)
+    return (cost - at_none) / (cost_at_share(table, ship, rig, 1.0) - at_none)
+end
+
+"""
+    availability_rows()
+
+For each screened ship and rig in sensitivity.csv: cost saving [%] with its own input at the
+low bound, base and high bound, the share out of service at which it stops paying for
+itself and at which it falls behind the next rig at base, `NaN` where it does not lead.
+"""
+function availability_rows()
+    table = read_table(data_file("sensitivity.csv"))
+    rows = []
+    for ship in unique(table["ship"])
+        bare = only(screened_cost(table, ship, "none", "none", "value"))
+        base = Dict(rig => only(screened_cost(table, ship, rig, "none", "value"))
+                    for rig in rig_names)
+        ranked = sort(collect(rig_names); by=rig -> base[rig])
+        for rig in rig_names
+            input = out_of_service_inputs[rig]
+            lead_lost = rig == first(ranked) ?
+                        share_at_cost(table, ship, rig, base[ranked[2]]) : NaN
+            push!(rows, (; ship, rig, low=screened_saving(table, ship, rig, input, "low"),
+                base=percent_saving(base[rig], bare),
+                high=screened_saving(table, ship, rig, input, "high"),
+                stops_paying=share_at_cost(table, ship, rig, bare), lead_lost))
+        end
+    end
+    return rows
+end
+
+"""
+    availability_table()
+
+Write the [`availability_rows`](@ref) to paper/sections/availability_table.tex.
+"""
+function availability_table()
+    open(joinpath(sections, "availability_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}llrrrrr@{}}\n\\toprule")
+        println(io, " & & \\multicolumn{3}{c}{Saving [\\%], out of service at} & ",
+            "\\multicolumn{2}{c}{Out of service [\\%] where} \\\\")
+        println(io, "\\cmidrule(lr){3-5}\\cmidrule(lr){6-7}")
+        println(io, "Ship & Rig & low & base & high & pays no more & loses the lead \\\\")
+        println(io, "\\midrule")
+        for row in availability_rows()
+            lead = isnan(row.lead_lost) ? "--" : @sprintf("%.0f", 100row.lead_lost)
+            @printf(io, "%s & %s & %.1f & %.1f & %.1f & %.0f & %s \\\\\n", row.ship,
+                row.rig, row.low, row.base, row.high, 100row.stops_paying, lead)
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
 end
 
 """

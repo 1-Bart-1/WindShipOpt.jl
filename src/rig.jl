@@ -501,3 +501,20 @@ no rig.
 standing_rig(rig::Union{WingRig, RotorRig}) = rig
 standing_rig(rig::CombinedRig) = rig.standing
 standing_rig(::Union{KiteRig, Nothing}) = nothing
+
+"""
+    DownRig
+
+Wings or rotors out of service, still standing on deck: wings feathered at no lift, rotors
+stopped.
+"""
+struct DownRig{R}
+    rig::R
+end
+
+rig_force(down::DownRig, env::Environment, wind_10m, true_angle, ship_speed, setting) =
+    rig_force(down.rig, env, wind_10m, true_angle, ship_speed, setting)
+
+trim_settings(down::DownRig{WingRig}) = [(0.0, drag_coefficient(down.rig, 0.0))]
+trim_settings(::DownRig{RotorRig}) = [0.0]
+standing_rig(down::DownRig) = down

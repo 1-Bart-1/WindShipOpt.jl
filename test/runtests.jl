@@ -345,6 +345,53 @@ end
 
 corridor, table, hourly = wing_coaster_routing()
 
+"""
+    trip_with_share(design, name, share, corridors)
+
+Round trip of `design` in synthetic weather with the input `name` at `share`.
+"""
+function trip_with_share(design, name, share, corridors)
+    changed = with_value(assumptions, name, share)
+    return round_trip(Ship(design, changed), corridors..., SyntheticWeather(),
+        [24.0 * 31, 24.0 * 200], changed)
+end
+
+@testset "a rig out of service keeps its cost and saves no fuel while down" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    bare = ShipDesign(:methanol, 85.0)
+    bare_trip = round_trip(Ship(bare, assumptions), corridors..., SyntheticWeather(),
+        [24.0 * 31, 24.0 * 200], assumptions)
+    for (design, name) in ((ShipDesign(:methanol, 85.0; wing_area=400.0),
+            :wing_out_of_service),
+        (ShipDesign(:methanol, 85.0; rotor_area=200.0), :rotor_out_of_service),
+        (ShipDesign(:methanol, 85.0; kite_area=400.0), :kite_out_of_service))
+        low, middle, high, down = [trip_with_share(design, name, share, corridors)
+                                   for share in (0.25, 0.5, 0.75, 1.0)]
+        @test low.fuel_energy < middle.fuel_energy < high.fuel_energy < down.fuel_energy
+        @test down.cost_per_tonne_km > bare_trip.cost_per_tonne_km
+        @test down.fuel_energy >= 0.999bare_trip.fuel_energy
+        @test down.launches == 0
+        @test middle.cost_per_tonne_km ≈
+              (low.cost_per_tonne_km + high.cost_per_tonne_km) / 2 rtol = 1e-4
+    end
+    kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
+    @test trip_with_share(kite, :kite_out_of_service, 1.0, corridors).fuel_energy ≈
+          bare_trip.fuel_energy rtol = 1e-3
+end
+
+@testset "stopped rotors and feathered wings are only drag in a head wind" begin
+    for design in (ShipDesign(:methanol, 85.0; wing_area=400.0),
+        ShipDesign(:methanol, 85.0; rotor_area=200.0))
+        ship = Ship(design, assumptions)
+        down = WindShipOpt.DownRig(ship.rig)
+        bare_thrust = first(WindShipOpt.best_trim(ship, nothing, 5.0, 10.0, 0.0))
+        down_thrust, force = WindShipOpt.best_trim(ship, down, 5.0, 10.0, 0.0)
+        @test down_thrust > bare_thrust
+        @test force.thrust < 0
+        @test force.power == 0
+    end
+end
+
 @testset "bounded route equals the unpruned dynamic programme" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
     workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2), 400,
