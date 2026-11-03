@@ -149,8 +149,8 @@ end
     availability_rows()
 
 For each screened ship and rig: cost saving [%] with its own input at the low bound, base
-and high bound, the share out of service at which it stops paying for itself, and the
-share at which it falls behind the next rig at base, `NaN` where it does not lead.
+and high bound, the share out of service at which it stops paying for itself and at which
+it falls behind the next rig at base, `NaN` for the last rig.
 """
 function availability_rows()
     sensitivity = read_table(data_file("sensitivity.csv"))
@@ -161,16 +161,16 @@ function availability_rows()
         base = Dict(rig => only(screened_cost(sensitivity, ship, rig, "none", "value"))
                     for rig in rig_names)
         ranked = sort(collect(rig_names); by=rig -> base[rig])
-        for rig in rig_names
+        for (rank, rig) in enumerate(ranked)
             input = out_of_service_inputs[rig]
             shares, costs = share_costs(sensitivity, availability, ship, rig)
-            lead_lost = rig == first(ranked) ? share_at_cost(shares, costs, base[ranked[2]]) :
-                        NaN
+            behind_next = rank < length(ranked) ?
+                          share_at_cost(shares, costs, base[ranked[rank + 1]]) : NaN
             push!(result, (; ship, rig,
                 low=screened_saving(sensitivity, ship, rig, input, "low"),
                 base=percent_saving(base[rig], bare),
                 high=screened_saving(sensitivity, ship, rig, input, "high"),
-                stops_paying=share_at_cost(shares, costs, bare), lead_lost))
+                stops_paying=share_at_cost(shares, costs, bare), behind_next))
         end
     end
     return result
@@ -187,12 +187,12 @@ function availability_table()
         println(io, " & & \\multicolumn{3}{c}{Saving [\\%], out of service at} & ",
             "\\multicolumn{2}{c}{Out of service [\\%] where} \\\\")
         println(io, "\\cmidrule(lr){3-5}\\cmidrule(lr){6-7}")
-        println(io, "Ship & Rig & low & base & high & pays no more & loses the lead \\\\")
+        println(io, "Ship & Rig & low & base & high & pays no more & behind next \\\\")
         println(io, "\\midrule")
         for row in availability_rows()
             @printf(io, "%s & %s & %.1f & %.1f & %.1f & %s & %s \\\\\n", row.ship, row.rig,
                 row.low, row.base, row.high, share_cell(row.stops_paying),
-                share_cell(row.lead_lost))
+                share_cell(row.behind_next))
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
