@@ -104,16 +104,34 @@ Removing UV stops any double count, but only as far as the dose per sailing hour
 | Regime | Data | Implied r | What r = 0.13 would mean |
 | --- | --- | --- | --- |
 | Tension cycling, polyester rope yarn at 3 % mean, 4 % range, 10^6 cycles (TTI 2006) | -0.4 to -9.2 % | 0.0014-0.035 at 1 Hz | 4-90 times too low to matter |
+| Tension cycling, woven polyester 60-85 g/m² [est], to 46-77 % of break strain, 12,000 cycles (Nosraty 2013) | Strength unchanged, at most -4.4 % | At most 0.013-0.038 at 60-120 cycles an hour | At least 400-600 such cycles an hour |
 | Flutter, polyester sailcloth 166-184 g/m² [est], 30 mph, 30 min (Doyle 2011) | -3.6 to -12.6 % stiffness | 12-45 if continuous | 0.3-1.1 % flutter duty, 10-38 s an hour |
 | Crumple, PA66 34-42 g/m², ISO 7854 C, 9,000 cycles (Maslanka 2023) | -0.3 to -13.5 % | 1.1e-5 to 6.8e-4 per cycle | 190-11,000 crumples an hour |
 
 Neither duty has been measured on a kite. Patent flutter data are stiffness, not strength, and loss may not stay linear.
 
+**Cycling woven polyester.** Nosraty 2013 is the one fabric test we hold that reads strength after cycling: six weaves of textured polyester, 150 denier warp and 80 denier weft, at 18, 22 and 26 picks/cm, 15-20 kN/m warp and 3-7 kN/m weft, about 60-85 g/m² [est, the paper gives no weight or warp density]. Strips of 5 by 20 cm were cycled to a fixed strain of 12 or 18 % at 100 cycles a minute, up to 12,000 cycles, about 2 h. Each fabric's row at 12,000 cycles against its uncycled row in Table III, the two strokes averaged, with a 95 % interval over the 18 fabrics [our arithmetic, on our transcription of the scan]:
+
+| Property | Warp, after / before | Weft, after / before |
+| --- | --- | --- |
+| Maximum load | 1.007 (0.995-1.018) | 0.979 (0.956-1.001) |
+| Breaking strain | 0.657 (0.631-0.682) | 0.617 (0.589-0.644) |
+| Second modulus | 1.42 (1.36-1.47) | 1.59 (1.53-1.66) |
+
+The authors' ANOVA, pooling all fabrics, agrees on load (F = 0.27, p = 0.90 warp; F = 0.18, p = 0.95 weft) and finds strain and modulus significant. So 12,000 cycles at half to three-quarters of breaking strain cost at most 4.4 % of strength. Taking that bound per cycle, and every eight of a kite as hard as this test, tension cycling gives at most 0.013-0.038 g/m²/h at 60-120 cycles an hour, 10-30 % of r = 0.13. Kite cycles are far softer, at 0.4-3 % of break. This replaces an inference from fibres and rope yarn with a measurement on cloth, and agrees with it, so r does not move: tension cycling still does not explain the wear rate. Limits:
+
+- 12,000 cycles are 2.4 % of the 5e5 eights in a 3,800 h life. The authors expect load to fall with enough further cycles, and explain the flat load as more yarn orientation cancelling broken filaments, so a flat curve here is no proof of a flat curve later.
+- The test controls strain and reports no load, and fabric stretches for good during the test, so the load per cycle falls and 46-77 % of break strain describes the start only [est].
+- Part of the fall in breaking strain is likely crimp and slack pulled out rather than damage [est]. Load times breaking strain, a rough stand-in for the work to break, still falls to 0.66 warp and 0.60 weft [est]. A strength limit alone would miss this, and a tear limit may not; tear was not measured.
+- No ripstop, coating, flex, UV or porosity. Text and table disagree on sample counts (2 or 5 per case; 576 samples, but 324 in the ANOVA), and P(26)'s uncycled row differs between strokes on two values (873 and 883 N, 107 and 125 N).
+
+Asayesh and Jeddi 2007 come nearest a canopy's strain: tubular plain weave of textured polyester in the weft, 0.5 and 1 % strain, 2-4 % of break strain, at a preload of 73 N/m, 37 °C, 1 and 3 Hz, for 90 min, or 5,400 and 16,200 cycles. They read dynamic modulus only: a quick change over the first minutes, put down to yarn slip, then a slow drift, with storage modulus up about 6-15 % (by eye, Fig. 1). No strength or failure was read, so they set no rate. Their "increase in lifetime" with frequency is inferred from elongation, with no lifetime measured, and their elongation bars of 34-570 % are undefined and exceed the 26-32 % breaking strain. We use neither.
+
 ## Load variable and the T/w test
 
 T = p R per unit width is the load. At the working limit a sail and the kite sit at the same T/w, 2.0-3.2 against 2.5 N/m per g/m² [est], both 0.4-3 % of break. Earlier notes calling sails "much lower loading" were wrong per width.
 
-**Normalising life by T/w cannot be tested and what evidence exists is against it.** No data set varies weight and tension with wear measured, because cloth is chosen for its load. Indirectly:
+**Normalising life by T/w cannot be tested and what evidence exists is against it.** No data set varies weight and tension with strength loss measured at a canopy's tension, because cloth is chosen for its load. The nearest is Nosraty 2013, which varies stroke and weft density separately, and it cannot test T/w. It controls strain and reports no load, its weft density moves cloth weight only from about 60 to 80 g/m² [est], and strength did not move at all. What did move, breaking strain, follows the stroke (warp 0.73 at 12 %, 0.585 at 18 %; weft 0.70 and 0.535) and not the weft density (warp 0.65, 0.66, 0.66; weft 0.60, 0.62, 0.63 at 18, 22, 26 picks/cm; intervals overlap). Any strain law predicts that as well as a T/w law, and it holds at 46-77 % of break strain for a property that is not life, so it does not set b. Indirectly:
 
 - Wings at T/w 1-3 live from under 130 h (skydive mains, below) to decades (shielded aircraft covers). Folding, opening shock, flutter and UV differ, and T/w does not sort them.
 - Kubicek rates its 70 g/m² cloth at one life over envelopes that double T/w, and doubles life from 45 to 77 g/m² at about level T/w [claim]. That gives b about 1.5 at constant T/w.
@@ -126,7 +144,7 @@ T/w therefore enters only through ln(M), as the strength left to lose. A power l
 
 All [est]:
 
-- Tension: at most about 1.4e7 cycles over 3,800 h at 1 Hz. An eight of 30-60 s gives about 5e5. Rope yarn shows no loss below ranges of about 4-10 % (TTI 2006).
+- Tension: at most about 1.4e7 cycles over 3,800 h at 1 Hz. An eight of 30-60 s gives about 5e5. Rope yarn shows no loss below ranges of about 4-10 % (TTI 2006), and woven polyester none measurable in 12,000 far harder cycles (Nosraty 2013).
 - Launches: at the 1.5 h a flight of the SkySails fleet (SkySails 2018), about 2,500 launch and landing cycles. The model's kite stays up longer than that.
 - Flexes from luffing: 300-18,000 per cycle at 2-10 min and 2.6-30 Hz, so 8e5 to 5e7 over the life. Luffing time per launch is unmeasured.
 
@@ -142,6 +160,10 @@ Two clocks run:
 
 - **Coating: flex, fold, flutter, abrasion, then porosity.** Maslanka 2023: flex raised permeability with little strength loss. SUP'AIR: 410 s new to 29 s at 800 h, limit 25 s (only 29 s is printed; the rest by eye).
 - **Yarn: UV, then strength and tear.** Maslanka 2023 and thesis: UV lost 2-75 % of strength by cloth, with 0.000 leak at 200 Pa but 0.040-0.083 L/m²/s at 1,500 Pa. A kite's 0.5-1.1 kPa lies in the untested gap. UV and flex were never applied together.
+
+**Field porosity.** Bartoš 2018 tested 253 Gradient paragliders at one maker's inspections in 2017: EN A to D, no tandem, acro or light wings, aged 2 to over 13 years, by the time for 0.25 L through 38.5 cm² at 10 mbar. Its cloth is Porcher Skytex, stated generically as nylon 66 and not given per wing, so this is not polyester. Mean readings at the top skin's leading edge centre are 326-400 s at 2 years and 54-111 s at 13 or more (EN A to C; EN D has no wing past 9 years), and a fit to its yearly means gives a 1/e time of 5-7 years in every class [our fit, unweighted, on means with no spread]. By Fig. 16, about 4 % of all 1,012 readings lie under about 39 s [by eye; which readings the figure holds is our inference]. It records no flight hours, so it gives no rate per hour and does not enter r. With SUP'AIR's 1/e of about 300 h the two would meet at 40-60 h a year [est], which is not implausible, and that is all the check shows. The sample holds only wings still in use, mixes cloth generations and ages from manufacture. It tests no cloth strength, no flight characteristic despite its title, and states no limit. Its 4 times more porosity per 100 h is a handbook's line (Dvořák 2003) with no test; from 400 s it would pass 25 s in about 200 h, against SUP'AIR's 800 h, so we do not use it. Its ranking of classes compares correlation coefficients rather than slopes, so it does not show which wears faster, and cloth weight is not separable from class.
+
+Nie et al. 2021 model the permeability of new parachute cloth from its weight, fibre density and thickness. They hold no aged cloth, so they set no end of life and we do not use them. They do cite a lead we do not hold, on permeability under cyclic loading (Rondeau, Desabrais and Charette 2015, doi:10.2514/6.2015-2132).
 
 The law has one clock in strength, and anchors that end on porosity enter it as a strength equivalent. Porosity limits for paragliders: 10 s, then a test flight (BGD); 300 L/m²/min at 20 mbar, 18 s by the maker's conversion (Dudek); 25 s (SUP'AIR). No kite limit is published. Maslanka's thesis simulates a rigid paraglider at 45 km/h at leak rates of 0.05 to 1.06 L/m²/s at 200 Pa: lift down 8-29 %, glide ratio down 12-37 %. The wing is unvalidated, at one angle of attack, with no lines, ribs or seams. Tables 6 and 9 disagree on two leak values (1.120 and 2.050 against 0.095 and 1.061), and section 6 gets a worse glide (4.07) at a lower leak than section 10 (8.35), so only the trend holds and 37 % is no upper bound. The thesis gives no porosity limit. Seams, left out, leak 0.66-2.81 L/m²/s at 200 Pa. Ship kites run 2.5-6 times a paraglider's pressure [est], so a kite limit should be at least as strict. SkySails names porosity and residual strength as its test criteria and prints no results.
 

@@ -549,7 +549,7 @@ canopy_wear_rate:
   low: 0.052
   high: 0.26
   unit: g/m^2/h
-  reason: "Strength-equivalent cloth weight lost per flight hour to flexing, flutter, chafe, folding and seam wear, at 100 g/m^2, in the law life = weight * ln(margin) / rate. Engineering estimate: nothing measures this rate on polyester canopy cloth. Maker statements, on our estimates of their cloth weights, tensions and UV doses, imply a median of 0.11 and a span of 0.04-0.26 once UV is removed: sail structural life of 3,500-4,000 h (Flynn 2015), Kubicek balloon cloth of 45-77 g/m^2 at 400 to over 1,000 h (Kubicek 2026), a SUP'AIR tandem paraglider at the porosity limit near 800 h (SUP'AIR 2016), a maxi show kite at over 300 flying days (Lynn 2007). Details in canopy_life_notes.md."
+  reason: "Strength-equivalent cloth weight lost per flight hour to flexing, flutter, chafe, folding and seam wear, at 100 g/m^2, in the law life = weight * ln(margin) / rate. Engineering estimate: nothing measures this rate on polyester canopy cloth. Maker statements, on our estimates of their cloth weights, tensions and UV doses, imply a median of 0.10 on structural life and 0.19 on shape life once UV is removed, spanning 0.04-0.40, and 0.13 is our choice between them: sail structural life of 3,500-4,000 h (Flynn 2015), Kubicek balloon cloth of 45-77 g/m^2 at 400 to over 1,000 h (Kubicek 2026), a SUP'AIR tandem paraglider at the porosity limit near 800 h (SUP'AIR 2016), a maxi show kite at over 300 flying days (Lynn 2007). Tension cycling does not explain it: woven polyester kept its strength over 12,000 cycles at half to three-quarters of breaking strain (Nosraty 2013). Details in canopy_life_notes.md."
 canopy_wear_lifetime:
   value: 0.0
   low: 2000.0
