@@ -84,3 +84,15 @@ function share_at_cost(shares, costs, cost)
     return shares[k - 1] +
            (shares[k] - shares[k - 1]) * (cost - costs[k - 1]) / (costs[k] - costs[k - 1])
 end
+
+"""
+    life_at_cost(lives, costs, cost)
+
+Life at which the `costs` over `lives`, falling with the life, reach `cost`, linear in the
+inverse of the life, which wear follows; `NaN` if within none of `lives`.
+"""
+function life_at_cost(lives, costs, cost)
+    order = sortperm(lives; rev=true)
+    costs[first(order)] > cost && return NaN
+    return 1 / share_at_cost(1 ./ lives[order], costs[order], cost)
+end
