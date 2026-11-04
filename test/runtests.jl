@@ -296,8 +296,10 @@ end
 @testset "launch and landing give no force while they last and the launch pays both" begin
     table, prices = kite_coaster()
     ship_table = table.table
+    reeling = table.table.ship.rig.tether_length / assumptions[:kite_tether_speed] / 60
     @test ship_table.handling_hours ≈
-          WindShipOpt.handling_hours(table.table.ship.rig, assumptions)
+          (1.05 * (assumptions[:kite_hoist_minutes] + reeling) +
+           assumptions[:kite_stowing_minutes] + reeling) / 60
     point = kite_point(table, 2.0, 4.0)
     start = WindShipOpt.EdgeTally(0.0, 0.0, 0.0, 0, 0)
     launched = WindShipOpt.aloft_tally(ship_table, start, point, true, prices)

@@ -848,18 +848,17 @@ function launch_costs(ship, trip, case_assumptions)
     price = case_assumptions[:market_price_factor] *
             (1 + case_assumptions[:kite_integration_fraction]) *
             (parts.mast + parts.docking_head)
-    annual = (WindShipOpt.capital_recovery(case_assumptions[:discount_rate],
-        case_assumptions[:kite_lifetime]) + case_assumptions[:maintenance_fraction]) * price
     hours = 24(trip.outbound_days + trip.return_days +
                2case_assumptions[:port_time_per_call])
-    return (hardware=annual * hours / (8760case_assumptions[:availability]),
+    return (hardware=WindShipOpt.round_trip_charge(price, hours,
+            case_assumptions[:kite_lifetime], case_assumptions),
         cycles=WindShipOpt.cycle_cost(ship.rig, case_assumptions) * trip.launches)
 end
 
 """
     aspect_data()
 
-Each ship of [`sensitivity_ships`](@ref) without a rig and with its best kite at each of
+Each ship of [`sensitivity_ships`](@ref) without a rig and with its kite at each of
 [`study_aspect_ratios`](@ref), with the launch cost [USD/tkm] split out: aspect.csv.
 """
 function aspect_data()

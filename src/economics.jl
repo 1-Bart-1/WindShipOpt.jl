@@ -482,14 +482,23 @@ function fuel_store(ship::Ship, largest_leg, assumptions::Assumptions)
 end
 
 """
+    round_trip_charge(price, hours, lifetime, assumptions)
+
+Annuity and maintenance [USD] of equipment of `price` [USD] over a round trip of `hours`
+[h], written off over `lifetime` [years].
+"""
+round_trip_charge(price, hours, lifetime, assumptions::Assumptions) =
+    (capital_recovery(assumptions[:discount_rate], lifetime) +
+     assumptions[:maintenance_fraction]) * price * hours / (8760assumptions[:availability])
+
+"""
     store_round_trip_cost(price, hours, assumptions)
 
-Annuity and maintenance [USD] of a fuel store of `price` [USD] over a round trip of
-`hours` [h], written off over the hull lifetime.
+[`round_trip_charge`](@ref) of a fuel store of `price` [USD], written off over the hull
+lifetime.
 """
 store_round_trip_cost(price, hours, assumptions::Assumptions) =
-    (capital_recovery(assumptions[:discount_rate], assumptions[:hull_lifetime]) +
-     assumptions[:maintenance_fraction]) * price * hours / (8760assumptions[:availability])
+    round_trip_charge(price, hours, assumptions[:hull_lifetime], assumptions)
 
 """
     out_of_service_share(rig, assumptions)

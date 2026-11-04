@@ -777,7 +777,7 @@ launch_mast_max_area:
   low: 636.0
   high: 2722.0
   unit: m^2
-  reason: "Kite area above which a larger area no longer raises the launch mast, only a higher aspect ratio does: at aspect ratio 3 it reaches 35 m (29-60), the tallest kite launch mast at sea, that of Airseas. Larger kites are flown from such a mast, beyond any built launch system."
+  reason: "Kite area above which a larger area no longer raises the launch mast, only a higher aspect ratio does: at the base height ratio and aspect ratio 3 it reaches 35 m (29-60), the tallest kite launch mast at sea, that of Airseas. Larger kites are flown from such a mast, beyond any built launch system."
 launch_mast_base_mass:
   value: 0.5
   low: 0.3
