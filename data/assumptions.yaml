@@ -559,9 +559,9 @@ canopy_cloth_area_ratio:
 canopy_mass_overhead:
   value: 0.05
   low: 0.02
-  high: 0.2
+  high: 0.19
   unit: kg/m^2
-  reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is load patches for the ~1 t point loads of a ship kite (Thedens 2015). With 60 g/m^2 cloth it gives 0.26 kg/m^2, as a 160 m^2 SkySails kite of ~40 kg (pressetext 2008)."
+  reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is what a 120 kg SkySails kite with lines leaves beyond about 66 kg of cloth and 18 kg of lines, both own estimates (Paulig et al. 2013), which load patches for the ~1 t point loads of a ship kite (Thedens 2015) could account for in part. With 60 g/m^2 cloth the base value gives 0.26 kg/m^2, as a 160 m^2 SkySails kite of ~40 kg (pressetext 2008)."
 canopy_cloth_base_price:
   value: 6.0
   low: 2.0
