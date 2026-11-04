@@ -563,23 +563,29 @@ canopy_mass_overhead:
   unit: kg/m^2
   reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is load patches for the ~1 t point loads of a ship kite (Thedens 2015). With 60 g/m^2 cloth it gives 0.26 kg/m^2, as a 160 m^2 SkySails kite of ~40 kg (pressetext 2008)."
 canopy_cloth_base_price:
-  value: 11.0
-  low: 6.0
+  value: 5.1
+  low: 2.0
   high: 17.0
   unit: USD/m^2
-  reason: "Price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: least-squares line through retail prices of polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT, 9.9 USD/m^2 plus 0.027 USD/m^2 per g/m^2 with 2.8 USD/m^2 scatter (extremtextil.de, Sailrite, Jones Airfoils, 2026-11-01); makers pay less."
+  reason: "Goal for the price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: the retail line through polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT, 11 USD/m^2 plus 0.031 USD/m^2 per g/m^2 (extremtextil.de, Sailrite, Jones Airfoils, 2026-11-01), scaled to USD 8 at 200 g/m^2, what a maker buying by the roll and from the mill can reach. No mill quote for this cloth; derivation in cost_basis_notes.md, section 4.6."
 canopy_cloth_price_per_weight:
-  value: 0.031
-  low: 0.02
+  value: 0.0145
+  low: 0.006
   high: 0.05
   unit: USD/g
-  reason: "Rise of the price of a sewn m^2 of cloth per g/m^2 of cloth weight, from the same line; within Dacron sailcloth the price grows with weight to the power 0.6-1.0."
+  reason: "Rise of the goal price of a sewn m^2 of cloth per g/m^2 of cloth weight: the slope of the retail line, 0.031, scaled as canopy_cloth_base_price; within Dacron sailcloth the price grows with weight to the power 0.6-1.0."
 canopy_making_cost_per_area:
-  value: 57.0
+  value: 42.0
   low: 16.0
   high: 179.0
   unit: USD/m^2
-  reason: "Manufacturing cost per m^2 of projected area of a ram-air canopy besides its cloth: per flat m^2 1.5 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2; with 36 g/m^2 cloth it reproduces 98 USD/m^2, which times the market price factor matches sport kite retail prices."
+  reason: "Goal for the manufacturing cost per m^2 of projected area of a ram-air canopy besides its cloth: per flat m^2 1.0 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2. Today 1.5-2.25 h per flat m^2 in paraglider plants (SKY Paragliders); the US G-12 cargo parachute implies at most 0.6-1.0 h at series volume (BIS 2004). Derivation in cost_basis_notes.md, section 4.6."
+canopy_price_today:
+  value: 234.4
+  low: 234.4
+  high: 234.4
+  unit: USD/m^2
+  reason: "Price of a canopy of 200 g/m^2 cloth per m^2 of projected area as a maker would sell it today, for the comparison with the goal: (57 + 3.5 x (11 + 0.031 x 200)) x 2 from retail cloth, 1.5 h of sewing per flat m^2 at 26 USD/h and the market price factor; with 36 g/m^2 cloth the same build matches sport kite retail prices."
 control_unit_mass:
   value: 100.0
   low: 50.0

@@ -369,6 +369,17 @@ end
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
 end
 
+@testset "the canopy price is the goal, and today's build gives today's input" begin
+    @test WindShipOpt.canopy_price(assumptions) ≈ 140
+    today = (canopy_making_cost_per_area=57.0, canopy_cloth_base_price=11.0,
+        canopy_cloth_price_per_weight=0.031)
+    built = foldl((inputs, (name, value)) -> with_value(inputs, name, value), pairs(today);
+        init=assumptions)
+    @test WindShipOpt.canopy_price(built) ≈ assumptions[:canopy_price_today]
+    rig = uniform_kite(Hull(140.0, assumptions), assumptions)
+    @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈ 140rig.area
+end
+
 @testset "a flown kite wears canopy and tether by their lives" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)

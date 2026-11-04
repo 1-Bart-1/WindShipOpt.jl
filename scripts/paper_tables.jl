@@ -143,8 +143,12 @@ function goal_rows()
     loss = @sprintf("1 in \\num{%.0f}", 1 / (assumptions[:kite_cycle_damage_probability] +
                                               assumptions[:kite_cycle_loss_probability]))
     crew = @sprintf("USD~%.0f per cycle", assumptions[:kite_cycle_crew_cost])
+    price = @sprintf("USD~%.0f/m\$^2\$", WindShipOpt.canopy_price(assumptions))
+    today = @sprintf("our estimate USD~%.0f/m\$^2\$, from retail cloth and hand sewing",
+        assumptions[:canopy_price_today])
     return [("Canopy life", "kite", canopy,
             "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements"),
+        ("Canopy price", "kite", price, today),
         ("Rig life", "rigid kite", "15 years",
             "M600 flew 22 h of crosswind in all \\citep{echeverri2020part1}"),
         ("Rig life", "wings", years(:wing_lifetime),
@@ -182,18 +186,25 @@ end
 kite_life_at_cost(rig, curve, cost) =
     rig == "kite" ? WindShipOpt.life_at_cost(curve..., cost) : NaN
 
+"canopy price [USD/m^2] at which `rig` reaches `cost` on the (prices, costs) `curve`, `NaN`
+if below all of it; kite only"
+kite_price_at_cost(rig, curve, cost) =
+    rig == "kite" && curve[2][1] < cost ? WindShipOpt.share_at_cost(curve..., cost) : NaN
+
 """
     missed_goal_rows()
 
 For each screened ship and each rig, best first at the goals: cost saving [%], and where it
-stops paying and falls behind the next rig (`NaN` for the last) the canopy life [h] and the
-share out of service [-], that share also for all units failing together; for the kite its
-saving [%] at a canopy life of 2,000 h and the life at which it passes the rig ahead; the
-points of saving [%] its share out of service costs at the goal.
+stops paying and falls behind the next rig (`NaN` for the last) the canopy life [h], the
+canopy price [USD/m^2] and the share out of service [-], that share also for all units
+failing together; for the kite its saving [%] at a canopy life of 2,000 h and at today's
+canopy price, and the life and price at which it passes the rig ahead; the points of saving
+[%] its share out of service costs at the goal.
 """
 function missed_goal_rows()
     service = read_table(data_file("availability.csv"))
     lives = read_table(data_file("canopy_life.csv"))
+    prices = read_table(data_file("canopy_price.csv"))
     result = []
     for ship in unique(service["ship"])
         bare = only(share_costs(service, ship, "none")[2])
@@ -204,18 +215,26 @@ function missed_goal_rows()
         ranked = sort(collect(rig_names); by=rig -> goal[rig])
         picked = rows(lives, "ship" => ship)
         life_curve = lives["life"][picked], lives["cost"][picked]
+        priced = rows(prices, "ship" => ship)
+        price_curve = prices["price"][priced], prices["cost"][priced]
         for (rank, rig) in enumerate(ranked)
             curve = curves[rig]
             next_cost = rank < length(ranked) ? goal[ranked[rank + 1]] : NaN
             ahead_cost = rank > 1 ? goal[ranked[rank - 1]] : NaN
             saving_short = rig == "kite" ?
                            percent_saving(curve_cost(life_curve, 2000.0), bare) : NaN
+            today = assumptions[:canopy_price_today]
+            saving_today = rig == "kite" ?
+                           percent_saving(curve_cost(price_curve, today), bare) : NaN
             saving = percent_saving(goal[rig], bare)
-            push!(result, (; ship, rig, saving, saving_short,
+            push!(result, (; ship, rig, saving, saving_short, saving_today,
                 service_points=percent_saving(curve[2][1], bare) - saving,
                 life=(kite_life_at_cost(rig, life_curve, bare),
                     kite_life_at_cost(rig, life_curve, next_cost)),
                 passes=kite_life_at_cost(rig, life_curve, ahead_cost),
+                price=(kite_price_at_cost(rig, price_curve, bare),
+                    kite_price_at_cost(rig, price_curve, next_cost)),
+                passes_price=kite_price_at_cost(rig, price_curve, ahead_cost),
                 share=(WindShipOpt.share_at_cost(curve..., bare),
                     WindShipOpt.share_at_cost(curve..., next_cost)),
                 whole_behind=WindShipOpt.share_at_cost([0.0, 1.0],
@@ -229,27 +248,33 @@ end
     missed_goals_table()
 
 Write the [`missed_goal_rows`](@ref) to paper/sections/missed_goals_table.tex and print what
-the text takes from them besides: the points each rig's outages cost and the life at which
-the kite passes the rig ahead.
+the text takes from them besides: the points each rig's outages cost and the life and price
+at which the kite passes the rig ahead.
 """
 function missed_goals_table()
     open(joinpath(sections, "missed_goals_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}llrrrrrrr@{}}\n\\toprule")
-        println(io, " & & \\multicolumn{2}{c}{Saving [\\%]} & ",
+        println(io, "\\begin{tabular}{@{}llrrrrrrrrrr@{}}\n\\toprule")
+        println(io, " & & \\multicolumn{3}{c}{Saving [\\%]} & ",
             "\\multicolumn{2}{c}{Canopy life [h] where} & ",
+            "\\multicolumn{2}{c}{Canopy price [USD/m\$^2\$] where} & ",
             "\\multicolumn{3}{c}{Out of service [\\%] where} \\\\")
-        println(io, "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}\\cmidrule(lr){7-9}")
+        println(io, "\\cmidrule(lr){3-5}\\cmidrule(lr){6-7}\\cmidrule(lr){8-9}",
+            "\\cmidrule(lr){10-12}")
         println(io, "Ship & Rig & at goals & at \\num{2000} h & ",
-            "pays no more & behind next & pays no more & behind next & all units \\\\")
+            @sprintf("at USD~%.0f & ", assumptions[:canopy_price_today]),
+            "pays no more & behind next & pays no more & behind next & ",
+            "pays no more & behind next & all units \\\\")
         println(io, "\\midrule")
         for row in missed_goal_rows()
             cells = [row.ship; row.rig; @sprintf("%.1f", row.saving);
-                     dash_cell(row.saving_short, "%.1f"); dash_cell.(row.life, "%.0f")...;
-                     share_cell.(row.share)...;
+                     dash_cell(row.saving_short, "%.1f");
+                     dash_cell(row.saving_today, "%.1f"); dash_cell.(row.life, "%.0f")...;
+                     dash_cell.(row.price, "%.0f")...; share_cell.(row.share)...;
                      share_cell(row.whole_behind)]
             println(io, join(cells, " & "), " \\\\")
-            @printf("%s, %s: outages cost %.2f points, passes the next up at %s h\n",
-                row.ship, row.rig, row.service_points, dash_cell(row.passes, "%.0f"))
+            @printf("%s, %s: outages cost %.2f points, passes the next up at %s h, USD %s\n",
+                row.ship, row.rig, row.service_points, dash_cell(row.passes, "%.0f"),
+                dash_cell(row.passes_price, "%.0f"))
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end

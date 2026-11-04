@@ -277,6 +277,15 @@ function rig_price_parts(rig::KiteRig, assumptions)
 end
 
 """
+    canopy_price(assumptions)
+
+Price of a canopy per m^2 of projected area [USD/m^2]: its manufacturing cost times the
+market price factor.
+"""
+canopy_price(assumptions) = assumptions[:market_price_factor] *
+                            Canopy(assumptions).cost_per_area
+
+"""
     consumable_costs(rig, assumptions)
 
 Price of one canopy and one tether [USD]: the canopy at its manufacturing cost times the
@@ -284,9 +293,7 @@ market price factor, the tether at its purchase price.
 """
 function consumable_costs(rig::KiteRig, assumptions)
     tether_mass = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
-    canopy = assumptions[:market_price_factor] * Canopy(assumptions).cost_per_area *
-             rig.area
-    return canopy, assumptions[:tether_price] * tether_mass
+    return canopy_price(assumptions) * rig.area, assumptions[:tether_price] * tether_mass
 end
 
 """

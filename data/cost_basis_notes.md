@@ -6,7 +6,7 @@ This file builds the capital cost of all three rigs in the same way. First the m
 
 - **WISDEM costs per kg are supplier prices, not manufacturing costs.** The rotor and wing in `rig_costs_notes.md` used the NREL Cost and Scaling Model coefficients (blade 14.6, tower 2.9, yaw system 8.3 USD/kg). Fingersh et al. (2006, p. 11) state how the blade figure was built: "the sum of the material costs and labor costs, divided by (1 - 0.28)", with the 28 % covering "profit, overhead, and other costs". The tower figure is likewise a WindPACT price for a finished tower. Removing the ×1.3 therefore leaves a supplier price, and multiplying by a market factor on top of that would count overhead and profit twice. The structural parts below are rebuilt from bottom-up manufacturing models instead: the NREL blade cost model for composites, and the WISDEM Farkas & Jarmai steel model for steel. WISDEM per-kg figures are kept only for bought-in machinery (bearings, gearboxes), where the rig maker really does pay a supplier price.
 - **Tilting and retraction are left out of the wing's fixed cost.** The old notes put 80 kUSD for a tilt mechanism into `wing_unit_cost`, and `retractable_rig_premium` (+12 %) also prices rails, folding and tilting. Counting both doubles that cost. Neither the rotor nor the wing below includes tilting; it stays in `retractable_rig_premium`.
-- **The tether is a finished bought-in product.** Putting the market factor on it gives about 158 USD/kg, which matches retail Dyneema reels (145–150 USD/kg). An operator could also buy replacement rope straight from the rope maker at about 79 USD/kg. The factor is applied anyway, but `tether_price` at 80 USD/kg in today's yaml is already a purchase price.
+- **The tether is a finished bought-in product.** Putting the market factor on it gives about 158 USD/kg, which matches retail Dyneema reels (145–150 USD/kg). An operator could also buy replacement rope straight from the rope maker at about 79 USD/kg. The model therefore does not apply it: `tether_price` at 80 USD/kg is a purchase price.
 
 ## 1. Market price factor
 
@@ -151,9 +151,35 @@ The kite maker buys finished Dyneema rope, so its manufacturing cost is the seri
 
 The paraglider check uses the same bill of materials with Vietnamese labour of 2–4 USD/h (garment wages USD 300/month, Viet Nam News 28 Aug 2024). That gives 30–70 USD per flat m², central ~45. Retail is 115–160 USD per flat m² (EN-A wings at €2,500–3,500, airetaventure.com), so retail is about 3 × the manufacturing cost. That is above F = 2.0, as it should be, because retail adds dealer margin and VAT on top of the maker's price.
 
+### 4.6 Canopy price goal at series volume
+
+Section 4.4 is today's estimate, USD 234.4 per projected m² at 200 g/m²: (57 + 3.5 × (11 + 0.031 × 200)) × 2. The goal in `assumptions.yaml` is USD 140: (42 + 3.5 × 8) × 2. Conversions below are ours. Marketplace figures are asking prices; a * marks a number seen only in a search summary, to be re-read before it is cited.
+
+**Cloth: USD 8 per sewn m² against 17.2, that is USD 7 per m² before 15 % offcuts.** The range is USD 5–10 per m² before offcuts at thousands of m² a year and USD 2.5–6 at millions; a fleet of 200 systems a year at 800–3,200 m² takes 0.5–2 million m² for the first canopies alone, and we stay in the lower-volume range because this has to be cloth that lasts in sun.
+
+- Retail anchors: Dimension Polyant Dacron 170 g/m², EUR 27.90/m at 1.44 m incl. VAT (https://www.extremtextil.de/en/dacron-woven-polyester-sailcloth-170-mt-170g-sqm.html), about 18–20 USD/m² ex VAT; Sailrite Dacron 4.5 oz, USD 16.95/yd at 54 in*, 13.5 USD/m² (https://www.sailrite.com/Dacron-Supercruise-4-4oz-54).
+- Step from retail: 13.5 × 0.60–0.75 for full rolls × 0.75–0.85 for one dealer less gives 6.1–8.6 USD/m². Both factors are sellers' figures.
+- From below: nylon 66 airbag fabric at 2.5–5.5 USD/m², polyester 10–20 % less (vendor blog citing Intel Market Research, https://ly-trustlink.com/airbag-fabric-price-guide-2026/), with 15–30 % more for solution dyeing (https://fumaofabric.com/?p=11911), gives 2.0–6.4 USD/m². High-tenacity polyester yarn trades at 1,784–1,862 USD/t in 2024 (https://www.indexbox.io/blog/high-tenacity-filament-polyester-yarn-world-market-overview-2024-2/), 0.4 USD per 200 g.
+- Coated commodity polyester at 1–3 USD/m² is not the price: nothing shows it lasts 4,000 h under load.
+- Not found: a mill quote for this cloth, a trade price from Challenge, Dimension Polyant, Contender or Bainbridge, a sourced price for UV durability beyond the dyeing premium. Three mill quotes at 10,000 m² and 1 million m² for one specification with UV test reports would settle it.
+
+**Sewing: 1.0 h per flat m² against 1.5, at the same USD 26/h.**
+
+- Today: 1.5–2.25 h per flat m² from paragliders: "50 hours of manufacturing time" (https://sky-cz.com/en/o-vyvoji, a maker's claim), 40–60 h in Korea, Sri Lanka, China, Hungary (forum post, weak). A 12 m LEI kite takes 3.7 h/m² in a plant with automated cutting (Duotone, https://liquidsurfandsail.com/blog/a-kite-is-born-).
+- Series: at most 0.6–1.0 h per flat m². US Commerce BIS (2004, https://www.bis.gov/media/documents/air-delivery-final-may26-04-mac-printfinal10.pdf): a USD 19.2 M order for 5,566 G-12 cargo parachutes, nearly USD 3,500 each, on materials at 57 % of sales. Value added of USD 1,480 per canopy, overhead and profit in it, at a loaded USD 15–25/h gives at most 59–99 h for about 299 m², so 0.2–0.33 h per m² of cloth, or 0.6–1.0 h at 3 m² of cloth per flat m². We take the top, as a G-12 has no ribs.
+- Automation: cutting has real results, 66 % less cutting time at Klaussner (https://www.lectra.com/en/library/klaussner-harnessing-automation-to-save-time-material-and-labor-for-improved-profitability), 1 h on a cutter for 8–16 h by hand (https://www.awningworksinc.com/cutting-time-with-the-autometrix-radium/), both vendor or user reports. No measured labour saving was found for robot sewing or for welded seams on a large multi-panel product, and FIBC bags at 3–8 USD are still hand sewn (https://kanplas.com/blogs/fibc/how-to-calculate-fibc-bag-price-cost-factors-moq-and-total-landed-cost-from-india-to-europe-and-usa). So the goal credits none of it beyond cutting and organised sewing.
+- Wage: USD 26/h is the rate of all three rigs and stays. Moving sewing to 11–15 USD/h in Eastern Europe (Eurostat 2024) or 5–8 USD/h in China (NBS) would cut the price further, but where a plant stands is not development, and wings and rotors would have the same case.
+- Not found: any hours for a canopy above about 30 m² or from SkySails, Airseas or Kitepower, so heavy-panel handling is unmeasured.
+
+**Market factor: kept at 2.** Margins of volume sewn products give 1.5–1.9 over direct cost: Autoliv 1.6 (materials 51.8 %, direct labour 9.0 %, gross margin 16.6 % in 2009, https://www.sec.gov/Archives/edgar/data/0001034670/000119312510035083/dex13.htm); apparel makers with gross margins of 25–29 %*. So at a competitive volume 2 is the top of the range, not its middle, and 1.7 could be argued. We keep 2 because the wing and rotor prices use it, because a canopy's margin is what repays development (`kite_validation_notes.md` section 4: at 2 and USD 140 the fast ramp still breaks even in year 13, with NPV falling from +121 to +42 MUSD in a replay of that case), and because stacking a lower factor on two lower costs would be the unsupported hopeful number.
+
+**Check against whole products**, per m² of finished cloth: the goal is USD 40 (USD 140 / 3.5). A G-12 sold at about USD 11.5 per nominal m² in 2004, near USD 20 today; direct-sale Dacron sails ask USD 40–57 (https://sites.google.com/site/olbiamarine/mainsail). So the goal sits between a volume parachute and a low-volume sail.
+
+**Other rigs.** No same gap: wings and rotors are built up from industrial material and labour costs and the rotor checks against sale prices (section 6), the tether is a bulk purchase price, and no goal is set for them.
+
 ## 5. Model inputs
 
-All inputs are manufacturing cost except `market_price_factor`. The model multiplies every rig hardware and consumable cost by `market_price_factor`, then adds installation at `*_installation_fraction` / `kite_integration_fraction` of that market price (15 % newbuild, 25 % retrofit; EMSA 2023 Table 7). Low and high are for one-at-a-time sensitivity. Stacking all lows, or all highs, together with the factor's low or high gives the wide bands in §6.
+All inputs are manufacturing cost except `market_price_factor`. The model multiplies every rig hardware cost and the canopy by `market_price_factor`, then adds installation at `*_installation_fraction` / `kite_integration_fraction` of that market price (15 % newbuild, 25 % retrofit; EMSA 2023 Table 7). Low and high are for one-at-a-time sensitivity. Stacking all lows, or all highs, together with the factor's low or high gives the wide bands in §6.
 
 | Name                        | Value  | Low    | High    | Unit             | Source                                                                                                                                                                |
 | --------------------------- | ------ | ------ | ------- | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -188,7 +214,7 @@ Market price is manufacturing cost × F. "Base" is base cost × 2.0. "Range" run
 | Kite, small to large ship | EMSA 2023 Table 7, EUR 340–2,345 k asset                   | 394–2,720       | 219–500 (160–1,000 m²) | 77–1,557     | 0.56–0.18       | Kite sizes behind EMSA are not given; no kite supplier interviewed                                 |
 | Kite 320 m²               | ~EUR 1 M "estimated selling price" (EU LIFE WINTECC, 2009) | 1,160           | 276                    | 98–877       | 0.24            |                                                                                                    |
 | Canopy, per flat m²       | Sport kite and paraglider retail 130–150 USD               | 130–150         | 168 (84 × 2.0)         | 50–533       | 1.1–1.3         | Base labour 26 USD/h against 2–4 USD/h in Vietnam and Sri Lanka; retail adds dealer margin and VAT |
-| Tether, per kg            | Retail Dyneema reels 145–150 USD/kg                        | 145–150         | 158                    | 80–375       | 1.05–1.09       |                                                                                                    |
+| Tether, per kg            | Retail Dyneema reels 145–150 USD/kg                        | 145–150         | 80                     | 40–300       | 1.8–1.9         |                                                                                                    |
 
 How far each rig is off:
 
