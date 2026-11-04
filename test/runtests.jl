@@ -562,12 +562,19 @@ end
 end
 
 @testset "kite inputs give the SkySails kites at their projected areas" begin
-    mast_height(area) = assumptions[:launch_mast_height_ratio] * sqrt(area)
-    @test mast_height(125.0) ≈ 15.0 rtol = 0.05
+    @test WindShipOpt.launch_mast_height(125.0, assumptions) ≈ 15.0 rtol = 0.05
     small, = WindShipOpt.kite_model(125.0, 3.0, assumptions)
     @test small.min_turn_radius ≈ 45.0 rtol = 0.05
     large, = WindShipOpt.kite_model(250.0, 3.0, assumptions)
     @test large.tether_length ≈ 360.0 rtol = 0.05
+end
+
+@testset "a kite at a fractional aspect ratio flies its own polar" begin
+    lower, base = WindShipOpt.KitePolar(2.5), WindShipOpt.KitePolar(3)
+    alpha = deg2rad(8.0)
+    @test WindShipOpt.polar_value(lower, lower.lift, alpha) <
+          WindShipOpt.polar_value(base, base.lift, alpha)
+    @test all(>(0), lower.drag)
 end
 
 @testset "launch cost at the loss goal is mostly crew and turn" begin

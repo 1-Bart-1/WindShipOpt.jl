@@ -519,7 +519,7 @@ tether_length_ratio:
   low: 10.0
   high: 20.0
   unit: "-"
-  reason: "Tether length over projected span, held during flight and changed only at launch and landing (Erhard & Strauch 2013). SkySails names its kites by flat area (Paulig et al. 2013); at 160 m^2 total to 125 m^2 projected (Folkersma et al. 2020) they flew 300 m on 125 m^2 (Erhard & Strauch 2013, Fig. 18) and about 360 m on 250 m^2 (Paulig et al. 2013). At the same projected area the aspect-ratio-3 span gives 15.5 and 13.1 spans; the base follows the larger kite. The high bound is the 19.7 spans of the 125 m^2 kite's own 15.2 m span; the low bound is an estimate, a quarter shorter."
+  reason: "Tether length over projected span, held during flight and changed only at launch and landing (Erhard & Strauch 2013). SkySails states a flat size for its 225 m^2 kite (Paulig et al. 2013), and its 160 and 320 m^2 kites are read the same way; at 160 m^2 total to 125 m^2 projected (Folkersma et al. 2020) they flew 300 m on 125 m^2 (Erhard & Strauch 2013, Fig. 18) and about 360 m on 250 m^2 (Paulig et al. 2013). At the same projected area the aspect-ratio-3 span gives 15.5 and 13.1 spans; the base follows the larger kite. The high bound is the 19.7 spans of the 125 m^2 kite's own 15.2 m span; the low bound is an estimate, a quarter shorter."
 kite_min_elevation:
   value: 8.0
   low: 5.0
@@ -561,7 +561,7 @@ canopy_mass_overhead:
   low: 0.02
   high: 0.33
   unit: kg/m^2
-  reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is a SkySails ship kite, 120 kg with lines on 225 m^2 flat, 176 m^2 projected, on cloth slightly above 100 g/m^2 (Paulig et al. 2013), with load patches for its ~1 t point loads (Thedens 2015)."
+  reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is a SkySails ship kite, 120 kg with lines on 225 m^2 flat, 176 m^2 projected, on cloth slightly above 100 g/m^2 (Paulig et al. 2013), with load patches for its ~1 t point loads (Thedens 2015); that mass includes the lines the model counts as bridle, so this is an upper bound."
 canopy_cloth_base_price:
   value: 6.0
   low: 2.0

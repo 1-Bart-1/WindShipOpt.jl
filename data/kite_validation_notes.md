@@ -388,13 +388,13 @@ Paulig et al. also compare flat aspect ratios of 4.8 and 2.7 in CFD (Fig. 32.1) 
 
 At projected 2 the polar method on this shape gives drag below zero up to 2° and a maximum L/D of 39; at 2.5 it gives a usable polar and at 1.86 drag below zero up to about 8°. The polar at 3 reproduces to 2.4e-7.
 
-**Area basis.** SkySails names its kites by flat area. All inputs here are on projected area, at 1.28 flat over projected, the one published pair (160 / 125, Folkersma et al. 2020). This takes 160 m² to 125 m², 225 to 176 and 320 to 250. Inputs:
+**Area basis.** Paulig et al. state a flat size only for the 225 m² kite. The 160 m² kite reads the same way, as 160 m² total goes with 125 m² projected in Folkersma et al. and its 14 m span then gives an aspect ratio below 2; the 320 m² kite is inferred from the naming. All inputs here are on projected area, at 1.28 flat over projected, the one pair in a source read in full (160 / 125, Folkersma et al. 2020). The PN-14 data sheet, seen only as a search snippet, lists 90 m² projected and "up to 180 m²" flat, 2.0, which is not used: this shape has 1.185. At 2.0 the 160 m² kite would be 80 m² and its mast 1.68 √A, inside the range below. This takes 160 m² to 125 m², 225 to 176 and 320 to 250. Inputs:
 
-| Input | Reading on projected area | Before | Now |
-| ----- | ------------------------- | ------ | --- |
-| Mast height ratio | 15 m on 125 m²: 1.34; Airseas 35 m on 1,000 m²: 1.11 projected, 1.25 flat; PN-14 19 m on 90 m²: 2.0 | 1.15 (0.8–1.5) | 1.3 (0.8–2.0) |
-| Tether over span at aspect ratio 3 | 300 m on 125 m²: 15.5; about 360 m on 250 m² (Paulig p. 554): 13.1; 19.7 on the kite's own 15.2 m | 13 | 13, from the larger kite (10–20) |
-| Turn radius over span at aspect ratio 3 | 45 m on 125 m², bounds 29 and 83 m | 2.0 (1.2–3.6) | 2.3 (1.5–4.3) |
-| Force per area | 160 kN on 225 m² flat, about 0.7 (Paulig p. 557): 0.9 on projected | 0.5 | 0.5, a stated choice |
+| Input | Reading on projected area | Value (range) |
+| ----- | ------------------------- | ------------- |
+| Mast height ratio | 15 m on 125 m²: 1.34; Airseas 35 m on 1,000 m²: 1.11 projected, 1.25 flat; PN-14 19 m on 90 m²: 2.0 | 1.3 (0.8–2.0) |
+| Tether over span at aspect ratio 3 | 300 m on 125 m²: 15.5; about 360 m on 250 m² (Paulig p. 554): 13.1; 19.7 on the kite's own 15.2 m | 13, from the larger kite (10–20) |
+| Turn radius over span at aspect ratio 3 | 45 m on 125 m², bounds 29 and 83 m | 2.3 (1.5–4.3) |
+| Force per area | 160 kN on 225 m² flat, about 0.7 (Paulig p. 557): 0.9 on projected | 0.5, a stated choice (0.4–1.0) |
 
-**Canopy mass.** Paulig gives 0.5–0.6 kg/m² for kites of 160–320 m² and 120 kg with lines for the 225 m² kite on cloth slightly above 100 g/m², which is 0.68 kg/m² projected. The earlier figure here of about 40 kg for a 160 m² kite (pressetext 2008) does not fit that and is dropped.
+**Canopy mass.** Paulig gives 0.5–0.6 kg/m² for kites of 160–320 m² and 120 kg with lines for the 225 m² kite on cloth slightly above 100 g/m², which is 0.68 kg/m² projected.
