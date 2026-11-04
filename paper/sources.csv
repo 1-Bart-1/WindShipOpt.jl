@@ -1,5 +1,5 @@
 key,doi,file,sha256,status
-ahrens2013,10.1007/978-3-642-39965-7,,,missing
+ahrens2013,10.1007/978-3-642-39965-7,ahrens2013_airborne_wind_energy.pdf,8736f1171b6be36b37ed292a87f23f7de7020e878ee72c555b465f5732ad26f8,partial
 airseas2023,,airseas2023.txt,39f3ab347155e6eb14e154c9a2e74fdd944a7b09161cb1a29cc54ecba28823d8,read_in_full
 airseas_cp2022,,airseas_cp2022.pdf,c2f88083483189d31441a2d8d16b595712488212ae09ef012487179a9c5728e7,held_unread
 airseas_seawing_web,,airseas_seawing_web.txt,1bb9c824424cb56b11770052d7b9f5eb4f71263a1196ad6cdba349a51cc6e80b,read_in_full
@@ -35,8 +35,9 @@ bordogna2018,10.3233/ISP-180143,,,missing
 bordogna2019,10.1016/j.jweia.2019.02.006,,,missing
 bordogna2020,10.1016/j.jweia.2019.104024,bordogna2020.pdf,01241abd6596f14fc59f31b866b4f7a5a8e295e48b53bb2fc4eb53ede2991ea5,read_in_full
 bordogna2020thesis,10.4233/uuid:96eda9cd-3163-4c6b-9b9f-e9fa329df071,,,missing
+bormann2013,10.1007/978-3-642-39965-7_24,ahrens2013_airborne_wind_energy.pdf,8736f1171b6be36b37ed292a87f23f7de7020e878ee72c555b465f5732ad26f8,read_in_full
 borren2022,,,,missing
-bosman2013,10.1007/978-3-642-39965-7_33,,,missing
+bosman2013,10.1007/978-3-642-39965-7_33,ahrens2013_airborne_wind_energy.pdf,8736f1171b6be36b37ed292a87f23f7de7020e878ee72c555b465f5732ad26f8,read_in_full
 brix1993,,,,missing
 bvga2022,,bvga2022.pdf,09c2740776a11543567539f8f4728eb963f9ff21e334bef2be429e5b3e0250a9,read_in_full
 cameron_balloonfabric,,cameron_balloonfabric.txt,3f74edb138492aa314b270a84bbf2e8823727ee1f5bb262ee7ce3c9a5dc7bf31,held_unread
@@ -81,6 +82,7 @@ doe_hdfc2024,,doe_hdfc2024.pdf,6328ff3e21ff652d877bf09cc3e6bf3d373f4d28ae6ae0eeb
 doyle2011,,doyle2011.pdf,8b73b6ccd7091d6d9d23adaab2baae3c4abf6de06df8efdd03215ee9376fa035,read_in_full
 dsm_sk78_mooring,,dsm_sk78_mooring.pdf,cf8479ae2b71c46e723fe415479658c6ba482068d02093667127657daf97a6ea,partial
 dudek2026,,dudek2026.txt,4defefd71727b56f275f77ddde377d64612b827a967f2c8a265c3c8f196e4c51,read_in_full
+dunker2013,10.1007/978-3-642-39965-7_31,ahrens2013_airborne_wind_energy.pdf,8736f1171b6be36b37ed292a87f23f7de7020e878ee72c555b465f5732ad26f8,read_in_full
 e3s2022,,,,missing
 echeverri2020part1,,echeverri2020part1.pdf,3c75d493e5b2a7c359197e860f8e07d44882d2589fc6418dd0cd71a734b44dfb,read_in_full
 eea2025_newcars_pr,,eea2025_newcars_pr.txt,07231b14c89948d88a075e3f54c16bca5cb2f94edba1eecd23bc429a87cc7b18,held_unread
@@ -88,7 +90,7 @@ emsa2017fc,,emsa2017fc.pdf,e058bd66701d377be21b57dbef17b0c69eb634087a08250052d1b
 emsa2023,,emsa2023.pdf,a4a34e23ccf090c0c903e6cd67b2a6069dc64e9920590539cd6fab645bf28be2,read_in_full
 emsa2023h2,,emsa2023h2.pdf,76fe3a5cb79bc8fbdd2a271b9c2c6f75725ab099196ce76e83c241e6842cc36d,held_unread
 erhard2013,10.1109/TCST.2012.2221093,erhard2013.pdf,a828a63deb9ac943a23c4f5024668c6bef99d1a14e07ee1d7f41a9fbbda19e2c,read_in_full
-erhard2013b,10.1007/978-3-642-39965-7_8,,,missing
+erhard2013b,10.1007/978-3-642-39965-7_8,ahrens2013_airborne_wind_energy.pdf,8736f1171b6be36b37ed292a87f23f7de7020e878ee72c555b465f5732ad26f8,read_in_full
 erhard2015,10.1016/j.conengprac.2015.03.001,,,missing
 eurostat_container_t_per_teu,,eurostat_container_t_per_teu.txt,7a6f8157ea76e0a7faa7f8d1d1c33031e96b41c9c34762c06b0fdc70c11cf918,held_unread
 eurostat_mar_mg_am_cvh,,eurostat_mar_mg_am_cvh.json,34abeff0e0a872fe31bda332768f855449cbe8ec6444884864297a12a5f64e9d,held_unread
@@ -99,10 +101,11 @@ faa2001,,faa2001_ch2.txt,095ccae75415bd919976a83890b0c02bdf25e035d5f4e1edb063f33
 faber2020,,faber2020.pdf,c073907541ff986007e0c5f8509f0cf0fc310cf8d17631e67cc349a2683b40e8,read_in_full
 faggiani2018,,,,missing
 fasihi2024,10.1039/D3EE02951D,,,missing
+fechner2013,10.1007/978-3-642-39965-7_14,ahrens2013_airborne_wind_energy.pdf,8736f1171b6be36b37ed292a87f23f7de7020e878ee72c555b465f5732ad26f8,read_in_full
 flynn2015,,flynn2015.txt,21fa9a75a83090b47f9643c41d7eb0861b623c3fb81138ff08628ee0de2aee2d,read_in_full
 flysurfer_soul4,,flysurfer_soul4.txt,5c3eda983fc6e9bb8e6c272eb7f9782a53ffd9cd29d9c9f5a18a163c75f64a8d,held_unread
 folkersma2020,10.1088/1742-6596/1618/3/032018,folkersma2020.pdf,22f6c9e99730e5dd3ef110befc3428170d43d6bf60845cf006cd80f7420f4aff,read_in_full
-fritz2013,10.1007/978-3-642-39965-7_20,,,missing
+fritz2013,10.1007/978-3-642-39965-7_20,ahrens2013_airborne_wind_energy.pdf,8736f1171b6be36b37ed292a87f23f7de7020e878ee72c555b465f5732ad26f8,read_in_full
 fujiwara2005,,,,missing
 garenaux2021,,,,missing
 georgeff2020icct,,georgeff2020icct.pdf,1a942e77acd5357a1fed237d96fe7afc82c412e5ab0132e926354178d793d310,held_unread
@@ -171,6 +174,7 @@ loyd1980,10.2514/3.48021,loyd1980.pdf,2076221a7d69363bb25675b559e91d1854589c4477
 lu2020,10.1080/17445302.2019.1612544,lu2020.pdf,8cd482ce0df5eb449eec6b477e20b86c448d55bc632090015c911efd69eee4c8,read_in_full
 lynn2007,,lynn2007.txt,c0a84f41c5b3912e64841d1d745198c24d4d878f3dc45704e483e1c35636d292,read_in_full
 ma2025,10.1016/j.oceaneng.2025.122919,,,missing
+maass2013,10.1007/978-3-642-39965-7_35,ahrens2013_airborne_wind_energy.pdf,8736f1171b6be36b37ed292a87f23f7de7020e878ee72c555b465f5732ad26f8,read_in_full
 malmek2024,10.1016/j.oceaneng.2023.116596,malmek2024.pdf,6dbaed853d12026406f0c84c3f0bf896cb119212290ffeb0d0994d4453ea22d8,read_in_full
 man2011,,man2011.pdf,54aad21f72dd48faff548f0fa01ab805d347643ea03ac130754ed981287bb9c3,partial
 man2019mr,,man2019mr.pdf,e734d1f74c92856e0f1c208f154fe371e9e159723e808ece8da3e0cb1e243b9a,read_in_full
@@ -213,7 +217,7 @@ ozone_rush6,,ozone_rush6.pdf,dd372f5009f12a1b64d7bb340493fd722a51e6e40756c08cff2
 ozone_spyder3,,ozone_spyder3.pdf,29147c07eabbf6aa4c8b715590e99b9fd4a86f640df23438f48225a960b2a36e,held_unread
 ozone_ultralite3,,ozone_ultralite3.pdf,d8c12b85293ac68ede0b60cc74d68f19e6c924f2a06aeea53194bf81c35c1b44,held_unread
 ozone_ultralite4,,ozone_ultralite4.pdf,a13164d2f6ae6b9a01f5f5993cdbb4bf36280af24125cc37ab47d4edade4e1e2,held_unread
-paulig2013,10.1007/978-3-642-39965-7_32,,,missing
+paulig2013,10.1007/978-3-642-39965-7_32,ahrens2013_airborne_wind_energy.pdf,8736f1171b6be36b37ed292a87f23f7de7020e878ee72c555b465f5732ad26f8,read_in_full
 pem_roro,,pem_roro.txt,40619ab6860511ab511a2353f583dd80aff304bf9295f14af5323a02529c9205,held_unread
 pena2015,,pena2015.pdf,c81e906736c3cbc34b59122f412ea319a868aeba8f9a96c2d5a03b35ed3061d2,held_unread
 penloup2021,10.5957/jst/2021.6.1.173,penloup2021.pdf,eb7e66cb2e4879c426c8906c7776f0112969f167ffadb662eaf08e8967a72408,read_in_full
@@ -282,6 +286,7 @@ tudelft_v3_properties,,tudelft_v3_properties.txt,ad9cef30c398ef68d3e933952e3a8f4
 uzumcu2024,10.32710/tekstilvekonfeksiyon.1168629,uzumcu2024.pdf,7f6b28d5b319fa60698eda9de1ccaad6357346ce0de99b1299b7a1626fc484d6,read_in_full
 vanderkolk2019,10.1016/j.oceaneng.2018.12.041,,,missing
 vanderkolk2019b,,,,missing
+vandervlugt2013,10.1007/978-3-642-39965-7_23,ahrens2013_airborne_wind_energy.pdf,8736f1171b6be36b37ed292a87f23f7de7020e878ee72c555b465f5732ad26f8,read_in_full
 vandervlugt2019,10.1016/j.renene.2018.07.023,vandervlugt2019.pdf,432a0131f1cfaa712d6acf9568df40890f3eea7e464da657a02dd7e144b2f897,read_in_full
 vanhagen2023,,vanhagen2023.pdf,d9959bf4bf8df721491670126b166fbc859174b4106dd6e225605d19f13f4c98,held_unread
 vanreen2026,,vanreen2026thesis.pdf,e5459aaf52715fc6e4ed4a6b1eb42396af413d0668c6de97569e37a7ce0b5f76,read_in_full

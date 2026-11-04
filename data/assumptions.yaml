@@ -509,11 +509,11 @@ tether_drag_coefficient:
   unit: "-"
   reason: "Cylinder CD 1.1 at tether Reynolds numbers 2.7e3-8.2e3 (van der Vlugt et al. 2019, Table 1)."
 tether_stress:
-  value: 400000000.0
-  low: 250000000.0
-  high: 600000000.0
+  value: 550000000.0
+  low: 410000000.0
+  high: 660000000.0
   unit: Pa
-  reason: "Working stress in published AWE designs: ~0.40 GPa (Faggiani & Schmehl 2018) and ~0.24 GPa (van der Vlugt et al. 2019); SK78 rope breaks at ~1.1 GPa (Marlow 12 mm), so a safety factor of ~2.8."
+  reason: "Working stress on the worked-in diameter of the rope, 15 % below its nominal diameter, the one to engineer with (Bosman et al. 2013): design factor 3 on 12-strand HMPE, 880 kN mean breaking load at 26.0 mm, 552 MPa (Table 33.4), the factor Bosman et al. and Fechner & Schmehl (2013) advise. The low bound is design factor 4, the high bound 40 % of break load, above which the rope deteriorates rapidly in bending (Bosman et al. 2013)."
 tether_length_ratio:
   value: 13.0
   low: 10.0
@@ -543,7 +543,7 @@ canopy_cloth_weight:
   low: 200.0
   high: 200.0
   unit: g/m^2
-  reason: "Weight of the polyester ripstop of the canopy, fixed with the goal canopy_life: under a life that does not depend on it the lightest cloth would always win. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+  reason: "Weight of the polyester ripstop of the canopy, fixed with the goal canopy_life: under a life that does not depend on it the lightest cloth would always win. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
 canopy_life:
   value: 4000.0
   low: 1200.0
@@ -557,11 +557,11 @@ canopy_cloth_area_ratio:
   unit: "-"
   reason: "Cloth sewn into a ram-air canopy per m^2 of projected area: 3.0 m^2 per flat m^2 for two skins, ribs and diagonals (2.6-3.7), 1.17 flat m^2 per projected m^2; paragliders weigh 0.19-0.21 kg per flat m^2 with ~35 g/m^2 cloth (Advance Alpha 8, NOVA Prion and Mentor 2)."
 canopy_mass_overhead:
-  value: 0.05
-  low: 0.02
-  high: 0.2
+  value: 0.30
+  low: 0.05
+  high: 0.65
   unit: kg/m^2
-  reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is load patches for the ~1 t point loads of a ship kite (Thedens 2015). With 60 g/m^2 cloth it gives 0.26 kg/m^2, as a 160 m^2 SkySails kite of ~40 kg (pressetext 2008)."
+  reason: "Canopy mass per m^2 of projected area besides its cloth and bridle: seams, tapes, reinforcements and line attachments. A SkySails kite of 225 m^2 flat, about 176 m^2 projected, weighs 120 kg with lines at fabric slightly above 100 g/m^2 and 160 kN (Paulig et al. 2013), which leaves 0.30 kg/m^2 at this cloth area ratio. Low: paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit). High: the 320 kN SkySails kite of 320 m^2 flat, 250 kg (Paulig et al. 2013), at the same cloth."
 canopy_cloth_base_price:
   value: 6.0
   low: 2.0
@@ -598,18 +598,18 @@ canopy_cloth_price_per_weight_today:
   high: 0.031
   unit: USD/g
   reason: "Rise of the retail price of a sewn m^2 of cloth per g/m^2 of cloth weight, from the same line."
-control_unit_mass:
-  value: 100.0
-  low: 50.0
-  high: 300.0
-  unit: kg
-  reason: "Engineering assumption: airborne steering pod with actuators, battery and radio below the kite."
+control_unit_mass_per_force:
+  value: 0.22
+  low: 0.15
+  high: 0.45
+  unit: kg/kN
+  reason: "Mass of the airborne steering pod per kN of tether force limit: 70 kg for a 320 kN kite, steering forces up to 12 kN (Paulig et al. 2013), the one figure for a ship kite; its link and actuators carry loads in proportion to the force. Powered through the tether at 120 V, with a battery for emergencies (Maass & Erhard 2013). The bounds are estimates."
 bridle_rows:
   value: 4.0
   low: 3.0
-  high: 5.0
+  high: 8.0
   unit: "-"
-  reason: "Chordwise rows of line attachment points; paragliders use three to four (A-D) lines per span station."
+  reason: "Chordwise rows of line attachment points; ram-air canopies use A-D, and a large wing that keeps the same area per line needs A through H (Dunker 2013)."
 bridle_spacing:
   value: 0.4
   low: 0.3
@@ -621,19 +621,19 @@ bridle_height_ratio:
   low: 0.5
   high: 0.9
   unit: "-"
-  reason: "Engineering assumption: bridle length from canopy to control unit over projected span; paraglider lines are ~7-8 m on ~11 m span."
+  reason: "Bridle length from canopy to control unit over projected span: parachutes rig A-lines of 0.5-0.6 constructed spans (Dunker 2013), 0.6-0.75 projected spans at a flat aspect ratio of 3.76 over 3; paraglider lines are ~7-8 m on ~11 m span."
 bridle_cascade_factor:
   value: 0.6
   low: 0.4
   high: 1.0
   unit: "-"
-  reason: "Engineering assumption: total bridle line length over the number of attachment lines times bridle height, from cascading lines into fewer main lines; 1 is no cascading."
+  reason: "Engineering estimate: total bridle line length over the number of attachment lines times bridle height, from cascading lines into fewer main lines at 1:2 to 1:4 (Dunker 2013); 1 is no cascading."
 kite_flight_drag:
   value: 0.08
   low: 0.0
   high: 0.12
   unit: "-"
-  reason: "Drag on the projected area that the design-shape model lacks in flight: deformation, control unit and steering. The V3 wing reaches L/D 8.6 in the wind tunnel (Poland et al. 2025) but 3.6-4.0 in traction with bridle and control unit (van der Vlugt et al. 2019), 4-5 for SkySails towing kites (Erhard & Strauch 2013); 0.08 brings the aspect-ratio-3 kite with bridle to 4 at CL 0.8; 0 is a kite that keeps its design shape in flight."
+  reason: "Drag on the projected area that the design-shape model lacks in flight: deformation, control unit and steering. The V3 wing reaches L/D 8.6 in the wind tunnel (Poland et al. 2025) but 3.6-4.0 in traction with bridle and control unit (van der Vlugt et al. 2019), 3.9 fitted on a 160 m^2 SkySails kite and 4-5 with tether (Erhard & Strauch 2013, book chapter), 4-5 at a projected aspect ratio below 2 (Paulig et al. 2013); 0.08 brings the aspect-ratio-3 kite with bridle to 4 at CL 0.8; 0 is a kite that keeps its design shape in flight."
 kite_max_wave_height:
   value: 5.0
   low: 4.0
@@ -673,9 +673,9 @@ kite_launch_margin:
 kite_launch_min_wind:
   value: 5.0
   low: 3.0
-  high: 6.0
+  high: 10.0
   unit: m/s
-  reason: "Lowest apparent wind for a launch where it exceeds the wind derived from lift-off and flight. SkySails ships: not below Beaufort 3, 3.4-5.4 m/s (Konrad 2009). SkySails on land: 3 m/s (Fagiano et al. 2022), and 5 m/s measured against an assumed 6 (Junge et al. 2023). Kitepower Falcon: 5 m/s (Kitepower 2024)."
+  reason: "Lowest apparent wind for a launch where it exceeds the wind derived from lift-off and flight. SkySails ships: about 5 m/s in perfect conditions, while rough sea and bad weather might require 10 m/s, the high bound (Paulig et al. 2013); not below Beaufort 3, 3.4-5.4 m/s (Konrad 2009). SkySails on land: 3 m/s (Fagiano et al. 2022), and 5 m/s measured against an assumed 6 (Junge et al. 2023). Kitepower Falcon: 5 m/s (Kitepower 2024). Rough sea comes with stronger wind, which clears the limit by itself, so the base is the calm-sea figure."
 kite_launch_max_wind:
   value: 17.0
   low: 13.0
@@ -693,7 +693,7 @@ kite_cycle_crew_cost:
   low: 20.0
   high: 380.0
   unit: USD
-  reason: "Estimate, no source gives crew or hours per launch: crew time per launch and landing. Low officer and rating for 0.5 h; base officer and two ratings for 1.5 h; high officer and three ratings for 3 h at EU rates. Rates 29 and 14 USD/h per hour worked, from the crew cost here over about 3,650 worked hours per berth a year (estimate, 10 h a day), split by rank with the ITF/ILO 2025 scale."
+  reason: "Estimate, no source gives crew or hours per launch, though SkySails meant one operator to run the system (Maass & Erhard 2013): crew time per launch and landing. Low officer and rating for 0.5 h; base officer and two ratings for 1.5 h; high officer and three ratings for 3 h at EU rates. Rates 29 and 14 USD/h per hour worked, from the crew cost here over about 3,650 worked hours per berth a year (estimate, 10 h a day), split by rank with the ITF/ILO 2025 scale."
 kite_cycle_damage_probability:
   value: 0.00005
   low: 0.00001
@@ -755,17 +755,17 @@ tether_price:
   unit: USD/kg
   reason: "Large-diameter Dyneema SK78 rope in bulk; Faggiani & Schmehl (2018) imply ~80 EUR/kg, retail small diameters sell at 300-350 USD/kg (Marlow D12 via Mauripro/Binks)."
 tether_rope_density:
-  value: 600.0
-  low: 550.0
-  high: 650.0
+  value: 1150.0
+  low: 820.0
+  high: 1550.0
   unit: kg/m^3
-  reason: "Rope mass over its nominal circular cross-section, from Marlow D12 78 at 10 mm: 4.65 kg per 100 m."
+  reason: "Rope mass over its worked-in cross-section: 60.8 kg per 100 m at 26.0 mm, 1,145 kg/m^3 (Bosman et al. 2013, Table 33.4, coated 12-strand). Low: Marlow D12 78 uncoated, 4.65 kg per 100 m at 10 mm nominal. High: the SkySails tether with its power and data cable, 0.9 kg/m for 320 kN (Paulig et al. 2013)."
 tether_lifetime:
   value: 8000.0
   low: 4000.0
   high: 40000.0
   unit: flight hours
-  reason: "Flight hours a Dyneema tether flies before replacement at a fixed length, bent only at the tow point; none measured. The Ampyx Power 5 MW design replaces the tether section reeled over the drum every year but the fixed section after 7 years, at 312 MPa (van Hagen et al. 2023), about 40,000 flight hours; bending fatigue over a drum gives ~4,000 h at 0.4 GPa (Joshi 2025 model). Pumping tethers last 3 months to 2 years (DEADALUS, Ampyx/DSM)."
+  reason: "Flight hours a Dyneema tether flies before replacement at a fixed length, bent only at the tow point; none measured. About a year, what DSM designs a tether for at design factor 3 even when pumped over a drum, where bending and not creep sets the life (Bosman et al. 2013). The Ampyx Power 5 MW design replaces the tether section reeled over the drum every year but the fixed section after 7 years, at 312 MPa (van Hagen et al. 2023), about 40,000 flight hours; bending fatigue over a drum gives ~4,000 h at 0.4 GPa (Joshi 2025 model)."
 winch_fixed_cost:
   value: 27000.0
   low: 11000.0
@@ -813,13 +813,13 @@ launch_mast_telescope_factor:
   low: 2.2
   high: 5.0
   unit: "-"
-  reason: "Price of the hydraulic telescopic launch mast over the steel cost of a static one: hydraulic marine cranes sell at 5.5-17 USD/kg against 1.0-1.6 USD/kg for steel monopoles, so the low bound is the cheapest crane per kg. The mast retracts because a kite aloft swings its tether round it; the SkySails ships used a telescopic mast."
+  reason: "Price of the hydraulic telescopic launch mast over the steel cost of a static one: hydraulic marine cranes sell at 5.5-17 USD/kg against 1.0-1.6 USD/kg for steel monopoles, so the low bound is the cheapest crane per kg. The mast retracts because a kite aloft swings its tether round it; the SkySails ships used a telescopic mast, retracted in flight (Fritz 2013)."
 docking_head_cost:
   value: 37000.0
   low: 15000.0
   high: 100000.0
   unit: USD
-  reason: "Engineering estimate of the manufacturing cost of the slewing ring, gripper, hydraulics, inflation fan, controls and assembly of the docking head of a 1,000 m^2 kite."
+  reason: "Engineering estimate of the manufacturing cost of the slewing ring, gripper, hydraulics, inflation fan or the second winch that guides and reefs a ram-air kite (Maass & Erhard 2013), controls and assembly of the docking head of a 1,000 m^2 kite."
 docking_head_reference_area:
   value: 1000.0
   low: 1000.0
