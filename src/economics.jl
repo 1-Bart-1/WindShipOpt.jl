@@ -353,6 +353,16 @@ function wear_cost(rig::KiteRig, assumptions)
 end
 
 """
+    base_aspect_ratio_prices(assumptions, aspect_ratio_factor)
+
+`assumptions` with the tether, the only priced part that follows span, cheaper per kg so
+that a kite of `aspect_ratio_factor` times the base aspect ratio pays what the base pays.
+"""
+base_aspect_ratio_prices(assumptions::Assumptions, aspect_ratio_factor) =
+    with_value(assumptions, :tether_price,
+        assumptions[:tether_price] / sqrt(aspect_ratio_factor))
+
+"""
     cycle_cost(rig, assumptions)
 
 Cost of one launch and landing of a kite [USD]: per launch attempt the crew time, the

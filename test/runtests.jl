@@ -565,6 +565,21 @@ function trip_with_share(design, name, share, corridors, base=assumptions)
         [24.0 * 31, 24.0 * 200], changed)
 end
 
+@testset "a longer span at the same area costs the same to buy, fly and launch" begin
+    base = uniform_kite(Hull(140.0, assumptions), assumptions)
+    ratio = 8 / 3
+    slender = KiteRig(; (name => getfield(base, name) for name in fieldnames(KiteRig))...,
+        tether_length=base.tether_length * sqrt(ratio))
+    prices = WindShipOpt.base_aspect_ratio_prices(assumptions, ratio)
+    @test WindShipOpt.rig_price_parts(slender, prices) ==
+          WindShipOpt.rig_price_parts(base, assumptions)
+    @test WindShipOpt.wear_cost(slender, prices) ≈ WindShipOpt.wear_cost(base, assumptions)
+    @test WindShipOpt.cycle_cost(slender, prices) ≈
+          WindShipOpt.cycle_cost(base, assumptions)
+    @test WindShipOpt.handling_hours(slender, prices) ==
+          WindShipOpt.handling_hours(base, assumptions)
+end
+
 @testset "launch cost at the loss goal is mostly crew and turn" begin
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     crew_and_turn = (1 + assumptions[:kite_launch_retry_probability]) *
