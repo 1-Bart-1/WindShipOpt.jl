@@ -90,6 +90,15 @@ function share_at_cost(shares, costs, cost)
 end
 
 """
+    price_at_cost(prices, costs, cost)
+
+Price at which the rising `costs` over ascending `prices` reach `cost`, linearly between the
+points; `NaN` if within none of `prices`.
+"""
+price_at_cost(prices, costs, cost) =
+    costs[1] < cost ? share_at_cost(prices, costs, cost) : NaN
+
+"""
     life_at_cost(lives, costs, cost)
 
 Life at which the `costs` over `lives`, falling with the life, reach `cost`, linear in the

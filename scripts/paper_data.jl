@@ -893,10 +893,6 @@ function canopy_life_data()
         round_trips(vec(cases), sampled_departures(; screening=true)), :ship, :life)
 end
 
-"inputs that together make the canopy price"
-canopy_price_inputs = (:canopy_making_cost_per_area, :canopy_cloth_base_price,
-    :canopy_cloth_price_per_weight)
-
 """
     canopy_prices()
 
@@ -906,7 +902,7 @@ and either side of them, up to where the kite stops paying on every ship.
 function canopy_prices()
     goal = WindShipOpt.canopy_price(assumptions)
     return sort([goal .* [0.5, 0.75, 1.0, 1.25, 2.5, 3.5, 5.0, 7.0];
-                  assumptions[:canopy_price_today]])
+                  WindShipOpt.canopy_price_today(assumptions)])
 end
 
 """
@@ -917,9 +913,11 @@ size and every other input held: canopy_price.csv.
 """
 function canopy_price_data()
     goal = WindShipOpt.canopy_price(assumptions)
+    inputs = WindShipOpt.canopy_price_inputs
     cases = [trip_case(ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...);
-                 assumptions=scaled(canopy_price_inputs, price / goal), route, ship, price)
-             for (ship, bare, route, areas) in sensitivity_ships(), price in canopy_prices()]
+                 assumptions=scaled(inputs, price / goal), route, ship, price)
+             for (ship, bare, route, areas) in sensitivity_ships(),
+    price in canopy_prices()]
     write_trips("canopy_price.csv", vec(cases),
         round_trips(vec(cases), sampled_departures(; screening=true)), :ship, :price)
 end

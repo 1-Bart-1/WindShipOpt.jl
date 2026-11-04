@@ -330,6 +330,12 @@ sale; 10 % discount rate.
 | Fast, cost at series level from unit 1      | year 10                          | —                 | +173 MUSD                 |
 | Fast, development 150 M                     | year 13                          | —                 | +55 MUSD                  |
 | Slow: 2, 5, 10, 15, 20, 30, 40, then 50     | not within 20 years              | > USD 290 M       | −201 MUSD                 |
+| Fast, canopy at USD 234/m², 187.5 kUSD      | year 12                          | ~USD 215 M        | +154 MUSD                 |
+| Fast, canopy at USD 150/m², 119.8 kUSD      | year 13                          | ~USD 213 M        | +42 MUSD                  |
+| Fast, USD 234/m², canopy life 4,000 h       | year 13                          | ~USD 215 M        | +15 MUSD                  |
+| Fast, USD 150/m², canopy life 4,000 h       | year 15                          | ~USD 214 M        | −47 MUSD                  |
+
+Each year's cash is (sales + spares) × (1 − 0.7·f(n)) − 15 MUSD, with n the units sold so far and f(n) = (min(n + 10, 1000)/1000)^log2(0.85), per unit within a year's sales and 1 at series level. Spares are, for each ship sold in the 15 years before, half a tether and a canopy per canopy life at 2,000 flight h a year. Cash is discounted from the end of its year. This reproduces the first five rows within 2 MUSD. The last four set the canopy price and life in the same sum; hardware and tether stay as above.
 
 Two findings. First, the hardware sale alone never pays back the development: at
 a 30 % gross margin a 427 kUSD system leaves 128 kUSD before fixed costs, and

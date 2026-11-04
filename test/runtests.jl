@@ -369,13 +369,9 @@ end
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
 end
 
-@testset "the canopy price is the goal, and today's build gives today's input" begin
+@testset "a canopy costs its goal price, and USD 234 as built today" begin
     @test WindShipOpt.canopy_price(assumptions) ≈ 149.8
-    today = (canopy_making_cost_per_area=57.0, canopy_cloth_base_price=11.0,
-        canopy_cloth_price_per_weight=0.031)
-    built = foldl((inputs, (name, value)) -> with_value(inputs, name, value), pairs(today);
-        init=assumptions)
-    @test WindShipOpt.canopy_price(built) ≈ assumptions[:canopy_price_today]
+    @test WindShipOpt.canopy_price_today(assumptions) ≈ 234.4
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈ 149.8rig.area
 end
@@ -660,6 +656,14 @@ end
     @test WindShipOpt.share_at_cost(shares, costs, 3.0) ≈ 0.75
     @test WindShipOpt.share_at_cost(shares, costs, 0.5) == 0.0
     @test isnan(WindShipOpt.share_at_cost(shares, costs, 5.0))
+end
+
+@testset "a canopy price limit lies where the cost reaches the level, and only there" begin
+    prices, costs = [75.0, 150.0, 300.0], [1.0, 1.5, 2.5]
+    @test WindShipOpt.price_at_cost(prices, costs, 2.0) ≈ 225
+    @test isnan(WindShipOpt.price_at_cost(prices, costs, 1.0))
+    @test isnan(WindShipOpt.price_at_cost(prices, costs, 3.0))
+    @test isnan(WindShipOpt.price_at_cost(prices, costs, NaN))
 end
 
 @testset "a canopy life limit lies where the cost reaches the level, and only there" begin

@@ -285,6 +285,19 @@ market price factor.
 canopy_price(assumptions) = assumptions[:market_price_factor] *
                             Canopy(assumptions).cost_per_area
 
+"inputs that together make the canopy price, the goal's; each has a `_today` counterpart"
+canopy_price_inputs = (:canopy_making_cost_per_area, :canopy_cloth_base_price,
+    :canopy_cloth_price_per_weight)
+
+"""
+    canopy_price_today(assumptions)
+
+[`canopy_price`](@ref) [USD/m^2] of the canopy as built today, from the `_today` inputs.
+"""
+canopy_price_today(assumptions) = canopy_price(reduce(
+    (inputs, name) -> with_value(inputs, name, assumptions[Symbol(name, :_today)]),
+    canopy_price_inputs; init=assumptions))
+
 """
     consumable_costs(rig, assumptions)
 

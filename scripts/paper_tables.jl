@@ -145,7 +145,7 @@ function goal_rows()
     crew = @sprintf("USD~%.0f per cycle", assumptions[:kite_cycle_crew_cost])
     price = @sprintf("USD~%.0f/m\$^2\$", WindShipOpt.canopy_price(assumptions))
     today = @sprintf("our estimate USD~%.0f/m\$^2\$, from retail cloth and hand sewing",
-        assumptions[:canopy_price_today])
+        WindShipOpt.canopy_price_today(assumptions))
     return [("Canopy life", "kite", canopy,
             "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements"),
         ("Canopy price", "kite", price, today),
@@ -186,10 +186,10 @@ end
 kite_life_at_cost(rig, curve, cost) =
     rig == "kite" ? WindShipOpt.life_at_cost(curve..., cost) : NaN
 
-"canopy price [USD/m^2] at which `rig` reaches `cost` on the (prices, costs) `curve`, `NaN`
-if below all of it; kite only"
+"canopy price [USD/m^2] at which `rig` reaches `cost` on the (prices, costs) `curve`; kite
+only"
 kite_price_at_cost(rig, curve, cost) =
-    rig == "kite" && curve[2][1] < cost ? WindShipOpt.share_at_cost(curve..., cost) : NaN
+    rig == "kite" ? WindShipOpt.price_at_cost(curve..., cost) : NaN
 
 """
     missed_goal_rows()
@@ -223,7 +223,7 @@ function missed_goal_rows()
             ahead_cost = rank > 1 ? goal[ranked[rank - 1]] : NaN
             saving_short = rig == "kite" ?
                            percent_saving(curve_cost(life_curve, 2000.0), bare) : NaN
-            today = assumptions[:canopy_price_today]
+            today = WindShipOpt.canopy_price_today(assumptions)
             saving_today = rig == "kite" ?
                            percent_saving(curve_cost(price_curve, today), bare) : NaN
             saving = percent_saving(goal[rig], bare)
@@ -261,7 +261,7 @@ function missed_goals_table()
         println(io, "\\cmidrule(lr){3-5}\\cmidrule(lr){6-7}\\cmidrule(lr){8-9}",
             "\\cmidrule(lr){10-12}")
         println(io, "Ship & Rig & at goals & at \\num{2000} h & ",
-            @sprintf("at USD~%.0f & ", assumptions[:canopy_price_today]),
+            @sprintf("at USD~%.0f & ", WindShipOpt.canopy_price_today(assumptions)),
             "pays no more & behind next & pays no more & behind next & ",
             "pays no more & behind next & all units \\\\")
         println(io, "\\midrule")
@@ -272,7 +272,8 @@ function missed_goals_table()
                      dash_cell.(row.price, "%.0f")...; share_cell.(row.share)...;
                      share_cell(row.whole_behind)]
             println(io, join(cells, " & "), " \\\\")
-            @printf("%s, %s: outages cost %.2f points, passes the next up at %s h, USD %s\n",
+            @printf(
+                "%s, %s: outages cost %.2f points, passes the next up at %s h, USD %s\n",
                 row.ship, row.rig, row.service_points, dash_cell(row.passes, "%.0f"),
                 dash_cell(row.passes_price, "%.0f"))
         end
