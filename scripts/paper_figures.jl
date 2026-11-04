@@ -1130,7 +1130,7 @@ function aspect_figure()
         scatterlines!(axis, table["aspect_ratio"][kites], savings; color=palette[k],
             markersize=5, linewidth=1.3, label=ship)
     end
-    axislegend(axis; position=:lt, framevisible=false, labelsize=8.5)
+    axislegend(axis; position=:rb, framevisible=false, labelsize=8.5)
     save(joinpath(figures, "aspect.pdf"), figure; pt_per_unit=print_scale)
 end
 
