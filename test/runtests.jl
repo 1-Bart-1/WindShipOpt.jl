@@ -786,6 +786,19 @@ end
     @test !is_open()
 end
 
+@testset "resuming never takes over another branch's unfinished run" begin
+    @eval PaperRuns runs_directory = mktempdir()
+    other_branch = joinpath(PaperRuns.runs_directory, "2000-01-01T0000")
+    mkpath(other_branch)
+    open(joinpath(other_branch, "run.toml"), "w") do io
+        PaperRuns.TOML.print(io, Dict("fidelity" => "draft", "finished" => "",
+            "git_branch" => "other", "code_hash" => "", "requested" => String[],
+            "steps" => Dict{String, Any}[]))
+    end
+    @test PaperRuns.open_run(:draft, [:designs], true).directory != other_branch
+    @test isempty(PaperRuns.TOML.parsefile(joinpath(other_branch, "run.toml"))["requested"])
+end
+
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
     marker = tempname()
     write(marker, "")
