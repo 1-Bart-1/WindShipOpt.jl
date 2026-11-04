@@ -286,8 +286,6 @@ Base.@kwdef struct KiteRig
     max_wind::Float64
     "lowest apparent wind at kite altitude in which the kite flies a pattern [m/s]"
     min_flight_wind::Float64
-    "lowest apparent wind at kite altitude in which the kite stays up at rest [m/s]"
-    min_parked_wind::Float64
     "lowest apparent wind in which the kite is launched [m/s]"
     launch_min_wind::Float64
     "highest apparent wind in which the kite is launched [m/s]"
@@ -314,8 +312,6 @@ Base.@kwdef struct KiteRig
     side_weights::Vector{Float64}
     "best pattern force over dynamic pressure and area per speed, course and weight"
     forces::Array{PatternForce, 3}
-    "best parked force over dynamic pressure and area, same grid"
-    parked_forces::Array{PatternForce, 3}
 end
 
 """
@@ -434,24 +430,15 @@ min_flight_wind(model::KiteModel, assumptions::Assumptions) =
     climbing_min_wind(model, deg2rad(assumptions[:kite_min_elevation]))
 
 """
-    min_parked_wind(model, assumptions)
-
-Lowest apparent wind [m/s] in which the kite of `model` stays up at rest: the parking margin
-times the [`static_wind`](@ref) of its flying mass.
-"""
-min_parked_wind(model::KiteModel, assumptions::Assumptions) =
-    assumptions[:kite_parking_margin] * static_wind(model.mass, model)
-
-"""
     launch_min_wind(model, tether_mass, assumptions)
 
-Lowest apparent wind [m/s] in which the kite of `model` is launched: the parking margin
+Lowest apparent wind [m/s] in which the kite of `model` is launched: the launch margin
 times the [`static_wind`](@ref) at lift-off without the tether of `tether_mass` [kg], enough
 to fly once the tether is out, and no less than the reported launch wind.
 """
 function launch_min_wind(model::KiteModel, tether_mass, assumptions::Assumptions)
     lift_off = static_wind(model.mass - tether_mass / 2, model)
-    return max(assumptions[:kite_parking_margin] * lift_off,
+    return max(assumptions[:kite_launch_margin] * lift_off,
         min_flight_wind(model, assumptions), assumptions[:kite_launch_min_wind])
 end
 
@@ -473,7 +460,6 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
         reference_height=tether_length * sin(deg2rad(25)),
         max_wind=assumptions[:kite_max_wind],
         min_flight_wind=min_flight_wind(model, assumptions),
-        min_parked_wind=min_parked_wind(model, assumptions),
         launch_min_wind=launch_min_wind(model,
             rope_mass(tether_diameter, tether_length, assumptions), assumptions),
         launch_max_wind=assumptions[:kite_launch_max_wind],
@@ -484,8 +470,6 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
         attach_height=assumptions[:kite_attach_height] * scale,
         attach_position, wind_speeds, courses, side_weights,
         forces=pattern_table(model, max_force, assumptions, wind_speeds, courses,
-            side_weights),
-        parked_forces=parked_table(model, max_force, assumptions, wind_speeds, courses,
             side_weights))
 end
 
@@ -604,18 +588,6 @@ no rig.
 standing_rig(rig::Union{WingRig, RotorRig}) = rig
 standing_rig(rig::CombinedRig) = rig.standing
 standing_rig(::Union{KiteRig, Nothing}) = nothing
-
-"""
-    parked_rig(rig)
-
-`rig` with its kite parked: the same kite with the parked forces in place of its flight
-patterns; a rig without a kite is itself.
-"""
-parked_rig(rig) = rig
-parked_rig(rig::KiteRig) = KiteRig((name == :forces ? rig.parked_forces :
-                                    getfield(rig, name)
-                                    for name in fieldnames(KiteRig))...)
-parked_rig(rig::CombinedRig) = CombinedRig(parked_rig(rig.kite), rig.standing)
 
 """
     DownRig

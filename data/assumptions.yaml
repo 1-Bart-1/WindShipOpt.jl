@@ -646,12 +646,12 @@ kite_launch_max_wave_height:
   high: 4.0
   unit: m
   reason: "Estimate, no source gives a number: highest significant wave height at which a kite is launched, one metre below the stay-up limit because a launch is the step most exposed to ship motion. The SkySails supplier reported limited launch opportunities in heavy sea in the first test phase (CE Delft 2016)."
-kite_parking_margin:
+kite_launch_margin:
   value: 1.3
   low: 1.1
   high: 1.8
   unit: "-"
-  reason: "Estimate of the apparent wind a kite with no airspeed of its own needs, parked or at lift-off, over the wind at which its lift at maximum lift coefficient carries its mass: margin for gusts, tether sag, control and the climb. A land kite stayed up in about 6 m/s aloft, the lowest wind it met (Fagiano et al. 2022)."
+  reason: "Estimate of the apparent wind a kite with no airspeed of its own needs at lift-off, over the wind at which its lift at maximum lift coefficient carries its mass: margin for gusts, tether sag, control and the climb. A land kite stayed up in about 6 m/s aloft, the lowest wind it met (Fagiano et al. 2022)."
 kite_launch_min_wind:
   value: 5.0
   low: 3.0
@@ -712,24 +712,6 @@ kite_landing_minutes:
   high: 60.0
   unit: min
   reason: "Estimate on reports: landing and stowing, during which the kite gives no force. 10-20 min on 160 m^2 (Konstruktionspraxis) plus 15 min for air to escape before stowing, measured on land (Junge et al. 2023)."
-kite_parked_wear_fraction:
-  value: 0.5
-  low: 0.2
-  high: 1.0
-  unit: "-"
-  reason: "Engineering estimate of the wear of canopy and tether per hour parked at the edge of the wind window over the same per hour flying patterns: the same sun, less load cycling."
-kite_parked_depower:
-  value: 0.7
-  low: 0.3
-  high: 1.0
-  unit: "-"
-  reason: "Estimate, no source gives a ram-air figure: lowest force coefficient a parked kite can hold over the one just below stall. Leading-edge inflatable kites reach 0.25-0.33 (van der Vlugt et al. 2019); a SkySails 30 m^2 prototype had no depower (Erhard and Strauch 2015), and depower on a full-size ram-air wing flew in 2022 with no ratio published (Junge et al. 2023)."
-kite_parking:
-  value: 0.0
-  low: 0.0
-  high: 1.0
-  unit: "-"
-  reason: "Whether a kite may park aloft: 1 yes, 0 no. Off in the base case, on as a sensitivity: no source reports sustained parking of any kite, published neutral positions being low-force phases of launch, recovery or reel-in (Erhard and Strauch 2013, Fagiano et al. 2022), and the router would hold a parked kite for days at a wear rate that is only an estimate."
 kite_max_wind:
   value: 25.0
   low: 20.0
@@ -813,7 +795,7 @@ launch_mast_telescope_factor:
   low: 2.2
   high: 5.0
   unit: "-"
-  reason: "Price of the hydraulic telescopic launch mast over the steel cost of a static one: hydraulic marine cranes sell at 5.5-17 USD/kg against 1.0-1.6 USD/kg for steel monopoles, so the low bound is the cheapest crane per kg. The mast retracts because a kite parked aloft swings its tether round it; the SkySails ships used a telescopic mast."
+  reason: "Price of the hydraulic telescopic launch mast over the steel cost of a static one: hydraulic marine cranes sell at 5.5-17 USD/kg against 1.0-1.6 USD/kg for steel monopoles, so the low bound is the cheapest crane per kg. The mast retracts because a kite aloft swings its tether round it; the SkySails ships used a telescopic mast."
 docking_head_cost:
   value: 37000.0
   low: 15000.0

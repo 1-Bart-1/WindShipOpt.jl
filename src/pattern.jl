@@ -311,32 +311,6 @@ function PatternForce(model::KiteModel, pattern::SteeringPattern, wind_speed, ma
 end
 
 """
-    parked_force(kite, elevation, side, wind_speed)
-
-Tether force of the kite parked at `elevation` [rad] on the `side` (+1 or -1) of the
-apparent wind of `wind_speed` [m/s], where its aerodynamic force, weight and tether
-balance at rest.
-"""
-function parked_force(kite::KiteAero, elevation, side, wind_speed)
-    wind = (wind_speed, 0.0, 0.0)
-    still = (0.0, 0.0, 0.0)
-    downwind = sphere_position(0.0, elevation)
-    first(balance_residual(kite, wind, downwind, still)) < 0 || return NO_PATTERN
-    low, high = 0.0, π / 2 - 1e-3
-    for _ in 1:40
-        middle = (low + high) / 2
-        radial = sphere_position(side * middle, elevation)
-        residual, tension = balance_residual(kite, wind, radial, still)
-        residual < 0 && tension > 0 ? (low = middle) : (high = middle)
-    end
-    radial = sphere_position(side * low, elevation)
-    _, tension = balance_residual(kite, wind, radial, still)
-    tension > 0 || return NO_PATTERN
-    load = 0.5kite.air_density * wind_speed^2 * kite.area
-    return PatternForce(tension / load .* radial, tension / load, elevation)
-end
-
-"""
     sphere_position(azimuth, elevation)
 
 Unit position at `azimuth` and `elevation` [rad] in the wind frame (apparent downwind,
@@ -427,64 +401,6 @@ function optimal_pattern(problem::PatternProblem, starts)
         best_force, best_value, best_parameters = force, value, parameters
     end
     return best_force, best_parameters
-end
-
-"""
-    parked_angles(model, depower)
-
-Angles of attack [rad] a parked kite of [`KiteModel`](@ref) `model` can hold: those whose
-force coefficient is at least the fraction `depower` of the one just below stall.
-"""
-function parked_angles(model::KiteModel, depower)
-    least = depower * force_coefficient(model, model.stall_angle)
-    return [angle for angle in range(model.lowest_angle, model.stall_angle; length=12)
-            if force_coefficient(model, angle) >= least]
-end
-
-"force coefficient of the kite of `model` at angle of attack `angle` [rad]"
-function force_coefficient(model::KiteModel, angle)
-    (; lift, drag) = KiteAero(model, angle)
-    return hypot(lift, drag)
-end
-
-"""
-    parked_positions(model, angles, max_tension, min_elevation, wind_speed)
-
-Every [`parked_force`](@ref) of `model` at the `angles` of attack [rad], along the edge of
-the wind window from `min_elevation` [rad] to overhead on both sides, in a uniform apparent
-wind of `wind_speed` [m/s] within the tether limit `max_tension` [N].
-"""
-function parked_positions(model::KiteModel, angles, max_tension, min_elevation, wind_speed)
-    load = 0.5model.air_density * wind_speed^2 * model.area
-    forces = [parked_force(KiteAero(model, angle), elevation, side, wind_speed)
-              for angle in angles, elevation in deg2rad.(10:5:85), side in (-1, 1)]
-    return filter(forces) do force
-        load * force.peak_tension <= max_tension && force.lowest_elevation >= min_elevation
-    end
-end
-
-"""
-    parked_table(model, max_force, assumptions, wind_speeds, courses, side_weights)
-
-Force of the best parked position for each apparent wind speed, course and side weight, by
-the same [`objective`](@ref) as a flight pattern. A wind speed in which no position holds
-takes the force coefficients of the nearest one in which one does.
-"""
-function parked_table(model::KiteModel, max_force, assumptions::Assumptions, wind_speeds,
-        courses, side_weights)
-    angles = parked_angles(model, assumptions[:kite_parked_depower])
-    min_elevation = deg2rad(assumptions[:kite_min_elevation])
-    positions = [parked_positions(model, angles, max_force, min_elevation, wind)
-                 for wind in wind_speeds]
-    holding = findall(!isempty, positions)
-    forces = fill(NO_PATTERN, length(wind_speeds), length(courses), length(side_weights))
-    for i in eachindex(wind_speeds), j in eachindex(courses), k in eachindex(side_weights)
-        nearest = holding[argmin(abs.(holding .- i))]
-        problem = PatternProblem(model, max_force, min_elevation, wind_speeds[nearest],
-            courses[j], side_weights[k])
-        forces[i, j, k] = argmin(force -> objective(problem, force), positions[nearest])
-    end
-    return forces
 end
 
 """
