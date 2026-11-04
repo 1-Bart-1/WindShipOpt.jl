@@ -175,6 +175,29 @@ Section 4.4 is today's estimate, USD 234.4 per projected m² at 200 g/m²: (57 +
 
 **Check against whole products**, per m² of finished cloth: the goal is USD 43 (USD 150 / 3.5). A G-12 sold at about USD 11.5 per nominal m² in 2004, near USD 20 today; a direct-sale Dacron sail asks about USD 57 (https://sites.google.com/site/olbiamarine/mainsail). So the goal sits between a volume parachute and a low-volume sail.
 
+**Learning curve check (Wright's law).** Scaling up has a known cost law, so we test the goal against it: time per unit falls by a fixed share with each doubling of cumulative output, T = T₀ × p^n, with p the ratio per doubling and n the doublings from the starting volume. It checks the goal and sets no input.
+
+- Rates read for sewing: p = 0.93 for a shirt plant's sewing section as a whole, with its stations from 0.59 to 0.98, fitted over 15 shirts (Badri et al. 2016, https://doi.org/10.1088/1757-899X/114/1/012068). p = 0.77–0.83 for three experienced machinists on a new zip task, from exponents −0.265, −0.383 and −0.260 over 20 cycles (Yépez et al. 2025, https://doi.org/10.30880/jtet.2025.17.02.008); the paper's own "learning percentages" of 54–68 % do not follow from its exponents, so we use 2^b. We take 0.83 and 0.93 as the two ends. Both runs are minutes to hours long, so using them over a million m² is an extrapolation no source tests. Volume studies of sewing (Nembhard, Uzumeri) and the industry-wide surveys (Dutton and Thomas, Argote and Epple) are paywalled and unread.
+- Start of the curve: 1.5 h comes from paragliders already in series, so the count starts at a volume N₀, not at one. No maker publishes it. APCO says it makes thousands of paragliders, harnesses and reserves a year and has built gliders since 1986 (https://www.apcoaviation.com/history/). We take N₀ = 0.1 million flat m² (4,000 gliders of 25 m², for a new plant that inherits part of that experience) and 1 million (40,000 gliders, the whole history of an established maker). Both are our estimates.
+- Floor: a machine stitches at its own speed, and plateaus are more likely the more machine-paced the work (Baloff 1971, through Tamás and Koltai 2020, https://doi.org/10.3311/PPso.14136). No measured floor for sewing was found, so we test T = F + (T₀ − F) × p^n with F = 0.6 h, the bottom of the G-12 range above, against no floor at all.
+- Volume: 1,000 and 10,000 canopies of 800 m², at 936 flat m² each. At one canopy a ship every one to two years, 1,000 canopies is about one to two years of a 1,000-ship fleet.
+
+Sewing, hours per flat m² (price per projected m² with cloth at the goal's USD 9.4; each 0.1 h moves it by USD 6):
+
+| Cumulative volume | N₀, million flat m² | n    | p = 0.83, no floor | p = 0.93, no floor | p = 0.83, floor 0.6 h | p = 0.93, floor 0.6 h |
+| ----------------- | ------------------- | ---- | ------------------ | ------------------ | --------------------- | --------------------- |
+| 1,000 canopies    | 0.1                 | 3.37 | 0.80 h (USD 138)   | 1.18 h (USD 161)   | 1.08 h (USD 155)      | 1.31 h (USD 169)      |
+| 1,000 canopies    | 1                   | 0.95 | 1.26 h (USD 166)   | 1.40 h (USD 175)   | 1.35 h (USD 172)      | 1.44 h (USD 177)      |
+| 10,000 canopies   | 0.1                 | 6.56 | 0.44 h (USD 116)   | 0.95 h (USD 147)   | 0.86 h (USD 142)      | 1.17 h (USD 160)      |
+| 10,000 canopies   | 1                   | 3.37 | 0.80 h (USD 138)   | 1.18 h (USD 161)   | 1.08 h (USD 155)      | 1.31 h (USD 169)      |
+
+So 1.0 h is not what learning gives by 1,000 canopies: one case of eight reaches it. By 10,000 canopies four of eight do. Without a floor, 1.0 h takes 2.2 doublings at 0.83 and 5.8 at 0.93, that is 380–5,800 canopies from the low start and 3,800–58,000 from the high one. With the floor and p = 0.93 it takes 11.6 doublings, more than 300,000 canopies, so in that corner learning alone never gets there. The G-12 agrees on the size of the volume: the one order above is about 555,000 flat-m² equivalents (5,566 × 299 / 3), about 590 of our canopies, from a type long in series, at a bound of 0.6–1.0 h. So 1.0 h is a mature-series number, and earlier it has to come from how the plant is set up rather than from repetition. The 15 % curve of the business case in `kite_validation_notes.md` lies between our two ends.
+
+- Cloth: the law fits weakly. Polyester fibre itself followed a steep curve, a price exponent of −0.466, p = 0.72, over 13 data points from its young years (Lafond et al. 2018, https://doi.org/10.1016/j.techfore.2017.11.001). But that curve counts the world's output, 78 Mt in 2024 (Textile Exchange, https://textileexchange.org/knowledge-center/reports/materials-market-report-2025/), and a fleet's 100–400 t a year (0.5–2 million m² at 200 g/m²) is 0.0005 % of a year's output and moves no doubling. Yarn is also only USD 0.4 of the goal's 8.2. We found no read rate for weaving or finishing one cloth. The step from USD 15 to 8.2 is rolls and one dealer less, a purchase price rather than learning; if learning alone had to do it, it would take 3.2 doublings at 0.83 and 8.6 at 0.93 in a mature trade. So cloth stays a judgement and the law gives it no support: USD 55 of the USD 85 gap rests on it.
+- Market factor: out of reach. It is a commercial choice, and a falling cost need not reach the price.
+
+The goal stays USD 150. The check does not show it wrong: at 1,000 canopies the same cloth gives USD 138–177 and at 10,000 USD 116–169, both around it, and USD 150 needs about 1.0 h. It does show the goal belongs to a mature series, and that learning supports only the sewing share of USD 30, not the cloth.
+
 **Other rigs.** No same gap: wings and rotors are built up from industrial material and labour costs and the rotor checks against sale prices (section 6), the tether is a bulk purchase price, and no goal is set for them.
 
 ## 5. Model inputs
