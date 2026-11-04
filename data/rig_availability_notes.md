@@ -95,7 +95,7 @@ From the sweep of 3 November 2026: three ships at the final screening resolution
 
 "Behind next" holds the next rig at its base. "All fail together" is a straight line between all working and all down. For the single-unit kite it should equal the columns beside it, and it differs by up to 0.1 point because any share above zero sizes the fuel store for a leg with the kite down, which the all-working end of the line does not (140 m: cargo 16,415 t against 16,408 t).
 
-- **Which rig leads.** Rotors, kite, wings on all three ships, at low, base and high alike. The order changes only if one rig fares worse than the others, and the Neo-Panamax is the close case: rotors lead by 1.2 points and fall behind the kite at 13 % per rotor, or 7 % if all fail together, both inside the range of up to 15 %.
+- **Which rig leads.** At these fixed sizes rotors, kite, wings on all three ships, at low, base and high alike. The order changes only if one rig fares worse than the others, and the Neo-Panamax is the close case: rotors lead by 1.2 points and fall behind the kite at 13 % per rotor, or 7 % if all fail together, both inside the range of up to 15 %. At each rig's cheapest size, as in `tab:missed_goals`, the kite leads on the Neo-Panamax by 1.6 points on 12 departures and falls behind the rotors at 13 %.
 - **Base choice.** 3 % for all rigs, with its alternatives shown here as ranges: the best stated figure per rig (low), our 15 % (high), and all units failing together. Afros's 5 % for rotors alone stays ahead of the kite at base on all three ships, since it lies below every rotor "behind next" share in the per-unit columns.
 - **Down state.** Never working costs more than no rig: on the 140 m ship 2.3 % for the kite, 6.0 % for the wings and 10.3 % for the rotors, from capital, mass and standing drag.
 
@@ -110,7 +110,7 @@ From the sweep of 3 November 2026: three ships at the final screening resolution
 | Same: Kamsarmax | -0.52 | -0.56 | -0.57 |
 | Same: Neo-Panamax | -0.22 | -0.24 | -0.23 |
 
-The maintenance split widens the rotors' lead and changes no order. A port call costs all rigs about alike on a ship, so it moves the order only if one rig needs several more a year than another; on the Neo-Panamax about five more for the rotors than the kite would close their 1.2 points. No source gives how many calls a rig forces.
+The maintenance split favours the rotors and changes no order, at these sizes or at the cheapest sizes of `tab:missed_goals`, where it would take about 0.25 points of the kite's 1.6-point lead on the Neo-Panamax. A port call costs all rigs about alike on a ship, so it moves the order only if one rig needs several more a year than another; on the Neo-Panamax at these fixed sizes about five more for the rotors than the kite would close their 1.2 points. No source gives how many calls a rig forces.
 
 ## Crashes
 
