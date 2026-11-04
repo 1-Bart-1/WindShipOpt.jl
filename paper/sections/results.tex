@@ -139,13 +139,25 @@ Wing sails and rotors are priced on the same basis and both last 20 years (\cref
 \subsection{Robustness}
 \label{sec:res_robustness}
 
-Three changes to the model move the savings on the \SI{140}{m} e-methanol ship to Guadeloupe by several points, but none of them moves the rotors out of the lead. The largest is the forecast (\cref{fig:forecast}). Re-planned daily on a forecast of 7 days, the \SI{3200}{m^2} kite saves 9.7\,\% instead of 13.5\,\%, the wing sails 7.2 instead of 9.0\,\% and the rotors 18.1 instead of 19.0\,\%; on a forecast of 3 days they save 5.3, 6.3 and 13.5\,\%. The kite loses most from a short forecast, and on 3 days the wing sails pass it. Without its flight drag (\cref{sec:kite}) the kite saves 1.4 to 2.0 points more on e-methanol and 0.6 to 0.8 points more on VLSFO, on kites of \SIlist{800;3200}{m^2} on the \SIlist{140;200}{m} ships. A higher aspect ratio gains more: the \SI{800}{m^2} kite on the \SI{140}{m} ship saves 14.7\,\% at an aspect ratio of 5 and 15.3\,\% at 8, against 11.1\,\% at 3, and on VLSFO 2.4 and 2.7\,\% against 1.2\,\%. \tbd{Input screening and component prices, from the sensitivity and components figures once recomputed; state for each whether it changes the order of the rigs.}
+Two changes to the model move the savings on the \SI{140}{m} e-methanol ship to Guadeloupe by several points, but neither moves the rotors out of the lead. The largest is the forecast (\cref{fig:forecast}). Re-planned daily on a forecast of 7 days, the \SI{3200}{m^2} kite saves 9.7\,\% instead of 13.5\,\%, the wing sails 7.2 instead of 9.0\,\% and the rotors 18.1 instead of 19.0\,\%; on a forecast of 3 days they save 5.3, 6.3 and 13.5\,\%. The kite loses most from a short forecast, and on 3 days the wing sails pass it. Without its flight drag (\cref{sec:kite}) the kite saves 1.4 to 2.0 points more on e-methanol and 0.6 to 0.8 points more on VLSFO, on kites of \SIlist{800;3200}{m^2} on the \SIlist{140;200}{m} ships. \tbd{Input screening and component prices, from the sensitivity and components figures once recomputed; state for each whether it changes the order of the rigs.}
 
 \begin{figure}[tbp]
 \centering
 \plot{forecast}
 \caption{Cost saving of a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails and \SI{800}{m^2} of rotors on the \SI{140}{m} e-methanol ship to Guadeloupe, routed with perfect foresight and re-planned every 24 hours on forecasts of 7 and 3 days, each against the ship without a rig routed the same way.}
 \label{fig:forecast}
+\end{figure}
+
+\subsection{Aspect ratio of the kite}
+\label{sec:res_aspect}
+
+The kite of every result above keeps the aspect ratio of the ship kites that have flown (\cref{sec:kite}). \Cref{fig:aspect} asks one what-if on three ships: the same kite area at a higher aspect ratio, with the launch gear, the tether, the canopy and everything else priced as at the base aspect ratio. It shows what a better aspect ratio is worth if a higher aspect ratio kite can be handled at the same cost, not that the kite should fly at that value. On that assumption the saving of the base kite goes from \tbd{10.0}\,\% at aspect ratio 3 to \tbd{17.0}\,\% at 5 and \tbd{17.5}\,\% at 8 on the \SI{140}{m} ship, from \tbd{2.9}\,\% to \tbd{6.3}\,\% and \tbd{8.5}\,\% on the Kamsarmax, and from \tbd{10.5}\,\% to \tbd{13.6}\,\% and \tbd{12.1}\,\% on the Neo-Panamax container ship. The canopy mass per area and the force limit stay as they are, and the polars are those of a design shape that does not deform. \tbd{Draft numbers, at a canopy price of USD~234/m$^2$, with the launch hardware and tether that followed span in that run taken out on its own routes; its longer launches stay in, worth about 0.1 points or less, up to about 0.4 on the Neo-Panamax. The final run replaces them.}
+
+\begin{figure}[tbp]
+\centering
+\plot[\columnwidth]{aspect}
+\caption{What-if: cost saving of the kite at the same area and the same price against its aspect ratio, on the \SI{140}{m} e-methanol ship to Guadeloupe, a Kamsarmax on VLSFO to Tubarão and a Neo-Panamax container ship on e-methanol to New York.}
+\label{fig:aspect}
 \end{figure}
 
 \subsection{If a goal is missed}
