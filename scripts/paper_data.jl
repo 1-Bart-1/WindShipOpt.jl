@@ -229,7 +229,8 @@ function kite_market_prices()
 end
 
 "design keyword of each rig"
-rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area)
+rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area,
+    "rigid kite" => :rigid_kite_area)
 
 """
     rig_size(rig, area)
@@ -876,13 +877,23 @@ function availability_data()
         round_trips(cases, sampled_departures(; screening=true)), :ship, :rig, :share)
 end
 
-"""
-    crash_sizes(rig, area, hull)
+"the rigs of the crash study"
+crash_rigs = (rig_names..., "rigid kite")
 
-Sizes [m^2] of `rig` in the crash study: half of `area`, `area` and twice it, wings and
-rotors only as far as they fit on `hull`.
 """
-function crash_sizes(rig, area, hull)
+    crash_sizes(rig, areas, hull)
+
+Sizes [m^2] of `rig` in the crash study: half of its size in `areas`, that size and twice
+it, wings and rotors only as far as they fit on `hull`; for a rigid kite, the fleets of one,
+two and four kites of its unit area that fit.
+"""
+function crash_sizes(rig, areas, hull)
+    if rig == "rigid kite"
+        fleets = filter(count -> WindShipOpt.rigid_kites_fit(count, hull, assumptions),
+            [1, 2, 4])
+        return fleets .* assumptions[:rigid_unit_area]
+    end
+    area = only(values(getproperty(areas, Symbol(rig))))
     rig == "kite" && return [area / 2, area, 2area]
     rig_type = rig == "wings" ? WingRig : WindShipOpt.RotorRig
     return unique([area / 2, area, min(2area, largest_area(rig_type, hull))])
@@ -899,9 +910,8 @@ function crash_data()
     for (ship, bare, route, areas) in sensitivity_ships()
         push!(cases, trip_case(bare; route, ship, bare.drive, rig="none", area=0.0))
         hull = Ship(bare, assumptions).hull
-        for rig in rig_names
-            best = only(values(getproperty(areas, Symbol(rig))))
-            for area in crash_sizes(rig, best, hull)
+        for rig in crash_rigs
+            for area in crash_sizes(rig, areas, hull)
                 design = ShipDesign(; bare.drive, bare.length, bare.class,
                     rig_size(rig, area)...)
                 push!(cases, trip_case(design; route, ship, bare.drive, rig, area))

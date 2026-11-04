@@ -274,7 +274,7 @@ function crash_rows()
     for ship in unique(table["ship"])
         bare = only(table["cost"][rows(table, "ship" => ship, "rig" => "none")])
         best = Dict(rig => minimum(table["cost"][rows(table, "ship" => ship, "rig" => rig)])
-                    for rig in rig_names)
+                    for rig in crash_rigs)
         for (; rig, next) in WindShipOpt.ranked_neighbours(best)
             for row in rows(table, "ship" => ship, "rig" => rig)
                 push!(result, crash_row(table, row, bare, next))
@@ -322,7 +322,8 @@ function crash_table()
             @printf(io, "%s & %s & %.0f & %.1f & %.0f & %s & %s & %s \\\\\n", row.ship,
                 row.rig, row.area, row.saving, row.crash / 1e3,
                 crash_cell(row.stops_paying), crash_cell(row.behind_next),
-                row.rig == "kite" ? @sprintf("%.0f", row.flight_hours) : "--")
+                row.rig in ("kite", "rigid kite") ? @sprintf("%.0f", row.flight_hours) :
+                "--")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end

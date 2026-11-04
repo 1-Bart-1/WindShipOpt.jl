@@ -970,6 +970,13 @@ end
     end
 end
 
+@testset "one rigid kite crashing costs one airframe and half of one tether" begin
+    fleet = rigid_fleet(3, assumptions)
+    airframes = WindShipOpt.rigid_airframe_price(fleet, assumptions)
+    _, tethers = WindShipOpt.consumable_costs(fleet, assumptions)
+    @test WindShipOpt.crash_cost(fleet, assumptions) ≈ (airframes + tethers / 2) / 3
+end
+
 @testset "each rig is measured against its neighbours in cost, the ends against none" begin
     costs = Dict("kite" => 2.0, "wings" => 1.0, "rotors" => 3.0)
     ranked = WindShipOpt.ranked_neighbours(costs)
