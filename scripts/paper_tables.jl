@@ -190,8 +190,8 @@ of goal_sizes.csv: the [`size_limits`](@ref) of that size, and where the rig sto
 and falls behind the next rig (`NaN` for the last) the canopy life [h] and the share out of
 service [-], that share also for all units failing together; for the kite its saving [%] at
 a canopy life of 2,000 h and the life at which it passes the rig ahead; the points of saving
-[%] its share out of service costs at the goal. Each of the three sweeps must give the same
-goal cost, so that one ranking holds for all limits.
+[%] its share out of service costs at the goal. Raises an error where the three sweeps
+differ in a rig's goal cost.
 """
 function missed_goal_rows()
     sizes = read_table(data_file("goal_sizes.csv"))
@@ -299,8 +299,9 @@ function missed_goals_table()
                      share_cell.(row.share)...; @sprintf("%.0f", row.crash / 1e3);
                      crash_cell.(row.crashes)...]
             println(io, join(cells, " & "), " \\\\")
-            @printf("%s, %s: %.1f %% at 2,000 h, outages cost %.2f points, passes the next up at %s h, all units behind at %s %%\n",
-                row.ship, row.rig, row.saving_short, row.service_points,
+            @printf("%s, %s: %.1f %% at 2,000 h, outages cost %.2f points, ", row.ship,
+                row.rig, row.saving_short, row.service_points)
+            @printf("passes the next up at %s h, all units behind at %s %%\n",
                 dash_cell(row.passes, "%.0f"), share_cell(row.whole_behind))
         end
         println(io, "\\bottomrule\n\\end{tabular}\n\n\\bigskip")

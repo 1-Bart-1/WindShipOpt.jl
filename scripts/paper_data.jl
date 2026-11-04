@@ -656,7 +656,7 @@ end
 """
     largest_rig_area(rig, hull)
 
-Largest area [m^2] of `rig` on `hull`: what fits on deck, for a kite the bound of the search.
+Largest area [m^2] of `rig` on `hull`: what fits on deck, for a kite the search bound.
 """
 function largest_rig_area(rig, hull)
     rig == "kite" && return 16000.0
@@ -865,13 +865,12 @@ end
 """
     availability_data()
 
-Each ship of [`goal_limit_ships`](@ref) without a rig, and with each rig at its
-[`service_shares`](@ref): availability.csv.
+Each ship of [`goal_limit_ships`](@ref) with each rig at its [`service_shares`](@ref):
+availability.csv.
 """
 function availability_data()
     cases = []
     for (ship, bare, route, areas) in goal_limit_ships()
-        push!(cases, trip_case(bare; route, ship, rig="none", share=0.0))
         for rig in rig_names, share in service_shares(rig)
             input = Symbol(out_of_service_inputs[rig])
             design = ShipDesign(; bare.drive, bare.length, bare.class,
@@ -923,10 +922,7 @@ function goal_limit_ships()
 end
 
 "row of the cheapest size of `rig` on `ship` in the goal_sizes.csv `table`"
-function cheapest_size(table, ship, rig)
-    picked = rows(table, "ship" => ship, "rig" => rig)
-    return picked[argmin(table["cost"][picked])]
-end
+cheapest_size(table, ship, rig) = lowest_cost_row(table, "ship" => ship, "rig" => rig)
 
 "canopy lives [flight hours] the kite is routed at for the missed-goal table"
 canopy_lives = (500.0, 750.0, 1000.0, 1500.0, 2000.0, 3000.0, 4000.0, 6000.0, 8000.0,
@@ -942,8 +938,8 @@ function canopy_life_data()
     cases = [trip_case(ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...);
                  assumptions=with_value(assumptions, :canopy_life, life), route, ship, life)
              for (ship, bare, route, areas) in goal_limit_ships(), life in canopy_lives]
-    write_trips("canopy_life.csv", vec(cases), round_trips(vec(cases), sampled_departures()),
-        :ship, :life)
+    write_trips("canopy_life.csv", vec(cases),
+        round_trips(vec(cases), sampled_departures()), :ship, :life)
 end
 
 "ships of the abatement study as (name, route)"

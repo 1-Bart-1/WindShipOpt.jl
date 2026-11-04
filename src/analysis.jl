@@ -105,11 +105,11 @@ end
 """
     sizes_around(rig, area, largest)
 
-Sizes [m^2] of `rig` to sweep around `area`, none above `largest`: a quarter, half, once and
-twice `area` for a kite, whose best size moves furthest, half, once and twice for the others.
+Sizes [m^2] of `rig` to sweep around `area`, none above `largest`: a quarter to four times
+`area` in doublings for a kite, half, once and twice `area` for the others.
 """
 function sizes_around(rig, area, largest)
-    factors = rig == "kite" ? (0.25, 0.5, 1.0, 2.0) : (0.5, 1.0, 2.0)
+    factors = rig == "kite" ? (0.25, 0.5, 1.0, 2.0, 4.0) : (0.5, 1.0, 2.0)
     return unique(min.(factors .* area, largest))
 end
 
