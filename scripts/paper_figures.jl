@@ -1112,6 +1112,29 @@ function situations_figure()
 end
 
 """
+    aspect_figure()
+
+Saving of the kite of each study ship against its aspect ratio, at the same area and the
+same price.
+"""
+function aspect_figure()
+    table = read_table(data_file("aspect.csv"))
+    figure = Figure(size=(column_width, 190))
+    axis = Axis(figure[1, 1]; xlabel="kite aspect ratio", ylabel="cost saving [%]",
+        xticks=collect(study_aspect_ratios))
+    for (k, ship) in enumerate(unique(table["ship"]))
+        chosen = rows(table, "ship" => ship)
+        bare = table["cost"][only(filter(row -> table["aspect_ratio"][row] == 0, chosen))]
+        kites = filter(row -> table["aspect_ratio"][row] > 0, chosen)
+        savings = percent_saving.(table["cost"][kites], bare)
+        scatterlines!(axis, table["aspect_ratio"][kites], savings; color=palette[k],
+            markersize=5, linewidth=1.3, label=ship)
+    end
+    axislegend(axis; position=:lt, framevisible=false, labelsize=8.5)
+    save(joinpath(figures, "aspect.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
     band_totals(table, rig, column; route=nothing, direction=nothing)
 
 Sum of `column` of wind_angle.csv for `rig` in each band of `angle_bands`, over every
