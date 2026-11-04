@@ -805,6 +805,24 @@ end
     @test !is_open()
 end
 
+@testset "a table reads its own branch's study before a newer one of another branch" begin
+    function finished_run(name, branch)
+        directory = joinpath(PaperRuns.runs_directory, name)
+        mkpath(directory)
+        touch(joinpath(directory, "study.csv"))
+        record = Dict("fidelity" => "final", "finished" => "done", "git_branch" => branch)
+        open(io -> PaperRuns.TOML.print(io, record), joinpath(directory, "run.toml"), "w")
+        return joinpath(directory, "study.csv")
+    end
+    branch = PaperRuns.git_output("rev-parse", "--abbrev-ref", "HEAD")
+    own = finished_run("2026-01-01T0000", branch)
+    other = finished_run("2026-01-01T0001", "another-branch")
+    @eval PaperRuns paper_run = PaperRun(nothing, :final, Dict{String, Any}(), 0, 0)
+    @test PaperRuns.data_file("study.csv") == own
+    rm(own)
+    @test PaperRuns.data_file("study.csv") == other
+end
+
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
     marker = tempname()
     write(marker, "")
