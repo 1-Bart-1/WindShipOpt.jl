@@ -40,7 +40,7 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :abatement_data => abatement_data,
     :components => components_data, :combination_data => combination_data,
     :rigid_scaling_data => rigid_scaling_data, :rigid_kite_data => rigid_kite_data,
-    :convergence => convergence_data]
+    :launch => launch_data, :convergence => convergence_data]
 
 "steps outside the paper, run only by name: the data of the companion website"
 website_steps = [:explorer => explorer_data]

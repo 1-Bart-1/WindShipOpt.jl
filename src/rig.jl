@@ -283,10 +283,22 @@ Base.@kwdef struct KiteRig{A}
     tether_length::Float64
     "height at which the apparent wind of the table is taken [m]"
     reference_height::Float64
-    "highest apparent wind at kite altitude in which the kite flies [m/s]"
+    "highest apparent wind at kite altitude in which the kite stays up [m/s]"
     max_wind::Float64
-    "lowest apparent wind at kite altitude that carries the kite's weight [m/s]"
+    "lowest apparent wind at kite altitude in which the kite flies a pattern [m/s]"
     min_flight_wind::Float64
+    "lowest apparent wind in which the kite is launched [m/s]"
+    launch_min_wind::Float64
+    "highest apparent wind in which the kite is launched [m/s]"
+    launch_max_wind::Float64
+    "highest significant wave height in which the kite is launched [m]"
+    launch_max_wave_height::Float64
+    "whether the kite is launched in the dark as well as by day"
+    night_launch::Bool
+    "highest apparent wind in which the kite lands without a forced landing [m/s]"
+    landing_max_wind::Float64
+    "highest significant wave height in which the kite lands without a forced landing [m]"
+    landing_max_wave_height::Float64
     "depower limit on tether force [N]"
     max_force::Float64
     "tether attachment height above the waterline [m]"
@@ -396,15 +408,79 @@ function kite_model(area, aspect_ratio, assumptions::Assumptions)
 end
 
 """
+    static_wind(mass, model)
+
+Apparent wind [m/s] whose lift at rest at the highest lift coefficient of `model` carries
+`mass` [kg].
+"""
+static_wind(mass, model::KiteModel) = sqrt(2mass * model.gravity /
+    (model.air_density * model.area * maximum(model.polar.lift)))
+
+"""
+    best_over_angles(coefficient, model)
+
+Highest `coefficient(lift, drag)` of `model` over its flying angles of attack.
+"""
+function best_over_angles(coefficient, model::KiteModel)
+    angles = range(model.lowest_angle, model.stall_angle; length=48)
+    return maximum(angles) do angle
+        (; lift, drag) = KiteAero(model, angle)
+        return coefficient(lift, drag)
+    end
+end
+
+"""
+    crosswind_min_wind(model, elevation)
+
+Lowest apparent wind [m/s] in which `model` sweeps level across the wind at `elevation`
+[rad], rolled so that its lift carries its weight and its glide ratio sets its airspeed.
+"""
+function crosswind_min_wind(model::KiteModel, elevation)
+    power = best_over_angles(model) do lift, drag
+        glide = lift / drag
+        return lift * (1 + glide^2)^1.5 / glide
+    end
+    return sqrt(3sqrt(3) * model.mass * model.gravity /
+                (model.air_density * model.area * cos(elevation) * power))
+end
+
+"""
+    climbing_min_wind(model, elevation)
+
+Lowest apparent wind [m/s] in which `model` holds a steady climb straight up the wind window
+at `elevation` [rad], the airspeed that makes most force along its path.
+"""
+function climbing_min_wind(model::KiteModel, elevation)
+    pull = best_over_angles(model) do lift, drag
+        glide = lift / drag
+        speed = glide^2 > 8 ? (glide + sqrt(glide^2 - 8)) / 4 : 0.0
+        return max(lift, sqrt(1 + speed^2) * (lift - drag * speed))
+    end
+    return sqrt(2model.mass * model.gravity /
+                (model.air_density * model.area * cos(elevation) * pull))
+end
+
+"""
     min_flight_wind(model, assumptions)
 
-Lowest apparent wind [m/s] in which the kite of [`KiteModel`](@ref) `model` can be
-launched and stay aloft: the parking margin times the wind whose lift at the highest lift
-coefficient carries its flying mass.
+Lowest apparent wind [m/s] in which the kite of `model` flies a pattern of steady points:
+[`climbing_min_wind`](@ref) at the lowest elevation.
 """
 min_flight_wind(model::KiteModel, assumptions::Assumptions) =
-    assumptions[:kite_parking_margin] * sqrt(2model.mass * model.gravity /
-        (model.air_density * model.area * maximum(model.polar.lift)))
+    climbing_min_wind(model, deg2rad(assumptions[:kite_min_elevation]))
+
+"""
+    launch_min_wind(model, tether_mass, assumptions)
+
+Lowest apparent wind [m/s] in which the kite of `model` is launched: the launch margin
+times the [`static_wind`](@ref) at lift-off without the tether of `tether_mass` [kg], enough
+to fly once the tether is out, and no less than the reported launch wind.
+"""
+function launch_min_wind(model::KiteModel, tether_mass, assumptions::Assumptions)
+    lift_off = static_wind(model.mass - tether_mass / 2, model)
+    return max(assumptions[:kite_launch_margin] * lift_off,
+        min_flight_wind(model, assumptions), assumptions[:kite_launch_min_wind])
+end
 
 """
     rigid_polar(assumptions)
@@ -485,6 +561,22 @@ function lowest_flying_wind(wind_speeds, forces)
 end
 
 """
+    rigid_wind_limits(lowest_wind, assumptions)
+
+Keywords of [`KiteRig`](@ref) for a rigid kite that flies from `lowest_wind` [m/s]: it can
+launch there too, since its rotors lift it from rest, and hovers within its own limits on
+wind and sea in launch and landing.
+"""
+function rigid_wind_limits(lowest_wind, assumptions::Assumptions)
+    hover_wind = assumptions[:rigid_hover_max_wind]
+    hover_waves = assumptions[:rigid_hover_max_wave_height]
+    return (; max_wind=assumptions[:rigid_max_wind], min_flight_wind=lowest_wind,
+        launch_min_wind=lowest_wind, launch_max_wind=hover_wind,
+        launch_max_wave_height=hover_waves, night_launch=assumptions[:kite_night_launch] > 0,
+        landing_max_wind=hover_wind, landing_max_wave_height=hover_waves)
+end
+
+"""
     rigid_kites_fit(count, hull, assumptions)
 
 Whether `count` perches of rigid kites of the unit area of the assumptions stand one span
@@ -510,10 +602,11 @@ function rigid_kite_rig(total_area, hull::Hull, assumptions::Assumptions;
     model, max_force, tether_diameter, airframe = rigid_kite_model(area, count, assumptions)
     forces = pattern_table(model, max_force, assumptions, RIGID_WIND_SPEEDS, courses,
         side_weights)
+    lowest_wind = max(lowest_flying_wind(RIGID_WIND_SPEEDS, forces),
+        crosswind_min_wind(model, deg2rad(assumptions[:kite_min_elevation])))
     return KiteRig(; area, tether_diameter, model.tether_length,
         reference_height=model.tether_length * sin(deg2rad(25)),
-        max_wind=assumptions[:rigid_max_wind],
-        min_flight_wind=lowest_flying_wind(RIGID_WIND_SPEEDS, forces), max_force,
+        rigid_wind_limits(lowest_wind, assumptions)..., max_force,
         attach_height=assumptions[:kite_attach_height] * hull.length /
                       assumptions[:reference_length],
         attach_position=lateral_centre(hull), wind_speeds=RIGID_WIND_SPEEDS, courses,
@@ -531,13 +624,20 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
     scale = hull.length / assumptions[:reference_length]
     model, max_force, tether_diameter = kite_model(area, aspect_ratio, assumptions)
     tether_length = model.tether_length
-    wind_speeds = collect(3.0:3.0:30.0)
+    wind_speeds = [3.0:1.0:9.0; 10.5; 12.0:3.0:30.0]
     courses = deg2rad.(0.0:15.0:180.0)
     side_weights = [0.0, 0.5, 1.0, 3.0]
     return KiteRig(; area, tether_diameter, tether_length,
         reference_height=tether_length * sin(deg2rad(25)),
         max_wind=assumptions[:kite_max_wind],
-        min_flight_wind=min_flight_wind(model, assumptions), max_force,
+        min_flight_wind=min_flight_wind(model, assumptions),
+        launch_min_wind=launch_min_wind(model,
+            rope_mass(tether_diameter, tether_length, assumptions), assumptions),
+        launch_max_wind=assumptions[:kite_launch_max_wind],
+        launch_max_wave_height=assumptions[:kite_launch_max_wave_height],
+        night_launch=assumptions[:kite_night_launch] > 0,
+        landing_max_wind=assumptions[:kite_landing_max_wind],
+        landing_max_wave_height=assumptions[:kite_landing_max_wave_height], max_force,
         attach_height=assumptions[:kite_attach_height] * scale,
         attach_position, wind_speeds, courses, side_weights,
         forces=pattern_table(model, max_force, assumptions, wind_speeds, courses,

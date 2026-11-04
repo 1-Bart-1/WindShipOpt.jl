@@ -645,12 +645,18 @@ rigid_hover_energy_price:
   high: 0.5
   unit: USD/kWh
   reason: "Engineering estimate of electricity from the ship's generators."
-rigid_max_wave_height:
+rigid_hover_max_wave_height:
   value: 3.0
   low: 1.5
   high: 4.0
   unit: m
-  reason: "Engineering estimate of the highest significant wave height for a hover launch and landing on a moving deck. No published limit exists; the one offshore flight, from a moored buoy in 1 m waves, lost the kite in final hover with buoy motion a named cause (Echeverri et al. 2020, Part I, pp.392, 412)."
+  reason: "Engineering estimate of the highest significant wave height for a hover launch and landing on a moving deck, above which a landing is forced. No published limit exists; the one offshore flight, from a moored buoy in 1 m waves, lost the kite in final hover with buoy motion a named cause (Echeverri et al. 2020, Part I, pp.392, 412)."
+rigid_hover_max_wind:
+  value: 17.0
+  low: 13.0
+  high: 20.0
+  unit: m/s
+  reason: "Engineering estimate of the highest apparent wind for a hover launch and landing, above which a landing is forced, held at the launch limit of the soft kite. No published limit exists; the one offshore flight hovered in 10 m/s (Echeverri et al. 2020, Part I, p.392)."
 rigid_max_wind:
   value: 25.0
   low: 20.0
@@ -747,7 +753,7 @@ tether_length_ratio:
   low: 10.0
   high: 20.0
   unit: "-"
-  reason: "Tether length over projected span, held during flight and changed only at launch and landing (Erhard & Strauch 2013): SkySails flew its 160 m^2 kite, ~23 m span at an assumed projected aspect ratio of 3.3, on an operational towing line of 300 m (Erhard & Strauch 2013, Fig. 18), the longest relative length flown on a ship; Paulig et al. (2013), as cited by Penloup et al. (2021), compute a 320 m^2 kite on a 360 m tether, ~11 spans. The high bound is the top of the design study of Penloup et al. (2021), L/sqrt(A) = 33.5, ~18.5 spans at that aspect ratio."
+  reason: "Tether length over projected span, held during flight and changed only at launch and landing (Erhard & Strauch 2013): SkySails flew its 160 m^2 kite, ~23 m span at an assumed projected aspect ratio of 3.3, on an operational towing line of 300 m (Erhard & Strauch 2013, Fig. 18), the longest relative length flown on a ship; the low and high bounds are estimates, a tether a quarter shorter and half as long again."
 kite_min_elevation:
   value: 8.0
   low: 5.0
@@ -845,35 +851,101 @@ kite_flight_drag:
   unit: "-"
   reason: "Drag on the projected area that the design-shape model lacks in flight: deformation, control unit and steering. The V3 wing reaches L/D 8.6 in the wind tunnel (Poland et al. 2025) but 3.6-4.0 in traction with bridle and control unit (van der Vlugt et al. 2019), 4-5 for SkySails towing kites (Erhard & Strauch 2013); 0.08 brings the aspect-ratio-3 kite with bridle to 4 at CL 0.8; 0 is a kite that keeps its design shape in flight."
 kite_max_wave_height:
+  value: 5.0
+  low: 4.0
+  high: 7.0
+  unit: m
+  reason: "Estimate, no source gives a number: highest significant wave height at which a kite aloft stays up. A kite far above the sea feels the ship's motion only through its tether, so we set this one metre above the landing limit."
+kite_landing_max_wave_height:
   value: 4.0
   low: 3.0
-  high: 6.0
+  high: 5.0
   unit: m
-  reason: "Engineering assumption: highest significant wave height at which the kite is launched and flown, the upper end of rough seas (sea state 5). SkySails operators reported few launch opportunities in heavy seas (CE Delft 2016) without a number."
-kite_parking_margin:
+  reason: "Estimate, no source gives a number: highest significant wave height for a landing that is not forced, the upper end of rough seas (sea state 5). The SkySails supplier reported limited launch opportunities in heavy sea (CE Delft 2016) without a number."
+kite_landing_max_wind:
+  value: 20.0
+  low: 15.0
+  high: 25.0
+  unit: m/s
+  reason: "Highest apparent wind for a landing that is not forced: the stowage of a full-size land kite was designed for up to 20 m/s (Junge et al. 2023), which also calls landing more time-critical than launch. The bounds are estimates."
+kite_forced_landing_loss_probability:
+  value: 0.05
+  low: 0.01
+  high: 0.2
+  unit: "-"
+  reason: "Estimate, no source gives a rate: chance of losing the kite with its tether and control unit in a landing outside the landing limits, the only way down once wind or sea exceed the stay-up limits or at the end of a leg."
+kite_launch_max_wave_height:
+  value: 3.0
+  low: 2.0
+  high: 4.0
+  unit: m
+  reason: "Estimate, no source gives a number: highest significant wave height at which a kite is launched, one metre below the stay-up limit because a launch is the step most exposed to ship motion. The SkySails supplier reported limited launch opportunities in heavy sea in the first test phase (CE Delft 2016)."
+kite_launch_margin:
   value: 1.3
   low: 1.1
   high: 1.8
   unit: "-"
-  reason: "Engineering estimate of the apparent wind a kite needs to be launched, parked or flown over the wind at which its lift at maximum lift coefficient carries its flying mass: margin for gusts, tether sag and control. The ship makes the launch wind by heading into the wind, as SkySails did (WirtschaftsWoche 2008); kites on land launch above 5 m/s and fly down to 2 m/s (Kitepower 2024)."
-kite_cycle_crew_cost:
-  value: 150.0
-  low: 50.0
-  high: 500.0
-  unit: USD
-  reason: "Goal for automated launch, and our estimate: two crew for about an hour each, plus preparation."
-kite_cycle_damage_probability:
-  value: 0.0001
-  low: 0.00002
-  high: 0.002
-  unit: "-"
-  reason: "Goal, not a record: at most about 1 in 10,000 launches and landings ends the canopy. High is our estimate of today, a loss about every 80 round trips at about six launches each; no rate exists for a ship or large kite, and SkySails operators reported components that did not stand the conditions at sea (CE Delft 2016) without one."
-kite_parked_wear_fraction:
-  value: 0.5
-  low: 0.2
+  reason: "Estimate of the apparent wind a kite with no airspeed of its own needs at lift-off, over the wind at which its lift at maximum lift coefficient carries its mass: margin for gusts, tether sag, control and the climb. A land kite stayed up in about 6 m/s aloft, the lowest wind it met (Fagiano et al. 2022)."
+kite_launch_min_wind:
+  value: 5.0
+  low: 3.0
+  high: 6.0
+  unit: m/s
+  reason: "Lowest apparent wind for a launch where it exceeds the wind derived from lift-off and flight. SkySails ships: not below Beaufort 3, 3.4-5.4 m/s (Konrad 2009). SkySails on land: 3 m/s (Fagiano et al. 2022), and 5 m/s measured against an assumed 6 (Junge et al. 2023). Kitepower Falcon: 5 m/s (Kitepower 2024)."
+kite_launch_max_wind:
+  value: 17.0
+  low: 13.0
+  high: 20.0
+  unit: m/s
+  reason: "Estimate, no source gives a launch limit: highest apparent wind for a launch, the top of Beaufort 7, one step below the Beaufort 8 flight limit of SkySails ship kites. SkySails on land reports landing as more time-critical than launch and reliable under nominal wind (Junge et al. 2023)."
+kite_night_launch:
+  value: 1.0
+  low: 0.0
   high: 1.0
   unit: "-"
-  reason: "Engineering estimate of the wear of canopy and tether per hour parked at the edge of the wind window over the same per hour flying patterns: the same sun, less load cycling."
+  reason: "Whether a kite is launched at night: 1 yes, 0 only between 06:00 and 18:00 local solar time. Operators said the SkySails kite could only be operated at daylight (CE Delft 2016); land kites have flown through the night (Fagiano et al. 2022, Junge et al. 2023). No source gives a night limit for a launch."
+kite_cycle_crew_cost:
+  value: 85.0
+  low: 20.0
+  high: 380.0
+  unit: USD
+  reason: "Estimate, no source gives crew or hours per launch: crew time per launch and landing. Low officer and rating for 0.5 h; base officer and two ratings for 1.5 h; high officer and three ratings for 3 h at EU rates. Rates 29 and 14 USD/h per hour worked, from the crew cost here over about 3,650 worked hours per berth a year (estimate, 10 h a day), split by rank with the ITF/ILO 2025 scale."
+kite_cycle_damage_probability:
+  value: 0.00005
+  low: 0.00001
+  high: 0.01
+  unit: "-"
+  reason: "Goal, half of about 1 in 10,000 per cycle for canopy or kite lost, shared with the loss at sea. No rate exists for a ship or large kite; the high bound holds today's estimates. Chance per launch attempt of a tear that ends the canopy. Gradual wear from flogging and folding is in the canopy life. Service limits of skydiving canopies, about 0.17 % per jump, are retirement counts and only set the order of magnitude."
+kite_cycle_loss_probability:
+  value: 0.00005
+  low: 0.00001
+  high: 0.005
+  unit: "-"
+  reason: "Goal, half of about 1 in 10,000 per cycle for canopy or kite lost, shared with the tear. No source gives a rate; the high bound holds today's estimates. Chance per launch attempt of losing the kite in the water with its tether and control unit."
+kite_launch_retry_probability:
+  value: 0.05
+  low: 0.02
+  high: 0.2
+  unit: "-"
+  reason: "Estimate, no source gives a rate: share of launch attempts repeated, each with its crew time, risk and duration."
+kite_cycle_course_cost:
+  value: 130.0
+  low: 0.0
+  high: 900.0
+  unit: USD
+  reason: "Estimate, no source gives a figure: mean cost per launch of turning for it. Lost sea time 0.1 h (0-0.7) times about 1,270 USD/h of hire and fuel. One hand launch needed a turn (WirtschaftsWoche 2008); no source says how many launches do."
+kite_launch_minutes:
+  value: 25.0
+  low: 15.0
+  high: 45.0
+  unit: min
+  reason: "Estimate on reports: launch until the kite gives force. 10-20 min on 160 m^2 (Konstruktionspraxis), 30 min claimed by Airseas for 1,000 m^2; 10 min plus the tether at an assumed 1.5 m/s gives 17-25 min at 800-3,200 m^2."
+kite_landing_minutes:
+  value: 30.0
+  low: 15.0
+  high: 60.0
+  unit: min
+  reason: "Estimate on reports: landing and stowing, during which the kite gives no force. 10-20 min on 160 m^2 (Konstruktionspraxis) plus 15 min for air to escape before stowing, measured on land (Junge et al. 2023)."
 kite_max_wind:
   value: 25.0
   low: 20.0
@@ -957,7 +1029,7 @@ launch_mast_telescope_factor:
   low: 2.2
   high: 5.0
   unit: "-"
-  reason: "Price of the hydraulic telescopic launch mast over the steel cost of a static one: hydraulic marine cranes sell at 5.5-17 USD/kg against 1.0-1.6 USD/kg for steel monopoles, so the low bound is the cheapest crane per kg. The mast retracts because a kite parked aloft swings its tether round it; the SkySails ships used a telescopic mast."
+  reason: "Price of the hydraulic telescopic launch mast over the steel cost of a static one: hydraulic marine cranes sell at 5.5-17 USD/kg against 1.0-1.6 USD/kg for steel monopoles, so the low bound is the cheapest crane per kg. The mast retracts because a kite aloft swings its tether round it; the SkySails ships used a telescopic mast."
 docking_head_cost:
   value: 37000.0
   low: 15000.0

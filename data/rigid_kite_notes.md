@@ -36,7 +36,7 @@ Why VTOL on a ship: it is the only launch here that fits a deck and has flown fr
 - Catapult or rail with a capture system: shown at small scale only, must line up with the relative wind (Joshi et al. 2025, p.705, compare HTOL's spatial cost with VTOL's mass cost).
 - Static lift alone needs 17-25 m/s of relative wind for these wing loadings.
 
-Against it: the one offshore flight, from a moored spar buoy in 10 m/s and 1 m waves, lost the kite in final hover, with the buoy's motion a named cause (Part I, pp.392, 412). Part II calls launch and landing robust only onshore (p.132) and says that moving buoys with large-inertia base stations "are not well matched systems" (p.133). No source gives a sea-state limit for launch or landing, so the 3 m limit is our estimate, with a 1.5-4 m band.
+Against it: the one offshore flight, from a moored spar buoy in 10 m/s and 1 m waves, lost the kite in final hover, with the buoy's motion a named cause (Part I, pp.392, 412). Part II calls launch and landing robust only onshore (p.132) and says that moving buoys with large-inertia base stations "are not well matched systems" (p.133). No source gives a limit on sea or wind for launch or landing, so the 3 m is our estimate, with a 1.5-4 m band, and the 17 m/s is held at the soft kite's launch limit, with a 13-20 m/s band. Above them a kite stays up and any landing is forced.
 
 ## Prices
 

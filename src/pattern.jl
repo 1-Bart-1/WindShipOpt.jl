@@ -402,32 +402,6 @@ function PatternForce(model::KiteModel, pattern::LoopPattern, wind_speed, max_te
 end
 
 """
-    parked_force(kite, elevation, side, wind_speed)
-
-Tether force of the kite parked at `elevation` [rad] on the `side` (+1 or -1) of the
-apparent wind of `wind_speed` [m/s], where its aerodynamic force, weight and tether
-balance at rest.
-"""
-function parked_force(kite::KiteAero, elevation, side, wind_speed)
-    wind = (wind_speed, 0.0, 0.0)
-    still = (0.0, 0.0, 0.0)
-    downwind = sphere_position(0.0, elevation)
-    first(balance_residual(kite, wind, downwind, still)) < 0 || return NO_PATTERN
-    low, high = 0.0, π / 2 - 1e-3
-    for _ in 1:40
-        middle = (low + high) / 2
-        radial = sphere_position(side * middle, elevation)
-        residual, tension = balance_residual(kite, wind, radial, still)
-        residual < 0 && tension > 0 ? (low = middle) : (high = middle)
-    end
-    radial = sphere_position(side * low, elevation)
-    _, tension = balance_residual(kite, wind, radial, still)
-    tension > 0 || return NO_PATTERN
-    load = 0.5kite.air_density * wind_speed^2 * kite.area
-    return PatternForce(tension / load .* radial, tension / load, elevation)
-end
-
-"""
     sphere_position(azimuth, elevation)
 
 Unit position at `azimuth` and `elevation` [rad] in the wind frame (apparent downwind,
@@ -536,9 +510,9 @@ end
 """
     optimal_pattern(problem, starts)
 
-Best steered pattern from Nelder-Mead runs from each parameter vector in `starts`, or the
-best parked kite when that is better; returns its [`PatternForce`](@ref), `NO_PATTERN`
-where nothing flies, and the parameters of the best steered pattern for warm starts.
+Best steered pattern from Nelder-Mead runs from each parameter vector in `starts`; returns
+its [`PatternForce`](@ref), `NO_PATTERN` where nothing flies, and its parameters for warm
+starts.
 """
 function optimal_pattern(problem::PatternProblem, starts)
     (; model) = problem
@@ -553,16 +527,6 @@ function optimal_pattern(problem::PatternProblem, starts)
         value = objective(problem, force)
         value < best_value || continue
         best_force, best_value, best_parameters = force, value, parameters
-    end
-    load = 0.5model.air_density * problem.wind_speed^2 * model.area
-    for angle in range(model.lowest_angle, model.stall_angle; length=12),
-        elevation in deg2rad.(10:5:70), side in (-1, 1)
-
-        force = parked_force(KiteAero(model, angle), elevation, side, problem.wind_speed)
-        load * force.peak_tension <= problem.max_tension || continue
-        value = objective(problem, force)
-        value < best_value || continue
-        best_force, best_value = force, value
     end
     return best_force, best_parameters
 end
@@ -603,7 +567,7 @@ end
     pattern_table(model, max_force, assumptions, wind_speeds, courses, side_weights)
 
 Best pattern force for each apparent wind speed, course and side weight, warm-starting
-each speed from the previous one. A kite seen before reuses its table: from this
+each speed from the next stronger one. A kite seen before reuses its table: from this
 session, or from the disk cache in output/pattern_tables/, keyed by every field of the
 kite model and the source of this file, so that a change to either computes the tables
 afresh.
@@ -639,8 +603,8 @@ function compute_pattern_table(model::KiteModel, max_force, assumptions::Assumpt
     cases = vec(collect(Iterators.product(eachindex(courses), eachindex(side_weights))))
     Threads.@threads :greedy for (j, k) in cases
         starts = pattern_starts(model, courses[j])
-        for (i, wind_speed) in enumerate(wind_speeds)
-            problem = PatternProblem(model, max_force, min_elevation, wind_speed,
+        for i in reverse(eachindex(wind_speeds))
+            problem = PatternProblem(model, max_force, min_elevation, wind_speeds[i],
                 courses[j], side_weights[k])
             forces[i, j, k], best = optimal_pattern(problem, starts)
             starts = vcat([best], pattern_starts(model, courses[j]))
