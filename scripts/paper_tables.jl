@@ -296,8 +296,8 @@ end
 """
     missed_goals_table()
 
-Write the [`missed_goal_rows`](@ref) as panel (a) and the [`crash_limit_rows`](@ref) as panel
-(b) to paper/sections/missed_goals_table.tex and print what the text takes from them
+Write the [`missed_goal_rows`](@ref) as panel (a) and the [`crash_limit_rows`](@ref) as
+panel (b) to paper/sections/missed_goals_table.tex and print what the text takes from them
 besides: the kite's saving at 2,000 h and at today's canopy price, the points each rig's
 outages cost, the life and price at which the kite passes the rig ahead and the share at
 which all units failing together put a rig behind.
@@ -328,7 +328,8 @@ function missed_goals_table()
             @printf("all units behind at %s %%\n", share_cell(row.whole_behind))
         end
         println(io, "\\bottomrule\n\\end{tabular}}\n\n\\bigskip")
-        println(io, "\\textbf{(b)} Crashes a year, each rig at its cheapest size and the kite at each size swept\\par\\smallskip")
+        println(io, "\\textbf{(b)} Crashes a year, each rig at its cheapest size and the ",
+            "kite at each size swept\\par\\smallskip")
         println(io, "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule")
         println(io, " & & & & & \\multicolumn{2}{c}{Crashes a year} & Flight \\\\")
         println(io, "\\cmidrule(lr){6-7}")
