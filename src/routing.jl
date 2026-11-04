@@ -295,7 +295,7 @@ Base.@kwdef struct RouterSettings
     time_step::Float64 = 1.5
     "how far above the [`CostToGo`](@ref) of the departure the states searched reach, on
     the first try and where that leaves no path [-]; `Inf` searches them all"
-    search_margins::NTuple{2, Float64} = (0.1, 0.2)
+    search_margins::NTuple{2, Float64} = (0.12, 0.2)
 end
 
 "[`RouterSettings`](@ref) in force"
