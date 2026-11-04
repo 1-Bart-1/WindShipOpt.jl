@@ -1112,6 +1112,59 @@ function situations_figure()
 end
 
 """
+    aspect_savings(table, ship)
+
+Aspect ratios of the kite on `ship` in aspect.csv, its saving [%] on the ship without a
+rig, and the launch hardware and launch cycles as points of that ship's cost.
+"""
+function aspect_savings(table, ship)
+    rows = findall(==(ship), table["ship"])
+    bare = table["cost"][only(filter(row -> table["aspect_ratio"][row] == 0, rows))]
+    kites = filter(row -> table["aspect_ratio"][row] > 0, rows)
+    points(column) = 100 .* table[column][kites] ./ bare
+    return table["aspect_ratio"][kites], 100 .* (1 .- table["cost"][kites] ./ bare),
+    points("launch_hardware"), points("launch_cycles")
+end
+
+"""
+    aspect_figure()
+
+Saving of the kite of each study ship against its aspect ratio, solid and before its launch
+cost dashed, and that launch cost split into hardware and launches. Prints the best aspect
+ratio of each ship.
+"""
+function aspect_figure()
+    table = read_table(data_file("aspect.csv"))
+    figure = Figure(size=(page_width, 210))
+    saving = Axis(figure[1, 1]; title="(a) cost saving", xlabel="kite aspect ratio",
+        ylabel="cost saving [%]", titlesize=9.5, xticks=collect(study_aspect_ratios))
+    launch = Axis(figure[1, 2]; title="(b) launch cost", xlabel="kite aspect ratio",
+        ylabel="points of the ship's cost", titlesize=9.5,
+        xticks=collect(study_aspect_ratios))
+    ships = unique(table["ship"])
+    for (k, ship) in enumerate(ships)
+        ratios, savings, hardware, cycles = aspect_savings(table, ship)
+        println(ship, ": best aspect ratio ", ratios[argmax(savings)], ", saving ",
+            round.(savings; digits=2), ", launch ", round.(hardware .+ cycles; digits=2))
+        lines!(saving, ratios, savings; color=palette[k], linewidth=1.3, label=ship)
+        scatter!(saving, ratios, savings; color=palette[k], markersize=4)
+        lines!(saving, ratios, savings .+ hardware .+ cycles; color=palette[k],
+            linestyle=(:dash, :loose), linewidth=0.9)
+        lines!(launch, ratios, hardware .+ cycles; color=palette[k], linewidth=1.3)
+        lines!(launch, ratios, hardware; color=palette[k], linestyle=(:dash, :loose),
+            linewidth=0.9)
+    end
+    Legend(figure[1, 3],
+        [[LineElement(color=palette[k], linewidth=1.3) for k in eachindex(ships)],
+            [LineElement(color=:black, linewidth=1.1),
+                LineElement(color=:black, linestyle=(:dash, :loose), linewidth=0.9)]],
+        [ships, ["(a) net, (b) all", "(a) before launch cost, (b) hardware"]],
+        ["ship", "line"]; framevisible=false, labelsize=8.5, titlesize=9, rowgap=2,
+        patchsize=(14, 8))
+    save(joinpath(figures, "aspect.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
     band_totals(table, rig, column; route=nothing, direction=nothing)
 
 Sum of `column` of wind_angle.csv for `rig` in each band of `angle_bands`, over every

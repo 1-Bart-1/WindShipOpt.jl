@@ -277,6 +277,8 @@ direction and the weight given to side force; each weight is one trim.
 Base.@kwdef struct KiteRig
     "projected kite area [m^2]"
     area::Float64
+    "projected aspect ratio of the kite [-]"
+    aspect_ratio::Float64
     "tether diameter [m]"
     tether_diameter::Float64
     tether_length::Float64
@@ -456,7 +458,7 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
     wind_speeds = [3.0:1.0:9.0; 10.5; 12.0:3.0:30.0]
     courses = deg2rad.(0.0:15.0:180.0)
     side_weights = [0.0, 0.5, 1.0, 3.0]
-    return KiteRig(; area, tether_diameter, tether_length,
+    return KiteRig(; area, aspect_ratio, tether_diameter, tether_length,
         reference_height=tether_length * sin(deg2rad(25)),
         max_wind=assumptions[:kite_max_wind],
         min_flight_wind=min_flight_wind(model, assumptions),

@@ -165,14 +165,17 @@ max_wave_height(rig::CombinedRig, assumptions) = max_wave_height(rig.kite, assum
 """
     handling_hours(rig, assumptions)
 
-Time [h] one launch, with its retries, and one landing of a kite give no force on the ship;
-zero for other rigs.
+Time [h] one launch, with its retries, and one landing of a kite give no force on the ship,
+each with the tether reeled its whole length; zero for other rigs.
 """
 handling_hours(rig, assumptions) = 0.0
 handling_hours(rig::CombinedRig, assumptions) = handling_hours(rig.kite, assumptions)
-handling_hours(::KiteRig, assumptions) =
-    ((1 + assumptions[:kite_launch_retry_probability]) * assumptions[:kite_launch_minutes] +
-     assumptions[:kite_landing_minutes]) / 60
+function handling_hours(rig::KiteRig, assumptions)
+    reeling = rig.tether_length / assumptions[:kite_tether_speed] / 60
+    launch = assumptions[:kite_hoist_minutes] + reeling
+    landing = assumptions[:kite_stowing_minutes] + reeling
+    return ((1 + assumptions[:kite_launch_retry_probability]) * launch + landing) / 60
+end
 
 """
     OperatingPoint

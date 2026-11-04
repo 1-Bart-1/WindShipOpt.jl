@@ -700,18 +700,24 @@ kite_cycle_course_cost:
   high: 900.0
   unit: USD
   reason: "Estimate, no source gives a figure: mean cost per launch of turning for it. Lost sea time 0.1 h (0-0.7) times about 1,270 USD/h of hire and fuel. One hand launch needed a turn (WirtschaftsWoche 2008); no source says how many launches do."
-kite_launch_minutes:
-  value: 25.0
-  low: 15.0
-  high: 45.0
+kite_hoist_minutes:
+  value: 15.0
+  low: 5.0
+  high: 35.0
   unit: min
-  reason: "Estimate on reports: launch until the kite gives force. 10-20 min on 160 m^2 (Konstruktionspraxis), 30 min claimed by Airseas for 1,000 m^2; 10 min plus the tether at an assumed 1.5 m/s gives 17-25 min at 800-3,200 m^2."
-kite_landing_minutes:
-  value: 30.0
-  low: 15.0
-  high: 60.0
+  reason: "Estimate on reports: launch until the kite gives force, without reeling out the tether. With the tether of a 1,600 m^2 kite of aspect ratio 3 it makes 25 min (15-45): 10-20 min on 160 m^2 (Konstruktionspraxis), 30 min claimed by Airseas for 1,000 m^2."
+kite_stowing_minutes:
+  value: 20.0
+  low: 5.0
+  high: 50.0
   unit: min
-  reason: "Estimate on reports: landing and stowing, during which the kite gives no force. 10-20 min on 160 m^2 (Konstruktionspraxis) plus 15 min for air to escape before stowing, measured on land (Junge et al. 2023)."
+  reason: "Estimate on reports: landing and stowing without reeling in the tether, during which the kite gives no force. With the tether of a 1,600 m^2 kite of aspect ratio 3 it makes 30 min (15-60): 10-20 min on 160 m^2 (Konstruktionspraxis) plus 15 min for air to escape before stowing, measured on land (Junge et al. 2023)."
+kite_tether_speed:
+  value: 1.5
+  low: 1.0
+  high: 3.0
+  unit: m/s
+  reason: "Estimate, no source gives a figure: speed at which the winch reels the tether out at launch and in at landing, which sets how launch time grows with tether length and so with span."
 kite_max_wind:
   value: 25.0
   low: 20.0
@@ -761,17 +767,17 @@ winch_cost_per_force:
   unit: USD/N
   reason: "Engineering estimate of the manufacturing cost per N of brake holding force: drum, brake and frame steel at 5 kg/kN and a gearbox for a quarter of the holding force at WISDEM gearbox cost."
 launch_mast_height_ratio:
-  value: 1.15
-  low: 0.8
-  high: 1.5
+  value: 0.664
+  low: 0.462
+  high: 0.866
   unit: "-"
-  reason: "Launch mast height over the square root of projected kite area: SkySails 15 m for 160 m^2 (Next Nature 2007), Airseas 35 m for 1,000 m^2, SkySails Power Kyo 29 m for 450 m^2."
-launch_mast_max_height:
-  value: 35.0
-  low: 29.0
-  high: 60.0
-  unit: m
-  reason: "Tallest kite launch mast at sea, the 35 m Airseas mast; larger kites are flown from a mast of this height, beyond any built launch system."
+  reason: "Launch mast height over projected span: a kite held at the middle of its leading edge hangs its tips and its bridle below the mast head, and both go with span. Calibrated at aspect ratio 3 to 1.15 times the square root of area (0.8-1.5): SkySails 15 m for 160 m^2 (Next Nature 2007), Airseas 35 m for 1,000 m^2, SkySails Power Kyo 29 m for 450 m^2. No source gives the aspect ratio of those kites or a rule in span."
+launch_mast_max_area:
+  value: 926.0
+  low: 636.0
+  high: 2722.0
+  unit: m^2
+  reason: "Kite area above which a larger area no longer raises the launch mast, only a higher aspect ratio does: at aspect ratio 3 it reaches 35 m (29-60), the tallest kite launch mast at sea, that of Airseas. Larger kites are flown from such a mast, beyond any built launch system."
 launch_mast_base_mass:
   value: 0.5
   low: 0.3
@@ -807,13 +813,13 @@ docking_head_reference_area:
   low: 1000.0
   high: 1000.0
   unit: m^2
-  reason: "Kite area the docking head cost refers to, that of the Airseas system; the head grows with the square root of kite area, as the mast that carries it does."
+  reason: "Kite area the docking head cost refers to, that of the Airseas system."
 docking_head_area_exponent:
   value: 0.5
   low: 0.33
   high: 1.0
   unit: "-"
-  reason: "Exponent of the growth of the docking head cost with kite area: engineering estimate, as the launch mast that carries the head grows with the square root of area; the high bound is growth in proportion to canopy area."
+  reason: "Exponent of the growth of the docking head cost with kite area: engineering estimate. The head grips the kite at one point, so it goes with the kite's mass and launch pull rather than its span (US 7,866,271); the high bound is growth in proportion to canopy area."
 control_unit_cost:
   value: 11000.0
   low: 6000.0

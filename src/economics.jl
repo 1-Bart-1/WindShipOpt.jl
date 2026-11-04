@@ -258,8 +258,7 @@ function deck_price_parts(rig, assumptions, unit_cost, cost_per_area, fraction)
 end
 
 function rig_price_parts(rig::KiteRig, assumptions)
-    mast_height = min(assumptions[:launch_mast_height_ratio] * sqrt(rig.area),
-        assumptions[:launch_mast_max_height])
+    mast_height = launch_mast_height(rig, assumptions)
     mast_mass = 1e3 * (assumptions[:launch_mast_base_mass] +
                  assumptions[:launch_mast_mass_coefficient] * rig.area^(2 / 3) *
                  mast_height^(5 / 3))
@@ -274,6 +273,16 @@ function rig_price_parts(rig::KiteRig, assumptions)
                      assumptions[:control_unit_cost_per_area] * rig.area)
     return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
 end
+
+"""
+    launch_mast_height(rig, assumptions)
+
+Height [m] of the launch mast of a kite: a ratio of its projected span, with the area in
+that span held at `launch_mast_max_area` for a larger kite.
+"""
+launch_mast_height(rig::KiteRig, assumptions) =
+    assumptions[:launch_mast_height_ratio] *
+    sqrt(min(rig.area, assumptions[:launch_mast_max_area]) * rig.aspect_ratio)
 
 """
     consumable_costs(rig, assumptions)

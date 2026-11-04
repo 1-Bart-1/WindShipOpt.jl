@@ -67,8 +67,9 @@ Per launch and landing, in `cycle_cost`: `(1 + retry) * (crew + tear * canopy + 
 | Loss at sea, per attempt | 0.001 % | 0.005 % | 0.5 % | Goal for the base, the other half; 0.05 % is our estimate of today, no basis in data |
 | Retry, per attempt | 2 % | 5 % | 20 % | Estimate, no basis in data |
 | Turn, mean per launch [USD] | 0 | 130 | 900 | Estimate: 0.1 h (0-0.7) at about 1,270 USD/h of hire and fuel of the 140 m ship, held for every ship size |
-| Launch [min] | 15 | 25 | 45 | Estimate on 10-20 min at 160 m^2 and a 30 min claim at 1,000 m^2 |
-| Landing and stowing [min] | 15 | 30 | 60 | Estimate on the same, plus a land stowage hang of 15 min |
+| Hoist [min] | 5 | 15 | 35 | Estimate: with the tether of a 1,600 m^2 kite of aspect ratio 3, 25 min (15-45), on 10-20 min at 160 m^2 and a 30 min claim at 1,000 m^2 |
+| Stowing [min] | 5 | 20 | 50 | Estimate: with the same tether, 30 min (15-60), on the same plus a land stowage hang of 15 min |
+| Tether reeling [m/s] | 1 | 1.5 | 3 | Estimate, no source. Whole tether out at launch and in at landing, 7, 10 and 14 min at 800, 1,600 and 3,200 m^2 of aspect ratio 3 |
 
 Total per cycle at base: USD 242, 265 and 314 at 800, 1,600 and 3,200 m^2. At today's estimates of tear and loss it would be about USD 740, 1,270 and 2,350, read from the formula.
 
@@ -77,6 +78,8 @@ Crew. Rates are USD 29 for an officer and USD 14 for a rating per hour worked: t
 Tear. Service limits of skydiving canopies, such as 1 in 600 jumps for a tandem main (PSB 081893), rest on malfunctions and failures and are retirement counts, mostly coating and porosity, so they set only the order of magnitude and not the rate. Gradual wear from flogging, folding and packing at launch and landing is in the canopy life, so `kite_cycle_damage_probability` holds only a discrete tear that ends the canopy.
 
 Forced landing. A landing outside the limits is charged at 5 % (1-20 %) of canopy, tether and control unit, an estimate with no data behind it, and counted apart from the launches.
+
+What goes with span. Span sets what a launch reaches, area what it holds. Mast height and tether length, and so launch and landing time, follow span. The mast's strength, its share of mass in the rig, the docking head, the winch and the control unit stay on area, since they carry force and mass. The deck reserved for the launch is the mast's footprint and clearance, so it does not change: the kite is stowed folded at the mast (US 7,866,271). Crew time, tears, losses and retries stay as they are: a longer span could plausibly tear or foul more often, but no source gives any rate, let alone how it changes with span.
 
 Who charges what. Time out of service, repair events, and failures of the winch, control unit, tether and mast belong to rig availability. A launch failure that needs only another try is charged here, one that takes the rig out of service is not.
 
