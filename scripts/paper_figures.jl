@@ -1468,6 +1468,7 @@ function rigid_scaling_figure()
     for (row, axis) in enumerate((thrust_axis, price_axis))
         Legend(figure[row + 1, 1:3], axis; orientation=:horizontal, framevisible=false,
             labelsize=8)
+        rowsize!(figure.layout, row + 1, Fixed(16))
     end
     save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
 end
