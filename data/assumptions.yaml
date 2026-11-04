@@ -557,11 +557,11 @@ canopy_cloth_area_ratio:
   unit: "-"
   reason: "Cloth sewn into a ram-air canopy per m^2 of projected area: 3.0 m^2 per flat m^2 for two skins, ribs and diagonals (2.6-3.7), 1.17 flat m^2 per projected m^2; paragliders weigh 0.19-0.21 kg per flat m^2 with ~35 g/m^2 cloth (Advance Alpha 8, NOVA Prion and Mentor 2)."
 canopy_mass_overhead:
-  value: 0.30
-  low: 0.05
-  high: 0.65
+  value: 0.05
+  low: 0.02
+  high: 0.2
   unit: kg/m^2
-  reason: "Canopy mass per m^2 of projected area besides its cloth and bridle: seams, tapes, reinforcements and line attachments. A SkySails kite of 225 m^2 flat, about 176 m^2 projected, weighs 120 kg with lines at fabric slightly above 100 g/m^2 and 160 kN (Paulig et al. 2013), which leaves 0.30 kg/m^2 at this cloth area ratio. Low: paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit). High: the 320 kN SkySails kite of 320 m^2 flat, 250 kg (Paulig et al. 2013), at the same cloth."
+  reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is load patches for the ~1 t point loads of a ship kite (Thedens 2015). With 60 g/m^2 cloth it gives 0.26 kg/m^2, as a 160 m^2 SkySails kite of ~40 kg (pressetext 2008)."
 canopy_cloth_base_price:
   value: 6.0
   low: 2.0

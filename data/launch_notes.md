@@ -30,9 +30,9 @@ Derivation and formulas are in the paper's subsection on the lowest wind, and on
 
 | Area [m^2] | Mass [kg] | Level crosswind | Steady climb | Lift-off without tether (x1.3) | Launch |
 | --- | --- | --- | --- | --- | --- |
-| 800 | 1,171 | 1.85 | 4.38 | 5.07 | 5.07 |
-| 1,600 | 2,578 | 1.94 | 4.60 | 5.09 | 5.09 |
-| 3,200 | 5,820 | 2.07 | 4.89 | 5.12 | 5.12 |
+| 800 | 972 | 1.69 | 3.99 | 4.47 | 5.0 |
+| 1,600 | 2,178 | 1.79 | 4.23 | 4.5 | 5.0 |
+| 3,200 | 5,020 | 1.92 | 4.54 | 4.53 | 5.0 |
 
 Both moving forms match the steady force balance solved numerically to 3 %, in a test. Where they stop holding: the level form leaves out climbing, turning, the azimuth and wind shear; the climb form holds a steady climb, with no energy from speed. With a position theta off downwind, the forms scale with cos(elevation)/cos(theta)^2 under the root.
 
