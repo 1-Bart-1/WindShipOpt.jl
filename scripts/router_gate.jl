@@ -22,7 +22,7 @@ SAVING_TOLERANCE = 0.02
 BARE_COST_TOLERANCE = 2e-4
 
 "first line of a gate file"
-GATE_HEADER = "ship,rig,route,scale,cost,fuel,days,flight,parked,launches,cargo,seconds"
+GATE_HEADER = "ship,rig,route,scale,cost,fuel,days,flight,launches,forced,cargo,seconds"
 
 "router settings of a reference run: every state is searched"
 REFERENCE_SETTINGS = WindShipOpt.RouterSettings(search_margins=(Inf, Inf))
@@ -57,7 +57,7 @@ The line of a gate file for `case`, `trip` being `nothing` where it is infeasibl
 function gate_line(case, trip, seconds)
     values = isnothing(trip) ? fill("NA", 7) : repr.((trip.cost_per_tonne_km,
         trip.fuel_per_tonne_km, trip.outbound_days + trip.return_days, trip.flight_share,
-        trip.parked_share, trip.launches, trip.cargo))
+        trip.launches, trip.forced_landings, trip.cargo))
     return join((case.ship, case.rig, case.route, case.scale, values...,
             round(seconds; digits=2)), ",")
 end

@@ -302,28 +302,46 @@ function wear_cost(rig::KiteRig, assumptions)
 end
 
 """
-    parked_wear_cost(rig, assumptions)
-
-Canopy and tether wear per hour a kite is parked aloft [USD/h]: the share
-`kite_parked_wear_fraction` of [`wear_cost`](@ref); zero for other rigs.
-"""
-parked_wear_cost(rig, assumptions) =
-    assumptions[:kite_parked_wear_fraction] * wear_cost(rig, assumptions)
-
-"""
     cycle_cost(rig, assumptions)
 
-Cost of one launch and landing of a kite [USD]: crew time and the expected loss of a
-canopy; zero for other rigs.
+Cost of one launch and landing of a kite [USD]: per launch attempt the crew time, the
+expected canopy torn beyond repair and the expected loss at sea of canopy, tether and
+control unit, plus any turn for the launch; zero for other rigs.
 """
 cycle_cost(rig, assumptions) = 0.0
 cycle_cost(rig::CombinedRig, assumptions) = cycle_cost(rig.kite, assumptions)
 
 function cycle_cost(rig::KiteRig, assumptions)
     canopy, _ = consumable_costs(rig, assumptions)
-    return assumptions[:kite_cycle_crew_cost] +
-           assumptions[:kite_cycle_damage_probability] * canopy
+    attempt = assumptions[:kite_cycle_crew_cost] +
+              assumptions[:kite_cycle_damage_probability] * canopy +
+              assumptions[:kite_cycle_loss_probability] * lost_kite_cost(rig, assumptions)
+    return (1 + assumptions[:kite_launch_retry_probability]) * attempt +
+           assumptions[:kite_cycle_course_cost]
 end
+
+"""
+    lost_kite_cost(rig, assumptions)
+
+Cost of a kite lost in the water with its tether and control unit [USD].
+"""
+function lost_kite_cost(rig::KiteRig, assumptions)
+    canopy, tether = consumable_costs(rig, assumptions)
+    return canopy + tether + assumptions[:control_unit_cost] +
+           assumptions[:control_unit_cost_per_area] * rig.area
+end
+
+"""
+    forced_landing_cost(rig, assumptions)
+
+Expected cost of one kite landing outside the landing limits [USD], the chance of losing
+the kite then times its cost; zero for other rigs.
+"""
+forced_landing_cost(rig, assumptions) = 0.0
+forced_landing_cost(rig::CombinedRig, assumptions) =
+    forced_landing_cost(rig.kite, assumptions)
+forced_landing_cost(rig::KiteRig, assumptions) =
+    assumptions[:kite_forced_landing_loss_probability] * lost_kite_cost(rig, assumptions)
 
 """
     time_cost(costs, assumptions, cargo)
@@ -395,10 +413,10 @@ struct RoundTrip
     installed_power::Float64
     "share of sea time a kite flies patterns [-]"
     flight_share::Float64
-    "share of sea time a kite is parked aloft [-]"
-    parked_share::Float64
     "kite launches per round trip"
     launches::Float64
+    "kite landings outside the landing limits per round trip"
+    forced_landings::Float64
     "whether the wings or rotors are retractable, the cheaper option for the ship"
     retractable::Bool
 end
@@ -505,9 +523,9 @@ with_share(states) = filter(state -> first(state) > 0, states)
     service_passages(ship, outbound, inbound, weather, departures, assumptions, hourly,
                      port_hours, horizon)
 
-Mean fuel energy [J], outbound and return hours, kite flight and parked hours, launches
-and rig running cost [USD] of `ship` per round trip over `departures`, with the largest
-leg's fuel energy [J]; `nothing` if any passage is infeasible.
+Mean fuel energy [J], outbound and return hours, kite flight hours, launches, forced
+landings and rig running cost [USD] of `ship` per round trip over `departures`,
+with the largest leg's fuel energy [J]; `nothing` if any passage is infeasible.
 """
 function service_passages(ship::Ship, outbound, inbound, weather, departures, assumptions,
         hourly, port_hours, horizon)
@@ -517,14 +535,15 @@ function service_passages(ship::Ship, outbound, inbound, weather, departures, as
                        departure, port_hours, hourly, horizon) for departure in departures])
     any(isnothing, legs) && return nothing
     flight_hours = mean(first(pair).flight_hours + last(pair).flight_hours for pair in legs)
-    parked_hours = mean(first(pair).parked_hours + last(pair).parked_hours for pair in legs)
     launches = mean(first(pair).launches + last(pair).launches for pair in legs)
+    forced_landings = mean(first(pair).forced_landings + last(pair).forced_landings
+                           for pair in legs)
     means = (energy=mean(first(pair).fuel_energy + last(pair).fuel_energy for pair in legs),
         out_hours=mean(first(pair).duration for pair in legs),
         back_hours=mean(last(pair).duration for pair in legs),
-        flight_hours, parked_hours, launches,
-        rig_cost=table.wear_cost * flight_hours + table.parked_wear_cost * parked_hours +
-                 table.cycle_cost * launches)
+        flight_hours, launches, forced_landings,
+        rig_cost=table.wear_cost * flight_hours + table.cycle_cost * launches +
+                 table.forced_landing_cost * forced_landings)
     largest_leg = maximum(max(first(pair).fuel_energy, last(pair).fuel_energy)
                           for pair in legs)
     return (; means, largest_leg)
@@ -553,8 +572,9 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
                 for (_, rig) in states]
     any(isnothing, passages) && return nothing
     shares = first.(states)
-    (; energy, out_hours, back_hours, flight_hours, parked_hours, launches, rig_cost) =
-        map((values...) -> sum(shares .* values), getproperty.(passages, :means)...)
+    means = map((values...) -> sum(shares .* values), getproperty.(passages, :means)...)
+    (; energy, out_hours, back_hours, flight_hours, launches, forced_landings, rig_cost) =
+        means
     reserve = assumptions[:fuel_reserve_factor]
     largest_leg = maximum(passage.largest_leg / (rig === ship.rig ? 1 : reserve)
                           for ((_, rig), passage) in zip(states, passages))
@@ -580,5 +600,5 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
         energy / 1e6 / tonne_km, energy * ship.fuel.carbon_intensity * 1e3 / tonne_km,
         out_hours / 24, back_hours / 24, cargo, capital,
         ship.powertrain.installed_power / 1e3, flight_hours / (out_hours + back_hours),
-        parked_hours / (out_hours + back_hours), launches, retractable)
+        launches, forced_landings, retractable)
 end
