@@ -150,7 +150,7 @@ downwind direction in light and strong apparent wind: patterns.csv (path points)
 pattern_forces.csv.
 """
 function patterns_data()
-    model, max_force, _ = WindShipOpt.kite_model(800.0, assumptions)
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     min_elevation = deg2rad(assumptions[:kite_min_elevation])
     open(run_file("patterns.csv"), "w") do paths
         open(run_file("pattern_forces.csv"), "w") do forces
@@ -475,7 +475,7 @@ at apparent wind `wind` and `course` without side force: canopy_tension_history.
 """
 function canopy_tension_data(; wind=12.0, course=90.0)
     area = Dict(reference_rigs)["kite"]
-    model, max_force, _ = WindShipOpt.kite_model(area, assumptions)
+    model, max_force, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
     min_elevation = deg2rad(assumptions[:kite_min_elevation])
     _, path = best_pattern_cycle(model, max_force, min_elevation, wind, course, 0.0)
     open(run_file("canopy_tension_history.csv"), "w") do io
@@ -574,8 +574,8 @@ function designs_data()
     trips = round_trips(cases, sampled_departures())
     work_per_tonne = tonne_km_per_tonne(:caribbean)
     open(run_file("designs.csv"), "w") do io
-        println(io, "scenario,drive,length,kite_area,wing_area,rotor_area,",
-            "cost,fuel,carbon,outbound_days,return_days,cargo,capital,",
+        println(io, "scenario,drive,length,kite_area,kite_aspect_ratio,wing_area,",
+            "rotor_area,cost,fuel,carbon,outbound_days,return_days,cargo,capital,",
             "flight_share,launches,fuel_cost,wear_cost,port_cost,crew_cost,",
             "capital_cost,interest_cost")
         for (case, trip) in zip(cases, trips)
@@ -594,9 +594,9 @@ function write_design(io, case, trip, work_per_tonne)
     (; design) = case
     parts = cost_parts(Ship(design, case.assumptions), trip, case.assumptions)
     tonne_km = trip.cargo * work_per_tonne
-    @printf(io, "%s,%s,%.0f,%.0f,%.0f,%.0f,%.6f,%.5f,%.3f,%.2f,%.2f,%.0f,%.0f,",
-        case.scenario, design.drive, design.length, design.kite_area, design.wing_area,
-        design.rotor_area,
+    @printf(io, "%s,%s,%.0f,%.0f,%.0f,%.0f,%.0f,%.6f,%.5f,%.3f,%.2f,%.2f,%.0f,%.0f,",
+        case.scenario, design.drive, design.length, design.kite_area,
+        design.kite_aspect_ratio, design.wing_area, design.rotor_area,
         trip.cost_per_tonne_km, trip.fuel_per_tonne_km, trip.carbon_per_tonne_km,
         trip.outbound_days, trip.return_days, trip.cargo, trip.capital)
     @printf(io, "%.3f,%.2f", trip.flight_share, trip.launches)
