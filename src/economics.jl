@@ -119,7 +119,8 @@ function ShipCosts(ship::Ship, assumptions::Assumptions; retractable=true)
     capital = hull + drive_premium + rig_capital
     crew = assumptions[:crew_cost] * size^assumptions[:crew_cost_exponent]
     fixed_annual = annuity + rig_annual + crew +
-                   assumptions[:maintenance_fraction] * capital
+                   assumptions[:maintenance_fraction] *
+                   (capital - worn_part_price(ship.rig, assumptions))
     cargo_value = isnothing(class) ? assumptions[:cargo_value] : class.cargo_value
     return ShipCosts(capital, fixed_annual, hold, cargo_value)
 end
@@ -276,6 +277,28 @@ function rig_price_parts(rig::KiteRig, assumptions)
 end
 
 """
+    canopy_price(assumptions)
+
+Price of a canopy per m^2 of projected area [USD/m^2]: its manufacturing cost times the
+market price factor.
+"""
+canopy_price(assumptions) = assumptions[:market_price_factor] *
+                            Canopy(assumptions).cost_per_area
+
+"inputs that together make the canopy price, the goal's; each has a `_today` counterpart"
+canopy_price_inputs = (:canopy_making_cost_per_area, :canopy_cloth_base_price,
+    :canopy_cloth_price_per_weight)
+
+"""
+    canopy_price_today(assumptions)
+
+[`canopy_price`](@ref) [USD/m^2] of the canopy as built today, from the `_today` inputs.
+"""
+canopy_price_today(assumptions) = canopy_price(reduce(
+    (inputs, name) -> with_value(inputs, name, assumptions[Symbol(name, :_today)]),
+    canopy_price_inputs; init=assumptions))
+
+"""
     consumable_costs(rig, assumptions)
 
 Price of one canopy and one tether [USD]: the canopy at its manufacturing cost times the
@@ -283,10 +306,18 @@ market price factor, the tether at its purchase price.
 """
 function consumable_costs(rig::KiteRig, assumptions)
     tether_mass = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
-    canopy = assumptions[:market_price_factor] * Canopy(assumptions).cost_per_area *
-             rig.area
-    return canopy, assumptions[:tether_price] * tether_mass
+    return canopy_price(assumptions) * rig.area, assumptions[:tether_price] * tether_mass
 end
+
+"""
+    worn_part_price(rig, assumptions)
+
+Price [USD] of the parts of `rig` that wear replaces, which maintenance does not charge:
+a kite's canopy and tether; zero for other rigs.
+"""
+worn_part_price(rig, assumptions) = 0.0
+worn_part_price(rig::CombinedRig, assumptions) = worn_part_price(rig.kite, assumptions)
+worn_part_price(rig::KiteRig, assumptions) = sum(consumable_costs(rig, assumptions))
 
 """
     wear_cost(rig, assumptions)
