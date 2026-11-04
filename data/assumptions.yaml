@@ -563,13 +563,13 @@ canopy_mass_overhead:
   unit: kg/m^2
   reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is load patches for the ~1 t point loads of a ship kite (Thedens 2015). With 60 g/m^2 cloth it gives 0.26 kg/m^2, as a 160 m^2 SkySails kite of ~40 kg (pressetext 2008)."
 canopy_cloth_base_price:
-  value: 5.1
+  value: 6.0
   low: 2.0
   high: 17.0
   unit: USD/m^2
-  reason: "Goal for the price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: the retail line through polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT, 11 USD/m^2 plus 0.031 USD/m^2 per g/m^2 (extremtextil.de, Sailrite, Jones Airfoils, 2026-11-01), scaled to USD 8 at 200 g/m^2, what a maker buying by the roll and from the mill can reach. No mill quote for this cloth; derivation in cost_basis_notes.md, section 4.6."
+  reason: "Goal for the price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: the retail line through polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT, 11 USD/m^2 plus 0.031 USD/m^2 per g/m^2 (extremtextil.de, Sailrite, Jones Airfoils, 2026-11-01), scaled to USD 9.4 at 200 g/m^2, what a maker buying by the roll and from the mill can reach. No mill quote for this cloth; derivation in cost_basis_notes.md, section 4.6."
 canopy_cloth_price_per_weight:
-  value: 0.0145
+  value: 0.017
   low: 0.006
   high: 0.05
   unit: USD/g
