@@ -1434,15 +1434,16 @@ function rigid_scaling_figure()
         xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="price per thrust [USD/kN]")
     annual_axis = Axis(figure[1, 3]; title="(c) cost a year at 12 m/s", xscale=log10,
         xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="annual cost per thrust [USD/kN]")
+    base_exponent = assumptions[:rigid_mass_exponent]
     curves = (("rigid", 30.0), ("rigid", 54.0), ("rigid", 100.0), ("rigid", 300.0),
         ("soft", 1000.0))
     for (k, (kind, area)) in enumerate(curves)
-        exponent = kind == "rigid" ? 2.5 : 0.0
+        exponent = kind == "rigid" ? base_exponent : 0.0
         chosen = rows(table, "kind" => kind, "area" => area, "exponent" => exponent)
         lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
             color=palette[k], label="$kind $(round(Int, area)) m²")
     end
-    series = [("rigid", 2.5, :solid), ("rigid", 3.0, :dash), ("rigid", 3.3, :dot),
+    series = [("rigid", base_exponent, :solid), ("rigid", 3.0, :dash), ("rigid", 3.3, :dot),
         ("soft", 0.0, :solid)]
     for (kind, exponent, linestyle) in series
         at_twelve = filter(row -> table["thrust"][row] > 0,
@@ -1456,7 +1457,7 @@ function rigid_scaling_figure()
         lines!(annual_axis, areas, annual_per_thrust; linestyle, color=colour)
         @printf("  %s %.1f: USD/kN a year %s\n", kind, exponent,
             join(round.(Int, annual_per_thrust), ", "))
-        kind == "rigid" && exponent == 2.5 && for i in eachindex(areas)
+        kind == "rigid" && exponent == base_exponent && for i in eachindex(areas)
             row = at_twelve[i]
             @printf("  %3.0f m2: span %.0f m, mass %.1f t, stall %.0f m/s, hover %.1f MW, ",
                 areas[i], table["span"][row], 1e-3table["mass"][row], table["stall"][row],

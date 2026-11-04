@@ -8,13 +8,27 @@ The Makani MX2 design is the anchor (Echeverri et al. 2020, Part I, Tables 1 and
 
 ## Mass law
 
-m = 1852 kg × (S/54)^(κ/2), κ = 2.5, band 2.2-3.3, with the aspect ratio held. The routed size study also runs κ = 3.
+m = 1852 kg × (S/54)^(κ/2), κ = 2.75, band 2.2-3.3, with the aspect ratio held. The routed size study also runs κ = 3.
 
-- With on-board rotors, the only evidence is Makani's two designs, about κ = 2.5 from their real spans. That is not a fit.
+- With on-board rotors, one wing that flew sits far below the anchor: Wing 7, 60 kg on 3.96 m² and 8 m (Vander Lind 2013, Fig. 28.7). To MX2 it gives κ = 2.91 by span and 2.63 by area. Its aspect ratio is 16 against 12.5: at the same area it has more span than MX2's planform and at the same span less area, so the two bracket κ at MX2's planform, and 2.75 lies between them. At κ = 2.75 the law gives 51 kg at Wing 7's area.
+- From Wing 7 to the built M600 (32.9 m², 25.66 m, 1692-1731 kg) it is 2.87-2.88 by span and 3.15-3.18 by area, so the two wings actually built go about as span cubed. That is why κ = 3 runs beside the base.
 - For ground-generation wings Sommerfeld et al. (2022) sweep κ over 2.7-3.3 as an assumption, against AP2 (5.5 m, 36.8 kg). van Hagen et al. (2023) use 2.7-3.0.
 - Joshi et al. (2025, Table 10) give 700 kg at 20 m² to 10663 kg at 160 m² for horizontal-launch designs, about κ 2.5-3.2 between their optima, and state that VTOL "will have a different scaling due to the additional motors" (p.700).
-- Eijkelhof et al. (2020) design a 150 m² wing of 6885 kg, against 8.6 t from this law at κ = 3 and 6.8 t at κ = 2.5; from the MX2 anchor it gives κ ≈ 2.57.
+- Eijkelhof et al. (2020) design a 150 m² wing of 6885 kg, without rotors, against 7.5 t from this law at κ = 2.75 and 8.6 t at κ = 3; from the MX2 anchor it gives κ ≈ 2.57.
+- The PowerPlane of Ampyx, 28 kg on 3 m² and 5.5 m with no rotors (Ruiterkamp and Sieberling 2013, Sect. 26.2), carries 9 kg/m² against 15 for Wing 7; it does not bear on a law for wings with rotors.
 - The M600 came out 40-70 % over its targets (Part I), so the risk is upward; the high bound of the reference mass covers 40 %.
+
+## Wing 7 against this model
+
+Vander Lind (2013) gives Wing 7's inputs (Fig. 28.7, Table 28.1): CL 2, CD 0.25, parasitic 0.06, tether 0.11, AR 16, 50 m loop, 40° mean tether inclination, 20 m/s lowest flight speed, 20 kW at 10 m/s. Run through the loop model with those inputs on a 20-span tether, it flies from 6.5 m/s. The published curves pass zero power at about 5.3 m/s, read from Fig. 28.9, and flights lie about 1 m/s either side (Fig. 28.12). A kite that only pulls flies from about that wind, so the model is about 1 m/s high on the one wing with a flown power curve.
+
+- Speed limit. Wing 7's 20 m/s is 1.8 times its stall speed of 11 m/s. The loop check here uses the stall speed. With the 1.8 the model flies Wing 7 from 7.5 m/s, further from flight, and MX2 from 8 m/s instead of 7, so the stall speed stays.
+- Loop size. Base is MX2's 3.46 spans. Wing 7 flew 6.25 and M600 5.65. With MX2 on those radii and the longer tethers that fit them, 16.5-20 spans, it flies from 9 m/s instead of 7.
+- Energy check. Eq. 28.33 is the argument of the loop check here: the mean speed pays for the climb above the slowest speed. As printed, with Fig. 28.7's values, it gives 48 m/s, or 33.9 m/s with the 2 under the root; the text says 30.5 m/s. None of these three is used.
+- Rotor area. A = 0.52 of the wing at CD 0.2 and inflow 0.03, "comparable" to Wing 7 (Eq. 28.32), inside this input's bounds. The chapter gives no hover power, hover time or tether length for Wing 7, and its 20 spans and 500 MPa are assumptions for a plot.
+- Tether. Ruiterkamp and Sieberling (2013, Fig. 26.3) show tether drag falling with size at a fixed length, as 1/√S. Here tether length goes with span, as Vander Lind sizes it, so the coefficient stays at 0.029 at every size. A loop radius that grows with span leaves no shorter tether on a large wing.
+- Inertia. Ruiterkamp and Sieberling (2013, Sect. 26.3) expect a massless equilibrium to overstate power, as the wing keeps accelerating. Vander Lind (2013, Fig. 28.12) finds an analysis like it within about 1 m/s of flight, at 15 kg/m². Neither measures a wing of MX2's 34 kg/m² and up, so the sign of the error at this scale stays open.
+- Pattern. Wing 7 flew circles, the PowerPlane a lemniscate at 7-9 m/s of wind.
 
 ## Makani's released code
 

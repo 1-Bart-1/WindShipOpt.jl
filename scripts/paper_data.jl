@@ -1175,7 +1175,7 @@ end
 
 "wing areas [m^2] and mass exponents of the rigid kite scaling study"
 rigid_scaling_areas = (30.0, 54.0, 100.0, 200.0, 300.0, 500.0)
-rigid_scaling_exponents = (2.2, 2.5, 3.0, 3.3)
+rigid_scaling_exponents = (2.2, 2.75, 3.0, 3.3)
 
 "flight hours and launches a year of the annual cost of a kite"
 kite_year = (flight_hours=3000.0, launches=150.0)

@@ -527,11 +527,11 @@ rigid_reference_area:
   unit: m^2
   reason: "Wing area of the MX2 design that the mass law is anchored on."
 rigid_mass_exponent:
-  value: 2.5
+  value: 2.75
   low: 2.2
   high: 3.3
   unit: "-"
-  reason: "Exponent of mass on span at fixed aspect ratio. Makani's two designs with on-board power give about 2.5 from their real spans, Eijkelhof et al. (2020) about 2.57 from the same anchor, and the published range is 2.2-2.6 (data/rigid_kite_notes.md). Bending-driven structure at fixed wing loading goes as the cube, and Sommerfeld et al. (2022) sweep up to 3.3 as an assumption, which is the high bound. Few designs and no large wing built, so this is an estimate and not a fit."
+  reason: "Exponent of mass on span at fixed aspect ratio. From Wing 7, the 60 kg wing of 8 m and 3.96 m^2 that flew (Vander Lind 2013, Fig. 28.7), to the MX2 anchor it is 2.63 by area and 2.91 by span, which differ by the aspect ratios of 16 and 12.5, and 2.75 lies between; to the built M600 it is 2.87-3.18 (data/rigid_kite_notes.md). Designs without rotors give less: about 2.57 for Eijkelhof et al. (2020) and 2.2-2.6 published, the low bound. Sommerfeld et al. (2022) sweep up to 3.3 as an assumption, the high bound. Few wings and none large, so this is an estimate and not a fit."
 
 rigid_max_force_per_area:
   value: 5.56
@@ -544,13 +544,13 @@ rigid_max_lift:
   low: 1.8
   high: 2.2
   unit: "-"
-  reason: "Highest lift coefficient of the MX2 wing, reproducing its static lift speed of 16.7 m/s (Joshi et al. 2024, Table 1); it flies at CL 1.81 at best performance (Echeverri et al. 2020, Part I, Table 1)."
+  reason: "Highest lift coefficient of the MX2 wing, reproducing its static lift speed of 16.7 m/s (Joshi et al. 2024, Table 1); it flies at CL 1.81 at best performance (Echeverri et al. 2020, Part I, Table 1). Wing 7 is specified at CL 2 (Vander Lind 2013, Fig. 28.7)."
 rigid_profile_drag:
   value: 0.03
   low: 0.02
   high: 0.054
   unit: "-"
-  reason: "Brings the kite to the CD 0.123 of the MX2 design at CL 1.81 (Echeverri et al. 2020, Part I, Table 1) with span efficiency 0.9. High bound: M600's parasitic offset of 0.075 from a flight glide, scaled by area to 0.046 on MX2, with the 0.022 of windmilling rotors a glide already holds taken out (Makani code release, config/m600/sim/aero_sim.py)."
+  reason: "Brings the kite to the CD 0.123 of the MX2 design at CL 1.81 (Echeverri et al. 2020, Part I, Table 1) with span efficiency 0.9. High bound: M600's parasitic offset of 0.075 from a flight glide, scaled by area to 0.046 on MX2, with the 0.022 of windmilling rotors a glide already holds taken out (Makani code release, config/m600/sim/aero_sim.py). Wing 7's parasitic drag is 0.06 (Vander Lind 2013, Table 28.1), against 0.052 here with the idle rotors."
 
 rigid_span_efficiency:
   value: 0.9
@@ -568,9 +568,9 @@ rigid_idle_rotor_drag:
 rigid_min_turn_radius:
   value: 3.46
   low: 2.9
-  high: 5.65
+  high: 6.25
   unit: "-"
-  reason: "Smallest loop radius over span: 90 m on 26 m for MX2; bounds 75 m for M600 as intended and 145 m as flown, on 25.66 m (Echeverri et al. 2020, Part I, Table 1)."
+  reason: "Smallest loop radius over span: 90 m on 26 m for MX2. Low bound 75 m for M600 as intended; high bound 50 m on 8 m for Wing 7 as flown (Vander Lind 2013, Fig. 28.7), and M600 flew 145 m on 25.66 m, or 5.65 (Echeverri et al. 2020, Part I, Table 1)."
 rigid_tether_length_ratio:
   value: 11.5
   low: 10.0
