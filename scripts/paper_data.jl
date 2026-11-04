@@ -58,21 +58,21 @@ end
     write_trips(name, cases, trips, columns...)
 
 Write `name` to the directory of the run in use with the given label `columns` of each
-case and the cost [USD/tkm], fuel [MJ/tkm], CO2 [kg/tkm], round-trip days, kite flight and
-parked shares, kite launches per round trip, cargo [t] and whether the rig retracts, of
-each feasible trip.
+case and the cost [USD/tkm], fuel [MJ/tkm], CO2 [kg/tkm], round-trip days, kite flight
+share, kite launches and forced landings per round trip, cargo [t] and whether the
+rig retracts, of each feasible trip.
 """
 function write_trips(name, cases, trips, columns...)
     open(run_file(name), "w") do io
         println(io, join([collect(string.(columns)); ["cost", "fuel", "carbon", "days",
-            "flight_share", "parked_share", "launches", "cargo", "retractable"]], ","))
+            "flight_share", "launches", "forced_landings", "cargo", "retractable"]], ","))
         for (case, trip) in zip(cases, trips)
             isnothing(trip) && continue
             labels = [csv_value(getproperty(case, column)) for column in columns]
-            @printf(io, "%s,%.6f,%.5f,%.3f,%.2f,%.3f,%.3f,%.2f,%.0f,%s\n",
+            @printf(io, "%s,%.6f,%.5f,%.3f,%.2f,%.3f,%.2f,%.2f,%.0f,%s\n",
                 join(labels, ","), trip.cost_per_tonne_km, trip.fuel_per_tonne_km,
                 trip.carbon_per_tonne_km, trip.outbound_days + trip.return_days,
-                trip.flight_share, trip.parked_share, trip.launches, trip.cargo,
+                trip.flight_share, trip.launches, trip.forced_landings, trip.cargo,
                 trip.retractable)
         end
     end
@@ -87,6 +87,58 @@ csv_value(value::AbstractString) = occursin(' ', value) ? "\"$value\"" : value
 csv_value(value::Real) = isinteger(value) ? string(Int(value)) : string(value)
 csv_value(value) = string(value)
 
+"inputs that together make up the cost of one launch and landing of a kite"
+launch_cost_inputs = (:kite_cycle_crew_cost, :kite_cycle_damage_probability,
+    :kite_cycle_loss_probability, :kite_launch_retry_probability, :kite_cycle_course_cost,
+    :kite_launch_minutes, :kite_landing_minutes)
+
+"""
+    launch_cost_assumptions(bound)
+
+Inputs with every one of `launch_cost_inputs` at its `bound` (`:low`, `:high` or `:value`).
+"""
+launch_cost_assumptions(bound) = foldl(launch_cost_inputs; init=assumptions) do inputs, name
+    with_value(inputs, name, getfield(assumptions.entries[name], bound))
+end
+
+"""
+    launch_data()
+
+The 140 m e-methanol ship on every route without a rig, with the reference wings and
+rotors, and with kites of 800, 1,600 and 3,200 m^2 at the low, base and high launch cost,
+with launches by day only and with no rig ever out of service: launch.csv.
+"""
+function launch_data()
+    always_in_service = reduce((changed, input) -> with_value(changed, input, 0.0),
+        Symbol.(values(out_of_service_inputs)); init=assumptions)
+    day_only = with_value(assumptions, :kite_night_launch, 0.0)
+    cases = []
+    labels = (; launch_cost="value", night=true, service=true)
+    for route in route_names
+        for (rig, area) in (("none", 0.0), ("wings", 1500.0), ("rotors", 800.0))
+            design = ShipDesign(:methanol, 140.0; rig_size(rig, area)...)
+            push!(cases, trip_case(design; labels..., route, rig, area))
+            rig == "none" && continue
+            push!(cases, trip_case(design; labels..., assumptions=always_in_service, route,
+                rig, area, service=false))
+        end
+        for area in (800.0, 1600.0, 3200.0)
+            design = ShipDesign(:methanol, 140.0; rig_size("kite", area)...)
+            kite = (; labels..., route, rig="kite", area)
+            for launch_cost in (:low, :value, :high)
+                push!(cases, trip_case(design; kite...,
+                    assumptions=launch_cost_assumptions(launch_cost),
+                    launch_cost=string(launch_cost)))
+            end
+            push!(cases, trip_case(design; kite..., assumptions=day_only, night=false))
+            push!(cases, trip_case(design; kite..., assumptions=always_in_service,
+                service=false))
+        end
+    end
+    write_trips("launch.csv", cases, round_trips(cases, sampled_departures()), :route, :rig,
+        :area, :launch_cost, :night, :service)
+end
+
 """
     patterns_data()
 
@@ -100,7 +152,7 @@ function patterns_data()
     open(run_file("patterns.csv"), "w") do paths
         open(run_file("pattern_forces.csv"), "w") do forces
             println(paths, "wind,course,side_weight,azimuth,elevation")
-            println(forces, "wind,course,side_weight,thrust,side,parked")
+            println(forces, "wind,course,side_weight,thrust,side")
             for wind in (6.0, 12.0), course in 0:30:180, side_weight in (0.0, 1.0)
                 write_pattern(paths, forces, model, max_force, min_elevation, wind,
                     course, side_weight)
@@ -112,8 +164,8 @@ end
 """
     best_pattern_cycle(model, max_force, min_elevation, wind, course, side_weight)
 
-Force of the optimal pattern at apparent wind `wind` [m/s] and `course` [°], the steps of
-its steered cycle, and whether the kite does better parked than on that cycle.
+Force of the optimal pattern at apparent wind `wind` [m/s] and `course` [°], and the steps
+of its steered cycle.
 """
 function best_pattern_cycle(model, max_force, min_elevation, wind, course, side_weight)
     problem = WindShipOpt.PatternProblem(model, max_force, min_elevation, wind,
@@ -121,30 +173,26 @@ function best_pattern_cycle(model, max_force, min_elevation, wind, course, side_
     force, parameters = WindShipOpt.optimal_pattern(problem,
         WindShipOpt.pattern_starts(deg2rad(course)))
     path = WindShipOpt.PatternStep[]
-    steered = WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters), wind,
-        max_force; path)
-    parked = WindShipOpt.objective(problem, steered) >
-             WindShipOpt.objective(problem, force) + 1e-9
-    return force, path, parked
+    WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters), wind, max_force;
+        path)
+    return force, path
 end
 
 """
     write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
                   side_weight)
 
-Optimise one pattern and write its force and, for a steered pattern, its path.
+Optimise one pattern and write its force and its path.
 """
 function write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
         side_weight)
-    force, path, parked = best_pattern_cycle(model, max_force, min_elevation, wind, course,
+    force, path = best_pattern_cycle(model, max_force, min_elevation, wind, course,
         side_weight)
     load = 0.5model.air_density * wind^2 * model.area
     downwind, crosswind, _ = load .* force.force
     thrust = downwind * cosd(course) + crosswind * sind(course)
     side = -downwind * sind(course) + crosswind * cosd(course)
-    @printf(forces, "%.0f,%.0f,%.1f,%.1f,%.1f,%d\n", wind, course, side_weight, thrust,
-        side, parked)
-    parked && return
+    @printf(forces, "%.0f,%.0f,%.1f,%.1f,%.1f\n", wind, course, side_weight, thrust, side)
     for (x, y, z) in getfield.([path; path[1:1]], :radial)
         @printf(paths, "%.0f,%.0f,%.1f,%.5f,%.5f\n", wind, course, side_weight,
             atan(y, x), asin(z))
@@ -354,8 +402,8 @@ function rig_cost_per_hour(ship, bare, legs, case_assumptions)
             ShipCosts(bare, case_assumptions).fixed_annual
     (; rig) = ship
     wear = sum(WindShipOpt.wear_cost(rig, case_assumptions) * leg.flight_hours +
-               WindShipOpt.parked_wear_cost(rig, case_assumptions) * leg.parked_hours +
-               WindShipOpt.cycle_cost(rig, case_assumptions) * leg.launches
+               WindShipOpt.cycle_cost(rig, case_assumptions) * leg.launches +
+               WindShipOpt.forced_landing_cost(rig, case_assumptions) * leg.forced_landings
                for pair in legs for leg in pair)
     return (fixed / (8760case_assumptions[:availability]) * hours + wear) / sea_hours
 end
@@ -426,7 +474,7 @@ function canopy_tension_data(; wind=12.0, course=90.0)
     area = Dict(reference_rigs)["kite"]
     model, max_force, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
     min_elevation = deg2rad(assumptions[:kite_min_elevation])
-    _, path, _ = best_pattern_cycle(model, max_force, min_elevation, wind, course, 0.0)
+    _, path = best_pattern_cycle(model, max_force, min_elevation, wind, course, 0.0)
     open(run_file("canopy_tension_history.csv"), "w") do io
         println(io, "wind,course,time,duration,tension")
         time = 0.0
@@ -463,10 +511,11 @@ function cost_parts(ship, trip, case_assumptions)
                    passages...) -
                WindShipOpt.voyage_time_cost(costs, case_assumptions, 0.0, passages...)
     return (fuel=1e9trip.fuel_energy * ship.fuel.price,
-        wear=(WindShipOpt.wear_cost(ship.rig, case_assumptions) * trip.flight_share +
-              WindShipOpt.parked_wear_cost(ship.rig, case_assumptions) *
-              trip.parked_share) * sea_hours +
-             WindShipOpt.cycle_cost(ship.rig, case_assumptions) * trip.launches,
+        wear=WindShipOpt.wear_cost(ship.rig, case_assumptions) * trip.flight_share *
+             sea_hours +
+             WindShipOpt.cycle_cost(ship.rig, case_assumptions) * trip.launches +
+             WindShipOpt.forced_landing_cost(ship.rig, case_assumptions) *
+             trip.forced_landings,
         port=WindShipOpt.port_costs(ship.hull, case_assumptions),
         crew=crew / trading_hours * hours,
         capital=(costs.fixed_annual - crew) / trading_hours * hours + store,
@@ -528,7 +577,7 @@ function designs_data()
     open(run_file("designs.csv"), "w") do io
         println(io, "scenario,drive,length,kite_area,kite_aspect_ratio,wing_area,",
             "rotor_area,cost,fuel,carbon,outbound_days,return_days,cargo,capital,",
-            "flight_share,parked_share,launches,fuel_cost,wear_cost,port_cost,crew_cost,",
+            "flight_share,launches,fuel_cost,wear_cost,port_cost,crew_cost,",
             "capital_cost,interest_cost")
         for (case, trip) in zip(cases, trips)
             isnothing(trip) && continue
@@ -551,7 +600,7 @@ function write_design(io, case, trip, work_per_tonne)
         design.kite_aspect_ratio, design.wing_area, design.rotor_area,
         trip.cost_per_tonne_km, trip.fuel_per_tonne_km, trip.carbon_per_tonne_km,
         trip.outbound_days, trip.return_days, trip.cargo, trip.capital)
-    @printf(io, "%.3f,%.3f,%.2f", trip.flight_share, trip.parked_share, trip.launches)
+    @printf(io, "%.3f,%.2f", trip.flight_share, trip.launches)
     for part in parts
         @printf(io, ",%.6f", part / tonne_km)
     end
