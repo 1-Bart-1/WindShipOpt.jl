@@ -327,7 +327,7 @@ assumption for the tornado. Kramer & Steen use a Pierson–Moskowitz spectrum
   wave-height limit; our 4 m stays an engineering assumption.
 - Figure of eight vs static: Penloup p. 189: at 19 kn, TWA 40°, 17 m/s, "the
   wing loading in static flight is 688N/m2. While in dynamics … 17 times higher
-  with a glide ratio of 4". Useful as a check that our parked kite and eight
+  with a glide ratio of 4". Useful as a check that a kite at rest and an eight
   differ by this order.
 
 ## 13. Hull side force (low)

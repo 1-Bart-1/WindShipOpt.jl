@@ -158,6 +158,102 @@ function pattern_figure()
 end
 
 """
+    draw_force_balance!(axis, area, force, radius)
+
+Draw on `axis` the path from tether force to cloth tension of a kite of `area` [m^2], at
+tether force `force` [N] and skin radius `radius` [m]: the kite pulled by its tether, the
+pressure that force implies over the canopy, and a cell whose skin carries the tension.
+"""
+function draw_force_balance!(axis, area, force, radius)
+    pressure = force / area
+    style = (shaftwidth=1.5, tipwidth=7, tiplength=7)
+    arc(centre, reach, sweep) = [centre .+ reach .* (cos(angle), sin(angle))
+                                 for angle in sweep]
+    lines!(axis, arc((0.0, -1.0), 2.0, range(π / 4, 3π / 4; length=40)); color=:black,
+        linewidth=2)
+    wedge = [(x, sqrt(4 - x^2) - 1.0) for x in range(-1.2, 1.2; length=5)]
+    arrows2d!(axis, first.(wedge), last.(wedge), zeros(5), fill(0.4, 5); color=palette[2],
+        style...)
+    arrows2d!(axis, [0.0], [0.8], [0.0], [-2.3]; color=palette[1], style...)
+    text!(axis, 0.0, 1.5; text=@sprintf("p = F / A = %.0f N/m²", pressure), fontsize=9,
+        align=(:center, :bottom), color=palette[2])
+    text!(axis, -0.2, -0.9;
+        text=@sprintf("F = %.1f MN\nA = %.0f m²", force / 1e6, area),
+        fontsize=9, align=(:right, :center), color=palette[1])
+    left, right = (3.3, 0.0), (6.3, 0.0)
+    centre = ((left[1] + right[1]) / 2, -0.75)
+    reach = hypot(left[1] - centre[1], centre[2])
+    opening = atan(-centre[2], right[1] - centre[1])
+    lines!(axis, arc(centre, reach, range(opening, π - opening; length=40)); color=:black,
+        linewidth=2)
+    lines!(axis, [left, (left[1], -1.3)]; color=:gray60, linewidth=2)
+    lines!(axis, [right, (right[1], -1.3)]; color=:gray60, linewidth=2)
+    arrows2d!(axis, [centre[1]], [centre[2]], [0.0], [reach]; color=:gray40, style...)
+    text!(axis, centre[1], -1.05; text=@sprintf("R = %.1f m", radius), fontsize=9,
+        align=(:center, :center))
+    for (corner, side) in ((left, 1), (right, -1))
+        arrows2d!(axis, [corner[1]], [corner[2]], [0.8side * sin(opening)],
+            [0.8cos(opening)]; color=palette[3], style...)
+    end
+    text!(axis, centre[1], 1.25; text=@sprintf("T = p R = %.0f N/m", pressure * radius),
+        fontsize=9, align=(:center, :bottom), color=palette[3])
+    text!(axis, left[1] - 0.1, -0.8; text="rib", fontsize=8, align=(:right, :center),
+        color=:gray40)
+    arrows2d!(axis, [1.9], [0.3], [0.8], [0.0]; color=:gray60, style...)
+    hidedecorations!(axis)
+    hidespines!(axis)
+end
+
+"area-averaged radius [m] the canopy skin bulges to between ribs, in the cloth check"
+skin_radius = 0.5
+
+"strength over weight [N/m per g/m^2] of new canopy cloth, in the cloth check"
+cloth_specific_strength = 170.0
+
+"""
+    canopy_tension_figure()
+
+From tether force to cloth tension on the reference kite: (a) the force balance at the force
+limit, (b) tether force and cloth tension over one optimal cycle, with its mean and peak.
+"""
+function canopy_tension_figure()
+    area = Dict(reference_rigs)["kite"]
+    limit = 1e3assumptions[:kite_max_force_per_area] * area
+    table = read_table(data_file("canopy_tension_history.csv"))
+    times, forces = table["time"], table["tension"] ./ 1e6
+    mean_force = sum(forces .* table["duration"]) / sum(table["duration"])
+    peak_force = maximum(forces)
+    tension(force) = 1e3force / area * skin_radius
+    strength = cloth_specific_strength * assumptions[:canopy_cloth_weight] / 1e3
+    figure = Figure(size=(page_width, 210))
+    balance = Axis(figure[1, 1]; aspect=DataAspect(), limits=(-3.0, 7.0, -1.8, 2.0),
+        title="(a) from tether force to cloth tension")
+    draw_force_balance!(balance, area, limit, skin_radius)
+    force_axis = Axis(figure[1, 2]; xlabel="time in the cycle [s]",
+        ylabel="tether force [MN]",
+        title=@sprintf("(b) one cycle, %.0f m/s, %.0f° off downwind", table["wind"][1],
+            table["course"][1]))
+    cloth_axis = Axis(figure[1, 2]; ylabel="cloth tension [kN/m]", yaxisposition=:right)
+    hidespines!(cloth_axis)
+    hidexdecorations!(cloth_axis)
+    lowest, highest = 0.9minimum(forces), 1.12peak_force
+    ylims!(force_axis, lowest, highest)
+    ylims!(cloth_axis, tension(lowest), tension(highest))
+    lines!(force_axis, times, forces; color=palette[1], linewidth=1.5)
+    hlines!(force_axis, mean_force; color=palette[2], linestyle=:dash)
+    hlines!(force_axis, peak_force; color=palette[3], linestyle=:dot)
+    text!(force_axis, times[end], mean_force;
+        text=@sprintf("mean %.2f MN, %.2f kN/m", mean_force, tension(mean_force)),
+        fontsize=8, align=(:right, :top), color=palette[2])
+    text!(force_axis, times[1], peak_force;
+        text=@sprintf("peak %.2f MN, %.2f kN/m\nnew cloth %.0f kN/m, %.0f × peak",
+            peak_force, tension(peak_force), strength, strength / tension(peak_force)),
+        fontsize=8, align=(:left, :bottom), color=palette[3])
+    colsize!(figure.layout, 1, Relative(0.52))
+    save(joinpath(figures, "canopy_tension.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
     rig_polar_figure()
 
 Thrust and side force of the best trim over true wind angle on a 140 m ship at 10.5 kn in
@@ -913,19 +1009,6 @@ function leader_starts(positions, savings)
 end
 
 """
-    parity_saving(table, ship, route)
-
-Cost saving [%] at which `ship` on e-methanol costs as much per tonne-km as the same ship
-on VLSFO without a rig on `route`, from the base rows of situations.csv.
-"""
-function parity_saving(table, ship, route)
-    base = ("ship" => ship, "route" => string(route), "input" => "base", "rig" => "none")
-    fossil, green = (only(table["cost"][rows(table, base..., "drive" => drive)])
-                     for drive in ("vlsfo", "methanol"))
-    return percent_saving(fossil, green)
-end
-
-"""
     print_leaders(name, input, positions, savings, to_value)
 
 Print the input value from which each rig of `savings` leads; `to_value` maps
@@ -938,80 +1021,11 @@ function print_leaders(name, input, positions, savings, to_value)
                                                 leads], ", "))
 end
 
-"""
-    life_position(factor)
-
-Axis position of a canopy life of `factor` times the base: log2 of the flight hours,
-with no wear one step beyond the longest life.
-"""
-function life_position(factor)
-    longest = maximum(filter(!=(no_wear), collect(first(situation_inputs[:kite_life]))))
-    life = WindShipOpt.Canopy(assumptions).lifetime
-    return log2((factor == no_wear ? 2longest : factor) * life)
-end
-
-"ships and routes the life figure averages over"
-life_cases = [(ship, route) for ship in ("140 m", "Kamsarmax bulk carrier")
-              for route in route_names]
-
 "legend entries of the best size of each rig, a line with markers for the kite"
 rig_entries() = [[LineElement(color=palette[1], linewidth=1.3),
         MarkerElement(color=palette[1], marker=:circle, markersize=5)],
     LineElement(color=palette[2], linewidth=1.3), LineElement(color=palette[3],
         linewidth=1.3)]
-
-"""
-    life_figure()
-
-Cost saving of the best kite over the life of its canopy, with the tether lasting
-proportionally longer, against the best wings and rotors, on a VLSFO (a) and an
-e-methanol (b) drive: the mean over the ships and routes of `life_cases` and bars over
-their range, and the saving at which an e-methanol ship costs as much as the VLSFO ship
-without a rig. Prints the canopy life [h] from which each rig leads on average.
-"""
-function life_figure()
-    table = read_table(data_file("situations.csv"))
-    factors = sort([1.0; collect(first(situation_inputs[:kite_life]))])
-    positions = life_position.(factors)
-    labels = [factor == no_wear ? "no\nwear" :
-              @sprintf("%g", factor * WindShipOpt.Canopy(assumptions).lifetime / 1e3)
-              for factor in factors]
-    figure = Figure(size=(page_width, 250))
-    for (column, (drive, drive_label)) in enumerate(((:vlsfo, "VLSFO"),
-        (:methanol, "e-methanol")))
-
-        axis = Axis(figure[1, column]; title="($('a' + column - 1)) $drive_label",
-            xticks=(positions, labels), xlabel="canopy life [1000 flight hours]",
-            ylabel=column == 1 ? "cost saving [%]" : "")
-        cases = [last(situation_savings(table, ship, route, drive, :kite_life))
-                 for (ship, route) in life_cases]
-        savings = mean(cases)
-        print_leaders(drive_label, :kite_life, positions, savings, exp2)
-        vlines!(axis, life_position(1.0); color=:gray40, linestyle=(:dash, :loose),
-            linewidth=0.9)
-        hlines!(axis, 0; color=:gray50, linewidth=0.6)
-        drive == :methanol && hlines!(axis,
-            mean(parity_saving(table, ship, route) for (ship, route) in life_cases);
-            color=:black, linestyle=:dashdot, linewidth=1.0)
-        for (k, offset) in ((1, 0.0), (2, -0.12), (3, 0.12))
-            low = [minimum(case[k, j] for case in cases) for j in eachindex(positions)]
-            high = [maximum(case[k, j] for case in cases) for j in eachindex(positions)]
-            rangebars!(axis, positions .+ offset, low, high; color=(palette[k], 0.6),
-                whiskerwidth=4, linewidth=0.9)
-            lines!(axis, positions, savings[k, :]; color=palette[k], linewidth=1.3)
-            k == 1 && scatter!(axis, positions, savings[k, :]; color=palette[k],
-                markersize=5)
-        end
-        xlims!(axis, first(positions) - 0.3, last(positions) + 0.3)
-    end
-    Legend(figure[2, 1:2],
-        [rig_entries(); LineElement(color=:gray40, linestyle=(:dash, :loose));
-            LineElement(color=:black, linestyle=:dashdot)],
-        ["kite, best size", "wings, best size", "rotors, best size",
-            "base canopy life", "e-methanol at the cost of VLSFO without a rig"];
-        orientation=:horizontal, nbanks=2, framevisible=false, labelsize=9)
-    save(joinpath(figures, "life.pdf"), figure; pt_per_unit=print_scale)
-end
 
 """
 Panels of the situation figure as (title, x label, inputs with their drive, scale of the

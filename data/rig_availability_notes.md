@@ -56,7 +56,7 @@ Kites flew about 1-2.5 % of sea hours over the fleet's life (ours, with 250 sea 
 
 ## What the model does
 
-**Base case.** All three rigs share one base of 3 % of round trips out of service per unit, from Estraden's operator ("could be used 97% of the time"), the one long statement not made by a maker. That the 97 % holds per unit, per round trip and only while the wind would allow use is our reading: the source gives no denominator and speaks of the two rotors together, so the table below also shows all units failing together. For the kite, which has no figure, the 3 % is our assumption, so that a missing record neither credits nor penalises it.
+**Base case.** All three rigs share one goal of 3 % of round trips out of service per unit, from Estraden's operator ("could be used 97% of the time"), the one long statement not made by a maker. That the 97 % holds per unit, per round trip and only while the wind would allow use is our reading: the source gives no denominator and speaks of the two rotors together, so the table below also shows all units failing together. For the kite, which has no figure, the 3 % is our assumption, so that a missing record neither credits nor penalises it.
 
 **Range.** The low bound is the best figure stated for each rig, and for the kite our assumption equal to the rotors'. The high bound is one estimate of ours for all three: 15 %, from two long outages a year of 20 days each in 250 sea days. The inputs of that sum are unsourced for every rig, and at 1-4 outages of 10-30 days it runs from 4 to 48 %, so the break-even shares below say more than the bound. The worst stated figure is Afros at 5 %.
 
@@ -114,6 +114,6 @@ The maintenance split widens the rotors' lead and changes no order. A port call 
 
 ## Crashes
 
-The base case has no crash in flight, so no rate is sought: `tab:crashes` in the paper gives the crashes a year each rig can take instead. It uses the same three ships at half, once and twice the sizes above, on the savings of 3 November 2026 that include the canopy life goal of 4,000 h, the lower launch damage and no parking in the base case, so it is ahead of the "Cost effect" sweep above: there the Neo-Panamax kite of 6,400 m^2 saves 12.7 %, here 15.3 %, ahead of the rotors' 13.9 %.
+The goal is no crash in flight, so no rate is sought: `tab:crashes` in the paper gives the crashes a year each rig can take instead. It uses the same three ships at half, once and twice the sizes above, on the savings of 3 November 2026 that include the canopy life goal of 4,000 h and the lower launch damage, so it is ahead of the "Cost effect" sweep above: there the Neo-Panamax kite of 6,400 m^2 saves 12.7 %, here 15.3 %, ahead of the rotors' 13.9 %.
 
 One crash costs what the operator pays beyond the replacement it avoids. A kite pays its control unit at market price and half of its canopy and tether, as wear charges the other half. A wing or rotor pays one new unit with installation, as nothing charges its wear. Launch loss stays in the launch cost, and only a crash in flight or a unit lost counts here. Recovery and repair are left out for every rig, and the time out is the out-of-service input, so each limit is an upper bound. A limit scales inversely with the cost of one event, so partial damage scales from the table.

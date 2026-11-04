@@ -10,8 +10,8 @@ into the exported designs
 explorer_inputs = (:vlsfo_price, :vlsfo_carbon_intensity, :e_methanol_price,
     :carbon_price, :carbon_coverage, :discount_rate, :hull_lifetime, :wing_lifetime,
     :rotor_lifetime, :kite_lifetime, :market_price_factor, :retractable_rig_premium,
-    :tether_lifetime, :kite_parked_wear_fraction, :kite_cycle_crew_cost,
-    :kite_cycle_damage_probability, :kite_cycle_loss_probability,
+    :tether_lifetime, :kite_cycle_crew_cost, :kite_cycle_damage_probability,
+    :kite_cycle_loss_probability,
     :kite_launch_retry_probability, :kite_cycle_course_cost, :mechanical_propulsion_cost,
     :electric_propulsion_cost, :newbuild_reference_deadweight, :crew_cost,
     :crew_cost_exponent, :maintenance_fraction, :availability, :port_time_per_call)
@@ -22,7 +22,7 @@ explorer_parts = (:units, :surface, :installation, :winch, :mast, :docking_head,
 
 "columns of each exported design, in order"
 explorer_columns = ["class", "route", "drive", "rig", "area", "unit_count",
-    "installed_power", "fuel_energy", "sea_hours", "flight_hours", "parked_hours",
+    "installed_power", "fuel_energy", "sea_hours", "flight_hours",
     "launches", "cargo", "rig_mass", "deck_cargo_loss", "fixed_delay",
     string.(explorer_parts)..., "canopy_area", "tether_price", "cost", "retractable"]
 
@@ -98,7 +98,8 @@ function explorer_input_entries()
     canopy = WindShipOpt.Canopy(assumptions)
     for (name, value, unit) in ((:canopy_cost_per_area, canopy.cost_per_area, "USD/m^2"),
         (:canopy_lifetime, canopy.lifetime, "flight hours"))
-        entries[name] = Assumption(value, value, value, unit, "derived from the cloth and the goal")
+        entries[name] = Assumption(value, value, value, unit,
+            "derived from the cloth and the goal")
     end
     return entries
 end
@@ -160,8 +161,8 @@ function explorer_row(case, trip, class_names)
     return [findfirst(==(case.class), class_names) - 1,
         findfirst(==(case.route), route_names) - 1, string(case.drive), case.rig,
         case.area, case.units, trip.installed_power, trip.fuel_energy, sea_hours,
-        trip.flight_share * sea_hours, trip.parked_share * sea_hours, trip.launches,
-        trip.cargo, WindShipOpt.rig_costs(rig, assumptions)[2],
+        trip.flight_share * sea_hours, trip.launches, trip.cargo,
+        WindShipOpt.rig_costs(rig, assumptions)[2],
         WindShipOpt.blocked_slots(rig, case.design.class, assumptions) *
         WindShipOpt.CargoUnit(case.design.class.cargo_unit, assumptions).cargo,
         WindShipOpt.fixed_rig_port_hours(rig, case.design.class, assumptions),

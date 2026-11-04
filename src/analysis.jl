@@ -1,32 +1,4 @@
 """
-    parking_lull(table, speed, wind, angle, recovery_wind)
-
-What parking through a lull costs against landing, for a kite at ship `speed` [m/s] in a
-10 m `wind` [m/s] at true wind `angle` [rad] and calm sea, once the wind is back at
-`recovery_wind`: `stays_up`, whether it can park there; `parked_cost` and `flown_cost`, the
-fuel cost of parked and flying over stowed [USD/h]; `cycle`, a landing and launch with the
-flight saving lost while they last [USD]; `hours`, the lull beyond which landing is cheaper,
-zero where it cannot park and `Inf` where parking pays by itself.
-"""
-function parking_lull(table::PerformanceTable, speed, wind, angle, recovery_wind)
-    weight = KnotWeight(table.speeds, speed)
-    fuels(wind_10m) = edge_fuels(table, speed, weight,
-        SeaCondition(table, wind_10m, angle, 0.0, 8.0, 0.0))
-    price = table.ship.fuel.price * 3600
-    flown, stowed, parked = fuels(wind)
-    crosswind, headwind = kite_wind(table, wind) .* sincos(angle)
-    stays_up = isfinite(parked) && kite_aloft(table, speed, headwind, crosswind, 0.0) &&
-               kite_parkable(table, speed, headwind, crosswind)
-    recovered_flown, recovered_stowed = fuels(recovery_wind)
-    cycle = table.cycle_cost +
-            table.handling_hours * max(recovered_stowed - recovered_flown, 0.0) * price
-    hourly = (parked - stowed) * price + table.parked_wear_cost
-    hours = !stays_up ? 0.0 : hourly > 0 ? cycle / hourly : Inf
-    return (; stays_up, parked_cost=(parked - stowed) * price,
-        flown_cost=(flown - stowed) * price, cycle, hours)
-end
-
-"""
     LegTrace
 
 What happens on each stage of a routed leg: time [h], speed held [m/s], true wind angle
@@ -47,8 +19,8 @@ Re-evaluate the ship models along the path of `leg` at the start of every edge a
 `interval` [h] along it, with positions interpolated along the edge and the weather at
 that time and place. The ship holds the edge's commanded speed where it can and the
 [`held_speed`](@ref) elsewhere; a kite flies where [`kite_aloft`](@ref) allows and the
-edge's mode is flying or only a flying kite holds the speed, parks where the mode is
-parked, and the [`standing_rig`](@ref) always stands. It can differ from the router's edge
+edge's mode is flying or only a flying kite holds the speed, and the
+[`standing_rig`](@ref) always stands. It can differ from the router's edge
 cost: the [`sail_edge!`](@ref) points with the kite managed per point.
 """
 function LegTrace(table::PerformanceTable, leg::Leg, weather, departure; interval=Inf)
@@ -88,21 +60,19 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     condition = SeaCondition(table.table, wind_speed, angle, wave_height, wave_period,
         heading)
     crosswind, headwind = kite_wind(table.table, wind_speed) .* sincos(angle)
-    held, flown_power, stowed_power, parked_power = held_speed(table, speed_index,
+    held, flown_power, stowed_power = held_speed(table, speed_index,
         EdgeSample(condition, headwind, crosswind, is_daylight(lon, departure + time)))
     speed = table.speeds[max(held, 1)]
     standing = standing_rig(ship.rig)
     aloft = kite_aloft(table.table, speed, headwind, crosswind, wave_height)
     flown = standing === ship.rig || (mode == FLYING || !isfinite(stowed_power)) &&
             isfinite(flown_power) && aloft
-    parked = !flown && mode == PARKED && isfinite(parked_power) && aloft
-    carried = flown ? ship.rig : parked ? parked_rig(ship.rig) : standing
-    force = last(best_trim(ship, carried, speed, wind_speed, angle))
+    force = last(best_trim(ship, flown ? ship.rig : standing, speed, wind_speed, angle))
     push!(trace.time, time)
     push!(trace.speed, speed)
     push!(trace.true_wind_angle, angle)
     push!(trace.rig_thrust, force.thrust)
-    push!(trace.fuel_power, flown ? flown_power : parked ? parked_power : stowed_power)
+    push!(trace.fuel_power, flown ? flown_power : stowed_power)
 end
 
 """
@@ -120,14 +90,15 @@ function share_at_cost(shares, costs, cost)
 end
 
 """
-    ranked_with_next(costs)
+    ranked_neighbours(costs)
 
-The rigs of the dictionary `costs`, cheapest first, as pairs of rig and the cost of the next
-rig, `NaN` for the last.
+The rigs of the dictionary `costs`, cheapest first, each with the cost of the rig ahead and
+of the next rig, `NaN` where there is none.
 """
-function ranked_with_next(costs)
+function ranked_neighbours(costs)
     ranked = sort(collect(keys(costs)); by=rig -> costs[rig])
-    return [rig => (rank < length(ranked) ? costs[ranked[rank + 1]] : NaN)
+    neighbour(rank) = checkbounds(Bool, ranked, rank) ? costs[ranked[rank]] : NaN
+    return [(; rig, ahead=neighbour(rank - 1), next=neighbour(rank + 1))
             for (rank, rig) in enumerate(ranked)]
 end
 
@@ -139,3 +110,15 @@ tonne-km] to `target_cost` at `yearly_work` [tonne-km]; zero if it is already ab
 """
 events_to_cost(cost, target_cost, yearly_work, event_cost) =
     max(target_cost - cost, 0.0) * yearly_work / event_cost
+
+"""
+    life_at_cost(lives, costs, cost)
+
+Life at which the `costs` over `lives`, falling with the life, reach `cost`, linear in the
+inverse of the life, which wear follows; `NaN` if within none of `lives`.
+"""
+function life_at_cost(lives, costs, cost)
+    order = sortperm(lives; rev=true)
+    costs[first(order)] > cost && return NaN
+    return 1 / share_at_cost(1 ./ lives[order], costs[order], cost)
+end
