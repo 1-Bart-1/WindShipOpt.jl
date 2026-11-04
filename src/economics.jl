@@ -119,7 +119,8 @@ function ShipCosts(ship::Ship, assumptions::Assumptions; retractable=true)
     capital = hull + drive_premium + rig_capital
     crew = assumptions[:crew_cost] * size^assumptions[:crew_cost_exponent]
     fixed_annual = annuity + rig_annual + crew +
-                   assumptions[:maintenance_fraction] * capital
+                   assumptions[:maintenance_fraction] *
+                   (capital - worn_part_price(ship.rig, assumptions))
     cargo_value = isnothing(class) ? assumptions[:cargo_value] : class.cargo_value
     return ShipCosts(capital, fixed_annual, hold, cargo_value)
 end
@@ -287,6 +288,16 @@ function consumable_costs(rig::KiteRig, assumptions)
              rig.area
     return canopy, assumptions[:tether_price] * tether_mass
 end
+
+"""
+    worn_part_price(rig, assumptions)
+
+Price [USD] of the parts of `rig` that wear replaces, which maintenance does not charge:
+a kite's canopy and tether; zero for other rigs.
+"""
+worn_part_price(rig, assumptions) = 0.0
+worn_part_price(rig::CombinedRig, assumptions) = worn_part_price(rig.kite, assumptions)
+worn_part_price(rig::KiteRig, assumptions) = sum(consumable_costs(rig, assumptions))
 
 """
     wear_cost(rig, assumptions)

@@ -525,7 +525,8 @@ function payback_years(table, class, drive, route, rig)
     lifetime = rig == "kite" ? assumptions[:kite_lifetime] :
                rig == "wings" ? assumptions[:wing_lifetime] : assumptions[:rotor_lifetime]
     charges = (WindShipOpt.capital_recovery(rate, lifetime) +
-               assumptions[:maintenance_fraction]) * price
+               assumptions[:maintenance_fraction]) *
+              (price - WindShipOpt.worn_part_price(ship.rig, assumptions))
     outbound, inbound = run_corridors(Symbol(route))
     tonne_km = table["cargo"][best] * (outbound.track_length +
                                        assumptions[:backhaul_fraction] *

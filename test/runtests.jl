@@ -379,6 +379,19 @@ end
     @test WindShipOpt.wear_cost(rig, shorter) - flown ≈ canopy / 4000
 end
 
+@testset "maintenance charges a rig's capital but not the parts wear replaces" begin
+    maintenance_of(ship) = ShipCosts(ship, with_value(assumptions, :maintenance_fraction,
+        0.04)).fixed_annual - ShipCosts(ship, assumptions).fixed_annual
+    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=3200.0), assumptions)
+    worn = sum(WindShipOpt.consumable_costs(kite.rig, assumptions))
+    @test maintenance_of(kite) ≈ 0.01 * (ShipCosts(kite, assumptions).capital - worn)
+    both = Ship(ShipDesign(:methanol, 140.0; kite_area=3200.0, rotor_area=400.0),
+        assumptions)
+    @test maintenance_of(both) ≈ 0.01 * (ShipCosts(both, assumptions).capital - worn)
+    rotors = Ship(ShipDesign(:methanol, 140.0; rotor_area=400.0), assumptions)
+    @test maintenance_of(rotors) ≈ 0.01 * ShipCosts(rotors, assumptions).capital
+end
+
 @testset "combined rig force is the sum of kite and rotor forces at a fixed trim" begin
     env = Environment(assumptions)
     hull = Hull(140.0, assumptions)
