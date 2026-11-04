@@ -905,7 +905,7 @@ and either side of them, up to where the kite stops paying on every ship.
 """
 function canopy_prices()
     goal = WindShipOpt.canopy_price(assumptions)
-    return sort([goal .* (0.5, 0.75, 1.0, 1.25, 2.5, 3.5, 5.0, 7.0);
+    return sort([goal .* [0.5, 0.75, 1.0, 1.25, 2.5, 3.5, 5.0, 7.0];
                   assumptions[:canopy_price_today]])
 end
 
