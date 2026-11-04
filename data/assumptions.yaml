@@ -509,11 +509,11 @@ tether_drag_coefficient:
   unit: "-"
   reason: "Cylinder CD 1.1 at tether Reynolds numbers 2.7e3-8.2e3 (van der Vlugt et al. 2019, Table 1)."
 tether_stress:
-  value: 550000000.0
-  low: 410000000.0
-  high: 660000000.0
+  value: 400000000.0
+  low: 300000000.0
+  high: 480000000.0
   unit: Pa
-  reason: "Working stress on the worked-in diameter of the rope, 15 % below its nominal diameter, the one to engineer with (Bosman et al. 2013): design factor 3 on 12-strand HMPE, 880 kN mean breaking load at 26.0 mm, 552 MPa (Table 33.4), the factor Bosman et al. and Fechner & Schmehl (2013) advise. The low bound is design factor 4, the high bound 40 % of break load, above which the rope deteriorates rapidly in bending (Bosman et al. 2013)."
+  reason: "Working stress on the nominal diameter of the rope at design factor 3: 12-strand HMPE, 880 kN mean breaking load at 30.6 mm nominal, 399 MPa (Bosman et al. 2013, Table 33.4), the starting factor Bosman et al. and Fechner & Schmehl (2013) advise. Also ~0.40 GPa in Faggiani & Schmehl (2018). The low bound is design factor 4, the high bound 40 % of break load, above which the rope deteriorates rapidly in bending (Bosman et al. 2013)."
 tether_length_ratio:
   value: 13.0
   low: 10.0
@@ -755,17 +755,17 @@ tether_price:
   unit: USD/kg
   reason: "Large-diameter Dyneema SK78 rope in bulk; Faggiani & Schmehl (2018) imply ~80 EUR/kg, retail small diameters sell at 300-350 USD/kg (Marlow D12 via Mauripro/Binks)."
 tether_rope_density:
-  value: 1150.0
-  low: 820.0
-  high: 1550.0
+  value: 830.0
+  low: 590.0
+  high: 1130.0
   unit: kg/m^3
-  reason: "Rope mass over its worked-in cross-section: 60.8 kg per 100 m at 26.0 mm, 1,145 kg/m^3 (Bosman et al. 2013, Table 33.4, coated 12-strand). Low: Marlow D12 78 uncoated, 4.65 kg per 100 m at 10 mm nominal. High: the SkySails tether with its power and data cable, 0.9 kg/m for 320 kN (Paulig et al. 2013)."
+  reason: "Rope mass over its nominal cross-section: 60.8 kg per 100 m at 30.6 mm, 827 kg/m^3 (Bosman et al. 2013, Table 33.4, coated 12-strand). Their worked-in diameter, 26.0 mm, would give 1,145 kg/m^3, above solid HMPE at 970 kg/m^3, so it cannot be the section that meets the wind. Low: Marlow D12 78 uncoated, 4.65 kg per 100 m at 10 mm. High: the SkySails tether with its power and data cable, 0.9 kg/m for 320 kN (Paulig et al. 2013)."
 tether_lifetime:
   value: 8000.0
-  low: 4000.0
+  low: 1100.0
   high: 40000.0
   unit: flight hours
-  reason: "Flight hours a Dyneema tether flies before replacement at a fixed length, bent only at the tow point; none measured. About a year, what DSM designs a tether for at design factor 3 even when pumped over a drum, where bending and not creep sets the life (Bosman et al. 2013). The Ampyx Power 5 MW design replaces the tether section reeled over the drum every year but the fixed section after 7 years, at 312 MPa (van Hagen et al. 2023), about 40,000 flight hours; bending fatigue over a drum gives ~4,000 h at 0.4 GPa (Joshi 2025 model)."
+  reason: "Flight hours a Dyneema tether flies before replacement at a fixed length, bent only at the tow point; none measured, so the value is an estimate of about a year. At design factor 3 creep allows about 5 years on SK78, but bending sets the life: at the 533 MPa on the fibre of that factor, a tether pumped over a drum at D/d 100 fails after 45 days, the low bound, and reaches about a year only at design factor 4 with SK78 XBO and better construction (Bosman et al. 2013). The Ampyx Power 5 MW design replaces its fixed tether section after 7 years at 312 MPa (van Hagen et al. 2023), about 40,000 flight hours, the high bound. Pumping tethers last 3 months to 2 years (DEADALUS, Ampyx/DSM)."
 winch_fixed_cost:
   value: 27000.0
   low: 11000.0

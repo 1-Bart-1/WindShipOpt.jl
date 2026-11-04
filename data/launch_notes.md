@@ -30,13 +30,13 @@ Derivation and formulas are in the paper's subsection on the lowest wind, and on
 
 | Area [m^2] | Mass [kg] | Level crosswind | Steady climb | Lift-off without tether (x1.3) | Launch |
 | --- | --- | --- | --- | --- | --- |
-| 800 | 972 | 1.69 | 3.99 | 4.47 | 5.0 |
-| 1,600 | 2,178 | 1.79 | 4.23 | 4.5 | 5.0 |
-| 3,200 | 5,020 | 1.92 | 4.54 | 4.53 | 5.0 |
+| 800 | 969 | 1.70 | 4.00 | 4.47 | 5.0 |
+| 1,600 | 2,172 | 1.80 | 4.23 | 4.50 | 5.0 |
+| 3,200 | 5,003 | 1.93 | 4.54 | 4.53 | 5.0 |
 
 Both moving forms match the steady force balance solved numerically to 3 %, in a test. Where they stop holding: the level form leaves out climbing, turning, the azimuth and wind shear; the climb form holds a steady climb, with no energy from speed. With a position theta off downwind, the forms scale with cos(elevation)/cos(theta)^2 under the root.
 
-Against the pattern search. First flight at 5 m/s at 800 m^2, and 5-6 m/s at 3,200 m^2, on courses with the wind from behind; 8-10.5 m/s on upwind courses, where theta is large: at 8 deg elevation and 60 deg of azimuth the climb form gives 8 m/s, as the search does. No pattern below 4 m/s on any course. So the climb form is the limit in the model, and the level form's 1.7 m/s would need a pattern that climbs on its momentum. The Kitepower kite is said to fly down to 2 m/s (Kitepower 2024), so real kites may do better than the model at the light end: a bias against the kite, in a band where the wind that the ship makes comes from ahead and the kite pulls little.
+Against the pattern search. First flight at 5 m/s at 800 m^2, and 5-6.5 m/s at 3,200 m^2, on courses with the wind from behind; 8-10.5 m/s on upwind courses, where theta is large: at 8 deg elevation and 60 deg of azimuth the climb form gives 8 m/s, as the search does. No pattern below 4 m/s on any course. So the climb form is the limit in the model, and the level form's 1.7 m/s would need a pattern that climbs on its momentum. The Kitepower kite is said to fly down to 2 m/s (Kitepower 2024), so real kites may do better than the model at the light end: a bias against the kite, in a band where the wind that the ship makes comes from ahead and the kite pulls little.
 
 The factor 1.3. It stays only for a kite with no air speed of its own, at lift-off, as an estimate. It came off flight, which has air speed in reserve. The pattern search also stopped refusing a wing that cannot hang at rest at zero air speed, the same fix as the rigid kite's.
 
