@@ -103,6 +103,30 @@ function ranked_neighbours(costs)
 end
 
 """
+    sizes_around(rig, area, largest)
+
+Sizes [m^2] of `rig` to sweep around `area`, none above `largest`: a quarter, half, once and
+twice `area` for a kite, whose best size moves furthest, half, once and twice for the others.
+"""
+function sizes_around(rig, area, largest)
+    factors = rig == "kite" ? (0.25, 0.5, 1.0, 2.0) : (0.5, 1.0, 2.0)
+    return unique(min.(factors .* area, largest))
+end
+
+"""
+    check_goal_cost(ship, sweep, goal, swept)
+
+Raise an error unless each rig of the dictionary `swept`, the costs at the goals in `sweep`
+on `ship`, has its cost of `goal`.
+"""
+function check_goal_cost(ship, sweep, goal, swept)
+    for (rig, cost) in swept
+        cost == goal[rig] || error("$sweep sweep on $ship has $rig at $cost at the goals, ",
+            "not the $(goal[rig]) of the size sweep")
+    end
+end
+
+"""
     events_to_cost(cost, target_cost, yearly_work, event_cost)
 
 Events a year, each costing `event_cost` [USD], that raise a transport `cost` [USD per
