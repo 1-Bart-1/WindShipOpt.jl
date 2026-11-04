@@ -991,6 +991,35 @@ function canopy_life_data()
         round_trips(vec(cases), sampled_departures(; screening=true)), :ship, :life)
 end
 
+"""
+    canopy_prices()
+
+Canopy prices [USD/m^2] the kite is routed at for the missed-goal table: the goal, today's
+and either side of them, up to where the kite stops paying on every ship.
+"""
+function canopy_prices()
+    goal = WindShipOpt.canopy_price(assumptions)
+    return sort([goal .* [0.5, 0.75, 1.0, 1.25, 2.5, 3.5, 5.0, 7.0];
+                  WindShipOpt.canopy_price_today(assumptions)])
+end
+
+"""
+    canopy_price_data()
+
+The kite of each ship of [`sensitivity_ships`](@ref) at each of [`canopy_prices`](@ref), its
+size and every other input held: canopy_price.csv.
+"""
+function canopy_price_data()
+    goal = WindShipOpt.canopy_price(assumptions)
+    inputs = WindShipOpt.canopy_price_inputs
+    cases = [trip_case(ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...);
+                 assumptions=scaled(inputs, price / goal), route, ship, price)
+             for (ship, bare, route, areas) in sensitivity_ships(),
+    price in canopy_prices()]
+    write_trips("canopy_price.csv", vec(cases),
+        round_trips(vec(cases), sampled_departures(; screening=true)), :ship, :price)
+end
+
 "ships of the abatement study as (name, route)"
 abatement_ships = (("140 m", :caribbean), ("Kamsarmax bulk carrier", :tubarao))
 
