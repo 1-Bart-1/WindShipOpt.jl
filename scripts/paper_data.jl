@@ -876,6 +876,43 @@ function availability_data()
         round_trips(cases, sampled_departures(; screening=true)), :ship, :rig, :share)
 end
 
+"""
+    crash_sizes(rig, area, hull)
+
+Sizes [m^2] of `rig` in the crash study: half of `area`, `area` and twice it, wings and
+rotors only as far as they fit on `hull`.
+"""
+function crash_sizes(rig, area, hull)
+    rig == "kite" && return [area / 2, area, 2area]
+    rig_type = rig == "wings" ? WingRig : WindShipOpt.RotorRig
+    return unique([area / 2, area, min(2area, largest_area(rig_type, hull))])
+end
+
+"""
+    crash_data()
+
+Each ship of [`sensitivity_ships`](@ref) without a rig and with each rig at its
+[`crash_sizes`](@ref), at the base inputs: crashes.csv.
+"""
+function crash_data()
+    cases = []
+    for (ship, bare, route, areas) in sensitivity_ships()
+        push!(cases, trip_case(bare; route, ship, bare.drive, rig="none", area=0.0))
+        hull = Ship(bare, assumptions).hull
+        for rig in rig_names
+            best = only(values(getproperty(areas, Symbol(rig))))
+            for area in crash_sizes(rig, best, hull)
+                design = ShipDesign(; bare.drive, bare.length, bare.class,
+                    rig_size(rig, area)...)
+                push!(cases, trip_case(design; route, ship, bare.drive, rig, area))
+            end
+        end
+    end
+    write_trips("crashes.csv", cases,
+        round_trips(cases, sampled_departures(; screening=true)), :ship, :route, :drive,
+        :rig, :area)
+end
+
 "canopy lives [flight hours] the kite is routed at for the missed-goal table"
 canopy_lives = (500.0, 750.0, 1000.0, 1500.0, 2000.0, 3000.0, 4000.0, 6000.0, 8000.0,
     16000.0)

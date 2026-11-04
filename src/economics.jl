@@ -384,16 +384,31 @@ end
     lost_kite_cost(rig, assumptions)
 
 Cost of the kites of `rig` lost in the water with their tethers and, on a soft kite, its
-control unit [USD].
+control unit, at market prices [USD].
 """
 function lost_kite_cost(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
-    return canopy + tether + assumptions[:control_unit_cost] +
-           assumptions[:control_unit_cost_per_area] * rig.area
+    control_unit = rig_price_parts(rig, assumptions).control_unit
+    return canopy + tether + assumptions[:market_price_factor] * control_unit
 end
 
 lost_kite_cost(rig::KiteRig{RigidAirframe}, assumptions) =
     rigid_airframe_price(rig, assumptions) + last(consumable_costs(rig, assumptions))
+
+"""
+    crash_cost(rig, assumptions)
+
+Cost [USD] of one kite crashed or one wing or rotor lost, beyond the wear already charged:
+a kite's control unit and half of its canopy and tether, on average halfway through their
+life when lost, or the price of one wing or rotor with its installation.
+"""
+function crash_cost(rig::KiteRig, assumptions)
+    canopy, tether = consumable_costs(rig, assumptions)
+    return lost_kite_cost(rig, assumptions) - (canopy + tether) / 2
+end
+
+crash_cost(rig::Union{WingRig, RotorRig}, assumptions) =
+    first(rig_costs(rig, assumptions)) / deck_units(rig)
 
 """
     forced_landing_cost(rig, assumptions)
