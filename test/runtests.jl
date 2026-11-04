@@ -561,6 +561,15 @@ end
           WindShipOpt.handling_hours(base, assumptions)
 end
 
+@testset "kite inputs give the SkySails kites at their projected areas" begin
+    mast_height(area) = assumptions[:launch_mast_height_ratio] * sqrt(area)
+    @test mast_height(125.0) ≈ 15.0 rtol = 0.05
+    small, = WindShipOpt.kite_model(125.0, 3.0, assumptions)
+    @test small.min_turn_radius ≈ 45.0 rtol = 0.05
+    large, = WindShipOpt.kite_model(250.0, 3.0, assumptions)
+    @test large.tether_length ≈ 360.0 rtol = 0.05
+end
+
 @testset "launch cost at the loss goal is mostly crew and turn" begin
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     crew_and_turn = (1 + assumptions[:kite_launch_retry_probability]) *

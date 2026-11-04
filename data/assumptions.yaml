@@ -519,7 +519,7 @@ tether_length_ratio:
   low: 10.0
   high: 20.0
   unit: "-"
-  reason: "Tether length over projected span, held during flight and changed only at launch and landing (Erhard & Strauch 2013): SkySails flew its 160 m^2 kite, ~23 m span at an assumed projected aspect ratio of 3.3, on an operational towing line of 300 m (Erhard & Strauch 2013, Fig. 18), the longest relative length flown on a ship; the low and high bounds are estimates, a tether a quarter shorter and half as long again."
+  reason: "Tether length over projected span, held during flight and changed only at launch and landing (Erhard & Strauch 2013). SkySails names its kites by flat area (Paulig et al. 2013); at 160 m^2 total to 125 m^2 projected (Folkersma et al. 2020) they flew 300 m on 125 m^2 (Erhard & Strauch 2013, Fig. 18) and about 360 m on 250 m^2 (Paulig et al. 2013). At the same projected area the aspect-ratio-3 span gives 15.5 and 13.1 spans; the base follows the larger kite. The high bound is the 19.7 spans of the 125 m^2 kite's own 15.2 m span; the low bound is an estimate, a quarter shorter."
 kite_min_elevation:
   value: 8.0
   low: 5.0
@@ -527,11 +527,11 @@ kite_min_elevation:
   unit: deg
   reason: "Engineering assumption: lowest tether elevation of a pattern, keeping the kite clear of the waves and the ship's superstructure."
 kite_min_turn_radius:
-  value: 2.0
-  low: 1.2
-  high: 3.6
+  value: 2.3
+  low: 1.5
+  high: 4.3
   unit: "-"
-  reason: "Smallest radius of the kite's path through the air over its projected span: the SkySails turn rate law gives a yaw rate g v_a delta, so a turn radius 1/(g delta), with g = 0.03-0.05 rad/m for the 160 m^2 kite and curve deflections delta of 40-70 % of the steering range (Erhard & Strauch 2013, Eq. 7, Section VIII); 1/(0.04 x 0.55) = 45 m, or 2.0 spans of ~23 m, with bounds 29 m and 83 m."
+  reason: "Smallest radius of the kite's path through the air over its projected span: the SkySails turn rate law gives a yaw rate g v_a delta, so a turn radius 1/(g delta), with g = 0.03-0.05 rad/m for the kite of 160 m^2 flat, 125 m^2 projected, and curve deflections delta of 40-70 % of the steering range (Erhard & Strauch 2013, Eq. 7, Section VIII); 1/(0.04 x 0.55) = 45 m, with bounds 29 m and 83 m, over the 19.4 m span of that area at aspect ratio 3."
 kite_stall_margin:
   value: 2.0
   low: 1.0
@@ -559,9 +559,9 @@ canopy_cloth_area_ratio:
 canopy_mass_overhead:
   value: 0.05
   low: 0.02
-  high: 0.2
+  high: 0.33
   unit: kg/m^2
-  reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is load patches for the ~1 t point loads of a ship kite (Thedens 2015). With 60 g/m^2 cloth it gives 0.26 kg/m^2, as a 160 m^2 SkySails kite of ~40 kg (pressetext 2008)."
+  reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is a SkySails ship kite, 120 kg with lines on 225 m^2 flat, 176 m^2 projected, on cloth slightly above 100 g/m^2 (Paulig et al. 2013), with load patches for its ~1 t point loads (Thedens 2015)."
 canopy_cloth_base_price:
   value: 6.0
   low: 2.0
@@ -633,7 +633,7 @@ kite_flight_drag:
   low: 0.0
   high: 0.12
   unit: "-"
-  reason: "Drag on the projected area that the design-shape model lacks in flight: deformation, control unit and steering. The V3 wing reaches L/D 8.6 in the wind tunnel (Poland et al. 2025) but 3.6-4.0 in traction with bridle and control unit (van der Vlugt et al. 2019), 4-5 for SkySails towing kites (Erhard & Strauch 2013); 0.08 brings the aspect-ratio-3 kite with bridle to 4 at CL 0.8; 0 is a kite that keeps its design shape in flight."
+  reason: "Drag on the projected area that the design-shape model lacks in flight: deformation, control unit and steering. The V3 wing reaches L/D 8.6 in the wind tunnel (Poland et al. 2025) but 3.6-4.0 in traction with bridle and control unit (van der Vlugt et al. 2019), 4-5 for SkySails towing kites (Erhard & Strauch 2013; Paulig et al. 2013); 0.08 brings the aspect-ratio-3 kite with bridle to 4 at CL 0.8; 0 is a kite that keeps its design shape in flight."
 kite_max_wave_height:
   value: 5.0
   low: 4.0
@@ -741,7 +741,7 @@ kite_max_force_per_area:
   low: 0.4
   high: 1.0
   unit: kN/m^2
-  reason: "Maximum wing loading 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2); SkySails ~16 t on 300 m^2 (0.52). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4)."
+  reason: "Maximum wing loading on the projected area. 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2). SkySails design load on flat area: 160 kN on 225 m^2, about 0.7 kN/m^2 (Paulig et al. 2013), 0.9 on the projected area at 1.28 flat over projected (Folkersma et al. 2020). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4)."
 kite_attach_height:
   value: 10.0
   low: 6.0
@@ -779,11 +779,11 @@ winch_cost_per_force:
   unit: USD/N
   reason: "Engineering estimate of the manufacturing cost per N of brake holding force: drum, brake and frame steel at 5 kg/kN and a gearbox for a quarter of the holding force at WISDEM gearbox cost."
 launch_mast_height_ratio:
-  value: 1.15
+  value: 1.3
   low: 0.8
-  high: 1.5
+  high: 2.0
   unit: "-"
-  reason: "Launch mast height over the square root of projected kite area: SkySails 15 m for 160 m^2 (Next Nature 2007), Airseas 35 m for 1,000 m^2, SkySails Power Kyo 29 m for 450 m^2."
+  reason: "Launch mast height over the square root of projected kite area: SkySails 15 m on 160 m^2 flat (Next Nature 2007), 125 m^2 projected, 1.34; Airseas 35 m on 1,000 m^2 of stated sail surface, 1.11 if projected and 1.25 if flat at 1.28 flat over projected; SkySails Power PN-14, on land, 19 m on 90 m^2 projected, the high bound."
 launch_mast_max_height:
   value: 35.0
   low: 29.0
@@ -855,7 +855,7 @@ kite_mass_per_area:
   low: 0.01
   high: 0.15
   unit: t/m^2
-  reason: "Engineering assumption: a 160 m^2 SkySails set-up weighed ~2 t (0.013 t/m^2, weak source), the kite alone under 1 t (EMSA 2023); 0.05 covers a heavier holding winch and mast."
+  reason: "Engineering assumption: a SkySails set-up of 160 m^2 flat, 125 m^2 projected, weighed ~2 t (0.016 t/m^2, weak source), the kite alone under 1 t (EMSA 2023); 0.05 covers a heavier holding winch and mast."
 kite_lifetime:
   value: 15.0
   low: 10.0
