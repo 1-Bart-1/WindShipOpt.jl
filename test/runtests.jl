@@ -121,6 +121,16 @@ end
     @test heavy_wind > light_wind
 end
 
+@testset "the control unit weighs in proportion to the tether force limit" begin
+    extra = with_value(assumptions, :control_unit_mass_per_force,
+        assumptions[:control_unit_mass_per_force] + 0.1)
+    for area in (800.0, 3200.0)
+        base, max_force, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+        heavier = first(WindShipOpt.kite_model(area, 3.0, extra))
+        @test heavier.mass - base.mass ≈ 0.1e-3max_force
+    end
+end
+
 @testset "canopy life is the goal input, whatever the cloth weight" begin
     @test WindShipOpt.Canopy(assumptions).lifetime == 4000
     @test assumptions[:canopy_cloth_weight] == 200

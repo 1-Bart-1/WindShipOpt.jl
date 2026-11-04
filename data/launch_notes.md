@@ -13,6 +13,8 @@ Sources behind the launch and landing inputs in `assumptions.yaml`. "Estimate" m
 | US 7,866,271 | Wrage, Böhm, patent on the SkySails placement system | Launch sequence; incidence and reefing commands in the design |
 | WiWo 2008 | Kempkens, WirtschaftsWoche, 27 Jan 2008 | One hand launch that needed a turn; 15 m mast |
 | Verivox 2007 | dpa report, 16 Dec 2007 | Pre-service plan: no launch in head wind, stowed below Beaufort 4 and above 8; crew "more demanded" |
+| Paulig 2013 | Paulig, Bungart, Specht, ch. 32 of Ahrens et al., _Airborne Wind Energy_ | SkySails launch at 5 m/s, 10 m/s in rough sea and bad weather, p. 557; no freezing, wet kites launch less easily, p. 552; reefing and stowing, pp. 559-560 |
+| Fritz 2013; Maaß 2013 | Chs. 20 and 35 of the same book | Launch and landing sequence, mast retracted in flight, pp. 363-365; second winch and one operator, pp. 605, 609 |
 | Konstruktionspraxis | Höltkemeier, _SkySails - das Segelschiff der Zukunft_ | Launch and landing 10-20 min each |
 | PSB 081893 | Relative Workshop, _Recommended Lifetime on Vector Tandem Components_, 1993, reissued 2003 | Main canopy replaced after 600 jumps, on "tandem malfunction and equipment failures" |
 
@@ -28,9 +30,9 @@ Derivation and formulas are in the paper's subsection on the lowest wind, and on
 
 | Area [m^2] | Mass [kg] | Level crosswind | Steady climb | Lift-off without tether (x1.3) | Launch |
 | --- | --- | --- | --- | --- | --- |
-| 800 | 903 | 1.64 | 3.86 | 4.5 | 5.0 |
-| 1,600 | 1,875 | 1.67 | 3.93 | 4.4 | 5.0 |
-| 3,200 | 4,127 | 1.75 | 4.12 | 4.3 | 5.0 |
+| 800 | 1,171 | 1.85 | 4.38 | 5.07 | 5.07 |
+| 1,600 | 2,578 | 1.94 | 4.60 | 5.09 | 5.09 |
+| 3,200 | 5,820 | 2.07 | 4.89 | 5.12 | 5.12 |
 
 Both moving forms match the steady force balance solved numerically to 3 %, in a test. Where they stop holding: the level form leaves out climbing, turning, the azimuth and wind shear; the climb form holds a steady climb, with no energy from speed. With a position theta off downwind, the forms scale with cos(elevation)/cos(theta)^2 under the root.
 
