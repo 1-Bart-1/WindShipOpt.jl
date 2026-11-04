@@ -140,7 +140,8 @@ function goal_rows()
     service = @sprintf("%.0f\\,\\%%",
         100only(unique(assumptions[Symbol(out_of_service_inputs[rig])]
                        for rig in rig_names)))
-    loss = @sprintf("1 in \\num{%.0f}", 1 / assumptions[:kite_cycle_damage_probability])
+    loss = @sprintf("1 in \\num{%.0f}", 1 / (assumptions[:kite_cycle_damage_probability] +
+                                              assumptions[:kite_cycle_loss_probability]))
     crew = @sprintf("USD~%.0f per cycle", assumptions[:kite_cycle_crew_cost])
     return [("Canopy life", "kite", canopy,
             "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements"),
@@ -157,7 +158,7 @@ function goal_rows()
                 "flights, three of them in hover or landing \\citep{echeverri2020part1}")),
         ("Unit lost", "wings, rotors", "none", "none reported, and no duty to report one"),
         ("Lost per launch and landing", "kites", loss,
-            "our estimates: 0.2\\,\\% kite, 0.05\\,\\% rigid kite; no record for a ship"),
+            "our estimates: 0.25\\,\\% kite, 0.05\\,\\% rigid kite; no record for a ship"),
         ("Launch and landing crew", "kites", crew, "our estimate")]
 end
 

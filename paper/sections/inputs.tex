@@ -49,14 +49,13 @@ wave frequencies & 0.1 to \SI{6}{rad/s}, 240 points & spectral integral of $R_\m
 wing trim & $C_L$ from 0 to $C_{L,\max}$, 37 settings & best trim \\
 rotor trim & spin ratio 0 to 4, steps of 0.25 & best trim \\
 \multicolumn{3}{@{}l}{\textit{Kite pattern table}}\\
-apparent wind & 3 to \SI{30}{m/s}, steps of \SI{3}{m/s} & pattern search \\
+apparent wind & 3 to \SI{9}{m/s} in steps of \SI{1}{m/s}, then 10.5, 12 and on to \SI{30}{m/s} in steps of \SI{3}{m/s} & pattern search \\
 course off apparent downwind & 0 to \SI{180}{\degree}, steps of \SI{15}{\degree} & pattern search \\
 side-force weights & 0, 0.5, 1, 3 & kite trim settings \\
 wind reference elevation & \SI{25}{\degree} on the tether & height of the apparent wind of the table \\
 lowest angle of attack & first angle with $C_L\geq0.05$ & lower bound of the search \\
 points per pattern & 48 & time average of the tether force \\
 pattern search & Nelder--Mead, 200 iterations, three starts and the best eight of the previous wind speed & figure eights \\
-parked kite & 12 angles of attack, elevations 10 to \SI{70}{\degree} in steps of \SI{5}{\degree}, both sides & kite at rest at the edge of the wind window \\
 \multicolumn{3}{@{}l}{\textit{Corridors and routing}}\\
 ocean stage spacing & \SI{360}{nmi} & corridor stages \\
 Channel stage spacing & \SI{30}{nmi} & fixed waypoints from Rotterdam to Ushant, no lateral freedom \\
