@@ -240,6 +240,9 @@ end
 
 const NO_PATTERN = PatternForce((NaN, NaN, NaN), NaN, NaN)
 
+"one step of a flown cycle: unit position, tether tension [N] and duration [s]"
+const PatternStep = @NamedTuple{radial::NTuple{3, Float64}, tension::Float64, time::Float64}
+
 "maximum integration steps before a pattern counts as not settling into a cycle"
 const MAX_PATTERN_STEPS = 2000
 
@@ -253,8 +256,8 @@ Fly `pattern` quasi-steadily in a uniform apparent wind of `wind_speed` [m/s] fr
 centre until a full sweep cycle returns to within `CYCLE_TOLERANCE` of where it began,
 and average over that closed cycle, depowering by [`limited_point`](@ref) wherever the
 tension would exceed `max_tension` [N]; `NO_PATTERN` if it never settles. Steps are a
-third of the smallest turn radius through the air. Positions of the averaged cycle are
-pushed to `path` when given.
+third of the smallest turn radius through the air. Each [`PatternStep`](@ref) of the
+averaged cycle is pushed to `path` when given.
 """
 function PatternForce(model::KiteModel, pattern::SteeringPattern, wind_speed, max_tension;
         path=nothing)
@@ -269,7 +272,7 @@ function PatternForce(model::KiteModel, pattern::SteeringPattern, wind_speed, ma
     total = (0.0, 0.0, 0.0)
     duration = peak = 0.0
     lowest = Inf
-    cycle = NTuple{3, Float64}[]
+    cycle = PatternStep[]
     for _ in 1:MAX_PATTERN_STEPS
         radial = window_position(off_wind, roll)
         edge = (-sin(off_wind), cos(off_wind) * cos(roll), cos(off_wind) * sin(roll))
@@ -286,7 +289,7 @@ function PatternForce(model::KiteModel, pattern::SteeringPattern, wind_speed, ma
         duration += time
         peak = max(peak, tension)
         lowest = min(lowest, asin(radial[3]))
-        isnothing(path) || push!(cycle, radial)
+        isnothing(path) || push!(cycle, (; radial, tension, time))
         turned = step / model.min_turn_radius
         heading = clamp(target, heading - turned, heading + turned)
         off_wind += dot3(ground, edge) * time / radius
