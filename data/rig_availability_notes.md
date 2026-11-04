@@ -52,7 +52,7 @@ Kites flew about 1-2.5 % of sea hours over the fleet's life (ours, with 250 sea 
 - **Drag.** Nobody has measured the drag of a locked wing, a stopped rotor or a stowed kite at full scale. The literature assumes C_D about 0.5 for a stopped rotor (Reche-Vilanova et al. 2021); the model's fit gives 0.64 at zero spin. A wing is feathered at no lift with its profile drag. A stowed kite adds nothing, because both makers retract or fold the mast; no number confirms this.
 - **Several units.** Each rotor or wing has its own drive, but they share ship power, bridge control and wind sensors (EMSA 2023; Anemoi and BV NR206, part), so a blackout stops all of them. No ship is on record running with one unit out, or losing all to one cause. A single kite has one tether, winch, mast and control unit, and no source records a spare canopy carried for service.
 - **Repair.** Short fixes happen at sea (Shofu Maru). Larger ones wait for a port and a specialist. WASP (part) reports short yard repairs, spare-part delays and bespoke repair processes, with no ship or duration named. Time out of service depends on these logistics more than on the fault.
-- **Schedule and safety.** No source reports a missed schedule, a port call forced by a rig, or a merchant-ship kite recovered from the water, so none of these has a cost in the model. The estimate of one extra port call is under "Cost effect".
+- **Schedule and safety.** No source reports a missed schedule, a port call forced by a rig, or a merchant-ship kite recovered from the water. None of these is charged in the base case; "Crashes", below, gives the number of events each rig can take. The estimate of one extra port call is under "Cost effect".
 
 ## What the model does
 
@@ -73,6 +73,7 @@ Kites flew about 1-2.5 % of sea hours over the fleet's life (ours, with 250 sea 
 | Launch and landing crew time, retries, handling damage, price of a canopy lost | launch cost, per cycle; time out after a loss is this input |
 | Canopy wear and sunlight | canopy life, per flight hour, which falls with the share |
 | Repair of rigs | `maintenance_fraction`, 3 % of capital for all rigs |
+| Crash in flight, or a wing or rotor lost | not charged; the limits under "Crashes" |
 
 No repair cost per event is added, as no source gives one for any rig and the maintenance fraction already pays for repair. EMSA 2023 assumes 5 % of capital a year for kites and 2 % for other rigs; the model's single 3 % does not separate them.
 
@@ -110,3 +111,9 @@ From the sweep of 3 November 2026: three ships at the final screening resolution
 | Same: Neo-Panamax | -0.22 | -0.24 | -0.23 |
 
 The maintenance split widens the rotors' lead and changes no order. A port call costs all rigs about alike on a ship, so it moves the order only if one rig needs several more a year than another; on the Neo-Panamax about five more for the rotors than the kite would close their 1.2 points. No source gives how many calls a rig forces.
+
+## Crashes
+
+The goal is no crash in flight, so no rate is sought: `tab:crashes` in the paper gives the crashes a year each rig can take instead. It uses the same three ships at half, once and twice the sizes above, on the savings of 3 November 2026 that include the canopy life goal of 4,000 h and the lower launch damage, so it is ahead of the "Cost effect" sweep above: there the Neo-Panamax kite of 6,400 m^2 saves 12.7 %, here 15.3 %, ahead of the rotors' 13.9 %. Those savings and a kite's crash cost predate the canopy price goal of USD 150/m^2.
+
+One crash costs what the operator pays beyond the replacement it avoids. A kite pays its control unit at market price and half of its canopy and tether, as wear charges the other half. A wing or rotor pays one new unit with installation, as nothing charges its wear. Launch loss stays in the launch cost, and only a crash in flight or a unit lost counts here. Recovery and repair are left out for every rig, and the time out is the out-of-service input, so each limit is an upper bound. A limit scales inversely with the cost of one event, so partial damage scales from the table.

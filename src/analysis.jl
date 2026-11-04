@@ -99,6 +99,28 @@ price_at_cost(prices, costs, cost) =
     costs[1] < cost ? share_at_cost(prices, costs, cost) : NaN
 
 """
+    ranked_neighbours(costs)
+
+The rigs of the dictionary `costs`, cheapest first, each with the cost of the rig ahead and
+of the next rig, `NaN` where there is none.
+"""
+function ranked_neighbours(costs)
+    ranked = sort(collect(keys(costs)); by=rig -> costs[rig])
+    neighbour(rank) = checkbounds(Bool, ranked, rank) ? costs[ranked[rank]] : NaN
+    return [(; rig, ahead=neighbour(rank - 1), next=neighbour(rank + 1))
+            for (rank, rig) in enumerate(ranked)]
+end
+
+"""
+    events_to_cost(cost, target_cost, yearly_work, event_cost)
+
+Events a year, each costing `event_cost` [USD], that raise a transport `cost` [USD per
+tonne-km] to `target_cost` at `yearly_work` [tonne-km]; zero if it is already above.
+"""
+events_to_cost(cost, target_cost, yearly_work, event_cost) =
+    max(target_cost - cost, 0.0) * yearly_work / event_cost
+
+"""
     life_at_cost(lives, costs, cost)
 
 Life at which the `costs` over `lives`, falling with the life, reach `cost`, linear in the
