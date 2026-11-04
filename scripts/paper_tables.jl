@@ -201,25 +201,22 @@ function missed_goal_rows()
         goal = Dict(rig => curve_cost(curves[rig],
                         assumptions[Symbol(out_of_service_inputs[rig])])
                     for rig in rig_names)
-        ranked = sort(collect(rig_names); by=rig -> goal[rig])
         picked = rows(lives, "ship" => ship)
         life_curve = lives["life"][picked], lives["cost"][picked]
-        for (rank, rig) in enumerate(ranked)
+        for (; rig, ahead, next) in WindShipOpt.ranked_neighbours(goal)
             curve = curves[rig]
-            next_cost = rank < length(ranked) ? goal[ranked[rank + 1]] : NaN
-            ahead_cost = rank > 1 ? goal[ranked[rank - 1]] : NaN
             saving_short = rig == "kite" ?
                            percent_saving(curve_cost(life_curve, 2000.0), bare) : NaN
             saving = percent_saving(goal[rig], bare)
             push!(result, (; ship, rig, saving, saving_short,
                 service_points=percent_saving(curve[2][1], bare) - saving,
                 life=(kite_life_at_cost(rig, life_curve, bare),
-                    kite_life_at_cost(rig, life_curve, next_cost)),
-                passes=kite_life_at_cost(rig, life_curve, ahead_cost),
+                    kite_life_at_cost(rig, life_curve, next)),
+                passes=kite_life_at_cost(rig, life_curve, ahead),
                 share=(WindShipOpt.share_at_cost(curve..., bare),
-                    WindShipOpt.share_at_cost(curve..., next_cost)),
+                    WindShipOpt.share_at_cost(curve..., next)),
                 whole_behind=WindShipOpt.share_at_cost([0.0, 1.0],
-                    [curve[2][1], curve[2][end]], next_cost)))
+                    [curve[2][1], curve[2][end]], next)))
         end
     end
     return result
@@ -260,6 +257,76 @@ dash_cell(value, format) = isnan(value) ? "--" :
                            Printf.format(Printf.Format(format), value)
 
 share_cell(share) = isnan(share) ? "--" : @sprintf("%.0f", 100share)
+
+"""
+    crash_rows()
+
+For each ship of the crash study and each size of each rig, best rig first: cost saving
+[%], cost of one crash [USD], the crashes a year at which the size stops paying for itself
+and at which it falls behind the best size of the next rig, `NaN` for the last rig, and a
+kite's flight hours a year.
+"""
+function crash_rows()
+    table = read_table(data_file("crashes.csv"))
+    result = []
+    for ship in unique(table["ship"])
+        bare = only(table["cost"][rows(table, "ship" => ship, "rig" => "none")])
+        best = Dict(rig => minimum(table["cost"][rows(table, "ship" => ship, "rig" => rig)])
+                    for rig in rig_names)
+        for (; rig, next) in WindShipOpt.ranked_neighbours(best)
+            for row in rows(table, "ship" => ship, "rig" => rig)
+                push!(result, crash_row(table, row, bare, next))
+            end
+        end
+    end
+    return result
+end
+
+"""
+    crash_row(table, row, bare, next_cost)
+
+The [`crash_rows`](@ref) entry of the trip in `row` of `table`, against the cost per
+tonne-km `bare` of its ship without a rig and `next_cost` of the next rig.
+"""
+function crash_row(table, row, bare, next_cost)
+    ship, rig, area, cost = table["ship"][row], table["rig"][row], table["area"][row],
+    table["cost"][row]
+    design = ShipDesign(Symbol(table["drive"][row]), study_hull(ship);
+        rig_size(rig, area)...)
+    crash = WindShipOpt.crash_cost(Ship(design, assumptions).rig, assumptions)
+    work, trips = yearly_trips(table, row, table["route"][row])
+    return (; ship, rig, area, crash, saving=percent_saving(cost, bare),
+        stops_paying=WindShipOpt.events_to_cost(cost, bare, work, crash),
+        behind_next=isnan(next_cost) ? NaN :
+                    WindShipOpt.events_to_cost(cost, next_cost, work, crash),
+        flight_hours=table["flight_share"][row] * 24table["days"][row] * trips)
+end
+
+"""
+    crash_table()
+
+Write the [`crash_rows`](@ref) to paper/sections/crash_table.tex.
+"""
+function crash_table()
+    open(joinpath(sections, "crash_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule")
+        println(io, " & & & & One crash & \\multicolumn{2}{c}{Crashes a year where} & ",
+            "Flight \\\\")
+        println(io, "\\cmidrule(lr){6-7}")
+        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Saving [\\%] & ",
+            "[kUSD] & pays no more & behind next & [h/year] \\\\")
+        println(io, "\\midrule")
+        for row in crash_rows()
+            @printf(io, "%s & %s & %.0f & %.1f & %.0f & %s & %s & %s \\\\\n", row.ship,
+                row.rig, row.area, row.saving, row.crash / 1e3,
+                crash_cell(row.stops_paying), crash_cell(row.behind_next),
+                row.rig == "kite" ? @sprintf("%.0f", row.flight_hours) : "--")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+crash_cell(crashes) = isnan(crashes) ? "--" : string(round(crashes; sigdigits=2))
 
 """
     saving_change(table, ship, input)
@@ -503,6 +570,22 @@ function payback_cell(years)
 end
 
 """
+    yearly_trips(table, row, route)
+
+Transport work [tonne-km] and round trips of the trip in `row` of `table`, on `route`, over
+a year's trading hours.
+"""
+function yearly_trips(table, row, route)
+    outbound, inbound = run_corridors(Symbol(route))
+    tonne_km = table["cargo"][row] * (outbound.track_length +
+                                      assumptions[:backhaul_fraction] *
+                                      inbound.track_length) / 1e3
+    hours = 24table["days"][row] + 48assumptions[:port_time_per_call]
+    trips = 8760assumptions[:availability] / hours
+    return tonne_km * trips, trips
+end
+
+"""
     payback_years(table, class, drive, route, rig)
 
 Years until the yearly cash saving of the cheapest size of `rig`, before its own capital
@@ -526,13 +609,8 @@ function payback_years(table, class, drive, route, rig)
                rig == "wings" ? assumptions[:wing_lifetime] : assumptions[:rotor_lifetime]
     charges = (WindShipOpt.capital_recovery(rate, lifetime) +
                assumptions[:maintenance_fraction]) * price
-    outbound, inbound = run_corridors(Symbol(route))
-    tonne_km = table["cargo"][best] * (outbound.track_length +
-                                       assumptions[:backhaul_fraction] *
-                                       inbound.track_length) / 1e3
-    hours = 24table["days"][best] + 48assumptions[:port_time_per_call]
-    yearly_work = tonne_km * 8760assumptions[:availability] / hours
-    saving = (only(table["cost"][bare]) - table["cost"][best]) * yearly_work + charges
+    saving = (only(table["cost"][bare]) - table["cost"][best]) *
+             first(yearly_trips(table, best, route)) + charges
     saving > rate * price || return Inf
     years = -log(1 - rate * price / saving) / log(1 + rate)
     return years <= lifetime ? years : Inf

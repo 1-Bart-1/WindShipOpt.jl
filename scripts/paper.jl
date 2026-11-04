@@ -36,7 +36,8 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
     :sensitivity => sensitivity_data, :aspect_data => aspect_data,
     :availability_data => availability_data,
-    :canopy_life_data => canopy_life_data, :situations_data => situations_data,
+    :canopy_life_data => canopy_life_data, :crash_data => crash_data,
+    :situations_data => situations_data,
     :wind_angle_data => wind_angle_data, :canopy_tension => canopy_tension_data,
     :abatement_data => abatement_data,
     :components => components_data, :combination_data => combination_data,
@@ -61,7 +62,7 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
     :class_table => class_table, :fuel_table => fuel_table,
     :payback_table => payback_table, :goals_table => goals_table,
-    :missed_goals_table => missed_goals_table,
+    :missed_goals_table => missed_goals_table, :crash_table => crash_table,
     :abatement => abatement_figure, :combination => combination_figure]
 
 """

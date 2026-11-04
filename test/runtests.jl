@@ -359,8 +359,8 @@ end
 @testset "cycle cost sums crew, tear, loss, retry and turn" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
-    control_unit = assumptions[:control_unit_cost] +
-                   assumptions[:control_unit_cost_per_area] * rig.area
+    control_unit = assumptions[:market_price_factor] *
+                   WindShipOpt.rig_price_parts(rig, assumptions).control_unit
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
           1.05 * (85 + 0.00005canopy + 0.00005 * (canopy + tether + control_unit)) + 130
     @test WindShipOpt.forced_landing_cost(rig, assumptions) ≈
@@ -793,4 +793,36 @@ end
     @test is_marked(:final, [:designs])
     @test is_marked(:final, [:capital])
     @test !is_marked(:final, [:designs, :capital, :premium])
+end
+
+@testset "one crash costs a control unit, half the wearing parts, or one deck unit" begin
+    hull = Hull(140.0, assumptions)
+    kite = uniform_kite(hull, assumptions)
+    canopy, tether = WindShipOpt.consumable_costs(kite, assumptions)
+    control_unit = assumptions[:market_price_factor] *
+                   WindShipOpt.rig_price_parts(kite, assumptions).control_unit
+    @test WindShipOpt.crash_cost(kite, assumptions) ≈ control_unit + (canopy + tether) / 2
+    for rig_type in (WingRig, WindShipOpt.RotorRig)
+        rig = rig_type(800.0, hull, assumptions)
+        @test rig.count > 1
+        @test WindShipOpt.crash_cost(rig, assumptions) * rig.count ≈
+              first(WindShipOpt.rig_costs(rig, assumptions))
+    end
+end
+
+@testset "each rig is measured against its neighbours in cost, the ends against none" begin
+    costs = Dict("kite" => 2.0, "wings" => 1.0, "rotors" => 3.0)
+    ranked = WindShipOpt.ranked_neighbours(costs)
+    @test getfield.(ranked, :rig) == ["wings", "kite", "rotors"]
+    @test getfield.(ranked, :next)[1:2] == [2.0, 3.0]
+    @test isnan(ranked[3].next)
+    @test isnan(ranked[1].ahead)
+    @test getfield.(ranked, :ahead)[2:3] == [1.0, 2.0]
+end
+
+@testset "the crashes a year at break-even use up the cost gap exactly" begin
+    cost, target, work, crash = 0.012, 0.015, 2e9, 4e5
+    crashes = WindShipOpt.events_to_cost(cost, target, work, crash)
+    @test cost + crashes * crash / work ≈ target
+    @test WindShipOpt.events_to_cost(target, cost, work, crash) == 0
 end
