@@ -4,6 +4,9 @@
 "drives compared where the drive is a dimension of the study"
 study_drives = (:vlsfo, :methanol, :hydrogen)
 
+"projected aspect ratio of the kite of every design that names none"
+design_aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
+
 """
     trip_case(design; assumptions, route, scale, horizon, labels...)
 
@@ -538,8 +541,8 @@ end
     designs_data()
 
 The design grid on the route to Guadeloupe: length, the [`study_drives`](@ref) and size of
-each rig, a carbon price on VLSFO, kites without flight drag and at market prices, and kite
-aspect ratio, with the cost per tonne-km split into its parts: designs.csv.
+each rig, a carbon price on VLSFO, and kites without flight drag and at market prices, with
+the cost per tonne-km split into its parts: designs.csv.
 """
 function designs_data()
     taxed = with_value(assumptions, :carbon_coverage, 1.0)
@@ -567,10 +570,6 @@ function designs_data()
             assumptions=rigid, scenario="rigid"))
         push!(cases, trip_case(ShipDesign(drive, length; kite_area=area);
             assumptions=market, scenario="kite_market"))
-    end
-    for drive in (:vlsfo, :methanol), aspect_ratio in (5.0, 8.0)
-        push!(cases, trip_case(ShipDesign(drive, 140.0; kite_area=800.0,
-            kite_aspect_ratio=aspect_ratio); scenario="aspect"))
     end
     trips = round_trips(cases, sampled_departures())
     work_per_tonne = tonne_km_per_tonne(:caribbean)
@@ -847,6 +846,39 @@ function sensitivity_data()
         :rig, :input, :bound)
 end
 
+"projected aspect ratios of the kite in the aspect ratio study, those with a polar"
+study_aspect_ratios = (3.0, 4.0, 5.0, 6.0, 8.0)
+
+"""
+    aspect_data()
+
+Each ship of [`sensitivity_ships`](@ref) without a rig and with its kite at each of
+[`study_aspect_ratios`](@ref), at the same area and the same price: aspect.csv.
+"""
+function aspect_data()
+    cases = []
+    for (ship, bare, route, areas) in sensitivity_ships()
+        push!(cases, trip_case(bare; route, ship, aspect_ratio=0.0))
+        for aspect_ratio in study_aspect_ratios
+            design = ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...,
+                kite_aspect_ratio=aspect_ratio)
+            push!(cases, trip_case(design; route, ship, aspect_ratio,
+                assumptions=WindShipOpt.base_aspect_ratio_prices(assumptions,
+                    aspect_ratio / design_aspect_ratio)))
+        end
+    end
+    trips = round_trips(cases, sampled_departures())
+    open(run_file("aspect.csv"), "w") do io
+        println(io, "ship,aspect_ratio,area,cost,flight_share,launches,cargo")
+        for (case, trip) in zip(cases, trips)
+            isnothing(trip) && continue
+            @printf(io, "%s,%.0f,%.0f,%.6f,%.3f,%.2f,%.0f\n", csv_value(case.ship),
+                case.aspect_ratio, case.design.kite_area, trip.cost_per_tonne_km,
+                trip.flight_share, trip.launches, trip.cargo)
+        end
+    end
+end
+
 "input of each rig holding the share of its units' round trips out of service"
 out_of_service_inputs = Dict("kite" => "kite_out_of_service",
     "wings" => "wing_out_of_service", "rotors" => "rotor_out_of_service")
@@ -940,6 +972,34 @@ function canopy_life_data()
              for (ship, bare, route, areas) in goal_limit_ships(), life in canopy_lives]
     write_trips("canopy_life.csv", vec(cases),
         round_trips(vec(cases), sampled_departures()), :ship, :life)
+end
+
+"""
+    canopy_prices()
+
+Canopy prices [USD/m^2] the kite is routed at for the missed-goal table: the goal, today's
+and either side of them, up to where the kite stops paying on every ship.
+"""
+function canopy_prices()
+    goal = WindShipOpt.canopy_price(assumptions)
+    return sort([goal .* [0.5, 0.75, 1.0, 1.25, 2.5, 3.5, 5.0, 7.0];
+                  WindShipOpt.canopy_price_today(assumptions)])
+end
+
+"""
+    canopy_price_data()
+
+The kite of each ship of [`goal_limit_ships`](@ref) at each of [`canopy_prices`](@ref), its
+size and every other input held: canopy_price.csv.
+"""
+function canopy_price_data()
+    goal = WindShipOpt.canopy_price(assumptions)
+    inputs = WindShipOpt.canopy_price_inputs
+    cases = [trip_case(ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...);
+                 assumptions=scaled(inputs, price / goal), route, ship, price)
+             for (ship, bare, route, areas) in goal_limit_ships(), price in canopy_prices()]
+    write_trips("canopy_price.csv", vec(cases),
+        round_trips(vec(cases), sampled_departures()), :ship, :price)
 end
 
 "ships of the abatement study as (name, route)"

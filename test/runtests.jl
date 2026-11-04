@@ -369,6 +369,13 @@ end
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
 end
 
+@testset "a canopy costs its goal price, and USD 234 as built today" begin
+    @test WindShipOpt.canopy_price(assumptions) ≈ 149.8
+    @test WindShipOpt.canopy_price_today(assumptions) ≈ 234.4
+    rig = uniform_kite(Hull(140.0, assumptions), assumptions)
+    @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈ 149.8rig.area
+end
+
 @testset "a flown kite wears canopy and tether by their lives" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
@@ -377,6 +384,19 @@ end
           canopy / assumptions[:canopy_life] + tether / assumptions[:tether_lifetime]
     shorter = with_value(assumptions, :canopy_life, 2000.0)
     @test WindShipOpt.wear_cost(rig, shorter) - flown ≈ canopy / 4000
+end
+
+@testset "maintenance charges a rig's capital but not the parts wear replaces" begin
+    maintenance_of(ship) = ShipCosts(ship, with_value(assumptions, :maintenance_fraction,
+        0.04)).fixed_annual - ShipCosts(ship, assumptions).fixed_annual
+    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=3200.0), assumptions)
+    worn = sum(WindShipOpt.consumable_costs(kite.rig, assumptions))
+    @test maintenance_of(kite) ≈ 0.01 * (ShipCosts(kite, assumptions).capital - worn)
+    both = Ship(ShipDesign(:methanol, 140.0; kite_area=3200.0, rotor_area=400.0),
+        assumptions)
+    @test maintenance_of(both) ≈ 0.01 * (ShipCosts(both, assumptions).capital - worn)
+    rotors = Ship(ShipDesign(:methanol, 140.0; rotor_area=400.0), assumptions)
+    @test maintenance_of(rotors) ≈ 0.01 * ShipCosts(rotors, assumptions).capital
 end
 
 @testset "combined rig force is the sum of kite and rotor forces at a fixed trim" begin
@@ -526,6 +546,21 @@ function trip_with_share(design, name, share, corridors, base=assumptions)
         [24.0 * 31, 24.0 * 200], changed)
 end
 
+@testset "a longer span at the same area costs the same to buy, fly and launch" begin
+    base = uniform_kite(Hull(140.0, assumptions), assumptions)
+    ratio = 8 / 3
+    slender = KiteRig(; (name => getfield(base, name) for name in fieldnames(KiteRig))...,
+        tether_length=base.tether_length * sqrt(ratio))
+    prices = WindShipOpt.base_aspect_ratio_prices(assumptions, ratio)
+    @test WindShipOpt.rig_price_parts(slender, prices) ==
+          WindShipOpt.rig_price_parts(base, assumptions)
+    @test WindShipOpt.wear_cost(slender, prices) ≈ WindShipOpt.wear_cost(base, assumptions)
+    @test WindShipOpt.cycle_cost(slender, prices) ≈
+          WindShipOpt.cycle_cost(base, assumptions)
+    @test WindShipOpt.handling_hours(slender, prices) ==
+          WindShipOpt.handling_hours(base, assumptions)
+end
+
 @testset "launch cost at the loss goal is mostly crew and turn" begin
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     crew_and_turn = (1 + assumptions[:kite_launch_retry_probability]) *
@@ -636,6 +671,14 @@ end
     @test WindShipOpt.share_at_cost(shares, costs, 3.0) ≈ 0.75
     @test WindShipOpt.share_at_cost(shares, costs, 0.5) == 0.0
     @test isnan(WindShipOpt.share_at_cost(shares, costs, 5.0))
+end
+
+@testset "a canopy price limit lies where the cost reaches the level, and only there" begin
+    prices, costs = [75.0, 150.0, 300.0], [1.0, 1.5, 2.5]
+    @test WindShipOpt.price_at_cost(prices, costs, 2.0) ≈ 225
+    @test isnan(WindShipOpt.price_at_cost(prices, costs, 1.0))
+    @test isnan(WindShipOpt.price_at_cost(prices, costs, 3.0))
+    @test isnan(WindShipOpt.price_at_cost(prices, costs, NaN))
 end
 
 @testset "a canopy life limit lies where the cost reaches the level, and only there" begin
