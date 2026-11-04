@@ -160,13 +160,13 @@ end
 end
 
 """
-    uniform_kite(hull, assumptions; area=800, aspect_ratio=3)
+    uniform_kite(hull, assumptions)
 
-Kite whose pattern table holds one force everywhere, towing from the launch mast.
+800 m^2 kite whose pattern table holds one force everywhere, towing from the launch mast.
 """
-function uniform_kite(hull, assumptions; area=800.0, aspect_ratio=3.0)
+function uniform_kite(hull, assumptions)
     pattern = WindShipOpt.PatternForce((0.3, 0.8, 0.2), 1.0, 0.3)
-    return KiteRig(; area, aspect_ratio, tether_diameter=0.05, tether_length=300.0,
+    return KiteRig(; area=800.0, tether_diameter=0.05, tether_length=300.0,
         reference_height=120.0, max_wind=30.0, min_flight_wind=4.0, launch_min_wind=5.0,
         launch_max_wind=17.0,
         launch_max_wave_height=assumptions[:kite_launch_max_wave_height],
@@ -296,10 +296,9 @@ end
 @testset "launch and landing give no force while they last and the launch pays both" begin
     table, prices = kite_coaster()
     ship_table = table.table
-    reeling = table.table.ship.rig.tether_length / assumptions[:kite_tether_speed] / 60
     @test ship_table.handling_hours ≈
-          (1.05 * (assumptions[:kite_hoist_minutes] + reeling) +
-           assumptions[:kite_stowing_minutes] + reeling) / 60
+          (1.05 * assumptions[:kite_launch_minutes] +
+           assumptions[:kite_landing_minutes]) / 60
     point = kite_point(table, 2.0, 4.0)
     start = WindShipOpt.EdgeTally(0.0, 0.0, 0.0, 0, 0)
     launched = WindShipOpt.aloft_tally(ship_table, start, point, true, prices)
@@ -545,44 +544,6 @@ function trip_with_share(design, name, share, corridors, base=assumptions)
     changed = with_value(base, name, share)
     return round_trip(Ship(design, changed), corridors..., SyntheticWeather(),
         [24.0 * 31, 24.0 * 200], changed)
-end
-
-@testset "launch mast reaches with the kite's span and holds with its area" begin
-    hull = Hull(140.0, assumptions)
-    kite(area, aspect_ratio) = uniform_kite(hull, assumptions; area, aspect_ratio)
-    height(rig) = WindShipOpt.launch_mast_height(rig, assumptions)
-    parts(rig) = WindShipOpt.rig_price_parts(rig, assumptions)
-    old_mast(area, height) = assumptions[:launch_mast_steel_cost] *
-                             assumptions[:launch_mast_telescope_factor] * 1e3 *
-                             (assumptions[:launch_mast_base_mass] +
-                              assumptions[:launch_mast_mass_coefficient] * area^(2 / 3) *
-                              height^(5 / 3))
-    @test height(kite(800.0, 3.0)) ≈ 1.15sqrt(800.0) rtol=1e-3
-    @test height(kite(3200.0, 3.0)) ≈ 35.0 rtol=1e-3
-    @test parts(kite(800.0, 3.0)).mast ≈ old_mast(800.0, 1.15sqrt(800.0)) rtol=1e-3
-    @test parts(kite(3200.0, 3.0)).mast ≈ old_mast(3200.0, 35.0) rtol=1e-3
-    for area in (800.0, 3200.0)
-        base, slender = kite(area, 3.0), kite(area, 8.0)
-        @test parts(slender).mast > parts(base).mast
-        @test parts(slender).docking_head == parts(base).docking_head
-        @test parts(slender).winch == parts(base).winch
-    end
-    @test height(kite(800.0, 8.0)) / height(kite(800.0, 3.0)) ≈ sqrt(8 / 3)
-    @test height(kite(3200.0, 8.0)) / height(kite(3200.0, 3.0)) ≈ sqrt(8 / 3)
-    @test parts(kite(3200.0, 3.0)).mast > parts(kite(800.0, 3.0)).mast
-end
-
-@testset "launch and landing last longer on the longer tether of a longer span" begin
-    hull = Hull(140.0, assumptions)
-    rig = uniform_kite(hull, assumptions)
-    hours(tether_length) = WindShipOpt.handling_hours(
-        KiteRig(; (name => getfield(rig, name) for name in fieldnames(KiteRig))...,
-            tether_length), assumptions)
-    base_length = assumptions[:tether_length_ratio] * sqrt(1600.0 * 3.0)
-    @test hours(base_length) ≈ (1.05 * 25.0 + 30.0) / 60 rtol=1e-3
-    longer = assumptions[:tether_length_ratio] * sqrt(1600.0 * 8.0)
-    paid_out = (longer - base_length) / assumptions[:kite_tether_speed] / 3600
-    @test hours(longer) - hours(base_length) ≈ 2.05paid_out
 end
 
 @testset "launch cost at the loss goal is mostly crew and turn" begin

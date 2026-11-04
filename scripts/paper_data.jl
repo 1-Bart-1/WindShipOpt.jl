@@ -90,7 +90,7 @@ csv_value(value) = string(value)
 "inputs that together make up the cost of one launch and landing of a kite"
 launch_cost_inputs = (:kite_cycle_crew_cost, :kite_cycle_damage_probability,
     :kite_cycle_loss_probability, :kite_launch_retry_probability, :kite_cycle_course_cost,
-    :kite_hoist_minutes, :kite_stowing_minutes)
+    :kite_launch_minutes, :kite_landing_minutes)
 
 """
     launch_cost_assumptions(bound)
@@ -538,8 +538,8 @@ end
     designs_data()
 
 The design grid on the route to Guadeloupe: length, the [`study_drives`](@ref) and size of
-each rig, a carbon price on VLSFO, and kites without flight drag and at market prices, with
-the cost per tonne-km split into its parts: designs.csv.
+each rig, a carbon price on VLSFO, kites without flight drag and at market prices, and kite
+aspect ratio, with the cost per tonne-km split into its parts: designs.csv.
 """
 function designs_data()
     taxed = with_value(assumptions, :carbon_coverage, 1.0)
@@ -567,6 +567,10 @@ function designs_data()
             assumptions=rigid, scenario="rigid"))
         push!(cases, trip_case(ShipDesign(drive, length; kite_area=area);
             assumptions=market, scenario="kite_market"))
+    end
+    for drive in (:vlsfo, :methanol), aspect_ratio in (5.0, 8.0)
+        push!(cases, trip_case(ShipDesign(drive, 140.0; kite_area=800.0,
+            kite_aspect_ratio=aspect_ratio); scenario="aspect"))
     end
     trips = round_trips(cases, sampled_departures())
     work_per_tonne = tonne_km_per_tonne(:caribbean)
@@ -832,71 +836,6 @@ function sensitivity_data()
     write_trips("sensitivity.csv", cases,
         round_trips(cases, sampled_departures(; screening=true)), :ship,
         :rig, :input, :bound)
-end
-
-"projected aspect ratios of the kite in the aspect ratio study, those with a polar"
-study_aspect_ratios = (3.0, 4.0, 5.0, 6.0, 8.0)
-
-"""
-    launch_costs(ship, trip, case_assumptions)
-
-Per round trip [USD] of `trip`, the annuity and maintenance of the launch mast and docking
-head with their share of integration, and the launches and landings.
-"""
-function launch_costs(ship, trip, case_assumptions)
-    parts = WindShipOpt.rig_price_parts(ship.rig, case_assumptions)
-    price = case_assumptions[:market_price_factor] *
-            (1 + case_assumptions[:kite_integration_fraction]) *
-            (parts.mast + parts.docking_head)
-    hours = 24(trip.outbound_days + trip.return_days +
-               2case_assumptions[:port_time_per_call])
-    return (hardware=WindShipOpt.round_trip_charge(price, hours,
-            case_assumptions[:kite_lifetime], case_assumptions),
-        cycles=WindShipOpt.cycle_cost(ship.rig, case_assumptions) * trip.launches)
-end
-
-"""
-    aspect_data()
-
-Each ship of [`sensitivity_ships`](@ref) without a rig and with its kite at each of
-[`study_aspect_ratios`](@ref), with the launch cost [USD/tkm] split out: aspect.csv.
-"""
-function aspect_data()
-    cases = []
-    for (ship, bare, route, areas) in sensitivity_ships()
-        push!(cases, trip_case(bare; route, ship, aspect_ratio=0.0))
-        for aspect_ratio in study_aspect_ratios
-            design = ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...,
-                kite_aspect_ratio=aspect_ratio)
-            push!(cases, trip_case(design; route, ship, aspect_ratio))
-        end
-    end
-    trips = round_trips(cases, sampled_departures())
-    open(run_file("aspect.csv"), "w") do io
-        println(io, "ship,aspect_ratio,area,mast_height,cost,flight_share,launches,cargo,",
-            "launch_hardware,launch_cycles")
-        for (case, trip) in zip(cases, trips)
-            isnothing(trip) || write_aspect(io, case, trip)
-        end
-    end
-end
-
-"""
-    write_aspect(io, case, trip)
-
-One row of aspect.csv; the launch columns and the mast of the ship without a rig are zero.
-"""
-function write_aspect(io, case, trip)
-    ship = Ship(case.design, case.assumptions)
-    is_kite = case.design.kite_area > 0
-    launch = is_kite ? launch_costs(ship, trip, case.assumptions) :
-             (hardware=0.0, cycles=0.0)
-    mast = is_kite ? WindShipOpt.launch_mast_height(ship.rig, case.assumptions) : 0.0
-    tonne_km = trip.cargo * tonne_km_per_tonne(case.route)
-    @printf(io, "%s,%.0f,%.0f,%.1f,%.6f,%.3f,%.2f,%.0f,%.7f,%.7f\n", csv_value(case.ship),
-        case.aspect_ratio, case.design.kite_area, mast, trip.cost_per_tonne_km,
-        trip.flight_share, trip.launches, trip.cargo, launch.hardware / tonne_km,
-        launch.cycles / tonne_km)
 end
 
 "input of each rig holding the share of its units' round trips out of service"
