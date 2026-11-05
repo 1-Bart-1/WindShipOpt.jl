@@ -674,14 +674,17 @@ end
 
 @testset "route guided by a cost to go equals the full dynamic programme" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
-    (; time_step) = WindShipOpt.ROUTER_SETTINGS[]
+    (; time_step, search_speed_stride) = WindShipOpt.ROUTER_SETTINGS[]
     workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2),
         ceil(Int, 1200 / time_step), size(corridor.lat, 1))
     for coastal_penalty in (0.0, 1.0)
         leg = route(corridor, table, weather, departure; time_cost=hourly, coastal_penalty)
-        full = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
+        searched = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
             time_cost=hourly, time_step, first_stage=1,
-            first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty)
+            first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty,
+            speed_stride=search_speed_stride)
+        full = WindShipOpt.final_pass(searched, corridor, table, weather, departure;
+            time_cost=hourly, first_stage=1, first_aloft=false, coastal_penalty)
         @test leg.objective == full.objective
         @test leg.path == full.path
     end
@@ -796,7 +799,8 @@ end
     workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2),
         ceil(Int, 1200 / time_step), stage_count)
     options = (; time_step, time_cost=hourly, first_stage=1,
-        first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty=1.0)
+        first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty=1.0,
+        speed_stride=WindShipOpt.ROUTER_SETTINGS[].search_speed_stride)
     best = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
         options...)
     stage = stage_count - 2
