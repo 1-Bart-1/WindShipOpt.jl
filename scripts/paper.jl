@@ -67,7 +67,8 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :payback_table => payback_table, :goals_table => goals_table,
     :missed_goals_table => missed_goals_table, :crash_table => crash_table,
     :abatement => abatement_figure, :combination => combination_figure,
-    :flight_table => flight_table, :speed_terms_table => speed_terms_table]
+    :flight_table => flight_table, :speed_choice_table => speed_choice_table,
+    :speed_terms_table => speed_terms_table, :published_table => published_table]
 
 """
     paper(names...; fidelity, resume=nothing)

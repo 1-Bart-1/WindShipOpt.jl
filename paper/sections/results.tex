@@ -38,6 +38,38 @@ On a voyage the router turns this thrust into fuel or speed. \Cref{fig:passage} 
 \label{fig:passage}
 \end{figure*}
 
+\subsection{Where the rigs work and the speed they choose}
+\label{sec:res_speed}
+
+Ships with a rig sail faster than the same ship without one, because the router sets speed by cost and not by a schedule. Over the 54 cases of ship length, drive and route, each with its cheapest rig size, the round trip of the kite ship is shorter by a median of \tbd{6.3}\,\%, faster in \tbd{50} cases and slower in \tbd{2}. Wing sails shorten it by \tbd{3.7}\,\% and rotors by \tbd{10.8}\,\%, and both are faster in all 54 cases. The effect follows the fuel price: the kite gains \tbd{1.1}\,\% on VLSFO, \tbd{10.0}\,\% on e-methanol and \tbd{10.5}\,\% on hydrogen, the rotors \tbd{5.5}, \tbd{13.1} and \tbd{14.0}\,\%. Dear fuel makes the ship without a rig steam slowly, so a rig has more speed to give back. \tbd{The split of each rig's saving into fuel and time follows from the final run.} The cost savings of this paper therefore include time as well as fuel. A ship held to the schedule of the ship without a rig would not earn them in the same form, as \cref{tab:speed_terms} shows.
+
+A rig that gave the same thrust at every speed would not change the best speed. The cost per mile is $(R(V)-F_x)/\eta + c/V$ for a resistance $R$, an efficiency $\eta$ and a cost $c$ per hour of time, and a constant $F_x$ drops out of its derivative. \Cref{tab:speed_choice} shows what moves the best speed instead, as medians over winds of 6, 10 and \SI{14}{m/s} at 60 to \SI{150}{\degree} on the \SI{140}{m} ship. The kite moves it by the speed its pull alone can reach: up to there the ship burns only its hotel load, so sailing faster costs nothing and saves time. Holding the kite's force at its value at the slower speed barely changes the result. The rotors' best speed rises mainly because their force grows with speed: with the force held, it stays close to that of the ship without a rig. The wing sails move it by less than a knot, mostly by lightening the load on the propeller. The capital and wear of the rig, which also make time dearer, shift the best speed by about \tbd{0.1}~kn.
+
+\begin{table}[tbp]
+\centering
+\caption{Cost-optimal speed [kn] of the \SI{140}{m} ship in steady wind, median over winds of 6, 10 and \SI{14}{m/s} at 60, 90, 120 and \SI{150}{\degree}, with the reference rigs: with the rig's capital and wear left out of the cost, with its force held at its value at the speed of the ship without a rig, and the speed at which that held force alone moves the ship. \tbd{Draft run.}}
+\label{tab:speed_choice}
+\resizebox{\columnwidth}{!}{\InputIfFileExists{sections/speed_choice_table}{}{\tbd{Speed table pending: run the speed\_choice\_table step.}}}
+\end{table}
+
+\Cref{tab:speed_terms} puts the same ships on the terms other studies use. At a fixed speed, the terms of nearly all published kite work, the kite on VLSFO saves \tbd{4.6}\,\% at \SI{8}{kn} and \tbd{7.6}\,\% at \SI{9}{kn}, because at a low speed the fuel it can save is worth little more than its wear and the router keeps it down. In the time of the ship without a rig it saves far more, \tbd{36}\,\% on VLSFO and \tbd{44}\,\% on e-methanol, than the \tbd{31} and \tbd{37}\,\% it saves when cost sets the speed. The speed is bought with part of the fuel saving.
+
+\begin{table*}[tbp]
+\centering
+\caption{Fuel saved and time saved by the reference rigs on the \SI{140}{m} ship on two routes, against the ship without a rig on the same terms: at a fixed speed, in the same time as the ship without a rig routed for cost, and with speed set by cost. A fixed-speed ship drops to the highest whole knot it can hold where it cannot hold that speed, which a rig does more often, so its time changes too. \tbd{Draft run.}}
+\label{tab:speed_terms}
+\InputIfFileExists{sections/speed_terms_table}{}{\tbd{Terms table pending: run the speed\_terms\_table step.}}
+\end{table*}
+
+\Cref{tab:flight} shows where the kite flies. The time at each true wind angle is similar for all rigs, because every ship routes through the same weather. Upwind of \SI{30}{\degree} the kite could pull for only \tbd{13}\,\% of the time and is rarely up. From \SIrange{60}{150}{\degree} it flies for most of the time it could pull, and the router keeps it down where the thrust would not pay for its wear. It also stays up through some lulls, where it gives no thrust while the wind still carries it, because landing and launching cost more than waiting; \tbd{17}\,\% of its hours aloft on one case are of this kind. No case lies outside the physics: the lowest apparent wind angle at which the kite pulls is \tbd{14.9}\,\si{\degree}, against the limit of \cref{eq:upwind_limit}. Wing sails and rotors pull down to \tbd{6.4} and \tbd{8.5}\,\si{\degree}, because their lift to drag at the setting used is higher than the kite's whole-system value. The kite flies \tbd{more} at higher ship speeds in every band, the opposite of what a fixed-speed comparison suggests, because a faster ship has more fuel to save per hour and the router raises the speed where the kite pulls hardest. Above \SI{12}{kn} it is always up.
+
+\begin{table*}[tbp]
+\centering
+\caption{Where the kite works over the 54 cases, each with its cheapest size, by band of true wind angle: share of the time in the band, share of that time in which the kite could pull, is up and pulls, its mean thrust while pulling, the share of the hours at each ship speed in which it is up, the speed of the ship without a rig and of the kite ship in that band, and the lowest apparent wind angle (AWA) at which each rig pulls. \tbd{Draft run.}}
+\label{tab:flight}
+\InputIfFileExists{sections/flight_table}{}{\tbd{Flight table pending: run the flight\_table step.}}
+\end{table*}
+
 \subsection{Fuel price and the value of wind}
 \label{sec:res_fuel}
 

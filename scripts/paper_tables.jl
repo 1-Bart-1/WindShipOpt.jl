@@ -650,23 +650,39 @@ flight_bands = [(0, "0--30"), (30, "30--60"), (60, "60--90"), (90, "90--120"),
 """
     flight_table()
 
-Where the kite works over the study of routes.csv, by band of true wind angle, with the time
-of the ship without a rig, the time the kite could pull, the time it flies, its thrust, its
-speed against the bare ship's and the lowest apparent wind angle at which each rig pulls:
+Where the kite works over the study of routes.csv, by band of true wind angle: share of the
+time, share of it in which the kite could pull, is up and pulls, its mean thrust while
+pulling and lowest apparent wind angle, how much of each speed band it flies and its speed
+against the ship without a rig, with the lowest apparent angles of the deck rigs:
 flight_table.tex.
 """
 function flight_table()
     table = read_table(data_file("flight.csv"))
     open(joinpath(sections, "flight_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}lrrrrrrrr@{}}\n\\toprule")
-        println(io, "True wind & Time & Could & Flown & Thrust & \\multicolumn{2}{c}{Speed [kn]}",
-            " & \\multicolumn{2}{c}{Lowest AWA [\\si{\\degree}]} \\\\")
-        println(io, "\\cmidrule(lr){6-7}\\cmidrule(lr){8-9}")
-        println(io, "angle [\\si{\\degree}] & [\\%] & [\\%] & [\\%] & [kN] & no rig & kite & ",
-            "wings & rotors \\\\\n\\midrule")
+        println(io, "\\begin{tabular}{@{}lrrrrrrrrrrrrr@{}}\n\\toprule")
+        println(io, "True wind & Time & Could & Up & Pulls & Thrust & ",
+            "\\multicolumn{3}{c}{Up at speed [\\%]} & \\multicolumn{2}{c}{Speed [kn]} & ",
+            "\\multicolumn{3}{c}{Lowest AWA ",
+            "[\\si{\\degree}]} \\\\")
+        println(io, "\\cmidrule(lr){7-9}\\cmidrule(lr){10-11}\\cmidrule(lr){12-14}")
+        println(io, "angle [\\si{\\degree}] & [\\%] & [\\%] & [\\%] & [\\%] & [kN] & ",
+            "<10 & 10--12 & >12 & no rig & kite & kite & wings & rotors \\\\\n\\midrule")
         foreach(band -> write_flight_row(io, table, band), flight_bands)
         println(io, "\\bottomrule\n\\end{tabular}")
     end
+end
+
+"""
+    flown_share(table, angle, speeds)
+
+Share [%] of the kite's hours in true wind angle band `angle` at the ship speed bands
+`speeds` in which it is up, `--` where it has no such hours.
+"""
+function flown_share(table, angle, speeds)
+    found = [i for i in rows(table, "rig" => "kite", "angle" => angle)
+             if table["speed"][i] in speeds]
+    isempty(found) && return "--"
+    return @sprintf("%.0f", 100sum(table["flying"][found]) / sum(table["hours"][found]))
 end
 
 """
@@ -678,25 +694,50 @@ function write_flight_row(io, table, (angle, label))
     kite = rows(table, "rig" => "kite", "angle" => angle)
     bare = rows(table, "rig" => "none", "angle" => angle)
     kite_hours = sum(table["hours"][kite])
-    flown = sum(table["flying"][kite])
-    lowest(rig) = minimum(table["lowest_angle"][rows(table, "rig" => rig, "angle" => angle)])
-    cells = (@sprintf("%.0f", 100sum(table["hours"][kite]) /
+    share(column) = @sprintf("%.0f", 100sum(table[column][kite]) / kite_hours)
+    lowest(rig) = @sprintf("%.0f",
+        minimum(table["lowest_angle"][rows(table, "rig" => rig, "angle" => angle)]))
+    cells = (@sprintf("%.0f", 100kite_hours /
                               sum(table["hours"][rows(table, "rig" => "kite")])),
-        @sprintf("%.0f", 100sum(table["available"][kite]) / kite_hours),
-        @sprintf("%.0f", 100flown / kite_hours),
-        @sprintf("%.0f", sum(table["thrust_hours"][kite]) / flown),
+        share("available"), share("flying"), share("pulling"),
+        @sprintf("%.0f", sum(table["thrust_hours"][kite]) / sum(table["pulling"][kite])),
+        flown_share(table, angle, (8,)), flown_share(table, angle, (10,)),
+        flown_share(table, angle, (12, 14)),
         @sprintf("%.1f", sum(table["distance"][bare]) / sum(table["hours"][bare])),
         @sprintf("%.1f", sum(table["distance"][kite]) / kite_hours),
-        @sprintf("%.0f", lowest("wings")), @sprintf("%.0f", lowest("rotors")))
+        lowest("kite"), lowest("wings"), lowest("rotors"))
     println(io, label, " & ", join(cells, " & "), " \\\\")
+end
+
+"""
+    speed_choice_table()
+
+Median over steady winds of the cost-optimal speed of the 140 m ship without and with the
+reference rigs, free of the rig's cost, with its force held and the speed that force alone
+gives: speed_choice_table.tex.
+"""
+function speed_choice_table()
+    table = read_table(data_file("speed_choice.csv"))
+    columns = ("bare", "free", "free_of_rig_cost", "held", "sailing")
+    open(joinpath(sections, "speed_choice_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}llrrrrr@{}}\n\\toprule")
+        println(io, "Drive & Rig & No rig & With rig & Rig free of cost & Force held & ",
+            "Sailing on the force \\\\\n\\midrule")
+        for (drive, drive_label) in drive_labels[1:2], rig in ("kite", "wings", "rotors")
+            found = rows(table, "drive" => drive, "rig" => rig)
+            cells = (@sprintf("%.1f", median(table[column][found])) for column in columns)
+            println(io, drive_label, " & ", rig, " & ", join(cells, " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
 end
 
 """
     speed_terms_table()
 
 Fuel saving and change in time of the reference rigs on the 140 m ship on the terms of the
-literature and on ours, against the ship without a rig on the same terms and drive, mean over
-the routes of speed_terms.csv: speed_terms_table.tex.
+literature and on ours, against the ship without a rig on the same terms and drive, mean
+over the routes of speed_terms.csv: speed_terms_table.tex.
 """
 function speed_terms_table()
     table = read_table(data_file("speed_terms.csv"))
@@ -738,5 +779,47 @@ function speed_term_cells(table, drive, terms, column)
             push!(savings, 100(1 - table[column][only(rigged)] / table[column][only(bare)]))
         end
         return isempty(savings) ? "--" : @sprintf("%.1f", mean(savings))
+    end
+end
+
+"""
+What published fixed-speed kite studies report for each row of published_terms.csv: the
+citation key, the speed [kn], its label in the table and the fuel saving they state [%].
+"""
+published_savings = [("podeur2016", 16.0, "\\citet{podeur2016}", "12.1"),
+    ("podeur2016", 19.0, "\\citet{podeur2016}", "6.6"),
+    ("bentin2018", 13.0, "\\citet{bentin2018}", "19--29, routed"),
+    ("leloup2013", 8.0, "\\tbd{Leloup et al. 2013}", "up to 23.5, one wind"),
+    ("leloup2013", 15.5, "\\tbd{Leloup et al. 2013}", "26.6, one crossing"),
+    ("cedelft2016", 10.5, "\\citet{cedelft2016}", "2--15"),
+    ("cedelft2016", 12.3, "\\citet{cedelft2016}", "1--9"),
+    ("traut2014", 11.2, "\\citet{traut2014}", "1--32")]
+
+"""
+    published_table()
+
+Published fuel savings of kites at fixed speed beside our model at that speed on the nearest
+of our ships, priced and free of the kite's running cost, and the routed saving and time of
+our cost-optimal speed: published_table.tex.
+"""
+function published_table()
+    table = read_table(data_file("published_terms.csv"))
+    open(joinpath(sections, "published_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}llrrlrr@{}}\n\\toprule")
+        println(io, "Study & Our ship & Kite & Speed & Published & ",
+            "\\multicolumn{2}{c}{Ours [\\%]} \\\\")
+        println(io, "\\cmidrule(lr){6-7}")
+        println(io, " & & [\\si{m^2}] & [kn] & [\\%] & priced & free \\\\\n\\midrule")
+        for (source, knots, label, published) in published_savings
+            found = rows(table, "source" => source, "speed" => knots)
+            isempty(found) && continue
+            i = only(found)
+            saving(column) = @sprintf("%.1f",
+                100(1 - table[column][i] / table["fuel_bare"][i]))
+            println(io, join((label, table["ship"][i], @sprintf("%.0f", table["area"][i]),
+                    @sprintf("%.1f", knots), published, saving("fuel_kite"),
+                    saving("fuel_free")), " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
     end
 end

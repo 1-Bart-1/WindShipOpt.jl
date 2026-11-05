@@ -401,8 +401,8 @@ end
 
 # Worked by hand from the true wind: 10 m/s at 10 m, shear exponent 0.05, 5.4 m/s of ship
 # speed. Wing mid height 20.73 m gives 10.371 m/s; 90 deg gives 5.40 ahead and 10.371 abeam,
-# so 11.692 m/s at 62.49 deg; 45 deg gives 12.733 ahead, 7.333 abeam, 14.694 m/s at 29.94 deg;
-# 180 deg gives 4.971 m/s from dead astern. CL 1, CD 0.17631, 800 m^2, array factor 0.95904.
+# so 11.692 m/s at 62.49 deg; 45 deg gives 12.733 ahead, 7.333 abeam, 14.694 m/s at
+# 29.94 deg; 180 deg gives 4.971 m/s from dead astern. CL 1, CD 0.17631, 800 m^2, array factor 0.95904.
 @testset "wing force follows true wind, shear and ship speed as worked by hand" begin
     env = Environment(assumptions)
     wings = WingRig(800.0, Hull(140.0, assumptions), assumptions)
@@ -449,7 +449,7 @@ end
     @test WindShipOpt.norm3(ground) < 1e-3
 end
 
-@testset "no flight pattern pulls beyond the window edge of the whole-system glide ratio" begin
+@testset "no flight pattern pulls beyond the window edge of the system glide ratio" begin
     for area in (800.0, 3200.0)
         rig = Ship(ShipDesign(:methanol, 140.0; kite_area=area), assumptions).rig
         model, _, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
@@ -457,6 +457,23 @@ end
         flown = filter(force -> isfinite(force.peak_tension), rig.forces)
         @test maximum(atand(hypot(force.force[2], force.force[3]), force.force[1])
                       for force in flown) <= edge
+    end
+end
+
+@testset "kite pulls the ship forward only above the upwind limit of its glide ratio" begin
+    env = Environment(assumptions)
+    for area in (800.0, 3200.0)
+        rig = Ship(ShipDesign(:methanol, 140.0; kite_area=area), assumptions).rig
+        model, _, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+        limit = WindShipOpt.least_pulling_angle(model, 0.0)
+        @test rad2deg(limit) ≈ atand(1 / WindShipOpt.best_over_angles(/, model))
+        @test WindShipOpt.least_pulling_angle(model, deg2rad(25)) > limit
+        for apparent in deg2rad.(1.0:2.0:(rad2deg(limit) - 2)), wind in (8.0, 12.0, 20.0),
+            trim in WindShipOpt.trim_settings(rig)
+
+            @test rig_force(rig, env, wind, apparent, 0.0, trim).thrust <= 0
+        end
+        @test rig_force(rig, env, 12.0, deg2rad(40), 0.0, 1).thrust > 0
     end
 end
 
