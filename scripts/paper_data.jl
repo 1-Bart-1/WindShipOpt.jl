@@ -1335,24 +1335,34 @@ about the time in `durations` where given; `nothing` if a passage fails.
 function speed_term_sums(table, name, hourly, durations)
     corridors_of_route = run_corridors(name)
     port_hours = 24assumptions[:port_time_per_call]
-    energy, hours, flown, taken = 0.0, 0.0, 0.0, Float64[]
-    for departure in sampled_departures()
-        time = departure
-        for direction in 1:2
-            leg = isnothing(durations) ?
-                  route(corridors_of_route[direction], table, weather, time;
-                time_cost=hourly[direction]) :
-                  same_time_leg(corridors_of_route[direction], table, weather, time,
-                hourly[direction], durations[length(taken) + 1])
-            isnothing(leg) && return nothing
-            energy += leg.fuel_energy / 1e9
-            hours += leg.duration
-            flown += leg.flight_hours
-            push!(taken, leg.duration)
-            time += leg.duration + port_hours
-        end
+    legs = []
+    for (k, departure) in enumerate(sampled_departures())
+        pair = isnothing(durations) ?
+               WindShipOpt.route_round_trip(table, corridors_of_route..., weather,
+            departure, port_hours, hourly, Inf) :
+               same_time_round_trip(table, corridors_of_route, departure, port_hours,
+            hourly, durations[(2k - 1):2k])
+        isnothing(pair) && return nothing
+        append!(legs, pair)
     end
-    return energy, hours, flown, taken
+    return sum(leg.fuel_energy for leg in legs) / 1e9, sum(leg.duration for leg in legs),
+    sum(leg.flight_hours for leg in legs), [leg.duration for leg in legs]
+end
+
+"""
+    same_time_round_trip(table, corridors, departure, port_hours, hourly, durations)
+
+Outbound and return [`same_time_leg`](@ref) along the pair of `corridors` from
+`departure` [h], each taking about its time in `durations` [h]; `nothing` if either fails.
+"""
+function same_time_round_trip(table, corridors, departure, port_hours, hourly, durations)
+    out = same_time_leg(first(corridors), table, weather, departure, first(hourly),
+        first(durations))
+    isnothing(out) && return nothing
+    back = same_time_leg(last(corridors), table, weather,
+        departure + out.duration + port_hours, last(hourly), last(durations))
+    isnothing(back) && return nothing
+    return out, back
 end
 
 """
