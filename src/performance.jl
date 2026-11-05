@@ -116,8 +116,8 @@ struct PerformanceTable{S}
     kite_wind_factor::Float64
 end
 
-"thrust stored for infeasible conditions [N]"
-const INFEASIBLE_THRUST = 1e9
+"thrust stored for infeasible conditions, far above what any engine delivers [N]"
+const INFEASIBLE_THRUST = 1e12
 
 """
     PerformanceTable(ship, assumptions)
@@ -363,7 +363,6 @@ kite_landable(rig::KiteRig, speed, headwind, crosswind, wave_height) =
     hypot(headwind + speed, crosswind) <= rig.landing_max_wind
 
 function fuel_power(table::PerformanceTable, speed, thrust, rig_power)
-    thrust < 1e-3INFEASIBLE_THRUST || return Inf
     (; ship) = table
     delivered = delivered_power(ship.propeller, ship.env, speed, thrust)
     return fuel_power(ship.powertrain,

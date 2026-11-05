@@ -483,6 +483,16 @@ end
     end
 end
 
+@testset "a class ship's table reaches its service speed in calm water, and an infeasible \
+          knot stays infeasible next to it" begin
+    for class in values(ship_classes())
+        table = PerformanceTable(Ship(ShipDesign(:vlsfo, class), assumptions), assumptions)
+        speed = class.service_speed * KNOT
+        @test isfinite(lookup(table, speed, 0.0, 0.0).fuel_power)
+        @test isinf(WindShipOpt.fuel_power(table, speed, 1e-3WindShipOpt.INFEASIBLE_THRUST, 0.0))
+    end
+end
+
 @testset "a hydrogen ship's tank volume and mass follow its largest leg" begin
     class = ship_classes()["feeder container ship"]
     ship = Ship(ShipDesign(:hydrogen, class), assumptions)
