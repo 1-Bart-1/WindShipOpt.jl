@@ -122,15 +122,31 @@ const LOWEST_TABLE_SPEED = 1.5
 "thrust stored for infeasible conditions, far above what any engine delivers [N]"
 const INFEASIBLE_THRUST = 1e12
 
+"lowest routing speed of any ship, at which it still holds its course in a storm [kn]"
+const LOWEST_ROUTING_KNOTS = 4.0
+
+"""
+    table_speeds(max_speed, routing_speeds)
+
+Speeds [m/s] of a [`PerformanceTable`](@ref): the last `routing_speeds` are equally spaced
+from `LOWEST_ROUTING_KNOTS` to `max_speed`, and the same step continues down towards
+`LOWEST_TABLE_SPEED`.
+"""
+function table_speeds(max_speed, routing_speeds)
+    lowest = LOWEST_ROUTING_KNOTS * KNOT
+    speed_step = (max_speed - lowest) / (routing_speeds - 1)
+    below = floor(Int, (lowest - LOWEST_TABLE_SPEED) / speed_step)
+    return collect(range(lowest - below * speed_step, max_speed;
+        length=routing_speeds + below))
+end
+
 """
     PerformanceTable(ship, assumptions)
 
-Tabulate the thrust of `ship`, at the speeds `ROUTER_SETTINGS` asks of a table between
-`LOWEST_TABLE_SPEED` and the ship's top speed.
+Tabulate the thrust of `ship`, at its [`table_speeds`](@ref).
 """
 function PerformanceTable(ship::Ship, assumptions::Assumptions)
-    speeds = collect(range(LOWEST_TABLE_SPEED, ship.max_speed;
-        length=ROUTER_SETTINGS[].table_speeds))
+    speeds = table_speeds(ship.max_speed, ROUTER_SETTINGS[].routing_speeds)
     winds = collect(Float64, 0:1.0:30)
     angles = deg2rad.(collect(Float64, 0:7.5:180))
     periods = collect(Float64, 3:1.0:18)
@@ -387,21 +403,17 @@ struct RouteTable{T <: PerformanceTable}
     slices::Vector{SpeedSlice}
 end
 
-"lowest routing speed of any ship, at which it still holds its course in a storm [kn]"
-const LOWEST_ROUTING_KNOTS = 4.0
-
 "Whether the ship of `table` can fly a kite"
 has_kite(table::RouteTable) = table.table.stowed_thrust !== table.table.flown_thrust
 
 """
     RouteTable(table)
 
-[`RouteTable`](@ref) of `table` at the routing speeds `ROUTER_SETTINGS` asks for, equally
-spaced from `LOWEST_ROUTING_KNOTS` up to the ship's top speed.
+[`RouteTable`](@ref) of `table` at the last `routing_speeds` of `ROUTER_SETTINGS` of its
+speeds.
 """
 function RouteTable(table::PerformanceTable)
-    speeds = collect(range(LOWEST_ROUTING_KNOTS * KNOT, last(table.speeds);
-        length=ROUTER_SETTINGS[].routing_speeds))
+    speeds = table.speeds[(end - ROUTER_SETTINGS[].routing_speeds + 1):end]
     slices = [SpeedSlice(table, KnotWeight(table.speeds, speed)) for speed in speeds]
     return RouteTable(table, speeds, slices)
 end

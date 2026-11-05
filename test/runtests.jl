@@ -874,4 +874,42 @@ end
     @test !is_marked(:final, [:designs, :capital, :premium])
 end
 
+@testset "every ship has the same speeds, on the knots of its table, from 4 kn up" begin
+    classes = ship_classes()
+    designs = (ShipDesign(:methanol, 85.0), ShipDesign(:methanol, 140.0),
+        ShipDesign(:vlsfo, classes["Kamsarmax bulk carrier"]))
+    (; routing_speeds, search_speed_stride) = WindShipOpt.ROUTER_SETTINGS[]
+    for design in designs
+        ship = Ship(design, assumptions)
+        table = PerformanceTable(ship, assumptions)
+        route_table = RouteTable(table)
+        @test length(route_table.speeds) == routing_speeds
+        @test first(route_table.speeds) ≈ 4KNOT
+        @test last(route_table.speeds) == ship.max_speed
+        @test route_table.speeds ⊆ table.speeds
+        @test first(table.speeds) >= WindShipOpt.LOWEST_TABLE_SPEED
+    end
+    stride = WindShipOpt.COST_TO_GO_SPEED_STRIDE * search_speed_stride
+    @test mod(routing_speeds - 1, stride) == 0
+end
+
+@testset "the final pass keeps the path, refines its speeds and never costs more" begin
+    outbound, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    for design in (ShipDesign(:methanol, 85.0), ShipDesign(:methanol, 85.0; kite_area=200.0))
+        table = RouteTable(PerformanceTable(Ship(design, assumptions), assumptions))
+        passage() = route(outbound, table, SyntheticWeather(), 24.0 * 31; time_cost=300.0)
+        no_room_in_time = WindShipOpt.RouterSettings(final_time_band=-1.0)
+        searched = WindShipOpt.with_router_settings(passage, no_room_in_time)
+        final = passage()
+        @test final.objective < searched.objective
+        @test [point[1:2] for point in final.path] == [point[1:2] for point in searched.path]
+        searched_speeds = [point[4] for point in searched.path[2:end]]
+        final_speeds = [point[4] for point in final.path[2:end]]
+        commanded = table.speeds[1:WindShipOpt.ROUTER_SETTINGS[].search_speed_stride:end]
+        @test searched_speeds ⊆ commanded
+        @test final_speeds ⊆ table.speeds
+        @test !(final_speeds ⊆ commanded)
+    end
+end
+
 include("hot_path_checks.jl")
