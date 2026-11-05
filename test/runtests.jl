@@ -481,6 +481,29 @@ end
     end
 end
 
+@testset "wings and rotors pull forward only above the upwind limit of their lift to drag" begin
+    env = Environment(assumptions)
+    hull = Hull(140.0, assumptions)
+    wings = WingRig(800.0, hull, assumptions)
+    rotors = WindShipOpt.RotorRig(400.0, hull, assumptions)
+    coefficients(::WingRig, setting) = setting
+    function coefficients(rig::WindShipOpt.RotorRig, spin_ratio)
+        lift, drag, _ = WindShipOpt.rotor_coefficients(spin_ratio)
+        return rig.lift_factor * lift, drag
+    end
+    for rig in (wings, rotors)
+        settings = WindShipOpt.trim_settings(rig)
+        limit = minimum(settings) do setting
+            lift, drag = coefficients(rig, setting)
+            return lift > 0 ? atan(drag / lift) : Inf
+        end
+        thrust(angle, setting) = rig_force(rig, env, 10.0, angle, 0.0, setting).thrust
+        @test all(thrust(angle, setting) <= 0
+                  for angle in range(0.0, limit - 1e-3; length=20), setting in settings)
+        @test any(thrust(limit + deg2rad(1), setting) > 0 for setting in settings)
+    end
+end
+
 @testset "kite pulls the ship forward only above the upwind limit of its glide ratio" begin
     env = Environment(assumptions)
     for area in (800.0, 3200.0)

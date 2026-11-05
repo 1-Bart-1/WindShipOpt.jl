@@ -659,30 +659,33 @@ flight_table.tex.
 function flight_table()
     table = read_table(data_file("flight.csv"))
     open(joinpath(sections, "flight_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}lrrrrrrrrrrrrr@{}}\n\\toprule")
+        println(io, "\\begin{tabular}{@{}lrrrrrrrrrrrrrrrr@{}}\n\\toprule")
         println(io, "True wind & Time & Could & Up & Pulls & Thrust & ",
+            "\\multicolumn{3}{c}{Could at speed [\\%]} & ",
             "\\multicolumn{3}{c}{Up at speed [\\%]} & \\multicolumn{2}{c}{Speed [kn]} & ",
             "\\multicolumn{3}{c}{Lowest AWA ",
             "[\\si{\\degree}]} \\\\")
-        println(io, "\\cmidrule(lr){7-9}\\cmidrule(lr){10-11}\\cmidrule(lr){12-14}")
+        println(io, "\\cmidrule(lr){7-9}\\cmidrule(lr){10-12}\\cmidrule(lr){13-14}",
+            "\\cmidrule(lr){15-17}")
         println(io, "angle [\\si{\\degree}] & [\\%] & [\\%] & [\\%] & [\\%] & [kN] & ",
-            "<10 & 10--12 & >12 & no rig & kite & kite & wings & rotors \\\\\n\\midrule")
+            "<10 & 10--12 & >12 & <10 & 10--12 & >12 & no rig & kite & kite & wings & ",
+            "rotors \\\\\n\\midrule")
         foreach(band -> write_flight_row(io, table, band), flight_bands)
         println(io, "\\bottomrule\n\\end{tabular}")
     end
 end
 
 """
-    flown_share(table, angle, speeds)
+    kite_share(table, column, angle, speeds)
 
 Share [%] of the kite's hours in true wind angle band `angle` at the ship speed bands
-`speeds` in which it is up, `--` where it has no such hours.
+`speeds` counted in `column` of flight.csv, `--` where it has no such hours.
 """
-function flown_share(table, angle, speeds)
+function kite_share(table, column, angle, speeds)
     found = [i for i in rows(table, "rig" => "kite", "angle" => angle)
              if table["speed"][i] in speeds]
     isempty(found) && return "--"
-    return @sprintf("%.0f", 100sum(table["flying"][found]) / sum(table["hours"][found]))
+    return @sprintf("%.0f", 100sum(table[column][found]) / sum(table["hours"][found]))
 end
 
 """
@@ -701,8 +704,8 @@ function write_flight_row(io, table, (angle, label))
                               sum(table["hours"][rows(table, "rig" => "kite")])),
         share("available"), share("flying"), share("pulling"),
         @sprintf("%.0f", sum(table["thrust_hours"][kite]) / sum(table["flying"][kite])),
-        flown_share(table, angle, (8,)), flown_share(table, angle, (10,)),
-        flown_share(table, angle, (12, 14)),
+        (kite_share(table, column, angle, speeds)
+         for speeds in ((8,), (10,), (12, 14)), column in ("available", "flying"))...,
         @sprintf("%.1f", sum(table["distance"][bare]) / sum(table["hours"][bare])),
         @sprintf("%.1f", sum(table["distance"][kite]) / kite_hours),
         lowest("kite"), lowest("wings"), lowest("rotors"))
