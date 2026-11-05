@@ -1445,31 +1445,34 @@ end
     speed_size_figure()
 
 Fuel saved by a kite free of running cost, in relative and absolute terms, and cost saved by
-the priced kite, against held ship speed at each kite size, on the 140 m and the feeder ship
-on VLSFO: speed_size.pdf.
+the priced kite, against held ship speed at each kite size, for each ship and fuel of
+speed_size.csv: speed_size.pdf.
 """
 function speed_size_figure()
     table = read_table(data_file("speed_size.csv"))
-    figure = Figure(size=(page_width, 400))
+    figure = Figure(size=(page_width, 560))
     panels = (("fuel saved [%]", "free", :fuel_percent),
-        ("fuel saved [GJ/round trip]", "free", :fuel),
-        ("cost saved [USD/kt km]", "priced", :cost))
-    for (row, grid) in enumerate(speed_size_grid)
+        ("fuel saved [GJ/round trip]", "free", :fuel), ("cost saved [%]", "priced",
+            :cost_percent))
+    designs = [(grid, string(drive)) for grid in speed_size_grid for drive in grid.drives]
+    for (row, (grid, drive)) in enumerate(designs)
         shades = cgrad(:Blues, length(grid.kites) + 2; categorical=true)
         for (column, (label, pricing, quantity)) in enumerate(panels)
-            title = "($(Char('a' + 3(row - 1) + column - 1))) $(grid.ship)"
-            axis = Axis(figure[row, column]; title, xlabel="ship speed [kn]", ylabel=label,
-                xticks=collect(grid.speeds))
+            letter = Char('a' + length(panels) * (row - 1) + column - 1)
+            design = column == 1 ? " $(grid.ship), $(Dict(drive_labels)[drive])" : ""
+            axis = Axis(figure[row, column]; title="($letter)$design",
+                xlabel="ship speed [kn]", ylabel=label, xticks=collect(grid.speeds))
             for (k, area) in enumerate(grid.kites)
-                savings = [speed_size_saving(table, grid.ship, "vlsfo", "kite", area,
-                               pricing, knots) for knots in grid.speeds]
+                savings = [speed_size_saving(table, grid.ship, drive, "kite", area, pricing,
+                               knots) for knots in grid.speeds]
                 held = findall(!isnothing, savings)
                 scatterlines!(axis, collect(grid.speeds)[held],
                     [getproperty(savings[i], quantity) for i in held]; color=shades[k + 2],
                     markercolor=shades[k + 2], linewidth=2, markersize=8,
                     label=string(round(Int, area), " m²"))
             end
-            column == 3 && Legend(figure[row, 4], axis; framevisible=false, labelsize=9)
+            column == length(panels) &&
+                Legend(figure[row, column + 1], axis; framevisible=false, labelsize=9)
         end
     end
     save(joinpath(figures, "speed_size.pdf"), figure; pt_per_unit=print_scale)

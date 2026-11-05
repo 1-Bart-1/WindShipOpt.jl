@@ -847,28 +847,41 @@ end
 """
     speed_size_table()
 
-Kite savings by held ship speed and kite size, in relative and absolute terms, free of the
-kite's running cost and priced: speed_size_table.tex.
+Kite savings by held ship speed on each ship and fuel of speed_size.csv: fuel saved by the
+smallest kite and by the kite that saves the most fuel, both free of running cost, in
+relative and absolute terms, the priced kite that saves the most cost, and the share of sea
+time the largest kite flies: speed_size_table.tex.
 """
 function speed_size_table()
     table = read_table(data_file("speed_size.csv"))
     open(joinpath(sections, "speed_size_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}lrrrrrrr@{}}\n\\toprule")
-        println(io, "Ship & Speed & Kite & \\multicolumn{2}{c}{Fuel saved, free} & ",
-            "\\multicolumn{2}{c}{Cost saved, priced} & Flown \\\\")
-        println(io, "\\cmidrule(lr){4-5}\\cmidrule(lr){6-7}")
-        println(io, " & [kn] & [\\si{m^2}] & [\\%] & [GJ/trip] & [\\%] & [USD/kt\\,km] & ",
-            "[\\%] \\\\")
+        println(io, "\\begin{tabular}{@{}llrrrrrrrrrr@{}}\n\\toprule")
+        println(io, "Ship & Fuel & Speed & No kite & \\multicolumn{2}{c}{Smallest kite} & ",
+            "\\multicolumn{3}{c}{Most fuel saved} & ",
+            "\\multicolumn{2}{c}{Most cost saved} & Flown \\\\")
+        println(io, "\\cmidrule(lr){5-6}\\cmidrule(lr){7-9}\\cmidrule(lr){10-11}")
+        println(io, " & & [kn] & [GJ] & [\\%] & [GJ] & [\\si{m^2}] & [\\%] & [GJ] & ",
+            "[\\si{m^2}] & [\\%] & [\\%] \\\\")
         println(io, "\\midrule")
-        for grid in speed_size_grid, knots in grid.speeds, area in grid.kites
-            free = speed_size_saving(table, grid.ship, "vlsfo", "kite", area, "free", knots)
-            priced = speed_size_saving(table, grid.ship, "vlsfo", "kite", area, "priced",
-                knots)
-            (isnothing(free) || isnothing(priced)) && continue
-            println(io, join((grid.ship, @sprintf("%.0f", knots), @sprintf("%.0f", area),
-                    @sprintf("%.1f", free.fuel_percent), @sprintf("%.0f", free.fuel),
-                    @sprintf("%.1f", priced.cost_percent), @sprintf("%.2f", priced.cost),
-                    @sprintf("%.0f", free.flight)), " & "), " \\\\")
+        for grid in speed_size_grid, drive in string.(grid.drives), knots in grid.speeds
+            saving(area, pricing) = speed_size_saving(table, grid.ship, drive, "kite", area,
+                pricing, knots)
+            free = [saving(area, "free") for area in grid.kites]
+            priced = [saving(area, "priced") for area in grid.kites]
+            (any(isnothing, free) || any(isnothing, priced)) && continue
+            most_fuel = argmax(i -> free[i].fuel, eachindex(free))
+            most_cost = argmax(i -> priced[i].cost_percent, eachindex(priced))
+            bare = rows(table, "ship" => grid.ship, "drive" => drive, "knots" => knots,
+                "rig" => "none")
+            println(io, join((grid.ship, Dict(drive_labels)[drive], @sprintf("%.0f", knots),
+                    @sprintf("%.0f", mean(table["fuel"][bare])),
+                    @sprintf("%.1f", free[1].fuel_percent), @sprintf("%.0f", free[1].fuel),
+                    @sprintf("%.0f", grid.kites[most_fuel]),
+                    @sprintf("%.1f", free[most_fuel].fuel_percent),
+                    @sprintf("%.0f", free[most_fuel].fuel),
+                    @sprintf("%.0f", grid.kites[most_cost]),
+                    @sprintf("%.1f", priced[most_cost].cost_percent),
+                    @sprintf("%.0f", free[end].flight)), " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
