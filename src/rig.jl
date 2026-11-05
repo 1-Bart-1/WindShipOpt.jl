@@ -508,9 +508,8 @@ function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_sp
         crosswind += row_weight * column_weight * load * force[2]
     end
     limit = min(1.0, rig.max_force / hypot(downwind, crosswind))
-    direction = angle + π
-    thrust = limit * (downwind * cos(direction) - crosswind * sin(direction))
-    side = limit * (downwind * sin(direction) + crosswind * cos(direction))
+    thrust = limit * (crosswind * sin(angle) - downwind * cos(angle))
+    side = limit * (crosswind * cos(angle) + downwind * sin(angle))
     return RigForce(thrust, side, side * rig.attach_height, side * rig.attach_position)
 end
 

@@ -399,6 +399,81 @@ end
     @test maintenance_of(rotors) ≈ 0.01 * ShipCosts(rotors, assumptions).capital
 end
 
+# Worked by hand from the true wind: 10 m/s at 10 m, shear exponent 0.05, 5.4 m/s of ship
+# speed. Wing mid height 20.73 m gives 10.371 m/s; 90 deg gives 5.40 ahead and 10.371 abeam,
+# so 11.692 m/s at 62.49 deg; 45 deg gives 12.733 ahead, 7.333 abeam, 14.694 m/s at 29.94 deg;
+# 180 deg gives 4.971 m/s from dead astern. CL 1, CD 0.17631, 800 m^2, array factor 0.95904.
+@testset "wing force follows true wind, shear and ship speed as worked by hand" begin
+    env = Environment(assumptions)
+    wings = WingRig(800.0, Hull(140.0, assumptions), assumptions)
+    setting = (1.0, WindShipOpt.drag_coefficient(wings, 1.0))
+    force(angle) = rig_force(wings, env, 10.0, deg2rad(angle), 5.4, setting)
+    @test force(90).thrust ≈ 51756 rtol = 1e-3
+    @test force(90).side ≈ 41416 rtol = 1e-3
+    @test force(45).thrust ≈ 35138 rtol = 1e-3
+    @test force(45).side ≈ 100995 rtol = 1e-3
+    @test force(180).thrust ≈ 2048 rtol = 1e-3
+    @test force(0).thrust < 0 < force(0).side
+end
+
+# Worked by hand: rotor mid height 23.91 m gives 10.446 m/s, so 11.76 m/s at 62.66 deg and
+# 84.7 Pa on 400 m^2. At spin ratio 3 the fit gives CL 9.517, CD 2.634, CP 0.297.
+@testset "rotor force and spin power follow the apparent wind as worked by hand" begin
+    env = Environment(assumptions)
+    rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions)
+    beam = rig_force(rotors, env, 10.0, π / 2, 5.4, 3.0)
+    @test beam.thrust ≈ 243775 rtol = 1e-3
+    @test beam.side ≈ 227311 rtol = 1e-3
+    @test beam.power ≈ 118305 rtol = 1e-3
+    @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.NO_RIG_FORCE
+end
+
+# At rest on the edge of the wind window the massless kite sees the full wind, tan(angle off
+# downwind) = G, and T = q A sqrt(CL^2 + CD^2): 70.56 kN x 0.9073 at 12 m/s on 800 m^2.
+@testset "massless kite rests where the whole-system glide ratio puts the window edge" begin
+    model, _, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    flying = model.polar.lift .> 0
+    wing_alone = maximum(model.polar.lift[flying] ./ model.polar.drag[flying])
+    best = argmax(model.polar.lift ./ (model.polar.drag .+ model.extra_drag))
+    aero = WindShipOpt.KiteAero(model.area, model.polar.lift[best],
+        model.polar.drag[best] + model.extra_drag, 0.0, 1.225, 0.0)
+    glide = aero.lift / aero.drag
+    @test 3.5 < glide < 5 < wing_alone
+    angle = atan(glide)
+    radial = WindShipOpt.window_position(angle, 0.5)
+    towards_edge = (-sin(angle), cos(angle) * cos(0.5), cos(angle) * sin(0.5))
+    airspeed, tension, ground = WindShipOpt.steering_point(aero, (12.0, 0.0, 0.0), radial,
+        towards_edge, (0.0, 0.0, 0.0), model.tether_length)
+    @test airspeed ≈ 12sin(angle) rtol = 1e-4
+    @test tension ≈ 70560 * hypot(aero.lift, aero.drag) rtol = 1e-4
+    @test WindShipOpt.norm3(ground) < 1e-3
+end
+
+@testset "no flight pattern pulls beyond the window edge of the whole-system glide ratio" begin
+    for area in (800.0, 3200.0)
+        rig = Ship(ShipDesign(:methanol, 140.0; kite_area=area), assumptions).rig
+        model, _, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+        edge = atand(WindShipOpt.best_over_angles((lift, drag) -> lift / drag, model))
+        flown = filter(force -> isfinite(force.peak_tension), rig.forces)
+        @test maximum(atand(hypot(force.force[2], force.force[3]), force.force[1])
+                      for force in flown) <= edge
+    end
+end
+
+@testset "kite, wings and rotors push the same way across the ship" begin
+    env = Environment(assumptions)
+    hull = Hull(140.0, assumptions)
+    kite = uniform_kite(hull, assumptions)
+    wings = WingRig(800.0, hull, assumptions)
+    rotors = WindShipOpt.RotorRig(400.0, hull, assumptions)
+    for angle in deg2rad.((45, 90, 110))
+        @test rig_force(kite, env, 12.0, angle, 5.4, 1).side > 0
+        @test rig_force(wings, env, 12.0, angle, 5.4,
+            (1.0, WindShipOpt.drag_coefficient(wings, 1.0))).side > 0
+        @test rig_force(rotors, env, 12.0, angle, 5.4, 2.0).side > 0
+    end
+end
+
 @testset "combined rig force is the sum of kite and rotor forces at a fixed trim" begin
     env = Environment(assumptions)
     hull = Hull(140.0, assumptions)
