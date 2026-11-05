@@ -1140,6 +1140,10 @@ function traced_legs(ship, name)
     return legs
 end
 
+"an empty band of [`add_flight_hours!`](@ref), in the order of the columns of flight.csv"
+empty_flight_bin = (hours=0.0, flying=0.0, available=0.0, pulling=0.0, thrust_hours=0.0,
+    distance=0.0, lowest_angle=Inf)
+
 """
     add_flight_hours!(bins, leg, trace)
 
@@ -1158,11 +1162,14 @@ function add_flight_hours!(bins, leg, trace)
         pulling = trace.rig_thrust[i] > 0
         working = trace.flying[i] || pulling
         angle = pulling ? rad2deg(trace.apparent_angle[i]) : Inf
-        old = get(bins, band, (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Inf))
-        sums = old[1:6] .+ (hours, trace.flying[i] * hours,
-            (trace.available_thrust[i] > 0) * hours, pulling * hours,
-            working * trace.rig_thrust[i] * hours / 1e3, knots * hours)
-        bins[band] = (sums..., min(old[7], angle))
+        old = get(bins, band, empty_flight_bin)
+        bins[band] = (hours=old.hours + hours,
+            flying=old.flying + trace.flying[i] * hours,
+            available=old.available + (trace.available_thrust[i] > 0) * hours,
+            pulling=old.pulling + pulling * hours,
+            thrust_hours=old.thrust_hours + working * trace.rig_thrust[i] * hours / 1e3,
+            distance=old.distance + knots * hours,
+            lowest_angle=min(old.lowest_angle, angle))
     end
 end
 
@@ -1175,7 +1182,7 @@ Hours of a case of [`flight_data`](@ref) by band of true wind angle and ship spe
 function flight_bins(case)
     ship = Ship(ShipDesign(case.drive, case.length; rig_size(case.rig, case.area)...),
         assumptions)
-    bins = Dict{Tuple{Int, Int}, NTuple{7, Float64}}()
+    bins = Dict{Tuple{Int, Int}, typeof(empty_flight_bin)}()
     for (leg, trace) in traced_legs(ship, case.route)
         add_flight_hours!(bins, leg, trace)
     end
@@ -1192,12 +1199,12 @@ ship speed.
 function flight_data()
     table = read_table(data_file("routes.csv"))
     cases = []
-    for route in route_names, drive in study_drives, length in (85.0, 140.0, 200.0),
+    for route in route_names, drive in study_drives, ship_length in (85.0, 140.0, 200.0),
         rig in ("none", "kite", "wings", "rotors")
 
         best = cheapest_row(table, "route" => string(route), "drive" => string(drive),
-            "length" => length, "rig" => rig)
-        isnothing(best) || push!(cases, (; route, drive, length, rig,
+            "length" => ship_length, "rig" => rig)
+        isnothing(best) || push!(cases, (; route, drive, length=ship_length, rig,
             area=table["area"][best]))
     end
     results = Vector{Any}(undef, length(cases))

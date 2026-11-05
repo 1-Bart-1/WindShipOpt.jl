@@ -1480,4 +1480,3 @@ function speed_size_figure()
     end
     save(joinpath(figures, "speed_size.pdf"), figure; pt_per_unit=print_scale)
 end
-

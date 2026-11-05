@@ -481,7 +481,7 @@ end
     end
 end
 
-@testset "wings and rotors pull forward only above the upwind limit of their lift to drag" begin
+@testset "wings and rotors pull forward only above their own upwind limit" begin
     env = Environment(assumptions)
     hull = Hull(140.0, assumptions)
     wings = WingRig(800.0, hull, assumptions)
