@@ -652,7 +652,7 @@ flight_bands = [(0, "0--30"), (30, "30--60"), (60, "60--90"), (90, "90--120"),
 
 Where the kite works over the study of routes.csv, by band of true wind angle: share of the
 time, share of it in which the kite could pull, is up and pulls, its mean thrust while
-pulling and lowest apparent wind angle, how much of each speed band it flies and its speed
+up and lowest apparent wind angle, how much of each speed band it flies and its speed
 against the ship without a rig, with the lowest apparent angles of the deck rigs:
 flight_table.tex.
 """
@@ -700,7 +700,7 @@ function write_flight_row(io, table, (angle, label))
     cells = (@sprintf("%.0f", 100kite_hours /
                               sum(table["hours"][rows(table, "rig" => "kite")])),
         share("available"), share("flying"), share("pulling"),
-        @sprintf("%.0f", sum(table["thrust_hours"][kite]) / sum(table["pulling"][kite])),
+        @sprintf("%.0f", sum(table["thrust_hours"][kite]) / sum(table["flying"][kite])),
         flown_share(table, angle, (8,)), flown_share(table, angle, (10,)),
         flown_share(table, angle, (12, 14)),
         @sprintf("%.1f", sum(table["distance"][bare]) / sum(table["hours"][bare])),
@@ -752,8 +752,8 @@ function speed_terms_table()
         println(io, "Drive & Terms & kite & wings & rotors & kite & wings & rotors \\\\")
         println(io, "\\midrule")
         for (drive, drive_label) in drive_labels[1:2], (terms, label) in labels
-            cells = vcat(speed_term_cells(table, drive, terms, "fuel"),
-                speed_term_cells(table, drive, terms, "hours"))
+            cells = (speed_term_cells(table, drive, terms, "fuel")...,
+                speed_term_cells(table, drive, terms, "hours")...)
             println(io, drive_label, " & ", label, " & ", join(cells, " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")

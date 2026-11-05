@@ -8,15 +8,16 @@ study_drives = (:vlsfo, :methanol, :hydrogen)
 design_aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
 
 """
-    trip_case(design; assumptions, route, scale, horizon, labels...)
+    trip_case(design; assumptions, route, scale, horizon, held_knots, labels...)
 
 One round trip to compute: `design` under `assumptions` on the corridors of `route` at
-corridor `scale`, with a forecast `horizon` [h], tagged with `labels` for the output.
+corridor `scale`, with a forecast `horizon` [h], holding `held_knots` [kn] or with speed set
+by cost where `nothing`, tagged with `labels` for the output.
 """
 function trip_case(design; assumptions=assumptions, route=:caribbean,
-        scale=run_settings().corridor_scale, horizon=Inf, labels...)
+        scale=run_settings().corridor_scale, horizon=Inf, held_knots=nothing, labels...)
     return (; labels..., design, assumptions, route, scale,
-        corridors=corridors(route, scale), horizon)
+        corridors=corridors(route, scale), horizon, held_knots)
 end
 
 """
@@ -29,7 +30,7 @@ function case_trip(case, departures)
     ship = Ship(case.design, case.assumptions)
     isnothing(ship) && return nothing
     return round_trip(ship, case.corridors..., weather, departures, case.assumptions;
-        horizon=case.horizon)
+        horizon=case.horizon, held_knots=case.held_knots)
 end
 
 """
@@ -1506,39 +1507,40 @@ speed_size_grid = [
         wings=(), rotors=())]
 
 """
+    speed_size_case(ship, drive, route, knots, rig, area, pricing)
+
+Round trip of `ship` with `area` [m^2] of `rig`, holding `knots` [kn], or with speed set by
+cost where 0; `pricing` "free" takes the kite's running cost out.
+"""
+function speed_size_case(ship, drive, route, knots, rig, area, pricing)
+    design = ShipDesign(drive, study_hull(ship); rig_size(rig, area)...)
+    return trip_case(design; ship, drive, route, knots, rig, area, pricing,
+        assumptions=pricing == "free" ? kite_without_running_cost : assumptions,
+        held_knots=knots > 0 ? knots : nothing)
+end
+
+"""
     speed_size_cases()
 
 Cases of [`speed_size_data`](@ref): every ship, drive, route, rig size and speed of
-[`speed_size_grid`](@ref), with speed set by cost as `knots` of 0, priced as in the rest of
-the paper, and at held speeds the kite also free of its running cost.
+[`speed_size_grid`](@ref), with speed also set by cost, priced as in the rest of the paper,
+and at held speeds the kite also free of its running cost.
 """
 function speed_size_cases()
     cases = NamedTuple[]
     for grid in speed_size_grid, drive in grid.drives, route in (:caribbean, :new_york),
         knots in (0.0, grid.speeds...)
 
-        base = (; ship=grid.ship, drive, route, knots)
-        push!(cases, (; base..., rig="none", area=0.0, pricing="priced"))
+        base = (grid.ship, drive, route, knots)
+        push!(cases, speed_size_case(base..., "none", 0.0, "priced"))
         for area in grid.kites, pricing in (knots > 0 ? ("priced", "free") : ("priced",))
-            push!(cases, (; base..., rig="kite", area, pricing))
+            push!(cases, speed_size_case(base..., "kite", area, pricing))
         end
         for (rig, areas) in (("wings", grid.wings), ("rotors", grid.rotors)), area in areas
-            push!(cases, (; base..., rig, area, pricing="priced"))
+            push!(cases, speed_size_case(base..., rig, area, "priced"))
         end
     end
     return cases
-end
-
-"""
-    speed_size_trip(case)
-
-[`round_trip`](@ref) of one of the [`speed_size_cases`](@ref); `nothing` if a passage fails.
-"""
-function speed_size_trip(case)
-    inputs = case.pricing == "free" ? kite_without_running_cost : assumptions
-    design = ShipDesign(case.drive, study_hull(case.ship); rig_size(case.rig, case.area)...)
-    return round_trip(Ship(design, inputs), run_corridors(case.route)..., weather,
-        sampled_departures(), inputs; held_knots=case.knots > 0 ? case.knots : nothing)
 end
 
 """
@@ -1549,10 +1551,7 @@ same terms, without a rig and with it: speed_size.csv.
 """
 function speed_size_data()
     cases = speed_size_cases()
-    trips = Vector{Any}(undef, length(cases))
-    Threads.@threads :greedy for k in eachindex(cases)
-        trips[k] = speed_size_trip(cases[k])
-    end
+    trips = round_trips(cases, sampled_departures())
     open(run_file("speed_size.csv"), "w") do io
         println(io, "ship,drive,route,knots,rig,area,pricing,fuel,cost,tonne_km,days,",
             "flight_share,launches,cargo")
