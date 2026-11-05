@@ -409,7 +409,10 @@ end
     @test force(90).side ≈ 41416 rtol = 1e-3
     @test force(45).thrust ≈ 35138 rtol = 1e-3
     @test force(45).side ≈ 100995 rtol = 1e-3
+    @test force(150).thrust ≈ 17228 rtol = 1e-3
+    @test force(150).side ≈ -8238 rtol = 1e-3
     @test force(180).thrust ≈ 2048 rtol = 1e-3
+    @test force(180).side ≈ -12109 rtol = 1e-3
     @test force(0).thrust < 0 < force(0).side
 end
 
@@ -421,7 +424,30 @@ end
     @test beam.thrust ≈ 243775 rtol = 1e-3
     @test beam.side ≈ 227311 rtol = 1e-3
     @test beam.power ≈ 118305 rtol = 1e-3
+    close_hauled = rig_force(rotors, env, 10.0, π / 4, 5.4, 3.0)
+    @test close_hauled.thrust ≈ 131591 rtol = 1e-3
+    @test close_hauled.side ≈ 510601 rtol = 1e-3
+    broad = rig_force(rotors, env, 10.0, 5π / 6, 5.4, 3.0)
+    @test broad.thrust ≈ 91931 rtol = 1e-3
+    @test broad.side ≈ -32685 rtol = 1e-3
     @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.NO_RIG_FORCE
+end
+
+# Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
+@testset "kite force turns from the wind's frame onto the course as worked by hand" begin
+    env = Environment(assumptions)
+    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
+    force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 1)
+    @test force(5.8751, 26.6411).thrust ≈ 26 atol = 5
+    @test force(5.8751, 26.6411).side ≈ 63940 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 20474 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 98249 rtol = 1e-3
+    @test force(8.8295, 86.6957).thrust ≈ 121320 rtol = 1e-3
+    @test force(8.8295, 86.6957).side ≈ 253749 rtol = 1e-3
+    @test force(11.1615, 114.2277).thrust ≈ 256132 rtol = 1e-3
+    @test force(11.1615, 114.2277).side ≈ 226097 rtol = 1e-3
+    @test force(13.8026, 148.5709).thrust ≈ 357613 rtol = 1e-3
+    @test force(13.8026, 148.5709).side ≈ 24548 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
