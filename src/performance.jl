@@ -384,6 +384,9 @@ struct RouteTable{T <: PerformanceTable}
     slices::Vector{SpeedSlice}
 end
 
+"Whether the ship of `table` can fly a kite"
+has_kite(table::RouteTable) = table.table.stowed_thrust !== table.table.flown_thrust
+
 """
     RouteTable(table)
 

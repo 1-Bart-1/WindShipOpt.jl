@@ -807,6 +807,17 @@ end
     @test WindShipOpt.ROUTER_SETTINGS[] == earlier
 end
 
+@testset "a ship that can fly a kite is searched at the kite margins" begin
+    settings = WindShipOpt.RouterSettings(search_margins=(0.1, 0.2),
+        kite_search_margins=(0.3, 0.4))
+    kite_ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(kite_ship, assumptions))
+    bare_table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
+        assumptions))
+    @test WindShipOpt.margins_searched(kite_table, settings) == (0.3, 0.4)
+    @test WindShipOpt.margins_searched(bare_table, settings) == (0.1, 0.2)
+end
+
 module PaperRuns
 root = pkgdir(Main.WindShipOpt)
 include(joinpath(root, "scripts", "paper_runs.jl"))

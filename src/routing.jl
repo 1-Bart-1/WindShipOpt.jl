@@ -295,6 +295,8 @@ Base.@kwdef struct RouterSettings
     "how far above the [`CostToGo`](@ref) of the departure the states searched reach, on
     the first try and where that leaves no path [-]; `Inf` searches them all"
     search_margins::NTuple{2, Float64} = (0.12, 0.2)
+    "`search_margins` of a ship that can fly a kite [-]"
+    kite_search_margins::NTuple{2, Float64} = (0.25, 0.5)
 end
 
 "[`RouterSettings`](@ref) in force"
@@ -685,7 +687,7 @@ function fill_knot!(to_go, corridor, table, weather, departure, prices, coastal_
     node_waves = waves(weather, lat, lon, departure + time)
     daylight = is_daylight(lon, departure + time)
     points = SailedPoint[]
-    has_kite = table.table.stowed_thrust !== table.table.flown_thrust
+    kite = has_kite(table)
     best_down, best_up = Inf, Inf
     for step in 1:(2MAX_LATERAL_STEP + 1)
         isnan(corridor.edge_course[stage, lateral, step]) && continue
@@ -699,12 +701,12 @@ function fill_knot!(to_go, corridor, table, weather, departure, prices, coastal_
             isfinite(hours) || continue
             arrival = (; penalty, hours, prices, next, stage=stage + 1, time=time + hours)
             best_down = min(best_down, best_arrival(to_go, table, points, false, arrival))
-            has_kite || continue
+            kite || continue
             best_up = min(best_up, best_arrival(to_go, table, points, true, arrival))
         end
     end
     to_go.values[lateral, knot, 1, stage] = isfinite(best_down) ? best_down : NaN
-    has_kite && (to_go.values[lateral, knot, 2, stage] = isfinite(best_up) ? best_up : NaN)
+    kite && (to_go.values[lateral, knot, 2, stage] = isfinite(best_up) ? best_up : NaN)
 end
 
 """
@@ -749,7 +751,7 @@ Returns `nothing` if no path arrives within 1200 h.
 function route(corridor::Corridor, table::RouteTable, weather, departure; time_cost,
         first_stage=1, first_lateral=centre_index(corridor), first_aloft=false,
         coastal_penalty=1.0)
-    (; time_step, search_margins) = ROUTER_SETTINGS[]
+    (; time_step) = ROUTER_SETTINGS[]
     max_duration = 1200.0
     options = (; time_step, time_cost, first_stage, first_lateral, first_aloft,
         coastal_penalty)
@@ -760,7 +762,7 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
             coastal_penalty)
         estimate = to_go(first_lateral, first_aloft + 1, first_stage, 0.0)
         return searched_leg(workspace, corridor, table, weather, departure, to_go,
-            (1 .+ search_margins) .* estimate; options...)
+            (1 .+ margins_searched(table, ROUTER_SETTINGS[])) .* estimate; options...)
     finally
         release_workspace(workspace)
     end
@@ -768,6 +770,10 @@ end
 
 route(corridor::Corridor, table::PerformanceTable, weather, departure; options...) =
     route(corridor, RouteTable(table), weather, departure; options...)
+
+"The margins of `settings` that the search of a ship with `table` uses [-]"
+margins_searched(table::RouteTable, settings::RouterSettings) =
+    has_kite(table) ? settings.kite_search_margins : settings.search_margins
 
 """
     searched_leg(workspace, corridor, table, weather, departure, to_go, limits; options...)

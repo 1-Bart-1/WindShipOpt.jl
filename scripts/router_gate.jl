@@ -25,7 +25,8 @@ BARE_COST_TOLERANCE = 2e-4
 GATE_HEADER = "ship,rig,route,scale,cost,fuel,days,flight,launches,forced,cargo,seconds"
 
 "router settings of a reference run: every state is searched"
-REFERENCE_SETTINGS = WindShipOpt.RouterSettings(search_margins=(Inf, Inf))
+REFERENCE_SETTINGS = WindShipOpt.RouterSettings(search_margins=(Inf, Inf),
+    kite_search_margins=(Inf, Inf))
 
 """
     gate_cases(scale)
