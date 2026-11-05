@@ -516,16 +516,6 @@ end
 trim_settings(rig::KiteRig) = eachindex(rig.side_weights)
 
 """
-    least_pulling_angle(model, elevation)
-
-Apparent wind angle off the bow [rad] below which the kite of `model` at `elevation` [rad]
-cannot pull the ship forward: sin(angle) = sin(atan(1 / G)) / cos(elevation) for its best
-glide ratio G with bridle, tether and flight drag.
-"""
-least_pulling_angle(model::KiteModel, elevation) = asin(min(1.0,
-    sin(atan(1 / best_over_angles((lift, drag) -> lift / drag, model))) / cos(elevation)))
-
-"""
     CombinedRig{S}
 
 Towing kite flown over a standing rig of wings or rotors, of type `S`; the standing rig

@@ -553,16 +553,19 @@ function class_comparison_figure()
 end
 
 """
+    cheapest_row(table, filters::Pair...)
     cheapest_row(table, class, route, drive, rig)
 
-Row of `table` with the lowest cost of `rig` for one class, route and drive, or `nothing`
-where the rig was not run.
+Row of `table` with the lowest cost among those matching `filters`, column => value, or of
+`rig` for one class, route and drive; `nothing` where none was run.
 """
-function cheapest_row(table, class, route, drive, rig)
-    chosen = rows(table, "class" => class, "route" => route, "drive" => drive,
-        "rig" => rig)
+function cheapest_row(table, filters::Pair...)
+    chosen = rows(table, filters...)
     return isempty(chosen) ? nothing : chosen[argmin(table["cost"][chosen])]
 end
+
+cheapest_row(table, class, route, drive, rig) = cheapest_row(table, "class" => class,
+    "route" => route, "drive" => drive, "rig" => rig)
 
 """
     best_area(table, class, route, drive, rig)

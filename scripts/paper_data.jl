@@ -1117,18 +1117,6 @@ function combination_data()
 end
 
 """
-    cheapest_area(table, route, drive, length, rig)
-
-Area [m^2] of the size of `rig` with the lowest cost in routes.csv `table` for one route,
-drive and ship length, `nothing` where no trip of it is feasible.
-"""
-function cheapest_area(table, route, drive, length, rig)
-    found = rows(table, "route" => route, "drive" => drive, "length" => length,
-        "rig" => rig)
-    return isempty(found) ? nothing : table["area"][found[argmin(table["cost"][found])]]
-end
-
-"""
     traced_legs(ship, name)
 
 Routed round trips of `ship` on route `name` over the sampled departures, as a list of
@@ -1137,18 +1125,15 @@ each leg and its [`LegTrace`](@ref) every 3 h, with hours priced at the ship's t
 function traced_legs(ship, name)
     table = PerformanceTable(ship, assumptions)
     route_table = RouteTable(table)
-    out_hourly, back_hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
-        assumptions)
-    out_corridor, back_corridor = run_corridors(name)
+    hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
     port_hours = 24assumptions[:port_time_per_call]
     legs = []
     for departure in sampled_departures()
-        out = route(out_corridor, route_table, weather, departure; time_cost=out_hourly)
-        isnothing(out) && continue
+        trip = WindShipOpt.route_round_trip(route_table, run_corridors(name)..., weather,
+            departure, port_hours, hourly, Inf)
+        isnothing(trip) && continue
+        out, back = trip
         back_departure = departure + out.duration + port_hours
-        back = route(back_corridor, route_table, weather, back_departure;
-            time_cost=back_hourly)
-        isnothing(back) && continue
         push!(legs, (out, LegTrace(table, out, weather, departure; interval=3.0)))
         push!(legs, (back, LegTrace(table, back, weather, back_departure; interval=3.0)))
     end
@@ -1210,8 +1195,10 @@ function flight_data()
     for route in route_names, drive in study_drives, length in (85.0, 140.0, 200.0),
         rig in ("none", "kite", "wings", "rotors")
 
-        area = cheapest_area(table, string(route), string(drive), length, rig)
-        isnothing(area) || push!(cases, (; route, drive, length, rig, area))
+        best = cheapest_row(table, "route" => string(route), "drive" => string(drive),
+            "length" => length, "rig" => rig)
+        isnothing(best) || push!(cases, (; route, drive, length, rig,
+            area=table["area"][best]))
     end
     results = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
@@ -1228,28 +1215,34 @@ function flight_data()
 end
 
 """
+    mile_cost(ship, knots, hourly, wind_10m, angle, force, wear)
+
+Cost [USD] of a nautical mile at `knots` [kn] by fuel, `wear` and `hourly` time cost
+[USD/h], in a steady wind of `wind_10m` [m/s] from `angle` [rad], with the rig at its best
+trim, or with its force held at `force` where that is not `nothing`.
+"""
+function mile_cost(ship, knots, hourly, wind_10m, angle, force, wear)
+    speed = knots * KNOT
+    thrust, pull = isnothing(force) ?
+                   WindShipOpt.best_trim(ship, ship.rig, speed, wind_10m, angle) :
+                   (WindShipOpt.required_thrust(ship, speed, wind_10m, angle, force), force)
+    isfinite(thrust) || return Inf
+    delivered = delivered_power(ship.propeller, ship.env, speed, thrust) +
+                pull.power * ship.powertrain.transmission_efficiency
+    fuel_cost = fuel_power(ship.powertrain, delivered) * 3600ship.fuel.price
+    return (fuel_cost + hourly + wear) / knots
+end
+
+"""
     economic_speed(ship, hourly, wind_10m, angle; force=nothing,
                    wear=wear_cost(ship.rig, assumptions))
 
-Speed [kn] on a grid of 0.1 kn that sails a nautical mile most cheaply, by fuel, `wear` and
-`hourly` time cost [USD/h], in a steady wind of `wind_10m` [m/s] from `angle` [rad] with the
-rig at its best trim at each speed, or with its force held at `force`.
+Speed [kn] on a grid of 0.1 kn with the least [`mile_cost`](@ref).
 """
 function economic_speed(ship, hourly, wind_10m, angle; force=nothing,
         wear=WindShipOpt.wear_cost(ship.rig, assumptions))
-    price = 3600ship.fuel.price
-    function mile_cost(knots)
-        speed = knots * KNOT
-        thrust, rig = isnothing(force) ?
-                      WindShipOpt.best_trim(ship, ship.rig, speed, wind_10m, angle) :
-                      (WindShipOpt.required_thrust(ship, speed, wind_10m, angle, force),
-            force)
-        isfinite(thrust) || return Inf
-        delivered = delivered_power(ship.propeller, ship.env, speed, thrust) +
-                    rig.power * ship.powertrain.transmission_efficiency
-        return (fuel_power(ship.powertrain, delivered) * price + hourly + wear) / knots
-    end
-    return argmin(mile_cost, 4.0:0.1:(ship.max_speed / KNOT))
+    return argmin(knots -> mile_cost(ship, knots, hourly, wind_10m, angle, force, wear),
+        4.0:0.1:(ship.max_speed / KNOT))
 end
 
 """
@@ -1443,6 +1436,18 @@ kite_without_running_cost = foldl((inputs, key) -> with_value(inputs, key, 0.0),
     init=assumptions)
 
 """
+    fixed_speed_voyage(hull, kite_area, inputs, knots, name)
+
+[`fixed_speed_sums`](@ref) of the VLSFO ship on `hull` with `kite_area` [m^2] of kite under
+`inputs`, its time priced as in the rest of the paper.
+"""
+function fixed_speed_voyage(hull, kite_area, inputs, knots, name)
+    ship = Ship(ShipDesign(:vlsfo, hull; kite_area), inputs)
+    hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
+    return fixed_speed_sums(PerformanceTable(ship, inputs), knots, name, hourly)
+end
+
+"""
     published_voyage_rows(source, ship_name, area, knots, name)
 
 Row of published_terms.csv: fuel [GJ] of the ship at `knots` [kn] on route `name` without a
@@ -1451,12 +1456,9 @@ flight hours of the priced and the free kite; `nothing` if a passage fails.
 """
 function published_voyage_rows(source, ship_name, area, knots, name)
     hull = study_hull(ship_name)
-    sums = map(((0.0, assumptions), (area, assumptions),
-        (area, kite_without_running_cost))) do (kite_area, inputs)
-        ship = Ship(ShipDesign(:vlsfo, hull; kite_area), inputs)
-        hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
-        return fixed_speed_sums(PerformanceTable(ship, inputs), knots, name, hourly)
-    end
+    sums = [fixed_speed_voyage(hull, kite_area, inputs, knots, name)
+            for (kite_area, inputs) in ((0.0, assumptions), (area, assumptions),
+                (area, kite_without_running_cost))]
     any(isnothing, sums) && return nothing
     bare, priced, free = sums
     return (source, ship_name, area, knots, name, bare[1], priced[1], free[1], bare[2],

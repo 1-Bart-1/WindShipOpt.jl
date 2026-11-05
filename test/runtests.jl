@@ -399,10 +399,7 @@ end
     @test maintenance_of(rotors) ≈ 0.01 * ShipCosts(rotors, assumptions).capital
 end
 
-# Worked by hand from the true wind: 10 m/s at 10 m, shear exponent 0.05, 5.4 m/s of ship
-# speed. Wing mid height 20.73 m gives 10.371 m/s; 90 deg gives 5.40 ahead and 10.371 abeam,
-# so 11.692 m/s at 62.49 deg; 45 deg gives 12.733 ahead, 7.333 abeam, 14.694 m/s at
-# 29.94 deg; 180 deg gives 4.971 m/s from dead astern. CL 1, CD 0.17631, 800 m^2, array factor 0.95904.
+# Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
 @testset "wing force follows true wind, shear and ship speed as worked by hand" begin
     env = Environment(assumptions)
     wings = WingRig(800.0, Hull(140.0, assumptions), assumptions)
@@ -416,8 +413,7 @@ end
     @test force(0).thrust < 0 < force(0).side
 end
 
-# Worked by hand: rotor mid height 23.91 m gives 10.446 m/s, so 11.76 m/s at 62.66 deg and
-# 84.7 Pa on 400 m^2. At spin ratio 3 the fit gives CL 9.517, CD 2.634, CP 0.297.
+# Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
 @testset "rotor force and spin power follow the apparent wind as worked by hand" begin
     env = Environment(assumptions)
     rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions)
@@ -428,8 +424,7 @@ end
     @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.NO_RIG_FORCE
 end
 
-# At rest on the edge of the wind window the massless kite sees the full wind, tan(angle off
-# downwind) = G, and T = q A sqrt(CL^2 + CD^2): 70.56 kN x 0.9073 at 12 m/s on 800 m^2.
+# On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
 @testset "massless kite rests where the whole-system glide ratio puts the window edge" begin
     model, _, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     flying = model.polar.lift .> 0
@@ -465,9 +460,7 @@ end
     for area in (800.0, 3200.0)
         rig = Ship(ShipDesign(:methanol, 140.0; kite_area=area), assumptions).rig
         model, _, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
-        limit = WindShipOpt.least_pulling_angle(model, 0.0)
-        @test rad2deg(limit) ≈ atand(1 / WindShipOpt.best_over_angles(/, model))
-        @test WindShipOpt.least_pulling_angle(model, deg2rad(25)) > limit
+        limit = atan(1 / WindShipOpt.best_over_angles(/, model))
         for apparent in deg2rad.(1.0:2.0:(rad2deg(limit) - 2)), wind in (8.0, 12.0, 20.0),
             trim in WindShipOpt.trim_settings(rig)
 
