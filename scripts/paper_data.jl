@@ -870,6 +870,47 @@ function aspect_data()
     end
 end
 
+"force limits of the kite in the force rating study [kN/m^2]"
+study_force_ratings = (0.3, 0.4, 0.5, 0.7, 1.0)
+
+"kite areas of the force rating study over the area of the ship's kite in the other studies"
+study_area_factors = (0.5, sqrt(0.5), 1.0, sqrt(2.0), 2.0)
+
+"""
+    force_rating_cases(bare, route, ship, kite_area)
+
+Cases of one ship in the force rating study: without a rig, and with its kite at each of
+[`study_area_factors`](@ref) and [`study_force_ratings`](@ref), with cloth that follows the
+limit by the base exponent, in proportion, or not at all. At the reference limit those
+three are one kite.
+"""
+function force_rating_cases(bare, route, ship, kite_area)
+    base = assumptions[:canopy_cloth_force_exponent]
+    cases = [trip_case(bare; route, ship, rating=0.0, exponent=base, area=0.0)]
+    for rating in study_force_ratings, factor in study_area_factors, exponent in (base, 0.0, 1.0)
+        rating == assumptions[:canopy_cloth_reference_force] && exponent != base && continue
+        area = factor * kite_area
+        rated = with_value(with_value(assumptions, :kite_max_force_per_area, rating),
+            :canopy_cloth_force_exponent, exponent)
+        design = ShipDesign(; bare.drive, bare.length, bare.class, kite_area=area)
+        push!(cases, trip_case(design; assumptions=rated, route, ship, rating, exponent, area))
+    end
+    return cases
+end
+
+"""
+    force_rating_data()
+
+Each ship of [`sensitivity_ships`](@ref) with the cases of [`force_rating_cases`](@ref):
+force_rating.csv.
+"""
+function force_rating_data()
+    cases = reduce(vcat, [force_rating_cases(bare, route, ship, areas.kite.kite_area)
+                          for (ship, bare, route, areas) in sensitivity_ships()])
+    write_trips("force_rating.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :rating, :exponent, :area)
+end
+
 "input of each rig holding the share of its units' round trips out of service"
 out_of_service_inputs = Dict("kite" => "kite_out_of_service",
     "wings" => "wing_out_of_service", "rotors" => "rotor_out_of_service")

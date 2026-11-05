@@ -543,7 +543,19 @@ canopy_cloth_weight:
   low: 200.0
   high: 200.0
   unit: g/m^2
-  reason: "Weight of the polyester ripstop of the canopy, fixed with the goal canopy_life: under a life that does not depend on it the lightest cloth would always win. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+  reason: "Weight of the polyester ripstop of the canopy at canopy_cloth_reference_force, fixed with the goal canopy_life: under a life that does not depend on it the lightest cloth would always win. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+canopy_cloth_reference_force:
+  value: 0.5
+  low: 0.5
+  high: 0.5
+  unit: kN/m^2
+  reason: "Force limit at which canopy_cloth_weight and the goal canopy_life are stated: the base kite_max_force_per_area."
+canopy_cloth_force_exponent:
+  value: 0.27
+  low: 0.27
+  high: 0.27
+  unit: "-"
+  reason: "Cloth weight grows with the force limit to this power, the fit that holds the 3,800 h of the strength decay in the paper over limits of 0.25 to 2 kN/m^2. Each decay input at its bound gives 0.19 to 0.34. Tension enters the decay only through the logarithm of the margin, so it asks for far less than the exponent 1 of a constant share of strength, the upper bound of the force rating study; 0 is cloth that ignores the limit."
 canopy_life:
   value: 4000.0
   low: 1200.0

@@ -224,7 +224,7 @@ function canopy_tension_figure()
     mean_force = sum(forces .* table["duration"]) / sum(table["duration"])
     peak_force = maximum(forces)
     tension(force) = 1e3force / area * skin_radius
-    strength = cloth_specific_strength * assumptions[:canopy_cloth_weight] / 1e3
+    strength = cloth_specific_strength * WindShipOpt.cloth_weight(assumptions) / 1e3
     figure = Figure(size=(page_width, 210))
     balance = Axis(figure[1, 1]; aspect=DataAspect(), limits=(-3.0, 7.0, -1.8, 2.0),
         title="(a) from tether force to cloth tension")
@@ -1132,6 +1132,46 @@ function aspect_figure()
     end
     axislegend(axis; position=:rb, framevisible=false, labelsize=8.5)
     save(joinpath(figures, "aspect.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    best_force_rating_saving(table, chosen, bare)
+
+Highest saving [%] over the kite areas among the rows `chosen` of force_rating.csv, of a
+ship costing `bare` without a rig.
+"""
+best_force_rating_saving(table, chosen, bare) =
+    maximum(percent_saving(table["cost"][row], bare) for row in chosen)
+
+"""
+    force_rating_figure()
+
+Saving of each study ship at its best kite area against the force limit, with cloth that
+follows the limit by the base exponent, in proportion, or not at all.
+"""
+function force_rating_figure()
+    table = read_table(data_file("force_rating.csv"))
+    figure = Figure(size=(column_width, 210))
+    axis = Axis(figure[1, 1]; xlabel="force limit [kN/m²]", ylabel="cost saving [%]",
+        xticks=collect(study_force_ratings))
+    base = assumptions[:canopy_cloth_force_exponent]
+    reference = assumptions[:canopy_cloth_reference_force]
+    styles = ((base, :solid), (1.0, :dash), (0.0, :dot))
+    for (k, ship) in enumerate(unique(table["ship"]))
+        chosen = rows(table, "ship" => ship)
+        bare = table["cost"][only(filter(row -> table["rating"][row] == 0, chosen))]
+        for (exponent, linestyle) in styles
+            savings = [best_force_rating_saving(table,
+                           filter(row -> table["rating"][row] == rating &&
+                                  table["exponent"][row] ==
+                                  (rating == reference ? base : exponent), chosen), bare)
+                       for rating in study_force_ratings]
+            lines!(axis, collect(study_force_ratings), savings; color=palette[k], linestyle,
+                linewidth=1.3, label=exponent == base ? ship : nothing)
+        end
+    end
+    axislegend(axis; position=:rb, framevisible=false, labelsize=8.5)
+    save(joinpath(figures, "force_rating.pdf"), figure; pt_per_unit=print_scale)
 end
 
 """
