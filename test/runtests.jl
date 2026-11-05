@@ -893,6 +893,15 @@ end
     @test !is_open()
 end
 
+@testset "a round trip at a held speed is stored apart from one that chooses its speed" begin
+    @eval PaperRuns weather_name = "synthetic"
+    PaperRuns.paper_run = PaperRuns.open_run(:draft, [:speed_size], false)
+    case_at(held_knots) = (; design=ShipDesign(:vlsfo, 100.0), assumptions, route=:caribbean,
+        scale=8.0, horizon=Inf, held_knots)
+    @test allunique(PaperRuns.case_path(case_at(held_knots), [24.0])
+                    for held_knots in (nothing, 8.0, 9.0))
+end
+
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
     marker = tempname()
     write(marker, "")
