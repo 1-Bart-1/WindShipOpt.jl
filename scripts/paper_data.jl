@@ -185,12 +185,13 @@ end
     write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
                   side_weight)
 
-Optimise one pattern and write its force and its path.
+Optimise one pattern and write its force and its path; nothing where no pattern flies.
 """
 function write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
         side_weight)
     force, path = best_pattern_cycle(model, max_force, min_elevation, wind, course,
         side_weight)
+    isempty(path) && return
     load = 0.5model.air_density * wind^2 * model.area
     downwind, crosswind, _ = load .* force.force
     thrust = downwind * cosd(course) + crosswind * sind(course)

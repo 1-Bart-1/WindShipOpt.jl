@@ -845,3 +845,25 @@ end
     @test cost + crashes * crash / work ≈ target
     @test WindShipOpt.events_to_cost(target, cost, work, crash) == 0
 end
+
+module PaperData
+using Printf, Statistics, WindShipOpt
+assumptions = Main.assumptions
+include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
+end
+
+"path and force text `PaperData.write_pattern` writes for the base kite in `wind` at `course`"
+function written_pattern(wind, course)
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    min_elevation = deg2rad(assumptions[:kite_min_elevation])
+    paths, forces = IOBuffer(), IOBuffer()
+    PaperData.write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
+        0.0)
+    return String(take!(paths)), String(take!(forces))
+end
+
+@testset "the pattern data has rows only for conditions where a pattern flies" begin
+    @test all(isempty, written_pattern(6.0, 120))
+    paths, forces = written_pattern(12.0, 90)
+    @test !isempty(paths) && !isempty(forces) && !occursin("NaN", paths * forces)
+end
