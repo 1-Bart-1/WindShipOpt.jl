@@ -489,7 +489,8 @@ end
         table = PerformanceTable(Ship(ShipDesign(:vlsfo, class), assumptions), assumptions)
         speed = class.service_speed * KNOT
         @test isfinite(lookup(table, speed, 0.0, 0.0).fuel_power)
-        @test isinf(WindShipOpt.fuel_power(table, speed, 1e-3WindShipOpt.INFEASIBLE_THRUST, 0.0))
+        next_to_infeasible = 1e-3WindShipOpt.INFEASIBLE_THRUST
+        @test isinf(WindShipOpt.fuel_power(table, speed, next_to_infeasible, 0.0))
     end
 end
 
