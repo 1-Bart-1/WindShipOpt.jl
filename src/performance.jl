@@ -474,5 +474,18 @@ function RouteTable(table::PerformanceTable,
     return RouteTable(table, speeds, slices, FuelBound(table, speeds))
 end
 
+"""
+    held_speed_table(table, knots)
+
+[`RouteTable`](@ref) of `table` for a ship holding `knots` [kn] wherever it can, and the
+highest whole knot below that where it cannot, routed with time at
+[`HELD_SPEED_TIME_FACTOR`](@ref) times its cost.
+"""
+held_speed_table(table::PerformanceTable, knots) =
+    RouteTable(table, unique(KNOT .* [4:floor(Int, knots); knots]))
+
+"factor on the cost of time that makes the router take the fastest speed it is offered [-]"
+const HELD_SPEED_TIME_FACTOR = 20
+
 edge_fuels(table::RouteTable, speed_index, condition::SeaCondition) = edge_fuels(
     table.table, table.speeds[speed_index], table.slices[speed_index], condition)

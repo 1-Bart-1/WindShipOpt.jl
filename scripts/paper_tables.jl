@@ -823,3 +823,54 @@ function published_table()
         println(io, "\\bottomrule\n\\end{tabular}")
     end
 end
+
+"""
+    speed_size_saving(table, ship, drive, rig, area, pricing, knots)
+
+Over both routes of speed_size.csv, what `area` [m^2] of `rig` saves at `knots` [kn] against
+the ship without a rig at that speed: fuel [%], fuel [GJ per round trip], cost [%], cost
+[USD per 1000 tonne-km], and the rig's mean share of sea time flown; `nothing` where a
+passage failed.
+"""
+function speed_size_saving(table, ship, drive, rig, area, pricing, knots)
+    case(rig_name, rig_area, rig_pricing) = rows(table, "ship" => ship, "drive" => drive,
+        "knots" => knots, "rig" => rig_name, "area" => rig_area, "pricing" => rig_pricing)
+    rigged, bare = case(rig, area, pricing), case("none", 0.0, "priced")
+    (isempty(rigged) || length(rigged) != length(bare)) && return nothing
+    fuel_saved = mean(table["fuel"][bare] .- table["fuel"][rigged])
+    cost_saved = mean(table["cost"][bare] .- table["cost"][rigged])
+    return (fuel_percent=100fuel_saved / mean(table["fuel"][bare]), fuel=fuel_saved,
+        cost_percent=100cost_saved / mean(table["cost"][bare]), cost=1e3cost_saved,
+        flight=100mean(table["flight_share"][rigged]))
+end
+
+"""
+    speed_size_table()
+
+Kite savings by held ship speed and kite size, in relative and absolute terms, free of the
+kite's running cost and priced: speed_size_table.tex.
+"""
+function speed_size_table()
+    table = read_table(data_file("speed_size.csv"))
+    open(joinpath(sections, "speed_size_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lrrrrrrr@{}}\n\\toprule")
+        println(io, "Ship & Speed & Kite & \\multicolumn{2}{c}{Fuel saved, free} & ",
+            "\\multicolumn{2}{c}{Cost saved, priced} & Flown \\\\")
+        println(io, "\\cmidrule(lr){4-5}\\cmidrule(lr){6-7}")
+        println(io, " & [kn] & [\\si{m^2}] & [\\%] & [GJ/trip] & [\\%] & [USD/kt\\,km] & ",
+            "[\\%] \\\\")
+        println(io, "\\midrule")
+        for grid in speed_size_grid, knots in grid.speeds, area in grid.kites
+            free = speed_size_saving(table, grid.ship, "vlsfo", "kite", area, "free", knots)
+            priced = speed_size_saving(table, grid.ship, "vlsfo", "kite", area, "priced",
+                knots)
+            (isnothing(free) || isnothing(priced)) && continue
+            println(io, join((grid.ship, @sprintf("%.0f", knots), @sprintf("%.0f", area),
+                    @sprintf("%.1f", free.fuel_percent), @sprintf("%.0f", free.fuel),
+                    @sprintf("%.1f", priced.cost_percent), @sprintf("%.2f", priced.cost),
+                    @sprintf("%.0f", free.flight)), " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+

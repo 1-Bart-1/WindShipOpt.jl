@@ -852,6 +852,21 @@ WindShipOpt.waves(seas::HeadSeas, lat, lon, time) =
     @test isnothing(route(corridor, table, storm, 0.0; time_cost=hourly))
 end
 
+@testset "a round trip at a held speed takes that speed's time and is costed as usual" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    distance = sum(corridor.track_length for corridor in corridors)
+    ship = Ship(ShipDesign(:methanol, 85.0), assumptions)
+    held = [round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
+                assumptions; held_knots=knots) for knots in (6.0, 8.0)]
+    hours = [24 * (trip.outbound_days + trip.return_days) for trip in held]
+    @test first(hours) / last(hours) ≈ 8 / 6 rtol = 0.01
+    @test last(hours) ≈ distance / (8KNOT) / 3600 rtol = 0.05
+    @test first(held).fuel_energy < last(held).fuel_energy
+    chosen = round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
+        assumptions)
+    @test chosen.cost_per_tonne_km <= minimum(trip.cost_per_tonne_km for trip in held)
+end
+
 module PaperRuns
 root = pkgdir(Main.WindShipOpt)
 include(joinpath(root, "scripts", "paper_runs.jl"))

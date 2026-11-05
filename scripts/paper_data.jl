@@ -1323,13 +1323,13 @@ end
 """
     fixed_speed_sums(table, knots, name, hourly)
 
-[`speed_term_sums`](@ref) of a ship that holds `knots` [kn] wherever it can on the fastest
-track, and the highest whole knot below that it can hold where it cannot: time at twenty
-times the `hourly` cost [USD/h] of each leg on the [`PerformanceTable`](@ref) `table`.
+[`speed_term_sums`](@ref) of a ship that holds `knots` [kn] by
+[`held_speed_table`](@ref WindShipOpt.held_speed_table) on the fastest track, with `hourly`
+the cost [USD/h] of each leg on the [`PerformanceTable`](@ref) `table`.
 """
 fixed_speed_sums(table, knots, name, hourly) = speed_term_sums(
-    RouteTable(table, unique(KNOT .* [4:floor(Int, knots); knots])), name, 20 .* hourly,
-    nothing)
+    WindShipOpt.held_speed_table(table, knots), name,
+    WindShipOpt.HELD_SPEED_TIME_FACTOR .* hourly, nothing)
 
 """
     speed_term_sums(table, name, hourly, durations)
@@ -1489,6 +1489,80 @@ function published_terms_data()
             force = rig_force(ship.rig, ship.env, wind, deg2rad(angle), knots * KNOT, 1)
             println(io, join((source, area, knots, angle, wind, force.thrust / 1e3,
                     force.side / 1e3), ","))
+        end
+    end
+end
+
+"""
+Ships, speeds and sizes of [`speed_size_data`](@ref): the ship, its drives, the speeds [kn]
+it holds, the kite areas [m^2], and the wing and rotor areas [m^2].
+"""
+speed_size_grid = [
+    (ship="140 m", drives=(:vlsfo, :methanol), speeds=(8.0, 9.0, 10.0, 11.0),
+        kites=(400.0, 800.0, 1600.0, 3200.0, 6400.0),
+        wings=(750.0, 1500.0), rotors=(400.0, 800.0)),
+    (ship="feeder container ship", drives=(:vlsfo,), speeds=(13.0, 16.0, 19.0),
+        kites=(800.0, 1600.0, 3200.0, 6400.0, 12800.0),
+        wings=(), rotors=())]
+
+"""
+    speed_size_cases()
+
+Cases of [`speed_size_data`](@ref): every ship, drive, route, rig size and speed of
+[`speed_size_grid`](@ref), with speed set by cost as `knots` of 0, priced as in the rest of
+the paper, and at held speeds the kite also free of its running cost.
+"""
+function speed_size_cases()
+    cases = NamedTuple[]
+    for grid in speed_size_grid, drive in grid.drives, route in (:caribbean, :new_york),
+        knots in (0.0, grid.speeds...)
+
+        base = (; ship=grid.ship, drive, route, knots)
+        push!(cases, (; base..., rig="none", area=0.0, pricing="priced"))
+        for area in grid.kites, pricing in (knots > 0 ? ("priced", "free") : ("priced",))
+            push!(cases, (; base..., rig="kite", area, pricing))
+        end
+        for (rig, areas) in (("wings", grid.wings), ("rotors", grid.rotors)), area in areas
+            push!(cases, (; base..., rig, area, pricing="priced"))
+        end
+    end
+    return cases
+end
+
+"""
+    speed_size_trip(case)
+
+[`round_trip`](@ref) of one of the [`speed_size_cases`](@ref); `nothing` if a passage fails.
+"""
+function speed_size_trip(case)
+    inputs = case.pricing == "free" ? kite_without_running_cost : assumptions
+    design = ShipDesign(case.drive, study_hull(case.ship); rig_size(case.rig, case.area)...)
+    return round_trip(Ship(design, inputs), run_corridors(case.route)..., weather,
+        sampled_departures(), inputs; held_knots=case.knots > 0 ? case.knots : nothing)
+end
+
+"""
+    speed_size_data()
+
+Fuel energy, cost, time and kite flight of round trips over ship speed and rig size on the
+same terms, without a rig and with it: speed_size.csv.
+"""
+function speed_size_data()
+    cases = speed_size_cases()
+    trips = Vector{Any}(undef, length(cases))
+    Threads.@threads :greedy for k in eachindex(cases)
+        trips[k] = speed_size_trip(cases[k])
+    end
+    open(run_file("speed_size.csv"), "w") do io
+        println(io, "ship,drive,route,knots,rig,area,pricing,fuel,cost,tonne_km,days,",
+            "flight_share,launches,cargo")
+        for (case, trip) in zip(cases, trips)
+            isnothing(trip) && continue
+            println(io, join((case.ship, case.drive, case.route, case.knots, case.rig,
+                    case.area, case.pricing, trip.fuel_energy, trip.cost_per_tonne_km,
+                    1e3trip.fuel_energy / trip.fuel_per_tonne_km,
+                    trip.outbound_days + trip.return_days, trip.flight_share, trip.launches,
+                    trip.cargo), ","))
         end
     end
 end

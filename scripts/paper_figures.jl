@@ -1440,3 +1440,38 @@ function print_combination(ship, drive, savings, gains)
     println(isempty(kept) ? "no route where both single rigs save" :
             @sprintf("keeps %.0f %% of the summed savings", 100mean(kept)))
 end
+
+"""
+    speed_size_figure()
+
+Fuel saved by a kite free of running cost, in relative and absolute terms, and cost saved by
+the priced kite, against held ship speed at each kite size, on the 140 m and the feeder ship
+on VLSFO: speed_size.pdf.
+"""
+function speed_size_figure()
+    table = read_table(data_file("speed_size.csv"))
+    figure = Figure(size=(page_width, 400))
+    panels = (("fuel saved [%]", "free", :fuel_percent),
+        ("fuel saved [GJ/round trip]", "free", :fuel),
+        ("cost saved [USD/kt km]", "priced", :cost))
+    for (row, grid) in enumerate(speed_size_grid)
+        shades = cgrad(:Blues, length(grid.kites) + 2; categorical=true)
+        for (column, (label, pricing, quantity)) in enumerate(panels)
+            title = "($(Char('a' + 3(row - 1) + column - 1))) $(grid.ship)"
+            axis = Axis(figure[row, column]; title, xlabel="ship speed [kn]", ylabel=label,
+                xticks=collect(grid.speeds))
+            for (k, area) in enumerate(grid.kites)
+                savings = [speed_size_saving(table, grid.ship, "vlsfo", "kite", area,
+                               pricing, knots) for knots in grid.speeds]
+                held = findall(!isnothing, savings)
+                scatterlines!(axis, collect(grid.speeds)[held],
+                    [getproperty(savings[i], quantity) for i in held]; color=shades[k + 2],
+                    markercolor=shades[k + 2], linewidth=2, markersize=8,
+                    label=string(round(Int, area), " m²"))
+            end
+            column == 3 && Legend(figure[row, 4], axis; framevisible=false, labelsize=9)
+        end
+    end
+    save(joinpath(figures, "speed_size.pdf"), figure; pt_per_unit=print_scale)
+end
+
