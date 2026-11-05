@@ -1156,18 +1156,19 @@ function force_rating_figure()
         xticks=collect(study_force_ratings))
     base = assumptions[:canopy_cloth_force_exponent]
     reference = assumptions[:canopy_cloth_reference_force]
-    styles = ((base, :solid), (1.0, :dash), (0.0, :dot))
     for (k, ship) in enumerate(unique(table["ship"]))
         chosen = rows(table, "ship" => ship)
         bare = table["cost"][only(filter(row -> table["rating"][row] == 0, chosen))]
-        for (exponent, linestyle) in styles
+        for (exponent, linestyle) in ((base, :solid), (1.0, :dash), (0.0, :dot))
+            ratings = exponent == base ? collect(study_force_ratings) :
+                      sort([extrema(study_force_ratings)..., reference])
             savings = [best_force_rating_saving(table,
                            filter(row -> table["rating"][row] == rating &&
                                   table["exponent"][row] ==
                                   (rating == reference ? base : exponent), chosen), bare)
-                       for rating in study_force_ratings]
-            lines!(axis, collect(study_force_ratings), savings; color=palette[k], linestyle,
-                linewidth=1.3, label=exponent == base ? ship : nothing)
+                       for rating in ratings]
+            lines!(axis, ratings, savings; color=palette[k], linestyle, linewidth=1.3,
+                label=exponent == base ? ship : nothing)
         end
     end
     axislegend(axis; position=:rb, framevisible=false, labelsize=8.5)

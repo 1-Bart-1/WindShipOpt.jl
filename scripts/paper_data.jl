@@ -871,31 +871,43 @@ function aspect_data()
 end
 
 "force limits of the kite in the force rating study [kN/m^2]"
-study_force_ratings = (0.3, 0.4, 0.5, 0.7, 1.0)
+study_force_ratings = (0.3, 0.5, 0.7, 1.0)
 
-"kite areas of the force rating study over the area of the ship's kite in the other studies"
-study_area_factors = (0.5, sqrt(0.5), 1.0, sqrt(2.0), 2.0)
+"kite areas of the force rating study [m^2], one grid so that the ships share pattern tables"
+study_kite_areas = [1600.0 * sqrt(2.0)^k for k in 0:6]
+
+"""
+    nearby_kite_areas(kite_area, reach)
+
+Those of [`study_kite_areas`](@ref) within `reach` grid steps of the one nearest `kite_area`.
+"""
+function nearby_kite_areas(kite_area, reach)
+    nearest = argmin(abs.(log.(study_kite_areas ./ kite_area)))
+    return study_kite_areas[max(1, nearest - reach):min(end, nearest + reach)]
+end
 
 """
     force_rating_cases(bare, route, ship, kite_area)
 
-Cases of one ship in the force rating study: without a rig, and with its kite at each of
-[`study_area_factors`](@ref) and [`study_force_ratings`](@ref), with cloth that follows the
-limit by the base exponent, in proportion, or not at all. At the reference limit those
-three are one kite.
+Cases of one ship in the force rating study: without a rig; with its kite at each of
+[`study_force_ratings`](@ref) and two area steps around `kite_area`; and at the lowest and
+highest limit and one area step with cloth that follows the limit in proportion or not at
+all.
 """
 function force_rating_cases(bare, route, ship, kite_area)
     base = assumptions[:canopy_cloth_force_exponent]
-    cases = [trip_case(bare; route, ship, rating=0.0, exponent=base, area=0.0)]
-    for rating in study_force_ratings, factor in study_area_factors, exponent in (base, 0.0, 1.0)
-        rating == assumptions[:canopy_cloth_reference_force] && exponent != base && continue
-        area = factor * kite_area
+    function kite_case(rating, exponent, area)
         rated = with_value(with_value(assumptions, :kite_max_force_per_area, rating),
             :canopy_cloth_force_exponent, exponent)
         design = ShipDesign(; bare.drive, bare.length, bare.class, kite_area=area)
-        push!(cases, trip_case(design; assumptions=rated, route, ship, rating, exponent, area))
+        return trip_case(design; assumptions=rated, route, ship, rating, exponent, area)
     end
-    return cases
+    return [trip_case(bare; route, ship, rating=0.0, exponent=base, area=0.0);
+            vec([kite_case(rating, base, area)
+                 for rating in study_force_ratings, area in nearby_kite_areas(kite_area, 2)]);
+            vec([kite_case(rating, exponent, area)
+                 for rating in extrema(study_force_ratings), exponent in (0.0, 1.0),
+                 area in nearby_kite_areas(kite_area, 1)])]
 end
 
 """
