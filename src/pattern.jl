@@ -120,20 +120,17 @@ function steering_residual(kite::KiteAero, wind, radial, heading, turn, tether_l
     return residual, tension, ground
 end
 
-"highest airspeed [m/s] the steering search tries"
-const MAX_STEERING_AIRSPEED = 1e3
-
 """
     flying_airspeed(residual)
 
 Lowest airspeed [m/s] on a rising scan where `residual` says the kite makes more lift than
-its balance needs, or `nothing` where it never does: a heavy kite makes too little at rest
+its balance needs, or `nothing` where it never does: a heavy wing makes too little at rest
 and flies only once it is moving fast enough.
 """
 function flying_airspeed(residual)
     first(residual(1e-3)) < 0 && return 1e-3
     speed = 1.0
-    while speed < MAX_STEERING_AIRSPEED
+    while speed < 400
         first(residual(speed)) < 0 && return speed
         speed *= 1.25
     end
@@ -153,11 +150,11 @@ function steering_point(kite::KiteAero, wind, radial, heading, turn, tether_leng
         airspeed)
     low = flying_airspeed(residual)
     isnothing(low) && return nothing
-    high = max(1.0, 2low)
+    high = 2low
     point = residual(high)
     while first(point) < 0
         high *= 2
-        high > MAX_STEERING_AIRSPEED && return nothing
+        high > 1e3 && return nothing
         point = residual(high)
     end
     for _ in 1:25

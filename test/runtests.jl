@@ -251,15 +251,17 @@ end
     @test !isnothing(point) && point[1] > wind
 end
 
-@testset "a pattern below the minimum flight wind gives the ship no force" begin
+@testset "a kite gives force only between table rows that both hold a pattern" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
+    rig.forces[1, :, :] .= Ref(WindShipOpt.NO_PATTERN)
     env = Environment(assumptions)
     trim = first(WindShipOpt.trim_settings(rig))
     force_at(speed) = WindShipOpt.rig_force(rig, env,
         speed / WindShipOpt.wind_at_height(env, 1.0, rig.reference_height), π / 2, 0.0,
         trim)
     @test force_at(3.9) === WindShipOpt.NO_RIG_FORCE
-    @test force_at(4.1).thrust != 0
+    @test force_at(5.9) === WindShipOpt.NO_RIG_FORCE
+    @test force_at(6.1).thrust != 0
 end
 
 @testset "no pattern gives force under the launch wind" begin
