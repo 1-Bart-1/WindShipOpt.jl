@@ -893,7 +893,7 @@ end
     @test !is_open()
 end
 
-@testset "a round trip at a held speed is stored apart from one that chooses its speed" begin
+@testset "a round trip at a held speed is stored apart from a chosen-speed one" begin
     @eval PaperRuns weather_name = "synthetic"
     PaperRuns.paper_run = PaperRuns.open_run(:draft, [:speed_size], false)
     case_at(held_knots) = (; design=ShipDesign(:vlsfo, 100.0), assumptions, route=:caribbean,
