@@ -463,12 +463,13 @@ struct RouteTable{T <: PerformanceTable}
 end
 
 """
-    RouteTable(table)
+    RouteTable(table, speeds)
 
-[`RouteTable`](@ref) of `table` at whole knots from 4 up to the ship's maximum speed.
+[`RouteTable`](@ref) of `table` at whole knots from 4 up to the ship's maximum speed, or at
+the given `speeds` [m/s], ascending.
 """
-function RouteTable(table::PerformanceTable)
-    speeds = collect(Float64, (4:max_knots(table)) .* KNOT)
+function RouteTable(table::PerformanceTable,
+        speeds=collect(Float64, (4:max_knots(table)) .* KNOT))
     slices = [SpeedSlice(table, KnotWeight(table.speeds, speed)) for speed in speeds]
     return RouteTable(table, speeds, slices, FuelBound(table, speeds))
 end

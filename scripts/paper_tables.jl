@@ -642,3 +642,101 @@ function payback_years(table, class, drive, route, rig)
     years = -log(1 - rate * price / saving) / log(1 + rate)
     return years <= lifetime ? years : Inf
 end
+
+"true wind angle bands of flight.csv as the table of where the rigs work names them"
+flight_bands = [(0, "0--30"), (30, "30--60"), (60, "60--90"), (90, "90--120"),
+    (120, "120--150"), (150, "150--180")]
+
+"""
+    flight_table()
+
+Where the kite works over the study of routes.csv, by band of true wind angle, with the time
+of the ship without a rig, the time the kite could pull, the time it flies, its thrust, its
+speed against the bare ship's and the lowest apparent wind angle at which each rig pulls:
+flight_table.tex.
+"""
+function flight_table()
+    table = read_table(data_file("flight.csv"))
+    open(joinpath(sections, "flight_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lrrrrrrrr@{}}\n\\toprule")
+        println(io, "True wind & Time & Could & Flown & Thrust & \\multicolumn{2}{c}{Speed [kn]}",
+            " & \\multicolumn{2}{c}{Lowest AWA [\\si{\\degree}]} \\\\")
+        println(io, "\\cmidrule(lr){6-7}\\cmidrule(lr){8-9}")
+        println(io, "angle [\\si{\\degree}] & [\\%] & [\\%] & [\\%] & [kN] & no rig & kite & ",
+            "wings & rotors \\\\\n\\midrule")
+        foreach(band -> write_flight_row(io, table, band), flight_bands)
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
+    write_flight_row(io, table, band)
+
+One row of [`flight_table`](@ref) for `band`, a pair of the lower angle and its label.
+"""
+function write_flight_row(io, table, (angle, label))
+    kite = rows(table, "rig" => "kite", "angle" => angle)
+    bare = rows(table, "rig" => "none", "angle" => angle)
+    kite_hours = sum(table["hours"][kite])
+    flown = sum(table["flying"][kite])
+    lowest(rig) = minimum(table["lowest_angle"][rows(table, "rig" => rig, "angle" => angle)])
+    cells = (@sprintf("%.0f", 100sum(table["hours"][kite]) /
+                              sum(table["hours"][rows(table, "rig" => "kite")])),
+        @sprintf("%.0f", 100sum(table["available"][kite]) / kite_hours),
+        @sprintf("%.0f", 100flown / kite_hours),
+        @sprintf("%.0f", sum(table["thrust_hours"][kite]) / flown),
+        @sprintf("%.1f", sum(table["distance"][bare]) / sum(table["hours"][bare])),
+        @sprintf("%.1f", sum(table["distance"][kite]) / kite_hours),
+        @sprintf("%.0f", lowest("wings")), @sprintf("%.0f", lowest("rotors")))
+    println(io, label, " & ", join(cells, " & "), " \\\\")
+end
+
+"""
+    speed_terms_table()
+
+Fuel saving and change in time of the reference rigs on the 140 m ship on the terms of the
+literature and on ours, against the ship without a rig on the same terms and drive, mean over
+the routes of speed_terms.csv: speed_terms_table.tex.
+"""
+function speed_terms_table()
+    table = read_table(data_file("speed_terms.csv"))
+    labels = [("8kn", "\\SI{8}{kn}, fixed"), ("9kn", "\\SI{9}{kn}, fixed"),
+        ("10kn", "\\SI{10}{kn}, fixed"), ("same_time", "same time as no rig"),
+        ("cost", "speed set by cost")]
+    open(joinpath(sections, "speed_terms_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule")
+        println(io, " & & \\multicolumn{3}{c}{Fuel saved [\\%]} & ",
+            "\\multicolumn{3}{c}{Time saved [\\%]} \\\\")
+        println(io, "\\cmidrule(lr){3-5}\\cmidrule(lr){6-8}")
+        println(io, "Drive & Terms & kite & wings & rotors & kite & wings & rotors \\\\")
+        println(io, "\\midrule")
+        for (drive, drive_label) in drive_labels[1:2], (terms, label) in labels
+            cells = vcat(speed_term_cells(table, drive, terms, "fuel"),
+                speed_term_cells(table, drive, terms, "hours"))
+            println(io, drive_label, " & ", label, " & ", join(cells, " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
+    speed_term_cells(table, drive, terms, column)
+
+Saving [%] in `column` of each rig on `terms` against the ship without a rig, which on the
+same-time terms is the one routed for cost; `--` where a passage failed.
+"""
+function speed_term_cells(table, drive, terms, column)
+    bare_terms = terms == "same_time" ? "cost" : terms
+    return map(("kite", "wings", "rotors")) do rig
+        savings = Float64[]
+        for route in unique(table["route"])
+            bare = rows(table, "route" => route, "drive" => drive, "rig" => "none",
+                "terms" => bare_terms)
+            rigged = rows(table, "route" => route, "drive" => drive, "rig" => rig,
+                "terms" => terms)
+            (isempty(bare) || isempty(rigged)) && continue
+            push!(savings, 100(1 - table[column][only(rigged)] / table[column][only(bare)]))
+        end
+        return isempty(savings) ? "--" : @sprintf("%.1f", mean(savings))
+    end
+end

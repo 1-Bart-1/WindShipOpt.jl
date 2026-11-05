@@ -151,7 +151,7 @@ Wing force at the trim `setting`, a lift and drag coefficient pair from
 function rig_force(rig::WingRig, env::Environment, wind_10m, true_angle, ship_speed,
         setting)
     lift, drag = setting
-    centre_height = rig.foot_height + rig.height / 2
+    centre_height = rig_height(rig)
     wind = wind_at_height(env, wind_10m, centre_height)
     speed, angle = apparent_wind(wind, true_angle, ship_speed)
     load = 0.5env.air_density * speed^2 * total_area(rig)
@@ -251,7 +251,7 @@ no force where the rotors cannot spin that fast.
 """
 function rig_force(rig::RotorRig, env::Environment, wind_10m, true_angle, ship_speed,
         spin_ratio)
-    centre_height = rig.foot_height + rig.height / 2
+    centre_height = rig_height(rig)
     wind = wind_at_height(env, wind_10m, centre_height)
     speed, angle = apparent_wind(wind, true_angle, ship_speed)
     spin_ratio * speed <= rig.max_surface_speed || return NO_RIG_FORCE
@@ -516,6 +516,16 @@ end
 trim_settings(rig::KiteRig) = eachindex(rig.side_weights)
 
 """
+    least_pulling_angle(model, elevation)
+
+Apparent wind angle off the bow [rad] below which the kite of `model` at `elevation` [rad]
+cannot pull the ship forward: sin(angle) = sin(atan(1 / G)) / cos(elevation) for its best
+glide ratio G with bridle, tether and flight drag.
+"""
+least_pulling_angle(model::KiteModel, elevation) = asin(min(1.0,
+    sin(atan(1 / best_over_angles((lift, drag) -> lift / drag, model))) / cos(elevation)))
+
+"""
     CombinedRig{S}
 
 Towing kite flown over a standing rig of wings or rotors, of type `S`; the standing rig
@@ -615,3 +625,14 @@ function rig_force(down::DownRig, env::Environment, wind_10m, true_angle, ship_s
 end
 
 standing_rig(down::DownRig) = down
+
+"""
+    rig_height(rig)
+
+Height [m] at which `rig` takes its apparent wind, 10 m without a rig.
+"""
+rig_height(rig::Union{WingRig, RotorRig}) = rig.foot_height + rig.height / 2
+rig_height(rig::KiteRig) = rig.reference_height
+rig_height(rig::CombinedRig) = rig_height(rig.kite)
+rig_height(down::DownRig) = rig_height(down.rig)
+rig_height(::Nothing) = 10.0
