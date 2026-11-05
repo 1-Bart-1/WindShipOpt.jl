@@ -858,3 +858,5 @@ end
     @test is_marked(:final, [:capital])
     @test !is_marked(:final, [:designs, :capital, :premium])
 end
+
+include("hot_path_checks.jl")
