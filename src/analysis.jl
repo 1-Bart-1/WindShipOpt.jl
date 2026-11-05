@@ -90,6 +90,15 @@ function share_at_cost(shares, costs, cost)
 end
 
 """
+    price_at_cost(prices, costs, cost)
+
+Price at which the rising `costs` over ascending `prices` reach `cost`, linearly between the
+points; `NaN` if within none of `prices`.
+"""
+price_at_cost(prices, costs, cost) =
+    costs[1] < cost ? share_at_cost(prices, costs, cost) : NaN
+
+"""
     ranked_neighbours(costs)
 
 The rigs of the dictionary `costs`, cheapest first, each with the cost of the rig ahead and
