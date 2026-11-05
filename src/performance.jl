@@ -116,16 +116,21 @@ struct PerformanceTable{S}
     kite_wind_factor::Float64
 end
 
+"lowest speed of a [`PerformanceTable`](@ref) [m/s]"
+const LOWEST_TABLE_SPEED = 1.5
+
 "thrust stored for infeasible conditions, far above what any engine delivers [N]"
 const INFEASIBLE_THRUST = 1e12
 
 """
     PerformanceTable(ship, assumptions)
 
-Tabulate the thrust of `ship`.
+Tabulate the thrust of `ship`, at the speeds `ROUTER_SETTINGS` asks of a table between
+`LOWEST_TABLE_SPEED` and the ship's top speed.
 """
 function PerformanceTable(ship::Ship, assumptions::Assumptions)
-    speeds = collect(Float64, range(1.5, ship.max_speed; step=0.25))
+    speeds = collect(range(LOWEST_TABLE_SPEED, ship.max_speed;
+        length=ROUTER_SETTINGS[].table_speeds))
     winds = collect(Float64, 0:1.0:30)
     angles = deg2rad.(collect(Float64, 0:7.5:180))
     periods = collect(Float64, 3:1.0:18)
@@ -369,8 +374,6 @@ function fuel_power(table::PerformanceTable, speed, thrust, rig_power)
         delivered + rig_power * ship.powertrain.transmission_efficiency)
 end
 
-max_knots(table::PerformanceTable) = floor(Int, last(table.speeds) / KNOT)
-
 """
     RouteTable
 
@@ -384,16 +387,21 @@ struct RouteTable{T <: PerformanceTable}
     slices::Vector{SpeedSlice}
 end
 
+"lowest routing speed of any ship, at which it still holds its course in a storm [kn]"
+const LOWEST_ROUTING_KNOTS = 4.0
+
 "Whether the ship of `table` can fly a kite"
 has_kite(table::RouteTable) = table.table.stowed_thrust !== table.table.flown_thrust
 
 """
     RouteTable(table)
 
-[`RouteTable`](@ref) of `table` at whole knots from 4 up to the ship's maximum speed.
+[`RouteTable`](@ref) of `table` at the routing speeds `ROUTER_SETTINGS` asks for, equally
+spaced from `LOWEST_ROUTING_KNOTS` up to the ship's top speed.
 """
 function RouteTable(table::PerformanceTable)
-    speeds = collect(Float64, (4:max_knots(table)) .* KNOT)
+    speeds = collect(range(LOWEST_ROUTING_KNOTS * KNOT, last(table.speeds);
+        length=ROUTER_SETTINGS[].routing_speeds))
     slices = [SpeedSlice(table, KnotWeight(table.speeds, speed)) for speed in speeds]
     return RouteTable(table, speeds, slices)
 end

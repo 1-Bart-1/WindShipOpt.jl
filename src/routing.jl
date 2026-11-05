@@ -241,6 +241,11 @@ Base.@kwdef struct RouterSettings
     search_margins::NTuple{2, Float64} = (0.12, 0.2)
     "`search_margins` of a ship that can fly a kite [-]"
     kite_search_margins::NTuple{2, Float64} = (0.25, 0.5)
+    "commanded speeds of every ship, whatever its top speed; odd, so that a
+    [`CostToGo`](@ref) keeps the top speed"
+    routing_speeds::Int = 13
+    "speeds of the [`PerformanceTable`](@ref) of every ship, whatever its top speed"
+    table_speeds::Int = 33
 end
 
 "[`RouterSettings`](@ref) in force"
