@@ -895,7 +895,8 @@ end
 
 @testset "a round trip at a held speed is stored apart from a chosen-speed one" begin
     @eval PaperRuns weather_name = "synthetic"
-    PaperRuns.paper_run = PaperRuns.open_run(:draft, [:speed_size], false)
+    PaperRuns.paper_run = PaperRuns.PaperRun(mktempdir(), :draft,
+        Dict{String, Any}("code_hash" => "held"), 0, 0)
     case_at(held_knots) = (; design=ShipDesign(:vlsfo, 100.0), assumptions,
         route=:caribbean, scale=8.0, horizon=Inf, held_knots)
     @test allunique(PaperRuns.case_path(case_at(held_knots), [24.0])
