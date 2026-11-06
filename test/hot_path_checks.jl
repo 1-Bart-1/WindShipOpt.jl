@@ -47,14 +47,15 @@ end
 """
     is_dynamic(code, callee)
 
-Whether the callee of a `:call` statement of `code` is anything but a builtin, which is
-what the optimiser leaves of a call it could not resolve.
+Whether the callee of a `:call` statement of `code` is anything but a builtin, or is the
+builtin applying a splatted call: what the optimiser leaves of a call it could not resolve.
 """
 function is_dynamic(code, callee)
     callee isa Core.SSAValue && (callee = code.ssavaluetypes[callee.id])
     callee isa Core.Const && (callee = callee.val)
     callee isa GlobalRef && (callee = isdefined(callee.mod, callee.name) ?
                                       getglobal(callee.mod, callee.name) : Any)
+    callee === Core._apply_iterate && return true
     return !(callee isa Core.Builtin || callee isa Core.IntrinsicFunction)
 end
 
@@ -141,9 +142,12 @@ coarse_corridor = first(route_corridors(:caribbean, north_atlantic_mask(); scale
     calls_unstable(box) = 2 * hidden(box)
     @noinline barrier(x) = x + 1
     stable(x) = 2 * barrier(x)
+    splatted(values) = barrier(values...)
     @test !isempty(dynamic_calls(unstable, (Base.RefValue{Any},)))
     @test !isempty(dynamic_calls(calls_unstable, (Base.RefValue{Any},)))
+    @test !isempty(dynamic_calls(splatted, (Vector{Int},)))
     @test isempty(dynamic_calls(stable, (Int,)))
+    @test isempty(dynamic_calls(splatted, (Tuple{Int},)))
 end
 
 @testset "the allocation check counts allocations and not the compiling of the call" begin

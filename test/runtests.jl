@@ -893,6 +893,12 @@ end
         @test route_table.speeds ⊆ table.speeds
         @test first(table.speeds) >= WindShipOpt.LOWEST_TABLE_SPEED
     end
+    coarser = WindShipOpt.with_router_settings(WindShipOpt.RouterSettings(
+        routing_speeds=25, search_speed_stride=2)) do
+        PerformanceTable(Ship(first(designs), assumptions), assumptions)
+    end
+    @test first(RouteTable(coarser).speeds) ≈ 4KNOT
+    @test length(RouteTable(coarser).speeds) == 25
     stride = WindShipOpt.COST_TO_GO_SPEED_STRIDE * search_speed_stride
     @test mod(routing_speeds - 1, stride) == 0
 end

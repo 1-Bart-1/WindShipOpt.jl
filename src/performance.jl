@@ -409,11 +409,11 @@ has_kite(table::RouteTable) = table.table.stowed_thrust !== table.table.flown_th
 """
     RouteTable(table)
 
-[`RouteTable`](@ref) of `table` at the last `routing_speeds` of `ROUTER_SETTINGS` of its
-speeds.
+[`RouteTable`](@ref) of `table` at its speeds from `LOWEST_ROUTING_KNOTS` up.
 """
 function RouteTable(table::PerformanceTable)
-    speeds = table.speeds[(end - ROUTER_SETTINGS[].routing_speeds + 1):end]
+    half_step = (table.speeds[end] - table.speeds[end - 1]) / 2
+    speeds = filter(>(LOWEST_ROUTING_KNOTS * KNOT - half_step), table.speeds)
     slices = [SpeedSlice(table, KnotWeight(table.speeds, speed)) for speed in speeds]
     return RouteTable(table, speeds, slices)
 end
