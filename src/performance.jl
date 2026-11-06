@@ -390,15 +390,29 @@ end
 has_kite(table::RouteTable) = table.table.stowed_thrust !== table.table.flown_thrust
 
 """
-    RouteTable(table)
+    RouteTable(table, speeds)
 
-[`RouteTable`](@ref) of `table` at whole knots from 4 up to the ship's maximum speed.
+[`RouteTable`](@ref) of `table` at whole knots from 4 up to the ship's maximum speed, or at
+the given `speeds` [m/s], ascending.
 """
-function RouteTable(table::PerformanceTable)
-    speeds = collect(Float64, (4:max_knots(table)) .* KNOT)
+function RouteTable(table::PerformanceTable,
+        speeds=collect(Float64, (4:max_knots(table)) .* KNOT))
     slices = [SpeedSlice(table, KnotWeight(table.speeds, speed)) for speed in speeds]
     return RouteTable(table, speeds, slices)
 end
+
+"""
+    held_speed_table(table, knots)
+
+[`RouteTable`](@ref) of `table` for a ship holding `knots` [kn] wherever it can, and the
+highest whole knot below that where it cannot, routed with time at
+[`HELD_SPEED_TIME_FACTOR`](@ref) times its cost.
+"""
+held_speed_table(table::PerformanceTable, knots) =
+    RouteTable(table, unique(KNOT .* [4:floor(Int, knots); knots]))
+
+"factor on the cost of time that makes the router take the fastest speed it is offered [-]"
+const HELD_SPEED_TIME_FACTOR = 20
 
 edge_fuels(table::RouteTable, speed_index, condition::SeaCondition) = edge_fuels(
     table.table, table.speeds[speed_index], table.slices[speed_index], condition)
