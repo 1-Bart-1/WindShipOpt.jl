@@ -75,7 +75,7 @@ def write_kite(area, aspect_ratio, settings, output):
     bridle["avg_line_diameter"] = float(line_diameter)
     bridle["mass"] = float(bridle_mass)
     control = kite["control_system"]["structure"]
-    control["mass"] = settings["control_unit_mass"]
+    control["mass"] = settings["control_unit_mass_per_force"] * max_force
     control["length"], control["diameter"] = 2.0, 1.0
     control["depower"]["range"] = [-0.3, 0.3]
     tether = system["components"]["tethers"][0]["structure"]
@@ -118,8 +118,9 @@ def write_kite(area, aspect_ratio, settings, output):
 
 
 SETTINGS = {
-    "max_force_per_area": 500.0, "tether_stress": 4e8, "rope_density": 600.0,
-    "tether_length": 400.0, "canopy_mass_per_area": 0.3, "control_unit_mass": 100.0,
+    "max_force_per_area": 500.0, "tether_stress": 4e8, "rope_density": 830.0,
+    "tether_length": 400.0, "canopy_mass_per_area": 0.3,
+    "control_unit_mass_per_force": 0.22e-3,
     "bridle_rows": 4.0, "bridle_spacing": 0.4, "bridle_height_ratio": 0.7,
     "bridle_cascade_factor": 0.6, "line_drag_coefficient": 1.1,
 }
