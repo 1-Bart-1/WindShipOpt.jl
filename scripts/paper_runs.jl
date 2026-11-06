@@ -312,8 +312,8 @@ hash of the inputs of the trip and the code hash of the run.
 function case_path(case, departures)
     inputs = sort([name => entry.value for (name, entry) in case.assumptions.entries])
     io = IOBuffer()
-    serialize(io, (case.design, inputs, case.route, case.scale, case.horizon, departures,
-        weather_name, paper_run.record["code_hash"]))
+    serialize(io, (case.design, inputs, case.route, case.scale, case.horizon, case.part,
+        departures, weather_name, paper_run.record["code_hash"]))
     name = string(hash(String(take!(io))); base=16)
     return joinpath(paper_run.directory, "cases", name * ".bin")
 end
