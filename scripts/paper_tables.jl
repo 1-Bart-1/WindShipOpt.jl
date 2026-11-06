@@ -508,19 +508,27 @@ end
 """
     fuel_table()
 
-Tabular of the fuel energy that the cheapest size of each rig saves on each ship class,
-the mean over the routes, with each drive, and the tank-to-wake CO2 of the class on
-VLSFO without a rig, in fuel_table.tex.
+Tabular of the cost and fuel energy that the cheapest size of each rig saves on each ship
+class with each drive, the mean over the routes, as "cost / fuel" in percent, with the
+tank-to-wake CO2 of the class on VLSFO without a rig; deadweight-limited and
+space-limited classes in two blocks, each closed by its mean, in fuel_table.tex.
 """
 function fuel_table()
     table = read_table(data_file("classes.csv"))
+    classes = ship_classes()
     open(joinpath(sections, "fuel_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}lr", "r"^(3length(drive_labels)), "@{}}")
         println(io, "\\toprule\n & CO\\textsubscript{2}, no rig & ", drive_header(3))
         println(io, "Class & [g/tkm] & ", rig_header())
-        println(io, "\\midrule")
-        for class in class_order(table)
-            write_fuel_row(io, table, class)
+        for limit in ("deadweight", "space")
+            names = [name for name in class_order(table)
+                     if limit_label(classes[name]) == limit]
+            println(io, "\\midrule\n\\multicolumn{", 2 + 3length(drive_labels),
+                "}{@{}l}{\\emph{", limit, "-limited}} \\\\")
+            for name in names
+                write_fuel_row(io, table, [name], latex_escape(name))
+            end
+            write_fuel_row(io, table, names, "\\emph{mean}")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
@@ -600,35 +608,39 @@ rig_header() = string(join(repeat(["kite", "wings", "rotors"], length(drive_labe
         " & "), " \\\\")
 
 """
-    write_fuel_row(io, table, class)
+    write_fuel_row(io, table, classes, label)
 
-One row of the fuel table: the CO2 of `class` on VLSFO without a rig and the fuel saving
-[%] of each rig at its cheapest size on each drive, both averaged over the routes.
+One row of the fuel table under `label`: the CO2 of `classes` on VLSFO without a rig and
+the cost and fuel saving [%] of each rig at its cheapest size on each drive, all
+averaged over the classes and routes.
 """
-function write_fuel_row(io, table, class)
-    bare = rows(table, "class" => class, "drive" => "vlsfo", "rig" => "none")
+function write_fuel_row(io, table, classes, label)
+    bare = [k for class in classes
+            for k in rows(table, "class" => class, "drive" => "vlsfo", "rig" => "none")]
     cells = [@sprintf("%.1f", mean(table["carbon"][bare]))]
     for (drive, _) in drive_labels, rig in rig_names
-        savings = [fuel_saving(table, class, drive, route, rig)
-                   for route in unique(table["route"])]
-        filter!(isfinite, savings)
-        push!(cells, isempty(savings) ? "--" : @sprintf("%.1f", mean(savings)))
+        cases = [(class, route) for class in classes for route in unique(table["route"])]
+        cost, fuel = ([cheapest_saving(table, column, class, drive, route, rig)
+                       for (class, route) in cases] for column in ("cost", "fuel"))
+        keep = isfinite.(cost) .& isfinite.(fuel)
+        push!(cells, any(keep) ?
+                     @sprintf("%.1f / %.0f", mean(cost[keep]), mean(fuel[keep])) : "--")
     end
-    println(io, latex_escape(class), " & ", join(cells, " & "), " \\\\")
+    println(io, label, " & ", join(cells, " & "), " \\\\")
 end
 
 """
-    fuel_saving(table, class, drive, route, rig)
+    cheapest_saving(table, column, class, drive, route, rig)
 
-Fuel energy [%] that the cheapest size of `rig` saves against the same class without a
-rig on one drive and route; `NaN` where a trip is missing.
+Saving [%] in `column` ("cost" or "fuel") of the cheapest size of `rig` against the same
+class without a rig on one drive and route; `NaN` where a trip is missing.
 """
-function fuel_saving(table, class, drive, route, rig)
+function cheapest_saving(table, column, class, drive, route, rig)
     bare = rows(table, "class" => class, "drive" => drive, "route" => route,
         "rig" => "none")
     cheapest = cheapest_row(table, class, route, drive, rig)
     (isempty(bare) || isnothing(cheapest)) && return NaN
-    return percent_saving(table["fuel"][cheapest], only(table["fuel"][bare]))
+    return percent_saving(table[column][cheapest], only(table[column][bare]))
 end
 
 """
