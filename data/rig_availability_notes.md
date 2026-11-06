@@ -8,7 +8,7 @@ Evidence on how often wing sails, Flettner rotors and towing kites are out of se
 
 No rig has an independently measured availability, failure rate, mean time between failures, repair time or repair cost. No published figure defines its denominator. The numbers below are too weak to tell the rigs apart: they show that a share of a few percent is what operators and makers report for wings and rotors, and nothing at all for kites.
 
-At 3 % out of service for every rig, the cost saving falls by 0.15 to 0.57 points and the order stays rotors, kite, wings on all three ships studied. Only one rig faring worse than the others changes the order, and the record cannot rule that out on the Neo-Panamax, where the rotors fall behind the kite at 13 % ("Cost effect", below).
+At 3 % out of service for every rig, the cost saving falls by 0.15 to 0.77 points and the order of the rigs holds on all three ships studied: rotors, kite, wings on the 140 m ship, and kite, rotors, wings on the Kamsarmax and the Neo-Panamax (draft run of 5 November 2026 on 12 departures, the paper's missed-goal table). Only one rig faring worse than the others changes the order, and the record cannot rule that out: the rotors fall behind the kite at 4 % on the 140 m ship, and the kite behind the rotors at 12 % on the Kamsarmax and 17 % on the Neo-Panamax. The sweep under "Cost effect", below, is the earlier one on fewer departures.
 
 | | Wing sail | Flettner rotor | Towing kite |
 |---|---|---|---|
@@ -52,7 +52,7 @@ Kites flew about 1-2.5 % of sea hours over the fleet's life (ours, with 250 sea 
 - **Drag.** Nobody has measured the drag of a locked wing, a stopped rotor or a stowed kite at full scale. The literature assumes C_D about 0.5 for a stopped rotor (Reche-Vilanova et al. 2021); the model's fit gives 0.64 at zero spin. A wing is feathered at no lift with its profile drag. A stowed kite adds nothing, because both makers retract or fold the mast; no number confirms this.
 - **Several units.** Each rotor or wing has its own drive, but they share ship power, bridge control and wind sensors (EMSA 2023; Anemoi and BV NR206, part), so a blackout stops all of them. No ship is on record running with one unit out, or losing all to one cause. A single kite has one tether, winch, mast and control unit, and no source records a spare canopy carried for service.
 - **Repair.** Short fixes happen at sea (Shofu Maru). Larger ones wait for a port and a specialist. WASP (part) reports short yard repairs, spare-part delays and bespoke repair processes, with no ship or duration named. Time out of service depends on these logistics more than on the fault.
-- **Schedule and safety.** No source reports a missed schedule, a port call forced by a rig, or a merchant-ship kite recovered from the water, so none of these has a cost in the model. The estimate of one extra port call is under "Cost effect".
+- **Schedule and safety.** No source reports a missed schedule, a port call forced by a rig, or a merchant-ship kite recovered from the water. None of these is charged in the base case; "Crashes", below, gives the number of events each rig can take. The estimate of one extra port call is under "Cost effect".
 
 ## What the model does
 
@@ -73,6 +73,7 @@ Kites flew about 1-2.5 % of sea hours over the fleet's life (ours, with 250 sea 
 | Launch and landing crew time, retries, handling damage, price of a canopy lost | launch cost, per cycle; time out after a loss is this input |
 | Canopy wear and sunlight | canopy life, per flight hour, which falls with the share |
 | Repair of rigs | `maintenance_fraction`, 3 % of capital for all rigs |
+| Crash in flight, or a wing or rotor lost | not charged; the limits under "Crashes" |
 
 No repair cost per event is added, as no source gives one for any rig and the maintenance fraction already pays for repair. EMSA 2023 assumes 5 % of capital a year for kites and 2 % for other rigs; the model's single 3 % does not separate them.
 
@@ -94,7 +95,7 @@ From the sweep of 3 November 2026: three ships at the final screening resolution
 
 "Behind next" holds the next rig at its base. "All fail together" is a straight line between all working and all down. For the single-unit kite it should equal the columns beside it, and it differs by up to 0.1 point because any share above zero sizes the fuel store for a leg with the kite down, which the all-working end of the line does not (140 m: cargo 16,415 t against 16,408 t).
 
-- **Which rig leads.** Rotors, kite, wings on all three ships, at low, base and high alike. The order changes only if one rig fares worse than the others, and the Neo-Panamax is the close case: rotors lead by 1.2 points and fall behind the kite at 13 % per rotor, or 7 % if all fail together, both inside the range of up to 15 %.
+- **Which rig leads.** At these fixed sizes rotors, kite, wings on all three ships, at low, base and high alike. The order changes only if one rig fares worse than the others, and the Neo-Panamax is the close case: rotors lead by 1.2 points and fall behind the kite at 13 % per rotor, or 7 % if all fail together, both inside the range of up to 15 %. At each rig's cheapest size, as in `tab:missed_goals`, the kite leads on the Kamsarmax by 0.7 points and on the Neo-Panamax by 2.5 points on 12 departures, and falls behind the rotors at 12 and 17 %.
 - **Base choice.** 3 % for all rigs, with its alternatives shown here as ranges: the best stated figure per rig (low), our 15 % (high), and all units failing together. Afros's 5 % for rotors alone stays ahead of the kite at base on all three ships, since it lies below every rotor "behind next" share in the per-unit columns.
 - **Down state.** Never working costs more than no rig: on the 140 m ship 2.3 % for the kite, 6.0 % for the wings and 10.3 % for the rotors, from capital, mass and standing drag.
 
@@ -109,4 +110,10 @@ From the sweep of 3 November 2026: three ships at the final screening resolution
 | Same: Kamsarmax | -0.52 | -0.56 | -0.57 |
 | Same: Neo-Panamax | -0.22 | -0.24 | -0.23 |
 
-The maintenance split widens the rotors' lead and changes no order. A port call costs all rigs about alike on a ship, so it moves the order only if one rig needs several more a year than another; on the Neo-Panamax about five more for the rotors than the kite would close their 1.2 points. No source gives how many calls a rig forces.
+The maintenance split favours the rotors and changes no order, at these sizes or at the cheapest sizes of `tab:missed_goals`, where it would take about 0.25 points of the kite's 2.5-point lead on the Neo-Panamax. A port call costs all rigs about alike on a ship, so it moves the order only if one rig needs several more a year than another; on the Neo-Panamax at these fixed sizes about five more for the rotors than the kite would close their 1.2 points. No source gives how many calls a rig forces.
+
+## Crashes
+
+The goal is no crash in flight, so no rate is sought: `tab:missed_goals` in the paper gives the crashes a year each rig can take instead. It uses the same three ships, each rig at its cheapest size and the soft and rigid kites at each size swept, with the canopy life goal of 4,000 h and the lower launch damage, so its savings are ahead of the "Cost effect" sweep above.
+
+One crash costs what the operator pays beyond the replacement it avoids. A kite pays its control unit at market price and half of its canopy and tether, as wear charges the other half. A wing or rotor pays one new unit with installation, as nothing charges its wear. A rigid kite pays one airframe at full price and half of its tether, as it lasts the life of the rig. Launch loss stays in the launch cost, and only a crash in flight or a unit lost counts here. Recovery and repair are left out for every rig, and the time out is the out-of-service input, so each limit is an upper bound. A limit scales inversely with the cost of one event, so partial damage scales from the table.

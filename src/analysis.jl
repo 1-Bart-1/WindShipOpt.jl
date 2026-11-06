@@ -2,13 +2,19 @@
     LegTrace
 
 What happens on each stage of a routed leg: time [h], speed held [m/s], true wind angle
-[rad], rig thrust [N] and fuel power [W].
+[rad], apparent wind speed [m/s] and angle off the bow [rad] at the rig's height, rig thrust
+[N], the thrust the rig would give flown at its best trim where it can be up [N], whether a
+kite flies and fuel power [W].
 """
 struct LegTrace
     time::Vector{Float64}
     speed::Vector{Float64}
     true_wind_angle::Vector{Float64}
+    apparent_wind::Vector{Float64}
+    apparent_angle::Vector{Float64}
     rig_thrust::Vector{Float64}
+    available_thrust::Vector{Float64}
+    flying::Vector{Bool}
     fuel_power::Vector{Float64}
 end
 
@@ -25,7 +31,7 @@ cost: the [`sail_edge!`](@ref) points with the kite managed per point.
 """
 function LegTrace(table::PerformanceTable, leg::Leg, weather, departure; interval=Inf)
     route_table = RouteTable(table)
-    trace = LegTrace((Float64[] for _ in 1:5)...)
+    trace = LegTrace((Float64[] for _ in 1:7)..., Bool[], Float64[])
     for i in 1:(length(leg.path) - 1)
         lat, lon, time, _ = leg.path[i]
         next_lat, next_lon, next_time, speed, mode = leg.path[i + 1]
@@ -65,10 +71,18 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     flown = standing === ship.rig || (mode == FLYING || !isfinite(stowed_power)) &&
             isfinite(flown_power) && aloft
     force = last(best_trim(ship, flown ? ship.rig : standing, speed, wind_speed, angle))
+    available = standing === ship.rig || aloft ?
+                last(best_trim(ship, ship.rig, speed, wind_speed, angle)).thrust : 0.0
+    apparent, apparent_angle = apparent_wind(
+        wind_at_height(ship.env, wind_speed, rig_height(ship.rig)), angle, speed)
     push!(trace.time, time)
     push!(trace.speed, speed)
     push!(trace.true_wind_angle, angle)
+    push!(trace.apparent_wind, apparent)
+    push!(trace.apparent_angle, apparent_angle)
     push!(trace.rig_thrust, force.thrust)
+    push!(trace.available_thrust, available)
+    push!(trace.flying, flown && standing !== ship.rig)
     push!(trace.fuel_power, flown ? flown_power : stowed_power)
 end
 
@@ -85,6 +99,61 @@ function share_at_cost(shares, costs, cost)
     return shares[k - 1] +
            (shares[k] - shares[k - 1]) * (cost - costs[k - 1]) / (costs[k] - costs[k - 1])
 end
+
+"""
+    price_at_cost(prices, costs, cost)
+
+Price at which the rising `costs` over ascending `prices` reach `cost`, linearly between the
+points; `NaN` if within none of `prices`.
+"""
+price_at_cost(prices, costs, cost) =
+    costs[1] < cost ? share_at_cost(prices, costs, cost) : NaN
+
+"""
+    ranked_neighbours(costs)
+
+The rigs of the dictionary `costs`, cheapest first, each with the cost of the rig ahead and
+of the next rig, `NaN` where there is none.
+"""
+function ranked_neighbours(costs)
+    ranked = sort(collect(keys(costs)); by=rig -> costs[rig])
+    neighbour(rank) = checkbounds(Bool, ranked, rank) ? costs[ranked[rank]] : NaN
+    return [(; rig, ahead=neighbour(rank - 1), next=neighbour(rank + 1))
+            for (rank, rig) in enumerate(ranked)]
+end
+
+"""
+    sizes_around(rig, area, largest)
+
+Sizes [m^2] of `rig` to sweep around `area`, none above `largest`: a quarter to four times
+`area` in doublings for a kite, half, once and twice `area` for the others.
+"""
+function sizes_around(rig, area, largest)
+    factors = rig == "kite" ? (0.25, 0.5, 1.0, 2.0, 4.0) : (0.5, 1.0, 2.0)
+    return unique(min.(factors .* area, largest))
+end
+
+"""
+    check_goal_cost(ship, sweep, goal, swept)
+
+Raise an error unless each rig of the dictionary `swept`, the costs at the goals in `sweep`
+on `ship`, has its cost of `goal`.
+"""
+function check_goal_cost(ship, sweep, goal, swept)
+    for (rig, cost) in swept
+        cost == goal[rig] || error("$sweep sweep on $ship has $rig at $cost at the goals, ",
+            "not the $(goal[rig]) of the size sweep")
+    end
+end
+
+"""
+    events_to_cost(cost, target_cost, yearly_work, event_cost)
+
+Events a year, each costing `event_cost` [USD], that raise a transport `cost` [USD per
+tonne-km] to `target_cost` at `yearly_work` [tonne-km]; zero if it is already above.
+"""
+events_to_cost(cost, target_cost, yearly_work, event_cost) =
+    max(target_cost - cost, 0.0) * yearly_work / event_cost
 
 """
     life_at_cost(lives, costs, cost)

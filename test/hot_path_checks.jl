@@ -5,9 +5,9 @@ using Test, TOML, WindShipOpt
 """
     dynamic_calls(call, argument_types)
 
-Signatures of the methods holding a call the compiler left to run-time dispatch, in the
-optimised code of `call` on `argument_types` and of everything it calls, leaving out the
-paths that only throw.
+Signatures of the methods holding a call the compiler left to run-time dispatch or a field
+read from a value of no concrete type, in the optimised code of `call` on `argument_types`
+and of everything it calls, leaving out the paths that only throw.
 """
 function dynamic_calls(call, argument_types)
     found = Set{String}()
@@ -28,8 +28,8 @@ end
 """
     scan_code!(found, pending, code, signature)
 
-Add the signature of the method `code` to `found` if it dispatches at run time, and the
-signatures it calls to `pending`.
+Add the signature of the method `code` to `found` if it dispatches at run time or reads a
+field of a value of no concrete type, and the signatures it calls to `pending`.
 """
 function scan_code!(found, pending, code, signature)
     for statement in code.code
@@ -38,10 +38,24 @@ function scan_code!(found, pending, code, signature)
             target = statement.args[1]
             instance = target isa Core.CodeInstance ? target.def : target
             push!(pending, instance.specTypes)
-        elseif statement.head === :call && is_dynamic(code, statement.args[1])
+        elseif statement.head === :call && (is_dynamic(code, statement.args[1]) ||
+                reads_unknown_type(code, statement))
             push!(found, string(signature))
         end
     end
+end
+
+"""
+    callee_value(code, callee)
+
+The function the callee of a `:call` statement of `code` stands for, or its type.
+"""
+function callee_value(code, callee)
+    callee isa Core.SSAValue && (callee = code.ssavaluetypes[callee.id])
+    callee isa Core.Const && (callee = callee.val)
+    callee isa GlobalRef && (callee = isdefined(callee.mod, callee.name) ?
+                                      getglobal(callee.mod, callee.name) : Any)
+    return callee
 end
 
 """
@@ -51,12 +65,23 @@ Whether the callee of a `:call` statement of `code` is anything but a builtin, o
 builtin applying a splatted call: what the optimiser leaves of a call it could not resolve.
 """
 function is_dynamic(code, callee)
-    callee isa Core.SSAValue && (callee = code.ssavaluetypes[callee.id])
-    callee isa Core.Const && (callee = callee.val)
-    callee isa GlobalRef && (callee = isdefined(callee.mod, callee.name) ?
-                                      getglobal(callee.mod, callee.name) : Any)
+    callee = callee_value(code, callee)
     callee === Core._apply_iterate && return true
     return !(callee isa Core.Builtin || callee isa Core.IntrinsicFunction)
+end
+
+"""
+    reads_unknown_type(code, statement)
+
+Whether the `:call` `statement` of `code` reads a field of a value whose concrete type the
+compiler does not know, which boxes what it reads.
+"""
+function reads_unknown_type(code, statement)
+    callee_value(code, statement.args[1]) === Core.getfield || return false
+    object = statement.args[2]
+    type = object isa Core.SSAValue ? code.ssavaluetypes[object.id] :
+           object isa Core.Argument ? code.slottypes[object.n] : typeof(object)
+    return !isconcretetype(Core.Compiler.widenconst(type))
 end
 
 """
@@ -143,7 +168,10 @@ coarse_corridor = first(route_corridors(:caribbean, north_atlantic_mask(); scale
     @noinline barrier(x) = x + 1
     stable(x) = 2 * barrier(x)
     splatted(values) = barrier(values...)
+    reads_first(box) = box[].first + 1
     @test !isempty(dynamic_calls(unstable, (Base.RefValue{Any},)))
+    @test !isempty(dynamic_calls(reads_first, (Base.RefValue{Pair{Int}},)))
+    @test isempty(dynamic_calls(reads_first, (Base.RefValue{Pair{Int, Int}},)))
     @test !isempty(dynamic_calls(calls_unstable, (Base.RefValue{Any},)))
     @test !isempty(dynamic_calls(splatted, (Vector{Int},)))
     @test isempty(dynamic_calls(stable, (Int,)))

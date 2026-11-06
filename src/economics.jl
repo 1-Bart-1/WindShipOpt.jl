@@ -119,7 +119,8 @@ function ShipCosts(ship::Ship, assumptions::Assumptions; retractable=true)
     capital = hull + drive_premium + rig_capital
     crew = assumptions[:crew_cost] * size^assumptions[:crew_cost_exponent]
     fixed_annual = annuity + rig_annual + crew +
-                   assumptions[:maintenance_fraction] * capital
+                   assumptions[:maintenance_fraction] *
+                   (capital - worn_part_price(ship.rig, assumptions))
     cargo_value = isnothing(class) ? assumptions[:cargo_value] : class.cargo_value
     return ShipCosts(capital, fixed_annual, hold, cargo_value)
 end
@@ -168,8 +169,9 @@ blocked_slots(rig::CombinedRig, class::ShipClass, assumptions) =
 deck_footprint(rig::RotorRig, assumptions) = rig.diameter
 deck_footprint(::WingRig, assumptions) = assumptions[:wing_pedestal_width]
 deck_footprint(::KiteRig, assumptions) = assumptions[:launch_mast_width]
+deck_footprint(::KiteRig{RigidAirframe}, assumptions) = assumptions[:rigid_perch_width]
 deck_units(rig::Union{WingRig, RotorRig}) = rig.count
-deck_units(::KiteRig) = 1
+deck_units(rig::KiteRig) = kite_count(rig)
 deck_units(rig::CombinedRig) = deck_units(rig.kite) + deck_units(rig.standing)
 deck_footprint(::Nothing, assumptions) = 0.0
 deck_units(::Nothing) = 0
@@ -232,6 +234,16 @@ function rig_costs(rig::KiteRig, assumptions)
     return hardware + canopy + tether, assumptions[:kite_mass_per_area] * rig.area, annuity
 end
 
+function rig_costs(rig::KiteRig{RigidAirframe}, assumptions)
+    _, tether = consumable_costs(rig, assumptions)
+    (; count, mass) = rig.airframe
+    ship_side = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions))
+    airframe = rigid_airframe_price(rig, assumptions)
+    recovery = capital_recovery(assumptions[:discount_rate], assumptions[:rigid_lifetime])
+    tonnes = count * (assumptions[:rigid_station_mass] + 1e-3 * mass)
+    return ship_side + airframe + tether, tonnes, recovery * (ship_side + airframe)
+end
+
 """
     rig_price_parts(rig, assumptions)
 
@@ -257,9 +269,17 @@ function deck_price_parts(rig, assumptions, unit_cost, cost_per_area, fraction)
     return (; units, surface, installation=assumptions[fraction] * (units + surface))
 end
 
+"""
+    launch_mast_height(area, assumptions)
+
+Height [m] of the launch mast of a kite of projected `area` [m^2].
+"""
+launch_mast_height(area, assumptions) = min(
+    assumptions[:launch_mast_height_ratio] * sqrt(area),
+    assumptions[:launch_mast_max_height])
+
 function rig_price_parts(rig::KiteRig, assumptions)
-    mast_height = min(assumptions[:launch_mast_height_ratio] * sqrt(rig.area),
-        assumptions[:launch_mast_max_height])
+    mast_height = launch_mast_height(rig.area, assumptions)
     mast_mass = 1e3 * (assumptions[:launch_mast_base_mass] +
                  assumptions[:launch_mast_mass_coefficient] * rig.area^(2 / 3) *
                  mast_height^(5 / 3))
@@ -275,6 +295,37 @@ function rig_price_parts(rig::KiteRig, assumptions)
     return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
 end
 
+function rig_price_parts(rig::KiteRig{RigidAirframe}, assumptions)
+    (; count, hover_power) = rig.airframe
+    parts = (winch=count * (assumptions[:winch_fixed_cost] +
+                  assumptions[:winch_cost_per_force] * rig.max_force),
+        perch=count * assumptions[:rigid_perch_cost],
+        ship_power=count * assumptions[:rigid_ship_power_cost] * hover_power)
+    return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
+end
+
+"""
+    canopy_price(assumptions)
+
+Price of a canopy per m^2 of projected area [USD/m^2]: its manufacturing cost times the
+market price factor.
+"""
+canopy_price(assumptions) = assumptions[:market_price_factor] *
+                            Canopy(assumptions).cost_per_area
+
+"inputs that together make the canopy price, the goal's; each has a `_today` counterpart"
+canopy_price_inputs = (:canopy_making_cost_per_area, :canopy_cloth_base_price,
+    :canopy_cloth_price_per_weight)
+
+"""
+    canopy_price_today(assumptions)
+
+[`canopy_price`](@ref) [USD/m^2] of the canopy as built today, from the `_today` inputs.
+"""
+canopy_price_today(assumptions) = canopy_price(reduce(
+    (inputs, name) -> with_value(inputs, name, assumptions[Symbol(name, :_today)]),
+    canopy_price_inputs; init=assumptions))
+
 """
     consumable_costs(rig, assumptions)
 
@@ -283,10 +334,18 @@ market price factor, the tether at its purchase price.
 """
 function consumable_costs(rig::KiteRig, assumptions)
     tether_mass = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
-    canopy = assumptions[:market_price_factor] * Canopy(assumptions).cost_per_area *
-             rig.area
-    return canopy, assumptions[:tether_price] * tether_mass
+    return canopy_price(assumptions) * rig.area, assumptions[:tether_price] * tether_mass
 end
+
+"""
+    worn_part_price(rig, assumptions)
+
+Price [USD] of the parts of `rig` that wear replaces, which maintenance does not charge:
+a kite's canopy and tether; zero for other rigs.
+"""
+worn_part_price(rig, assumptions) = 0.0
+worn_part_price(rig::CombinedRig, assumptions) = worn_part_price(rig.kite, assumptions)
+worn_part_price(rig::KiteRig, assumptions) = sum(consumable_costs(rig, assumptions))
 
 """
     wear_cost(rig, assumptions)
@@ -300,6 +359,16 @@ function wear_cost(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
     return canopy / Canopy(assumptions).lifetime + tether / assumptions[:tether_lifetime]
 end
+
+"""
+    base_aspect_ratio_prices(assumptions, aspect_ratio_factor)
+
+`assumptions` with the tether, the only priced part that follows span, cheaper per kg so
+that a kite of `aspect_ratio_factor` times the base aspect ratio pays what the base pays.
+"""
+base_aspect_ratio_prices(assumptions::Assumptions, aspect_ratio_factor) =
+    with_value(assumptions, :tether_price,
+        assumptions[:tether_price] / sqrt(aspect_ratio_factor))
 
 """
     cycle_cost(rig, assumptions)
@@ -321,21 +390,79 @@ function cycle_cost(rig::KiteRig, assumptions)
 end
 
 """
+    rigid_airframe_price(rig, assumptions)
+
+Market price of the kites of `rig` alone: structure by mass and area, avionics and
+on-board drive [USD].
+"""
+function rigid_airframe_price(rig::KiteRig{RigidAirframe}, assumptions)
+    (; count, mass, hover_power) = rig.airframe
+    one = assumptions[:rigid_structure_cost_per_mass] * mass +
+          assumptions[:rigid_structure_cost_per_area] * rig.area +
+          assumptions[:rigid_avionics_cost] +
+          assumptions[:rigid_drive_cost] * assumptions[:rigid_drive_margin] * hover_power
+    return assumptions[:market_price_factor] * count * one
+end
+
+function consumable_costs(rig::KiteRig{RigidAirframe}, assumptions)
+    (; count, tether_mass) = rig.airframe
+    return 0.0, count * assumptions[:rigid_tether_price] * tether_mass
+end
+
+function wear_cost(rig::KiteRig{RigidAirframe}, assumptions)
+    _, tether = consumable_costs(rig, assumptions)
+    upkeep = assumptions[:rigid_upkeep_per_area] * rig.area * rig.airframe.count
+    return tether / assumptions[:tether_lifetime] + upkeep
+end
+
+"""
+    cycle_cost(rig::KiteRig{RigidAirframe}, assumptions)
+
+Cost of launching and landing all kites of `rig` once [USD]: crew time, the expected loss
+of a kite and the energy of the hover.
+"""
+function cycle_cost(rig::KiteRig{RigidAirframe}, assumptions)
+    (; count, hover_power) = rig.airframe
+    energy = hover_power * assumptions[:rigid_hover_minutes] / 60 / 1e3
+    return count * (assumptions[:kite_cycle_crew_cost] +
+            assumptions[:rigid_hover_energy_price] * energy) +
+           assumptions[:rigid_cycle_loss_probability] * lost_kite_cost(rig, assumptions)
+end
+
+"""
     lost_kite_cost(rig, assumptions)
 
-Cost of a kite lost in the water with its tether and control unit [USD].
+Cost of the kites of `rig` lost in the water with their tethers and, on a soft kite, its
+control unit, at market prices [USD].
 """
 function lost_kite_cost(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
-    return canopy + tether + assumptions[:control_unit_cost] +
-           assumptions[:control_unit_cost_per_area] * rig.area
+    control_unit = rig_price_parts(rig, assumptions).control_unit
+    return canopy + tether + assumptions[:market_price_factor] * control_unit
 end
+
+lost_kite_cost(rig::KiteRig{RigidAirframe}, assumptions) =
+    rigid_airframe_price(rig, assumptions) + last(consumable_costs(rig, assumptions))
+
+"""
+    crash_cost(rig, assumptions)
+
+Cost [USD] of one kite crashed or one wing or rotor lost, beyond the wear already charged:
+a kite's control unit or airframe and half of its canopy and tether, on average halfway
+through their life when lost, or the price of one wing or rotor with its installation.
+"""
+crash_cost(rig::KiteRig, assumptions) =
+    (lost_kite_cost(rig, assumptions) - sum(consumable_costs(rig, assumptions)) / 2) /
+    kite_count(rig)
+
+crash_cost(rig::Union{WingRig, RotorRig}, assumptions) =
+    first(rig_costs(rig, assumptions)) / deck_units(rig)
 
 """
     forced_landing_cost(rig, assumptions)
 
-Expected cost of one kite landing outside the landing limits [USD], the chance of losing
-the kite then times its cost; zero for other rigs.
+Expected cost of the kites of `rig` landing once outside the landing limits [USD], the
+chance of losing them then times their cost; zero for other rigs.
 """
 forced_landing_cost(rig, assumptions) = 0.0
 forced_landing_cost(rig::CombinedRig, assumptions) =
@@ -492,14 +619,23 @@ end
 down_rig(rig::Union{WingRig, RotorRig}, working_share) = DownRig(rig, working_share)
 down_rig(::KiteRig, working_share) = nothing
 
+function down_rig(rig::KiteRig{RigidAirframe}, working_share)
+    deck_units(rig) > 1 || return nothing
+    (; count, mass, tether_mass, hover_power, loop_area) = rig.airframe
+    airframe = RigidAirframe(working_share * count, mass, tether_mass, hover_power,
+        loop_area)
+    parts = (getfield(rig, name) for name in fieldnames(KiteRig) if name != :airframe)
+    return KiteRig(parts..., airframe)
+end
+
 """
     service_states(rig, assumptions)
 
 What of `rig` works over a year as (share of the round trips, rig) pairs, the working rig
 first, leaving out states with no share. Trips with a unit down hold the mean of the units
-working, so the rig keeps its mean capacity. A kite out of service is stowed, wings or
-rotors stand as a [`DownRig`](@ref), and each part of a [`CombinedRig`](@ref) fails on its
-own.
+working, so the rig keeps its mean capacity. A lone kite out of service is stowed, of
+several rigid kites the others fly, wings or rotors stand as a [`DownRig`](@ref), and each
+part of a [`CombinedRig`](@ref) fails on its own.
 """
 function service_states(rig, assumptions)
     any_down, working_share = unit_outage(rig, assumptions)
@@ -521,16 +657,18 @@ with_share(states) = filter(state -> first(state) > 0, states)
 
 """
     service_passages(ship, outbound, inbound, weather, departures, assumptions, hourly,
-                     port_hours, horizon)
+                     port_hours, horizon, held_knots)
 
 Mean fuel energy [J], outbound and return hours, kite flight hours, launches, forced
 landings and rig running cost [USD] of `ship` per round trip over `departures`,
-with the largest leg's fuel energy [J]; `nothing` if any passage is infeasible.
+with the largest leg's fuel energy [J]; `nothing` if any passage is infeasible. The router
+holds `held_knots` [kn] by [`held_speed_table`](@ref), or chooses speed where `nothing`.
 """
 function service_passages(ship::Ship, outbound, inbound, weather, departures, assumptions,
-        hourly, port_hours, horizon)
+        hourly, port_hours, horizon, held_knots)
     table = PerformanceTable(ship, assumptions)
-    route_table = RouteTable(table)
+    route_table = isnothing(held_knots) ? RouteTable(table) :
+                  held_speed_table(table, held_knots)
     legs = fetch.([Threads.@spawn route_round_trip(route_table, outbound, inbound, weather,
                        departure, port_hours, hourly, horizon) for departure in departures])
     any(isnothing, legs) && return nothing
@@ -550,25 +688,28 @@ function service_passages(ship::Ship, outbound, inbound, weather, departures, as
 end
 
 """
-    round_trip(ship, outbound, inbound, weather, departures, assumptions; horizon=Inf)
+    round_trip(ship, outbound, inbound, weather, departures, assumptions; horizon=Inf,
+               held_knots=nothing)
 
 Route `ship` out along `outbound` and back along `inbound` for each departure time
 [h] in each of its [`service_states`](@ref), and turn the result averaged over the
 departures and the states into the cost per tonne-km of the transport service. With a
-finite forecast `horizon` [h] the router knows the weather only that far ahead. Wings and
+finite forecast `horizon` [h] the router knows the weather only that far ahead, and with
+`held_knots` [kn] the ship holds that speed instead of choosing by cost. Wings and
 rotors are fixed or retractable, whichever costs less. The router prices time at the
 hold's cargo before the fuel store, and the store also holds the largest leg with a unit
 down, without its reserve. Returns `nothing` if any passage is infeasible or the
 fuel store leaves no cargo.
 """
 function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
-        departures, assumptions::Assumptions; horizon=Inf)
+        departures, assumptions::Assumptions; horizon=Inf, held_knots=nothing)
     costs = ShipCosts(ship, assumptions)
     port_hours = 24assumptions[:port_time_per_call]
     hourly = leg_time_costs(costs, assumptions)
+    router_hourly = isnothing(held_knots) ? hourly : HELD_SPEED_TIME_FACTOR .* hourly
     states = service_states(ship.rig, assumptions)
     passages = [service_passages(with_rig(ship, rig), outbound, inbound, weather,
-                    departures, assumptions, hourly, port_hours, horizon)
+                    departures, assumptions, router_hourly, port_hours, horizon, held_knots)
                 for (_, rig) in states]
     any(isnothing, passages) && return nothing
     shares = first.(states)

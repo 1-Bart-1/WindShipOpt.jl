@@ -187,6 +187,10 @@ Thread is not shown to be worse than cloth. The one curve, a vendor's on untreat
 - The fatigue exponent's extrapolation to 3 % of break is 1.6e13 cycles under Lechat's log law and 7.7e28 under a power law.
 - Sailcloth reaches 207-211 N/m per g/m² (Ambroziak and Klosowski 2018), so 110 is not all sailcloth.
 
+## Developers' expectations on small kites
+
+Two developers state an expected life, neither measured. A 25 m^2 tube kite "could be around 1000h of operation", with "hardly any knowledge" behind it (van der Vlugt et al. 2013, p. 409). A ram-air wing of 15-21 m^2 flat and 4.2-5.8 kg, ground-steered, is not expected "to surpass much more then 100 hours" at full load (Bormann et al. 2013, pp. 431, 435). Both are far below the goal and below the low bound of 1,200 h. We keep the goal and the bound: these are light cloths held at full load, while the law here counts strength in hand against the skin tension, and a kite rarely stays at its force limit. They do say the goal has no demonstration behind it. SkySails calls fatigue of textile wings and ropes a limiting factor for economic success and gives no number (Paulig et al. 2013, p. 562). Dunker (2013, pp. 541-543) gives the method: life ends when the first time-dependent margin of safety turns negative, with degradation factors for joints, abrasion, fatigue, moisture and UV; his example of 265 h is stated not to represent any system. The same chapter reports, after Kenney and Abbott, a 14 % strength loss on the thinnest cloth and 1.2 % on the thickest after 200 h of accelerated weather.
+
 ## What would settle it
 
 Cheapest first:

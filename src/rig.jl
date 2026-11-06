@@ -151,7 +151,7 @@ Wing force at the trim `setting`, a lift and drag coefficient pair from
 function rig_force(rig::WingRig, env::Environment, wind_10m, true_angle, ship_speed,
         setting)
     lift, drag = setting
-    centre_height = rig.foot_height + rig.height / 2
+    centre_height = rig_height(rig)
     wind = wind_at_height(env, wind_10m, centre_height)
     speed, angle = apparent_wind(wind, true_angle, ship_speed)
     load = 0.5env.air_density * speed^2 * total_area(rig)
@@ -251,7 +251,7 @@ no force where the rotors cannot spin that fast.
 """
 function rig_force(rig::RotorRig, env::Environment, wind_10m, true_angle, ship_speed,
         spin_ratio)
-    centre_height = rig.foot_height + rig.height / 2
+    centre_height = rig_height(rig)
     wind = wind_at_height(env, wind_10m, centre_height)
     speed, angle = apparent_wind(wind, true_angle, ship_speed)
     spin_ratio * speed <= rig.max_surface_speed || return NO_RIG_FORCE
@@ -272,10 +272,11 @@ trim_settings(rig::RotorRig) = 0.0:0.25:4.0
 
 Towing kite on a fixed-length tether from a mast on the bow, with the force of its best
 flight pattern tabulated over apparent wind speed, course off the apparent downwind
-direction and the weight given to side force; each weight is one trim.
+direction and the weight given to side force; each weight is one trim. `airframe` is a
+[`RigidAirframe`](@ref) for rigid VTOL kites and `nothing` for a soft kite.
 """
-Base.@kwdef struct KiteRig
-    "projected kite area [m^2]"
+Base.@kwdef struct KiteRig{A}
+    "projected area of one kite [m^2]"
     area::Float64
     "tether diameter [m]"
     tether_diameter::Float64
@@ -312,6 +313,45 @@ Base.@kwdef struct KiteRig
     side_weights::Vector{Float64}
     "best pattern force over dynamic pressure and area per speed, course and weight"
     forces::Array{PatternForce, 3}
+    airframe::A = nothing
+end
+
+"""
+    RigidAirframe
+
+What rigid VTOL kites add to a tether and a pattern table.
+"""
+struct RigidAirframe
+    "kites in service, a mean where some are down, each with tether, winch and perch"
+    count::Float64
+    "mass of one kite with its rotors, without the tether [kg]"
+    mass::Float64
+    "mass of one tether [kg]"
+    tether_mass::Float64
+    "electric power of one kite in hover [W]"
+    hover_power::Float64
+    "area of the disc of the loop all the kites share [m^2]"
+    loop_area::Float64
+end
+
+"kites flying from one ship"
+kite_count(::KiteRig) = 1
+kite_count(rig::KiteRig{RigidAirframe}) = rig.airframe.count
+
+"""
+    loop_interaction(rig, force_area)
+
+Force of each kite of `rig` over that of a lone kite, where a lone kite in the free stream
+makes `force_area` [m^2], its force over dynamic pressure: momentum theory on the disc of
+one shared loop gives each kite (1 - a)^2 of it, with a = C / (4 + C) for the disc's free
+stream thrust coefficient C.
+"""
+loop_interaction(::KiteRig, force_area) = 1.0
+
+function loop_interaction(rig::KiteRig{RigidAirframe}, force_area)
+    (; count, loop_area) = rig.airframe
+    lone = force_area / loop_area
+    return ((4 + lone) / (4 + count * lone))^2
 end
 
 """
@@ -356,15 +396,42 @@ function kite_model(area, aspect_ratio, assumptions::Assumptions)
     tether_mass = rope_mass(tether_diameter, tether_length, assumptions)
     bridle_drag, bridle_mass = bridle_lines(area, aspect_ratio, max_force, assumptions)
     mass = Canopy(assumptions).mass_per_area * area + bridle_mass +
-           assumptions[:control_unit_mass] + tether_mass / 2
+           1e-3assumptions[:control_unit_mass_per_force] * max_force + tether_mass / 2
     polar = KitePolar(aspect_ratio)
     stall = argmax(polar.lift)
     model = KiteModel(area, mass, tether_length, env.air_density, env.gravity, polar,
         assumptions[:kite_flight_drag] + bridle_drag + tether_drag,
         polar.angle_of_attack[findfirst(>=(0.05), polar.lift)],
         polar.angle_of_attack[stall] - deg2rad(assumptions[:kite_stall_margin]),
-        assumptions[:kite_min_turn_radius] * span)
+        assumptions[:kite_min_turn_radius] * span, false)
     return model, max_force, tether_diameter
+end
+
+"""
+    total_drag_at_lift(aspect_ratio, lift, assumptions)
+
+Drag coefficient of a kite of `aspect_ratio` with its bridle, tether and flight drag, at the
+lowest angle of attack reaching the lift coefficient `lift`. It does not depend on the area.
+"""
+function total_drag_at_lift(aspect_ratio, lift, assumptions::Assumptions)
+    model, = kite_model(1.0, aspect_ratio, assumptions)
+    polar = model.polar
+    angles = range(extrema(polar.angle_of_attack)...; length=2901)
+    angle = angles[findfirst(a -> polar_value(polar, polar.lift, a) >= lift, angles)]
+    return polar_value(polar, polar.drag, angle) + model.extra_drag
+end
+
+"""
+    recalibrated_flight_drag(aspect_ratio, base_aspect_ratio, assumptions; lift=0.8)
+
+Flight drag coefficient giving a kite of `aspect_ratio` the glide ratio at lift coefficient
+`lift` that the kite of `base_aspect_ratio` has at the flight drag of `assumptions`.
+"""
+function recalibrated_flight_drag(aspect_ratio, base_aspect_ratio, assumptions::Assumptions;
+    lift=0.8)
+    return assumptions[:kite_flight_drag] +
+           total_drag_at_lift(base_aspect_ratio, lift, assumptions) -
+           total_drag_at_lift(aspect_ratio, lift, assumptions)
 end
 
 """
@@ -443,6 +510,137 @@ function launch_min_wind(model::KiteModel, tether_mass, assumptions::Assumptions
 end
 
 """
+    rigid_polar(assumptions)
+
+Polar of a rigid wing against angle of attack from zero lift: lift-curve slope of a finite
+wing up to the highest lift coefficient, profile drag plus induced drag.
+"""
+function rigid_polar(assumptions::Assumptions)
+    aspect_ratio = assumptions[:rigid_aspect_ratio]
+    slope = 2π / (1 + 2 / aspect_ratio)
+    highest = assumptions[:rigid_max_lift]
+    angles = collect(range(0.0, highest / slope + deg2rad(2); length=25))
+    lift = min.(slope .* angles, highest)
+    drag = assumptions[:rigid_profile_drag] .+
+           lift .^ 2 ./ (π * aspect_ratio * assumptions[:rigid_span_efficiency])
+    return KitePolar(angles, lift, drag)
+end
+
+"""
+    hover_power(mass, area, assumptions)
+
+Electric power [W] that hovers `mass` [kg] of kite and tether on a wing of `area` [m^2]:
+momentum theory at the rotor area, thrust margin and air density of the assumptions.
+"""
+function hover_power(mass, area, assumptions::Assumptions)
+    gravity = Environment(assumptions).gravity
+    thrust = assumptions[:rigid_hover_thrust_ratio] * gravity * mass
+    disc = assumptions[:rigid_rotor_area_ratio] * area
+    return sqrt(thrust^3 /
+                (2assumptions[:rigid_hover_air_density] *
+                 assumptions[:rigid_rotor_fill] * disc)) /
+           assumptions[:rigid_hover_efficiency]
+end
+
+"""
+    rigid_kite_model(area, count, assumptions)
+
+[`KiteModel`](@ref) of one rigid VTOL kite of `area` [m^2], its tether force limit [N],
+tether diameter [m] and the [`RigidAirframe`](@ref) of `count` such kites.
+"""
+function rigid_kite_model(area, count, assumptions::Assumptions)
+    env = Environment(assumptions)
+    max_force = 1e3assumptions[:rigid_max_force_per_area] * area
+    tether_diameter = sqrt(4max_force / (π * assumptions[:rigid_tether_stress]))
+    span = sqrt(area * assumptions[:rigid_aspect_ratio])
+    tether_length = assumptions[:rigid_tether_length_ratio] * span
+    tether_mass = assumptions[:rigid_tether_density] * π * tether_diameter^2 / 4 *
+                  tether_length
+    mass = assumptions[:rigid_reference_mass] *
+           (area / assumptions[:rigid_reference_area])^
+           (assumptions[:rigid_mass_exponent] / 2)
+    drag = assumptions[:rigid_idle_rotor_drag] +
+           assumptions[:rigid_tether_drag_coefficient] * tether_diameter * tether_length /
+           (4area)
+    polar = rigid_polar(assumptions)
+    model = KiteModel(area, mass + tether_mass / 2, tether_length, env.air_density,
+        env.gravity, polar, drag, polar.angle_of_attack[findfirst(>=(0.05), polar.lift)],
+        polar.angle_of_attack[argmax(polar.lift)] -
+        deg2rad(assumptions[:kite_stall_margin]),
+        assumptions[:rigid_min_turn_radius] * span, true)
+    airframe = RigidAirframe(count, mass, tether_mass,
+        hover_power(mass + tether_mass, area, assumptions), π * model.min_turn_radius^2)
+    return model, max_force, tether_diameter, airframe
+end
+
+"apparent wind speeds [m/s] of a rigid kite's pattern table"
+const RIGID_WIND_SPEEDS = [4.0:1.0:10.0; 12.0; 14.0; 17.0; 20.0; 25.0; 30.0]
+
+"""
+    lowest_flying_wind(wind_speeds, forces)
+
+Lowest of `wind_speeds` [m/s] at which the pattern table `forces` flies on any course.
+"""
+function lowest_flying_wind(wind_speeds, forces)
+    flying = findfirst(i -> any(force -> isfinite(force.peak_tension),
+            view(forces, i, :, :)), eachindex(wind_speeds))
+    return isnothing(flying) ? Inf : wind_speeds[flying]
+end
+
+"""
+    rigid_wind_limits(lowest_wind, assumptions)
+
+Keywords of [`KiteRig`](@ref) for a rigid kite that flies from `lowest_wind` [m/s]: it can
+launch there too, since its rotors lift it from rest, and hovers within its own limits on
+wind and sea in launch and landing.
+"""
+function rigid_wind_limits(lowest_wind, assumptions::Assumptions)
+    hover_wind = assumptions[:rigid_hover_max_wind]
+    hover_waves = assumptions[:rigid_hover_max_wave_height]
+    return (; max_wind=assumptions[:rigid_max_wind], min_flight_wind=lowest_wind,
+        launch_min_wind=lowest_wind, launch_max_wind=hover_wind,
+        launch_max_wave_height=hover_waves, night_launch=assumptions[:kite_night_launch] > 0,
+        landing_max_wind=hover_wind, landing_max_wave_height=hover_waves)
+end
+
+"""
+    rigid_kites_fit(count, hull, assumptions)
+
+Whether `count` perches of rigid kites of the unit area of the assumptions stand one span
+apart along the deck of `hull`.
+"""
+function rigid_kites_fit(count, hull::Hull, assumptions::Assumptions)
+    span = sqrt(assumptions[:rigid_unit_area] * assumptions[:rigid_aspect_ratio])
+    return count * span <= assumptions[:deck_length_fraction] * hull.length
+end
+
+"""
+    rigid_kite_rig(total_area, hull, assumptions; courses, side_weights)
+
+Rigid VTOL kites of about `total_area` [m^2] together on `hull`, each of the unit area of
+the assumptions and with a pattern table over `courses` [rad] and `side_weights`, or
+`nothing` where they do not fit ([`rigid_kites_fit`](@ref)).
+"""
+function rigid_kite_rig(total_area, hull::Hull, assumptions::Assumptions;
+        courses=deg2rad.(0.0:15.0:180.0), side_weights=[0.0, 0.5, 1.0, 3.0])
+    area = assumptions[:rigid_unit_area]
+    count = max(round(Int, total_area / area), 1)
+    rigid_kites_fit(count, hull, assumptions) || return nothing
+    model, max_force, tether_diameter, airframe = rigid_kite_model(area, count, assumptions)
+    forces = pattern_table(model, max_force, assumptions, RIGID_WIND_SPEEDS, courses,
+        side_weights)
+    lowest_wind = max(lowest_flying_wind(RIGID_WIND_SPEEDS, forces),
+        crosswind_min_wind(model, deg2rad(assumptions[:kite_min_elevation])))
+    return KiteRig(; area, tether_diameter, model.tether_length,
+        reference_height=model.tether_length * sin(deg2rad(25)),
+        rigid_wind_limits(lowest_wind, assumptions)..., max_force,
+        attach_height=assumptions[:kite_attach_height] * hull.length /
+                      assumptions[:reference_length],
+        attach_position=lateral_centre(hull), wind_speeds=RIGID_WIND_SPEEDS, courses,
+        side_weights, forces, airframe)
+end
+
+"""
     KiteRig(area, aspect_ratio, hull, assumptions; attach_position=lateral_centre(hull))
 
 Kite of projected `area` [m^2] and `aspect_ratio` with its pattern table, towing from
@@ -487,8 +685,9 @@ end
     rig_force(rig::KiteRig, env, wind_10m, true_angle, ship_speed, trim)
 
 Force of the best pattern for side weight number `trim`, interpolated in newtons over
-apparent wind speed and course and held to the tether limit; no force where the kite
-cannot fly or the wind is below the table.
+apparent wind speed and course, reduced by [`loop_interaction`](@ref), held to the tether
+limit and summed over the kites; no force where the kite cannot fly or the wind is below
+the table.
 """
 function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_speed, trim)
     wind = wind_at_height(env, wind_10m, rig.reference_height)
@@ -507,23 +706,24 @@ function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_sp
         downwind += row_weight * column_weight * load * force[1]
         crosswind += row_weight * column_weight * load * force[2]
     end
-    limit = min(1.0, rig.max_force / hypot(downwind, crosswind))
-    direction = angle + π
-    thrust = limit * (downwind * cos(direction) - crosswind * sin(direction))
-    side = limit * (downwind * sin(direction) + crosswind * cos(direction))
+    lone = hypot(downwind, crosswind)
+    interaction = loop_interaction(rig, lone / (0.5env.air_density * speed^2))
+    limit = kite_count(rig) * min(interaction, rig.max_force / lone)
+    thrust = limit * (crosswind * sin(angle) - downwind * cos(angle))
+    side = limit * (crosswind * cos(angle) + downwind * sin(angle))
     return RigForce(thrust, side, side * rig.attach_height, side * rig.attach_position)
 end
 
 trim_settings(rig::KiteRig) = eachindex(rig.side_weights)
 
 """
-    CombinedRig{S}
+    CombinedRig{K, S}
 
-Towing kite flown over a standing rig of wings or rotors, of type `S`; the standing rig
-works whether or not the kite flies.
+Towing kite of type `K` flown over a standing rig of wings or rotors, of type `S`; the
+standing rig works whether or not the kite flies.
 """
-struct CombinedRig{S}
-    kite::KiteRig
+struct CombinedRig{K <: KiteRig, S}
+    kite::K
     standing::S
 end
 
@@ -616,3 +816,14 @@ function rig_force(down::DownRig, env::Environment, wind_10m, true_angle, ship_s
 end
 
 standing_rig(down::DownRig) = down
+
+"""
+    rig_height(rig)
+
+Height [m] at which `rig` takes its apparent wind, 10 m without a rig.
+"""
+rig_height(rig::Union{WingRig, RotorRig}) = rig.foot_height + rig.height / 2
+rig_height(rig::KiteRig) = rig.reference_height
+rig_height(rig::CombinedRig) = rig_height(rig.kite)
+rig_height(down::DownRig) = rig_height(down.rig)
+rig_height(::Nothing) = 10.0

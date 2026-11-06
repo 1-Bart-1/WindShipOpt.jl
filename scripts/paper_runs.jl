@@ -87,10 +87,13 @@ run_file(name) = joinpath(paper_run.directory, name)
     data_file(name)
 
 Path of the data file `name` a step reads: in the run in use, else in the latest finished
-run of its fidelity that has it, else in the latest unfinished one.
+run of its fidelity that has it, this branch's before any other's, else in the latest
+unfinished one.
 """
 function data_file(name)
-    runs = fidelity_runs(paper_run.fidelity)
+    branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
+    runs = sort(fidelity_runs(paper_run.fidelity);
+        by=run -> get(last(run), "git_branch", "") != branch)
     finished = [directory for (directory, record) in runs if is_finished(record)]
     unfinished = [directory for (directory, record) in runs if !is_finished(record)]
     for directory in filter(!isnothing, [paper_run.directory; finished; unfinished])
@@ -173,13 +176,15 @@ end
 """
     open_run(fidelity, names, resume)
 
-The run to make steps `names` in: the latest unfinished run at `fidelity` if `resume` is
-true, or nothing and confirmed on stdin; otherwise, or without one, a new run. A final
-run needs a clean tree on a pushed commit.
+The run to make steps `names` in: the latest unfinished run at `fidelity` on this git branch
+if `resume` is true, or nothing and confirmed on stdin; otherwise, or without one, a new
+run. A final run needs a clean tree on a pushed commit.
 """
 function open_run(fidelity, names, resume)
     fidelity == :final && check_final_commit()
-    runs = filter(run -> !is_finished(last(run)), fidelity_runs(fidelity))
+    branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
+    runs = filter(run -> !is_finished(last(run)) && last(run)["git_branch"] == branch,
+        fidelity_runs(fidelity))
     resumed = !isempty(runs) && resume != false &&
               (resume == true || confirm_resume(first(runs)...))
     code = code_hash()
@@ -188,7 +193,7 @@ function open_run(fidelity, names, resume)
         " last ran: cases cached by other code will not be reused")
     record["code_hash"] = code
     record["git_commit"] = git_output("rev-parse", "HEAD")
-    record["git_branch"] = git_output("rev-parse", "--abbrev-ref", "HEAD")
+    record["git_branch"] = branch
     record["git_dirty"] = !isempty(changed_files())
     record["requested"] = union(record["requested"], string.(names))
     run = PaperRun(directory, fidelity, record, 0, 0)
@@ -307,8 +312,8 @@ hash of the inputs of the trip and the code hash of the run.
 function case_path(case, departures)
     inputs = sort([name => entry.value for (name, entry) in case.assumptions.entries])
     io = IOBuffer()
-    serialize(io, (case.design, inputs, case.route, case.scale, case.horizon, departures,
-        weather_name, paper_run.record["code_hash"]))
+    serialize(io, (case.design, inputs, case.route, case.scale, case.horizon,
+        case.held_knots, departures, weather_name, paper_run.record["code_hash"]))
     name = string(hash(String(take!(io))); base=16)
     return joinpath(paper_run.directory, "cases", name * ".bin")
 end

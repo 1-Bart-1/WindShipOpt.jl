@@ -639,6 +639,9 @@ const COST_TO_GO_STEP = 48.0
 "commanded speeds of the search a [`CostToGo`](@ref) skips between its own, plus one"
 const COST_TO_GO_SPEED_STRIDE = 2
 
+"Indices of every `stride`-th of `count` ascending speeds, ending at the fastest"
+commanded_speeds(count, stride) = (1 + (count - 1) % stride):stride:count
+
 "longest time between the weather samples along an edge of a [`CostToGo`](@ref) [h]"
 const COST_TO_GO_SAMPLE_HOURS = 6.0
 
@@ -746,7 +749,7 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices,
         penalty = edge_penalty(corridor, stage, next, coastal_penalty)
         start = EdgeSample(table.table, node_wind, node_waves,
             corridor.edge_course[stage, lateral, step], daylight)
-        for speed_index in 1:speed_stride:length(table.speeds)
+        for speed_index in commanded_speeds(length(table.speeds), speed_stride)
             hours = sail_edge!(points, start, table, weather, corridor, stage, lateral,
                 step, departure + time, speed_index, COST_TO_GO_SAMPLE_HOURS)
             isfinite(hours) || continue
@@ -917,9 +920,10 @@ end
                coastal_penalty, speed_stride)
 
 The dynamic programme of [`route`](@ref) in `workspace`, whose bins are `time_step` [h]
-long, commanding every `speed_stride`-th speed of `table`, skipping states and commanded
-edges outside the [`PassageBand`](@ref) `to_go`, or, with a [`CostToGo`](@ref) `to_go`,
-those whose objective plus it exceeds `limit` [USD]. Returns the [`Leg`](@ref) or `nothing`.
+long, commanding the [`commanded_speeds`](@ref) of `table` at `speed_stride`, skipping
+states and commanded edges outside the [`PassageBand`](@ref) `to_go`, or, with a
+[`CostToGo`](@ref) `to_go`, those whose objective plus it exceeds `limit` [USD]. Returns the
+[`Leg`](@ref) or `nothing`.
 """
 function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable,
         weather, departure, to_go=nothing, limit=Inf; time_cost, time_step, first_stage,
@@ -950,7 +954,7 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
                 distance = corridor.edge_length[stage, lateral, step]
                 start = EdgeSample(ship_table, node_wind, node_waves,
                     corridor.edge_course[stage, lateral, step], daylight)
-                for speed_index in 1:speed_stride:length(speeds)
+                for speed_index in commanded_speeds(length(speeds), speed_stride)
                     commanded = distance / speeds[speed_index] / 3600
                     edge_within_limit(to_go, limit,
                         here + penalty * time_cost * commanded, next, stage + 1,
