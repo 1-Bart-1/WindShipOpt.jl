@@ -1194,6 +1194,20 @@ end
     @test PaperRuns.data_file("study.csv") == other
 end
 
+module SizeSearch
+include(joinpath(pkgdir(Main.WindShipOpt), "scripts", "size_search.jl"))
+end
+
+@testset "a size search whose best is a bound next tries the size just inside it" begin
+    step = 2^0.25
+    @test SizeSearch.next_size([(500.0, 3.0), (2828.0, 2.0), (16000.0, 1.0)], 500.0,
+        16000.0) ≈ SizeSearch.snap_area(16000 / step)
+    @test SizeSearch.next_size([(500.0, 1.0), (2828.0, 2.0), (16000.0, 3.0)], 500.0,
+        16000.0) ≈ SizeSearch.snap_area(500 * step)
+    @test SizeSearch.next_size([(13777.0, 2.0), (16000.0, 1.0)], 500.0, 16000.0) ≈
+          SizeSearch.snap_area(sqrt(13777 * 16000))
+end
+
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
     marker = tempname()
     write(marker, "")
@@ -1400,6 +1414,22 @@ end
         @test WindShipOpt.crash_cost(rig, assumptions) * rig.count ≈
               first(WindShipOpt.rig_costs(rig, assumptions))
     end
+end
+
+@testset "sizes swept stay within what fits and bracket the given size" begin
+    @test WindShipOpt.sizes_around("kite", 3200.0, 16000.0) ==
+          [800.0, 1600.0, 3200.0, 6400.0, 12800.0]
+    @test WindShipOpt.sizes_around("kite", 6400.0, 16000.0) ==
+          [1600.0, 3200.0, 6400.0, 12800.0, 16000.0]
+    @test WindShipOpt.sizes_around("kite", 16000.0, 16000.0) == [4000.0, 8000.0, 16000.0]
+    @test WindShipOpt.sizes_around("rotors", 800.0, 1221.0) == [400.0, 800.0, 1221.0]
+end
+
+@testset "a sweep whose goal cost differs from the size sweep is refused" begin
+    goal = Dict("kite" => 2.0, "rotors" => 1.0)
+    @test isnothing(WindShipOpt.check_goal_cost("ship", "life", goal, Dict("kite" => 2.0)))
+    @test_throws ErrorException WindShipOpt.check_goal_cost("ship", "life", goal,
+        Dict("kite" => 2.1))
 end
 
 @testset "one rigid kite crashing costs one airframe and half of one tether" begin
