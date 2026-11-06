@@ -1270,85 +1270,55 @@ function abatement_figure()
 end
 
 """
+    uniform_swing(table, rig, input)
+
+Cost savings [%] of `rig` on the 140 m ship in the uniform study `table` with `input` a
+step down and up.
+"""
+uniform_swing(table, rig, input) = (screened_saving(table, "140 m", rig, input, "down"),
+    screened_saving(table, "140 m", rig, input, "up"))
+
+"largest change [points] of any rig's saving between `input` a step down and up"
+uniform_reach(table, input) = maximum(rig -> abs(-(uniform_swing(table, rig, input)...)),
+    rig_names)
+
+"""
     sensitivity_figure()
 
-Cost saving of each rig on the 140 m e-methanol reference ship at the low and high bound
-of the twelve inputs that move it most, as a tornado around the base saving.
+Cost saving of each rig on the 140 m e-methanol reference ship with each of the twelve
+inputs that move any rig most a [`uniform_step`](@ref) down and up, as tornados around
+the base saving, one panel per rig on a shared axis and in the same order.
 """
 function sensitivity_figure()
-    table = read_table(data_file("sensitivity.csv"))
+    table = read_table(data_file("uniform.csv"))
+    inputs = filter(!=("none"), unique(table["input"]))
+    filter!(input -> all(rig -> all(isfinite, uniform_swing(table, rig, input)),
+            rig_names), inputs)
+    shown = last(sort(inputs; by=input -> uniform_reach(table, input)), 12)
+    step = round(Int, 100 * uniform_step)
     figure = Figure(size=(page_width, 320))
+    axes = Axis[]
     for (column, rig) in enumerate(rig_names)
         base = screened_saving(table, "140 m", rig, "none", "value")
-        swings = [(input, screened_saving(table, "140 m", rig, input, "low"),
-                      screened_saving(table, "140 m", rig, input, "high"))
-                  for input in filter(!=("none"), unique(table["input"]))]
-        filter!(swing -> all(isfinite, swing[2:3]), swings)
-        sort!(swings; by=swing -> abs(swing[3] - swing[2]))
-        swings = last(swings, 12)
         axis = Axis(figure[1, column]; title="($('a' + column - 1)) $rig",
-            yticks=(eachindex(swings), [replace(first(swing), "_" => " ")
-                                        for swing in swings]),
+            yticks=(eachindex(shown), replace.(shown, "_" => " ")),
+            yticksvisible=column == 1, yticklabelsvisible=column == 1,
             xlabel="cost saving [%]", xticks=WilkinsonTicks(3), yticklabelsize=8)
-        vlines!(axis, base; color=:gray50, linewidth=0.8)
-        for (k, (_, low, high)) in enumerate(swings)
-            barplot!(axis, [k], [low - base]; offset=base, direction=:x, color=palette[1],
-                width=0.6)
-            barplot!(axis, [k], [high - base]; offset=base, direction=:x, color=palette[2],
-                width=0.6)
-        end
-    end
-    Legend(figure[2, 1:3], [PolyElement(color=palette[1]), PolyElement(color=palette[2])],
-        ["input at low bound", "input at high bound"]; orientation=:horizontal,
-        framevisible=false, labelsize=9)
-    save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
-end
-
-"""
-    component_figure()
-
-Change in the cost saving of each rig on a 140 m e-methanol ship when the price of one
-of its components is 50 % lower or higher, or one of its lifetimes doubled or halved,
-one panel per rig; components moving it by less than 0.05 points are left out.
-"""
-function component_figure()
-    table = read_table(data_file("components.csv"))
-    bare = only(table["cost"][rows(table, "rig" => "none")])
-    figure = Figure(size=(column_width, 430))
-    axes = Axis[]
-    for (row, rig) in enumerate(rig_names)
-        base_cost = only(table["cost"][rows(table, "rig" => rig, "input" => "none")])
-        base = percent_saving(base_cost, bare)
-        inputs = filter(!=("none"), unique(table["input"][rows(table, "rig" => rig)]))
-        effects = Tuple{String, Float64, Float64}[]
-        for input in inputs
-            chosen = rows(table, "rig" => rig, "input" => input)
-            better = percent_saving(minimum(table["cost"][chosen]), bare) - base
-            worse = percent_saving(maximum(table["cost"][chosen]), bare) - base
-            max(abs(better), abs(worse)) >= 0.05 &&
-                push!(effects, (input, better, worse))
-        end
-        sort!(effects; by=effect -> effect[2])
-        labels = [replace(first(effect), "_" => " ") for effect in effects]
-        title = "($('a' + row - 1)) $rig, base saving $(round(base; digits=1)) %"
-        axis = Axis(figure[row, 1]; title, yticks=(eachindex(effects), labels),
-            xlabel=row == length(rig_names) ? "change in cost saving [points]" : "",
-            yticklabelsize=8)
         push!(axes, axis)
-        rowsize!(figure.layout, row, Auto(length(effects)))
-        vlines!(axis, 0; color=:gray50, linewidth=0.8)
-        barplot!(axis, eachindex(effects), getindex.(effects, 2); direction=:x,
-            color=palette[3], width=0.6)
-        barplot!(axis, eachindex(effects), getindex.(effects, 3); direction=:x,
-            color=palette[6], width=0.6)
+        vlines!(axis, base; color=:gray50, linewidth=0.8)
+        for (k, input) in enumerate(shown)
+            down, up = uniform_swing(table, rig, input)
+            barplot!(axis, [k], [down - base]; offset=base, direction=:x,
+                color=palette[1], width=0.6)
+            barplot!(axis, [k], [up - base]; offset=base, direction=:x,
+                color=palette[2], width=0.6)
+        end
     end
     linkxaxes!(axes...)
-    Legend(figure[length(rig_names) + 1, 1],
-        [PolyElement(color=palette[3]), PolyElement(color=palette[6])],
-        ["50 % cheaper or twice the life", "50 % dearer or half the life"];
-        orientation=:horizontal, nbanks=2, framevisible=false, labelsize=9,
-        patchsize=(10, 8))
-    save(joinpath(figures, "components.pdf"), figure; pt_per_unit=print_scale)
+    Legend(figure[2, 1:3], [PolyElement(color=palette[1]), PolyElement(color=palette[2])],
+        ["input $step % lower", "input $step % higher"]; orientation=:horizontal,
+        framevisible=false, labelsize=9)
+    save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
 end
 
 """
