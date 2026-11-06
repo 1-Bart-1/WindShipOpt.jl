@@ -218,6 +218,8 @@ servos with drives start at USD 698 (Teknic, `kite_costs_notes.md` §4c). Ours i
 12.2 k manufacturing at 72 m², 4× Faggiani, and 59 k at 3,200 m². **Plausible;
 certification could push it to the high value (22 k + 30 USD/m²).**
 
+These rows compare at the sizes as sold, which are flat (section 6). At their projected areas, 125 and 250 m², our price is 10 and 15 % lower, from the hardware and today's canopy, so the ratios rise by about that.
+
 ## 3. Production volume and technology phase
 
 ### What "series production" implies
@@ -370,19 +372,29 @@ Report the kite results as a series-production scenario, and state alongside
 them that the business behind it needs ~USD 200 M of funding, ~150–200 systems a
 year and canopy replacement revenue to break even in about 12 years.
 
-## 6. Aspect ratio of towing kites
+## 6. Aspect ratio and area basis of towing kites
 
-The base kite has a projected aspect ratio of 3. On the shape in `kite_polars/wing_polars.jl` (arc with projected span 0.82 of flat span, tip chord 0.4 of root) flat area is 1.185 times projected area, so flat aspect ratio = 3 × (1/0.82)² / 1.185 = 3.76.
+The base kite has a projected aspect ratio of 3. On the shape in `kite_polars/wing_polars.jl` (arc with projected span 0.82 of flat span, tip chord 0.4 of root) flat area is 1.185 times projected area, so flat aspect ratio = 3 × (1/0.82)² / 1.185 = 3.76. The value is one used by industry, from an industrial design known to the authors without a public reference.
 
 | Kite | Area | Span | Aspect ratio | Source |
 | ---- | ---- | ---- | ------------ | ------ |
+| SkySails ship kite | "Flat size of 225 m²", 160 kN | none | "projected aspect ratio lower than 2" | Paulig et al. 2013, pp. 552, 561 |
+| SkySails ship kite | 160 m², by the same naming flat | "projected span ... about 14 m" | 1.6 at 125 m² projected | Paulig et al. 2013, Fig. 32.5 |
 | Ram-air wing from SkySails Power, not stated to be a ship kite | 160 m² total, 125 m² projected | 15.2 m projected | 1.86 projected, stated | Folkersma, Schmehl & Viré 2020, Table 1 |
-| SkySails ship kites | 320 m², basis not stated | none | "moderate", "very low", no number | Penloup et al. 2021, pp. 2, 17 |
+| SkySails ship kites | 320 m² | none | "moderate", "very low", no number | Penloup et al. 2021, pp. 2, 17 |
 | Airseas Seawing | 1,000 m² "sail surface", basis not stated | none | none | Airseas web page |
 
-Paulig et al. 2013 (DOI 10.1007/978-3-642-39965-7_32), the likely primary source for SkySails, could not be fetched.
+Paulig et al. also compare flat aspect ratios of 4.8 and 2.7 in CFD (Fig. 32.1) and give glide ratios of 4 to 5.
 
-The base stays at 3, above the one published number, for two reasons. At projected 2 the same polar method on this shape gives drag below zero up to 2° and a maximum L/D of 39, while it reproduces the tracked polar at 3 exactly, so 2 has no usable polar. And `kite_flight_drag` calibrates L/D to 4 at CL 0.8 against reports of flown kites.
+At projected 2 the polar method on this shape gives drag below zero up to 2° and a maximum L/D of 39; at 2.5 it gives a usable polar and at 1.86 drag below zero up to about 8°. The polar at 3 reproduces to 2.4e-7.
 
-The same reading shows that SkySails sizes are total or laid-out areas while this model's are projected, which touches inputs calibrated on them: the mast height ratio (15 m on 160 m² total is 1.34 √A on 125 m², not 1.19) and the tether length ratio (300 m on a 15.2 m span is 19.7 spans, not 13).
+**Area basis.** Paulig et al. state a flat size only for the 225 m² kite. The 160 m² kite reads the same way, as 160 m² total goes with 125 m² projected in Folkersma et al. and its 14 m span then gives an aspect ratio below 2; the 320 m² kite is inferred from the naming. All inputs here are on projected area, at 1.28 flat over projected, the one pair in a source read in full (160 / 125, Folkersma et al. 2020). The PN-14 data sheet, seen only as a search snippet, lists 90 m² projected and "up to 180 m²" flat, 2.0, which is not used: this shape has 1.185. At 2.0 the 160 m² kite would be 80 m² and its mast 1.68 √A, inside the range below. This takes 160 m² to 125 m², 225 to 176 and 320 to 250. Inputs:
 
+| Input | Reading on projected area | Value (range) |
+| ----- | ------------------------- | ------------- |
+| Mast height ratio | 15 m on 125 m²: 1.34; Airseas 35 m on 1,000 m²: 1.11 projected, 1.25 flat; PN-14 19 m on 90 m²: 2.0 | 1.3 (0.8–2.0) |
+| Tether over span at aspect ratio 3 | 300 m on 125 m²: 15.5; about 360 m on 250 m² (Paulig p. 554): 13.1; 19.7 on the kite's own 15.2 m | 13, from the larger kite (10–20) |
+| Turn radius over span at aspect ratio 3 | 45 m on 125 m², bounds 29 and 83 m | 2.3 (1.5–4.3) |
+| Force per area | 160 kN on 225 m² flat, about 0.7 (Paulig p. 557): 0.9 on projected | 0.5, a stated choice (0.4–1.0) |
+
+**Canopy mass.** Paulig gives 0.5–0.6 kg/m² for kites of 160–320 m² and 120 kg with lines for the 225 m² kite on cloth slightly above 100 g/m², which is 0.68 kg/m² projected.

@@ -132,7 +132,7 @@ years(name) = @sprintf("%.0f years", assumptions[name])
     goal_rows()
 
 The goals behind the results as (goal, rigs, value, what is known today), each value read
-from the input that holds it, but for the rigid kite's life, which no input holds.
+from the input that holds it.
 """
 function goal_rows()
     canopy = @sprintf("\\num{%.0f} h at %.0f g/m\$^2\$", assumptions[:canopy_life],
@@ -140,8 +140,10 @@ function goal_rows()
     service = @sprintf("%.0f\\,\\%%",
         100only(unique(assumptions[Symbol(out_of_service_inputs[rig])]
                        for rig in rig_names)))
-    loss = @sprintf("1 in \\num{%.0f}", 1 / (assumptions[:kite_cycle_damage_probability] +
-                                              assumptions[:kite_cycle_loss_probability]))
+    kite_loss = assumptions[:kite_cycle_damage_probability] +
+                assumptions[:kite_cycle_loss_probability]
+    loss = @sprintf("1 in \\num{%.0f}", 1 / only(unique((kite_loss,
+        assumptions[:rigid_cycle_loss_probability]))))
     crew = @sprintf("USD~%.0f per cycle", assumptions[:kite_cycle_crew_cost])
     price = @sprintf("USD~%.0f/m\$^2\$", WindShipOpt.canopy_price(assumptions))
     today = @sprintf("our estimate USD~%.0f/m\$^2\$, from retail cloth and hand sewing",
@@ -149,7 +151,7 @@ function goal_rows()
     return [("Canopy life", "kite", canopy,
             "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements"),
         ("Canopy price", "kite", price, today),
-        ("Rig life", "rigid kite", "15 years",
+        ("Rig life", "rigid kite", years(:rigid_lifetime),
             "M600 flew 22 h of crosswind in all \\citep{echeverri2020part1}"),
         ("Rig life", "wings", years(:wing_lifetime),
             "stated design life; about 2 years on record"),
@@ -298,7 +300,7 @@ function crash_rows()
     for ship in unique(table["ship"])
         bare = only(table["cost"][rows(table, "ship" => ship, "rig" => "none")])
         best = Dict(rig => minimum(table["cost"][rows(table, "ship" => ship, "rig" => rig)])
-                    for rig in rig_names)
+                    for rig in crash_rigs)
         for (; rig, next) in WindShipOpt.ranked_neighbours(best)
             for row in rows(table, "ship" => ship, "rig" => rig)
                 push!(result, crash_row(table, row, bare, next))
@@ -346,7 +348,8 @@ function crash_table()
             @printf(io, "%s & %s & %.0f & %.1f & %.0f & %s & %s & %s \\\\\n", row.ship,
                 row.rig, row.area, row.saving, row.crash / 1e3,
                 crash_cell(row.stops_paying), crash_cell(row.behind_next),
-                row.rig == "kite" ? @sprintf("%.0f", row.flight_hours) : "--")
+                row.rig in ("kite", "rigid kite") ? @sprintf("%.0f", row.flight_hours) :
+                "--")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end

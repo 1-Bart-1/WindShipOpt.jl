@@ -12,7 +12,7 @@ using VortexStepMethod
 using VortexStepMethod.AirfoilAero: NeuralFoilSolver, generate_polar_from_coordinates
 
 projected_area = 100.0
-aspect_ratios = [3.0, 4.0, 5.0, 6.0, 8.0]
+aspect_ratios = [2.5, 3.0, 4.0, 5.0, 6.0, 8.0]
 flattening = 0.82
 tip_chord_ratio = 0.4
 airfoil = (camber=0.04, camber_position=0.4, thickness=0.15)
@@ -119,19 +119,19 @@ for aspect_ratio in aspect_ratios
         results = solve(solver, body)
         rows[i, :] = [alpha, results["cl"], results["cd"], results["cs"]]
     end
-    open(joinpath(output, @sprintf("geometry_ar%.0f.csv", aspect_ratio)), "w") do io
+    open(joinpath(output, @sprintf("geometry_ar%g.csv", aspect_ratio)), "w") do io
         println(io, "le_x,le_y,le_z,te_x,te_y,te_z")
         for section in wing.unrefined_sections
             writedlm(io, [section.LE_point; section.TE_point]', ',')
         end
     end
-    path = joinpath(output, @sprintf("kite_ar%.0f.csv", aspect_ratio))
+    path = joinpath(output, @sprintf("kite_ar%g.csv", aspect_ratio))
     open(path, "w") do io
         println(io, "alpha,cl,cd,cs")
         writedlm(io, rows, ',')
     end
     best = argmax(rows[:, 2] ./ rows[:, 3])
-    @printf("AR %.0f: area %.1f m2, max L/D %.1f at alpha %.0f (CL %.2f), CL max %.2f\n",
+    @printf("AR %g: area %.1f m2, max L/D %.1f at alpha %.0f (CL %.2f), CL max %.2f\n",
         aspect_ratio, body.projected_area, rows[best, 2] / rows[best, 3], rows[best, 1],
         rows[best, 2], maximum(rows[:, 2]))
 end

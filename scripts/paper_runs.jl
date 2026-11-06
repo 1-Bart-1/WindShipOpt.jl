@@ -87,10 +87,13 @@ run_file(name) = joinpath(paper_run.directory, name)
     data_file(name)
 
 Path of the data file `name` a step reads: in the run in use, else in the latest finished
-run of its fidelity that has it, else in the latest unfinished one.
+run of its fidelity that has it, this branch's before any other's, else in the latest
+unfinished one.
 """
 function data_file(name)
-    runs = fidelity_runs(paper_run.fidelity)
+    branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
+    runs = sort(fidelity_runs(paper_run.fidelity);
+        by=run -> get(last(run), "git_branch", "") != branch)
     finished = [directory for (directory, record) in runs if is_finished(record)]
     unfinished = [directory for (directory, record) in runs if !is_finished(record)]
     for directory in filter(!isnothing, [paper_run.directory; finished; unfinished])

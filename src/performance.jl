@@ -69,11 +69,14 @@ end
 Bilinear interpolation of the matrix `values` at the [`KnotWeight`](@ref)s `y` and `z`
 of its rows and columns; its entries are numbers or tuples of numbers.
 """
-plane_value(values, y::KnotWeight, z::KnotWeight) = y.upper .*
-    line_value(values, y.index + 1, z) .+ y.lower .* line_value(values, y.index, z)
-
-line_value(values, j, z::KnotWeight) =
-    @inbounds z.upper .* values[j, z.index + 1] .+ z.lower .* values[j, z.index]
+function plane_value(values, y::KnotWeight, z::KnotWeight)
+    j, k = y.index, z.index
+    corners = @inbounds (values[j + 1, k + 1], values[j + 1, k], values[j, k + 1],
+        values[j, k])
+    return map((upper_upper, upper_lower, lower_upper, lower_lower) ->
+            y.upper * (z.upper * upper_upper + z.lower * upper_lower) +
+            y.lower * (z.upper * lower_upper + z.lower * lower_lower), corners...)
+end
 
 """
     PerformanceTable
@@ -109,10 +112,12 @@ struct PerformanceTable{S}
     max_wind::Float64
     "highest significant wave height at which a kite stays up [m]"
     max_wave_height::Float64
+    "true wind at a kite's reference height per unit of 10 m wind [-]; zero without a kite"
+    kite_wind_factor::Float64
 end
 
-"thrust stored for infeasible conditions [N]"
-const INFEASIBLE_THRUST = 1e9
+"thrust stored for infeasible conditions, far above what any engine delivers [N]"
+const INFEASIBLE_THRUST = 1e12
 
 """
     PerformanceTable(ship, assumptions)
@@ -136,7 +141,7 @@ function PerformanceTable(ship::Ship, assumptions::Assumptions)
         LinearTable((speeds, periods, headings), waves), wear_cost(ship.rig, assumptions),
         cycle_cost(ship.rig, assumptions), handling_hours(ship.rig, assumptions),
         forced_landing_cost(ship.rig, assumptions), speeds, last(winds),
-        max_wave_height(ship.rig, assumptions))
+        max_wave_height(ship.rig, assumptions), kite_wind_factor(ship.rig, ship.env))
 end
 
 """
@@ -173,6 +178,8 @@ handling_hours(rig::CombinedRig, assumptions) = handling_hours(rig.kite, assumpt
 handling_hours(::KiteRig, assumptions) =
     ((1 + assumptions[:kite_launch_retry_probability]) * assumptions[:kite_launch_minutes] +
      assumptions[:kite_landing_minutes]) / 60
+handling_hours(::KiteRig{RigidAirframe}, assumptions) =
+    assumptions[:rigid_hover_minutes] / 60
 
 """
     OperatingPoint
@@ -289,16 +296,14 @@ edge_fuels(table::PerformanceTable, speed, speed_weight::KnotWeight,
     edge_fuels(table, speed, SpeedSlice(table, speed_weight), condition)
 
 """
-    kite_wind(table, wind_10m)
+    kite_wind_factor(rig, env)
 
-True wind speed [m/s] at the reference height of a kite for a 10 m wind `wind_10m`
-[m/s]; zero for ships without a kite.
+True wind at the reference height of a kite per unit of 10 m wind [-]; zero for ships
+without a kite.
 """
-kite_wind(table::PerformanceTable, wind_10m) = kite_wind(table.ship.rig, table, wind_10m)
-kite_wind(rig, table, wind_10m) = 0.0
-kite_wind(rig::KiteRig, table, wind_10m) =
-    wind_at_height(table.ship.env, wind_10m, rig.reference_height)
-kite_wind(rig::CombinedRig, table, wind_10m) = kite_wind(rig.kite, table, wind_10m)
+kite_wind_factor(rig, env) = 0.0
+kite_wind_factor(rig::KiteRig, env) = wind_at_height(env, 1.0, rig.reference_height)
+kite_wind_factor(rig::CombinedRig, env) = kite_wind_factor(rig.kite, env)
 
 """
     kite_aloft(table, speed, headwind, crosswind, wave_height)
@@ -360,90 +365,10 @@ kite_landable(rig::KiteRig, speed, headwind, crosswind, wave_height) =
     hypot(headwind + speed, crosswind) <= rig.landing_max_wind
 
 function fuel_power(table::PerformanceTable, speed, thrust, rig_power)
-    thrust < 1e-3INFEASIBLE_THRUST || return Inf
     (; ship) = table
     delivered = delivered_power(ship.propeller, ship.env, speed, thrust)
     return fuel_power(ship.powertrain,
         delivered + rig_power * ship.powertrain.transmission_efficiency)
-end
-
-"""
-    FuelBound
-
-Lower bound on the fuel power [`lookup`](@ref) returns at each of a set of speeds, from
-the least calm thrust and added resistance over the cells of the grids of a
-[`PerformanceTable`](@ref).
-"""
-struct FuelBound
-    "fuel power [W] that no larger thrust undercuts, per (thrust step, speed)"
-    fuel_power::Matrix{Float64}
-    "least calm thrust [N] per (speed, wind cell) over all angles and lower wind cells"
-    least_calm_thrust::Matrix{Float64}
-    "least added resistance over H_s^2 [N/m^2] per speed over all wave cells"
-    least_wave_resistance::Vector{Float64}
-end
-
-"thrust step of the fuel power in a [`FuelBound`](@ref) [N]"
-const BOUND_THRUST_STEP = 500.0
-
-"""
-    FuelBound(table, speeds)
-
-[`FuelBound`](@ref) of `table` at `speeds` [m/s].
-"""
-function FuelBound(table::PerformanceTable, speeds)
-    speed_weights = [KnotWeight(table.speeds, speed) for speed in speeds]
-    _, winds, angles = table.flown_thrust.knots
-    _, periods, headings = table.wave_resistance.knots
-    calm = [min(cell_floor(table.flown_thrust, weight, j, k),
-                cell_floor(table.stowed_thrust, weight, j, k))
-            for weight in speed_weights, j in 1:(length(winds) - 1),
-                k in 1:(length(angles) - 1)]
-    waves = [cell_floor(table.wave_resistance, weight, j, k)
-             for weight in speed_weights, j in 1:(length(periods) - 1),
-                 k in 1:(length(headings) - 1)]
-    rig_power = min(0.0, value_floor(table.rig_power.values),
-        value_floor(table.stowed_power.values))
-    thrusts = 0:BOUND_THRUST_STEP:(1e-3INFEASIBLE_THRUST)
-    fuel = [(1 - 1e-9) * fuel_power(table, speed, thrust, rig_power)
-            for thrust in thrusts, speed in speeds]
-    least_calm = accumulate(min, dropdims(minimum(calm; dims=3); dims=3); dims=2)
-    return FuelBound(fuel, least_calm, vec(minimum(waves; dims=(2, 3))))
-end
-
-"""
-    value_floor(values)
-
-Least of `values`, lowered by the rounding error a linear interpolation between them can
-make.
-"""
-value_floor(values) = minimum(values) - 1e-9maximum(abs, values)
-
-"""
-    cell_floor(table, speed_weight, j, k)
-
-Least value of `table` at the speed of `speed_weight` over the corners of cell (`j`,
-`k`) of the other two dimensions, lowered by the rounding error of interpolating there.
-"""
-function cell_floor(table::LinearTable, speed_weight::KnotWeight, j, k)
-    i = speed_weight.index
-    corners = view(table.values, i:(i + 1), j:(j + 1), k:(k + 1))
-    least = minimum(
-        speed_weight.upper * corners[2, y, z] + speed_weight.lower * corners[1, y, z]
-        for y in 1:2, z in 1:2)
-    return least - 1e-9maximum(abs, corners)
-end
-
-"""
-    bound_fuel_power(bound, speed_index, thrust)
-
-Fuel power [W] that no thrust above `thrust` [N] undercuts at speed number `speed_index`
-of `bound`.
-"""
-function bound_fuel_power(bound::FuelBound, speed_index, thrust)
-    thrust >= 2BOUND_THRUST_STEP || return bound.fuel_power[1, speed_index]
-    knot = min(floor(Int, thrust * (1 / BOUND_THRUST_STEP)), size(bound.fuel_power, 1))
-    return bound.fuel_power[knot, speed_index]
 end
 
 max_knots(table::PerformanceTable) = floor(Int, last(table.speeds) / KNOT)
@@ -452,15 +377,17 @@ max_knots(table::PerformanceTable) = floor(Int, last(table.speeds) / KNOT)
     RouteTable
 
 A [`PerformanceTable`](@ref) at the speeds the router tries, with the
-[`SpeedSlice`](@ref) and the [`FuelBound`](@ref) at each.
+[`SpeedSlice`](@ref) at each.
 """
 struct RouteTable{T <: PerformanceTable}
     table::T
     "routing speeds [m/s], ascending"
     speeds::Vector{Float64}
     slices::Vector{SpeedSlice}
-    bound::FuelBound
 end
+
+"Whether the ship of `table` can fly a kite"
+has_kite(table::RouteTable) = table.table.stowed_thrust !== table.table.flown_thrust
 
 """
     RouteTable(table, speeds)
@@ -471,7 +398,7 @@ the given `speeds` [m/s], ascending.
 function RouteTable(table::PerformanceTable,
         speeds=collect(Float64, (4:max_knots(table)) .* KNOT))
     slices = [SpeedSlice(table, KnotWeight(table.speeds, speed)) for speed in speeds]
-    return RouteTable(table, speeds, slices, FuelBound(table, speeds))
+    return RouteTable(table, speeds, slices)
 end
 
 """
