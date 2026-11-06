@@ -1515,29 +1515,39 @@ speed_size.csv: speed_size.pdf.
 """
 function speed_size_figure()
     table = read_table(data_file("speed_size.csv"))
-    figure = Figure(size=(page_width, 560))
+    figure = Figure(size=(page_width, 430))
     panels = (("fuel saved [%]", "free", :fuel_percent),
         ("fuel saved [GJ/round trip]", "free", :fuel), ("cost saved [%]", "priced",
             :cost_percent))
     designs = [(grid, string(drive)) for grid in speed_size_grid for drive in grid.drives]
     for (row, (grid, drive)) in enumerate(designs)
-        shades = cgrad(:Blues, length(grid.kites) + 2; categorical=true)
+        shades = cgrad(:Blues, length(grid.kites) + 3; categorical=true)
         for (column, (label, pricing, quantity)) in enumerate(panels)
             letter = Char('a' + length(panels) * (row - 1) + column - 1)
             design = column == 1 ? " $(grid.ship), $(Dict(drive_labels)[drive])" : ""
             axis = Axis(figure[row, column]; title="($letter)$design",
-                xlabel="ship speed [kn]", ylabel=label, xticks=collect(grid.speeds))
+                xlabel=row == length(designs) ? "ship speed [kn]" : "", ylabel=label,
+                xticks=collect(grid.speeds))
+            ends, drawn = Float64[], Float64[]
             for (k, area) in enumerate(grid.kites)
                 savings = [speed_size_saving(table, grid.ship, drive, "kite", area, pricing,
                                knots) for knots in grid.speeds]
                 held = findall(!isnothing, savings)
-                scatterlines!(axis, collect(grid.speeds)[held],
-                    [getproperty(savings[i], quantity) for i in held]; color=shades[k + 2],
-                    markercolor=shades[k + 2], linewidth=2, markersize=8,
-                    label=string(round(Int, area), " m²"))
+                values = [getproperty(savings[i], quantity) for i in held]
+                scatterlines!(axis, collect(grid.speeds)[held], values;
+                    color=shades[k + 3], linewidth=1.5, markersize=4)
+                push!(ends, last(values))
+                append!(drawn, values)
             end
-            column == length(panels) &&
-                Legend(figure[row, column + 1], axis; framevisible=false, labelsize=9)
+            column == length(panels) || continue
+            spread = spread_labels(ends, 0.13 * (maximum(drawn) - minimum(drawn)))
+            for (k, area) in enumerate(grid.kites)
+                text!(axis, last(grid.speeds), spread[k]; text="$(round(Int, area)) m²",
+                    color=shades[k + 3], fontsize=8, align=(:left, :center),
+                    offset=(5, 0))
+            end
+            xlims!(axis, first(grid.speeds) - 0.3,
+                last(grid.speeds) + 0.55 * (last(grid.speeds) - first(grid.speeds)))
         end
     end
     save(joinpath(figures, "speed_size.pdf"), figure; pt_per_unit=print_scale)
