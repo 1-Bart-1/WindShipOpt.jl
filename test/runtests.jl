@@ -819,9 +819,12 @@ end
         @test down.fuel_energy >= 0.999bare_trip.fuel_energy
         @test down.launches == 0
     end
-    kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
-    @test trip_with_share(kite, :kite_out_of_service, 1.0, corridors).fuel_energy ≈
-          bare_trip.fuel_energy rtol = 1e-3
+    stowed = with_value(assumptions, :kite_out_of_service, 1.0)
+    held_fuel = [round_trip(Ship(design, stowed), corridors..., SyntheticWeather(),
+                     [24.0 * 31, 24.0 * 200], stowed; held_knots=10.0).fuel_energy
+                 for design in (ShipDesign(:methanol, 85.0),
+                     ShipDesign(:methanol, 85.0; kite_area=400.0))]
+    @test held_fuel[2] ≈ held_fuel[1] rtol = 1e-3
 end
 
 @testset "a kite out of service makes and pays launches and forced landings pro rata" begin
