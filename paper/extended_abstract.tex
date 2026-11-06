@@ -1,0 +1,73 @@
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[margin=2cm]{geometry}
+\usepackage{graphicx}
+\usepackage[export]{adjustbox}
+\usepackage{siunitx}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage[colorlinks,allcolors={blue!50!black}]{hyperref}
+\usepackage[capitalise]{cleveref}
+\crefname{figure}{Fig.}{Figs.}
+\usepackage[font=small,labelfont=bf]{caption}
+\usepackage{titlesec}
+\titleformat*{\section}{\normalsize\bfseries}
+\titlespacing*{\section}{0pt}{1.2ex}{0.6ex}
+\setlength{\parskip}{0.4ex}
+
+\input{commands}
+
+\title{\vspace{-1.5cm}Towing kites, wing sails and Flettner rotors on cargo ships: which rig is best where\\[0.3ex]\large Extended abstract}
+\author{Bart van de Lint, \tbd{co-authors}}
+\date{}
+
+\begin{document}
+
+\maketitle
+\vspace{-1cm}
+
+\InputIfFileExists{sections/fidelity}{}{}
+
+\section{Question}
+
+Towing kites, rigid wing sails and Flettner rotors all sail on cargo ships today, but their published savings come from different ships, routes and methods, so it is not known which rig is best where. We find the best rig of each kind for each ship and route, then compare these best rigs with each other, with the same ship on e-methanol, the zero-emission alternative without wind, and with today's ship on fuel oil.
+
+\section{Method}
+
+The best rig depends on the route the ship sails, and the route depends on the rig, since a ship with a rig steers for the wind it uses. So every design is judged on weather-routed voyages, through three years of real Atlantic weather, with the ship choosing its course and speed for the lowest cost. Each rig of each kind is then sized for the lowest total cost per tonne-kilometre, which counts the rig's price and wear, the fuel and the value of the ship's and cargo's time. We do this for thirteen ship classes, from a coaster to the largest container ships, on six routes from Rotterdam, with each rig as near its own optimum as the others.
+
+The kite is a young technology, so its results rest on goals for what development can still change rather than on what it achieves today: a canopy that lasts \NumCanopyLifeGoal{} flight hours and costs USD~\NumCanopyPriceGoal/m$^2$ in series against our estimate of USD~\NumCanopyPriceToday/m$^2$ today, and no kite lost in flight. Every rig is out of service \NumOutOfServiceGoal\,\% of the time. Each result therefore reads: if each rig reaches its goals, it saves this much.
+
+\section{Results}
+
+\textbf{On e-methanol, kites and rotors save about as much, and wing sails less.} Against the same ship on e-methanol without a rig, the cheapest kite saves \NumSavingMethanolKite\,\% of the cost per tonne-kilometre on average over all classes and routes, the cheapest rotors \NumSavingMethanolRotors\,\% and the cheapest wing sails \NumSavingMethanolWings\,\%. The difference between kites and rotors lies within the accuracy of this draft. Part of every saving is time: the router sails a rigged ship faster for the same cost, so cargo and ship spend less time at sea.
+
+\textbf{No rig makes the zero-emission ship as cheap as fuel oil.} The e-methanol ship without a rig costs \NumPremiumMethanol\,\% more than the same ship on fuel oil on the route to Guadeloupe. Of that premium the best kite closes \NumClosedMethanolKite\,\% over the ship lengths, the best rotors \NumClosedMethanolRotors\,\% and the best wing sails \NumClosedMethanolWings\,\% (\cref{fig:premium}). On fuel oil itself no rig saves much, because the fuel is cheap: on average \NumSavingOilKite\,\% for the kite, \NumSavingOilRotors\,\% for the rotors and \NumSavingOilWings\,\% for the wing sails.
+
+\textbf{Which rig is best depends on the ship and the route} (\cref{fig:winner_map}). On e-methanol the kite saves most in \NumLeadsMethanolKite{} of the \NumCellsMethanol{} pairs of ship and route, the rotors in \NumLeadsMethanolRotors{} and the wing sails in \NumLeadsMethanolWings. \tbd{Kites lead on the container ships and on the routes to the Caribbean, the Gulf of Mexico and Bilbao, rotors on the car carrier and on the routes to Dakar and Brazil, and on bulk carriers and tankers the two are about level.} On fuel oil the kite leads in \NumLeadsOilKite{} pairs and the rotors in \NumLeadsOilRotors. On a hydrogen ship the kite saves \NumSavingHydrogenKite\,\%, the rotors \NumSavingHydrogenRotors\,\% and the wing sails \NumSavingHydrogenWings\,\%, and the kite leads in \NumLeadsHydrogenKite{} pairs and the rotors in \NumLeadsHydrogenRotors.
+
+\begin{figure}[tb]
+\centering
+\plot{winner_map}
+\caption{The rig that lowers the cost per tonne-kilometre most for each ship class and route, with a fuel-oil (VLSFO, a), an e-methanol (b) and a hydrogen drive (c); the number in each cell is that rig's cost saving in per cent.}
+\label{fig:winner_map}
+\end{figure}
+
+\textbf{The kite keeps up only at its goals.} On the \SI{140}{m} e-methanol ship to Guadeloupe the kite saves \NumGoalKite\,\% at its goals, the rotors \NumGoalRotors\,\% and the wing sails \NumGoalWings\,\%. With a canopy that lasts \NumShortCanopyLife{} flight hours instead of \NumCanopyLifeGoal, the kite saves \NumShortLifeKite\,\%, and at today's canopy price \NumTodayPriceKite\,\%. Rotors have about eight years of service behind their figures and wing sails about two, while no ship kite has a service record, so the kite's canopy life and its losses per launch are the numbers to measure first.
+
+\begin{figure}[tb]
+\centering
+\begin{minipage}{0.55\textwidth}\plot{premium}\end{minipage}
+\caption{Share of the cost premium of an e-methanol (solid) and a hydrogen ship (dashed) over the same ship on fuel oil without a rig that the best size of each rig closes, over waterline length on the route to Guadeloupe.}
+\label{fig:premium}
+\end{figure}
+
+\section{Limits}
+
+The results hold under series-production prices that no kite maker has reached yet, deck rigs with more wings and rotors than any ship carries today, kites far larger than any designed, and one wind profile for every region. The router sees the weather ahead, every route starts in Rotterdam and lies in the Atlantic, and the hulls' resistance in waves is a mean estimate; these limits act on every rig alike. On the largest ships the deck sets the size of the wings and rotors, while the kite stops at the bound of the search, so there its saving is a lower bound.
+
+\section{Conclusion}
+
+If each rig reaches its goals, kites and rotors save \NumSavingMethanolKite{} and \NumSavingMethanolRotors\,\% of the cost of a zero-emission ship on e-methanol and wing sails \NumSavingMethanolWings\,\%, and which of kite and rotor is best depends on the ship and the route. No rig closes the cost gap to fuel oil, and on fuel oil no rig saves much. The kite's place rests on goals it has not yet shown it can reach; a measured canopy life of a ship kite would narrow the comparison more than any other number. The full paper gives the model, its inputs and sources, and the sensitivity of each result.
+
+\end{document}

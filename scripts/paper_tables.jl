@@ -1,7 +1,7 @@
 # Table steps of the paper, written as LaTeX to paper/sections/: the inputs of
 # data/assumptions.yaml that matter ranked by effect, the ship classes from
 # data/ship_classes.csv, the fuel saving and payback of each rig, the goals and what
-# missing one costs. Included by paper.jl.
+# missing one costs, and the numbers the extended abstract states. Included by paper.jl.
 
 """
     latex_escape(text)
@@ -137,9 +137,7 @@ from the input that holds it.
 function goal_rows()
     canopy = @sprintf("\\num{%.0f} h at %.0f g/m\$^2\$", assumptions[:canopy_life],
         assumptions[:canopy_cloth_weight])
-    service = @sprintf("%.0f\\,\\%%",
-        100only(unique(assumptions[Symbol(out_of_service_inputs[rig])]
-                       for rig in rig_names)))
+    service = @sprintf("%.0f\\,\\%%", 100out_of_service_goal())
     kite_loss = assumptions[:kite_cycle_damage_probability] +
                 assumptions[:kite_cycle_loss_probability]
     loss = @sprintf("1 in \\num{%.0f}", 1 / only(unique((kite_loss,
@@ -167,6 +165,10 @@ function goal_rows()
             "our estimates: 0.25\\,\\% kite, 0.05\\,\\% rigid kite; no record for a ship"),
         ("Launch and landing crew", "kites", crew, "our estimate")]
 end
+
+"share of time each rig is out of service at its goal, the same for all [-]"
+out_of_service_goal() = only(unique(assumptions[Symbol(out_of_service_inputs[rig])]
+                                    for rig in rig_names))
 
 """
     goals_table()
@@ -220,8 +222,8 @@ function missed_goal_rows()
         price_curve = prices["price"][priced], prices["cost"][priced]
         for (; rig, ahead, next) in WindShipOpt.ranked_neighbours(goal)
             curve = curves[rig]
-            saving_short = rig == "kite" ?
-                           percent_saving(curve_cost(life_curve, 2000.0), bare) : NaN
+            saving_short = rig == "kite" ? percent_saving(curve_cost(life_curve,
+                short_canopy_life), bare) : NaN
             today = WindShipOpt.canopy_price_today(assumptions)
             saving_today = rig == "kite" ?
                            percent_saving(curve_cost(price_curve, today), bare) : NaN
@@ -243,6 +245,9 @@ function missed_goal_rows()
     return result
 end
 
+"canopy life [h] well short of the goal at which the kite's saving is also given"
+short_canopy_life = 2000.0
+
 """
     missed_goals_table()
 
@@ -259,9 +264,9 @@ function missed_goals_table()
             "\\multicolumn{3}{c}{Out of service [\\%] where} \\\\")
         println(io, "\\cmidrule(lr){3-5}\\cmidrule(lr){6-7}\\cmidrule(lr){8-9}",
             "\\cmidrule(lr){10-12}")
-        println(io, "Ship & Rig & at goals & at \\num{2000} h & ",
-            @sprintf("at USD~%.0f & ", WindShipOpt.canopy_price_today(assumptions)),
-            "pays no more & behind next & pays no more & behind next & ",
+        @printf(io, "Ship & Rig & at goals & at \\num{%.0f} h & at USD~%.0f & ",
+            short_canopy_life, WindShipOpt.canopy_price_today(assumptions))
+        println(io, "pays no more & behind next & pays no more & behind next & ",
             "pays no more & behind next & all units \\\\")
         println(io, "\\midrule")
         for row in missed_goal_rows()
@@ -700,4 +705,112 @@ function payback_years(table, class, drive, route, rig)
     saving > rate * price || return Inf
     years = -log(1 - rate * price / saving) / log(1 + rate)
     return years <= lifetime ? years : Inf
+end
+
+"word of each drive in the names of the number macros"
+drive_words = ["vlsfo" => "Oil", "methanol" => "Methanol", "hydrogen" => "Hydrogen"]
+
+"ship on which the numbers give what missing the kite's goals costs"
+goal_ship = "140 m"
+
+"""
+    numbers_file()
+
+Write the numbers the extended abstract states as LaTeX macros `\\Num...` to
+paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
+the goals, per drive and rig the mean cost saving over the classes and routes and the cells
+of class and route it leads, the share of the e-methanol premium each rig closes on the
+route to Guadeloupe, and what missing the kite's goals costs on the `goal_ship`.
+"""
+function numbers_file()
+    results = [class_numbers(read_table(data_file("classes.csv")));
+               premium_numbers(read_table(data_file("designs.csv"))); missed_goal_numbers()]
+    draft = paper_run.fidelity != :final
+    open(joinpath(sections, "numbers.tex"), "w") do io
+        for (name, text) in goal_numbers()
+            print(io, number_macro(name, text, false))
+        end
+        for (name, text) in results
+            print(io, number_macro(name, text, draft))
+        end
+    end
+end
+
+"""
+    goal_numbers()
+
+Name and text of the goals the extended abstract states: canopy life, the canopy price
+at the goal and today, and the share of time out of service.
+"""
+goal_numbers() = [
+    "CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
+    "ShortCanopyLife" => @sprintf("\\num{%.0f}", short_canopy_life),
+    "CanopyPriceGoal" => @sprintf("%.0f", WindShipOpt.canopy_price(assumptions)),
+    "CanopyPriceToday" => @sprintf("%.0f", WindShipOpt.canopy_price_today(assumptions)),
+    "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal())]
+
+"""
+    class_numbers(classes)
+
+Name and text, per drive and rig, of the mean over the classes and routes of the class
+table `classes` of the cost saving [%] of the cheapest size, and of the cells of class
+and route where the rig saves most and saves at all, with the count of cells.
+"""
+function class_numbers(classes)
+    numbers = Pair{String, String}[]
+    for (drive, word) in drive_words
+        cells = filter(!isempty, [best_savings(classes, class, route, drive)
+                                  for class in class_order(classes)
+                                  for route in unique(classes["route"])])
+        leaders = [argmax(cell) for cell in cells if maximum(values(cell)) > 0]
+        push!(numbers, "Cells$word" => string(length(cells)))
+        for rig in rig_names
+            name = word * uppercasefirst(rig)
+            push!(numbers, "Saving$name" => @sprintf("%.0f",
+                    mean(cell[rig] for cell in cells if haskey(cell, rig))),
+                "Leads$name" => string(count(==(rig), leaders)))
+        end
+    end
+    return numbers
+end
+
+"""
+    premium_numbers(designs)
+
+Name and text of the range over the ship lengths of the design table `designs` of the
+cost premium [%] of the e-methanol ship over the VLSFO ship, both without a rig, and of
+the share of it [%] the best size of each rig closes.
+"""
+function premium_numbers(designs)
+    lengths = sort(unique(designs["length"]))
+    premiums = [100(best_cost(designs, "methanol", length, nothing) /
+                    best_cost(designs, "vlsfo", length, nothing) - 1) for length in lengths]
+    numbers = ["PremiumMethanol" => value_range(premiums)]
+    for (rig, column_name) in rig_area_columns
+        shares = [premium_closed(designs, "methanol", length, column_name)
+                  for length in lengths]
+        push!(numbers, "ClosedMethanol" * uppercasefirst(rig) => value_range(shares))
+    end
+    return numbers
+end
+
+"`values` that are finite as the range of their rounded smallest and largest"
+value_range(values) = @sprintf("%.0f to %.0f", extrema(filter(isfinite, values))...)
+
+"""
+    missed_goal_numbers()
+
+Name and text, on the `goal_ship`, of the cost saving [%] of each rig at its goals and of
+the kite at the short canopy life and at today's canopy price.
+"""
+function missed_goal_numbers()
+    numbers = Pair{String, String}[]
+    for row in missed_goal_rows()
+        row.ship == goal_ship || continue
+        push!(numbers, "Goal" * uppercasefirst(row.rig) => @sprintf("%.1f", row.saving))
+        row.rig == "kite" || continue
+        push!(numbers, "ShortLifeKite" => @sprintf("%.1f", row.saving_short),
+            "TodayPriceKite" => @sprintf("%.1f", row.saving_today))
+    end
+    return numbers
 end

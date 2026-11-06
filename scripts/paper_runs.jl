@@ -29,6 +29,15 @@ function mark_fidelity(path, fidelity, steps, figures)
     end
 end
 
+"""
+    number_macro(name, text, draft)
+
+LaTeX definition of the macro `\\Num<name>` that prints `text`, marked as a draft result
+where `draft` is true.
+"""
+number_macro(name, text, draft) = string("\\newcommand{\\Num", name, "}{",
+    draft ? "\\tbd{$text}" : text, "}\n")
+
 "directory with one directory per run, named by the time the run started"
 runs_directory = normpath(joinpath(root, "output", "runs"))
 

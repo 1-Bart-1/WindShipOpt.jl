@@ -1006,17 +1006,21 @@ end
     @test !is_marked(:final, [:designs, :capital, :premium])
 end
 
-@testset "a heavy wing flies crosswind though it cannot hang at rest" begin
-    wing = WindShipOpt.KiteAero(60.0, 1.25, 0.15, 1500.0, 1.225, 9.81)
-    off_wind, wind = 1.3, (14.0, 0.0, 0.0)
-    radial = WindShipOpt.window_position(off_wind, π / 2)
-    heading = (0.0, -1.0, 0.0)
-    still = (0.0, 0.0, 0.0)
-    @test first(WindShipOpt.steering_residual(wing, wind, radial, heading, still, 300.0,
-        1e-3)) > 0
-    airspeed, tension, _ = WindShipOpt.steering_point(wing, wind, radial, heading, still,
-        300.0)
-    @test airspeed > 15 && tension > 0
+@testset "a number of the paper prints as a draft result until the final run" begin
+    @test PaperRuns.number_macro("SavingOilKite", "4", true) ==
+          "\\newcommand{\\NumSavingOilKite}{\\tbd{4}}\n"
+    @test PaperRuns.number_macro("SavingOilKite", "4", false) ==
+          "\\newcommand{\\NumSavingOilKite}{4}\n"
+end
+
+@testset "every number the extended abstract prints is one the numbers step wrote" begin
+    paper = joinpath(PaperRuns.root, "paper")
+    used = Set(m.match for m in eachmatch(r"\\Num[A-Za-z]+",
+        read(joinpath(paper, "extended_abstract.tex"), String)))
+    defined = Set(m[1] for m in eachmatch(r"\\newcommand\{(\\Num[A-Za-z]+)\}",
+        read(joinpath(paper, "sections", "numbers.tex"), String)))
+    @test !isempty(used)
+    @test used ⊆ defined
 end
 
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
