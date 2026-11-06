@@ -201,17 +201,6 @@ function Hull(class::ShipClass, assumptions::Assumptions)
 end
 
 """
-    Windage(design, hull, assumptions)
-
-[`Windage`](@ref) of the class of `design` with its deck cargo, or of a general cargo ship
-the size of `hull`.
-"""
-Windage(design::ShipDesign, hull::Hull, assumptions::Assumptions) =
-    isnothing(design.class) ?
-    Windage("general cargo", hull.length, hull.beam, 0.0, assumptions) :
-    Windage(design.class.type, hull.length, hull.beam, design.class.deck_tiers, assumptions)
-
-"""
     resistance_calibration(class, hull, assumptions)
 
 Factor on the uncalibrated calm-water resistance of `hull` of ship `class` that makes the
@@ -257,6 +246,17 @@ end
 ShipDesign(drive::Symbol, length::Real; kwargs...) = ShipDesign(; drive, length, kwargs...)
 ShipDesign(drive::Symbol, class::ShipClass; kwargs...) =
     ShipDesign(; drive, length=class.length, class, kwargs...)
+
+"""
+    Windage(design, hull, assumptions)
+
+[`Windage`](@ref) of the class of `design` with its deck cargo, or of a general cargo ship
+the size of `hull`.
+"""
+Windage(design::ShipDesign, hull::Hull, assumptions::Assumptions) =
+    isnothing(design.class) ?
+    Windage("general cargo", hull.length, hull.beam, 0.0, assumptions) :
+    Windage(design.class.type, hull.length, hull.beam, design.class.deck_tiers, assumptions)
 
 """
     Propeller(design, hull, assumptions)
