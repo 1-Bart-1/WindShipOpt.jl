@@ -887,6 +887,19 @@ function nearby_kite_areas(kite_area, reach)
 end
 
 """
+    force_rating_case(bare, route, ship, rating, exponent, area)
+
+Trip case of the ship `bare` with a kite of `area` built for the force limit `rating`, its
+cloth following the limit to the power `exponent`.
+"""
+function force_rating_case(bare, route, ship, rating, exponent, area)
+    rated = with_value(with_value(assumptions, :kite_max_force_per_area, rating),
+        :canopy_cloth_force_exponent, exponent)
+    design = ShipDesign(; bare.drive, bare.length, bare.class, kite_area=area)
+    return trip_case(design; assumptions=rated, route, ship, rating, exponent, area)
+end
+
+"""
     force_rating_cases(bare, route, ship, kite_area)
 
 Cases of one ship in the force rating study: without a rig; with its kite at each of
@@ -896,12 +909,8 @@ all.
 """
 function force_rating_cases(bare, route, ship, kite_area)
     base = assumptions[:canopy_cloth_force_exponent]
-    function kite_case(rating, exponent, area)
-        rated = with_value(with_value(assumptions, :kite_max_force_per_area, rating),
-            :canopy_cloth_force_exponent, exponent)
-        design = ShipDesign(; bare.drive, bare.length, bare.class, kite_area=area)
-        return trip_case(design; assumptions=rated, route, ship, rating, exponent, area)
-    end
+    kite_case(rating, exponent, area) =
+        force_rating_case(bare, route, ship, rating, exponent, area)
     return [trip_case(bare; route, ship, rating=0.0, exponent=base, area=0.0);
             vec([kite_case(rating, base, area)
                  for rating in study_force_ratings, area in nearby_kite_areas(kite_area, 2)]);
