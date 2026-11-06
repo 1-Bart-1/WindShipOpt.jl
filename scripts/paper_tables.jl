@@ -513,6 +513,62 @@ function fuel_table()
 end
 
 """
+    split_table()
+
+Tabular of the cost saving of the cheapest size of each rig with each drive, the mean
+over the classes and routes, split by [`saving_split`](@ref) into fuel, time and the
+rest, with the share of round trips the rig shortens and their median change, in
+split_table.tex.
+"""
+function split_table()
+    table = read_table(data_file("classes.csv"))
+    open(joinpath(sections, "split_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule")
+        println(io, " & & Saving & Fuel & Time & Rig and other & Shorter & ",
+            "Round trip \\\\")
+        println(io, "Drive & Rig & [\\%] & [points] & [points] & [points] & [\\%] & ",
+            "[\\%] \\\\\n\\midrule")
+        for (drive, label) in drive_labels, (k, rig) in enumerate(rig_names)
+            splits = filter(!isnothing, [saving_split(table, class, route, drive, rig)
+                                         for class in class_order(table)
+                                         for route in unique(table["route"])])
+            saving, fuel, time = (mean(getproperty.(splits, part))
+                                  for part in (:saving, :fuel, :time))
+            hours = getproperty.(splits, :hours)
+            @printf(io, "%s & %s & %.1f & %.1f & %.1f & %.1f & %.0f & %.1f \\\\\n",
+                k == 1 ? label : "", rig, saving, fuel, time, saving - fuel - time,
+                100count(<(0), hours) / length(hours), median(hours))
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
+    saving_split(table, class, route, drive, rig)
+
+Cost saving [%] of the cheapest size of `rig` against the same class without a rig on one
+drive and route, the part of it from fuel and the part from time, the crew, capital and
+cargo interest of the ship without a rig over the hours the rig takes off the round trip,
+each in points of that ship's cost, and the change in round-trip hours [%]; `nothing`
+where a trip is missing.
+"""
+function saving_split(table, class, route, drive, rig)
+    bare = rows(table, "class" => class, "drive" => drive, "route" => route,
+        "rig" => "none")
+    cheapest = cheapest_row(table, class, route, drive, rig)
+    (isempty(bare) || isnothing(cheapest)) && return nothing
+    bare = only(bare)
+    reference = table["cost"][bare]
+    time_cost = sum(table[part][bare] for part in ("crew_cost", "capital_cost",
+        "interest_cost"))
+    hours = table["hours"][cheapest] / table["hours"][bare]
+    fuel = table["fuel_cost"][bare] - table["fuel_cost"][cheapest]
+    return (saving=percent_saving(table["cost"][cheapest], reference),
+        fuel=100fuel / reference, time=100time_cost * (1 - hours) / reference,
+        hours=100(hours - 1))
+end
+
+"""
     drive_header(first_column)
 
 Header row of one group of three rig columns per drive, the first group starting at
