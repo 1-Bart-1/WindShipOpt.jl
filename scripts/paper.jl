@@ -34,7 +34,8 @@ include("paper_tables.jl")
 "data steps in the order they run, each writing one or two data files"
 data_steps = [:patterns => patterns_data, :designs => designs_data,
     :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
-    :sensitivity => sensitivity_data, :aspect_data => aspect_data,
+    :sensitivity => sensitivity_data, :base_kite => base_kite_data,
+    :aspect_data => aspect_data,
     :availability_data => availability_data,
     :canopy_life_data => canopy_life_data, :canopy_price_data => canopy_price_data,
     :crash_data => crash_data,
@@ -42,6 +43,7 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :wind_angle_data => wind_angle_data, :canopy_tension => canopy_tension_data,
     :abatement_data => abatement_data,
     :components => components_data, :combination_data => combination_data,
+    :rigid_scaling_data => rigid_scaling_data, :rigid_kite_data => rigid_kite_data,
     :launch => launch_data, :convergence => convergence_data]
 
 "steps outside the paper, run only by name: the data of the companion website"
@@ -64,7 +66,9 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :class_table => class_table, :fuel_table => fuel_table,
     :payback_table => payback_table, :goals_table => goals_table,
     :missed_goals_table => missed_goals_table, :crash_table => crash_table,
-    :abatement => abatement_figure, :combination => combination_figure]
+    :abatement => abatement_figure, :combination => combination_figure,
+    :rigid_scaling => rigid_scaling_figure, :rigid_kite => rigid_kite_figure,
+    :rigid_size => rigid_size_figure]
 
 """
     paper(names...; fidelity, resume=nothing)

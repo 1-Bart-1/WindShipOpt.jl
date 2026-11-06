@@ -43,7 +43,8 @@ function round_trips(cases, departures)
     isempty(paths) || mkpath(dirname(first(paths)))
     cached = isfile.(paths)
     for (case, is_cached) in zip(cases, cached)
-        !is_cached && case.design.kite_area > 0 && Ship(case.design, case.assumptions)
+        !is_cached && max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
+            Ship(case.design, case.assumptions)
     end
     trips = Vector{Any}(nothing, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
@@ -231,7 +232,8 @@ function kite_market_prices()
 end
 
 "design keyword of each rig"
-rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area)
+rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area,
+    "rigid kite" => :rigid_kite_area)
 
 """
     rig_size(rig, area)
@@ -870,6 +872,86 @@ function aspect_data()
     end
 end
 
+"""
+    noise_variants(tether_length_ratio, kite_min_turn_radius)
+
+Variants of the base kite with the tether and the turn radius each about 2 % off the given
+base values, too little to change the kite: their spread is the noise of the routing.
+"""
+function noise_variants(tether_length_ratio, kite_min_turn_radius)
+    return [(string("noise_", name, "_", factor), design_aspect_ratio,
+                NamedTuple{(name,)}((factor * value,)))
+            for (name, value) in ((:tether_length_ratio, tether_length_ratio),
+                (:kite_min_turn_radius, kite_min_turn_radius)) for factor in (0.98, 1.02)]
+end
+
+"""
+    base_kite_variants()
+
+Variants of the base kite on the ships of the area basis study as (name, projected aspect
+ratio, changed inputs): the base, at aspect ratio 2.5 with the flight drag held and
+recalibrated, at the other readings of its inputs, and those of [`noise_variants`](@ref).
+"""
+function base_kite_variants()
+    low_aspect_ratio = 2.5
+    recalibrated = WindShipOpt.recalibrated_flight_drag(low_aspect_ratio,
+        design_aspect_ratio, assumptions)
+    return [("base", design_aspect_ratio, (;)); ("held", low_aspect_ratio, (;));
+        ("recalibrated", low_aspect_ratio, (; kite_flight_drag=recalibrated));
+        ("tether_15.5", design_aspect_ratio, (; tether_length_ratio=15.5));
+        ("tether_19.7", design_aspect_ratio, (; tether_length_ratio=19.7));
+        ("force_0.9", design_aspect_ratio, (; kite_max_force_per_area=0.9));
+        ("overhead_0.19", design_aspect_ratio, (; canopy_mass_overhead=0.19));
+        noise_variants(assumptions[:tether_length_ratio],
+            assumptions[:kite_min_turn_radius])]
+end
+
+"""
+    cargo_kite_variants()
+
+Variants of the kite that flew on cargo ships, as (name, projected area [m^2], changed
+inputs): the base, its flat size read as projected, the force limit of its design load, no
+flight drag, and canopy wear and launches free, with those of [`noise_variants`](@ref).
+"""
+function cargo_kite_variants()
+    free = (; canopy_life=1e9, tether_lifetime=1e9, kite_cycle_crew_cost=0.0,
+        kite_cycle_damage_probability=0.0, kite_cycle_loss_probability=0.0,
+        kite_cycle_course_cost=0.0, kite_forced_landing_loss_probability=0.0)
+    return [("base", 125.0, (;)); ("flat_as_projected", 160.0, (;));
+        ("force_0.9", 125.0, (; kite_max_force_per_area=0.9));
+        ("no_flight_drag", 125.0, (; kite_flight_drag=0.0)); ("free_operation", 125.0, free);
+        [(name, 125.0, changes)
+         for (name, _, changes) in noise_variants(assumptions[:tether_length_ratio],
+            assumptions[:kite_min_turn_radius])]]
+end
+
+"""
+    base_kite_data(ships=sensitivity_ships())
+
+The base kite of `ships`, as those of [`sensitivity_ships`](@ref), at each of
+[`base_kite_variants`](@ref), and a 130 m VLSFO ship at each of
+[`cargo_kite_variants`](@ref), each with the ship without a rig: base_kite.csv.
+"""
+function base_kite_data(ships=sensitivity_ships())
+    cases = []
+    for (ship, bare, route, areas) in ships
+        push!(cases, trip_case(bare; route, ship, variant="bare"))
+        for (variant, aspect_ratio, changes) in base_kite_variants()
+            design = ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...,
+                kite_aspect_ratio=aspect_ratio)
+            push!(cases, trip_case(design; route, ship, variant,
+                assumptions=changed_assumptions(changes)))
+        end
+    end
+    push!(cases, trip_case(ShipDesign(:vlsfo, 130.0); ship="130 m", variant="bare"))
+    for (variant, area, changes) in cargo_kite_variants()
+        push!(cases, trip_case(ShipDesign(:vlsfo, 130.0; kite_area=area); ship="130 m",
+            variant, assumptions=changed_assumptions(changes)))
+    end
+    write_trips("base_kite.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :variant)
+end
+
 "input of each rig holding the share of its units' round trips out of service"
 out_of_service_inputs = Dict("kite" => "kite_out_of_service",
     "wings" => "wing_out_of_service", "rotors" => "rotor_out_of_service")
@@ -907,13 +989,23 @@ function availability_data()
         round_trips(cases, sampled_departures(; screening=true)), :ship, :rig, :share)
 end
 
-"""
-    crash_sizes(rig, area, hull)
+"the rigs of the crash study"
+crash_rigs = (rig_names..., "rigid kite")
 
-Sizes [m^2] of `rig` in the crash study: half of `area`, `area` and twice it, wings and
-rotors only as far as they fit on `hull`.
 """
-function crash_sizes(rig, area, hull)
+    crash_sizes(rig, areas, hull)
+
+Sizes [m^2] of `rig` in the crash study: half of its size in `areas`, that size and twice
+it, wings and rotors only as far as they fit on `hull`; for a rigid kite, the fleets of one,
+two and four kites of its unit area that fit.
+"""
+function crash_sizes(rig, areas, hull)
+    if rig == "rigid kite"
+        fleets = filter(count -> WindShipOpt.rigid_kites_fit(count, hull, assumptions),
+            [1, 2, 4])
+        return fleets .* assumptions[:rigid_unit_area]
+    end
+    area = only(values(getproperty(areas, Symbol(rig))))
     rig == "kite" && return [area / 2, area, 2area]
     rig_type = rig == "wings" ? WingRig : WindShipOpt.RotorRig
     return unique([area / 2, area, min(2area, largest_area(rig_type, hull))])
@@ -930,9 +1022,8 @@ function crash_data()
     for (ship, bare, route, areas) in sensitivity_ships()
         push!(cases, trip_case(bare; route, ship, bare.drive, rig="none", area=0.0))
         hull = Ship(bare, assumptions).hull
-        for rig in rig_names
-            best = only(values(getproperty(areas, Symbol(rig))))
-            for area in crash_sizes(rig, best, hull)
+        for rig in crash_rigs
+            for area in crash_sizes(rig, areas, hull)
                 design = ShipDesign(; bare.drive, bare.length, bare.class,
                     rig_size(rig, area)...)
                 push!(cases, trip_case(design; route, ship, bare.drive, rig, area))
@@ -1113,4 +1204,163 @@ function combination_data()
     end
     write_trips("combination.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :route, :drive, :rig, :kite_area, :rotor_area)
+end
+
+"rigid kites [number, m^2 each] of the rigid kite study"
+rigid_kite_fleets = [vec([(count, unit) for count in (1, 2, 3, 4, 6, 8),
+                          unit in (30.0, 54.0, 100.0)]);
+    [(1, unit) for unit in (200.0, 300.0, 500.0)]]
+
+"inputs where the low bound favours a rigid kite"
+rigid_low_favours = (:rigid_tether_price, :rigid_tether_density,
+    :rigid_tether_drag_coefficient, :rigid_structure_cost_per_mass,
+    :rigid_structure_cost_per_area, :rigid_avionics_cost, :rigid_drive_cost,
+    :rigid_drive_margin, :rigid_ship_power_cost, :rigid_perch_cost, :rigid_perch_width,
+    :rigid_station_mass, :rigid_upkeep_per_area, :rigid_cycle_loss_probability,
+    :rigid_idle_rotor_drag, :rigid_hover_energy_price, :rigid_hover_minutes,
+    :rigid_hover_thrust_ratio, :rigid_mass_exponent, :rigid_profile_drag,
+    :rigid_min_turn_radius, :kite_out_of_service)
+
+"inputs where the high bound favours a rigid kite"
+rigid_high_favours = (:rigid_lifetime, :rigid_hover_max_wave_height, :rigid_hover_max_wind,
+    :rigid_max_wind,
+    :rigid_max_lift, :rigid_span_efficiency, :rigid_max_force_per_area,
+    :rigid_tether_stress, :rigid_rotor_area_ratio, :rigid_rotor_fill,
+    :rigid_hover_air_density, :rigid_hover_efficiency)
+
+"""
+    rigid_assumptions(scenario, unit)
+
+The assumptions of the rigid kite study at a kite of `unit` [m^2]: at base values for
+"base", with the mass going as span cubed for "cubic", and for "optimistic" with every
+rigid kite input at the bound that favours it.
+"""
+function rigid_assumptions(scenario, unit)
+    base = with_value(assumptions, :rigid_unit_area, unit)
+    scenario == "base" && return base
+    scenario == "cubic" && return with_value(base, :rigid_mass_exponent, 3.0)
+    for name in rigid_low_favours
+        base = with_value(base, name, base.entries[name].low)
+    end
+    for name in rigid_high_favours
+        base = with_value(base, name, base.entries[name].high)
+    end
+    return base
+end
+
+"total areas [m^2] of `rig_type` at the shares of the deck of the rigid kite study"
+deck_shares(rig_type, hull) =
+    [share * largest_area(rig_type, hull) for share in (0.2, 0.5, 1.0)]
+
+"""
+    rigid_kite_data()
+
+Each ship of `combination_ships` on every route on VLSFO and e-methanol without a rig, with
+each soft kite of `combination_kites`, with rotors and wings at each share of the deck, and
+with each fleet of `rigid_kite_fleets` that fits at base and optimistic inputs:
+rigid_kite.csv.
+"""
+function rigid_kite_data()
+    cases = []
+    for ship in combination_ships, drive in (:vlsfo, :methanol), route in route_names
+        hull = Hull(study_hull(ship), assumptions)
+        sizes = [("none", (;));
+            [("kite", (; kite_area)) for kite_area in combination_kites];
+            [("rotors", (; rotor_area))
+             for rotor_area in deck_shares(WindShipOpt.RotorRig, hull)];
+            [("wings", (; wing_area)) for wing_area in deck_shares(WingRig, hull)]]
+        for (rig, size) in sizes
+            design = ShipDesign(drive, study_hull(ship); size...)
+            push!(cases, trip_case(design; route, ship, drive, rig, count=0, unit=0.0))
+        end
+        for (count, unit) in rigid_kite_fleets, scenario in ("base", "cubic", "optimistic")
+            WindShipOpt.rigid_kites_fit(count, hull,
+                with_value(assumptions, :rigid_unit_area, unit)) || continue
+            design = ShipDesign(drive, study_hull(ship); rigid_kite_area=count * unit)
+            push!(cases, trip_case(design; assumptions=rigid_assumptions(scenario, unit),
+                route, ship, drive, rig="rigid " * scenario, count, unit))
+        end
+    end
+    write_trips("rigid_kite.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :route, :drive, :rig, :count, :unit)
+end
+
+"wing areas [m^2] and mass exponents of the rigid kite scaling study"
+rigid_scaling_areas = (30.0, 54.0, 100.0, 200.0, 300.0, 500.0)
+rigid_scaling_exponents = (2.2, 2.75, 3.0, 3.3)
+
+"flight hours and launches a year of the annual cost of a kite"
+kite_year = (flight_hours=3000.0, launches=150.0)
+
+"soft kite areas [m^2] the rigid kite scaling study compares with"
+rigid_scaling_soft_kites = (500.0, 1000.0, 2000.0, 4000.0)
+
+"""
+    annual_kite_cost(rig, assumptions)
+
+Cost of `rig` over a year of [`kite_year`](@ref) [USD]: capital recovery, maintenance on
+the parts wear does not replace, wear, launches and landings, losses among them.
+"""
+function annual_kite_cost(rig, assumptions)
+    capital, _, annuity = WindShipOpt.rig_costs(rig, assumptions)
+    upkept = capital - WindShipOpt.worn_part_price(rig, assumptions)
+    return annuity + assumptions[:maintenance_fraction] * upkept +
+           WindShipOpt.wear_cost(rig, assumptions) * kite_year.flight_hours +
+           WindShipOpt.cycle_cost(rig, assumptions) * kite_year.launches
+end
+
+"""
+    beam_thrust(rig, i)
+
+Thrust [N] of one kite of `rig` on a beam course without side weight at apparent wind speed
+number `i` of its table, zero where it does not fly.
+"""
+function beam_thrust(rig, i)
+    force = rig.forces[i, findfirst(≈(π / 2), rig.courses), 1]
+    isfinite(force.peak_tension) || return 0.0
+    air_density = Environment(assumptions).air_density
+    return 0.5air_density * rig.wind_speeds[i]^2 * rig.area * force.force[2]
+end
+
+"""
+    rigid_scaling_data()
+
+Per wing area and mass exponent of a rigid kite: span, mass, stall speed, hover power,
+lowest flying wind, price, annual cost and beam thrust over apparent wind; per area of a
+soft kite with the canopy at its goal: the last four: rigid_scaling.csv.
+"""
+function rigid_scaling_data()
+    hull = Hull(study_hull("140 m"), assumptions)
+    env = Environment(assumptions)
+    open(run_file("rigid_scaling.csv"), "w") do file
+        println(file, "kind,area,exponent,span,mass,stall,hover_power,lowest_wind,price,",
+            "annual,wind,thrust")
+        for area in rigid_scaling_areas, exponent in rigid_scaling_exponents
+            changed = with_value(with_value(assumptions, :rigid_unit_area, area),
+                :rigid_mass_exponent, exponent)
+            rig = WindShipOpt.rigid_kite_rig(area, hull, changed; courses=[π / 2],
+                side_weights=[0.0])
+            (; mass, hover_power) = rig.airframe
+            span = sqrt(area * changed[:rigid_aspect_ratio])
+            stall = sqrt(2mass * env.gravity /
+                         (env.air_density * area * changed[:rigid_max_lift]))
+            price = first(WindShipOpt.rig_costs(rig, changed))
+            annual = annual_kite_cost(rig, changed)
+            for i in eachindex(rig.wind_speeds)
+                println(file, join(("rigid", area, exponent, span, mass, stall, hover_power,
+                        rig.min_flight_wind, price, annual, rig.wind_speeds[i],
+                        beam_thrust(rig, i)), ","))
+            end
+        end
+        for area in rigid_scaling_soft_kites
+            rig = KiteRig(area, 3.0, hull, assumptions)
+            price = first(WindShipOpt.rig_costs(rig, assumptions))
+            annual = annual_kite_cost(rig, assumptions)
+            for i in eachindex(rig.wind_speeds)
+                println(file, join(("soft", area, 0.0, 0.0, 0.0, 0.0, 0.0,
+                        rig.min_flight_wind, price, annual, rig.wind_speeds[i],
+                        beam_thrust(rig, i)), ","))
+            end
+        end
+    end
 end
