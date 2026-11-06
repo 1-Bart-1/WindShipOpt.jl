@@ -624,8 +624,8 @@ end
     class_size_figure()
 
 Best area of each rig for every ship class and drive: the geometric mean over the
-routes as a marker, the range over the routes as a bar and, for wings and rotors, the
-median number of units at the best size.
+routes as a marker and the range over the routes as a bar, and, in a column at the right
+of each panel, the median number of wing and rotor units at the best size.
 """
 function class_size_figure()
     table = read_table(data_file("classes.csv"))
@@ -633,10 +633,15 @@ function class_size_figure()
     routes_seen = unique(table["route"])
     figure = Figure(size=(page_width, 330))
     ticks = [100, 1000, 10000]
+    unit_columns = Dict("wings" => 3.6e4, "rotors" => 1.0e5)
     for (column, (drive, title)) in enumerate(drive_panels)
         axis = Axis(figure[1, column]; title, xlabel="best rig area [m²]", xscale=log10,
             xticks=(ticks, string.(ticks)), yticks=(eachindex(names), names),
-            yreversed=true, yticklabelsvisible=column == 1)
+            yreversed=true, yticklabelsvisible=column == 1,
+            limits=((60, 1.9e5), (-0.2, length(names) + 0.6)))
+        vspan!(axis, 2.2e4, 1.9e5; color=:gray94)
+        text!(axis, sqrt(prod(values(unit_columns))), 0.15; text="units",
+            fontsize=7.5, align=(:center, :center), color=:gray40)
         for (j, kind) in enumerate(rig_names), (i, name) in enumerate(names)
             areas = filter(isfinite, [best_area(table, name, route, drive, kind)
                                       for route in routes_seen])
@@ -648,9 +653,8 @@ function class_size_figure()
             scatter!(axis, [centre], [y]; color=palette[j], markersize=6,
                 label=i == 1 ? kind : nothing)
             kind == "kite" && continue
-            units = median_units(table, name, drive, kind)
-            text!(axis, maximum(areas), y; text=" $units", fontsize=8.5,
-                align=(:left, :center), color=palette[j])
+            text!(axis, unit_columns[kind], i; text=string(median_units(table, name,
+                drive, kind)), fontsize=8.5, align=(:center, :center), color=palette[j])
         end
     end
     Legend(figure[2, 1:3], content(figure[1, 1]); orientation=:horizontal,
