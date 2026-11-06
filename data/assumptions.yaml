@@ -1007,11 +1007,11 @@ tether_rope_density:
   unit: kg/m^3
   reason: "Rope mass over its nominal cross-section: 60.8 kg per 100 m at 30.6 mm, 827 kg/m^3 (Bosman et al. 2013, Table 33.4, coated 12-strand). Their worked-in diameter, 26.0 mm, would give 1,145 kg/m^3, above solid HMPE at 970 kg/m^3, so it cannot be the section that meets the wind. Low: Marlow D12 78 uncoated, 4.65 kg per 100 m at 10 mm. High: the SkySails tether with its power and data cable, 0.9 kg/m for 320 kN (Paulig et al. 2013)."
 tether_lifetime:
-  value: 8000.0
-  low: 1100.0
+  value: 13000.0
+  low: 4000.0
   high: 40000.0
   unit: flight hours
-  reason: "Flight hours a Dyneema tether flies before replacement at a fixed length, bent only at the tow point; none measured, so the value is an estimate of about a year. At design factor 3 creep allows about 5 years on SK78, but bending sets the life: at the 533 MPa on the fibre of that factor, a tether pumped over a drum at D/d 100 fails after 45 days, the low bound, and reaches about a year only at design factor 4 with SK78 XBO and better construction (Bosman et al. 2013). The Ampyx Power 5 MW design replaces its fixed tether section after 7 years at 312 MPa (van Hagen et al. 2023), about 40,000 flight hours, the high bound. Pumping tethers last 3 months to 2 years (DEADALUS, Ampyx/DSM)."
+  reason: "Flight hours of a 12-strand SK78 tether flown at a fixed length; no ship or kite tether life has been measured, so this is our estimate from creep, the failure mode of a rope held under load without bending (Bosman et al. 2013; Humeau et al. 2018). Creep damage summed by Miner's rule over the hours flown at each tension on routed trips, at 25 °C: 8,600 h on the 140 m ship and 13,700 h on the Kamsarmax with the power law of Humeau et al. (exponent 4.43, 112 kJ/mol) anchored at 8 years at 20 % of break load and 20 °C (DSM 2019), 19,500 and 28,300 h with the time-tension-temperature diagram of Bosman et al.; the base lies between. The low bound is the power law at 30 °C, the high bound the diagram at 20 °C (34,000-49,000 h). The swing of each figure eight shortens the creep life about 7 % against a steady load at its mean, and its tension fatigue does not bind. Over a drum at this design factor the rope fails in bending after 45 days, about 1,100 h (Bosman et al. 2013), so the tow point turns with the tether; reeling in a few centimetres moves fresh rope against wear only. Nearest service record: HMPE ship mooring lines, designed for 8,000 mooring hours to 75 % strength at up to 22 % of break load and retired by wear (Wilhelmsen 2022). The 7 years of the Ampyx Power fixed section (van Hagen et al. 2023) is an assumption with no stated basis."
 winch_fixed_cost:
   value: 27000.0
   low: 11000.0
