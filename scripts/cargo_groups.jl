@@ -152,8 +152,9 @@ end
 
 Print, per drive and group of classes (deadweight-limited, space-limited container ships,
 the Megamax and the car carrier), each rig's mean saving over classes and routes, its CO2
-saving where the fuel emits it, its cost against the same ship on VLSFO without a rig,
-and the rig that saves most on each route, counted over the classes of the group.
+saving where the fuel emits it and its cost against the same ship on VLSFO without a rig,
+that cost without a rig, and the rig that saves most on each route, counted over the
+classes of the group.
 """
 function recommendation(run)
     rows = class_rows(run)
@@ -182,6 +183,11 @@ function recommendation(run)
                 rig, mean([relative(row, own, :cost) for (row, own, _) in cases]), carbon,
                 -mean([relative(row, fossil, :cost) for (row, _, fossil) in cases]))
         end
+        premium = [-relative(reference, bare[(class, "vlsfo", route)], :cost)
+                   for ((class, case_drive, route), reference) in bare
+                   if groups[class] == name && case_drive == drive]
+        @printf("none   cost against bare VLSFO %+5.1f %%\n",
+            sum(premium) / length(premium))
         wins = Dict{Tuple{String, String}, Int}()
         for ((class, case_drive, route), reference) in bare
             (groups[class] == name && case_drive == drive) || continue
