@@ -63,21 +63,23 @@ end
 
 Write `name` to the directory of the run in use with the given label `columns` of each
 case and the cost [USD/tkm], fuel [MJ/tkm], CO2 [kg/tkm], round-trip days, kite flight
-share, kite launches and forced landings per round trip, cargo [t] and whether the
-rig retracts, of each feasible trip.
+share, kite launches and forced landings per round trip, cargo [t], whether the rig
+retracts and the [`cost_columns`](@ref), of each feasible trip.
 """
 function write_trips(name, cases, trips, columns...)
     open(run_file(name), "w") do io
         println(io, join([collect(string.(columns)); ["cost", "fuel", "carbon", "days",
-            "flight_share", "launches", "forced_landings", "cargo", "retractable"]], ","))
+            "flight_share", "launches", "forced_landings", "cargo", "retractable"];
+            cost_columns], ","))
         for (case, trip) in zip(cases, trips)
             isnothing(trip) && continue
             labels = [csv_value(getproperty(case, column)) for column in columns]
-            @printf(io, "%s,%.6f,%.5f,%.3f,%.2f,%.3f,%.2f,%.2f,%.0f,%s\n",
+            @printf(io, "%s,%.6f,%.5f,%.3f,%.2f,%.3f,%.2f,%.2f,%.0f,%s",
                 join(labels, ","), trip.cost_per_tonne_km, trip.fuel_per_tonne_km,
                 trip.carbon_per_tonne_km, trip.outbound_days + trip.return_days,
                 trip.flight_share, trip.launches, trip.forced_landings, trip.cargo,
                 trip.retractable)
+            write_costs(io, case, trip, trip.cargo * tonne_km_per_tonne(case.corridors...))
         end
     end
 end
@@ -186,12 +188,13 @@ end
     write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
                   side_weight)
 
-Optimise one pattern and write its force and its path.
+Optimise one pattern and write its force and its path; nothing where no pattern flies.
 """
 function write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
         side_weight)
     force, path = best_pattern_cycle(model, max_force, min_elevation, wind, course,
         side_weight)
+    isempty(path) && return
     load = 0.5model.air_density * wind^2 * model.area
     downwind, crosswind, _ = load .* force.force
     thrust = downwind * cosd(course) + crosswind * sind(course)
@@ -492,6 +495,26 @@ function canopy_tension_data(; wind=12.0, course=90.0)
 end
 
 """
+    call_hours(ship, trip, case_assumptions)
+
+Hours [h] of one port call of `ship` on `trip`, with the delay of a rig fixed on deck.
+"""
+function call_hours(ship, trip, case_assumptions)
+    hours = 24case_assumptions[:port_time_per_call]
+    trip.retractable && return hours
+    return hours + WindShipOpt.fixed_rig_port_hours(ship.rig, ship.design.class,
+        case_assumptions)
+end
+
+"""
+    trip_hours(ship, trip, case_assumptions)
+
+Hours [h] of the round trip `trip` of `ship`, at sea and in its two port calls.
+"""
+trip_hours(ship, trip, case_assumptions) = 24(trip.outbound_days + trip.return_days) +
+                                         2call_hours(ship, trip, case_assumptions)
+
+"""
     cost_parts(ship, trip, case_assumptions)
 
 Fuel, kite wear, port, crew, capital and maintenance with the fuel store, and cargo
@@ -499,13 +522,9 @@ interest per round trip [USD] of `trip`.
 """
 function cost_parts(ship, trip, case_assumptions)
     costs = WindShipOpt.ShipCosts(ship, case_assumptions; trip.retractable)
-    port_hours = 24case_assumptions[:port_time_per_call]
-    if !trip.retractable
-        port_hours += WindShipOpt.fixed_rig_port_hours(ship.rig, ship.design.class,
-            case_assumptions)
-    end
+    port_hours = call_hours(ship, trip, case_assumptions)
     sea_hours = 24(trip.outbound_days + trip.return_days)
-    hours = sea_hours + 2port_hours
+    hours = trip_hours(ship, trip, case_assumptions)
     trading_hours = 8760case_assumptions[:availability]
     store = WindShipOpt.store_round_trip_cost(trip.capital - costs.capital,
         sea_hours + 48case_assumptions[:port_time_per_call], case_assumptions)
@@ -527,17 +546,38 @@ function cost_parts(ship, trip, case_assumptions)
         interest)
 end
 
+"columns [`write_costs`](@ref) writes: round-trip hours and the cost parts [USD/tkm]"
+cost_columns = ["hours", "fuel_cost", "wear_cost", "port_cost", "crew_cost",
+    "capital_cost", "interest_cost"]
+
 """
+    write_costs(io, case, trip, tonne_km)
+
+The [`cost_columns`](@ref) of `trip` of `case` over its `tonne_km`, each after a comma,
+ending the row.
+"""
+function write_costs(io, case, trip, tonne_km)
+    ship = Ship(case.design, case.assumptions)
+    @printf(io, ",%.2f", trip_hours(ship, trip, case.assumptions))
+    for part in cost_parts(ship, trip, case.assumptions)
+        @printf(io, ",%.6f", part / tonne_km)
+    end
+    println(io)
+end
+
+"""
+    tonne_km_per_tonne(outbound, inbound)
     tonne_km_per_tonne(name)
 
-Tonne-km per tonne of outbound cargo of a round trip on route `name`, with the backhaul
-share of the return leg.
+Tonne-km per tonne of outbound cargo of a round trip out along `outbound` and back along
+`inbound`, or on route `name`, with the backhaul share of the return leg.
 """
-function tonne_km_per_tonne(name)
-    outbound, inbound = run_corridors(name)
+function tonne_km_per_tonne(outbound, inbound)
     return (outbound.track_length +
             assumptions[:backhaul_fraction] * inbound.track_length) / 1e3
 end
+
+tonne_km_per_tonne(name) = tonne_km_per_tonne(run_corridors(name)...)
 
 """
     designs_data()
@@ -578,8 +618,7 @@ function designs_data()
     open(run_file("designs.csv"), "w") do io
         println(io, "scenario,drive,length,kite_area,kite_aspect_ratio,wing_area,",
             "rotor_area,cost,fuel,carbon,outbound_days,return_days,cargo,capital,",
-            "flight_share,launches,fuel_cost,wear_cost,port_cost,crew_cost,",
-            "capital_cost,interest_cost")
+            "flight_share,launches,", join(cost_columns, ","))
         for (case, trip) in zip(cases, trips)
             isnothing(trip) && continue
             write_design(io, case, trip, work_per_tonne)
@@ -594,18 +633,13 @@ One row of designs.csv, with the tonne-km per tonne of cargo `work_per_tonne`.
 """
 function write_design(io, case, trip, work_per_tonne)
     (; design) = case
-    parts = cost_parts(Ship(design, case.assumptions), trip, case.assumptions)
-    tonne_km = trip.cargo * work_per_tonne
     @printf(io, "%s,%s,%.0f,%.0f,%.0f,%.0f,%.0f,%.6f,%.5f,%.3f,%.2f,%.2f,%.0f,%.0f,",
         case.scenario, design.drive, design.length, design.kite_area,
         design.kite_aspect_ratio, design.wing_area, design.rotor_area,
         trip.cost_per_tonne_km, trip.fuel_per_tonne_km, trip.carbon_per_tonne_km,
         trip.outbound_days, trip.return_days, trip.cargo, trip.capital)
     @printf(io, "%.3f,%.2f", trip.flight_share, trip.launches)
-    for part in parts
-        @printf(io, ",%.6f", part / tonne_km)
-    end
-    println(io)
+    write_costs(io, case, trip, trip.cargo * work_per_tonne)
 end
 
 """

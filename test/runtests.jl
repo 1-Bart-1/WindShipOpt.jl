@@ -960,6 +960,19 @@ end
     @test !is_open()
 end
 
+@testset "resuming never takes over another branch's unfinished run" begin
+    @eval PaperRuns runs_directory = mktempdir()
+    other_branch = joinpath(PaperRuns.runs_directory, "2000-01-01T0000")
+    mkpath(other_branch)
+    open(joinpath(other_branch, "run.toml"), "w") do io
+        PaperRuns.TOML.print(io, Dict("fidelity" => "draft", "finished" => "",
+            "git_branch" => "other", "code_hash" => "", "requested" => String[],
+            "steps" => Dict{String, Any}[]))
+    end
+    @test PaperRuns.open_run(:draft, [:designs], true).directory != other_branch
+    @test isempty(PaperRuns.TOML.parsefile(joinpath(other_branch, "run.toml"))["requested"])
+end
+
 @testset "a table reads its own branch's study before a newer one of another branch" begin
     function finished_run(name, branch)
         directory = joinpath(PaperRuns.runs_directory, name)
@@ -1224,4 +1237,46 @@ end
     crashes = WindShipOpt.events_to_cost(cost, target, work, crash)
     @test cost + crashes * crash / work ≈ target
     @test WindShipOpt.events_to_cost(target, cost, work, crash) == 0
+end
+
+module PaperData
+using Printf, Statistics, WindShipOpt
+assumptions = Main.assumptions
+include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
+end
+
+"path and force text `PaperData.write_pattern` writes for the base kite in `wind` at `course`"
+function written_pattern(wind, course)
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    min_elevation = deg2rad(assumptions[:kite_min_elevation])
+    paths, forces = IOBuffer(), IOBuffer()
+    PaperData.write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
+        0.0)
+    return String(take!(paths)), String(take!(forces))
+end
+
+@testset "the pattern data has rows only for conditions where a pattern flies" begin
+    @test all(isempty, written_pattern(6.0, 120))
+    paths, forces = written_pattern(12.0, 90)
+    @test !isempty(paths) && !isempty(forces) && !occursin("NaN", paths * forces)
+end
+
+@testset "a round trip's cost parts per tonne-km add up to its cost over its hours" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    tonne_km_per_tonne = PaperData.tonne_km_per_tonne(corridors...)
+    for design in (ShipDesign(:methanol, 85.0),
+        ShipDesign(:methanol, 85.0; wing_area=400.0),
+        ShipDesign(:methanol, 85.0; kite_area=400.0))
+
+        ship = Ship(design, assumptions)
+        trip = round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
+            assumptions)
+        io = IOBuffer()
+        PaperData.write_costs(io, (; design, assumptions), trip,
+            trip.cargo * tonne_km_per_tonne)
+        hours, parts... = parse.(Float64, split(chomp(String(take!(io))), ',')[2:end])
+        @test hours ≈ 24(trip.outbound_days + trip.return_days +
+                     2assumptions[:port_time_per_call]) rtol = 1e-5
+        @test sum(parts) ≈ trip.cost_per_tonne_km rtol = 1e-3
+    end
 end
