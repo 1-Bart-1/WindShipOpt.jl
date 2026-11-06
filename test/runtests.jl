@@ -953,4 +953,17 @@ end
     end
 end
 
+@testset "every rig's route costs what a search at every speed finds" begin
+    _, back = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    every_speed = WindShipOpt.RouterSettings(search_speed_stride=1)
+    for (design, departure) in ((ShipDesign(:methanol, 85.0; wing_area=400.0), 24.0 * 91),
+        (ShipDesign(:methanol, 85.0; kite_area=200.0), 24.0 * 211))
+
+        table = RouteTable(PerformanceTable(Ship(design, assumptions), assumptions))
+        passage() = route(back, table, SyntheticWeather(), departure; time_cost=300.0)
+        full = WindShipOpt.with_router_settings(passage, every_speed)
+        @test passage().objective <= full.objective * (1 + 1e-4)
+    end
+end
+
 include("hot_path_checks.jl")

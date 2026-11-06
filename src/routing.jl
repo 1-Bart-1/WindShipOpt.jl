@@ -259,7 +259,7 @@ Base.@kwdef struct RouterSettings
     "routing speeds, from the lowest routing speed to the ship's top speed"
     routing_speeds::Int = 49
     "speeds the search skips between those it commands, plus one"
-    search_speed_stride::Int = 4
+    search_speed_stride::Int = 2
     "length of the time bins of the final pass along the path found [h]"
     final_time_step::Float64 = 0.25
     "how far the final pass strays in time from the path found [h]"
