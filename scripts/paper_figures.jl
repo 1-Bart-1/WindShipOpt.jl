@@ -5,8 +5,17 @@ figures = mkpath(joinpath(root, "paper", "figures"))
 polars = joinpath(root, "data", "kite_polars")
 aspect_ratios = (3, 5, 8)
 palette = Makie.wong_colors()
-set_theme!(fontsize=10, figure_padding=4, Axis=(; xgridvisible=false, ygridvisible=false,
-    titlesize=10, titlefont=:regular, titlealign=:left))
+"path of the paper's typeface, TeX Gyre Termes, in `style`"
+paper_font(style) = joinpath(root, "data", "fonts", "texgyretermes-$style.otf")
+Makie.MathTeXEngine.set_texfont_family!(Makie.MathTeXEngine.FontFamily(Dict(
+    :regular => paper_font("regular"), :italic => paper_font("italic"),
+    :bold => paper_font("bold"), :bolditalic => paper_font("bold"),
+    :math => paper_font("math"))))
+set_theme!(fontsize=10, figure_padding=4,
+    fonts=(; regular=paper_font("regular"), italic=paper_font("italic"),
+        bold=paper_font("bold")),
+    Axis=(; xgridvisible=false, ygridvisible=false, titlesize=10, titlefont=:regular,
+        titlealign=:left))
 column_width = 334
 page_width = 522
 # points per figure unit, so that a page-wide figure is the 468 pt text width
@@ -1156,25 +1165,34 @@ areas that cloth law was run at.
 """
 function force_rating_figure()
     table = read_table(data_file("force_rating.csv"))
-    figure = Figure(size=(column_width, 210))
-    axis = Axis(figure[1, 1]; xlabel="force limit [kN/m²]", ylabel="cost saving [%]",
-        xticks=collect(study_force_ratings))
+    figure = Figure(size=(column_width, 215))
+    axis = Axis(figure[1, 1]; xlabel=L"force limit $[\mathrm{kN/m^2}]$",
+        ylabel=L"cost saving $[\%]$", xticks=collect(study_force_ratings))
     base = assumptions[:canopy_cloth_force_exponent]
     reference = assumptions[:canopy_cloth_reference_force]
-    for (k, ship) in enumerate(unique(table["ship"]))
+    laws = ((base, :solid, "keeps its life"), (1.0, :dash, "in proportion"),
+        (0.0, :dot, L"fixed at $200\,\mathrm{g/m^2}$"))
+    ships = unique(table["ship"])
+    for (k, ship) in enumerate(ships)
         bare = table["cost"][only(rows(table, "ship" => ship, "rating" => 0))]
-        for (exponent, linestyle) in ((base, :solid), (1.0, :dash), (0.0, :dot))
+        for (exponent, linestyle, _) in laws
             ratings = exponent == base ? collect(study_force_ratings) :
                       sort([extrema(study_force_ratings)..., reference])
             areas = Set(table["area"][rows(table, "ship" => ship, "exponent" => exponent)])
             savings = [best_force_rating_saving(table, ship, rating,
                            rating == reference ? base : exponent, areas, bare)
                        for rating in ratings]
-            lines!(axis, ratings, savings; color=palette[k], linestyle, linewidth=1.3,
-                label=exponent == base ? ship : nothing)
+            lines!(axis, ratings, savings; color=palette[k], linestyle, linewidth=1.3)
         end
     end
-    axislegend(axis; position=(0.02, 0.3), framevisible=false, labelsize=8.5, rowgap=0)
+    ship_entries = [LineElement(color=palette[k], linewidth=1.3) for k in eachindex(ships)]
+    law_entries = [LineElement(; color=:black, linestyle, linewidth=1.3)
+                   for (_, linestyle, _) in laws]
+    Legend(figure[2, 1], [ship_entries, law_entries], [ships, collect(last.(laws))],
+        ["ship", "cloth"]; orientation=:horizontal, nbanks=3, framevisible=false,
+        labelsize=8.5, titlesize=8.5, titlefont=:regular, rowgap=0, patchsize=(20, 8),
+        titleposition=:left, padding=0)
+    rowgap!(figure.layout, 1, 6)
     save(joinpath(figures, "force_rating.pdf"), figure; pt_per_unit=print_scale)
 end
 
