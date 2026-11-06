@@ -446,8 +446,9 @@ end
     passage_figure()
 
 One winter outbound passage to Guadeloupe of a 140 m e-methanol ship without a rig and
-with each rig: one map per ship with its routed track through the corridor's nodes, a
-dot at each day's position and the other tracks in grey, and speed, rig thrust and fuel power over the passage.
+with each rig: one map per ship with its routed track through the corridor's nodes, a dot
+at each day's position and the other tracks in grey, and speed, rig thrust and fuel power
+over the passage.
 """
 function passage_figure()
     designs = (("no rig", ShipDesign(:methanol, 140.0)),
@@ -741,7 +742,8 @@ ring_points(radius, angles) = Point2f.(radius .* sin.(angles), radius .* cos.(an
 
 Wind roses relative to the ship along each route over the three years of weather: the
 direction the wind comes from off the bow, head wind up, outbound on the left half and
-homeward on the right, each half named at its top; the sector length is the share of sailing time, split by 10 m
+homeward on the right, each half named at its top; the sector length is the share of
+sailing time, split by 10 m
 wind speed, against rings named in the legend.
 """
 function wind_climate_figure()
@@ -786,7 +788,8 @@ function wind_climate_figure()
     rowgap!(figure.layout, 4)
     colgap!(figure.layout, 4)
     Legend(figure[3, 1:3], [PolyElement(color=colour) for colour in colours], class_labels,
-        "wind at 10 m, head wind up; rings at $(join(rings, ", ", " and ")) % of sailing time";
+        "wind at 10 m, head wind up; rings at $(join(rings, ", ", " and ")) % of " *
+        "sailing time";
         framevisible=false, labelsize=9, titlesize=9,
         orientation=:horizontal, patchsize=(8, 8), tellwidth=false, colgap=6)
     save(joinpath(figures, "wind_climate.pdf"), figure; pt_per_unit=print_scale)

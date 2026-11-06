@@ -1426,12 +1426,12 @@ end
     @test WindShipOpt.crash_cost(fleet, assumptions) ≈ (airframes + tethers / 2) / 3
 end
 
-@testset "each rig is measured against its neighbours in cost, the ends against none" begin
+@testset "each rig is measured against the best other, the leader against the second" begin
     costs = Dict("kite" => 2.0, "wings" => 1.0, "rotors" => 3.0)
-    ranked = WindShipOpt.ranked_neighbours(costs)
+    ranked = WindShipOpt.ranked_rivals(costs)
     @test getfield.(ranked, :rig) == ["wings", "kite", "rotors"]
-    @test getfield.(ranked, :next)[1:2] == [2.0, 3.0]
-    @test isnan(ranked[3].next)
+    @test getfield.(ranked, :rival) == ["kite", "wings", "wings"]
+    @test getfield.(ranked, :rival_cost) == [2.0, 1.0, 1.0]
     @test isnan(ranked[1].ahead)
     @test getfield.(ranked, :ahead)[2:3] == [1.0, 2.0]
 end
