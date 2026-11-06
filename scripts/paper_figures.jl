@@ -737,7 +737,7 @@ ring_points(radius, angles) = Point2f.(radius .* sin.(angles), radius .* cos.(an
 
 Wind roses relative to the ship along each route over the three years of weather: the
 direction the wind comes from off the bow, head wind up, outbound on the left half and
-homeward on the right; the sector length is the share of sailing time, split by 10 m
+homeward on the right, each half named at its top; the sector length is the share of sailing time, split by 10 m
 wind speed, against rings named in the legend.
 """
 function wind_climate_figure()
@@ -748,11 +748,11 @@ function wind_climate_figure()
     colours = Makie.resample_cmap(:Blues, 6)[2:5]
     edges = 0:15:180
     rings = [5, 10, 15]
-    figure = Figure(size=(column_width, 560))
+    figure = Figure(size=(column_width, 262))
     for (k, name) in enumerate(names)
-        axis = Axis(figure[(k - 1) ÷ 2 + 1, (k - 1) % 2 + 1]; aspect=DataAspect(),
-            title=route_label(name),
-            titlealign=:center, limits=(-19, 19, -19, 19))
+        axis = Axis(figure[(k - 1) ÷ 3 + 1, (k - 1) % 3 + 1]; aspect=DataAspect(),
+            title=route_label(name), titlegap=1, titlesize=9,
+            titlealign=:center, limits=(-17, 17, -17, 17))
         hidedecorations!(axis)
         hidespines!(axis)
         for radius in rings
@@ -776,15 +776,15 @@ function wind_climate_figure()
                 end
             end
         end
-        text!(axis, [0.0, 0.0, -18.5, 18.5], [16.5, -16.5, -17.5, -17.5];
-            text=["head wind", "astern", "out", "home"], fontsize=8.5,
-            align=[(:center, :bottom), (:center, :top), (:left, :center),
-                (:right, :center)], color=:gray30)
+        text!(axis, [-16.0, 16.0], [16.0, 16.0]; text=["out", "home"], fontsize=7.5,
+            align=[(:left, :top), (:right, :top)], color=:gray45)
     end
-    Legend(figure[4, 1:2], [PolyElement(color=colour) for colour in colours], class_labels,
-        "wind at 10 m, rings at $(join(rings, ", ", " and ")) % of sailing time";
+    rowgap!(figure.layout, 4)
+    colgap!(figure.layout, 4)
+    Legend(figure[3, 1:3], [PolyElement(color=colour) for colour in colours], class_labels,
+        "wind at 10 m, head wind up; rings at $(join(rings, ", ", " and ")) % of sailing time";
         framevisible=false, labelsize=9, titlesize=9,
-        orientation=:horizontal, nbanks=2, patchsize=(8, 8), tellwidth=false)
+        orientation=:horizontal, patchsize=(8, 8), tellwidth=false, colgap=6)
     save(joinpath(figures, "wind_climate.pdf"), figure; pt_per_unit=print_scale)
 end
 
