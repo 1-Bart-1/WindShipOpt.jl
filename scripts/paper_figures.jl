@@ -1465,13 +1465,16 @@ scaling table.
 """
 function rigid_scaling_figure()
     table = read_table(data_file("rigid_scaling.csv"))
-    figure = Figure(size=(page_width, 270))
+    figure = Figure(size=(page_width, 360); figure_padding=(10, 6, 4, 4))
     thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
         xlabel="apparent wind [m/s]", ylabel="thrust [kN]")
     price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
-        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="price per thrust [USD/kN]")
-    annual_axis = Axis(figure[1, 3]; title="(c) cost a year at 12 m/s", xscale=log10,
-        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="annual cost per thrust [USD/kN]")
+        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="price per thrust [USD/kN]",
+        ytickformat=values -> [@sprintf("%.0f", value) for value in values])
+    annual_axis = Axis(figure[3, 1]; title="(c) cost a year at 12 m/s", xscale=log10,
+        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="USD/kN a year")
+    wind_axis = Axis(figure[3, 2]; title="(d) lowest wind", xscale=log10,
+        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="apparent wind [m/s]")
     base_exponent = assumptions[:rigid_mass_exponent]
     curves = (("rigid", 30.0), ("rigid", 54.0), ("rigid", 100.0), ("rigid", 300.0),
         ("soft", 1000.0))
@@ -1489,10 +1492,12 @@ function rigid_scaling_figure()
         areas, prices = table["area"][at_twelve], table["price"][at_twelve]
         per_thrust = 1e3 .* prices ./ table["thrust"][at_twelve]
         annual_per_thrust = 1e3 .* table["annual"][at_twelve] ./ table["thrust"][at_twelve]
-        label = kind == "soft" ? "soft kite" : "rigid, mass ∝ span^$exponent"
+        label = kind == "soft" ? "soft kite" : "rigid, κ = $exponent"
         colour = kind == "soft" ? palette[5] : palette[1]
         lines!(price_axis, areas, per_thrust; linestyle, label, color=colour)
         lines!(annual_axis, areas, annual_per_thrust; linestyle, color=colour)
+        kind == "rigid" && lines!(wind_axis, areas, table["lowest_wind"][at_twelve];
+            linestyle, color=colour)
         @printf("  %s %.1f: USD/kN a year %s\n", kind, exponent,
             join(round.(Int, annual_per_thrust), ", "))
         kind == "rigid" && exponent == base_exponent && for i in eachindex(areas)
@@ -1504,11 +1509,11 @@ function rigid_scaling_figure()
                 table["lowest_wind"][row], 1e-3table["thrust"][row], 1e-6prices[i])
         end
     end
-    for (row, axis) in enumerate((thrust_axis, price_axis))
-        Legend(figure[row + 1, 1:3], axis; orientation=:horizontal, framevisible=false,
-            labelsize=8)
-        rowsize!(figure.layout, row + 1, Fixed(16))
-    end
+    Legend(figure[2, 1], thrust_axis; orientation=:horizontal, nbanks=2,
+        framevisible=false, labelsize=8, rowgap=0, padding=0)
+    Legend(figure[2, 2], price_axis; orientation=:horizontal, nbanks=2,
+        framevisible=false, labelsize=8, rowgap=0, padding=0)
+    linkxaxes!(price_axis, annual_axis, wind_axis)
     save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1810,4 +1815,42 @@ low and high bounds.
 function goal_marks!(axis, input)
     vspan!(axis, input.low, input.high; color=(:gray50, 0.15))
     vlines!(axis, input.value; color=:black, linewidth=0.75)
+end
+
+"""
+    rigid_mass_figure()
+
+Mass of a rigid kite against its area: the mass law of the assumptions at the base
+exponent and its bounds through the MX2 anchor, and the published wings of
+data/rigid_kite_masses.csv, with and without rotors.
+"""
+function rigid_mass_figure()
+    published = read_table(joinpath(root, "data", "rigid_kite_masses.csv"))
+    figure = Figure(size=(column_width, 180))
+    ticks = [3, 10, 30, 100, 300]
+    axis = Axis(figure[1, 1]; xscale=log10, yscale=log10, xlabel="wing area [m²]",
+        ylabel="mass [kg]", xticks=(ticks, string.(ticks)),
+        yticks=([30, 100, 300, 1000, 3000, 10000, 30000],
+            ["30", "100", "300", "1000", "3000", "10⁴", "3·10⁴"]))
+    anchor_area = assumptions[:rigid_reference_area]
+    anchor_mass = assumptions[:rigid_reference_mass]
+    exponent = assumptions.entries[:rigid_mass_exponent]
+    areas = exp.(range(log(3), log(500); length=40))
+    for (value, linestyle) in ((exponent.low, :dot), (exponent.value, :solid),
+        (exponent.high, :dash))
+        lines!(axis, areas, anchor_mass .* (areas ./ anchor_area) .^ (value / 2);
+            color=:black, linestyle, linewidth=0.8, label="κ = $value")
+    end
+    scatter!(axis, [anchor_area], [anchor_mass]; color=:black, marker=:diamond,
+        markersize=8, label="MX2 design")
+    with_rotors = published["rotors"] .== "true"
+    for (chosen, color, label) in ((with_rotors, palette[1], "with rotors"),
+        (.!with_rotors, palette[2], "without rotors"))
+        rangebars!(axis, published["area"][chosen], published["mass_low"][chosen],
+            published["mass_high"][chosen]; color)
+        scatter!(axis, published["area"][chosen], (published["mass_low"][chosen] .+
+            published["mass_high"][chosen]) ./ 2; color, markersize=6, label)
+    end
+    Legend(figure[1, 2], axis; framevisible=false, labelsize=8, patchsize=(12, 8))
+    save(joinpath(figures, "rigid_mass.pdf"), figure; pt_per_unit=print_scale)
 end

@@ -74,7 +74,7 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :canopy_price_figure => canopy_price_figure, :min_wind => min_wind_figure,
     :force_balance => force_balance_figure, :ship_classes => ship_classes_figure,
     :kite_frames => kite_frames_figure, :router => router_figure,
-    :missed_goals => missed_goals_figure]
+    :missed_goals => missed_goals_figure, :rigid_mass => rigid_mass_figure]
 
 """
     paper(names...; fidelity, resume=nothing)
