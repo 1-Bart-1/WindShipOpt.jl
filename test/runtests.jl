@@ -1239,6 +1239,53 @@ function written_pattern(wind, course)
     return String(take!(paths)), String(take!(forces))
 end
 
+"""
+    recorded_names(recording, node)
+
+Names of the recorded inputs that `node` of `recording` depends on.
+"""
+function recorded_names(recording, node)
+    operation, operands = recording.nodes[node]
+    operation == :input && return Set([first(operands)])
+    operation == :constant && return Set{String}()
+    return union((recorded_names(recording, operand) for operand in operands)...)
+end
+
+@testset "a recorded cost is the routed cost, depends on its inputs and has no branch" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    trip = round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
+        assumptions)
+    names = (:canopy_life, :e_methanol_price, :kite_out_of_service, :discount_rate,
+        :kite_crash_rate)
+    recording = WindShipOpt.Recording()
+    cost = WindShipOpt.record(recording) do
+        inputs = WindShipOpt.recorded_inputs(assumptions, names)
+        return WindShipOpt.voyage_costs(ship, WindShipOpt.ship_costs(ship, inputs),
+            WindShipOpt.state_rigs(ship.rig, assumptions), trip.passages, corridors...,
+            inputs).cheaper
+    end
+    @test cost.value == trip.cost_per_tonne_km
+    @test recorded_names(recording, cost.node) == Set(string.(names))
+    @test_throws ErrorException cost < 1.0
+    @test_throws ErrorException Float64(cost)
+end
+
+@testset "a unit lost a year costs its share of one unit, and leaves the routes alone" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    design = ShipDesign(:vlsfo, 85.0; rotor_area=200.0)
+    trip(inputs) = round_trip(Ship(design, inputs), corridors..., SyntheticWeather(),
+        [24.0 * 31, 24.0 * 200], inputs)
+    base, lossy = trip(assumptions), trip(with_value(assumptions, :rotor_loss_rate, 0.5))
+    @test lossy.fuel_energy == base.fuel_energy
+    rig = Ship(design, assumptions).rig
+    hours = 24(base.outbound_days + base.return_days + 2assumptions[:port_time_per_call])
+    tonne_km = base.cargo * PaperData.tonne_km_per_tonne(corridors...)
+    @test (lossy.cost_per_tonne_km - base.cost_per_tonne_km) * tonne_km ≈
+          0.5rig.count * WindShipOpt.crash_cost(rig, assumptions) * hours /
+          (8760assumptions[:availability])
+end
+
 @testset "the pattern data has rows only for conditions where a pattern flies" begin
     @test all(isempty, written_pattern(6.0, 120))
     paths, forces = written_pattern(12.0, 90)

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Serve the companion explorer in site/ on http://localhost:5173, installing its packages
+# from the lockfile first where they are missing. Arguments go to Vite, e.g. --port 8080.
+set -euo pipefail
+cd "$(dirname "$0")/../site"
+[[ -d node_modules ]] || npm ci
+exec npm run dev -- "$@"
