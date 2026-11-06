@@ -781,6 +781,34 @@ end
     @test sailed.objective ≈ leg.objective rtol = 1e-3
 end
 
+"Synthetic weather with a gale from the south-west no ship can sail in before `calm_from`."
+struct GaleWeather
+    calm::SyntheticWeather
+    calm_from::Float64
+end
+WindShipOpt.duration(::GaleWeather) = Inf
+WindShipOpt.wind(weather::GaleWeather, lat, lon, time) =
+    time < weather.calm_from ? (45.0, 45.0) : WindShipOpt.wind(weather.calm, lat, lon, time)
+WindShipOpt.waves(weather::GaleWeather, lat, lon, time) =
+    time < weather.calm_from ? (16.0, 14.0, 1.25π) : (0.0, 0.0, 0.0)
+
+@testset "a ship on a forecast holds through a gale it cannot sail in" begin
+    departure = 24.0 * 31
+    weather = GaleWeather(SyntheticWeather(), departure + 10.0)
+    @test isnothing(route(corridor, table, weather, departure; time_cost=hourly))
+    after = route(corridor, table, weather, departure + 12.0; time_cost=hourly)
+    for horizon in (72.0, 0.0)
+        sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly,
+            horizon)
+        @test length(sailed.path) == size(corridor.lat, 1)
+        @test sailed.path[2][3] > 12.0
+        @test sailed.duration - 12.0 ≈ after.duration rtol = 0.02
+    end
+    endless = GaleWeather(SyntheticWeather(), Inf)
+    @test isnothing(forecast_route(corridor, table, endless, departure; time_cost=hourly,
+        horizon=72.0))
+end
+
 @testset "a forecast beyond its horizon reads the same date in another year" begin
     known = ForecastWeather(SyntheticWeather(), 100.0, 48.0)
     @test WindShipOpt.wind(known, 40.0, -30.0, 120.0) ==

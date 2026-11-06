@@ -1318,7 +1318,8 @@ end
     forecast_figure()
 
 Cost saving of each rig on a 140 m e-methanol ship routed with perfect foresight and
-with daily re-planning on forecasts of 7 and 3 days.
+with daily re-planning on forecasts of 7 and 3 days. A case with no feasible round trip,
+its ship's or the bare ship's, is marked "none" in place of its bar.
 """
 function forecast_figure()
     table = read_table(data_file("forecast.csv"))
@@ -1327,16 +1328,30 @@ function forecast_figure()
     axis = Axis(figure[1, 1]; xticks=(1:3, ["kite", "wings", "rotors"]),
         ylabel="cost saving [%]")
     for (j, (days, label)) in enumerate(horizons)
-        bare = only(table["cost"][rows(table, "rig" => "none", "horizon_days" => days)])
-        costs = [only(table["cost"][rows(table, "rig" => rig, "horizon_days" => days)])
-                 for rig in rig_names]
-        savings = 100 .* (1 .- costs ./ bare)
-        barplot!(axis, (1:3) .+ (j - 2) * 0.27, savings; width=0.25, color=palette[j],
-            label)
+        bare = forecast_cost(table, "none", days)
+        savings = [100 * (1 - forecast_cost(table, rig, days) / bare) for rig in rig_names]
+        positions = (1:3) .+ (j - 2) * 0.27
+        routed = isfinite.(savings)
+        barplot!(axis, positions[routed], savings[routed]; width=0.25,
+            color=palette[j], label)
+        unrouted = count(.!routed)
+        text!(axis, positions[.!routed], zeros(unrouted); text=fill("none", unrouted),
+            rotation=pi / 2, align=(:left, :center), fontsize=8, color=palette[j])
     end
     Legend(figure[2, 1], axis, "forecast"; orientation=:horizontal, framevisible=false,
         labelsize=9, titleposition=:left)
     save(joinpath(figures, "forecast.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    forecast_cost(table, rig, days)
+
+Cost per tonne-km of `rig` at forecast horizon `days` in the forecast table, `NaN` where
+the case has no feasible round trip.
+"""
+function forecast_cost(table, rig, days)
+    costs = table["cost"][rows(table, "rig" => rig, "horizon_days" => days)]
+    return isempty(costs) ? NaN : only(costs)
 end
 
 "rigs of the combination figure with their legend labels and colours"
