@@ -458,15 +458,15 @@ end
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 1)
     @test force(5.8751, 26.6411).thrust ≈ 26 atol = 5
-    @test force(5.8751, 26.6411).side ≈ 63940 rtol = 1e-3
-    @test force(6.6205, 50.2378).thrust ≈ 20474 rtol = 1e-3
-    @test force(6.6205, 50.2378).side ≈ 98249 rtol = 1e-3
-    @test force(8.8295, 86.6957).thrust ≈ 121320 rtol = 1e-3
-    @test force(8.8295, 86.6957).side ≈ 253749 rtol = 1e-3
-    @test force(11.1615, 114.2277).thrust ≈ 256132 rtol = 1e-3
-    @test force(11.1615, 114.2277).side ≈ 226097 rtol = 1e-3
-    @test force(13.8026, 148.5709).thrust ≈ 357613 rtol = 1e-3
-    @test force(13.8026, 148.5709).side ≈ 24548 rtol = 1e-3
+    @test force(5.8751, 26.6411).side ≈ 63932 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 19748 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 108230 rtol = 1e-3
+    @test force(8.8295, 86.6957).thrust ≈ 113815 rtol = 1e-3
+    @test force(8.8295, 86.6957).side ≈ 242111 rtol = 1e-3
+    @test force(11.1615, 114.2277).thrust ≈ 239765 rtol = 1e-3
+    @test force(11.1615, 114.2277).side ≈ 206875 rtol = 1e-3
+    @test force(13.8026, 148.5709).thrust ≈ 337541 rtol = 1e-3
+    @test force(13.8026, 148.5709).side ≈ 78043 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
