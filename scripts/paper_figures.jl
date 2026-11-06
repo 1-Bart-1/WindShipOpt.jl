@@ -1147,7 +1147,8 @@ best_force_rating_saving(table, chosen, bare) =
     force_rating_figure()
 
 Saving of each study ship at its best kite area against the force limit, with cloth that
-follows the limit by the base exponent, in proportion, or not at all.
+follows the limit by the base exponent, in proportion, or not at all, each over the kite
+areas that cloth law was run at.
 """
 function force_rating_figure()
     table = read_table(data_file("force_rating.csv"))
@@ -1162,8 +1163,11 @@ function force_rating_figure()
         for (exponent, linestyle) in ((base, :solid), (1.0, :dash), (0.0, :dot))
             ratings = exponent == base ? collect(study_force_ratings) :
                       sort([extrema(study_force_ratings)..., reference])
+            areas = Set(table["area"][filter(row -> table["exponent"][row] == exponent &&
+                                                    table["rating"][row] > 0, chosen)])
             savings = [best_force_rating_saving(table,
                            filter(row -> table["rating"][row] == rating &&
+                                  table["area"][row] in areas &&
                                   table["exponent"][row] ==
                                   (rating == reference ? base : exponent), chosen), bare)
                        for rating in ratings]
@@ -1171,7 +1175,7 @@ function force_rating_figure()
                 label=exponent == base ? ship : nothing)
         end
     end
-    axislegend(axis; position=:rb, framevisible=false, labelsize=8.5)
+    axislegend(axis; position=(0.02, 0.3), framevisible=false, labelsize=8.5, rowgap=0)
     save(joinpath(figures, "force_rating.pdf"), figure; pt_per_unit=print_scale)
 end
 
