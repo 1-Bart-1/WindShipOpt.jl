@@ -813,7 +813,7 @@ canopy_making_cost_per_area:
   low: 16.0
   high: 179.0
   unit: USD/m^2
-  reason: "Goal for the manufacturing cost per m^2 of projected area of a ram-air canopy besides its cloth: per flat m^2 1.0 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2. Today 1.5-2.25 h per flat m^2 in paraglider plants (SKY Paragliders); the US G-12 cargo parachute implies at most 0.6-1.0 h at series volume (BIS 2004). Derivation in cost_basis_notes.md, section 4.6."
+  reason: "Goal for the manufacturing cost per m^2 of projected area of a ram-air canopy besides its cloth: per flat m^2 1.0 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2. Today 1.5-2.25 h per flat m^2, 50 h of manufacturing per paraglider (SKY Paragliders 2017) over 22-33 m^2; the US G-12 cargo parachute implies 0.6-1.0 h at series volume if materials take 57 % of sales as in 2000, up to 1.75 h at the 25-50 % of other years (BIS 2004). Derivation in cost_basis_notes.md, section 4.6."
 canopy_making_cost_per_area_today:
   value: 57.0
   low: 57.0
