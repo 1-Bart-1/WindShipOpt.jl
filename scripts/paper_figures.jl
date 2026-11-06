@@ -433,7 +433,8 @@ end
     passage_figure()
 
 One winter outbound passage to Guadeloupe of a 140 m e-methanol ship without a rig and
-with each rig: the routed tracks, and speed, rig thrust and fuel power over the passage.
+with each rig: the routed tracks, each narrower than the one before so that tracks which
+coincide stay visible, and speed, rig thrust and fuel power over the passage.
 """
 function passage_figure()
     designs = (("no rig", ShipDesign(:methanol, 140.0)),
@@ -463,7 +464,7 @@ function passage_figure()
         i == 1 && lines!(map, great_circle(leg.path[1], leg.path[end])...; color=:black,
             linestyle=:dot, linewidth=1.0, label="great circle")
         lines!(map, smooth_track(getindex.(leg.path, 2), getindex.(leg.path, 1));
-            color=palette[i], linewidth=1.5, label)
+            color=palette[i], linewidth=1.2 + 0.9 * (length(designs) - i), label)
         for (panel, values) in zip(panels, (trace.speed ./ KNOT, trace.rig_thrust ./ 1e3,
             trace.fuel_power ./ 1e6))
             hours, averages = moving_average(trace.time, values)
@@ -710,7 +711,7 @@ ring_points(radius, angles) = Point2f.(radius .* sin.(angles), radius .* cos.(an
 Wind roses relative to the ship along each route over the three years of weather: the
 direction the wind comes from off the bow, head wind up, outbound on the left half and
 homeward on the right; the sector length is the share of sailing time, split by 10 m
-wind speed.
+wind speed, against rings named in the legend.
 """
 function wind_climate_figure()
     times = 0.0:24.0:(WindShipOpt.duration(weather) - 24)
@@ -752,13 +753,10 @@ function wind_climate_figure()
             text=["head wind", "astern", "out", "home"], fontsize=8.5,
             align=[(:center, :bottom), (:center, :top), (:left, :center),
                 (:right, :center)], color=:gray30)
-        k == 1 && text!(axis, Float64.(rings) .* sind(135), Float64.(rings) .*
-                                                                 cosd(135);
-            text=["$radius %" for radius in rings], fontsize=8.5, color=:gray50,
-            align=(:left, :top))
     end
     Legend(figure[4, 1:2], [PolyElement(color=colour) for colour in colours], class_labels,
-        "wind at 10 m"; framevisible=false, labelsize=9, titlesize=9,
+        "wind at 10 m, rings at $(join(rings, ", ", " and ")) % of sailing time";
+        framevisible=false, labelsize=9, titlesize=9,
         orientation=:horizontal, nbanks=2, patchsize=(8, 8), tellwidth=false)
     save(joinpath(figures, "wind_climate.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -1230,7 +1228,7 @@ end
 
 Cost per tonne-km against the fuel energy saved for every size of each rig on the ships
 of the abatement study, relative to the same ship on VLSFO without a rig, one column per
-drive.
+drive; the smallest size of each rig is an open marker.
 """
 function abatement_figure()
     table = read_table(data_file("abatement.csv"))
@@ -1242,7 +1240,8 @@ function abatement_figure()
             "rig" => "none")])
         bare = only(rows(table, "ship" => name, "drive" => drive, "rig" => "none"))
         letter = 'a' + length(drive_labels) * (row - 1) + column - 1
-        axis = Axis(figure[row, column]; title="($letter) $name, $label",
+        axis = Axis(figure[row, column];
+            title="($letter) $(replace(name, " bulk carrier" => "")), $label",
             xlabel=row == 2 ? "fuel energy saved [%]" : "",
             ylabel=column == 1 ? "cost vs VLSFO, no rig [%]" : "")
         hlines!(axis, 0; color=:gray50, linewidth=0.6)
@@ -1255,13 +1254,17 @@ function abatement_figure()
             change = 100 .* (table["cost"][chosen] ./ fossil .- 1)
             scatterlines!(axis, saved, change; color=palette[k], markersize=4,
                 linewidth=1.3)
+            scatter!(axis, saved[1:1], change[1:1]; color=:white, strokecolor=palette[k],
+                strokewidth=1.2, markersize=7)
         end
     end
     entries = [[MarkerElement(color=:black, marker=:circle, markersize=6)];
         [[LineElement(color=palette[k], linewidth=1.3),
-             MarkerElement(color=palette[k], marker=:circle, markersize=4)] for k in 1:3]]
+             MarkerElement(color=palette[k], marker=:circle, markersize=4)] for k in 1:3];
+        [MarkerElement(color=:white, strokecolor=:black, strokewidth=1.2, marker=:circle,
+            markersize=7)]]
     Legend(figure[3, 1:length(drive_labels)], entries,
-        ["no rig", "kite", "wings", "rotors"];
+        ["no rig", "kite", "wings", "rotors", "smallest size"];
         orientation=:horizontal, framevisible=false, labelsize=9)
     save(joinpath(figures, "abatement.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -1286,7 +1289,7 @@ function sensitivity_figure()
         axis = Axis(figure[1, column]; title="($('a' + column - 1)) $rig",
             yticks=(eachindex(swings), [replace(first(swing), "_" => " ")
                                         for swing in swings]),
-            xlabel="cost saving [%]", yticklabelsize=8)
+            xlabel="cost saving [%]", xticks=WilkinsonTicks(3), yticklabelsize=8)
         vlines!(axis, base; color=:gray50, linewidth=0.8)
         for (k, (_, low, high)) in enumerate(swings)
             barplot!(axis, [k], [low - base]; offset=base, direction=:x, color=palette[1],
@@ -1305,38 +1308,46 @@ end
     component_figure()
 
 Change in the cost saving of each rig on a 140 m e-methanol ship when the price of one
-of its components is 50 % lower or higher, or one of its lifetimes doubled or halved.
+of its components is 50 % lower or higher, or one of its lifetimes doubled or halved,
+one panel per rig; components moving it by less than 0.05 points are left out.
 """
 function component_figure()
     table = read_table(data_file("components.csv"))
     bare = only(table["cost"][rows(table, "rig" => "none")])
-    figure = Figure(size=(page_width, 260))
-    for (column, rig) in enumerate(rig_names)
+    figure = Figure(size=(column_width, 430))
+    axes = Axis[]
+    for (row, rig) in enumerate(rig_names)
         base_cost = only(table["cost"][rows(table, "rig" => rig, "input" => "none")])
         base = percent_saving(base_cost, bare)
         inputs = filter(!=("none"), unique(table["input"][rows(table, "rig" => rig)]))
         effects = Tuple{String, Float64, Float64}[]
         for input in inputs
             chosen = rows(table, "rig" => rig, "input" => input)
-            better = minimum(table["cost"][chosen])
-            worse = maximum(table["cost"][chosen])
-            push!(effects, (input, percent_saving(better, bare) - base,
-                percent_saving(worse, bare) - base))
+            better = percent_saving(minimum(table["cost"][chosen]), bare) - base
+            worse = percent_saving(maximum(table["cost"][chosen]), bare) - base
+            max(abs(better), abs(worse)) >= 0.05 &&
+                push!(effects, (input, better, worse))
         end
         sort!(effects; by=effect -> effect[2])
         labels = [replace(first(effect), "_" => " ") for effect in effects]
-        title = "($('a' + column - 1)) $rig, base $(round(base; digits=1)) %"
-        axis = Axis(figure[1, column]; title, yticks=(eachindex(effects), labels),
-            xlabel="change in cost saving [points]", yticklabelsize=8)
+        title = "($('a' + row - 1)) $rig, base saving $(round(base; digits=1)) %"
+        axis = Axis(figure[row, 1]; title, yticks=(eachindex(effects), labels),
+            xlabel=row == length(rig_names) ? "change in cost saving [points]" : "",
+            yticklabelsize=8)
+        push!(axes, axis)
+        rowsize!(figure.layout, row, Auto(length(effects)))
         vlines!(axis, 0; color=:gray50, linewidth=0.8)
         barplot!(axis, eachindex(effects), getindex.(effects, 2); direction=:x,
             color=palette[3], width=0.6)
         barplot!(axis, eachindex(effects), getindex.(effects, 3); direction=:x,
             color=palette[6], width=0.6)
     end
-    Legend(figure[2, 1:3], [PolyElement(color=palette[3]), PolyElement(color=palette[6])],
+    linkxaxes!(axes...)
+    Legend(figure[length(rig_names) + 1, 1],
+        [PolyElement(color=palette[3]), PolyElement(color=palette[6])],
         ["50 % cheaper or twice the life", "50 % dearer or half the life"];
-        orientation=:horizontal, framevisible=false, labelsize=9)
+        orientation=:horizontal, nbanks=2, framevisible=false, labelsize=9,
+        patchsize=(10, 8))
     save(joinpath(figures, "components.pdf"), figure; pt_per_unit=print_scale)
 end
 
