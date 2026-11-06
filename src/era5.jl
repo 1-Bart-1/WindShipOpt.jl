@@ -76,39 +76,35 @@ function cell(axis::Vector{Float64}, value)
 end
 
 """
-    stencil(fields, lat, lon, time)
-
-The eight grid corners around a point as ((lon index, lat index, time index), weight).
-"""
-function stencil(fields::GriddedFields, lat, lon, time)
-    i, x = cell(fields.lons, lon)
-    j, y = cell(fields.lats, lat)
-    steps = step_count(fields)
-    position = clamp((time - fields.time_offset) / fields.step_hours + 1, 1, steps)
-    k = min(floor(Int, position), steps - 1)
-    t = position - k
-    return (((i + di, j + dj, k + dk), wx * wy * wt)
-            for (di, wx) in ((0, 1 - x), (1, x)), (dj, wy) in ((0, 1 - y), (1, y)),
-                (dk, wt) in ((0, 1 - t), (1, t)))
-end
-
-"""
     sample(fields, arrays, lat, lon, time)
 
 Trilinear interpolation of each array in the tuple `arrays`, leaving land points (NaN)
 out of the weighting; NaN where all corners are land.
 """
 function sample(fields::GriddedFields, arrays::NTuple{N}, lat, lon, time) where {N}
+    i, x = cell(fields.lons, lon)
+    j, y = cell(fields.lats, lat)
+    steps = step_count(fields)
+    position = clamp((time - fields.time_offset) / fields.step_hours + 1, 1, steps)
+    k = min(floor(Int, position), steps - 1)
+    t = position - k
     totals = ntuple(_ -> 0.0, N)
     weight_sum = 0.0
-    for (index, weight) in stencil(fields, lat, lon, time)
-        corner = map(array -> Float64(array[index...]), arrays)
+    for (dk, wt) in ((0, 1 - t), (1, t)), (dj, wy) in ((0, 1 - y), (1, y)),
+        (di, wx) in ((0, 1 - x), (1, x))
+
+        corner = corner_values(arrays, i + di, j + dj, k + dk)
         any(isnan, corner) && continue
-        totals = totals .+ weight .* corner
-        weight_sum += weight
+        totals = weighted_sum(totals, wx * wy * wt, corner)
+        weight_sum += wx * wy * wt
     end
     return totals ./ weight_sum
 end
+
+corner_values(arrays, i, j, k) = map(array -> Float64(@inbounds array[i, j, k]), arrays)
+
+weighted_sum(totals, weight, values) = map((total, value) -> total + weight * value, totals,
+    values)
 
 wind(weather::ERA5Weather, lat, lon, time) =
     sample(weather.wind, weather.wind_arrays, lat, lon, time)

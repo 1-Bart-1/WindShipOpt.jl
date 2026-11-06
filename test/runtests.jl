@@ -503,6 +503,17 @@ end
     end
 end
 
+@testset "a class ship's table reaches its service speed in calm water, and an infeasible \
+          knot stays infeasible next to it" begin
+    for class in values(ship_classes())
+        table = PerformanceTable(Ship(ShipDesign(:vlsfo, class), assumptions), assumptions)
+        speed = class.service_speed * KNOT
+        @test isfinite(lookup(table, speed, 0.0, 0.0).fuel_power)
+        next_to_infeasible = 1e-3WindShipOpt.INFEASIBLE_THRUST
+        @test isinf(WindShipOpt.fuel_power(table, speed, next_to_infeasible, 0.0))
+    end
+end
+
 @testset "a hydrogen ship's tank volume and mass follow its largest leg" begin
     class = ship_classes()["feeder container ship"]
     ship = Ship(ShipDesign(:hydrogen, class), assumptions)
@@ -689,36 +700,18 @@ end
     @test isnan(WindShipOpt.life_at_cost(lives, costs, NaN))
 end
 
-@testset "bounded route equals the unpruned dynamic programme" begin
+@testset "route guided by a cost to go equals the full dynamic programme" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
-    workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2), 400,
-        size(corridor.lat, 1))
+    (; time_step) = WindShipOpt.ROUTER_SETTINGS[]
+    workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2),
+        ceil(Int, 1200 / time_step), size(corridor.lat, 1))
     for coastal_penalty in (0.0, 1.0)
         leg = route(corridor, table, weather, departure; time_cost=hourly, coastal_penalty)
-        full = WindShipOpt.route_pass(workspace, corridor, table, weather, departure,
-            corridor.water; time_cost=hourly, time_step=3.0, first_stage=1,
+        full = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
+            time_cost=hourly, time_step, first_stage=1,
             first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty)
         @test leg.objective == full.objective
         @test leg.path == full.path
-    end
-end
-
-@testset "search band holds the coarse path and rivals pass it on the asked side" begin
-    leg = route(corridor, table, SyntheticWeather(), 24.0 * 31; time_cost=hourly)
-    band = WindShipOpt.band_nodes(corridor, leg, 1)
-    rows = [WindShipOpt.nearest_lateral(corridor, stage, point[1], point[2])
-            for (stage, point) in enumerate(leg.path)]
-    @test all(band[stage, rows[stage]] for stage in eachindex(rows))
-    @test !any(band .& .!corridor.water)
-    for side in (-1, 1)
-        rival = WindShipOpt.rival_nodes(corridor, leg, 1, side)
-        @test !any(rival .& .!corridor.water)
-        blocked = [stage for stage in eachindex(rows)
-                   if rival[stage, :] != corridor.water[stage, :]]
-        @test length(blocked) == 1
-        stage = only(blocked)
-        @test all(side * (lateral - rows[stage]) > WindShipOpt.BAND_ROWS
-                  for lateral in axes(rival, 2) if rival[stage, lateral])
     end
 end
 
@@ -750,14 +743,150 @@ WindShipOpt.waves(seas::HeadSeas, lat, lon, time) =
     commanded = searchsortedfirst(table.speeds, 8KNOT)
     start = WindShipOpt.EdgeSample(table.table, seas, corridor, stage, centre, step, 0.0,
         0.0)
-    first = WindShipOpt.first_point(table, start, corridor, stage, centre, step, commanded)
     points = WindShipOpt.SailedPoint[]
-    hours = WindShipOpt.sail_edge!(points, first, table, seas, corridor, stage, centre,
+    hours = WindShipOpt.sail_edge!(points, start, table, seas, corridor, stage, centre,
         step, 0.0, commanded)
     @test 0 < last(points).speed_index < commanded
     @test hours > corridor.edge_length[stage, centre, step] / table.speeds[commanded] / 3600
     storm = HeadSeas(destination, 60NAUTICAL_MILE, wave_from, 8.0, 9.0)
     @test isnothing(route(corridor, table, storm, 0.0; time_cost=hourly))
+end
+
+@testset "an edge is sampled at most the asked hours apart at the commanded speed" begin
+    weather, stage, centre = SyntheticWeather(), 1, centre_index(corridor)
+    step = WindShipOpt.MAX_LATERAL_STEP + 1
+    start = WindShipOpt.EdgeSample(table.table, weather, corridor, stage, centre, step, 0.0,
+        24.0)
+    speed_index = length(table.speeds)
+    commanded = corridor.edge_length[stage, centre, step] / table.speeds[speed_index] / 3600
+    points = WindShipOpt.SailedPoint[]
+    for sample_hours in (commanded / 4, commanded / 2)
+        WindShipOpt.sail_edge!(points, start, table, weather, corridor, stage, centre, step,
+            24.0, speed_index, sample_hours * 1.001)
+        @test length(points) == round(Int, commanded / sample_hours) + 1
+    end
+end
+
+@testset "a passage from a later stage continues the optimal path" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    leg = route(corridor, table, weather, departure; time_cost=hourly)
+    stage = (length(leg.path) + 1) ÷ 2
+    lat, lon, time = leg.path[stage]
+    rest = route(corridor, table, weather, departure + time; time_cost=hourly,
+        first_stage=stage,
+        first_lateral=WindShipOpt.nearest_lateral(corridor, stage, lat, lon))
+    @test length(rest.path) == size(corridor.lat, 1) - stage + 1
+    @test rest.path[1][1:2] == (lat, lon)
+    @test rest.duration + time ≈ leg.duration rtol = 0.05
+    @test rest.fuel_energy < leg.fuel_energy
+end
+
+@testset "a ship re-planning on a long forecast sails close to perfect foresight" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    leg = route(corridor, table, weather, departure; time_cost=hourly)
+    sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly,
+        horizon=24.0 * 100)
+    @test length(sailed.path) == size(corridor.lat, 1)
+    @test sailed.path[end][1:2] == leg.path[end][1:2]
+    @test sailed.objective ≈ leg.objective rtol = 0.01
+    @test sailed.duration > 0 && sailed.fuel_energy > 0
+end
+
+@testset "a ship on a long forecast handles its kite as the plan does" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+    sailed = forecast_route(corridor, kite_table, weather, departure;
+        time_cost=kite_hourly, horizon=24.0 * 100)
+    @test leg.launches > 0
+    @test sailed.aloft == leg.aloft
+    @test sailed.objective ≈ leg.objective rtol = 1e-3
+end
+
+"Synthetic weather with a gale from the south-west no ship can sail in before `calm_from`."
+struct GaleWeather
+    calm::SyntheticWeather
+    calm_from::Float64
+end
+WindShipOpt.duration(::GaleWeather) = Inf
+WindShipOpt.wind(weather::GaleWeather, lat, lon, time) =
+    time < weather.calm_from ? (45.0, 45.0) : WindShipOpt.wind(weather.calm, lat, lon, time)
+WindShipOpt.waves(weather::GaleWeather, lat, lon, time) =
+    time < weather.calm_from ? (16.0, 14.0, 1.25π) : (0.0, 0.0, 0.0)
+
+@testset "a ship on a forecast holds through a gale it cannot sail in" begin
+    departure = 24.0 * 31
+    weather = GaleWeather(SyntheticWeather(), departure + 10.0)
+    @test isnothing(route(corridor, table, weather, departure; time_cost=hourly))
+    after = route(corridor, table, weather, departure + 12.0; time_cost=hourly)
+    for horizon in (72.0, 0.0)
+        sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly,
+            horizon)
+        @test length(sailed.path) == size(corridor.lat, 1)
+        @test sailed.path[2][3] > 12.0
+        @test sailed.duration - 12.0 ≈ after.duration rtol = 0.02
+    end
+    endless = GaleWeather(SyntheticWeather(), Inf)
+    @test isnothing(forecast_route(corridor, table, endless, departure; time_cost=hourly,
+        horizon=72.0))
+end
+
+@testset "a forecast beyond its horizon reads the same date in another year" begin
+    known = ForecastWeather(SyntheticWeather(), 100.0, 48.0)
+    @test WindShipOpt.wind(known, 40.0, -30.0, 120.0) ==
+          WindShipOpt.wind(known.weather, 40.0, -30.0, 120.0)
+    beyond = 160.0
+    @test WindShipOpt.wind(known, 40.0, -30.0, beyond) ==
+          WindShipOpt.wind(known.weather, 40.0, -30.0, beyond + WindShipOpt.FORECAST_SHIFT)
+    @test WindShipOpt.wind(known, 40.0, -30.0, beyond) !=
+          WindShipOpt.wind(known.weather, 40.0, -30.0, beyond)
+end
+
+@testset "a search that cuts off the best path and overruns its limit widens" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    (; time_step) = WindShipOpt.ROUTER_SETTINGS[]
+    stage_count = size(corridor.lat, 1)
+    workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2),
+        ceil(Int, 1200 / time_step), stage_count)
+    options = (; time_step, time_cost=hourly, first_stage=1,
+        first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty=1.0)
+    best = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
+        options...)
+    stage = stage_count - 2
+    best_node = findfirst(==(best.path[stage][2]), view(corridor.lon, stage, :))
+    values = zeros(size(corridor.lat, 2), 200, 2, stage_count)
+    values[best_node, :, :, stage] .= Inf
+    to_go = WindShipOpt.CostToGo(values)
+    detour = WindShipOpt.route_pass(workspace, corridor, table, weather, departure, to_go,
+        floatmax(); options...)
+    @test detour.objective > best.objective
+    leg = WindShipOpt.searched_leg(workspace, corridor, table, weather, departure, to_go,
+        (prevfloat(detour.objective),); options...)
+    @test leg.objective == best.objective
+end
+
+@testset "router settings return to those in force after a call under others" begin
+    earlier = WindShipOpt.ROUTER_SETTINGS[]
+    other = WindShipOpt.RouterSettings(time_step=3.0)
+    in_force = WindShipOpt.with_router_settings(() -> WindShipOpt.ROUTER_SETTINGS[], other)
+    @test in_force == other
+    @test WindShipOpt.ROUTER_SETTINGS[] == earlier
+    @test_throws ErrorException WindShipOpt.with_router_settings(() -> error("stop"), other)
+    @test WindShipOpt.ROUTER_SETTINGS[] == earlier
+end
+
+@testset "a ship that can fly a kite is searched at the kite margins" begin
+    settings = WindShipOpt.RouterSettings(search_margins=(0.1, 0.2),
+        kite_search_margins=(0.3, 0.4))
+    kite_ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(kite_ship, assumptions))
+    bare_table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
+        assumptions))
+    @test WindShipOpt.margins_searched(kite_table, settings) == (0.3, 0.4)
+    @test WindShipOpt.margins_searched(bare_table, settings) == (0.1, 0.2)
 end
 
 module PaperRuns
