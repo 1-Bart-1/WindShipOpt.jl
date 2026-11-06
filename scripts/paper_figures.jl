@@ -553,16 +553,19 @@ function class_comparison_figure()
 end
 
 """
+    cheapest_row(table, filters::Pair...)
     cheapest_row(table, class, route, drive, rig)
 
-Row of `table` with the lowest cost of `rig` for one class, route and drive, or `nothing`
-where the rig was not run.
+Row of `table` with the lowest cost among those matching `filters`, column => value, or of
+`rig` for one class, route and drive; `nothing` where none was run.
 """
-function cheapest_row(table, class, route, drive, rig)
-    chosen = rows(table, "class" => class, "route" => route, "drive" => drive,
-        "rig" => rig)
+function cheapest_row(table, filters::Pair...)
+    chosen = rows(table, filters...)
     return isempty(chosen) ? nothing : chosen[argmin(table["cost"][chosen])]
 end
+
+cheapest_row(table, class, route, drive, rig) = cheapest_row(table, "class" => class,
+    "route" => route, "drive" => drive, "rig" => rig)
 
 """
     best_area(table, class, route, drive, rig)
@@ -1497,6 +1500,43 @@ function print_combination(ship, drive, savings, gains)
     @printf("extra %.1f (%.1f to %.1f) points; ", mean(gains), extrema(gains)...)
     println(isempty(kept) ? "no route where both single rigs save" :
             @sprintf("keeps %.0f %% of the summed savings", 100mean(kept)))
+end
+
+"""
+    speed_size_figure()
+
+Fuel saved by a kite free of running cost, in relative and absolute terms, and cost saved by
+the priced kite, against held ship speed at each kite size, for each ship and fuel of
+speed_size.csv: speed_size.pdf.
+"""
+function speed_size_figure()
+    table = read_table(data_file("speed_size.csv"))
+    figure = Figure(size=(page_width, 560))
+    panels = (("fuel saved [%]", "free", :fuel_percent),
+        ("fuel saved [GJ/round trip]", "free", :fuel), ("cost saved [%]", "priced",
+            :cost_percent))
+    designs = [(grid, string(drive)) for grid in speed_size_grid for drive in grid.drives]
+    for (row, (grid, drive)) in enumerate(designs)
+        shades = cgrad(:Blues, length(grid.kites) + 2; categorical=true)
+        for (column, (label, pricing, quantity)) in enumerate(panels)
+            letter = Char('a' + length(panels) * (row - 1) + column - 1)
+            design = column == 1 ? " $(grid.ship), $(Dict(drive_labels)[drive])" : ""
+            axis = Axis(figure[row, column]; title="($letter)$design",
+                xlabel="ship speed [kn]", ylabel=label, xticks=collect(grid.speeds))
+            for (k, area) in enumerate(grid.kites)
+                savings = [speed_size_saving(table, grid.ship, drive, "kite", area, pricing,
+                               knots) for knots in grid.speeds]
+                held = findall(!isnothing, savings)
+                scatterlines!(axis, collect(grid.speeds)[held],
+                    [getproperty(savings[i], quantity) for i in held]; color=shades[k + 2],
+                    markercolor=shades[k + 2], linewidth=2, markersize=8,
+                    label=string(round(Int, area), " m²"))
+            end
+            column == length(panels) &&
+                Legend(figure[row, column + 1], axis; framevisible=false, labelsize=9)
+        end
+    end
+    save(joinpath(figures, "speed_size.pdf"), figure; pt_per_unit=print_scale)
 end
 
 """
