@@ -684,10 +684,19 @@ Smallest and largest area [m^2] searched for each rig on `class`: kites of 500 t
 """
 function size_bounds(class)
     hull = Hull(class, assumptions)
-    wings = largest_area(WingRig, hull)
-    rotors = largest_area(WindShipOpt.RotorRig, hull)
-    return Dict("kite" => (500.0, 16000.0), "wings" => (0.2wings, wings),
-        "rotors" => (0.2rotors, rotors))
+    return Dict("kite" => (500.0, largest_rig_area("kite", hull)),
+        (rig => (0.2largest_rig_area(rig, hull), largest_rig_area(rig, hull))
+         for rig in ("wings", "rotors"))...)
+end
+
+"""
+    largest_rig_area(rig, hull)
+
+Largest area [m^2] of `rig` on `hull`: what fits on deck, for a kite the search bound.
+"""
+function largest_rig_area(rig, hull)
+    rig == "kite" && return 16000.0
+    return largest_area(rig == "wings" ? WingRig : WindShipOpt.RotorRig, hull)
 end
 
 """
@@ -971,13 +980,12 @@ end
 """
     availability_data()
 
-Each ship of [`sensitivity_ships`](@ref) without a rig, and with each rig at its
-[`service_shares`](@ref): availability.csv.
+Each ship of [`goal_limit_ships`](@ref) with each rig at its [`service_shares`](@ref):
+availability.csv.
 """
 function availability_data()
     cases = []
-    for (ship, bare, route, areas) in sensitivity_ships()
-        push!(cases, trip_case(bare; route, ship, rig="none", share=0.0))
+    for (ship, bare, route, areas) in goal_limit_ships()
         for rig in rig_names, share in service_shares(rig)
             input = Symbol(out_of_service_inputs[rig])
             design = ShipDesign(; bare.drive, bare.length, bare.class,
@@ -986,55 +994,72 @@ function availability_data()
                 assumptions=with_value(assumptions, input, share), route, ship, rig, share))
         end
     end
-    write_trips("availability.csv", cases,
-        round_trips(cases, sampled_departures(; screening=true)), :ship, :rig, :share)
+    write_trips("availability.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :rig, :share)
 end
 
-"the rigs of the crash study"
-crash_rigs = (rig_names..., "rigid kite")
+"the rigs of the size sweep at the goals"
+goal_size_rigs = (rig_names..., "rigid kite")
+
+"the rigs the size sweep shows at every size, flying for part of the time"
+kite_rigs = ("kite", "rigid kite")
 
 """
-    crash_sizes(rig, areas, hull)
+    swept_sizes(rig, areas, hull)
 
-Sizes [m^2] of `rig` in the crash study: half of its size in `areas`, that size and twice
-it, wings and rotors only as far as they fit on `hull`; for a rigid kite, the fleets of one,
-two and four kites of its unit area that fit.
+Sizes [m^2] of `rig` in the size sweep at the goals: the [`sizes_around`](@ref) its size in
+`areas`, as far as it fits on `hull`; for a rigid kite, the fleets of one, two and four kites
+of its unit area that fit.
 """
-function crash_sizes(rig, areas, hull)
+function swept_sizes(rig, areas, hull)
     if rig == "rigid kite"
         fleets = filter(count -> WindShipOpt.rigid_kites_fit(count, hull, assumptions),
             [1, 2, 4])
         return fleets .* assumptions[:rigid_unit_area]
     end
-    area = only(values(getproperty(areas, Symbol(rig))))
-    rig == "kite" && return [area / 2, area, 2area]
-    rig_type = rig == "wings" ? WingRig : WindShipOpt.RotorRig
-    return unique([area / 2, area, min(2area, largest_area(rig_type, hull))])
+    best = only(values(getproperty(areas, Symbol(rig))))
+    return WindShipOpt.sizes_around(rig, best, largest_rig_area(rig, hull))
 end
 
 """
-    crash_data()
+    goal_size_data()
 
 Each ship of [`sensitivity_ships`](@ref) without a rig and with each rig at its
-[`crash_sizes`](@ref), at the base inputs: crashes.csv.
+[`swept_sizes`](@ref), at the goals: goal_sizes.csv.
 """
-function crash_data()
+function goal_size_data()
     cases = []
     for (ship, bare, route, areas) in sensitivity_ships()
         push!(cases, trip_case(bare; route, ship, bare.drive, rig="none", area=0.0))
         hull = Ship(bare, assumptions).hull
-        for rig in crash_rigs
-            for area in crash_sizes(rig, areas, hull)
+        for rig in goal_size_rigs
+            for area in swept_sizes(rig, areas, hull)
                 design = ShipDesign(; bare.drive, bare.length, bare.class,
                     rig_size(rig, area)...)
                 push!(cases, trip_case(design; route, ship, bare.drive, rig, area))
             end
         end
     end
-    write_trips("crashes.csv", cases,
-        round_trips(cases, sampled_departures(; screening=true)), :ship, :route, :drive,
-        :rig, :area)
+    write_trips("goal_sizes.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :route, :drive, :rig, :area)
 end
+
+"""
+    goal_limit_ships()
+
+The ships of [`sensitivity_ships`](@ref) with each rig at its cheapest size in
+goal_sizes.csv.
+"""
+function goal_limit_ships()
+    table = read_table(data_file("goal_sizes.csv"))
+    return [(ship, bare, route,
+                NamedTuple(Symbol(rig) => rig_size(rig, table["area"][cheapest_size(table,
+                    ship, rig)]) for rig in rig_names))
+            for (ship, bare, route, _) in sensitivity_ships()]
+end
+
+"row of the cheapest size of `rig` on `ship` in the goal_sizes.csv `table`"
+cheapest_size(table, ship, rig) = cheapest_row(table, "ship" => ship, "rig" => rig)
 
 "canopy lives [flight hours] the kite is routed at for the missed-goal table"
 canopy_lives = (500.0, 750.0, 1000.0, 1500.0, 2000.0, 3000.0, 4000.0, 6000.0, 8000.0,
@@ -1043,15 +1068,15 @@ canopy_lives = (500.0, 750.0, 1000.0, 1500.0, 2000.0, 3000.0, 4000.0, 6000.0, 80
 """
     canopy_life_data()
 
-The kite of each ship of [`sensitivity_ships`](@ref) at each of `canopy_lives`, its size
+The kite of each ship of [`goal_limit_ships`](@ref) at each of `canopy_lives`, its size
 and every other input held: canopy_life.csv.
 """
 function canopy_life_data()
     cases = [trip_case(ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...);
                  assumptions=with_value(assumptions, :canopy_life, life), route, ship, life)
-             for (ship, bare, route, areas) in sensitivity_ships(), life in canopy_lives]
+             for (ship, bare, route, areas) in goal_limit_ships(), life in canopy_lives]
     write_trips("canopy_life.csv", vec(cases),
-        round_trips(vec(cases), sampled_departures(; screening=true)), :ship, :life)
+        round_trips(vec(cases), sampled_departures()), :ship, :life)
 end
 
 """
@@ -1069,7 +1094,7 @@ end
 """
     canopy_price_data()
 
-The kite of each ship of [`sensitivity_ships`](@ref) at each of [`canopy_prices`](@ref), its
+The kite of each ship of [`goal_limit_ships`](@ref) at each of [`canopy_prices`](@ref), its
 size and every other input held: canopy_price.csv.
 """
 function canopy_price_data()
@@ -1077,10 +1102,9 @@ function canopy_price_data()
     inputs = WindShipOpt.canopy_price_inputs
     cases = [trip_case(ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...);
                  assumptions=scaled(inputs, price / goal), route, ship, price)
-             for (ship, bare, route, areas) in sensitivity_ships(),
-    price in canopy_prices()]
+             for (ship, bare, route, areas) in goal_limit_ships(), price in canopy_prices()]
     write_trips("canopy_price.csv", vec(cases),
-        round_trips(vec(cases), sampled_departures(; screening=true)), :ship, :price)
+        round_trips(vec(cases), sampled_departures()), :ship, :price)
 end
 
 "ships of the abatement study as (name, route)"
