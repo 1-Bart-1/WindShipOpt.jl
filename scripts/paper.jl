@@ -26,6 +26,7 @@ root = joinpath(@__DIR__, "..")
 sections = mkpath(joinpath(root, "paper", "sections"))
 
 include("paper_runs.jl")
+include("size_search.jl")
 include("paper_data.jl")
 include("explorer_data.jl")
 include("paper_figures.jl")

@@ -978,6 +978,20 @@ end
     @test PaperRuns.data_file("study.csv") == other
 end
 
+module SizeSearch
+include(joinpath(pkgdir(Main.WindShipOpt), "scripts", "size_search.jl"))
+end
+
+@testset "a size search whose best is a bound next tries the size just inside it" begin
+    step = 2^0.25
+    @test SizeSearch.next_size([(500.0, 3.0), (2828.0, 2.0), (16000.0, 1.0)], 500.0,
+        16000.0) ≈ SizeSearch.snap_area(16000 / step)
+    @test SizeSearch.next_size([(500.0, 1.0), (2828.0, 2.0), (16000.0, 3.0)], 500.0,
+        16000.0) ≈ SizeSearch.snap_area(500 * step)
+    @test SizeSearch.next_size([(13777.0, 2.0), (16000.0, 1.0)], 500.0, 16000.0) ≈
+          SizeSearch.snap_area(sqrt(13777 * 16000))
+end
+
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
     marker = tempname()
     write(marker, "")
