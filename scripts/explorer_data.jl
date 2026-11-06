@@ -14,7 +14,8 @@ explorer_inputs = (:vlsfo_price, :vlsfo_carbon_intensity, :e_methanol_price,
     :kite_cycle_loss_probability,
     :kite_launch_retry_probability, :kite_cycle_course_cost, :mechanical_propulsion_cost,
     :electric_propulsion_cost, :newbuild_reference_deadweight, :crew_cost,
-    :crew_cost_exponent, :maintenance_fraction, :availability, :port_time_per_call)
+    :crew_cost_exponent, :maintenance_fraction, :rig_maintenance_fraction, :availability,
+    :port_time_per_call)
 
 "names of the rig hardware prices of [`WindShipOpt.rig_price_parts`](@ref)"
 explorer_parts = (:units, :surface, :installation, :winch, :mast, :docking_head,

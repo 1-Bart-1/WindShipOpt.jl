@@ -405,19 +405,6 @@ end
     @test WindShipOpt.wear_cost(rig, shorter) - flown ≈ canopy / 4000
 end
 
-@testset "maintenance charges a rig's capital but not the parts wear replaces" begin
-    maintenance_of(ship) = ShipCosts(ship, with_value(assumptions, :maintenance_fraction,
-        0.04)).fixed_annual - ShipCosts(ship, assumptions).fixed_annual
-    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=3200.0), assumptions)
-    worn = sum(WindShipOpt.consumable_costs(kite.rig, assumptions))
-    @test maintenance_of(kite) ≈ 0.01 * (ShipCosts(kite, assumptions).capital - worn)
-    both = Ship(ShipDesign(:methanol, 140.0; kite_area=3200.0, rotor_area=400.0),
-        assumptions)
-    @test maintenance_of(both) ≈ 0.01 * (ShipCosts(both, assumptions).capital - worn)
-    rotors = Ship(ShipDesign(:methanol, 140.0; rotor_area=400.0), assumptions)
-    @test maintenance_of(rotors) ≈ 0.01 * ShipCosts(rotors, assumptions).capital
-end
-
 # Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
 @testset "wing force follows true wind, shear and ship speed as worked by hand" begin
     env = Environment(assumptions)
@@ -1356,6 +1343,31 @@ end
         @test WindShipOpt.crash_cost(rig, assumptions) * rig.count ≈
               first(WindShipOpt.rig_costs(rig, assumptions))
     end
+end
+
+@testset "rigs pay their own maintenance fraction, not on what wear or upkeep pays" begin
+    raised(name) = with_value(assumptions, name, assumptions[name] + 0.01)
+    costs(ship, inputs) = ShipCosts(ship, inputs; retractable=false)
+    maintenance_of(ship, name) = costs(ship, raised(name)).fixed_annual -
+                                 costs(ship, assumptions).fixed_annual
+    bare = Ship(ShipDesign(:methanol, 140.0), assumptions)
+    @test maintenance_of(bare, :rig_maintenance_fraction) == 0
+    for rig_area in ((; kite_area=3200.0), (; kite_area=3200.0, rotor_area=400.0),
+        (; rotor_area=400.0))
+        ship = Ship(ShipDesign(:methanol, 140.0; rig_area...), assumptions)
+        rig_capital = first(WindShipOpt.rig_costs(ship.rig, assumptions))
+        worn = WindShipOpt.worn_part_price(ship.rig, assumptions)
+        @test maintenance_of(ship, :maintenance_fraction) ≈
+              0.01 * (costs(ship, assumptions).capital - rig_capital)
+        @test maintenance_of(ship, :rig_maintenance_fraction) ≈ 0.01 * (rig_capital - worn)
+    end
+    fleet = rigid_fleet(2, assumptions)
+    capital = first(WindShipOpt.rig_costs(fleet, assumptions))
+    airframes = WindShipOpt.rigid_airframe_price(fleet, assumptions)
+    _, tethers = WindShipOpt.consumable_costs(fleet, assumptions)
+    @test WindShipOpt.rig_maintenance(fleet, capital, raised(:rig_maintenance_fraction)) -
+          WindShipOpt.rig_maintenance(fleet, capital, assumptions) ≈
+          0.01 * (capital - airframes - tethers)
 end
 
 @testset "one rigid kite crashing costs one airframe and half of one tether" begin

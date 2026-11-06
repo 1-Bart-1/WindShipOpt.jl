@@ -1802,13 +1802,12 @@ rigid_scaling_soft_kites = (500.0, 1000.0, 2000.0, 4000.0)
 """
     annual_kite_cost(rig, assumptions)
 
-Cost of `rig` over a year of [`kite_year`](@ref) [USD]: capital recovery, maintenance on
-the parts wear does not replace, wear, launches and landings, losses among them.
+Cost of `rig` over a year of [`kite_year`](@ref) [USD]: capital recovery, maintenance,
+wear and upkeep, launches and landings, losses among them.
 """
 function annual_kite_cost(rig, assumptions)
     capital, _, annuity = WindShipOpt.rig_costs(rig, assumptions)
-    upkept = capital - WindShipOpt.worn_part_price(rig, assumptions)
-    return annuity + assumptions[:maintenance_fraction] * upkept +
+    return annuity + WindShipOpt.rig_maintenance(rig, capital, assumptions) +
            WindShipOpt.wear_cost(rig, assumptions) * kite_year.flight_hours +
            WindShipOpt.cycle_cost(rig, assumptions) * kite_year.launches
 end

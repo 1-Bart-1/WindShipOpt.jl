@@ -692,9 +692,9 @@ function payback_years(table, class, drive, route, rig)
     rate = assumptions[:discount_rate]
     lifetime = rig == "kite" ? assumptions[:kite_lifetime] :
                rig == "wings" ? assumptions[:wing_lifetime] : assumptions[:rotor_lifetime]
-    charges = (WindShipOpt.capital_recovery(rate, lifetime) +
-               assumptions[:maintenance_fraction]) *
-              (price - WindShipOpt.worn_part_price(ship.rig, assumptions))
+    charges = WindShipOpt.capital_recovery(rate, lifetime) *
+              (price - WindShipOpt.worn_part_price(ship.rig, assumptions)) +
+              WindShipOpt.rig_maintenance(ship.rig, price, assumptions)
     saving = (only(table["cost"][bare]) - table["cost"][best]) *
              first(yearly_trips(table, best, route)) + charges
     saving > rate * price || return Inf
