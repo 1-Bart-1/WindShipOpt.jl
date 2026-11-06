@@ -1288,20 +1288,23 @@ end
 
 Cost per tonne-km against the fuel energy saved, relative to the same ship on the same
 drive without a rig, over every size of each rig on the [`abatement_ships`](@ref), one
-panel per ship and drive; markers grow with rig area and below zero the rig pays.
+panel per ship and drive, all on one fuel axis and each drive on one cost axis; markers
+grow with rig area and below zero the rig pays.
 """
 function abatement_figure()
     table = read_table(data_file("abatement.csv"))
-    figure = Figure(size=(page_width, 330))
+    figure = Figure(size=(page_width, 380))
+    panels = Matrix{Axis}(undef, length(abatement_ships), length(drive_labels))
     for (row, (name, _)) in enumerate(abatement_ships),
         (column, (drive, label)) in enumerate(drive_labels)
 
         bare = only(rows(table, "ship" => name, "drive" => drive, "rig" => "none"))
         letter = 'a' + length(drive_labels) * (row - 1) + column - 1
-        axis = Axis(figure[row, column];
+        axis = panels[row, column] = Axis(figure[row, column];
             title="($letter) $(replace(name, " bulk carrier" => "")), $label",
             xlabel=row == 2 ? "fuel energy saved [%]" : "",
-            ylabel=column == 1 ? "cost change [%]" : "")
+            ylabel=column == 1 ? "cost change [%]" : "",
+            xticklabelsvisible=row == 2)
         hspan!(axis, -100, 0; color=(palette[3], 0.08))
         hlines!(axis, 0; color=:gray50, linewidth=0.6)
         for (k, rig) in enumerate(rig_names)
@@ -1310,18 +1313,25 @@ function abatement_figure()
             saved = 100 .* (1 .- table["fuel"][chosen] ./ table["fuel"][bare])
             change = 100 .* (table["cost"][chosen] ./ table["cost"][bare] .- 1)
             areas = table["area"][chosen]
-            sizes = 3 .+ 1.6 .* log2.(areas ./ minimum(areas))
-            lines!(axis, saved, change; color=(palette[k], 0.6), linewidth=1)
-            scatter!(axis, saved, change; color=palette[k], markersize=sizes)
-            most = argmax(saved)
-            text!(axis, saved[most], change[most]; text=rig, color=palette[k],
-                fontsize=8, align=(:left, :center), offset=(5, 0))
+            lines!(axis, saved, change; color=(palette[k], 0.6), linewidth=0.9)
+            scatter!(axis, saved, change; color=palette[k], label=rig,
+                markersize=2.5 .+ 1.2 .* log2.(areas ./ minimum(areas)))
         end
-        chosen = rows(table, "ship" => name, "drive" => drive)
-        xlims!(axis, 0, 1.25 * maximum(100 .* (1 .- table["fuel"][chosen] ./
-                                                    table["fuel"][bare])))
-        ylims!(axis, abatement_limits(table, name, drive, bare)...)
     end
+    saved_all = [100 * (1 - table["fuel"][i] / table["fuel"][only(rows(table, "ship" =>
+        table["ship"][i], "drive" => table["drive"][i], "rig" => "none"))])
+                 for i in eachindex(table["fuel"])]
+    for column in axes(panels, 2)
+        drive = first(drive_labels[column])
+        limits = [abatement_limits(table, name, drive, only(rows(table, "ship" => name,
+            "drive" => drive, "rig" => "none"))) for (name, _) in abatement_ships]
+        for axis in panels[:, column]
+            limits!(axis, 0, 1.08 * maximum(saved_all), minimum(first.(limits)),
+                maximum(last.(limits)))
+        end
+    end
+    Legend(figure[3, :], panels[1, 1]; orientation=:horizontal, framevisible=false,
+        labelsize=9, markersize=6)
     save(joinpath(figures, "abatement.pdf"), figure; pt_per_unit=print_scale)
 end
 
