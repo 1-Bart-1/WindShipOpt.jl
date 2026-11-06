@@ -873,7 +873,7 @@ end
 "force limits of the kite in the force rating study [kN/m^2]"
 study_force_ratings = (0.3, 0.5, 0.7, 1.0)
 
-"kite areas of the force rating study [m^2], one grid so that the ships share pattern tables"
+"kite areas of the force rating study [m^2]"
 study_kite_areas = [1600.0 * sqrt(2.0)^k for k in 0:6]
 
 """
@@ -909,12 +909,10 @@ all.
 """
 function force_rating_cases(bare, route, ship, kite_area)
     base = assumptions[:canopy_cloth_force_exponent]
-    kite_case(rating, exponent, area) =
-        force_rating_case(bare, route, ship, rating, exponent, area)
     return [trip_case(bare; route, ship, rating=0.0, exponent=base, area=0.0);
-            vec([kite_case(rating, base, area)
+            vec([force_rating_case(bare, route, ship, rating, base, area)
                  for rating in study_force_ratings, area in nearby_kite_areas(kite_area, 2)]);
-            vec([kite_case(rating, exponent, area)
+            vec([force_rating_case(bare, route, ship, rating, exponent, area)
                  for rating in extrema(study_force_ratings), exponent in (0.0, 1.0),
                  area in nearby_kite_areas(kite_area, 1)])]
 end

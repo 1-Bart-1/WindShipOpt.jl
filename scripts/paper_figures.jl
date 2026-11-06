@@ -1135,13 +1135,16 @@ function aspect_figure()
 end
 
 """
-    best_force_rating_saving(table, chosen, bare)
+    best_force_rating_saving(table, ship, rating, exponent, areas, bare)
 
-Highest saving [%] over the kite areas among the rows `chosen` of force_rating.csv, of a
-ship costing `bare` without a rig.
+Highest saving [%] over `areas` in force_rating.csv of `ship`, costing `bare` without a rig,
+with a kite built for `rating` whose cloth follows the limit to the power `exponent`.
 """
-best_force_rating_saving(table, chosen, bare) =
-    maximum(percent_saving(table["cost"][row], bare) for row in chosen)
+function best_force_rating_saving(table, ship, rating, exponent, areas, bare)
+    chosen = rows(table, "ship" => ship, "rating" => rating, "exponent" => exponent)
+    return maximum(percent_saving(table["cost"][row], bare)
+                   for row in chosen if table["area"][row] in areas)
+end
 
 """
     force_rating_figure()
@@ -1158,18 +1161,13 @@ function force_rating_figure()
     base = assumptions[:canopy_cloth_force_exponent]
     reference = assumptions[:canopy_cloth_reference_force]
     for (k, ship) in enumerate(unique(table["ship"]))
-        chosen = rows(table, "ship" => ship)
-        bare = table["cost"][only(filter(row -> table["rating"][row] == 0, chosen))]
+        bare = table["cost"][only(rows(table, "ship" => ship, "rating" => 0))]
         for (exponent, linestyle) in ((base, :solid), (1.0, :dash), (0.0, :dot))
             ratings = exponent == base ? collect(study_force_ratings) :
                       sort([extrema(study_force_ratings)..., reference])
-            areas = Set(table["area"][filter(row -> table["exponent"][row] == exponent &&
-                                                    table["rating"][row] > 0, chosen)])
-            savings = [best_force_rating_saving(table,
-                           filter(row -> table["rating"][row] == rating &&
-                                  table["area"][row] in areas &&
-                                  table["exponent"][row] ==
-                                  (rating == reference ? base : exponent), chosen), bare)
+            areas = Set(table["area"][rows(table, "ship" => ship, "exponent" => exponent)])
+            savings = [best_force_rating_saving(table, ship, rating,
+                           rating == reference ? base : exponent, areas, bare)
                        for rating in ratings]
             lines!(axis, ratings, savings; color=palette[k], linestyle, linewidth=1.3,
                 label=exponent == base ? ship : nothing)

@@ -549,7 +549,7 @@ canopy_cloth_reference_force:
   low: 0.5
   high: 0.5
   unit: kN/m^2
-  reason: "Force limit at which canopy_cloth_weight and the goal canopy_life are stated: the base kite_max_force_per_area."
+  reason: "Force limit at which canopy_cloth_weight, canopy_mass_overhead and the goal canopy_life are stated, the base kite_max_force_per_area; the canopy scales from it whatever limit a kite is built for, so moving the base limit leaves the goals where they were stated."
 canopy_cloth_force_exponent:
   value: 0.27
   low: 0.27
@@ -573,7 +573,7 @@ canopy_mass_overhead:
   low: 0.02
   high: 0.2
   unit: kg/m^2
-  reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is load patches for the ~1 t point loads of a ship kite (Thedens 2015). With 60 g/m^2 cloth it gives 0.26 kg/m^2, as a 160 m^2 SkySails kite of ~40 kg (pressetext 2008)."
+  reason: "Canopy mass per m^2 of projected area besides its cloth, at canopy_cloth_reference_force and in proportion to the force limit, as they carry the load at the bridle attachments: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is load patches for the ~1 t point loads of a ship kite (Thedens 2015). With 60 g/m^2 cloth it gives 0.26 kg/m^2, as a 160 m^2 SkySails kite of ~40 kg (pressetext 2008)."
 canopy_cloth_base_price:
   value: 6.0
   low: 2.0
@@ -753,7 +753,7 @@ kite_max_force_per_area:
   low: 0.4
   high: 1.0
   unit: kN/m^2
-  reason: "Maximum wing loading 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2); SkySails ~16 t on 300 m^2 (0.52). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4)."
+  reason: "Maximum wing loading 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2); SkySails ~16 t on 300 m^2 (0.52). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4). The canopy cloth, seams and reinforcements follow the limit (canopy_cloth_force_exponent), so the bounds carry them too."
 kite_attach_height:
   value: 10.0
   low: 6.0
