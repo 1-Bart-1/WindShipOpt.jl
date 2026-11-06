@@ -73,7 +73,7 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :rigid_size => rigid_size_figure,
     :canopy_price_figure => canopy_price_figure, :min_wind => min_wind_figure,
     :force_balance => force_balance_figure, :ship_classes => ship_classes_figure,
-    :kite_frames => kite_frames_figure]
+    :kite_frames => kite_frames_figure, :router => router_figure]
 
 """
     paper(names...; fidelity, resume=nothing)

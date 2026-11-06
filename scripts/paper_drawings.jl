@@ -442,3 +442,99 @@ function draw_course_plan!(axis)
     end
     limits!(axis, -1.1, 1.7, -0.75, 1.3)
 end
+
+"""
+    router_figure()
+
+(a) The router's grid of stages and lateral nodes along a corridor, the edges one node may
+take to the next stage and a chosen passage. (b) The states of a kite ship at the two ends
+of an edge: kite down or aloft, each holding arrivals in time bins of the router settings,
+and the changes the edge may make.
+"""
+function router_figure()
+    figure = Figure(size=(page_width, 170))
+    grid = Axis(figure[1, 1]; aspect=DataAspect(), title="(a) stages and lateral nodes")
+    states = Axis(figure[1, 2]; aspect=DataAspect(), title="(b) kite states along an edge")
+    colsize!(figure.layout, 1, Auto(1.5))
+    for axis in (grid, states)
+        hidedecorations!(axis)
+        hidespines!(axis)
+    end
+    draw_router_grid!(grid)
+    draw_kite_states!(states)
+    save(joinpath(figures, "router.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    draw_router_grid!(axis)
+
+Nodes of a corridor of nine stages that widens from the departure and narrows to the
+destination, the edges from one node and a passage.
+"""
+function draw_router_grid!(axis)
+    stages = 0:10
+    half_width(stage) = min(2stage, 2(last(stages) - stage), 5)
+    nodes = [Point2f(stage, lateral) for stage in stages
+             for lateral in -half_width(stage):half_width(stage)]
+    scatter!(axis, nodes; color=:gray60, markersize=3)
+    from = Point2f(4, 1)
+    for step in -WindShipOpt.MAX_LATERAL_STEP:WindShipOpt.MAX_LATERAL_STEP
+        lines!(axis, [from, from + Point2f(1, step)]; color=palette[1], linewidth=0.7)
+    end
+    passage = Point2f[(0, 0), (1, 1), (2, 2), (3, 2), (4, 1), (5, -1), (6, -3), (7, -3),
+        (8, -2), (9, -1), (10, 0)]
+    lines!(axis, passage; color=palette[2], linewidth=2)
+    scatter!(axis, [first(passage), last(passage)]; color=:black, markersize=6)
+    text!(axis, first(passage); text="departure", align=(:right, :center),
+        offset=(-4, 0), fontsize=8)
+    text!(axis, last(passage); text="destination", align=(:left, :center),
+        offset=(4, 0), fontsize=8)
+    text!(axis, from + Point2f(1, WindShipOpt.MAX_LATERAL_STEP); text=@sprintf(
+        "edges to ±%d nodes,\nwhole knots from 4", WindShipOpt.MAX_LATERAL_STEP),
+        align=(:left, :bottom), offset=(3, 0), fontsize=8, color=palette[1])
+    arrows2d!(axis, [Point2f(2, -5.8)], [Vec2f(6, 0)]; color=:black, shaftwidth=0.6,
+        tipwidth=4, tiplength=4)
+    text!(axis, 5, -5.8; text="stage s", align=(:center, :top), offset=(0, -2), fontsize=8)
+    arrows2d!(axis, [Point2f(1.2, 2.5)], [Vec2f(0, 3)]; color=:black, shaftwidth=0.6,
+        tipwidth=4, tiplength=4)
+    text!(axis, 1.2, 4; text="node j", align=(:right, :center), offset=(-3, 0),
+        fontsize=8)
+    limits!(axis, -4.5, 15, -6.8, 6)
+end
+
+"""
+    draw_kite_states!(axis)
+
+Two states, kite down and kite aloft, at the start and the end of an edge, each with a time
+axis of bins, and the four changes between them along the edge.
+"""
+function draw_kite_states!(axis)
+    bin = WindShipOpt.RouterSettings().time_step
+    rows = (("aloft", 1.0), ("down", 0.0))
+    for x in (0.0, 3.0), (label, y) in rows
+        poly!(axis, Rect2f(x - 0.45, y - 0.32, 0.9, 0.64); color=:white,
+            strokecolor=:black, strokewidth=0.6)
+        for k in 0:4
+            lines!(axis, Point2f[(x - 0.35 + 0.175k, y - 0.32), (x - 0.35 + 0.175k,
+                y - 0.2)]; color=:gray50, linewidth=0.5)
+        end
+        scatter!(axis, [Point2f(x - 0.1, y - 0.26)]; color=palette[2], markersize=4)
+        text!(axis, x, y; text="kite $label", align=(:center, :bottom), offset=(0, -2),
+            fontsize=8)
+    end
+    changes = ((Point2f(0.5, 1.0), Point2f(2.5, 1.0), "fly"),
+        (Point2f(0.5, 0.0), Point2f(2.5, 0.0), "stay down"),
+        (Point2f(0.5, 0.15), Point2f(2.5, 0.85), "launch"),
+        (Point2f(0.5, 0.85), Point2f(2.5, 0.15), "land"))
+    for (start, stop, label) in changes
+        arrows2d!(axis, [start], [Vec2f(stop - start)]; color=palette[1],
+            shaftwidth=0.7, tipwidth=5, tiplength=5)
+        text!(axis, start + 0.22 * (stop - start); text=label, align=(:center, :bottom),
+            offset=(0, 2), fontsize=8, color=palette[1])
+    end
+    text!(axis, 0, -0.45; text="stage s", align=(:center, :top), fontsize=8)
+    text!(axis, 3, -0.45; text="stage s + 1", align=(:center, :top), fontsize=8)
+    text!(axis, 1.5, -0.62; text=@sprintf("ticks: time bins of %.1f h", bin),
+        align=(:center, :top), fontsize=7, color=:gray40)
+    limits!(axis, -0.6, 3.6, -0.95, 1.5)
+end
