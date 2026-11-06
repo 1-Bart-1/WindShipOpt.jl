@@ -1,23 +1,23 @@
 \setlength{\tabcolsep}{3pt}
 \begin{adjustbox}{max width=\textwidth}
-\begin{tabular}{@{}lrrrrrrrrrrrrrrr@{}}
+\begin{tabular}{@{}lrrrrrrlrrrrrrrrr@{}}
 \toprule
-Class & $L$ & $B$ & $T$ & $C_B$ & Deadweight & Capacity & Speed & Power & $f_R$ & Price & Cargo & Deck & Air draft & Lost & Fixed-rig \\
- & [m] & [m] & [m] & & [t] & & [kn] & [MW] & & [MUSD] & [USD/t] & tiers & limit [m] & calls [\%] & delay [h] \\
+Class & $L$ & $B$ & $T$ & $C_B$ & Deadweight & Capacity & Limit & Speed & Power & $f_R$ & Price & Cargo & Deck & Air draft & Lost & Fixed-rig \\
+ & [m] & [m] & [m] & & [t] & & & [kn] & [MW] & & [MUSD] & [USD/t] & tiers & limit [m] & calls [\%] & delay [h] \\
 \midrule
-general cargo coaster & \num{85} & \num{13.2} & \num{5.5} & \num{0.83} & \num{3800} & -- & \num{10.5} & \num{1.5} & \num{1} & \num{11.6} & \num{2500} & \num{0} & \num{35} & \num{10} & $\infty$ \\
-feeder container ship & \num{165} & \num{25.6} & \num{8.75} & \num{0.66} & \num{21000} & \num{1600} TEU & \num{18.9} & \num{10.5} & \num{0.86} & \num{33} & \num{5120} & \num{4} & \num{40} & \num{5} & $\infty$ \\
-PCTC car carrier & \num{192} & \num{37.62} & \num{9.35} & \num{0.62} & \num{25563} & \num{9100} CEU & \num{14.5} & \num{13.7} & \num{0.94} & \num{100} & \num{15000} & \num{0} & \num{53} & \num{5} & \num{0} \\
-Handysize bulk carrier & \num{177} & \num{30.5} & \num{10.3} & \num{0.8} & \num{42000} & -- & \num{14} & \num{6.5} & \num{0.86} & \num{31} & \num{250} & \num{0} & \num{45} & \num{6} & \num{2} \\
-MR product tanker & \num{174} & \num{32.2} & \num{11} & \num{0.81} & \num{47000} & -- & \num{15.1} & \num{9.3} & \num{0.87} & \num{51} & \num{650} & \num{0} & \num{45} & \num{6} & \num{0} \\
-Panamax container ship & \num{245} & \num{32.2} & \num{11.2} & \num{0.65} & \num{51000} & \num{4000} TEU & \num{21.1} & \num{22.8} & \num{0.91} & \num{58} & \num{5120} & \num{6} & \num{53} & \num{5} & $\infty$ \\
-Ultramax bulk carrier & \num{196} & \num{32.2} & \num{12.2} & \num{0.86} & \num{64000} & -- & \num{14.5} & \num{8.6} & \num{0.75} & \num{34.5} & \num{180} & \num{0} & \num{45} & \num{6} & \num{2} \\
-Kamsarmax bulk carrier & \num{225} & \num{32.26} & \num{12.2} & \num{0.88} & \num{82000} & -- & \num{14.5} & \num{9.7} & \num{0.8} & \num{37.5} & \num{170} & \num{0} & \num{45} & \num{6} & \num{4} \\
-Aframax tanker & \num{236} & \num{44} & \num{13.9} & \num{0.8} & \num{114824} & -- & \num{14.15} & \num{10.3} & \num{0.87} & \num{75} & \num{506} & \num{0} & \num{45} & \num{6} & \num{0} \\
-Neo-Panamax container ship & \num{350} & \num{50.8} & \num{14.3} & \num{0.67} & \num{152000} & \num{14000} TEU & \num{22.4} & \num{49.4} & \num{0.87} & \num{152.5} & \num{5120} & \num{8} & \num{53} & \num{5} & $\infty$ \\
-Capesize bulk carrier & \num{282} & \num{45} & \num{16.5} & \num{0.84} & \num{180000} & -- & \num{14.6} & \num{16.2} & \num{0.81} & \num{75} & \num{100} & \num{0} & \num{60} & \num{1} & \num{4} \\
-Megamax container ship & \num{398} & \num{61.5} & \num{14.8} & \num{0.72} & \num{230000} & \num{24000} TEU & \num{21.7} & \num{60} & \num{0.85} & \num{267.3} & \num{5120} & \num{10} & \num{57} & \num{5} & $\infty$ \\
-VLCC & \num{320} & \num{60} & \num{20.5} & \num{0.81} & \num{301781} & -- & \num{15.5} & \num{27.2} & \num{0.99} & \num{130} & \num{506} & \num{0} & \num{62} & \num{1} & \num{0} \\
+general cargo coaster & \num{85} & \num{13.2} & \num{5.5} & \num{0.83} & \num{3800} & -- & deadweight & \num{10.5} & \num{1.5} & \num{1} & \num{11.6} & \num{2500} & \num{0} & \num{35} & \num{10} & $\infty$ \\
+feeder container ship & \num{165} & \num{25.6} & \num{8.75} & \num{0.66} & \num{21000} & \num{1600} TEU & space & \num{18.9} & \num{10.5} & \num{0.86} & \num{33} & \num{5120} & \num{4} & \num{40} & \num{5} & $\infty$ \\
+PCTC car carrier & \num{192} & \num{37.62} & \num{9.35} & \num{0.62} & \num{25563} & \num{9100} CEU & space & \num{14.5} & \num{13.7} & \num{0.94} & \num{100} & \num{15000} & \num{0} & \num{53} & \num{5} & \num{0} \\
+Handysize bulk carrier & \num{177} & \num{30.5} & \num{10.3} & \num{0.8} & \num{42000} & -- & deadweight & \num{14} & \num{6.5} & \num{0.86} & \num{31} & \num{250} & \num{0} & \num{45} & \num{6} & \num{2} \\
+MR product tanker & \num{174} & \num{32.2} & \num{11} & \num{0.81} & \num{47000} & -- & deadweight & \num{15.1} & \num{9.3} & \num{0.87} & \num{51} & \num{650} & \num{0} & \num{45} & \num{6} & \num{0} \\
+Panamax container ship & \num{245} & \num{32.2} & \num{11.2} & \num{0.65} & \num{51000} & \num{4000} TEU & space & \num{21.1} & \num{22.8} & \num{0.91} & \num{58} & \num{5120} & \num{6} & \num{53} & \num{5} & $\infty$ \\
+Ultramax bulk carrier & \num{196} & \num{32.2} & \num{12.2} & \num{0.86} & \num{64000} & -- & deadweight & \num{14.5} & \num{8.6} & \num{0.75} & \num{34.5} & \num{180} & \num{0} & \num{45} & \num{6} & \num{2} \\
+Kamsarmax bulk carrier & \num{225} & \num{32.26} & \num{12.2} & \num{0.88} & \num{82000} & -- & deadweight & \num{14.5} & \num{9.7} & \num{0.8} & \num{37.5} & \num{170} & \num{0} & \num{45} & \num{6} & \num{4} \\
+Aframax tanker & \num{236} & \num{44} & \num{13.9} & \num{0.8} & \num{114824} & -- & deadweight & \num{14.15} & \num{10.3} & \num{0.87} & \num{75} & \num{506} & \num{0} & \num{45} & \num{6} & \num{0} \\
+Neo-Panamax container ship & \num{350} & \num{50.8} & \num{14.3} & \num{0.67} & \num{152000} & \num{14000} TEU & space & \num{22.4} & \num{49.4} & \num{0.87} & \num{152.5} & \num{5120} & \num{8} & \num{53} & \num{5} & $\infty$ \\
+Capesize bulk carrier & \num{282} & \num{45} & \num{16.5} & \num{0.84} & \num{180000} & -- & deadweight & \num{14.6} & \num{16.2} & \num{0.81} & \num{75} & \num{100} & \num{0} & \num{60} & \num{1} & \num{4} \\
+Megamax container ship & \num{398} & \num{61.5} & \num{14.8} & \num{0.72} & \num{230000} & \num{24000} TEU & deadweight & \num{21.7} & \num{60} & \num{0.85} & \num{267.3} & \num{5120} & \num{10} & \num{57} & \num{5} & $\infty$ \\
+VLCC & \num{320} & \num{60} & \num{20.5} & \num{0.81} & \num{301781} & -- & deadweight & \num{15.5} & \num{27.2} & \num{0.99} & \num{130} & \num{506} & \num{0} & \num{62} & \num{1} & \num{0} \\
 \bottomrule
 \end{tabular}
 \end{adjustbox}

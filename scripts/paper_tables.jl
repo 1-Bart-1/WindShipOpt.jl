@@ -414,10 +414,10 @@ end
     class_table()
 
 Tabular of the ship classes with their main dimensions, deadweight and unit capacity,
-speed, engine power, resistance calibration, price, cargo value and the inputs of deck
-cargo and port operations, in class_table.tex, and the rows of their sources in
-class_sources.tex; an infinite fixed-rig delay, where a fixed rig prevents cargo handling,
-is printed as ∞.
+the limit their cargo fills first, speed, engine power, resistance calibration, price,
+cargo value and the inputs of deck cargo and port operations, in class_table.tex, and the
+rows of their sources in class_sources.tex; an infinite fixed-rig delay, where a fixed rig
+prevents cargo handling, is printed as ∞.
 """
 function class_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
@@ -431,12 +431,12 @@ function class_table()
     open(joinpath(sections, "class_table.tex"), "w") do io
         println(io, "\\setlength{\\tabcolsep}{3pt}")
         println(io, "\\begin{adjustbox}{max width=\\textwidth}")
-        println(io, "\\begin{tabular}{@{}l", "r"^15, "@{}}")
+        println(io, "\\begin{tabular}{@{}l", "r"^6, "l", "r"^9, "@{}}")
         println(io, "\\toprule")
         println(io, "Class & \$L\$ & \$B\$ & \$T\$ & \$C_B\$ & Deadweight & Capacity & ",
-            "Speed & Power & \$f_R\$ & Price & Cargo & Deck & Air draft & Lost & ",
+            "Limit & Speed & Power & \$f_R\$ & Price & Cargo & Deck & Air draft & Lost & ",
             "Fixed-rig \\\\")
-        println(io, " & [m] & [m] & [m] & & [t] & & [kn] & [MW] & & [MUSD] & [USD/t] & ",
+        println(io, " & [m] & [m] & [m] & & [t] & & & [kn] & [MW] & & [MUSD] & [USD/t] & ",
             "tiers & limit [m] & calls [\\%] & delay [h] \\\\")
         println(io, "\\midrule")
         for class in classes
@@ -459,7 +459,8 @@ function write_class_row(io, class)
     println(io, latex_escape(class.name), " & ", latex_number(class.length), " & ",
         latex_number(class.beam), " & ", latex_number(class.draft), " & ",
         latex_number(class.block_coefficient), " & ", latex_number(class.deadweight), " & ",
-        unit_capacity(class), " & ", latex_number(class.service_speed), " & ",
+        unit_capacity(class), " & ", limit_label(class), " & ",
+        latex_number(class.service_speed), " & ",
         latex_number(round(class.power / 1e3; digits=1)), " & ",
         latex_number(round(Hull(class, assumptions).resistance_factor; digits=2)), " & ",
         latex_number(round(class.newbuild_price / 1e6; digits=1)), " & ",
@@ -477,6 +478,15 @@ Cargo units of `class` with their unit, a dash for a ship that fills its deadwei
 unit_capacity(class) = isfinite(class.unit_capacity) ?
     string(latex_number(class.unit_capacity), " ", uppercase(string(class.cargo_unit))) :
     "--"
+
+"""
+    limit_label(class)
+
+"deadweight" where `class` without a rig fills its deadweight before its slots or decks,
+"space" otherwise.
+"""
+limit_label(class) = string(WindShipOpt.cargo_limit(
+    WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, class), assumptions), assumptions)))
 
 """
     class_source_notes()

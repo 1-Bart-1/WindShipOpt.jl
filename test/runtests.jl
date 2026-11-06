@@ -625,6 +625,19 @@ end
     @test WindShipOpt.cargo_mass(bulk) ≈ 20500
 end
 
+@testset "bulk carriers, tankers and the Megamax fill their deadweight first" begin
+    classes = ship_classes()
+    hold(name) = WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, classes[name]),
+            assumptions), assumptions)
+    limit(name) = WindShipOpt.cargo_limit(hold(name))
+    @test all(limit(name) == :deadweight for name in ("general cargo coaster", "VLCC",
+        "Kamsarmax bulk carrier", "MR product tanker", "Megamax container ship"))
+    @test all(limit(name) == :space for name in ("feeder container ship",
+        "Neo-Panamax container ship", "PCTC car carrier"))
+    megamax = WindShipOpt.unit_limits(hold("Megamax container ship"))
+    @test 0.9 < megamax.deadweight / megamax.space < 1
+end
+
 @testset "empty boxes take container slots and tare but carry no cargo" begin
     teu = WindShipOpt.CargoUnit(:teu, assumptions)
     loaded = 1 - assumptions[:empty_container_share]
