@@ -115,3 +115,162 @@ function draw_rig!(axis, rig::WindShipOpt.RotorRig, hull, force)
             strokecolor=:black, strokewidth=0.75)
     end
 end
+
+"""
+    hull_profile(hull, deck_height)
+
+Points of `hull` seen from the side, bow to the right and midship at the origin: keel at
+the draft below the waterline, deck at `deck_height` [m] above it, a raked bow and a
+transom stern.
+"""
+function hull_profile(hull, deck_height)
+    half = hull.length / 2
+    return Point2f[(-half, deck_height), (half + 0.03hull.length, deck_height),
+        (half, 0), (half - 0.02hull.length, -hull.draft), (-half + 0.04hull.length,
+            -hull.draft), (-half, -0.3hull.draft)]
+end
+
+"""
+    draw_ship!(axis, hull, offset)
+
+Side view of `hull` shifted by `offset` [m]: hull, deckhouse aft and waterline, and the
+height of its deck above the waterline [m] as the model places rigs on it.
+"""
+function draw_ship!(axis, hull, offset)
+    scale = hull.length / assumptions[:reference_length]
+    deck = assumptions[:deck_mount_height] * scale
+    house = assumptions[:superstructure_height] * scale
+    poly!(axis, hull_profile(hull, deck) .+ Point2f(offset); color=:gray80,
+        strokecolor=:black, strokewidth=0.5)
+    half = hull.length / 2
+    poly!(axis, Rect2f(Point2f(offset) + Point2f(-half + 0.02hull.length, deck),
+            Vec2f(0.08hull.length, house)); color=:gray80, strokecolor=:black,
+        strokewidth=0.5)
+    return deck
+end
+
+"""
+    draw_side_rig!(axis, rig, hull, offset)
+
+Side view of the wing or rotor `rig` on `hull` shifted by `offset` [m]: each unit as its
+height times its chord or diameter, standing at its foot height.
+"""
+function draw_side_rig!(axis, rig, hull, offset)
+    width = rig isa WingRig ? sqrt(rig.area / assumptions[:wing_aspect_ratio]) :
+            rig.diameter
+    for position in WindShipOpt.unit_positions(rig, hull, assumptions)
+        poly!(axis, Rect2f(Point2f(offset) + Point2f(position - width / 2,
+                    rig.foot_height), Vec2f(width, rig.height)); color=palette[1],
+            strokewidth=0)
+    end
+end
+
+"""
+    draw_side_kite!(axis, area, hull, offset)
+
+Side view of a kite of projected `area` [m^2] at the design aspect ratio towed by `hull`
+shifted by `offset` [m]: its launch mast at the towing point and the canopy, to scale
+across its span, just above the mast on a tether not drawn to length. Returns the height
+of the canopy's top above the waterline [m].
+"""
+function draw_side_kite!(axis, area, hull, offset)
+    span = sqrt(area * design_aspect_ratio)
+    scale = hull.length / assumptions[:reference_length]
+    deck = assumptions[:deck_mount_height] * scale
+    mast = assumptions[:launch_mast_height_ratio] * sqrt(area)
+    foot = Point2f(offset) + Point2f(WindShipOpt.lateral_centre(hull), deck)
+    lines!(axis, [foot, foot + Point2f(0, mast)]; color=:black, linewidth=1)
+    sag = 0.15span
+    top = deck + mast + 20 + sag
+    centre = Point2f(foot[1], offset[2] + top)
+    arc = [centre + Point2f(span / 2 * sin(t), sag * cos(t) - sag)
+           for t in range(-π / 2, π / 2; length=24)]
+    lines!(axis, arc; color=palette[2], linewidth=2)
+    lines!(axis, [foot + Point2f(0, mast), centre]; color=:gray50, linewidth=0.6,
+        linestyle=:dash)
+    return top
+end
+
+"""
+    ship_classes_figure()
+
+The standard ship classes in deadweight order, side by side to one scale, each with the
+geometric mean over the routes of the best size of a kite, of wings and of rotors on
+VLSFO, laid out as the model lays them out.
+"""
+function ship_classes_figure()
+    table = read_table(data_file("classes.csv"))
+    names = class_order(table)
+    classes = ship_classes()
+    routes_seen = unique(table["route"])
+    longest = maximum(classes[name].length for name in names)
+    gap = 0.15longest
+    rig_kinds = ("kite", "wings", "rotors")
+    rows = [(name, Hull(classes[name], assumptions), [mean_best_area(table, name,
+        routes_seen, kind) for kind in rig_kinds]) for name in names]
+    kite_tops = [draw_height(hull, first(areas)) for (_, hull, areas) in rows]
+    margin = 30.0
+    tops = cumsum([kite_top + hull.draft + margin
+                   for (kite_top, (_, hull, _)) in zip(kite_tops, rows)])
+    width = 3longest + 2gap
+    figure = Figure(size=(page_width, page_width * (last(tops) + 20) / (1.3width)))
+    axis = Axis(figure[1, 1]; aspect=DataAspect())
+    hidedecorations!(axis)
+    hidespines!(axis)
+    for (row, (name, hull, areas)) in enumerate(rows)
+        y = -tops[row] + hull.draft + margin
+        for (column, (kind, area)) in enumerate(zip(rig_kinds, areas))
+            offset = ((column - 1) * (longest + gap) + longest / 2, y)
+            draw_ship!(axis, hull, offset)
+            isfinite(area) || continue
+            if kind == "kite"
+                draw_side_kite!(axis, area, hull, offset)
+            else
+                rig = kind == "wings" ? WingRig(area, hull, assumptions) :
+                      WindShipOpt.RotorRig(area, hull, assumptions)
+                isnothing(rig) || draw_side_rig!(axis, rig, hull, offset)
+            end
+            text!(axis, offset[1] - hull.length / 2, y - hull.draft;
+                text=@sprintf("%.0f m²", area), align=(:left, :top), offset=(0, -1),
+                fontsize=7, color=:gray40)
+        end
+        text!(axis, -0.03longest, y; text=name, align=(:right, :center), fontsize=8)
+    end
+    for (column, kind) in enumerate(rig_kinds)
+        text!(axis, (column - 1) * (longest + gap) + longest / 2, 10; text=kind,
+            align=(:center, :bottom), fontsize=9)
+    end
+    bar = Point2f(-0.25width, -last(tops) + 10)
+    lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
+    text!(axis, bar + Point2f(50, 0); text="100 m", align=(:center, :bottom),
+        offset=(0, 2), fontsize=8)
+    limits!(axis, -0.3width, width, -last(tops), 40)
+    save(joinpath(figures, "ship_classes.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    mean_best_area(table, class, routes, rig)
+
+Geometric mean over `routes` of the best area [m^2] of `rig` on `class` on VLSFO in the
+class study `table`, or NaN where it has none.
+"""
+function mean_best_area(table, class, routes, rig)
+    areas = filter(isfinite, [best_area(table, class, route, "vlsfo", rig)
+                              for route in routes])
+    return isempty(areas) ? NaN : exp(sum(log, areas) / length(areas))
+end
+
+"""
+    draw_height(hull, kite_area)
+
+Height [m] above the waterline of the top of what [`ship_classes_figure`](@ref) draws on
+`hull`: the kite of `kite_area` [m^2], or the highest deck rig the air draft allows.
+"""
+function draw_height(hull, kite_area)
+    isfinite(kite_area) || return assumptions[:max_air_draft]
+    scale = hull.length / assumptions[:reference_length]
+    span = sqrt(kite_area * design_aspect_ratio)
+    return max(assumptions[:deck_mount_height] * scale +
+               assumptions[:launch_mast_height_ratio] * sqrt(kite_area) + 20 + 0.15span,
+        assumptions[:max_air_draft])
+end
