@@ -462,6 +462,140 @@ end
     @test maintenance_of(rotors) ≈ 0.01 * ShipCosts(rotors, assumptions).capital
 end
 
+# Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
+@testset "wing force follows true wind, shear and ship speed as worked by hand" begin
+    env = Environment(assumptions)
+    wings = WingRig(800.0, Hull(140.0, assumptions), assumptions)
+    setting = (1.0, WindShipOpt.drag_coefficient(wings, 1.0))
+    force(angle) = rig_force(wings, env, 10.0, deg2rad(angle), 5.4, setting)
+    @test force(90).thrust ≈ 51756 rtol = 1e-3
+    @test force(90).side ≈ 41416 rtol = 1e-3
+    @test force(45).thrust ≈ 35138 rtol = 1e-3
+    @test force(45).side ≈ 100995 rtol = 1e-3
+    @test force(150).thrust ≈ 17228 rtol = 1e-3
+    @test force(150).side ≈ -8238 rtol = 1e-3
+    @test force(180).thrust ≈ 2048 rtol = 1e-3
+    @test force(180).side ≈ -12109 rtol = 1e-3
+    @test force(0).thrust < 0 < force(0).side
+end
+
+# Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
+@testset "rotor force and spin power follow the apparent wind as worked by hand" begin
+    env = Environment(assumptions)
+    rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions)
+    beam = rig_force(rotors, env, 10.0, π / 2, 5.4, 3.0)
+    @test beam.thrust ≈ 243775 rtol = 1e-3
+    @test beam.side ≈ 227311 rtol = 1e-3
+    @test beam.power ≈ 118305 rtol = 1e-3
+    close_hauled = rig_force(rotors, env, 10.0, π / 4, 5.4, 3.0)
+    @test close_hauled.thrust ≈ 131591 rtol = 1e-3
+    @test close_hauled.side ≈ 510601 rtol = 1e-3
+    broad = rig_force(rotors, env, 10.0, 5π / 6, 5.4, 3.0)
+    @test broad.thrust ≈ 91931 rtol = 1e-3
+    @test broad.side ≈ -32685 rtol = 1e-3
+    @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.NO_RIG_FORCE
+end
+
+# Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
+@testset "kite force turns from the wind's frame onto the course as worked by hand" begin
+    env = Environment(assumptions)
+    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
+    force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 1)
+    @test force(5.8751, 26.6411).thrust ≈ 26 atol = 5
+    @test force(5.8751, 26.6411).side ≈ 63932 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 19748 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 108230 rtol = 1e-3
+    @test force(8.8295, 86.6957).thrust ≈ 113815 rtol = 1e-3
+    @test force(8.8295, 86.6957).side ≈ 242111 rtol = 1e-3
+    @test force(11.1615, 114.2277).thrust ≈ 239765 rtol = 1e-3
+    @test force(11.1615, 114.2277).side ≈ 206875 rtol = 1e-3
+    @test force(13.8026, 148.5709).thrust ≈ 337541 rtol = 1e-3
+    @test force(13.8026, 148.5709).side ≈ 78043 rtol = 1e-3
+end
+
+# On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
+@testset "massless kite rests where the whole-system glide ratio puts the window edge" begin
+    model, _, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    flying = model.polar.lift .> 0
+    wing_alone = maximum(model.polar.lift[flying] ./ model.polar.drag[flying])
+    best = argmax(model.polar.lift ./ (model.polar.drag .+ model.extra_drag))
+    aero = WindShipOpt.KiteAero(model.area, model.polar.lift[best],
+        model.polar.drag[best] + model.extra_drag, 0.0, 1.225, 0.0)
+    glide = aero.lift / aero.drag
+    @test 3.5 < glide < 5 < wing_alone
+    angle = atan(glide)
+    radial = WindShipOpt.window_position(angle, 0.5)
+    towards_edge = (-sin(angle), cos(angle) * cos(0.5), cos(angle) * sin(0.5))
+    airspeed, tension, ground = WindShipOpt.steering_point(aero, (12.0, 0.0, 0.0), radial,
+        towards_edge, (0.0, 0.0, 0.0), model.tether_length)
+    @test airspeed ≈ 12sin(angle) rtol = 1e-4
+    @test tension ≈ 70560 * hypot(aero.lift, aero.drag) rtol = 1e-4
+    @test WindShipOpt.norm3(ground) < 1e-3
+end
+
+@testset "no flight pattern pulls beyond the window edge of the system glide ratio" begin
+    for area in (800.0, 3200.0)
+        rig = Ship(ShipDesign(:methanol, 140.0; kite_area=area), assumptions).rig
+        model, _, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+        edge = atand(WindShipOpt.best_over_angles((lift, drag) -> lift / drag, model))
+        flown = filter(force -> isfinite(force.peak_tension), rig.forces)
+        @test maximum(atand(hypot(force.force[2], force.force[3]), force.force[1])
+                      for force in flown) <= edge
+    end
+end
+
+@testset "wings and rotors pull forward only above their own upwind limit" begin
+    env = Environment(assumptions)
+    hull = Hull(140.0, assumptions)
+    wings = WingRig(800.0, hull, assumptions)
+    rotors = WindShipOpt.RotorRig(400.0, hull, assumptions)
+    coefficients(::WingRig, setting) = setting
+    function coefficients(rig::WindShipOpt.RotorRig, spin_ratio)
+        lift, drag, _ = WindShipOpt.rotor_coefficients(spin_ratio)
+        return rig.lift_factor * lift, drag
+    end
+    for rig in (wings, rotors)
+        settings = WindShipOpt.trim_settings(rig)
+        limit = minimum(settings) do setting
+            lift, drag = coefficients(rig, setting)
+            return lift > 0 ? atan(drag / lift) : Inf
+        end
+        thrust(angle, setting) = rig_force(rig, env, 10.0, angle, 0.0, setting).thrust
+        @test all(thrust(angle, setting) <= 0
+                  for angle in range(0.0, limit - 1e-3; length=20), setting in settings)
+        @test any(thrust(limit + deg2rad(1), setting) > 0 for setting in settings)
+    end
+end
+
+@testset "kite pulls the ship forward only above the upwind limit of its glide ratio" begin
+    env = Environment(assumptions)
+    for area in (800.0, 3200.0)
+        rig = Ship(ShipDesign(:methanol, 140.0; kite_area=area), assumptions).rig
+        model, _, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+        limit = atan(1 / WindShipOpt.best_over_angles(/, model))
+        for apparent in deg2rad.(1.0:2.0:(rad2deg(limit) - 2)), wind in (8.0, 12.0, 20.0),
+            trim in WindShipOpt.trim_settings(rig)
+
+            @test rig_force(rig, env, wind, apparent, 0.0, trim).thrust <= 0
+        end
+        @test rig_force(rig, env, 12.0, deg2rad(40), 0.0, 1).thrust > 0
+    end
+end
+
+@testset "kite, wings and rotors push the same way across the ship" begin
+    env = Environment(assumptions)
+    hull = Hull(140.0, assumptions)
+    kite = uniform_kite(hull, assumptions)
+    wings = WingRig(800.0, hull, assumptions)
+    rotors = WindShipOpt.RotorRig(400.0, hull, assumptions)
+    for angle in deg2rad.((45, 90, 110))
+        @test rig_force(kite, env, 12.0, angle, 5.4, 1).side > 0
+        @test rig_force(wings, env, 12.0, angle, 5.4,
+            (1.0, WindShipOpt.drag_coefficient(wings, 1.0))).side > 0
+        @test rig_force(rotors, env, 12.0, angle, 5.4, 2.0).side > 0
+    end
+end
+
 @testset "combined rig force is the sum of kite and rotor forces at a fixed trim" begin
     env = Environment(assumptions)
     hull = Hull(140.0, assumptions)
@@ -477,17 +611,6 @@ end
     @test force.power > 0 && force.yaw_moment != 0
     @test all(getfield(force, name) ≈ getfield(sum_force, name)
               for name in fieldnames(RigForce))
-end
-
-@testset "kite and rotors in one wind push the hull to the same side" begin
-    env = Environment(assumptions)
-    hull = Hull(140.0, assumptions)
-    kite = uniform_kite(hull, assumptions)
-    rotors = WindShipOpt.RotorRig(800.0, hull, assumptions)
-    for angle in deg2rad.((90.0, 120.0))
-        kite_side = rig_force(kite, env, 12.0, angle, 6.0, 2).side
-        @test kite_side > 0 && rig_force(rotors, env, 12.0, angle, 6.0, 3.0).side > 0
-    end
 end
 
 @testset "kite launch mast takes the forward deck from the rotor row" begin
@@ -852,6 +975,21 @@ WindShipOpt.waves(seas::HeadSeas, lat, lon, time) =
     @test isnothing(route(corridor, table, storm, 0.0; time_cost=hourly))
 end
 
+@testset "a round trip at a held speed takes that speed's time and is costed as usual" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    distance = sum(corridor.track_length for corridor in corridors)
+    ship = Ship(ShipDesign(:methanol, 85.0), assumptions)
+    held = [round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
+                assumptions; held_knots=knots) for knots in (6.0, 8.0)]
+    hours = [24 * (trip.outbound_days + trip.return_days) for trip in held]
+    @test first(hours) / last(hours) ≈ 8 / 6 rtol = 0.01
+    @test last(hours) ≈ distance / (8KNOT) / 3600 rtol = 0.05
+    @test first(held).fuel_energy < last(held).fuel_energy
+    chosen = round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
+        assumptions)
+    @test chosen.cost_per_tonne_km <= minimum(trip.cost_per_tonne_km for trip in held)
+end
+
 @testset "an edge is sampled at most the asked hours apart at the commanded speed" begin
     weather, stage, centre = SyntheticWeather(), 1, centre_index(corridor)
     step = WindShipOpt.MAX_LATERAL_STEP + 1
@@ -1013,6 +1151,16 @@ end
     write_data(rest, :designs)
     PaperRuns.finish_run!(rest)
     @test !is_open()
+end
+
+@testset "a round trip at a held speed is stored apart from a chosen-speed one" begin
+    @eval PaperRuns weather_name = "synthetic"
+    PaperRuns.paper_run = PaperRuns.PaperRun(mktempdir(), :draft,
+        Dict{String, Any}("code_hash" => "held"), 0, 0)
+    case_at(held_knots) = (; design=ShipDesign(:vlsfo, 100.0), assumptions,
+        route=:caribbean, scale=8.0, horizon=Inf, held_knots)
+    @test allunique(PaperRuns.case_path(case_at(held_knots), [24.0])
+                    for held_knots in (nothing, 8.0, 9.0))
 end
 
 @testset "resuming never takes over another branch's unfinished run" begin
