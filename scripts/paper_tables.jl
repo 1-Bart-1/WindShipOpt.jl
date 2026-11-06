@@ -521,25 +521,46 @@ split_table.tex.
 """
 function split_table()
     table = read_table(data_file("classes.csv"))
+    lines = []
+    for (drive, label) in drive_labels, (k, rig) in enumerate(rig_names)
+        splits = filter(!isnothing, [saving_split(table, class, route, drive, rig)
+                                     for class in class_order(table)
+                                     for route in unique(table["route"])])
+        saving, fuel, time = (mean(getproperty.(splits, part))
+                              for part in (:saving, :fuel, :time))
+        hours = getproperty.(splits, :hours)
+        push!(lines, (; label=k == 1 ? label : "", rig,
+            points=[saving, fuel, time, saving - fuel - time],
+            shorter=100count(<(0), hours) / length(hours), trip=median(hours)))
+    end
+    scales = [maximum(abs(line.points[k]) for line in lines) for k in 1:4]
+    trip_scale = maximum(abs(line.trip) for line in lines)
     open(joinpath(sections, "split_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule")
         println(io, " & & Saving & Fuel & Time & Rig and other & Shorter & ",
             "Round trip \\\\")
         println(io, "Drive & Rig & [\\%] & [points] & [points] & [points] & [\\%] & ",
             "[\\%] \\\\\n\\midrule")
-        for (drive, label) in drive_labels, (k, rig) in enumerate(rig_names)
-            splits = filter(!isnothing, [saving_split(table, class, route, drive, rig)
-                                         for class in class_order(table)
-                                         for route in unique(table["route"])])
-            saving, fuel, time = (mean(getproperty.(splits, part))
-                                  for part in (:saving, :fuel, :time))
-            hours = getproperty.(splits, :hours)
-            @printf(io, "%s & %s & %.1f & %.1f & %.1f & %.1f & %.0f & %.1f \\\\\n",
-                k == 1 ? label : "", rig, saving, fuel, time, saving - fuel - time,
-                100count(<(0), hours) / length(hours), median(hours))
+        for line in lines
+            cells = [shaded_cell(value, scale) for (value, scale) in zip(line.points, scales)]
+            @printf(io, "%s & %s & %s & %.0f & %s \\\\\n", line.label, line.rig,
+                join(cells, " & "), line.shorter, shaded_cell(-line.trip, trip_scale;
+                    shown=line.trip))
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
+end
+
+"""
+    shaded_cell(value, scale; shown=value)
+
+Table cell of `shown` to one decimal on a background green where `value` is positive and
+red where negative, the deeper the larger `value` is against `scale`.
+"""
+function shaded_cell(value, scale; shown=value)
+    depth = round(Int, 45 * min(abs(value) / scale, 1))
+    colour = value >= 0 ? "green" : "red"
+    return @sprintf("\\cellcolor{%s!%d}%.1f", colour, depth, shown)
 end
 
 """
