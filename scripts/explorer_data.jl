@@ -81,7 +81,8 @@ function explorer_data()
         inputs=explorer_input_entries(classes, names),
         classes=[explorer_class(classes[name]) for name in names],
         routes=[(; name=string(name), label=route_label(name)) for name in route_names],
-        canopy_price=outputs.canopy_price,
+        canopy_price=(node=outputs.canopy_price - 1,
+            value=WindShipOpt.canopy_price(assumptions)),
         designs=[explorer_design(case, trip, design, names)
                  for (case, trip, design) in zip(cases, trips, outputs.designs)],
         nodes=recording.nodes, checks=explorer_checks(cases, trips))
@@ -91,7 +92,7 @@ end
 """
     recorded_designs(cases, trips, class_names)
 
-Inside a recording: the node of the canopy price, and for each design the nodes of its
+Inside a recording: the node of the canopy price [USD/m^2], and for each design the nodes of its
 cost per tonne-km and its savings [%] against the ship without a rig on the same fuel,
 on e-methanol and on VLSFO, `nothing` where that ship cannot sail the route.
 """
@@ -261,15 +262,17 @@ explorer_design(case, trip, design, class_names) = (;
 
 Write `value` as JSON: named tuples, dicts and assumptions as objects, vectors and
 tuples as arrays, the nodes of a recording as arrays of their operation and operands
-from zero, numbers to full precision and non-finite ones as null.
+from zero, numbers to full precision, infinities as 1e999, which parses as one, and NaN
+as null.
 """
 write_json(io, value::AbstractString) = print(io, '"', escape_string(value), '"')
 write_json(io, value::Symbol) = write_json(io, string(value))
 write_json(io, value::Bool) = print(io, value)
 write_json(io, ::Nothing) = print(io, "null")
 write_json(io, value::Integer) = print(io, value)
-write_json(io, value::Real) = isfinite(value) ? print(io, Float64(value)) :
-                              print(io, "null")
+write_json(io, value::Real) = isnan(value) ? print(io, "null") :
+                              isinf(value) ? print(io, value > 0 ? "1e999" : "-1e999") :
+                              print(io, Float64(value))
 write_json(io, value::Assumption) = write_json(io, (; value.value, value.low, value.high,
     value.unit))
 write_json(io, value::Union{NamedTuple, AbstractDict}) =

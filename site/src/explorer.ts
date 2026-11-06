@@ -38,7 +38,8 @@ export type ExplorerData = {
   inputs: Record<string, Input>;
   classes: { name: string; type: string; deadweight: number }[];
   routes: { name: string; label: string }[];
-  canopy_price: number;
+  /** recorded node of the canopy price [USD/m²], with its value the model computed */
+  canopy_price: { node: number; value: number };
   designs: Design[];
   nodes: RecordedNode[];
   checks: Check[];

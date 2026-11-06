@@ -19,6 +19,11 @@ test("the site gives the model's cost of every design at the paper's inputs", ()
   expect(worst).toBeLessThan(1e-12);
 });
 
+test("the site gives the model's canopy price at the paper's inputs", () => {
+  const values = evaluated(data, inputValues(data, {}, 1));
+  expect(gap(values[data.canopy_price.node], data.canopy_price.value)).toBeLessThan(1e-12);
+});
+
 test("the site gives the model's cost at changed inputs on the routes of the paper's", () => {
   expect(data.checks.length).toBeGreaterThan(0);
   for (const check of data.checks) {

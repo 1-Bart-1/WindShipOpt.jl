@@ -89,7 +89,7 @@ function Explorer({ data }: { data: ExplorerData }) {
             <legend className="px-1 font-semibold">{group.title}</legend>
             {group.title === "Kite goals" && (
               <p className="text-sm text-stone-600">
-                Canopy price {formatted(values[data.canopy_price], 0)} USD/m².{" "}
+                Canopy price {formatted(values[data.canopy_price.node], 0)} USD/m².{" "}
                 <button className="underline" onClick={() => setCanopy("")}>Goal</button>{" · "}
                 <button className="underline" onClick={() => setCanopy("_today")}>As built today</button>
               </p>
