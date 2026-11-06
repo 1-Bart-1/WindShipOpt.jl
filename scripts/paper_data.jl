@@ -2,7 +2,7 @@
 # of the run in use. Included by paper.jl.
 
 "drives compared where the drive is a dimension of the study"
-study_drives = (:vlsfo, :methanol)
+study_drives = (:vlsfo, :ammonia)
 
 "projected aspect ratio of the kite of every design that names none"
 design_aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
@@ -111,7 +111,7 @@ end
 """
     launch_data()
 
-The 140 m e-methanol ship on every route without a rig, with the reference wings and
+The 140 m e-ammonia ship on every route without a rig, with the reference wings and
 rotors, and with kites of 800, 1,600 and 3,200 m^2 at the low, base and high launch cost,
 with launches by day only and with no rig ever out of service: launch.csv.
 """
@@ -123,14 +123,14 @@ function launch_data()
     labels = (; launch_cost="value", night=true, service=true)
     for route in route_names
         for (rig, area) in (("none", 0.0), ("wings", 1500.0), ("rotors", 800.0))
-            design = ShipDesign(:methanol, 140.0; rig_size(rig, area)...)
+            design = ShipDesign(:ammonia, 140.0; rig_size(rig, area)...)
             push!(cases, trip_case(design; labels..., route, rig, area))
             rig == "none" && continue
             push!(cases, trip_case(design; labels..., assumptions=always_in_service, route,
                 rig, area, service=false))
         end
         for area in (800.0, 1600.0, 3200.0)
-            design = ShipDesign(:methanol, 140.0; rig_size("kite", area)...)
+            design = ShipDesign(:ammonia, 140.0; rig_size("kite", area)...)
             kite = (; labels..., route, rig="kite", area)
             for launch_cost in (:low, :value, :high)
                 push!(cases, trip_case(design; kite...,
@@ -296,11 +296,12 @@ base_value(input) = haskey(scaled_inputs, input) ? 1.0 : assumptions[input]
 
 """
 Values besides the base of each input of the situation study, and the rigs whose cost
-it changes. Prices are in USD/GJ, cargo value in USD/t, lifetimes in years, the rotor
+it changes. Fuel prices are in USD/GJ, cargo value in USD/t, lifetimes in years, the rotor
 surface speed in m/s; the wing price is a factor.
 """
 situation_inputs = Dict(:vlsfo_price => ((8.0, 12.0, 22.0, 30.0), all_rigs),
-    :e_methanol_price => ((30.0, 40.0, 90.0, 120.0), all_rigs),
+    :e_ammonia_price => ((30.0, 40.0, 60.0, 82.0, 120.0), all_rigs),
+    :e_methanol_price => ((40.0, 90.0, 120.0), all_rigs),
     :cargo_value => ((1000.0, 5000.0, 10000.0, 20000.0), all_rigs),
     :discount_rate => ((0.04, 0.06, 0.1, 0.12, 0.16), all_rigs),
     :wing_lifetime => ((10.0, 15.0, 25.0, 30.0), ("wings",)),
@@ -316,13 +317,17 @@ situation_sizes = Dict(
 
 """
 Ship, route, drive and inputs of each part of the situation study: every input on the
-140 m reference ship to Guadeloupe and all but the cargo value on a Kamsarmax to Tubarão.
+140 m reference ship to Guadeloupe and all but the cargo value on a Kamsarmax to Tubarão,
+and on both the price of each fuel on its own drive, e-methanol included as the other
+e-fuel.
 """
 situation_studies = [("140 m", :caribbean, :vlsfo, [:vlsfo_price]),
-    ("140 m", :caribbean, :methanol, [:e_methanol_price, :cargo_value, :discount_rate,
+    ("140 m", :caribbean, :ammonia, [:e_ammonia_price, :cargo_value, :discount_rate,
         :wing_lifetime, :wing_price, :rotor_max_surface_speed]),
+    ("140 m", :caribbean, :methanol, [:e_methanol_price]),
     ("Kamsarmax bulk carrier", :tubarao, :vlsfo, [:vlsfo_price]),
-    ("Kamsarmax bulk carrier", :tubarao, :methanol, [:e_methanol_price, :discount_rate,
+    ("Kamsarmax bulk carrier", :tubarao, :methanol, [:e_methanol_price]),
+    ("Kamsarmax bulk carrier", :tubarao, :ammonia, [:e_ammonia_price, :discount_rate,
         :wing_lifetime, :wing_price, :rotor_max_surface_speed])]
 
 """
@@ -420,13 +425,13 @@ end
 """
     angle_sums(name, rig, area)
 
-Routed round trips over the sampled departures of a 140 m e-methanol ship with `area`
+Routed round trips over the sampled departures of a 140 m e-ammonia ship with `area`
 [m^2] of `rig` on route `name`, as hours, thrust-hours [kN h] and rig work [GJ] per
 direction and true-wind-angle band, and the rig cost per hour at sea [USD/h].
 """
 function angle_sums(name, rig, area)
-    ship = Ship(ShipDesign(:methanol, 140.0; rig_size(rig, area)...), assumptions)
-    bare = Ship(ShipDesign(:methanol, 140.0), assumptions)
+    ship = Ship(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...), assumptions)
+    bare = Ship(ShipDesign(:ammonia, 140.0), assumptions)
     table = PerformanceTable(ship, assumptions)
     out_hourly, back_hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions)
@@ -449,7 +454,7 @@ end
 """
     wind_angle_data()
 
-The 140 m e-methanol ship without a rig and with the reference size of each rig, routed
+The 140 m e-ammonia ship without a rig and with the reference size of each rig, routed
 out and home on every route: hours at sea, thrust-hours [kN h] and rig work [GJ] per
 true-wind-angle band summed over the sampled departures, and the rig cost per hour at
 sea [USD/h]: wind_angle.csv.
@@ -457,7 +462,7 @@ sea [USD/h]: wind_angle.csv.
 function wind_angle_data()
     cases = vec([(name, rig, area) for name in route_names,
                  (rig, area) in [("none", 0.0); reference_rigs]])
-    Ship(ShipDesign(:methanol, 140.0; kite_area=Dict(reference_rigs)["kite"]), assumptions)
+    Ship(ShipDesign(:ammonia, 140.0; kite_area=Dict(reference_rigs)["kite"]), assumptions)
     results = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         results[k] = angle_sums(cases[k]...)
@@ -608,7 +613,7 @@ function designs_data()
         push!(cases, trip_case(ShipDesign(:vlsfo, length; kite_area=area);
             assumptions=taxed, scenario="carbon"))
     end
-    for length in (140.0, 200.0), drive in (:vlsfo, :methanol), area in (800.0, 3200.0)
+    for length in (140.0, 200.0), drive in (:vlsfo, :ammonia), area in (800.0, 3200.0)
         push!(cases, trip_case(ShipDesign(drive, length; kite_area=area);
             assumptions=rigid, scenario="rigid"))
         push!(cases, trip_case(ShipDesign(drive, length; kite_area=area);
@@ -765,11 +770,11 @@ end
 """
     forecast_data()
 
-A 140 m e-methanol ship to Guadeloupe without a rig and with each rig, routed with
+A 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, routed with
 perfect foresight and with daily re-planning on forecasts of 7 and 3 days: forecast.csv.
 """
 function forecast_data()
-    cases = vec([trip_case(ShipDesign(:methanol, 140.0; rig_size(rig, area)...); horizon,
+    cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); horizon,
                      rig, horizon_days=isfinite(horizon) ? horizon / 24 : 0.0)
                  for (rig, area) in [("none", 0.0); reference_rigs],
                      horizon in (Inf, 24.0 * 7, 24.0 * 3)])
@@ -793,8 +798,8 @@ end
     sensitivity_ships()
 
 Ships of the input screening as (name, design without a rig, route, rig areas): the
-140 m e-methanol reference ship to Guadeloupe, a Kamsarmax on VLSFO to Tubarão and a
-Neo-Panamax container ship on e-methanol to New York, the classes with the best rig sizes
+140 m e-ammonia reference ship to Guadeloupe, a Kamsarmax on VLSFO to Tubarão and a
+Neo-Panamax container ship on e-ammonia to New York, the classes with the best rig sizes
 of the class study.
 """
 function sensitivity_ships()
@@ -802,9 +807,9 @@ function sensitivity_ships()
     classes = ship_classes()
     reference = NamedTuple(Symbol(rig) => rig_size(rig, area)
                            for (rig, area) in reference_rigs)
-    ships = [("140 m", ShipDesign(:methanol, 140.0), :caribbean, reference)]
+    ships = [("140 m", ShipDesign(:ammonia, 140.0), :caribbean, reference)]
     for (name, drive, route) in (("Kamsarmax bulk carrier", :vlsfo, :tubarao),
-        ("Neo-Panamax container ship", :methanol, :new_york))
+        ("Neo-Panamax container ship", :ammonia, :new_york))
         areas = NamedTuple(Symbol(rig) => rig_size(rig,
                 best_area(classes_table, name, string(route), string(drive), rig))
                            for rig in rig_names)
@@ -1125,7 +1130,7 @@ end
 """
     components_data()
 
-Each rig on a 140 m e-methanol ship to Guadeloupe with the price of one of its components
+Each rig on a 140 m e-ammonia ship to Guadeloupe with the price of one of its components
 50 % lower and higher, or one of its lifetimes halved and doubled: components.csv.
 """
 function components_data()
@@ -1138,9 +1143,9 @@ function components_data()
             :retractable_rig_premium, :wing_lifetime],
         "rotors" => [:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
             :retractable_rig_premium, :rotor_lifetime])
-    cases = [trip_case(ShipDesign(:methanol, 140.0); rig="none", input=:none, factor=1.0)]
+    cases = [trip_case(ShipDesign(:ammonia, 140.0); rig="none", input=:none, factor=1.0)]
     for (rig, area) in reference_rigs
-        design = ShipDesign(:methanol, 140.0; rig_size(rig, area)...)
+        design = ShipDesign(:ammonia, 140.0; rig_size(rig, area)...)
         push!(cases, trip_case(design; rig, input=:none, factor=1.0))
         for name in components[rig], factor in component_factors(name)
             push!(cases, trip_case(design; assumptions=scaled((name,), factor), rig,
@@ -1162,12 +1167,12 @@ component_factors(name) = endswith(string(name), "lifetime") ? (0.5, 2.0) : (0.5
 """
     convergence_data()
 
-A 140 m e-methanol ship to Guadeloupe without a rig and with each rig, routed at corridor
+A 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, routed at corridor
 resolutions of 8, 4 and 2 times the base spacing: convergence.csv.
 """
 function convergence_data()
     rigs = [("none", 0.0), ("kite", 1600.0), ("wings", 1500.0), ("rotors", 800.0)]
-    cases = vec([trip_case(ShipDesign(:methanol, 140.0; rig_size(rig, area)...); rig, scale)
+    cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); rig, scale)
                  for (rig, area) in rigs, scale in (8.0, 4.0, 2.0)])
     write_trips("convergence.csv", cases, round_trips(cases, sampled_departures()), :rig,
         :scale)
@@ -1197,14 +1202,14 @@ end
 """
     combination_data()
 
-Each ship of `combination_ships` on every route on VLSFO and e-methanol without a rig,
+Each ship of `combination_ships` on every route on VLSFO and e-ammonia without a rig,
 with each kite of `combination_kites`, with each rotor area of
 [`combination_rotors`](@ref), and with each kite of `combination_paired_kites` flown
 together with each rotor area: combination.csv.
 """
 function combination_data()
     cases = []
-    for ship in combination_ships, drive in (:vlsfo, :methanol), route in route_names
+    for ship in combination_ships, drive in (:vlsfo, :ammonia), route in route_names
         rotor_areas = combination_rotors(ship)
         sizes = [("none", 0.0, 0.0); [("kite", kite, 0.0) for kite in combination_kites];
             [("rotors", 0.0, rotor) for rotor in rotor_areas];
@@ -1381,7 +1386,7 @@ held force alone moves the ship: speed_choice.csv.
 function speed_choice_data()
     open(run_file("speed_choice.csv"), "w") do io
         println(io, "drive,rig,area,wind,angle,bare,free,free_of_rig_cost,held,sailing")
-        for drive in (:methanol, :vlsfo)
+        for drive in (:ammonia, :vlsfo)
             bare = Ship(ShipDesign(drive, 140.0), assumptions)
             hourly = first(WindShipOpt.leg_time_costs(ShipCosts(bare, assumptions),
                 assumptions))
@@ -1484,7 +1489,7 @@ without a rig, and at 8, 9 and 10 kn: speed_terms.csv.
 """
 function speed_terms_data()
     cases = vec([(; route, drive, rig, area) for route in (:caribbean, :new_york),
-                 drive in (:methanol, :vlsfo),
+                 drive in (:ammonia, :vlsfo),
                  (rig, area) in [("none", 0.0); reference_rigs]])
     results = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
@@ -1621,7 +1626,7 @@ Ships, speeds and sizes of [`speed_size_data`](@ref): the ship, its drives, the 
 it holds, the kite areas [m^2], and the wing and rotor areas [m^2].
 """
 speed_size_grid = [
-    (ship="140 m", drives=(:vlsfo, :methanol), speeds=(8.0, 9.0, 10.0, 11.0),
+    (ship="140 m", drives=(:vlsfo, :ammonia), speeds=(8.0, 9.0, 10.0, 11.0),
         kites=(400.0, 800.0, 1600.0, 3200.0, 6400.0),
         wings=(750.0, 1500.0), rotors=(400.0, 800.0)),
     (ship="feeder container ship", drives=(:vlsfo,), speeds=(13.0, 16.0, 19.0),
@@ -1737,14 +1742,14 @@ deck_shares(rig_type, hull) =
 """
     rigid_kite_data()
 
-Each ship of `combination_ships` on every route on VLSFO and e-methanol without a rig, with
+Each ship of `combination_ships` on every route on VLSFO and e-ammonia without a rig, with
 each soft kite of `combination_kites`, with rotors and wings at each share of the deck, and
 with each fleet of `rigid_kite_fleets` that fits at base and optimistic inputs:
 rigid_kite.csv.
 """
 function rigid_kite_data()
     cases = []
-    for ship in combination_ships, drive in (:vlsfo, :methanol), route in route_names
+    for ship in combination_ships, drive in (:vlsfo, :ammonia), route in route_names
         hull = Hull(study_hull(ship), assumptions)
         sizes = [("none", (;));
             [("kite", (; kite_area)) for kite_area in combination_kites];

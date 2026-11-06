@@ -7,7 +7,7 @@
 inputs the explorer's cost model reads from data/assumptions.yaml; the others are folded
 into the exported designs
 """
-explorer_inputs = (:vlsfo_price, :vlsfo_carbon_intensity, :e_methanol_price,
+explorer_inputs = (:vlsfo_price, :vlsfo_carbon_intensity, :e_ammonia_price,
     :carbon_price, :carbon_coverage, :discount_rate, :hull_lifetime, :wing_lifetime,
     :rotor_lifetime, :kite_lifetime, :market_price_factor, :retractable_rig_premium,
     :tether_lifetime, :kite_cycle_crew_cost, :kite_cycle_damage_probability,
@@ -27,9 +27,9 @@ explorer_columns = ["class", "route", "drive", "rig", "area", "unit_count",
     string.(explorer_parts)..., "canopy_area", "tether_price", "cost", "retractable"]
 
 "ships (class, drive, route) whose cheapest design of each rig is rerun at other prices"
-explorer_check_ships = (("general cargo coaster", :methanol, :caribbean),
+explorer_check_ships = (("general cargo coaster", :ammonia, :caribbean),
     ("MR product tanker", :vlsfo, :bilbao), ("Kamsarmax bulk carrier", :vlsfo, :tubarao),
-    ("Neo-Panamax container ship", :methanol, :new_york))
+    ("Neo-Panamax container ship", :ammonia, :new_york))
 
 """
     explorer_changes()
@@ -48,10 +48,10 @@ end
 """
     fuel_prices(factor)
 
-VLSFO and e-methanol prices [USD/GJ] at `factor` times their base, by input name.
+VLSFO and e-ammonia prices [USD/GJ] at `factor` times their base, by input name.
 """
 fuel_prices(factor) = (vlsfo_price=factor * assumptions[:vlsfo_price],
-    e_methanol_price=factor * assumptions[:e_methanol_price])
+    e_ammonia_price=factor * assumptions[:e_ammonia_price])
 
 """
     explorer_data()
