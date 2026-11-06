@@ -6,7 +6,7 @@
 #     paper(; fidelity=:draft)                 # the same, faster and marked as a draft
 #     paper(:designs, :routes; fidelity=:draft)  # only these steps
 #     paper(:figures; fidelity=:final)         # all figures from the latest final data
-#     paper(; fidelity=:draft, resume=true)    # continue the latest unfinished run unasked
+#     paper(; fidelity=:draft, resume=true)    # continue this branch's unfinished run
 #
 # Data steps write CSV files to a run directory output/runs/<start time>/ with the record
 # run.toml and the finished round trips, so that a run cut short resumes; without `resume`
@@ -65,6 +65,7 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :components_figure => component_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
     :class_table => class_table, :fuel_table => fuel_table,
+    :split_table => split_table,
     :payback_table => payback_table, :goals_table => goals_table,
     :missed_goals_table => missed_goals_table, :crash_table => crash_table,
     :abatement => abatement_figure, :combination => combination_figure,
@@ -77,7 +78,8 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
 Run the named steps, or every data step and then every figure and table step when no name
 is given, at `fidelity` (:draft or :final); `:data` and `:figures` run all steps of that
 kind. Any step but figures and tables alone runs in a new or resumed run: `resume` true
-takes the latest unfinished run at `fidelity`, false none, and nothing asks on stdin.
+takes the latest unfinished run at `fidelity` on this git branch, false none, and nothing
+asks on stdin.
 Steps that run has done are skipped, and it counts as finished once every step asked of it
 is done. A final run errors on a dirty tree or unpushed commit.
 """
