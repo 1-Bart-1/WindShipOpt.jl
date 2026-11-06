@@ -1,5 +1,6 @@
-# Drawings of the model for the paper's method section: each saves one PDF to paper/figures/,
-# with its sizes and forces from the model and its inputs. Included by paper.jl.
+# Drawings of the model for the paper's method section: each saves one PDF to
+# paper/figures/, with its sizes and forces from the model and its inputs. Included by
+# paper.jl.
 
 """
     hull_outline(length, beam)
@@ -13,7 +14,8 @@ function hull_outline(length, beam)
     bow = [Point2f(half * cos(angle), length / 2 - shoulder + shoulder * sin(angle))
            for angle in range(0, π / 2; length=12)]
     port = [Point2f(-point[1], point[2]) for point in reverse(bow)]
-    return vcat([Point2f(0.8half, -length / 2)], bow, port, [Point2f(-0.8half, -length / 2)])
+    stern = -length / 2
+    return vcat([Point2f(0.8half, stern)], bow, port, [Point2f(-0.8half, stern)])
 end
 
 """
@@ -332,8 +334,9 @@ function draw_window!(axis)
     for polar in (30, 60)
         lines!(axis, [window_point(sind(polar), roll) for roll in range(0, π; length=60)];
             color=:gray70, linewidth=0.5)
-        text!(axis, window_point(sind(polar), deg2rad(150)); text=L"\vartheta = %$(polar)°",
-            align=(:left, :bottom), offset=(1, 0), fontsize=7, color=:gray50)
+        text!(axis, window_point(sind(polar), deg2rad(150));
+            text=L"\vartheta = %$(polar)°", align=(:left, :bottom), offset=(1, 0),
+            fontsize=7, color=:gray50)
     end
     lines!(axis, [window_point(1, roll) for roll in range(0, π; length=90)];
         color=:black)
@@ -343,7 +346,8 @@ function draw_window!(axis)
     lines!(axis, Point2f[(-1.15, 0), (1.15, 0)]; color=:black, linewidth=0.6)
     text!(axis, window_point(1, deg2rad(130)); text="edge of\nthe window",
         align=(:left, :bottom), offset=(2, 0), fontsize=8)
-    text!(axis, 0.95, lowest; text="below $(round(Int, assumptions[:kite_min_elevation]))°",
+    text!(axis, 0.95, lowest;
+        text="below $(round(Int, assumptions[:kite_min_elevation]))°",
         align=(:left, :bottom), fontsize=7, color=:gray40)
     polar, roll = deg2rad(33), deg2rad(62)
     kite = window_point(sin(polar), roll)
