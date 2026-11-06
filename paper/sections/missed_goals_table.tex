@@ -1,17 +1,50 @@
-\begin{tabular}{@{}llrrrrrrrrrr@{}}
+\textbf{(a)} Each rig at its cheapest size\par\smallskip
+\adjustbox{max width=\textwidth}{%
+\begin{tabular}{@{}llrrrrrrrr@{}}
 \toprule
- & & \multicolumn{3}{c}{Saving [\%]} & \multicolumn{2}{c}{Canopy life [h] where} & \multicolumn{2}{c}{Canopy price [USD/m$^2$] where} & \multicolumn{3}{c}{Out of service [\%] where} \\
-\cmidrule(lr){3-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}\cmidrule(lr){10-12}
-Ship & Rig & at goals & at \num{2000} h & at USD~234 & pays no more & behind next & pays no more & behind next & pays no more & behind next & all units \\
+ & & & & \multicolumn{2}{c}{Canopy life [h] where} & \multicolumn{2}{c}{Canopy price [USD/m\textsuperscript{2}] where} & \multicolumn{2}{c}{Out of service [\%] where} \\
+\cmidrule(lr){5-6}\cmidrule(lr){7-8}\cmidrule(lr){9-10}
+Ship & Rig & Size [m\textsuperscript{2}] & Saving [\%] & pays no more & behind next & pays no more & behind next & pays no more & behind next \\
 \midrule
-140 m & rotors & 16.2 & -- & -- & -- & -- & -- & -- & 78 & 5 & 3 \\
-140 m & kite & 15.9 & 11.0 & 12.6 & 607 & 1464 & 953 & 407 & 89 & 39 & 39 \\
-140 m & wings & 9.3 & -- & -- & -- & -- & -- & -- & 69 & -- & -- \\
-Kamsarmax bulk carrier & rotors & 8.9 & -- & -- & -- & -- & -- & -- & 52 & 26 & 18 \\
-Kamsarmax bulk carrier & kite & 5.3 & 3.0 & 3.8 & 789 & 1364 & 749 & 436 & 87 & 59 & 59 \\
-Kamsarmax bulk carrier & wings & 1.8 & -- & -- & -- & -- & -- & -- & 26 & -- & -- \\
-Neo-Panamax container ship & rotors & 16.9 & -- & -- & -- & -- & -- & -- & 71 & 22 & 10 \\
-Neo-Panamax container ship & kite & 14.5 & 12.6 & 12.2 & -- & 1280 & -- & 368 & 96 & 30 & 30 \\
-Neo-Panamax container ship & wings & 10.3 & -- & -- & -- & -- & -- & -- & 78 & -- & -- \\
+140 m & rotors & 1221 & 19.5 & -- & -- & -- & -- & 74 & 4 \\
+140 m & kite & 1600 & 19.3 & -- & 969 & -- & 625 & 95 & 42 \\
+140 m & wings & 2441 & 11.2 & -- & -- & -- & -- & 64 & -- \\
+Kamsarmax & kite & 2896 & 6.2 & 1038 & 3143 & 583 & 195 & 82 & 12 \\
+Kamsarmax & rotors & 1218 & 5.5 & -- & -- & -- & -- & 38 & 36 \\
+Kamsarmax & wings & 1722 & 0.5 & -- & -- & -- & -- & 11 & -- \\
+Neo-Panamax & kite & 8000 & 16.6 & -- & 1338 & -- & 447 & 98 & 17 \\
+Neo-Panamax & rotors & 2441 & 14.1 & -- & -- & -- & -- & 69 & 40 \\
+Neo-Panamax & wings & 4883 & 7.7 & -- & -- & -- & -- & 70 & -- \\
 \bottomrule
-\end{tabular}
+\end{tabular}}
+
+\bigskip
+\textbf{(b)} Crashes a year, each rig at its cheapest size and the kites at each size swept\par\smallskip
+\adjustbox{max width=\textwidth}{%
+\begin{tabular}{@{}llrrrrrr@{}}
+\toprule
+ & & & & & \multicolumn{2}{c}{Crashes a year} & Flight \\
+\cmidrule(lr){6-7}
+Ship & Rig & Size [m\textsuperscript{2}] & Saving [\%] & One [kUSD] & pays no more & behind next & [h/year] \\
+\midrule
+140 m & rotors & 1221 & 19.5 & 1125 & 1.8 & 0.018 & -- \\
+140 m & kite & 800 & 14.5 & 121 & 11.0 & 2.4 & 4626 \\
+140 m & kite & 1600 & 19.3 & 233 & 8.0 & 3.3 & 4644 \\
+140 m & kite & 3200 & 18.5 & 480 & 3.9 & 1.5 & 4242 \\
+140 m & kite & 6400 & 14.7 & 1039 & 1.5 & 0.35 & 3351 \\
+140 m & kite & 12800 & 1.0 & 2343 & 0.044 & 0.0 & 1731 \\
+140 m & wings & 2441 & 11.2 & 1085 & 0.95 & -- & -- \\
+Kamsarmax & kite & 362 & 0.6 & 65 & 0.95 & 0.0 & 2323 \\
+Kamsarmax & kite & 724 & 2.0 & 111 & 1.8 & 0.0 & 2881 \\
+Kamsarmax & kite & 1448 & 4.1 & 211 & 1.9 & 0.0 & 3247 \\
+Kamsarmax & kite & 2896 & 6.2 & 431 & 1.4 & 0.16 & 3081 \\
+Kamsarmax & kite & 5793 & 5.3 & 927 & 0.59 & 0.0 & 2829 \\
+Kamsarmax & rotors & 1218 & 5.5 & 986 & 0.56 & 0.51 & -- \\
+Kamsarmax & wings & 1722 & 0.5 & 1030 & 0.045 & -- & -- \\
+Neo-Panamax & kite & 4000 & 12.3 & 612 & 15.0 & 0.0 & 4073 \\
+Neo-Panamax & kite & 8000 & 16.6 & 1345 & 10.0 & 1.5 & 3885 \\
+Neo-Panamax & kite & 16000 & 16.5 & 3068 & 4.5 & 0.66 & 3095 \\
+Neo-Panamax & rotors & 2441 & 14.1 & 807 & 14.0 & 6.3 & -- \\
+Neo-Panamax & wings & 4883 & 7.7 & 774 & 7.6 & -- & -- \\
+\bottomrule
+\end{tabular}}

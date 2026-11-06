@@ -140,6 +140,16 @@ end
     @test heavy_wind > light_wind
 end
 
+@testset "the control unit weighs in proportion to the tether force limit" begin
+    extra = with_value(assumptions, :control_unit_mass_per_force,
+        assumptions[:control_unit_mass_per_force] + 0.1)
+    for area in (800.0, 3200.0)
+        base, max_force, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+        heavier = first(WindShipOpt.kite_model(area, 3.0, extra))
+        @test heavier.mass - base.mass ≈ 0.1e-3max_force
+    end
+end
+
 @testset "canopy life is the goal input, whatever the cloth weight" begin
     @test WindShipOpt.Canopy(assumptions).lifetime == 4000
     @test assumptions[:canopy_cloth_weight] == 200
@@ -429,6 +439,140 @@ end
     @test maintenance_of(both) ≈ 0.01 * (ShipCosts(both, assumptions).capital - worn)
     rotors = Ship(ShipDesign(:methanol, 140.0; rotor_area=400.0), assumptions)
     @test maintenance_of(rotors) ≈ 0.01 * ShipCosts(rotors, assumptions).capital
+end
+
+# Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
+@testset "wing force follows true wind, shear and ship speed as worked by hand" begin
+    env = Environment(assumptions)
+    wings = WingRig(800.0, Hull(140.0, assumptions), assumptions)
+    setting = (1.0, WindShipOpt.drag_coefficient(wings, 1.0))
+    force(angle) = rig_force(wings, env, 10.0, deg2rad(angle), 5.4, setting)
+    @test force(90).thrust ≈ 51756 rtol = 1e-3
+    @test force(90).side ≈ 41416 rtol = 1e-3
+    @test force(45).thrust ≈ 35138 rtol = 1e-3
+    @test force(45).side ≈ 100995 rtol = 1e-3
+    @test force(150).thrust ≈ 17228 rtol = 1e-3
+    @test force(150).side ≈ -8238 rtol = 1e-3
+    @test force(180).thrust ≈ 2048 rtol = 1e-3
+    @test force(180).side ≈ -12109 rtol = 1e-3
+    @test force(0).thrust < 0 < force(0).side
+end
+
+# Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
+@testset "rotor force and spin power follow the apparent wind as worked by hand" begin
+    env = Environment(assumptions)
+    rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions)
+    beam = rig_force(rotors, env, 10.0, π / 2, 5.4, 3.0)
+    @test beam.thrust ≈ 243775 rtol = 1e-3
+    @test beam.side ≈ 227311 rtol = 1e-3
+    @test beam.power ≈ 118305 rtol = 1e-3
+    close_hauled = rig_force(rotors, env, 10.0, π / 4, 5.4, 3.0)
+    @test close_hauled.thrust ≈ 131591 rtol = 1e-3
+    @test close_hauled.side ≈ 510601 rtol = 1e-3
+    broad = rig_force(rotors, env, 10.0, 5π / 6, 5.4, 3.0)
+    @test broad.thrust ≈ 91931 rtol = 1e-3
+    @test broad.side ≈ -32685 rtol = 1e-3
+    @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.NO_RIG_FORCE
+end
+
+# Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
+@testset "kite force turns from the wind's frame onto the course as worked by hand" begin
+    env = Environment(assumptions)
+    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
+    force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 1)
+    @test force(5.8751, 26.6411).thrust ≈ -33 atol = 5
+    @test force(5.8751, 26.6411).side ≈ 63733 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 20042 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 102099 rtol = 1e-3
+    @test force(8.8295, 86.6957).thrust ≈ 113395 rtol = 1e-3
+    @test force(8.8295, 86.6957).side ≈ 247426 rtol = 1e-3
+    @test force(11.161535, 114.227745).thrust ≈ 231689 rtol = 1e-3
+    @test force(11.161535, 114.227745).side ≈ 194164 rtol = 1e-3
+    @test force(13.8026, 148.5709).thrust ≈ 344824 rtol = 1e-3
+    @test force(13.8026, 148.5709).side ≈ 26201 rtol = 1e-3
+end
+
+# On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
+@testset "massless kite rests where the whole-system glide ratio puts the window edge" begin
+    model, _, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    flying = model.polar.lift .> 0
+    wing_alone = maximum(model.polar.lift[flying] ./ model.polar.drag[flying])
+    best = argmax(model.polar.lift ./ (model.polar.drag .+ model.extra_drag))
+    aero = WindShipOpt.KiteAero(model.area, model.polar.lift[best],
+        model.polar.drag[best] + model.extra_drag, 0.0, 1.225, 0.0)
+    glide = aero.lift / aero.drag
+    @test 3.5 < glide < 5 < wing_alone
+    angle = atan(glide)
+    radial = WindShipOpt.window_position(angle, 0.5)
+    towards_edge = (-sin(angle), cos(angle) * cos(0.5), cos(angle) * sin(0.5))
+    airspeed, tension, ground = WindShipOpt.steering_point(aero, (12.0, 0.0, 0.0), radial,
+        towards_edge, (0.0, 0.0, 0.0), model.tether_length)
+    @test airspeed ≈ 12sin(angle) rtol = 1e-4
+    @test tension ≈ 70560 * hypot(aero.lift, aero.drag) rtol = 1e-4
+    @test WindShipOpt.norm3(ground) < 1e-3
+end
+
+@testset "no flight pattern pulls beyond the window edge of the system glide ratio" begin
+    for area in (800.0, 3200.0)
+        rig = Ship(ShipDesign(:methanol, 140.0; kite_area=area), assumptions).rig
+        model, _, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+        edge = atand(WindShipOpt.best_over_angles((lift, drag) -> lift / drag, model))
+        flown = filter(force -> isfinite(force.peak_tension), rig.forces)
+        @test maximum(atand(hypot(force.force[2], force.force[3]), force.force[1])
+                      for force in flown) <= edge
+    end
+end
+
+@testset "wings and rotors pull forward only above their own upwind limit" begin
+    env = Environment(assumptions)
+    hull = Hull(140.0, assumptions)
+    wings = WingRig(800.0, hull, assumptions)
+    rotors = WindShipOpt.RotorRig(400.0, hull, assumptions)
+    coefficients(::WingRig, setting) = setting
+    function coefficients(rig::WindShipOpt.RotorRig, spin_ratio)
+        lift, drag, _ = WindShipOpt.rotor_coefficients(spin_ratio)
+        return rig.lift_factor * lift, drag
+    end
+    for rig in (wings, rotors)
+        settings = WindShipOpt.trim_settings(rig)
+        limit = minimum(settings) do setting
+            lift, drag = coefficients(rig, setting)
+            return lift > 0 ? atan(drag / lift) : Inf
+        end
+        thrust(angle, setting) = rig_force(rig, env, 10.0, angle, 0.0, setting).thrust
+        @test all(thrust(angle, setting) <= 0
+                  for angle in range(0.0, limit - 1e-3; length=20), setting in settings)
+        @test any(thrust(limit + deg2rad(1), setting) > 0 for setting in settings)
+    end
+end
+
+@testset "kite pulls the ship forward only above the upwind limit of its glide ratio" begin
+    env = Environment(assumptions)
+    for area in (800.0, 3200.0)
+        rig = Ship(ShipDesign(:methanol, 140.0; kite_area=area), assumptions).rig
+        model, _, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+        limit = atan(1 / WindShipOpt.best_over_angles(/, model))
+        for apparent in deg2rad.(1.0:2.0:(rad2deg(limit) - 2)), wind in (8.0, 12.0, 20.0),
+            trim in WindShipOpt.trim_settings(rig)
+
+            @test rig_force(rig, env, wind, apparent, 0.0, trim).thrust <= 0
+        end
+        @test rig_force(rig, env, 12.0, deg2rad(40), 0.0, 1).thrust > 0
+    end
+end
+
+@testset "kite, wings and rotors push the same way across the ship" begin
+    env = Environment(assumptions)
+    hull = Hull(140.0, assumptions)
+    kite = uniform_kite(hull, assumptions)
+    wings = WingRig(800.0, hull, assumptions)
+    rotors = WindShipOpt.RotorRig(400.0, hull, assumptions)
+    for angle in deg2rad.((45, 90, 110))
+        @test rig_force(kite, env, 12.0, angle, 5.4, 1).side > 0
+        @test rig_force(wings, env, 12.0, angle, 5.4,
+            (1.0, WindShipOpt.drag_coefficient(wings, 1.0))).side > 0
+        @test rig_force(rotors, env, 12.0, angle, 5.4, 2.0).side > 0
+    end
 end
 
 @testset "combined rig force is the sum of kite and rotor forces at a fixed trim" begin
@@ -810,6 +954,21 @@ WindShipOpt.waves(seas::HeadSeas, lat, lon, time) =
     @test isnothing(route(corridor, table, storm, 0.0; time_cost=hourly))
 end
 
+@testset "a round trip at a held speed takes that speed's time and is costed as usual" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    distance = sum(corridor.track_length for corridor in corridors)
+    ship = Ship(ShipDesign(:methanol, 85.0), assumptions)
+    held = [round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
+                assumptions; held_knots=knots) for knots in (6.0, 8.0)]
+    hours = [24 * (trip.outbound_days + trip.return_days) for trip in held]
+    @test first(hours) / last(hours) ≈ 8 / 6 rtol = 0.01
+    @test last(hours) ≈ distance / (8KNOT) / 3600 rtol = 0.05
+    @test first(held).fuel_energy < last(held).fuel_energy
+    chosen = round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
+        assumptions)
+    @test chosen.cost_per_tonne_km <= minimum(trip.cost_per_tonne_km for trip in held)
+end
+
 @testset "an edge is sampled at most the asked hours apart at the commanded speed" begin
     weather, stage, centre = SyntheticWeather(), 1, centre_index(corridor)
     step = WindShipOpt.MAX_LATERAL_STEP + 1
@@ -973,6 +1132,29 @@ end
     @test !is_open()
 end
 
+@testset "a round trip at a held speed is stored apart from a chosen-speed one" begin
+    @eval PaperRuns weather_name = "synthetic"
+    PaperRuns.paper_run = PaperRuns.PaperRun(mktempdir(), :draft,
+        Dict{String, Any}("code_hash" => "held"), 0, 0)
+    case_at(held_knots) = (; design=ShipDesign(:vlsfo, 100.0), assumptions,
+        route=:caribbean, scale=8.0, horizon=Inf, held_knots)
+    @test allunique(PaperRuns.case_path(case_at(held_knots), [24.0])
+                    for held_knots in (nothing, 8.0, 9.0))
+end
+
+@testset "resuming never takes over another branch's unfinished run" begin
+    @eval PaperRuns runs_directory = mktempdir()
+    other_branch = joinpath(PaperRuns.runs_directory, "2000-01-01T0000")
+    mkpath(other_branch)
+    open(joinpath(other_branch, "run.toml"), "w") do io
+        PaperRuns.TOML.print(io, Dict("fidelity" => "draft", "finished" => "",
+            "git_branch" => "other", "code_hash" => "", "requested" => String[],
+            "steps" => Dict{String, Any}[]))
+    end
+    @test PaperRuns.open_run(:draft, [:designs], true).directory != other_branch
+    @test isempty(PaperRuns.TOML.parsefile(joinpath(other_branch, "run.toml"))["requested"])
+end
+
 @testset "a table reads its own branch's study before a newer one of another branch" begin
     function finished_run(name, branch)
         directory = joinpath(PaperRuns.runs_directory, name)
@@ -989,6 +1171,20 @@ end
     @test PaperRuns.data_file("study.csv") == own
     rm(own)
     @test PaperRuns.data_file("study.csv") == other
+end
+
+module SizeSearch
+include(joinpath(pkgdir(Main.WindShipOpt), "scripts", "size_search.jl"))
+end
+
+@testset "a size search whose best is a bound next tries the size just inside it" begin
+    step = 2^0.25
+    @test SizeSearch.next_size([(500.0, 3.0), (2828.0, 2.0), (16000.0, 1.0)], 500.0,
+        16000.0) ≈ SizeSearch.snap_area(16000 / step)
+    @test SizeSearch.next_size([(500.0, 1.0), (2828.0, 2.0), (16000.0, 3.0)], 500.0,
+        16000.0) ≈ SizeSearch.snap_area(500 * step)
+    @test SizeSearch.next_size([(13777.0, 2.0), (16000.0, 1.0)], 500.0, 16000.0) ≈
+          SizeSearch.snap_area(sqrt(13777 * 16000))
 end
 
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
@@ -1186,6 +1382,22 @@ end
     end
 end
 
+@testset "sizes swept stay within what fits and bracket the given size" begin
+    @test WindShipOpt.sizes_around("kite", 3200.0, 16000.0) ==
+          [800.0, 1600.0, 3200.0, 6400.0, 12800.0]
+    @test WindShipOpt.sizes_around("kite", 6400.0, 16000.0) ==
+          [1600.0, 3200.0, 6400.0, 12800.0, 16000.0]
+    @test WindShipOpt.sizes_around("kite", 16000.0, 16000.0) == [4000.0, 8000.0, 16000.0]
+    @test WindShipOpt.sizes_around("rotors", 800.0, 1221.0) == [400.0, 800.0, 1221.0]
+end
+
+@testset "a sweep whose goal cost differs from the size sweep is refused" begin
+    goal = Dict("kite" => 2.0, "rotors" => 1.0)
+    @test isnothing(WindShipOpt.check_goal_cost("ship", "life", goal, Dict("kite" => 2.0)))
+    @test_throws ErrorException WindShipOpt.check_goal_cost("ship", "life", goal,
+        Dict("kite" => 2.1))
+end
+
 @testset "one rigid kite crashing costs one airframe and half of one tether" begin
     fleet = rigid_fleet(3, assumptions)
     airframes = WindShipOpt.rigid_airframe_price(fleet, assumptions)
@@ -1208,4 +1420,46 @@ end
     crashes = WindShipOpt.events_to_cost(cost, target, work, crash)
     @test cost + crashes * crash / work ≈ target
     @test WindShipOpt.events_to_cost(target, cost, work, crash) == 0
+end
+
+module PaperData
+using Printf, Statistics, WindShipOpt
+assumptions = Main.assumptions
+include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
+end
+
+"path and force text `PaperData.write_pattern` writes for the base kite in `wind` at `course`"
+function written_pattern(wind, course)
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    min_elevation = deg2rad(assumptions[:kite_min_elevation])
+    paths, forces = IOBuffer(), IOBuffer()
+    PaperData.write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
+        0.0)
+    return String(take!(paths)), String(take!(forces))
+end
+
+@testset "the pattern data has rows only for conditions where a pattern flies" begin
+    @test all(isempty, written_pattern(6.0, 120))
+    paths, forces = written_pattern(12.0, 90)
+    @test !isempty(paths) && !isempty(forces) && !occursin("NaN", paths * forces)
+end
+
+@testset "a round trip's cost parts per tonne-km add up to its cost over its hours" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    tonne_km_per_tonne = PaperData.tonne_km_per_tonne(corridors...)
+    for design in (ShipDesign(:methanol, 85.0),
+        ShipDesign(:methanol, 85.0; wing_area=400.0),
+        ShipDesign(:methanol, 85.0; kite_area=400.0))
+
+        ship = Ship(design, assumptions)
+        trip = round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
+            assumptions)
+        io = IOBuffer()
+        PaperData.write_costs(io, (; design, assumptions), trip,
+            trip.cargo * tonne_km_per_tonne)
+        hours, parts... = parse.(Float64, split(chomp(String(take!(io))), ',')[2:end])
+        @test hours ≈ 24(trip.outbound_days + trip.return_days +
+                     2assumptions[:port_time_per_call]) rtol = 1e-5
+        @test sum(parts) ≈ trip.cost_per_tonne_km rtol = 1e-3
+    end
 end
