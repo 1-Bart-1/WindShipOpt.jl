@@ -877,3 +877,23 @@ end
     paths, forces = written_pattern(12.0, 90)
     @test !isempty(paths) && !isempty(forces) && !occursin("NaN", paths * forces)
 end
+
+@testset "a round trip's cost parts per tonne-km add up to its cost over its hours" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    tonne_km_per_tonne = PaperData.tonne_km_per_tonne(corridors...)
+    for design in (ShipDesign(:methanol, 85.0),
+        ShipDesign(:methanol, 85.0; wing_area=400.0),
+        ShipDesign(:methanol, 85.0; kite_area=400.0))
+
+        ship = Ship(design, assumptions)
+        trip = round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
+            assumptions)
+        io = IOBuffer()
+        PaperData.write_costs(io, (; design, assumptions), trip,
+            trip.cargo * tonne_km_per_tonne)
+        hours, parts... = parse.(Float64, split(chomp(String(take!(io))), ',')[2:end])
+        @test hours ≈ 24(trip.outbound_days + trip.return_days +
+                     2assumptions[:port_time_per_call]) rtol = 1e-5
+        @test sum(parts) ≈ trip.cost_per_tonne_km rtol = 1e-3
+    end
+end

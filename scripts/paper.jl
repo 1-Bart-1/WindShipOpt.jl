@@ -62,6 +62,7 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :components_figure => component_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
     :class_table => class_table, :fuel_table => fuel_table,
+    :split_table => split_table,
     :payback_table => payback_table, :goals_table => goals_table,
     :missed_goals_table => missed_goals_table, :crash_table => crash_table,
     :abatement => abatement_figure, :combination => combination_figure]
