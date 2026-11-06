@@ -1507,7 +1507,7 @@ function speed_size_figure()
     save(joinpath(figures, "speed_size.pdf"), figure; pt_per_unit=print_scale)
 end
 
-"`name`, a kind of kite or scenario in the rigid kite data, as the paper names it"
+"`name`, a kind of kite or scenario in the VTOL kite data, as the paper names it"
 paper_name(name) = replace(name, "rigid" => "VTOL")
 
 """
@@ -1533,7 +1533,7 @@ function rigid_scaling_figure()
         exponent = kind == "rigid" ? base_exponent : 0.0
         chosen = rows(table, "kind" => kind, "area" => area, "exponent" => exponent)
         lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
-            color=palette[k], label="$(paper_name(kind)) $(round(Int, area)) m²")
+            color=palette[k], label="$(paper_name(kind)) kite $(round(Int, area)) m²")
     end
     series = [("rigid", base_exponent, :solid), ("rigid", 3.0, :dash), ("rigid", 3.3, :dot),
         ("soft", 0.0, :solid)]
@@ -1544,11 +1544,11 @@ function rigid_scaling_figure()
         per_thrust = 1e3 .* prices ./ table["thrust"][at_twelve]
         annual_per_thrust = 1e3 .* table["annual"][at_twelve] ./ table["thrust"][at_twelve]
         label = kind == "soft" ? "soft kite" :
-                "$(paper_name(kind)), mass ∝ span^$exponent"
+                "$(paper_name(kind)) kite, mass ∝ span^$exponent"
         colour = kind == "soft" ? palette[5] : palette[1]
         lines!(price_axis, areas, per_thrust; linestyle, label, color=colour)
         lines!(annual_axis, areas, annual_per_thrust; linestyle, color=colour)
-        @printf("  %s %.1f: USD/kN a year %s\n", kind, exponent,
+        @printf("  %s %.1f: USD/kN a year %s\n", paper_name(kind), exponent,
             join(round.(Int, annual_per_thrust), ", "))
         kind == "rigid" && exponent == base_exponent && for i in eachindex(areas)
             row = at_twelve[i]
@@ -1561,20 +1561,20 @@ function rigid_scaling_figure()
     end
     for (row, axis) in enumerate((thrust_axis, price_axis))
         Legend(figure[row + 1, 1:3], axis; orientation=:horizontal, framevisible=false,
-            labelsize=8)
+            labelsize=8, colgap=8, patchsize=(16, 10))
         rowsize!(figure.layout, row + 1, Fixed(16))
     end
     save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
 end
 
-"lines of the rigid size figure with the column selecting their fleets"
+"lines of the VTOL kite size figure with the column selecting their fleets"
 rigid_size_lines = (("one wing", "count" => 1.0), ("30 m² each", "unit" => 30.0),
     ("54 m² each", "unit" => 54.0), ("100 m² each", "unit" => 100.0))
 
 """
     rigid_size_figure()
 
-Cost saving against no rig over the total area of rigid kites on each ship on VLSFO, as the
+Cost saving against no rig over the total area of VTOL kites on each ship on VLSFO, as the
 mean over the routes, one line per area of a kite and one for a single wing of any area,
 solid for the base mass law and dashed for span cubed. Prints every fleet by saving.
 """
@@ -1637,7 +1637,7 @@ function print_rigid_sizes(table, ship, scenario)
     end
 end
 
-"rigs of the rigid kite figure with their legend labels and colours"
+"rigs of the VTOL kite figure with their legend labels and colours"
 rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
     ("wings", "best wings", palette[2]),
     ("rotors", "best rotors", palette[3]), ("rigid base", "best VTOL kites", palette[4]),
@@ -1647,8 +1647,8 @@ rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
     rigid_kite_figure()
 
 Cost saving against no rig of the best size of each rig of `rigid_kite_rigs` on each ship
-and drive of the rigid kite study, as the mean over the routes with the range of the
-routes. Prints the means and the rigid fleets each scenario prefers.
+and drive of the VTOL kite study, as the mean over the routes with the range of the
+routes. Prints the means and the VTOL kite fleets each scenario prefers.
 """
 function rigid_kite_figure()
     table = read_table(data_file("rigid_kite.csv"))
@@ -1680,7 +1680,7 @@ end
     print_rigid_kite(table, ship, drive, savings)
 
 Print for one ship and drive the mean saving [%] of each rig over the routes, the routes on
-which rigid kites lead and the most frequent best fleet of each scenario.
+which VTOL kites lead and the most frequent best fleet of each scenario.
 """
 function print_rigid_kite(table, ship, drive, savings)
     @printf("  %s, %s:", ship, drive)
