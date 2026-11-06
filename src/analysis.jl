@@ -2,13 +2,19 @@
     LegTrace
 
 What happens on each stage of a routed leg: time [h], speed held [m/s], true wind angle
-[rad], rig thrust [N] and fuel power [W].
+[rad], apparent wind speed [m/s] and angle off the bow [rad] at the rig's height, rig thrust
+[N], the thrust the rig would give flown at its best trim where it can be up [N], whether a
+kite flies and fuel power [W].
 """
 struct LegTrace
     time::Vector{Float64}
     speed::Vector{Float64}
     true_wind_angle::Vector{Float64}
+    apparent_wind::Vector{Float64}
+    apparent_angle::Vector{Float64}
     rig_thrust::Vector{Float64}
+    available_thrust::Vector{Float64}
+    flying::Vector{Bool}
     fuel_power::Vector{Float64}
 end
 
@@ -25,7 +31,7 @@ cost: the [`sail_edge!`](@ref) points with the kite managed per point.
 """
 function LegTrace(table::PerformanceTable, leg::Leg, weather, departure; interval=Inf)
     route_table = RouteTable(table)
-    trace = LegTrace((Float64[] for _ in 1:5)...)
+    trace = LegTrace((Float64[] for _ in 1:7)..., Bool[], Float64[])
     for i in 1:(length(leg.path) - 1)
         lat, lon, time, _ = leg.path[i]
         next_lat, next_lon, next_time, speed, mode = leg.path[i + 1]
@@ -65,10 +71,18 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     flown = standing === ship.rig || (mode == FLYING || !isfinite(stowed_power)) &&
             isfinite(flown_power) && aloft
     force = last(best_trim(ship, flown ? ship.rig : standing, speed, wind_speed, angle))
+    available = standing === ship.rig || aloft ?
+                last(best_trim(ship, ship.rig, speed, wind_speed, angle)).thrust : 0.0
+    apparent, apparent_angle = apparent_wind(
+        wind_at_height(ship.env, wind_speed, rig_height(ship.rig)), angle, speed)
     push!(trace.time, time)
     push!(trace.speed, speed)
     push!(trace.true_wind_angle, angle)
+    push!(trace.apparent_wind, apparent)
+    push!(trace.apparent_angle, apparent_angle)
     push!(trace.rig_thrust, force.thrust)
+    push!(trace.available_thrust, available)
+    push!(trace.flying, flown && standing !== ship.rig)
     push!(trace.fuel_power, flown ? flown_power : stowed_power)
 end
 
