@@ -69,7 +69,14 @@ T_\mathrm{req} = R_\mathrm{cw} + R_\mathrm{air} + R_\mathrm{aw} + R_\beta + R_r 
 \end{equation}
 A rig setting that heels more than \SI{8}{\degree} \citep{tillig2020}, drifts more than \SI{10}{\degree} or needs a rudder lift coefficient above 1 is not used. Of the remaining settings the ship uses the one that needs the least engine output, $P_D(T_\mathrm{req})/\eta_\mathrm{tr}+P_\mathrm{rig}$, so a rotor spins faster only when its extra thrust saves more propeller power than its spin costs.
 
-A single wing or rotor and the kite's towing point stand at the hull's lateral centre $x_\mathrm{h}$, where their side force puts no yaw moment on the hull and needs no rudder, so it costs only leeway and heel. A row of several wings or rotors is spread over the deck and centred at midship, so its side force acts aft of $x_\mathrm{h}$ and the rudder carries the yaw moment that remains. The heeling moment acts at the attachment height of the kite, \SI{10}{m} above the waterline at the reference size, and at the mid height of wings and rotors.
+A single wing or rotor and the kite's towing point stand at the hull's lateral centre $x_\mathrm{h}$, where their side force puts no yaw moment on the hull and needs no rudder, so it costs only leeway and heel. A row of several wings or rotors is spread over the deck and centred at midship, so its side force acts aft of $x_\mathrm{h}$ and the rudder carries the yaw moment that remains. The heeling moment acts at the attachment height of the kite, \SI{10}{m} above the waterline at the reference size, and at the mid height of wings and rotors. \Cref{fig:force_balance} draws the balance for each rig on one ship in a beam wind.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{force_balance}
+\caption{Horizontal forces on the \SI{140}{m} ship at \SI{10.5}{kn} in a \SI{10}{m/s} true wind on the beam, seen from above with the bow up, to scale, for each rig at its best trim. The rig force acts at the kite's towing point or at the centre of the wings or rotors; the hull answers its side force at its lateral centre, and the rudder carries what yaw moment remains. The drag is the calm-water, wave and wind resistance with the drag of leeway and rudder, and the propeller gives what the rig's thrust leaves of it (\cref{eq:thrust}). The dashed line is the kite's tether.}
+\label{fig:force_balance}
+\end{figure*}
 
 \subsection{Wing sails and rotors}
 \label{sec:deck_rigs}

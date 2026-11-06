@@ -110,6 +110,19 @@ function deck_row(total_area, aspect_ratio, max_height, spacing, hull::Hull,
 end
 
 """
+    unit_positions(rig, hull, assumptions)
+
+Positions [m] forward of midship of the units of the wing or rotor `rig` on `hull`, spread
+evenly as [`deck_row`](@ref) spreads them.
+"""
+function unit_positions(rig, hull::Hull, assumptions::Assumptions)
+    rig.count == 1 && return [rig.centre_position]
+    pitch = (assumptions[:deck_length_fraction] * hull.length + 2rig.centre_position) /
+            rig.count
+    return rig.centre_position .+ ((1:rig.count) .- (rig.count + 1) / 2) .* pitch
+end
+
+"""
     WingRig(total_area, hull, assumptions; forward_reserve=0)
 
 Wing rig of `total_area` [m^2] on `hull` laid out by [`deck_row`](@ref), or `nothing`
