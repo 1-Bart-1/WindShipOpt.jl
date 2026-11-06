@@ -1,5 +1,5 @@
-# Map layers shared by the route figures: land from the land mask, wind arrows, smoothed
-# tracks and great circles.
+# Map layers shared by the route figures: land from the land mask, wind arrows, the nodes
+# of routed tracks and great circles.
 using WindShipOpt: is_land
 
 """
@@ -26,23 +26,11 @@ function draw_wind!(axis, weather, time; scale, lons=-74:4:8, lats=8:4:54)
 end
 
 """
-    smooth_track(lons, lats)
+    track_points(path)
 
-Track through the routed nodes with its corners cut three times by Chaikin's scheme, for
-display; the end points stay fixed.
+Longitude and latitude [deg] of the nodes of a routed `path`, as points.
 """
-function smooth_track(lons, lats)
-    points = Point2f.(lons, lats)
-    for _ in 1:3
-        smoothed = [first(points)]
-        for (here, ahead) in zip(points[1:(end - 1)], points[2:end])
-            push!(smoothed, 0.75here + 0.25ahead, 0.25here + 0.75ahead)
-        end
-        push!(smoothed, last(points))
-        points = smoothed
-    end
-    return points
-end
+track_points(path) = Point2f.(getindex.(path, 2), getindex.(path, 1))
 
 """
     great_circle(start, finish)

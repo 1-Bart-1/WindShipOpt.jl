@@ -30,7 +30,7 @@ function force_arrow!(axis, origin, force, label; scale, color, align=(:center, 
     arrows2d!(axis, [Point2f(origin)], [vector]; color, shaftwidth=1.3, tipwidth=6,
         tiplength=6)
     text!(axis, at_tail ? Point2f(origin) : Point2f(origin) + vector;
-        text=@sprintf("%s %.0f kN", label, hypot(force...)), align, offset, fontsize=8,
+        text=@sprintf("%s %.0f kN", label, hypot(force...)), align, offset, fontsize=pt(8),
         color)
 end
 
@@ -83,7 +83,7 @@ function force_balance_figure()
         arrows2d!(axis, [Point2f(88, -15)], [Vec2f(-25, 0)]; color=:gray50,
             shaftwidth=1.3, tipwidth=6, tiplength=6)
         text!(axis, 88, -15; text=@sprintf("true wind\n%.0f m/s", wind),
-            align=(:right, :bottom), offset=(0, 3), fontsize=8, color=:gray50)
+            align=(:right, :bottom), offset=(0, 3), fontsize=pt(8), color=:gray50)
         limits!(axis, -90, 90, stern - 62, hull.length / 2 + 25)
     end
     save(joinpath(figures, "force_balance.pdf"), figure; pt_per_unit=print_scale)
@@ -239,18 +239,18 @@ function ship_classes_figure()
             end
             text!(axis, offset[1] - hull.length / 2, y - hull.draft;
                 text=@sprintf("%.0f m²", area), align=(:left, :top), offset=(0, -1),
-                fontsize=7, color=:gray40)
+                fontsize=pt(7), color=:gray40)
         end
-        text!(axis, -0.03longest, y; text=name, align=(:right, :center), fontsize=8)
+        text!(axis, -0.03longest, y; text=name, align=(:right, :center), fontsize=pt(8))
     end
     for (column, kind) in enumerate(rig_kinds)
         text!(axis, (column - 1) * (longest + gap) + longest / 2, 10; text=kind,
-            align=(:center, :bottom), fontsize=9)
+            align=(:center, :bottom), fontsize=pt(9))
     end
     bar = Point2f(-0.25width, -last(tops) + 10)
     lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
     text!(axis, bar + Point2f(50, 0); text="100 m", align=(:center, :bottom),
-        offset=(0, 2), fontsize=8)
+        offset=(0, 2), fontsize=pt(8))
     limits!(axis, -0.3width, width, -last(tops), 40)
     save(joinpath(figures, "ship_classes.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -315,7 +315,7 @@ function small_arrow!(axis, origin, vector, label; color=:black, align=(:left, :
     arrows2d!(axis, [Point2f(origin)], [Vec2f(vector)]; color, shaftwidth=0.8,
         tipwidth=5, tiplength=5)
     text!(axis, Point2f(origin) + Vec2f(vector); text=label, align, offset=(2, 0),
-        fontsize=10, color)
+        fontsize=pt(10), color)
 end
 
 "point of the window seen looking downwind at `radius` and `roll` [rad], `y` to the left"
@@ -337,7 +337,7 @@ function draw_window!(axis)
             color=:gray70, linewidth=0.5)
         text!(axis, window_point(sind(polar), deg2rad(150));
             text=L"\vartheta = %$(polar)°", align=(:left, :bottom), offset=(1, 0),
-            fontsize=7, color=:gray50)
+            fontsize=pt(7), color=:gray50)
     end
     lines!(axis, [window_point(1, roll) for roll in range(0, π; length=90)];
         color=:black)
@@ -346,17 +346,17 @@ function draw_window!(axis)
         (1, 0), (-1, 0)]; color=(:gray50, 0.3))
     lines!(axis, Point2f[(-1.15, 0), (1.15, 0)]; color=:black, linewidth=0.6)
     text!(axis, window_point(1, deg2rad(130)); text="edge of\nthe window",
-        align=(:left, :bottom), offset=(2, 0), fontsize=8)
-    text!(axis, 0.95, lowest;
+        align=(:left, :bottom), offset=(2, 0), fontsize=pt(8))
+    text!(axis, 1.03, lowest / 2;
         text="below $(round(Int, assumptions[:kite_min_elevation]))°",
-        align=(:left, :bottom), fontsize=7, color=:gray40)
+        align=(:left, :center), fontsize=pt(7), color=:gray40)
     polar, roll = deg2rad(33), deg2rad(62)
     kite = window_point(sin(polar), roll)
     lines!(axis, [Point2f(0, 0), kite]; color=:gray50, linewidth=0.6, linestyle=:dash)
     lines!(axis, [window_point(0.22, angle) for angle in range(0, roll; length=20)];
         color=palette[3])
     text!(axis, window_point(0.26, roll / 2); text=L"\phi", align=(:right, :center),
-        fontsize=10, color=palette[3])
+        fontsize=pt(10), color=palette[3])
     outward = Vec2f(kite / hypot(kite...))
     along = Vec2f(outward[2], -outward[1])
     heading = deg2rad(65)
@@ -368,7 +368,7 @@ function draw_window!(axis)
     lines!(axis, [kite + 0.14 * (cos(angle) * outward + sin(angle) * along)
                   for angle in range(0, heading; length=12)]; color=palette[6])
     text!(axis, kite + 0.2 * (cos(heading / 2) * outward + sin(heading / 2) * along);
-        text=L"\psi", align=(:center, :center), fontsize=10, color=palette[6])
+        text=L"\psi", align=(:center, :center), fontsize=pt(10), color=palette[6])
     scatter!(axis, [kite]; color=palette[2], markersize=8)
     small_arrow!(axis, (1.5, 0.28), (-0.2, 0), L"y"; align=(:right, :bottom))
     small_arrow!(axis, (1.5, 0.28), (0, 0.2), L"z"; align=(:center, :bottom))
@@ -386,20 +386,20 @@ function draw_side_sphere!(axis)
         color=:black)
     lines!(axis, Point2f[(-0.1, 0), (1.25, 0)]; color=:black, linewidth=0.6)
     small_arrow!(axis, (0.55, -0.15), (0.45, 0), L"x"; align=(:left, :center))
-    text!(axis, 0.75, -0.18; text="apparent wind", align=(:center, :top), fontsize=8)
+    text!(axis, 0.75, -0.18; text="apparent wind", align=(:center, :top), fontsize=pt(8))
     polar = deg2rad(50)
     kite = polar_point(1, polar)
     lines!(axis, [Point2f(0, 0), kite]; color=palette[2], linewidth=1.5)
     scatter!(axis, [kite]; color=palette[2], markersize=8)
     text!(axis, kite / 2; text=L"r\,\hat{\mathbf{e}}_r", align=(:right, :bottom),
-        fontsize=10, color=palette[2])
+        fontsize=pt(10), color=palette[2])
     lines!(axis, [polar_point(0.3, angle) for angle in range(0, polar; length=20)];
         color=palette[1])
     text!(axis, polar_point(0.36, polar / 2); text=L"\vartheta", align=(:left, :center),
-        fontsize=10, color=palette[1])
+        fontsize=pt(10), color=palette[1])
     scatter!(axis, [Point2f(0, 0)]; color=:black, markersize=4)
     text!(axis, 0, 0; text="tow point", align=(:right, :bottom), offset=(-2, 2),
-        fontsize=8)
+        fontsize=pt(8))
     limits!(axis, -0.65, 1.3, -0.4, 1.1)
 end
 
@@ -420,30 +420,30 @@ function draw_course_plan!(axis)
     arrows2d!(axis, [Point2f(0, 0)], [Vec2f(0, 1.2)]; color=:black, shaftwidth=0.8,
         tipwidth=5, tiplength=5)
     text!(axis, 0, 1.2; text="apparent downwind", align=(:left, :top), offset=(3, 0),
-        fontsize=8)
+        fontsize=pt(8))
     course = deg2rad(110)
     heading = Vec2f(sin(course), cos(course))
     poly!(axis, rotated.(hull_outline(0.5, 0.09), course); color=:gray80,
         strokecolor=:black, strokewidth=0.6)
     lines!(axis, [Point2f(0, 0), Point2f(1.25heading)]; color=:black, linestyle=:dash,
         linewidth=0.6)
-    text!(axis, Point2f(1.25heading); text="course", align=(:left, :center), fontsize=8)
+    text!(axis, Point2f(1.25heading); text="course", align=(:left, :center), fontsize=pt(8))
     lines!(axis, [0.3Point2f(sin(angle), cos(angle)) for angle in range(0, course;
         length=30)]; color=palette[1])
     text!(axis, 0.36Point2f(sin(course / 2), cos(course / 2)); text=L"\chi",
-        align=(:left, :bottom), fontsize=10, color=palette[1])
+        align=(:left, :bottom), fontsize=pt(10), color=palette[1])
     force = Vec2f(0.85, 0.35)
     along = sum(force .* heading) * heading
     arrows2d!(axis, [Point2f(0, 0)], [force]; color=palette[2], shaftwidth=1.3,
         tipwidth=6, tiplength=6)
     text!(axis, Point2f(force); text=L"\overline{\mathbf{F}}", align=(:left, :bottom),
-        fontsize=10, color=palette[2])
+        fontsize=pt(10), color=palette[2])
     for (vector, label, origin) in ((along, L"F_\parallel", Point2f(0, 0)),
         (force - along, L"F_\perp", Point2f(along)))
         arrows2d!(axis, [origin], [vector]; color=palette[6], shaftwidth=0.8,
             tipwidth=5, tiplength=5)
         text!(axis, origin + vector / 2; text=label, align=(:left, :top), offset=(3, 0),
-            fontsize=10, color=palette[6])
+            fontsize=pt(10), color=palette[6])
     end
     limits!(axis, -1.1, 1.7, -0.75, 1.3)
 end
@@ -491,19 +491,20 @@ function draw_router_grid!(axis)
     lines!(axis, passage; color=palette[2], linewidth=2)
     scatter!(axis, [first(passage), last(passage)]; color=:black, markersize=6)
     text!(axis, first(passage); text="departure", align=(:right, :center),
-        offset=(-4, 0), fontsize=8)
+        offset=(-4, 0), fontsize=pt(8))
     text!(axis, last(passage); text="destination", align=(:left, :center),
-        offset=(4, 0), fontsize=8)
+        offset=(4, 0), fontsize=pt(8))
     text!(axis, from + Point2f(1, WindShipOpt.MAX_LATERAL_STEP); text=@sprintf(
         "edges to ±%d nodes,\nwhole knots from 4", WindShipOpt.MAX_LATERAL_STEP),
-        align=(:left, :bottom), offset=(3, 0), fontsize=8, color=palette[1])
+        align=(:left, :bottom), offset=(3, 0), fontsize=pt(8), color=palette[1])
     arrows2d!(axis, [Point2f(2, -5.8)], [Vec2f(6, 0)]; color=:black, shaftwidth=0.6,
         tipwidth=4, tiplength=4)
-    text!(axis, 5, -5.8; text="stage s", align=(:center, :top), offset=(0, -2), fontsize=8)
+    text!(axis, 5, -5.8; text=L"stage $s$", align=(:center, :top), offset=(0, -2),
+        fontsize=pt(8))
     arrows2d!(axis, [Point2f(1.2, 2.5)], [Vec2f(0, 3)]; color=:black, shaftwidth=0.6,
         tipwidth=4, tiplength=4)
-    text!(axis, 1.2, 4; text="node j", align=(:right, :center), offset=(-3, 0),
-        fontsize=8)
+    text!(axis, 1.2, 4; text=L"node $j$", align=(:right, :center), offset=(-3, 0),
+        fontsize=pt(8))
     limits!(axis, -4.5, 15, -6.8, 6)
 end
 
@@ -525,7 +526,7 @@ function draw_kite_states!(axis)
         end
         scatter!(axis, [Point2f(x - 0.1, y - 0.26)]; color=palette[2], markersize=4)
         text!(axis, x, y; text="kite $label", align=(:center, :bottom), offset=(0, -2),
-            fontsize=8)
+            fontsize=pt(8))
     end
     changes = ((Point2f(0.5, 1.0), Point2f(2.5, 1.0), "fly"),
         (Point2f(0.5, 0.0), Point2f(2.5, 0.0), "stay down"),
@@ -535,11 +536,11 @@ function draw_kite_states!(axis)
         arrows2d!(axis, [start], [Vec2f(stop - start)]; color=palette[1],
             shaftwidth=0.7, tipwidth=5, tiplength=5)
         text!(axis, start + 0.22 * (stop - start); text=label, align=(:center, :bottom),
-            offset=(0, 2), fontsize=8, color=palette[1])
+            offset=(0, 2), fontsize=pt(8), color=palette[1])
     end
-    text!(axis, 0, -0.45; text="stage s", align=(:center, :top), fontsize=8)
-    text!(axis, 3, -0.45; text="stage s + 1", align=(:center, :top), fontsize=8)
+    text!(axis, 0, -0.45; text=L"stage $s$", align=(:center, :top), fontsize=pt(8))
+    text!(axis, 3, -0.45; text=L"stage $s + 1$", align=(:center, :top), fontsize=pt(8))
     text!(axis, 1.5, -0.62; text=@sprintf("ticks: time bins of %.1f h", bin),
-        align=(:center, :top), fontsize=7, color=:gray40)
+        align=(:center, :top), fontsize=pt(7), color=:gray40)
     limits!(axis, -0.6, 3.6, -0.95, 1.5)
 end
