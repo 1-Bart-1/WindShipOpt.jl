@@ -542,7 +542,8 @@ function split_table()
         println(io, "Drive & Rig & [\\%] & [points] & [points] & [points] & [\\%] & ",
             "[\\%] \\\\\n\\midrule")
         for line in lines
-            cells = [shaded_cell(value, scale) for (value, scale) in zip(line.points, scales)]
+            cells = [shaded_cell(value, scale)
+                     for (value, scale) in zip(line.points, scales)]
             @printf(io, "%s & %s & %s & %.0f & %s \\\\\n", line.label, line.rig,
                 join(cells, " & "), line.shorter, shaded_cell(-line.trip, trip_scale;
                     shown=line.trip))

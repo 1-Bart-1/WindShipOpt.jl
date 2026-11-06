@@ -1278,7 +1278,8 @@ function abatement_figure()
             chosen = chosen[sortperm(table["area"][chosen])]
             saved = 100 .* (1 .- table["fuel"][chosen] ./ table["fuel"][bare])
             change = 100 .* (table["cost"][chosen] ./ table["cost"][bare] .- 1)
-            sizes = 3 .+ 1.6 .* log2.(table["area"][chosen] ./ minimum(table["area"][chosen]))
+            areas = table["area"][chosen]
+            sizes = 3 .+ 1.6 .* log2.(areas ./ minimum(areas))
             lines!(axis, saved, change; color=(palette[k], 0.6), linewidth=1)
             scatter!(axis, saved, change; color=palette[k], markersize=sizes)
             most = argmax(saved)
@@ -1568,8 +1569,8 @@ function rigid_scaling_figure()
     thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
         xlabel="apparent wind [m/s]", ylabel="thrust [kN]")
     price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
-        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="price per thrust [USD/kN]",
-        ytickformat=values -> [@sprintf("%.0f", value) for value in values])
+        xticks=[30, 300, 3000], xlabel="kite area [m²]",
+        ylabel="price per thrust [USD/kN]", ytickformat=values -> [@sprintf("%.0f", value) for value in values])
     annual_axis = Axis(figure[3, 1]; title="(c) cost a year at 12 m/s", xscale=log10,
         xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="USD/kN a year")
     wind_axis = Axis(figure[3, 2]; title="(d) lowest wind", xscale=log10,
