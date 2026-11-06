@@ -53,7 +53,7 @@ These studies also hold the kite's size fixed. CE Delft fit one \SI{400}{m^2} ki
 \centering
 \caption{Published fuel savings of ship kites at fixed speed beside our model at the same speed on the nearest of our ships and on the route to New York: with the kite priced as in the rest of this paper, and free of running cost as in the published studies. Ships, routes, weather and kite models differ, so a row compares terms and not one experiment. \tbd{Draft run.}}
 \label{tab:published}
-\resizebox{\columnwidth}{!}{\InputIfFileExists{sections/published_table}{}{\tbd{Published table pending: run the published\_table step.}}}
+\adjustbox{max width=\columnwidth}{\InputIfFileExists{sections/published_table}{}{\tbd{Published table pending: run the published\_table step.}}}
 \end{table}
 
 The speed result has limits. The router knows the weather ahead and no schedule binds it: a ship with fixed arrival times or port slots keeps the time of the ship without a rig and takes its gain as fuel (\cref{tab:speed_terms}). The gain depends on the value of time, which holds capital, crew and cargo interest (\cref{sec:cost_model}), and on the fuel price, since on VLSFO the kite ship speeds up by only \tbd{1.1}\,\%. Above the speed its engine alone could reach, a ship is sailing under its rig, and the \SI{140}{m} VLSFO ship reaches \SI{11}{kn} on its \SI{2.2}{MW}. We charge no drag for a propeller trailing at zero thrust, which flatters the fastest sailing hours, \tbd{3.7}\,\% of the kite's time above \SI{14}{kn}. The side force of the kite's cost-optimal flight is balanced at each speed, but the hull's resistance at these speeds rests on the same calibration as at service speed (\cref{sec:disc_common}).

@@ -10,7 +10,7 @@ This repository holds a ship and rig cost model, and a paper built on it: "Towin
 - Where full-scale data are missing, predict from physics and small-scale evidence, and state the scaling law and its assumptions.
 - Never use data from Beyond the Sea or its SK100 kite, and never name that kite in the paper.
 - The paper refers to no local file. The kite canopy is polyester ripstop.
-- Never run `latexmk`, `pdflatex` or any other LaTeX command. Edit `.tex` files only; Bart builds the PDF.
+- On the box, build the paper in a TeX Live container (Docker) after every change to its text, tables or figures, and look at the rendered pages you changed: a table or figure that is cut, overflowing, scaled up or hard to read is a defect. Never commit the PDF or LaTeX build files. Bart builds his own copy.
 - Prose is one paragraph per line. `\tbd{...}` marks a number or claim still to be confirmed.
 
 ## Data outside the repository

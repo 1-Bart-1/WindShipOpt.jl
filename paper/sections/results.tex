@@ -49,7 +49,7 @@ A rig that gave the same thrust at every speed would not change the best speed. 
 \centering
 \caption{Cost-optimal speed [kn] of the \SI{140}{m} ship in steady wind, median over winds of 6, 10 and \SI{14}{m/s} at 60, 90, 120 and \SI{150}{\degree}, with the reference rigs: with the rig's capital and wear left out of the cost, with its force held at its value at the speed of the ship without a rig, and the speed at which that held force alone moves the ship. \tbd{Draft run.}}
 \label{tab:speed_choice}
-\resizebox{\columnwidth}{!}{\InputIfFileExists{sections/speed_choice_table}{}{\tbd{Speed table pending: run the speed\_choice\_table step.}}}
+\adjustbox{max width=\columnwidth}{\InputIfFileExists{sections/speed_choice_table}{}{\tbd{Speed table pending: run the speed\_choice\_table step.}}}
 \end{table}
 
 \Cref{tab:speed_terms} puts the same ships on the terms other studies use. At a fixed speed, the terms of nearly all published kite work, the kite on VLSFO saves \tbd{5.9}\,\% at \SI{8}{kn}, \tbd{9.5}\,\% at \SI{9}{kn} and \tbd{19.0}\,\% at \SI{10}{kn}, because at a low speed the fuel it can save is worth little more than its wear and the router keeps it down; on e-methanol it saves \tbd{21.9}, \tbd{26.2} and \tbd{23.0}\,\%. In the time of the ship without a rig it saves far more, \tbd{35.9}\,\% on VLSFO and \tbd{44.0}\,\% on e-methanol, than the \tbd{31.0} and \tbd{37.0}\,\% it saves when cost sets the speed. The speed is bought with part of the fuel saving.
@@ -232,7 +232,7 @@ An outage shared by all rigs barely separates them: 3\,\% costs the rotors 0.47 
 \footnotesize
 \caption{Where each rig stops paying (pays no more) and falls behind the next rig at the goals (behind next) if one goal is missed and the others are met, with the kite's saving also at a canopy life of \num{2000} flight hours and at today's canopy price: the \SI{140}{m} e-methanol ship to Guadeloupe, the Kamsarmax bulk carrier on VLSFO to Tubar\~ao and the Neo-Panamax container ship on e-methanol to New York, with rig sizes held from the class study: kite \SIlist{3200;2828;6889}{m^2}, wings \SIlist{1500;1616;4883}{m^2} and rotors \SIlist{800;1218;2441}{m^2} in that order. Out of service counts a unit's round trips, last with all units failing together. Dashes: canopy life and price apply to the kite, the last rig has no next, and some limits lie outside the \numrange{500}{16000} flight hours, the prices or the shares swept.}
 \label{tab:missed_goals}
-\resizebox{\textwidth}{!}{\InputIfFileExists{sections/missed_goals_table}{}{\tbd{Missed-goal table pending: run the missed\_goals\_table step.}}}
+\adjustbox{max width=\textwidth}{\InputIfFileExists{sections/missed_goals_table}{}{\tbd{Missed-goal table pending: run the missed\_goals\_table step.}}}
 \end{table*}
 
 \subsection{Crashes a rig can take}
