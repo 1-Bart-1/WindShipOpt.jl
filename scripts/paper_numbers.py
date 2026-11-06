@@ -1,6 +1,6 @@
-"""Print the numbers of the design, route, class, forecast, screening and component studies,
-from the CSV files of the latest finished run paper.jl made in output/runs/. Run:
-python3 -I scripts/paper_numbers.py [section ...], with the section names of SECTIONS; all
+"""Print the numbers of the design, route, class, forecast, base kite, screening and
+component studies, from the CSV files of the latest finished run paper.jl made in
+output/runs/. Run: python3 -I scripts/paper_numbers.py [section ...], with the section names of SECTIONS; all
 sections without one."""
 import csv
 import os
@@ -258,8 +258,29 @@ def other_summaries():
                           f"{saving(float(r['cost']), bare[0]) - reference:+.2f} pt")
 
 
+def base_kite_summary():
+    """Fuel and cost saving of each base kite variant, and the spread of the noise cases."""
+    print("== base kite: fuel and cost saving against the ship without a rig")
+    rows = table("base_kite.csv")
+    bare = {r["ship"]: r for r in rows if r["variant"] == "bare"}
+    savings = defaultdict(list)
+    for r in rows:
+        if r["variant"] == "bare":
+            continue
+        fuel = saving(float(r["fuel"]), float(bare[r["ship"]]["fuel"]))
+        cost = saving(float(r["cost"]), float(bare[r["ship"]]["cost"]))
+        print(f"{r['ship']:28s} {r['variant']:36s} fuel {fuel:6.2f}% cost {cost:6.2f}%")
+        if r["variant"] == "base" or r["variant"].startswith("noise_"):
+            savings[r["ship"]].append((fuel, cost))
+    for ship, values in savings.items():
+        fuel, cost = zip(*values)
+        print(f"{ship:28s} noise spread: fuel {max(fuel) - min(fuel):.2f} "
+              f"cost {max(cost) - min(cost):.2f} points")
+
+
 SECTIONS = {"designs": designs_summary, "routes": routes_summary,
             "classes": classes_summary, "winners": winners_summary,
-            "sizes": sizes_summary, "forecast": forecast_summary, "other": other_summaries}
+            "sizes": sizes_summary, "forecast": forecast_summary, "base_kite": base_kite_summary,
+            "other": other_summaries}
 for section in sys.argv[1:] or SECTIONS:
     SECTIONS[section]()
