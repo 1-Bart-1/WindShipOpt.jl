@@ -275,7 +275,7 @@ end
     crash_limit_rows()
 
 The [`size_limits`](@ref) on each ship of goal_sizes.csv, best rig first at the goals: the
-the kite at every size swept and each other rig at its cheapest size.
+kite at every size swept and each other rig at its cheapest size.
 """
 function crash_limit_rows()
     table = read_table(data_file("goal_sizes.csv"))
