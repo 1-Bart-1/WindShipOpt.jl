@@ -8,7 +8,7 @@ This repository holds a ship and rig cost model, and a paper built on it: "Towin
 - Every input comes from real, sourced data. Cite only papers read in full. Never base a number on a search snippet or an abstract.
 - If a source can't be fetched, retry outside any sandbox, then ask Bart on the thread with its title and DOI. Bart has institutional access.
 - Where full-scale data are missing, predict from physics and small-scale evidence, and state the scaling law and its assumptions.
-- Never use data from Beyond the Sea or its SK100 kite, and never name that kite in the paper.
+- Use data from Beyond the Sea or its SK100 kite, or name that kite in the paper, only with Beyond the Sea's consent given through Bart; with it, cite the data as provided by Beyond the Sea. Their published papers may always be cited.
 - The paper refers to no local file. The kite canopy is polyester ripstop.
 - On the box, build the paper in a TeX Live container (Docker) after every change to its text, tables or figures, and look at the rendered pages you changed: a table or figure that is cut, overflowing, scaled up or hard to read is a defect. Never commit the PDF or LaTeX build files. Bart builds his own copy.
 - Prose is one paragraph per line. `\tbd{...}` marks a number or claim still to be confirmed.
