@@ -152,7 +152,7 @@ function goal_rows()
             "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements; " *
             "small kites expected 100 to \\num{1000} h"),
         ("Canopy price", "kite", price, today),
-        ("Rig life", "rigid kite", years(:rigid_lifetime),
+        ("Rig life", "VTOL kite", years(:rigid_lifetime),
             "M600 flew 22 h of crosswind in all \\citep{echeverri2020part1}"),
         ("Rig life", "wings", years(:wing_lifetime),
             "stated design life; about 2 years on record"),
@@ -165,7 +165,7 @@ function goal_rows()
                 "flights, three of them in hover or landing \\citep{echeverri2020part1}")),
         ("Unit lost", "wings, rotors", "none", "none reported, and no duty to report one"),
         ("Lost per launch and landing", "kites", loss,
-            "our estimates: 0.25\\,\\% kite, 0.05\\,\\% rigid kite; no record for a ship"),
+            "our estimates: 0.25\\,\\% kite, 0.05\\,\\% VTOL kite; no record for a ship"),
         ("Launch and landing crew", "kites", crew, "our estimate")]
 end
 
@@ -297,7 +297,7 @@ function crash_limit_rows()
             limits = [size_limits(table, row, bare, rival, rival_cost) for row in swept]
             sizes = [@sprintf("%.0f m²: %.1f %%, %s/year", limit.area, limit.saving,
                          crash_cell(first(limit.crashes))) for limit in limits]
-            println(ship, ", ", rig, " by size: ", join(sizes, "; "))
+            println(ship, ", ", paper_name(rig), " by size: ", join(sizes, "; "))
         end
     end
     return result
@@ -354,12 +354,12 @@ function missed_goals_table()
             shown = [row.life...; row.price...; 100 .* row.share...]
             limits = [shaded_cell(margin[k], margin_scales[k]; shown=shown[k],
                           format="%.0f") for k in 1:6]
-            cells = [short_ship(row.ship); row.rig; @sprintf("%.0f", row.area);
-                     shaded_cell(row.saving, saving_scale); row.rival;
+            cells = [short_ship(row.ship); paper_name(row.rig); @sprintf("%.0f", row.area);
+                     shaded_cell(row.saving, saving_scale); paper_name(row.rival);
                      shaded_cell(row.lead, lead_scale; format="%+.1f"); limits]
             println(io, join(cells, " & "), " \\\\")
             @printf("%s, %s: %.1f %% at 2,000 h, %.1f %% at today's price, ", row.ship,
-                row.rig, row.saving_short, row.saving_today)
+                paper_name(row.rig), row.saving_short, row.saving_today)
             @printf("outages cost %.2f points, passes the next up at %s h, USD %s, ",
                 row.service_points, dash_cell(row.passes, "%.0f"),
                 dash_cell(row.passes_price, "%.0f"))
@@ -385,9 +385,9 @@ function missed_goals_table()
             crashes = [shaded_cell(sqrt(row.crashes[k]), sqrt(crash_scales[k]);
                            shown=row.crashes[k], format="%.2g") for k in 1:2]
             @printf(io, "%s & %s & %.0f & %s & %s & %.0f & %s & %s & %s \\\\\n",
-                short_ship(row.ship), row.rig, row.area,
-                shaded_cell(row.saving, saving_scale), row.rival, row.crash / 1e3,
-                crashes..., flight)
+                short_ship(row.ship), paper_name(row.rig), row.area,
+                shaded_cell(row.saving, saving_scale), paper_name(row.rival),
+                row.crash / 1e3, crashes..., flight)
         end
         println(io, "\\bottomrule\n\\end{tabular}}")
     end

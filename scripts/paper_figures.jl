@@ -1578,10 +1578,13 @@ function speed_size_figure()
     save(joinpath(figures, "speed_size.pdf"), figure; pt_per_unit=print_scale)
 end
 
+"`name`, a kind of kite or scenario in the rigid kite data, as the paper names it"
+paper_name(name) = replace(name, "rigid" => "VTOL")
+
 """
     rigid_scaling_figure()
 
-Beam thrust of rigid kites and a soft kite over apparent wind, and price and annual cost per
+Beam thrust of VTOL kites and a soft kite over apparent wind, and price and annual cost per
 unit of thrust at 12 m/s over area for the mass exponents of the scaling study. Prints the
 scaling table.
 """
@@ -1605,7 +1608,7 @@ function rigid_scaling_figure()
         exponent = kind == "rigid" ? base_exponent : 0.0
         chosen = rows(table, "kind" => kind, "area" => area, "exponent" => exponent)
         lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
-            color=palette[k], label="$kind $(round(Int, area)) m²")
+            color=palette[k], label="$(paper_name(kind)) $(round(Int, area)) m²")
     end
     series = [("rigid", base_exponent, :solid), ("rigid", 3.0, :dash), ("rigid", 3.3, :dot),
         ("soft", 0.0, :solid)]
@@ -1615,7 +1618,8 @@ function rigid_scaling_figure()
         areas, prices = table["area"][at_twelve], table["price"][at_twelve]
         per_thrust = 1e3 .* prices ./ table["thrust"][at_twelve]
         annual_per_thrust = 1e3 .* table["annual"][at_twelve] ./ table["thrust"][at_twelve]
-        label = kind == "soft" ? "soft kite" : L"rigid, $\kappa = %$(exponent)$"
+        label = kind == "soft" ? "soft kite" :
+                L"%$(paper_name(kind)), $\kappa = %$(exponent)$"
         colour = kind == "soft" ? palette[5] : palette[1]
         lines!(price_axis, areas, per_thrust; linestyle, label, color=colour)
         lines!(annual_axis, areas, annual_per_thrust; linestyle, color=colour)
@@ -1704,7 +1708,7 @@ Print the mean saving [%] over the routes on VLSFO of every fleet of `scenario` 
 best first.
 """
 function print_rigid_sizes(table, ship, scenario)
-    println("  $ship, $scenario:")
+    println("  $ship, $(paper_name(scenario)):")
     fleets = fleet_savings(table, ship, scenario, "rig" => scenario)
     for (_, saving, count, unit) in sort(fleets; by=point -> -point[2])
         @printf("    %.0f x %.0f m²: %.2f %%\n", count, unit, saving)
@@ -1714,8 +1718,8 @@ end
 "rigs of the rigid kite figure with their legend labels and colours"
 rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
     ("wings", "best wings", palette[2]),
-    ("rotors", "best rotors", palette[3]), ("rigid base", "best rigid kites", palette[4]),
-    ("rigid optimistic", "best rigid kites, favourable inputs", palette[5]))
+    ("rotors", "best rotors", palette[3]), ("rigid base", "best VTOL kites", palette[4]),
+    ("rigid optimistic", "best VTOL kites, favourable inputs", palette[5]))
 
 """
     rigid_kite_figure()
@@ -1759,7 +1763,8 @@ which rigid kites lead and the most frequent best fleet of each scenario.
 function print_rigid_kite(table, ship, drive, savings)
     @printf("  %s, %s:", ship, drive)
     for (rig, _, _) in rigid_kite_rigs
-        @printf(" %s %.1f (%.1f to %.1f) %%,", rig, mean(saving[rig] for saving in savings),
+        @printf(" %s %.1f (%.1f to %.1f) %%,", paper_name(rig),
+            mean(saving[rig] for saving in savings),
             extrema(saving[rig] for saving in savings)...)
     end
     println()
@@ -1772,8 +1777,8 @@ function print_rigid_kite(table, ship, drive, savings)
         end
         leads = count(saving -> saving[scenario] > maximum(saving[rig]
                 for rig in ("kite", "wings", "rotors")), savings)
-        println("    $scenario: best fleets ", join(best, ", "), "; leads on ", leads,
-            " of ", length(route_names), " routes")
+        println("    $(paper_name(scenario)): best fleets ", join(best, ", "),
+            "; leads on ", leads, " of ", length(route_names), " routes")
     end
 end
 
@@ -1968,8 +1973,8 @@ function rigid_mass_figure()
     scatter!(axis, [anchor_area], [anchor_mass]; color=:black, marker=:diamond,
         markersize=8, label="MX2 design")
     with_rotors = published["rotors"] .== "true"
-    for (chosen, color, label) in ((with_rotors, palette[1], "with rotors"),
-        (.!with_rotors, palette[2], "without rotors"))
+    for (chosen, color, label) in ((with_rotors, palette[1], "with propellers"),
+        (.!with_rotors, palette[2], "without propellers"))
         rangebars!(axis, published["area"][chosen], published["mass_low"][chosen],
             published["mass_high"][chosen]; color)
         scatter!(axis, published["area"][chosen], (published["mass_low"][chosen] .+
