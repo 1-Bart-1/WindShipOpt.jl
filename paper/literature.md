@@ -114,13 +114,29 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 
 **erhard2015** — Erhard, M., Strauch, H. (2015). Flight control of tethered kites in autonomous pumping cycles for airborne wind energy. _Control Engineering Practice_ 40, 13–26. DOI 10.1016/j.conengprac.2015.03.001. Figure-of-eight ("eight-down") direction control transferred from the ship kite.
 
-**fritz2013** — Fritz, F. (2013). Application of an automated kite system for ship propulsion and power generation. In _Airborne Wind Energy_, Springer, 359–372. DOI 10.1007/978-3-642-39965-7_20. SkySails system description by the company.
+**fritz2013** — Fritz, F. (2013). Application of an automated kite system for ship propulsion and power generation. In _Airborne Wind Energy_, Springer, 359–372. DOI 10.1007/978-3-642-39965-7_20. SkySails system by the company, read in full: 320 kN design load, up to 190 kN thrust, 2,000 kW; launch and landing sequence with telescopic mast, reefing lines and winch heave compensation.
 
-**dunker2013** — Dunker, S. (2013). Ram-air wing design considerations for airborne wind energy. In _Airborne Wind Energy_, Springer, 517–546. DOI 10.1007/978-3-642-39965-7_31. Ram-air construction from a parachute maker: cell width, seams, and the size limit of a subassembly.
-
-**paulig2013** — Paulig, X., Bungart, M., Specht, B. (2013). Conceptual design of textile kites considering overall system performance. In _Airborne Wind Energy_, Springer, 547–562. DOI 10.1007/978-3-642-39965-7_32. SkySails kite design trade-offs (area, aspect ratio, wing loading).
+**paulig2013** — Paulig, X., Bungart, M., Specht, B. (2013). Conceptual design of textile kites considering overall system performance. In _Airborne Wind Energy_, Springer, 547–562. DOI 10.1007/978-3-642-39965-7_32. SkySails kite design trade-offs, read in full: areas are flat; 225 m^2, 160 kN, 120 kg with lines, 100 g/m^2 fabric, projected aspect ratio below 2, glide ratio 4-5; 320 m^2, 250 kg, 70 kg pod, 0.9 kg/m tether, 360 m; launch at 5 m/s, 10 m/s in rough sea; no freezing conditions.
 
 **ahrens2013**, **schmehl2018** — the two Springer _Airborne Wind Energy_ volumes (DOIs 10.1007/978-3-642-39965-7 and 10.1007/978-981-10-1947-0). Context for kite aerodynamics and the VSM line of work (cayon2023 in refs).
+
+**bosman2013** — Bosman, R., Reid, V., Vlasblom, M., Smeets, P. (2013). Airborne wind energy tethers with high-modulus polyethylene fibers. In _Airborne Wind Energy_, Springer, 563–585. DOI 10.1007/978-3-642-39965-7_33. DSM's design method: design factor 3, nominal and worked-in diameter, breaking load and mass by size, creep and bending life.
+
+**humeau2018** — Humeau, C., Davies, P., Smeets, P., Engels, T. A. P., Govaert, L. E., Vlasblom, M., Jacquemin, F. (2018). Tension fatigue failure prediction for HMPE fibre ropes. _Polymer Testing_ 65, 497–504. DOI 10.1016/j.polymertesting.2017.12.014. Tension fatigue of HMPE rope is creep: life follows from yarn creep with a power law in stress, exponent 4.43 for SK78, and an activation energy of 112 kJ/mol. Sets the law of the creep life behind `tether_lifetime`.
+
+**dsm_sk78_mooring** — DSM Dyneema (2019). Selecting the right fiber for mooring lines: Dyneema SK78. White paper. Creep life of SK78 mooring rope: 8 years at 20 % of break load and 20 °C, and 632 days at an equivalent 336 MPa and 30 °C. Anchors the creep law behind `tether_lifetime`.
+
+**wilhelmsen2022** — Wilhelmsen Ships Service (2022). Mooring ropes retirement guidelines: Acera daGama. 12-strand HMPE mooring rope designed for 8,000 mooring hours to 75 % of ship design break load, at the OCIMF MEG4 operating range of up to 22 %; retired by wear and inspection. The nearest service record for `tether_lifetime`.
+
+**vanhagen2023** (refs) — van Hagen, L., Petrick, K., Wilhelm, S., Schmehl, R. (2023). Life-cycle assessment of a multi-megawatt airborne wind energy system. _Energies_ 16(4), 1750. DOI 10.3390/en16041750. Ampyx Power 5 MW design: a 900 m fixed tether section of 5 cm and a 300 m drum section of 7.4 cm at 312 MPa on the fibre. The fixed section's 7-year life is a replacement assumption of the study's spreadsheet with no stated basis; the paper gives no flight hours.
+
+**dunker2013** — Dunker, S. (2013). Ram-air wing design considerations for airborne wind energy. In _Airborne Wind Energy_, Springer, 517–546. DOI 10.1007/978-3-642-39965-7_31. Ram-air construction from a parachute maker, read in full: cell width, seams and the size limit of a subassembly; glide ratio about the aspect ratio, line rigging, ram-air wings built up to 1,040 m^2, life from degradation factors.
+
+**maass2013** — Maaß, J., Erhard, M. (2013). Software system architecture for control of tethered kites. In _Airborne Wind Energy_, Springer, 599–609. DOI 10.1007/978-3-642-39965-7_35. SkySails ship system: power and data through the rope at 120 V, one operator, second winch for landing and reefing.
+
+**vandervlugt2013** — van der Vlugt, R., Peschel, J., Schmehl, R. (2013). Design and experimental characterization of a pumping kite power system. In _Airborne Wind Energy_, Springer, 403–425. DOI 10.1007/978-3-642-39965-7_23. 25 m^2 tube kite: expected life about 1,000 h, measured glide ratio 5.
+
+**bormann2013** — Bormann, A., Ranneberg, M., Kövesdi, P., Gebhardt, C., Skutnik, S. (2013). Development of a three-line ground-actuated airborne wind energy converter. In _Airborne Wind Energy_, Springer, 427–436. DOI 10.1007/978-3-642-39965-7_24. 15-21 m^2 ram-air wings: expected full-load life not much above 100 h.
 
 **leloup2016** — Leloup, R., Roncin, K., Behrel, M., Bles, G., Leroux, J.-B., Jochum, C., Parlier, Y. (2016). A continuous and analytical modeling for kites as auxiliary propulsion devoted to merchant ships, including fuel saving estimation. _Renewable Energy_ 86, 483–496. DOI 10.1016/j.renene.2015.08.036. Analytical zero-mass kite with given lift and drag, flight path over the wind window, performance prediction program for merchant ships; best gains upwind. The group's earlier conference paper gives about 10 % fuel saving at Beaufort 5 and over 50 % at Beaufort 7 for a 320 m² kite on a tanker (from the abstract only; tanker size differs between sources). Relevance: the main analytical kite model for ships; it takes the aerodynamic coefficients as inputs, whereas we derive them from geometry with the VSM.
 
