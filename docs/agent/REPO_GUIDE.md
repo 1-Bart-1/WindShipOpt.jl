@@ -20,7 +20,7 @@ This repository holds a ship and rig cost model, and a paper built on it: "Towin
 - `era5/`: the weather. Link it into the worktree with `ln -s /var/lib/windship/era5 era5`.
 - `output/`: shared results. Link it with `ln -s /var/lib/windship/output output`, so runs survive a worktree and later tasks can read them.
 - `literature_pdfs/`: sources and their extracted text, read-only by convention. Link it with `ln -s /var/lib/windship/literature_pdfs paper/literature_pdfs`. `paper/sources.csv` is the one record of what is held and read; `scripts/check_sources.py` fails on a cited source not read in full, or a held file whose hash changed.
-- `gate/`: reference results and scratch scripts of the router accuracy gate.
+- `gate/`: reference results and scratch scripts of the router accuracy gate. `scripts/router_gate.jl` reruns the gate and resumes from the cases a stopped run finished; `gate/fine_3h_1.5h/` is the reference at the current router settings.
 - `laptop_output/`: earlier laptop results. They come from older router code, so use them only to compare trends, never as paper numbers.
 
 ## Running

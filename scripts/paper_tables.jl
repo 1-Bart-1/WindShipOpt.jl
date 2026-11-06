@@ -132,7 +132,7 @@ years(name) = @sprintf("%.0f years", assumptions[name])
     goal_rows()
 
 The goals behind the results as (goal, rigs, value, what is known today), each value read
-from the input that holds it, but for the rigid kite's life, which no input holds.
+from the input that holds it.
 """
 function goal_rows()
     canopy = @sprintf("\\num{%.0f} h at %.0f g/m\$^2\$", assumptions[:canopy_life],
@@ -140,8 +140,10 @@ function goal_rows()
     service = @sprintf("%.0f\\,\\%%",
         100only(unique(assumptions[Symbol(out_of_service_inputs[rig])]
                        for rig in rig_names)))
-    loss = @sprintf("1 in \\num{%.0f}", 1 / (assumptions[:kite_cycle_damage_probability] +
-                                              assumptions[:kite_cycle_loss_probability]))
+    kite_loss = assumptions[:kite_cycle_damage_probability] +
+                assumptions[:kite_cycle_loss_probability]
+    loss = @sprintf("1 in \\num{%.0f}", 1 / only(unique((kite_loss,
+        assumptions[:rigid_cycle_loss_probability]))))
     crew = @sprintf("USD~%.0f per cycle", assumptions[:kite_cycle_crew_cost])
     price = @sprintf("USD~%.0f/m\$^2\$", WindShipOpt.canopy_price(assumptions))
     today = @sprintf("our estimate USD~%.0f/m\$^2\$, from retail cloth and hand sewing",
@@ -149,7 +151,7 @@ function goal_rows()
     return [("Canopy life", "kite", canopy,
             "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements"),
         ("Canopy price", "kite", price, today),
-        ("Rig life", "rigid kite", "15 years",
+        ("Rig life", "rigid kite", years(:rigid_lifetime),
             "M600 flew 22 h of crosswind in all \\citep{echeverri2020part1}"),
         ("Rig life", "wings", years(:wing_lifetime),
             "stated design life; about 2 years on record"),
@@ -275,17 +277,17 @@ end
     crash_limit_rows()
 
 The [`size_limits`](@ref) on each ship of goal_sizes.csv, best rig first at the goals: the
-kite at every size swept and each other rig at its cheapest size.
+[`kite_rigs`](@ref) at every size swept and each other rig at its cheapest size.
 """
 function crash_limit_rows()
     table = read_table(data_file("goal_sizes.csv"))
     result = []
     for ship in unique(table["ship"])
         bare = only(table["cost"][rows(table, "ship" => ship, "rig" => "none")])
-        cheapest = Dict(rig => cheapest_size(table, ship, rig) for rig in rig_names)
-        goal = Dict(rig => table["cost"][cheapest[rig]] for rig in rig_names)
+        cheapest = Dict(rig => cheapest_size(table, ship, rig) for rig in goal_size_rigs)
+        goal = Dict(rig => table["cost"][cheapest[rig]] for rig in goal_size_rigs)
         for (; rig, next) in WindShipOpt.ranked_neighbours(goal)
-            swept = rig == "kite" ? rows(table, "ship" => ship, "rig" => rig) :
+            swept = rig in kite_rigs ? rows(table, "ship" => ship, "rig" => rig) :
                     [cheapest[rig]]
             append!(result, [size_limits(table, row, bare, next) for row in swept])
         end
@@ -329,7 +331,7 @@ function missed_goals_table()
         end
         println(io, "\\bottomrule\n\\end{tabular}}\n\n\\bigskip")
         println(io, "\\textbf{(b)} Crashes a year, each rig at its cheapest size and the ",
-            "kite at each size swept\\par\\smallskip")
+            "kites at each size swept\\par\\smallskip")
         println(io, "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule")
         println(io, " & & & & & \\multicolumn{2}{c}{Crashes a year} & Flight \\\\")
         println(io, "\\cmidrule(lr){6-7}")
@@ -337,7 +339,7 @@ function missed_goals_table()
             "One [kUSD] & pays no more & behind next & [h/year] \\\\")
         println(io, "\\midrule")
         for row in crash_limit_rows()
-            flight = row.rig == "kite" ? @sprintf("%.0f", row.flight_hours) : "--"
+            flight = row.rig in kite_rigs ? @sprintf("%.0f", row.flight_hours) : "--"
             @printf(io, "%s & %s & %.0f & %.1f & %.0f & %s & %s & %s \\\\\n",
                 short_ship(row.ship), row.rig, row.area, row.saving, row.crash / 1e3,
                 crash_cell.(row.crashes)..., flight)
