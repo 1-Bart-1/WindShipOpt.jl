@@ -1736,3 +1736,78 @@ function min_wind_figure()
         labelsize=9, patchsize=(12, 8), colgap=6)
     save(joinpath(figures, "min_wind.pdf"), figure; pt_per_unit=print_scale)
 end
+
+"""
+    missed_goals_figure()
+
+Cost saving of each rig against the canopy life, the canopy price and the share out of
+service, for each screened ship with its rig sizes held: the kite's saving over the swept
+canopy inputs, the other rigs' at their goals, and every rig's over its share out of
+service. Each goal is a vertical line over the shaded range of its input; today's canopy
+price is dotted.
+"""
+function missed_goals_figure()
+    service = read_table(data_file("availability.csv"))
+    lives = read_table(data_file("canopy_life.csv"))
+    prices = read_table(data_file("canopy_price.csv"))
+    ships = unique(service["ship"])
+    sweeps = ((lives, "life"), (prices, "price"))
+    figure = Figure(size=(page_width, 410))
+    for (column, ship) in enumerate(ships)
+        bare = only(share_costs(service, ship, "none")[2])
+        curves = Dict(rig => share_costs(service, ship, rig) for rig in rig_names)
+        goal = Dict(rig => percent_saving(curve_cost(curves[rig],
+                assumptions[Symbol(out_of_service_inputs[rig])]), bare)
+                    for rig in rig_names)
+        axes = [Axis(figure[row, column]; xlabel, ylabel=column == 1 ? "saving [%]" : "",
+                    title=row == 1 ? ship : "", xscale=row == 1 ? log10 : identity,
+                    xticks=row == 1 ? ([500, 2000, 8000], ["500", "2000", "8000"]) :
+                           Makie.automatic)
+                for (row, xlabel) in enumerate(("canopy life [h]",
+                    "canopy price [USD/m²]", "out of service [%]"))]
+        for (axis, (table, input)) in zip(axes, sweeps)
+            picked = rows(table, "ship" => ship)
+            order = sortperm(table[input][picked])
+            values = table[input][picked][order]
+            for (k, rig) in enumerate(rig_names)
+                rig == "kite" && continue
+                hlines!(axis, goal[rig]; color=palette[k], linestyle=:dash, linewidth=1)
+            end
+            scatterlines!(axis, values, percent_saving.(table["cost"][picked][order], bare);
+                color=palette[1], markersize=4)
+        end
+        goal_marks!(axes[1], assumptions.entries[:canopy_life])
+        price = WindShipOpt.canopy_price(assumptions)
+        vlines!(axes[2], price; color=:black, linewidth=0.75)
+        vlines!(axes[2], WindShipOpt.canopy_price_today(assumptions); color=:black,
+            linewidth=0.75, linestyle=:dot)
+        for (k, rig) in enumerate(rig_names)
+            shares, costs = curves[rig]
+            scatterlines!(axes[3], 100shares, percent_saving.(costs, bare);
+                color=palette[k], markersize=4, label=rig)
+            input = assumptions.entries[Symbol(out_of_service_inputs[rig])]
+            vlines!(axes[3], 100input.value; color=palette[k], linewidth=0.75)
+        end
+        for axis in axes
+            hlines!(axis, 0; color=:gray60, linewidth=0.5)
+        end
+    end
+    entries = [[LineElement(color=palette[k]) for k in eachindex(rig_names)];
+        LineElement(color=:black, linewidth=0.75);
+        LineElement(color=:black, linewidth=0.75, linestyle=:dot);
+        PolyElement(color=(:gray50, 0.15))]
+    Legend(figure[4, 1:3], entries, [collect(rig_names); "goal"; "today"; "range"];
+        orientation=:horizontal, framevisible=false, labelsize=9, padding=0)
+    save(joinpath(figures, "missed_goals.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    goal_marks!(axis, input)
+
+The goal `input` of the assumptions as a vertical line over the shaded range between its
+low and high bounds.
+"""
+function goal_marks!(axis, input)
+    vspan!(axis, input.low, input.high; color=(:gray50, 0.15))
+    vlines!(axis, input.value; color=:black, linewidth=0.75)
+end
