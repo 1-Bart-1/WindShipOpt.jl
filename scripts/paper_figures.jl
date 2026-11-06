@@ -1570,7 +1570,8 @@ function rigid_scaling_figure()
         xlabel="apparent wind [m/s]", ylabel="thrust [kN]")
     price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
         xticks=[30, 300, 3000], xlabel="kite area [m²]",
-        ylabel="price per thrust [USD/kN]", ytickformat=values -> [@sprintf("%.0f", value) for value in values])
+        ylabel="price per thrust [USD/kN]",
+        ytickformat=values -> [@sprintf("%.0f", value) for value in values])
     annual_axis = Axis(figure[3, 1]; title="(c) cost a year at 12 m/s", xscale=log10,
         xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="USD/kN a year")
     wind_axis = Axis(figure[3, 2]; title="(d) lowest wind", xscale=log10,
