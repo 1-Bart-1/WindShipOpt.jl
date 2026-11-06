@@ -501,7 +501,241 @@ rotor_mass_per_area:
   unit: t/m^2
   reason: "Eco Flettner 18x3 m weighs 34 t with a typical foundation (Interreg WASP, Annika Braren); a Norsepower 30x5 m is ~42 t without foundation (EMSA 2023)."
 
-# --- kite ---
+# --- rigid VTOL kite ---
+rigid_unit_area:
+  value: 54.0
+  low: 30.0
+  high: 100.0
+  unit: m^2
+  reason: "Wing area of one kite: the MX2 design of Makani (Echeverri et al. 2020, Part I, Table 2) and the bottom of the price per thrust of the scaling study (data/rigid_kite_notes.md)."
+rigid_aspect_ratio:
+  value: 12.5
+  low: 12.5
+  high: 12.5
+  unit: "-"
+  reason: "MX2 design: 26 m span on 54 m^2 (Echeverri et al. 2020, Part I, Table 2)."
+rigid_reference_mass:
+  value: 1852.0
+  low: 1852.0
+  high: 2600.0
+  unit: kg
+  reason: "Mass of the MX2 design with its rotors, without tether (Echeverri et al. 2020, Part I, Table 2). The high bound adds the 40 % overrun that M600 showed over its mid-design targets (Part I, p.265)."
+rigid_reference_area:
+  value: 54.0
+  low: 54.0
+  high: 54.0
+  unit: m^2
+  reason: "Wing area of the MX2 design that the mass law is anchored on."
+rigid_mass_exponent:
+  value: 2.75
+  low: 2.2
+  high: 3.3
+  unit: "-"
+  reason: "Exponent of mass on span at fixed aspect ratio. From Wing 7, the 60 kg wing of 8 m and 3.96 m^2 that flew (Vander Lind 2013, Fig. 28.7), to the MX2 anchor it is 2.63 by area and 2.91 by span, which differ by the aspect ratios of 16 and 12.5, and 2.75 lies between; to the built M600 it is 2.87-3.18 (data/rigid_kite_notes.md). Designs without rotors give less: about 2.57 for Eijkelhof et al. (2020) and 2.2-2.6 published, the low bound. Sommerfeld et al. (2022) sweep up to 3.3 as an assumption, the high bound. Few wings and none large, so this is an estimate and not a fit."
+
+rigid_max_force_per_area:
+  value: 5.56
+  low: 4.6
+  high: 7.3
+  unit: kN/m^2
+  reason: "MX2 design 250-300 kN on 54 m^2, the top of that here; M600 240 kN on 32.9 m^2 is the high bound (Echeverri et al. 2020, Part I, Table 1)."
+rigid_max_lift:
+  value: 2.0
+  low: 1.8
+  high: 2.2
+  unit: "-"
+  reason: "Highest lift coefficient of the MX2 wing, reproducing its static lift speed of 16.7 m/s (Joshi et al. 2024, Table 1); it flies at CL 1.81 at best performance (Echeverri et al. 2020, Part I, Table 1). Wing 7 is specified at CL 2 (Vander Lind 2013, Fig. 28.7)."
+rigid_profile_drag:
+  value: 0.03
+  low: 0.02
+  high: 0.054
+  unit: "-"
+  reason: "Brings the kite to the CD 0.123 of the MX2 design at CL 1.81 (Echeverri et al. 2020, Part I, Table 1) with span efficiency 0.9. High bound: M600's parasitic offset of 0.075 from a flight glide, scaled by area to 0.046 on MX2, with the 0.022 of windmilling rotors a glide already holds taken out (Makani code release, config/m600/sim/aero_sim.py). Wing 7's parasitic drag is 0.06 (Vander Lind 2013, Table 28.1), against 0.052 here with the idle rotors."
+
+rigid_span_efficiency:
+  value: 0.9
+  low: 0.8
+  high: 0.95
+  unit: "-"
+  reason: "Engineering assumption for a straight high-aspect-ratio wing."
+rigid_idle_rotor_drag:
+  value: 0.022
+  low: 0.01
+  high: 0.042
+  unit: "-"
+  reason: "Drag of the windmilling rotors on the wing area of a kite that only pulls: from Makani's rotor table at zero aero power, eight rotors with disc area 0.615 of the wing area, at 40-50 m/s; the low bound is 4-6 degrees more blade pitch, the high bound 60 m/s (Makani code release, database/m600/rotor_rev4.json). A simulated table; a stopped rotor is not in it."
+
+rigid_min_turn_radius:
+  value: 3.46
+  low: 2.9
+  high: 6.25
+  unit: "-"
+  reason: "Smallest loop radius over span: 90 m on 26 m for MX2. Low bound 75 m for M600 as intended; high bound 50 m on 8 m for Wing 7 as flown (Vander Lind 2013, Fig. 28.7), and M600 flew 145 m on 25.66 m, or 5.65 (Echeverri et al. 2020, Part I, Table 1)."
+rigid_tether_length_ratio:
+  value: 11.5
+  low: 10.0
+  high: 16.5
+  unit: "-"
+  reason: "Tether length over span: 300 m on 26 m for MX2; M600 as flown about 16.5 (Echeverri et al. 2020, Part I, Tables 1 and 2)."
+rigid_tether_stress:
+  value: 440000000.0
+  low: 300000000.0
+  high: 600000000.0
+  unit: Pa
+  reason: "300 kN on the 29.4 mm electrified tether of Makani (Echeverri et al. 2020, Part I, Table 2)."
+rigid_tether_density:
+  value: 1350.0
+  low: 1200.0
+  high: 1500.0
+  unit: kg/m^3
+  reason: "0.917 kg/m on 29.4 mm with its conductors (Echeverri et al. 2020, Part I, Table 2)."
+rigid_tether_drag_coefficient:
+  value: 0.7
+  low: 0.7
+  high: 1.1
+  unit: "-"
+  reason: "Fluted jacket of the Makani tether (Echeverri et al. 2020, Part I, Table 2); the high bound is the plain cylinder of the soft kite's tether."
+rigid_tether_price:
+  value: 160.0
+  low: 88.0
+  high: 400.0
+  unit: USD/kg
+  reason: "Engineering estimate of an electrified tether at twice the price of plain rope; the low bound is EUR 80/kg for rope (Joshi et al. 2025, p.703)."
+rigid_rotor_area_ratio:
+  value: 0.61
+  low: 0.4
+  high: 0.8
+  unit: "-"
+  reason: "Rotor disc area over wing area: about 33 m^2 of rotors on the 54 m^2 of MX2 (Echeverri et al. 2020, Part I, p.184), held in proportion."
+rigid_hover_thrust_ratio:
+  value: 1.25
+  low: 1.15
+  high: 1.5
+  unit: "-"
+  reason: "Thrust over weight that hover needs (Echeverri et al. 2020, Part I, Eq. 89)."
+rigid_rotor_fill:
+  value: 0.75
+  low: 0.75
+  high: 1.0
+  unit: "-"
+  reason: "Share of rotors counted for a rotor out in hover, 6 of 8 (Echeverri et al. 2020, Part I, Eq. 89)."
+rigid_hover_air_density:
+  value: 1.225
+  low: 0.95
+  high: 1.225
+  unit: kg/m^3
+  reason: "Standard air at sea level, where a ship's kite hovers; the low bound is the design density of Makani's hover sizing (Echeverri et al. 2020, Part I, Eq. 89)."
+
+rigid_hover_efficiency:
+  value: 0.62
+  low: 0.56
+  high: 0.71
+  unit: "-"
+  reason: "Electric power to hover power: rotor figure 0.71 of Echeverri et al. (2020, Part I, Eq. 89) times the electrical to shaft efficiency 0.88 of the Makani code release (config/m600/control/rotor_control.py); the high bound is the rotor alone."
+
+rigid_hover_minutes:
+  value: 6.0
+  low: 3.0
+  high: 15.0
+  unit: min
+  reason: "Hover in one launch and one landing: a few minutes each while the tether is reeled (Echeverri et al. 2020, Part I, p.305)."
+rigid_hover_energy_price:
+  value: 0.2
+  low: 0.1
+  high: 0.5
+  unit: USD/kWh
+  reason: "Engineering estimate of electricity from the ship's generators."
+rigid_hover_max_wave_height:
+  value: 3.0
+  low: 1.5
+  high: 4.0
+  unit: m
+  reason: "Engineering estimate of the highest significant wave height for a hover launch and landing on a moving deck, above which a landing is forced. No published limit exists; the one offshore flight, from a moored buoy in 1 m waves, lost the kite in final hover with buoy motion a named cause (Echeverri et al. 2020, Part I, pp.392, 412)."
+rigid_hover_max_wind:
+  value: 17.0
+  low: 13.0
+  high: 20.0
+  unit: m/s
+  reason: "Engineering estimate of the highest apparent wind for a hover launch and landing, above which a landing is forced, held at the launch limit of the soft kite. No published limit exists; the one offshore flight hovered in 10 m/s (Echeverri et al. 2020, Part I, p.392)."
+rigid_max_wind:
+  value: 25.0
+  low: 20.0
+  high: 30.0
+  unit: m/s
+  reason: "Engineering estimate held at the highest apparent wind of the soft kite."
+rigid_structure_cost_per_mass:
+  value: 275.0
+  low: 140.0
+  high: 400.0
+  unit: USD/kg
+  reason: "Carbon composite kite structure EUR 250/kg at USD 1.1 per EUR, at a series of 50 or more without overhead or margin, which the market price factor adds (Joshi et al. 2025, p.702)."
+rigid_structure_cost_per_area:
+  value: 220.0
+  low: 110.0
+  high: 400.0
+  unit: USD/m^2
+  reason: "EUR 200/m^2 of the same model (Joshi et al. 2025, p.702)."
+rigid_avionics_cost:
+  value: 165000.0
+  low: 16500.0
+  high: 250000.0
+  unit: USD
+  reason: "Avionics of an early commercial kite EUR 150,000, of a prototype EUR 15,000 (Joshi et al. 2025, p.702)."
+rigid_drive_cost:
+  value: 0.15
+  low: 0.08
+  high: 0.3
+  unit: USD/W
+  reason: "Drivetrain at the estimate of Bauer et al. (2018, p.14), 0.15 $/W with its power electronics, there including those of the ground station; scaled from hobby motor prices."
+rigid_drive_margin:
+  value: 1.33
+  low: 1.2
+  high: 1.5
+  unit: "-"
+  reason: "Largest shaft power over hover power: 1.2 MW over 900 kW for MX2 (Echeverri et al. 2020, Part I, p.184)."
+rigid_ship_power_cost:
+  value: 0.15
+  low: 0.08
+  high: 0.5
+  unit: USD/W
+  reason: "Engineering estimate of the ship's supply and converter or battery for the hover peak, at the price of the on-board drive."
+rigid_perch_cost:
+  value: 100000.0
+  low: 50000.0
+  high: 300000.0
+  unit: USD
+  reason: "Engineering estimate of a deck perch and restraint per kite; no public price exists."
+rigid_perch_width:
+  value: 8.0
+  low: 4.0
+  high: 12.0
+  unit: m
+  reason: "Deck length one perch takes: the M600 perch boom is 7.8 m long on a panel 3.8 m wide, which is the low bound (Echeverri et al. 2020, Part II, p.58)."
+rigid_station_mass:
+  value: 20.0
+  low: 10.0
+  high: 32.0
+  unit: t
+  reason: "Winch, drum and perch per kite on the ship. The M600 ground station is 32 t and needs significant weight reduction (Echeverri et al. 2020, Part II, p.58), which the base value assumes."
+rigid_lifetime:
+  value: 15.0
+  low: 7.0
+  high: 20.0
+  unit: years
+  reason: "Engineering assumption equal to the soft kite's hardware; M600 flew 22 h in all, so no life is shown (Echeverri et al. 2020, Part I, p.366)."
+rigid_upkeep_per_area:
+  value: 0.61
+  low: 0.26
+  high: 1.2
+  unit: USD/m^2/h
+  reason: "Maintenance per flight hour: Makani's budget of USD 33/h and bottom-up USD 14/h for a kite of about 54 m^2, on a service interval of 6 months (Echeverri et al. 2020, Part I, pp.120-122)."
+rigid_cycle_loss_probability:
+  value: 0.0001
+  low: 0.0001
+  high: 0.005
+  unit: "-"
+  reason: "Goal: one kite lost in 10,000 launches and landings, not a measured rate; today's engineering estimate is 0.0005. M600 lost all four crosswind kites in twenty crosswind flights (Echeverri et al. 2020, Part I, p.261): SN2 and SN5 in hover, SN4 in a hard glide landing and SN3 in a mid-air breakup (pp.262-263), so three of the four at the end of a flight."
+
 tether_drag_coefficient:
   value: 1.1
   low: 1.0

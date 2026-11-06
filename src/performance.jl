@@ -178,6 +178,8 @@ handling_hours(rig::CombinedRig, assumptions) = handling_hours(rig.kite, assumpt
 handling_hours(::KiteRig, assumptions) =
     ((1 + assumptions[:kite_launch_retry_probability]) * assumptions[:kite_launch_minutes] +
      assumptions[:kite_landing_minutes]) / 60
+handling_hours(::KiteRig{RigidAirframe}, assumptions) =
+    assumptions[:rigid_hover_minutes] / 60
 
 """
     OperatingPoint
