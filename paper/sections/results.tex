@@ -38,6 +38,56 @@ On a voyage the router turns this thrust into fuel or speed. \Cref{fig:passage} 
 \label{fig:passage}
 \end{figure*}
 
+\subsection{Where the rigs work and the speed they choose}
+\label{sec:res_speed}
+
+Ships with a rig sail faster than the same ship without one, because the router sets speed by cost and not by a schedule. Over the 54 cases of ship length, drive and route, each with its cheapest rig size, the round trip of the kite ship is shorter by a median of \tbd{6.3}\,\%, faster in \tbd{50} cases and slower in \tbd{2}. Wing sails shorten it by \tbd{3.7}\,\% and rotors by \tbd{10.8}\,\%, and both are faster in all 54 cases. The effect follows the fuel price: the kite gains \tbd{1.1}\,\% on VLSFO, \tbd{10.0}\,\% on e-methanol and \tbd{10.5}\,\% on hydrogen, the rotors \tbd{5.5}, \tbd{13.1} and \tbd{14.0}\,\%. Dear fuel makes the ship without a rig steam slowly, so a rig has more speed to give back. The cost savings of this paper therefore include time as well as fuel, split in \cref{tab:split}. A ship held to the schedule of the ship without a rig would not earn them in the same form, as \cref{tab:speed_terms} shows.
+
+A rig that gave the same thrust at every speed would not change the best speed. The cost per mile is $(R(V)-F_x)/\eta + c/V$ for a resistance $R$, an efficiency $\eta$ and a cost $c$ per hour of time, and a constant $F_x$ drops out of its derivative. \Cref{tab:speed_choice} shows what moves the best speed instead, as medians over winds of 6, 10 and \SI{14}{m/s} at 60 to \SI{150}{\degree} on the \SI{140}{m} ship. The kite moves it by the speed its pull alone can reach: up to there the ship burns only its hotel load, so sailing faster costs nothing and saves time. Holding the kite's force at its value at the slower speed barely changes the result. The rotors' best speed rises mainly because their force grows with speed: with the force held, it stays close to that of the ship without a rig. The wing sails move it by a knot or less, mostly by lightening the load on the propeller. The capital and wear of the rig, which also make time dearer, shift the best speed by about \tbd{0.1}~kn.
+
+\begin{table}[tbp]
+\centering
+\caption{Cost-optimal speed [kn] of the \SI{140}{m} ship in steady wind, median over winds of 6, 10 and \SI{14}{m/s} at 60, 90, 120 and \SI{150}{\degree}, with the reference rigs: with the rig's capital and wear left out of the cost, with its force held at its value at the speed of the ship without a rig, and the speed at which that held force alone moves the ship. \tbd{Draft run.}}
+\label{tab:speed_choice}
+\resizebox{\columnwidth}{!}{\InputIfFileExists{sections/speed_choice_table}{}{\tbd{Speed table pending: run the speed\_choice\_table step.}}}
+\end{table}
+
+\Cref{tab:speed_terms} puts the same ships on the terms other studies use. At a fixed speed, the terms of nearly all published kite work, the kite on VLSFO saves \tbd{5.9}\,\% at \SI{8}{kn}, \tbd{9.5}\,\% at \SI{9}{kn} and \tbd{19.0}\,\% at \SI{10}{kn}, because at a low speed the fuel it can save is worth little more than its wear and the router keeps it down; on e-methanol it saves \tbd{21.9}, \tbd{26.2} and \tbd{23.0}\,\%. In the time of the ship without a rig it saves far more, \tbd{35.9}\,\% on VLSFO and \tbd{44.0}\,\% on e-methanol, than the \tbd{31.0} and \tbd{37.0}\,\% it saves when cost sets the speed. The speed is bought with part of the fuel saving.
+
+\begin{table*}[tbp]
+\centering
+\caption{Fuel saved and time saved by the reference rigs on the \SI{140}{m} ship on two routes, against the ship without a rig on the same terms: at a fixed speed, in the same time as the ship without a rig routed for cost, and with speed set by cost. A fixed-speed ship drops to the highest whole knot it can hold where it cannot hold that speed, which a rig does more often, so its time changes too. \tbd{Draft run.}}
+\label{tab:speed_terms}
+\InputIfFileExists{sections/speed_terms_table}{}{\tbd{Terms table pending: run the speed\_terms\_table step.}}
+\end{table*}
+
+\Cref{tab:flight} shows where the kite flies. The time at each true wind angle is similar for all rigs, because every ship routes through the same weather. Upwind of \SI{30}{\degree} the kite could pull for only \tbd{13}\,\% of the time and is rarely up. From \SIrange{60}{150}{\degree} it flies for most of the time it could pull, and the router keeps it down where the thrust would not pay for its wear. It also stays up through some lulls, where it gives no thrust while the wind still carries it, because landing and launching cost more than waiting; \tbd{17}\,\% of its hours aloft over the 54 cases give no thrust, and in the band upwind of \SI{30}{\degree} the mean thrust while up is negative. No case lies outside the physics: the lowest apparent wind angle at which the kite pulls is \tbd{14.9}\,\si{\degree}, against the limit of \cref{eq:upwind_limit}. Wing sails and rotors pull down to their own limits, the arctangent of their lowest ratio of drag to lift: \SI{6.4}{\degree} for the wings and \SI{8.5}{\degree} for the rotors at their best spin ratio, below the kite's because their lift to drag is higher than its whole-system value. Their forces come straight from their polars, and tests hold all three rigs to their limits. The kite could pull for more of the hours at higher ship speeds in every band, and is up for more of them: \tbd{29}\,\% below \SI{10}{kn} and \tbd{55}\,\% from 10 to \SI{12}{kn}. Above \SI{12}{kn} it is always up, but that is no finding, since no ship without a rig reaches \SI{12}{kn} anywhere in the study: a kite ship sails that fast only on its kite. Cause and effect run from the kite to the speed: the router raises the speed where the kite pulls hardest. It works both ways: on VLSFO the kite ship also spends more of its time below \SI{10}{kn}, \tbd{25} against \tbd{16}\,\%, since it can idle in the headwinds and make up the time when the wind helps. Over all 54 cases the kite is up for \tbd{45}\,\% of the time.
+
+\begin{table*}[tbp]
+\centering
+\caption{Where the kite works over the 54 cases, each with its cheapest size, by band of true wind angle: share of the time in the band, share of that time in which the kite could pull, is up and pulls, its mean thrust while up, lulls and upwind drag included, the share of the hours at each ship speed in which it could pull and in which it is up, the speed of the ship without a rig and of the kite ship in that band, and the lowest apparent wind angle (AWA) at which each rig pulls. \tbd{Draft run.}}
+\label{tab:flight}
+\InputIfFileExists{sections/flight_table}{}{\tbd{Flight table pending: run the flight\_table step.}}
+\end{table*}
+
+At a held speed the kite's saving depends on its size as much as on the speed (\cref{fig:speed_size}, \cref{tab:speed_size}). We hold the \SI{140}{m} ship at 8 to \SI{11}{kn} on VLSFO and e-methanol, with kites of 400 to \SI{6400}{m^2}, and the feeder container ship at 13, 16 and \SI{19}{kn} on VLSFO, with kites of 800 to \SI{12800}{m^2}, on the routes to Guadeloupe and New York. Each kite flies once free of its running cost, as in the published studies, and once priced as in the rest of this paper. At one kite size the share of fuel saved falls with speed, as published: the \SI{400}{m^2} kite saves \tbd{11.7}\,\% of the fuel of the e-methanol ship at \SI{8}{kn} and \tbd{9.8}\,\% at \SI{11}{kn}, and the \SI{800}{m^2} kite on the feeder \tbd{10.0}\,\% at \SI{13}{kn} and \tbd{3.9}\,\% at \SI{19}{kn}. Most of that fall is the larger fuel use it is divided by. From 8 to \SI{11}{kn} the fuel of the \SI{140}{m} ship without a rig grows by \tbd{38 to 43}\,\%, while the energy the \SI{400}{m^2} kite saves grows by \tbd{20}\,\%. From 13 to \SI{19}{kn} the feeder's fuel grows by \tbd{90}\,\%, and there the energy its smallest kite saves falls by \tbd{25}\,\%.
+
+A larger kite takes the share back. On the \SI{140}{m} ship the kite that saves the most fuel saves a larger share at \SI{11}{kn} than at \SI{8}{kn}, \tbd{24.8} against \tbd{22.0}\,\% on VLSFO and \tbd{27.7} against \tbd{23.2}\,\% on e-methanol, and \tbd{1.6 to 1.7} times the energy; its size grows from \SI{3200}{} to \SI{6400}{m^2}. At a held speed a kite cannot save more than the fuel spent on propulsion, which is least at the lowest speed, so the largest kite gains most with speed. On the feeder the \SI{6400}{m^2} kite saves the most at every speed, \tbd{21.5}\,\% at \SI{13}{kn} and \tbd{19.2}\,\% at \SI{19}{kn}, \tbd{1.7} times the energy, and the \SI{12800}{m^2} kite saves less than it at every speed. Priced, the cost saving follows on e-methanol: the cheapest kite saves \tbd{5.5}\,\% of the cost at \SI{8}{kn} and \tbd{9.5}\,\% at \SI{11}{kn}, and every size saves more at the higher speed. On VLSFO the cheapest kite saves at most \tbd{0.9}\,\% at any of these speeds, and kites of \SI{3200}{m^2} and more cost more than they save at all of them; on the feeder the cheapest saves \tbd{1.4}, \tbd{0.5} and \tbd{2.6}\,\% at 13, 16 and \SI{19}{kn}. The largest kite is up for \tbd{28 to 34}\,\% of the time on the \SI{140}{m} ship and \tbd{20 to 23}\,\% on the feeder, with no trend in speed.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{speed_size}
+\caption{Kite savings at a held ship speed for each kite size, on both routes, against the same ship without a rig at the same speed: fuel saved by the kite free of its running cost, in percent (a, d, g) and in GJ per round trip (b, e, h), and cost per tonne-kilometre saved by the kite priced as in the rest of this paper (c, f, i), on the \SI{140}{m} ship on VLSFO (a--c) and e-methanol (d--f) and on the feeder container ship on VLSFO (g--i). \tbd{Draft run.}}
+\label{fig:speed_size}
+\end{figure*}
+
+\begin{table*}[tbp]
+\centering
+\caption{Kite savings at a held ship speed, on both routes: fuel of the ship without a rig per round trip, fuel saved by the smallest kite and by the kite that saves the most fuel, both free of running cost, the priced kite that saves the most cost, and the share of the time the largest kite is up. \tbd{Draft run.}}
+\label{tab:speed_size}
+\InputIfFileExists{sections/speed_size_table}{}{\tbd{Speed and size table pending: run the speed\_size\_table step.}}
+\end{table*}
+
 \subsection{Fuel price and the value of wind}
 \label{sec:res_fuel}
 
