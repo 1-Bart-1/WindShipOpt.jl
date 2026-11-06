@@ -1226,47 +1226,56 @@ end
 """
     abatement_figure()
 
-Cost per tonne-km against the fuel energy saved for every size of each rig on the ships
-of the abatement study, relative to the same ship on VLSFO without a rig, one column per
-drive; the smallest size of each rig is an open marker.
+Cost per tonne-km against the fuel energy saved, relative to the same ship on the same
+drive without a rig, over every size of each rig on the [`abatement_ships`](@ref), one
+panel per ship and drive; markers grow with rig area and below zero the rig pays.
 """
 function abatement_figure()
     table = read_table(data_file("abatement.csv"))
-    figure = Figure(size=(page_width, 360))
+    figure = Figure(size=(page_width, 330))
     for (row, (name, _)) in enumerate(abatement_ships),
         (column, (drive, label)) in enumerate(drive_labels)
 
-        fossil = only(table["cost"][rows(table, "ship" => name, "drive" => "vlsfo",
-            "rig" => "none")])
         bare = only(rows(table, "ship" => name, "drive" => drive, "rig" => "none"))
         letter = 'a' + length(drive_labels) * (row - 1) + column - 1
         axis = Axis(figure[row, column];
             title="($letter) $(replace(name, " bulk carrier" => "")), $label",
             xlabel=row == 2 ? "fuel energy saved [%]" : "",
-            ylabel=column == 1 ? "cost vs VLSFO, no rig [%]" : "")
+            ylabel=column == 1 ? "cost change [%]" : "")
+        hspan!(axis, -100, 0; color=(palette[3], 0.08))
         hlines!(axis, 0; color=:gray50, linewidth=0.6)
-        scatter!(axis, [0.0], [100 * (table["cost"][bare] / fossil - 1)]; color=:black,
-            markersize=6)
         for (k, rig) in enumerate(rig_names)
             chosen = rows(table, "ship" => name, "drive" => drive, "rig" => rig)
             chosen = chosen[sortperm(table["area"][chosen])]
             saved = 100 .* (1 .- table["fuel"][chosen] ./ table["fuel"][bare])
-            change = 100 .* (table["cost"][chosen] ./ fossil .- 1)
-            scatterlines!(axis, saved, change; color=palette[k], markersize=4,
-                linewidth=1.3)
-            scatter!(axis, saved[1:1], change[1:1]; color=:white, strokecolor=palette[k],
-                strokewidth=1.2, markersize=7)
+            change = 100 .* (table["cost"][chosen] ./ table["cost"][bare] .- 1)
+            sizes = 3 .+ 1.6 .* log2.(table["area"][chosen] ./ minimum(table["area"][chosen]))
+            lines!(axis, saved, change; color=(palette[k], 0.6), linewidth=1)
+            scatter!(axis, saved, change; color=palette[k], markersize=sizes)
+            most = argmax(saved)
+            text!(axis, saved[most], change[most]; text=rig, color=palette[k],
+                fontsize=8, align=(:left, :center), offset=(5, 0))
         end
+        chosen = rows(table, "ship" => name, "drive" => drive)
+        xlims!(axis, 0, 1.25 * maximum(100 .* (1 .- table["fuel"][chosen] ./
+                                                    table["fuel"][bare])))
+        ylims!(axis, abatement_limits(table, name, drive, bare)...)
     end
-    entries = [[MarkerElement(color=:black, marker=:circle, markersize=6)];
-        [[LineElement(color=palette[k], linewidth=1.3),
-             MarkerElement(color=palette[k], marker=:circle, markersize=4)] for k in 1:3];
-        [MarkerElement(color=:white, strokecolor=:black, strokewidth=1.2, marker=:circle,
-            markersize=7)]]
-    Legend(figure[3, 1:length(drive_labels)], entries,
-        ["no rig", "kite", "wings", "rotors", "smallest size"];
-        orientation=:horizontal, framevisible=false, labelsize=9)
     save(joinpath(figures, "abatement.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    abatement_limits(table, ship, drive, bare)
+
+Cost-change limits [%] of an [`abatement_figure`](@ref) panel: every rig size with a margin,
+and zero.
+"""
+function abatement_limits(table, ship, drive, bare)
+    chosen = rows(table, "ship" => ship, "drive" => drive)
+    change = 100 .* (table["cost"][chosen] ./ table["cost"][bare] .- 1)
+    low, high = min(minimum(change), 0.0), max(maximum(change), 0.0)
+    margin = 0.1 * (high - low)
+    return low - margin, high + margin
 end
 
 """
