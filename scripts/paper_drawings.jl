@@ -274,3 +274,171 @@ function draw_height(hull, kite_area)
                assumptions[:launch_mast_height_ratio] * sqrt(kite_area) + 20 + 0.15span,
         assumptions[:max_air_draft])
 end
+
+"""
+    kite_frames_figure()
+
+(a) The wind window seen looking downwind: the kite at its roll angle and its angle off
+downwind, the band of roll angles of a pattern, and the heading in the tangent plane. (b)
+Seen from the side, the angle off downwind. (c) Seen from above, the mean tether force
+resolved along and across the ship's course.
+"""
+function kite_frames_figure()
+    figure = Figure(size=(page_width, 160))
+    titles = ("(a) looking downwind", "(b) from the side", "(c) from above")
+    axes = [Axis(figure[1, k]; aspect=DataAspect(), title) for (k, title) in
+            enumerate(titles)]
+    for axis in axes
+        hidedecorations!(axis)
+        hidespines!(axis)
+    end
+    colsize!(figure.layout, 1, Auto(1.55))
+    colsize!(figure.layout, 3, Auto(1.15))
+    draw_window!(axes[1])
+    draw_side_sphere!(axes[2])
+    draw_course_plan!(axes[3])
+    save(joinpath(figures, "kite_frames.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"point at `radius` and `angle` [rad] from the +x axis of a figure, counterclockwise"
+polar_point(radius, angle) = Point2f(radius * cos(angle), radius * sin(angle))
+
+"""
+    small_arrow!(axis, origin, vector, label; color, align)
+
+A thin arrow of `vector` from `origin` with `label` at its tip.
+"""
+function small_arrow!(axis, origin, vector, label; color=:black, align=(:left, :center))
+    arrows2d!(axis, [Point2f(origin)], [Vec2f(vector)]; color, shaftwidth=0.8,
+        tipwidth=5, tiplength=5)
+    text!(axis, Point2f(origin) + Vec2f(vector); text=label, align, offset=(2, 0),
+        fontsize=10, color)
+end
+
+"point of the window seen looking downwind at `radius` and `roll` [rad], `y` to the left"
+window_point(radius, roll) = polar_point(radius, π - roll)
+
+"""
+    draw_window!(axis)
+
+The wind window seen looking downwind: its edge, circles of equal angle off downwind,
+the band of roll angles a pattern sweeps, the elevation below the lowest of the
+assumptions, and a kite with its tangent-plane unit vectors and heading.
+"""
+function draw_window!(axis)
+    band = deg2rad.((35, 75))
+    poly!(axis, vcat([Point2f(0, 0)], [window_point(1, roll) for roll in range(band...;
+        length=30)]); color=(palette[2], 0.15))
+    for polar in (30, 60)
+        lines!(axis, [window_point(sind(polar), roll) for roll in range(0, π; length=60)];
+            color=:gray70, linewidth=0.5)
+        text!(axis, window_point(sind(polar), deg2rad(150)); text=L"\vartheta = %$(polar)°",
+            align=(:left, :bottom), offset=(1, 0), fontsize=7, color=:gray50)
+    end
+    lines!(axis, [window_point(1, roll) for roll in range(0, π; length=90)];
+        color=:black)
+    lowest = sind(assumptions[:kite_min_elevation])
+    poly!(axis, Point2f[(-sqrt(1 - lowest^2), lowest), (sqrt(1 - lowest^2), lowest),
+        (1, 0), (-1, 0)]; color=(:gray50, 0.3))
+    lines!(axis, Point2f[(-1.15, 0), (1.15, 0)]; color=:black, linewidth=0.6)
+    text!(axis, window_point(1, deg2rad(130)); text="edge of\nthe window",
+        align=(:left, :bottom), offset=(2, 0), fontsize=8)
+    text!(axis, 0.95, lowest; text="below $(round(Int, assumptions[:kite_min_elevation]))°",
+        align=(:left, :bottom), fontsize=7, color=:gray40)
+    polar, roll = deg2rad(33), deg2rad(62)
+    kite = window_point(sin(polar), roll)
+    lines!(axis, [Point2f(0, 0), kite]; color=:gray50, linewidth=0.6, linestyle=:dash)
+    lines!(axis, [window_point(0.22, angle) for angle in range(0, roll; length=20)];
+        color=palette[3])
+    text!(axis, window_point(0.26, roll / 2); text=L"\phi", align=(:right, :center),
+        fontsize=10, color=palette[3])
+    outward = Vec2f(kite / hypot(kite...))
+    along = Vec2f(outward[2], -outward[1])
+    heading = deg2rad(65)
+    small_arrow!(axis, kite, 0.3outward, L"\hat{\mathbf{e}}_\vartheta";
+        align=(:right, :bottom))
+    small_arrow!(axis, kite, 0.3along, L"\hat{\mathbf{e}}_\phi"; align=(:left, :top))
+    small_arrow!(axis, kite, 0.38 * (cos(heading) * outward + sin(heading) * along),
+        L"\hat{\mathbf{h}}"; color=palette[6])
+    lines!(axis, [kite + 0.14 * (cos(angle) * outward + sin(angle) * along)
+                  for angle in range(0, heading; length=12)]; color=palette[6])
+    text!(axis, kite + 0.2 * (cos(heading / 2) * outward + sin(heading / 2) * along);
+        text=L"\psi", align=(:center, :center), fontsize=10, color=palette[6])
+    scatter!(axis, [kite]; color=palette[2], markersize=8)
+    small_arrow!(axis, (1.5, 0.28), (-0.2, 0), L"y"; align=(:right, :bottom))
+    small_arrow!(axis, (1.5, 0.28), (0, 0.2), L"z"; align=(:center, :bottom))
+    limits!(axis, -1.2, 1.6, -0.08, 1.12)
+end
+
+"""
+    draw_side_sphere!(axis)
+
+Section of the tether sphere through the kite seen from the side, apparent wind to the
+right: the tether at the angle off downwind.
+"""
+function draw_side_sphere!(axis)
+    lines!(axis, [polar_point(1, angle) for angle in range(0, π / 2; length=40)];
+        color=:black)
+    lines!(axis, Point2f[(-0.1, 0), (1.25, 0)]; color=:black, linewidth=0.6)
+    small_arrow!(axis, (0.55, -0.15), (0.45, 0), L"x"; align=(:left, :center))
+    text!(axis, 0.75, -0.18; text="apparent wind", align=(:center, :top), fontsize=8)
+    polar = deg2rad(50)
+    kite = polar_point(1, polar)
+    lines!(axis, [Point2f(0, 0), kite]; color=palette[2], linewidth=1.5)
+    scatter!(axis, [kite]; color=palette[2], markersize=8)
+    text!(axis, kite / 2; text=L"r\,\hat{\mathbf{e}}_r", align=(:right, :bottom),
+        fontsize=10, color=palette[2])
+    lines!(axis, [polar_point(0.3, angle) for angle in range(0, polar; length=20)];
+        color=palette[1])
+    text!(axis, polar_point(0.36, polar / 2); text=L"\vartheta", align=(:left, :center),
+        fontsize=10, color=palette[1])
+    scatter!(axis, [Point2f(0, 0)]; color=:black, markersize=4)
+    text!(axis, 0, 0; text="tow point", align=(:right, :bottom), offset=(-2, 2),
+        fontsize=8)
+    limits!(axis, -0.65, 1.3, -0.4, 1.1)
+end
+
+"`point` turned clockwise by `angle` [rad] about the origin"
+rotated(point, angle) = Point2f(point[1] * cos(angle) + point[2] * sin(angle),
+    -point[1] * sin(angle) + point[2] * cos(angle))
+
+"""
+    draw_course_plan!(axis)
+
+Plan view of the wind window as a half disc downwind of the ship, the ship's course `χ`
+off the apparent downwind direction, and the mean tether force with its components along
+and across the course.
+"""
+function draw_course_plan!(axis)
+    poly!(axis, [Point2f(sin(angle), cos(angle)) for angle in range(-π / 2, π / 2;
+        length=60)]; color=(palette[2], 0.12), strokecolor=:black, strokewidth=0.6)
+    arrows2d!(axis, [Point2f(0, 0)], [Vec2f(0, 1.2)]; color=:black, shaftwidth=0.8,
+        tipwidth=5, tiplength=5)
+    text!(axis, 0, 1.2; text="apparent downwind", align=(:left, :top), offset=(3, 0),
+        fontsize=8)
+    course = deg2rad(110)
+    heading = Vec2f(sin(course), cos(course))
+    poly!(axis, rotated.(hull_outline(0.5, 0.09), course); color=:gray80,
+        strokecolor=:black, strokewidth=0.6)
+    lines!(axis, [Point2f(0, 0), Point2f(1.25heading)]; color=:black, linestyle=:dash,
+        linewidth=0.6)
+    text!(axis, Point2f(1.25heading); text="course", align=(:left, :center), fontsize=8)
+    lines!(axis, [0.3Point2f(sin(angle), cos(angle)) for angle in range(0, course;
+        length=30)]; color=palette[1])
+    text!(axis, 0.36Point2f(sin(course / 2), cos(course / 2)); text=L"\chi",
+        align=(:left, :bottom), fontsize=10, color=palette[1])
+    force = Vec2f(0.85, 0.35)
+    along = sum(force .* heading) * heading
+    arrows2d!(axis, [Point2f(0, 0)], [force]; color=palette[2], shaftwidth=1.3,
+        tipwidth=6, tiplength=6)
+    text!(axis, Point2f(force); text=L"\overline{\mathbf{F}}", align=(:left, :bottom),
+        fontsize=10, color=palette[2])
+    for (vector, label, origin) in ((along, L"F_\parallel", Point2f(0, 0)),
+        (force - along, L"F_\perp", Point2f(along)))
+        arrows2d!(axis, [origin], [vector]; color=palette[6], shaftwidth=0.8,
+            tipwidth=5, tiplength=5)
+        text!(axis, origin + vector / 2; text=label, align=(:left, :top), offset=(3, 0),
+            fontsize=10, color=palette[6])
+    end
+    limits!(axis, -1.1, 1.7, -0.75, 1.3)
+end

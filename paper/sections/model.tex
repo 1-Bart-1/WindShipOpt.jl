@@ -131,7 +131,7 @@ A rotor has a height of six diameters and end discs. Its lift, drag and spin pow
 \label{fig:canopy_price}
 \end{figure*}
 
-\paragraph{Quasi-steady flight} The kite is steered by its heading through the air, as the SkySails autopilot flies it \citep{erhard2013}. In the frame of the apparent wind, with $x$ downwind, $y$ crosswind and $z$ up, its unit position on the tether sphere of radius $r$ is
+\paragraph{Quasi-steady flight} The kite is steered by its heading through the air, as the SkySails autopilot flies it \citep{erhard2013}. In the frame of the apparent wind, with $x$ downwind, $y$ crosswind and $z$ up (\cref{fig:kite_frames}), its unit position on the tether sphere of radius $r$ is
 \begin{equation}
 \hat{\mathbf e}_r = (\cos\vartheta,\ \sin\vartheta\cos\phi,\ \sin\vartheta\sin\phi),
 \end{equation}
@@ -143,6 +143,13 @@ T_t\,\hat{\mathbf e}_r\cdot\hat{\mathbf e}_a &= \tfrac12\rho_a|\mathbf v_a|^2 A 
 where $\mathbf F_\perp$ is the part of $\mathbf F$ normal to $\hat{\mathbf e}_a$, $T_t$ the tether tension and $\mathbf a$ the acceleration of the turn, $v_h^2/R$ across the heading, and of the motion on the sphere, $|\mathbf v_k|^2/r$ towards its centre. \Cref{eq:kite_drag} gives the tension for a trial speed, and a bisection on $v_h$ satisfies \cref{eq:kite_lift}. Without mass and with the kite flying across the wind this reduces to the crosswind result of \citet{loyd1980}\tbd{ (source not read)}, $T_t = \tfrac12\rho_a (\mathbf v_w\cdot\hat{\mathbf e}_r)^2 A \sqrt{C_L^2+C_D^2}\,(1+G^2)$ with $G=C_L/C_D$, which the model reproduces to $10^{-6}$ (\cref{sec:checks}). Where the tension would exceed the structural limit of \SI{0.5}{kN/m^2}, the kite depowers by lowering its angle of attack along its polar until the tension fits.
 
 A pattern is the heading law of the SkySails pattern generator \citep[Sec.~VIII]{erhard2013}: the kite holds the heading $+\psi_0$, turns through the edge direction to $-\psi_0$ when its roll angle passes $\phi_0+\phi_a$, and back when it passes $\phi_0-\phi_a$. Its yaw rate follows the SkySails turn-rate law $\dot\psi = g\,v_h\,\delta$ for a steering deflection $\delta$ \citep[Eq.~7]{erhard2013}, so it turns on a fixed radius through the air, $R = 1/(g\delta)$, whatever its speed. With $g$ = 0.03 to \SI{0.05}{rad/m} for the kite of \SI{125}{m^2} projected and curve deflections of 40 to 70\,\% of the steering range, the radius is \SI{45}{m}, about 2.3 projected spans at an aspect ratio of 3, and we scale it with the span. We integrate the kite's motion on the sphere in steps of a third of this radius from the centre of the pattern until it has settled into a cycle, and take the tether force on the ship as the time average $\overline{\mathbf F} = \oint T_t\hat{\mathbf e}_r\,\mathrm dt / \oint \mathrm dt$ over the second cycle. One family covers every way a towing kite flies. A heading close to the edge direction sweeps the kite slowly back and forth along the edge of the wind window, which seen from the ship is a motion up and down at the side; a heading past the crosswind direction takes it through the window in fast figure eights; and with no heading at all it rests at the edge.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{kite_frames}
+\caption{Frames and angles of the kite model. (a) The wind window seen from the tow point looking downwind: the kite at roll angle $\phi$ and angle $\vartheta$ off downwind, the unit vectors $\hat{\mathbf e}_\vartheta$ towards the edge of the window and $\hat{\mathbf e}_\phi$ along the roll, and the heading $\hat{\mathbf h}$ at the angle $\psi$ between them. The shaded wedge is a band of roll angles $\phi_0\pm\phi_a$ a pattern sweeps; no part of a pattern flies in the grey band below the lowest elevation. (b) The same seen from the side. (c) Seen from above, the mean tether force $\overline{\mathbf F}$ and its components along and across a course $\chi$ off the apparent downwind direction; the kite pulls the ship forward wherever the force leans ahead of the beam of that course.}
+\label{fig:kite_frames}
+\end{figure*}
 
 \paragraph{Pattern choice} For each apparent wind speed $V_a$ and ship course $\chi$ off the apparent downwind direction, a Nelder--Mead search picks the pattern that minimises
 \begin{equation}
