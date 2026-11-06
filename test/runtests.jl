@@ -688,7 +688,8 @@ end
     oil = Ship(ShipDesign(:vlsfo, 140.0), assumptions).fuel
     ammonia = Ship(ShipDesign(:ammonia, 140.0), assumptions).fuel
     @test ammonia.carbon_intensity ≈ pilot * oil.carbon_intensity
-    @test ammonia.price ≈ (1 - pilot) * 1e-9assumptions[:e_ammonia_price] + pilot * oil.price
+    @test ammonia.price ≈
+          (1 - pilot) * 1e-9assumptions[:e_ammonia_price] + pilot * oil.price
 end
 
 """

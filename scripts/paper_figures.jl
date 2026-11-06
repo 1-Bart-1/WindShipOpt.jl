@@ -548,8 +548,8 @@ function class_comparison_figure()
                 markersize=6, label=i == 1 ? kind : nothing)
         end
     end
-    Legend(figure[2, 1:length(drive_panels)], content(figure[1, 1]); orientation=:horizontal,
-        framevisible=false, labelsize=9)
+    Legend(figure[2, 1:length(drive_panels)], content(figure[1, 1]);
+        orientation=:horizontal, framevisible=false, labelsize=9)
     save(joinpath(figures, "class_comparison.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -626,8 +626,8 @@ function class_size_figure()
                 align=(:left, :center), color=palette[j])
         end
     end
-    Legend(figure[2, 1:length(drive_panels)], content(figure[1, 1]); orientation=:horizontal,
-        framevisible=false, labelsize=9)
+    Legend(figure[2, 1:length(drive_panels)], content(figure[1, 1]);
+        orientation=:horizontal, framevisible=false, labelsize=9)
     save(joinpath(figures, "class_sizes.pdf"), figure; pt_per_unit=print_scale)
 end
 
