@@ -19,18 +19,13 @@ These checks run with the model and say what it reproduces and where it departs 
 \subsection{Error of the missed-goal figures}
 \label{sec:check_missed}
 
-\Cref{sec:res_missed} gives the saving that staying at today's canopy price of USD~234/m$^2$ rather than reaching USD~150/m$^2$ takes from the kite on three ships. Part of that is the routes changing between two prices on three departures: a line through the prices from USD~112 to 375/m$^2$ gives \tbd{1.9, 1.6 and 0.7} points, and we read the difference as the error of these figures. Leaving out of maintenance the canopy and tether that wear already pays for is worth \tbd{0.3, 0.15 and 0.24} points on the three ships at today's price\tbd{, from an earlier run}.
-
-\subsection{Error of the crash limits}
-\label{sec:check_crashes}
-
-The crash limits of \cref{tab:crashes} inherit the error of the saving. The saving carries an error of 0.4 to 1.0 points with 12 departures (\cref{sec:routing}) and more with the three of this draft. For the \SI{3200}{m^2} kite on the \SI{140}{m} ship that is at least 0.08 to 0.21 crashes a year, for the \SI{2828}{m^2} kite on the Kamsarmax 0.10 to 0.24, and for the \SI{6889}{m^2} kite on the Neo-Panamax 0.3 to 0.75. A smaller limit means none, as for the rotors' lead of 0.6 points over the \SI{1600}{m^2} kite on the \SI{140}{m} ship, 0.06 lost rotors a year.
+\Cref{sec:res_missed} gives the saving that staying at today's canopy price of USD~234/m$^2$ rather than reaching USD~150/m$^2$ takes from the kite on three ships. Part of that could be the routes changing between two prices: a line through the prices from USD~112 to 375/m$^2$ gives \tbd{1.6, 1.6 and 0.7} points against \tbd{1.7, 1.6 and 0.8} between the two prices, so the routing moves these figures by 0.1 points at most. Leaving out of maintenance the canopy and tether that wear already pays for was worth \tbd{0.3, 0.15 and 0.24} points on the three ships at today's price in an earlier draft on three departures.
 
 \begin{table}[tbp]
 \centering
 \caption{The chain from true wind to force on the ship, worked by hand independently of the code and from the code, at a ship speed of \SI{5.4}{m/s} and a wind shear exponent of 0.05. Wing sails of \SI{800}{m^2} at $C_L$ 1 and rotors of \SI{400}{m^2} at spin ratio 3 in a wind of \SI{10}{m/s} at \SI{10}{m}. The kite of \SI{800}{m^2}, at its reference height of \SI{269}{m} and with no side weight, in winds at \SI{10}{m} of 5.88, 6.62, 8.83, 11.16 and \SI{13.80}{m/s}, which put its apparent wind on nodes of its pattern table; the hand calculation takes the force coefficients there from the table. True wind angle TWA, apparent wind $V_a$ and its angle AWA, thrust $F_x$ and side force $F_y$.}
 \label{tab:hand}
-\resizebox{\columnwidth}{!}{%
+\adjustbox{max width=\columnwidth}{%
 \begin{tabular}{@{}lrrrrrrr@{}}
 \toprule
 Rig & TWA & $V_a$ & AWA & \multicolumn{2}{c}{$F_x$ [kN]} & \multicolumn{2}{c}{$F_y$ [kN]} \\
