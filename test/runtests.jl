@@ -572,6 +572,32 @@ end
           WindShipOpt.handling_hours(base, assumptions)
 end
 
+@testset "kite inputs give the SkySails kites at their projected areas" begin
+    @test WindShipOpt.launch_mast_height(125.0, assumptions) ≈ 15.0 rtol = 0.05
+    small, = WindShipOpt.kite_model(125.0, 3.0, assumptions)
+    @test small.min_turn_radius ≈ 45.0 rtol = 0.05
+    large, = WindShipOpt.kite_model(250.0, 3.0, assumptions)
+    @test large.tether_length ≈ 360.0 rtol = 0.05
+end
+
+@testset "a kite at a fractional aspect ratio flies its own polar" begin
+    lower, base = WindShipOpt.KitePolar(2.5), WindShipOpt.KitePolar(3)
+    alpha = deg2rad(8.0)
+    @test WindShipOpt.polar_value(lower, lower.lift, alpha) <
+          WindShipOpt.polar_value(base, base.lift, alpha)
+    @test all(>(0), lower.drag)
+end
+
+@testset "recalibrated flight drag keeps the base kite's glide ratio" begin
+    drag = WindShipOpt.recalibrated_flight_drag(2.5, 3.0, assumptions)
+    recalibrated = WindShipOpt.with_value(assumptions, :kite_flight_drag, drag)
+    @test drag < assumptions[:kite_flight_drag]
+    @test WindShipOpt.total_drag_at_lift(2.5, 0.8, recalibrated) ≈
+          WindShipOpt.total_drag_at_lift(3.0, 0.8, assumptions)
+    @test WindShipOpt.recalibrated_flight_drag(3.0, 3.0, assumptions) ≈
+          assumptions[:kite_flight_drag]
+end
+
 @testset "launch cost at the loss goal is mostly crew and turn" begin
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     crew_and_turn = (1 + assumptions[:kite_launch_retry_probability]) *

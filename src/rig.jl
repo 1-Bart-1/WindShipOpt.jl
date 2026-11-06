@@ -368,6 +368,33 @@ function kite_model(area, aspect_ratio, assumptions::Assumptions)
 end
 
 """
+    total_drag_at_lift(aspect_ratio, lift, assumptions)
+
+Drag coefficient of a kite of `aspect_ratio` with its bridle, tether and flight drag, at the
+lowest angle of attack reaching the lift coefficient `lift`. It does not depend on the area.
+"""
+function total_drag_at_lift(aspect_ratio, lift, assumptions::Assumptions)
+    model, = kite_model(1.0, aspect_ratio, assumptions)
+    polar = model.polar
+    angles = range(extrema(polar.angle_of_attack)...; length=2901)
+    angle = angles[findfirst(a -> polar_value(polar, polar.lift, a) >= lift, angles)]
+    return polar_value(polar, polar.drag, angle) + model.extra_drag
+end
+
+"""
+    recalibrated_flight_drag(aspect_ratio, base_aspect_ratio, assumptions; lift=0.8)
+
+Flight drag coefficient giving a kite of `aspect_ratio` the glide ratio at lift coefficient
+`lift` that the kite of `base_aspect_ratio` has at the flight drag of `assumptions`.
+"""
+function recalibrated_flight_drag(aspect_ratio, base_aspect_ratio, assumptions::Assumptions;
+    lift=0.8)
+    return assumptions[:kite_flight_drag] +
+           total_drag_at_lift(base_aspect_ratio, lift, assumptions) -
+           total_drag_at_lift(aspect_ratio, lift, assumptions)
+end
+
+"""
     static_wind(mass, model)
 
 Apparent wind [m/s] whose lift at rest at the highest lift coefficient of `model` carries

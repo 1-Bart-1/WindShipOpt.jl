@@ -19,7 +19,7 @@ end
 Polar of the kite with projected `aspect_ratio` from `data/kite_polars/`.
 """
 function KitePolar(aspect_ratio::Real)
-    name = "kite_ar$(round(Int, aspect_ratio)).csv"
+    name = "kite_ar$(replace(string(float(aspect_ratio)), r"\.0$" => "")).csv"
     path = joinpath(pkgdir(@__MODULE__), "data", "kite_polars", name)
     rows = [parse.(Float64, split(line, ',')) for line in readlines(path)[2:end]]
     return KitePolar(deg2rad.(getindex.(rows, 1)), getindex.(rows, 2), getindex.(rows, 3))

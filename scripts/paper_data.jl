@@ -870,6 +870,86 @@ function aspect_data()
     end
 end
 
+"""
+    noise_variants(tether_length_ratio, kite_min_turn_radius)
+
+Variants of the base kite with the tether and the turn radius each about 2 % off the given
+base values, too little to change the kite: their spread is the noise of the routing.
+"""
+function noise_variants(tether_length_ratio, kite_min_turn_radius)
+    return [(string("noise_", name, "_", factor), design_aspect_ratio,
+                NamedTuple{(name,)}((factor * value,)))
+            for (name, value) in ((:tether_length_ratio, tether_length_ratio),
+                (:kite_min_turn_radius, kite_min_turn_radius)) for factor in (0.98, 1.02)]
+end
+
+"""
+    base_kite_variants()
+
+Variants of the base kite on the ships of the area basis study as (name, projected aspect
+ratio, changed inputs): the base, at aspect ratio 2.5 with the flight drag held and
+recalibrated, at the other readings of its inputs, and those of [`noise_variants`](@ref).
+"""
+function base_kite_variants()
+    low_aspect_ratio = 2.5
+    recalibrated = WindShipOpt.recalibrated_flight_drag(low_aspect_ratio,
+        design_aspect_ratio, assumptions)
+    return [("base", design_aspect_ratio, (;)); ("held", low_aspect_ratio, (;));
+        ("recalibrated", low_aspect_ratio, (; kite_flight_drag=recalibrated));
+        ("tether_15.5", design_aspect_ratio, (; tether_length_ratio=15.5));
+        ("tether_19.7", design_aspect_ratio, (; tether_length_ratio=19.7));
+        ("force_0.9", design_aspect_ratio, (; kite_max_force_per_area=0.9));
+        ("overhead_0.19", design_aspect_ratio, (; canopy_mass_overhead=0.19));
+        noise_variants(assumptions[:tether_length_ratio],
+            assumptions[:kite_min_turn_radius])]
+end
+
+"""
+    cargo_kite_variants()
+
+Variants of the kite that flew on cargo ships, as (name, projected area [m^2], changed
+inputs): the base, its flat size read as projected, the force limit of its design load, no
+flight drag, and canopy wear and launches free, with those of [`noise_variants`](@ref).
+"""
+function cargo_kite_variants()
+    free = (; canopy_life=1e9, tether_lifetime=1e9, kite_cycle_crew_cost=0.0,
+        kite_cycle_damage_probability=0.0, kite_cycle_loss_probability=0.0,
+        kite_cycle_course_cost=0.0, kite_forced_landing_loss_probability=0.0)
+    return [("base", 125.0, (;)); ("flat_as_projected", 160.0, (;));
+        ("force_0.9", 125.0, (; kite_max_force_per_area=0.9));
+        ("no_flight_drag", 125.0, (; kite_flight_drag=0.0)); ("free_operation", 125.0, free);
+        [(name, 125.0, changes)
+         for (name, _, changes) in noise_variants(assumptions[:tether_length_ratio],
+            assumptions[:kite_min_turn_radius])]]
+end
+
+"""
+    base_kite_data(ships=sensitivity_ships())
+
+The base kite of `ships`, as those of [`sensitivity_ships`](@ref), at each of
+[`base_kite_variants`](@ref), and a 130 m VLSFO ship at each of
+[`cargo_kite_variants`](@ref), each with the ship without a rig: base_kite.csv.
+"""
+function base_kite_data(ships=sensitivity_ships())
+    cases = []
+    for (ship, bare, route, areas) in ships
+        push!(cases, trip_case(bare; route, ship, variant="bare"))
+        for (variant, aspect_ratio, changes) in base_kite_variants()
+            design = ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...,
+                kite_aspect_ratio=aspect_ratio)
+            push!(cases, trip_case(design; route, ship, variant,
+                assumptions=changed_assumptions(changes)))
+        end
+    end
+    push!(cases, trip_case(ShipDesign(:vlsfo, 130.0); ship="130 m", variant="bare"))
+    for (variant, area, changes) in cargo_kite_variants()
+        push!(cases, trip_case(ShipDesign(:vlsfo, 130.0; kite_area=area); ship="130 m",
+            variant, assumptions=changed_assumptions(changes)))
+    end
+    write_trips("base_kite.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :variant)
+end
+
 "input of each rig holding the share of its units' round trips out of service"
 out_of_service_inputs = Dict("kite" => "kite_out_of_service",
     "wings" => "wing_out_of_service", "rotors" => "rotor_out_of_service")
