@@ -908,8 +908,6 @@ function breakdown_figure()
         "interest_cost"]
     names = ["fuel", "kite wear", "port", "crew", "capital and maintenance",
         "cargo interest"]
-    labels = String[]
-    values = Matrix{Float64}(undef, 0, length(parts))
     cases = Tuple{String, String, Union{Nothing, String}}[("VLSFO", "vlsfo", nothing)]
     for (label, drive) in (("e-meth.", "methanol"), ("hydrogen", "hydrogen"))
         push!(cases, (label, drive, nothing))
@@ -917,25 +915,29 @@ function breakdown_figure()
             push!(cases, ("$label + $rig", drive, column))
         end
     end
-    for length in (85.0, 200.0)
+    figure = Figure(size=(page_width, 270))
+    for (panel, length) in enumerate((85.0, 200.0))
+        labels = String[]
+        values = Matrix{Float64}(undef, 0, Base.length(parts))
         for (label, drive, column) in cases
             k = cheapest_design(designs, drive, length, column)
             isnothing(k) && continue
             size = isnothing(column) ? "" : " $(round(Int, designs[column][k])) m²"
-            push!(labels, "$label$size, $(round(Int, length)) m")
+            push!(labels, "$label$size")
             values = vcat(values, [designs[part][k] for part in parts]')
         end
+        axis = Axis(figure[1, panel]; title="($(Char('a' + panel - 1))) $(round(Int,
+                length)) m ship", yticks=(eachindex(labels), labels), yreversed=true,
+            xlabel="cost [USD per 1000 tkm]", yticklabelsize=8.5)
+        positions = repeat(eachindex(labels), outer=Base.length(parts))
+        stack = repeat(eachindex(parts), inner=Base.length(labels))
+        barplot!(axis, positions, 1e3 .* vec(values); stack, direction=:x,
+            color=palette[stack])
+        xlims!(axis, 0, nothing)
     end
-    figure = Figure(size=(column_width, 560))
-    axis = Axis(figure[1, 1]; yticks=(eachindex(labels), labels), yreversed=true,
-        xlabel="cost [USD per 1000 tkm]", yticklabelsize=8.5)
-    positions = repeat(eachindex(labels), outer=length(parts))
-    stack = repeat(eachindex(parts), inner=length(labels))
-    barplot!(axis, positions, 1e3 .* vec(values); stack, direction=:x,
-        color=palette[stack])
-    Legend(figure[2, 1], [PolyElement(color=palette[i]) for i in eachindex(parts)], names;
-        framevisible=false, orientation=:horizontal, nbanks=3, labelsize=9,
-        patchsize=(8, 8))
+    Legend(figure[2, 1:2], [PolyElement(color=palette[i]) for i in eachindex(parts)], names;
+        framevisible=false, orientation=:horizontal, labelsize=9, patchsize=(8, 8),
+        padding=0)
     save(joinpath(figures, "breakdown.pdf"), figure; pt_per_unit=print_scale)
 end
 
