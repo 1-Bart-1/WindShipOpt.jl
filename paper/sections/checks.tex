@@ -14,3 +14,13 @@ These checks run with the model and say what it reproduces and where it departs 
 \item \textbf{Routing noise.} A change of 2\,\% in the tether length or the smallest turn radius should barely move a kite's saving. \tbd{At draft fidelity, on the \SI{140}{m} e-methanol ship to Guadeloupe with a \SI{3200}{m^2} kite, a Kamsarmax on VLSFO to Tubarão with \SI{1448}{m^2} and a Neo-Panamax on e-methanol to New York with \SI{16000}{m^2}, the base and those four changes span 1.4, 0.8 and 1.5 points of cost saving and 6.6, 4.9 and 2.3 points of fuel saving.} The router minimises cost, so routes of nearly equal cost can burn different amounts of fuel. We do not read a smaller difference between two kites as a result.
 \item \textbf{Routing grid.} Routed at corridor resolutions from \SI{360}{nmi} down to \SI{45}{nmi} between stages, the cost per tonne-kilometre of a \SI{140}{m} e-methanol ship to Guadeloupe changes by at most 0.9\,\% without a rig and 2.9\,\% with one, and the cost saving of each rig by at most 1.6 points; the order of the rigs does not change. The coarser grids are slightly optimistic for every option alike.
 \end{itemize}
+
+\subsection{Error of the missed-goal figures}
+\label{sec:check_missed}
+
+\Cref{sec:res_missed} gives the saving that staying at today's canopy price of USD~234/m$^2$ rather than reaching USD~150/m$^2$ takes from the kite on three ships. Part of that is the routes changing between two prices on three departures: a line through the prices from USD~112 to 375/m$^2$ gives \tbd{1.9, 1.6 and 0.7} points, and we read the difference as the error of these figures. Leaving out of maintenance the canopy and tether that wear already pays for is worth \tbd{0.3, 0.15 and 0.24} points on the three ships at today's price\tbd{, from an earlier run}.
+
+\subsection{Error of the crash limits}
+\label{sec:check_crashes}
+
+The crash limits of \cref{tab:crashes} inherit the error of the saving. The saving carries an error of 0.4 to 1.0 points with 12 departures (\cref{sec:routing}) and more with the three of this draft. For the \SI{3200}{m^2} kite on the \SI{140}{m} ship that is at least 0.08 to 0.21 crashes a year, for the \SI{2828}{m^2} kite on the Kamsarmax 0.10 to 0.24, and for the \SI{6889}{m^2} kite on the Neo-Panamax 0.3 to 0.75. A smaller limit means none, as for the rotors' lead of 0.6 points over the \SI{1600}{m^2} kite on the \SI{140}{m} ship, 0.06 lost rotors a year.

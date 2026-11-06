@@ -16,6 +16,8 @@
 \Crefname{figure}{Fig.}{Figs.}
 \crefformat{appendix}{#2#1#3}
 \Crefformat{appendix}{#2#1#3}
+\crefformat{subappendix}{#2#1#3}
+\Crefformat{subappendix}{#2#1#3}
 \usepackage{tikz}
 \usetikzlibrary{positioning,arrows.meta,fit}
 
@@ -62,6 +64,7 @@ wind-assisted ship propulsion \sep towing kite \sep rigid wing sail \sep Flettne
 
 \end{frontmatter}
 
+\input{sections/nomenclature}
 \input{sections/introduction}
 \input{sections/related}
 \input{sections/model}
@@ -73,8 +76,11 @@ wind-assisted ship propulsion \sep towing kite \sep rigid wing sail \sep Flettne
 
 \appendix
 \crefalias{section}{appendix}
+\crefalias{subsection}{subappendix}
 \counterwithin*{figure}{section}
 \counterwithin*{table}{section}
+\input{sections/model_details}
+\input{sections/discussion_details}
 \input{sections/checks}
 \input{sections/inputs}
 
