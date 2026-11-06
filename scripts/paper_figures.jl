@@ -12,9 +12,9 @@ page_width = 522
 # points per figure unit, so that a page-wide figure is the 468 pt text width
 print_scale = 468 / page_width
 "the [`study_drives`](@ref) with their names in figure labels"
-drive_labels = [string(drive) => Dict(:vlsfo => "VLSFO", :methanol => "e-methanol",
-                    :hydrogen => "hydrogen")[drive] for drive in study_drives]
-"(drive, panel title) of the panels (a), (b), (c) of a figure with one panel per drive"
+drive_labels = [string(drive) => Dict(:vlsfo => "VLSFO", :methanol => "e-methanol")[drive]
+                for drive in study_drives]
+"(drive, panel title) of the panels (a), (b) of a figure with one panel per drive"
 drive_panels = [(drive, "($(Char('a' + k - 1))) $label")
                 for (k, (drive, label)) in enumerate(drive_labels)]
 "each rig with its area column in designs.csv"
@@ -346,7 +346,7 @@ function rig_comparison_figure()
             linewidth=0.8)
         limits!(axis, 0.5, length(lengths) + 0.5, length(labels) + 0.5, 0.5)
     end
-    Colorbar(figure[1, 4]; colormap=:RdBu, limits=(-30, 30),
+    Colorbar(figure[1, length(drive_panels) + 1]; colormap=:RdBu, limits=(-30, 30),
         label="cost saving vs no rig [%]")
     save(joinpath(figures, "rig_comparison.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -548,7 +548,7 @@ function class_comparison_figure()
                 markersize=6, label=i == 1 ? kind : nothing)
         end
     end
-    Legend(figure[2, 1:3], content(figure[1, 1]); orientation=:horizontal,
+    Legend(figure[2, eachindex(drive_panels)], content(figure[1, 1]); orientation=:horizontal,
         framevisible=false, labelsize=9)
     save(joinpath(figures, "class_comparison.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -626,7 +626,7 @@ function class_size_figure()
                 align=(:left, :center), color=palette[j])
         end
     end
-    Legend(figure[2, 1:3], content(figure[1, 1]); orientation=:horizontal,
+    Legend(figure[2, eachindex(drive_panels)], content(figure[1, 1]); orientation=:horizontal,
         framevisible=false, labelsize=9)
     save(joinpath(figures, "class_sizes.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -660,7 +660,8 @@ function winner_map_figure()
                 fontsize=8.5)
         end
     end
-    Legend(figure[2, 1:3], [PolyElement(color=palette[j]) for j in 1:3], kinds;
+    Legend(figure[2, eachindex(drive_panels)], [PolyElement(color=palette[j]) for j in 1:3],
+        kinds;
         orientation=:horizontal, framevisible=false, labelsize=9)
     save(joinpath(figures, "winner_map.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -778,7 +779,7 @@ for three ship lengths and each drive.
 """
 function route_comparison_figure()
     routes_table = read_table(data_file("routes.csv"))
-    figure = Figure(size=(page_width, 440))
+    figure = Figure(size=(page_width, 300))
     names = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
     kinds = ["kite", "wings", "rotors"]
     for (row, (drive, drive_label)) in enumerate(drive_labels),
@@ -818,8 +819,8 @@ end
 """
     premium_figure()
 
-Share of the cost premium of an e-methanol and a hydrogen ship over a VLSFO ship without
-a rig that the best size of each rig closes, over ship length on the route to Guadeloupe.
+Share of the cost premium of an e-methanol ship over a VLSFO ship without a rig that the
+best size of each rig closes, over ship length on the route to Guadeloupe.
 """
 function premium_figure()
     designs = read_table(data_file("designs.csv"))
@@ -828,15 +829,14 @@ function premium_figure()
         ylabel="fuel premium closed [%]")
     hlines!(axis, [0, 100]; color=:gray70, linewidth=0.5)
     lengths = sort(unique(designs["length"]))
-    for (drive, linestyle) in (("methanol", :solid), ("hydrogen", :dash)),
-        (k, (label, column_name)) in enumerate(rig_area_columns)
-
-        shares = [premium_closed(designs, drive, length, column_name) for length in lengths]
+    for (k, (label, column_name)) in enumerate(rig_area_columns)
+        shares = [premium_closed(designs, "methanol", length, column_name)
+                  for length in lengths]
         valid = isfinite.(shares)
-        scatterlines!(axis, lengths[valid], shares[valid]; color=palette[k], linestyle,
-            label="$label, $(Dict(drive_labels)[drive])", markersize=6)
+        scatterlines!(axis, lengths[valid], shares[valid]; color=palette[k], label,
+            markersize=6)
     end
-    Legend(figure[2, 1], axis; orientation=:horizontal, nbanks=3, framevisible=false,
+    Legend(figure[2, 1], axis; orientation=:horizontal, framevisible=false,
         labelsize=9)
     save(joinpath(figures, "premium.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -873,7 +873,7 @@ end
     breakdown_figure()
 
 Cost per tonne-km split into its parts for an 85 m and a 200 m ship on VLSFO without a
-rig, and on e-methanol and hydrogen without a rig and with the cheapest size of each rig.
+rig, and on e-methanol without a rig and with the cheapest size of each rig.
 """
 function breakdown_figure()
     designs = read_table(data_file("designs.csv"))
@@ -884,11 +884,9 @@ function breakdown_figure()
     labels = String[]
     values = Matrix{Float64}(undef, 0, length(parts))
     cases = Tuple{String, String, Union{Nothing, String}}[("VLSFO", "vlsfo", nothing)]
-    for (label, drive) in (("e-meth.", "methanol"), ("hydrogen", "hydrogen"))
-        push!(cases, (label, drive, nothing))
-        for (rig, column) in rig_area_columns
-            push!(cases, ("$label + $rig", drive, column))
-        end
+    push!(cases, ("e-methanol", "methanol", nothing))
+    for (rig, column) in rig_area_columns
+        push!(cases, ("e-methanol + $rig", "methanol", column))
     end
     for length in (85.0, 200.0)
         for (label, drive, column) in cases

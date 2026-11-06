@@ -2,7 +2,7 @@
 # of the run in use. Included by paper.jl.
 
 "drives compared where the drive is a dimension of the study"
-study_drives = (:vlsfo, :methanol, :hydrogen)
+study_drives = (:vlsfo, :methanol)
 
 "projected aspect ratio of the kite of every design that names none"
 design_aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
@@ -998,25 +998,13 @@ function availability_data()
         :rig, :share)
 end
 
-"the rigs of the size sweep at the goals"
-goal_size_rigs = (rig_names..., "rigid kite")
-
-"the rigs the size sweep shows at every size, flying for part of the time"
-kite_rigs = ("kite", "rigid kite")
-
 """
     swept_sizes(rig, areas, hull)
 
 Sizes [m^2] of `rig` in the size sweep at the goals: the [`sizes_around`](@ref) its size in
-`areas`, as far as it fits on `hull`; for a rigid kite, the fleets of one, two and four kites
-of its unit area that fit.
+`areas`, as far as it fits on `hull`.
 """
 function swept_sizes(rig, areas, hull)
-    if rig == "rigid kite"
-        fleets = filter(count -> WindShipOpt.rigid_kites_fit(count, hull, assumptions),
-            [1, 2, 4])
-        return fleets .* assumptions[:rigid_unit_area]
-    end
     best = only(values(getproperty(areas, Symbol(rig))))
     return WindShipOpt.sizes_around(rig, best, largest_rig_area(rig, hull))
 end
@@ -1032,7 +1020,7 @@ function goal_size_data()
     for (ship, bare, route, areas) in sensitivity_ships()
         push!(cases, trip_case(bare; route, ship, bare.drive, rig="none", area=0.0))
         hull = Ship(bare, assumptions).hull
-        for rig in goal_size_rigs
+        for rig in rig_names
             for area in swept_sizes(rig, areas, hull)
                 design = ShipDesign(; bare.drive, bare.length, bare.class,
                     rig_size(rig, area)...)
