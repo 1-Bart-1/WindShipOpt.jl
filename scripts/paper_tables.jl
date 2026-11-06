@@ -149,7 +149,8 @@ function goal_rows()
     today = @sprintf("our estimate USD~%.0f/m\$^2\$, from retail cloth and hand sewing",
         WindShipOpt.canopy_price_today(assumptions))
     return [("Canopy life", "kite", canopy,
-            "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements"),
+            "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements; " *
+            "small kites expected 100 to \\num{1000} h"),
         ("Canopy price", "kite", price, today),
         ("Rig life", "rigid kite", years(:rigid_lifetime),
             "M600 flew 22 h of crosswind in all \\citep{echeverri2020part1}"),

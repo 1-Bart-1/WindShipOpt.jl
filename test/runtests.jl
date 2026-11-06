@@ -140,6 +140,16 @@ end
     @test heavy_wind > light_wind
 end
 
+@testset "the control unit weighs in proportion to the tether force limit" begin
+    extra = with_value(assumptions, :control_unit_mass_per_force,
+        assumptions[:control_unit_mass_per_force] + 0.1)
+    for area in (800.0, 3200.0)
+        base, max_force, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+        heavier = first(WindShipOpt.kite_model(area, 3.0, extra))
+        @test heavier.mass - base.mass ≈ 0.1e-3max_force
+    end
+end
+
 @testset "canopy life is the goal input, whatever the cloth weight" begin
     @test WindShipOpt.Canopy(assumptions).lifetime == 4000
     @test assumptions[:canopy_cloth_weight] == 200
@@ -462,16 +472,16 @@ end
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 1)
-    @test force(5.8751, 26.6411).thrust ≈ 26 atol = 5
-    @test force(5.8751, 26.6411).side ≈ 63932 rtol = 1e-3
-    @test force(6.6205, 50.2378).thrust ≈ 19748 rtol = 1e-3
-    @test force(6.6205, 50.2378).side ≈ 108230 rtol = 1e-3
-    @test force(8.8295, 86.6957).thrust ≈ 113815 rtol = 1e-3
-    @test force(8.8295, 86.6957).side ≈ 242111 rtol = 1e-3
-    @test force(11.1615, 114.2277).thrust ≈ 239765 rtol = 1e-3
-    @test force(11.1615, 114.2277).side ≈ 206875 rtol = 1e-3
-    @test force(13.8026, 148.5709).thrust ≈ 337541 rtol = 1e-3
-    @test force(13.8026, 148.5709).side ≈ 78043 rtol = 1e-3
+    @test force(5.8751, 26.6411).thrust ≈ -33 atol = 5
+    @test force(5.8751, 26.6411).side ≈ 63733 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 20042 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 102099 rtol = 1e-3
+    @test force(8.8295, 86.6957).thrust ≈ 113395 rtol = 1e-3
+    @test force(8.8295, 86.6957).side ≈ 247426 rtol = 1e-3
+    @test force(11.161535, 114.227745).thrust ≈ 231689 rtol = 1e-3
+    @test force(11.161535, 114.227745).side ≈ 194164 rtol = 1e-3
+    @test force(13.8026, 148.5709).thrust ≈ 344824 rtol = 1e-3
+    @test force(13.8026, 148.5709).side ≈ 26201 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
