@@ -430,11 +430,24 @@ function moving_average(times, values)
 end
 
 """
+    path_position(path, time)
+
+Longitude and latitude [deg] at `time` [h] along a routed `path`, interpolated linearly
+between its nodes.
+"""
+function path_position(path, time)
+    i = clamp(searchsortedlast(getindex.(path, 3), time), 1, length(path) - 1)
+    share = (time - path[i][3]) / (path[i + 1][3] - path[i][3])
+    return Point2f(path[i][2] + share * (path[i + 1][2] - path[i][2]),
+        path[i][1] + share * (path[i + 1][1] - path[i][1]))
+end
+
+"""
     passage_figure()
 
 One winter outbound passage to Guadeloupe of a 140 m e-methanol ship without a rig and
-with each rig: the routed tracks, each narrower than the one before so that tracks which
-coincide stay visible, and speed, rig thrust and fuel power over the passage.
+with each rig: one map per ship with its routed track through the corridor's nodes, a
+dot at each day's position and the other tracks in grey, and speed, rig thrust and fuel power over the passage.
 """
 function passage_figure()
     designs = (("no rig", ShipDesign(:methanol, 140.0)),
@@ -443,40 +456,54 @@ function passage_figure()
         ("rotors 800 m²", ShipDesign(:methanol, 140.0; rotor_area=800.0)))
     departure = departures[1]
     outbound = first(run_corridors(:caribbean))
-    figure = Figure(size=(page_width, 340))
-    map = Axis(figure[1:3, 1]; aspect=DataAspect(), limits=(-63, 6, 14, 53),
-        xlabel="longitude [°]", ylabel="latitude [°]", title="(a) routed tracks")
-    draw_land!(map, mask)
-    draw_wind!(map, weather, departure + 24 * 6; scale=0.1)
-    labels = ("speed [kn]", "rig thrust [kN]", "fuel power [MW]")
-    titles = ("(b) speed through the water", "(c) rig thrust", "(d) fuel power")
-    panels = [Axis(figure[row, 2]; ylabel=labels[row], title=titles[row],
-                  yticks=WilkinsonTicks(3),
-                  xlabel=row == 3 ? "time since departure [days]" : "")
-              for row in 1:3]
-    for (i, (label, design)) in enumerate(designs)
+    legs = map(designs) do (label, design)
         ship = Ship(design, assumptions)
         table = PerformanceTable(ship, assumptions)
         hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
             assumptions))
         leg = route(outbound, table, weather, departure; time_cost=hourly)
-        trace = WindShipOpt.LegTrace(table, leg, weather, departure; interval=3.0)
-        i == 1 && lines!(map, great_circle(leg.path[1], leg.path[end])...; color=:black,
-            linestyle=:dot, linewidth=1.0, label="great circle")
-        lines!(map, smooth_track(getindex.(leg.path, 2), getindex.(leg.path, 1));
-            color=palette[i], linewidth=1.2 + 0.9 * (length(designs) - i), label)
-        for (panel, values) in zip(panels, (trace.speed ./ KNOT, trace.rig_thrust ./ 1e3,
+        return leg, WindShipOpt.LegTrace(table, leg, weather, departure; interval=3.0)
+    end
+    tracks = [Point2f.(getindex.(leg.path, 2), getindex.(leg.path, 1)) for (leg, _) in legs]
+    figure = Figure(size=(page_width, 270))
+    maps, series = GridLayout(figure[1, 1]), GridLayout(figure[2, 1])
+    for (i, (label, _)) in enumerate(designs)
+        map = Axis(maps[1, i]; aspect=DataAspect(), limits=(-64, 6, 13, 54),
+            title="($(Char('a' + i - 1))) $label", xticks=[-60, -30, 0],
+            yticks=[20, 35, 50], xticklabelsize=8, yticklabelsize=8,
+            yticklabelsvisible=i == 1)
+        draw_land!(map, mask)
+        lines!(map, great_circle(first(legs)[1].path[1], first(legs)[1].path[end])...;
+            color=:black, linestyle=:dot, linewidth=0.8)
+        for track in tracks
+            lines!(map, track; color=:gray70, linewidth=0.8)
+        end
+        lines!(map, tracks[i]; color=palette[i], linewidth=1.6)
+        path = legs[i][1].path
+        days = 24.0:24.0:path[end][3]
+        scatter!(map, [path_position(path, time) for time in days]; color=:white,
+            strokecolor=palette[i], strokewidth=0.8, markersize=4)
+    end
+    labels = ("speed [kn]", "rig thrust [kN]", "fuel power [MW]")
+    titles = ("(e) speed through the water", "(f) rig thrust", "(g) fuel power")
+    panels = [Axis(series[1, column]; ylabel=labels[column], title=titles[column],
+                  xlabel="days since departure", yticks=WilkinsonTicks(3),
+                  yscale=column == 2 ? log10 : identity)
+              for column in 1:3]
+    ylims!(panels[2], 5, 3000)
+    panels[2].yticks = [10, 100, 1000]
+    for i in eachindex(designs)
+        trace = legs[i][2]
+        thrust = [value >= 5e3 ? value / 1e3 : NaN for value in trace.rig_thrust]
+        for (panel, values) in zip(panels, (trace.speed ./ KNOT, thrust,
             trace.fuel_power ./ 1e6))
             hours, averages = moving_average(trace.time, values)
             lines!(panel, hours ./ 24, averages; color=palette[i], linewidth=1.3)
         end
     end
     linkxaxes!(panels...)
-    for panel in panels[1:2]
-        hidexdecorations!(panel; grid=false, ticks=false)
-    end
-    Legend(figure[4, 1:2], map; orientation=:horizontal, framevisible=false, labelsize=9)
-    colsize!(figure.layout, 1, Relative(0.5))
+    colgap!(maps, 6)
+    rowsize!(figure.layout, 1, Relative(0.4))
     save(joinpath(figures, "passage.pdf"), figure; pt_per_unit=print_scale)
 end
 
