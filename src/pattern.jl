@@ -19,7 +19,7 @@ end
 Polar of the kite with projected `aspect_ratio` from `data/kite_polars/`.
 """
 function KitePolar(aspect_ratio::Real)
-    name = "kite_ar$(round(Int, aspect_ratio)).csv"
+    name = "kite_ar$(replace(string(float(aspect_ratio)), r"\.0$" => "")).csv"
     path = joinpath(pkgdir(@__MODULE__), "data", "kite_polars", name)
     rows = [parse.(Float64, split(line, ',')) for line in readlines(path)[2:end]]
     return KitePolar(deg2rad.(getindex.(rows, 1)), getindex.(rows, 2), getindex.(rows, 3))
@@ -43,7 +43,8 @@ end
 A kite on a fixed-length tether as the quasi-steady model sees it: projected area
 [m^2], flying mass [kg], tether length [m], air density [kg/m^3], gravity [m/s^2], its
 polar, the bridle and tether drag added to the polar, the angles of attack it depowers
-down to and stalls at [rad], and the smallest radius it can turn on through the air [m].
+down to and stalls at [rad], the smallest radius it can turn on through the air [m], and
+whether it flies loops ([`LoopPattern`](@ref)) rather than steered sweeps.
 """
 struct KiteModel
     area::Float64
@@ -56,6 +57,7 @@ struct KiteModel
     lowest_angle::Float64
     stall_angle::Float64
     min_turn_radius::Float64
+    flies_loops::Bool
 end
 
 """
@@ -83,6 +85,8 @@ KiteAero(model::KiteModel, angle) = KiteAero(model.area,
     polar_value(model.polar, model.polar.drag, angle) + model.extra_drag, model.mass,
     model.air_density, model.gravity)
 
+const NO_ACCELERATION = (0.0, 0.0, 0.0)
+
 """
     balance_residual(kite, airflow, radial, acceleration)
 
@@ -103,34 +107,39 @@ function balance_residual(kite::KiteAero, airflow, radial, acceleration)
 end
 
 """
-    steering_residual(kite, wind, radial, heading, turn, tether_length, airspeed)
+    steering_residual(kite, wind, radial, heading, turn, tether_length, airspeed,
+                      along_path=NO_ACCELERATION)
 
 [`balance_residual`](@ref) of a kite flying through the air at `airspeed` [m/s] along unit
 `heading` in the tangent plane of the tether sphere at unit `radial` position, in the
-uniform `wind` [m/s], while turning with curvature vector `turn` [1/m]; also returns its
-ground velocity [m/s].
+uniform `wind` [m/s], while turning with curvature vector `turn` [1/m] and accelerating at
+`along_path` [m/s^2]; also returns its ground velocity [m/s].
 """
 function steering_residual(kite::KiteAero, wind, radial, heading, turn, tether_length,
-        airspeed)
+        airspeed, along_path=NO_ACCELERATION)
     radial_wind = dot3(wind, radial)
     ground = wind .- radial_wind .* radial .+ airspeed .* heading
-    acceleration = airspeed^2 .* turn .- (dot3(ground, ground) / tether_length) .* radial
+    acceleration = airspeed^2 .* turn .- (dot3(ground, ground) / tether_length) .* radial .+
+                   along_path
     residual, tension = balance_residual(kite, radial_wind .* radial .- airspeed .* heading,
         radial, acceleration)
     return residual, tension, ground
 end
 
+"highest airspeed [m/s] the steering search tries"
+const MAX_STEERING_AIRSPEED = 1e3
+
 """
     flying_airspeed(residual)
 
 Lowest airspeed [m/s] on a rising scan where `residual` says the kite makes more lift than
-its balance needs, or `nothing` where it never does: a heavy wing makes too little at rest
+its balance needs, or `nothing` where it never does: a heavy kite makes too little at rest
 and flies only once it is moving fast enough.
 """
 function flying_airspeed(residual)
     first(residual(1e-3)) < 0 && return 1e-3
     speed = 1.0
-    while speed < 400
+    while speed < MAX_STEERING_AIRSPEED
         first(residual(speed)) < 0 && return speed
         speed *= 1.25
     end
@@ -175,23 +184,25 @@ const AIRSPEED_TOLERANCE = 1e-7
 const DEPOWER_TOLERANCE = 1e-5
 
 """
-    steering_point(kite, wind, radial, heading, turn, tether_length)
+    steering_point(kite, wind, radial, heading, turn, tether_length,
+                   along_path=NO_ACCELERATION)
 
 Quasi-steady airspeed [m/s], tether tension [N] and ground velocity [m/s] of a kite held
 at `heading` (see [`steering_residual`](@ref)), or `nothing` where it cannot fly with a
 taut tether.
 """
-function steering_point(kite::KiteAero, wind, radial, heading, turn, tether_length)
+function steering_point(kite::KiteAero, wind, radial, heading, turn, tether_length,
+        along_path=NO_ACCELERATION)
     dot3(wind, radial) > 0 || return nothing
     residual(airspeed) = steering_residual(kite, wind, radial, heading, turn, tether_length,
-        airspeed)
+        airspeed, along_path)
     low = flying_airspeed(residual)
     isnothing(low) && return nothing
-    high = 2low
+    high = max(1.0, 2low)
     point = residual(high)
     while first(point) < 0
         high *= 2
-        high > 1e3 && return nothing
+        high > MAX_STEERING_AIRSPEED && return nothing
         point = residual(high)
     end
     _, high, _, (_, tension, ground) = sign_change(residual, low, high, residual(low),
@@ -200,11 +211,11 @@ function steering_point(kite::KiteAero, wind, radial, heading, turn, tether_leng
 end
 
 """
-    TensionExcess(model, wind, radial, heading, turn, max_tension)
+    TensionExcess(model, wind, radial, heading, turn, max_tension, along_path)
 
 Called on an angle of attack [rad], the tension of the [`steering_point`](@ref) of `model`
-there above `max_tension` [N] and that point; minus `max_tension` and `nothing` where it
-cannot fly.
+accelerating at `along_path` [m/s^2] there above `max_tension` [N] and that point; minus
+`max_tension` and `nothing` where it cannot fly.
 """
 struct TensionExcess
     model::KiteModel
@@ -213,12 +224,13 @@ struct TensionExcess
     heading::NTuple{3, Float64}
     turn::NTuple{3, Float64}
     max_tension::Float64
+    along_path::NTuple{3, Float64}
 end
 
 function (excess::TensionExcess)(angle)
     (; model) = excess
     point = steering_point(KiteAero(model, angle), excess.wind, excess.radial,
-        excess.heading, excess.turn, model.tether_length)
+        excess.heading, excess.turn, model.tether_length, excess.along_path)
     isnothing(point) && return -excess.max_tension, point
     return point[2] - excess.max_tension, point
 end
@@ -246,14 +258,16 @@ function flying_below(excess::TensionExcess, low, high)
 end
 
 """
-    limited_point(model, angle, wind, radial, heading, turn, max_tension)
+    limited_point(model, angle, wind, radial, heading, turn, max_tension,
+                  along_path=NO_ACCELERATION)
 
 [`steering_point`](@ref) of `model` at angle of attack `angle` [rad], depowered towards
 its lowest angle where the tension would exceed `max_tension` [N], keeping the most lift
 that stays within the limit.
 """
-function limited_point(model::KiteModel, angle, wind, radial, heading, turn, max_tension)
-    excess = TensionExcess(model, wind, radial, heading, turn, max_tension)
+function limited_point(model::KiteModel, angle, wind, radial, heading, turn, max_tension,
+        along_path=NO_ACCELERATION)
+    excess = TensionExcess(model, wind, radial, heading, turn, max_tension, along_path)
     powered = excess(angle)
     isnothing(last(powered)) && return flying_below(excess, model.lowest_angle, angle)
     first(powered) <= 0 && return last(powered)
@@ -380,6 +394,84 @@ function PatternForce(model::KiteModel, pattern::SteeringPattern, wind_speed, ma
 end
 
 """
+    LoopPattern
+
+Wing flying circles at `angle_of_attack` [rad] on a cone of half angle `cone` [rad] whose
+axis stands `axis_off_wind` [rad] from the apparent downwind direction at roll `axis_roll`
+[rad] about it, with the angles as in [`window_position`](@ref).
+"""
+struct LoopPattern
+    axis_roll::Float64
+    axis_off_wind::Float64
+    cone::Float64
+    angle_of_attack::Float64
+end
+
+"points per loop at which [`LoopPattern`](@ref) is balanced"
+const LOOP_POINTS = 36
+
+"""
+    holds_speed(model, airspeed, height_range)
+
+Whether `model`, flying at `airspeed` [m/s] about the middle of a climb of `height_range`
+[m] that its speed pays for, stays above its stall speed at the top.
+"""
+function holds_speed(model::KiteModel, airspeed, height_range)
+    stall_load = 2model.mass * model.gravity /
+                 (model.air_density * model.area * maximum(model.polar.lift))
+    return airspeed^2 - model.gravity * height_range >= stall_load
+end
+
+"""
+    PatternForce(model, pattern::LoopPattern, wind_speed, max_tension; path=nothing)
+
+Average over one loop of `pattern` in a uniform apparent wind of `wind_speed` [m/s], time
+weighted, with the speed of the wing paying for the weight along its path and depowering
+by [`limited_point`](@ref) wherever the tension would exceed `max_tension` [N];
+`NO_PATTERN` where a point has no balance or the wing stalls at the top. Each
+[`PatternStep`](@ref) of the loop is pushed to `path` when given.
+"""
+function PatternForce(model::KiteModel, pattern::LoopPattern, wind_speed, max_tension;
+        path=nothing)
+    wind = (wind_speed, 0.0, 0.0)
+    (; axis_off_wind, axis_roll, cone) = pattern
+    axis = window_position(axis_off_wind, axis_roll)
+    outward = (-sin(axis_off_wind), cos(axis_off_wind) * cos(axis_roll),
+        cos(axis_off_wind) * sin(axis_roll))
+    around = (0.0, -sin(axis_roll), cos(axis_roll))
+    segment = 2π * model.tether_length * sin(cone) / LOOP_POINTS
+    total = (0.0, 0.0, 0.0)
+    duration = air_distance = peak = 0.0
+    lowest, highest = Inf, -Inf
+    for i in 1:LOOP_POINTS
+        phase = 2π * i / LOOP_POINTS
+        spoke = cos(phase) .* outward .+ sin(phase) .* around
+        radial = cos(cone) .* axis .+ sin(cone) .* spoke
+        heading = cos(phase) .* around .- sin(phase) .* outward
+        inward = sin(cone) .* axis .- cos(cone) .* spoke
+        turn = (cot(cone) / model.tether_length) .* inward
+        along_path = (-model.gravity * heading[3]) .* heading
+        point = limited_point(model, pattern.angle_of_attack, wind, radial, heading, turn,
+            max_tension, along_path)
+        isnothing(point) && return NO_PATTERN
+        airspeed, tension, ground = point
+        ground_speed = dot3(ground, heading)
+        ground_speed > 0 || return NO_PATTERN
+        time = segment / ground_speed
+        total = total .+ (tension * time) .* radial
+        duration += time
+        air_distance += airspeed * time
+        peak = max(peak, tension)
+        lowest, highest = min(lowest, radial[3]), max(highest, radial[3])
+        isnothing(path) || push!(path, (; radial, tension, time))
+    end
+    holds_speed(model, air_distance / duration, model.tether_length * (highest - lowest)) ||
+        return NO_PATTERN
+    load = 0.5model.air_density * wind_speed^2 * model.area
+    return PatternForce(total ./ (duration * load), peak / load, asin(lowest))
+end
+
+"""
     sphere_position(azimuth, elevation)
 
 Unit position at `azimuth` and `elevation` [rad] in the wind frame (apparent downwind,
@@ -415,6 +507,33 @@ pattern_of(parameters) = SteeringPattern(parameters[1], abs(parameters[2]),
     abs(parameters[3]), parameters[4])
 
 """
+    flight_pattern(model, parameters)
+
+Pattern of the kind `model` flies from the four optimisation `parameters`.
+"""
+flight_pattern(model::KiteModel, parameters) =
+    model.flies_loops ? LoopPattern(parameters...) : pattern_of(parameters)
+
+"""
+    outside_limits(model, pattern)
+
+How far [rad] `pattern` lies outside what `model` can fly, zero where it lies inside.
+"""
+function outside_limits(model::KiteModel, pattern::SteeringPattern)
+    return max(model.lowest_angle - pattern.angle_of_attack,
+        pattern.angle_of_attack - model.stall_angle, 0.0) +
+           max(MIN_HALF_WIDTH - pattern.half_width, pattern.heading - MAX_HEADING, 0.0)
+end
+
+function outside_limits(model::KiteModel, pattern::LoopPattern)
+    smallest = asin(min(model.min_turn_radius / model.tether_length, 1.0))
+    return max(model.lowest_angle - pattern.angle_of_attack,
+        pattern.angle_of_attack - model.stall_angle, 0.0) +
+           max(smallest - pattern.cone, pattern.cone - MAX_CONE, 0.0) +
+           max(-pattern.axis_off_wind, pattern.axis_off_wind + pattern.cone - π / 2, 0.0)
+end
+
+"""
     objective(problem, force)
 
 Minus the thrust along the course plus the weighted side force across it, over the
@@ -430,11 +549,9 @@ function objective(problem::PatternProblem, force::PatternForce)
 end
 
 function (problem::PatternProblem)(parameters)
-    pattern = pattern_of(parameters)
     (; model) = problem
-    outside = max(model.lowest_angle - pattern.angle_of_attack,
-        pattern.angle_of_attack - model.stall_angle, 0.0) +
-              max(MIN_HALF_WIDTH - pattern.half_width, pattern.heading - MAX_HEADING, 0.0)
+    pattern = flight_pattern(model, parameters)
+    outside = outside_limits(model, pattern)
     outside > 0 && return 10 + 100outside
     force = PatternForce(model, pattern, problem.wind_speed, problem.max_tension)
     isfinite(force.peak_tension) || return 10.0
@@ -447,6 +564,18 @@ end
 const MIN_HALF_WIDTH = deg2rad(2)
 "largest heading off the direction towards the edge of the wind window [rad]"
 const MAX_HEADING = deg2rad(170)
+"largest half angle of a loop's cone [rad]"
+const MAX_CONE = deg2rad(40)
+
+"""
+    search_starts(problem, starts)
+
+The `starts` worth a search: all of them for a steered kite and the best three for a wing.
+"""
+function search_starts(problem::PatternProblem, starts)
+    problem.model.flies_loops || return starts
+    return starts[partialsortperm(problem.(starts), 1:min(3, length(starts)))]
+end
 
 """
     optimal_pattern(problem, starts)
@@ -458,12 +587,12 @@ starts.
 function optimal_pattern(problem::PatternProblem, starts)
     (; model) = problem
     best_force, best_value, best_parameters = NO_PATTERN, Inf, first(starts)
-    for start in starts
+    for start in search_starts(problem, starts)
         result = Optim.optimize(problem, start, Optim.NelderMead(),
             Optim.Options(iterations=200))
         Optim.minimum(result) < min(best_value, 10) || continue
         parameters = Optim.minimizer(result)
-        force = PatternForce(model, pattern_of(parameters), problem.wind_speed,
+        force = PatternForce(model, flight_pattern(model, parameters), problem.wind_speed,
             problem.max_tension)
         value = objective(problem, force)
         value < best_value || continue
@@ -484,6 +613,24 @@ function pattern_starts(course)
     halfway = max(π / 2 - course / 2, 0.5)
     return [[facing, 0.4, 1.3, deg2rad(15)], [halfway, 0.1, 1.5, deg2rad(15)],
         [facing, 0.3, 0.3, deg2rad(15)]]
+end
+
+"""
+    pattern_starts(model, course)
+
+Starting parameters of the search for `model`: [`pattern_starts`](@ref) of the course for a
+steered kite, and for a wing, loops on the smallest cone it can turn on and on a wider one,
+at axes facing the `course` [rad], halfway to it and straight up, at three distances from
+the downwind axis.
+"""
+function pattern_starts(model::KiteModel, course)
+    model.flies_loops || return pattern_starts(course)
+    smallest = asin(min(1.1model.min_turn_radius / model.tether_length, 0.9))
+    facing = max(π / 2 - course, 0.5)
+    halfway = max(π / 2 - course / 2, 0.5)
+    return [[roll, off_wind, cone, angle]
+            for roll in (facing, halfway, π / 2), off_wind in (0.4, 0.7, 1.0),
+                cone in (smallest, 1.3smallest), angle in (model.stall_angle - 0.02, 0.05)][:]
 end
 
 """
@@ -525,12 +672,12 @@ function compute_pattern_table(model::KiteModel, max_force, assumptions::Assumpt
     min_elevation = deg2rad(assumptions[:kite_min_elevation])
     cases = vec(collect(Iterators.product(eachindex(courses), eachindex(side_weights))))
     Threads.@threads :greedy for (j, k) in cases
-        starts = pattern_starts(courses[j])
+        starts = pattern_starts(model, courses[j])
         for i in reverse(eachindex(wind_speeds))
             problem = PatternProblem(model, max_force, min_elevation, wind_speeds[i],
                 courses[j], side_weights[k])
             forces[i, j, k], best = optimal_pattern(problem, starts)
-            starts = vcat([best], pattern_starts(courses[j]))
+            starts = vcat([best], pattern_starts(model, courses[j]))
         end
     end
     return forces

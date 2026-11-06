@@ -199,6 +199,8 @@ handling_hours(rig::CombinedRig, assumptions) = handling_hours(rig.kite, assumpt
 handling_hours(::KiteRig, assumptions) =
     ((1 + assumptions[:kite_launch_retry_probability]) * assumptions[:kite_launch_minutes] +
      assumptions[:kite_landing_minutes]) / 60
+handling_hours(::KiteRig{RigidAirframe}, assumptions) =
+    assumptions[:rigid_hover_minutes] / 60
 
 """
     OperatingPoint
@@ -407,16 +409,36 @@ end
 has_kite(table::RouteTable) = table.table.stowed_thrust !== table.table.flown_thrust
 
 """
-    RouteTable(table)
+    RouteTable(table, speeds=routing_speeds(table))
 
-[`RouteTable`](@ref) of `table` at its speeds from `LOWEST_ROUTING_KNOTS` up.
+[`RouteTable`](@ref) of `table` at `speeds` [m/s], ascending.
 """
-function RouteTable(table::PerformanceTable)
-    half_step = (table.speeds[end] - table.speeds[end - 1]) / 2
-    speeds = filter(>(LOWEST_ROUTING_KNOTS * KNOT - half_step), table.speeds)
+function RouteTable(table::PerformanceTable, speeds=routing_speeds(table))
     slices = [SpeedSlice(table, KnotWeight(table.speeds, speed)) for speed in speeds]
     return RouteTable(table, speeds, slices)
 end
+
+"The speeds of `table` from `LOWEST_ROUTING_KNOTS` up [m/s]"
+function routing_speeds(table::PerformanceTable)
+    half_step = (table.speeds[end] - table.speeds[end - 1]) / 2
+    return filter(>(LOWEST_ROUTING_KNOTS * KNOT - half_step), table.speeds)
+end
+
+"""
+    held_speed_table(table, knots)
+
+[`RouteTable`](@ref) of `table` for a ship holding `knots` [kn] wherever it can, and the
+highest of its [`routing_speeds`](@ref) below that where it cannot, routed with time at
+[`HELD_SPEED_TIME_FACTOR`](@ref) times its cost.
+"""
+function held_speed_table(table::PerformanceTable, knots)
+    held = knots * KNOT
+    below = filter(speed -> speed < held && !(speed ≈ held), routing_speeds(table))
+    return RouteTable(table, [below; held])
+end
+
+"factor on the cost of time that makes the router take the fastest speed it is offered [-]"
+const HELD_SPEED_TIME_FACTOR = 20
 
 edge_fuels(table::RouteTable, speed_index, condition::SeaCondition) = edge_fuels(
     table.table, table.speeds[speed_index], table.slices[speed_index], condition)

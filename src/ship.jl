@@ -225,8 +225,9 @@ end
 Design point of the optimization. `drive` names a [`Drive`](@ref): `:vlsfo`, `:methanol`
 or `:hydrogen`. A positive `wing_area` adds rigid wings of that total area [m^2], a
 positive `kite_area` a towing kite of that projected area and projected
-`kite_aspect_ratio`, a positive `rotor_area` Flettner rotors of that total height times
-diameter. A kite may fly over wings or rotors as a [`CombinedRig`](@ref); wings and
+`kite_aspect_ratio`, a positive `rigid_kite_area` rigid VTOL kites of about that total
+area, a positive `rotor_area` Flettner rotors of that total height times diameter. A kite
+may fly over wings or rotors as a [`CombinedRig`](@ref); wings and
 rotors exclude each other. With a `class` the hull, engine power, price and cargo value
 are those of the class, otherwise the reference coaster is scaled to `length`.
 """
@@ -238,6 +239,7 @@ Base.@kwdef struct ShipDesign
     kite_area::Float64 = 0.0
     kite_aspect_ratio::Float64 = 3.0
     rotor_area::Float64 = 0.0
+    rigid_kite_area::Float64 = 0.0
     class::Union{Nothing, ShipClass} = nothing
 end
 
@@ -353,9 +355,15 @@ function rated_delivered_power(ship::Ship, assumptions::Assumptions)
 end
 
 has_rig(design::ShipDesign) =
-    any(>(0), (design.wing_area, design.kite_area, design.rotor_area))
+    any(>(0), (design.wing_area, design.kite_area, design.rotor_area,
+        design.rigid_kite_area))
 
 function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions)
+    if design.rigid_kite_area > 0
+        any(>(0), (design.wing_area, design.kite_area, design.rotor_area)) &&
+            throw(ArgumentError("rigid kites fly alone on a design"))
+        return rigid_kite_rig(design.rigid_kite_area, hull, assumptions)
+    end
     design.wing_area > 0 && design.rotor_area > 0 &&
         throw(ArgumentError("a design carries wings or rotors, not both"))
     standing_type, standing_area = design.wing_area > 0 ? (WingRig, design.wing_area) :
