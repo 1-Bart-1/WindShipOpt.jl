@@ -116,6 +116,8 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 
 **fritz2013** — Fritz, F. (2013). Application of an automated kite system for ship propulsion and power generation. In _Airborne Wind Energy_, Springer, 359–372. DOI 10.1007/978-3-642-39965-7_20. SkySails system description by the company.
 
+**dunker2013** — Dunker, S. (2013). Ram-air wing design considerations for airborne wind energy. In _Airborne Wind Energy_, Springer, 517–546. DOI 10.1007/978-3-642-39965-7_31. Ram-air construction from a parachute maker: cell width, seams, and the size limit of a subassembly.
+
 **paulig2013** — Paulig, X., Bungart, M., Specht, B. (2013). Conceptual design of textile kites considering overall system performance. In _Airborne Wind Energy_, Springer, 547–562. DOI 10.1007/978-3-642-39965-7_32. SkySails kite design trade-offs (area, aspect ratio, wing loading).
 
 **ahrens2013**, **schmehl2018** — the two Springer _Airborne Wind Energy_ volumes (DOIs 10.1007/978-3-642-39965-7 and 10.1007/978-981-10-1947-0). Context for kite aerodynamics and the VSM line of work (cayon2023 in refs).
