@@ -467,6 +467,17 @@ end
               power)
 end
 
+@testset "rotors that cannot spin still stand as drag" begin
+    ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=300.0), assumptions)
+    speed = 5.0
+    for wind in (22.0, 30.0)
+        stopped = rig_force(ship.rig, ship.env, wind, 0.0, speed, 0.0)
+        thrust, force = WindShipOpt.best_trim(ship, ship.rig, speed, wind, 0.0)
+        @test stopped.thrust < 0
+        @test force.thrust ≈ stopped.thrust
+    end
+end
+
 @testset "fixed rigs cost port time where they block cargo or bridges" begin
     classes = ship_classes()
     rotors(class) = WindShipOpt.RotorRig(800.0, Hull(classes[class], assumptions),
