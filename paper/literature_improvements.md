@@ -143,8 +143,7 @@ Aframax class (236 m) for Lu & Ringsberg's 250 m tanker, the Kamsarmax class
 Panamax container (245 m) classes, so A and J need their own hull from the
 particulars above.
 
-The `checks.tex` item pending on Dadd et al. (2011) can be replaced by case F if
-Dadd stays unavailable.
+Dadd et al. (2011) could not be obtained; case F (Penloup 2021) is the kite-model check.
 
 ## 4. Kite wing-loading limit (high)
 
