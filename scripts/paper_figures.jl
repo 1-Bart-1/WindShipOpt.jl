@@ -1647,3 +1647,57 @@ function print_rigid_kite(table, ship, drive, savings)
             " of ", length(route_names), " routes")
     end
 end
+
+"""
+    canopy_price_figure()
+
+(a) Price of a canopy per projected m^2 as built today, at the goal with today's cloth, and
+at the goal, split into cloth, sewing with lines and hardware, and the market margin; (b)
+price of a sewn m^2 of cloth against cloth weight, today and at the goal.
+"""
+function canopy_price_figure()
+    figure = Figure(size=(page_width, 165))
+    price = Axis(figure[1, 1]; xlabel="price per projected m² [USD]",
+        title="(a) canopy price")
+    cloth = Axis(figure[1, 2]; xlabel="cloth weight [g/m²]",
+        ylabel="USD per m² of cloth", title="(b) sewn cloth")
+    colsize!(figure.layout, 1, Relative(0.62))
+    cloth_inputs = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
+    cases = [("today", WindShipOpt.with_today(assumptions,
+            WindShipOpt.canopy_price_inputs)),
+        ("goal, today's cloth", WindShipOpt.with_today(assumptions, cloth_inputs)),
+        ("goal", assumptions)]
+    parts = ("cloth", "sewing, lines, hardware", "market margin")
+    part_colors = [palette[1], palette[2], :gray60]
+    for (row, (label, inputs)) in enumerate(cases)
+        making = inputs[:canopy_making_cost_per_area]
+        cost = WindShipOpt.Canopy(inputs).cost_per_area
+        segments = [cost - making, making, (inputs[:market_price_factor] - 1) * cost]
+        barplot!(price, fill(row, 3), segments; stack=1:3, direction=:x,
+            color=part_colors, gap=0.35)
+        text!(price, cumsum(segments) .- segments ./ 2, fill(row, 3);
+            text=[@sprintf("%.0f", segment) for segment in segments],
+            align=(:center, :center), fontsize=8, color=:white)
+        text!(price, sum(segments), row; text=@sprintf(" %.0f", sum(segments)),
+            align=(:left, :center), fontsize=9)
+    end
+    price.yticks = (eachindex(cases), first.(cases))
+    price.yreversed = true
+    xlims!(price, 0, 1.12 * WindShipOpt.canopy_price_today(assumptions))
+    hideydecorations!(price; ticklabels=false)
+    weights = 0:5:400
+    for (k, (label, suffix)) in enumerate((("today", :_today), ("goal", Symbol(""))))
+        line = assumptions[Symbol(:canopy_cloth_base_price, suffix)] .+
+               assumptions[Symbol(:canopy_cloth_price_per_weight, suffix)] .* weights
+        lines!(cloth, weights, line; color=:black, linestyle=k == 1 ? :solid : :dash)
+        text!(cloth, weights[end], line[end]; text=label, align=(:right, :top),
+            offset=(0, -4), fontsize=9)
+    end
+    vlines!(cloth, assumptions[:canopy_cloth_weight]; color=:gray, linewidth=0.75)
+    ylims!(cloth, 0, nothing)
+    Legend(figure[2, 1:2], [PolyElement(; color) for color in part_colors],
+        collect(parts); orientation=:horizontal, framevisible=false, labelsize=9,
+        tellwidth=false, padding=0, patchsize=(10, 8))
+    rowgap!(figure.layout, 4)
+    save(joinpath(figures, "canopy_price.pdf"), figure; pt_per_unit=print_scale)
+end
