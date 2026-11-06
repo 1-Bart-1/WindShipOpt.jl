@@ -319,7 +319,7 @@ wing_interference_decay:
   low: 2.0
   high: 4.0
   unit: chord lengths
-  reason: "Engineering estimate of the decay length of the wing array loss: no 3D data beyond 1.9 chords; set so that the loss is below 1 % at the 10-chord optimum of 2D RANS (Wang et al. 2024)."
+  reason: "Engineering estimate of the decay length of the wing array loss: no 3D data beyond 1.9 chords; set so that the loss of four wings is below 1 % at 10 chords, the widest spacing in the 2D RANS of Wang et al. (2024)."
 wing_max_height:
   value: 40.0
   low: 35.0
@@ -331,13 +331,13 @@ wing_spacing:
   low: 1.2
   high: 2.0
   unit: chord lengths
-  reason: "Closest spacing of wings over their chord at which wings turning about a quarter-chord pivot clear each other, also the aerodynamic minimum of Wang et al. (2024)."
+  reason: "Closest spacing of wings over their chord at which wings turning about a quarter-chord pivot clear each other, also the closest spacing at which 2D RANS of three wings in line found no further gain (Wang et al. 2024)."
 deck_length_fraction:
   value: 0.75
   low: 0.65
   high: 0.8
   unit: "-"
-  reason: "Engineering assumption: part of the length between forecastle and deckhouse; no source found."
+  reason: "Engineering assumption: share of the ship's length between forecastle and deckhouse that a row of rigs can use; an MR tanker has 140 m of upper deck on 182 m (Han et al. 2025), a CFD layout of five wing sails on a Kamsarmax spans 165 of 222 m (Mboumba 2022)."
 max_air_draft:
   value: 45.0
   low: 35.0
@@ -397,7 +397,7 @@ rotor_spacing:
   low: 2.5
   high: 5.0
   unit: diameters
-  reason: "Closest spacing of rotors over their diameter, the closest measured (Bordogna et al. 2020, quoted by Tillig & Ringsberg 2020); end discs are two diameters wide."
+  reason: "Closest spacing of rotors over their diameter, the closest of the three tested in the wind tunnel (3, 7.5 and 15 diameters, Bordogna et al. 2020); end discs are two diameters wide."
 rotor_max_surface_speed:
   value: 47.0
   low: 40.0
