@@ -1,47 +1,94 @@
-\begin{tikzpicture}[
-  node distance=5mm and 4mm,
-  part/.style={draw, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum height=12mm, text width=#1, fill=white},
-  part/.default=27mm,
-  ship/.style={part=#1, fill=blue!8}, ship/.default=27mm,
-  rig/.style={part=#1, fill=orange!12}, rig/.default=27mm,
-  route/.style={part=#1, fill=green!10}, route/.default=27mm,
-  money/.style={part=#1, fill=red!8}, money/.default=27mm,
-  data/.style={draw, align=center, font=\footnotesize, inner sep=2pt, minimum height=12mm, text width=#1, fill=gray!8},
-  data/.default=27mm,
-  sec/.style={font=\scriptsize\itshape, text=black!60},
-  arrow/.style={-{Stealth[length=1.8mm]}, semithick}]
-% physics of one operating point
-\node[data] (weather) {Weather\\ ERA5 wind, waves\\ \S\ref{sec:routes}};
-\node[part, right=of weather] (apparent) {Apparent wind\\ at rig height\\ \S\ref{sec:deck_rigs}};
-\node[rig, right=of apparent] (rigs) {Rig forces\\ kite \S\ref{sec:kite}, wings, rotors \S\ref{sec:deck_rigs}};
-\node[ship, right=of rigs] (balance) {Force balance\\ hull, rudder, heel\\ \S\ref{sec:balance}};
-\node[ship, right=of balance] (power) {Thrust and fuel power\\ resistance, propeller, engines \S\ref{sec:ships}};
-\node[part, above=of weather] (speed) {Ship speed and course, chosen by the router};
-\node[data, above=of rigs] (design) {Design: class, drive, rig and area \S\ref{sec:ships}};
-\node[ship, above=of power] (hull) {Calm water, waves, windage\\ \S\ref{sec:ships}};
-% voyage and cost
-\node[route, below=9mm of power] (table) {Performance table\\ over speed, wind, waves};
-\node[route, left=of table] (router) {Weather router\\ \S\ref{sec:routing}};
-\node[route, left=of router] (voyage) {Voyages\\ fuel, time, flight hours};
-\node[money, left=of voyage] (cost) {Cost per tonne-km\\ \S\ref{sec:cost_model}, prices \S\ref{sec:costs}};
-\node[money, left=of cost] (compare) {Comparison\\ against no rig \S\ref{sec:results}};
-\node[money, below=7mm of cost] (search) {Rig-size search\\ best area per ship, drive, route};
-\node[data, below=7mm of voyage] (inputs) {Inputs: value, range, source, \cref{sec:inputs}};
-\draw[arrow] (weather) -- (apparent);
-\draw[arrow] (speed.east) -| (apparent.north);
+\begin{tikzpicture}[x=1mm, y=1mm, font=\footnotesize,
+  box/.style={draw, rounded corners=2pt, minimum width=37mm, minimum height=23mm},
+  boxtext/.style={align=left, inner sep=0pt, anchor=north west},
+  stepnum/.style={circle, fill=black, text=white, font=\scriptsize\bfseries, inner sep=0.6pt,
+    minimum size=3.6mm},
+  loopframe/.style={draw=black!55, dashed, rounded corners=4pt},
+  looplabel/.style={font=\footnotesize\itshape, text=black!70, fill=white, inner sep=1pt},
+  arrow/.style={-{Stealth[length=1.8mm]}, semithick},
+  shipc/.style={fill=blue!8}, rigc/.style={fill=orange!14}, routec/.style={fill=green!10},
+  moneyc/.style={fill=red!8}, datac/.style={fill=gray!10},
+  hull/.pic={\fill[black!45] (-4.5,0) -- (4.5,0) -- (3.8,-1.6) -- (-4,-1.6) -- cycle;
+    \fill[black!45] (-4.2,0) rectangle (-3,1.2);},
+  shipwithkite/.pic={\begin{scope}[yshift=-1.5mm, scale=0.75] \pic {hull};
+    \draw[orange!80!black, line width=1.2pt] (0.5,7.5) arc[start angle=60, end angle=120, radius=4];
+    \draw[black!60] (2.5,0) -- (-1.5,7.3); \end{scope}},
+  polar/.pic={\draw[black!60, ->] (-4,-3.5) -- (4.5,-3.5); \draw[black!60, ->] (-4,-3.5) -- (-4,4);
+    \draw[orange!80!black, thick] (-3.6,-3.2) .. controls (-1,4) and (1.5,3.5) .. (4,-1);},
+  topview/.pic={\draw[fill=black!20] (0,-4.5) .. controls (1.6,-3) and (1.6,3) .. (0,4.5)
+    .. controls (-1.6,3) and (-1.6,-3) .. (0,-4.5);
+    \draw[->, orange!80!black, thick] (0,0) -- (-3,3);
+    \draw[->, blue!70!black, thick] (0.9,0) -- (3.5,0);
+    \draw[->, green!50!black, thick] (0,-4.5) -- (2.4,-4.5);},
+  engine/.pic={\draw[fill=black!20] (-3.5,-2) rectangle (1,2);
+    \draw[black!60] (1,0) -- (3,0); \draw[fill=black!45] (3,-2) -- (3.6,0) -- (3,2) -- (4.2,0) -- cycle;},
+  windtriangle/.pic={\draw[->, black!70, thick] (-4,2.5) -- (2,2.5);
+    \draw[->, blue!70!black, thick] (2,2.5) -- (2,-3);
+    \draw[->, orange!80!black, thick] (-4,2.5) -- (1.8,-2.8);},
+  grid/.pic={\foreach \i in {0,...,3} \draw[black!40] (-4,-3+2*\i) -- (4,-3+2*\i);
+    \foreach \i in {0,...,4} \draw[black!40] (-4+2*\i,-3) -- (-4+2*\i,3);
+    \fill[blue!40] (-2,-1) rectangle (0,1);},
+  route/.pic={\foreach \x in {-4,-2,...,4} \foreach \y in {-3,-1.5,...,3}
+      \fill[black!35] (\x,\y) circle (0.25);
+    \draw[green!45!black, thick] (-4,0) -- (-2,1.5) -- (0,1.5) -- (2,-1.5) -- (4,0);},
+  weathermap/.pic={\draw[black!40, fill=black!5] (-4.5,-3.5) rectangle (4.5,3.5);
+    \foreach \x/\y in {-3/2, 0/2.2, 2.5/1.5, -2.5/-1, 0.5/-1.5, 3/-2}
+      \draw[->, black!60] (\x,\y) -- ++(1.4,-0.6);
+    \fill[black!25] (2.8,3.5) -- (4.5,3.5) -- (4.5,0.5) -- (3.5,1.5) -- cycle;},
+  costbar/.pic={\fill[blue!45] (-4,-1) rectangle (-1.2,1);
+    \fill[orange!60] (-1.2,-1) rectangle (0.2,1); \fill[cyan!40] (0.2,-1) rectangle (2.6,1);
+    \fill[red!40] (2.6,-1) rectangle (4,1);},
+  search/.pic={\draw[black!60, ->] (-4,-3) -- (4.5,-3); \draw[black!60, ->] (-4,-3) -- (-4,3.5);
+    \draw[red!60!black, thick] (-3.5,2.5) .. controls (-1,-3) and (1,-3) .. (3.8,2);
+    \fill[red!60!black] (0,-1.6) circle (0.6);},
+  bars/.pic={\foreach \x/\h/\c in {-3/3/blue!55, -1/2/orange!70, 1/3.6/green!55!black}
+      \fill[\c] (\x,-3) rectangle ++(1.5,\h);
+    \draw[black!60] (-4,-3) -- (4,-3);},
+  pages/.pic={\draw[fill=white] (-3,-3.5) rectangle (2,3); \draw[fill=white] (-2,-2.5) rectangle (3,4);
+    \foreach \y in {2.5,1.5,0.5,-0.5,-1.5} \draw[black!40] (-1.4,\y) -- (2.4,\y);},
+]
+% #1 name, (#2,#3) centre, #4 colour, #5 step, #6 title, #7 what it does, #8 picture
+\newcommand{\pipebox}[8]{%
+  \node[box, #4] (#1) at (#2,#3) {};
+  \node[boxtext, text width=24mm, font=\footnotesize\bfseries] at ([shift={(2.5,-2)}]#1.north west) {#6};
+  \node[boxtext, text width=33mm] at ([shift={(2,-10.2)}]#1.north west) {#7};
+  \pic[scale=0.85] at ([shift={(-6,-5.2)}]#1.north east) {#8};
+  \node[stepnum] at (#1.north west) {#5};}
+% inputs
+\pipebox{design}{0}{0}{datac}{1}{Design}{ship class, drive and one rig with its area, \S\ref{sec:ships}}{shipwithkite}
+\pipebox{weather}{61.5}{0}{datac}{2}{Weather}{hourly wind and waves 2017--2019 on six routes, \S\ref{sec:routes}}{weathermap}
+\pipebox{inputs}{123}{0}{datac}{3}{Inputs}{prices, lives and goals, each with its range and source, \cref{sec:inputs}}{pages}
+% one operating point
+\pipebox{apparent}{0}{-36}{shipc}{4}{Apparent wind}{ship speed and true wind give the wind at the rig, \S\ref{sec:deck_rigs}}{windtriangle}
+\pipebox{rigs}{41}{-36}{rigc}{5}{Rig forces}{thrust and side force of kite \S\ref{sec:kite}, wings or rotors \S\ref{sec:deck_rigs}}{polar}
+\pipebox{balance}{82}{-36}{shipc}{6}{Force balance}{hull, rudder and windage hold the side force: drag and leeway, \S\ref{sec:balance}}{topview}
+\pipebox{power}{123}{-36}{shipc}{7}{Fuel power}{resistance in waves, propeller and engine, \S\ref{sec:ships}}{engine}
+% voyages and cost
+\pipebox{table}{0}{-70}{routec}{8}{Performance table}{fuel power over speed, wind and waves, \S\ref{sec:routing}}{grid}
+\pipebox{router}{41}{-70}{routec}{9}{Weather router}{cheapest track and speed through the corridor, \S\ref{sec:routing}}{route}
+\pipebox{voyage}{82}{-70}{routec}{10}{Voyage}{fuel, hours at sea and kite flight hours, out and home}{hull}
+\pipebox{cost}{123}{-70}{moneyc}{11}{Cost per tonne-km}{fuel, capital, crew, wear and cargo interest, \S\ref{sec:cost_model}}{costbar}
+\pipebox{search}{0}{-104}{moneyc}{12}{Rig-size search}{next area until the cost is lowest, \S\ref{sec:res_size}}{search}
+\pipebox{compare}{41}{-104}{moneyc}{13}{Comparison}{saving of the best size against the same ship without a rig, \S\ref{sec:results}}{bars}
+% loops
+\draw[loopframe] (-21,-18.5) rectangle (144.5,-85.5);
+\node[looplabel, anchor=east] at (142,-18.5) {for each design};
+\draw[loopframe] (-20,-21.5) rectangle (143.5,-49);
+\node[looplabel, anchor=west] at (-15,-21.5) {for each operating point: ship speed, true wind and waves};
+\draw[loopframe] (20.5,-56) rectangle (102.5,-83);
+\node[looplabel] at (61.5,-83) {for each departure, out and home};
+% flow
+\draw[arrow] (design.south) -- (0,-18.5);
 \draw[arrow] (apparent) -- (rigs);
-\draw[arrow] (design) -- (rigs);
 \draw[arrow] (rigs) -- (balance);
 \draw[arrow] (balance) -- (power);
-\draw[arrow] (hull) -- (power);
-\draw[arrow] (design) -- (hull);
-\draw[arrow] (power) -- (table);
+\draw[arrow] (power.south) -- (123,-52.5) -- (0,-52.5) -- (table.north);
 \draw[arrow] (table) -- (router);
-\draw[arrow] (weather.south) |- ([yshift=4mm]router.north) -- (router.north);
+\draw[arrow] (weather.south) -- (61.5,-54) -| ([xshift=10mm]router.north);
 \draw[arrow] (router) -- (voyage);
 \draw[arrow] (voyage) -- (cost);
-\draw[arrow] (cost) -- (compare);
-\draw[arrow] (cost) -- (search);
-\draw[arrow] (search.west) -| node[sec, pos=0.25, below] {next area} ([xshift=-3mm]compare.west) |- ([yshift=4mm]speed.north -| design.north) -- (design.north);
-\draw[arrow] (inputs) -- (voyage);
+\draw[arrow] (inputs.east) -- (148,0) |- (cost.east);
+\draw[arrow] (cost.south) -- (123,-88.5) -- (0,-88.5) -- (search.north);
+\draw[arrow] (search) -- (compare);
+\draw[arrow] (search.west) -- (-24,-104) |- node[pos=0.25, left, font=\scriptsize, align=right] {next\\ area} (design.west);
 \end{tikzpicture}
