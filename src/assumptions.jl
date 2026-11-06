@@ -31,9 +31,11 @@ function Assumptions()
     return Assumptions(entries)
 end
 
-"names of the inputs read in a scope of [`inputs_read`](@ref), and the lock guarding them"
+"names of the inputs read in a scope of [`inputs_read`](@ref)"
 struct InputsRead
+    "names of the inputs read so far"
     names::Set{Symbol}
+    "lock guarding `names` against tasks reading at once"
     lock::ReentrantLock
 end
 

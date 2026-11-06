@@ -1160,8 +1160,9 @@ end
     PaperRuns.stored_trip(() -> routed(assumptions), directory, assumptions)
     dearer_canopy = at_high(:canopy_cloth_base_price)
     reused = PaperRuns.cached_trip(directory, dearer_canopy)
-    @test reused.cost_per_tonne_km == routed(dearer_canopy).cost_per_tonne_km
-    @test reused.fuel_energy == routed(dearer_canopy).fuel_energy
+    rerouted = routed(dearer_canopy)
+    @test reused.cost_per_tonne_km == rerouted.cost_per_tonne_km
+    @test reused.fuel_energy == rerouted.fuel_energy
     @test ismissing(PaperRuns.cached_trip(directory, at_high(:rotor_unit_cost)))
     @test ismissing(PaperRuns.cached_trip(directory, at_high(:market_price_factor)))
 end
