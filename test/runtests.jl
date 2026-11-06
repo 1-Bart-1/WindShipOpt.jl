@@ -391,6 +391,11 @@ end
 @testset "a canopy costs its goal price, and USD 234 as built today" begin
     @test WindShipOpt.canopy_price(assumptions) ≈ 149.8
     @test WindShipOpt.canopy_price_today(assumptions) ≈ 234.4
+    cloth = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
+    today_cloth = WindShipOpt.with_today(assumptions, cloth)
+    @test all(today_cloth[name] == assumptions[Symbol(name, :_today)] for name in cloth)
+    @test today_cloth[:canopy_making_cost_per_area] ==
+          assumptions[:canopy_making_cost_per_area]
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈ 149.8rig.area
 end
@@ -582,6 +587,22 @@ end
     @test WindShipOpt.launch_mast_position(hull, assumptions) ≈ row_end + reserve / 2
     @test_throws ArgumentError Ship(ShipDesign(:vlsfo, 140.0; wing_area=800.0,
         rotor_area=400.0), assumptions)
+end
+
+@testset "deck units stand evenly over their row, centred on it" begin
+    hull = Hull(140.0, assumptions)
+    reserve = WindShipOpt.launch_mast_reserve(assumptions)
+    deck = assumptions[:deck_length_fraction] * hull.length
+    for (rig, row_length) in ((WingRig(800.0, hull, assumptions), deck),
+        (WindShipOpt.RotorRig(800.0, hull, assumptions; forward_reserve=reserve),
+            deck - reserve))
+        positions = WindShipOpt.unit_positions(rig, hull, assumptions)
+        @test length(positions) == rig.count > 1
+        @test sum(positions) / rig.count ≈ rig.centre_position
+        @test all(diff(positions) .≈ row_length / rig.count)
+    end
+    single = WingRig(100.0, hull, assumptions)
+    @test WindShipOpt.unit_positions(single, hull, assumptions) == [single.centre_position]
 end
 
 @testset "a rig ship is sized near the bare ship in calm water" begin
