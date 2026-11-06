@@ -435,6 +435,17 @@ end
               for name in fieldnames(RigForce))
 end
 
+@testset "kite and rotors in one wind push the hull to the same side" begin
+    env = Environment(assumptions)
+    hull = Hull(140.0, assumptions)
+    kite = uniform_kite(hull, assumptions)
+    rotors = WindShipOpt.RotorRig(800.0, hull, assumptions)
+    for angle in deg2rad.((90.0, 120.0))
+        kite_side = rig_force(kite, env, 12.0, angle, 6.0, 2).side
+        @test kite_side > 0 && rig_force(rotors, env, 12.0, angle, 6.0, 3.0).side > 0
+    end
+end
+
 @testset "kite launch mast takes the forward deck from the rotor row" begin
     hull = Hull(140.0, assumptions)
     reserve = WindShipOpt.launch_mast_reserve(assumptions)

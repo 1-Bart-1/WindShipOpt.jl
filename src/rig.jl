@@ -711,7 +711,7 @@ function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_sp
     limit = kite_count(rig) * min(interaction, rig.max_force / lone)
     direction = angle + π
     thrust = limit * (downwind * cos(direction) - crosswind * sin(direction))
-    side = limit * (downwind * sin(direction) + crosswind * cos(direction))
+    side = -limit * (downwind * sin(direction) + crosswind * cos(direction))
     return RigForce(thrust, side, side * rig.attach_height, side * rig.attach_position)
 end
 
