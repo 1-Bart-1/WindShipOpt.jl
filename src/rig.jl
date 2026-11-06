@@ -47,6 +47,32 @@ Base.:*(share::Real, force::RigForce) = RigForce(share * force.thrust, share * f
     share * force.heeling_moment, share * force.yaw_moment, share * force.power)
 
 """
+    TrimRange
+
+Interval from `low` to `high` of one continuous trim variable of a rig, of the family of
+settings numbered `branch`, scanned at `points` evenly spaced values before its best value
+is refined.
+"""
+struct TrimRange
+    low::Float64
+    high::Float64
+    points::Int
+    branch::Int
+end
+
+"""
+    centre_wind(rig, env, wind_10m, true_angle, ship_speed)
+
+Height of the centre of effort of a deck rig of wings or rotors above the waterline [m],
+and the apparent wind speed [m/s] and angle [rad] there.
+"""
+function centre_wind(rig, env::Environment, wind_10m, true_angle, ship_speed)
+    centre_height = rig.foot_height + rig.height / 2
+    wind = wind_at_height(env, wind_10m, centre_height)
+    return centre_height, apparent_wind(wind, true_angle, ship_speed)...
+end
+
+"""
     array_factor(count, spacing, amplitude, decay)
 
 Thrust of `count` units in a row over `count` times that of one unit alone, for units
@@ -146,14 +172,12 @@ end
     rig_force(rig::WingRig, env, wind_10m, true_angle, ship_speed, setting)
 
 Wing force at the trim `setting`, a lift and drag coefficient pair from
-[`trim_settings`](@ref), with the apparent wind taken at the wing's mid height.
+[`trim_setting`](@ref), with the apparent wind taken at the wing's mid height.
 """
 function rig_force(rig::WingRig, env::Environment, wind_10m, true_angle, ship_speed,
         setting)
     lift, drag = setting
-    centre_height = rig.foot_height + rig.height / 2
-    wind = wind_at_height(env, wind_10m, centre_height)
-    speed, angle = apparent_wind(wind, true_angle, ship_speed)
+    centre_height, speed, angle = centre_wind(rig, env, wind_10m, true_angle, ship_speed)
     load = 0.5env.air_density * speed^2 * total_area(rig)
     thrust = load * rig.interference_factor * (lift * sin(angle) - drag * cos(angle))
     side = load * (lift * cos(angle) + drag * sin(angle))
@@ -161,20 +185,27 @@ function rig_force(rig::WingRig, env::Environment, wind_10m, true_angle, ship_sp
 end
 
 """
-    trim_settings(rig::WingRig)
+    trim_ranges(rig, env, wind_10m, true_angle, ship_speed)
 
-Lift and drag coefficient pairs of the wing: attached flow up to its highest lift
-coefficient, and stalled from 25 to 90 degrees angle of attack, where the force is
-normal to the wing.
+[`TrimRange`](@ref)s of the trims `rig` can take in that wind at `ship_speed` [m/s]: for
+wings the lift coefficient in attached flow and the angle of attack [deg] stalled, for
+rotors the spin ratio, for a kite the weight of side force against thrust.
 """
-function trim_settings(rig::WingRig)
-    attached = [(lift, drag_coefficient(rig, lift))
-                for lift in range(0.0, rig.max_lift_coefficient; length=37)]
+trim_ranges(rig::WingRig, env, wind_10m, true_angle, ship_speed) =
+    (TrimRange(0.0, rig.max_lift_coefficient, 5, 1), TrimRange(25.0, 90.0, 5, 2))
+
+"""
+    trim_setting(rig, trim_range, value)
+
+Setting [`rig_force`](@ref) takes for `value` of the trim variable of `trim_range`: for
+wings the lift and drag coefficient pair, attached or stalled with the force normal to the
+wing.
+"""
+function trim_setting(rig::WingRig, trim_range::TrimRange, value)
+    trim_range.branch == 1 && return (value, drag_coefficient(rig, value))
     normal = rig.stalled_drag_coefficient
-    stalled = [(normal * sind(angle) * cosd(angle),
-                   rig.profile_drag_coefficient + normal * sind(angle)^2)
-               for angle in 25:5:90]
-    return [attached; stalled]
+    return (normal * sind(value) * cosd(value),
+        rig.profile_drag_coefficient + normal * sind(value)^2)
 end
 
 """
@@ -251,11 +282,8 @@ no force where the rotors cannot spin that fast.
 """
 function rig_force(rig::RotorRig, env::Environment, wind_10m, true_angle, ship_speed,
         spin_ratio)
-    centre_height = rig.foot_height + rig.height / 2
-    wind = wind_at_height(env, wind_10m, centre_height)
-    speed, angle = apparent_wind(wind, true_angle, ship_speed)
-    spin_ratio * speed <= rig.max_surface_speed || return NO_RIG_FORCE
-    speed > rig.max_wind && spin_ratio > 0 && return NO_RIG_FORCE
+    centre_height, speed, angle = centre_wind(rig, env, wind_10m, true_angle, ship_speed)
+    spin_ratio <= max_spin_ratio(rig, speed) || return NO_RIG_FORCE
     load = 0.5env.air_density * speed^2 * total_area(rig)
     fitted_lift, drag, power = rotor_coefficients(spin_ratio)
     lift = rig.lift_factor * fitted_lift
@@ -265,14 +293,31 @@ function rig_force(rig::RotorRig, env::Environment, wind_10m, true_angle, ship_s
         load * speed * power)
 end
 
-trim_settings(rig::RotorRig) = 0.0:0.25:4.0
+"highest spin ratio of the rotor fit [-]"
+const MAX_SPIN_RATIO = 4.0
+
+"""
+    max_spin_ratio(rig, speed)
+
+Highest spin ratio [-] of the rotors of `rig` in an apparent wind of `speed` [m/s]: that of
+the fit or of their surface speed limit, zero above the wind they stop in.
+"""
+max_spin_ratio(rig::RotorRig, speed) =
+    speed > rig.max_wind ? 0.0 : min(MAX_SPIN_RATIO, rig.max_surface_speed / speed)
+
+function trim_ranges(rig::RotorRig, env, wind_10m, true_angle, ship_speed)
+    _, speed, _ = centre_wind(rig, env, wind_10m, true_angle, ship_speed)
+    return (TrimRange(0.0, max_spin_ratio(rig, speed), 9, 1),)
+end
+
+trim_setting(::RotorRig, ::TrimRange, value) = value
 
 """
     KiteRig
 
 Towing kite on a fixed-length tether from a mast on the bow, with the force of its best
 flight pattern tabulated over apparent wind speed, course off the apparent downwind
-direction and the weight given to side force; each weight is one trim.
+direction and the weight given to side force, its trim.
 """
 Base.@kwdef struct KiteRig
     "projected kite area [m^2]"
@@ -308,7 +353,7 @@ Base.@kwdef struct KiteRig
     wind_speeds::Vector{Float64}
     "courses of the pattern table, azimuth off apparent downwind [rad]"
     courses::Vector{Float64}
-    "weights of side force against thrust, one per trim"
+    "weights of side force against thrust of the pattern table"
     side_weights::Vector{Float64}
     "best pattern force over dynamic pressure and area per speed, course and weight"
     forces::Array{PatternForce, 3}
@@ -361,10 +406,23 @@ function kite_model(area, aspect_ratio, assumptions::Assumptions)
     stall = argmax(polar.lift)
     model = KiteModel(area, mass, tether_length, env.air_density, env.gravity, polar,
         assumptions[:kite_flight_drag] + bridle_drag + tether_drag,
-        polar.angle_of_attack[findfirst(>=(0.05), polar.lift)],
+        lift_angle(polar, 0.05),
         polar.angle_of_attack[stall] - deg2rad(assumptions[:kite_stall_margin]),
         assumptions[:kite_min_turn_radius] * span)
     return model, max_force, tether_diameter
+end
+
+"""
+    lift_angle(polar, lift)
+
+Lowest angle of attack [rad] at which `polar` reaches the lift coefficient `lift`.
+"""
+function lift_angle(polar::KitePolar, lift)
+    i = findfirst(>=(lift), polar.lift)
+    i == 1 && return first(polar.angle_of_attack)
+    fraction = (lift - polar.lift[i - 1]) / (polar.lift[i] - polar.lift[i - 1])
+    return polar.angle_of_attack[i - 1] +
+           fraction * (polar.angle_of_attack[i] - polar.angle_of_attack[i - 1])
 end
 
 """
@@ -382,11 +440,16 @@ static_wind(mass, model::KiteModel) = sqrt(2mass * model.gravity /
 Highest `coefficient(lift, drag)` of `model` over its flying angles of attack.
 """
 function best_over_angles(coefficient, model::KiteModel)
-    angles = range(model.lowest_angle, model.stall_angle; length=48)
-    return maximum(angles) do angle
-        (; lift, drag) = KiteAero(model, angle)
-        return coefficient(lift, drag)
-    end
+    angles = TrimRange(model.lowest_angle, model.stall_angle, 9, 1)
+    objective = Base.Fix1(Base.Fix1(negative_coefficient, coefficient), model)
+    _, lowest = best_on_range(objective, angles)
+    return -lowest
+end
+
+"minus `coefficient(lift, drag)` of `model` at angle of attack `angle` [rad]"
+function negative_coefficient(coefficient, model::KiteModel, angle)
+    (; lift, drag) = KiteAero(model, angle)
+    return -coefficient(lift, drag)
 end
 
 """
@@ -455,7 +518,7 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
     tether_length = model.tether_length
     wind_speeds = [3.0:1.0:9.0; 10.5; 12.0:3.0:30.0]
     courses = deg2rad.(0.0:15.0:180.0)
-    side_weights = [0.0, 0.5, 1.0, 3.0]
+    side_weights = [0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0]
     return KiteRig(; area, tether_diameter, tether_length,
         reference_height=tether_length * sin(deg2rad(25)),
         max_wind=assumptions[:kite_max_wind],
@@ -484,28 +547,33 @@ function table_weights(grid, value)
 end
 
 """
-    rig_force(rig::KiteRig, env, wind_10m, true_angle, ship_speed, trim)
+    rig_force(rig::KiteRig, env, wind_10m, true_angle, ship_speed, side_weight)
 
-Force of the best pattern for side weight number `trim`, interpolated in newtons over
-apparent wind speed and course and held to the tether limit; no force where the kite
+Force of the best pattern for `side_weight`, interpolated in newtons over apparent wind
+speed, course and side weight and held to the tether limit; no force where the kite
 cannot fly or the wind is below the table.
 """
-function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_speed, trim)
+function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_speed,
+        side_weight)
     wind = wind_at_height(env, wind_10m, rig.reference_height)
     speed, angle = apparent_wind(wind, true_angle, ship_speed)
     max(rig.min_flight_wind, first(rig.wind_speeds)) <= speed <= rig.max_wind ||
         return NO_RIG_FORCE
     i, speed_weight = table_weights(rig.wind_speeds, speed)
     j, course_weight = table_weights(rig.courses, π - angle)
+    k, side_fraction = table_weights(rig.side_weights, side_weight)
     downwind, crosswind = 0.0, 0.0
     for (row, row_weight) in ((i, 1 - speed_weight), (i + 1, speed_weight)),
-        (column, column_weight) in ((j, 1 - course_weight), (j + 1, course_weight))
+        (column, column_weight) in ((j, 1 - course_weight), (j + 1, course_weight)),
+        (layer, layer_weight) in ((k, 1 - side_fraction), (k + 1, side_fraction))
 
-        force = rig.forces[row, column, trim].force
+        weight = row_weight * column_weight * layer_weight
+        iszero(weight) && continue
+        force = rig.forces[row, column, layer].force
         isfinite(force[1]) || return NO_RIG_FORCE
         load = 0.5env.air_density * rig.wind_speeds[row]^2 * rig.area
-        downwind += row_weight * column_weight * load * force[1]
-        crosswind += row_weight * column_weight * load * force[2]
+        downwind += weight * load * force[1]
+        crosswind += weight * load * force[2]
     end
     limit = min(1.0, rig.max_force / hypot(downwind, crosswind))
     direction = angle + π
@@ -514,7 +582,10 @@ function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_sp
     return RigForce(thrust, side, side * rig.attach_height, side * rig.attach_position)
 end
 
-trim_settings(rig::KiteRig) = eachindex(rig.side_weights)
+trim_ranges(rig::KiteRig, env, wind_10m, true_angle, ship_speed) =
+    (TrimRange(first(rig.side_weights), last(rig.side_weights), 13, 1),)
+
+trim_setting(::KiteRig, ::TrimRange, value) = value
 
 """
     CombinedRig{S}
@@ -574,9 +645,6 @@ rig_force(rig::CombinedRig, env::Environment, wind_10m, true_angle, ship_speed, 
     rig_force(rig.kite, env, wind_10m, true_angle, ship_speed, first(trim)) +
     rig_force(rig.standing, env, wind_10m, true_angle, ship_speed, last(trim))
 
-"every pair of kite trim and standing rig trim, chosen jointly"
-trim_settings(rig::CombinedRig) =
-    vec(collect(Iterators.product(trim_settings(rig.kite), trim_settings(rig.standing))))
 
 """
     standing_rig(rig)
@@ -604,8 +672,11 @@ end
 stopped_setting(rig::WingRig) = (0.0, drag_coefficient(rig, 0.0))
 stopped_setting(::RotorRig) = 0.0
 
-trim_settings(down::DownRig) = down.working_share > 0 ? trim_settings(down.rig) :
-                               [stopped_setting(down.rig)]
+trim_ranges(down::DownRig, env, wind_10m, true_angle, ship_speed) =
+    trim_ranges(down.rig, env, wind_10m, true_angle, ship_speed)
+
+trim_setting(down::DownRig, trim_range::TrimRange, value) =
+    trim_setting(down.rig, trim_range, value)
 
 function rig_force(down::DownRig, env::Environment, wind_10m, true_angle, ship_speed,
         setting)

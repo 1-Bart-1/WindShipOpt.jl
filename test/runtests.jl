@@ -385,15 +385,113 @@ end
     kite = uniform_kite(hull, assumptions)
     rotors = WindShipOpt.RotorRig(800.0, hull, assumptions)
     combined = WindShipOpt.CombinedRig(kite, rotors)
-    @test length(WindShipOpt.trim_settings(combined)) ==
-          length(WindShipOpt.trim_settings(kite)) *
-          length(WindShipOpt.trim_settings(rotors))
-    sum_force = rig_force(kite, env, 12.0, π / 2, 6.0, 2) +
+    sum_force = rig_force(kite, env, 12.0, π / 2, 6.0, 0.5) +
                 rig_force(rotors, env, 12.0, π / 2, 6.0, 3.0)
-    force = rig_force(combined, env, 12.0, π / 2, 6.0, (2, 3.0))
+    force = rig_force(combined, env, 12.0, π / 2, 6.0, (0.5, 3.0))
     @test force.power > 0 && force.yaw_moment != 0
     @test all(getfield(force, name) ≈ getfield(sum_force, name)
               for name in fieldnames(RigForce))
+end
+
+"""
+    engine_output(ship, speed, wind, angle, (thrust, force))
+
+Engine output [W] of `ship` for a required propeller `thrust` [N] and rig `force`, as
+`best_trim` weighs a trim; `Inf` for infinite thrust.
+"""
+function engine_output(ship, speed, (thrust, force))
+    isfinite(thrust) || return Inf
+    return WindShipOpt.delivered_power(ship.propeller, ship.env, speed, thrust) /
+           ship.powertrain.transmission_efficiency + force.power
+end
+
+"""
+    scanned_output(ship, rig, speed, wind, angle, settings)
+
+Least engine output [W] of `ship` carrying `rig` over the trim `settings`.
+"""
+function scanned_output(ship, rig, speed, wind, angle, settings)
+    return minimum(settings) do setting
+        force = rig_force(rig, ship.env, wind, angle, speed, setting)
+        thrust = WindShipOpt.required_thrust(ship, speed, wind, angle, force)
+        return engine_output(ship, speed, (thrust, force))
+    end
+end
+
+"""
+    reachable_spins(rotors, env, speed, wind, angle, steps)
+
+`steps` spin ratios from 0 to 4 that `rotors` can reach in that wind at ship `speed`.
+"""
+function reachable_spins(rotors, env, speed, wind, angle, steps)
+    spins = range(0.0, 4.0; length=steps)
+    forces = [rig_force(rotors, env, wind, angle, speed, spin) for spin in spins]
+    return [spin for (spin, force) in zip(spins, forces)
+            if iszero(spin) || force != WindShipOpt.NO_RIG_FORCE]
+end
+
+"""
+    wing_settings(rig, steps)
+
+Lift and drag coefficient pairs of `rig` at `steps` lift coefficients attached and `steps`
+angles of attack from 25 to 90 degrees stalled.
+"""
+function wing_settings(rig, steps)
+    normal = rig.stalled_drag_coefficient
+    attached = [(lift, WindShipOpt.drag_coefficient(rig, lift))
+                for lift in range(0.0, rig.max_lift_coefficient; length=steps)]
+    stalled = [(normal * sind(angle) * cosd(angle),
+                   rig.profile_drag_coefficient + normal * sind(angle)^2)
+               for angle in range(25.0, 90.0; length=steps)]
+    return [attached; stalled]
+end
+
+@testset "wings and rotors trim to the least engine output of a fine scan" begin
+    speed = 10.5KNOT
+    rotors = Ship(ShipDesign(:methanol, 140.0; rotor_area=800.0), assumptions)
+    wings = Ship(ShipDesign(:methanol, 140.0; wing_area=1500.0), assumptions)
+    for ship in (rotors, wings), wind in (8.0, 14.0), angle in deg2rad.(30:10:170)
+        settings = ship === wings ? wing_settings(ship.rig, 4001) :
+                   reachable_spins(ship.rig, ship.env, speed, wind, angle, 4001)
+        bare = engine_output(ship, speed,
+            WindShipOpt.best_trim(ship, nothing, speed, wind, angle))
+        scanned = scanned_output(ship, ship.rig, speed, wind, angle, settings)
+        trimmed = engine_output(ship, speed,
+            WindShipOpt.best_trim(ship, ship.rig, speed, wind, angle))
+        @test trimmed <= scanned + 1e-5bare
+    end
+end
+
+@testset "a kite and the rotors beside it trim jointly to the least engine output" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0, rotor_area=200.0), assumptions)
+    speed = 10.5KNOT
+    weights = range(0.0, 3.0; length=31)
+    for wind in (10.0, 16.0), angle in deg2rad.(45:15:165)
+        spins = reachable_spins(ship.rig.standing, ship.env, speed, wind, angle, 201)
+        bare = engine_output(ship, speed,
+            WindShipOpt.best_trim(ship, nothing, speed, wind, angle))
+        scanned = scanned_output(ship, ship.rig, speed, wind, angle,
+            Iterators.product(weights, spins))
+        trimmed = engine_output(ship, speed,
+            WindShipOpt.best_trim(ship, ship.rig, speed, wind, angle))
+        @test trimmed <= scanned + 1e-5bare
+    end
+end
+
+@testset "a kite's force runs linearly in side weight between its table's weights" begin
+    env = Environment(assumptions)
+    uniform = uniform_kite(Hull(140.0, assumptions), assumptions)
+    weighted = WindShipOpt.PatternForce((0.1, 0.5, 0.2), 1.0, 0.3)
+    forces = cat(uniform.forces[:, :, 1], fill(weighted, 10, 13); dims=3)
+    kite = KiteRig(; (name => getfield(uniform, name) for name in fieldnames(KiteRig)
+                      if name != :forces)..., forces)
+    low, high = kite.side_weights[1], kite.side_weights[2]
+    at_low = rig_force(kite, env, 12.0, π / 2, 6.0, low)
+    at_high = rig_force(kite, env, 12.0, π / 2, 6.0, high)
+    middle = rig_force(kite, env, 12.0, π / 2, 6.0, (low + high) / 2)
+    @test at_low.thrust != at_high.thrust
+    @test middle.thrust ≈ (at_low.thrust + at_high.thrust) / 2
+    @test middle.side ≈ (at_low.side + at_high.side) / 2
 end
 
 @testset "kite launch mast takes the forward deck from the rotor row" begin
