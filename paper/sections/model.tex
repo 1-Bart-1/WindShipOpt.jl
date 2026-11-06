@@ -6,7 +6,7 @@ The model turns a ship design into a cost per tonne-kilometre on a route. A desi
 \begin{figure*}[tbp]
 \centering
 \input{sections/pipeline}
-\caption{Model chain from a design to its cost per tonne-kilometre. The rig force tables are computed once per rig, the performance table once per ship, and the router runs once per departure and direction.}
+\caption{The model, each part with its section. The top rows give one operating point: the weather and the ship's speed make the apparent wind, the rig turns it into forces, the force balance with hull, rudder and heel finds the rig's best trim, and resistance, propeller and engines give the fuel power. Tabulated over speed, wind and waves for each ship, these drive the weather router, whose voyages give fuel, time and flight hours; the cost model turns them into a cost per tonne-kilometre, and the size search repeats the chain for the next rig area before the best design is compared with the ship without a rig. Blue boxes model the ship, orange the rig, green the voyage and red the cost; grey boxes are data.}
 \label{fig:pipeline}
 \end{figure*}
 
