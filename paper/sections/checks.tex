@@ -4,6 +4,7 @@
 These checks run with the model and say what it reproduces and where it departs from measurements.
 
 \begin{itemize}
+\item \textbf{Force chain worked by hand.} \Cref{tab:hand} follows the wind through shear with height and the ship's own speed to the apparent wind at the rig, and from there to the force along the course, by a calculation written from the physics without the code. Thrust, side force and spin power agree to the digits printed, and tests hold every printed value there. For the kite the hand calculation takes the pattern table's force coefficients, in the wind's frame, at the apparent wind; the table's own size is checked at the window edge, where the massless \SI{800}{m^2} kite in \SI{12}{m/s} of apparent wind pulls \SI{64.0}{kN} by hand and in the code. Its thrust falls to nothing at an apparent wind angle of \SI{15}{\degree}, the upwind limit of its glide ratio (\cref{sec:model}). The check found one error: the kite returned its side force with the opposite sign to wings and rotors. A rig alone is unaffected, because heel and leeway read its magnitude, but a kite over rotors cancelled side force it should have added. Correcting it raises the cost of the \SI{800}{m^2} kite over \SI{400}{m^2} of rotors on the \SI{140}{m} ship by \tbd{0.0 to 0.3}\,\%. The apparent wind itself was right. Sensitivities: taking the kite's wind at an elevation of 15 or \SI{8}{\degree} instead of \SI{25}{\degree} lowers its cost saving by \tbd{0.4 to 2.9} points on the \SI{140}{m} ship, and half rather than a quarter of the tether's drag acting at the kite changes it by \tbd{$-2.0$ to $+0.6$} points.
 \item \textbf{Calm-water resistance.} The resistance components of the worked example of \citet{holtrop1982}\tbd{ (source not read)} come out within 5\,\% each, and the correlation allowance within 0.5\,\%.
 \item \textbf{Calibrated class power.} At its service speed and design draught every standard class except the coaster needs the calm-water delivered power of its source design to $10^{-6}$, through its resistance factor $f_R$ of 0.61 to 0.99 (\cref{sec:ships}). Uncalibrated, on the worked \num{50000}~t MR tanker of \citet{man2011} with its \SI{6.8}{m} propeller, the model needs 7\,\% more power than MAN's light propeller curve at \SI{14}{kn}.
 \item \textbf{Coaster power.} The \SI{85}{m} coaster needs \SIrange{350}{800}{kW} effective power at \SI{11}{kn} and gets \SIrange{700}{1500}{kW} installed. Real \num{3500}-tonne coasters install about \SI{1.5}{MW} for \SI{12.5}{kn} \tbd{cite}.
@@ -24,3 +25,31 @@ These checks run with the model and say what it reproduces and where it departs 
 \label{sec:check_crashes}
 
 The crash limits of \cref{tab:crashes} inherit the error of the saving. The saving carries an error of 0.4 to 1.0 points with 12 departures (\cref{sec:routing}) and more with the three of this draft. For the \SI{3200}{m^2} kite on the \SI{140}{m} ship that is at least 0.08 to 0.21 crashes a year, for the \SI{2828}{m^2} kite on the Kamsarmax 0.10 to 0.24, and for the \SI{6889}{m^2} kite on the Neo-Panamax 0.3 to 0.75. A smaller limit means none, as for the rotors' lead of 0.6 points over the \SI{1600}{m^2} kite on the \SI{140}{m} ship, 0.06 lost rotors a year.
+
+\begin{table}[tbp]
+\centering
+\caption{The chain from true wind to force on the ship, worked by hand independently of the code and from the code, at a ship speed of \SI{5.4}{m/s} and a wind shear exponent of 0.05. Wing sails of \SI{800}{m^2} at $C_L$ 1 and rotors of \SI{400}{m^2} at spin ratio 3 in a wind of \SI{10}{m/s} at \SI{10}{m}. The kite of \SI{800}{m^2}, at its reference height of \SI{269}{m} and with no side weight, in winds at \SI{10}{m} of 5.88, 6.62, 8.83, 11.16 and \SI{13.80}{m/s}, which put its apparent wind on nodes of its pattern table; the hand calculation takes the force coefficients there from the table. True wind angle TWA, apparent wind $V_a$ and its angle AWA, thrust $F_x$ and side force $F_y$.}
+\label{tab:hand}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+Rig & TWA & $V_a$ & AWA & \multicolumn{2}{c}{$F_x$ [kN]} & \multicolumn{2}{c}{$F_y$ [kN]} \\
+\cmidrule(lr){5-6}\cmidrule(lr){7-8}
+ & [\si{\degree}] & [m/s] & [\si{\degree}] & hand & code & hand & code \\
+\midrule
+Wing & 90 & 11.69 & 62.5 & 51.76 & 51.76 & 41.42 & 41.42 \\
+Wing & 45 & 14.69 & 29.9 & 35.14 & 35.14 & 100.99 & 100.99 \\
+Wing & 150 & 6.30 & 124.6 & 17.23 & 17.23 & $-8.24$ & $-8.24$ \\
+Wing & 180 & 4.97 & 180.0 & 2.05 & 2.05 & $-12.11$ & $-12.11$ \\
+Rotor & 90 & 11.76 & 62.7 & 243.77 & 243.77 & 227.31 & 227.31 \\
+Rotor & 45 & 14.77 & 30.0 & 131.59 & 131.59 & 510.60 & 510.60 \\
+Rotor & 150 & 6.37 & 124.9 & 91.93 & 91.93 & $-32.69$ & $-32.69$ \\
+\midrule
+Kite & 26.6 & 12.00 & 15.0 & 0.03 & 0.03 & 63.93 & 63.93 \\
+Kite & 50.2 & 12.00 & 30.0 & 19.75 & 19.75 & 108.23 & 108.23 \\
+Kite & 86.7 & 12.00 & 60.0 & 113.81 & 113.81 & 242.11 & 242.11 \\
+Kite & 114.2 & 12.00 & 90.0 & 239.77 & 239.77 & 206.88 & 206.88 \\
+Kite & 148.6 & 12.00 & 135.0 & 337.54 & 337.54 & 78.04 & 78.04 \\
+\bottomrule
+\end{tabular}}
+\end{table}
