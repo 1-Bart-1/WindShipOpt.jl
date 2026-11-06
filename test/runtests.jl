@@ -1368,6 +1368,9 @@ end
     @test WindShipOpt.rig_maintenance(fleet, capital, raised(:rig_maintenance_fraction)) -
           WindShipOpt.rig_maintenance(fleet, capital, assumptions) ≈
           0.01 * (capital - airframes - tethers)
+    rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions)
+    @test WindShipOpt.upkept_price(WindShipOpt.CombinedRig(fleet, rotors), assumptions) ≈
+          airframes + tethers
 end
 
 @testset "one rigid kite crashing costs one airframe and half of one tether" begin

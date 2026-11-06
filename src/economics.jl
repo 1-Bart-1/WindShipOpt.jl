@@ -363,6 +363,7 @@ rig_maintenance(rig, capital, assumptions) = assumptions[:rig_maintenance_fracti
 Price [USD] of the parts of `rig` that wear or upkeep per flight hour pays for.
 """
 upkept_price(rig, assumptions) = worn_part_price(rig, assumptions)
+upkept_price(rig::CombinedRig, assumptions) = upkept_price(rig.kite, assumptions)
 upkept_price(rig::KiteRig{RigidAirframe}, assumptions) =
     worn_part_price(rig, assumptions) + rigid_airframe_price(rig, assumptions)
 
