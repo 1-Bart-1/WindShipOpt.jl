@@ -1063,12 +1063,15 @@ WindShipOpt.waves(weather::GaleWeather, lat, lon, time) =
     weather = GaleWeather(SyntheticWeather(), departure + 10.0)
     @test isnothing(route(corridor, table, weather, departure; time_cost=hourly))
     after = route(corridor, table, weather, departure + 12.0; time_cost=hourly)
+    ship = table.table.ship
+    hotel = 3600WindShipOpt.fuel_power(ship.powertrain, 0.0) * ship.fuel.price
+    held = 12.0 * (hotel + hourly)
     for horizon in (72.0, 0.0)
         sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly,
             horizon)
         @test length(sailed.path) == size(corridor.lat, 1)
         @test sailed.path[2][3] > 12.0
-        @test sailed.duration - 12.0 ≈ after.duration rtol = 0.02
+        @test sailed.objective - held ≈ after.objective rtol = 0.015
     end
     endless = GaleWeather(SyntheticWeather(), Inf)
     @test isnothing(forecast_route(corridor, table, endless, departure; time_cost=hourly,
