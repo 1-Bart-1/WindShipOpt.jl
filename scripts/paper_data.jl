@@ -35,26 +35,28 @@ end
 """
     round_trips(cases, departures)
 
-Round trips of all `cases`, threaded, reusing those cached in the run in use; the kite
-pattern tables of the others are computed first, one kite at a time.
+Round trips of all `cases`, threaded, reusing those cached in the run in use under the same
+value of every input they read; the kite pattern tables of the others are computed first,
+one kite at a time.
 """
 function round_trips(cases, departures)
-    paths = [case_path(case, departures) for case in cases]
-    isempty(paths) || mkpath(dirname(first(paths)))
-    cached = isfile.(paths)
-    for (case, is_cached) in zip(cases, cached)
-        !is_cached && max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
+    directories = [case_directory(case, departures) for case in cases]
+    trips = Any[cached_trip(directory, case.assumptions)
+                for (case, directory) in zip(cases, directories)]
+    computed = findall(ismissing, trips)
+    for case in cases[computed]
+        max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
             Ship(case.design, case.assumptions)
     end
-    trips = Vector{Any}(nothing, length(cases))
-    Threads.@threads :greedy for k in eachindex(cases)
-        trips[k] = stored_trip(cases[k], departures, paths[k])
+    Threads.@threads :greedy for k in computed
+        trips[k] = stored_trip(() -> case_trip(cases[k], departures), directories[k],
+            cases[k].assumptions)
     end
     feasible = count(!isnothing, trips)
     paper_run.cases += length(cases)
     paper_run.trips += feasible
-    println("  ", feasible, " of ", length(cases), " round trips, ", count(cached),
-        " cached")
+    println("  ", feasible, " of ", length(cases), " round trips, ",
+        length(cases) - length(computed), " cached")
     return trips
 end
 
@@ -849,7 +851,8 @@ screened_inputs() = sort([name for (name, entry) in assumptions.entries
     sensitivity_data()
 
 Each ship of [`sensitivity_ships`](@ref) without a rig and with each rig, at the base
-inputs and at the low and high bound of every input with a range: sensitivity.csv.
+inputs and at the low and high bound of every input with a range: sensitivity.csv. The
+base trips are routed first, so a bound case whose trip never reads its input reuses them.
 """
 function sensitivity_data()
     cases = []
@@ -868,9 +871,13 @@ function sensitivity_data()
             end
         end
     end
-    write_trips("sensitivity.csv", cases,
-        round_trips(cases, sampled_departures(; screening=true)), :ship,
-        :rig, :input, :bound)
+    departures = sampled_departures(; screening=true)
+    base = findall(case -> case.input == :none, cases)
+    bounds = setdiff(eachindex(cases), base)
+    trips = Vector{Any}(nothing, length(cases))
+    trips[base] = round_trips(cases[base], departures)
+    trips[bounds] = round_trips(cases[bounds], departures)
+    write_trips("sensitivity.csv", cases, trips, :ship, :rig, :input, :bound)
 end
 
 "projected aspect ratios of the kite in the aspect ratio study, those with a polar"

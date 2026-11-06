@@ -991,6 +991,28 @@ end
     @test PaperRuns.data_file("study.csv") == other
 end
 
+@testset "a rig's stored trip serves an input it never reads, and no other" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    rotors = ShipDesign(:methanol, 85.0; rotor_area=200.0)
+    routed(inputs) = round_trip(Ship(rotors, inputs), corridors..., SyntheticWeather(),
+        [24.0 * 31, 24.0 * 200], inputs)
+    at_high(name) = with_value(assumptions, name, assumptions.entries[name].high)
+    directory = mktempdir()
+    PaperRuns.stored_trip(() -> routed(assumptions), directory, assumptions)
+    dearer_canopy = at_high(:canopy_cloth_base_price)
+    reused = PaperRuns.cached_trip(directory, dearer_canopy)
+    @test reused.cost_per_tonne_km == routed(dearer_canopy).cost_per_tonne_km
+    @test reused.fuel_energy == routed(dearer_canopy).fuel_energy
+    @test ismissing(PaperRuns.cached_trip(directory, at_high(:rotor_unit_cost)))
+    @test ismissing(PaperRuns.cached_trip(directory, at_high(:market_price_factor)))
+end
+
+@testset "an input read in a task spawned while recording is recorded" begin
+    value, names = inputs_read(() -> fetch(Threads.@spawn assumptions[:discount_rate]))
+    @test value == assumptions[:discount_rate]
+    @test names == Set([:discount_rate])
+end
+
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
     marker = tempname()
     write(marker, "")
