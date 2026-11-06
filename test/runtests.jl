@@ -605,6 +605,16 @@ end
     @test WindShipOpt.unit_positions(single, hull, assumptions) == [single.centre_position]
 end
 
+@testset "the rudder cancels the yaw moment about the hull's lateral centre" begin
+    hull = Hull(140.0, assumptions)
+    centre = WindShipOpt.lateral_centre(hull)
+    at_centre = WindShipOpt.RigForce(1e5, 2e5, 0.0, 2e5 * centre)
+    @test WindShipOpt.rudder_side_force(hull, at_centre) ≈ 0 atol = 1e-6
+    at_midship = WindShipOpt.RigForce(1e5, 2e5, 0.0, 0.0)
+    rudder = WindShipOpt.rudder_side_force(hull, at_midship)
+    @test 2e5 * (0 - centre) + rudder * (-hull.length / 2 - centre) ≈ 0 atol = 1e-3
+end
+
 @testset "a rig ship is sized near the bare ship in calm water" begin
     bare = Ship(ShipDesign(:vlsfo, 140.0), assumptions)
     rotors = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=300.0), assumptions)

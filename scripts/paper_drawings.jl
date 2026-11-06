@@ -54,8 +54,9 @@ function force_balance_figure()
         balance = WindShipOpt.HullBalance(ship, speed, force)
         centre = WindShipOpt.lateral_centre(hull)
         leeward = -sign(force.side)
-        rudder = (force.side * centre - force.yaw_moment) / (-hull.length / 2 - centre)
+        rudder = WindShipOpt.rudder_side_force(hull, force)
         resistance = thrust + force.thrust
+        stern = -hull.length / 2
         axis = Axis(figure[1, column]; aspect=DataAspect(), title=@sprintf(
             "%s\nleeway %.1f°, heel %.1f°", title, rad2deg(balance.leeway),
             rad2deg(balance.heel)))
@@ -71,10 +72,9 @@ function force_balance_figure()
         force_arrow!(axis, (hull.beam / 2, centre), (-side - leeward * rudder / 1e3, 0.0),
             "hull"; scale, color=palette[6], align=(:left, :bottom), offset=(2, 2),
             at_tail=true)
-        abs(rudder) > 1 && force_arrow!(axis, (0.0, -hull.length / 2),
+        abs(rudder) > 1 && force_arrow!(axis, (0.0, stern),
             (leeward * rudder / 1e3, 0.0), "rudder"; scale, color=palette[3],
             align=(:left, :center), offset=(3, 0))
-        stern = -hull.length / 2
         force_arrow!(axis, (hull.beam / 4, stern), (0.0, -resistance / 1e3), "drag";
             scale, color=:gray30, align=(:left, :top), offset=(0, -2))
         force_arrow!(axis, (-hull.beam / 4, stern - thrust * scale / 1e3),
@@ -98,13 +98,12 @@ as their chords, rotors as circles.
 function draw_rig!(axis, rig::KiteRig, hull, force)
     attach = Point2f(0, rig.attach_position)
     lines!(axis, [attach, attach + 200 * force / hypot(force...)]; color=:gray60,
-        linewidth=0.75,
-        linestyle=:dash)
+        linewidth=0.75, linestyle=:dash)
     scatter!(axis, [attach]; color=:black, markersize=4)
 end
 
 function draw_rig!(axis, rig::WingRig, hull, force)
-    chord = sqrt(rig.area / assumptions[:wing_aspect_ratio])
+    chord = rig.height / assumptions[:wing_aspect_ratio]
     for position in WindShipOpt.unit_positions(rig, hull, assumptions)
         lines!(axis, [Point2f(0, position + chord / 2), Point2f(0, position - chord / 2)];
             color=:black, linewidth=2.5)
@@ -135,8 +134,8 @@ end
 """
     draw_ship!(axis, hull, offset)
 
-Side view of `hull` shifted by `offset` [m]: hull, deckhouse aft and waterline, and the
-height of its deck above the waterline [m] as the model places rigs on it.
+Side view of `hull` shifted by `offset` [m]: hull and deckhouse aft, with the deck at the
+height above the waterline at which the model stands rigs on it.
 """
 function draw_ship!(axis, hull, offset)
     scale = hull.length / assumptions[:reference_length]
@@ -148,7 +147,6 @@ function draw_ship!(axis, hull, offset)
     poly!(axis, Rect2f(Point2f(offset) + Point2f(-half + 0.02hull.length, deck),
             Vec2f(0.08hull.length, house)); color=:gray80, strokecolor=:black,
         strokewidth=0.5)
-    return deck
 end
 
 """
@@ -158,8 +156,7 @@ Side view of the wing or rotor `rig` on `hull` shifted by `offset` [m]: each uni
 height times its chord or diameter, standing at its foot height.
 """
 function draw_side_rig!(axis, rig, hull, offset)
-    width = rig isa WingRig ? sqrt(rig.area / assumptions[:wing_aspect_ratio]) :
-            rig.diameter
+    width = rig isa WingRig ? rig.height / assumptions[:wing_aspect_ratio] : rig.diameter
     for position in WindShipOpt.unit_positions(rig, hull, assumptions)
         poly!(axis, Rect2f(Point2f(offset) + Point2f(position - width / 2,
                     rig.foot_height), Vec2f(width, rig.height)); color=palette[1],
@@ -168,29 +165,37 @@ function draw_side_rig!(axis, rig, hull, offset)
 end
 
 """
+    side_kite(area, hull)
+
+Heights [m] above the waterline and span [m] of the side view of a kite of projected
+`area` [m^2] at the design aspect ratio on `hull`: its deck, launch mast top, the sag of the
+canopy's arc and the canopy's top, drawn just above the mast.
+"""
+function side_kite(area, hull)
+    span = sqrt(area * design_aspect_ratio)
+    deck = assumptions[:deck_mount_height] * hull.length / assumptions[:reference_length]
+    mast_top = deck + assumptions[:launch_mast_height_ratio] * sqrt(area)
+    sag = 0.15span
+    return (; span, deck, mast_top, sag, top=mast_top + 20 + sag)
+end
+
+"""
     draw_side_kite!(axis, area, hull, offset)
 
-Side view of a kite of projected `area` [m^2] at the design aspect ratio towed by `hull`
-shifted by `offset` [m]: its launch mast at the towing point and the canopy, to scale
-across its span, just above the mast on a tether not drawn to length. Returns the height
-of the canopy's top above the waterline [m].
+Side view of the kite of [`side_kite`](@ref) towed by `hull` shifted by `offset` [m]: its
+launch mast at the towing point and the canopy, to scale across its span, on a tether not
+drawn to length.
 """
 function draw_side_kite!(axis, area, hull, offset)
-    span = sqrt(area * design_aspect_ratio)
-    scale = hull.length / assumptions[:reference_length]
-    deck = assumptions[:deck_mount_height] * scale
-    mast = assumptions[:launch_mast_height_ratio] * sqrt(area)
+    (; span, deck, mast_top, sag, top) = side_kite(area, hull)
     foot = Point2f(offset) + Point2f(WindShipOpt.lateral_centre(hull), deck)
-    lines!(axis, [foot, foot + Point2f(0, mast)]; color=:black, linewidth=1)
-    sag = 0.15span
-    top = deck + mast + 20 + sag
+    mast = foot + Point2f(0, mast_top - deck)
+    lines!(axis, [foot, mast]; color=:black, linewidth=1)
     centre = Point2f(foot[1], offset[2] + top)
     arc = [centre + Point2f(span / 2 * sin(t), sag * cos(t) - sag)
            for t in range(-π / 2, π / 2; length=24)]
     lines!(axis, arc; color=palette[2], linewidth=2)
-    lines!(axis, [foot + Point2f(0, mast), centre]; color=:gray50, linewidth=0.6,
-        linestyle=:dash)
-    return top
+    lines!(axis, [mast, centre]; color=:gray50, linewidth=0.6, linestyle=:dash)
 end
 
 """
@@ -270,11 +275,7 @@ Height [m] above the waterline of the top of what [`ship_classes_figure`](@ref) 
 """
 function draw_height(hull, kite_area)
     isfinite(kite_area) || return assumptions[:max_air_draft]
-    scale = hull.length / assumptions[:reference_length]
-    span = sqrt(kite_area * design_aspect_ratio)
-    return max(assumptions[:deck_mount_height] * scale +
-               assumptions[:launch_mast_height_ratio] * sqrt(kite_area) + 20 + 0.15span,
-        assumptions[:max_air_draft])
+    return max(side_kite(kite_area, hull).top, assumptions[:max_air_draft])
 end
 
 """
