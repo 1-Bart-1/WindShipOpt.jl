@@ -1,0 +1,34 @@
+cargo_type,year,tonne_miles_billion,source,method_or_location,growth_vs_prev_year_pct
+crude_oil,2024,10762,UNCTAD RMT 2025,digitised from Box figure I.1.2 (printed p.20, pdf p.36) line chart; +-2% read error,1.6
+oil_products,2024,3697,UNCTAD RMT 2025,digitised from Box figure I.1.2 (printed p.20, pdf p.36) line chart; +-2% read error,6.5
+lng,2024,1946,UNCTAD RMT 2025,digitised from Box figure I.1.2 (printed p.20, pdf p.36) line chart; +-2% read error,12.2
+lpg,2024,799,UNCTAD RMT 2025,digitised from Box figure I.1.2 (printed p.20, pdf p.36) line chart; +-2% read error,11.2
+coal,2024,5847,UNCTAD RMT 2025,digitised from Box figure I.1.2 (printed p.20, pdf p.36) line chart; +-2% read error,
+gas_total,2024,2745,UNCTAD RMT 2025,sum of digitised LNG+LPG,
+total,2024,66781,UNCTAD RMT 2025,"text pdf p.22, ""66,781 billion ton-miles in 2024""",5.9
+dry_cargo_ex_coal_incl_containers_chemicals,2024,43730,derived,total minus digitised energy rows,
+crude_oil,2023,10595,UNCTAD RMT 2025,digitised from Box figure I.1.2 (printed p.20, pdf p.36) line chart; +-2% read error,
+oil_products,2023,3491,UNCTAD RMT 2025,digitised from Box figure I.1.2 (printed p.20, pdf p.36) line chart; +-2% read error,
+lng,2023,1749,UNCTAD RMT 2025,digitised from Box figure I.1.2 (printed p.20, pdf p.36) line chart; +-2% read error,
+lpg,2023,721,UNCTAD RMT 2025,digitised from Box figure I.1.2 (printed p.20, pdf p.36) line chart; +-2% read error,
+coal,2023,5543,UNCTAD RMT 2025,digitised from Box figure I.1.2 (printed p.20, pdf p.36) line chart; +-2% read error,
+gas_total,2023,2470,UNCTAD RMT 2025,sum of digitised LNG+LPG,
+total,2023,62037,UNCTAD RMT 2024,"text pdf p.21, ""62,037 billion in 2023""",4.2
+dry_cargo_ex_coal_incl_containers_chemicals,2023,39938,derived,total minus digitised energy rows,
+containers,2024,,UNCTAD RMT 2025,absolute not published; Table I.2 growth only,17.6
+iron_ore,2024,,UNCTAD RMT 2025,absolute not published; Table I.2 growth only,6.4
+chemicals,2024,,UNCTAD RMT 2025,absolute not published; Table I.2 growth only,3.6
+steel_products,2024,,UNCTAD RMT 2025,absolute not published; Table I.2 growth only,5.0
+grain,2024,,UNCTAD RMT 2025,absolute not published; Table I.2 growth only,-0.7
+forest_products,2024,,UNCTAD RMT 2025,absolute not published; Table I.2 growth only,-1.6
+crude_oil,2018,10477,IMO GHG4 Table 71 (Clarksons 2020),printed p.221,
+oil_products,2018,3084,IMO GHG4 Table 71 (Clarksons 2020),printed p.221,
+coal,2018,5563,IMO GHG4 Table 71 (Clarksons 2020),printed p.221,
+iron_ore,2018,8179,IMO GHG4 Table 71 (Clarksons 2020),printed p.221,
+grain,2018,3254,IMO GHG4 Table 71 (Clarksons 2020),printed p.221,
+minor_bulk,2018,12220,IMO GHG4 Table 71 (Clarksons 2020),printed p.221,
+gas_total,2018,1781,IMO GHG4 Table 71 (Clarksons 2020),printed p.221,
+chemicals,2018,1297,IMO GHG4 Table 71 (Clarksons 2020),printed p.221,
+containers,2018,8807,IMO GHG4 Table 71 (Clarksons 2020),printed p.221,
+other_dry,2018,4368,IMO GHG4 Table 71 (Clarksons 2020),printed p.221,
+total,2018,59030,IMO GHG4 Table 71 (Clarksons 2020),sum of rows,

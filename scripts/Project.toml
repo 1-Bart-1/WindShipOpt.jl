@@ -1,0 +1,13 @@
+[deps]
+Blosc = "a74b3585-a348-5f62-a45c-50e91977d574"
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+Downloads = "f43a241f-c20a-4ad4-852c-f6b1247861c6"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+WindShipOpt = "af4f4564-3121-48a2-9343-5e03b1d5231d"
+
+[sources]
+WindShipOpt = {path = ".."}

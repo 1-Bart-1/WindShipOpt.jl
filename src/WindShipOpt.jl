@@ -1,35 +1,46 @@
 """
     WindShipOpt
 
-Design optimisation of wind-assisted coasters (rigid wing or towing kite on e-methanol)
-against a conventional VLSFO coaster, with weather routing on a long ocean route.
+Design optimisation of wind-assisted merchant ships (wings, rotors or a towing kite, on
+VLSFO, e-methanol or hydrogen), with weather routing on long ocean routes.
 """
 module WindShipOpt
 
-using Interpolations: Flat, Gridded, Linear, extrapolate, interpolate
 using Random: Random
 using Statistics: mean
+using Dates: DateTime, Dates
+using Mmap: Mmap
+using Optim: Optim
+using TOML: TOML
 using YAML: YAML
 
 export Assumption, Assumptions, with_value
 export Environment, Hull, WaveCoefficients, resistance, wetted_surface, form_factor
+export SeakeepingHull, added_resistance, added_resistance_coefficient, jonswap
 export WingRig, KiteRig, RigForce, rig_force, apparent_wind
 export Propeller, Powertrain, delivered_power
 export ShipDesign, Ship, Fuel, fuel_power
-export PerformanceTable, lookup
-export LandMask, north_atlantic_mask, SyntheticWeather, wind
-export Corridor, return_corridor, Leg, route
+export PerformanceTable, RouteTable, lookup
+export LandMask, GridMask, north_atlantic_mask, SyntheticWeather, ERA5Weather, wind, waves
+export Corridor, return_corridor, route_corridors, centre_index, Leg, route
+export ForecastWeather, forecast_route, ShipClass, ship_classes
 export ShipCosts, RoundTrip, round_trip, KNOT, NAUTICAL_MILE
+export LegTrace
 
 include("assumptions.jl")
 include("hull.jl")
+include("waves.jl")
+include("pattern.jl")
+include("canopy.jl")
 include("rig.jl")
 include("propulsion.jl")
 include("ship.jl")
 include("performance.jl")
 include("geography.jl")
 include("weather.jl")
+include("era5.jl")
 include("routing.jl")
 include("economics.jl")
+include("analysis.jl")
 
 end

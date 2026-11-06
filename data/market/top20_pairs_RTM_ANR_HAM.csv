@@ -1,0 +1,21 @@
+rep_port,rep_name,partner,partner_name,sea_km,mt_both_directions,bn_tkm,share_of_hub_tkm,share_of_all_tkm,cargo_mix_by_tkm
+NL_0NLRTM,Rotterdam,CN_X_HK,China (except Hong Kong),19625,24.27,476.33,0.0874,0.0271,containers=0.88;dry bulk=0.06;liquid bulk=0.05;other general cargo=0.01;ro-ro=0.00
+NL_0NLRTM,Rotterdam,US_3,United States: Gulf,9383,35.98,337.54,0.062,0.0192,liquid bulk=0.90;dry bulk=0.08;containers=0.01;other general cargo=0.01
+DE_1DEHAM,Hamburg,CN_X_HK,China (except Hong Kong),20018,14.82,296.62,0.0545,0.0169,containers=1.00;other general cargo=0.00;liquid bulk=0.00
+BE_0BE003,Antwerp-Bruges,CN_X_HK,China (except Hong Kong),19666,14.02,275.72,0.0506,0.0157,containers=0.73;liquid bulk=0.16;ro-ro=0.05;other general cargo=0.05;dry bulk=0.01
+NL_0NLRTM,Rotterdam,BR,Brazil,10241,20.49,209.84,0.0385,0.0119,dry bulk=0.49;liquid bulk=0.36;containers=0.13;other general cargo=0.02
+NL_0NLRTM,Rotterdam,AU,Australia,21240,9.17,194.79,0.0358,0.0111,dry bulk=0.90;containers=0.06;liquid bulk=0.02;other general cargo=0.01
+NL_0NLRTM,Rotterdam,ZA,South Africa,13188,10.91,143.83,0.0264,0.0082,dry bulk=0.68;containers=0.23;other general cargo=0.04;liquid bulk=0.04
+BE_0BE003,Antwerp-Bruges,SG,Singapore,15589,6.93,108.03,0.0198,0.0062,containers=0.80;other general cargo=0.09;liquid bulk=0.08;dry bulk=0.02;ro-ro=0.01
+BE_0BE003,Antwerp-Bruges,US_3,United States: Gulf,9424,11.01,103.78,0.0191,0.0059,liquid bulk=0.58;containers=0.32;dry bulk=0.06;other general cargo=0.03;ro-ro=0.00
+NL_0NLRTM,Rotterdam,IQ,Iraq,12502,7.99,99.94,0.0183,0.0057,liquid bulk=0.99;containers=0.01;other general cargo=0.00
+NL_0NLRTM,Rotterdam,IN,India,12206,7.87,96.11,0.0176,0.0055,containers=0.54;liquid bulk=0.44;dry bulk=0.01;other general cargo=0.00
+BE_0BE003,Antwerp-Bruges,IN,India,12248,6.38,78.2,0.0144,0.0045,containers=0.67;liquid bulk=0.18;other general cargo=0.14;dry bulk=0.01;ro-ro=0.00
+NL_0NLRTM,Rotterdam,SG,Singapore,15548,4.96,77.18,0.0142,0.0044,containers=0.70;liquid bulk=0.29;other general cargo=0.00
+NL_0NLRTM,Rotterdam,MY,Malaysia,15354,4.99,76.63,0.0141,0.0044,liquid bulk=0.48;containers=0.48;other general cargo=0.04
+DE_1DEHAM,Hamburg,SG,Singapore,15941,3.68,58.6,0.0108,0.0033,containers=1.00;other general cargo=0.00;ro-ro=0.00
+NL_0NLRTM,Rotterdam,CA_2,"Canada: Great Lakes, Upper St Lawrence",6475,8.9,57.64,0.0106,0.0033,dry bulk=0.97;liquid bulk=0.03;other general cargo=0.00;containers=0.00
+BE_0BE003,Antwerp-Bruges,US_1,United States: North Atlantic,6302,8.83,55.62,0.0102,0.0032,containers=0.52;liquid bulk=0.33;other general cargo=0.07;ro-ro=0.05;dry bulk=0.03
+NL_0NLRTM,Rotterdam,RU_1,Russia: Black Sea,7133,7.75,55.27,0.0101,0.0031,liquid bulk=1.00
+NL_0NLRTM,Rotterdam,US_9,United States: unspecified maritime coastal area,9006,5.92,53.32,0.0098,0.003,liquid bulk=0.53;containers=0.43;dry bulk=0.03;other general cargo=0.00
+NL_0NLRTM,Rotterdam,GY,Guyana,8355,6.08,50.78,0.0093,0.0029,liquid bulk=0.98;dry bulk=0.01;containers=0.00;other general cargo=0.00

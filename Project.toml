@@ -1,21 +1,26 @@
 name = "WindShipOpt"
 uuid = "af4f4564-3121-48a2-9343-5e03b1d5231d"
-authors = ["Bart van de Lint <bart@vandelint.net>"]
 version = "0.1.0"
+authors = ["Bart van de Lint <bart@vandelint.net>"]
 
 [deps]
-Interpolations = "a98d9a8b-a2ab-59e6-89dd-64a1c18fca59"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+Mmap = "a63ad114-7e13-5084-954f-fe012c677804"
+Optim = "429524aa-4258-5aef-a3af-852621145aeb"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
 
+[compat]
+Optim = "1.13.3"
+YAML = "0.4"
+julia = "1.12"
+
 [extras]
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
-
-[compat]
-Interpolations = "0.15, 0.16"
-YAML = "0.4"
-julia = "1.12"
+test = ["Printf", "Serialization", "Test"]

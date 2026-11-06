@@ -1,0 +1,27 @@
+\begin{tikzpicture}[
+  node distance=4mm and 4.5mm,
+  box/.style={draw, rounded corners=2pt, align=center, font=\footnotesize, minimum height=11mm, text width=21mm, fill=#1},
+  box/.default=white,
+  data/.style={draw, align=center, font=\footnotesize, minimum height=11mm, text width=20mm, fill=gray!8},
+  arrow/.style={-{Stealth[length=2mm]}, thick}]
+\node[data] (design) {Design\\ length, drive, rig};
+\node[data, below=of design] (inputs) {Inputs\\ value, range, source};
+\node[box=blue!8, right=of design] (ship) {Ship models\\ hull, waves, propeller, engines};
+\node[box=orange!12, below=of ship] (rig) {Rig force tables\\ kite eights, wings, rotors};
+\node[box=blue!8, right=of ship, yshift=-7.5mm] (balance) {Force balance\\ leeway, rudder, heel; best trim};
+\node[box=blue!8, right=of balance] (table) {Performance table\\ thrust, fuel power};
+\node[data, below=of table] (weather) {ERA5 wind and waves, 2017--2019};
+\node[box=green!10, right=of table] (router) {Weather router\\ dynamic programme};
+\node[data, below=of router] (corridor) {Route corridors, land mask};
+\node[box=red!8, right=of router] (cost) {Cost model\\ fuel, time, ports $\rightarrow$ USD/tkm};
+\draw[arrow] (design) -- (ship);
+\draw[arrow] (design.south east) -- (rig.west);
+\draw[arrow] (ship) -- (balance);
+\draw[arrow] (rig) -- (balance);
+\draw[arrow] (balance) -- (table);
+\draw[arrow] (table) -- (router);
+\draw[arrow] (weather) -- (router);
+\draw[arrow] (corridor) -- (router);
+\draw[arrow] (router) -- (cost);
+\draw[arrow] (inputs) -- (rig);
+\end{tikzpicture}

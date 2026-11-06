@@ -67,7 +67,7 @@ end
     north_atlantic_mask()
 
 Coarse mask of the Atlantic islands and the coast from Brittany to Guinea, with about
-20 nm of margin; to be replaced by a real coastline dataset.
+20 nm of margin.
 """
 function north_atlantic_mask()
     islands = [Island(39.4, -31.2, 60e3), Island(38.6, -28.0, 110e3),
@@ -79,10 +79,15 @@ function north_atlantic_mask()
     return LandMask(islands, first.(coast), last.(coast))
 end
 
-function is_land(mask::LandMask, lat, lon)
-    for island in mask.islands
+function on_island(islands, lat, lon)
+    for island in islands
         distance(lat, lon, island.lat, island.lon) < island.radius && return true
     end
+    return false
+end
+
+function is_land(mask::LandMask, lat, lon)
+    on_island(mask.islands, lat, lon) && return true
     first(mask.coast_lats) <= lat <= last(mask.coast_lats) || return false
     i = searchsortedlast(mask.coast_lats, lat)
     i == length(mask.coast_lats) && return lon > last(mask.coast_lons)

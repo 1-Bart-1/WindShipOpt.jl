@@ -1,0 +1,45 @@
+\section{Model checks}
+\label{sec:checks}
+
+These checks run with the model and say what it reproduces and where it departs from measurements.
+
+\begin{itemize}
+\item \textbf{Force chain worked by hand.} \Cref{tab:hand} follows the wind through shear with height and the ship's own speed to the apparent wind at the rig, and from there to the force along the course, by a calculation written from the physics without the code. Thrust, side force and spin power agree to the digits printed, and tests hold every printed value there. For the kite the hand calculation takes the pattern table's force coefficients, in the wind's frame, at the apparent wind; the table's own size is checked at the window edge, where the massless \SI{800}{m^2} kite in \SI{12}{m/s} of apparent wind pulls \SI{64.0}{kN} by hand and in the code. Its thrust falls to nothing at an apparent wind angle of \SI{15}{\degree}, the upwind limit of its glide ratio (\cref{sec:model}). The check found one error: the kite returned its side force with the opposite sign to wings and rotors. A rig alone is unaffected, because heel and leeway read its magnitude, but a kite over rotors cancelled side force it should have added. Correcting it raises the cost of the \SI{800}{m^2} kite over \SI{400}{m^2} of rotors on the \SI{140}{m} ship by \tbd{0.0 to 0.3}\,\%. The apparent wind itself was right. Sensitivities: taking the kite's wind at an elevation of 15 or \SI{8}{\degree} instead of \SI{25}{\degree} lowers its cost saving by \tbd{0.4 to 2.9} points on the \SI{140}{m} ship, and half rather than a quarter of the tether's drag acting at the kite changes it by \tbd{$-2.0$ to $+0.6$} points.
+\item \textbf{Calm-water resistance.} The resistance components of the worked example of \citet{holtrop1982}\tbd{ (source not read)} come out within 5\,\% each, and the correlation allowance within 0.5\,\%.
+\item \textbf{Calibrated class power.} At its service speed and design draught every standard class except the coaster needs the calm-water delivered power of its source design to $10^{-6}$, through its resistance factor $f_R$ of 0.61 to 0.99 (\cref{sec:ships}). Uncalibrated, on the worked \num{50000}~t MR tanker of \citet{man2011} with its \SI{6.8}{m} propeller, the model needs 7\,\% more power than MAN's light propeller curve at \SI{14}{kn}.
+\item \textbf{Coaster power.} The \SI{85}{m} coaster needs \SIrange{350}{800}{kW} effective power at \SI{11}{kn} and gets \SIrange{700}{1500}{kW} installed. Real \num{3500}-tonne coasters install about \SI{1.5}{MW} for \SI{12.5}{kn} \tbd{cite}.
+\item \textbf{Added resistance.} The non-dimensional added resistance peaks between 5 and 10 in head waves and stays within $\pm2$ in following waves, as in the data behind \citet{mittendorf2022}.
+\item \textbf{Kite without mass.} The quasi-steady kite without mass carries exactly the crosswind tension of \citet{loyd1980}\tbd{ (source not read)}, to a relative error below $10^{-6}$.
+\item \tbd{\textbf{Kite against a published prediction.} Pending the full text of \citet{dadd2011}: compare the pull of a \SI{300}{m^2} kite on \SI{300}{m} of tether in \SI{6.2}{m/s} wind with their prediction.}
+\item \textbf{Fuel saving against operation.} A kite of \SI{125}{m^2} projected, \SI{160}{m^2} flat, on a \SI{130}{m} VLSFO ship, the size that flew on cargo ships, saves \tbd{1.7}\,\% of fuel on the routed round trip to Guadeloupe\tbd{, flying 6\,\% of the time at a cost saving of $-0.3$\,\%; read as \SI{160}{m^2} projected it saves 3.2\,\%}. The Beluga SkySails saved 5\,\% on its average route mix and 10 to 12\,\% on North Atlantic and North Pacific routes \citep{wintecc2009}. \tbd{Removing the flight drag gives 1.6\,\%, a force limit of \SI{0.9}{kN/m^2} 1.5\,\%, and free canopy wear and launches 2.2\,\% at 17\,\% of the time in flight, all within the routing noise of 1.0 point on this ship, so none of them explains the gap.} We routed one route, not the reported mix, and did not find what explains it. The model comes out below this report although its router sees the weather ahead, so this check does not bound our savings from above.
+\item \textbf{Routing noise.} A change of 2\,\% in the tether length or the smallest turn radius should barely move a kite's saving. \tbd{At draft fidelity, on the \SI{140}{m} e-methanol ship to Guadeloupe with a \SI{3200}{m^2} kite, a Kamsarmax on VLSFO to Tubarão with \SI{1448}{m^2} and a Neo-Panamax on e-methanol to New York with \SI{16000}{m^2}, the base and those four changes span 1.4, 0.8 and 1.5 points of cost saving and 6.6, 4.9 and 2.3 points of fuel saving.} The router minimises cost, so routes of nearly equal cost can burn different amounts of fuel. We do not read a smaller difference between two kites as a result.
+\item \textbf{Routing grid.} Routed at corridor resolutions from \SI{360}{nmi} down to \SI{45}{nmi} between stages, the cost per tonne-kilometre of a \SI{140}{m} e-methanol ship to Guadeloupe changes by at most 0.9\,\% without a rig and 2.9\,\% with one, and the cost saving of each rig by at most 1.6 points; the order of the rigs does not change. The coarser grids are slightly optimistic for every option alike.
+\end{itemize}
+
+\begin{table}[tbp]
+\centering
+\caption{The chain from true wind to force on the ship, worked by hand independently of the code and from the code, at a ship speed of \SI{5.4}{m/s} and a wind shear exponent of 0.05. Wing sails of \SI{800}{m^2} at $C_L$ 1 and rotors of \SI{400}{m^2} at spin ratio 3 in a wind of \SI{10}{m/s} at \SI{10}{m}. The kite of \SI{800}{m^2}, at its reference height of \SI{269}{m} and with no side weight, in winds at \SI{10}{m} of 5.88, 6.62, 8.83, 11.16 and \SI{13.80}{m/s}, which put its apparent wind on nodes of its pattern table; the hand calculation takes the force coefficients there from the table. True wind angle TWA, apparent wind $V_a$ and its angle AWA, thrust $F_x$ and side force $F_y$.}
+\label{tab:hand}
+\adjustbox{max width=\columnwidth}{%
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+Rig & TWA & $V_a$ & AWA & \multicolumn{2}{c}{$F_x$ [kN]} & \multicolumn{2}{c}{$F_y$ [kN]} \\
+\cmidrule(lr){5-6}\cmidrule(lr){7-8}
+ & [\si{\degree}] & [m/s] & [\si{\degree}] & hand & code & hand & code \\
+\midrule
+Wing & 90 & 11.69 & 62.5 & 51.76 & 51.76 & 41.42 & 41.42 \\
+Wing & 45 & 14.69 & 29.9 & 35.14 & 35.14 & 100.99 & 100.99 \\
+Wing & 150 & 6.30 & 124.6 & 17.23 & 17.23 & $-8.24$ & $-8.24$ \\
+Wing & 180 & 4.97 & 180.0 & 2.05 & 2.05 & $-12.11$ & $-12.11$ \\
+Rotor & 90 & 11.76 & 62.7 & 243.77 & 243.77 & 227.31 & 227.31 \\
+Rotor & 45 & 14.77 & 30.0 & 131.59 & 131.59 & 510.60 & 510.60 \\
+Rotor & 150 & 6.37 & 124.9 & 91.93 & 91.93 & $-32.69$ & $-32.69$ \\
+\midrule
+Kite & 26.6 & 12.00 & 15.0 & $-0.03$ & $-0.03$ & 63.73 & 63.73 \\
+Kite & 50.2 & 12.00 & 30.0 & 20.04 & 20.04 & 102.10 & 102.10 \\
+Kite & 86.7 & 12.00 & 60.0 & 113.40 & 113.40 & 247.43 & 247.43 \\
+Kite & 114.2 & 12.00 & 90.0 & 231.69 & 231.69 & 194.16 & 194.16 \\
+Kite & 148.6 & 12.00 & 135.0 & 344.82 & 344.82 & 26.20 & 26.20 \\
+\bottomrule
+\end{tabular}}
+\end{table}

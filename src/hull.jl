@@ -10,8 +10,8 @@ Base.@kwdef struct Environment
     water_viscosity::Float64 = 1.19e-6
     "air density [kg/m^3]"
     air_density::Float64 = 1.225
-    "aerodynamic roughness length of the sea surface [m]"
-    roughness_length::Float64 = 2.0e-4
+    "exponent of the power-law wind profile over the sea [-]"
+    shear_exponent::Float64 = 0.05
     "gravitational acceleration [m/s^2]"
     gravity::Float64 = 9.81
 end
@@ -20,7 +20,7 @@ function Environment(assumptions::Assumptions)
     return Environment(; water_density=assumptions[:water_density],
         water_viscosity=assumptions[:water_viscosity],
         air_density=assumptions[:air_density],
-        roughness_length=assumptions[:sea_roughness_length])
+        shear_exponent=assumptions[:wind_shear_exponent])
 end
 
 """
@@ -39,7 +39,7 @@ Base.@kwdef struct Hull
     displacement_volume::Float64
     "midship section coefficient [-]"
     midship_coefficient::Float64
-    "waterplane area coefficient [-]"
+    "waterplane area coefficient, estimated at the capped prismatic coefficient [-]"
     waterplane_coefficient::Float64
     "longitudinal centre of buoyancy forward of midships [% of length]"
     centre_of_buoyancy::Float64
@@ -55,6 +55,10 @@ Base.@kwdef struct Hull
     appendage_area::Float64
     "appendage form factor 1+k2 [-]"
     appendage_form_factor::Float64
+    "factor on the Holtrop calm-water resistance calibrating it to a source design [-]"
+    resistance_factor::Float64 = 1.0
+    "largest prismatic coefficient the Holtrop formulas are evaluated at [-]"
+    max_prismatic::Float64 = 1.0
 end
 
 """
@@ -64,16 +68,28 @@ Reference coaster of `assumptions`, scaled geometrically to waterline `length` [
 """
 function Hull(length::Real, assumptions::Assumptions)
     scale = length / assumptions[:reference_length]
-    beam = assumptions[:reference_beam] * scale
-    draft = assumptions[:reference_draft] * scale
-    block = assumptions[:block_coefficient]
+    return Hull(length, assumptions[:reference_beam] * scale,
+        assumptions[:reference_draft] * scale, assumptions[:block_coefficient], assumptions)
+end
+
+"""
+    Hull(length, beam, draft, block, assumptions; centre_of_buoyancy, resistance_factor=1)
+
+Hull of the given main dimensions [m] and block coefficient, with the form ratios of the
+reference coaster, its centre of buoyancy [% of length] unless given, and the factor on
+its calm-water resistance. Its form terms stop at the prismatic coefficient
+`holtrop_max_prismatic`, while its displacement stays that of `block`.
+"""
+function Hull(length, beam, draft, block, assumptions::Assumptions;
+        centre_of_buoyancy=assumptions[:centre_of_buoyancy], resistance_factor=1.0)
     midship = assumptions[:midship_coefficient]
-    prismatic = block / midship
+    max_prismatic = assumptions[:holtrop_max_prismatic]
+    prismatic = prismatic_coefficient(block, midship, max_prismatic)
     return Hull(; length, beam, draft,
         displacement_volume=length * beam * draft * block,
         midship_coefficient=midship,
         waterplane_coefficient=0.763 * (prismatic + 0.34),
-        centre_of_buoyancy=assumptions[:centre_of_buoyancy],
+        centre_of_buoyancy, resistance_factor, max_prismatic,
         bulb_area=assumptions[:bulb_area_ratio] * beam * draft * midship,
         bulb_height=assumptions[:bulb_height_ratio] * draft,
         appendage_area=assumptions[:appendage_area_ratio] * length * draft,
@@ -82,7 +98,9 @@ end
 
 block_coefficient(hull::Hull) =
     hull.displacement_volume / (hull.length * hull.beam * hull.draft)
-prismatic_coefficient(hull::Hull) = block_coefficient(hull) / hull.midship_coefficient
+prismatic_coefficient(block, midship, max_prismatic) = min(block / midship, max_prismatic)
+prismatic_coefficient(hull::Hull) = prismatic_coefficient(block_coefficient(hull),
+    hull.midship_coefficient, hull.max_prismatic)
 displacement_mass(hull::Hull, env::Environment) =
     env.water_density * hull.displacement_volume
 
@@ -127,7 +145,6 @@ friction_coefficient(reynolds) = 0.075 / (log10(reynolds) - 2)^2
 Speed-independent coefficients of the Holtrop wave resistance formula for Fn ≤ 0.4.
 """
 struct WaveCoefficients
-    entrance_angle::Float64
     c1::Float64
     c2::Float64
     c5::Float64
@@ -163,7 +180,7 @@ function WaveCoefficients(hull::Hull)
           -1.69385 + (length / displacement_volume^(1 / 3) - 8) / 2.36
     lambda = length / beam < 12 ? 1.446prismatic - 0.03length / beam :
              1.446prismatic - 0.36
-    return WaveCoefficients(entrance_angle, c1, c2, c5, m1, c15, lambda)
+    return WaveCoefficients(c1, c2, c5, m1, c15, lambda)
 end
 
 function wave_resistance(hull::Hull, env::Environment, coefficients::WaveCoefficients,
@@ -196,7 +213,7 @@ function transom_resistance(hull::Hull, env::Environment, speed)
 end
 
 """
-    correlation_allowance(hull)
+    correlation_allowance(hull, coefficients)
 
 Holtrop's model-ship correlation coefficient C_A [-].
 """
@@ -211,7 +228,8 @@ end
 """
     resistance(hull, env, speed)
 
-Calm-water resistance [N] at `speed` [m/s] by Holtrop–Mennen (1984), valid up to Fn 0.4.
+Calm-water resistance [N] at `speed` [m/s] by Holtrop–Mennen (1984), valid up to Fn 0.4,
+times the hull's `resistance_factor`.
 """
 function resistance(hull::Hull, env::Environment, speed;
         coefficients=WaveCoefficients(hull))
@@ -224,22 +242,51 @@ function resistance(hull::Hull, env::Environment, speed;
     friction = dynamic_pressure * surface * cf
     appendages = dynamic_pressure * hull.appendage_area * hull.appendage_form_factor * cf
     correlation = dynamic_pressure * surface * correlation_allowance(hull, coefficients)
-    return form_factor(hull) * friction + appendages +
-           wave_resistance(hull, env, coefficients, froude) +
-           bulb_resistance(hull, env, speed) + transom_resistance(hull, env, speed) +
-           correlation
+    return hull.resistance_factor * (form_factor(hull) * friction + appendages +
+            wave_resistance(hull, env, coefficients, froude) +
+            bulb_resistance(hull, env, speed) + transom_resistance(hull, env, speed) +
+            correlation)
 end
+
+"""
+    side_force_slope(hull)
+
+Linear hull side-force derivative Y'_β = πT/L + 1.4 C_B B/L over leeway, made
+non-dimensional with ½ρV²LT (Kijima et al. 1990).
+"""
+side_force_slope(hull::Hull) =
+    π * hull.draft / hull.length + 1.4block_coefficient(hull) * hull.beam / hull.length
+
+"""
+    lateral_centre(hull)
+
+Distance [m] forward of midship at which the hull side force under leeway acts: the
+yaw-moment derivative N'_β = 2T/L of Kijima et al. (1990) over [`side_force_slope`](@ref).
+"""
+lateral_centre(hull::Hull) = 2hull.draft / side_force_slope(hull)
+
+"""
+    rudder_area(hull)
+
+Rudder area [m^2]: the minimum the DNV guidance of January 2000 recommends directly behind
+a propeller, A = T L / 100 (1 + 50 C_B^2 (B/L)^2).
+"""
+rudder_area(hull::Hull) =
+    hull.draft * hull.length / 100 *
+    (1 + 50block_coefficient(hull)^2 * (hull.beam / hull.length)^2)
 
 """
     leeway_drag(hull, env, speed, side_force)
 
-Leeway angle [rad] and induced drag [N] needed for the hull to balance a lateral rig
-force [N], from Kijima's linear side-force slope and slender-body induced drag.
+Leeway angle [rad] and induced drag [N] needed for the hull to carry a side force [N],
+from the linear side-force slope: the potential-flow share of the side force costs half
+of side force times leeway, as for a slender wing, and the cross-flow share all of it.
 """
 function leeway_drag(hull::Hull, env::Environment, speed, side_force)
-    (; length, beam, draft) = hull
-    slope = π * draft / length + 1.4block_coefficient(hull) * beam / length
-    reference_force = 0.5env.water_density * speed^2 * length * draft * slope
+    reference_force = 0.5env.water_density * speed^2 * hull.length * hull.draft *
+                      side_force_slope(hull)
     leeway = side_force / reference_force
-    return leeway, 0.5side_force * leeway
+    potential = π * hull.draft / hull.length
+    induced = (0.5potential + (side_force_slope(hull) - potential)) / side_force_slope(hull)
+    return leeway, induced * side_force * leeway
 end

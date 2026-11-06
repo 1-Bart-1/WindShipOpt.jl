@@ -1,5 +1,16 @@
 /Manifest*.toml
 !/Manifest-v*.toml.default
 /LocalPreferences.toml
-/output/
+/output
 .claude
+/scripts/Manifest*.toml
+!/scripts/Manifest-v*.toml.default
+/era5
+data/market/raw/
+paper/literature_pdfs
+__pycache__/
+paper/main.*
+!paper/main.tex
+/kite_polars/output/
+/kite_polars/Manifest.toml
+/paper/figures/
