@@ -899,14 +899,17 @@ end
 
 @testset "the final pass keeps the path, refines its speeds and never costs more" begin
     outbound, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
-    for design in (ShipDesign(:methanol, 85.0), ShipDesign(:methanol, 85.0; kite_area=200.0))
+    for design in (ShipDesign(:methanol, 85.0),
+        ShipDesign(:methanol, 85.0; kite_area=200.0))
+
         table = RouteTable(PerformanceTable(Ship(design, assumptions), assumptions))
         passage() = route(outbound, table, SyntheticWeather(), 24.0 * 31; time_cost=300.0)
         no_room_in_time = WindShipOpt.RouterSettings(final_time_band=-1.0)
         searched = WindShipOpt.with_router_settings(passage, no_room_in_time)
         final = passage()
         @test final.objective < searched.objective
-        @test [point[1:2] for point in final.path] == [point[1:2] for point in searched.path]
+        @test [point[1:2] for point in final.path] ==
+              [point[1:2] for point in searched.path]
         searched_speeds = [point[4] for point in searched.path[2:end]]
         final_speeds = [point[4] for point in final.path[2:end]]
         commanded = table.speeds[1:WindShipOpt.ROUTER_SETTINGS[].search_speed_stride:end]

@@ -80,7 +80,8 @@ function gridded_weather(directory)
         ("waves", 1, ("height", "period", "direction")))
         mkpath(joinpath(directory, group))
         open(joinpath(directory, group, "grid.toml"), "w") do io
-            TOML.print(io, Dict("lats" => grid.lats, "lons" => grid.lons, "step_hours" => step,
+            TOML.print(io, Dict("lats" => grid.lats, "lons" => grid.lons,
+                "step_hours" => step,
                 "first_time" => "2017-01-01T00:00:00", "variables" => collect(names)))
         end
         for name in names
@@ -94,23 +95,25 @@ end
 """
     edge_allocations(table, weather, corridor)
 
-[`allocations`](@ref) of each thing done per edge on the [`RouteTable`](@ref) `table`, by name.
+[`allocations`](@ref) of each thing done per edge on the [`RouteTable`](@ref) `table`, by
+name.
 """
 function edge_allocations(table, weather, corridor)
     stage, lateral = 2, centre_index(corridor)
     step = WindShipOpt.MAX_LATERAL_STEP + 1
-    start = WindShipOpt.EdgeSample(table.table, weather, corridor, stage, lateral, step, 0.0,
-        100.0)
+    start = WindShipOpt.EdgeSample(table.table, weather, corridor, stage, lateral, step,
+        0.0, 100.0)
     points = WindShipOpt.SailedPoint[]
     prices = (; fuel=table.table.ship.fuel.price, time=100.0)
     return (; wind=allocations(() -> wind(weather, 50.0, -10.0, 100.0)),
         waves=allocations(() -> waves(weather, 50.0, -10.0, 100.0)),
-        sample=allocations(() -> WindShipOpt.EdgeSample(table.table, weather, corridor, stage,
-            lateral, step, 0.5, 100.0)),
+        sample=allocations(() -> WindShipOpt.EdgeSample(table.table, weather, corridor,
+            stage, lateral, step, 0.5, 100.0)),
         held_speed=allocations(() -> WindShipOpt.held_speed(table, 3, start)),
         sail_edge=allocations(() -> WindShipOpt.sail_edge!(points, start, table, weather,
             corridor, stage, lateral, step, 100.0, 3)),
-        kite_passage=allocations(() -> WindShipOpt.kite_passage(table, points, false, prices)))
+        kite_passage=allocations(() -> WindShipOpt.kite_passage(table, points, false,
+            prices)))
 end
 
 """
@@ -120,7 +123,6 @@ end
 """
 leg_allocations(table, weather, corridor) =
     allocations(() -> route(corridor, table, weather, 24.0; time_cost=100.0))
-
 
 "a table of the 85 m methanol ship with the rig of each of the `sizes` keywords"
 rig_table(; sizes...) =
@@ -157,9 +159,10 @@ end
         kinds = typeof.((table, weather))
         @test isempty(dynamic_calls(WindShipOpt.sail_edge!, (points, WindShipOpt.EdgeSample,
             kinds[1], kinds[2], Corridor, Int, Int, Int, Float64, Int)))
-        @test isempty(dynamic_calls(WindShipOpt.kite_passage, (kinds[1], points, Bool, prices)))
-        @test isempty(dynamic_calls(Core.kwcall, (@NamedTuple{time_cost::Float64}, typeof(route),
-            Corridor, kinds[1], kinds[2], Float64)))
+        @test isempty(dynamic_calls(WindShipOpt.kite_passage,
+            (kinds[1], points, Bool, prices)))
+        @test isempty(dynamic_calls(Core.kwcall, (@NamedTuple{time_cost::Float64},
+            typeof(route), Corridor, kinds[1], kinds[2], Float64)))
     end
 end
 

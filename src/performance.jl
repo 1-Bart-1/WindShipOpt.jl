@@ -122,7 +122,7 @@ const LOWEST_TABLE_SPEED = 1.5
 "thrust stored for infeasible conditions, far above what any engine delivers [N]"
 const INFEASIBLE_THRUST = 1e12
 
-"lowest routing speed of any ship, at which it still holds its course in a storm [kn]"
+"lowest routing speed of any ship [kn]"
 const LOWEST_ROUTING_KNOTS = 4.0
 
 """
