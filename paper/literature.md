@@ -122,7 +122,7 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 
 **bosman2013** — Bosman, R., Reid, V., Vlasblom, M., Smeets, P. (2013). Airborne wind energy tethers with high-modulus polyethylene fibers. In _Airborne Wind Energy_, Springer, 563–585. DOI 10.1007/978-3-642-39965-7_33. DSM's design method: design factor 3, nominal and worked-in diameter, breaking load and mass by size, creep and bending life.
 
-**dunker2013** — Dunker, S. (2013). Ram-air wing design considerations for airborne wind energy. In _Airborne Wind Energy_, Springer, 517–546. DOI 10.1007/978-3-642-39965-7_31. Glide ratio about the aspect ratio, line rigging, ram-air wings built up to 1,040 m^2, life from degradation factors.
+**dunker2013** — Dunker, S. (2013). Ram-air wing design considerations for airborne wind energy. In _Airborne Wind Energy_, Springer, 517–546. DOI 10.1007/978-3-642-39965-7_31. Ram-air construction from a parachute maker, read in full: cell width, seams and the size limit of a subassembly; glide ratio about the aspect ratio, line rigging, ram-air wings built up to 1,040 m^2, life from degradation factors.
 
 **maass2013** — Maaß, J., Erhard, M. (2013). Software system architecture for control of tethered kites. In _Airborne Wind Energy_, Springer, 599–609. DOI 10.1007/978-3-642-39965-7_35. SkySails ship system: power and data through the rope at 120 V, one operator, second winch for landing and reefing.
 
