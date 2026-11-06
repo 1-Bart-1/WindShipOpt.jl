@@ -449,7 +449,7 @@ end
     broad = rig_force(rotors, env, 10.0, 5π / 6, 5.4, 3.0)
     @test broad.thrust ≈ 91931 rtol = 1e-3
     @test broad.side ≈ -32685 rtol = 1e-3
-    @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.NO_RIG_FORCE
+    @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.UNREACHABLE_RIG_FORCE
 end
 
 # Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
