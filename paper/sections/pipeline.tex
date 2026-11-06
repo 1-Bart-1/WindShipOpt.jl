@@ -26,7 +26,7 @@
 \node[money, left=of voyage] (cost) {Cost per tonne-km\\ \S\ref{sec:cost_model}, prices \S\ref{sec:costs}};
 \node[money, left=of cost] (compare) {Comparison\\ against no rig \S\ref{sec:results}};
 \node[money, below=7mm of cost] (search) {Rig-size search\\ best area per ship, drive, route};
-\node[data, below=7mm of voyage] (inputs) {Inputs: value, range, source \S\ref{sec:inputs}};
+\node[data, below=7mm of voyage] (inputs) {Inputs: value, range, source, \cref{sec:inputs}};
 \draw[arrow] (weather) -- (apparent);
 \draw[arrow] (speed.east) -| (apparent.north);
 \draw[arrow] (apparent) -- (rigs);
