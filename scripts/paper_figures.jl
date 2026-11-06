@@ -1701,3 +1701,38 @@ function canopy_price_figure()
     rowgap!(figure.layout, 4)
     save(joinpath(figures, "canopy_price.pdf"), figure; pt_per_unit=print_scale)
 end
+
+"""
+    min_wind_figure()
+
+Lowest apparent wind against projected area for the kite of the design aspect ratio: the
+crosswind and climbing bounds at the lowest elevation, lift-off with the margin, and the
+launch wind the model uses, which is the largest of these and the reported launch wind.
+"""
+function min_wind_figure()
+    figure = Figure(size=(column_width, 190))
+    axis = Axis(figure[1, 1]; xscale=log10, xlabel="projected kite area [m²]",
+        ylabel="lowest apparent wind [m/s]",
+        xticks=([500, 1000, 2000, 4000, 8000, 16000], ["500", "1000", "2000", "4000",
+            "8000", "16000"]))
+    areas = exp.(range(log(500), log(16000); length=40))
+    elevation = deg2rad(assumptions[:kite_min_elevation])
+    winds = map(areas) do area
+        model, _, diameter = WindShipOpt.kite_model(area, design_aspect_ratio, assumptions)
+        tether_mass = WindShipOpt.rope_mass(diameter, model.tether_length, assumptions)
+        lift_off = WindShipOpt.static_wind(model.mass - tether_mass / 2, model)
+        (cross=WindShipOpt.crosswind_min_wind(model, elevation),
+            climb=WindShipOpt.climbing_min_wind(model, elevation),
+            lift=assumptions[:kite_launch_margin] * lift_off,
+            launch=WindShipOpt.launch_min_wind(model, tether_mass, assumptions))
+    end
+    curves = ((:launch, "launch", :black, 2.5), (:lift, "lift-off", palette[2], 1.2),
+        (:climb, "climb", palette[1], 1.2), (:cross, "crosswind", palette[3], 1.2))
+    for (key, label, color, linewidth) in curves
+        lines!(axis, areas, getindex.(winds, key); color, linewidth, label)
+    end
+    ylims!(axis, 0, 1.2 * maximum(getindex.(winds, :launch)))
+    axislegend(axis; position=(0.5, 0.45), orientation=:horizontal, framevisible=false,
+        labelsize=9, patchsize=(12, 8), colgap=6)
+    save(joinpath(figures, "min_wind.pdf"), figure; pt_per_unit=print_scale)
+end
