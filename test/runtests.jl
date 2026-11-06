@@ -1403,6 +1403,22 @@ end
     end
 end
 
+@testset "sizes swept stay within what fits and bracket the given size" begin
+    @test WindShipOpt.sizes_around("kite", 3200.0, 16000.0) ==
+          [800.0, 1600.0, 3200.0, 6400.0, 12800.0]
+    @test WindShipOpt.sizes_around("kite", 6400.0, 16000.0) ==
+          [1600.0, 3200.0, 6400.0, 12800.0, 16000.0]
+    @test WindShipOpt.sizes_around("kite", 16000.0, 16000.0) == [4000.0, 8000.0, 16000.0]
+    @test WindShipOpt.sizes_around("rotors", 800.0, 1221.0) == [400.0, 800.0, 1221.0]
+end
+
+@testset "a sweep whose goal cost differs from the size sweep is refused" begin
+    goal = Dict("kite" => 2.0, "rotors" => 1.0)
+    @test isnothing(WindShipOpt.check_goal_cost("ship", "life", goal, Dict("kite" => 2.0)))
+    @test_throws ErrorException WindShipOpt.check_goal_cost("ship", "life", goal,
+        Dict("kite" => 2.1))
+end
+
 @testset "one rigid kite crashing costs one airframe and half of one tether" begin
     fleet = rigid_fleet(3, assumptions)
     airframes = WindShipOpt.rigid_airframe_price(fleet, assumptions)
