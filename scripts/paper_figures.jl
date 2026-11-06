@@ -469,20 +469,20 @@ function passage_figure()
     figure = Figure(size=(page_width, 270))
     maps, series = GridLayout(figure[1, 1]), GridLayout(figure[2, 1])
     for (i, (label, _)) in enumerate(designs)
-        map = Axis(maps[1, i]; aspect=DataAspect(), limits=(-64, 6, 13, 54),
+        axis = Axis(maps[1, i]; aspect=DataAspect(), limits=(-64, 6, 13, 54),
             title="($(Char('a' + i - 1))) $label", xticks=[-60, -30, 0],
             yticks=[20, 35, 50], xticklabelsize=8, yticklabelsize=8,
             yticklabelsvisible=i == 1)
-        draw_land!(map, mask)
-        lines!(map, great_circle(first(legs)[1].path[1], first(legs)[1].path[end])...;
+        draw_land!(axis, mask)
+        lines!(axis, great_circle(first(legs)[1].path[1], first(legs)[1].path[end])...;
             color=:black, linestyle=:dot, linewidth=0.8)
         for track in tracks
-            lines!(map, track; color=:gray70, linewidth=0.8)
+            lines!(axis, track; color=:gray70, linewidth=0.8)
         end
-        lines!(map, tracks[i]; color=palette[i], linewidth=1.6)
+        lines!(axis, tracks[i]; color=palette[i], linewidth=1.6)
         path = legs[i][1].path
         days = 24.0:24.0:path[end][3]
-        scatter!(map, [path_position(path, time) for time in days]; color=:white,
+        scatter!(axis, [path_position(path, time) for time in days]; color=:white,
             strokecolor=palette[i], strokewidth=0.8, markersize=4)
     end
     labels = ("speed [kn]", "rig thrust [kN]", "fuel power [MW]")
