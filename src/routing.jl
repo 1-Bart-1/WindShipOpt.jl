@@ -256,6 +256,12 @@ struct ForecastWeather{W}
     horizon::Float64
 end
 
+"hours between the forecasts a ship plans on, and that it holds when no plan leaves it [h]"
+const FORECAST_INTERVAL = 6.0
+
+"longest a ship on a forecast holds at one node before its passage fails [h]"
+const LONGEST_HOLD = 72.0
+
 "hours in the year by which a forecast beyond its horizon shifts the time [h]"
 const FORECAST_SHIFT = 8760.0
 
@@ -969,8 +975,10 @@ Passage of a ship that re-plans every 24 hours by [`route`](@ref) on the
 [`RouteTable`](@ref) `table` with a [`ForecastWeather`](@ref) of `horizon` hours and
 sails each plan in the real `weather` until the next re-plan, with the kite aloft after
 each edge where the plan has it and the real weather lets it; fuel, flight hours and
-objective are those of the real weather. Returns `nothing` if a plan fails or the real
-weather stops it.
+objective are those of the real weather. Where no plan leaves its node or the real
+weather stops the next edge, the ship holds there with the kite stowed on its hotel load
+until the next forecast, 6 h later, and plans again. Returns `nothing` after holding
+72 h at one node.
 """
 function forecast_route(corridor::Corridor, table::RouteTable, weather, departure;
         time_cost, horizon, coastal_penalty=1.0)
@@ -984,13 +992,14 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     path = [(corridor.lat[1, lateral], corridor.lon[1, lateral], 0.0, 0.0, 0.0)]
     aloft_path = [false]
     points = SailedPoint[]
+    held = 0.0
     while stage < stage_count
         forecast = ForecastWeather(weather, departure + time, horizon)
         plan = route(corridor, table, forecast, departure + time; time_cost,
             first_stage=stage, first_lateral=lateral, first_aloft=aloft, coastal_penalty)
-        isnothing(plan) && return nothing
-        plan_start = time
-        for i in 2:length(plan.path)
+        blocked = isnothing(plan)
+        plan_start, plan_end = time, blocked ? 1 : length(plan.path)
+        for i in 2:plan_end
             next_lat, next_lon, _, speed, _ = plan.path[i]
             next = nearest_lateral(corridor, stage + 1, next_lat, next_lon)
             step = next - lateral + MAX_LATERAL_STEP + 1
@@ -999,7 +1008,8 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
                 departure + time)
             hours = sail_edge!(points, start, table, weather, corridor, stage, lateral,
                 step, departure + time, speed_index)
-            isfinite(hours) || return nothing
+            blocked = !isfinite(hours)
+            blocked && break
             down, up = kite_passage(table, points, aloft, prices)
             aloft = stage + 1 < stage_count && isfinite(up.cost) &&
                     (plan.aloft[i] || !isfinite(down.cost))
@@ -1012,11 +1022,20 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             launches += tally.launches
             forced_landings += tally.forced_landings
             time += hours
+            held = 0.0
             stage, lateral = stage + 1, next
             push!(path, (next_lat, next_lon, time, speed, summary_mode(tally, hours)))
             push!(aloft_path, aloft)
             time - plan_start >= 24.0 && break
         end
+        blocked || continue
+        held >= LONGEST_HOLD && return nothing
+        energy = 3600FORECAST_INTERVAL * fuel_power(ship_table.ship.powertrain, 0.0)
+        objective += edge_objective(1.0, energy * prices.fuel, FORECAST_INTERVAL, prices)
+        fuel_energy += energy
+        time += FORECAST_INTERVAL
+        held += FORECAST_INTERVAL
+        aloft = false
     end
     return Leg(fuel_energy, fuel_energy * prices.fuel, flight_hours, launches,
         forced_landings, time, objective, path, aloft_path)
