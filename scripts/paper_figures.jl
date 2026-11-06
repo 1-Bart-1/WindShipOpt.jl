@@ -816,6 +816,24 @@ function best_cost(designs, drive, length, column_name)
 end
 
 """
+    spread_labels(positions, gap)
+
+`positions` moved apart where needed so that neighbours stand at least `gap` apart, in the
+same order, each group centred where it was.
+"""
+function spread_labels(positions, gap)
+    order = sortperm(positions)
+    placed = positions[order]
+    for _ in eachindex(placed), i in 2:length(placed)
+        overlap = gap - (placed[i] - placed[i - 1])
+        overlap > 0 || continue
+        placed[i - 1] -= overlap / 2
+        placed[i] += overlap / 2
+    end
+    return placed[invperm(order)]
+end
+
+"""
     premium_figure()
 
 Share of the cost premium of an e-methanol and a hydrogen ship over a VLSFO ship without
@@ -823,21 +841,30 @@ a rig that the best size of each rig closes, over ship length on the route to Gu
 """
 function premium_figure()
     designs = read_table(data_file("designs.csv"))
-    figure = Figure(size=(column_width, 300))
+    figure = Figure(size=(column_width, 165))
     axis = Axis(figure[1, 1]; xlabel="waterline length [m]", xticks=85:25:200,
         ylabel="fuel premium closed [%]")
-    hlines!(axis, [0, 100]; color=:gray70, linewidth=0.5)
     lengths = sort(unique(designs["length"]))
-    for (drive, linestyle) in (("methanol", :solid), ("hydrogen", :dash)),
-        (k, (label, column_name)) in enumerate(rig_area_columns)
-
-        shares = [premium_closed(designs, drive, length, column_name) for length in lengths]
-        valid = isfinite.(shares)
-        scatterlines!(axis, lengths[valid], shares[valid]; color=palette[k], linestyle,
-            label="$label, $(Dict(drive_labels)[drive])", markersize=6)
+    ends = Float64[]
+    for (k, (label, column_name)) in enumerate(rig_area_columns)
+        for (drive, linestyle) in (("methanol", :solid), ("hydrogen", :dash))
+            shares = [premium_closed(designs, drive, length, column_name)
+                      for length in lengths]
+            valid = isfinite.(shares)
+            scatterlines!(axis, lengths[valid], shares[valid]; color=palette[k],
+                linestyle, markersize=4, linewidth=1.2)
+            drive == "methanol" && push!(ends, last(shares[valid]))
+        end
     end
-    Legend(figure[2, 1], axis; orientation=:horizontal, nbanks=3, framevisible=false,
-        labelsize=9)
+    for (k, (label, _)) in enumerate(rig_area_columns)
+        text!(axis, last(lengths), spread_labels(ends, 3.5)[k]; text=label,
+            color=palette[k], fontsize=8, align=(:left, :center), offset=(5, 0))
+    end
+    xlims!(axis, first(lengths) - 5, last(lengths) + 28)
+    ylims!(axis, 0, nothing)
+    axislegend(axis, [LineElement(color=:black, linestyle=style) for style in
+                      (:solid, :dash)], ["e-methanol", "hydrogen"]; position=:rb,
+        framevisible=false, labelsize=8, patchsize=(14, 6), rowgap=0, padding=(0, 0, 0, 0))
     save(joinpath(figures, "premium.pdf"), figure; pt_per_unit=print_scale)
 end
 
