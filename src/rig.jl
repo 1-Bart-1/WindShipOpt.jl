@@ -310,7 +310,7 @@ max_spin_ratio(rig::RotorRig, speed) =
 
 function trim_ranges(rig::RotorRig, env, wind_10m, true_angle, ship_speed)
     _, speed, _ = centre_wind(rig, env, wind_10m, true_angle, ship_speed)
-    return (TrimRange(0.0, max_spin_ratio(rig, speed), 9, 1),)
+    return (TrimRange(0.0, max_spin_ratio(rig, speed), 17, 1),)
 end
 
 trim_setting(::RotorRig, ::TrimRange, value) = value

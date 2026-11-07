@@ -445,11 +445,12 @@ function required_thrust(ship::Ship, speed, wind_10m, true_angle, force::RigForc
 end
 
 """
-    TrimOutput(ship, rig, speed, wind_10m, true_angle)
+    TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
 
 Engine output of `ship` carrying `rig`, its own rig or a part of it, at `speed` [m/s] in a
-10 m true wind of `wind_10m` [m/s] from `true_angle` [rad]; called on a trim setting of the
-rig, it returns the [`trim_point`](@ref) there.
+10 m true wind of `wind_10m` [m/s] from `true_angle` [rad], with `added_resistance` [N] of
+waves on top of the calm-water resistance; called on a trim setting of the rig, it returns
+the [`trim_point`](@ref) there.
 """
 struct TrimOutput{S, R}
     ship::S
@@ -457,7 +458,11 @@ struct TrimOutput{S, R}
     speed::Float64
     wind_10m::Float64
     true_angle::Float64
+    added_resistance::Float64
 end
+
+TrimOutput(ship, rig, speed, wind_10m, true_angle) =
+    TrimOutput(ship, rig, speed, wind_10m, true_angle, 0.0)
 
 """
     trim_point(output, setting)
@@ -469,7 +474,8 @@ where the rig force exceeds the heel, leeway or rudder limit.
 function trim_point(output::TrimOutput, setting)
     (; ship, speed, wind_10m, true_angle) = output
     force = rig_force(output.rig, ship.env, wind_10m, true_angle, speed, setting)
-    thrust = required_thrust(ship, speed, wind_10m, true_angle, force)
+    thrust = required_thrust(ship, speed, wind_10m, true_angle, force) +
+             output.added_resistance
     isfinite(thrust) || return (; output=Inf, thrust, force)
     engine = delivered_power(ship.propeller, ship.env, speed, thrust) /
              ship.powertrain.transmission_efficiency + force.power
@@ -527,18 +533,21 @@ function best_on_range(objective, trim_range::TrimRange)
 end
 
 """
-    best_trim(ship, rig, speed, wind_10m, true_angle)
+    best_trim(ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
 
 Required propeller thrust [N] and rig force of `ship` carrying `rig`, its own rig or a
 part of it, at the trim that needs the least engine output, propeller and rig power
 together, solved over the continuous [`trim_ranges`](@ref) by [`best_on_range`](@ref);
-`Inf` thrust where no trim keeps the hull inside its limits.
+`Inf` thrust where no trim keeps the hull inside its limits. The thrust includes
+`added_resistance` [N] of waves, which the trim works against as well: a rig that has more
+thrust to give than calm water asks for keeps it for the waves.
 """
-best_trim(ship::Ship, ::Nothing, speed, wind_10m, true_angle) =
-    required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE), NO_RIG_FORCE
+best_trim(ship::Ship, ::Nothing, speed, wind_10m, true_angle, added_resistance=0.0) =
+    required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE) + added_resistance,
+    NO_RIG_FORCE
 
-function best_trim(ship::Ship, rig, speed, wind_10m, true_angle)
-    output = TrimOutput(ship, rig, speed, wind_10m, true_angle)
+function best_trim(ship::Ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
+    output = TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance)
     ranges = trim_ranges(rig, ship.env, wind_10m, true_angle, speed)
     best = RangeSetting(rig, first(ranges))(first(ranges).low)
     best_output = Inf
@@ -585,13 +594,14 @@ const JOINT_TRIM_ITERATIONS = 200
 const JOINT_TRIM_TOLERANCE = 1e-2
 
 """
-    best_trim(ship, rig::CombinedRig, speed, wind_10m, true_angle)
+    best_trim(ship, rig::CombinedRig, speed, wind_10m, true_angle, added_resistance=0.0)
 
 [`best_trim`](@ref) of kite and standing rig together: the best pair of their scanned trim
 values, refined by the Nelder-Mead method in both at once.
 """
-function best_trim(ship::Ship, rig::CombinedRig, speed, wind_10m, true_angle)
-    output = TrimOutput(ship, rig, speed, wind_10m, true_angle)
+function best_trim(ship::Ship, rig::CombinedRig, speed, wind_10m, true_angle,
+        added_resistance=0.0)
+    output = TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance)
     kite = RangeSetting(rig.kite,
         only(trim_ranges(rig.kite, ship.env, wind_10m, true_angle, speed)))
     standing_ranges = trim_ranges(rig.standing, ship.env, wind_10m, true_angle, speed)

@@ -779,10 +779,10 @@ end
     ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=300.0), assumptions)
     table = PerformanceTable(ship, assumptions)
     speed, wind, angle = 5.0, 12.0, π / 2
-    power = table.rig_power(speed, wind, angle)
+    power = table.rig_power(speed, wind, angle, 0.0)
     @test power > 0
     @test lookup(table, speed, wind, angle).fuel_power ≈
-          WindShipOpt.fuel_power(table, speed, table.flown_thrust(speed, wind, angle),
+          WindShipOpt.fuel_power(table, speed, table.flown_thrust(speed, wind, angle, 0.0),
               power)
 end
 
