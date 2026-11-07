@@ -116,16 +116,37 @@ struct PerformanceTable{S}
     kite_wind_factor::Float64
 end
 
+"lowest speed of a [`PerformanceTable`](@ref) [m/s]"
+const LOWEST_TABLE_SPEED = 1.5
+
 "thrust stored for infeasible conditions, far above what any engine delivers [N]"
 const INFEASIBLE_THRUST = 1e12
+
+"lowest routing speed of any ship [kn]"
+const LOWEST_ROUTING_KNOTS = 4.0
+
+"""
+    table_speeds(max_speed, routing_speeds)
+
+Speeds [m/s] of a [`PerformanceTable`](@ref): the last `routing_speeds` are equally spaced
+from `LOWEST_ROUTING_KNOTS` to `max_speed`, and the same step continues down towards
+`LOWEST_TABLE_SPEED`.
+"""
+function table_speeds(max_speed, routing_speeds)
+    lowest = LOWEST_ROUTING_KNOTS * KNOT
+    speed_step = (max_speed - lowest) / (routing_speeds - 1)
+    below = floor(Int, (lowest - LOWEST_TABLE_SPEED) / speed_step)
+    return collect(range(lowest - below * speed_step, max_speed;
+        length=routing_speeds + below))
+end
 
 """
     PerformanceTable(ship, assumptions)
 
-Tabulate the thrust of `ship`.
+Tabulate the thrust of `ship`, at its [`table_speeds`](@ref).
 """
 function PerformanceTable(ship::Ship, assumptions::Assumptions)
-    speeds = collect(Float64, range(1.5, ship.max_speed; step=0.25))
+    speeds = table_speeds(ship.max_speed, ROUTER_SETTINGS[].routing_speeds)
     winds = collect(Float64, 0:1.0:30)
     angles = deg2rad.(collect(Float64, 0:7.5:180))
     periods = collect(Float64, 3:1.0:18)
@@ -371,8 +392,6 @@ function fuel_power(table::PerformanceTable, speed, thrust, rig_power)
         delivered + rig_power * ship.powertrain.transmission_efficiency)
 end
 
-max_knots(table::PerformanceTable) = floor(Int, last(table.speeds) / KNOT)
-
 """
     RouteTable
 
@@ -390,26 +409,33 @@ end
 has_kite(table::RouteTable) = table.table.stowed_thrust !== table.table.flown_thrust
 
 """
-    RouteTable(table, speeds)
+    RouteTable(table, speeds=routing_speeds(table))
 
-[`RouteTable`](@ref) of `table` at whole knots from 4 up to the ship's maximum speed, or at
-the given `speeds` [m/s], ascending.
+[`RouteTable`](@ref) of `table` at `speeds` [m/s], ascending.
 """
-function RouteTable(table::PerformanceTable,
-        speeds=collect(Float64, (4:max_knots(table)) .* KNOT))
+function RouteTable(table::PerformanceTable, speeds=routing_speeds(table))
     slices = [SpeedSlice(table, KnotWeight(table.speeds, speed)) for speed in speeds]
     return RouteTable(table, speeds, slices)
+end
+
+"The speeds of `table` from `LOWEST_ROUTING_KNOTS` up [m/s]"
+function routing_speeds(table::PerformanceTable)
+    half_step = (table.speeds[end] - table.speeds[end - 1]) / 2
+    return filter(>(LOWEST_ROUTING_KNOTS * KNOT - half_step), table.speeds)
 end
 
 """
     held_speed_table(table, knots)
 
 [`RouteTable`](@ref) of `table` for a ship holding `knots` [kn] wherever it can, and the
-highest whole knot below that where it cannot, routed with time at
+highest of its [`routing_speeds`](@ref) below that where it cannot, routed with time at
 [`HELD_SPEED_TIME_FACTOR`](@ref) times its cost.
 """
-held_speed_table(table::PerformanceTable, knots) =
-    RouteTable(table, unique(KNOT .* [4:floor(Int, knots); knots]))
+function held_speed_table(table::PerformanceTable, knots)
+    held = knots * KNOT
+    below = filter(speed -> speed < held && !(speed ≈ held), routing_speeds(table))
+    return RouteTable(table, [below; held])
+end
 
 "factor on the cost of time that makes the router take the fastest speed it is offered [-]"
 const HELD_SPEED_TIME_FACTOR = 20

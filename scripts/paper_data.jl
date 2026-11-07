@@ -8,16 +8,18 @@ study_drives = (:vlsfo, :methanol, :hydrogen)
 design_aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
 
 """
-    trip_case(design; assumptions, route, scale, horizon, held_knots, labels...)
+    trip_case(design; assumptions, route, scale, horizon, held_knots, part, labels...)
 
 One round trip to compute: `design` under `assumptions` on the corridors of `route` at
 corridor `scale`, with a forecast `horizon` [h], holding `held_knots` [kn] or with speed set
-by cost where `nothing`, tagged with `labels` for the output.
+by cost where `nothing`, with the model `part` switched off by [`simplified_ship`](@ref),
+tagged with `labels` for the output.
 """
 function trip_case(design; assumptions=assumptions, route=:caribbean,
-        scale=run_settings().corridor_scale, horizon=Inf, held_knots=nothing, labels...)
+        scale=run_settings().corridor_scale, horizon=Inf, held_knots=nothing, part=:none,
+        labels...)
     return (; labels..., design, assumptions, route, scale,
-        corridors=corridors(route, scale), horizon, held_knots)
+        corridors=corridors(route, scale), horizon, held_knots, part)
 end
 
 """
@@ -29,6 +31,7 @@ passage fails.
 function case_trip(case, departures)
     ship = Ship(case.design, case.assumptions)
     isnothing(ship) && return nothing
+    ship = simplified_ship(ship, case.part)
     return round_trip(ship, case.corridors..., weather, departures, case.assumptions;
         horizon=case.horizon, held_knots=case.held_knots)
 end
@@ -700,51 +703,67 @@ function largest_rig_area(rig, hull)
 end
 
 """
-    class_case(class, drive, rig, area, route)
+    class_case(class, drive, rig, area, route; labels...)
 
 Round-trip case of `class` with `drive` and `area` [m^2] of `rig` ("none" for no rig)
-on `route`.
+on `route`, tagged with `labels`.
 """
-function class_case(class::ShipClass, drive, rig, area, route)
+function class_case(class::ShipClass, drive, rig, area, route; labels...)
     design = ShipDesign(drive, class; rig_size(rig, area)...)
     return trip_case(design; class=class.name, route, drive, rig, area,
-        units=WindShipOpt.deck_units(Ship(design, assumptions).rig))
+        units=WindShipOpt.deck_units(Ship(design, assumptions).rig), labels...)
 end
 
 """
     classes_data()
 
 The standard ship classes on every route with the [`study_drives`](@ref) without a rig,
-and with the cheapest size of each rig found by a search over three starting sizes and
-`size_rounds` more sizes from [`next_size`](@ref): classes.csv.
+and with the cheapest size of each rig found by [`searched_sizes`](@ref) in `size_rounds`
+rounds: classes.csv.
 """
 function classes_data()
+    ships = [(class, drive, route)
+             for class in values(ship_classes()), drive in study_drives,
+                 route in route_names]
+    cases, trips = searched_sizes(vec(ships), run_settings().size_rounds)
+    write_trips("classes.csv", cases, trips, :class, :route, :drive, :rig, :area, :units)
+end
+
+"""
+    searched_sizes(ships, rounds)
+
+Cases and round trips of each (class, drive, route) of `ships` without a rig and of the
+search for the cheapest size of each rig: three starting sizes, then `rounds` more sizes
+from [`next_size`](@ref). Each case is tagged with the `round` that added it, 0 for the
+starting sizes.
+"""
+function searched_sizes(ships, rounds)
     sampled = sampled_departures()
     cases, searches = [], Dict{Tuple, Vector{Tuple{Float64, Float64}}}()
-    for class in values(ship_classes()), drive in study_drives, route in route_names
-        push!(cases, class_case(class, drive, "none", 0.0, route))
+    for (class, drive, route) in ships
+        push!(cases, class_case(class, drive, "none", 0.0, route; round=0))
         for (rig, (lower, upper)) in size_bounds(class)
             searches[(class.name, drive, rig, route)] = Tuple{Float64, Float64}[]
             for area in (lower, sqrt(lower * upper), upper)
-                push!(cases, class_case(class, drive, rig, area, route))
+                push!(cases, class_case(class, drive, rig, area, route; round=0))
             end
         end
     end
     trips = round_trips(cases, sampled)
-    for _ in 1:run_settings().size_rounds
+    classes = ship_classes()
+    for round in 1:rounds
         record_sizes!(searches, cases, trips)
-        classes = ship_classes()
         batch = []
         for ((name, drive, rig, route), points) in searches
             count(point -> isfinite(last(point)), points) >= 2 || continue
             area = next_size(points, size_bounds(classes[name])[rig]...)
             any(point -> first(point) ≈ area, points) && continue
-            push!(batch, class_case(classes[name], drive, rig, area, route))
+            push!(batch, class_case(classes[name], drive, rig, area, route; round))
         end
         append!(trips, round_trips(batch, sampled))
         append!(cases, batch)
     end
-    write_trips("classes.csv", cases, trips, :class, :route, :drive, :rig, :area, :units)
+    return cases, trips
 end
 
 """
@@ -789,6 +808,10 @@ function bound_assumptions(name, bound)
     return with_value(assumptions, name, bound == :low ? entry.low : entry.high)
 end
 
+"class ships of the input screening, each with its drive and route"
+screened_classes = (("Kamsarmax bulk carrier", :vlsfo, :tubarao),
+    ("Neo-Panamax container ship", :methanol, :new_york))
+
 """
     sensitivity_ships()
 
@@ -803,8 +826,7 @@ function sensitivity_ships()
     reference = NamedTuple(Symbol(rig) => rig_size(rig, area)
                            for (rig, area) in reference_rigs)
     ships = [("140 m", ShipDesign(:methanol, 140.0), :caribbean, reference)]
-    for (name, drive, route) in (("Kamsarmax bulk carrier", :vlsfo, :tubarao),
-        ("Neo-Panamax container ship", :methanol, :new_york))
+    for (name, drive, route) in screened_classes
         areas = NamedTuple(Symbol(rig) => rig_size(rig,
                 best_area(classes_table, name, string(route), string(drive), rig))
                            for rig in rig_names)
@@ -822,6 +844,22 @@ screened_inputs() = sort([name for (name, entry) in assumptions.entries
                           if entry.low != entry.high])
 
 """
+    rig_cases(ship, bare, route, areas; labels...)
+
+Cases of a ship of [`sensitivity_ships`](@ref) without a rig and with each rig, tagged
+with `labels`, which may set the case's assumptions and model part.
+"""
+function rig_cases(ship, bare, route, areas; labels...)
+    cases = [trip_case(bare; route, ship, rig="none", labels...)]
+    for rig in rig_names
+        design = ShipDesign(; bare.drive, bare.length, bare.class,
+            getproperty(areas, Symbol(rig))...)
+        push!(cases, trip_case(design; route, ship, rig, labels...))
+    end
+    return cases
+end
+
+"""
     sensitivity_data()
 
 Each ship of [`sensitivity_ships`](@ref) without a rig and with each rig, at the base
@@ -829,19 +867,10 @@ inputs and at the low and high bound of every input with a range: sensitivity.cs
 """
 function sensitivity_data()
     cases = []
-    for (ship, bare, route, areas) in sensitivity_ships()
-        for name in [screened_inputs(); :none]
-            for bound in (name == :none ? (:value,) : (:low, :high))
-                case_assumptions = bound_assumptions(name, bound)
-                push!(cases, trip_case(bare; assumptions=case_assumptions, route, ship,
-                    rig="none", input=name, bound))
-                for rig in rig_names
-                    design = ShipDesign(; bare.drive, bare.length, bare.class,
-                        getproperty(areas, Symbol(rig))...)
-                    push!(cases, trip_case(design; assumptions=case_assumptions, route,
-                        ship, rig, input=name, bound))
-                end
-            end
+    for screened in sensitivity_ships(), name in [screened_inputs(); :none]
+        for bound in (name == :none ? (:value,) : (:low, :high))
+            append!(cases, rig_cases(screened...;
+                assumptions=bound_assumptions(name, bound), input=name, bound))
         end
     end
     write_trips("sensitivity.csv", cases,
@@ -880,6 +909,66 @@ function aspect_data()
                 trip.flight_share, trip.launches, trip.cargo)
         end
     end
+end
+
+"force limits of the kite in the force rating study [kN/m^2]"
+study_force_ratings = (0.3, 0.5, 0.7, 1.0)
+
+"kite areas of the force rating study [m^2]"
+study_kite_areas = [1600.0 * sqrt(2.0)^k for k in 0:6]
+
+"""
+    nearby_kite_areas(kite_area, reach)
+
+Those of [`study_kite_areas`](@ref) within `reach` grid steps of the one nearest `kite_area`.
+"""
+function nearby_kite_areas(kite_area, reach)
+    nearest = argmin(abs.(log.(study_kite_areas ./ kite_area)))
+    return study_kite_areas[max(1, nearest - reach):min(end, nearest + reach)]
+end
+
+"""
+    force_rating_case(bare, route, ship, rating, exponent, area)
+
+Trip case of the ship `bare` with a kite of `area` built for the force limit `rating`, its
+cloth following the limit to the power `exponent`.
+"""
+function force_rating_case(bare, route, ship, rating, exponent, area)
+    rated = changed_assumptions((; kite_max_force_per_area=rating,
+        canopy_cloth_force_exponent=exponent))
+    design = ShipDesign(; bare.drive, bare.length, bare.class, kite_area=area)
+    return trip_case(design; assumptions=rated, route, ship, rating, exponent, area)
+end
+
+"""
+    force_rating_cases(bare, route, ship, kite_area)
+
+Cases of one ship in the force rating study: without a rig; with its kite at each of
+[`study_force_ratings`](@ref) and two area steps around `kite_area`; and at the lowest and
+highest limit and one area step with cloth that follows the limit in proportion or not at
+all.
+"""
+function force_rating_cases(bare, route, ship, kite_area)
+    base = assumptions[:canopy_cloth_force_exponent]
+    return [trip_case(bare; route, ship, rating=0.0, exponent=base, area=0.0);
+            vec([force_rating_case(bare, route, ship, rating, base, area)
+                 for rating in study_force_ratings, area in nearby_kite_areas(kite_area, 2)]);
+            vec([force_rating_case(bare, route, ship, rating, exponent, area)
+                 for rating in extrema(study_force_ratings), exponent in (0.0, 1.0),
+                 area in nearby_kite_areas(kite_area, 1)])]
+end
+
+"""
+    force_rating_data()
+
+Each ship of [`sensitivity_ships`](@ref) with the cases of [`force_rating_cases`](@ref):
+force_rating.csv.
+"""
+function force_rating_data()
+    cases = reduce(vcat, [force_rating_cases(bare, route, ship, areas.kite.kite_area)
+                          for (ship, bare, route, areas) in sensitivity_ships()])
+    write_trips("force_rating.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :rating, :exponent, :area)
 end
 
 """
@@ -1185,6 +1274,97 @@ function convergence_data()
         :scale)
 end
 
+"model parts the model-part study switches off, one at a time"
+simplified_parts = (:calibration, :waves, :windage, :limits, :rudder)
+
+"""
+    rebuilt(object; changes...)
+
+A new object of the type of `object` with its fields, those named in `changes` replaced.
+"""
+function rebuilt(object; changes...)
+    fields = (get(changes, name, getfield(object, name))
+              for name in fieldnames(typeof(object)))
+    return typeof(object).name.wrapper(fields...)
+end
+
+"""
+    simplified_ship(ship, part)
+
+`ship` with model `part` switched off: `:none` keeps it whole, `:calibration` drops the
+calibration of the hull's calm-water resistance, `:waves` the added resistance in waves,
+`:windage` the air drag of the superstructure, `:limits` the heel, leeway and rudder
+limits, and `:rudder` the drag of the rudder.
+"""
+function simplified_ship(ship, part)
+    part == :none && return ship
+    part == :calibration &&
+        return rebuilt(ship; hull=rebuilt(ship.hull; resistance_factor=1.0))
+    if part == :waves
+        # the first two SNNM constants scale the motion and the reflection part
+        x = (0.0, 0.0, ship.seakeeping.x[3:end]...)
+        return rebuilt(ship; seakeeping=rebuilt(ship.seakeeping; x))
+    end
+    part == :windage && return rebuilt(ship; windage_drag_coefficient=0.0)
+    part == :limits &&
+        return rebuilt(ship; heel_limit=Inf, leeway_limit=Inf, rudder_max_lift=Inf)
+    part == :rudder && return rebuilt(ship; rudder_aspect_ratio=Inf)
+    throw(ArgumentError("no model part $part"))
+end
+
+"""
+    year_departures(year)
+
+Every second departure in weather year `year`, counted from 1.
+"""
+year_departures(year) =
+    filter(hour -> 8760(year - 1) <= hour < 8760year, departures)[1:2:end]
+
+"""
+    model_parts_data()
+
+Each ship of [`sensitivity_ships`](@ref) without a rig and with each rig, whole and with
+each of [`simplified_parts`](@ref) switched off: model_parts.csv; and whole over the
+[`year_departures`](@ref) of each weather year: weather_years.csv.
+"""
+function model_parts_data()
+    cases = [case for screened in sensitivity_ships(), part in (:none, simplified_parts...)
+             for case in rig_cases(screened...; part)]
+    write_trips("model_parts.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :rig, :part)
+    cases, trips = [], []
+    for year in 1:ceil(Int, last(departures) / 8760)
+        batch = [case for screened in sensitivity_ships()
+                 for case in rig_cases(screened...; year)]
+        append!(trips, round_trips(batch, year_departures(year)))
+        append!(cases, batch)
+    end
+    write_trips("weather_years.csv", cases, trips, :ship, :rig, :year)
+end
+
+"""
+    size_search_data()
+
+Each ship of [`screened_classes`](@ref) with the search of [`searched_sizes`](@ref) over
+two rounds, and with each rig at every size of [`snap_area`](@ref) within its
+[`size_bounds`](@ref), tagged round -1: size_search.csv.
+"""
+function size_search_data()
+    classes = ship_classes()
+    ships = [(classes[name], drive, route) for (name, drive, route) in screened_classes]
+    cases, trips = searched_sizes(ships, 2)
+    grid = []
+    for (class, drive, route) in ships, (rig, (lower, upper)) in size_bounds(class)
+        for step in ceil(Int, 4log2(lower)):floor(Int, 4log2(upper))
+            push!(grid, class_case(class, drive, rig, 2.0^(step / 4), route; round=-1))
+        end
+    end
+    append!(trips, round_trips(grid, sampled_departures()))
+    append!(cases, grid)
+    write_trips("size_search.csv", cases, trips, :class, :route, :drive, :rig, :area,
+        :round)
+end
+
 "ships of the combination study"
 combination_ships = ("140 m", "Kamsarmax bulk carrier")
 
@@ -1229,6 +1409,46 @@ function combination_data()
     end
     write_trips("combination.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :route, :drive, :rig, :kite_area, :rotor_area)
+end
+
+"routes of the tow point study: westerlies ahead out and astern home, and trade winds abeam"
+tow_point_routes = (:new_york, :tubarao)
+
+"""
+    tow_point_positions(hull)
+
+Tow positions of the tow point study as (name, share of the way from midship to the
+launch mast at the forward end of the deck): the bow, the hull's lateral centre and
+midship.
+"""
+tow_point_positions(hull) = (("bow", 1.0),
+    ("centre", WindShipOpt.lateral_centre(hull) /
+               WindShipOpt.launch_mast_position(hull, assumptions)),
+    ("midship", 0.0))
+
+"""
+    tow_point_data()
+
+Every ship class on e-methanol on each of `tow_point_routes` without a rig and with its
+cheapest kite of the class study towing from each of [`tow_point_positions`](@ref):
+tow_point.csv.
+"""
+function tow_point_data()
+    classes_table = read_table(data_file("classes.csv"))
+    cases = []
+    for class in values(ship_classes()), route in tow_point_routes
+        bare = ShipDesign(:methanol, class)
+        push!(cases, trip_case(bare; class=class.name, route, tow="none", area=0.0))
+        area = best_area(classes_table, class.name, string(route), "methanol", "kite")
+        isfinite(area) || continue
+        design = ShipDesign(:methanol, class; kite_area=area)
+        for (tow, position) in tow_point_positions(Hull(class, assumptions))
+            push!(cases, trip_case(design; class=class.name, route, tow, area,
+                assumptions=with_value(assumptions, :kite_tow_position, position)))
+        end
+    end
+    write_trips("tow_point.csv", cases, round_trips(cases, sampled_departures()), :class,
+        :route, :tow, :area)
 end
 
 """
@@ -1792,13 +2012,12 @@ rigid_scaling_soft_kites = (500.0, 1000.0, 2000.0, 4000.0)
 """
     annual_kite_cost(rig, assumptions)
 
-Cost of `rig` over a year of [`kite_year`](@ref) [USD]: capital recovery, maintenance on
-the parts wear does not replace, wear, launches and landings, losses among them.
+Cost of `rig` over a year of [`kite_year`](@ref) [USD]: capital recovery, maintenance,
+wear and upkeep, launches and landings, losses among them.
 """
 function annual_kite_cost(rig, assumptions)
     capital, _, annuity = WindShipOpt.rig_costs(rig, assumptions)
-    upkept = capital - WindShipOpt.worn_part_price(rig, assumptions)
-    return annuity + assumptions[:maintenance_fraction] * upkept +
+    return annuity + WindShipOpt.rig_maintenance(rig, capital, assumptions) +
            WindShipOpt.wear_cost(rig, assumptions) * kite_year.flight_hours +
            WindShipOpt.cycle_cost(rig, assumptions) * kite_year.launches
 end
