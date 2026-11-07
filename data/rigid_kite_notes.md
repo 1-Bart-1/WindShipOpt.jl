@@ -1,14 +1,36 @@
 # Rigid VTOL kite: scaling and launch evidence
 
-Numbers behind the `rigid_*` inputs of `assumptions.yaml`. The rig is one wing with on-board rotors on an electrified tether. It pulls rather than generates, so the rotors idle in flight and work only in launch and landing.
+Numbers behind the `rigid_*` inputs of `assumptions.yaml`. The rig is one wing with on-board rotors on an electrified tether. It pulls rather than generates, so the rotors are feathered in flight and work only in launch and landing.
 
 ## Reference design
 
 The Makani MX2 design is the anchor (Echeverri et al. 2020, Part I, Tables 1 and 2): 54 m², 26 m span, 1852 kg with rotors, 300 m tether of 29.4 mm at 275 kg, 250-300 kN, 90 m loop radius, CL 1.81 and CD 0.123 at best performance (0.152 with tether). It was never built. The largest wing flown with on-board rotors is the M600, at 32.9 m².
 
+## Built to pull
+
+MX2 generates with its rotors. A kite that only pulls departs from it in three ways, each measured on the yearly cost per kN of a 54 m² kite at 12 m/s on a beam course (3000 flight hours, 150 launches):
+
+| Step | Thrust | Price with tether, winch, perch | USD/kN/year |
+| --- | --- | --- | --- |
+| MX2 as is, windmilling rotors | 144 kN | 2.34 M | 2976 |
+| Rotors feathered | 160 kN | 2.34 M | 2691 |
+| Mass from structure, rotors and hover-rated drives; structure priced alone | 160 kN | 2.05 M | 2441 |
+
+At 300 m² the same steps give 4284, 3868 and 3280. A 1000 m² soft kite costs 779.
+
+- Rotor size: at 54 m², 0.3 of the wing as disc costs 14510 USD/kN, 0.61 12790, 1.0 12110, thrust within 1 %. Feathered, larger rotors pay; 0.61 is kept, 1.0 is the favourable bound.
+- Tether: the M600 tether, which MX2 takes over, is rated 1 MW (Part II, p.40), about MX2's hover, so the conductors stay. A battery for an 850 kW peak at the 1.5 kW/kg estimated for a car pack (Sripad and Viswanathan 2021, SI) weighs about 560 kg, twice the whole tether.
+- Aspect ratio: generating and pulling both maximise CL (CL/CD)², so 12.5 stays.
+
 ## Mass law
 
-m = 1852 kg × (S/54)^(κ/2), κ = 2.75, band 2.2-3.3, with the aspect ratio held. The routed size study also runs κ = 3.
+m = 1372 kg × (S/54)^(κ/2) + m_r A_d + 411 kg × (P_d/1.36 MW)^ε, κ = 2.75 (band 2.2-3.3), with the aspect ratio held; P_d is the hover power over 0.75, solved with the hover power. The routed size study also runs κ = 3.
+
+- Structure: 1852 kg less the 480 kg of nacelles, powertrains, rotors, spinners and booms in Makani's roll-up of the 26 m wing, 1854 kg in all (Part II, pp.275, 287-288).
+- Rotors: 65 kg of rotors and spinners on 8 × 4.15 m² for M600 (Part II, p.20; Part I, Table 1), 1.96 kg/m²; base 2.5 for feathering hubs (estimate), high 3.9.
+- Drives: 480 kg less the rotors, 411 kg for 1.2 MW of shaft (Part I, p.184). ε = 0.81 from the motor regression W = 0.5382 Q^0.8129 with controller, inverter and cooling (Johnson et al. 2018, p.5), 1 for motors linear in torque (Part I, p.184). Low bound 241 kg: MX2's 344 kg of motors and controllers (36 + 7 kg × 8, Part II, pp.46-47) at 6.9 kW/kg, NASA's model for motors of about 170 kW (Johnson et al. 2018, p.5), instead.
+- At Makani's design density 0.95 kg/m³, η 0.71 × 0.88 and fixed rotors the law returns 1823 kg for MX2.
+- κ comes from whole wings with rotors and is applied to the structure alone.
 
 - With on-board rotors, one wing that flew sits far below the anchor: Wing 7, 60 kg on 3.96 m² and 8 m (Vander Lind 2013, Fig. 28.7). To MX2 it gives κ = 2.91 by span and 2.63 by area. Its aspect ratio is 16 against 12.5: at the same area it has more span than MX2's planform and at the same span less area, so the two bracket κ at MX2's planform, and 2.75 lies between them. At κ = 2.75 the law gives 51 kg at Wing 7's area.
 - From Wing 7 to the built M600 (32.9 m², 25.66 m, 1692-1731 kg) it is 2.87-2.88 by span and 3.15-3.18 by area, so the two wings actually built go about as span cubed. That is why κ = 3 runs beside the base.
@@ -34,10 +56,10 @@ Vander Lind (2013) gives Wing 7's inputs (Fig. 28.7, Table 28.1): CL 2, CD 0.25,
 
 Config and databases of google/makani at commit 1d66923 (Apache-2.0). The flight logs are in a Google Cloud listing that needs a signed-in account, and could not be fetched, so nothing here is checked against raw flight data. A pulling kite differs from Makani's generating kite as follows.
 
-- Rotors: generating costs CD 0.09-0.18 on MX2's area, windmilling 0.019-0.022 at 40-50 m/s and 0.042 at 60 m/s from the rotor table (simulated). A rotor held slow costs 0.10-0.13, so idle has to mean windmilling. The pattern search charges the idle value alone.
+- Rotors: generating costs CD 0.09-0.18 on MX2's area, windmilling 0.019-0.022 at 40-50 m/s and 0.042 at 60 m/s from the rotor table (simulated), and a rotor held slow 0.10-0.13. Those fixed-pitch rotors cannot feather. A pull-only kite feathers: 0.0036 on the disc: 5.8 lb on a 9 ft propeller at 88° and 100 mph, against 94.4 lb locked and 60.1 lb free-wheeling at 17°, 0.058 and 0.037 (Hartman 1933, table p.12). Free-wheeling matches Makani's 0.022 on 0.61 of the wing.
 - Airspeed: without generating drag a kite at the same lift coefficient flies faster, by (1+k) CD_sys / (CD_sys + CD_idle), 1.33-1.50 times at k = 0.5, so the tether limit arrives earlier. The balance of forces gives this by itself, and the airspeeds of the release are not used.
 - Polar: the CL 1.81 and CD 0.123 of Part I are the zero-incidence row of the wing database, with no rotors or bridle in it, so nothing is subtracted. M600's parasitic offset from a flight glide is 0.075 against MX2's assumed 0.005, the largest open risk, carried in the high bound of the profile drag.
-- Mass: M600's motor-generators and controllers are 411 kg of 1561 kg, but a rotor out in hover needs 107 kW and 637 N m per rotor against 112 kW and 675 N m generating, so the peak rating of a hover-only drive does not fall, and no mass saving can be claimed. Its continuous duty does fall; no figure follows from the release.
+- Mass: a rotor out in hover needs 107 kW and 637 N m per rotor against 112 kW and 675 N m generating, so hover sized Makani's drives; the mass law rates them for the hover alone, at sea level.
 - Hover: electrical to shaft efficiency 0.88.
 - Wind: M600's takeoff window was 5-11 m/s in its test plan.
 

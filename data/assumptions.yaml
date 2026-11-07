@@ -563,7 +563,7 @@ rigid_feathered_rotor_drag:
   low: 0.0015
   high: 0.0072
   unit: "-"
-  reason: "Drag of the stopped rotors on their disc area, blades feathered: 0.0014 in D/(rho V^2 D^2) at 88 degrees, measured on a 4 ft and a 9 ft propeller (Hartman 1933, p.6 and table p.12), times 8/pi. Windmilling there is 0.64 of the locked drag at cruise pitch, 0.037 on the disc, as the 0.022 on 0.61 of the wing of Makani's rotor table. Low bound: hub drag of stopped, aligned lift rotors of 0.0014-0.0019 on the disc (Silva et al. 2018, Table 3); high bound twice the measured value, our estimate for blades a few degrees off feather."
+  reason: "Drag of the stopped rotors on their disc area, blades feathered: 5.8 lb on a 9 ft propeller feathered at 88 degrees at 100 mph, against 94.4 lb locked and 60.1 lb free-wheeling at 17 degrees, 0.058 and 0.037 on the disc (Hartman 1933, table p.12; Tc 0.0014 at 88 degrees, p.6). Free-wheeling matches the 0.022 on 0.61 of the wing of Makani's rotor table. Low bound: rotor hub drag of NASA's lift and cruise concept, 0.0014-0.0019 on the disc of its lift rotors, which stop in cruise (Silva et al. 2018, Table 3); high bound twice the measured value, our estimate for blades a few degrees off feather."
 
 rigid_min_turn_radius:
   value: 3.46
@@ -698,7 +698,7 @@ rigid_drive_reference_mass:
   low: 241.0
   high: 575.0
   unit: kg
-  reason: "Motors, controllers, nacelles and booms of MX2: the 480 kg of its powertrain roll-up (Echeverri et al. 2020, Part II, p.288) less its rotors at the mass per disc area of M600. Low bound: its 344 kg of motors and controllers, 36 kg and 7 kg each for 150 kW (Part II, pp.46-47), at the 6.9 kW/kg of motor, inverter and cooling of NASA's regression at 160 kW (Johnson et al. 2018, p.5), 174 kg; high bound the 40 % overrun of M600 (Part I, p.265)."
+  reason: "Motors, controllers, nacelles and booms of MX2: the 480 kg of its powertrain roll-up (Echeverri et al. 2020, Part II, p.288) less its rotors at the mass per disc area of M600. Low bound: its 344 kg of motors and controllers, 36 kg and 7 kg each for 150 kW (Part II, pp.46-47), at the 6.9 kW/kg of motor, inverter and cooling of NASA's model for motors of about 170 kW (Johnson et al. 2018, p.5), 174 kg; high bound the 40 % overrun of M600 (Part I, p.265)."
 rigid_drive_reference_power:
   value: 1364000.0
   low: 1364000.0
@@ -710,7 +710,7 @@ rigid_drive_mass_exponent:
   low: 0.81
   high: 1.0
   unit: "-"
-  reason: "Exponent of drive mass on rated power at a fixed number of rotors: 0.81 from NASA's motor regression over 64 motors of 15-410 kW, mass as torque to the 0.81 with controller, inverter and cooling (Johnson et al. 2018, p.5); 1.0 where motor mass goes linearly with torque as Makani found for direct drives (Echeverri et al. 2020, Part I, p.184)."
+  reason: "Exponent of drive mass on rated power at a fixed number of rotors: 0.81 from NASA's motor regression over 64 motors of 15-410 kW, mass as peak torque to the 0.8129, times 1.63 for controller, inverter and cooling (Johnson et al. 2018, p.5); 1.0 where motor mass goes linearly with torque as Makani found for direct drives (Echeverri et al. 2020, Part I, p.184)."
 rigid_ship_power_cost:
   value: 0.15
   low: 0.08
