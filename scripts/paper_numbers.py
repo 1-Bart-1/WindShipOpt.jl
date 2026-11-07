@@ -1,7 +1,7 @@
-"""Print the numbers of the design, route, season, class, forecast, base kite, screening and
-component studies, from the CSV files of the latest finished run paper.jl made in
-output/runs/. Run: python3 -I scripts/paper_numbers.py [section ...], with the section names of SECTIONS; all
-sections without one."""
+"""Print the numbers of the design, route, season, class, forecast, base kite, screening
+and component studies, from the CSV files of the latest finished run paper.jl made in
+output/runs/. Run: python3 -I scripts/paper_numbers.py [section ...], with the section
+names of SECTIONS; all sections without one."""
 import csv
 import os
 import sys

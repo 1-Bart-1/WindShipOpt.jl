@@ -955,7 +955,8 @@ function season_figure()
     figure = Figure(size=(page_width, 290))
     for (k, name) in enumerate(names)
         row, column = fldmod1(k, 3)
-        axis = Axis(figure[row, column]; title=route_label(name), limits=((0, 12), nothing),
+        axis = Axis(figure[row, column]; title=route_label(name),
+            limits=((-0.3, 12), nothing),
             xticks=((0:11) .+ 0.5, ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N",
                 "D"]), ylabel=column == 1 ? "cost saving [%]" : "")
         hlines!(axis, 0; color=:gray, linewidth=0.5)
@@ -966,15 +967,16 @@ function season_figure()
             area = routes_table["area"][sizes[argmin(routes_table["cost"][sizes])]]
             costs = departure_costs(departures, "route" => name, ship..., "rig" => rig,
                 "area" => area)
-            dates = sort(collect(keys(costs)); by=dayofyear)
-            scatterlines!(axis, year_months.(dates),
+            dates = collect(keys(costs))
+            scatter!(axis, year_months.(dates),
                 [percent_saving(costs[date], bare[date]) for date in dates];
-                color=palette[j], markersize=5, linewidth=0.8)
+                color=palette[j], markersize=5)
         end
     end
     Legend(figure[3, 1:3],
-        [MarkerElement(marker=:circle, color=palette[j], markersize=5) for j in 1:3],
-        collect(rig_names); orientation=:horizontal, framevisible=false, labelsize=9)
+        [MarkerElement(marker=:circle, color=palette[j], markersize=5)
+         for j in eachindex(rig_names)], collect(rig_names);
+        orientation=:horizontal, framevisible=false, labelsize=9)
     rowgap!(figure.layout, 2, 0)
     save(joinpath(figures, "season.pdf"), figure; pt_per_unit=print_scale)
 end

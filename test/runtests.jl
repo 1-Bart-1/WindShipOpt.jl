@@ -899,7 +899,6 @@ end
     departures = [24.0 * 31, 24.0 * 200]
     for design in (ShipDesign(:methanol, 85.0),
         ShipDesign(:methanol, 85.0; kite_area=400.0))
-
         trip = round_trip(Ship(design, assumptions), corridors..., SyntheticWeather(),
             departures, assumptions)
         outcomes = trip.departures
