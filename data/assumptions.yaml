@@ -777,7 +777,19 @@ canopy_cloth_weight:
   low: 200.0
   high: 200.0
   unit: g/m^2
-  reason: "Weight of the polyester ripstop of the canopy, fixed with the goal canopy_life: under a life that does not depend on it the lightest cloth would always win. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+  reason: "Weight of the polyester ripstop of the canopy at canopy_cloth_reference_force, fixed with the goal canopy_life: under a life that does not depend on it the lightest cloth would always win. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+canopy_cloth_reference_force:
+  value: 0.5
+  low: 0.5
+  high: 0.5
+  unit: kN/m^2
+  reason: "Force limit at which canopy_cloth_weight, canopy_mass_overhead and the goal canopy_life are stated, the base kite_max_force_per_area; the canopy scales from it whatever limit a kite is built for, so moving the base limit leaves the goals where they were stated."
+canopy_cloth_force_exponent:
+  value: 0.27
+  low: 0.27
+  high: 0.27
+  unit: "-"
+  reason: "Cloth weight grows with the force limit to this power, the fit that holds the 3,800 h of the strength decay in the paper over limits of 0.25 to 2 kN/m^2. Each decay input at its bound gives 0.19 to 0.34. Tension enters the decay only through the logarithm of the margin, so it asks for far less than the exponent 1 of a constant share of strength, the upper bound of the force rating study; 0 is cloth that ignores the limit."
 canopy_life:
   value: 4000.0
   low: 1200.0
@@ -795,7 +807,7 @@ canopy_mass_overhead:
   low: 0.02
   high: 0.19
   unit: kg/m^2
-  reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is what a 120 kg SkySails kite with lines, 225 m^2 flat, 176 m^2 projected, leaves beyond about 66 kg of cloth and 18 kg of lines, both own estimates (Paulig et al. 2013), which load patches for the ~1 t point loads of a ship kite (Thedens 2015) could account for in part."
+  reason: "Canopy mass per m^2 of projected area besides its cloth, at canopy_cloth_reference_force and in proportion to the force limit, as they carry the load at the bridle attachments: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is what a 120 kg SkySails kite with lines, 225 m^2 flat, 176 m^2 projected, leaves beyond about 66 kg of cloth and 18 kg of lines, both own estimates (Paulig et al. 2013), which load patches for the ~1 t point loads of a ship kite (Thedens 2015) could account for in part."
 canopy_cloth_base_price:
   value: 6.0
   low: 2.0
@@ -975,7 +987,7 @@ kite_max_force_per_area:
   low: 0.4
   high: 1.0
   unit: kN/m^2
-  reason: "Maximum wing loading on the projected area. 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2). SkySails design load on flat area: 160 kN on 225 m^2, about 0.7 kN/m^2 (Paulig et al. 2013), 0.9 on the projected area at 1.28 flat over projected (Folkersma et al. 2020). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4)."
+  reason: "Maximum wing loading on the projected area. 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2). SkySails design load on flat area: 160 kN on 225 m^2, about 0.7 kN/m^2 (Paulig et al. 2013), 0.9 on the projected area at 1.28 flat over projected (Folkersma et al. 2020). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4). The canopy cloth, seams and reinforcements follow the limit (canopy_cloth_force_exponent), so the bounds carry them too."
 kite_attach_height:
   value: 10.0
   low: 6.0
