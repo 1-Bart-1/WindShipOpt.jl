@@ -2,7 +2,7 @@ using Test
 using WindShipOpt
 using WindShipOpt: correlation_allowance, bulb_resistance, friction_coefficient
 
-# Numerical example of Holtrop & Mennen (1982), components unchanged in Holtrop (1984).
+# Numerical example of Holtrop & Mennen (1982).
 const PAPER_ENV = Environment(; water_density=1025.0, water_viscosity=1.1883e-6)
 const PAPER_HULL = Hull(; length=205.0, beam=32.0, draft=10.0, displacement_volume=37500.0,
     midship_coefficient=0.98, waterplane_coefficient=0.75, centre_of_buoyancy=-0.75,
@@ -25,7 +25,7 @@ assumptions = Assumptions()
     @test correlation_allowance(PAPER_HULL, coefficients) ≈ 0.000352 rtol = 5e-3
 end
 
-# ~3500 dwt coasters install ~1.5 MW for 12.5 kn, about 1 MW at 11 kn by the cube law.
+# The 3830 t Damen Combi Freighter 3850 makes 11.8 kn on 1104 kW.
 @testset "coaster resistance and power are in the range of real coasters" begin
     ship = Ship(ShipDesign(:vlsfo, 85.0), assumptions)
     effective_power = resistance(ship.hull, ship.env, 11KNOT) * 11KNOT

@@ -859,8 +859,8 @@ citation key, the speed [kn], its label in the table and the fuel saving they st
 published_savings = [("podeur2016", 16.0, "\\citet{podeur2016}", "12.1"),
     ("podeur2016", 19.0, "\\citet{podeur2016}", "6.6"),
     ("bentin2018", 13.0, "\\citet{bentin2018}", "19--29, routed"),
-    ("leloup2013", 8.0, "\\tbd{Leloup et al. 2013}", "up to 23.5, one wind"),
-    ("leloup2013", 15.5, "\\tbd{Leloup et al. 2013}", "26.6, one crossing"),
+    ("leloup2013", 8.0, "\\citet{leloup2013}", "23.5, downwind in one wind"),
+    ("leloup2013", 15.5, "\\citet{leloup2013}", "26.6, one crossing"),
     ("cedelft2016", 10.5, "\\citet{cedelft2016}", "2--15"),
     ("cedelft2016", 12.3, "\\citet{cedelft2016}", "1--9"),
     ("traut2014", 11.2, "\\citet{traut2014}", "1--32")]
