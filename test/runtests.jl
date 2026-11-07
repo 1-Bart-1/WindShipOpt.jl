@@ -386,13 +386,14 @@ WindShipOpt.waves(::SteadyWind, lat, lon, time) = (0.0, 0.0, 0.0)
     @test leg.launches == 0
 end
 
-@testset "cycle cost sums crew, tear, loss, retry and turn" begin
+@testset "cycle cost sums crew, tear, loss, retry, turn and tether bends" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
     control_unit = assumptions[:market_price_factor] *
                    WindShipOpt.rig_price_parts(rig, assumptions).control_unit
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
-          1.05 * (85 + 0.00005canopy + 0.00005 * (canopy + tether + control_unit)) + 130
+          1.05 * (85 + 0.00005canopy + 0.00005 * (canopy + tether + control_unit)) + 130 +
+          4 / 400_000 * tether
     @test WindShipOpt.forced_landing_cost(rig, assumptions) ≈
           0.05 * (canopy + tether + control_unit)
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
@@ -785,9 +786,24 @@ end
         @test down.fuel_energy >= 0.999bare_trip.fuel_energy
         @test down.launches == 0
     end
-    kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
-    @test trip_with_share(kite, :kite_out_of_service, 1.0, corridors).fuel_energy ≈
-          bare_trip.fuel_energy rtol = 1e-3
+end
+
+@testset "a kite out of service sails as a bare ship at the same price of time" begin
+    outbound, inbound = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    bare = Ship(ShipDesign(:methanol, 85.0), assumptions)
+    changed = with_value(assumptions, :kite_out_of_service, 1.0)
+    kite = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), changed)
+    share, down = only(WindShipOpt.service_states(kite.rig, changed))
+    @test share == 1
+    hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(bare, assumptions),
+        assumptions)
+    passages = [WindShipOpt.service_passages(ship, outbound, inbound, SyntheticWeather(),
+                    [24.0 * 31, 24.0 * 200], assumptions, hourly,
+                    24assumptions[:port_time_per_call], Inf, nothing)
+                for ship in (bare, WindShipOpt.with_rig(kite, down))]
+    @test first(passages).means == last(passages).means
+    kite_hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(kite, changed), changed)
+    @test all(kite_hourly .> hourly)
 end
 
 @testset "a kite out of service makes and pays launches and forced landings pro rata" begin
@@ -891,14 +907,17 @@ end
 
 @testset "route guided by a cost to go equals the full dynamic programme" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
-    (; time_step) = WindShipOpt.ROUTER_SETTINGS[]
+    (; time_step, search_speed_stride) = WindShipOpt.ROUTER_SETTINGS[]
     workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2),
         ceil(Int, 1200 / time_step), size(corridor.lat, 1))
     for coastal_penalty in (0.0, 1.0)
         leg = route(corridor, table, weather, departure; time_cost=hourly, coastal_penalty)
-        full = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
+        searched = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
             time_cost=hourly, time_step, first_stage=1,
-            first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty)
+            first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty,
+            speed_stride=search_speed_stride)
+        full = WindShipOpt.final_pass(searched, corridor, table, weather, departure;
+            time_cost=hourly, first_stage=1, first_aloft=false, coastal_penalty)
         @test leg.objective == full.objective
         @test leg.path == full.path
     end
@@ -1208,7 +1227,8 @@ end
     workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2),
         ceil(Int, 1200 / time_step), stage_count)
     options = (; time_step, time_cost=hourly, first_stage=1,
-        first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty=1.0)
+        first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty=1.0,
+        speed_stride=WindShipOpt.ROUTER_SETTINGS[].search_speed_stride)
     best = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
         options...)
     stage = stage_count - 2
@@ -1341,6 +1361,77 @@ end
     @test !is_marked(:final, [:designs, :capital, :premium])
 end
 
+@testset "every ship has the same speeds, on the knots of its table, from 4 kn up" begin
+    classes = ship_classes()
+    designs = (ShipDesign(:methanol, 85.0), ShipDesign(:methanol, 140.0),
+        ShipDesign(:vlsfo, classes["Kamsarmax bulk carrier"]))
+    (; routing_speeds, search_speed_stride) = WindShipOpt.ROUTER_SETTINGS[]
+    for design in designs
+        ship = Ship(design, assumptions)
+        table = PerformanceTable(ship, assumptions)
+        route_table = RouteTable(table)
+        @test length(route_table.speeds) == routing_speeds
+        @test first(route_table.speeds) ≈ 4KNOT
+        @test last(route_table.speeds) == ship.max_speed
+        @test route_table.speeds ⊆ table.speeds
+        @test first(table.speeds) >= WindShipOpt.LOWEST_TABLE_SPEED
+    end
+    coarser = WindShipOpt.with_router_settings(WindShipOpt.RouterSettings(
+        routing_speeds=25, search_speed_stride=2)) do
+        PerformanceTable(Ship(first(designs), assumptions), assumptions)
+    end
+    @test first(RouteTable(coarser).speeds) ≈ 4KNOT
+    @test length(RouteTable(coarser).speeds) == 25
+    stride = WindShipOpt.COST_TO_GO_SPEED_STRIDE * search_speed_stride
+    @test mod(routing_speeds - 1, stride) == 0
+end
+
+@testset "the final pass keeps the path, refines its speeds and never costs more" begin
+    outbound, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    for design in (ShipDesign(:methanol, 85.0),
+        ShipDesign(:methanol, 85.0; kite_area=200.0))
+
+        table = RouteTable(PerformanceTable(Ship(design, assumptions), assumptions))
+        passage() = route(outbound, table, SyntheticWeather(), 24.0 * 31; time_cost=300.0)
+        no_room_in_time = WindShipOpt.RouterSettings(final_time_band=-1.0)
+        searched = WindShipOpt.with_router_settings(passage, no_room_in_time)
+        final = passage()
+        @test final.objective < searched.objective
+        @test [point[1:2] for point in final.path] ==
+              [point[1:2] for point in searched.path]
+        searched_speeds = [point[4] for point in searched.path[2:end]]
+        final_speeds = [point[4] for point in final.path[2:end]]
+        commanded = table.speeds[1:WindShipOpt.ROUTER_SETTINGS[].search_speed_stride:end]
+        @test searched_speeds ⊆ commanded
+        @test final_speeds ⊆ table.speeds
+        @test !(final_speeds ⊆ commanded)
+    end
+end
+
+@testset "every rig's route costs what a search at every speed finds" begin
+    _, back = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    every_speed = WindShipOpt.RouterSettings(search_speed_stride=1)
+    for (design, departure) in ((ShipDesign(:methanol, 85.0; wing_area=400.0), 24.0 * 91),
+        (ShipDesign(:methanol, 85.0; kite_area=200.0), 24.0 * 211))
+
+        table = RouteTable(PerformanceTable(Ship(design, assumptions), assumptions))
+        passage() = route(back, table, SyntheticWeather(), departure; time_cost=300.0)
+        full = WindShipOpt.with_router_settings(passage, every_speed)
+        @test passage().objective <= full.objective * (1 + 1e-4)
+    end
+end
+
+@testset "a held speed steps down through the ship's own speeds, and is commanded" begin
+    table = PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions), assumptions)
+    held = WindShipOpt.held_speed_table(table, 11.3)
+    @test last(held.speeds) ≈ 11.3KNOT
+    @test held.speeds[1:(end - 1)] == filter(<(11.3KNOT), RouteTable(table).speeds)
+    for count in 1:12, stride in 1:4
+        indices = WindShipOpt.commanded_speeds(count, stride)
+        @test last(indices) == count && step(indices) == stride && first(indices) <= stride
+    end
+end
+
 @testset "a heavy wing flies crosswind though it cannot hang at rest" begin
     wing = WindShipOpt.KiteAero(60.0, 1.25, 0.15, 1500.0, 1.225, 9.81)
     off_wind, wind = 1.3, (14.0, 0.0, 0.0)
@@ -1463,6 +1554,19 @@ end
           3WindShipOpt.wear_cost(one, assumptions)
     @test WindShipOpt.cycle_cost(three, assumptions) ≈
           3WindShipOpt.cycle_cost(one, assumptions)
+end
+
+@testset "each launch wears the tether by its bends over drum and sheaves" begin
+    soft = uniform_kite(Hull(140.0, assumptions), assumptions)
+    rigid = rigid_fleet(2, assumptions)
+    halved = with_value(assumptions, :tether_bend_life, assumptions[:tether_bend_life] / 2)
+    for rig in (soft, rigid)
+        _, tether = WindShipOpt.consumable_costs(rig, assumptions)
+        added = WindShipOpt.cycle_cost(rig, halved) -
+                WindShipOpt.cycle_cost(rig, assumptions)
+        @test added ≈
+              tether * assumptions[:tether_bends_per_launch] / assumptions[:tether_bend_life]
+    end
 end
 
 @testset "a rigid kite hovers within its own limits and stays up beyond them" begin
@@ -1615,3 +1719,5 @@ end
         @test sum(parts) ≈ trip.cost_per_tonne_km rtol = 1e-3
     end
 end
+
+include("hot_path_checks.jl")
