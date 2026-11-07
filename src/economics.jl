@@ -737,8 +737,8 @@ hold's cargo before the fuel store, and the store also holds the largest leg wit
 down, without its reserve. Returns `nothing` if any passage is infeasible or the
 fuel store leaves no cargo.
 """
-function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
-        departures, assumptions::Assumptions; horizon=Inf, held_knots=nothing)
+function round_trip(ship::Ship, outbound, inbound, weather, departures,
+        assumptions::Assumptions; horizon=Inf, held_knots=nothing)
     costs = ShipCosts(ship, assumptions)
     port_hours = 24assumptions[:port_time_per_call]
     hourly = leg_time_costs(costs, assumptions)
@@ -771,8 +771,8 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
     retractable = retractable_cost < fixed_cost
     voyage_cost = running_cost + min(retractable_cost, fixed_cost)
     capital = (retractable ? costs.capital : fixed.capital) + store.price
-    tonne_km = cargo * (outbound.track_length +
-                        assumptions[:backhaul_fraction] * inbound.track_length) / 1e3
+    tonne_km = cargo * (track_length(outbound) +
+                        assumptions[:backhaul_fraction] * track_length(inbound)) / 1e3
     return RoundTrip(ship.design, voyage_cost / tonne_km, energy / 1e9,
         energy / 1e6 / tonne_km, energy * ship.fuel.carbon_intensity * 1e3 / tonne_km,
         out_hours / 24, back_hours / 24, cargo, capital,

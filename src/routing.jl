@@ -262,8 +262,10 @@ Base.@kwdef struct RouterSettings
     search_speed_stride::Int = 2
     "length of the time bins of the final pass along the path found [h]"
     final_time_step::Float64 = 0.25
-    "how far the final pass strays in time from the path found [h]"
+    "how far the final pass and a refinement stray in time from the path they start on [h]"
     final_time_band::Float64 = 24.0
+    "how far a refinement strays to either side of the route it starts on [nmi]"
+    refine_band::Float64 = 300.0
 end
 
 "[`RouterSettings`](@ref) in force"
@@ -828,23 +830,113 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
     end
 end
 
-route(corridor::Corridor, table::PerformanceTable, weather, departure; options...) =
+route(corridor, table::PerformanceTable, weather, departure; options...) =
     route(corridor, RouteTable(table), weather, departure; options...)
+
+"""
+    RefinedCorridor(start, corridor)
+
+A `corridor` routed by refining the optimal route on the coarser corridor `start`.
+"""
+struct RefinedCorridor
+    "corridor the route to refine is searched on"
+    start::Corridor
+    "corridor the route is refined on"
+    corridor::Corridor
+end
+
+"length of the reference track of `corridor` [m]"
+track_length(corridor::Corridor) = corridor.track_length
+track_length(refined::RefinedCorridor) = track_length(refined.corridor)
+
+"""
+    route(refined::RefinedCorridor, table, weather, departure; time_cost,
+          coastal_penalty=1.0)
+
+The optimal [`route`](@ref) on the `start` of `refined`, refined on its `corridor` by
+[`refined_route`](@ref).
+"""
+function route(refined::RefinedCorridor, table::RouteTable, weather, departure; time_cost,
+        coastal_penalty=1.0)
+    start = route(refined.start, table, weather, departure; time_cost, coastal_penalty)
+    isnothing(start) && return nothing
+    return refined_route(start, refined, table, weather, departure; time_cost,
+        coastal_penalty)
+end
+
+"""
+    refined_route(start, refined, table, weather, departure; time_cost, coastal_penalty)
+
+The [`route_pass`](@ref) on the `corridor` of `refined` within the [`PassageBand`](@ref)
+of `ROUTER_SETTINGS` around the [`Leg`](@ref) `start` on its `start` corridor, then its
+[`final_pass`](@ref); the full [`route`](@ref) where no path stays in the band.
+"""
+function refined_route(start::Leg, refined::RefinedCorridor, table::RouteTable, weather,
+        departure; time_cost, coastal_penalty)
+    (; corridor) = refined
+    (; time_step, search_speed_stride, refine_band, final_time_band) = ROUTER_SETTINGS[]
+    band = PassageBand(start, refined.start, corridor, refine_band * NAUTICAL_MILE,
+        final_time_band)
+    workspace = acquire_workspace(size(corridor.lat, 2),
+        ceil(Int, MAX_LEG_HOURS / time_step), size(corridor.lat, 1))
+    leg = try
+        route_pass(workspace, corridor, table, weather, departure, band; time_cost,
+            time_step, first_stage=1, first_lateral=centre_index(corridor),
+            first_aloft=false, coastal_penalty, speed_stride=search_speed_stride)
+    finally
+        release_workspace(workspace)
+    end
+    isnothing(leg) &&
+        return route(corridor, table, weather, departure; time_cost, coastal_penalty)
+    return final_pass(leg, corridor, table, weather, departure; time_cost, first_stage=1,
+        first_aloft=false, coastal_penalty)
+end
 
 "The margins of `settings` that the search of a ship with `table` uses [-]"
 margins_searched(table::RouteTable, settings::RouterSettings) =
     has_kite(table) ? settings.kite_search_margins : settings.search_margins
 
 """
-    PassageBand(elapsed, width)
+    PassageBand(elapsed, width, inside)
 
-The states within `width` [h] of the hours `elapsed` at each stage of a path.
+The states within `width` [h] of the hours `elapsed` at each stage of a path, at the nodes
+`inside` (stage × lateral) of the corridor searched.
 """
 struct PassageBand
     "hours from departure at each stage of the path [h]"
     elapsed::Vector{Float64}
-    "half-width of the band [h]"
+    "half-width of the band in time [h]"
     width::Float64
+    "nodes of the band, stage × lateral"
+    inside::BitMatrix
+end
+
+"""
+    PassageBand(leg, start_corridor, corridor, distance_band, width)
+
+The band of `corridor` around the path of `leg` through `start_corridor`: at each stage the
+nodes within `distance_band` [m] of where the path crosses it, and the times within `width`
+[h] of when it does, both interpolated at the same share of the centre line.
+"""
+function PassageBand(leg::Leg, start_corridor::Corridor, corridor::Corridor,
+        distance_band, width)
+    start_share = start_corridor.along_centre ./ last(start_corridor.along_centre)
+    share = corridor.along_centre ./ last(corridor.along_centre)
+    stage_count, lateral_count = size(corridor.lat)
+    elapsed = zeros(stage_count)
+    inside = falses(stage_count, lateral_count)
+    for stage in 1:stage_count
+        k = clamp(searchsortedlast(start_share, share[stage]), 1, length(start_share) - 1)
+        along = (share[stage] - start_share[k]) / (start_share[k + 1] - start_share[k])
+        lat, lon, time = leg.path[k][1:3] .+ along .* (leg.path[k + 1][1:3] .-
+                                                       leg.path[k][1:3])
+        elapsed[stage] = time
+        for lateral in 1:lateral_count
+            inside[stage, lateral] = distance(lat, lon, corridor.lat[stage, lateral],
+                corridor.lon[stage, lateral]) <= distance_band
+        end
+    end
+    return PassageBand(elapsed, width, inside)
 end
 
 """
@@ -888,7 +980,8 @@ function final_pass(leg::Leg, corridor, table, weather, departure; time_cost, fi
     workspace = acquire_workspace(1, ceil(Int, MAX_LEG_HOURS / final_time_step),
         length(leg.path))
     try
-        band = PassageBand([point[3] for point in leg.path], final_time_band)
+        band = PassageBand([point[3] for point in leg.path], final_time_band,
+            trues(length(leg.path), 1))
         refined = route_pass(workspace, path_corridor(leg, corridor, first_stage), table,
             weather, departure, band; time_cost, time_step=final_time_step, first_stage=1,
             first_lateral=1, first_aloft, coastal_penalty, speed_stride=1)
@@ -996,12 +1089,13 @@ edge_within_limit(to_go::CostToGo, limit, here, next, stage, time) =
     !(here + min(to_go(next, 1, stage, time), to_go(next, 2, stage, time)) > limit)
 
 within_limit(band::PassageBand, limit, here, lateral, aloft, stage, time) =
-    in_band(band, stage, time)
+    in_band(band, lateral, stage, time)
 edge_within_limit(band::PassageBand, limit, here, next, stage, time) =
-    in_band(band, stage, time)
+    in_band(band, next, stage, time)
 
-"whether `time` [h] lies within the [`PassageBand`](@ref) `band` at `stage`"
-in_band(band::PassageBand, stage, time) = abs(time - band.elapsed[stage]) <= band.width
+"whether node `lateral` of `stage` at `time` [h] lies within the [`PassageBand`](@ref) `band`"
+in_band(band::PassageBand, lateral, stage, time) =
+    band.inside[stage, lateral] && abs(time - band.elapsed[stage]) <= band.width
 
 """
     start_state!(workspace, start)

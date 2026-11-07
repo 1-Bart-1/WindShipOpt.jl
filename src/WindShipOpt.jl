@@ -23,6 +23,7 @@ export ShipDesign, Ship, Fuel, fuel_power
 export PerformanceTable, RouteTable, lookup
 export LandMask, GridMask, north_atlantic_mask, SyntheticWeather, ERA5Weather, wind, waves
 export Corridor, return_corridor, route_corridors, centre_index, Leg, route
+export RefinedCorridor, track_length
 export ForecastWeather, forecast_route, ShipClass, ship_classes
 export ShipCosts, RoundTrip, round_trip, KNOT, NAUTICAL_MILE
 export LegTrace
