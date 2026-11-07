@@ -1291,6 +1291,46 @@ function combination_data()
         :route, :drive, :rig, :kite_area, :rotor_area)
 end
 
+"routes of the tow point study: westerlies ahead out and astern home, and trade winds abeam"
+tow_point_routes = (:new_york, :tubarao)
+
+"""
+    tow_point_positions(hull)
+
+Tow positions of the tow point study as (name, share of the way from midship to the
+launch mast at the forward end of the deck): the bow, the hull's lateral centre and
+midship.
+"""
+tow_point_positions(hull) = (("bow", 1.0),
+    ("centre", WindShipOpt.lateral_centre(hull) /
+               WindShipOpt.launch_mast_position(hull, assumptions)),
+    ("midship", 0.0))
+
+"""
+    tow_point_data()
+
+Every ship class on e-methanol on each of `tow_point_routes` without a rig and with its
+cheapest kite of the class study towing from each of [`tow_point_positions`](@ref):
+tow_point.csv.
+"""
+function tow_point_data()
+    classes_table = read_table(data_file("classes.csv"))
+    cases = []
+    for class in values(ship_classes()), route in tow_point_routes
+        bare = ShipDesign(:methanol, class)
+        push!(cases, trip_case(bare; class=class.name, route, tow="none", area=0.0))
+        area = best_area(classes_table, class.name, string(route), "methanol", "kite")
+        isfinite(area) || continue
+        design = ShipDesign(:methanol, class; kite_area=area)
+        for (tow, position) in tow_point_positions(Hull(class, assumptions))
+            push!(cases, trip_case(design; class=class.name, route, tow, area,
+                assumptions=with_value(assumptions, :kite_tow_position, position)))
+        end
+    end
+    write_trips("tow_point.csv", cases, round_trips(cases, sampled_departures()), :class,
+        :route, :tow, :area)
+end
+
 """
     traced_legs(ship, name)
 
@@ -1852,13 +1892,12 @@ rigid_scaling_soft_kites = (500.0, 1000.0, 2000.0, 4000.0)
 """
     annual_kite_cost(rig, assumptions)
 
-Cost of `rig` over a year of [`kite_year`](@ref) [USD]: capital recovery, maintenance on
-the parts wear does not replace, wear, launches and landings, losses among them.
+Cost of `rig` over a year of [`kite_year`](@ref) [USD]: capital recovery, maintenance,
+wear and upkeep, launches and landings, losses among them.
 """
 function annual_kite_cost(rig, assumptions)
     capital, _, annuity = WindShipOpt.rig_costs(rig, assumptions)
-    upkept = capital - WindShipOpt.worn_part_price(rig, assumptions)
-    return annuity + assumptions[:maintenance_fraction] * upkept +
+    return annuity + WindShipOpt.rig_maintenance(rig, capital, assumptions) +
            WindShipOpt.wear_cost(rig, assumptions) * kite_year.flight_hours +
            WindShipOpt.cycle_cost(rig, assumptions) * kite_year.launches
 end
