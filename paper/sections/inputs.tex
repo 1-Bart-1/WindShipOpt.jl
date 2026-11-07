@@ -40,7 +40,7 @@ Setting & Value & Use \\
 \bottomrule
 \endfoot
 \multicolumn{3}{@{}l}{\textit{Performance table}}\\
-speed through the water & \SI{1.5}{m/s} to the speed at $F_n=0.28$, steps of \SI{0.25}{m/s} & thrust and fuel power tables \\
+speed through the water & 49 speeds evenly from \SI{4}{kn} to the speed at $F_n=0.28$, the same step down to \SI{1.5}{m/s} & thrust and fuel power tables \\
 true wind at \SI{10}{m} & 0 to \SI{30}{m/s}, steps of \SI{1}{m/s} & stronger wind is held at \SI{30}{m/s} \\
 true wind angle & 0 to \SI{180}{\degree}, steps of \SI{7.5}{\degree} & \\
 peak period & 3 to \SI{18}{s}, steps of \SI{1}{s} & table of $R_\mathrm{aw}/H_s^2$ \\
@@ -55,7 +55,7 @@ side-force weights & 0, 0.5, 1, 3 & kite trim settings \\
 wind reference elevation & \SI{25}{\degree} on the tether & height of the apparent wind of the table \\
 lowest angle of attack & first angle with $C_L\geq0.05$ & lower bound of the search \\
 points per pattern & 48 & time average of the tether force \\
-pattern search & Nelder--Mead, 200 iterations, three starts and the best eight of the previous wind speed & figure eights \\
+pattern search & Nelder--Mead, 200 iterations, three starts and the best pattern of the next stronger wind speed & kite patterns \\
 \multicolumn{3}{@{}l}{\textit{Corridors and routing}}\\
 ocean stage spacing & \SI{360}{nmi} & corridor stages \\
 Channel stage spacing & \SI{30}{nmi} & fixed waypoints from Rotterdam to Ushant, no lateral freedom \\
@@ -71,7 +71,8 @@ time bin & \SI{1.5}{h} & state of the dynamic programme \\
 weather along an edge & at most every \SI{3}{h} & fuel and speed of an edge \\
 states searched & within 12\,\% of a backward estimate of the cost to go at \SI{48}{h} knots, 25\,\% with a kite; then 20\,\%, 50\,\% with a kite, then all, if a pass ends above its limit or finds no path & dynamic programme \\
 longest passage & 50 days & time bins \\
-speeds & whole knots from 4 to the ship's maximum & edge choices \\
+speeds & every second table speed, 25 from \SI{4}{kn} to the ship's maximum & edge choices \\
+final pass & all table speeds, \SI{0.25}{h} bins, within \SI{24}{h} of the path found & passage reported \\
 re-planning interval & \SI{24}{h} & forecast-limited router \\
 departures & every 14 days from 1 January 2017 to 100 days before the end of 2019; every sixth (12) in all runs, every twelfth (6) for the input screening & weather sample \\
 \multicolumn{3}{@{}l}{\textit{Constants}}\\

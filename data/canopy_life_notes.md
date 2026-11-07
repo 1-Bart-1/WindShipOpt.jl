@@ -4,7 +4,7 @@ The case that the canopy life goal of 4,000 flight hours at 200 g/m² (`canopy_l
 
 ## Result
 
-The decay gives 3,800 flight hours at 200 g/m². It rests on makers' statements, since wear is three quarters of the decay and no test sets its rate. The bounds give 2,200-6,900 h on the wear rate alone and 1,200-6,900 h over every sensitivity below, each changed alone. That is not a joint range: every input at its short-life bound together gives 1,100 h, or 300 h retired at 70 % of new, and at its long-life bound 18,000 h [est]. No data say how the inputs vary together, so we do not read these corners as likely. We cannot narrow this: no polyester ram-air canopy has a published life, and the wear rate is not derived from physics.
+The decay gives 3,800 flight hours at 200 g/m². It rests on makers' statements, since wear is three quarters of the decay and no test sets its rate. The bounds give 2,200-6,900 h on the wear rate alone and 1,200-6,900 h over every sensitivity below, each changed alone. That is not a joint range: every input at its short-life bound together gives 700 h, or 240 h retired at 70 % of new, and at its long-life bound 18,000 h [est]. No data say how the inputs vary together, so we do not read these corners as likely. We cannot narrow this: no polyester ram-air canopy has a published life, and the wear rate is not derived from physics.
 
 ## The law
 
@@ -21,7 +21,7 @@ Strength decays at two rates that add, until the cloth has only the strength the
 | a, UV weight exponent | 0.4 | 0.1-1 | Pooled fit; Ceylan's series |
 | Ddot, UV dose per flight hour | 0.02 MJ/m² | 0.012-0.035 | Q-Lab annual dose, geometry [est] |
 | r, wear rate at 100 g/m² | 0.13 g/m²/h | 0.052-0.26 | Service statements below; not physics |
-| b, wear weight exponent | 1 | 1-1.5 | Assumption; Kubicek implies 1.5 |
+| b, wear weight exponent | 1 | 0-1.5 | Assumption; claims span 0 (Flynn) to 1.5 (Kubicek), see the T/w test |
 | S, specific strength | 170 N/m per g/m² | 110-210 | Estimate within Porcher 2006 sheets (nylon 150-210, hard polyester 110) and Ambroziak and Klosowski 2018 |
 | k, kept strength over tension | 5 | 3-8 | Estimate |
 | T, skin tension | 250 N/m at 0.5 kN/m², R = 0.5 m | | Wang and He 2018 for the form |
@@ -37,6 +37,7 @@ Life by cloth weight [h], all from the law:
 | r = 0.26 | 245 | 448 | 904 | 1,399 | 2,178 | 2,848 | 3,529 |
 | a = 1 | 427 | 794 | 1,646 | 2,601 | 4,166 | 5,560 | 7,016 |
 | a = 0.1 | 475 | 851 | 1,646 | 2,446 | 3,604 | 4,517 | 5,380 |
+| b = 0 | 989 | 1,272 | 1,646 | 1,901 | 2,178 | 2,354 | 2,499 |
 | b = 1.5 | 305 | 667 | 1,646 | 2,848 | 4,885 | 6,692 | 8,539 |
 | D_ref = 35 | 416 | 732 | 1,395 | 2,063 | 3,050 | 3,849 | 4,627 |
 | D_ref = 160 | 494 | 905 | 1,832 | 2,839 | 4,435 | 5,813 | 7,217 |
@@ -135,10 +136,13 @@ T = p R per unit width is the load. At the working limit a sail and the kite sit
 
 - Wings at T/w 1-3 live from under 130 h (skydive mains, below) to decades (shielded aircraft covers). Folding, opening shock, flutter and UV differ, and T/w does not sort them.
 - Kubicek rates its 70 g/m² cloth at one life over envelopes that double T/w, and doubles life from 45 to 77 g/m² at about level T/w [claim]. That gives b about 1.5 at constant T/w.
+- Flynn gives one structural life, 3,500-4,000 h, for any woven polyester sail [claim]. Sails are sized to their load, so read literally that is b about 0.
 - Maslanka's 34, 38 and 42 g/m² cloths show no order with weight in flex or UV.
 - A coating change moved show kite life by about 2 times at one tension (Lynn 2007).
 
 T/w therefore enters only through ln(M), as the strength left to lose. A power law in T/w is excluded: the one exponent, m = 17 (Lechat 2006, 7-25 across sources), comes from 60-90 % of break and extrapolates by 13 to 29 orders of magnitude to 3 % of break, with the form undetermined.
+
+**So b is not set, and the cloth weight is not optimised.** We searched for a test of life, wear or porosity growth against cloth weight at a fixed tension, on any woven cloth, and found none. Statements we could not hold or read in full point the same two ways: paraglider and BASE cloth makers saying lighter cloth lasts as long, and canopy makers saying it lasts less, with no numbers. Holding the life at 200 g/m² by refitting r, b = 0 gives 2,789 h at 100 g/m² and 4,446 h at 300, b = 1.5 gives 1,229 h and 6,894 h. Over 150-300 g/m² life then grows with weight to the power 0.40 at b = 0 and 1.51 at b = 1.5, either side of the 1 at which the cloth's cost per flight hour is level, so an optimum of cloth weight would return the b put in. b also sets how the cloth follows the force limit (`canopy_cloth_force_exponent`): 0.22 at b = 1.5, 0.28 at 1, 0.77 at 0, fitted over 0.25-2 kN/m² with r refit.
 
 ## Load cycles
 
@@ -186,6 +190,10 @@ Thread is not shown to be worse than cloth. The one curve, a vendor's on untreat
 - 46 lb/in is TSO-C14b; a polyester STC at 9 psf or more uses 56 lb/in.
 - The fatigue exponent's extrapolation to 3 % of break is 1.6e13 cycles under Lechat's log law and 7.7e28 under a power law.
 - Sailcloth reaches 207-211 N/m per g/m² (Ambroziak and Klosowski 2018), so 110 is not all sailcloth.
+
+## Developers' expectations on small kites
+
+Two developers state an expected life, neither measured. A 25 m^2 tube kite "could be around 1000h of operation", with "hardly any knowledge" behind it (van der Vlugt et al. 2013, p. 409). A ram-air wing of 15-21 m^2 flat and 4.2-5.8 kg, ground-steered, is not expected "to surpass much more then 100 hours" at full load (Bormann et al. 2013, pp. 431, 435). Both are far below the goal and below the low bound of 1,200 h. We keep the goal and the bound: these are light cloths held at full load, while the law here counts strength in hand against the skin tension, and a kite rarely stays at its force limit. They do say the goal has no demonstration behind it. SkySails calls fatigue of textile wings and ropes a limiting factor for economic success and gives no number (Paulig et al. 2013, p. 562). Dunker (2013, pp. 541-543) gives the method: life ends when the first time-dependent margin of safety turns negative, with degradation factors for joints, abrasion, fatigue, moisture and UV; his example of 265 h is stated not to represent any system. The same chapter reports, after Kenney and Abbott, a 14 % strength loss on the thinnest cloth and 1.2 % on the thickest after 200 h of accelerated weather.
 
 ## What would settle it
 

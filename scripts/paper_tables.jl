@@ -149,9 +149,10 @@ function goal_rows()
     today = @sprintf("our estimate USD~%.0f/m\$^2\$, from retail cloth and hand sewing",
         WindShipOpt.canopy_price_today(assumptions))
     return [("Canopy life", "kite", canopy,
-            "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements"),
+            "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements; " *
+            "small kites expected 100 to \\num{1000} h"),
         ("Canopy price", "kite", price, today),
-        ("Rig life", "rigid kite", years(:rigid_lifetime),
+        ("Rig life", "VTOL kite", years(:rigid_lifetime),
             "M600 flew 22 h of crosswind in all \\citep{echeverri2020part1}"),
         ("Rig life", "wings", years(:wing_lifetime),
             "stated design life; about 2 years on record"),
@@ -164,7 +165,7 @@ function goal_rows()
                 "flights, three of them in hover or landing \\citep{echeverri2020part1}")),
         ("Unit lost", "wings, rotors", "none", "none reported, and no duty to report one"),
         ("Lost per launch and landing", "kites", loss,
-            "our estimates: 0.25\\,\\% kite, 0.05\\,\\% rigid kite; no record for a ship"),
+            "our estimates: 0.25\\,\\% kite, 0.05\\,\\% VTOL kite; no record for a ship"),
         ("Launch and landing crew", "kites", crew, "our estimate")]
 end
 
@@ -697,9 +698,9 @@ function payback_years(table, class, drive, route, rig)
     rate = assumptions[:discount_rate]
     lifetime = rig == "kite" ? assumptions[:kite_lifetime] :
                rig == "wings" ? assumptions[:wing_lifetime] : assumptions[:rotor_lifetime]
-    charges = (WindShipOpt.capital_recovery(rate, lifetime) +
-               assumptions[:maintenance_fraction]) *
-              (price - WindShipOpt.worn_part_price(ship.rig, assumptions))
+    charges = WindShipOpt.capital_recovery(rate, lifetime) *
+              (price - WindShipOpt.worn_part_price(ship.rig, assumptions)) +
+              WindShipOpt.rig_maintenance(ship.rig, price, assumptions)
     saving = (only(table["cost"][bare]) - table["cost"][best]) *
              first(yearly_trips(table, best, route)) + charges
     saving > rate * price || return Inf
