@@ -1229,16 +1229,19 @@ end
     @test !is_open()
 end
 
-@testset "a round trip at a held speed or with a model part off is stored apart" begin
+@testset "a round trip at a held speed, with a part off or refined is stored apart" begin
     @eval PaperRuns weather_name = "synthetic"
     PaperRuns.paper_run = PaperRuns.PaperRun(mktempdir(), :draft,
         Dict{String, Any}("code_hash" => "held"), 0, 0)
-    case_at(held_knots, part) = (; design=ShipDesign(:vlsfo, 100.0), assumptions,
-        route=:caribbean, scale=8.0, horizon=Inf, held_knots, part)
+    case_at(held_knots, part; start_scale=8.0) = (; design=ShipDesign(:vlsfo, 100.0),
+        assumptions, route=:caribbean, scale=4.0, start_scale, horizon=Inf, held_knots,
+        part)
     @test allunique(PaperRuns.case_path(case_at(held_knots, :none), [24.0])
                     for held_knots in (nothing, 8.0, 9.0))
     @test allunique(PaperRuns.case_path(case_at(nothing, part), [24.0])
                     for part in (:none, :waves, :windage))
+    @test allunique(PaperRuns.case_path(case_at(nothing, :none; start_scale), [24.0])
+                    for start_scale in (4.0, 8.0))
 end
 
 @testset "resuming never takes over another branch's unfinished run" begin
