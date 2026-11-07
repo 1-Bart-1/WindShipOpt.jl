@@ -596,8 +596,8 @@ rigid_tether_drag_coefficient:
   unit: "-"
   reason: "Fluted jacket of the Makani tether (Echeverri et al. 2020, Part I, Table 2); the high bound is the plain cylinder of the soft kite's tether."
 rigid_tether_price:
-  value: 160.0
-  low: 88.0
+  value: 186.0
+  low: 93.0
   high: 400.0
   unit: USD/kg
   reason: "Engineering estimate of an electrified tether at twice the price of plain rope; the low bound is EUR 80/kg for rope (Joshi et al. 2025, p.703)."
@@ -664,29 +664,29 @@ rigid_max_wind:
   unit: m/s
   reason: "Engineering estimate held at the highest apparent wind of the soft kite."
 rigid_structure_cost_per_mass:
-  value: 275.0
+  value: 290.0
   low: 140.0
   high: 400.0
   unit: USD/kg
-  reason: "Carbon composite kite structure EUR 250/kg at USD 1.1 per EUR, at a series of 50 or more without overhead or margin, which the market price factor adds (Joshi et al. 2025, p.702)."
+  reason: "Carbon composite kite structure EUR 250/kg, at a series of 50 or more without overhead or margin, which the market price factor adds (Joshi et al. 2025, p.702); the bounds are estimates."
 rigid_structure_cost_per_area:
-  value: 220.0
+  value: 232.0
   low: 110.0
   high: 400.0
   unit: USD/m^2
-  reason: "EUR 200/m^2 of the same model (Joshi et al. 2025, p.702)."
+  reason: "EUR 200/m^2 of the same model (Joshi et al. 2025, p.702); the bounds are estimates."
 rigid_avionics_cost:
-  value: 165000.0
-  low: 16500.0
+  value: 174000.0
+  low: 17400.0
   high: 250000.0
   unit: USD
-  reason: "Avionics of an early commercial kite EUR 150,000, of a prototype EUR 15,000 (Joshi et al. 2025, p.702)."
+  reason: "Avionics of an early commercial kite, with the aviation certification and redundancy that raise it, EUR 150,000; the low bound is the EUR 15,000 of a prototype without them (Joshi et al. 2025, p.702), the high bound an estimate."
 rigid_drive_cost:
-  value: 0.15
-  low: 0.08
-  high: 0.3
+  value: 0.1
+  low: 0.05
+  high: 0.2
   unit: USD/W
-  reason: "Drivetrain at the estimate of Bauer et al. (2018, p.14), 0.15 $/W with its power electronics, there including those of the ground station; scaled from hobby motor prices."
+  reason: "On-board drive at two thirds of the 0.15 $/W of Bauer et al. (2018, p.14): three times the retail price per W of a hobby motor, rounded up, for the motor, its drive electronics and the ground electronics, which the ship power cost holds here; the bounds are estimates."
 rigid_drive_margin:
   value: 1.33
   low: 1.2
@@ -728,7 +728,7 @@ rigid_upkeep_per_area:
   low: 0.26
   high: 1.2
   unit: USD/m^2/h
-  reason: "Maintenance per flight hour: Makani's budget of USD 33/h and bottom-up USD 14/h for a kite of about 54 m^2, on a service interval of 6 months (Echeverri et al. 2020, Part I, pp.120-122)."
+  reason: "All maintenance of the airframe per flight hour, for 54 m^2: USD 33/h, the most a 1 MW kite system may spend on maintenance per hour of operation at a competitive cost of energy, and USD 14/h, a rough estimate from a light aircraft airframe and two car drivetrains (Echeverri et al. 2020, Part I, pp.108-110); the airframe pays no other maintenance."
 rigid_cycle_loss_probability:
   value: 0.0001
   low: 0.0001
@@ -777,7 +777,19 @@ canopy_cloth_weight:
   low: 200.0
   high: 200.0
   unit: g/m^2
-  reason: "Weight of the polyester ripstop of the canopy, fixed with the goal canopy_life: under a life that does not depend on it the lightest cloth would always win. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+  reason: "Weight of the polyester ripstop of the canopy at canopy_cloth_reference_force, fixed with the goal canopy_life: under a life that does not depend on it the lightest cloth would always win. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+canopy_cloth_reference_force:
+  value: 0.5
+  low: 0.5
+  high: 0.5
+  unit: kN/m^2
+  reason: "Force limit at which canopy_cloth_weight, canopy_mass_overhead and the goal canopy_life are stated, the base kite_max_force_per_area; the canopy scales from it whatever limit a kite is built for, so moving the base limit leaves the goals where they were stated."
+canopy_cloth_force_exponent:
+  value: 0.27
+  low: 0.27
+  high: 0.27
+  unit: "-"
+  reason: "Cloth weight grows with the force limit to this power, the fit that holds the 3,800 h of the strength decay in the paper over limits of 0.25 to 2 kN/m^2. Each decay input at its bound gives 0.19 to 0.34, except the wear exponent b at its low bound of 0, which gives 0.8. Tension enters the decay only through the logarithm of the margin, so where heavier cloth also wears for longer it asks for far less than the exponent 1 of a constant share of strength, the upper bound of the force rating study; 0 is cloth that ignores the limit."
 canopy_life:
   value: 4000.0
   low: 1200.0
@@ -795,7 +807,7 @@ canopy_mass_overhead:
   low: 0.02
   high: 0.19
   unit: kg/m^2
-  reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is what a 120 kg SkySails kite with lines, 225 m^2 flat, 176 m^2 projected, leaves beyond about 66 kg of cloth and 18 kg of lines, both own estimates (Paulig et al. 2013), which load patches for the ~1 t point loads of a ship kite (Thedens 2015) could account for in part."
+  reason: "Canopy mass per m^2 of projected area besides its cloth, at canopy_cloth_reference_force and in proportion to the force limit, as they carry the load at the bridle attachments: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is what a 120 kg SkySails kite with lines, 225 m^2 flat, 176 m^2 projected, leaves beyond about 66 kg of cloth and 18 kg of lines, both own estimates (Paulig et al. 2013), which load patches for the ~1 t point loads of a ship kite (Thedens 2015) could account for in part."
 canopy_cloth_base_price:
   value: 6.0
   low: 2.0
@@ -975,7 +987,13 @@ kite_max_force_per_area:
   low: 0.4
   high: 1.0
   unit: kN/m^2
-  reason: "Maximum wing loading on the projected area. 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2). SkySails design load on flat area: 160 kN on 225 m^2, about 0.7 kN/m^2 (Paulig et al. 2013), 0.9 on the projected area at 1.28 flat over projected (Folkersma et al. 2020). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4)."
+  reason: "Maximum wing loading on the projected area. 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2). SkySails design load on flat area: 160 kN on 225 m^2, about 0.7 kN/m^2 (Paulig et al. 2013), 0.9 on the projected area at 1.28 flat over projected (Folkersma et al. 2020). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4). The canopy cloth, seams and reinforcements follow the limit (canopy_cloth_force_exponent), so the bounds carry them too."
+kite_tow_position:
+  value: 1.0
+  low: 1.0
+  high: 1.0
+  unit: "-"
+  reason: "Tow point of a soft kite flown alone, from midship (0) to the forward end of the deck for rigs (1); the launch mast's deck slots and price do not depend on it. Every ship kite built tows from the bow: SkySails from its forecastle deck (Fritz 2013), and published studies take the bow (Traut et al. 2014; CE Delft 2016)."
 kite_attach_height:
   value: 10.0
   low: 6.0
@@ -983,11 +1001,11 @@ kite_attach_height:
   unit: m
   reason: "Engineering assumption: tether attachment on the bow mast; no source found."
 tether_price:
-  value: 80.0
+  value: 93.0
   low: 40.0
   high: 300.0
   unit: USD/kg
-  reason: "Large-diameter Dyneema SK78 rope in bulk; Faggiani & Schmehl (2018) imply ~80 EUR/kg, retail small diameters sell at 300-350 USD/kg (Marlow D12 via Mauripro/Binks)."
+  reason: "Purchase price of Dyneema rope at a series of 50 or more, EUR 80/kg (Joshi et al. 2025, p.703), paid to the rope maker without the market price factor; retail small diameters sell at 300-350 USD/kg (Marlow D12 via Mauripro/Binks); the low bound is an estimate for bulk rope of large diameter."
 tether_rope_density:
   value: 830.0
   low: 590.0
@@ -1169,7 +1187,13 @@ maintenance_fraction:
   low: 0.02
   high: 0.05
   unit: 1/year
-  reason: "Engineering assumption: maintenance alone is commonly put at 2-5 % of ship value per year; insurance comes on top, hence the high end."
+  reason: "Engineering assumption: maintenance of the hull and drive alone is commonly put at 2-5 % of ship value per year; insurance comes on top, hence the high end."
+rig_maintenance_fraction:
+  value: 0.02
+  low: 0.01
+  high: 0.05
+  unit: 1/year
+  reason: "Maintenance and repair of wings, rotors and kite hardware over their price: 2 % a year for every rig but kites, and 5 % for kites with their wear (EMSA 2023, p.45 and Table 7), the high bound, as the canopy and tether are charged by wear here; Norsepower's figure for rotors is also 2 % (Tillig et al. 2020, p.15). The low bound is an estimate."
 depth_draft_ratio:
   value: 1.32
   low: 1.27
