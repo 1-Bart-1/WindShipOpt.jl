@@ -1049,6 +1049,108 @@ end
           WindShipOpt.wind(known.weather, 40.0, -30.0, beyond)
 end
 
+"""
+    write_fields(directory, values, steps, grid)
+
+Fields `values(name)` of `steps` stored times each, a (lon, lat) matrix per time, written to
+`directory` with `grid` as its `grid.toml`, in the type of the first matrix.
+"""
+function write_fields(directory, values, steps, grid)
+    mkpath(directory)
+    open(io -> WindShipOpt.TOML.print(io, grid), joinpath(directory, "grid.toml"), "w")
+    for name in grid["variables"]
+        extension = eltype(values(name, 1)) == Float16 ? "f16" : "f32"
+        open(joinpath(directory, "$name.$extension"), "w") do io
+            foreach(step -> write(io, values(name, step)), 1:steps)
+        end
+    end
+end
+
+"ERA5 of steady wind and waves on a 2 by 2 grid from 2017-12-29, the east wind rising."
+function small_era5(directory)
+    square = (lats=[40.0, 41.0], lons=[-31.0, -30.0])
+    truth = Dict("u10" => step -> 5.0f0 + 0.01f0 * step, "v10" => step -> -2.0f0,
+        "height" => step -> 2.0f0, "period" => step -> 8.0f0, "direction" => step -> 90.0f0)
+    for (group, names, step_hours) in (("wind", ["u10", "v10"], 6),
+        ("waves", ["direction", "height", "period"], 12))
+        write_fields(joinpath(directory, group),
+            (name, step) -> fill(truth[name](step), 2, 2), 2000 ÷ step_hours,
+            Dict("lats" => square.lats, "lons" => square.lons, "step_hours" => step_hours,
+                "first_time" => "2017-12-29T00:00:00", "variables" => names))
+    end
+    return ERA5Weather(directory)
+end
+
+"""
+    small_archive(directory, weather, offset)
+
+Four daily forecasts from 2017-12-30 on the grids of `weather`, each the weather it
+forecasts plus `offset(year)` on the east wind and half that on the wave height.
+"""
+function small_archive(directory, weather, offset)
+    first_issue = 24.0
+    for (group, observed, names, leads) in (
+        ("wind", weather.wind, ["u10", "v10"], 6:6:24),
+        ("waves", weather.waves, ["direction_east", "direction_north", "height", "period"],
+            12:12:24))
+        function field(name, index)
+            issue, lead = divrem(index - 1, length(leads)) .+ 1
+            time = first_issue + 24.0 * (issue - 1) + leads[lead]
+            step = Int((time - observed.time_offset) / observed.step_hours + 1)
+            year = issue <= 2 ? 2017 : 2018
+            shift = name == "u10" ? offset(year) : name == "height" ? offset(year) / 2 : 0.0
+            return Float16.(observed.fields[name][:, :, step] .+ shift)
+        end
+        write_fields(joinpath(directory, group), field, 4length(leads),
+            Dict("lats" => observed.lats, "lons" => observed.lons,
+                "first_issue" => "2017-12-30T00:00:00", "issue_hours" => 24,
+                "first_lead_hours" => first(leads), "step_hours" => step(leads),
+                "leads" => length(leads), "variables" => names))
+    end
+    write_forecast_bias(directory, weather)
+    return ForecastArchive(directory, weather)
+end
+
+@testset "a forecast off by a fixed bias reads the weather once that bias is removed" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather, year -> 1.5)
+    known = ArchivedForecast(archive, weather, 24.0 * 3 + 7.0)
+    for time in known.issued .+ (6.0, 12.0, 21.0)
+        @test all(isapprox.(wind(known, 40.5, -30.5, time),
+            wind(weather, 40.5, -30.5, time); atol=0.01))
+        @test all(isapprox.(waves(known, 40.5, -30.5, time),
+            waves(weather, 40.5, -30.5, time); atol=0.01))
+    end
+end
+
+@testset "a forecast's bias is learnt from the other years only" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather,
+        year -> year == 2017 ? 1.0 : 3.0)
+    late_2017 = ArchivedForecast(archive, weather, 24.0 * 2 + 7.0)
+    @test late_2017.year == 2017
+    time = late_2017.issued + 18.0
+    @test first(wind(late_2017, 40.5, -30.5, time)) ≈
+          first(wind(weather, 40.5, -30.5, time)) + 1.0 - 3.0 atol = 0.02
+    @test first(waves(late_2017, 40.5, -30.5, time)) ≈ 2.0 + 0.5 - 1.5 atol = 0.01
+end
+
+@testset "a ship reads the last forecast to reach it, beyond its leads another year" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
+    third = 24.0 * 3
+    @test ArchivedForecast(archive, weather, third + WindShipOpt.FORECAST_LATENCY).issued ==
+          third
+    @test ArchivedForecast(archive, weather, third + 5.0).issued == third - 24.0
+    known = ArchivedForecast(archive, weather, third + 7.0)
+    beyond = third + 30.0
+    @test wind(known, 40.5, -30.5, beyond) ==
+          wind(ForecastWeather(weather, third, 24.0), 40.5, -30.5, beyond)
+end
+
 @testset "a search that cuts off the best path and overruns its limit widens" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
     (; time_step) = WindShipOpt.ROUTER_SETTINGS[]

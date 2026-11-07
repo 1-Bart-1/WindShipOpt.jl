@@ -211,14 +211,14 @@ def sizes_summary():
 
 
 def forecast_summary():
-    """Saving of each rig with a perfect and a limited forecast."""
+    """Saving of each rig with perfect foresight and on archived forecasts."""
     print("== forecast")
     rows = table("forecast.csv")
-    bare = {r["horizon_days"]: float(r["cost"]) for r in rows if r["rig"] == "none"}
+    bare = {r["knowledge"]: float(r["cost"]) for r in rows if r["rig"] == "none"}
     for r in rows:
         if r["rig"] != "none":
-            print(f"{r['rig']:7s} horizon {r['horizon_days']:>4s} d saving "
-                  f"{saving(float(r['cost']), bare[r['horizon_days']]):.1f}%")
+            print(f"{r['rig']:7s} {r['knowledge']:8s} saving "
+                  f"{saving(float(r['cost']), bare[r['knowledge']]):.1f}%")
 
 
 def other_summaries():

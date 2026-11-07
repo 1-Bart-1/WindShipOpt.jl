@@ -968,11 +968,12 @@ function traced_leg(workspace::RouteWorkspace, corridor, table, final, first_sta
 end
 
 """
-    forecast_route(corridor, table, weather, departure; time_cost, horizon,
-                   coastal_penalty=1.0)
+    forecast_route(corridor, table, weather, departure; time_cost, horizon=Inf,
+                   forecast=nothing, coastal_penalty=1.0)
 
 Passage of a ship that re-plans every 24 hours by [`route`](@ref) on the
-[`RouteTable`](@ref) `table` with a [`ForecastWeather`](@ref) of `horizon` hours and
+[`RouteTable`](@ref) `table` with the last forecast of the [`ForecastArchive`](@ref)
+`forecast`, or with a [`ForecastWeather`](@ref) of `horizon` hours where `nothing`, and
 sails each plan in the real `weather` until the next re-plan, with the kite aloft after
 each edge where the plan has it and the real weather lets it; fuel, flight hours and
 objective are those of the real weather. Where no plan leaves its node or the real
@@ -981,7 +982,7 @@ until the next forecast, 6 h later, and plans again. Returns `nothing` after hol
 72 h at one node.
 """
 function forecast_route(corridor::Corridor, table::RouteTable, weather, departure;
-        time_cost, horizon, coastal_penalty=1.0)
+        time_cost, horizon=Inf, forecast=nothing, coastal_penalty=1.0)
     ship_table = table.table
     prices = (; fuel=ship_table.ship.fuel.price, time=time_cost)
     stage_count = size(corridor.lat, 1)
@@ -994,8 +995,9 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     points = SailedPoint[]
     held = 0.0
     while stage < stage_count
-        forecast = ForecastWeather(weather, departure + time, horizon)
-        plan = route(corridor, table, forecast, departure + time; time_cost,
+        known = isnothing(forecast) ? ForecastWeather(weather, departure + time, horizon) :
+                ArchivedForecast(forecast, weather, departure + time)
+        plan = route(corridor, table, known, departure + time; time_cost,
             first_stage=stage, first_lateral=lateral, first_aloft=aloft, coastal_penalty)
         blocked = isnothing(plan)
         plan_start, plan_end = time, blocked ? 1 : length(plan.path)

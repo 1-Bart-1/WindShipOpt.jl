@@ -550,26 +550,27 @@ end
 
 """
     route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly,
-                     horizon)
+                     horizon, forecast)
 
 Outbound and return [`Leg`](@ref) on the [`RouteTable`](@ref) `table` for one departure
 at the outbound and return time costs `hourly` [USD/h], or `nothing` if either fails;
-with a finite forecast `horizon` [h] the ship re-plans daily by
-[`forecast_route`](@ref).
+with a finite forecast `horizon` [h] or a [`ForecastArchive`](@ref) `forecast` the ship
+re-plans daily by [`forecast_route`](@ref).
 """
 function route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly,
-        horizon)
-    out = sail(outbound, table, weather, departure, first(hourly), horizon)
+        horizon, forecast)
+    out = sail(outbound, table, weather, departure, first(hourly), horizon, forecast)
     isnothing(out) && return nothing
     back = sail(inbound, table, weather, departure + out.duration + port_hours,
-        last(hourly), horizon)
+        last(hourly), horizon, forecast)
     isnothing(back) && return nothing
     return out, back
 end
 
-sail(corridor, table, weather, departure, hourly, horizon) = isfinite(horizon) ?
-    forecast_route(corridor, table, weather, departure; time_cost=hourly, horizon) :
-    route(corridor, table, weather, departure; time_cost=hourly)
+sail(corridor, table, weather, departure, hourly, horizon, forecast) =
+    isfinite(horizon) || !isnothing(forecast) ?
+    forecast_route(corridor, table, weather, departure; time_cost=hourly, horizon,
+        forecast) : route(corridor, table, weather, departure; time_cost=hourly)
 
 """
     fuel_store(ship, largest_leg, assumptions)
@@ -657,7 +658,7 @@ with_share(states) = filter(state -> first(state) > 0, states)
 
 """
     service_passages(ship, outbound, inbound, weather, departures, assumptions, hourly,
-                     port_hours, horizon, held_knots)
+                     port_hours, horizon, forecast, held_knots)
 
 Mean fuel energy [J], outbound and return hours, kite flight hours, launches, forced
 landings and rig running cost [USD] of `ship` per round trip over `departures`,
@@ -665,12 +666,13 @@ with the largest leg's fuel energy [J]; `nothing` if any passage is infeasible. 
 holds `held_knots` [kn] by [`held_speed_table`](@ref), or chooses speed where `nothing`.
 """
 function service_passages(ship::Ship, outbound, inbound, weather, departures, assumptions,
-        hourly, port_hours, horizon, held_knots)
+        hourly, port_hours, horizon, forecast, held_knots)
     table = PerformanceTable(ship, assumptions)
     route_table = isnothing(held_knots) ? RouteTable(table) :
                   held_speed_table(table, held_knots)
     legs = fetch.([Threads.@spawn route_round_trip(route_table, outbound, inbound, weather,
-                       departure, port_hours, hourly, horizon) for departure in departures])
+                       departure, port_hours, hourly, horizon, forecast)
+                   for departure in departures])
     any(isnothing, legs) && return nothing
     flight_hours = mean(first(pair).flight_hours + last(pair).flight_hours for pair in legs)
     launches = mean(first(pair).launches + last(pair).launches for pair in legs)
@@ -689,12 +691,13 @@ end
 
 """
     round_trip(ship, outbound, inbound, weather, departures, assumptions; horizon=Inf,
-               held_knots=nothing)
+               forecast=nothing, held_knots=nothing)
 
 Route `ship` out along `outbound` and back along `inbound` for each departure time
 [h] in each of its [`service_states`](@ref), and turn the result averaged over the
 departures and the states into the cost per tonne-km of the transport service. With a
-finite forecast `horizon` [h] the router knows the weather only that far ahead, and with
+finite forecast `horizon` [h] the router knows the weather only that far ahead, with a
+[`ForecastArchive`](@ref) `forecast` it re-plans daily on its forecasts, and with
 `held_knots` [kn] the ship holds that speed instead of choosing by cost. Wings and
 rotors are fixed or retractable, whichever costs less. The router prices time at the
 hold's cargo before the fuel store, and the store also holds the largest leg with a unit
@@ -702,14 +705,16 @@ down, without its reserve. Returns `nothing` if any passage is infeasible or the
 fuel store leaves no cargo.
 """
 function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
-        departures, assumptions::Assumptions; horizon=Inf, held_knots=nothing)
+        departures, assumptions::Assumptions; horizon=Inf, forecast=nothing,
+        held_knots=nothing)
     costs = ShipCosts(ship, assumptions)
     port_hours = 24assumptions[:port_time_per_call]
     hourly = leg_time_costs(costs, assumptions)
     router_hourly = isnothing(held_knots) ? hourly : HELD_SPEED_TIME_FACTOR .* hourly
     states = service_states(ship.rig, assumptions)
     passages = [service_passages(with_rig(ship, rig), outbound, inbound, weather,
-                    departures, assumptions, router_hourly, port_hours, horizon, held_knots)
+                    departures, assumptions, router_hourly, port_hours, horizon, forecast,
+                    held_knots)
                 for (_, rig) in states]
     any(isnothing, passages) && return nothing
     shares = first.(states)
