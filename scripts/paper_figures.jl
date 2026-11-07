@@ -1363,7 +1363,7 @@ function sensitivity_figure()
             rig_names), inputs)
     shown = last(sort(inputs; by=input -> uniform_reach(table, input)), 12)
     step = round(Int, 100 * uniform_step)
-    figure = Figure(size=(page_width, 320))
+    figure = Figure(size=(page_width, 280))
     axes = Axis[]
     for (column, rig) in enumerate(rig_names)
         base = screened_saving(table, "140 m", rig, "none", "value")
@@ -1382,9 +1382,11 @@ function sensitivity_figure()
         end
     end
     linkxaxes!(axes...)
-    Legend(figure[2, 1:3], [PolyElement(color=palette[1]), PolyElement(color=palette[2])],
-        ["input $step % lower", "input $step % higher"]; orientation=:horizontal,
-        framevisible=false, labelsize=9)
+    Legend(figure[1, 3], [PolyElement(color=palette[1]), PolyElement(color=palette[2])],
+        ["$step % lower", "$step % higher"]; tellwidth=false,
+        tellheight=false, halign=:left, valign=:bottom, margin=(4, 4, 4, 4),
+        padding=(4, 4, 2, 2), patchsize=(8, 8), rowgap=0, backgroundcolor=:white,
+        labelsize=8)
     save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
 end
 
