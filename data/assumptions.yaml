@@ -25,7 +25,7 @@ wind_shear_exponent:
   low: 0.04
   high: 0.08
   unit: "-"
-  reason: "Exponent of the mean power-law wind profile over the sea from 10 m to kite height: matches the mean ERA5 model-level profiles over the study region in 2018 (1.12, 1.18 and 1.22 times the 10 m wind at 100, 270 and 540 m; own analysis of Hersbach et al. 2020). The low bound is the trade-wind belt (1.17 at 540 m), the high bound the North Atlantic north of 40 deg N and the IJmuiden lidar, which follow a logarithmic profile with 0.2 mm roughness up to 315 m (Kalverla 2020, Ch. 2; Schelbergen et al. 2020)."
+  reason: "Exponent of the mean power-law wind profile over the sea from 10 m to kite height: matches the mean ERA5 model-level profiles over the study region in 2018 (1.12, 1.18 and 1.22 times the 10 m wind at 100, 270 and 540 m; own analysis of Hersbach et al. 2020). The low bound is the trade-wind belt (1.17 at 540 m), the high bound the North Atlantic north of 40 deg N and the IJmuiden lidar, which follow a logarithmic profile with 0.2 mm roughness up to 315 m (Kalverla 2019, Ch. 2; Schelbergen et al. 2020)."
 
 # --- reference hull, geometrically scaled with length ---
 reference_length:
@@ -166,18 +166,18 @@ deck_mount_height:
   high: 5.0
   unit: m
   reason: "Freeboard of real coasters is 1.5-2.0 m (CF3850, Ferus 4300, CIP3800 depth minus draft) plus a hatch coaming; no coaming height found."
-superstructure_height:
-  value: 10.0
-  low: 8.0
-  high: 14.0
+container_tier_height:
+  value: 2.591
+  low: 2.591
+  high: 2.896
   unit: m
-  reason: "Engineering assumption, no source found."
-windage_drag_coefficient:
-  value: 0.7
-  low: 0.5
-  high: 0.9
+  reason: "Height of a standard ISO 668 container (8 ft 6 in); the high bound is a stack of high-cube boxes (9 ft 6 in)."
+container_stowage_fraction:
+  value: 0.77
+  low: 0.70
+  high: 0.85
   unit: "-"
-  reason: "Peak longitudinal wind coefficient of a cargo ship hull and deckhouse (Blendermann range 0.5-0.9)."
+  reason: "Length of the deck stowage over the waterline length: about 150 m on the 194.5 m container ship CON0101BN, read off its side view in Blendermann (1993)."
 
 # --- propulsion ---
 propeller_diameter_ratio:
@@ -319,7 +319,7 @@ wing_interference_decay:
   low: 2.0
   high: 4.0
   unit: chord lengths
-  reason: "Engineering estimate of the decay length of the wing array loss: no 3D data beyond 1.9 chords; set so that the loss is below 1 % at the 10-chord optimum of 2D RANS (Wang et al. 2024)."
+  reason: "Engineering estimate of the decay length of the wing array loss: no 3D data beyond 1.9 chords; set so that the loss of four wings is below 1 % at 10 chords, the widest spacing in the 2D RANS of Wang et al. (2024)."
 wing_max_height:
   value: 40.0
   low: 35.0
@@ -331,13 +331,13 @@ wing_spacing:
   low: 1.2
   high: 2.0
   unit: chord lengths
-  reason: "Closest spacing of wings over their chord at which wings turning about a quarter-chord pivot clear each other, also the aerodynamic minimum of Wang et al. (2024)."
+  reason: "Closest spacing of wings over their chord at which wings turning about a quarter-chord pivot clear each other, also the closest spacing at which 2D RANS of three wings in line found no further gain (Wang et al. 2024)."
 deck_length_fraction:
   value: 0.75
   low: 0.65
   high: 0.8
   unit: "-"
-  reason: "Engineering assumption: part of the length between forecastle and deckhouse; no source found."
+  reason: "Engineering assumption: share of the ship's length between forecastle and deckhouse that a row of rigs can use; an MR tanker has 140 m of upper deck on 182 m (Han et al. 2025), a CFD layout of five wing sails on a Kamsarmax spans 165 of 222 m (Mboumba 2022)."
 max_air_draft:
   value: 45.0
   low: 35.0
@@ -391,13 +391,13 @@ rotor_max_height:
   low: 30.0
   high: 40.0
   unit: m
-  reason: "Height of the largest rotors built: 35x5 m tilting Norsepower rotors for the SC Connector (Marine Log 2020) and five 35x5 m Anemoi rotors on the Sohar Max (gCaptain)."
+  reason: "Height of the largest rotors built: 35x5 m tilting Norsepower rotors for the SC Connector (Marine Log 2020) and five 35x5 m Anemoi rotors on the Sohar Max (Maritime Executive 2024)."
 rotor_spacing:
   value: 3.0
   low: 2.5
   high: 5.0
   unit: diameters
-  reason: "Closest spacing of rotors over their diameter, the closest measured (Bordogna et al. 2020, quoted by Tillig & Ringsberg 2020); end discs are two diameters wide."
+  reason: "Closest spacing of rotors over their diameter, the closest of the three tested in the wind tunnel (3, 7.5 and 15 diameters, Bordogna et al. 2020); end discs are two diameters wide."
 rotor_max_surface_speed:
   value: 47.0
   low: 40.0
@@ -795,7 +795,7 @@ canopy_life:
   low: 1200.0
   high: 6900.0
   unit: flight hours
-  reason: "Development goal for the life of a canopy of 200 g/m^2 cloth, not a prediction. Strength decay under UV and a wear rate from makers' statements gives 3,800 h, and each input changed alone gives the bounds; the 3,800 h rests on those statements, not on a measurement of a kite. Derivation in canopy_life_notes.md."
+  reason: "Development goal for the life of a canopy of 200 g/m^2 cloth, not a prediction. Strength decay under UV and a wear rate from makers' statements gives 3,800 h, and each input changed alone gives the bounds; the 3,800 h rests on those statements, not on a measurement of a kite."
 canopy_cloth_area_ratio:
   value: 3.5
   low: 3.0
@@ -813,7 +813,7 @@ canopy_cloth_base_price:
   low: 2.0
   high: 17.0
   unit: USD/m^2
-  reason: "Goal for the price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: the retail line through polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT, 11 USD/m^2 plus 0.031 USD/m^2 per g/m^2 (extremtextil.de, Sailrite, Jones Airfoils, 2026-11-01), scaled to USD 9.4 at 200 g/m^2, what a maker buying by the roll and from the mill can reach. No mill quote for this cloth; derivation in cost_basis_notes.md, section 4.6."
+  reason: "Goal for the price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: the retail line through polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT, 11 USD/m^2 plus 0.031 USD/m^2 per g/m^2 (extremtextil.de, Sailrite, Jones Airfoils, 2026-11-01), scaled to USD 9.4 at 200 g/m^2, what a maker buying by the roll and from the mill can reach. No mill quote for this cloth."
 canopy_cloth_price_per_weight:
   value: 0.017
   low: 0.006
@@ -825,7 +825,7 @@ canopy_making_cost_per_area:
   low: 16.0
   high: 179.0
   unit: USD/m^2
-  reason: "Goal for the manufacturing cost per m^2 of projected area of a ram-air canopy besides its cloth: per flat m^2 1.0 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2. Today 1.5-2.25 h per flat m^2 in paraglider plants (SKY Paragliders); the US G-12 cargo parachute implies at most 0.6-1.0 h at series volume (BIS 2004). Derivation in cost_basis_notes.md, section 4.6."
+  reason: "Goal for the manufacturing cost per m^2 of projected area of a ram-air canopy besides its cloth: per flat m^2 1.0 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2. Today 1.5-2.25 h per flat m^2, 50 h of manufacturing per paraglider (SKY Paragliders 2017) over 22-33 m^2; the US G-12 cargo parachute implies 0.6-1.0 h at series volume if materials take 57 % of sales as in 2000, up to 1.75 h at the 25-50 % of other years (BIS 2004)."
 canopy_making_cost_per_area_today:
   value: 57.0
   low: 57.0
@@ -1260,21 +1260,21 @@ wing_out_of_service:
   low: 0.004
   high: 0.15
   unit: "-"
-  reason: "Goal, the same for all rigs: share of round trips with a wing out of service though the wind would allow it; units fail independently. Base: our reading of the operator of the rotor ship Estraden, 97 % usable, undefined (Spliethoff). Low: 99.6 % operational availability on Canopee, maker with owner, undefined (OceanWings 2025). High: our estimate. See data/rig_availability_notes.md."
+  reason: "Goal, the same for all rigs: share of round trips with a wing out of service though the wind would allow it; units fail independently. Base: our reading of the operator of the rotor ship Estraden, 97 % usable, undefined (Spliethoff). Low: 99.6 % operational availability on Canopee, maker with owner, undefined (OceanWings 2025). High: our estimate."
 
 rotor_out_of_service:
   value: 0.03
   low: 0.01
   high: 0.15
   unit: "-"
-  reason: "Goal, the same for all rigs: share of round trips with a rotor out of service though the wind would allow it; units fail independently. Base: our reading of Estraden's operator, 97 % usable over about 6 years, undefined (Spliethoff). Low: maker's above 99 % on Estraden (Kuuskoski 2018). High: our estimate. See data/rig_availability_notes.md."
+  reason: "Goal, the same for all rigs: share of round trips with a rotor out of service though the wind would allow it; units fail independently. Base: our reading of Estraden's operator, 97 % usable over about 6 years, undefined (Spliethoff). Low: maker's above 99 % on Estraden (Kuuskoski 2018). High: our estimate."
 
 kite_out_of_service:
   value: 0.03
   low: 0.01
   high: 0.15
   unit: "-"
-  reason: "Goal, the same for all rigs: share of round trips with the kite out of service though the wind and sea would allow it. No source gives a figure for any ship kite. Base and low: our assumption, the same as the rotors. High: our estimate. See data/rig_availability_notes.md."
+  reason: "Goal, the same for all rigs: share of round trips with the kite out of service though the wind and sea would allow it. No source gives a figure for any ship kite. Base and low: our assumption, the same as the rotors. High: our estimate."
 
 # --- fuel and carbon ---
 vlsfo_price:
