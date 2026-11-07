@@ -248,6 +248,24 @@ ShipDesign(drive::Symbol, class::ShipClass; kwargs...) =
     ShipDesign(; drive, length=class.length, class, kwargs...)
 
 """
+    Windage(class, assumptions)
+
+[`Windage`](@ref) of a ship of `class` with its deck cargo.
+"""
+Windage(class::ShipClass, assumptions::Assumptions) =
+    Windage(class.type, class.length, class.beam, class.deck_tiers, assumptions)
+
+"""
+    Windage(design, hull, assumptions)
+
+[`Windage`](@ref) of the class of `design`, or of a general cargo ship the size of `hull`.
+"""
+Windage(design::ShipDesign, hull::Hull, assumptions::Assumptions) =
+    isnothing(design.class) ?
+    Windage("general cargo", hull.length, hull.beam, 0.0, assumptions) :
+    Windage(design.class, assumptions)
+
+"""
     Propeller(design, hull, assumptions)
 
 Propeller behind `hull` of the diameter ratio of the class of `design`, or of the
@@ -273,9 +291,7 @@ struct Ship{R}
     powertrain::Powertrain
     rig::R
     fuel::Fuel
-    "frontal windage area [m^2]"
-    windage_area::Float64
-    windage_drag_coefficient::Float64
+    windage::Windage
     "righting moment per radian of heel [N m/rad]"
     righting_stiffness::Float64
     heel_limit::Float64
@@ -303,16 +319,13 @@ function Ship(design::ShipDesign, assumptions::Assumptions)
            Hull(design.class, assumptions)
     rig = design_rig(design, hull, assumptions)
     isnothing(rig) && has_rig(design) && return nothing
-    scale = hull.length / assumptions[:reference_length]
     stiffness = displacement_mass(hull, env) * env.gravity *
                 assumptions[:metacentric_height_ratio] * hull.beam
     drive = Drive(design.drive, assumptions)
     hotel_load = 1e3assumptions[:hotel_load]
     hull_parts = (design, env, hull, WaveCoefficients(hull),
         SeakeepingHull(hull, assumptions), Propeller(design, hull, assumptions))
-    other_parts = (rig, drive.fuel,
-        hull.beam * assumptions[:superstructure_height] * scale,
-        assumptions[:windage_drag_coefficient], stiffness,
+    other_parts = (rig, drive.fuel, Windage(design, hull, assumptions), stiffness,
         deg2rad(assumptions[:heel_limit]), deg2rad(assumptions[:leeway_limit]),
         rudder_area(hull), assumptions[:rudder_aspect_ratio], assumptions[:rudder_max_lift],
         assumptions[:max_froude_number] * sqrt(env.gravity * hull.length))
@@ -333,8 +346,8 @@ end
 `ship` with its aerodynamics from `rig`, everything else as it was built.
 """
 with_rig(ship::Ship, rig) = Ship(ship.design, ship.env, ship.hull, ship.wave_coefficients,
-    ship.seakeeping, ship.propeller, ship.powertrain, rig, ship.fuel, ship.windage_area,
-    ship.windage_drag_coefficient, ship.righting_stiffness, ship.heel_limit,
+    ship.seakeeping, ship.propeller, ship.powertrain, rig, ship.fuel, ship.windage,
+    ship.righting_stiffness, ship.heel_limit,
     ship.leeway_limit, ship.rudder_area, ship.rudder_aspect_ratio, ship.rudder_max_lift,
     ship.max_speed)
 
@@ -378,12 +391,6 @@ end
 
 const KNOT = 1852 / 3600
 
-function windage_resistance(ship::Ship, wind_10m, true_angle, speed)
-    apparent_speed, apparent_angle = apparent_wind(wind_10m, true_angle, speed)
-    return 0.5ship.env.air_density * apparent_speed^2 * ship.windage_area *
-           ship.windage_drag_coefficient * cos(apparent_angle)
-end
-
 """
     HullBalance
 
@@ -418,16 +425,23 @@ end
 """
     required_thrust(ship, speed, wind_10m, true_angle, force)
 
-Net propeller thrust [N] the ship needs at `speed` with the rig delivering `force`, or
-`Inf` if the rig force exceeds the heel, leeway or rudder limit.
+Net propeller thrust [N] the ship needs at `speed` with the rig delivering `force` and the
+wind on the ship's [`Windage`](@ref) balanced together, or `Inf` if the rig pushes the
+heel, leeway or rudder past its limit, or further past it than the wind on the ship
+alone.
 """
 function required_thrust(ship::Ship, speed, wind_10m, true_angle, force::RigForce)
-    balance = HullBalance(ship, speed, force)
-    balance.heel <= ship.heel_limit && balance.leeway <= ship.leeway_limit &&
-        balance.rudder_lift_coefficient <= ship.rudder_max_lift || return Inf
+    hull_force = wind_force(ship.windage, ship.env, wind_10m, true_angle, speed)
+    balance = HullBalance(ship, speed, force + hull_force)
+    if force != NO_RIG_FORCE
+        alone = HullBalance(ship, speed, hull_force)
+        balance.heel <= max(ship.heel_limit, alone.heel) &&
+            balance.leeway <= max(ship.leeway_limit, alone.leeway) &&
+            balance.rudder_lift_coefficient <=
+            max(ship.rudder_max_lift, alone.rudder_lift_coefficient) || return Inf
+    end
     return resistance(ship.hull, ship.env, speed; coefficients=ship.wave_coefficients) +
-           windage_resistance(ship, wind_10m, true_angle, speed) + balance.drag -
-           force.thrust
+           balance.drag - force.thrust - hull_force.thrust
 end
 
 """

@@ -415,10 +415,10 @@ end
     class_table()
 
 Tabular of the ship classes with their main dimensions, deadweight and unit capacity,
-speed, engine power, resistance calibration, price, cargo value and the inputs of deck
-cargo and port operations, in class_table.tex, and the rows of their sources in
-class_sources.tex; an infinite fixed-rig delay, where a fixed rig prevents cargo handling,
-is printed as ∞.
+speed, engine power, resistance calibration, price, cargo value, the inputs of deck
+cargo and port operations and the frontal and lateral wind areas, in class_table.tex,
+and the rows of their sources in class_sources.tex; an infinite fixed-rig delay, where a
+fixed rig prevents cargo handling, is printed as ∞.
 """
 function class_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
@@ -432,13 +432,13 @@ function class_table()
     open(joinpath(sections, "class_table.tex"), "w") do io
         println(io, "\\setlength{\\tabcolsep}{3pt}")
         println(io, "\\begin{adjustbox}{max width=\\textwidth}")
-        println(io, "\\begin{tabular}{@{}l", "r"^15, "@{}}")
+        println(io, "\\begin{tabular}{@{}l", "r"^17, "@{}}")
         println(io, "\\toprule")
         println(io, "Class & \$L\$ & \$B\$ & \$T\$ & \$C_B\$ & Deadweight & Capacity & ",
             "Speed & Power & \$f_R\$ & Price & Cargo & Deck & Air draft & Lost & ",
-            "Fixed-rig \\\\")
+            "Fixed-rig & \$A_\\mathrm{F}\$ & \$A_\\mathrm{L}\$ \\\\")
         println(io, " & [m] & [m] & [m] & & [t] & & [kn] & [MW] & & [MUSD] & [USD/t] & ",
-            "tiers & limit [m] & calls [\\%] & delay [h] \\\\")
+            "tiers & limit [m] & calls [\\%] & delay [h] & [m\$^2\$] & [m\$^2\$] \\\\")
         println(io, "\\midrule")
         for class in classes
             write_class_row(io, class)
@@ -457,6 +457,7 @@ One row of the ship class table.
 function write_class_row(io, class)
     delay = isfinite(class.fixed_rig_port_hours) ?
             latex_number(class.fixed_rig_port_hours) : "\$\\infty\$"
+    windage = WindShipOpt.Windage(class, assumptions)
     println(io, latex_escape(class.name), " & ", latex_number(class.length), " & ",
         latex_number(class.beam), " & ", latex_number(class.draft), " & ",
         latex_number(class.block_coefficient), " & ", latex_number(class.deadweight), " & ",
@@ -466,8 +467,9 @@ function write_class_row(io, class)
         latex_number(round(class.newbuild_price / 1e6; digits=1)), " & ",
         latex_number(class.cargo_value), " & ", latex_number(class.deck_tiers), " & ",
         latex_number(class.air_draft_limit), " & ",
-        latex_number(round(100class.restricted_call_share; digits=1)), " & ", delay,
-        " \\\\")
+        latex_number(round(100class.restricted_call_share; digits=1)), " & ", delay, " & ",
+        latex_number(round(Int, windage.frontal_area)), " & ",
+        latex_number(round(Int, windage.lateral_area)), " \\\\")
 end
 
 """
