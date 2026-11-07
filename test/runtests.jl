@@ -1203,6 +1203,22 @@ end
     @test WindShipOpt.margins_searched(bare_table, settings) == (0.1, 0.2)
 end
 
+@testset "a kite aloft leaving a node with the kite down at the same time shares its edges" begin
+    workspace = WindShipOpt.RouteWorkspace(3, 4, 2)
+    down, aloft = (2, 3, 1, 1), (2, 3, 2, 1)
+    later_down, later_aloft = (2, 4, 1, 1), (2, 4, 2, 1)
+    for (state, cost, time) in ((down, 10.0, 4.0), (aloft, 12.0, 4.0),
+        (later_down, 10.0, 5.0), (later_aloft, 12.0, 5.5))
+        workspace.cost[state...], workspace.elapsed[state...] = cost, time
+    end
+    share(state) = WindShipOpt.sharing_edges!(workspace, state, nothing, Inf, 5)
+    from = share(down)
+    @test from >= 0
+    @test length(workspace.shared) == from + 5 * (2WindShipOpt.MAX_LATERAL_STEP + 1)
+    @test share(aloft) == from
+    @test share(later_down) == share(later_aloft) == -1
+end
+
 module PaperRuns
 root = pkgdir(Main.WindShipOpt)
 include(joinpath(root, "scripts", "paper_runs.jl"))
