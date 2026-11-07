@@ -33,7 +33,6 @@ end
     @test 700 < ship.powertrain.installed_power / 1e3 < 1500
 end
 
-# DNV Rules for Ships, January 2000, Pt. 3 Ch. 3 Sec. 2, guidance note, p. 9.
 @testset "hull wind load follows Blendermann's loading functions" begin
     env = Environment(assumptions)
     windage = WindShipOpt.Windage("vehicle carrier", 180.0, 30.0, 0.0, assumptions)
@@ -61,6 +60,8 @@ end
     @test stacked.lateral_area - alone.lateral_area ≈
           assumptions[:container_stowage_fraction] * 2measured.length * added
     @test stacked.centre_height > alone.centre_height
+    @test stacked.centre_position * stacked.lateral_area ≈
+          alone.centre_position * alone.lateral_area
 end
 
 @testset "wind on the hull costs leeway and adds to the rig's side force" begin
@@ -78,6 +79,7 @@ end
               coefficients=bare.wave_coefficients) + together.drag - hull_force.thrust
 end
 
+# DNV Rules for Ships, January 2000, Pt. 3 Ch. 3 Sec. 2, guidance note, p. 9.
 @testset "rudder area follows the DNV 2000 guidance and grows with block coefficient" begin
     hull = Hull(85.0, assumptions)
     @test (hull.length, hull.beam, hull.draft) == (85.0, 13.2, 5.5)

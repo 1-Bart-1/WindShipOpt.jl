@@ -66,7 +66,7 @@ end
 Windage of a ship of `type` from `data/wind_loads.csv`: the coefficients of the type and
 the areas and centroid of its measured ship scaled to `length` and `beam` [m], with the
 container tiers on deck above those of the scaled measured ship added over the stowage
-length.
+length, centred amidships.
 """
 function Windage(type::AbstractString, length, beam, deck_tiers, assumptions::Assumptions)
     measured = wind_load_types()[type]
@@ -87,15 +87,20 @@ end
 """
     wind_load_types()
 
-Wind-load coefficients and measured ship of each ship type, from `data/wind_loads.csv`.
+Wind-load coefficients and measured ship of each ship type, from `data/wind_loads.csv`,
+whose rows name the types sharing them separated by `;`.
 """
 function wind_load_types()
     lines = readlines(joinpath(pkgdir(@__MODULE__), "data", "wind_loads.csv"))
     header = csv_fields(first(lines))
     numbers = filter(!in(("type", "source")), header)
-    return Dict(begin
+    types = Dict{String, NamedTuple}()
+    for line in lines[2:end]
         row = Dict(zip(header, csv_fields(line)))
-        row["type"] => NamedTuple(Symbol(name) => parse(Float64, row[name])
-                                  for name in numbers)
-    end for line in lines[2:end])
+        loads = NamedTuple(Symbol(name) => parse(Float64, row[name]) for name in numbers)
+        for type in split(row["type"], ';')
+            types[type] = loads
+        end
+    end
+    return types
 end
