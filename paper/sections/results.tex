@@ -1,7 +1,7 @@
 \section{Results}
 \label{sec:results}
 
-\tbd{Every number in this section comes from a draft run (corridor scale 8, six departures, one round of rig sizing) on code that predates the latest changes to the router, the kite's inputs and the speed steps; the final run replaces them.} The results first state the goals they rest on and show what each rig gives, then compare the rigs by fuel, between the two deck rigs, by route and class and by rig size, check the robustness of the comparison, report what a missed goal costs, test a VTOL kite as a fourth rig, and end with the situations in which each rig comes out ahead. Figures on the scaled family of ships on the route to Guadeloupe show how a result comes about; the figures over the thirteen classes and six routes carry the results themselves.
+\tbd{Every number in this section comes from a draft run (corridor scale 8, six departures, one round of rig sizing) on code that predates the latest changes to the router, the kite's inputs and the speed steps; the final run replaces them.} The results first state the goals they rest on and show what each rig gives, then compare the rigs by fuel, between the two deck rigs, by route and class, over the year and by rig size, check the robustness of the comparison, report what a missed goal costs, test a VTOL kite as a fourth rig, and end with the situations in which each rig comes out ahead. Figures on the scaled family of ships on the route to Guadeloupe show how a result comes about; the figures over the thirteen classes and six routes carry the results themselves.
 
 \subsection{The goals each rig must reach}
 \label{sec:res_goals}
@@ -175,6 +175,22 @@ Wing sails and rotors are priced on the same basis and both last 25 years (\cref
 \plot[\textwidth]{route_comparison}
 \caption{Cost saving of the better of two sizes of each rig against the same ship without a rig, per route, for ships of \SIlist{85;140;200}{m} with a VLSFO (top), an e-methanol (middle) and a hydrogen (bottom) drive: kites of \SIlist{800;3200}{m^2}, wing sails of \SIlist{800;1500}{m^2} and rotors of \SIlist{400;800}{m^2}, of which only \SI{400}{m^2} fits on the \SI{85}{m} ship. On the \SI{200}{m} ship the rotors are smaller than their best size of \cref{fig:rig_comparison}.}
 \label{fig:route_comparison}
+\end{figure*}
+
+\subsection{Through the year}
+\label{sec:res_seasons}
+
+Every saving above is a mean over departures spread through the year, while the wind on these routes changes with the season. \Cref{fig:season} splits the savings of the \SI{140}{m} e-methanol ship by departure, each rig at its best size over the year. Each departure is costed on the ship of the whole year, with its fuel store, cargo and rig, so the costs of its departures average to its cost over the year in \cref{fig:route_comparison}. Each point is one departure in one year, so it carries that year's weather as well as the season. We call the departures from October to March winter and those from April to September summer. \tbd{This draft has three departures in each half, and one departure moves a half's saving by several points; the final run has six.}
+
+\tbd{On the five ocean routes the rotors save 14.9 to 21.2\,\% in winter and 9.7 to 17.4\,\% in summer, the kite 9.0 to 16.1 and 6.8 to 12.3\,\%, and the wing sails 9.5 to 11.7 and 3.9 to 8.5\,\%. Winter adds up to 9.4 points there to the rotors, 8.2 to the kite and 6.9 to the wing sails. The rotors keep the most of their winter saving through the summer, 51 to 95\,\% of it, and the wing sails the least, 41 to 79\,\%. The kite keeps 45 to 73\,\% on four ocean routes and saves more in summer than in winter to New York. To Bilbao the kite saves 9.8\,\%, the rotors 8.1\,\% and the wing sails 3.8\,\% in winter, and no rig pays in summer.} The order of the rigs hardly changes over the year. \tbd{The rotors lead in both halves on every ocean route, and the kite leads to Bilbao in winter. On the ocean routes the kite comes ahead of the wing sails in both halves except to New York in winter.}
+
+Two things move the kite's saving apart from the wind's strength. In light wind it cannot fly: \tbd{to Bilbao it is up 41\,\% of the time in winter and 4\,\% in summer, and to Dakar, Houston and Tubarão 44 to 48\,\% in winter and 29 to 39\,\% in summer.} In heavy weather its wind and sea limits (\cref{sec:kite}) keep it down while a deck rig pulls on. \tbd{The departure of 4 November 2018 costs the bare ship the most of all six on four routes; on it the kite flies 25 to 38\,\% of the time on the ocean routes and saves 4.6 to 12.9\,\%, while the rotors save 13.8 to 18.9\,\%.} So the kite gains less from the stormiest winter departures than a rotor does, and loses more in a calm summer.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{season}
+\caption{\tbd{Draft numbers.} Cost saving of each departure against the same ship without a rig, over its departure date in the year, for the \SI{140}{m} e-methanol ship on the six routes, each rig at its best size over the year. Each point is one departure from the years 2017 to 2019, costed on the ship of the whole year.}
+\label{fig:season}
 \end{figure*}
 
 \subsection{Rig size}

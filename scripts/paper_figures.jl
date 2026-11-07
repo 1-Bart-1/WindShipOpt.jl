@@ -924,7 +924,7 @@ function season_figure()
     departures = read_table(data_file("route_departures.csv"))
     names = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
     ship = ("drive" => "methanol", "length" => 140.0)
-    figure = Figure(size=(page_width, 300))
+    figure = Figure(size=(page_width, 290))
     for (k, name) in enumerate(names)
         row, column = fldmod1(k, 3)
         axis = Axis(figure[row, column]; title=route_label(name), limits=((0, 12), nothing),
@@ -943,11 +943,11 @@ function season_figure()
                 [percent_saving(costs[date], bare[date]) for date in dates];
                 color=palette[j], markersize=5, linewidth=0.8)
         end
-        k == 1 && axislegend(axis,
-            [MarkerElement(marker=:circle, color=palette[j], markersize=5) for j in 1:3],
-            collect(rig_names); position=:lt, framecolor=:gray70, backgroundcolor=:white,
-            labelsize=8, padding=(3, 3, 1, 1), rowgap=0)
     end
+    Legend(figure[3, 1:3],
+        [MarkerElement(marker=:circle, color=palette[j], markersize=5) for j in 1:3],
+        collect(rig_names); orientation=:horizontal, framevisible=false, labelsize=9)
+    rowgap!(figure.layout, 2, 0)
     save(joinpath(figures, "season.pdf"), figure; pt_per_unit=print_scale)
 end
 
