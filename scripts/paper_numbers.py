@@ -314,7 +314,8 @@ def base_kite_summary():
 
 
 SECTIONS = {"designs": designs_summary, "routes": routes_summary,
-            "seasons": seasons_summary, "classes": classes_summary, "winners": winners_summary,
+            "seasons": seasons_summary, "classes": classes_summary,
+            "winners": winners_summary,
             "sizes": sizes_summary, "forecast": forecast_summary, "base_kite": base_kite_summary,
             "other": other_summaries}
 for section in sys.argv[1:] or SECTIONS:

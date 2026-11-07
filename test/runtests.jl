@@ -894,10 +894,12 @@ end
     @test all(kite_hourly .> hourly)
 end
 
-@testset "each departure's cost with the year's ship averages to the round trip's cost" begin
+@testset "departure costs with the year's ship average to the round trip's cost" begin
     corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     departures = [24.0 * 31, 24.0 * 200]
-    for design in (ShipDesign(:methanol, 85.0), ShipDesign(:methanol, 85.0; kite_area=400.0))
+    for design in (ShipDesign(:methanol, 85.0),
+        ShipDesign(:methanol, 85.0; kite_area=400.0))
+
         trip = round_trip(Ship(design, assumptions), corridors..., SyntheticWeather(),
             departures, assumptions)
         outcomes = trip.departures
