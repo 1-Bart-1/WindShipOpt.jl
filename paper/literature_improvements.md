@@ -216,7 +216,7 @@ savings, removes an asymmetry with the kite in storms.
 
 ## 7. Interference factor vs apparent wind angle (medium)
 
-Done: κ(n, s) = 1 − (1 − 1/n) A exp(−s/s0) on thrust only, wings A = 0.30, s0 = 2.86 c, rotors A = 0.38, s0 = 2.72 D (assumptions.yaml; fit in data/interference_notes.md). Still constant over apparent wind angle.
+Done: κ(n, s) = 1 − (1 − 1/n) A exp(−s/s0) on thrust only, wings A = 0.30, s0 = 2.86 c, rotors A = 0.38, s0 = 2.72 D (assumptions.yaml; wings: A is the fixed-trim CFD fit less a third for independent sheeting and s0 our engineering estimate; rotors: fit in data/interference_notes.md). Still constant over apparent wind angle.
 
 - Rotors: Tillig OE p. 9: two rotors 3 D apart, "thrust coefficient is
   significantly reduced, up to 38% according to measurements at 30° AWA … In
