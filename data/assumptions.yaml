@@ -994,12 +994,24 @@ tether_rope_density:
   high: 1130.0
   unit: kg/m^3
   reason: "Rope mass over its nominal cross-section: 60.8 kg per 100 m at 30.6 mm, 827 kg/m^3 (Bosman et al. 2013, Table 33.4, coated 12-strand). Their worked-in diameter, 26.0 mm, would give 1,145 kg/m^3, above solid HMPE at 970 kg/m^3, so it cannot be the section that meets the wind. Low: Marlow D12 78 uncoated, 4.65 kg per 100 m at 10 mm. High: the SkySails tether with its power and data cable, 0.9 kg/m for 320 kN (Paulig et al. 2013)."
+tether_bend_life:
+  value: 400000.0
+  low: 5500.0
+  high: 6000000.0
+  unit: bends
+  reason: "Single bends over the winch drum or a sheave that a ship kite's tether takes to failure while it is reeled out at launch and in at landing; no test covers this low a tension, so this is our estimate from bend-over-sheave tests of 12-strand HMPE rope. Reeling at the zenith pulls about a tenth of the force limit, 3 % of break load at design factor 3 (0.05-0.3 of the limit). Davies et al. (2015) give 2 x 10^7.42 T^-2.25 bends (T in kN) for a 19 mm rope of 250 kN break load at drum-to-rope diameter ratio 20, 211 (T/break load)^-2.25; Bosman et al. (2013) give about 1.85 and 2.85 times as many at ratios 40 and 100 (read off their Fig. 33.18). At 3 % of break load and ratio 40 the power law gives 840,000 bends and a semi-log law with the slope of Bosman's tests 160,000; the base lies between. The low bound reels at 10 % of break load over ratio 20, scaled to the 70 mm tether of a 3,200 m^2 kite by d^-1.2 from Bosman's 8 and 20 mm tests and cut by up to 30 % for reverse bending; the high bound reels at 1.7 % over ratio 100."
+tether_bends_per_launch:
+  value: 4.0
+  low: 2.0
+  high: 6.0
+  unit: "-"
+  reason: "Bends of each section of the tether in one launch and landing, one per pass over a sheave or on or off the drum (Bosman et al. 2013; Davies et al. 2015): off the drum and over one guiding sheave going out, back over both coming in. Low: the drum alone; high: two sheaves."
 tether_lifetime:
-  value: 8000.0
-  low: 1100.0
+  value: 13000.0
+  low: 4000.0
   high: 40000.0
   unit: flight hours
-  reason: "Flight hours a Dyneema tether flies before replacement at a fixed length, bent only at the tow point; none measured, so the value is an estimate of about a year. At design factor 3 creep allows about 5 years on SK78, but bending sets the life: at the 533 MPa on the fibre of that factor, a tether pumped over a drum at D/d 100 fails after 45 days, the low bound, and reaches about a year only at design factor 4 with SK78 XBO and better construction (Bosman et al. 2013). The Ampyx Power 5 MW design replaces its fixed tether section after 7 years at 312 MPa (van Hagen et al. 2023), about 40,000 flight hours, the high bound. Pumping tethers last 3 months to 2 years (DEADALUS, Ampyx/DSM)."
+  reason: "Creep life in flight hours of a 12-strand SK78 tether flown at a fixed length; its bending over the drum at launch and landing is charged per launch from the tether bend life. No ship or kite tether life has been measured, so this is our estimate from creep, the failure mode of a rope held under load without bending (Bosman et al. 2013; Humeau et al. 2018). Creep damage summed by Miner's rule over the hours flown at each tension on routed trips, at 25 °C: 8,600 h on the 140 m ship and 13,700 h on the Kamsarmax with the power law of Humeau et al. (exponent 4.43, 112 kJ/mol) anchored at 8 years at 20 % of break load and 20 °C (DSM 2019), 19,500 and 28,300 h with the time-tension-temperature diagram of Bosman et al.; the base lies between. The low bound is the power law at 30 °C, the high bound the diagram at 20 °C (34,000-49,000 h). The swing of each figure eight shortens the creep life about 7 % against a steady load at its mean, and its tension fatigue does not bind. Over a drum at this design factor the rope fails in bending after 45 days, about 1,100 h (Bosman et al. 2013), so the tow point turns with the tether; reeling in a few centimetres moves fresh rope against wear only. Nearest service record: HMPE ship mooring lines, designed for 8,000 mooring hours to 75 % strength at up to 22 % of break load and retired by wear (Wilhelmsen 2022). The 7 years of the Ampyx Power fixed section (van Hagen et al. 2023) is an assumption with no stated basis."
 winch_fixed_cost:
   value: 27000.0
   low: 11000.0
