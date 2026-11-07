@@ -1881,6 +1881,7 @@ service. Each goal is a vertical line over the shaded range of its input; today'
 price is dotted.
 """
 function missed_goals_figure()
+    sizes = read_table(data_file("goal_sizes.csv"))
     service = read_table(data_file("availability.csv"))
     lives = read_table(data_file("canopy_life.csv"))
     prices = read_table(data_file("canopy_price.csv"))
@@ -1888,7 +1889,7 @@ function missed_goals_figure()
     sweeps = ((lives, "life"), (prices, "price"))
     figure = Figure(size=(page_width, 410))
     for (column, ship) in enumerate(ships)
-        bare = only(share_costs(service, ship, "none")[2])
+        bare = bare_cost(sizes, ship)
         curves = Dict(rig => share_costs(service, ship, rig) for rig in rig_names)
         goal = Dict(rig => percent_saving(curve_cost(curves[rig],
                 assumptions[Symbol(out_of_service_inputs[rig])]), bare)

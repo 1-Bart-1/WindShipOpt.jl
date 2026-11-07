@@ -122,6 +122,9 @@ function share_costs(table, ship, rig)
     return table["share"][picked][order], table["cost"][picked][order]
 end
 
+"cost per tonne-km of `ship` without a rig in the goal_sizes.csv `table`"
+bare_cost(table, ship) = only(table["cost"][rows(table, "ship" => ship, "rig" => "none")])
+
 "cost per tonne-km at `share` of the (shares, costs) `curve` of [`share_costs`](@ref)"
 curve_cost((shares, costs), share) = costs[findfirst(≈(share), shares)]
 
@@ -213,7 +216,7 @@ function missed_goal_rows()
     prices = read_table(data_file("canopy_price.csv"))
     result = []
     for ship in unique(sizes["ship"])
-        bare = only(sizes["cost"][rows(sizes, "ship" => ship, "rig" => "none")])
+        bare = bare_cost(sizes, ship)
         cheapest = Dict(rig => cheapest_size(sizes, ship, rig) for rig in rig_names)
         goal = Dict(rig => sizes["cost"][cheapest[rig]] for rig in rig_names)
         curves = Dict(rig => share_costs(service, ship, rig) for rig in rig_names)
@@ -287,7 +290,7 @@ function crash_limit_rows()
     table = read_table(data_file("goal_sizes.csv"))
     result = []
     for ship in unique(table["ship"])
-        bare = only(table["cost"][rows(table, "ship" => ship, "rig" => "none")])
+        bare = bare_cost(table, ship)
         cheapest = Dict(rig => cheapest_size(table, ship, rig) for rig in goal_size_rigs)
         goal = Dict(rig => table["cost"][cheapest[rig]] for rig in goal_size_rigs)
         for (; rig, rival, rival_cost) in WindShipOpt.ranked_rivals(goal)
