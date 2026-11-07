@@ -124,6 +124,8 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 
 **humeau2018** — Humeau, C., Davies, P., Smeets, P., Engels, T. A. P., Govaert, L. E., Vlasblom, M., Jacquemin, F. (2018). Tension fatigue failure prediction for HMPE fibre ropes. _Polymer Testing_ 65, 497–504. DOI 10.1016/j.polymertesting.2017.12.014. Tension fatigue of HMPE rope is creep: life follows from yarn creep with a power law in stress, exponent 4.43 for SK78, and an activation energy of 112 kJ/mol. Sets the law of the creep life behind `tether_lifetime`.
 
+**davies2015** — Davies, P., François, M., Lacotte, N., Vu, T. D., Durville, D. (2015). An empirical model to predict the lifetime of braided HMPE handling ropes under cyclic bend over sheave (CBOS) loading. _Ocean Engineering_ 97, 74–81. DOI 10.1016/j.oceaneng.2015.01.003. Bend-over-sheave tests of a 19 mm 12-strand SK75 rope of 250 kN break load at D/d 20: log N = 7.42 − 2.25 log T (T in kN, N machine cycles of two bends each), preferred over the semi-log law for lower tensions; each pass over the drum or a sheave bends a section once. Sets `tether_bend_life`.
+
 **dsm_sk78_mooring** — DSM Dyneema (2019). Selecting the right fiber for mooring lines: Dyneema SK78. White paper. Creep life of SK78 mooring rope: 8 years at 20 % of break load and 20 °C, and 632 days at an equivalent 336 MPa and 30 °C. Anchors the creep law behind `tether_lifetime`.
 
 **wilhelmsen2022** — Wilhelmsen Ships Service (2022). Mooring ropes retirement guidelines: Acera daGama. 12-strand HMPE mooring rope designed for 8,000 mooring hours to 75 % of ship design break load, at the OCIMF MEG4 operating range of up to 22 %; retired by wear and inspection. The nearest service record for `tether_lifetime`.
