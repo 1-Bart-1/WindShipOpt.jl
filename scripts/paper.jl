@@ -48,7 +48,8 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :rigid_scaling_data => rigid_scaling_data, :rigid_kite_data => rigid_kite_data,
     :launch => launch_data, :convergence => convergence_data, :flight => flight_data,
     :speed_choice => speed_choice_data, :speed_terms => speed_terms_data,
-    :published_terms => published_terms_data, :speed_size => speed_size_data]
+    :published_terms => published_terms_data, :speed_size => speed_size_data,
+    :tow_point => tow_point_data]
 
 "steps outside the paper, run only by name: the data of the companion website"
 website_steps = [:explorer => explorer_data]
@@ -76,7 +77,8 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :rigid_size => rigid_size_figure,
     :flight_table => flight_table, :speed_choice_table => speed_choice_table,
     :speed_terms_table => speed_terms_table, :published_table => published_table,
-    :speed_size_table => speed_size_table, :speed_size_figure => speed_size_figure]
+    :speed_size_table => speed_size_table, :speed_size_figure => speed_size_figure,
+    :tow_point_figure => tow_point_figure]
 
 """
     paper(names...; fidelity, resume=nothing)
