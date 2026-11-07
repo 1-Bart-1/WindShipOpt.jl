@@ -669,10 +669,7 @@ Transport work [tonne-km] and round trips of the trip in `row` of `table`, on `r
 a year's trading hours.
 """
 function yearly_trips(table, row, route)
-    outbound, inbound = run_corridors(Symbol(route))
-    tonne_km = table["cargo"][row] * (outbound.track_length +
-                                      assumptions[:backhaul_fraction] *
-                                      inbound.track_length) / 1e3
+    tonne_km = table["cargo"][row] * tonne_km_per_tonne(Symbol(route))
     hours = 24table["days"][row] + 48assumptions[:port_time_per_call]
     trips = 8760assumptions[:availability] / hours
     return tonne_km * trips, trips

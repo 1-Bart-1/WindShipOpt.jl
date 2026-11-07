@@ -262,10 +262,13 @@ Base.@kwdef struct RouterSettings
     search_speed_stride::Int = 2
     "length of the time bins of the final pass along the path found [h]"
     final_time_step::Float64 = 0.25
-    "how far the final pass and a refinement stray in time from the path they start on [h]"
+    "how far the final pass strays in time from the path found [h]"
     final_time_band::Float64 = 24.0
-    "how far a refinement strays to either side of the route it starts on [nmi]"
-    refine_band::Float64 = 300.0
+    "how far a refinement strays to either side of the route it starts on, in lateral
+    spacings of the corridor that route was found on [-]"
+    refine_band::Float64 = 1.25
+    "how far a refinement strays in time from the route it starts on [h]"
+    refine_time_band::Float64 = 96.0
 end
 
 "[`RouterSettings`](@ref) in force"
@@ -874,9 +877,8 @@ of `ROUTER_SETTINGS` around the [`Leg`](@ref) `start` on its `start` corridor, t
 function refined_route(start::Leg, refined::RefinedCorridor, table::RouteTable, weather,
         departure; time_cost, coastal_penalty)
     (; corridor) = refined
-    (; time_step, search_speed_stride, refine_band, final_time_band) = ROUTER_SETTINGS[]
-    band = PassageBand(start, refined.start, corridor, refine_band * NAUTICAL_MILE,
-        final_time_band)
+    (; time_step, search_speed_stride, refine_band, refine_time_band) = ROUTER_SETTINGS[]
+    band = PassageBand(start, refined.start, corridor, refine_band, refine_time_band)
     workspace = acquire_workspace(size(corridor.lat, 2),
         ceil(Int, MAX_LEG_HOURS / time_step), size(corridor.lat, 1))
     leg = try
@@ -912,14 +914,19 @@ struct PassageBand
 end
 
 """
-    PassageBand(leg, start_corridor, corridor, distance_band, width)
+    PassageBand(leg, start_corridor, corridor, spacings, width)
 
 The band of `corridor` around the path of `leg` through `start_corridor`: at each stage the
-nodes within `distance_band` [m] of where the path crosses it, and the times within `width`
-[h] of when it does, both interpolated at the same share of the centre line.
+nodes within `spacings` lateral spacings of `start_corridor` of where the path crosses it,
+and the times within `width` [h] of when it does, both interpolated at the same share of
+the centre line.
 """
-function PassageBand(leg::Leg, start_corridor::Corridor, corridor::Corridor,
-        distance_band, width)
+function PassageBand(leg::Leg, start_corridor::Corridor, corridor::Corridor, spacings,
+        width)
+    centre = centre_index(start_corridor)
+    distance_band = spacings * distance(start_corridor.lat[1, centre],
+        start_corridor.lon[1, centre], start_corridor.lat[1, centre + 1],
+        start_corridor.lon[1, centre + 1])
     start_share = start_corridor.along_centre ./ last(start_corridor.along_centre)
     share = corridor.along_centre ./ last(corridor.along_centre)
     stage_count, lateral_count = size(corridor.lat)

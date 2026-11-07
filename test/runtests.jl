@@ -1361,6 +1361,40 @@ end
     end
 end
 
+@testset "a route refined from the optimum of its own corridor costs no more" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    optimum = route(corridor, table, weather, departure; time_cost=hourly)
+    refined = route(RefinedCorridor(corridor, corridor), table, weather, departure;
+        time_cost=hourly)
+    @test refined.objective <= optimum.objective
+end
+
+@testset "a route refined from a coarser corridor stays in the band around its start" begin
+    coarse, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    start = route(coarse, table, weather, departure; time_cost=hourly)
+    leg = route(RefinedCorridor(coarse, corridor), table, weather, departure;
+        time_cost=hourly)
+    (; refine_band, refine_time_band) = WindShipOpt.ROUTER_SETTINGS[]
+    band = WindShipOpt.PassageBand(start, coarse, corridor, refine_band, refine_time_band)
+    laterals = [WindShipOpt.nearest_lateral(corridor, stage, point[1], point[2])
+                for (stage, point) in enumerate(leg.path)]
+    @test all(band.inside[stage, lateral] for (stage, lateral) in enumerate(laterals))
+    @test count(band.inside) < length(band.inside) / 2
+    optimum = route(corridor, table, weather, departure; time_cost=hourly)
+    @test leg.objective <= optimum.objective * (1 + 1e-3)
+end
+
+@testset "a refinement whose band holds no path takes the full route" begin
+    coarse, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    passage(corridor) = route(corridor, table, weather, departure; time_cost=hourly)
+    empty_band = WindShipOpt.RouterSettings(refine_band=-1.0)
+    refined = WindShipOpt.with_router_settings(
+        () -> passage(RefinedCorridor(coarse, corridor)), empty_band)
+    @test refined.objective == passage(corridor).objective
+end
+
 @testset "a held speed steps down through the ship's own speeds, and is commanded" begin
     table = PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions), assumptions)
     held = WindShipOpt.held_speed_table(table, 11.3)

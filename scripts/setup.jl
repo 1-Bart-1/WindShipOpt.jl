@@ -29,13 +29,17 @@ corridor_cache = Dict{Tuple{Symbol, Float64}, Tuple{Corridor, Corridor}}()
 corridor_lock = ReentrantLock()
 
 """
-    corridors(name, scale)
+    corridors(name, scale, start_scale=scale)
 
-Outbound and return corridors of route `name` at corridor `scale`, built once per session.
+Outbound and return corridors of route `name` at corridor `scale`, built once per session;
+each a [`RefinedCorridor`](@ref) starting on the corridor at `start_scale` where that
+differs.
 """
-function corridors(name, scale)
-    return lock(corridor_lock) do
+function corridors(name, scale, start_scale=scale)
+    corridor_pair = lock(corridor_lock) do
         get!(() -> route_corridors(name, mask; scale), corridor_cache,
             (name, Float64(scale)))
     end
+    start_scale == scale && return corridor_pair
+    return RefinedCorridor.(corridors(name, start_scale), corridor_pair)
 end

@@ -8,18 +8,19 @@ study_drives = (:vlsfo, :methanol, :hydrogen)
 design_aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
 
 """
-    trip_case(design; assumptions, route, scale, horizon, held_knots, part, labels...)
+    trip_case(design; assumptions, route, scale, start_scale, horizon, held_knots, part,
+              labels...)
 
 One round trip to compute: `design` under `assumptions` on the corridors of `route` at
-corridor `scale`, with a forecast `horizon` [h], holding `held_knots` [kn] or with speed set
-by cost where `nothing`, with the model `part` switched off by [`simplified_ship`](@ref),
-tagged with `labels` for the output.
+corridor `scale`, refined from `start_scale`, with a forecast `horizon` [h], holding
+`held_knots` [kn] or with speed set by cost where `nothing`, with the model `part` switched
+off by [`simplified_ship`](@ref), tagged with `labels` for the output.
 """
 function trip_case(design; assumptions=assumptions, route=:caribbean,
-        scale=run_settings().corridor_scale, horizon=Inf, held_knots=nothing, part=:none,
-        labels...)
-    return (; labels..., design, assumptions, route, scale,
-        corridors=corridors(route, scale), horizon, held_knots, part)
+        scale=run_settings().corridor_scale, start_scale=run_settings().start_scale,
+        horizon=Inf, held_knots=nothing, part=:none, labels...)
+    return (; labels..., design, assumptions, route, scale, start_scale,
+        corridors=corridors(route, scale, start_scale), horizon, held_knots, part)
 end
 
 """
@@ -577,8 +578,8 @@ Tonne-km per tonne of outbound cargo of a round trip out along `outbound` and ba
 `inbound`, or on route `name`, with the backhaul share of the return leg.
 """
 function tonne_km_per_tonne(outbound, inbound)
-    return (outbound.track_length +
-            assumptions[:backhaul_fraction] * inbound.track_length) / 1e3
+    return (track_length(outbound) +
+            assumptions[:backhaul_fraction] * track_length(inbound)) / 1e3
 end
 
 tonne_km_per_tonne(name) = tonne_km_per_tonne(run_corridors(name)...)
@@ -785,11 +786,13 @@ end
     forecast_data()
 
 A 140 m e-methanol ship to Guadeloupe without a rig and with each rig, routed with
-perfect foresight and with daily re-planning on forecasts of 7 and 3 days: forecast.csv.
+perfect foresight and with daily re-planning on forecasts of 7 and 3 days, all over the
+whole corridor of the run's start scale: forecast.csv.
 """
 function forecast_data()
+    scale = run_settings().start_scale
     cases = vec([trip_case(ShipDesign(:methanol, 140.0; rig_size(rig, area)...); horizon,
-                     rig, horizon_days=isfinite(horizon) ? horizon / 24 : 0.0)
+                     scale, start_scale=scale, rig, horizon_days=isfinite(horizon) ? horizon / 24 : 0.0)
                  for (rig, area) in [("none", 0.0); reference_rigs],
                      horizon in (Inf, 24.0 * 7, 24.0 * 3)])
     write_trips("forecast.csv", cases, round_trips(cases, sampled_departures()), :rig,
@@ -1263,12 +1266,13 @@ component_factors(name) = endswith(string(name), "lifetime") ? (0.5, 2.0) : (0.5
 """
     convergence_data()
 
-A 140 m e-methanol ship to Guadeloupe without a rig and with each rig, routed at corridor
-resolutions of 8, 4 and 2 times the base spacing: convergence.csv.
+A 140 m e-methanol ship to Guadeloupe without a rig and with each rig, routed over every
+corridor at resolutions of 8, 4 and 2 times the base spacing: convergence.csv.
 """
 function convergence_data()
     rigs = [("none", 0.0), ("kite", 1600.0), ("wings", 1500.0), ("rotors", 800.0)]
-    cases = vec([trip_case(ShipDesign(:methanol, 140.0; rig_size(rig, area)...); rig, scale)
+    cases = vec([trip_case(ShipDesign(:methanol, 140.0; rig_size(rig, area)...); rig, scale,
+                     start_scale=scale)
                  for (rig, area) in rigs, scale in (8.0, 4.0, 2.0)])
     write_trips("convergence.csv", cases, round_trips(cases, sampled_departures()), :rig,
         :scale)

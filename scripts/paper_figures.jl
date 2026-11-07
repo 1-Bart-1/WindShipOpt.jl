@@ -872,7 +872,8 @@ function wind_climate_figure()
                 linewidth=0.5)
         end
         lines!(axis, [0, 0], [-16, 16]; color=:gray60, linewidth=0.5)
-        for (side, corridor) in zip((-1, 1), run_corridors(Symbol(name)))
+        for (side, corridor) in zip((-1, 1),
+            corridors(Symbol(name), run_settings().corridor_scale))
             angles, speeds = track_wind(corridor, weather, times)
             for i in 1:(length(edges) - 1)
                 inside = edges[i] .<= angles .< edges[i + 1]

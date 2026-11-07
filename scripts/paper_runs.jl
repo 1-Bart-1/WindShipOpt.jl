@@ -6,11 +6,13 @@ using Serialization
 using TOML
 
 """
-Settings of each fidelity of the paper: the corridor scale, the step between sampled
+Settings of each fidelity of the paper: the corridor scale the routes are refined at, the
+scale of the corridor their optimal start is searched on, the step between sampled
 departures and the rounds of the rig size search.
 """
-fidelities = Dict(:draft => (corridor_scale=8.0, departure_step=12, size_rounds=1),
-    :final => (corridor_scale=4.0, departure_step=6, size_rounds=2))
+fidelities = Dict(
+    :draft => (corridor_scale=4.0, start_scale=8.0, departure_step=12, size_rounds=1),
+    :final => (corridor_scale=2.0, start_scale=8.0, departure_step=6, size_rounds=2))
 
 """
     mark_fidelity(path, fidelity, steps, figures)
@@ -72,9 +74,10 @@ sampled_departures(; screening=false) =
 """
     run_corridors(name)
 
-Outbound and return corridors of route `name` at the corridor scale of the run in use.
+Outbound and return corridors of route `name` at the corridor scales of the run in use.
 """
-run_corridors(name) = corridors(name, run_settings().corridor_scale)
+run_corridors(name) = corridors(name, run_settings().corridor_scale,
+    run_settings().start_scale)
 
 """
     run_file(name)
@@ -312,7 +315,8 @@ hash of the inputs of the trip and the code hash of the run.
 function case_path(case, departures)
     inputs = sort([name => entry.value for (name, entry) in case.assumptions.entries])
     io = IOBuffer()
-    serialize(io, (case.design, inputs, case.route, case.scale, case.horizon,
+    serialize(io, (case.design, inputs, case.route, case.scale, case.start_scale,
+        case.horizon,
         case.held_knots, case.part, departures, weather_name, paper_run.record["code_hash"]))
     name = string(hash(String(take!(io))); base=16)
     return joinpath(paper_run.directory, "cases", name * ".bin")
