@@ -996,7 +996,8 @@ fidelity_parts() = [
         effect=varied_inputs(:wind_shear_exponent, :air_density)),
     (part="Wing sail forces", varied="input ranges",
         model="lifting line with stall, trimmed at each wind; array factor of the units",
-        error="interference fitted to CFD of three to four sails",
+        error="interference fitted to CFD of three to four sails at one angle; " *
+              "the third won back by sheeting each sail is a judgement",
         effect=varied_inputs(:wing_max_lift_coefficient, :wing_profile_drag_coefficient,
             :wing_span_efficiency, :wing_endplate_factor, :wing_separation_drag_factor,
             :wing_stalled_drag_coefficient, :wing_interference_amplitude,

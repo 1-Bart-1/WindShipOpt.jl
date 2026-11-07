@@ -1315,7 +1315,8 @@ end
 """
     year_departures(year)
 
-Every second departure in weather year `year`, counted from 1.
+Every second departure in weather year `year`, counted from 1, at any fidelity: more per
+year than [`sampled_departures`](@ref), which over one year leaves a handful.
 """
 year_departures(year) =
     filter(hour -> 8760(year - 1) <= hour < 8760year, departures)[1:2:end]
