@@ -54,7 +54,7 @@ Against it: the one offshore flight, from a moored spar buoy in 10 m/s and 1 m w
 
 ## Prices
 
-There is no public price for a rigid kite. Structure, avionics and tether come from Joshi et al. (2025, p.702), which excludes margin, so the paper's market price factor applies. The drive is the 0.15 $/W estimate of Bauer et al. (2018, p.14), which includes ground power electronics. The perch, ship-side power, lifetime and loss per cycle are our own estimates and carry wide bounds.
+There is no public price for a rigid kite. Structure, avionics and rope come from Joshi et al. (2025, pp.702-703), at a series of 50 or more without margin, so the paper's market price factor applies; EUR at 1.16 USD. Its avionics figure is for early commercial production with aviation certification and redundancy, which raise it from the EUR 15,000 of a prototype; the prototype figure is the low bound, a kite flown without that certification. The drive is two thirds of the 0.15 $/W of Bauer et al. (2018, p.14), three times a hobby motor's retail price per W for the motor, its drive electronics and the ground electronics; the ground third is the ship-side power here. Upkeep per flight hour is all of the airframe's maintenance (Echeverri et al. 2020, Part I, pp.108-110 printed), so its price pays no maintenance share. The perch, ship-side power, lifetime and loss per cycle are our own estimates and carry wide bounds. `cost_basis_notes.md` section 7 checks each against the common production stage.
 
 ## Not used
 
