@@ -952,3 +952,166 @@ function speed_size_table()
     end
 end
 
+
+"""
+    fidelity_parts()
+
+Each part of the model as (part, varied, model, error, effect): its name, how its effect is
+measured, how it is modelled, its known error, and the data file with the groups of
+condition sets whose results [`part_effect`](@ref) compares.
+"""
+fidelity_parts() = [
+    (part="Calm-water resistance", varied="calibration off",
+        model="Holtrop--Mennen, scaled to the delivered power of each class's " *
+              "source design",
+        error="Holtrop's worked example within 5\\,\\%; uncalibrated 9 to 71\\,\\% above " *
+              "the source designs", effect=switched(:calibration)),
+    (part="Added resistance in waves", varied="removed",
+        model="SNNM response integrated over the ERA5 wave spectrum, waves from any angle",
+        error="peak in head waves within the scatter of the data behind SNNM",
+        effect=switched(:waves)),
+    (part="Windage", varied="removed",
+        model="drag coefficient times the cosine of the apparent wind angle on the front " *
+              "area", error="no side force, no dependence on the deck cargo",
+        effect=switched(:windage)),
+    (part="Heel, leeway and rudder limits", varied="removed",
+        model="steady balance; side force beyond the limits is shed by trimming the rig",
+        error="limits are design rules, not measured", effect=switched(:limits)),
+    (part="Leeway and rudder drag", varied="rudder drag off",
+        model="Kijima side force slope; rudder as a lifting line carrying the yaw moment",
+        error="hull side force from regression, not from tests of these hulls",
+        effect=switched(:rudder)),
+    (part="Propeller and engine", varied="input ranges",
+        model="actuator disk with viscous loss; engine efficiency falling at part load",
+        error="no open-water curve of a real propeller",
+        effect=varied_inputs(:propeller_viscous_efficiency, :thrust_deduction_ratio,
+            :propeller_diameter_ratio, :part_load_penalty, :engine_rating_fraction,
+            :methanol_engine_efficiency, :vlsfo_engine_efficiency, :shaft_efficiency)),
+    (part="Wind at height", varied="input ranges",
+        model="one power-law profile from 10\\,m, the mean of ERA5 over the region",
+        error="real shear varies with stability from hour to hour",
+        effect=varied_inputs(:wind_shear_exponent, :air_density)),
+    (part="Wing sail forces", varied="input ranges",
+        model="lifting line with stall, trimmed at each wind; array factor of the units",
+        error="interference fitted to CFD of three to four sails",
+        effect=varied_inputs(:wing_max_lift_coefficient, :wing_profile_drag_coefficient,
+            :wing_span_efficiency, :wing_endplate_factor, :wing_separation_drag_factor,
+            :wing_stalled_drag_coefficient, :wing_interference_amplitude,
+            :wing_interference_decay)),
+    (part="Rotor forces", varied="input ranges",
+        model="ShipCLEAN coefficients over spin ratio, trimmed at each wind; array factor",
+        error="fit to CFD and full-scale data within its scatter; interference from two " *
+              "to four rotors",
+        effect=varied_inputs(:rotor_lift_factor, :rotor_interference_amplitude,
+            :rotor_interference_decay, :rotor_max_surface_speed, :rotor_max_wind)),
+    (part="Kite flight", varied="input ranges",
+        model="quasi-steady pattern with mass, bridle and tether drag, searched for each " *
+              "wind and course",
+        error="glide ratio of 4 matched to flight data",
+        effect=varied_inputs(:kite_min_turn_radius, :tether_length_ratio,
+            :kite_min_elevation, :kite_flight_drag, :kite_stall_margin,
+            :kite_max_force_per_area, :kite_mass_per_area, :tether_drag_coefficient)),
+    (part="Kite launch and sea limits", varied="input ranges",
+        model="fixed limits of wind and significant wave height for launch, flight and " *
+              "landing",
+        error="wave limits are estimates without a source",
+        effect=varied_inputs(:kite_launch_max_wave_height, :kite_max_wave_height,
+            :kite_landing_max_wave_height, :kite_max_wind, :kite_launch_max_wind,
+            :kite_launch_min_wind, :kite_landing_max_wind, :kite_launch_margin)),
+    (part="Wear and availability", varied="input ranges",
+        model="canopy life from UV and wear per flight hour; launch damage and loss; " *
+              "time out of service for every rig",
+        error="canopy wear rate from paragliders, not from towing kites",
+        effect=varied_inputs(:canopy_life, :tether_lifetime, :kite_cycle_damage_probability,
+            :kite_cycle_loss_probability, :kite_out_of_service, :wing_out_of_service,
+            :rotor_out_of_service, :wing_lifetime, :rotor_lifetime)),
+    (part="Rig prices", varied="input ranges",
+        model="price per area and per unit, installation, maintenance",
+        error="ranges of the quoted and built-up prices",
+        effect=varied_inputs(:canopy_making_cost_per_area, :tether_price,
+            :canopy_cloth_base_price, :wing_cost_per_area, :wing_unit_cost,
+            :rotor_cost_per_area, :rotor_unit_cost, :maintenance_fraction)),
+    (part="Weather sample", varied="each year alone",
+        model="ERA5 2017 to 2019, a departure every 6\\,h",
+        error="three years against a climate", effect=weather_years()),
+    (part="Router", varied="corridor grid",
+        model="dynamic programming over a corridor grid of positions and speeds",
+        error="not converged in the corridor spacing", effect=corridor_grids()),
+    (part="Rig size search", varied="every size",
+        model="three sizes, then two by interpolation",
+        error="the loss against the best of every size, shown here",
+        effect=size_search_grid()),
+]
+
+"the whole model and the model with `part` off, in the model-part study"
+switched(part) =
+    ("model_parts.csv", "ship", [[("part" => "none",), ("part" => string(part),)]])
+
+"for each of `inputs`, the base and both bounds of the input screening"
+varied_inputs(inputs...) = ("sensitivity.csv", "ship",
+    [[("input" => "none", "bound" => "value"); [("input" => string(input), "bound" => bound)
+                                                for bound in ("low", "high")]]
+     for input in inputs])
+
+"each weather year"
+weather_years() = ("weather_years.csv", "ship",
+    [[("year" => year,) for year in 1:ceil(Int, last(departures) / 8760)]])
+
+"each corridor scale of the convergence study, on its one ship"
+corridor_grids() =
+    ("convergence.csv", nothing, [[("scale" => scale,) for scale in (8.0, 4.0, 2.0)]])
+
+"the best size found by the search and the best of every size"
+size_search_grid() = ("size_search.csv", "class", [[(), ("round" => >=(0),)]])
+
+"""
+    part_effect((file, ship_column, groups))
+
+Largest difference [points] in the cost saving of each rig between the condition sets of
+any one of `groups` in data `file`, over its ships in `ship_column`, `nothing` for a file
+of the 140 m ship alone; and for each set of rigs that take turns at being cheapest
+within a group, the ships where they do.
+"""
+function part_effect((file, ship_column, groups))
+    table = read_table(data_file(file))
+    spread = Dict(rig => 0.0 for rig in rig_names)
+    swaps = Dict{String, Set{String}}()
+    ships = isnothing(ship_column) ? [nothing] : unique(table[ship_column])
+    for ship in ships, group in groups
+        at_ship = isnothing(ship) ? () : (ship_column => ship,)
+        costs = filter(cost -> all(isfinite, values(cost)),
+            [best_costs(table, (at_ship..., variant...)) for variant in group])
+        length(costs) > 1 || continue
+        for rig in rig_names
+            savings = [percent_saving(cost[rig], cost["none"]) for cost in costs]
+            spread[rig] = max(spread[rig], maximum(savings) - minimum(savings))
+        end
+        best = unique(argmin(rig -> cost[rig], rig_names) for cost in costs)
+        length(best) > 1 && push!(get!(swaps, join(sort(best), "/"), Set()),
+            replace(short_ship(something(ship, "140 m")), " " => "~"))
+    end
+    return spread, sort([string(rigs, " on ", join(sort(collect(swapped)), ", "))
+                         for (rigs, swapped) in swaps])
+end
+
+"cheapest cost per tonne-km without a rig and of each rig in the `conditions` rows"
+best_costs(table, conditions) = Dict(rig => minimum(table["cost"][rows(table,
+    conditions..., "rig" => rig)]; init=Inf) for rig in ("none", rig_names...))
+
+"""
+    fidelity_table()
+
+Write each of [`fidelity_parts`](@ref) with its model, its effect on each rig's cost saving
+and on which rig is cheapest by [`part_effect`](@ref), and its known error, to
+paper/sections/fidelity_table.tex.
+"""
+function fidelity_table()
+    open(joinpath(sections, "fidelity_table.tex"), "w") do io
+        for (; part, varied, model, error, effect) in fidelity_parts()
+            spread, swaps = part_effect(effect)
+            @printf(io, "%s {\\itshape (%s)} & %s & %.1f & %.1f & %.1f & %s & %s \\\\\n",
+                part, varied, model, spread["kite"], spread["wings"], spread["rotors"],
+                isempty(swaps) ? "--" : join(swaps, "; "), error)
+        end
+    end
+end
