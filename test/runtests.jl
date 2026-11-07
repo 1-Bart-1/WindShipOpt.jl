@@ -1045,7 +1045,7 @@ end
     @test sailed.duration > 0 && sailed.fuel_energy > 0
 end
 
-@testset "a ship on a long forecast handles its kite as the plan does" begin
+@testset "a ship on a long forecast flies its kite about as the plan does" begin
     ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
     kite_table = RouteTable(PerformanceTable(ship, assumptions))
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
@@ -1055,8 +1055,28 @@ end
     sailed = forecast_route(corridor, kite_table, weather, departure;
         time_cost=kite_hourly, horizon=24.0 * 100)
     @test leg.launches > 0
-    @test sailed.aloft == leg.aloft
+    @test sailed.launches == leg.launches
+    @test sailed.flight_hours ≈ leg.flight_hours rtol = 0.02
     @test sailed.objective ≈ leg.objective rtol = 1e-3
+end
+
+@testset "a kite flying in good wind stays up unless the plan ahead needs it stowed" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+    i = findfirst(i -> leg.aloft[i] && leg.aloft[i + 1], 1:(length(leg.path) - 1))
+    lateral = WindShipOpt.nearest_lateral(corridor, i, leg.path[i][1], leg.path[i][2])
+    next = WindShipOpt.nearest_lateral(corridor, i + 1, leg.path[i + 1][1],
+        leg.path[i + 1][2])
+    prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
+    sail(ahead) = WindShipOpt.sail_planned_edge!(WindShipOpt.SailedPoint[], kite_table,
+        weather, corridor, i, lateral, WindShipOpt.lateral_step(lateral, next),
+        departure + leg.path[i][3], leg.path[i + 1][4], true, ahead, prices)
+    @test sail((0.0, 0.0))[3]
+    @test !sail((0.0, Inf))[3]
 end
 
 "Synthetic weather with a gale from the south-west no ship can sail in before `calm_from`."
@@ -1117,7 +1137,7 @@ WindShipOpt.waves(weather::PassingGale, lat, lon, time) =
     prices = (; fuel=table.table.ship.fuel.price, time=hourly)
     hours, tally, _, speed = WindShipOpt.sail_planned_edge!(WindShipOpt.SailedPoint[],
         table, gale, corridor, 1, centre, step, 24.0 * 31, table.speeds[planned], false,
-        false, prices)
+        (0.0, Inf), prices)
     @test isfinite(hours) && isfinite(tally.cost)
     @test speed < table.speeds[planned]
 end

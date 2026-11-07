@@ -1095,28 +1095,62 @@ function traced_leg(workspace::RouteWorkspace, corridor, table, final, first_sta
 end
 
 """
+    plan_values(plan, corridor, table, weather, departure, first_stage, prices)
+
+Least fuel and rig cost [USD] from each node of `plan`, which leaves stage `first_stage`
+of `corridor` at `departure` [h], to its end with the kite stowed (column 1) or aloft
+(column 2) at that node, sailing the plan's course, times and speeds in `weather` and
+landing the kite by the end; `Inf` where that is not possible.
+"""
+function plan_values(plan::Leg, corridor, table::RouteTable, weather, departure,
+        first_stage, prices)
+    nodes = length(plan.path)
+    values = fill(Inf, nodes, 2)
+    values[nodes, 1] = 0.0
+    points = SailedPoint[]
+    next = nearest_lateral(corridor, first_stage + nodes - 1, plan.path[nodes][1],
+        plan.path[nodes][2])
+    for i in (nodes - 1):-1:1
+        stage = first_stage + i - 1
+        lateral = nearest_lateral(corridor, stage, plan.path[i][1], plan.path[i][2])
+        step, time = lateral_step(lateral, next), departure + plan.path[i][3]
+        start = EdgeSample(table.table, weather, corridor, stage, lateral, step, 0.0, time)
+        hours = sail_edge!(points, start, table, weather, corridor, stage, lateral, step,
+            time, searchsortedfirst(table.speeds, plan.path[i + 1][4]))
+        if isfinite(hours)
+            for aloft in (false, true)
+                down, up = kite_passage(table, points, aloft, prices)
+                values[i, aloft + 1] = min(down.cost + values[i + 1, 1],
+                    up.cost + values[i + 1, 2])
+            end
+        end
+        next = lateral
+    end
+    return values
+end
+
+"""
     sail_planned_edge!(points, table, weather, corridor, stage, lateral, step, time, speed,
-                       aloft, planned_aloft, prices)
+                       aloft, ahead, prices)
 
 Sail edge `step` of node (`stage`, `lateral`) of `corridor`, left at `time` [h] with the
 kite `aloft` or stowed, in the real `weather` at the planned `speed` [m/s], or at the
 highest lower speed of the [`RouteTable`](@ref) `table` the ship can hold with its kite as
-it is. The kite ends the edge aloft where it can fly and the plan has it aloft or the ship
-cannot sail the edge with it stowed; on the last edge it ends stowed. Returns the hours,
-the [`EdgeTally`](@ref), whether the kite ends aloft and the speed sailed; `Inf` hours
-where no speed passes.
+it is. The kite ends the edge in the state whose cost on the edge plus `ahead`, the cost
+[USD] from the next node with the kite stowed and aloft, is least. Returns the hours, the
+[`EdgeTally`](@ref), whether the kite ends aloft and the speed sailed; `Inf` hours where
+no speed passes.
 """
 function sail_planned_edge!(points, table::RouteTable, weather, corridor, stage, lateral,
-        step, time, speed, aloft, planned_aloft, prices)
-    last_edge = stage + 1 == size(corridor.lat, 1)
+        step, time, speed, aloft, ahead, prices)
+    stowed_ahead, aloft_ahead = any(isfinite, ahead) ? ahead : (0.0, 0.0)
     start = EdgeSample(table.table, weather, corridor, stage, lateral, step, 0.0, time)
     for speed_index in searchsortedfirst(table.speeds, speed):-1:1
         hours = sail_edge!(points, start, table, weather, corridor, stage, lateral, step,
             time, speed_index)
         isfinite(hours) || continue
         down, up = kite_passage(table, points, aloft, prices)
-        ends_aloft = !last_edge && isfinite(up.cost) &&
-                     (planned_aloft || !isfinite(down.cost))
+        ends_aloft = up.cost + aloft_ahead < down.cost + stowed_ahead
         tally = ends_aloft ? up : down
         isfinite(tally.cost) && return hours, tally, ends_aloft, table.speeds[speed_index]
     end
@@ -1131,8 +1165,9 @@ Passage of a ship that re-plans every 24 hours by [`route`](@ref) on the
 [`RouteTable`](@ref) `table` with the last forecast of the [`ForecastArchive`](@ref)
 `forecast`, or with a [`ForecastWeather`](@ref) of `horizon` hours where `nothing`, and
 sails each plan in the real `weather` until the next re-plan by
-[`sail_planned_edge!`](@ref); fuel, flight hours and objective are those of the real
-weather. Where no plan leaves its node or the real weather stops the next edge, the ship
+[`sail_planned_edge!`](@ref), launching and landing the kite where the real weather of an
+edge and the [`plan_values`](@ref) ahead make that cheapest; fuel, flight hours and
+objective are those of the real weather. Where no plan leaves its node or the real weather stops the next edge, the ship
 holds there with the kite stowed on its hotel load
 until the next forecast, 6 h later, and plans again. Returns `nothing` after holding
 72 h at one node.
@@ -1157,13 +1192,15 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             first_stage=stage, first_lateral=lateral, first_aloft=aloft, coastal_penalty)
         blocked = isnothing(plan)
         plan_start, plan_end = time, blocked ? 1 : length(plan.path)
+        values = blocked ? nothing :
+                 plan_values(plan, corridor, table, known, departure + time, stage, prices)
         for i in 2:plan_end
             next_lat, next_lon, _, speed, _ = plan.path[i]
             next = nearest_lateral(corridor, stage + 1, next_lat, next_lon)
             step = lateral_step(lateral, next)
             hours, tally, aloft, speed = sail_planned_edge!(points, table, weather,
                 corridor, stage, lateral, step, departure + time, speed, aloft,
-                plan.aloft[i], prices)
+                (values[i, 1], values[i, 2]), prices)
             blocked = !isfinite(hours)
             blocked && break
             penalty = edge_penalty(corridor, stage, next, coastal_penalty)
