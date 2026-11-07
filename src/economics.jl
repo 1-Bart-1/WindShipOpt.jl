@@ -552,6 +552,10 @@ function leg_time_costs(costs::ShipCosts, assumptions::Assumptions)
            time_cost(costs, assumptions, assumptions[:backhaul_fraction] * cargo)
 end
 
+"outcome of the round trip of one departure in a [`RoundTrip`](@ref)"
+const DepartureOutcome = @NamedTuple{departure::Float64, cost_per_tonne_km::Float64,
+    fuel_per_tonne_km::Float64, flight_share::Float64}
+
 """
     RoundTrip
 
@@ -582,6 +586,9 @@ struct RoundTrip
     forced_landings::Float64
     "whether the wings or rotors are retractable, the cheaper option for the ship"
     retractable::Bool
+    "each departure [h] with its cost [USD per tonne-km], fuel per tonne-km [MJ] and kite
+    flight share [-], the ship and its cargo as over all departures"
+    departures::Vector{DepartureOutcome}
 end
 
 """
@@ -695,10 +702,10 @@ with_share(states) = filter(state -> first(state) > 0, states)
     service_passages(ship, outbound, inbound, weather, departures, assumptions, hourly,
                      port_hours, horizon, held_knots)
 
-Mean fuel energy [J], outbound and return hours, kite flight hours, launches, forced
-landings and rig running cost [USD] of `ship` per round trip over `departures`,
-with the largest leg's fuel energy [J]; `nothing` if any passage is infeasible. The router
-holds `held_knots` [kn] by [`held_speed_table`](@ref), or chooses speed where `nothing`.
+Fuel energy [J], outbound and return hours, kite flight hours, launches, forced landings
+and rig running cost [USD] of `ship` on the round trip of each of `departures`, with the
+largest leg's fuel energy [J]; `nothing` if any passage is infeasible. The router holds
+`held_knots` [kn] by [`held_speed_table`](@ref), or chooses speed where `nothing`.
 """
 function service_passages(ship::Ship, outbound, inbound, weather, departures, assumptions,
         hourly, port_hours, horizon, held_knots)
@@ -708,19 +715,51 @@ function service_passages(ship::Ship, outbound, inbound, weather, departures, as
     legs = fetch.([Threads.@spawn route_round_trip(route_table, outbound, inbound, weather,
                        departure, port_hours, hourly, horizon) for departure in departures])
     any(isnothing, legs) && return nothing
-    flight_hours = mean(first(pair).flight_hours + last(pair).flight_hours for pair in legs)
-    launches = mean(first(pair).launches + last(pair).launches for pair in legs)
-    forced_landings = mean(first(pair).forced_landings + last(pair).forced_landings
-                           for pair in legs)
-    means = (energy=mean(first(pair).fuel_energy + last(pair).fuel_energy for pair in legs),
-        out_hours=mean(first(pair).duration for pair in legs),
-        back_hours=mean(last(pair).duration for pair in legs),
-        flight_hours, launches, forced_landings,
+    passages = [round_trip_passage(table, out, back) for (out, back) in legs]
+    largest_leg = maximum(max(out.fuel_energy, back.fuel_energy) for (out, back) in legs)
+    return (; passages, largest_leg)
+end
+
+"""
+    round_trip_passage(table, out, back)
+
+Fuel energy [J], outbound and return hours, kite flight hours, launches, forced landings
+and rig running cost [USD] of the round trip of the legs `out` and `back` of a ship with
+the [`PerformanceTable`](@ref) `table`.
+"""
+function round_trip_passage(table, out, back)
+    flight_hours = out.flight_hours + back.flight_hours
+    launches = out.launches + back.launches
+    forced_landings = out.forced_landings + back.forced_landings
+    return (energy=out.fuel_energy + back.fuel_energy, out_hours=out.duration,
+        back_hours=back.duration, flight_hours, launches, forced_landings,
         rig_cost=table.wear_cost * flight_hours + table.cycle_cost * launches +
                  table.forced_landing_cost * forced_landings)
-    largest_leg = maximum(max(first(pair).fuel_energy, last(pair).fuel_energy)
-                          for pair in legs)
-    return (; means, largest_leg)
+end
+
+"""
+    weighted_sum(weights, passages)
+
+Sum of the [`round_trip_passage`](@ref) results `passages` field by field, each times its
+weight.
+"""
+weighted_sum(weights, passages) = map((values...) -> sum(weights .* values), passages...)
+
+"""
+    voyage_cost(ship, costs, store, cargo, passage, port_hours, assumptions; delay=0)
+
+Cost [USD] of one round trip of `ship` with the [`ShipCosts`](@ref) `costs`, a fuel `store`
+by [`fuel_store`](@ref) and `cargo` [t] outbound on `passage` by
+[`round_trip_passage`](@ref), with `port_hours` [h] per call and `delay` [h] more in each
+port.
+"""
+function voyage_cost(ship, costs, store, cargo, passage, port_hours, assumptions; delay=0.0)
+    (; energy, out_hours, back_hours, rig_cost) = passage
+    store_cost = store_round_trip_cost(store.price, out_hours + back_hours + 2port_hours,
+        assumptions)
+    return energy * ship.fuel.price + rig_cost + port_costs(ship.hull, assumptions) +
+           store_cost + voyage_time_cost(costs, assumptions, cargo, out_hours, back_hours,
+               port_hours + delay)
 end
 
 """
@@ -729,13 +768,13 @@ end
 
 Route `ship` out along `outbound` and back along `inbound` for each departure time
 [h] in each of its [`service_states`](@ref), and turn the result averaged over the
-departures and the states into the cost per tonne-km of the transport service. With a
-finite forecast `horizon` [h] the router knows the weather only that far ahead, and with
-`held_knots` [kn] the ship holds that speed instead of choosing by cost. Wings and
-rotors are fixed or retractable, whichever costs less. The router prices time at the
-hold's cargo before the fuel store, and the store also holds the largest leg with a unit
-down, without its reserve. Returns `nothing` if any passage is infeasible or the
-fuel store leaves no cargo.
+departures and the states into the cost per tonne-km of the transport service, and that
+of each departure with the same ship. With a finite forecast `horizon` [h] the router
+knows the weather only that far ahead, and with `held_knots` [kn] the ship holds that
+speed instead of choosing by cost. Wings and rotors are fixed or retractable, whichever
+costs less. The router prices time at the hold's cargo before the fuel store, and the
+store also holds the largest leg with a unit down, without its reserve. Returns `nothing`
+if any passage is infeasible or the fuel store leaves no cargo.
 """
 function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
         departures, assumptions::Assumptions; horizon=Inf, held_knots=nothing)
@@ -744,38 +783,40 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
     hourly = leg_time_costs(costs, assumptions)
     router_hourly = isnothing(held_knots) ? hourly : HELD_SPEED_TIME_FACTOR .* hourly
     states = service_states(ship.rig, assumptions)
-    passages = [service_passages(with_rig(ship, rig), outbound, inbound, weather,
+    services = [service_passages(with_rig(ship, rig), outbound, inbound, weather,
                     departures, assumptions, router_hourly, port_hours, horizon, held_knots)
                 for (_, rig) in states]
-    any(isnothing, passages) && return nothing
+    any(isnothing, services) && return nothing
     shares = first.(states)
-    means = map((values...) -> sum(shares .* values), getproperty.(passages, :means)...)
-    (; energy, out_hours, back_hours, flight_hours, launches, forced_landings, rig_cost) =
-        means
+    passages = [weighted_sum(shares, getindex.(getproperty.(services, :passages), k))
+                for k in eachindex(departures)]
+    means = weighted_sum(fill(1 / length(passages), length(passages)), passages)
+    (; energy, out_hours, back_hours, flight_hours, launches, forced_landings) = means
     reserve = assumptions[:fuel_reserve_factor]
-    largest_leg = maximum(passage.largest_leg / (rig === ship.rig ? 1 : reserve)
-                          for ((_, rig), passage) in zip(states, passages))
+    largest_leg = maximum(service.largest_leg / (rig === ship.rig ? 1 : reserve)
+                          for ((_, rig), service) in zip(states, services))
     store = fuel_store(ship, largest_leg, assumptions)
     cargo = cargo_mass(costs.hold, store.mass, store.volume)
     cargo > 0 || return nothing
-    round_trip_hours = out_hours + back_hours + 2port_hours
-    store_cost = store_round_trip_cost(store.price, round_trip_hours, assumptions)
-    running_cost = energy * ship.fuel.price + rig_cost +
-                   port_costs(ship.hull, assumptions) + store_cost
-    retractable_cost = voyage_time_cost(costs, assumptions, cargo, out_hours, back_hours,
-        port_hours)
     fixed = ShipCosts(ship, assumptions; retractable=false)
     delay = fixed_rig_port_hours(ship.rig, ship.design.class, assumptions)
-    fixed_cost = voyage_time_cost(fixed, assumptions, cargo, out_hours, back_hours,
-        port_hours + delay)
-    retractable = retractable_cost < fixed_cost
-    voyage_cost = running_cost + min(retractable_cost, fixed_cost)
-    capital = (retractable ? costs.capital : fixed.capital) + store.price
+    retractable = voyage_cost(ship, costs, store, cargo, means, port_hours, assumptions) <
+                  voyage_cost(ship, fixed, store, cargo, means, port_hours, assumptions;
+                      delay)
+    fitted, fitted_delay = retractable ? (costs, 0.0) : (fixed, delay)
+    capital = fitted.capital + store.price
     tonne_km = cargo * (outbound.track_length +
                         assumptions[:backhaul_fraction] * inbound.track_length) / 1e3
-    return RoundTrip(ship.design, voyage_cost / tonne_km, energy / 1e9,
-        energy / 1e6 / tonne_km, energy * ship.fuel.carbon_intensity * 1e3 / tonne_km,
-        out_hours / 24, back_hours / 24, cargo, capital,
-        ship.powertrain.installed_power / 1e3, flight_hours / (out_hours + back_hours),
-        launches, forced_landings, retractable)
+    outcomes = [(; departure, cost_per_tonne_km=voyage_cost(ship, fitted, store, cargo,
+                     passage, port_hours, assumptions; delay=fitted_delay) / tonne_km,
+                    fuel_per_tonne_km=passage.energy / 1e6 / tonne_km,
+                    flight_share=passage.flight_hours /
+                                 (passage.out_hours + passage.back_hours))
+                for (departure, passage) in zip(departures, passages)]
+    return RoundTrip(ship.design, mean(outcome.cost_per_tonne_km for outcome in outcomes),
+        energy / 1e9, energy / 1e6 / tonne_km,
+        energy * ship.fuel.carbon_intensity * 1e3 / tonne_km, out_hours / 24,
+        back_hours / 24, cargo, capital, ship.powertrain.installed_power / 1e3,
+        flight_hours / (out_hours + back_hours), launches, forced_landings, retractable,
+        outcomes)
 end

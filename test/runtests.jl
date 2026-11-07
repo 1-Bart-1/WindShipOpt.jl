@@ -831,9 +831,24 @@ end
                     [24.0 * 31, 24.0 * 200], assumptions, hourly,
                     24assumptions[:port_time_per_call], Inf, nothing)
                 for ship in (bare, WindShipOpt.with_rig(kite, down))]
-    @test first(passages).means == last(passages).means
+    @test first(passages).passages == last(passages).passages
     kite_hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(kite, changed), changed)
     @test all(kite_hourly .> hourly)
+end
+
+@testset "each departure's cost with the year's ship averages to the round trip's cost" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    departures = [24.0 * 31, 24.0 * 200]
+    for design in (ShipDesign(:methanol, 85.0), ShipDesign(:methanol, 85.0; kite_area=400.0))
+        trip = round_trip(Ship(design, assumptions), corridors..., SyntheticWeather(),
+            departures, assumptions)
+        outcomes = trip.departures
+        @test getfield.(outcomes, :departure) == departures
+        @test mean(getfield.(outcomes, :cost_per_tonne_km)) ≈ trip.cost_per_tonne_km
+        @test mean(getfield.(outcomes, :fuel_per_tonne_km)) ≈ trip.fuel_per_tonne_km
+        @test allunique(getfield.(outcomes, :fuel_per_tonne_km))
+        @test all(0 .<= getfield.(outcomes, :flight_share) .<= 1)
+    end
 end
 
 @testset "a kite out of service makes and pays launches and forced landings pro rata" begin

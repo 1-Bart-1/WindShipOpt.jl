@@ -914,6 +914,60 @@ function route_comparison_figure()
 end
 
 """
+    season_figure()
+
+Cost saving of each departure with the best size over the year of each rig against the
+140 m e-methanol ship without a rig, over the day of the year it sails, per route.
+"""
+function season_figure()
+    routes_table = read_table(data_file("routes.csv"))
+    departures = read_table(data_file("route_departures.csv"))
+    names = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
+    ship = ("drive" => "methanol", "length" => 140.0)
+    figure = Figure(size=(page_width, 300))
+    for (k, name) in enumerate(names)
+        row, column = fldmod1(k, 3)
+        axis = Axis(figure[row, column]; title=route_label(name), limits=((0, 12), nothing),
+            xticks=((0:11) .+ 0.5, ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N",
+                "D"]), ylabel=column == 1 ? "cost saving [%]" : "")
+        hlines!(axis, 0; color=:gray, linewidth=0.5)
+        bare = departure_costs(departures, "route" => name, ship..., "rig" => "none")
+        for (j, rig) in enumerate(rig_names)
+            sizes = rows(routes_table, "route" => name, ship..., "rig" => rig)
+            isempty(sizes) && continue
+            area = routes_table["area"][sizes[argmin(routes_table["cost"][sizes])]]
+            costs = departure_costs(departures, "route" => name, ship..., "rig" => rig,
+                "area" => area)
+            dates = sort(collect(keys(costs)); by=dayofyear)
+            scatterlines!(axis, year_months.(dates),
+                [percent_saving(costs[date], bare[date]) for date in dates];
+                color=palette[j], markersize=5, linewidth=0.8)
+        end
+        k == 1 && axislegend(axis,
+            [MarkerElement(marker=:circle, color=palette[j], markersize=5) for j in 1:3],
+            collect(rig_names); position=:lt, framecolor=:gray70, backgroundcolor=:white,
+            labelsize=8, padding=(3, 3, 1, 1), rowgap=0)
+    end
+    save(joinpath(figures, "season.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    departure_costs(table, conditions...)
+
+Cost per tonne-km of each departure among the rows of `table` where the `conditions` hold,
+as a Dict of departure date to cost.
+"""
+departure_costs(table, conditions...) =
+    Dict(Date(table["date"][k]) => table["cost"][k] for k in rows(table, conditions...))
+
+"""
+    year_months(date)
+
+Months [-] from 1 January of the year of `date` to `date`.
+"""
+year_months(date) = 12 * (dayofyear(date) - 1) / daysinyear(date)
+
+"""
     best_cost(designs, drive, length, column_name)
 
 Lowest cost per tonne-km on the route to Guadeloupe of the base designs of one drive and
