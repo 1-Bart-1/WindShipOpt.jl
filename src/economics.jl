@@ -358,7 +358,8 @@ worn_part_price(rig::KiteRig, assumptions) = sum(consumable_costs(rig, assumptio
 """
     wear_cost(rig, assumptions)
 
-Canopy and tether wear per hour the rig is flown [USD/h]; zero for rigs that do not wear.
+Canopy wear and tether creep per hour the rig is flown [USD/h]; zero for rigs that do not
+wear.
 """
 wear_cost(rig, assumptions) = 0.0
 wear_cost(rig::CombinedRig, assumptions) = wear_cost(rig.kite, assumptions)
@@ -383,19 +384,29 @@ base_aspect_ratio_prices(assumptions::Assumptions, aspect_ratio_factor) =
 
 Cost of one launch and landing of a kite [USD]: per launch attempt the crew time, the
 expected canopy torn beyond repair and the expected loss at sea of canopy, tether and
-control unit, plus any turn for the launch; zero for other rigs.
+control unit, plus any turn for the launch and the [`tether_bending_cost`](@ref); zero for
+other rigs.
 """
 cycle_cost(rig, assumptions) = 0.0
 cycle_cost(rig::CombinedRig, assumptions) = cycle_cost(rig.kite, assumptions)
 
 function cycle_cost(rig::KiteRig, assumptions)
-    canopy, _ = consumable_costs(rig, assumptions)
+    canopy, tether = consumable_costs(rig, assumptions)
     attempt = assumptions[:kite_cycle_crew_cost] +
               assumptions[:kite_cycle_damage_probability] * canopy +
               assumptions[:kite_cycle_loss_probability] * lost_kite_cost(rig, assumptions)
     return (1 + assumptions[:kite_launch_retry_probability]) * attempt +
-           assumptions[:kite_cycle_course_cost]
+           assumptions[:kite_cycle_course_cost] + tether_bending_cost(tether, assumptions)
 end
+
+"""
+    tether_bending_cost(tether, assumptions)
+
+Share of the price of a `tether` [USD] used up by its bends over the drum and sheaves while
+it is reeled out at one launch and in at the landing [USD].
+"""
+tether_bending_cost(tether, assumptions) =
+    tether * assumptions[:tether_bends_per_launch] / assumptions[:tether_bend_life]
 
 """
     rigid_airframe_price(rig, assumptions)
@@ -427,14 +438,16 @@ end
     cycle_cost(rig::KiteRig{RigidAirframe}, assumptions)
 
 Cost of launching and landing all kites of `rig` once [USD]: crew time, the expected loss
-of a kite and the energy of the hover.
+of a kite, the energy of the hover and the [`tether_bending_cost`](@ref) of their tethers.
 """
 function cycle_cost(rig::KiteRig{RigidAirframe}, assumptions)
     (; count, hover_power) = rig.airframe
     energy = hover_power * assumptions[:rigid_hover_minutes] / 60 / 1e3
+    _, tethers = consumable_costs(rig, assumptions)
     return count * (assumptions[:kite_cycle_crew_cost] +
             assumptions[:rigid_hover_energy_price] * energy) +
-           assumptions[:rigid_cycle_loss_probability] * lost_kite_cost(rig, assumptions)
+           assumptions[:rigid_cycle_loss_probability] * lost_kite_cost(rig, assumptions) +
+           tether_bending_cost(tethers, assumptions)
 end
 
 """

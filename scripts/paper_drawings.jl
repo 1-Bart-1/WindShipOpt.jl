@@ -494,8 +494,12 @@ function draw_router_grid!(axis)
         offset=(-4, 0), fontsize=pt(8))
     text!(axis, last(passage); text="destination", align=(:left, :center),
         offset=(4, 0), fontsize=pt(8))
+    settings = WindShipOpt.ROUTER_SETTINGS[]
+    speeds = length(WindShipOpt.commanded_speeds(settings.routing_speeds,
+        settings.search_speed_stride))
     text!(axis, from + Point2f(1, WindShipOpt.MAX_LATERAL_STEP); text=@sprintf(
-        "edges to ±%d nodes,\nwhole knots from 4", WindShipOpt.MAX_LATERAL_STEP),
+        "edges to ±%d nodes,\n%d speeds from %g kn", WindShipOpt.MAX_LATERAL_STEP, speeds,
+        WindShipOpt.LOWEST_ROUTING_KNOTS),
         align=(:left, :bottom), offset=(3, 0), fontsize=pt(8), color=palette[1])
     arrows2d!(axis, [Point2f(2, -5.8)], [Vec2f(6, 0)]; color=:black, shaftwidth=0.6,
         tipwidth=4, tiplength=4)

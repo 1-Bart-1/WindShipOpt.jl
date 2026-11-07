@@ -730,13 +730,13 @@ end
 trim_settings(rig::KiteRig) = eachindex(rig.side_weights)
 
 """
-    CombinedRig{S}
+    CombinedRig{K, S}
 
-Towing kite flown over a standing rig of wings or rotors, of type `S`; the standing rig
-works whether or not the kite flies.
+Towing kite of type `K` flown over a standing rig of wings or rotors, of type `S`; the
+standing rig works whether or not the kite flies.
 """
-struct CombinedRig{S}
-    kite::KiteRig
+struct CombinedRig{K <: KiteRig, S}
+    kite::K
     standing::S
 end
 
