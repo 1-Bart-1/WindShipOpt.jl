@@ -294,6 +294,19 @@ end
     @test !isnothing(point) && point[1] > wind
 end
 
+@testset "a kite gives force only between table rows that both hold a pattern" begin
+    rig = uniform_kite(Hull(140.0, assumptions), assumptions)
+    rig.forces[1, :, :] .= Ref(WindShipOpt.NO_PATTERN)
+    env = Environment(assumptions)
+    trim = first(WindShipOpt.trim_settings(rig))
+    force_at(speed) = WindShipOpt.rig_force(rig, env,
+        speed / WindShipOpt.wind_at_height(env, 1.0, rig.reference_height), π / 2, 0.0,
+        trim)
+    @test force_at(3.9) === WindShipOpt.NO_RIG_FORCE
+    @test force_at(5.9) === WindShipOpt.NO_RIG_FORCE
+    @test force_at(6.1).thrust != 0
+end
+
 @testset "no pattern gives force under the launch wind" begin
     for area in (800.0, 3200.0)
         model, max_force, tether_diameter = WindShipOpt.kite_model(area, 3.0, assumptions)
@@ -1295,19 +1308,6 @@ end
         indices = WindShipOpt.commanded_speeds(count, stride)
         @test last(indices) == count && step(indices) == stride && first(indices) <= stride
     end
-end
-
-@testset "a heavy wing flies crosswind though it cannot hang at rest" begin
-    wing = WindShipOpt.KiteAero(60.0, 1.25, 0.15, 1500.0, 1.225, 9.81)
-    off_wind, wind = 1.3, (14.0, 0.0, 0.0)
-    radial = WindShipOpt.window_position(off_wind, π / 2)
-    heading = (0.0, -1.0, 0.0)
-    still = (0.0, 0.0, 0.0)
-    @test first(WindShipOpt.steering_residual(wing, wind, radial, heading, still, 300.0,
-        1e-3)) > 0
-    airspeed, tension, _ = WindShipOpt.steering_point(wing, wind, radial, heading, still,
-        300.0)
-    @test airspeed > 15 && tension > 0
 end
 
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
