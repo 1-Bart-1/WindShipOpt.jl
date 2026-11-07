@@ -435,19 +435,6 @@ end
     @test WindShipOpt.wear_cost(rig, shorter) - flown ≈ canopy / 4000
 end
 
-@testset "maintenance charges a rig's capital but not the parts wear replaces" begin
-    maintenance_of(ship) = ShipCosts(ship, with_value(assumptions, :maintenance_fraction,
-        0.04)).fixed_annual - ShipCosts(ship, assumptions).fixed_annual
-    kite = Ship(ShipDesign(:methanol, 140.0; kite_area=3200.0), assumptions)
-    worn = sum(WindShipOpt.consumable_costs(kite.rig, assumptions))
-    @test maintenance_of(kite) ≈ 0.01 * (ShipCosts(kite, assumptions).capital - worn)
-    both = Ship(ShipDesign(:methanol, 140.0; kite_area=3200.0, rotor_area=400.0),
-        assumptions)
-    @test maintenance_of(both) ≈ 0.01 * (ShipCosts(both, assumptions).capital - worn)
-    rotors = Ship(ShipDesign(:methanol, 140.0; rotor_area=400.0), assumptions)
-    @test maintenance_of(rotors) ≈ 0.01 * ShipCosts(rotors, assumptions).capital
-end
-
 # Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
 @testset "wing force follows true wind, shear and ship speed as worked by hand" begin
     env = Environment(assumptions)
@@ -638,6 +625,22 @@ end
     at_midship = WindShipOpt.RigForce(1e5, 2e5, 0.0, 0.0)
     rudder = WindShipOpt.rudder_side_force(hull, at_midship)
     @test 2e5 * (0 - centre) + rudder * (-hull.length / 2 - centre) ≈ 0 atol = 1e-3
+end
+
+@testset "a kite tows from its bow mast, and towing midship loads the rudder more" begin
+    hull = Hull(140.0, assumptions)
+    design = ShipDesign(:methanol, 140.0; kite_area=800.0)
+    bow = Ship(design, assumptions)
+    midship = Ship(design, WindShipOpt.with_value(assumptions, :kite_tow_position, 0.0))
+    @test bow.rig.attach_position ≈ WindShipOpt.launch_mast_position(hull, assumptions)
+    @test midship.rig.attach_position == 0
+    wind_speed, wind_angle, ship_speed = 8.8295, 86.6957, 5.4 # hand check's beam reach
+    balance(ship) = WindShipOpt.HullBalance(ship, ship_speed,
+        rig_force(ship.rig, ship.env, wind_speed, deg2rad(wind_angle), ship_speed, 1))
+    # midship lies 47 m aft of the lateral centre, the bow mast 4 m ahead of it
+    @test balance(midship).rudder_lift_coefficient >
+          3balance(bow).rudder_lift_coefficient > 0
+    @test balance(midship).drag > balance(bow).drag
 end
 
 @testset "a rig ship is sized near the bare ship in calm water" begin
@@ -1529,6 +1532,34 @@ end
         @test WindShipOpt.crash_cost(rig, assumptions) * rig.count ≈
               first(WindShipOpt.rig_costs(rig, assumptions))
     end
+end
+
+@testset "rigs pay their own maintenance fraction, not on what wear or upkeep pays" begin
+    raised(name) = with_value(assumptions, name, assumptions[name] + 0.01)
+    costs(ship, inputs) = ShipCosts(ship, inputs; retractable=false)
+    maintenance_of(ship, name) = costs(ship, raised(name)).fixed_annual -
+                                 costs(ship, assumptions).fixed_annual
+    bare = Ship(ShipDesign(:methanol, 140.0), assumptions)
+    @test maintenance_of(bare, :rig_maintenance_fraction) == 0
+    for rig_area in ((; kite_area=3200.0), (; kite_area=3200.0, rotor_area=400.0),
+        (; rotor_area=400.0))
+        ship = Ship(ShipDesign(:methanol, 140.0; rig_area...), assumptions)
+        rig_capital = first(WindShipOpt.rig_costs(ship.rig, assumptions))
+        worn = WindShipOpt.worn_part_price(ship.rig, assumptions)
+        @test maintenance_of(ship, :maintenance_fraction) ≈
+              0.01 * (costs(ship, assumptions).capital - rig_capital)
+        @test maintenance_of(ship, :rig_maintenance_fraction) ≈ 0.01 * (rig_capital - worn)
+    end
+    fleet = rigid_fleet(2, assumptions)
+    capital = first(WindShipOpt.rig_costs(fleet, assumptions))
+    airframes = WindShipOpt.rigid_airframe_price(fleet, assumptions)
+    _, tethers = WindShipOpt.consumable_costs(fleet, assumptions)
+    @test WindShipOpt.rig_maintenance(fleet, capital, raised(:rig_maintenance_fraction)) -
+          WindShipOpt.rig_maintenance(fleet, capital, assumptions) ≈
+          0.01 * (capital - airframes - tethers)
+    rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions)
+    @test WindShipOpt.upkept_price(WindShipOpt.CombinedRig(fleet, rotors), assumptions) ≈
+          airframes + tethers
 end
 
 @testset "sizes swept stay within what fits and bracket the given size" begin

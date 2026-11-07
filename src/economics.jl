@@ -119,8 +119,8 @@ function ShipCosts(ship::Ship, assumptions::Assumptions; retractable=true)
     capital = hull + drive_premium + rig_capital
     crew = assumptions[:crew_cost] * size^assumptions[:crew_cost_exponent]
     fixed_annual = annuity + rig_annual + crew +
-                   assumptions[:maintenance_fraction] *
-                   (capital - worn_part_price(ship.rig, assumptions))
+                   assumptions[:maintenance_fraction] * (hull + drive_premium) +
+                   rig_maintenance(ship.rig, rig_capital, assumptions)
     cargo_value = isnothing(class) ? assumptions[:cargo_value] : class.cargo_value
     return ShipCosts(capital, fixed_annual, hold, cargo_value)
 end
@@ -159,8 +159,11 @@ function blocked_slots(rig, class::ShipClass, assumptions)
     footprint = deck_footprint(rig, assumptions)
     rows = ceil((footprint + assumptions[:deck_rig_clearance]) /
                 assumptions[:container_row_pitch])
-    return deck_units(rig) * 2rows * class.deck_tiers
+    return deck_units(rig) * bay_slots(rows, class)
 end
+
+"TEU slots in `rows` rows of the deck stack of `class` over one 40 ft bay, all tiers up"
+bay_slots(rows, class::ShipClass) = 2rows * class.deck_tiers
 
 blocked_slots(rig::CombinedRig, class::ShipClass, assumptions) =
     blocked_slots(rig.kite, class, assumptions) +
@@ -354,6 +357,26 @@ a kite's canopy and tether; zero for other rigs.
 worn_part_price(rig, assumptions) = 0.0
 worn_part_price(rig::CombinedRig, assumptions) = worn_part_price(rig.kite, assumptions)
 worn_part_price(rig::KiteRig, assumptions) = sum(consumable_costs(rig, assumptions))
+
+"""
+    rig_maintenance(rig, capital, assumptions)
+
+Yearly maintenance [USD/year] of `rig` of market price `capital` [USD]: the rig
+maintenance fraction of that price without what wear or upkeep per flight hour pays for,
+a kite's canopy and tether and a rigid kite's airframe.
+"""
+rig_maintenance(rig, capital, assumptions) = assumptions[:rig_maintenance_fraction] *
+                                             (capital - upkept_price(rig, assumptions))
+
+"""
+    upkept_price(rig, assumptions)
+
+Price [USD] of the parts of `rig` that wear or upkeep per flight hour pays for.
+"""
+upkept_price(rig, assumptions) = worn_part_price(rig, assumptions)
+upkept_price(rig::CombinedRig, assumptions) = upkept_price(rig.kite, assumptions)
+upkept_price(rig::KiteRig{RigidAirframe}, assumptions) =
+    worn_part_price(rig, assumptions) + rigid_airframe_price(rig, assumptions)
 
 """
     wear_cost(rig, assumptions)
