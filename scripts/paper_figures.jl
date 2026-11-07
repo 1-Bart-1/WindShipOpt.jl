@@ -1391,7 +1391,8 @@ function forecast_figure()
     Legend(figure[2, 1:3], [PolyElement(color=palette[1]), PolyElement(color=palette[2]),
             LineElement(color=:gray50, linestyle=:dash)],
         ["perfect foresight", "archived forecast", "same date in another year"];
-        orientation=:horizontal, framevisible=false, labelsize=9)
+        orientation=:horizontal, framevisible=false, labelsize=9, patchsize=(14, 8))
+    rowgap!(figure.layout, 1, 4)
     save(joinpath(figures, "forecast.pdf"), figure; pt_per_unit=print_scale)
 end
 
