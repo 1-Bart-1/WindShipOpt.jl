@@ -140,6 +140,16 @@ end
     @test heavy_wind > light_wind
 end
 
+@testset "the control unit weighs in proportion to the tether force limit" begin
+    extra = with_value(assumptions, :control_unit_mass_per_force,
+        assumptions[:control_unit_mass_per_force] + 0.1)
+    for area in (800.0, 3200.0)
+        base, max_force, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+        heavier = first(WindShipOpt.kite_model(area, 3.0, extra))
+        @test heavier.mass - base.mass ≈ 0.1e-3max_force
+    end
+end
+
 @testset "canopy life is the goal input, whatever the cloth weight" begin
     @test WindShipOpt.Canopy(assumptions).lifetime == 4000
     @test assumptions[:canopy_cloth_weight] == 200
@@ -376,13 +386,14 @@ WindShipOpt.waves(::SteadyWind, lat, lon, time) = (0.0, 0.0, 0.0)
     @test leg.launches == 0
 end
 
-@testset "cycle cost sums crew, tear, loss, retry and turn" begin
+@testset "cycle cost sums crew, tear, loss, retry, turn and tether bends" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
     control_unit = assumptions[:market_price_factor] *
                    WindShipOpt.rig_price_parts(rig, assumptions).control_unit
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
-          1.05 * (85 + 0.00005canopy + 0.00005 * (canopy + tether + control_unit)) + 130
+          1.05 * (85 + 0.00005canopy + 0.00005 * (canopy + tether + control_unit)) + 130 +
+          4 / 400_000 * tether
     @test WindShipOpt.forced_landing_cost(rig, assumptions) ≈
           0.05 * (canopy + tether + control_unit)
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
@@ -457,16 +468,16 @@ end
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 1)
-    @test force(5.8751, 26.6411).thrust ≈ 26 atol = 5
-    @test force(5.8751, 26.6411).side ≈ 63932 rtol = 1e-3
-    @test force(6.6205, 50.2378).thrust ≈ 19748 rtol = 1e-3
-    @test force(6.6205, 50.2378).side ≈ 108230 rtol = 1e-3
-    @test force(8.8295, 86.6957).thrust ≈ 113815 rtol = 1e-3
-    @test force(8.8295, 86.6957).side ≈ 242111 rtol = 1e-3
-    @test force(11.1615, 114.2277).thrust ≈ 239765 rtol = 1e-3
-    @test force(11.1615, 114.2277).side ≈ 206875 rtol = 1e-3
-    @test force(13.8026, 148.5709).thrust ≈ 337541 rtol = 1e-3
-    @test force(13.8026, 148.5709).side ≈ 78043 rtol = 1e-3
+    @test force(5.8751, 26.6411).thrust ≈ -33 atol = 5
+    @test force(5.8751, 26.6411).side ≈ 63733 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 20042 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 102099 rtol = 1e-3
+    @test force(8.8295, 86.6957).thrust ≈ 113395 rtol = 1e-3
+    @test force(8.8295, 86.6957).side ≈ 247426 rtol = 1e-3
+    @test force(11.161535, 114.227745).thrust ≈ 231689 rtol = 1e-3
+    @test force(11.161535, 114.227745).side ≈ 194164 rtol = 1e-3
+    @test force(13.8026, 148.5709).thrust ≈ 344824 rtol = 1e-3
+    @test force(13.8026, 148.5709).side ≈ 26201 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
@@ -1163,6 +1174,20 @@ end
     @test PaperRuns.data_file("study.csv") == other
 end
 
+module SizeSearch
+include(joinpath(pkgdir(Main.WindShipOpt), "scripts", "size_search.jl"))
+end
+
+@testset "a size search whose best is a bound next tries the size just inside it" begin
+    step = 2^0.25
+    @test SizeSearch.next_size([(500.0, 3.0), (2828.0, 2.0), (16000.0, 1.0)], 500.0,
+        16000.0) ≈ SizeSearch.snap_area(16000 / step)
+    @test SizeSearch.next_size([(500.0, 1.0), (2828.0, 2.0), (16000.0, 3.0)], 500.0,
+        16000.0) ≈ SizeSearch.snap_area(500 * step)
+    @test SizeSearch.next_size([(13777.0, 2.0), (16000.0, 1.0)], 500.0, 16000.0) ≈
+          SizeSearch.snap_area(sqrt(13777 * 16000))
+end
+
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
     marker = tempname()
     write(marker, "")
@@ -1302,6 +1327,19 @@ end
           3WindShipOpt.cycle_cost(one, assumptions)
 end
 
+@testset "each launch wears the tether by its bends over drum and sheaves" begin
+    soft = uniform_kite(Hull(140.0, assumptions), assumptions)
+    rigid = rigid_fleet(2, assumptions)
+    halved = with_value(assumptions, :tether_bend_life, assumptions[:tether_bend_life] / 2)
+    for rig in (soft, rigid)
+        _, tether = WindShipOpt.consumable_costs(rig, assumptions)
+        added = WindShipOpt.cycle_cost(rig, halved) -
+                WindShipOpt.cycle_cost(rig, assumptions)
+        @test added ≈
+              tether * assumptions[:tether_bends_per_launch] / assumptions[:tether_bend_life]
+    end
+end
+
 @testset "a rigid kite hovers within its own limits and stays up beyond them" begin
     fleet = rigid_fleet(2, assumptions)
     waves = assumptions[:rigid_hover_max_wave_height]
@@ -1369,6 +1407,22 @@ end
         @test WindShipOpt.crash_cost(rig, assumptions) * rig.count ≈
               first(WindShipOpt.rig_costs(rig, assumptions))
     end
+end
+
+@testset "sizes swept stay within what fits and bracket the given size" begin
+    @test WindShipOpt.sizes_around("kite", 3200.0, 16000.0) ==
+          [800.0, 1600.0, 3200.0, 6400.0, 12800.0]
+    @test WindShipOpt.sizes_around("kite", 6400.0, 16000.0) ==
+          [1600.0, 3200.0, 6400.0, 12800.0, 16000.0]
+    @test WindShipOpt.sizes_around("kite", 16000.0, 16000.0) == [4000.0, 8000.0, 16000.0]
+    @test WindShipOpt.sizes_around("rotors", 800.0, 1221.0) == [400.0, 800.0, 1221.0]
+end
+
+@testset "a sweep whose goal cost differs from the size sweep is refused" begin
+    goal = Dict("kite" => 2.0, "rotors" => 1.0)
+    @test isnothing(WindShipOpt.check_goal_cost("ship", "life", goal, Dict("kite" => 2.0)))
+    @test_throws ErrorException WindShipOpt.check_goal_cost("ship", "life", goal,
+        Dict("kite" => 2.1))
 end
 
 @testset "one rigid kite crashing costs one airframe and half of one tether" begin

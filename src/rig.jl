@@ -399,7 +399,7 @@ function kite_model(area, aspect_ratio, assumptions::Assumptions)
     tether_mass = rope_mass(tether_diameter, tether_length, assumptions)
     bridle_drag, bridle_mass = bridle_lines(area, aspect_ratio, max_force, assumptions)
     mass = Canopy(assumptions).mass_per_area * area + bridle_mass +
-           assumptions[:control_unit_mass] + tether_mass / 2
+           1e-3assumptions[:control_unit_mass_per_force] * max_force + tether_mass / 2
     polar = KitePolar(aspect_ratio)
     stall = argmax(polar.lift)
     model = KiteModel(area, mass, tether_length, env.air_density, env.gravity, polar,
