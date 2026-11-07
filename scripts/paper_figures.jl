@@ -21,7 +21,10 @@ set_theme!(fontsize=pt(10), figure_padding=4,
     fonts=(; regular=paper_font("regular"), italic=paper_font("italic"),
         bold=paper_font("bold")),
     Axis=(; xgridvisible=false, ygridvisible=false, titlesize=pt(10),
-        titlefont=:regular, titlealign=:left))
+        titlefont=:regular, titlealign=:left),
+    Legend=(; backgroundcolor=:white, framecolor=:gray55, framewidth=0.5,
+        titlefont=:regular, patchsize=(12, 7), patchlabelgap=3, rowgap=0, colgap=8,
+        titlegap=2, groupgap=6, padding=(4, 4, 2, 2), margin=(4, 4, 4, 4)))
 "the [`study_drives`](@ref) with their names in figure labels"
 drive_labels = [string(drive) => Dict(:vlsfo => "VLSFO", :methanol => "e-methanol",
                     :hydrogen => "hydrogen")[drive] for drive in study_drives]
@@ -98,7 +101,7 @@ function polar_figure()
         lines!(drag, polar["alpha"], polar["cd"]; color=palette[i], label)
         lines!(glide, polar["alpha"], polar["cl"] ./ polar["cd"]; color=palette[i])
     end
-    axislegend(drag; position=:lt, framevisible=false)
+    axislegend(drag; position=:lt)
     save(joinpath(figures, "polars.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -158,8 +161,7 @@ function pattern_figure()
             scatterlines!(thrust, forces["course"][chosen], forces[column][chosen] ./ 1e3;
                 color=palette[k], label, markersize=4)
         end
-        row == 1 && Legend(figure[3, 2], thrust; orientation=:horizontal,
-            framevisible=false, labelsize=pt(9))
+        row == 1 && Legend(figure[3, 2], thrust; orientation=:horizontal)
     end
     Colorbar(figure[3, 1]; colormap=cgrad(colours; categorical=true),
         limits=(-15, 195), ticks=courses, vertical=false, flipaxis=false, height=6,
@@ -290,8 +292,7 @@ function rig_polar_figure()
             color=palette[i])
     end
     entries = [LineElement(color=palette[i], linewidth=1.5) for i in eachindex(rigs)]
-    axislegend(side, entries, collect(first.(rigs)); position=:rt, framevisible=false,
-        labelsize=pt(9))
+    axislegend(side, entries, collect(first.(rigs)); position=:rt)
     linkxaxes!(thrust, side)
     hidexdecorations!(thrust; grid=false)
     save(joinpath(figures, "rig_polar.pdf"), figure; pt_per_unit=print_scale)
@@ -411,8 +412,7 @@ function route_figure()
         linewidth=0.8); LineElement(color=:black, linestyle=:dot, linewidth=0.8)]
     names = [[route_label(name) * " + kite" for name in route_names]; "no rig";
         "great circle"]
-    Legend(figure[2, 1:2], entries, names; orientation=:horizontal, nbanks=2,
-        framevisible=false, labelsize=pt(9))
+    Legend(figure[2, 1:2], entries, names; orientation=:horizontal, nbanks=2)
     save(joinpath(figures, "routes.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -478,8 +478,7 @@ function passage_figure()
         end
     end
     linkxaxes!(panels...)
-    Legend(figure[1, 3], panels[1]; framevisible=false, labelsize=pt(9),
-        tellheight=false)
+    Legend(figure[1, 3], panels[1]; tellheight=false)
     rowsize!(figure.layout, 1, Relative(0.6))
     save(joinpath(figures, "passage.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -552,8 +551,7 @@ function class_comparison_figure()
                 markersize=6, label=i == 1 ? kind : nothing)
         end
     end
-    Legend(figure[2, 1:3], content(figure[1, 1]); orientation=:horizontal,
-        framevisible=false, labelsize=pt(9))
+    Legend(figure[2, 1:3], content(figure[1, 1]); orientation=:horizontal)
     save(joinpath(figures, "class_comparison.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -630,8 +628,7 @@ function tow_point_figure()
         end
         print_tow_point(measure, names, savings, markers)
     end
-    Legend(figure[2, 1:2], content(figure[1, 2]); orientation=:horizontal,
-        framevisible=false, labelsize=pt(9))
+    Legend(figure[2, 1:2], content(figure[1, 2]); orientation=:horizontal)
     rowgap!(figure.layout, 1, 4)
     save(joinpath(figures, "tow_point.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -735,8 +732,7 @@ function class_size_figure()
                 drive, kind)), fontsize=pt(8.5), align=(:center, :center), color=palette[j])
         end
     end
-    Legend(figure[2, 1:3], content(figure[1, 1]); orientation=:horizontal,
-        framevisible=false, labelsize=pt(9))
+    Legend(figure[2, 1:3], content(figure[1, 1]); orientation=:horizontal)
     save(joinpath(figures, "class_sizes.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -770,7 +766,7 @@ function winner_map_figure()
         end
     end
     Legend(figure[2, 1:3], [PolyElement(color=palette[j]) for j in 1:3], kinds;
-        orientation=:horizontal, framevisible=false, labelsize=pt(9))
+        orientation=:horizontal)
     save(joinpath(figures, "winner_map.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -867,8 +863,7 @@ function wind_climate_figure()
     Legend(figure[3, 1:3], [PolyElement(color=colour) for colour in colours], class_labels,
         "wind at 10 m, head wind up; rings at $(join(rings, ", ", " and ")) % of " *
         "sailing time";
-        framevisible=false, labelsize=pt(9), titlesize=pt(9),
-        orientation=:horizontal, patchsize=(8, 8), tellwidth=false, colgap=6)
+        orientation=:horizontal, tellwidth=false)
     save(joinpath(figures, "wind_climate.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -910,7 +905,7 @@ function route_comparison_figure()
     end
     Legend(figure[length(drive_labels) + 1, 1:3],
         [PolyElement(color=palette[j]) for j in eachindex(kinds)], kinds;
-        orientation=:horizontal, framevisible=false, labelsize=pt(9), patchsize=(8, 8))
+        orientation=:horizontal)
     save(joinpath(figures, "route_comparison.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -974,9 +969,7 @@ function premium_figure()
     xlims!(axis, first(lengths) - 5, last(lengths) + 28)
     ylims!(axis, 0, nothing)
     axislegend(axis, [LineElement(color=:black, linestyle=style) for style in
-                      (:solid, :dash)], ["e-methanol", "hydrogen"]; position=:rb,
-        framevisible=false, labelsize=pt(8), patchsize=(14, 6), rowgap=0,
-        padding=(0, 0, 0, 0))
+                      (:solid, :dash)], ["e-methanol", "hydrogen"]; position=:rb)
     save(joinpath(figures, "premium.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1048,8 +1041,7 @@ function breakdown_figure()
         xlims!(axis, 0, nothing)
     end
     Legend(figure[2, 1:2], [PolyElement(color=palette[i]) for i in eachindex(parts)], names;
-        framevisible=false, orientation=:horizontal, labelsize=pt(9), patchsize=(8, 8),
-        padding=0)
+        orientation=:horizontal)
     save(joinpath(figures, "breakdown.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1088,7 +1080,7 @@ function capital_figure()
     barplot!(axis, positions, vec(values); stack, direction=:x, color=palette[stack])
     names = ["hull and basic drive", "e-methanol drive", "rig"]
     axislegend(axis, [PolyElement(color=palette[i]) for i in 1:3], names;
-        position=:rt, framevisible=false, labelsize=pt(9), patchsize=(7, 7))
+        position=:rt)
     save(joinpath(figures, "capital.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1249,8 +1241,7 @@ function situations_figure()
             [LineElement(color=:gray40, linestyle=(:dash, :loose), linewidth=0.9)]],
         [["kite", "wings", "rotors"], ["140 m, Guadeloupe", "Kamsarmax, Tubarão"],
             ["base value"]],
-        ["best size of each rig", "ship", ""]; framevisible=false,
-        labelsize=pt(9), titlesize=pt(9), rowgap=2, patchsize=(14, 8), tellheight=false)
+        ["best size of each rig", "ship", ""]; tellheight=false)
     save(joinpath(figures, "situations.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1262,7 +1253,7 @@ same price.
 """
 function aspect_figure()
     table = read_table(data_file("aspect.csv"))
-    figure = Figure(size=(column_width, 190))
+    figure = Figure(size=(column_width, 200))
     axis = Axis(figure[1, 1]; xlabel="kite aspect ratio", ylabel="cost saving [%]",
         xticks=collect(study_aspect_ratios))
     for (k, ship) in enumerate(unique(table["ship"]))
@@ -1273,7 +1264,7 @@ function aspect_figure()
         scatterlines!(axis, table["aspect_ratio"][kites], savings; color=palette[k],
             markersize=5, linewidth=1.3, label=ship)
     end
-    axislegend(axis; position=:rb, framevisible=false, labelsize=pt(8.5))
+    Legend(figure[2, 1], axis; orientation=:horizontal, nbanks=2)
     save(joinpath(figures, "aspect.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1322,9 +1313,8 @@ function force_rating_figure()
     law_entries = [LineElement(; color=:black, linestyle, linewidth=1.3)
                    for (_, linestyle, _) in laws]
     Legend(figure[2, 1], [ship_entries, law_entries], [ships, collect(last.(laws))],
-        ["ship", "cloth"]; orientation=:horizontal, nbanks=3, framevisible=false,
-        labelsize=pt(8.5), titlesize=pt(8.5), titlefont=:regular, rowgap=0, patchsize=(20, 8),
-        titleposition=:left, padding=0)
+        ["ship", "cloth"]; orientation=:horizontal, nbanks=3, titleposition=:left,
+        titlegap=6)
     rowgap!(figure.layout, 1, 6)
     save(joinpath(figures, "force_rating.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -1398,11 +1388,9 @@ function wind_angle_figure()
     hidexdecorations!(time_axis; ticks=false, ticklabels=false)
     Legend(figure[3, 1:2], [PolyElement(color=(:gray25, alpha)) for alpha in band_alphas],
         ["$name $(round(Int, low))–$(round(Int, high))°"
-         for (name, low, high) in angle_bands]; orientation=:horizontal,
-        framevisible=false, labelsize=pt(9), patchsize=(8, 8))
+         for (name, low, high) in angle_bands]; orientation=:horizontal)
     axislegend(thrust_axis, [PolyElement(color=palette[j]) for j in eachindex(rigs)],
-        ["$rig $area m²" for (rig, area) in rigs]; position=:lt, framevisible=false,
-        labelsize=pt(9), patchsize=(8, 8))
+        ["$rig $area m²" for (rig, area) in rigs]; position=:lt)
     save(joinpath(figures, "wind_angle.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1464,8 +1452,7 @@ function abatement_figure()
                 maximum(last.(limits)))
         end
     end
-    Legend(figure[3, :], panels[1, 1]; orientation=:horizontal, framevisible=false,
-        labelsize=pt(9), markersize=6)
+    Legend(figure[3, :], panels[1, 1]; orientation=:horizontal, markersize=6)
     save(joinpath(figures, "abatement.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1513,8 +1500,7 @@ function sensitivity_figure()
         end
     end
     Legend(figure[2, 1:3], [PolyElement(color=palette[1]), PolyElement(color=palette[2])],
-        ["input at low bound", "input at high bound"]; orientation=:horizontal,
-        framevisible=false, labelsize=pt(9))
+        ["input at low bound", "input at high bound"]; orientation=:horizontal)
     save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1560,8 +1546,7 @@ function component_figure()
     Legend(figure[length(rig_names) + 1, 1],
         [PolyElement(color=palette[3]), PolyElement(color=palette[6])],
         ["50 % cheaper or twice the life", "50 % dearer or half the life"];
-        orientation=:horizontal, nbanks=2, framevisible=false, labelsize=pt(9),
-        patchsize=(10, 8))
+        orientation=:horizontal, nbanks=2)
     save(joinpath(figures, "components.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1589,8 +1574,8 @@ function forecast_figure()
         text!(axis, positions[.!routed], zeros(unrouted); text=fill("none", unrouted),
             rotation=pi / 2, align=(:left, :center), fontsize=pt(8), color=palette[j])
     end
-    Legend(figure[2, 1], axis, "forecast"; orientation=:horizontal, framevisible=false,
-        labelsize=pt(9), titleposition=:left)
+    Legend(figure[2, 1], axis, "forecast"; orientation=:horizontal, titleposition=:left,
+        titlegap=6)
     save(joinpath(figures, "forecast.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1650,7 +1635,7 @@ function combination_figure()
     end
     entries = [PolyElement(color=colour) for (_, _, colour) in combination_rigs]
     Legend(figure[3, 1], entries, collect(getindex.(combination_rigs, 2));
-        orientation=:horizontal, framevisible=false, labelsize=pt(9), patchsize=(12, 8))
+        orientation=:horizontal)
     save(joinpath(figures, "combination.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1789,10 +1774,8 @@ function rigid_scaling_figure()
                 table["lowest_wind"][row], 1e-3table["thrust"][row], 1e-6prices[i])
         end
     end
-    Legend(figure[2, 1], thrust_axis; orientation=:horizontal, nbanks=2,
-        framevisible=false, labelsize=pt(8), rowgap=0, padding=0)
-    Legend(figure[2, 2], price_axis; orientation=:horizontal, nbanks=2,
-        framevisible=false, labelsize=pt(8), rowgap=0, padding=0)
+    Legend(figure[2, 1], thrust_axis; orientation=:horizontal, nbanks=2)
+    Legend(figure[2, 2], price_axis; orientation=:horizontal, nbanks=2)
     linkxaxes!(price_axis, annual_axis, wind_axis)
     save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -1823,8 +1806,7 @@ function rigid_size_figure()
                     color=palette[colour])
             end
         end
-        k == 1 && axislegend(axis; unique=true, position=:lb, framevisible=false,
-            labelsize=pt(8))
+        k == 1 && axislegend(axis; unique=true, position=:lb)
     end
     save(joinpath(figures, "rigid_size.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -1902,8 +1884,7 @@ function rigid_kite_figure()
     end
     hlines!(axis, 0; color=:gray50, linewidth=0.6)
     Legend(figure[2, 1], [PolyElement(color=colour) for (_, _, colour) in rigid_kite_rigs],
-        collect(getindex.(rigid_kite_rigs, 2)); orientation=:horizontal, nbanks=2,
-        framevisible=false, labelsize=pt(9), patchsize=(12, 8))
+        collect(getindex.(rigid_kite_rigs, 2)); orientation=:horizontal, nbanks=2)
     save(joinpath(figures, "rigid_kite.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1983,8 +1964,7 @@ function canopy_price_figure()
     vlines!(cloth, assumptions[:canopy_cloth_weight]; color=:gray, linewidth=0.75)
     ylims!(cloth, 0, nothing)
     Legend(figure[2, 1:2], [PolyElement(; color) for color in part_colors],
-        collect(parts); orientation=:horizontal, framevisible=false, labelsize=pt(9),
-        tellwidth=false, padding=0, patchsize=(10, 8))
+        collect(parts); orientation=:horizontal, tellwidth=false)
     rowgap!(figure.layout, 4)
     save(joinpath(figures, "canopy_price.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -2019,8 +1999,7 @@ function min_wind_figure()
         lines!(axis, areas, getindex.(winds, key); color, linewidth, label)
     end
     ylims!(axis, 0, 1.2 * maximum(getindex.(winds, :launch)))
-    axislegend(axis; position=(0.5, 0.45), orientation=:horizontal, framevisible=false,
-        labelsize=pt(9), patchsize=(12, 8), colgap=6)
+    axislegend(axis; position=:rb, orientation=:horizontal)
     save(joinpath(figures, "min_wind.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -2085,7 +2064,7 @@ function missed_goals_figure()
         LineElement(color=:black, linewidth=0.75, linestyle=:dot);
         PolyElement(color=(:gray50, 0.15))]
     Legend(figure[4, 1:3], entries, [collect(rig_names); "goal"; "today"; "range"];
-        orientation=:horizontal, framevisible=false, labelsize=pt(9), padding=0)
+        orientation=:horizontal)
     save(joinpath(figures, "missed_goals.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -2134,6 +2113,6 @@ function rigid_mass_figure()
         scatter!(axis, published["area"][chosen], (published["mass_low"][chosen] .+
             published["mass_high"][chosen]) ./ 2; color, markersize=6, label)
     end
-    Legend(figure[1, 2], axis; framevisible=false, labelsize=pt(8), patchsize=(12, 8))
+    Legend(figure[1, 2], axis)
     save(joinpath(figures, "rigid_mass.pdf"), figure; pt_per_unit=print_scale)
 end
