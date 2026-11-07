@@ -5,8 +5,17 @@ figures = mkpath(joinpath(root, "paper", "figures"))
 polars = joinpath(root, "data", "kite_polars")
 aspect_ratios = (3, 5, 8)
 palette = Makie.wong_colors()
-set_theme!(fontsize=10, figure_padding=4, Axis=(; xgridvisible=false, ygridvisible=false,
-    titlesize=10, titlefont=:regular, titlealign=:left))
+"path of the paper's typeface, TeX Gyre Termes, in `style`"
+paper_font(style) = joinpath(root, "data", "fonts", "texgyretermes-$style.otf")
+Makie.MathTeXEngine.set_texfont_family!(Makie.MathTeXEngine.FontFamily(Dict(
+    :regular => paper_font("regular"), :italic => paper_font("italic"),
+    :bold => paper_font("bold"), :bolditalic => paper_font("bold"),
+    :math => paper_font("math"))))
+set_theme!(fontsize=10, figure_padding=4,
+    fonts=(; regular=paper_font("regular"), italic=paper_font("italic"),
+        bold=paper_font("bold")),
+    Axis=(; xgridvisible=false, ygridvisible=false, titlesize=10, titlefont=:regular,
+        titlealign=:left))
 column_width = 334
 page_width = 522
 # points per figure unit, so that a page-wide figure is the 468 pt text width
@@ -224,7 +233,7 @@ function canopy_tension_figure()
     mean_force = sum(forces .* table["duration"]) / sum(table["duration"])
     peak_force = maximum(forces)
     tension(force) = 1e3force / area * skin_radius
-    strength = cloth_specific_strength * assumptions[:canopy_cloth_weight] / 1e3
+    strength = cloth_specific_strength * WindShipOpt.cloth_weight(assumptions) / 1e3
     figure = Figure(size=(page_width, 210))
     balance = Axis(figure[1, 1]; aspect=DataAspect(), limits=(-3.0, 7.0, -1.8, 2.0),
         title="(a) from tether force to cloth tension")
@@ -1237,6 +1246,58 @@ function aspect_figure()
 end
 
 """
+    best_force_rating_saving(table, ship, rating, exponent, areas, bare)
+
+Highest saving [%] over `areas` in force_rating.csv of `ship`, costing `bare` without a rig,
+with a kite built for `rating` whose cloth follows the limit to the power `exponent`.
+"""
+function best_force_rating_saving(table, ship, rating, exponent, areas, bare)
+    chosen = rows(table, "ship" => ship, "rating" => rating, "exponent" => exponent)
+    return maximum(percent_saving(table["cost"][row], bare)
+                   for row in chosen if table["area"][row] in areas)
+end
+
+"""
+    force_rating_figure()
+
+Saving of each study ship at its best kite area against the force limit, with cloth that
+follows the limit by the base exponent, in proportion, or not at all, each over the kite
+areas that cloth law was run at.
+"""
+function force_rating_figure()
+    table = read_table(data_file("force_rating.csv"))
+    figure = Figure(size=(column_width, 215))
+    axis = Axis(figure[1, 1]; xlabel=L"force limit $[\mathrm{kN/m^2}]$",
+        ylabel=L"cost saving $[\%]$", xticks=collect(study_force_ratings))
+    base = assumptions[:canopy_cloth_force_exponent]
+    reference = assumptions[:canopy_cloth_reference_force]
+    laws = ((base, :solid, "keeps its life"), (1.0, :dash, "in proportion"),
+        (0.0, :dot, L"fixed at $200\,\mathrm{g/m^2}$"))
+    ships = unique(table["ship"])
+    for (k, ship) in enumerate(ships)
+        bare = table["cost"][only(rows(table, "ship" => ship, "rating" => 0))]
+        for (exponent, linestyle, _) in laws
+            ratings = exponent == base ? collect(study_force_ratings) :
+                      sort([extrema(study_force_ratings)..., reference])
+            areas = Set(table["area"][rows(table, "ship" => ship, "exponent" => exponent)])
+            savings = [best_force_rating_saving(table, ship, rating,
+                           rating == reference ? base : exponent, areas, bare)
+                       for rating in ratings]
+            lines!(axis, ratings, savings; color=palette[k], linestyle, linewidth=1.3)
+        end
+    end
+    ship_entries = [LineElement(color=palette[k], linewidth=1.3) for k in eachindex(ships)]
+    law_entries = [LineElement(; color=:black, linestyle, linewidth=1.3)
+                   for (_, linestyle, _) in laws]
+    Legend(figure[2, 1], [ship_entries, law_entries], [ships, collect(last.(laws))],
+        ["ship", "cloth"]; orientation=:horizontal, nbanks=3, framevisible=false,
+        labelsize=8.5, titlesize=8.5, titlefont=:regular, rowgap=0, patchsize=(20, 8),
+        titleposition=:left, padding=0)
+    rowgap!(figure.layout, 1, 6)
+    save(joinpath(figures, "force_rating.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
     band_totals(table, rig, column; route=nothing, direction=nothing)
 
 Sum of `column` of wind_angle.csv for `rig` in each band of `angle_bands`, over every
@@ -1608,10 +1669,13 @@ function speed_size_figure()
     save(joinpath(figures, "speed_size.pdf"), figure; pt_per_unit=print_scale)
 end
 
+"`name`, a kind of kite or scenario in the rigid kite data, as the paper names it"
+paper_name(name) = replace(name, "rigid" => "VTOL")
+
 """
     rigid_scaling_figure()
 
-Beam thrust of rigid kites and a soft kite over apparent wind, and price and annual cost per
+Beam thrust of VTOL kites and a soft kite over apparent wind, and price and annual cost per
 unit of thrust at 12 m/s over area for the mass exponents of the scaling study. Prints the
 scaling table.
 """
@@ -1631,7 +1695,7 @@ function rigid_scaling_figure()
         exponent = kind == "rigid" ? base_exponent : 0.0
         chosen = rows(table, "kind" => kind, "area" => area, "exponent" => exponent)
         lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
-            color=palette[k], label="$kind $(round(Int, area)) m²")
+            color=palette[k], label="$(paper_name(kind)) $(round(Int, area)) m²")
     end
     series = [("rigid", base_exponent, :solid), ("rigid", 3.0, :dash), ("rigid", 3.3, :dot),
         ("soft", 0.0, :solid)]
@@ -1641,7 +1705,8 @@ function rigid_scaling_figure()
         areas, prices = table["area"][at_twelve], table["price"][at_twelve]
         per_thrust = 1e3 .* prices ./ table["thrust"][at_twelve]
         annual_per_thrust = 1e3 .* table["annual"][at_twelve] ./ table["thrust"][at_twelve]
-        label = kind == "soft" ? "soft kite" : "rigid, mass ∝ span^$exponent"
+        label = kind == "soft" ? "soft kite" :
+                "$(paper_name(kind)), mass ∝ span^$exponent"
         colour = kind == "soft" ? palette[5] : palette[1]
         lines!(price_axis, areas, per_thrust; linestyle, label, color=colour)
         lines!(annual_axis, areas, annual_per_thrust; linestyle, color=colour)
@@ -1727,7 +1792,7 @@ Print the mean saving [%] over the routes on VLSFO of every fleet of `scenario` 
 best first.
 """
 function print_rigid_sizes(table, ship, scenario)
-    println("  $ship, $scenario:")
+    println("  $ship, $(paper_name(scenario)):")
     fleets = fleet_savings(table, ship, scenario, "rig" => scenario)
     for (_, saving, count, unit) in sort(fleets; by=point -> -point[2])
         @printf("    %.0f x %.0f m²: %.2f %%\n", count, unit, saving)
@@ -1737,8 +1802,8 @@ end
 "rigs of the rigid kite figure with their legend labels and colours"
 rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
     ("wings", "best wings", palette[2]),
-    ("rotors", "best rotors", palette[3]), ("rigid base", "best rigid kites", palette[4]),
-    ("rigid optimistic", "best rigid kites, favourable inputs", palette[5]))
+    ("rotors", "best rotors", palette[3]), ("rigid base", "best VTOL kites", palette[4]),
+    ("rigid optimistic", "best VTOL kites, favourable inputs", palette[5]))
 
 """
     rigid_kite_figure()
@@ -1782,7 +1847,8 @@ which rigid kites lead and the most frequent best fleet of each scenario.
 function print_rigid_kite(table, ship, drive, savings)
     @printf("  %s, %s:", ship, drive)
     for (rig, _, _) in rigid_kite_rigs
-        @printf(" %s %.1f (%.1f to %.1f) %%,", rig, mean(saving[rig] for saving in savings),
+        @printf(" %s %.1f (%.1f to %.1f) %%,", paper_name(rig),
+            mean(saving[rig] for saving in savings),
             extrema(saving[rig] for saving in savings)...)
     end
     println()
@@ -1795,7 +1861,7 @@ function print_rigid_kite(table, ship, drive, savings)
         end
         leads = count(saving -> saving[scenario] > maximum(saving[rig]
                 for rig in ("kite", "wings", "rotors")), savings)
-        println("    $scenario: best fleets ", join(best, ", "), "; leads on ", leads,
-            " of ", length(route_names), " routes")
+        println("    $(paper_name(scenario)): best fleets ", join(best, ", "), "; leads on ",
+            leads, " of ", length(route_names), " routes")
     end
 end

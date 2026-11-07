@@ -777,7 +777,19 @@ canopy_cloth_weight:
   low: 200.0
   high: 200.0
   unit: g/m^2
-  reason: "Weight of the polyester ripstop of the canopy, fixed with the goal canopy_life: under a life that does not depend on it the lightest cloth would always win. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+  reason: "Weight of the polyester ripstop of the canopy at canopy_cloth_reference_force, fixed with the goal canopy_life: under a life that does not depend on it the lightest cloth would always win. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+canopy_cloth_reference_force:
+  value: 0.5
+  low: 0.5
+  high: 0.5
+  unit: kN/m^2
+  reason: "Force limit at which canopy_cloth_weight, canopy_mass_overhead and the goal canopy_life are stated, the base kite_max_force_per_area; the canopy scales from it whatever limit a kite is built for, so moving the base limit leaves the goals where they were stated."
+canopy_cloth_force_exponent:
+  value: 0.27
+  low: 0.27
+  high: 0.27
+  unit: "-"
+  reason: "Cloth weight grows with the force limit to this power, the fit that holds the 3,800 h of the strength decay in the paper over limits of 0.25 to 2 kN/m^2. Each decay input at its bound gives 0.19 to 0.34. Tension enters the decay only through the logarithm of the margin, so it asks for far less than the exponent 1 of a constant share of strength, the upper bound of the force rating study; 0 is cloth that ignores the limit."
 canopy_life:
   value: 4000.0
   low: 1200.0
@@ -795,7 +807,7 @@ canopy_mass_overhead:
   low: 0.02
   high: 0.19
   unit: kg/m^2
-  reason: "Canopy mass per m^2 of projected area besides its cloth: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is what a 120 kg SkySails kite with lines, 225 m^2 flat, 176 m^2 projected, leaves beyond about 66 kg of cloth and 18 kg of lines, both own estimates (Paulig et al. 2013), which load patches for the ~1 t point loads of a ship kite (Thedens 2015) could account for in part."
+  reason: "Canopy mass per m^2 of projected area besides its cloth, at canopy_cloth_reference_force and in proportion to the force limit, as they carry the load at the bridle attachments: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.25 kg/m^2 projected carry 0-20 g/m^2 per flat m^2 besides their cloth, lines and risers included (Ozone Ultralite 3 and 4, Nova Mentor 6, own fit); the high bound is what a 120 kg SkySails kite with lines, 225 m^2 flat, 176 m^2 projected, leaves beyond about 66 kg of cloth and 18 kg of lines, both own estimates (Paulig et al. 2013), which load patches for the ~1 t point loads of a ship kite (Thedens 2015) could account for in part."
 canopy_cloth_base_price:
   value: 6.0
   low: 2.0
@@ -975,7 +987,7 @@ kite_max_force_per_area:
   low: 0.4
   high: 1.0
   unit: kN/m^2
-  reason: "Maximum wing loading on the projected area. 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2). SkySails design load on flat area: 160 kN on 225 m^2, about 0.7 kN/m^2 (Paulig et al. 2013), 0.9 on the projected area at 1.28 flat over projected (Folkersma et al. 2020). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4)."
+  reason: "Maximum wing loading on the projected area. 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2). SkySails design load on flat area: 160 kN on 225 m^2, about 0.7 kN/m^2 (Paulig et al. 2013), 0.9 on the projected area at 1.28 flat over projected (Folkersma et al. 2020). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4). The canopy cloth, seams and reinforcements follow the limit (canopy_cloth_force_exponent), so the bounds carry them too."
 kite_tow_position:
   value: 1.0
   low: 1.0
@@ -1000,12 +1012,24 @@ tether_rope_density:
   high: 1130.0
   unit: kg/m^3
   reason: "Rope mass over its nominal cross-section: 60.8 kg per 100 m at 30.6 mm, 827 kg/m^3 (Bosman et al. 2013, Table 33.4, coated 12-strand). Their worked-in diameter, 26.0 mm, would give 1,145 kg/m^3, above solid HMPE at 970 kg/m^3, so it cannot be the section that meets the wind. Low: Marlow D12 78 uncoated, 4.65 kg per 100 m at 10 mm. High: the SkySails tether with its power and data cable, 0.9 kg/m for 320 kN (Paulig et al. 2013)."
+tether_bend_life:
+  value: 400000.0
+  low: 5500.0
+  high: 6000000.0
+  unit: bends
+  reason: "Single bends over the winch drum or a sheave that a ship kite's tether takes to failure while it is reeled out at launch and in at landing; no test covers this low a tension, so this is our estimate from bend-over-sheave tests of 12-strand HMPE rope. Reeling at the zenith pulls about a tenth of the force limit, 3 % of break load at design factor 3 (0.05-0.3 of the limit). Davies et al. (2015) give 2 x 10^7.42 T^-2.25 bends (T in kN) for a 19 mm rope of 250 kN break load at drum-to-rope diameter ratio 20, 211 (T/break load)^-2.25; Bosman et al. (2013) give about 1.85 and 2.85 times as many at ratios 40 and 100 (read off their Fig. 33.18). At 3 % of break load and ratio 40 the power law gives 840,000 bends and a semi-log law with the slope of Bosman's tests 160,000; the base lies between. The low bound reels at 10 % of break load over ratio 20, scaled to the 70 mm tether of a 3,200 m^2 kite by d^-1.2 from Bosman's 8 and 20 mm tests and cut by up to 30 % for reverse bending; the high bound reels at 1.7 % over ratio 100."
+tether_bends_per_launch:
+  value: 4.0
+  low: 2.0
+  high: 6.0
+  unit: "-"
+  reason: "Bends of each section of the tether in one launch and landing, one per pass over a sheave or on or off the drum (Bosman et al. 2013; Davies et al. 2015): off the drum and over one guiding sheave going out, back over both coming in. Low: the drum alone; high: two sheaves."
 tether_lifetime:
   value: 13000.0
   low: 4000.0
   high: 40000.0
   unit: flight hours
-  reason: "Flight hours of a 12-strand SK78 tether flown at a fixed length; no ship or kite tether life has been measured, so this is our estimate from creep, the failure mode of a rope held under load without bending (Bosman et al. 2013; Humeau et al. 2018). Creep damage summed by Miner's rule over the hours flown at each tension on routed trips, at 25 °C: 8,600 h on the 140 m ship and 13,700 h on the Kamsarmax with the power law of Humeau et al. (exponent 4.43, 112 kJ/mol) anchored at 8 years at 20 % of break load and 20 °C (DSM 2019), 19,500 and 28,300 h with the time-tension-temperature diagram of Bosman et al.; the base lies between. The low bound is the power law at 30 °C, the high bound the diagram at 20 °C (34,000-49,000 h). The swing of each figure eight shortens the creep life about 7 % against a steady load at its mean, and its tension fatigue does not bind. Over a drum at this design factor the rope fails in bending after 45 days, about 1,100 h (Bosman et al. 2013), so the tow point turns with the tether; reeling in a few centimetres moves fresh rope against wear only. Nearest service record: HMPE ship mooring lines, designed for 8,000 mooring hours to 75 % strength at up to 22 % of break load and retired by wear (Wilhelmsen 2022). The 7 years of the Ampyx Power fixed section (van Hagen et al. 2023) is an assumption with no stated basis."
+  reason: "Creep life in flight hours of a 12-strand SK78 tether flown at a fixed length; its bending over the drum at launch and landing is charged per launch from the tether bend life. No ship or kite tether life has been measured, so this is our estimate from creep, the failure mode of a rope held under load without bending (Bosman et al. 2013; Humeau et al. 2018). Creep damage summed by Miner's rule over the hours flown at each tension on routed trips, at 25 °C: 8,600 h on the 140 m ship and 13,700 h on the Kamsarmax with the power law of Humeau et al. (exponent 4.43, 112 kJ/mol) anchored at 8 years at 20 % of break load and 20 °C (DSM 2019), 19,500 and 28,300 h with the time-tension-temperature diagram of Bosman et al.; the base lies between. The low bound is the power law at 30 °C, the high bound the diagram at 20 °C (34,000-49,000 h). The swing of each figure eight shortens the creep life about 7 % against a steady load at its mean, and its tension fatigue does not bind. Over a drum at this design factor the rope fails in bending after 45 days, about 1,100 h (Bosman et al. 2013), so the tow point turns with the tether; reeling in a few centimetres moves fresh rope against wear only. Nearest service record: HMPE ship mooring lines, designed for 8,000 mooring hours to 75 % strength at up to 22 % of break load and retired by wear (Wilhelmsen 2022). The 7 years of the Ampyx Power fixed section (van Hagen et al. 2023) is an assumption with no stated basis."
 winch_fixed_cost:
   value: 27000.0
   low: 11000.0
