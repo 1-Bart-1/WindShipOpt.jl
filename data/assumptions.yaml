@@ -596,8 +596,8 @@ rigid_tether_drag_coefficient:
   unit: "-"
   reason: "Fluted jacket of the Makani tether (Echeverri et al. 2020, Part I, Table 2); the high bound is the plain cylinder of the soft kite's tether."
 rigid_tether_price:
-  value: 160.0
-  low: 88.0
+  value: 186.0
+  low: 93.0
   high: 400.0
   unit: USD/kg
   reason: "Engineering estimate of an electrified tether at twice the price of plain rope; the low bound is EUR 80/kg for rope (Joshi et al. 2025, p.703)."
@@ -664,29 +664,29 @@ rigid_max_wind:
   unit: m/s
   reason: "Engineering estimate held at the highest apparent wind of the soft kite."
 rigid_structure_cost_per_mass:
-  value: 275.0
+  value: 290.0
   low: 140.0
   high: 400.0
   unit: USD/kg
-  reason: "Carbon composite kite structure EUR 250/kg at USD 1.1 per EUR, at a series of 50 or more without overhead or margin, which the market price factor adds (Joshi et al. 2025, p.702)."
+  reason: "Carbon composite kite structure EUR 250/kg, at a series of 50 or more without overhead or margin, which the market price factor adds (Joshi et al. 2025, p.702); the bounds are estimates."
 rigid_structure_cost_per_area:
-  value: 220.0
+  value: 232.0
   low: 110.0
   high: 400.0
   unit: USD/m^2
-  reason: "EUR 200/m^2 of the same model (Joshi et al. 2025, p.702)."
+  reason: "EUR 200/m^2 of the same model (Joshi et al. 2025, p.702); the bounds are estimates."
 rigid_avionics_cost:
-  value: 165000.0
-  low: 16500.0
+  value: 174000.0
+  low: 17400.0
   high: 250000.0
   unit: USD
-  reason: "Avionics of an early commercial kite EUR 150,000, of a prototype EUR 15,000 (Joshi et al. 2025, p.702)."
+  reason: "Avionics of an early commercial kite, with the aviation certification and redundancy that raise it, EUR 150,000; the low bound is the EUR 15,000 of a prototype without them (Joshi et al. 2025, p.702), the high bound an estimate."
 rigid_drive_cost:
-  value: 0.15
-  low: 0.08
-  high: 0.3
+  value: 0.1
+  low: 0.05
+  high: 0.2
   unit: USD/W
-  reason: "Drivetrain at the estimate of Bauer et al. (2018, p.14), 0.15 $/W with its power electronics, there including those of the ground station; scaled from hobby motor prices."
+  reason: "On-board drive at two thirds of the 0.15 $/W of Bauer et al. (2018, p.14): three times the retail price per W of a hobby motor, rounded up, for the motor, its drive electronics and the ground electronics, which the ship power cost holds here; the bounds are estimates."
 rigid_drive_margin:
   value: 1.33
   low: 1.2
@@ -728,7 +728,7 @@ rigid_upkeep_per_area:
   low: 0.26
   high: 1.2
   unit: USD/m^2/h
-  reason: "Maintenance per flight hour: Makani's budget of USD 33/h and bottom-up USD 14/h for a kite of about 54 m^2, on a service interval of 6 months (Echeverri et al. 2020, Part I, pp.120-122)."
+  reason: "All maintenance of the airframe per flight hour, for 54 m^2: USD 33/h, the most a 1 MW kite system may spend on maintenance per hour of operation at a competitive cost of energy, and USD 14/h, a rough estimate from a light aircraft airframe and two car drivetrains (Echeverri et al. 2020, Part I, pp.108-110); the airframe pays no other maintenance."
 rigid_cycle_loss_probability:
   value: 0.0001
   low: 0.0001
@@ -995,11 +995,11 @@ kite_attach_height:
   unit: m
   reason: "Engineering assumption: tether attachment on the bow mast; no source found."
 tether_price:
-  value: 80.0
+  value: 93.0
   low: 40.0
   high: 300.0
   unit: USD/kg
-  reason: "Large-diameter Dyneema SK78 rope in bulk; Faggiani & Schmehl (2018) imply ~80 EUR/kg, retail small diameters sell at 300-350 USD/kg (Marlow D12 via Mauripro/Binks)."
+  reason: "Purchase price of Dyneema rope at a series of 50 or more, EUR 80/kg (Joshi et al. 2025, p.703), paid to the rope maker without the market price factor; retail small diameters sell at 300-350 USD/kg (Marlow D12 via Mauripro/Binks); the low bound is an estimate for bulk rope of large diameter."
 tether_rope_density:
   value: 830.0
   low: 590.0
@@ -1181,7 +1181,13 @@ maintenance_fraction:
   low: 0.02
   high: 0.05
   unit: 1/year
-  reason: "Engineering assumption: maintenance alone is commonly put at 2-5 % of ship value per year; insurance comes on top, hence the high end."
+  reason: "Engineering assumption: maintenance of the hull and drive alone is commonly put at 2-5 % of ship value per year; insurance comes on top, hence the high end."
+rig_maintenance_fraction:
+  value: 0.02
+  low: 0.01
+  high: 0.05
+  unit: 1/year
+  reason: "Maintenance and repair of wings, rotors and kite hardware over their price: 2 % a year for every rig but kites, and 5 % for kites with their wear (EMSA 2023, p.45 and Table 7), the high bound, as the canopy and tether are charged by wear here; Norsepower's figure for rotors is also 2 % (Tillig et al. 2020, p.15). The low bound is an estimate."
 depth_draft_ratio:
   value: 1.32
   low: 1.27
