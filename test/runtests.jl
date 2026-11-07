@@ -474,7 +474,7 @@ end
     broad = rig_force(rotors, env, 10.0, 5π / 6, 5.4, 3.0)
     @test broad.thrust ≈ 91931 rtol = 1e-3
     @test broad.side ≈ -32685 rtol = 1e-3
-    @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.NO_RIG_FORCE
+    @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.UNREACHABLE_RIG_FORCE
 end
 
 # Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
@@ -640,6 +640,17 @@ end
     @test lookup(table, speed, wind, angle).fuel_power ≈
           WindShipOpt.fuel_power(table, speed, table.flown_thrust(speed, wind, angle),
               power)
+end
+
+@testset "rotors that cannot spin still stand as drag" begin
+    ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=300.0), assumptions)
+    speed = 5.0
+    for wind in (22.0, 30.0)
+        stopped = rig_force(ship.rig, ship.env, wind, 0.0, speed, 0.0)
+        thrust, force = WindShipOpt.best_trim(ship, ship.rig, speed, wind, 0.0)
+        @test stopped.thrust < 0
+        @test force.thrust ≈ stopped.thrust
+    end
 end
 
 @testset "fixed rigs cost port time where they block cargo or bridges" begin
@@ -1393,14 +1404,16 @@ end
     @test !is_open()
 end
 
-@testset "a round trip at a held speed is stored apart from a chosen-speed one" begin
+@testset "a round trip at a held speed or with a model part off is stored apart" begin
     @eval PaperRuns weather_name = "synthetic"
     PaperRuns.paper_run = PaperRuns.PaperRun(mktempdir(), :draft,
         Dict{String, Any}("code_hash" => "held"), 0, 0)
-    case_at(held_knots) = (; design=ShipDesign(:vlsfo, 100.0), assumptions,
-        route=:caribbean, scale=8.0, forecast=false, held_knots)
-    @test allunique(PaperRuns.case_path(case_at(held_knots), [24.0])
+    case_at(held_knots, part) = (; design=ShipDesign(:vlsfo, 100.0), assumptions,
+        route=:caribbean, scale=8.0, forecast=false, held_knots, part)
+    @test allunique(PaperRuns.case_path(case_at(held_knots, :none), [24.0])
                     for held_knots in (nothing, 8.0, 9.0))
+    @test allunique(PaperRuns.case_path(case_at(nothing, part), [24.0])
+                    for part in (:none, :waves, :windage))
 end
 
 @testset "resuming never takes over another branch's unfinished run" begin
