@@ -417,8 +417,8 @@ end
 Tabular of the ship classes with their main dimensions, deadweight and unit capacity,
 speed, engine power, resistance calibration, price, cargo value, the inputs of deck
 cargo and port operations and the frontal and lateral wind areas, in class_table.tex,
-and the rows of their sources in class_sources.tex; an infinite fixed-rig delay, where a fixed rig prevents cargo handling,
-is printed as ∞.
+and the rows of their sources in class_sources.tex; an infinite fixed-rig delay, where a
+fixed rig prevents cargo handling, is printed as ∞.
 """
 function class_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)

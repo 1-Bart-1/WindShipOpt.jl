@@ -66,8 +66,8 @@ end
 @testset "wind on the hull costs leeway and adds to the rig's side force" begin
     class = ship_classes()["PCTC car carrier"]
     bare = Ship(ShipDesign(:vlsfo, class), assumptions)
-    calm = WindShipOpt.required_thrust(bare, 7.0, 0.0, 0.0, RigForce(0.0, 0.0, 0.0, 0.0))
-    beam = WindShipOpt.required_thrust(bare, 7.0, 15.0, π / 2, RigForce(0.0, 0.0, 0.0, 0.0))
+    calm = WindShipOpt.required_thrust(bare, 7.0, 0.0, 0.0, WindShipOpt.NO_RIG_FORCE)
+    beam = WindShipOpt.required_thrust(bare, 7.0, 15.0, π / 2, WindShipOpt.NO_RIG_FORCE)
     @test beam > calm
     hull_force = WindShipOpt.wind_force(bare.windage, bare.env, 15.0, π / 2, 7.0)
     rig = RigForce(0.0, 2e5, 2e6, 0.0)
