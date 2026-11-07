@@ -3,7 +3,7 @@ using Test
 using WindShipOpt
 using WindShipOpt: correlation_allowance, bulb_resistance, friction_coefficient
 
-# Numerical example of Holtrop & Mennen (1982), components unchanged in Holtrop (1984).
+# Numerical example of Holtrop & Mennen (1982).
 const PAPER_ENV = Environment(; water_density=1025.0, water_viscosity=1.1883e-6)
 const PAPER_HULL = Hull(; length=205.0, beam=32.0, draft=10.0, displacement_volume=37500.0,
     midship_coefficient=0.98, waterplane_coefficient=0.75, centre_of_buoyancy=-0.75,
@@ -26,12 +26,58 @@ assumptions = Assumptions()
     @test correlation_allowance(PAPER_HULL, coefficients) ≈ 0.000352 rtol = 5e-3
 end
 
-# ~3500 dwt coasters install ~1.5 MW for 12.5 kn, about 1 MW at 11 kn by the cube law.
+# The 3830 t Damen Combi Freighter 3850 makes 11.8 kn on 1104 kW.
 @testset "coaster resistance and power are in the range of real coasters" begin
     ship = Ship(ShipDesign(:vlsfo, 85.0), assumptions)
     effective_power = resistance(ship.hull, ship.env, 11KNOT) * 11KNOT
     @test 350e3 < effective_power < 800e3
     @test 700 < ship.powertrain.installed_power / 1e3 < 1500
+end
+
+@testset "hull wind load follows Blendermann's loading functions" begin
+    env = Environment(assumptions)
+    windage = WindShipOpt.Windage("vehicle carrier", 180.0, 30.0, 0.0, assumptions)
+    @test windage.lateral_area ≈ 4584.16 && windage.frontal_area ≈ 811.68
+    load = 0.5env.air_density * 100.0
+    head = WindShipOpt.wind_force(windage, env, 0.0, 0.0, 10.0)
+    @test head.thrust ≈ -load * 0.55 * windage.frontal_area
+    @test head.side ≈ 0 atol = 1e-6
+    beam = WindShipOpt.wind_force(windage, env, 10.0, π / 2, 0.0)
+    @test beam.side ≈ load * 0.95 * windage.lateral_area
+    @test beam.heeling_moment ≈ beam.side * 1.2 * 12.56
+    @test beam.yaw_moment ≈ beam.side * -8.98
+end
+
+@testset "container tiers above the measured ship's add to its windage" begin
+    measured = WindShipOpt.wind_load_types()["container"]
+    alone = WindShipOpt.Windage("container", 2measured.length, 2measured.beam,
+        2measured.deck_tiers, assumptions)
+    stacked = WindShipOpt.Windage("container", 2measured.length, 2measured.beam,
+        2measured.deck_tiers + 2, assumptions)
+    @test alone.lateral_area ≈ 4measured.lateral_area
+    @test alone.frontal_area ≈ 4measured.frontal_area
+    added = 2assumptions[:container_tier_height]
+    @test stacked.frontal_area - alone.frontal_area ≈ 2measured.beam * added
+    @test stacked.lateral_area - alone.lateral_area ≈
+          assumptions[:container_stowage_fraction] * 2measured.length * added
+    @test stacked.centre_height > alone.centre_height
+    @test stacked.centre_position * stacked.lateral_area ≈
+          alone.centre_position * alone.lateral_area
+end
+
+@testset "wind on the hull costs leeway and adds to the rig's side force" begin
+    class = ship_classes()["PCTC car carrier"]
+    bare = Ship(ShipDesign(:vlsfo, class), assumptions)
+    calm = WindShipOpt.required_thrust(bare, 7.0, 0.0, 0.0, WindShipOpt.NO_RIG_FORCE)
+    beam = WindShipOpt.required_thrust(bare, 7.0, 15.0, π / 2, WindShipOpt.NO_RIG_FORCE)
+    @test beam > calm
+    hull_force = WindShipOpt.wind_force(bare.windage, bare.env, 15.0, π / 2, 7.0)
+    rig = RigForce(0.0, 2e5, 2e6, 0.0)
+    together = WindShipOpt.HullBalance(bare, 7.0, rig + hull_force)
+    @test together.leeway > WindShipOpt.HullBalance(bare, 7.0, rig).leeway
+    @test WindShipOpt.required_thrust(bare, 7.0, 15.0, π / 2, rig) ≈
+          WindShipOpt.resistance(bare.hull, bare.env, 7.0;
+              coefficients=bare.wave_coefficients) + together.drag - hull_force.thrust
 end
 
 # DNV Rules for Ships, January 2000, Pt. 3 Ch. 3 Sec. 2, guidance note, p. 9.
@@ -475,7 +521,7 @@ end
     broad = rig_force(rotors, env, 10.0, 5π / 6, 5.4, 3.0)
     @test broad.thrust ≈ 91931 rtol = 1e-3
     @test broad.side ≈ -32685 rtol = 1e-3
-    @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.NO_RIG_FORCE
+    @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.UNREACHABLE_RIG_FORCE
 end
 
 # Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
@@ -641,6 +687,17 @@ end
     @test lookup(table, speed, wind, angle).fuel_power ≈
           WindShipOpt.fuel_power(table, speed, table.flown_thrust(speed, wind, angle),
               power)
+end
+
+@testset "rotors that cannot spin still stand as drag" begin
+    ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=300.0), assumptions)
+    speed = 5.0
+    for wind in (22.0, 30.0)
+        stopped = rig_force(ship.rig, ship.env, wind, 0.0, speed, 0.0)
+        thrust, force = WindShipOpt.best_trim(ship, ship.rig, speed, wind, 0.0)
+        @test stopped.thrust < 0
+        @test force.thrust ≈ stopped.thrust
+    end
 end
 
 @testset "fixed rigs cost port time where they block cargo or bridges" begin
@@ -1091,12 +1148,15 @@ WindShipOpt.waves(weather::GaleWeather, lat, lon, time) =
     weather = GaleWeather(SyntheticWeather(), departure + 10.0)
     @test isnothing(route(corridor, table, weather, departure; time_cost=hourly))
     after = route(corridor, table, weather, departure + 12.0; time_cost=hourly)
+    ship = table.table.ship
+    hotel = 3600WindShipOpt.fuel_power(ship.powertrain, 0.0) * ship.fuel.price
+    held = 12.0 * (hotel + hourly)
     for horizon in (72.0, 0.0)
         sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly,
             horizon)
         @test length(sailed.path) == size(corridor.lat, 1)
         @test sailed.path[2][3] > 12.0
-        @test sailed.duration - 12.0 ≈ after.duration rtol = 0.02
+        @test sailed.objective - held ≈ after.objective rtol = 0.015
     end
     endless = GaleWeather(SyntheticWeather(), Inf)
     @test isnothing(forecast_route(corridor, table, endless, departure; time_cost=hourly,
@@ -1185,14 +1245,16 @@ end
     @test !is_open()
 end
 
-@testset "a round trip at a held speed is stored apart from a chosen-speed one" begin
+@testset "a round trip at a held speed or with a model part off is stored apart" begin
     @eval PaperRuns weather_name = "synthetic"
     PaperRuns.paper_run = PaperRuns.PaperRun(mktempdir(), :draft,
         Dict{String, Any}("code_hash" => "held"), 0, 0)
-    case_at(held_knots) = (; design=ShipDesign(:vlsfo, 100.0), assumptions,
-        route=:caribbean, scale=8.0, horizon=Inf, held_knots)
-    @test allunique(PaperRuns.case_path(case_at(held_knots), [24.0])
+    case_at(held_knots, part) = (; design=ShipDesign(:vlsfo, 100.0), assumptions,
+        route=:caribbean, scale=8.0, horizon=Inf, held_knots, part)
+    @test allunique(PaperRuns.case_path(case_at(held_knots, :none), [24.0])
                     for held_knots in (nothing, 8.0, 9.0))
+    @test allunique(PaperRuns.case_path(case_at(nothing, part), [24.0])
+                    for part in (:none, :waves, :windage))
 end
 
 @testset "resuming never takes over another branch's unfinished run" begin
