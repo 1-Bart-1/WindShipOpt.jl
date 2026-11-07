@@ -130,6 +130,27 @@ A ship tether is not cycled over the drum under load, so the pumping mechanism t
 
 Kitepower, SkySails Power (Mauritius, PN-14) and K Line/Oceanicwing have published no measured canopy replacement intervals or fleet flight hours; ask them directly.
 
+### Tether bending at launch and landing
+
+Each launch reels the whole tether off the drum and out over a guiding sheave, and each landing reels it back over both, so every section takes `tether_bends_per_launch` = 4 bends a cycle (2 for the drum alone, 6 with two sheaves). A launch then uses up `tether_bends_per_launch` / `tether_bend_life` of the tether's price; `cycle_cost` adds that to crew, tear, loss and turn for the soft and the rigid kite. Creep per flight hour and bending per launch add by Miner's rule. No test bends HMPE rope at the tension of reeling a ship kite, so `tether_bend_life` (400,000 bends, 5,500–6,000,000) is our estimate from small-rope tests and a stated scaling:
+
+| Date | Item | Figure | Used for | Source |
+| ---- | ---- | ------ | -------- | ------ |
+| 2015 | Davies et al., Ocean Eng. 97 | bend-over-sheave life of a 12-strand HMPE rope, 19 mm, 250 kN break load, D/d 20: N = 2 × 10^7.42 T^−2.25 (T in kN), i.e. 211 (T/MBL)^−2.25; 16 ropes tested at 40–70 kN, 16–28 % of break load, two bends a cycle | the law, carried down to the reeling tension | doi 10.1016/j.oceaneng.2015.01.003, read in full |
+| 2013 | Bosman et al., ch. 33 | at 300 MPa, D/d 40 gives about 1.85× and D/d 100 about 2.85× the bends of D/d 20 (read off Fig. 33.18, no factor stated); 20 mm rope lasts a third as long as 8 mm (d^−1.2); reverse bending up to −30 % at 10 % MBL; 60,000 single bends at 533 MPa, 30 % of break load, over drum and pulley at D/d 100 (p. 579); a 0.75 kN reel-in on a small pumping kite "bending and creep can be neglected" | drum ratio, size and reverse-bending factors; semi-log slope 12.5 per unit of T/MBL (Fig. 33.17) | Ahrens et al. 2013, pp. 563–585, read in full |
+
+Reeling tension: the kite is reeled at the zenith at about a tenth of the force limit (0.05–0.3, estimate from the launch-mast notes), 3.3 % of break load at design factor 3. At D/d 40: power law 211 × 0.033^−2.25 × 1.85 ≈ 840,000 bends; semi-log from Davies' life at 10 % MBL with Bosman's slope ≈ 160,000; base 400,000, near their geometric mean. Low 5,500: 10 % of break load over D/d 20, scaled from 19 mm to the 70 mm tether of a 3,200 m² kite by d^−1.2 and cut by up to 30 % for reverse bending. High 6,000,000: 1.7 % of break load over D/d 100 (power law, rounded). Since the bend charge and the creep charge are both shares of the tether price, their ratio is the same on every ship: at the base one launch uses the tether that 4/400,000 × 13,000 h = 8 min of flight uses; at the low bound with 6 bends, 14 h.
+
+Effect (code eae9e7a, screening departures, draft fidelity, 12 round trips each), 140 m / Kamsarmax / Neo-Panamax with kites of 3,200 / 1,448 / 16,000 m² and tethers of USD 338,000 / 103,000 / 3,780,000:
+
+| Bending | Charge per launch [USD] | Share of launch cost | Saving [%] | Launches per round trip |
+| ------- | ----------------------- | -------------------- | ---------- | ----------------------- |
+| none | 0 / 0 / 0 | 0 | 12.47 / 3.85 / 12.39 | 4.20 / 6.47 / 6.79 |
+| base, 4 bends of 400,000 | 3.4 / 1.0 / 38 | 1.1 / 0.4 / 5.2 % | 12.47 / 3.85 / 12.39 | 4.20 / 6.47 / 6.14 |
+| low, 6 bends of 5,500 | 369 / 112 / 4,126 | 56 / 31 / 86 % | 11.94 / 3.78 / 12.21 | 5.50 / 5.82 / 4.20 |
+
+At the base the bending is negligible: no saving moves by 0.01 points. At the low bound it takes 0.53, 0.07 and 0.18 points off; on these 12 round trips the launch count falls on two ships and rises on the 140 m ship.
+
 ### Choice of canopy type
 
 SkySails and Airseas both chose ram-air because it is the type that scales to several hundred m²; an LEI is easier to hold, depower and recover from the water but is unproven above ~100 m². For a ship kite of 300–1,000 m², ram-air (with an inflated leading-edge stiffener, as SkySails patented) is the defensible choice; LEI fits kites of ≤100–150 m². Launch and landing reliability depends on the handling system more than on canopy type, and no source quantifies it for either.

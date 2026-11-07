@@ -386,13 +386,14 @@ WindShipOpt.waves(::SteadyWind, lat, lon, time) = (0.0, 0.0, 0.0)
     @test leg.launches == 0
 end
 
-@testset "cycle cost sums crew, tear, loss, retry and turn" begin
+@testset "cycle cost sums crew, tear, loss, retry, turn and tether bends" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
     control_unit = assumptions[:market_price_factor] *
                    WindShipOpt.rig_price_parts(rig, assumptions).control_unit
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
-          1.05 * (85 + 0.00005canopy + 0.00005 * (canopy + tether + control_unit)) + 130
+          1.05 * (85 + 0.00005canopy + 0.00005 * (canopy + tether + control_unit)) + 130 +
+          4 / 400_000 * tether
     @test WindShipOpt.forced_landing_cost(rig, assumptions) ≈
           0.05 * (canopy + tether + control_unit)
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
@@ -1311,6 +1312,19 @@ end
           3WindShipOpt.wear_cost(one, assumptions)
     @test WindShipOpt.cycle_cost(three, assumptions) ≈
           3WindShipOpt.cycle_cost(one, assumptions)
+end
+
+@testset "each launch wears the tether by its bends over drum and sheaves" begin
+    soft = uniform_kite(Hull(140.0, assumptions), assumptions)
+    rigid = rigid_fleet(2, assumptions)
+    halved = with_value(assumptions, :tether_bend_life, assumptions[:tether_bend_life] / 2)
+    for rig in (soft, rigid)
+        _, tether = WindShipOpt.consumable_costs(rig, assumptions)
+        added = WindShipOpt.cycle_cost(rig, halved) -
+                WindShipOpt.cycle_cost(rig, assumptions)
+        @test added ≈
+              tether * assumptions[:tether_bends_per_launch] / assumptions[:tether_bend_life]
+    end
 end
 
 @testset "a rigid kite hovers within its own limits and stays up beyond them" begin

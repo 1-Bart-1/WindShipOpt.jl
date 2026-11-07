@@ -994,6 +994,18 @@ tether_rope_density:
   high: 1130.0
   unit: kg/m^3
   reason: "Rope mass over its nominal cross-section: 60.8 kg per 100 m at 30.6 mm, 827 kg/m^3 (Bosman et al. 2013, Table 33.4, coated 12-strand). Their worked-in diameter, 26.0 mm, would give 1,145 kg/m^3, above solid HMPE at 970 kg/m^3, so it cannot be the section that meets the wind. Low: Marlow D12 78 uncoated, 4.65 kg per 100 m at 10 mm. High: the SkySails tether with its power and data cable, 0.9 kg/m for 320 kN (Paulig et al. 2013)."
+tether_bend_life:
+  value: 400000.0
+  low: 5500.0
+  high: 6000000.0
+  unit: bends
+  reason: "Single bends over the winch drum or a sheave that a ship kite's tether takes to failure while it is reeled out at launch and in at landing; no test covers this low a tension, so this is our estimate from bend-over-sheave tests of 12-strand HMPE rope. Reeling at the zenith pulls about a tenth of the force limit, 3 % of break load at design factor 3 (0.05-0.3 of the limit). Davies et al. (2015) give 2 x 10^7.42 T^-2.25 bends (T in kN) for a 19 mm rope of 250 kN break load at drum-to-rope diameter ratio 20, 211 (T/break load)^-2.25; Bosman et al. (2013) give about 1.85 and 2.85 times as many at ratios 40 and 100 (read off their Fig. 33.18). At 3 % of break load and ratio 40 the power law gives 840,000 bends and a semi-log law with the slope of Bosman's tests 160,000; the base lies between. The low bound reels at 10 % of break load over ratio 20, scaled to the 70 mm tether of a 3,200 m^2 kite by d^-1.2 from Bosman's 8 and 20 mm tests and cut by up to 30 % for reverse bending; the high bound reels at 1.7 % over ratio 100."
+tether_bends_per_launch:
+  value: 4.0
+  low: 2.0
+  high: 6.0
+  unit: "-"
+  reason: "Bends of each section of the tether in one launch and landing, one per pass over a sheave or on or off the drum (Bosman et al. 2013; Davies et al. 2015): off the drum and over one guiding sheave going out, back over both coming in. Low: the drum alone; high: two sheaves."
 tether_lifetime:
   value: 16000.0
   low: 4500.0
