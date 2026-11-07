@@ -166,18 +166,18 @@ deck_mount_height:
   high: 5.0
   unit: m
   reason: "Freeboard of real coasters is 1.5-2.0 m (CF3850, Ferus 4300, CIP3800 depth minus draft) plus a hatch coaming; no coaming height found."
-superstructure_height:
-  value: 10.0
-  low: 8.0
-  high: 14.0
+container_tier_height:
+  value: 2.591
+  low: 2.591
+  high: 2.896
   unit: m
-  reason: "Engineering assumption, no source found."
-windage_drag_coefficient:
-  value: 0.7
-  low: 0.5
-  high: 0.9
+  reason: "Height of a standard ISO 668 container (8 ft 6 in); the high bound is a stack of high-cube boxes (9 ft 6 in)."
+container_stowage_fraction:
+  value: 0.77
+  low: 0.70
+  high: 0.85
   unit: "-"
-  reason: "Peak longitudinal wind coefficient of a cargo ship hull and deckhouse (Blendermann range 0.5-0.9)."
+  reason: "Length of the deck stowage over the waterline length: about 150 m on the 194.5 m container ship CON0101BN, read off its side view in Blendermann (1993)."
 
 # --- propulsion ---
 propeller_diameter_ratio:

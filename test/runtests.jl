@@ -33,6 +33,52 @@ end
     @test 700 < ship.powertrain.installed_power / 1e3 < 1500
 end
 
+@testset "hull wind load follows Blendermann's loading functions" begin
+    env = Environment(assumptions)
+    windage = WindShipOpt.Windage("vehicle carrier", 180.0, 30.0, 0.0, assumptions)
+    @test windage.lateral_area ≈ 4584.16 && windage.frontal_area ≈ 811.68
+    load = 0.5env.air_density * 100.0
+    head = WindShipOpt.wind_force(windage, env, 0.0, 0.0, 10.0)
+    @test head.thrust ≈ -load * 0.55 * windage.frontal_area
+    @test head.side ≈ 0 atol = 1e-6
+    beam = WindShipOpt.wind_force(windage, env, 10.0, π / 2, 0.0)
+    @test beam.side ≈ load * 0.95 * windage.lateral_area
+    @test beam.heeling_moment ≈ beam.side * 1.2 * 12.56
+    @test beam.yaw_moment ≈ beam.side * -8.98
+end
+
+@testset "container tiers above the measured ship's add to its windage" begin
+    measured = WindShipOpt.wind_load_types()["container"]
+    alone = WindShipOpt.Windage("container", 2measured.length, 2measured.beam,
+        2measured.deck_tiers, assumptions)
+    stacked = WindShipOpt.Windage("container", 2measured.length, 2measured.beam,
+        2measured.deck_tiers + 2, assumptions)
+    @test alone.lateral_area ≈ 4measured.lateral_area
+    @test alone.frontal_area ≈ 4measured.frontal_area
+    added = 2assumptions[:container_tier_height]
+    @test stacked.frontal_area - alone.frontal_area ≈ 2measured.beam * added
+    @test stacked.lateral_area - alone.lateral_area ≈
+          assumptions[:container_stowage_fraction] * 2measured.length * added
+    @test stacked.centre_height > alone.centre_height
+    @test stacked.centre_position * stacked.lateral_area ≈
+          alone.centre_position * alone.lateral_area
+end
+
+@testset "wind on the hull costs leeway and adds to the rig's side force" begin
+    class = ship_classes()["PCTC car carrier"]
+    bare = Ship(ShipDesign(:vlsfo, class), assumptions)
+    calm = WindShipOpt.required_thrust(bare, 7.0, 0.0, 0.0, WindShipOpt.NO_RIG_FORCE)
+    beam = WindShipOpt.required_thrust(bare, 7.0, 15.0, π / 2, WindShipOpt.NO_RIG_FORCE)
+    @test beam > calm
+    hull_force = WindShipOpt.wind_force(bare.windage, bare.env, 15.0, π / 2, 7.0)
+    rig = RigForce(0.0, 2e5, 2e6, 0.0)
+    together = WindShipOpt.HullBalance(bare, 7.0, rig + hull_force)
+    @test together.leeway > WindShipOpt.HullBalance(bare, 7.0, rig).leeway
+    @test WindShipOpt.required_thrust(bare, 7.0, 15.0, π / 2, rig) ≈
+          WindShipOpt.resistance(bare.hull, bare.env, 7.0;
+              coefficients=bare.wave_coefficients) + together.drag - hull_force.thrust
+end
+
 # DNV Rules for Ships, January 2000, Pt. 3 Ch. 3 Sec. 2, guidance note, p. 9.
 @testset "rudder area follows the DNV 2000 guidance and grows with block coefficient" begin
     hull = Hull(85.0, assumptions)
@@ -1099,12 +1145,15 @@ WindShipOpt.waves(weather::GaleWeather, lat, lon, time) =
     weather = GaleWeather(SyntheticWeather(), departure + 10.0)
     @test isnothing(route(corridor, table, weather, departure; time_cost=hourly))
     after = route(corridor, table, weather, departure + 12.0; time_cost=hourly)
+    ship = table.table.ship
+    hotel = 3600WindShipOpt.fuel_power(ship.powertrain, 0.0) * ship.fuel.price
+    held = 12.0 * (hotel + hourly)
     for horizon in (72.0, 0.0)
         sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly,
             horizon)
         @test length(sailed.path) == size(corridor.lat, 1)
         @test sailed.path[2][3] > 12.0
-        @test sailed.duration - 12.0 ≈ after.duration rtol = 0.02
+        @test sailed.objective - held ≈ after.objective rtol = 0.015
     end
     endless = GaleWeather(SyntheticWeather(), Inf)
     @test isnothing(forecast_route(corridor, table, endless, departure; time_cost=hourly,
