@@ -298,10 +298,9 @@ end
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     rig.forces[1, :, :] .= Ref(WindShipOpt.NO_PATTERN)
     env = Environment(assumptions)
-    trim = first(WindShipOpt.trim_settings(rig))
     force_at(speed) = WindShipOpt.rig_force(rig, env,
         speed / WindShipOpt.wind_at_height(env, 1.0, rig.reference_height), π / 2, 0.0,
-        trim)
+        0.0)
     @test force_at(3.9) === WindShipOpt.NO_RIG_FORCE
     @test force_at(5.9) === WindShipOpt.NO_RIG_FORCE
     @test force_at(6.1).thrust != 0
