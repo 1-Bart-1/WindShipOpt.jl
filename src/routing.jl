@@ -968,16 +968,44 @@ function traced_leg(workspace::RouteWorkspace, corridor, table, final, first_sta
 end
 
 """
+    sail_planned_edge!(points, table, weather, corridor, stage, lateral, step, time, speed,
+                       aloft, planned_aloft, prices)
+
+Edge `step` of node (`stage`, `lateral`) of `corridor` left at `time` [h] in the real
+`weather` at the planned `speed` [m/s], or the highest lower routing speed of the
+[`RouteTable`](@ref) `table` with a way through it for the kite starting `aloft` or not,
+ending aloft where it can and is `planned_aloft` or cannot end stowed, never on the last
+edge. Returns the hours, the [`EdgeTally`](@ref), whether the kite ends aloft and the speed
+commanded; `Inf` hours where no speed passes.
+"""
+function sail_planned_edge!(points, table::RouteTable, weather, corridor, stage, lateral,
+        step, time, speed, aloft, planned_aloft, prices)
+    last_edge = stage + 1 == size(corridor.lat, 1)
+    start = EdgeSample(table.table, weather, corridor, stage, lateral, step, 0.0, time)
+    for speed_index in searchsortedfirst(table.speeds, speed):-1:1
+        hours = sail_edge!(points, start, table, weather, corridor, stage, lateral, step,
+            time, speed_index)
+        isfinite(hours) || break
+        down, up = kite_passage(table, points, aloft, prices)
+        ends_aloft = !last_edge && isfinite(up.cost) &&
+                     (planned_aloft || !isfinite(down.cost))
+        tally = ends_aloft ? up : down
+        isfinite(tally.cost) && return hours, tally, ends_aloft, table.speeds[speed_index]
+    end
+    return Inf, NO_TALLY, false, speed
+end
+
+"""
     forecast_route(corridor, table, weather, departure; time_cost, horizon=Inf,
                    forecast=nothing, coastal_penalty=1.0)
 
 Passage of a ship that re-plans every 24 hours by [`route`](@ref) on the
 [`RouteTable`](@ref) `table` with the last forecast of the [`ForecastArchive`](@ref)
 `forecast`, or with a [`ForecastWeather`](@ref) of `horizon` hours where `nothing`, and
-sails each plan in the real `weather` until the next re-plan, with the kite aloft after
-each edge where the plan has it and the real weather lets it; fuel, flight hours and
-objective are those of the real weather. Where no plan leaves its node or the real
-weather stops the next edge, the ship holds there with the kite stowed on its hotel load
+sails each plan in the real `weather` until the next re-plan by
+[`sail_planned_edge!`](@ref); fuel, flight hours and objective are those of the real
+weather. Where no plan leaves its node or the real weather stops the next edge, the ship
+holds there with the kite stowed on its hotel load
 until the next forecast, 6 h later, and plans again. Returns `nothing` after holding
 72 h at one node.
 """
@@ -1005,18 +1033,11 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             next_lat, next_lon, _, speed, _ = plan.path[i]
             next = nearest_lateral(corridor, stage + 1, next_lat, next_lon)
             step = next - lateral + MAX_LATERAL_STEP + 1
-            speed_index = searchsortedfirst(table.speeds, speed)
-            start = EdgeSample(ship_table, weather, corridor, stage, lateral, step, 0.0,
-                departure + time)
-            hours = sail_edge!(points, start, table, weather, corridor, stage, lateral,
-                step, departure + time, speed_index)
+            hours, tally, aloft, speed = sail_planned_edge!(points, table, weather,
+                corridor, stage, lateral, step, departure + time, speed, aloft,
+                plan.aloft[i], prices)
             blocked = !isfinite(hours)
             blocked && break
-            down, up = kite_passage(table, points, aloft, prices)
-            aloft = stage + 1 < stage_count && isfinite(up.cost) &&
-                    (plan.aloft[i] || !isfinite(down.cost))
-            tally = aloft ? up : down
-            isfinite(tally.cost) || return nothing
             penalty = edge_penalty(corridor, stage, next, coastal_penalty)
             objective += edge_objective(penalty, tally.cost, hours, prices)
             fuel_energy += tally.energy

@@ -1038,6 +1038,40 @@ WindShipOpt.waves(weather::GaleWeather, lat, lon, time) =
         horizon=72.0))
 end
 
+"""
+Synthetic weather with, before the same date a year on, 5 m head seas and a wind 60 degrees
+off the bow on the first edge from `start`, in which only a kite flying holds more than
+4 kn, yet the seas forbid launching it.
+"""
+struct KiteOnlySeas
+    calm::SyntheticWeather
+    start::NTuple{2, Float64}
+    course::Float64
+end
+WindShipOpt.duration(::KiteOnlySeas) = Inf
+rough_seas(weather::KiteOnlySeas, lat, lon, time) = time < WindShipOpt.FORECAST_SHIFT &&
+    WindShipOpt.distance(lat, lon, weather.start...) < 200NAUTICAL_MILE
+WindShipOpt.wind(weather::KiteOnlySeas, lat, lon, time) =
+    rough_seas(weather, lat, lon, time) ?
+    -8.0 .* sincos(weather.course + deg2rad(60)) :
+    WindShipOpt.wind(weather.calm, lat, lon, time)
+WindShipOpt.waves(weather::KiteOnlySeas, lat, lon, time) =
+    rough_seas(weather, lat, lon, time) ? (5.0, 10.0, weather.course) : (0.0, 0.0, 0.0)
+
+@testset "a ship on a forecast slows where its kite cannot launch as planned" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
+    centre, step = centre_index(corridor), WindShipOpt.MAX_LATERAL_STEP + 1
+    seas = KiteOnlySeas(SyntheticWeather(), (corridor.lat[1, centre],
+            corridor.lon[1, centre]), corridor.edge_course[1, centre, step])
+    sailed = forecast_route(corridor, kite_table, seas, 24.0 * 31; time_cost=kite_hourly,
+        horizon=0.0)
+    @test length(sailed.path) == size(corridor.lat, 1)
+    @test sailed.path[2][4] < 5KNOT
+end
+
 @testset "a forecast beyond its horizon reads the same date in another year" begin
     known = ForecastWeather(SyntheticWeather(), 100.0, 48.0)
     @test WindShipOpt.wind(known, 40.0, -30.0, 120.0) ==
