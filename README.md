@@ -1,5 +1,7 @@
 # WindShipOpt.jl
 
+> **Work in progress.** The model, its inputs and the paper are still changing, and the numbers in this repository are drafts that later runs replace. Do not cite or rely on them yet.
+
 Design optimisation of wind-assisted coasters for long ocean routes. It compares towing kites, wing sails and Flettner rotors, alone or combined, on cargo ships from coasters to Megamax container ships, on VLSFO, e-methanol or hydrogen, with weather routing on every voyage. The figure of merit is the cost per tonne-kilometre of the transport service.
 
 ## Model chain
