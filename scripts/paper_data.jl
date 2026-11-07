@@ -921,6 +921,66 @@ function aspect_data()
     end
 end
 
+"force limits of the kite in the force rating study [kN/m^2]"
+study_force_ratings = (0.3, 0.5, 0.7, 1.0)
+
+"kite areas of the force rating study [m^2]"
+study_kite_areas = [1600.0 * sqrt(2.0)^k for k in 0:6]
+
+"""
+    nearby_kite_areas(kite_area, reach)
+
+Those of [`study_kite_areas`](@ref) within `reach` grid steps of the one nearest `kite_area`.
+"""
+function nearby_kite_areas(kite_area, reach)
+    nearest = argmin(abs.(log.(study_kite_areas ./ kite_area)))
+    return study_kite_areas[max(1, nearest - reach):min(end, nearest + reach)]
+end
+
+"""
+    force_rating_case(bare, route, ship, rating, exponent, area)
+
+Trip case of the ship `bare` with a kite of `area` built for the force limit `rating`, its
+cloth following the limit to the power `exponent`.
+"""
+function force_rating_case(bare, route, ship, rating, exponent, area)
+    rated = changed_assumptions((; kite_max_force_per_area=rating,
+        canopy_cloth_force_exponent=exponent))
+    design = ShipDesign(; bare.drive, bare.length, bare.class, kite_area=area)
+    return trip_case(design; assumptions=rated, route, ship, rating, exponent, area)
+end
+
+"""
+    force_rating_cases(bare, route, ship, kite_area)
+
+Cases of one ship in the force rating study: without a rig; with its kite at each of
+[`study_force_ratings`](@ref) and two area steps around `kite_area`; and at the lowest and
+highest limit and one area step with cloth that follows the limit in proportion or not at
+all.
+"""
+function force_rating_cases(bare, route, ship, kite_area)
+    base = assumptions[:canopy_cloth_force_exponent]
+    return [trip_case(bare; route, ship, rating=0.0, exponent=base, area=0.0);
+            vec([force_rating_case(bare, route, ship, rating, base, area)
+                 for rating in study_force_ratings, area in nearby_kite_areas(kite_area, 2)]);
+            vec([force_rating_case(bare, route, ship, rating, exponent, area)
+                 for rating in extrema(study_force_ratings), exponent in (0.0, 1.0),
+                 area in nearby_kite_areas(kite_area, 1)])]
+end
+
+"""
+    force_rating_data()
+
+Each ship of [`sensitivity_ships`](@ref) with the cases of [`force_rating_cases`](@ref):
+force_rating.csv.
+"""
+function force_rating_data()
+    cases = reduce(vcat, [force_rating_cases(bare, route, ship, areas.kite.kite_area)
+                          for (ship, bare, route, areas) in sensitivity_ships()])
+    write_trips("force_rating.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :rating, :exponent, :area)
+end
+
 """
     noise_variants(tether_length_ratio, kite_min_turn_radius)
 

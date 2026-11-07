@@ -14,17 +14,37 @@ struct Canopy
 end
 
 """
+    force_rating(assumptions)
+
+Force limit `kite_max_force_per_area` over the `canopy_cloth_reference_force` that the
+canopy goals are stated at [-].
+"""
+force_rating(assumptions::Assumptions) =
+    assumptions[:kite_max_force_per_area] / assumptions[:canopy_cloth_reference_force]
+
+"""
+    cloth_weight(assumptions)
+
+Cloth weight [g/m^2] of a canopy built for the force limit: `canopy_cloth_weight` times the
+[`force_rating`](@ref) to the power `canopy_cloth_force_exponent`.
+"""
+cloth_weight(assumptions::Assumptions) = assumptions[:canopy_cloth_weight] *
+    force_rating(assumptions)^assumptions[:canopy_cloth_force_exponent]
+
+"""
     Canopy(assumptions)
 
-[`Canopy`](@ref) of cloth weight `canopy_cloth_weight`, cloth plus a fixed overhead for mass
-and cost, lasting the goal `canopy_life`.
+[`Canopy`](@ref) of [`cloth_weight`](@ref), cloth plus an overhead for mass and cost, with
+the mass overhead of seams, tapes and reinforcements in proportion to the force limit,
+lasting the goal `canopy_life`.
 """
 function Canopy(assumptions::Assumptions)
-    weight = assumptions[:canopy_cloth_weight]
+    weight = cloth_weight(assumptions)
     cloth_area = assumptions[:canopy_cloth_area_ratio]
     cloth_price = assumptions[:canopy_cloth_base_price] +
                   assumptions[:canopy_cloth_price_per_weight] * weight
-    return Canopy(1e-3cloth_area * weight + assumptions[:canopy_mass_overhead],
+    return Canopy(1e-3cloth_area * weight +
+                  assumptions[:canopy_mass_overhead] * force_rating(assumptions),
         assumptions[:canopy_making_cost_per_area] + cloth_area * cloth_price,
         assumptions[:canopy_life])
 end
