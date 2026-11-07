@@ -1072,8 +1072,8 @@ size_search_grid() = ("size_search.csv", "class", [[(), ("round" => >=(0),)]])
 
 Largest difference [points] in the cost saving of each rig between the condition sets of
 any one of `groups` in data `file`, over its ships in `ship_column`, `nothing` for a file
-of one ship; and for each set of rigs that take turns at being cheapest within a group,
-the ships where they do.
+of the 140 m ship alone; and for each set of rigs that take turns at being cheapest
+within a group, the ships where they do.
 """
 function part_effect((file, ship_column, groups))
     table = read_table(data_file(file))
@@ -1087,14 +1087,14 @@ function part_effect((file, ship_column, groups))
         length(costs) > 1 || continue
         for rig in rig_names
             savings = [percent_saving(cost[rig], cost["none"]) for cost in costs]
-            spread[rig] = max(spread[rig], -(reverse(extrema(savings))...))
+            spread[rig] = max(spread[rig], maximum(savings) - minimum(savings))
         end
         best = unique(argmin(rig -> cost[rig], rig_names) for cost in costs)
         length(best) > 1 && push!(get!(swaps, join(sort(best), "/"), Set()),
             short_ship(something(ship, "140 m")))
     end
-    return spread, sort([string(rigs, " on ", join(sort(collect(ships)), ", "))
-                         for (rigs, ships) in swaps])
+    return spread, sort([string(rigs, " on ", join(sort(collect(swapped)), ", "))
+                         for (rigs, swapped) in swaps])
 end
 
 "cheapest cost per tonne-km without a rig and of each rig in the `conditions` rows"
