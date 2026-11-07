@@ -159,8 +159,11 @@ function blocked_slots(rig, class::ShipClass, assumptions)
     footprint = deck_footprint(rig, assumptions)
     rows = ceil((footprint + assumptions[:deck_rig_clearance]) /
                 assumptions[:container_row_pitch])
-    return deck_units(rig) * 2rows * class.deck_tiers
+    return deck_units(rig) * bay_slots(rows, class)
 end
+
+"TEU slots in `rows` rows of the deck stack of `class` over one 40 ft bay, all tiers up"
+bay_slots(rows, class::ShipClass) = 2rows * class.deck_tiers
 
 blocked_slots(rig::CombinedRig, class::ShipClass, assumptions) =
     blocked_slots(rig.kite, class, assumptions) +

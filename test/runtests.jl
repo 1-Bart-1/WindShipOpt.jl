@@ -596,6 +596,22 @@ end
         rotor_area=400.0), assumptions)
 end
 
+@testset "a kite tows from its bow mast, and towing midship loads the rudder more" begin
+    hull = Hull(140.0, assumptions)
+    design = ShipDesign(:methanol, 140.0; kite_area=800.0)
+    bow = Ship(design, assumptions)
+    midship = Ship(design, WindShipOpt.with_value(assumptions, :kite_tow_position, 0.0))
+    @test bow.rig.attach_position ≈ WindShipOpt.launch_mast_position(hull, assumptions)
+    @test midship.rig.attach_position == 0
+    wind_speed, wind_angle, ship_speed = 8.8295, 86.6957, 5.4 # hand check's beam reach
+    balance(ship) = WindShipOpt.HullBalance(ship, ship_speed,
+        rig_force(ship.rig, ship.env, wind_speed, deg2rad(wind_angle), ship_speed, 1))
+    # midship lies 47 m aft of the lateral centre, the bow mast 4 m ahead of it
+    @test balance(midship).rudder_lift_coefficient >
+          3balance(bow).rudder_lift_coefficient > 0
+    @test balance(midship).drag > balance(bow).drag
+end
+
 @testset "a rig ship is sized near the bare ship in calm water" begin
     bare = Ship(ShipDesign(:vlsfo, 140.0), assumptions)
     rotors = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=300.0), assumptions)

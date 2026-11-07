@@ -988,6 +988,12 @@ kite_max_force_per_area:
   high: 1.0
   unit: kN/m^2
   reason: "Maximum wing loading on the projected area. 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2). SkySails design load on flat area: 160 kN on 225 m^2, about 0.7 kN/m^2 (Paulig et al. 2013), 0.9 on the projected area at 1.28 flat over projected (Folkersma et al. 2020). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4). The canopy cloth, seams and reinforcements follow the limit (canopy_cloth_force_exponent), so the bounds carry them too."
+kite_tow_position:
+  value: 1.0
+  low: 1.0
+  high: 1.0
+  unit: "-"
+  reason: "Tow point of a soft kite flown alone, from midship (0) to the forward end of the deck for rigs (1); the launch mast's deck slots and price do not depend on it. Every ship kite built tows from the bow: SkySails from its forecastle deck (Fritz 2013), and published studies take the bow (Traut et al. 2014; CE Delft 2016)."
 kite_attach_height:
   value: 10.0
   low: 6.0
