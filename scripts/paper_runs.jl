@@ -132,17 +132,24 @@ Whether the run of `record` finished every step it was asked for.
 is_finished(record) = !isempty(record["finished"])
 
 """
+    code_files()
+
+Paths of the source in src/, the scripts, the data tables and the kite polars.
+"""
+function code_files()
+    directories = (joinpath(root, "src"), @__DIR__, joinpath(root, "data"),
+        joinpath(root, "data", "kite_polars"))
+    return [joinpath(directory, name) for directory in directories
+            for name in readdir(directory) if endswith(name, r"\.(jl|csv)")]
+end
+
+"""
     code_hash()
 
-Hash in hex of the source in src/, the scripts and the kite polars.
+Hash in hex of the contents of [`code_files`](@ref).
 """
-function code_hash()
-    directories = (joinpath(root, "src"), @__DIR__, joinpath(root, "data", "kite_polars"))
-    files = [joinpath(directory, name) for directory in directories
-             for name in readdir(directory) if endswith(name, r"\.(jl|csv)")]
-    return string(hash(join(basename(file) * read(file, String) for file in files));
-        base=16)
-end
+code_hash() =
+    string(hash(join(basename(file) * read(file, String) for file in code_files())); base=16)
 
 """
     git_output(arguments...)

@@ -1192,6 +1192,12 @@ end
                     for part in (:none, :waves, :windage))
 end
 
+@testset "the code hash keying stored trips covers the ship data tables" begin
+    files = normpath.(PaperRuns.code_files())
+    @test joinpath(pkgdir(WindShipOpt), "data", "ship_classes.csv") in files
+    @test joinpath(pkgdir(WindShipOpt), "data", "ship_categories.csv") in files
+end
+
 @testset "resuming never takes over another branch's unfinished run" begin
     @eval PaperRuns runs_directory = mktempdir()
     other_branch = joinpath(PaperRuns.runs_directory, "2000-01-01T0000")
