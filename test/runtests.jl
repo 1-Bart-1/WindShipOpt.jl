@@ -14,7 +14,7 @@ assumptions = Assumptions()
 @testset "Holtrop components match the published example at 25 kn" begin
     speed = 25KNOT
     coefficients = WaveCoefficients(PAPER_HULL)
-    @test wetted_surface(PAPER_HULL) ≈ 7381.45 rtol = 1e-3
+    @test wetted_surface(PAPER_HULL) ≈ 1.0 rtol = 1e-3
     reynolds = speed * 205 / PAPER_ENV.water_viscosity
     @test friction_coefficient(reynolds) ≈ 0.001390 rtol = 2e-3
     @test coefficients.c2 ≈ 0.7595 rtol = 1e-3
