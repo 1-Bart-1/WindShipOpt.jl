@@ -26,7 +26,7 @@ Class & Sources \\
 \end{longtable}
 
 \begin{longtable}{@{}>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}p{4.8cm}>{\raggedright\arraybackslash}p{6.6cm}@{}}
-\caption{Grids, solver settings and constants. Corridor spacings are given at the resolution of the results, four times the base spacing of 90 and \SI{60}{nmi}.}
+\caption{Grids, solver settings and constants. Corridor spacings are given at the resolution of the results, twice the base spacing of 90 and \SI{60}{nmi}.}
 \label{tab:numerics}\\
 \toprule
 Setting & Value & Use \\
@@ -57,9 +57,11 @@ lowest angle of attack & first angle with $C_L\geq0.05$ & lower bound of the sea
 points per pattern & 48 & time average of the tether force \\
 pattern search & Nelder--Mead, 200 iterations, three starts and the best pattern of the next stronger wind speed & kite patterns \\
 \multicolumn{3}{@{}l}{\textit{Corridors and routing}}\\
-ocean stage spacing & \SI{360}{nmi} & corridor stages \\
+ocean stage spacing & \SI{180}{nmi} & corridor stages \\
 Channel stage spacing & \SI{30}{nmi} & fixed waypoints from Rotterdam to Ushant, no lateral freedom \\
-lateral node spacing & \SI{240}{nmi} & nodes across the track \\
+lateral node spacing & \SI{120}{nmi} & nodes across the track \\
+start corridor & stages \SI{720}{nmi} and nodes \SI{480}{nmi} apart & full search of the route that is refined \\
+refinement band & \SI{600}{nmi} to either side, \SI{96}{h} either way & states of the refinement around that route \\
 corridor half width & \SI{2400}{nmi} & reach of the nodes to either side of the track \\
 lateral step & up to 3 nodes per stage & edges between stages \\
 lateral direction smoothing & 8 stages to either side & direction of the node rows \\
