@@ -1390,6 +1390,8 @@ end
           "\\newcommand{\\NumSavingOilKite}{\\tbd{4}}\n"
     @test PaperRuns.number_macro("SavingOilKite", "4", false) ==
           "\\newcommand{\\NumSavingOilKite}{4}\n"
+    @test PaperRuns.whole_number(-0.4) == "0"
+    @test PaperRuns.whole_number(12.6) == "13"
 end
 
 @testset "every number the paper and its extended abstract print from the numbers step \

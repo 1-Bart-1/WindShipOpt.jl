@@ -1213,7 +1213,7 @@ function class_numbers(classes)
         push!(numbers, "Cells$word" => string(length(cells)))
         for rig in rig_names
             name = word * uppercasefirst(rig)
-            push!(numbers, "Saving$name" => @sprintf("%.0f",
+            push!(numbers, "Saving$name" => whole_number(
                     mean(cell[rig] for cell in cells if haskey(cell, rig))),
                 "Leads$name" => string(count(==(rig), leaders)))
         end
@@ -1236,10 +1236,10 @@ function recommendation_numbers(table)
         name = kind * uppercasefirst(rig)
         for (drive, word) in drive_words
             cost, = mean_savings(table, ("cost",), names, drive, rig)
-            push!(numbers, "Saving$word$name" => @sprintf("%.0f", cost))
+            push!(numbers, "Saving$word$name" => whole_number(cost))
         end
         carbon, = mean_savings(table, ("carbon",), names, "vlsfo", rig)
-        push!(numbers, "Carbon$name" => @sprintf("%.0f", carbon))
+        push!(numbers, "Carbon$name" => whole_number(carbon))
     end
     return numbers
 end
@@ -1265,6 +1265,6 @@ function premium_numbers(table)
         push!(without, -percent_saving(only(table["cost"][bare]), reference))
         push!(with, -percent_saving(minimum(table["cost"][rigged]), reference))
     end
-    return ["PremiumNoRig" => @sprintf("%.0f", mean(without)),
-        "PremiumBestRig" => @sprintf("%.0f", mean(with))]
+    return ["PremiumNoRig" => whole_number(mean(without)),
+        "PremiumBestRig" => whole_number(mean(with))]
 end
