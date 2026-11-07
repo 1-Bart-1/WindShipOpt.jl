@@ -553,6 +553,107 @@ function class_comparison_figure()
     save(joinpath(figures, "class_comparison.pdf"), figure; pt_per_unit=print_scale)
 end
 
+"the tow points of the tow point study with their labels, then a midship mast in a bay"
+tow_point_markers = (("bow", "bow"), ("centre", "lateral centre"),
+    ("midship", "midship"), ("midship_bay", "midship, mast in a deck bay"))
+
+"""
+    midship_bay_cargo(class, cargo)
+
+Cargo [t] of a ship of `class` that carries `cargo` [t] when its kite mast stands
+midship in a 40-foot bay of the deck stack and blocks that bay across the beam on every
+tier; `cargo` itself on ships without a deck stack or that fill their deadweight first.
+"""
+function midship_bay_cargo(class, cargo)
+    class.cargo_unit == :teu || return cargo
+    rows = floor(class.beam / assumptions[:container_row_pitch])
+    slots = class.unit_capacity - 2rows * class.deck_tiers
+    return min(cargo, slots * WindShipOpt.CargoUnit(:teu, assumptions).cargo)
+end
+
+"""
+    tow_point_savings(table, class, route, measure)
+
+Saving [%] in the column `measure` of the kite at each of `tow_point_markers` against
+no rig for `class` on `route`; the cost of the midship mast in a bay scales with the
+cargo [`midship_bay_cargo`](@ref) leaves.
+"""
+function tow_point_savings(table, class, route, measure)
+    reference = tow_point_value(table, class, route, "none", measure)
+    savings = Dict(tow => percent_saving(tow_point_value(table, class, route, tow,
+                       measure), reference) for (tow, _) in tow_point_markers[1:3])
+    cargo = tow_point_value(table, class, route, "midship", "cargo")
+    scale = measure == "cost" ? cargo / midship_bay_cargo(ship_classes()[class], cargo) : 1
+    savings["midship_bay"] = percent_saving(
+        scale * tow_point_value(table, class, route, "midship", measure), reference)
+    return savings
+end
+
+"Value in `column` of the tow point study's row for `class`, `route` and `tow`"
+tow_point_value(table, class, route, tow, column) =
+    only(table[column][rows(table, "class" => class, "route" => route, "tow" => tow)])
+
+"""
+    tow_point_figure()
+
+Fuel and cost saving of each class's kite towing from the hull's lateral centre and
+midship, and at midship with its mast in a deck bay, against the kite towing from the
+bow: the mean over the routes as a marker and the range over the routes as a bar.
+Prints the savings and the losses against the bow.
+"""
+function tow_point_figure()
+    table = read_table(data_file("tow_point.csv"))
+    names = filter(name -> !isempty(rows(table, "class" => name, "tow" => "bow")),
+        class_order(table))
+    routes_seen = unique(table["route"])
+    figure = Figure(size=(page_width, 300))
+    panels = (("fuel", "(a) fuel saving"), ("cost", "(b) cost saving"))
+    for (column, (measure, title)) in enumerate(panels)
+        axis = Axis(figure[1, column]; title, xlabel="against the bow [% points]",
+            yticks=(eachindex(names), names), yreversed=true,
+            yticklabelsvisible=column == 1)
+        vlines!(axis, 0; color=palette[1], linewidth=0.8)
+        savings = [tow_point_savings(table, name, route, measure)
+                   for name in names, route in routes_seen]
+        markers = measure == "cost" ? tow_point_markers : tow_point_markers[1:3]
+        for (j, (tow, label)) in enumerate(markers), (i, name) in enumerate(names)
+            j == 1 && continue
+            values = [saving[tow] - saving["bow"] for saving in savings[i, :]]
+            y = i + (j - 3) * 0.22
+            rangebars!(axis, [y], [minimum(values)], [maximum(values)]; direction=:x,
+                color=(palette[j], 0.6), linewidth=1.5)
+            scatter!(axis, [mean(values)], [y]; color=palette[j], markersize=6,
+                label=i == 1 && column == 2 ? label : nothing)
+        end
+        print_tow_point(measure, names, savings, markers)
+    end
+    Legend(figure[2, 1:2], content(figure[1, 2]); orientation=:horizontal,
+        framevisible=false, labelsize=9)
+    rowgap!(figure.layout, 1, 4)
+    save(joinpath(figures, "tow_point.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    print_tow_point(measure, names, savings, markers)
+
+Print the mean saving in `measure` of each tow point of `markers` over all classes and
+routes of `savings`, its mean, least and largest loss [% points] against the bow, and
+the loss of the last of `markers` for each class of `names` on each route.
+"""
+function print_tow_point(measure, names, savings, markers)
+    for (tow, label) in markers
+        losses = [saving["bow"] - saving[tow] for saving in savings]
+        @printf("  %s saving at %s: %.1f %%, loss against the bow %.2f (%.2f to %.2f)\n",
+            measure, label, mean(saving[tow] for saving in savings), mean(losses),
+            extrema(losses)...)
+    end
+    tow, label = last(markers)
+    for (i, name) in enumerate(names)
+        losses = [saving["bow"] - saving[tow] for saving in savings[i, :]]
+        println("    $name, $measure loss at $label: ", join(round.(losses; digits=1), ", "))
+    end
+end
+
 """
     cheapest_row(table, filters::Pair...)
     cheapest_row(table, class, route, drive, rig)
