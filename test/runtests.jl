@@ -434,6 +434,9 @@ end
     @test all(today_cloth[name] == assumptions[Symbol(name, :_today)] for name in cloth)
     @test today_cloth[:canopy_making_cost_per_area] ==
           assumptions[:canopy_making_cost_per_area]
+    weight = WindShipOpt.cloth_weight(assumptions)
+    @test WindShipOpt.sewn_cloth_price(assumptions, weight) ≈ 9.4
+    @test WindShipOpt.sewn_cloth_price(today_cloth, weight) ≈ 17.2
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈ 149.8rig.area
 end

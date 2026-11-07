@@ -7,7 +7,7 @@
   edge/.style={-{Stealth[length=1.6mm]}, thin}]
 \node[term=40mm, fill=red!8] (tkm) {cost per tonne-km\\ $c_\mathrm{tkm}$};
 \node[term=34mm, below left=6mm and -12mm of tkm] (trip) {cost per round trip};
-\node[term=40mm, below right=6mm and -12mm of tkm] (work) {cargo work\\ $m_c\,(L_\mathrm{out}+0.3\,L_\mathrm{back})$};
+\node[term=40mm, below right=6mm and -12mm of tkm] (work) {cargo work\\ $m_c\,(L_\mathrm{out}+f_\mathrm{back}L_\mathrm{back})$};
 \node[routed, below left=6mm and 14mm of trip] (fuel) {fuel\\ $p_f E_f$};
 \node[routed, right=of fuel] (wear) {kite wear\\ $c_w h_\mathrm{fly}$ + launches};
 \node[term, right=of wear] (port) {ports\\ $C_\mathrm{port}$, two calls};

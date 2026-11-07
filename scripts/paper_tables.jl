@@ -248,10 +248,9 @@ function missed_goal_rows()
                 price=(kite_price_at_cost(rig, price_curve, bare),
                     kite_price_at_cost(rig, price_curve, rival_cost)),
                 passes_price=kite_price_at_cost(rig, price_curve, ahead),
-                share=(WindShipOpt.share_at_cost(curve..., bare),
-                    WindShipOpt.share_at_cost(curve..., rival_cost)),
-                whole_behind=WindShipOpt.share_at_cost([0.0, 1.0],
-                    [curve[2][1], curve[2][end]], rival_cost)))
+                share=(share_limit(curve, bare), share_limit(curve, rival_cost)),
+                whole_behind=share_limit(([0.0, 1.0], [curve[2][1], curve[2][end]]),
+                    rival_cost)))
         end
     end
     return result
@@ -274,10 +273,28 @@ function size_limits(table, row, bare, rival, rival_cost)
     work, trips = yearly_trips(table, row, table["route"][row])
     return (; ship, rig, area, crash, saving=percent_saving(cost, bare), rival,
         lead=percent_saving(cost, bare) - percent_saving(rival_cost, bare),
-        crashes=(WindShipOpt.events_to_cost(cost, bare, work, crash),
-            WindShipOpt.events_to_cost(cost, rival_cost, work, crash)),
+        crashes=(crash_limit(cost, bare, work, crash),
+            crash_limit(cost, rival_cost, work, crash)),
         flight_hours=table["flight_share"][row] * 24table["days"][row] * trips)
 end
+
+"""
+    share_limit(curve, target)
+
+Share out of service [-] at which the (shares, costs) `curve` reaches the cost per tonne-km
+`target`; `NaN` where it starts at or above it, so that no share is left.
+"""
+share_limit(curve, target) =
+    curve[2][1] < target ? WindShipOpt.share_at_cost(curve..., target) : NaN
+
+"""
+    crash_limit(cost, target, work, crash)
+
+Crashes a year of cost `crash` [USD] at which a rig at `cost` per tonne-km over `work`
+tonne-km a year reaches `target`; `NaN` where it is already there.
+"""
+crash_limit(cost, target, work, crash) =
+    cost < target ? WindShipOpt.events_to_cost(cost, target, work, crash) : NaN
 
 """
     crash_limit_rows()

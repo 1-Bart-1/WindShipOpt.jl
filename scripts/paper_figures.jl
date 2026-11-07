@@ -1955,14 +1955,20 @@ function canopy_price_figure()
     xlims!(price, 0, 1.12 * WindShipOpt.canopy_price_today(assumptions))
     hideydecorations!(price; ticklabels=false)
     weights = 0:5:400
-    for (k, (label, suffix)) in enumerate((("today", :_today), ("goal", Symbol(""))))
-        line = assumptions[Symbol(:canopy_cloth_base_price, suffix)] .+
-               assumptions[Symbol(:canopy_cloth_price_per_weight, suffix)] .* weights
-        lines!(cloth, weights, line; color=:black, linestyle=k == 1 ? :solid : :dash)
+    weight = WindShipOpt.cloth_weight(assumptions)
+    cloth_cases = (("today", WindShipOpt.with_today(assumptions, cloth_inputs), :solid),
+        ("goal", assumptions, :dash))
+    for (label, inputs, linestyle) in cloth_cases
+        line = WindShipOpt.sewn_cloth_price.(Ref(inputs), weights)
+        lines!(cloth, weights, line; color=:black, linestyle)
         text!(cloth, weights[end], line[end]; text=label, align=(:right, :top),
             offset=(0, -4), fontsize=pt(9))
+        price = WindShipOpt.sewn_cloth_price(inputs, weight)
+        scatter!(cloth, weight, price; color=:black, markersize=4)
+        text!(cloth, weight, price; text=@sprintf("%.1f", price), align=(:right, :bottom),
+            offset=(-2, 2), fontsize=pt(8))
     end
-    vlines!(cloth, assumptions[:canopy_cloth_weight]; color=:gray, linewidth=0.75)
+    vlines!(cloth, weight; color=:gray, linewidth=0.75)
     ylims!(cloth, 0, nothing)
     Legend(figure[2, 1:2], [PolyElement(; color) for color in part_colors],
         collect(parts); orientation=:horizontal, tellwidth=false)
@@ -2085,7 +2091,8 @@ end
 
 Mass of a rigid kite against its area: the mass law of the assumptions at the base
 exponent and its bounds through the MX2 anchor, and the published wings of
-data/rigid_kite_masses.csv, with and without rotors.
+data/rigid_kite_masses.csv, its `area` [m^2] and `mass_low` to `mass_high` [kg], with and
+without rotors.
 """
 function rigid_mass_figure()
     published = read_table(joinpath(root, "data", "rigid_kite_masses.csv"))
