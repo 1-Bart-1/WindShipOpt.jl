@@ -567,7 +567,7 @@ tier; `cargo` itself on ships without a deck stack or that fill their deadweight
 function midship_bay_cargo(class, cargo)
     class.cargo_unit == :teu || return cargo
     rows = floor(class.beam / assumptions[:container_row_pitch])
-    slots = class.unit_capacity - 2rows * class.deck_tiers
+    slots = class.unit_capacity - WindShipOpt.bay_slots(rows, class)
     return min(cargo, slots * WindShipOpt.CargoUnit(:teu, assumptions).cargo)
 end
 
@@ -616,13 +616,12 @@ function tow_point_figure()
         savings = [tow_point_savings(table, name, route, measure)
                    for name in names, route in routes_seen]
         markers = measure == "cost" ? tow_point_markers : tow_point_markers[1:3]
-        for (j, (tow, label)) in enumerate(markers), (i, name) in enumerate(names)
-            j == 1 && continue
+        for (j, (tow, label)) in enumerate(markers[2:end]), (i, name) in enumerate(names)
             values = [saving[tow] - saving["bow"] for saving in savings[i, :]]
-            y = i + (j - 3) * 0.22
+            y = i + (j - 2) * 0.22
             rangebars!(axis, [y], [minimum(values)], [maximum(values)]; direction=:x,
-                color=(palette[j], 0.6), linewidth=1.5)
-            scatter!(axis, [mean(values)], [y]; color=palette[j], markersize=6,
+                color=(palette[j + 1], 0.6), linewidth=1.5)
+            scatter!(axis, [mean(values)], [y]; color=palette[j + 1], markersize=6,
                 label=i == 1 && column == 2 ? label : nothing)
         end
         print_tow_point(measure, names, savings, markers)
@@ -650,7 +649,8 @@ function print_tow_point(measure, names, savings, markers)
     tow, label = last(markers)
     for (i, name) in enumerate(names)
         losses = [saving["bow"] - saving[tow] for saving in savings[i, :]]
-        println("    $name, $measure loss at $label: ", join(round.(losses; digits=1), ", "))
+        println("    $name, $measure loss at $label: ",
+            join(round.(losses; digits=1), ", "))
     end
 end
 

@@ -750,7 +750,7 @@ end
 """
     kite_tow_point(hull, assumptions)
 
-Distance [m] forward of midship of a kite's tow point and launch mast when it flies alone:
+Distance [m] forward of midship of a soft kite's tow point when it flies alone:
 the share `kite_tow_position` of the way from midship to the [`launch_mast_position`](@ref).
 """
 kite_tow_point(hull::Hull, assumptions::Assumptions) =
