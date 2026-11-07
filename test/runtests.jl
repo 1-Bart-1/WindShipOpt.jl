@@ -1058,6 +1058,40 @@ WindShipOpt.waves(weather::GaleWeather, lat, lon, time) =
 end
 
 """
+Synthetic weather with the gale of `GaleWeather` within a nautical mile of `place`
+(latitude, longitude) [deg] from `from` until `until` [h], and calm elsewhere.
+"""
+struct PassingGale
+    calm::SyntheticWeather
+    place::NTuple{2, Float64}
+    from::Float64
+    until::Float64
+end
+WindShipOpt.duration(::PassingGale) = Inf
+gale_at(weather::PassingGale, lat, lon, time) = weather.from <= time < weather.until &&
+    WindShipOpt.distance(lat, lon, weather.place...) < NAUTICAL_MILE
+WindShipOpt.wind(weather::PassingGale, lat, lon, time) =
+    gale_at(weather, lat, lon, time) ? (45.0, 45.0) :
+    WindShipOpt.wind(weather.calm, lat, lon, time)
+WindShipOpt.waves(weather::PassingGale, lat, lon, time) =
+    gale_at(weather, lat, lon, time) ? (16.0, 14.0, 1.25π) : (0.0, 0.0, 0.0)
+
+@testset "a ship that would meet a passing gale at its planned speed slows behind it" begin
+    centre, step = centre_index(corridor), WindShipOpt.MAX_LATERAL_STEP + 1
+    planned = searchsortedfirst(table.speeds, 9KNOT)
+    distance = corridor.edge_length[1, centre, step]
+    arrival(speed_index) = 24.0 * 31 + distance / table.speeds[speed_index] / 3600
+    gale = PassingGale(SyntheticWeather(), (corridor.lat[2, centre], corridor.lon[2, centre]),
+        24.0 * 31, (arrival(planned) + arrival(planned - 1)) / 2)
+    prices = (; fuel=table.table.ship.fuel.price, time=hourly)
+    hours, tally, _, speed = WindShipOpt.sail_planned_edge!(WindShipOpt.SailedPoint[],
+        table, gale, corridor, 1, centre, step, 24.0 * 31, table.speeds[planned], false,
+        false, prices)
+    @test isfinite(hours) && isfinite(tally.cost)
+    @test speed < table.speeds[planned]
+end
+
+"""
 Synthetic weather with, before the same date a year on, 5 m head seas and a wind 60 degrees
 off the bow on the first edge from `start`, in which only a kite flying holds more than
 4 kn, yet the seas forbid launching it.
@@ -1218,6 +1252,23 @@ end
     archive = ForecastArchive(joinpath(directory, "forecast"), weather)
     fourth = 24.0 * 4
     @test ArchivedForecast(archive, weather, fourth + 7.0).issued == fourth - 24.0
+end
+
+@testset "a ship reads another year's waves where its forecast has none" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
+    for name in ("direction_east", "direction_north", "height", "period")
+        path = joinpath(directory, "forecast", "waves", "$name.f16")
+        values = read!(path, Vector{Float16}(undef, filesize(path) ÷ 2))
+        values[1:4:end] .= NaN16
+        write(path, values)
+    end
+    known = ArchivedForecast(ForecastArchive(joinpath(directory, "forecast"), weather),
+        weather, 24.0 * 3 + 7.0)
+    time = known.issued + 18.0
+    @test waves(known, 40.0, -31.0, time) == waves(known.beyond, 40.0, -31.0, time)
+    @test first(waves(known, 40.0, -31.0, time)) > 0
 end
 
 @testset "a search that cuts off the best path and overruns its limit widens" begin

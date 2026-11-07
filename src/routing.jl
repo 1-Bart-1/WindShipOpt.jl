@@ -1101,9 +1101,10 @@ end
 Sail edge `step` of node (`stage`, `lateral`) of `corridor`, left at `time` [h] with the
 kite `aloft` or stowed, in the real `weather` at the planned `speed` [m/s], or at the
 highest lower speed of the [`RouteTable`](@ref) `table` the ship can hold with its kite as
-it is. The kite ends aloft where it can and is `planned_aloft` or cannot end stowed, never
-on the last edge. Returns the hours, the [`EdgeTally`](@ref), whether the kite ends aloft
-and the speed sailed; `Inf` hours where no speed passes.
+it is. The kite ends the edge aloft where it can fly and the plan has it aloft or the ship
+cannot sail the edge with it stowed; on the last edge it ends stowed. Returns the hours,
+the [`EdgeTally`](@ref), whether the kite ends aloft and the speed sailed; `Inf` hours
+where no speed passes.
 """
 function sail_planned_edge!(points, table::RouteTable, weather, corridor, stage, lateral,
         step, time, speed, aloft, planned_aloft, prices)
@@ -1112,7 +1113,7 @@ function sail_planned_edge!(points, table::RouteTable, weather, corridor, stage,
     for speed_index in searchsortedfirst(table.speeds, speed):-1:1
         hours = sail_edge!(points, start, table, weather, corridor, stage, lateral, step,
             time, speed_index)
-        isfinite(hours) || break
+        isfinite(hours) || continue
         down, up = kite_passage(table, points, aloft, prices)
         ends_aloft = !last_edge && isfinite(up.cost) &&
                      (planned_aloft || !isfinite(down.cost))

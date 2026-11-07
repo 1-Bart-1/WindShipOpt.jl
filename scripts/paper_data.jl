@@ -785,31 +785,31 @@ end
 
 Write `name` to the directory of the run in use: per lead day, the root mean square error
 against ERA5 of the vector wind [m/s] and the wave height [m] of the archived forecasts
-and of the same date in another year, over the nodes of `corridors` and every forecast.
+and of the same date in another year, over the nodes of `corridors` and every forecast
+in the archive.
 """
 function write_forecast_error(name, corridors...)
     points = unique(vcat([vec(collect(zip(corridor.lat, corridor.lon)))
                           for corridor in corridors]...))
     leads = 6.0:6.0:384.0
-    totals = zeros(length(leads), 4)
-    issues = WindShipOpt.issue_count(forecast_archive.wind)
-    for issue in 1:issues
+    totals, samples = zeros(length(leads), 4), zeros(Int, length(leads))
+    for issue in 1:WindShipOpt.issue_count(forecast_archive.wind)
         issued = WindShipOpt.issue_time(forecast_archive, issue)
         known = ArchivedForecast(forecast_archive, weather,
             issued + WindShipOpt.FORECAST_LATENCY)
+        known.issue == issue || continue
         other_year = ForecastWeather(weather, issued, 0.0)
         for (row, lead) in enumerate(leads)
             issued + lead <= WindShipOpt.duration(weather) || continue
             totals[row, :] .+= forecast_errors(known, other_year, points, issued + lead)
+            samples[row] += length(points)
         end
     end
     open(run_file(name), "w") do io
         println(io, "lead_days,wind_forecast,wind_other_year,height_forecast,",
             "height_other_year")
         for (row, lead) in enumerate(leads)
-            samples = sum(issue -> WindShipOpt.issue_time(forecast_archive, issue) + lead <=
-                                 WindShipOpt.duration(weather), 1:issues) * length(points)
-            rms = sqrt.(totals[row, :] ./ samples)
+            rms = sqrt.(totals[row, :] ./ samples[row])
             @printf(io, "%.2f,%.3f,%.3f,%.3f,%.3f\n", lead / 24, rms...)
         end
     end

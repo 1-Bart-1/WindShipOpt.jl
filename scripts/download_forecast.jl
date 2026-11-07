@@ -25,13 +25,13 @@ wave_records = Dict("height" => "HTSGW", "period" => "PERPW", "direction" => "WW
 
 function read_bytes(url; range=nothing)
     headers = isnothing(range) ? Pair{String, String}[] :
-              ["Range" => "bytes=$(first(range))-$(last(range))"]
+              ["Range" => "bytes=$(first(range))-$(something(last(range), ""))"]
     for attempt in 1:6
         try
             buffer = IOBuffer()
             Downloads.download(url, buffer; headers, timeout=300)
             return take!(buffer)
-        catch error
+        catch
             attempt == 6 && rethrow()
             sleep(5attempt)
         end
@@ -41,13 +41,13 @@ end
 """
     index_ranges(url, wanted)
 
-Byte ranges in the GRIB file at `url` of the records whose inventory line `wanted` accepts,
-in file order, from its `.idx` inventory.
+First and last byte (`nothing` for the end of the file) in the GRIB file at `url` of the
+records whose inventory line `wanted` accepts, in file order, from its `.idx` inventory.
 """
 function index_ranges(url, wanted)
     lines = split(String(read_bytes(url)), '\n'; keepempty=false)
     starts = [parse(Int, split(line, ':')[2]) for line in lines]
-    return [starts[i]:(i < length(lines) ? starts[i + 1] - 1 : typemax(Int) ÷ 2)
+    return [(starts[i], i < length(lines) ? starts[i + 1] - 1 : nothing)
             for i in eachindex(lines) if wanted(lines[i])]
 end
 
@@ -56,7 +56,7 @@ lead_text(hours) = "$hours hour fcst"
 function wind_ranges(date, variable)
     stamp = Dates.format(date, "yyyymmdd") * "00"
     files = String[]
-    ranges = UnitRange{Int}[]
+    ranges = Tuple{Int, Union{Int, Nothing}}[]
     for days in ("1-10", dayofweek(date) == Wednesday ? "10-35" : "10-16")
         url = "$wind_store/$(year(date))/$stamp/c00/Days:$days/" *
               "$(variable)_hgt_$(stamp)_c00.grib2"

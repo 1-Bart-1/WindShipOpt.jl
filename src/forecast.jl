@@ -10,6 +10,7 @@ issue), with the mean bias against the weather per (lon, lat, lead) of each scor
 struct ArchiveGroup
     "grid of one issue, with time in hours after that issue"
     grid::GriddedFields
+    "values per variable, (lon, lat, lead, issue); `NaN` on land and where not issued"
     fields::Dict{String, Array{Float16, 4}}
     "bias per year scored, estimated from the other years"
     bias::Dict{Int, Dict{String, Array{Float32, 3}}}
@@ -73,7 +74,8 @@ issue_year(archive::ForecastArchive, issue) =
 
 What a router knows at `time` [h]: the last forecast in `archive` to reach the ship, less
 its mean bias against `weather` estimated from the other years, and beyond its last lead
-the weather of the same date in another year, as [`ForecastWeather`](@ref).
+or where it has no waves the weather of the same date in another year, as
+[`ForecastWeather`](@ref).
 """
 struct ArchivedForecast{W}
     archive::ForecastArchive
@@ -125,7 +127,7 @@ function waves(forecast::ArchivedForecast, lat, lon, time)
                 ("height", "period", "direction_east", "direction_north"))...,
             bias_arrays(group, forecast.year, ("height", "period"))...), lat, lon,
         time - forecast.issued)
-    isnan(height) && return 0.0, 0.0, 0.0
+    isnan(height) && return waves(forecast.beyond, lat, lon, time)
     return max(height - height_bias, 0.0), max(period - period_bias, 0.0), atan(east, north)
 end
 
