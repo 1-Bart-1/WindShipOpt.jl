@@ -887,6 +887,66 @@ function aspect_data()
     end
 end
 
+"force limits of the kite in the force rating study [kN/m^2]"
+study_force_ratings = (0.3, 0.5, 0.7, 1.0)
+
+"kite areas of the force rating study [m^2]"
+study_kite_areas = [1600.0 * sqrt(2.0)^k for k in 0:6]
+
+"""
+    nearby_kite_areas(kite_area, reach)
+
+Those of [`study_kite_areas`](@ref) within `reach` grid steps of the one nearest `kite_area`.
+"""
+function nearby_kite_areas(kite_area, reach)
+    nearest = argmin(abs.(log.(study_kite_areas ./ kite_area)))
+    return study_kite_areas[max(1, nearest - reach):min(end, nearest + reach)]
+end
+
+"""
+    force_rating_case(bare, route, ship, rating, exponent, area)
+
+Trip case of the ship `bare` with a kite of `area` built for the force limit `rating`, its
+cloth following the limit to the power `exponent`.
+"""
+function force_rating_case(bare, route, ship, rating, exponent, area)
+    rated = changed_assumptions((; kite_max_force_per_area=rating,
+        canopy_cloth_force_exponent=exponent))
+    design = ShipDesign(; bare.drive, bare.length, bare.class, kite_area=area)
+    return trip_case(design; assumptions=rated, route, ship, rating, exponent, area)
+end
+
+"""
+    force_rating_cases(bare, route, ship, kite_area)
+
+Cases of one ship in the force rating study: without a rig; with its kite at each of
+[`study_force_ratings`](@ref) and two area steps around `kite_area`; and at the lowest and
+highest limit and one area step with cloth that follows the limit in proportion or not at
+all.
+"""
+function force_rating_cases(bare, route, ship, kite_area)
+    base = assumptions[:canopy_cloth_force_exponent]
+    return [trip_case(bare; route, ship, rating=0.0, exponent=base, area=0.0);
+            vec([force_rating_case(bare, route, ship, rating, base, area)
+                 for rating in study_force_ratings, area in nearby_kite_areas(kite_area, 2)]);
+            vec([force_rating_case(bare, route, ship, rating, exponent, area)
+                 for rating in extrema(study_force_ratings), exponent in (0.0, 1.0),
+                 area in nearby_kite_areas(kite_area, 1)])]
+end
+
+"""
+    force_rating_data()
+
+Each ship of [`sensitivity_ships`](@ref) with the cases of [`force_rating_cases`](@ref):
+force_rating.csv.
+"""
+function force_rating_data()
+    cases = reduce(vcat, [force_rating_cases(bare, route, ship, areas.kite.kite_area)
+                          for (ship, bare, route, areas) in sensitivity_ships()])
+    write_trips("force_rating.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :rating, :exponent, :area)
+end
+
 """
     noise_variants(tether_length_ratio, kite_min_turn_radius)
 
@@ -1222,6 +1282,46 @@ function combination_data()
     end
     write_trips("combination.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :route, :drive, :rig, :kite_area, :rotor_area)
+end
+
+"routes of the tow point study: westerlies ahead out and astern home, and trade winds abeam"
+tow_point_routes = (:new_york, :tubarao)
+
+"""
+    tow_point_positions(hull)
+
+Tow positions of the tow point study as (name, share of the way from midship to the
+launch mast at the forward end of the deck): the bow, the hull's lateral centre and
+midship.
+"""
+tow_point_positions(hull) = (("bow", 1.0),
+    ("centre", WindShipOpt.lateral_centre(hull) /
+               WindShipOpt.launch_mast_position(hull, assumptions)),
+    ("midship", 0.0))
+
+"""
+    tow_point_data()
+
+Every ship class on e-ammonia on each of `tow_point_routes` without a rig and with its
+cheapest kite of the class study towing from each of [`tow_point_positions`](@ref):
+tow_point.csv.
+"""
+function tow_point_data()
+    classes_table = read_table(data_file("classes.csv"))
+    cases = []
+    for class in values(ship_classes()), route in tow_point_routes
+        bare = ShipDesign(:ammonia, class)
+        push!(cases, trip_case(bare; class=class.name, route, tow="none", area=0.0))
+        area = best_area(classes_table, class.name, string(route), "ammonia", "kite")
+        isfinite(area) || continue
+        design = ShipDesign(:ammonia, class; kite_area=area)
+        for (tow, position) in tow_point_positions(Hull(class, assumptions))
+            push!(cases, trip_case(design; class=class.name, route, tow, area,
+                assumptions=with_value(assumptions, :kite_tow_position, position)))
+        end
+    end
+    write_trips("tow_point.csv", cases, round_trips(cases, sampled_departures()), :class,
+        :route, :tow, :area)
 end
 
 """
@@ -1785,13 +1885,12 @@ rigid_scaling_soft_kites = (500.0, 1000.0, 2000.0, 4000.0)
 """
     annual_kite_cost(rig, assumptions)
 
-Cost of `rig` over a year of [`kite_year`](@ref) [USD]: capital recovery, maintenance on
-the parts wear does not replace, wear, launches and landings, losses among them.
+Cost of `rig` over a year of [`kite_year`](@ref) [USD]: capital recovery, maintenance,
+wear and upkeep, launches and landings, losses among them.
 """
 function annual_kite_cost(rig, assumptions)
     capital, _, annuity = WindShipOpt.rig_costs(rig, assumptions)
-    upkept = capital - WindShipOpt.worn_part_price(rig, assumptions)
-    return annuity + assumptions[:maintenance_fraction] * upkept +
+    return annuity + WindShipOpt.rig_maintenance(rig, capital, assumptions) +
            WindShipOpt.wear_cost(rig, assumptions) * kite_year.flight_hours +
            WindShipOpt.cycle_cost(rig, assumptions) * kite_year.launches
 end

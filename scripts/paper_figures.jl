@@ -5,8 +5,17 @@ figures = mkpath(joinpath(root, "paper", "figures"))
 polars = joinpath(root, "data", "kite_polars")
 aspect_ratios = (3, 5, 8)
 palette = Makie.wong_colors()
-set_theme!(fontsize=10, figure_padding=4, Axis=(; xgridvisible=false, ygridvisible=false,
-    titlesize=10, titlefont=:regular, titlealign=:left))
+"path of the paper's typeface, TeX Gyre Termes, in `style`"
+paper_font(style) = joinpath(root, "data", "fonts", "texgyretermes-$style.otf")
+Makie.MathTeXEngine.set_texfont_family!(Makie.MathTeXEngine.FontFamily(Dict(
+    :regular => paper_font("regular"), :italic => paper_font("italic"),
+    :bold => paper_font("bold"), :bolditalic => paper_font("bold"),
+    :math => paper_font("math"))))
+set_theme!(fontsize=10, figure_padding=4,
+    fonts=(; regular=paper_font("regular"), italic=paper_font("italic"),
+        bold=paper_font("bold")),
+    Axis=(; xgridvisible=false, ygridvisible=false, titlesize=10, titlefont=:regular,
+        titlealign=:left))
 column_width = 334
 page_width = 522
 # points per figure unit, so that a page-wide figure is the 468 pt text width
@@ -224,7 +233,7 @@ function canopy_tension_figure()
     mean_force = sum(forces .* table["duration"]) / sum(table["duration"])
     peak_force = maximum(forces)
     tension(force) = 1e3force / area * skin_radius
-    strength = cloth_specific_strength * assumptions[:canopy_cloth_weight] / 1e3
+    strength = cloth_specific_strength * WindShipOpt.cloth_weight(assumptions) / 1e3
     figure = Figure(size=(page_width, 210))
     balance = Axis(figure[1, 1]; aspect=DataAspect(), limits=(-3.0, 7.0, -1.8, 2.0),
         title="(a) from tether force to cloth tension")
@@ -551,6 +560,107 @@ function class_comparison_figure()
     Legend(figure[2, 1:length(drive_panels)], content(figure[1, 1]);
         orientation=:horizontal, framevisible=false, labelsize=9)
     save(joinpath(figures, "class_comparison.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"the tow points of the tow point study with their labels, then a midship mast in a bay"
+tow_point_markers = (("bow", "bow"), ("centre", "lateral centre"),
+    ("midship", "midship"), ("midship_bay", "midship, mast in a deck bay"))
+
+"""
+    midship_bay_cargo(class, cargo)
+
+Cargo [t] of a ship of `class` that carries `cargo` [t] when its kite mast stands
+midship in a 40-foot bay of the deck stack and blocks that bay across the beam on every
+tier; `cargo` itself on ships without a deck stack or that fill their deadweight first.
+"""
+function midship_bay_cargo(class, cargo)
+    class.cargo_unit == :teu || return cargo
+    rows = floor(class.beam / assumptions[:container_row_pitch])
+    slots = class.unit_capacity - WindShipOpt.bay_slots(rows, class)
+    return min(cargo, slots * WindShipOpt.CargoUnit(:teu, assumptions).cargo)
+end
+
+"""
+    tow_point_savings(table, class, route, measure)
+
+Saving [%] in the column `measure` of the kite at each of `tow_point_markers` against
+no rig for `class` on `route`; the cost of the midship mast in a bay scales with the
+cargo [`midship_bay_cargo`](@ref) leaves.
+"""
+function tow_point_savings(table, class, route, measure)
+    reference = tow_point_value(table, class, route, "none", measure)
+    savings = Dict(tow => percent_saving(tow_point_value(table, class, route, tow,
+                       measure), reference) for (tow, _) in tow_point_markers[1:3])
+    cargo = tow_point_value(table, class, route, "midship", "cargo")
+    scale = measure == "cost" ? cargo / midship_bay_cargo(ship_classes()[class], cargo) : 1
+    savings["midship_bay"] = percent_saving(
+        scale * tow_point_value(table, class, route, "midship", measure), reference)
+    return savings
+end
+
+"Value in `column` of the tow point study's row for `class`, `route` and `tow`"
+tow_point_value(table, class, route, tow, column) =
+    only(table[column][rows(table, "class" => class, "route" => route, "tow" => tow)])
+
+"""
+    tow_point_figure()
+
+Fuel and cost saving of each class's kite towing from the hull's lateral centre and
+midship, and at midship with its mast in a deck bay, against the kite towing from the
+bow: the mean over the routes as a marker and the range over the routes as a bar.
+Prints the savings and the losses against the bow.
+"""
+function tow_point_figure()
+    table = read_table(data_file("tow_point.csv"))
+    names = filter(name -> !isempty(rows(table, "class" => name, "tow" => "bow")),
+        class_order(table))
+    routes_seen = unique(table["route"])
+    figure = Figure(size=(page_width, 300))
+    panels = (("fuel", "(a) fuel saving"), ("cost", "(b) cost saving"))
+    for (column, (measure, title)) in enumerate(panels)
+        axis = Axis(figure[1, column]; title, xlabel="against the bow [% points]",
+            yticks=(eachindex(names), names), yreversed=true,
+            yticklabelsvisible=column == 1)
+        vlines!(axis, 0; color=palette[1], linewidth=0.8)
+        savings = [tow_point_savings(table, name, route, measure)
+                   for name in names, route in routes_seen]
+        markers = measure == "cost" ? tow_point_markers : tow_point_markers[1:3]
+        for (j, (tow, label)) in enumerate(markers[2:end]), (i, name) in enumerate(names)
+            values = [saving[tow] - saving["bow"] for saving in savings[i, :]]
+            y = i + (j - 2) * 0.22
+            rangebars!(axis, [y], [minimum(values)], [maximum(values)]; direction=:x,
+                color=(palette[j + 1], 0.6), linewidth=1.5)
+            scatter!(axis, [mean(values)], [y]; color=palette[j + 1], markersize=6,
+                label=i == 1 && column == 2 ? label : nothing)
+        end
+        print_tow_point(measure, names, savings, markers)
+    end
+    Legend(figure[2, 1:2], content(figure[1, 2]); orientation=:horizontal,
+        framevisible=false, labelsize=9)
+    rowgap!(figure.layout, 1, 4)
+    save(joinpath(figures, "tow_point.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    print_tow_point(measure, names, savings, markers)
+
+Print the mean saving in `measure` of each tow point of `markers` over all classes and
+routes of `savings`, its mean, least and largest loss [% points] against the bow, and
+the loss of the last of `markers` for each class of `names` on each route.
+"""
+function print_tow_point(measure, names, savings, markers)
+    for (tow, label) in markers
+        losses = [saving["bow"] - saving[tow] for saving in savings]
+        @printf("  %s saving at %s: %.1f %%, loss against the bow %.2f (%.2f to %.2f)\n",
+            measure, label, mean(saving[tow] for saving in savings), mean(losses),
+            extrema(losses)...)
+    end
+    tow, label = last(markers)
+    for (i, name) in enumerate(names)
+        losses = [saving["bow"] - saving[tow] for saving in savings[i, :]]
+        println("    $name, $measure loss at $label: ",
+            join(round.(losses; digits=1), ", "))
+    end
 end
 
 """
@@ -1168,6 +1278,58 @@ function aspect_figure()
     end
     axislegend(axis; position=:rb, framevisible=false, labelsize=8.5)
     save(joinpath(figures, "aspect.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    best_force_rating_saving(table, ship, rating, exponent, areas, bare)
+
+Highest saving [%] over `areas` in force_rating.csv of `ship`, costing `bare` without a rig,
+with a kite built for `rating` whose cloth follows the limit to the power `exponent`.
+"""
+function best_force_rating_saving(table, ship, rating, exponent, areas, bare)
+    chosen = rows(table, "ship" => ship, "rating" => rating, "exponent" => exponent)
+    return maximum(percent_saving(table["cost"][row], bare)
+                   for row in chosen if table["area"][row] in areas)
+end
+
+"""
+    force_rating_figure()
+
+Saving of each study ship at its best kite area against the force limit, with cloth that
+follows the limit by the base exponent, in proportion, or not at all, each over the kite
+areas that cloth law was run at.
+"""
+function force_rating_figure()
+    table = read_table(data_file("force_rating.csv"))
+    figure = Figure(size=(column_width, 215))
+    axis = Axis(figure[1, 1]; xlabel=L"force limit $[\mathrm{kN/m^2}]$",
+        ylabel=L"cost saving $[\%]$", xticks=collect(study_force_ratings))
+    base = assumptions[:canopy_cloth_force_exponent]
+    reference = assumptions[:canopy_cloth_reference_force]
+    laws = ((base, :solid, "keeps its life"), (1.0, :dash, "in proportion"),
+        (0.0, :dot, L"fixed at $200\,\mathrm{g/m^2}$"))
+    ships = unique(table["ship"])
+    for (k, ship) in enumerate(ships)
+        bare = table["cost"][only(rows(table, "ship" => ship, "rating" => 0))]
+        for (exponent, linestyle, _) in laws
+            ratings = exponent == base ? collect(study_force_ratings) :
+                      sort([extrema(study_force_ratings)..., reference])
+            areas = Set(table["area"][rows(table, "ship" => ship, "exponent" => exponent)])
+            savings = [best_force_rating_saving(table, ship, rating,
+                           rating == reference ? base : exponent, areas, bare)
+                       for rating in ratings]
+            lines!(axis, ratings, savings; color=palette[k], linestyle, linewidth=1.3)
+        end
+    end
+    ship_entries = [LineElement(color=palette[k], linewidth=1.3) for k in eachindex(ships)]
+    law_entries = [LineElement(; color=:black, linestyle, linewidth=1.3)
+                   for (_, linestyle, _) in laws]
+    Legend(figure[2, 1], [ship_entries, law_entries], [ships, collect(last.(laws))],
+        ["ship", "cloth"]; orientation=:horizontal, nbanks=3, framevisible=false,
+        labelsize=8.5, titlesize=8.5, titlefont=:regular, rowgap=0, patchsize=(20, 8),
+        titleposition=:left, padding=0)
+    rowgap!(figure.layout, 1, 6)
+    save(joinpath(figures, "force_rating.pdf"), figure; pt_per_unit=print_scale)
 end
 
 """
