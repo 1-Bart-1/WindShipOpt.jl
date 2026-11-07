@@ -1091,7 +1091,7 @@ function part_effect((file, ship_column, groups))
         end
         best = unique(argmin(rig -> cost[rig], rig_names) for cost in costs)
         length(best) > 1 && push!(get!(swaps, join(sort(best), "/"), Set()),
-            short_ship(something(ship, "140 m")))
+            replace(short_ship(something(ship, "140 m")), " " => "~"))
     end
     return spread, sort([string(rigs, " on ", join(sort(collect(swapped)), ", "))
                          for (rigs, swapped) in swaps])
