@@ -10,8 +10,8 @@ into the exported designs
 explorer_inputs = (:vlsfo_price, :vlsfo_carbon_intensity, :e_methanol_price,
     :carbon_price, :carbon_coverage, :discount_rate, :hull_lifetime, :wing_lifetime,
     :rotor_lifetime, :kite_lifetime, :market_price_factor, :retractable_rig_premium,
-    :tether_lifetime, :kite_cycle_crew_cost, :kite_cycle_damage_probability,
-    :kite_cycle_loss_probability,
+    :tether_lifetime, :tether_bend_life, :tether_bends_per_launch, :kite_cycle_crew_cost,
+    :kite_cycle_damage_probability, :kite_cycle_loss_probability,
     :kite_launch_retry_probability, :kite_cycle_course_cost, :mechanical_propulsion_cost,
     :electric_propulsion_cost, :newbuild_reference_deadweight, :crew_cost,
     :crew_cost_exponent, :maintenance_fraction, :availability, :port_time_per_call)
