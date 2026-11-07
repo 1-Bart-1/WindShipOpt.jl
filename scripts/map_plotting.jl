@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Map layers shared by the route figures: land from the land mask, wind arrows, smoothed
 # tracks and great circles.
 using WindShipOpt: is_land

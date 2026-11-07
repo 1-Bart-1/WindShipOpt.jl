@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Data steps of the paper: each runs one study and writes its data files to the directory
 # of the run in use. Included by paper.jl.
 

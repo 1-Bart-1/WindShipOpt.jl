@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Figure steps of the paper: each saves one PDF to paper/figures/, from the CSV files of
 # the run in use, the data in data/kite_polars/ or the model itself. Included by paper.jl.
 

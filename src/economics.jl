@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 capital_recovery(rate, years) = rate / (1 - (1 + rate)^-years)
 
 """

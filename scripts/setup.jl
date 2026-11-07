@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Shared by the scripts: the weather, the departure times and the route corridors. Uses
 # the ERA5 data in era5/atlantic_wide/ with its land mask and all routes when it is there,
 # and the synthetic weather with the Caribbean route otherwise. Corridors are built on

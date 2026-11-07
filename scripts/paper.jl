@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Regenerates the data, figures and tables of the paper. In a REPL in the scripts
 # environment:
 #

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 using Test
 using WindShipOpt
 using WindShipOpt: correlation_allowance, bulb_resistance, friction_coefficient
