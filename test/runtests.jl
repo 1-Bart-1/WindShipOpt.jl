@@ -823,15 +823,16 @@ end
     bare = Ship(ShipDesign(:methanol, 85.0), assumptions)
     changed = with_value(assumptions, :kite_out_of_service, 1.0)
     kite = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), changed)
-    share, down = only(WindShipOpt.service_states(kite.rig, changed))
-    @test share == 1
+    states = WindShipOpt.service_states(kite.rig, changed)
+    @test first.(states) == [0, 1]
+    down = last(last(states))
     hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(bare, assumptions),
         assumptions)
     passages = [WindShipOpt.service_passages(ship, outbound, inbound, SyntheticWeather(),
                     [24.0 * 31, 24.0 * 200], assumptions, hourly,
                     24assumptions[:port_time_per_call], Inf, nothing)
                 for ship in (bare, WindShipOpt.with_rig(kite, down))]
-    @test first(passages).means == last(passages).means
+    @test first(passages) == last(passages)
     kite_hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(kite, changed), changed)
     @test all(kite_hourly .> hourly)
 end
