@@ -26,6 +26,7 @@ root = joinpath(@__DIR__, "..")
 sections = mkpath(joinpath(root, "paper", "sections"))
 
 include("paper_runs.jl")
+include("size_search.jl")
 include("paper_data.jl")
 include("explorer_data.jl")
 include("paper_figures.jl")
@@ -35,22 +36,27 @@ include("paper_tables.jl")
 data_steps = [:patterns => patterns_data, :designs => designs_data,
     :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
     :sensitivity => sensitivity_data, :base_kite => base_kite_data,
-    :aspect_data => aspect_data,
+    :aspect_data => aspect_data, :force_rating_data => force_rating_data,
+    :goal_size_data => goal_size_data,
     :availability_data => availability_data,
     :canopy_life_data => canopy_life_data, :canopy_price_data => canopy_price_data,
-    :crash_data => crash_data,
     :situations_data => situations_data,
     :wind_angle_data => wind_angle_data, :canopy_tension => canopy_tension_data,
     :abatement_data => abatement_data,
     :components => components_data, :combination_data => combination_data,
     :rigid_scaling_data => rigid_scaling_data, :rigid_kite_data => rigid_kite_data,
-    :launch => launch_data, :convergence => convergence_data]
+    :launch => launch_data, :convergence => convergence_data, :flight => flight_data,
+    :speed_choice => speed_choice_data, :speed_terms => speed_terms_data,
+    :published_terms => published_terms_data, :speed_size => speed_size_data,
+    :tow_point => tow_point_data, :model_parts => model_parts_data,
+    :size_search => size_search_data]
 
 "steps outside the paper, run only by name: the data of the companion website"
 website_steps = [:explorer => explorer_data]
 
 "figure and table steps, each reading the data files and writing one output"
 output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
+    :wind_load => wind_load_figure,
     :capital => capital_figure, :patterns_figure => pattern_figure,
     :canopy_tension_figure => canopy_tension_figure,
     :rig_polar => rig_polar_figure, :routes_figure => route_figure,
@@ -61,15 +67,21 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :winner_map => winner_map_figure, :situations_figure => situations_figure,
     :wind_angle_figure => wind_angle_figure,
     :sensitivity_figure => sensitivity_figure, :aspect_figure => aspect_figure,
+    :force_rating_figure => force_rating_figure,
     :components_figure => component_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
     :class_table => class_table, :fuel_table => fuel_table,
     :split_table => split_table,
     :payback_table => payback_table, :goals_table => goals_table,
-    :missed_goals_table => missed_goals_table, :crash_table => crash_table,
+    :missed_goals_table => missed_goals_table,
     :abatement => abatement_figure, :combination => combination_figure,
     :rigid_scaling => rigid_scaling_figure, :rigid_kite => rigid_kite_figure,
-    :rigid_size => rigid_size_figure, :numbers => numbers_file]
+    :rigid_size => rigid_size_figure,
+    :flight_table => flight_table, :speed_choice_table => speed_choice_table,
+    :speed_terms_table => speed_terms_table, :published_table => published_table,
+    :speed_size_table => speed_size_table, :speed_size_figure => speed_size_figure,
+    :tow_point_figure => tow_point_figure, :fidelity_table => fidelity_table,
+    :numbers => numbers_file]
 
 """
     paper(names...; fidelity, resume=nothing)

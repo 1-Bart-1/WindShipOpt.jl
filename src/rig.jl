@@ -38,6 +38,9 @@ RigForce(thrust, side, heeling_moment, yaw_moment) =
 
 const NO_RIG_FORCE = RigForce(0.0, 0.0, 0.0, 0.0)
 
+"force of a setting the rig cannot hold, which no trim search keeps"
+const UNREACHABLE_RIG_FORCE = RigForce(-Inf, 0.0, 0.0, 0.0)
+
 "sum of two rig forces acting on one ship, field by field"
 Base.:+(a::RigForce, b::RigForce) = RigForce(a.thrust + b.thrust, a.side + b.side,
     a.heeling_moment + b.heeling_moment, a.yaw_moment + b.yaw_moment, a.power + b.power)
@@ -151,7 +154,7 @@ Wing force at the trim `setting`, a lift and drag coefficient pair from
 function rig_force(rig::WingRig, env::Environment, wind_10m, true_angle, ship_speed,
         setting)
     lift, drag = setting
-    centre_height = rig.foot_height + rig.height / 2
+    centre_height = rig_height(rig)
     wind = wind_at_height(env, wind_10m, centre_height)
     speed, angle = apparent_wind(wind, true_angle, ship_speed)
     load = 0.5env.air_density * speed^2 * total_area(rig)
@@ -247,15 +250,15 @@ end
     rig_force(rig::RotorRig, env, wind_10m, true_angle, ship_speed, spin_ratio)
 
 Rotor force at `spin_ratio`, with the apparent wind taken at the rotors' mid height;
-no force where the rotors cannot spin that fast.
+[`UNREACHABLE_RIG_FORCE`](@ref) where the rotors cannot spin that fast.
 """
 function rig_force(rig::RotorRig, env::Environment, wind_10m, true_angle, ship_speed,
         spin_ratio)
-    centre_height = rig.foot_height + rig.height / 2
+    centre_height = rig_height(rig)
     wind = wind_at_height(env, wind_10m, centre_height)
     speed, angle = apparent_wind(wind, true_angle, ship_speed)
-    spin_ratio * speed <= rig.max_surface_speed || return NO_RIG_FORCE
-    speed > rig.max_wind && spin_ratio > 0 && return NO_RIG_FORCE
+    spin_ratio * speed <= rig.max_surface_speed || return UNREACHABLE_RIG_FORCE
+    speed > rig.max_wind && spin_ratio > 0 && return UNREACHABLE_RIG_FORCE
     load = 0.5env.air_density * speed^2 * total_area(rig)
     fitted_lift, drag, power = rotor_coefficients(spin_ratio)
     lift = rig.lift_factor * fitted_lift
@@ -396,7 +399,7 @@ function kite_model(area, aspect_ratio, assumptions::Assumptions)
     tether_mass = rope_mass(tether_diameter, tether_length, assumptions)
     bridle_drag, bridle_mass = bridle_lines(area, aspect_ratio, max_force, assumptions)
     mass = Canopy(assumptions).mass_per_area * area + bridle_mass +
-           assumptions[:control_unit_mass] + tether_mass / 2
+           1e-3assumptions[:control_unit_mass_per_force] * max_force + tether_mass / 2
     polar = KitePolar(aspect_ratio)
     stall = argmax(polar.lift)
     model = KiteModel(area, mass, tether_length, env.air_density, env.gravity, polar,
@@ -641,13 +644,14 @@ function rigid_kite_rig(total_area, hull::Hull, assumptions::Assumptions;
 end
 
 """
-    KiteRig(area, aspect_ratio, hull, assumptions; attach_position=lateral_centre(hull))
+    KiteRig(area, aspect_ratio, hull, assumptions;
+            attach_position=kite_tow_point(hull, assumptions))
 
 Kite of projected `area` [m^2] and `aspect_ratio` with its pattern table, towing from
 `attach_position` [m] forward of midship.
 """
 function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assumptions;
-        attach_position=lateral_centre(hull))
+        attach_position=kite_tow_point(hull, assumptions))
     scale = hull.length / assumptions[:reference_length]
     model, max_force, tether_diameter = kite_model(area, aspect_ratio, assumptions)
     tether_length = model.tether_length
@@ -709,22 +713,21 @@ function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_sp
     lone = hypot(downwind, crosswind)
     interaction = loop_interaction(rig, lone / (0.5env.air_density * speed^2))
     limit = kite_count(rig) * min(interaction, rig.max_force / lone)
-    direction = angle + π
-    thrust = limit * (downwind * cos(direction) - crosswind * sin(direction))
-    side = limit * (downwind * sin(direction) + crosswind * cos(direction))
+    thrust = limit * (crosswind * sin(angle) - downwind * cos(angle))
+    side = limit * (crosswind * cos(angle) + downwind * sin(angle))
     return RigForce(thrust, side, side * rig.attach_height, side * rig.attach_position)
 end
 
 trim_settings(rig::KiteRig) = eachindex(rig.side_weights)
 
 """
-    CombinedRig{S}
+    CombinedRig{K, S}
 
-Towing kite flown over a standing rig of wings or rotors, of type `S`; the standing rig
-works whether or not the kite flies.
+Towing kite of type `K` flown over a standing rig of wings or rotors, of type `S`; the
+standing rig works whether or not the kite flies.
 """
-struct CombinedRig{S}
-    kite::KiteRig
+struct CombinedRig{K <: KiteRig, S}
+    kite::K
     standing::S
 end
 
@@ -746,6 +749,15 @@ function launch_mast_position(hull::Hull, assumptions::Assumptions)
     deck_length = assumptions[:deck_length_fraction] * hull.length
     return (deck_length - launch_mast_reserve(assumptions)) / 2
 end
+
+"""
+    kite_tow_point(hull, assumptions)
+
+Distance [m] forward of midship of a soft kite's tow point when it flies alone:
+the share `kite_tow_position` of the way from midship to the [`launch_mast_position`](@ref).
+"""
+kite_tow_point(hull::Hull, assumptions::Assumptions) =
+    assumptions[:kite_tow_position] * launch_mast_position(hull, assumptions)
 
 """
     CombinedRig(kite_area, kite_aspect_ratio, standing_type, standing_area, hull,
@@ -817,3 +829,14 @@ function rig_force(down::DownRig, env::Environment, wind_10m, true_angle, ship_s
 end
 
 standing_rig(down::DownRig) = down
+
+"""
+    rig_height(rig)
+
+Height [m] at which `rig` takes its apparent wind, 10 m without a rig.
+"""
+rig_height(rig::Union{WingRig, RotorRig}) = rig.foot_height + rig.height / 2
+rig_height(rig::KiteRig) = rig.reference_height
+rig_height(rig::CombinedRig) = rig_height(rig.kite)
+rig_height(down::DownRig) = rig_height(down.rig)
+rig_height(::Nothing) = 10.0
