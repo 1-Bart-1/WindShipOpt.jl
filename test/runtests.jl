@@ -1,3 +1,4 @@
+using Statistics: mean
 using Test
 using WindShipOpt
 using WindShipOpt: correlation_allowance, bulb_resistance, friction_coefficient
