@@ -38,6 +38,9 @@ RigForce(thrust, side, heeling_moment, yaw_moment) =
 
 const NO_RIG_FORCE = RigForce(0.0, 0.0, 0.0, 0.0)
 
+"force of a setting the rig cannot hold, which no trim search keeps"
+const UNREACHABLE_RIG_FORCE = RigForce(-Inf, 0.0, 0.0, 0.0)
+
 "sum of two rig forces acting on one ship, field by field"
 Base.:+(a::RigForce, b::RigForce) = RigForce(a.thrust + b.thrust, a.side + b.side,
     a.heeling_moment + b.heeling_moment, a.yaw_moment + b.yaw_moment, a.power + b.power)
@@ -278,12 +281,12 @@ end
     rig_force(rig::RotorRig, env, wind_10m, true_angle, ship_speed, spin_ratio)
 
 Rotor force at `spin_ratio`, with the apparent wind taken at the rotors' mid height;
-no force where the rotors cannot spin that fast.
+[`UNREACHABLE_RIG_FORCE`](@ref) where the rotors cannot spin that fast.
 """
 function rig_force(rig::RotorRig, env::Environment, wind_10m, true_angle, ship_speed,
         spin_ratio)
     centre_height, speed, angle = centre_wind(rig, env, wind_10m, true_angle, ship_speed)
-    spin_ratio <= max_spin_ratio(rig, speed) || return NO_RIG_FORCE
+    spin_ratio <= max_spin_ratio(rig, speed) || return UNREACHABLE_RIG_FORCE
     load = 0.5env.air_density * speed^2 * total_area(rig)
     fitted_lift, drag, power = rotor_coefficients(spin_ratio)
     lift = rig.lift_factor * fitted_lift
