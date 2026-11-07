@@ -792,7 +792,8 @@ whole corridor of the run's start scale: forecast.csv.
 function forecast_data()
     scale = run_settings().start_scale
     cases = vec([trip_case(ShipDesign(:methanol, 140.0; rig_size(rig, area)...); horizon,
-                     scale, start_scale=scale, rig, horizon_days=isfinite(horizon) ? horizon / 24 : 0.0)
+                     scale, start_scale=scale, rig,
+                     horizon_days=isfinite(horizon) ? horizon / 24 : 0.0)
                  for (rig, area) in [("none", 0.0); reference_rigs],
                      horizon in (Inf, 24.0 * 7, 24.0 * 3)])
     write_trips("forecast.csv", cases, round_trips(cases, sampled_departures()), :rig,

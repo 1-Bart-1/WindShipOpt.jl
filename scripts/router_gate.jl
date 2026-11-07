@@ -12,10 +12,10 @@
 # Given a reference directory holding gate_<scale>.csv, prints the change per case and exits
 # 1 if a saving moves by more than `SAVING_TOLERANCE` points. `--reference` searches every
 # state, which makes such a directory. `--fresh` makes the reference and compares with it, a
-# scale at a time and in one process, so both see the same code and inputs. `--refine` routes
-# at one scale by refining the optimal route at `start_scale`, and compared with a run of the
-# full router at that scale it prints the change of each saving and its spread per rig. A
-# convergence check is `run_gate` with other `RouterSettings`, compared the same way.
+# scale at a time and in one process, so both see the same code and inputs. `--refine`
+# routes at one scale by refining the optimal route at `start_scale`; compared with a run of
+# the full router at that scale, it prints the change of each saving and its spread per rig.
+# A convergence check is `run_gate` with other `RouterSettings`, compared the same way.
 using Printf
 include(joinpath(@__DIR__, "setup.jl"))
 

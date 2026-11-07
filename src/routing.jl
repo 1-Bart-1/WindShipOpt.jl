@@ -1100,7 +1100,7 @@ within_limit(band::PassageBand, limit, here, lateral, aloft, stage, time) =
 edge_within_limit(band::PassageBand, limit, here, next, stage, time) =
     in_band(band, next, stage, time)
 
-"whether node `lateral` of `stage` at `time` [h] lies within the [`PassageBand`](@ref) `band`"
+"whether node `lateral` of `stage` at `time` [h] lies in the [`PassageBand`](@ref) `band`"
 in_band(band::PassageBand, lateral, stage, time) =
     band.inside[stage, lateral] && abs(time - band.elapsed[stage]) <= band.width
 
