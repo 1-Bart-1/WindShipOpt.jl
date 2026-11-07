@@ -1226,7 +1226,7 @@ end
     PaperRuns.paper_run = PaperRuns.PaperRun(mktempdir(), :draft,
         Dict{String, Any}("code_hash" => "held"), 0, 0)
     case_at(held_knots) = (; design=ShipDesign(:vlsfo, 100.0), assumptions,
-        route=:caribbean, scale=8.0, horizon=Inf, held_knots)
+        route=:caribbean, scale=8.0, forecast=false, held_knots)
     @test allunique(PaperRuns.case_path(case_at(held_knots), [24.0])
                     for held_knots in (nothing, 8.0, 9.0))
 end
