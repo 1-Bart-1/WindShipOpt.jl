@@ -1274,6 +1274,47 @@ function aspect_figure()
 end
 
 """
+    canopy_life_figure()
+
+Saving of the kite of each ship of the goal limits against its canopy life, at its cheapest
+size of goal_sizes.csv with every other goal met, beside the saving of the wings and rotors
+at theirs, the goal and the range of the strength decay.
+"""
+function canopy_life_figure()
+    lives = read_table(data_file("canopy_life.csv"))
+    sizes = read_table(data_file("goal_sizes.csv"))
+    figure = Figure(size=(page_width, 175))
+    ticks = [500, 1000, 2000, 4000, 8000, 16000]
+    bounds = assumptions.entries[:canopy_life]
+    for (k, ship) in enumerate(unique(lives["ship"]))
+        axis = Axis(figure[1, k]; title="($('a' + k - 1)) $(short_ship(ship))",
+            xscale=log10, xticks=(ticks, string.(ticks)), xticklabelsize=8.5,
+            xlabel="canopy life [flight hours]", ylabel=k == 1 ? "cost saving [%]" : "")
+        vspan!(axis, bounds.low, bounds.high; color=(:gray50, 0.15))
+        vlines!(axis, assumptions[:canopy_life]; color=:gray40, linestyle=(:dash, :loose),
+            linewidth=0.9)
+        hlines!(axis, 0; color=:gray50, linewidth=0.6)
+        bare = only(sizes["cost"][rows(sizes, "ship" => ship, "rig" => "none")])
+        for (j, rig) in Iterators.drop(enumerate(rig_names), 1)
+            saving = percent_saving(sizes["cost"][cheapest_size(sizes, ship, rig)], bare)
+            hlines!(axis, saving; color=palette[j], linewidth=1.3)
+        end
+        picked = rows(lives, "ship" => ship)
+        order = sortperm(lives["life"][picked])
+        scatterlines!(axis, lives["life"][picked][order],
+            percent_saving.(lives["cost"][picked][order], bare); color=palette[1],
+            markersize=4, linewidth=1.3)
+        k == 1 && axislegend(axis,
+            [rig_entries()..., PolyElement(color=(:gray50, 0.15)),
+                LineElement(color=:gray40, linestyle=(:dash, :loose), linewidth=0.9)],
+            ["kite", "wings", "rotors", "decay range", "goal"]; position=:rb,
+            framevisible=true, backgroundcolor=:white, framewidth=0.5, labelsize=8,
+            rowgap=0, patchsize=(14, 7), padding=(4, 4, 2, 2))
+    end
+    save(joinpath(figures, "canopy_life.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
     best_force_rating_saving(table, ship, rating, exponent, areas, bare)
 
 Highest saving [%] over `areas` in force_rating.csv of `ship`, costing `bare` without a rig,

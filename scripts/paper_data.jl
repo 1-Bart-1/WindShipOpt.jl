@@ -1150,7 +1150,7 @@ end
 "row of the cheapest size of `rig` on `ship` in the goal_sizes.csv `table`"
 cheapest_size(table, ship, rig) = cheapest_row(table, "ship" => ship, "rig" => rig)
 
-"canopy lives [flight hours] the kite is routed at for the missed-goal table"
+"canopy lives [flight hours] the kite is routed at for the missed-goal table and figure"
 canopy_lives = (500.0, 750.0, 1000.0, 1500.0, 2000.0, 3000.0, 4000.0, 6000.0, 8000.0,
     16000.0)
 
@@ -1255,10 +1255,10 @@ end
 """
     component_factors(name)
 
-Factors on input `name` of the component study: half and twice a lifetime, half and
-1.5 times a price.
+Factors on input `name` of the component study: half and twice a life, half and 1.5 times
+a price.
 """
-component_factors(name) = endswith(string(name), "lifetime") ? (0.5, 2.0) : (0.5, 1.5)
+component_factors(name) = occursin(r"life(time)?$", string(name)) ? (0.5, 2.0) : (0.5, 1.5)
 
 """
     convergence_data()

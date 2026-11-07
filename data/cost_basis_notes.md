@@ -160,7 +160,7 @@ Section 4.4 is today's estimate, USD 234.4 per projected m² at 200 g/m²: (57 +
 - Retail anchors: Dimension Polyant Dacron 170 g/m², EUR 27.90/m at 1.44 m incl. VAT (https://www.extremtextil.de/en/dacron-woven-polyester-sailcloth-170-mt-170g-sqm.html), about 18–20 USD/m² ex VAT; the retail line of `canopy_cloth_base_price` gives 15 USD/m² before offcuts at 200 g/m².
 - Step from retail: 15 × 0.60–0.75 for full rolls × 0.75–0.85 for one dealer less gives 6.8–9.6 USD/m². Both factors are sellers' figures, so 8.2 is a judgement, not a quote.
 - From below: nylon 66 airbag fabric at 2.5–5.5 USD/m², polyester 10–20 % less (vendor blog citing Intel Market Research, https://ly-trustlink.com/airbag-fabric-price-guide-2026/), with 15–30 % more for solution dyeing (https://fumaofabric.com/?p=11911), gives 2.0–6.4 USD/m². High-tenacity polyester yarn trades at 1,784–1,862 USD/t in 2024 (https://www.indexbox.io/blog/high-tenacity-filament-polyester-yarn-world-market-overview-2024-2/), 0.4 USD per 200 g.
-- Coated commodity polyester at 1–3 USD/m² is not the price: nothing shows it lasts 4,000 h under load.
+- Coated commodity polyester at 1–3 USD/m² is not the price: nothing shows it lasts the goal of 2,000 h under load.
 - Not found: a mill quote for this cloth, a trade price from Challenge, Dimension Polyant, Contender or Bainbridge, a sourced price for UV durability beyond the dyeing premium. Three mill quotes at 10,000 m² and 1 million m² for one specification with UV test reports would settle it.
 
 **Sewing: 1.0 h per flat m² against 1.5, at the same USD 26/h.**

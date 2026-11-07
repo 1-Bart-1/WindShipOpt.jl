@@ -1,6 +1,6 @@
 # Canopy life: the derivation and its data
 
-The case that the canopy life goal of 4,000 flight hours at 200 g/m² (`canopy_life` in `assumptions.yaml`) is realistic. The model takes the goal as an input and holds none of the decay below; the formula and its inputs are here so a reader can recompute every life. The paper's subsection "Canopy life" is the short form. **[est]** marks our estimate; **[claim]** a maker's or seller's statement with no test shown; **[meas]** a measurement with its method stated. `paper/sources.csv` says which sources were read in full.
+The case for the canopy life goal of 2,000 flight hours at 200 g/m² (`canopy_life` in `assumptions.yaml`): the decay below gives 3,800 h, and the goal sits on the careful side of it, below the life at either bound of each input and about the 1,700-2,700 h a sail keeps its shape. The model takes the goal as an input and holds none of the decay below; the formula and its inputs are here so a reader can recompute every life. The paper's subsection "Canopy life" is the short form. **[est]** marks our estimate; **[claim]** a maker's or seller's statement with no test shown; **[meas]** a measurement with its method stated. `paper/sources.csv` says which sources were read in full.
 
 ## Result
 
