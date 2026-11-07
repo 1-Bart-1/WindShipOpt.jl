@@ -108,12 +108,13 @@ end
 """
     rows(table, conditions...)
 
-Indices of the rows of `table` where each `column => value` condition holds.
+Indices of the rows of `table` where each `column => value` condition holds, `value`
+being a value to equal or a predicate to meet.
 """
 function rows(table, conditions...)
     chosen = trues(length(first(values(table))))
     for (column, value) in conditions
-        chosen .&= table[column] .== value
+        chosen .&= value isa Function ? value.(table[column]) : table[column] .== value
     end
     return findall(chosen)
 end
