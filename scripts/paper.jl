@@ -34,7 +34,8 @@ include("paper_tables.jl")
 
 "data steps in the order they run, each writing one or two data files"
 data_steps = [:patterns => patterns_data, :designs => designs_data,
-    :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
+    :routes => routes_data, :classes => classes_data,
+    :cargo_interest => cargo_interest_data, :forecast => forecast_data,
     :sensitivity => sensitivity_data, :base_kite => base_kite_data,
     :aspect_data => aspect_data, :force_rating_data => force_rating_data,
     :goal_size_data => goal_size_data,
