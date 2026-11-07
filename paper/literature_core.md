@@ -491,7 +491,7 @@ cost numbers, so it is a modelling citation only, not a performance benchmark.
 - **IMO 2023, MEPC.377(80).** "to reach net-zero GHG emissions by or around, i.e. close to, 2050, taking into account different national circumstances" (Annex 15, p. 6). Checkpoints are 20 to 30 % by 2030 and 70 to 80 % by 2040 (p. 6), on a well-to-wake basis (p. 5).
 - **Loyd 1980.** Never prints the formula the model section gives. His closed form is Eq. 13, "L = ½ρC_L A (V_w − V_L)² (L/D_K)²" (p. 108), with tension about equal to lift, so against it the model's tension is higher by (1 + 1/G²)^1.5: 9.5 % at G = 4 and 1.5 % at G = 10 **[calc]**. Eqs. 39–41 (p. 110) with no weight and no reeling give the model's formula exactly **[calc]**, so a citation should name those equations.
 - **Ortigosa, López & García 2009.** Table 1 (p. 16) gives 0.73 < C_P < 0.85 for tankers and bulk carriers, as the range of the Holtrop and Mennen evaluation. It cites only their 1982 paper, which has no such table, so the range rests on Ortigosa alone.
-- **Rasp et al. 2024, arXiv v2, not the journal version.** The 1.5° and six hours are evaluation choices in the paper (p. 9), which says of the data only "A subset of the ERA5 dataset is available on the cloud" (p. 4). The WeatherBench 2 data guide (weatherbench2.readthedocs.io, read 2026-11-02) lists `1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr`, which is the copy itself.
+- **Rasp et al. 2024, journal version (JAMES 16(6), e2023MS004019).** The 1.5° and six hours are evaluation choices in the paper (p. 7), which says of the data only "A subset of the ERA5 data set is available on the cloud" (p. 4) and "Data is available freely on Google Cloud Storage" (p. 24). The arXiv v2 preprint words these passages the same, with the 1.5° on p. 9 and no data availability statement. The WeatherBench 2 data guide (weatherbench2.readthedocs.io, read 2026-11-02) lists `1959-2023_01_10-6h-240x121_equiangular_with_poles_conservative.zarr`, which is the copy itself.
 
 ## 10. Ahrens, Diehl & Schmehl 2013 — the chapters on kites, against this model
 
@@ -511,41 +511,11 @@ Printed page numbers of the book. Chapters read in full: 2, 3, 5, 8, 9, 14, 15, 
 
 ## Gap statement (grounded only in the full texts above)
 
-- **No paper read compares kite, rigid wingsail and Flettner rotor with one ship
-  model that includes the side-force balance.** CE Delft 2016 has all three
-  (plus turbine) but ignores side force ("presented estimates are
-  over-optimistic in ignoring side force effects", p. 119); Lu & Ringsberg 2020
-  has the 4-DOF balance but no kite; Tillig & Ringsberg 2020 is rotor-only;
-  Podeur et al. 2016 is kite-only with drift neglected (p. 3); Bentin et al. 2018 has kite, rotor and DynaRig but no wing sail and no side force.
-- **Only Bentin et al. 2018 routes all its rigs, at one speed, ship and size.** Lu & Ringsberg (p. 253),
-  Tillig & Ringsberg (p. 18), CE Delft (p. 117) and Podeur (great circle, p. 3)
-  all use fixed routes; three of them say routing would raise savings. EMSA
-  reports the only quantified routing benefit as "1.9% of the reduction" (p.
-  39).
-- **Speed optimisation and wind propulsion are never combined.** Tillig et al.
-  2020 optimise speed only for a ship without sails and run rotors at fixed 12
-  kn (pp. 10–11); the others use fixed speed or fixed ETA. Lu & Ringsberg (p.
-  255), CE Delft (p. 51) and Podeur (p. 11) all find speed changes the wind
-  saving strongly.
-- **No full cost per tonne-km.** Economics in the texts read are payback on rig
-  CAPEX/OPEX only (Tillig OE p. 19; Tillig TRD p. 12, "no other capital costs"),
-  discounted payback for diffusion (CE Delft p. 53), or break-even fuel saving
-  without computing the saving (EMSA p. 133). None puts ship capital, fuel, rig
-  cost and transport work into one metric.
-- **Size range with rigs scaled per ship is missing for the kite.** CE Delft's
-  six ships use one fixed 400 m² kite (p. 35), so its "kite better on small
-  ships, worse on large" result (p. 51) is set by the sizing rule; EMSA also
-  assumes one kite per ship (p. 45) and excludes ships under 5,000 DWT (p. 42).
-  No study read spans coaster to Megamax.
-- **Fuel switch is absent from performance studies.** Only EMSA varies fuel
-  (VLSFO, VLSFO/FAME blend, ammonia; p. 48), and only for break-even. No study
-  read evaluates wind propulsion against an e-fuel such as e-methanol.
-- **The literature disagrees on how kite benefit varies with ship speed.** CE
-  Delft finds kite absolute savings "equal or even lower at the higher speed"
-  (p. 51) and Podeur finds a <20% speed rise nearly halves kite savings (p. 11),
-  while EMSA states that kites "perform better at higher vessel speed" (p. 31).
-  A joint speed–rig optimisation can resolve this.
-- **Caveat:** Dhainaut et al. 2025 ("simultaneous design and routing of
-  wind-assisted ships") and the other 2025 JST papers were not read; the routing
-  and joint-optimisation bullets above must be re-checked against them before
-  submission.
+- **No paper read compares kite, rigid wing sail and Flettner rotor with one ship model that includes the side-force balance.** CE Delft 2016 has all three (plus turbine) but ignores side force ("presented estimates are over-optimistic in ignoring side force effects", p. 119); Lu & Ringsberg 2020 has the 4-DOF balance but no kite; Tillig & Ringsberg 2020 is rotor-only; Podeur et al. 2016 is kite-only with drift neglected (p. 3); Bentin et al. 2018 has kite, rotor and DynaRig but no wing sail and no side force. Side force is balanced in routed studies only for rotors: Mason et al. 2023 (4 DoF with heel, leeway and rudder, p. 3) and Dhainaut et al. 2025 (quasi-static surge, sway and yaw with hull drift and rudder, no heel, pp. 104, 112). Wendling & Lagemann 2025 route a four-wing-sail ship from precomputed speed polars (p. 363).
+- **Of the multi-rig comparisons, only Bentin et al. 2018 routes, at one speed (13 kn), one ship and one size per rig.** Lu & Ringsberg (p. 253), Tillig & Ringsberg (p. 18), CE Delft (p. 117) and Podeur (great circle, p. 3) use fixed routes; three of them say routing would raise savings. Single-rig routing studies: Bentin et al. 2016 and Mason et al. 2023 (rotors), Dhainaut et al. 2025 (rotors, route and rotor layout optimised together), Wendling & Lagemann 2025 (wing sails). EMSA quantifies routing twice: 9 to 25 % for three rotors at constant voyage time (Norsepower/Napa 2022, p. 28) and "1.9% of the reduction" (NAPA/Norsepower/Sumitomo 2023, p. 39).
+- **Speed is optimised together with a rig only for rotors and wing sails, mostly against fuel or energy under a time limit; never with a kite, and only once with time given a money value, by a sweep at fixed rig size and no routing.** Mason et al. 2023 optimise route and speed (8-14 kn) for minimum fuel with arrival no later than on the great circle (pp. 4-5); Dhainaut et al. 2025 optimise route, engine RPM and rotor layout for minimum fuel under a maximum voyage time of 140 or 160 h (pp. 112, 118); Wendling & Lagemann 2025 optimise route and engine power and give the Pareto front of voyage time against energy (pp. 352, 358). Hansen et al. 2025 sweep 6-15 kn for a Capesize with four rotors on generic routes, with time charged at a 15,000 USD/d charter rate, and find the minimum voyage cost at 9-10 kn (p. 13). Tillig et al. 2020 optimise speed only for a ship without sails and run rotors at a fixed 12 kn (pp. 10-11); the other comparisons use fixed speed or fixed ETA. Lu & Ringsberg (p. 255), CE Delft (p. 51) and Podeur (p. 11) find speed changes the wind saving strongly.
+- **No full cost per tonne-km across rigs.** Economics in the texts read are payback on rig CAPEX/OPEX only (Tillig OE p. 19; Tillig TRD p. 12, "no other capital costs"), discounted payback for diffusion (CE Delft p. 53), break-even fuel saving without computing the saving (EMSA p. 133), or one rough break-even fuel price for an unnamed rig (Bentin 2018, p. A-9, 500 EUR/t over 5 years, 250 EUR/t over 10, from Schlaak 2016). The one full voyage cost is Hansen et al. 2025, for four rotors on one Capesize bulk carrier from a charterer's view: charter, port, main and auxiliary fuel, CO2 at 100 USD/t and the rig's depreciation, interest and maintenance per round trip of 10,000 nm (pp. 3, 13), with the rig adding at least 50,000 USD per trip on a 5.4 m/s route and saving up to about 200,000 USD (about 10 %) on a 10.7 m/s route (p. 13); it gives no cost per tonne-km and compares no other rig. Dhainaut et al. 2025 name profitability as future work (p. 122); Mason 2023 and Wendling 2025 have no cost; Huang & Souppez 2025 leave economics out (p. 262).
+- **Size range with rigs scaled per ship is missing for the kite.** CE Delft's six ships use one fixed 400 m2 kite (p. 35), so its "kite better on small ships, worse on large" result (p. 51) is set by the sizing rule; EMSA also assumes one kite per ship (p. 45) and excludes ships under 5,000 DWT (p. 42). Dhainaut et al. 2025 vary only the rotor count (0-3 per side) on one ship (p. 118), and Hansen et al. 2025 only 4 against 5 rotors on one Capesize bulk carrier, where the fifth rotor adds 21.2 % rather than 25 % to the power reduction (p. 15). No study read spans coaster to Megamax; the 48 studies in Huang & Souppez span 75 to 363 m L_OA between them (p. 266).
+- **Fuel switch is absent from performance studies.** Only EMSA varies fuel (VLSFO, VLSFO/FAME blend, ammonia; p. 48), and only for break-even. The 2025 routing studies use one fuel (Dhainaut: HFO, p. 110) or energy only (Wendling); Hansen et al. 2025 vary the price of one fuel, VLSFO at 600 or 1,200 USD/t with CO2 at 100 USD/t (pp. 13, 15), but not the fuel. No study read evaluates wind propulsion against an e-fuel such as e-methanol.
+- **The literature disagrees on how kite benefit varies with ship speed.** CE Delft finds kite absolute savings "equal or even lower at the higher speed" (p. 51) and Podeur finds a <20% speed rise nearly halves kite savings (p. 11), while EMSA states that kites "perform better at higher vessel speed" (p. 31). Across all rigs, Huang & Souppez 2025 find reported savings "not to be sensitive to wind or ship speed" (p. 269). A joint speed-rig optimisation can resolve this.
+- **Caveat:** Checked against Dhainaut et al. 2025, Hansen et al. 2025, Huang & Souppez 2025 and Wendling & Lagemann 2025 (all held, read in full) and Mason et al. 2023. Thiaucourt 2026 (JST 11(1)) is not held and could bear on the cost and routing bullets.
