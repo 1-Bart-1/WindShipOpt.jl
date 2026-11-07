@@ -789,7 +789,7 @@ canopy_cloth_force_exponent:
   low: 0.27
   high: 0.27
   unit: "-"
-  reason: "Cloth weight grows with the force limit to this power, the fit that holds the 3,800 h of the strength decay in the paper over limits of 0.25 to 2 kN/m^2. Each decay input at its bound gives 0.19 to 0.34. Tension enters the decay only through the logarithm of the margin, so it asks for far less than the exponent 1 of a constant share of strength, the upper bound of the force rating study; 0 is cloth that ignores the limit."
+  reason: "Cloth weight grows with the force limit to this power, the fit that holds the 3,800 h of the strength decay in the paper over limits of 0.25 to 2 kN/m^2. Each decay input at its bound gives 0.19 to 0.34, except the wear exponent b at its low bound of 0, which gives 0.8. Tension enters the decay only through the logarithm of the margin, so where heavier cloth also wears for longer it asks for far less than the exponent 1 of a constant share of strength, the upper bound of the force rating study; 0 is cloth that ignores the limit."
 canopy_life:
   value: 4000.0
   low: 1200.0
