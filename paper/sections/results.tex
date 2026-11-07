@@ -234,6 +234,22 @@ The kite of every result above keeps the base aspect ratio of 3 (\cref{sec:kite}
 \label{fig:aspect}
 \end{figure}
 
+\subsection{Force limit of the kite}
+\label{sec:res_force}
+
+Every kite above is built for \SI{0.5}{kN/m^2}. A kite built for more force has a thicker tether and bridle, a dearer winch and heavier, dearer cloth (\cref{sec:kite}), and it depowers in stronger winds only. \Cref{fig:force_rating} routes the three ships of \cref{fig:aspect} with kites built for \SIrange{0.3}{1}{kN/m^2}, each at its best of five kite areas a factor $\sqrt2$ apart. A lower limit saves more on all three ships: the \SI{140}{m} ship saves \tbd{17.6}, \tbd{16.8}, \tbd{11.7} and \tbd{11.4}\,\% at 0.3, 0.5, 0.7 and \SI{1}{kN/m^2}, the Kamsarmax \tbd{6.4}, \tbd{5.5}, \tbd{4.1} and \tbd{3.1}\,\%, and the Neo-Panamax container ship \tbd{15.4}, \tbd{14.5}, \tbd{13.1} and \tbd{11.3}\,\%. A kite built for more force is heavier, so it needs more wind to fly and is up for less of the passage: the share of time aloft at the best area falls from about 0.57 to 0.39 on the Neo-Panamax between 0.3 and \SI{1}{kN/m^2}. The best area grows as the limit falls.
+
+The pattern search scatters the saving of one ship by about 0.34 points (one standard deviation), and a difference between two savings by about 0.5. Doubling the limit to \SI{1}{kN/m^2} costs 5.4, 2.3 and 3.2 points, far beyond that scatter; these differences are taken from the unrounded savings. Lowering it to \SI{0.3}{kN/m^2} gains 0.8, 1.0 and 0.9 points, about twice the scatter of a difference but of the same sign on every ship; on the Kamsarmax and the Neo-Panamax the best kite at that limit is the largest searched, so the gain there is a lower bound. The cloth is the smaller part of this. On the same areas, cloth fixed at \SI{200}{g/m^2} whatever the limit, with the seams and reinforcements still growing with it, changes the saving at \SI{1}{kN/m^2} by \tbd{+2.1}, \tbd{+0.1} and \tbd{-0.2} points, while cloth in proportion to the limit, a constant share of its strength, costs \tbd{3.0}, \tbd{1.3} and \tbd{1.5} points more than the decay law. The \SI{140}{m} ship is the one whose kite is held down by its mass: the fixed cloth, \SI{41}{g/m^2} lighter, gains its 2.1 points at the same area as the decay law's best, and cloth in proportion at \SI{0.3}{kN/m^2}, \SI{54}{g/m^2} lighter, gains \tbd{3.5}. The seams and reinforcements add \SI{0.05}{kg/m^2} at \SI{1}{kN/m^2}, a third of what the heavier cloth adds. Most of the loss at a higher limit comes from the tether, bridle and winch, which keep the kite down in light wind. \tbd{These savings were found with a control unit of fixed mass; at \SI{0.22}{kg} per kN of force limit it weighs \SI{88}{kg} on a kite of \SI{800}{m^2} built for \SI{0.5}{kN/m^2} and \SI{176}{kg} built for \SI{1}{kN/m^2}, so the final run will charge a higher limit somewhat more.} The bounds of \SIrange{0.4}{1}{kN/m^2} on the force limit in \cref{tab:inputs} carry the same cloth, seams and reinforcements.
+
+We keep \SI{0.5}{kN/m^2} for every other result. The canopy goals of 4000 hours at \SI{200}{g/m^2} are stated at that limit, and the gain from a lower one is within twice the scatter. The kite's savings above may therefore be about a point short of what a kite built for a lower force would reach. \tbd{Draft numbers; the final run replaces them.}
+
+\begin{figure}[tbp]
+\centering
+\plot[\columnwidth]{force_rating}
+\caption{Cost saving of the kite at its best area against the force limit it is built for, on the ships of \cref{fig:aspect}, with cloth that keeps its life under the decay law (solid), in proportion to the limit (dashed) and fixed at \SI{200}{g/m^2} (dotted). The dashed and dotted lines take the best of three areas around the ship's own kite, the solid line of five.}
+\label{fig:force_rating}
+\end{figure}
+
 \subsection{If a goal is missed}
 \label{sec:res_missed}
 
