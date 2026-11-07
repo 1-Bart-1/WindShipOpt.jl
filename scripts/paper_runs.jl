@@ -323,7 +323,7 @@ a hash of the inputs of the trip other than its assumptions and the code hash of
 """
 case_directory(case, departures) = joinpath(paper_run.directory, "cases",
     content_hash((case.design, case.route, case.scale, case.horizon, case.held_knots,
-        departures, weather_name, paper_run.record["code_hash"])))
+        case.part, departures, weather_name, paper_run.record["code_hash"])))
 
 """
     cached_trip(directory, assumptions)
