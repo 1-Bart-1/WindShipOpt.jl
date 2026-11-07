@@ -140,6 +140,20 @@ end
     @test heavy_wind > light_wind
 end
 
+@testset "a kite built for more force is heavier and dearer at the same life" begin
+    stronger = with_value(assumptions, :kite_max_force_per_area, 1.0)
+    @test WindShipOpt.cloth_weight(assumptions) == 200
+    @test WindShipOpt.cloth_weight(stronger) ≈ 200 * 2^0.27
+    base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger))
+    @test strong_canopy.mass_per_area > base_canopy.mass_per_area
+    @test strong_canopy.cost_per_area > base_canopy.cost_per_area
+    @test strong_canopy.lifetime == base_canopy.lifetime
+    base_model, _, base_tether = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    strong_model, _, strong_tether = WindShipOpt.kite_model(800.0, 3.0, stronger)
+    @test strong_model.mass > base_model.mass
+    @test strong_tether ≈ sqrt(2) * base_tether
+end
+
 @testset "the control unit weighs in proportion to the tether force limit" begin
     extra = with_value(assumptions, :control_unit_mass_per_force,
         assumptions[:control_unit_mass_per_force] + 0.1)
