@@ -1922,16 +1922,15 @@ rigid_kite_fleets = [vec([(count, unit) for count in (1, 2, 3, 4, 6, 8),
 rigid_low_favours = (:rigid_tether_price, :rigid_tether_density,
     :rigid_tether_drag_coefficient, :rigid_structure_cost_per_mass,
     :rigid_structure_cost_per_area, :rigid_avionics_cost, :rigid_drive_cost,
-    :rigid_drive_margin, :rigid_ship_power_cost, :rigid_perch_cost, :rigid_perch_width,
-    :rigid_station_mass, :rigid_upkeep_per_area, :rigid_cycle_loss_probability,
-    :rigid_idle_rotor_drag, :rigid_hover_energy_price, :rigid_hover_minutes,
-    :rigid_hover_thrust_ratio, :rigid_mass_exponent, :rigid_profile_drag,
-    :rigid_min_turn_radius, :kite_out_of_service)
+    :rigid_drive_reference_mass, :rigid_rotor_mass_per_area, :rigid_ship_power_cost,
+    :rigid_perch_cost, :rigid_perch_width, :rigid_station_mass, :rigid_upkeep_per_area,
+    :rigid_cycle_loss_probability, :rigid_feathered_rotor_drag, :rigid_hover_energy_price,
+    :rigid_hover_minutes, :rigid_hover_thrust_ratio, :rigid_mass_exponent,
+    :rigid_profile_drag, :rigid_min_turn_radius, :kite_out_of_service)
 
 "inputs where the high bound favours a rigid kite"
 rigid_high_favours = (:rigid_lifetime, :rigid_hover_max_wave_height, :rigid_hover_max_wind,
-    :rigid_max_wind,
-    :rigid_max_lift, :rigid_span_efficiency, :rigid_max_force_per_area,
+    :rigid_max_wind, :rigid_max_lift, :rigid_span_efficiency, :rigid_max_force_per_area,
     :rigid_tether_stress, :rigid_rotor_area_ratio, :rigid_rotor_fill,
     :rigid_hover_air_density, :rigid_hover_efficiency)
 

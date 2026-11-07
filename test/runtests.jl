@@ -1336,11 +1336,15 @@ end
     model, force, diameter, airframe = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
     @test diameter ≈ 0.0294 rtol=0.01
     @test airframe.tether_mass ≈ 275 rtol=0.05
-    @test airframe.mass ≈ 1852
     @test force ≈ 300e3 rtol=0.01
     makani_hover = with_value(with_value(assumptions, :rigid_hover_air_density, 0.95),
         :rigid_hover_efficiency, 0.71)
     @test WindShipOpt.hover_power(2180.0, 54.0, makani_hover) ≈ 900e3 rtol=0.05
+    makani_rotors = foldl((inputs, (name, value)) -> with_value(inputs, name, value),
+        ((:rigid_hover_efficiency, 0.71 * 0.88), (:rigid_rotor_mass_per_area, 1.96),
+            (:rigid_rotor_area_ratio, 8 * 4.38 / 54)); init=makani_hover)
+    mass, _ = WindShipOpt.rigid_kite_mass(54.0, 275.0, makani_rotors)
+    @test mass ≈ 1852 rtol=0.03
     tether_drag = assumptions[:rigid_tether_drag_coefficient] * diameter *
                   model.tether_length / (4 * 54.0)
     @test tether_drag ≈ 0.152 - 0.123 rtol=0.05
@@ -1403,6 +1407,23 @@ function rigid_fleet(count, assumptions)
     return KiteRig(; area=54.0, tether_diameter, model.tether_length, reference_height=10.0,
         WindShipOpt.rigid_wind_limits(5.0, assumptions)..., max_force, attach_height=10.0,
         attach_position=0.0, wind_speeds, courses, side_weights, forces, airframe)
+end
+
+@testset "a rigid kite's structure is priced by its own mass, its rotors by their rating" begin
+    one = rigid_fleet(1, assumptions)
+    (; mass, hover_power) = one.airframe
+    structure = WindShipOpt.rigid_structure_mass(54.0, assumptions)
+    @test structure < mass
+    @test hover_power ≈ WindShipOpt.hover_power(mass + one.airframe.tether_mass, 54.0,
+        assumptions) rtol=1e-5
+    price(inputs) = WindShipOpt.rigid_airframe_price(one, inputs)
+    heavier = with_value(assumptions, :rigid_structure_cost_per_mass,
+        assumptions[:rigid_structure_cost_per_mass] + 1.0)
+    dearer = with_value(assumptions, :rigid_drive_cost, assumptions[:rigid_drive_cost] + 1.0)
+    factor = assumptions[:market_price_factor]
+    @test price(heavier) - price(assumptions) ≈ factor * structure
+    @test price(dearer) - price(assumptions) ≈
+          factor * hover_power / assumptions[:rigid_rotor_fill]
 end
 
 @testset "rigid kites stand one span apart within the deck" begin
