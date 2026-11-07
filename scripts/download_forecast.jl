@@ -2,8 +2,9 @@
 # reforecast, issued daily at 00 UTC, with its 10 m wind and its WAVEWATCH III sea state
 # out to 16 days, into era5/<region>/forecast/{wind,waves}/ on the grids of the ERA5 data
 # of the same region (ERA5_REGION, as for download_era5.jl). Wind is averaged over each
-# 1.5° cell, waves are sampled at the 0.5° points. Then writes the mean bias of each
-# year's forecasts against ERA5, from the other years. Resumable: rerun to continue.
+# 1.5° cell, waves are sampled at the 0.5° points. An issue the archive holds incomplete is
+# left empty (NaN). Then writes the mean bias of each year's forecasts against ERA5, from
+# the other years. Resumable: rerun to continue.
 using Dates
 using Downloads
 using GRIB
@@ -96,7 +97,8 @@ end
     decode(bytes, leads, regrid)
 
 Fields of the GRIB records in `bytes`, one per lead [h] after 00 UTC in `leads`, each
-turned by `regrid` from (lon, lat) on its own grid to the target grid.
+turned by `regrid` from (lon, lat) on its own grid to the target grid; `nothing` where a
+lead is missing.
 """
 function decode(bytes, leads, regrid)
     path, io = mktemp()
@@ -116,6 +118,7 @@ function decode(bytes, leads, regrid)
         end
     end
     rm(path)
+    all(lead -> haskey(fields, lead), leads) || return nothing
     return [fields[lead] for lead in leads]
 end
 
@@ -161,7 +164,7 @@ groups = (
     (name="waves", records=wave_records, leads=wave_leads, ranges=wave_ranges,
         regrid=point_sample, finish=direction_components))
 
-function issue_fields(group, date, regrid)
+function issue_fields(group, date, regrid, shape)
     variables = sort(collect(keys(group.records)))
     pieces = [group.ranges(date, group.records[variable]) for variable in variables]
     bytes = asyncmap(Iterators.flatten(pieces); ntasks=12) do (url, range)
@@ -171,7 +174,14 @@ function issue_fields(group, date, regrid)
     first_piece = 1
     for (variable, piece) in zip(variables, pieces)
         records = bytes[first_piece:(first_piece + length(piece) - 1)]
-        fields[variable] = decode(reduce(vcat, records), group.leads, regrid)
+        decoded = isempty(records) ? nothing :
+                  decode(reduce(vcat, records), group.leads, regrid)
+        if isnothing(decoded)
+            println(group.name, " issue ", date, " incomplete in the archive, left empty")
+            empty = [fill(NaN32, shape) for _ in group.leads]
+            return group.finish(Dict(name => empty for name in variables))
+        end
+        fields[variable] = decoded
         first_piece += length(piece)
     end
     return group.finish(fields)
@@ -197,8 +207,9 @@ function download(group)
         truncate(io, done * issue_bytes)
         seekend(io)
     end
+    shape = (length(grid["lons"]), length(grid["lats"]))
     for batch in Iterators.partition((done + 1):length(issues), 8)
-        fields = fetch.([Threads.@spawn issue_fields(group, issues[index], regrid)
+        fields = fetch.([Threads.@spawn issue_fields(group, issues[index], regrid, shape)
                          for index in batch])
         for issue in fields, name in names, field in issue[name]
             write(files[name], Float16.(field))

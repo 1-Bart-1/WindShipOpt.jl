@@ -1151,6 +1151,22 @@ end
           wind(ForecastWeather(weather, third, 24.0), 40.5, -30.5, beyond)
 end
 
+@testset "a ship whose latest forecast is missing from the archive reads the one before" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
+    for name in ("direction_east", "direction_north", "height", "period")
+        open(joinpath(directory, "forecast", "waves", "$name.f16"), "r+") do io
+            issue_bytes = filesize(io) ÷ 4
+            seek(io, 3issue_bytes)
+            write(io, fill(NaN16, issue_bytes ÷ 2))
+        end
+    end
+    archive = ForecastArchive(joinpath(directory, "forecast"), weather)
+    fourth = 24.0 * 4
+    @test ArchivedForecast(archive, weather, fourth + 7.0).issued == fourth - 24.0
+end
+
 @testset "a search that cuts off the best path and overruns its limit widens" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
     (; time_step) = WindShipOpt.ROUTER_SETTINGS[]

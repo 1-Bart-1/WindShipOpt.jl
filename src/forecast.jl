@@ -38,6 +38,9 @@ end
 
 issue_count(group::ArchiveGroup) = minimum(size(field, 4) for field in values(group.fields))
 
+issued_in(group::ArchiveGroup, issue) =
+    !all(isnan, view(first(values(group.fields)), :, :, 1, issue))
+
 """
     ForecastArchive(directory, weather)
 
@@ -68,7 +71,7 @@ issue_year(archive::ForecastArchive, issue) =
 """
     ArchivedForecast(archive, weather, time)
 
-What a router knows at `time` [h]: the last forecast of `archive` to reach the ship, less
+What a router knows at `time` [h]: the last forecast in `archive` to reach the ship, less
 its mean bias against `weather` estimated from the other years, and beyond its last lead
 the weather of the same date in another year, as [`ForecastWeather`](@ref).
 """
@@ -85,6 +88,9 @@ function ArchivedForecast(archive::ForecastArchive, weather, time)
     issues = min(issue_count(archive.wind), issue_count(archive.waves))
     issue = clamp(floor(Int, (time - FORECAST_LATENCY - archive.first_issue) / 24) + 1, 1,
         issues)
+    while issue > 1 && !(issued_in(archive.wind, issue) && issued_in(archive.waves, issue))
+        issue -= 1
+    end
     issued = issue_time(archive, issue)
     years = keys(archive.wind.bias)
     year = clamp(issue_year(archive, issue), minimum(years), maximum(years))
