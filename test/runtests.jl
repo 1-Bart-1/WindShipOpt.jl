@@ -639,7 +639,7 @@ end
     classes = ship_classes()
     hold(name) = WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, classes[name]),
             assumptions), assumptions)
-    limit(name) = WindShipOpt.cargo_limit(hold(name))
+    limit(name) = WindShipOpt.cargo_limit(classes[name], assumptions)
     @test all(limit(name) == :deadweight for name in ("general cargo coaster", "VLCC",
         "Kamsarmax bulk carrier", "MR product tanker", "Megamax container ship"))
     @test all(limit(name) == :space for name in ("feeder container ship",

@@ -7,6 +7,7 @@
 #     include("cargo_groups.jl")
 #     cargo_groups("../output/runs/<run>"); recommendation("../output/runs/<run>")
 using Printf
+using Statistics: mean
 using WindShipOpt
 using WindShipOpt: CargoHold, cargo_limit, design_rig, unit_limits, with_rig
 
@@ -84,14 +85,14 @@ end
     offered_saving(rows, bare, units)
 
 Mean saving over the routes of the sizes in `rows` with at most `units` units, linear in
-the units between the two sizes run around it; `bare` holds the ship without a rig by
-route.
+the units between the two sizes run around it, or between no rig and the smallest size;
+`bare` holds the ship without a rig by route.
 """
 function offered_saving(rows, bare, units)
     savings = Float64[]
     for route in unique(row.route for row in rows)
-        points = sort([(parse(Int, row.units), saving(row, bare[route]))
-                       for row in rows if row.route == route])
+        points = sort([(0, 0.0); [(parse(Int, row.units), saving(row, bare[route]))
+                                  for row in rows if row.route == route]])
         within = [point for point in points if first(point) <= units]
         above = [point for point in points if first(point) > units]
         best = maximum(last, within)
@@ -121,8 +122,7 @@ function cargo_groups(run)
         println("== ", drive, ": saving, cargo charge and saving under the other limit [%]")
         for name in names
             class = classes[name]
-            limit = cargo_limit(CargoHold(Ship(ShipDesign(Symbol(drive), class),
-                assumptions), assumptions))
+            limit = cargo_limit(class, assumptions)
             ours = [row for row in rows if row.class == name && row.drive == drive]
             bare = Dict(row.route => row for row in ours if row.rig == "none")
             line = @sprintf("%-28s %-10s", name, limit)
@@ -134,9 +134,8 @@ function cargo_groups(run)
                          for (s, row) in zip(now, best)]
                 other = [1 - (1 - g) / (1 - other_limit_share(class, drive, rig,
                     parse(Float64, row.area))) for (g, row) in zip(gross, best)]
-                mean(values) = 100sum(values) / length(values)
-                line *= @sprintf(" | %s %5.1f charge %4.2f other %5.1f", rig, mean(now),
-                    mean(gross) - mean(now), mean(other))
+                line *= @sprintf(" | %s %5.1f charge %4.2f other %5.1f", rig,
+                    100mean(now), 100(mean(gross) - mean(now)), 100mean(other))
                 if rig != "kite" && haskey(offered_units, name)
                     line *= @sprintf(" at %d units %5.1f", offered_units[name],
                         100offered_saving(sizes, bare, offered_units[name]))
@@ -161,8 +160,8 @@ function recommendation(run)
     classes = ship_classes()
     group(name) = classes[name].cargo_unit == :ceu ? "car carrier" :
                   classes[name].cargo_unit == :teu ?
-                  string("container, ", cargo_limit(CargoHold(Ship(ShipDesign(:vlsfo,
-                      classes[name]), assumptions), assumptions))) : "deadweight"
+                  string("container, ", cargo_limit(classes[name], assumptions)) :
+                  "deadweight"
     groups = Dict(name => group(name) for name in unique(row.class for row in rows))
     bare = Dict((row.class, row.drive, row.route) => row
                 for row in rows if row.rig == "none")
@@ -176,7 +175,6 @@ function recommendation(run)
                       bare[(row.class, "vlsfo", row.route)])
                      for ((class, case_drive, _, case_rig), row) in cheapest
                      if groups[class] == name && case_drive == drive && case_rig == rig]
-            mean(values) = sum(values) / length(values)
             carbon = drive == "vlsfo" ?
                      mean([relative(row, own, :carbon) for (row, own, _) in cases]) : NaN
             @printf("%-6s saving %5.1f %% CO2 %5.1f %% cost against bare VLSFO %+5.1f %%\n",
@@ -186,8 +184,7 @@ function recommendation(run)
         premium = [-relative(reference, bare[(class, "vlsfo", route)], :cost)
                    for ((class, case_drive, route), reference) in bare
                    if groups[class] == name && case_drive == drive]
-        @printf("none   cost against bare VLSFO %+5.1f %%\n",
-            sum(premium) / length(premium))
+        @printf("none   cost against bare VLSFO %+5.1f %%\n", mean(premium))
         wins = Dict{Tuple{String, String}, Int}()
         for ((class, case_drive, route), reference) in bare
             (groups[class] == name && case_drive == drive) || continue

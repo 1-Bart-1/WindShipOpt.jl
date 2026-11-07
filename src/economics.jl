@@ -71,6 +71,14 @@ function cargo_limit(hold::CargoHold)
 end
 
 """
+    cargo_limit(class, assumptions)
+
+The limit `class` fills first without a rig or fuel store, as `cargo_limit(hold)`.
+"""
+cargo_limit(class::ShipClass, assumptions::Assumptions) =
+    cargo_limit(CargoHold(Ship(ShipDesign(:vlsfo, class), assumptions), assumptions))
+
+"""
     CargoHold(ship, assumptions)
 
 Hold of `ship`: its class's deadweight less the rig mass and the stores, and its class's

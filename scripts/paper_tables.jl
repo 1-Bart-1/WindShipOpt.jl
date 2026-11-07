@@ -486,8 +486,7 @@ unit_capacity(class) = isfinite(class.unit_capacity) ?
 "deadweight" where `class` without a rig fills its deadweight before its slots or decks,
 "space" otherwise.
 """
-limit_label(class) = string(WindShipOpt.cargo_limit(
-    WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, class), assumptions), assumptions)))
+limit_label(class) = string(WindShipOpt.cargo_limit(class, assumptions))
 
 """
     class_source_notes()
