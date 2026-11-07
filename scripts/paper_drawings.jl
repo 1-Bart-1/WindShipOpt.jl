@@ -38,8 +38,9 @@ end
     force_balance_figure()
 
 Forces on the 140 m ship at 10.5 kn in a 10 m/s beam wind, seen from above, for a kite,
-wings and rotors at their best trim: the rig force, the hull's side force at its lateral
-centre, the rudder force, the resistance and the propeller thrust, to scale.
+wings and rotors at their best trim: the rig force, the wind load on the ship, the hull's
+side force at its lateral centre, the rudder force, the resistance and the propeller
+thrust, to scale.
 """
 function force_balance_figure()
     speed, wind, angle = 10.5KNOT, 10.0, deg2rad(90)
@@ -51,11 +52,13 @@ function force_balance_figure()
         ship = Ship(ShipDesign(:vlsfo, 140.0; area...), assumptions)
         (; hull) = ship
         thrust, force = WindShipOpt.best_trim(ship, ship.rig, speed, wind, angle)
-        balance = WindShipOpt.HullBalance(ship, speed, force)
+        wind_load = WindShipOpt.wind_force(ship.windage, ship.env, wind, angle, speed)
+        total = force + wind_load
+        balance = WindShipOpt.HullBalance(ship, speed, total)
         centre = WindShipOpt.lateral_centre(hull)
         leeward = -sign(force.side)
-        rudder = WindShipOpt.rudder_side_force(hull, force)
-        resistance = thrust + force.thrust
+        rudder = WindShipOpt.rudder_side_force(hull, total)
+        resistance = thrust + total.thrust
         stern = -hull.length / 2
         axis = Axis(figure[1, column]; aspect=DataAspect(), title=@sprintf(
             "%s\nleeway %.1f°, heel %.1f°", title, rad2deg(balance.leeway),
@@ -69,9 +72,15 @@ function force_balance_figure()
         rig_origin = (0.0, force.yaw_moment / force.side)
         force_arrow!(axis, rig_origin, (side, force.thrust / 1e3), "rig"; scale,
             color=palette[1], align=(:center, :bottom), offset=(0, 2))
-        force_arrow!(axis, (hull.beam / 2, centre), (-side - leeward * rudder / 1e3, 0.0),
-            "hull"; scale, color=palette[6], align=(:left, :bottom), offset=(2, 2),
-            at_tail=true)
+        wind_vector = (leeward * wind_load.side / 1e3, wind_load.thrust / 1e3)
+        wind_origin = (hull.beam / 2 - wind_vector[1] * scale,
+            wind_load.yaw_moment / wind_load.side)
+        force_arrow!(axis, wind_origin, wind_vector, "wind load"; scale, color=palette[4],
+            align=(:left, :top), offset=(-4, -3), at_tail=true)
+        hull_side = leeward * total.side / 1e3
+        hull_force = (-hull_side - leeward * rudder / 1e3, 0.0)
+        force_arrow!(axis, (hull.beam / 2, centre), hull_force, "hull"; scale,
+            color=palette[6], align=(:left, :bottom), offset=(2, 2), at_tail=true)
         abs(rudder) > 1 && force_arrow!(axis, (0.0, stern),
             (leeward * rudder / 1e3, 0.0), "rudder"; scale, color=palette[3],
             align=(:left, :center), offset=(3, 0))
@@ -80,11 +89,11 @@ function force_balance_figure()
         force_arrow!(axis, (-hull.beam / 4, stern - thrust * scale / 1e3),
             (0.0, thrust / 1e3), "propeller"; scale, color=palette[2],
             align=(:right, :top), offset=(0, -2), at_tail=true)
-        arrows2d!(axis, [Point2f(88, -15)], [Vec2f(-25, 0)]; color=:gray50,
+        arrows2d!(axis, [Point2f(88, -35)], [Vec2f(-25, 0)]; color=:gray50,
             shaftwidth=1.3, tipwidth=6, tiplength=6)
-        text!(axis, 88, -15; text=@sprintf("true wind\n%.0f m/s", wind),
-            align=(:right, :bottom), offset=(0, 3), fontsize=pt(8), color=:gray50)
-        limits!(axis, -90, 90, stern - 62, hull.length / 2 + 25)
+        text!(axis, 88, -35; text=@sprintf("true wind\n%.0f m/s", wind),
+            align=(:right, :top), offset=(0, -3), fontsize=pt(8), color=:gray50)
+        limits!(axis, -82, 98, stern - 62, hull.length / 2 + 25)
     end
     save(joinpath(figures, "force_balance.pdf"), figure; pt_per_unit=print_scale)
 end

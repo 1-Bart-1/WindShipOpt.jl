@@ -105,6 +105,33 @@ function polar_figure()
     save(joinpath(figures, "polars.pdf"), figure; pt_per_unit=print_scale)
 end
 
+"classes whose wind-load coefficients the wind-load figure shows"
+wind_load_classes = ("Megamax container ship", "PCTC car carrier", "Aframax tanker",
+    "general cargo coaster")
+
+"""
+    wind_load_figure()
+
+Longitudinal and side force coefficients of the ship's own wind load over the apparent
+wind angle, for the [`wind_load_classes`](@ref) with their deck cargo.
+"""
+function wind_load_figure()
+    figure = Figure(size=(page_width, 170))
+    angle_label = "apparent wind angle off the bow [°]"
+    longitudinal = Axis(figure[1, 1]; xlabel=angle_label, ylabel=L"C_X", xticks=0:30:180)
+    side = Axis(figure[1, 2]; xlabel=angle_label, ylabel=L"C_Y", xticks=0:30:180)
+    angles = 0:180
+    classes = ship_classes()
+    for (i, name) in enumerate(wind_load_classes)
+        windage = WindShipOpt.Windage(classes[name], assumptions)
+        coefficients = WindShipOpt.wind_coefficients.(Ref(windage), deg2rad.(angles))
+        lines!(longitudinal, angles, first.(coefficients); color=palette[i], label=name)
+        lines!(side, angles, last.(coefficients); color=palette[i])
+    end
+    Legend(figure[1, 3], longitudinal)
+    save(joinpath(figures, "wind_load.pdf"), figure; pt_per_unit=print_scale)
+end
+
 """
     rows(table, conditions...)
 
