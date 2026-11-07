@@ -1081,8 +1081,9 @@ WindShipOpt.waves(weather::PassingGale, lat, lon, time) =
     planned = searchsortedfirst(table.speeds, 9KNOT)
     distance = corridor.edge_length[1, centre, step]
     arrival(speed_index) = 24.0 * 31 + distance / table.speeds[speed_index] / 3600
-    gale = PassingGale(SyntheticWeather(), (corridor.lat[2, centre], corridor.lon[2, centre]),
-        24.0 * 31, (arrival(planned) + arrival(planned - 1)) / 2)
+    place = (corridor.lat[2, centre], corridor.lon[2, centre])
+    gale = PassingGale(SyntheticWeather(), place, 24.0 * 31,
+        (arrival(planned) + arrival(planned - 1)) / 2)
     prices = (; fuel=table.table.ship.fuel.price, time=hourly)
     hours, tally, _, speed = WindShipOpt.sail_planned_edge!(WindShipOpt.SailedPoint[],
         table, gale, corridor, 1, centre, step, 24.0 * 31, table.speeds[planned], false,
