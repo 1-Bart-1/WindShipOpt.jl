@@ -248,15 +248,22 @@ ShipDesign(drive::Symbol, class::ShipClass; kwargs...) =
     ShipDesign(; drive, length=class.length, class, kwargs...)
 
 """
+    Windage(class, assumptions)
+
+[`Windage`](@ref) of a ship of `class` with its deck cargo.
+"""
+Windage(class::ShipClass, assumptions::Assumptions) =
+    Windage(class.type, class.length, class.beam, class.deck_tiers, assumptions)
+
+"""
     Windage(design, hull, assumptions)
 
-[`Windage`](@ref) of the class of `design` with its deck cargo, or of a general cargo ship
-the size of `hull`.
+[`Windage`](@ref) of the class of `design`, or of a general cargo ship the size of `hull`.
 """
 Windage(design::ShipDesign, hull::Hull, assumptions::Assumptions) =
     isnothing(design.class) ?
     Windage("general cargo", hull.length, hull.beam, 0.0, assumptions) :
-    Windage(design.class.type, hull.length, hull.beam, design.class.deck_tiers, assumptions)
+    Windage(design.class, assumptions)
 
 """
     Propeller(design, hull, assumptions)

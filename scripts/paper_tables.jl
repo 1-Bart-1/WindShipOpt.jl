@@ -457,8 +457,7 @@ One row of the ship class table.
 function write_class_row(io, class)
     delay = isfinite(class.fixed_rig_port_hours) ?
             latex_number(class.fixed_rig_port_hours) : "\$\\infty\$"
-    windage = WindShipOpt.Windage(class.type, class.length, class.beam, class.deck_tiers,
-        assumptions)
+    windage = WindShipOpt.Windage(class, assumptions)
     println(io, latex_escape(class.name), " & ", latex_number(class.length), " & ",
         latex_number(class.beam), " & ", latex_number(class.draft), " & ",
         latex_number(class.block_coefficient), " & ", latex_number(class.deadweight), " & ",

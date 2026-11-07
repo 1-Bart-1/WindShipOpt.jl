@@ -109,9 +109,7 @@ function wind_load_figure()
     angles = 0:180
     classes = ship_classes()
     for (i, name) in enumerate(wind_load_classes)
-        class = classes[name]
-        windage = WindShipOpt.Windage(class.type, class.length, class.beam,
-            class.deck_tiers, assumptions)
+        windage = WindShipOpt.Windage(classes[name], assumptions)
         coefficients = WindShipOpt.wind_coefficients.(Ref(windage), deg2rad.(angles))
         lines!(longitudinal, angles, first.(coefficients); color=palette[i], label=name)
         lines!(side, angles, last.(coefficients); color=palette[i])
