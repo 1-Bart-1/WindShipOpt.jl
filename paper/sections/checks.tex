@@ -15,6 +15,11 @@ These checks run with the model and say what it reproduces and where it departs 
 \item \textbf{Routing grid.} \tbd{Routed with corridor stages twice and half as far apart as in the results, the cost per tonne-kilometre of a \SI{140}{m} e-methanol ship to Guadeloupe without a rig changes by less than 1\,\%, but the cost saving of a \SI{1600}{m^2} kite rises from 14.9 to 18.4 and 22.6\,\%, of \SI{800}{m^2} of rotors from 14.1 to 17.4 and 19.8\,\% and of \SI{1500}{m^2} of wings from 7.0 to 8.4 and 9.4\,\%. The order of the rigs does not change, but the savings are not converged at the spacing of the results, and the coarser grid takes more from the kite than from the rotors (\cref{sec:model_detail}).}
 \end{itemize}
 
+\subsection{Error of the missed-goal figures}
+\label{sec:check_missed}
+
+\Cref{sec:res_missed} gives the saving that staying at today's canopy price of USD~234/m$^2$ rather than reaching USD~150/m$^2$ takes from the kite on three ships. Part of that could be the routes changing between two prices: a line through the prices from USD~112 to 375/m$^2$ gives \tbd{1.6, 1.6 and 0.7} points against \tbd{1.7, 1.6 and 0.8} between the two prices, so the routing moves these figures by 0.1 points at most. Leaving out of maintenance the canopy and tether that wear already pays for was worth \tbd{0.3, 0.15 and 0.24} points on the three ships at today's price in an earlier draft on three departures.
+
 \begin{table}[tbp]
 \centering
 \caption{The chain from true wind to force on the ship, worked by hand independently of the code and from the code, at a ship speed of \SI{5.4}{m/s} and a wind shear exponent of 0.05. Wing sails of \SI{800}{m^2} at $C_L$ 1 and rotors of \SI{400}{m^2} at spin ratio 3 in a wind of \SI{10}{m/s} at \SI{10}{m}. The kite of \SI{800}{m^2}, at its reference height of \SI{269}{m} and with no side weight, in winds at \SI{10}{m} of 5.88, 6.62, 8.83, 11.16 and \SI{13.80}{m/s}, which put its apparent wind on nodes of its pattern table; the hand calculation takes the force coefficients there from the table. True wind angle TWA, apparent wind $V_a$ and its angle AWA, thrust $F_x$ and side force $F_y$.}
