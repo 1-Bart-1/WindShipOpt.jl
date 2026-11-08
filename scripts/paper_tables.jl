@@ -208,8 +208,8 @@ other rig, and where the rig stops paying and where it comes level with that riv
 canopy life [h], the canopy price [USD/m^2] and the share out of service [-], that share
 also for all units failing together;
 for the kite its saving [%] at half the canopy life goal and at today's canopy price, and
-the life and price at which it passes the rig ahead; the points of saving [%] its share out of
-service costs at the goal. Raises an error where the sweeps differ in a rig's goal cost.
+the life and price at which it passes the rig ahead; the points of saving [%] its share out
+of service costs at the goal. Raises an error where the sweeps differ in a rig's goal cost.
 """
 function missed_goal_rows()
     sizes = read_table(data_file("goal_sizes.csv"))
@@ -348,8 +348,8 @@ Write the [`missed_goal_rows`](@ref) as panel (a) and the [`crash_limit_rows`](@
 panel (b) to paper/sections/missed_goals_table.tex, savings and leads shaded by their sign
 and the limits by their [`goal_margins`](@ref), and print what the text takes from them
 besides: the kite's saving at half the life goal and at today's canopy price, the points
-each rig's outages cost, the life and price at which the kite passes the rig ahead and the share at
-which all units failing together put a rig level with its rival.
+each rig's outages cost, the life and price at which the kite passes the rig ahead and the
+share at which all units failing together put a rig level with its rival.
 """
 function missed_goals_table()
     goal_rows, crash_rows = missed_goal_rows(), crash_limit_rows()
