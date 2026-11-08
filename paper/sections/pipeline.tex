@@ -67,18 +67,21 @@
 \pipebox{power}{123}{-36}{shipc}{7}{Fuel power}{resistance in waves, propeller and engine, \S\ref{sec:ships}}{engine}
 % voyages and cost
 \pipebox{table}{0}{-70}{routec}{8}{Performance table}{fuel power over speed, wind and waves, \S\ref{sec:routing}}{grid}
-\pipebox{router}{41}{-70}{routec}{9}{Weather router}{cheapest track and speed through the corridor, \S\ref{sec:routing}}{route}
-\pipebox{voyage}{82}{-70}{routec}{10}{Voyage}{fuel, hours at sea and kite flight hours, out and home}{hull}
-\pipebox{cost}{123}{-70}{moneyc}{11}{Cost per tonne-km}{fuel, capital, crew, wear and cargo interest, \S\ref{sec:cost_model}}{costbar}
-\pipebox{search}{0}{-104}{moneyc}{12}{Rig-size search}{next area until the cost is lowest, \S\ref{sec:res_size}}{search}
-\pipebox{compare}{41}{-104}{moneyc}{13}{Comparison}{saving of the best size against the same ship without a rig, \S\ref{sec:results}}{bars}
+\node[box, routec, minimum width=68mm] (router) at (56,-70) {};
+\node[boxtext, text width=40mm, font=\footnotesize\bfseries] at ([shift={(2.5,-2)}]router.north west) {Weather router};
+\node[boxtext, text width=52mm] at ([shift={(2,-7)}]router.north west) {sails candidate tracks and speeds through the corridor and keeps the voyage of lowest cost: fuel, price of time, kite launches and wear. Gives route, fuel, hours and kite flight hours, \S\ref{sec:routing}};
+\pic[scale=0.85] at ([shift={(-6,-5.2)}]router.north east) {route};
+\node[stepnum] at (router.north west) {9};
+\pipebox{cost}{123}{-70}{moneyc}{10}{Cost per tonne-km}{all departures: fuel, capital, crew, ports, wear, cargo interest, \S\ref{sec:cost_model}}{costbar}
+\pipebox{search}{0}{-104}{moneyc}{11}{Rig-size search}{next area until the cost is lowest, \S\ref{sec:res_size}}{search}
+\pipebox{compare}{41}{-104}{moneyc}{12}{Comparison}{saving of the best size against the same ship without a rig, \S\ref{sec:results}}{bars}
 % loops
 \draw[loopframe] (-21,-18.5) rectangle (144.5,-85.5);
 \node[looplabel, anchor=east] at (142,-18.5) {for each design};
 \draw[loopframe] (-20,-21.5) rectangle (143.5,-49);
 \node[looplabel, anchor=west] at (-15,-21.5) {for each operating point: ship speed, true wind and waves};
-\draw[loopframe] (20.5,-56) rectangle (102.5,-83);
-\node[looplabel] at (61.5,-83) {for each departure, out and home};
+\draw[loopframe] (20.5,-56) rectangle (92,-83);
+\node[looplabel] at (56,-83) {for each departure, out and home};
 % flow
 \draw[arrow] (design.south) -- (0,-18.5);
 \draw[arrow] (apparent) -- (rigs);
@@ -86,9 +89,9 @@
 \draw[arrow] (balance) -- (power);
 \draw[arrow] (power.south) -- (123,-52.5) -- (0,-52.5) -- (table.north);
 \draw[arrow] (table) -- (router);
-\draw[arrow] (weather.south) -- (61.5,-54) -| ([xshift=10mm]router.north);
-\draw[arrow] (router) -- (voyage);
-\draw[arrow] (voyage) -- (cost);
+\draw[arrow] (weather.south) -- ([xshift=5.5mm]router.north);
+\draw[arrow] ([yshift=-5mm]router.east) -- ([yshift=-5mm]cost.west);
+\draw[arrow] ([yshift=5mm]cost.west) -- node[above, font=\scriptsize, align=center] {price\\ of time} ([yshift=5mm]router.east);
 \draw[arrow] (inputs.east) -- (148,0) |- (cost.east);
 \draw[arrow] (cost.south) -- (123,-88.5) -- (0,-88.5) -- (search.north);
 \draw[arrow] (search) -- (compare);
