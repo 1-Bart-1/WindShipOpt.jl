@@ -1243,10 +1243,10 @@ function canopy_life_figure()
         scatterlines!(axis, lives["life"][picked][order],
             percent_saving.(lives["cost"][picked][order], bare); color=palette[1],
             markersize=4, linewidth=1.3)
-        k == 1 && axislegend(axis,
+        k == 3 && axislegend(axis,
             [rig_entries()..., PolyElement(color=(:gray50, 0.15)),
                 LineElement(color=:gray40, linestyle=(:dash, :loose), linewidth=0.9)],
-            ["kite", "wings", "rotors", "decay range", "goal"]; position=:rb,
+            ["kite", "wings", "rotors", "decay range", "goal"]; position=:rb, nbanks=2,
             framevisible=true, backgroundcolor=:white, framewidth=0.5, labelsize=8,
             rowgap=0, patchsize=(14, 7), padding=(4, 4, 2, 2))
     end

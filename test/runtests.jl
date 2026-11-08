@@ -211,7 +211,7 @@ end
 end
 
 @testset "canopy life is the goal input, whatever the cloth weight" begin
-    @test WindShipOpt.Canopy(assumptions).lifetime == 2000
+    @test WindShipOpt.Canopy(assumptions).lifetime == 3000
     @test assumptions[:canopy_cloth_weight] == 200
     goal = with_value(assumptions, :canopy_life, 1200.0)
     @test WindShipOpt.Canopy(goal).lifetime == 1200

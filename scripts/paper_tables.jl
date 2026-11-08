@@ -198,7 +198,7 @@ For each ship of the goal limits and each rig, best first at the goals, at the c
 of goal_sizes.csv: the [`size_limits`](@ref) of that size, and where the rig stops paying
 and falls behind the next rig (`NaN` for the last) the canopy life [h], the canopy price
 [USD/m^2] and the share out of service [-], that share also for all units failing together;
-for the kite its saving [%] at a canopy life of 4,000 h and at today's canopy price, and the
+for the kite its saving [%] at half the canopy life goal and at today's canopy price, and the
 life and price at which it passes the rig ahead; the points of saving [%] its share out of
 service costs at the goal. Raises an error where the sweeps differ in a rig's goal cost.
 """
@@ -226,12 +226,13 @@ function missed_goal_rows()
             Dict("kite" => curve_cost(price_curve, WindShipOpt.canopy_price(assumptions))))
         for (; rig, ahead, next) in WindShipOpt.ranked_neighbours(goal)
             curve = curves[rig]
-            saving_long = rig == "kite" ?
-                          percent_saving(curve_cost(life_curve, 4000.0), bare) : NaN
+            half_goal = assumptions[:canopy_life] / 2
+            saving_short = rig == "kite" ?
+                           percent_saving(curve_cost(life_curve, half_goal), bare) : NaN
             today = WindShipOpt.canopy_price_today(assumptions)
             saving_today = rig == "kite" ?
                            percent_saving(curve_cost(price_curve, today), bare) : NaN
-            push!(result, (; size_limits(sizes, cheapest[rig], bare, next)..., saving_long,
+            push!(result, (; size_limits(sizes, cheapest[rig], bare, next)..., saving_short,
                 saving_today, service_points=percent_saving(curve[2][1], bare) -
                                              percent_saving(goal[rig], bare),
                 life=(kite_life_at_cost(rig, life_curve, bare),
@@ -298,7 +299,7 @@ end
 
 Write the [`missed_goal_rows`](@ref) as panel (a) and the [`crash_limit_rows`](@ref) as
 panel (b) to paper/sections/missed_goals_table.tex and print what the text takes from them
-besides: the kite's saving at 4,000 h and at today's canopy price, the points each rig's
+besides: the kite's saving at half the life goal and at today's canopy price, the points each rig's
 outages cost, the life and price at which the kite passes the rig ahead and the share at
 which all units failing together put a rig behind.
 """
@@ -321,8 +322,8 @@ function missed_goals_table()
                      @sprintf("%.1f", row.saving); dash_cell.(row.life, "%.0f")...;
                      dash_cell.(row.price, "%.0f")...; share_cell.(row.share)...]
             println(io, join(cells, " & "), " \\\\")
-            @printf("%s, %s: %.1f %% at 4,000 h, %.1f %% at today's price, ", row.ship,
-                row.rig, row.saving_long, row.saving_today)
+            @printf("%s, %s: %.1f %% at half the life goal, %.1f %% at today's price, ", row.ship,
+                row.rig, row.saving_short, row.saving_today)
             @printf("outages cost %.2f points, passes the next up at %s h, USD %s, ",
                 row.service_points, dash_cell(row.passes, "%.0f"),
                 dash_cell(row.passes_price, "%.0f"))
