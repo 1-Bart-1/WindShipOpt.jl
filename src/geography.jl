@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 "mean Earth radius [m]"
 const EARTH_RADIUS = 6.371e6
 

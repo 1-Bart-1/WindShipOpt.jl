@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Checks of the code that runs per edge and per leg of a route: `dynamic_calls` for type
 # stability and `allocations` for what a call allocates.
 using Test, TOML, WindShipOpt
