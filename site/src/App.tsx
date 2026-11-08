@@ -158,6 +158,7 @@ function Slider(props: { control: InputControl; value: number; base: number; onC
 function Results({ best, drive }: { best: Map<string, Outcome>; drive: string }) {
   const winner = bestRig(best);
   const bare = best.get("none");
+  const ownFuel = drive !== "methanol" && drive !== "vlsfo";
   return (
     <section className="overflow-x-auto rounded border border-stone-200 bg-white p-4">
       <table className="w-full text-sm">
@@ -166,9 +167,9 @@ function Results({ best, drive }: { best: Map<string, Outcome>; drive: string })
             <th className="py-1">Rig</th>
             <th>Best size</th>
             <th className="text-right">Cost [USD per 1000 t·km]</th>
-            <th className="text-right">Saves against the same ship on {driveLabels[drive]}</th>
-            <th className="text-right">against e-methanol</th>
-            <th className="text-right">against fuel oil</th>
+            {ownFuel && <th className="text-right">Saves against the same ship on {driveLabels[drive]}</th>}
+            <th className="text-right">{ownFuel ? "on" : "Saves against the same ship on"} e-methanol</th>
+            <th className="text-right">on fuel oil</th>
           </tr>
         </thead>
         <tbody>
@@ -177,7 +178,7 @@ function Results({ best, drive }: { best: Map<string, Outcome>; drive: string })
               <td className="py-1">No rig</td>
               <td />
               <td className="text-right">{formatted(1000 * bare.cost, 3)}</td>
-              <td className="text-right">–</td>
+              {ownFuel && <td className="text-right">–</td>}
               <td className="text-right">{formatted(bare.methanolSaving)} %</td>
               <td className="text-right">{formatted(bare.vlsfoSaving)} %</td>
             </tr>
@@ -195,12 +196,12 @@ function Results({ best, drive }: { best: Map<string, Outcome>; drive: string })
                   <>
                     <td>{formatted(outcome.design.area, 0)} m² in {outcome.design.units} unit{outcome.design.units === 1 ? "" : "s"}</td>
                     <td className="text-right">{formatted(1000 * outcome.cost, 3)}</td>
-                    <td className="text-right">{formatted(outcome.saving)} %</td>
+                    {ownFuel && <td className="text-right">{formatted(outcome.saving)} %</td>}
                     <td className="text-right">{formatted(outcome.methanolSaving)} %</td>
                     <td className="text-right">{formatted(outcome.vlsfoSaving)} %</td>
                   </>
                 ) : (
-                  <td colSpan={5} className="text-stone-500">no feasible design</td>
+                  <td colSpan={ownFuel ? 5 : 4} className="text-stone-500">no feasible design</td>
                 )}
               </tr>
             );
