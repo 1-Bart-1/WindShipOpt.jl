@@ -856,14 +856,36 @@ end
 """
     bound_assumptions(name, bound)
 
-The assumptions with input `name` at its `bound` (:low or :high), or unchanged for
-`:none`.
+The assumptions with input `name` at its `bound` (:low or :high).
 """
 function bound_assumptions(name, bound)
-    name == :none && return assumptions
     entry = assumptions.entries[name]
     return with_value(assumptions, name, bound == :low ? entry.low : entry.high)
 end
+
+"relative step of every input in the uniform sensitivity study [-]"
+uniform_step = 0.2
+
+"""
+    stepped_value(value, direction)
+
+`value` moved by [`uniform_step`](@ref) of itself, down for `direction` -1 and up for +1;
+a fraction the step up would carry past one moves its shortfall from one instead.
+"""
+function stepped_value(value, direction)
+    0 < value <= 1 < value * (1 + uniform_step) &&
+        return 1 - (1 - value) * (1 - direction * uniform_step)
+    return value * (1 + direction * uniform_step)
+end
+
+"""
+    stepped_assumptions(name, bound)
+
+The assumptions with input `name` a [`uniform_step`](@ref) down (`bound` :down) or up
+(:up) by [`stepped_value`](@ref).
+"""
+stepped_assumptions(name, bound) = with_value(assumptions, name,
+    stepped_value(assumptions[name], bound == :down ? -1 : 1))
 
 "class ships of the input screening, each with its drive and route"
 screened_classes = (("Kamsarmax bulk carrier", :vlsfo, :tubarao),
@@ -917,23 +939,43 @@ function rig_cases(ship, bare, route, areas; labels...)
 end
 
 """
-    sensitivity_data()
+    screening_data(file, ships, bounds, changed_assumptions)
 
-Each ship of [`sensitivity_ships`](@ref) without a rig and with each rig, at the base
-inputs and at the low and high bound of every input with a range: sensitivity.csv.
+Each of `ships`, as [`sensitivity_ships`](@ref) gives them, without a rig and with each
+rig, at the base inputs and with every screened input at each of `bounds`, its
+assumptions from `changed_assumptions(name, bound)`: written to `file`.
 """
-function sensitivity_data()
+function screening_data(file, ships, bounds, changed_assumptions)
     cases = []
-    for screened in sensitivity_ships(), name in [screened_inputs(); :none]
-        for bound in (name == :none ? (:value,) : (:low, :high))
-            append!(cases, rig_cases(screened...;
-                assumptions=bound_assumptions(name, bound), input=name, bound))
+    for screened in ships, name in [screened_inputs(); :none]
+        for bound in (name == :none ? (:value,) : bounds)
+            case_assumptions = name == :none ? assumptions :
+                               changed_assumptions(name, bound)
+            append!(cases, rig_cases(screened...; assumptions=case_assumptions,
+                input=name, bound))
         end
     end
-    write_trips("sensitivity.csv", cases,
-        round_trips(cases, sampled_departures(; screening=true)), :ship,
-        :rig, :input, :bound)
+    write_trips(file, cases, round_trips(cases, sampled_departures(; screening=true)),
+        :ship, :rig, :input, :bound)
 end
+
+"""
+    sensitivity_data()
+
+Every ship of [`sensitivity_ships`](@ref) with every screened input at its low and high
+bound: sensitivity.csv.
+"""
+sensitivity_data() = screening_data("sensitivity.csv", sensitivity_ships(),
+    (:low, :high), bound_assumptions)
+
+"""
+    uniform_data()
+
+The 140 m reference ship of [`sensitivity_ships`](@ref) with every screened input a
+[`uniform_step`](@ref) down and up: uniform.csv.
+"""
+uniform_data() = screening_data("uniform.csv", first(sensitivity_ships(), 1),
+    (:down, :up), stepped_assumptions)
 
 "projected aspect ratios of the kite in the aspect ratio study, those with a polar"
 study_aspect_ratios = (3.0, 4.0, 5.0, 6.0, 8.0)
@@ -1279,43 +1321,6 @@ function abatement_data()
     write_trips("abatement.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :drive, :rig, :area)
 end
-
-"""
-    components_data()
-
-Each rig on a 140 m e-methanol ship to Guadeloupe with the price of one of its components
-50 % lower and higher, or one of its lifetimes halved and doubled: components.csv.
-"""
-function components_data()
-    components = Dict("kite" => [:winch_fixed_cost, :winch_cost_per_force,
-            :launch_mast_mass_coefficient, :launch_mast_telescope_factor,
-            :docking_head_cost, :control_unit_cost,
-            :control_unit_cost_per_area, :kite_integration_fraction,
-            :canopy_making_cost_per_area, :tether_price, :canopy_life, :tether_lifetime],
-        "wings" => [:wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction,
-            :retractable_rig_premium, :wing_lifetime],
-        "rotors" => [:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
-            :retractable_rig_premium, :rotor_lifetime])
-    cases = [trip_case(ShipDesign(:methanol, 140.0); rig="none", input=:none, factor=1.0)]
-    for (rig, area) in reference_rigs
-        design = ShipDesign(:methanol, 140.0; rig_size(rig, area)...)
-        push!(cases, trip_case(design; rig, input=:none, factor=1.0))
-        for name in components[rig], factor in component_factors(name)
-            push!(cases, trip_case(design; assumptions=scaled((name,), factor), rig,
-                input=name, factor))
-        end
-    end
-    write_trips("components.csv", cases, round_trips(cases, sampled_departures()), :rig,
-        :input, :factor)
-end
-
-"""
-    component_factors(name)
-
-Factors on input `name` of the component study: half and twice a lifetime, half and
-1.5 times a price.
-"""
-component_factors(name) = endswith(string(name), "lifetime") ? (0.5, 2.0) : (0.5, 1.5)
 
 """
     convergence_data()
