@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
     LegTrace
 
@@ -114,16 +117,18 @@ price_at_cost(prices, costs, cost) =
     costs[1] < cost ? share_at_cost(prices, costs, cost) : NaN
 
 """
-    ranked_neighbours(costs)
+    ranked_rivals(costs)
 
-The rigs of the dictionary `costs`, cheapest first, each with the cost of the rig ahead and
-of the next rig, `NaN` where there is none.
+The rigs of the dictionary `costs`, cheapest first, each with its rival, the cheapest of the
+other rigs, that rival's cost and the cost of the rig just ahead, `NaN` for the first.
 """
-function ranked_neighbours(costs)
+function ranked_rivals(costs)
     ranked = sort(collect(keys(costs)); by=rig -> costs[rig])
-    neighbour(rank) = checkbounds(Bool, ranked, rank) ? costs[ranked[rank]] : NaN
-    return [(; rig, ahead=neighbour(rank - 1), next=neighbour(rank + 1))
-            for (rank, rig) in enumerate(ranked)]
+    return map(enumerate(ranked)) do (rank, rig)
+        rival = ranked[rank == 1 ? 2 : 1]
+        return (; rig, rival, rival_cost=costs[rival],
+            ahead=rank == 1 ? NaN : costs[ranked[rank - 1]])
+    end
 end
 
 """

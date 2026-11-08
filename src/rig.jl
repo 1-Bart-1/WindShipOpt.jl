@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
     wind_at_height(env, wind_10m, height)
 
@@ -136,6 +139,19 @@ function deck_row(total_area, aspect_ratio, max_height, spacing, hull::Hull,
     return (; count, height, foot_height,
         centre_position=count == 1 ? lateral_centre(hull) : -forward_reserve / 2,
         spacing=deck_length / count / width)
+end
+
+"""
+    unit_positions(rig, hull, assumptions)
+
+Positions [m] forward of midship of the units of the wing or rotor `rig` on `hull`, spread
+evenly as [`deck_row`](@ref) spreads them.
+"""
+function unit_positions(rig, hull::Hull, assumptions::Assumptions)
+    rig.count == 1 && return [rig.centre_position]
+    pitch = (assumptions[:deck_length_fraction] * hull.length + 2rig.centre_position) /
+            rig.count
+    return rig.centre_position .+ ((1:rig.count) .- (rig.count + 1) / 2) .* pitch
 end
 
 """

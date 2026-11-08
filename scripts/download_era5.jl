@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Download ERA5 for one region into era5/<group>/ (North Atlantic) or
 # era5/<region>/<group>/, one Float32 file per variable plus grid.toml. The region is the
 # ERA5_REGION environment variable:

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Round trip Rotterdam - Guadeloupe for VLSFO and e-methanol ships with and without a rig
 # over a small design grid.
 using Printf

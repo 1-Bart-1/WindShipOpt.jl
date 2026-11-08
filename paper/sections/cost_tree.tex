@@ -1,0 +1,28 @@
+% SPDX-FileCopyrightText: 2026 Bart van de Lint
+% SPDX-License-Identifier: AGPL-3.0-or-later
+\begin{tikzpicture}[
+  node distance=3mm and 3mm,
+  term/.style={draw, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum height=9mm, text width=#1, fill=white},
+  term/.default=22mm,
+  routed/.style={term=#1, fill=green!10},
+  routed/.default=22mm,
+  edge/.style={-{Stealth[length=1.6mm]}, thin}]
+\node[term=40mm, fill=red!8] (tkm) {cost per tonne-km\\ $c_\mathrm{tkm}$};
+\node[term=34mm, below left=6mm and -12mm of tkm] (trip) {cost per round trip};
+\node[term=40mm, below right=6mm and -12mm of tkm] (work) {cargo work\\ $m_c\,(L_\mathrm{out}+f_\mathrm{back}L_\mathrm{back})$};
+\node[routed, below left=6mm and 14mm of trip] (fuel) {fuel\\ $p_f E_f$};
+\node[routed, right=of fuel] (wear) {kite wear\\ $c_w h_\mathrm{fly}$ + launches};
+\node[term, right=of wear] (port) {ports\\ $C_\mathrm{port}$, two calls};
+\node[routed, right=of port] (time) {time\\ $c_t\,(t_\mathrm{sea}+t_\mathrm{port})$};
+\node[term=40mm, below right=6mm and -10mm of work] (cargo) {cargo $m_c$: deadweight less rig, stores and fuel, or the slots and decks left};
+\node[term=30mm, below=10mm of time, xshift=-20mm] (capital) {capital\\ ship, drive, rig};
+\node[term=16mm, right=of capital] (crew) {crew};
+\node[term=22mm, right=of crew] (maint) {maintenance\\ $f_m C$};
+\node[term=26mm, right=of maint] (interest) {cargo interest\\ $m\,v_c\,r$};
+\draw[edge] (trip) -- (tkm);
+\draw[edge] (work) -- (tkm);
+\foreach \n in {fuel, wear, port, time} \draw[edge] (\n.north) -- (trip.south);
+\draw[edge] (cargo.north) -- (work.south);
+\foreach \n in {capital, crew, maint, interest} \draw[edge] (\n.north) -- (time.south);
+\node[font=\scriptsize, align=left, anchor=north west] at ([yshift=-2mm]fuel.south west) {\tikz\node[draw, fill=green!10, minimum size=2mm, inner sep=0]{}; from the routed passages};
+\end{tikzpicture}

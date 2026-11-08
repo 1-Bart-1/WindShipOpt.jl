@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Coordinates for reporting ports missing from UN/LOCODE and representative ports for
 partner areas that do not report to Eurostat. (lat, lon) in degrees."""
 
