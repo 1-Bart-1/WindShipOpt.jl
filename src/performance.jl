@@ -146,8 +146,9 @@ const INFEASIBLE_THRUST = 1e12
 
 """
 added resistance of waves at the knots of the trim tables of a [`PerformanceTable`](@ref),
-over the calm-water resistance at the ship's top speed [-]; beyond the last the trim of
-the last knot holds and the propeller makes up the rest
+over the calm-water resistance at the ship's top speed [-]; outside them, as the negative
+added resistance of following seas, the trim of the nearest knot holds and the propeller
+takes up the rest
 """
 const ADDED_RESISTANCE_SHARES = [0.0; 2.0 .^ (-6:0)]
 
@@ -337,12 +338,12 @@ function edge_fuels(table::PerformanceTable, speed, slice::SpeedSlice,
     waves = wave_height > 0 ? wave_height^2 * plane_value(slice.wave_resistance,
         condition.wave_period, condition.wave_heading) : 0.0
     added_knots = table.flown_thrust.knots[4]
-    beyond = max(waves - last(added_knots), 0.0)
+    outside = waves - clamp(waves, first(added_knots), last(added_knots))
     flown_thrust, stowed_thrust, rig_power, stowed_power = layer_value(slice.trims, wind,
         angle, KnotWeight(added_knots, waves))
-    flown = fuel_power(table, speed, flown_thrust + beyond, rig_power)
+    flown = fuel_power(table, speed, flown_thrust + outside, rig_power)
     table.stowed_thrust === table.flown_thrust && return flown, flown
-    stowed = fuel_power(table, speed, stowed_thrust + beyond, stowed_power)
+    stowed = fuel_power(table, speed, stowed_thrust + outside, stowed_power)
     return (wave_height > table.max_wave_height ? Inf : flown), stowed
 end
 

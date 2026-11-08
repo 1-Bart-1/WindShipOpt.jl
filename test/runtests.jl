@@ -786,6 +786,19 @@ end
               power)
 end
 
+@testset "a bare ship's routing fuel adds the waves' resistance, following seas' negative too" begin
+    ship = Ship(ShipDesign(:methanol, 140.0), assumptions)
+    table = PerformanceTable(ship, assumptions)
+    speed, wind, angle, height, period = 2.47, 6.2, 1.0, 5.6, 7.5
+    for heading in (0.33, π)
+        waves = height^2 * table.wave_resistance(speed, period, heading)
+        @test (waves < 0) == (heading < π / 2)
+        @test lookup(table, speed, wind, angle, height, period, heading).fuel_power ≈
+              WindShipOpt.fuel_power(table, speed,
+                  table.flown_thrust(speed, wind, angle, 0.0) + waves, 0.0)
+    end
+end
+
 @testset "rotors that cannot spin still stand as drag" begin
     ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=300.0), assumptions)
     speed = 5.0
