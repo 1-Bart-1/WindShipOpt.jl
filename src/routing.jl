@@ -264,15 +264,6 @@ Base.@kwdef struct RouterSettings
     final_time_step::Float64 = 0.25
     "how far the final pass strays in time from the path found [h]"
     final_time_band::Float64 = 24.0
-    "hours of flight the search of a kite spreads each launch over [h], with one state per
-    node and the launches settled along the path found; 0 searches launches exactly, `Inf`
-    makes them free"
-    launch_spread_hours::Float64 = 0.0
-    "whether a search with `launch_spread_hours` settles its path; if not, it returns the
-    leg it found with launches as it priced them"
-    settle_launches::Bool = true
-    "lateral nodes each side of the path found that settling searches with exact launches"
-    settle_band::Int = 0
 end
 
 "[`RouterSettings`](@ref) in force"
@@ -569,44 +560,6 @@ function kite_passage(table::RouteTable, points, aloft, prices)
 end
 
 """
-    spread_passage(table, points, spread_hours, prices)
-
-Cheapest way through the [`SailedPoint`](@ref)s of an edge on the [`RouteTable`](@ref)
-`table` with no state between points: each is sailed stowed or, where [`kite_aloft`](@ref)
-allows, flown, whichever costs less, with each launch and its handling spread as a cost per
-hour over `spread_hours` [h] of flight, as an [`EdgeTally`](@ref).
-"""
-function spread_passage(table::RouteTable, points, spread_hours, prices)
-    (; cycle_cost, handling_hours, wear_cost) = table.table
-    tally = EdgeTally(0.0, 0.0, 0.0, 0, 0)
-    for point in points
-        speed = table.speeds[point.speed_index]
-        stowed = extend(tally, point.stowed, point.hours, 0.0, STOWED, false, prices,
-            cycle_cost)
-        flies = isfinite(point.flown) && point.flown !== point.stowed &&
-                kite_aloft(table.table, speed, point.headwind, point.crosswind,
-            point.wave_height)
-        lost = isfinite(point.stowed) ? (point.stowed - point.flown) * 3600prices.fuel : 0.0
-        flown = flies ? extend(tally, point.flown, point.hours,
-            wear_cost + (cycle_cost + lost * handling_hours) / spread_hours, FLYING,
-            false, prices, cycle_cost) : NO_TALLY
-        tally = cheaper(stowed, flown)
-    end
-    return tally
-end
-
-"""
-    search_passage(table, points, aloft, prices)
-
-The [`kite_passage`](@ref) of a search, or with `prices.launch_spread` above 0 the
-[`spread_passage`](@ref) over that many hours, carried by the state with the kite down.
-"""
-function search_passage(table::RouteTable, points, aloft, prices)
-    prices.launch_spread > 0 || return kite_passage(table, points, aloft, prices)
-    return spread_passage(table, points, prices.launch_spread, prices), NO_TALLY
-end
-
-"""
     aloft_tally(table, tally, point, launched, prices)
 
 `tally` followed by the [`SailedPoint`](@ref) `point` with the kite flying, `NO_TALLY` where
@@ -653,11 +606,11 @@ const UNSAILED = SailedEdge(NaN, NO_TALLY, NO_TALLY, 0)
     SailedEdge(table, points, hours, aloft, prices)
 
 [`SailedEdge`](@ref) of `hours` [h] through the [`SailedPoint`](@ref)s `points` by
-[`search_passage`](@ref), for a kite aloft before it if `aloft`.
+[`kite_passage`](@ref), for a kite aloft before it if `aloft`.
 """
 function SailedEdge(table::RouteTable, points, hours, aloft, prices)
     isfinite(hours) || return SailedEdge(hours, NO_TALLY, NO_TALLY, 0)
-    return SailedEdge(hours, search_passage(table, points, aloft, prices)...,
+    return SailedEdge(hours, kite_passage(table, points, aloft, prices)...,
         same_through(points))
 end
 
@@ -797,23 +750,22 @@ end
 
 """
     CostToGo(workspace, corridor, table, weather, departure; time_cost, first_stage,
-             coastal_penalty, launch_spread)
+             coastal_penalty)
 
 [`CostToGo`](@ref) of a passage leaving at `departure` [h], held in `workspace`, by a
 backward programme over the states at each stage at knots `COST_TO_GO_STEP` apart that a
 ship can reach between its highest and lowest routing speed, on every
-`COST_TO_GO_SPEED_STRIDE`-th speed the search commands, with the [`search_passage`](@ref) of
-a `launch_spread` [h].
+`COST_TO_GO_SPEED_STRIDE`-th speed the search commands.
 """
 function CostToGo(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable, weather,
-        departure; time_cost, first_stage, coastal_penalty, launch_spread=0.0)
+        departure; time_cost, first_stage, coastal_penalty)
     stage_count, lateral_count = size(corridor.lat)
     along = corridor.along_centre
     slowest, fastest = first(table.speeds), last(table.speeds)
     knots = ceil(Int, (last(along) / slowest / 3600 + REACH_SLACK) / COST_TO_GO_STEP) + 2
     to_go = CostToGo(cleared_to_go_values!(workspace, knots), knots)
     to_go.values[centre_index(corridor), 1:knots, 1, stage_count] .= 0.0
-    prices = (; fuel=table.table.ship.fuel.price, time=time_cost, launch_spread)
+    prices = (; fuel=table.table.ship.fuel.price, time=time_cost)
     for stage in (stage_count - 1):-1:first_stage, lateral in 1:lateral_count
         corridor.water[stage, lateral] || continue
         sailed = along[stage] - along[first_stage]
@@ -900,7 +852,7 @@ an edge for a kite aloft before it if `aloft`, then by `to_go` from the node and
 """
 function best_arrival(to_go, table, points, aloft, (; penalty, hours, prices, next, stage,
         time))
-    down, up = search_passage(table, points, aloft, prices)
+    down, up = kite_passage(table, points, aloft, prices)
     best = Inf
     for (tally, next_aloft) in ((down, 1), (up, 2))
         isfinite(tally.cost) || continue
@@ -931,51 +883,26 @@ leg reports.
 
 The time bins, the speeds commanded and the states searched follow `ROUTER_SETTINGS`: those
 within a margin of a [`CostToGo`](@ref), wider where that leaves no path within the margin,
-then all of them. A [`final_pass`](@ref) then refines the speeds along the path found. With
-`launch_spread_hours` set, a kite is searched by [`spread_passage`](@ref) and the launches
-are settled by a [`settled_pass`](@ref) along that path, or by the exact search where none
-gets through it. Returns `nothing` if no path arrives within `MAX_LEG_HOURS`.
+then all of them. A [`final_pass`](@ref) then refines the speeds along the path found.
+Returns `nothing` if no path arrives within `MAX_LEG_HOURS`.
 """
 function route(corridor::Corridor, table::RouteTable, weather, departure; time_cost,
         first_stage=1, first_lateral=centre_index(corridor), first_aloft=false,
         coastal_penalty=1.0)
-    leg_options = (; time_cost, first_stage, first_aloft, coastal_penalty)
-    options = (; first_lateral, leg_options...)
-    (; launch_spread_hours, settle_launches) = ROUTER_SETTINGS[]
-    if has_kite(table) && launch_spread_hours > 0
-        spread = searched_route(corridor, table, weather, departure;
-            launch_spread=launch_spread_hours, options...)
-        isnothing(spread) && return nothing
-        settle_launches || return final_pass(spread, corridor, table, weather, departure;
-            launch_spread=launch_spread_hours, leg_options...)
-        settled = settled_route(spread, corridor, table, weather, departure; leg_options...)
-        isnothing(settled) || return settled
-    end
-    leg = searched_route(corridor, table, weather, departure; launch_spread=0.0, options...)
-    isnothing(leg) && return nothing
-    return final_pass(leg, corridor, table, weather, departure; leg_options...)
-end
-
-"""
-    searched_route(corridor, table, weather, departure; launch_spread, time_cost,
-                   first_stage, first_lateral, first_aloft, coastal_penalty)
-
-The [`Leg`](@ref) of the search of [`route`](@ref) before its final pass, with the
-[`search_passage`](@ref) of a `launch_spread` [h], or `nothing`.
-"""
-function searched_route(corridor::Corridor, table::RouteTable, weather, departure;
-        launch_spread, time_cost, first_stage, first_lateral, first_aloft, coastal_penalty)
-    (; time_step, search_speed_stride) = ROUTER_SETTINGS[]
+    (; time_step) = ROUTER_SETTINGS[]
     options = (; time_step, time_cost, first_stage, first_lateral, first_aloft,
-        coastal_penalty, speed_stride=search_speed_stride, launch_spread)
+        coastal_penalty, speed_stride=ROUTER_SETTINGS[].search_speed_stride)
     workspace = acquire_workspace(size(corridor.lat, 2),
         ceil(Int, MAX_LEG_HOURS / time_step), size(corridor.lat, 1))
     try
         to_go = CostToGo(workspace, corridor, table, weather, departure; time_cost,
-            first_stage, coastal_penalty, launch_spread)
+            first_stage, coastal_penalty)
         estimate = to_go(first_lateral, first_aloft + 1, first_stage, 0.0)
-        return searched_leg(workspace, corridor, table, weather, departure, to_go,
+        leg = searched_leg(workspace, corridor, table, weather, departure, to_go,
             (1 .+ margins_searched(table, ROUTER_SETTINGS[])) .* estimate; options...)
+        isnothing(leg) && return nothing
+        return final_pass(leg, corridor, table, weather, departure; time_cost, first_stage,
+            first_aloft, coastal_penalty)
     finally
         release_workspace(workspace)
     end
@@ -1001,92 +928,51 @@ struct PassageBand
 end
 
 """
-    path_corridor(leg, corridor, first_stage, half_width=0)
+    path_corridor(leg, corridor, first_stage)
 
-[`Corridor`](@ref) of the nodes of `corridor` within `half_width` laterals of the path of
-`leg`, stage 1 being its `first_stage`; its central lateral is the path.
+[`Corridor`](@ref) of one node per stage along the path of `leg` through `corridor`, stage 1
+being its `first_stage`.
 """
-function path_corridor(leg::Leg, corridor::Corridor, first_stage, half_width=0)
-    stage_count, node_count = length(leg.path), size(corridor.lat, 2)
-    width = 2half_width + 1
-    stages = first_stage .+ (0:(stage_count - 1))
-    laterals = Matrix{Int}(undef, stage_count, width)
-    lat, lon = zeros(stage_count, width), zeros(stage_count, width)
-    water, near_coast = falses(stage_count, width), falses(stage_count, width)
+function path_corridor(leg::Leg, corridor::Corridor, first_stage)
+    stage_count = length(leg.path)
+    lat = reshape([point[1] for point in leg.path], stage_count, 1)
+    lon = reshape([point[2] for point in leg.path], stage_count, 1)
+    near_coast = falses(stage_count, 1)
+    edge_length = zeros(stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
+    edge_course = fill(NaN, stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
+    straight_on = MAX_LATERAL_STEP + 1
     for i in 1:stage_count
-        on_path = nearest_lateral(corridor, stages[i], leg.path[i][1], leg.path[i][2])
-        for j in 1:width
-            laterals[i, j] = on_path + j - half_width - 1
-            node = clamp(laterals[i, j], 1, node_count)
-            lat[i, j] = corridor.lat[stages[i], node]
-            lon[i, j] = corridor.lon[stages[i], node]
-            water[i, j] = laterals[i, j] == node && corridor.water[stages[i], node]
-            near_coast[i, j] = corridor.near_coast[stages[i], node]
-        end
+        stage = first_stage + i - 1
+        lateral = nearest_lateral(corridor, stage, lat[i], lon[i])
+        near_coast[i] = corridor.near_coast[stage, lateral]
+        i == stage_count && break
+        next = nearest_lateral(corridor, stage + 1, lat[i + 1], lon[i + 1])
+        step = lateral_step(lateral, next)
+        edge_length[i, 1, straight_on] = corridor.edge_length[stage, lateral, step]
+        edge_course[i, 1, straight_on] = corridor.edge_course[stage, lateral, step]
     end
-    edge_length = zeros(stage_count - 1, width, 2MAX_LATERAL_STEP + 1)
-    edge_course = fill(NaN, stage_count - 1, width, 2MAX_LATERAL_STEP + 1)
-    for i in 1:(stage_count - 1), j in 1:width, next in 1:width
-        lateral, arrival = laterals[i, j], laterals[i + 1, next]
-        lateral in 1:node_count && arrival in 1:node_count || continue
-        max(abs(next - j), abs(arrival - lateral)) <= MAX_LATERAL_STEP || continue
-        step, band_step = lateral_step(lateral, arrival), lateral_step(j, next)
-        edge_length[i, j, band_step] = corridor.edge_length[stages[i], lateral, step]
-        edge_course[i, j, band_step] = corridor.edge_course[stages[i], lateral, step]
-    end
-    return Corridor(lat, lon, water, edge_length, edge_course, corridor.track_length,
-        near_coast, along_centre_line(lat, lon))
+    return Corridor(lat, lon, trues(stage_count, 1), edge_length, edge_course,
+        corridor.track_length, near_coast, along_centre_line(lat, lon))
 end
 
 """
-    final_pass(leg, corridor, table, weather, departure; options...)
+    final_pass(leg, corridor, table, weather, departure; time_cost, first_stage,
+               first_aloft, coastal_penalty)
 
-The cheaper of `leg` and the [`settled_pass`](@ref) along its path.
+The cheaper of `leg` and the [`route_pass`](@ref) along its path at all speeds of `table`,
+on the bins and within the band in time of `ROUTER_SETTINGS`.
 """
-function final_pass(leg::Leg, corridor, table, weather, departure; options...)
-    refined = settled_pass(leg, corridor, table, weather, departure; options...)
-    return isnothing(refined) || refined.objective > leg.objective ? leg : refined
-end
-
-"""
-    settled_route(leg, corridor, table, weather, departure; options...)
-
-The leg of exact launches along the path of `leg`; with `settle_band` of `ROUTER_SETTINGS`
-the [`final_pass`](@ref) of a search that far either side of that path. `nothing` if no path
-arrives.
-"""
-function settled_route(leg::Leg, corridor, table, weather, departure; options...)
-    (; settle_band, time_step, search_speed_stride) = ROUTER_SETTINGS[]
-    settle_band == 0 &&
-        return settled_pass(leg, corridor, table, weather, departure; options...)
-    banded = settled_pass(leg, corridor, table, weather, departure; half_width=settle_band,
-        time_step, speed_stride=search_speed_stride, options...)
-    isnothing(banded) && return nothing
-    return final_pass(banded, corridor, table, weather, departure; options...)
-end
-
-"""
-    settled_pass(leg, corridor, table, weather, departure; time_cost, first_stage,
-                 first_aloft, coastal_penalty, launch_spread=0.0, half_width=0,
-                 time_step, speed_stride=1)
-
-The [`route_pass`](@ref) within `half_width` laterals of the path of `leg`, on bins of
-`time_step` [h] and every `speed_stride`th speed of `table`, with the
-[`search_passage`](@ref) of a `launch_spread` [h], within the band in time of
-`ROUTER_SETTINGS`, or `nothing`.
-"""
-function settled_pass(leg::Leg, corridor, table, weather, departure; time_cost, first_stage,
-        first_aloft, coastal_penalty, launch_spread=0.0, half_width=0,
-        time_step=ROUTER_SETTINGS[].final_time_step, speed_stride=1)
-    workspace = acquire_workspace(2half_width + 1, ceil(Int, MAX_LEG_HOURS / time_step),
+function final_pass(leg::Leg, corridor, table, weather, departure; time_cost, first_stage,
+        first_aloft, coastal_penalty)
+    (; final_time_step, final_time_band) = ROUTER_SETTINGS[]
+    workspace = acquire_workspace(1, ceil(Int, MAX_LEG_HOURS / final_time_step),
         length(leg.path))
     try
-        band = PassageBand([point[3] for point in leg.path],
-            ROUTER_SETTINGS[].final_time_band)
-        return route_pass(workspace, path_corridor(leg, corridor, first_stage, half_width),
-            table, weather, departure, band; time_cost, time_step, first_stage=1,
-            first_lateral=half_width + 1, first_aloft, coastal_penalty, speed_stride,
-            launch_spread)
+        band = PassageBand([point[3] for point in leg.path], final_time_band)
+        refined = route_pass(workspace, path_corridor(leg, corridor, first_stage), table,
+            weather, departure, band; time_cost, time_step=final_time_step, first_stage=1,
+            first_lateral=1, first_aloft, coastal_penalty, speed_stride=1)
+        return isnothing(refined) || refined.objective > leg.objective ? leg : refined
     finally
         release_workspace(workspace)
     end
@@ -1111,25 +997,23 @@ end
 """
     route_pass(workspace, corridor, table, weather, departure, to_go=nothing, limit=Inf;
                time_cost, time_step, first_stage, first_lateral, first_aloft,
-               coastal_penalty, speed_stride, launch_spread)
+               coastal_penalty, speed_stride)
 
 The dynamic programme of [`route`](@ref) in `workspace`, whose bins are `time_step` [h]
-long, commanding the [`commanded_speeds`](@ref) of `table` at `speed_stride`, with the
-[`search_passage`](@ref) of a `launch_spread` [h], skipping
+long, commanding the [`commanded_speeds`](@ref) of `table` at `speed_stride`, skipping
 states and commanded edges outside the [`PassageBand`](@ref) `to_go`, or, with a
 [`CostToGo`](@ref) `to_go`, those whose objective plus it exceeds `limit` [USD]. Returns the
 [`Leg`](@ref) or `nothing`.
 """
 function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable,
         weather, departure, to_go=nothing, limit=Inf; time_cost, time_step, first_stage,
-        first_lateral, first_aloft, coastal_penalty, speed_stride,
-        launch_spread=0.0)
+        first_lateral, first_aloft, coastal_penalty, speed_stride)
     ship_table = table.table
     (; speeds) = table
     (; cost, elapsed, points) = workspace
     stage_count, lateral_count = size(corridor.lat)
     bins = size(cost, 2)
-    prices = (; fuel=ship_table.ship.fuel.price, time=time_cost, launch_spread)
+    prices = (; fuel=ship_table.ship.fuel.price, time=time_cost)
     fill!(view(cost, :, :, :, first_stage:stage_count), Inf)
     start_state!(workspace, (first_lateral, 1, first_aloft + 1, first_stage))
     commanded = commanded_speeds(length(speeds), speed_stride)
