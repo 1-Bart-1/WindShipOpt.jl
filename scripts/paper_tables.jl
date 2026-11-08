@@ -369,7 +369,7 @@ function missed_goals_table()
             "\\multicolumn{2}{c}{Out of service [\\%] where} \\\\")
         println(io, "\\cmidrule(lr){5-6}\\cmidrule(lr){7-8}\\cmidrule(lr){9-10}",
             "\\cmidrule(lr){11-12}")
-        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Saving [\\%] & ",
+        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Cost saving [\\%] & ",
             "Rival & Lead [points] & ", join(fill("pays no more & level", 3), " & "),
             " \\\\")
         println(io, "\\midrule")
@@ -398,7 +398,7 @@ function missed_goals_table()
         println(io, " & & & & & & \\multicolumn{2}{c}{Crashes a year where} & ",
             "Flight \\\\")
         println(io, "\\cmidrule(lr){7-8}")
-        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Saving [\\%] & Rival & ",
+        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Cost saving [\\%] & Rival & ",
             "One [kUSD] & pays no more & level & [h/year] \\\\")
         println(io, "\\midrule")
         crash_scales = [column_scale(getindex.(getproperty.(crash_rows, :crashes), k))
