@@ -17,7 +17,10 @@ LAUNCH_APPROXIMATIONS = (bare=WindShipOpt.RouterSettings(),
     narrow=WindShipOpt.RouterSettings(launch_spread_hours=Inf,
         kite_search_margins=WindShipOpt.RouterSettings().search_margins),
     spread_24h=WindShipOpt.RouterSettings(launch_spread_hours=24.0),
-    spread_48h=WindShipOpt.RouterSettings(launch_spread_hours=48.0))
+    spread_48h=WindShipOpt.RouterSettings(launch_spread_hours=48.0),
+    band_1=WindShipOpt.RouterSettings(launch_spread_hours=Inf, settle_band=1),
+    band_2=WindShipOpt.RouterSettings(launch_spread_hours=Inf, settle_band=2),
+    band_4=WindShipOpt.RouterSettings(launch_spread_hours=Inf, settle_band=4))
 
 """
     route_approximation(out_dir, name, scale)

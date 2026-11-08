@@ -1131,6 +1131,35 @@ end
     @test free.objective <= exact.objective <= settled.objective
 end
 
+@testset "an exact search in a band around a kite's cheap route closes on the full router" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    time_cost = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions))
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    passage(settings) = WindShipOpt.with_router_settings(
+        () -> route(corridor, kite_table, weather, departure; time_cost), settings)
+    exact = passage(WindShipOpt.RouterSettings())
+    settled = passage(WindShipOpt.RouterSettings(launch_spread_hours=Inf))
+    banded = passage(WindShipOpt.RouterSettings(launch_spread_hours=Inf, settle_band=2))
+    whole = passage(WindShipOpt.RouterSettings(launch_spread_hours=Inf,
+        settle_band=size(corridor.lat, 2)))
+    @test banded.objective <= settled.objective
+    @test whole.objective ≈ exact.objective rtol = 1e-3
+end
+
+@testset "a band around a path keeps each node's edges and shuts off what leaves the corridor" begin
+    leg_path = [(corridor.lat[stage, 1], corridor.lon[stage, 1], 0.0, 1.0, 0.0)
+                for stage in 1:size(corridor.lat, 1)]
+    leg = WindShipOpt.Leg(0.0, 0.0, 0.0, 0, 0, 0.0, 0.0, leg_path, Bool[])
+    band = WindShipOpt.path_corridor(leg, corridor, 1, 2)
+    @test size(band.lat, 2) == 5
+    @test band.lat[:, 3] == corridor.lat[:, 1]
+    @test !any(band.water[:, 1:2])
+    @test band.lat[1, 4] == corridor.lat[1, 2]
+    straight_on = WindShipOpt.lateral_step(3, 3)
+    @test band.edge_length[1, 4, straight_on] == corridor.edge_length[1, 2, straight_on]
+end
+
 @testset "a rig without a kite is routed the same whatever spreads a kite's launches" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
     passage() = route(corridor, table, weather, departure; time_cost=hourly)

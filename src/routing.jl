@@ -271,6 +271,8 @@ Base.@kwdef struct RouterSettings
     "whether a search with `launch_spread_hours` settles its path; if not, it returns the
     leg it found with launches as it priced them"
     settle_launches::Bool = true
+    "lateral nodes each side of the path found that settling searches with exact launches"
+    settle_band::Int = 0
 end
 
 "[`RouterSettings`](@ref) in force"
@@ -946,7 +948,7 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
         isnothing(spread) && return nothing
         settle_launches || return final_pass(spread, corridor, table, weather, departure;
             launch_spread=launch_spread_hours, leg_options...)
-        settled = settled_pass(spread, corridor, table, weather, departure; leg_options...)
+        settled = settled_route(spread, corridor, table, weather, departure; leg_options...)
         isnothing(settled) || return settled
     end
     leg = searched_route(corridor, table, weather, departure; launch_spread=0.0, options...)
@@ -999,31 +1001,39 @@ struct PassageBand
 end
 
 """
-    path_corridor(leg, corridor, first_stage)
+    path_corridor(leg, corridor, first_stage, half_width=0)
 
-[`Corridor`](@ref) of one node per stage along the path of `leg` through `corridor`, stage 1
-being its `first_stage`.
+[`Corridor`](@ref) of the nodes of `corridor` within `half_width` laterals of the path of
+`leg`, stage 1 being its `first_stage`; its central lateral is the path.
 """
-function path_corridor(leg::Leg, corridor::Corridor, first_stage)
-    stage_count = length(leg.path)
-    lat = reshape([point[1] for point in leg.path], stage_count, 1)
-    lon = reshape([point[2] for point in leg.path], stage_count, 1)
-    near_coast = falses(stage_count, 1)
-    edge_length = zeros(stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
-    edge_course = fill(NaN, stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
-    straight_on = MAX_LATERAL_STEP + 1
-    for i in 1:stage_count
-        stage = first_stage + i - 1
-        lateral = nearest_lateral(corridor, stage, lat[i], lon[i])
-        near_coast[i] = corridor.near_coast[stage, lateral]
-        i == stage_count && break
-        next = nearest_lateral(corridor, stage + 1, lat[i + 1], lon[i + 1])
-        step = lateral_step(lateral, next)
-        edge_length[i, 1, straight_on] = corridor.edge_length[stage, lateral, step]
-        edge_course[i, 1, straight_on] = corridor.edge_course[stage, lateral, step]
+function path_corridor(leg::Leg, corridor::Corridor, first_stage, half_width=0)
+    stage_count, node_count = length(leg.path), size(corridor.lat, 2)
+    stages = first_stage .+ (0:(stage_count - 1))
+    on_path = [nearest_lateral(corridor, stages[i], leg.path[i][1], leg.path[i][2])
+               for i in 1:stage_count]
+    offsets = -half_width:half_width
+    wanted = [on_path[i] + offset for i in 1:stage_count, offset in offsets]
+    nodes = clamp.(wanted, 1, node_count)
+    inside = wanted .== nodes
+    width = length(offsets)
+    lat = [corridor.lat[stages[i], nodes[i, j]] for i in 1:stage_count, j in 1:width]
+    lon = [corridor.lon[stages[i], nodes[i, j]] for i in 1:stage_count, j in 1:width]
+    water = BitMatrix([inside[i, j] && corridor.water[stages[i], nodes[i, j]]
+                       for i in 1:stage_count, j in 1:width])
+    near_coast = BitMatrix([corridor.near_coast[stages[i], nodes[i, j]]
+                            for i in 1:stage_count, j in 1:width])
+    edge_length = zeros(stage_count - 1, width, 2MAX_LATERAL_STEP + 1)
+    edge_course = fill(NaN, stage_count - 1, width, 2MAX_LATERAL_STEP + 1)
+    for i in 1:(stage_count - 1), j in 1:width, next in 1:width
+        lateral, arrival = nodes[i, j], nodes[i + 1, next]
+        inside[i, j] && inside[i + 1, next] || continue
+        max(abs(next - j), abs(arrival - lateral)) <= MAX_LATERAL_STEP || continue
+        step, band_step = lateral_step(lateral, arrival), lateral_step(j, next)
+        edge_length[i, j, band_step] = corridor.edge_length[stages[i], lateral, step]
+        edge_course[i, j, band_step] = corridor.edge_course[stages[i], lateral, step]
     end
-    return Corridor(lat, lon, trues(stage_count, 1), edge_length, edge_course,
-        corridor.track_length, near_coast, along_centre_line(lat, lon))
+    return Corridor(lat, lon, water, edge_length, edge_course, corridor.track_length,
+        near_coast, along_centre_line(lat, lon))
 end
 
 """
@@ -1037,23 +1047,44 @@ function final_pass(leg::Leg, corridor, table, weather, departure; options...)
 end
 
 """
-    settled_pass(leg, corridor, table, weather, departure; time_cost, first_stage,
-                 first_aloft, coastal_penalty, launch_spread=0.0)
+    settled_route(leg, corridor, table, weather, departure; options...)
 
-The [`route_pass`](@ref) along the path of `leg` at all speeds of `table` with the
-[`search_passage`](@ref) of a `launch_spread` [h], on the bins and within the band in time
-of `ROUTER_SETTINGS`, or `nothing`.
+The leg of exact launches along the path of `leg`; with `settle_band` of `ROUTER_SETTINGS`
+the [`final_pass`](@ref) of a search that far either side of that path. `nothing` if no path
+arrives.
+"""
+function settled_route(leg::Leg, corridor, table, weather, departure; options...)
+    (; settle_band, time_step, search_speed_stride) = ROUTER_SETTINGS[]
+    settle_band == 0 &&
+        return settled_pass(leg, corridor, table, weather, departure; options...)
+    banded = settled_pass(leg, corridor, table, weather, departure; half_width=settle_band,
+        time_step, speed_stride=search_speed_stride, options...)
+    isnothing(banded) && return nothing
+    return final_pass(banded, corridor, table, weather, departure; options...)
+end
+
+"""
+    settled_pass(leg, corridor, table, weather, departure; time_cost, first_stage,
+                 first_aloft, coastal_penalty, launch_spread=0.0, half_width=0,
+                 time_step, speed_stride=1)
+
+The [`route_pass`](@ref) within `half_width` laterals of the path of `leg`, on bins of
+`time_step` [h] and every `speed_stride`th speed of `table`, with the
+[`search_passage`](@ref) of a `launch_spread` [h], within the band in time of
+`ROUTER_SETTINGS`, or `nothing`.
 """
 function settled_pass(leg::Leg, corridor, table, weather, departure; time_cost, first_stage,
-        first_aloft, coastal_penalty, launch_spread=0.0)
-    (; final_time_step, final_time_band) = ROUTER_SETTINGS[]
-    workspace = acquire_workspace(1, ceil(Int, MAX_LEG_HOURS / final_time_step),
+        first_aloft, coastal_penalty, launch_spread=0.0, half_width=0,
+        time_step=ROUTER_SETTINGS[].final_time_step, speed_stride=1)
+    workspace = acquire_workspace(2half_width + 1, ceil(Int, MAX_LEG_HOURS / time_step),
         length(leg.path))
     try
-        band = PassageBand([point[3] for point in leg.path], final_time_band)
-        return route_pass(workspace, path_corridor(leg, corridor, first_stage), table,
-            weather, departure, band; time_cost, time_step=final_time_step, first_stage=1,
-            first_lateral=1, first_aloft, coastal_penalty, speed_stride=1, launch_spread)
+        band = PassageBand([point[3] for point in leg.path],
+            ROUTER_SETTINGS[].final_time_band)
+        return route_pass(workspace, path_corridor(leg, corridor, first_stage, half_width),
+            table, weather, departure, band; time_cost, time_step, first_stage=1,
+            first_lateral=half_width + 1, first_aloft, coastal_penalty, speed_stride,
+            launch_spread)
     finally
         release_workspace(workspace)
     end
