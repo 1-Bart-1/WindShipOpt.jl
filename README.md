@@ -22,6 +22,27 @@ Every number the model assumes, with its sensitivity range and the reason for it
 ./bin/run_julia scripts/compare_designs.jl
 ```
 
+## Companion explorer
+
+`site/` is the paper's companion website: a reader picks a ship, a route and a fuel, changes the prices and rig goals, and sees each rig's best size and what it saves against the same ship on e-ammonia and on fuel oil. It evaluates the model's own cost formulas, recorded over those inputs, on the voyages the class study routed, so no cost formula is written twice. The data step writes them next to the class study:
+
+```julia
+include("scripts/paper.jl")
+paper(:classes, :explorer; fidelity=:draft)
+```
+
+The site reads `explorer.json` from the newest final run, or from the newest draft run until there is one (`EXPLORER_JSON=<path>` picks another). With Node.js 20.19, or 22.12 or later:
+
+```bash
+./bin/explorer              # http://localhost:5173
+npm --prefix site test      # fails where the site and the model disagree at the paper's inputs or a checked change
+npm --prefix site run build # static site in site/dist
+```
+
 ## Status
 
 Runs on ERA5 wind and waves when `era5/atlantic_wide/` exists, otherwise on synthetic weather. Not in the model: currents, batteries with regeneration, a coastline finer than the ERA5 grid, an outer design optimiser.
+
+## Licence
+
+Everything here is © 2026 Bart van de Lint under the [GNU Affero General Public License v3.0 or later](LICENSES/AGPL-3.0-or-later.txt): the code, the paper, the data notes and the inputs. A few files belong to others and keep their own licence: the TeX Gyre Termes fonts in `data/fonts/` (LPPL 1.3c or later), the Eurostat extract in `data/market/` (CC BY 4.0, source: Eurostat), the tables taken from the Fourth IMO GHG Study 2020 and UNCTAD's Review of Maritime Transport (all rights reserved by their publishers), and `bin/reuse_lint` (MIT). The repository follows the [REUSE specification](https://reuse.software): every file's copyright and licence is in its header or in [`REUSE.toml`](REUSE.toml), the licence texts are in [`LICENSES/`](LICENSES/), and `./bin/reuse_lint` checks it.
