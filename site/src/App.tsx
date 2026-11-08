@@ -174,7 +174,7 @@ function Results({ best }: { best: Map<string, Outcome> }) {
         </thead>
         <tbody>
           {bare && (
-            <tr className="border-t border-stone-100">
+            <tr className="border-t border-ink/20">
               <td className="py-1">No rig</td>
               <td />
               <td className="text-right">{formatted(1000 * bare.cost, 3)}</td>
@@ -186,7 +186,7 @@ function Results({ best }: { best: Map<string, Outcome> }) {
             const outcome = best.get(rig);
             const wins = rig === winner && outcome && outcome.saving > 0;
             return (
-              <tr key={rig} className={`border-t border-stone-100 ${wins ? "bg-teal/15 font-semibold" : ""}`}>
+              <tr key={rig} className={`border-t border-ink/20 ${wins ? "bg-teal/15 font-semibold" : ""}`}>
                 <td className="py-1">
                   <span className="mr-2 inline-block h-3 w-3 rounded-sm" style={{ background: rigColours[rig] }} />
                   {rigLabels[rig]}{wins ? " — best" : ""}
@@ -280,7 +280,7 @@ function Accuracy({ data }: { data: ExplorerData }) {
       <table className="text-sm">
         <tbody>
           {rows.map(([label, drift]) => (
-            <tr key={label} className="border-t border-stone-100">
+            <tr key={label} className="border-t border-ink/20">
               <td className="py-1 pr-4">{label}</td>
               <td className="text-right">{formatted(drift, 2)} % of the cost</td>
             </tr>
