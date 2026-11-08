@@ -84,7 +84,7 @@ Drive(::Val{:vlsfo}, assumptions) = Drive(; fuel=vlsfo(assumptions),
 
 Drive(::Val{:methanol}, assumptions) = Drive(; fuel=e_methanol(assumptions),
     transmission_efficiency=assumptions[:electric_chain_efficiency],
-    unit_count=Int(assumptions[:genset_count]),
+    unit_count=round(Int, assumptions[:genset_count]),
     peak_efficiency=assumptions[:methanol_engine_efficiency],
     part_load_penalty=assumptions[:part_load_penalty],
     power_cost=assumptions[:electric_propulsion_cost])
