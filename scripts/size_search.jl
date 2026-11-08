@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # The search for the cheapest size of a rig: which area to try next from the costs of the
 # areas tried so far. Included by paper.jl.
 

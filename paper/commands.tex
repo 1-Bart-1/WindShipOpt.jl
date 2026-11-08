@@ -1,0 +1,6 @@
+% SPDX-FileCopyrightText: 2026 Bart van de Lint
+% SPDX-License-Identifier: AGPL-3.0-or-later
+\newcommand{\tbd}[1]{\textcolor{red}{#1}}
+\newcommand{\plot}[2][]{\IfFileExists{figures/#2.pdf}{\includegraphics[max width=\textwidth]{#2}}{\fbox{\parbox[c][3cm][c]{0.9\textwidth}{\centering\tbd{Figure \detokenize{#2} pending data.}}}}}
+\graphicspath{{figures/}}
+\input{sections/numbers}
