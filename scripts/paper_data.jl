@@ -660,7 +660,7 @@ end
     routes_data()
 
 Ships of three lengths and the [`study_drives`](@ref) without a rig and with two sizes of
-each rig on every route: routes.csv.
+each rig on every route: routes.csv, and each departure of them: route_departures.csv.
 """
 function routes_data()
     rigs = [("none", 0.0), ("kite", 800.0), ("kite", 3200.0), ("wings", 800.0),
@@ -669,8 +669,34 @@ function routes_data()
                      drive, length, rig, area)
                  for length in (85.0, 140.0, 200.0), drive in study_drives,
                      (rig, area) in rigs, name in route_names])
-    write_trips("routes.csv", cases, round_trips(cases, sampled_departures()), :route,
-        :drive, :length, :rig, :area)
+    trips = round_trips(cases, sampled_departures())
+    labels = (:route, :drive, :length, :rig, :area)
+    write_trips("routes.csv", cases, trips, labels...)
+    write_departures("route_departures.csv", cases, trips, labels...)
+end
+
+"""
+    write_departures(name, cases, trips, columns...)
+
+Write `name` to the directory of the run in use with the given label `columns` of each
+case and the date, cost [USD/tkm], fuel [MJ/tkm] and kite flight share of each departure of
+each feasible trip, with the ship and cargo of the whole trip.
+"""
+function write_departures(name, cases, trips, columns...)
+    open(run_file(name), "w") do io
+        println(io, join([collect(string.(columns)); ["date", "cost", "fuel",
+            "flight_share"]], ","))
+        for (case, trip) in zip(cases, trips)
+            isnothing(trip) && continue
+            labels = join([csv_value(getproperty(case, column)) for column in columns], ",")
+            for outcome in trip.departures
+                date = Date(weather_origin + Hour(round(Int, outcome.departure)))
+                @printf(io, "%s,%s,%.6f,%.5f,%.3f\n", labels, date,
+                    outcome.cost_per_tonne_km, outcome.fuel_per_tonne_km,
+                    outcome.flight_share)
+            end
+        end
+    end
 end
 
 """
