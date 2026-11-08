@@ -390,8 +390,7 @@ Add the hours, thrust-hours [kN h] and rig work [GJ] of each edge of a routed `l
 its `trace` to `sums`, keyed by `direction` and true-wind-angle band.
 """
 function add_leg!(sums, leg, trace, direction)
-    for i in eachindex(trace.time)
-        hours = leg.path[i + 1][3] - leg.path[i][3]
+    for (i, hours) in enumerate(trace_hours(leg, trace))
         thrust = max(trace.rig_thrust[i], 0.0) / 1e3
         key = (direction, band_name(trace.true_wind_angle[i]))
         old = get(sums, key, (0.0, 0.0, 0.0))
@@ -1452,10 +1451,30 @@ function tow_point_data()
 end
 
 """
+    trace_hours(leg, trace)
+
+Hours [h] each sample of the [`LegTrace`](@ref) `trace` of `leg` holds until the next.
+"""
+trace_hours(leg, trace) = diff([trace.time; leg.duration])
+
+"""
+    traced_passage(table, corridor, departure, hourly)
+
+The [`Leg`](@ref) routed through `corridor` from `departure` [h] on the
+[`PerformanceTable`](@ref) `table` at time cost `hourly` [USD/h], and its
+[`LegTrace`](@ref).
+"""
+function traced_passage(table, corridor, departure, hourly)
+    leg = route(corridor, table, weather, departure; time_cost=hourly)
+    isnothing(leg) && return nothing, nothing
+    return leg, LegTrace(table, leg, weather, departure)
+end
+
+"""
     traced_legs(ship, name)
 
 Routed round trips of `ship` on route `name` over the sampled departures, as a list of
-each leg and its [`LegTrace`](@ref) every 3 h, with hours priced at the ship's time cost.
+each leg and its [`LegTrace`](@ref), with hours priced at the ship's time cost.
 """
 function traced_legs(ship, name)
     table = PerformanceTable(ship, assumptions)
@@ -1469,8 +1488,8 @@ function traced_legs(ship, name)
         isnothing(trip) && continue
         out, back = trip
         back_departure = departure + out.duration + port_hours
-        push!(legs, (out, LegTrace(table, out, weather, departure; interval=3.0)))
-        push!(legs, (back, LegTrace(table, back, weather, back_departure; interval=3.0)))
+        push!(legs, (out, LegTrace(table, out, weather, departure)))
+        push!(legs, (back, LegTrace(table, back, weather, back_departure)))
     end
     return legs
 end
@@ -1488,9 +1507,7 @@ pulled, net thrust-hours worked [kN h], distance [nmi] and the lowest apparent a
 which it pulled [deg].
 """
 function add_flight_hours!(bins, leg, trace)
-    ends = [trace.time[2:end]; leg.duration]
-    for (i, finish) in enumerate(ends)
-        hours = finish - trace.time[i]
+    for (i, hours) in enumerate(trace_hours(leg, trace))
         knots = trace.speed[i] / KNOT
         band = (min(floor(Int, rad2deg(trace.true_wind_angle[i]) / 30), 5) * 30,
             knots < 10 ? 8 : knots < 12 ? 10 : knots < 14 ? 12 : 14)

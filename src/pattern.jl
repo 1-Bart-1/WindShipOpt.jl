@@ -590,15 +590,16 @@ function pattern_table(model::KiteModel, max_force, assumptions::Assumptions, wi
 end
 
 """
-    compute_pattern_table(model, max_force, assumptions, wind_speeds, courses,
-                          side_weights)
+    solved_patterns(model, max_force, assumptions, wind_speeds, courses, side_weights)
 
-The table of [`pattern_table`](@ref), optimised pattern by pattern, threaded over the
-courses and side weights.
+The [`PatternForce`](@ref) and search parameters of the best pattern at each wind speed,
+course and side weight, threaded over the courses and side weights and warm-starting each
+speed from the next stronger one.
 """
-function compute_pattern_table(model::KiteModel, max_force, assumptions::Assumptions,
-        wind_speeds, courses, side_weights)
-    forces = fill(NO_PATTERN, length(wind_speeds), length(courses), length(side_weights))
+function solved_patterns(model::KiteModel, max_force, assumptions::Assumptions, wind_speeds,
+        courses, side_weights)
+    shape = (length(wind_speeds), length(courses), length(side_weights))
+    forces, parameters = fill(NO_PATTERN, shape), Array{Vector{Float64}}(undef, shape)
     min_elevation = deg2rad(assumptions[:kite_min_elevation])
     cases = vec(collect(Iterators.product(eachindex(courses), eachindex(side_weights))))
     Threads.@threads :greedy for (j, k) in cases
@@ -606,12 +607,23 @@ function compute_pattern_table(model::KiteModel, max_force, assumptions::Assumpt
         for i in reverse(eachindex(wind_speeds))
             problem = PatternProblem(model, max_force, min_elevation, wind_speeds[i],
                 courses[j], side_weights[k])
-            forces[i, j, k], best = optimal_pattern(problem, starts)
-            starts = vcat([best], pattern_starts(model, courses[j]))
+            forces[i, j, k], parameters[i, j, k] = optimal_pattern(problem, starts)
+            starts = vcat([parameters[i, j, k]], pattern_starts(model, courses[j]))
         end
     end
-    return forces
+    return forces, parameters
 end
+
+"""
+    compute_pattern_table(model, max_force, assumptions, wind_speeds, courses,
+                          side_weights)
+
+The [`PatternForce`](@ref) table of [`pattern_table`](@ref): the forces of
+[`solved_patterns`](@ref).
+"""
+compute_pattern_table(model::KiteModel, max_force, assumptions::Assumptions, wind_speeds,
+    courses, side_weights) = first(solved_patterns(model, max_force, assumptions, wind_speeds,
+    courses, side_weights))
 
 """
     pattern_table_path(key)

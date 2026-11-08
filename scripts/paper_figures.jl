@@ -496,8 +496,7 @@ function passage_figure()
         table = PerformanceTable(ship, assumptions)
         hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
             assumptions))
-        leg = route(outbound, table, weather, departure; time_cost=hourly)
-        trace = WindShipOpt.LegTrace(table, leg, weather, departure; interval=3.0)
+        leg, trace = traced_passage(table, outbound, departure, hourly)
         i == 1 && lines!(map, great_circle(leg.path[1], leg.path[end])...; color=:black,
             linestyle=:dot, linewidth=1.0, label="great circle")
         lines!(map, smooth_track(getindex.(leg.path, 2), getindex.(leg.path, 1));

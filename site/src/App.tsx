@@ -11,6 +11,7 @@ import {
   type Outcome,
 } from "./explorer";
 import { canopyPriceInputs, exactInputs, inputGroups, type InputControl } from "./inputs";
+import { PassageView } from "./passages/PassageView";
 
 const driveLabels: Record<string, string> = {
   vlsfo: "fuel oil (VLSFO)",
@@ -18,7 +19,7 @@ const driveLabels: Record<string, string> = {
   hydrogen: "liquid hydrogen",
 };
 const rigLabels: Record<string, string> = { wings: "Wing sails", rotors: "Flettner rotors", kite: "Towing kite" };
-const rigColours: Record<string, string> = { wings: "#2a6f97", rotors: "#c26a1b", kite: "#5b8c3a" };
+const rigColours: Record<string, string> = { wings: "var(--brand-teal)", rotors: "var(--brand-rust)", kite: "var(--brand-orange)" };
 
 const formatted = (value: number, digits = 1) =>
   Number.isFinite(value) ? value.toLocaleString("en", { maximumFractionDigits: digits }) : "–";
@@ -32,7 +33,7 @@ export default function App() {
       .then(setData)
       .catch((reason) => setError(String(reason)));
   }, []);
-  if (error) return <p className="p-8 text-red-700">Could not load the explorer data: {error}</p>;
+  if (error) return <p className="p-8 text-rust">Could not load the explorer data: {error}</p>;
   if (!data) return <p className="p-8">Loading the model…</p>;
   return <Explorer data={data} />;
 }
@@ -57,15 +58,15 @@ function Explorer({ data }: { data: ExplorerData }) {
     });
 
   return (
-    <main className="mx-auto max-w-6xl space-y-8 p-6">
+    <main className="mx-auto max-w-[1120px] space-y-10 px-5 py-8 md:px-8">
       <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Towing kites, wing sails and Flettner rotors on cargo ships</h1>
-        <p className="text-stone-600">
+        <h1 className="text-5xl md:text-7xl leading-[0.9]">Towing kites, wing sails and Flettner rotors on cargo ships</h1>
+        <p className="text-ink">
           Pick a ship, a route and a fuel, change the inputs, and see what each rig saves at its best size.
           Results read: if each rig reaches these goals, it saves this much.
         </p>
         {data.fidelity !== "final" && (
-          <p className="rounded bg-amber-100 px-3 py-2 text-sm text-amber-900">
+          <p className="rounded-[14px] bg-mustard/30 px-3 py-2 text-sm text-ink">
             Draft results ({data.fidelity} run, commit {data.git_commit.slice(0, 7)}): coarser routing than the
             paper's final numbers.
           </p>
@@ -81,14 +82,16 @@ function Explorer({ data }: { data: ExplorerData }) {
           options={drives.map((name) => [name, driveLabels[name]])} />
       </section>
 
+      <PassageView />
+
       <Results best={best} drive={drive} />
 
       <section className="grid gap-6 md:grid-cols-2">
         {inputGroups.map((group) => (
-          <fieldset key={group.title} className="space-y-3 rounded border border-stone-200 bg-white p-4">
+          <fieldset key={group.title} className="space-y-3 rounded-[14px] border-2 border-ink bg-paper p-5">
             <legend className="px-1 font-semibold">{group.title}</legend>
             {group.title === "Kite goals" && (
-              <p className="text-sm text-stone-600">
+              <p className="text-sm text-ink">
                 Canopy price {formatted(values[data.canopy_price.node], 0)} USD/m².{" "}
                 <button className="underline" onClick={() => setCanopy("")}>Goal</button>{" · "}
                 <button className="underline" onClick={() => setCanopy("_today")}>As built today</button>
@@ -107,7 +110,7 @@ function Explorer({ data }: { data: ExplorerData }) {
           </fieldset>
         ))}
       </section>
-      <button className="rounded bg-stone-800 px-3 py-1 text-white"
+      <button className="rounded-[14px] bg-ink px-3 py-1 text-white"
         onClick={() => { setChanges({}); setCargoFactor(1); }}>
         Back to the paper's inputs
       </button>
@@ -126,8 +129,8 @@ function Choice<T extends string | number>(props: {
 }) {
   return (
     <label className="flex flex-col text-sm">
-      <span className="text-stone-600">{props.label}</span>
-      <select className="rounded border border-stone-300 bg-white px-2 py-1" value={String(props.value)}
+      <span className="text-ink">{props.label}</span>
+      <select className="rounded-[14px] border border-ink bg-paper px-2 py-1" value={String(props.value)}
         onChange={(event) => {
           const chosen = props.options.find(([value]) => String(value) === event.target.value);
           if (chosen) props.onChange(chosen[0]);
@@ -145,7 +148,7 @@ function Slider(props: { control: InputControl; value: number; base: number; onC
     <label className="block text-sm">
       <span className="flex justify-between">
         <span>{control.label}</span>
-        <span className={props.value === props.base ? "text-stone-500" : "font-semibold"}>
+        <span className={props.value === props.base ? "text-ink-light" : "font-semibold"}>
           {formatted(shown, 3)} {control.unit}
         </span>
       </span>
@@ -160,9 +163,9 @@ function Results({ best, drive }: { best: Map<string, Outcome>; drive: string })
   const bare = best.get("none");
   const ownFuel = drive !== "methanol" && drive !== "vlsfo";
   return (
-    <section className="overflow-x-auto rounded border border-stone-200 bg-white p-4">
+    <section className="overflow-x-auto rounded-[14px] border-2 border-ink bg-paper p-5">
       <table className="w-full text-sm">
-        <thead className="text-left text-stone-600">
+        <thead className="text-left text-ink">
           <tr>
             <th className="py-1">Rig</th>
             <th>Best size</th>
@@ -187,7 +190,7 @@ function Results({ best, drive }: { best: Map<string, Outcome>; drive: string })
             const outcome = best.get(rig);
             const wins = rig === winner && outcome && outcome.saving > 0;
             return (
-              <tr key={rig} className={`border-t border-stone-100 ${wins ? "bg-emerald-50 font-semibold" : ""}`}>
+              <tr key={rig} className={`border-t border-stone-100 ${wins ? "bg-teal/15 font-semibold" : ""}`}>
                 <td className="py-1">
                   <span className="mr-2 inline-block h-3 w-3 rounded-sm" style={{ background: rigColours[rig] }} />
                   {rigLabels[rig]}{wins ? " — best" : ""}
@@ -201,14 +204,14 @@ function Results({ best, drive }: { best: Map<string, Outcome>; drive: string })
                     <td className="text-right">{formatted(outcome.vlsfoSaving)} %</td>
                   </>
                 ) : (
-                  <td colSpan={ownFuel ? 5 : 4} className="text-stone-500">no feasible design</td>
+                  <td colSpan={ownFuel ? 5 : 4} className="text-ink-light">no feasible design</td>
                 )}
               </tr>
             );
           })}
         </tbody>
       </table>
-      <p className="mt-2 text-xs text-stone-500">
+      <p className="mt-2 text-xs text-ink-light">
         Each rig at the size that costs least at these inputs, among the sizes the study routed. A saving is the
         drop in cost per tonne-km against the ship without a rig.
       </p>
@@ -241,7 +244,7 @@ function WinnerMap(props: { data: ExplorerData; all: Outcome[]; drive: string; o
                   return (
                     <td key={route.name} className="h-8 w-20 cursor-pointer text-center text-white"
                       title={shown ? `${rigLabels[winner]} saves ${formatted(saving)} %` : "no rig pays"}
-                      style={{ background: shown ? rigColours[winner] : "#a8a29e", opacity: shown ? 0.35 + (0.65 * Math.min(saving, 40)) / 40 : 0.5 }}
+                      style={{ background: shown ? rigColours[winner] : "var(--brand-mid)", opacity: shown ? 0.35 + (0.65 * Math.min(saving, 40)) / 40 : 0.5 }}
                       onClick={() => props.onPick(k, j)}>
                       {Number.isFinite(saving) ? Math.round(saving) : "–"}
                     </td>
@@ -252,7 +255,7 @@ function WinnerMap(props: { data: ExplorerData; all: Outcome[]; drive: string; o
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-stone-500">
+      <p className="text-xs text-ink-light">
         Saving of the best rig in %, coloured by rig; grey where no rig pays. Click a cell to pick that ship and route.
       </p>
     </section>
@@ -273,7 +276,7 @@ function Accuracy({ data }: { data: ExplorerData }) {
   return (
     <section className="space-y-2 text-sm">
       <h2 className="text-lg font-semibold">How far to trust a change</h2>
-      <p className="text-stone-600">
+      <p className="text-ink">
         The explorer keeps each design's voyages as the model routed them at the paper's inputs and recomputes
         their cost with the model's own cost formulas. Crash and loss rates do not steer the router, so they are
         exact ({exactInputs.length} inputs). Every other input also changes how the ship is routed; the table gives the

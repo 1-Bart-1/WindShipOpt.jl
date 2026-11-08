@@ -39,6 +39,8 @@ npm --prefix site test      # fails where the site and the model disagree at the
 npm --prefix site run build # static site in site/dist
 ```
 
+The site's route view reads the routed passages of `paper(:passages; fidelity=:draft)` from the newest run that has them (`PASSAGES_DIRECTORY=<path>` picks another): the passage figure's ship on every route, a ladder of sizes per rig and every sampled departure, with the state of the ship and rig at each point the router sailed. A build without such a run has no route view.
+
 ## Status
 
 Runs on ERA5 wind and waves when `era5/atlantic_wide/` exists, otherwise on synthetic weather. Not in the model: currents, batteries with regeneration, a coastline finer than the ERA5 grid, an outer design optimiser.

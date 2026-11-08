@@ -29,3 +29,19 @@ export function explorerPath(): string {
     throw new Error(`no explorer.json in ${runs}: run paper(:classes, :explorer; fidelity=:draft)`);
   return join(runs, chosen, "explorer.json");
 }
+
+/**
+ * Directory of the routed passages the site shows: `PASSAGES_DIRECTORY` if set, else the newest
+ * run with a passages.json, preferring a final run; undefined if there is none.
+ */
+export function passagesDirectory(): string | undefined {
+  if (process.env.PASSAGES_DIRECTORY) return resolve(process.env.PASSAGES_DIRECTORY);
+  const found = existsSync(runs)
+    ? readdirSync(runs)
+        .sort()
+        .reverse()
+        .filter((directory) => existsSync(join(runs, directory, "passages.json")))
+    : [];
+  const chosen = found.find((directory) => fidelity(directory) === "final") ?? found[0];
+  return chosen ? join(runs, chosen) : undefined;
+}

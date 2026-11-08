@@ -1673,6 +1673,7 @@ module PaperData
 using Printf, Statistics, WindShipOpt
 assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
+include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 end
 
 "path and force text `PaperData.write_pattern` writes for the base kite in `wind` at `course`"
@@ -1695,6 +1696,49 @@ function recorded_names(recording, node)
     operation == :input && return Set([first(operands)])
     operation == :constant && return Set{String}()
     return union((recorded_names(recording, operand) for operand in operands)...)
+end
+
+@testset "an exported passage keeps the routed track and the rig's frame" begin
+        @test PaperData.wind_side(-10.0, 0.0, 0.0) == 1
+    @test PaperData.wind_side(10.0, 0.0, 0.0) == -1
+    @test all(PaperData.ship_frame_position((1.0, 0.0, 0.0), π / 2, 1) .≈ (-90.0, 0.0))
+    @test all(PaperData.ship_frame_position((1.0, 0.0, 0.0), π / 2, -1) .≈ (90.0, 0.0))
+    @test all(PaperData.ship_frame_position((0.0, 1.0, 0.0), π / 2, 1) .≈ (0.0, 0.0))
+    @test all(PaperData.ship_frame_position((0.0, 0.0, 1.0), π / 2, 1) .≈ (0.0, 90.0))
+    wings = Ship(ShipDesign(:methanol, 85.0; wing_area=300.0), assumptions).rig
+    settings = WindShipOpt.trim_settings(wings)
+    attached, stalled = first(settings), last(settings)
+    @test PaperData.wing_incidence(wings, attached) == 0.0
+    @test rad2deg(PaperData.wing_incidence(wings, stalled)) ≈ 90 atol=1e-6
+    ship = Ship(ShipDesign(:methanol, 85.0; rotor_area=100.0), assumptions)
+    table = PerformanceTable(ship, assumptions)
+    outbound, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    weather = SyntheticWeather()
+    leg = route(outbound, RouteTable(table), weather, 24.0 * 31; time_cost=300.0)
+    trace = LegTrace(table, leg, weather, 24.0 * 31)
+    case = (; index=0, ship, patterns=nothing)
+    exported = PaperData.recorded_leg(case, leg, trace, "out", 0, 24.0 * 31)
+    @test exported.columns.lat == round.(Int, trace.lat .* 100)
+    @test exported.columns.lon == round.(Int, trace.lon .* 100)
+    @test exported.nodes == [(round(point[1]; digits=3), round(point[2]; digits=3))
+                             for point in leg.path]
+    @test all(abs(spin) <= 400 for spin in exported.columns.trim.spin)
+end
+
+@testset "a kite's recorded pattern is the table pattern nearest its wind and course" begin
+    design = ShipDesign(:methanol, 85.0; kite_area=500.0)
+    ship = Ship(design, assumptions)
+    model = first(WindShipOpt.kite_model(500.0, design.kite_aspect_ratio, assumptions))
+    patterns = PaperData.kite_patterns(ship, model)
+    rig = ship.rig
+    points, period = patterns[findlast(<=(12.0), rig.wind_speeds),
+        findfirst(==(deg2rad(90.0)), rig.courses), 1]
+    @test length(points) == PaperData.pattern_samples
+    @test period > 0
+    side = 1
+    apparent = deg2rad(90.0)
+    azimuths = [first(PaperData.ship_frame_position(point, apparent, side)) for point in points]
+    @test all(azimuth < 0 for azimuth in azimuths)
 end
 
 @testset "a recorded cost is the routed cost, depends on its inputs and has no branch" begin
