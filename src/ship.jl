@@ -86,7 +86,7 @@ Drive(::Val{:vlsfo}, assumptions) = Drive(; fuel=vlsfo(assumptions),
 
 Drive(::Val{:methanol}, assumptions) = Drive(; fuel=e_methanol(assumptions),
     transmission_efficiency=assumptions[:electric_chain_efficiency],
-    unit_count=Int(assumptions[:genset_count]),
+    unit_count=round(Int, assumptions[:genset_count]),
     peak_efficiency=assumptions[:methanol_engine_efficiency],
     part_load_penalty=assumptions[:part_load_penalty],
     power_cost=assumptions[:electric_propulsion_cost])
@@ -97,7 +97,7 @@ function Drive(::Val{:hydrogen}, assumptions)
         price=assumptions[:lh2_tank_cost])
     return Drive(; fuel=hydrogen(assumptions),
         transmission_efficiency=assumptions[:fuel_cell_chain_efficiency],
-        unit_count=Int(assumptions[:fuel_cell_string_count]),
+        unit_count=round(Int, assumptions[:fuel_cell_string_count]),
         peak_efficiency=assumptions[:fuel_cell_efficiency],
         part_load_penalty=assumptions[:fuel_cell_part_load_penalty],
         min_load=assumptions[:fuel_cell_min_load],
