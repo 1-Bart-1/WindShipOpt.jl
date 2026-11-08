@@ -77,7 +77,8 @@ states searched & within 12\,\% of a backward estimate of the cost to go at \SI{
 longest passage & 50 days & time bins \\
 speeds & every second table speed, 25 from \SI{4}{kn} to the ship's maximum & edge choices \\
 final pass & all table speeds, \SI{0.25}{h} bins, within \SI{24}{h} of the path found & passage reported \\
-re-planning interval & \SI{24}{h} & forecast-limited router \\
+re-planning interval & \SI{24}{h} & forecast router \\
+forecasts & GEFSv12 reforecast control run, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead & forecast router \\
 departures & every 14 days from 1 January 2017 to 100 days before the end of 2019; every sixth (12) in all runs, every twelfth (6) for the input screening & weather sample \\
 \multicolumn{3}{@{}l}{\textit{Constants}}\\
 gravitational acceleration & \SI{9.81}{m/s^2} & \\

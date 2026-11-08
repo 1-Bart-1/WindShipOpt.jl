@@ -28,7 +28,8 @@ export PerformanceTable, RouteTable, lookup
 export LandMask, GridMask, north_atlantic_mask, SyntheticWeather, ERA5Weather, wind, waves
 export Corridor, return_corridor, route_corridors, centre_index, Leg, route
 export RefinedCorridor, track_length
-export ForecastWeather, forecast_route, ShipClass, ship_classes
+export ForecastWeather, ForecastArchive, ArchivedForecast, forecast_route
+export write_forecast_bias, ShipClass, ship_classes
 export ShipCosts, RoundTrip, round_trip, KNOT, NAUTICAL_MILE
 export LegTrace
 
@@ -47,6 +48,7 @@ include("geography.jl")
 include("weather.jl")
 include("era5.jl")
 include("routing.jl")
+include("forecast.jl")
 include("economics.jl")
 include("analysis.jl")
 

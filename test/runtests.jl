@@ -947,7 +947,7 @@ end
         assumptions)
     passages = [WindShipOpt.service_passages(ship, outbound, inbound, SyntheticWeather(),
                     [24.0 * 31, 24.0 * 200], assumptions, hourly,
-                    24assumptions[:port_time_per_call], Inf, nothing)
+                    24assumptions[:port_time_per_call], Inf, nothing, nothing)
                 for ship in (bare, WindShipOpt.with_rig(kite, down))]
     @test first(passages) == last(passages)
     kite_hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(kite, changed), changed)
@@ -1179,7 +1179,7 @@ end
     @test sailed.duration > 0 && sailed.fuel_energy > 0
 end
 
-@testset "a ship on a long forecast handles its kite as the plan does" begin
+@testset "a ship on a long forecast flies its kite about as the plan does" begin
     ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
     kite_table = RouteTable(PerformanceTable(ship, assumptions))
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
@@ -1189,8 +1189,28 @@ end
     sailed = forecast_route(corridor, kite_table, weather, departure;
         time_cost=kite_hourly, horizon=24.0 * 100)
     @test leg.launches > 0
-    @test sailed.aloft == leg.aloft
+    @test sailed.launches == leg.launches
+    @test sailed.flight_hours ≈ leg.flight_hours rtol = 0.02
     @test sailed.objective ≈ leg.objective rtol = 1e-3
+end
+
+@testset "a kite flying in good wind stays up unless the plan ahead needs it stowed" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+    i = findfirst(i -> leg.aloft[i] && leg.aloft[i + 1], 1:(length(leg.path) - 1))
+    lateral = WindShipOpt.nearest_lateral(corridor, i, leg.path[i][1], leg.path[i][2])
+    next = WindShipOpt.nearest_lateral(corridor, i + 1, leg.path[i + 1][1],
+        leg.path[i + 1][2])
+    prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
+    sail(ahead) = WindShipOpt.sail_planned_edge!(WindShipOpt.SailedPoint[], kite_table,
+        weather, corridor, i, lateral, WindShipOpt.lateral_step(lateral, next),
+        departure + leg.path[i][3], leg.path[i + 1][4], true, ahead, prices)
+    @test sail((0.0, 0.0))[3]
+    @test !sail((0.0, Inf))[3]
 end
 
 "Synthetic weather with a gale from the south-west no ship can sail in before `calm_from`."
@@ -1224,6 +1244,75 @@ WindShipOpt.waves(weather::GaleWeather, lat, lon, time) =
         horizon=72.0))
 end
 
+"""
+Synthetic weather with the gale of `GaleWeather` within a nautical mile of `place`
+(latitude, longitude) [deg] from `from` until `until` [h], and calm elsewhere.
+"""
+struct PassingGale
+    calm::SyntheticWeather
+    place::NTuple{2, Float64}
+    from::Float64
+    until::Float64
+end
+WindShipOpt.duration(::PassingGale) = Inf
+gale_at(weather::PassingGale, lat, lon, time) = weather.from <= time < weather.until &&
+    WindShipOpt.distance(lat, lon, weather.place...) < NAUTICAL_MILE
+WindShipOpt.wind(weather::PassingGale, lat, lon, time) =
+    gale_at(weather, lat, lon, time) ? (45.0, 45.0) :
+    WindShipOpt.wind(weather.calm, lat, lon, time)
+WindShipOpt.waves(weather::PassingGale, lat, lon, time) =
+    gale_at(weather, lat, lon, time) ? (16.0, 14.0, 1.25π) : (0.0, 0.0, 0.0)
+
+@testset "a ship that would meet a passing gale at its planned speed slows behind it" begin
+    centre, step = centre_index(corridor), WindShipOpt.MAX_LATERAL_STEP + 1
+    planned = searchsortedfirst(table.speeds, 9KNOT)
+    distance = corridor.edge_length[1, centre, step]
+    arrival(speed_index) = 24.0 * 31 + distance / table.speeds[speed_index] / 3600
+    place = (corridor.lat[2, centre], corridor.lon[2, centre])
+    gale = PassingGale(SyntheticWeather(), place, 24.0 * 31,
+        (arrival(planned) + arrival(planned - 1)) / 2)
+    prices = (; fuel=table.table.ship.fuel.price, time=hourly)
+    hours, tally, _, speed = WindShipOpt.sail_planned_edge!(WindShipOpt.SailedPoint[],
+        table, gale, corridor, 1, centre, step, 24.0 * 31, table.speeds[planned], false,
+        (0.0, Inf), prices)
+    @test isfinite(hours) && isfinite(tally.cost)
+    @test speed < table.speeds[planned]
+end
+
+"""
+Synthetic weather with, before the same date a year on, 5 m head seas and a wind 60 degrees
+off the bow on the first edge from `start`, in which only a kite flying holds more than
+4 kn, yet the seas forbid launching it.
+"""
+struct KiteOnlySeas
+    calm::SyntheticWeather
+    start::NTuple{2, Float64}
+    course::Float64
+end
+WindShipOpt.duration(::KiteOnlySeas) = Inf
+rough_seas(weather::KiteOnlySeas, lat, lon, time) = time < WindShipOpt.FORECAST_SHIFT &&
+    WindShipOpt.distance(lat, lon, weather.start...) < 200NAUTICAL_MILE
+WindShipOpt.wind(weather::KiteOnlySeas, lat, lon, time) =
+    rough_seas(weather, lat, lon, time) ?
+    -8.0 .* sincos(weather.course + deg2rad(60)) :
+    WindShipOpt.wind(weather.calm, lat, lon, time)
+WindShipOpt.waves(weather::KiteOnlySeas, lat, lon, time) =
+    rough_seas(weather, lat, lon, time) ? (5.0, 10.0, weather.course) : (0.0, 0.0, 0.0)
+
+@testset "a ship on a forecast slows where its kite cannot launch as planned" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
+    centre, step = centre_index(corridor), WindShipOpt.MAX_LATERAL_STEP + 1
+    seas = KiteOnlySeas(SyntheticWeather(), (corridor.lat[1, centre],
+            corridor.lon[1, centre]), corridor.edge_course[1, centre, step])
+    sailed = forecast_route(corridor, kite_table, seas, 24.0 * 31; time_cost=kite_hourly,
+        horizon=0.0)
+    @test length(sailed.path) == size(corridor.lat, 1)
+    @test sailed.path[2][4] < 5KNOT
+end
+
 @testset "a forecast beyond its horizon reads the same date in another year" begin
     known = ForecastWeather(SyntheticWeather(), 100.0, 48.0)
     @test WindShipOpt.wind(known, 40.0, -30.0, 120.0) ==
@@ -1233,6 +1322,141 @@ end
           WindShipOpt.wind(known.weather, 40.0, -30.0, beyond + WindShipOpt.FORECAST_SHIFT)
     @test WindShipOpt.wind(known, 40.0, -30.0, beyond) !=
           WindShipOpt.wind(known.weather, 40.0, -30.0, beyond)
+end
+
+"""
+    write_fields(directory, values, steps, grid)
+
+Fields `values(name)` of `steps` stored times each, a (lon, lat) matrix per time, written to
+`directory` with `grid` as its `grid.toml`, in the type of the first matrix.
+"""
+function write_fields(directory, values, steps, grid)
+    mkpath(directory)
+    open(io -> WindShipOpt.TOML.print(io, grid), joinpath(directory, "grid.toml"), "w")
+    for name in grid["variables"]
+        extension = eltype(values(name, 1)) == Float16 ? "f16" : "f32"
+        open(joinpath(directory, "$name.$extension"), "w") do io
+            foreach(step -> write(io, values(name, step)), 1:steps)
+        end
+    end
+end
+
+"ERA5 of steady wind and waves on a 2 by 2 grid from 2017-12-29, the east wind rising."
+function small_era5(directory)
+    square = (lats=[40.0, 41.0], lons=[-31.0, -30.0])
+    truth = Dict("u10" => step -> 5.0f0 + 0.01f0 * step, "v10" => step -> -2.0f0,
+        "height" => step -> 2.0f0, "period" => step -> 8.0f0, "direction" => step -> 90.0f0)
+    for (group, names, step_hours) in (("wind", ["u10", "v10"], 6),
+        ("waves", ["direction", "height", "period"], 12))
+        write_fields(joinpath(directory, group),
+            (name, step) -> fill(truth[name](step), 2, 2), 2000 ÷ step_hours,
+            Dict("lats" => square.lats, "lons" => square.lons, "step_hours" => step_hours,
+                "first_time" => "2017-12-29T00:00:00", "variables" => names))
+    end
+    return ERA5Weather(directory)
+end
+
+"""
+    small_archive(directory, weather, offset)
+
+Four daily forecasts from 2017-12-30 on the grids of `weather`, each the weather it
+forecasts plus `offset(year)` on the east wind and half that on the wave height.
+"""
+function small_archive(directory, weather, offset)
+    first_issue = 24.0
+    for (group, observed, names, leads) in (
+        ("wind", weather.wind, ["u10", "v10"], 6:6:24),
+        ("waves", weather.waves, ["direction_east", "direction_north", "height", "period"],
+            12:12:24))
+        function field(name, index)
+            issue, lead = divrem(index - 1, length(leads)) .+ 1
+            time = first_issue + 24.0 * (issue - 1) + leads[lead]
+            step = Int((time - observed.time_offset) / observed.step_hours + 1)
+            year = issue <= 2 ? 2017 : 2018
+            shift = name == "u10" ? offset(year) : name == "height" ? offset(year) / 2 : 0.0
+            return Float16.(observed.fields[name][:, :, step] .+ shift)
+        end
+        write_fields(joinpath(directory, group), field, 4length(leads),
+            Dict("lats" => observed.lats, "lons" => observed.lons,
+                "first_issue" => "2017-12-30T00:00:00", "issue_hours" => 24,
+                "first_lead_hours" => first(leads), "step_hours" => step(leads),
+                "leads" => length(leads), "variables" => names))
+    end
+    write_forecast_bias(directory, weather)
+    return ForecastArchive(directory, weather)
+end
+
+@testset "a forecast off by a fixed bias reads the weather once that bias is removed" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather, year -> 1.5)
+    known = ArchivedForecast(archive, weather, 24.0 * 3 + 7.0)
+    for time in known.issued .+ (6.0, 12.0, 21.0)
+        @test all(isapprox.(wind(known, 40.5, -30.5, time),
+            wind(weather, 40.5, -30.5, time); atol=0.01))
+        @test all(isapprox.(waves(known, 40.5, -30.5, time),
+            waves(weather, 40.5, -30.5, time); atol=0.01))
+    end
+end
+
+@testset "a forecast's bias is learnt from the other years only" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather,
+        year -> year == 2017 ? 1.0 : 3.0)
+    late_2017 = ArchivedForecast(archive, weather, 24.0 * 2 + 7.0)
+    @test late_2017.year == 2017
+    time = late_2017.issued + 18.0
+    @test first(wind(late_2017, 40.5, -30.5, time)) ≈
+          first(wind(weather, 40.5, -30.5, time)) + 1.0 - 3.0 atol = 0.02
+    @test first(waves(late_2017, 40.5, -30.5, time)) ≈ 2.0 + 0.5 - 1.5 atol = 0.01
+end
+
+@testset "a ship reads the last forecast to reach it, beyond its leads another year" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
+    third = 24.0 * 3
+    @test ArchivedForecast(archive, weather, third + WindShipOpt.FORECAST_LATENCY).issued ==
+          third
+    @test ArchivedForecast(archive, weather, third + 5.0).issued == third - 24.0
+    known = ArchivedForecast(archive, weather, third + 7.0)
+    beyond = third + 30.0
+    @test wind(known, 40.5, -30.5, beyond) ==
+          wind(ForecastWeather(weather, third, 24.0), 40.5, -30.5, beyond)
+end
+
+@testset "a ship whose latest forecast is missing from the archive reads the one before" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
+    for name in ("direction_east", "direction_north", "height", "period")
+        open(joinpath(directory, "forecast", "waves", "$name.f16"), "r+") do io
+            issue_bytes = filesize(io) ÷ 4
+            seek(io, 3issue_bytes)
+            write(io, fill(NaN16, issue_bytes ÷ 2))
+        end
+    end
+    archive = ForecastArchive(joinpath(directory, "forecast"), weather)
+    fourth = 24.0 * 4
+    @test ArchivedForecast(archive, weather, fourth + 7.0).issued == fourth - 24.0
+end
+
+@testset "a ship reads another year's waves where its forecast has none" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
+    for name in ("direction_east", "direction_north", "height", "period")
+        path = joinpath(directory, "forecast", "waves", "$name.f16")
+        values = read!(path, Vector{Float16}(undef, filesize(path) ÷ 2))
+        values[1:4:end] .= NaN16
+        write(path, values)
+    end
+    known = ArchivedForecast(ForecastArchive(joinpath(directory, "forecast"), weather),
+        weather, 24.0 * 3 + 7.0)
+    time = known.issued + 18.0
+    @test waves(known, 40.0, -31.0, time) == waves(known.beyond, 40.0, -31.0, time)
+    @test first(waves(known, 40.0, -31.0, time)) > 0
 end
 
 @testset "a search that cuts off the best path and overruns its limit widens" begin
@@ -1311,7 +1535,7 @@ end
     PaperRuns.paper_run = PaperRuns.PaperRun(mktempdir(), :draft,
         Dict{String, Any}("code_hash" => "held"), 0, 0)
     case_at(held_knots, part; start_scale=8.0) = (; design=ShipDesign(:vlsfo, 100.0),
-        assumptions, route=:caribbean, scale=4.0, start_scale, horizon=Inf, held_knots,
+        assumptions, route=:caribbean, scale=4.0, start_scale, forecast=false, held_knots,
         part)
     @test allunique(PaperRuns.case_directory(case_at(held_knots, :none), [24.0])
                     for held_knots in (nothing, 8.0, 9.0))

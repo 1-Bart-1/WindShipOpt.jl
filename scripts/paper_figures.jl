@@ -1557,40 +1557,56 @@ end
 """
     forecast_figure()
 
-Cost saving of each rig on a 140 m e-ammonia ship routed with perfect foresight and
-with daily re-planning on forecasts of 7 and 3 days. A case with no feasible round trip,
-its ship's or the bare ship's, is marked "none" in place of its bar.
+(a) Cost saving of each rig on a 140 m e-ammonia ship routed with perfect foresight and
+re-planned daily on archived forecasts, a case with no feasible round trip, its ship's or
+the bare ship's, marked "none" in place of its bar; (b, c) root mean square error of
+those forecasts' wind and wave height along the route against lead time, beside that of
+the same date in another year.
 """
 function forecast_figure()
     table = read_table(data_file("forecast.csv"))
-    horizons = [(0.0, "perfect"), (7.0, "7 days"), (3.0, "3 days")]
-    figure = Figure(size=(column_width, 240))
+    figure = Figure(size=(page_width, 200))
     axis = Axis(figure[1, 1]; xticks=(1:3, ["kite", "wings", "rotors"]),
-        ylabel="cost saving [%]")
-    for (j, (days, label)) in enumerate(horizons)
-        bare = forecast_cost(table, "none", days)
-        savings = [100 * (1 - forecast_cost(table, rig, days) / bare) for rig in rig_names]
-        positions = (1:3) .+ (j - 2) * 0.27
+        ylabel="cost saving [%]", title="(a) saving")
+    for (j, knowledge) in enumerate(("perfect", "forecast"))
+        bare = forecast_cost(table, "none", knowledge)
+        savings = [100 * (1 - forecast_cost(table, rig, knowledge) / bare)
+                   for rig in rig_names]
+        positions = (1:3) .+ (j - 1.5) * 0.36
         routed = isfinite.(savings)
-        barplot!(axis, positions[routed], savings[routed]; width=0.25,
-            color=palette[j], label)
+        barplot!(axis, positions[routed], savings[routed]; width=0.34,
+            color=palette[j])
         unrouted = count(.!routed)
         text!(axis, positions[.!routed], zeros(unrouted); text=fill("none", unrouted),
             rotation=pi / 2, align=(:left, :center), fontsize=pt(8), color=palette[j])
     end
-    Legend(figure[2, 1], axis, "forecast"; orientation=:horizontal, titleposition=:left,
-        titlegap=6)
+    errors = read_table(data_file("forecast_error.csv"))
+    for (column, (quantity, unit)) in enumerate((("wind", "m/s"), ("height", "m")))
+        panel = Axis(figure[1, column + 1]; xlabel="lead time [days]",
+            ylabel="rms error [$unit]",
+            title=column == 1 ? "(b) wind at 10 m" : "(c) wave height")
+        lines!(panel, errors["lead_days"], errors["$(quantity)_forecast"];
+            color=palette[2])
+        lines!(panel, errors["lead_days"], errors["$(quantity)_other_year"];
+            color=:gray50, linestyle=:dash)
+        ylims!(panel, 0, nothing)
+    end
+    Legend(figure[2, 1:3], [PolyElement(color=palette[1]), PolyElement(color=palette[2]),
+            LineElement(color=:gray50, linestyle=:dash)],
+        ["perfect foresight", "archived forecast", "same date in another year"];
+        orientation=:horizontal)
+    rowgap!(figure.layout, 1, 4)
     save(joinpath(figures, "forecast.pdf"), figure; pt_per_unit=print_scale)
 end
 
 """
-    forecast_cost(table, rig, days)
+    forecast_cost(table, rig, knowledge)
 
-Cost per tonne-km of `rig` at forecast horizon `days` in the forecast table, `NaN` where
-the case has no feasible round trip.
+Cost per tonne-km of `rig` routed on `knowledge` ("perfect" or "forecast") in the
+forecast table, `NaN` where the case has no feasible round trip.
 """
-function forecast_cost(table, rig, days)
-    costs = table["cost"][rows(table, "rig" => rig, "horizon_days" => days)]
+function forecast_cost(table, rig, knowledge)
+    costs = table["cost"][rows(table, "rig" => rig, "knowledge" => knowledge)]
     return isempty(costs) ? NaN : only(costs)
 end
 
