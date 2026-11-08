@@ -1,3 +1,5 @@
+% SPDX-FileCopyrightText: 2026 Bart van de Lint
+% SPDX-License-Identifier: AGPL-3.0-or-later
 \documentclass[3p,times,authoryear]{elsarticle}
 
 \usepackage{amsmath}
@@ -10,6 +12,9 @@
 \usepackage[section,below]{placeins}
 \usepackage{xurl}
 \usepackage{xcolor}
+\usepackage{colortbl}
+\definecolor{gain}{HTML}{2166AC}
+\definecolor{loss}{HTML}{B2182B}
 \usepackage[colorlinks,allcolors={blue!50!black}]{hyperref}
 \usepackage[capitalise]{cleveref}
 \crefname{figure}{Fig.}{Figs.}
@@ -21,9 +26,7 @@
 \usepackage{tikz}
 \usetikzlibrary{positioning,arrows.meta,fit}
 
-\newcommand{\tbd}[1]{\textcolor{red}{#1}}
-\newcommand{\plot}[2][]{\IfFileExists{figures/#2.pdf}{\includegraphics[max width=\textwidth]{#2}}{\fbox{\parbox[c][3cm][c]{0.9\textwidth}{\centering\tbd{Figure \detokenize{#2} pending data.}}}}}
-\graphicspath{{figures/}}
+\input{commands}
 \setlength{\emergencystretch}{1.5em}
 \renewcommand{\topfraction}{0.9}
 \renewcommand{\bottomfraction}{0.6}
@@ -59,7 +62,7 @@
 \end{highlights}
 
 \begin{keyword}
-wind-assisted ship propulsion \sep towing kite \sep rigid wing sail \sep Flettner rotor \sep weather routing \sep techno-economics \sep e-methanol
+wind-assisted ship propulsion \sep towing kite \sep rigid wing sail \sep Flettner rotor \sep weather routing \sep techno-economics \sep e-ammonia
 \end{keyword}
 
 \end{frontmatter}

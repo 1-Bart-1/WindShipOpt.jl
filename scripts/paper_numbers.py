@@ -1,7 +1,10 @@
-"""Print the numbers of the design, route, class, forecast, base kite, screening and
-component studies, from the CSV files of the latest finished run paper.jl made in
-output/runs/. Run: python3 -I scripts/paper_numbers.py [section ...], with the section names of SECTIONS; all
-sections without one."""
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+"""Print the numbers of the design, route, season, class, forecast, base kite, screening
+and component studies, from the CSV files of the latest finished run paper.jl made in
+output/runs/. Run: python3 -I scripts/paper_numbers.py [section ...], with the section
+names of SECTIONS; all sections without one."""
 import csv
 import os
 import sys
@@ -25,7 +28,7 @@ def latest_finished_run():
 
 
 RESULTS = latest_finished_run()
-DRIVES = ("vlsfo", "methanol", "hydrogen")
+DRIVES = ("vlsfo", "ammonia")
 RIGS = ("kite", "wings", "rotors")
 RIG_COLUMNS = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
 
@@ -79,7 +82,7 @@ def designs_summary():
             print(f"{r['scenario']:22s} {r['drive']:8s} {r['length']:>4s} area {area:5.0f}"
                   f" AR {r['kite_aspect_ratio']} saving "
                   f"{saving(float(r['cost']), reference):.1f}%")
-    print("== premium of e-methanol and hydrogen over VLSFO closed by the best rig")
+    print("== premium of e-ammonia over VLSFO closed by the best rig")
     for drive in DRIVES[1:]:
         for length in sorted({r["length"] for r in rows}, key=float):
             fossil = bare.get(("base", "vlsfo", length))
@@ -110,6 +113,41 @@ def routes_summary():
                        r["drive"] == drive and r["length"] == length and r["rig"] == rig]
             if options:
                 line.append(f"{rig} {saving(min(options), reference):.1f}%")
+        print(" | ".join(line))
+
+
+def seasons_summary():
+    """Saving in winter (October to March) and summer (April to September) of the best size
+    over the year of each rig on the 140 m e-ammonia ship per route, with the kite's flight
+    share and the departures of each half year."""
+    best = {}
+    for r in table("routes.csv"):
+        if r["drive"] == "ammonia" and float(r["length"]) == 140:
+            key = (r["route"], r["rig"])
+            if key not in best or float(r["cost"]) < float(best[key]["cost"]):
+                best[key] = r
+    halves = defaultdict(list)
+    for r in table("route_departures.csv"):
+        chosen = best.get((r["route"], r["rig"]))
+        if r["drive"] == "ammonia" and chosen and r["area"] == chosen["area"] and \
+                float(r["length"]) == 140:
+            half = "winter" if int(r["date"][5:7]) in (10, 11, 12, 1, 2, 3) else "summer"
+            halves[(r["route"], r["rig"], half)].append(r)
+    print("== seasons: 140 m e-ammonia, best size over the year, saving winter / summer")
+    for route in sorted({key[0] for key in best}):
+        line = [f"{route:10s}"]
+        for half in ("winter", "summer"):
+            bare = mean([float(r["cost"]) for r in halves[(route, "none", half)]])
+            line.append(f"{half} n={len(halves[(route, 'none', half)])}")
+            for rig in RIGS:
+                rows = halves[(route, rig, half)]
+                if rows:
+                    cost = mean([float(r["cost"]) for r in rows])
+                    text = f"{rig} {saving(cost, bare):.1f}%"
+                    if rig == "kite":
+                        share = mean([float(r["flight_share"]) for r in rows])
+                        text += f" (flies {100 * share:.0f}%)"
+                    line.append(text)
         print(" | ".join(line))
 
 
@@ -279,7 +317,8 @@ def base_kite_summary():
 
 
 SECTIONS = {"designs": designs_summary, "routes": routes_summary,
-            "classes": classes_summary, "winners": winners_summary,
+            "seasons": seasons_summary, "classes": classes_summary,
+            "winners": winners_summary,
             "sizes": sizes_summary, "forecast": forecast_summary, "base_kite": base_kite_summary,
             "other": other_summaries}
 for section in sys.argv[1:] or SECTIONS:

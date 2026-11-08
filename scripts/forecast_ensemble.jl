@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Download the perturbed members of the GEFSv12 reforecast (10 m wind and significant wave
 # height) for the issues a ship uses on the departures of the forecast study, into
 # era5/atlantic_wide/forecast_members/<member>/{wind,waves}/, and write the ensemble mean

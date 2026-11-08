@@ -1,9 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Runs of the paper: each data-making call of `paper` keeps its data files, the round
 # trips it has finished and its record run.toml in output/runs/<start time>/, so that a
 # run cut short resumes where it stopped. Included by paper.jl.
 using Dates
 using Serialization
 using TOML
+using WindShipOpt: inputs_read
 
 """
 Settings of each fidelity of the paper: the corridor scale, the step between sampled
@@ -28,6 +32,22 @@ function mark_fidelity(path, fidelity, steps, figures)
             "the departures of the final run.}\n")
     end
 end
+
+"""
+    number_macro(name, text, draft)
+
+LaTeX definition of the macro `\\Num<name>` that prints `text`, marked as a draft result
+where `draft` is true.
+"""
+number_macro(name, text, draft) = string("\\newcommand{\\Num", name, "}{",
+    draft ? "\\tbd{$text}" : text, "}\n")
+
+"""
+    whole_number(x)
+
+Text of `x` rounded to a whole number, never "-0".
+"""
+whole_number(x) = string(Int(round(x)))
 
 "directory with one directory per run, named by the time the run started"
 runs_directory = normpath(joinpath(root, "output", "runs"))
@@ -131,17 +151,24 @@ Whether the run of `record` finished every step it was asked for.
 is_finished(record) = !isempty(record["finished"])
 
 """
+    code_files()
+
+Paths of the source in src/, the scripts, the data tables and the kite polars.
+"""
+function code_files()
+    directories = (joinpath(root, "src"), @__DIR__, joinpath(root, "data"),
+        joinpath(root, "data", "kite_polars"))
+    return [joinpath(directory, name) for directory in directories
+            for name in readdir(directory) if endswith(name, r"\.(jl|csv)")]
+end
+
+"""
     code_hash()
 
-Hash in hex of the source in src/, the scripts and the kite polars.
+Hash in hex of the contents of [`code_files`](@ref).
 """
-function code_hash()
-    directories = (joinpath(root, "src"), @__DIR__, joinpath(root, "data", "kite_polars"))
-    files = [joinpath(directory, name) for directory in directories
-             for name in readdir(directory) if endswith(name, r"\.(jl|csv)")]
-    return string(hash(join(basename(file) * read(file, String) for file in files));
-        base=16)
-end
+code_hash() =
+    string(hash(join(basename(file) * read(file, String) for file in code_files())); base=16)
 
 """
     git_output(arguments...)
@@ -304,32 +331,54 @@ function finish_run!(run)
 end
 
 """
-    case_path(case, departures)
+    content_hash(value)
 
-Cache file in the run in use of the round trip of `case` over `departures`, named by a
-hash of the inputs of the trip and the code hash of the run.
+Hash of the serialized `value` as a hexadecimal string, the same in every session.
 """
-function case_path(case, departures)
-    inputs = sort([name => entry.value for (name, entry) in case.assumptions.entries])
+function content_hash(value)
     io = IOBuffer()
-    serialize(io, (case.design, inputs, case.route, case.scale, case.forecast,
-        case.held_knots, case.part, departures, weather_name,
-        paper_run.record["code_hash"]))
-    name = string(hash(String(take!(io))); base=16)
-    return joinpath(paper_run.directory, "cases", name * ".bin")
+    serialize(io, value)
+    return string(hash(String(take!(io))); base=16)
 end
 
 """
-    stored_trip(case, departures, path)
+    case_directory(case, departures)
 
-Round trip of `case` over `departures` from the cache file `path`, computed and stored
-there through a temporary file when missing.
+Cache directory in the run in use of the round trips of `case` over `departures`, named by
+a hash of the inputs of the trip other than its assumptions and the code hash of the run.
 """
-function stored_trip(case, departures, path)
-    isfile(path) && return deserialize(path)
-    trip = case_trip(case, departures)
-    temporary = tempname(dirname(path); cleanup=false)
-    serialize(temporary, trip)
-    mv(temporary, path; force=true)
+case_directory(case, departures) = joinpath(paper_run.directory, "cases",
+    content_hash((case.design, case.route, case.scale, case.forecast, case.held_knots,
+        case.part, departures, weather_name, paper_run.record["code_hash"])))
+
+"""
+    cached_trip(directory, assumptions)
+
+Round trip stored in the cache `directory` under assumptions with the values of
+`assumptions` in every input it read, or `missing` where there is none.
+"""
+function cached_trip(directory, assumptions)
+    isdir(directory) || return missing
+    for file in readdir(directory; join=true)
+        endswith(file, ".bin") || continue
+        (; inputs, trip) = deserialize(file)
+        all(assumptions[name] == value for (name, value) in inputs) && return trip
+    end
+    return missing
+end
+
+"""
+    stored_trip(compute, directory, assumptions)
+
+Round trip `compute()` returns, stored in the cache `directory` through a temporary file
+with the values in `assumptions` of the inputs it read.
+"""
+function stored_trip(compute, directory, assumptions)
+    trip, names = inputs_read(compute)
+    inputs = sort([name => assumptions[name] for name in names])
+    mkpath(directory)
+    temporary = tempname(directory; cleanup=false)
+    serialize(temporary, (; inputs, trip))
+    mv(temporary, joinpath(directory, content_hash(inputs) * ".bin"); force=true)
     return trip
 end
