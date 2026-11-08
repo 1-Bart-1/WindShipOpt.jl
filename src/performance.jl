@@ -49,33 +49,53 @@ end
 """
     LinearTable
 
-Values on a three-dimensional grid of knot vectors, interpolated trilinearly and held
-flat beyond the grid. Called on three coordinates or on their [`KnotWeight`](@ref)s.
+Values on a grid of three or four knot vectors, interpolated linearly in each dimension and
+held flat beyond the grid. Called on as many coordinates or on their
+[`KnotWeight`](@ref)s.
 """
-struct LinearTable
-    knots::NTuple{3, Vector{Float64}}
-    values::Array{Float64, 3}
+struct LinearTable{N}
+    knots::NTuple{N, Vector{Float64}}
+    values::Array{Float64, N}
 end
 
-(table::LinearTable)(x, y, z) = table(KnotWeight(table.knots[1], x),
-    KnotWeight(table.knots[2], y), KnotWeight(table.knots[3], z))
+(table::LinearTable)(coordinates::Real...) =
+    table(map(KnotWeight, table.knots, coordinates)...)
 
-function (table::LinearTable)(x::KnotWeight, y::KnotWeight, z::KnotWeight)
+function (table::LinearTable{3})(x::KnotWeight, y::KnotWeight, z::KnotWeight)
     (; values) = table
     return x.upper * plane_value(view(values, x.index + 1, :, :), y, z) +
            x.lower * plane_value(view(values, x.index, :, :), y, z)
 end
 
-"""
-    plane_value(values, y, z)
+function (table::LinearTable{4})(x::KnotWeight, y::KnotWeight, z::KnotWeight,
+        layer::KnotWeight)
+    (; values) = table
+    return x.upper * layer_value(view(values, x.index + 1, :, :, :), y, z, layer) +
+           x.lower * layer_value(view(values, x.index, :, :, :), y, z, layer)
+end
 
-Bilinear interpolation of the matrix `values` at the [`KnotWeight`](@ref)s `y` and `z`
-of its rows and columns; its entries are numbers or tuples of numbers.
 """
-function plane_value(values, y::KnotWeight, z::KnotWeight)
+    layer_value(values, y, z, layer)
+
+Trilinear interpolation of the three-dimensional array `values` at the
+[`KnotWeight`](@ref)s `y`, `z` and `layer` of its dimensions, by [`plane_value`](@ref) on
+the two layers around `layer`; its entries are numbers or tuples of numbers.
+"""
+layer_value(values, y::KnotWeight, z::KnotWeight, layer::KnotWeight) =
+    map((upper, lower) -> layer.upper * upper + layer.lower * lower,
+        plane_value(values, y, z, layer.index + 1), plane_value(values, y, z, layer.index))
+
+"""
+    plane_value(values, y, z, layer...)
+
+Bilinear interpolation of the matrix `values`, or of its `layer` along a third dimension,
+at the [`KnotWeight`](@ref)s `y` and `z` of its rows and columns; its entries are numbers
+or tuples of numbers.
+"""
+function plane_value(values, y::KnotWeight, z::KnotWeight, layer...)
     j, k = y.index, z.index
-    corners = @inbounds (values[j + 1, k + 1], values[j + 1, k], values[j, k + 1],
-        values[j, k])
+    corners = @inbounds (values[j + 1, k + 1, layer...], values[j + 1, k, layer...],
+        values[j, k + 1, layer...], values[j, k, layer...])
     return map((upper_upper, upper_lower, lower_upper, lower_lower) ->
             y.upper * (z.upper * upper_upper + z.lower * upper_lower) +
             y.lower * (z.upper * lower_upper + z.lower * lower_lower), corners...)
@@ -84,25 +104,27 @@ end
 """
     PerformanceTable
 
-Propeller thrust a ship needs, tabulated for fast lookup during routing: in calm water
-over (speed through the water, 10 m true wind, true wind angle) with the rig flown at its
-best trim and with any kite stowed, the [`standing_rig`](@ref) then at its best trim, and
-the added resistance in waves per unit significant wave height squared over (speed, peak
-period, wave heading). Calm thrust and wave resistance add up, assuming waves do not
-change the rig forces.
+Propeller thrust a ship needs, tabulated for fast lookup during routing: over (speed
+through the water, 10 m true wind, true wind angle, added resistance of waves) with the rig
+flown at its best trim and with any kite stowed, the [`standing_rig`](@ref) then at its
+best trim, and the added resistance in waves per unit significant wave height squared over
+(speed, peak period, wave heading). The trim works against the added resistance as well
+as the calm-water one, so a rig with thrust to spare puts it against the waves; waves do
+not change the rig forces themselves.
 """
 struct PerformanceTable{S}
     ship::S
-    "required thrust with the rig flown [N] at (speed [m/s], wind [m/s], angle [rad])"
-    flown_thrust::LinearTable
+    "required thrust with the rig flown [N] at (speed [m/s], wind [m/s], angle [rad],
+    added resistance [N])"
+    flown_thrust::LinearTable{4}
     "required thrust with the kite stowed [N], same grid"
-    stowed_thrust::LinearTable
+    stowed_thrust::LinearTable{4}
     "power the flown rig draws from the engines [W], same grid"
-    rig_power::LinearTable
+    rig_power::LinearTable{4}
     "power the rig draws from the engines with the kite stowed [W], same grid"
-    stowed_power::LinearTable
+    stowed_power::LinearTable{4}
     "added resistance over H_s^2 [N/m^2] at (speed [m/s], peak period [s], heading [rad])"
-    wave_resistance::LinearTable
+    wave_resistance::LinearTable{3}
     "wear cost of flying the rig [USD/h]"
     wear_cost::Float64
     "cost of one launch and landing of a kite [USD]"
@@ -124,6 +146,14 @@ const LOWEST_TABLE_SPEED = 1.5
 
 "thrust stored for infeasible conditions, far above what any engine delivers [N]"
 const INFEASIBLE_THRUST = 1e12
+
+"""
+added resistance of waves at the knots of the trim tables of a [`PerformanceTable`](@ref),
+over the calm-water resistance at the ship's top speed [-]; outside them, as the negative
+added resistance of following seas, the trim of the nearest knot holds and the propeller
+takes up the rest
+"""
+const ADDED_RESISTANCE_SHARES = [0.0; 2.0 .^ (-6:0)]
 
 "lowest routing speed of any ship [kn]"
 const LOWEST_ROUTING_KNOTS = 4.0
@@ -154,11 +184,13 @@ function PerformanceTable(ship::Ship, assumptions::Assumptions)
     angles = deg2rad.(collect(Float64, 0:7.5:180))
     periods = collect(Float64, 3:1.0:18)
     headings = deg2rad.(collect(Float64, 0:15:180))
-    calm_grid = (speeds, winds, angles)
-    flown_thrust, rig_power = trim_tables(ship, ship.rig, calm_grid)
+    top_resistance = resistance(ship.hull, ship.env, ship.max_speed;
+        coefficients=ship.wave_coefficients)
+    trim_grid = (speeds, winds, angles, top_resistance .* ADDED_RESISTANCE_SHARES)
+    flown_thrust, rig_power = trim_tables(ship, ship.rig, trim_grid)
     standing = standing_rig(ship.rig)
     stowed_thrust, stowed_power = standing === ship.rig ? (flown_thrust, rig_power) :
-                                  trim_tables(ship, standing, calm_grid)
+                                  trim_tables(ship, standing, trim_grid)
     waves = [added_resistance(ship.seakeeping, ship.env, speed, 1.0, period, heading)
              for speed in speeds, period in periods, heading in headings]
     return PerformanceTable(ship, flown_thrust, stowed_thrust, rig_power, stowed_power,
@@ -169,16 +201,17 @@ function PerformanceTable(ship::Ship, assumptions::Assumptions)
 end
 
 """
-    trim_tables(ship, rig, calm_grid)
+    trim_tables(ship, rig, trim_grid)
 
 Required thrust [N] and rig power [W] of `ship` carrying `rig` at its
-[`best_trim`](@ref) over `calm_grid`, the (speed, wind, angle) knots.
+[`best_trim`](@ref) over `trim_grid`, the (speed, wind, angle, added resistance) knots.
 """
-function trim_tables(ship::Ship, rig, calm_grid)
-    trims = [best_trim(ship, rig, speed, wind, angle)
-             for speed in calm_grid[1], wind in calm_grid[2], angle in calm_grid[3]]
-    return LinearTable(calm_grid, min.(first.(trims), INFEASIBLE_THRUST)),
-    LinearTable(calm_grid, [force.power for (_, force) in trims])
+function trim_tables(ship::Ship, rig, trim_grid)
+    trims = [best_trim(ship, rig, speed, wind, angle, added)
+             for speed in trim_grid[1], wind in trim_grid[2], angle in trim_grid[3],
+             added in trim_grid[4]]
+    return LinearTable(trim_grid, min.(first.(trims), INFEASIBLE_THRUST)),
+    LinearTable(trim_grid, [force.power for (_, force) in trims])
 end
 
 """
@@ -259,13 +292,13 @@ end
 """
     SpeedSlice
 
-A [`PerformanceTable`](@ref) at one speed, interpolated bilinearly over the knots of its
-other two dimensions.
+A [`PerformanceTable`](@ref) at one speed, interpolated linearly over the knots of its
+other dimensions.
 """
 struct SpeedSlice
     "(flown and stowed thrust [N], flown and stowed rig power [W]) at (wind knot, angle
-    knot)"
-    calm::Matrix{NTuple{4, Float64}}
+    knot, added resistance knot)"
+    trims::Array{NTuple{4, Float64}, 3}
     "added resistance over H_s^2 [N/m^2] at (period knot, heading knot)"
     wave_resistance::Matrix{Float64}
 end
@@ -289,8 +322,8 @@ Values of `table` at the speed of `speed_weight` on the knots of its other two
 dimensions.
 """
 speed_plane(table::LinearTable, speed_weight::KnotWeight) =
-    speed_weight.upper .* table.values[speed_weight.index + 1, :, :] .+
-    speed_weight.lower .* table.values[speed_weight.index, :, :]
+    speed_weight.upper .* selectdim(table.values, 1, speed_weight.index + 1) .+
+    speed_weight.lower .* selectdim(table.values, 1, speed_weight.index)
 
 """
     edge_fuels(table, speed, slice, condition)
@@ -305,14 +338,36 @@ which always stands, and `Inf` for a kite up in too high a sea.
 function edge_fuels(table::PerformanceTable, speed, slice::SpeedSlice,
         condition::SeaCondition)
     (; wind, angle, wave_height) = condition
-    waves = wave_height > 0 ? wave_height^2 * plane_value(slice.wave_resistance,
-        condition.wave_period, condition.wave_heading) : 0.0
-    flown_thrust, stowed_thrust, rig_power, stowed_power = plane_value(slice.calm, wind,
-        angle)
-    flown = fuel_power(table, speed, flown_thrust + waves, rig_power)
+    waves = sea_resistance(slice, condition)
+    outside = waves - trim_resistance(table, waves)
+    flown_thrust, stowed_thrust, rig_power, stowed_power = layer_value(slice.trims, wind,
+        angle, KnotWeight(table.flown_thrust.knots[4], waves))
+    flown = fuel_power(table, speed, flown_thrust + outside, rig_power)
     table.stowed_thrust === table.flown_thrust && return flown, flown
-    stowed = fuel_power(table, speed, stowed_thrust + waves, stowed_power)
+    stowed = fuel_power(table, speed, stowed_thrust + outside, stowed_power)
     return (wave_height > table.max_wave_height ? Inf : flown), stowed
+end
+
+"""
+    sea_resistance(slice, condition)
+
+Added resistance [N] of the waves of the [`SeaCondition`](@ref) `condition` at the speed of
+the [`SpeedSlice`](@ref) `slice`.
+"""
+sea_resistance(slice::SpeedSlice, condition::SeaCondition) =
+    condition.wave_height > 0 ?
+    condition.wave_height^2 *
+    plane_value(slice.wave_resistance, condition.wave_period, condition.wave_heading) : 0.0
+
+"""
+    trim_resistance(table, waves)
+
+Added resistance [N] of the trim `table` holds for waves adding `waves` [N]: `waves` held
+to the range of the table's added-resistance knots.
+"""
+function trim_resistance(table::PerformanceTable, waves)
+    knots = table.flown_thrust.knots[4]
+    return clamp(waves, first(knots), last(knots))
 end
 
 edge_fuels(table::PerformanceTable, speed, speed_weight::KnotWeight,
