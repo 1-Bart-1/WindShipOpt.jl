@@ -25,7 +25,7 @@ def latest_finished_run():
 
 
 RESULTS = latest_finished_run()
-DRIVES = ("vlsfo", "methanol", "hydrogen")
+DRIVES = ("vlsfo", "ammonia")
 RIGS = ("kite", "wings", "rotors")
 RIG_COLUMNS = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
 
@@ -79,7 +79,7 @@ def designs_summary():
             print(f"{r['scenario']:22s} {r['drive']:8s} {r['length']:>4s} area {area:5.0f}"
                   f" AR {r['kite_aspect_ratio']} saving "
                   f"{saving(float(r['cost']), reference):.1f}%")
-    print("== premium of e-methanol and hydrogen over VLSFO closed by the best rig")
+    print("== premium of e-ammonia over VLSFO closed by the best rig")
     for drive in DRIVES[1:]:
         for length in sorted({r["length"] for r in rows}, key=float):
             fossil = bare.get(("base", "vlsfo", length))
@@ -115,22 +115,22 @@ def routes_summary():
 
 def seasons_summary():
     """Saving in winter (October to March) and summer (April to September) of the best size
-    over the year of each rig on the 140 m e-methanol ship per route, with the kite's flight
+    over the year of each rig on the 140 m e-ammonia ship per route, with the kite's flight
     share and the departures of each half year."""
     best = {}
     for r in table("routes.csv"):
-        if r["drive"] == "methanol" and float(r["length"]) == 140:
+        if r["drive"] == "ammonia" and float(r["length"]) == 140:
             key = (r["route"], r["rig"])
             if key not in best or float(r["cost"]) < float(best[key]["cost"]):
                 best[key] = r
     halves = defaultdict(list)
     for r in table("route_departures.csv"):
         chosen = best.get((r["route"], r["rig"]))
-        if r["drive"] == "methanol" and chosen and r["area"] == chosen["area"] and \
+        if r["drive"] == "ammonia" and chosen and r["area"] == chosen["area"] and \
                 float(r["length"]) == 140:
             half = "winter" if int(r["date"][5:7]) in (10, 11, 12, 1, 2, 3) else "summer"
             halves[(r["route"], r["rig"], half)].append(r)
-    print("== seasons: 140 m e-methanol, best size over the year, saving winter / summer")
+    print("== seasons: 140 m e-ammonia, best size over the year, saving winter / summer")
     for route in sorted({key[0] for key in best}):
         line = [f"{route:10s}"]
         for half in ("winter", "summer"):
