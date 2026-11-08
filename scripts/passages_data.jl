@@ -23,9 +23,7 @@ wind_field = (spacing=5.0, hours=12.0)
 
 +1 where the wind comes from starboard of `course` [rad from north], -1 from port.
 """
-function wind_side(east, north, course)
-    return sin(atan(-east, -north) - course) >= 0 ? 1 : -1
-end
+wind_side(east, north, course) = sin(atan(-east, -north) - course) >= 0 ? 1 : -1
 
 """
     wing_incidence(rig, (lift, drag))
@@ -66,13 +64,14 @@ function resampled_cycle(path)
     period = sum(step.time for step in path)
     times = cumsum(step.time for step in path) .- first(path).time
     closed = [path; path[1]]
-    return [begin
-                t = (k - 1) * period / pattern_samples
-                i = clamp(searchsortedlast(times, t), 1, length(path))
-                share = clamp((t - times[i]) / path[i].time, 0.0, 1.0)
-                a, b = closed[i].radial, closed[i + 1].radial
-                a .+ share .* (b .- a)
-            end for k in 1:pattern_samples], period
+    points = Vector{NTuple{3, Float64}}(undef, pattern_samples)
+    for k in 1:pattern_samples
+        t = (k - 1) * period / pattern_samples
+        i = clamp(searchsortedlast(times, t), 1, length(path))
+        share = clamp((t - times[i]) / path[i].time, 0.0, 1.0)
+        points[k] = closed[i].radial .+ share .* (closed[i + 1].radial .- closed[i].radial)
+    end
+    return points, period
 end
 
 """
@@ -110,8 +109,8 @@ function recorded_pattern(case, trace, i)
     isnothing(pattern) && return nothing
     points, period = pattern
     side = wind_side(trace.wind_east[i], trace.wind_north[i], trace.course[i])
-    azimuths = [ship_frame_position(point, trace.apparent_angle[i], side) for point in points]
-    return [round.(Int, 10 .* first.(azimuths)); round.(Int, 10 .* last.(azimuths));
+    angles = [ship_frame_position(point, trace.apparent_angle[i], side) for point in points]
+    return [round.(Int, 10 .* first.(angles)); round.(Int, 10 .* last.(angles));
             round(Int, 10 * period)]
 end
 
@@ -163,7 +162,8 @@ function recorded_leg(case, leg, trace, direction, departure, start)
         trim=recorded_trim(case, trace))
     return (; design=case.index, direction, departure, start, duration=leg.duration,
         fuel_energy=leg.fuel_energy / 1e12,
-        nodes=[(round(point[1]; digits=3), round(point[2]; digits=3)) for point in leg.path],
+        nodes=[(round(point[1]; digits=3), round(point[2]; digits=3))
+               for point in leg.path],
         columns)
 end
 
@@ -187,9 +187,10 @@ function passage_cases()
         design = ShipDesign(passage_ship.drive, passage_ship.length; rig_size(rig, area)...)
         ship = Ship(design, assumptions)
         isnothing(ship) && continue
-        patterns = ship.rig isa WindShipOpt.KiteRig ?
-                   kite_patterns(ship,
-            first(WindShipOpt.kite_model(area, design.kite_aspect_ratio, assumptions))) : nothing
+        model = rig == "kite" ?
+                first(WindShipOpt.kite_model(area, design.kite_aspect_ratio, assumptions)) :
+                nothing
+        patterns = isnothing(model) ? nothing : kite_patterns(ship, model)
         push!(cases, (; index=length(cases), rig, area, design, ship, patterns,
             table=PerformanceTable(ship, assumptions),
             hourly=WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)))
@@ -208,7 +209,8 @@ function routed_round_trip(case, name, k, departure, port_hours)
     out, out_trace = traced_passage(case.table, outbound, departure, first(case.hourly))
     isnothing(out) && return nothing
     back_departure = departure + out.duration + port_hours
-    back, back_trace = traced_passage(case.table, inbound, back_departure, last(case.hourly))
+    back, back_trace = traced_passage(case.table, inbound, back_departure,
+        last(case.hourly))
     isnothing(back) && return nothing
     return (; legs=[recorded_leg(case, out, out_trace, "out", k - 1, departure),
             recorded_leg(case, back, back_trace, "back", k - 1, back_departure)],
@@ -226,16 +228,15 @@ function wind_frames(legs, span)
     lons = [last(node) for leg in legs for node in leg.nodes]
     lat_axis = floor(minimum(lats) - 5):(wind_field.spacing):ceil(maximum(lats) + 5)
     lon_axis = floor(minimum(lons) - 5):(wind_field.spacing):ceil(maximum(lons) + 5)
-    times = first(span):(wind_field.hours):last(span)
-    frames = [begin
-                  winds = [wind(weather, lat, lon, t) for lat in lat_axis, lon in lon_axis]
-                  (east=round.(Int, 10 .* first.(winds)),
-                      north=round.(Int, 10 .* last.(winds)))
-              end for t in times]
-    return (; start=first(span), lat0=first(lat_axis), lon0=first(lon_axis), wind_field.spacing,
-        nlat=length(lat_axis), nlon=length(lon_axis), wind_field.hours,
-        east=[vec(frame.east) for frame in frames],
-        north=[vec(frame.north) for frame in frames])
+    east, north = Vector{Int}[], Vector{Int}[]
+    for time in first(span):(wind_field.hours):last(span)
+        winds = [wind(weather, lat, lon, time) for lat in lat_axis, lon in lon_axis]
+        push!(east, vec(round.(Int, 10 .* first.(winds))))
+        push!(north, vec(round.(Int, 10 .* last.(winds))))
+    end
+    return (; start=first(span), lat0=first(lat_axis), lon0=first(lon_axis),
+        wind_field.spacing, nlat=length(lat_axis), nlon=length(lon_axis), wind_field.hours,
+        east, north)
 end
 
 """
@@ -254,8 +255,8 @@ function passage_design(case)
             foot_height=rig.foot_height, width=rig.height / assumptions[:wing_aspect_ratio],
             positions=positions(rig))
     elseif rig isa WindShipOpt.RotorRig
-        return (; common..., count=rig.count, height=rig.height, foot_height=rig.foot_height,
-            diameter=rig.diameter, positions=positions(rig))
+        return (; common..., count=rig.count, height=rig.height,
+            foot_height=rig.foot_height, diameter=rig.diameter, positions=positions(rig))
     elseif rig isa WindShipOpt.KiteRig
         return (; common..., span=sqrt(case.design.kite_aspect_ratio * rig.area),
             tether_length=rig.tether_length, attach_height=rig.attach_height,
@@ -290,39 +291,46 @@ function passages_data()
         results[i] = routed_round_trip(case, route, k, departure_list[k], port_hours)
     end
     for route in route_names
-        write_route_files(route, cases, departure_list, work, results)
+        write_route_files(route, departure_list, work, results)
     end
     index = (; fidelity=string(paper_run.fidelity),
         git_commit=paper_run.record["git_commit"], weather=weather_name,
         routes=[(; name=string(name), label=route_label(name)) for name in route_names],
         departures=[(; hours, label=departure_label(hours)) for hours in departure_list],
         designs=passage_design.(cases), pattern_samples, port_hours)
-    open(io -> write_json(io, index), run_file("passages.json"), "w")
+    write_named_json("passages.json", index)
 end
 
 """
-    write_route_files(route, cases, departure_list, work, results)
+    write_route_files(route, departure_list, work, results)
 
 Write passages-<route>.json and winds-<route>.json from the `results` of `work`.
 """
-function write_route_files(route, cases, departure_list, work, results)
-    routed = [(k, results[i]) for (i, (name, _, k)) in enumerate(work) if name == route &&
-              !isnothing(results[i])]
+function write_route_files(route, departure_list, work, results)
+    routed = [(k, results[i]) for (i, (name, _, k)) in enumerate(work)
+              if name == route && !isnothing(results[i])]
     legs = [leg for (_, result) in routed for leg in result.legs]
-    design_count = Set(leg.design for leg in legs)
-    open(run_file("passages-$route.json"), "w") do io
-        write_json(io, (; route=string(route), legs))
-    end
-    winds = [begin
-                 trips = [r for (k, r) in routed if k == index]
-                 isempty(trips) ? nothing :
-                 wind_frames([leg for trip in trips for leg in trip.legs],
-                     (minimum(first(trip.span) for trip in trips),
-                         maximum(last(trip.span) for trip in trips)))
-             end for index in eachindex(departure_list)]
-    open(io -> write_json(io, (; route=string(route), winds)), run_file("winds-$route.json"),
-        "w")
-    println("passages of ", route, ": ", length(legs), " legs, ", length(design_count),
-        " designs, ", filesize(run_file("passages-$route.json")) ÷ 1000, " kB, winds ",
+    write_named_json("passages-$route.json", (; route=string(route), legs))
+    winds = [departure_winds(routed, index) for index in eachindex(departure_list)]
+    write_named_json("winds-$route.json", (; route=string(route), winds))
+    println("passages of ", route, ": ", length(legs), " legs, ",
+        filesize(run_file("passages-$route.json")) ÷ 1000, " kB, winds ",
         filesize(run_file("winds-$route.json")) ÷ 1000, " kB")
+end
+
+"write `value` as JSON to the file `name` of this run"
+write_named_json(name, value) = open(io -> write_json(io, value), run_file(name), "w")
+
+"""
+    departure_winds(routed, index)
+
+The [`wind_frames`](@ref) around the legs of departure number `index` of `routed`, the
+results of one route with their departure numbers; `nothing` where none was routed.
+"""
+function departure_winds(routed, index)
+    trips = [result for (k, result) in routed if k == index]
+    isempty(trips) && return nothing
+    legs = [leg for trip in trips for leg in trip.legs]
+    return wind_frames(legs, (minimum(first(trip.span) for trip in trips),
+        maximum(last(trip.span) for trip in trips)))
 end

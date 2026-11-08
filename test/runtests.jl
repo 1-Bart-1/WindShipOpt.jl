@@ -1701,10 +1701,11 @@ end
 @testset "an exported passage keeps the routed track and the rig's frame" begin
         @test PaperData.wind_side(-10.0, 0.0, 0.0) == 1
     @test PaperData.wind_side(10.0, 0.0, 0.0) == -1
-    @test all(PaperData.ship_frame_position((1.0, 0.0, 0.0), π / 2, 1) .≈ (-90.0, 0.0))
-    @test all(PaperData.ship_frame_position((1.0, 0.0, 0.0), π / 2, -1) .≈ (90.0, 0.0))
-    @test all(PaperData.ship_frame_position((0.0, 1.0, 0.0), π / 2, 1) .≈ (0.0, 0.0))
-    @test all(PaperData.ship_frame_position((0.0, 0.0, 1.0), π / 2, 1) .≈ (0.0, 90.0))
+    position(radial, side=1) = PaperData.ship_frame_position(radial, π / 2, side)
+    @test all(isapprox.(position((1.0, 0.0, 0.0)), (-90.0, 0.0); atol=1e-9))
+    @test all(isapprox.(position((1.0, 0.0, 0.0), -1), (90.0, 0.0); atol=1e-9))
+    @test all(isapprox.(position((0.0, 1.0, 0.0)), (0.0, 0.0); atol=1e-9))
+    @test all(isapprox.(position((0.0, 0.0, 1.0)), (0.0, 90.0); atol=1e-9))
     wings = Ship(ShipDesign(:methanol, 85.0; wing_area=300.0), assumptions).rig
     settings = WindShipOpt.trim_settings(wings)
     attached, stalled = first(settings), last(settings)
@@ -1725,19 +1726,17 @@ end
     @test all(abs(spin) <= 400 for spin in exported.columns.trim.spin)
 end
 
-@testset "a kite's recorded pattern is the table pattern nearest its wind and course" begin
+@testset "a kite's recorded pattern flies on the lee side in the ship's frame" begin
     design = ShipDesign(:methanol, 85.0; kite_area=500.0)
     ship = Ship(design, assumptions)
     model = first(WindShipOpt.kite_model(500.0, design.kite_aspect_ratio, assumptions))
-    patterns = PaperData.kite_patterns(ship, model)
-    rig = ship.rig
-    points, period = patterns[findlast(<=(12.0), rig.wind_speeds),
-        findfirst(==(deg2rad(90.0)), rig.courses), 1]
+    table = (; wind_speeds=[12.0], courses=[deg2rad(90.0)], side_weights=[0.0],
+        ship.rig.max_force)
+    points, period = only(PaperData.kite_patterns((; rig=table), model))
     @test length(points) == PaperData.pattern_samples
     @test period > 0
-    side = 1
-    apparent = deg2rad(90.0)
-    azimuths = [first(PaperData.ship_frame_position(point, apparent, side)) for point in points]
+    azimuths = [first(PaperData.ship_frame_position(point, deg2rad(90.0), 1))
+                for point in points]
     @test all(azimuth < 0 for azimuth in azimuths)
 end
 

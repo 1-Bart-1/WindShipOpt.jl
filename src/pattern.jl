@@ -621,9 +621,11 @@ end
 The [`PatternForce`](@ref) table of [`pattern_table`](@ref): the forces of
 [`solved_patterns`](@ref).
 """
-compute_pattern_table(model::KiteModel, max_force, assumptions::Assumptions, wind_speeds,
-    courses, side_weights) = first(solved_patterns(model, max_force, assumptions, wind_speeds,
-    courses, side_weights))
+function compute_pattern_table(model::KiteModel, max_force, assumptions::Assumptions,
+        wind_speeds, courses, side_weights)
+    return first(solved_patterns(model, max_force, assumptions, wind_speeds, courses,
+        side_weights))
+end
 
 """
     pattern_table_path(key)
