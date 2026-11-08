@@ -775,20 +775,28 @@ end
 """
     winner_map_figure()
 
-The rig with the largest cost saving for every ship class and route, for each drive,
-coloured by rig and labelled with its saving [%]; grey where no rig pays.
+The rig with the largest cost saving for every ship class and route, deadweight-limited
+classes in the top row and space-limited ones below, one column per drive, coloured by
+rig and labelled with its saving [%]; grey where no rig pays.
 """
 function winner_map_figure()
     table = read_table(data_file("classes.csv"))
-    names = class_order(table)
+    classes = ship_classes()
+    groups = [(limit, [name for name in class_order(table)
+                       if limit_label(classes[name]) == limit])
+              for limit in ("deadweight", "space")]
     route_names_seen = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
     kinds = ["kite", "wings", "rotors"]
-    figure = Figure(size=(page_width, 300))
-    for (column, (drive, title)) in enumerate(drive_panels)
-        axis = Axis(figure[1, column]; title,
+    figure = Figure(size=(page_width, 420))
+    for (row, (limit, names)) in enumerate(groups), (column, (drive, title)) in
+                                                     enumerate(drive_panels)
+        axis = Axis(figure[row, column];
+            title=row == 1 ? title : "",
             xticks=(eachindex(route_names_seen), route_label.(route_names_seen)),
             yticks=(eachindex(names), names), yreversed=true,
-            yticklabelsvisible=column == 1, xticklabelrotation=π / 4)
+            ylabel=column == 1 ? "$limit-limited" : "",
+            yticklabelsvisible=column == 1, xticklabelsvisible=row == length(groups),
+            xticklabelrotation=π / 4)
         for (i, route) in enumerate(route_names_seen), (k, name) in enumerate(names)
             savings = best_savings(table, name, route, drive)
             isempty(savings) && continue
@@ -801,8 +809,11 @@ function winner_map_figure()
                 fontsize=8.5)
         end
     end
-    Legend(figure[2, 1:length(drive_panels)], [PolyElement(color=palette[j]) for j in 1:3],
-        kinds;
+    for (row, (_, names)) in enumerate(groups)
+        rowsize!(figure.layout, row, Auto(length(names)))
+    end
+    Legend(figure[length(groups) + 1, 1:length(drive_panels)],
+        [PolyElement(color=palette[j]) for j in 1:3], kinds;
         orientation=:horizontal, framevisible=false, labelsize=9)
     save(joinpath(figures, "winner_map.pdf"), figure; pt_per_unit=print_scale)
 end

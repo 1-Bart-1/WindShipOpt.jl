@@ -45,16 +45,41 @@ struct CargoHold
 end
 
 """
+    unit_limits(hold, store_mass=0, store_volume=0)
+
+Cargo units `hold` takes with a fuel store of `store_mass` [t] and `store_volume` [m^3]:
+by the deadweight left and by the units left, as a named tuple `(deadweight, space)`.
+"""
+unit_limits(hold::CargoHold, store_mass=0.0, store_volume=0.0) =
+    (deadweight=(hold.payload - store_mass) / hold.unit.mass,
+        space=hold.slots - store_volume / hold.unit.volume)
+
+"""
     cargo_mass(hold, store_mass=0, store_volume=0)
 
 Cargo [t] that `hold` carries with a fuel store of `store_mass` [t] and `store_volume`
 [m^3] taken from it: the deadweight or the units left, whichever is less.
 """
-function cargo_mass(hold::CargoHold, store_mass=0.0, store_volume=0.0)
-    units = min((hold.payload - store_mass) / hold.unit.mass,
-        hold.slots - store_volume / hold.unit.volume)
-    return units * hold.unit.cargo
+cargo_mass(hold::CargoHold, store_mass=0.0, store_volume=0.0) =
+    minimum(unit_limits(hold, store_mass, store_volume)) * hold.unit.cargo
+
+"""
+    cargo_limit(hold)
+
+`:deadweight` where `hold` fills its deadweight before its units, `:space` otherwise.
+"""
+function cargo_limit(hold::CargoHold)
+    (; deadweight, space) = unit_limits(hold)
+    return deadweight <= space ? :deadweight : :space
 end
+
+"""
+    cargo_limit(class, assumptions)
+
+The limit `class` fills first without a rig or fuel store, as `cargo_limit(hold)`.
+"""
+cargo_limit(class::ShipClass, assumptions::Assumptions) =
+    cargo_limit(CargoHold(Ship(ShipDesign(:vlsfo, class), assumptions), assumptions))
 
 """
     CargoHold(ship, assumptions)

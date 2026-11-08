@@ -415,10 +415,10 @@ end
     class_table()
 
 Tabular of the ship classes with their main dimensions, deadweight and unit capacity,
-speed, engine power, resistance calibration, price, cargo value, the inputs of deck
-cargo and port operations and the frontal and lateral wind areas, in class_table.tex,
-and the rows of their sources in class_sources.tex; an infinite fixed-rig delay, where a
-fixed rig prevents cargo handling, is printed as ∞.
+the limit their cargo fills first, speed, engine power, resistance calibration, price,
+cargo value, the inputs of deck cargo and port operations and the frontal and lateral
+wind areas, in class_table.tex, and the rows of their sources in class_sources.tex; an
+infinite fixed-rig delay, where a fixed rig prevents cargo handling, is printed as ∞.
 """
 function class_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
@@ -432,12 +432,12 @@ function class_table()
     open(joinpath(sections, "class_table.tex"), "w") do io
         println(io, "\\setlength{\\tabcolsep}{3pt}")
         println(io, "\\begin{adjustbox}{max width=\\textwidth}")
-        println(io, "\\begin{tabular}{@{}l", "r"^17, "@{}}")
+        println(io, "\\begin{tabular}{@{}l", "r"^6, "l", "r"^11, "@{}}")
         println(io, "\\toprule")
         println(io, "Class & \$L\$ & \$B\$ & \$T\$ & \$C_B\$ & Deadweight & Capacity & ",
-            "Speed & Power & \$f_R\$ & Price & Cargo & Deck & Air draft & Lost & ",
+            "Limit & Speed & Power & \$f_R\$ & Price & Cargo & Deck & Air draft & Lost & ",
             "Fixed-rig & \$A_\\mathrm{F}\$ & \$A_\\mathrm{L}\$ \\\\")
-        println(io, " & [m] & [m] & [m] & & [t] & & [kn] & [MW] & & [MUSD] & [USD/t] & ",
+        println(io, " & [m] & [m] & [m] & & [t] & & & [kn] & [MW] & & [MUSD] & [USD/t] & ",
             "tiers & limit [m] & calls [\\%] & delay [h] & [m\$^2\$] & [m\$^2\$] \\\\")
         println(io, "\\midrule")
         for class in classes
@@ -461,7 +461,8 @@ function write_class_row(io, class)
     println(io, latex_escape(class.name), " & ", latex_number(class.length), " & ",
         latex_number(class.beam), " & ", latex_number(class.draft), " & ",
         latex_number(class.block_coefficient), " & ", latex_number(class.deadweight), " & ",
-        unit_capacity(class), " & ", latex_number(class.service_speed), " & ",
+        unit_capacity(class), " & ", limit_label(class), " & ",
+        latex_number(class.service_speed), " & ",
         latex_number(round(class.power / 1e3; digits=1)), " & ",
         latex_number(round(Hull(class, assumptions).resistance_factor; digits=2)), " & ",
         latex_number(round(class.newbuild_price / 1e6; digits=1)), " & ",
@@ -480,6 +481,14 @@ Cargo units of `class` with their unit, a dash for a ship that fills its deadwei
 unit_capacity(class) = isfinite(class.unit_capacity) ?
     string(latex_number(class.unit_capacity), " ", uppercase(string(class.cargo_unit))) :
     "--"
+
+"""
+    limit_label(class)
+
+"deadweight" where `class` without a rig fills its deadweight before its slots or decks,
+"space" otherwise.
+"""
+limit_label(class) = string(WindShipOpt.cargo_limit(class, assumptions))
 
 """
     class_source_notes()
@@ -501,19 +510,27 @@ end
 """
     fuel_table()
 
-Tabular of the fuel energy that the cheapest size of each rig saves on each ship class,
-the mean over the routes, with each drive, and the tank-to-wake CO2 of the class on
-VLSFO without a rig, in fuel_table.tex.
+Tabular of the cost and fuel energy that the cheapest size of each rig saves on each ship
+class with each drive, the mean over the routes, as "cost / fuel" in percent, with the
+tank-to-wake CO2 of the class on VLSFO without a rig; deadweight-limited and
+space-limited classes in two blocks, each closed by its mean, in fuel_table.tex.
 """
 function fuel_table()
     table = read_table(data_file("classes.csv"))
+    classes = ship_classes()
     open(joinpath(sections, "fuel_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}lr", "r"^(3length(drive_labels)), "@{}}")
         println(io, "\\toprule\n & CO\\textsubscript{2}, no rig & ", drive_header(3))
         println(io, "Class & [g/tkm] & ", rig_header())
-        println(io, "\\midrule")
-        for class in class_order(table)
-            write_fuel_row(io, table, class)
+        for limit in ("deadweight", "space")
+            names = [name for name in class_order(table)
+                     if limit_label(classes[name]) == limit]
+            println(io, "\\midrule\n\\multicolumn{", 2 + 3length(drive_labels),
+                "}{@{}l}{\\emph{", limit, "-limited}} \\\\")
+            for name in names
+                write_fuel_row(io, table, [name], latex_escape(name))
+            end
+            write_fuel_row(io, table, names, "\\emph{mean}")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
@@ -593,35 +610,39 @@ rig_header() = string(join(repeat(["kite", "wings", "rotors"], length(drive_labe
         " & "), " \\\\")
 
 """
-    write_fuel_row(io, table, class)
+    write_fuel_row(io, table, classes, label)
 
-One row of the fuel table: the CO2 of `class` on VLSFO without a rig and the fuel saving
-[%] of each rig at its cheapest size on each drive, both averaged over the routes.
+One row of the fuel table under `label`: the CO2 of `classes` on VLSFO without a rig and
+the cost and fuel saving [%] of each rig at its cheapest size on each drive, all
+averaged over the classes and routes.
 """
-function write_fuel_row(io, table, class)
-    bare = rows(table, "class" => class, "drive" => "vlsfo", "rig" => "none")
+function write_fuel_row(io, table, classes, label)
+    bare = [k for class in classes
+            for k in rows(table, "class" => class, "drive" => "vlsfo", "rig" => "none")]
     cells = [@sprintf("%.1f", mean(table["carbon"][bare]))]
     for (drive, _) in drive_labels, rig in rig_names
-        savings = [fuel_saving(table, class, drive, route, rig)
-                   for route in unique(table["route"])]
-        filter!(isfinite, savings)
-        push!(cells, isempty(savings) ? "--" : @sprintf("%.1f", mean(savings)))
+        cases = [(class, route) for class in classes for route in unique(table["route"])]
+        cost, fuel = ([cheapest_saving(table, column, class, drive, route, rig)
+                       for (class, route) in cases] for column in ("cost", "fuel"))
+        keep = isfinite.(cost) .& isfinite.(fuel)
+        push!(cells, any(keep) ?
+                     @sprintf("%.1f / %.0f", mean(cost[keep]), mean(fuel[keep])) : "--")
     end
-    println(io, latex_escape(class), " & ", join(cells, " & "), " \\\\")
+    println(io, label, " & ", join(cells, " & "), " \\\\")
 end
 
 """
-    fuel_saving(table, class, drive, route, rig)
+    cheapest_saving(table, column, class, drive, route, rig)
 
-Fuel energy [%] that the cheapest size of `rig` saves against the same class without a
-rig on one drive and route; `NaN` where a trip is missing.
+Saving [%] in `column` ("cost" or "fuel") of the cheapest size of `rig` against the same
+class without a rig on one drive and route; `NaN` where a trip is missing.
 """
-function fuel_saving(table, class, drive, route, rig)
+function cheapest_saving(table, column, class, drive, route, rig)
     bare = rows(table, "class" => class, "drive" => drive, "route" => route,
         "rig" => "none")
     cheapest = cheapest_row(table, class, route, drive, rig)
     (isempty(bare) || isnothing(cheapest)) && return NaN
-    return percent_saving(table["fuel"][cheapest], only(table["fuel"][bare]))
+    return percent_saving(table[column][cheapest], only(table[column][bare]))
 end
 
 """
