@@ -215,7 +215,7 @@ end
 end
 
 @testset "canopy life is the goal input, whatever the cloth weight" begin
-    @test WindShipOpt.Canopy(assumptions).lifetime == 4000
+    @test WindShipOpt.Canopy(assumptions).lifetime == 3000
     @test assumptions[:canopy_cloth_weight] == 200
     goal = with_value(assumptions, :canopy_life, 1200.0)
     @test WindShipOpt.Canopy(goal).lifetime == 1200
@@ -348,10 +348,9 @@ end
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     rig.forces[1, :, :] .= Ref(WindShipOpt.NO_PATTERN)
     env = Environment(assumptions)
-    trim = first(WindShipOpt.trim_settings(rig))
     force_at(speed) = WindShipOpt.rig_force(rig, env,
         speed / WindShipOpt.wind_at_height(env, 1.0, rig.reference_height), π / 2, 0.0,
-        trim)
+        0.0)
     @test force_at(3.9) === WindShipOpt.NO_RIG_FORCE
     @test force_at(5.9) === WindShipOpt.NO_RIG_FORCE
     @test force_at(6.1).thrust != 0
@@ -497,8 +496,8 @@ end
     flown = WindShipOpt.wear_cost(rig, assumptions)
     @test flown ≈
           canopy / assumptions[:canopy_life] + tether / assumptions[:tether_lifetime]
-    shorter = with_value(assumptions, :canopy_life, 2000.0)
-    @test WindShipOpt.wear_cost(rig, shorter) - flown ≈ canopy / 4000
+    shorter = with_value(assumptions, :canopy_life, assumptions[:canopy_life] / 2)
+    @test WindShipOpt.wear_cost(rig, shorter) - flown ≈ canopy / assumptions[:canopy_life]
 end
 
 # Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
@@ -539,17 +538,17 @@ end
 @testset "kite force turns from the wind's frame onto the course as worked by hand" begin
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
-    force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 1)
-    @test force(5.8751, 26.6411).thrust ≈ -33 atol = 5
+    force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 0.0)
+    @test force(5.8751, 26.6411).thrust ≈ -34 atol = 5
     @test force(5.8751, 26.6411).side ≈ 63733 rtol = 1e-3
-    @test force(6.6205, 50.2378).thrust ≈ 20042 rtol = 1e-3
-    @test force(6.6205, 50.2378).side ≈ 102099 rtol = 1e-3
-    @test force(8.8295, 86.6957).thrust ≈ 113395 rtol = 1e-3
-    @test force(8.8295, 86.6957).side ≈ 247426 rtol = 1e-3
-    @test force(11.161535, 114.227745).thrust ≈ 231689 rtol = 1e-3
-    @test force(11.161535, 114.227745).side ≈ 194164 rtol = 1e-3
-    @test force(13.8026, 148.5709).thrust ≈ 344824 rtol = 1e-3
-    @test force(13.8026, 148.5709).side ≈ 26201 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 19482 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 105998 rtol = 1e-3
+    @test force(8.82947, 86.695695).thrust ≈ 113451 rtol = 1e-3
+    @test force(8.82947, 86.695695).side ≈ 249728 rtol = 1e-3
+    @test force(11.161535, 114.227745).thrust ≈ 241072 rtol = 1e-3
+    @test force(11.161535, 114.227745).side ≈ 216840 rtol = 1e-3
+    @test force(13.802571, 148.57094).thrust ≈ 337744 rtol = 1e-3
+    @test force(13.802571, 148.57094).side ≈ 77976 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
@@ -583,6 +582,47 @@ end
     end
 end
 
+"""
+    scanned_output(ship, rig, speed, wind, angle, settings)
+
+Least engine output [W] of `ship` carrying `rig` over the trim `settings`.
+"""
+function scanned_output(ship, rig, speed, wind, angle, settings)
+    return minimum(settings) do setting
+        force = rig_force(rig, ship.env, wind, angle, speed, setting)
+        thrust = WindShipOpt.required_thrust(ship, speed, wind, angle, force)
+        return engine_output(ship, speed, (thrust, force))
+    end
+end
+
+"""
+    reachable_spins(rotors, env, speed, wind, angle, steps)
+
+`steps` spin ratios from 0 to 4 that `rotors` can reach in that wind at ship `speed`.
+"""
+function reachable_spins(rotors, env, speed, wind, angle, steps)
+    spins = range(0.0, 4.0; length=steps)
+    forces = [rig_force(rotors, env, wind, angle, speed, spin) for spin in spins]
+    return [spin for (spin, force) in zip(spins, forces)
+            if iszero(spin) || force != WindShipOpt.NO_RIG_FORCE]
+end
+
+"""
+    wing_settings(rig, steps)
+
+Lift and drag coefficient pairs of `rig` at `steps` lift coefficients attached and `steps`
+angles of attack from 25 to 90 degrees stalled.
+"""
+function wing_settings(rig, steps)
+    normal = rig.stalled_drag_coefficient
+    attached = [(lift, WindShipOpt.drag_coefficient(rig, lift))
+                for lift in range(0.0, rig.max_lift_coefficient; length=steps)]
+    stalled = [(normal * sind(angle) * cosd(angle),
+                   rig.profile_drag_coefficient + normal * sind(angle)^2)
+               for angle in range(25.0, 90.0; length=steps)]
+    return [attached; stalled]
+end
+
 @testset "wings and rotors pull forward only above their own upwind limit" begin
     env = Environment(assumptions)
     hull = Hull(140.0, assumptions)
@@ -594,7 +634,8 @@ end
         return rig.lift_factor * lift, drag
     end
     for rig in (wings, rotors)
-        settings = WindShipOpt.trim_settings(rig)
+        settings = rig === wings ? wing_settings(rig, 201) :
+                   reachable_spins(rig, env, 0.0, 10.0, π / 2, 161)
         limit = minimum(settings) do setting
             lift, drag = coefficients(rig, setting)
             return lift > 0 ? atan(drag / lift) : Inf
@@ -613,11 +654,11 @@ end
         model, _, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
         limit = atan(1 / WindShipOpt.best_over_angles(/, model))
         for apparent in deg2rad.(1.0:2.0:(rad2deg(limit) - 2)), wind in (8.0, 12.0, 20.0),
-            trim in WindShipOpt.trim_settings(rig)
+            trim in range(0.0, last(rig.side_weights); length=31)
 
             @test rig_force(rig, env, wind, apparent, 0.0, trim).thrust <= 0
         end
-        @test rig_force(rig, env, 12.0, deg2rad(40), 0.0, 1).thrust > 0
+        @test rig_force(rig, env, 12.0, deg2rad(40), 0.0, 0.0).thrust > 0
     end
 end
 
@@ -628,7 +669,7 @@ end
     wings = WingRig(800.0, hull, assumptions)
     rotors = WindShipOpt.RotorRig(400.0, hull, assumptions)
     for angle in deg2rad.((45, 90, 110))
-        @test rig_force(kite, env, 12.0, angle, 5.4, 1).side > 0
+        @test rig_force(kite, env, 12.0, angle, 5.4, 0.0).side > 0
         @test rig_force(wings, env, 12.0, angle, 5.4,
             (1.0, WindShipOpt.drag_coefficient(wings, 1.0))).side > 0
         @test rig_force(rotors, env, 12.0, angle, 5.4, 2.0).side > 0
@@ -641,15 +682,72 @@ end
     kite = uniform_kite(hull, assumptions)
     rotors = WindShipOpt.RotorRig(800.0, hull, assumptions)
     combined = WindShipOpt.CombinedRig(kite, rotors)
-    @test length(WindShipOpt.trim_settings(combined)) ==
-          length(WindShipOpt.trim_settings(kite)) *
-          length(WindShipOpt.trim_settings(rotors))
-    sum_force = rig_force(kite, env, 12.0, π / 2, 6.0, 2) +
+    sum_force = rig_force(kite, env, 12.0, π / 2, 6.0, 0.5) +
                 rig_force(rotors, env, 12.0, π / 2, 6.0, 3.0)
-    force = rig_force(combined, env, 12.0, π / 2, 6.0, (2, 3.0))
+    force = rig_force(combined, env, 12.0, π / 2, 6.0, (0.5, 3.0))
     @test force.power > 0 && force.yaw_moment != 0
     @test all(getfield(force, name) ≈ getfield(sum_force, name)
               for name in fieldnames(RigForce))
+end
+
+"""
+    engine_output(ship, speed, wind, angle, (thrust, force))
+
+Engine output [W] of `ship` for a required propeller `thrust` [N] and rig `force`, as
+`best_trim` weighs a trim; `Inf` for infinite thrust.
+"""
+function engine_output(ship, speed, (thrust, force))
+    isfinite(thrust) || return Inf
+    return WindShipOpt.delivered_power(ship.propeller, ship.env, speed, thrust) /
+           ship.powertrain.transmission_efficiency + force.power
+end
+
+@testset "wings and rotors trim to the least engine output of a fine scan" begin
+    speed = 10.5KNOT
+    rotors = Ship(ShipDesign(:methanol, 140.0; rotor_area=800.0), assumptions)
+    wings = Ship(ShipDesign(:methanol, 140.0; wing_area=1500.0), assumptions)
+    for ship in (rotors, wings), wind in (8.0, 14.0), angle in deg2rad.(30:10:170)
+        settings = ship === wings ? wing_settings(ship.rig, 4001) :
+                   reachable_spins(ship.rig, ship.env, speed, wind, angle, 4001)
+        bare = engine_output(ship, speed,
+            WindShipOpt.best_trim(ship, nothing, speed, wind, angle))
+        scanned = scanned_output(ship, ship.rig, speed, wind, angle, settings)
+        trimmed = engine_output(ship, speed,
+            WindShipOpt.best_trim(ship, ship.rig, speed, wind, angle))
+        @test trimmed <= scanned + 1e-5bare
+    end
+end
+
+@testset "a kite and the rotors beside it trim jointly to the least engine output" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0, rotor_area=200.0), assumptions)
+    speed = 10.5KNOT
+    weights = range(0.0, 3.0; length=31)
+    for wind in (10.0, 16.0), angle in deg2rad.(45:15:165)
+        spins = reachable_spins(ship.rig.standing, ship.env, speed, wind, angle, 201)
+        bare = engine_output(ship, speed,
+            WindShipOpt.best_trim(ship, nothing, speed, wind, angle))
+        scanned = scanned_output(ship, ship.rig, speed, wind, angle,
+            Iterators.product(weights, spins))
+        trimmed = engine_output(ship, speed,
+            WindShipOpt.best_trim(ship, ship.rig, speed, wind, angle))
+        @test trimmed <= scanned + 1e-5bare
+    end
+end
+
+@testset "a kite's force runs linearly in side weight between its table's weights" begin
+    env = Environment(assumptions)
+    uniform = uniform_kite(Hull(140.0, assumptions), assumptions)
+    weighted = WindShipOpt.PatternForce((0.1, 0.5, 0.2), 1.0, 0.3)
+    forces = cat(uniform.forces[:, :, 1], fill(weighted, 10, 13); dims=3)
+    kite = KiteRig(; (name => getfield(uniform, name) for name in fieldnames(KiteRig)
+                      if name != :forces)..., forces)
+    low, high = kite.side_weights[1], kite.side_weights[2]
+    at_low = rig_force(kite, env, 12.0, π / 2, 6.0, low)
+    at_high = rig_force(kite, env, 12.0, π / 2, 6.0, high)
+    middle = rig_force(kite, env, 12.0, π / 2, 6.0, (low + high) / 2)
+    @test at_low.thrust != at_high.thrust
+    @test middle.thrust ≈ (at_low.thrust + at_high.thrust) / 2
+    @test middle.side ≈ (at_low.side + at_high.side) / 2
 end
 
 @testset "kite launch mast takes the forward deck from the rotor row" begin
@@ -719,11 +817,24 @@ end
     ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=300.0), assumptions)
     table = PerformanceTable(ship, assumptions)
     speed, wind, angle = 5.0, 12.0, π / 2
-    power = table.rig_power(speed, wind, angle)
+    power = table.rig_power(speed, wind, angle, 0.0)
     @test power > 0
     @test lookup(table, speed, wind, angle).fuel_power ≈
-          WindShipOpt.fuel_power(table, speed, table.flown_thrust(speed, wind, angle),
+          WindShipOpt.fuel_power(table, speed, table.flown_thrust(speed, wind, angle, 0.0),
               power)
+end
+
+@testset "a bare ship's routing fuel adds the waves' resistance, following seas' negative too" begin
+    ship = Ship(ShipDesign(:methanol, 140.0), assumptions)
+    table = PerformanceTable(ship, assumptions)
+    speed, wind, angle, height, period = 2.47, 6.2, 1.0, 5.6, 7.5
+    for heading in (0.33, π)
+        waves = height^2 * table.wave_resistance(speed, period, heading)
+        @test (waves < 0) == (heading < π / 2)
+        @test lookup(table, speed, wind, angle, height, period, heading).fuel_power ≈
+              WindShipOpt.fuel_power(table, speed,
+                  table.flown_thrust(speed, wind, angle, 0.0) + waves, 0.0)
+    end
 end
 
 @testset "rotors that cannot spin still stand as drag" begin
@@ -947,7 +1058,7 @@ end
         assumptions)
     passages = [WindShipOpt.service_passages(ship, outbound, inbound, SyntheticWeather(),
                     [24.0 * 31, 24.0 * 200], assumptions, hourly,
-                    24assumptions[:port_time_per_call], Inf, nothing)
+                    24assumptions[:port_time_per_call], Inf, nothing, nothing)
                 for ship in (bare, WindShipOpt.with_rig(kite, down))]
     @test first(passages) == last(passages)
     kite_hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(kite, changed), changed)
@@ -1179,7 +1290,7 @@ end
     @test sailed.duration > 0 && sailed.fuel_energy > 0
 end
 
-@testset "a ship on a long forecast handles its kite as the plan does" begin
+@testset "a ship on a long forecast flies its kite about as the plan does" begin
     ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
     kite_table = RouteTable(PerformanceTable(ship, assumptions))
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
@@ -1189,8 +1300,28 @@ end
     sailed = forecast_route(corridor, kite_table, weather, departure;
         time_cost=kite_hourly, horizon=24.0 * 100)
     @test leg.launches > 0
-    @test sailed.aloft == leg.aloft
+    @test sailed.launches == leg.launches
+    @test sailed.flight_hours ≈ leg.flight_hours rtol = 0.02
     @test sailed.objective ≈ leg.objective rtol = 1e-3
+end
+
+@testset "a kite flying in good wind stays up unless the plan ahead needs it stowed" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+    i = findfirst(i -> leg.aloft[i] && leg.aloft[i + 1], 1:(length(leg.path) - 1))
+    lateral = WindShipOpt.nearest_lateral(corridor, i, leg.path[i][1], leg.path[i][2])
+    next = WindShipOpt.nearest_lateral(corridor, i + 1, leg.path[i + 1][1],
+        leg.path[i + 1][2])
+    prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
+    sail(ahead) = WindShipOpt.sail_planned_edge!(WindShipOpt.SailedPoint[], kite_table,
+        weather, corridor, i, lateral, WindShipOpt.lateral_step(lateral, next),
+        departure + leg.path[i][3], leg.path[i + 1][4], true, ahead, prices)
+    @test sail((0.0, 0.0))[3]
+    @test !sail((0.0, Inf))[3]
 end
 
 "Synthetic weather with a gale from the south-west no ship can sail in before `calm_from`."
@@ -1203,6 +1334,27 @@ WindShipOpt.wind(weather::GaleWeather, lat, lon, time) =
     time < weather.calm_from ? (45.0, 45.0) : WindShipOpt.wind(weather.calm, lat, lon, time)
 WindShipOpt.waves(weather::GaleWeather, lat, lon, time) =
     time < weather.calm_from ? (16.0, 14.0, 1.25π) : (0.0, 0.0, 0.0)
+
+"Steady wind from the south on a sea whose waves push a ship heading east along."
+struct FollowingSeaWeather end
+WindShipOpt.duration(::FollowingSeaWeather) = Inf
+WindShipOpt.wind(::FollowingSeaWeather, lat, lon, time) = (0.0, 14.0)
+WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
+
+@testset "a leg's trace shows the trim the router priced where waves leave the table" begin
+    ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=400.0), assumptions)
+    table = RouteTable(PerformanceTable(ship, assumptions))
+    trace = WindShipOpt.LegTrace((Float64[] for _ in 1:13)..., (Bool[] for _ in 1:4)...,
+        Any[])
+    point = WindShipOpt.SailedPoint(0.0, 0.0, 0.0, true,
+        searchsortedfirst(table.speeds, 5.0), 0.0, 0.0, 1.0, 24.0 * 31)
+    WindShipOpt.push_trace_point!(trace, table, FollowingSeaWeather(), 24.0 * 31, 30.0,
+        -30.0, π / 2, point, true, false, false, false)
+    first_knot = first(table.table.flown_thrust.knots[4])
+    priced = last(WindShipOpt.best_trim(ship, ship.rig, only(trace.speed), 14.0,
+        only(trace.true_wind_angle), first_knot))
+    @test only(trace.rig_thrust) == priced.thrust
+end
 
 @testset "a ship on a forecast holds through a gale it cannot sail in" begin
     departure = 24.0 * 31
@@ -1224,6 +1376,75 @@ WindShipOpt.waves(weather::GaleWeather, lat, lon, time) =
         horizon=72.0))
 end
 
+"""
+Synthetic weather with the gale of `GaleWeather` within a nautical mile of `place`
+(latitude, longitude) [deg] from `from` until `until` [h], and calm elsewhere.
+"""
+struct PassingGale
+    calm::SyntheticWeather
+    place::NTuple{2, Float64}
+    from::Float64
+    until::Float64
+end
+WindShipOpt.duration(::PassingGale) = Inf
+gale_at(weather::PassingGale, lat, lon, time) = weather.from <= time < weather.until &&
+    WindShipOpt.distance(lat, lon, weather.place...) < NAUTICAL_MILE
+WindShipOpt.wind(weather::PassingGale, lat, lon, time) =
+    gale_at(weather, lat, lon, time) ? (45.0, 45.0) :
+    WindShipOpt.wind(weather.calm, lat, lon, time)
+WindShipOpt.waves(weather::PassingGale, lat, lon, time) =
+    gale_at(weather, lat, lon, time) ? (16.0, 14.0, 1.25π) : (0.0, 0.0, 0.0)
+
+@testset "a ship that would meet a passing gale at its planned speed slows behind it" begin
+    centre, step = centre_index(corridor), WindShipOpt.MAX_LATERAL_STEP + 1
+    planned = searchsortedfirst(table.speeds, 9KNOT)
+    distance = corridor.edge_length[1, centre, step]
+    arrival(speed_index) = 24.0 * 31 + distance / table.speeds[speed_index] / 3600
+    place = (corridor.lat[2, centre], corridor.lon[2, centre])
+    gale = PassingGale(SyntheticWeather(), place, 24.0 * 31,
+        (arrival(planned) + arrival(planned - 1)) / 2)
+    prices = (; fuel=table.table.ship.fuel.price, time=hourly)
+    hours, tally, _, speed = WindShipOpt.sail_planned_edge!(WindShipOpt.SailedPoint[],
+        table, gale, corridor, 1, centre, step, 24.0 * 31, table.speeds[planned], false,
+        (0.0, Inf), prices)
+    @test isfinite(hours) && isfinite(tally.cost)
+    @test speed < table.speeds[planned]
+end
+
+"""
+Synthetic weather with, before the same date a year on, 5 m head seas and a wind 60 degrees
+off the bow on the first edge from `start`, in which only a kite flying holds more than
+4 kn, yet the seas forbid launching it.
+"""
+struct KiteOnlySeas
+    calm::SyntheticWeather
+    start::NTuple{2, Float64}
+    course::Float64
+end
+WindShipOpt.duration(::KiteOnlySeas) = Inf
+rough_seas(weather::KiteOnlySeas, lat, lon, time) = time < WindShipOpt.FORECAST_SHIFT &&
+    WindShipOpt.distance(lat, lon, weather.start...) < 200NAUTICAL_MILE
+WindShipOpt.wind(weather::KiteOnlySeas, lat, lon, time) =
+    rough_seas(weather, lat, lon, time) ?
+    -8.0 .* sincos(weather.course + deg2rad(60)) :
+    WindShipOpt.wind(weather.calm, lat, lon, time)
+WindShipOpt.waves(weather::KiteOnlySeas, lat, lon, time) =
+    rough_seas(weather, lat, lon, time) ? (5.0, 10.0, weather.course) : (0.0, 0.0, 0.0)
+
+@testset "a ship on a forecast slows where its kite cannot launch as planned" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
+    centre, step = centre_index(corridor), WindShipOpt.MAX_LATERAL_STEP + 1
+    seas = KiteOnlySeas(SyntheticWeather(), (corridor.lat[1, centre],
+            corridor.lon[1, centre]), corridor.edge_course[1, centre, step])
+    sailed = forecast_route(corridor, kite_table, seas, 24.0 * 31; time_cost=kite_hourly,
+        horizon=0.0)
+    @test length(sailed.path) == size(corridor.lat, 1)
+    @test sailed.path[2][4] < 5KNOT
+end
+
 @testset "a forecast beyond its horizon reads the same date in another year" begin
     known = ForecastWeather(SyntheticWeather(), 100.0, 48.0)
     @test WindShipOpt.wind(known, 40.0, -30.0, 120.0) ==
@@ -1233,6 +1454,141 @@ end
           WindShipOpt.wind(known.weather, 40.0, -30.0, beyond + WindShipOpt.FORECAST_SHIFT)
     @test WindShipOpt.wind(known, 40.0, -30.0, beyond) !=
           WindShipOpt.wind(known.weather, 40.0, -30.0, beyond)
+end
+
+"""
+    write_fields(directory, values, steps, grid)
+
+Fields `values(name)` of `steps` stored times each, a (lon, lat) matrix per time, written to
+`directory` with `grid` as its `grid.toml`, in the type of the first matrix.
+"""
+function write_fields(directory, values, steps, grid)
+    mkpath(directory)
+    open(io -> WindShipOpt.TOML.print(io, grid), joinpath(directory, "grid.toml"), "w")
+    for name in grid["variables"]
+        extension = eltype(values(name, 1)) == Float16 ? "f16" : "f32"
+        open(joinpath(directory, "$name.$extension"), "w") do io
+            foreach(step -> write(io, values(name, step)), 1:steps)
+        end
+    end
+end
+
+"ERA5 of steady wind and waves on a 2 by 2 grid from 2017-12-29, the east wind rising."
+function small_era5(directory)
+    square = (lats=[40.0, 41.0], lons=[-31.0, -30.0])
+    truth = Dict("u10" => step -> 5.0f0 + 0.01f0 * step, "v10" => step -> -2.0f0,
+        "height" => step -> 2.0f0, "period" => step -> 8.0f0, "direction" => step -> 90.0f0)
+    for (group, names, step_hours) in (("wind", ["u10", "v10"], 6),
+        ("waves", ["direction", "height", "period"], 12))
+        write_fields(joinpath(directory, group),
+            (name, step) -> fill(truth[name](step), 2, 2), 2000 ÷ step_hours,
+            Dict("lats" => square.lats, "lons" => square.lons, "step_hours" => step_hours,
+                "first_time" => "2017-12-29T00:00:00", "variables" => names))
+    end
+    return ERA5Weather(directory)
+end
+
+"""
+    small_archive(directory, weather, offset)
+
+Four daily forecasts from 2017-12-30 on the grids of `weather`, each the weather it
+forecasts plus `offset(year)` on the east wind and half that on the wave height.
+"""
+function small_archive(directory, weather, offset)
+    first_issue = 24.0
+    for (group, observed, names, leads) in (
+        ("wind", weather.wind, ["u10", "v10"], 6:6:24),
+        ("waves", weather.waves, ["direction_east", "direction_north", "height", "period"],
+            12:12:24))
+        function field(name, index)
+            issue, lead = divrem(index - 1, length(leads)) .+ 1
+            time = first_issue + 24.0 * (issue - 1) + leads[lead]
+            step = Int((time - observed.time_offset) / observed.step_hours + 1)
+            year = issue <= 2 ? 2017 : 2018
+            shift = name == "u10" ? offset(year) : name == "height" ? offset(year) / 2 : 0.0
+            return Float16.(observed.fields[name][:, :, step] .+ shift)
+        end
+        write_fields(joinpath(directory, group), field, 4length(leads),
+            Dict("lats" => observed.lats, "lons" => observed.lons,
+                "first_issue" => "2017-12-30T00:00:00", "issue_hours" => 24,
+                "first_lead_hours" => first(leads), "step_hours" => step(leads),
+                "leads" => length(leads), "variables" => names))
+    end
+    write_forecast_bias(directory, weather)
+    return ForecastArchive(directory, weather)
+end
+
+@testset "a forecast off by a fixed bias reads the weather once that bias is removed" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather, year -> 1.5)
+    known = ArchivedForecast(archive, weather, 24.0 * 3 + 7.0)
+    for time in known.issued .+ (6.0, 12.0, 21.0)
+        @test all(isapprox.(wind(known, 40.5, -30.5, time),
+            wind(weather, 40.5, -30.5, time); atol=0.01))
+        @test all(isapprox.(waves(known, 40.5, -30.5, time),
+            waves(weather, 40.5, -30.5, time); atol=0.01))
+    end
+end
+
+@testset "a forecast's bias is learnt from the other years only" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather,
+        year -> year == 2017 ? 1.0 : 3.0)
+    late_2017 = ArchivedForecast(archive, weather, 24.0 * 2 + 7.0)
+    @test late_2017.year == 2017
+    time = late_2017.issued + 18.0
+    @test first(wind(late_2017, 40.5, -30.5, time)) ≈
+          first(wind(weather, 40.5, -30.5, time)) + 1.0 - 3.0 atol = 0.02
+    @test first(waves(late_2017, 40.5, -30.5, time)) ≈ 2.0 + 0.5 - 1.5 atol = 0.01
+end
+
+@testset "a ship reads the last forecast to reach it, beyond its leads another year" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
+    third = 24.0 * 3
+    @test ArchivedForecast(archive, weather, third + WindShipOpt.FORECAST_LATENCY).issued ==
+          third
+    @test ArchivedForecast(archive, weather, third + 5.0).issued == third - 24.0
+    known = ArchivedForecast(archive, weather, third + 7.0)
+    beyond = third + 30.0
+    @test wind(known, 40.5, -30.5, beyond) ==
+          wind(ForecastWeather(weather, third, 24.0), 40.5, -30.5, beyond)
+end
+
+@testset "a ship whose latest forecast is missing from the archive reads the one before" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
+    for name in ("direction_east", "direction_north", "height", "period")
+        open(joinpath(directory, "forecast", "waves", "$name.f16"), "r+") do io
+            issue_bytes = filesize(io) ÷ 4
+            seek(io, 3issue_bytes)
+            write(io, fill(NaN16, issue_bytes ÷ 2))
+        end
+    end
+    archive = ForecastArchive(joinpath(directory, "forecast"), weather)
+    fourth = 24.0 * 4
+    @test ArchivedForecast(archive, weather, fourth + 7.0).issued == fourth - 24.0
+end
+
+@testset "a ship reads another year's waves where its forecast has none" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
+    for name in ("direction_east", "direction_north", "height", "period")
+        path = joinpath(directory, "forecast", "waves", "$name.f16")
+        values = read!(path, Vector{Float16}(undef, filesize(path) ÷ 2))
+        values[1:4:end] .= NaN16
+        write(path, values)
+    end
+    known = ArchivedForecast(ForecastArchive(joinpath(directory, "forecast"), weather),
+        weather, 24.0 * 3 + 7.0)
+    time = known.issued + 18.0
+    @test waves(known, 40.0, -31.0, time) == waves(known.beyond, 40.0, -31.0, time)
+    @test first(waves(known, 40.0, -31.0, time)) > 0
 end
 
 @testset "a search that cuts off the best path and overruns its limit widens" begin
@@ -1311,7 +1667,7 @@ end
     PaperRuns.paper_run = PaperRuns.PaperRun(mktempdir(), :draft,
         Dict{String, Any}("code_hash" => "held"), 0, 0)
     case_at(held_knots, part) = (; design=ShipDesign(:vlsfo, 100.0), assumptions,
-        route=:caribbean, scale=8.0, horizon=Inf, held_knots, part)
+        route=:caribbean, scale=8.0, forecast=false, held_knots, part)
     @test allunique(PaperRuns.case_directory(case_at(held_knots, :none), [24.0])
                     for held_knots in (nothing, 8.0, 9.0))
     @test allunique(PaperRuns.case_directory(case_at(nothing, part), [24.0])
@@ -1479,12 +1835,16 @@ end
         rig = table.ship.rig
         if rig isa WindShipOpt.KiteRig
             @test leg.launches > 0
-            @test all(trim isa Int for trim in trace.trim[trace.flying])
             @test all(isnothing, trace.trim[.!trace.flying])
             @test count(trace.landed) == leg.launches
-        else
-            settings = WindShipOpt.trim_settings(rig)
-            @test all(trim -> any(==(trim), settings), trace.trim)
+        end
+        trimmed = rig isa WindShipOpt.KiteRig ? findall(trace.flying) :
+                  eachindex(trace.time)
+        @test all(trimmed) do i
+            force = WindShipOpt.rig_force(rig, table.ship.env,
+                hypot(trace.wind_east[i], trace.wind_north[i]), trace.true_wind_angle[i],
+                trace.speed[i], trace.trim[i])
+            force.thrust == trace.rig_thrust[i]
         end
     end
 end
@@ -1510,6 +1870,15 @@ end
     for count in 1:12, stride in 1:4
         indices = WindShipOpt.commanded_speeds(count, stride)
         @test last(indices) == count && step(indices) == stride && first(indices) <= stride
+    end
+end
+
+@testset "soft and rigid kites both stop depowering where their lift reaches 0.05" begin
+    soft = first(WindShipOpt.kite_model(800.0, 3.0, assumptions))
+    rigid = first(WindShipOpt.rigid_kite_model(54.0, 1, assumptions))
+    for model in (soft, rigid)
+        @test WindShipOpt.polar_value(model.polar, model.polar.lift, model.lowest_angle) ≈
+              0.05
     end
 end
 
@@ -1621,13 +1990,13 @@ end
 function lone_force_area(rig, env)
     wind = WindShipOpt.wind_at_height(env, 12.0, rig.reference_height)
     speed = first(WindShipOpt.apparent_wind(wind, π, 5.0))
-    return rig_force(rig, env, 12.0, π, 5.0, 1).thrust / (0.5env.air_density * speed^2)
+    return rig_force(rig, env, 12.0, π, 5.0, 0.0).thrust / (0.5env.air_density * speed^2)
 end
 
 @testset "more rigid kites weigh and cost in proportion and pull less per kite" begin
     env = Environment(assumptions)
     one, three = rigid_fleet(1, assumptions), rigid_fleet(3, assumptions)
-    pull(rig) = rig_force(rig, env, 12.0, π, 5.0, 1).thrust
+    pull(rig) = rig_force(rig, env, 12.0, π, 5.0, 0.0).thrust
     force_area = lone_force_area(one, env)
     @test WindShipOpt.loop_interaction(one, force_area) ≈ 1
     interaction = WindShipOpt.loop_interaction(three, force_area)
@@ -1700,7 +2069,7 @@ end
                            for state in states)
     @test kites_in_service ≈ 0.9 * 4
     flying = WindShipOpt.kite_count(down) / 4
-    pull(rig) = rig_force(rig, env, 12.0, π, 5.0, 1).thrust
+    pull(rig) = rig_force(rig, env, 12.0, π, 5.0, 0.0).thrust
     force_area = lone_force_area(rigid_fleet(1, changed), env)
     @test pull(down) ≈ WindShipOpt.kite_count(down) *
                        WindShipOpt.loop_interaction(down, force_area) *
@@ -1813,6 +2182,20 @@ function written_pattern(wind, course)
     return String(take!(paths)), String(take!(forces))
 end
 
+@testset "the economic and sailing speeds are solved between any speed grid's points" begin
+    ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=400.0), PaperData.assumptions)
+    hourly, wind, angle = 1500.0, 10.0, π / 2
+    wear = WindShipOpt.wear_cost(ship.rig, PaperData.assumptions)
+    cost(knots) = PaperData.mile_cost(ship, knots, hourly, wind, angle, nothing, wear)
+    @test cost(PaperData.economic_speed(ship, hourly, wind, angle)) <=
+          (1 + 1e-7) * minimum(cost, 4.0:0.01:(ship.max_speed / WindShipOpt.KNOT))
+    force = last(WindShipOpt.best_trim(ship, ship.rig, 5.0, wind, angle))
+    sailing = PaperData.sailing_speed(ship, force, wind, angle)
+    @test sailing > 4
+    @test abs(WindShipOpt.required_thrust(ship, sailing * WindShipOpt.KNOT, wind, angle,
+        force)) < 10
+end
+
 """
     recorded_names(recording, node)
 
@@ -1833,9 +2216,12 @@ end
     @test all(isapprox.(position((1.0, 0.0, 0.0), -1), (90.0, 0.0); atol=1e-9))
     @test all(isapprox.(position((0.0, 1.0, 0.0)), (0.0, 0.0); atol=1e-9))
     @test all(isapprox.(position((0.0, 0.0, 1.0)), (0.0, 90.0); atol=1e-9))
-    wings = Ship(ShipDesign(:methanol, 85.0; wing_area=300.0), assumptions).rig
-    settings = WindShipOpt.trim_settings(wings)
-    attached, stalled = first(settings), last(settings)
+    wing_ship = Ship(ShipDesign(:methanol, 85.0; wing_area=300.0), assumptions)
+    wings = wing_ship.rig
+    attached_range, stalled_range = WindShipOpt.trim_ranges(wings, wing_ship.env, 10.0,
+        π / 2, 5.0)
+    attached = WindShipOpt.trim_setting(wings, attached_range, 0.0)
+    stalled = WindShipOpt.trim_setting(wings, stalled_range, 90.0)
     @test PaperData.wing_incidence(wings, attached) == 0.0
     @test rad2deg(PaperData.wing_incidence(wings, stalled)) ≈ 90 atol=1e-6
     ship = Ship(ShipDesign(:methanol, 85.0; rotor_area=100.0), assumptions)

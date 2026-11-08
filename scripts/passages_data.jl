@@ -32,7 +32,7 @@ wind_side(east, north, course) = sin(atan(-east, -north) - course) >= 0 ? 1 : -1
     wing_incidence(rig, (lift, drag))
 
 Angle [rad] between the chord and the apparent wind of a wing at the trim `(lift, drag)` of
-[`trim_settings`](@ref): from the lift slope of its aspect ratio while attached, from the
+[`trim_setting`](@ref): from the lift slope of its aspect ratio while attached, from the
 force direction when stalled.
 """
 function wing_incidence(rig::WindShipOpt.WingRig, (lift, drag))
@@ -101,14 +101,15 @@ end
     recorded_pattern(case, trace, i)
 
 Azimuths and elevations [0.1 deg] of the [`pattern_samples`](@ref) points of the table
-pattern nearest the apparent wind and course of sample `i` of `trace` at its trim, then its
+pattern nearest the apparent wind, course and side weight of sample `i` of `trace`, then its
 period [0.1 s]; `nothing` where the kite is down.
 """
 function recorded_pattern(case, trace, i)
     trace.flying[i] || return nothing
     rig = case.ship.rig
     pattern = case.patterns[argmin(abs.(rig.wind_speeds .- trace.apparent_wind[i])),
-        argmin(abs.(rig.courses .- (π - trace.apparent_angle[i]))), trace.trim[i]]
+        argmin(abs.(rig.courses .- (π - trace.apparent_angle[i]))),
+        argmin(abs.(rig.side_weights .- trace.trim[i]))]
     isnothing(pattern) && return nothing
     points, period = pattern
     side = wind_side(trace.wind_east[i], trace.wind_north[i], trace.course[i])
