@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Runs of the paper: each data-making call of `paper` keeps its data files, the round
 # trips it has finished and its record run.toml in output/runs/<start time>/, so that a
 # run cut short resumes where it stopped. Included by paper.jl.

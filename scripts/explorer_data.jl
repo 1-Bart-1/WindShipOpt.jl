@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Data step of the companion explorer on bart.vandelint.net/windships: the designs of the
 # class study with what their round trips do physically, for the browser to recompute the
 # cost per tonne-km at other prices on the same routes. Included by paper.jl after

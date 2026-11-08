@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Print the numbers of the design, route, class, forecast, base kite, screening and
 component studies, from the CSV files of the latest finished run paper.jl made in
 output/runs/. Run: python3 -I scripts/paper_numbers.py [section ...], with the section names of SECTIONS; all

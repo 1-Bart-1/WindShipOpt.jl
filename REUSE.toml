@@ -1,0 +1,72 @@
+version = 1
+
+# The owner's files that cannot keep a header: data, markdown, Pkg's files, generated LaTeX.
+[[annotations]]
+path = [
+    "**/*.md",
+    "data/*.csv",
+    "data/kite_polars/*.csv",
+    "data/market/*.csv",
+    "paper/sources.csv",
+    "**/Project.toml",
+    "**/Manifest-v*.toml.default",
+    "LocalPreferences.toml.default",
+    "paper/sections/*_table.tex",
+    "paper/sections/class_sources.tex",
+    "paper/sections/fidelity.tex",
+    "paper/sections/input_tables.tex",
+]
+SPDX-FileCopyrightText = "2026 Bart van de Lint"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
+[[annotations]]
+path = [
+    "data/fonts/texgyretermes-regular.otf",
+    "data/fonts/texgyretermes-bold.otf",
+    "data/fonts/texgyretermes-italic.otf",
+]
+precedence = "override"
+SPDX-FileCopyrightText = "2006, 2009 B. Jackowski and J.M. Nowacki (on behalf of TeX users groups)"
+SPDX-License-Identifier = "LPPL-1.3c+"
+
+[[annotations]]
+path = "data/fonts/texgyretermes-math.otf"
+precedence = "override"
+SPDX-FileCopyrightText = "2012-2014 B. Jackowski, P. Strzelczyk and P. Pianowski (on behalf of TeX users groups)"
+SPDX-License-Identifier = "LPPL-1.3c+"
+
+[[annotations]]
+path = "data/fonts/GUST-FONT-LICENSE.txt"
+precedence = "override"
+SPDX-FileCopyrightText = "2006 GUST, the Polish TeX Users Group"
+SPDX-License-Identifier = "LPPL-1.3c+"
+
+[[annotations]]
+path = "data/market/eurostat_mar_go_am_2024_2025.csv"
+precedence = "override"
+SPDX-FileCopyrightText = "European Union, 1995-2026, Eurostat"
+SPDX-License-Identifier = "CC-BY-4.0"
+
+[[annotations]]
+path = [
+    "data/market/eurostat_port_partner_flows_2024.csv",
+    "data/market/port_throughput_2024.csv",
+    "data/market/north_europe_route_groups_2024.csv",
+    "data/market/summary_by_*.csv",
+    "data/market/top20_pairs_RTM_ANR_HAM.csv",
+]
+precedence = "override"
+SPDX-FileCopyrightText = ["2026 Bart van de Lint", "European Union, 1995-2026, Eurostat"]
+SPDX-License-Identifier = "AGPL-3.0-or-later AND CC-BY-4.0"
+
+[[annotations]]
+path = "data/market/imo_ghg4_*.csv"
+precedence = "override"
+SPDX-FileCopyrightText = "2020 International Maritime Organization"
+SPDX-License-Identifier = "LicenseRef-IMO-All-Rights-Reserved"
+
+[[annotations]]
+path = "data/market/unctad_tonne_miles_by_cargo.csv"
+precedence = "override"
+SPDX-FileCopyrightText = ["2024-2025 United Nations", "2020 International Maritime Organization"]
+SPDX-License-Identifier = "LicenseRef-UN-All-Rights-Reserved AND LicenseRef-IMO-All-Rights-Reserved"
