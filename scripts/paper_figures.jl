@@ -21,9 +21,9 @@ page_width = 522
 # points per figure unit, so that a page-wide figure is the 468 pt text width
 print_scale = 468 / page_width
 "the [`study_drives`](@ref) with their names in figure labels"
-drive_labels = [string(drive) => Dict(:vlsfo => "VLSFO", :methanol => "e-methanol",
-                    :hydrogen => "hydrogen")[drive] for drive in study_drives]
-"(drive, panel title) of the panels (a), (b), (c) of a figure with one panel per drive"
+drive_labels = [string(drive) => Dict(:vlsfo => "VLSFO", :ammonia => "e-ammonia")[drive]
+                for drive in study_drives]
+"(drive, panel title) of the panels (a), (b) of a figure with one panel per drive"
 drive_panels = [(drive, "($(Char('a' + k - 1))) $label")
                 for (k, (drive, label)) in enumerate(drive_labels)]
 "each rig with its area column in designs.csv"
@@ -383,7 +383,7 @@ function rig_comparison_figure()
             linewidth=0.8)
         limits!(axis, 0.5, length(lengths) + 0.5, length(labels) + 0.5, 0.5)
     end
-    Colorbar(figure[1, 4]; colormap=:RdBu, limits=(-30, 30),
+    Colorbar(figure[1, length(drive_panels) + 1]; colormap=:RdBu, limits=(-30, 30),
         label="cost saving vs no rig [%]")
     save(joinpath(figures, "rig_comparison.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -391,12 +391,12 @@ end
 """
     route_figure()
 
-Weather-routed passages on every route of a 140 m e-methanol ship without a rig and
+Weather-routed passages on every route of a 140 m e-ammonia ship without a rig and
 with a 3200 m^2 kite, for a winter and a summer departure, over the 10 m wind five days
 after departure; solid outbound, dashed homeward.
 """
 function route_figure()
-    designs = (ShipDesign(:methanol, 140.0), ShipDesign(:methanol, 140.0; kite_area=3200.0))
+    designs = (ShipDesign(:ammonia, 140.0), ShipDesign(:ammonia, 140.0; kite_area=3200.0))
     port_hours = 24assumptions[:port_time_per_call]
     seasons = (("winter", 1), ("summer", findfirst(>=(24 * 181), departures)))
     figure = Figure(size=(page_width, 300))
@@ -469,15 +469,15 @@ end
 """
     passage_figure()
 
-One winter outbound passage to Guadeloupe of a 140 m e-methanol ship without a rig and
+One winter outbound passage to Guadeloupe of a 140 m e-ammonia ship without a rig and
 with each rig: the routed tracks, each narrower than the one before so that tracks which
 coincide stay visible, and speed, rig thrust and fuel power over the passage.
 """
 function passage_figure()
-    designs = (("no rig", ShipDesign(:methanol, 140.0)),
-        ("kite 3200 m²", ShipDesign(:methanol, 140.0; kite_area=3200.0)),
-        ("wings 1500 m²", ShipDesign(:methanol, 140.0; wing_area=1500.0)),
-        ("rotors 800 m²", ShipDesign(:methanol, 140.0; rotor_area=800.0)))
+    designs = (("no rig", ShipDesign(:ammonia, 140.0)),
+        ("kite 3200 m²", ShipDesign(:ammonia, 140.0; kite_area=3200.0)),
+        ("wings 1500 m²", ShipDesign(:ammonia, 140.0; wing_area=1500.0)),
+        ("rotors 800 m²", ShipDesign(:ammonia, 140.0; rotor_area=800.0)))
     departure = departures[1]
     outbound = first(run_corridors(:caribbean))
     figure = Figure(size=(page_width, 340))
@@ -585,8 +585,8 @@ function class_comparison_figure()
                 markersize=6, label=i == 1 ? kind : nothing)
         end
     end
-    Legend(figure[2, 1:3], content(figure[1, 1]); orientation=:horizontal,
-        framevisible=false, labelsize=9)
+    Legend(figure[2, 1:length(drive_panels)], content(figure[1, 1]);
+        orientation=:horizontal, framevisible=false, labelsize=9)
     save(joinpath(figures, "class_comparison.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -764,8 +764,8 @@ function class_size_figure()
                 align=(:left, :center), color=palette[j])
         end
     end
-    Legend(figure[2, 1:3], content(figure[1, 1]); orientation=:horizontal,
-        framevisible=false, labelsize=9)
+    Legend(figure[2, 1:length(drive_panels)], content(figure[1, 1]);
+        orientation=:horizontal, framevisible=false, labelsize=9)
     save(joinpath(figures, "class_sizes.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -798,105 +798,10 @@ function winner_map_figure()
                 fontsize=8.5)
         end
     end
-    Legend(figure[2, 1:3], [PolyElement(color=palette[j]) for j in 1:3], kinds;
+    Legend(figure[2, 1:length(drive_panels)], [PolyElement(color=palette[j]) for j in 1:3],
+        kinds;
         orientation=:horizontal, framevisible=false, labelsize=9)
     save(joinpath(figures, "winner_map.pdf"), figure; pt_per_unit=print_scale)
-end
-
-"""
-    track_wind(corridor, weather, times)
-
-True wind angles [deg] and 10 m wind speeds [m/s] met along the centre line of
-`corridor` at the given `times` [h], one pair per stage and time.
-"""
-function track_wind(corridor, weather, times)
-    angles, speeds = Float64[], Float64[]
-    centre = centre_index(corridor)
-    for stage in 1:(size(corridor.lat, 1) - 1), time in times
-        lat, lon = corridor.lat[stage, centre], corridor.lon[stage, centre]
-        course = WindShipOpt.bearing(lat, lon, corridor.lat[stage + 1, centre],
-            corridor.lon[stage + 1, centre])
-        east, north = wind(weather, lat, lon, time)
-        speed = hypot(east, north)
-        push!(angles, rad2deg(WindShipOpt.true_wind_angle(east, north, speed, course)))
-        push!(speeds, speed)
-    end
-    return angles, speeds
-end
-
-"""
-    sector!(axis, angle, width, inner, outer; color)
-
-Filled ring sector between radii `inner` and `outer` around `angle` [rad clockwise from
-up] with `width` [rad], on a Cartesian `axis`.
-"""
-function sector!(axis, angle, width, inner, outer; color)
-    arc = range(angle - width / 2, angle + width / 2; length=8)
-    poly!(axis, [ring_points(outer, arc); ring_points(inner, reverse(arc))]; color,
-        strokewidth=0)
-end
-
-"""
-    ring_points(radius, angles)
-
-Points at `radius` and `angles` [rad clockwise from up].
-"""
-ring_points(radius, angles) = Point2f.(radius .* sin.(angles), radius .* cos.(angles))
-
-"""
-    wind_climate_figure()
-
-Wind roses relative to the ship along each route over the three years of weather: the
-direction the wind comes from off the bow, head wind up, outbound on the left half and
-homeward on the right; the sector length is the share of sailing time, split by 10 m
-wind speed, against rings named in the legend.
-"""
-function wind_climate_figure()
-    times = 0.0:24.0:(WindShipOpt.duration(weather) - 24)
-    names = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
-    speed_classes = [0, 5, 10, 15, Inf]
-    class_labels = ["< 5 m/s", "5–10 m/s", "10–15 m/s", "> 15 m/s"]
-    colours = Makie.resample_cmap(:Blues, 6)[2:5]
-    edges = 0:15:180
-    rings = [5, 10, 15]
-    figure = Figure(size=(column_width, 560))
-    for (k, name) in enumerate(names)
-        axis = Axis(figure[(k - 1) ÷ 2 + 1, (k - 1) % 2 + 1]; aspect=DataAspect(),
-            title=route_label(name),
-            titlealign=:center, limits=(-19, 19, -19, 19))
-        hidedecorations!(axis)
-        hidespines!(axis)
-        for radius in rings
-            arc = range(0, 2π; length=90)
-            lines!(axis, radius .* sin.(arc), radius .* cos.(arc); color=:gray80,
-                linewidth=0.5)
-        end
-        lines!(axis, [0, 0], [-16, 16]; color=:gray60, linewidth=0.5)
-        for (side, corridor) in zip((-1, 1), run_corridors(Symbol(name)))
-            angles, speeds = track_wind(corridor, weather, times)
-            for i in 1:(length(edges) - 1)
-                inside = edges[i] .<= angles .< edges[i + 1]
-                radius = 0.0
-                for class_index in 1:(length(speed_classes) - 1)
-                    share = 100 * count(inside .& (speed_classes[class_index] .<= speeds .<
-                                                   speed_classes[class_index + 1])) /
-                            length(angles)
-                    sector!(axis, side * deg2rad(edges[i] + 7.5), deg2rad(14), radius,
-                        radius + share; color=colours[class_index])
-                    radius += share
-                end
-            end
-        end
-        text!(axis, [0.0, 0.0, -18.5, 18.5], [16.5, -16.5, -17.5, -17.5];
-            text=["head wind", "astern", "out", "home"], fontsize=8.5,
-            align=[(:center, :bottom), (:center, :top), (:left, :center),
-                (:right, :center)], color=:gray30)
-    end
-    Legend(figure[4, 1:2], [PolyElement(color=colour) for colour in colours], class_labels,
-        "wind at 10 m, rings at $(join(rings, ", ", " and ")) % of sailing time";
-        framevisible=false, labelsize=9, titlesize=9,
-        orientation=:horizontal, nbanks=2, patchsize=(8, 8), tellwidth=false)
-    save(joinpath(figures, "wind_climate.pdf"), figure; pt_per_unit=print_scale)
 end
 
 """
@@ -916,7 +821,7 @@ for three ship lengths and each drive.
 """
 function route_comparison_figure()
     routes_table = read_table(data_file("routes.csv"))
-    figure = Figure(size=(page_width, 440))
+    figure = Figure(size=(page_width, 300))
     names = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
     kinds = ["kite", "wings", "rotors"]
     for (row, (drive, drive_label)) in enumerate(drive_labels),
@@ -956,8 +861,8 @@ end
 """
     premium_figure()
 
-Share of the cost premium of an e-methanol and a hydrogen ship over a VLSFO ship without
-a rig that the best size of each rig closes, over ship length on the route to Guadeloupe.
+Share of the cost premium of an e-ammonia ship over a VLSFO ship without a rig that the
+best size of each rig closes, over ship length on the route to Guadeloupe.
 """
 function premium_figure()
     designs = read_table(data_file("designs.csv"))
@@ -966,15 +871,14 @@ function premium_figure()
         ylabel="fuel premium closed [%]")
     hlines!(axis, [0, 100]; color=:gray70, linewidth=0.5)
     lengths = sort(unique(designs["length"]))
-    for (drive, linestyle) in (("methanol", :solid), ("hydrogen", :dash)),
-        (k, (label, column_name)) in enumerate(rig_area_columns)
-
-        shares = [premium_closed(designs, drive, length, column_name) for length in lengths]
+    for (k, (label, column_name)) in enumerate(rig_area_columns)
+        shares = [premium_closed(designs, "ammonia", length, column_name)
+                  for length in lengths]
         valid = isfinite.(shares)
-        scatterlines!(axis, lengths[valid], shares[valid]; color=palette[k], linestyle,
-            label="$label, $(Dict(drive_labels)[drive])", markersize=6)
+        scatterlines!(axis, lengths[valid], shares[valid]; color=palette[k], label,
+            markersize=6)
     end
-    Legend(figure[2, 1], axis; orientation=:horizontal, nbanks=3, framevisible=false,
+    Legend(figure[2, 1], axis; orientation=:horizontal, framevisible=false,
         labelsize=9)
     save(joinpath(figures, "premium.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -1011,7 +915,7 @@ end
     breakdown_figure()
 
 Cost per tonne-km split into its parts for an 85 m and a 200 m ship on VLSFO without a
-rig, and on e-methanol and hydrogen without a rig and with the cheapest size of each rig.
+rig, and on e-ammonia without a rig and with the cheapest size of each rig.
 """
 function breakdown_figure()
     designs = read_table(data_file("designs.csv"))
@@ -1022,11 +926,9 @@ function breakdown_figure()
     labels = String[]
     values = Matrix{Float64}(undef, 0, length(parts))
     cases = Tuple{String, String, Union{Nothing, String}}[("VLSFO", "vlsfo", nothing)]
-    for (label, drive) in (("e-meth.", "methanol"), ("hydrogen", "hydrogen"))
-        push!(cases, (label, drive, nothing))
-        for (rig, column) in rig_area_columns
-            push!(cases, ("$label + $rig", drive, column))
-        end
+    push!(cases, ("e-ammonia", "ammonia", nothing))
+    for (rig, column) in rig_area_columns
+        push!(cases, ("e-ammonia + $rig", "ammonia", column))
     end
     for length in (85.0, 200.0)
         for (label, drive, column) in cases
@@ -1054,24 +956,25 @@ end
     capital_figure()
 
 Capital of an 85 m and a 170 m ship split into the hull with its basic drive, the extra
-cost of a diesel-electric e-methanol drive, and the rig.
+cost of a dual-fuel e-ammonia engine, and the rig; the fuel tank, sized by the route, is
+left out.
 """
 function capital_figure()
-    cases = [("VLSFO", :vlsfo, (;)), ("e-methanol", :methanol, (;)),
-        ("+ kite 1600 m²", :methanol, (kite_area=1600.0,)),
-        ("+ wings 800 m²", :methanol, (wing_area=800.0,)),
-        ("+ rotors 400 m²", :methanol, (rotor_area=400.0,))]
+    cases = [("VLSFO", :vlsfo, (;)), ("e-ammonia", :ammonia, (;)),
+        ("+ kite 1600 m²", :ammonia, (kite_area=1600.0,)),
+        ("+ wings 800 m²", :ammonia, (wing_area=800.0,)),
+        ("+ rotors 400 m²", :ammonia, (rotor_area=400.0,))]
     labels = String[]
     values = Matrix{Float64}(undef, 0, 3)
     for length in (85.0, 170.0)
         basic = WindShipOpt.ShipCosts(Ship(ShipDesign(:vlsfo, length), assumptions),
             assumptions).capital
-        electric = WindShipOpt.ShipCosts(Ship(ShipDesign(:methanol, length), assumptions),
+        dual_fuel = WindShipOpt.ShipCosts(Ship(ShipDesign(:ammonia, length), assumptions),
             assumptions).capital
         for (label, drive, rig) in cases
             capital = WindShipOpt.ShipCosts(Ship(ShipDesign(drive, length; rig...),
                 assumptions), assumptions).capital
-            premium = drive == :vlsfo ? 0.0 : electric - basic
+            premium = drive == :vlsfo ? 0.0 : dual_fuel - basic
             push!(labels, "$label, $(round(Int, length)) m")
             values = vcat(values, [basic premium capital - basic - premium] ./ 1e6)
         end
@@ -1082,7 +985,7 @@ function capital_figure()
     positions = repeat(eachindex(labels), outer=3)
     stack = repeat(1:3, inner=length(labels))
     barplot!(axis, positions, vec(values); stack, direction=:x, color=palette[stack])
-    names = ["hull and basic drive", "e-methanol drive", "rig"]
+    names = ["hull and basic drive", "e-ammonia engine", "rig"]
     axislegend(axis, [PolyElement(color=palette[i]) for i in 1:3], names;
         position=:rt, framevisible=false, labelsize=9, patchsize=(7, 7))
     save(joinpath(figures, "capital.pdf"), figure; pt_per_unit=print_scale)
@@ -1168,23 +1071,23 @@ rig_entries() = [[LineElement(color=palette[1], linewidth=1.3),
 
 """
 Panels of the situation figure as (title, x label, inputs with their drive, scale of the
-x axis, factor from value to axis, x ticks); the fuel panel joins VLSFO and e-methanol
+x axis, factor from value to axis, x ticks); the fuel panel joins VLSFO and e-ammonia
 prices.
 """
 situation_panels = [
     ("fuel price", "fuel price [USD/GJ]",
-        [(:vlsfo_price, :vlsfo), (:e_methanol_price, :methanol)], log10, 1.0,
+        [(:vlsfo_price, :vlsfo), (:e_ammonia_price, :ammonia)], log10, 1.0,
         [8, 15, 30, 60, 120]),
-    ("cargo value", "cargo value [1000 USD/t]", [(:cargo_value, :methanol)], log10, 1e-3,
+    ("cargo value", "cargo value [1000 USD/t]", [(:cargo_value, :ammonia)], log10, 1e-3,
         ([1, 2.5, 5, 10, 20], ["1", "2.5", "5", "10", "20"])),
-    ("discount rate", "discount rate [%]", [(:discount_rate, :methanol)], identity, 100.0,
+    ("discount rate", "discount rate [%]", [(:discount_rate, :ammonia)], identity, 100.0,
         Makie.automatic),
-    ("wing life", "wing life [years]", [(:wing_lifetime, :methanol)], identity, 1.0,
+    ("wing life", "wing life [years]", [(:wing_lifetime, :ammonia)], identity, 1.0,
         Makie.automatic),
-    ("wing price", "wing price [× base]", [(:wing_price, :methanol)], identity, 1.0,
+    ("wing price", "wing price [× base]", [(:wing_price, :ammonia)], identity, 1.0,
         Makie.automatic),
     ("rotor speed", "highest surface speed [m/s]",
-        [(:rotor_max_surface_speed, :methanol)], identity, 1.0, Makie.automatic)]
+        [(:rotor_max_surface_speed, :ammonia)], identity, 1.0, Makie.automatic)]
 
 "ship, route and line style of each ship of the situation figure"
 situation_ships = [("140 m", :caribbean, :solid), ("Kamsarmax bulk carrier", :tubarao,
@@ -1206,9 +1109,9 @@ end
 """
     situations_figure()
 
-Cost saving of the best size of each rig on the 140 m e-methanol ship to Guadeloupe
+Cost saving of the best size of each rig on the 140 m e-ammonia ship to Guadeloupe
 (solid) and a Kamsarmax to Tubarão (dashed) with one input changed at a time, the fuel
-price on VLSFO below 30 USD/GJ and on e-methanol above; the dashed grey lines show the
+price on VLSFO below 30 USD/GJ and on e-ammonia above; the dashed grey lines show the
 base inputs. Prints where the lead changes.
 """
 function situations_figure()
@@ -1248,6 +1151,42 @@ function situations_figure()
         ["best size of each rig", "ship", ""]; framevisible=false,
         labelsize=9, titlesize=9, rowgap=2, patchsize=(14, 8), tellheight=false)
     save(joinpath(figures, "situations.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"e-fuels of the fuel figure as (price input, drive, label, line style)"
+fuel_lines = [(:e_ammonia_price, :ammonia, "e-ammonia", :solid),
+    (:e_methanol_price, :methanol, "e-methanol", (:dash, :loose))]
+
+"""
+    fuel_figure()
+
+Cost saving of the best size of each rig over the fuel price on each ship of the situation
+study, on e-ammonia and on e-methanol, each at the prices of the situation study. Prints
+where the lead changes.
+"""
+function fuel_figure()
+    table = read_table(data_file("situations.csv"))
+    figure = Figure(size=(page_width, 230))
+    for (k, (ship, route, _)) in enumerate(situation_ships)
+        axis = Axis(figure[1, k]; title="($('a' + k - 1)) $ship", xscale=log10,
+            xticks=[30, 45, 60, 90, 120], xlabel="fuel price [USD/GJ]",
+            ylabel=k == 1 ? "cost saving [%]" : "")
+        for (input, drive, label, linestyle) in fuel_lines
+            values, savings = situation_savings(table, ship, route, drive, input)
+            print_leaders("$ship, $label", input, log10.(values), savings, exp10)
+            for rig in 1:3
+                lines!(axis, values, savings[rig, :]; color=palette[rig], linestyle,
+                    linewidth=1.3)
+            end
+        end
+    end
+    Legend(figure[1, 3], [rig_entries(),
+            [LineElement(color=:black, linestyle=style, linewidth=1.1)
+             for (_, _, _, style) in fuel_lines]],
+        [["kite", "wings", "rotors"], [label for (_, _, label, _) in fuel_lines]],
+        ["best size of each rig", "fuel"]; framevisible=false, labelsize=9,
+        titlesize=9, patchsize=(14, 8))
+    save(joinpath(figures, "fuels.pdf"), figure; pt_per_unit=print_scale)
 end
 
 """
@@ -1346,7 +1285,7 @@ band_alphas = (1.0, 0.55, 0.22)
     wind_angle_figure()
 
 Where the wind comes from and where each rig pulls, from the routed round trips of the
-140 m e-methanol ship on every route: (a) share of time at sea of the ship without a rig
+140 m e-ammonia ship on every route: (a) share of time at sea of the ship without a rig
 in each true-wind-angle band, outbound and homeward; (b) mean thrust of the reference
 size of each rig in each band over all routes; (c) share of each rig's propulsive work
 from each band per route; (d) mean thrust over the rig's cost per day at sea.
@@ -1460,91 +1399,63 @@ function abatement_figure()
 end
 
 """
+    uniform_swing(table, rig, input)
+
+Cost savings [%] of `rig` on the 140 m ship in the uniform study `table` with `input` a
+step down and up.
+"""
+uniform_swing(table, rig, input) = (screened_saving(table, "140 m", rig, input, "down"),
+    screened_saving(table, "140 m", rig, input, "up"))
+
+"largest change [points] of any rig's saving between `input` a step down and up"
+uniform_reach(table, input) = maximum(rig -> abs(-(uniform_swing(table, rig, input)...)),
+    rig_names)
+
+"""
     sensitivity_figure()
 
-Cost saving of each rig on the 140 m e-methanol reference ship at the low and high bound
-of the twelve inputs that move it most, as a tornado around the base saving.
+Cost saving of each rig on the 140 m e-ammonia reference ship with each of the twelve
+inputs that move any rig most a [`uniform_step`](@ref) down and up, as tornados around
+the base saving, one panel per rig on a shared axis and in the same order.
 """
 function sensitivity_figure()
-    table = read_table(data_file("sensitivity.csv"))
-    figure = Figure(size=(page_width, 320))
+    table = read_table(data_file("uniform.csv"))
+    inputs = filter(!=("none"), unique(table["input"]))
+    filter!(input -> all(rig -> all(isfinite, uniform_swing(table, rig, input)),
+            rig_names), inputs)
+    shown = last(sort(inputs; by=input -> uniform_reach(table, input)), 12)
+    step = round(Int, 100 * uniform_step)
+    figure = Figure(size=(page_width, 280))
+    axes = Axis[]
     for (column, rig) in enumerate(rig_names)
         base = screened_saving(table, "140 m", rig, "none", "value")
-        swings = [(input, screened_saving(table, "140 m", rig, input, "low"),
-                      screened_saving(table, "140 m", rig, input, "high"))
-                  for input in filter(!=("none"), unique(table["input"]))]
-        filter!(swing -> all(isfinite, swing[2:3]), swings)
-        sort!(swings; by=swing -> abs(swing[3] - swing[2]))
-        swings = last(swings, 12)
         axis = Axis(figure[1, column]; title="($('a' + column - 1)) $rig",
-            yticks=(eachindex(swings), [replace(first(swing), "_" => " ")
-                                        for swing in swings]),
+            yticks=(eachindex(shown), replace.(shown, "_" => " ")),
+            yticksvisible=column == 1, yticklabelsvisible=column == 1,
             xlabel="cost saving [%]", xticks=WilkinsonTicks(3), yticklabelsize=8)
-        vlines!(axis, base; color=:gray50, linewidth=0.8)
-        for (k, (_, low, high)) in enumerate(swings)
-            barplot!(axis, [k], [low - base]; offset=base, direction=:x, color=palette[1],
-                width=0.6)
-            barplot!(axis, [k], [high - base]; offset=base, direction=:x, color=palette[2],
-                width=0.6)
-        end
-    end
-    Legend(figure[2, 1:3], [PolyElement(color=palette[1]), PolyElement(color=palette[2])],
-        ["input at low bound", "input at high bound"]; orientation=:horizontal,
-        framevisible=false, labelsize=9)
-    save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
-end
-
-"""
-    component_figure()
-
-Change in the cost saving of each rig on a 140 m e-methanol ship when the price of one
-of its components is 50 % lower or higher, or one of its lifetimes doubled or halved,
-one panel per rig; components moving it by less than 0.05 points are left out.
-"""
-function component_figure()
-    table = read_table(data_file("components.csv"))
-    bare = only(table["cost"][rows(table, "rig" => "none")])
-    figure = Figure(size=(column_width, 430))
-    axes = Axis[]
-    for (row, rig) in enumerate(rig_names)
-        base_cost = only(table["cost"][rows(table, "rig" => rig, "input" => "none")])
-        base = percent_saving(base_cost, bare)
-        inputs = filter(!=("none"), unique(table["input"][rows(table, "rig" => rig)]))
-        effects = Tuple{String, Float64, Float64}[]
-        for input in inputs
-            chosen = rows(table, "rig" => rig, "input" => input)
-            better = percent_saving(minimum(table["cost"][chosen]), bare) - base
-            worse = percent_saving(maximum(table["cost"][chosen]), bare) - base
-            max(abs(better), abs(worse)) >= 0.05 &&
-                push!(effects, (input, better, worse))
-        end
-        sort!(effects; by=effect -> effect[2])
-        labels = [replace(first(effect), "_" => " ") for effect in effects]
-        title = "($('a' + row - 1)) $rig, base saving $(round(base; digits=1)) %"
-        axis = Axis(figure[row, 1]; title, yticks=(eachindex(effects), labels),
-            xlabel=row == length(rig_names) ? "change in cost saving [points]" : "",
-            yticklabelsize=8)
         push!(axes, axis)
-        rowsize!(figure.layout, row, Auto(length(effects)))
-        vlines!(axis, 0; color=:gray50, linewidth=0.8)
-        barplot!(axis, eachindex(effects), getindex.(effects, 2); direction=:x,
-            color=palette[3], width=0.6)
-        barplot!(axis, eachindex(effects), getindex.(effects, 3); direction=:x,
-            color=palette[6], width=0.6)
+        vlines!(axis, base; color=:gray50, linewidth=0.8)
+        for (k, input) in enumerate(shown)
+            down, up = uniform_swing(table, rig, input)
+            barplot!(axis, [k], [down - base]; offset=base, direction=:x,
+                color=palette[1], width=0.6)
+            barplot!(axis, [k], [up - base]; offset=base, direction=:x,
+                color=palette[2], width=0.6)
+        end
     end
     linkxaxes!(axes...)
-    Legend(figure[length(rig_names) + 1, 1],
-        [PolyElement(color=palette[3]), PolyElement(color=palette[6])],
-        ["50 % cheaper or twice the life", "50 % dearer or half the life"];
-        orientation=:horizontal, nbanks=2, framevisible=false, labelsize=9,
-        patchsize=(10, 8))
-    save(joinpath(figures, "components.pdf"), figure; pt_per_unit=print_scale)
+    Legend(figure[1, 3], [PolyElement(color=palette[1]), PolyElement(color=palette[2])],
+        ["$step % lower", "$step % higher"]; tellwidth=false,
+        tellheight=false, halign=:left, valign=:bottom, margin=(4, 4, 4, 4),
+        padding=(4, 4, 2, 2), patchsize=(8, 8), rowgap=0, backgroundcolor=:white,
+        labelsize=8)
+    save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
 end
 
 """
     forecast_figure()
 
-Cost saving of each rig on a 140 m e-methanol ship routed with perfect foresight and
+Cost saving of each rig on a 140 m e-ammonia ship routed with perfect foresight and
 with daily re-planning on forecasts of 7 and 3 days. A case with no feasible round trip,
 its ship's or the bare ship's, is marked "none" in place of its bar.
 """
@@ -1596,7 +1507,7 @@ Prints the means and the share of the summed single-rig savings the combination 
 """
 function combination_figure()
     table = read_table(data_file("combination.csv"))
-    groups = vec([(ship, drive) for drive in ("vlsfo", "methanol"),
+    groups = vec([(ship, drive) for drive in ("vlsfo", "ammonia"),
                   ship in combination_ships])
     labels = ["$(replace(ship, " bulk carrier" => ""))\n$(Dict(drive_labels)[drive])"
               for (ship, drive) in groups]
@@ -1842,7 +1753,7 @@ routes. Prints the means and the rigid fleets each scenario prefers.
 """
 function rigid_kite_figure()
     table = read_table(data_file("rigid_kite.csv"))
-    groups = vec([(ship, drive) for drive in ("vlsfo", "methanol"),
+    groups = vec([(ship, drive) for drive in ("vlsfo", "ammonia"),
                   ship in combination_ships])
     figure = Figure(size=(page_width, 240))
     axis = Axis(figure[1, 1]; ylabel="cost saving [%]",
