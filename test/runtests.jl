@@ -1184,7 +1184,7 @@ end
 
 @testset "router settings return to those in force after a call under others" begin
     earlier = WindShipOpt.ROUTER_SETTINGS[]
-    other = WindShipOpt.RouterSettings(time_step=3.0)
+    other = WindShipOpt.RouterSettings(time_step=1.5)
     in_force = WindShipOpt.with_router_settings(() -> WindShipOpt.ROUTER_SETTINGS[], other)
     @test in_force == other
     @test WindShipOpt.ROUTER_SETTINGS[] == earlier
