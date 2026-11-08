@@ -1732,14 +1732,14 @@ of the scaling study. Prints the scaling table.
 """
 function rigid_scaling_figure()
     table = read_table(data_file("rigid_scaling.csv"))
-    figure = Figure(size=(page_width, 300); figure_padding=(10, 6, 4, 4))
+    figure = Figure(size=(page_width, 360); figure_padding=(10, 6, 4, 4))
     thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
-        xlabel="apparent wind [m/s]", ylabel="thrust [kN]", limits=(nothing, (0, 1900)))
+        xlabel="apparent wind [m/s]", ylabel="thrust [kN]", limits=(nothing, (0, 2600)))
     price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
         xticks=[30, 300, 3000], xlabel="kite area [m²]",
         ylabel="price per thrust [USD/kN]",
         ytickformat=values -> [@sprintf("%.0f", value) for value in values],
-        limits=(nothing, (0, 9e4)))
+        limits=(nothing, (0, 1.1e5)))
     annual_axis = Axis(figure[2, 1]; title="(c) cost a year at 12 m/s", xscale=log10,
         xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="USD/kN a year")
     wind_axis = Axis(figure[2, 2]; title="(d) lowest wind", xscale=log10,
@@ -1780,7 +1780,7 @@ function rigid_scaling_figure()
                 table["lowest_wind"][row], 1e-3table["thrust"][row], 1e-6prices[i])
         end
     end
-    axislegend(thrust_axis; position=:lt)
+    axislegend(thrust_axis; position=:lt, nbanks=2)
     axislegend(price_axis; position=:lt)
     linkxaxes!(price_axis, annual_axis, wind_axis)
     save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
@@ -2111,7 +2111,7 @@ function rigid_mass_figure()
     for (value, linestyle) in ((exponent.low, :dot), (exponent.value, :solid),
         (exponent.high, :dash))
         inputs = with_value(assumptions, :rigid_mass_exponent, value)
-        masses = [last(rigid_kite_model(area, 1, inputs)).mass for area in areas]
+        masses = [last(WindShipOpt.rigid_kite_model(area, 1, inputs)).mass for area in areas]
         lines!(axis, areas, masses; color=:black, linestyle, linewidth=0.8,
             label=L"\kappa = %$(value)")
     end
@@ -2123,6 +2123,6 @@ function rigid_mass_figure()
         scatter!(axis, published["area"][chosen], (published["mass_low"][chosen] .+
             published["mass_high"][chosen]) ./ 2; color, markersize=6, label)
     end
-    Legend(figure[1, 2], axis)
+    axislegend(axis; position=:rb)
     save(joinpath(figures, "rigid_mass.pdf"), figure; pt_per_unit=print_scale)
 end
