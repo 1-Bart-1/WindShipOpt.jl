@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Accuracy gate of the weather router: routes 24 cases at corridor scales 2 and 4 and
 # compares the saving of each rig against the same ship without a rig with a reference.
 #

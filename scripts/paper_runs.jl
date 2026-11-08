@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Runs of the paper: each data-making call of `paper` keeps its data files, the round
 # trips it has finished and its record run.toml in output/runs/<start time>/, so that a
 # run cut short resumes where it stopped. Included by paper.jl.
@@ -31,6 +34,22 @@ function mark_fidelity(path, fidelity, steps, figures)
             "the departures of the final run.}\n")
     end
 end
+
+"""
+    number_macro(name, text, draft)
+
+LaTeX definition of the macro `\\Num<name>` that prints `text`, marked as a draft result
+where `draft` is true.
+"""
+number_macro(name, text, draft) = string("\\newcommand{\\Num", name, "}{",
+    draft ? "\\tbd{$text}" : text, "}\n")
+
+"""
+    whole_number(x)
+
+Text of `x` rounded to a whole number, never "-0".
+"""
+whole_number(x) = string(Int(round(x)))
 
 "directory with one directory per run, named by the time the run started"
 runs_directory = normpath(joinpath(root, "output", "runs"))
