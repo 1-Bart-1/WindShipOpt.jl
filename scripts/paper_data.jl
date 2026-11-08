@@ -852,7 +852,7 @@ forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite)
 """
     forecast_plans_data()
 
-The 140 m e-methanol ship to Guadeloupe without a rig and with each rig, per departure of
+The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
 `ensemble_departures`, for each of the [`forecast_study_plans`](@ref): forecast_plans.csv;
 the share of its perfect-foresight saving each rig keeps per plan with the jackknife
 standard error over the departures: forecast_plans_kept.csv; and the launches and landings
@@ -864,7 +864,7 @@ function forecast_plans_data()
     rigs = [("none", 0.0); reference_rigs]
     cases, trips = [], []
     for departure in ensemble_departures
-        step_cases = vec([trip_case(ShipDesign(:methanol, 140.0; rig_size(rig, area)...);
+        step_cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...);
                               forecast=plan, rig, plan=string(plan), departure)
                           for (rig, area) in rigs, plan in forecast_study_plans
                               if plan !== :held_kite || rig == "kite"])
@@ -916,14 +916,14 @@ end
 """
     write_kite_rule_records(steps_name, trace_name, departures, example_departures)
 
-Write `steps_name`: per outbound and return passage of the 140 m e-methanol kite ship from
+Write `steps_name`: per outbound and return passage of the 140 m e-ammonia kite ship from
 each of `departures` on the control forecast, the steps and samples sailed, those whose
 kite state differs from a kite held to the plan, and the cost of those two kites on the
 same steps; and `trace_name`: per sample of the outbound passages from `example_departures`, under
 each rule, the kite state and the state the plan wants.
 """
 function write_kite_rule_records(steps_name, trace_name, departures, example_departures)
-    ship = Ship(ShipDesign(:methanol, 140.0; rig_size("kite", Dict(reference_rigs)["kite"])...),
+    ship = Ship(ShipDesign(:ammonia, 140.0; rig_size("kite", Dict(reference_rigs)["kite"])...),
         assumptions)
     table = RouteTable(PerformanceTable(ship, assumptions))
     hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
