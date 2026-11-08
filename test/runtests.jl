@@ -1030,14 +1030,19 @@ end
 
 @testset "a rig out of service keeps its cost and saves no fuel while down" begin
     corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
-    bare_trip = round_trip(Ship(ShipDesign(:methanol, 85.0), assumptions), corridors...,
-        SyntheticWeather(), [24.0 * 31, 24.0 * 200], assumptions)
+    finer_search = WindShipOpt.RouterSettings(time_step=1.5, search_speed_stride=2,
+        search_margins=(0.12, 0.2), kite_search_margins=(0.25, 0.5))
+    bare_trip = WindShipOpt.with_router_settings(finer_search) do
+        round_trip(Ship(ShipDesign(:methanol, 85.0), assumptions), corridors...,
+            SyntheticWeather(), [24.0 * 31, 24.0 * 200], assumptions)
+    end
     for (design, name) in ((ShipDesign(:methanol, 85.0; wing_area=400.0),
             :wing_out_of_service),
         (ShipDesign(:methanol, 85.0; rotor_area=200.0), :rotor_out_of_service),
         (ShipDesign(:methanol, 85.0; kite_area=400.0), :kite_out_of_service))
-        low, high, down = [trip_with_share(design, name, share, corridors)
-                           for share in (0.1, 0.5, 1.0)]
+        low, high, down = WindShipOpt.with_router_settings(finer_search) do
+            [trip_with_share(design, name, share, corridors) for share in (0.1, 0.5, 1.0)]
+        end
         @test low.fuel_energy < high.fuel_energy < down.fuel_energy
         @test low.cost_per_tonne_km < high.cost_per_tonne_km < down.cost_per_tonne_km
         @test down.cost_per_tonne_km > bare_trip.cost_per_tonne_km
