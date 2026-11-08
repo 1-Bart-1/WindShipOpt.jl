@@ -293,8 +293,8 @@ function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0, day
     condition = WindShipOpt.SeaCondition(table.table, 12.0, π / 2, wave_height, 8.0,
         π / 2)
     sample = WindShipOpt.EdgeSample(condition, headwind, 0.0, daylight)
-    held, flown, stowed, same_through = WindShipOpt.held_speed(table, speed_index, sample)
-    return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours, same_through)
+    held, flown, stowed = WindShipOpt.held_speed(table, speed_index, sample)
+    return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours)
 end
 
 """
@@ -1229,12 +1229,18 @@ end
     powered(i) = isfinite(last(WindShipOpt.edge_fuels(table, i, condition)))
     unpowered = findfirst(!powered, eachindex(table.speeds))
     faster_powered = findnext(powered, eachindex(table.speeds), unpowered)
-    held, flown, stowed, same_through = WindShipOpt.held_speed(table, unpowered, sample)
+    held, flown, stowed = WindShipOpt.held_speed(table, unpowered, sample)
+    point = WindShipOpt.SailedPoint(sample, held, flown, stowed, 1.0)
+    same_through = WindShipOpt.same_through(table, [point], unpowered)
     @test same_through == faster_powered - 1
     for speed_index in unpowered:same_through
-        @test WindShipOpt.held_speed(table, speed_index, sample)[1:3] ==
-              (held, flown, stowed)
+        @test WindShipOpt.held_speed(table, speed_index, sample) == (held, flown, stowed)
     end
+    calm = WindShipOpt.EdgeSample(WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 0.0, 6.0,
+        0.0), 0.0, 0.0, true)
+    calm_point = WindShipOpt.SailedPoint(calm,
+        WindShipOpt.held_speed(table, unpowered, calm)..., 1.0)
+    @test WindShipOpt.same_through(table, [point, calm_point], unpowered) == unpowered
     @test first(WindShipOpt.held_speed(table, faster_powered, sample)) == faster_powered
 end
 

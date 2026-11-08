@@ -371,36 +371,16 @@ trapezoid_weight(k, count) = (k == 1 || k == count ? 0.5 : 1.0) / (count - 1)
 Highest routing speed number up to `speed_index` of the [`RouteTable`](@ref) `table`
 that the ship can hold at the [`EdgeSample`](@ref) `sample` with the rig stowed, or with
 a kite flying where [`kite_aloft`](@ref) allows, with the fuel power [W] flown and stowed
-there; speed number 0 if it cannot hold the lowest. Last, the highest speed number
-whose command holds the same there, by [`unpowered_through`](@ref).
+there; speed number 0 if it cannot hold the lowest.
 """
 function held_speed(table::RouteTable, speed_index, sample::EdgeSample)
-    same_through = speed_index
     for i in speed_index:-1:1
         flown, stowed = edge_fuels(table, i, sample.condition)
-        i == speed_index && !isfinite(flown) && !isfinite(stowed) &&
-            (same_through = unpowered_through(table, speed_index, sample.condition))
-        isfinite(stowed) && return i, flown, stowed, same_through
+        isfinite(stowed) && return i, flown, stowed
         isfinite(flown) && kite_aloft(table.table, table.speeds[i], sample.headwind,
-            sample.crosswind, sample.condition.wave_height) &&
-            return i, flown, stowed, same_through
+            sample.crosswind, sample.condition.wave_height) && return i, flown, stowed
     end
-    return 0, Inf, Inf, same_through
-end
-
-"""
-    unpowered_through(table, speed_index, condition)
-
-Highest routing speed number of the [`RouteTable`](@ref) `table` such that the engines can
-power none from `speed_index` up to it in the [`SeaCondition`](@ref) `condition`, with the
-rig stowed or flown.
-"""
-function unpowered_through(table::RouteTable, speed_index, condition::SeaCondition)
-    for i in (speed_index + 1):length(table.speeds)
-        flown, stowed = edge_fuels(table, i, condition)
-        (isfinite(flown) || isfinite(stowed)) && return i - 1
-    end
-    return length(table.speeds)
+    return 0, Inf, Inf
 end
 
 """
@@ -414,7 +394,7 @@ struct SailedPoint
     "true wind at the kite's reference height from abeam [m/s]"
     crosswind::Float64
     "significant wave height [m]"
-    wave_height::Float64
+    condition::SeaCondition
     "whether the sun is up there"
     daylight::Bool
     "routing speed number held there; 0 where not even the lowest can be held"
@@ -426,18 +406,16 @@ struct SailedPoint
     stowed::Float64
     "hours of the edge the point stands for [h]"
     hours::Float64
-    "highest routing speed number whose command holds the same speed there"
-    same_through::Int
 end
 
 """
-    SailedPoint(sample, held, flown, stowed, hours, same_through)
+    SailedPoint(sample, held, flown, stowed, hours)
 
 [`SailedPoint`](@ref) of the [`EdgeSample`](@ref) `sample`.
 """
-SailedPoint(sample::EdgeSample, held, flown, stowed, hours, same_through) =
-    SailedPoint(sample.headwind, sample.crosswind, sample.condition.wave_height,
-        sample.daylight, held, flown, stowed, hours, same_through)
+SailedPoint(sample::EdgeSample, held, flown, stowed, hours) =
+    SailedPoint(sample.headwind, sample.crosswind, sample.condition, sample.daylight,
+        held, flown, stowed, hours)
 
 """
     SailedPoint(table, sample, speed_index, distance)
@@ -446,9 +424,9 @@ SailedPoint(sample::EdgeSample, held, flown, stowed, hours, same_through) =
 `table`, at the [`held_speed`](@ref), standing for `distance` [m] of the edge.
 """
 function SailedPoint(table::RouteTable, sample::EdgeSample, speed_index, distance)
-    held, flown, stowed, same_through = held_speed(table, speed_index, sample)
+    held, flown, stowed = held_speed(table, speed_index, sample)
     hours = held == 0 ? Inf : distance / table.speeds[held] / 3600
-    return SailedPoint(sample, held, flown, stowed, hours, same_through)
+    return SailedPoint(sample, held, flown, stowed, hours)
 end
 
 """
@@ -543,7 +521,8 @@ function kite_passage(table::RouteTable, points, aloft, prices)
     down, up = aloft ? (NO_TALLY, start) : (start, NO_TALLY)
     for point in points
         speed = table.speeds[point.speed_index]
-        (; headwind, crosswind, wave_height, daylight) = point
+        (; headwind, crosswind, daylight) = point
+        wave_height = point.condition.wave_height
         landing = kite_landable(table.table, speed, headwind, crosswind, wave_height) ? up :
                   forced_landing(up, table.table.forced_landing_cost)
         next_down = extend(cheaper(down, landing), point.stowed, point.hours, 0.0, STOWED,
@@ -603,24 +582,46 @@ end
 const UNSAILED = SailedEdge(NaN, NO_TALLY, NO_TALLY, 0)
 
 """
-    SailedEdge(table, points, hours, aloft, prices)
+    SailedEdge(table, points, hours, aloft, prices, speed_index)
 
-[`SailedEdge`](@ref) of `hours` [h] through the [`SailedPoint`](@ref)s `points` by
-[`kite_passage`](@ref), for a kite aloft before it if `aloft`.
+[`SailedEdge`](@ref) of `hours` [h] through the [`SailedPoint`](@ref)s `points` at commanded
+routing speed number `speed_index` by [`kite_passage`](@ref), for a kite aloft before it if
+`aloft`.
 """
-function SailedEdge(table::RouteTable, points, hours, aloft, prices)
+function SailedEdge(table::RouteTable, points, hours, aloft, prices, speed_index)
     isfinite(hours) || return SailedEdge(hours, NO_TALLY, NO_TALLY, 0)
     return SailedEdge(hours, kite_passage(table, points, aloft, prices)...,
-        same_through(points))
+        same_through(table, points, speed_index))
 end
 
 """
-    same_through(points)
+    unpowered(table, speed_index, condition)
+
+Whether the engines cannot power routing speed number `speed_index` of the
+[`RouteTable`](@ref) `table` in the [`SeaCondition`](@ref) `condition`, with the rig stowed
+or flown.
+"""
+function unpowered(table::RouteTable, speed_index, condition::SeaCondition)
+    flown, stowed = edge_fuels(table, speed_index, condition)
+    return !isfinite(flown) && !isfinite(stowed)
+end
+
+"""
+    same_through(table, points, speed_index)
 
 Highest routing speed number whose command sails the [`SailedPoint`](@ref)s `points` of an
-edge the same, sampled at the same points.
+edge, sailed at commanded routing speed number `speed_index`, the same at the same sample
+points: `speed_index` unless the engines power none of the speeds from it up to that one
+at any point.
 """
-same_through(points) = minimum(point -> point.same_through, points; init=typemax(Int))
+function same_through(table::RouteTable, points, speed_index)
+    any(point -> point.speed_index == speed_index, points) && return speed_index
+    for i in speed_index:length(table.speeds)
+        all(point -> unpowered(table, i, point.condition), points) ||
+            return max(i - 1, speed_index)
+    end
+    return length(table.speeds)
+end
 
 """
     nearest_lateral(corridor, stage, lat, lon)
@@ -836,7 +837,7 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices,
             best_down = min(best_down, best_arrival(to_go, table, points, false, arrival))
             kite && (best_up = min(best_up,
                 best_arrival(to_go, table, points, true, arrival)))
-            same = (; through=same_through(points), intervals)
+            same = (; through=same_through(table, points, speed_index), intervals)
         end
     end
     to_go.values[lateral, knot, 1, stage] = isfinite(best_down) ? best_down : NaN
@@ -1054,9 +1055,10 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
                     if isnan(sailed.hours)
                         hours = sail_edge!(points, start, table, weather, corridor, stage,
                             lateral, step, departure + time, speed_index, sample_hours)
-                        sailed = SailedEdge(table, points, hours, aloft == 2, prices)
+                        sailed = SailedEdge(table, points, hours, aloft == 2, prices,
+                            speed_index)
                         aloft == 1 && sharing >= 0 && (workspace.shared[index] =
-                            SailedEdge(table, points, hours, true, prices))
+                            SailedEdge(table, points, hours, true, prices, speed_index))
                     end
                     relax_sailed!(workspace, state, next, sailed, (; here, penalty,
                         speed_index), time_step, prices)
