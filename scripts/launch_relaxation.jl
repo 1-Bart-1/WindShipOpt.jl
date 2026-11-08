@@ -1,16 +1,17 @@
-# Compares the kite savings of approximations of the router's launch logic with the full
-# router's on the kite cases of the accuracy gate, per ship and route.
+# Compares the kite savings of approximations of the router's launch logic with the
+# full router's on the kite cases of the accuracy gate, per ship and route.
 #
-#   julia +1.12 --project=. -t auto scripts/launch_relaxation.jl <out_dir> [scale] [names...]
+#   julia +1.12 --project=. -t auto scripts/launch_relaxation.jl <out_dir> <scale> [names...]
 #
 # Writes <name>_<scale>.csv to <out_dir> for each of `names` (default all of
-# `LAUNCH_APPROXIMATIONS`), with the ships without a rig in bare_<scale>.csv, and prints each
-# saving, the change from the full router's where it ran, and the gap between the free and
-# settled launches. A rerun routes only the cases missing from the files.
+# `LAUNCH_APPROXIMATIONS`), with the ships without a rig in bare_<scale>.csv, and prints
+# each saving, the change from the full router's where it ran, and the gap between the
+# free and settled launches. A rerun routes only the cases missing from the files.
 include("router_gate.jl")
 
 "router settings of the full router and each approximation compared with it"
-LAUNCH_APPROXIMATIONS = (bare=WindShipOpt.RouterSettings(), full=WindShipOpt.RouterSettings(),
+LAUNCH_APPROXIMATIONS = (bare=WindShipOpt.RouterSettings(),
+    full=WindShipOpt.RouterSettings(),
     free=WindShipOpt.RouterSettings(launch_spread_hours=Inf, settle_launches=false),
     settled=WindShipOpt.RouterSettings(launch_spread_hours=Inf),
     narrow=WindShipOpt.RouterSettings(launch_spread_hours=Inf,
@@ -47,7 +48,8 @@ end
     print_savings(out_dir, scale, names)
 
 Print per ship and route the kite saving [points] under each of `names`, the routing time
-against the full router's where it ran, and the gap between `free` and `settled` where both ran.
+against the full router's where it ran, and the gap between `free` and `settled` where
+both ran.
 """
 function print_savings(out_dir, scale, names)
     file(name) = joinpath(out_dir, "$(name)_$(Int(scale)).csv")
@@ -61,7 +63,7 @@ function print_savings(out_dir, scale, names)
         timing = read_seconds(file(name))
         full_timing = :full in names ? read_seconds(file(:full)) : timing
         for key in sort!(collect(keys(here)))
-            @printf("  %-24s saving %7.3f  against the full router %+7.3f  time %.2f\n",
+            @printf("  %-24s saving %7.3f  against full %+7.3f  time %.2f\n",
                 join(key, " "), here[key], here[key] - reference[key],
                 timing[key] / full_timing[key])
         end
@@ -78,7 +80,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     out_dir, scale_text, names... = ARGS
     mkpath(out_dir)
     scale = parse(Float64, scale_text)
-    chosen = isempty(names) ? filter(!=(:bare), keys(LAUNCH_APPROXIMATIONS)) : Symbol.(names)
+    every_name = filter(!=(:bare), keys(LAUNCH_APPROXIMATIONS))
+    chosen = isempty(names) ? every_name : Symbol.(names)
     route_approximation(out_dir, :bare, scale)
     foreach(name -> route_approximation(out_dir, name, scale), chosen)
     print_savings(out_dir, scale, chosen)

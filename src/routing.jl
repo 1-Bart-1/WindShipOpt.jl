@@ -955,8 +955,8 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
 end
 
 """
-    searched_route(corridor, table, weather, departure; launch_spread, time_cost, first_stage,
-                   first_lateral, first_aloft, coastal_penalty)
+    searched_route(corridor, table, weather, departure; launch_spread, time_cost,
+                   first_stage, first_lateral, first_aloft, coastal_penalty)
 
 The [`Leg`](@ref) of the search of [`route`](@ref) before its final pass, with the
 [`search_passage`](@ref) of a `launch_spread` [h], or `nothing`.
@@ -1089,7 +1089,8 @@ states and commanded edges outside the [`PassageBand`](@ref) `to_go`, or, with a
 """
 function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable,
         weather, departure, to_go=nothing, limit=Inf; time_cost, time_step, first_stage,
-        first_lateral, first_aloft, coastal_penalty, speed_stride, launch_spread=0.0)
+        first_lateral, first_aloft, coastal_penalty, speed_stride,
+        launch_spread=0.0)
     ship_table = table.table
     (; speeds) = table
     (; cost, elapsed, points) = workspace
