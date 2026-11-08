@@ -143,8 +143,7 @@ Aframax class (236 m) for Lu & Ringsberg's 250 m tanker, the Kamsarmax class
 Panamax container (245 m) classes, so A and J need their own hull from the
 particulars above.
 
-The `checks.tex` item pending on Dadd et al. (2011) can be replaced by case F if
-Dadd stays unavailable.
+Dadd et al. (2011) could not be obtained; case F (Penloup 2021) is the kite-model check.
 
 ## 4. Kite wing-loading limit (high)
 
@@ -217,7 +216,7 @@ savings, removes an asymmetry with the kite in storms.
 
 ## 7. Interference factor vs apparent wind angle (medium)
 
-Constant κ = 0.9 (wings) and 0.85 (rotors) on thrust only.
+Done: κ(n, s) = 1 − (1 − 1/n) A exp(−s/s0) on thrust only, wings A = 0.30, s0 = 2.86 c, rotors A = 0.38, s0 = 2.72 D (assumptions.yaml; wings: A is the fixed-trim CFD fit less a third for independent sheeting and s0 our engineering estimate; rotors: fit in data/interference_notes.md). Still constant over apparent wind angle.
 
 - Rotors: Tillig OE p. 9: two rotors 3 D apart, "thrust coefficient is
   significantly reduced, up to 38% according to measurements at 30° AWA … In
@@ -237,11 +236,7 @@ Constant κ = 0.9 (wings) and 0.85 (rotors) on thrust only.
   equal to three times the thrust of one sail. However, for five sails, the
   total thrust was only 3.83 times".
 
-**Changes.** (a) Fix the `model.tex` wording "our estimate between CFD results
-that found no loss for three sails and 23 % for five": the source is EMSA citing
-"Three-dimensional computational models", the 23 % is 1 − 3.83/5 **[calc]**;
-write "3.83 times one sail's thrust for five sails (EMSA 2023, citing Mboumba
-Mboumba 2022)". (b) Optionally make κ a function of apparent wind angle, e.g.
+**Changes.** (a) Done: model.tex cites Malmek 2024 and Xu 2025 for A, van Reen 2026 for sheeting and Wang 2024 for the 10 c reference of s0, with wing A = 0.30 as the code uses; discussion.tex compares Mboumba 2022 with the 91 and 85 % this gives. (b) Optionally make κ a function of apparent wind angle, e.g.
 0.62 at 30° rising to 1.0 at ≥ 90° for rotors 3 D apart (from Tillig's two-rotor
 measurement) and 0.8 at low AWA to 0.95 at beam for wings — only for the number
 of units actually used; count = 1 ⇒ κ = 1. (c) `rig_force` applies κ to thrust
@@ -349,7 +344,7 @@ assumption for the tornado. Kramer & Steen use a Pierson–Moskowitz spectrum
 
 ## 14. Citation fixes (medium)
 
-- `model.tex` §wings: interference source (see 7a).
+- `model.tex` §wings: interference source: done (see 7a), with Wang 2024 cited for the 1.5 c spacing and the 10 c reference of s0.
 - `model.tex` §balance: the 8° heel limit is Tillig's; Kramer uses 10° (p. 15).
   Cite both.
 - `model.tex` §waves: Mittendorf does not use the name "SNNM"; it recalibrates

@@ -1,25 +1,29 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Data steps of the paper: each runs one study and writes its data files to the directory
 # of the run in use. Included by paper.jl.
 
 "drives compared where the drive is a dimension of the study"
-study_drives = (:vlsfo, :methanol, :hydrogen)
+study_drives = (:vlsfo, :ammonia)
 
 "projected aspect ratio of the kite of every design that names none"
 design_aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
 
 """
-    trip_case(design; assumptions, route, scale, horizon, held_knots, part, labels...)
+    trip_case(design; assumptions, route, scale, forecast, held_knots, part, labels...)
 
 One round trip to compute: `design` under `assumptions` on the corridors of `route` at
-corridor `scale`, with a forecast `horizon` [h], holding `held_knots` [kn] or with speed set
-by cost where `nothing`, with the model `part` switched off by [`simplified_ship`](@ref),
-tagged with `labels` for the output.
+corridor `scale`, re-planned daily on the archived forecasts where `forecast` and with
+perfect foresight otherwise, holding `held_knots` [kn] or with speed set by cost where
+`nothing`, with the model `part` switched off by [`simplified_ship`](@ref), tagged with
+`labels` for the output.
 """
 function trip_case(design; assumptions=assumptions, route=:caribbean,
-        scale=run_settings().corridor_scale, horizon=Inf, held_knots=nothing, part=:none,
+        scale=run_settings().corridor_scale, forecast=false, held_knots=nothing, part=:none,
         labels...)
     return (; labels..., design, assumptions, route, scale,
-        corridors=corridors(route, scale), horizon, held_knots, part)
+        corridors=corridors(route, scale), forecast, held_knots, part)
 end
 
 """
@@ -33,32 +37,34 @@ function case_trip(case, departures)
     isnothing(ship) && return nothing
     ship = simplified_ship(ship, case.part)
     return round_trip(ship, case.corridors..., weather, departures, case.assumptions;
-        horizon=case.horizon, held_knots=case.held_knots)
+        forecast=case.forecast ? forecast_archive : nothing, held_knots=case.held_knots)
 end
 
 """
     round_trips(cases, departures)
 
-Round trips of all `cases`, threaded, reusing those cached in the run in use; the kite
-pattern tables of the others are computed first, one kite at a time.
+Round trips of all `cases`, threaded, reusing those cached in the run in use under the same
+value of every input they read; the kite pattern tables of the others are computed first,
+one kite at a time.
 """
 function round_trips(cases, departures)
-    paths = [case_path(case, departures) for case in cases]
-    isempty(paths) || mkpath(dirname(first(paths)))
-    cached = isfile.(paths)
-    for (case, is_cached) in zip(cases, cached)
-        !is_cached && max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
+    directories = [case_directory(case, departures) for case in cases]
+    trips = Any[cached_trip(directory, case.assumptions)
+                for (case, directory) in zip(cases, directories)]
+    computed = findall(ismissing, trips)
+    for case in cases[computed]
+        max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
             Ship(case.design, case.assumptions)
     end
-    trips = Vector{Any}(nothing, length(cases))
-    Threads.@threads :greedy for k in eachindex(cases)
-        trips[k] = stored_trip(cases[k], departures, paths[k])
+    Threads.@threads :greedy for k in computed
+        trips[k] = stored_trip(() -> case_trip(cases[k], departures), directories[k],
+            cases[k].assumptions)
     end
     feasible = count(!isnothing, trips)
     paper_run.cases += length(cases)
     paper_run.trips += feasible
-    println("  ", feasible, " of ", length(cases), " round trips, ", count(cached),
-        " cached")
+    println("  ", feasible, " of ", length(cases), " round trips, ",
+        length(cases) - length(computed), " cached")
     return trips
 end
 
@@ -114,7 +120,7 @@ end
 """
     launch_data()
 
-The 140 m e-methanol ship on every route without a rig, with the reference wings and
+The 140 m e-ammonia ship on every route without a rig, with the reference wings and
 rotors, and with kites of 800, 1,600 and 3,200 m^2 at the low, base and high launch cost,
 with launches by day only and with no rig ever out of service: launch.csv.
 """
@@ -126,14 +132,14 @@ function launch_data()
     labels = (; launch_cost="value", night=true, service=true)
     for route in route_names
         for (rig, area) in (("none", 0.0), ("wings", 1500.0), ("rotors", 800.0))
-            design = ShipDesign(:methanol, 140.0; rig_size(rig, area)...)
+            design = ShipDesign(:ammonia, 140.0; rig_size(rig, area)...)
             push!(cases, trip_case(design; labels..., route, rig, area))
             rig == "none" && continue
             push!(cases, trip_case(design; labels..., assumptions=always_in_service, route,
                 rig, area, service=false))
         end
         for area in (800.0, 1600.0, 3200.0)
-            design = ShipDesign(:methanol, 140.0; rig_size("kite", area)...)
+            design = ShipDesign(:ammonia, 140.0; rig_size("kite", area)...)
             kite = (; labels..., route, rig="kite", area)
             for launch_cost in (:low, :value, :high)
                 push!(cases, trip_case(design; kite...,
@@ -299,11 +305,12 @@ base_value(input) = haskey(scaled_inputs, input) ? 1.0 : assumptions[input]
 
 """
 Values besides the base of each input of the situation study, and the rigs whose cost
-it changes. Prices are in USD/GJ, cargo value in USD/t, lifetimes in years, the rotor
+it changes. Fuel prices are in USD/GJ, cargo value in USD/t, lifetimes in years, the rotor
 surface speed in m/s; the wing price is a factor.
 """
 situation_inputs = Dict(:vlsfo_price => ((8.0, 12.0, 22.0, 30.0), all_rigs),
-    :e_methanol_price => ((30.0, 40.0, 90.0, 120.0), all_rigs),
+    :e_ammonia_price => ((30.0, 40.0, 60.0, 82.0, 120.0), all_rigs),
+    :e_methanol_price => ((40.0, 90.0, 120.0), all_rigs),
     :cargo_value => ((1000.0, 5000.0, 10000.0, 20000.0), all_rigs),
     :discount_rate => ((0.04, 0.06, 0.1, 0.12, 0.16), all_rigs),
     :wing_lifetime => ((10.0, 15.0, 25.0, 30.0), ("wings",)),
@@ -319,13 +326,17 @@ situation_sizes = Dict(
 
 """
 Ship, route, drive and inputs of each part of the situation study: every input on the
-140 m reference ship to Guadeloupe and all but the cargo value on a Kamsarmax to Tubarão.
+140 m reference ship to Guadeloupe and all but the cargo value on a Kamsarmax to Tubarão,
+and on both the price of each fuel on its own drive, e-methanol included as the other
+e-fuel.
 """
 situation_studies = [("140 m", :caribbean, :vlsfo, [:vlsfo_price]),
-    ("140 m", :caribbean, :methanol, [:e_methanol_price, :cargo_value, :discount_rate,
+    ("140 m", :caribbean, :ammonia, [:e_ammonia_price, :cargo_value, :discount_rate,
         :wing_lifetime, :wing_price, :rotor_max_surface_speed]),
+    ("140 m", :caribbean, :methanol, [:e_methanol_price]),
     ("Kamsarmax bulk carrier", :tubarao, :vlsfo, [:vlsfo_price]),
-    ("Kamsarmax bulk carrier", :tubarao, :methanol, [:e_methanol_price, :discount_rate,
+    ("Kamsarmax bulk carrier", :tubarao, :methanol, [:e_methanol_price]),
+    ("Kamsarmax bulk carrier", :tubarao, :ammonia, [:e_ammonia_price, :discount_rate,
         :wing_lifetime, :wing_price, :rotor_max_surface_speed])]
 
 """
@@ -423,13 +434,13 @@ end
 """
     angle_sums(name, rig, area)
 
-Routed round trips over the sampled departures of a 140 m e-methanol ship with `area`
+Routed round trips over the sampled departures of a 140 m e-ammonia ship with `area`
 [m^2] of `rig` on route `name`, as hours, thrust-hours [kN h] and rig work [GJ] per
 direction and true-wind-angle band, and the rig cost per hour at sea [USD/h].
 """
 function angle_sums(name, rig, area)
-    ship = Ship(ShipDesign(:methanol, 140.0; rig_size(rig, area)...), assumptions)
-    bare = Ship(ShipDesign(:methanol, 140.0), assumptions)
+    ship = Ship(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...), assumptions)
+    bare = Ship(ShipDesign(:ammonia, 140.0), assumptions)
     table = PerformanceTable(ship, assumptions)
     out_hourly, back_hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions)
@@ -452,7 +463,7 @@ end
 """
     wind_angle_data()
 
-The 140 m e-methanol ship without a rig and with the reference size of each rig, routed
+The 140 m e-ammonia ship without a rig and with the reference size of each rig, routed
 out and home on every route: hours at sea, thrust-hours [kN h] and rig work [GJ] per
 true-wind-angle band summed over the sampled departures, and the rig cost per hour at
 sea [USD/h]: wind_angle.csv.
@@ -460,7 +471,7 @@ sea [USD/h]: wind_angle.csv.
 function wind_angle_data()
     cases = vec([(name, rig, area) for name in route_names,
                  (rig, area) in [("none", 0.0); reference_rigs]])
-    Ship(ShipDesign(:methanol, 140.0; kite_area=Dict(reference_rigs)["kite"]), assumptions)
+    Ship(ShipDesign(:ammonia, 140.0; kite_area=Dict(reference_rigs)["kite"]), assumptions)
     results = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         results[k] = angle_sums(cases[k]...)
@@ -611,7 +622,7 @@ function designs_data()
         push!(cases, trip_case(ShipDesign(:vlsfo, length; kite_area=area);
             assumptions=taxed, scenario="carbon"))
     end
-    for length in (140.0, 200.0), drive in (:vlsfo, :methanol), area in (800.0, 3200.0)
+    for length in (140.0, 200.0), drive in (:vlsfo, :ammonia), area in (800.0, 3200.0)
         push!(cases, trip_case(ShipDesign(drive, length; kite_area=area);
             assumptions=rigid, scenario="rigid"))
         push!(cases, trip_case(ShipDesign(drive, length; kite_area=area);
@@ -650,7 +661,7 @@ end
     routes_data()
 
 Ships of three lengths and the [`study_drives`](@ref) without a rig and with two sizes of
-each rig on every route: routes.csv.
+each rig on every route: routes.csv, and each departure of them: route_departures.csv.
 """
 function routes_data()
     rigs = [("none", 0.0), ("kite", 800.0), ("kite", 3200.0), ("wings", 800.0),
@@ -659,8 +670,34 @@ function routes_data()
                      drive, length, rig, area)
                  for length in (85.0, 140.0, 200.0), drive in study_drives,
                      (rig, area) in rigs, name in route_names])
-    write_trips("routes.csv", cases, round_trips(cases, sampled_departures()), :route,
-        :drive, :length, :rig, :area)
+    trips = round_trips(cases, sampled_departures())
+    labels = (:route, :drive, :length, :rig, :area)
+    write_trips("routes.csv", cases, trips, labels...)
+    write_departures("route_departures.csv", cases, trips, labels...)
+end
+
+"""
+    write_departures(name, cases, trips, columns...)
+
+Write `name` to the directory of the run in use with the given label `columns` of each
+case and the date, cost [USD/tkm], fuel [MJ/tkm] and kite flight share of each departure of
+each feasible trip, with the ship and cargo of the whole trip.
+"""
+function write_departures(name, cases, trips, columns...)
+    open(run_file(name), "w") do io
+        println(io, join([collect(string.(columns)); ["date", "cost", "fuel",
+            "flight_share"]], ","))
+        for (case, trip) in zip(cases, trips)
+            isnothing(trip) && continue
+            labels = join([csv_value(getproperty(case, column)) for column in columns], ",")
+            for outcome in trip.departures
+                date = Date(weather_origin + Hour(round(Int, outcome.departure)))
+                @printf(io, "%s,%s,%.6f,%.5f,%.3f\n", labels, date,
+                    outcome.cost_per_tonne_km, outcome.fuel_per_tonne_km,
+                    outcome.flight_share)
+            end
+        end
+    end
 end
 
 """
@@ -784,40 +821,118 @@ end
 """
     forecast_data()
 
-A 140 m e-methanol ship to Guadeloupe without a rig and with each rig, routed with
-perfect foresight and with daily re-planning on forecasts of 7 and 3 days: forecast.csv.
+A 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, routed with
+perfect foresight and re-planned daily on the archived forecasts: forecast.csv; and the
+error of those forecasts along its route: forecast_error.csv.
 """
 function forecast_data()
-    cases = vec([trip_case(ShipDesign(:methanol, 140.0; rig_size(rig, area)...); horizon,
-                     rig, horizon_days=isfinite(horizon) ? horizon / 24 : 0.0)
+    cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); forecast,
+                     rig, knowledge=forecast ? "forecast" : "perfect")
                  for (rig, area) in [("none", 0.0); reference_rigs],
-                     horizon in (Inf, 24.0 * 7, 24.0 * 3)])
+                     forecast in (false, true)])
     write_trips("forecast.csv", cases, round_trips(cases, sampled_departures()), :rig,
-        :horizon_days)
+        :knowledge)
+    write_forecast_error("forecast_error.csv", run_corridors(:caribbean)...)
+end
+
+"""
+    write_forecast_error(name, corridors...)
+
+Write `name` to the directory of the run in use: per lead day, the root mean square error
+against ERA5 of the vector wind [m/s] and the wave height [m] of the archived forecasts
+and of the same date in another year, over the nodes of `corridors` and every forecast
+in the archive.
+"""
+function write_forecast_error(name, corridors...)
+    points = unique(vcat([vec(collect(zip(corridor.lat, corridor.lon)))
+                          for corridor in corridors]...))
+    leads = 6.0:6.0:384.0
+    totals, samples = zeros(length(leads), 4), zeros(Int, length(leads))
+    for issue in 1:WindShipOpt.issue_count(forecast_archive.wind)
+        issued = WindShipOpt.issue_time(forecast_archive, issue)
+        known = ArchivedForecast(forecast_archive, weather,
+            issued + WindShipOpt.FORECAST_LATENCY)
+        known.issue == issue || continue
+        other_year = ForecastWeather(weather, issued, 0.0)
+        for (row, lead) in enumerate(leads)
+            issued + lead <= WindShipOpt.duration(weather) || continue
+            totals[row, :] .+= forecast_errors(known, other_year, points, issued + lead)
+            samples[row] += length(points)
+        end
+    end
+    open(run_file(name), "w") do io
+        println(io, "lead_days,wind_forecast,wind_other_year,height_forecast,",
+            "height_other_year")
+        for (row, lead) in enumerate(leads)
+            rms = sqrt.(totals[row, :] ./ samples[row])
+            @printf(io, "%.2f,%.3f,%.3f,%.3f,%.3f\n", lead / 24, rms...)
+        end
+    end
+end
+
+"""
+    forecast_errors(known, other_year, points, time)
+
+Sums over `points` of the squared error against the weather at `time` of the vector wind
+and the wave height of the forecast `known` and of the weather `other_year`.
+"""
+function forecast_errors(known, other_year, points, time)
+    sums = zeros(4)
+    for (lat, lon) in points
+        truth_wind, truth_height = wind(weather, lat, lon, time),
+        first(waves(weather, lat, lon, time))
+        for (column, guess) in ((1, known), (2, other_year))
+            sums[column] += sum(abs2, wind(guess, lat, lon, time) .- truth_wind)
+            sums[column + 2] += (first(waves(guess, lat, lon, time)) - truth_height)^2
+        end
+    end
+    return sums
 end
 
 """
     bound_assumptions(name, bound)
 
-The assumptions with input `name` at its `bound` (:low or :high), or unchanged for
-`:none`.
+The assumptions with input `name` at its `bound` (:low or :high).
 """
 function bound_assumptions(name, bound)
-    name == :none && return assumptions
     entry = assumptions.entries[name]
     return with_value(assumptions, name, bound == :low ? entry.low : entry.high)
 end
 
+"relative step of every input in the uniform sensitivity study [-]"
+uniform_step = 0.2
+
+"""
+    stepped_value(value, direction)
+
+`value` moved by [`uniform_step`](@ref) of itself, down for `direction` -1 and up for +1;
+a fraction the step up would carry past one moves its shortfall from one instead.
+"""
+function stepped_value(value, direction)
+    0 < value <= 1 < value * (1 + uniform_step) &&
+        return 1 - (1 - value) * (1 - direction * uniform_step)
+    return value * (1 + direction * uniform_step)
+end
+
+"""
+    stepped_assumptions(name, bound)
+
+The assumptions with input `name` a [`uniform_step`](@ref) down (`bound` :down) or up
+(:up) by [`stepped_value`](@ref).
+"""
+stepped_assumptions(name, bound) = with_value(assumptions, name,
+    stepped_value(assumptions[name], bound == :down ? -1 : 1))
+
 "class ships of the input screening, each with its drive and route"
 screened_classes = (("Kamsarmax bulk carrier", :vlsfo, :tubarao),
-    ("Neo-Panamax container ship", :methanol, :new_york))
+    ("Neo-Panamax container ship", :ammonia, :new_york))
 
 """
     sensitivity_ships()
 
 Ships of the input screening as (name, design without a rig, route, rig areas): the
-140 m e-methanol reference ship to Guadeloupe, a Kamsarmax on VLSFO to Tubarão and a
-Neo-Panamax container ship on e-methanol to New York, the classes with the best rig sizes
+140 m e-ammonia reference ship to Guadeloupe, a Kamsarmax on VLSFO to Tubarão and a
+Neo-Panamax container ship on e-ammonia to New York, the classes with the best rig sizes
 of the class study.
 """
 function sensitivity_ships()
@@ -825,7 +940,7 @@ function sensitivity_ships()
     classes = ship_classes()
     reference = NamedTuple(Symbol(rig) => rig_size(rig, area)
                            for (rig, area) in reference_rigs)
-    ships = [("140 m", ShipDesign(:methanol, 140.0), :caribbean, reference)]
+    ships = [("140 m", ShipDesign(:ammonia, 140.0), :caribbean, reference)]
     for (name, drive, route) in screened_classes
         areas = NamedTuple(Symbol(rig) => rig_size(rig,
                 best_area(classes_table, name, string(route), string(drive), rig))
@@ -860,23 +975,49 @@ function rig_cases(ship, bare, route, areas; labels...)
 end
 
 """
-    sensitivity_data()
+    screening_data(file, ships, bounds, changed_assumptions)
 
-Each ship of [`sensitivity_ships`](@ref) without a rig and with each rig, at the base
-inputs and at the low and high bound of every input with a range: sensitivity.csv.
+Each of `ships`, as [`sensitivity_ships`](@ref) gives them, without a rig and with each
+rig, at the base inputs and with every screened input at each of `bounds`, its
+assumptions from `changed_assumptions(name, bound)`: written to `file`. The base trips
+are routed first, so a changed case whose trip never reads its input reuses them.
 """
-function sensitivity_data()
+function screening_data(file, ships, bounds, changed_assumptions)
     cases = []
-    for screened in sensitivity_ships(), name in [screened_inputs(); :none]
-        for bound in (name == :none ? (:value,) : (:low, :high))
-            append!(cases, rig_cases(screened...;
-                assumptions=bound_assumptions(name, bound), input=name, bound))
+    for screened in ships, name in [screened_inputs(); :none]
+        for bound in (name == :none ? (:value,) : bounds)
+            case_assumptions = name == :none ? assumptions :
+                               changed_assumptions(name, bound)
+            append!(cases, rig_cases(screened...; assumptions=case_assumptions,
+                input=name, bound))
         end
     end
-    write_trips("sensitivity.csv", cases,
-        round_trips(cases, sampled_departures(; screening=true)), :ship,
-        :rig, :input, :bound)
+    departures = sampled_departures(; screening=true)
+    base = findall(case -> case.input == :none, cases)
+    changed = setdiff(eachindex(cases), base)
+    trips = Vector{Any}(nothing, length(cases))
+    trips[base] = round_trips(cases[base], departures)
+    trips[changed] = round_trips(cases[changed], departures)
+    write_trips(file, cases, trips, :ship, :rig, :input, :bound)
 end
+
+"""
+    sensitivity_data()
+
+Every ship of [`sensitivity_ships`](@ref) with every screened input at its low and high
+bound: sensitivity.csv.
+"""
+sensitivity_data() = screening_data("sensitivity.csv", sensitivity_ships(),
+    (:low, :high), bound_assumptions)
+
+"""
+    uniform_data()
+
+The 140 m reference ship of [`sensitivity_ships`](@ref) with every screened input a
+[`uniform_step`](@ref) down and up: uniform.csv.
+"""
+uniform_data() = screening_data("uniform.csv", first(sensitivity_ships(), 1),
+    (:down, :up), stepped_assumptions)
 
 "projected aspect ratios of the kite in the aspect ratio study, those with a polar"
 study_aspect_ratios = (3.0, 4.0, 5.0, 6.0, 8.0)
@@ -1087,25 +1228,13 @@ function availability_data()
         :rig, :share)
 end
 
-"the rigs of the size sweep at the goals"
-goal_size_rigs = (rig_names..., "rigid kite")
-
-"the rigs the size sweep shows at every size, flying for part of the time"
-kite_rigs = ("kite", "rigid kite")
-
 """
     swept_sizes(rig, areas, hull)
 
 Sizes [m^2] of `rig` in the size sweep at the goals: the [`sizes_around`](@ref) its size in
-`areas`, as far as it fits on `hull`; for a rigid kite, the fleets of one, two and four kites
-of its unit area that fit.
+`areas`, as far as it fits on `hull`.
 """
 function swept_sizes(rig, areas, hull)
-    if rig == "rigid kite"
-        fleets = filter(count -> WindShipOpt.rigid_kites_fit(count, hull, assumptions),
-            [1, 2, 4])
-        return fleets .* assumptions[:rigid_unit_area]
-    end
     best = only(values(getproperty(areas, Symbol(rig))))
     return WindShipOpt.sizes_around(rig, best, largest_rig_area(rig, hull))
 end
@@ -1121,7 +1250,7 @@ function goal_size_data()
     for (ship, bare, route, areas) in sensitivity_ships()
         push!(cases, trip_case(bare; route, ship, bare.drive, rig="none", area=0.0))
         hull = Ship(bare, assumptions).hull
-        for rig in goal_size_rigs
+        for rig in rig_names
             for area in swept_sizes(rig, areas, hull)
                 design = ShipDesign(; bare.drive, bare.length, bare.class,
                     rig_size(rig, area)...)
@@ -1224,51 +1353,14 @@ function abatement_data()
 end
 
 """
-    components_data()
-
-Each rig on a 140 m e-methanol ship to Guadeloupe with the price of one of its components
-50 % lower and higher, or one of its lifetimes halved and doubled: components.csv.
-"""
-function components_data()
-    components = Dict("kite" => [:winch_fixed_cost, :winch_cost_per_force,
-            :launch_mast_mass_coefficient, :launch_mast_telescope_factor,
-            :docking_head_cost, :control_unit_cost,
-            :control_unit_cost_per_area, :kite_integration_fraction,
-            :canopy_making_cost_per_area, :tether_price, :canopy_life, :tether_lifetime],
-        "wings" => [:wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction,
-            :retractable_rig_premium, :wing_lifetime],
-        "rotors" => [:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
-            :retractable_rig_premium, :rotor_lifetime])
-    cases = [trip_case(ShipDesign(:methanol, 140.0); rig="none", input=:none, factor=1.0)]
-    for (rig, area) in reference_rigs
-        design = ShipDesign(:methanol, 140.0; rig_size(rig, area)...)
-        push!(cases, trip_case(design; rig, input=:none, factor=1.0))
-        for name in components[rig], factor in component_factors(name)
-            push!(cases, trip_case(design; assumptions=scaled((name,), factor), rig,
-                input=name, factor))
-        end
-    end
-    write_trips("components.csv", cases, round_trips(cases, sampled_departures()), :rig,
-        :input, :factor)
-end
-
-"""
-    component_factors(name)
-
-Factors on input `name` of the component study: half and twice a lifetime, half and
-1.5 times a price.
-"""
-component_factors(name) = endswith(string(name), "lifetime") ? (0.5, 2.0) : (0.5, 1.5)
-
-"""
     convergence_data()
 
-A 140 m e-methanol ship to Guadeloupe without a rig and with each rig, routed at corridor
+A 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, routed at corridor
 resolutions of 8, 4 and 2 times the base spacing: convergence.csv.
 """
 function convergence_data()
     rigs = [("none", 0.0), ("kite", 1600.0), ("wings", 1500.0), ("rotors", 800.0)]
-    cases = vec([trip_case(ShipDesign(:methanol, 140.0; rig_size(rig, area)...); rig, scale)
+    cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); rig, scale)
                  for (rig, area) in rigs, scale in (8.0, 4.0, 2.0)])
     write_trips("convergence.csv", cases, round_trips(cases, sampled_departures()), :rig,
         :scale)
@@ -1389,14 +1481,14 @@ end
 """
     combination_data()
 
-Each ship of `combination_ships` on every route on VLSFO and e-methanol without a rig,
+Each ship of `combination_ships` on every route on VLSFO and e-ammonia without a rig,
 with each kite of `combination_kites`, with each rotor area of
 [`combination_rotors`](@ref), and with each kite of `combination_paired_kites` flown
 together with each rotor area: combination.csv.
 """
 function combination_data()
     cases = []
-    for ship in combination_ships, drive in (:vlsfo, :methanol), route in route_names
+    for ship in combination_ships, drive in (:vlsfo, :ammonia), route in route_names
         rotor_areas = combination_rotors(ship)
         sizes = [("none", 0.0, 0.0); [("kite", kite, 0.0) for kite in combination_kites];
             [("rotors", 0.0, rotor) for rotor in rotor_areas];
@@ -1429,7 +1521,7 @@ tow_point_positions(hull) = (("bow", 1.0),
 """
     tow_point_data()
 
-Every ship class on e-methanol on each of `tow_point_routes` without a rig and with its
+Every ship class on e-ammonia on each of `tow_point_routes` without a rig and with its
 cheapest kite of the class study towing from each of [`tow_point_positions`](@ref):
 tow_point.csv.
 """
@@ -1437,11 +1529,11 @@ function tow_point_data()
     classes_table = read_table(data_file("classes.csv"))
     cases = []
     for class in values(ship_classes()), route in tow_point_routes
-        bare = ShipDesign(:methanol, class)
+        bare = ShipDesign(:ammonia, class)
         push!(cases, trip_case(bare; class=class.name, route, tow="none", area=0.0))
-        area = best_area(classes_table, class.name, string(route), "methanol", "kite")
+        area = best_area(classes_table, class.name, string(route), "ammonia", "kite")
         isfinite(area) || continue
-        design = ShipDesign(:methanol, class; kite_area=area)
+        design = ShipDesign(:ammonia, class; kite_area=area)
         for (tow, position) in tow_point_positions(Hull(class, assumptions))
             push!(cases, trip_case(design; class=class.name, route, tow, area,
                 assumptions=with_value(assumptions, :kite_tow_position, position)))
@@ -1576,30 +1668,43 @@ function mile_cost(ship, knots, hourly, wind_10m, angle, force, wear)
 end
 
 """
+    speed_range(ship)
+
+Range of speeds [kn] from 4 kn to the top speed of `ship`, scanned about every knot.
+"""
+function speed_range(ship)
+    top = ship.max_speed / KNOT
+    return WindShipOpt.TrimRange(4.0, top, ceil(Int, top - 4.0) + 1, 1)
+end
+
+"""
     economic_speed(ship, hourly, wind_10m, angle; force=nothing,
                    wear=wear_cost(ship.rig, assumptions))
 
-Speed [kn] on a grid of 0.1 kn with the least [`mile_cost`](@ref).
+Speed [kn] on [`speed_range`](@ref) with the least [`mile_cost`](@ref).
 """
 function economic_speed(ship, hourly, wind_10m, angle; force=nothing,
         wear=WindShipOpt.wear_cost(ship.rig, assumptions))
-    return argmin(knots -> mile_cost(ship, knots, hourly, wind_10m, angle, force, wear),
-        4.0:0.1:(ship.max_speed / KNOT))
+    return first(WindShipOpt.best_on_range(
+        knots -> mile_cost(ship, knots, hourly, wind_10m, angle, force, wear),
+        speed_range(ship)))
 end
 
 """
     sailing_speed(ship, force, wind_10m, angle)
 
-Highest speed [kn] on a grid of 0.1 kn at which `ship` needs no propeller thrust with the
-rig force held at `force`, in a steady wind of `wind_10m` [m/s] from `angle` [rad]; zero if
-none.
+Highest speed [kn] on [`speed_range`](@ref) at which `ship` needs no propeller thrust with
+the rig force held at `force`, in a steady wind of `wind_10m` [m/s] from `angle` [rad];
+zero if none.
 """
 function sailing_speed(ship, force, wind_10m, angle)
-    speeds = 4.0:0.1:(ship.max_speed / KNOT)
-    last_sailing = findlast(speeds) do knots
-        return WindShipOpt.required_thrust(ship, knots * KNOT, wind_10m, angle, force) <= 0
-    end
-    return isnothing(last_sailing) ? 0.0 : speeds[last_sailing]
+    thrust(knots) = WindShipOpt.required_thrust(ship, knots * KNOT, wind_10m, angle, force)
+    span = speed_range(ship)
+    thrust(span.high) <= 0 && return span.high
+    sailing, least_thrust = WindShipOpt.best_on_range(thrust, span)
+    least_thrust > 0 && return 0.0
+    return first(WindShipOpt.sign_change(thrust, sailing, span.high, least_thrust,
+        thrust(span.high), 1e-5))
 end
 
 """
@@ -1613,7 +1718,7 @@ held force alone moves the ship: speed_choice.csv.
 function speed_choice_data()
     open(run_file("speed_choice.csv"), "w") do io
         println(io, "drive,rig,area,wind,angle,bare,free,free_of_rig_cost,held,sailing")
-        for drive in (:methanol, :vlsfo)
+        for drive in (:ammonia, :vlsfo)
             bare = Ship(ShipDesign(drive, 140.0), assumptions)
             hourly = first(WindShipOpt.leg_time_costs(ShipCosts(bare, assumptions),
                 assumptions))
@@ -1716,7 +1821,7 @@ without a rig, and at 8, 9 and 10 kn: speed_terms.csv.
 """
 function speed_terms_data()
     cases = vec([(; route, drive, rig, area) for route in (:caribbean, :new_york),
-                 drive in (:methanol, :vlsfo),
+                 drive in (:ammonia, :vlsfo),
                  (rig, area) in [("none", 0.0); reference_rigs]])
     results = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
@@ -1841,7 +1946,7 @@ function published_terms_data()
         println(io, "source,area,speed,angle,wind,thrust,side")
         for (source, area, knots, angle, wind) in published_forces
             ship = Ship(ShipDesign(:vlsfo, 140.0; kite_area=area), assumptions)
-            force = rig_force(ship.rig, ship.env, wind, deg2rad(angle), knots * KNOT, 1)
+            force = rig_force(ship.rig, ship.env, wind, deg2rad(angle), knots * KNOT, 0.0)
             println(io, join((source, area, knots, angle, wind, force.thrust / 1e3,
                     force.side / 1e3), ","))
         end
@@ -1853,7 +1958,7 @@ Ships, speeds and sizes of [`speed_size_data`](@ref): the ship, its drives, the 
 it holds, the kite areas [m^2], and the wing and rotor areas [m^2].
 """
 speed_size_grid = [
-    (ship="140 m", drives=(:vlsfo, :methanol), speeds=(8.0, 9.0, 10.0, 11.0),
+    (ship="140 m", drives=(:vlsfo, :ammonia), speeds=(8.0, 9.0, 10.0, 11.0),
         kites=(400.0, 800.0, 1600.0, 3200.0, 6400.0),
         wings=(750.0, 1500.0), rotors=(400.0, 800.0)),
     (ship="feeder container ship", drives=(:vlsfo,), speeds=(13.0, 16.0, 19.0),
@@ -1969,14 +2074,14 @@ deck_shares(rig_type, hull) =
 """
     rigid_kite_data()
 
-Each ship of `combination_ships` on every route on VLSFO and e-methanol without a rig, with
+Each ship of `combination_ships` on every route on VLSFO and e-ammonia without a rig, with
 each soft kite of `combination_kites`, with rotors and wings at each share of the deck, and
 with each fleet of `rigid_kite_fleets` that fits at base and optimistic inputs:
 rigid_kite.csv.
 """
 function rigid_kite_data()
     cases = []
-    for ship in combination_ships, drive in (:vlsfo, :methanol), route in route_names
+    for ship in combination_ships, drive in (:vlsfo, :ammonia), route in route_names
         hull = Hull(study_hull(ship), assumptions)
         sizes = [("none", (;));
             [("kite", (; kite_area)) for kite_area in combination_kites];

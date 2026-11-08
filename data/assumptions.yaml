@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Every model assumption: base `value`, `low`/`high` bounds for the sensitivity sweep,
 # `unit`, and the `reason` the value was chosen.
 
@@ -25,7 +28,7 @@ wind_shear_exponent:
   low: 0.04
   high: 0.08
   unit: "-"
-  reason: "Exponent of the mean power-law wind profile over the sea from 10 m to kite height: matches the mean ERA5 model-level profiles over the study region in 2018 (1.12, 1.18 and 1.22 times the 10 m wind at 100, 270 and 540 m; own analysis of Hersbach et al. 2020). The low bound is the trade-wind belt (1.17 at 540 m), the high bound the North Atlantic north of 40 deg N and the IJmuiden lidar, which follow a logarithmic profile with 0.2 mm roughness up to 315 m (Kalverla 2020, Ch. 2; Schelbergen et al. 2020)."
+  reason: "Exponent of the mean power-law wind profile over the sea from 10 m to kite height: matches the mean ERA5 model-level profiles over the study region in 2018 (1.12, 1.18 and 1.22 times the 10 m wind at 100, 270 and 540 m; own analysis of Hersbach et al. 2020). The low bound is the trade-wind belt (1.17 at 540 m), the high bound the North Atlantic north of 40 deg N and the IJmuiden lidar, which follow a logarithmic profile with 0.2 mm roughness up to 315 m (Kalverla 2019, Ch. 2; Schelbergen et al. 2020)."
 
 # --- reference hull, geometrically scaled with length ---
 reference_length:
@@ -319,7 +322,7 @@ wing_interference_decay:
   low: 2.0
   high: 4.0
   unit: chord lengths
-  reason: "Engineering estimate of the decay length of the wing array loss: no 3D data beyond 1.9 chords; set so that the loss is below 1 % at the 10-chord optimum of 2D RANS (Wang et al. 2024)."
+  reason: "Engineering estimate of the decay length of the wing array loss: no 3D data beyond 1.9 chords; set so that the loss of four wings is below 1 % at 10 chords, the widest spacing in the 2D RANS of Wang et al. (2024)."
 wing_max_height:
   value: 40.0
   low: 35.0
@@ -331,13 +334,13 @@ wing_spacing:
   low: 1.2
   high: 2.0
   unit: chord lengths
-  reason: "Closest spacing of wings over their chord at which wings turning about a quarter-chord pivot clear each other, also the aerodynamic minimum of Wang et al. (2024)."
+  reason: "Closest spacing of wings over their chord at which wings turning about a quarter-chord pivot clear each other, also the closest spacing at which 2D RANS of three wings in line found no further gain (Wang et al. 2024)."
 deck_length_fraction:
   value: 0.75
   low: 0.65
   high: 0.8
   unit: "-"
-  reason: "Engineering assumption: part of the length between forecastle and deckhouse; no source found."
+  reason: "Engineering assumption: share of the ship's length between forecastle and deckhouse that a row of rigs can use; an MR tanker has 140 m of upper deck on 182 m (Han et al. 2025), a CFD layout of five wing sails on a Kamsarmax spans 165 of 222 m (Mboumba 2022)."
 max_air_draft:
   value: 45.0
   low: 35.0
@@ -391,13 +394,13 @@ rotor_max_height:
   low: 30.0
   high: 40.0
   unit: m
-  reason: "Height of the largest rotors built: 35x5 m tilting Norsepower rotors for the SC Connector (Marine Log 2020) and five 35x5 m Anemoi rotors on the Sohar Max (gCaptain)."
+  reason: "Height of the largest rotors built: 35x5 m tilting Norsepower rotors for the SC Connector (Marine Log 2020) and five 35x5 m Anemoi rotors on the Sohar Max (Maritime Executive 2024)."
 rotor_spacing:
   value: 3.0
   low: 2.5
   high: 5.0
   unit: diameters
-  reason: "Closest spacing of rotors over their diameter, the closest measured (Bordogna et al. 2020, quoted by Tillig & Ringsberg 2020); end discs are two diameters wide."
+  reason: "Closest spacing of rotors over their diameter, the closest of the three tested in the wind tunnel (3, 7.5 and 15 diameters, Bordogna et al. 2020); end discs are two diameters wide."
 rotor_max_surface_speed:
   value: 47.0
   low: 40.0
@@ -791,11 +794,11 @@ canopy_cloth_force_exponent:
   unit: "-"
   reason: "Cloth weight grows with the force limit to this power, the fit that holds the 3,800 h of the strength decay in the paper over limits of 0.25 to 2 kN/m^2. Each decay input at its bound gives 0.19 to 0.34, except the wear exponent b at its low bound of 0, which gives 0.8. Tension enters the decay only through the logarithm of the margin, so where heavier cloth also wears for longer it asks for far less than the exponent 1 of a constant share of strength, the upper bound of the force rating study; 0 is cloth that ignores the limit."
 canopy_life:
-  value: 4000.0
+  value: 3000.0
   low: 1200.0
   high: 6900.0
   unit: flight hours
-  reason: "Development goal for the life of a canopy of 200 g/m^2 cloth, not a prediction. Strength decay under UV and a wear rate from makers' statements gives 3,800 h, and each input changed alone gives the bounds; the 3,800 h rests on those statements, not on a measurement of a kite. Derivation in canopy_life_notes.md."
+  reason: "Development goal for the life of a canopy of 200 g/m^2 cloth: what development can reach, not where things stand today. No life is measured on a kite. Reachable and on the careful side of what makers state: below the 3,500-4,000 h of their longest statements and the 3,800 h that strength decay under UV and a wear rate from makers' statements gives. Each decay input changed alone gives the bounds."
 canopy_cloth_area_ratio:
   value: 3.5
   low: 3.0
@@ -813,7 +816,7 @@ canopy_cloth_base_price:
   low: 2.0
   high: 17.0
   unit: USD/m^2
-  reason: "Goal for the price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: the retail line through polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT, 11 USD/m^2 plus 0.031 USD/m^2 per g/m^2 (extremtextil.de, Sailrite, Jones Airfoils, 2026-11-01), scaled to USD 9.4 at 200 g/m^2, what a maker buying by the roll and from the mill can reach. No mill quote for this cloth; derivation in cost_basis_notes.md, section 4.6."
+  reason: "Goal for the price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: the retail line through polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT, 11 USD/m^2 plus 0.031 USD/m^2 per g/m^2 (extremtextil.de, Sailrite, Jones Airfoils, 2026-11-01), scaled to USD 9.4 at 200 g/m^2, what a maker buying by the roll and from the mill can reach. No mill quote for this cloth."
 canopy_cloth_price_per_weight:
   value: 0.017
   low: 0.006
@@ -825,7 +828,7 @@ canopy_making_cost_per_area:
   low: 16.0
   high: 179.0
   unit: USD/m^2
-  reason: "Goal for the manufacturing cost per m^2 of projected area of a ram-air canopy besides its cloth: per flat m^2 1.0 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2. Today 1.5-2.25 h per flat m^2 in paraglider plants (SKY Paragliders); the US G-12 cargo parachute implies at most 0.6-1.0 h at series volume (BIS 2004). Derivation in cost_basis_notes.md, section 4.6."
+  reason: "Goal for the manufacturing cost per m^2 of projected area of a ram-air canopy besides its cloth: per flat m^2 1.0 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2. Today 1.5-2.25 h per flat m^2, 50 h of manufacturing per paraglider (SKY Paragliders 2017) over 22-33 m^2; the US G-12 cargo parachute implies 0.6-1.0 h at series volume if materials take 57 % of sales as in 2000, up to 1.75 h at the 25-50 % of other years (BIS 2004)."
 canopy_making_cost_per_area_today:
   value: 57.0
   low: 57.0
@@ -1260,21 +1263,42 @@ wing_out_of_service:
   low: 0.004
   high: 0.15
   unit: "-"
-  reason: "Goal, the same for all rigs: share of round trips with a wing out of service though the wind would allow it; units fail independently. Base: our reading of the operator of the rotor ship Estraden, 97 % usable, undefined (Spliethoff). Low: 99.6 % operational availability on Canopee, maker with owner, undefined (OceanWings 2025). High: our estimate. See data/rig_availability_notes.md."
+  reason: "Goal, the same for all rigs: share of round trips with a wing out of service though the wind would allow it; units fail independently. Base: our reading of the operator of the rotor ship Estraden, 97 % usable, undefined (Spliethoff). Low: 99.6 % operational availability on Canopee, maker with owner, undefined (OceanWings 2025). High: our estimate."
 
 rotor_out_of_service:
   value: 0.03
   low: 0.01
   high: 0.15
   unit: "-"
-  reason: "Goal, the same for all rigs: share of round trips with a rotor out of service though the wind would allow it; units fail independently. Base: our reading of Estraden's operator, 97 % usable over about 6 years, undefined (Spliethoff). Low: maker's above 99 % on Estraden (Kuuskoski 2018). High: our estimate. See data/rig_availability_notes.md."
+  reason: "Goal, the same for all rigs: share of round trips with a rotor out of service though the wind would allow it; units fail independently. Base: our reading of Estraden's operator, 97 % usable over about 6 years, undefined (Spliethoff). Low: maker's above 99 % on Estraden (Kuuskoski 2018). High: our estimate."
 
 kite_out_of_service:
   value: 0.03
   low: 0.01
   high: 0.15
   unit: "-"
-  reason: "Goal, the same for all rigs: share of round trips with the kite out of service though the wind and sea would allow it. No source gives a figure for any ship kite. Base and low: our assumption, the same as the rotors. High: our estimate. See data/rig_availability_notes.md."
+  reason: "Goal, the same for all rigs: share of round trips with the kite out of service though the wind and sea would allow it. No source gives a figure for any ship kite. Base and low: our assumption, the same as the rotors. High: our estimate."
+
+kite_crash_rate:
+  value: 0.0
+  low: 0.0
+  high: 0.0
+  unit: 1/year
+  reason: "Goal: no kite crashes into the sea in service; each crash costs what crash_cost gives. The crash table gives the rate per year at which each rig stops paying."
+
+wing_loss_rate:
+  value: 0.0
+  low: 0.0
+  high: 0.0
+  unit: 1/year
+  reason: "Goal: no wing lost in service per wing and year; each loss costs one wing with its installation."
+
+rotor_loss_rate:
+  value: 0.0
+  low: 0.0
+  high: 0.0
+  unit: 1/year
+  reason: "Goal: no rotor lost in service per rotor and year; each loss costs one rotor with its installation."
 
 # --- fuel and carbon ---
 vlsfo_price:
@@ -1358,88 +1382,46 @@ ceu_volume:
   unit: m^3
   reason: "Car-deck space per CEU that a fuel tank displaces: 8.4 m^2 of deck per CEU (Hoegh Target 71,400 m^2 for 8,500 CEU; Knud E. Hansen 8,600 and 6,500 CEU designs 8.41-8.45) times a deck pitch of 2.9 m (depth over car decks of the same designs); the low bound is the 2.0 m clear height, the high bound the enclosed volume per CEU from gross tonnage."
 
-# --- hydrogen drive ---
-hydrogen_price:
-  value: 6.5
-  low: 3.3
-  high: 10.8
-  unit: USD/kg
-  reason: "Liquid green hydrogen bunkered around 2030, 54 (28-90) USD/GJ at 120 MJ/kg: production 4 (2-7) USD/kg in good export regions (IEA Global Hydrogen Review 2025, pp. 94-97; 2024, p. 83), liquefaction 2.0 (1.0-2.8) USD/kg (DOE record 19001: 2.75 at 27 t/d today; IRENA 2022 Table 6.3 for 2030, levelised at 8 %), terminal and bunkering 0.5 (0.3-1.0) USD/kg (DOE 19001: terminal 0.39)."
-hydrogen_heating_value:
-  value: 120.0
-  low: 120.0
-  high: 120.0
+# --- ammonia drive ---
+e_ammonia_price:
+  value: 47.0
+  low: 30.0
+  high: 82.0
+  unit: USD/GJ
+  reason: "E-ammonia bunkered in 2030: 47-82 USD/GJ (Lloyd's Register & UMAS 2020, Table B3, p. 43); 30-43 USD/GJ (MMMCZCS 2021, Fuel Option Scenarios, p. 12), the low bound. The base is the lower of the first, 0.64 of e-methanol's 73 there."
+ammonia_heating_value:
+  value: 18.6
+  low: 18.6
+  high: 18.8
   unit: MJ/kg
-  reason: "Lower heating value of hydrogen."
-fuel_cell_system_cost:
-  value: 1080.0
-  low: 995.0
-  high: 1620.0
-  unit: USD/kW
-  reason: "Marine PEM system with balance of plant and DC/DC converter in 2030: Clean Hydrogen JU SRIA target 1,000 EUR/kW (Annex 4, Table 17); EMSA 2023 920 EUR/kW (Table 75), the low bound; the high bound is the SRIA 2024 target of 1,500 EUR/kW, at 1.08 USD/EUR."
-electric_drive_cost:
-  value: 485.0
-  low: 220.0
-  high: 600.0
-  unit: USD/kW
-  reason: "Motor, converter and switchboard of an electric drive without its gensets: electric_propulsion_cost less a methanol genset of 265 + 120 EUR/kW (Kanchiralla et al. 2022); the low bound is motor and gearbox alone, 200 EUR/kW (EMSA 2023, Table 76). No source prices converters separately."
-fuel_cell_efficiency:
-  value: 0.48
-  low: 0.45
-  high: 0.56
-  unit: "-"
-  reason: "LHV efficiency of a PEM system at rated power net of balance of plant: PowerCell Marine System 200 uses 13 kg/h at 200 kW (46 %), the DOE heavy-duty model 56 % new and 50 % at end of life (record 24004); studies use a constant 54-55 % (Mao et al. 2020; EMSA 2023), close to the datasheet peaks of 53-60 %."
-fuel_cell_part_load_penalty:
-  value: -0.35
-  low: -0.53
-  high: -0.27
-  unit: "-"
-  reason: "Negative: PEM efficiency rises at part load, to the 60 % peak near a quarter load of the PowerCell MS200 (fit -0.53) and 64.5 % of the DOE model (-0.27); the quadratic misses the drop below ~25 % load, where Ballard's FCwave stops (55 of 200 kW)."
-fuel_cell_string_count:
-  value: 16
-  low: 8
-  high: 32
-  unit: "-"
-  reason: "Independently switched fuel-cell units: PowerCell's 6 MW concept has two blocks of sixteen 200 kW modules on a DC bus, each with its own converter (Marine System 200 datasheet)."
-fuel_cell_min_load:
-  value: 0.275
-  low: 0.2
-  high: 0.3
-  unit: "-"
-  reason: "Lowest load of a running fuel-cell unit, below which its balance of plant makes efficiency fall: the Ballard FCwave's minimum power is 55 of 200 kW (2021 specification); the efficiency curve peaks near a quarter load (PowerCell MS200, DOE record 24004)."
-fuel_cell_chain_efficiency:
-  value: 0.92
-  low: 0.90
-  high: 0.94
-  unit: "-"
-  reason: "Fuel cell to shaft: motor, gearbox and control at 0.98 each (Kanchiralla et al. 2022, 2023) gives 0.94; the diesel-electric chain without its 0.97 alternator gives 0.93, less a DC/DC converter per module."
-fuel_cell_stack_life:
-  value: 25000.0
-  low: 15000.0
-  high: 40000.0
-  unit: h
-  reason: "Operating hours at rated power before stack replacement: DOE heavy-duty design life 25,000 h (record 26002); Ballard FCwave >15,000 h (2024 datasheet); the SRIA 2024 maritime target 40,000 h includes stack swaps."
-fuel_cell_stack_share:
-  value: 0.6
-  low: 0.5
-  high: 1.0
-  unit: "-"
-  reason: "Stack replacement over fuel-cell system price: the stack is 60-63 % of system cost (DOE records 24004, 26002); EMSA 2023 and Kanchiralla et al. replace the whole system, the high bound."
-lh2_tank_cost:
-  value: 55.0
-  low: 25.0
-  high: 100.0
-  unit: USD/kg
-  reason: "Vacuum-insulated type C LH2 tank with fuel supply system per kg of hydrogen held: 50,310 EUR per tonne (EMSA 2023, Table 17, from Korberg et al. 2021); stationary tanks 15-45 USD/kg, a spherical one ~100 (IRENA 2022, p. 74)."
-lh2_tank_gravimetric_density:
-  value: 0.10
-  low: 0.07
+  reason: "Lower heating value of ammonia (IRENA 2021, Table 3, p. 42); 18.8 in Lloyd's Register & UMAS 2020."
+ammonia_pilot_share:
+  value: 0.05
+  low: 0.05
   high: 0.15
   unit: "-"
-  reason: "Hydrogen over the mass of the filled tank system: ~9 kg of steel per kg H2 for LH2 storage (IRENA 2022, p. 76, from Sandia); no ship-tank datum found, bounds by judgement."
-lh2_tank_volumetric_density:
-  value: 38.0
-  low: 33.0
-  high: 42.0
+  reason: "Share of the fuel energy burned as VLSFO pilot in a dual-fuel ammonia engine: 5-15 % expected, 5-10 % on a diesel-cycle two-stroke (MMMCZCS 2021, Fuel Option Scenarios, p. 53)."
+ammonia_engine_premium:
+  value: 190.0
+  low: 90.0
+  high: 300.0
+  unit: USD/kW
+  reason: "Dual-fuel ammonia two-stroke over a diesel: ME-LGI 590 against 400 USD/kW (Lloyd's Register & UMAS 2020, Table B21, p. 60). Bounds by judgement."
+ammonia_tank_cost:
+  value: 1.62
+  low: 0.8
+  high: 2.5
+  unit: USD/kg
+  reason: "Ammonia tank per kg held: 0.29 EUR/kWh stored (Kanchiralla et al. 2022, Table 3), 1.50 EUR/kg at 18.6 MJ/kg, at 1.08 USD/EUR. Bounds by judgement."
+ammonia_tank_gravimetric_density:
+  value: 0.5
+  low: 0.33
+  high: 0.7
+  unit: "-"
+  reason: "Ammonia over the mass of the filled tank system. Our estimate: no source gives the mass of a ship's ammonia tank."
+ammonia_tank_volumetric_density:
+  value: 600.0
+  low: 500.0
+  high: 680.0
   unit: kg/m^3
-  reason: "Hydrogen per m^3 of hold space taken by the insulated tank and fuel system: 40 (Mao et al. 2020, from Minnehan & Pratt 2017), 4.6 MJ/L contained (EMSA 2023, Table 16); a sphere in a cubic space 33, the MF Hydra's 4 t tank of 10 x 3.5 m 42 (Norled 2021). Boil-off of 0.05-0.25 %/day (IRENA 2022, p. 23; IEA 2024, p. 221) feeds the fuel cells and costs nothing at sea."
+  reason: "Ammonia per m^3 of hold space taken by the tank and its system: a tank 3.6 times the volume of a fuel-oil tank of the same energy (MMMCZCS 2021, Fuel Option Scenarios, p. 55), at 40.5 MJ/kg and 991 kg/m^3 of fuel oil; the high bound is the liquid alone at -33 C."

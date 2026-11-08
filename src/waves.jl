@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 "SNNM parameters x1…x29 for hulls with C_B ≥ 0.70 (Mittendorf et al. 2022, Table 2)"
 const SNNM_FULL = (6.99, 0.425, 70.92, 2.0, 3.013, 0.9, 3.726, 0.281, 1.388, 3.869, 17.963,
     11.5, 5.589, 473.743, 2.214, 153.646, 2.433, 0.0557, 2.410, 0.813, 0.3, 1.008, 1.076,

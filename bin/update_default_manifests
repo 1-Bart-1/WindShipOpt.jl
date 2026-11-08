@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
 # Updates every package and writes the resolved manifests to the tracked .default files.
 set -euo pipefail
 shopt -s nullglob

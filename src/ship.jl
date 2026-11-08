@@ -1,11 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
     Fuel
 
 Fuel burned on board, with its price including any carbon charge.
 """
-struct Fuel
+struct Fuel{T <: Real}
     "price including carbon charge [USD/J]"
-    price::Float64
+    price::T
     "lower heating value [J/kg]"
     heating_value::Float64
     "tank-to-wake CO2 [kg/J]"
@@ -23,18 +26,16 @@ e_methanol(assumptions::Assumptions) = Fuel(assumptions[:e_methanol_price] / 1e9
     1e6assumptions[:methanol_heating_value], 0.0)
 
 """
-    hydrogen(assumptions)
+    e_ammonia(assumptions)
 
-Liquid green hydrogen, with the fuel-cell stack replacement that each joule burned in a
-stack at its rated efficiency wears out added to its price.
+E-ammonia burned with a share of VLSFO as pilot fuel, priced and charged for carbon by
+energy share; heating value of ammonia.
 """
-function hydrogen(assumptions::Assumptions)
-    heating_value = 1e6assumptions[:hydrogen_heating_value]
-    stack_wear = assumptions[:fuel_cell_efficiency] * assumptions[:fuel_cell_stack_share] *
-                 assumptions[:fuel_cell_system_cost] / assumptions[:fuel_cell_stack_life] /
-                 3.6e6
-    return Fuel(assumptions[:hydrogen_price] / heating_value + stack_wear,
-        heating_value, 0.0)
+function e_ammonia(assumptions::Assumptions)
+    pilot = assumptions[:ammonia_pilot_share]
+    oil = vlsfo(assumptions)
+    return Fuel((1 - pilot) * assumptions[:e_ammonia_price] / 1e9 + pilot * oil.price,
+        1e6assumptions[:ammonia_heating_value], pilot * oil.carbon_intensity)
 end
 
 """
@@ -55,12 +56,12 @@ end
     Drive
 
 Power source, fuel and fuel store of a drive: `:vlsfo` for a mechanical diesel on VLSFO,
-`:methanol` for diesel-electric gensets on e-methanol, `:hydrogen` for PEM fuel cells on
-liquid hydrogen with an electric motor. Tanks of liquid fuels sit in the hull and take
+`:methanol` for diesel-electric gensets on e-methanol, `:ammonia` for a mechanical
+dual-fuel engine on e-ammonia with its tank. Tanks without a store sit in the hull and take
 no cargo space.
 """
-Base.@kwdef struct Drive
-    fuel::Fuel
+Base.@kwdef struct Drive{F <: Fuel}
+    fuel::F
     "efficiency from unit output to propeller shaft [-]"
     transmission_efficiency::Float64
     "number of identical engines, gensets or fuel-cell strings"
@@ -86,22 +87,21 @@ Drive(::Val{:vlsfo}, assumptions) = Drive(; fuel=vlsfo(assumptions),
 
 Drive(::Val{:methanol}, assumptions) = Drive(; fuel=e_methanol(assumptions),
     transmission_efficiency=assumptions[:electric_chain_efficiency],
-    unit_count=Int(assumptions[:genset_count]),
+    unit_count=round(Int, assumptions[:genset_count]),
     peak_efficiency=assumptions[:methanol_engine_efficiency],
     part_load_penalty=assumptions[:part_load_penalty],
     power_cost=assumptions[:electric_propulsion_cost])
 
-function Drive(::Val{:hydrogen}, assumptions)
-    store = FuelStore(; mass_ratio=1 / assumptions[:lh2_tank_gravimetric_density],
-        volume=1 / assumptions[:lh2_tank_volumetric_density],
-        price=assumptions[:lh2_tank_cost])
-    return Drive(; fuel=hydrogen(assumptions),
-        transmission_efficiency=assumptions[:fuel_cell_chain_efficiency],
-        unit_count=Int(assumptions[:fuel_cell_string_count]),
-        peak_efficiency=assumptions[:fuel_cell_efficiency],
-        part_load_penalty=assumptions[:fuel_cell_part_load_penalty],
-        min_load=assumptions[:fuel_cell_min_load],
-        power_cost=assumptions[:fuel_cell_system_cost] + assumptions[:electric_drive_cost],
+function Drive(::Val{:ammonia}, assumptions)
+    store = FuelStore(; mass_ratio=1 / assumptions[:ammonia_tank_gravimetric_density],
+        volume=1 / assumptions[:ammonia_tank_volumetric_density],
+        price=assumptions[:ammonia_tank_cost])
+    return Drive(; fuel=e_ammonia(assumptions),
+        transmission_efficiency=assumptions[:shaft_efficiency],
+        unit_count=1, peak_efficiency=assumptions[:vlsfo_engine_efficiency],
+        part_load_penalty=assumptions[:part_load_penalty],
+        power_cost=assumptions[:mechanical_propulsion_cost] +
+                   assumptions[:ammonia_engine_premium],
         store)
 end
 
@@ -223,7 +223,7 @@ end
     ShipDesign(drive, class::ShipClass; kwargs...)
 
 Design point of the optimization. `drive` names a [`Drive`](@ref): `:vlsfo`, `:methanol`
-or `:hydrogen`. A positive `wing_area` adds rigid wings of that total area [m^2], a
+or `:ammonia`. A positive `wing_area` adds rigid wings of that total area [m^2], a
 positive `kite_area` a towing kite of that projected area and projected
 `kite_aspect_ratio`, a positive `rigid_kite_area` rigid VTOL kites of about that total
 area, a positive `rotor_area` Flettner rotors of that total height times diameter. A kite
@@ -290,7 +290,7 @@ struct Ship{R}
     propeller::Propeller
     powertrain::Powertrain
     rig::R
-    fuel::Fuel
+    fuel::Fuel{Float64}
     windage::Windage
     "righting moment per radian of heel [N m/rad]"
     righting_stiffness::Float64
@@ -405,6 +405,17 @@ struct HullBalance
 end
 
 """
+    rudder_side_force(hull, force)
+
+Side force [N] of the rudder at the stern of `hull` that cancels the yaw moment of the rig
+`force` about the hull's lateral centre.
+"""
+function rudder_side_force(hull::Hull, force::RigForce)
+    centre = lateral_centre(hull)
+    return (force.side * centre - force.yaw_moment) / (-hull.length / 2 - centre)
+end
+
+"""
     HullBalance(ship, speed, force)
 
 Balance of the rig `force` at `speed` [m/s]: the rudder at the stern cancels the yaw
@@ -413,8 +424,7 @@ both act at half draft for the heel.
 """
 function HullBalance(ship::Ship, speed, force::RigForce)
     (; hull, env) = ship
-    centre = lateral_centre(hull)
-    rudder_force = (force.side * centre - force.yaw_moment) / (-hull.length / 2 - centre)
+    rudder_force = rudder_side_force(hull, force)
     leeway, induced = leeway_drag(hull, env, speed, abs(force.side + rudder_force))
     rudder_load = 0.5env.water_density * speed^2 * ship.rudder_area
     rudder_drag = rudder_force^2 / (rudder_load * π * ship.rudder_aspect_ratio)
@@ -445,26 +455,190 @@ function required_thrust(ship::Ship, speed, wind_10m, true_angle, force::RigForc
 end
 
 """
-    best_trim(ship, rig, speed, wind_10m, true_angle)
+    TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance)
+
+Engine output of `ship` carrying `rig`, its own rig or a part of it, at `speed` [m/s] in a
+10 m true wind of `wind_10m` [m/s] from `true_angle` [rad], with `added_resistance` [N] of
+waves on top of the calm-water resistance; called on a trim setting of the rig, it returns
+the [`trim_point`](@ref) there.
+"""
+struct TrimOutput{S, R}
+    ship::S
+    rig::R
+    speed::Float64
+    wind_10m::Float64
+    true_angle::Float64
+    added_resistance::Float64
+end
+
+"""
+    trim_point(output, setting)
+
+Engine output, propeller and rig power together [W], required propeller thrust [N] and rig
+force of [`TrimOutput`](@ref) `output` at the rig trim `setting`; output and thrust `Inf`
+where the rig force exceeds the heel, leeway or rudder limit.
+"""
+function trim_point(output::TrimOutput, setting)
+    (; ship, speed, wind_10m, true_angle) = output
+    force = rig_force(output.rig, ship.env, wind_10m, true_angle, speed, setting)
+    thrust = required_thrust(ship, speed, wind_10m, true_angle, force) +
+             output.added_resistance
+    isfinite(thrust) || return (; output=Inf, thrust, force)
+    engine = delivered_power(ship.propeller, ship.env, speed, thrust) /
+             ship.powertrain.transmission_efficiency + force.power
+    return (; output=engine, thrust, force)
+end
+
+(output::TrimOutput)(setting) = trim_point(output, setting).output
+
+"""
+    RangeSetting(rig, trim_range)
+
+Trim setting of `rig` on its [`TrimRange`](@ref) `trim_range`, called on the trim variable.
+"""
+struct RangeSetting{R}
+    rig::R
+    trim_range::TrimRange
+end
+
+(setting::RangeSetting)(value) = trim_setting(setting.rig, setting.trim_range, value)
+
+"spacing of the scanned values of the trim variable of `trim_range`"
+range_step(trim_range::TrimRange) =
+    (trim_range.high - trim_range.low) / max(trim_range.points - 1, 1)
+
+"""
+    range_value(trim_range, position)
+
+Trim variable `position` spacings of the scanned values above the low end of `trim_range`.
+"""
+range_value(trim_range::TrimRange, position) =
+    trim_range.low + position * range_step(trim_range)
+
+"tolerance on a trim variable, over the spacing of the values scanned on its range [-]"
+const TRIM_TOLERANCE = 1e-4
+
+"""
+    best_on_range(objective, trim_range)
+
+Value of the trim variable of `trim_range` that minimises `objective`, and the minimum: the
+best of its scanned values, refined by Brent's method between that value's neighbours.
+"""
+function best_on_range(objective, trim_range::TrimRange)
+    best, best_output = trim_range.low, Inf
+    for position in 0:(trim_range.points - 1)
+        value = range_value(trim_range, position)
+        trial = objective(value)
+        trial < best_output && ((best, best_output) = (value, trial))
+    end
+    step = range_step(trim_range)
+    (isfinite(best_output) && step > 0) || return best, best_output
+    result = Optim.optimize(objective, max(trim_range.low, best - step),
+        min(trim_range.high, best + step), Optim.Brent(); abs_tol=TRIM_TOLERANCE * step)
+    Optim.minimum(result) < best_output || return best, best_output
+    return Optim.minimizer(result), Optim.minimum(result)
+end
+
+"""
+    best_trim(ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
 
 Required propeller thrust [N] and rig force of `ship` carrying `rig`, its own rig or a
 part of it, at the trim that needs the least engine output, propeller and rig power
-together.
+together, solved over the continuous [`trim_ranges`](@ref) by [`best_on_range`](@ref);
+`Inf` thrust where no trim keeps the hull inside its limits. The thrust includes
+`added_resistance` [N] of waves, which the trim works against as well: a rig that has more
+thrust to give than calm water asks for keeps it for the waves.
 """
-best_trim(ship::Ship, ::Nothing, speed, wind_10m, true_angle) =
-    required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE), NO_RIG_FORCE
+best_trim(ship::Ship, ::Nothing, speed, wind_10m, true_angle, added_resistance=0.0) =
+    required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE) + added_resistance,
+    NO_RIG_FORCE
 
-function best_trim(ship::Ship, rig, speed, wind_10m, true_angle)
-    best, best_output = (Inf, NO_RIG_FORCE), Inf
-    for trim in trim_settings(rig)
-        force = rig_force(rig, ship.env, wind_10m, true_angle, speed, trim)
-        thrust = required_thrust(ship, speed, wind_10m, true_angle, force)
-        isfinite(thrust) || continue
-        output = delivered_power(ship.propeller, ship.env, speed, thrust) /
-                 ship.powertrain.transmission_efficiency + force.power
-        if output < best_output
-            best, best_output = (thrust, force), output
+function best_trim(ship::Ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
+    output = TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance)
+    ranges = trim_ranges(rig, ship.env, wind_10m, true_angle, speed)
+    best = RangeSetting(rig, first(ranges))(first(ranges).low)
+    best_output = Inf
+    for trim_range in ranges
+        setting = RangeSetting(rig, trim_range)
+        value, trial = best_on_range(output ∘ setting, trim_range)
+        trial < best_output && ((best, best_output) = (setting(value), trial))
+    end
+    return trim_result(output, best)
+end
+
+"""
+    JointTrim(output, kite, standing)
+
+[`TrimOutput`](@ref) `output` of a [`CombinedRig`](@ref) over the [`RangeSetting`](@ref)s of
+its kite and its standing rig. Called on a pair of positions on their ranges, in spacings of
+the scanned values above the low ends, it returns the engine output [W], `Inf` off the
+ranges.
+"""
+struct JointTrim{O, K, S}
+    output::O
+    kite::K
+    standing::S
+end
+
+function (joint::JointTrim)(position)
+    on_range(joint.kite.trim_range, position[1]) &&
+        on_range(joint.standing.trim_range, position[2]) || return Inf
+    return joint.output(joint_setting(joint, position))
+end
+
+"whether `position` [spacings] lies on `trim_range`"
+on_range(trim_range::TrimRange, position) = 0 <= position <= trim_range.points - 1
+
+"trim setting of the [`CombinedRig`](@ref) of `joint` at the pair of `position`s"
+joint_setting(joint::JointTrim, position) =
+    (joint.kite(range_value(joint.kite.trim_range, position[1])),
+        joint.standing(range_value(joint.standing.trim_range, position[2])))
+
+"most Nelder-Mead iterations of a joint trim of kite and standing rig"
+const JOINT_TRIM_ITERATIONS = 200
+
+"standard deviation of the engine output over the simplex that ends a joint trim [W]"
+const JOINT_TRIM_TOLERANCE = 1e-2
+
+"""
+    best_trim(ship, rig::CombinedRig, speed, wind_10m, true_angle, added_resistance=0.0)
+
+[`best_trim`](@ref) of kite and standing rig together: the best pair of their scanned trim
+values, refined by the Nelder-Mead method in both at once.
+"""
+function best_trim(ship::Ship, rig::CombinedRig, speed, wind_10m, true_angle,
+        added_resistance=0.0)
+    output = TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance)
+    kite = RangeSetting(rig.kite,
+        only(trim_ranges(rig.kite, ship.env, wind_10m, true_angle, speed)))
+    standing_ranges = trim_ranges(rig.standing, ship.env, wind_10m, true_angle, speed)
+    best = JointTrim(output, kite, RangeSetting(rig.standing, first(standing_ranges)))
+    start, best_output = (0.0, 0.0), Inf
+    for standing_range in standing_ranges
+        joint = JointTrim(output, kite, RangeSetting(rig.standing, standing_range))
+        for kite_position in 0:(kite.trim_range.points - 1),
+            standing_position in 0:(standing_range.points - 1)
+
+            position = (Float64(kite_position), Float64(standing_position))
+            trial = joint(position)
+            trial < best_output && ((best, start, best_output) = (joint, position, trial))
         end
     end
-    return best
+    isfinite(best_output) || return trim_result(output, joint_setting(best, start))
+    result = Optim.optimize(best, collect(start),
+        Optim.NelderMead(; initial_simplex=Optim.AffineSimplexer(0.5, 0.0)),
+        Optim.Options(; iterations=JOINT_TRIM_ITERATIONS, g_tol=JOINT_TRIM_TOLERANCE))
+    position = Optim.minimum(result) < best_output ? Optim.minimizer(result) : start
+    return trim_result(output, joint_setting(best, position))
+end
+
+"""
+    trim_result(output, setting)
+
+Required thrust [N] and rig force of [`TrimOutput`](@ref) `output` at `setting`, as
+[`best_trim`](@ref) returns them.
+"""
+function trim_result(output::TrimOutput, setting)
+    point = trim_point(output, setting)
+    return isfinite(point.output) ? (point.thrust, point.force) : (Inf, NO_RIG_FORCE)
 end

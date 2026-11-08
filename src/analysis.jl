@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
     LegTrace
 
@@ -70,9 +73,13 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     aloft = kite_aloft(table.table, speed, sample.headwind, sample.crosswind, first(sea))
     flown = standing === ship.rig || (mode == FLYING || !isfinite(stowed_power)) &&
             isfinite(flown_power) && aloft
-    force = last(best_trim(ship, flown ? ship.rig : standing, speed, wind_speed, angle))
+    slice = SpeedSlice(table.table, KnotWeight(table.table.speeds, speed))
+    added = trim_resistance(table.table, sea_resistance(slice, sample.condition))
+    force = last(best_trim(ship, flown ? ship.rig : standing, speed, wind_speed, angle,
+        added))
     available = standing === ship.rig || aloft ?
-                last(best_trim(ship, ship.rig, speed, wind_speed, angle)).thrust : 0.0
+                last(best_trim(ship, ship.rig, speed, wind_speed, angle, added)).thrust :
+                0.0
     apparent, apparent_angle = apparent_wind(
         wind_at_height(ship.env, wind_speed, rig_height(ship.rig)), angle, speed)
     push!(trace.time, time)
@@ -110,16 +117,18 @@ price_at_cost(prices, costs, cost) =
     costs[1] < cost ? share_at_cost(prices, costs, cost) : NaN
 
 """
-    ranked_neighbours(costs)
+    ranked_rivals(costs)
 
-The rigs of the dictionary `costs`, cheapest first, each with the cost of the rig ahead and
-of the next rig, `NaN` where there is none.
+The rigs of the dictionary `costs`, cheapest first, each with its rival, the cheapest of the
+other rigs, that rival's cost and the cost of the rig just ahead, `NaN` for the first.
 """
-function ranked_neighbours(costs)
+function ranked_rivals(costs)
     ranked = sort(collect(keys(costs)); by=rig -> costs[rig])
-    neighbour(rank) = checkbounds(Bool, ranked, rank) ? costs[ranked[rank]] : NaN
-    return [(; rig, ahead=neighbour(rank - 1), next=neighbour(rank + 1))
-            for (rank, rig) in enumerate(ranked)]
+    return map(enumerate(ranked)) do (rank, rig)
+        rival = ranked[rank == 1 ? 2 : 1]
+        return (; rig, rival, rival_cost=costs[rival],
+            ahead=rank == 1 ? NaN : costs[ranked[rank - 1]])
+    end
 end
 
 """
