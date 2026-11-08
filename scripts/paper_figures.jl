@@ -1752,14 +1752,16 @@ function rigid_scaling_figure()
     thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
         xlabel="apparent wind [m/s]", ylabel="thrust [kN]", limits=(nothing, (0, 2600)))
     price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
-        xticks=[30, 300, 3000], xlabel="kite area [m²]",
+        xticks=[30, 300, 3000], xlabel=L"kite area [$\mathrm{m^2}$]",
         ylabel="price per thrust [USD/kN]",
         ytickformat=values -> [@sprintf("%.0f", value) for value in values],
         limits=(nothing, (0, 1.1e5)))
     annual_axis = Axis(figure[2, 1]; title="(c) cost a year at 12 m/s", xscale=log10,
-        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="USD/kN a year")
+        xticks=[30, 300, 3000], xlabel=L"kite area [$\mathrm{m^2}$]",
+        ylabel="USD/kN a year")
     wind_axis = Axis(figure[2, 2]; title="(d) lowest wind", xscale=log10,
-        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="apparent wind [m/s]")
+        xticks=[30, 300, 3000], xlabel=L"kite area [$\mathrm{m^2}$]",
+        ylabel="apparent wind [m/s]")
     base_exponent = assumptions[:rigid_mass_exponent]
     curves = (("rigid", 30.0), ("rigid", 54.0), ("rigid", 100.0), ("rigid", 300.0),
         ("soft", 1000.0))
@@ -2118,8 +2120,9 @@ function rigid_mass_figure()
     published = read_table(joinpath(root, "data", "rigid_kite_masses.csv"))
     figure = Figure(size=(column_width, 180))
     ticks = [3, 10, 30, 100, 300]
-    axis = Axis(figure[1, 1]; xscale=log10, yscale=log10, xlabel="wing area [m²]",
-        ylabel="mass [kg]", xticks=(ticks, string.(ticks)),
+    axis = Axis(figure[1, 1]; xscale=log10, yscale=log10,
+        xlabel=L"wing area [$\mathrm{m^2}$]", ylabel="mass [kg]",
+        xticks=(ticks, string.(ticks)),
         yticks=([30, 100, 300, 1000, 3000, 10000, 30000],
             ["30", "100", "300", "1000", "3000", "10000", "30000"]))
     exponent = assumptions.entries[:rigid_mass_exponent]
@@ -2127,7 +2130,8 @@ function rigid_mass_figure()
     for (value, linestyle) in ((exponent.low, :dot), (exponent.value, :solid),
         (exponent.high, :dash))
         inputs = with_value(assumptions, :rigid_mass_exponent, value)
-        masses = [last(WindShipOpt.rigid_kite_model(area, 1, inputs)).mass for area in areas]
+        masses = [last(WindShipOpt.rigid_kite_model(area, 1, inputs)).mass
+            for area in areas]
         lines!(axis, areas, masses; color=:black, linestyle, linewidth=0.8,
             label=L"\kappa = %$(value)")
     end
