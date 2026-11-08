@@ -2,7 +2,7 @@
     WindShipOpt
 
 Design optimisation of wind-assisted merchant ships (wings, rotors or a towing kite, on
-VLSFO, e-methanol or hydrogen), with weather routing on long ocean routes.
+VLSFO, e-methanol or e-ammonia), with weather routing on long ocean routes.
 """
 module WindShipOpt
 

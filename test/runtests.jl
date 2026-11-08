@@ -733,7 +733,7 @@ end
 @testset "a class ship's drive delivers the shaft power of its source engine" begin
     class = ship_classes()["feeder container ship"]
     shaft = 1e3class.power * assumptions[:shaft_efficiency]
-    for drive in (:vlsfo, :methanol, :hydrogen)
+    for drive in (:vlsfo, :methanol, :ammonia)
         powertrain = Ship(ShipDesign(drive, class), assumptions).powertrain
         output = powertrain.installed_power - powertrain.hotel_load
         @test output * powertrain.transmission_efficiency ≈ shaft
@@ -765,20 +765,29 @@ end
     end
 end
 
-@testset "a hydrogen ship's tank volume and mass follow its largest leg" begin
+@testset "an ammonia ship's tank volume and mass follow its largest leg" begin
     class = ship_classes()["feeder container ship"]
-    ship = Ship(ShipDesign(:hydrogen, class), assumptions)
+    ship = Ship(ShipDesign(:ammonia, class), assumptions)
     leg = 2e12
     store = WindShipOpt.fuel_store(ship, leg, assumptions)
     fuel = assumptions[:fuel_reserve_factor] * leg / ship.fuel.heating_value
-    @test store.volume ≈ fuel / assumptions[:lh2_tank_volumetric_density]
-    @test store.mass ≈ fuel / assumptions[:lh2_tank_gravimetric_density] / 1e3
+    @test store.volume ≈ fuel / assumptions[:ammonia_tank_volumetric_density]
+    @test store.mass ≈ fuel / assumptions[:ammonia_tank_gravimetric_density] / 1e3
     @test WindShipOpt.fuel_store(ship, 2leg, assumptions).volume ≈ 2store.volume
     hold = ShipCosts(ship, assumptions).hold
     carried = WindShipOpt.cargo_mass(hold, store.mass, store.volume) / hold.unit.cargo
     @test hold.slots - carried ≈ store.volume / hold.unit.volume
     vlsfo = Ship(ShipDesign(:vlsfo, class), assumptions)
     @test WindShipOpt.fuel_store(vlsfo, leg, assumptions).volume == 0
+end
+
+@testset "an ammonia ship pays for its pilot oil and emits only its pilot's CO2" begin
+    pilot = assumptions[:ammonia_pilot_share]
+    oil = Ship(ShipDesign(:vlsfo, 140.0), assumptions).fuel
+    ammonia = Ship(ShipDesign(:ammonia, 140.0), assumptions).fuel
+    @test ammonia.carbon_intensity ≈ pilot * oil.carbon_intensity
+    @test ammonia.price ≈
+          (1 - pilot) * 1e-9assumptions[:e_ammonia_price] + pilot * oil.price
 end
 
 """
