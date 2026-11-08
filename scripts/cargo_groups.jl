@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Prints, from the class study of a run, what each rig pays in cargo on each ship class:
 # the saving of its cheapest size, the points of it its mass or its blocked slots cost,
 # the saving if the class filled its other limit first, and the saving of wings and
