@@ -114,6 +114,6 @@ The maintenance split favours the rotors and changes no order, at these sizes or
 
 ## Crashes
 
-The goal is no crash in flight, so no rate is sought: `tab:missed_goals` in the paper gives the crashes a year each rig can take instead. It uses the same three ships, each rig at its cheapest size and the soft and rigid kites at each size swept, with the canopy life goal of 4,000 h and the lower launch damage, so its savings are ahead of the "Cost effect" sweep above.
+The goal is no crash in flight, so no rate is sought: `tab:missed_goals` in the paper gives the crashes a year each rig can take instead. It uses the same three ships, each rig at its cheapest size and the soft and rigid kites at each size swept, with the canopy life goal and the lower launch damage, so its savings are ahead of the "Cost effect" sweep above.
 
 One crash costs what the operator pays beyond the replacement it avoids. A kite pays its control unit at market price and half of its canopy and tether, as wear charges the other half. A wing or rotor pays one new unit with installation, as nothing charges its wear. A rigid kite pays one airframe at full price and half of its tether, as it lasts the life of the rig. Launch loss stays in the launch cost, and only a crash in flight or a unit lost counts here. Recovery and repair are left out for every rig, and the time out is the out-of-service input, so each limit is an upper bound. A limit scales inversely with the cost of one event, so partial damage scales from the table.
