@@ -1116,6 +1116,45 @@ end
     @test sailed.objective ≈ leg.objective rtol = 1e-3
 end
 
+@testset "a kite's route on one state brackets its optimum between free and settled launches" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    time_cost = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions))
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    passage(settings) = WindShipOpt.with_router_settings(
+        () -> route(corridor, kite_table, weather, departure; time_cost), settings)
+    exact = passage(WindShipOpt.RouterSettings())
+    free = passage(WindShipOpt.RouterSettings(launch_spread_hours=Inf,
+        settle_launches=false))
+    settled = passage(WindShipOpt.RouterSettings(launch_spread_hours=Inf))
+    @test free.launches == 0 && settled.launches > 0
+    @test free.objective <= exact.objective <= settled.objective
+end
+
+@testset "a rig without a kite is routed the same whatever spreads a kite's launches" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    passage() = route(corridor, table, weather, departure; time_cost=hourly)
+    spread = WindShipOpt.with_router_settings(passage,
+        WindShipOpt.RouterSettings(launch_spread_hours=Inf))
+    @test spread.objective == passage().objective
+    @test spread.path == passage().path
+end
+
+@testset "a passage on one state flies only where that costs less and never launches" begin
+    table, prices = kite_coaster()
+    free(points) = WindShipOpt.spread_passage(table, points, Inf, prices)
+    point = kite_point(table, 1.0, 4.0)
+    tally = free([point])
+    @test tally.launches == 0
+    @test tally.flight_hours == 4.0
+    @test tally.cost < first(WindShipOpt.kite_passage(table, [point], false, prices)).cost
+    spread(hours) = WindShipOpt.spread_passage(table, [point], hours, prices)
+    launched = last(WindShipOpt.kite_passage(table, [point], false, prices))
+    @test spread(4.0).flight_hours == 0.0
+    @test spread(96.0).flight_hours == 4.0
+    @test tally.cost < spread(96.0).cost < launched.cost
+end
+
 "Synthetic weather with a gale from the south-west no ship can sail in before `calm_from`."
 struct GaleWeather
     calm::SyntheticWeather
