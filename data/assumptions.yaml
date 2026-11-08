@@ -1279,6 +1279,27 @@ kite_out_of_service:
   unit: "-"
   reason: "Goal, the same for all rigs: share of round trips with the kite out of service though the wind and sea would allow it. No source gives a figure for any ship kite. Base and low: our assumption, the same as the rotors. High: our estimate."
 
+kite_crash_rate:
+  value: 0.0
+  low: 0.0
+  high: 0.0
+  unit: 1/year
+  reason: "Goal: no kite crashes into the sea in service; each crash costs what crash_cost gives. The crash table gives the rate per year at which each rig stops paying."
+
+wing_loss_rate:
+  value: 0.0
+  low: 0.0
+  high: 0.0
+  unit: 1/year
+  reason: "Goal: no wing lost in service per wing and year; each loss costs one wing with its installation."
+
+rotor_loss_rate:
+  value: 0.0
+  low: 0.0
+  high: 0.0
+  unit: 1/year
+  reason: "Goal: no rotor lost in service per rotor and year; each loss costs one rotor with its installation."
+
 # --- fuel and carbon ---
 vlsfo_price:
   value: 16.0

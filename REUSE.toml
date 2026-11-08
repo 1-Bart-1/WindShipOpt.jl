@@ -1,6 +1,6 @@
 version = 1
 
-# The owner's files that cannot keep a header: data, markdown, Pkg's files, generated LaTeX.
+# The owner's files that cannot keep a header: data, markdown, JSON, Pkg's files, generated LaTeX.
 [[annotations]]
 path = [
     "**/*.md",
@@ -9,6 +9,9 @@ path = [
     "data/market/*.csv",
     "paper/sources.csv",
     "**/Project.toml",
+    "site/package.json",
+    "site/package-lock.json",
+    "site/tsconfig.json",
     "**/Manifest-v*.toml.default",
     "LocalPreferences.toml.default",
     "paper/sections/*_table.tex",

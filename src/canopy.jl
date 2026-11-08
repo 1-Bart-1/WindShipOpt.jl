@@ -7,13 +7,13 @@
 Mass, price and life of a ram-air canopy sewn from polyester ripstop of one cloth
 weight, per m^2 of projected kite area.
 """
-struct Canopy
+struct Canopy{C <: Real, L <: Real}
     "canopy mass per projected area [kg/m^2]"
     mass_per_area::Float64
     "manufacturing cost per projected area [USD/m^2]"
-    cost_per_area::Float64
+    cost_per_area::C
     "flight hours before replacement [h]"
-    lifetime::Float64
+    lifetime::L
 end
 
 """

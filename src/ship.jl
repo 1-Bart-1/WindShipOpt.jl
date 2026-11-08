@@ -6,9 +6,9 @@
 
 Fuel burned on board, with its price including any carbon charge.
 """
-struct Fuel
+struct Fuel{T <: Real}
     "price including carbon charge [USD/J]"
-    price::Float64
+    price::T
     "lower heating value [J/kg]"
     heating_value::Float64
     "tank-to-wake CO2 [kg/J]"
@@ -60,8 +60,8 @@ Power source, fuel and fuel store of a drive: `:vlsfo` for a mechanical diesel o
 dual-fuel engine on e-ammonia with its tank. Tanks without a store sit in the hull and take
 no cargo space.
 """
-Base.@kwdef struct Drive
-    fuel::Fuel
+Base.@kwdef struct Drive{F <: Fuel}
+    fuel::F
     "efficiency from unit output to propeller shaft [-]"
     transmission_efficiency::Float64
     "number of identical engines, gensets or fuel-cell strings"
@@ -290,7 +290,7 @@ struct Ship{R}
     propeller::Propeller
     powertrain::Powertrain
     rig::R
-    fuel::Fuel
+    fuel::Fuel{Float64}
     windage::Windage
     "righting moment per radian of heel [N m/rad]"
     righting_stiffness::Float64
