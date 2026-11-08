@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
     Assumption
 
@@ -49,12 +52,10 @@ const INPUTS_READ = ScopedValue{Union{Nothing, InputsRead}}(nothing)
 function Base.getindex(assumptions::Assumptions, name::Symbol)
     record = INPUTS_READ[]
     isnothing(record) || @lock record.lock push!(record.names, name)
-    return input_value(assumptions, name)
+    recorded = assumptions.recorded
+    return isnothing(recorded) ? assumptions.entries[name].value :
+           get(() -> assumptions.entries[name].value, recorded, name)
 end
-
-input_value(assumptions::Assumptions{Nothing}, name) = assumptions.entries[name].value
-input_value(assumptions::Assumptions, name) =
-    get(() -> assumptions.entries[name].value, assumptions.recorded, name)
 
 """
     inputs_read(f)

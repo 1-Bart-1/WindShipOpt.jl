@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Every model assumption: base `value`, `low`/`high` bounds for the sensitivity sweep,
 # `unit`, and the `reason` the value was chosen.
 

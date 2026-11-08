@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 capital_recovery(rate, years) = rate / (1 - (1 + rate)^-years)
 
 """
@@ -42,16 +45,41 @@ struct CargoHold
 end
 
 """
+    unit_limits(hold, store_mass=0, store_volume=0)
+
+Cargo units `hold` takes with a fuel store of `store_mass` [t] and `store_volume` [m^3]:
+by the deadweight left and by the units left, as a named tuple `(deadweight, space)`.
+"""
+unit_limits(hold::CargoHold, store_mass=0.0, store_volume=0.0) =
+    (deadweight=(hold.payload - store_mass) / hold.unit.mass,
+        space=hold.slots - store_volume / hold.unit.volume)
+
+"""
     cargo_mass(hold, store_mass=0, store_volume=0)
 
 Cargo [t] that `hold` carries with a fuel store of `store_mass` [t] and `store_volume`
 [m^3] taken from it: the deadweight or the units left, whichever is less.
 """
-function cargo_mass(hold::CargoHold, store_mass=0.0, store_volume=0.0)
-    units = min((hold.payload - store_mass) / hold.unit.mass,
-        hold.slots - store_volume / hold.unit.volume)
-    return units * hold.unit.cargo
+cargo_mass(hold::CargoHold, store_mass=0.0, store_volume=0.0) =
+    minimum(unit_limits(hold, store_mass, store_volume)) * hold.unit.cargo
+
+"""
+    cargo_limit(hold)
+
+`:deadweight` where `hold` fills its deadweight before its units, `:space` otherwise.
+"""
+function cargo_limit(hold::CargoHold)
+    (; deadweight, space) = unit_limits(hold)
+    return deadweight <= space ? :deadweight : :space
 end
+
+"""
+    cargo_limit(class, assumptions)
+
+The limit `class` fills first without a rig or fuel store, as `cargo_limit(hold)`.
+"""
+cargo_limit(class::ShipClass, assumptions::Assumptions) =
+    cargo_limit(CargoHold(Ship(ShipDesign(:vlsfo, class), assumptions), assumptions))
 
 """
     CargoHold(ship, assumptions)
@@ -337,9 +365,17 @@ canopy_price_inputs = (:canopy_making_cost_per_area, :canopy_cloth_base_price,
 
 [`canopy_price`](@ref) [USD/m^2] of the canopy as built today, from the `_today` inputs.
 """
-canopy_price_today(assumptions) = canopy_price(reduce(
+canopy_price_today(assumptions) = canopy_price(with_today(assumptions,
+    canopy_price_inputs))
+
+"""
+    with_today(assumptions, names)
+
+Fresh `Assumptions` with each of `names` set to the value of its `_today` counterpart.
+"""
+with_today(assumptions, names) = reduce(
     (inputs, name) -> with_value(inputs, name, assumptions[Symbol(name, :_today)]),
-    canopy_price_inputs; init=assumptions))
+    names; init=assumptions)
 
 """
     consumable_costs(rig, assumptions)
@@ -564,10 +600,15 @@ function leg_time_costs(costs::ShipCosts, assumptions::Assumptions)
            time_cost(costs, assumptions, assumptions[:backhaul_fraction] * cargo)
 end
 
+"outcome of the round trip of one departure in a [`RoundTrip`](@ref)"
+const DepartureOutcome = @NamedTuple{departure::Float64, cost_per_tonne_km::Float64,
+    fuel_per_tonne_km::Float64, flight_share::Float64}
+
 """
     Passages
 
-What one service state of a design does per round trip, averaged over the departures.
+What one service state of a design does per round trip, on one departure or averaged over
+the departures.
 """
 struct Passages
     "fuel energy [J]"
@@ -618,6 +659,9 @@ struct RoundTrip
     retractable::Bool
     "what each of the [`service_states`](@ref) does, `nothing` where it was not routed"
     passages::Vector{Union{Nothing, Passages}}
+    "each departure [h] with its cost [USD per tonne-km], fuel per tonne-km [MJ] and kite
+    flight share [-], the ship and its cargo as over all departures"
+    departures::Vector{DepartureOutcome}
 end
 
 """
@@ -756,9 +800,9 @@ end
     service_passages(ship, outbound, inbound, weather, departures, assumptions, hourly,
                      port_hours, horizon, held_knots)
 
-[`Passages`](@ref) of `ship` over `departures`; `nothing` if any passage is infeasible.
-The router holds `held_knots` [kn] by [`held_speed_table`](@ref), or chooses speed where
-`nothing`.
+[`Passages`](@ref) of `ship` on the round trip of each of `departures`; `nothing` if any
+passage is infeasible. The router holds `held_knots` [kn] by [`held_speed_table`](@ref),
+or chooses speed where `nothing`.
 """
 function service_passages(ship::Ship, outbound, inbound, weather, departures, assumptions,
         hourly, port_hours, horizon, held_knots)
@@ -768,14 +812,25 @@ function service_passages(ship::Ship, outbound, inbound, weather, departures, as
     legs = fetch.([Threads.@spawn route_round_trip(route_table, outbound, inbound, weather,
                        departure, port_hours, hourly, horizon) for departure in departures])
     any(isnothing, legs) && return nothing
-    return Passages(mean(first(pair).fuel_energy + last(pair).fuel_energy for pair in legs),
-        mean(first(pair).duration for pair in legs),
-        mean(last(pair).duration for pair in legs),
-        mean(first(pair).flight_hours + last(pair).flight_hours for pair in legs),
-        mean(first(pair).launches + last(pair).launches for pair in legs),
-        mean(first(pair).forced_landings + last(pair).forced_landings for pair in legs),
-        maximum(max(first(pair).fuel_energy, last(pair).fuel_energy) for pair in legs))
+    largest_leg = maximum(max(out.fuel_energy, back.fuel_energy) for (out, back) in legs)
+    return [Passages(out.fuel_energy + back.fuel_energy, out.duration, back.duration,
+                out.flight_hours + back.flight_hours, out.launches + back.launches,
+                out.forced_landings + back.forced_landings, largest_leg)
+            for (out, back) in legs]
 end
+
+"""
+    mean_passages(departures)
+
+[`Passages`](@ref) averaged over the `departures` of one service state.
+"""
+mean_passages(departures) = Passages(mean(passage.energy for passage in departures),
+    mean(passage.out_hours for passage in departures),
+    mean(passage.back_hours for passage in departures),
+    mean(passage.flight_hours for passage in departures),
+    mean(passage.launches for passage in departures),
+    mean(passage.forced_landings for passage in departures),
+    maximum(passage.largest_leg for passage in departures))
 
 """
     state_mean(quantity, shares, passages)
@@ -865,7 +920,8 @@ end
 Route `ship` out along `outbound` and back along `inbound` for each departure time
 [h] in each of its [`service_states`](@ref) with a share, and turn the result averaged
 over the departures and the states into the cost per tonne-km of the transport service
-by [`voyage_costs`](@ref). With a finite forecast `horizon` [h] the router knows the
+by [`voyage_costs`](@ref), and that of each departure with the same ship by
+[`departure_outcome`](@ref). With a finite forecast `horizon` [h] the router knows the
 weather only that far ahead, and with `held_knots` [kn] the ship holds that speed instead
 of choosing by cost. Wings and rotors are fixed or retractable, whichever costs less. The
 router prices time at the hold's cargo before the fuel store. Returns `nothing` if any
@@ -878,13 +934,15 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
     hourly = leg_time_costs(first(costs), assumptions)
     router_hourly = isnothing(held_knots) ? hourly : HELD_SPEED_TIME_FACTOR .* hourly
     states = service_states(ship.rig, assumptions)
-    passages = [share > 0 ?
+    services = [share > 0 ?
                 service_passages(with_rig(ship, rig), outbound, inbound, weather,
                     departures, assumptions, router_hourly, port_hours, horizon,
                     held_knots) : nothing
                 for (share, rig) in states]
-    any(isnothing(passage) && share > 0
-        for ((share, _), passage) in zip(states, passages)) && return nothing
+    any(isnothing(service) && share > 0
+        for ((share, _), service) in zip(states, services)) && return nothing
+    passages = [isnothing(service) ? nothing : mean_passages(service)
+                for service in services]
     voyage = voyage_costs(ship, costs, last.(states), passages, outbound, inbound,
         assumptions)
     isnothing(voyage) && return nothing
@@ -893,6 +951,9 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
     energy = mean_of(passage -> passage.energy)
     sea_hours = mean_of(passage -> passage.out_hours + passage.back_hours)
     retractable = voyage.retractable < voyage.fixed
+    outcomes = [departure_outcome(ship, costs, states, services, k, departure,
+                    retractable, outbound, inbound, assumptions)
+                for (k, departure) in enumerate(departures)]
     return RoundTrip(ship.design, voyage.cheaper, energy / 1e9,
         energy / 1e6 / voyage.tonne_km,
         energy * ship.fuel.carbon_intensity * 1e3 / voyage.tonne_km,
@@ -902,5 +963,30 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
         ship.powertrain.installed_power / 1e3,
         mean_of(passage -> passage.flight_hours) / sea_hours,
         mean_of(passage -> passage.launches), mean_of(passage -> passage.forced_landings),
-        retractable, passages)
+        retractable, passages, outcomes)
+end
+
+"""
+    departure_outcome(ship, costs, states, services, k, departure, retractable, outbound,
+                      inbound, assumptions)
+
+[`DepartureOutcome`](@ref) of the `k`th of the departures, at `departure` [h], of `ship`
+with the [`ship_costs`](@ref) `costs` and its [`service_states`](@ref) `states`, from the
+[`service_passages`](@ref) `services` of each state, `nothing` where not routed; with the
+fuel store, cargo and choice of `retractable` or fixed rig of all departures.
+"""
+function departure_outcome(ship, costs, states, services, k, departure, retractable,
+        outbound, inbound, assumptions)
+    passages = [isnothing(service) ? nothing : service[k] for service in services]
+    voyage = voyage_costs(ship, costs, last.(states), passages, outbound, inbound,
+        assumptions)
+    shares = first.(states)
+    sea_hours = state_mean(passage -> passage.out_hours + passage.back_hours, shares,
+        passages)
+    return (; departure,
+        cost_per_tonne_km=retractable ? voyage.retractable : voyage.fixed,
+        fuel_per_tonne_km=state_mean(passage -> passage.energy, shares, passages) / 1e6 /
+                          voyage.tonne_km,
+        flight_share=state_mean(passage -> passage.flight_hours, shares, passages) /
+                     sea_hours)
 end

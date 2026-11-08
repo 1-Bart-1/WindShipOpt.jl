@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 dot3(a, b) = a[1] * b[1] + a[2] * b[2] + a[3] * b[3]
 norm3(a) = sqrt(dot3(a, a))
 

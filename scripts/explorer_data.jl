@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Data step of the companion explorer in site/: the designs of the class study with the
 # cost model recorded over the inputs a reader changes, for the browser to evaluate at
 # other values on the same routes. Included by paper.jl after paper_data.jl; run it in

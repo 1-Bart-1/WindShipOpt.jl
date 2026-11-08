@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Bart van de Lint
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { explorerPath } from "../data";

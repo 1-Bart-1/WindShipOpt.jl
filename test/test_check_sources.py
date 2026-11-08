@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Tests of scripts/check_sources.py. Run: python3 test/test_check_sources.py"""
 import hashlib
 import sys

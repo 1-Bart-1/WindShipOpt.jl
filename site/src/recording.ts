@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Bart van de Lint
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /**
  * A node of a recording exported by the Julia model: an input with its base value, a
  * constant, or an operation on earlier nodes, by their index from zero.
