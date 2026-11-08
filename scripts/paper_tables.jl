@@ -207,8 +207,8 @@ of goal_sizes.csv: the [`size_limits`](@ref) of that size against its rival, the
 other rig, and where the rig stops paying and where it comes level with that rival the
 canopy life [h], the canopy price [USD/m^2] and the share out of service [-], that share
 also for all units failing together;
-for the kite its saving [%] at half the canopy life goal and at today's canopy price, and the
-life and price at which it passes the rig ahead; the points of saving [%] its share out of
+for the kite its saving [%] at half the canopy life goal and at today's canopy price, and
+the life and price at which it passes the rig ahead; the points of saving [%] its share out of
 service costs at the goal. Raises an error where the sweeps differ in a rig's goal cost.
 """
 function missed_goal_rows()
@@ -347,8 +347,8 @@ end
 Write the [`missed_goal_rows`](@ref) as panel (a) and the [`crash_limit_rows`](@ref) as
 panel (b) to paper/sections/missed_goals_table.tex, savings and leads shaded by their sign
 and the limits by their [`goal_margins`](@ref), and print what the text takes from them
-besides: the kite's saving at half the life goal and at today's canopy price, the points each rig's
-outages cost, the life and price at which the kite passes the rig ahead and the share at
+besides: the kite's saving at half the life goal and at today's canopy price, the points
+each rig's outages cost, the life and price at which the kite passes the rig ahead and the share at
 which all units failing together put a rig level with its rival.
 """
 function missed_goals_table()
@@ -381,8 +381,8 @@ function missed_goals_table()
                      shaded_cell(row.saving, saving_scale); paper_name(row.rival);
                      shaded_cell(row.lead, lead_scale; format="%+.1f"); limits]
             println(io, join(cells, " & "), " \\\\")
-            @printf("%s, %s: %.1f %% at half the life goal, %.1f %% at today's price, ", row.ship,
-                paper_name(row.rig), row.saving_short, row.saving_today)
+            @printf("%s, %s: %.1f %% at half the life goal, %.1f %% at today's price, ",
+                row.ship, paper_name(row.rig), row.saving_short, row.saving_today)
             @printf("outages cost %.2f points, passes the next up at %s h, USD %s, ",
                 row.service_points, dash_cell(row.passes, "%.0f"),
                 dash_cell(row.passes_price, "%.0f"))
