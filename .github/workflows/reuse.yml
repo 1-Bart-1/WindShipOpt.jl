@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: REUSE
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  reuse-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: fsfe/reuse-action@v6

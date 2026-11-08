@@ -1,14 +1,20 @@
-# Shared by the scripts: the weather, the forecasts, the departure times and the route
-# corridors. Uses the ERA5 data in era5/atlantic_wide/ with its land mask and all routes
-# when it is there, and the synthetic weather with the Caribbean route otherwise; the
-# forecasts are those download_forecast.jl wrote to era5/atlantic_wide/forecast/.
-# Corridors are built on first use by `corridors`, at a scale relative to stages of 90 nmi.
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Shared by the scripts: the weather with the date of its time zero, the forecasts, the
+# departure times and the route corridors. Uses the ERA5 data in era5/atlantic_wide/ with
+# its land mask and all routes when it is there, and the synthetic weather, whose time
+# zero is 1 January, with the Caribbean route otherwise; the forecasts are those
+# download_forecast.jl wrote to era5/atlantic_wide/forecast/. Corridors are built on first
+# use by `corridors`, at a scale relative to stages of 90 nmi.
+using Dates
 using WindShipOpt
 
 assumptions = Assumptions()
 era5_directory = joinpath(@__DIR__, "..", "era5", "atlantic_wide")
 if isfile(joinpath(era5_directory, "waves", "grid.toml"))
     weather = ERA5Weather(era5_directory)
+    weather_origin = weather.origin
     mask = GridMask(weather, north_atlantic_mask().islands)
     route_names = [:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao]
     last_departure = WindShipOpt.duration(weather) - 24 * 100.0
@@ -19,6 +25,7 @@ if isfile(joinpath(era5_directory, "waves", "grid.toml"))
                        ForecastArchive(forecast_directory, weather) : nothing
 else
     weather = SyntheticWeather()
+    weather_origin = DateTime(2017)
     mask = north_atlantic_mask()
     route_names = [:caribbean]
     departures = [24.0 * (30 * month + 1) for month in 0:11]

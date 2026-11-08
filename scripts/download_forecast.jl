@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Download the forecasts a ship could have routed on: the control run of NOAA's GEFSv12
 # reforecast, issued daily at 00 UTC, with its 10 m wind and its WAVEWATCH III sea state
 # out to 16 days, into era5/<region>/forecast/{wind,waves}/ on the grids of the ERA5 data

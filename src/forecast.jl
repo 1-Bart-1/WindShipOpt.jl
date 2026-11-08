@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 "hours after its 00 UTC start that a day's forecast reaches the ship [h]"
 const FORECAST_LATENCY = 6.0
 

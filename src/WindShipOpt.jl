@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
     WindShipOpt
 
@@ -29,6 +32,7 @@ export write_forecast_bias, ShipClass, ship_classes
 export ShipCosts, RoundTrip, round_trip, KNOT, NAUTICAL_MILE
 export LegTrace
 
+include("recording.jl")
 include("assumptions.jl")
 include("hull.jl")
 include("waves.jl")
