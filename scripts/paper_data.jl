@@ -1801,30 +1801,43 @@ function mile_cost(ship, knots, hourly, wind_10m, angle, force, wear)
 end
 
 """
+    speed_range(ship)
+
+Range of speeds [kn] from 4 kn to the top speed of `ship`, scanned about every knot.
+"""
+function speed_range(ship)
+    top = ship.max_speed / KNOT
+    return WindShipOpt.TrimRange(4.0, top, ceil(Int, top - 4.0) + 1, 1)
+end
+
+"""
     economic_speed(ship, hourly, wind_10m, angle; force=nothing,
                    wear=wear_cost(ship.rig, assumptions))
 
-Speed [kn] on a grid of 0.1 kn with the least [`mile_cost`](@ref).
+Speed [kn] on [`speed_range`](@ref) with the least [`mile_cost`](@ref).
 """
 function economic_speed(ship, hourly, wind_10m, angle; force=nothing,
         wear=WindShipOpt.wear_cost(ship.rig, assumptions))
-    return argmin(knots -> mile_cost(ship, knots, hourly, wind_10m, angle, force, wear),
-        4.0:0.1:(ship.max_speed / KNOT))
+    return first(WindShipOpt.best_on_range(
+        knots -> mile_cost(ship, knots, hourly, wind_10m, angle, force, wear),
+        speed_range(ship)))
 end
 
 """
     sailing_speed(ship, force, wind_10m, angle)
 
-Highest speed [kn] on a grid of 0.1 kn at which `ship` needs no propeller thrust with the
-rig force held at `force`, in a steady wind of `wind_10m` [m/s] from `angle` [rad]; zero if
-none.
+Highest speed [kn] on [`speed_range`](@ref) at which `ship` needs no propeller thrust with
+the rig force held at `force`, in a steady wind of `wind_10m` [m/s] from `angle` [rad];
+zero if none.
 """
 function sailing_speed(ship, force, wind_10m, angle)
-    speeds = 4.0:0.1:(ship.max_speed / KNOT)
-    last_sailing = findlast(speeds) do knots
-        return WindShipOpt.required_thrust(ship, knots * KNOT, wind_10m, angle, force) <= 0
-    end
-    return isnothing(last_sailing) ? 0.0 : speeds[last_sailing]
+    thrust(knots) = WindShipOpt.required_thrust(ship, knots * KNOT, wind_10m, angle, force)
+    span = speed_range(ship)
+    thrust(span.high) <= 0 && return span.high
+    sailing, least_thrust = WindShipOpt.best_on_range(thrust, span)
+    least_thrust > 0 && return 0.0
+    return first(WindShipOpt.sign_change(thrust, sailing, span.high, least_thrust,
+        thrust(span.high), 1e-5))
 end
 
 """
@@ -2066,7 +2079,7 @@ function published_terms_data()
         println(io, "source,area,speed,angle,wind,thrust,side")
         for (source, area, knots, angle, wind) in published_forces
             ship = Ship(ShipDesign(:vlsfo, 140.0; kite_area=area), assumptions)
-            force = rig_force(ship.rig, ship.env, wind, deg2rad(angle), knots * KNOT, 1)
+            force = rig_force(ship.rig, ship.env, wind, deg2rad(angle), knots * KNOT, 0.0)
             println(io, join((source, area, knots, angle, wind, force.thrust / 1e3,
                     force.side / 1e3), ","))
         end
