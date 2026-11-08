@@ -645,19 +645,20 @@ end
 
 """
     KiteRig(area, aspect_ratio, hull, assumptions;
-            attach_position=kite_tow_point(hull, assumptions))
+            attach_position=kite_tow_point(hull, assumptions), wind_speeds, courses,
+            side_weights)
 
-Kite of projected `area` [m^2] and `aspect_ratio` with its pattern table, towing from
-`attach_position` [m] forward of midship.
+Kite of projected `area` [m^2] and `aspect_ratio` with its pattern table over `wind_speeds`
+[m/s], `courses` [rad] and `side_weights`, towing from `attach_position` [m] forward of
+midship.
 """
 function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assumptions;
-        attach_position=kite_tow_point(hull, assumptions))
+        attach_position=kite_tow_point(hull, assumptions),
+        wind_speeds=[3.0:1.0:9.0; 10.5; 12.0:3.0:30.0],
+        courses=deg2rad.(0.0:15.0:180.0), side_weights=[0.0, 0.5, 1.0, 3.0])
     scale = hull.length / assumptions[:reference_length]
     model, max_force, tether_diameter = kite_model(area, aspect_ratio, assumptions)
     tether_length = model.tether_length
-    wind_speeds = [3.0:1.0:9.0; 10.5; 12.0:3.0:30.0]
-    courses = deg2rad.(0.0:15.0:180.0)
-    side_weights = [0.0, 0.5, 1.0, 3.0]
     return KiteRig(; area, tether_diameter, tether_length,
         reference_height=tether_length * sin(deg2rad(25)),
         max_wind=assumptions[:kite_max_wind],

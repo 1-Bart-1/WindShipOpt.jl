@@ -156,8 +156,8 @@ rig_table(; sizes...) =
         Assumptions()))
 
 rig_tables = (bare=rig_table(), wings=rig_table(wing_area=400.0),
-    rotors=rig_table(rotor_area=200.0), kite=rig_table(kite_area=200.0),
-    kite_and_wings=rig_table(kite_area=200.0, wing_area=400.0))
+    rotors=rig_table(rotor_area=200.0), kite=rig_table(kite_area=800.0),
+    kite_and_wings=rig_table(kite_area=800.0, wing_area=400.0))
 gridded = gridded_weather(mktempdir())
 coarse_corridor = first(route_corridors(:caribbean, north_atlantic_mask(); scale=16))
 
