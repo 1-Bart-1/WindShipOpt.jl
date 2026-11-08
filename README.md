@@ -31,11 +31,11 @@ include("scripts/paper.jl")
 paper(:classes, :explorer; fidelity=:draft)
 ```
 
-The site reads `explorer.json` from the newest final run, or from the newest draft run until there is one (`EXPLORER_JSON=<path>` picks another). With Node.js 20 or later:
+The site reads `explorer.json` from the newest final run, or from the newest draft run until there is one (`EXPLORER_JSON=<path>` picks another). With Node.js 20.19, or 22.12 or later:
 
 ```bash
 ./bin/explorer              # http://localhost:5173
-npm --prefix site test      # fails where the site and the model disagree
+npm --prefix site test      # fails where the site and the model disagree at the paper's inputs or a checked change
 npm --prefix site run build # static site in site/dist
 ```
 

@@ -36,9 +36,10 @@ function explorer_changes()
         ("discount rate high", (discount_rate=entry(:discount_rate).high,), 1.0),
         ("cargo value ×2", (;), 2.0),
         ("rig prices high", (market_price_factor=entry(:market_price_factor).high,), 1.0),
-        ("out of service high", NamedTuple(Symbol(rig, :_out_of_service) =>
-                                              entry(:kite_out_of_service).high
-                                          for rig in (:kite, :wing, :rotor)), 1.0),
+        ("out of service high", NamedTuple(name => entry(name).high
+                                          for name in (:kite_out_of_service,
+                                              :wing_out_of_service, :rotor_out_of_service)),
+            1.0),
         ("one crash or loss per unit and year",
             (kite_crash_rate=1.0, wing_loss_rate=1.0, rotor_loss_rate=1.0), 1.0)]
 end
@@ -92,9 +93,9 @@ end
 """
     recorded_designs(cases, trips, class_names)
 
-Inside a recording: the node of the canopy price [USD/m^2], and for each design the nodes of its
-cost per tonne-km and its savings [%] against the ship without a rig on the same fuel,
-on e-methanol and on VLSFO, `nothing` where that ship cannot sail the route.
+Inside a recording: the node of the canopy price [USD/m^2], and for each design the nodes
+of its cost per tonne-km and its savings [%] against the ship without a rig on the same
+fuel, on e-methanol and on VLSFO, `nothing` where that ship cannot sail the route.
 """
 function recorded_designs(cases, trips, class_names)
     inputs = WindShipOpt.recorded_inputs(assumptions, explorer_inputs)
