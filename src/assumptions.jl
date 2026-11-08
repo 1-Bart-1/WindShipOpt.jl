@@ -35,10 +35,38 @@ function Assumptions()
     return Assumptions(entries)
 end
 
-Base.getindex(assumptions::Assumptions{Nothing}, name::Symbol) =
-    assumptions.entries[name].value
-Base.getindex(assumptions::Assumptions, name::Symbol) =
+"names of the inputs read in a scope of [`inputs_read`](@ref)"
+struct InputsRead
+    "names of the inputs read so far"
+    names::Set{Symbol}
+    "lock guarding `names` against tasks reading at once"
+    lock::ReentrantLock
+end
+
+"the record of the innermost [`inputs_read`](@ref) running, or nothing outside one"
+const INPUTS_READ = ScopedValue{Union{Nothing, InputsRead}}(nothing)
+
+function Base.getindex(assumptions::Assumptions, name::Symbol)
+    record = INPUTS_READ[]
+    isnothing(record) || @lock record.lock push!(record.names, name)
+    return input_value(assumptions, name)
+end
+
+input_value(assumptions::Assumptions{Nothing}, name) = assumptions.entries[name].value
+input_value(assumptions::Assumptions, name) =
     get(() -> assumptions.entries[name].value, assumptions.recorded, name)
+
+"""
+    inputs_read(f)
+
+Call `f()` and return its result with the names of the inputs read from any `Assumptions`
+while it ran, in the tasks it spawned too.
+"""
+function inputs_read(f)
+    record = InputsRead(Set{Symbol}(), ReentrantLock())
+    result = with(f, INPUTS_READ => record)
+    return result, record.names
+end
 
 """
     recorded_inputs(assumptions, names)

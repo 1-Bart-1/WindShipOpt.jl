@@ -1379,88 +1379,46 @@ ceu_volume:
   unit: m^3
   reason: "Car-deck space per CEU that a fuel tank displaces: 8.4 m^2 of deck per CEU (Hoegh Target 71,400 m^2 for 8,500 CEU; Knud E. Hansen 8,600 and 6,500 CEU designs 8.41-8.45) times a deck pitch of 2.9 m (depth over car decks of the same designs); the low bound is the 2.0 m clear height, the high bound the enclosed volume per CEU from gross tonnage."
 
-# --- hydrogen drive ---
-hydrogen_price:
-  value: 6.5
-  low: 3.3
-  high: 10.8
-  unit: USD/kg
-  reason: "Liquid green hydrogen bunkered around 2030, 54 (28-90) USD/GJ at 120 MJ/kg: production 4 (2-7) USD/kg in good export regions (IEA Global Hydrogen Review 2025, pp. 94-97; 2024, p. 83), liquefaction 2.0 (1.0-2.8) USD/kg (DOE record 19001: 2.75 at 27 t/d today; IRENA 2022 Table 6.3 for 2030, levelised at 8 %), terminal and bunkering 0.5 (0.3-1.0) USD/kg (DOE 19001: terminal 0.39)."
-hydrogen_heating_value:
-  value: 120.0
-  low: 120.0
-  high: 120.0
+# --- ammonia drive ---
+e_ammonia_price:
+  value: 47.0
+  low: 30.0
+  high: 82.0
+  unit: USD/GJ
+  reason: "E-ammonia bunkered in 2030: 47-82 USD/GJ (Lloyd's Register & UMAS 2020, Table B3, p. 43); 30-43 USD/GJ (MMMCZCS 2021, Fuel Option Scenarios, p. 12), the low bound. The base is the lower of the first, 0.64 of e-methanol's 73 there."
+ammonia_heating_value:
+  value: 18.6
+  low: 18.6
+  high: 18.8
   unit: MJ/kg
-  reason: "Lower heating value of hydrogen."
-fuel_cell_system_cost:
-  value: 1080.0
-  low: 995.0
-  high: 1620.0
-  unit: USD/kW
-  reason: "Marine PEM system with balance of plant and DC/DC converter in 2030: Clean Hydrogen JU SRIA target 1,000 EUR/kW (Annex 4, Table 17); EMSA 2023 920 EUR/kW (Table 75), the low bound; the high bound is the SRIA 2024 target of 1,500 EUR/kW, at 1.08 USD/EUR."
-electric_drive_cost:
-  value: 485.0
-  low: 220.0
-  high: 600.0
-  unit: USD/kW
-  reason: "Motor, converter and switchboard of an electric drive without its gensets: electric_propulsion_cost less a methanol genset of 265 + 120 EUR/kW (Kanchiralla et al. 2022); the low bound is motor and gearbox alone, 200 EUR/kW (EMSA 2023, Table 76). No source prices converters separately."
-fuel_cell_efficiency:
-  value: 0.48
-  low: 0.45
-  high: 0.56
-  unit: "-"
-  reason: "LHV efficiency of a PEM system at rated power net of balance of plant: PowerCell Marine System 200 uses 13 kg/h at 200 kW (46 %), the DOE heavy-duty model 56 % new and 50 % at end of life (record 24004); studies use a constant 54-55 % (Mao et al. 2020; EMSA 2023), close to the datasheet peaks of 53-60 %."
-fuel_cell_part_load_penalty:
-  value: -0.35
-  low: -0.53
-  high: -0.27
-  unit: "-"
-  reason: "Negative: PEM efficiency rises at part load, to the 60 % peak near a quarter load of the PowerCell MS200 (fit -0.53) and 64.5 % of the DOE model (-0.27); the quadratic misses the drop below ~25 % load, where Ballard's FCwave stops (55 of 200 kW)."
-fuel_cell_string_count:
-  value: 16
-  low: 8
-  high: 32
-  unit: "-"
-  reason: "Independently switched fuel-cell units: PowerCell's 6 MW concept has two blocks of sixteen 200 kW modules on a DC bus, each with its own converter (Marine System 200 datasheet)."
-fuel_cell_min_load:
-  value: 0.275
-  low: 0.2
-  high: 0.3
-  unit: "-"
-  reason: "Lowest load of a running fuel-cell unit, below which its balance of plant makes efficiency fall: the Ballard FCwave's minimum power is 55 of 200 kW (2021 specification); the efficiency curve peaks near a quarter load (PowerCell MS200, DOE record 24004)."
-fuel_cell_chain_efficiency:
-  value: 0.92
-  low: 0.90
-  high: 0.94
-  unit: "-"
-  reason: "Fuel cell to shaft: motor and gearbox at 0.98 each (Kanchiralla et al. 2022) and about 4 % lost in converters and switchboard, our estimate; also the diesel-electric chain without its 0.97 alternator, less a DC/DC converter per module."
-fuel_cell_stack_life:
-  value: 25000.0
-  low: 15000.0
-  high: 40000.0
-  unit: h
-  reason: "Operating hours at rated power before stack replacement: DOE heavy-duty design life 25,000 h (record 26002); Ballard FCwave >15,000 h (2024 datasheet); the SRIA 2024 maritime target 40,000 h includes stack swaps."
-fuel_cell_stack_share:
-  value: 0.6
-  low: 0.5
-  high: 1.0
-  unit: "-"
-  reason: "Stack replacement over fuel-cell system price: the stack is 60-63 % of system cost (DOE records 24004, 26002); EMSA 2023 and Kanchiralla et al. replace the whole system, the high bound."
-lh2_tank_cost:
-  value: 55.0
-  low: 25.0
-  high: 100.0
-  unit: USD/kg
-  reason: "Vacuum-insulated type C LH2 tank with fuel supply system per kg of hydrogen held: 50,310 EUR per tonne (EMSA 2023, Table 17, from Korberg et al. 2021); stationary tanks 15-45 USD/kg, a spherical one ~100 (IRENA 2022, p. 74)."
-lh2_tank_gravimetric_density:
-  value: 0.10
-  low: 0.07
+  reason: "Lower heating value of ammonia (IRENA 2021, Table 3, p. 42); 18.8 in Lloyd's Register & UMAS 2020."
+ammonia_pilot_share:
+  value: 0.05
+  low: 0.05
   high: 0.15
   unit: "-"
-  reason: "Hydrogen over the mass of the filled tank system: ~9 kg of steel per kg H2 for LH2 storage (IRENA 2022, p. 76, from Sandia); no ship-tank datum found, bounds by judgement."
-lh2_tank_volumetric_density:
-  value: 38.0
-  low: 33.0
-  high: 42.0
+  reason: "Share of the fuel energy burned as VLSFO pilot in a dual-fuel ammonia engine: 5-15 % expected, 5-10 % on a diesel-cycle two-stroke (MMMCZCS 2021, Fuel Option Scenarios, p. 53)."
+ammonia_engine_premium:
+  value: 190.0
+  low: 90.0
+  high: 300.0
+  unit: USD/kW
+  reason: "Dual-fuel ammonia two-stroke over a diesel: ME-LGI 590 against 400 USD/kW (Lloyd's Register & UMAS 2020, Table B21, p. 60). Bounds by judgement."
+ammonia_tank_cost:
+  value: 1.62
+  low: 0.8
+  high: 2.5
+  unit: USD/kg
+  reason: "Ammonia tank per kg held: 0.29 EUR/kWh stored (Kanchiralla et al. 2022, Table 3), 1.50 EUR/kg at 18.6 MJ/kg, at 1.08 USD/EUR. Bounds by judgement."
+ammonia_tank_gravimetric_density:
+  value: 0.5
+  low: 0.33
+  high: 0.7
+  unit: "-"
+  reason: "Ammonia over the mass of the filled tank system. Our estimate: no source gives the mass of a ship's ammonia tank."
+ammonia_tank_volumetric_density:
+  value: 600.0
+  low: 500.0
+  high: 680.0
   unit: kg/m^3
-  reason: "Hydrogen per m^3 of hold space taken by the insulated tank and fuel system: 40 (Mao et al. 2020, from Minnehan & Pratt 2017), 4.6 MJ/L contained (EMSA 2023, Table 16); a sphere in a cubic space 33, the MF Hydra's 4 t tank of 10 x 3.5 m 42 (Norled 2021). Boil-off of 0.05-0.25 %/day (IRENA 2022, p. 23; IEA 2024, p. 221) feeds the fuel cells and costs nothing at sea."
+  reason: "Ammonia per m^3 of hold space taken by the tank and its system: a tank 3.6 times the volume of a fuel-oil tank of the same energy (MMMCZCS 2021, Fuel Option Scenarios, p. 55), at 40.5 MJ/kg and 991 kg/m^3 of fuel oil; the high bound is the liquid alone at -33 C."

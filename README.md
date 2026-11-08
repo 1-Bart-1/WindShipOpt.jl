@@ -24,7 +24,7 @@ Every number the model assumes, with its sensitivity range and the reason for it
 
 ## Companion explorer
 
-`site/` is the paper's companion website: a reader picks a ship, a route and a fuel, changes the prices and rig goals, and sees each rig's best size and what it saves against the same ship on e-methanol and on fuel oil. It evaluates the model's own cost formulas, recorded over those inputs, on the voyages the class study routed, so no cost formula is written twice. The data step writes them next to the class study:
+`site/` is the paper's companion website: a reader picks a ship, a route and a fuel, changes the prices and rig goals, and sees each rig's best size and what it saves against the same ship on e-ammonia and on fuel oil. It evaluates the model's own cost formulas, recorded over those inputs, on the voyages the class study routed, so no cost formula is written twice. The data step writes them next to the class study:
 
 ```julia
 include("scripts/paper.jl")

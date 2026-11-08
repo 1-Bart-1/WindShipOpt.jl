@@ -4,8 +4,8 @@
 # the run of the class study, `paper(:classes, :explorer; fidelity)`, to reuse its trips.
 
 "inputs of data/assumptions.yaml a reader of the explorer changes"
-explorer_inputs = (:vlsfo_price, :e_methanol_price, :hydrogen_price, :carbon_price,
-    :carbon_coverage, :canopy_life, :canopy_making_cost_per_area, :canopy_cloth_base_price,
+explorer_inputs = (:vlsfo_price, :e_ammonia_price, :carbon_price, :carbon_coverage,
+    :canopy_life, :canopy_making_cost_per_area, :canopy_cloth_base_price,
     :canopy_cloth_price_per_weight, :tether_price, :tether_lifetime, :kite_cycle_crew_cost,
     :kite_cycle_damage_probability, :kite_cycle_loss_probability,
     :kite_forced_landing_loss_probability, :kite_out_of_service, :wing_out_of_service,
@@ -14,9 +14,9 @@ explorer_inputs = (:vlsfo_price, :e_methanol_price, :hydrogen_price, :carbon_pri
     :availability)
 
 "ships (class, drive, route) whose cheapest design of each rig is rerun at other inputs"
-explorer_check_ships = (("general cargo coaster", :methanol, :caribbean),
+explorer_check_ships = (("general cargo coaster", :ammonia, :caribbean),
     ("MR product tanker", :vlsfo, :bilbao), ("Kamsarmax bulk carrier", :vlsfo, :tubarao),
-    ("Neo-Panamax container ship", :methanol, :new_york))
+    ("Neo-Panamax container ship", :ammonia, :new_york))
 
 """
     explorer_changes()
@@ -47,17 +47,16 @@ end
 """
     fuel_prices(factor)
 
-VLSFO, e-methanol and hydrogen prices at `factor` times their base, by input name.
+VLSFO and e-ammonia prices [USD/GJ] at `factor` times their base, by input name.
 """
-fuel_prices(factor) = NamedTuple(name => factor * assumptions[name]
-                                 for name in (:vlsfo_price, :e_methanol_price,
-                                     :hydrogen_price))
+fuel_prices(factor) = (vlsfo_price=factor * assumptions[:vlsfo_price],
+    e_ammonia_price=factor * assumptions[:e_ammonia_price])
 
 """
     explorer_data()
 
 Every design of classes.csv with its cost per tonne-km and its saving against the ship
-without a rig on its own fuel, on e-methanol and on VLSFO, recorded over
+without a rig on its own fuel, on e-ammonia and on VLSFO, recorded over
 [`explorer_inputs`](@ref) and the cargo value of each class; and the cheapest design of
 each rig on [`explorer_check_ships`](@ref) at each of [`explorer_changes`](@ref), costed
 on its base routes and rerouted: explorer.json.
@@ -95,7 +94,7 @@ end
 
 Inside a recording: the node of the canopy price [USD/m^2], and for each design the nodes
 of its cost per tonne-km and its savings [%] against the ship without a rig on the same
-fuel, on e-methanol and on VLSFO, `nothing` where that ship cannot sail the route.
+fuel, on e-ammonia and on VLSFO, `nothing` where that ship cannot sail the route.
 """
 function recorded_designs(cases, trips, class_names)
     inputs = WindShipOpt.recorded_inputs(assumptions, explorer_inputs)
@@ -107,7 +106,7 @@ function recorded_designs(cases, trips, class_names)
     bare = Dict((case.class, case.route, case.drive) => cost
                 for (case, cost) in zip(cases, costs) if case.rig == "none")
     designs = [(cost=cost.node, saving=saving_node(bare, case, cost, case.drive),
-                   methanol_saving=saving_node(bare, case, cost, :methanol),
+                   ammonia_saving=saving_node(bare, case, cost, :ammonia),
                    vlsfo_saving=saving_node(bare, case, cost, :vlsfo))
                for (case, cost) in zip(cases, costs)]
     return (; canopy_price=WindShipOpt.canopy_price(inputs).node, designs)

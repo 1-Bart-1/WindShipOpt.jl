@@ -15,7 +15,7 @@ export type Design = {
    * recorded nodes of the cost per tonne-km [USD] and the savings [%]; null where the ship
    * without a rig to save against cannot sail the route
    */
-  nodes: { cost: number; saving: number | null; methanol_saving: number | null; vlsfo_saving: number | null };
+  nodes: { cost: number; saving: number | null; ammonia_saving: number | null; vlsfo_saving: number | null };
 };
 
 export type Check = {
@@ -46,7 +46,7 @@ export type ExplorerData = {
 };
 
 export const rigs = ["wings", "rotors", "kite"] as const;
-export const drives = ["vlsfo", "methanol", "hydrogen"] as const;
+export const drives = ["vlsfo", "ammonia"] as const;
 
 /** Name of the recorded input of the cargo value of class `name`. */
 export const cargoInput = (name: string) => `cargo_value:${name}`;
@@ -71,7 +71,7 @@ export type Outcome = {
   design: Design;
   cost: number;
   saving: number;
-  methanolSaving: number;
+  ammoniaSaving: number;
   vlsfoSaving: number;
 };
 
@@ -84,7 +84,7 @@ export const outcomes = (data: ExplorerData, values: Float64Array): Outcome[] =>
     design,
     cost: values[design.nodes.cost],
     saving: valueAt(values, design.nodes.saving),
-    methanolSaving: valueAt(values, design.nodes.methanol_saving),
+    ammoniaSaving: valueAt(values, design.nodes.ammonia_saving),
     vlsfoSaving: valueAt(values, design.nodes.vlsfo_saving),
   }));
 
