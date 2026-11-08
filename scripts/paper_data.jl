@@ -39,26 +39,28 @@ end
 """
     round_trips(cases, departures)
 
-Round trips of all `cases`, threaded, reusing those cached in the run in use; the kite
-pattern tables of the others are computed first, one kite at a time.
+Round trips of all `cases`, threaded, reusing those cached in the run in use under the same
+value of every input they read; the kite pattern tables of the others are computed first,
+one kite at a time.
 """
 function round_trips(cases, departures)
-    paths = [case_path(case, departures) for case in cases]
-    isempty(paths) || mkpath(dirname(first(paths)))
-    cached = isfile.(paths)
-    for (case, is_cached) in zip(cases, cached)
-        !is_cached && max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
+    directories = [case_directory(case, departures) for case in cases]
+    trips = Any[cached_trip(directory, case.assumptions)
+                for (case, directory) in zip(cases, directories)]
+    computed = findall(ismissing, trips)
+    for case in cases[computed]
+        max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
             Ship(case.design, case.assumptions)
     end
-    trips = Vector{Any}(nothing, length(cases))
-    Threads.@threads :greedy for k in eachindex(cases)
-        trips[k] = stored_trip(cases[k], departures, paths[k])
+    Threads.@threads :greedy for k in computed
+        trips[k] = stored_trip(() -> case_trip(cases[k], departures), directories[k],
+            cases[k].assumptions)
     end
     feasible = count(!isnothing, trips)
     paper_run.cases += length(cases)
     paper_run.trips += feasible
-    println("  ", feasible, " of ", length(cases), " round trips, ", count(cached),
-        " cached")
+    println("  ", feasible, " of ", length(cases), " round trips, ",
+        length(cases) - length(computed), " cached")
     return trips
 end
 
@@ -886,7 +888,8 @@ end
 
 Each of `ships`, as [`sensitivity_ships`](@ref) gives them, without a rig and with each
 rig, at the base inputs and with every screened input at each of `bounds`, its
-assumptions from `changed_assumptions(name, bound)`: written to `file`.
+assumptions from `changed_assumptions(name, bound)`: written to `file`. The base trips
+are routed first, so a changed case whose trip never reads its input reuses them.
 """
 function screening_data(file, ships, bounds, changed_assumptions)
     cases = []
@@ -898,8 +901,13 @@ function screening_data(file, ships, bounds, changed_assumptions)
                 input=name, bound))
         end
     end
-    write_trips(file, cases, round_trips(cases, sampled_departures(; screening=true)),
-        :ship, :rig, :input, :bound)
+    departures = sampled_departures(; screening=true)
+    base = findall(case -> case.input == :none, cases)
+    changed = setdiff(eachindex(cases), base)
+    trips = Vector{Any}(nothing, length(cases))
+    trips[base] = round_trips(cases[base], departures)
+    trips[changed] = round_trips(cases[changed], departures)
+    write_trips(file, cases, trips, :ship, :rig, :input, :bound)
 end
 
 """
