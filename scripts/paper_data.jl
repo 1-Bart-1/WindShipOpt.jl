@@ -11,18 +11,19 @@ study_drives = (:vlsfo, :ammonia)
 design_aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
 
 """
-    trip_case(design; assumptions, route, scale, horizon, held_knots, part, labels...)
+    trip_case(design; assumptions, route, scale, forecast, held_knots, part, labels...)
 
 One round trip to compute: `design` under `assumptions` on the corridors of `route` at
-corridor `scale`, with a forecast `horizon` [h], holding `held_knots` [kn] or with speed set
-by cost where `nothing`, with the model `part` switched off by [`simplified_ship`](@ref),
-tagged with `labels` for the output.
+corridor `scale`, re-planned daily on the archived forecasts where `forecast` and with
+perfect foresight otherwise, holding `held_knots` [kn] or with speed set by cost where
+`nothing`, with the model `part` switched off by [`simplified_ship`](@ref), tagged with
+`labels` for the output.
 """
 function trip_case(design; assumptions=assumptions, route=:caribbean,
-        scale=run_settings().corridor_scale, horizon=Inf, held_knots=nothing, part=:none,
+        scale=run_settings().corridor_scale, forecast=false, held_knots=nothing, part=:none,
         labels...)
     return (; labels..., design, assumptions, route, scale,
-        corridors=corridors(route, scale), horizon, held_knots, part)
+        corridors=corridors(route, scale), forecast, held_knots, part)
 end
 
 """
@@ -36,7 +37,7 @@ function case_trip(case, departures)
     isnothing(ship) && return nothing
     ship = simplified_ship(ship, case.part)
     return round_trip(ship, case.corridors..., weather, departures, case.assumptions;
-        horizon=case.horizon, held_knots=case.held_knots)
+        forecast=case.forecast ? forecast_archive : nothing, held_knots=case.held_knots)
 end
 
 """
@@ -821,15 +822,71 @@ end
     forecast_data()
 
 A 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, routed with
-perfect foresight and with daily re-planning on forecasts of 7 and 3 days: forecast.csv.
+perfect foresight and re-planned daily on the archived forecasts: forecast.csv; and the
+error of those forecasts along its route: forecast_error.csv.
 """
 function forecast_data()
-    cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); horizon,
-                     rig, horizon_days=isfinite(horizon) ? horizon / 24 : 0.0)
+    cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); forecast,
+                     rig, knowledge=forecast ? "forecast" : "perfect")
                  for (rig, area) in [("none", 0.0); reference_rigs],
-                     horizon in (Inf, 24.0 * 7, 24.0 * 3)])
+                     forecast in (false, true)])
     write_trips("forecast.csv", cases, round_trips(cases, sampled_departures()), :rig,
-        :horizon_days)
+        :knowledge)
+    write_forecast_error("forecast_error.csv", run_corridors(:caribbean)...)
+end
+
+"""
+    write_forecast_error(name, corridors...)
+
+Write `name` to the directory of the run in use: per lead day, the root mean square error
+against ERA5 of the vector wind [m/s] and the wave height [m] of the archived forecasts
+and of the same date in another year, over the nodes of `corridors` and every forecast
+in the archive.
+"""
+function write_forecast_error(name, corridors...)
+    points = unique(vcat([vec(collect(zip(corridor.lat, corridor.lon)))
+                          for corridor in corridors]...))
+    leads = 6.0:6.0:384.0
+    totals, samples = zeros(length(leads), 4), zeros(Int, length(leads))
+    for issue in 1:WindShipOpt.issue_count(forecast_archive.wind)
+        issued = WindShipOpt.issue_time(forecast_archive, issue)
+        known = ArchivedForecast(forecast_archive, weather,
+            issued + WindShipOpt.FORECAST_LATENCY)
+        known.issue == issue || continue
+        other_year = ForecastWeather(weather, issued, 0.0)
+        for (row, lead) in enumerate(leads)
+            issued + lead <= WindShipOpt.duration(weather) || continue
+            totals[row, :] .+= forecast_errors(known, other_year, points, issued + lead)
+            samples[row] += length(points)
+        end
+    end
+    open(run_file(name), "w") do io
+        println(io, "lead_days,wind_forecast,wind_other_year,height_forecast,",
+            "height_other_year")
+        for (row, lead) in enumerate(leads)
+            rms = sqrt.(totals[row, :] ./ samples[row])
+            @printf(io, "%.2f,%.3f,%.3f,%.3f,%.3f\n", lead / 24, rms...)
+        end
+    end
+end
+
+"""
+    forecast_errors(known, other_year, points, time)
+
+Sums over `points` of the squared error against the weather at `time` of the vector wind
+and the wave height of the forecast `known` and of the weather `other_year`.
+"""
+function forecast_errors(known, other_year, points, time)
+    sums = zeros(4)
+    for (lat, lon) in points
+        truth_wind, truth_height = wind(weather, lat, lon, time),
+        first(waves(weather, lat, lon, time))
+        for (column, guess) in ((1, known), (2, other_year))
+            sums[column] += sum(abs2, wind(guess, lat, lon, time) .- truth_wind)
+            sums[column + 2] += (first(waves(guess, lat, lon, time)) - truth_height)^2
+        end
+    end
+    return sums
 end
 
 """
