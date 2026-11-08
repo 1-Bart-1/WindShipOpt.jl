@@ -736,7 +736,7 @@ end
 @testset "a class ship's drive delivers the shaft power of its source engine" begin
     class = ship_classes()["feeder container ship"]
     shaft = 1e3class.power * assumptions[:shaft_efficiency]
-    for drive in (:vlsfo, :methanol, :hydrogen)
+    for drive in (:vlsfo, :methanol, :ammonia)
         powertrain = Ship(ShipDesign(drive, class), assumptions).powertrain
         output = powertrain.installed_power - powertrain.hotel_load
         @test output * powertrain.transmission_efficiency ≈ shaft
@@ -768,20 +768,29 @@ end
     end
 end
 
-@testset "a hydrogen ship's tank volume and mass follow its largest leg" begin
+@testset "an ammonia ship's tank volume and mass follow its largest leg" begin
     class = ship_classes()["feeder container ship"]
-    ship = Ship(ShipDesign(:hydrogen, class), assumptions)
+    ship = Ship(ShipDesign(:ammonia, class), assumptions)
     leg = 2e12
     store = WindShipOpt.fuel_store(ship, leg, assumptions)
     fuel = assumptions[:fuel_reserve_factor] * leg / ship.fuel.heating_value
-    @test store.volume ≈ fuel / assumptions[:lh2_tank_volumetric_density]
-    @test store.mass ≈ fuel / assumptions[:lh2_tank_gravimetric_density] / 1e3
+    @test store.volume ≈ fuel / assumptions[:ammonia_tank_volumetric_density]
+    @test store.mass ≈ fuel / assumptions[:ammonia_tank_gravimetric_density] / 1e3
     @test WindShipOpt.fuel_store(ship, 2leg, assumptions).volume ≈ 2store.volume
     hold = ShipCosts(ship, assumptions).hold
     carried = WindShipOpt.cargo_mass(hold, store.mass, store.volume) / hold.unit.cargo
     @test hold.slots - carried ≈ store.volume / hold.unit.volume
     vlsfo = Ship(ShipDesign(:vlsfo, class), assumptions)
     @test WindShipOpt.fuel_store(vlsfo, leg, assumptions).volume == 0
+end
+
+@testset "an ammonia ship pays for its pilot oil and emits only its pilot's CO2" begin
+    pilot = assumptions[:ammonia_pilot_share]
+    oil = Ship(ShipDesign(:vlsfo, 140.0), assumptions).fuel
+    ammonia = Ship(ShipDesign(:ammonia, 140.0), assumptions).fuel
+    @test ammonia.carbon_intensity ≈ pilot * oil.carbon_intensity
+    @test ammonia.price ≈
+          (1 - pilot) * 1e-9assumptions[:e_ammonia_price] + pilot * oil.price
 end
 
 """
@@ -1238,10 +1247,16 @@ end
         Dict{String, Any}("code_hash" => "held"), 0, 0)
     case_at(held_knots, part) = (; design=ShipDesign(:vlsfo, 100.0), assumptions,
         route=:caribbean, scale=8.0, horizon=Inf, held_knots, part)
-    @test allunique(PaperRuns.case_path(case_at(held_knots, :none), [24.0])
+    @test allunique(PaperRuns.case_directory(case_at(held_knots, :none), [24.0])
                     for held_knots in (nothing, 8.0, 9.0))
-    @test allunique(PaperRuns.case_path(case_at(nothing, part), [24.0])
+    @test allunique(PaperRuns.case_directory(case_at(nothing, part), [24.0])
                     for part in (:none, :waves, :windage))
+end
+
+@testset "the code hash keying stored trips covers the ship data tables" begin
+    files = normpath.(PaperRuns.code_files())
+    @test joinpath(pkgdir(WindShipOpt), "data", "ship_classes.csv") in files
+    @test joinpath(pkgdir(WindShipOpt), "data", "ship_categories.csv") in files
 end
 
 @testset "resuming never takes over another branch's unfinished run" begin
@@ -1273,6 +1288,29 @@ end
     @test PaperRuns.data_file("study.csv") == own
     rm(own)
     @test PaperRuns.data_file("study.csv") == other
+end
+
+@testset "a rig's stored trip serves an input it never reads, and no other" begin
+    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    rotors = ShipDesign(:methanol, 85.0; rotor_area=200.0)
+    routed(inputs) = round_trip(Ship(rotors, inputs), corridors..., SyntheticWeather(),
+        [24.0 * 31, 24.0 * 200], inputs)
+    at_high(name) = with_value(assumptions, name, assumptions.entries[name].high)
+    directory = mktempdir()
+    PaperRuns.stored_trip(() -> routed(assumptions), directory, assumptions)
+    dearer_canopy = at_high(:canopy_cloth_base_price)
+    reused = PaperRuns.cached_trip(directory, dearer_canopy)
+    rerouted = routed(dearer_canopy)
+    @test reused.cost_per_tonne_km == rerouted.cost_per_tonne_km
+    @test reused.fuel_energy == rerouted.fuel_energy
+    @test ismissing(PaperRuns.cached_trip(directory, at_high(:rotor_unit_cost)))
+    @test ismissing(PaperRuns.cached_trip(directory, at_high(:market_price_factor)))
+end
+
+@testset "an input read in a task spawned while recording is recorded" begin
+    value, names = inputs_read(() -> fetch(Threads.@spawn assumptions[:discount_rate]))
+    @test value == assumptions[:discount_rate]
+    @test names == Set([:discount_rate])
 end
 
 module SizeSearch
