@@ -1726,4 +1726,18 @@ end
     end
 end
 
+@testset "the interest level rows hold each class at its own value times the level's factor" begin
+    classes = ship_classes()
+    name, other = "Kamsarmax bulk carrier", "Neo-Panamax container ship"
+    factors = PaperData.cargo_interest_factors()
+    value = classes[name].cargo_value
+    table = Dict{String, Vector}("class" => [name, name, name, other],
+        "cargo_value" => [value * factors.low, value * factors.high, 15000.0,
+            classes[other].cargo_value * factors.low],
+        "cost" => [1.0, 2.0, 3.0, 4.0])
+    @test factors.low < 1 < factors.high
+    @test PaperData.interest_level_rows(table, factors.low)["cost"] == [1.0, 4.0]
+    @test PaperData.interest_level_rows(table, factors.high)["cost"] == [2.0]
+end
+
 include("hot_path_checks.jl")

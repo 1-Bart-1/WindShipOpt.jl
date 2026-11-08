@@ -96,6 +96,23 @@ On VLSFO the rigs are smaller and the kite leads in both groups: on the bulk car
 
 Which group a ship falls in can decide which rig leads, and on two container ships the line is close (\cref{sec:deck_rigs}). If a loaded TEU carried \SI{9.5}{t} of goods instead of \SI{10.2}{t}, the Megamax would be space-limited: its 23 rotors would block \num{1380} slots, 5.8\,\% of them, and save 3.2\,\% instead of 8.3\,\%, its wing sails 1.4 instead of 3.4\,\%, and the kite's lead would grow from 1.0 to 6.2 points. At \SI{11.1}{t} the Neo-Panamax would be deadweight-limited: its rotors would pay 0.8 points for their mass instead of 5.2 for their slots and save 11.5\,\%, ahead of the kite's 10.0\,\%. The Panamax and the feeder cross the line only at 13.4 and \SI{13.8}{t} of goods per loaded TEU; there the rotors would lead on the Panamax, 12.7 against 12.0\,\%, and be level with the kite on the feeder, 12.2 against 12.4\,\%. The other way round, a bulk carrier with a light cargo fills its holds before its deadweight and pays nothing for its rig: its rotors would gain 0.5 to 1.0 points and lead on every bulk carrier. A car carrier loaded to its deadweight with heavy vehicles would pay 3.7 points for its rotors' mass and 0.8 for the kite's, and the kite would lead, 9.9 against 8.8\,\%. The mean mass of a box differs between trades and between the two directions of one trade, so on container ships the order of kite and rotors rests on the cargo as much as on the wind. \Cref{sec:disc_size} tests whether deck space is as free on a deadweight-limited ship as the model takes it to be.
 
+Cargo interest is a second axis, apart from the limit, and in the classes above the two go together: every space-limited ship also carries valuable cargo. The cargo value differs over a hundredfold between the classes (\cref{tab:classes}), and it sets what an hour at sea costs and so what a rig that makes speed cheap can earn. To tell the two axes apart we route every class on e-ammonia at the interest on its own cargo at the low and at the high bound of the discount rate, scaling its cargo value so that the capital cost of the ship and the rig does not move, and a Kamsarmax and a Neo-Panamax carrying cargo worth from 100 to \SI{15000}{USD/t}. \Cref{tab:cargo_interest} splits each rig's saving at the two levels into fuel and time as in \cref{tab:split} and gives the speed the router chooses, and \cref{fig:cargo_interest} shows the saving of each rig on every class and against cargo value. \tbd{Which axis drives the choice of rig, by how much, and which cargo and trades suit kites and which rotors: pending the study on the faster router.}
+
+\begin{table*}[tbp]
+\centering
+\footnotesize
+\caption{Cost saving of the cheapest size of each rig on e-ammonia at low and at high cargo interest, the mean over the classes and routes, split as in \cref{tab:split}; the median change of the round trip; and the mean speed under way with and without the rig.}
+\label{tab:cargo_interest}
+\InputIfFileExists{sections/cargo_interest_table}{}{\tbd{Cargo interest table pending: run the cargo\_interest\_table step.}}
+\end{table*}
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{cargo_interest}
+\caption{Cost saving of the best size of each rig on e-ammonia, the mean over the routes: for every class at low and high cargo interest (a), and against cargo value on a Kamsarmax bulk carrier and a Neo-Panamax container ship (b).}
+\label{fig:cargo_interest}
+\end{figure*}
+
 \subsection{Why the rigs differ}
 \label{sec:res_forces}
 

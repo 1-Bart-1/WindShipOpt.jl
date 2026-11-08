@@ -590,6 +590,74 @@ function class_comparison_figure()
     save(joinpath(figures, "class_comparison.pdf"), figure; pt_per_unit=print_scale)
 end
 
+"""
+    interest_saving(table, drive, rig, conditions...)
+
+Mean over the routes of `table` of the cost saving [%] of the best size of `rig` on
+`drive` among the rows where the `conditions` hold; `NaN` where no route has one.
+"""
+function interest_saving(table, drive, rig, conditions...)
+    savings = [get(rig_savings(table, [rig], conditions..., "route" => route,
+                       "drive" => drive), rig, NaN) for route in unique(table["route"])]
+    found = filter(isfinite, savings)
+    return isempty(found) ? NaN : sum(found) / length(found)
+end
+
+"""
+    cargo_interest_figure()
+
+Cost saving of the best size of each rig on the zero-emission drive: (a) for every class at
+low and high cargo interest; (b) against cargo value on the classes of the cargo value
+sweep, each as the mean over the routes.
+"""
+function cargo_interest_figure()
+    table = read_table(data_file("cargo_interest.csv"))
+    drive = string(last(study_drives))
+    names = class_order(interest_level_rows(table, cargo_interest_factors().low))
+    figure = Figure(size=(page_width, 300))
+    classes_axis = Axis(figure[1, 1]; title="(a) cargo interest", xlabel="cost saving [%]",
+        yticks=(eachindex(names), names), yreversed=true)
+    vlines!(classes_axis, 0; color=:gray, linewidth=0.5)
+    levels = pairs(cargo_interest_factors())
+    for (j, kind) in enumerate(rig_names), (level, factor) in levels
+        level_table = interest_level_rows(table, factor)
+        filled = level == :high
+        y = eachindex(names) .+ (j - 2) * 0.22
+        savings = [interest_saving(level_table, drive, kind, "class" => name)
+                   for name in names]
+        scatter!(classes_axis, savings, collect(y);
+            color=filled ? palette[j] : :white, strokecolor=palette[j], strokewidth=1,
+            markersize=6)
+    end
+    sweep_axis = Axis(figure[1, 2]; title="(b) cargo value", xscale=log10,
+        xlabel="cargo value [USD/t]", ylabel="cost saving [%]",
+        xticks=[100, 1000, 10000],
+        xtickformat=values -> [@sprintf("%.0f", value) for value in values])
+    class_styles = (:solid, :dash)
+    for (j, kind) in enumerate(rig_names),
+        (name, style) in zip(cargo_value_sweep.classes, class_styles)
+
+        savings = [interest_saving(table, drive, kind, "class" => name,
+                       "cargo_value" => value) for value in cargo_value_sweep.values]
+        lines!(sweep_axis, collect(cargo_value_sweep.values), savings;
+            color=palette[j], linestyle=style)
+        scatter!(sweep_axis, collect(cargo_value_sweep.values), savings;
+            color=palette[j], markersize=5)
+    end
+    rig_entries = [MarkerElement(; color=palette[j], marker=:circle, markersize=6)
+                   for j in eachindex(rig_names)]
+    level_entries = [MarkerElement(; color=:white, strokecolor=:black, strokewidth=1,
+                         marker=:circle, markersize=6),
+        MarkerElement(; color=:black, marker=:circle, markersize=6)]
+    class_entries = [LineElement(; color=:black, linestyle=style)
+                     for style in class_styles]
+    Legend(figure[2, 1:2], [rig_entries, level_entries, class_entries],
+        [collect(rig_names), ["low", "high"], collect(cargo_value_sweep.classes)],
+        ["rig", "cargo interest", "ship"]; orientation=:horizontal, titleposition=:top,
+        nbanks=2, labelsize=9, titlesize=9, backgroundcolor=:white, padding=(4, 4, 2, 2))
+    save(joinpath(figures, "cargo_interest.pdf"), figure; pt_per_unit=print_scale)
+end
+
 "the tow points of the tow point study with their labels, then a midship mast in a bay"
 tow_point_markers = (("bow", "bow"), ("centre", "lateral centre"),
     ("midship", "midship"), ("midship_bay", "midship, mast in a deck bay"))

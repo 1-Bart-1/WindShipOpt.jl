@@ -550,9 +550,7 @@ function split_table()
         println(io, "Drive & Rig & [\\%] & [points] & [points] & [points] & [\\%] & ",
             "[\\%] \\\\\n\\midrule")
         for (drive, label) in drive_labels, (k, rig) in enumerate(rig_names)
-            splits = filter(!isnothing, [saving_split(table, class, route, drive, rig)
-                                         for class in class_order(table)
-                                         for route in unique(table["route"])])
+            splits = rig_splits(table, drive, rig)
             saving, fuel, time = (mean(getproperty.(splits, part))
                                   for part in (:saving, :fuel, :time))
             hours = getproperty.(splits, :hours)
@@ -562,6 +560,68 @@ function split_table()
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
+end
+
+"""
+    cargo_interest_table()
+
+Tabular of the cost saving of the cheapest size of each rig on the zero-emission drive at
+low and at high cargo interest, the mean over the classes and routes, split by
+[`saving_split`](@ref) into fuel, time and the rest, with the median change of the round
+trip and the mean speed under way of the ship with and without the rig, in
+cargo_interest_table.tex.
+"""
+function cargo_interest_table()
+    table = read_table(data_file("cargo_interest.csv"))
+    drive = string(last(study_drives))
+    open(joinpath(sections, "cargo_interest_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule")
+        println(io, "Cargo & & Saving & Fuel & Time & Rig and other & Round trip & ",
+            "Speed \\\\")
+        println(io, "interest & Rig & [\\%] & [points] & [points] & [points] & [\\%] & ",
+            "[kn] \\\\\n\\midrule")
+        for (level, factor) in pairs(cargo_interest_factors())
+            level_table = interest_level_rows(table, factor)
+            println(io, level, " & no rig & & & & & & ",
+                @sprintf("%.1f", mean_sailing_speed(level_table, drive, "none")), " \\\\")
+            for rig in rig_names
+                splits = rig_splits(level_table, drive, rig)
+                saving, fuel, time = (mean(getproperty.(splits, part))
+                                      for part in (:saving, :fuel, :time))
+                @printf(io, " & %s & %.1f & %.1f & %.1f & %.1f & %.1f & %.1f \\\\\n", rig,
+                    saving, fuel, time, saving - fuel - time,
+                    median(getproperty.(splits, :hours)),
+                    mean_sailing_speed(level_table, drive, rig))
+            end
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
+    rig_splits(table, drive, rig)
+
+The [`saving_split`](@ref) of every class and route of `table` that has a trip of `rig`
+on `drive`.
+"""
+function rig_splits(table, drive, rig)
+    return filter(!isnothing, [saving_split(table, class, route, drive, rig)
+                               for class in class_order(table)
+                               for route in unique(table["route"])])
+end
+
+"""
+    mean_sailing_speed(table, drive, rig)
+
+Mean speed under way [kn] of the cheapest size of `rig`, or of the ship without a rig for
+`"none"`, over the classes and routes of `table`.
+"""
+function mean_sailing_speed(table, drive, rig)
+    cheapest = [cheapest_row(table, class, route, drive, rig)
+                for class in class_order(table) for route in unique(table["route"])]
+    speeds = [1e3table["sailed_km"][k] / (3600 * 24table["days"][k]) / KNOT
+              for k in cheapest if !isnothing(k)]
+    return mean(speeds)
 end
 
 """
