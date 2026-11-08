@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Bart van de Lint
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GlobeScene } from "./Globe";
 import { Panels } from "./Panels";

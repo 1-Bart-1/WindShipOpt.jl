@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Bart van de Lint
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /** How the explorer shows one input of the model: label, scale and slider range. */
 export type InputControl = {
   name: string;

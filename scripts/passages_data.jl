@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Data step of the route view of the companion explorer in site/: the routed passages of
 # the passage figure's ship, each with the state of its ship and rig at every point the
 # router sailed. Included by paper.jl after paper_data.jl; run it as

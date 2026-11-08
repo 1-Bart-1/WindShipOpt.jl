@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Bart van de Lint
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useEffect, useMemo, useState } from "react";
 import {
   bestDesigns,
@@ -83,7 +86,7 @@ function Explorer({ data }: { data: ExplorerData }) {
 
       <PassageView />
 
-      <Results best={best} />
+      <Results best={best} drive={drive} />
 
       <section className="grid gap-6 md:grid-cols-2">
         {inputGroups.map((group) => (
@@ -157,9 +160,10 @@ function Slider(props: { control: InputControl; value: number; base: number; onC
   );
 }
 
-function Results({ best }: { best: Map<string, Outcome> }) {
+function Results({ best, drive }: { best: Map<string, Outcome>; drive: string }) {
   const winner = bestRig(best);
   const bare = best.get("none");
+  const ownFuel = drive !== "ammonia" && drive !== "vlsfo";
   return (
     <section className="overflow-x-auto rounded-[14px] border-2 border-ink bg-paper p-5">
       <table className="w-full text-sm">
@@ -168,7 +172,8 @@ function Results({ best }: { best: Map<string, Outcome> }) {
             <th className="py-1">Rig</th>
             <th>Best size</th>
             <th className="text-right">Cost [USD per 1000 t·km]</th>
-            <th className="text-right">Saves against the same ship on e-ammonia</th>
+            {ownFuel && <th className="text-right">Saves against the same ship on {driveLabels[drive]}</th>}
+            <th className="text-right">{ownFuel ? "on" : "Saves against the same ship on"} e-ammonia</th>
             <th className="text-right">on fuel oil</th>
           </tr>
         </thead>
@@ -178,6 +183,7 @@ function Results({ best }: { best: Map<string, Outcome> }) {
               <td className="py-1">No rig</td>
               <td />
               <td className="text-right">{formatted(1000 * bare.cost, 3)}</td>
+              {ownFuel && <td className="text-right">–</td>}
               <td className="text-right">{formatted(bare.ammoniaSaving)} %</td>
               <td className="text-right">{formatted(bare.vlsfoSaving)} %</td>
             </tr>
@@ -195,11 +201,12 @@ function Results({ best }: { best: Map<string, Outcome> }) {
                   <>
                     <td>{formatted(outcome.design.area, 0)} m² in {outcome.design.units} unit{outcome.design.units === 1 ? "" : "s"}</td>
                     <td className="text-right">{formatted(1000 * outcome.cost, 3)}</td>
+                    {ownFuel && <td className="text-right">{formatted(outcome.saving)} %</td>}
                     <td className="text-right">{formatted(outcome.ammoniaSaving)} %</td>
                     <td className="text-right">{formatted(outcome.vlsfoSaving)} %</td>
                   </>
                 ) : (
-                  <td colSpan={4} className="text-ink-light">no feasible design</td>
+                  <td colSpan={ownFuel ? 5 : 4} className="text-ink-light">no feasible design</td>
                 )}
               </tr>
             );

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Bart van de Lint
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 /** One rig on a passage: the ship's hull and, where carried, the rig's geometry. */
 export interface PassageDesign {
   rig: "none" | "kite" | "wings" | "rotors";

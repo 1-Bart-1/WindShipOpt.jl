@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 Bart van de Lint
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Line2 } from "three/examples/jsm/lines/Line2.js";
