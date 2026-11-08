@@ -1236,6 +1236,98 @@ WindShipOpt.waves(weather::KiteOnlySeas, lat, lon, time) =
     @test sailed.path[2][4] < 5KNOT
 end
 
+"[`WindShipOpt.SailedPoint`](@ref)s of edge `i` of `leg`, sailed at its speed in `weather`."
+function leg_edge_points(leg, corridor, table, weather, departure, i)
+    lateral = WindShipOpt.nearest_lateral(corridor, i, leg.path[i][1], leg.path[i][2])
+    next = WindShipOpt.nearest_lateral(corridor, i + 1, leg.path[i + 1][1],
+        leg.path[i + 1][2])
+    step, time = WindShipOpt.lateral_step(lateral, next), departure + leg.path[i][3]
+    points = WindShipOpt.SailedPoint[]
+    start = WindShipOpt.EdgeSample(table.table, weather, corridor, i, lateral, step, 0.0,
+        time)
+    WindShipOpt.sail_edge!(points, start, table, weather, corridor, i, lateral, step, time,
+        searchsortedfirst(table.speeds, leg.path[i + 1][4]))
+    return points
+end
+
+@testset "a kite held to its plan flies where the plan says and the limits allow" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+    prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
+    edges = [leg_edge_points(leg, corridor, kite_table, weather, departure, i)
+             for i in 1:(length(leg.path) - 1)]
+    launch_edge = findfirst(points -> isfinite(WindShipOpt.kite_passage(kite_table, points,
+        false, prices)[2].cost), edges)
+    points = edges[launch_edge]
+    stays_down = WindShipOpt.held_kite_passage(kite_table, points, false,
+        fill(false, length(points)), prices)
+    @test !any(stays_down[3]) && stays_down[1].launches == 0
+    @test !isfinite(stays_down[2].cost)
+    free = WindShipOpt.kite_passage(kite_table, points, false, prices)
+    way = WindShipOpt.kite_way(kite_table, points, false, true, prices)
+    held = WindShipOpt.held_kite_passage(kite_table, points, false, way, prices)
+    @test any(way) && held[2].launches == 1 && held[2].flight_hours > 0
+    @test held[2].cost ≈ free[2].cost rtol = 1e-12
+    @test held[3] == way
+    stays_up = WindShipOpt.held_kite_passage(kite_table, points, true,
+        WindShipOpt.kite_way(kite_table, points, true, true, prices), prices)
+    @test stays_up[2].cost ≈ WindShipOpt.kite_passage(kite_table, points, true, prices)[2].cost
+end
+
+@testset "a kite held where a wrong forecast put it costs more than one flown in the weather met" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    record = WindShipOpt.KiteRecord()
+    free = forecast_route(corridor, kite_table, weather, departure; time_cost=kite_hourly,
+        horizon=24.0, record)
+    held = forecast_route(corridor, kite_table, weather, departure; time_cost=kite_hourly,
+        horizon=24.0, forecast=PlannedKite(nothing))
+    @test length(held.path) == length(free.path)
+    @test free.objective < held.objective
+    @test free.flight_hours != held.flight_hours
+    (; samples, edges) = record
+    @test issorted(sample.hours for sample in samples)
+    @test length(edges) == length(free.path) - 1
+    @test sum(edge.cost for edge in edges) <= sum(edge.held_cost for edge in edges)
+    @test any(edge -> edge.ends_aloft != edge.held_ends_aloft, edges)
+    @test all(edge -> edge.cost <= edge.held_cost * (1 + 1e-9) ||
+                      edge.ends_aloft != edge.held_ends_aloft, edges)
+end
+
+@testset "a ship on an ensemble adopts the plan cheapest across its members" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
+    options = (; first_stage=1, first_lateral=centre_index(corridor), first_aloft=false,
+        coastal_penalty=1.0)
+    same = ForecastWeather(weather, departure, 24.0 * 100)
+    plan_one = WindShipOpt.forecast_plan(same, corridor, kite_table, departure, prices;
+        options...)
+    plan_two = WindShipOpt.forecast_plan([same, same], corridor, kite_table, departure, prices;
+        options...)
+    @test plan_two[1].path == plan_one[1].path
+    @test plan_two[2] ≈ plan_one[2]
+    members = [same, ForecastWeather(weather, departure, 0.0)]
+    adopted, values = WindShipOpt.forecast_plan(members, corridor, kite_table, departure, prices;
+        options...)
+    candidates = [WindShipOpt.forecast_plan(member, corridor, kite_table, departure, prices;
+                      options...)[1] for member in members]
+    cost(plan) = sum(WindShipOpt.plan_values(plan, corridor, kite_table, member, departure, 1,
+                         prices)[1, 1] + prices.time * plan.duration for member in members)
+    @test cost(adopted) ≈ minimum(cost, candidates)
+    @test values[1, 1] + prices.time * adopted.duration ≈ cost(adopted) / 2
+end
+
 @testset "a forecast beyond its horizon reads the same date in another year" begin
     known = ForecastWeather(SyntheticWeather(), 100.0, 48.0)
     @test WindShipOpt.wind(known, 40.0, -30.0, 120.0) ==

@@ -40,7 +40,7 @@ end
 issue_count(group::ArchiveGroup) = minimum(size(field, 4) for field in values(group.fields))
 
 issued_in(group::ArchiveGroup, issue) =
-    !all(isnan, view(first(values(group.fields)), :, :, 1, issue))
+    !all(value -> isnan(value) || iszero(value), view(first(values(group.fields)), :, :, 1, issue))
 
 """
     ForecastArchive(directory, weather)
@@ -62,6 +62,16 @@ function ForecastArchive(directory::AbstractString, weather::ERA5Weather)
     first_issue = Dates.value(DateTime(grid["first_issue"]) - weather.origin) / 3_600_000
     return ForecastArchive(ArchiveGroup(joinpath(directory, "wind")),
         ArchiveGroup(joinpath(directory, "waves")), first_issue, weather.origin)
+end
+
+"""
+    ForecastEnsemble(members)
+
+The [`ForecastArchive`](@ref)s of several runs of one forecast model, each issued every
+day, that [`forecast_route`](@ref) plans on together.
+"""
+struct ForecastEnsemble
+    members::Vector{ForecastArchive}
 end
 
 issue_time(archive::ForecastArchive, issue) = archive.first_issue + 24.0 * (issue - 1)
@@ -100,6 +110,11 @@ function ArchivedForecast(archive::ForecastArchive, weather, time)
     return ArchivedForecast(archive, issue, issued, year,
         ForecastWeather(weather, issued, span))
 end
+
+known_weather(forecast::ForecastArchive, weather, time, horizon) =
+    ArchivedForecast(forecast, weather, time)
+known_weather(forecast::ForecastEnsemble, weather, time, horizon) =
+    [ArchivedForecast(member, weather, time) for member in forecast.members]
 
 within(forecast::ArchivedForecast, group, time) =
     time - forecast.issued <= last_time(group.grid)

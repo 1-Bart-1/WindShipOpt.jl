@@ -11,8 +11,8 @@ design_aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
     trip_case(design; assumptions, route, scale, forecast, held_knots, part, labels...)
 
 One round trip to compute: `design` under `assumptions` on the corridors of `route` at
-corridor `scale`, re-planned daily on the archived forecasts where `forecast` and with
-perfect foresight otherwise, holding `held_knots` [kn] or with speed set by cost where
+corridor `scale`, with perfect foresight where `forecast` is false and otherwise re-planned
+daily on what [`forecast_source`](@ref) gives for it, holding `held_knots` [kn] or with speed set by cost where
 `nothing`, with the model `part` switched off by [`simplified_ship`](@ref), tagged with
 `labels` for the output.
 """
@@ -34,8 +34,19 @@ function case_trip(case, departures)
     isnothing(ship) && return nothing
     ship = simplified_ship(ship, case.part)
     return round_trip(ship, case.corridors..., weather, departures, case.assumptions;
-        forecast=case.forecast ? forecast_archive : nothing, held_knots=case.held_knots)
+        forecast=forecast_source(case.forecast), held_knots=case.held_knots)
 end
+
+"""
+    forecast_source(plan)
+
+What a case plans on: nothing where `plan` is false (perfect foresight), the control forecast where it is true,
+the same with the kite held to the plan where `:held_kite`, or the [`forecast_plans`](@ref)
+entry `plan`.
+"""
+forecast_source(plan) =
+    plan === false ? nothing : plan === true ? forecast_archive :
+    plan === :held_kite ? PlannedKite(forecast_archive) : forecast_plans[plan]
 
 """
     round_trips(cases, departures)
@@ -797,6 +808,128 @@ function forecast_data()
     write_trips("forecast.csv", cases, round_trips(cases, sampled_departures()), :rig,
         :knowledge)
     write_forecast_error("forecast_error.csv", run_corridors(:caribbean)...)
+end
+
+"plans of the forecast study, each as the `forecast` of its [`trip_case`](@ref)"
+forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite)
+
+"""
+    forecast_plans_data()
+
+The 140 m e-methanol ship to Guadeloupe without a rig and with each rig, per departure of
+`ensemble_departures`, for each of the [`forecast_study_plans`](@ref): forecast_plans.csv;
+the share of its perfect-foresight saving each rig keeps per plan with the jackknife
+standard error over the departures: forecast_plans_kept.csv; and the launches and landings
+of a kite that flies in the weather met and of one held to the plan on three passages,
+forecast_rule.csv; and where those two kites differ on every passage of the kite ship:
+forecast_rule_steps.csv.
+"""
+function forecast_plans_data()
+    rigs = [("none", 0.0); reference_rigs]
+    cases, trips = [], []
+    for departure in ensemble_departures
+        step_cases = vec([trip_case(ShipDesign(:methanol, 140.0; rig_size(rig, area)...);
+                              forecast=plan, rig, plan=string(plan), departure)
+                          for (rig, area) in rigs, plan in forecast_study_plans
+                              if plan !== :held_kite || rig == "kite"])
+        append!(cases, step_cases)
+        append!(trips, round_trips(step_cases, [departure]))
+    end
+    write_trips("forecast_plans.csv", cases, trips, :rig, :plan, :departure)
+    write_kept_shares("forecast_plans_kept.csv", cases, trips)
+    write_kite_rule_records("forecast_rule_steps.csv", "forecast_rule.csv", ensemble_departures,
+        ensemble_departures[begin:4:end])
+end
+
+"""
+    write_kept_shares(name, cases, trips)
+
+Write `name`: per rig and plan, the share of the perfect-foresight saving kept, the ratio
+of the mean savings over the departures, with its jackknife standard error and that of the
+difference from the control plan.
+"""
+function write_kept_shares(name, cases, trips)
+    cost(rig, plan, departure) = trips[findfirst(i -> cases[i].rig == rig &&
+        cases[i].forecast === plan && cases[i].departure == departure, eachindex(cases))].cost_per_tonne_km
+    n = length(ensemble_departures)
+    savings(rig, plan) = [1 - cost(rig, plan, departure) / cost("none", plan === :held_kite ?
+        true : plan, departure) for departure in ensemble_departures]
+    kept(saved, perfect, indices) = mean(saved[indices]) / mean(perfect[indices])
+    jackknife(statistic) = sqrt((n - 1) / n * sum(abs2, begin
+        leave_out = [statistic(setdiff(1:n, i)) for i in 1:n]
+        leave_out .- mean(leave_out)
+    end))
+    open(run_file(name), "w") do io
+        println(io, "rig,plan,kept,kept_error,difference_from_control,difference_error")
+        for (rig, _) in reference_rigs, plan in forecast_study_plans[2:end]
+            plan === :held_kite && rig != "kite" && continue
+            saved, perfect = savings(rig, plan), savings(rig, false)
+            control = savings(rig, true)
+            indices = 1:n
+            value = kept(saved, perfect, indices)
+            spread = jackknife(index -> kept(saved, perfect, index))
+            difference = value - kept(control, perfect, indices)
+            difference_spread = jackknife(index -> kept(saved, perfect, index) -
+                                                   kept(control, perfect, index))
+            @printf(io, "%s,%s,%.3f,%.3f,%.3f,%.3f\n", rig, plan, value, spread, difference,
+                difference_spread)
+        end
+    end
+end
+
+"""
+    write_kite_rule_records(steps_name, trace_name, departures, example_departures)
+
+Write `steps_name`: per outbound and return passage of the 140 m e-methanol kite ship from
+each of `departures` on the control forecast, the steps and samples sailed, those whose
+kite state differs from a kite held to the plan, and the cost of those two kites on the
+same steps; and `trace_name`: per sample of the outbound passages from `example_departures`, under
+each rule, the kite state and the state the plan wants.
+"""
+function write_kite_rule_records(steps_name, trace_name, departures, example_departures)
+    ship = Ship(ShipDesign(:methanol, 140.0; rig_size("kite", Dict(reference_rigs)["kite"])...),
+        assumptions)
+    table = RouteTable(PerformanceTable(ship, assumptions))
+    hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
+    legs = zip(("out", "back"), run_corridors(:caribbean), hourly)
+    open(run_file(steps_name), "w") do steps
+        println(steps, "departure,leg,edges,different_ends,different_edge_cost,samples,",
+            "different_samples,cost,held_cost")
+        for departure in departures, (leg, corridor, time_cost) in legs
+            record = WindShipOpt.KiteRecord()
+            forecast_route(corridor, table, weather, departure; time_cost,
+                forecast=forecast_archive, record)
+            write_kite_rule_steps(steps, departure, leg, record.edges)
+        end
+    end
+    open(run_file(trace_name), "w") do trace
+        println(trace, "departure,rule,hours,lat,lon,aloft,planned,wind_speed,wave_height")
+        for departure in example_departures, (rule, source) in (("weather", forecast_archive),
+            ("plan", PlannedKite(forecast_archive)))
+            record = WindShipOpt.KiteRecord()
+            forecast_route(first(run_corridors(:caribbean)), table, weather, departure;
+                time_cost=first(hourly), forecast=source, record)
+            for sample in record.samples
+                @printf(trace, "%g,%s,%.2f,%.3f,%.3f,%d,%d,%.2f,%.2f\n", departure, rule,
+                    sample.hours, sample.lat, sample.lon, sample.aloft, sample.planned,
+                    sample.wind_speed, sample.wave_height)
+            end
+        end
+    end
+end
+
+"""
+    write_kite_rule_steps(io, departure, leg, edges)
+
+Write to `io` the steps sailed on a passage and those whose kite state differs from a kite
+held to the plan, from its [`WindShipOpt.KiteRuleEdge`](@ref)s `edges`.
+"""
+function write_kite_rule_steps(io, departure, leg, edges)
+    different = filter(edge -> edge.ends_aloft != edge.held_ends_aloft, edges)
+    @printf(io, "%g,%s,%d,%d,%.2f,%d,%d,%.2f,%.2f\n", departure, leg, length(edges),
+        length(different), sum(edge -> edge.held_cost - edge.cost, different; init=0.0),
+        sum(edge.samples for edge in edges), sum(edge.different_samples for edge in edges),
+        sum(edge.cost for edge in edges), sum(edge.held_cost for edge in edges))
 end
 
 """
