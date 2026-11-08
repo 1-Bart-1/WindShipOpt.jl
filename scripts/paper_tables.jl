@@ -312,7 +312,7 @@ function missed_goals_table()
             "\\multicolumn{2}{c}{Canopy price [USD/m\\textsuperscript{2}] where} & ",
             "\\multicolumn{2}{c}{Out of service [\\%] where} \\\\")
         println(io, "\\cmidrule(lr){5-6}\\cmidrule(lr){7-8}\\cmidrule(lr){9-10}")
-        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Saving [\\%] & ",
+        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Cost saving [\\%] & ",
             "pays no more & behind next & pays no more & behind next & ",
             "pays no more & behind next \\\\")
         println(io, "\\midrule")
@@ -336,7 +336,7 @@ function missed_goals_table()
         println(io, "\\toprule")
         println(io, " & & & & & \\multicolumn{2}{c}{Crashes a year} & Flight \\\\")
         println(io, "\\cmidrule(lr){6-7}")
-        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Saving [\\%] & ",
+        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Cost saving [\\%] & ",
             "One [kUSD] & pays no more & behind next & [h/year] \\\\")
         println(io, "\\midrule")
         for row in crash_limit_rows()
