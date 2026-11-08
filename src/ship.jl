@@ -405,6 +405,17 @@ struct HullBalance
 end
 
 """
+    rudder_side_force(hull, force)
+
+Side force [N] of the rudder at the stern of `hull` that cancels the yaw moment of the rig
+`force` about the hull's lateral centre.
+"""
+function rudder_side_force(hull::Hull, force::RigForce)
+    centre = lateral_centre(hull)
+    return (force.side * centre - force.yaw_moment) / (-hull.length / 2 - centre)
+end
+
+"""
     HullBalance(ship, speed, force)
 
 Balance of the rig `force` at `speed` [m/s]: the rudder at the stern cancels the yaw
@@ -413,8 +424,7 @@ both act at half draft for the heel.
 """
 function HullBalance(ship::Ship, speed, force::RigForce)
     (; hull, env) = ship
-    centre = lateral_centre(hull)
-    rudder_force = (force.side * centre - force.yaw_moment) / (-hull.length / 2 - centre)
+    rudder_force = rudder_side_force(hull, force)
     leeway, induced = leeway_drag(hull, env, speed, abs(force.side + rudder_force))
     rudder_load = 0.5env.water_density * speed^2 * ship.rudder_area
     rudder_drag = rudder_force^2 / (rudder_load * π * ship.rudder_aspect_ratio)

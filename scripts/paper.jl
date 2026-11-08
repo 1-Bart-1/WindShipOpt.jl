@@ -33,6 +33,7 @@ include("size_search.jl")
 include("paper_data.jl")
 include("explorer_data.jl")
 include("paper_figures.jl")
+include("paper_drawings.jl")
 include("paper_tables.jl")
 
 "data steps in the order they run, each writing one or two data files"
@@ -85,6 +86,10 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :flight_table => flight_table, :speed_choice_table => speed_choice_table,
     :speed_terms_table => speed_terms_table, :published_table => published_table,
     :speed_size_table => speed_size_table, :speed_size_figure => speed_size_figure,
+    :canopy_price_figure => canopy_price_figure, :min_wind => min_wind_figure,
+    :force_balance => force_balance_figure, :ship_classes => ship_classes_figure,
+    :kite_frames => kite_frames_figure, :router => router_figure,
+    :missed_goals => missed_goals_figure, :rigid_mass => rigid_mass_figure,
     :tow_point_figure => tow_point_figure, :fidelity_table => fidelity_table]
 
 """

@@ -32,7 +32,7 @@ The rigs are sized for cost, not for fuel, so the fuel they save is larger than 
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{Cost and fuel energy saved by the cheapest size of each rig on each ship class with each drive, as cost\,/\,fuel in percent of the same ship without a rig on the same fuel, the mean over the six routes, with the deadweight-limited and space-limited classes in two blocks, each closed by its mean; and the tank-to-wake CO$_2$ of each class on VLSFO without a rig. On VLSFO the tank-to-wake CO$_2$ saved equals the fuel saved; e-methanol and hydrogen emit none tank-to-wake.}
+\caption{Cost and fuel energy saved by the cheapest size of each rig on each ship class with each drive, as cost\,/\,fuel in percent of the same ship without a rig on the same fuel, the mean over the six routes, with the deadweight-limited and space-limited classes in two blocks, each closed by its mean; and the tank-to-wake CO$_2$ of each class on VLSFO without a rig. On VLSFO the tank-to-wake CO$_2$ saved equals the fuel saved; on e-ammonia only its VLSFO pilot emits CO$_2$ tank-to-wake. Cells are shaded by the cost saving, blue for a gain and red for a loss, the deeper the larger.}
 \label{tab:fuel}
 \InputIfFileExists{sections/fuel_table}{}{\tbd{Fuel table pending: run the fuel\_table step.}}
 \end{table*}
@@ -42,7 +42,7 @@ Part of each saving is time, since a rig makes speed cheaper and the router sets
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{Cost saving of the cheapest size of each rig with each drive, the mean over the classes and routes, split into the fuel it saves, the time it saves at the crew, capital and cargo interest of the ship without a rig, and the rig's own cost and the cargo it displaces, each in points of the cost of the ship without a rig; and the share of round trips the rig shortens and the median change of their duration.}
+\caption{Cost saving of the cheapest size of each rig with each drive, the mean over the classes and routes, split into the fuel it saves, the time it saves at the crew, capital and cargo interest of the ship without a rig, and the rig's own cost and the cargo it displaces, each in points of the cost of the ship without a rig; and the share of round trips the rig shortens and the median change of their duration. Blue shading marks what a rig gains, red what it costs, the deeper the larger within its column.}
 \label{tab:split}
 \InputIfFileExists{sections/split_table}{}{\tbd{Split table pending: run the split\_table step.}}
 \end{table*}
@@ -61,14 +61,14 @@ Sizing a rig for the lowest cost leaves fuel unsaved that a larger rig would sav
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{abatement}
-\caption{Cost per tonne-kilometre against the fuel energy saved, relative to the same ship on VLSFO without a rig, for every size of each rig on the \SI{140}{m} ship to Guadeloupe (top) and a Kamsarmax bulk carrier to Tubarão (bottom), one column per drive. The black point is the ship without a rig on that drive. Each line joins the sizes of one rig in order of area, from the smallest (open marker) to the largest that fits on deck; where a larger kite flies a smaller share of the time, it saves less fuel and the line turns back.}
+\caption{Cost per tonne-kilometre against the fuel energy saved, both relative to the same ship on the same drive without a rig, for every size of each rig on the \SI{140}{m} ship to Guadeloupe (top) and a Kamsarmax bulk carrier to Tubarão (bottom), one column per drive. All panels share the fuel axis and each column its cost axis. Markers grow with rig area, from the smallest size to the largest that fits on deck; in the shaded region the rig costs less than no rig. Where a larger kite flies a smaller share of the time, it saves less fuel and its line turns back. \Cref{fig:premium} compares the drives.}
 \label{fig:abatement}
 \end{figure*}
 
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{Discounted payback time in years of the cheapest size of each rig on each ship class, the median over the six routes, at the base discount rate; a dash where the median rig does not pay back within its life.}
+\caption{Discounted payback time in years of the cheapest size of each rig on each ship class, the median over the six routes, at the base discount rate; a dash where the median rig does not pay back within its life. The shorter the payback, the deeper the blue.}
 \label{tab:payback}
 \InputIfFileExists{sections/payback_table}{}{\tbd{Payback table pending: run the payback\_table step.}}
 \end{table*}
@@ -110,12 +110,12 @@ Before any voyage, the three rigs differ in the force they put on the ship at ea
 \label{fig:rig_polar}
 \end{figure}
 
-On a voyage the router turns this thrust into fuel or speed. \Cref{fig:passage} follows one winter passage to Guadeloupe. The ships without a rig and with wing sails stay close to the great circle, the shortest path over the globe, while the kite and rotor ships route further south into the trade winds, the steady easterly winds of the subtropics. The kite pulls in long bursts: while it flies, its ship speeds up to as much as 16~kn and its fuel power, the power the engines draw from fuel, drops to almost nothing, and between flights it sails on the engine. The rotors pull more steadily and less, and their ship sails at 10 to 13~kn for much of the passage. Both arrive about two days before the ship without a rig. The wing sails pull least, and their ship keeps to the speed of the ship without a rig.
+On a voyage the router turns this thrust into fuel or speed. \Cref{fig:passage} follows one winter passage to Guadeloupe. The ships without a rig and with wing sails take the same track, close to the great circle, the shortest path over the globe, while the kite and rotor ships share one further south, in the trade winds, the steady easterly winds of the subtropics. These pairs are identical, node for node, and not a plotting error: the corridor of this draft run has its nodes \tbd{\SI{480}{nmi} apart, twice the spacing of the results (\cref{sec:routing})}, so routes that differ a little fall onto the same nodes, and a finer corridor may separate them. The wing sails' thrust, \tbd{about 40~kN on average and at most 170~kN on this passage}, is too small to pay for the longer southern track, while the kite's and the rotors', \tbd{about 560 and 150~kN}, make the trade winds worth the detour. The kite pulls in long bursts: while it flies, its ship speeds up to as much as 16~kn and its fuel power, the power the engines draw from fuel, drops to almost nothing, and between flights it sails on the engine. The rotors pull more steadily and less, and their ship sails at 10 to 13~kn for much of the passage. Both arrive about two days before the ship without a rig. The wing sails pull least, and their ship keeps to the speed of the ship without a rig.
 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{passage}
-\caption{One outbound passage to Guadeloupe, departing on 1 January 2017, of a \SI{140}{m} e-ammonia ship without a rig and with a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails or \SI{800}{m^2} of rotors: (a) the routed tracks with the great circle dotted, over the \SI{10}{m} wind six days after departure, each track narrower than the one before it in the legend so that tracks which coincide stay visible, (b) speed through the water, (c) rig thrust and (d) fuel power over the passage, as 12-hour moving averages.}
+\caption{One outbound passage to Guadeloupe, departing on 1 January 2017, of a \SI{140}{m} e-ammonia ship without a rig and with a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails or \SI{800}{m^2} of rotors. (a) The routed tracks through the corridor's nodes (dots), each labelled with the ships that take it, the great circle dotted, over the \SI{10}{m} wind six days after departure: the ships without a rig and with wing sails share one track, and the kite and rotor ships another. (b) Speed through the water, (c) rig thrust on a logarithmic scale, left out below \SI{5}{kN}, and (d) fuel power, each as computed every three hours of the passage.}
 \label{fig:passage}
 \end{figure*}
 
@@ -168,7 +168,7 @@ This subsection shows how large each rig should be, and where the deck or the mo
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{class_sizes}
-\caption{The rig area that lowers the cost per tonne-kilometre most for each ship class with a VLSFO (a) and an e-ammonia (b) drive: the geometric mean over the six routes (marker) and the range over them (bar). The number next to the wings and rotors is the median number of units at that size. Kites were searched from \SIrange{500}{16000}{m^2}, wings and rotors from a fifth to all of what fits on deck; where a bound was the cheapest size searched, the search also tried the size a factor $2^{1/4}$ inside it.}
+\caption{The rig area that lowers the cost per tonne-kilometre most for each ship class with a VLSFO (a) and an e-ammonia (b) drive: the geometric mean over the six routes (marker) and the range over them (bar). The shaded column at the right of each panel gives the median number of wing and rotor units at that size, in their colours. Kites were searched from \SIrange{500}{16000}{m^2}, wings and rotors from a fifth to all of what fits on deck; where a bound was the cheapest size searched, the search also tried the size a factor $2^{1/4}$ inside it.}
 \label{fig:class_sizes}
 \end{figure*}
 
@@ -197,7 +197,7 @@ A rig that gave the same thrust at every speed would not change the best speed. 
 
 \begin{table*}[tbp]
 \centering
-\caption{Fuel saved and time saved by the reference rigs on the \SI{140}{m} ship on two routes, against the ship without a rig on the same terms: at a fixed speed, in the same time as the ship without a rig routed for cost, and with speed set by cost. A fixed-speed ship drops to the highest of its routing speeds it can hold where it cannot hold that speed, which a rig does more often, so its time changes too. \tbd{Draft run.}}
+\caption{Fuel saved and time saved by the reference rigs on the \SI{140}{m} ship on two routes, against the ship without a rig on the same terms: at a fixed speed, in the same time as the ship without a rig routed for cost, and with speed set by cost. A fixed-speed ship drops to the highest of its routing speeds it can hold where it cannot hold that speed, which a rig does more often, so its time changes too. \tbd{Draft run.} Savings are shaded blue, losses red, the deeper the larger.}
 \label{tab:speed_terms}
 \InputIfFileExists{sections/speed_terms_table}{}{\tbd{Terms table pending: run the speed\_terms\_table step.}}
 \end{table*}
@@ -240,12 +240,12 @@ The speed result has limits. The router knows the weather ahead and no schedule 
 \subsection{VTOL kites are too expensive at ship scale}
 \label{sec:res_rigid}
 
-This subsection shows why a VTOL kite is left out of the comparison: first its cost per unit of thrust against a soft kite, then what it saves on two ships. A VTOL kite is a rigid wing that carries propellers, which lift it off the deck and land it hovering like a helicopter, and flies loops on its tether in between (\cref{sec:rigid_kite}). It flies at ship scale, but it costs far more per unit of thrust than a soft kite (\cref{fig:rigid_scaling}). At \SI{12}{m/s} of apparent wind on a beam course the \SI{54}{m^2} wing pulls \SI{144}{kN} for USD~2.3 million, USD~\num{16200} per kilonewton, and a \SI{1000}{m^2} soft kite pulls \SI{289}{kN} at USD~\num{2360} per kilonewton, a seventh of that. The rigid wing's life of 15 years against a canopy of \num{4000} flight hours closes part of that gap: with capital, upkeep, wear and launches over a year of \num{3000} flight hours and 150 launches, and each kite at its goals, the wing costs USD~\num{2990} per kilonewton a year and the soft kite USD~790, about a quarter of that. \tbd{The prices per kilonewton over size that follow come from before the VTOL kite's drive lost the ground electronics that the ship's supply already holds, which lowers them by a few per cent, more for large wings; the final run replaces them.} Size helps at first and then hurts. The wing's mass grows with its span to the power $\kappa$, the mass exponent (\cref{sec:rigid_kite}). At $\kappa=2.75$ the price per kilonewton falls from USD~\num{17300} at \SI{30}{m^2} to USD~\num{16500} at \SI{54}{m^2} and rises to USD~\num{18300} at \SI{100}{m^2}, USD~\num{27400} at \SI{300}{m^2} and USD~\num{34700} at \SI{500}{m^2}, and with mass going as span cubed, $\kappa=3$, to USD~\num{52000} at \SI{500}{m^2}. A wing of \SI{300}{m^2} spans \SI{61}{m}, weighs \SI{19.6}{t}, or \SI{24.3}{t} with span cubed, and needs \SI{13.3}{MW} to hover. The heavier wing also needs more wind: the climb to the top of the circle it flies on its tether (\cref{eq:loop_top}) sets the lowest wind at \SI{6}{m/s} for \SI{30}{m^2}, \SI{7}{m/s} for \SI{54}{m^2}, \SI{10}{m/s} for \SI{300}{m^2} and \SI{12}{m/s} for \SI{500}{m^2}. The speed of the ship does not close this gap: wind from ahead gives drag and not thrust, and the service speed of the \SI{140}{m} ship, \SI{5.4}{m/s}, lies below even the \SI{6}{m/s} of the smallest wing. Steaming into light air can only help the launch, which the propellers carry without wind in any case.
+This subsection shows why a VTOL kite is left out of the comparison: first its cost per unit of thrust against a soft kite, then what it saves on two ships. A VTOL kite is a rigid wing that carries propellers, which lift it off the deck and land it hovering like a helicopter, and flies loops on its tether in between (\cref{sec:rigid_kite}). It flies at ship scale, but it costs far more per unit of thrust than a soft kite (\cref{fig:rigid_scaling}). At \SI{12}{m/s} of apparent wind on a beam course the \SI{54}{m^2} wing pulls \SI{144}{kN} for USD~2.3 million, USD~\num{16200} per kilonewton, and a \SI{1000}{m^2} soft kite pulls \SI{289}{kN} at USD~\num{2360} per kilonewton, a seventh of that. The rigid wing's life of 15 years against a canopy of \num{4000} flight hours closes part of that gap: with capital, upkeep, wear and launches over a year of \num{3000} flight hours and 150 launches, and each kite at its goals, the wing costs USD~\num{2990} per kilonewton a year and the soft kite USD~790, about a quarter of that. \tbd{The prices per kilonewton over size that follow come from before the VTOL kite's drive lost the ground electronics that the ship's supply already holds, which lowers them by a few per cent, more for large wings; the final run replaces them.} Size helps at first and then hurts. The wing's mass grows with its span to the power $\kappa$, the mass exponent (\cref{sec:rigid_kite}). The price per kilonewton is lowest near the \SI{54}{m^2} of MX2 and rises steeply above \SI{100}{m^2}, the more so the larger $\kappa$ (\cref{fig:rigid_scaling}b). A wing of \SI{300}{m^2} spans \SI{61}{m}, weighs \SI{19.6}{t}, or \SI{24.3}{t} with span cubed, $\kappa=3$, and needs \SI{13.3}{MW} to hover. The heavier wing also needs more wind: the climb to the top of the circle it flies on its tether (\cref{eq:loop_top}) raises the lowest wind from \SI{6}{m/s} on the smallest wing to \SI{12}{m/s} on the largest (\cref{fig:rigid_scaling}d). The speed of the ship does not close this gap: wind from ahead gives drag and not thrust, and the service speed of the \SI{140}{m} ship, \SI{5.4}{m/s}, lies below even the \SI{6}{m/s} of the smallest wing. Steaming into light air can only help the launch, which the propellers carry without wind in any case.
 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{rigid_scaling}
-\caption{VTOL kites and soft kites over size: (a) thrust of one kite on a beam course over the apparent wind, (b) price per thrust and (c) cost over a year of \num{3000} flight hours and 150 launches per thrust at \SI{12}{m/s} of apparent wind, for VTOL kites at three mass exponents and for soft kites, each at its goals. Wings that do not fly at \SI{12}{m/s} are left out.}
+\caption{VTOL kites and soft kites over size: (a) thrust of one kite on a beam course over the apparent wind, (b) price per thrust and (c) cost over a year of \num{3000} flight hours and 150 launches per thrust at \SI{12}{m/s} of apparent wind, for VTOL kites at three mass exponents and for soft kites, each at its goals, and (d) the lowest apparent wind in which a VTOL kite flies its loops. Wings that do not fly at \SI{12}{m/s} are left out.}
 \label{fig:rigid_scaling}
 \end{figure*}
 

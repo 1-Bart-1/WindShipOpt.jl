@@ -479,6 +479,14 @@ end
 @testset "a canopy costs its goal price, and USD 234 as built today" begin
     @test WindShipOpt.canopy_price(assumptions) ≈ 149.8
     @test WindShipOpt.canopy_price_today(assumptions) ≈ 234.4
+    cloth = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
+    today_cloth = WindShipOpt.with_today(assumptions, cloth)
+    @test all(today_cloth[name] == assumptions[Symbol(name, :_today)] for name in cloth)
+    @test today_cloth[:canopy_making_cost_per_area] ==
+          assumptions[:canopy_making_cost_per_area]
+    weight = WindShipOpt.cloth_weight(assumptions)
+    @test WindShipOpt.sewn_cloth_price(assumptions, weight) ≈ 9.4
+    @test WindShipOpt.sewn_cloth_price(today_cloth, weight) ≈ 17.2
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈ 149.8rig.area
 end
@@ -657,6 +665,32 @@ end
     @test WindShipOpt.launch_mast_position(hull, assumptions) ≈ row_end + reserve / 2
     @test_throws ArgumentError Ship(ShipDesign(:vlsfo, 140.0; wing_area=800.0,
         rotor_area=400.0), assumptions)
+end
+
+@testset "deck units stand evenly over their row, centred on it" begin
+    hull = Hull(140.0, assumptions)
+    reserve = WindShipOpt.launch_mast_reserve(assumptions)
+    deck = assumptions[:deck_length_fraction] * hull.length
+    for (rig, row_length) in ((WingRig(800.0, hull, assumptions), deck),
+        (WindShipOpt.RotorRig(800.0, hull, assumptions; forward_reserve=reserve),
+            deck - reserve))
+        positions = WindShipOpt.unit_positions(rig, hull, assumptions)
+        @test length(positions) == rig.count > 1
+        @test sum(positions) / rig.count ≈ rig.centre_position
+        @test all(diff(positions) .≈ row_length / rig.count)
+    end
+    single = WingRig(100.0, hull, assumptions)
+    @test WindShipOpt.unit_positions(single, hull, assumptions) == [single.centre_position]
+end
+
+@testset "the rudder cancels the yaw moment about the hull's lateral centre" begin
+    hull = Hull(140.0, assumptions)
+    centre = WindShipOpt.lateral_centre(hull)
+    at_centre = WindShipOpt.RigForce(1e5, 2e5, 0.0, 2e5 * centre)
+    @test WindShipOpt.rudder_side_force(hull, at_centre) ≈ 0 atol = 1e-6
+    at_midship = WindShipOpt.RigForce(1e5, 2e5, 0.0, 0.0)
+    rudder = WindShipOpt.rudder_side_force(hull, at_midship)
+    @test 2e5 * (0 - centre) + rudder * (-hull.length / 2 - centre) ≈ 0 atol = 1e-3
 end
 
 @testset "a kite tows from its bow mast, and towing midship loads the rudder more" begin
@@ -1687,12 +1721,12 @@ end
     @test WindShipOpt.crash_cost(fleet, assumptions) ≈ (airframes + tethers / 2) / 3
 end
 
-@testset "each rig is measured against its neighbours in cost, the ends against none" begin
+@testset "each rig is measured against the best other, the leader against the second" begin
     costs = Dict("kite" => 2.0, "wings" => 1.0, "rotors" => 3.0)
-    ranked = WindShipOpt.ranked_neighbours(costs)
+    ranked = WindShipOpt.ranked_rivals(costs)
     @test getfield.(ranked, :rig) == ["wings", "kite", "rotors"]
-    @test getfield.(ranked, :next)[1:2] == [2.0, 3.0]
-    @test isnan(ranked[3].next)
+    @test getfield.(ranked, :rival) == ["kite", "wings", "wings"]
+    @test getfield.(ranked, :rival_cost) == [2.0, 1.0, 1.0]
     @test isnan(ranked[1].ahead)
     @test getfield.(ranked, :ahead)[2:3] == [1.0, 2.0]
 end

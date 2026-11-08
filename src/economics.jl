@@ -353,9 +353,17 @@ canopy_price_inputs = (:canopy_making_cost_per_area, :canopy_cloth_base_price,
 
 [`canopy_price`](@ref) [USD/m^2] of the canopy as built today, from the `_today` inputs.
 """
-canopy_price_today(assumptions) = canopy_price(reduce(
+canopy_price_today(assumptions) = canopy_price(with_today(assumptions,
+    canopy_price_inputs))
+
+"""
+    with_today(assumptions, names)
+
+Fresh `Assumptions` with each of `names` set to the value of its `_today` counterpart.
+"""
+with_today(assumptions, names) = reduce(
     (inputs, name) -> with_value(inputs, name, assumptions[Symbol(name, :_today)]),
-    canopy_price_inputs; init=assumptions))
+    names; init=assumptions)
 
 """
     consumable_costs(rig, assumptions)
