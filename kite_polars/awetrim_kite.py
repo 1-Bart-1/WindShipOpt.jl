@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Write an AWETrim kite folder for a rigid-shape ram-air kite from its VSM polar.
 
 The system file starts from AWETrim's LEI-V3 one with area, span, masses, bridle,
