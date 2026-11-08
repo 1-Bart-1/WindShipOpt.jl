@@ -805,102 +805,6 @@ function winner_map_figure()
 end
 
 """
-    track_wind(corridor, weather, times)
-
-True wind angles [deg] and 10 m wind speeds [m/s] met along the centre line of
-`corridor` at the given `times` [h], one pair per stage and time.
-"""
-function track_wind(corridor, weather, times)
-    angles, speeds = Float64[], Float64[]
-    centre = centre_index(corridor)
-    for stage in 1:(size(corridor.lat, 1) - 1), time in times
-        lat, lon = corridor.lat[stage, centre], corridor.lon[stage, centre]
-        course = WindShipOpt.bearing(lat, lon, corridor.lat[stage + 1, centre],
-            corridor.lon[stage + 1, centre])
-        east, north = wind(weather, lat, lon, time)
-        speed = hypot(east, north)
-        push!(angles, rad2deg(WindShipOpt.true_wind_angle(east, north, speed, course)))
-        push!(speeds, speed)
-    end
-    return angles, speeds
-end
-
-"""
-    sector!(axis, angle, width, inner, outer; color)
-
-Filled ring sector between radii `inner` and `outer` around `angle` [rad clockwise from
-up] with `width` [rad], on a Cartesian `axis`.
-"""
-function sector!(axis, angle, width, inner, outer; color)
-    arc = range(angle - width / 2, angle + width / 2; length=8)
-    poly!(axis, [ring_points(outer, arc); ring_points(inner, reverse(arc))]; color,
-        strokewidth=0)
-end
-
-"""
-    ring_points(radius, angles)
-
-Points at `radius` and `angles` [rad clockwise from up].
-"""
-ring_points(radius, angles) = Point2f.(radius .* sin.(angles), radius .* cos.(angles))
-
-"""
-    wind_climate_figure()
-
-Wind roses relative to the ship along each route over the three years of weather: the
-direction the wind comes from off the bow, head wind up, outbound on the left half and
-homeward on the right; the sector length is the share of sailing time, split by 10 m
-wind speed, against rings named in the legend.
-"""
-function wind_climate_figure()
-    times = 0.0:24.0:(WindShipOpt.duration(weather) - 24)
-    names = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
-    speed_classes = [0, 5, 10, 15, Inf]
-    class_labels = ["< 5 m/s", "5–10 m/s", "10–15 m/s", "> 15 m/s"]
-    colours = Makie.resample_cmap(:Blues, 6)[2:5]
-    edges = 0:15:180
-    rings = [5, 10, 15]
-    figure = Figure(size=(column_width, 560))
-    for (k, name) in enumerate(names)
-        axis = Axis(figure[(k - 1) ÷ 2 + 1, (k - 1) % 2 + 1]; aspect=DataAspect(),
-            title=route_label(name),
-            titlealign=:center, limits=(-19, 19, -19, 19))
-        hidedecorations!(axis)
-        hidespines!(axis)
-        for radius in rings
-            arc = range(0, 2π; length=90)
-            lines!(axis, radius .* sin.(arc), radius .* cos.(arc); color=:gray80,
-                linewidth=0.5)
-        end
-        lines!(axis, [0, 0], [-16, 16]; color=:gray60, linewidth=0.5)
-        for (side, corridor) in zip((-1, 1), run_corridors(Symbol(name)))
-            angles, speeds = track_wind(corridor, weather, times)
-            for i in 1:(length(edges) - 1)
-                inside = edges[i] .<= angles .< edges[i + 1]
-                radius = 0.0
-                for class_index in 1:(length(speed_classes) - 1)
-                    share = 100 * count(inside .& (speed_classes[class_index] .<= speeds .<
-                                                   speed_classes[class_index + 1])) /
-                            length(angles)
-                    sector!(axis, side * deg2rad(edges[i] + 7.5), deg2rad(14), radius,
-                        radius + share; color=colours[class_index])
-                    radius += share
-                end
-            end
-        end
-        text!(axis, [0.0, 0.0, -18.5, 18.5], [16.5, -16.5, -17.5, -17.5];
-            text=["head wind", "astern", "out", "home"], fontsize=8.5,
-            align=[(:center, :bottom), (:center, :top), (:left, :center),
-                (:right, :center)], color=:gray30)
-    end
-    Legend(figure[4, 1:2], [PolyElement(color=colour) for colour in colours], class_labels,
-        "wind at 10 m, rings at $(join(rings, ", ", " and ")) % of sailing time";
-        framevisible=false, labelsize=9, titlesize=9,
-        orientation=:horizontal, nbanks=2, patchsize=(8, 8), tellwidth=false)
-    save(joinpath(figures, "wind_climate.pdf"), figure; pt_per_unit=print_scale)
-end
-
-"""
     route_label(name)
 
 Name of the destination of route `name` for figure labels.
@@ -1495,85 +1399,57 @@ function abatement_figure()
 end
 
 """
+    uniform_swing(table, rig, input)
+
+Cost savings [%] of `rig` on the 140 m ship in the uniform study `table` with `input` a
+step down and up.
+"""
+uniform_swing(table, rig, input) = (screened_saving(table, "140 m", rig, input, "down"),
+    screened_saving(table, "140 m", rig, input, "up"))
+
+"largest change [points] of any rig's saving between `input` a step down and up"
+uniform_reach(table, input) = maximum(rig -> abs(-(uniform_swing(table, rig, input)...)),
+    rig_names)
+
+"""
     sensitivity_figure()
 
-Cost saving of each rig on the 140 m e-ammonia reference ship at the low and high bound
-of the twelve inputs that move it most, as a tornado around the base saving.
+Cost saving of each rig on the 140 m e-ammonia reference ship with each of the twelve
+inputs that move any rig most a [`uniform_step`](@ref) down and up, as tornados around
+the base saving, one panel per rig on a shared axis and in the same order.
 """
 function sensitivity_figure()
-    table = read_table(data_file("sensitivity.csv"))
-    figure = Figure(size=(page_width, 320))
+    table = read_table(data_file("uniform.csv"))
+    inputs = filter(!=("none"), unique(table["input"]))
+    filter!(input -> all(rig -> all(isfinite, uniform_swing(table, rig, input)),
+            rig_names), inputs)
+    shown = last(sort(inputs; by=input -> uniform_reach(table, input)), 12)
+    step = round(Int, 100 * uniform_step)
+    figure = Figure(size=(page_width, 280))
+    axes = Axis[]
     for (column, rig) in enumerate(rig_names)
         base = screened_saving(table, "140 m", rig, "none", "value")
-        swings = [(input, screened_saving(table, "140 m", rig, input, "low"),
-                      screened_saving(table, "140 m", rig, input, "high"))
-                  for input in filter(!=("none"), unique(table["input"]))]
-        filter!(swing -> all(isfinite, swing[2:3]), swings)
-        sort!(swings; by=swing -> abs(swing[3] - swing[2]))
-        swings = last(swings, 12)
         axis = Axis(figure[1, column]; title="($('a' + column - 1)) $rig",
-            yticks=(eachindex(swings), [replace(first(swing), "_" => " ")
-                                        for swing in swings]),
+            yticks=(eachindex(shown), replace.(shown, "_" => " ")),
+            yticksvisible=column == 1, yticklabelsvisible=column == 1,
             xlabel="cost saving [%]", xticks=WilkinsonTicks(3), yticklabelsize=8)
-        vlines!(axis, base; color=:gray50, linewidth=0.8)
-        for (k, (_, low, high)) in enumerate(swings)
-            barplot!(axis, [k], [low - base]; offset=base, direction=:x, color=palette[1],
-                width=0.6)
-            barplot!(axis, [k], [high - base]; offset=base, direction=:x, color=palette[2],
-                width=0.6)
-        end
-    end
-    Legend(figure[2, 1:3], [PolyElement(color=palette[1]), PolyElement(color=palette[2])],
-        ["input at low bound", "input at high bound"]; orientation=:horizontal,
-        framevisible=false, labelsize=9)
-    save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
-end
-
-"""
-    component_figure()
-
-Change in the cost saving of each rig on a 140 m e-ammonia ship when the price of one
-of its components is 50 % lower or higher, or one of its lifetimes doubled or halved,
-one panel per rig; components moving it by less than 0.05 points are left out.
-"""
-function component_figure()
-    table = read_table(data_file("components.csv"))
-    bare = only(table["cost"][rows(table, "rig" => "none")])
-    figure = Figure(size=(column_width, 430))
-    axes = Axis[]
-    for (row, rig) in enumerate(rig_names)
-        base_cost = only(table["cost"][rows(table, "rig" => rig, "input" => "none")])
-        base = percent_saving(base_cost, bare)
-        inputs = filter(!=("none"), unique(table["input"][rows(table, "rig" => rig)]))
-        effects = Tuple{String, Float64, Float64}[]
-        for input in inputs
-            chosen = rows(table, "rig" => rig, "input" => input)
-            better = percent_saving(minimum(table["cost"][chosen]), bare) - base
-            worse = percent_saving(maximum(table["cost"][chosen]), bare) - base
-            max(abs(better), abs(worse)) >= 0.05 &&
-                push!(effects, (input, better, worse))
-        end
-        sort!(effects; by=effect -> effect[2])
-        labels = [replace(first(effect), "_" => " ") for effect in effects]
-        title = "($('a' + row - 1)) $rig, base saving $(round(base; digits=1)) %"
-        axis = Axis(figure[row, 1]; title, yticks=(eachindex(effects), labels),
-            xlabel=row == length(rig_names) ? "change in cost saving [points]" : "",
-            yticklabelsize=8)
         push!(axes, axis)
-        rowsize!(figure.layout, row, Auto(length(effects)))
-        vlines!(axis, 0; color=:gray50, linewidth=0.8)
-        barplot!(axis, eachindex(effects), getindex.(effects, 2); direction=:x,
-            color=palette[3], width=0.6)
-        barplot!(axis, eachindex(effects), getindex.(effects, 3); direction=:x,
-            color=palette[6], width=0.6)
+        vlines!(axis, base; color=:gray50, linewidth=0.8)
+        for (k, input) in enumerate(shown)
+            down, up = uniform_swing(table, rig, input)
+            barplot!(axis, [k], [down - base]; offset=base, direction=:x,
+                color=palette[1], width=0.6)
+            barplot!(axis, [k], [up - base]; offset=base, direction=:x,
+                color=palette[2], width=0.6)
+        end
     end
     linkxaxes!(axes...)
-    Legend(figure[length(rig_names) + 1, 1],
-        [PolyElement(color=palette[3]), PolyElement(color=palette[6])],
-        ["50 % cheaper or twice the life", "50 % dearer or half the life"];
-        orientation=:horizontal, nbanks=2, framevisible=false, labelsize=9,
-        patchsize=(10, 8))
-    save(joinpath(figures, "components.pdf"), figure; pt_per_unit=print_scale)
+    Legend(figure[1, 3], [PolyElement(color=palette[1]), PolyElement(color=palette[2])],
+        ["$step % lower", "$step % higher"]; tellwidth=false,
+        tellheight=false, halign=:left, valign=:bottom, margin=(4, 4, 4, 4),
+        padding=(4, 4, 2, 2), patchsize=(8, 8), rowgap=0, backgroundcolor=:white,
+        labelsize=8)
+    save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
 end
 
 """
