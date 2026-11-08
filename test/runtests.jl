@@ -1761,6 +1761,15 @@ end
     @test WindShipOpt.events_to_cost(target, cost, work, crash) == 0
 end
 
+@testset "a lead over another rig is used up exactly at its life and loss limits" begin
+    lead, goal_life, canopy_points, crash_points = 2.0, 4000.0, 8000.0, 1.6
+    limits = WindShipOpt.lead_limits(lead, goal_life, canopy_points, crash_points)
+    @test canopy_points * (1 / limits.life - 1 / goal_life) ≈ lead
+    @test limits.losses * crash_points ≈ lead
+    behind = WindShipOpt.lead_limits(-0.5, goal_life, canopy_points, crash_points)
+    @test isnan(behind.life) && isnan(behind.losses)
+end
+
 module PaperData
 using Printf, Statistics, WindShipOpt
 assumptions = Main.assumptions
