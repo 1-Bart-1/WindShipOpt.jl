@@ -349,6 +349,16 @@ edge sailed in `hours` [h].
 edge_intervals(hours, sample_hours) = max(1, ceil(Int, hours / sample_hours))
 
 """
+    sails_same(same, speed_index, intervals)
+
+Whether commanding routing speed number `speed_index`, sampled at `intervals`, sails an
+edge as the last speed sailed on it did, which held the same through speed number
+`same.through` sampled at `same.intervals`.
+"""
+sails_same(same, speed_index, intervals) =
+    speed_index <= same.through && intervals == same.intervals
+
+"""
     trapezoid_weight(k, count)
 
 Weight of the `k`-th of `count` equally spaced samples in the trapezoidal mean over them.
@@ -361,20 +371,36 @@ trapezoid_weight(k, count) = (k == 1 || k == count ? 0.5 : 1.0) / (count - 1)
 Highest routing speed number up to `speed_index` of the [`RouteTable`](@ref) `table`
 that the ship can hold at the [`EdgeSample`](@ref) `sample` with the rig stowed, or with
 a kite flying where [`kite_aloft`](@ref) allows, with the fuel power [W] flown and stowed
-there; speed number 0 if it cannot hold the lowest. Last, whether the engines had the
-power for speed `speed_index` with the rig stowed or flown.
+there; speed number 0 if it cannot hold the lowest. Last, the highest speed number
+whose command holds the same there, by [`unpowered_through`](@ref).
 """
 function held_speed(table::RouteTable, speed_index, sample::EdgeSample)
-    powered = false
+    same_through = speed_index
     for i in speed_index:-1:1
         flown, stowed = edge_fuels(table, i, sample.condition)
-        i == speed_index && (powered = isfinite(flown) || isfinite(stowed))
-        isfinite(stowed) && return i, flown, stowed, powered
+        i == speed_index && !isfinite(flown) && !isfinite(stowed) &&
+            (same_through = unpowered_through(table, speed_index, sample.condition))
+        isfinite(stowed) && return i, flown, stowed, same_through
         isfinite(flown) && kite_aloft(table.table, table.speeds[i], sample.headwind,
             sample.crosswind, sample.condition.wave_height) &&
-            return i, flown, stowed, powered
+            return i, flown, stowed, same_through
     end
-    return 0, Inf, Inf, powered
+    return 0, Inf, Inf, same_through
+end
+
+"""
+    unpowered_through(table, speed_index, condition)
+
+Highest routing speed number of the [`RouteTable`](@ref) `table` such that the engines can
+power none from `speed_index` up to it in the [`SeaCondition`](@ref) `condition`, with the
+rig stowed or flown.
+"""
+function unpowered_through(table::RouteTable, speed_index, condition::SeaCondition)
+    for i in (speed_index + 1):length(table.speeds)
+        flown, stowed = edge_fuels(table, i, condition)
+        (isfinite(flown) || isfinite(stowed)) && return i - 1
+    end
+    return length(table.speeds)
 end
 
 """
@@ -400,18 +426,18 @@ struct SailedPoint
     stowed::Float64
     "hours of the edge the point stands for [h]"
     hours::Float64
-    "whether the engines had the power for the commanded speed with the rig stowed or flown"
-    powered::Bool
+    "highest routing speed number whose command holds the same speed there"
+    same_through::Int
 end
 
 """
-    SailedPoint(sample, held, flown, stowed, hours, powered=true)
+    SailedPoint(sample, held, flown, stowed, hours, same_through)
 
 [`SailedPoint`](@ref) of the [`EdgeSample`](@ref) `sample`.
 """
-SailedPoint(sample::EdgeSample, held, flown, stowed, hours, powered=true) =
+SailedPoint(sample::EdgeSample, held, flown, stowed, hours, same_through) =
     SailedPoint(sample.headwind, sample.crosswind, sample.condition.wave_height,
-        sample.daylight, held, flown, stowed, hours, powered)
+        sample.daylight, held, flown, stowed, hours, same_through)
 
 """
     SailedPoint(table, sample, speed_index, distance)
@@ -420,9 +446,9 @@ SailedPoint(sample::EdgeSample, held, flown, stowed, hours, powered=true) =
 `table`, at the [`held_speed`](@ref), standing for `distance` [m] of the edge.
 """
 function SailedPoint(table::RouteTable, sample::EdgeSample, speed_index, distance)
-    held, flown, stowed, powered = held_speed(table, speed_index, sample)
+    held, flown, stowed, same_through = held_speed(table, speed_index, sample)
     hours = held == 0 ? Inf : distance / table.speeds[held] / 3600
-    return SailedPoint(sample, held, flown, stowed, hours, powered)
+    return SailedPoint(sample, held, flown, stowed, hours, same_through)
 end
 
 """
@@ -563,18 +589,18 @@ summary_mode(tally::EdgeTally, hours) =
 
 An edge sailed at one commanded speed: its hours [h], `Inf` where a point cannot hold the
 lowest routing speed and `NaN` where not sailed, the cheapest ways through it that end
-with the kite down and aloft as [`EdgeTally`](@ref)s, and whether the engines had the
-power for the commanded speed at any point, with the rig stowed or flown.
+with the kite down and aloft as [`EdgeTally`](@ref)s, and the highest routing speed
+number whose command sails it the same at the same sample points; 0 where unknown.
 """
 struct SailedEdge
     hours::Float64
     down::EdgeTally
     up::EdgeTally
-    powered::Bool
+    same_through::Int
 end
 
 "an edge not sailed"
-const UNSAILED = SailedEdge(NaN, NO_TALLY, NO_TALLY, false)
+const UNSAILED = SailedEdge(NaN, NO_TALLY, NO_TALLY, 0)
 
 """
     SailedEdge(table, points, hours, aloft, prices)
@@ -583,10 +609,18 @@ const UNSAILED = SailedEdge(NaN, NO_TALLY, NO_TALLY, false)
 [`kite_passage`](@ref), for a kite aloft before it if `aloft`.
 """
 function SailedEdge(table::RouteTable, points, hours, aloft, prices)
-    isfinite(hours) || return SailedEdge(hours, NO_TALLY, NO_TALLY, true)
+    isfinite(hours) || return SailedEdge(hours, NO_TALLY, NO_TALLY, 0)
     return SailedEdge(hours, kite_passage(table, points, aloft, prices)...,
-        any(point -> point.powered, points))
+        same_through(points))
 end
+
+"""
+    same_through(points)
+
+Highest routing speed number whose command sails the [`SailedPoint`](@ref)s `points` of an
+edge the same, sampled at the same points.
+"""
+same_through(points) = minimum(point -> point.same_through, points)
 
 """
     nearest_lateral(corridor, stage, lat, lon)
@@ -789,7 +823,12 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices,
         penalty = edge_penalty(corridor, stage, next, coastal_penalty)
         start = EdgeSample(table.table, node_wind, node_waves,
             corridor.edge_course[stage, lateral, step], daylight)
+        distance = corridor.edge_length[stage, lateral, step]
+        same = (; through=0, intervals=0)
         for speed_index in commanded_speeds(length(table.speeds), speed_stride)
+            intervals = edge_intervals(distance / table.speeds[speed_index] / 3600,
+                COST_TO_GO_SAMPLE_HOURS)
+            sails_same(same, speed_index, intervals) && continue
             hours = sail_edge!(points, start, table, weather, corridor, stage, lateral,
                 step, departure + time, speed_index, COST_TO_GO_SAMPLE_HOURS)
             isfinite(hours) || continue
@@ -797,7 +836,7 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices,
             best_down = min(best_down, best_arrival(to_go, table, points, false, arrival))
             kite && (best_up = min(best_up,
                 best_arrival(to_go, table, points, true, arrival)))
-            any(point -> point.powered, points) || break
+            same = (; through=same_through(points), intervals)
         end
     end
     to_go.values[lateral, knot, 1, stage] = isfinite(best_down) ? best_down : NaN
@@ -978,6 +1017,7 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
     fill!(view(cost, :, :, :, first_stage:stage_count), Inf)
     start_state!(workspace, (first_lateral, 1, first_aloft + 1, first_stage))
     commanded = commanded_speeds(length(speeds), speed_stride)
+    sample_hours = ROUTER_SETTINGS[].edge_sample_hours
     for stage in first_stage:(stage_count - 1), lateral in 1:lateral_count
         corridor.water[stage, lateral] || continue
         lat, lon = corridor.lat[stage, lateral], corridor.lon[stage, lateral]
@@ -1000,8 +1040,11 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
                 distance = corridor.edge_length[stage, lateral, step]
                 start = EdgeSample(ship_table, node_wind, node_waves,
                     corridor.edge_course[stage, lateral, step], daylight)
+                same = (; through=0, intervals=0)
                 for (slot, speed_index) in enumerate(commanded)
                     commanded_hours = distance / speeds[speed_index] / 3600
+                    intervals = edge_intervals(commanded_hours, sample_hours)
+                    sails_same(same, speed_index, intervals) && continue
                     edge_within_limit(to_go, limit,
                         here + penalty * time_cost * commanded_hours, next, stage + 1,
                         time + commanded_hours) || continue
@@ -1010,14 +1053,14 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
                              UNSAILED
                     if isnan(sailed.hours)
                         hours = sail_edge!(points, start, table, weather, corridor, stage,
-                            lateral, step, departure + time, speed_index)
+                            lateral, step, departure + time, speed_index, sample_hours)
                         sailed = SailedEdge(table, points, hours, aloft == 2, prices)
                         aloft == 1 && sharing >= 0 && (workspace.shared[index] =
                             SailedEdge(table, points, hours, true, prices))
                     end
                     relax_sailed!(workspace, state, next, sailed, (; here, penalty,
                         speed_index), time_step, prices)
-                    sailed.powered || break
+                    same = (; through=sailed.same_through, intervals)
                 end
             end
         end
