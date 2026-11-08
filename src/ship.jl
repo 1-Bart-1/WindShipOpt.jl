@@ -23,18 +23,16 @@ e_methanol(assumptions::Assumptions) = Fuel(assumptions[:e_methanol_price] / 1e9
     1e6assumptions[:methanol_heating_value], 0.0)
 
 """
-    hydrogen(assumptions)
+    e_ammonia(assumptions)
 
-Liquid green hydrogen, with the fuel-cell stack replacement that each joule burned in a
-stack at its rated efficiency wears out added to its price.
+E-ammonia burned with a share of VLSFO as pilot fuel, priced and charged for carbon by
+energy share; heating value of ammonia.
 """
-function hydrogen(assumptions::Assumptions)
-    heating_value = 1e6assumptions[:hydrogen_heating_value]
-    stack_wear = assumptions[:fuel_cell_efficiency] * assumptions[:fuel_cell_stack_share] *
-                 assumptions[:fuel_cell_system_cost] / assumptions[:fuel_cell_stack_life] /
-                 3.6e6
-    return Fuel(assumptions[:hydrogen_price] / heating_value + stack_wear,
-        heating_value, 0.0)
+function e_ammonia(assumptions::Assumptions)
+    pilot = assumptions[:ammonia_pilot_share]
+    oil = vlsfo(assumptions)
+    return Fuel((1 - pilot) * assumptions[:e_ammonia_price] / 1e9 + pilot * oil.price,
+        1e6assumptions[:ammonia_heating_value], pilot * oil.carbon_intensity)
 end
 
 """
@@ -55,8 +53,8 @@ end
     Drive
 
 Power source, fuel and fuel store of a drive: `:vlsfo` for a mechanical diesel on VLSFO,
-`:methanol` for diesel-electric gensets on e-methanol, `:hydrogen` for PEM fuel cells on
-liquid hydrogen with an electric motor. Tanks of liquid fuels sit in the hull and take
+`:methanol` for diesel-electric gensets on e-methanol, `:ammonia` for a mechanical
+dual-fuel engine on e-ammonia with its tank. Tanks without a store sit in the hull and take
 no cargo space.
 """
 Base.@kwdef struct Drive
@@ -91,17 +89,16 @@ Drive(::Val{:methanol}, assumptions) = Drive(; fuel=e_methanol(assumptions),
     part_load_penalty=assumptions[:part_load_penalty],
     power_cost=assumptions[:electric_propulsion_cost])
 
-function Drive(::Val{:hydrogen}, assumptions)
-    store = FuelStore(; mass_ratio=1 / assumptions[:lh2_tank_gravimetric_density],
-        volume=1 / assumptions[:lh2_tank_volumetric_density],
-        price=assumptions[:lh2_tank_cost])
-    return Drive(; fuel=hydrogen(assumptions),
-        transmission_efficiency=assumptions[:fuel_cell_chain_efficiency],
-        unit_count=round(Int, assumptions[:fuel_cell_string_count]),
-        peak_efficiency=assumptions[:fuel_cell_efficiency],
-        part_load_penalty=assumptions[:fuel_cell_part_load_penalty],
-        min_load=assumptions[:fuel_cell_min_load],
-        power_cost=assumptions[:fuel_cell_system_cost] + assumptions[:electric_drive_cost],
+function Drive(::Val{:ammonia}, assumptions)
+    store = FuelStore(; mass_ratio=1 / assumptions[:ammonia_tank_gravimetric_density],
+        volume=1 / assumptions[:ammonia_tank_volumetric_density],
+        price=assumptions[:ammonia_tank_cost])
+    return Drive(; fuel=e_ammonia(assumptions),
+        transmission_efficiency=assumptions[:shaft_efficiency],
+        unit_count=1, peak_efficiency=assumptions[:vlsfo_engine_efficiency],
+        part_load_penalty=assumptions[:part_load_penalty],
+        power_cost=assumptions[:mechanical_propulsion_cost] +
+                   assumptions[:ammonia_engine_premium],
         store)
 end
 
@@ -223,7 +220,7 @@ end
     ShipDesign(drive, class::ShipClass; kwargs...)
 
 Design point of the optimization. `drive` names a [`Drive`](@ref): `:vlsfo`, `:methanol`
-or `:hydrogen`. A positive `wing_area` adds rigid wings of that total area [m^2], a
+or `:ammonia`. A positive `wing_area` adds rigid wings of that total area [m^2], a
 positive `kite_area` a towing kite of that projected area and projected
 `kite_aspect_ratio`, a positive `rigid_kite_area` rigid VTOL kites of about that total
 area, a positive `rotor_area` Flettner rotors of that total height times diameter. A kite
