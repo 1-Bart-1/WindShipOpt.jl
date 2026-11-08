@@ -1,12 +1,12 @@
 # Compares the kite savings of approximations of the router's launch logic with the
 # full router's on the kite cases of the accuracy gate, per ship and route.
 #
-#   julia +1.12 --project=. -t auto scripts/launch_relaxation.jl <out_dir> <scale> [names...]
+#   julia +1.12 --project=. -t auto scripts/launch_relaxation.jl <out_dir> <scale> [name...]
 #
 # Writes <name>_<scale>.csv to <out_dir> for each of `names` (default all of
 # `LAUNCH_APPROXIMATIONS`), with the ships without a rig in bare_<scale>.csv, and prints
-# each saving, the change from the full router's where it ran, and the gap between the
-# free and settled launches. A rerun routes only the cases missing from the files.
+# what [`print_savings`](@ref) reports over every file there. A rerun routes only the
+# cases missing from the files.
 include("router_gate.jl")
 
 "router settings of the full router and each approximation compared with it"
@@ -16,7 +16,8 @@ LAUNCH_APPROXIMATIONS = (bare=WindShipOpt.RouterSettings(),
     settled=WindShipOpt.RouterSettings(launch_spread_hours=Inf),
     narrow=WindShipOpt.RouterSettings(launch_spread_hours=Inf,
         kite_search_margins=WindShipOpt.RouterSettings().search_margins),
-    spread_24h=WindShipOpt.RouterSettings(launch_spread_hours=24.0))
+    spread_24h=WindShipOpt.RouterSettings(launch_spread_hours=24.0),
+    spread_48h=WindShipOpt.RouterSettings(launch_spread_hours=48.0))
 
 """
     route_approximation(out_dir, name, scale)
@@ -45,30 +46,31 @@ function read_seconds(path)
 end
 
 """
-    print_savings(out_dir, scale, names)
+    print_savings(out_dir, scale)
 
-Print per ship and route the kite saving [points] under each of `names`, the routing time
-against the full router's where it ran, and the gap between `free` and `settled` where
-both ran.
+Print per ship and route the kite saving [points] of each approximation with a file in
+`out_dir`, its change and routing time against the full router's where that has a file,
+and the gap between `free` and `settled` where both have one.
 """
-function print_savings(out_dir, scale, names)
+function print_savings(out_dir, scale)
     file(name) = joinpath(out_dir, "$(name)_$(Int(scale)).csv")
+    has_file(name) = isfile(file(name))
     bare = read_gate(file(:bare))
     savings(name) = Dict(key => saving(merge(bare, read_gate(file(name))), key)
                          for key in keys(read_gate(file(name))))
-    for name in names
+    for name in filter(has_file, filter(!=(:bare), keys(LAUNCH_APPROXIMATIONS)))
         println(name)
-        here = savings(name)
-        reference = :full in names ? savings(:full) : here
-        timing = read_seconds(file(name))
-        full_timing = :full in names ? read_seconds(file(:full)) : timing
+        here, timing = savings(name), read_seconds(file(name))
         for key in sort!(collect(keys(here)))
-            @printf("  %-24s saving %7.3f  against full %+7.3f  time %.2f\n",
-                join(key, " "), here[key], here[key] - reference[key],
-                timing[key] / full_timing[key])
+            @printf("  %-24s saving %7.3f", join(key, " "), here[key])
+            if has_file(:full)
+                @printf("  against full %+7.3f  time %.2f", here[key] - savings(:full)[key],
+                    timing[key] / read_seconds(file(:full))[key])
+            end
+            println()
         end
     end
-    (:free in names && :settled in names) || return
+    all(has_file, (:free, :settled)) || return
     free, settled = savings(:free), savings(:settled)
     println("gap between free and settled launches [points of saving]")
     for key in sort!(collect(keys(free)))
@@ -84,5 +86,5 @@ if abspath(PROGRAM_FILE) == @__FILE__
     chosen = isempty(names) ? every_name : Symbol.(names)
     route_approximation(out_dir, :bare, scale)
     foreach(name -> route_approximation(out_dir, name, scale), chosen)
-    print_savings(out_dir, scale, chosen)
+    print_savings(out_dir, scale)
 end
