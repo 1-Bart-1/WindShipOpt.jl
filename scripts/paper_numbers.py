@@ -25,7 +25,7 @@ def latest_finished_run():
 
 
 RESULTS = latest_finished_run()
-DRIVES = ("vlsfo", "methanol", "hydrogen")
+DRIVES = ("vlsfo", "ammonia")
 RIGS = ("kite", "wings", "rotors")
 RIG_COLUMNS = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
 
@@ -79,7 +79,7 @@ def designs_summary():
             print(f"{r['scenario']:22s} {r['drive']:8s} {r['length']:>4s} area {area:5.0f}"
                   f" AR {r['kite_aspect_ratio']} saving "
                   f"{saving(float(r['cost']), reference):.1f}%")
-    print("== premium of e-methanol and hydrogen over VLSFO closed by the best rig")
+    print("== premium of e-ammonia over VLSFO closed by the best rig")
     for drive in DRIVES[1:]:
         for length in sorted({r["length"] for r in rows}, key=float):
             fossil = bare.get(("base", "vlsfo", length))

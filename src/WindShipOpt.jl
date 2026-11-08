@@ -2,7 +2,7 @@
     WindShipOpt
 
 Design optimisation of wind-assisted merchant ships (wings, rotors or a towing kite, on
-VLSFO, e-methanol or hydrogen), with weather routing on long ocean routes.
+VLSFO, e-methanol or e-ammonia), with weather routing on long ocean routes.
 """
 module WindShipOpt
 
@@ -15,7 +15,7 @@ using Optim: Optim
 using TOML: TOML
 using YAML: YAML
 
-export Assumption, Assumptions, with_value
+export Assumption, Assumptions, with_value, inputs_read
 export Environment, Hull, WaveCoefficients, resistance, wetted_surface, form_factor
 export SeakeepingHull, added_resistance, added_resistance_coefficient, jonswap
 export WingRig, KiteRig, RigForce, rig_force, apparent_wind
