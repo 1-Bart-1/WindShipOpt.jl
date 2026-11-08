@@ -1620,13 +1620,17 @@ scaling table.
 """
 function rigid_scaling_figure()
     table = read_table(data_file("rigid_scaling.csv"))
-    figure = Figure(size=(page_width, 270))
+    figure = Figure(size=(page_width, 200))
+    area_label = L"kite area $[\mathrm{m^2}]$"
     thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
-        xlabel="apparent wind [m/s]", ylabel="thrust [kN]")
-    price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
-        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="price per thrust [USD/kN]")
-    annual_axis = Axis(figure[1, 3]; title="(c) cost a year at 12 m/s", xscale=log10,
-        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="annual cost per thrust [USD/kN]")
+        xlabel=L"apparent wind $[\mathrm{m/s}]$", ylabel=L"thrust $[\mathrm{kN}]$",
+        limits=(nothing, (0, 1900)))
+    price_axis = Axis(figure[1, 2]; title=L"(b) price at $12\,\mathrm{m/s}$",
+        xscale=log10, xticks=[30, 300, 3000], xlabel=area_label,
+        ylabel=L"price per thrust $[\mathrm{USD/kN}]$", limits=(nothing, (0, 9e4)))
+    annual_axis = Axis(figure[1, 3]; title=L"(c) cost a year at $12\,\mathrm{m/s}$",
+        xscale=log10, xticks=[30, 300, 3000], xlabel=area_label,
+        ylabel=L"annual cost per thrust $[\mathrm{USD/kN}]$")
     base_exponent = assumptions[:rigid_mass_exponent]
     curves = (("rigid", 30.0), ("rigid", 54.0), ("rigid", 100.0), ("rigid", 300.0),
         ("soft", 1000.0))
@@ -1634,7 +1638,8 @@ function rigid_scaling_figure()
         exponent = kind == "rigid" ? base_exponent : 0.0
         chosen = rows(table, "kind" => kind, "area" => area, "exponent" => exponent)
         lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
-            color=palette[k], label="$(paper_name(kind)) $(round(Int, area)) m²")
+            color=palette[k],
+            label=L"%$(paper_name(kind)) $%$(round(Int, area))\,\mathrm{m^2}$")
     end
     series = [("rigid", base_exponent, :solid), ("rigid", 3.0, :dash), ("rigid", 3.3, :dot),
         ("soft", 0.0, :solid)]
@@ -1645,7 +1650,7 @@ function rigid_scaling_figure()
         per_thrust = 1e3 .* prices ./ table["thrust"][at_twelve]
         annual_per_thrust = 1e3 .* table["annual"][at_twelve] ./ table["thrust"][at_twelve]
         label = kind == "soft" ? "soft kite" :
-                "$(paper_name(kind)), mass ∝ span^$exponent"
+                L"%$(paper_name(kind)), mass $\propto\,\mathrm{span}^{%$(exponent)}$"
         colour = kind == "soft" ? palette[5] : palette[1]
         lines!(price_axis, areas, per_thrust; linestyle, label, color=colour)
         lines!(annual_axis, areas, annual_per_thrust; linestyle, color=colour)
@@ -1660,10 +1665,9 @@ function rigid_scaling_figure()
                 table["lowest_wind"][row], 1e-3table["thrust"][row], 1e-6prices[i])
         end
     end
-    for (row, axis) in enumerate((thrust_axis, price_axis))
-        Legend(figure[row + 1, 1:3], axis; orientation=:horizontal, framevisible=false,
-            labelsize=8)
-        rowsize!(figure.layout, row + 1, Fixed(16))
+    for axis in (thrust_axis, price_axis)
+        axislegend(axis; position=:lt, framevisible=false, labelsize=8,
+            padding=(4, 4, 2, 2), patchsize=(14, 8), rowgap=0, backgroundcolor=:white)
     end
     save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
 end
