@@ -64,12 +64,12 @@
 \pipebox{apparent}{0}{-36}{shipc}{4}{Apparent wind}{ship speed and true wind give the wind at the rig, \S\ref{sec:deck_rigs}}{windtriangle}
 \pipebox{rigs}{41}{-36}{rigc}{5}{Rig forces}{thrust and side force of kite \S\ref{sec:kite}, wings or rotors \S\ref{sec:deck_rigs}}{polar}
 \pipebox{balance}{82}{-36}{shipc}{6}{Force balance}{hull, rudder and windage hold the side force: drag and leeway, \S\ref{sec:balance}}{topview}
-\pipebox{power}{123}{-36}{shipc}{7}{Fuel power}{resistance in waves, propeller and engine, \S\ref{sec:ships}}{engine}
+\pipebox{power}{123}{-36}{shipc}{7}{Required thrust}{hull, air and wave resistance less the rig's thrust, \S\ref{sec:ships}}{hull}
 % voyages and cost
-\pipebox{table}{0}{-70}{routec}{8}{Performance table}{fuel power over speed, wind and waves, \S\ref{sec:routing}}{grid}
+\pipebox{table}{0}{-70}{routec}{8}{Performance table}{required thrust over speed, wind and waves, \S\ref{sec:routing}}{grid}
 \node[box, routec, minimum width=68mm] (router) at (56,-70) {};
 \node[boxtext, text width=40mm, font=\footnotesize\bfseries] at ([shift={(2.5,-2)}]router.north west) {Weather router};
-\node[boxtext, text width=52mm] at ([shift={(2,-7)}]router.north west) {sails candidate tracks and speeds through the corridor and keeps the voyage of lowest cost: fuel, price of time, kite launches and wear. Gives route, fuel, hours and kite flight hours, \S\ref{sec:routing}};
+\node[boxtext, text width=52mm] at ([shift={(2,-7)}]router.north west) {sails tracks and speeds through the corridor, with fuel from propeller and engine, and keeps the cheapest voyage (fuel, price of time, kite launches and wear), giving its route, fuel and hours, \S\ref{sec:routing}};
 \pic[scale=0.85] at ([shift={(-6,-5.2)}]router.north east) {route};
 \node[stepnum] at (router.north west) {9};
 \pipebox{cost}{123}{-70}{moneyc}{10}{Cost per tonne-km}{all departures: fuel, capital, crew, ports, wear, cargo interest, \S\ref{sec:cost_model}}{costbar}
