@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Data steps of the paper: each runs one study and writes its data files to the directory
 # of the run in use. Included by paper.jl.
 
@@ -39,26 +42,28 @@ end
 """
     round_trips(cases, departures)
 
-Round trips of all `cases`, threaded, reusing those cached in the run in use; the kite
-pattern tables of the others are computed first, one kite at a time.
+Round trips of all `cases`, threaded, reusing those cached in the run in use under the same
+value of every input they read; the kite pattern tables of the others are computed first,
+one kite at a time.
 """
 function round_trips(cases, departures)
-    paths = [case_path(case, departures) for case in cases]
-    isempty(paths) || mkpath(dirname(first(paths)))
-    cached = isfile.(paths)
-    for (case, is_cached) in zip(cases, cached)
-        !is_cached && max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
+    directories = [case_directory(case, departures) for case in cases]
+    trips = Any[cached_trip(directory, case.assumptions)
+                for (case, directory) in zip(cases, directories)]
+    computed = findall(ismissing, trips)
+    for case in cases[computed]
+        max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
             Ship(case.design, case.assumptions)
     end
-    trips = Vector{Any}(nothing, length(cases))
-    Threads.@threads :greedy for k in eachindex(cases)
-        trips[k] = stored_trip(cases[k], departures, paths[k])
+    Threads.@threads :greedy for k in computed
+        trips[k] = stored_trip(() -> case_trip(cases[k], departures), directories[k],
+            cases[k].assumptions)
     end
     feasible = count(!isnothing, trips)
     paper_run.cases += length(cases)
     paper_run.trips += feasible
-    println("  ", feasible, " of ", length(cases), " round trips, ", count(cached),
-        " cached")
+    println("  ", feasible, " of ", length(cases), " round trips, ",
+        length(cases) - length(computed), " cached")
     return trips
 end
 
@@ -655,7 +660,7 @@ end
     routes_data()
 
 Ships of three lengths and the [`study_drives`](@ref) without a rig and with two sizes of
-each rig on every route: routes.csv.
+each rig on every route: routes.csv, and each departure of them: route_departures.csv.
 """
 function routes_data()
     rigs = [("none", 0.0), ("kite", 800.0), ("kite", 3200.0), ("wings", 800.0),
@@ -664,8 +669,34 @@ function routes_data()
                      drive, length, rig, area)
                  for length in (85.0, 140.0, 200.0), drive in study_drives,
                      (rig, area) in rigs, name in route_names])
-    write_trips("routes.csv", cases, round_trips(cases, sampled_departures()), :route,
-        :drive, :length, :rig, :area)
+    trips = round_trips(cases, sampled_departures())
+    labels = (:route, :drive, :length, :rig, :area)
+    write_trips("routes.csv", cases, trips, labels...)
+    write_departures("route_departures.csv", cases, trips, labels...)
+end
+
+"""
+    write_departures(name, cases, trips, columns...)
+
+Write `name` to the directory of the run in use with the given label `columns` of each
+case and the date, cost [USD/tkm], fuel [MJ/tkm] and kite flight share of each departure of
+each feasible trip, with the ship and cargo of the whole trip.
+"""
+function write_departures(name, cases, trips, columns...)
+    open(run_file(name), "w") do io
+        println(io, join([collect(string.(columns)); ["date", "cost", "fuel",
+            "flight_share"]], ","))
+        for (case, trip) in zip(cases, trips)
+            isnothing(trip) && continue
+            labels = join([csv_value(getproperty(case, column)) for column in columns], ",")
+            for outcome in trip.departures
+                date = Date(weather_origin + Hour(round(Int, outcome.departure)))
+                @printf(io, "%s,%s,%.6f,%.5f,%.3f\n", labels, date,
+                    outcome.cost_per_tonne_km, outcome.fuel_per_tonne_km,
+                    outcome.flight_share)
+            end
+        end
+    end
 end
 
 """
@@ -891,7 +922,8 @@ end
 
 Each of `ships`, as [`sensitivity_ships`](@ref) gives them, without a rig and with each
 rig, at the base inputs and with every screened input at each of `bounds`, its
-assumptions from `changed_assumptions(name, bound)`: written to `file`.
+assumptions from `changed_assumptions(name, bound)`: written to `file`. The base trips
+are routed first, so a changed case whose trip never reads its input reuses them.
 """
 function screening_data(file, ships, bounds, changed_assumptions)
     cases = []
@@ -903,8 +935,13 @@ function screening_data(file, ships, bounds, changed_assumptions)
                 input=name, bound))
         end
     end
-    write_trips(file, cases, round_trips(cases, sampled_departures(; screening=true)),
-        :ship, :rig, :input, :bound)
+    departures = sampled_departures(; screening=true)
+    base = findall(case -> case.input == :none, cases)
+    changed = setdiff(eachindex(cases), base)
+    trips = Vector{Any}(nothing, length(cases))
+    trips[base] = round_trips(cases[base], departures)
+    trips[changed] = round_trips(cases[changed], departures)
+    write_trips(file, cases, trips, :ship, :rig, :input, :bound)
 end
 
 """

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """
     WindShipOpt
 
@@ -6,6 +9,7 @@ VLSFO, e-methanol or e-ammonia), with weather routing on long ocean routes.
 """
 module WindShipOpt
 
+using Base.ScopedValues: ScopedValue, with
 using Random: Random
 using Statistics: mean
 using Dates: DateTime, Dates
@@ -14,7 +18,7 @@ using Optim: Optim
 using TOML: TOML
 using YAML: YAML
 
-export Assumption, Assumptions, with_value
+export Assumption, Assumptions, with_value, inputs_read
 export Environment, Hull, WaveCoefficients, resistance, wetted_surface, form_factor
 export SeakeepingHull, added_resistance, added_resistance_coefficient, jonswap
 export WingRig, KiteRig, RigForce, rig_force, apparent_wind
@@ -27,6 +31,7 @@ export ForecastWeather, forecast_route, ShipClass, ship_classes
 export ShipCosts, RoundTrip, round_trip, KNOT, NAUTICAL_MILE
 export LegTrace
 
+include("recording.jl")
 include("assumptions.jl")
 include("hull.jl")
 include("waves.jl")

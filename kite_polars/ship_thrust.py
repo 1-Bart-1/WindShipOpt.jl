@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Optimise a fixed-tether kite flight path for ship thrust with AWETrim.
 
 Maximises the mean horizontal tether pull along the ship's course, which lies at
