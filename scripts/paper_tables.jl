@@ -142,8 +142,7 @@ function goal_rows()
                        for rig in rig_names)))
     kite_loss = assumptions[:kite_cycle_damage_probability] +
                 assumptions[:kite_cycle_loss_probability]
-    loss = @sprintf("1 in \\num{%.0f}", 1 / only(unique((kite_loss,
-        assumptions[:rigid_cycle_loss_probability]))))
+    loss = @sprintf("1 in \\num{%.0f}", 1 / kite_loss)
     crew = @sprintf("USD~%.0f per cycle", assumptions[:kite_cycle_crew_cost])
     price = @sprintf("USD~%.0f/m\$^2\$", WindShipOpt.canopy_price(assumptions))
     today = @sprintf("our estimate USD~%.0f/m\$^2\$, from retail cloth and hand sewing",
@@ -152,21 +151,19 @@ function goal_rows()
             "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements; " *
             "small kites expected 100 to \\num{1000} h"),
         ("Canopy price", "kite", price, today),
-        ("Rig life", "VTOL kite", years(:rigid_lifetime),
-            "M600 flew 22 h of crosswind in all \\citep{echeverri2020part1}"),
         ("Rig life", "wings", years(:wing_lifetime),
             "stated design life; about 2 years on record"),
         ("Rig life", "rotors", years(:rotor_lifetime),
             "stated design life; about 8 years on record"),
         ("Out of service", "all", service,
             "one rotor operator's 97\\,\\%; nothing for kites"),
-        ("Crash in flight", "kites", "none",
+        ("Crash in flight", "kite", "none",
             string("no record for a ship; M600 lost all four kites in twenty crosswind ",
                 "flights, three of them in hover or landing \\citep{echeverri2020part1}")),
         ("Unit lost", "wings, rotors", "none", "none reported, and no duty to report one"),
-        ("Lost per launch and landing", "kites", loss,
-            "our estimates: 0.25\\,\\% kite, 0.05\\,\\% VTOL kite; no record for a ship"),
-        ("Launch and landing crew", "kites", crew, "our estimate")]
+        ("Lost per launch and landing", "kite", loss,
+            "our estimate 0.25\\,\\%; no record for a ship"),
+        ("Launch and landing crew", "kite", crew, "our estimate")]
 end
 
 """
@@ -278,17 +275,17 @@ end
     crash_limit_rows()
 
 The [`size_limits`](@ref) on each ship of goal_sizes.csv, best rig first at the goals: the
-[`kite_rigs`](@ref) at every size swept and each other rig at its cheapest size.
+kite at every size swept and each other rig at its cheapest size.
 """
 function crash_limit_rows()
     table = read_table(data_file("goal_sizes.csv"))
     result = []
     for ship in unique(table["ship"])
         bare = only(table["cost"][rows(table, "ship" => ship, "rig" => "none")])
-        cheapest = Dict(rig => cheapest_size(table, ship, rig) for rig in goal_size_rigs)
-        goal = Dict(rig => table["cost"][cheapest[rig]] for rig in goal_size_rigs)
+        cheapest = Dict(rig => cheapest_size(table, ship, rig) for rig in rig_names)
+        goal = Dict(rig => table["cost"][cheapest[rig]] for rig in rig_names)
         for (; rig, next) in WindShipOpt.ranked_neighbours(goal)
-            swept = rig in kite_rigs ? rows(table, "ship" => ship, "rig" => rig) :
+            swept = rig == "kite" ? rows(table, "ship" => ship, "rig" => rig) :
                     [cheapest[rig]]
             append!(result, [size_limits(table, row, bare, next) for row in swept])
         end
@@ -343,7 +340,7 @@ function missed_goals_table()
             "One [kUSD] & pays no more & behind next & [h/year] \\\\")
         println(io, "\\midrule")
         for row in crash_limit_rows()
-            flight = row.rig in kite_rigs ? @sprintf("%.0f", row.flight_hours) : "--"
+            flight = row.rig == "kite" ? @sprintf("%.0f", row.flight_hours) : "--"
             @printf(io, "%s & %s & %.0f & %.1f & %.0f & %s & %s & %s \\\\\n",
                 short_ship(row.ship), row.rig, row.area, row.saving, row.crash / 1e3,
                 crash_cell.(row.crashes)..., flight)
