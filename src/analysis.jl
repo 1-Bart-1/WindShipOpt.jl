@@ -1,89 +1,116 @@
 """
     LegTrace
 
-What happens on each stage of a routed leg: time [h], speed held [m/s], true wind angle
-[rad], apparent wind speed [m/s] and angle off the bow [rad] at the rig's height, rig thrust
-[N], the thrust the rig would give flown at its best trim where it can be up [N], whether a
-kite flies and fuel power [W].
+The ship models at each point the router sailed along a leg: time [h since departure],
+position [deg], course [rad from north], 10 m wind east and north [m/s], speed held [m/s],
+true wind angle [rad], apparent wind speed [m/s] and angle off the bow [rad] at the rig's
+height, rig thrust [N], the thrust the rig would give flown at its best trim where it can
+be up [N], fuel power [W], whether a kite flies, launches or lands at the point and whether
+the landing was forced, and the trim setting of the rig carried there.
 """
 struct LegTrace
     time::Vector{Float64}
+    lat::Vector{Float64}
+    lon::Vector{Float64}
+    course::Vector{Float64}
+    wind_east::Vector{Float64}
+    wind_north::Vector{Float64}
     speed::Vector{Float64}
     true_wind_angle::Vector{Float64}
     apparent_wind::Vector{Float64}
     apparent_angle::Vector{Float64}
     rig_thrust::Vector{Float64}
     available_thrust::Vector{Float64}
-    flying::Vector{Bool}
     fuel_power::Vector{Float64}
+    flying::Vector{Bool}
+    launched::Vector{Bool}
+    landed::Vector{Bool}
+    forced::Vector{Bool}
+    trim::Vector{Any}
 end
 
 """
-    LegTrace(table, leg, weather, departure; interval=Inf)
+    LegTrace(table, leg, weather, departure)
 
-Re-evaluate the ship models along the path of `leg` at the start of every edge and every
-`interval` [h] along it, with positions interpolated along the edge and the weather at
-that time and place. The ship holds the edge's commanded speed where it can and the
-[`held_speed`](@ref) elsewhere; a kite flies where [`kite_aloft`](@ref) allows and the
-edge's mode is flying or only a flying kite holds the speed, and the
-[`standing_rig`](@ref) always stands. It can differ from the router's edge
-cost: the [`sail_edge!`](@ref) points with the kite managed per point.
+Re-evaluate the ship models along the path of `leg`: at the points [`sail_edge!`](@ref)
+sails its edges in, with the kite flying where [`kite_flights`](@ref) has it; the last
+point of an edge is the first of the next, so it is left out except on the last edge.
 """
-function LegTrace(table::PerformanceTable, leg::Leg, weather, departure; interval=Inf)
+function LegTrace(table::PerformanceTable, leg::Leg, weather, departure)
     route_table = RouteTable(table)
-    trace = LegTrace((Float64[] for _ in 1:7)..., Bool[], Float64[])
-    for i in 1:(length(leg.path) - 1)
-        lat, lon, time, _ = leg.path[i]
-        next_lat, next_lon, next_time, speed, mode = leg.path[i + 1]
-        course = bearing(lat, lon, next_lat, next_lon)
-        samples = isfinite(interval) ? (time:interval:prevfloat(next_time)) : (time,)
-        for sample_time in samples
-            share = (sample_time - time) / (next_time - time)
+    corridor = leg_corridor(leg)
+    prices = (; fuel=table.ship.fuel.price, time=0.0)
+    trace = LegTrace((Float64[] for _ in 1:13)..., (Bool[] for _ in 1:4)..., Any[])
+    points = SailedPoint[]
+    edges = length(leg.path) - 1
+    carried = (launched=false, landed=false, forced=false)
+    for i in 1:edges
+        lat, lon, time = leg.path[i]
+        next_lat, next_lon, _, speed = leg.path[i + 1]
+        course = corridor.edge_course[i, 1, STRAIGHT_ON]
+        start = EdgeSample(table, wind(weather, lat, lon, departure + time),
+            waves(weather, lat, lon, departure + time), course,
+            is_daylight(lon, departure + time))
+        sail_edge!(points, start, route_table, weather, corridor, i, 1, STRAIGHT_ON,
+            departure + time, searchsortedfirst(route_table.speeds, speed))
+        flights = kite_flights(route_table, points, leg.aloft[i], leg.aloft[i + 1], prices)
+        for (k, point) in enumerate(points)
+            flight = flights[k]
+            k == length(points) && i < edges && (carried = flight; continue)
+            share = (k - 1) / (length(points) - 1)
             push_trace_point!(trace, route_table, weather, departure,
-                lat + share * (next_lat - lat), lon + share * (next_lon - lon), sample_time,
-                searchsortedfirst(route_table.speeds, speed), course, mode)
+                lat + share * (next_lat - lat), lon + share * (next_lon - lon), course,
+                point, flight.flying, flight.launched || carried.launched,
+                flight.landed || carried.landed, flight.forced || carried.forced)
+            carried = (launched=false, landed=false, forced=false)
         end
     end
     return trace
 end
 
 """
-    push_trace_point!(trace, table, weather, departure, lat, lon, time, speed_index,
-                      course, mode)
+    push_trace_point!(trace, table, weather, departure, lat, lon, course, point, flying,
+                      launched, landed, forced)
 
-Append to `trace` the ship models at one point of a leg at commanded speed number
-`speed_index` of the [`RouteTable`](@ref) `table`, with a kite in the edge's `mode` where
-it can stay aloft there.
+Append to `trace` the ship models at the [`SailedPoint`](@ref) `point`, at position (`lat`,
+`lon`) on `course` of a leg left at `departure`, with a kite `flying` or not and having
+`launched` or `landed`, the landing `forced` or not, there.
 """
-function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lon, time,
-        speed_index, course, mode)
+function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lon, course,
+        point, flying, launched, landed, forced)
     (; ship) = table.table
-    east, north = wind(weather, lat, lon, departure + time)
+    east, north = wind(weather, lat, lon, point.time)
     wind_speed = hypot(east, north)
     angle = true_wind_angle(east, north, wind_speed, course)
-    sea = waves(weather, lat, lon, departure + time)
-    sample = EdgeSample(table.table, (east, north), sea, course,
-        is_daylight(lon, departure + time))
-    held, flown_power, stowed_power = held_speed(table, speed_index, sample)
-    speed = table.speeds[max(held, 1)]
+    speed = table.speeds[max(point.speed_index, 1)]
     standing = standing_rig(ship.rig)
-    aloft = kite_aloft(table.table, speed, sample.headwind, sample.crosswind, first(sea))
-    flown = standing === ship.rig || (mode == FLYING || !isfinite(stowed_power)) &&
-            isfinite(flown_power) && aloft
-    force = last(best_trim(ship, flown ? ship.rig : standing, speed, wind_speed, angle))
+    flown = flying || standing === ship.rig
+    _, force, trim = trimmed_force(ship, flown ? ship.rig : standing, speed, wind_speed,
+        angle)
+    aloft = kite_aloft(table.table, speed, point.headwind, point.crosswind,
+        point.wave_height)
     available = standing === ship.rig || aloft ?
                 last(best_trim(ship, ship.rig, speed, wind_speed, angle)).thrust : 0.0
     apparent, apparent_angle = apparent_wind(
         wind_at_height(ship.env, wind_speed, rig_height(ship.rig)), angle, speed)
-    push!(trace.time, time)
+    push!(trace.time, point.time - departure)
+    push!(trace.lat, lat)
+    push!(trace.lon, lon)
+    push!(trace.course, course)
+    push!(trace.wind_east, east)
+    push!(trace.wind_north, north)
     push!(trace.speed, speed)
     push!(trace.true_wind_angle, angle)
     push!(trace.apparent_wind, apparent)
     push!(trace.apparent_angle, apparent_angle)
     push!(trace.rig_thrust, force.thrust)
     push!(trace.available_thrust, available)
-    push!(trace.flying, flown && standing !== ship.rig)
-    push!(trace.fuel_power, flown ? flown_power : stowed_power)
+    push!(trace.fuel_power, flown ? point.flown : point.stowed)
+    push!(trace.flying, flying)
+    push!(trace.launched, launched)
+    push!(trace.landed, landed)
+    push!(trace.forced, forced)
+    push!(trace.trim, trim)
 end
 
 """

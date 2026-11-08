@@ -294,7 +294,7 @@ function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0, day
         π / 2)
     sample = WindShipOpt.EdgeSample(condition, headwind, 0.0, daylight)
     held, flown, stowed = WindShipOpt.held_speed(table, speed_index, sample)
-    return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours)
+    return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours, 0.0)
 end
 
 """
@@ -1346,6 +1346,41 @@ end
         @test searched_speeds ⊆ commanded
         @test final_speeds ⊆ table.speeds
         @test !(final_speeds ⊆ commanded)
+    end
+end
+
+@testset "a trace of a leg replays the kite decisions and the rig trim the router made" begin
+    outbound, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    weather = SyntheticWeather()
+    departure = 24.0 * 31
+    for design in (ShipDesign(:methanol, 85.0; kite_area=500.0),
+        ShipDesign(:methanol, 85.0; wing_area=300.0),
+        ShipDesign(:methanol, 85.0; rotor_area=100.0))
+
+        table = PerformanceTable(Ship(design, assumptions), assumptions)
+        leg = route(outbound, RouteTable(table), weather, departure; time_cost=300.0)
+        trace = LegTrace(table, leg, weather, departure)
+        @test first(trace.time) == 0
+        @test last(trace.time) ≈ leg.duration rtol=0.02
+        @test issorted(trace.time)
+        @test (first(trace.lat), first(trace.lon)) == leg.path[1][1:2]
+        @test last(trace.lat) ≈ leg.path[end][1] atol=1e-9
+        @test last(trace.lon) ≈ leg.path[end][2] atol=1e-9
+        hours = diff([trace.time; leg.duration])
+        @test sum(hours[trace.flying]) ≈ leg.flight_hours rtol=0.05
+        @test sum(trace.fuel_power .* hours) ≈ leg.fuel_energy / 3600 rtol=0.05
+        @test count(trace.launched) == leg.launches
+        @test count(trace.forced) == leg.forced_landings
+        rig = table.ship.rig
+        if rig isa WindShipOpt.KiteRig
+            @test leg.launches > 0
+            @test all(trim isa Int for trim in trace.trim[trace.flying])
+            @test all(isnothing, trace.trim[.!trace.flying])
+            @test count(trace.landed) == leg.launches
+        else
+            settings = WindShipOpt.trim_settings(rig)
+            @test all(trim -> any(==(trim), settings), trace.trim)
+        end
     end
 end
 

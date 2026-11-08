@@ -1,6 +1,9 @@
 "lateral neighbours an edge may shift by, on each side"
 const MAX_LATERAL_STEP = 3
 
+"step of an edge between nodes of the same lateral number"
+const STRAIGHT_ON = MAX_LATERAL_STEP + 1
+
 "lateral node that edge `step` of node `lateral` leads to"
 next_lateral(lateral, step) = lateral + step - MAX_LATERAL_STEP - 1
 
@@ -397,27 +400,30 @@ struct SailedPoint
     stowed::Float64
     "hours of the edge the point stands for [h]"
     hours::Float64
+    "time the ship reaches the point [h]"
+    time::Float64
 end
 
 """
-    SailedPoint(sample, held, flown, stowed, hours)
+    SailedPoint(sample, held, flown, stowed, hours, time)
 
 [`SailedPoint`](@ref) of the [`EdgeSample`](@ref) `sample`.
 """
-SailedPoint(sample::EdgeSample, held, flown, stowed, hours) =
+SailedPoint(sample::EdgeSample, held, flown, stowed, hours, time) =
     SailedPoint(sample.headwind, sample.crosswind, sample.condition.wave_height,
-        sample.daylight, held, flown, stowed, hours)
+        sample.daylight, held, flown, stowed, hours, time)
 
 """
-    SailedPoint(table, sample, speed_index, distance)
+    SailedPoint(table, sample, speed_index, distance, time)
 
 [`SailedPoint`](@ref) of `sample` at commanded routing speed number `speed_index` of
-`table`, at the [`held_speed`](@ref), standing for `distance` [m] of the edge.
+`table`, at the [`held_speed`](@ref), standing for `distance` [m] of the edge, reached at
+`time` [h].
 """
-function SailedPoint(table::RouteTable, sample::EdgeSample, speed_index, distance)
+function SailedPoint(table::RouteTable, sample::EdgeSample, speed_index, distance, time)
     held, flown, stowed = held_speed(table, speed_index, sample)
     hours = held == 0 ? Inf : distance / table.speeds[held] / 3600
-    return SailedPoint(sample, held, flown, stowed, hours)
+    return SailedPoint(sample, held, flown, stowed, hours, time)
 end
 
 """
@@ -438,7 +444,7 @@ function sail_edge!(points, start, table::RouteTable, weather, corridor, stage, 
     intervals = edge_intervals(distance / table.speeds[speed_index] / 3600, sample_hours)
     resize!(points, intervals + 1)
     points[1] = SailedPoint(table, start, speed_index,
-        trapezoid_weight(1, intervals + 1) * distance)
+        trapezoid_weight(1, intervals + 1) * distance, time)
     hours, sample_time = points[1].hours, time
     for k in 1:intervals
         isfinite(hours) || return Inf
@@ -446,7 +452,7 @@ function sail_edge!(points, start, table::RouteTable, weather, corridor, stage, 
         sample = EdgeSample(table.table, weather, corridor, stage, lateral, step,
             k / intervals, sample_time)
         points[k + 1] = SailedPoint(table, sample, speed_index,
-            trapezoid_weight(k + 1, intervals + 1) * distance)
+            trapezoid_weight(k + 1, intervals + 1) * distance, sample_time)
         hours += points[k + 1].hours
     end
     return hours
@@ -511,21 +517,61 @@ function kite_passage(table::RouteTable, points, aloft, prices)
     start = EdgeTally(0.0, 0.0, 0.0, 0, 0)
     down, up = aloft ? (NO_TALLY, start) : (start, NO_TALLY)
     for point in points
-        speed = table.speeds[point.speed_index]
-        (; headwind, crosswind, wave_height, daylight) = point
-        landing = kite_landable(table.table, speed, headwind, crosswind, wave_height) ? up :
-                  forced_landing(up, table.table.forced_landing_cost)
-        next_down = extend(cheaper(down, landing), point.stowed, point.hours, 0.0, STOWED,
-            false, prices, table.table.cycle_cost)
-        stays = kite_aloft(table.table, speed, headwind, crosswind, wave_height) ?
-                aloft_tally(table.table, up, point, false, prices) : NO_TALLY
-        launches = kite_launchable(table.table, speed, headwind, crosswind, wave_height,
-            daylight) ? aloft_tally(table.table, down, point, true, prices) :
-                   NO_TALLY
-        up = cheaper(stays, launches)
-        down = next_down
+        (; down, up) = kite_step(table, down, up, point, prices)
     end
     return down, up
+end
+
+"""
+    kite_step(table, down, up, point, prices)
+
+The cheapest ways with the kite down and aloft after the [`SailedPoint`](@ref) `point`, from
+those before it, as in [`kite_passage`](@ref): `down` and `up`, and whether the way down
+came through a landing, the landing was forced, and the way aloft came through a launch.
+"""
+function kite_step(table::RouteTable, down, up, point, prices)
+    speed = table.speeds[point.speed_index]
+    (; headwind, crosswind, wave_height, daylight) = point
+    forced = !kite_landable(table.table, speed, headwind, crosswind, wave_height)
+    landing = forced ? forced_landing(up, table.table.forced_landing_cost) : up
+    next_down = extend(cheaper(down, landing), point.stowed, point.hours, 0.0, STOWED,
+        false, prices, table.table.cycle_cost)
+    stays = kite_aloft(table.table, speed, headwind, crosswind, wave_height) ?
+            aloft_tally(table.table, up, point, false, prices) : NO_TALLY
+    launches = kite_launchable(table.table, speed, headwind, crosswind, wave_height,
+        daylight) ? aloft_tally(table.table, down, point, true, prices) : NO_TALLY
+    return (down=next_down, up=cheaper(stays, launches), landed=landing.cost < down.cost,
+        forced, launched=launches.cost < stays.cost)
+end
+
+"""
+    kite_flights(table, points, aloft, ends_aloft, prices)
+
+The way [`kite_passage`](@ref) takes through the [`SailedPoint`](@ref)s `points` from a
+kite aloft before them if `aloft` to one aloft after them if `ends_aloft`: for each point
+whether the kite flies there, launches at it, and lands at it, and whether that landing
+was forced.
+"""
+function kite_flights(table::RouteTable, points, aloft, ends_aloft, prices)
+    start = EdgeTally(0.0, 0.0, 0.0, 0, 0)
+    down, up = aloft ? (NO_TALLY, start) : (start, NO_TALLY)
+    landed, forced, launched = (falses(length(points)) for _ in 1:3)
+    for (k, point) in enumerate(points)
+        step = kite_step(table, down, up, point, prices)
+        down, up = step.down, step.up
+        landed[k], forced[k], launched[k] = step.landed, step.forced, step.launched
+    end
+    flights = Vector{@NamedTuple{flying::Bool, launched::Bool, landed::Bool,
+        forced::Bool}}(undef, length(points))
+    state_up = ends_aloft
+    for k in reverse(eachindex(points))
+        launch = state_up && launched[k]
+        landing = !state_up && landed[k]
+        flights[k] = (; flying=state_up, launched=launch, landed=landing,
+            forced=landing && forced[k])
+        state_up = launch ? false : landing ? true : state_up
+    end
+    return flights
 end
 
 """
@@ -848,6 +894,25 @@ struct PassageBand
 end
 
 """
+    leg_corridor(leg)
+
+[`Corridor`](@ref) of one node per stage along the path of `leg`, nowhere near a coast.
+"""
+function leg_corridor(leg::Leg)
+    stage_count = length(leg.path)
+    lat = reshape([point[1] for point in leg.path], stage_count, 1)
+    lon = reshape([point[2] for point in leg.path], stage_count, 1)
+    edge_length = zeros(stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
+    edge_course = fill(NaN, stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
+    for i in 1:(stage_count - 1)
+        edge_length[i, 1, STRAIGHT_ON] = distance(lat[i], lon[i], lat[i + 1], lon[i + 1])
+        edge_course[i, 1, STRAIGHT_ON] = bearing(lat[i], lon[i], lat[i + 1], lon[i + 1])
+    end
+    return Corridor(lat, lon, trues(stage_count, 1), edge_length, edge_course, 0.0,
+        falses(stage_count, 1), along_centre_line(lat, lon))
+end
+
+"""
     path_corridor(leg, corridor, first_stage)
 
 [`Corridor`](@ref) of one node per stage along the path of `leg` through `corridor`, stage 1
@@ -860,7 +925,6 @@ function path_corridor(leg::Leg, corridor::Corridor, first_stage)
     near_coast = falses(stage_count, 1)
     edge_length = zeros(stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
     edge_course = fill(NaN, stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
-    straight_on = MAX_LATERAL_STEP + 1
     for i in 1:stage_count
         stage = first_stage + i - 1
         lateral = nearest_lateral(corridor, stage, lat[i], lon[i])
@@ -868,8 +932,8 @@ function path_corridor(leg::Leg, corridor::Corridor, first_stage)
         i == stage_count && break
         next = nearest_lateral(corridor, stage + 1, lat[i + 1], lon[i + 1])
         step = lateral_step(lateral, next)
-        edge_length[i, 1, straight_on] = corridor.edge_length[stage, lateral, step]
-        edge_course[i, 1, straight_on] = corridor.edge_course[stage, lateral, step]
+        edge_length[i, 1, STRAIGHT_ON] = corridor.edge_length[stage, lateral, step]
+        edge_course[i, 1, STRAIGHT_ON] = corridor.edge_course[stage, lateral, step]
     end
     return Corridor(lat, lon, trues(stage_count, 1), edge_length, edge_course,
         corridor.track_length, near_coast, along_centre_line(lat, lon))

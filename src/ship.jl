@@ -451,11 +451,22 @@ Required propeller thrust [N] and rig force of `ship` carrying `rig`, its own ri
 part of it, at the trim that needs the least engine output, propeller and rig power
 together.
 """
-best_trim(ship::Ship, ::Nothing, speed, wind_10m, true_angle) =
-    required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE), NO_RIG_FORCE
-
 function best_trim(ship::Ship, rig, speed, wind_10m, true_angle)
-    best, best_output = (Inf, NO_RIG_FORCE), Inf
+    thrust, force, _ = trimmed_force(ship, rig, speed, wind_10m, true_angle)
+    return thrust, force
+end
+
+"""
+    trimmed_force(ship, rig, speed, wind_10m, true_angle)
+
+Required propeller thrust [N], rig force and trim setting of [`best_trim`](@ref); the
+setting is `nothing` without a rig.
+"""
+trimmed_force(ship::Ship, ::Nothing, speed, wind_10m, true_angle) =
+    required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE), NO_RIG_FORCE, nothing
+
+function trimmed_force(ship::Ship, rig, speed, wind_10m, true_angle)
+    best, best_output = (Inf, NO_RIG_FORCE, first(trim_settings(rig))), Inf
     for trim in trim_settings(rig)
         force = rig_force(rig, ship.env, wind_10m, true_angle, speed, trim)
         thrust = required_thrust(ship, speed, wind_10m, true_angle, force)
@@ -463,7 +474,7 @@ function best_trim(ship::Ship, rig, speed, wind_10m, true_angle)
         output = delivered_power(ship.propeller, ship.env, speed, thrust) /
                  ship.powertrain.transmission_efficiency + force.power
         if output < best_output
-            best, best_output = (thrust, force), output
+            best, best_output = (thrust, force, trim), output
         end
     end
     return best
