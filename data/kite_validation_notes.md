@@ -336,6 +336,8 @@ sale; 10 % discount rate.
 | Fast, canopy at USD 150/m², 119.8 kUSD      | year 13                          | ~USD 213 M        | +42 MUSD                  |
 | Fast, USD 234/m², canopy life 4,000 h       | year 13                          | ~USD 215 M        | +15 MUSD                  |
 | Fast, USD 150/m², canopy life 4,000 h       | year 15                          | ~USD 214 M        | −47 MUSD                  |
+| Fast, USD 234/m², canopy life 3,000 h       | year 13                          | —                 | +61 MUSD                  |
+| Fast, USD 150/m², canopy life 3,000 h       | year 14                          | —                 | −18 MUSD                  |
 
 Each year's cash is (sales + spares) × (1 − 0.7·f(n)) − 15 MUSD, with n the units sold so far and f(n) = (min(n + 10, 1000)/1000)^log2(0.85), per unit within a year's sales and 1 at series level. Spares are, for each ship sold in the 15 years before, half a tether and a canopy per canopy life at 2,000 flight h a year. Cash is discounted from the end of its year. This reproduces the first five rows within 2 MUSD. The last four set the canopy price and life in the same sum; hardware and tether stay as above.
 

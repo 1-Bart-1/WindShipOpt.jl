@@ -215,7 +215,7 @@ end
 end
 
 @testset "canopy life is the goal input, whatever the cloth weight" begin
-    @test WindShipOpt.Canopy(assumptions).lifetime == 4000
+    @test WindShipOpt.Canopy(assumptions).lifetime == 3000
     @test assumptions[:canopy_cloth_weight] == 200
     goal = with_value(assumptions, :canopy_life, 1200.0)
     @test WindShipOpt.Canopy(goal).lifetime == 1200
@@ -497,8 +497,8 @@ end
     flown = WindShipOpt.wear_cost(rig, assumptions)
     @test flown ≈
           canopy / assumptions[:canopy_life] + tether / assumptions[:tether_lifetime]
-    shorter = with_value(assumptions, :canopy_life, 2000.0)
-    @test WindShipOpt.wear_cost(rig, shorter) - flown ≈ canopy / 4000
+    shorter = with_value(assumptions, :canopy_life, assumptions[:canopy_life] / 2)
+    @test WindShipOpt.wear_cost(rig, shorter) - flown ≈ canopy / assumptions[:canopy_life]
 end
 
 # Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
