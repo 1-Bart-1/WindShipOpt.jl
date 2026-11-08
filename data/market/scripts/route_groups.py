@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Tonne-km of North European range ports (NL, BE, DE North Sea, FR Atlantic) by partner region.
 
 Usage: python3 -I route_groups.py <data/market directory>

@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Rigid-shape polars of paraglider-like towing kites over projected aspect ratio, from the
 # Vortex Step Method: a circular arc, a rounded planform and one cambered airfoil whose 2D
 # polar comes from NeuralFoil with transition tripped near the leading edge, plus a
