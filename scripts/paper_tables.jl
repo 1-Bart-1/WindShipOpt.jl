@@ -4,7 +4,7 @@
 # Table steps of the paper, written as LaTeX to paper/sections/: the inputs of
 # data/assumptions.yaml that matter ranked by effect, the ship classes from
 # data/ship_classes.csv, the fuel saving and payback of each rig, the goals and what
-# missing one costs. Included by paper.jl.
+# missing one costs, and the numbers the abstracts state. Included by paper.jl.
 
 """
     latex_escape(text)
@@ -143,9 +143,7 @@ from the input that holds it.
 function goal_rows()
     canopy = @sprintf("\\num{%.0f} h at %.0f g/m\$^2\$", assumptions[:canopy_life],
         assumptions[:canopy_cloth_weight])
-    service = @sprintf("%.0f\\,\\%%",
-        100only(unique(assumptions[Symbol(out_of_service_inputs[rig])]
-                       for rig in rig_names)))
+    service = @sprintf("%.0f\\,\\%%", 100out_of_service_goal())
     kite_loss = assumptions[:kite_cycle_damage_probability] +
                 assumptions[:kite_cycle_loss_probability]
     loss = @sprintf("1 in \\num{%.0f}", 1 / kite_loss)
@@ -171,6 +169,10 @@ function goal_rows()
             "our estimate 0.25\\,\\%; no record for a ship"),
         ("Launch and landing crew", "kite", crew, "our estimate")]
 end
+
+"share of time each rig is out of service at its goal, the same for all [-]"
+out_of_service_goal() = only(unique(assumptions[Symbol(out_of_service_inputs[rig])]
+                                    for rig in rig_names))
 
 """
     goals_table()
@@ -709,16 +711,9 @@ Cost and fuel saving [%] of each rig at its cheapest size on each drive, average
 `classes` and the routes, as `(cost, fuel)` drive by drive in the order of the fuel table;
 `NaN` where none was run.
 """
-function fuel_row_savings(table, classes)
-    cases = [(class, route) for class in classes for route in unique(table["route"])]
-    cells = [(drive, rig) for (drive, _) in drive_labels for rig in rig_names]
-    return map(cells) do (drive, rig)
-        cost, fuel = ([cheapest_saving(table, column, class, drive, route, rig)
-                       for (class, route) in cases] for column in ("cost", "fuel"))
-        keep = isfinite.(cost) .& isfinite.(fuel)
-        return any(keep) ? (mean(cost[keep]), mean(fuel[keep])) : (NaN, NaN)
-    end
-end
+fuel_row_savings(table, classes) =
+    [Tuple(mean_savings(table, ("cost", "fuel"), classes, drive, rig))
+     for (drive, _) in drive_labels for rig in rig_names]
 
 """
     write_fuel_row(io, table, classes, label, scale)
@@ -734,6 +729,21 @@ function write_fuel_row(io, table, classes, label, scale)
              [isfinite(cost) ? string(shaded_cell(cost, scale), @sprintf(" / %.0f", fuel)) :
               "--" for (cost, fuel) in fuel_row_savings(table, classes)]]
     println(io, label, " & ", join(cells, " & "), " \\\\")
+end
+
+"""
+    mean_savings(table, columns, classes, drive, rig)
+
+Mean over `classes` and the routes of the class table `table` of the saving [%] in each of
+`columns` of the cheapest size of `rig` on `drive`, over the routes where all are known;
+`NaN` for each where none is.
+"""
+function mean_savings(table, columns, classes, drive, rig)
+    savings = [[cheapest_saving(table, column, class, drive, route, rig)
+                for column in columns]
+               for class in classes for route in unique(table["route"])]
+    known = filter(saving -> all(isfinite, saving), savings)
+    return isempty(known) ? fill(NaN, length(columns)) : mean(known)
 end
 
 """
@@ -1256,4 +1266,118 @@ function fidelity_table()
                 isempty(swaps) ? "--" : join(swaps, "; "), error)
         end
     end
+end
+
+"word of each drive in the names of the number macros"
+drive_words = ["vlsfo" => "Oil", "ammonia" => "Ammonia"]
+
+"word in the names of the number macros of each kind of ship, by the unit of its cargo"
+ship_kind_words = [:teu => "Container", :ceu => "CarCarrier", :tonne => "Bulk"]
+
+"""
+    numbers_file()
+
+Write the numbers the paper and its extended abstract state as LaTeX macros `\\Num...` to
+paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
+the goals, and the [`class_numbers`](@ref), [`recommendation_numbers`](@ref) and
+[`premium_numbers`](@ref) of the class study.
+"""
+function numbers_file()
+    classes = read_table(data_file("classes.csv"))
+    results = [class_numbers(classes); recommendation_numbers(classes);
+               premium_numbers(classes)]
+    draft = paper_run.fidelity != :final
+    open(joinpath(sections, "numbers.tex"), "w") do io
+        for (name, text) in goal_numbers()
+            print(io, number_macro(name, text, false))
+        end
+        for (name, text) in results
+            print(io, number_macro(name, text, draft))
+        end
+    end
+end
+
+"""
+    goal_numbers()
+
+Name and text of the goals the abstracts state: canopy life, the canopy price
+at the goal and today, and the share of time out of service.
+"""
+goal_numbers() = [
+    "CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
+    "CanopyPriceGoal" => @sprintf("%.0f", WindShipOpt.canopy_price(assumptions)),
+    "CanopyPriceToday" => @sprintf("%.0f", WindShipOpt.canopy_price_today(assumptions)),
+    "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal())]
+
+"""
+    class_numbers(classes)
+
+Name and text, per drive and rig, of the mean over the classes and routes of the class
+table `classes` of the cost saving [%] of the cheapest size, and of the cells of class
+and route where the rig saves most and saves at all, with the count of cells.
+"""
+function class_numbers(classes)
+    numbers = Pair{String, String}[]
+    for (drive, word) in drive_words
+        cells = filter(!isempty, [best_savings(classes, class, route, drive)
+                                  for class in class_order(classes)
+                                  for route in unique(classes["route"])])
+        leaders = [argmax(cell) for cell in cells if maximum(values(cell)) > 0]
+        push!(numbers, "Cells$word" => string(length(cells)))
+        for rig in rig_names
+            name = word * uppercasefirst(rig)
+            push!(numbers, "Saving$name" => whole_number(
+                    mean(cell[rig] for cell in cells if haskey(cell, rig))),
+                "Leads$name" => string(count(==(rig), leaders)))
+        end
+    end
+    return numbers
+end
+
+"""
+    recommendation_numbers(table)
+
+Name and text, per kind of ship of `ship_kind_words` and rig, of the [`mean_savings`](@ref)
+over its classes in the class table `table` of the cost [%] on each drive and of the
+tank-to-wake CO2 [%] on VLSFO.
+"""
+function recommendation_numbers(table)
+    classes = ship_classes()
+    numbers = Pair{String, String}[]
+    for (unit, kind) in ship_kind_words, rig in rig_names
+        names = [name for name in class_order(table) if classes[name].cargo_unit == unit]
+        name = kind * uppercasefirst(rig)
+        for (drive, word) in drive_words
+            cost, = mean_savings(table, ("cost",), names, drive, rig)
+            push!(numbers, "Saving$word$name" => whole_number(cost))
+        end
+        carbon, = mean_savings(table, ("carbon",), names, "vlsfo", rig)
+        push!(numbers, "Carbon$name" => whole_number(carbon))
+    end
+    return numbers
+end
+
+"""
+    premium_numbers(table)
+
+Name and text of the mean over the classes and routes of the class table `table` of how
+much more [%] the e-ammonia ship costs than the same ship on VLSFO without a rig, without
+a rig and with the rig that saves it most.
+"""
+function premium_numbers(table)
+    without, with = Float64[], Float64[]
+    for class in class_order(table), route in unique(table["route"])
+        fossil = rows(table, "class" => class, "drive" => "vlsfo", "route" => route,
+            "rig" => "none")
+        bare = rows(table, "class" => class, "drive" => "ammonia", "route" => route,
+            "rig" => "none")
+        (isempty(fossil) || isempty(bare)) && continue
+        rigged = filter(!isnothing, [cheapest_row(table, class, route, "ammonia", rig)
+                                     for rig in rig_names])
+        reference = only(table["cost"][fossil])
+        push!(without, -percent_saving(only(table["cost"][bare]), reference))
+        push!(with, -percent_saving(minimum(table["cost"][rigged]), reference))
+    end
+    return ["PremiumNoRig" => whole_number(mean(without)),
+        "PremiumBestRig" => whole_number(mean(with))]
 end

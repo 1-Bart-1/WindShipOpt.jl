@@ -1478,6 +1478,28 @@ end
     end
 end
 
+@testset "a number of the paper prints as a draft result until the final run" begin
+    @test PaperRuns.number_macro("SavingOilKite", "4", true) ==
+          "\\newcommand{\\NumSavingOilKite}{\\tbd{4}}\n"
+    @test PaperRuns.number_macro("SavingOilKite", "4", false) ==
+          "\\newcommand{\\NumSavingOilKite}{4}\n"
+    @test PaperRuns.whole_number(-0.4) == "0"
+    @test PaperRuns.whole_number(12.6) == "13"
+end
+
+@testset "every number the paper and its extended abstract print from the numbers step \
+          is one it wrote" begin
+    paper = joinpath(PaperRuns.root, "paper")
+    texts = [joinpath(directory, name) for directory in (paper, joinpath(paper, "sections"))
+             for name in readdir(directory) if endswith(name, ".tex")]
+    used = Set(m.match for text in texts
+               for m in eachmatch(r"\\Num[A-Za-z]+", read(text, String)))
+    defined = Set(m[1] for m in eachmatch(r"\\newcommand\{(\\Num[A-Za-z]+)\}",
+        read(joinpath(paper, "sections", "numbers.tex"), String)))
+    @test !isempty(used)
+    @test used ⊆ defined
+end
+
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
     model, force, diameter, airframe = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
     @test diameter ≈ 0.0294 rtol=0.01

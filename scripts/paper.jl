@@ -90,7 +90,8 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :force_balance => force_balance_figure, :ship_classes => ship_classes_figure,
     :kite_frames => kite_frames_figure, :router => router_figure,
     :missed_goals => missed_goals_figure, :rigid_mass => rigid_mass_figure,
-    :tow_point_figure => tow_point_figure, :fidelity_table => fidelity_table]
+    :tow_point_figure => tow_point_figure, :fidelity_table => fidelity_table,
+    :numbers => numbers_file]
 
 """
     paper(names...; fidelity, resume=nothing)

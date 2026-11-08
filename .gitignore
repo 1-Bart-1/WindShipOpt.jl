@@ -14,6 +14,8 @@ paper/literature_pdfs
 __pycache__/
 paper/main.*
 !paper/main.tex
+paper/extended_abstract.*
+!paper/extended_abstract.tex
 /kite_polars/output/
 /kite_polars/Manifest.toml
 /paper/figures/
