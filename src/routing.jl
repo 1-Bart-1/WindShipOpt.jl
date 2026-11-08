@@ -1008,25 +1008,27 @@ end
 """
 function path_corridor(leg::Leg, corridor::Corridor, first_stage, half_width=0)
     stage_count, node_count = length(leg.path), size(corridor.lat, 2)
+    width = 2half_width + 1
     stages = first_stage .+ (0:(stage_count - 1))
-    on_path = [nearest_lateral(corridor, stages[i], leg.path[i][1], leg.path[i][2])
-               for i in 1:stage_count]
-    offsets = -half_width:half_width
-    wanted = [on_path[i] + offset for i in 1:stage_count, offset in offsets]
-    nodes = clamp.(wanted, 1, node_count)
-    inside = wanted .== nodes
-    width = length(offsets)
-    lat = [corridor.lat[stages[i], nodes[i, j]] for i in 1:stage_count, j in 1:width]
-    lon = [corridor.lon[stages[i], nodes[i, j]] for i in 1:stage_count, j in 1:width]
-    water = BitMatrix([inside[i, j] && corridor.water[stages[i], nodes[i, j]]
-                       for i in 1:stage_count, j in 1:width])
-    near_coast = BitMatrix([corridor.near_coast[stages[i], nodes[i, j]]
-                            for i in 1:stage_count, j in 1:width])
+    laterals = Matrix{Int}(undef, stage_count, width)
+    lat, lon = zeros(stage_count, width), zeros(stage_count, width)
+    water, near_coast = falses(stage_count, width), falses(stage_count, width)
+    for i in 1:stage_count
+        on_path = nearest_lateral(corridor, stages[i], leg.path[i][1], leg.path[i][2])
+        for j in 1:width
+            laterals[i, j] = on_path + j - half_width - 1
+            node = clamp(laterals[i, j], 1, node_count)
+            lat[i, j] = corridor.lat[stages[i], node]
+            lon[i, j] = corridor.lon[stages[i], node]
+            water[i, j] = laterals[i, j] == node && corridor.water[stages[i], node]
+            near_coast[i, j] = corridor.near_coast[stages[i], node]
+        end
+    end
     edge_length = zeros(stage_count - 1, width, 2MAX_LATERAL_STEP + 1)
     edge_course = fill(NaN, stage_count - 1, width, 2MAX_LATERAL_STEP + 1)
     for i in 1:(stage_count - 1), j in 1:width, next in 1:width
-        lateral, arrival = nodes[i, j], nodes[i + 1, next]
-        inside[i, j] && inside[i + 1, next] || continue
+        lateral, arrival = laterals[i, j], laterals[i + 1, next]
+        lateral in 1:node_count && arrival in 1:node_count || continue
         max(abs(next - j), abs(arrival - lateral)) <= MAX_LATERAL_STEP || continue
         step, band_step = lateral_step(lateral, arrival), lateral_step(j, next)
         edge_length[i, j, band_step] = corridor.edge_length[stages[i], lateral, step]
