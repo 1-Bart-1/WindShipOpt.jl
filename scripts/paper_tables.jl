@@ -616,27 +616,21 @@ function split_table()
     lines = []
     for (drive, label) in drive_labels, (k, rig) in enumerate(rig_names)
         splits = rig_splits(table, drive, rig)
-        saving, fuel, time = (mean(getproperty.(splits, part))
-                              for part in (:saving, :fuel, :time))
         hours = getproperty.(splits, :hours)
-        push!(lines, (; label=k == 1 ? label : "", rig,
-            points=[saving, fuel, time, saving - fuel - time],
+        push!(lines, (; label=k == 1 ? label : "", rig, points=split_points(splits),
             shorter=100count(<(0), hours) / length(hours), trip=median(hours)))
     end
-    scales = [maximum(abs(line.points[k]) for line in lines) for k in 1:4]
-    trip_scale = maximum(abs(line.trip) for line in lines)
+    cells = split_cells(lines)
+    trip_scale = column_scale([line.trip for line in lines])
     open(joinpath(sections, "split_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule")
         println(io, " & & Saving & Fuel & Time & Rig and other & Shorter & ",
             "Round trip \\\\")
         println(io, "Drive & Rig & [\\%] & [points] & [points] & [points] & [\\%] & ",
             "[\\%] \\\\\n\\midrule")
-        for line in lines
-            cells = [shaded_cell(value, scale)
-                     for (value, scale) in zip(line.points, scales)]
-            @printf(io, "%s & %s & %s & %.0f & %s \\\\\n", line.label, line.rig,
-                join(cells, " & "), line.shorter, shaded_cell(-line.trip, trip_scale;
-                    shown=line.trip))
+        for (line, shaded) in zip(lines, cells)
+            @printf(io, "%s & %s & %s & %.0f & %s \\\\\n", line.label, line.rig, shaded,
+                line.shorter, shaded_cell(-line.trip, trip_scale; shown=line.trip))
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
@@ -672,28 +666,54 @@ cargo_interest_table.tex.
 function cargo_interest_table()
     table = read_table(data_file("cargo_interest.csv"))
     drive = string(last(study_drives))
+    lines = []
+    for (level, factor) in pairs(cargo_interest_factors())
+        level_table = interest_level_rows(table, factor)
+        push!(lines, (; level, rig="no rig", points=fill(NaN, 4), trip=NaN,
+            speed=mean_sailing_speed(level_table, drive, "none")))
+        for rig in rig_names
+            splits = rig_splits(level_table, drive, rig)
+            push!(lines, (; level="", rig, points=split_points(splits),
+                trip=median(getproperty.(splits, :hours)),
+                speed=mean_sailing_speed(level_table, drive, rig)))
+        end
+    end
+    cells = split_cells(lines)
+    trip_scale = column_scale([line.trip for line in lines])
     open(joinpath(sections, "cargo_interest_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule")
         println(io, "Cargo & & Saving & Fuel & Time & Rig and other & Round trip & ",
             "Speed \\\\")
         println(io, "interest & Rig & [\\%] & [points] & [points] & [points] & [\\%] & ",
             "[kn] \\\\\n\\midrule")
-        for (level, factor) in pairs(cargo_interest_factors())
-            level_table = interest_level_rows(table, factor)
-            println(io, level, " & no rig & & & & & & ",
-                @sprintf("%.1f", mean_sailing_speed(level_table, drive, "none")), " \\\\")
-            for rig in rig_names
-                splits = rig_splits(level_table, drive, rig)
-                saving, fuel, time = (mean(getproperty.(splits, part))
-                                      for part in (:saving, :fuel, :time))
-                @printf(io, " & %s & %.1f & %.1f & %.1f & %.1f & %.1f & %.1f \\\\\n", rig,
-                    saving, fuel, time, saving - fuel - time,
-                    median(getproperty.(splits, :hours)),
-                    mean_sailing_speed(level_table, drive, rig))
-            end
+        for (line, shaded) in zip(lines, cells)
+            @printf(io, "%s & %s & %s & %s & %.1f \\\\\n", line.level, line.rig, shaded,
+                shaded_cell(-line.trip, trip_scale; shown=line.trip), line.speed)
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
+end
+
+"""
+    split_points(splits)
+
+Mean over `splits` of the saving and its parts in points: `[saving, fuel, time, rest]`.
+"""
+function split_points(splits)
+    saving, fuel, time = (mean(getproperty.(splits, part))
+                          for part in (:saving, :fuel, :time))
+    return [saving, fuel, time, saving - fuel - time]
+end
+
+"""
+    split_cells(lines)
+
+The four shaded split columns of each of `lines`, joined for a table row, every column
+against its own largest value.
+"""
+function split_cells(lines)
+    scales = [column_scale([line.points[k] for line in lines]) for k in 1:4]
+    return [join(shaded_cell.(line.points, scales), " & ") for line in lines]
 end
 
 """
