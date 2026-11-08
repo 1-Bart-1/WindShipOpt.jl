@@ -620,7 +620,7 @@ end
 Highest routing speed number whose command sails the [`SailedPoint`](@ref)s `points` of an
 edge the same, sampled at the same points.
 """
-same_through(points) = minimum(point -> point.same_through, points)
+same_through(points) = minimum(point -> point.same_through, points; init=typemax(Int))
 
 """
     nearest_lateral(corridor, stage, lat, lon)
