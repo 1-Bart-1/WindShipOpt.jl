@@ -65,22 +65,22 @@ function (table::LinearTable{3})(x::KnotWeight, y::KnotWeight, z::KnotWeight)
 end
 
 function (table::LinearTable{4})(x::KnotWeight, y::KnotWeight, z::KnotWeight,
-        w::KnotWeight)
+        layer::KnotWeight)
     (; values) = table
-    return x.upper * layer_value(view(values, x.index + 1, :, :, :), y, z, w) +
-           x.lower * layer_value(view(values, x.index, :, :, :), y, z, w)
+    return x.upper * layer_value(view(values, x.index + 1, :, :, :), y, z, layer) +
+           x.lower * layer_value(view(values, x.index, :, :, :), y, z, layer)
 end
 
 """
-    layer_value(values, y, z, w)
+    layer_value(values, y, z, layer)
 
 Trilinear interpolation of the three-dimensional array `values` at the
-[`KnotWeight`](@ref)s `y`, `z` and `w` of its dimensions, by [`plane_value`](@ref) on the
-two layers of `w` around it; its entries are numbers or tuples of numbers.
+[`KnotWeight`](@ref)s `y`, `z` and `layer` of its dimensions, by [`plane_value`](@ref) on
+the two layers around `layer`; its entries are numbers or tuples of numbers.
 """
-layer_value(values, y::KnotWeight, z::KnotWeight, w::KnotWeight) =
-    map((upper, lower) -> w.upper * upper + w.lower * lower,
-        plane_value(values, y, z, w.index + 1), plane_value(values, y, z, w.index))
+layer_value(values, y::KnotWeight, z::KnotWeight, layer::KnotWeight) =
+    map((upper, lower) -> layer.upper * upper + layer.lower * lower,
+        plane_value(values, y, z, layer.index + 1), plane_value(values, y, z, layer.index))
 
 """
     plane_value(values, y, z, layer...)
@@ -335,12 +335,10 @@ which always stands, and `Inf` for a kite up in too high a sea.
 function edge_fuels(table::PerformanceTable, speed, slice::SpeedSlice,
         condition::SeaCondition)
     (; wind, angle, wave_height) = condition
-    waves = wave_height > 0 ? wave_height^2 * plane_value(slice.wave_resistance,
-        condition.wave_period, condition.wave_heading) : 0.0
-    added_knots = table.flown_thrust.knots[4]
-    outside = waves - clamp(waves, first(added_knots), last(added_knots))
+    waves = sea_resistance(slice, condition)
+    outside = waves - trim_resistance(table, waves)
     flown_thrust, stowed_thrust, rig_power, stowed_power = layer_value(slice.trims, wind,
-        angle, KnotWeight(added_knots, waves))
+        angle, KnotWeight(table.flown_thrust.knots[4], waves))
     flown = fuel_power(table, speed, flown_thrust + outside, rig_power)
     table.stowed_thrust === table.flown_thrust && return flown, flown
     stowed = fuel_power(table, speed, stowed_thrust + outside, stowed_power)
@@ -348,15 +346,26 @@ function edge_fuels(table::PerformanceTable, speed, slice::SpeedSlice,
 end
 
 """
-    sea_resistance(table, speed, condition)
+    sea_resistance(slice, condition)
 
-Added resistance [N] at `speed` [m/s] of the waves of the [`SeaCondition`](@ref)
-`condition`, read from `table`.
+Added resistance [N] of the waves of the [`SeaCondition`](@ref) `condition` at the speed of
+the [`SpeedSlice`](@ref) `slice`.
 """
-sea_resistance(table::PerformanceTable, speed, condition::SeaCondition) =
+sea_resistance(slice::SpeedSlice, condition::SeaCondition) =
     condition.wave_height > 0 ?
-    condition.wave_height^2 * table.wave_resistance(KnotWeight(table.speeds, speed),
-        condition.wave_period, condition.wave_heading) : 0.0
+    condition.wave_height^2 *
+    plane_value(slice.wave_resistance, condition.wave_period, condition.wave_heading) : 0.0
+
+"""
+    trim_resistance(table, waves)
+
+Added resistance [N] of the trim `table` holds for waves adding `waves` [N]: `waves` held
+to the range of the table's added-resistance knots.
+"""
+function trim_resistance(table::PerformanceTable, waves)
+    knots = table.flown_thrust.knots[4]
+    return clamp(waves, first(knots), last(knots))
+end
 
 edge_fuels(table::PerformanceTable, speed, speed_weight::KnotWeight,
     condition::SeaCondition) =

@@ -1238,6 +1238,24 @@ WindShipOpt.wind(weather::GaleWeather, lat, lon, time) =
 WindShipOpt.waves(weather::GaleWeather, lat, lon, time) =
     time < weather.calm_from ? (16.0, 14.0, 1.25π) : (0.0, 0.0, 0.0)
 
+"Steady wind from the south on a sea whose waves push a ship heading east along."
+struct FollowingSeaWeather end
+WindShipOpt.duration(::FollowingSeaWeather) = Inf
+WindShipOpt.wind(::FollowingSeaWeather, lat, lon, time) = (0.0, 14.0)
+WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
+
+@testset "a leg's trace shows the trim the router priced where waves leave the table" begin
+    ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=400.0), assumptions)
+    table = RouteTable(PerformanceTable(ship, assumptions))
+    trace = WindShipOpt.LegTrace((Float64[] for _ in 1:7)..., Bool[], Float64[])
+    WindShipOpt.push_trace_point!(trace, table, FollowingSeaWeather(), 24.0 * 31, 30.0,
+        -30.0, 0.0, searchsortedfirst(table.speeds, 5.0), π / 2, WindShipOpt.FLYING)
+    first_knot = first(table.table.flown_thrust.knots[4])
+    priced = last(WindShipOpt.best_trim(ship, ship.rig, only(trace.speed), 14.0,
+        only(trace.true_wind_angle), first_knot))
+    @test only(trace.rig_thrust) == priced.thrust
+end
+
 @testset "a ship on a forecast holds through a gale it cannot sail in" begin
     departure = 24.0 * 31
     weather = GaleWeather(SyntheticWeather(), departure + 10.0)
@@ -1480,6 +1498,15 @@ end
     for count in 1:12, stride in 1:4
         indices = WindShipOpt.commanded_speeds(count, stride)
         @test last(indices) == count && step(indices) == stride && first(indices) <= stride
+    end
+end
+
+@testset "soft and rigid kites both stop depowering where their lift reaches 0.05" begin
+    soft = first(WindShipOpt.kite_model(800.0, 3.0, assumptions))
+    rigid = first(WindShipOpt.rigid_kite_model(54.0, 1, assumptions))
+    for model in (soft, rigid)
+        @test WindShipOpt.polar_value(model.polar, model.polar.lift, model.lowest_angle) ≈
+              0.05
     end
 end
 
@@ -1758,6 +1785,20 @@ function written_pattern(wind, course)
     PaperData.write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
         0.0)
     return String(take!(paths)), String(take!(forces))
+end
+
+@testset "the economic and sailing speeds are solved between any speed grid's points" begin
+    ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=400.0), PaperData.assumptions)
+    hourly, wind, angle = 1500.0, 10.0, π / 2
+    wear = WindShipOpt.wear_cost(ship.rig, PaperData.assumptions)
+    cost(knots) = PaperData.mile_cost(ship, knots, hourly, wind, angle, nothing, wear)
+    @test cost(PaperData.economic_speed(ship, hourly, wind, angle)) <=
+          (1 + 1e-7) * minimum(cost, 4.0:0.01:(ship.max_speed / WindShipOpt.KNOT))
+    force = last(WindShipOpt.best_trim(ship, ship.rig, 5.0, wind, angle))
+    sailing = PaperData.sailing_speed(ship, force, wind, angle)
+    @test sailing > 4
+    @test abs(WindShipOpt.required_thrust(ship, sailing * WindShipOpt.KNOT, wind, angle,
+        force)) < 10
 end
 
 @testset "the pattern data has rows only for conditions where a pattern flies" begin

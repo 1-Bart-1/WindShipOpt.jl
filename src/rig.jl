@@ -628,7 +628,7 @@ function rigid_kite_model(area, count, assumptions::Assumptions)
            (4area)
     polar = rigid_polar(assumptions)
     model = KiteModel(area, mass + tether_mass / 2, tether_length, env.air_density,
-        env.gravity, polar, drag, polar.angle_of_attack[findfirst(>=(0.05), polar.lift)],
+        env.gravity, polar, drag, lift_angle(polar, 0.05),
         polar.angle_of_attack[argmax(polar.lift)] -
         deg2rad(assumptions[:kite_stall_margin]),
         assumptions[:rigid_min_turn_radius] * span, true)

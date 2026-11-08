@@ -445,7 +445,7 @@ function required_thrust(ship::Ship, speed, wind_10m, true_angle, force::RigForc
 end
 
 """
-    TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
+    TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance)
 
 Engine output of `ship` carrying `rig`, its own rig or a part of it, at `speed` [m/s] in a
 10 m true wind of `wind_10m` [m/s] from `true_angle` [rad], with `added_resistance` [N] of
@@ -460,9 +460,6 @@ struct TrimOutput{S, R}
     true_angle::Float64
     added_resistance::Float64
 end
-
-TrimOutput(ship, rig, speed, wind_10m, true_angle) =
-    TrimOutput(ship, rig, speed, wind_10m, true_angle, 0.0)
 
 """
     trim_point(output, setting)

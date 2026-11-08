@@ -70,7 +70,8 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     aloft = kite_aloft(table.table, speed, sample.headwind, sample.crosswind, first(sea))
     flown = standing === ship.rig || (mode == FLYING || !isfinite(stowed_power)) &&
             isfinite(flown_power) && aloft
-    added = sea_resistance(table.table, speed, sample.condition)
+    slice = SpeedSlice(table.table, KnotWeight(table.table.speeds, speed))
+    added = trim_resistance(table.table, sea_resistance(slice, sample.condition))
     force = last(best_trim(ship, flown ? ship.rig : standing, speed, wind_speed, angle,
         added))
     available = standing === ship.rig || aloft ?
