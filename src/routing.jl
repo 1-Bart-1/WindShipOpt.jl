@@ -1437,7 +1437,8 @@ Forecast source of a ship that re-plans daily knowing the real weather.
 struct PerfectForecast end
 
 known_weather(::Nothing, weather, time, horizon) = ForecastWeather(weather, time, horizon)
-known_weather(::PerfectForecast, weather, time, horizon) = weather
+known_weather(::PerfectForecast, weather, time, horizon) =
+    known_weather(nothing, weather, time, Inf)
 
 """
     forecast_plan(known, corridor, table, time, prices; first_stage, first_lateral,
