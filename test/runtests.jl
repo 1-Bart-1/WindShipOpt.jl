@@ -2419,8 +2419,8 @@ end
     excess = PaperData.cause_estimate(total, kite, rotors)
     @test excess.departures == 2 && excess.value ≈ 3
     @test excess.error ≈ 0 atol = 1e-12
-    @test PaperData.cause_estimate(PaperData.cause_kept(:forecast, :perfect), kite).value ≈
-          100 * (5 / 12)
+    kept = PaperData.cause_kept(:forecast, :perfect)
+    @test PaperData.cause_estimate(kept, kite).value ≈ 100 * (5 / 12)
     routing = PaperData.cause_difference(total,
         PaperData.cause_loss(:common_perfect, :common_forecast))
     @test PaperData.cause_estimate(routing, kite).value ≈ alone.value

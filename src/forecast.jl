@@ -155,9 +155,9 @@ end
 """
     ShortestLead(archive)
 
-Forecast source of a ship that knows, at every time ahead, the forecast of `archive` with the
-shortest lead there: what the forecast model says of the weather, without the error that
-grows with lead.
+Forecast source of a ship that knows, at every time ahead, the forecast of `archive` with
+the shortest lead there: what the forecast model says of the weather, without the error
+that grows with lead.
 """
 struct ShortestLead
     archive::ForecastArchive

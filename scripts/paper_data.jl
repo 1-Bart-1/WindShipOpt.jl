@@ -985,7 +985,7 @@ function routing_inputs(rig)
     WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
 end
 
-"the 140 m e-ammonia ship with the [`reference_rigs`](@ref) entry `rig`, or none for \"none\""
+"the 140 m e-ammonia ship with the [`reference_rigs`](@ref) entry `rig`; none for \"none\""
 forecast_study_design(rig) = ShipDesign(:ammonia, 140.0;
     rig_size(rig, rig == "none" ? 0.0 : Dict(reference_rigs)[rig])...)
 
