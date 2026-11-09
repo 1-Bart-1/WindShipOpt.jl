@@ -7,6 +7,29 @@
 # missing one costs, and the numbers the abstracts state. Included by paper.jl.
 
 """
+    canopy_life_table()
+
+Table of the life statements behind the canopy wear rate, from
+data/canopy_life_statements.csv, as canopy_life_table.tex.
+"""
+function canopy_life_table()
+    lives = read_table(joinpath(root, "data", "canopy_life_statements.csv"))
+    columns = ("grade", "cloth", "weight", "life_text", "ends_on", "tension", "strength",
+        "dose", "rate")
+    open(joinpath(sections, "canopy_life_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lllrrlrrrr@{}}\n\\toprule")
+        println(io, "Source & Grade & Cloth & \$w\$ & Life \$L\$ & Ends on & \$T/w\$ & ",
+            "\$\\sigma_w\$ & \$\\dot D\$ & \$r\$ \\\\")
+        println(io, " & & & [g/m²] & [h] & & & & [MJ/m²/h] & [g/m²/h] \\\\\n\\midrule")
+        for row in findall(==("statement"), lives["kind"])
+            println(io, "\\citet{", lives["key"][row], "} & ",
+                join((string(lives[column][row]) for column in columns), " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
     latex_escape(text)
 
 `text` with the characters LaTeX treats specially escaped and powers set as superscripts.
@@ -207,9 +230,9 @@ of goal_sizes.csv: the [`size_limits`](@ref) of that size against its rival, the
 other rig, and where the rig stops paying and where it comes level with that rival the
 canopy life [h], the canopy price [USD/m^2] and the share out of service [-], that share
 also for all units failing together;
-for the kite its saving [%] at a canopy life of 2,000 h and at today's canopy price, and the
-life and price at which it passes the rig ahead; the points of saving [%] its share out of
-service costs at the goal. Raises an error where the sweeps differ in a rig's goal cost.
+for the kite its saving [%] at half the canopy life goal and at today's canopy price, and
+the life and price at which it passes the rig ahead; the points of saving [%] its share out
+of service costs at the goal. Raises an error where the sweeps differ in a rig's goal cost.
 """
 function missed_goal_rows()
     sizes = read_table(data_file("goal_sizes.csv"))
@@ -235,8 +258,9 @@ function missed_goal_rows()
             Dict("kite" => curve_cost(price_curve, WindShipOpt.canopy_price(assumptions))))
         for (; rig, rival, rival_cost, ahead) in WindShipOpt.ranked_rivals(goal)
             curve = curves[rig]
+            half_goal = assumptions[:canopy_life] / 2
             saving_short = rig == "kite" ?
-                           percent_saving(curve_cost(life_curve, 2000.0), bare) : NaN
+                           percent_saving(curve_cost(life_curve, half_goal), bare) : NaN
             today = WindShipOpt.canopy_price_today(assumptions)
             saving_today = rig == "kite" ?
                            percent_saving(curve_cost(price_curve, today), bare) : NaN
@@ -346,9 +370,9 @@ end
 Write the [`missed_goal_rows`](@ref) as panel (a) and the [`crash_limit_rows`](@ref) as
 panel (b) to paper/sections/missed_goals_table.tex, savings and leads shaded by their sign
 and the limits by their [`goal_margins`](@ref), and print what the text takes from them
-besides: the kite's saving at 2,000 h and at today's canopy price, the points each rig's
-outages cost, the life and price at which the kite passes the rig ahead and the share at
-which all units failing together put a rig level with its rival.
+besides: the kite's saving at half the life goal and at today's canopy price, the points
+each rig's outages cost, the life and price at which the kite passes the rig ahead and the
+share at which all units failing together put a rig level with its rival.
 """
 function missed_goals_table()
     goal_rows, crash_rows = missed_goal_rows(), crash_limit_rows()
@@ -368,7 +392,7 @@ function missed_goals_table()
             "\\multicolumn{2}{c}{Out of service [\\%] where} \\\\")
         println(io, "\\cmidrule(lr){5-6}\\cmidrule(lr){7-8}\\cmidrule(lr){9-10}",
             "\\cmidrule(lr){11-12}")
-        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Saving [\\%] & ",
+        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Cost saving [\\%] & ",
             "Rival & Lead [points] & ", join(fill("pays no more & level", 3), " & "),
             " \\\\")
         println(io, "\\midrule")
@@ -380,8 +404,8 @@ function missed_goals_table()
                      shaded_cell(row.saving, saving_scale); paper_name(row.rival);
                      shaded_cell(row.lead, lead_scale; format="%+.1f"); limits]
             println(io, join(cells, " & "), " \\\\")
-            @printf("%s, %s: %.1f %% at 2,000 h, %.1f %% at today's price, ", row.ship,
-                paper_name(row.rig), row.saving_short, row.saving_today)
+            @printf("%s, %s: %.1f %% at half the life goal, %.1f %% at today's price, ",
+                row.ship, paper_name(row.rig), row.saving_short, row.saving_today)
             @printf("outages cost %.2f points, passes the next up at %s h, USD %s, ",
                 row.service_points, dash_cell(row.passes, "%.0f"),
                 dash_cell(row.passes_price, "%.0f"))
@@ -397,7 +421,7 @@ function missed_goals_table()
         println(io, " & & & & & & \\multicolumn{2}{c}{Crashes a year where} & ",
             "Flight \\\\")
         println(io, "\\cmidrule(lr){7-8}")
-        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Saving [\\%] & Rival & ",
+        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Cost saving [\\%] & Rival & ",
             "One [kUSD] & pays no more & level & [h/year] \\\\")
         println(io, "\\midrule")
         crash_scales = [column_scale(getindex.(getproperty.(crash_rows, :crashes), k))
@@ -1009,6 +1033,102 @@ function speed_choice_table()
             found = rows(table, "drive" => drive, "rig" => rig)
             cells = (@sprintf("%.1f", median(table[column][found])) for column in columns)
             println(io, drive_label, " & ", rig, " & ", join(cells, " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"share of `rig`'s cost saving kept on `plan` with its error [%], in LaTeX; `--` if not run"
+function kept_cell(table, rig, plan)
+    found = rows(table, "rig" => rig, "plan" => plan)
+    isempty(found) && return "--"
+    return @sprintf("\\(%.0f \\pm %.0f\\)", 100table["kept"][only(found)],
+        100table["kept_error"][only(found)])
+end
+
+"""
+    forecast_plans_table()
+
+Share of each rig's perfect-foresight cost saving kept per plan of the forecast study, with
+its standard error over the departures [%], and that of the kite held to its plan:
+forecast_plans_table.tex.
+"""
+function forecast_plans_table()
+    table = read_table(data_file("forecast_plans_kept.csv"))
+    plans = (("true", "One forecast run"), ("mean", "Ensemble mean"),
+        ("margin", "Margin for wind"), ("members", "Several members"),
+        ("held_kite", "One forecast run, kite held to the plan"))
+    open(joinpath(sections, "forecast_plans_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lccc@{}}\n\\toprule")
+        println(io, "Plan & Kite & Wing sails & Rotors \\\\\n\\midrule")
+        for (plan, label) in plans
+            cells = [kept_cell(table, rig, plan) for rig in ("kite", "wings", "rotors")]
+            println(io, label, " & ", join(cells, " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"groups of forecast_causes_table.tex as (heading, rows of (label, statistic))"
+forecast_cause_groups = (
+    ("Cost saving [\\%]",
+        (("With perfect foresight", cause_saving(:perfect)),
+            ("Re-planned daily on the forecasts", cause_saving(:forecast)))),
+    ("Cost saving lost [points]",
+        (("Total", cause_loss(:perfect, :forecast)),)),
+    ("Of which, course first",
+        (("Course", cause_loss(:perfect, :forecast_course)),
+            ("Speed and re-planning once a day",
+                cause_loss(:forecast_course, :foresight_kite)),
+            ("The kite's flying decisions", cause_loss(:foresight_kite, :forecast)))),
+    ("Of which, course last",
+        (("Speed, kite and re-planning once a day", cause_loss(:perfect, :perfect_course)),
+            ("Course", cause_loss(:perfect_course, :forecast)))),
+    ("Of which, by what the forecast gets wrong",
+        (("Re-planning once a day", cause_loss(:perfect, :replanned)),
+            ("Forecast model against the reanalysis",
+                cause_loss(:replanned, :shortest_lead)),
+            ("Error growing with lead time", cause_loss(:shortest_lead, :forecast)))),
+    ("On one fixed course for every rig",
+        (("Cost saving with perfect foresight [\\%]", cause_saving(:common_perfect)),
+            ("Cost saving on the forecasts [\\%]", cause_saving(:common_forecast)),
+            ("Cost saving lost [points]", cause_loss(:common_perfect, :common_forecast)),
+            ("Loss added by routing on foresight [points]",
+                cause_difference(cause_loss(:perfect, :forecast),
+                    cause_loss(:common_perfect, :common_forecast))))),
+    ("Share of the cost saving kept [\\%]",
+        (("Routed", cause_kept(:forecast, :perfect)),
+            ("On the fixed course", cause_kept(:common_forecast, :common_perfect)))))
+
+"LaTeX of an (value, error) estimate of [`cause_estimate`](@ref)"
+cause_cell(estimate) = @sprintf("\\(%.1f \\pm %.1f\\)",
+    round(estimate.value; digits=1) + 0.0, estimate.error)
+
+"""
+    forecast_causes_table()
+
+Per rig the cost saving lost on the archived forecasts per cause, and the kite's excess over
+the wing sails and the rotors paired per departure, each with its standard error over the
+departures of forecast_causes.csv: forecast_causes_table.tex.
+"""
+function forecast_causes_table()
+    table = read_table(data_file("forecast_causes.csv"))
+    saved = Dict(rig => forecast_cause_savings(table, rig)
+                 for rig in ("kite", "wings", "rotors"))
+    open(joinpath(sections, "forecast_causes_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lccccc@{}}\n\\toprule")
+        println(io, " & Kite & Wing sails & Rotors & Kite less wing sails & ",
+            "Kite less rotors \\\\\n\\midrule")
+        for (heading, group) in forecast_cause_groups
+            println(io, "\\multicolumn{6}{@{}l}{\\textit{", heading, "}} \\\\")
+            for (label, statistic) in group
+                cells = [[cause_estimate(statistic, saved[rig])
+                          for rig in ("kite", "wings", "rotors")];
+                    [cause_estimate(statistic, saved["kite"], saved[rig])
+                     for rig in ("wings", "rotors")]]
+                println(io, "\\quad ", label, " & ", join(cause_cell.(cells), " & "),
+                    " \\\\")
+            end
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end

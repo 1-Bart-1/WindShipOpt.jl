@@ -1,0 +1,11 @@
+kind,key,label,grade,cloth,weight,life_low,life_high,ends_on,tension,strength,dose,rate,life_text
+statement,flynn2015,"polyester sail, 250 g/m²",claim,Woven polyester sail,250*,3500,4000,structure,2.0*,110--207,0.04--0.07*,0--0.12,3500--4000
+statement,flynn2015,"polyester sail, 400 g/m²",claim,same,400*,3500,4000,structure,2.0*,110--207,0.04--0.07*,0.01--0.22,3500--4000
+statement,kubicek2026,"balloon, 45 g/m²",claim,Polyester balloon,45,400,500,not stated,2.8*,222*,0.01--0.03*,0.22--0.30,400--500
+statement,kubicek2026,"balloon, 70 g/m²",claim,Polyester balloon,70,800,1000,not stated,2.9*,222*,0.01--0.03*,0.16--0.23,800--1000
+statement,kubicek2026,"balloon, 77 g/m²",claim,Polyester balloon,77,1000,1000,not stated,2.6*,222*,0.01--0.03*,0.18--0.21,over 1000
+statement,supair2016,"tandem paraglider, 38 to 45 g/m²",meas,"Tandem paraglider, fibre unstated",38--45*,800,850,porosity,1.6*,200*,0.05--0.09*,0.07--0.14,800--850
+statement,lynn2007,"show kite, 50 g/m²",claim,Maxi show kite,50*,1800,2400,porosity,0.6*,200*,0.05--0.09*,0--0.07,1800--2400*
+sail_shape,flynn2015,sail keeps its shape,claim,,,1700,2700,shape,,,,,1700--2700
+small_kite,vandervlugt2013,small kites (lighter cloth),claim,,,100,1000,,,,,,100--1000
+derived,,derived life,,,,3800,3800,,,,,,-

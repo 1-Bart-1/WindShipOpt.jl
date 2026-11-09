@@ -4,6 +4,7 @@
 
 \usepackage{amsmath}
 \usepackage{graphicx}
+\pdfinclusioncopyfonts=1
 \usepackage[export]{adjustbox}
 \usepackage{booktabs}
 \usepackage{longtable}
@@ -15,6 +16,9 @@
 \usepackage{colortbl}
 \definecolor{gain}{HTML}{2166AC}
 \definecolor{loss}{HTML}{B2182B}
+\definecolor{rigkite}{HTML}{0072B2}
+\definecolor{rigwing}{HTML}{E69F00}
+\definecolor{rigrotor}{HTML}{009E73}
 \usepackage[colorlinks,allcolors={blue!50!black}]{hyperref}
 \usepackage[capitalise]{cleveref}
 \crefname{figure}{Fig.}{Figs.}
@@ -85,6 +89,7 @@ wind-assisted ship propulsion \sep towing kite \sep rigid wing sail \sep Flettne
 \counterwithin*{figure}{section}
 \counterwithin*{table}{section}
 \input{sections/model_details}
+\input{sections/derivations}
 \input{sections/discussion_details}
 \input{sections/further_results}
 \input{sections/checks}

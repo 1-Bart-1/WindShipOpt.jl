@@ -2,7 +2,7 @@
 
 julia_version = "1.12.7"
 manifest_format = "2.0"
-project_hash = "587db467d545cfc630de7d4ab73bfaaff625a142"
+project_hash = "382a08559fce48d32e7a72fb8699f9505bc4dc4f"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -677,6 +677,12 @@ deps = ["Random"]
 uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 version = "1.11.0"
 
+[[deps.GRIB]]
+deps = ["eccodes_jll"]
+git-tree-sha1 = "e4818470ebb3282e2c720fa4484e2b133cdef6d3"
+uuid = "b16dfd50-4035-11e9-28d4-9dfe17e6779b"
+version = "0.4.0"
+
 [[deps.Gamma]]
 deps = ["LogExpFunctions"]
 git-tree-sha1 = "becc397f7cfb06e343496ae6ffb04818a851da51"
@@ -1051,6 +1057,12 @@ deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 version = "1.12.0"
 
+[[deps.LittleCMS_jll]]
+deps = ["Artifacts", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll"]
+git-tree-sha1 = "38928f7999753af13d4e13966ae15958ff3a917a"
+uuid = "d3a379c0-f9a3-5b72-a4c0-6bf4d2e8af0f"
+version = "2.19.1+0"
+
 [[deps.LogExpFunctions]]
 deps = ["DocStringExtensions", "IrrationalConstants", "LinearAlgebra"]
 git-tree-sha1 = "28d620bcdb37a3fb02de9f521928ee453690f414"
@@ -1206,6 +1218,12 @@ deps = ["Artifacts", "JLLWrappers", "Libdl", "Libtiff_jll"]
 git-tree-sha1 = "1b1f3cabb1130670812b848f4623d69d578ea805"
 uuid = "95196869-6d61-5868-8eee-c38c33804e0c"
 version = "0.32.0+0"
+
+[[deps.OpenJpeg_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Libtiff_jll", "LittleCMS_jll", "libpng_jll"]
+git-tree-sha1 = "215a6666fee6d6b3a6e75f2cc22cb767e2dd393a"
+uuid = "643b3616-a352-519d-856d-80112ee9badc"
+version = "2.5.5+0"
 
 [[deps.OpenLibm_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1845,11 +1863,23 @@ git-tree-sha1 = "446b23e73536f84e8037f5dce465e92275f6a308"
 uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
 version = "1.5.7+1"
 
+[[deps.eccodes_jll]]
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "OpenJpeg_jll", "libaec_jll", "libpng_jll"]
+git-tree-sha1 = "d44912d211e11be50b7491e55fada3300854776c"
+uuid = "b04048ba-5ccd-5610-b3f6-85129a548705"
+version = "2.45.0+0"
+
 [[deps.isoband_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "51b5eeb3f98367157a7a12a1fb0aa5328946c03c"
 uuid = "9a68df92-36a6-505f-a73e-abb412b6bfb4"
 version = "0.2.3+0"
+
+[[deps.libaec_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "31e4c16405815484827f75a38fb7eb17432e72e3"
+uuid = "477f73a3-ac25-53e9-8cc3-50b2fa2566f0"
+version = "1.1.8+0"
 
 [[deps.libaom_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
