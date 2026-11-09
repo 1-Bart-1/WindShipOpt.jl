@@ -1784,8 +1784,8 @@ function sensitivity_figure()
 end
 
 "plans of the forecast figure's saving panel, as (plan of forecast_plans.csv, label)"
-forecast_figure_plans = (("false", "perfect foresight"), ("members", "several forecast members"),
-    ("true", "one forecast run"))
+forecast_figure_plans = (("false", "perfect foresight"),
+    ("members", "several forecast members"), ("true", "one forecast run"))
 
 """
     forecast_figure()

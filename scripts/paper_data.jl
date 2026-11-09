@@ -917,7 +917,8 @@ function forecast_hours_data()
             "fast_commanded,fast_held")
         for row in rows
             println(io, join((row.plan, row.departure, row.days, row.distance,
-                    row.commanded, row.held, row.up, (row.down[group] for group in groups)..., row.fuel_down, row.fuel_up,
+                    row.commanded, row.held, row.up,
+                    (row.down[group] for group in groups)..., row.fuel_down, row.fuel_up,
                     row.saved, row.wanted_not_flown, row.fast_real, row.fast_known,
                     row.fast_commanded, row.fast_held), ","))
         end

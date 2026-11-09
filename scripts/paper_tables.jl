@@ -938,8 +938,8 @@ standard error, per plan: forecast_hours_table.tex.
 """
 function forecast_hours_table()
     table = read_table(data_file("forecast_hours.csv"))
-    plans = (("false", "Perfect foresight"), ("true", "One run"), ("members", "Members"),
-        ("kite_margin", "Margin"))
+    plans = (("false", "Perfect foresight"), ("true", "One run"),
+        ("members", "Several members"), ("kite_margin", "Tighter limits"))
     rows = (("Passage [d]", "days"), ("Distance [nmi]", "distance"),
         ("Hours at the commanded speed", "commanded"), ("Hours holding", "held"),
         ("Hours aloft", "up"), ("Too little wind", "too_little_wind"),
@@ -951,7 +951,7 @@ function forecast_hours_table()
         ("Fuel saved aloft [GJ]", "saved"))
     open(joinpath(sections, "forecast_hours_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}l", "c"^length(plans), "@{}}\n\\toprule")
-        println(io, "Hours per round trip & ", join(last.(plans), " & "),
+        println(io, "Per round trip & ", join(last.(plans), " & "),
             " \\\\\n\\midrule")
         for (label, column) in rows
             cells = [hours_cell(table, plan, column) for (plan, _) in plans]
