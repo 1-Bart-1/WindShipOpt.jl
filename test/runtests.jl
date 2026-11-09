@@ -2675,16 +2675,14 @@ end
 end
 
 @testset "the kite's margin shares count only samples aloft against its limits" begin
-    sample(aloft, apparent_wind, wave_height) = (; hours=0.0, lat=0.0, lon=0.0, aloft,
-        planned=aloft, wind_speed=apparent_wind, apparent_wind, wave_height)
-    samples = [sample(true, 8.0, 4.8), sample(true, 11.0, 3.5), sample(true, 20.0, 1.0),
-        sample(false, 8.0, 4.8)]
-    shares = PaperData.kite_margin_shares(samples, 7.0, 5.0)
+    sample(aloft, apparent_wind) = (; hours=0.0, lat=0.0, lon=0.0, aloft, planned=aloft,
+        wind_speed=apparent_wind, apparent_wind, wave_height=0.0)
+    samples = [sample(true, 8.0), sample(true, 11.0), sample(true, 20.0),
+        sample(false, 8.0)]
+    shares = PaperData.kite_margin_shares(samples, 7.0)
     @test (shares.samples, shares.aloft) == (4, 3)
     @test shares.wind_within_1p25 ≈ 1 / 3
     @test shares.wind_within_4 ≈ 2 / 3
-    @test shares.waves_within_0p5 ≈ 1 / 3
-    @test shares.waves_within_1 ≈ 1 / 3
 end
 
 "path and force text `PaperData.write_pattern` writes for the base kite in `wind` at `course`"
