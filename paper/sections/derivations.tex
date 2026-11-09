@@ -171,31 +171,30 @@ The \SI{3200}{m^2} kite in \SI{12}{m/s} of apparent wind, \SI{90}{\degree} off d
 \subsection{Convergence of the routing search}
 \label{app:routing_convergence}
 
-The cases are the 12 departures of the results for the \SI{140}{m} e-ammonia ship and the Kamsarmax on VLSFO, each bare and with each rig, on the routes to Guadeloupe, New York and Tubarão.
+The cases are the 12 departures of the results for the \SI{140}{m} e-methanol ship and the Kamsarmax on VLSFO, each bare and with each rig, on the routes to Guadeloupe, New York and Tubarão.
 
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Largest change of the cost saving, in points, against the finer or fuller search, with the other settings at the base.}
+\caption{Largest change of the cost saving, in points, against the base settings, for the kite, the wing sails and the rotors, with the other settings at the base. The last two rows, one figure each over all rigs, were measured on a finer search.}
 \label{tab:routing_convergence}
 \begin{tabular}{@{}p{10.5cm}r@{}}
 \toprule
 Setting changed & Change \\
 \midrule
-Margin 3\,\%, then 8\,\%, time bin \SI{3}{h}, weather every \SI{6}{h} & 0.37, 0.04 \\
-Margin 10\,\%, final settings, rotors & 0.07 \\
-Margin 12\,\% and 20\,\%, kite, coarser corridor & 0.11, 0.021 \\
-Weather every \SI{3}{h} rather than \SI{6}{h} & 0.43 \\
-Time bins of \SI{1.5}{h} rather than \SI{3}{h}, then \SI{0.75}{h} & 0.63, 0.13 \\
-Every second speed against all 49, rotors and wings & 0.06 \\
-Every second speed, kite, coarser corridor & 0.31 \\
+Margins 12\,\%, 20\,\% (kite 25\,\%, 50\,\%), bins of \SI{1.5}{h}, every second speed, 3 nodes & 0.73, 0.11, 1.18 \\
+Time bins of \SI{1.5}{h} rather than \SI{3}{h} & 0.66, 0.14, 1.02 \\
+Every second speed rather than every fourth & 0.32, 0.08, 0.19 \\
+Edges of up to 3 lateral nodes rather than 2 & 0.63, 0.09, 0.58 \\
+Margins 6\,\%, then 12\,\%, for ships without a kite & 0.04, 0.03, 0.16 \\
+Weather every \SI{6}{h} rather than \SI{3}{h} & 2.22, 0.33, 0.90 \\
 Table of 97 speeds, every fourth, against all 49 & 0.11 \\
 Final pass in bins of \SI{0.125}{h}, or within \SI{48}{h} of the path & 0.22, 0.19 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The final pass stays within \SI{24}{h} of the path's arrival time at each stage. On 22 passages of the \SI{85}{m} ship each, in synthetic weather, every fourth speed missed the cost of all 49 by up to 2.7\,\% with the kite, and every second speed came within 0.03\,\%. A table of 25 speeds, or 9 commanded, understates the kite's saving by 0.26 and 0.34 points on average and by up to 1.3 points. Whole knots from \SI{4}{kn} understate the kite's cost saving by 0.39 points on average, the rotors' by 0.15 and the wings' by 0.06.
+The final pass stays within \SI{24}{h} of the path's arrival time at each stage. On 22 passages of the \SI{85}{m} ship each, in synthetic weather, every fourth speed missed the cost of all 49 by up to 2.7\,\% with the kite, and every second speed came within 0.03\,\%; on the ERA5 cases above the search at every fourth speed moves a cost saving by at most 0.32 points against every second. A table of 25 speeds, or 9 commanded, understates the kite's saving by 0.26 and 0.34 points on average and by up to 1.3 points. Whole knots from \SI{4}{kn} understate the kite's cost saving by 0.39 points on average, the rotors' by 0.15 and the wings' by 0.06.
 
 \subsection{Tables, weather fields and routes}
 \label{app:perf_grid}

@@ -101,14 +101,7 @@ function fuel_power(powertrain::Powertrain, delivered)
     unit_power = powertrain.installed_power / powertrain.unit_count
     fewest = ceil(Int, output / unit_power)
     fewest <= powertrain.unit_count || return Inf
-    most = max(fewest, floor(Int, min(powertrain.unit_count,
-        output / (powertrain.min_load * unit_power))))
-    least = Inf
-    for running in fewest:most
-        least = min(least,
-            output / unit_efficiency(powertrain, output / (running * unit_power)))
-    end
-    return least
+    return output / unit_efficiency(powertrain, output / (fewest * unit_power))
 end
 
 unit_efficiency(powertrain::Powertrain, load) =

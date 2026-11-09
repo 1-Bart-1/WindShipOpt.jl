@@ -15,6 +15,10 @@ const PAPER_HULL = Hull(; length=205.0, beam=32.0, draft=10.0, displacement_volu
 
 assumptions = Assumptions()
 
+# The study's search is too coarse for the small route differences tested here.
+WindShipOpt.ROUTER_SETTINGS[] = WindShipOpt.RouterSettings(time_step=1.5,
+    search_speed_stride=2, search_margins=(0.12, 0.2), kite_search_margins=(0.25, 0.5))
+
 @testset "Holtrop components match the published example at 25 kn" begin
     speed = 25KNOT
     coefficients = WaveCoefficients(PAPER_HULL)
@@ -297,8 +301,8 @@ function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0, day
     condition = WindShipOpt.SeaCondition(table.table, 12.0, π / 2, wave_height, 8.0,
         π / 2)
     sample = WindShipOpt.EdgeSample(condition, headwind, 0.0, daylight)
-    held, flown, stowed = WindShipOpt.held_speed(table, speed_index, sample)
-    return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours)
+    held, flown, stowed, same_through = WindShipOpt.held_speed(table, speed_index, sample)
+    return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours, same_through)
 end
 
 """
@@ -1706,7 +1710,7 @@ end
 
 @testset "router settings return to those in force after a call under others" begin
     earlier = WindShipOpt.ROUTER_SETTINGS[]
-    other = WindShipOpt.RouterSettings(time_step=3.0)
+    other = WindShipOpt.RouterSettings(time_step=1.5)
     in_force = WindShipOpt.with_router_settings(() -> WindShipOpt.ROUTER_SETTINGS[], other)
     @test in_force == other
     @test WindShipOpt.ROUTER_SETTINGS[] == earlier
@@ -1723,6 +1727,41 @@ end
         assumptions))
     @test WindShipOpt.margins_searched(kite_table, settings) == (0.3, 0.4)
     @test WindShipOpt.margins_searched(bare_table, settings) == (0.1, 0.2)
+end
+
+@testset "a kite aloft leaving a node with the kite down at the same time shares its \
+          edges" begin
+    workspace = WindShipOpt.RouteWorkspace(3, 4, 2)
+    down, aloft = (2, 3, 1, 1), (2, 3, 2, 1)
+    later_down, later_aloft = (2, 4, 1, 1), (2, 4, 2, 1)
+    for (state, cost, time) in ((down, 10.0, 4.0), (aloft, 12.0, 4.0),
+        (later_down, 10.0, 5.0), (later_aloft, 12.0, 5.5))
+        workspace.cost[state...], workspace.elapsed[state...] = cost, time
+    end
+    share(state) = WindShipOpt.sharing_edges!(workspace, state, nothing, Inf, 5)
+    from = share(down)
+    @test from >= 0
+    @test length(workspace.shared) == from + 5 * (2WindShipOpt.MAX_LATERAL_STEP + 1)
+    @test share(aloft) == from
+    @test share(later_down) == share(later_aloft) == -1
+end
+
+@testset "a faster command holds the same speed only through speeds no engine \
+          powers" begin
+    table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
+        assumptions))
+    condition = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 3.0, 6.0, 2π / 3)
+    sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0, true)
+    powered(i) = isfinite(last(WindShipOpt.edge_fuels(table, i, condition)))
+    unpowered = findfirst(!powered, eachindex(table.speeds))
+    faster_powered = findnext(powered, eachindex(table.speeds), unpowered)
+    held, flown, stowed, same_through = WindShipOpt.held_speed(table, unpowered, sample)
+    @test same_through == faster_powered - 1
+    for speed_index in unpowered:same_through
+        @test WindShipOpt.held_speed(table, speed_index, sample)[1:3] ==
+              (held, flown, stowed)
+    end
+    @test first(WindShipOpt.held_speed(table, faster_powered, sample)) == faster_powered
 end
 
 module PaperRuns
