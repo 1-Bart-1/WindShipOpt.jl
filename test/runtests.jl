@@ -2579,6 +2579,17 @@ end
     @test WindShipOpt.events_to_cost(target, cost, work, crash) == 0
 end
 
+@testset "a kite built for its cost is priced like the one that flies" begin
+    area, flying = last(kite_rigs_by_area())
+    hull = Hull(140.0, assumptions)
+    priced = KiteRig(area, 3.0, hull, assumptions;
+        forces=Array{WindShipOpt.PatternForce, 3}(undef, 0, 0, 0))
+    @test WindShipOpt.consumable_costs(priced, assumptions) ==
+          WindShipOpt.consumable_costs(flying, assumptions)
+    @test WindShipOpt.crash_cost(priced, assumptions) ==
+          WindShipOpt.crash_cost(flying, assumptions)
+end
+
 @testset "a lead over another rig is used up exactly at its life and loss limits" begin
     lead, goal_life, canopy_points, crash_points = 2.0, 4000.0, 8000.0, 1.6
     limits = WindShipOpt.lead_limits(lead, goal_life, canopy_points, crash_points)

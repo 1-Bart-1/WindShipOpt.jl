@@ -1474,6 +1474,17 @@ function rig_lead(table, classes, drive)
 end
 
 """
+    priced_kite(area, class)
+
+Kite of `area` [m^2] for a ship of `class` built for what it costs, with no pattern table.
+"""
+function priced_kite(area, class)
+    no_patterns = Array{WindShipOpt.PatternForce, 3}(undef, 0, 0, 0)
+    return KiteRig(area, design_aspect_ratio, Hull(class, assumptions), assumptions;
+        forces=no_patterns)
+end
+
+"""
     kite_goal_points(table, class, route, drive)
 
 Points of cost saving, with the cheapest kite and its flying held, that its canopy costs per
@@ -1484,9 +1495,7 @@ function kite_goal_points(table, class, route, drive)
         "rig" => "none")
     row = cheapest_row(table, class, route, drive, "kite")
     (isempty(bare) || isnothing(row)) && return nothing
-    design = ShipDesign(Symbol(drive), ship_classes()[class];
-        rig_size("kite", table["area"][row])...)
-    rig = Ship(design, assumptions).rig
+    rig = priced_kite(table["area"][row], ship_classes()[class])
     work, trips = yearly_trips(table, row, route)
     points_per_usd = 100 / (work * only(table["cost"][bare]))
     hours = table["flight_share"][row] * 24table["days"][row] * trips
