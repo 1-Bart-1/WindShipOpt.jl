@@ -843,19 +843,10 @@ end
 """
     forecast_data()
 
-A 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, routed with
-perfect foresight and re-planned daily on the archived forecasts: forecast.csv; and the
-error of those forecasts along its route: forecast_error.csv.
+The error of the archived forecasts along the route of the 140 m ship to Guadeloupe:
+forecast_error.csv.
 """
-function forecast_data()
-    cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); forecast,
-                     rig, knowledge=forecast ? "forecast" : "perfect")
-                 for (rig, area) in [("none", 0.0); reference_rigs],
-                     forecast in (false, true)])
-    write_trips("forecast.csv", cases, round_trips(cases, sampled_departures()), :rig,
-        :knowledge)
-    write_forecast_error("forecast_error.csv", run_corridors(:caribbean)...)
-end
+forecast_data() = write_forecast_error("forecast_error.csv", run_corridors(:caribbean)...)
 
 "plans of the forecast study, each as the `forecast` of its [`trip_case`](@ref)"
 forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite, :kite_margin)
@@ -921,11 +912,12 @@ function forecast_hours_data()
                    for departure in ensemble_departures, plan in forecast_hours_plans])
     groups = keys(kite_down_groups)
     open(run_file("forecast_hours.csv"), "w") do io
-        println(io, "plan,departure,days,up,", join(groups, ","), ",fuel_down,fuel_up,",
-            "saved,wanted_not_flown,fast_real,fast_known,fast_commanded,fast_held")
+        println(io, "plan,departure,days,distance,commanded,held,up,", join(groups, ","),
+            ",fuel_down,fuel_up,saved,wanted_not_flown,fast_real,fast_known,",
+            "fast_commanded,fast_held")
         for row in rows
-            println(io, join((row.plan, row.departure, row.days, row.up,
-                    (row.down[group] for group in groups)..., row.fuel_down, row.fuel_up,
+            println(io, join((row.plan, row.departure, row.days, row.distance,
+                    row.commanded, row.held, row.up, (row.down[group] for group in groups)..., row.fuel_down, row.fuel_up,
                     row.saved, row.wanted_not_flown, row.fast_real, row.fast_known,
                     row.fast_commanded, row.fast_held), ","))
         end
@@ -949,23 +941,27 @@ function sailed_hours(table, hourly, prices, plan, departure)
         WindShipOpt.record_plan!(record, leg, corridor, table, weather, start, leg_prices)
         return leg
     end
-    return hours_row(record.samples, plan, departure)
+    return hours_row(record, plan, departure)
 end
 
-"[`forecast_hours_data`](@ref) row of the [`KiteRecord`](@ref) `samples`"
-function hours_row(samples, plan, departure)
+"[`forecast_hours_data`](@ref) row of the [`KiteRecord`](@ref) `record`"
+function hours_row(record, plan, departure)
+    samples = record.samples
     hours(condition) = sum(sample -> sample.sample_hours,
         Iterators.filter(condition, samples); init=0.0)
-    fuel(condition) = 3.6e-6 * sum(
+    fuel(condition) = 3.6 * sum(
         sample -> kite_power(sample) * sample.sample_hours,
         Iterators.filter(condition, samples); init=0.0)
     fast(speed_of) = hours(sample -> speed_of(sample) >= fast_speed - 1e-6)
     down = NamedTuple{keys(kite_down_groups)}(
         hours(sample -> sample.reason in group) for group in values(kite_down_groups))
-    return (; plan, departure, days=hours(sample -> true) / 24,
-        up=hours(sample -> sample.aloft), down,
+    held = WindShipOpt.FORECAST_INTERVAL * length(record.holds)
+    return (; plan, departure, days=(hours(sample -> true) + held) / 24,
+        distance=sum(sample -> sample.distance, samples) / 1852,
+        commanded=sum(sample -> sample.distance / sample.planned_speed, samples) / 3600,
+        held, up=hours(sample -> sample.aloft), down,
         fuel_down=fuel(sample -> !sample.aloft), fuel_up=fuel(sample -> sample.aloft),
-        saved=3.6e-6 * sum(sample -> kite_saving(sample) * sample.sample_hours,
+        saved=3.6 * sum(sample -> kite_saving(sample) * sample.sample_hours,
             Iterators.filter(sample -> sample.aloft, samples); init=0.0),
         wanted_not_flown=hours(sample -> sample.wanted && !sample.aloft),
         fast_real=fast(sample -> sample.fastest_speed),

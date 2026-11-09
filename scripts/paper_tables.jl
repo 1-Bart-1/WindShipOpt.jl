@@ -940,12 +940,15 @@ function forecast_hours_table()
     table = read_table(data_file("forecast_hours.csv"))
     plans = (("false", "Perfect foresight"), ("true", "One run"), ("members", "Members"),
         ("kite_margin", "Margin"))
-    rows = (("Kite aloft", "up"), ("Too little wind", "too_little_wind"),
+    rows = (("Passage [d]", "days"), ("Distance [nmi]", "distance"),
+        ("Hours at the commanded speed", "commanded"), ("Hours holding", "held"),
+        ("Hours aloft", "up"), ("Too little wind", "too_little_wind"),
         ("Too much wind", "too_much_wind"), ("Sea", "sea"), ("No saving", "no_saving"),
-        ("Stayed down by choice", "chosen"), ("Passage [d]", "days"),
-        ("Wanted up, not flown", "wanted_not_flown"),
+        ("Stayed down by choice", "chosen"), ("Wanted up, not flown", "wanted_not_flown"),
         ("Fast sailing possible", "fast_real"),
-        ("Fast sailing commanded", "fast_commanded"), ("Fast sailing held", "fast_held"))
+        ("Fast sailing commanded", "fast_commanded"), ("Fast sailing held", "fast_held"),
+        ("Fuel, kite down [GJ]", "fuel_down"), ("Fuel, kite aloft [GJ]", "fuel_up"),
+        ("Fuel saved aloft [GJ]", "saved"))
     open(joinpath(sections, "forecast_hours_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}l", "c"^length(plans), "@{}}\n\\toprule")
         println(io, "Hours per round trip & ", join(last.(plans), " & "),

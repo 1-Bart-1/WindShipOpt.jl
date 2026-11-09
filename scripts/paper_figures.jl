@@ -1783,28 +1783,28 @@ function sensitivity_figure()
     save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
 end
 
+"plans of the forecast figure's saving panel, as (plan of forecast_plans.csv, label)"
+forecast_figure_plans = (("false", "perfect foresight"), ("members", "several forecast members"),
+    ("true", "one forecast run"))
+
 """
     forecast_figure()
 
-(a) Cost saving of each rig on a 140 m e-ammonia ship routed with perfect foresight and
-re-planned daily on archived forecasts, a case with no feasible round trip, its ship's or
-the bare ship's, marked "none" in place of its bar; (b, c) root mean square error of
-those forecasts' wind and wave height along the route against lead time, beside that of
-the same date in another year.
+(a) Mean cost saving over the departures of each rig on a 140 m e-ammonia ship per plan of
+[`forecast_figure_plans`](@ref), a plan with no feasible round trip marked "none" in place
+of its bar; (b, c) root mean square error of the archived forecasts' wind and wave height
+along the route against lead time, beside that of the same date in another year.
 """
 function forecast_figure()
-    table = read_table(data_file("forecast.csv"))
+    table = read_table(data_file("forecast_plans.csv"))
     figure = Figure(size=(page_width, 200))
     axis = Axis(figure[1, 1]; xticks=(1:3, ["kite", "wings", "rotors"]),
         ylabel="cost saving [%]", title="(a) saving")
-    for (j, knowledge) in enumerate(("perfect", "forecast"))
-        bare = forecast_cost(table, "none", knowledge)
-        savings = [100 * (1 - forecast_cost(table, rig, knowledge) / bare)
-                   for rig in rig_names]
-        positions = (1:3) .+ (j - 1.5) * 0.36
+    for (j, (plan, _)) in enumerate(forecast_figure_plans)
+        savings = [forecast_saving(table, rig, plan) for rig in rig_names]
+        positions = (1:3) .+ (j - 2) * 0.27
         routed = isfinite.(savings)
-        barplot!(axis, positions[routed], savings[routed]; width=0.34,
-            color=palette[j])
+        barplot!(axis, positions[routed], savings[routed]; width=0.25, color=palette[j])
         unrouted = count(.!routed)
         text!(axis, positions[.!routed], zeros(unrouted); text=fill("none", unrouted),
             rotation=pi / 2, align=(:left, :center), fontsize=pt(8), color=palette[j])
@@ -1815,28 +1815,28 @@ function forecast_figure()
             ylabel="rms error [$unit]",
             title=column == 1 ? "(b) wind at 10 m" : "(c) wave height")
         lines!(panel, errors["lead_days"], errors["$(quantity)_forecast"];
-            color=palette[2])
+            color=:black)
         lines!(panel, errors["lead_days"], errors["$(quantity)_other_year"];
             color=:gray50, linestyle=:dash)
         ylims!(panel, 0, nothing)
     end
-    Legend(figure[2, 1:3], [PolyElement(color=palette[1]), PolyElement(color=palette[2]),
-            LineElement(color=:gray50, linestyle=:dash)],
-        ["perfect foresight", "archived forecast", "same date in another year"];
-        orientation=:horizontal)
+    Legend(figure[2, 1:3], [[PolyElement(color=palette[j]) for j in 1:3];
+            LineElement(color=:black); LineElement(color=:gray50, linestyle=:dash)],
+        [last.(forecast_figure_plans)...; "archived forecast"; "same date in another year"];
+        orientation=:horizontal, nbanks=2)
     rowgap!(figure.layout, 1, 4)
     save(joinpath(figures, "forecast.pdf"), figure; pt_per_unit=print_scale)
 end
 
 """
-    forecast_cost(table, rig, knowledge)
+    forecast_saving(table, rig, plan)
 
-Cost per tonne-km of `rig` routed on `knowledge` ("perfect" or "forecast") in the
-forecast table, `NaN` where the case has no feasible round trip.
+Mean over the departures of the cost saving [%] of `rig` on `plan`, against the ship
+without a rig on the same plan, `NaN` where a departure has no feasible round trip.
 """
-function forecast_cost(table, rig, knowledge)
-    costs = table["cost"][rows(table, "rig" => rig, "knowledge" => knowledge)]
-    return isempty(costs) ? NaN : only(costs)
+function forecast_saving(table, rig, plan)
+    cost(name) = table["cost"][rows(table, "rig" => name, "plan" => plan)]
+    return 100 * (1 - mean(cost(rig) ./ cost("none")))
 end
 
 "rigs of the combination figure with their legend labels and colours"

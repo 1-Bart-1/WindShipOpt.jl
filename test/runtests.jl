@@ -1547,8 +1547,12 @@ end
     launchable(table) = WindShipOpt.kite_launchable(table.table, 0.0, wind, 0.0, 1.0, true)
     @test launchable(kite_table) && !launchable(careful)
     margin_record = WindShipOpt.KiteRecord()
-    forecast_route(corridor, kite_table, weather, departure; time_cost=kite_hourly,
-        horizon=24.0, forecast=KiteMargin(nothing, 0.2), record=margin_record)
+    passage = forecast_route(corridor, kite_table, weather, departure;
+        time_cost=kite_hourly, horizon=24.0, forecast=KiteMargin(nothing, 0.2),
+        record=margin_record)
+    sailed_hours = sum(sample.sample_hours for sample in margin_record.samples)
+    @test sailed_hours + WindShipOpt.FORECAST_INTERVAL * length(margin_record.holds) ≈
+          passage.duration rtol = 1e-6
     @test all((sample.reason == :up) == sample.aloft for sample in margin_record.samples)
 end
 
