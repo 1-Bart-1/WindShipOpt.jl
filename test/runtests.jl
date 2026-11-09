@@ -1525,6 +1525,24 @@ end
                       edge.ends_aloft != edge.held_ends_aloft, edges)
 end
 
+@testset "a kite down in light wind and one down with the wind ahead get different reasons" begin
+    (; kite_table) = kite_routing
+    rig = kite_table.table.ship.rig
+    prices = (; fuel=kite_table.table.ship.fuel.price)
+    speed = first(kite_table.speeds)
+    calm_sea = (; wave_height=0.0)
+    down(wind, flown) = WindShipOpt.kite_down_reason(kite_table,
+        (; speed_index=1, headwind=wind - speed, crosswind=0.0, condition=calm_sea, flown,
+            stowed=2.0e6, daylight=true), prices)
+    light = (rig.min_flight_wind + WindShipOpt.lowest_pull_wind(rig)) / 2
+    @test rig.min_flight_wind < light < WindShipOpt.lowest_pull_wind(rig)
+    no_force = 2.0e6
+    @test down(light, no_force) == :wind_low_pull
+    @test down(rig.min_flight_wind - 0.1, no_force) == :wind_low_flight
+    @test down(WindShipOpt.lowest_pull_wind(rig) + 1.0, no_force) == :no_thrust
+    @test down(WindShipOpt.lowest_pull_wind(rig) + 1.0, Inf) == :hull_limit
+end
+
 @testset "a sailed passage says why the kite is down and a plan keeps a margin" begin
     (; corridor, kite_table, kite_hourly, weather, departure) = kite_routing
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)

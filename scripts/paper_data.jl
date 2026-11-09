@@ -892,10 +892,10 @@ forecast_hours_plans = (false, true, :members, :kite_margin)
 fast_speed = 12 * 0.5144
 
 "reasons a kite is down, as [`WindShipOpt.kite_down_reason`](@ref) gives them, per row"
-kite_down_groups = (too_little_wind=(:wind_low_flight, :wind_low_launch, :no_thrust),
-    too_much_wind=(:wind_high_flight, :wind_high_launch),
-    sea=(:sea_flight, :sea_launch), night=(:night,), no_saving=(:no_saving,),
-    chosen=(:chosen,))
+kite_down_groups = (too_little_wind=(:wind_low_flight, :wind_low_launch, :wind_low_pull),
+    no_forward_pull=(:no_thrust,), too_much_wind=(:wind_high_flight, :wind_high_launch),
+    hull_limit=(:hull_limit,), sea=(:sea_flight, :sea_launch), night=(:night,),
+    no_saving=(:no_saving,), chosen=(:chosen,))
 
 """
     forecast_hours_data()
