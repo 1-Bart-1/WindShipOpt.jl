@@ -3,10 +3,17 @@
 \section{Further results}
 \label{sec:further}
 
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{route_comparison}
+\caption{Cost saving of the better of two sizes of each rig against the same ship without a rig, per route, for ships of \SIlist{85;140;200}{m} with a VLSFO (top) and an e-ammonia (bottom) drive: kites of \SIlist{800;3200}{m^2}, wing sails of \SIlist{800;1500}{m^2} and rotors of \SIlist{400;800}{m^2}, of which only \SI{400}{m^2} fits on the \SI{85}{m} ship. On the \SI{200}{m} ship the rotors are smaller than their best size of \cref{fig:rig_comparison}.}
+\label{fig:route_comparison}
+\end{figure*}
+
 \subsection{Aspect ratio of the kite}
 \label{sec:res_aspect}
 
-The kite of every result above keeps the base aspect ratio of 3, its span squared over its area (\cref{sec:kite}). \Cref{fig:aspect} asks one what-if on three ships: the same kite area at a higher aspect ratio, with the launch gear, the tether, the canopy and everything else priced as at the base value. It shows what a better aspect ratio is worth if such a kite can be handled at the same cost, not that the kite should fly at that value. On that assumption the cost saving of the base kite on the \SI{140}{m} ship goes from \tbd{13.0}\,\% at aspect ratio 3 to \tbd{20.1}\,\% at 5 and \tbd{21.1}\,\% at 8. The canopy mass per area and the force limit, the largest tether force allowed, stay as they are, and the polars are those of a design shape that does not deform. \tbd{Draft numbers, at the canopy price goal, with the kite held at \SIlist{3200;2828;6889}{m^2} on the three ships. The final run replaces them.}
+Every result above uses the base aspect ratio of 3, span squared over area (\cref{sec:kite}). \Cref{fig:aspect} shows what a higher one would be worth if such a kite could be handled at the same cost: the same area, with the launch gear, the tether, the canopy and everything else priced as at the base value, the same canopy mass per area and force limit, the largest tether force allowed, and the polars of a design shape that does not deform. It does not say the kite should fly at that value. On that assumption the cost saving of the base kite on the \SI{140}{m} ship goes from \tbd{13.0}\,\% at aspect ratio 3 to \tbd{20.1}\,\% at 5 and \tbd{21.1}\,\% at 8. \tbd{Draft numbers, at the canopy price goal, with the kite held at \SIlist{3200;2828;6889}{m^2} on the three ships. The final run replaces them.}
 
 \begin{figure}[tbp]
 \centering
@@ -18,11 +25,11 @@ The kite of every result above keeps the base aspect ratio of 3, its span square
 \subsection{Force limit of the kite}
 \label{sec:res_force}
 
-Every kite of the main results is built for \SI{0.5}{kN/m^2}. A kite built for more force has a thicker tether and bridle, a dearer winch and heavier, dearer cloth (\cref{sec:kite}), and it depowers in stronger winds only. \Cref{fig:force_rating} routes the three ships of \cref{fig:aspect} with kites built for \SIrange{0.3}{1}{kN/m^2}, each at its best of five kite areas a factor $\sqrt2$ apart. A lower limit saves more of the cost on all three ships, and the best area grows as the limit falls. A kite built for more force is heavier, so it needs more wind to fly and is up for less of the passage. The share of time aloft falls from about 0.57 to 0.39 on the Neo-Panamax container ship between 0.3 and \SI{1}{kN/m^2}.
+Every kite of the main results is built for \SI{0.5}{kN/m^2}. A kite built for more force has a thicker tether and bridle, a dearer winch and heavier, dearer cloth (\cref{sec:kite}), and it depowers in stronger winds only. \Cref{fig:force_rating} routes the three ships of \cref{fig:aspect} with kites built for \SIrange{0.3}{1}{kN/m^2}, each at its best of five areas a factor $\sqrt2$ apart. A lower limit saves more of the cost on all three ships, and the best area grows as the limit falls. A heavier kite needs more wind to fly and is up for less of the passage.
 
-Doubling the limit to \SI{1}{kN/m^2} takes 5.4, 2.3 and 3.2 points of cost saving on the \SI{140}{m} ship, the Kamsarmax and the Neo-Panamax, far beyond the scatter of the pattern search, about 0.5 points on a difference between two cost savings. Lowering it to \SI{0.3}{kN/m^2} gains 0.8, 1.0 and 0.9 points, about twice that scatter and of the same sign on every ship. On the Kamsarmax and the Neo-Panamax the best kite at that limit is the largest searched, so the gain there is a lower bound. Most of the loss at a higher limit comes from the tether, bridle and winch, which keep the kite down in light wind. The cloth is the smaller part. On the same areas, cloth fixed at \SI{200}{g/m^2} whatever the limit, with the seams and reinforcements still growing with it, changes the cost saving at \SI{1}{kN/m^2} by \tbd{+2.1}, \tbd{+0.1} and \tbd{-0.2} points. Cloth in proportion to the limit, a constant share of its strength, costs \tbd{3.0}, \tbd{1.3} and \tbd{1.5} points more than the decay law, the loss of cloth strength to sunlight and wear that sets the canopy's life (\cref{eq:uv_life}). The \SI{140}{m} ship gains most from lighter cloth because its kite is held down by its mass. \tbd{These savings were found with a control unit of fixed mass. At \SI{0.22}{kg} per kN of force limit it weighs \SI{88}{kg} on a kite of \SI{800}{m^2} built for \SI{0.5}{kN/m^2} and \SI{176}{kg} built for \SI{1}{kN/m^2}, so the final run will charge a higher limit somewhat more.} The bounds of \SIrange{0.4}{1}{kN/m^2} on the force limit in \cref{tab:inputs} carry the same cloth, seams and reinforcements.
+Doubling the limit to \SI{1}{kN/m^2} takes 5.4, 2.3 and 3.2 points of cost saving on the \SI{140}{m} ship, the Kamsarmax and the Neo-Panamax, far beyond the scatter of the pattern search, about 0.5 points on a difference between two cost savings. Lowering it to \SI{0.3}{kN/m^2} gains 0.8, 1.0 and 0.9 points, about twice that scatter and of the same sign on every ship, and a lower bound on the Kamsarmax and the Neo-Panamax, whose best kite at that limit is the largest searched. Most of the loss at a higher limit comes from the tether, bridle and winch, which keep the kite down in light wind. On the same areas, cloth fixed at \SI{200}{g/m^2} whatever the limit, with the seams and reinforcements still growing with it, changes the cost saving at \SI{1}{kN/m^2} by \tbd{+2.1}, \tbd{+0.1} and \tbd{-0.2} points, most on the \SI{140}{m} ship, whose kite is held down by its mass. Cloth in proportion to the limit costs \tbd{3.0}, \tbd{1.3} and \tbd{1.5} points more than the decay law, the loss of cloth strength to sunlight and wear that sets the canopy's life (\cref{eq:uv_life}). \tbd{These savings were found with a control unit of fixed mass. At \SI{0.22}{kg} per kN of force limit it weighs \SI{88}{kg} on a kite of \SI{800}{m^2} built for \SI{0.5}{kN/m^2} and \SI{176}{kg} built for \SI{1}{kN/m^2}, so the final run will charge a higher limit somewhat more.} The bounds of \SIrange{0.4}{1}{kN/m^2} on the force limit in \cref{tab:inputs} carry the same cloth, seams and reinforcements.
 
-We keep \SI{0.5}{kN/m^2} for every other result. The canopy goals of life and cloth weight are stated at that limit, and the gain from a lower one is within twice the scatter. The kite's cost savings in \cref{sec:results} may therefore be about a point short of what a kite built for a lower force would reach. \tbd{Draft numbers. The final run replaces them.}
+We keep \SI{0.5}{kN/m^2} for every other result, since the canopy goals of life and cloth weight are stated at that limit and the gain from a lower one is within twice the scatter. The kite's cost savings in \cref{sec:results} may therefore be about a point short of what a kite built for a lower force would reach. \tbd{Draft numbers. The final run replaces them.}
 
 \begin{figure}[tbp]
 \centering
@@ -34,7 +41,7 @@ We keep \SI{0.5}{kN/m^2} for every other result. The canopy goals of life and cl
 \subsection{Kite and rotors together}
 \label{sec:res_combination}
 
-Kite and rotors pull best at different wind angles (\cref{fig:rig_polar}), and a kite needs only a launch mast at the forward end of the deck, so it can be added to a row of rotors. \Cref{fig:combination} compares the best pair of kite and rotors with the best of each rig alone, from kites of \SIlist{400;800;1600;3200}{m^2} (the pair up to \SI{1600}{m^2}) and rotors filling a fifth, half and all of the deck left behind the launch mast. On e-ammonia the pair saves \tbd{2.1} points more of the cost than the better single rig on both the \SI{140}{m} ship and the Kamsarmax, up to \tbd{4.0} points on the best route. On VLSFO it saves \tbd{0.2} points more of the cost and \tbd{0.04} less. It keeps \tbd{about 60}\,\% of the sum of the two single-rig cost savings on e-ammonia and \tbd{about half} on VLSFO. \tbd{This draft ran before the sign of the kite's side force was corrected, which made a kite over rotors cancel side force that it adds. The final run replaces these numbers and the reading below.} The likely reason, which we did not separate from the data, is that the two rigs saturate. In a moderate wind either alone covers most of the propulsive power the ship needs at the speed the router picks. The kite adds least where the rotors leave most to gain, since it does not fly in light wind and gives little close-hauled. Where both pull, their side forces add up in the hull's balance, and the extra leeway and rudder drag take back part of the thrust. The kite's side force at the launch mast, ahead of the point along the hull at which the hull's own side force acts, offsets some of the rotors' yaw moment, their turning moment about the vertical axis, close-hauled. Each rig keeps its full capital and annual cost, so the pair pays twice for gains that overlap.
+Kite and rotors pull best at different wind angles (\cref{fig:rig_polar}), and a kite needs only a launch mast at the forward end of the deck, so it can be added to a row of rotors. On e-ammonia the best pair (\cref{fig:combination}) saves \tbd{2.1} points more of the cost than the better single rig on both the \SI{140}{m} ship and the Kamsarmax, up to \tbd{4.0} points on the best route. On VLSFO it saves \tbd{0.2} points more of the cost and \tbd{0.04} less. It keeps \tbd{about 60}\,\% of the sum of the two single-rig cost savings on e-ammonia and \tbd{about half} on VLSFO. \tbd{This draft ran before the sign of the kite's side force was corrected, which made a kite over rotors cancel side force that it adds. The final run replaces these numbers and the reading below.} The likely reason, not separated in the data, is that the two rigs saturate: in a moderate wind either alone covers most of the propulsive power the ship needs at the speed the router picks. Each rig keeps its full capital and annual cost, so the pair pays twice for gains that overlap.
 
 \begin{figure*}[tbp]
 \centering
@@ -46,11 +53,58 @@ Kite and rotors pull best at different wind angles (\cref{fig:rig_polar}), and a
 \subsection{Fuel and cost savings of kites at a held speed}
 \label{sec:further_speed}
 
-\Cref{tab:speed_size} gives the values behind \cref{fig:speed_size} (\cref{sec:res_speed}): for each ship, fuel and held speed, the smallest kite, the kite that saves the most fuel and the priced kite that saves the most cost. We hold the \SI{140}{m} ship at 8 to \SI{11}{kn} on VLSFO and e-ammonia, with kites of 400 to \SI{6400}{m^2}, and the feeder container ship at 13, 16 and \SI{19}{kn} on VLSFO, with kites of 800 to \SI{12800}{m^2}, on the routes to Guadeloupe and New York. CE Delft, by comparison, fit one \SI{400}{m^2} kite to every ship \citep{cedelft2016}. On the \SI{140}{m} ship the kite that saves the most fuel grows from \SI{3200}{m^2} to \SI{6400}{m^2} between 8 and \SI{11}{kn}. At a held speed a kite cannot save more than the fuel spent on propulsion, which is least at the lowest speed, so the largest kite gains most with speed. Priced on e-ammonia the cheapest kite saves \tbd{5.5}\,\% of the cost at \SI{8}{kn} and \tbd{9.5}\,\% at \SI{11}{kn}. On VLSFO kites of \SI{3200}{m^2} and more cost more than they save at all of these speeds. On the feeder the fuel grows by \tbd{90}\,\% from 13 to \SI{19}{kn} and the energy its smallest kite saves falls by \tbd{25}\,\%. The \SI{6400}{m^2} kite saves the most fuel at every speed, \tbd{21.5}\,\% at \SI{13}{kn} and \tbd{19.2}\,\% at \SI{19}{kn}, a loss of \tbd{2.3} points. Free of running cost it is up \tbd{35 to 38}\,\% of the time at every speed and the \SI{12800}{m^2} kite \tbd{20 to 23}\,\%. The apparent wind moving ahead costs no time aloft in these ranges, while \citet{podeur2016} report less flight time at \SI{19}{kn}. Its cost is in the thrust per unit of kite force, which a larger kite makes up for as far as these limits allow.
+\Cref{tab:speed_size} gives the values behind \cref{fig:speed_size} (\cref{sec:res_speed}). The \SI{140}{m} ship is held at 8 to \SI{11}{kn} on VLSFO and e-ammonia and the feeder container ship at 13, 16 and \SI{19}{kn} on VLSFO, on the routes to Guadeloupe and New York. CE Delft, by comparison, fit one \SI{400}{m^2} kite to every ship \citep{cedelft2016}. On the \SI{140}{m} ship the kite that saves the most fuel grows from \SI{3200}{m^2} to \SI{6400}{m^2} between 8 and \SI{11}{kn}: at a held speed a kite cannot save more than the fuel spent on propulsion, which is least at the lowest speed. Priced on e-ammonia the cheapest kite saves \tbd{5.5}\,\% of the cost at \SI{8}{kn} and \tbd{9.5}\,\% at \SI{11}{kn}. On VLSFO kites of \SI{3200}{m^2} and more cost more than they save at these speeds. On the feeder the \SI{6400}{m^2} kite saves the most fuel at every speed, \tbd{21.5}\,\% at \SI{13}{kn} and \tbd{19.2}\,\% at \SI{19}{kn}. The apparent wind moving ahead costs no time aloft in these ranges, while \citet{podeur2016} report less flight time at \SI{19}{kn}; its cost is in the thrust per unit of kite force, which a larger kite makes up for as far as these limits allow.
 
 \begin{table*}[tbp]
 \centering
 \caption{Fuel and cost savings of kites at a held ship speed, on both routes: fuel of the ship without a rig per round trip, fuel saved by the smallest kite and by the kite that saves the most fuel, both free of running cost, the priced kite that saves the most cost, and the share of the time the largest kite is up. \tbd{Draft run.} Savings are shaded blue, losses red, the deeper the larger.}
 \label{tab:speed_size}
-\InputIfFileExists{sections/speed_size_table}{}{\tbd{Speed and size table pending: run the speed\_size\_table step.}}
+\adjustbox{max width=\textwidth}{\InputIfFileExists{sections/speed_size_table}{}{\tbd{Speed and size table pending: run the speed\_size\_table step.}}}
 \end{table*}
+
+\subsection{Speed and kite size against the published studies}
+\label{sec:further_published}
+
+\citet{cedelft2016} conclude that kites are best suited to lower ship speeds, and \citet{emsa2023} state the opposite (\cref{app:speed_literature}). \citet{podeur2016} find that going from 16 to \SI{19}{kn} cuts the round-trip fuel saving from 12.1 to 6.6\,\%. By our calculation from their tables, most of that drop is the larger fuel use of the ship at the higher speed, which rises by 42\,\%, while the absolute fuel saving falls by 22\,\%.
+
+\Cref{tab:published} sets these results beside our model at the same speeds on the nearest of our ships. Our kite saves less fuel than every single published figure, from half or less of the routed range of \citet{bentin2018} to under a tenth of the single crossing of \citet{leloup2013}. Several differences each raise the published figures, in shares we have not measured (\cref{app:speed_literature}): a higher glide ratio, no cost for the side force, and single crossings against our average over both directions and six departures. The ranges of CE Delft and \citet{traut2014} bracket ours but span ships and routes.
+
+A slower ship gives a larger share to a kite of one size, but so does a larger kite. \Cref{fig:speed_size} tests this at held speeds, with each kite flown once free of its running cost, as in the published studies, and once priced. At one size most of the fall in the share is the larger fuel use it is divided by: the \SI{400}{m^2} kite on the e-ammonia ship saves \tbd{11.7}\,\% of the fuel at \SI{8}{kn} and \tbd{9.8}\,\% at \SI{11}{kn}, while the ship's fuel grows by \tbd{38 to 43}\,\% and the energy the kite saves by \tbd{20}\,\%. Priced on e-ammonia, every size saves more of the cost at the higher speed. On VLSFO the cheapest kite saves at most \tbd{0.9}\,\% of the cost at any of these speeds. On the feeder from 13 to \SI{19}{kn} the \SI{12800}{m^2} kite does not buy the share back, held down by its weight, its tether's force limit and the larger wind it needs to fly, which we have not separated. The kite that saves the most cost is two to eight times smaller than the one that saves the most fuel.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{speed_size}
+\caption{Fuel and cost savings of kites at a held ship speed for each kite size, on both routes, against the same ship without a rig at the same speed: fuel saved by the kite free of its running cost, in percent (a, d, g) and in GJ per round trip (b, e, h), and cost per tonne-kilometre saved by the kite priced as in the rest of this paper (c, f, i), on the \SI{140}{m} ship on VLSFO (a--c) and e-ammonia (d--f) and on the feeder container ship on VLSFO (g--i). \tbd{Draft run.}}
+\label{fig:speed_size}
+\end{figure*}
+
+\begin{table}[tbp]
+\centering
+\caption{Published fuel savings of ship kites at fixed speed beside our model at the same speed on the nearest of our ships and on the route to New York: with the kite priced as in the rest of this paper, and free of running cost as in the published studies. Ships, routes, weather and kite models differ, so a row compares terms and not one experiment. \tbd{Draft run.}}
+\label{tab:published}
+\adjustbox{max width=\columnwidth}{\InputIfFileExists{sections/published_table}{}{\tbd{Published table pending: run the published\_table step.}}}
+\end{table}
+
+\subsection{Where the kite flies}
+\label{sec:further_flight}
+
+Upwind of \SI{30}{\degree} the kite could pull for only \tbd{13}\,\% of the time and is rarely up (\cref{tab:flight}). From \SIrange{60}{150}{\degree} it flies for most of the time it could pull, and the router keeps it down where the thrust would not pay for its wear. It stays up through lulls, since landing and launching cost more than waiting, and \tbd{17}\,\% of its hours aloft give no thrust. The lowest apparent wind angle at which it pulls is \tbd{14.9}\,\si{\degree}, against the limit of \cref{eq:upwind_limit}. Wing sails and rotors pull down to \SI{6.4}{\degree} and \SI{8.5}{\degree}, because their lift to drag is higher than the kite's whole-system value. On VLSFO the kite ship spends more of its time below \SI{10}{kn}, \tbd{25} against \tbd{16}\,\%, since it can idle in the headwinds and make up the time when the wind helps.
+
+\begin{table*}[tbp]
+\centering
+\caption{Where the kite works over the 36 cases, each with its cheapest size, by band of true wind angle: share of the time in the band, share of that time in which the kite could pull, is up and pulls, its mean thrust while up, lulls and upwind drag included, the share of the hours at each ship speed in which it could pull and in which it is up, the speed of the ship without a rig and of the kite ship in that band, and the lowest apparent wind angle (AWA) at which each rig pulls. \tbd{Draft run.}}
+\label{tab:flight}
+\adjustbox{max width=\textwidth}{\InputIfFileExists{sections/flight_table}{}{\tbd{Flight table pending: run the flight\_table step.}}}
+\end{table*}
+
+\subsection{One VTOL kite or several}
+\label{sec:further_vtol}
+
+Whether one wing or several comes out cheaper is decided only at sizes that do not pay (\cref{fig:rigid_size}). Up to \SI{100}{m^2} in total they tie, and at \SI{200}{m^2} several wings win by 2 to 10 points. The loss from several kites sharing one loop (\cref{eq:loop_share}) and the deck, station and tether that each kite brings hold several small wings back about as much as mass holds one large wing back.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{rigid_size}
+\caption{Cost saving of VTOL kites against the ship without a rig over their total area, on the \SI{140}{m} ship (left) and the Kamsarmax bulk carrier (right) on VLSFO, as the mean over the six routes: one line for a single kite of any area and one each for fleets of kites of \SIlist{30;54;100}{m^2}, solid for the airframe mass of \cref{eq:rigid_mass} and dashed for a mass growing as the cube of the span.}
+\label{fig:rigid_size}
+\end{figure*}
