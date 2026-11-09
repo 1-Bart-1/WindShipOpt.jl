@@ -34,7 +34,7 @@ The rigs are sized for cost, so the fuel they save is larger than their cost sav
 \footnotesize
 \caption{Cost and fuel energy saved by the best size of each rig on each ship class with each drive, as cost\,/\,fuel in percent of the same ship without a rig on the same fuel, the mean over the six routes, with the deadweight-limited and space-limited classes in two blocks, each closed by its mean; and the tank-to-wake CO$_2$ of each class on VLSFO without a rig. On VLSFO the tank-to-wake CO$_2$ saved equals the fuel saved. Cells are shaded by the cost saving, blue for a gain and red for a loss, the deeper the larger.}
 \label{tab:fuel}
-\InputIfFileExists{sections/fuel_table}{}{\tbd{Fuel table pending: run the fuel\_table step.}}
+\adjustbox{max width=\textwidth}{\InputIfFileExists{sections/fuel_table}{}{\tbd{Fuel table pending: run the fuel\_table step.}}}
 \end{table*}
 
 Part of each cost saving is time, since a rig makes speed cheaper and the router sets speed by cost (\cref{sec:res_speed}). \Cref{tab:split} splits the cost saving into the fuel saved, the time saved at the crew, capital and cargo interest of the ship without a rig, and the rig's own capital, maintenance and wear with the cargo its mass displaces. On e-ammonia the kite and the rotors gain 3.4 to 4.8 points of cost from time against 9.9 to 12.8 from fuel. On VLSFO, with smaller rigs, time adds at most 0.5 points. The fuel saved alone pays for the rig everywhere except for the wing sails on VLSFO, whose 0.2\,\% cost saving comes from time.
@@ -114,13 +114,6 @@ On a voyage the router turns this thrust into fuel or speed. \Cref{fig:passage} 
 \plot[\textwidth]{wind_angle}
 \caption{Where the wind comes from and where each rig pulls, from the weather-routed round trips of the \SI{140}{m} e-ammonia ship over the sampled departures on every route: (a) share of the time at sea without a rig in each band of true wind angle, outbound (left bar) and homeward (right bar); (b) mean thrust of a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails and \SI{800}{m^2} of rotors in each band over all routes, each on its own routed track; (c) share of each rig's propulsive work from each band per route; (d) mean thrust at sea over the rig's cost per day at sea, kite wear and launches included.}
 \label{fig:wind_angle}
-\end{figure*}
-
-\begin{figure*}[tbp]
-\centering
-\plot[\textwidth]{route_comparison}
-\caption{Cost saving of the better of two sizes of each rig against the same ship without a rig, per route, for ships of \SIlist{85;140;200}{m} with a VLSFO (top) and an e-ammonia (bottom) drive: kites of \SIlist{800;3200}{m^2}, wing sails of \SIlist{800;1500}{m^2} and rotors of \SIlist{400;800}{m^2}, of which only \SI{400}{m^2} fits on the \SI{85}{m} ship. On the \SI{200}{m} ship the rotors are smaller than their best size of \cref{fig:rig_comparison}.}
-\label{fig:route_comparison}
 \end{figure*}
 
 Rotors beat wing sails on fuel, not on cost of the rig. Both are priced on the same basis with the same life of 25 years (\cref{sec:costs,sec:inputs}). A square metre of rotor costs about three times one of wing sail and pulls about five times as hard, so at similar thrust they add about the same capital and maintenance per tonne-kilometre (\cref{fig:breakdown}), and on e-ammonia the rotors save nearly twice the share of the cost that the wing sails save. On VLSFO fuel is a quarter of the cost of the \SI{85}{m} ship, too small a part for either deck rig to pay.
