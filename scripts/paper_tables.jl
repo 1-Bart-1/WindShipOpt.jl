@@ -3,7 +3,7 @@
 
 # Table steps of the paper, written as LaTeX to paper/sections/: the inputs of
 # data/assumptions.yaml that matter ranked by effect, the ship classes from
-# data/ship_classes.csv, the fuel saving and payback of each rig, the goals and what
+# data/ship_classes.csv, the payback of each rig, the goals and what
 # missing one costs, and the numbers the abstracts state. Included by paper.jl.
 
 """
@@ -696,16 +696,16 @@ rig_header() = string(join(repeat(["kite", "wings", "rotors"], length(drive_labe
         " & "), " \\\\")
 
 """
-    mean_savings(table, columns, classes, drive, rig)
+    mean_savings(table, columns, classes, drive, rig; routes=unique(table["route"]))
 
-Mean over `classes` and the routes of the class table `table` of the saving [%] in each of
-`columns` of the cheapest size of `rig` on `drive`, over the routes where all are known;
+Mean over `classes` and `routes` of the class table `table` of the saving [%] in each of
+`columns` of the cheapest size of `rig` on `drive`, over the cases where all are known;
 `NaN` for each where none is.
 """
-function mean_savings(table, columns, classes, drive, rig)
+function mean_savings(table, columns, classes, drive, rig; routes=unique(table["route"]))
     savings = [[cheapest_saving(table, column, class, drive, route, rig)
                 for column in columns]
-               for class in classes for route in unique(table["route"])]
+               for class in classes for route in routes]
     known = filter(saving -> all(isfinite, saving), savings)
     return isempty(known) ? fill(NaN, length(columns)) : mean(known)
 end
