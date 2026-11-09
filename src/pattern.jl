@@ -149,6 +149,43 @@ function flying_airspeed(residual)
     return nothing
 end
 
+"most steps of a root search before it returns the bracket it has"
+const MAX_ROOT_STEPS = 60
+
+"""
+    sign_change(residual, low, high, low_point, high_point, tolerance)
+
+Bracket of the sign change of `first(residual(x))`, negative at `low` and not at `high`,
+narrowed to `tolerance` by false position with the Illinois step; returns its ends and the
+results of `residual` there, `low_point` and `high_point` at the start.
+"""
+function sign_change(residual, low, high, low_point, high_point, tolerance)
+    low_value, high_value = first(low_point), first(high_point)
+    side = 0
+    for _ in 1:MAX_ROOT_STEPS
+        high - low <= tolerance && break
+        middle = (low * high_value - high * low_value) / (high_value - low_value)
+        low < middle < high || (middle = (low + high) / 2)
+        point = residual(middle)
+        if first(point) < 0
+            low, low_point, low_value = middle, point, first(point)
+            side == -1 && (high_value /= 2)
+            side = -1
+        else
+            high, high_point, high_value = middle, point, first(point)
+            side == 1 && (low_value /= 2)
+            side = 1
+        end
+    end
+    return low, high, low_point, high_point
+end
+
+"relative tolerance on the airspeed of a steering point [-]"
+const AIRSPEED_TOLERANCE = 1e-7
+
+"tolerance on the angle of attack a kite depowers to [rad]"
+const DEPOWER_TOLERANCE = 1e-5
+
 """
     steering_point(kite, wind, radial, heading, turn, tether_length,
                    along_path=NO_ACCELERATION)
@@ -171,13 +208,56 @@ function steering_point(kite::KiteAero, wind, radial, heading, turn, tether_leng
         high > MAX_STEERING_AIRSPEED && return nothing
         point = residual(high)
     end
-    for _ in 1:25
-        middle = (low + high) / 2
-        trial = residual(middle)
-        first(trial) < 0 ? (low = middle) : ((high, point) = (middle, trial))
-    end
-    _, tension, ground = point
+    _, high, _, (_, tension, ground) = sign_change(residual, low, high, residual(low),
+        point, AIRSPEED_TOLERANCE * high)
     return tension > 0 ? (high, tension, ground) : nothing
+end
+
+"""
+    TensionExcess(model, wind, radial, heading, turn, max_tension, along_path)
+
+Called on an angle of attack [rad], the tension of the [`steering_point`](@ref) of `model`
+accelerating at `along_path` [m/s^2] there above `max_tension` [N] and that point; minus
+`max_tension` and `nothing` where it cannot fly.
+"""
+struct TensionExcess
+    model::KiteModel
+    wind::NTuple{3, Float64}
+    radial::NTuple{3, Float64}
+    heading::NTuple{3, Float64}
+    turn::NTuple{3, Float64}
+    max_tension::Float64
+    along_path::NTuple{3, Float64}
+end
+
+function (excess::TensionExcess)(angle)
+    (; model) = excess
+    point = steering_point(KiteAero(model, angle), excess.wind, excess.radial,
+        excess.heading, excess.turn, model.tether_length, excess.along_path)
+    isnothing(point) && return -excess.max_tension, point
+    return point[2] - excess.max_tension, point
+end
+
+"""
+    flying_below(excess, low, high)
+
+Point of [`TensionExcess`](@ref) `excess` at the highest angle of attack [rad] above `low`
+that a bisection towards `high`, where the kite cannot fly, finds flying within the
+tension limit; `nothing` if it finds none.
+"""
+function flying_below(excess::TensionExcess, low, high)
+    point = nothing
+    for _ in 1:12
+        middle = (low + high) / 2
+        value, trial = excess(middle)
+        if value > 0
+            high = middle
+        else
+            low = middle
+            isnothing(trial) || (point = trial)
+        end
+    end
+    return point
 end
 
 """
@@ -190,24 +270,14 @@ that stays within the limit.
 """
 function limited_point(model::KiteModel, angle, wind, radial, heading, turn, max_tension,
         along_path=NO_ACCELERATION)
-    solve(angle) = steering_point(KiteAero(model, angle), wind, radial, heading, turn,
-        model.tether_length, along_path)
-    point = solve(angle)
-    isnothing(point) || point[2] <= max_tension && return point
-    low, high = model.lowest_angle, angle
-    point = nothing
-    for _ in 1:12
-        middle = (low + high) / 2
-        trial = solve(middle)
-        if isnothing(trial)
-            low = middle
-        elseif trial[2] > max_tension
-            high = middle
-        else
-            low = middle
-            point = trial
-        end
-    end
+    excess = TensionExcess(model, wind, radial, heading, turn, max_tension, along_path)
+    powered = excess(angle)
+    isnothing(last(powered)) && return flying_below(excess, model.lowest_angle, angle)
+    first(powered) <= 0 && return last(powered)
+    depowered = excess(model.lowest_angle)
+    first(depowered) < 0 || return nothing
+    _, _, (_, point), _ = sign_change(excess, model.lowest_angle, angle, depowered, powered,
+        DEPOWER_TOLERANCE)
     return point
 end
 

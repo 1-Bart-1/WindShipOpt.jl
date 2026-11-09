@@ -794,11 +794,11 @@ canopy_cloth_force_exponent:
   unit: "-"
   reason: "Cloth weight grows with the force limit to this power, the fit that holds the 3,800 h of the strength decay in the paper over limits of 0.25 to 2 kN/m^2. Each decay input at its bound gives 0.19 to 0.34, except the wear exponent b at its low bound of 0, which gives 0.8. Tension enters the decay only through the logarithm of the margin, so where heavier cloth also wears for longer it asks for far less than the exponent 1 of a constant share of strength, the upper bound of the force rating study; 0 is cloth that ignores the limit."
 canopy_life:
-  value: 4000.0
+  value: 3000.0
   low: 1200.0
   high: 6900.0
   unit: flight hours
-  reason: "Development goal for the life of a canopy of 200 g/m^2 cloth, not a prediction. Strength decay under UV and a wear rate from makers' statements gives 3,800 h, and each input changed alone gives the bounds; the 3,800 h rests on those statements, not on a measurement of a kite."
+  reason: "Development goal for the life of a canopy of 200 g/m^2 cloth: what development can reach, not where things stand today. No life is measured on a kite. Reachable and on the careful side of what makers state: below the 3,500-4,000 h of their longest statements and the 3,800 h that strength decay under UV and a wear rate from makers' statements gives. Each decay input changed alone gives the bounds."
 canopy_cloth_area_ratio:
   value: 3.5
   low: 3.0
