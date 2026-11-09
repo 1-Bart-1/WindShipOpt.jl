@@ -1911,6 +1911,125 @@ end
     @test WindShipOpt.margins_searched(bare_table, settings) == (0.1, 0.2)
 end
 
+kite_route_table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0;
+            kite_area=400.0), assumptions), assumptions))
+
+"Value `share` of the way through interval `i` of `knots`"
+place_in_cell(knots, i, share) = knots[i] + share * (knots[i + 1] - knots[i])
+
+@testset "a cell the router screens out is unpowered anywhere inside it" begin
+    shares = (0.0, 0.5, 1.0)
+    for route_table in (table, kite_route_table)
+        performance = route_table.table
+        winds, angles, resistances = performance.flown_thrust.knots[2:4]
+        screened, powered = 0, 0
+        for speed_index in eachindex(route_table.speeds)
+            speed, slice = route_table.speeds[speed_index], route_table.slices[speed_index]
+            cells = route_table.unpowered[speed_index].cells
+            planes = route_table.unpowered[speed_index].planes
+            @test all(.!planes .| dropdims(all(cells; dims=3); dims=3))
+            for cell in CartesianIndices(cells)
+                cells[cell] || continue
+                screened += 1
+                j, k, l = Tuple(cell)
+                for wind_share in shares, angle_share in shares, layer_share in shares
+                    condition = WindShipOpt.SeaCondition(performance,
+                        place_in_cell(winds, j, wind_share),
+                        place_in_cell(angles, k, angle_share), 0.0, 8.0, 1.0)
+                    waves = place_in_cell(resistances, l, layer_share)
+                    layer = WindShipOpt.KnotWeight(resistances, waves)
+                    powered += WindShipOpt.edge_fuels(performance, speed, slice, condition,
+                        waves, layer) != (Inf, Inf)
+                end
+            end
+        end
+        @test screened > 0
+        @test powered == 0
+    end
+end
+
+@testset "waves marked as resisting add resistance anywhere in their cell" begin
+    shares = (0.0, 0.5, 1.0)
+    for route_table in (table, kite_route_table)
+        performance = route_table.table
+        winds, angles = performance.flown_thrust.knots[2:3]
+        _, periods, headings = performance.wave_resistance.knots
+        lowest = Inf
+        for speed_index in eachindex(route_table.speeds)
+            resisting = route_table.unpowered[speed_index].resisting_waves
+            for cell in CartesianIndices(resisting), period_share in shares,
+                    heading_share in shares
+                resisting[cell] || continue
+                i, j = Tuple(cell)
+                condition = WindShipOpt.SeaCondition(performance, first(winds),
+                    first(angles), 1.0, place_in_cell(periods, i, period_share),
+                    place_in_cell(headings, j, heading_share))
+                lowest = min(lowest, WindShipOpt.sea_resistance(
+                    route_table.slices[speed_index], condition))
+            end
+        end
+        @test isfinite(lowest)
+        @test lowest >= 0
+    end
+end
+
+@testset "a following sea below the table's added resistance keeps a speed its thrust \
+          can reach" begin
+    for route_table in (table, kite_route_table)
+        performance = route_table.table
+        winds, angles = performance.flown_thrust.knots[2:3]
+        _, periods, headings = performance.wave_resistance.knots
+        rescued, wrong = 0, 0
+        for speed_index in eachindex(route_table.speeds)
+            speed, slice = route_table.speeds[speed_index], route_table.slices[speed_index]
+            least, knot = findmin(slice.wave_resistance)
+            least < 0 || continue
+            cells = route_table.unpowered[speed_index].cells
+            for j in axes(cells, 1), k in axes(cells, 2)
+                cells[j, k, 1] || continue
+                condition = WindShipOpt.SeaCondition(performance,
+                    place_in_cell(winds, j, 0.5), place_in_cell(angles, k, 0.5), 12.0,
+                    periods[knot[1]], headings[knot[2]])
+                full = WindShipOpt.edge_fuels(performance, speed, slice, condition)
+                rescued += any(isfinite, full)
+                wrong += !isequal(WindShipOpt.edge_fuels(route_table, speed_index,
+                    condition), full)
+            end
+        end
+        @test rescued > 0
+        @test wrong == 0
+    end
+end
+
+@testset "the router sails the same routes with cells screened out or not" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    for route_table in (table, kite_route_table)
+        unscreened = RouteTable(route_table.table, route_table.speeds, route_table.slices,
+            [WindShipOpt.UnpoweredCells(fill(false, size(marks.cells)),
+                 fill(false, size(marks.planes)), marks.resisting_waves)
+             for marks in route_table.unpowered])
+        centre, straight = centre_index(corridor), WindShipOpt.MAX_LATERAL_STEP + 1
+        samples = [WindShipOpt.EdgeSample(route_table.table, weather, corridor, stage,
+                       centre, straight, 0.5, departure)
+                   for stage in 1:(size(corridor.lat, 1) - 1)]
+        speeds_and_samples = Iterators.product(eachindex(route_table.speeds), samples)
+        screened = count(speeds_and_samples) do (speed_index, sample)
+            WindShipOpt.screened_out(route_table, speed_index, sample.condition) ||
+                WindShipOpt.screened_out(route_table, speed_index, sample.condition,
+                    WindShipOpt.sea_layer(route_table.table,
+                        route_table.slices[speed_index], sample.condition)...)
+        end
+        @test screened > 0
+        screened_leg = WindShipOpt.route(corridor, route_table, weather, departure;
+            time_cost=hourly)
+        full_leg = WindShipOpt.route(corridor, unscreened, weather, departure;
+            time_cost=hourly)
+        for field in fieldnames(typeof(screened_leg))
+            @test isequal(getfield(screened_leg, field), getfield(full_leg, field))
+        end
+    end
+end
+
 @testset "a kite aloft leaving a node with the kite down at the same time shares its \
           edges" begin
     workspace = WindShipOpt.RouteWorkspace(3, 4, 2)
