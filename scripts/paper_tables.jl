@@ -966,6 +966,67 @@ function forecast_plans_table()
     end
 end
 
+"groups of forecast_causes_table.tex as (heading, rows of (label, statistic))"
+forecast_cause_groups = (
+    ("Cost saving [\\%]",
+        (("With perfect foresight", cause_saving(:perfect)),
+            ("Re-planned daily on the forecasts", cause_saving(:forecast)))),
+    ("Cost saving lost [points]",
+        (("Total", cause_loss(:perfect, :forecast)),)),
+    ("Of which, course first",
+        (("Course", cause_loss(:perfect, :forecast_course)),
+            ("Speed", cause_loss(:forecast_course, :foresight_kite)),
+            ("The kite's flying decisions", cause_loss(:foresight_kite, :forecast)))),
+    ("Of which, course last",
+        (("Speed and kite", cause_loss(:perfect, :perfect_course)),
+            ("Course", cause_loss(:perfect_course, :forecast)))),
+    ("Of which, by what the forecast gets wrong",
+        (("Re-planning once a day", cause_loss(:perfect, :replanned)),
+            ("Forecast model against the reanalysis",
+                cause_loss(:replanned, :shortest_lead)),
+            ("Error growing with lead time", cause_loss(:shortest_lead, :forecast)))),
+    ("On one fixed course for every rig",
+        (("Cost saving with perfect foresight [\\%]", cause_saving(:common_perfect)),
+            ("Cost saving on the forecasts [\\%]", cause_saving(:common_forecast)),
+            ("Cost saving lost [points]", cause_loss(:common_perfect, :common_forecast)))),
+    ("Share of the cost saving kept [\\%]",
+        (("Routed", cause_kept(:forecast, :perfect)),
+            ("On the fixed course", cause_kept(:common_forecast, :common_perfect)))))
+
+"LaTeX of an (value, error) estimate of [`cause_estimate`](@ref)"
+cause_cell(estimate) = @sprintf("\\(%.1f \\pm %.1f\\)",
+    round(estimate.value; digits=1) + 0.0, estimate.error)
+
+"""
+    forecast_causes_table()
+
+Per rig the cost saving lost on the archived forecasts per cause, and the kite's excess over
+the wing sails and the rotors paired per departure, each with its standard error over the
+departures of forecast_causes.csv: forecast_causes_table.tex.
+"""
+function forecast_causes_table()
+    table = read_table(data_file("forecast_causes.csv"))
+    saved = Dict(rig => forecast_cause_savings(table, rig)
+                 for rig in ("kite", "wings", "rotors"))
+    open(joinpath(sections, "forecast_causes_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lccccc@{}}\n\\toprule")
+        println(io, " & Kite & Wing sails & Rotors & Kite less wing sails & ",
+            "Kite less rotors \\\\\n\\midrule")
+        for (heading, group) in forecast_cause_groups
+            println(io, "\\multicolumn{6}{@{}l}{\\textit{", heading, "}} \\\\")
+            for (label, statistic) in group
+                cells = [[cause_estimate(statistic, saved[rig])
+                          for rig in ("kite", "wings", "rotors")];
+                    [cause_estimate(statistic, saved["kite"], saved[rig])
+                     for rig in ("wings", "rotors")]]
+                println(io, "\\quad ", label, " & ", join(cause_cell.(cells), " & "),
+                    " \\\\")
+            end
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
 """
     speed_terms_table()
 

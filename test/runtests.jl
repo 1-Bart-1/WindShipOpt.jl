@@ -2366,6 +2366,48 @@ assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 end
 
+"forecast_causes.csv read into a table, for `savings` per (rig, plan) over departures 0, 1, 2 [%] against a ship with no rig costing one, `bare_forecast` on its forecast plan"
+function cause_table(savings, bare_forecast)
+    rig, plan, departure, cost = String[], String[], Float64[], Float64[]
+    function add!(name, case, day, value)
+        push!(rig, name), push!(plan, case), push!(departure, day), push!(cost, value)
+    end
+    for ((name, case), saved) in savings, (day, saving) in zip(0.0:2.0, saved)
+        isnan(saving) && continue
+        reference = case == "forecast" || case == "foresight_kite" ? bare_forecast : 1.0
+        add!(name, case, day, reference * (1 - saving / 100))
+    end
+    for case in Set(last.(keys(savings))), day in 0.0:2.0
+        case == "foresight_kite" && continue
+        add!("none", case, day, case == "forecast" ? bare_forecast : 1.0)
+    end
+    return Dict("rig" => rig, "plan" => plan, "departure" => departure, "cost" => cost)
+end
+
+@testset "the kite's excess loss over a rig is paired per departure" begin
+    fixed = ("replanned", "shortest_lead", "forecast_course", "perfect_course",
+        "common_perfect", "common_forecast")
+    savings = Dict(("kite", "perfect") => [10.0, 12.0, 14.0], ("kite", "forecast") => [2.0, 4.0, 9.0],
+        ("kite", "foresight_kite") => [50.0, 50.0, 50.0],
+        ("rotors", "perfect") => [20.0, 22.0, 24.0], ("rotors", "forecast") => [15.0, 17.0, 22.0])
+    for case in fixed, name in ("kite", "rotors")
+        savings[(name, case)] = [5.0, 5.0, 5.0]
+    end
+    savings[("rotors", "perfect_course")] = [5.0, 5.0, NaN]
+    table = cause_table(savings, 0.8)
+    kite, rotors = (PaperData.forecast_cause_savings(table, name) for name in ("kite", "rotors"))
+    @test kite[:foresight_kite] ≈ fill(50.0, 3)
+    @test rotors[:foresight_kite] == rotors[:forecast]
+    total = PaperData.cause_loss(:perfect, :forecast)
+    alone = PaperData.cause_estimate(total, kite)
+    @test alone.departures == 3 && alone.error > 0
+    excess = PaperData.cause_estimate(total, kite, rotors)
+    @test excess.departures == 2 && excess.value ≈ 3
+    @test excess.error ≈ 0 atol = 1e-12
+    @test PaperData.cause_estimate(PaperData.cause_kept(:forecast, :perfect), kite).value ≈
+          100 * (5 / 12)
+end
+
 "path and force text `PaperData.write_pattern` writes for the base kite in `wind` at `course`"
 function written_pattern(wind, course)
     model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)

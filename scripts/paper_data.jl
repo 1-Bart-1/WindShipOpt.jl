@@ -1066,9 +1066,9 @@ forecast_cause_plans = ((:perfect, false), (:replanned, :perfect_replan), (:fore
 
 The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
 `ensemble_departures`, split into what the loss on the control forecast comes from:
-forecast_causes.csv with each [`forecast_cause_cases`](@ref); forecast_causes_summary.csv
-with the loss of cost saving per cause and rig ([`write_forecast_causes`](@ref)); and how
-near the kite's limits passages fly, forecast_margins.csv ([`write_kite_margins`](@ref)).
+forecast_causes.csv with each [`forecast_cause_cases`](@ref), which
+[`forecast_causes_table`](@ref) turns into losses; and how near the kite's limits passages
+fly, forecast_margins.csv ([`write_kite_margins`](@ref)).
 """
 function forecast_causes_data()
     cases, trips = [], []
@@ -1078,7 +1078,6 @@ function forecast_causes_data()
         append!(trips, round_trips(step_cases, [departure]))
     end
     write_trips("forecast_causes.csv", cases, trips, :rig, :plan, :departure)
-    write_forecast_causes("forecast_causes_summary.csv", cases, trips)
     write_kite_margins("forecast_margins.csv", ensemble_departures)
 end
 
@@ -1131,69 +1130,53 @@ function course_corridors(rig, plan, departure)
 end
 
 """
-    write_forecast_causes(name, cases, trips)
+    forecast_cause_savings(table, rig)
 
-Write `name`: per rig, what its cost saving against the ship with no rig [points] loses to
-each cause on the control forecast, and the kept shares of perfect foresight and on the
-common fixed course, each with its jackknife standard error over the departures where every
-case of that rig and the ship with no rig has a trip.
+Cost saving [%] of `rig` against the ship with no rig on the same plan, per case of
+forecast_causes.csv read into `table` and per departure, `NaN` where a trip is missing. The
+kite with its decisions foreseen is set against the ship's forecast plan, and for a deck
+rig that case is its forecast plan.
 """
-function write_forecast_causes(name, cases, trips)
-    cost(rig, plan, departure) = begin
-        k = findfirst(i -> cases[i].rig == rig && cases[i].plan == plan &&
-            cases[i].departure == departure, eachindex(cases))
-        isnothing(k) || isnothing(trips[k]) ? NaN : trips[k].cost_per_tonne_km
-    end
-    bare_plan(plan) = plan == :foresight_kite ? :forecast : plan
-    function saving(rig, plan)
-        bare = [cost("none", bare_plan(plan), departure) for departure in ensemble_departures]
-        return [1 - cost(rig, plan, departure) / reference
-                for (departure, reference) in zip(ensemble_departures, bare)] .* 100
-    end
-    plans = (:perfect, :replanned, :forecast, :shortest_lead, :forecast_course, :perfect_course,
-        :common_perfect, :common_forecast)
-    open(run_file(name), "w") do io
-        println(io, "rig,quantity,value,error,departures")
-        for (rig, _) in reference_rigs
-            saved = Dict(plan => saving(rig, plan) for plan in plans)
-            saved[:foresight_kite] = rig == "kite" ? saving(rig, :foresight_kite) :
-                                     saved[:forecast]
-            usable = findall(i -> all(!isnan(values[i]) for values in Base.values(saved)),
-                eachindex(ensemble_departures))
-            write_cause_rows(io, rig, Dict(plan => values[usable] for (plan, values) in saved))
-        end
-    end
+function forecast_cause_savings(table, rig)
+    costs = Dict(zip(zip(table["rig"], table["plan"], table["departure"]), table["cost"]))
+    departures = sort(unique(table["departure"]))
+    cost(name, plan) = [get(costs, (name, string(plan), departure), NaN)
+                        for departure in departures]
+    saving(plan, bare) = (1 .- cost(rig, plan) ./ cost("none", bare)) .* 100
+    plans = (:perfect, :replanned, :forecast, :shortest_lead, :forecast_course,
+        :perfect_course, :common_perfect, :common_forecast)
+    saved = Dict(plan => saving(plan, plan) for plan in plans)
+    saved[:foresight_kite] = rig == "kite" ? saving(:foresight_kite, :forecast) :
+                             saved[:forecast]
+    return saved
 end
 
-"""
-    write_cause_rows(io, rig, saved)
+"statistic of savings per case over some departures: the points lost from `earlier` to `later`"
+cause_loss(earlier, later) = (saved, indices) ->
+    mean(saved[earlier][indices]) - mean(saved[later][indices])
 
-Write to `io` the rows of [`write_forecast_causes`](@ref) of `rig` from `saved`, its
-savings [points] per departure of each case.
+"statistic of savings per case over some departures: the mean saving [%] of `plan`"
+cause_saving(plan) = (saved, indices) -> mean(saved[plan][indices])
+
+"statistic of savings per case over some departures: the share [%] of `perfect` that `kept` keeps"
+cause_kept(kept, perfect) = (saved, indices) ->
+    100kept_share(saved[kept], saved[perfect], indices)
+
 """
-function write_cause_rows(io, rig, saved)
-    n = length(first(values(saved)))
-    function row(quantity, statistic)
-        @printf(io, "%s,%s,%.3f,%.3f,%d\n", rig, quantity, statistic(1:n),
-            jackknife_error(statistic, n), n)
-    end
-    loss(earlier, later) = indices -> mean(saved[earlier][indices]) - mean(saved[later][indices])
-    kept(forecast, perfect) = indices -> kept_share(saved[forecast], saved[perfect], indices)
-    row("total", loss(:perfect, :forecast))
-    row("replanning_daily", loss(:perfect, :replanned))
-    row("forecast_model", loss(:replanned, :shortest_lead))
-    row("error_growing_with_lead", loss(:shortest_lead, :forecast))
-    row("course", loss(:perfect, :forecast_course))
-    row("speed", loss(:forecast_course, :foresight_kite))
-    row("kite_decisions", loss(:foresight_kite, :forecast))
-    row("speed_and_kite_on_perfect_course", loss(:perfect, :perfect_course))
-    row("course_after_speed_and_kite", loss(:perfect_course, :forecast))
-    row("perfect_saving", indices -> mean(saved[:perfect][indices]))
-    row("forecast_saving", indices -> mean(saved[:forecast][indices]))
-    row("common_course_perfect_saving", indices -> mean(saved[:common_perfect][indices]))
-    row("common_course_forecast_saving", indices -> mean(saved[:common_forecast][indices]))
-    row("kept", kept(:forecast, :perfect))
-    row("kept_on_common_course", kept(:common_forecast, :common_perfect))
+    cause_estimate(statistic, saved, against=nothing)
+
+Value of `statistic` on the savings per case `saved`, or its excess over the rig `against`
+paired per departure, with the jackknife standard error over the departures where every
+case has a trip, as (value, error, departures).
+"""
+function cause_estimate(statistic, saved, against=nothing)
+    rigs = isnothing(against) ? (saved,) : (saved, against)
+    usable = findall(i -> all(!isnan(case[i]) for rig in rigs for case in values(rig)),
+        eachindex(first(values(saved))))
+    excess(indices) = statistic(saved, usable[indices]) -
+                      (isnothing(against) ? 0.0 : statistic(against, usable[indices]))
+    n = length(usable)
+    return (value=excess(1:n), error=jackknife_error(excess, n), departures=n)
 end
 
 """
