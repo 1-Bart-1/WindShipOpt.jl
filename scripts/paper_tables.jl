@@ -917,7 +917,8 @@ function forecast_plans_table()
     table = read_table(data_file("forecast_plans_kept.csv"))
     plans = (("true", "One forecast run"), ("mean", "Ensemble mean"),
         ("margin", "Margin for wind"), ("members", "Several members"),
-        ("held_kite", "One forecast run, kite held to the plan"))
+        ("held_kite", "One forecast run, kite held to the plan"),
+        ("kite_margin", "One forecast run, kite limits 20\\,\\% tighter in the plan"))
     open(joinpath(sections, "forecast_plans_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}lccc@{}}\n\\toprule")
         println(io, "Plan & Kite & Wing sails & Rotors \\\\\n\\midrule")
@@ -929,6 +930,52 @@ function forecast_plans_table()
     end
 end
 
+"""
+    forecast_hours_table()
+
+Hours per round trip of the kite ship over the departures of forecast_hours.csv with their
+standard error, per plan: forecast_hours_table.tex.
+"""
+function forecast_hours_table()
+    table = read_table(data_file("forecast_hours.csv"))
+    plans = (("false", "Perfect foresight"), ("true", "One run"),
+        ("members", "Several members"), ("kite_margin", "Tighter limits"))
+    rows = (("Passage [d]", "days"), ("Distance [nmi]", "distance"),
+        ("Hours at the commanded speed", "commanded"), ("Hours holding", "held"),
+        ("Hours aloft", "up"), ("Too little wind", "too_little_wind"),
+        ("\\quad no one speed launches it", "too_little_wind_no_speed"),
+        ("\\quad a speed does, without paying", "too_little_wind_no_pay"),
+        ("\\quad a speed pays, over the whole edge too", "too_little_wind_pays_edge"),
+        ("\\quad a speed pays, only within the edge", "too_little_wind_pays_stretch"),
+        ("No forward pull", "no_forward_pull"), ("Too much wind", "too_much_wind"),
+        ("Hull limit", "hull_limit"), ("Sea", "sea"), ("No saving", "no_saving"),
+        ("Stayed down by choice", "chosen"), ("Wanted up, not flown", "wanted_not_flown"),
+        ("Fast sailing possible", "fast_real"), ("Fast sailing forecast", "fast_known"),
+        ("Fast sailing possible, whole edge", "fast_real_edge"),
+        ("Fast sailing forecast, whole edge", "fast_known_edge"),
+        ("Fast sailing commanded", "fast_commanded"), ("Fast sailing held", "fast_held"),
+        ("Fuel, kite down [GJ]", "fuel_down"), ("Fuel, kite aloft [GJ]", "fuel_up"),
+        ("Fuel saved aloft [GJ]", "saved"),
+        ("Saved by a speed change within the stretch [USD]", "saved_within_stretch"))
+    open(joinpath(sections, "forecast_hours_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}l", "c"^length(plans), "@{}}\n\\toprule")
+        println(io, "Per round trip & ", join(last.(plans), " & "),
+            " \\\\\n\\midrule")
+        for (label, column) in rows
+            cells = [hours_cell(table, plan, column) for (plan, _) in plans]
+            println(io, label, " & ", join(cells, " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"mean and standard error over the departures of `column` of `plan`, as a table cell"
+function hours_cell(table, plan, column)
+    values = table[column][rows(table, "plan" => plan)]
+    return @sprintf("\\(%.0f \\pm %.0f\\)", mean(values),
+        std(values) / sqrt(length(values)))
+end
+
 "groups of forecast_causes_table.tex as (heading, rows of (label, statistic))"
 forecast_cause_groups = (
     ("Cost saving [\\%]",
@@ -938,17 +985,30 @@ forecast_cause_groups = (
         (("Total", cause_loss(:perfect, :forecast)),)),
     ("Of which, course first",
         (("Course", cause_loss(:perfect, :forecast_course)),
-            ("Speed and re-planning once a day",
-                cause_loss(:forecast_course, :foresight_kite)),
+            ("Re-planning once a day, on the forecast's course",
+                cause_loss(:forecast_course, :forecast_course_replanned)),
+            ("Speed", cause_loss(:forecast_course_replanned, :foresight_kite)),
             ("The kite's flying decisions", cause_loss(:foresight_kite, :forecast)))),
     ("Of which, course last",
-        (("Speed, kite and re-planning once a day", cause_loss(:perfect, :perfect_course)),
+        (("Re-planning once a day, on the course of perfect foresight",
+                cause_loss(:perfect, :perfect_course_replanned)),
+            ("Speed and the kite's flying decisions",
+                cause_loss(:perfect_course_replanned, :perfect_course)),
             ("Course", cause_loss(:perfect_course, :forecast)))),
     ("Of which, by what the forecast gets wrong",
-        (("Re-planning once a day", cause_loss(:perfect, :replanned)),
+        (("Re-planning once a day, routed", cause_loss(:perfect, :replanned)),
             ("Forecast model against the reanalysis",
                 cause_loss(:replanned, :shortest_lead)),
             ("Error growing with lead time", cause_loss(:shortest_lead, :forecast)))),
+    ("After re-planning, by the weather forecast, waves first",
+        (("Wave forecast", cause_loss(:replanned, :wave_forecast)),
+            ("Wind forecast, inside the common wind-speed band",
+                cause_loss(:wave_forecast, :wind_near_limit)),
+            ("Wind forecast, outside that band",
+                cause_loss(:wind_near_limit, :forecast)))),
+    ("After re-planning, by the weather forecast, waves last",
+        (("Wind forecast", cause_loss(:replanned, :wind_forecast)),
+            ("Wave forecast", cause_loss(:wind_forecast, :forecast)))),
     ("On one fixed course for every rig",
         (("Cost saving with perfect foresight [\\%]", cause_saving(:common_perfect)),
             ("Cost saving on the forecasts [\\%]", cause_saving(:common_forecast)),
@@ -959,6 +1019,18 @@ forecast_cause_groups = (
     ("Share of the cost saving kept [\\%]",
         (("Routed", cause_kept(:forecast, :perfect)),
             ("On the fixed course", cause_kept(:common_forecast, :common_perfect)))))
+
+"""
+    kite_margin_estimate(margins, column)
+
+Mean over the departures on the control forecast, as a [`cause_estimate`](@ref), of the
+share [%] in `column` of forecast_margins.csv read into `margins`.
+"""
+function kite_margin_estimate(margins, column)
+    rows = findall(==("forecast"), margins["knowledge"])
+    shares = Dict(:share => 100 .* margins[column][rows])
+    return cause_estimate(cause_saving(:share), shares)
+end
 
 "LaTeX of an (value, error) estimate of [`cause_estimate`](@ref)"
 cause_cell(estimate) = @sprintf("\\(%.1f \\pm %.1f\\)",
@@ -989,6 +1061,14 @@ function forecast_causes_table()
                 println(io, "\\quad ", label, " & ", join(cause_cell.(cells), " & "),
                     " \\\\")
             end
+        end
+        margins = read_table(data_file("forecast_margins.csv"))
+        println(io, "\\multicolumn{6}{@{}l}{\\textit{The kite's time near its limits on ",
+            "the forecasts, of the time at sea unless stated [\\%]}} \\\\")
+        for (label, column) in kite_margin_rows
+            println(io, "\\quad ", label, " & ",
+                cause_cell(kite_margin_estimate(margins, column)),
+                " & -- & -- & -- & -- \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
