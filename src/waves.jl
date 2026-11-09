@@ -194,3 +194,53 @@ function added_resistance(seakeeping::SeakeepingHull, env::Environment, speed,
     end
     return 2scale * total * step
 end
+
+"""
+    heave_pitch_response(hull, gravity, speed, frequency, heading)
+
+Heave [m/m] and pitch [rad/m] per unit wave amplitude and the encounter frequency [rad/s]
+of the box-shaped hull closed-form expressions of Jensen et al. (2004), in regular waves of
+`frequency` [rad/s]; `heading` [rad] is π in head and 0 in following waves.
+"""
+function heave_pitch_response(hull::Hull, gravity, speed, frequency, heading)
+    (; length, draft) = hull
+    beam = hull.beam * block_coefficient(hull)
+    wavenumber = frequency^2 / gravity
+    froude = speed / sqrt(gravity * length)
+    slowdown = 1 - froude * sqrt(wavenumber * length) * cos(heading)
+    encounter = frequency - wavenumber * speed * cos(heading)
+    amplitude = 2sin(encounter^2 * beam / 2gravity) * exp(-encounter^2 * draft / gravity)
+    forcing = sqrt((1 - wavenumber * draft)^2 +
+                   (iszero(slowdown) ? 0.0 :
+                    amplitude^2 / (wavenumber * beam * slowdown^3))^2)
+    resonance = 1 / sqrt((1 - 2wavenumber * draft * slowdown^2)^2 +
+                    (amplitude^2 / (wavenumber * beam * slowdown^2))^2)
+    half = abs(wavenumber * cos(heading)) * length / 2
+    pressure = exp(-wavenumber * draft) * forcing * resonance
+    heave = pressure * abs(sinc(half / π))
+    pitch = pressure * abs(half < 1e-4 ? 2half / length :
+                           6 * (sin(half) - half * cos(half)) / (half^2 * length))
+    return heave, pitch, encounter
+end
+
+"""
+    mast_speed(seakeeping, env, speed, significant_height, peak_period, heading, position)
+
+Significant vertical speed [m/s], twice the root-mean-square, of a point `position` [m]
+forward of midship in long-crested waves with a JONSWAP spectrum, heave and pitch taken
+as out of phase.
+"""
+function mast_speed(seakeeping::SeakeepingHull, env::Environment, speed, significant_height,
+        peak_period, heading, position)
+    significant_height > 0 && peak_period > 0 || return 0.0
+    frequencies = range(0.1, 6.0; length=240)
+    step = frequencies[2] - frequencies[1]
+    variance = sum(frequencies) do frequency
+        heave, pitch, encounter = heave_pitch_response(seakeeping.hull, env.gravity, speed,
+            frequency, heading)
+        return jonswap(frequency, significant_height, peak_period;
+            peakedness=seakeeping.peakedness) * encounter^2 *
+               (heave^2 + (pitch * position)^2)
+    end
+    return 2sqrt(variance * step)
+end

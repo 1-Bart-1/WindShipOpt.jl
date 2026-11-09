@@ -355,13 +355,15 @@ Base.@kwdef struct KiteRig{A}
     launch_min_wind::Float64
     "highest apparent wind in which the kite is launched [m/s]"
     launch_max_wind::Float64
-    "highest significant wave height in which the kite is launched [m]"
+    "highest significant wave height in which the kite is launched [m]; `Inf` where only the
+    launch wind limits it"
     launch_max_wave_height::Float64
     "whether the kite is launched in the dark as well as by day"
     night_launch::Bool
     "highest apparent wind in which the kite lands without a forced landing [m/s]"
     landing_max_wind::Float64
-    "highest significant wave height in which the kite lands without a forced landing [m]"
+    "highest significant wave height in which the kite lands without a forced landing [m];
+    `Inf` where only the landing wind limits it"
     landing_max_wave_height::Float64
     "depower limit on tether force [N]"
     max_force::Float64
@@ -747,10 +749,9 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
         launch_min_wind=launch_min_wind(model,
             rope_mass(tether_diameter, tether_length, assumptions), assumptions),
         launch_max_wind=assumptions[:kite_launch_max_wind],
-        launch_max_wave_height=assumptions[:kite_launch_max_wave_height],
-        night_launch=assumptions[:kite_night_launch] > 0,
+        launch_max_wave_height=Inf, night_launch=assumptions[:kite_night_launch] > 0,
         landing_max_wind=assumptions[:kite_landing_max_wind],
-        landing_max_wave_height=assumptions[:kite_landing_max_wave_height], max_force,
+        landing_max_wave_height=Inf, max_force,
         attach_height=assumptions[:kite_attach_height] * scale,
         attach_position, wind_speeds, courses, side_weights=SIDE_WEIGHTS,
         forces=pattern_table(model, max_force, assumptions, wind_speeds, courses,

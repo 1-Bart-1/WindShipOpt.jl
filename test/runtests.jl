@@ -267,9 +267,9 @@ function uniform_kite(hull, assumptions)
     return KiteRig(; area=800.0, tether_diameter=0.05, tether_length=300.0,
         reference_height=120.0, max_wind=30.0, min_flight_wind=4.0, launch_min_wind=5.0,
         launch_max_wind=17.0,
-        launch_max_wave_height=assumptions[:kite_launch_max_wave_height],
+        launch_max_wave_height=Inf,
         night_launch=assumptions[:kite_night_launch] > 0, landing_max_wind=20.0,
-        landing_max_wave_height=assumptions[:kite_landing_max_wave_height], max_force=1e6,
+        landing_max_wave_height=Inf, max_force=1e6,
         attach_height=10.0,
         attach_position=WindShipOpt.launch_mast_position(hull, assumptions),
         wind_speeds=collect(3.0:3.0:30.0), courses=deg2rad.(0.0:15.0:180.0),
@@ -385,22 +385,77 @@ end
     @test thrust(flown[1]) > 0
 end
 
-@testset "a kite launches inside its limits and stays up above its landing limit" begin
+@testset "a launch needs more wind in rougher seas, a kite stays up in any sea" begin
     table, prices = kite_coaster()
-    launch_sea, stay_sea, over_sea = 2.0, 3.5, 5.5
     passage(points, aloft) = WindShipOpt.kite_passage(table, points, aloft, prices)
-    _, launched = passage([kite_point(table, launch_sea, 4.0)], false)
+    point(sea; speed_index=6, kwargs...) = kite_point(table, sea, 4.0; speed_index, kwargs...)
+    speed = table.speeds[6]
+    calm = point(0.0)
+    @test WindShipOpt.extra_launch_wind(table.table, speed, calm.condition) == 0
+    _, launched = passage([calm], false)
     @test launched.launches == 1
-    _, too_rough = passage([kite_point(table, stay_sea, 4.0)], false)
-    @test !isfinite(too_rough.cost)
-    _, stayed = passage([kite_point(table, stay_sea, 4.0)], true)
+    rough = point(2.0)
+    wind_rough = WindShipOpt.extra_launch_wind(table.table, speed, rough.condition)
+    @test wind_rough > 0
+    needed = table.table.ship.rig.launch_min_wind + wind_rough
+    apparent(headwind) = hypot(headwind + speed, 0.0)
+    below = needed - speed - 0.5
+    _, too_little = passage([point(2.0; headwind=below)], false)
+    @test !isfinite(too_little.cost)
+    @test apparent(below) < needed
+    enough = needed - speed + 0.5
+    _, clears = passage([point(2.0; headwind=enough)], false)
+    @test clears.launches == 1
+    (; launch_min_wind, landing_max_wind) = table.table.ship.rig
+    extreme = 2.0 * (landing_max_wind - launch_min_wind + 1) / wind_rough
+    wild = point(extreme; headwind=10.0)
+    _, closed = passage([wild], false)
+    @test !isfinite(closed.cost)
+    down, stayed = passage([wild], true)
     @test isfinite(stayed.cost) && stayed.launches == 0
-    down, gone = passage([kite_point(table, over_sea, 4.0)], true)
-    @test !isfinite(gone.cost) && isfinite(down.cost) && down.launches == 0
-    _, in_gale = passage([kite_point(table, launch_sea, 4.0; headwind=20.0)], false)
+    @test !WindShipOpt.kite_landable(table.table, speed, 10.0, 0.0, wild.condition)
+    @test isfinite(down.cost) && down.forced_landings == 1
+    _, in_gale = passage([point(2.0; headwind=20.0)], false)
     @test !isfinite(in_gale.cost)
-    _, kept_up = passage([kite_point(table, launch_sea, 4.0; headwind=20.0)], true)
+    _, kept_up = passage([point(2.0; headwind=20.0)], true)
     @test isfinite(kept_up.cost)
+end
+
+@testset "a short ship's launch mast moves more in the same sea than a long ship's" begin
+    env = Environment(assumptions)
+    function significant_speed(length)
+        hull = Hull(length, assumptions)
+        return WindShipOpt.mast_speed(WindShipOpt.SeakeepingHull(hull, assumptions), env,
+            6.0, 3.0, 9.0, π, WindShipOpt.launch_mast_position(hull, assumptions))
+    end
+    coaster, reference, feeder, neo_panamax = significant_speed.((85.0, 132.0, 165.0, 350.0))
+    @test coaster > reference > feeder > neo_panamax
+    @test neo_panamax < 0.2coaster
+    @test WindShipOpt.mast_speed(WindShipOpt.SeakeepingHull(Hull(132.0, assumptions),
+              assumptions), env, 6.0, 0.0, 9.0, π, 50.0) == 0
+end
+
+@testset "a long wave lifts a hull with it and a short one averages out" begin
+    hull = Hull(132.0, assumptions)
+    long_heave, long_pitch, encounter = WindShipOpt.heave_pitch_response(hull, 9.81, 0.0,
+        0.2, π)
+    @test long_heave ≈ 1 atol = 0.05
+    @test long_pitch ≈ 0.2^2 / 9.81 rtol = 0.1
+    @test encounter ≈ 0.2
+    short_heave, short_pitch, _ = WindShipOpt.heave_pitch_response(hull, 9.81, 0.0, 1.5, π)
+    @test short_heave < 0.05 && short_pitch < 0.05 * 1.5^2 / 9.81
+    @test all(isfinite, WindShipOpt.heave_pitch_response(hull, 9.81, 8.0, 0.8, π / 2))
+    following = WindShipOpt.heave_pitch_response(hull, 9.81, 8.0, 1.0, 0.0)
+    @test all(isfinite, following)
+end
+
+@testset "the reference ship in its reference sea needs the reported extra launch wind" begin
+    kite = uniform_kite(Hull(140.0, assumptions), assumptions)
+    factor = WindShipOpt.launch_wind_per_mast_speed(kite, assumptions)
+    @test factor * WindShipOpt.reference_mast_speed(assumptions) ≈
+          assumptions[:kite_launch_sea_wind]
+    none = with_value(assumptions, :kite_launch_sea_wind, 0.0)
+    @test WindShipOpt.launch_wind_per_mast_speed(kite, none) == 0
 end
 
 @testset "launch and landing give no force while they last and the launch pays both" begin
@@ -427,8 +482,12 @@ end
     forced = table.table.forced_landing_cost
     passage(points) = first(WindShipOpt.kite_passage(table, points, true, prices))
     calm = kite_point(table, 2.0, 1.0; speed_index=3)
-    rising = kite_point(table, 4.5, 1.0; speed_index=3)
-    storm = kite_point(table, 5.5, 1.0; speed_index=3)
+    speed = table.speeds[3]
+    (; launch_min_wind, landing_max_wind) = table.table.ship.rig
+    closing = (landing_max_wind - launch_min_wind + 1) / WindShipOpt.extra_launch_wind(
+        table.table, speed, kite_point(table, 1.0, 1.0; speed_index=3).condition)
+    rising = kite_point(table, closing, 1.0; speed_index=3)
+    storm = kite_point(table, 1.1closing, 1.0; speed_index=3)
     gale = kite_point(table, 2.0, 1.0; speed_index=3, headwind=22.0)
     @test isfinite(rising.stowed)
     @test passage([calm]).forced_landings == 0
@@ -2298,11 +2357,12 @@ end
 @testset "a rigid kite hovers within its own limits and stays up beyond them" begin
     fleet = rigid_fleet(2, assumptions)
     waves = assumptions[:rigid_hover_max_wave_height]
-    @test waves < WindShipOpt.max_wave_height(fleet, assumptions)
     wind = assumptions[:rigid_hover_max_wind]
-    @test WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves)
-    @test !WindShipOpt.kite_landable(fleet, 0.0, wind + 1, 0.0, waves)
-    @test !WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves + 0.5)
+    @test WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves, 0.0)
+    @test !WindShipOpt.kite_landable(fleet, 0.0, wind + 1, 0.0, waves, 0.0)
+    @test !WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves + 0.5, 0.0)
+    @test WindShipOpt.kite_aloft(fleet, 0.0, wind - 1, 0.0)
+    @test WindShipOpt.launch_wind_per_mast_speed(fleet, assumptions) == 0
     @test fleet.launch_min_wind == fleet.min_flight_wind
     @test WindShipOpt.handling_hours(fleet, assumptions) ≈
           assumptions[:rigid_hover_minutes] / 60

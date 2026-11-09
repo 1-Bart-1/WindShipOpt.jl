@@ -795,27 +795,42 @@ function median_units(table, class, drive, rig)
 end
 
 """
+    unit_count_axis(cell, row_limits)
+
+Axis in `cell` with one column per rig, its rows `row_limits` matching the axis beside it.
+"""
+function unit_count_axis(cell, row_limits)
+    return Axis(cell; width=pt(72), xlabel="number of units",
+        xticks=(eachindex(rig_names), collect(rig_names)), xticksvisible=false,
+        xticklabelcolor=palette[eachindex(rig_names)], xticklabelsize=pt(8.5),
+        yticksvisible=false, yticklabelsvisible=false, yreversed=true,
+        limits=((0.5, length(rig_names) + 0.5), row_limits))
+end
+
+"""
     class_size_figure()
 
-Best area of each rig for every ship class and drive: the geometric mean over the
-routes as a marker and the range over the routes as a bar, and, in a column at the right
-of each panel, the median number of wing and rotor units at the best size.
+Best area of each rig for every ship class and drive, the geometric mean over the routes
+as a marker and the range over the routes as a bar, and beside each panel the median
+number of units of each rig at its best size, each column named in the rig's colour.
 """
 function class_size_figure()
     table = read_table(data_file("classes.csv"))
     names = class_order(table)
     routes_seen = unique(table["route"])
-    figure = Figure(size=(page_width, 330))
+    figure = Figure(size=(page_width, 285))
     ticks = [100, 1000, 10000]
-    unit_columns = Dict("wings" => 3.6e4, "rotors" => 1.0e5)
+    row_limits = (0.4, length(names) + 0.6)
+    area_limit = 1.4largest_rig_area("kite", nothing)
     for (column, (drive, title)) in enumerate(drive_panels)
-        axis = Axis(figure[1, column]; title, xlabel="best rig area [m²]", xscale=log10,
-            xticks=(ticks, string.(ticks)), yticks=(eachindex(names), names),
-            yreversed=true, yticklabelsvisible=column == 1,
-            limits=((60, 1.9e5), (-0.2, length(names) + 0.6)))
-        vspan!(axis, 2.2e4, 1.9e5; color=:gray94)
-        text!(axis, sqrt(prod(values(unit_columns))), 0.15; text="units",
-            fontsize=pt(7.5), align=(:center, :center), color=:gray40)
+        axis = Axis(figure[1, 2 * column - 1]; title, xlabel="best rig area [m²]",
+            xscale=log10, xticks=(ticks, string.(ticks)),
+            xminorticks=IntervalsBetween(9), xminorticksvisible=true,
+            xgridvisible=true, xgridcolor=:gray88,
+            yticks=(eachindex(names), names), yreversed=true,
+            yticklabelsvisible=column == 1, limits=((60, area_limit), row_limits))
+        counts = unit_count_axis(figure[1, 2 * column], row_limits)
+        colgap!(figure.layout, 2 * column - 1, pt(4))
         for (j, kind) in enumerate(rig_names), (i, name) in enumerate(names)
             areas = filter(isfinite, [best_area(table, name, route, drive, kind)
                                       for route in routes_seen])
@@ -823,15 +838,11 @@ function class_size_figure()
             y = i + (j - 2) * 0.22
             rangebars!(axis, [y], [minimum(areas)], [maximum(areas)]; direction=:x,
                 color=(palette[j], 0.6), linewidth=1.5)
-            scatter!(axis, [geometric_mean(areas)], [y]; color=palette[j], markersize=6,
-                label=i == 1 ? kind : nothing)
-            kind == "kite" && continue
-            text!(axis, unit_columns[kind], i; text=string(median_units(table, name,
-                drive, kind)), fontsize=pt(8.5), align=(:center, :center), color=palette[j])
+            scatter!(axis, [geometric_mean(areas)], [y]; color=palette[j], markersize=6)
+            text!(counts, j, i; text=string(median_units(table, name, drive, kind)),
+                fontsize=pt(8.5), align=(:center, :center), color=palette[j])
         end
     end
-    Legend(figure[2, 1:length(drive_panels)], content(figure[1, 1]);
-        orientation=:horizontal)
     save(joinpath(figures, "class_sizes.pdf"), figure; pt_per_unit=print_scale)
 end
 
