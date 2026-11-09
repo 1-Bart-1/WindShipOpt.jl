@@ -175,3 +175,15 @@ function life_at_cost(lives, costs, cost)
     costs[first(order)] > cost && return NaN
     return 1 / share_at_cost(1 ./ lives[order], costs[order], cost)
 end
+
+"""
+    lead_limits(lead, goal_life, canopy_points, crash_points)
+
+Canopy life [h] and losses of a rig a year at which a `lead` [points of cost saving] over
+another rig is used up, with `canopy_points` the points a canopy costs per unit of inverse
+life and `crash_points` the points one loss a year costs; both `NaN` without a lead.
+"""
+function lead_limits(lead, goal_life, canopy_points, crash_points)
+    lead > 0 || return (; life=NaN, losses=NaN)
+    return (; life=1 / (1 / goal_life + lead / canopy_points), losses=lead / crash_points)
+end

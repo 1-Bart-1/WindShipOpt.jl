@@ -1419,13 +1419,13 @@ ship_kind_words = [:teu => "Container", :ceu => "CarCarrier", :tonne => "Bulk"]
 
 Write the numbers the paper and its extended abstract state as LaTeX macros `\\Num...` to
 paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
-the goals, and the [`class_numbers`](@ref), [`recommendation_numbers`](@ref) and
-[`premium_numbers`](@ref) of the class study.
+the goals, and the [`class_numbers`](@ref), [`recommendation_numbers`](@ref),
+[`rig_lead_numbers`](@ref) and [`premium_numbers`](@ref) of the class study.
 """
 function numbers_file()
     classes = read_table(data_file("classes.csv"))
     results = [class_numbers(classes); recommendation_numbers(classes);
-               premium_numbers(classes)]
+               rig_lead_numbers(classes); premium_numbers(classes)]
     draft = paper_run.fidelity != :final
     open(joinpath(sections, "numbers.tex"), "w") do io
         for (name, text) in goal_numbers()
@@ -1497,12 +1497,143 @@ function recommendation_numbers(table)
     return numbers
 end
 
+"kinds of ship the paper recommends a rig for: word in number macros, label, ship types"
+ship_types = (("Container", "Container ships", ("container",)),
+    ("CarCarrier", "Car carriers", ("vehicle carrier",)),
+    ("BulkCarrier", "Bulk carriers", ("bulk carrier",)),
+    ("Tanker", "Tankers", ("oil product tanker", "crude oil tanker")),
+    ("GeneralCargo", "General cargo ships", ("general cargo",)))
+
+"""
+    rig_lead(table, classes, drive)
+
+Of the [`mean_savings`](@ref) of the cost [%] of each rig over `classes` and routes in the
+class table `table`: the rig saving most, its rival saving next most, the margin between
+them [points] and the lead of the kite over the rotors [points].
+"""
+function rig_lead(table, classes, drive)
+    savings = Dict(rig => only(mean_savings(table, ("cost",), classes, drive, rig))
+                   for rig in rig_names)
+    (; rig, rival) = first(WindShipOpt.ranked_rivals(Dict(rig => -saving
+                                                          for (rig, saving) in savings)))
+    return (; rig, rival, margin=savings[rig] - savings[rival],
+        kite_lead=savings["kite"] - savings["rotors"])
+end
+
+"""
+    priced_kite(area, class)
+
+Kite of `area` [m^2] for a ship of `class` built for what it costs, flying no course.
+"""
+function priced_kite(area, class)
+    return KiteRig(area, design_aspect_ratio, Hull(class, assumptions), assumptions;
+        courses=Float64[])
+end
+
+"""
+    kite_goal_points(table, class, route, drive)
+
+Points of cost saving, with the cheapest kite and its flying held, that its canopy costs per
+unit of inverse canopy life and that one kite lost a year costs; `nothing` without the trip.
+"""
+function kite_goal_points(table, class, route, drive)
+    bare = rows(table, "class" => class, "drive" => drive, "route" => route,
+        "rig" => "none")
+    row = cheapest_row(table, class, route, drive, "kite")
+    (isempty(bare) || isnothing(row)) && return nothing
+    rig = priced_kite(table["area"][row], ship_classes()[class])
+    work, trips = yearly_trips(table, row, route)
+    points_per_usd = 100 / (work * only(table["cost"][bare]))
+    hours = table["flight_share"][row] * 24table["days"][row] * trips
+    return (canopy=first(WindShipOpt.consumable_costs(rig, assumptions)) * hours *
+                   points_per_usd,
+        crash=WindShipOpt.crash_cost(rig, assumptions) * points_per_usd)
+end
+
+"""
+    kite_limits(table, classes, drive, lead)
+
+[`WindShipOpt.lead_limits`](@ref) of the kite's `lead` over the rotors on `classes`, the
+costs of its goals the mean over their routes of [`kite_goal_points`](@ref).
+"""
+function kite_limits(table, classes, drive, lead)
+    points = filter(!isnothing, [kite_goal_points(table, class, route, drive)
+                                 for class in classes for route in unique(table["route"])])
+    return WindShipOpt.lead_limits(lead, assumptions[:canopy_life],
+        mean(point.canopy for point in points), mean(point.crash for point in points))
+end
+
+"""
+    rig_lead_rows(table)
+
+For each of `ship_types` and drive of the class table `table`: its words and label, the
+[`rig_lead`](@ref) and the canopy life [h] and kites lost a year of [`kite_limits`](@ref).
+"""
+function rig_lead_rows(table)
+    classes = ship_classes()
+    return [begin
+                names = [name for name in class_order(table) if classes[name].type in types]
+                lead = rig_lead(table, names, drive)
+                (; word, label, drive, drive_word, lead...,
+                    kite_limits(table, names, drive, lead.kite_lead)...)
+            end
+            for (word, label, types) in ship_types for (drive, drive_word) in drive_words]
+end
+
+"""
+    life_limit_text(life)
+
+Text of the canopy life [h] `life`, to the hundred; a dash where the kite has no lead.
+"""
+life_limit_text(life) = isnan(life) ? "--" : @sprintf("\\num{%.0f}", 100round(life / 100))
+
+"""
+    rig_lead_numbers(table)
+
+Name and text, per kind of ship of `ship_types` and drive of the class table `table`, of
+the margin [points] of the best rig, and on container ships where the kite falls behind
+the rotors.
+"""
+function rig_lead_numbers(table)
+    numbers = Pair{String, String}[]
+    for row in rig_lead_rows(table)
+        name = row.drive_word * row.word
+        push!(numbers, "Margin$name" => @sprintf("%.1f", row.margin))
+        row.word == "Container" || continue
+        push!(numbers, "KiteLifeLimit$name" => life_limit_text(row.life),
+            "KiteLossLimit$name" => crash_cell(row.losses))
+    end
+    return numbers
+end
+
+"""
+    rig_margin_table()
+
+Tabular per kind of ship and drive of the best rig, the next and the margin between their
+cost savings, and where the kite falls behind the rotors, in rig_margin_table.tex.
+"""
+function rig_margin_table()
+    open(joinpath(sections, "rig_margin_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}llllrrr@{}}\n\\toprule")
+        println(io, " & & & & & \\multicolumn{2}{c}{Kite behind rotors at} \\\\")
+        println(io, "\\cmidrule(l){6-7}")
+        println(io, "Ship type & Fuel & Best & Next & Margin [points] & Canopy life [h] & ",
+            "Kites lost [per year] \\\\\n\\midrule")
+        for row in rig_lead_rows(read_table(data_file("classes.csv")))
+            println(io, join([row.label, Dict(drive_labels)[row.drive], row.rig, row.rival,
+                    @sprintf("%.1f", row.margin), life_limit_text(row.life),
+                    crash_cell(row.losses)], " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
 """
     premium_numbers(table)
 
 Name and text of the mean over the classes and routes of the class table `table` of how
 much more [%] the e-ammonia ship costs than the same ship on VLSFO without a rig, without
-a rig and with the rig that saves it most.
+a rig and with the rig that saves it most, and the share [%] of the premium that rig closes.
 """
 function premium_numbers(table)
     without, with = Float64[], Float64[]
@@ -1519,5 +1650,6 @@ function premium_numbers(table)
         push!(with, -percent_saving(minimum(table["cost"][rigged]), reference))
     end
     return ["PremiumNoRig" => whole_number(mean(without)),
-        "PremiumBestRig" => whole_number(mean(with))]
+        "PremiumBestRig" => whole_number(mean(with)),
+        "PremiumClosed" => whole_number(100 * (1 - mean(with) / mean(without)))]
 end
