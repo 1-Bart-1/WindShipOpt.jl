@@ -943,13 +943,18 @@ function forecast_hours_table()
     rows = (("Passage [d]", "days"), ("Distance [nmi]", "distance"),
         ("Hours at the commanded speed", "commanded"), ("Hours holding", "held"),
         ("Hours aloft", "up"), ("Too little wind", "too_little_wind"),
+        ("\\quad no one speed launches it", "too_little_wind_no_speed"),
+        ("\\quad a speed does, without paying", "too_little_wind_no_pay"),
+        ("\\quad a speed pays, over the whole edge too", "too_little_wind_pays_edge"),
+        ("\\quad a speed pays, only within the edge", "too_little_wind_pays_stretch"),
         ("No forward pull", "no_forward_pull"), ("Too much wind", "too_much_wind"),
         ("Hull limit", "hull_limit"), ("Sea", "sea"), ("No saving", "no_saving"),
         ("Stayed down by choice", "chosen"), ("Wanted up, not flown", "wanted_not_flown"),
         ("Fast sailing possible", "fast_real"), ("Fast sailing forecast", "fast_known"),
         ("Fast sailing commanded", "fast_commanded"), ("Fast sailing held", "fast_held"),
         ("Fuel, kite down [GJ]", "fuel_down"), ("Fuel, kite aloft [GJ]", "fuel_up"),
-        ("Fuel saved aloft [GJ]", "saved"))
+        ("Fuel saved aloft [GJ]", "saved"),
+        ("Saved by a speed change within the stretch [USD]", "saved_within_stretch"))
     open(joinpath(sections, "forecast_hours_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}l", "c"^length(plans), "@{}}\n\\toprule")
         println(io, "Per round trip & ", join(last.(plans), " & "),
