@@ -1218,6 +1218,43 @@ end
     @test length(workspace.shared) == from + 5 * (2WindShipOpt.MAX_LATERAL_STEP + 1)
     @test share(aloft) == from
     @test share(later_down) == share(later_aloft) == -1
+    speed_count, step_count = 5, 2WindShipOpt.MAX_LATERAL_STEP + 1
+    slots = [WindShipOpt.shared_slot(from, step, slot, speed_count)
+             for step in 1:step_count, slot in 1:speed_count]
+    @test sort(vec(slots)) == from .+ (1:(step_count * speed_count))
+    @test WindShipOpt.shared_slot(-1, 2, 3, speed_count) == 0
+end
+
+@testset "a kite aloft reads the edge a state down sailed at the same time as its own" begin
+    table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0; kite_area=400.0),
+            assumptions), assumptions))
+    weather, stage, centre, slot = SyntheticWeather(), 1, centre_index(corridor), 1
+    step = WindShipOpt.MAX_LATERAL_STEP + 1
+    prices = (; fuel=table.table.ship.fuel.price, time=0.0)
+    start = WindShipOpt.EdgeSample(table.table, weather, corridor, stage, centre, step, 0.0,
+        24.0)
+    edge = (; start, weather, corridor, stage, lateral=centre, step, time=24.0,
+        speed_index=length(table.speeds) ÷ 2, sample_hours=6.0)
+    workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2), 4, size(corridor.lat, 1))
+    push!(workspace.shared, WindShipOpt.UNSAILED)
+    alone = WindShipOpt.sailed_edge!(workspace, 0, true, table, prices, edge)
+    down = WindShipOpt.sailed_edge!(workspace, slot, false, table, prices, edge)
+    @test down != alone
+    @test workspace.shared[slot] == alone
+    marked = WindShipOpt.SailedEdge(-1.0, WindShipOpt.NO_TALLY, WindShipOpt.NO_TALLY, 0)
+    workspace.shared[slot] = marked
+    @test WindShipOpt.sailed_edge!(workspace, slot, true, table, prices, edge) === marked
+    workspace.shared[slot] = WindShipOpt.UNSAILED
+    @test WindShipOpt.sailed_edge!(workspace, slot, true, table, prices, edge) == alone
+    @test workspace.shared[slot] === WindShipOpt.UNSAILED
+end
+
+@testset "a speed is skipped only within what the last one sailed the same, sampled \
+          alike" begin
+    same = (; through=7, intervals=3)
+    @test WindShipOpt.sails_same(same, 7, 3)
+    @test !WindShipOpt.sails_same(same, 8, 3)
+    @test !WindShipOpt.sails_same(same, 7, 2)
 end
 
 @testset "a faster command holds the same speed only through speeds no engine \
