@@ -656,6 +656,9 @@ end
 "weights of side force against thrust [-] of a kite's pattern table"
 const SIDE_WEIGHTS = [0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0]
 
+"courses [rad] of a kite's full pattern table"
+const KITE_COURSES = deg2rad.(0.0:15.0:180.0)
+
 "apparent wind speeds [m/s] of a rigid kite's pattern table"
 const RIGID_WIND_SPEEDS = [4.0:1.0:10.0; 12.0; 14.0; 17.0; 20.0; 25.0; 30.0]
 
@@ -698,14 +701,15 @@ function rigid_kites_fit(count, hull::Hull, assumptions::Assumptions)
 end
 
 """
-    rigid_kite_rig(total_area, hull, assumptions; courses, side_weights)
+    rigid_kite_rig(total_area, hull, assumptions; courses=KITE_COURSES,
+                   side_weights=SIDE_WEIGHTS)
 
 Rigid VTOL kites of about `total_area` [m^2] together on `hull`, each of the unit area of
 the assumptions and with a pattern table over `courses` [rad] and `side_weights`, or
 `nothing` where they do not fit ([`rigid_kites_fit`](@ref)).
 """
 function rigid_kite_rig(total_area, hull::Hull, assumptions::Assumptions;
-        courses=deg2rad.(0.0:15.0:180.0), side_weights=SIDE_WEIGHTS)
+        courses=KITE_COURSES, side_weights=SIDE_WEIGHTS)
     area = assumptions[:rigid_unit_area]
     count = max(round(Int, total_area / area), 1)
     rigid_kites_fit(count, hull, assumptions) || return nothing
@@ -725,18 +729,17 @@ end
 
 """
     KiteRig(area, aspect_ratio, hull, assumptions;
-            attach_position=kite_tow_point(hull, assumptions))
+            attach_position=kite_tow_point(hull, assumptions), courses=KITE_COURSES)
 
-Kite of projected `area` [m^2] and `aspect_ratio` with its pattern table, towing from
-`attach_position` [m] forward of midship.
+Kite of projected `area` [m^2] and `aspect_ratio` with its pattern table over `courses`
+[rad], towing from `attach_position` [m] forward of midship.
 """
 function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assumptions;
-        attach_position=kite_tow_point(hull, assumptions))
+        attach_position=kite_tow_point(hull, assumptions), courses=KITE_COURSES)
     scale = hull.length / assumptions[:reference_length]
     model, max_force, tether_diameter = kite_model(area, aspect_ratio, assumptions)
     tether_length = model.tether_length
     wind_speeds = [3.0:1.0:9.0; 10.5; 12.0:3.0:30.0]
-    courses = deg2rad.(0.0:15.0:180.0)
     return KiteRig(; area, tether_diameter, tether_length,
         reference_height=tether_length * sin(deg2rad(25)),
         max_wind=assumptions[:kite_max_wind],

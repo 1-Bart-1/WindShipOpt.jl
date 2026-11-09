@@ -1,13 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Download the forecasts a ship could have routed on: the control run of NOAA's GEFSv12
-# reforecast, issued daily at 00 UTC, with its 10 m wind and its WAVEWATCH III sea state
-# out to 16 days, into era5/<region>/forecast/{wind,waves}/ on the grids of the ERA5 data
-# of the same region (ERA5_REGION, as for download_era5.jl). Wind is averaged over each
-# 1.5° cell, waves are sampled at the 0.5° points. An issue the archive holds incomplete is
-# left empty (NaN). Then writes the mean bias of each year's forecasts against ERA5, from
-# the other years. Resumable: rerun to continue.
+# Download the forecasts a ship could have routed on: a run of NOAA's GEFSv12 reforecast,
+# issued daily at 00 UTC, with its 10 m wind and its WAVEWATCH III sea state out to 16
+# days, into era5/<region>/forecast/{wind,waves}/ on the grids of the ERA5 data of the same
+# region (ERA5_REGION, as for download_era5.jl). Wind is averaged over each 1.5° cell, waves
+# are sampled at the 0.5° points. An issue the archive holds incomplete is left empty
+# (NaN). Run on its own, it downloads the control run of every issue and writes the mean
+# bias of each year's forecasts against ERA5, from the other years. Resumable: rerun to
+# continue. forecast_ensemble.jl includes it for the perturbed members.
 using Dates
 using Downloads
 using GRIB
@@ -56,13 +57,13 @@ end
 
 lead_text(hours) = "$hours hour fcst"
 
-function wind_ranges(date, variable)
+function wind_ranges(date, variable, member)
     stamp = Dates.format(date, "yyyymmdd") * "00"
     files = String[]
     ranges = Tuple{Int, Union{Int, Nothing}}[]
     for days in ("1-10", dayofweek(date) == Wednesday ? "10-35" : "10-16")
-        url = "$wind_store/$(year(date))/$stamp/c00/Days:$days/" *
-              "$(variable)_hgt_$(stamp)_c00.grib2"
+        url = "$wind_store/$(year(date))/$stamp/$member/Days:$days/" *
+              "$(variable)_hgt_$(stamp)_$member.grib2"
         found = index_ranges("$url.idx", line -> occursin(":10 m above ground:", line) &&
             any(lead -> occursin(":$(lead_text(lead)):", line), wind_leads))
         append!(files, fill(url, length(found)))
@@ -71,9 +72,9 @@ function wind_ranges(date, variable)
     return collect(zip(files, ranges))
 end
 
-function wave_ranges(date, record)
+function wave_ranges(date, record, member)
     stamp = Dates.format(date, "yyyymmdd")
-    url = "$wave_store/$(year(date))/$stamp/gridded/gefs.wave.$stamp.c00.global.0p25"
+    url = "$wave_store/$(year(date))/$stamp/gridded/gefs.wave.$stamp.$member.global.0p25"
     found = index_ranges("$url.idx", line -> occursin(":$record:surface:", line) &&
         any(lead -> occursin(":$(lead_text(lead - wave_start_hour)):", line), wave_leads))
     return [("$url.grib2", range) for range in found]
@@ -167,9 +168,9 @@ groups = (
     (name="waves", records=wave_records, leads=wave_leads, ranges=wave_ranges,
         regrid=point_sample, finish=direction_components))
 
-function issue_fields(group, date, regrid, shape)
+function issue_fields(group, date, regrid, shape, member)
     variables = sort(collect(keys(group.records)))
-    pieces = [group.ranges(date, group.records[variable]) for variable in variables]
+    pieces = [group.ranges(date, group.records[variable], member) for variable in variables]
     bytes = asyncmap(Iterators.flatten(pieces); ntasks=12) do (url, range)
         read_bytes(url; range)
     end
@@ -190,8 +191,25 @@ function issue_fields(group, date, regrid, shape)
     return group.finish(fields)
 end
 
-function download(group)
-    directory = mkpath(joinpath(output, group.name))
+"""
+    write_complete_issues(done_path, paths, issue_bytes)
+
+List in the file `done_path` the leading issues every file of `paths` holds in full.
+"""
+function write_complete_issues(done_path, paths, issue_bytes)
+    complete = minimum(filesize(path) ÷ issue_bytes for path in values(paths))
+    write(done_path, join(string.(1:complete) .* "\n"))
+end
+
+"""
+    download(group; member="c00", root=output, wanted=eachindex(issues))
+
+Write the issues numbered `wanted` of run `member` of `group` to `root`, each at its place
+in files spanning every issue, so that issues not wanted stay holes that read as zero.
+Resumes from the issues listed as done in the file `done` there.
+"""
+function download(group; member="c00", root=output, wanted=eachindex(issues))
+    directory = mkpath(joinpath(root, group.name))
     grid = TOML.parsefile(joinpath(era5, group.name, "grid.toml"))
     regrid = group.regrid(grid)
     names = sort(collect(keys(group.finish(Dict(name => [zeros(Float32, 1, 1)]
@@ -203,26 +221,35 @@ function download(group)
             "leads" => length(group.leads), "variables" => names))
     end
     issue_bytes = length(grid["lats"]) * length(grid["lons"]) * length(group.leads) * 2
-    files = Dict(name => open(joinpath(directory, "$name.f16"), "a+") for name in names)
-    done = minimum(filesize(joinpath(directory, "$name.f16")) ÷ issue_bytes
-                   for name in names)
-    for io in values(files)
-        truncate(io, done * issue_bytes)
-        seekend(io)
-    end
+    paths = Dict(name => joinpath(directory, "$name.f16") for name in names)
+    foreach(path -> isfile(path) || touch(path), values(paths))
+    done_path = joinpath(directory, "done")
+    isfile(done_path) || write_complete_issues(done_path, paths, issue_bytes)
+    done = parse.(Int, readlines(done_path))
+    files = Dict(name => open(paths[name], "r+") for name in names)
+    foreach(io -> truncate(io, max(filesize(io), length(issues) * issue_bytes)),
+        values(files))
     shape = (length(grid["lons"]), length(grid["lats"]))
-    for batch in Iterators.partition((done + 1):length(issues), 8)
-        fields = fetch.([Threads.@spawn issue_fields(group, issues[index], regrid, shape)
-                         for index in batch])
-        for issue in fields, name in names, field in issue[name]
-            write(files[name], Float16.(field))
+    open(done_path, "a") do done_file
+        for batch in Iterators.partition(setdiff(collect(wanted), done), 8)
+            fields = fetch.([Threads.@spawn issue_fields(group, issues[index], regrid,
+                                 shape, member) for index in batch])
+            for (index, issue) in zip(batch, fields), name in names
+                seek(files[name], (index - 1) * issue_bytes)
+                foreach(field -> write(files[name], Float16.(field)), issue[name])
+            end
+            foreach(flush, values(files))
+            println(done_file, join(batch, "\n"))
+            flush(done_file)
+            println(group.name, " ", member, " issue ", issues[last(batch)], "/",
+                length(issues))
         end
-        foreach(flush, values(files))
-        println(group.name, " issue ", last(batch), "/", length(issues))
     end
     foreach(close, values(files))
 end
 
-foreach(download, groups)
-write_forecast_bias(output, ERA5Weather(era5))
-println("forecast archive complete")
+if abspath(PROGRAM_FILE) == @__FILE__
+    foreach(download, groups)
+    write_forecast_bias(output, ERA5Weather(era5))
+    println("forecast archive complete")
+end
