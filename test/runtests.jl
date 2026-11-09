@@ -1461,10 +1461,10 @@ function kite_coaster_routing()
             assumptions)), weather=SyntheticWeather(), departure=24.0 * 121)
 end
 
-kite_coaster = kite_coaster_routing()
+kite_routing = kite_coaster_routing()
 
 @testset "a kite held to its plan flies where the plan says and the limits allow" begin
-    (; kite_table, kite_hourly, weather, departure) = kite_coaster
+    (; kite_table, kite_hourly, weather, departure) = kite_routing
     leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
     edges = [leg_edge_points(leg, corridor, kite_table, weather, departure, i)
@@ -1489,7 +1489,7 @@ kite_coaster = kite_coaster_routing()
 end
 
 @testset "a kite held where a forecast erred costs more than one flown as met" begin
-    (; kite_table, kite_hourly, weather, departure) = kite_coaster
+    (; kite_table, kite_hourly, weather, departure) = kite_routing
     record = WindShipOpt.KiteRecord()
     free = forecast_route(corridor, kite_table, weather, departure; time_cost=kite_hourly,
         horizon=24.0, record)
@@ -1508,7 +1508,7 @@ end
 end
 
 @testset "a ship on an ensemble adopts the plan cheapest across its members" begin
-    (; kite_table, kite_hourly, weather, departure) = kite_coaster
+    (; kite_table, kite_hourly, weather, departure) = kite_routing
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
     options = (; first_stage=1, first_lateral=centre_index(corridor), first_aloft=false,
         coastal_penalty=1.0)
@@ -1532,7 +1532,7 @@ end
 end
 
 @testset "a plan valued on a member that stops its speed counts the ship slowing" begin
-    (; kite_table, kite_hourly, weather, departure) = kite_coaster
+    (; kite_table, kite_hourly, weather, departure) = kite_routing
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
     centre, step = centre_index(corridor), WindShipOpt.MAX_LATERAL_STEP + 1
     seas = KiteOnlySeas(weather, (corridor.lat[1, centre], corridor.lon[1, centre]),
@@ -1622,7 +1622,7 @@ end
 function small_era5(directory)
     square = (lats=[40.0, 41.0], lons=[-31.0, -30.0])
     truth = Dict("u10" => step -> 5.0f0 + 0.01f0 * step, "v10" => step -> -2.0f0,
-        "height" => step -> 2.0f0, "period" => step -> 8.0f0, "direction" => step -> 90.0f0)
+        "height" => step -> 2.0f0, "period" => step -> 8.0f0, "direction" => step -> 60.0f0)
     for (group, names, step_hours) in (("wind", ["u10", "v10"], 6),
         ("waves", ["direction", "height", "period"], 12))
         write_fields(joinpath(directory, group),
