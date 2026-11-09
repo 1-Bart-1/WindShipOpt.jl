@@ -1444,9 +1444,9 @@ end
 """
     tightened_limits(rig, margin)
 
-The [`KiteRig`](@ref) `rig` with its lowest flying and launch winds raised, and its
-highest flying and launch winds and launch wave limit lowered, by the share `margin` of
-each.
+The [`KiteRig`](@ref) `rig`, or the kite of a [`CombinedRig`](@ref), with its lowest
+flying and launch winds raised, and its highest flying and launch winds and launch wave
+limit lowered, by the share `margin` of each.
 """
 tightened_limits(rig::KiteRig, margin) = with_changed(rig;
     max_wind=rig.max_wind * (1 - margin),
@@ -1454,6 +1454,8 @@ tightened_limits(rig::KiteRig, margin) = with_changed(rig;
     launch_min_wind=rig.launch_min_wind * (1 + margin),
     launch_max_wind=rig.launch_max_wind * (1 - margin),
     launch_max_wave_height=rig.launch_max_wave_height * (1 - margin))
+tightened_limits(rig::CombinedRig, margin) =
+    CombinedRig(tightened_limits(rig.kite, margin), rig.standing)
 tightened_limits(rig, margin) = rig
 
 """

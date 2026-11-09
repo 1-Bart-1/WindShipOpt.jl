@@ -1832,10 +1832,12 @@ end
     forecast_saving(table, rig, plan)
 
 Mean over the departures of the cost saving [%] of `rig` on `plan`, against the ship
-without a rig on the same plan, `NaN` where a departure has no feasible round trip.
+without a rig on the same plan, `NaN` where the two cannot be paired: a departure without a
+feasible round trip is no row of the table.
 """
 function forecast_saving(table, rig, plan)
     cost(name) = table["cost"][rows(table, "rig" => name, "plan" => plan)]
+    length(cost(rig)) == length(cost("none")) || return NaN
     return 100 * (1 - mean(cost(rig) ./ cost("none")))
 end
 

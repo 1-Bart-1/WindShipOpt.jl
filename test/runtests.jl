@@ -1561,6 +1561,8 @@ end
     @test tight.launch_max_wave_height == 0.8 * rig.launch_max_wave_height
     @test careful.table.max_wave_height == 0.8 * kite_table.table.max_wave_height
     @test careful.table.flown_thrust === kite_table.table.flown_thrust
+    @test WindShipOpt.tightened_limits(WindShipOpt.CombinedRig(rig, nothing),
+        0.2).kite.launch_min_wind == tight.launch_min_wind
     wind = rig.launch_min_wind * 1.1
     launchable(table) = WindShipOpt.kite_launchable(table.table, 0.0, wind, 0.0, 1.0, true)
     @test launchable(kite_table) && !launchable(careful)
@@ -2509,6 +2511,22 @@ end
     @test outcome(stretch(1.0)) != :no_speed
     @test outcome(stretch(2rig.launch_max_wave_height)) == :no_speed
     @test last(PaperData.speed_change_outcome(kite_table, stretch(1.0), prices)) >= 0
+    beam_wind = 12.0
+    beam_sea(wave_height) = WindShipOpt.SeaCondition(kite_table.table,
+        beam_wind / kite_table.table.kite_wind_factor, float(π) / 2, wave_height, 8.0, 0.0)
+    sailed_at(index, wave_height) = fill(PaperData.at_speed(kite_table,
+            WindShipOpt.SailedPoint(0.0, beam_wind, beam_sea(wave_height), true, index,
+                NaN, NaN, 3kite_table.speeds[sailed] / kite_table.speeds[index]),
+            index), 4)
+    credited(index) = last(PaperData.speed_change_outcome(kite_table,
+        sailed_at(index, 1.0), prices))
+    @test credited(sailed) > 0
+    @test credited(1) ≈ credited(sailed) rtol = 1e-9
+    edge_pays(wave_height) = PaperData.edge_speed_pays(kite_table,
+        [(; point, aloft=false, reason=:wind_low_flight)
+         for point in sailed_at(1, wave_height)], (:wind_low_flight,), prices)
+    @test edge_pays(1.0)
+    @test !edge_pays(2rig.launch_max_wave_height)
     record = WindShipOpt.KiteRecord()
     leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
     WindShipOpt.record_plan!(record, leg, corridor, kite_table, weather, departure, prices)
