@@ -938,17 +938,30 @@ forecast_cause_groups = (
         (("Total", cause_loss(:perfect, :forecast)),)),
     ("Of which, course first",
         (("Course", cause_loss(:perfect, :forecast_course)),
-            ("Speed and re-planning once a day",
-                cause_loss(:forecast_course, :foresight_kite)),
+            ("Re-planning once a day, on the forecast's course",
+                cause_loss(:forecast_course, :forecast_course_replanned)),
+            ("Speed", cause_loss(:forecast_course_replanned, :foresight_kite)),
             ("The kite's flying decisions", cause_loss(:foresight_kite, :forecast)))),
     ("Of which, course last",
-        (("Speed, kite and re-planning once a day", cause_loss(:perfect, :perfect_course)),
+        (("Re-planning once a day, on the course of perfect foresight",
+                cause_loss(:perfect, :perfect_course_replanned)),
+            ("Speed and the kite's flying decisions",
+                cause_loss(:perfect_course_replanned, :perfect_course)),
             ("Course", cause_loss(:perfect_course, :forecast)))),
     ("Of which, by what the forecast gets wrong",
-        (("Re-planning once a day", cause_loss(:perfect, :replanned)),
+        (("Re-planning once a day, routed", cause_loss(:perfect, :replanned)),
             ("Forecast model against the reanalysis",
                 cause_loss(:replanned, :shortest_lead)),
             ("Error growing with lead time", cause_loss(:shortest_lead, :forecast)))),
+    ("After re-planning, by the weather forecast, waves first",
+        (("Wave forecast", cause_loss(:replanned, :wave_forecast)),
+            ("Wind forecast, inside the common wind-speed band",
+                cause_loss(:wave_forecast, :wind_near_limit)),
+            ("Wind forecast, outside that band",
+                cause_loss(:wind_near_limit, :forecast)))),
+    ("After re-planning, by the weather forecast, waves last",
+        (("Wind forecast", cause_loss(:replanned, :wind_forecast)),
+            ("Wave forecast", cause_loss(:wind_forecast, :forecast)))),
     ("On one fixed course for every rig",
         (("Cost saving with perfect foresight [\\%]", cause_saving(:common_perfect)),
             ("Cost saving on the forecasts [\\%]", cause_saving(:common_forecast)),
@@ -959,6 +972,18 @@ forecast_cause_groups = (
     ("Share of the cost saving kept [\\%]",
         (("Routed", cause_kept(:forecast, :perfect)),
             ("On the fixed course", cause_kept(:common_forecast, :common_perfect)))))
+
+"""
+    kite_margin_estimate(margins, column)
+
+Mean over the departures on the control forecast, as a [`cause_estimate`](@ref), of the
+share [%] in `column` of forecast_margins.csv read into `margins`.
+"""
+function kite_margin_estimate(margins, column)
+    rows = findall(==("forecast"), margins["knowledge"])
+    shares = Dict(:share => 100 .* margins[column][rows])
+    return cause_estimate(cause_saving(:share), shares)
+end
 
 "LaTeX of an (value, error) estimate of [`cause_estimate`](@ref)"
 cause_cell(estimate) = @sprintf("\\(%.1f \\pm %.1f\\)",
@@ -989,6 +1014,14 @@ function forecast_causes_table()
                 println(io, "\\quad ", label, " & ", join(cause_cell.(cells), " & "),
                     " \\\\")
             end
+        end
+        margins = read_table(data_file("forecast_margins.csv"))
+        println(io, "\\multicolumn{6}{@{}l}{\\textit{The kite's time near its limits on ",
+            "the forecasts, of the time at sea unless stated [\\%]}} \\\\")
+        for (label, column) in kite_margin_rows
+            println(io, "\\quad ", label, " & ",
+                cause_cell(kite_margin_estimate(margins, column)),
+                " & -- & -- & -- & -- \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
