@@ -1592,8 +1592,9 @@ Why a kite is down at [`SailedPoint`](@ref) `point` on the [`RouteTable`](@ref) 
 `:wind_low_pull`, where it can stay up but the apparent wind is below
 [`lowest_pull_wind`](@ref); `:no_thrust`, in enough wind but with no forward pull at the
 course, the wind coming from too far ahead; `:wind_low_launch`, `:wind_high_launch`,
-`:sea_launch`, `:night`, outside the limits it can launch in; `:no_saving`, where flying costs at least as much per hour as staying down; and
-`:chosen`, where it could launch, flying would save, and it stayed down.
+`:sea_launch`, `:night`, outside the limits it can launch in; `:no_saving`, where flying
+costs at least as much per hour as staying down; and `:chosen`, where it could launch,
+flying would save, and it stayed down.
 """
 function kite_down_reason(table::RouteTable, point, prices)
     rig = table.table.ship.rig
