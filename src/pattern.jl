@@ -581,13 +581,43 @@ function search_starts(problem::PatternProblem, starts)
 end
 
 """
-    optimal_pattern(problem, starts)
+    flyable_patterns(problem)
 
-Best steered pattern from Nelder-Mead runs from each parameter vector in `starts`; returns
-its [`PatternForce`](@ref), `NO_PATTERN` where nothing flies, and its parameters for warm
-starts.
+Parameters of the patterns that fly in the wind of `problem`, on a coarse grid over the
+sweeps a steered kite can fly; none for a kite that flies loops.
 """
-function optimal_pattern(problem::PatternProblem, starts)
+function flyable_patterns(problem::PatternProblem)
+    (; model) = problem
+    model.flies_loops && return Vector{Float64}[]
+    grid = ([centre, half_width, heading, angle]
+            for centre in range(0.1, 3.0; length=10),
+                half_width in (0.05, 0.1, 0.2, 0.4, 0.7, 1.0),
+                heading in range(0.15, 2.9; length=8),
+                angle in range(model.lowest_angle, model.stall_angle; length=7))
+    return [parameters for parameters in grid if problem(parameters) < 10]
+end
+
+"""
+    optimal_pattern(problem, starts, flyable=[])
+
+Best steered pattern from Nelder-Mead runs from each parameter vector in `starts`, or where
+none of them flies from the three best of the parameter vectors `flyable`; returns its
+[`PatternForce`](@ref), `NO_PATTERN` where nothing flies, and its parameters for warm starts.
+"""
+function optimal_pattern(problem::PatternProblem, starts, flyable=Vector{Float64}[])
+    force, parameters = best_search(problem, starts)
+    (isfinite(force.peak_tension) || isempty(flyable)) && return force, parameters
+    best = partialsortperm(problem.(flyable), 1:min(3, length(flyable)))
+    return best_search(problem, flyable[best])
+end
+
+"""
+    best_search(problem, starts)
+
+[`PatternForce`](@ref) and parameters of the best Nelder-Mead run from `starts`, with
+`NO_PATTERN` and the first start where none flies.
+"""
+function best_search(problem::PatternProblem, starts)
     (; model) = problem
     best_force, best_value, best_parameters = NO_PATTERN, Inf, first(starts)
     for start in search_starts(problem, starts)
@@ -674,12 +704,14 @@ function compute_pattern_table(model::KiteModel, max_force, assumptions::Assumpt
     forces = fill(NO_PATTERN, length(wind_speeds), length(courses), length(side_weights))
     min_elevation = deg2rad(assumptions[:kite_min_elevation])
     cases = vec(collect(Iterators.product(eachindex(courses), eachindex(side_weights))))
+    flyable = [flyable_patterns(PatternProblem(model, max_force, min_elevation, wind, 0.0,
+                   0.0)) for wind in wind_speeds]
     Threads.@threads :greedy for (j, k) in cases
         starts = pattern_starts(model, courses[j])
         for i in reverse(eachindex(wind_speeds))
             problem = PatternProblem(model, max_force, min_elevation, wind_speeds[i],
                 courses[j], side_weights[k])
-            forces[i, j, k], best = optimal_pattern(problem, starts)
+            forces[i, j, k], best = optimal_pattern(problem, starts, flyable[i])
             starts = vcat([best], pattern_starts(model, courses[j]))
         end
     end

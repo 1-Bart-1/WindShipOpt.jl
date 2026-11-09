@@ -385,6 +385,18 @@ end
     @test thrust(flown[1]) > 0
 end
 
+@testset "the search finds a pattern wherever a kite with little drag can fly one" begin
+    low_drag = WindShipOpt.with_value(assumptions, :kite_flight_drag, 0.0)
+    aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
+    model, max_force, _ = WindShipOpt.kite_model(13777.0, aspect_ratio, low_drag)
+    course = deg2rad(120.0)
+    flown = only(WindShipOpt.compute_pattern_table(model, max_force, low_drag, [15.0], [course],
+        [0.0]))
+    thrust = flown.force[1] * cos(course) + flown.force[2] * sin(course)
+    @test isfinite(flown.peak_tension)
+    @test thrust > 0
+end
+
 @testset "a kite launches inside its limits and stays up above its landing limit" begin
     table, prices = kite_coaster()
     launch_sea, stay_sea, over_sea = 2.0, 3.5, 5.5
