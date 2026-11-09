@@ -143,6 +143,13 @@ where $F_\parallel$ and $F_\perp$ are the components of $\overline{\mathbf F}$ a
 
 The \SI{25}{m/s} flight limit is the cut-out wind of the SkySails Power land system \citep{skypower100_tib} and the top of the airborne range of the Kitepower Falcon \citep{kitepower2024}. Where the model kite's figure eights give no thrust, the router lands it. No other limit applies on the port approach. The launch limit is one Beaufort step below the Beaufort~8 the ship system was designed for \citep{noaa2009}, and the landing limit is the wind up to which the automated recovery of the \SI{100}{kW} land system is meant to work \citep{skypower100_tib}. A launch in a head wind may need the ship turned through \SI{180}{\degree} and back \citep{wiwo2008}; no source says how many do, so each launch carries a mean turn cost and the router does not turn.
 
+\paragraph{Launch wind in a sea} A sea of significant wave height $H_s$, peak period $T_p$ and heading $\mu$ raises the lowest apparent wind for a launch by
+\begin{equation}
+\Delta V_\mathrm{sea} = \Delta V_\mathrm{ref}\,\frac{v_m(V, H_s, T_p, \mu)}{\bar v_{m,\mathrm{ref}}},
+\label{eq:sea_wind}
+\end{equation}
+where $v_m$ is the significant vertical speed of the ship at its launch mast, twice the root-mean-square, from heave and pitch out of phase in long-crested waves with a JONSWAP spectrum, and $\Delta V_\mathrm{ref}=\SI{5}{m/s}$ the rise reported on the reference ship, whose $\bar v_{m,\mathrm{ref}}$ is the mean over headings at \SI{6}{m/s} in a sea of \SI{3.25}{m} and \SI{9}{s}. Heave and pitch come from closed-form expressions for a box-shaped hull \tbd{(Jensen et al. 2004, to be read in full before it is cited)}, tabulated per metre of $H_s$ over speed, period and heading. Roll is left out, as a mast on the centreline barely rises with it. Since the scale is fixed on one ship, only the ratio of motions between ships matters, which a closed-form hull gives better than it gives their size.
+
 \paragraph{Launch and landing} One launch and landing costs
 \begin{equation}
 c_c = (1+p_r)\left[c_\mathrm{crew} + p_t C_\mathrm{canopy} + p_l (C_\mathrm{canopy} + C_\mathrm{tether} + C_\mathrm{unit})\right] + c_\mathrm{turn} + \frac{n_b}{N_b} C_\mathrm{tether},

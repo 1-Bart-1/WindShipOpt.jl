@@ -48,9 +48,11 @@ Steaming up to launch. It never gains in the model: no pattern gives force under
 | --- | --- | --- | --- |
 | Lowest apparent wind | 5 m/s (3-6), or lift-off or flight if higher | Climb wind, 3.9-4.1 m/s | None |
 | Highest apparent wind | 17 m/s (13-20), estimate | 25 m/s (20-30) | 20 m/s (15-25) |
-| Significant wave height | 3 m (2-4), estimate | 5 m (4-7), estimate | 4 m (3-5), estimate |
+| Sea | Lowest wind raised by the extra launch wind below | None | Only where that raised wind passes the landing limit |
 
 The landing wind is the design limit of the stowage of a full-size land kite, 20 m/s, a target (SkyPower100, p. 20); that report also calls landing more time-critical than launch. So the three limits differ, and a kite may be up where it should not land. What keeps it from being stranded is that it can always come down, at a price: a landing outside the landing limits is forced, with a 5 % chance (1-20 %, estimate) of losing the kite, tether and control unit, against 0.005 % for a normal cycle. With the weather known, the router lands ahead of the limit; with a forecast it may be caught out and pay. A kite that reaches a stay-up limit must land at that point. Where only a flying kite holds the ship's speed, it stays up until it has to land.
+
+Sea. No source gives a wave height at which a ship kite must stay down, so a launch instead needs extra apparent wind in proportion to the significant vertical speed at the launch mast (heave and pitch of a box-shaped hull on a JONSWAP sea, Jensen et al. 2004 not yet read in full). The scale is Paulig's rise from 5 to 10 m/s in rough sea and bad weather, taken for the sea on the 132 m ship in 3.25 m (input `kite_launch_sea_wind`, 0-10 m/s). The same sea asks 8 m/s more of an 85 m coaster, 0.5 m/s of a 350 m ship. A kite already up stays up in any sea its wind limits allow. Draft run at 72a8c2d on e-ammonia, kite cost saving over six routes, with and without the sea effect: coaster 9.6 and 10.9 %, 140 m 8.4 and 9.0 % (four routes), feeder 10.2 and 10.5 %, Kamsarmax 12.9 and 13.4 %, VLCC 11.3 and 11.4 %, Neo-Panamax 8.0 and 8.2 %.
 
 Port approach. A leg ends with the kite down at its last sample point, about 15 nmi from port, so no leg ends on a stay, and a landing there can be forced. Along the fixed coastal stages before it the kite may still fly and launch: the model has no limit for traffic lanes or pilotage, and no source gives one.
 

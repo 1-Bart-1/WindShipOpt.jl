@@ -1224,9 +1224,9 @@ fidelity_parts() = [
             :kite_min_elevation, :kite_flight_drag, :kite_stall_margin,
             :kite_max_force_per_area, :kite_mass_per_area, :tether_drag_coefficient)),
     (part="Kite launch and sea limits", varied="input ranges",
-        model="fixed limits of wind and significant wave height for launch, flight and " *
-              "landing",
-        error="wave limits are estimates without a source",
+        model="fixed wind limits for launch, flight and landing; launch wind raised with " *
+              "the launch mast's motion in the sea",
+        error="extra launch wind scaled on one reported pair of wind speeds",
         effect=varied_inputs(:kite_launch_sea_wind, :kite_max_wind, :kite_launch_max_wind,
             :kite_launch_min_wind, :kite_landing_max_wind, :kite_launch_margin)),
     (part="Wear and availability", varied="input ranges",
@@ -1450,7 +1450,7 @@ sea_effect_table.tex.
 """
 function sea_effect_table()
     table = read_table(data_file("sea_effect.csv"))
-    ships = ("140 m", sea_effect_classes...)
+    ships = (first(sea_effect_classes), "140 m", Iterators.drop(sea_effect_classes, 1)...)
     open(joinpath(sections, "sea_effect_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
         println(io, "Ship & \\multicolumn{2}{c}{Saving [\\%]} & Difference & ",
