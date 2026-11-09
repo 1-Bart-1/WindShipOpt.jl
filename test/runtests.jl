@@ -2640,8 +2640,7 @@ end
 @testset "a kite built for its cost is priced like the one that flies" begin
     area, flying = last(kite_rigs_by_area())
     hull = Hull(140.0, assumptions)
-    priced = KiteRig(area, 3.0, hull, assumptions;
-        forces=Array{WindShipOpt.PatternForce, 3}(undef, 0, 0, 0))
+    priced = KiteRig(area, 3.0, hull, assumptions; courses=Float64[])
     @test WindShipOpt.consumable_costs(priced, assumptions) ==
           WindShipOpt.consumable_costs(flying, assumptions)
     @test WindShipOpt.crash_cost(priced, assumptions) ==

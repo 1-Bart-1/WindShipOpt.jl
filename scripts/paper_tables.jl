@@ -1523,12 +1523,11 @@ end
 """
     priced_kite(area, class)
 
-Kite of `area` [m^2] for a ship of `class` built for what it costs, with no pattern table.
+Kite of `area` [m^2] for a ship of `class` built for what it costs, flying no course.
 """
 function priced_kite(area, class)
-    no_patterns = Array{WindShipOpt.PatternForce, 3}(undef, 0, 0, 0)
     return KiteRig(area, design_aspect_ratio, Hull(class, assumptions), assumptions;
-        forces=no_patterns)
+        courses=Float64[])
 end
 
 """
@@ -1584,28 +1583,28 @@ end
 """
     life_limit_text(life)
 
-Text of the canopy life [h] `life`, to the hundred; a dash where the kite has no lead and
-the shortest of `canopy_lives` as a bound below it, where no sweep reaches.
+Text of the canopy life [h] `life`, to the hundred; a dash where the kite has no lead.
 """
-function life_limit_text(life)
-    isnan(life) && return "--"
-    shortest = first(canopy_lives)
-    life < shortest && return @sprintf("below \\num{%.0f}", shortest)
-    return @sprintf("\\num{%.0f}", 100round(life / 100))
-end
+life_limit_text(life) = isnan(life) ? "--" : @sprintf("\\num{%.0f}", 100round(life / 100))
 
 """
     rig_lead_numbers(table)
 
 Name and text, per kind of ship of `ship_types` and drive of the class table `table`, of
-the best rig, the next, the margin [points] and where the kite falls behind the rotors.
+the margin [points] of the best rig, and on container ships where the kite falls behind
+the rotors.
 """
-rig_lead_numbers(table) = vcat([["Leader$(row.drive_word)$(row.word)" => row.rig,
-    "RunnerUp$(row.drive_word)$(row.word)" => row.rival,
-    "Margin$(row.drive_word)$(row.word)" => @sprintf("%.1f", row.margin),
-    "KiteLifeLimit$(row.drive_word)$(row.word)" => life_limit_text(row.life),
-    "KiteLossLimit$(row.drive_word)$(row.word)" => crash_cell(row.losses)]
-                                for row in rig_lead_rows(table)]...)
+function rig_lead_numbers(table)
+    numbers = Pair{String, String}[]
+    for row in rig_lead_rows(table)
+        name = row.drive_word * row.word
+        push!(numbers, "Margin$name" => @sprintf("%.1f", row.margin))
+        row.word == "Container" || continue
+        push!(numbers, "KiteLifeLimit$name" => life_limit_text(row.life),
+            "KiteLossLimit$name" => crash_cell(row.losses))
+    end
+    return numbers
+end
 
 """
     rig_margin_table()
@@ -1634,7 +1633,7 @@ end
 
 Name and text of the mean over the classes and routes of the class table `table` of how
 much more [%] the e-ammonia ship costs than the same ship on VLSFO without a rig, without
-a rig and with the rig that saves it most.
+a rig and with the rig that saves it most, and the share [%] of the premium that rig closes.
 """
 function premium_numbers(table)
     without, with = Float64[], Float64[]
@@ -1651,5 +1650,6 @@ function premium_numbers(table)
         push!(with, -percent_saving(minimum(table["cost"][rigged]), reference))
     end
     return ["PremiumNoRig" => whole_number(mean(without)),
-        "PremiumBestRig" => whole_number(mean(with))]
+        "PremiumBestRig" => whole_number(mean(with)),
+        "PremiumClosed" => whole_number(100 * (1 - mean(with) / mean(without)))]
 end
