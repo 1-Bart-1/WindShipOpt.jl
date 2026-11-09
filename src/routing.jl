@@ -393,7 +393,7 @@ struct SailedPoint
     headwind::Float64
     "true wind at the kite's reference height from abeam [m/s]"
     crosswind::Float64
-    "significant wave height [m]"
+    "sea condition there"
     condition::SeaCondition
     "whether the sun is up there"
     daylight::Bool
