@@ -42,8 +42,11 @@ end
 
 issue_count(group::ArchiveGroup) = minimum(size(field, 4) for field in values(group.fields))
 
+holds_data(field, issue) =
+    !all(value -> isnan(value) || iszero(value), view(field, :, :, 1, issue))
+
 issued_in(group::ArchiveGroup, issue) =
-    !all(value -> isnan(value) || iszero(value), view(first(values(group.fields)), :, :, 1, issue))
+    all(field -> holds_data(field, issue), values(group.fields))
 
 """
     ForecastArchive(directory, weather)
@@ -65,6 +68,41 @@ function ForecastArchive(directory::AbstractString, weather::ERA5Weather)
     first_issue = Dates.value(DateTime(grid["first_issue"]) - weather.origin) / 3_600_000
     return ForecastArchive(ArchiveGroup(joinpath(directory, "wind")),
         ArchiveGroup(joinpath(directory, "waves")), first_issue, weather.origin)
+end
+
+"""
+    margin_wind(east, north)
+
+East and north wind of the margin, from member winds (lon, lat, lead, member) [m/s]: the
+lower quartile of the member speeds, in the direction of the mean vector.
+"""
+function margin_wind(east, north)
+    mean_east = dropdims(mean(east; dims=4); dims=4)
+    mean_north = dropdims(mean(north; dims=4); dims=4)
+    margin_east, margin_north = copy(mean_east), copy(mean_north)
+    for I in CartesianIndices(mean_east)
+        speeds = [hypot(east[I, member], north[I, member]) for member in axes(east, 4)]
+        norm = hypot(mean_east[I], mean_north[I])
+        scale = any(isnan, speeds) ? NaN32 :
+                norm > 0 ? quantile(speeds, 0.25) / norm : 0.0f0
+        margin_east[I], margin_north[I] = mean_east[I] * scale, mean_north[I] * scale
+    end
+    return margin_east, margin_north
+end
+
+"""
+    margin_height(height)
+
+Wave height of the margin from member heights (lon, lat, lead, member) [m]: the upper
+quartile of the members.
+"""
+function margin_height(height)
+    margin = dropdims(mean(height; dims=4); dims=4)
+    for I in CartesianIndices(margin)
+        heights = [height[I, member] for member in axes(height, 4)]
+        margin[I] = any(isnan, heights) ? NaN32 : quantile(heights, 0.75)
+    end
+    return margin
 end
 
 """

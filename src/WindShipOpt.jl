@@ -11,7 +11,7 @@ module WindShipOpt
 
 using Base.ScopedValues: ScopedValue, with
 using Random: Random
-using Statistics: mean
+using Statistics: mean, quantile
 using Dates: DateTime, Dates
 using Mmap: Mmap
 using Optim: Optim
