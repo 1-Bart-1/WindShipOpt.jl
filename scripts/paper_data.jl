@@ -1326,16 +1326,14 @@ end
     development_inputs
 
 The inputs of the development study as (input, label, rig, lever, reason): the input,
-its name in the paper, the rig whose developer can change it (or `"all"` for every rig
-and `"condition"` for a condition it is judged against), what kind of lever it is, and
-the reason it is in the study.
+its name in the paper, the rig whose developer can change it (or `"condition"` for a
+condition it is judged against), what kind of lever it is, and the reason it is in the
+study.
 """
 development_inputs = [
     (input=:canopy_making_cost_per_area, label="canopy making cost", rig="kite",
         lever="price", reason="Sewing, lines and fittings; a maker lowers them by series " *
                               "production and by design for making."),
-    (input=:canopy_cloth_base_price, label="canopy cloth price", rig="kite", lever="price",
-        reason="The canopy's other cost; a maker chooses the cloth and how it is bought."),
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
         reason="What a flight hour of the canopy costs; unmeasured, so what development " *
                "has to prove."),
@@ -1351,12 +1349,17 @@ development_inputs = [
     (input=:kite_flight_drag, label="kite flight drag", rig="kite", lever="force",
         reason="Deformation, control unit and steering; the low bound, a kite that keeps " *
                "its design shape, is the most a better design can recover."),
-    (input=:kite_launch_max_wave_height, label="kite highest wave for launch", rig="kite",
-        lever="weather", reason="The tightest of the kite's limits, and the launch " *
-                                "system its developer builds."),
-    (input=:kite_max_wave_height, label="kite highest wave in flight", rig="kite",
-        lever="weather", reason="Depends on how the launch mast, winch and tether " *
-                                "take up the ship's motion."),
+    (input=:kite_launch_sea_wind, label="kite extra launch wind in a sea", rig="kite",
+        lever="weather", reason="How far the launch system takes up the ship's motion; " *
+                                "the kite's only limit on the sea."),
+    (input=:kite_launch_min_wind, label="kite lowest launch wind", rig="kite",
+        lever="weather", reason="A lighter kite and a surer launch reach calmer air."),
+    (input=:kite_launch_max_wind, label="kite highest launch wind", rig="kite",
+        lever="weather", reason="How hard a wind the launch system can handle."),
+    (input=:kite_landing_max_wind, label="kite highest landing wind", rig="kite",
+        lever="weather", reason="How hard a wind the landing and stowage can handle."),
+    (input=:kite_max_wind, label="kite highest wind in flight", rig="kite",
+        lever="weather", reason="Its structure and control decide when it must come down."),
     (input=:wing_cost_per_area, label="wing sail cost per area", rig="wings", lever="price",
         reason="Structure and series production set a wing's price."),
     (input=:wing_max_lift_coefficient, label="wing sail maximum lift", rig="wings",
@@ -1372,16 +1375,11 @@ development_inputs = [
         reason="Up to which wind its drive and structure let a rotor keep spinning."),
     (input=:rotor_out_of_service, label="rotor out of service", rig="rotors",
         lever="availability", reason="The same reliability lever as for every rig."),
-    (input=:rig_maintenance_fraction, label="rig maintenance share", rig="all",
-        lever="price", reason="A maker designs for what its rig costs to keep running."),
     (input=:e_ammonia_price, label="e-ammonia price", rig="condition", lever="condition",
         reason="Not for a developer to change: the fuel bill a rig cuts on the zero-" *
                "emission fuel."),
     (input=:vlsfo_price, label="fuel oil price", rig="condition", lever="condition",
         reason="Not for a developer to change: the fuel bill a rig cuts on fuel oil."),
-    (input=:carbon_coverage, label="carbon cost coverage", rig="condition",
-        lever="condition", reason="Not for a developer to change: whether the ship pays " *
-                                  "for its CO\\textsubscript{2}."),
 ]
 
 """

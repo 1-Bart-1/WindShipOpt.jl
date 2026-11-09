@@ -2632,6 +2632,13 @@ end
     end
 end
 
+@testset "the development study moves the kite's sea and wind limits, lowest and highest" begin
+    inputs = [entry.input for entry in PaperData.development_inputs]
+    limits = (:kite_launch_sea_wind, :kite_launch_min_wind, :kite_launch_max_wind,
+        :kite_landing_max_wind, :kite_max_wind)
+    @test issubset(limits, inputs)
+end
+
 @testset "a development ship whose rig has no size in the class study stops the run" begin
     PaperData.eval(:(best_area(table, class, route, drive, rig) =
         rig == "wings" ? NaN : 100.0))
@@ -2642,7 +2649,7 @@ end
     PaperData.eval(:(bound_changes(table, ship, rig, input; column="cost") =
         rig == "kite" ? (1.0, -2.0) : rig == "wings" ? (NaN, 1.0) : (0.5, 0.0)))
     lever(rig) = PaperData.lever_gain_loss(nothing, "ship", (input=:any, rig))
-    @test lever("all") == (1.0, -2.0)
+    @test lever("condition") == (1.0, -2.0)
     @test lever("rotors") == (0.5, 0.0)
     gain, loss = lever("wings")
     @test isnan(gain) && isnan(loss)

@@ -158,7 +158,7 @@ end
 
 "heading of each group of the development table, by the rig of its inputs"
 development_groups = ["kite" => "Kite", "wings" => "Wing sails", "rotors" => "Rotors",
-    "all" => "Every rig", "condition" => "Conditions"]
+    "condition" => "Conditions"]
 
 """
     development_table()
@@ -1248,10 +1248,10 @@ fidelity_parts() = [
         error="glide ratio of 4 matched to flight data",
         effect=varied_inputs(:kite_min_turn_radius, :kite_flight_drag,
             :kite_max_force_per_area)),
-    (part="Kite launch and sea limits", varied="launch and flight wave limits",
-        model="fixed limits of wind and significant wave height for launch, flight and " *
-              "landing",
-        error="wave limits are estimates without a source",
+    (part="Kite launch and sea limits", varied="wind limits, extra launch wind in a sea",
+        model="limits of wind for launch, flight and landing; a launch needs more wind " *
+              "as the sea moves the ship",
+        error="the extra launch wind rests on one reported pair of wind speeds",
         effect=varied_inputs(:kite_launch_sea_wind, :kite_launch_min_wind,
             :kite_launch_max_wind, :kite_landing_max_wind, :kite_max_wind)),
     (part="Wear and availability", varied="canopy life, out of service",
