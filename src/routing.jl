@@ -1405,17 +1405,17 @@ const CORRIDOR_HALF_WIDTH = 2400.0
 const CHANNEL = [(51.98, 4.05), (51.05, 1.60), (50.05, -1.50), (48.80, -6.00)]
 
 """
-    route_corridors(route, mask; scale=1)
+    route_corridors(route, mask; scale=1, lateral_scale=scale)
 
 Outbound and return corridors between Rotterdam and the port of `route`: `:caribbean`
 (Guadeloupe; outbound via the trade winds, homeward on the great circle), `:new_york`,
 `:bilbao`, `:dakar`, `:houston` (through the Florida Strait) or `:tubarao` (Brazil), the
 same band both ways. All run through the Channel to Ushant.
-`scale` multiplies the stage and node spacing; the band reaches `CORRIDOR_HALF_WIDTH` to
-either side.
+`scale` multiplies the stage spacing and `lateral_scale` the node spacing; the band reaches
+`CORRIDOR_HALF_WIDTH` to either side.
 """
-function route_corridors(route::Symbol, mask; scale=1)
-    lateral_spacing = 60.0 * scale
+function route_corridors(route::Symbol, mask; scale=1, lateral_scale=scale)
+    lateral_spacing = 60.0 * lateral_scale
     spacing = (ocean_spacing=90.0 * scale, lateral_spacing,
         lateral_count=2 * ceil(Int, CORRIDOR_HALF_WIDTH / lateral_spacing) + 1)
     if route == :caribbean
