@@ -303,7 +303,7 @@ function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0, day
         π / 2)
     sample = WindShipOpt.EdgeSample(condition, headwind, 0.0, daylight)
     held, flown, stowed = WindShipOpt.held_speed(table, speed_index, sample)
-    return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours)
+    return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours, 0.0)
 end
 
 """
@@ -1352,9 +1352,13 @@ WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
 @testset "a leg's trace shows the trim the router priced where waves leave the table" begin
     ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=400.0), assumptions)
     table = RouteTable(PerformanceTable(ship, assumptions))
-    trace = WindShipOpt.LegTrace((Float64[] for _ in 1:7)..., Bool[], Float64[])
+    trace = WindShipOpt.LegTrace((Float64[] for _ in 1:14)..., (Bool[] for _ in 1:4)...,
+        Any[])
+    calm_sea = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 0.0, 8.0, 0.0)
+    point = WindShipOpt.SailedPoint(0.0, 0.0, calm_sea, true,
+        searchsortedfirst(table.speeds, 5.0), 0.0, 0.0, 1.0, 24.0 * 31)
     WindShipOpt.push_trace_point!(trace, table, FollowingSeaWeather(), 24.0 * 31, 30.0,
-        -30.0, 0.0, searchsortedfirst(table.speeds, 5.0), π / 2, WindShipOpt.FLYING)
+        -30.0, π / 2, point, 1.0, true, false, false, false)
     first_knot = first(table.table.flown_thrust.knots[4])
     priced = last(WindShipOpt.best_trim(ship, ship.rig, only(trace.speed), 14.0,
         only(trace.true_wind_angle), first_knot))
@@ -2112,7 +2116,7 @@ end
     unpowered = findfirst(i -> !isfinite(last(WindShipOpt.edge_fuels(table, i, condition))),
         eachindex(table.speeds))
     point = WindShipOpt.SailedPoint(sample,
-        WindShipOpt.held_speed(table, unpowered, sample)..., 1.0)
+        WindShipOpt.held_speed(table, unpowered, sample)..., 1.0, 0.0)
     distance = 1e5
     hours(i) = distance / table.speeds[i] / 3600
     @test WindShipOpt.same_through(table, [point], unpowered, distance, 1e6) > unpowered
@@ -2131,7 +2135,7 @@ end
     unpowered = findfirst(!powered, eachindex(table.speeds))
     faster_powered = findnext(powered, eachindex(table.speeds), unpowered)
     held, flown, stowed = WindShipOpt.held_speed(table, unpowered, sample)
-    point = WindShipOpt.SailedPoint(sample, held, flown, stowed, 1.0)
+    point = WindShipOpt.SailedPoint(sample, held, flown, stowed, 1.0, 0.0)
     same_through = WindShipOpt.same_through(table, [point], unpowered, 1e5, 1e6)
     @test same_through == faster_powered - 1
     for speed_index in unpowered:same_through
@@ -2140,7 +2144,7 @@ end
     calm = WindShipOpt.EdgeSample(WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 0.0, 6.0,
         0.0), 0.0, 0.0, true)
     calm_point = WindShipOpt.SailedPoint(calm,
-        WindShipOpt.held_speed(table, unpowered, calm)..., 1.0)
+        WindShipOpt.held_speed(table, unpowered, calm)..., 1.0, 0.0)
     @test WindShipOpt.same_through(table, [point, calm_point], unpowered, 1e5, 1e6) ==
         unpowered
     @test first(WindShipOpt.held_speed(table, faster_powered, sample)) == faster_powered
@@ -2318,6 +2322,45 @@ end
         @test searched_speeds ⊆ commanded
         @test final_speeds ⊆ table.speeds
         @test !(final_speeds ⊆ commanded)
+    end
+end
+
+@testset "a trace of a leg replays the kite decisions and the rig trim the router made" begin
+    outbound, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    weather = SyntheticWeather()
+    departure = 24.0 * 31
+    for design in (ShipDesign(:methanol, 85.0; kite_area=500.0),
+        ShipDesign(:methanol, 85.0; wing_area=300.0),
+        ShipDesign(:methanol, 85.0; rotor_area=100.0))
+
+        table = PerformanceTable(Ship(design, assumptions), assumptions)
+        leg = route(outbound, RouteTable(table), weather, departure; time_cost=300.0)
+        trace = LegTrace(table, leg, weather, departure)
+        @test first(trace.time) == 0
+        @test last(trace.time) ≈ leg.duration rtol=0.02
+        @test issorted(trace.time)
+        @test (first(trace.lat), first(trace.lon)) == leg.path[1][1:2]
+        @test last(trace.lat) ≈ leg.path[end][1] atol=1e-9
+        @test last(trace.lon) ≈ leg.path[end][2] atol=1e-9
+        @test sum(trace.hours) ≈ leg.duration rtol=1e-9
+        @test sum(trace.hours[trace.flying]) ≈ leg.flight_hours rtol=0.05
+        @test sum(trace.fuel_power .* trace.hours) ≈ leg.fuel_energy / 3600 rtol=0.05
+        @test count(trace.launched) == leg.launches
+        @test count(trace.forced) == leg.forced_landings
+        rig = table.ship.rig
+        if rig isa WindShipOpt.KiteRig
+            @test leg.launches > 0
+            @test all(isnothing, trace.trim[.!trace.flying])
+            @test count(trace.landed) == leg.launches
+        end
+        trimmed = rig isa WindShipOpt.KiteRig ? findall(trace.flying) :
+                  eachindex(trace.time)
+        @test all(trimmed) do i
+            force = WindShipOpt.rig_force(rig, table.ship.env,
+                hypot(trace.wind_east[i], trace.wind_north[i]), trace.true_wind_angle[i],
+                trace.speed[i], trace.trim[i])
+            force.thrust == trace.rig_thrust[i]
+        end
     end
 end
 
@@ -2660,6 +2703,7 @@ module PaperData
 using Printf, Statistics, WindShipOpt
 assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
+include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 end
 
 @testset "a following wind is flown at a lower speed and a rough sea at no speed" begin
@@ -2672,7 +2716,7 @@ end
     stretch(wave_height) = fill(PaperData.at_speed(kite_table,
         WindShipOpt.SailedPoint(-tailwind, 0.0,
             WindShipOpt.SeaCondition(kite_table.table, wind_10m, float(π), wave_height, 8.0,
-                0.0), true, sailed, NaN, NaN, 3.0), sailed), 4)
+                0.0), true, sailed, NaN, NaN, 3.0, 0.0), sailed), 4)
     outcome(points) = first(PaperData.speed_change_outcome(kite_table, points, prices))
     @test outcome(stretch(1.0)) != :no_speed
     @test outcome(stretch(2rig.launch_max_wave_height)) == :no_speed
@@ -2682,7 +2726,7 @@ end
         beam_wind / kite_table.table.kite_wind_factor, float(π) / 2, wave_height, 8.0, 0.0)
     sailed_at(index, wave_height) = fill(PaperData.at_speed(kite_table,
             WindShipOpt.SailedPoint(0.0, beam_wind, beam_sea(wave_height), true, index,
-                NaN, NaN, 3kite_table.speeds[sailed] / kite_table.speeds[index]),
+                NaN, NaN, 3kite_table.speeds[sailed] / kite_table.speeds[index], 0.0),
             index), 4)
     credited(index) = last(PaperData.speed_change_outcome(kite_table,
         sailed_at(index, 1.0), prices))
@@ -2843,6 +2887,62 @@ function recorded_names(recording, node)
     operation == :input && return Set([first(operands)])
     operation == :constant && return Set{String}()
     return union((recorded_names(recording, operand) for operand in operands)...)
+end
+
+@testset "an exported passage keeps the routed track and the rig's frame" begin
+    @test PaperData.wind_side(-10.0, 0.0, 0.0) == 1
+    @test PaperData.wind_side(10.0, 0.0, 0.0) == -1
+    position(radial, side=1) = PaperData.ship_frame_position(radial, π / 2, side)
+    @test all(isapprox.(position((1.0, 0.0, 0.0)), (-90.0, 0.0); atol=1e-9))
+    @test all(isapprox.(position((1.0, 0.0, 0.0), -1), (90.0, 0.0); atol=1e-9))
+    @test all(isapprox.(position((0.0, 1.0, 0.0)), (0.0, 0.0); atol=1e-9))
+    @test all(isapprox.(position((0.0, 0.0, 1.0)), (0.0, 90.0); atol=1e-9))
+    wing_ship = Ship(ShipDesign(:methanol, 85.0; wing_area=300.0), assumptions)
+    wings = wing_ship.rig
+    attached_range, stalled_range = WindShipOpt.trim_ranges(wings, wing_ship.env, 10.0,
+        π / 2, 5.0)
+    attached = WindShipOpt.trim_setting(wings, attached_range, 0.0)
+    stalled = WindShipOpt.trim_setting(wings, stalled_range, 90.0)
+    @test PaperData.wing_incidence(wings, attached) == 0.0
+    @test rad2deg(PaperData.wing_incidence(wings, stalled)) ≈ 90 atol=1e-6
+    ship = Ship(ShipDesign(:methanol, 85.0; rotor_area=100.0), assumptions)
+    table = PerformanceTable(ship, assumptions)
+    outbound, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    weather = SyntheticWeather()
+    leg = route(outbound, RouteTable(table), weather, 24.0 * 31; time_cost=300.0)
+    trace = LegTrace(table, leg, weather, 24.0 * 31)
+    case = (; index=0, ship, patterns=nothing)
+    exported = PaperData.recorded_leg(case, leg, trace, "out", 0, 24.0 * 31)
+    @test exported.columns.lat == round.(Int, trace.lat .* 100)
+    @test exported.columns.lon == round.(Int, trace.lon .* 100)
+    port_of_north = PaperData.wind_side.(trace.wind_east, trace.wind_north, trace.course)
+    @test exported.columns.apparent_angle ==
+          round.(Int, rad2deg.(port_of_north .* trace.apparent_angle))
+    @test any(<(0), exported.columns.apparent_angle) &&
+          any(>(0), exported.columns.apparent_angle)
+    @test all(abs(spin) <= 400 for spin in exported.columns.trim.spin)
+end
+
+@testset "the passage figure labels a track all its ships share" begin
+    track = [(0.0, 10.0), (1.0, 12.0), (2.0, 11.0)]
+    @test PaperData.clearest_edge(track, [track]) == 1
+    apart = [(0.0, 10.0), (1.0, 20.0), (2.0, 11.0)]
+    @test PaperData.clearest_edge(track, [track, apart]) == 1
+    @test PaperData.clearest_edge(apart, [track, apart]) == 1
+end
+
+@testset "a kite's recorded pattern flies on the lee side in the ship's frame" begin
+    design = ShipDesign(:methanol, 85.0; kite_area=500.0)
+    ship = Ship(design, assumptions)
+    model = first(WindShipOpt.kite_model(500.0, design.kite_aspect_ratio, assumptions))
+    table = (; wind_speeds=[12.0], courses=[deg2rad(90.0)], side_weights=[0.0],
+        ship.rig.max_force)
+    points, period = only(PaperData.kite_patterns((; rig=table), model))
+    @test length(points) == PaperData.pattern_samples
+    @test period > 0
+    azimuths = [first(PaperData.ship_frame_position(point, deg2rad(90.0), 1))
+                for point in points]
+    @test all(azimuth < 0 for azimuth in azimuths)
 end
 
 @testset "a recorded cost is the routed cost, depends on its inputs and has no branch" begin

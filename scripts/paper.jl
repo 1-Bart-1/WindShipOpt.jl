@@ -18,6 +18,7 @@
 # and table steps LaTeX to paper/sections/; draft results are marked in the paper. The
 # LaTeX build is separate.
 using CairoMakie
+using Dates
 using Printf
 using Statistics
 using WindShipOpt
@@ -32,6 +33,7 @@ include("paper_runs.jl")
 include("size_search.jl")
 include("paper_data.jl")
 include("explorer_data.jl")
+include("passages_data.jl")
 include("cargo_groups.jl")
 include("paper_figures.jl")
 include("paper_drawings.jl")
@@ -61,7 +63,7 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :size_search => size_search_data]
 
 "steps outside the paper, run only by name: the data of the companion website"
-website_steps = [:explorer => explorer_data]
+website_steps = [:explorer => explorer_data, :passages => passages_data]
 
 "figure and table steps, each reading the data files and writing one output"
 output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,

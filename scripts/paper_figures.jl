@@ -455,6 +455,27 @@ function route_figure()
 end
 
 """
+    figure_passages()
+
+The labelled designs of [`passage_figure`](@ref) and each one's routed leg with its trace.
+"""
+function figure_passages()
+    designs = (("no rig", passage_ship_design("none", 0.0)),
+        ("kite 3200 m²", passage_ship_design("kite", 3200.0)),
+        ("wings 1500 m²", passage_ship_design("wings", 1500.0)),
+        ("rotors 800 m²", passage_ship_design("rotors", 800.0)))
+    outbound = first(run_corridors(:caribbean))
+    legs = map(designs) do (label, design)
+        ship = Ship(design, assumptions)
+        table = PerformanceTable(ship, assumptions)
+        hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+            assumptions))
+        return traced_passage(table, outbound, departures[1], hourly)
+    end
+    return designs, legs
+end
+
+"""
     passage_figure()
 
 One winter outbound passage to Guadeloupe of a 140 m e-ammonia ship without a rig and
@@ -463,20 +484,8 @@ after departure, each labelled with the ships that take it, and the speed, rig t
 fuel power at each sample of the passage.
 """
 function passage_figure()
-    designs = (("no rig", ShipDesign(:ammonia, 140.0)),
-        ("kite 3200 m²", ShipDesign(:ammonia, 140.0; kite_area=3200.0)),
-        ("wings 1500 m²", ShipDesign(:ammonia, 140.0; wing_area=1500.0)),
-        ("rotors 800 m²", ShipDesign(:ammonia, 140.0; rotor_area=800.0)))
+    designs, legs = figure_passages()
     departure = departures[1]
-    outbound = first(run_corridors(:caribbean))
-    legs = map(designs) do (label, design)
-        ship = Ship(design, assumptions)
-        table = PerformanceTable(ship, assumptions)
-        hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
-            assumptions))
-        leg = route(outbound, table, weather, departure; time_cost=hourly)
-        return leg, WindShipOpt.LegTrace(table, leg, weather, departure; interval=3.0)
-    end
     figure = Figure(size=(page_width, 360))
     map_axis = Axis(figure[1, 1:2]; aspect=DataAspect(), limits=(-64, 6, 13, 54),
         xlabel="longitude [°]", ylabel="latitude [°]", title="(a) routed tracks")
@@ -486,15 +495,14 @@ function passage_figure()
     lines!(map_axis, great_circle(first_path[1], first_path[end])...; color=:black,
         linestyle=:dot, linewidth=0.8)
     tracks = [track_points(leg.path) for (leg, _) in legs]
-    widest = argmax(stage -> maximum(track[stage][2] for track in tracks) -
-                             minimum(track[stage][2] for track in tracks),
-        eachindex(first(tracks)))
     for track in unique(tracks)
         sharing = [replace(first(designs[i]), r" \d+ m²" => "") for i in eachindex(tracks)
                    if tracks[i] == track]
         scatterlines!(map_axis, track; color=:black, linewidth=1.2, markersize=pt(3))
-        north = track[widest][2] == maximum(other[widest][2] for other in tracks)
-        text!(map_axis, track[widest]; text=join(sharing, ", "), fontsize=pt(9),
+        edge = clearest_edge(track, unique(tracks))
+        middle = edge_middle(track, edge)
+        north = middle[2] == maximum(edge_middle(other, edge)[2] for other in tracks)
+        text!(map_axis, middle; text=join(sharing, ", "), fontsize=pt(9),
             align=(:center, north ? :bottom : :top), offset=(0, north ? 5 : -5),
             glowcolor=(:white, 0.9), glowwidth=3)
     end
