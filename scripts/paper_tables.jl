@@ -935,7 +935,7 @@ function speed_choice_table()
     end
 end
 
-"share of `rig`'s cost saving kept on `plan` with its error [%], in LaTeX; a dash where not run"
+"share of `rig`'s cost saving kept on `plan` with its error [%], in LaTeX; `--` if not run"
 function kept_cell(table, rig, plan)
     found = rows(table, "rig" => rig, "plan" => plan)
     isempty(found) && return "--"
@@ -959,8 +959,8 @@ function forecast_plans_table()
         println(io, "\\begin{tabular}{@{}lccc@{}}\n\\toprule")
         println(io, "Plan & Kite & Wing sails & Rotors \\\\\n\\midrule")
         for (plan, label) in plans
-            println(io, label, " & ", join(kept_cell.(Ref(table), ("kite", "wings", "rotors"), plan), " & "),
-                " \\\\")
+            cells = [kept_cell(table, rig, plan) for rig in ("kite", "wings", "rotors")]
+            println(io, label, " & ", join(cells, " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end

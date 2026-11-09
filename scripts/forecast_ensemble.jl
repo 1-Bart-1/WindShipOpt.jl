@@ -10,7 +10,7 @@
 ENV["ERA5_REGION"] = "atlantic_wide"
 include("setup.jl")
 include("download_forecast.jl")
-using Statistics: mean, quantile
+using Statistics: mean
 
 members = ["p01", "p02", "p03", "p04"]
 members_root = joinpath(era5, "forecast_members")
@@ -51,40 +51,6 @@ function link_archive(directory)
 end
 
 """
-    margin_wind(east, north)
-
-East and north wind of the margin, from member winds (lon, lat, lead, member) [m/s]: the
-lower quartile of the member speeds, in the direction of the mean vector.
-"""
-function margin_wind(east, north)
-    mean_east, mean_north = dropdims(mean(east; dims=4); dims=4),
-    dropdims(mean(north; dims=4); dims=4)
-    margin_east, margin_north = copy(mean_east), copy(mean_north)
-    for I in CartesianIndices(mean_east)
-        speeds = [hypot(east[I, m], north[I, m]) for m in axes(east, 4)]
-        norm = hypot(mean_east[I], mean_north[I])
-        scale = any(isnan, speeds) ? NaN32 : norm > 0 ? quantile(speeds, 0.25) / norm : 0.0f0
-        margin_east[I], margin_north[I] = mean_east[I] * scale, mean_north[I] * scale
-    end
-    return margin_east, margin_north
-end
-
-"""
-    margin_height(height)
-
-Wave height of the margin from member heights (lon, lat, lead, member) [m]: the upper
-quartile of the members.
-"""
-function margin_height(height)
-    margin = dropdims(mean(height; dims=4); dims=4)
-    for I in CartesianIndices(margin)
-        heights = [height[I, m] for m in axes(height, 4)]
-        margin[I] = any(isnan, heights) ? NaN32 : quantile(heights, 0.75)
-    end
-    return margin
-end
-
-"""
     write_statistics(wanted)
 
 Write the issues numbered `wanted` of the archives `mean` and `margin`, from the control
@@ -96,8 +62,8 @@ function write_statistics(wanted)
         archives = [WindShipOpt.ArchiveGroup(joinpath(output, group));
                     [WindShipOpt.ArchiveGroup(joinpath(members_root, member, group))
                      for member in members]]
-        files = Dict((kind, name) => statistics_file(joinpath(members_root, kind, group), name,
-                         size(archives[1].fields[name]))
+        files = Dict((kind, name) => statistics_file(joinpath(members_root, kind, group),
+                         name, size(archives[1].fields[name]))
                      for kind in ("mean", "margin"), name in names)
         for issue in wanted
             write_issue_statistics(files, archives, names, group, issue)
@@ -121,9 +87,10 @@ function write_issue_statistics(files, archives, names, group, issue)
     means = Dict(name => dropdims(mean(fields[name]; dims=4); dims=4) for name in names)
     margins = copy(means)
     if group == "wind"
-        margins["u10"], margins["v10"] = margin_wind(fields["u10"], fields["v10"])
+        margins["u10"], margins["v10"] = WindShipOpt.margin_wind(fields["u10"],
+            fields["v10"])
     else
-        margins["height"] = margin_height(fields["height"])
+        margins["height"] = WindShipOpt.margin_height(fields["height"])
     end
     issue_bytes = 2prod(size(archives[1].fields[names[1]])[1:3])
     for (kind, statistics) in (("mean", means), ("margin", margins)), name in names
@@ -137,8 +104,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     wanted = study_issues(ensemble_departures)
     println(length(wanted), " issues wanted")
     for member in members
-        foreach(group -> download(group; member, root=joinpath(members_root, member), wanted),
-            member_groups)
+        foreach(group -> download(group; member, root=joinpath(members_root, member),
+                wanted), member_groups)
         link_archive(joinpath(members_root, member))
     end
     write_statistics(wanted)

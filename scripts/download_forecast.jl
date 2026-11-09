@@ -192,10 +192,20 @@ function issue_fields(group, date, regrid, shape, member)
 end
 
 """
+    write_complete_issues(done_path, paths, issue_bytes)
+
+List in the file `done_path` the leading issues every file of `paths` holds in full.
+"""
+function write_complete_issues(done_path, paths, issue_bytes)
+    complete = minimum(filesize(path) ÷ issue_bytes for path in values(paths))
+    write(done_path, join(string.(1:complete) .* "\n"))
+end
+
+"""
     download(group; member="c00", root=output, wanted=eachindex(issues))
 
-Write the issues numbered `wanted` of run `member` of `group` to `root`, each at its place in
-files spanning every issue, so that issues not wanted stay holes that read as zero.
+Write the issues numbered `wanted` of run `member` of `group` to `root`, each at its place
+in files spanning every issue, so that issues not wanted stay holes that read as zero.
 Resumes from the issues listed as done in the file `done` there.
 """
 function download(group; member="c00", root=output, wanted=eachindex(issues))
@@ -214,17 +224,16 @@ function download(group; member="c00", root=output, wanted=eachindex(issues))
     paths = Dict(name => joinpath(directory, "$name.f16") for name in names)
     foreach(path -> isfile(path) || touch(path), values(paths))
     done_path = joinpath(directory, "done")
-    done = isfile(done_path) ? parse.(Int, readlines(done_path)) :
-           collect(1:minimum(filesize(path) ÷ issue_bytes for path in values(paths)))
-    touch(done_path)
+    isfile(done_path) || write_complete_issues(done_path, paths, issue_bytes)
+    done = parse.(Int, readlines(done_path))
     files = Dict(name => open(paths[name], "r+") for name in names)
     foreach(io -> truncate(io, max(filesize(io), length(issues) * issue_bytes)),
         values(files))
     shape = (length(grid["lons"]), length(grid["lats"]))
     open(done_path, "a") do done_file
         for batch in Iterators.partition(setdiff(collect(wanted), done), 8)
-            fields = fetch.([Threads.@spawn issue_fields(group, issues[index], regrid, shape,
-                                 member) for index in batch])
+            fields = fetch.([Threads.@spawn issue_fields(group, issues[index], regrid,
+                                 shape, member) for index in batch])
             for (index, issue) in zip(batch, fields), name in names
                 seek(files[name], (index - 1) * issue_bytes)
                 foreach(field -> write(files[name], Float16.(field)), issue[name])
@@ -232,7 +241,8 @@ function download(group; member="c00", root=output, wanted=eachindex(issues))
             foreach(flush, values(files))
             println(done_file, join(batch, "\n"))
             flush(done_file)
-            println(group.name, " ", member, " issue ", issues[last(batch)], "/", length(issues))
+            println(group.name, " ", member, " issue ", issues[last(batch)], "/",
+                length(issues))
         end
     end
     foreach(close, values(files))
