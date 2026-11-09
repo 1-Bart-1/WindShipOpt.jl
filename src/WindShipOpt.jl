@@ -11,7 +11,7 @@ module WindShipOpt
 
 using Base.ScopedValues: ScopedValue, with
 using Random: Random
-using Statistics: mean
+using Statistics: mean, quantile
 using Dates: DateTime, Dates
 using Mmap: Mmap
 using Optim: Optim
@@ -27,7 +27,9 @@ export ShipDesign, Ship, Fuel, fuel_power
 export PerformanceTable, RouteTable, lookup
 export LandMask, GridMask, north_atlantic_mask, SyntheticWeather, ERA5Weather, wind, waves
 export Corridor, return_corridor, route_corridors, centre_index, Leg, route
-export ForecastWeather, ForecastArchive, ArchivedForecast, forecast_route
+export ForecastWeather, ForecastArchive, ForecastEnsemble, ArchivedForecast, PlannedKite
+export ForesightKite, PerfectForecast, ShortestLead
+export forecast_route
 export write_forecast_bias, ShipClass, ship_classes
 export ShipCosts, RoundTrip, round_trip, KNOT, NAUTICAL_MILE
 export LegTrace

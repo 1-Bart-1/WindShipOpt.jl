@@ -7,6 +7,29 @@
 # missing one costs, and the numbers the abstracts state. Included by paper.jl.
 
 """
+    canopy_life_table()
+
+Table of the life statements behind the canopy wear rate, from
+data/canopy_life_statements.csv, as canopy_life_table.tex.
+"""
+function canopy_life_table()
+    lives = read_table(joinpath(root, "data", "canopy_life_statements.csv"))
+    columns = ("grade", "cloth", "weight", "life_text", "ends_on", "tension", "strength",
+        "dose", "rate")
+    open(joinpath(sections, "canopy_life_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lllrrlrrrr@{}}\n\\toprule")
+        println(io, "Source & Grade & Cloth & \$w\$ & Life \$L\$ & Ends on & \$T/w\$ & ",
+            "\$\\sigma_w\$ & \$\\dot D\$ & \$r\$ \\\\")
+        println(io, " & & & [g/m²] & [h] & & & & [MJ/m²/h] & [g/m²/h] \\\\\n\\midrule")
+        for row in findall(==("statement"), lives["kind"])
+            println(io, "\\citet{", lives["key"][row], "} & ",
+                join((string(lives[column][row]) for column in columns), " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
     latex_escape(text)
 
 `text` with the characters LaTeX treats specially escaped and powers set as superscripts.
@@ -930,6 +953,102 @@ function speed_choice_table()
             found = rows(table, "drive" => drive, "rig" => rig)
             cells = (@sprintf("%.1f", median(table[column][found])) for column in columns)
             println(io, drive_label, " & ", rig, " & ", join(cells, " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"share of `rig`'s cost saving kept on `plan` with its error [%], in LaTeX; `--` if not run"
+function kept_cell(table, rig, plan)
+    found = rows(table, "rig" => rig, "plan" => plan)
+    isempty(found) && return "--"
+    return @sprintf("\\(%.0f \\pm %.0f\\)", 100table["kept"][only(found)],
+        100table["kept_error"][only(found)])
+end
+
+"""
+    forecast_plans_table()
+
+Share of each rig's perfect-foresight cost saving kept per plan of the forecast study, with
+its standard error over the departures [%], and that of the kite held to its plan:
+forecast_plans_table.tex.
+"""
+function forecast_plans_table()
+    table = read_table(data_file("forecast_plans_kept.csv"))
+    plans = (("true", "One forecast run"), ("mean", "Ensemble mean"),
+        ("margin", "Margin for wind"), ("members", "Several members"),
+        ("held_kite", "One forecast run, kite held to the plan"))
+    open(joinpath(sections, "forecast_plans_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lccc@{}}\n\\toprule")
+        println(io, "Plan & Kite & Wing sails & Rotors \\\\\n\\midrule")
+        for (plan, label) in plans
+            cells = [kept_cell(table, rig, plan) for rig in ("kite", "wings", "rotors")]
+            println(io, label, " & ", join(cells, " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"groups of forecast_causes_table.tex as (heading, rows of (label, statistic))"
+forecast_cause_groups = (
+    ("Cost saving [\\%]",
+        (("With perfect foresight", cause_saving(:perfect)),
+            ("Re-planned daily on the forecasts", cause_saving(:forecast)))),
+    ("Cost saving lost [points]",
+        (("Total", cause_loss(:perfect, :forecast)),)),
+    ("Of which, course first",
+        (("Course", cause_loss(:perfect, :forecast_course)),
+            ("Speed and re-planning once a day",
+                cause_loss(:forecast_course, :foresight_kite)),
+            ("The kite's flying decisions", cause_loss(:foresight_kite, :forecast)))),
+    ("Of which, course last",
+        (("Speed, kite and re-planning once a day", cause_loss(:perfect, :perfect_course)),
+            ("Course", cause_loss(:perfect_course, :forecast)))),
+    ("Of which, by what the forecast gets wrong",
+        (("Re-planning once a day", cause_loss(:perfect, :replanned)),
+            ("Forecast model against the reanalysis",
+                cause_loss(:replanned, :shortest_lead)),
+            ("Error growing with lead time", cause_loss(:shortest_lead, :forecast)))),
+    ("On one fixed course for every rig",
+        (("Cost saving with perfect foresight [\\%]", cause_saving(:common_perfect)),
+            ("Cost saving on the forecasts [\\%]", cause_saving(:common_forecast)),
+            ("Cost saving lost [points]", cause_loss(:common_perfect, :common_forecast)),
+            ("Loss added by routing on foresight [points]",
+                cause_difference(cause_loss(:perfect, :forecast),
+                    cause_loss(:common_perfect, :common_forecast))))),
+    ("Share of the cost saving kept [\\%]",
+        (("Routed", cause_kept(:forecast, :perfect)),
+            ("On the fixed course", cause_kept(:common_forecast, :common_perfect)))))
+
+"LaTeX of an (value, error) estimate of [`cause_estimate`](@ref)"
+cause_cell(estimate) = @sprintf("\\(%.1f \\pm %.1f\\)",
+    round(estimate.value; digits=1) + 0.0, estimate.error)
+
+"""
+    forecast_causes_table()
+
+Per rig the cost saving lost on the archived forecasts per cause, and the kite's excess over
+the wing sails and the rotors paired per departure, each with its standard error over the
+departures of forecast_causes.csv: forecast_causes_table.tex.
+"""
+function forecast_causes_table()
+    table = read_table(data_file("forecast_causes.csv"))
+    saved = Dict(rig => forecast_cause_savings(table, rig)
+                 for rig in ("kite", "wings", "rotors"))
+    open(joinpath(sections, "forecast_causes_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lccccc@{}}\n\\toprule")
+        println(io, " & Kite & Wing sails & Rotors & Kite less wing sails & ",
+            "Kite less rotors \\\\\n\\midrule")
+        for (heading, group) in forecast_cause_groups
+            println(io, "\\multicolumn{6}{@{}l}{\\textit{", heading, "}} \\\\")
+            for (label, statistic) in group
+                cells = [[cause_estimate(statistic, saved[rig])
+                          for rig in ("kite", "wings", "rotors")];
+                    [cause_estimate(statistic, saved["kite"], saved[rig])
+                     for rig in ("wings", "rotors")]]
+                println(io, "\\quad ", label, " & ", join(cause_cell.(cells), " & "),
+                    " \\\\")
+            end
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
