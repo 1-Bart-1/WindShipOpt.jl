@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Build the port-to-partner flow table with sea distances and the tonne-km summaries.
 
 Usage: python3 -I build.py <data/market directory>

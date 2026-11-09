@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: Test suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read the Julia version the tracked manifest names
+        id: julia
+        run: echo "version=$(./bin/julia_version)" >> "$GITHUB_OUTPUT"
+
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: ${{ steps.julia.outputs.version }}
+
+      # A restored registry is a git clone Pkg refuses to update once it goes dirty.
+      - uses: julia-actions/cache@v3
+        with:
+          cache-registries: 'false'
+
+      - name: Test the source checker
+        run: python3 test/test_check_sources.py
+
+      - name: Install the tracked manifest
+        run: |
+          version=${{ steps.julia.outputs.version }}
+          cp "Manifest-v$version.toml.default" "Manifest-v$version.toml"
+          julia --project=. -e 'using Pkg; Pkg.instantiate()'
+
+      - name: Run the test suite
+        run: julia --project=. -e 'using Pkg; Pkg.test()'
+        env:
+          JULIA_TEST_FAILFAST: 'true'

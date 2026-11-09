@@ -1,50 +1,43 @@
 \textbf{(a)} Each rig at its cheapest size\par\smallskip
 \adjustbox{max width=\textwidth}{%
-\begin{tabular}{@{}llrrrrrrrr@{}}
+\begin{tabular}{@{}llrrlrrrrrrr@{}}
 \toprule
- & & & & \multicolumn{2}{c}{Canopy life [h] where} & \multicolumn{2}{c}{Canopy price [USD/m\textsuperscript{2}] where} & \multicolumn{2}{c}{Out of service [\%] where} \\
-\cmidrule(lr){5-6}\cmidrule(lr){7-8}\cmidrule(lr){9-10}
-Ship & Rig & Size [m\textsuperscript{2}] & Saving [\%] & pays no more & behind next & pays no more & behind next & pays no more & behind next \\
+ & & & & \multicolumn{2}{c}{Against its rival} & \multicolumn{2}{c}{Canopy life [h] where} & \multicolumn{2}{c}{Canopy price [USD/m\textsuperscript{2}] where} & \multicolumn{2}{c}{Out of service [\%] where} \\
+\cmidrule(lr){5-6}\cmidrule(lr){7-8}\cmidrule(lr){9-10}\cmidrule(lr){11-12}
+Ship & Rig & Size [m\textsuperscript{2}] & Cost saving [\%] & Rival & Lead [points] & pays no more & level & pays no more & level & pays no more & level \\
 \midrule
-140 m & rotors & 1221 & 19.5 & -- & -- & -- & -- & 74 & 4 \\
-140 m & kite & 1600 & 19.3 & -- & 969 & -- & 625 & 95 & 42 \\
-140 m & wings & 2441 & 11.2 & -- & -- & -- & -- & 64 & -- \\
-Kamsarmax & kite & 2896 & 6.2 & 1038 & 3143 & 583 & 195 & 82 & 12 \\
-Kamsarmax & rotors & 1218 & 5.5 & -- & -- & -- & -- & 38 & 36 \\
-Kamsarmax & wings & 1722 & 0.5 & -- & -- & -- & -- & 11 & -- \\
-Neo-Panamax & kite & 8000 & 16.6 & -- & 1338 & -- & 447 & 98 & 17 \\
-Neo-Panamax & rotors & 2441 & 14.1 & -- & -- & -- & -- & 69 & 40 \\
-Neo-Panamax & wings & 4883 & 7.7 & -- & -- & -- & -- & 70 & -- \\
+140 m & rotors & 1221 & \cellcolor{gain!40}14.4 & kite & \cellcolor{gain!19}+3.0 & -- & -- & -- & -- & \cellcolor{gain!27}66 & \cellcolor{gain!40}19 \\
+140 m & kite & 1600 & \cellcolor{gain!32}11.4 & rotors & \cellcolor{loss!19}-3.0 & -- & -- & -- & -- & \cellcolor{gain!38}92 & -- \\
+140 m & wings & 2441 & \cellcolor{gain!22}8.0 & rotors & \cellcolor{loss!40}-6.4 & -- & -- & -- & -- & \cellcolor{gain!23}58 & -- \\
+Kamsarmax & rotors & 1218 & \cellcolor{gain!17}6.0 & kite & \cellcolor{gain!14}+2.2 & -- & -- & -- & -- & \cellcolor{gain!16}40 & \cellcolor{gain!38}18 \\
+Kamsarmax & kite & 2896 & \cellcolor{gain!11}3.8 & rotors & \cellcolor{loss!14}-2.2 & \cellcolor{gain!40}1224 & -- & \cellcolor{gain!40}483 & -- & \cellcolor{gain!30}74 & -- \\
+Kamsarmax & wings & 1722 & \cellcolor{gain!2}0.6 & rotors & \cellcolor{loss!34}-5.5 & -- & -- & -- & -- & \cellcolor{gain!4}13 & -- \\
+Neo-Panamax & kite & 8000 & \cellcolor{gain!30}10.7 & rotors & \cellcolor{gain!9}+1.4 & -- & \cellcolor{gain!40}1697 & -- & \cellcolor{gain!40}356 & \cellcolor{gain!40}97 & \cellcolor{gain!31}15 \\
+Neo-Panamax & rotors & 2441 & \cellcolor{gain!26}9.3 & kite & \cellcolor{loss!9}-1.4 & -- & -- & -- & -- & \cellcolor{gain!25}62 & -- \\
+Neo-Panamax & wings & 4883 & \cellcolor{gain!15}5.5 & kite & \cellcolor{loss!33}-5.2 & -- & -- & -- & -- & \cellcolor{gain!26}63 & -- \\
 \bottomrule
 \end{tabular}}
 
 \bigskip
-\textbf{(b)} Crashes a year, each rig at its cheapest size and the kites at each size swept\par\smallskip
+\textbf{(b)} Crashes a year, each rig at its cheapest size\par\smallskip
 \adjustbox{max width=\textwidth}{%
-\begin{tabular}{@{}llrrrrrr@{}}
+\begin{tabular}{@{}llrrlrrrr@{}}
 \toprule
- & & & & & \multicolumn{2}{c}{Crashes a year} & Flight \\
-\cmidrule(lr){6-7}
-Ship & Rig & Size [m\textsuperscript{2}] & Saving [\%] & One [kUSD] & pays no more & behind next & [h/year] \\
+ & & & & & & \multicolumn{2}{c}{Crashes a year where} & Flight \\
+\cmidrule(lr){7-8}
+Ship & Rig & Size [m\textsuperscript{2}] & Cost saving [\%] & Rival & One [kUSD] & pays no more & level & [h/year] \\
 \midrule
-140 m & rotors & 1221 & 19.5 & 1125 & 1.8 & 0.018 & -- \\
-140 m & kite & 800 & 14.5 & 121 & 11.0 & 2.4 & 4626 \\
-140 m & kite & 1600 & 19.3 & 233 & 8.0 & 3.3 & 4644 \\
-140 m & kite & 3200 & 18.5 & 480 & 3.9 & 1.5 & 4242 \\
-140 m & kite & 6400 & 14.7 & 1039 & 1.5 & 0.35 & 3351 \\
-140 m & kite & 12800 & 1.0 & 2343 & 0.044 & 0.0 & 1731 \\
-140 m & wings & 2441 & 11.2 & 1085 & 0.95 & -- & -- \\
-Kamsarmax & kite & 362 & 0.6 & 65 & 0.95 & 0.0 & 2323 \\
-Kamsarmax & kite & 724 & 2.0 & 111 & 1.8 & 0.0 & 2881 \\
-Kamsarmax & kite & 1448 & 4.1 & 211 & 1.9 & 0.0 & 3247 \\
-Kamsarmax & kite & 2896 & 6.2 & 431 & 1.4 & 0.16 & 3081 \\
-Kamsarmax & kite & 5793 & 5.3 & 927 & 0.59 & 0.0 & 2829 \\
-Kamsarmax & rotors & 1218 & 5.5 & 986 & 0.56 & 0.51 & -- \\
-Kamsarmax & wings & 1722 & 0.5 & 1030 & 0.045 & -- & -- \\
-Neo-Panamax & kite & 4000 & 12.3 & 612 & 15.0 & 0.0 & 4073 \\
-Neo-Panamax & kite & 8000 & 16.6 & 1345 & 10.0 & 1.5 & 3885 \\
-Neo-Panamax & kite & 16000 & 16.5 & 3068 & 4.5 & 0.66 & 3095 \\
-Neo-Panamax & rotors & 2441 & 14.1 & 807 & 14.0 & 6.3 & -- \\
-Neo-Panamax & wings & 4883 & 7.7 & 774 & 7.6 & -- & -- \\
+140 m & rotors & 1221 & \cellcolor{gain!40}14.4 & kite & 1125 & \cellcolor{gain!15}1.3 & \cellcolor{gain!25}0.27 & -- \\
+140 m & kite & 1600 & \cellcolor{gain!32}11.4 & rotors & 259 & \cellcolor{gain!26}3.8 & -- & 3304 \\
+140 m & wings & 2441 & \cellcolor{gain!22}8.0 & rotors & 1085 & \cellcolor{gain!11}0.65 & -- & -- \\
+140 m & VTOL kite & 54 & \cellcolor{gain!6}2.1 & rotors & 1705 & \cellcolor{gain!4}0.11 & -- & 2030 \\
+Kamsarmax & rotors & 1218 & \cellcolor{gain!17}6.0 & kite & 986 & \cellcolor{gain!11}0.63 & \cellcolor{gain!23}0.23 & -- \\
+Kamsarmax & kite & 2896 & \cellcolor{gain!11}3.8 & rotors & 495 & \cellcolor{gain!12}0.76 & -- & 2251 \\
+Kamsarmax & wings & 1722 & \cellcolor{gain!2}0.6 & rotors & 1030 & \cellcolor{gain!3}0.058 & -- & -- \\
+Kamsarmax & VTOL kite & 54 & \cellcolor{loss!8}-3.0 & rotors & 1705 & -- & -- & 1041 \\
+Neo-Panamax & kite & 8000 & \cellcolor{gain!30}10.7 & rotors & 1638 & \cellcolor{gain!31}5.4 & \cellcolor{gain!40}0.71 & 3005 \\
+Neo-Panamax & rotors & 2441 & \cellcolor{gain!26}9.3 & kite & 807 & \cellcolor{gain!40}8.9 & -- & -- \\
+Neo-Panamax & wings & 4883 & \cellcolor{gain!15}5.5 & kite & 774 & \cellcolor{gain!31}5.4 & -- & -- \\
+Neo-Panamax & VTOL kite & 216 & \cellcolor{gain!2}0.7 & kite & 1705 & \cellcolor{gain!7}0.31 & -- & 2735 \\
 \bottomrule
 \end{tabular}}

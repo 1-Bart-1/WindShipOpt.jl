@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 # Regenerates the data, figures and tables of the paper. In a REPL in the scripts
 # environment:
 #
@@ -30,12 +33,14 @@ include("size_search.jl")
 include("paper_data.jl")
 include("explorer_data.jl")
 include("paper_figures.jl")
+include("paper_drawings.jl")
 include("paper_tables.jl")
 
 "data steps in the order they run, each writing one or two data files"
 data_steps = [:patterns => patterns_data, :designs => designs_data,
     :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
-    :sensitivity => sensitivity_data, :base_kite => base_kite_data,
+    :sensitivity => sensitivity_data, :uniform => uniform_data,
+    :base_kite => base_kite_data,
     :aspect_data => aspect_data, :force_rating_data => force_rating_data,
     :goal_size_data => goal_size_data,
     :availability_data => availability_data,
@@ -43,7 +48,7 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :situations_data => situations_data,
     :wind_angle_data => wind_angle_data, :canopy_tension => canopy_tension_data,
     :abatement_data => abatement_data,
-    :components => components_data, :combination_data => combination_data,
+    :combination_data => combination_data,
     :rigid_scaling_data => rigid_scaling_data, :rigid_kite_data => rigid_kite_data,
     :launch => launch_data, :convergence => convergence_data, :flight => flight_data,
     :speed_choice => speed_choice_data, :speed_terms => speed_terms_data,
@@ -60,15 +65,16 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :capital => capital_figure, :patterns_figure => pattern_figure,
     :canopy_tension_figure => canopy_tension_figure,
     :rig_polar => rig_polar_figure, :routes_figure => route_figure,
-    :wind_climate => wind_climate_figure, :passage => passage_figure,
+    :passage => passage_figure,
     :premium => premium_figure, :breakdown => breakdown_figure,
     :rig_comparison => rig_comparison_figure, :route_comparison => route_comparison_figure,
+    :season_figure => season_figure,
     :class_comparison => class_comparison_figure, :class_sizes => class_size_figure,
     :winner_map => winner_map_figure, :situations_figure => situations_figure,
+    :fuels => fuel_figure,
     :wind_angle_figure => wind_angle_figure,
     :sensitivity_figure => sensitivity_figure, :aspect_figure => aspect_figure,
     :force_rating_figure => force_rating_figure,
-    :components_figure => component_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
     :class_table => class_table, :fuel_table => fuel_table,
     :split_table => split_table,
@@ -80,7 +86,12 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :flight_table => flight_table, :speed_choice_table => speed_choice_table,
     :speed_terms_table => speed_terms_table, :published_table => published_table,
     :speed_size_table => speed_size_table, :speed_size_figure => speed_size_figure,
-    :tow_point_figure => tow_point_figure, :fidelity_table => fidelity_table]
+    :canopy_price_figure => canopy_price_figure, :min_wind => min_wind_figure,
+    :force_balance => force_balance_figure, :ship_classes => ship_classes_figure,
+    :kite_frames => kite_frames_figure, :router => router_figure,
+    :missed_goals => missed_goals_figure, :rigid_mass => rigid_mass_figure,
+    :tow_point_figure => tow_point_figure, :fidelity_table => fidelity_table,
+    :numbers => numbers_file]
 
 """
     paper(names...; fidelity, resume=nothing)
