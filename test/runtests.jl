@@ -14,6 +14,7 @@ const PAPER_HULL = Hull(; length=205.0, beam=32.0, draft=10.0, displacement_volu
     appendage_area=50.0, appendage_form_factor=1.5)
 
 assumptions = Assumptions()
+corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
 
 # The study's search is too coarse for the small route differences tested here.
 WindShipOpt.ROUTER_SETTINGS[] = WindShipOpt.RouterSettings(time_step=1.5,
@@ -458,7 +459,7 @@ WindShipOpt.waves(::SteadyWind, lat, lon, time) = (0.0, 0.0, 0.0)
 
 @testset "a kite aloft is down by the time the ship arrives" begin
     table, prices = kite_coaster()
-    corridor, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    corridor, _ = corridors
     leg = route(corridor, table, SteadyWind(), 0.0; time_cost=prices.time,
         first_stage=size(corridor.lat, 1) - 1, first_aloft=true)
     @test leg.flight_hours > 0
@@ -575,9 +576,19 @@ end
     @test WindShipOpt.norm3(ground) < 1e-3
 end
 
+"""
+    kite_rigs_by_area()
+
+Pairs of area [m^2] and kite rig: 800 m^2 on the full table, and 3200 m^2 on courses
+from beam reach to head to wind.
+"""
+kite_rigs_by_area() =
+    ((800.0, Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig),
+    (3200.0, KiteRig(3200.0, 3.0, Hull(140.0, assumptions), assumptions;
+        courses=deg2rad.([90.0, 135.0, 150.0, 165.0, 180.0]))))
+
 @testset "no flight pattern pulls beyond the window edge of the system glide ratio" begin
-    for area in (800.0, 3200.0)
-        rig = Ship(ShipDesign(:methanol, 140.0; kite_area=area), assumptions).rig
+    for (area, rig) in kite_rigs_by_area()
         model, _, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
         edge = atand(WindShipOpt.best_over_angles((lift, drag) -> lift / drag, model))
         flown = filter(force -> isfinite(force.peak_tension), rig.forces)
@@ -653,8 +664,7 @@ end
 
 @testset "kite pulls the ship forward only above the upwind limit of its glide ratio" begin
     env = Environment(assumptions)
-    for area in (800.0, 3200.0)
-        rig = Ship(ShipDesign(:methanol, 140.0; kite_area=area), assumptions).rig
+    for (area, rig) in kite_rigs_by_area()
         model, _, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
         limit = atan(1 / WindShipOpt.best_over_angles(/, model))
         for apparent in deg2rad.(1.0:2.0:(rad2deg(limit) - 2)), wind in (8.0, 12.0, 20.0),
@@ -695,7 +705,7 @@ end
 end
 
 """
-    engine_output(ship, speed, wind, angle, (thrust, force))
+    engine_output(ship, speed, (thrust, force))
 
 Engine output [W] of `ship` for a required propeller `thrust` [N] and rig `force`, as
 `best_trim` weighs a trim; `Inf` for infinite thrust.
@@ -723,7 +733,7 @@ end
 end
 
 @testset "a kite and the rotors beside it trim jointly to the least engine output" begin
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0, rotor_area=200.0), assumptions)
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0, rotor_area=200.0), assumptions)
     speed = 10.5KNOT
     weights = range(0.0, 3.0; length=31)
     for wind in (10.0, 16.0), angle in deg2rad.(45:15:165)
@@ -959,11 +969,11 @@ end
 """
     wing_coaster_routing()
 
-Caribbean outbound corridor at scale 8 with the route table and hourly cost of an 85 m
+Caribbean outbound corridor at scale 16 with the route table and hourly cost of an 85 m
 e-methanol coaster with 400 m^2 of wings.
 """
 function wing_coaster_routing()
-    corridor, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    corridor, _ = corridors
     ship = Ship(ShipDesign(:methanol, 85.0; wing_area=400.0), assumptions)
     table = RouteTable(PerformanceTable(ship, assumptions))
     return corridor, table,
@@ -973,11 +983,11 @@ end
 corridor, table, hourly = wing_coaster_routing()
 
 """
-    trip_with_share(design, name, share, corridors, base=assumptions)
+    trip_with_share(design, name, share, base=assumptions)
 
 Round trip of `design` in synthetic weather with the input `name` of `base` at `share`.
 """
-function trip_with_share(design, name, share, corridors, base=assumptions)
+function trip_with_share(design, name, share, base=assumptions)
     changed = with_value(base, name, share)
     return round_trip(Ship(design, changed), corridors..., SyntheticWeather(),
         [24.0 * 31, 24.0 * 200], changed)
@@ -1033,14 +1043,13 @@ end
 end
 
 @testset "a rig out of service keeps its cost and saves no fuel while down" begin
-    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     bare_trip = round_trip(Ship(ShipDesign(:methanol, 85.0), assumptions), corridors...,
         SyntheticWeather(), [24.0 * 31, 24.0 * 200], assumptions)
     for (design, name) in ((ShipDesign(:methanol, 85.0; wing_area=400.0),
             :wing_out_of_service),
         (ShipDesign(:methanol, 85.0; rotor_area=200.0), :rotor_out_of_service),
-        (ShipDesign(:methanol, 85.0; kite_area=400.0), :kite_out_of_service))
-        low, high, down = [trip_with_share(design, name, share, corridors)
+        (ShipDesign(:methanol, 85.0; kite_area=800.0), :kite_out_of_service))
+        low, high, down = [trip_with_share(design, name, share)
                            for share in (0.1, 0.5, 1.0)]
         @test low.fuel_energy < high.fuel_energy < down.fuel_energy
         @test low.cost_per_tonne_km < high.cost_per_tonne_km < down.cost_per_tonne_km
@@ -1051,10 +1060,10 @@ end
 end
 
 @testset "a kite out of service sails as a bare ship at the same price of time" begin
-    outbound, inbound = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    outbound, inbound = corridors
     bare = Ship(ShipDesign(:methanol, 85.0), assumptions)
     changed = with_value(assumptions, :kite_out_of_service, 1.0)
-    kite = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), changed)
+    kite = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), changed)
     states = WindShipOpt.service_states(kite.rig, changed)
     @test first.(states) == [0, 1]
     down = last(last(states))
@@ -1070,10 +1079,9 @@ end
 end
 
 @testset "departure costs with the year's ship average to the round trip's cost" begin
-    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     departures = [24.0 * 31, 24.0 * 200]
     for design in (ShipDesign(:methanol, 85.0),
-        ShipDesign(:methanol, 85.0; kite_area=400.0))
+        ShipDesign(:methanol, 85.0; kite_area=800.0))
         trip = round_trip(Ship(design, assumptions), corridors..., SyntheticWeather(),
             departures, assumptions)
         outcomes = trip.departures
@@ -1086,18 +1094,16 @@ end
 end
 
 @testset "a kite out of service makes and pays launches and forced landings pro rata" begin
-    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
-    kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
-    hard = with_value(assumptions, :kite_landing_max_wave_height, 0.0)
+    kite = ShipDesign(:methanol, 85.0; kite_area=800.0)
+    hard = with_value(assumptions, :kite_landing_max_wind, 0.0)
     cheap = with_value(hard, :kite_forced_landing_loss_probability, 1e-5)
-    working = trip_with_share(kite, :kite_out_of_service, 0.0, corridors, cheap)
-    half = trip_with_share(kite, :kite_out_of_service, 0.5, corridors, cheap)
+    working = trip_with_share(kite, :kite_out_of_service, 0.0, cheap)
+    half = trip_with_share(kite, :kite_out_of_service, 0.5, cheap)
     @test working.forced_landings > 0
     @test half.forced_landings ≈ working.forced_landings / 2
     @test half.launches ≈ working.launches / 2
     dearer = with_value(hard, :kite_forced_landing_loss_probability, 2e-5)
-    @test trip_with_share(kite, :kite_out_of_service, 0.5, corridors,
-        dearer).cost_per_tonne_km >
+    @test trip_with_share(kite, :kite_out_of_service, 0.5, dearer).cost_per_tonne_km >
           half.cost_per_tonne_km
 end
 
@@ -1127,7 +1133,7 @@ end
     spinning = rig_force(half.rig, ship.env, 10.0, deg2rad(90), 5.0, 2.0)
     @test rig_force(half, ship.env, 10.0, deg2rad(90), 5.0, 2.0).thrust ≈
           (stopped.thrust + spinning.thrust) / 2
-    kite = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
     kite_down = last(WindShipOpt.service_states(kite.rig,
         with_value(assumptions, :kite_out_of_service, 0.1)))
     @test isnothing(last(kite_down))
@@ -1152,9 +1158,8 @@ end
 end
 
 @testset "the store holds the working leg with its reserve, a leg rig-down without" begin
-    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     design = ShipDesign(:methanol, 85.0; rotor_area=200.0)
-    cargo(share, reserve) = trip_with_share(design, :rotor_out_of_service, share, corridors,
+    cargo(share, reserve) = trip_with_share(design, :rotor_out_of_service, share,
         with_value(assumptions, :fuel_reserve_factor, reserve)).cargo
     @test cargo(0.0, 2.0) < cargo(0.0, 1.1)
     @test cargo(1.0, 2.0) ≈ cargo(1.0, 1.1)
@@ -1240,7 +1245,6 @@ WindShipOpt.waves(seas::HeadSeas, lat, lon, time) =
 end
 
 @testset "a round trip at a held speed takes that speed's time and is costed as usual" begin
-    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     distance = sum(corridor.track_length for corridor in corridors)
     ship = Ship(ShipDesign(:methanol, 85.0), assumptions)
     held = [round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
@@ -1295,7 +1299,7 @@ end
 end
 
 @testset "a ship on a long forecast flies its kite about as the plan does" begin
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
     kite_table = RouteTable(PerformanceTable(ship, assumptions))
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions))
@@ -1310,7 +1314,7 @@ end
 end
 
 @testset "a kite flying in good wind stays up unless the plan ahead needs it stowed" begin
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
     kite_table = RouteTable(PerformanceTable(ship, assumptions))
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions))
@@ -1358,6 +1362,7 @@ WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
 end
 
 @testset "a ship on a forecast holds through a gale it cannot sail in" begin
+    corridor, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     departure = 24.0 * 31
     weather = GaleWeather(SyntheticWeather(), departure + 10.0)
     @test isnothing(route(corridor, table, weather, departure; time_cost=hourly))
@@ -1433,7 +1438,7 @@ WindShipOpt.waves(weather::KiteOnlySeas, lat, lon, time) =
     rough_seas(weather, lat, lon, time) ? (5.0, 10.0, weather.course) : (0.0, 0.0, 0.0)
 
 @testset "a ship on a forecast slows where its kite cannot launch as planned" begin
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
     kite_table = RouteTable(PerformanceTable(ship, assumptions))
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions))
@@ -1629,7 +1634,7 @@ end
 @testset "a ship that can fly a kite is searched at the kite margins" begin
     settings = WindShipOpt.RouterSettings(search_margins=(0.1, 0.2),
         kite_search_margins=(0.3, 0.4))
-    kite_ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
     kite_table = RouteTable(PerformanceTable(kite_ship, assumptions))
     bare_table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
         assumptions))
@@ -1748,7 +1753,6 @@ end
 end
 
 @testset "a rig's stored trip serves an input it never reads, and no other" begin
-    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     rotors = ShipDesign(:methanol, 85.0; rotor_area=200.0)
     routed(inputs) = round_trip(Ship(rotors, inputs), corridors..., SyntheticWeather(),
         [24.0 * 31, 24.0 * 200], inputs)
@@ -1825,9 +1829,9 @@ end
 end
 
 @testset "the final pass keeps the path, refines its speeds and never costs more" begin
-    outbound, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    outbound, _ = corridors
     for design in (ShipDesign(:methanol, 85.0),
-        ShipDesign(:methanol, 85.0; kite_area=200.0))
+        ShipDesign(:methanol, 85.0; kite_area=800.0))
 
         table = RouteTable(PerformanceTable(Ship(design, assumptions), assumptions))
         passage() = route(outbound, table, SyntheticWeather(), 24.0 * 31; time_cost=300.0)
@@ -1847,10 +1851,10 @@ end
 end
 
 @testset "every rig's route costs what a search at every speed finds" begin
-    _, back = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    _, back = corridors
     every_speed = WindShipOpt.RouterSettings(search_speed_stride=1)
     for (design, departure) in ((ShipDesign(:methanol, 85.0; wing_area=400.0), 24.0 * 91),
-        (ShipDesign(:methanol, 85.0; kite_area=200.0), 24.0 * 211))
+        (ShipDesign(:methanol, 85.0; kite_area=800.0), 24.0 * 211))
 
         table = RouteTable(PerformanceTable(Ship(design, assumptions), assumptions))
         passage() = route(back, table, SyntheticWeather(), departure; time_cost=300.0)
@@ -2101,7 +2105,7 @@ end
                                  costs(ship, assumptions).fixed_annual
     bare = Ship(ShipDesign(:methanol, 140.0), assumptions)
     @test maintenance_of(bare, :rig_maintenance_fraction) == 0
-    for rig_area in ((; kite_area=3200.0), (; kite_area=3200.0, rotor_area=400.0),
+    for rig_area in ((; kite_area=800.0), (; kite_area=800.0, rotor_area=400.0),
         (; rotor_area=400.0))
         ship = Ship(ShipDesign(:methanol, 140.0; rig_area...), assumptions)
         rig_capital = first(WindShipOpt.rig_costs(ship.rig, assumptions))
@@ -2205,8 +2209,7 @@ function recorded_names(recording, node)
 end
 
 @testset "a recorded cost is the routed cost, depends on its inputs and has no branch" begin
-    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
     trip = round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
         assumptions)
     names = (:canopy_life, :e_methanol_price, :kite_out_of_service, :discount_rate,
@@ -2225,7 +2228,6 @@ end
 end
 
 @testset "a unit lost a year costs its share of one unit, and leaves the routes alone" begin
-    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     design = ShipDesign(:vlsfo, 85.0; rotor_area=200.0)
     trip(inputs) = round_trip(Ship(design, inputs), corridors..., SyntheticWeather(),
         [24.0 * 31, 24.0 * 200], inputs)
@@ -2246,11 +2248,10 @@ end
 end
 
 @testset "a round trip's cost parts per tonne-km add up to its cost over its hours" begin
-    corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     tonne_km_per_tonne = PaperData.tonne_km_per_tonne(corridors...)
     for design in (ShipDesign(:methanol, 85.0),
         ShipDesign(:methanol, 85.0; wing_area=400.0),
-        ShipDesign(:methanol, 85.0; kite_area=400.0))
+        ShipDesign(:methanol, 85.0; kite_area=800.0))
 
         ship = Ship(design, assumptions)
         trip = round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
