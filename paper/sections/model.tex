@@ -15,7 +15,7 @@ The model turns a ship design into a cost per tonne-kilometre on a route. A desi
 \subsection{Ships}
 \label{sec:ships}
 
-The model starts with the ship. Thirteen standard classes of merchant ship (\cref{tab:classes}) run from an \SI{85}{m} coaster to a container ship of \num{24000}~TEU, and that coaster scaled geometrically to \SI{200}{m} isolates the effect of size. The data of the classes come from MAN Energy Solutions' propulsion-trend papers, named ships, broker reports and contracts of 2025 and 2026, and commodity prices. Each hull floats at its design draught, the loaded draught its engine and propeller are designed for, with the deadweight (the mass of cargo, fuel and stores it can carry) of the deeper scantling draught its structure allows. Each class keeps the engine power of its source design, and the router chooses the speed.
+The model starts with the ship. Thirteen standard classes of merchant ship (\cref{tab:classes,fig:ship_classes}) run from an \SI{85}{m} coaster to a container ship of \num{24000}~TEU, and that coaster scaled geometrically to \SI{200}{m} isolates the effect of size. The data of the classes come from MAN Energy Solutions' propulsion-trend papers, named ships, broker reports and contracts of 2025 and 2026, and commodity prices. Each hull floats at its design draught, the loaded draught its engine and propeller are designed for, with the deadweight (the mass of cargo, fuel and stores it can carry) of the deeper scantling draught its structure allows. Each class keeps the engine power of its source design, and the router chooses the speed.
 
 \begin{figure*}[tbp]
 \centering
@@ -92,6 +92,20 @@ A wing sail is a rigid upright wing of aspect ratio, span squared over area, 2, 
 
 \paragraph{Shape and aerodynamics} Unlike the deck rigs, the kite gets its force from how it flies, so it needs a model of its own. It is a ram-air wing like a paraglider: two skins of cloth with ribs between them, inflated through openings at the front, curved into an arc in flight (\cref{fig:kite}). The base kite has a projected aspect ratio of 3, and every kite area in this paper is projected. A vortex model of the whole wing \citep{cayon2023}\tbd{ (source not read)} on section data from a neural-network airfoil code \citep{sharpe2025} gives the lift and drag of the design shape (\cref{fig:polars}). Flown kites reach about half the glide ratio of a rigid scale model in a wind tunnel \citep{poland2025,oehler2019,erhard2013b,paulig2013}, and that ratio sets how hard a kite pulls. We add the difference as one drag coefficient, the flight drag, so the base kite has the glide ratio of flown kites; a kite that keeps its design shape is the upper bound. The aspect ratio of 3 is used by industry, with no public reference. A more slender kite could fly more efficiently but needs larger launch gear and is less reliable, which the model does not price (\cref{sec:det_kite}).
 
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{kite_geometry}
+\caption{Planforms of the kites of projected aspect ratio 3, 5 and 8 seen from above, to scale, at a projected area of \SI{100}{m^2}, with their projected span. The leading edge is at the top.}
+\label{fig:kite}
+\end{figure*}
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{polars}
+\caption{Lift, drag and glide ratio of the kites of projected aspect ratio 3, 5 and 8 in their design shape over angle of attack, from the Vortex Step Method, without bridle, tether and flight drag.}
+\label{fig:polars}
+\end{figure*}
+
 \paragraph{Lines} A net of bridle lines spreads the tether force over the canopy and meets at a control unit, a pod that steers the kite. The single tether is 13 spans long, as on the larger SkySails kite \citep{paulig2013}, changes length only at launch and landing, and runs to a tow point on the ship that turns with it, so it is not bent back and forth as the kite flies. No tether life has been measured. We estimate it from creep, the slow stretching of a rope held under load, at \num{16000} flight hours, with a range of \num{4500} to \num{45000}. With its lines and flight drag the kite has a glide ratio $G=3.9$ at every size, within the range published ship-kite studies take \citep{traut2014,cedelft2016,podeur2016} (\cref{sec:det_kite}).
 
 \paragraph{Canopy} The canopy is sewn from polyester ripstop of \SI{200}{g/m^2}; a kite built for a higher force limit gets heavier cloth and seams (\cref{sec:det_kite}). Its life is a goal of \num{3000} flight hours (\cref{sec:canopy_life}). Its price is a goal of USD~150 per projected square metre, against USD~234 today (\cref{fig:canopy_price}). The goal assumes the sewing time of a large series of military cargo parachutes and cloth bought by the roll from the mill, which is our judgement and the weakest part of the goal. Wing sails, rotors and tethers have no such goal, since they are built up from industrial costs or bulk prices rather than retail ones.
@@ -118,20 +132,6 @@ The force on the ship is the tether force averaged over one cycle of the kite's 
 \plot[\textwidth]{kite_frames}
 \caption{Frames and angles of the kite model. (a) The wind window seen from the tow point looking downwind: the kite at roll angle $\phi$ and angle $\vartheta$ off downwind, the unit vectors $\hat{\mathbf e}_\vartheta$ towards the edge of the window and $\hat{\mathbf e}_\phi$ along the roll, and the heading $\hat{\mathbf h}$ at the angle $\psi$ between them. The shaded wedge is a band of roll angles $\phi_0\pm\phi_a$ a pattern sweeps; no part of a pattern flies in the grey band below the lowest elevation. (b) The same seen from the side. (c) Seen from above, the mean tether force $\overline{\mathbf F}$ and its components along and across a course $\chi$ off the apparent downwind direction; the kite pulls the ship forward wherever the force leans ahead of the beam of that course.}
 \label{fig:kite_frames}
-\end{figure*}
-
-\begin{figure*}[tbp]
-\centering
-\plot[\textwidth]{kite_geometry}
-\caption{Planforms of the kites of projected aspect ratio 3, 5 and 8 seen from above, to scale, at a projected area of \SI{100}{m^2}, with their projected span. The leading edge is at the top.}
-\label{fig:kite}
-\end{figure*}
-
-\begin{figure*}[tbp]
-\centering
-\plot[\textwidth]{polars}
-\caption{Lift, drag and glide ratio of the kites of projected aspect ratio 3, 5 and 8 in their design shape over angle of attack, from the Vortex Step Method, without bridle, tether and flight drag.}
-\label{fig:polars}
 \end{figure*}
 
 \begin{figure*}[tbp]

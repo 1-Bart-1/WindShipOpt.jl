@@ -3,6 +3,13 @@
 \section{Further results}
 \label{sec:further}
 
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{route_comparison}
+\caption{Cost saving of the better of two sizes of each rig against the same ship without a rig, per route, for ships of \SIlist{85;140;200}{m} with a VLSFO (top) and an e-ammonia (bottom) drive: kites of \SIlist{800;3200}{m^2}, wing sails of \SIlist{800;1500}{m^2} and rotors of \SIlist{400;800}{m^2}, of which only \SI{400}{m^2} fits on the \SI{85}{m} ship. On the \SI{200}{m} ship the rotors are smaller than their best size of \cref{fig:rig_comparison}.}
+\label{fig:route_comparison}
+\end{figure*}
+
 \subsection{Aspect ratio of the kite}
 \label{sec:res_aspect}
 
@@ -52,7 +59,7 @@ Kite and rotors pull best at different wind angles (\cref{fig:rig_polar}), and a
 \centering
 \caption{Fuel and cost savings of kites at a held ship speed, on both routes: fuel of the ship without a rig per round trip, fuel saved by the smallest kite and by the kite that saves the most fuel, both free of running cost, the priced kite that saves the most cost, and the share of the time the largest kite is up. \tbd{Draft run.} Savings are shaded blue, losses red, the deeper the larger.}
 \label{tab:speed_size}
-\InputIfFileExists{sections/speed_size_table}{}{\tbd{Speed and size table pending: run the speed\_size\_table step.}}
+\adjustbox{max width=\textwidth}{\InputIfFileExists{sections/speed_size_table}{}{\tbd{Speed and size table pending: run the speed\_size\_table step.}}}
 \end{table*}
 
 \subsection{Speed and kite size against the published studies}
@@ -87,7 +94,7 @@ Upwind of \SI{30}{\degree} the kite could pull for only \tbd{13}\,\% of the time
 \centering
 \caption{Where the kite works over the 36 cases, each with its cheapest size, by band of true wind angle: share of the time in the band, share of that time in which the kite could pull, is up and pulls, its mean thrust while up, lulls and upwind drag included, the share of the hours at each ship speed in which it could pull and in which it is up, the speed of the ship without a rig and of the kite ship in that band, and the lowest apparent wind angle (AWA) at which each rig pulls. \tbd{Draft run.}}
 \label{tab:flight}
-\InputIfFileExists{sections/flight_table}{}{\tbd{Flight table pending: run the flight\_table step.}}
+\adjustbox{max width=\textwidth}{\InputIfFileExists{sections/flight_table}{}{\tbd{Flight table pending: run the flight\_table step.}}}
 \end{table*}
 
 \subsection{One VTOL kite or several}
