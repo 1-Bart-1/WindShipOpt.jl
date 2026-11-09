@@ -752,7 +752,7 @@ end
 
 Best area of each rig for every ship class and drive, the geometric mean over the routes
 as a marker and the range over the routes as a bar, and beside each panel the median
-number of units of each rig at its best size, its heading in the rig's colour.
+number of units of each rig at its best size, each column named in the rig's colour.
 """
 function class_size_figure()
     table = read_table(data_file("classes.csv"))
@@ -761,13 +761,14 @@ function class_size_figure()
     figure = Figure(size=(page_width, 285))
     ticks = [100, 1000, 10000]
     row_limits = (0.4, length(names) + 0.6)
+    area_limit = 1.4largest_rig_area("kite", nothing)
     for (column, (drive, title)) in enumerate(drive_panels)
         axis = Axis(figure[1, 2 * column - 1]; title, xlabel="best rig area [m²]",
             xscale=log10, xticks=(ticks, string.(ticks)),
             xminorticks=IntervalsBetween(9), xminorticksvisible=true,
             xgridvisible=true, xgridcolor=:gray88,
             yticks=(eachindex(names), names), yreversed=true,
-            yticklabelsvisible=column == 1, limits=((60, 2.2e4), row_limits))
+            yticklabelsvisible=column == 1, limits=((60, area_limit), row_limits))
         counts = unit_count_axis(figure[1, 2 * column], row_limits)
         colgap!(figure.layout, 2 * column - 1, pt(4))
         for (j, kind) in enumerate(rig_names), (i, name) in enumerate(names)
