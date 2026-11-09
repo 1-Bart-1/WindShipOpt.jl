@@ -935,6 +935,37 @@ function speed_choice_table()
     end
 end
 
+"share of `rig`'s cost saving kept on `plan` with its error [%], in LaTeX; a dash where not run"
+function kept_cell(table, rig, plan)
+    found = rows(table, "rig" => rig, "plan" => plan)
+    isempty(found) && return "--"
+    return @sprintf("\\(%.0f \\pm %.0f\\)", 100table["kept"][only(found)],
+        100table["kept_error"][only(found)])
+end
+
+"""
+    forecast_plans_table()
+
+Share of each rig's perfect-foresight cost saving kept per plan of the forecast study, with
+its standard error over the departures [%], and that of the kite held to its plan:
+forecast_plans_table.tex.
+"""
+function forecast_plans_table()
+    table = read_table(data_file("forecast_plans_kept.csv"))
+    plans = (("true", "One forecast run"), ("mean", "Ensemble mean"),
+        ("margin", "Margin for wind"), ("members", "Several members"),
+        ("held_kite", "One forecast run, kite held to the plan"))
+    open(joinpath(sections, "forecast_plans_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lccc@{}}\n\\toprule")
+        println(io, "Plan & Kite & Wing sails & Rotors \\\\\n\\midrule")
+        for (plan, label) in plans
+            println(io, label, " & ", join(kept_cell.(Ref(table), ("kite", "wings", "rotors"), plan), " & "),
+                " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
 """
     speed_terms_table()
 
