@@ -302,8 +302,8 @@ function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0, day
     condition = WindShipOpt.SeaCondition(table.table, 12.0, π / 2, wave_height, 8.0,
         π / 2)
     sample = WindShipOpt.EdgeSample(condition, headwind, 0.0, daylight)
-    held, flown, stowed, same_through = WindShipOpt.held_speed(table, speed_index, sample)
-    return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours, same_through)
+    held, flown, stowed = WindShipOpt.held_speed(table, speed_index, sample)
+    return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours)
 end
 
 """
@@ -1657,6 +1657,52 @@ end
     @test length(workspace.shared) == from + 5 * (2WindShipOpt.MAX_LATERAL_STEP + 1)
     @test share(aloft) == from
     @test share(later_down) == share(later_aloft) == -1
+    speed_count, step_count = 5, 2WindShipOpt.MAX_LATERAL_STEP + 1
+    slots = [WindShipOpt.shared_slot(from, step, slot, speed_count)
+             for step in 1:step_count, slot in 1:speed_count]
+    @test sort(vec(slots)) == from .+ (1:(step_count * speed_count))
+    @test WindShipOpt.shared_slot(-1, 2, 3, speed_count) == 0
+end
+
+@testset "a kite aloft reads the edge a state down sailed at the same time as its own" begin
+    table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0; kite_area=400.0),
+            assumptions), assumptions))
+    weather, stage, centre, slot = SyntheticWeather(), 1, centre_index(corridor), 1
+    step = WindShipOpt.MAX_LATERAL_STEP + 1
+    prices = (; fuel=table.table.ship.fuel.price, time=0.0)
+    start = WindShipOpt.EdgeSample(table.table, weather, corridor, stage, centre, step, 0.0,
+        24.0)
+    edge = (; start, weather, corridor, stage, lateral=centre, step, time=24.0,
+        speed_index=length(table.speeds) ÷ 2, sample_hours=6.0)
+    workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2), 4, size(corridor.lat, 1))
+    push!(workspace.shared, WindShipOpt.UNSAILED)
+    alone = WindShipOpt.sailed_edge!(workspace, 0, true, table, prices, edge)
+    down = WindShipOpt.sailed_edge!(workspace, slot, false, table, prices, edge)
+    @test down != alone
+    @test workspace.shared[slot] == alone
+    marked = WindShipOpt.SailedEdge(-1.0, WindShipOpt.NO_TALLY, WindShipOpt.NO_TALLY, 0)
+    workspace.shared[slot] = marked
+    @test WindShipOpt.sailed_edge!(workspace, slot, true, table, prices, edge) === marked
+    workspace.shared[slot] = WindShipOpt.UNSAILED
+    @test WindShipOpt.sailed_edge!(workspace, slot, true, table, prices, edge) == alone
+    @test workspace.shared[slot] === WindShipOpt.UNSAILED
+end
+
+@testset "a faster speed counts as sailed the same only where it is sampled alike" begin
+    table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
+        assumptions))
+    condition = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 8.0, 6.0, 2π / 3)
+    sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0, true)
+    unpowered = findfirst(i -> !isfinite(last(WindShipOpt.edge_fuels(table, i, condition))),
+        eachindex(table.speeds))
+    point = WindShipOpt.SailedPoint(sample,
+        WindShipOpt.held_speed(table, unpowered, sample)..., 1.0)
+    distance = 1e5
+    hours(i) = distance / table.speeds[i] / 3600
+    @test WindShipOpt.same_through(table, [point], unpowered, distance, 1e6) > unpowered
+    between = (hours(unpowered) + hours(unpowered + 1)) / 2
+    @test WindShipOpt.same_through(table, [point], unpowered, distance, between) ==
+        unpowered
 end
 
 @testset "a faster command holds the same speed only through speeds no engine \
@@ -1668,12 +1714,19 @@ end
     powered(i) = isfinite(last(WindShipOpt.edge_fuels(table, i, condition)))
     unpowered = findfirst(!powered, eachindex(table.speeds))
     faster_powered = findnext(powered, eachindex(table.speeds), unpowered)
-    held, flown, stowed, same_through = WindShipOpt.held_speed(table, unpowered, sample)
+    held, flown, stowed = WindShipOpt.held_speed(table, unpowered, sample)
+    point = WindShipOpt.SailedPoint(sample, held, flown, stowed, 1.0)
+    same_through = WindShipOpt.same_through(table, [point], unpowered, 1e5, 1e6)
     @test same_through == faster_powered - 1
     for speed_index in unpowered:same_through
-        @test WindShipOpt.held_speed(table, speed_index, sample)[1:3] ==
-              (held, flown, stowed)
+        @test WindShipOpt.held_speed(table, speed_index, sample) == (held, flown, stowed)
     end
+    calm = WindShipOpt.EdgeSample(WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 0.0, 6.0,
+        0.0), 0.0, 0.0, true)
+    calm_point = WindShipOpt.SailedPoint(calm,
+        WindShipOpt.held_speed(table, unpowered, calm)..., 1.0)
+    @test WindShipOpt.same_through(table, [point, calm_point], unpowered, 1e5, 1e6) ==
+        unpowered
     @test first(WindShipOpt.held_speed(table, faster_powered, sample)) == faster_powered
 end
 
