@@ -201,20 +201,7 @@ with $w_\mathrm{ref}=\SI{100}{g/m^2}$.
 \label{tab:canopy_life}
 \adjustbox{max width=\textwidth}{%
 \setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}lllrrlrrrr@{}}
-\toprule
-Source & Grade & Cloth & $w$ & Life $L$ & Ends on & $T/w$ & $\sigma_w$ & $\dot D$ & $r$ \\
- & & & [g/m²] & [h] & & & & [MJ/m²/h] & [g/m²/h] \\
-\midrule
-\citet{flynn2015} & claim & Woven polyester sail & 250* & 3500--4000 & structure & 2.0* & 110--207 & 0.04--0.07* & 0--0.12 \\
-\citet{flynn2015} & claim & same & 400* & 3500--4000 & structure & 2.0* & 110--207 & 0.04--0.07* & 0.01--0.22 \\
-\citet{kubicek2026} & claim & Polyester balloon & 45 & 400--500 & not stated & 2.8* & 222* & 0.01--0.03* & 0.22--0.30 \\
-\citet{kubicek2026} & claim & Polyester balloon & 70 & 800--1000 & not stated & 2.9* & 222* & 0.01--0.03* & 0.16--0.23 \\
-\citet{kubicek2026} & claim & Polyester balloon & 77 & over 1000 & not stated & 2.6* & 222* & 0.01--0.03* & 0.18--0.21 \\
-\citet{supair2016} & meas & Tandem paraglider, fibre unstated & 38--45* & 800--850 & porosity & 1.6* & 200* & 0.05--0.09* & 0.07--0.14 \\
-\citet{lynn2007} & claim & Maxi show kite & 50* & 1800--2400* & porosity & 0.6* & 200* & 0.05--0.09* & 0--0.07 \\
-\bottomrule
-\end{tabular}}
+\input{sections/canopy_life_table}}
 \end{table*}
 
 \paragraph{What no source settles} The model ends a canopy on lost strength, while flex, folds, flutter and abrasion leak the cloth and UV takes strength with little leak \citep{maslanka2023,maslanka2023thesis}; no leak limit is published for a kite. Retiring a kite at the 27 to 70\,\% of new strength used for balloon cloth and aircraft fabric gives the low end of the range. Launches are not counted, although a canopy sees about \num{2500} launch and landing cycles at the 1.5 hours a flight SkySails reported \citep{skysails2018}. The decay does not know salt, heat or a ship's handling.
