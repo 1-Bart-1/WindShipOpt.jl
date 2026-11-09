@@ -992,9 +992,9 @@ forecast_cause_groups = (
     ("Of which, by the weather forecast, waves first",
         (("Re-planning once a day", cause_loss(:perfect, :replanned)),
             ("Wave forecast", cause_loss(:replanned, :wave_forecast)),
-            ("Wind error near the kite's limits",
+            ("Wind error in the band near the kite's lowest wind",
                 cause_loss(:wave_forecast, :wind_near_limit)),
-            ("Wind error elsewhere", cause_loss(:wind_near_limit, :forecast)))),
+            ("Wind error outside that band", cause_loss(:wind_near_limit, :forecast)))),
     ("On one fixed course for every rig",
         (("Cost saving with perfect foresight [\\%]", cause_saving(:common_perfect)),
             ("Cost saving on the forecasts [\\%]", cause_saving(:common_forecast)),
@@ -1005,15 +1005,6 @@ forecast_cause_groups = (
     ("Share of the cost saving kept [\\%]",
         (("Routed", cause_kept(:forecast, :perfect)),
             ("On the fixed course", cause_kept(:common_forecast, :common_perfect)))))
-
-"rows of forecast_causes_table.tex on how near the kite is to its limits, as (label, column)"
-kite_margin_rows = (("Aloft within 4 m/s of its lowest wind, of the time aloft", "wind_within_4"),
-    ("Aloft within 1.25 m/s of its lowest wind, of the time aloft", "wind_within_1.25"),
-    ("Aloft within 1 m of the 5 m sea it stays up in, of the time aloft", "waves_within_1"),
-    ("Waves within 1 m below the 3 m launch limit", "near_launch_waves"),
-    ("Kept down by waves above the 3 m launch limit", "down_waves"),
-    ("Kept down by too little wind to launch", "down_wind"),
-    ("Down otherwise", "down_other"))
 
 """
     kite_margin_cells(margins, knowledge, column)

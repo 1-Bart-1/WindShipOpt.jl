@@ -1286,6 +1286,16 @@ function kite_margin_shares(samples, limits)
             sample.wave_height > limits.launch_max_wave_height - 1, samples))
 end
 
+"rows of forecast_causes_table.tex on how near the kite is to its limits, as (label, column)"
+kite_margin_rows = (
+    ("Aloft within 4 m/s of its lowest wind, of the time aloft", "wind_within_4"),
+    ("Aloft within 1.25 m/s of its lowest wind, of the time aloft", "wind_within_1p25"),
+    ("Aloft within 1 m of the 5 m sea it stays up in, of the time aloft", "waves_within_1"),
+    ("Waves within 1 m below the 3 m launch limit", "near_launch_waves"),
+    ("Kept down by waves above the 3 m launch limit", "down_waves"),
+    ("Kept down by too little wind to launch", "down_wind"),
+    ("Down otherwise", "down_other"))
+
 """
     near_limit_wind_speeds(samples, departure, min_flight_wind, weather)
 

@@ -2533,6 +2533,8 @@ kite_sample(aloft, apparent_wind, wave_height) = (; hours=0.0, lat=0.0, lon=0.0,
     @test shares.down_wind ≈ 1 / 6
     @test shares.down_other ≈ 1 / 6
     @test shares.near_launch_waves ≈ 2 / 6
+    columns = last.(PaperData.kite_margin_rows)
+    @test all(column -> haskey(shares, Symbol(column)), columns)
 end
 
 @testset "the wind band near the kite's limit holds the winds of the samples near it" begin
