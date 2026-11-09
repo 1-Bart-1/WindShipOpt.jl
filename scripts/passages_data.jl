@@ -6,8 +6,16 @@
 # router sailed. Included by paper.jl after paper_data.jl; run it as
 # `paper(:passages; fidelity)`.
 
-"the ship whose passages the site shows: the passage figure's"
-passage_ship = (drive=:methanol, length=140.0)
+"the drive and length [m] of the ship the passage figure and the site show"
+passage_ship = (drive=:ammonia, length=140.0)
+
+"""
+    passage_ship_design(rig, area)
+
+The [`ShipDesign`](@ref) of the passage ship carrying `rig` of `area` [m²].
+"""
+passage_ship_design(rig, area) = ShipDesign(passage_ship.drive, passage_ship.length;
+    rig_size(rig, area)...)
 
 "the rigs and sizes [m²] the site shows, each size the passage figure draws among them"
 passage_rigs = [("none", 0.0), ("kite", 800.0), ("kite", 1600.0), ("kite", 3200.0),
@@ -188,7 +196,7 @@ costs and, for a kite, its [`kite_patterns`](@ref).
 function passage_cases()
     cases = []
     for (rig, area) in passage_rigs
-        design = ShipDesign(passage_ship.drive, passage_ship.length; rig_size(rig, area)...)
+        design = passage_ship_design(rig, area)
         ship = Ship(design, assumptions)
         isnothing(ship) && continue
         model = rig == "kite" ?

@@ -455,6 +455,27 @@ function route_figure()
 end
 
 """
+    figure_passages()
+
+The labelled designs of [`passage_figure`](@ref) and each one's routed leg with its trace.
+"""
+function figure_passages()
+    designs = (("no rig", passage_ship_design("none", 0.0)),
+        ("kite 3200 m²", passage_ship_design("kite", 3200.0)),
+        ("wings 1500 m²", passage_ship_design("wings", 1500.0)),
+        ("rotors 800 m²", passage_ship_design("rotors", 800.0)))
+    outbound = first(run_corridors(:caribbean))
+    legs = map(designs) do (label, design)
+        ship = Ship(design, assumptions)
+        table = PerformanceTable(ship, assumptions)
+        hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+            assumptions))
+        return traced_passage(table, outbound, departures[1], hourly)
+    end
+    return designs, legs
+end
+
+"""
     passage_figure()
 
 One winter outbound passage to Guadeloupe of a 140 m e-ammonia ship without a rig and
@@ -463,19 +484,8 @@ after departure, each labelled with the ships that take it, and the speed, rig t
 fuel power at each sample of the passage.
 """
 function passage_figure()
-    designs = (("no rig", ShipDesign(:ammonia, 140.0)),
-        ("kite 3200 m²", ShipDesign(:ammonia, 140.0; kite_area=3200.0)),
-        ("wings 1500 m²", ShipDesign(:ammonia, 140.0; wing_area=1500.0)),
-        ("rotors 800 m²", ShipDesign(:ammonia, 140.0; rotor_area=800.0)))
+    designs, legs = figure_passages()
     departure = departures[1]
-    outbound = first(run_corridors(:caribbean))
-    legs = map(designs) do (label, design)
-        ship = Ship(design, assumptions)
-        table = PerformanceTable(ship, assumptions)
-        hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
-            assumptions))
-        return traced_passage(table, outbound, departure, hourly)
-    end
     figure = Figure(size=(page_width, 360))
     map_axis = Axis(figure[1, 1:2]; aspect=DataAspect(), limits=(-64, 6, 13, 54),
         xlabel="longitude [°]", ylabel="latitude [°]", title="(a) routed tracks")
