@@ -16,7 +16,7 @@ On e-ammonia, averaged over all classes and routes, the kite saves 12.2\,\% of t
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{class_comparison}
-\caption{Cost saving of the best size of each rig for the thirteen ship classes with a VLSFO (a) and an e-ammonia (b) drive: the mean over the six routes (marker) and the range over them (bar).}
+\caption{Cost saving and fuel saving of the best size of each rig for the thirteen ship classes and for the mean of the deadweight-limited and of the space-limited classes, with a VLSFO (a) and an e-ammonia (b) drive, in percent of the same ship without a rig on the same fuel: the mean over the six routes (marker) and the range over them (bar). The band across a row has the colour of the rig with the largest mean, and the number is that mean; the band is grey where no rig saves. The fuel saving is the fuel energy; on VLSFO the tank-to-wake CO$_2$ saved equals it.}
 \label{fig:class_comparison}
 \end{figure*}
 
@@ -27,15 +27,7 @@ On e-ammonia, averaged over all classes and routes, the kite saves 12.2\,\% of t
 \label{fig:winner_map}
 \end{figure*}
 
-The rigs are sized for cost, so the fuel they save is larger than their cost saving (\cref{tab:fuel}). On VLSFO the kite and the rotors save 4.2 and 3.1\,\% of the cost of the deadweight-limited ships on average and 25 and 23\,\% of their CO$_2$, and 3.3 and 1.0\,\% of the cost of the space-limited ships and 22 and 15\,\% of their CO$_2$. On e-ammonia the best size of the rotors saves 29 to 39\,\% of the fuel of each class, of the kite 30 to 38\,\% and of the wing sails 14 to 29\,\%. We give CO$_2$ tank-to-wake, what leaves the ship's stack, only for VLSFO, where it is the fuel saved times a fixed factor. On e-ammonia only the VLSFO pilot emits it, 5\,\% of what the same energy of VLSFO would. We give no well-to-wake figure, which would also count making the fuel and depends on how the hydrogen is produced and on nitrous oxide and slip on the engine. The fuel energy saved carries over to any such account in proportion.
-
-\begin{table*}[tbp]
-\centering
-\footnotesize
-\caption{Cost and fuel energy saved by the best size of each rig on each ship class with each drive, as cost\,/\,fuel in percent of the same ship without a rig on the same fuel, the mean over the six routes, with the deadweight-limited and space-limited classes in two blocks, each closed by its mean; and the tank-to-wake CO$_2$ of each class on VLSFO without a rig. On VLSFO the tank-to-wake CO$_2$ saved equals the fuel saved. Cells are shaded by the cost saving, blue for a gain and red for a loss, the deeper the larger.}
-\label{tab:fuel}
-\adjustbox{max width=\textwidth}{\InputIfFileExists{sections/fuel_table}{}{\tbd{Fuel table pending: run the fuel\_table step.}}}
-\end{table*}
+The rigs are sized for cost, so the fuel they save is larger than their cost saving (\cref{fig:class_comparison}). On VLSFO the kite and the rotors save 4.2 and 3.1\,\% of the cost of the deadweight-limited ships on average and 25 and 23\,\% of their CO$_2$, and 3.3 and 1.0\,\% of the cost of the space-limited ships and 22 and 15\,\% of their CO$_2$. On e-ammonia the best size of the rotors saves 29 to 39\,\% of the fuel of each class, of the kite 30 to 38\,\% and of the wing sails 14 to 29\,\%. We give CO$_2$ tank-to-wake, what leaves the ship's stack, only for VLSFO, where it is the fuel saved times a fixed factor. On e-ammonia only the VLSFO pilot emits it, 5\,\% of what the same energy of VLSFO would. We give no well-to-wake figure, which would also count making the fuel and depends on how the hydrogen is produced and on nitrous oxide and slip on the engine. The fuel energy saved carries over to any such account in proportion.
 
 Part of each cost saving is time, since a rig makes speed cheaper and the router sets speed by cost (\cref{sec:res_speed}). \Cref{tab:split} splits the cost saving into the fuel saved, the time saved at the crew, capital and cargo interest of the ship without a rig, and the rig's own capital, maintenance and wear with the cargo its mass displaces. On e-ammonia the kite and the rotors gain 3.4 to 4.8 points of cost from time against 9.9 to 12.8 from fuel. On VLSFO, with smaller rigs, time adds at most 0.5 points. The fuel saved alone pays for the rig everywhere except for the wing sails on VLSFO, whose 0.2\,\% cost saving comes from time.
 
@@ -78,11 +70,18 @@ A rig sized for the lowest cost leaves fuel unsaved that a larger rig would save
 \subsection{Deadweight-limited and space-limited ships}
 \label{sec:res_groups}
 
-On e-ammonia the kite and the rotors are level on the deadweight-limited bulk carriers and tankers, the kite leads by 3.2 to 5.0 points on the space-limited container ships, and the rotors lead on the car carrier. What each rig costs in cargo (\cref{sec:deck_rigs}) explains most of this. We measure that cost as the cost saving a rig would have if its ship carried as much cargo as without it, less the saving it has.
+On e-ammonia the kite and the rotors are level on the deadweight-limited bulk carriers and tankers, the kite leads by 3.2 to 5.0 points on the space-limited container ships, and the rotors lead on the car carrier. What each rig costs in cargo (\cref{sec:deck_rigs}) explains most of this (\cref{fig:cargo_cost}). We measure that cost as the cost saving a rig would have if its ship carried as much cargo as without it, less the saving it has.
 
 On the bulk carriers and tankers the kite saves 12.7 to 14.2\,\% of the cost and the rotors 11.9 to 14.3\,\%, within 0.8 points of each other on every class. Here mass is the currency. It costs the rotors 0.35 to 1.16 points but the kite only 0.02 to 0.12, since a square metre of kite with its winch and mast weighs \SI{0.05}{t} against \SI{0.63}{t} for a rotor and \SI{0.25}{t} for a wing sail (\cref{sec:deck_rigs}). Without that cost the rotors would lead on every one of these classes but the VLCC, so their greater thrust per square metre buys about what their mass costs.
 
 On the feeder, Panamax and Neo-Panamax container ships the kite saves 12.6, 12.1 and 10.3\,\% of the cost against 7.6, 8.7 and 7.1\,\% for the rotors. Here the currency is slots. Each rotor blocks three rows of the on-deck stack over one bay and all its tiers, so the best rotor rigs take 6 to 11\,\% of the slots and cost 5.2 to 7.1 points. A wing sail on its pedestal blocks two rows. The kite's one mast blocks one and costs 0.1 to 0.4 points. Without the cost of the slots the rotors would lead the kite by 1.5 to 1.9 points, so on these three ships it is the deck, not their speed, that puts the kite ahead. The Megamax is deadweight-limited, its cargo costs every rig less than half a point, and the kite leads, 9.3 against 8.3\,\%, with its size at the upper bound of the search (\cref{sec:res_size}). On the car carrier no rig costs cargo, and the rotors lead. On VLSFO the rigs are smaller and the kite leads in both groups, except on the Aframax.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{cargo_cost}
+\caption{Cost saving on e-ammonia of the best size of each rig on each class, the mean over the six routes: what it saves as it stands (solid) and what the cargo the rig displaces costs it (pale), together the saving if the ship carried as much cargo as without a rig; for the deadweight-limited (a) and space-limited (b) classes.}
+\label{fig:cargo_cost}
+\end{figure*}
 
 The group a ship falls in can decide which rig leads, and on two container ships the line is close (\cref{sec:deck_rigs}). With \SI{9.5}{t} of goods per loaded TEU instead of \SI{10.2}{t} the Megamax would be space-limited, its rotors would save 3.2\,\% of the cost instead of 8.3\,\% and the kite's lead would grow from 1.0 to 6.2 points. At \SI{11.1}{t} the Neo-Panamax would be deadweight-limited and its rotors would save 11.5\,\% of the cost, ahead of the kite's 10.0\,\%. A bulk carrier with a light cargo fills its holds before its deadweight, and its rotors would lead. A car carrier loaded to its deadweight would favour the kite. The mean mass of a box differs between trades and between the two directions of one trade, so on container ships the order of kite and rotors rests on the cargo as much as on the wind. \Cref{sec:disc_size} asks whether deck space is as free on a deadweight-limited ship as the model takes it to be.
 
@@ -147,7 +146,7 @@ Every cost saving so far is at a rig's best size, and on the largest ships a bou
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{class_sizes}
-\caption{The rig area that lowers the cost per tonne-kilometre most for each ship class with a VLSFO (a) and an e-ammonia (b) drive: the geometric mean over the six routes (marker) and the range over them (bar). The shaded column at the right of each panel gives the median number of wing sail and rotor units at that size, in their colours. Kites were searched from \SIrange{500}{16000}{m^2}, wing sails and rotors from a fifth to all of what fits on deck. Where a bound was the best size searched, the search also tried the size a factor $2^{1/4}$ inside it.}
+\caption{The rig area that lowers the cost per tonne-kilometre most for each ship class with a VLSFO (a) and an e-ammonia (b) drive: the geometric mean over the six routes (marker) and the range over them (bar). Beside each panel is the median number of units of each rig at that size, in a column with the rig's name at its foot, in the colour of its marker and bar; a kite rig is one kite. Kites were searched from \SIrange{500}{16000}{m^2}, wing sails and rotors from a fifth to all of what fits on deck. Where a bound was the best size searched, the search also tried the size a factor $2^{1/4}$ inside it.}
 \label{fig:class_sizes}
 \end{figure*}
 

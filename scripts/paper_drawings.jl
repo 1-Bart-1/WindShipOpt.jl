@@ -146,13 +146,14 @@ end
 """
     draw_ship!(axis, hull, offset)
 
-Side view of `hull` shifted by `offset` [m]: hull and deckhouse aft, with the deck at the
-height above the waterline at which the model stands rigs on it.
+Side view of `hull` shifted by `offset` [m]: hull and a deckhouse aft, 10 m tall at the
+reference length, with the deck at the height above the waterline at which the model
+stands rigs on it.
 """
 function draw_ship!(axis, hull, offset)
     scale = hull.length / assumptions[:reference_length]
     deck = assumptions[:deck_mount_height] * scale
-    house = assumptions[:superstructure_height] * scale
+    house = 10.0scale
     poly!(axis, hull_profile(hull, deck) .+ Point2f(offset); color=:gray80,
         strokecolor=:black, strokewidth=0.5)
     half = hull.length / 2
@@ -232,7 +233,7 @@ function ship_classes_figure()
     tops = cumsum([kite_top + hull.draft + margin
                    for (kite_top, (_, hull, _)) in zip(kite_tops, rows)])
     width = 3longest + 2gap
-    figure = Figure(size=(page_width, page_width * (last(tops) + 20) / (1.3width)))
+    figure = Figure(size=(page_width, page_width * (last(tops) + 20) / (1.45width)))
     axis = Axis(figure[1, 1]; aspect=DataAspect())
     hidedecorations!(axis)
     hidespines!(axis)
@@ -263,7 +264,7 @@ function ship_classes_figure()
     lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
     text!(axis, bar + Point2f(50, 0); text="100 m", align=(:center, :bottom),
         offset=(0, 2), fontsize=pt(8))
-    limits!(axis, -0.3width, width, -last(tops), 40)
+    limits!(axis, -0.3width, width, -last(tops) - 15, 50)
     save(joinpath(figures, "ship_classes.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -276,7 +277,7 @@ class study `table`, or NaN where it has none.
 function mean_best_area(table, class, routes, rig)
     areas = filter(isfinite, [best_area(table, class, route, "vlsfo", rig)
                               for route in routes])
-    return isempty(areas) ? NaN : exp(sum(log, areas) / length(areas))
+    return isempty(areas) ? NaN : geometric_mean(areas)
 end
 
 """
