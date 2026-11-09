@@ -1500,6 +1500,13 @@ end
     @test free.flight_hours != held.flight_hours
     (; samples, edges) = record
     @test issorted(sample.hours for sample in samples)
+    kite = kite_table.table.ship.rig
+    @test all(kite.min_flight_wind <= sample.apparent_wind <= kite.max_wind
+              for sample in samples if sample.aloft)
+    fastest = maximum(kite_table.speeds)
+    @test all(abs(sample.apparent_wind - sample.wind_speed) <= fastest + 1e-9
+              for sample in samples)
+    @test any(sample.apparent_wind != sample.wind_speed for sample in samples)
     @test length(edges) == length(free.path) - 1
     @test sum(edge.cost for edge in edges) <= sum(edge.held_cost for edge in edges)
     @test any(edge -> edge.ends_aloft != edge.held_ends_aloft, edges)
@@ -1736,6 +1743,60 @@ end
     @test first(waves(known, 40.0, -31.0, time)) > 0
 end
 
+function forecast_kite_routing()
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
+    return RouteTable(PerformanceTable(ship, assumptions)), kite_hourly
+end
+
+@testset "a ship re-planning daily on the real weather costs about what a route does" begin
+    kite_table, kite_hourly = forecast_kite_routing()
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    routed = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+    replanned = forecast_route(corridor, kite_table, weather, departure;
+        time_cost=kite_hourly, forecast=PerfectForecast())
+    @test replanned.objective ≈ routed.objective rtol = 0.02
+end
+
+@testset "a kite that knows the real weather ahead beats one on a short view" begin
+    kite_table, kite_hourly = forecast_kite_routing()
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    options = (; time_cost=kite_hourly, horizon=24.0)
+    short_view = forecast_route(corridor, kite_table, weather, departure; options...)
+    foresight = forecast_route(corridor, kite_table, weather, departure; options...,
+        forecast=ForesightKite(nothing))
+    @test [point[1:2] for point in foresight.path] ==
+          [point[1:2] for point in short_view.path]
+    @test foresight.objective < short_view.objective
+end
+
+@testset "a ship on the shortest lead reads each time from the forecast last issued" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
+    known = WindShipOpt.known_weather(ShortestLead(archive), weather, 24.0, Inf)
+    for time in (24.0 * 2 + 9.0, 24.0 * 3 + 9.0)
+        @test wind(known, 40.0, -31.0, time) ==
+              wind(ArchivedForecast(archive, weather, time), 40.0, -31.0, time)
+        @test waves(known, 40.0, -31.0, time) ==
+              waves(ArchivedForecast(archive, weather, time), 40.0, -31.0, time)
+    end
+    @test ArchivedForecast(archive, weather, 24.0 * 2 + 9.0).issue !=
+          ArchivedForecast(archive, weather, 24.0 * 3 + 9.0).issue
+end
+
+@testset "a ship on one fixed course re-plans along it and leaves no other path" begin
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    leg = route(corridor, table, weather, departure; time_cost=hourly)
+    fixed = WindShipOpt.path_corridor(leg, corridor, 1)
+    on_course = forecast_route(fixed, table, weather, departure; time_cost=hourly,
+        horizon=24.0)
+    @test [point[1:2] for point in on_course.path] == [point[1:2] for point in leg.path]
+    repeated = route(fixed, table, weather, departure; time_cost=hourly)
+    @test [point[1:2] for point in repeated.path] == [point[1:2] for point in leg.path]
+end
+
 @testset "a search that cuts off the best path and overruns its limit widens" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
     (; time_step) = WindShipOpt.ROUTER_SETTINGS[]
@@ -1846,12 +1907,14 @@ end
     @eval PaperRuns weather_name = "synthetic"
     PaperRuns.paper_run = PaperRuns.PaperRun(mktempdir(), :draft,
         Dict{String, Any}("code_hash" => "held"), 0, 0)
-    case_at(held_knots, part) = (; design=ShipDesign(:vlsfo, 100.0), assumptions,
-        route=:caribbean, scale=8.0, forecast=false, held_knots, part)
+    case_at(held_knots, part; course=:routed) = (; design=ShipDesign(:vlsfo, 100.0),
+        assumptions, route=:caribbean, scale=8.0, course, forecast=false, held_knots, part)
     @test allunique(PaperRuns.case_directory(case_at(held_knots, :none), [24.0])
                     for held_knots in (nothing, 8.0, 9.0))
     @test allunique(PaperRuns.case_directory(case_at(nothing, part), [24.0])
                     for part in (:none, :waves, :windage))
+    @test allunique(PaperRuns.case_directory(case_at(nothing, :none; course), [24.0])
+                    for course in (:routed, :common_perfect))
 end
 
 @testset "the code hash keying stored trips covers the ship data tables" begin
@@ -2310,6 +2373,70 @@ module PaperData
 using Printf, Statistics, WindShipOpt
 assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
+end
+
+"""
+forecast_causes.csv read into a table, for `savings` per (rig, plan) over departures 0, 1,
+2 [%] against a ship with no rig costing one, `bare_forecast` on its forecast plan
+"""
+function cause_table(savings, bare_forecast)
+    rig, plan, departure, cost = String[], String[], Float64[], Float64[]
+    function add!(name, case, day, value)
+        push!(rig, name), push!(plan, case), push!(departure, day), push!(cost, value)
+    end
+    for ((name, case), saved) in savings, (day, saving) in zip(0.0:2.0, saved)
+        isnan(saving) && continue
+        reference = case == "forecast" || case == "foresight_kite" ? bare_forecast : 1.0
+        add!(name, case, day, reference * (1 - saving / 100))
+    end
+    for case in Set(last.(keys(savings))), day in 0.0:2.0
+        case == "foresight_kite" && continue
+        add!("none", case, day, case == "forecast" ? bare_forecast : 1.0)
+    end
+    return Dict("rig" => rig, "plan" => plan, "departure" => departure, "cost" => cost)
+end
+
+@testset "the kite's excess loss over a rig is paired per departure" begin
+    fixed = ("replanned", "shortest_lead", "forecast_course", "perfect_course",
+        "common_perfect", "common_forecast")
+    savings = Dict(("kite", "perfect") => [10.0, 12.0, 14.0],
+        ("kite", "forecast") => [2.0, 4.0, 9.0],
+        ("kite", "foresight_kite") => [50.0, 50.0, 50.0],
+        ("rotors", "perfect") => [20.0, 22.0, 24.0],
+        ("rotors", "forecast") => [15.0, 17.0, 22.0])
+    for case in fixed, name in ("kite", "rotors")
+        savings[(name, case)] = [5.0, 5.0, 5.0]
+    end
+    savings[("rotors", "perfect_course")] = [5.0, 5.0, NaN]
+    table = cause_table(savings, 0.8)
+    kite, rotors = (PaperData.forecast_cause_savings(table, name)
+                    for name in ("kite", "rotors"))
+    @test kite[:foresight_kite] ≈ fill(50.0, 3)
+    @test rotors[:foresight_kite] == rotors[:forecast]
+    total = PaperData.cause_loss(:perfect, :forecast)
+    alone = PaperData.cause_estimate(total, kite)
+    @test alone.departures == 3 && alone.error > 0
+    excess = PaperData.cause_estimate(total, kite, rotors)
+    @test excess.departures == 2 && excess.value ≈ 3
+    @test excess.error ≈ 0 atol = 1e-12
+    kept = PaperData.cause_kept(:forecast, :perfect)
+    @test PaperData.cause_estimate(kept, kite).value ≈ 100 * (5 / 12)
+    routing = PaperData.cause_difference(total,
+        PaperData.cause_loss(:common_perfect, :common_forecast))
+    @test PaperData.cause_estimate(routing, kite).value ≈ alone.value
+end
+
+@testset "the kite's margin shares count only samples aloft against its limits" begin
+    sample(aloft, apparent_wind, wave_height) = (; hours=0.0, lat=0.0, lon=0.0, aloft,
+        planned=aloft, wind_speed=apparent_wind, apparent_wind, wave_height)
+    samples = [sample(true, 8.0, 4.8), sample(true, 11.0, 3.5), sample(true, 20.0, 1.0),
+        sample(false, 8.0, 4.8)]
+    shares = PaperData.kite_margin_shares(samples, 7.0, 5.0)
+    @test (shares.samples, shares.aloft) == (4, 3)
+    @test shares.wind_within_1p25 ≈ 1 / 3
+    @test shares.wind_within_4 ≈ 2 / 3
+    @test shares.waves_within_0p5 ≈ 1 / 3
+    @test shares.waves_within_1 ≈ 1 / 3
 end
 
 "path and force text `PaperData.write_pattern` writes for the base kite in `wind` at `course`"

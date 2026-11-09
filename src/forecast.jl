@@ -152,6 +152,31 @@ function ArchivedForecast(archive::ForecastArchive, weather, time)
         ForecastWeather(weather, issued, span))
 end
 
+"""
+    ShortestLead(archive)
+
+Forecast source of a ship that knows, at every time ahead, the forecast of `archive` with
+the shortest lead there: what the forecast model says of the weather, without the error
+that grows with lead.
+"""
+struct ShortestLead
+    archive::ForecastArchive
+end
+
+"""
+    ShortestLeadForecast(archive, weather)
+
+What a [`ShortestLead`](@ref) ship knows: at each time the [`ArchivedForecast`](@ref) of
+`archive` last issued before it.
+"""
+struct ShortestLeadForecast{W}
+    archive::ForecastArchive
+    weather::W
+end
+
+known_weather(forecast::ShortestLead, weather, time, horizon) =
+    ShortestLeadForecast(forecast.archive, weather)
+
 known_weather(forecast::ForecastArchive, weather, time, horizon) =
     ArchivedForecast(forecast, weather, time)
 known_weather(forecast::ForecastEnsemble, weather, time, horizon) =
@@ -186,6 +211,11 @@ function waves(forecast::ArchivedForecast, lat, lon, time)
     isnan(height) && return waves(forecast.beyond, lat, lon, time)
     return max(height - height_bias, 0.0), max(period - period_bias, 0.0), atan(east, north)
 end
+
+wind(forecast::ShortestLeadForecast, lat, lon, time) =
+    wind(ArchivedForecast(forecast.archive, forecast.weather, time), lat, lon, time)
+waves(forecast::ShortestLeadForecast, lat, lon, time) =
+    waves(ArchivedForecast(forecast.archive, forecast.weather, time), lat, lon, time)
 
 """
     forecast_bias(group, observed, issue_times, years, names)
