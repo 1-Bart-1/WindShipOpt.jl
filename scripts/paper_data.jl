@@ -1799,14 +1799,14 @@ each of [`simplified_parts`](@ref) switched off: model_parts.csv; and whole over
 [`year_departures`](@ref) of each weather year: weather_years.csv.
 """
 function model_parts_data()
-    cases = [case for screened in sensitivity_ships(), part in (:none, simplified_parts...)
-             for case in rig_cases(screened...; part)]
+    cases = [case for ship_case in sensitivity_ships(), part in (:none, simplified_parts...)
+             for case in rig_cases(ship_case...; part)]
     write_trips("model_parts.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :rig, :part)
     cases, trips = [], []
     for year in 1:ceil(Int, last(departures) / 8760)
-        batch = [case for screened in sensitivity_ships()
-                 for case in rig_cases(screened...; year)]
+        batch = [case for ship_case in sensitivity_ships()
+                 for case in rig_cases(ship_case...; year)]
         append!(trips, round_trips(batch, year_departures(year)))
         append!(cases, batch)
     end

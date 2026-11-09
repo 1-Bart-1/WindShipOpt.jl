@@ -127,9 +127,10 @@ Largest change [points] of a saving in `column` on `ship` between the low and hi
 of the development `entry`, over its rigs; `NaN` where no rig has both trips.
 """
 function lever_swing(table, ship, entry; column="cost")
-    swings = [abs(-(bound_changes(table, ship, rig, string(entry.input); column)...))
-              for rig in lever_rigs(entry)]
-    return maximum(filter(isfinite, swings); init=NaN)
+    swings = filter(isfinite, [abs(-(bound_changes(table, ship, rig, string(entry.input);
+                                                   column)...))
+                               for rig in lever_rigs(entry)])
+    return isempty(swings) ? NaN : maximum(swings)
 end
 
 "heading of each group of the development table, by the rig of its inputs"
@@ -160,7 +161,8 @@ function development_table()
             "\\label{tab:development}\\\\")
         header = string("\\toprule\nInput & Value (range) & ",
             join(short_ship.(ships), " & "),
-            " & CO\\textsubscript{2} & Why \\\\\n & & \\multicolumn{3}{c}{cost saving} & & \\\\\n\\midrule")
+            " & CO\\textsubscript{2} & Why \\\\\n",
+            " & & \\multicolumn{3}{c}{cost saving} & & \\\\\n\\midrule")
         println(io, header, "\n\\endfirsthead")
         println(io, "\\multicolumn{7}{@{}l}{\\cref{tab:development} (continued)}\\\\")
         println(io, header, "\n\\endhead\n\\bottomrule\n\\endfoot")

@@ -1767,12 +1767,14 @@ function sensitivity_figure()
         sort!(levers; by=entry -> maximum(ship -> abs(-(bound_changes(table, ship, rig,
             string(entry.input))...)), ships))
     end
-    figure = Figure(size=(page_width, 500))
-    columns = ["cost" => "change of cost saving [points]",
-        "carbon" => rich("change of CO", subscript("2"), " saving [points]")]
+    figure = Figure(size=(page_width, 520))
+    columns = [("cost", "change of cost saving [points]", "cost"),
+        ("carbon", rich("change of CO", subscript("2"), " saving [points]"),
+            rich("CO", subscript("2")))]
     for (row, (rig, levers)) in enumerate(zip(rig_names, panels))
-        for (column, (name, label)) in enumerate(columns)
-            axis = Axis(figure[row, column]; title="($('a' + 2 * (row - 1) + column - 1)) $rig",
+        for (column, (name, label, saved)) in enumerate(columns)
+            axis = Axis(figure[row, column];
+                title=rich("($('a' + 2 * (row - 1) + column - 1)) $rig, ", saved),
                 yticks=(eachindex(levers), [entry.label for entry in levers]),
                 yticksvisible=column == 1, yticklabelsvisible=column == 1,
                 xlabel=row == length(rig_names) ? label : "", xticks=WilkinsonTicks(4),
@@ -1782,10 +1784,10 @@ function sensitivity_figure()
         end
         rowsize!(figure.layout, row, Auto(length(levers)))
     end
-    Legend(figure[1, 2], [[PolyElement(color=palette[j]) for j in eachindex(ships)];
+    Legend(figure[length(rig_names) + 1, 1:2],
+        [[PolyElement(color=palette[j]) for j in eachindex(ships)];
             [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
-        [short_ship.(ships); "high end of range"]; tellwidth=false, tellheight=false,
-        halign=:right, valign=:bottom)
+        [short_ship.(ships); "high end of range"]; orientation=:horizontal, tellwidth=false)
     save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -2268,10 +2270,10 @@ end
     missed_goals_figure()
 
 Cost saving of each rig against the canopy life, the canopy price and the share out of
-service, for each screened ship with its rig sizes held: the kite's saving over the swept
-canopy inputs, the other rigs' at their goals, and every rig's over its share out of
-service. Each goal is a vertical line over the shaded range of its input; today's canopy
-price is dotted.
+service, for each ship of the development study with its rig sizes held: the kite's saving
+over the swept canopy inputs, the other rigs' at their goals, and every rig's over its
+share out of service. Each goal is a vertical line over the shaded range of its input;
+today's canopy price is dotted.
 """
 function missed_goals_figure()
     sizes = read_table(data_file("goal_sizes.csv"))
