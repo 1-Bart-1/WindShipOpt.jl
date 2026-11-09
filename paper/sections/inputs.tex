@@ -3,7 +3,7 @@
 \section{Model inputs}
 \label{sec:inputs}
 
-\Cref{tab:inputs} lists every input that matters for the results, ranked by its effect, with its base value, the bounds of the sensitivity runs, its unit, its effect and its source. An input without a published source is marked as an engineering estimate or assumption. An input matters when moving it between its bounds changes the cost saving of a rig by at least half a percentage point, or the cost of a ship without a rig by at least 2\,\%, on any of three ships: the \SI{140}{m} reference ship on e-ammonia to Guadeloupe, a Kamsarmax bulk carrier on VLSFO to Tubarão and a Neo-Panamax container ship on e-ammonia to New York, each with the best size of each rig. The ship classes are in \cref{tab:classes}, the sources of their values in \cref{tab:class_sources}, and the grids, solver settings and constants, which have no range, in \cref{tab:numerics}. The published regressions the model uses (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) are applied with their published coefficients.
+\Cref{tab:inputs} lists every input that matters for the results, ranked by its effect, with its base value, bounds, unit and source, or its mark as an engineering estimate or assumption. An input matters when moving it between its bounds changes the cost saving of a rig by at least half a percentage point, or the cost of a ship without a rig by at least 2\,\%, on any of three ships: the \SI{140}{m} reference ship on e-ammonia to Guadeloupe, a Kamsarmax bulk carrier on VLSFO to Tubarão and a Neo-Panamax container ship on e-ammonia to New York, each with the best size of each rig. The ship classes are in \cref{tab:classes}, their sources in \cref{tab:class_sources}, and the grids, solver settings and constants in \cref{tab:numerics}. The published regressions (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) keep their published coefficients.
 
 {\footnotesize
 \setlength{\LTcapwidth}{\textwidth}
@@ -63,17 +63,17 @@ ocean stage spacing & \SI{360}{nmi} & corridor stages \\
 Channel stage spacing & \SI{30}{nmi} & fixed waypoints from Rotterdam to Ushant, no lateral freedom \\
 lateral node spacing & \SI{240}{nmi} & nodes across the track \\
 corridor half width & \SI{2400}{nmi} & reach of the nodes to either side of the track \\
-lateral step & up to 3 nodes per stage & edges between stages \\
+lateral step & up to 2 nodes per stage & edges between stages \\
 lateral direction smoothing & 8 stages to either side & direction of the node rows \\
 land check along edges & every \SI{20}{nmi} & removes edges over land \\
 coastal clearance & \SI{50}{nmi}, on rings at 25 and \SI{50}{nmi} of 16 bearings & nodes near land \\
 coastal penalty & cost of an edge into a node near land doubled & objective only \\
 island disks & island radius plus about \SI{20}{nmi} & land mask \\
-time bin & \SI{1.5}{h} & state of the dynamic programme \\
+time bin & \SI{3}{h} & state of the dynamic programme \\
 weather along an edge & at most every \SI{3}{h} & fuel and speed of an edge \\
-states searched & within 12\,\% of a backward estimate of the cost to go at \SI{48}{h} knots, 25\,\% with a kite; then 20\,\%, 50\,\% with a kite, then all, if a pass ends above its limit or finds no path & dynamic programme \\
+states searched & within 3\,\% of a backward estimate of the cost to go at \SI{48}{h} knots, 10\,\% with a kite; then 6\,\%, 20\,\% with a kite, then all, if a pass ends above its limit or finds no path & dynamic programme \\
 longest passage & 50 days & time bins \\
-speeds & every second table speed, 25 from \SI{4}{kn} to the ship's maximum & edge choices \\
+speeds & every fourth table speed, 13 from \SI{4}{kn} to the ship's maximum & edge choices \\
 final pass & all table speeds, \SI{0.25}{h} bins, within \SI{24}{h} of the path found & passage reported \\
 re-planning interval & \SI{24}{h} & forecast router \\
 forecasts & GEFSv12 reforecast control run, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead & forecast router \\
