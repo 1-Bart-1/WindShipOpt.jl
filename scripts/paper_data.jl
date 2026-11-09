@@ -143,8 +143,9 @@ sea_effect_classes = ("general cargo coaster", "feeder container ship",
     sea_effect_data()
 
 On every route on e-ammonia, the 140 m ship with the 3,200 m^2 kite and each of
-[`sea_effect_classes`](@ref) with the kite the class study found cheapest, without a rig,
-with the kite as modelled and with no extra launch wind from the sea: sea_effect.csv.
+[`sea_effect_classes`](@ref) with the kite the class study found cheapest on fuel oil,
+without a rig, with the kite as modelled and with no extra launch wind from the sea:
+sea_effect.csv.
 """
 function sea_effect_data()
     classes_table = read_table(data_file("classes.csv"))
@@ -152,7 +153,7 @@ function sea_effect_data()
     ships = Any[("140 m", 140.0, route -> 3200.0)]
     for name in sea_effect_classes
         class = ship_classes()[name]
-        area(route) = best_area(classes_table, name, string(route), "ammonia", "kite")
+        area(route) = best_area(classes_table, name, string(route), "vlsfo", "kite")
         push!(ships, (name, class, area))
     end
     cases = []
@@ -302,9 +303,14 @@ rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :ro
 """
     rig_size(rig, area)
 
-Design keywords for `area` [m^2] of `rig`; none for "none".
+Design keywords for `area` [m^2] of `rig`; none for "none". Throws on an `area` that is not
+finite, as [`best_area`](@ref) gives where the rig was not run.
 """
-rig_size(rig, area) = rig == "none" ? (;) : NamedTuple{(rig_keywords[rig],)}((area,))
+function rig_size(rig, area)
+    rig == "none" && return (;)
+    isfinite(area) || throw(ArgumentError("no size for the $rig: area $area"))
+    return NamedTuple{(rig_keywords[rig],)}((area,))
+end
 
 """
     study_hull(ship)

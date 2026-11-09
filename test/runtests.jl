@@ -2498,6 +2498,12 @@ assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 end
 
+@testset "a rig size the class study did not run is an error, not a ship without a rig" begin
+    @test PaperData.rig_size("none", NaN) == (;)
+    @test PaperData.rig_size("kite", 1600.0) == (; kite_area=1600.0)
+    @test_throws ArgumentError PaperData.rig_size("kite", NaN)
+end
+
 """
 forecast_causes.csv read into a table, for `savings` per (rig, plan) over departures 0, 1,
 2 [%] against a ship with no rig costing one, `bare_forecast` on its forecast plan
