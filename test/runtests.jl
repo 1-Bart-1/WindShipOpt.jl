@@ -1696,7 +1696,8 @@ end
     hours(i) = distance / table.speeds[i] / 3600
     @test WindShipOpt.same_through(table, [point], unpowered, distance, 1e6) > unpowered
     between = (hours(unpowered) + hours(unpowered + 1)) / 2
-    @test WindShipOpt.same_through(table, [point], unpowered, distance, between) == unpowered
+    @test WindShipOpt.same_through(table, [point], unpowered, distance, between) ==
+        unpowered
 end
 
 @testset "a faster command holds the same speed only through speeds no engine \
