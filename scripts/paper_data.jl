@@ -149,7 +149,7 @@ with the kite as modelled and with no extra launch wind from the sea: sea_effect
 function sea_effect_data()
     classes_table = read_table(data_file("classes.csv"))
     no_sea = with_value(assumptions, :kite_launch_sea_wind, 0.0)
-    ships = [("140 m", 140.0, (route -> 3200.0))]
+    ships = Any[("140 m", 140.0, route -> 3200.0)]
     for name in sea_effect_classes
         class = ship_classes()[name]
         area(route) = best_area(classes_table, name, string(route), "ammonia", "kite")
