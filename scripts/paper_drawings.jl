@@ -233,7 +233,7 @@ function ship_classes_figure()
     tops = cumsum([kite_top + hull.draft + margin
                    for (kite_top, (_, hull, _)) in zip(kite_tops, rows)])
     width = 3longest + 2gap
-    figure = Figure(size=(page_width, page_width * (last(tops) + 20) / (1.3width)))
+    figure = Figure(size=(page_width, page_width * (last(tops) + 20) / (1.45width)))
     axis = Axis(figure[1, 1]; aspect=DataAspect())
     hidedecorations!(axis)
     hidespines!(axis)
@@ -264,7 +264,7 @@ function ship_classes_figure()
     lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
     text!(axis, bar + Point2f(50, 0); text="100 m", align=(:center, :bottom),
         offset=(0, 2), fontsize=pt(8))
-    limits!(axis, -0.3width, width, -last(tops), 40)
+    limits!(axis, -0.3width, width, -last(tops) - 15, 50)
     save(joinpath(figures, "ship_classes.pdf"), figure; pt_per_unit=print_scale)
 end
 

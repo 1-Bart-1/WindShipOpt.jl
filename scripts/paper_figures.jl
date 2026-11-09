@@ -1138,11 +1138,6 @@ function canopy_life_figure()
         text!(axis, 1.15high, i; text=replace(lives["life_text"][row], "--" => "–"),
             align=(:left, :center), fontsize=pt(8), color=colour)
     end
-    Legend(figure[1, 1], [MarkerElement(marker=:rect, color=:white, strokecolor=:gray35,
-            strokewidth=0.75, markersize=5),
-        MarkerElement(marker=:rect, color=:gray35, markersize=5)],
-        ["maker's claim", "maker's measurement"]; tellwidth=false, tellheight=false,
-        halign=:right, valign=:bottom, margin=(4, 4, 24, 4))
     save(joinpath(figures, "canopy_life.pdf"), figure; pt_per_unit=print_scale)
 end
 
