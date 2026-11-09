@@ -1275,12 +1275,24 @@ function sensitivity_ships()
                            for (rig, area) in reference_rigs)
     ships = [("140 m", ShipDesign(:ammonia, 140.0), :caribbean, reference)]
     for (name, drive, route) in study_classes
-        areas = NamedTuple(Symbol(rig) => rig_size(rig,
-                best_area(classes_table, name, string(route), string(drive), rig))
-                           for rig in rig_names)
+        areas = study_areas(classes_table, name, route, drive)
         push!(ships, (name, ShipDesign(drive, classes[name]), route, areas))
     end
     return ships
+end
+
+"""
+    study_areas(table, class, route, drive)
+
+Rig sizes of each rig of [`rig_names`](@ref) on `class`, cheapest in the class study
+`table`, as the keyword arguments of its design; an error where a rig has none.
+"""
+function study_areas(table, class, route, drive)
+    return NamedTuple(map(rig_names) do rig
+        area = best_area(table, class, string(route), string(drive), rig)
+        isnan(area) && error("the class study has no $rig size for $class on $drive to $route")
+        return Symbol(rig) => rig_size(rig, area)
+    end)
 end
 
 """

@@ -141,7 +141,7 @@ development_groups = ["kite" => "Kite", "wings" => "Wing sails", "rotors" => "Ro
 
 Write [`development_inputs`](@ref) by rig to paper/sections/development_table.tex: value,
 range, the change of the cost saving between the bounds on each ship, the largest change
-of the fuel energy saving, and the reason the input is in the study.
+of the CO2 saving, and the reason the input is in the study.
 """
 function development_table()
     table = read_table(data_file("sensitivity.csv"))
@@ -155,12 +155,12 @@ function development_table()
         println(io, "\\caption{The inputs of the development study by the rig whose ",
             "developer can change them: base value and range, the largest change of a ",
             "rig's saving between the bounds of the range, in percentage points, in cost ",
-            "per tonne-km on each ship and in fuel energy (and so CO\\textsubscript{2}) ",
-            "over the ships, and why the input is in the study.}\n",
+            "per tonne-km on each ship and in CO\\textsubscript{2} per tonne-km over the ",
+            "ships, and why the input is in the study.}\n",
             "\\label{tab:development}\\\\")
         header = string("\\toprule\nInput & Value (range) & ",
             join(short_ship.(ships), " & "),
-            " & Fuel & Why \\\\\n & & \\multicolumn{3}{c}{cost saving} & & \\\\\n\\midrule")
+            " & CO\\textsubscript{2} & Why \\\\\n & & \\multicolumn{3}{c}{cost saving} & & \\\\\n\\midrule")
         println(io, header, "\n\\endfirsthead")
         println(io, "\\multicolumn{7}{@{}l}{\\cref{tab:development} (continued)}\\\\")
         println(io, header, "\n\\endhead\n\\bottomrule\n\\endfoot")
@@ -182,12 +182,12 @@ One row of the development table, its effects formatted by `marked`.
 function write_lever_row(io, table, ships, entry, marked)
     assumption = assumptions.entries[entry.input]
     unit = strip(assumption.unit, '"')
-    fuel = maximum(ship -> lever_swing(table, ship, entry; column="fuel"), ships)
+    carbon = maximum(ship -> lever_swing(table, ship, entry; column="carbon"), ships)
     println(io, entry.label, " & ", latex_number(assumption.value), " (",
         latex_number(assumption.low), "--", latex_number(assumption.high), ")",
         unit == "-" ? "" : string(" ", latex_escape(unit)), " & ",
         join([marked(lever_swing(table, ship, entry)) for ship in ships], " & "), " & ",
-        marked(fuel), " & ", entry.reason, " \\\\")
+        marked(carbon), " & ", entry.reason, " \\\\")
 end
 
 """

@@ -2452,6 +2452,12 @@ end
     end
 end
 
+@testset "a development ship whose rig has no size in the class study stops the run" begin
+    PaperData.eval(:(best_area(table, class, route, drive, rig) =
+        rig == "wings" ? NaN : 100.0))
+    @test_throws ErrorException PaperData.study_areas(nothing, "class", :route, :vlsfo)
+end
+
 """
 forecast_causes.csv read into a table, for `savings` per (rig, plan) over departures 0, 1,
 2 [%] against a ship with no rig costing one, `bare_forecast` on its forecast plan

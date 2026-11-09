@@ -1755,8 +1755,8 @@ end
     sensitivity_figure()
 
 Where development pays: for each rig the inputs of [`development_inputs`](@ref) that move
-it, largest effect on top, with the change of its cost saving (left) and fuel energy
-saving (right) between the bounds of each input on each ship of the study.
+it, largest effect on top, with the change of its saving of cost per tonne-km (left) and of
+CO2 per tonne-km (right) between the bounds of each input on each ship of the study.
 """
 function sensitivity_figure()
     table = read_table(data_file("sensitivity.csv"))
@@ -1769,7 +1769,7 @@ function sensitivity_figure()
     end
     figure = Figure(size=(page_width, 500))
     columns = ["cost" => "change of cost saving [points]",
-        "fuel" => "change of fuel energy saving [points]"]
+        "carbon" => rich("change of CO", subscript("2"), " saving [points]")]
     for (row, (rig, levers)) in enumerate(zip(rig_names, panels))
         for (column, (name, label)) in enumerate(columns)
             axis = Axis(figure[row, column]; title="($('a' + 2 * (row - 1) + column - 1)) $rig",
