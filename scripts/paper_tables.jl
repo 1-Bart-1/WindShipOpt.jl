@@ -3,7 +3,7 @@
 
 # Table steps of the paper, written as LaTeX to paper/sections/: the inputs of
 # data/assumptions.yaml and the development study, the ship classes from
-# data/ship_classes.csv, the fuel saving and payback of each rig, the goals and what
+# data/ship_classes.csv, the payback of each rig, the goals and what
 # missing one costs, and the numbers the abstracts state. Included by paper.jl.
 
 """
@@ -601,39 +601,6 @@ function class_source_notes()
 end
 
 """
-    fuel_table()
-
-Tabular of the cost and fuel energy that the cheapest size of each rig saves on each ship
-class with each drive, the mean over the routes, as "cost / fuel" in percent, with the
-tank-to-wake CO2 of the class on VLSFO without a rig; deadweight-limited and
-space-limited classes in two blocks, each closed by its mean, and each cell shaded by its
-cost saving, in fuel_table.tex.
-"""
-function fuel_table()
-    table = read_table(data_file("classes.csv"))
-    classes = ship_classes()
-    groups = [(limit, [name for name in class_order(table)
-                       if limit_label(classes[name]) == limit])
-              for limit in ("deadweight", "space")]
-    scale = column_scale([first(saving) for (_, names) in groups for name in names
-                          for saving in fuel_row_savings(table, [name])])
-    open(joinpath(sections, "fuel_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}lr", "r"^(3length(drive_labels)), "@{}}")
-        println(io, "\\toprule\n & CO\\textsubscript{2}, no rig & ", drive_header(3))
-        println(io, "Class & [g/tkm] & ", rig_header())
-        for (limit, names) in groups
-            println(io, "\\midrule\n\\multicolumn{", 2 + 3length(drive_labels),
-                "}{@{}l}{\\emph{", limit, "-limited}} \\\\")
-            for name in names
-                write_fuel_row(io, table, [name], latex_escape(name), scale)
-            end
-            write_fuel_row(io, table, names, "\\emph{mean}", scale)
-        end
-        println(io, "\\bottomrule\n\\end{tabular}")
-    end
-end
-
-"""
     split_table()
 
 Tabular of the cost saving of the cheapest size of each rig with each drive, the mean
@@ -735,43 +702,16 @@ rig_header() = string(join(repeat(["kite", "wings", "rotors"], length(drive_labe
         " & "), " \\\\")
 
 """
-    fuel_row_savings(table, classes)
+    mean_savings(table, columns, classes, drive, rig; routes=unique(table["route"]))
 
-Cost and fuel saving [%] of each rig at its cheapest size on each drive, averaged over
-`classes` and the routes, as `(cost, fuel)` drive by drive in the order of the fuel table;
-`NaN` where none was run.
-"""
-fuel_row_savings(table, classes) =
-    [Tuple(mean_savings(table, ("cost", "fuel"), classes, drive, rig))
-     for (drive, _) in drive_labels for rig in rig_names]
-
-"""
-    write_fuel_row(io, table, classes, label, scale)
-
-One row of the fuel table under `label`: the CO2 of `classes` on VLSFO without a rig and
-the [`fuel_row_savings`](@ref) as "cost / fuel", shaded by the cost saving against
-`scale`.
-"""
-function write_fuel_row(io, table, classes, label, scale)
-    bare = [k for class in classes
-            for k in rows(table, "class" => class, "drive" => "vlsfo", "rig" => "none")]
-    cells = [@sprintf("%.1f", mean(table["carbon"][bare]));
-             [isfinite(cost) ? string(shaded_cell(cost, scale), @sprintf(" / %.0f", fuel)) :
-              "--" for (cost, fuel) in fuel_row_savings(table, classes)]]
-    println(io, label, " & ", join(cells, " & "), " \\\\")
-end
-
-"""
-    mean_savings(table, columns, classes, drive, rig)
-
-Mean over `classes` and the routes of the class table `table` of the saving [%] in each of
-`columns` of the cheapest size of `rig` on `drive`, over the routes where all are known;
+Mean over `classes` and `routes` of the class table `table` of the saving [%] in each of
+`columns` of the cheapest size of `rig` on `drive`, over the cases where all are known;
 `NaN` for each where none is.
 """
-function mean_savings(table, columns, classes, drive, rig)
+function mean_savings(table, columns, classes, drive, rig; routes=unique(table["route"]))
     savings = [[cheapest_saving(table, column, class, drive, route, rig)
                 for column in columns]
-               for class in classes for route in unique(table["route"])]
+               for class in classes for route in routes]
     known = filter(saving -> all(isfinite, saving), savings)
     return isempty(known) ? fill(NaN, length(columns)) : mean(known)
 end
