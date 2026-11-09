@@ -1669,7 +1669,8 @@ end
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions))
     departure, weather = 24.0 * 121, SyntheticWeather()
-    plan_only, by_speed, by_course = (forecast_route(corridor, kite_table, weather, departure;
+    finer, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    plan_only, by_speed, by_course = (forecast_route(finer, kite_table, weather, departure;
             time_cost=kite_hourly,
             forecast=ReplannedForecast(CountedForecast(8.0, 0); interval=48.0, adapts)).objective
         for adapts in (:nothing, :speed, :course))
