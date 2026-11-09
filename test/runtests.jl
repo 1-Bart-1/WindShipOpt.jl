@@ -2494,6 +2494,34 @@ assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 end
 
+@testset "a following wind is flown at a lower speed and a rough sea at no speed" begin
+    (; corridor, kite_table, kite_hourly, weather, departure) = kite_routing
+    prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
+    rig = kite_table.table.ship.rig
+    sailed = length(kite_table.speeds) ÷ 2
+    tailwind = first(kite_table.speeds) + WindShipOpt.lowest_pull_wind(rig) + 1.0
+    wind_10m = tailwind / kite_table.table.kite_wind_factor
+    stretch(wave_height) = fill(PaperData.at_speed(kite_table,
+        WindShipOpt.SailedPoint(-tailwind, 0.0,
+            WindShipOpt.SeaCondition(kite_table.table, wind_10m, float(π), wave_height, 8.0,
+                0.0), true, sailed, NaN, NaN, 3.0), sailed), 4)
+    outcome(points) = first(PaperData.speed_change_outcome(kite_table, points, prices))
+    @test outcome(stretch(1.0)) != :no_speed
+    @test outcome(stretch(2rig.launch_max_wave_height)) == :no_speed
+    @test last(PaperData.speed_change_outcome(kite_table, stretch(1.0), prices)) >= 0
+    record = WindShipOpt.KiteRecord()
+    leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+    WindShipOpt.record_plan!(record, leg, corridor, kite_table, weather, departure, prices)
+    change = PaperData.speed_change_hours(kite_table, record.samples, [prices])
+    for group in PaperData.speed_change_groups
+        reasons = PaperData.kite_down_groups[group]
+        @test sum(change.hours[(group, class)] for class in PaperData.speed_change_classes) ≈
+              sum(sample.sample_hours for sample in record.samples
+                  if sample.reason in reasons; init=0.0)
+    end
+    @test change.cost > 0
+end
+
 """
 forecast_causes.csv read into a table, for `savings` per (rig, plan) over departures 0, 1,
 2 [%] against a ship with no rig costing one, `bare_forecast` on its forecast plan

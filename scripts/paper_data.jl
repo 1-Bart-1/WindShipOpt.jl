@@ -911,16 +911,24 @@ function forecast_hours_data()
     rows = fetch.([Threads.@spawn sailed_hours(table, hourly, prices, plan, departure)
                    for departure in ensemble_departures, plan in forecast_hours_plans])
     groups = keys(kite_down_groups)
+    change_columns = ["$(group)_$(class)"
+                      for group in speed_change_groups for class in speed_change_classes]
     open(run_file("forecast_hours.csv"), "w") do io
         println(io, "plan,departure,days,distance,commanded,held,up,", join(groups, ","),
             ",fuel_down,fuel_up,saved,wanted_not_flown,fast_real,fast_known,",
-            "fast_commanded,fast_held")
+            "fast_commanded,fast_held,", join(change_columns, ","),
+            ",saved_within_stretch,saved_whole_edge,cost")
         for row in rows
             println(io, join((row.plan, row.departure, row.days, row.distance,
                     row.commanded, row.held, row.up,
                     (row.down[group] for group in groups)..., row.fuel_down, row.fuel_up,
                     row.saved, row.wanted_not_flown, row.fast_real, row.fast_known,
-                    row.fast_commanded, row.fast_held), ","))
+                    row.fast_commanded, row.fast_held,
+                    (row.speed_change.hours[(group, class)]
+                     for group in speed_change_groups
+                     for class in speed_change_classes)...,
+                    row.speed_change.within, row.speed_change.whole,
+                    row.speed_change.cost), ","))
         end
     end
 end
@@ -942,11 +950,11 @@ function sailed_hours(table, hourly, prices, plan, departure)
         WindShipOpt.record_plan!(record, leg, corridor, table, weather, start, leg_prices)
         return leg
     end
-    return hours_row(record, plan, departure)
+    return hours_row(table, record, plan, departure, prices)
 end
 
 "[`forecast_hours_data`](@ref) row of the [`KiteRecord`](@ref) `record`"
-function hours_row(record, plan, departure)
+function hours_row(table, record, plan, departure, prices)
     samples = record.samples
     hours(condition) = sum(sample -> sample.sample_hours,
         Iterators.filter(condition, samples); init=0.0)
@@ -968,7 +976,155 @@ function hours_row(record, plan, departure)
         fast_real=fast(sample -> sample.fastest_speed),
         fast_known=fast(sample -> sample.forecast_fastest),
         fast_commanded=fast(sample -> sample.planned_speed),
-        fast_held=fast(sample -> sample.speed))
+        fast_held=fast(sample -> sample.speed),
+        speed_change=speed_change_hours(table, samples, prices))
+end
+
+"groups of [`kite_down_groups`](@ref) in which a change of speed could put the kite up"
+speed_change_groups = (:too_little_wind, :no_forward_pull)
+
+"outcomes of [`speed_change_outcome`](@ref), `:pays` split by [`speed_change_hours`](@ref)"
+speed_change_classes = (:no_speed, :no_pay, :pays_edge, :pays_stretch)
+
+"""
+    at_speed(table, point, speed_index)
+
+[`WindShipOpt.SailedPoint`](@ref) `point` over the same distance in the same weather at
+routing speed number `speed_index` of `table`, the kite's fuel powers looked up there.
+"""
+function at_speed(table, point, speed_index)
+    flown, stowed = WindShipOpt.edge_fuels(table, speed_index, point.condition)
+    sailed = table.speeds[max(point.speed_index, 1)]
+    return WindShipOpt.SailedPoint(point.headwind, point.crosswind, point.condition,
+        point.daylight, speed_index, flown, stowed,
+        point.hours * sailed / table.speeds[speed_index])
+end
+
+"cost [USD] of fuel, rig and time of `points` from a kite `aloft` or down, and its launches"
+function sailing_cost(table, points, aloft, prices)
+    tally = WindShipOpt.cheaper(WindShipOpt.kite_passage(table, points, aloft, prices)...)
+    return tally.cost + prices.time * sum(point -> point.hours, points), tally.launches
+end
+
+"whether a kite can launch at `point` and would pull there"
+function launches_and_pulls(table, point)
+    isfinite(point.flown) && point.flown !== point.stowed || return false
+    speed = table.speeds[point.speed_index]
+    return WindShipOpt.kite_launchable(table.table, speed, point.headwind, point.crosswind,
+        point.condition.wave_height, point.daylight)
+end
+
+"""
+    speed_change_outcome(table, points, prices)
+
+For the kite-down `points`: `:no_speed` where no one routing speed held over them, long
+enough for a launch, gets the kite up and pulling, `:no_pay` where one does but saves
+nothing, `:pays` where one saves in fuel, rig and time, and the saving [USD].
+"""
+function speed_change_outcome(table, points, prices)
+    sum(point -> point.hours, points) >= table.table.handling_hours || return :no_speed, 0.0
+    stayed = sum(point -> (point.stowed * 3600 * prices.fuel + prices.time) * point.hours,
+        points)
+    isfinite(stayed) || return :no_speed, 0.0
+    flies, saved = false, 0.0
+    for speed_index in eachindex(table.speeds)
+        moved = [at_speed(table, point, speed_index) for point in points]
+        any(point -> launches_and_pulls(table, point), moved) || continue
+        flies = true
+        cost, launches = sailing_cost(table, moved, false, prices)
+        launches > 0 && (saved = max(saved, stayed - cost))
+    end
+    flies || return :no_speed, 0.0
+    return saved > 0 ? :pays : :no_pay, saved
+end
+
+"""
+    whole_edge_saving(table, samples, prices)
+
+Saving [USD] of the best single routing speed over the whole edge of `samples`, kite free,
+against the speeds sailed there, from the kite's state at the edge's start.
+"""
+function whole_edge_saving(table, samples, prices)
+    points = [sample.point for sample in samples]
+    aloft = first(samples).aloft
+    now, _ = sailing_cost(table, points, aloft, prices)
+    isfinite(now) || return 0.0
+    best = 0.0
+    for speed_index in eachindex(table.speeds)
+        moved = [at_speed(table, point, speed_index) for point in points]
+        cost, _ = sailing_cost(table, moved, aloft, prices)
+        best = max(best, now - cost)
+    end
+    return best
+end
+
+"indices of `samples` that begin a new leg of the round trip"
+leg_starts(samples) = [1; [i for i in 2:length(samples)
+                           if samples[i].hours < samples[i - 1].hours]]
+
+"""
+    speed_change_hours(table, samples, prices)
+
+Per group of [`speed_change_groups`](@ref) and class of [`speed_change_classes`](@ref) the
+hours of the round trip's `samples` down in it, of each stretch of such samples in a row
+judged by [`speed_change_outcome`](@ref) with that leg's `prices`; the classes with `:pays`
+split into `:pays_edge`, where a change of speed over the whole routing edge would also
+save, and `:pays_stretch`, where only a change within the edge would. Also the saving
+[USD] of a change within each stretch and of the whole edges those touch, and the cost
+[USD] of fuel, rig and time as sailed.
+"""
+function speed_change_hours(table, samples, prices)
+    studied = Iterators.flatten(kite_down_groups[group] for group in speed_change_groups) |>
+              collect
+    hours = Dict((group, class) => 0.0
+                 for group in speed_change_groups, class in speed_change_classes)
+    within, whole, cost = 0.0, 0.0, 0.0
+    starts = leg_starts(samples)
+    for (leg, first_index) in enumerate(starts)
+        last_index = leg == length(starts) ? length(samples) : starts[leg + 1] - 1
+        leg_samples = @view samples[first_index:last_index]
+        by_edge = Dict{Float64, Vector{eltype(samples)}}()
+        for sample in leg_samples
+            push!(get!(by_edge, sample.edge_start, eltype(samples)[]), sample)
+        end
+        edge_saving = Dict(edge => whole_edge_saving(table, edge_samples, prices[leg])
+                           for (edge, edge_samples) in by_edge
+                           if any(sample -> sample.reason in studied, edge_samples))
+        whole += sum(values(edge_saving); init=0.0)
+        cost += sum(sample -> sailed_cost(table, sample, prices[leg]), leg_samples)
+        for stretch in down_stretches(leg_samples, studied)
+            points = [sample.point for sample in stretch]
+            outcome, saved = speed_change_outcome(table, points, prices[leg])
+            within += saved
+            for sample in stretch, group in speed_change_groups
+                sample.reason in kite_down_groups[group] || continue
+                class = outcome != :pays ? outcome :
+                        edge_saving[sample.edge_start] > 0 ? :pays_edge : :pays_stretch
+                hours[(group, class)] += sample.sample_hours
+            end
+        end
+    end
+    return (; hours, within, whole, cost)
+end
+
+"runs of consecutive `samples` whose reason is in `reasons`"
+function down_stretches(samples, reasons)
+    stretches = Vector{Vector{eltype(samples)}}()
+    previous_down = false
+    for sample in samples
+        down = sample.reason in reasons
+        down && !previous_down && push!(stretches, eltype(samples)[])
+        down && push!(last(stretches), sample)
+        previous_down = down
+    end
+    return stretches
+end
+
+"cost [USD] of fuel, rig wear and time of a sailed [`KiteRecord`](@ref) `sample`"
+function sailed_cost(table, sample, prices)
+    power = sample.aloft ? sample.flown_power : sample.stowed_power
+    wear = sample.aloft * table.table.wear_cost
+    return (power * 3600 * prices.fuel + prices.time + wear) * sample.sample_hours
 end
 
 "fuel power [MW] of a [`KiteRecord`](@ref) sample as sailed"

@@ -1550,13 +1550,15 @@ distance [m] it stands for, the speed the plan commanded and the speed held [m/s
 kite is down there, `:up` where it is up ([`kite_down_reason`](@ref)), whether the plan
 wants it up there, the fuel power with the rig flown and stowed there [W], and the highest
 routing speed a flying kite could hold there in the real weather and in the weather known
-to the plan [m/s].
+to the plan [m/s], the hours from departure [h] at which its edge began, and the
+[`SailedPoint`](@ref) it records.
 """
 const KiteSample = @NamedTuple{hours::Float64, lat::Float64, lon::Float64, aloft::Bool,
     planned::Bool, wind_speed::Float64, apparent_wind::Float64, wave_height::Float64,
     sample_hours::Float64, distance::Float64, planned_speed::Float64, speed::Float64,
     reason::Symbol, wanted::Bool, flown_power::Float64, stowed_power::Float64,
-    fastest_speed::Float64, forecast_fastest::Float64}
+    fastest_speed::Float64, forecast_fastest::Float64, edge_start::Float64,
+    point::SailedPoint}
 
 """
     KiteRuleEdge
@@ -1648,7 +1650,8 @@ function push_samples!(record, table, points, corridor, stage, lateral, next, st
             reason=states[k] ? :up : kite_down_reason(table, point, prices),
             wanted=target_at(targets, share), flown_power=point.flown,
             stowed_power=point.stowed, fastest_speed=fastest_flown_speed(table, point),
-            forecast_fastest=fastest_flown_speed(table, forecast_point)))
+            forecast_fastest=fastest_flown_speed(table, forecast_point),
+            edge_start=start_hours, point))
     end
 end
 
