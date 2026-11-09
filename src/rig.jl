@@ -590,6 +590,18 @@ function launch_min_wind(model::KiteModel, tether_mass, assumptions::Assumptions
 end
 
 """
+    lowest_pull_wind(rig)
+
+Lowest apparent wind [m/s] in the force table of [`KiteRig`](@ref) `rig` at which any
+pattern gives a force.
+"""
+function lowest_pull_wind(rig::KiteRig)
+    row = findfirst(i -> any(cell -> isfinite(cell.force[1]), @view rig.forces[i, :, :]),
+        axes(rig.forces, 1))
+    return rig.wind_speeds[row]
+end
+
+"""
     rigid_polar(assumptions)
 
 Polar of a rigid wing against angle of attack from zero lift: lift-curve slope of a finite
