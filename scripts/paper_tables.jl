@@ -917,7 +917,8 @@ function forecast_plans_table()
     write_kept_table("forecast_plans_kept.csv", "forecast_plans_table.tex",
         (("true", "One forecast run"), ("mean", "Ensemble mean"),
             ("margin", "Margin for wind"), ("members", "Several members"),
-            ("held_kite", "One forecast run, kite held to the plan")))
+            ("held_kite", "One forecast run, kite held to the plan"),
+            ("kite_margin", "One forecast run, kite limits 20\\,\\% tighter in the plan")))
 end
 
 """
@@ -954,6 +955,52 @@ function write_kept_table(data_name, table_name, plans)
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
+end
+
+"""
+    forecast_hours_table()
+
+Hours per round trip of the kite ship over the departures of forecast_hours.csv with their
+standard error, per plan: forecast_hours_table.tex.
+"""
+function forecast_hours_table()
+    table = read_table(data_file("forecast_hours.csv"))
+    plans = (("false", "Perfect foresight"), ("true", "One run"),
+        ("members", "Several members"), ("kite_margin", "Tighter limits"))
+    rows = (("Passage [d]", "days"), ("Distance [nmi]", "distance"),
+        ("Hours at the commanded speed", "commanded"), ("Hours holding", "held"),
+        ("Hours aloft", "up"), ("Too little wind", "too_little_wind"),
+        ("\\quad no one speed launches it", "too_little_wind_no_speed"),
+        ("\\quad a speed does, without paying", "too_little_wind_no_pay"),
+        ("\\quad a speed pays, over the whole edge too", "too_little_wind_pays_edge"),
+        ("\\quad a speed pays, only within the edge", "too_little_wind_pays_stretch"),
+        ("No forward pull", "no_forward_pull"), ("Too much wind", "too_much_wind"),
+        ("Hull limit", "hull_limit"), ("Sea", "sea"), ("No saving", "no_saving"),
+        ("Stayed down by choice", "chosen"), ("Wanted up, not flown", "wanted_not_flown"),
+        ("Fast sailing possible", "fast_real"), ("Fast sailing forecast", "fast_known"),
+        ("Fast sailing possible, whole edge", "fast_real_edge"),
+        ("Fast sailing forecast, whole edge", "fast_known_edge"),
+        ("Fast sailing commanded", "fast_commanded"), ("Fast sailing held", "fast_held"),
+        ("Fuel, kite down [GJ]", "fuel_down"), ("Fuel, kite aloft [GJ]", "fuel_up"),
+        ("Fuel saved aloft [GJ]", "saved"),
+        ("Saved by a speed change within the stretch [USD]", "saved_within_stretch"))
+    open(joinpath(sections, "forecast_hours_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}l", "c"^length(plans), "@{}}\n\\toprule")
+        println(io, "Per round trip & ", join(last.(plans), " & "),
+            " \\\\\n\\midrule")
+        for (label, column) in rows
+            cells = [hours_cell(table, plan, column) for (plan, _) in plans]
+            println(io, label, " & ", join(cells, " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"mean and standard error over the departures of `column` of `plan`, as a table cell"
+function hours_cell(table, plan, column)
+    values = table[column][rows(table, "plan" => plan)]
+    return @sprintf("\\(%.0f \\pm %.0f\\)", mean(values),
+        std(values) / sqrt(length(values)))
 end
 
 "groups of forecast_causes_table.tex as (heading, rows of (label, statistic))"
