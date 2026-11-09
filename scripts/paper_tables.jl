@@ -975,17 +975,26 @@ forecast_cause_groups = (
         (("Total", cause_loss(:perfect, :forecast)),)),
     ("Of which, course first",
         (("Course", cause_loss(:perfect, :forecast_course)),
-            ("Speed and re-planning once a day",
-                cause_loss(:forecast_course, :foresight_kite)),
+            ("Re-planning once a day", cause_loss(:forecast_course,
+                :forecast_course_replanned)),
+            ("Speed", cause_loss(:forecast_course_replanned, :foresight_kite)),
             ("The kite's flying decisions", cause_loss(:foresight_kite, :forecast)))),
     ("Of which, course last",
-        (("Speed, kite and re-planning once a day", cause_loss(:perfect, :perfect_course)),
+        (("Re-planning once a day", cause_loss(:perfect, :perfect_course_replanned)),
+            ("Speed and the kite's flying decisions",
+                cause_loss(:perfect_course_replanned, :perfect_course)),
             ("Course", cause_loss(:perfect_course, :forecast)))),
     ("Of which, by what the forecast gets wrong",
         (("Re-planning once a day", cause_loss(:perfect, :replanned)),
             ("Forecast model against the reanalysis",
                 cause_loss(:replanned, :shortest_lead)),
             ("Error growing with lead time", cause_loss(:shortest_lead, :forecast)))),
+    ("Of which, by the weather forecast, waves first",
+        (("Re-planning once a day", cause_loss(:perfect, :replanned)),
+            ("Wave forecast", cause_loss(:replanned, :wave_forecast)),
+            ("Wind error near the kite's limits",
+                cause_loss(:wave_forecast, :wind_near_limit)),
+            ("Wind error elsewhere", cause_loss(:wind_near_limit, :forecast)))),
     ("On one fixed course for every rig",
         (("Cost saving with perfect foresight [\\%]", cause_saving(:common_perfect)),
             ("Cost saving on the forecasts [\\%]", cause_saving(:common_forecast)),
@@ -996,6 +1005,29 @@ forecast_cause_groups = (
     ("Share of the cost saving kept [\\%]",
         (("Routed", cause_kept(:forecast, :perfect)),
             ("On the fixed course", cause_kept(:common_forecast, :common_perfect)))))
+
+"rows of forecast_causes_table.tex on how near the kite is to its limits, as (label, column)"
+kite_margin_rows = (("Aloft within 4 m/s of its lowest wind, of the time aloft", "wind_within_4"),
+    ("Aloft within 1.25 m/s of its lowest wind, of the time aloft", "wind_within_1.25"),
+    ("Aloft within 1 m of the 5 m sea it stays up in, of the time aloft", "waves_within_1"),
+    ("Waves within 1 m below the 3 m launch limit", "near_launch_waves"),
+    ("Kept down by waves above the 3 m launch limit", "down_waves"),
+    ("Kept down by too little wind to launch", "down_wind"),
+    ("Down otherwise", "down_other"))
+
+"""
+    kite_margin_cells(margins, knowledge, column)
+
+(value, error) of the mean over the departures of forecast_margins.csv, read into
+`margins`, of the share [%] in `column` for the `knowledge` plan.
+"""
+function kite_margin_cells(margins, knowledge, column)
+    rows = findall(==(knowledge), margins["knowledge"])
+    shares = 100 .* margins[column][rows]
+    n = length(shares)
+    return (value=mean(shares), error=jackknife_error(kept -> mean(shares[kept]), n),
+        departures=n)
+end
 
 "LaTeX of an (value, error) estimate of [`cause_estimate`](@ref)"
 cause_cell(estimate) = @sprintf("\\(%.1f \\pm %.1f\\)",
@@ -1026,6 +1058,14 @@ function forecast_causes_table()
                 println(io, "\\quad ", label, " & ", join(cause_cell.(cells), " & "),
                     " \\\\")
             end
+        end
+        margins = read_table(data_file("forecast_margins.csv"))
+        println(io, "\\multicolumn{6}{@{}l}{\\textit{The kite's time near its limits on ",
+            "the forecasts, of the time at sea unless stated [\\%]}} \\\\")
+        for (label, column) in kite_margin_rows
+            println(io, "\\quad ", label, " & ",
+                cause_cell(kite_margin_cells(margins, "forecast", column)),
+                " & -- & -- & -- & -- \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end

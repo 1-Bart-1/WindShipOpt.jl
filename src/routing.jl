@@ -1550,8 +1550,9 @@ end
 
 Passage of a ship that re-plans every 24 hours by [`forecast_plan`](@ref) on the
 [`RouteTable`](@ref) `table`, on `forecast`: a [`ForecastArchive`](@ref), a
-[`ForecastEnsemble`](@ref), a [`ShortestLead`](@ref), a [`PerfectForecast`](@ref), or a
-[`ForecastWeather`](@ref) of `horizon` hours where `nothing`. It sails each plan in the
+[`ForecastEnsemble`](@ref), a [`ShortestLead`](@ref), a [`PerfectForecast`](@ref), a
+[`ForecastParts`](@ref), or a [`ForecastWeather`](@ref) of `horizon` hours where
+`nothing`. It sails each plan in the
 real `weather` until the next re-plan by
 [`sail_planned_edge!`](@ref), launching and landing the kite where the real weather of an
 edge and the [`plan_values`](@ref) ahead make that cheapest, or, with `forecast` a
