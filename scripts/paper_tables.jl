@@ -189,7 +189,7 @@ function development_table()
         println(io, "\\multicolumn{7}{@{}l}{\\cref{tab:development} (continued)}\\\\")
         println(io, header, "\n\\endhead\n\\bottomrule\n\\endfoot")
         for (rig, heading) in development_groups
-            println(io, "\\multicolumn{7}{@{}l}{\\textit{", heading, "}}\\\\")
+            println(io, "\\multicolumn{7}{@{}l}{\\textit{", heading, "}}\\\\*")
             for entry in filter(entry -> entry.rig == rig, development_inputs)
                 write_lever_row(io, table, ships, entry)
             end
@@ -1260,11 +1260,11 @@ fidelity_parts() = [
         error="canopy wear rate from paragliders, not from towing kites",
         effect=varied_inputs(:canopy_life, :kite_out_of_service, :wing_out_of_service,
             :rotor_out_of_service)),
-    (part="Rig prices", varied="prices per area, maintenance",
+    (part="Rig prices", varied="prices per area",
         model="price per area and per unit, installation, maintenance",
         error="ranges of the quoted and built-up prices",
-        effect=varied_inputs(:canopy_making_cost_per_area, :canopy_cloth_base_price,
-            :wing_cost_per_area, :rotor_cost_per_area, :rig_maintenance_fraction)),
+        effect=varied_inputs(:canopy_making_cost_per_area, :wing_cost_per_area,
+            :rotor_cost_per_area)),
     (part="Weather sample", varied="each year alone",
         model="ERA5 2017 to 2019, a departure every 6\\,h",
         error="three years against a climate", effect=weather_years()),

@@ -2639,6 +2639,11 @@ end
     @test issubset(limits, inputs)
 end
 
+@testset "the model parts measured by the development study read only its inputs" begin
+    PaperData.eval(:(departures = 1:8760))
+    @test !isempty(PaperData.fidelity_parts())
+end
+
 @testset "a development ship whose rig has no size in the class study stops the run" begin
     PaperData.eval(:(best_area(table, class, route, drive, rig) =
         rig == "wings" ? NaN : 100.0))
