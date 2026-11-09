@@ -59,11 +59,13 @@ operational_group = (; groups[1]..., records=Dict("u10" => "UGRD", "v10" => "VGR
 """
     link_waves(root)
 
-Make the wave forecasts of `root` those of the GEFSv12 reforecast archive.
+Make the wave forecasts of `root` those of the GEFSv12 reforecast archive, by a path
+relative to `root`.
 """
 function link_waves(root)
     link = joinpath(root, "waves")
-    islink(link) || symlink(joinpath(output, "waves"), link)
+    islink(link) && rm(link)
+    symlink(relpath(joinpath(output, "waves"), root), link)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
