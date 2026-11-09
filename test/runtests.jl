@@ -1846,12 +1846,14 @@ end
     @eval PaperRuns weather_name = "synthetic"
     PaperRuns.paper_run = PaperRuns.PaperRun(mktempdir(), :draft,
         Dict{String, Any}("code_hash" => "held"), 0, 0)
-    case_at(held_knots, part) = (; design=ShipDesign(:vlsfo, 100.0), assumptions,
-        route=:caribbean, scale=8.0, forecast=false, held_knots, part)
+    case_at(held_knots, part; course=:routed) = (; design=ShipDesign(:vlsfo, 100.0),
+        assumptions, route=:caribbean, scale=8.0, course, forecast=false, held_knots, part)
     @test allunique(PaperRuns.case_directory(case_at(held_knots, :none), [24.0])
                     for held_knots in (nothing, 8.0, 9.0))
     @test allunique(PaperRuns.case_directory(case_at(nothing, part), [24.0])
                     for part in (:none, :waves, :windage))
+    @test allunique(PaperRuns.case_directory(case_at(nothing, :none; course), [24.0])
+                    for course in (:routed, :common_perfect))
 end
 
 @testset "the code hash keying stored trips covers the ship data tables" begin
