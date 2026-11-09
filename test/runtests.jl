@@ -2172,6 +2172,20 @@ assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 end
 
+@testset "the development study keeps 5 to 20 inputs a developer can act on, each with a range" begin
+    inputs = PaperData.development_inputs
+    @test 5 <= length(inputs) <= 20
+    @test allunique(entry.input for entry in inputs)
+    for entry in inputs
+        @test assumptions.entries[entry.input].low != assumptions.entries[entry.input].high
+        @test !isempty(entry.reason)
+    end
+    for rig in PaperData.rig_names
+        levers = [entry.lever for entry in inputs if entry.rig == rig]
+        @test "price" in levers && "force" in levers && "availability" in levers
+    end
+end
+
 "path and force text `PaperData.write_pattern` writes for the base kite in `wind` at `course`"
 function written_pattern(wind, course)
     model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
