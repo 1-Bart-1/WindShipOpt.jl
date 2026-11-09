@@ -1,28 +1,70 @@
 % SPDX-FileCopyrightText: 2026 Bart van de Lint
 % SPDX-License-Identifier: AGPL-3.0-or-later
-\begin{tikzpicture}[
-  node distance=3mm and 3mm,
-  term/.style={draw, rounded corners=2pt, align=center, font=\footnotesize, inner sep=2pt, minimum height=9mm, text width=#1, fill=white},
-  term/.default=22mm,
-  routed/.style={term=#1, fill=green!10},
-  routed/.default=22mm,
-  edge/.style={-{Stealth[length=1.6mm]}, thin}]
-\node[term=40mm, fill=red!8] (tkm) {cost per tonne-km\\ $c_\mathrm{tkm}$};
-\node[term=34mm, below left=6mm and -12mm of tkm] (trip) {cost per round trip};
-\node[term=40mm, below right=6mm and -12mm of tkm] (work) {cargo work\\ $m_c\,(L_\mathrm{out}+f_\mathrm{back}L_\mathrm{back})$};
-\node[routed, below left=6mm and 14mm of trip] (fuel) {fuel\\ $p_f E_f$};
-\node[routed, right=of fuel] (wear) {kite wear\\ $c_w h_\mathrm{fly}$ + launches};
-\node[term, right=of wear] (port) {ports\\ $C_\mathrm{port}$, two calls};
-\node[routed, right=of port] (time) {time\\ $c_t\,(t_\mathrm{sea}+t_\mathrm{port})$};
-\node[term=40mm, below right=6mm and -10mm of work] (cargo) {cargo $m_c$: deadweight less rig, stores and fuel, or the slots and decks left};
-\node[term=30mm, below=10mm of time, xshift=-20mm] (capital) {capital\\ ship, drive, rig};
-\node[term=16mm, right=of capital] (crew) {crew};
-\node[term=22mm, right=of crew] (maint) {maintenance\\ $f_m C$};
-\node[term=26mm, right=of maint] (interest) {cargo interest\\ $m\,v_c\,r$};
-\draw[edge] (trip) -- (tkm);
-\draw[edge] (work) -- (tkm);
+\begin{tikzpicture}[x=1mm, y=1mm, font=\footnotesize,
+  box/.style={draw, rounded corners=2pt, minimum width=30mm, minimum height=17mm},
+  boxtext/.style={align=left, inner sep=0pt, anchor=north west},
+  edge/.style={-{Stealth[length=1.6mm]}, thin, black!70},
+  routec/.style={fill=green!10}, moneyc/.style={fill=red!8}, shipc/.style={fill=blue!8},
+  datac/.style={fill=gray!10},
+  drop/.pic={\fill[black!55] (0,3.6) .. controls (3.2,-0.6) and (2.6,-3.6) .. (0,-3.6)
+    .. controls (-2.6,-3.6) and (-3.2,-0.6) .. (0,3.6);},
+  worn/.pic={\draw[orange!80!black, line width=1.2pt] (-3.6,-0.6) arc[start angle=150, end angle=30, radius=4.2];
+    \draw[red!70!black, thick] (-0.7,2.7) -- (0.2,1) -- (-0.5,0.2) -- (0.5,-1.4);},
+  crane/.pic={\draw[black!60, thick] (-3,-3.5) -- (-3,3.5) -- (3.5,3.5) (-3,1.8) -- (-1,3.5);
+    \draw[black!60] (2.6,3.5) -- (2.6,0.6); \fill[blue!40] (1.4,-0.9) rectangle (3.8,0.6);
+    \fill[black!45] (-4,-3.5) rectangle (4,-2.8);},
+  clock/.pic={\draw[black!60, thick, fill=white] (0,0) circle (3.5);
+    \draw[black!70, thick] (0,0) -- (0,2.4) (0,0) -- (1.7,-0.7);},
+  shipcost/.pic={\fill[black!45] (-4.3,0) -- (4.3,0) -- (3.6,-2) -- (-3.8,-2) -- cycle;
+    \fill[black!45] (-3.8,0) rectangle (-2.6,1.2);
+    \draw[orange!80!black, thick, fill=white] (1.5,2.2) circle (1.7);
+    \node[font=\tiny\bfseries, inner sep=0, text=orange!70!black] at (1.5,2.2) {\$};},
+  person/.pic={\fill[black!55] (0,2.2) circle (1.4);
+    \fill[black!55] (-2.6,-3.3) -- (-2.6,-1.2) arc[start angle=180, end angle=0, radius=2.6] -- (2.6,-3.3) -- cycle;},
+  wrench/.pic={\draw[black!60, line width=1.4pt] (-3,-3) -- (1.6,1.6);
+    \draw[black!60, line width=1.4pt] (3.4,1.4) arc[start angle=-20, end angle=-250, radius=1.6];},
+  interest/.pic={\fill[blue!40] (-3.8,-3.2) rectangle (3.8,1.6);
+    \node[font=\scriptsize\bfseries, text=white, inner sep=0] at (0,-0.8) {\%};
+    \draw[black!60, thick] (0,1.6) -- (0,3.6) (-1.4,3.6) -- (1.4,3.6);},
+  stack/.pic={\foreach \x/\y in {-3.9/-3.4, 0.1/-3.4, -1.9/-0.6}
+    \fill[blue!40] (\x,\y) rectangle ++(3.5,2.5);},
+  loop/.pic={\fill[black!55] (-3.8,0) circle (0.7) (3.8,0) circle (0.7);
+    \draw[green!45!black, thick, -{Stealth[length=1.3mm]}] (-3.8,0) .. controls (-1.5,3.4) and (1.5,3.4) .. (3.4,0.5);
+    \draw[green!45!black, thick, -{Stealth[length=1.3mm]}] (3.8,0) .. controls (1.5,-3.4) and (-1.5,-3.4) .. (-3.4,-0.5);},
+  freight/.pic={\fill[blue!40] (-4,-1.2) rectangle (-0.8,1.2);
+    \draw[black!60, thick, -{Stealth[length=1.3mm]}] (0,0) -- (4.2,0);},
+  costbar/.pic={\fill[green!55!black] (-4,-1) rectangle (-0.6,1); \fill[gray!55] (-0.6,-1) rectangle (2,1);
+    \fill[blue!45] (2,-1) rectangle (4,1);},
+]
+% #1 name, (#2,#3) centre, #4 colour, #5 title, #6 what it is, #7 picture
+\newcommand{\costbox}[7]{%
+  \node[box, #4] (#1) at (#2,#3) {};
+  \node[boxtext, text width=19mm, font=\footnotesize\bfseries] at ([shift={(2,-2)}]#1.north west) {#5};
+  \node[boxtext, text width=26mm] at ([shift={(2,-10.2)}]#1.north west) {#6};
+  \pic[scale=0.8] at ([shift={(-5.6,-4.8)}]#1.north east) {#7};}
+\costbox{tkm}{104}{0}{moneyc}{Cost per\\[-1pt]tonne-km}{$c_\mathrm{tkm}$}{costbar}
+\costbox{trip}{63.75}{-24}{moneyc}{Cost per\\[-1pt]round trip}{the mean over all departures}{loop}
+\costbox{work}{145}{-24}{shipc}{Cargo work}{$m_c\,(L_\mathrm{out}+f_\mathrm{back}L_\mathrm{back})$}{freight}
+\node[circle, draw=black!60, fill=white, font=\footnotesize, inner sep=0.6pt] (over) at (129,-5) {$\div$};
+\costbox{fuel}{15}{-48}{routec}{Fuel}{$p_f E_f$}{drop}
+\costbox{wear}{47.5}{-48}{routec}{Kite wear}{$c_w h_\mathrm{fly}$ + launches}{worn}
+\costbox{port}{80}{-48}{datac}{Ports}{$C_\mathrm{port}$, two calls}{crane}
+\costbox{time}{112.5}{-48}{routec}{Time}{$c_t\,(t_\mathrm{sea}+t_\mathrm{port})$}{clock}
+\costbox{cargo}{145}{-48}{shipc}{Cargo $m_c$}{}{stack}
+\node[boxtext, text width=27mm, font=\scriptsize] at ([shift={(2,-8.6)}]cargo.north west) {deadweight less rig, stores and fuel, or the slots and decks left};
+\costbox{capital}{47.5}{-72}{datac}{Capital}{ship, drive, rig}{shipcost}
+\costbox{crew}{80}{-72}{datac}{Crew}{}{person}
+\costbox{maint}{112.5}{-72}{datac}{Mainte-\\[-1pt]nance}{$f_m C$}{wrench}
+\costbox{interest}{145}{-72}{shipc}{Cargo interest}{$m\,v_c\,r$}{interest}
+% flow
+\draw[edge] (trip.north) |- (tkm.west);
+\draw[edge] (work.north) -- (over.south);
+\draw[edge] (over.north) |- (tkm.east);
 \foreach \n in {fuel, wear, port, time} \draw[edge] (\n.north) -- (trip.south);
-\draw[edge] (cargo.north) -- (work.south);
+\draw[edge] (cargo) -- (work);
 \foreach \n in {capital, crew, maint, interest} \draw[edge] (\n.north) -- (time.south);
-\node[font=\scriptsize, align=left, anchor=north west] at ([yshift=-2mm]fuel.south west) {\tikz\node[draw, fill=green!10, minimum size=2mm, inner sep=0]{}; from the routed passages};
+\node[font=\scriptsize\itshape, text=black!70, inner sep=1pt] at (62,-59.4) {adds up to $c_t$ per hour};
+% colour key
+\foreach \c/\t [count=\i] in {moneyc/cost, routec/from the routed passages, datac/inputs per ship and rig, shipc/from the cargo carried}
+  \node[draw, \c, minimum size=2.4mm, inner sep=0, label={[font=\scriptsize, inner sep=2pt]right:\t}] at (1.5,-59-\i*4.1) {};
 \end{tikzpicture}
