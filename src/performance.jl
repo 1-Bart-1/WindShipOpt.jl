@@ -255,15 +255,6 @@ function reference_mast_speed(assumptions::Assumptions)
 end
 
 """
-    extra_launch_wind(table, speed, condition)
-
-Apparent wind [m/s] a kite launch needs beyond calm sea in the sea of `condition`.
-"""
-extra_launch_wind(table::PerformanceTable, speed, condition::SeaCondition) =
-    condition.wave_height * table.sea_launch_wind(KnotWeight(table.speeds, speed),
-        condition.wave_period, condition.wave_heading)
-
-"""
     handling_hours(rig, assumptions)
 
 Time [h] one launch, with its retries, and one landing of a kite give no force on the ship;
@@ -310,6 +301,15 @@ function SeaCondition(table::PerformanceTable, wind, angle, wave_height, wave_pe
         KnotWeight(angles, angle), wave_height, KnotWeight(periods, wave_period),
         KnotWeight(headings, wave_heading))
 end
+
+"""
+    extra_launch_wind(table, speed, condition)
+
+Apparent wind [m/s] a kite launch needs beyond calm sea in the sea of `condition`.
+"""
+extra_launch_wind(table::PerformanceTable, speed, condition::SeaCondition) =
+    condition.wave_height * table.sea_launch_wind(KnotWeight(table.speeds, speed),
+        condition.wave_period, condition.wave_heading)
 
 """
     lookup(table, speed, wind, angle, wave_height=0.0, wave_period=0.0, wave_heading=0.0)
