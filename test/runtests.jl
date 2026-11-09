@@ -2459,19 +2459,21 @@ end
     @test_throws ErrorException PaperData.study_areas(nothing, "class", :route, :vlsfo)
 end
 
-@testset "a development input's gain and loss are the largest over its rigs with trips" begin
+@testset "a development input's gain and loss are the largest of its rigs with trips" begin
     PaperData.eval(:(bound_changes(table, ship, rig, input; column="cost") =
         rig == "kite" ? (1.0, -2.0) : rig == "wings" ? (NaN, 1.0) : (0.5, 0.0)))
-    @test PaperData.lever_gain_loss(nothing, "ship", (input=:any, rig="all")) == (1.0, -2.0)
-    @test PaperData.lever_gain_loss(nothing, "ship", (input=:any, rig="rotors")) == (0.5, 0.0)
-    gain, loss = PaperData.lever_gain_loss(nothing, "ship", (input=:any, rig="wings"))
+    lever(rig) = PaperData.lever_gain_loss(nothing, "ship", (input=:any, rig))
+    @test lever("all") == (1.0, -2.0)
+    @test lever("rotors") == (0.5, 0.0)
+    gain, loss = lever("wings")
     @test isnan(gain) && isnan(loss)
 end
 
 @testset "the input table lists every ranged input once, in the order of its name" begin
     names = first.(PaperData.ranged_inputs())
     @test issorted(names) && allunique(names)
-    @test all(name -> assumptions.entries[name].low != assumptions.entries[name].high, names)
+    entries = (assumptions.entries[name] for name in names)
+    @test all(entry -> entry.low != entry.high, entries)
 end
 
 """
