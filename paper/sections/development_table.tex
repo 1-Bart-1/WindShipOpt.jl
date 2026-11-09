@@ -1,5 +1,5 @@
-\begin{longtable}{@{}>{\raggedright\arraybackslash}p{2.8cm}>{\raggedright\arraybackslash}p{2.3cm}rrrr>{\raggedright\arraybackslash}p{6.3cm}@{}}
-\caption{The inputs of the development study by the rig whose developer can change them: base value and range, the largest change of a rig's saving between the bounds of the range, in percentage points, in cost per tonne-km on each ship and in CO\textsubscript{2} per tonne-km over the ships, and why the input is in the study.}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{2.0cm}rrrr>{\raggedright\arraybackslash}p{4.0cm}@{}}
+\caption{The inputs of the development study by the rig whose developer can change them: base value and range; the gain of a rig's saving at the better end of the range and its loss at the worse end, in percentage points, in cost per tonne-km on each ship and the largest of each in CO\textsubscript{2} per tonne-km over the ships; and why the input is in the study.}
 \label{tab:development}\\
 \toprule
 Input & Value (range) & 140 m & Kamsarmax & Neo-Panamax & CO\textsubscript{2} & Why \\
@@ -15,28 +15,28 @@ Input & Value (range) & 140 m & Kamsarmax & Neo-Panamax & CO\textsubscript{2} & 
 \bottomrule
 \endfoot
 \multicolumn{7}{@{}l}{\textit{Kite}}\\
-canopy making cost & \num{42} (\num{16}--\num{179}) USD/m\textsuperscript{2} & \tbd{8.9} & \tbd{5.1} & \tbd{4.5} & \tbd{15.6} & Sewing, lines and fittings; a maker lowers them by series production and by design for making. \\
-canopy cloth price & \num{6} (\num{2}--\num{17}) USD/m\textsuperscript{2} & \tbd{3.6} & \tbd{2.0} & \tbd{1.6} & \tbd{5.0} & The canopy's other cost; a maker chooses the cloth and how it is bought. \\
-canopy life & \num{3000} (\num{1200}--\num{6900}) flight hours & \tbd{8.9} & \tbd{5.4} & \tbd{4.4} & \tbd{13.7} & What a flight hour of the canopy costs; unmeasured, so what development has to prove. \\
-kite out of service & \num{0.03} (\num{0.01}--\num{0.15}) & \tbd{1.4} & \tbd{0.8} & \tbd{1.4} & \tbd{5.8} & What a maker's reliability work is worth; the same lever for every rig. \\
-kite force limit per area & \num{0.5} (\num{0.4}--\num{1}) kN/m\textsuperscript{2} & \tbd{6.7} & \tbd{2.9} & \tbd{8.3} & \tbd{27.6} & Its structure decides the force each m\textsuperscript{2} may carry. \\
-kite smallest turn radius & \num{2.3} (\num{1.5}--\num{4.3}) & \tbd{7.3} & \tbd{4.1} & \tbd{5.5} & \tbd{16.2} & Steering and control decide how tight, and so how powerful, a pattern can be. \\
-kite flight drag & \num{0.08} (\num{0}--\num{0.12}) & \tbd{0.9} & \tbd{1.1} & \tbd{3.0} & \tbd{5.2} & Deformation, control unit and steering; the low bound, a kite that keeps its design shape, is the most a better design can recover. \\
-kite highest wave for launch & \num{3} (\num{2}--\num{4}) m & \tbd{5.2} & \tbd{0.6} & \tbd{3.1} & \tbd{10.2} & The tightest of the kite's limits, and the launch system its developer builds. \\
-kite highest wave in flight & \num{5} (\num{4}--\num{7}) m & \tbd{5.3} & \tbd{0.4} & \tbd{2.9} & \tbd{12.9} & Depends on how the launch mast, winch and tether take up the ship's motion. \\
+canopy making cost & \num{42} (\num{16}--\num{179}) USD/m\textsuperscript{2} & \tbd{+1.8/$-$7.1} & \tbd{+0.9/$-$4.2} & \tbd{+0.8/$-$3.7} & \tbd{+3.9/$-$15.1} & Sewing, lines and fittings; a maker lowers them by series production and by design for making. \\
+canopy cloth price & \num{6} (\num{2}--\num{17}) USD/m\textsuperscript{2} & \tbd{+1.0/$-$2.7} & \tbd{+0.4/$-$1.7} & \tbd{+0.4/$-$1.2} & \tbd{+3.7/$-$4.0} & The canopy's other cost; a maker chooses the cloth and how it is bought. \\
+canopy life & \num{3000} (\num{1200}--\num{6900}) flight hours & \tbd{+2.9/$-$6.0} & \tbd{+1.8/$-$3.6} & \tbd{+1.3/$-$3.1} & \tbd{+5.1/$-$11.1} & What a flight hour of the canopy costs; unmeasured, so what development has to prove. \\
+kite out of service & \num{0.03} (\num{0.01}--\num{0.15}) & \tbd{+0.2/$-$1.2} & \tbd{+0.1/$-$0.7} & \tbd{+0.2/$-$1.2} & \tbd{+0.9/$-$4.9} & What a maker's reliability work is worth; the same lever for every rig. \\
+kite force limit per area & \num{0.5} (\num{0.4}--\num{1}) kN/m\textsuperscript{2} & \tbd{+1.0/$-$5.7} & \tbd{+0.2/$-$2.7} & \tbd{+0.6/$-$7.8} & \tbd{+5.3/$-$26.0} & Its structure decides the force each m\textsuperscript{2} may carry. \\
+kite smallest turn radius & \num{2.3} (\num{1.5}--\num{4.3}) & \tbd{+1.5/$-$5.8} & \tbd{+0.9/$-$3.2} & \tbd{+1.0/$-$4.5} & \tbd{+5.4/$-$13.3} & Steering and control decide how tight, and so how powerful, a pattern can be. \\
+kite flight drag & \num{0.08} (\num{0}--\num{0.12}) & \tbd{+0.6/$-$0.3} & \tbd{+0.1/$-$1.1} & \tbd{0.0/$-$3.7} & \tbd{+3.9/$-$9.2} & Deformation, control unit and steering; the low bound, a kite that keeps its design shape, is the most a better design can recover. \\
+kite highest wave for launch & \num{3} (\num{2}--\num{4}) m & \tbd{+1.3/$-$3.9} & \tbd{+0.1/$-$0.5} & \tbd{+0.6/$-$2.5} & \tbd{+2.1/$-$11.6} & The tightest of the kite's limits, and the launch system its developer builds. \\
+kite highest wave in flight & \num{5} (\num{4}--\num{7}) m & \tbd{+3.5/$-$1.9} & \tbd{+0.4/0.0} & \tbd{+0.7/$-$2.2} & \tbd{+4.4/$-$8.4} & Depends on how the launch mast, winch and tether take up the ship's motion. \\
 \multicolumn{7}{@{}l}{\textit{Wing sails}}\\
-wing sail cost per area & \num{665} (\num{310}--\num{1760}) USD/m\textsuperscript{2} & \tbd{7.5} & \tbd{7.1} & \tbd{2.9} & \tbd{3.1} & Structure and series production set a wing's price. \\
-wing sail maximum lift & \num{2} (\num{1.6}--\num{2.5}) & \tbd{3.1} & \tbd{1.7} & \tbd{2.2} & \tbd{8.4} & Flap and section design decide a wing's force. \\
-wing sail out of service & \num{0.03} (\num{0.004}--\num{0.15}) & \tbd{1.4} & \tbd{0.8} & \tbd{1.0} & \tbd{4.0} & The same reliability lever as for every rig. \\
+wing sail cost per area & \num{665} (\num{310}--\num{1760}) USD/m\textsuperscript{2} & \tbd{+1.9/$-$5.6} & \tbd{+1.8/$-$5.3} & \tbd{+0.7/$-$2.2} & \tbd{+1.5/$-$2.0} & Structure and series production set a wing's price. \\
+wing sail maximum lift & \num{2} (\num{1.6}--\num{2.5}) & \tbd{+1.6/$-$1.4} & \tbd{+0.9/$-$0.8} & \tbd{+1.2/$-$1.1} & \tbd{+4.1/$-$4.4} & Flap and section design decide a wing's force. \\
+wing sail out of service & \num{0.03} (\num{0.004}--\num{0.15}) & \tbd{+0.3/$-$1.2} & \tbd{+0.2/$-$0.7} & \tbd{+0.2/$-$0.8} & \tbd{+1.0/$-$3.1} & The same reliability lever as for every rig. \\
 \multicolumn{7}{@{}l}{\textit{Rotors}}\\
-rotor cost per area & \num{2040} (\num{1260}--\num{4270}) USD/m\textsuperscript{2} & \tbd{7.7} & \tbd{9.5} & \tbd{2.5} & \tbd{8.5} & Structure and series production set a rotor's price. \\
-rotor lift & \num{1} (\num{0.89}--\num{1}) & \tbd{2.5} & \tbd{2.4} & \tbd{1.4} & \tbd{4.4} & Rotor design sets the lift at a given spin; the base is the full-scale fit, so the range only reaches down to the CFD value. \\
-rotor highest wind & \num{20} (\num{15}--\num{25}) m/s & \tbd{2.2} & \tbd{0.8} & \tbd{3.3} & \tbd{6.6} & Up to which wind its drive and structure let a rotor keep spinning. \\
-rotor out of service & \num{0.03} (\num{0.01}--\num{0.15}) & \tbd{2.3} & \tbd{2.2} & \tbd{1.4} & \tbd{4.9} & The same reliability lever as for every rig. \\
+rotor cost per area & \num{2040} (\num{1260}--\num{4270}) USD/m\textsuperscript{2} & \tbd{+2.0/$-$5.7} & \tbd{+2.6/$-$6.9} & \tbd{+0.8/$-$1.8} & \tbd{+4.8/$-$3.7} & Structure and series production set a rotor's price. \\
+rotor lift & \num{1} (\num{0.89}--\num{1}) & \tbd{0.0/$-$2.5} & \tbd{0.0/$-$2.4} & \tbd{0.0/$-$1.4} & \tbd{+2.0/$-$4.4} & Rotor design sets the lift at a given spin; the base is the full-scale fit, so the range only reaches down to the CFD value. \\
+rotor highest wind & \num{20} (\num{15}--\num{25}) m/s & \tbd{0.0/$-$2.2} & \tbd{0.0/$-$0.8} & \tbd{+1.0/$-$2.3} & \tbd{+4.1/$-$4.9} & Up to which wind its drive and structure let a rotor keep spinning. \\
+rotor out of service & \num{0.03} (\num{0.01}--\num{0.15}) & \tbd{+0.3/$-$2.0} & \tbd{+0.3/$-$1.9} & \tbd{+0.2/$-$1.2} & \tbd{+2.0/$-$4.4} & The same reliability lever as for every rig. \\
 \multicolumn{7}{@{}l}{\textit{Every rig}}\\
-rig maintenance share & \num{0.02} (\num{0.01}--\num{0.05}) 1/year & \tbd{2.1} & \tbd{2.8} & \tbd{0.8} & \tbd{1.3} & A maker designs for what its rig costs to keep running. \\
+rig maintenance share & \num{0.02} (\num{0.01}--\num{0.05}) 1/year & \tbd{+0.6/$-$1.6} & \tbd{+0.8/$-$2.0} & \tbd{+0.2/$-$0.5} & \tbd{+0.4/$-$1.1} & A maker designs for what its rig costs to keep running. \\
 \multicolumn{7}{@{}l}{\textit{Conditions}}\\
-e-ammonia price & \num{47} (\num{30}--\num{82}) USD/GJ & \tbd{11.8} & \tbd{0.0} & \tbd{6.7} & \tbd{16.3} & Not for a developer to change: the fuel bill a rig cuts on the zero-emission fuel. \\
-fuel oil price & \num{16} (\num{12}--\num{19}) USD/GJ & \tbd{0.1} & \tbd{5.1} & \tbd{0.1} & \tbd{9.3} & Not for a developer to change: the fuel bill a rig cuts on fuel oil. \\
-carbon cost coverage & \num{0} (\num{0}--\num{1}) & \tbd{0.1} & \tbd{4.6} & \tbd{0.1} & \tbd{15.9} & Not for a developer to change: whether the ship pays for its CO\textsubscript{2}. \\
+e-ammonia price & \num{47} (\num{30}--\num{82}) USD/GJ & \tbd{+5.3/$-$6.6} & \tbd{0.0/0.0} & \tbd{+4.0/$-$2.9} & \tbd{+7.6/$-$13.3} & Not for a developer to change: the fuel bill a rig cuts on the zero-emission fuel. \\
+fuel oil price & \num{16} (\num{12}--\num{19}) USD/GJ & \tbd{+0.1/$-$0.1} & \tbd{+2.0/$-$3.1} & \tbd{0.0/0.0} & \tbd{+8.8/$-$0.7} & Not for a developer to change: the fuel bill a rig cuts on fuel oil. \\
+carbon cost coverage & \num{0} (\num{0}--\num{1}) & \tbd{+0.1/0.0} & \tbd{+4.6/0.0} & \tbd{+0.1/0.0} & \tbd{+15.9/0.0} & Not for a developer to change: whether the ship pays for its CO\textsubscript{2}. \\
 \end{longtable}

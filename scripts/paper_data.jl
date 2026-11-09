@@ -1290,7 +1290,8 @@ Rig sizes of each rig of [`rig_names`](@ref) on `class`, cheapest in the class s
 function study_areas(table, class, route, drive)
     return NamedTuple(map(rig_names) do rig
         area = best_area(table, class, string(route), string(drive), rig)
-        isnan(area) && error("the class study has no $rig size for $class on $drive to $route")
+        isnan(area) &&
+            error("the class study has no $rig size for $class on $drive to $route")
         return Symbol(rig) => rig_size(rig, area)
     end)
 end

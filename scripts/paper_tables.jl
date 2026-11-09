@@ -50,8 +50,8 @@ latex_number(value) = string("\\num{", isinteger(value) && abs(value) < 1e6 ? In
 """
     input_tables()
 
-Write every input with a range, in the order of data/assumptions.yaml, to
-paper/sections/input_tables.tex as one longtable with value, range, unit and source.
+Write [`ranged_inputs`](@ref) to paper/sections/input_tables.tex as one longtable with
+value, range, unit and source.
 """
 function input_tables()
     ragged = ">{\\raggedright\\arraybackslash}"
@@ -63,12 +63,16 @@ function input_tables()
         println(io, input_header, "\n\\endfirsthead")
         println(io, "\\multicolumn{5}{@{}l}{\\cref{tab:inputs} (continued)}\\\\")
         println(io, input_header, "\n\\endhead\n\\bottomrule\n\\endfoot")
-        for (name, entry) in assumptions.entries
-            entry.low == entry.high || write_input_row(io, entry, name)
+        for (name, entry) in ranged_inputs()
+            write_input_row(io, entry, name)
         end
         println(io, "\\end{longtable}")
     end
 end
+
+"every input with a range as (name, entry), sorted by name"
+ranged_inputs() = sort!([pair for pair in assumptions.entries
+                         if pair.second.low != pair.second.high]; by=first)
 
 "header row of the input table"
 input_header = "\\toprule\nInput & Value & Range & Unit & Source \\\\\n\\midrule"
@@ -94,12 +98,16 @@ development study `table`, against the same ship without a rig at the same bound
 where a trip is missing.
 """
 function sensitivity_saving(table, ship, rig, input, bound; column="cost")
-    selected(rig) = table[column][rows(table, "ship" => ship, "rig" => rig,
-        "input" => input, "bound" => bound)]
-    with_rig, bare = selected(rig), selected("none")
+    with_rig = study_values(table, column, ship, rig, input, bound)
+    bare = study_values(table, column, ship, "none", input, bound)
     (isempty(with_rig) || isempty(bare)) && return NaN
     return percent_saving(only(with_rig), only(bare))
 end
+
+"the values of `column` of `rig` on `ship` with `input` at `bound` in the development study"
+study_values(table, column, ship, rig, input, bound) =
+    table[column][rows(table, "ship" => ship, "rig" => rig, "input" => input,
+        "bound" => bound)]
 
 """
     bound_changes(table, ship, rig, input; column="cost")
@@ -121,16 +129,31 @@ The rigs whose saving an entry of [`development_inputs`](@ref) moves.
 lever_rigs(entry) = entry.rig in rig_names ? (entry.rig,) : rig_names
 
 """
-    lever_swing(table, ship, entry; column="cost")
+    lever_gain_loss(table, ship, entry; column="cost")
 
-Largest change [points] of a saving in `column` on `ship` between the low and high bound
-of the development `entry`, over its rigs; `NaN` where no rig has both trips.
+Largest rise and largest fall [points] of a saving in `column` on `ship` at either bound
+of the development `entry`, over its rigs with both trips, zero where a side moves no rig
+that way; `NaN` for both where no rig has both trips.
 """
-function lever_swing(table, ship, entry; column="cost")
-    swings = filter(isfinite, [abs(-(bound_changes(table, ship, rig, string(entry.input);
-                                                   column)...))
-                               for rig in lever_rigs(entry)])
-    return isempty(swings) ? NaN : maximum(swings)
+function lever_gain_loss(table, ship, entry; column="cost")
+    changes = [bound_changes(table, ship, rig, string(entry.input); column)
+               for rig in lever_rigs(entry)]
+    complete = filter(pair -> all(isfinite, pair), changes)
+    isempty(complete) && return (NaN, NaN)
+    return max(0.0, maximum(maximum, complete)), min(0.0, minimum(minimum, complete))
+end
+
+"a change in points with its sign, as LaTeX; no sign where it rounds to zero"
+function signed_points(change)
+    abs(change) < 0.05 && return "0.0"
+    return replace(@sprintf("%+.1f", change), "-" => "\$-\$")
+end
+
+"the LaTeX cell of a gain and a loss in points, draft-marked; dashes without trips"
+function effect_cell((gain, loss))
+    isnan(gain) && return "--"
+    text = string(signed_points(gain), "/", signed_points(loss))
+    return paper_run.fidelity == :final ? text : "\\tbd{$text}"
 end
 
 "heading of each group of the development table, by the rig of its inputs"
@@ -141,23 +164,22 @@ development_groups = ["kite" => "Kite", "wings" => "Wing sails", "rotors" => "Ro
     development_table()
 
 Write [`development_inputs`](@ref) by rig to paper/sections/development_table.tex: value,
-range, the change of the cost saving between the bounds on each ship, the largest change
-of the CO2 saving, and the reason the input is in the study.
+range, the gain and the loss of the cost saving on each ship, the largest gain and loss of
+the CO2 saving, and the reason the input is in the study.
 """
 function development_table()
     table = read_table(data_file("sensitivity.csv"))
     ships = unique(table["ship"])
-    marked(value) = isnan(value) ? "--" : paper_run.fidelity == :final ?
-                    @sprintf("%.1f", value) : @sprintf("\\tbd{%.1f}", value)
     ragged = ">{\\raggedright\\arraybackslash}"
     open(joinpath(sections, "development_table.tex"), "w") do io
-        println(io, "\\begin{longtable}{@{}", ragged, "p{2.8cm}", ragged, "p{2.3cm}rrrr",
-            ragged, "p{6.3cm}@{}}")
+        println(io, "\\begin{longtable}{@{}", ragged, "p{2.5cm}", ragged, "p{2.0cm}rrrr",
+            ragged, "p{4.0cm}@{}}")
         println(io, "\\caption{The inputs of the development study by the rig whose ",
-            "developer can change them: base value and range, the largest change of a ",
-            "rig's saving between the bounds of the range, in percentage points, in cost ",
-            "per tonne-km on each ship and in CO\\textsubscript{2} per tonne-km over the ",
-            "ships, and why the input is in the study.}\n",
+            "developer can change them: base value and range; the gain of a rig's saving ",
+            "at the better end of the range and its loss at the worse end, in percentage ",
+            "points, in cost per tonne-km on each ship and the largest of each in ",
+            "CO\\textsubscript{2} per tonne-km over the ships; and why the input is in ",
+            "the study.}\n",
             "\\label{tab:development}\\\\")
         header = string("\\toprule\nInput & Value (range) & ",
             join(short_ship.(ships), " & "),
@@ -169,7 +191,7 @@ function development_table()
         for (rig, heading) in development_groups
             println(io, "\\multicolumn{7}{@{}l}{\\textit{", heading, "}}\\\\")
             for entry in filter(entry -> entry.rig == rig, development_inputs)
-                write_lever_row(io, table, ships, entry, marked)
+                write_lever_row(io, table, ships, entry)
             end
         end
         println(io, "\\end{longtable}")
@@ -177,19 +199,20 @@ function development_table()
 end
 
 """
-    write_lever_row(io, table, ships, entry, marked)
+    write_lever_row(io, table, ships, entry)
 
-One row of the development table, its effects formatted by `marked`.
+One row of the development table.
 """
-function write_lever_row(io, table, ships, entry, marked)
+function write_lever_row(io, table, ships, entry)
     assumption = assumptions.entries[entry.input]
     unit = strip(assumption.unit, '"')
-    carbon = maximum(ship -> lever_swing(table, ship, entry; column="carbon"), ships)
+    carbons = [lever_gain_loss(table, ship, entry; column="carbon") for ship in ships]
+    carbon = (maximum(first, carbons), minimum(last, carbons))
     println(io, entry.label, " & ", latex_number(assumption.value), " (",
         latex_number(assumption.low), "--", latex_number(assumption.high), ")",
         unit == "-" ? "" : string(" ", latex_escape(unit)), " & ",
-        join([marked(lever_swing(table, ship, entry)) for ship in ships], " & "), " & ",
-        marked(carbon), " & ", entry.reason, " \\\\")
+        join([effect_cell(lever_gain_loss(table, ship, entry)) for ship in ships], " & "),
+        " & ", effect_cell(carbon), " & ", entry.reason, " \\\\")
 end
 
 """
@@ -1210,33 +1233,33 @@ fidelity_parts() = [
         model="one power-law profile from 10\\,m, the mean of ERA5 over the region",
         error="real shear varies with stability from hour to hour",
         effect=nothing),
-    (part="Wing sail forces", varied="input ranges",
+    (part="Wing sail forces", varied="maximum lift",
         model="lifting line with stall, trimmed at each wind; array factor of the units",
         error="interference fitted to CFD of three to four sails",
         effect=varied_inputs(:wing_max_lift_coefficient)),
-    (part="Rotor forces", varied="input ranges",
+    (part="Rotor forces", varied="lift and highest wind",
         model="ShipCLEAN coefficients over spin ratio, trimmed at each wind; array factor",
         error="fit to CFD and full-scale data within its scatter; interference from two " *
               "to four rotors",
         effect=varied_inputs(:rotor_lift_factor, :rotor_max_wind)),
-    (part="Kite flight", varied="input ranges",
+    (part="Kite flight", varied="turn radius, drag, force limit",
         model="quasi-steady pattern with mass, bridle and tether drag, searched for each " *
               "wind and course",
         error="glide ratio of 4 matched to flight data",
         effect=varied_inputs(:kite_min_turn_radius, :kite_flight_drag,
             :kite_max_force_per_area)),
-    (part="Kite launch and sea limits", varied="input ranges",
+    (part="Kite launch and sea limits", varied="launch and flight wave limits",
         model="fixed limits of wind and significant wave height for launch, flight and " *
               "landing",
         error="wave limits are estimates without a source",
         effect=varied_inputs(:kite_launch_max_wave_height, :kite_max_wave_height)),
-    (part="Wear and availability", varied="input ranges",
+    (part="Wear and availability", varied="canopy life, out of service",
         model="canopy life from UV and wear per flight hour; launch damage and loss; " *
               "time out of service for every rig",
         error="canopy wear rate from paragliders, not from towing kites",
         effect=varied_inputs(:canopy_life, :kite_out_of_service, :wing_out_of_service,
             :rotor_out_of_service)),
-    (part="Rig prices", varied="input ranges",
+    (part="Rig prices", varied="prices per area, maintenance",
         model="price per area and per unit, installation, maintenance",
         error="ranges of the quoted and built-up prices",
         effect=varied_inputs(:canopy_making_cost_per_area, :canopy_cloth_base_price,

@@ -2439,7 +2439,7 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 end
 
-@testset "the development study keeps 5 to 20 inputs a developer can act on, each with a range" begin
+@testset "the development study keeps 5 to 20 ranged inputs, each with a reason" begin
     inputs = PaperData.development_inputs
     @test 5 <= length(inputs) <= 20
     @test allunique(entry.input for entry in inputs)
@@ -2459,12 +2459,19 @@ end
     @test_throws ErrorException PaperData.study_areas(nothing, "class", :route, :vlsfo)
 end
 
-@testset "a development input's swing is the largest of its rigs, over those with trips" begin
+@testset "a development input's gain and loss are the largest over its rigs with trips" begin
     PaperData.eval(:(bound_changes(table, ship, rig, input; column="cost") =
         rig == "kite" ? (1.0, -2.0) : rig == "wings" ? (NaN, 1.0) : (0.5, 0.0)))
-    @test PaperData.lever_swing(nothing, "ship", (input=:any, rig="all")) == 3.0
-    @test PaperData.lever_swing(nothing, "ship", (input=:any, rig="rotors")) == 0.5
-    @test isnan(PaperData.lever_swing(nothing, "ship", (input=:any, rig="wings")))
+    @test PaperData.lever_gain_loss(nothing, "ship", (input=:any, rig="all")) == (1.0, -2.0)
+    @test PaperData.lever_gain_loss(nothing, "ship", (input=:any, rig="rotors")) == (0.5, 0.0)
+    gain, loss = PaperData.lever_gain_loss(nothing, "ship", (input=:any, rig="wings"))
+    @test isnan(gain) && isnan(loss)
+end
+
+@testset "the input table lists every ranged input once, in the order of its name" begin
+    names = first.(PaperData.ranged_inputs())
+    @test issorted(names) && allunique(names)
+    @test all(name -> assumptions.entries[name].low != assumptions.entries[name].high, names)
 end
 
 """
