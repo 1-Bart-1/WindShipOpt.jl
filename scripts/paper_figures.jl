@@ -561,35 +561,95 @@ function class_order(table)
 end
 
 """
+    limit_groups(table)
+
+`(limit, names)` of the deadweight-limited and of the space-limited classes of the class
+table `table`, each sorted by deadweight.
+"""
+function limit_groups(table)
+    classes = ship_classes()
+    return [(limit, [name for name in class_order(table)
+                     if limit_label(classes[name]) == limit])
+            for limit in ("deadweight", "space")]
+end
+
+"""
+    route_savings(table, column, classes, drive, rig)
+
+The [`mean_savings`](@ref) in `column` over `classes` of each route on which any of them
+was run.
+"""
+route_savings(table, column, classes, drive, rig) = filter(isfinite,
+    [only(mean_savings(table, (column,), classes, drive, rig; routes=[route]))
+     for route in unique(table["route"])])
+
+"""
+    savings_panel!(axis, table, groups, drive, column, format)
+
+Draw on `axis`, per `(label, classes)` of `groups`, each rig's [`mean_savings`](@ref) in
+`column` as a marker with a bar over its [`route_savings`](@ref), a band in the colour of
+the rig with the largest mean (grey where none is positive) and that mean printed with
+`format`. What was not run is left out, so a drive without data leaves `axis` blank.
+"""
+function savings_panel!(axis, table, groups, drive, column, format)
+    savings = [[route_savings(table, column, classes, drive, kind) for kind in rig_names]
+               for (_, classes) in groups]
+    all_routes = reduce(vcat, reduce(vcat, savings))
+    isempty(all_routes) && return
+    means = [[only(mean_savings(table, (column,), classes, drive, kind))
+              for kind in rig_names] for (_, classes) in groups]
+    span = extrema(all_routes)
+    width = span[2] - span[1]
+    number_x = span[2] + 0.28 * width
+    for (i, group_means) in enumerate(means)
+        known = findall(isfinite, group_means)
+        isempty(known) && continue
+        leader = known[argmax(group_means[known])]
+        hspan!(axis, i - 0.5, i + 0.5;
+            color=group_means[leader] > 0 ? (palette[leader], 0.2) : (:gray, 0.2))
+        text!(axis, number_x, i; text=replace(Printf.format(format, group_means[leader]),
+                "-" => "−"), align=(:right, :center), fontsize=pt(8.5))
+    end
+    vlines!(axis, 0; color=:gray, linewidth=0.5)
+    hlines!(axis, length(groups) - 1.5; color=:black, linewidth=0.5)
+    for (i, rigs) in enumerate(savings), (j, values) in enumerate(rigs)
+        isempty(values) && continue
+        y = i + (j - 2) * 0.22
+        rangebars!(axis, [y], [minimum(values)], [maximum(values)];
+            direction=:x, color=(palette[j], 0.6), linewidth=1.5)
+        scatter!(axis, [means[i][j]], [y]; color=palette[j], markersize=6)
+    end
+    xlims!(axis, span[1] - 0.04 * width, number_x + 0.02 * width)
+    axis.xticks = Makie.get_tickvalues(Makie.WilkinsonTicks(4), span...)
+end
+
+"""
     class_comparison_figure()
 
-Cost saving of the best size of each rig for every ship class and drive: the mean
-over the routes as a marker and the range over the routes as a bar.
+Cost saving and fuel saving of the best size of each rig for every ship class and the mean
+of the deadweight-limited and of the space-limited classes, a [`savings_panel!`](@ref) of
+each per drive.
 """
 function class_comparison_figure()
     table = read_table(data_file("classes.csv"))
-    names = class_order(table)
-    routes_seen = unique(table["route"])
-    figure = Figure(size=(page_width, 330))
-    for (column, (drive, title)) in enumerate(drive_panels)
-        axis = Axis(figure[1, column]; title, xlabel="cost saving [%]",
-            yticks=(eachindex(names), names), yreversed=true,
-            yticklabelsvisible=column == 1)
-        vlines!(axis, 0; color=:gray, linewidth=0.5)
-        for (j, kind) in enumerate(rig_names), (i, name) in enumerate(names)
-            values = [get(best_savings(table, name, route, drive), kind, NaN)
-                      for route in routes_seen]
-            values = filter(isfinite, values)
-            isempty(values) && continue
-            y = i + (j - 2) * 0.22
-            rangebars!(axis, [y], [minimum(values)], [maximum(values)];
-                direction=:x, color=(palette[j], 0.6), linewidth=1.5)
-            scatter!(axis, [sum(values) / length(values)], [y]; color=palette[j],
-                markersize=6, label=i == 1 ? kind : nothing)
+    groups = [[(name, [name]) for name in class_order(table)];
+              [("mean, $limit-limited", names) for (limit, names) in limit_groups(table)]]
+    figure = Figure(size=(page_width, 390))
+    for (k, (drive, title)) in enumerate(drive_panels)
+        Label(figure[1, (2k - 1):2k], title; tellwidth=false)
+        fuel_label = drive == "vlsfo" ? L"fuel, CO$_2$ saving [%]" : "fuel saving [%]"
+        panels = (("cost", "cost saving [%]", "%.1f"), ("fuel", fuel_label, "%.0f"))
+        for (offset, (column, xlabel, format)) in enumerate(panels)
+            axis = Axis(figure[2, 2k - 2 + offset]; xlabel,
+                yticks=(eachindex(groups), first.(groups)), yreversed=true,
+                yticklabelsvisible=(k, offset) == (1, 1))
+            savings_panel!(axis, table, groups, drive, column, Printf.Format(format))
         end
     end
-    Legend(figure[2, 1:length(drive_panels)], content(figure[1, 1]);
-        orientation=:horizontal)
+    rowgap!(figure.layout, 1, 4)
+    Legend(figure[3, 1:2length(drive_panels)],
+        [MarkerElement(; color=palette[j], marker=:circle, markersize=6)
+         for j in eachindex(rig_names)], collect(rig_names); orientation=:horizontal)
     save(joinpath(figures, "class_comparison.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -734,27 +794,42 @@ function median_units(table, class, drive, rig)
 end
 
 """
+    unit_count_axis(cell, row_limits)
+
+Axis in `cell` with one column per rig, its rows `row_limits` matching the axis beside it.
+"""
+function unit_count_axis(cell, row_limits)
+    return Axis(cell; width=pt(72), xlabel="number of units",
+        xticks=(eachindex(rig_names), collect(rig_names)), xticksvisible=false,
+        xticklabelcolor=palette[eachindex(rig_names)], xticklabelsize=pt(8.5),
+        yticksvisible=false, yticklabelsvisible=false, yreversed=true,
+        limits=((0.5, length(rig_names) + 0.5), row_limits))
+end
+
+"""
     class_size_figure()
 
-Best area of each rig for every ship class and drive: the geometric mean over the
-routes as a marker and the range over the routes as a bar, and, in a column at the right
-of each panel, the median number of wing and rotor units at the best size.
+Best area of each rig for every ship class and drive, the geometric mean over the routes
+as a marker and the range over the routes as a bar, and beside each panel the median
+number of units of each rig at its best size, each column named in the rig's colour.
 """
 function class_size_figure()
     table = read_table(data_file("classes.csv"))
     names = class_order(table)
     routes_seen = unique(table["route"])
-    figure = Figure(size=(page_width, 330))
+    figure = Figure(size=(page_width, 285))
     ticks = [100, 1000, 10000]
-    unit_columns = Dict("wings" => 3.6e4, "rotors" => 1.0e5)
+    row_limits = (0.4, length(names) + 0.6)
+    area_limit = 1.4largest_rig_area("kite", nothing)
     for (column, (drive, title)) in enumerate(drive_panels)
-        axis = Axis(figure[1, column]; title, xlabel="best rig area [m²]", xscale=log10,
-            xticks=(ticks, string.(ticks)), yticks=(eachindex(names), names),
-            yreversed=true, yticklabelsvisible=column == 1,
-            limits=((60, 1.9e5), (-0.2, length(names) + 0.6)))
-        vspan!(axis, 2.2e4, 1.9e5; color=:gray94)
-        text!(axis, sqrt(prod(values(unit_columns))), 0.15; text="units",
-            fontsize=pt(7.5), align=(:center, :center), color=:gray40)
+        axis = Axis(figure[1, 2 * column - 1]; title, xlabel="best rig area [m²]",
+            xscale=log10, xticks=(ticks, string.(ticks)),
+            xminorticks=IntervalsBetween(9), xminorticksvisible=true,
+            xgridvisible=true, xgridcolor=:gray88,
+            yticks=(eachindex(names), names), yreversed=true,
+            yticklabelsvisible=column == 1, limits=((60, area_limit), row_limits))
+        counts = unit_count_axis(figure[1, 2 * column], row_limits)
+        colgap!(figure.layout, 2 * column - 1, pt(4))
         for (j, kind) in enumerate(rig_names), (i, name) in enumerate(names)
             areas = filter(isfinite, [best_area(table, name, route, drive, kind)
                                       for route in routes_seen])
@@ -762,15 +837,11 @@ function class_size_figure()
             y = i + (j - 2) * 0.22
             rangebars!(axis, [y], [minimum(areas)], [maximum(areas)]; direction=:x,
                 color=(palette[j], 0.6), linewidth=1.5)
-            scatter!(axis, [geometric_mean(areas)], [y]; color=palette[j], markersize=6,
-                label=i == 1 ? kind : nothing)
-            kind == "kite" && continue
-            text!(axis, unit_columns[kind], i; text=string(median_units(table, name,
-                drive, kind)), fontsize=pt(8.5), align=(:center, :center), color=palette[j])
+            scatter!(axis, [geometric_mean(areas)], [y]; color=palette[j], markersize=6)
+            text!(counts, j, i; text=string(median_units(table, name, drive, kind)),
+                fontsize=pt(8.5), align=(:center, :center), color=palette[j])
         end
     end
-    Legend(figure[2, 1:length(drive_panels)], content(figure[1, 1]);
-        orientation=:horizontal)
     save(joinpath(figures, "class_sizes.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -783,10 +854,7 @@ rig and labelled with its saving [%]; grey where no rig pays.
 """
 function winner_map_figure()
     table = read_table(data_file("classes.csv"))
-    classes = ship_classes()
-    groups = [(limit, [name for name in class_order(table)
-                       if limit_label(classes[name]) == limit])
-              for limit in ("deadweight", "space")]
+    groups = limit_groups(table)
     route_names_seen = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
     kinds = ["kite", "wings", "rotors"]
     figure = Figure(size=(page_width, 420))
@@ -1078,10 +1146,7 @@ which together make the saving if the ship carried its cargo as without a rig.
 """
 function cargo_cost_figure()
     table = read_table(data_file("classes.csv"))
-    classes = ship_classes()
-    groups = [(limit, [name for name in class_order(table)
-                       if limit_label(classes[name]) == limit])
-              for limit in ("deadweight", "space")]
+    groups = limit_groups(table)
     figure = Figure(size=(page_width, 235))
     largest = maximum(length.(last.(groups)))
     for (column, (limit, names)) in enumerate(groups)
