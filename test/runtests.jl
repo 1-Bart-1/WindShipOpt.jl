@@ -1637,6 +1637,49 @@ end
     @test WindShipOpt.margins_searched(bare_table, settings) == (0.1, 0.2)
 end
 
+@testset "a cell the router screens out is unpowered anywhere inside it" begin
+    kite_table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0;
+                kite_area=400.0), assumptions), assumptions))
+    for route_table in (table, kite_table)
+        performance = route_table.table
+        winds, angles, resistances = performance.flown_thrust.knots[2:4]
+        screened, powered = 0, 0
+        for speed_index in eachindex(route_table.speeds)
+            speed, slice = route_table.speeds[speed_index], route_table.slices[speed_index]
+            (; cells, planes) = route_table.unpowered[speed_index]
+            @test planes == dropdims(all(cells; dims=3); dims=3)
+            for cell in CartesianIndices(cells)
+                cells[cell] || continue
+                screened += 1
+                j, k, l = Tuple(cell)
+                for share in (0.0, 0.5, 1.0)
+                    place(knots, i) = knots[i] + share * (knots[i + 1] - knots[i])
+                    condition = WindShipOpt.SeaCondition(performance, place(winds, j),
+                        place(angles, k), 0.0, 8.0, 1.0)
+                    waves = place(resistances, l)
+                    layer = WindShipOpt.KnotWeight(resistances, waves)
+                    powered += WindShipOpt.edge_fuels(performance, speed, slice, condition,
+                        waves, layer) != (Inf, Inf)
+                end
+            end
+        end
+        @test screened > 0
+        @test powered == 0
+    end
+end
+
+@testset "the router sails the same routes with cells screened out or not" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    unscreened = RouteTable(table.table, table.speeds, table.slices,
+        [WindShipOpt.UnpoweredCells(fill(false, size(screen.cells)),
+            fill(false, size(screen.planes))) for screen in table.unpowered])
+    screened_leg = WindShipOpt.route(corridor, table, weather, departure; time_cost=hourly)
+    full_leg = WindShipOpt.route(corridor, unscreened, weather, departure; time_cost=hourly)
+    for field in fieldnames(typeof(screened_leg))
+        @test isequal(getfield(screened_leg, field), getfield(full_leg, field))
+    end
+end
+
 @testset "a kite aloft leaving a node with the kite down at the same time shares its \
           edges" begin
     workspace = WindShipOpt.RouteWorkspace(3, 4, 2)
