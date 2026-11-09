@@ -46,8 +46,9 @@ end
     forecast_source(plan)
 
 What a case plans on: nothing where `plan` is false (perfect foresight), the control
-forecast where it is true, the same with the kite held to the plan where `:held_kite` or
-knowing the real weather ahead where `:foresight_kite`, the shortest lead of the control
+forecast where it is true, the same with the kite held to the plan where `:held_kite`,
+knowing the real weather ahead where `:foresight_kite`, or planned inside limits tightened
+by [`forecast_kite_margin`](@ref) where `:kite_margin`, the shortest lead of the control
 forecast at every time where `:shortest_lead`, the real weather re-planned daily where
 `:perfect_replan`, or the [`forecast_plans`](@ref) entry `plan`.
 """
@@ -55,6 +56,7 @@ forecast_source(plan) =
     plan === false ? nothing : plan === true ? forecast_archive :
     plan === :held_kite ? PlannedKite(forecast_archive) :
     plan === :foresight_kite ? ForesightKite(forecast_archive) :
+    plan === :kite_margin ? KiteMargin(forecast_archive, forecast_kite_margin) :
     plan === :shortest_lead ? ShortestLead(forecast_archive) :
     plan === :perfect_replan ? PerfectForecast() : forecast_plans[plan]
 
@@ -854,7 +856,13 @@ function forecast_data()
 end
 
 "plans of the forecast study, each as the `forecast` of its [`trip_case`](@ref)"
-forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite)
+forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite, :kite_margin)
+
+"[`forecast_study_plans`](@ref) that change only what a kite does"
+kite_only_plans = (:held_kite, :kite_margin)
+
+"share by which `:kite_margin` plans inside the kite's limits [-]"
+forecast_kite_margin = 0.2
 
 """
     forecast_plans_data()
@@ -874,7 +882,7 @@ function forecast_plans_data()
         step_cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...);
                               forecast=plan, rig, plan=string(plan), departure)
                           for (rig, area) in rigs, plan in forecast_study_plans
-                              if plan !== :held_kite || rig == "kite"])
+                              if !(plan in kite_only_plans) || rig == "kite"])
         append!(cases, step_cases)
         append!(trips, round_trips(step_cases, [departure]))
     end
@@ -883,6 +891,93 @@ function forecast_plans_data()
     write_kite_rule_records("forecast_rule_steps.csv", "forecast_rule.csv",
         ensemble_departures, ensemble_departures[begin:4:end])
 end
+
+"plans whose sailed hours [`forecast_hours_data`](@ref) records"
+forecast_hours_plans = (false, true, :members, :kite_margin)
+
+"speed from which sailing counts as fast in [`forecast_hours_data`](@ref) [m/s]"
+fast_speed = 12 * 0.5144
+
+"reasons a kite is down, as [`WindShipOpt.kite_down_reason`](@ref) gives them, per row"
+kite_down_groups = (too_little_wind=(:wind_low_flight, :wind_low_launch, :no_thrust),
+    too_much_wind=(:wind_high_flight, :wind_high_launch),
+    sea=(:sea_flight, :sea_launch), night=(:night,), no_saving=(:no_saving,),
+    chosen=(:chosen,))
+
+"""
+    forecast_hours_data()
+
+Per plan of [`forecast_hours_plans`](@ref) and per departure of `ensemble_departures`, the
+kite ship's hours at sea, in the air and down by [`kite_down_groups`](@ref), its fuel with
+the kite down and aloft, the fuel the kite saved, the hours it wanted up and did not fly,
+and the fast sailing the real weather and the plan allowed: forecast_hours.csv.
+"""
+function forecast_hours_data()
+    table, hourly = routing_inputs("kite")
+    prices = [(; fuel=table.table.ship.fuel.price, time) for time in hourly]
+    rows = fetch.([Threads.@spawn sailed_hours(table, hourly, prices, plan, departure)
+                   for departure in ensemble_departures, plan in forecast_hours_plans])
+    groups = keys(kite_down_groups)
+    open(run_file("forecast_hours.csv"), "w") do io
+        println(io, "plan,departure,days,up,", join(groups, ","), ",fuel_down,fuel_up,",
+            "saved,wanted_not_flown,fast_real,fast_known,fast_commanded,fast_held")
+        for row in rows
+            println(io, join((row.plan, row.departure, row.days, row.up,
+                    (row.down[group] for group in groups)..., row.fuel_down, row.fuel_up,
+                    row.saved, row.wanted_not_flown, row.fast_real, row.fast_known,
+                    row.fast_commanded, row.fast_held), ","))
+        end
+    end
+end
+
+"""
+    sailed_hours(table, hourly, prices, plan, departure)
+
+The kite ship's round trip from `departure` on `plan` as a row of
+[`forecast_hours_data`](@ref).
+"""
+function sailed_hours(table, hourly, prices, plan, departure)
+    record = WindShipOpt.KiteRecord()
+    cost_index = Iterators.Stateful((1, 2))
+    round_trip_legs(hourly, departure) do corridor, time_cost, start
+        leg_prices = prices[popfirst!(cost_index)]
+        plan === false || return forecast_route(corridor, table, weather, start;
+            time_cost, forecast=forecast_source(plan), record)
+        leg = route(corridor, table, weather, start; time_cost)
+        WindShipOpt.record_plan!(record, leg, corridor, table, weather, start, leg_prices)
+        return leg
+    end
+    return hours_row(record.samples, plan, departure)
+end
+
+"[`forecast_hours_data`](@ref) row of the [`KiteRecord`](@ref) `samples`"
+function hours_row(samples, plan, departure)
+    hours(condition) = sum(sample -> sample.sample_hours,
+        Iterators.filter(condition, samples); init=0.0)
+    fuel(condition) = 3.6e-6 * sum(
+        sample -> kite_power(sample) * sample.sample_hours,
+        Iterators.filter(condition, samples); init=0.0)
+    fast(speed_of) = hours(sample -> speed_of(sample) >= fast_speed - 1e-6)
+    down = NamedTuple{keys(kite_down_groups)}(
+        hours(sample -> sample.reason in group) for group in values(kite_down_groups))
+    return (; plan, departure, days=hours(sample -> true) / 24,
+        up=hours(sample -> sample.aloft), down,
+        fuel_down=fuel(sample -> !sample.aloft), fuel_up=fuel(sample -> sample.aloft),
+        saved=3.6e-6 * sum(sample -> kite_saving(sample) * sample.sample_hours,
+            Iterators.filter(sample -> sample.aloft, samples); init=0.0),
+        wanted_not_flown=hours(sample -> sample.wanted && !sample.aloft),
+        fast_real=fast(sample -> sample.fastest_speed),
+        fast_known=fast(sample -> sample.forecast_fastest),
+        fast_commanded=fast(sample -> sample.planned_speed),
+        fast_held=fast(sample -> sample.speed))
+end
+
+"fuel power [MW] of a [`KiteRecord`](@ref) sample as sailed"
+kite_power(sample) = 1e-6 * (sample.aloft ? sample.flown_power : sample.stowed_power)
+
+"fuel power [MW] a [`KiteRecord`](@ref) sample aloft saves, against the kite stowed"
+kite_saving(sample) = 1e-6 *
+    (isfinite(sample.stowed_power) ? sample.stowed_power - sample.flown_power : 0.0)
 
 """
     write_kept_shares(name, cases, trips)
@@ -896,7 +991,7 @@ function write_kept_shares(name, cases, trips)
     open(run_file(name), "w") do io
         println(io, "rig,plan,kept,kept_error,difference_from_control,difference_error")
         for (rig, _) in reference_rigs, plan in forecast_study_plans[2:end]
-            plan === :held_kite && rig != "kite" && continue
+            plan in kite_only_plans && rig != "kite" && continue
             saved, perfect = plan_savings(cases, trips, rig, plan),
             plan_savings(cases, trips, rig, false)
             control = plan_savings(cases, trips, rig, true)
@@ -922,7 +1017,7 @@ end
 "cost saving of `rig` on `plan` per departure, against no rig on the same forecast"
 plan_savings(cases, trips, rig, plan) =
     [1 - plan_cost(cases, trips, rig, plan, departure) /
-         plan_cost(cases, trips, "none", plan === :held_kite ? true : plan, departure)
+         plan_cost(cases, trips, "none", plan in kite_only_plans ? true : plan, departure)
      for departure in ensemble_departures]
 
 "share of the mean saving of `perfect` that `saved` keeps over the departures `indices`"
@@ -945,15 +1040,18 @@ same steps; and `trace_name`: per sample of the outbound passages from
 """
 function write_kite_rule_records(steps_name, trace_name, departures, example_departures)
     table, hourly = routing_inputs("kite")
-    legs = zip(("out", "back"), run_corridors(:caribbean), hourly)
     open(run_file(steps_name), "w") do steps
         println(steps, "departure,leg,edges,different_ends,different_edge_cost,samples,",
             "different_samples,cost,held_cost")
-        for departure in departures, (leg, corridor, time_cost) in legs
-            record = WindShipOpt.KiteRecord()
-            forecast_route(corridor, table, weather, departure; time_cost,
-                forecast=forecast_archive, record)
-            write_kite_rule_steps(steps, departure, leg, record.edges)
+        for departure in departures
+            leg_names = Iterators.Stateful(("out", "back"))
+            round_trip_legs(hourly, departure) do corridor, time_cost, start
+                record = WindShipOpt.KiteRecord()
+                passage = forecast_route(corridor, table, weather, start; time_cost,
+                    forecast=forecast_archive, record)
+                write_kite_rule_steps(steps, departure, popfirst!(leg_names), record.edges)
+                return passage
+            end
         end
     end
     open(run_file(trace_name), "w") do trace
@@ -972,6 +1070,25 @@ function write_kite_rule_records(steps_name, trace_name, departures, example_dep
         end
     end
 end
+
+"""
+    round_trip_legs(call, hourly, departure)
+
+The legs out and back of the study's route `call(corridor, time_cost, start)` returns, for
+the hourly time costs `hourly` per leg, the return leaving [`port_hours`](@ref) after the
+outbound passage ended.
+"""
+function round_trip_legs(call, hourly, departure)
+    start = departure
+    return map(run_corridors(:caribbean), hourly) do corridor, time_cost
+        passage = call(corridor, time_cost, start)
+        start += passage.duration + port_hours()
+        return passage
+    end
+end
+
+"hours a ship spends per port call [h]"
+port_hours() = 24assumptions[:port_time_per_call]
 
 """
     routing_inputs(rig)
@@ -1121,12 +1238,15 @@ Corridors of one node per stage along the courses out and back of the ship with 
 `plan` is false and on the control forecast where true.
 """
 function course_corridors((table, hourly), plan, departure)
-    return map(run_corridors(:caribbean), hourly) do corridor, time_cost
-        leg = plan === false ? route(corridor, table, weather, departure; time_cost) :
-              forecast_route(corridor, table, weather, departure; time_cost,
+    corridors_sailed = Corridor[]
+    round_trip_legs(hourly, departure) do corridor, time_cost, start
+        leg = plan === false ? route(corridor, table, weather, start; time_cost) :
+              forecast_route(corridor, table, weather, start; time_cost,
             forecast=forecast_source(plan))
-        return WindShipOpt.path_corridor(leg, corridor, 1)
+        push!(corridors_sailed, WindShipOpt.path_corridor(leg, corridor, 1))
+        return leg
     end
+    return Tuple(corridors_sailed)
 end
 
 """
@@ -1218,9 +1338,8 @@ kite ship of `table` re-planning daily on `source`, with `hourly` its time cost 
 """
 function sailed_samples(table, hourly, source, departure)
     record = WindShipOpt.KiteRecord()
-    for (corridor, time_cost) in zip(run_corridors(:caribbean), hourly)
-        forecast_route(corridor, table, weather, departure; time_cost, forecast=source,
-            record)
+    round_trip_legs(hourly, departure) do corridor, time_cost, start
+        forecast_route(corridor, table, weather, start; time_cost, forecast=source, record)
     end
     return record.samples
 end

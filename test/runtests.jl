@@ -1525,6 +1525,33 @@ end
                       edge.ends_aloft != edge.held_ends_aloft, edges)
 end
 
+@testset "a sailed passage says why the kite is down and a plan keeps a margin" begin
+    (; corridor, kite_table, kite_hourly, weather, departure) = kite_routing
+    prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
+    leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+    record = WindShipOpt.KiteRecord()
+    WindShipOpt.record_plan!(record, leg, corridor, kite_table, weather, departure, prices)
+    @test sum(sample.sample_hours for sample in record.samples) ≈ leg.duration rtol = 1e-6
+    @test all((sample.reason == :up) == sample.aloft for sample in record.samples)
+    @test all(sample.wanted == sample.aloft for sample in record.samples)
+    aloft_hours = sum(sample.sample_hours for sample in record.samples if sample.aloft)
+    @test aloft_hours >= leg.flight_hours - 1e-6
+    @test all(sample.speed <= sample.planned_speed + 1e-9 for sample in record.samples)
+    careful = WindShipOpt.margin_table(kite_table, 0.2)
+    rig, tight = kite_table.table.ship.rig, careful.table.ship.rig
+    @test tight.launch_min_wind == 1.2 * rig.launch_min_wind
+    @test tight.launch_max_wave_height == 0.8 * rig.launch_max_wave_height
+    @test careful.table.max_wave_height == 0.8 * kite_table.table.max_wave_height
+    @test careful.table.flown_thrust === kite_table.table.flown_thrust
+    wind = rig.launch_min_wind * 1.1
+    launchable(table) = WindShipOpt.kite_launchable(table.table, 0.0, wind, 0.0, 1.0, true)
+    @test launchable(kite_table) && !launchable(careful)
+    margin_record = WindShipOpt.KiteRecord()
+    forecast_route(corridor, kite_table, weather, departure; time_cost=kite_hourly,
+        horizon=24.0, forecast=KiteMargin(nothing, 0.2), record=margin_record)
+    @test all((sample.reason == :up) == sample.aloft for sample in margin_record.samples)
+end
+
 @testset "a ship on an ensemble adopts the plan cheapest across its members" begin
     (; corridor, kite_table, kite_hourly, weather, departure) = kite_routing
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)

@@ -954,7 +954,8 @@ function forecast_plans_table()
     table = read_table(data_file("forecast_plans_kept.csv"))
     plans = (("true", "One forecast run"), ("mean", "Ensemble mean"),
         ("margin", "Margin for wind"), ("members", "Several members"),
-        ("held_kite", "One forecast run, kite held to the plan"))
+        ("held_kite", "One forecast run, kite held to the plan"),
+        ("kite_margin", "One forecast run, kite limits 20\\,\\% tighter in the plan"))
     open(joinpath(sections, "forecast_plans_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}lccc@{}}\n\\toprule")
         println(io, "Plan & Kite & Wing sails & Rotors \\\\\n\\midrule")
@@ -964,6 +965,41 @@ function forecast_plans_table()
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
+end
+
+"""
+    forecast_hours_table()
+
+Hours per round trip of the kite ship over the departures of forecast_hours.csv with their
+standard error, per plan: forecast_hours_table.tex.
+"""
+function forecast_hours_table()
+    table = read_table(data_file("forecast_hours.csv"))
+    plans = (("false", "Perfect foresight"), ("true", "One run"), ("members", "Members"),
+        ("kite_margin", "Margin"))
+    rows = (("Kite aloft", "up"), ("Too little wind", "too_little_wind"),
+        ("Too much wind", "too_much_wind"), ("Sea", "sea"), ("No saving", "no_saving"),
+        ("Stayed down by choice", "chosen"), ("Passage [d]", "days"),
+        ("Wanted up, not flown", "wanted_not_flown"),
+        ("Fast sailing possible", "fast_real"),
+        ("Fast sailing commanded", "fast_commanded"), ("Fast sailing held", "fast_held"))
+    open(joinpath(sections, "forecast_hours_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}l", "c"^length(plans), "@{}}\n\\toprule")
+        println(io, "Hours per round trip & ", join(last.(plans), " & "),
+            " \\\\\n\\midrule")
+        for (label, column) in rows
+            cells = [hours_cell(table, plan, column) for (plan, _) in plans]
+            println(io, label, " & ", join(cells, " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"mean and standard error over the departures of `column` of `plan`, as a table cell"
+function hours_cell(table, plan, column)
+    values = table[column][rows(table, "plan" => plan)]
+    return @sprintf("\\(%.0f \\pm %.0f\\)", mean(values),
+        std(values) / sqrt(length(values)))
 end
 
 "groups of forecast_causes_table.tex as (heading, rows of (label, statistic))"
