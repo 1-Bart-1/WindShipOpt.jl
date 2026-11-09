@@ -348,8 +348,8 @@ Cache directory in the run in use of the round trips of `case` over `departures`
 a hash of the inputs of the trip other than its assumptions and the code hash of the run.
 """
 case_directory(case, departures) = joinpath(paper_run.directory, "cases",
-    content_hash((case.design, case.route, case.scale, case.forecast, case.held_knots,
-        case.part, departures, weather_name, paper_run.record["code_hash"])))
+    content_hash((case.design, case.route, case.scale, case.course, case.forecast,
+        case.held_knots, case.part, departures, weather_name, paper_run.record["code_hash"])))
 
 """
     cached_trip(directory, assumptions)

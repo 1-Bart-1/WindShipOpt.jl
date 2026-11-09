@@ -1388,7 +1388,25 @@ struct PlannedKite{F}
     forecast::F
 end
 
+"""
+    ForesightKite(forecast)
+
+The forecast source `forecast` of a ship that takes its course and speed from plans on it,
+but whose kite launches and lands as if it knew the real weather along the rest of the plan.
+"""
+struct ForesightKite{F}
+    forecast::F
+end
+
+"""
+    PerfectForecast()
+
+Forecast source of a ship that re-plans daily knowing the real weather.
+"""
+struct PerfectForecast end
+
 known_weather(::Nothing, weather, time, horizon) = ForecastWeather(weather, time, horizon)
+known_weather(::PerfectForecast, weather, time, horizon) = weather
 
 """
     forecast_plan(known, corridor, table, time, prices; first_stage, first_lateral, first_aloft,
@@ -1446,10 +1464,10 @@ end
 
 One sample of a passage as sailed: hours from departure [h], latitude and longitude
 [deg], whether the kite is up, whether it would be up held to the plan on that edge, true
-wind at its height [m/s], significant wave height [m].
+and apparent wind at its height [m/s], significant wave height [m].
 """
 const KiteSample = @NamedTuple{hours::Float64, lat::Float64, lon::Float64, aloft::Bool,
-    planned::Bool, wind_speed::Float64, wave_height::Float64}
+    planned::Bool, wind_speed::Float64, apparent_wind::Float64, wave_height::Float64}
 
 """
     KiteRuleEdge
@@ -1492,7 +1510,8 @@ function record_edge!(record, table, points, corridor, stage, lateral, next, sta
         lat, lon = edge_point(corridor, stage, lateral, next, share)
         push!(record.samples, (; hours=start_hours + share * hours, lat, lon, aloft=states[k],
             planned=held_states[k], wind_speed=hypot(point.headwind, point.crosswind),
-            wave_height=point.wave_height))
+            apparent_wind=hypot(point.headwind + table.speeds[max(point.speed_index, 1)],
+                point.crosswind), wave_height=point.wave_height))
     end
     push!(record.edges, (; ends_aloft, held_ends_aloft=isfinite(held_up.cost),
         different_samples=count(states .!= held_states), samples=length(points), cost,
@@ -1505,11 +1524,13 @@ end
 
 Passage of a ship that re-plans every 24 hours by [`forecast_plan`](@ref) on the
 [`RouteTable`](@ref) `table`, on `forecast`: a [`ForecastArchive`](@ref), a
-[`ForecastEnsemble`](@ref), or a [`ForecastWeather`](@ref) of `horizon` hours where `nothing`.
+[`ForecastEnsemble`](@ref), a [`ShortestLead`](@ref), a [`PerfectForecast`](@ref), or a
+[`ForecastWeather`](@ref) of `horizon` hours where `nothing`.
 It sails each plan in the real `weather` until the next re-plan by
 [`sail_planned_edge!`](@ref), launching and landing the kite where the real weather of an
 edge and the [`plan_values`](@ref) ahead make that cheapest, or, with `forecast` a
-[`PlannedKite`](@ref), where the plan put it. Fuel, flight hours and objective are those
+[`PlannedKite`](@ref), where the plan put it, or with a [`ForesightKite`](@ref), by the
+same values in the real weather. Fuel, flight hours and objective are those
 of the real weather. Where no plan leaves its node or the real weather stops the next
 edge, the ship holds there with the kite stowed on its hotel load until the next forecast,
 6 h later, and plans again. A [`KiteRecord`](@ref) `record` receives what was sailed.
@@ -1528,13 +1549,15 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     aloft_path = [false]
     points = SailedPoint[]
     held = 0.0
-    keeps_plan = forecast isa PlannedKite
-    source = keeps_plan ? forecast.forecast : forecast
+    keeps_plan, foresight = forecast isa PlannedKite, forecast isa ForesightKite
+    source = keeps_plan || foresight ? forecast.forecast : forecast
     while stage < stage_count
         known = known_weather(source, weather, departure + time, horizon)
         plan, values = forecast_plan(known, corridor, table, departure + time, prices;
             first_stage=stage, first_lateral=lateral, first_aloft=aloft, coastal_penalty)
         blocked = isnothing(plan)
+        foresight && !blocked && (values = plan_values(plan, corridor, table, weather,
+            departure + time, stage, prices))
         plan_start, plan_stage, plan_end = time, stage, blocked ? 1 : length(plan.path)
         for i in 2:plan_end
             next_lat, next_lon, _, speed, _ = plan.path[i]
