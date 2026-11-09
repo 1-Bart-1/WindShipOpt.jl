@@ -450,9 +450,11 @@ function angle_sums(name, rig, area)
     sums, legs = Dict{Tuple{String, String}, NTuple{3, Float64}}(), []
     for departure in sampled_departures()
         out = route(out_corridor, route_table, weather, departure; time_cost=out_hourly)
+        isnothing(out) && continue
         back_departure = departure + out.duration + port_hours
         back = route(back_corridor, route_table, weather, back_departure;
             time_cost=back_hourly)
+        isnothing(back) && continue
         add_leg!(sums, out, LegTrace(table, out, weather, departure), "out")
         add_leg!(sums, back, LegTrace(table, back, weather, back_departure), "home")
         push!(legs, (out, back))
