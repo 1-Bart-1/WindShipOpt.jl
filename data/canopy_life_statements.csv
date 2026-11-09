@@ -8,4 +8,4 @@ statement,supair2016,"tandem paraglider, 38 to 45 g/m²",meas,"Tandem paraglider
 statement,lynn2007,"show kite, 50 g/m²",claim,Maxi show kite,50*,1800,2400,porosity,0.6*,200*,0.05--0.09*,0--0.07,1800--2400*
 sail_shape,flynn2015,sail keeps its shape,claim,,,1700,2700,shape,,,,,1700--2700
 small_kite,vandervlugt2013,small kites (lighter cloth),claim,,,100,1000,,,,,,100--1000
-derived,,derived life,,,,3800,3800,,,,,,3800 (1200--6900)
+derived,,derived life,,,,3800,3800,,,,,,-

@@ -20,7 +20,7 @@ The model starts with the ship. Thirteen standard classes of merchant ship (\cre
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{ship_classes}
-\caption{The thirteen standard ship classes in deadweight order, seen from the side to one scale, each with the best kite, wing sails and rotors on VLSFO, the geometric mean over the six routes of the best area. Hull, deck height, deckhouse and the rigs are drawn as the model places them: deck rigs spread over the deck below the air draft, a single unit at the hull's lateral centre and the kite's launch mast at the forward end of the deck. The kite is drawn to scale across its span just above its mast; its far longer tether is not.}
+\caption{The thirteen standard ship classes in deadweight order, seen from the side to one scale, each with the best kite, wing sails and rotors on VLSFO, the geometric mean over the six routes of the best area. Hull, deck height and the rigs are drawn as the model places them, with a deckhouse sketched for scale: deck rigs spread over the deck below the air draft, a single unit at the hull's lateral centre and the kite's launch mast at the forward end of the deck. The kite is drawn to scale across its span just above its mast; its far longer tether is not.}
 \label{fig:ship_classes}
 \end{figure*}
 
@@ -65,7 +65,7 @@ T_\mathrm{req} = R_\mathrm{cw} + R_\mathrm{air} + R_\mathrm{aw} + R_\beta + R_r 
 \end{equation}
 the resistances and the costs of side force, less the rig's thrust. A setting is not used if it heels the ship more than \SI{8}{\degree} \citep{tillig2020}, needs a leeway above \SI{10}{\degree} or a rudder lift coefficient above 1, or, where the wind on the ship alone passes one of these limits, goes further past it. Of the rest the ship uses the setting that needs the least engine output. Each trim, the wing sail's lift, the rotor's spin and the kite's weight on side force below, is solved as a continuous quantity, so every rig sits equally close to its own optimum (\cref{sec:det_balance}).
 
-A single wing or rotor stands at the hull's lateral centre, where the hull's own side force acts, so its side force costs only leeway and heel; the rudder carries the yaw moment of a row centred at the middle of the deck. The soft kite tows from its launch mast at the forward end of the deck, as the ship kites built so far do \citep{fritz2013} and kite studies assume \citep{traut2014}, so the rudder holds a small turning moment (\cref{sec:tow_point}). The VTOL kite tows from the lateral centre. The kite pulls from low on the ship, so for the same side force it heels the ship less than a deck rig.
+A single wing or rotor stands at the hull's lateral centre, where the hull's own side force acts, so its side force costs only leeway and heel; the rudder carries the yaw moment of a row centred at the middle of the deck. The soft kite tows from the foot of its launch mast at the forward end of the deck, as the ship kites built so far do \citep{fritz2013} and kite studies assume \citep{traut2014}, so the rudder holds a small turning moment (\cref{sec:tow_point}). The VTOL kite tows from the lateral centre. The kite pulls from low on the ship, so for the same side force it heels the ship less than a deck rig.
 
 \begin{figure*}[tbp]
 \centering
@@ -111,7 +111,7 @@ A wing sail is a rigid upright wing of aspect ratio, span squared over area, 2, 
 \begin{figure*}[tbp]
 \centering
 \input{sections/kite_system_figure}
-\caption{The ship kite. (a) Its parts, as on the SkySails ship systems \citep{fritz2013}, the mast raised only for launch and landing and drawn dashed. (b) One flight \citep{fritz2013}: during the \SI{25}{min} of steps 2 and 3 and the \SI{30}{min} of steps 5 and 6 the ship gets no force from the kite. Not to scale.}
+\caption{The ship kite. (a) Its parts, as on the SkySails ship systems \citep{fritz2013}, the mast raised only for launch and landing and drawn dashed. (b) One flight \citep{fritz2013}; by our estimate (\cref{tab:inputs}) the ship gets no force from the kite during the \SI{25}{min} of steps 2 and 3 and the \SI{30}{min} of steps 5 and 6. Not to scale.}
 \label{fig:kite_system}
 \end{figure*}
 
@@ -132,7 +132,7 @@ The force on the ship is the tether force averaged over one cycle of the kite's 
 
 \paragraph{Limits} A kite flies from the lowest wind of \cref{sec:min_wind} up to an apparent wind of \SI{25}{m/s}, the limit of current kite systems \tbd{cite}. Launch is limited to \SI{17}{m/s}, landing to \SI{20}{m/s}, and launch, landing and flight to waves of 3, 4 and \SI{5}{m}. The launch and wave limits are our estimates, as no source gives them. A landing outside the limits is forced, with an estimated 5\,\% chance of losing the kite, so the router brings it down ahead of a storm where it can. Every leg ends with the kite down. In the base case a kite also launches at night, and a case with launches by day only tests that.
 
-\paragraph{Launch and landing} One launch and landing costs crew time, chances of a retry, of a tear that ends the canopy and of losing the kite in the water, the mean cost of turning the ship for a launch in a head wind, and tether wear. A tear or a loss together is about 1 in \num{10000} per cycle as a goal, against 0.2\,\% for a tear and 0.05\,\% for a loss that we estimate today. For \SI{25}{min} of launch and \SI{30}{min} of landing and stowing the ship gets no force from the kite, on reports of 10 to \SI{20}{min} each for a kite of \SI{160}{m^2} \citep{konstruktionspraxis_skysails}. No source gives rates of retries, tears or losses, so these are goals or estimates with wide ranges (\cref{tab:inputs,sec:det_kite}).
+\paragraph{Launch and landing} One launch and landing (\cref{fig:kite_system}b) costs crew time, chances of a retry, of a tear that ends the canopy and of losing the kite in the water, the mean cost of turning the ship for a launch in a head wind, and tether wear. A tear or a loss together is about 1 in \num{10000} per cycle as a goal, against 0.2\,\% for a tear and 0.05\,\% for a loss that we estimate today. For \SI{25}{min} of launch and \SI{30}{min} of landing and stowing the ship gets no force from the kite, on reports of 10 to \SI{20}{min} each for a kite of \SI{160}{m^2} \citep{konstruktionspraxis_skysails}. No source gives rates of retries, tears or losses, so these are goals or estimates with wide ranges (\cref{tab:inputs,sec:det_kite}).
 
 \begin{figure*}[tbp]
 \centering

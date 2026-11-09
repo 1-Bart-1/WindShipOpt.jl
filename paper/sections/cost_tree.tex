@@ -56,7 +56,6 @@
 \costbox{crew}{80}{-72}{datac}{Crew}{}{person}
 \costbox{maint}{112.5}{-72}{datac}{Mainte-\\[-1pt]nance}{$f_m C$}{wrench}
 \costbox{interest}{145}{-72}{shipc}{Cargo interest}{$m\,v_c\,r$}{interest}
-% flow
 \draw[edge] (trip.north) |- (tkm.west);
 \draw[edge] (work.north) -- (over.south);
 \draw[edge] (over.north) |- (tkm.east);
@@ -64,7 +63,6 @@
 \draw[edge] (cargo) -- (work);
 \foreach \n in {capital, crew, maint, interest} \draw[edge] (\n.north) -- (time.south);
 \node[font=\scriptsize\itshape, text=black!70, inner sep=1pt] at (62,-59.4) {adds up to $c_t$ per hour};
-% colour key
 \foreach \c/\t [count=\i] in {moneyc/cost, routec/from the routed passages, datac/inputs per ship and rig, shipc/from the cargo carried}
   \node[draw, \c, minimum size=2.4mm, inner sep=0, label={[font=\scriptsize, inner sep=2pt]right:\t}] at (1.5,-59-\i*4.1) {};
 \end{tikzpicture}

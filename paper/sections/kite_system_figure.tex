@@ -23,7 +23,6 @@
   eight/.pic={\draw[rigkite!45, densely dashed, thin] plot[smooth cycle, tension=1] coordinates
     {(-8,0.5) (-4,3.4) (0,0.5) (4,-2.8) (8,0) (4,3.2) (0,-0.5) (-4,-3.4)};},
 ]
-% ---- (a) the parts
 \node[anchor=west, inner sep=0pt] at (0,50) {(a) The parts};
 \begin{scope}[shift={(11,8)}]
   \pic at (0,0) {bow}; \pic at (0,0) {hatch}; \pic at (0,0) {winch};
@@ -42,7 +41,6 @@
     -1.5/0.7/-4/stowage under a hatch}
     {\draw[leader] (\lx,\ly) -- (45,\ty+0.2); \node[part, anchor=west] at (45,\ty+0.2) {\txt};}
 \end{scope}
-% ---- (b) the cycle
 \node[anchor=west, inner sep=0pt] at (100,50) {(b) One flight, in six steps};
 % #1 x, #2 y, #3 step, #4 fill, #5 text, #6 drawing
 \newcommand{\cyclestep}[6]{%

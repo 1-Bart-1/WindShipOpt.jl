@@ -277,7 +277,7 @@ class study `table`, or NaN where it has none.
 function mean_best_area(table, class, routes, rig)
     areas = filter(isfinite, [best_area(table, class, route, "vlsfo", rig)
                               for route in routes])
-    return isempty(areas) ? NaN : exp(sum(log, areas) / length(areas))
+    return isempty(areas) ? NaN : geometric_mean(areas)
 end
 
 """

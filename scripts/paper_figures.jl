@@ -157,6 +157,13 @@ Saving [%] of `cost` against `reference`.
 percent_saving(cost, reference) = 100 * (1 - cost / reference)
 
 """
+    geometric_mean(values)
+
+Geometric mean of the positive numbers `values`.
+"""
+geometric_mean(values) = exp(sum(log, values) / length(values))
+
+"""
     pattern_figure()
 
 Optimal flight paths seen from the ship over the course off apparent downwind, in light
@@ -756,8 +763,7 @@ function class_size_figure()
             y = i + (j - 2) * 0.22
             rangebars!(axis, [y], [minimum(areas)], [maximum(areas)]; direction=:x,
                 color=(palette[j], 0.6), linewidth=1.5)
-            centre = exp(sum(log, areas) / length(areas))
-            scatter!(axis, [centre], [y]; color=palette[j], markersize=6,
+            scatter!(axis, [geometric_mean(areas)], [y]; color=palette[j], markersize=6,
                 label=i == 1 ? kind : nothing)
             kind == "kite" && continue
             text!(axis, unit_columns[kind], i; text=string(median_units(table, name,
@@ -1056,10 +1062,10 @@ function gross_and_net_saving(table, class, drive, rig)
         best = cheapest_row(table, conditions..., "rig" => rig)
         bare = rows(table, conditions..., "rig" => "none")
         (isnothing(best) || isempty(bare)) && continue
-        reference, cargo = only(table["cost"][bare]), only(table["cargo"][bare])
-        cost = table["cost"][best]
-        push!(net, percent_saving(cost, reference))
-        push!(gross, percent_saving(cost * table["cargo"][best] / cargo, reference))
+        saving_now = percent_saving(table["cost"][best], only(table["cost"][bare]))
+        push!(net, saving_now)
+        push!(gross, 100saving_at_bare_cargo(saving_now / 100, table["cargo"][best],
+            only(table["cargo"][bare])))
     end
     return mean(gross), mean(net)
 end
@@ -1126,8 +1132,8 @@ function canopy_life_figure()
     for (i, row) in enumerate(order)
         derived = lives["kind"][row] == "derived"
         colour = derived ? palette[1] : :gray35
-        low, high = lives["life_low"][row], lives["life_high"][row]
-        derived && ((low, high) = (goal.low, goal.high))
+        low, high = derived ? (goal.low, goal.high) :
+                    (lives["life_low"][row], lives["life_high"][row])
         rangebars!(axis, [i], [low], [high]; direction=:x, color=colour,
             linewidth=derived ? 2.5 : 1.5, whiskerwidth=derived ? 0 : 4)
         derived && scatter!(axis, [lives["life_low"][row]], [i]; color=colour, markersize=7)
@@ -1135,8 +1141,11 @@ function canopy_life_figure()
         lives["kind"][row] == "statement" && scatter!(axis, [sqrt(low * high)], [i];
             color=measured ? :gray35 : :white, strokecolor=:gray35, strokewidth=0.75,
             marker=:rect, markersize=5)
-        text!(axis, 1.15high, i; text=replace(lives["life_text"][row], "--" => "–"),
-            align=(:left, :center), fontsize=pt(8), color=colour)
+        bounds = "$(round(Int, low))–$(round(Int, high))"
+        label = derived ? "$(round(Int, lives["life_low"][row])) ($bounds)" :
+                replace(lives["life_text"][row], "--" => "–")
+        text!(axis, 1.15high, i; text=label, align=(:left, :center), fontsize=pt(8),
+            color=colour)
     end
     save(joinpath(figures, "canopy_life.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -1152,22 +1161,26 @@ function large_rigs_figure()
     table = read_table(data_file("classes.csv"))
     names = class_order(table)
     routes_seen = unique(table["route"])
-    built = ((320, "largest ship kite flown", :bottom),
-        (1000, "largest ship kite designed\nlargest cargo parachute", :bottom),
-        (16000, "upper bound of the search", :top))
+    flat_per_projected = 160 / 125
+    flown, bound = 320 / flat_per_projected, largest_rig_area("kite", nothing)
+    designed = (1000 / flat_per_projected, 1040)
+    marks = ((flown, "largest ship kite flown\n(320 m² flat)", :bottom),
+        (geometric_mean(designed), "largest ship kite designed,\nlargest cargo parachute",
+            :bottom), (bound, "upper bound of the search", :top))
     rotors_in_service = 5
     figure = Figure(size=(page_width, 215))
     areas = Axis(figure[1, 1]; title="(a) best kite area", xscale=log10,
         xlabel="projected area [m²]",
         xticks=([100, 1000, 10000], ["100", "1000", "10000"]),
         yticks=(eachindex(names), names), yreversed=true,
-        limits=((130, 30000), (0.3, length(names) + 0.7)))
+        limits=((100, 30000), (0.3, length(names) + 0.7)))
     units = Axis(figure[1, 2]; title="(b) deck units at the best size", xlabel="units",
         yticks=(eachindex(names), names), yreversed=true, yticklabelsvisible=false,
         limits=((0, nothing), (0.3, length(names) + 0.7)))
-    for (area, label, anchor) in built
-        vlines!(areas, area; color=:gray50, linewidth=0.5,
-            linestyle=anchor == :top ? :dash : :solid)
+    vspan!(areas, designed...; color=(:gray50, 0.25))
+    vlines!(areas, flown; color=:gray50, linewidth=0.5)
+    vlines!(areas, bound; color=:gray50, linewidth=0.5, linestyle=:dash)
+    for (area, label, anchor) in marks
         text!(areas, area, anchor == :top ? 0.4 : length(names) + 0.65; text=label,
             rotation=π / 2, align=(anchor == :top ? :right : :left, :bottom),
             offset=(-1, 0), fontsize=pt(7.5), color=:gray35)
@@ -1180,7 +1193,7 @@ function large_rigs_figure()
             y = i + (k - 1.5) * 0.3
             rangebars!(areas, [y], [minimum(values)], [maximum(values)]; direction=:x,
                 color=(palette[1], k == 2 ? 0.8 : 0.35), linewidth=1.5)
-            scatter!(areas, [exp(sum(log, values) / length(values))], [y];
+            scatter!(areas, [geometric_mean(values)], [y];
                 color=k == 2 ? palette[1] : :white, strokecolor=palette[1],
                 strokewidth=0.75, markersize=6)
         end
