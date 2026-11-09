@@ -55,6 +55,8 @@ function run_study(out_dir)
                 round(Sys.maxrss() / 2^30; digits=1)), ",")
         open(io -> println(io, line), times, "a")
         println(line)
+        empty!(WindShipOpt.FREE_WORKSPACES)
+        GC.gc()
     end
 end
 
