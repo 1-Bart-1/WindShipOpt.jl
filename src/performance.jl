@@ -374,13 +374,21 @@ Fuel power [W] with the rig flown and with any kite stowed at `speed` [m/s] from
 number `speed_index` of a [`RouteTable`](@ref); the same value for a rig without a kite,
 which always stands, and `Inf` for a kite up in too high a sea.
 """
+edge_fuels(table::PerformanceTable, speed, slice::SpeedSlice, condition::SeaCondition) =
+    edge_fuels(table, speed, slice, condition, sea_layer(table, slice, condition)...)
+
+"""
+    edge_fuels(table, speed, slice, condition, waves, layer)
+
+[`edge_fuels`](@ref) where `waves` [N] is the added resistance of `condition` and `layer`
+its [`KnotWeight`](@ref) on the added-resistance knots of `table`.
+"""
 function edge_fuels(table::PerformanceTable, speed, slice::SpeedSlice,
-        condition::SeaCondition)
+        condition::SeaCondition, waves, layer::KnotWeight)
     (; wind, angle, wave_height) = condition
-    waves = sea_resistance(slice, condition)
     outside = waves - trim_resistance(table, waves)
     flown_thrust, stowed_thrust, rig_power, stowed_power = layer_value(slice.trims, wind,
-        angle, KnotWeight(table.flown_thrust.knots[4], waves))
+        angle, layer)
     flown = fuel_power(table, speed, flown_thrust + outside, rig_power)
     table.stowed_thrust === table.flown_thrust && return flown, flown
     stowed = fuel_power(table, speed, stowed_thrust + outside, stowed_power)
@@ -397,6 +405,18 @@ sea_resistance(slice::SpeedSlice, condition::SeaCondition) =
     condition.wave_height > 0 ?
     condition.wave_height^2 *
     plane_value(slice.wave_resistance, condition.wave_period, condition.wave_heading) : 0.0
+
+"""
+    sea_layer(table, slice, condition)
+
+Added resistance [N] of the [`SeaCondition`](@ref) `condition` at the speed of the
+[`SpeedSlice`](@ref) `slice`, and its [`KnotWeight`](@ref) on the added-resistance knots of
+`table`.
+"""
+function sea_layer(table::PerformanceTable, slice::SpeedSlice, condition::SeaCondition)
+    waves = sea_resistance(slice, condition)
+    return waves, KnotWeight(table.flown_thrust.knots[4], waves)
+end
 
 """
     trim_resistance(table, waves)
@@ -487,6 +507,21 @@ function fuel_power(table::PerformanceTable, speed, thrust, rig_power)
 end
 
 """
+    UnpoweredCells
+
+Where the engines of a [`PerformanceTable`](@ref) power no point of a table cell at one
+speed, flown or stowed, with the added resistance within the table's knots.
+"""
+struct UnpoweredCells
+    "whether each cell (wind, angle, added resistance) is unpowered"
+    cells::Array{Bool, 3}
+    "whether each (wind, angle) cell is unpowered at every added resistance"
+    planes::Matrix{Bool}
+    "whether waves of any height add resistance anywhere in each (period, heading) cell"
+    resisting_waves::Matrix{Bool}
+end
+
+"""
     RouteTable
 
 A [`PerformanceTable`](@ref) at the speeds the router tries, with the
@@ -497,6 +532,8 @@ struct RouteTable{T <: PerformanceTable}
     "routing speeds [m/s], ascending"
     speeds::Vector{Float64}
     slices::Vector{SpeedSlice}
+    "where the engines power nothing, per speed"
+    unpowered::Vector{UnpoweredCells}
 end
 
 "Whether the ship of `table` can fly a kite"
@@ -509,7 +546,38 @@ has_kite(table::RouteTable) = table.table.stowed_thrust !== table.table.flown_th
 """
 function RouteTable(table::PerformanceTable, speeds=routing_speeds(table))
     slices = [SpeedSlice(table, KnotWeight(table.speeds, speed)) for speed in speeds]
-    return RouteTable(table, speeds, slices)
+    return RouteTable(table, speeds, slices, UnpoweredCells.(Ref(table), speeds, slices))
+end
+
+"""
+    UnpoweredCells(table, speed, slice)
+
+[`UnpoweredCells`](@ref) of the [`SpeedSlice`](@ref) `slice` at `speed` [m/s]: thrust and
+rig power interpolate between a cell's corners, and fuel power is finite only below a limit
+that both raise.
+"""
+function UnpoweredCells(table::PerformanceTable, speed, slice::SpeedSlice)
+    cells = Base.OneTo.(size(slice.trims) .- 1)
+    unpowered = Array{Bool, 3}(undef, length.(cells))
+    for cell in CartesianIndices(cells)
+        corners = view(slice.trims, CartesianIndices(UnitRange.(Tuple(cell),
+            Tuple(cell) .+ 1)))
+        lowest = reduce((least, corner) -> min.(least, corner), corners)
+        unpowered[cell] = !isfinite(lowered_fuel(table, speed, lowest[1], lowest[3])) &&
+            (table.stowed_thrust === table.flown_thrust ||
+             !isfinite(lowered_fuel(table, speed, lowest[2], lowest[4])))
+    end
+    periods, headings = Base.OneTo.(size(slice.wave_resistance) .- 1)
+    resisting_waves = [all(>=(0), view(slice.wave_resistance, i:(i + 1), j:(j + 1)))
+                       for i in periods, j in headings]
+    return UnpoweredCells(unpowered, dropdims(all(unpowered; dims=3); dims=3),
+        resisting_waves)
+end
+
+"Fuel power [W] at `thrust` and `rig_power` less a rounding margin of interpolation"
+function lowered_fuel(table::PerformanceTable, speed, thrust, rig_power)
+    return fuel_power(table, speed, thrust - abs(thrust) * 1e-12,
+        rig_power - abs(rig_power) * 1e-12)
 end
 
 "The speeds of `table` from `LOWEST_ROUTING_KNOTS` up [m/s]"
@@ -534,5 +602,39 @@ end
 "factor on the cost of time that makes the router take the fastest speed it is offered [-]"
 const HELD_SPEED_TIME_FACTOR = 20
 
-edge_fuels(table::RouteTable, speed_index, condition::SeaCondition) = edge_fuels(
-    table.table, table.speeds[speed_index], table.slices[speed_index], condition)
+"""
+    screened_out(table, speed_index, condition)
+
+Whether the engines of the [`RouteTable`](@ref) `table` provably power nothing at routing
+speed number `speed_index` in `condition`, whatever added resistance its waves bring.
+"""
+function screened_out(table::RouteTable, speed_index, condition::SeaCondition)
+    unpowered = table.unpowered[speed_index]
+    @inbounds return unpowered.planes[condition.wind.index, condition.angle.index] &&
+        unpowered.resisting_waves[condition.wave_period.index,
+            condition.wave_heading.index]
+end
+
+"""
+    screened_out(table, speed_index, condition, waves, layer)
+
+Whether the engines of the [`RouteTable`](@ref) `table` provably power nothing at routing
+speed number `speed_index` in `condition`, `waves` [N] and `layer` being its added
+resistance and the [`KnotWeight`](@ref) of that on the table's added-resistance knots.
+"""
+function screened_out(table::RouteTable, speed_index, condition::SeaCondition, waves,
+        layer::KnotWeight)
+    # below the first knot the propeller thrust falls under anything a cell holds
+    waves < first(table.table.flown_thrust.knots[4]) && return false
+    @inbounds return table.unpowered[speed_index].cells[condition.wind.index,
+        condition.angle.index, layer.index]
+end
+
+function edge_fuels(table::RouteTable, speed_index, condition::SeaCondition)
+    screened_out(table, speed_index, condition) && return Inf, Inf
+    slice = table.slices[speed_index]
+    waves, layer = sea_layer(table.table, slice, condition)
+    screened_out(table, speed_index, condition, waves, layer) && return Inf, Inf
+    return edge_fuels(table.table, table.speeds[speed_index], slice, condition, waves,
+        layer)
+end
