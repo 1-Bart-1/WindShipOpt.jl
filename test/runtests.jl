@@ -983,11 +983,11 @@ end
 corridor, table, hourly = wing_coaster_routing()
 
 """
-    trip_with_share(design, name, share, corridors, base=assumptions)
+    trip_with_share(design, name, share, base=assumptions)
 
 Round trip of `design` in synthetic weather with the input `name` of `base` at `share`.
 """
-function trip_with_share(design, name, share, corridors, base=assumptions)
+function trip_with_share(design, name, share, base=assumptions)
     changed = with_value(base, name, share)
     return round_trip(Ship(design, changed), corridors..., SyntheticWeather(),
         [24.0 * 31, 24.0 * 200], changed)
@@ -1049,7 +1049,7 @@ end
             :wing_out_of_service),
         (ShipDesign(:methanol, 85.0; rotor_area=200.0), :rotor_out_of_service),
         (ShipDesign(:methanol, 85.0; kite_area=800.0), :kite_out_of_service))
-        low, high, down = [trip_with_share(design, name, share, corridors)
+        low, high, down = [trip_with_share(design, name, share)
                            for share in (0.1, 0.5, 1.0)]
         @test low.fuel_energy < high.fuel_energy < down.fuel_energy
         @test low.cost_per_tonne_km < high.cost_per_tonne_km < down.cost_per_tonne_km
@@ -1097,14 +1097,13 @@ end
     kite = ShipDesign(:methanol, 85.0; kite_area=800.0)
     hard = with_value(assumptions, :kite_landing_max_wind, 0.0)
     cheap = with_value(hard, :kite_forced_landing_loss_probability, 1e-5)
-    working = trip_with_share(kite, :kite_out_of_service, 0.0, corridors, cheap)
-    half = trip_with_share(kite, :kite_out_of_service, 0.5, corridors, cheap)
+    working = trip_with_share(kite, :kite_out_of_service, 0.0, cheap)
+    half = trip_with_share(kite, :kite_out_of_service, 0.5, cheap)
     @test working.forced_landings > 0
     @test half.forced_landings ≈ working.forced_landings / 2
     @test half.launches ≈ working.launches / 2
     dearer = with_value(hard, :kite_forced_landing_loss_probability, 2e-5)
-    @test trip_with_share(kite, :kite_out_of_service, 0.5, corridors,
-        dearer).cost_per_tonne_km >
+    @test trip_with_share(kite, :kite_out_of_service, 0.5, dearer).cost_per_tonne_km >
           half.cost_per_tonne_km
 end
 
@@ -1160,7 +1159,7 @@ end
 
 @testset "the store holds the working leg with its reserve, a leg rig-down without" begin
     design = ShipDesign(:methanol, 85.0; rotor_area=200.0)
-    cargo(share, reserve) = trip_with_share(design, :rotor_out_of_service, share, corridors,
+    cargo(share, reserve) = trip_with_share(design, :rotor_out_of_service, share,
         with_value(assumptions, :fuel_reserve_factor, reserve)).cargo
     @test cargo(0.0, 2.0) < cargo(0.0, 1.1)
     @test cargo(1.0, 2.0) ≈ cargo(1.0, 1.1)
