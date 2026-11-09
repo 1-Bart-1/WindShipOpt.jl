@@ -5,14 +5,15 @@
     LegTrace
 
 The ship models at each point the router sailed along a leg: time [h since departure],
-position [deg], course [rad from north], 10 m wind east and north [m/s], speed held [m/s],
-true wind angle [rad], apparent wind speed [m/s] and angle off the bow [rad] at the rig's
+the hours of the leg the point stands for [h], position [deg], course [rad from north],
+10 m wind east and north [m/s], speed held [m/s], true wind angle [rad], apparent wind speed [m/s] and angle off the bow [rad] at the rig's
 height, rig thrust [N], the thrust the rig would give flown at its best trim where it can
 be up [N], fuel power [W], whether a kite flies, launches or lands at the point and whether
 the landing was forced, and the trim setting of the rig carried there.
 """
 struct LegTrace
     time::Vector{Float64}
+    hours::Vector{Float64}
     lat::Vector{Float64}
     lon::Vector{Float64}
     course::Vector{Float64}
@@ -37,16 +38,17 @@ end
 
 Re-evaluate the ship models along the path of `leg`: at the points [`sail_edge!`](@ref)
 sails its edges in, with the kite flying where [`kite_flights`](@ref) has it; the last
-point of an edge is the first of the next, so it is left out except on the last edge.
+point of an edge is the first of the next, so the two are one sample, except on the last
+edge.
 """
 function LegTrace(table::PerformanceTable, leg::Leg, weather, departure)
     route_table = RouteTable(table)
     corridor = leg_corridor(leg)
     prices = (; fuel=table.ship.fuel.price, time=0.0)
-    trace = LegTrace((Float64[] for _ in 1:13)..., (Bool[] for _ in 1:4)..., Any[])
+    trace = LegTrace((Float64[] for _ in 1:14)..., (Bool[] for _ in 1:4)..., Any[])
     points = SailedPoint[]
     edges = length(leg.path) - 1
-    carried = (launched=false, landed=false, forced=false)
+    carried = (launched=false, landed=false, forced=false, hours=0.0)
     for i in 1:edges
         lat, lon, time = leg.path[i]
         next_lat, next_lon, _, speed = leg.path[i + 1]
@@ -59,28 +61,32 @@ function LegTrace(table::PerformanceTable, leg::Leg, weather, departure)
         flights = kite_flights(route_table, points, leg.aloft[i], leg.aloft[i + 1], prices)
         for (k, point) in enumerate(points)
             flight = flights[k]
-            k == length(points) && i < edges && (carried = flight; continue)
+            if k == length(points) && i < edges
+                carried = (; flight.launched, flight.landed, flight.forced, point.hours)
+                continue
+            end
             share = (k - 1) / (length(points) - 1)
             push_trace_point!(trace, route_table, weather, departure,
                 lat + share * (next_lat - lat), lon + share * (next_lon - lon), course,
-                point, flight.flying, flight.launched || carried.launched,
-                flight.landed || carried.landed, flight.forced || carried.forced)
-            carried = (launched=false, landed=false, forced=false)
+                point, point.hours + carried.hours, flight.flying,
+                flight.launched || carried.launched, flight.landed || carried.landed,
+                flight.forced || carried.forced)
+            carried = (launched=false, landed=false, forced=false, hours=0.0)
         end
     end
     return trace
 end
 
 """
-    push_trace_point!(trace, table, weather, departure, lat, lon, course, point, flying,
-                      launched, landed, forced)
+    push_trace_point!(trace, table, weather, departure, lat, lon, course, point, hours,
+                      flying, launched, landed, forced)
 
-Append to `trace` the ship models at the [`SailedPoint`](@ref) `point`, at position (`lat`,
-`lon`) on `course` of a leg left at `departure`, with a kite `flying` or not and having
-`launched` or `landed`, the landing `forced` or not, there.
+Append to `trace` the ship models at the [`SailedPoint`](@ref) `point`, standing for
+`hours` [h] at position (`lat`, `lon`) on `course` of a leg left at `departure`, with a kite
+`flying` or not and having `launched` or `landed`, the landing `forced` or not, there.
 """
 function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lon, course,
-        point, flying, launched, landed, forced)
+        point, hours, flying, launched, landed, forced)
     (; ship) = table.table
     east, north = wind(weather, lat, lon, point.time)
     wind_speed = hypot(east, north)
@@ -102,6 +108,7 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     apparent, apparent_angle = apparent_wind(
         wind_at_height(ship.env, wind_speed, rig_height(ship.rig)), angle, speed)
     push!(trace.time, point.time - departure)
+    push!(trace.hours, hours)
     push!(trace.lat, lat)
     push!(trace.lon, lon)
     push!(trace.course, course)

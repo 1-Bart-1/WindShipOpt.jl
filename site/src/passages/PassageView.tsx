@@ -8,8 +8,9 @@ import { ShipScene } from "./ShipScene";
 import {
   findLeg,
   loadJson,
-  RIG_COLOURS,
+  RIG_BRAND,
   RIG_LABELS,
+  rigColour,
   stateAt,
   Timeline,
   type Leg,
@@ -19,6 +20,7 @@ import {
   type RoutePassages,
   type RouteWinds,
 } from "./passages";
+import { brandColour } from "./scene";
 
 const rigOrder: PassageDesign["rig"][] = ["none", "kite", "wings", "rotors"];
 
@@ -40,15 +42,23 @@ function Passages({ index }: { index: PassageIndex }) {
   const [direction, setDirection] = useState<Leg["direction"]>("out");
   const [passages, setPassages] = useState<RoutePassages>();
   const [winds, setWinds] = useState<RouteWinds>();
-  const [playing, setPlaying] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [deckView, setDeckView] = useState(false);
   const timeline = useRef(new Timeline()).current;
 
   useEffect(() => {
     const name = index.routes[route].name;
+    let current = true;
     setPassages(undefined);
-    loadJson<RoutePassages>(`passages-${name}.json`).then(setPassages).catch(() => undefined);
-    loadJson<RouteWinds>(`winds-${name}.json`).then(setWinds).catch(() => setWinds(undefined));
+    setWinds(undefined);
+    setFailed(false);
+    loadJson<RoutePassages>(`passages-${name}.json`)
+      .then((loaded) => { if (current) setPassages(loaded); })
+      .catch(() => { if (current) setFailed(true); });
+    loadJson<RouteWinds>(`winds-${name}.json`)
+      .then((loaded) => { if (current) setWinds(loaded); })
+      .catch(() => undefined);
+    return () => { current = false; };
   }, [index, route]);
 
   const designs = useMemo(() => index.designs.map((design, k) => ({ ...design, index: k })), [index]);
@@ -62,6 +72,7 @@ function Passages({ index }: { index: PassageIndex }) {
 
   useEffect(() => {
     timeline.duration = leg ? leg.duration : 1;
+    if (!leg) timeline.playing = false;
     timeline.set(0);
   }, [leg, timeline]);
 
@@ -95,23 +106,24 @@ function Passages({ index }: { index: PassageIndex }) {
               index={departure} last={index.departures.length - 1} onChange={setDeparture} />
             <Select label="Direction" value={direction} onChange={(value) => setDirection(value as Leg["direction"])}
               options={[["out", `Rotterdam → ${index.routes[route].label}`], ["back", `${index.routes[route].label} → Rotterdam`]]} />
-            <Transport timeline={timeline} playing={playing} setPlaying={setPlaying} leg={leg} />
+            <Transport timeline={timeline} leg={leg} />
           </div>
-          {!passages && <p>Loading the routed passages…</p>}
+          {!passages && !failed && <p>Loading the routed passages…</p>}
+          {failed && <p>The passages of this route could not be loaded.</p>}
           {unsailed && <p>This ship could not sail this route at this departure.</p>}
           {leg && design && <ReadOut leg={leg} design={design} timeline={timeline} />}
         </div>
         <div className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
-            <SceneFrame title="Passage" aspect="aspect-square" unsailed={unsailed}>
-              <GlobeCanvas leg={leg} baseline={baseline} colour={RIG_COLOURS[rig]} field={field} timeline={timeline} />
+            <SceneFrame title="Passage" aspect="aspect-square" shown={leg !== undefined}>
+              <GlobeCanvas leg={leg} baseline={baseline} rig={rig} field={field} timeline={timeline} />
             </SceneFrame>
-            <SceneFrame title="Ship and rig" aspect="aspect-square" unsailed={unsailed}
-              action={rig === "kite" && !unsailed ? <button className="button-outline" onClick={() => setDeckView(!deckView)}>{deckView ? "Whole kite" : "On deck"}</button> : undefined}>
+            <SceneFrame title="Ship and rig" aspect="aspect-square" shown={leg !== undefined}
+              action={rig === "kite" && leg ? <button className="button-outline" onClick={() => setDeckView(!deckView)}>{deckView ? "Whole kite" : "On deck"}</button> : undefined}>
               {design && <ShipCanvas design={design} deckView={deckView} leg={leg} timeline={timeline} />}
             </SceneFrame>
           </div>
-          {leg && <div className="panel"><Panels leg={leg} baseline={baseline} colour={RIG_COLOURS[rig]} timeline={timeline} /></div>}
+          {leg && <div className="panel"><Panels leg={leg} baseline={baseline} colour={rigColour(rig)} timeline={timeline} /></div>}
         </div>
       </div>
     </section>
@@ -140,13 +152,14 @@ function Stepper({ label, value, index, last, onChange }: { label: string; value
   );
 }
 
-function Transport({ timeline, playing, setPlaying, leg }: { timeline: Timeline; playing: boolean; setPlaying: (value: boolean) => void; leg: Leg | undefined }) {
+function Transport({ timeline, leg }: { timeline: Timeline; leg: Leg | undefined }) {
   const [hours, setHours] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const [rate, setRate] = useState(timeline.rate);
-  useEffect(() => { const stop = timeline.subscribe(() => setHours(timeline.hours)); return () => { stop(); }; }, [timeline]);
   useEffect(() => {
-    timeline.playing = playing;
-  }, [playing, timeline]);
+    const stop = timeline.subscribe(() => { setHours(timeline.hours); setPlaying(timeline.playing); });
+    return () => { stop(); };
+  }, [timeline]);
   const day = Math.floor(hours / 24);
   return (
     <div className="grid gap-1">
@@ -154,7 +167,7 @@ function Transport({ timeline, playing, setPlaying, leg }: { timeline: Timeline;
       <input className="slider" type="range" min={0} max={leg ? leg.duration : 1} step={1} value={hours} disabled={!leg}
         onChange={(event) => timeline.set(Number(event.target.value))} />
       <div className="flex items-center justify-between gap-3">
-        <button className="button" disabled={!leg} onClick={() => setPlaying(!playing)}>{playing ? "Pause" : "Play"}</button>
+        <button className="button" disabled={!leg} onClick={() => timeline.toggle()}>{playing ? "Pause" : "Play"}</button>
         <span className="font-mono text-sm">day {day}, {Math.floor(hours - day * 24)} h</span>
         <button className="button-outline" onClick={() => { timeline.rate = timeline.rate === 8 ? 24 : timeline.rate === 24 ? 2 : 8; setRate(timeline.rate); }}>{rate} h/s</button>
       </div>
@@ -162,19 +175,19 @@ function Transport({ timeline, playing, setPlaying, leg }: { timeline: Timeline;
   );
 }
 
-function SceneFrame({ title, aspect, unsailed, action, children }: { title: string; aspect: string; unsailed: boolean; action?: React.ReactNode; children: React.ReactNode }) {
+function SceneFrame({ title, aspect, shown, action, children }: { title: string; aspect: string; shown: boolean; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="panel relative overflow-hidden p-0">
       <div className="absolute left-3 top-2 z-10 flex items-center gap-3">
         <span className="label rounded bg-paper px-1">{title}</span>
         {action}
       </div>
-      <div className={`${aspect} w-full ${unsailed ? "invisible" : ""}`}>{children}</div>
+      <div className={`${aspect} w-full ${shown ? "" : "invisible"}`}>{children}</div>
     </div>
   );
 }
 
-function GlobeCanvas({ leg, baseline, colour, field, timeline }: { leg?: Leg; baseline?: Leg; colour: string; field?: RouteWinds["winds"][number]; timeline: Timeline }) {
+function GlobeCanvas({ leg, baseline, rig, field, timeline }: { leg?: Leg; baseline?: Leg; rig: PassageDesign["rig"]; field?: RouteWinds["winds"][number]; timeline: Timeline }) {
   const host = useRef<HTMLDivElement>(null);
   const scene = useRef<GlobeScene>(undefined);
   useEffect(() => {
@@ -185,10 +198,9 @@ function GlobeCanvas({ leg, baseline, colour, field, timeline }: { leg?: Leg; ba
   }, []);
   useEffect(() => {
     if (!leg) return;
-    const resolved = getComputedStyle(document.documentElement).getPropertyValue(colour.replace(/var\((.*)\)/, "$1")).trim() || colour;
-    scene.current?.showLeg(leg, baseline, resolved);
+    scene.current?.showLeg(leg, baseline, brandColour(RIG_BRAND[rig]));
     update();
-  }, [leg, baseline, colour]);
+  }, [leg, baseline, rig]);
   useEffect(() => { scene.current?.showWinds(field ?? undefined); update(); }, [field]);
   useEffect(() => {
     let frame = 0;
@@ -222,7 +234,6 @@ function ShipCanvas({ design, deckView, leg, timeline }: { design: PassageDesign
       const dt = Math.min((now - previous) / 1000, 0.1);
       previous = now;
       if (timeline.playing && leg) timeline.set(timeline.hours + dt * timeline.rate);
-      if (leg && timeline.hours >= leg.duration) timeline.playing = false;
       if (leg && scene.current) scene.current.update(stateAt(leg, timeline.hours), dt);
       scene.current?.render();
       frame = requestAnimationFrame(loop);
@@ -250,7 +261,7 @@ function ReadOut({ leg, design, timeline }: { leg: Leg; design: PassageDesign; t
     ["Rig thrust", `${state.thrust.toFixed(0)} kN`],
     ["Fuel power", `${state.power.toFixed(1)} MW`],
   ];
-  if (design.rig === "wings") rows.push(["Sail chord", `${state.chord?.toFixed(0)}° off the bow, lift ${state.lift?.toFixed(2)}`]);
+  if (design.rig === "wings") rows.push(["Sail chord", `${leg.columns.trim.chord?.[state.sample].toFixed(0)}° off the bow, lift ${state.lift?.toFixed(2)}`]);
   if (design.rig === "rotors") rows.push(["Spin ratio", `${Math.abs(state.spin ?? 0).toFixed(2)}`]);
   if (design.rig === "kite") rows.push(["Kite", state.flying ? (state.pattern ? `flying, pattern ${state.pattern.period.toFixed(0)} s` : "flying") : "stowed"]);
   return (

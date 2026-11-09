@@ -4,15 +4,15 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { PassageDesign, PassageState } from "./passages";
+import { brandColour, disposeTree } from "./scene";
 
-const colour = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(`--brand-${name}`).trim();
 const flat = (name: string, options: THREE.MeshBasicMaterialParameters = {}) =>
-  new THREE.MeshBasicMaterial({ color: colour(name), ...options });
+  new THREE.MeshBasicMaterial({ color: brandColour(name), ...options });
 
 /** Ink outlines over a mesh's edges. */
 function outlined(mesh: THREE.Mesh): THREE.Group {
   const group = new THREE.Group();
-  const lines = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry, 25), new THREE.LineBasicMaterial({ color: colour("ink") }));
+  const lines = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry, 25), new THREE.LineBasicMaterial({ color: brandColour("ink") }));
   group.add(mesh, lines);
   return group;
 }
@@ -71,9 +71,9 @@ export class ShipScene {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enablePan = false;
     this.controls.enableDamping = true;
-    this.scene.background = new THREE.Color(colour("sky"));
+    this.scene.background = new THREE.Color(brandColour("sky"));
     const water = new THREE.Mesh(new THREE.CircleGeometry(16000, 64),
-      new THREE.MeshBasicMaterial({ color: new THREE.Color(colour("teal-light")).lerp(new THREE.Color(colour("sky")), 0.45) }));
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(brandColour("teal-light")).lerp(new THREE.Color(brandColour("sky")), 0.45) }));
     water.rotation.x = -Math.PI / 2;
     this.scene.add(water, this.root);
   }
@@ -88,6 +88,7 @@ export class ShipScene {
   /** Rebuild the ship and rig of `design`, looking at the deck if `deckView`, else the whole system. */
   showDesign(design: PassageDesign, deckView: boolean) {
     this.design = design;
+    disposeTree(this.root);
     this.root.clear();
     this.wings = [];
     this.rotors = [];
@@ -156,9 +157,9 @@ export class ShipScene {
     const positions: number[] = [];
     const indices: number[] = [];
     for (let i = 0; i <= segments; i++) {
-      const a = -1 + (2 * i) / segments;
-      const x = (a * span) / 2;
-      const y = -0.25 * span * a * a;
+      const station = -1 + (2 * i) / segments;
+      const x = (station * span) / 2;
+      const y = -0.25 * span * station * station;
       positions.push(x, y, -chord / 2, x, y, chord / 2);
       if (i < segments) indices.push(2 * i, 2 * i + 1, 2 * i + 2, 2 * i + 1, 2 * i + 3, 2 * i + 2);
     }
@@ -175,15 +176,15 @@ export class ShipScene {
     const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.6, design.attach_height!, 8), flat("ink"));
     mast.position.set(design.attach_position!, design.attach_height! / 2, 0);
     this.root.add(mast);
-    this.tether = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: colour("ink") }));
+    this.tether = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineBasicMaterial({ color: brandColour("ink") }));
     this.root.add(this.tether);
-    this.loop = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: colour("orange"), dashSize: design.tether_length! * 0.02, gapSize: design.tether_length! * 0.02 }));
+    this.loop = new THREE.LineLoop(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: brandColour("orange"), dashSize: design.tether_length! * 0.02, gapSize: design.tether_length! * 0.02 }));
     this.root.add(this.loop);
   }
 
   private addStreaks(design: PassageDesign) {
     this.streaks = [];
-    const material = new THREE.LineBasicMaterial({ color: colour("paper"), transparent: true, opacity: 0.8 });
+    const material = new THREE.LineBasicMaterial({ color: brandColour("paper"), transparent: true, opacity: 0.8 });
     const reach = design.rig === "kite" ? design.tether_length! : design.length * 2;
     for (let i = 0; i < 40; i++) {
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(reach * 0.06, 0, 0)]), material);
@@ -204,14 +205,14 @@ export class ShipScene {
     this.updateStreaks(state, dt);
   }
 
-  private kitePosition(design: PassageDesign, azimuth: number, elevation: number, fraction: number) {
-    const a = THREE.MathUtils.degToRad(azimuth);
-    const e = THREE.MathUtils.degToRad(elevation);
-    const length = design.tether_length! * fraction;
+  private kitePosition(design: PassageDesign, azimuth: number, elevation: number) {
+    const azimuthRadians = THREE.MathUtils.degToRad(azimuth);
+    const elevationRadians = THREE.MathUtils.degToRad(elevation);
+    const length = design.tether_length!;
     return new THREE.Vector3(
-      design.attach_position! + length * Math.cos(e) * Math.cos(a),
-      design.attach_height! + length * Math.sin(e),
-      length * Math.cos(e) * Math.sin(a),
+      design.attach_position! + length * Math.cos(elevationRadians) * Math.cos(azimuthRadians),
+      design.attach_height! + length * Math.sin(elevationRadians),
+      length * Math.cos(elevationRadians) * Math.sin(azimuthRadians),
     );
   }
 
@@ -219,13 +220,12 @@ export class ShipScene {
     const design = this.design!;
     if (!this.kite) return;
     const { pattern } = state;
-    const fraction = state.aloft;
-    const flying = pattern && fraction > 0;
-    this.kite.visible = Boolean(flying);
+    const flying = Boolean(pattern) && state.flying;
+    this.kite.visible = flying;
     this.bundle!.visible = !flying;
-    this.tether!.visible = Boolean(flying);
-    this.loop!.visible = Boolean(flying) && fraction > 0.5;
-    if (!flying) return;
+    this.tether!.visible = flying;
+    this.loop!.visible = flying;
+    if (!pattern || !flying) return;
     const count = pattern.azimuth.length;
     this.cycle = (this.cycle + (dt * count) / Math.max(pattern.period / 6, 3)) % count;
     const low = Math.floor(this.cycle);
@@ -233,8 +233,8 @@ export class ShipScene {
     const high = (low + 1) % count;
     const azimuth = pattern.azimuth[low] + share * (((pattern.azimuth[high] - pattern.azimuth[low] + 540) % 360) - 180);
     const elevation = pattern.elevation[low] + share * (pattern.elevation[high] - pattern.elevation[low]);
-    const position = this.kitePosition(design, azimuth, elevation, fraction);
-    const ahead = this.kitePosition(design, pattern.azimuth[high], pattern.elevation[high], fraction);
+    const position = this.kitePosition(design, azimuth, elevation);
+    const ahead = this.kitePosition(design, pattern.azimuth[high], pattern.elevation[high]);
     const anchor = new THREE.Vector3(design.attach_position!, design.attach_height!, 0);
     this.kite.position.copy(position);
     const radial = position.clone().sub(anchor).normalize();
@@ -243,7 +243,7 @@ export class ShipScene {
     const basis = new THREE.Matrix4().makeBasis(along, radial, motion.clone().cross(along).negate());
     this.kite.quaternion.setFromRotationMatrix(basis);
     this.tether!.geometry.setFromPoints([anchor, position]);
-    this.loop!.geometry.setFromPoints(pattern.azimuth.map((a, i) => this.kitePosition(design, a, pattern.elevation[i], fraction)));
+    this.loop!.geometry.setFromPoints(pattern.azimuth.map((angle, i) => this.kitePosition(design, angle, pattern.elevation[i])));
     this.loop!.computeLineDistances();
   }
 
@@ -269,6 +269,7 @@ export class ShipScene {
   }
 
   dispose() {
+    disposeTree(this.scene);
     this.controls.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();

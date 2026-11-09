@@ -9,8 +9,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { feature } from "topojson-client";
 import land from "world-atlas/land-110m.json";
 import { legEvents, windAt, type Leg, type PassageState, type WindField } from "./passages";
-
-const colour = (name: string) => getComputedStyle(document.documentElement).getPropertyValue(`--brand-${name}`).trim();
+import { brandColour, disposeTree } from "./scene";
 
 /** Unit vector of a latitude and longitude in degrees, on the sphere of the land texture. */
 export function surfacePoint(lat: number, lon: number, radius = 1): THREE.Vector3 {
@@ -66,6 +65,7 @@ export class GlobeScene {
   private arrows?: THREE.InstancedMesh;
   private field?: WindField;
   private material: LineMaterial;
+  private referenceMaterial: LineMaterial;
   private dummy = new THREE.Object3D();
 
   constructor(private host: HTMLElement) {
@@ -82,16 +82,17 @@ export class GlobeScene {
     this.controls.maxDistance = 6;
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
-    this.scene.background = new THREE.Color(colour("paper"));
+    this.scene.background = new THREE.Color(brandColour("paper"));
     const sphere = new THREE.Mesh(
       new THREE.SphereGeometry(1, 96, 64),
-      new THREE.MeshBasicMaterial({ map: landTexture(colour("sky"), colour("paper-deep"), colour("ink")) }),
+      new THREE.MeshBasicMaterial({ map: landTexture(brandColour("sky"), brandColour("paper-deep"), brandColour("ink")) }),
     );
     this.scene.add(sphere);
-    this.material = new LineMaterial({ color: new THREE.Color(colour("orange")), linewidth: 4, resolution: new THREE.Vector2(clientWidth, clientHeight) });
-    const hull = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.05, 12), new THREE.MeshBasicMaterial({ color: colour("rust") }));
+    this.material = new LineMaterial({ color: new THREE.Color(brandColour("orange")), linewidth: 4, resolution: new THREE.Vector2(clientWidth, clientHeight) });
+    this.referenceMaterial = new LineMaterial({ color: new THREE.Color(brandColour("ink")), linewidth: 1.5, opacity: 0.5, transparent: true, dashed: true, dashSize: 0.02, gapSize: 0.015, resolution: new THREE.Vector2(clientWidth, clientHeight) });
+    const hull = new THREE.Mesh(new THREE.ConeGeometry(0.012, 0.05, 12), new THREE.MeshBasicMaterial({ color: brandColour("rust") }));
     hull.rotation.x = Math.PI / 2;
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.004, 8, 32), new THREE.MeshBasicMaterial({ color: colour("rust") }));
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.004, 8, 32), new THREE.MeshBasicMaterial({ color: brandColour("rust") }));
     this.ship.add(hull, ring);
     this.scene.add(this.ship);
   }
@@ -102,14 +103,15 @@ export class GlobeScene {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(clientWidth, clientHeight);
     this.material.resolution.set(clientWidth, clientHeight);
+    this.referenceMaterial.resolution.set(clientWidth, clientHeight);
   }
 
   private polyline(leg: Leg, material: LineMaterial): Line2 {
-    const c = leg.columns;
-    const points = c.lat.flatMap((lat, i) => surfacePoint(lat / 100, c.lon[i] / 100, 1.002).toArray());
+    const columns = leg.columns;
+    const points = columns.lat.flatMap((lat, i) => surfacePoint(lat / 100, columns.lon[i] / 100, 1.002).toArray());
     const geometry = new LineGeometry();
     geometry.setPositions(points);
-    return new Line2(geometry, material);
+    return new Line2(geometry, material).computeLineDistances();
   }
 
   showLeg(leg: Leg, reference: Leg | undefined, trackColour: string) {
@@ -124,15 +126,17 @@ export class GlobeScene {
     this.scene.add(this.track);
     this.reference = undefined;
     if (reference) {
-      const dashed = new LineMaterial({ color: new THREE.Color(colour("ink")), linewidth: 1.5, opacity: 0.5, transparent: true, resolution: this.material.resolution });
-      this.reference = this.polyline(reference, dashed);
+      this.reference = this.polyline(reference, this.referenceMaterial);
       this.scene.add(this.reference);
     }
-    for (const event of this.events) this.scene.remove(event);
+    for (const event of this.events) {
+      this.scene.remove(event);
+      disposeTree(event);
+    }
     this.events = legEvents(leg).map(({ lat, lon, kind }) => {
       const marker = new THREE.Mesh(
         new THREE.SphereGeometry(kind === 1 ? 0.009 : 0.007, 12, 12),
-        new THREE.MeshBasicMaterial({ color: colour(kind === 1 ? "teal" : kind === 3 ? "rust" : "mustard") }),
+        new THREE.MeshBasicMaterial({ color: brandColour(kind === 1 ? "teal" : kind === 3 ? "rust" : "mustard") }),
       );
       marker.position.copy(surfacePoint(lat, lon, 1.004));
       this.scene.add(marker);
@@ -146,13 +150,16 @@ export class GlobeScene {
 
   showWinds(field: WindField | undefined) {
     this.field = field;
-    if (this.arrows) this.scene.remove(this.arrows);
+    if (this.arrows) {
+      this.scene.remove(this.arrows);
+      disposeTree(this.arrows);
+    }
     this.arrows = undefined;
     if (!field) return;
     const shape = new THREE.Shape([new THREE.Vector2(-0.3, -0.5), new THREE.Vector2(0.3, -0.5), new THREE.Vector2(0, 0.6)]);
     const geometry = new THREE.ShapeGeometry(shape);
     const count = field.nlat * field.nlon;
-    this.arrows = new THREE.InstancedMesh(geometry, new THREE.MeshBasicMaterial({ color: colour("ink"), side: THREE.DoubleSide, transparent: true, opacity: 0.55 }), count);
+    this.arrows = new THREE.InstancedMesh(geometry, new THREE.MeshBasicMaterial({ color: brandColour("ink"), side: THREE.DoubleSide, transparent: true, opacity: 0.55 }), count);
     this.scene.add(this.arrows);
   }
 
@@ -199,6 +206,7 @@ export class GlobeScene {
   }
 
   dispose() {
+    disposeTree(this.scene);
     this.controls.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();

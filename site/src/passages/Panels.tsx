@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { useMemo, useRef, useEffect } from "react";
-import type { Leg, Timeline } from "./passages";
+import { passageDays, type Leg, type Timeline } from "./passages";
 
 const width = 640;
 const panelHeight = 80;
@@ -40,17 +40,17 @@ function stepPath(times: number[], values: number[], xOf: (t: number) => number,
 /** Speed, thrust and fuel power along a passage, with a draggable cursor; `baseline` is the ship without a rig. */
 export function Panels({ leg, baseline, colour, timeline }: { leg: Leg; baseline?: Leg; colour: string; timeline: Timeline }) {
   const cursors = useRef<SVGLineElement[]>([]);
-  const days = leg.columns.t[leg.columns.t.length - 1] / 240;
+  const days = passageDays(leg, baseline);
   const plots = useMemo(() => series.map((entry) => {
     const plotHeight = panelHeight - margin.top - margin.bottom;
-    const values = leg.columns[entry.key].map((v) => v / entry.scale);
-    const reference = baseline?.columns[entry.key].map((v) => v / entry.scale);
+    const values = leg.columns[entry.key].map((value) => value / entry.scale);
+    const reference = baseline?.columns[entry.key].map((value) => value / entry.scale);
     const all = reference ? values.concat(reference) : values;
     const low = Math.min(0, ...all);
     const high = Math.max(...all) * 1.05 || 1;
     const step = niceStep(high - low);
-    const ticks = Array.from({ length: Math.ceil(high / step) + 1 }, (_, i) => i * step).filter((v) => v <= high);
-    const yOf = (v: number) => margin.top + plotHeight * (1 - (v - low) / (high - low));
+    const ticks = Array.from({ length: Math.ceil(high / step) + 1 }, (_, i) => i * step).filter((tick) => tick <= high);
+    const yOf = (value: number) => margin.top + plotHeight * (1 - (value - low) / (high - low));
     const xOf = (t: number) => margin.left + (width - margin.left - margin.right) * (t / (days * 240));
     return { entry, values, reference, yOf, xOf, ticks };
   }), [leg, baseline, days]);

@@ -5,7 +5,9 @@ import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { passagesDirectory } from "../../data";
-import { findLeg, interpolateAngle, legEvents, sampleAt, stateAt, windAt, type Leg, type WindField } from "./passages";
+import * as THREE from "three";
+import { findLeg, interpolateAngle, legEvents, passageDays, sampleAt, stateAt, Timeline, windAt, type Leg, type WindField } from "./passages";
+import { disposeTree } from "./scene";
 
 const leg: Leg = {
   design: 1,
@@ -13,8 +15,6 @@ const leg: Leg = {
   departure: 0,
   start: 100,
   duration: 12,
-  fuel_energy: 1,
-  nodes: [[10, -5], [12, -7]],
   columns: {
     t: [0, 60, 120],
     lat: [1000, 1100, 1200],
@@ -55,15 +55,22 @@ describe("a passage replayed at a time", () => {
     expect(state.thrust).toBe(60);
     expect(state.power).toBe(9);
     expect(state.flying).toBe(true);
-    expect(state.aloft).toBe(1);
     expect(state.pattern?.azimuth).toEqual([1, 2]);
     expect(state.pattern?.elevation).toEqual([3, 4]);
     expect(state.pattern?.period).toBe(5);
   });
 
-  it("raises the kite between the stowed sample and the launched one", () => {
-    expect(stateAt(leg, 3).aloft).toBe(0.5);
-    expect(stateAt(leg, 0).aloft).toBe(0);
+  it("keeps the kite stowed until the sample it launched at", () => {
+    expect(stateAt(leg, 3).flying).toBe(false);
+    expect(stateAt(leg, 5.9).flying).toBe(false);
+    expect(stateAt(leg, 6).flying).toBe(true);
+  });
+
+  it("holds speed, thrust, power and the rig's numbers at the recorded sample between samples", () => {
+    const wings: Leg = { ...leg, columns: { ...leg.columns, trim: { chord: [0, 20, 40], lift: [100, 150, 200], spin: [10, 20, 30] } } };
+    const state = stateAt(wings, 3);
+    expect([state.speed, state.thrust, state.power]).toEqual([10, 50, 10]);
+    expect([state.lift, state.spin]).toEqual([1, 0.1]);
   });
 
   it("lists the launches where the run launched", () => {
@@ -73,6 +80,44 @@ describe("a passage replayed at a time", () => {
   it("finds a leg by design, direction and departure", () => {
     expect(findLeg({ route: "x", legs: [leg] }, 1, "out", 0)).toBe(leg);
     expect(findLeg({ route: "x", legs: [leg] }, 1, "back", 0)).toBeUndefined();
+  });
+});
+
+describe("the time cursor", () => {
+  it("stops at the end of the passage and plays again from the start", () => {
+    const timeline = new Timeline();
+    timeline.duration = 10;
+    timeline.toggle();
+    expect(timeline.playing).toBe(true);
+    timeline.set(10);
+    expect(timeline.playing).toBe(false);
+    expect(timeline.hours).toBe(10);
+    timeline.toggle();
+    expect(timeline.playing).toBe(true);
+    expect(timeline.hours).toBe(0);
+  });
+});
+
+describe("the panels' time axis", () => {
+  it("spans the longer of the passage and its baseline", () => {
+    const baseline = { ...leg, columns: { ...leg.columns, t: [0, 60, 480] } };
+    expect(passageDays(leg, baseline)).toBe(2);
+    expect(passageDays(baseline, leg)).toBe(2);
+    expect(passageDays(leg)).toBe(0.5);
+  });
+});
+
+describe("the three.js scene helpers", () => {
+  it("disposes the geometry and material of everything under an object", () => {
+    const geometry = new THREE.BufferGeometry();
+    const material = new THREE.MeshBasicMaterial();
+    let disposed = 0;
+    geometry.addEventListener("dispose", () => disposed++);
+    material.addEventListener("dispose", () => disposed++);
+    const root = new THREE.Group();
+    root.add(new THREE.Mesh(geometry, material));
+    disposeTree(root);
+    expect(disposed).toBe(2);
   });
 });
 

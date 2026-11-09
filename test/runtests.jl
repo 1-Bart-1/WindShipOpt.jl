@@ -1352,13 +1352,13 @@ WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
 @testset "a leg's trace shows the trim the router priced where waves leave the table" begin
     ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=400.0), assumptions)
     table = RouteTable(PerformanceTable(ship, assumptions))
-    trace = WindShipOpt.LegTrace((Float64[] for _ in 1:13)..., (Bool[] for _ in 1:4)...,
+    trace = WindShipOpt.LegTrace((Float64[] for _ in 1:14)..., (Bool[] for _ in 1:4)...,
         Any[])
     calm_sea = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 0.0, 8.0, 0.0)
     point = WindShipOpt.SailedPoint(0.0, 0.0, calm_sea, true,
         searchsortedfirst(table.speeds, 5.0), 0.0, 0.0, 1.0, 24.0 * 31)
     WindShipOpt.push_trace_point!(trace, table, FollowingSeaWeather(), 24.0 * 31, 30.0,
-        -30.0, π / 2, point, true, false, false, false)
+        -30.0, π / 2, point, 1.0, true, false, false, false)
     first_knot = first(table.table.flown_thrust.knots[4])
     priced = last(WindShipOpt.best_trim(ship, ship.rig, only(trace.speed), 14.0,
         only(trace.true_wind_angle), first_knot))
@@ -2256,9 +2256,9 @@ end
         @test (first(trace.lat), first(trace.lon)) == leg.path[1][1:2]
         @test last(trace.lat) ≈ leg.path[end][1] atol=1e-9
         @test last(trace.lon) ≈ leg.path[end][2] atol=1e-9
-        hours = diff([trace.time; leg.duration])
-        @test sum(hours[trace.flying]) ≈ leg.flight_hours rtol=0.05
-        @test sum(trace.fuel_power .* hours) ≈ leg.fuel_energy / 3600 rtol=0.05
+        @test sum(trace.hours) ≈ leg.duration rtol=1e-9
+        @test sum(trace.hours[trace.flying]) ≈ leg.flight_hours rtol=0.05
+        @test sum(trace.fuel_power .* trace.hours) ≈ leg.fuel_energy / 3600 rtol=0.05
         @test count(trace.launched) == leg.launches
         @test count(trace.forced) == leg.forced_landings
         rig = table.ship.rig
@@ -2702,7 +2702,7 @@ function recorded_names(recording, node)
 end
 
 @testset "an exported passage keeps the routed track and the rig's frame" begin
-        @test PaperData.wind_side(-10.0, 0.0, 0.0) == 1
+    @test PaperData.wind_side(-10.0, 0.0, 0.0) == 1
     @test PaperData.wind_side(10.0, 0.0, 0.0) == -1
     position(radial, side=1) = PaperData.ship_frame_position(radial, π / 2, side)
     @test all(isapprox.(position((1.0, 0.0, 0.0)), (-90.0, 0.0); atol=1e-9))
@@ -2727,9 +2727,20 @@ end
     exported = PaperData.recorded_leg(case, leg, trace, "out", 0, 24.0 * 31)
     @test exported.columns.lat == round.(Int, trace.lat .* 100)
     @test exported.columns.lon == round.(Int, trace.lon .* 100)
-    @test exported.nodes == [(round(point[1]; digits=3), round(point[2]; digits=3))
-                             for point in leg.path]
+    port_of_north = PaperData.wind_side.(trace.wind_east, trace.wind_north, trace.course)
+    @test exported.columns.apparent_angle ==
+          round.(Int, rad2deg.(port_of_north .* trace.apparent_angle))
+    @test any(<(0), exported.columns.apparent_angle) &&
+          any(>(0), exported.columns.apparent_angle)
     @test all(abs(spin) <= 400 for spin in exported.columns.trim.spin)
+end
+
+@testset "the passage figure labels a track all its ships share" begin
+    track = [(0.0, 10.0), (1.0, 12.0), (2.0, 11.0)]
+    @test PaperData.clearest_edge(track, [track]) == 1
+    apart = [(0.0, 10.0), (1.0, 20.0), (2.0, 11.0)]
+    @test PaperData.clearest_edge(track, [track, apart]) == 1
+    @test PaperData.clearest_edge(apart, [track, apart]) == 1
 end
 
 @testset "a kite's recorded pattern flies on the lee side in the ship's frame" begin

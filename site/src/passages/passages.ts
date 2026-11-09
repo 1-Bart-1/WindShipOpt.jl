@@ -56,8 +56,6 @@ export interface Leg {
   departure: number;
   start: number;
   duration: number;
-  fuel_energy: number;
-  nodes: [number, number][];
   columns: LegColumns;
 }
 
@@ -108,12 +106,12 @@ export function sampleAt(column: number[], hours: number): [number, number] {
   return [low, (tenths - column[low]) / (column[high] - column[low])];
 }
 
-const interpolate = (a: number, b: number, share: number) => a + share * (b - a);
+const interpolate = (from: number, to: number, share: number) => from + share * (to - from);
 
 /** The shortest interpolation between two angles in degrees. */
-export function interpolateAngle(a: number, b: number, share: number): number {
-  const turned = ((((b - a) % 360) + 540) % 360) - 180;
-  return a + share * turned;
+export function interpolateAngle(from: number, to: number, share: number): number {
+  const turned = ((((to - from) % 360) + 540) % 360) - 180;
+  return from + share * turned;
 }
 
 export interface PassageState {
@@ -124,15 +122,17 @@ export interface PassageState {
   course: number;
   windEast: number;
   windNorth: number;
+  /** Recorded at the last sample; the panels draw the same held values. */
   speed: number;
   thrust: number;
   power: number;
   apparentWind: number;
+  /** Apparent wind off the bow [deg], positive from starboard. */
   apparentAngle: number;
+  /** Whether the kite is up, held from the sample it launched at to the one it landed at. */
   flying: boolean;
-  /** How far the kite is out on its tether, 0 stowed to 1 flying. */
-  aloft: number;
   chord?: number;
+  /** Held at the last sample, as `speed`. */
   lift?: number;
   spin?: number;
   /** Azimuths and elevations [deg] of the recorded cycle, or undefined where none flies. */
@@ -142,53 +142,56 @@ export interface PassageState {
 function patternOf(raw: number[] | null | undefined): PassageState["pattern"] {
   if (!raw) return undefined;
   const n = (raw.length - 1) / 2;
-  return { azimuth: raw.slice(0, n).map((v) => v / 10), elevation: raw.slice(n, 2 * n).map((v) => v / 10), period: raw[2 * n] / 10 };
+  const inDegrees = (tenths: number) => tenths / 10;
+  return { azimuth: raw.slice(0, n).map(inDegrees), elevation: raw.slice(n, 2 * n).map(inDegrees), period: raw[2 * n] / 10 };
 }
 
-function blendPattern(a: PassageState["pattern"], b: PassageState["pattern"], share: number): PassageState["pattern"] {
-  if (!a || !b) return a ?? b;
+function blendPattern(from: PassageState["pattern"], to: PassageState["pattern"], share: number): PassageState["pattern"] {
+  if (!from || !to) return from ?? to;
   return {
-    azimuth: a.azimuth.map((v, i) => interpolateAngle(v, b.azimuth[i], share)),
-    elevation: a.elevation.map((v, i) => interpolate(v, b.elevation[i], share)),
-    period: interpolate(a.period, b.period, share),
+    azimuth: from.azimuth.map((angle, i) => interpolateAngle(angle, to.azimuth[i], share)),
+    elevation: from.elevation.map((angle, i) => interpolate(angle, to.elevation[i], share)),
+    period: interpolate(from.period, to.period, share),
   };
 }
 
-/** The recorded state of `leg` at `hours` since it left, continuous values interpolated between samples. */
+/** The recorded state of `leg` at `hours` since it left: position, wind and the rig's pose interpolated between samples, the recorded numbers held. */
 export function stateAt(leg: Leg, hours: number): PassageState {
-  const c = leg.columns;
-  const [i, share] = sampleAt(c.t, hours);
-  const j = Math.min(i + 1, c.t.length - 1);
+  const columns = leg.columns;
+  const [i, share] = sampleAt(columns.t, hours);
+  const j = Math.min(i + 1, columns.t.length - 1);
   const at = (column: number[]) => interpolate(column[i], column[j], share);
-  const flyingHere = c.flying[i] > 0;
-  const flyingNext = c.flying[j] > 0;
+  const { chord, lift, spin, pattern } = columns.trim;
   return {
     hours,
     sample: i,
-    lat: at(c.lat) / 100,
-    lon: at(c.lon) / 100,
-    course: interpolateAngle(c.course[i], c.course[j], share),
-    windEast: at(c.east) / 10,
-    windNorth: at(c.north) / 10,
-    speed: at(c.speed) / 10,
-    thrust: at(c.thrust) / 10,
-    power: at(c.power) / 100,
-    apparentWind: at(c.apparent_wind) / 10,
-    apparentAngle: interpolateAngle(c.apparent_angle[i], c.apparent_angle[j], share),
-    flying: flyingHere,
-    aloft: flyingHere === flyingNext ? (flyingHere ? 1 : 0) : flyingHere ? 1 - share : share,
-    chord: c.trim.chord && interpolateAngle(c.trim.chord[i], c.trim.chord[j], share),
-    lift: c.trim.lift && at(c.trim.lift) / 100,
-    spin: c.trim.spin && at(c.trim.spin) / 100,
-    pattern: c.trim.pattern && blendPattern(patternOf(c.trim.pattern[i]), patternOf(c.trim.pattern[j]), share),
+    lat: at(columns.lat) / 100,
+    lon: at(columns.lon) / 100,
+    course: interpolateAngle(columns.course[i], columns.course[j], share),
+    windEast: at(columns.east) / 10,
+    windNorth: at(columns.north) / 10,
+    speed: columns.speed[i] / 10,
+    thrust: columns.thrust[i] / 10,
+    power: columns.power[i] / 100,
+    apparentWind: at(columns.apparent_wind) / 10,
+    apparentAngle: interpolateAngle(columns.apparent_angle[i], columns.apparent_angle[j], share),
+    flying: columns.flying[i] > 0,
+    chord: chord && interpolateAngle(chord[i], chord[j], share),
+    lift: lift && lift[i] / 100,
+    spin: spin && spin[i] / 100,
+    pattern: pattern && blendPattern(patternOf(pattern[i]), patternOf(pattern[j]), share),
   };
 }
 
+/** Length [days] of the time axis that carries `leg` and, where given, `baseline`. */
+export const passageDays = (leg: Leg, baseline?: Leg) =>
+  Math.max(...[leg, baseline].filter((each): each is Leg => each !== undefined).map((each) => each.columns.t[each.columns.t.length - 1])) / 240;
+
 /** Launch, landing and forced-landing events of `leg`, with where they happened. */
 export function legEvents(leg: Leg): { hours: number; lat: number; lon: number; kind: number }[] {
-  const c = leg.columns;
-  return c.event.flatMap((kind, i) =>
-    kind === 0 ? [] : [{ hours: c.t[i] / 10, lat: c.lat[i] / 100, lon: c.lon[i] / 100, kind }],
+  const columns = leg.columns;
+  return columns.event.flatMap((kind, i) =>
+    kind === 0 ? [] : [{ hours: columns.t[i] / 10, lat: columns.lat[i] / 100, lon: columns.lon[i] / 100, kind }],
   );
 }
 
@@ -198,7 +201,7 @@ export function windAt(field: WindField, hours: number): { east: number[]; north
   const low = Math.max(Math.min(Math.floor(position), field.east.length - 1), 0);
   const high = Math.min(low + 1, field.east.length - 1);
   const share = Math.min(Math.max(position - low, 0), 1);
-  const blend = (frames: number[][]) => frames[low].map((v, i) => interpolate(v, frames[high][i], share) / 10);
+  const blend = (frames: number[][]) => frames[low].map((value, i) => interpolate(value, frames[high][i], share) / 10);
   return { east: blend(field.east), north: blend(field.north) };
 }
 
@@ -213,6 +216,18 @@ export class Timeline {
 
   set(hours: number) {
     this.hours = Math.min(Math.max(hours, 0), this.duration);
+    if (this.hours >= this.duration) this.playing = false;
+    this.notify();
+  }
+
+  /** Pause if playing, else play on from the cursor, or from the start once at the end. */
+  toggle() {
+    if (!this.playing && this.hours >= this.duration) this.hours = 0;
+    this.playing = !this.playing;
+    this.notify();
+  }
+
+  private notify() {
     this.listeners.forEach((listener) => listener());
   }
 
@@ -229,10 +244,13 @@ export const RIG_LABELS: Record<PassageDesign["rig"], string> = {
   rotors: "Flettner rotors",
 };
 
-/** Colours of the brand by rig, as CSS custom properties. */
-export const RIG_COLOURS: Record<PassageDesign["rig"], string> = {
-  none: "var(--brand-ink)",
-  kite: "var(--brand-orange)",
-  wings: "var(--brand-teal)",
-  rotors: "var(--brand-rust)",
+/** Name of the brand colour of each rig. */
+export const RIG_BRAND: Record<PassageDesign["rig"], string> = {
+  none: "ink",
+  kite: "orange",
+  wings: "teal",
+  rotors: "rust",
 };
+
+/** CSS value drawing `rig` in its brand colour. */
+export const rigColour = (rig: PassageDesign["rig"]) => `var(--brand-${RIG_BRAND[rig]})`;

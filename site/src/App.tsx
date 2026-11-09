@@ -14,14 +14,13 @@ import {
   type Outcome,
 } from "./explorer";
 import { canopyPriceInputs, exactInputs, inputGroups, type InputControl } from "./inputs";
+import { rigColour, RIG_LABELS, type PassageDesign } from "./passages/passages";
 import { PassageView } from "./passages/PassageView";
 
 const driveLabels: Record<string, string> = {
   vlsfo: "fuel oil (VLSFO)",
   ammonia: "e-ammonia",
 };
-const rigLabels: Record<string, string> = { wings: "Wing sails", rotors: "Flettner rotors", kite: "Towing kite" };
-const rigColours: Record<string, string> = { wings: "var(--brand-teal)", rotors: "var(--brand-rust)", kite: "var(--brand-orange)" };
 
 const formatted = (value: number, digits = 1) =>
   Number.isFinite(value) ? value.toLocaleString("en", { maximumFractionDigits: digits }) : "–";
@@ -194,8 +193,8 @@ function Results({ best, drive }: { best: Map<string, Outcome>; drive: string })
             return (
               <tr key={rig} className={`border-t border-ink/20 ${wins ? "bg-teal/15 font-semibold" : ""}`}>
                 <td className="py-1">
-                  <span className="mr-2 inline-block h-3 w-3 rounded-sm" style={{ background: rigColours[rig] }} />
-                  {rigLabels[rig]}{wins ? " — best" : ""}
+                  <span className="mr-2 inline-block h-3 w-3 rounded-sm" style={{ background: rigColour(rig as PassageDesign["rig"]) }} />
+                  {RIG_LABELS[rig as PassageDesign["rig"]]}{wins ? " — best" : ""}
                 </td>
                 {outcome ? (
                   <>
@@ -245,8 +244,8 @@ function WinnerMap(props: { data: ExplorerData; all: Outcome[]; drive: string; o
                   const shown = winner && saving > 0;
                   return (
                     <td key={route.name} className="h-8 w-20 cursor-pointer text-center text-white"
-                      title={shown ? `${rigLabels[winner]} saves ${formatted(saving)} %` : "no rig pays"}
-                      style={{ background: shown ? rigColours[winner] : "var(--brand-mid)", opacity: shown ? 0.35 + (0.65 * Math.min(saving, 40)) / 40 : 0.5 }}
+                      title={shown ? `${RIG_LABELS[winner as PassageDesign["rig"]]} saves ${formatted(saving)} %` : "no rig pays"}
+                      style={{ background: shown ? rigColour(winner as PassageDesign["rig"]) : "var(--brand-mid)", opacity: shown ? 0.35 + (0.65 * Math.min(saving, 40)) / 40 : 0.5 }}
                       onClick={() => props.onPick(k, j)}>
                       {Number.isFinite(saving) ? Math.round(saving) : "–"}
                     </td>

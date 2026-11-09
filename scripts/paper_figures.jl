@@ -476,26 +476,6 @@ function figure_passages()
 end
 
 """
-    edge_middle(track, edge)
-
-The middle of the `edge`-th edge between the nodes of `track`.
-"""
-edge_middle(track, edge) = (track[edge] .+ track[edge + 1]) ./ 2
-
-"""
-    clearest_edge(track, tracks)
-
-The edge of `track` whose middle lies furthest in latitude from that edge of the others.
-"""
-function clearest_edge(track, tracks)
-    others = filter(!=(track), tracks)
-    return argmax(firstindex(track):(lastindex(track) - 1)) do edge
-        latitude = edge_middle(track, edge)[2]
-        minimum(abs(latitude - edge_middle(other, edge)[2]) for other in others)
-    end
-end
-
-"""
     passage_figure()
 
 One winter outbound passage to Guadeloupe of a 140 m e-ammonia ship without a rig and

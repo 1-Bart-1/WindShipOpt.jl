@@ -36,6 +36,30 @@ wind_field = (spacing=5.0, hours=12.0)
 """
 wind_side(east, north, course) = sin(atan(-east, -north) - course) >= 0 ? 1 : -1
 
+"[`wind_side`](@ref) at each sample of the [`LegTrace`](@ref) `trace`"
+wind_sides(trace) = wind_side.(trace.wind_east, trace.wind_north, trace.course)
+
+"""
+    edge_middle(track, edge)
+
+The middle of the `edge`-th edge between the nodes of `track`.
+"""
+edge_middle(track, edge) = (track[edge] .+ track[edge + 1]) ./ 2
+
+"""
+    clearest_edge(track, tracks)
+
+The edge of `track` whose middle lies furthest in latitude from that edge of the others, the
+first where there are no others.
+"""
+function clearest_edge(track, tracks)
+    others = filter(!=(track), tracks)
+    return argmax(firstindex(track):(lastindex(track) - 1)) do edge
+        latitude = edge_middle(track, edge)[2]
+        minimum((abs(latitude - edge_middle(other, edge)[2]) for other in others); init=Inf)
+    end
+end
+
 """
     wing_incidence(rig, (lift, drag))
 
@@ -137,14 +161,13 @@ function recorded_trim(case, trace)
     rig = case.ship.rig
     count = length(trace.time)
     if rig isa WindShipOpt.WingRig
-        sides = wind_side.(trace.wind_east, trace.wind_north, trace.course)
+        sides = wind_sides(trace)
         incidences = [wing_incidence(rig, trim) for trim in trace.trim]
         return (; chord=round.(Int,
             rad2deg.(sides .* (trace.apparent_angle .- incidences))),
             lift=[round(Int, 100 * first(trim)) for trim in trace.trim])
     elseif rig isa WindShipOpt.RotorRig
-        sides = wind_side.(trace.wind_east, trace.wind_north, trace.course)
-        return (; spin=round.(Int, -100 .* sides .* trace.trim))
+        return (; spin=round.(Int, -100 .* wind_sides(trace) .* trace.trim))
     elseif rig isa WindShipOpt.KiteRig
         return (; pattern=[recorded_pattern(case, trace, i) for i in 1:count])
     end
@@ -155,9 +178,9 @@ end
     recorded_leg(case, leg, trace, direction, departure, start)
 
 The columns of one routed `leg` of `case` for the site, left at `start` [h] on the round
-trip of departure number `departure`, with its route nodes; integers in the units of the
-site: hours and kilonewtons ×10, degrees ×100 for positions, knots ×10, megawatts ×100,
-wind in m/s ×10.
+trip of departure number `departure`; integers in the units of the site: hours and
+kilonewtons ×10, degrees ×100 for positions, knots ×10, megawatts ×100, wind in m/s ×10,
+apparent angle in degrees, positive to starboard.
 """
 function recorded_leg(case, leg, trace, direction, departure, start)
     columns = (; t=round.(Int, trace.time .* 10), lat=round.(Int, trace.lat .* 100),
@@ -168,14 +191,11 @@ function recorded_leg(case, leg, trace, direction, departure, start)
         thrust=round.(Int, trace.rig_thrust ./ 100),
         power=round.(Int, trace.fuel_power ./ 1e4),
         apparent_wind=round.(Int, trace.apparent_wind .* 10),
-        apparent_angle=round.(Int, rad2deg.(trace.apparent_angle)),
+        apparent_angle=round.(Int, rad2deg.(wind_sides(trace) .* trace.apparent_angle)),
         flying=Int.(trace.flying),
         event=[flight_event(trace, i) for i in eachindex(trace.time)],
         trim=recorded_trim(case, trace))
     return (; design=case.index, direction, departure, start, duration=leg.duration,
-        fuel_energy=leg.fuel_energy / 1e12,
-        nodes=[(round(point[1]; digits=3), round(point[2]; digits=3))
-               for point in leg.path],
         columns)
 end
 
@@ -190,8 +210,8 @@ end
 """
     passage_cases()
 
-The ships of [`passage_rigs`](@ref) that fit, each with its [`PerformanceTable`](@ref), time
-costs and, for a kite, its [`kite_patterns`](@ref).
+The ships of [`passage_rigs`](@ref) that fit, each with its [`PerformanceTable`](@ref) and
+[`RouteTable`](@ref), time costs and, for a kite, its [`kite_patterns`](@ref).
 """
 function passage_cases()
     cases = []
@@ -203,30 +223,27 @@ function passage_cases()
                 first(WindShipOpt.kite_model(area, design.kite_aspect_ratio, assumptions)) :
                 nothing
         patterns = isnothing(model) ? nothing : kite_patterns(ship, model)
-        push!(cases, (; index=length(cases), rig, area, design, ship, patterns,
-            table=PerformanceTable(ship, assumptions),
+        table = PerformanceTable(ship, assumptions)
+        push!(cases, (; index=length(cases), rig, area, design, ship, patterns, table,
+            route_table=RouteTable(table),
             hourly=WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)))
     end
     return cases
 end
 
 """
-    routed_round_trip(case, name, k, departure, port_hours)
+    routed_round_trip(case, name, k, departure)
 
 The recorded outbound and return legs of `case` on route `name` of departure number `k`,
 leaving at `departure` [h], and the times they span [h], or `nothing` if either fails.
 """
-function routed_round_trip(case, name, k, departure, port_hours)
-    outbound, inbound = run_corridors(name)
-    out, out_trace = traced_passage(case.table, outbound, departure, first(case.hourly))
-    isnothing(out) && return nothing
-    back_departure = departure + out.duration + port_hours
-    back, back_trace = traced_passage(case.table, inbound, back_departure,
-        last(case.hourly))
-    isnothing(back) && return nothing
-    return (; legs=[recorded_leg(case, out, out_trace, "out", k - 1, departure),
-            recorded_leg(case, back, back_trace, "back", k - 1, back_departure)],
-        span=(departure, back_departure + back.duration))
+function routed_round_trip(case, name, k, departure)
+    trip = traced_round_trip(case.table, case.route_table, name, departure, case.hourly)
+    isnothing(trip) && return nothing
+    return (; legs=[recorded_leg(case, trip.out, trip.out_trace, "out", k - 1, departure),
+            recorded_leg(case, trip.back, trip.back_trace, "back", k - 1,
+                trip.back_departure)],
+        span=(departure, trip.back_departure + trip.back.duration))
 end
 
 """
@@ -236,8 +253,8 @@ The 10 m wind [0.1 m/s] on a grid around `legs` over `span` [h] for one departur
 grid, and per frame the east and north components, row after row.
 """
 function wind_frames(legs, span)
-    lats = [first(node) for leg in legs for node in leg.nodes]
-    lons = [last(node) for leg in legs for node in leg.nodes]
+    lats = [lat / 100 for leg in legs for lat in leg.columns.lat]
+    lons = [lon / 100 for leg in legs for lon in leg.columns.lon]
     lat_axis = floor(minimum(lats) - 5):(wind_field.spacing):ceil(maximum(lats) + 5)
     lon_axis = floor(minimum(lons) - 5):(wind_field.spacing):ceil(maximum(lons) + 5)
     east, north = Vector{Int}[], Vector{Int}[]
@@ -300,7 +317,7 @@ function passages_data()
     results = Vector{Any}(nothing, length(work))
     Threads.@threads :greedy for i in eachindex(work)
         route, case, k = work[i]
-        results[i] = routed_round_trip(case, route, k, departure_list[k], port_hours)
+        results[i] = routed_round_trip(case, route, k, departure_list[k])
     end
     for route in route_names
         write_route_files(route, departure_list, work, results)
