@@ -1559,7 +1559,7 @@ function traced_legs(ship, name)
     legs = []
     for departure in sampled_departures()
         trip = WindShipOpt.route_round_trip(route_table, run_corridors(name)..., weather,
-            departure, port_hours, hourly, Inf)
+            departure, port_hours, hourly, Inf, nothing)
         isnothing(trip) && continue
         out, back = trip
         back_departure = departure + out.duration + port_hours
@@ -1788,7 +1788,7 @@ function speed_term_sums(table, name, hourly, durations)
     for (k, departure) in enumerate(sampled_departures())
         pair = isnothing(durations) ?
                WindShipOpt.route_round_trip(table, corridors_of_route..., weather,
-            departure, port_hours, hourly, Inf) :
+            departure, port_hours, hourly, Inf, nothing) :
                same_time_round_trip(table, corridors_of_route, departure, port_hours,
             hourly, durations[(2k - 1):2k])
         isnothing(pair) && return nothing
