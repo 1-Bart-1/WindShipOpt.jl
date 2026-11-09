@@ -883,18 +883,6 @@ kite_flight_drag:
   high: 0.12
   unit: "-"
   reason: "Drag on the projected area that the design-shape model lacks in flight: deformation, control unit and steering. The V3 wing reaches L/D 8.6 in the wind tunnel (Poland et al. 2025) but 3.6-4.0 in traction with bridle and control unit (van der Vlugt et al. 2019), 3.9 fitted on a 160 m^2 SkySails kite and 4-5 with tether (Erhard & Strauch 2013, book chapter), 4-5 for SkySails towing kites (Paulig et al. 2013); 0.08 brings the aspect-ratio-3 kite with bridle to 4 at CL 0.8; 0 is a kite that keeps its design shape in flight."
-kite_max_wave_height:
-  value: 5.0
-  low: 4.0
-  high: 7.0
-  unit: m
-  reason: "Estimate, no source gives a number: highest significant wave height at which a kite aloft stays up. A kite far above the sea feels the ship's motion only through its tether, so we set this one metre above the landing limit."
-kite_landing_max_wave_height:
-  value: 4.0
-  low: 3.0
-  high: 5.0
-  unit: m
-  reason: "Estimate, no source gives a number: highest significant wave height for a landing that is not forced, the upper end of rough seas (sea state 5). The SkySails supplier reported limited launch opportunities in heavy sea (CE Delft 2016) without a number."
 kite_landing_max_wind:
   value: 20.0
   low: 15.0
@@ -906,13 +894,37 @@ kite_forced_landing_loss_probability:
   low: 0.01
   high: 0.2
   unit: "-"
-  reason: "Estimate, no source gives a rate: chance of losing the kite with its tether and control unit in a landing outside the landing limits, the only way down once wind or sea exceed the stay-up limits or at the end of a leg."
-kite_launch_max_wave_height:
-  value: 3.0
-  low: 2.0
-  high: 4.0
+  reason: "Estimate, no source gives a rate: chance of losing the kite with its tether and control unit in a landing outside the landing limits, the only way down once wind exceeds the stay-up limits or at the end of a leg."
+kite_launch_sea_wind:
+  value: 5.0
+  low: 0.0
+  high: 10.0
+  unit: m/s
+  reason: "Extra apparent wind a launch needs, against the calm-sea value, from the motion of the launch mast on the reference ship in the reference sea. SkySails ships: about 5 m/s in perfect conditions, while rough sea and bad weather might require 10 m/s (Paulig et al. 2013); bad weather is part of that step, so taking all 5 m/s for the sea is a bound against the kite. The low bound is no effect of the sea; the high bound doubles it. Reported limited launch opportunities in heavy sea (CE Delft 2016) give no number."
+kite_launch_sea_length:
+  value: 132.0
+  low: 132.0
+  high: 132.0
   unit: m
-  reason: "Estimate, no source gives a number: highest significant wave height at which a kite is launched, one metre below the stay-up limit because a launch is the step most exposed to ship motion. The SkySails supplier reported limited launch opportunities in heavy sea in the first test phase (CE Delft 2016)."
+  reason: "Waterline length of the reference ship for the extra launch wind: Beluga SkySails, 132 m, the ship SkySails reported on."
+kite_launch_sea_height:
+  value: 3.25
+  low: 3.25
+  high: 3.25
+  unit: m
+  reason: "Significant wave height of the reference sea for the extra launch wind: the middle of rough seas, sea state 5 of the World Meteorological Organization, 2.5-4 m."
+kite_launch_sea_period:
+  value: 9.0
+  low: 9.0
+  high: 9.0
+  unit: s
+  reason: "Peak period of the reference sea for the extra launch wind: a fully developed Pierson-Moskowitz sea of the reference height."
+kite_launch_sea_speed:
+  value: 6.0
+  low: 6.0
+  high: 6.0
+  unit: m/s
+  reason: "Ship speed of the reference case for the extra launch wind, about 12 kn."
 kite_launch_margin:
   value: 1.3
   low: 1.1
@@ -922,9 +934,9 @@ kite_launch_margin:
 kite_launch_min_wind:
   value: 5.0
   low: 3.0
-  high: 10.0
+  high: 7.0
   unit: m/s
-  reason: "Lowest apparent wind for a launch where it exceeds the wind derived from lift-off and flight. SkySails ships: about 5 m/s in perfect conditions, while rough sea and bad weather might require 10 m/s, the high bound (Paulig et al. 2013); not below Beaufort 3, 3.4-5.4 m/s (Konrad 2009). SkySails on land: 3 m/s (Fagiano et al. 2022), and 5 m/s measured against an assumed 6 (Junge et al. 2023). Kitepower Falcon: 5 m/s (Kitepower 2024). Rough sea comes with stronger wind, which clears the limit by itself, so the base is the calm-sea figure."
+  reason: "Lowest apparent wind for a launch in a calm sea, where it exceeds the wind derived from lift-off and flight; the sea adds to it by kite_launch_sea_wind. SkySails ships: about 5 m/s in perfect conditions (Paulig et al. 2013); not below Beaufort 3, 3.4-5.4 m/s (Konrad 2009). SkySails on land: 3 m/s (Fagiano et al. 2022), and 5 m/s measured against an assumed 6 (Junge et al. 2023). Kitepower Falcon: 5 m/s (Kitepower 2024). The high bound is our estimate of a poor calm-sea launch."
 kite_launch_max_wind:
   value: 17.0
   low: 13.0

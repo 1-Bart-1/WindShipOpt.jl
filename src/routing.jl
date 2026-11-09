@@ -371,7 +371,7 @@ function held_speed(table::RouteTable, speed_index, sample::EdgeSample)
         flown, stowed = edge_fuels(table, i, sample.condition)
         isfinite(stowed) && return i, flown, stowed
         isfinite(flown) && kite_aloft(table.table, table.speeds[i], sample.headwind,
-            sample.crosswind, sample.condition.wave_height) && return i, flown, stowed
+            sample.crosswind) && return i, flown, stowed
     end
     return 0, Inf, Inf
 end
@@ -533,16 +533,15 @@ there and whether the way aloft launches it there.
 """
 function kite_step(table::RouteTable, point, down, up, prices)
     speed = table.speeds[point.speed_index]
-    (; headwind, crosswind, daylight) = point
-    wave_height = point.condition.wave_height
-    landing = kite_landable(table.table, speed, headwind, crosswind, wave_height) ? up :
+    (; headwind, crosswind, daylight, condition) = point
+    landing = kite_landable(table.table, speed, headwind, crosswind, condition) ? up :
               forced_landing(up, table.table.forced_landing_cost)
     landed = landing.cost < down.cost
     next_down = extend(landed ? landing : down, point.stowed, point.hours, 0.0, STOWED,
         false, prices, table.table.cycle_cost)
-    stays = kite_aloft(table.table, speed, headwind, crosswind, wave_height) ?
+    stays = kite_aloft(table.table, speed, headwind, crosswind) ?
             aloft_tally(table.table, up, point, false, prices) : NO_TALLY
-    launches = kite_launchable(table.table, speed, headwind, crosswind, wave_height,
+    launches = kite_launchable(table.table, speed, headwind, crosswind, condition,
         daylight) ? aloft_tally(table.table, down, point, true, prices) : NO_TALLY
     launched = launches.cost < stays.cost
     return next_down, launched ? launches : stays, landed, launched

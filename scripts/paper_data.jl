@@ -135,6 +135,39 @@ launch_cost_assumptions(bound) = foldl(launch_cost_inputs; init=assumptions) do 
     with_value(inputs, name, getfield(assumptions.entries[name], bound))
 end
 
+"the ship classes of the sea effect study, in order of length"
+sea_effect_classes = ("general cargo coaster", "feeder container ship",
+    "Kamsarmax bulk carrier", "VLCC", "Neo-Panamax container ship")
+
+"""
+    sea_effect_data()
+
+On every route on e-ammonia, the 140 m ship with the 3,200 m^2 kite and each of
+[`sea_effect_classes`](@ref) with the kite the class study found cheapest, without a rig,
+with the kite as modelled and with no extra launch wind from the sea: sea_effect.csv.
+"""
+function sea_effect_data()
+    classes_table = read_table(data_file("classes.csv"))
+    no_sea = with_value(assumptions, :kite_launch_sea_wind, 0.0)
+    ships = [("140 m", 140.0, (route -> 3200.0))]
+    for name in sea_effect_classes
+        class = ship_classes()[name]
+        area(route) = best_area(classes_table, name, string(route), "ammonia", "kite")
+        push!(ships, (name, class, area))
+    end
+    cases = []
+    for route in route_names, (ship, build, area) in ships
+        bare = ShipDesign(:ammonia, build)
+        push!(cases, trip_case(bare; route, ship, rig="none", area=0.0, sea="none"))
+        rigged = ShipDesign(:ammonia, build; rig_size("kite", area(route))...)
+        push!(cases, trip_case(rigged; route, ship, rig="kite", area=area(route), sea="model"))
+        push!(cases, trip_case(rigged; route, ship, rig="kite", area=area(route), sea="none",
+            assumptions=no_sea))
+    end
+    write_trips("sea_effect.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :route, :rig, :area, :sea)
+end
+
 """
     launch_data()
 
@@ -1191,23 +1224,20 @@ end
 Write `name`: for the kite ship re-planning daily on the real weather and on the control
 forecast, over the outbound and return passages from `departures`, the samples at sea and
 aloft, and the share of those aloft with apparent wind within 1.25 and 4 m/s of the
-lowest it flies in and with waves within 0.5 and 1 m of the highest.
+lowest it flies in.
 """
 function write_kite_margins(name, departures)
     table, hourly = routing_inputs("kite")
-    max_wave_height = table.table.max_wave_height
     min_flight_wind = table.table.ship.rig.min_flight_wind
     sources = (("perfect", PerfectForecast()), ("forecast", forecast_archive))
     open(run_file(name), "w") do io
-        println(io, "knowledge,samples,aloft,wind_within_1.25,wind_within_4,",
-            "waves_within_0.5,waves_within_1")
+        println(io, "knowledge,samples,aloft,wind_within_1.25,wind_within_4")
         for (knowledge, source) in sources
             samples = reduce(vcat, [sailed_samples(table, hourly, source, departure)
                                     for departure in departures])
-            margins = kite_margin_shares(samples, min_flight_wind, max_wave_height)
-            @printf(io, "%s,%d,%d,%.3f,%.3f,%.3f,%.3f\n", knowledge, margins.samples,
-                margins.aloft, margins.wind_within_1p25, margins.wind_within_4,
-                margins.waves_within_0p5, margins.waves_within_1)
+            margins = kite_margin_shares(samples, min_flight_wind)
+            @printf(io, "%s,%d,%d,%.3f,%.3f\n", knowledge, margins.samples,
+                margins.aloft, margins.wind_within_1p25, margins.wind_within_4)
         end
     end
 end
@@ -1228,22 +1258,18 @@ function sailed_samples(table, hourly, source, departure)
 end
 
 """
-    kite_margin_shares(samples, min_flight_wind, max_wave_height)
+    kite_margin_shares(samples, min_flight_wind)
 
 Of the [`KiteRecord`](@ref) `samples`, how many there are, how many aloft, and the share
-of those aloft with apparent wind within 1.25 and 4 m/s of `min_flight_wind` [m/s] and with
-waves within 0.5 and 1 m of `max_wave_height` [m].
+of those aloft with apparent wind within 1.25 and 4 m/s of `min_flight_wind` [m/s].
 """
-function kite_margin_shares(samples, min_flight_wind, max_wave_height)
+function kite_margin_shares(samples, min_flight_wind)
     aloft = filter(sample -> sample.aloft, samples)
     wind_margins = [sample.apparent_wind - min_flight_wind for sample in aloft]
-    wave_margins = [max_wave_height - sample.wave_height for sample in aloft]
     share_within(margins, limit) = count(<=(limit), margins) / max(length(margins), 1)
     return (; samples=length(samples), aloft=length(aloft),
         wind_within_1p25=share_within(wind_margins, 1.25),
-        wind_within_4=share_within(wind_margins, 4.0),
-        waves_within_0p5=share_within(wave_margins, 0.5),
-        waves_within_1=share_within(wave_margins, 1.0))
+        wind_within_4=share_within(wind_margins, 4.0))
 end
 
 """

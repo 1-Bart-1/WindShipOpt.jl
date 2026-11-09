@@ -125,6 +125,9 @@ struct PerformanceTable{S}
     stowed_power::LinearTable{4}
     "added resistance over H_s^2 [N/m^2] at (speed [m/s], peak period [s], heading [rad])"
     wave_resistance::LinearTable{3}
+    "apparent wind a kite launch needs beyond calm sea, per metre of significant wave height
+    [(m/s)/m], at (speed, peak period, wave heading) knots"
+    sea_launch_wind::LinearTable{3}
     "wear cost of flying the rig [USD/h]"
     wear_cost::Float64
     "cost of one launch and landing of a kite [USD]"
@@ -135,8 +138,6 @@ struct PerformanceTable{S}
     forced_landing_cost::Float64
     speeds::Vector{Float64}
     max_wind::Float64
-    "highest significant wave height at which a kite stays up [m]"
-    max_wave_height::Float64
     "true wind at a kite's reference height per unit of 10 m wind [-]; zero without a kite"
     kite_wind_factor::Float64
 end
@@ -193,11 +194,19 @@ function PerformanceTable(ship::Ship, assumptions::Assumptions)
                                   trim_tables(ship, standing, trim_grid)
     waves = [added_resistance(ship.seakeeping, ship.env, speed, 1.0, period, heading)
              for speed in speeds, period in periods, heading in headings]
+    wind_per_mast_speed = launch_wind_per_mast_speed(ship.rig, assumptions)
+    mast_position = launch_mast_position(ship.hull, assumptions)
+    sea_winds = [iszero(wind_per_mast_speed) ? 0.0 :
+                 wind_per_mast_speed * mast_speed(ship.seakeeping, ship.env, speed, 1.0,
+                     period, heading, mast_position)
+                 for speed in speeds, period in periods, heading in headings]
     return PerformanceTable(ship, flown_thrust, stowed_thrust, rig_power, stowed_power,
-        LinearTable((speeds, periods, headings), waves), wear_cost(ship.rig, assumptions),
+        LinearTable((speeds, periods, headings), waves),
+        LinearTable((speeds, periods, headings), sea_winds),
+        wear_cost(ship.rig, assumptions),
         cycle_cost(ship.rig, assumptions), handling_hours(ship.rig, assumptions),
         forced_landing_cost(ship.rig, assumptions), speeds, last(winds),
-        max_wave_height(ship.rig, assumptions), kite_wind_factor(ship.rig, ship.env))
+        kite_wind_factor(ship.rig, ship.env))
 end
 
 """
@@ -215,14 +224,44 @@ function trim_tables(ship::Ship, rig, trim_grid)
 end
 
 """
-    max_wave_height(rig, assumptions)
+    launch_wind_per_mast_speed(rig, assumptions)
 
-Highest significant wave height [m] at which a kite stays up; wings and rotors stand in any
-sea.
+Apparent wind a launch of the kite of `rig` needs per unit of [`mast_speed`](@ref) [-],
+scaled so that the reference ship in the reference sea, over headings, needs
+`:kite_launch_sea_wind`; zero for a rig without a soft kite.
 """
-max_wave_height(rig, assumptions) = Inf
-max_wave_height(::KiteRig, assumptions) = assumptions[:kite_max_wave_height]
-max_wave_height(rig::CombinedRig, assumptions) = max_wave_height(rig.kite, assumptions)
+launch_wind_per_mast_speed(rig, assumptions) = 0.0
+launch_wind_per_mast_speed(rig::CombinedRig, assumptions) =
+    launch_wind_per_mast_speed(rig.kite, assumptions)
+launch_wind_per_mast_speed(::KiteRig{RigidAirframe}, assumptions) = 0.0
+launch_wind_per_mast_speed(::KiteRig, assumptions) =
+    assumptions[:kite_launch_sea_wind] / reference_mast_speed(assumptions)
+
+"""
+    reference_mast_speed(assumptions)
+
+[`mast_speed`](@ref) [m/s] of the reference ship of the extra launch wind in its reference
+sea, the mean over headings from following to head waves.
+"""
+function reference_mast_speed(assumptions::Assumptions)
+    hull = Hull(assumptions[:kite_launch_sea_length], assumptions)
+    seakeeping = SeakeepingHull(hull, assumptions)
+    env = Environment(assumptions)
+    position = launch_mast_position(hull, assumptions)
+    headings = deg2rad.(0:15:180)
+    return sum(heading -> mast_speed(seakeeping, env, assumptions[:kite_launch_sea_speed],
+            assumptions[:kite_launch_sea_height], assumptions[:kite_launch_sea_period],
+            heading, position), headings) / length(headings)
+end
+
+"""
+    extra_launch_wind(table, speed, condition)
+
+Apparent wind [m/s] a kite launch needs beyond calm sea in the sea of `condition`.
+"""
+extra_launch_wind(table::PerformanceTable, speed, condition::SeaCondition) =
+    condition.wave_height * table.sea_launch_wind(KnotWeight(table.speeds, speed),
+        condition.wave_period, condition.wave_heading)
 
 """
     handling_hours(rig, assumptions)
@@ -345,7 +384,7 @@ function edge_fuels(table::PerformanceTable, speed, slice::SpeedSlice,
     flown = fuel_power(table, speed, flown_thrust + outside, rig_power)
     table.stowed_thrust === table.flown_thrust && return flown, flown
     stowed = fuel_power(table, speed, stowed_thrust + outside, stowed_power)
-    return (wave_height > table.max_wave_height ? Inf : flown), stowed
+    return flown, stowed
 end
 
 """
@@ -385,62 +424,59 @@ kite_wind_factor(rig::KiteRig, env) = wind_at_height(env, 1.0, rig.reference_hei
 kite_wind_factor(rig::CombinedRig, env) = kite_wind_factor(rig.kite, env)
 
 """
-    kite_aloft(table, speed, headwind, crosswind, wave_height)
+    kite_aloft(table, speed, headwind, crosswind)
 
-Whether a kite can stay up at ship `speed` [m/s] in significant wave height `wave_height`
-[m], from the components of the true wind at its reference height from ahead and from abeam
-[m/s]: the apparent wind carries its weight and neither wind nor sea exceeds the stay-up
-limits; never for ships without a kite.
+Whether a kite can stay up at ship `speed` [m/s] in `headwind` and `crosswind` [m/s]: the
+apparent wind is inside its flight limits.
 """
-kite_aloft(table::PerformanceTable, speed, headwind, crosswind, wave_height) =
-    kite_aloft(table.ship.rig, table, speed, headwind, crosswind, wave_height)
-kite_aloft(rig, table, speed, headwind, crosswind, wave_height) = false
-kite_aloft(rig::CombinedRig, table, speed, headwind, crosswind, wave_height) =
-    kite_aloft(rig.kite, table, speed, headwind, crosswind, wave_height)
-
-function kite_aloft(rig::KiteRig, table, speed, headwind, crosswind, wave_height)
-    apparent = hypot(headwind + speed, crosswind)
-    return wave_height <= table.max_wave_height &&
-           rig.min_flight_wind <= apparent <= rig.max_wind
-end
+kite_aloft(table::PerformanceTable, speed, headwind, crosswind) =
+    kite_aloft(table.ship.rig, speed, headwind, crosswind)
+kite_aloft(rig, speed, headwind, crosswind) = false
+kite_aloft(rig::CombinedRig, speed, headwind, crosswind) =
+    kite_aloft(rig.kite, speed, headwind, crosswind)
+kite_aloft(rig::KiteRig, speed, headwind, crosswind) =
+    rig.min_flight_wind <= hypot(headwind + speed, crosswind) <= rig.max_wind
 
 """
-    kite_launchable(table, speed, headwind, crosswind, wave_height, daylight)
+    kite_launchable(table, speed, headwind, crosswind, condition, daylight)
 
 Whether a kite can be launched on the ship's course under the arguments of
-[`kite_aloft`](@ref): it can stay up there, wind and sea are inside the launch limits, and
-it is `daylight` or launches run at night too.
+[`kite_aloft`](@ref), in the sea of `condition`: it can stay up there, the apparent wind
+clears the calm-sea launch wind plus the [`extra_launch_wind`](@ref) and is inside the
+launch limits, and it is `daylight` or launches run at night too.
 """
-kite_launchable(table::PerformanceTable, speed, headwind, crosswind, wave_height,
-    daylight) = kite_launchable(table.ship.rig, table, speed, headwind, crosswind,
-    wave_height, daylight)
-kite_launchable(rig, table, speed, headwind, crosswind, wave_height, daylight) = false
-kite_launchable(rig::CombinedRig, table, speed, headwind, crosswind, wave_height,
-    daylight) = kite_launchable(rig.kite, table, speed, headwind, crosswind, wave_height,
+kite_launchable(table::PerformanceTable, speed, headwind, crosswind, condition, daylight) =
+    kite_launchable(table.ship.rig, speed, headwind, crosswind, condition.wave_height,
+        extra_launch_wind(table, speed, condition), daylight)
+kite_launchable(rig, speed, headwind, crosswind, wave_height, sea_wind, daylight) = false
+kite_launchable(rig::CombinedRig, speed, headwind, crosswind, wave_height, sea_wind,
+    daylight) = kite_launchable(rig.kite, speed, headwind, crosswind, wave_height, sea_wind,
     daylight)
 
-function kite_launchable(rig::KiteRig, table, speed, headwind, crosswind, wave_height,
+function kite_launchable(rig::KiteRig, speed, headwind, crosswind, wave_height, sea_wind,
         daylight)
     apparent = hypot(headwind + speed, crosswind)
-    return (daylight || rig.night_launch) &&
-           kite_aloft(rig, table, speed, headwind, crosswind, wave_height) &&
+    return (daylight || rig.night_launch) && kite_aloft(rig, speed, headwind, crosswind) &&
            wave_height <= rig.launch_max_wave_height &&
-           rig.launch_min_wind <= apparent <= rig.launch_max_wind
+           rig.launch_min_wind + sea_wind <= apparent <= rig.launch_max_wind
 end
 
 """
-    kite_landable(table, speed, headwind, crosswind, wave_height)
+    kite_landable(table, speed, headwind, crosswind, condition)
 
 Whether a kite can land inside the landing limits under the arguments of
-[`kite_aloft`](@ref); a landing outside them is a forced one.
+[`kite_launchable`](@ref): the apparent wind is within them and the launch wind the sea of
+`condition` calls for has not risen past them; a landing outside them is a forced one.
 """
-kite_landable(table::PerformanceTable, speed, headwind, crosswind, wave_height) =
-    kite_landable(table.ship.rig, speed, headwind, crosswind, wave_height)
-kite_landable(rig, speed, headwind, crosswind, wave_height) = true
-kite_landable(rig::CombinedRig, speed, headwind, crosswind, wave_height) =
-    kite_landable(rig.kite, speed, headwind, crosswind, wave_height)
-kite_landable(rig::KiteRig, speed, headwind, crosswind, wave_height) =
+kite_landable(table::PerformanceTable, speed, headwind, crosswind, condition) =
+    kite_landable(table.ship.rig, speed, headwind, crosswind, condition.wave_height,
+        extra_launch_wind(table, speed, condition))
+kite_landable(rig, speed, headwind, crosswind, wave_height, sea_wind) = true
+kite_landable(rig::CombinedRig, speed, headwind, crosswind, wave_height, sea_wind) =
+    kite_landable(rig.kite, speed, headwind, crosswind, wave_height, sea_wind)
+kite_landable(rig::KiteRig, speed, headwind, crosswind, wave_height, sea_wind) =
     wave_height <= rig.landing_max_wave_height &&
+    rig.launch_min_wind + sea_wind <= rig.landing_max_wind &&
     hypot(headwind + speed, crosswind) <= rig.landing_max_wind
 
 function fuel_power(table::PerformanceTable, speed, thrust, rig_power)
