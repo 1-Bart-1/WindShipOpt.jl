@@ -56,6 +56,7 @@ function Passages({ index }: { index: PassageIndex }) {
   const design = sizes[Math.min(size, sizes.length - 1)];
   const baselineDesign = designs.find((candidate) => candidate.rig === "none");
   const leg = passages && design ? findLeg(passages, design.index, direction, departure) : undefined;
+  const unsailed = passages !== undefined && !leg;
   const baseline = passages && baselineDesign && rig !== "none" ? findLeg(passages, baselineDesign.index, direction, departure) : undefined;
   const field = winds?.winds[departure] ?? undefined;
 
@@ -97,16 +98,16 @@ function Passages({ index }: { index: PassageIndex }) {
             <Transport timeline={timeline} playing={playing} setPlaying={setPlaying} leg={leg} />
           </div>
           {!passages && <p>Loading the routed passages…</p>}
-          {passages && !leg && <p>This ship could not sail this route at this departure.</p>}
+          {unsailed && <p>This ship could not sail this route at this departure.</p>}
           {leg && design && <ReadOut leg={leg} design={design} timeline={timeline} />}
         </div>
         <div className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
-            <SceneFrame title="Passage" aspect="aspect-square">
+            <SceneFrame title="Passage" aspect="aspect-square" unsailed={unsailed}>
               <GlobeCanvas leg={leg} baseline={baseline} colour={RIG_COLOURS[rig]} field={field} timeline={timeline} />
             </SceneFrame>
-            <SceneFrame title="Ship and rig" aspect="aspect-square"
-              action={rig === "kite" ? <button className="button-outline" onClick={() => setDeckView(!deckView)}>{deckView ? "Whole kite" : "On deck"}</button> : undefined}>
+            <SceneFrame title="Ship and rig" aspect="aspect-square" unsailed={unsailed}
+              action={rig === "kite" && !unsailed ? <button className="button-outline" onClick={() => setDeckView(!deckView)}>{deckView ? "Whole kite" : "On deck"}</button> : undefined}>
               {design && <ShipCanvas design={design} deckView={deckView} leg={leg} timeline={timeline} />}
             </SceneFrame>
           </div>
@@ -161,14 +162,14 @@ function Transport({ timeline, playing, setPlaying, leg }: { timeline: Timeline;
   );
 }
 
-function SceneFrame({ title, aspect, action, children }: { title: string; aspect: string; action?: React.ReactNode; children: React.ReactNode }) {
+function SceneFrame({ title, aspect, unsailed, action, children }: { title: string; aspect: string; unsailed: boolean; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="panel relative overflow-hidden p-0">
       <div className="absolute left-3 top-2 z-10 flex items-center gap-3">
         <span className="label rounded bg-paper px-1">{title}</span>
         {action}
       </div>
-      <div className={`${aspect} w-full`}>{children}</div>
+      <div className={`${aspect} w-full ${unsailed ? "invisible" : ""}`}>{children}</div>
     </div>
   );
 }

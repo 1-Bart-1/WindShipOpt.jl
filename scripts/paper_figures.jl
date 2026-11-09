@@ -476,6 +476,26 @@ function figure_passages()
 end
 
 """
+    edge_middle(track, edge)
+
+The middle of the `edge`-th edge between the nodes of `track`.
+"""
+edge_middle(track, edge) = (track[edge] .+ track[edge + 1]) ./ 2
+
+"""
+    clearest_edge(track, tracks)
+
+The edge of `track` whose middle lies furthest in latitude from that edge of the others.
+"""
+function clearest_edge(track, tracks)
+    others = filter(!=(track), tracks)
+    return argmax(firstindex(track):(lastindex(track) - 1)) do edge
+        latitude = edge_middle(track, edge)[2]
+        minimum(abs(latitude - edge_middle(other, edge)[2]) for other in others)
+    end
+end
+
+"""
     passage_figure()
 
 One winter outbound passage to Guadeloupe of a 140 m e-ammonia ship without a rig and
@@ -495,15 +515,14 @@ function passage_figure()
     lines!(map_axis, great_circle(first_path[1], first_path[end])...; color=:black,
         linestyle=:dot, linewidth=0.8)
     tracks = [track_points(leg.path) for (leg, _) in legs]
-    widest = argmax(stage -> maximum(track[stage][2] for track in tracks) -
-                             minimum(track[stage][2] for track in tracks),
-        eachindex(first(tracks)))
     for track in unique(tracks)
         sharing = [replace(first(designs[i]), r" \d+ m²" => "") for i in eachindex(tracks)
                    if tracks[i] == track]
         scatterlines!(map_axis, track; color=:black, linewidth=1.2, markersize=pt(3))
-        north = track[widest][2] == maximum(other[widest][2] for other in tracks)
-        text!(map_axis, track[widest]; text=join(sharing, ", "), fontsize=pt(9),
+        edge = clearest_edge(track, unique(tracks))
+        middle = edge_middle(track, edge)
+        north = middle[2] == maximum(edge_middle(other, edge)[2] for other in tracks)
+        text!(map_axis, middle; text=join(sharing, ", "), fontsize=pt(9),
             align=(:center, north ? :bottom : :top), offset=(0, north ? 5 : -5),
             glowcolor=(:white, 0.9), glowwidth=3)
     end
