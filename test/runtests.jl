@@ -1791,7 +1791,8 @@ end
     forecast = WindShipOpt.known_weather(archive, weather, time, Inf)
     true_speed, forecast_speed = hypot(wind(weather, place...)...),
     hypot(wind(forecast, place...)...)
-    known(band) = WindShipOpt.known_weather(ForecastParts(archive, band), weather, time, Inf)
+    known(band) = WindShipOpt.known_weather(ForecastParts(archive, band), weather, time,
+        Inf)
     @test wind(forecast, place...) != wind(weather, place...)
     waves_only = WindShipOpt.known_weather(ForecastParts(archive), weather, time, Inf)
     @test wind(waves_only, place...) == wind(weather, place...)
@@ -1803,6 +1804,10 @@ end
     outside = max(true_speed, forecast_speed) + 1.0
     @test wind(known((outside, outside + 1.0)), place...) == wind(weather, place...)
     @test waves(known((outside, outside + 1.0)), place...) == waves(forecast, place...)
+    wind_only = WindShipOpt.known_weather(ForecastParts(archive, (-Inf, Inf), false),
+        weather, time, Inf)
+    @test wind(wind_only, place...) == wind(forecast, place...)
+    @test waves(wind_only, place...) == waves(weather, place...)
 end
 
 @testset "a ship on the shortest lead reads each time from the forecast last issued" begin
@@ -2485,7 +2490,7 @@ end
 @testset "the kite's excess loss over a rig is paired per departure" begin
     fixed = ("replanned", "shortest_lead", "forecast_course", "perfect_course",
         "common_perfect", "common_forecast", "wave_forecast", "wind_near_limit",
-        "forecast_course_replanned", "perfect_course_replanned")
+        "wind_forecast", "forecast_course_replanned", "perfect_course_replanned")
     savings = Dict(("kite", "perfect") => [10.0, 12.0, 14.0],
         ("kite", "forecast") => [2.0, 4.0, 9.0],
         ("kite", "foresight_kite") => [50.0, 50.0, 50.0],
@@ -2517,22 +2522,23 @@ end
 kite_sample(aloft, apparent_wind, wave_height) = (; hours=0.0, lat=0.0, lon=0.0, aloft,
     planned=aloft, wind_speed=apparent_wind, apparent_wind, wave_height)
 
-@testset "the kite's margin shares count its time near its limits and its time kept down" begin
+@testset "the kite's margin shares count time near its limits and time kept down" begin
     limits = (; min_flight_wind=7.0, max_wave_height=5.0, launch_min_wind=8.0,
-        launch_max_wave_height=3.0)
+        launch_max_wind=20.0, launch_max_wave_height=3.0)
     samples = [kite_sample(true, 8.0, 4.8), kite_sample(true, 11.0, 3.5),
         kite_sample(true, 20.0, 1.0), kite_sample(false, 8.0, 4.8),
-        kite_sample(false, 6.0, 2.5), kite_sample(false, 12.0, 2.5)]
+        kite_sample(false, 6.0, 2.5), kite_sample(false, 12.0, 2.5),
+        kite_sample(false, 25.0, 2.5)]
     shares = PaperData.kite_margin_shares(samples, limits)
-    @test (shares.samples, shares.aloft) == (6, 3)
+    @test (shares.samples, shares.aloft) == (7, 3)
     @test shares.wind_within_1p25 ≈ 1 / 3
     @test shares.wind_within_4 ≈ 2 / 3
     @test shares.waves_within_0p5 ≈ 1 / 3
     @test shares.waves_within_1 ≈ 1 / 3
-    @test shares.down_waves ≈ 1 / 6
-    @test shares.down_wind ≈ 1 / 6
-    @test shares.down_other ≈ 1 / 6
-    @test shares.near_launch_waves ≈ 2 / 6
+    @test shares.down_waves ≈ 1 / 7
+    @test shares.down_wind ≈ 2 / 7
+    @test shares.down_other ≈ 1 / 7
+    @test shares.near_launch_waves ≈ 3 / 7
     columns = last.(PaperData.kite_margin_rows)
     @test all(column -> haskey(shares, Symbol(column)), columns)
 end
@@ -2544,6 +2550,23 @@ end
     speeds = PaperData.near_limit_wind_speeds([near, far], 240.0, 7.0, weather)
     @test speeds ≈ [hypot(wind(weather, 0.0, 0.0, 240.0)...)]
     @test PaperData.central_band([1.0:100.0;]) == (5.95, 95.05)
+end
+
+@testset "a round trip's return is planned and sampled for the time it sails" begin
+    weather, departure, port_hours = SyntheticWeather(), 24.0 * 121, 24.0 * 60
+    costs, corridors = (hourly, hourly), (corridor, corridor)
+    outbound, back = PaperData.round_trip_courses(table, corridors, weather, departure,
+        port_hours, costs, nothing)
+    out = route(corridor, table, weather, departure; time_cost=hourly)
+    course_from(start) = WindShipOpt.path_corridor(
+        route(corridor, table, weather, start; time_cost=hourly), corridor, 1).lat
+    @test outbound.lat == course_from(departure)
+    @test back.lat == course_from(departure + out.duration + port_hours)
+    @test back.lat != course_from(departure)
+    samples = PaperData.round_trip_samples(table, corridors, weather, departure, port_hours,
+        costs, PerfectForecast())
+    @test issorted(sample.hours for sample in samples)
+    @test maximum(sample.hours for sample in samples) > out.duration + port_hours
 end
 
 "path and force text `PaperData.write_pattern` writes for the base kite in `wind` at `course`"

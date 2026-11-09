@@ -975,26 +975,30 @@ forecast_cause_groups = (
         (("Total", cause_loss(:perfect, :forecast)),)),
     ("Of which, course first",
         (("Course", cause_loss(:perfect, :forecast_course)),
-            ("Re-planning once a day", cause_loss(:forecast_course,
-                :forecast_course_replanned)),
+            ("Re-planning once a day, on the forecast's course",
+                cause_loss(:forecast_course, :forecast_course_replanned)),
             ("Speed", cause_loss(:forecast_course_replanned, :foresight_kite)),
             ("The kite's flying decisions", cause_loss(:foresight_kite, :forecast)))),
     ("Of which, course last",
-        (("Re-planning once a day", cause_loss(:perfect, :perfect_course_replanned)),
+        (("Re-planning once a day, on the course of perfect foresight",
+                cause_loss(:perfect, :perfect_course_replanned)),
             ("Speed and the kite's flying decisions",
                 cause_loss(:perfect_course_replanned, :perfect_course)),
             ("Course", cause_loss(:perfect_course, :forecast)))),
     ("Of which, by what the forecast gets wrong",
-        (("Re-planning once a day", cause_loss(:perfect, :replanned)),
+        (("Re-planning once a day, routed", cause_loss(:perfect, :replanned)),
             ("Forecast model against the reanalysis",
                 cause_loss(:replanned, :shortest_lead)),
             ("Error growing with lead time", cause_loss(:shortest_lead, :forecast)))),
-    ("Of which, by the weather forecast, waves first",
-        (("Re-planning once a day", cause_loss(:perfect, :replanned)),
-            ("Wave forecast", cause_loss(:replanned, :wave_forecast)),
-            ("Wind error in the band near the kite's lowest wind",
+    ("After re-planning, by the weather forecast, waves first",
+        (("Wave forecast", cause_loss(:replanned, :wave_forecast)),
+            ("Wind forecast, inside the common wind-speed band",
                 cause_loss(:wave_forecast, :wind_near_limit)),
-            ("Wind error outside that band", cause_loss(:wind_near_limit, :forecast)))),
+            ("Wind forecast, outside that band",
+                cause_loss(:wind_near_limit, :forecast)))),
+    ("After re-planning, by the weather forecast, waves last",
+        (("Wind forecast", cause_loss(:replanned, :wind_forecast)),
+            ("Wave forecast", cause_loss(:wind_forecast, :forecast)))),
     ("On one fixed course for every rig",
         (("Cost saving with perfect foresight [\\%]", cause_saving(:common_perfect)),
             ("Cost saving on the forecasts [\\%]", cause_saving(:common_forecast)),
@@ -1007,17 +1011,15 @@ forecast_cause_groups = (
             ("On the fixed course", cause_kept(:common_forecast, :common_perfect)))))
 
 """
-    kite_margin_cells(margins, knowledge, column)
+    kite_margin_estimate(margins, column)
 
-(value, error) of the mean over the departures of forecast_margins.csv, read into
-`margins`, of the share [%] in `column` for the `knowledge` plan.
+Mean over the departures on the control forecast, as a [`cause_estimate`](@ref), of the
+share [%] in `column` of forecast_margins.csv read into `margins`.
 """
-function kite_margin_cells(margins, knowledge, column)
-    rows = findall(==(knowledge), margins["knowledge"])
-    shares = 100 .* margins[column][rows]
-    n = length(shares)
-    return (value=mean(shares), error=jackknife_error(kept -> mean(shares[kept]), n),
-        departures=n)
+function kite_margin_estimate(margins, column)
+    rows = findall(==("forecast"), margins["knowledge"])
+    shares = Dict(:share => 100 .* margins[column][rows])
+    return cause_estimate(cause_saving(:share), shares)
 end
 
 "LaTeX of an (value, error) estimate of [`cause_estimate`](@ref)"
@@ -1055,7 +1057,7 @@ function forecast_causes_table()
             "the forecasts, of the time at sea unless stated [\\%]}} \\\\")
         for (label, column) in kite_margin_rows
             println(io, "\\quad ", label, " & ",
-                cause_cell(kite_margin_cells(margins, "forecast", column)),
+                cause_cell(kite_margin_estimate(margins, column)),
                 " & -- & -- & -- & -- \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")

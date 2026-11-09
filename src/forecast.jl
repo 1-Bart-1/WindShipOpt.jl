@@ -213,27 +213,30 @@ function waves(forecast::ArchivedForecast, lat, lon, time)
 end
 
 """
-    ForecastParts(forecast, wind_band=(Inf, Inf))
+    ForecastParts(forecast, wind_band=(Inf, Inf), forecast_waves=true)
 
-Forecast source of a ship that plans on the waves of `forecast`, and on the real wind
-except where the real or the forecast wind speed at 10 m lies in `wind_band` [m/s], where
-it plans on the wind of `forecast`.
+Forecast source of a ship that plans on the waves of `forecast` where `forecast_waves`,
+otherwise on the real waves, and on the real wind except where the real or the forecast
+wind speed at 10 m lies in `wind_band` [m/s], where it plans on the wind of `forecast`.
 """
 struct ForecastParts{F}
     forecast::F
     wind_band::NTuple{2, Float64}
+    forecast_waves::Bool
 end
-ForecastParts(forecast) = ForecastParts(forecast, (Inf, Inf))
+ForecastParts(forecast, wind_band=(Inf, Inf)) = ForecastParts(forecast, wind_band, true)
 
 "What a [`ForecastParts`](@ref) ship knows: `wind_band` splits `known` from the `truth`."
 struct PartlyKnownWeather{K, W}
     known::K
     truth::W
     wind_band::NTuple{2, Float64}
+    forecast_waves::Bool
 end
 
 known_weather(parts::ForecastParts, weather, time, horizon) = PartlyKnownWeather(
-    known_weather(parts.forecast, weather, time, horizon), weather, parts.wind_band)
+    known_weather(parts.forecast, weather, time, horizon), weather, parts.wind_band,
+    parts.forecast_waves)
 
 function wind(partly::PartlyKnownWeather, lat, lon, time)
     real_wind = wind(partly.truth, lat, lon, time)
@@ -243,7 +246,8 @@ function wind(partly::PartlyKnownWeather, lat, lon, time)
     return in_band(real_wind) || in_band(forecast_wind) ? forecast_wind : real_wind
 end
 
-waves(partly::PartlyKnownWeather, lat, lon, time) = waves(partly.known, lat, lon, time)
+waves(partly::PartlyKnownWeather, lat, lon, time) =
+    waves(partly.forecast_waves ? partly.known : partly.truth, lat, lon, time)
 
 wind(forecast::ShortestLeadForecast, lat, lon, time) =
     wind(ArchivedForecast(forecast.archive, forecast.weather, time), lat, lon, time)
