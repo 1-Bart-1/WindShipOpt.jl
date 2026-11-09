@@ -456,8 +456,6 @@ end
           assumptions[:kite_launch_sea_wind]
     none = with_value(assumptions, :kite_launch_sea_wind, 0.0)
     @test WindShipOpt.launch_wind_per_mast_speed(kite, none) == 0
-    @test WindShipOpt.launch_wind_per_mast_speed(rigid_fleet(2, assumptions),
-        assumptions) == 0
 end
 
 @testset "launch and landing give no force while they last and the launch pays both" begin
@@ -2364,6 +2362,7 @@ end
     @test !WindShipOpt.kite_landable(fleet, 0.0, wind + 1, 0.0, waves, 0.0)
     @test !WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves + 0.5, 0.0)
     @test WindShipOpt.kite_aloft(fleet, 0.0, wind - 1, 0.0)
+    @test WindShipOpt.launch_wind_per_mast_speed(fleet, assumptions) == 0
     @test fleet.launch_min_wind == fleet.min_flight_wind
     @test WindShipOpt.handling_hours(fleet, assumptions) ≈
           assumptions[:rigid_hover_minutes] / 60
