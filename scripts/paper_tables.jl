@@ -951,6 +951,8 @@ function forecast_hours_table()
         ("Hull limit", "hull_limit"), ("Sea", "sea"), ("No saving", "no_saving"),
         ("Stayed down by choice", "chosen"), ("Wanted up, not flown", "wanted_not_flown"),
         ("Fast sailing possible", "fast_real"), ("Fast sailing forecast", "fast_known"),
+        ("Fast sailing possible, whole edge", "fast_real_edge"),
+        ("Fast sailing forecast, whole edge", "fast_known_edge"),
         ("Fast sailing commanded", "fast_commanded"), ("Fast sailing held", "fast_held"),
         ("Fuel, kite down [GJ]", "fuel_down"), ("Fuel, kite aloft [GJ]", "fuel_up"),
         ("Fuel saved aloft [GJ]", "saved"),
