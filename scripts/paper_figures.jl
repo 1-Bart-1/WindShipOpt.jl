@@ -1641,6 +1641,7 @@ function combination_figure()
         savings = [rig_savings(table, first.(combination_rigs), "ship" => ship,
                        "route" => string(route), "drive" => drive)
                    for route in route_names]
+        filter!(saving -> all(haskey(saving, rig) for rig in first.(combination_rigs)), savings)
         for (k, (rig, _, colour)) in enumerate(combination_rigs)
             values = [saving[rig] for saving in savings]
             range_bar!(saving_axis, group + 0.27(k - 2), values, 0.25, colour)
