@@ -7,6 +7,29 @@
 # missing one costs, and the numbers the abstracts state. Included by paper.jl.
 
 """
+    canopy_life_table()
+
+Table of the life statements behind the canopy wear rate, from
+data/canopy_life_statements.csv, as canopy_life_table.tex.
+"""
+function canopy_life_table()
+    lives = read_table(joinpath(root, "data", "canopy_life_statements.csv"))
+    columns = ("grade", "cloth", "weight", "life_text", "ends_on", "tension", "strength",
+        "dose", "rate")
+    open(joinpath(sections, "canopy_life_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lllrrlrrrr@{}}\n\\toprule")
+        println(io, "Source & Grade & Cloth & \$w\$ & Life \$L\$ & Ends on & \$T/w\$ & ",
+            "\$\\sigma_w\$ & \$\\dot D\$ & \$r\$ \\\\")
+        println(io, " & & & [g/m²] & [h] & & & & [MJ/m²/h] & [g/m²/h] \\\\\n\\midrule")
+        for row in findall(==("statement"), lives["kind"])
+            println(io, "\\citet{", lives["key"][row], "} & ",
+                join((string(lives[column][row]) for column in columns), " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
     latex_escape(text)
 
 `text` with the characters LaTeX treats specially escaped and powers set as superscripts.

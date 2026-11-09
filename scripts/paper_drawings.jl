@@ -146,13 +146,14 @@ end
 """
     draw_ship!(axis, hull, offset)
 
-Side view of `hull` shifted by `offset` [m]: hull and deckhouse aft, with the deck at the
-height above the waterline at which the model stands rigs on it.
+Side view of `hull` shifted by `offset` [m]: hull and a deckhouse aft, 10 m tall at the
+reference length, with the deck at the height above the waterline at which the model
+stands rigs on it.
 """
 function draw_ship!(axis, hull, offset)
     scale = hull.length / assumptions[:reference_length]
     deck = assumptions[:deck_mount_height] * scale
-    house = assumptions[:superstructure_height] * scale
+    house = 10.0scale
     poly!(axis, hull_profile(hull, deck) .+ Point2f(offset); color=:gray80,
         strokecolor=:black, strokewidth=0.5)
     half = hull.length / 2

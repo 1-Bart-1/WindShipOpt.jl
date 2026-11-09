@@ -1,0 +1,67 @@
+% SPDX-FileCopyrightText: 2026 Bart van de Lint
+% SPDX-License-Identifier: AGPL-3.0-or-later
+\begin{tikzpicture}[x=1mm, y=1mm, font=\footnotesize,
+  part/.style={font=\scriptsize, inner sep=1pt, align=left},
+  leader/.style={black!50, very thin},
+  stepnum/.style={circle, fill=black, text=white, font=\scriptsize\bfseries, inner sep=0.5pt, minimum size=3.2mm},
+  steptext/.style={font=\scriptsize, align=center, text width=24mm, anchor=north, inner sep=0pt},
+  flow/.style={-{Stealth[length=1.6mm]}, black!55},
+  bow/.pic={
+    \fill[blue!12] (-11,-3.6) rectangle (10,0);
+    \draw[blue!45, thin] (-11,0) -- (10,0);
+    \fill[black!45] (-11,2.8) -- (5,2.8) -- (8,0) -- (6.5,-2) -- (-11,-2) -- cycle;
+    \fill[white] (-3,0.2) rectangle (2.4,2.6);},
+  hatch/.pic={\draw[black!80, line width=0.7pt] (-3.3,2.7) -- (2.7,2.7);},
+  stowed/.pic={\fill[rigkite] (-2.1,0.5) rectangle (1.5,1.9);},
+  mast/.pic={\fill[black!70] (-0.4,1) rectangle (0.4,#1);},
+  mast/.default=10,
+  winch/.pic={\draw[black!70, thin] (1.4,1.2) circle (0.7);},
+  folded/.pic={\fill[rigkite] (-1.2,0) rectangle (1.2,2.2);},
+  canopy/.pic={\draw[rigkite, line width=1.3pt] (-3,0.8) arc[start angle=145, end angle=35, radius=3.7];
+    \draw[rigkite, thin] (-3,0.8) -- (0,-3) (3,0.8) -- (0,-3) (-1.05,2.2) -- (0,-3) (1.05,2.2) -- (0,-3);
+    \fill[black!70] (-0.55,-3.6) rectangle (0.55,-2.6);},
+  eight/.pic={\draw[rigkite!45, densely dashed, thin] plot[smooth cycle, tension=1] coordinates
+    {(-8,0.5) (-4,3.4) (0,0.5) (4,-2.8) (8,0) (4,3.2) (0,-0.5) (-4,-3.4)};},
+]
+% ---- (a) the parts
+\node[anchor=west, inner sep=0pt] at (0,50) {(a) The parts};
+\begin{scope}[shift={(11,8)}]
+  \pic at (0,0) {bow}; \pic at (0,0) {hatch}; \pic at (0,0) {winch};
+  \draw[black!70, densely dashed, thin, fill=white] (-0.4,2.7) rectangle (0.4,9);
+  \fill[black!85] (3.5,3.2) circle (0.55);
+  \draw[black!65, thin] (3.5,3.2) -- (24,30);
+  \pic[scale=1.8, rotate=-45] at (27.8,33.8) {canopy};
+  \foreach \lx/\ly/\ty/\txt in {
+    32/38.5/39/canopy: a ram-air wing,
+    26.8/33.6/32/bridle: the line net spreading the pull,
+    24.6/30/25.4/control pod: steers the kite,
+    12/14.5/19.5/tether: 13 spans long,
+    4/3.8/13/tow point on the foredeck,
+    0.4/6.5/7/telescopic launch mast,
+    2.1/1.3/1.5/winch: holds the tether,
+    -1.5/0.7/-4/stowage under a hatch}
+    {\draw[leader] (\lx,\ly) -- (45,\ty+0.2); \node[part, anchor=west] at (45,\ty+0.2) {\txt};}
+\end{scope}
+% ---- (b) the cycle
+\node[anchor=west, inner sep=0pt] at (100,50) {(b) One flight, in six steps};
+% #1 x, #2 y, #3 step, #4 fill, #5 text, #6 drawing
+\newcommand{\cyclestep}[6]{%
+  \begin{scope}[shift={(#1,#2)}, scale=0.74]
+    \pic at (0,0) {bow};
+    #6
+  \end{scope}
+  \node[stepnum, fill=#4] at ([shift={(-7.4,9.8)}]#1,#2) {#3};
+  \node[steptext] at (#1,#2-4) {#5};}
+\cyclestep{108}{33}{1}{black!70}{Stowed, hatch shut}{\pic at (0,0) {hatch}; \pic at (0,0) {stowed};}
+\cyclestep{132}{33}{2}{black!70}{Mast lifts the folded kite; the wind inflates it}{\pic at (0,0) {mast=8}; \pic at (0,12.2) {canopy};}
+\cyclestep{156}{33}{3}{black!70}{Tether takes the pull; kite leaves the mast and climbs}{\pic at (0,0) {mast=8}; \draw[black!65, thin] (0,8) -- (5,16); \begin{scope}[shift={(6,19.4)}] \pic {canopy}; \end{scope}}
+\cyclestep{156}{4}{4}{rigkite}{Flies figure eights, and pulls; mast down, hatch shut}{\pic at (0,0) {hatch}; \draw[black!65, thin] (0.6,1.5) -- (7,13); \begin{scope}[shift={(8,16.4)}] \pic[scale=0.7] {eight}; \pic {canopy}; \end{scope}}
+\cyclestep{132}{4}{5}{black!70}{Guide line reefs the kite to the mast; winch hauls in}{\pic at (0,0) {mast=9}; \pic at (0,9) {folded}; \draw[black!65, thin, densely dashed] (0,11.2) -- (0,16.5); \draw[rigkite, line width=1.3pt] (-2.4,17) -- (2.4,17);}
+\cyclestep{108}{4}{6}{black!70}{Folded kite goes down the mast; hatch shuts}{\pic at (0,0) {mast=6}; \pic at (0,6) {folded};}
+\draw[flow] (119,38) -- (122,38);
+\draw[flow] (143,38) -- (146,38);
+\draw[flow] (166.5,28) -- (166.5,18);
+\draw[flow] (146,9.5) -- (143,9.5);
+\draw[flow] (122,9.5) -- (119,9.5);
+\draw[flow] (95.5,18) -- (95.5,28);
+\end{tikzpicture}

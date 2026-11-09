@@ -106,7 +106,14 @@ A wing sail is a rigid upright wing of aspect ratio, span squared over area, 2, 
 \label{fig:polars}
 \end{figure*}
 
-\paragraph{Lines} A net of bridle lines spreads the tether force over the canopy and meets at a control unit, a pod that steers the kite. The single tether is 13 spans long, as on the larger SkySails kite \citep{paulig2013}, changes length only at launch and landing, and runs to a tow point on the ship that turns with it, so it is not bent back and forth as the kite flies. No tether life has been measured. We estimate it from creep, the slow stretching of a rope held under load, at \num{16000} flight hours, with a range of \num{4500} to \num{45000}. With its lines and flight drag the kite has a glide ratio $G=3.9$ at every size, within the range published ship-kite studies take \citep{traut2014,cedelft2016,podeur2016} (\cref{sec:det_kite}).
+\paragraph{Lines} A net of bridle lines spreads the tether force over the canopy and meets at a control unit, a pod that steers the kite (\cref{fig:kite_system}). The single tether is 13 spans long, as on the larger SkySails kite \citep{paulig2013}, changes length only at launch and landing, and runs to a tow point on the ship that turns with it, so it is not bent back and forth as the kite flies. No tether life has been measured. We estimate it from creep, the slow stretching of a rope held under load, at \num{16000} flight hours, with a range of \num{4500} to \num{45000}. With its lines and flight drag the kite has a glide ratio $G=3.9$ at every size, within the range published ship-kite studies take \citep{traut2014,cedelft2016,podeur2016} (\cref{sec:det_kite}).
+
+\begin{figure*}[tbp]
+\centering
+\input{sections/kite_system_figure}
+\caption{The ship kite. (a) Its parts, as on the SkySails ship systems \citep{fritz2013}, the mast raised only for launch and landing and drawn dashed. (b) One flight \citep{fritz2013}: during the \SI{25}{min} of steps 2 and 3 and the \SI{30}{min} of steps 5 and 6 the ship gets no force from the kite. Not to scale.}
+\label{fig:kite_system}
+\end{figure*}
 
 \paragraph{Canopy} The canopy is sewn from polyester ripstop of \SI{200}{g/m^2}; a kite built for a higher force limit gets heavier cloth and seams (\cref{sec:det_kite}). Its life is a goal of \num{3000} flight hours (\cref{sec:canopy_life}). Its price is a goal of USD~150 per projected square metre, against USD~234 today (\cref{fig:canopy_price}). The goal assumes the sewing time of a large series of military cargo parachutes and cloth bought by the roll from the mill, which is our judgement and the weakest part of the goal. Wing sails, rotors and tethers have no such goal, since they are built up from industrial costs or bulk prices rather than retail ones.
 
@@ -158,9 +165,16 @@ The wind limits above have a lower end, since a kite needs enough wind to carry 
 
 The canopy wears out in flight, and its life sets what the kite pays for each hour it flies; the deck rigs have no such running cost. The model pays one canopy per \num{3000} hours flown, the goal at \SI{200}{g/m^2}, and \cref{fig:missed_goals} gives the cost saving over the whole range of lives.
 
-No ship kite has a published canopy life \citep{emsa2023}, and no source gives the hours of a polyester canopy together with its cloth weight and a measured load. From the loss of cloth strength in sunlight, fitted to tests of polyester outdoors and under lamps, and from wear at a rate taken from what makers state of their sails, balloons, paragliders and kites (\cref{tab:canopy_life}), nearly all claims with no test shown, we derive \num{3800} flight hours, with a range of \num{1200} to \num{6900} from changing one input at a time. Wear is three quarters of that decay, so the estimate rests mainly on the makers' statements. We take \num{3000} hours so that no result rests on the longest lives anyone states \citep{flynn2015,kitepower2024}, which are not measured either. The goal lies below those lives and below the derived life, and above the hours a sail keeps its shape and the life the decay gives if a canopy is retired as early as aircraft fabric and balloon cloth are (\cref{app:canopy_life_range}). We keep the cloth at \SI{200}{g/m^2} rather than a lighter one the decay would allow, so that the gap to the estimate is a margin on the life and not a cheaper canopy.
+No ship kite has a published canopy life \citep{emsa2023}, and no source gives the hours of a polyester canopy together with its cloth weight and a measured load. From the loss of cloth strength in sunlight, fitted to tests of polyester outdoors and under lamps, and from wear at a rate taken from what makers state of their sails, balloons, paragliders and kites (\cref{tab:canopy_life}), nearly all claims with no test shown, we derive \num{3800} flight hours, with a range of \num{1200} to \num{6900} from changing one input at a time (\cref{fig:canopy_life}). Wear is three quarters of that decay, so the estimate rests mainly on the makers' statements. We take \num{3000} hours so that no result rests on the longest lives anyone states \citep{flynn2015,kitepower2024}, which are not measured either. The goal lies below those lives and below the derived life, and above the hours a sail keeps its shape and the life the decay gives if a canopy is retired as early as aircraft fabric and balloon cloth are (\cref{app:canopy_life_range}). We keep the cloth at \SI{200}{g/m^2} rather than a lighter one the decay would allow, so that the gap to the estimate is a margin on the life and not a cheaper canopy.
 
 No source settles whether a canopy reaches the goal. We argue that it can because a ship kite pays for its canopy by the hour flown, while a paraglider is built as light as a pilot will carry and a sail is replaced for its shape. New cloth holds 136 times the peak tension at the force limit, so strength is unlikely to end the canopy first; leaks, seams and flutter stay open. \Cref{sec:det_canopy_life} gives the decay model and \cref{sec:cloth_check} the tension check. A flutter test of polyester ripstop at several cloth weights, and of the flutter a flying kite sees, would narrow the life most.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{canopy_life}
+\caption{What is stated of the life of polyester canopies and what we use: makers' statements in flight hours \citep{flynn2015,kubicek2026,supair2016,lynn2007}, an asterisk marking our estimate of a value not stated; the hours a sail keeps its shape \citep{flynn2015}; the life small kites' developers expected \citep{vandervlugt2013,bormann2013}; and the life we derive, with its range shaded, against the goal.}
+\label{fig:canopy_life}
+\end{figure*}
 
 \subsection{VTOL kite}
 \label{sec:rigid_kite}
