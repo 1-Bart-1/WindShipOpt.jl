@@ -1444,18 +1444,16 @@ end
 """
     tightened_limits(rig, margin)
 
-The [`KiteRig`](@ref) `rig` with its lowest flying and launch winds raised, its highest
-winds and its launch wave limit lowered, by the share `margin` of each.
+The [`KiteRig`](@ref) `rig` with its lowest flying and launch winds raised, and its
+highest flying and launch winds and launch wave limit lowered, by the share `margin` of
+each.
 """
-function tightened_limits(rig::KiteRig, margin)
-    changed = (max_wind=rig.max_wind * (1 - margin),
-        min_flight_wind=rig.min_flight_wind * (1 + margin),
-        launch_min_wind=rig.launch_min_wind * (1 + margin),
-        launch_max_wind=rig.launch_max_wind * (1 - margin),
-        launch_max_wave_height=rig.launch_max_wave_height * (1 - margin))
-    return KiteRig(; (name => get(changed, name, getfield(rig, name))
-                      for name in fieldnames(KiteRig))...)
-end
+tightened_limits(rig::KiteRig, margin) = with_changed(rig;
+    max_wind=rig.max_wind * (1 - margin),
+    min_flight_wind=rig.min_flight_wind * (1 + margin),
+    launch_min_wind=rig.launch_min_wind * (1 + margin),
+    launch_max_wind=rig.launch_max_wind * (1 - margin),
+    launch_max_wave_height=rig.launch_max_wave_height * (1 - margin))
 tightened_limits(rig, margin) = rig
 
 """

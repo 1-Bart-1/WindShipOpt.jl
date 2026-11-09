@@ -1554,6 +1554,13 @@ end
     @test sailed_hours + WindShipOpt.FORECAST_INTERVAL * length(margin_record.holds) ≈
           passage.duration rtol = 1e-6
     @test all((sample.reason == :up) == sample.aloft for sample in margin_record.samples)
+    never_planned_record = WindShipOpt.KiteRecord()
+    never_planned = forecast_route(corridor, kite_table, weather, departure;
+        time_cost=kite_hourly, horizon=24.0, forecast=KiteMargin(nothing, 0.99),
+        record=never_planned_record)
+    @test !any(sample.wanted for sample in never_planned_record.samples)
+    @test any(sample.wanted for sample in margin_record.samples)
+    @test never_planned.flight_hours > 0
 end
 
 @testset "a ship on an ensemble adopts the plan cheapest across its members" begin
