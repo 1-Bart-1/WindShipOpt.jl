@@ -1564,13 +1564,13 @@ end
     for hole in (NaN16, zero(Float16))
         whole = WindShipOpt.ArchiveGroup(grid,
             Dict(name => ones(Float16, 2, 2, 2, 2) for name in names),
-            Dict{Int, Dict{String, Array{Float32, 3}}}())
+            Dict{Int, Dict{String, Array{Float32, 3}}}(), 0.0, 24.0)
         @test WindShipOpt.issued_in(whole, 2)
         for missing_field in names
             group = WindShipOpt.ArchiveGroup(grid,
                 Dict(name => name == missing_field ? issues(hole) :
                              ones(Float16, 2, 2, 2, 2) for name in names),
-                Dict{Int, Dict{String, Array{Float32, 3}}}())
+                Dict{Int, Dict{String, Array{Float32, 3}}}(), 0.0, 24.0)
             @test WindShipOpt.issued_in(group, 1)
             @test !WindShipOpt.issued_in(group, 2)
         end
@@ -1588,6 +1588,75 @@ end
     @test all(isnan, WindShipOpt.margin_wind(one_point([2, NaN]), one_point([0, 0]))[1])
     @test WindShipOpt.margin_height(one_point(1:5))[1] ≈ 4
     @test isnan(WindShipOpt.margin_height(one_point([1, NaN]))[1])
+end
+
+"""
+The real `weather` with `east` [m/s] added to its east wind, as a forecast that errs.
+"""
+struct BiasedWeather{W}
+    weather::W
+    east::Float64
+end
+WindShipOpt.duration(biased::BiasedWeather) = WindShipOpt.duration(biased.weather)
+function WindShipOpt.wind(biased::BiasedWeather, lat, lon, time)
+    east, north = WindShipOpt.wind(biased.weather, lat, lon, time)
+    return east + biased.east, north
+end
+WindShipOpt.waves(biased::BiasedWeather, lat, lon, time) =
+    WindShipOpt.waves(biased.weather, lat, lon, time)
+
+"""
+Forecast source that plans on `error` [m/s] of east wind added to the real weather, and
+counts the plans made.
+"""
+mutable struct CountedForecast
+    error::Float64
+    plans::Int
+end
+function WindShipOpt.known_weather(source::CountedForecast, weather, time, horizon)
+    source.plans += 1
+    return BiasedWeather(weather, source.error)
+end
+
+@testset "a ship re-plans at the first node its interval after the last plan" begin
+    departure, source = 24.0 * 31, CountedForecast(0.0, 0)
+    every_node = forecast_route(corridor, table, SyntheticWeather(), departure;
+        time_cost=hourly, forecast=ReplannedForecast(source; interval=0.0))
+    @test source.plans == size(corridor.lat, 1) - 1
+    @test every_node.path[end][3] > 0
+    source.plans = 0
+    daily = forecast_route(corridor, table, SyntheticWeather(), departure;
+        time_cost=hourly, forecast=ReplannedForecast(source))
+    @test 1 <= source.plans < size(corridor.lat, 1) - 1
+    plain = forecast_route(corridor, table, SyntheticWeather(), departure;
+        time_cost=hourly, forecast=CountedForecast(0.0, 0))
+    @test daily.objective == plain.objective
+end
+
+@testset "the weather a ship expects is the forecast plus the error it meets" begin
+    real, biased = SyntheticWeather(), BiasedWeather(SyntheticWeather(), 4.0)
+    lat, lon, time = 30.0, -30.0, 24.0 * 40
+    met = WindShipOpt.MetWeather(biased, real, lat, lon, time)
+    @test all(WindShipOpt.wind(met, lat, lon, time) .≈ WindShipOpt.wind(real, lat, lon, time))
+    east, north = WindShipOpt.wind(biased, 33.0, -35.0, time + 6.0)
+    @test WindShipOpt.wind(met, 33.0, -35.0, time + 6.0) == (east - 4.0, north)
+    @test WindShipOpt.waves(met, lat, lon, time)[1] == WindShipOpt.waves(real, lat, lon, time)[1]
+    calmer = WindShipOpt.MetWeather(biased, biased, lat, lon, time)
+    @test calmer.east_error == 0.0
+end
+
+@testset "a ship that adapts between plans recovers part of a wrong forecast" begin
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
+    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
+    departure, weather = 24.0 * 121, SyntheticWeather()
+    plan_only, by_speed, by_course = (forecast_route(corridor, kite_table, weather, departure;
+            time_cost=kite_hourly,
+            forecast=ReplannedForecast(CountedForecast(8.0, 0); interval=48.0, adapts)).objective
+        for adapts in (:nothing, :speed, :course))
+    @test by_speed < plan_only
+    @test by_course <= by_speed
 end
 
 @testset "a forecast beyond its horizon reads the same date in another year" begin
@@ -1639,15 +1708,15 @@ end
 Four daily forecasts from 2017-12-30 on the grids of `weather`, each the weather it
 forecasts plus `offset(year)` on the east wind and half that on the wave height.
 """
-function small_archive(directory, weather, offset)
-    first_issue = 24.0
-    for (group, observed, names, leads) in (
-        ("wind", weather.wind, ["u10", "v10"], 6:6:24),
+function small_archive(directory, weather, offset;
+        wind_schedule=(24.0, "2017-12-30T00:00:00", 24))
+    for (group, observed, names, leads, (first_issue, first_date, issue_hours)) in (
+        ("wind", weather.wind, ["u10", "v10"], 6:6:24, wind_schedule),
         ("waves", weather.waves, ["direction_east", "direction_north", "height", "period"],
-            12:12:24))
+            12:12:24, (24.0, "2017-12-30T00:00:00", 24)))
         function field(name, index)
             issue, lead = divrem(index - 1, length(leads)) .+ 1
-            time = first_issue + 24.0 * (issue - 1) + leads[lead]
+            time = first_issue + issue_hours * (issue - 1) + leads[lead]
             step = Int((time - observed.time_offset) / observed.step_hours + 1)
             year = issue <= 2 ? 2017 : 2018
             shift = name == "u10" ? offset(year) : name == "height" ? offset(year) / 2 : 0.0
@@ -1655,12 +1724,26 @@ function small_archive(directory, weather, offset)
         end
         write_fields(joinpath(directory, group), field, 4length(leads),
             Dict("lats" => observed.lats, "lons" => observed.lons,
-                "first_issue" => "2017-12-30T00:00:00", "issue_hours" => 24,
+                "first_issue" => first_date, "issue_hours" => issue_hours,
                 "first_lead_hours" => first(leads), "step_hours" => step(leads),
                 "leads" => length(leads), "variables" => names))
     end
     write_forecast_bias(directory, weather)
     return ForecastArchive(directory, weather)
+end
+
+@testset "a ship reads the wind and the waves each on their own forecast schedule" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather, year -> 0.0;
+        wind_schedule=(60.0, "2017-12-31T12:00:00", 6))
+    known = ArchivedForecast(archive, weather, 73.0)
+    @test known.issue == 2 && known.issued == 66.0
+    @test known.wave_issue == 2 && known.wave_issued == 48.0
+    @test known.beyond.issue_time == 48.0
+    same = ArchivedForecast(small_archive(joinpath(directory, "daily"), weather,
+            year -> 0.0), weather, 73.0)
+    @test same.issue == same.wave_issue == 2
 end
 
 @testset "a forecast off by a fixed bias reads the weather once that bias is removed" begin

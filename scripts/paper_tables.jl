@@ -951,11 +951,38 @@ its standard error over the departures [%], and that of the kite held to its pla
 forecast_plans_table.tex.
 """
 function forecast_plans_table()
-    table = read_table(data_file("forecast_plans_kept.csv"))
-    plans = (("true", "One forecast run"), ("mean", "Ensemble mean"),
-        ("margin", "Margin for wind"), ("members", "Several members"),
-        ("held_kite", "One forecast run, kite held to the plan"))
-    open(joinpath(sections, "forecast_plans_table.tex"), "w") do io
+    write_kept_table("forecast_plans_kept.csv", "forecast_plans_table.tex",
+        (("true", "One forecast run"), ("mean", "Ensemble mean"),
+            ("margin", "Margin for wind"), ("members", "Several members"),
+            ("held_kite", "One forecast run, kite held to the plan")))
+end
+
+"""
+    forecast_replanning_table()
+
+Share of each rig's perfect-foresight cost saving kept per case of the re-planning study,
+with its standard error over the departures [%]: forecast_replanning_table.tex.
+"""
+function forecast_replanning_table()
+    write_kept_table("forecast_replanning_kept.csv", "forecast_replanning_table.tex",
+        (("true", "Once a day on the reforecast"),
+            ("operational_24h", "Every 24 h on operational forecasts"),
+            ("operational_12h", "Every 12 h"),
+            ("operational_6h", "At every node, about 8 h"),
+            ("operational_24h_speed", "Every 24 h, speed adapted to the weather met"),
+            ("operational_24h_course", "Every 24 h, speed and course adapted"),
+            ("operational_6h_course", "At every node, speed and course adapted")))
+end
+
+"""
+    write_kept_table(data_name, table_name, plans)
+
+Write `table_name` from the kept shares in `data_name`: a row per (plan, label) of `plans`,
+a column per rig.
+"""
+function write_kept_table(data_name, table_name, plans)
+    table = read_table(data_file(data_name))
+    open(joinpath(sections, table_name), "w") do io
         println(io, "\\begin{tabular}{@{}lccc@{}}\n\\toprule")
         println(io, "Plan & Kite & Wing sails & Rotors \\\\\n\\midrule")
         for (plan, label) in plans
