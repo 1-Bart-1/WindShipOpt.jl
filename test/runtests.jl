@@ -1726,12 +1726,20 @@ end
     @test workspace.shared[slot] === WindShipOpt.UNSAILED
 end
 
-@testset "a speed is skipped only within what the last one sailed the same, sampled \
-          alike" begin
-    same = (; through=7, intervals=3)
-    @test WindShipOpt.sails_same(same, 7, 3)
-    @test !WindShipOpt.sails_same(same, 8, 3)
-    @test !WindShipOpt.sails_same(same, 7, 2)
+@testset "a faster speed counts as sailed the same only where it is sampled alike" begin
+    table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
+        assumptions))
+    condition = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 8.0, 6.0, 2π / 3)
+    sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0, true)
+    unpowered = findfirst(i -> !isfinite(last(WindShipOpt.edge_fuels(table, i, condition))),
+        eachindex(table.speeds))
+    point = WindShipOpt.SailedPoint(sample,
+        WindShipOpt.held_speed(table, unpowered, sample)..., 1.0)
+    distance = 1e5
+    hours(i) = distance / table.speeds[i] / 3600
+    @test WindShipOpt.same_through(table, [point], unpowered, distance, 1e6) > unpowered
+    between = (hours(unpowered) + hours(unpowered + 1)) / 2
+    @test WindShipOpt.same_through(table, [point], unpowered, distance, between) == unpowered
 end
 
 @testset "a faster command holds the same speed only through speeds no engine \
@@ -1745,7 +1753,7 @@ end
     faster_powered = findnext(powered, eachindex(table.speeds), unpowered)
     held, flown, stowed = WindShipOpt.held_speed(table, unpowered, sample)
     point = WindShipOpt.SailedPoint(sample, held, flown, stowed, 1.0)
-    same_through = WindShipOpt.same_through(table, [point], unpowered)
+    same_through = WindShipOpt.same_through(table, [point], unpowered, 1e5, 1e6)
     @test same_through == faster_powered - 1
     for speed_index in unpowered:same_through
         @test WindShipOpt.held_speed(table, speed_index, sample) == (held, flown, stowed)
@@ -1754,7 +1762,8 @@ end
         0.0), 0.0, 0.0, true)
     calm_point = WindShipOpt.SailedPoint(calm,
         WindShipOpt.held_speed(table, unpowered, calm)..., 1.0)
-    @test WindShipOpt.same_through(table, [point, calm_point], unpowered) == unpowered
+    @test WindShipOpt.same_through(table, [point, calm_point], unpowered, 1e5, 1e6) ==
+        unpowered
     @test first(WindShipOpt.held_speed(table, faster_powered, sample)) == faster_powered
 end
 
