@@ -84,14 +84,14 @@ end
 Trilinear interpolation of each array in the tuple `arrays`, leaving land points (NaN)
 out of the weighting; NaN where all corners are land.
 """
-function sample(fields::GriddedFields, arrays::NTuple{N}, lat, lon, time) where {N}
+function sample(fields::GriddedFields, arrays::Tuple, lat, lon, time)
     i, x = cell(fields.lons, lon)
     j, y = cell(fields.lats, lat)
     steps = step_count(fields)
     position = clamp((time - fields.time_offset) / fields.step_hours + 1, 1, steps)
     k = min(floor(Int, position), steps - 1)
     t = position - k
-    totals = ntuple(_ -> 0.0, N)
+    totals = map(_ -> 0.0, arrays)
     weight_sum = 0.0
     for (dk, wt) in ((0, 1 - t), (1, t)), (dj, wy) in ((0, 1 - y), (1, y)),
         (di, wx) in ((0, 1 - x), (1, x))

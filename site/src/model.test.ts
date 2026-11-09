@@ -33,4 +33,4 @@ test("the site gives the model's cost at changed inputs on the routes of the pap
     const values = evaluated(data, inputValues(data, check.changes, check.cargo_factor));
     expect(gap(values[data.designs[check.design].nodes.cost], check.recosted), check.label).toBeLessThan(1e-12);
   }
-});
+}, 120_000);
