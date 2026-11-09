@@ -263,6 +263,8 @@ Base.@kwdef struct RouterSettings
     routing_speeds::Int = 49
     "speeds the search skips between those it commands, plus one"
     search_speed_stride::Int = 4
+    "time between the knots of the [`CostToGo`](@ref) [h]"
+    to_go_step::Float64 = 48.0
     "length of the time bins of the final pass along the path found [h]"
     final_time_step::Float64 = 0.25
     "how far the final pass strays in time from the path found [h]"
@@ -703,9 +705,6 @@ Return `workspace` to the free workspaces.
 release_workspace(workspace::RouteWorkspace) = @lock WORKSPACE_LOCK push!(
     FREE_WORKSPACES[size(workspace.cost)[1:2]], workspace)
 
-"time between the knots of a [`CostToGo`](@ref) [h]"
-const COST_TO_GO_STEP = 48.0
-
 "commanded speeds of the search a [`CostToGo`](@ref) skips between its own, plus one"
 const COST_TO_GO_SPEED_STRIDE = 2
 
@@ -728,12 +727,14 @@ struct CostToGo
     values::Array{Float64, 4}
     "time knots in use"
     knots::Int
+    "time between the knots [h]"
+    step::Float64
 end
 
-CostToGo(values::Array{Float64, 4}) = CostToGo(values, size(values, 2))
+CostToGo(values::Array{Float64, 4}, step) = CostToGo(values, size(values, 2), step)
 
 function (to_go::CostToGo)(lateral, aloft, stage, time)
-    position = time / COST_TO_GO_STEP + 1
+    position = time / to_go.step + 1
     knot = floor(Int, position)
     knot < to_go.knots || return Inf
     @inbounds lower, upper = to_go.values[lateral, knot, aloft, stage],
@@ -749,8 +750,8 @@ end
              coastal_penalty)
 
 [`CostToGo`](@ref) of a passage leaving at `departure` [h], held in `workspace`, by a
-backward programme over the states at each stage at knots `COST_TO_GO_STEP` apart that a
-ship can reach between its highest and lowest routing speed, on every
+backward programme over the states at each stage that a ship can reach between its highest
+and lowest routing speed, at the knots of `ROUTER_SETTINGS`, on every
 `COST_TO_GO_SPEED_STRIDE`-th speed the search commands.
 """
 function CostToGo(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable, weather,
@@ -758,8 +759,9 @@ function CostToGo(workspace::RouteWorkspace, corridor::Corridor, table::RouteTab
     stage_count, lateral_count = size(corridor.lat)
     along = corridor.along_centre
     slowest, fastest = first(table.speeds), last(table.speeds)
-    knots = ceil(Int, (last(along) / slowest / 3600 + REACH_SLACK) / COST_TO_GO_STEP) + 2
-    to_go = CostToGo(cleared_to_go_values!(workspace, knots), knots)
+    (; to_go_step) = ROUTER_SETTINGS[]
+    knots = ceil(Int, (last(along) / slowest / 3600 + REACH_SLACK) / to_go_step) + 2
+    to_go = CostToGo(cleared_to_go_values!(workspace, knots), knots, to_go_step)
     to_go.values[centre_index(corridor), 1:knots, 1, stage_count] .= 0.0
     prices = (; fuel=table.table.ship.fuel.price, time=time_cost)
     for stage in (stage_count - 1):-1:first_stage, lateral in 1:lateral_count
@@ -767,8 +769,8 @@ function CostToGo(workspace::RouteWorkspace, corridor::Corridor, table::RouteTab
         sailed = along[stage] - along[first_stage]
         earliest = SHORTEST_SAILED_SHARE * sailed / fastest / 3600
         latest = sailed / slowest / 3600 + REACH_SLACK
-        for knot in max(1, floor(Int, earliest / COST_TO_GO_STEP)):min(knots,
-            ceil(Int, latest / COST_TO_GO_STEP) + 1)
+        for knot in max(1, floor(Int, earliest / to_go_step)):min(knots,
+            ceil(Int, latest / to_go_step) + 1)
 
             fill_knot!(to_go, workspace.points, corridor, table, weather, departure, prices,
                 coastal_penalty, stage, lateral, knot)
@@ -805,7 +807,7 @@ from those of the next stage, with `points` to hold those of the edges.
 """
 function fill_knot!(to_go, points, corridor, table, weather, departure, prices,
         coastal_penalty, stage, lateral, knot)
-    time = (knot - 1) * COST_TO_GO_STEP
+    time = (knot - 1) * to_go.step
     lat, lon = corridor.lat[stage, lateral], corridor.lon[stage, lateral]
     node_wind = wind(weather, lat, lon, departure + time)
     node_waves = waves(weather, lat, lon, departure + time)

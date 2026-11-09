@@ -1612,7 +1612,7 @@ end
     best_node = findfirst(==(best.path[stage][2]), view(corridor.lon, stage, :))
     values = zeros(size(corridor.lat, 2), 200, 2, stage_count)
     values[best_node, :, :, stage] .= Inf
-    to_go = WindShipOpt.CostToGo(values)
+    to_go = WindShipOpt.CostToGo(values, 48.0)
     detour = WindShipOpt.route_pass(workspace, corridor, table, weather, departure, to_go,
         floatmax(); options...)
     @test detour.objective > best.objective
