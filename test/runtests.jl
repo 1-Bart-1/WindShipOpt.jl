@@ -385,6 +385,33 @@ end
     @test thrust(flown[1]) > 0
 end
 
+@testset "a kite without flight drag flies where every fixed start misses" begin
+    low_drag = WindShipOpt.with_value(assumptions, :kite_flight_drag, 0.0)
+    aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
+    model, max_force, _ = WindShipOpt.kite_model(13777.0, aspect_ratio, low_drag)
+    course = deg2rad(120.0)
+    flown = only(WindShipOpt.compute_pattern_table(model, max_force, low_drag, [15.0],
+        [course], [0.0]))
+    thrust = flown.force[1] * cos(course) + flown.force[2] * sin(course)
+    @test isfinite(flown.peak_tension)
+    @test thrust > 0
+    problem = WindShipOpt.PatternProblem(model, max_force,
+        deg2rad(low_drag[:kite_min_elevation]), 15.0, course, 0.0)
+    force, _ = WindShipOpt.optimal_pattern(problem, WindShipOpt.pattern_starts(course))
+    @test force.peak_tension == flown.peak_tension
+end
+
+@testset "the pattern grid is only searched where no fixed start flies" begin
+    aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
+    model, max_force, _ = WindShipOpt.kite_model(13777.0, aspect_ratio, assumptions)
+    course = deg2rad(120.0)
+    problem = WindShipOpt.PatternProblem(model, max_force,
+        deg2rad(assumptions[:kite_min_elevation]), 15.0, course, 0.0)
+    flew, _ = WindShipOpt.optimal_pattern(problem, WindShipOpt.pattern_starts(course),
+        () -> error("searched the grid"))
+    @test isfinite(flew.peak_tension)
+end
+
 @testset "a kite launches inside its limits and stays up above its landing limit" begin
     table, prices = kite_coaster()
     launch_sea, stay_sea, over_sea = 2.0, 3.5, 5.5
@@ -3008,9 +3035,11 @@ end
 end
 
 @testset "the pattern data has rows only for conditions where a pattern flies" begin
-    @test all(isempty, written_pattern(6.0, 120))
-    paths, forces = written_pattern(12.0, 90)
-    @test !isempty(paths) && !isempty(forces) && !occursin("NaN", paths * forces)
+    @test all(isempty, written_pattern(3.0, 120))
+    for (wind, course) in ((6.0, 120), (12.0, 90))
+        paths, forces = written_pattern(wind, course)
+        @test !isempty(paths) && !isempty(forces) && !occursin("NaN", paths * forces)
+    end
 end
 
 @testset "a round trip's cost parts per tonne-km add up to its cost over its hours" begin
@@ -3030,6 +3059,38 @@ end
                      2assumptions[:port_time_per_call]) rtol = 1e-5
         @test sum(parts) ≈ trip.cost_per_tonne_km rtol = 1e-3
     end
+end
+
+@testset "the interest level rows hold each class at its value times the factor" begin
+    classes = ship_classes()
+    name, other = "Kamsarmax bulk carrier", "Neo-Panamax container ship"
+    factors = PaperData.cargo_interest_factors()
+    value = classes[name].cargo_value
+    table = Dict{String, Vector}("class" => [name, name, name, other],
+        "cargo_value" => [value * factors.low, value * factors.high, 15000.0,
+            classes[other].cargo_value * factors.low],
+        "cost" => [1.0, 2.0, 3.0, 4.0])
+    @test factors.low < 1 < factors.high
+    @test PaperData.interest_level_rows(table, factors.low)["cost"] == [1.0, 4.0]
+    @test PaperData.interest_level_rows(table, factors.high)["cost"] == [2.0]
+end
+
+@testset "a size search keeps apart classes of one name with cargo of different value" begin
+    class = ship_classes()["Kamsarmax bulk carrier"]
+    cheap, dear = (PaperData.with_cargo_value(class, value) for value in (100.0, 15000.0))
+    search_key(ship) = (ship, "ammonia", "kite", "tubarao")
+    searches = Dict(search_key(ship) => Tuple{Float64, Float64}[] for ship in (cheap, dear))
+    cases = [(; design=(; class=ship), class=ship.name, drive="ammonia", rig="kite",
+                 route="tubarao", area)
+             for (ship, area) in ((cheap, 1000.0), (dear, 2000.0))]
+    PaperData.record_sizes!(searches, cases, [(; cost_per_tonne_km=1.0), nothing])
+    @test searches[search_key(cheap)] == [(1000.0, 1.0)]
+    @test searches[search_key(dear)] == [(2000.0, Inf)]
+end
+
+@testset "a ship covering one nautical mile an hour along its track sails at one knot" begin
+    @test PaperData.speed_along_track(24 * 1.852, 1.0) ≈ 1.0
+    @test PaperData.speed_along_track(24 * 1.852, 2.0) ≈ 0.5
 end
 
 include("hot_path_checks.jl")
