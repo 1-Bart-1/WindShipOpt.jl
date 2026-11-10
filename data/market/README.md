@@ -51,6 +51,7 @@ on 2026-10-31.
 | `top20_pairs_RTM_ANR_HAM.csv`          | top 20 Rotterdam / Antwerp-Bruges / Hamburg pairs by tonne-km                           |
 | `north_europe_route_groups_2024.csv`   | NL, BE, DE North Sea and FR Atlantic ports by partner region; `scripts/route_groups.py` |
 | `imo_ghg4_transport_work_*.csv`        | 2018 transport work by ship type and size, and its share by dwt class                   |
+| `fleet_work_bins.csv`                  | IMO type and size bin of each ship class of the paper (`data/ship_classes.csv`)         |
 | `unctad_tonne_miles_by_cargo.csv`      | world tonne-miles by cargo (2023–24 partly read off a chart; 2018 from IMO Table 71)    |
 
 ## Gaps

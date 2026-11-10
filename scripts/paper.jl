@@ -79,7 +79,8 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :season_figure => season_figure,
     :class_comparison => class_comparison_figure, :class_sizes => class_size_figure,
     :cargo_interest_figure => cargo_interest_figure,
-    :winner_map => winner_map_figure, :situations_figure => situations_figure,
+    :winner_map => winner_map_figure,
+    :situations_figure => situations_figure,
     :fuels => fuel_figure,
     :wind_angle_figure => wind_angle_figure,
     :sensitivity_figure => sensitivity_figure, :aspect_figure => aspect_figure,
@@ -107,7 +108,7 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :canopy_life_figure => canopy_life_figure, :large_rigs => large_rigs_figure,
     :canopy_life_table => canopy_life_table, :rigid_mass => rigid_mass_figure,
     :tow_point_figure => tow_point_figure, :fidelity_table => fidelity_table,
-    :numbers => numbers_file]
+    :fleet_share => fleet_share_figure, :numbers => numbers_file]
 
 """
     paper(names...; fidelity, resume=nothing)
