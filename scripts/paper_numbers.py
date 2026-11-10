@@ -249,14 +249,18 @@ def sizes_summary():
 
 
 def forecast_summary():
-    """Saving of each rig with perfect foresight and on archived forecasts."""
+    """Mean saving over the departures of each rig on each plan of the forecast study."""
     print("== forecast")
-    rows = table("forecast.csv")
-    bare = {r["knowledge"]: float(r["cost"]) for r in rows if r["rig"] == "none"}
-    for r in rows:
-        if r["rig"] != "none":
-            print(f"{r['rig']:7s} {r['knowledge']:8s} saving "
-                  f"{saving(float(r['cost']), bare[r['knowledge']]):.1f}%")
+    cost = {}
+    for r in table("forecast_plans.csv"):
+        cost.setdefault(r["plan"], {}).setdefault(r["rig"], {})[r["departure"]] = float(r["cost"])
+    for plan, rigs in cost.items():
+        if "none" not in rigs:
+            continue
+        for rig, costs in rigs.items():
+            if rig != "none":
+                savings = [saving(c, rigs["none"][d]) for d, c in costs.items()]
+                print(f"{rig:7s} {plan:12s} saving {sum(savings) / len(savings):.1f}%")
 
 
 def other_summaries():

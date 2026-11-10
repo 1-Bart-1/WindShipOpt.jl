@@ -27,6 +27,20 @@ function forecast_plan_archives(control, directory, weather)
         :members => ForecastEnsemble([control;
             [ForecastArchive(joinpath(directory, member), weather) for member in members]]))
 end
+"""
+    replanning_sources(operational)
+
+The plans of the re-planning study, keyed by name, on the archive `operational` issued
+every 6 h: re-planning at 24, 12 or 6 h, and adapting speed or course between plans.
+"""
+replanning_sources(operational) = Dict(
+    :operational_24h => ReplannedForecast(operational; interval=24.0),
+    :operational_12h => ReplannedForecast(operational; interval=12.0),
+    :operational_6h => ReplannedForecast(operational; interval=6.0),
+    :operational_24h_speed => ReplannedForecast(operational; adapts=:speed),
+    :operational_24h_course => ReplannedForecast(operational; adapts=:course),
+    :operational_6h_course => ReplannedForecast(operational; interval=6.0, adapts=:course))
+
 era5_directory = joinpath(@__DIR__, "..", "era5", "atlantic_wide")
 if isfile(joinpath(era5_directory, "waves", "grid.toml"))
     weather = ERA5Weather(era5_directory)
@@ -44,6 +58,9 @@ if isfile(joinpath(era5_directory, "waves", "grid.toml"))
     forecast_plans = isdir(joinpath(members_directory, "mean")) ?
                      forecast_plan_archives(forecast_archive, members_directory, weather) :
                      Dict{Symbol, Any}()
+    operational_directory = joinpath(era5_directory, "forecast_gefs11")
+    isdir(joinpath(operational_directory, "wind", "bias_2017")) && merge!(forecast_plans,
+        replanning_sources(ForecastArchive(operational_directory, weather)))
 else
     weather = SyntheticWeather()
     weather_origin = DateTime(2017)

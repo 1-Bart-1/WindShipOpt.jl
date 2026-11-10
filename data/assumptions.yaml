@@ -900,7 +900,7 @@ kite_launch_sea_wind:
   low: 0.0
   high: 10.0
   unit: m/s
-  reason: "Extra apparent wind a launch needs, against the calm-sea value, from the motion of the launch mast on the reference ship in the reference sea. SkySails ships: about 5 m/s in perfect conditions, while rough sea and bad weather might require 10 m/s (Paulig et al. 2013); bad weather is part of that step, so taking all 5 m/s for the sea is a bound against the kite. The low bound is no effect of the sea; the high bound doubles it. Reported limited launch opportunities in heavy sea (CE Delft 2016) give no number."
+  reason: "Extra apparent wind a launch needs, against the calm-sea value, from the motion of the launch mast on the reference ship in the reference sea. SkySails ships: about 5 m/s in perfect conditions, while rough sea and bad weather might require 10 m/s (Paulig et al. 2013); bad weather is part of that step, so taking all 5 m/s for the sea errs against the kite if the reported sea was no milder than the reference sea. The low bound is no effect of the sea; the high bound doubles it, which also covers a reported sea of half the reference height. Reported limited launch opportunities in heavy sea (CE Delft 2016) give no number."
 kite_launch_sea_length:
   value: 132.0
   low: 132.0
