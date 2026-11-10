@@ -2754,7 +2754,34 @@ end
     @test length(work) == 13
     @test work["Kamsarmax bulk carrier"] ≈ 7974.7 * 1.852e9
     @test work["MR product tanker"] ≈ (524.7 + 2186.0) * 1.852e9
-    @test 0 < share < 1
+    @test share ≈ 0.6218 atol=1e-4
+end
+
+@testset "a fleet's cost is each class's work over its routes at its bare cost" begin
+    work, _ = PaperData.fleet_work()
+    routes, drive = ["caribbean", "dakar", "tubarao"], "vlsfo"
+    class, route = "Kamsarmax bulk carrier", first(routes)
+    rigs = ("none", PaperData.rig_names...)
+    cases = vec([(; class=name, route=leg, rig)
+                  for name in keys(work), leg in routes, rig in rigs])
+    function cost(case)
+        (case.class, case.route) == (class, route) || return 0.01
+        return case.rig == "none" ? 0.02 : case.rig == "kite" ? 0.018 : 0.02
+    end
+    table(kept) = Dict{String, Vector}("class" => getfield.(kept, :class),
+        "route" => getfield.(kept, :route), "drive" => fill(drive, length(kept)),
+        "rig" => getfield.(kept, :rig), "cost" => cost.(kept))
+    split = PaperData.fleet_split_of(table(cases), drive)
+    bill = work[class] / length(routes) * 0.02
+    @test split["kite"].bill ≈ bill
+    @test split["kite"].saved ≈ bill * 0.1
+    @test PaperData.fleet_total(split, :bill) ≈ sum(values(work)) * 0.01 + bill / 2
+    without(rig) = filter(cases) do case
+        return (case.class, case.route, case.rig) != (class, route, rig)
+    end
+    for rig in ("none", "rotors")
+        @test_throws "$class on $route" PaperData.fleet_split_of(table(without(rig)), drive)
+    end
 end
 
 @testset "a following wind is flown at a lower speed and a rough sea at no speed" begin

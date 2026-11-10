@@ -792,6 +792,71 @@ function classes_data()
     write_trips("classes.csv", cases, trips, :class, :route, :drive, :rig, :area, :units)
 end
 
+"""
+    rows(table, conditions...)
+
+Indices of the rows of `table` where each `column => value` condition holds, `value`
+being a value to equal or a predicate to meet.
+"""
+function rows(table, conditions...)
+    chosen = trues(length(first(values(table))))
+    for (column, value) in conditions
+        chosen .&= value isa Function ? value.(table[column]) : table[column] .== value
+    end
+    return findall(chosen)
+end
+
+"""
+    percent_saving(cost, reference)
+
+Saving [%] of `cost` against `reference`.
+"""
+percent_saving(cost, reference) = 100 * (1 - cost / reference)
+
+"""
+    best_savings(table, class, route, drive)
+
+Cost saving [%] of the best size of each rig against the class without a rig on one
+route and drive, as a Dict of rig name to saving; missing rigs are left out.
+"""
+best_savings(table, class, route, drive) = rig_savings(table, rig_names,
+    "class" => class, "route" => route, "drive" => drive)
+
+"""
+    rig_savings(table, rigs, conditions...)
+
+Cost saving [%] of the best size of each of `rigs` against no rig among the rows of
+`table` where the `conditions` hold, as a Dict of rig name to saving; missing rigs are
+left out.
+"""
+function rig_savings(table, rigs, conditions...)
+    base = rows(table, conditions..., "rig" => "none")
+    savings = Dict{String, Float64}()
+    isempty(base) && return savings
+    reference = only(table["cost"][base])
+    for rig in rigs
+        chosen = rows(table, conditions..., "rig" => rig)
+        isempty(chosen) && continue
+        savings[rig] = percent_saving(minimum(table["cost"][chosen]), reference)
+    end
+    return savings
+end
+
+"""
+    cheapest_row(table, filters::Pair...)
+    cheapest_row(table, class, route, drive, rig)
+
+Row of `table` with the lowest cost among those matching `filters`, column => value, or of
+`rig` for one class, route and drive; `nothing` where none was run.
+"""
+function cheapest_row(table, filters::Pair...)
+    chosen = rows(table, filters...)
+    return isempty(chosen) ? nothing : chosen[argmin(table["cost"][chosen])]
+end
+
+cheapest_row(table, class, route, drive, rig) = cheapest_row(table, "class" => class,
+    "route" => route, "drive" => drive, "rig" => rig)
+
 "points of cost saving within which two rigs count as level"
 level_margin = 1.0
 
@@ -874,6 +939,31 @@ function fleet_work()
     share = sum(values(classes)) / sum(values(work))
     return Dict(class => WindShipOpt.NAUTICAL_MILE * 1e6 * billion
                 for (class, billion) in classes), share
+end
+
+"""
+    fleet_split_of(table, drive)
+
+The [`fleet_split`](@ref) of class table `table` on `drive`: each class's transport work
+from [`fleet_work`](@ref) shared equally over the table's routes, at the cost without a
+rig. Errors naming every class and route of `drive` the table lacks a result of a rig for.
+"""
+function fleet_split_of(table, drive)
+    work, _ = fleet_work()
+    routes = unique(table["route"])
+    cells, absent = [], String[]
+    for class in keys(work), route in routes
+        bare = cheapest_row(table, class, route, drive, "none")
+        savings = best_savings(table, class, route, drive)
+        if isnothing(bare) || length(savings) < length(rig_names)
+            push!(absent, "$class on $route")
+            continue
+        end
+        bill = work[class] / length(routes) * table["cost"][bare]
+        push!(cells, (; bill, savings))
+    end
+    isempty(absent) || throw(ArgumentError("no $drive results for " * join(absent, ", ")))
+    return fleet_split(cells)
 end
 
 """

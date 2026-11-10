@@ -117,27 +117,6 @@ function wind_load_figure()
 end
 
 """
-    rows(table, conditions...)
-
-Indices of the rows of `table` where each `column => value` condition holds, `value`
-being a value to equal or a predicate to meet.
-"""
-function rows(table, conditions...)
-    chosen = trues(length(first(values(table))))
-    for (column, value) in conditions
-        chosen .&= value isa Function ? value.(table[column]) : table[column] .== value
-    end
-    return findall(chosen)
-end
-
-"""
-    percent_saving(cost, reference)
-
-Saving [%] of `cost` against `reference`.
-"""
-percent_saving(cost, reference) = 100 * (1 - cost / reference)
-
-"""
     geometric_mean(values)
 
 Geometric mean of the positive numbers `values`.
@@ -511,35 +490,6 @@ function passage_figure()
 end
 
 """
-    best_savings(table, class, route, drive)
-
-Cost saving [%] of the best size of each rig against the class without a rig on one
-route and drive, as a Dict of rig name to saving; missing rigs are left out.
-"""
-best_savings(table, class, route, drive) = rig_savings(table, rig_names,
-    "class" => class, "route" => route, "drive" => drive)
-
-"""
-    rig_savings(table, rigs, conditions...)
-
-Cost saving [%] of the best size of each of `rigs` against no rig among the rows of
-`table` where the `conditions` hold, as a Dict of rig name to saving; missing rigs are
-left out.
-"""
-function rig_savings(table, rigs, conditions...)
-    base = rows(table, conditions..., "rig" => "none")
-    savings = Dict{String, Float64}()
-    isempty(base) && return savings
-    reference = only(table["cost"][base])
-    for rig in rigs
-        chosen = rows(table, conditions..., "rig" => rig)
-        isempty(chosen) && continue
-        savings[rig] = percent_saving(minimum(table["cost"][chosen]), reference)
-    end
-    return savings
-end
-
-"""
     class_order(table)
 
 Classes of the class table sorted by deadweight.
@@ -834,21 +784,6 @@ function print_tow_point(measure, names, savings, markers)
 end
 
 """
-    cheapest_row(table, filters::Pair...)
-    cheapest_row(table, class, route, drive, rig)
-
-Row of `table` with the lowest cost among those matching `filters`, column => value, or of
-`rig` for one class, route and drive; `nothing` where none was run.
-"""
-function cheapest_row(table, filters::Pair...)
-    chosen = rows(table, filters...)
-    return isempty(chosen) ? nothing : chosen[argmin(table["cost"][chosen])]
-end
-
-cheapest_row(table, class, route, drive, rig) = cheapest_row(table, "class" => class,
-    "route" => route, "drive" => drive, "rig" => rig)
-
-"""
     best_area(table, class, route, drive, rig)
 
 Area [m^2] of the size of `rig` with the lowest cost for one class, route and drive, or
@@ -968,28 +903,6 @@ function winner_map_figure()
 end
 
 """
-    fleet_split_of(table, drive)
-
-The [`fleet_split`](@ref) of class table `table` on `drive`: each class's transport work
-from [`fleet_work`](@ref) shared equally over the routes sailed, at the cost without a rig.
-"""
-function fleet_split_of(table, drive)
-    work, _ = fleet_work()
-    cells = []
-    for class in class_order(table)
-        trips = [(cheapest_row(table, class, route, drive, "none"),
-                  best_savings(table, class, route, drive))
-                 for route in unique(table["route"])]
-        sailed = [(bare, savings) for (bare, savings) in trips
-                  if !isnothing(bare) && !isempty(savings)]
-        for (bare, savings) in sailed
-            push!(cells, (bill=work[class] / length(sailed) * table["cost"][bare], savings))
-        end
-    end
-    return fleet_split(cells)
-end
-
-"""
     fleet_share_panel!(axis, splits, measure)
 
 Stacked bar per drive of the share [%] of `measure` (`:bill` or `:saved`) of each band of
@@ -1005,7 +918,8 @@ function fleet_share_panel!(axis, splits, measure)
             share > 0 || continue
             poly!(axis, Rect2f(left, i - 0.32, share, 0.64); color=colours[band],
                 strokecolor=:white, strokewidth=0.5)
-            share >= 6 && text!(axis, left + share / 2, i; text=@sprintf("%.0f", share),
+            share >= 6 && text!(axis, left + share / 2, i;
+                text=fleet_band_label(share, 1e-9getfield(split[band], measure)),
                 align=(:center, :center), fontsize=pt(9),
                 color=band in ("level", "none") ? :black : :white)
             left += share
@@ -1013,6 +927,12 @@ function fleet_share_panel!(axis, splits, measure)
     end
     xlims!(axis, 0, 100)
     ylims!(axis, length(splits) + 0.5, 0.5)
+end
+
+"label of a band of `share` [%] and `billions` [USD] of a bar, the dollars only if they fit"
+function fleet_band_label(share, billions)
+    share < 14 && return @sprintf("%.0f%%", share)
+    return @sprintf("%.0f%%\n%.*f bn", share, billions < 10 ? 1 : 0, billions)
 end
 
 "colours of the [`fleet_bands`](@ref): those of the rigs, level hatched, none grey"
@@ -1024,15 +944,16 @@ fleet_colours() = Dict("kite" => palette[1], "wings" => palette[2], "rotors" => 
 """
     fleet_share_figure()
 
-Share [%] of the yearly cost of carrying the fleet's cargo (a) and of the yearly saving (b)
-of each band of [`fleet_bands`](@ref) on each drive, with each total in the row's label.
+Share [%] and dollars of each band of [`fleet_bands`](@ref) in the yearly cost of carrying
+the fleet's cargo (a) and in the yearly saving (b) on each drive, each total in the row's
+label.
 """
 function fleet_share_figure()
     table = read_table(data_file("classes.csv"))
     splits = [(drive, fleet_split_of(table, drive)) for (drive, _) in drive_labels]
     figure = Figure(size=(page_width, 175); figure_padding=(4, 16, 4, 4))
-    panels = ((:bill, "(a) yearly cost of carrying the cargo [%]"),
-        (:saved, "(b) yearly cost saved by the rigs [%]"))
+    panels = ((:bill, "(a) yearly cost of carrying the cargo [%, USD]"),
+        (:saved, "(b) yearly cost saved by the rigs [%, USD]"))
     for (k, (measure, title)) in enumerate(panels)
         labels = [string(label, "\n",
                       @sprintf("USD %.0f bn", 1e-9fleet_total(split, measure)))
