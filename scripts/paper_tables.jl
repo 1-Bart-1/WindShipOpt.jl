@@ -1433,11 +1433,10 @@ fidelity_parts() = [
             :kite_min_elevation, :kite_flight_drag, :kite_stall_margin,
             :kite_max_force_per_area, :kite_mass_per_area, :tether_drag_coefficient)),
     (part="Kite launch and sea limits", varied="input ranges",
-        model="fixed limits of wind and significant wave height for launch, flight and " *
-              "landing",
-        error="wave limits are estimates without a source",
-        effect=varied_inputs(:kite_launch_max_wave_height, :kite_max_wave_height,
-            :kite_landing_max_wave_height, :kite_max_wind, :kite_launch_max_wind,
+        model="fixed wind limits for launch, flight and landing; launch wind raised with " *
+              "the launch mast's motion in the sea",
+        error="extra launch wind scaled on one reported pair of wind speeds",
+        effect=varied_inputs(:kite_launch_sea_wind, :kite_max_wind, :kite_launch_max_wind,
             :kite_launch_min_wind, :kite_landing_max_wind, :kite_launch_margin)),
     (part="Wear and availability", varied="input ranges",
         model="canopy life from UV and wear per flight hour; launch damage and loss; " *
@@ -1812,3 +1811,51 @@ function premium_numbers(table)
         "PremiumBestRig" => whole_number(mean(with)),
         "PremiumClosed" => whole_number(100 * (1 - mean(with) / mean(without)))]
 end
+
+"""
+    sea_effect_table()
+
+Kite cost saving per tonne-km and share of the time aloft of the ships of the sea effect
+study, as modelled and with no extra launch wind from the sea, averaged over the routes:
+sea_effect_table.tex.
+"""
+function sea_effect_table()
+    table = read_table(data_file("sea_effect.csv"))
+    ships = (first(sea_effect_classes), "140 m", Iterators.drop(sea_effect_classes, 1)...)
+    open(joinpath(sections, "sea_effect_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
+        println(io, "Ship & \\multicolumn{2}{c}{Saving [\\%]} & Difference & ",
+            "\\multicolumn{2}{c}{Time aloft [\\%]} \\\\")
+        println(io, "\\cmidrule(lr){2-3}\\cmidrule(lr){5-6}")
+        println(io, " & Modelled & No sea effect & [points] & Modelled & No sea effect ",
+            "\\\\\n\\midrule")
+        for ship in ships
+            saved = sea_effect_saving.(Ref(table), ship, ("model", "none"))
+            aloft = sea_effect_flight.(Ref(table), ship, ("model", "none"))
+            # adding 0.0 turns a rounded -0.0 into 0.0
+            @printf(io, "%s & %.1f & %.1f & %.1f & %.1f & %.1f \\\\\n", ship, saved...,
+                round(saved[1] - saved[2]; digits=1) + 0.0, aloft...)
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"mean rows of `table` for `ship` with kite and `sea` setting, cost saving per tonne-km [%]"
+function sea_effect_saving(table, ship, sea)
+    savings = [100 * (1 - table["cost"][kite] / table["cost"][bare])
+               for route in unique(table["route"])
+               for bare in sea_effect_rows(table, ship, route, "none", "none")
+               for kite in sea_effect_rows(table, ship, route, "kite", sea)]
+    return mean(savings)
+end
+
+"mean share of the time aloft [%] of `ship` with the kite and `sea` setting"
+sea_effect_flight(table, ship, sea) =
+    100 * mean(table["flight_share"][kite]
+               for route in unique(table["route"])
+               for kite in sea_effect_rows(table, ship, route, "kite", sea))
+
+"row numbers of `table` for `ship` on `route` with `rig` and `sea` setting"
+sea_effect_rows(table, ship, route, rig, sea) =
+    findall(i -> table["ship"][i] == ship && table["route"][i] == route &&
+                 table["rig"][i] == rig && table["sea"][i] == sea, eachindex(table["ship"]))

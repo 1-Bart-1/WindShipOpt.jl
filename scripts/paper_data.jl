@@ -143,6 +143,41 @@ launch_cost_assumptions(bound) = foldl(launch_cost_inputs; init=assumptions) do 
     with_value(inputs, name, getfield(assumptions.entries[name], bound))
 end
 
+"the ship classes of the sea effect study, in order of length"
+sea_effect_classes = ("general cargo coaster", "feeder container ship",
+    "Kamsarmax bulk carrier", "VLCC", "Neo-Panamax container ship")
+
+"""
+    sea_effect_data()
+
+On every route on e-ammonia, the 140 m ship with the 3,200 m^2 kite and each of
+[`sea_effect_classes`](@ref) with the kite the class study found cheapest on fuel oil,
+without a rig, with the kite as modelled and with no extra launch wind from the sea:
+sea_effect.csv.
+"""
+function sea_effect_data()
+    classes_table = read_table(data_file("classes.csv"))
+    no_sea = with_value(assumptions, :kite_launch_sea_wind, 0.0)
+    ships = Any[("140 m", 140.0),
+        ((name, ship_classes()[name]) for name in sea_effect_classes)...]
+    cases = []
+    for route in route_names, (ship, build) in ships
+        area = sea_effect_area(classes_table, ship, route)
+        bare = ShipDesign(:ammonia, build)
+        push!(cases, trip_case(bare; route, ship, rig="none", area=0.0, sea="none"))
+        rigged = ShipDesign(:ammonia, build; rig_size("kite", area)...)
+        kite = (; route, ship, rig="kite", area)
+        push!(cases, trip_case(rigged; kite..., sea="model"))
+        push!(cases, trip_case(rigged; kite..., sea="none", assumptions=no_sea))
+    end
+    write_trips("sea_effect.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :route, :rig, :area, :sea)
+end
+
+"kite area [m^2] of `ship` in the sea effect study on `route`, read from `classes_table`"
+sea_effect_area(classes_table, ship, route) = ship == "140 m" ? 3200.0 :
+    best_area(classes_table, ship, string(route), "vlsfo", "kite")
+
 """
     launch_data()
 
@@ -277,9 +312,14 @@ rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :ro
 """
     rig_size(rig, area)
 
-Design keywords for `area` [m^2] of `rig`; none for "none".
+Design keywords for `area` [m^2] of `rig`; none for "none". Throws on an `area` that is not
+finite, as [`best_area`](@ref) gives where the rig was not run.
 """
-rig_size(rig, area) = rig == "none" ? (;) : NamedTuple{(rig_keywords[rig],)}((area,))
+function rig_size(rig, area)
+    rig == "none" && return (;)
+    isfinite(area) || throw(ArgumentError("no size for the $rig: area $area"))
+    return NamedTuple{(rig_keywords[rig],)}((area,))
+end
 
 """
     study_hull(ship)
@@ -1165,7 +1205,7 @@ fast_speed = 12KNOT
 "reasons a kite is down, as [`WindShipOpt.kite_down_reason`](@ref) gives them, per row"
 kite_down_groups = (too_little_wind=(:wind_low_flight, :wind_low_launch, :wind_low_pull),
     no_forward_pull=(:no_thrust,), too_much_wind=(:wind_high_flight, :wind_high_launch),
-    hull_limit=(:hull_limit,), sea=(:sea_flight, :sea_launch), night=(:night,),
+    hull_limit=(:hull_limit,), sea=(:sea_launch,), night=(:night,),
     no_saving=(:no_saving,), chosen=(:chosen,))
 
 """
@@ -1303,7 +1343,7 @@ function launches_and_pulls(table, point)
     isfinite(point.flown) && point.flown !== point.stowed || return false
     speed = table.speeds[point.speed_index]
     return WindShipOpt.kite_launchable(table.table, speed, point.headwind, point.crosswind,
-        point.condition.wave_height, point.daylight)
+        point.condition, point.daylight)
 end
 
 "[`WindShipOpt.SailedPoint`](@ref) `point` with the kite unable to fly there"
@@ -1806,14 +1846,12 @@ end
 """
     kite_limits(table)
 
-Limits of the kite of the [`PerformanceTable`](@ref) `table` that
-[`kite_margin_shares`](@ref) compares samples with [m/s and m].
+Wind limits of the kite of the [`PerformanceTable`](@ref) `table` that
+[`kite_margin_shares`](@ref) compares samples with [m/s].
 """
 function kite_limits(table)
-    (; min_flight_wind, launch_min_wind, launch_max_wind, launch_max_wave_height) =
-        table.ship.rig
-    return (; min_flight_wind, launch_min_wind, launch_max_wind, launch_max_wave_height,
-        max_wave_height=table.max_wave_height)
+    (; min_flight_wind, launch_min_wind, launch_max_wind) = table.ship.rig
+    return (; min_flight_wind, launch_min_wind, launch_max_wind)
 end
 
 """
@@ -1824,8 +1862,8 @@ daily on the real weather, or "forecast", on the control forecast) of the Dict `
 of the kite ship, the [`kite_margin_shares`](@ref) of its sailed samples.
 """
 function write_kite_margins(name, samples, departures, limits)
-    fields = (:samples, :aloft, :wind_within_1p25, :wind_within_4, :waves_within_0p5,
-        :waves_within_1, :down_waves, :down_wind, :down_other, :near_launch_waves)
+    fields = (:samples, :aloft, :wind_within_1p25, :wind_within_4, :down_sea, :down_wind,
+        :down_other)
     open(run_file(name), "w") do io
         println(io, join(("knowledge", "departure", fields...), ","))
         for (knowledge, sets) in samples, (departure, set) in zip(departures, sets)
@@ -1878,43 +1916,32 @@ end
     kite_margin_shares(samples, limits)
 
 Of the [`KiteRecord`](@ref) `samples`: how many there are and how many aloft; the share of
-those aloft with apparent wind within 1.25 and 4 m/s of `limits.min_flight_wind` and with
-waves within 0.5 and 1 m of `limits.max_wave_height`; and the share of all samples kept
-down with waves above the `limits.launch_max_wave_height` launch limit, kept down with
-apparent wind outside `limits.launch_min_wind` to `limits.launch_max_wind`, down otherwise,
-and with waves within 1 m below that launch limit.
+those aloft with apparent wind within 1.25 and 4 m/s of `limits.min_flight_wind`; and the
+share of all samples kept down by the sea, kept down with apparent wind outside
+`limits.launch_min_wind` to `limits.launch_max_wind`, and down otherwise.
 """
 function kite_margin_shares(samples, limits)
     aloft = filter(sample -> sample.aloft, samples)
     down = filter(sample -> !sample.aloft, samples)
     wind_margins = [sample.apparent_wind - limits.min_flight_wind for sample in aloft]
-    wave_margins = [limits.max_wave_height - sample.wave_height for sample in aloft]
     share_within(margins, limit) = count(<=(limit), margins) / max(length(margins), 1)
-    share_of_all(condition, group) = count(condition, group) / max(length(samples), 1)
-    above_launch(sample) = sample.wave_height > limits.launch_max_wave_height
+    share_of_all(condition) = count(condition, down) / max(length(samples), 1)
+    by_sea(sample) = sample.reason === :sea_launch
     launchable(sample) = limits.launch_min_wind <= sample.apparent_wind <=
                          limits.launch_max_wind
     return (; samples=length(samples), aloft=length(aloft),
         wind_within_1p25=share_within(wind_margins, 1.25),
         wind_within_4=share_within(wind_margins, 4.0),
-        waves_within_0p5=share_within(wave_margins, 0.5),
-        waves_within_1=share_within(wave_margins, 1.0),
-        down_waves=share_of_all(above_launch, down),
-        down_wind=share_of_all(sample -> !above_launch(sample) && !launchable(sample),
-            down),
-        down_other=share_of_all(sample -> !above_launch(sample) && launchable(sample),
-            down),
-        near_launch_waves=share_of_all(sample -> !above_launch(sample) &&
-            sample.wave_height > limits.launch_max_wave_height - 1, samples))
+        down_sea=share_of_all(by_sea),
+        down_wind=share_of_all(sample -> !by_sea(sample) && !launchable(sample)),
+        down_other=share_of_all(sample -> !by_sea(sample) && launchable(sample)))
 end
 
 "rows of forecast_causes_table.tex on how near the kite is to its limits, as (label, name)"
 kite_margin_rows = (
     ("Aloft within 4 m/s of its lowest wind, of the time aloft", "wind_within_4"),
     ("Aloft within 1.25 m/s of its lowest wind, of the time aloft", "wind_within_1p25"),
-    ("Aloft within 1 m of the 5 m sea it stays up in, of the time aloft", "waves_within_1"),
-    ("Waves within 1 m below the 3 m launch limit", "near_launch_waves"),
-    ("Kept down by waves above the 3 m launch limit", "down_waves"),
+    ("Kept down by the sea at launch", "down_sea"),
     ("Kept down by wind outside its launch range", "down_wind"),
     ("Down otherwise", "down_other"))
 
