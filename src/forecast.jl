@@ -207,6 +207,56 @@ struct ShortestLeadForecast{W}
     weather::W
 end
 
+"""
+    ForecastError(wind)
+
+Root mean square error of the vector wind [m/s] of a forecast, per lead of 6, 12, 18...
+hours; later leads take the last value.
+"""
+struct ForecastError
+    wind::Vector{Float64}
+end
+
+"standard error [m/s] of one component of the wind forecast at `lead` [h]"
+wind_spread(error::ForecastError, lead) =
+    error.wind[clamp(round(Int, lead / 6), 1, length(error.wind))] / sqrt(2)
+
+"""
+    ExpectedForecast(forecast, error)
+
+Forecast source of a ship that plans on the [`ForecastArchive`](@ref) `forecast`, weighing
+the wind error of the [`ForecastError`](@ref) `error` at the lead of each sample.
+"""
+struct ExpectedForecast
+    forecast::ForecastArchive
+    error::ForecastError
+end
+
+"""
+    UncertainForecast(known, issued, error)
+
+The [`ArchivedForecast`](@ref) `known`, issued at `issued` [h], with the wind error of the
+[`ForecastError`](@ref) `error`.
+"""
+struct UncertainForecast{K}
+    known::K
+    issued::Float64
+    error::ForecastError
+end
+
+wind(forecast::UncertainForecast, lat, lon, time) = wind(forecast.known, lat, lon, time)
+waves(forecast::UncertainForecast, lat, lon, time) = waves(forecast.known, lat, lon, time)
+
+"standard error [m/s] of the wind speed at `time` [h] that a plan on `weather` weighs"
+wind_spread(weather, time) = 0.0
+wind_spread(forecast::UncertainForecast, time) =
+    wind_spread(forecast.error, time - forecast.issued)
+
+function known_weather(forecast::ExpectedForecast, weather, time, horizon)
+    known = known_weather(forecast.forecast, weather, time, horizon)
+    return UncertainForecast(known, known.issued, forecast.error)
+end
+
 known_weather(forecast::ShortestLead, weather, time, horizon) =
     ShortestLeadForecast(forecast.archive, weather)
 

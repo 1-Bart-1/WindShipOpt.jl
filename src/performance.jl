@@ -273,6 +273,16 @@ function SeaCondition(table::PerformanceTable, wind, angle, wave_height, wave_pe
 end
 
 """
+    with_wind(table, condition, wind)
+
+The [`SeaCondition`](@ref) `condition` in a 10 m true wind of `wind` [m/s] from the same
+angle.
+"""
+with_wind(table::PerformanceTable, condition::SeaCondition, wind) = SeaCondition(
+    KnotWeight(table.flown_thrust.knots[2], min(wind, table.max_wind)), condition.angle,
+    condition.wave_height, condition.wave_period, condition.wave_heading)
+
+"""
     lookup(table, speed, wind, angle, wave_height=0.0, wave_period=0.0, wave_heading=0.0)
 
 Cheapest [`OperatingPoint`](@ref): a kite is flown only where the sea allows and the fuel

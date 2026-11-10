@@ -302,8 +302,8 @@ function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0, day
     condition = WindShipOpt.SeaCondition(table.table, 12.0, π / 2, wave_height, 8.0,
         π / 2)
     sample = WindShipOpt.EdgeSample(condition, headwind, 0.0, daylight)
-    held, flown, stowed = WindShipOpt.held_speed(table, speed_index, sample)
-    return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours, 0.0)
+    held, flown, stowed, chance = WindShipOpt.held_speed(table, speed_index, sample)
+    return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours, 0.0, chance)
 end
 
 """
@@ -1353,7 +1353,7 @@ end
         leg.path[i + 1][2])
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
     sail(ahead) = WindShipOpt.sail_planned_edge!(WindShipOpt.SailedPoint[], kite_table,
-        weather, corridor, i, lateral, WindShipOpt.lateral_step(lateral, next),
+        weather, corridor, i, lateral, WindShipOpt.lateral_step(corridor, lateral, next),
         departure + leg.path[i][3], leg.path[i + 1][4], true, ahead, prices)
     @test sail((0.0, 0.0))[3]
     @test !sail((0.0, Inf))[3]
@@ -1383,7 +1383,7 @@ WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
         Any[])
     calm_sea = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 0.0, 8.0, 0.0)
     point = WindShipOpt.SailedPoint(0.0, 0.0, calm_sea, true,
-        searchsortedfirst(table.speeds, 5.0), 0.0, 0.0, 1.0, 24.0 * 31)
+        searchsortedfirst(table.speeds, 5.0), 0.0, 0.0, 1.0, 24.0 * 31, 0.0)
     WindShipOpt.push_trace_point!(trace, table, FollowingSeaWeather(), 24.0 * 31, 30.0,
         -30.0, π / 2, point, 1.0, true, false, false, false)
     first_knot = first(table.table.flown_thrust.knots[4])
@@ -1774,7 +1774,7 @@ end
     edge_course[1, centre, :] .= NaN
     closed = WindShipOpt.Corridor(corridor.lat, corridor.lon, corridor.water,
         corridor.edge_length, edge_course, corridor.track_length, corridor.near_coast,
-        corridor.along_centre)
+        corridor.along_centre, corridor.reach, corridor.lateral_spacing)
     prices = (; fuel=table.table.ship.fuel.price, time=hourly)
     to_go = WindShipOpt.remaining_cost(corridor, table, weather, departure, prices;
         first_stage=1, coastal_penalty=1.0)
@@ -2238,7 +2238,8 @@ end
         (later_down, 10.0, 5.0), (later_aloft, 12.0, 5.5))
         workspace.cost[state...], workspace.elapsed[state...] = cost, time
     end
-    share(state) = WindShipOpt.sharing_edges!(workspace, state, nothing, Inf, 5)
+    share(state) = WindShipOpt.sharing_edges!(workspace, state, nothing, Inf,
+        5 * (2WindShipOpt.MAX_LATERAL_STEP + 1))
     from = share(down)
     @test from >= 0
     @test length(workspace.shared) == from + 5 * (2WindShipOpt.MAX_LATERAL_STEP + 1)
@@ -2282,8 +2283,8 @@ end
     sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0, true)
     unpowered = findfirst(i -> !isfinite(last(WindShipOpt.edge_fuels(table, i, condition))),
         eachindex(table.speeds))
-    point = WindShipOpt.SailedPoint(sample,
-        WindShipOpt.held_speed(table, unpowered, sample)..., 1.0, 0.0)
+    held, flown, stowed, chance = WindShipOpt.held_speed(table, unpowered, sample)
+    point = WindShipOpt.SailedPoint(sample, held, flown, stowed, 1.0, 0.0, chance)
     distance = 1e5
     hours(i) = distance / table.speeds[i] / 3600
     @test WindShipOpt.same_through(table, [point], unpowered, distance, 1e6) > unpowered
@@ -2301,17 +2302,20 @@ end
     powered(i) = isfinite(last(WindShipOpt.edge_fuels(table, i, condition)))
     unpowered = findfirst(!powered, eachindex(table.speeds))
     faster_powered = findnext(powered, eachindex(table.speeds), unpowered)
-    held, flown, stowed = WindShipOpt.held_speed(table, unpowered, sample)
-    point = WindShipOpt.SailedPoint(sample, held, flown, stowed, 1.0, 0.0)
+    held, flown, stowed, chance = WindShipOpt.held_speed(table, unpowered, sample)
+    point = WindShipOpt.SailedPoint(sample, held, flown, stowed, 1.0, 0.0, chance)
     same_through = WindShipOpt.same_through(table, [point], unpowered, 1e5, 1e6)
     @test same_through == faster_powered - 1
     for speed_index in unpowered:same_through
-        @test WindShipOpt.held_speed(table, speed_index, sample) == (held, flown, stowed)
+        @test WindShipOpt.held_speed(table, speed_index, sample) ==
+              (held, flown, stowed, chance)
     end
     calm = WindShipOpt.EdgeSample(WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 0.0, 6.0,
         0.0), 0.0, 0.0, true)
-    calm_point = WindShipOpt.SailedPoint(calm,
-        WindShipOpt.held_speed(table, unpowered, calm)..., 1.0, 0.0)
+    calm_held, calm_flown, calm_stowed, calm_chance = WindShipOpt.held_speed(table,
+        unpowered, calm)
+    calm_point = WindShipOpt.SailedPoint(calm, calm_held, calm_flown, calm_stowed, 1.0, 0.0,
+        calm_chance)
     @test WindShipOpt.same_through(table, [point, calm_point], unpowered, 1e5, 1e6) ==
         unpowered
     @test first(WindShipOpt.held_speed(table, faster_powered, sample)) == faster_powered
@@ -2883,7 +2887,7 @@ end
     stretch(wave_height) = fill(PaperData.at_speed(kite_table,
         WindShipOpt.SailedPoint(-tailwind, 0.0,
             WindShipOpt.SeaCondition(kite_table.table, wind_10m, float(π), wave_height, 8.0,
-                0.0), true, sailed, NaN, NaN, 3.0, 0.0), sailed), 4)
+                0.0), true, sailed, NaN, NaN, 3.0, 0.0, 1.0), sailed), 4)
     outcome(points) = first(PaperData.speed_change_outcome(kite_table, points, prices))
     @test outcome(stretch(1.0)) != :no_speed
     @test outcome(stretch(2rig.launch_max_wave_height)) == :no_speed
@@ -2893,7 +2897,7 @@ end
         beam_wind / kite_table.table.kite_wind_factor, float(π) / 2, wave_height, 8.0, 0.0)
     sailed_at(index, wave_height) = fill(PaperData.at_speed(kite_table,
             WindShipOpt.SailedPoint(0.0, beam_wind, beam_sea(wave_height), true, index,
-                NaN, NaN, 3kite_table.speeds[sailed] / kite_table.speeds[index], 0.0),
+                NaN, NaN, 3kite_table.speeds[sailed] / kite_table.speeds[index], 0.0, 1.0),
             index), 4)
     credited(index) = last(PaperData.speed_change_outcome(kite_table,
         sailed_at(index, 1.0), prices))

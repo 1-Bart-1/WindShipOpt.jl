@@ -64,7 +64,9 @@ forecast_source(plan) =
     plan === :foresight_kite ? ForesightKite(forecast_archive) :
     plan === :kite_margin ? KiteMargin(forecast_archive, forecast_kite_margin) :
     plan === :shortest_lead ? ShortestLead(forecast_archive) :
-    plan === :perfect_replan ? PerfectForecast() : forecast_plans[plan]
+    plan === :perfect_replan ? PerfectForecast() :
+    plan === :expected ? ExpectedForecast(forecast_archive, forecast_wind_error) :
+    forecast_plans[plan]
 
 """
     round_trips(cases, departures)
@@ -1112,10 +1114,12 @@ routing speed number `speed_index` of `table`, the kite's fuel powers looked up 
 """
 function at_speed(table, point, speed_index)
     flown, stowed = WindShipOpt.edge_fuels(table, speed_index, point.condition)
-    sailed = table.speeds[max(point.speed_index, 1)]
+    sailed, speed = table.speeds[max(point.speed_index, 1)], table.speeds[speed_index]
+    aloft = WindShipOpt.kite_aloft(table.table, speed, point.headwind, point.crosswind,
+        point.condition.wave_height)
     return WindShipOpt.SailedPoint(point.headwind, point.crosswind, point.condition,
-        point.daylight, speed_index, flown, stowed,
-        point.hours * sailed / table.speeds[speed_index], point.time)
+        point.daylight, speed_index, flown, stowed, point.hours * sailed / speed,
+        point.time, Float64(aloft))
 end
 
 "cost [USD] of fuel, rig and time of `points` from a kite `aloft` or down, and its launches"
@@ -1134,7 +1138,8 @@ end
 
 "[`WindShipOpt.SailedPoint`](@ref) `point` with the kite unable to fly there"
 grounded(point) = WindShipOpt.SailedPoint(point.headwind, point.crosswind, point.condition,
-    point.daylight, point.speed_index, point.stowed, point.stowed, point.hours, point.time)
+    point.daylight, point.speed_index, point.stowed, point.stowed, point.hours, point.time,
+    0.0)
 
 "`points` at each routing speed of `table`, by [`at_speed`](@ref)"
 speed_options(table, points) = [[at_speed(table, point, speed_index) for point in points]
