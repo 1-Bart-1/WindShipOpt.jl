@@ -8,8 +8,9 @@
 #   julia +1.12 --project=. -t auto scripts/router_gate.jl --reference <out_dir>
 #   julia +1.12 --project=. -t auto scripts/router_gate.jl --fresh <reference_dir> <out_dir>
 #
-# Writes gate_<scale>.csv (`scale_label`) to <out_dir>, a line per finished case; a rerun on the same code
-# and settings routes only the cases missing there, so another run needs an empty directory.
+# Writes gate_<scale>.csv (`scale_label`) to <out_dir>, a line per finished case; a rerun on
+# the same code and settings routes only the cases missing there, so another run needs an
+# empty directory.
 # Given a reference directory holding gate_<scale>.csv, prints the change per case and exits
 # 1 if a saving moves by more than `SAVING_TOLERANCE` points. `--reference` searches every
 # state, which makes such a directory. `--fresh` makes the reference and compares with it, a
@@ -32,7 +33,8 @@ REFERENCE_SETTINGS = WindShipOpt.RouterSettings(search_margins=(Inf, Inf),
     kite_search_margins=(Inf, Inf))
 
 "name of corridor `scale` in the gate's files, a number or a pair of stage and row scales"
-scale_label(scale) = join((isinteger(x) ? Int(x) : x for x in scale), "_")
+scale_label(scale) =
+    join((isinteger(factor) ? Int(factor) : factor for factor in scale), "_")
 
 """
     gate_cases(scale)

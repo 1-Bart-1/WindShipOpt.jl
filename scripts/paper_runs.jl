@@ -17,7 +17,7 @@ fidelities = Dict(:draft => (corridor_scale=8.0, departure_step=12, size_rounds=
     :final => (corridor_scale=1.0, departure_step=6, size_rounds=2))
 
 "corridor scales of the convergence study"
-convergence_scales = (4.0, 2.0, 1.0)
+convergence_scales = (2.0, 1.0, 0.5)
 
 """
     mark_fidelity(path, fidelity, steps, figures)
