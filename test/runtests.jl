@@ -1932,6 +1932,19 @@ end
     @test WindShipOpt.ROUTER_SETTINGS[] == earlier
 end
 
+@testset "the backward estimate's time knots sit the set spacing apart, 24 h by default" begin
+    @test WindShipOpt.RouterSettings().to_go_step == 24.0
+    workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2), 800, size(corridor.lat, 1))
+    estimate(step) = WindShipOpt.with_router_settings(
+        WindShipOpt.RouterSettings(to_go_step=step)) do
+        WindShipOpt.CostToGo(workspace, corridor, table, SyntheticWeather(), 24.0 * 31;
+            time_cost=hourly, first_stage=1, coastal_penalty=1.0)
+    end
+    fine, coarse = estimate(12.0), estimate(48.0)
+    @test fine.step == 12.0 && coarse.step == 48.0
+    @test fine.knots > 3 * coarse.knots
+end
+
 @testset "a ship that can fly a kite is searched at the kite margins" begin
     settings = WindShipOpt.RouterSettings(search_margins=(0.1, 0.2),
         kite_search_margins=(0.3, 0.4))

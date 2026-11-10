@@ -267,7 +267,7 @@ Base.@kwdef struct RouterSettings
     "speeds the search skips between those it commands, plus one"
     search_speed_stride::Int = 4
     "time between the knots of the [`CostToGo`](@ref) [h]"
-    to_go_step::Float64 = 48.0
+    to_go_step::Float64 = 24.0
     "length of the time bins of the final pass along the path found [h]"
     final_time_step::Float64 = 0.25
     "how far the final pass strays in time from the path found [h]"
