@@ -44,6 +44,9 @@ struct Corridor
     reach::Int
     "distance between the rows of a stage [m]"
     lateral_spacing::Float64
+    "longest time between the weather samples along the edges of each stage that a plan may
+    use [h]; 0 keeps the plan's own"
+    sample_hours::Vector{Float64}
 end
 
 "edges leaving each node of `corridor`"
@@ -112,7 +115,7 @@ function Corridor(coastal::Vector{NTuple{2, Float64}}, ocean::Vector{NTuple{2, F
     reach = lateral_reach(ocean_spacing, lateral_spacing)
     return Corridor(lat, lon, water, edges(lat, lon, water, mask, reach)..., track_end,
         reshape(BitVector(near_coast), size(lat)), along_centre_line(lat, lon), reach,
-        lateral_spacing * NAUTICAL_MILE)
+        lateral_spacing * NAUTICAL_MILE, zeros(stage_count))
 end
 
 """
@@ -198,7 +201,8 @@ function return_corridor(corridor::Corridor, mask)
     water = reverse(corridor.water; dims=1)
     return Corridor(lat, lon, water, edges(lat, lon, water, mask, corridor.reach)...,
         corridor.track_length, reverse(corridor.near_coast; dims=1),
-        along_centre_line(lat, lon), corridor.reach, corridor.lateral_spacing)
+        along_centre_line(lat, lon), corridor.reach, corridor.lateral_spacing,
+        reverse(corridor.sample_hours))
 end
 
 """
@@ -1002,6 +1006,7 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices,
     daylight = is_daylight(lon, departure + time)
     kite = has_kite(table)
     speed_stride = COST_TO_GO_SPEED_STRIDE * ROUTER_SETTINGS[].search_speed_stride
+    sample_hours = max(COST_TO_GO_SAMPLE_HOURS, corridor.sample_hours[stage])
     best_down, best_up = Inf, Inf
     for step in 1:step_count(corridor)
         isnan(corridor.edge_course[stage, lateral, step]) && continue
@@ -1015,14 +1020,14 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices,
         for speed_index in commanded_speeds(length(table.speeds), speed_stride)
             speed_index <= through && continue
             hours = sail_edge!(points, start, table, weather, corridor, stage, lateral,
-                step, departure + time, speed_index, COST_TO_GO_SAMPLE_HOURS)
+                step, departure + time, speed_index, sample_hours)
             isfinite(hours) || continue
             arrival = (; penalty, hours, prices, next, stage=stage + 1, time=time + hours)
             best_down = min(best_down, best_arrival(to_go, table, points, false, arrival))
             kite && (best_up = min(best_up,
                 best_arrival(to_go, table, points, true, arrival)))
             through = same_through(table, points, speed_index, distance,
-                COST_TO_GO_SAMPLE_HOURS)
+                sample_hours)
         end
     end
     to_go.values[lateral, knot, 1, stage] = isfinite(best_down) ? best_down : NaN
@@ -1129,7 +1134,8 @@ function leg_corridor(leg::Leg)
         edge_course[i, 1, STRAIGHT_ON] = bearing(lat[i], lon[i], lat[i + 1], lon[i + 1])
     end
     return Corridor(lat, lon, trues(stage_count, 1), edge_length, edge_course, 0.0,
-        falses(stage_count, 1), along_centre_line(lat, lon), MAX_LATERAL_STEP, 0.0)
+        falses(stage_count, 1), along_centre_line(lat, lon), MAX_LATERAL_STEP, 0.0,
+        zeros(stage_count))
 end
 
 """
@@ -1157,7 +1163,7 @@ function path_corridor(leg::Leg, corridor::Corridor, first_stage)
     end
     return Corridor(lat, lon, trues(stage_count, 1), edge_length, edge_course,
         corridor.track_length, near_coast, along_centre_line(lat, lon), MAX_LATERAL_STEP,
-        0.0)
+        0.0, zeros(stage_count))
 end
 
 """
@@ -1222,9 +1228,9 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
     fill!(view(cost, :, :, :, first_stage:stage_count), Inf)
     start_state!(workspace, (first_lateral, 1, first_aloft + 1, first_stage))
     commanded = commanded_speeds(length(speeds), speed_stride)
-    sample_hours = ROUTER_SETTINGS[].edge_sample_hours
     for stage in first_stage:(stage_count - 1), lateral in 1:lateral_count
         corridor.water[stage, lateral] || continue
+        sample_hours = max(ROUTER_SETTINGS[].edge_sample_hours, corridor.sample_hours[stage])
         lat, lon = corridor.lat[stage, lateral], corridor.lon[stage, lateral]
         empty!(workspace.shared)
         fill!(workspace.shared_from, -1)
@@ -1659,20 +1665,25 @@ struct ReplannedForecast{F, G}
 end
 
 """
-    PlanningGrid(mask; near_distance=480.0, far_spacing=720.0)
+    PlanningGrid(mask; near_distance=480.0, far_spacing=720.0, far_row_stride=4,
+                 far_sample_hours=12.0)
 
 Stages a re-planning ship plans on: those of its corridor within `near_distance` [nmi]
 ahead, then stages about `far_spacing` [nmi] apart whose edges may shift as many rows as
-their length allows, clear of land by `mask`.
+their length allows, on every `far_row_stride`-th row, with weather samples at most
+`far_sample_hours` [h] apart, clear of land by `mask`.
 """
 struct PlanningGrid{M}
     mask::M
     near_distance::Float64
     far_spacing::Float64
+    far_row_stride::Int
+    far_sample_hours::Float64
 end
 
-PlanningGrid(mask; near_distance=480.0, far_spacing=720.0) =
-    PlanningGrid(mask, near_distance, far_spacing)
+PlanningGrid(mask; near_distance=480.0, far_spacing=720.0, far_row_stride=4,
+    far_sample_hours=12.0) =
+    PlanningGrid(mask, near_distance, far_spacing, far_row_stride, far_sample_hours)
 
 """
     planning_stages(along, stage, grid)
@@ -1707,6 +1718,11 @@ function planning_corridor(corridor::Corridor, stage, grid::PlanningGrid)
     stages, near = planning_stages(along, stage, grid)
     lat, lon = corridor.lat[stages, :], corridor.lon[stages, :]
     water = corridor.water[stages, :]
+    centre = centre_index(corridor)
+    far = (near + 1):length(stages)
+    for row in axes(water, 2)
+        mod(row - centre, grid.far_row_stride) == 0 || (water[far, row] .= false)
+    end
     lengths = diff(along[stages])
     spacing = corridor.lateral_spacing
     stage_reach(i) = i < near ? min(corridor.reach, lateral_reach(lengths[i], spacing)) :
@@ -1714,7 +1730,8 @@ function planning_corridor(corridor::Corridor, stage, grid::PlanningGrid)
     reach = maximum(stage_reach, eachindex(lengths))
     planning = Corridor(lat, lon, water, edges(lat, lon, water, grid.mask, reach,
             stage_reach)..., corridor.track_length, corridor.near_coast[stages, :],
-        along_centre_line(lat, lon), reach, spacing)
+        along_centre_line(lat, lon), reach, spacing,
+        [i < near ? 0.0 : grid.far_sample_hours for i in eachindex(stages)])
     return planning, 1, near
 end
 

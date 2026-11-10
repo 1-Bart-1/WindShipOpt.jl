@@ -1774,7 +1774,8 @@ end
     edge_course[1, centre, :] .= NaN
     closed = WindShipOpt.Corridor(corridor.lat, corridor.lon, corridor.water,
         corridor.edge_length, edge_course, corridor.track_length, corridor.near_coast,
-        corridor.along_centre, corridor.reach, corridor.lateral_spacing)
+        corridor.along_centre, corridor.reach, corridor.lateral_spacing,
+        corridor.sample_hours)
     prices = (; fuel=table.table.ship.fuel.price, time=hourly)
     to_go = WindShipOpt.remaining_cost(corridor, table, weather, departure, prices;
         first_stage=1, coastal_penalty=1.0)
