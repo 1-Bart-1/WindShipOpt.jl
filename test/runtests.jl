@@ -477,6 +477,16 @@ end
     @test all(isfinite, following)
 end
 
+@testset "a wave reaches the hull's draft by its wave number along the hull" begin
+    hull = Hull(132.0, assumptions)
+    frequency = 0.8
+    along_hull = frequency^2 / 9.81
+    head_heave, = WindShipOpt.heave_pitch_response(hull, 9.81, 0.0, frequency, π)
+    beam_heave, = WindShipOpt.heave_pitch_response(hull, 9.81, 0.0, frequency, π / 2)
+    @test head_heave / beam_heave ≈ exp(-along_hull * hull.draft) *
+                                    abs(sinc(along_hull * hull.length / 2π))
+end
+
 @testset "the reference ship in its reference sea needs the reported extra launch wind" begin
     kite = uniform_kite(Hull(140.0, assumptions), assumptions)
     factor = WindShipOpt.launch_wind_per_mast_speed(kite, assumptions)

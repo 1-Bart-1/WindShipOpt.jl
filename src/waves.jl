@@ -215,8 +215,9 @@ function heave_pitch_response(hull::Hull, gravity, speed, frequency, heading)
                     amplitude^2 / (wavenumber * beam * slowdown^3))^2)
     resonance = 1 / sqrt((1 - 2wavenumber * draft * slowdown^2)^2 +
                     (amplitude^2 / (wavenumber * beam * slowdown^2))^2)
-    half = abs(wavenumber * cos(heading)) * length / 2
-    pressure = exp(-wavenumber * draft) * forcing * resonance
+    effective_wavenumber = abs(wavenumber * cos(heading))
+    half = effective_wavenumber * length / 2
+    pressure = exp(-effective_wavenumber * draft) * forcing * resonance
     heave = pressure * abs(sinc(half / π))
     pitch = pressure * abs(half < 1e-4 ? 2half / length :
                            6 * (sin(half) - half * cos(half)) / (half^2 * length))
