@@ -456,7 +456,8 @@ end
         return WindShipOpt.mast_speed(WindShipOpt.SeakeepingHull(hull, assumptions), env,
             6.0, 3.0, 9.0, π, WindShipOpt.launch_mast_position(hull, assumptions))
     end
-    coaster, reference, feeder, neo_panamax = significant_speed.((85.0, 132.0, 165.0, 350.0))
+    coaster, reference, feeder, neo_panamax =
+        significant_speed.((85.0, 132.0, 165.0, 350.0))
     @test coaster > reference > feeder > neo_panamax
     @test neo_panamax < 0.2coaster
     @test WindShipOpt.mast_speed(WindShipOpt.SeakeepingHull(Hull(132.0, assumptions),
