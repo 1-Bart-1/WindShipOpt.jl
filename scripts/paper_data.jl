@@ -806,22 +806,21 @@ function searched_sizes(ships, rounds)
     for (class, drive, route) in ships
         push!(cases, class_case(class, drive, "none", 0.0, route; round=0))
         for (rig, (lower, upper)) in size_bounds(class)
-            searches[(class.name, drive, rig, route)] = Tuple{Float64, Float64}[]
+            searches[(class, drive, rig, route)] = Tuple{Float64, Float64}[]
             for area in (lower, sqrt(lower * upper), upper)
                 push!(cases, class_case(class, drive, rig, area, route; round=0))
             end
         end
     end
     trips = round_trips(cases, sampled)
-    classes = ship_classes()
     for round in 1:rounds
         record_sizes!(searches, cases, trips)
         batch = []
-        for ((name, drive, rig, route), points) in searches
+        for ((class, drive, rig, route), points) in searches
             count(point -> isfinite(last(point)), points) >= 2 || continue
-            area = next_size(points, size_bounds(classes[name])[rig]...)
+            area = next_size(points, size_bounds(class)[rig]...)
             any(point -> first(point) ≈ area, points) && continue
-            push!(batch, class_case(classes[name], drive, rig, area, route; round))
+            push!(batch, class_case(class, drive, rig, area, route; round))
         end
         append!(trips, round_trips(batch, sampled))
         append!(cases, batch)
@@ -832,16 +831,99 @@ end
 """
     record_sizes!(searches, cases, trips)
 
-Fill each size search, keyed by class, drive, rig and route, with the (area, cost) of
-every case run for it; infeasible trips cost `Inf`.
+Fill each size search, keyed by ship class, drive, rig and route, with the (area, cost)
+of every case run for it; infeasible trips cost `Inf`.
 """
 function record_sizes!(searches, cases, trips)
     foreach(empty!, values(searches))
     for (case, trip) in zip(cases, trips)
-        key = (case.class, case.drive, case.rig, case.route)
+        key = (case.design.class, case.drive, case.rig, case.route)
         haskey(searches, key) || continue
         push!(searches[key], (case.area, isnothing(trip) ? Inf : trip.cost_per_tonne_km))
     end
+end
+
+"""
+Cargo values [USD/t] of the cargo value sweep, those of the classes' iron ore, crude oil,
+general cargo, containers and cars, and the deadweight-limited and the space-limited class
+that carry each of them in turn.
+"""
+cargo_value_sweep = (values=(100.0, 506.0, 2500.0, 5120.0, 15000.0),
+    classes=("Kamsarmax bulk carrier", "Neo-Panamax container ship"))
+
+"""
+    with_cargo_value(class, value)
+
+Ship `class` carrying cargo of `value` [USD/t].
+"""
+function with_cargo_value(class, value)
+    return ShipClass(; (name => getfield(class, name) for name in fieldnames(ShipClass))...,
+        cargo_value=value)
+end
+
+"""
+    cargo_interest_factors()
+
+Factors on a class's cargo value, `low` and `high`, that price the interest on its cargo
+at the low and the high bound of the discount rate.
+"""
+function cargo_interest_factors()
+    rate = assumptions.entries[:discount_rate]
+    return (low=rate.low / rate.value, high=rate.high / rate.value)
+end
+
+"""
+    interest_level_rows(table, factor)
+
+The rows of `table`, a cargo_interest.csv, of each class carrying cargo worth its own
+value times `factor`.
+"""
+function interest_level_rows(table, factor)
+    classes = ship_classes()
+    kept = [k for (k, class) in enumerate(table["class"])
+            if isapprox(table["cargo_value"][k], classes[class].cargo_value * factor;
+                rtol=1e-6)]
+    return table_rows(table, kept)
+end
+
+"""
+    table_rows(table, kept)
+
+The table of the rows `kept` of `table`.
+"""
+table_rows(table, kept) =
+    Dict{String, Vector}(column => values[kept] for (column, values) in table)
+
+"""
+    speed_along_track(sailed_km, days)
+
+Speed [kn] of a ship that covers `sailed_km` along its track in `days` at sea.
+"""
+speed_along_track(sailed_km, days) = 1e3sailed_km / (3600 * 24days) / KNOT
+
+"""
+    cargo_interest_data()
+
+The ship classes on the zero-emission drive of [`study_drives`](@ref) on every route
+without a rig and with the cheapest size of each rig from [`searched_sizes`](@ref): each
+class at the [`cargo_interest_factors`](@ref) of its own cargo value, and each class of
+[`cargo_value_sweep`](@ref) carrying cargo of each of its values, with the distance sailed
+[km]: cargo_interest.csv.
+"""
+function cargo_interest_data()
+    classes = ship_classes()
+    own = [with_cargo_value(class, class.cargo_value * factor)
+           for class in values(classes), factor in cargo_interest_factors()]
+    swept = [with_cargo_value(classes[name], value)
+             for name in cargo_value_sweep.classes, value in cargo_value_sweep.values]
+    ships = [(class, last(study_drives), route) for class in [vec(own); vec(swept)],
+                 route in route_names]
+    cases, trips = searched_sizes(vec(ships), run_settings().size_rounds)
+    labelled = [merge(case, (; cargo_value=case.design.class.cargo_value,
+                    sailed_km=sum(corridor -> corridor.track_length, case.corridors) / 1e3))
+                for case in cases]
+    write_trips("cargo_interest.csv", labelled, trips, :class, :cargo_value, :sailed_km,
+        :route, :drive, :rig, :area, :units)
 end
 
 """
