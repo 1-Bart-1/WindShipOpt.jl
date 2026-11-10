@@ -1252,18 +1252,34 @@ function published_table()
 end
 
 """
-    speed_size_saving(table, ship, drive, rig, area, pricing, knots)
+    speed_size_routes(table, grid, drive, knots)
 
-Over both routes of speed_size.csv, what `area` [m^2] of `rig` saves at `knots` [kn] against
-the ship without a rig at that speed: fuel [%], fuel [GJ per round trip], cost [%], cost
-[USD per 1000 tonne-km], and the rig's mean share of sea time flown; `nothing` where a
-passage failed.
+Routes of speed_size.csv on which, at `knots` [kn] on `drive`, the ship without a rig and
+every kite of `grid` both free and priced have a round trip.
 """
-function speed_size_saving(table, ship, drive, rig, area, pricing, knots)
-    case(rig_name, rig_area, rig_pricing) = rows(table, "ship" => ship, "drive" => drive,
-        "knots" => knots, "rig" => rig_name, "area" => rig_area, "pricing" => rig_pricing)
+function speed_size_routes(table, grid, drive, knots)
+    cases = [("none", 0.0, "priced");
+        vec([("kite", area, pricing) for area in grid.kites, pricing in ("free", "priced")])]
+    sailed = [Set(table["route"][rows(table, "ship" => grid.ship, "drive" => drive,
+                  "knots" => knots, "rig" => rig, "area" => area, "pricing" => pricing)])
+              for (rig, area, pricing) in cases]
+    return collect(intersect(sailed...))
+end
+
+"""
+    speed_size_saving(table, ship, drive, routes, rig, area, pricing, knots)
+
+Over `routes` of speed_size.csv, what `area` [m^2] of `rig` saves at `knots` [kn] against
+the ship without a rig at that speed: fuel [%], fuel [GJ per round trip], cost [%], cost
+[USD per 1000 tonne-km], and the rig's mean share of sea time flown; `nothing` without a
+route.
+"""
+function speed_size_saving(table, ship, drive, routes, rig, area, pricing, knots)
+    isempty(routes) && return nothing
+    case(rig_name, rig_area, rig_pricing) = filter(i -> table["route"][i] in routes,
+        rows(table, "ship" => ship, "drive" => drive, "knots" => knots, "rig" => rig_name,
+            "area" => rig_area, "pricing" => rig_pricing))
     rigged, bare = case(rig, area, pricing), case("none", 0.0, "priced")
-    (isempty(rigged) || length(rigged) != length(bare)) && return nothing
     fuel_saved = mean(table["fuel"][bare] .- table["fuel"][rigged])
     cost_saved = mean(table["cost"][bare] .- table["cost"][rigged])
     return (fuel_percent=100fuel_saved / mean(table["fuel"][bare]), fuel=fuel_saved,
@@ -1292,8 +1308,9 @@ function speed_size_table()
         println(io, "\\midrule")
         lines = []
         for grid in speed_size_grid, drive in string.(grid.drives), knots in grid.speeds
-            saving(area, pricing) = speed_size_saving(table, grid.ship, drive, "kite", area,
-                pricing, knots)
+            routes = speed_size_routes(table, grid, drive, knots)
+            saving(area, pricing) = speed_size_saving(table, grid.ship, drive, routes, "kite",
+                area, pricing, knots)
             free = [saving(area, "free") for area in grid.kites]
             priced = [saving(area, "priced") for area in grid.kites]
             (any(isnothing, free) || any(isnothing, priced)) && continue

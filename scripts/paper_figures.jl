@@ -2047,14 +2047,16 @@ function speed_size_figure()
         shades = cgrad(:Blues, length(grid.kites) + 3; categorical=true)
         for (column, (label, pricing, quantity)) in enumerate(panels)
             letter = Char('a' + length(panels) * (row - 1) + column - 1)
-            design = column == 1 ? " $(grid.ship), $(Dict(drive_labels)[drive])" : ""
+            short_ship = replace(grid.ship, " container ship" => "")
+            design = column == 1 ? " $short_ship, $(Dict(drive_labels)[drive])" : ""
             axis = Axis(figure[row, column]; title="($letter)$design",
                 xlabel=row == length(designs) ? "ship speed [kn]" : "", ylabel=label,
                 xticks=collect(grid.speeds))
             ends, drawn = Float64[], Float64[]
             for (k, area) in enumerate(grid.kites)
-                savings = [speed_size_saving(table, grid.ship, drive, "kite", area, pricing,
-                               knots) for knots in grid.speeds]
+                savings = [speed_size_saving(table, grid.ship, drive,
+                               speed_size_routes(table, grid, drive, knots), "kite", area,
+                               pricing, knots) for knots in grid.speeds]
                 held = findall(!isnothing, savings)
                 values = [getproperty(savings[i], quantity) for i in held]
                 scatterlines!(axis, collect(grid.speeds)[held], values;
