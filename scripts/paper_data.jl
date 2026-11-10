@@ -883,8 +883,16 @@ function interest_level_rows(table, factor)
     kept = [k for (k, class) in enumerate(table["class"])
             if isapprox(table["cargo_value"][k], classes[class].cargo_value * factor;
                 rtol=1e-6)]
-    return Dict{String, Vector}(column => values[kept] for (column, values) in table)
+    return table_rows(table, kept)
 end
+
+"""
+    table_rows(table, kept)
+
+The table of the rows `kept` of `table`.
+"""
+table_rows(table, kept) =
+    Dict{String, Vector}(column => values[kept] for (column, values) in table)
 
 """
     cargo_interest_data()
