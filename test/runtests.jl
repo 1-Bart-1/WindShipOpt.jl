@@ -2733,6 +2733,22 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 end
 
+@testset "kite-and-rotor pairs sit around the best single sizes and fit the bounds" begin
+    sizes = PaperData.pair_sizes(2000.0, 900.0, (500.0, 200.0), (16000.0, 800.0))
+    pairs = [size[2:3] for size in sizes if size[1] == "kite+rotors"]
+    @test pairs == [(1000.0, 800.0), (500.0, 800.0), (1000.0, 450.0)]
+    @test filter(size -> endswith(size[1], "rerun"), sizes) ==
+          [("kite rerun", 1960.0, 0.0), ("rotors rerun", 0.0, 882.0),
+           ("kite+rotors rerun", 980.0, 784.0)]
+    small_kite = PaperData.pair_sizes(500.0, 900.0, (500.0, 200.0), (16000.0, 800.0))
+    @test count(size -> size[1] == "kite+rotors", small_kite) == 2
+end
+
+@testset "routing noise is the standard deviation behind a difference of two runs" begin
+    @test PaperData.rerun_noise([3.0, -3.0]) ≈ sqrt(9 / 2)
+    @test PaperData.rerun_noise(zeros(4)) == 0
+end
+
 @testset "a following wind is flown at a lower speed and a rough sea at no speed" begin
     (; corridor, kite_table, kite_hourly, weather, departure) = kite_routing
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)

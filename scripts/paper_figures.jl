@@ -1958,29 +1958,34 @@ combination_rigs = (("kite", "best kite", palette[1]),
 """
     combination_figure()
 
-Cost saving against no rig of the best kite, the best rotors and the best pair of both
-on each ship and drive of the combination study, and the combination's saving over the
-better single rig, each as the mean over the routes with the range of the routes.
-Prints the means and the share of the summed single-rig savings the combination keeps.
+Cost saving against no rig of the best kite, the best rotors and the best of the pairs on
+each class and drive of combination_pairs.csv, and that pair's saving over the better single
+rig against twice the routing noise of the reruns, each as the mean over the routes with
+their range. Prints the means, the share of the summed savings the pair keeps and the noise.
 """
 function combination_figure()
-    table = read_table(data_file("combination.csv"))
-    groups = vec([(ship, drive) for drive in ("vlsfo", "ammonia"),
-                  ship in combination_ships])
+    table = read_table(data_file("combination_pairs.csv"))
+    groups = vec([(ship, drive) for drive in ("vlsfo", "ammonia"), ship in pair_classes])
     labels = ["$(replace(ship, " bulk carrier" => ""))\n$(Dict(drive_labels)[drive])"
               for (ship, drive) in groups]
     figure = Figure(size=(page_width, 310))
     saving_axis = Axis(figure[1, 1]; title="(a) cost saving vs no rig",
         ylabel="cost saving [%]")
-    gain_axis = Axis(figure[2, 1]; title="(b) combination over the better single rig",
+    gain_axis = Axis(figure[2, 1]; title="(b) pair over the better single rig",
         xticks=(eachindex(groups), labels), ylabel="extra saving [% points]")
     linkxaxes!(saving_axis, gain_axis)
     hidexdecorations!(saving_axis)
     rowsize!(figure.layout, 2, Relative(0.4))
+    conditions(ship, drive, route) = ("ship" => ship, "route" => string(route),
+        "drive" => drive)
+    differences = [rerun_differences(table, conditions(ship, drive, route)...)
+                   for (ship, drive) in groups for route in pair_routes]
+    single_noise = rerun_noise(reduce(vcat, differences))
+    gain_noise = sqrt(2) * single_noise
+    hspan!(gain_axis, -2gain_noise, 2gain_noise; color=(:gray50, 0.25))
     for (group, (ship, drive)) in enumerate(groups)
-        savings = [rig_savings(table, first.(combination_rigs), "ship" => ship,
-                       "route" => string(route), "drive" => drive)
-                   for route in route_names]
+        savings = [rig_savings(table, first.(combination_rigs),
+                       conditions(ship, drive, route)...) for route in pair_routes]
         for (k, (rig, _, colour)) in enumerate(combination_rigs)
             values = [saving[rig] for saving in savings]
             range_bar!(saving_axis, group + 0.27(k - 2), values, 0.25, colour)
@@ -1990,13 +1995,40 @@ function combination_figure()
         range_bar!(gain_axis, group, gains, 0.4, palette[4])
         print_combination(ship, drive, savings, gains)
     end
+    @printf("  routing noise %.2f points on one saving, %.2f on the extra saving\n",
+        single_noise, gain_noise)
     for axis in (saving_axis, gain_axis)
         hlines!(axis, 0; color=:gray50, linewidth=0.6)
     end
-    entries = [PolyElement(color=colour) for (_, _, colour) in combination_rigs]
-    Legend(figure[3, 1], entries, collect(getindex.(combination_rigs, 2));
-        orientation=:horizontal)
+    entries = [[PolyElement(color=colour) for (_, _, colour) in combination_rigs];
+        PolyElement(color=(:gray50, 0.25))]
+    Legend(figure[3, 1], entries, [collect(getindex.(combination_rigs, 2));
+            "twice the routing noise"]; orientation=:horizontal)
     save(joinpath(figures, "combination.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    rerun_differences(table, conditions...)
+
+Differences [% points] between the cost saving of each rerun of combination_pairs.csv under
+`conditions` and that of the size it reruns.
+"""
+function rerun_differences(table, conditions...)
+    reference = only(table["cost"][rows(table, conditions..., "rig" => "none")])
+    differences = Float64[]
+    for row in rows(table, conditions...)
+        endswith(table["rig"][row], " rerun") || continue
+        matching = [other for other in rows(table, conditions...,
+                        "rig" => replace(table["rig"][row], " rerun" => ""))
+                    if isapprox(pair_rerun_factor * table["kite_area"][other],
+                           table["kite_area"][row]; atol=0.5) &&
+                       isapprox(pair_rerun_factor * table["rotor_area"][other],
+                           table["rotor_area"][row]; atol=0.5)]
+        isempty(matching) || push!(differences,
+            percent_saving(table["cost"][row], reference) -
+            percent_saving(table["cost"][only(matching)], reference))
+    end
+    return differences
 end
 
 """
