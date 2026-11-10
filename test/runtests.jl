@@ -1867,6 +1867,51 @@ function small_archive(directory, weather, offset;
     return ForecastArchive(directory, weather)
 end
 
+@testset "a member archive keeps its control's bias wherever the data folder moves" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    root = joinpath(directory, "data")
+    control = small_archive(joinpath(root, "forecast"), weather, year -> 1.5)
+    links = String[]
+    for (group, own) in (("wind", ["u10.f16", "v10.f16"]), ("waves", ["height.f16"]))
+        folder = mkpath(joinpath(root, "forecast_members", "mean", group))
+        for file in ["grid.toml"; own]
+            cp(joinpath(root, "forecast", group, file), joinpath(folder, file))
+        end
+        symlink("/removed/worktree/bias_2017", joinpath(folder, "bias_2017"))
+        WindShipOpt.link_control_group(joinpath(root, "forecast", group), folder)
+        append!(links, filter(islink, readdir(folder; join=true)))
+    end
+    @test length(links) == 7
+    @test !any(isabspath ∘ readlink, links)
+    moved = joinpath(directory, "moved")
+    mv(root, moved)
+    member = ForecastArchive(joinpath(moved, "forecast_members", "mean"), weather)
+    @test member.wind.bias == control.wind.bias
+    @test member.waves.bias == control.waves.bias
+    @test member.waves.fields["period"] == control.waves.fields["period"]
+end
+
+@testset "linking replaces a link, keeps a real file and leaves nothing beside them" begin
+    folder = mktempdir()
+    target = touch(joinpath(folder, "target"))
+    link = joinpath(folder, "link")
+    symlink("/removed/worktree/target", link)
+    WindShipOpt.link_relative(target, link)
+    @test readlink(link) == "target"
+    @test readdir(folder) == ["link", "target"]
+    file = touch(joinpath(folder, "file"))
+    @test_throws "file is not a link" WindShipOpt.link_relative(target, file)
+    @test !islink(file)
+end
+
+@testset "a forecast archive names the link whose target is gone" begin
+    folder = mktempdir()
+    symlink("/removed/worktree/bias_2017", joinpath(folder, "bias_2017"))
+    @test_throws "bias_2017 points to /removed/worktree/bias_2017" WindShipOpt.ArchiveGroup(
+        folder, WindShipOpt.DateTime(2018))
+end
+
 @testset "a ship reads the wind and the waves each on their own forecast schedule" begin
     directory = mktempdir()
     weather = small_era5(joinpath(directory, "era5"))

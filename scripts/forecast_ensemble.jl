@@ -37,16 +37,10 @@ Make `directory` an archive with the grids, the bias and the wave period and dir
 the control archive in `output`.
 """
 function link_archive(directory)
-    shared = ("period.f16", "direction_east.f16", "direction_north.f16")
     for group in ("wind", "waves")
         folder = mkpath(joinpath(directory, group))
         cp(joinpath(output, group, "grid.toml"), joinpath(folder, "grid.toml"); force=true)
-        entries = filter(entry -> startswith(entry, "bias_") || entry in shared,
-            readdir(joinpath(output, group)))
-        for entry in entries
-            link = joinpath(folder, entry)
-            islink(link) || symlink(joinpath(output, group, entry), link)
-        end
+        WindShipOpt.link_control_group(joinpath(output, group), folder)
     end
 end
 
