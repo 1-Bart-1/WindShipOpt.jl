@@ -261,7 +261,7 @@ Base.@kwdef struct RouterSettings
     the first try and where that leaves no path [-]; `Inf` searches them all"
     search_margins::NTuple{2, Float64} = (0.03, 0.06)
     "`search_margins` of a ship that can fly a kite [-]"
-    kite_search_margins::NTuple{2, Float64} = (0.1, 0.2)
+    kite_search_margins::NTuple{2, Float64} = (0.2, 0.4)
     "routing speeds, from the lowest routing speed to the ship's top speed"
     routing_speeds::Int = 49
     "speeds the search skips between those it commands, plus one"
