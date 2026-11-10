@@ -1802,8 +1802,9 @@ function sea_effect_table()
         for ship in ships
             saved = sea_effect_saving.(Ref(table), ship, ("model", "none"))
             aloft = sea_effect_flight.(Ref(table), ship, ("model", "none"))
-            @printf(io, "%s & %.1f & %.1f & %+.1f & %.0f & %.0f \\\\\n", ship, saved...,
-                saved[1] - saved[2], aloft...)
+            # adding 0.0 turns a rounded -0.0 into 0.0
+            @printf(io, "%s & %.1f & %.1f & %.1f & %.1f & %.1f \\\\\n", ship, saved...,
+                round(saved[1] - saved[2]; digits=1) + 0.0, aloft...)
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end

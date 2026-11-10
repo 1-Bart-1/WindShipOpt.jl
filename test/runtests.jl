@@ -1665,7 +1665,6 @@ end
     careful = WindShipOpt.margin_table(kite_table, 0.2)
     rig, tight = kite_table.table.ship.rig, careful.table.ship.rig
     @test tight.launch_min_wind == 1.2 * rig.launch_min_wind
-    @test tight.launch_max_wave_height == 0.8 * rig.launch_max_wave_height
     @test careful.table.sea_launch_wind.values ≈
           1.2 * kite_table.table.sea_launch_wind.values
     @test careful.table.flown_thrust === kite_table.table.flown_thrust
@@ -2797,6 +2796,8 @@ end
     @test !WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves + 0.5, 0.0)
     @test WindShipOpt.kite_aloft(fleet, 0.0, wind - 1, 0.0)
     @test WindShipOpt.launch_wind_per_mast_speed(fleet, assumptions) == 0
+    @test isfinite(waves)
+    @test WindShipOpt.tightened_limits(fleet, 0.2).launch_max_wave_height == 0.8 * waves
     @test fleet.launch_min_wind == fleet.min_flight_wind
     @test WindShipOpt.handling_hours(fleet, assumptions) ≈
           assumptions[:rigid_hover_minutes] / 60

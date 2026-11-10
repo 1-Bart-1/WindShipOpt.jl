@@ -158,24 +158,25 @@ sea_effect.csv.
 function sea_effect_data()
     classes_table = read_table(data_file("classes.csv"))
     no_sea = with_value(assumptions, :kite_launch_sea_wind, 0.0)
-    ships = Any[("140 m", 140.0, route -> 3200.0)]
-    for name in sea_effect_classes
-        class = ship_classes()[name]
-        area(route) = best_area(classes_table, name, string(route), "vlsfo", "kite")
-        push!(ships, (name, class, area))
-    end
+    ships = Any[("140 m", 140.0),
+        ((name, ship_classes()[name]) for name in sea_effect_classes)...]
     cases = []
-    for route in route_names, (ship, build, area) in ships
+    for route in route_names, (ship, build) in ships
+        area = sea_effect_area(classes_table, ship, route)
         bare = ShipDesign(:ammonia, build)
         push!(cases, trip_case(bare; route, ship, rig="none", area=0.0, sea="none"))
-        rigged = ShipDesign(:ammonia, build; rig_size("kite", area(route))...)
-        push!(cases, trip_case(rigged; route, ship, rig="kite", area=area(route), sea="model"))
-        push!(cases, trip_case(rigged; route, ship, rig="kite", area=area(route), sea="none",
-            assumptions=no_sea))
+        rigged = ShipDesign(:ammonia, build; rig_size("kite", area)...)
+        kite = (; route, ship, rig="kite", area)
+        push!(cases, trip_case(rigged; kite..., sea="model"))
+        push!(cases, trip_case(rigged; kite..., sea="none", assumptions=no_sea))
     end
     write_trips("sea_effect.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :route, :rig, :area, :sea)
 end
+
+"kite area [m^2] of `ship` in the sea effect study on `route`, read from `classes_table`"
+sea_effect_area(classes_table, ship, route) = ship == "140 m" ? 3200.0 :
+    best_area(classes_table, ship, string(route), "vlsfo", "kite")
 
 """
     launch_data()
