@@ -3006,9 +3006,11 @@ end
 end
 
 @testset "the pattern data has rows only for conditions where a pattern flies" begin
-    @test all(isempty, written_pattern(6.0, 120))
-    paths, forces = written_pattern(12.0, 90)
-    @test !isempty(paths) && !isempty(forces) && !occursin("NaN", paths * forces)
+    @test all(isempty, written_pattern(3.0, 120))
+    for (wind, course) in ((6.0, 120), (12.0, 90))
+        paths, forces = written_pattern(wind, course)
+        @test !isempty(paths) && !isempty(forces) && !occursin("NaN", paths * forces)
+    end
 end
 
 @testset "a round trip's cost parts per tonne-km add up to its cost over its hours" begin
