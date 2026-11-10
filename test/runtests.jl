@@ -3326,6 +3326,36 @@ end
           (8760assumptions[:availability])
 end
 
+@testset "switching windage off removes the wind load, and a misnamed part is refused" begin
+    ship = Ship(ShipDesign(:ammonia, 140.0), PaperData.assumptions)
+    function force(windage)
+        load = WindShipOpt.wind_force(windage, ship.env, 15.0, π / 3, 5.0)
+        return [getfield(load, name) for name in fieldnames(typeof(load))]
+    end
+    @test any(component -> abs(component) > 1.0, force(ship.windage))
+    @test all(component -> abs(component) < 1e-6,
+        force(PaperData.simplified_ship(ship, :windage).windage))
+    @test_throws ArgumentError PaperData.rebuilt(ship.windage; not_a_field=0.0)
+end
+
+@testset "a held-speed kite saving and its bare ship use the same routes" begin
+    case(route, rig, area, pricing, fuel) = (; ship="ship", drive="vlsfo", knots=10.0, route,
+        rig, area, pricing, fuel, cost=fuel / 10, flight_share=0.5)
+    kite_cases(area, fuel) = [case("sailed", "kite", area, pricing, fuel)
+                              for pricing in ("free", "priced")]
+    cases = [case("sailed", "none", 0.0, "priced", 100.0);
+        case("no kite trip", "none", 0.0, "priced", 300.0);
+        kite_cases(400.0, 90.0); kite_cases(800.0, 80.0)]
+    table = Dict(string(name) => getproperty.(cases, name) for name in keys(first(cases)))
+    routes = PaperData.speed_size_routes(table, (ship="ship", kites=(400.0, 800.0)),
+        "vlsfo", 10.0)
+    @test routes == ["sailed"]
+    saving = PaperData.speed_size_saving(table, "ship", "vlsfo", routes, "kite", 400.0,
+        "free", 10.0)
+    @test saving.bare_fuel == 100.0
+    @test saving.fuel_percent == 10.0
+end
+
 @testset "the pattern data has rows only for conditions where a pattern flies" begin
     @test all(isempty, written_pattern(3.0, 120))
     for (wind, course) in ((6.0, 120), (12.0, 90))
