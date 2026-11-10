@@ -1328,7 +1328,7 @@ fidelity_parts() = [
         error="three years against a climate", effect=weather_years()),
     (part="Router", varied="corridor grid",
         model="dynamic programming over a corridor grid of positions and speeds",
-        error="not converged in the corridor spacing", effect=corridor_grids()),
+        error="half the spacing raises a kite or rotor saving by up to 1.7 points", effect=corridor_grids()),
     (part="Rig size search", varied="every size",
         model="three sizes, then two by interpolation",
         error="the loss against the best of every size, shown here",
@@ -1351,7 +1351,7 @@ weather_years() = ("weather_years.csv", "ship",
 
 "each corridor scale of the convergence study, on its one ship"
 corridor_grids() =
-    ("convergence.csv", nothing, [[("scale" => scale,) for scale in (8.0, 4.0, 2.0)]])
+    ("convergence.csv", nothing, [[("scale" => scale,) for scale in convergence_scales]])
 
 "the best size found by the search and the best of every size"
 size_search_grid() = ("size_search.csv", "class", [[(), ("round" => >=(0),)]])

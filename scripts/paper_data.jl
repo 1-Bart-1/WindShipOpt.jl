@@ -2130,13 +2130,13 @@ end
 """
     convergence_data()
 
-A 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, routed at corridor
-resolutions of 8, 4 and 2 times the base spacing: convergence.csv.
+A 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, routed at each of
+`convergence_scales`: convergence.csv.
 """
 function convergence_data()
     rigs = [("none", 0.0), ("kite", 1600.0), ("wings", 1500.0), ("rotors", 800.0)]
     cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); rig, scale)
-                 for (rig, area) in rigs, scale in (8.0, 4.0, 2.0)])
+                 for (rig, area) in rigs, scale in convergence_scales])
     write_trips("convergence.csv", cases, round_trips(cases, sampled_departures()), :rig,
         :scale)
 end
