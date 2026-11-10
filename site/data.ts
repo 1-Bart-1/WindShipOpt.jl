@@ -13,22 +13,38 @@ function fidelity(directory: string): string | undefined {
   return readFileSync(record, "utf8").match(/^fidelity = "(\w+)"/m)?.[1];
 }
 
+/** Newest run holding `file`: of a final run if there is one, else of a draft run. */
+function newestRun(file: string): string | undefined {
+  const found = existsSync(runs)
+    ? readdirSync(runs)
+        .sort()
+        .reverse()
+        .filter((directory) => existsSync(join(runs, directory, file)))
+    : [];
+  return (
+    found.find((directory) => fidelity(directory) === "final") ??
+    found.find((directory) => fidelity(directory) === "draft")
+  );
+}
+
 /**
  * Path of the explorer data the site shows: `EXPLORER_JSON` if set, else the newest
  * explorer.json of a final run, else the newest of a draft run.
  */
 export function explorerPath(): string {
   if (process.env.EXPLORER_JSON) return resolve(process.env.EXPLORER_JSON);
-  const found = existsSync(runs)
-    ? readdirSync(runs)
-        .sort()
-        .reverse()
-        .filter((directory) => existsSync(join(runs, directory, "explorer.json")))
-    : [];
-  const chosen =
-    found.find((directory) => fidelity(directory) === "final") ??
-    found.find((directory) => fidelity(directory) === "draft");
+  const chosen = newestRun("explorer.json");
   if (!chosen)
     throw new Error(`no explorer.json in ${runs}: run paper(:classes, :explorer; fidelity=:draft)`);
   return join(runs, chosen, "explorer.json");
+}
+
+/**
+ * Directory of the routed passages the site shows: `PASSAGES_DIRECTORY` if set, else the newest
+ * run with a passages.json, final before draft; undefined if there is none.
+ */
+export function passagesDirectory(): string | undefined {
+  if (process.env.PASSAGES_DIRECTORY) return resolve(process.env.PASSAGES_DIRECTORY);
+  const chosen = newestRun("passages.json");
+  return chosen ? join(runs, chosen) : undefined;
 }

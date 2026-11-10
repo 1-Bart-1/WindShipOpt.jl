@@ -4,3 +4,131 @@
  */
 
 @import "tailwindcss";
+
+:root {
+  --brand-paper: #ecdfc0;
+  --brand-paper-deep: #e2d3aa;
+  --brand-ink: #505880;
+  --brand-ink-light: #606a98;
+  --brand-mid: #8f95b8;
+  --brand-sky: #d6d6e4;
+  --brand-mustard: #e8a628;
+  --brand-orange: #e06d2a;
+  --brand-rust: #a3361b;
+  --brand-rust-light: #b84a2c;
+  --brand-teal: #1f5e55;
+  --brand-teal-light: #33796d;
+  --brand-font-display: "Fraunces Variable", "Fraunces", Georgia, serif;
+  --brand-font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --brand-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --brand-rule: linear-gradient(to bottom, var(--brand-mustard) 0 3px, var(--brand-paper) 3px 6px,
+    var(--brand-orange) 6px 9px, var(--brand-paper) 9px 12px, var(--brand-rust) 12px 15px);
+}
+
+@theme static {
+  --font-display: var(--brand-font-display);
+  --font-sans: var(--brand-font-sans);
+  --font-mono: var(--brand-font-mono);
+  --color-paper: var(--brand-paper);
+  --color-paper-deep: var(--brand-paper-deep);
+  --color-ink: var(--brand-ink);
+  --color-ink-light: var(--brand-ink-light);
+  --color-mid: var(--brand-mid);
+  --color-sky: var(--brand-sky);
+  --color-mustard: var(--brand-mustard);
+  --color-orange: var(--brand-orange);
+  --color-rust: var(--brand-rust);
+  --color-teal: var(--brand-teal);
+  --color-teal-light: var(--brand-teal-light);
+}
+
+html,
+body {
+  background: var(--brand-paper);
+  color: var(--brand-ink);
+  font-family: var(--brand-font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--brand-sky);
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-ink);
+  outline-offset: 3px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--brand-font-display);
+  font-weight: 800;
+  font-variation-settings: "opsz" 24, "SOFT" 100;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+@layer components {
+  .label {
+    font-family: var(--brand-font-mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-decoration: underline 2px var(--brand-orange);
+    text-underline-offset: 4px;
+  }
+  .panel {
+    background: var(--brand-paper);
+    border: 2px solid var(--brand-ink);
+    border-radius: 14px;
+    padding: 1.25rem;
+  }
+  .button,
+  .button-outline {
+    border-radius: 999px;
+    font-family: var(--brand-font-mono);
+    font-size: 0.8rem;
+    padding: 0.5em 1.1em;
+    border: 2px solid var(--brand-ink);
+  }
+  .button {
+    background: var(--brand-ink);
+    color: var(--brand-paper);
+  }
+  .button:hover {
+    background: var(--brand-ink-light);
+  }
+  .button-outline {
+    background: var(--brand-paper);
+    color: var(--brand-ink);
+  }
+  .rule {
+    height: 15px;
+    background: var(--brand-rule);
+  }
+  .slider {
+    appearance: none;
+    height: 2px;
+    background: var(--brand-ink);
+    border-radius: 2px;
+  }
+  .slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--brand-ink);
+  }
+  .slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 0;
+    background: var(--brand-ink);
+  }
+}
+
+input[type="range"] {
+  accent-color: var(--brand-ink);
+}
