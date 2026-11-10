@@ -971,6 +971,17 @@ function forecast_plans_data()
         ensemble_departures, ensemble_departures[begin:4:end])
 end
 
+"plans of the re-planning study, each as the `forecast` of its [`trip_case`](@ref)"
+replanning_plans = (false, true, :operational_24h, :operational_12h, :operational_6h,
+    :operational_24h_speed, :operational_24h_course, :operational_6h_course)
+
+"the plan a re-planning case is paired against: the one that differs from it in one thing"
+replanning_control(plan) =
+    plan === :operational_6h_course ? :operational_6h : :operational_24h
+
+"corridor scale of the re-planning study: nodes about 10 h apart, so 6 h is every node"
+replanning_scale = 1.0
+
 "plans whose sailed hours [`forecast_hours_data`](@ref) records"
 forecast_hours_plans = (false, true, :members, :kite_margin)
 
@@ -1243,26 +1254,54 @@ kite_saving(sample) = 1e-6 *
     (isfinite(sample.stowed_power) ? sample.stowed_power - sample.flown_power : 0.0)
 
 """
-    write_kept_shares(name, cases, trips)
+    forecast_replanning_data()
 
-Write `name`: per rig and plan, the share of the perfect-foresight saving kept, the ratio
-of the mean savings over the departures, with its jackknife standard error and that of the
-difference from the control plan.
+The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
+`ensemble_departures`, for each of the [`replanning_plans`](@ref), at
+[`replanning_scale`](@ref): forecast_replanning.csv, and the share of its perfect-foresight
+saving each rig keeps per plan against the plan of [`replanning_control`](@ref):
+forecast_replanning_kept.csv.
 """
-function write_kept_shares(name, cases, trips)
+function forecast_replanning_data()
+    rigs = [("none", 0.0); reference_rigs]
+    cases, trips = [], []
+    for departure in ensemble_departures
+        step_cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...);
+                              forecast=plan, rig, plan=string(plan), departure,
+                              scale=replanning_scale)
+                          for (rig, area) in rigs, plan in replanning_plans])
+        append!(cases, step_cases)
+        append!(trips, round_trips(step_cases, [departure]))
+    end
+    write_trips("forecast_replanning.csv", cases, trips, :rig, :plan, :departure)
+    write_kept_shares("forecast_replanning_kept.csv", cases, trips, replanning_plans;
+        control_of=replanning_control)
+end
+
+"""
+    write_kept_shares(name, cases, trips, plans=forecast_study_plans;
+                      control_of=Returns(true))
+
+Write `name`: per rig and plan of `plans` after the first, perfect foresight, the share
+of the perfect-foresight saving kept, the ratio of the mean savings over the departures,
+with its jackknife standard error and that of the difference from the plan
+`control_of(plan)`.
+"""
+function write_kept_shares(name, cases, trips, plans=forecast_study_plans;
+        control_of=Returns(true))
     n = length(ensemble_departures)
     open(run_file(name), "w") do io
         println(io, "rig,plan,kept,kept_error,difference_from_control,difference_error")
-        for (rig, _) in reference_rigs, plan in forecast_study_plans[2:end]
+        for (rig, _) in reference_rigs, plan in plans[2:end]
             plan in kite_only_plans && rig != "kite" && continue
             saved, perfect = plan_savings(cases, trips, rig, plan),
             plan_savings(cases, trips, rig, false)
-            control = plan_savings(cases, trips, rig, true)
+            reference = plan_savings(cases, trips, rig, control_of(plan))
             value = kept_share(saved, perfect, 1:n)
             spread = jackknife_error(index -> kept_share(saved, perfect, index), n)
-            difference = value - kept_share(control, perfect, 1:n)
+            difference = value - kept_share(reference, perfect, 1:n)
             difference_spread = jackknife_error(n) do index
-                kept_share(saved, perfect, index) - kept_share(control, perfect, index)
+                kept_share(saved, perfect, index) - kept_share(reference, perfect, index)
             end
             @printf(io, "%s,%s,%.3f,%.3f,%.3f,%.3f\n", rig, plan, value, spread, difference,
                 difference_spread)
