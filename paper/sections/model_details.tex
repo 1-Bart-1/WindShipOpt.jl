@@ -174,7 +174,7 @@ V_\mathrm{lift} = 1.3\sqrt{\frac{2m_0 g}{\rho_a A C_{L,\max}}},
 \end{equation}
 where $m_0$ is the mass of canopy, bridle and control unit. Without the factor 1.3, our estimate of the margin for gusts, control and the climb, somewhat above what an aircraft keeps over its stall \citep{faa1996}, this is the static take-off limit of a kite \citep{joshi2024powercurve,bigi2018}. SkySails adds that rough sea and bad weather might require \SI{10}{m/s}, the high bound. We keep the calm-sea figure as the base because rough sea comes with stronger wind, which clears the limit by itself. Rain, which adds weight, is not modelled.
 
-Every cell of the pattern table below \SI{5}{m/s} is empty at all six kite sizes from 400 to \SI{16000}{m^2}, so a kite between $V_\mathrm{climb}$ and the launch wind may stay up but earns no thrust. A launch using the ship's speed is not modelled, because no pattern gives force below the launch wind and ship-made wind comes from ahead, where the kite gives least.
+Every cell of the pattern table below \SI{5}{m/s} is empty at all six kite sizes from 400 to \SI{16000}{m^2}. For the \SI{3200}{m^2} kite $V_\mathrm{climb}$ is \SI{4.5}{m/s}, the launch wind \SI{5}{m/s} and the first pattern with force flies at \SI{6}{m/s}, so between $V_\mathrm{climb}$ and that wind it may stay up but earns no thrust. All these limits are on the apparent wind and so count the wind of the ship's own speed; a following wind near the ship's speed cancels it. With the wind within about \SI{60}{\degree} of the bow the kite still flies in an apparent wind of 6 to \SI{10}{m/s}, but the forward part of its pull is next to nothing or negative, which the routing counts as no thrust.
 
 \subsection{Canopy life}
 \label{sec:det_canopy_life}
@@ -201,20 +201,7 @@ with $w_\mathrm{ref}=\SI{100}{g/m^2}$.
 \label{tab:canopy_life}
 \adjustbox{max width=\textwidth}{%
 \setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}lllrrlrrrr@{}}
-\toprule
-Source & Grade & Cloth & $w$ & Life $L$ & Ends on & $T/w$ & $\sigma_w$ & $\dot D$ & $r$ \\
- & & & [g/m²] & [h] & & & & [MJ/m²/h] & [g/m²/h] \\
-\midrule
-\citet{flynn2015} & claim & Woven polyester sail & 250* & 3500--4000 & structure & 2.0* & 110--207 & 0.04--0.07* & 0--0.12 \\
-\citet{flynn2015} & claim & same & 400* & 3500--4000 & structure & 2.0* & 110--207 & 0.04--0.07* & 0.01--0.22 \\
-\citet{kubicek2026} & claim & Polyester balloon & 45 & 400--500 & not stated & 2.8* & 222* & 0.01--0.03* & 0.22--0.30 \\
-\citet{kubicek2026} & claim & Polyester balloon & 70 & 800--1000 & not stated & 2.9* & 222* & 0.01--0.03* & 0.16--0.23 \\
-\citet{kubicek2026} & claim & Polyester balloon & 77 & over 1000 & not stated & 2.6* & 222* & 0.01--0.03* & 0.18--0.21 \\
-\citet{supair2016} & meas & Tandem paraglider, fibre unstated & 38--45* & 800--850 & porosity & 1.6* & 200* & 0.05--0.09* & 0.07--0.14 \\
-\citet{lynn2007} & claim & Maxi show kite & 50* & 1800--2400* & porosity & 0.6* & 200* & 0.05--0.09* & 0--0.07 \\
-\bottomrule
-\end{tabular}}
+\input{sections/canopy_life_table}}
 \end{table*}
 
 \paragraph{What no source settles} The model ends a canopy on lost strength, while flex, folds, flutter and abrasion leak the cloth and UV takes strength with little leak \citep{maslanka2023,maslanka2023thesis}; no leak limit is published for a kite. Retiring a kite at the 27 to 70\,\% of new strength used for balloon cloth and aircraft fabric gives the low end of the range. Launches are not counted, although a canopy sees about \num{2500} launch and landing cycles at the 1.5 hours a flight SkySails reported \citep{skysails2018}. The decay does not know salt, heat or a ship's handling.

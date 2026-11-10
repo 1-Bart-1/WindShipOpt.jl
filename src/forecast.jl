@@ -42,8 +42,11 @@ end
 
 issue_count(group::ArchiveGroup) = minimum(size(field, 4) for field in values(group.fields))
 
+holds_data(field, issue) =
+    !all(value -> isnan(value) || iszero(value), view(field, :, :, 1, issue))
+
 issued_in(group::ArchiveGroup, issue) =
-    !all(isnan, view(first(values(group.fields)), :, :, 1, issue))
+    all(field -> holds_data(field, issue), values(group.fields))
 
 """
     ForecastArchive(directory, weather)
@@ -65,6 +68,51 @@ function ForecastArchive(directory::AbstractString, weather::ERA5Weather)
     first_issue = Dates.value(DateTime(grid["first_issue"]) - weather.origin) / 3_600_000
     return ForecastArchive(ArchiveGroup(joinpath(directory, "wind")),
         ArchiveGroup(joinpath(directory, "waves")), first_issue, weather.origin)
+end
+
+"""
+    margin_wind(east, north)
+
+East and north wind of the margin, from member winds (lon, lat, lead, member) [m/s]: the
+lower quartile of the member speeds, in the direction of the mean vector.
+"""
+function margin_wind(east, north)
+    mean_east = dropdims(mean(east; dims=4); dims=4)
+    mean_north = dropdims(mean(north; dims=4); dims=4)
+    margin_east, margin_north = copy(mean_east), copy(mean_north)
+    for I in CartesianIndices(mean_east)
+        speeds = [hypot(east[I, member], north[I, member]) for member in axes(east, 4)]
+        norm = hypot(mean_east[I], mean_north[I])
+        scale = any(isnan, speeds) ? NaN32 :
+                norm > 0 ? quantile(speeds, 0.25) / norm : 0.0f0
+        margin_east[I], margin_north[I] = mean_east[I] * scale, mean_north[I] * scale
+    end
+    return margin_east, margin_north
+end
+
+"""
+    margin_height(height)
+
+Wave height of the margin from member heights (lon, lat, lead, member) [m]: the upper
+quartile of the members.
+"""
+function margin_height(height)
+    margin = dropdims(mean(height; dims=4); dims=4)
+    for I in CartesianIndices(margin)
+        heights = [height[I, member] for member in axes(height, 4)]
+        margin[I] = any(isnan, heights) ? NaN32 : quantile(heights, 0.75)
+    end
+    return margin
+end
+
+"""
+    ForecastEnsemble(members)
+
+The [`ForecastArchive`](@ref)s of several runs of one forecast model, each issued every
+day, that [`forecast_route`](@ref) plans on together.
+"""
+struct ForecastEnsemble
+    members::Vector{ForecastArchive}
 end
 
 issue_time(archive::ForecastArchive, issue) = archive.first_issue + 24.0 * (issue - 1)
@@ -104,6 +152,36 @@ function ArchivedForecast(archive::ForecastArchive, weather, time)
         ForecastWeather(weather, issued, span))
 end
 
+"""
+    ShortestLead(archive)
+
+Forecast source of a ship that knows, at every time ahead, the forecast of `archive` with
+the shortest lead there: what the forecast model says of the weather, without the error
+that grows with lead.
+"""
+struct ShortestLead
+    archive::ForecastArchive
+end
+
+"""
+    ShortestLeadForecast(archive, weather)
+
+What a [`ShortestLead`](@ref) ship knows: at each time the [`ArchivedForecast`](@ref) of
+`archive` last issued before it.
+"""
+struct ShortestLeadForecast{W}
+    archive::ForecastArchive
+    weather::W
+end
+
+known_weather(forecast::ShortestLead, weather, time, horizon) =
+    ShortestLeadForecast(forecast.archive, weather)
+
+known_weather(forecast::ForecastArchive, weather, time, horizon) =
+    ArchivedForecast(forecast, weather, time)
+known_weather(forecast::ForecastEnsemble, weather, time, horizon) =
+    [ArchivedForecast(member, weather, time) for member in forecast.members]
+
 within(forecast::ArchivedForecast, group, time) =
     time - forecast.issued <= last_time(group.grid)
 
@@ -133,6 +211,48 @@ function waves(forecast::ArchivedForecast, lat, lon, time)
     isnan(height) && return waves(forecast.beyond, lat, lon, time)
     return max(height - height_bias, 0.0), max(period - period_bias, 0.0), atan(east, north)
 end
+
+"""
+    ForecastParts(forecast, wind_band=(Inf, Inf), forecast_waves=true)
+
+Forecast source of a ship that plans on the waves of `forecast` where `forecast_waves`,
+otherwise on the real waves, and on the real wind except where the real or the forecast
+wind speed at 10 m lies in `wind_band` [m/s], where it plans on the wind of `forecast`.
+"""
+struct ForecastParts{F}
+    forecast::F
+    wind_band::NTuple{2, Float64}
+    forecast_waves::Bool
+end
+ForecastParts(forecast, wind_band=(Inf, Inf)) = ForecastParts(forecast, wind_band, true)
+
+"What a [`ForecastParts`](@ref) ship knows: `wind_band` splits `known` from the `truth`."
+struct PartlyKnownWeather{K, W}
+    known::K
+    truth::W
+    wind_band::NTuple{2, Float64}
+    forecast_waves::Bool
+end
+
+known_weather(parts::ForecastParts, weather, time, horizon) = PartlyKnownWeather(
+    known_weather(parts.forecast, weather, time, horizon), weather, parts.wind_band,
+    parts.forecast_waves)
+
+function wind(partly::PartlyKnownWeather, lat, lon, time)
+    real_wind = wind(partly.truth, lat, lon, time)
+    forecast_wind = wind(partly.known, lat, lon, time)
+    low, high = partly.wind_band
+    in_band(vector) = low <= hypot(vector...) <= high
+    return in_band(real_wind) || in_band(forecast_wind) ? forecast_wind : real_wind
+end
+
+waves(partly::PartlyKnownWeather, lat, lon, time) =
+    waves(partly.forecast_waves ? partly.known : partly.truth, lat, lon, time)
+
+wind(forecast::ShortestLeadForecast, lat, lon, time) =
+    wind(ArchivedForecast(forecast.archive, forecast.weather, time), lat, lon, time)
+waves(forecast::ShortestLeadForecast, lat, lon, time) =
+    waves(ArchivedForecast(forecast.archive, forecast.weather, time), lat, lon, time)
 
 """
     forecast_bias(group, observed, issue_times, years, names)

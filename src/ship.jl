@@ -549,11 +549,23 @@ together, solved over the continuous [`trim_ranges`](@ref) by [`best_on_range`](
 `added_resistance` [N] of waves, which the trim works against as well: a rig that has more
 thrust to give than calm water asks for keeps it for the waves.
 """
-best_trim(ship::Ship, ::Nothing, speed, wind_10m, true_angle, added_resistance=0.0) =
-    required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE) + added_resistance,
-    NO_RIG_FORCE
-
 function best_trim(ship::Ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
+    thrust, force, _ = trimmed_force(ship, rig, speed, wind_10m, true_angle,
+        added_resistance)
+    return thrust, force
+end
+
+"""
+    trimmed_force(ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
+
+Required propeller thrust [N], rig force and trim setting of [`best_trim`](@ref); the
+setting is `nothing` without a rig.
+"""
+trimmed_force(ship::Ship, ::Nothing, speed, wind_10m, true_angle, added_resistance=0.0) =
+    required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE) + added_resistance,
+    NO_RIG_FORCE, nothing
+
+function trimmed_force(ship::Ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
     output = TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance)
     ranges = trim_ranges(rig, ship.env, wind_10m, true_angle, speed)
     best = RangeSetting(rig, first(ranges))(first(ranges).low)
@@ -601,12 +613,12 @@ const JOINT_TRIM_ITERATIONS = 200
 const JOINT_TRIM_TOLERANCE = 1e-2
 
 """
-    best_trim(ship, rig::CombinedRig, speed, wind_10m, true_angle, added_resistance=0.0)
+    trimmed_force(ship, rig::CombinedRig, speed, wind_10m, true_angle, added_resistance=0.0)
 
-[`best_trim`](@ref) of kite and standing rig together: the best pair of their scanned trim
-values, refined by the Nelder-Mead method in both at once.
+[`trimmed_force`](@ref) of kite and standing rig together: the best pair of their scanned
+trim values, refined by the Nelder-Mead method in both at once.
 """
-function best_trim(ship::Ship, rig::CombinedRig, speed, wind_10m, true_angle,
+function trimmed_force(ship::Ship, rig::CombinedRig, speed, wind_10m, true_angle,
         added_resistance=0.0)
     output = TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance)
     kite = RangeSetting(rig.kite,
@@ -635,10 +647,11 @@ end
 """
     trim_result(output, setting)
 
-Required thrust [N] and rig force of [`TrimOutput`](@ref) `output` at `setting`, as
-[`best_trim`](@ref) returns them.
+Required thrust [N], rig force and `setting` of [`TrimOutput`](@ref) `output`, as
+[`trimmed_force`](@ref) returns them.
 """
 function trim_result(output::TrimOutput, setting)
     point = trim_point(output, setting)
-    return isfinite(point.output) ? (point.thrust, point.force) : (Inf, NO_RIG_FORCE)
+    return isfinite(point.output) ? (point.thrust, point.force, setting) :
+           (Inf, NO_RIG_FORCE, setting)
 end

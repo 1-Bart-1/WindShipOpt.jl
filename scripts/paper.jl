@@ -18,6 +18,7 @@
 # and table steps LaTeX to paper/sections/; draft results are marked in the paper. The
 # LaTeX build is separate.
 using CairoMakie
+using Dates
 using Printf
 using Statistics
 using WindShipOpt
@@ -32,6 +33,8 @@ include("paper_runs.jl")
 include("size_search.jl")
 include("paper_data.jl")
 include("explorer_data.jl")
+include("passages_data.jl")
+include("cargo_groups.jl")
 include("paper_figures.jl")
 include("paper_drawings.jl")
 include("paper_tables.jl")
@@ -39,6 +42,9 @@ include("paper_tables.jl")
 "data steps in the order they run, each writing one or two data files"
 data_steps = [:patterns => patterns_data, :designs => designs_data,
     :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
+    :forecast_plans => forecast_plans_data,
+    :forecast_hours => forecast_hours_data,
+    :forecast_causes => forecast_causes_data,
     :sensitivity => sensitivity_data, :uniform => uniform_data,
     :base_kite => base_kite_data,
     :aspect_data => aspect_data, :force_rating_data => force_rating_data,
@@ -57,7 +63,7 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :size_search => size_search_data]
 
 "steps outside the paper, run only by name: the data of the companion website"
-website_steps = [:explorer => explorer_data]
+website_steps = [:explorer => explorer_data, :passages => passages_data]
 
 "figure and table steps, each reading the data files and writing one output"
 output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
@@ -76,20 +82,26 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :sensitivity_figure => sensitivity_figure, :aspect_figure => aspect_figure,
     :force_rating_figure => force_rating_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
-    :class_table => class_table, :fuel_table => fuel_table,
+    :class_table => class_table,
     :split_table => split_table,
     :payback_table => payback_table, :goals_table => goals_table,
     :missed_goals_table => missed_goals_table,
+    :rig_margin_table => rig_margin_table,
     :abatement => abatement_figure, :combination => combination_figure,
     :rigid_scaling => rigid_scaling_figure, :rigid_kite => rigid_kite_figure,
     :rigid_size => rigid_size_figure,
     :flight_table => flight_table, :speed_choice_table => speed_choice_table,
+    :forecast_plans_table => forecast_plans_table,
+    :forecast_hours_table => forecast_hours_table,
+    :forecast_causes_table => forecast_causes_table,
     :speed_terms_table => speed_terms_table, :published_table => published_table,
     :speed_size_table => speed_size_table, :speed_size_figure => speed_size_figure,
     :canopy_price_figure => canopy_price_figure, :min_wind => min_wind_figure,
     :force_balance => force_balance_figure, :ship_classes => ship_classes_figure,
     :kite_frames => kite_frames_figure, :router => router_figure,
-    :missed_goals => missed_goals_figure, :rigid_mass => rigid_mass_figure,
+    :missed_goals => missed_goals_figure, :cargo_cost => cargo_cost_figure,
+    :canopy_life_figure => canopy_life_figure, :large_rigs => large_rigs_figure,
+    :canopy_life_table => canopy_life_table, :rigid_mass => rigid_mass_figure,
     :tow_point_figure => tow_point_figure, :fidelity_table => fidelity_table,
     :numbers => numbers_file]
 
