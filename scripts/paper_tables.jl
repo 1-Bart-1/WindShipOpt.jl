@@ -906,6 +906,13 @@ function kept_cell(table, rig, plan)
         100table["kept_error"][only(found)])
 end
 
+"change of `rig`'s kept share on `plan` from the control with its paired error [points]"
+function kept_change_cell(table, rig, plan)
+    found = only(rows(table, "rig" => rig, "plan" => plan))
+    change = round(Int, 100table["difference_from_control"][found])
+    return @sprintf("\\(%+d \\pm %.0f\\)", change, 100table["difference_error"][found])
+end
+
 """
     forecast_plans_table()
 
@@ -925,26 +932,30 @@ end
     forecast_replanning_table()
 
 Share of each rig's perfect-foresight cost saving kept per case of the re-planning study,
-with its standard error over the departures [%]: forecast_replanning_table.tex.
+with its standard error over the departures [%], and its paired change from re-planning
+about every 29 h on the operational forecasts [points]: forecast_replanning_table.tex.
 """
 function forecast_replanning_table()
-    write_kept_table("forecast_replanning_kept.csv", "forecast_replanning_table.tex",
-        (("true", "Once a day on the reforecast"),
-            ("operational_24h", "Every 24 h on operational forecasts"),
-            ("operational_12h", "Every 12 h"),
-            ("operational_6h", "At every node, about 8 h"),
-            ("operational_24h_speed", "Every 24 h, speed adapted to the weather met"),
-            ("operational_24h_course", "Every 24 h, speed and course adapted"),
-            ("operational_6h_course", "At every node, speed and course adapted")))
+    plans = (("true", "Reforecast, about every 29 h"),
+        ("operational_24h", "Operational, about every 29 h"),
+        ("operational_12h", "Operational, about every 18 h"),
+        ("operational_6h", "Operational, about every 10 h"),
+        ("operational_24h_speed", "About every 29 h, speed adapted"),
+        ("operational_24h_course", "About every 29 h, speed and course adapted"),
+        ("operational_6h_course", "About every 10 h, speed and course adapted"))
+    write_kept_table("forecast_replanning_kept.csv", "forecast_replanning_table.tex", plans;
+        changes=(heading="Change from operational, about every 29 h [points]",
+            plans=filter(!=(plans[2]), plans)))
 end
 
 """
-    write_kept_table(data_name, table_name, plans)
+    write_kept_table(data_name, table_name, plans; changes=nothing)
 
 Write `table_name` from the kept shares in `data_name`: a row per (plan, label) of `plans`,
-a column per rig.
+a column per rig, then under `changes.heading` a row per (plan, label) of `changes.plans`
+with the paired change from the data's control.
 """
-function write_kept_table(data_name, table_name, plans)
+function write_kept_table(data_name, table_name, plans; changes=nothing)
     table = read_table(data_file(data_name))
     open(joinpath(sections, table_name), "w") do io
         println(io, "\\begin{tabular}{@{}lccc@{}}\n\\toprule")
@@ -952,6 +963,15 @@ function write_kept_table(data_name, table_name, plans)
         for (plan, label) in plans
             cells = [kept_cell(table, rig, plan) for rig in ("kite", "wings", "rotors")]
             println(io, label, " & ", join(cells, " & "), " \\\\")
+        end
+        if !isnothing(changes)
+            println(io, "\\midrule\n\\multicolumn{4}{@{}l}{\\textit{", changes.heading,
+                "}} \\\\")
+            for (plan, label) in changes.plans
+                cells = [kept_change_cell(table, rig, plan)
+                         for rig in ("kite", "wings", "rotors")]
+                println(io, "\\quad ", label, " & ", join(cells, " & "), " \\\\")
+            end
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
