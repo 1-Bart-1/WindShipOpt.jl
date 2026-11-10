@@ -894,7 +894,11 @@ end
 replanning_plans = (false, true, :operational_24h, :operational_12h, :operational_6h,
     :operational_24h_speed, :operational_24h_course, :operational_6h_course)
 
-"corridor scale of the re-planning study: nodes about 8 h apart, so 6 h is every node"
+"the plan a re-planning case is paired against: the one that differs from it in one thing"
+replanning_control(plan) =
+    plan === :operational_6h_course ? :operational_6h : :operational_24h
+
+"corridor scale of the re-planning study: nodes about 10 h apart, so 6 h is every node"
 replanning_scale = 1.0
 
 "plans whose sailed hours [`forecast_hours_data`](@ref) records"
@@ -1174,7 +1178,7 @@ kite_saving(sample) = 1e-6 *
 The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
 `ensemble_departures`, for each of the [`replanning_plans`](@ref), at
 [`replanning_scale`](@ref): forecast_replanning.csv, and the share of its perfect-foresight
-saving each rig keeps per plan against re-planning at 24 h on the operational forecasts:
+saving each rig keeps per plan against the plan of [`replanning_control`](@ref):
 forecast_replanning_kept.csv.
 """
 function forecast_replanning_data()
@@ -1190,17 +1194,20 @@ function forecast_replanning_data()
     end
     write_trips("forecast_replanning.csv", cases, trips, :rig, :plan, :departure)
     write_kept_shares("forecast_replanning_kept.csv", cases, trips, replanning_plans;
-        control=:operational_24h)
+        control_of=replanning_control)
 end
 
 """
-    write_kept_shares(name, cases, trips, plans=forecast_study_plans; control=true)
+    write_kept_shares(name, cases, trips, plans=forecast_study_plans;
+                      control_of=Returns(true))
 
 Write `name`: per rig and plan of `plans` after the first, perfect foresight, the share
 of the perfect-foresight saving kept, the ratio of the mean savings over the departures,
-with its jackknife standard error and that of the difference from the plan `control`.
+with its jackknife standard error and that of the difference from the plan
+`control_of(plan)`.
 """
-function write_kept_shares(name, cases, trips, plans=forecast_study_plans; control=true)
+function write_kept_shares(name, cases, trips, plans=forecast_study_plans;
+        control_of=Returns(true))
     n = length(ensemble_departures)
     open(run_file(name), "w") do io
         println(io, "rig,plan,kept,kept_error,difference_from_control,difference_error")
@@ -1208,7 +1215,7 @@ function write_kept_shares(name, cases, trips, plans=forecast_study_plans; contr
             plan in kite_only_plans && rig != "kite" && continue
             saved, perfect = plan_savings(cases, trips, rig, plan),
             plan_savings(cases, trips, rig, false)
-            reference = plan_savings(cases, trips, rig, control)
+            reference = plan_savings(cases, trips, rig, control_of(plan))
             value = kept_share(saved, perfect, 1:n)
             spread = jackknife_error(index -> kept_share(saved, perfect, index), n)
             difference = value - kept_share(reference, perfect, 1:n)

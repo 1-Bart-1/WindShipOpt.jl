@@ -33,8 +33,8 @@ end
 """
     operational_ranges(issue, record, member)
 
-Files and byte ranges of the 10 m wind `record` at each lead of `issue`; empty where a
-lead is not in the store.
+Files and byte ranges of the 10 m wind `record` at each lead of `issue`; empty where the
+store answers that a lead is not there. Any other failure to read it is thrown.
 """
 function operational_ranges(issue, record, member)
     pieces = Tuple{String, Tuple{Int, Union{Int, Nothing}}}[]
@@ -44,7 +44,8 @@ function operational_ranges(issue, record, member)
             index_ranges("$url.idx",
                 line -> occursin(":$record:10 m above ground:", line) &&
                         occursin(":$(lead_text(lead)):", line))
-        catch
+        catch error
+            error isa Downloads.RequestError && error.response.status == 404 || rethrow()
             return empty(pieces)
         end
         length(found) == 1 || return empty(pieces)

@@ -4,8 +4,8 @@
 # Download the forecasts a ship could have routed on: a run of NOAA's GEFSv12 reforecast,
 # issued daily at 00 UTC, with its 10 m wind and its WAVEWATCH III sea state out to 16
 # days, into era5/<region>/forecast/{wind,waves}/ on the grids of the ERA5 data of the same
-# region (ERA5_REGION, as for download_era5.jl). Wind is averaged over each 1.5° cell, waves
-# are sampled at the 0.5° points. An issue the archive holds incomplete is left empty
+# region (ERA5_REGION, as for download_era5.jl). Wind is averaged over each 1.5° cell,
+# waves are sampled at the 0.5° points. An issue the archive holds incomplete is left empty
 # (NaN). Run on its own, it downloads the control run of every issue and writes the mean
 # bias of each year's forecasts against ERA5, from the other years. Resumable: rerun to
 # continue. forecast_ensemble.jl includes it for the perturbed members.
@@ -101,8 +101,8 @@ end
     decode(bytes, leads, regrid; start_hour=0)
 
 Fields of the GRIB records in `bytes`, one per lead [h] after `start_hour` UTC in `leads`,
-each turned by `regrid` from (lon, lat) on its own grid to the target grid; `nothing` where a
-lead is missing.
+each turned by `regrid` from (lon, lat) on its own grid to the target grid; `nothing` where
+a lead is missing.
 """
 function decode(bytes, leads, regrid; start_hour=0)
     path, io = mktemp()
@@ -205,8 +205,9 @@ end
 """
     download(group; member="c00", root=output, schedule=issues, wanted=eachindex(schedule))
 
-Write the issues of `schedule` numbered `wanted` of run `member` of `group` to `root`, each at its place
-in files spanning every issue, so that issues not wanted stay holes that read as zero.
+Write the issues of `schedule` numbered `wanted` of run `member` of `group` to `root`,
+each at its place in files spanning every issue, so that issues not wanted stay holes that
+read as zero.
 Resumes from the issues listed as done in the file `done` there.
 """
 function download(group; member="c00", root=output, schedule=issues,

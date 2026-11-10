@@ -932,8 +932,8 @@ end
     forecast_replanning_table()
 
 Share of each rig's perfect-foresight cost saving kept per case of the re-planning study,
-with its standard error over the departures [%], and its paired change from re-planning
-about every 29 h on the operational forecasts [points]: forecast_replanning_table.tex.
+with its standard error over the departures [%], and its paired change from the plan it
+differs from in one thing [points]: forecast_replanning_table.tex.
 """
 function forecast_replanning_table()
     plans = (("true", "Reforecast, about every 29 h"),
@@ -944,8 +944,10 @@ function forecast_replanning_table()
         ("operational_24h_course", "About every 29 h, speed and course adapted"),
         ("operational_6h_course", "About every 10 h, speed and course adapted"))
     write_kept_table("forecast_replanning_kept.csv", "forecast_replanning_table.tex", plans;
-        changes=(heading="Change from operational, about every 29 h [points]",
-            plans=filter(!=(plans[2]), plans)))
+        changes=(
+            heading="Change from operational, about every 29 h, unless stated [points]",
+            plans=(plans[1], plans[3], plans[4], plans[5], plans[6],
+                ("operational_6h_course", "About every 10 h, adapted, from unadapted"))))
 end
 
 """

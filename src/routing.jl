@@ -1535,10 +1535,12 @@ struct ReplannedForecast{F}
     forecast::F
     interval::Float64
     adapts::Symbol
+    function ReplannedForecast(forecast::F; interval=24.0, adapts=:nothing) where {F}
+        adapts in (:nothing, :speed, :course) ||
+            throw(ArgumentError("adapts must be :nothing, :speed or :course, not $adapts"))
+        return new{F}(forecast, interval, adapts)
+    end
 end
-
-ReplannedForecast(forecast; interval=24.0, adapts=:nothing) =
-    ReplannedForecast(forecast, interval, adapts)
 
 """
     forecast_plan(known, corridor, table, time, prices; first_stage, first_lateral,
@@ -1607,7 +1609,8 @@ Step and speed [m/s] of the edge left from `at` (`stage`, `lateral`, planned `st
 `speed`, kite `aloft`, `elapsed` hours since the plan, absolute `time`) with the least
 objective in the [`MetWeather`](@ref) `met` plus `to_go` at its end, over the planned step
 (`adapts` `:speed`) or all steps (`:course`) and the search's commanded speeds and the
-planned one, and the values ahead of [`values_ahead`](@ref) (`Inf` where it finds none).
+planned one, and the values ahead of [`values_ahead`](@ref). Where no edge can be sailed in
+`met` it returns the planned speed, the allowed step nearest the plan and `Inf` ahead.
 """
 function adapted_edge(points, corridor::Corridor, table::RouteTable, met, to_go, at, prices,
         adapts, coastal_penalty)
@@ -1617,7 +1620,8 @@ function adapted_edge(points, corridor::Corridor, table::RouteTable, met, to_go,
     commanded = commanded_speeds(length(table.speeds), stride)
     speeds = sort(unique([planned_speed; commanded]))
     steps = adapts == :course ? (1:(2MAX_LATERAL_STEP + 1)) : (at.step:at.step)
-    best_value, best_step, best_speed, ahead = Inf, at.step, at.speed, (Inf, Inf)
+    best_value, best_step, best_speed, ahead = Inf, clamp(at.step, extrema(steps)...),
+    at.speed, (Inf, Inf)
     for step in steps
         isnan(corridor.edge_course[stage, lateral, step]) && continue
         next = next_lateral(lateral, step)
@@ -1861,9 +1865,9 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     aloft_path = [false]
     points = SailedPoint[]
     held = 0.0
-    interval, adapts, planned = forecast isa ReplannedForecast ?
-                                (forecast.interval, forecast.adapts, forecast.forecast) :
-                                (24.0, :nothing, forecast)
+    replanned = forecast isa ReplannedForecast ? forecast : ReplannedForecast(forecast)
+    (; interval, adapts) = replanned
+    planned = replanned.forecast
     keeps_plan, foresight = planned isa PlannedKite, planned isa ForesightKite
     with_margin = planned isa KiteMargin
     source = keeps_plan || foresight || with_margin ? planned.forecast : planned
@@ -1889,8 +1893,8 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
                     corridor.lon[stage, lateral], departure + time)
                 at = (; stage, lateral, step, speed=planned_speed, aloft,
                     elapsed=time - plan_start, time=departure + time)
-                step, planned_speed, ahead = adapted_edge(points, corridor, table, met, to_go, at,
-                    prices, adapts, coastal_penalty)
+                step, planned_speed, ahead = adapted_edge(points, corridor, table, met,
+                    to_go, at, prices, adapts, coastal_penalty)
                 next = next_lateral(lateral, step)
                 next_lat, next_lon = corridor.lat[stage + 1, next],
                 corridor.lon[stage + 1, next]

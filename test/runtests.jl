@@ -1736,6 +1736,33 @@ end
     @test by_course <= by_speed
 end
 
+@testset "a ship drifted off its plan holds where no edge of its node can be sailed" begin
+    departure, weather = 24.0 * 31, SyntheticWeather()
+    centre = WindShipOpt.centre_index(corridor)
+    edge_course = copy(corridor.edge_course)
+    edge_course[1, centre, :] .= NaN
+    closed = WindShipOpt.Corridor(corridor.lat, corridor.lon, corridor.water,
+        corridor.edge_length, edge_course, corridor.track_length, corridor.near_coast,
+        corridor.along_centre)
+    prices = (; fuel=table.table.ship.fuel.price, time=hourly)
+    to_go = WindShipOpt.remaining_cost(corridor, table, weather, departure, prices;
+        first_stage=1, coastal_penalty=1.0)
+    at = (; stage=1, lateral=centre, step=7, speed=table.speeds[end], aloft=false,
+        elapsed=0.0, time=departure)
+    step, speed, ahead = WindShipOpt.adapted_edge(WindShipOpt.SailedPoint[], closed, table,
+        weather, to_go, at, prices, :course, 1.0)
+    @test step in 1:(2WindShipOpt.MAX_LATERAL_STEP + 1)
+    @test all(isinf, ahead)
+    hours, _ = WindShipOpt.sail_planned_edge!(WindShipOpt.SailedPoint[], table, weather,
+        closed, 1, centre, step, departure, speed, false, ahead, prices)
+    @test !isfinite(hours)
+end
+
+@testset "a re-planned forecast refuses an adaptation it does not know" begin
+    @test ReplannedForecast(nothing; adapts=:course).adapts == :course
+    @test_throws ArgumentError ReplannedForecast(nothing; adapts=:coarse)
+end
+
 @testset "a forecast beyond its horizon reads the same date in another year" begin
     known = ForecastWeather(SyntheticWeather(), 100.0, 48.0)
     @test WindShipOpt.wind(known, 40.0, -30.0, 120.0) ==
