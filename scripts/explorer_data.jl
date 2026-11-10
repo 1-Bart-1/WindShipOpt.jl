@@ -191,9 +191,7 @@ end
 """
 function checked_case(case, changes, cargo_factor)
     (; class) = case.design
-    changed_class = ShipClass(; (name => getfield(class, name)
-                                 for name in fieldnames(ShipClass))...,
-        cargo_value=cargo_factor * class.cargo_value)
+    changed_class = with_cargo_value(class, cargo_factor * class.cargo_value)
     design = ShipDesign(; (name => getfield(case.design, name)
                            for name in fieldnames(ShipDesign))..., class=changed_class)
     return trip_case(design; assumptions=changed_assumptions(changes), case.route)
