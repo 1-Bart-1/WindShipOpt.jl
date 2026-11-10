@@ -464,7 +464,7 @@ function expected_fuels(table::RouteTable, speed_index, sample::EdgeSample)
     performance, speed = table.table, table.speeds[speed_index]
     (; spread, wind_speed) = sample
     spread > 0 || return flown, stowed, Float64(kite_aloft(performance, speed,
-        sample.headwind, sample.crosswind, sample.condition.wave_height))
+        sample.headwind, sample.crosswind))
     expected_flown, expected_stowed, chance = 0.0, 0.0, 0.0
     for (node, weight) in zip(SPREAD_NODES, SPREAD_WEIGHTS)
         wind = max(wind_speed + node * spread, 0.0)
@@ -473,8 +473,7 @@ function expected_fuels(table::RouteTable, speed_index, sample::EdgeSample)
         node_flown, node_stowed = edge_fuels(table, speed_index, condition)
         isfinite(node_stowed) || (node_stowed = stowed)
         up = isfinite(node_flown) && kite_aloft(performance, speed,
-            scale * sample.headwind, scale * sample.crosswind,
-            sample.condition.wave_height)
+            scale * sample.headwind, scale * sample.crosswind)
         expected_stowed += weight * node_stowed
         expected_flown += weight * (up ? node_flown : node_stowed)
         chance += weight * up
@@ -645,16 +644,15 @@ there, whether the way aloft launches it there and whether a landing there is fo
 """
 function kite_step(table::RouteTable, point, down, up, prices)
     speed = table.speeds[point.speed_index]
-    (; headwind, crosswind, daylight) = point
-    wave_height = point.condition.wave_height
-    forced = !kite_landable(table.table, speed, headwind, crosswind, wave_height)
+    (; headwind, crosswind, daylight, condition) = point
+    forced = !kite_landable(table.table, speed, headwind, crosswind, condition)
     landing = forced ? forced_landing(up, table.table.forced_landing_cost) : up
     landed = landing.cost < down.cost
     next_down = extend(landed ? landing : down, point.stowed, point.hours, 0.0, STOWED,
         false, prices, table.table.cycle_cost)
     stays = point.chance > 0 ?
             aloft_tally(table.table, up, point, false, prices) : NO_TALLY
-    launches = kite_launchable(table.table, speed, headwind, crosswind, wave_height,
+    launches = kite_launchable(table.table, speed, headwind, crosswind, condition,
         daylight) ? aloft_tally(table.table, down, point, true, prices) : NO_TALLY
     launched = launches.cost < stays.cost
     return next_down, launched ? launches : stays, landed, launched, forced
@@ -1622,14 +1620,15 @@ with_changed(item; changes...) =
     margin_table(table, margin)
 
 The [`RouteTable`](@ref) `table` with the kite limits [`tightened_limits`](@ref) by
-`margin` and its highest wave height for a kite in flight lowered by the same share.
+`margin` and its extra launch wind in a sea raised by the same share.
 """
 function margin_table(table::RouteTable, margin)
     performance = table.table
     rig = tightened_limits(performance.ship.rig, margin)
     ship = with_changed(performance.ship; rig)
+    (; knots, values) = performance.sea_launch_wind
     return with_changed(table; table=with_changed(performance; ship,
-        max_wave_height=performance.max_wave_height * (1 - margin)))
+        sea_launch_wind=LinearTable(knots, values .* (1 + margin))))
 end
 
 """
@@ -1898,7 +1897,7 @@ KiteRecord() = KiteRecord(KiteSample[], KiteRuleEdge[], Float64[])
     kite_down_reason(table, point, prices)
 
 Why a kite is down at [`SailedPoint`](@ref) `point` on the [`RouteTable`](@ref) `table`,
-`:no_kite` on a ship without one, else the first that holds of: `:sea_flight`,
+`:no_kite` on a ship without one, else the first that holds of:
 `:wind_low_flight`, `:wind_high_flight`, outside the limits it can stay up in;
 `:hull_limit`, where the hull or the engine cannot hold the speed with the kite up;
 `:wind_low_pull`, where it can stay up but the apparent wind is below
@@ -1915,7 +1914,6 @@ function kite_down_reason(table::RouteTable, point, prices)
     speed = table.speeds[max(point.speed_index, 1)]
     wind = hypot(point.headwind + speed, point.crosswind)
     wave_height = point.condition.wave_height
-    wave_height > table.table.max_wave_height && return :sea_flight
     wind < kite.min_flight_wind && return :wind_low_flight
     wind > kite.max_wind && return :wind_high_flight
     isfinite(point.flown) || return :hull_limit
@@ -1923,7 +1921,9 @@ function kite_down_reason(table::RouteTable, point, prices)
         return wind < lowest_pull_wind(kite) ? :wind_low_pull : :no_thrust
     wind < kite.launch_min_wind && return :wind_low_launch
     wind > kite.launch_max_wind && return :wind_high_launch
-    wave_height > kite.launch_max_wave_height && return :sea_launch
+    sea_wind = extra_launch_wind(table.table, speed, point.condition)
+    (wave_height > kite.launch_max_wave_height || wind < kite.launch_min_wind + sea_wind) &&
+        return :sea_launch
     point.daylight || kite.night_launch || return :night
     point.flown * prices.fuel + table.table.wear_cost / 3600 >=
     point.stowed * prices.fuel && return :no_saving
@@ -1975,7 +1975,7 @@ function fastest_flown_speed(table::RouteTable, point)
     for i in length(table.speeds):-1:1
         flown, _ = edge_fuels(table, i, point.condition)
         isfinite(flown) && kite_aloft(table.table, table.speeds[i], point.headwind,
-            point.crosswind, point.condition.wave_height) && return table.speeds[i]
+            point.crosswind) && return table.speeds[i]
     end
     return 0.0
 end
