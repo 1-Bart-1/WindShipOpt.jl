@@ -857,8 +857,8 @@ cargo_value_sweep = (values=(100.0, 506.0, 2500.0, 5120.0, 15000.0),
 Ship `class` carrying cargo of `value` [USD/t].
 """
 function with_cargo_value(class, value)
-    fields = NamedTuple(name => getfield(class, name) for name in fieldnames(ShipClass))
-    return ShipClass(; merge(fields, (; cargo_value=value))...)
+    return ShipClass(; (name => getfield(class, name) for name in fieldnames(ShipClass))...,
+        cargo_value=value)
 end
 
 """
@@ -893,6 +893,13 @@ The table of the rows `kept` of `table`.
 """
 table_rows(table, kept) =
     Dict{String, Vector}(column => values[kept] for (column, values) in table)
+
+"""
+    speed_along_track(sailed_km, days)
+
+Speed [kn] of a ship that covers `sailed_km` along its track in `days` at sea.
+"""
+speed_along_track(sailed_km, days) = 1e3sailed_km / (3600 * 24days) / KNOT
 
 """
     cargo_interest_data()

@@ -651,7 +651,7 @@ column_scale(values) = maximum(abs, filter(isfinite, values); init=0.0) |>
 Tabular of the cost saving of the cheapest size of each rig on the zero-emission drive at
 low and at high cargo interest, the mean over the classes and routes, split by
 [`saving_split`](@ref) into fuel, time and the rest, with the median change of the round
-trip and the mean speed under way of the ship with and without the rig, in
+trip and the mean [`speed_along_track`](@ref) of the ship with and without the rig, in
 cargo_interest_table.tex.
 """
 function cargo_interest_table()
@@ -722,13 +722,13 @@ end
 """
     mean_sailing_speed(table, drive, rig)
 
-Mean speed under way [kn] of the cheapest size of `rig`, or of the ship without a rig for
-`"none"`, over the classes and routes of `table`.
+Mean [`speed_along_track`](@ref) [kn] of the cheapest size of `rig`, or of the ship without
+a rig for `"none"`, over the classes and routes of `table`.
 """
 function mean_sailing_speed(table, drive, rig)
     cheapest = [cheapest_row(table, class, route, drive, rig)
                 for class in class_order(table) for route in unique(table["route"])]
-    speeds = [1e3table["sailed_km"][k] / (3600 * 24table["days"][k]) / KNOT
+    speeds = [speed_along_track(table["sailed_km"][k], table["days"][k])
               for k in cheapest if !isnothing(k)]
     return mean(speeds)
 end

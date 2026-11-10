@@ -663,19 +663,6 @@ function class_comparison_figure()
 end
 
 """
-    interest_saving(table, drive, rig, conditions...)
-
-Mean over the routes of `table` of the cost saving [%] of the best size of `rig` on
-`drive` among the rows where the `conditions` hold; `NaN` where no route has one.
-"""
-function interest_saving(table, drive, rig, conditions...)
-    savings = [get(rig_savings(table, [rig], conditions..., "route" => route,
-                       "drive" => drive), rig, NaN) for route in unique(table["route"])]
-    found = filter(isfinite, savings)
-    return isempty(found) ? NaN : sum(found) / length(found)
-end
-
-"""
     sweep_measures(table, drive, rig, class)
 
 The cost saving [%], its part from time [points] and the speed the rig adds [kn], each the
@@ -709,7 +696,7 @@ function interest_classes_panel!(axis, table, drive, names)
 
         level_table = interest_level_rows(table, factor)
         y = eachindex(names) .+ (j - 2) * 0.22
-        savings = [interest_saving(level_table, drive, kind, "class" => name)
+        savings = [only(mean_savings(level_table, ("cost",), [name], drive, kind))
                    for name in names]
         scatter!(axis, savings, collect(y);
             color=level == :high ? palette[j] : :white, strokecolor=palette[j],
