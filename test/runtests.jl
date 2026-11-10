@@ -385,16 +385,31 @@ end
     @test thrust(flown[1]) > 0
 end
 
-@testset "the search finds a pattern wherever a kite with little drag can fly one" begin
+@testset "a kite without flight drag flies where every fixed start misses" begin
     low_drag = WindShipOpt.with_value(assumptions, :kite_flight_drag, 0.0)
     aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
     model, max_force, _ = WindShipOpt.kite_model(13777.0, aspect_ratio, low_drag)
     course = deg2rad(120.0)
-    flown = only(WindShipOpt.compute_pattern_table(model, max_force, low_drag, [15.0], [course],
-        [0.0]))
+    flown = only(WindShipOpt.compute_pattern_table(model, max_force, low_drag, [15.0],
+        [course], [0.0]))
     thrust = flown.force[1] * cos(course) + flown.force[2] * sin(course)
     @test isfinite(flown.peak_tension)
     @test thrust > 0
+    problem = WindShipOpt.PatternProblem(model, max_force,
+        deg2rad(low_drag[:kite_min_elevation]), 15.0, course, 0.0)
+    force, _ = WindShipOpt.optimal_pattern(problem, WindShipOpt.pattern_starts(course))
+    @test force.peak_tension == flown.peak_tension
+end
+
+@testset "the pattern grid is only searched where no fixed start flies" begin
+    aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
+    model, max_force, _ = WindShipOpt.kite_model(13777.0, aspect_ratio, assumptions)
+    course = deg2rad(120.0)
+    problem = WindShipOpt.PatternProblem(model, max_force,
+        deg2rad(assumptions[:kite_min_elevation]), 15.0, course, 0.0)
+    flew, _ = WindShipOpt.optimal_pattern(problem, WindShipOpt.pattern_starts(course),
+        () -> error("searched the grid"))
+    @test isfinite(flew.peak_tension)
 end
 
 @testset "a kite launches inside its limits and stays up above its landing limit" begin

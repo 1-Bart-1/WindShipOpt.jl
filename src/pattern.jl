@@ -551,15 +551,18 @@ function objective(problem::PatternProblem, force::PatternForce)
     return -(thrust - problem.side_weight * abs(side)) / problem.max_tension
 end
 
+"objective of a pattern that cannot fly, to which a limit it breaks adds"
+const UNFLYABLE = 10.0
+
 function (problem::PatternProblem)(parameters)
     (; model) = problem
     pattern = flight_pattern(model, parameters)
     outside = outside_limits(model, pattern)
-    outside > 0 && return 10 + 100outside
+    outside > 0 && return UNFLYABLE + 100outside
     force = PatternForce(model, pattern, problem.wind_speed, problem.max_tension)
-    isfinite(force.peak_tension) || return 10.0
+    isfinite(force.peak_tension) || return UNFLYABLE
     low = max(problem.min_elevation - force.lowest_elevation, 0.0)
-    low > 0 && return 10 + 100low
+    low > 0 && return UNFLYABLE + 100low
     return objective(problem, force)
 end
 
@@ -594,21 +597,25 @@ function flyable_patterns(problem::PatternProblem)
                 half_width in (0.05, 0.1, 0.2, 0.4, 0.7, 1.0),
                 heading in range(0.15, 2.9; length=8),
                 angle in range(model.lowest_angle, model.stall_angle; length=7))
-    return [parameters for parameters in grid if problem(parameters) < 10]
+    return [parameters for parameters in grid if problem(parameters) < UNFLYABLE]
 end
 
 """
-    optimal_pattern(problem, starts, flyable=[])
+    optimal_pattern(problem, starts, flyable=() -> flyable_patterns(problem))
 
 Best steered pattern from Nelder-Mead runs from each parameter vector in `starts`, or where
-none of them flies from the three best of the parameter vectors `flyable`; returns its
-[`PatternForce`](@ref), `NO_PATTERN` where nothing flies, and its parameters for warm starts.
+none of them flies from the three best of the parameter vectors `flyable()` returns;
+returns its [`PatternForce`](@ref), `NO_PATTERN` where nothing flies, and its parameters
+for warm starts.
 """
-function optimal_pattern(problem::PatternProblem, starts, flyable=Vector{Float64}[])
+function optimal_pattern(problem::PatternProblem, starts,
+        flyable=() -> flyable_patterns(problem))
     force, parameters = best_search(problem, starts)
-    (isfinite(force.peak_tension) || isempty(flyable)) && return force, parameters
-    best = partialsortperm(problem.(flyable), 1:min(3, length(flyable)))
-    return best_search(problem, flyable[best])
+    isfinite(force.peak_tension) && return force, parameters
+    candidates = flyable()
+    isempty(candidates) && return force, parameters
+    best = partialsortperm(problem.(candidates), 1:min(3, length(candidates)))
+    return best_search(problem, candidates[best])
 end
 
 """
@@ -623,7 +630,7 @@ function best_search(problem::PatternProblem, starts)
     for start in search_starts(problem, starts)
         result = Optim.optimize(problem, start, Optim.NelderMead(),
             Optim.Options(iterations=200))
-        Optim.minimum(result) < min(best_value, 10) || continue
+        Optim.minimum(result) < min(best_value, UNFLYABLE) || continue
         parameters = Optim.minimizer(result)
         force = PatternForce(model, flight_pattern(model, parameters), problem.wind_speed,
             problem.max_tension)
@@ -663,7 +670,8 @@ function pattern_starts(model::KiteModel, course)
     halfway = max(π / 2 - course / 2, 0.5)
     return [[roll, off_wind, cone, angle]
             for roll in (facing, halfway, π / 2), off_wind in (0.4, 0.7, 1.0),
-                cone in (smallest, 1.3smallest), angle in (model.stall_angle - 0.02, 0.05)][:]
+                cone in (smallest, 1.3smallest),
+                angle in (model.stall_angle - 0.02, 0.05)][:]
 end
 
 """
@@ -705,8 +713,8 @@ function solved_patterns(model::KiteModel, max_force, assumptions::Assumptions, 
     forces, parameters = fill(NO_PATTERN, shape), Array{Vector{Float64}}(undef, shape)
     min_elevation = deg2rad(assumptions[:kite_min_elevation])
     cases = vec(collect(Iterators.product(eachindex(courses), eachindex(side_weights))))
-    flyable = [flyable_patterns(PatternProblem(model, max_force, min_elevation, wind, 0.0,
-                   0.0)) for wind in wind_speeds]
+    flyable = [OncePerProcess(() -> flyable_patterns(PatternProblem(model, max_force,
+                   min_elevation, wind, 0.0, 0.0))) for wind in wind_speeds]
     Threads.@threads :greedy for (j, k) in cases
         starts = pattern_starts(model, courses[j])
         for i in reverse(eachindex(wind_speeds))
