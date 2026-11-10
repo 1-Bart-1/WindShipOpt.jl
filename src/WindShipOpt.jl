@@ -29,7 +29,7 @@ export LandMask, GridMask, north_atlantic_mask, SyntheticWeather, ERA5Weather, w
 export Corridor, return_corridor, route_corridors, centre_index, Leg, route
 export ForecastWeather, ForecastArchive, ForecastEnsemble, ArchivedForecast, PlannedKite,
        KiteMargin
-export ForecastParts, ForesightKite, PerfectForecast, ShortestLead
+export ReplannedForecast, ForecastParts, ForesightKite, PerfectForecast, ShortestLead
 export forecast_route
 export write_forecast_bias, ShipClass, ship_classes
 export ShipCosts, RoundTrip, round_trip, KNOT, NAUTICAL_MILE

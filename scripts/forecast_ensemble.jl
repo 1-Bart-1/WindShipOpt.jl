@@ -37,16 +37,10 @@ Make `directory` an archive with the grids, the bias and the wave period and dir
 the control archive in `output`.
 """
 function link_archive(directory)
-    shared = ("period.f16", "direction_east.f16", "direction_north.f16")
     for group in ("wind", "waves")
         folder = mkpath(joinpath(directory, group))
         cp(joinpath(output, group, "grid.toml"), joinpath(folder, "grid.toml"); force=true)
-        entries = filter(entry -> startswith(entry, "bias_") || entry in shared,
-            readdir(joinpath(output, group)))
-        for entry in entries
-            link = joinpath(folder, entry)
-            islink(link) || symlink(joinpath(output, group, entry), link)
-        end
+        WindShipOpt.link_control_group(joinpath(output, group), folder)
     end
 end
 
@@ -59,9 +53,9 @@ archive and the member archives, at their places in files spanning every issue.
 function write_statistics(wanted)
     foreach(name -> link_archive(joinpath(members_root, name)), ("mean", "margin"))
     for (group, names) in (("wind", ["u10", "v10"]), ("waves", ["height"]))
-        archives = [WindShipOpt.ArchiveGroup(joinpath(output, group));
-                    [WindShipOpt.ArchiveGroup(joinpath(members_root, member, group))
-                     for member in members]]
+        archives = [WindShipOpt.ArchiveGroup(joinpath(output, group), weather.origin);
+                    [WindShipOpt.ArchiveGroup(joinpath(members_root, member, group),
+                         weather.origin) for member in members]]
         files = Dict((kind, name) => statistics_file(joinpath(members_root, kind, group),
                          name, size(archives[1].fields[name]))
                      for kind in ("mean", "margin"), name in names)

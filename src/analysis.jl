@@ -100,8 +100,7 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     added = trim_resistance(table.table, sea_resistance(slice, sample.condition))
     _, force, trim = trimmed_force(ship, flown ? ship.rig : standing, speed, wind_speed,
         angle, added)
-    aloft = kite_aloft(table.table, speed, point.headwind, point.crosswind,
-        point.condition.wave_height)
+    aloft = kite_aloft(table.table, speed, point.headwind, point.crosswind)
     available = standing === ship.rig || aloft ?
                 last(best_trim(ship, ship.rig, speed, wind_speed, angle, added)).thrust :
                 0.0
