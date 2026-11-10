@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"hours after its 00 UTC start that a day's forecast reaches the ship [h]"
+"hours after its start that a forecast reaches the ship [h]"
 const FORECAST_LATENCY = 6.0
 
 """
     ArchiveGroup
 
-Fields of one group (wind or waves) of a daily forecast archive, per (lon, lat, lead,
-issue), with the mean bias against the weather per (lon, lat, lead) of each scored year.
+Fields of one group (wind or waves) of a forecast archive, per (lon, lat, lead, issue),
+with the mean bias against the weather per (lon, lat, lead) of each scored year.
 """
 struct ArchiveGroup
     "grid of one issue, with time in hours after that issue"
@@ -17,9 +17,13 @@ struct ArchiveGroup
     fields::Dict{String, Array{Float16, 4}}
     "bias per year scored, estimated from the other years"
     bias::Dict{Int, Dict{String, Array{Float32, 3}}}
+    "hours from the weather origin to the first issue [h]"
+    first_issue::Float64
+    "hours between issues [h]"
+    issue_hours::Float64
 end
 
-function ArchiveGroup(directory::AbstractString)
+function ArchiveGroup(directory::AbstractString, origin::DateTime)
     grid = TOML.parsefile(joinpath(directory, "grid.toml"))
     lats, lons = Float64.(grid["lats"]), Float64.(grid["lons"])
     leads = grid["leads"]
@@ -36,9 +40,13 @@ function ArchiveGroup(directory::AbstractString)
             joinpath(folder, file), Array{Float32, 3}, (length(lons), length(lats), leads))
                                               for file in readdir(folder))
     end
+    first_issue = Dates.value(DateTime(grid["first_issue"]) - origin) / 3_600_000
     return ArchiveGroup(GriddedFields(lats, lons, grid["first_lead_hours"],
-            grid["step_hours"], leads, Dict{String, Array{Float32, 3}}()), fields, bias)
+            grid["step_hours"], leads, Dict{String, Array{Float32, 3}}()), fields, bias,
+        first_issue, grid["issue_hours"])
 end
+
+issue_time(group::ArchiveGroup, issue) = group.first_issue + group.issue_hours * (issue - 1)
 
 issue_count(group::ArchiveGroup) = minimum(size(field, 4) for field in values(group.fields))
 
@@ -51,24 +59,19 @@ issued_in(group::ArchiveGroup, issue) =
 """
     ForecastArchive(directory, weather)
 
-Forecasts issued every day at 00 UTC, read from the `wind` and `waves` groups in
-`directory` written by `scripts/download_forecast.jl`, on the time axis of `weather`.
+Forecasts read from the `wind` and `waves` groups in `directory` written by
+`scripts/download_forecast.jl`, each on its own schedule, on the time axis of `weather`.
 """
 struct ForecastArchive
     wind::ArchiveGroup
     waves::ArchiveGroup
-    "hours from the weather origin to the first issue [h]"
-    first_issue::Float64
     "first day of the weather origin's year, for the year each issue is scored in"
     origin::DateTime
 end
 
-function ForecastArchive(directory::AbstractString, weather::ERA5Weather)
-    grid = TOML.parsefile(joinpath(directory, "wind", "grid.toml"))
-    first_issue = Dates.value(DateTime(grid["first_issue"]) - weather.origin) / 3_600_000
-    return ForecastArchive(ArchiveGroup(joinpath(directory, "wind")),
-        ArchiveGroup(joinpath(directory, "waves")), first_issue, weather.origin)
-end
+ForecastArchive(directory::AbstractString, weather::ERA5Weather) = ForecastArchive(
+    ArchiveGroup(joinpath(directory, "wind"), weather.origin),
+    ArchiveGroup(joinpath(directory, "waves"), weather.origin), weather.origin)
 
 """
     margin_wind(east, north)
@@ -115,10 +118,40 @@ struct ForecastEnsemble
     members::Vector{ForecastArchive}
 end
 
-issue_time(archive::ForecastArchive, issue) = archive.first_issue + 24.0 * (issue - 1)
+issue_time(archive::ForecastArchive, issue) = issue_time(archive.wind, issue)
 
 issue_year(archive::ForecastArchive, issue) =
     Dates.year(archive.origin + Dates.Hour(round(Int, issue_time(archive, issue))))
+
+"number of the last issue of `group` to have reached the ship at `time` [h]"
+latest_issue(group::ArchiveGroup, time) =
+    clamp(floor(Int, (time - FORECAST_LATENCY - group.first_issue) / group.issue_hours) + 1,
+        1, issue_count(group))
+
+"""
+    last_held_issues(archive, time)
+
+Numbers of the last wind and wave issues of `archive` known at `time` [h] that hold data:
+one issue for both where the groups share a schedule, each on its own otherwise.
+"""
+function last_held_issues(archive::ForecastArchive, time)
+    (; wind, waves) = archive
+    wind_issue, wave_issue = latest_issue(wind, time), latest_issue(waves, time)
+    if wind.issue_hours == waves.issue_hours && wind.first_issue == waves.first_issue
+        issue = min(wind_issue, wave_issue)
+        while issue > 1 && !(issued_in(wind, issue) && issued_in(waves, issue))
+            issue -= 1
+        end
+        return issue, issue
+    end
+    while wind_issue > 1 && !issued_in(wind, wind_issue)
+        wind_issue -= 1
+    end
+    while wave_issue > 1 && !issued_in(waves, wave_issue)
+        wave_issue -= 1
+    end
+    return wind_issue, wave_issue
+end
 
 """
     ArchivedForecast(archive, weather, time)
@@ -130,26 +163,26 @@ or where it has no waves the weather of the same date in another year, as
 """
 struct ArchivedForecast{W}
     archive::ForecastArchive
+    "number of the wind issue"
     issue::Int
-    "time of the issue [h]"
+    "time of the wind issue [h]"
     issued::Float64
+    "number of the wave issue"
+    wave_issue::Int
+    "time of the wave issue [h]"
+    wave_issued::Float64
     year::Int
     beyond::ForecastWeather{W}
 end
 
 function ArchivedForecast(archive::ForecastArchive, weather, time)
-    issues = min(issue_count(archive.wind), issue_count(archive.waves))
-    issue = clamp(floor(Int, (time - FORECAST_LATENCY - archive.first_issue) / 24) + 1, 1,
-        issues)
-    while issue > 1 && !(issued_in(archive.wind, issue) && issued_in(archive.waves, issue))
-        issue -= 1
-    end
-    issued = issue_time(archive, issue)
+    issue, wave_issue = last_held_issues(archive, time)
+    issued, wave_issued = issue_time(archive, issue), issue_time(archive.waves, wave_issue)
     years = keys(archive.wind.bias)
     year = clamp(issue_year(archive, issue), minimum(years), maximum(years))
     span = min(last_time(archive.wind.grid), last_time(archive.waves.grid))
-    return ArchivedForecast(archive, issue, issued, year,
-        ForecastWeather(weather, issued, span))
+    return ArchivedForecast(archive, issue, issued, wave_issue, wave_issued, year,
+        ForecastWeather(weather, min(issued, wave_issued), span))
 end
 
 """
@@ -182,8 +215,7 @@ known_weather(forecast::ForecastArchive, weather, time, horizon) =
 known_weather(forecast::ForecastEnsemble, weather, time, horizon) =
     [ArchivedForecast(member, weather, time) for member in forecast.members]
 
-within(forecast::ArchivedForecast, group, time) =
-    time - forecast.issued <= last_time(group.grid)
+within(group::ArchiveGroup, issued, time) = time - issued <= last_time(group.grid)
 
 issue_arrays(group::ArchiveGroup, issue, names) =
     map(name -> view(group.fields[name], :, :, :, issue), names)
@@ -192,7 +224,7 @@ bias_arrays(group::ArchiveGroup, year, names) = map(name -> group.bias[year][nam
 
 function wind(forecast::ArchivedForecast, lat, lon, time)
     group = forecast.archive.wind
-    within(forecast, group, time) || return wind(forecast.beyond, lat, lon, time)
+    within(group, forecast.issued, time) || return wind(forecast.beyond, lat, lon, time)
     names = ("u10", "v10")
     east, north, east_bias, north_bias = sample(group.grid,
         (issue_arrays(group, forecast.issue, names)...,
@@ -202,12 +234,13 @@ end
 
 function waves(forecast::ArchivedForecast, lat, lon, time)
     group = forecast.archive.waves
-    within(forecast, group, time) || return waves(forecast.beyond, lat, lon, time)
+    within(group, forecast.wave_issued, time) ||
+        return waves(forecast.beyond, lat, lon, time)
     height, period, east, north, height_bias, period_bias = sample(group.grid,
-        (issue_arrays(group, forecast.issue,
+        (issue_arrays(group, forecast.wave_issue,
                 ("height", "period", "direction_east", "direction_north"))...,
             bias_arrays(group, forecast.year, ("height", "period"))...), lat, lon,
-        time - forecast.issued)
+        time - forecast.wave_issued)
     isnan(height) && return waves(forecast.beyond, lat, lon, time)
     return max(height - height_bias, 0.0), max(period - period_bias, 0.0), atan(east, north)
 end
@@ -295,24 +328,34 @@ function add_difference!(total, count, forecast, observed)
 end
 
 """
+    write_group_bias(directory, group, observed, names, origin)
+
+Write [`forecast_bias`](@ref) of the variables `names` of the archive `group` in
+`directory` against `observed`, on the time axis from `origin`, to a `bias_<year>` folder
+per year scored.
+"""
+function write_group_bias(directory::AbstractString, group::ArchiveGroup,
+        observed::GriddedFields, names, origin)
+    issue_times = issue_time.(Ref(group), 1:issue_count(group))
+    years = Dates.year.(origin .+ Dates.Hour.(round.(Int, issue_times)))
+    for (year, fields) in forecast_bias(group, observed, issue_times, years, names)
+        folder = mkpath(joinpath(directory, "bias_$year"))
+        for (variable, bias) in fields
+            write(joinpath(folder, "$variable.f32"), bias)
+        end
+    end
+end
+
+"""
     write_forecast_bias(directory, weather)
 
-Write [`forecast_bias`](@ref) of the wind and the wave height and period of the forecast
-archive in `directory` against `weather` to a `bias_<year>` folder per year scored.
+Write [`write_group_bias`](@ref) of the wind and the wave height and period of the forecast
+archive in `directory` against `weather`.
 """
 function write_forecast_bias(directory::AbstractString, weather::ERA5Weather)
     archive = ForecastArchive(directory, weather)
-    issues = 1:min(issue_count(archive.wind), issue_count(archive.waves))
-    issue_times = issue_time.(Ref(archive), issues)
-    years = issue_year.(Ref(archive), issues)
-    for (name, group, observed, names) in (
-        ("wind", archive.wind, weather.wind, ("u10", "v10")),
-        ("waves", archive.waves, weather.waves, ("height", "period")))
-        for (year, fields) in forecast_bias(group, observed, issue_times, years, names)
-            folder = mkpath(joinpath(directory, name, "bias_$year"))
-            for (variable, bias) in fields
-                write(joinpath(folder, "$variable.f32"), bias)
-            end
-        end
-    end
+    write_group_bias(joinpath(directory, "wind"), archive.wind, weather.wind,
+        ("u10", "v10"), weather.origin)
+    write_group_bias(joinpath(directory, "waves"), archive.waves, weather.waves,
+        ("height", "period"), weather.origin)
 end
