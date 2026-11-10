@@ -2051,7 +2051,7 @@ end
     best_node = findfirst(==(best.path[stage][2]), view(corridor.lon, stage, :))
     values = zeros(size(corridor.lat, 2), 200, 2, stage_count)
     values[best_node, :, :, stage] .= Inf
-    to_go = WindShipOpt.CostToGo(values)
+    to_go = WindShipOpt.CostToGo(values, 48.0)
     detour = WindShipOpt.route_pass(workspace, corridor, table, weather, departure, to_go,
         floatmax(); options...)
     @test detour.objective > best.objective
@@ -2068,6 +2068,35 @@ end
     @test WindShipOpt.ROUTER_SETTINGS[] == earlier
     @test_throws ErrorException WindShipOpt.with_router_settings(() -> error("stop"), other)
     @test WindShipOpt.ROUTER_SETTINGS[] == earlier
+end
+
+@testset "the backward estimate's knots sit the set spacing apart, 24 h by default" begin
+    @test WindShipOpt.RouterSettings().to_go_step == 24.0
+    stage_count, lateral_count = size(corridor.lat)
+    workspace = WindShipOpt.RouteWorkspace(lateral_count, 800, stage_count)
+    departure, weather = 24.0 * 31, SyntheticWeather()
+    estimate(step) = WindShipOpt.with_router_settings(
+        WindShipOpt.RouterSettings(to_go_step=step)) do
+        WindShipOpt.CostToGo(workspace, corridor, table, weather, departure;
+            time_cost=hourly, first_stage=1, coastal_penalty=1.0)
+    end
+    fine, coarse = estimate(12.0), estimate(48.0)
+    @test fine.step == 12.0 && coarse.step == 48.0
+    @test fine.knots > 3 * coarse.knots
+
+    centre, stage = centre_index(corridor), stage_count - 1
+    function knot_value(step, knot)
+        to_go = WindShipOpt.CostToGo(zeros(lateral_count, 30, 2, stage_count), step)
+        prices = (; fuel=table.table.ship.fuel.price, time=hourly)
+        WindShipOpt.fill_knot!(to_go, workspace.points, corridor, table, weather, departure,
+            prices, 1.0, stage, centre, knot)
+        return to_go.values[centre, knot, 1, stage]
+    end
+    @test knot_value(12.0, 3) == knot_value(24.0, 2) != knot_value(12.0, 2)
+
+    rising = WindShipOpt.CostToGo(reshape([0.0, 10.0, 40.0], 1, 3, 1, 1), 12.0)
+    @test rising(1, 1, 1, 12.0) == 10.0
+    @test rising(1, 1, 1, 18.0) == 25.0
 end
 
 @testset "a ship that can fly a kite is searched at the kite margins" begin
