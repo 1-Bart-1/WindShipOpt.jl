@@ -43,6 +43,14 @@ saving(row, bare) = 1 - parse(Float64, row.cost) / parse(Float64, bare.cost)
 cargo(row) = parse(Float64, row.cargo)
 
 """
+    saving_at_bare_cargo(saving, cargo, bare_cargo)
+
+Share of the cost saved if a ship saving the share `saving` while carrying `cargo` carried
+the `bare_cargo` of the same ship without a rig.
+"""
+saving_at_bare_cargo(saving, cargo, bare_cargo) = 1 - (1 - saving) * cargo / bare_cargo
+
+"""
     cheapest_rows(rows)
 
 Cheapest size of each rig in `rows`, keyed by class, drive, route and rig.
@@ -133,7 +141,7 @@ function cargo_groups(run)
                 sizes = [row for row in ours if row.rig == rig]
                 best = [cheapest[(name, drive, route, rig)] for route in keys(bare)]
                 now = [saving(row, bare[row.route]) for row in best]
-                gross = [1 - (1 - s) * cargo(row) / cargo(bare[row.route])
+                gross = [saving_at_bare_cargo(s, cargo(row), cargo(bare[row.route]))
                          for (s, row) in zip(now, best)]
                 other = [1 - (1 - g) / (1 - other_limit_share(class, drive, rig,
                     parse(Float64, row.area))) for (g, row) in zip(gross, best)]

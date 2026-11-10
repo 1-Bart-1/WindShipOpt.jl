@@ -3,7 +3,7 @@
 \section{Model inputs}
 \label{sec:inputs}
 
-\Cref{tab:inputs} lists every input that matters for the results, ranked by its effect, with its base value, the bounds of the sensitivity runs, its unit, its effect and its source. An input without a published source is marked as an engineering estimate or assumption. An input matters when moving it between its bounds changes the cost saving of a rig by at least half a percentage point, or the cost of a ship without a rig by at least 2\,\%, on any of three ships: the \SI{140}{m} reference ship on e-ammonia to Guadeloupe, a Kamsarmax bulk carrier on VLSFO to Tubarão and a Neo-Panamax container ship on e-ammonia to New York, each with the best size of each rig. The ship classes are in \cref{tab:classes}, the sources of their values in \cref{tab:class_sources}, and the grids, solver settings and constants, which have no range, in \cref{tab:numerics}. The published regressions the model uses (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) are applied with their published coefficients.
+\Cref{tab:inputs} lists every input that matters for the results, ranked by its effect, with its base value, bounds, unit and source, or its mark as an engineering estimate or assumption. An input matters when moving it between its bounds changes the cost saving of a rig by at least half a percentage point, or the cost of a ship without a rig by at least 2\,\%, on any of three ships: the \SI{140}{m} reference ship on e-ammonia to Guadeloupe, a Kamsarmax bulk carrier on VLSFO to Tubarão and a Neo-Panamax container ship on e-ammonia to New York, each with the best size of each rig. The ship classes are in \cref{tab:classes}, their sources in \cref{tab:class_sources}, and the grids, solver settings and constants in \cref{tab:numerics}. The published regressions (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) keep their published coefficients.
 
 {\footnotesize
 \setlength{\LTcapwidth}{\textwidth}
@@ -76,7 +76,8 @@ longest passage & 50 days & time bins \\
 speeds & every fourth table speed, 13 from \SI{4}{kn} to the ship's maximum & edge choices \\
 final pass & all table speeds, \SI{0.25}{h} bins, within \SI{24}{h} of the path found & passage reported \\
 re-planning interval & \SI{24}{h} & forecast router \\
-forecasts & GEFSv12 reforecast control run, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead & forecast router \\
+plan margin on the kite's limits & \SI{20}{\%} tighter wind and wave limits, tested & forecast router \\
+forecasts & GEFSv12 reforecast control run and four perturbed members, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead & forecast router \\
 departures & every 14 days from 1 January 2017 to 100 days before the end of 2019; every sixth (12) in all runs, every twelfth (6) for the input screening & weather sample \\
 \multicolumn{3}{@{}l}{\textit{Constants}}\\
 gravitational acceleration & \SI{9.81}{m/s^2} & \\
