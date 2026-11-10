@@ -1997,22 +1997,19 @@ end
     rerun_differences(table, conditions...)
 
 Differences [% points] between the cost saving of each rerun of combination_pairs.csv under
-`conditions` and that of the size it reruns.
+`conditions` and that of the same size at base values.
 """
 function rerun_differences(table, conditions...)
     reference = only(table["cost"][rows(table, conditions..., "rig" => "none")])
     differences = Float64[]
     for row in rows(table, conditions...)
-        endswith(table["rig"][row], " rerun") || continue
-        matching = [other for other in rows(table, conditions...,
-                        "rig" => replace(table["rig"][row], " rerun" => ""))
-                    if isapprox(pair_rerun_factor * table["kite_area"][other],
-                           table["kite_area"][row]; atol=0.5) &&
-                       isapprox(pair_rerun_factor * table["rotor_area"][other],
-                           table["rotor_area"][row]; atol=0.5)]
-        isempty(matching) || push!(differences,
-            percent_saving(table["cost"][row], reference) -
-            percent_saving(table["cost"][only(matching)], reference))
+        occursin(" rerun ", table["rig"][row]) || continue
+        base = only([other for other in rows(table, conditions...,
+                         "rig" => first(split(table["rig"][row], " rerun ")))
+                     if table["kite_area"][other] == table["kite_area"][row] &&
+                        table["rotor_area"][other] == table["rotor_area"][row]])
+        push!(differences, percent_saving(table["cost"][row], reference) -
+                           percent_saving(table["cost"][base], reference))
     end
     return differences
 end

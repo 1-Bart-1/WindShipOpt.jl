@@ -2533,26 +2533,48 @@ pair_classes = ("Handysize bulk carrier", "Kamsarmax bulk carrier")
 "routes of those studies: the largest and smallest extra saving of a full grid"
 pair_routes = (:caribbean, :bilbao)
 
-"factor on each area of a rerun that measures the routing noise"
-pair_rerun_factor = 0.98
+"""
+    pair_noise_variants()
+
+The reruns of a size that measure its routing noise: the tether 2 % short and the smallest
+turn radius 2 % long, as (name, changed inputs).
+"""
+pair_noise_variants() = [(name, changes)
+    for (name, _, changes) in noise_variants(assumptions[:tether_length_ratio],
+        assumptions[:kite_min_turn_radius])[[1, 4]]]
+
+"""
+    pair_case_assumptions(rig)
+
+Assumptions of the case of combination_pairs.csv labelled `rig`: the base values, with a
+rerun's own change of [`pair_noise_variants`](@ref).
+"""
+function pair_case_assumptions(rig)
+    occursin(" rerun ", rig) || return assumptions
+    changes = last(only(filter(variant -> endswith(rig, first(variant)),
+        pair_noise_variants())))
+    return changed_assumptions(changes)
+end
 
 """
     pair_sizes(kite, rotors, lower, upper)
 
 Sizes as (rig, kite area, rotor area) [m^2] around the best single `kite` and `rotors`: each
-alone, three pairs held to the (kite, rotors) bounds `lower` and `upper`, and a slightly
-smaller rerun of each single rig and of the first pair, its `rig` ending in " rerun".
+alone, three pairs held to the (kite, rotors) bounds `lower` and `upper`, and for the kite
+and the first pair one rerun of each of [`pair_noise_variants`](@ref), `rig` holding
+" rerun " and its name.
 """
 function pair_sizes(kite, rotors, lower, upper)
     pairs = unique([(clamp(kite_area, lower[1], upper[1]),
                         clamp(rotor_area, lower[2], upper[2]))
                     for (kite_area, rotor_area) in
                         ((kite / 2, rotors), (kite / 4, rotors), (kite / 2, rotors / 2))])
-    rerun_of = [("kite", kite, 0.0), ("rotors", 0.0, rotors),
-        ("kite+rotors", first(pairs)...)]
-    reruns = [("$rig rerun", pair_rerun_factor * kite_area, pair_rerun_factor * rotor_area)
-              for (rig, kite_area, rotor_area) in rerun_of]
-    return [rerun_of[1:2]; [("kite+rotors", pair...) for pair in pairs]; reruns]
+    rerun_of = (("kite", kite, 0.0), ("kite+rotors", first(pairs)...))
+    reruns = [("$rig rerun $name", kite_area, rotor_area)
+              for (rig, kite_area, rotor_area) in rerun_of
+              for name in first.(pair_noise_variants())]
+    return [("kite", kite, 0.0); ("rotors", 0.0, rotors);
+        [("kite+rotors", pair...) for pair in pairs]; reruns]
 end
 
 """
@@ -2584,8 +2606,8 @@ function combination_data()
             pair_sizes(kite, rotors, (500.0, 0.2room), (16000.0, room))]
         for (rig, kite_area, rotor_area) in sizes
             design = ShipDesign(drive, class; kite_area, rotor_area)
-            push!(cases, trip_case(design; route, ship=name, drive, rig, kite_area,
-                rotor_area))
+            push!(cases, trip_case(design; assumptions=pair_case_assumptions(rig), route,
+                ship=name, drive, rig, kite_area, rotor_area))
         end
     end
     write_trips("combination_pairs.csv", cases, round_trips(cases, sampled_departures()),

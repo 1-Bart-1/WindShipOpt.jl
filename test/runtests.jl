@@ -2877,11 +2877,27 @@ end
     sizes = PaperData.pair_sizes(2000.0, 900.0, (500.0, 200.0), (16000.0, 800.0))
     pairs = [size[2:3] for size in sizes if size[1] == "kite+rotors"]
     @test pairs == [(1000.0, 800.0), (500.0, 800.0), (1000.0, 450.0)]
-    @test filter(size -> endswith(size[1], "rerun"), sizes) ==
-          [("kite rerun", 1960.0, 0.0), ("rotors rerun", 0.0, 882.0),
-           ("kite+rotors rerun", 980.0, 784.0)]
+    noise_names = first.(PaperData.pair_noise_variants())
+    @test filter(size -> occursin(" rerun ", size[1]), sizes) ==
+          [[("kite rerun $name", 2000.0, 0.0) for name in noise_names];
+           [("kite+rotors rerun $name", 1000.0, 800.0) for name in noise_names]]
     small_kite = PaperData.pair_sizes(500.0, 900.0, (500.0, 200.0), (16000.0, 800.0))
     @test count(size -> size[1] == "kite+rotors", small_kite) == 2
+end
+
+@testset "a rerun of a pair differs from it only in the input of its name" begin
+    tether, turn = PaperData.pair_noise_variants()
+    @test PaperData.pair_case_assumptions("kite+rotors") === PaperData.assumptions
+    @test PaperData.pair_case_assumptions("kite rerun $(tether[1])")[:tether_length_ratio] ≈
+          last(tether)[:tether_length_ratio]
+    @test PaperData.pair_case_assumptions("kite rerun $(turn[1])")[:kite_min_turn_radius] ≈
+          last(turn)[:kite_min_turn_radius]
+end
+
+@testset "a ship with an undefined rig area is refused, never sailed with no rig" begin
+    @test_throws ArgumentError ShipDesign(:vlsfo, 100.0; kite_area=NaN)
+    @test_throws ArgumentError ShipDesign(:vlsfo, 100.0; rotor_area=Inf)
+    @test ShipDesign(:vlsfo, 100.0; kite_area=800.0).kite_area == 800
 end
 
 @testset "routing noise is the standard deviation behind a difference of two runs" begin
