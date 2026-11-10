@@ -2733,6 +2733,30 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 end
 
+@testset "a fleet's cost goes to the rig that saves most, or level within the margin" begin
+    cell(bill, kite, wings, rotors) = (; bill,
+        savings=Dict("kite" => kite, "wings" => wings, "rotors" => rotors))
+    margin = PaperData.level_margin
+    @test PaperData.fleet_band(cell(1.0, 5.0, 2.0, 3.0).savings) == "kite"
+    @test PaperData.fleet_band(cell(1.0, 2.0, 2.0, 5.0).savings) == "rotors"
+    @test PaperData.fleet_band(cell(1.0, 5.0 - margin / 2, 2.0, 5.0).savings) == "level"
+    @test PaperData.fleet_band(cell(1.0, margin / 2, -1.0, 0.0).savings) == "none"
+    split = PaperData.fleet_split([cell(100.0, 10.0, 0.0, 2.0), cell(50.0, 4.0, 0.0, 4.0),
+        cell(50.0, -1.0, -2.0, 0.5)])
+    @test split["kite"] == (bill=100.0, saved=10.0)
+    @test split["level"] == (bill=50.0, saved=2.0)
+    @test split["none"] == (bill=50.0, saved=0.0)
+    @test split["rotors"].bill == split["wings"].bill == 0
+end
+
+@testset "fleet work takes each class's IMO bins, summing the two of the MR tanker" begin
+    work, share = PaperData.fleet_work()
+    @test length(work) == 13
+    @test work["Kamsarmax bulk carrier"] ≈ 7974.7 * 1.852e9
+    @test work["MR product tanker"] ≈ (524.7 + 2186.0) * 1.852e9
+    @test 0 < share < 1
+end
+
 @testset "a following wind is flown at a lower speed and a rough sea at no speed" begin
     (; corridor, kite_table, kite_hourly, weather, departure) = kite_routing
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)

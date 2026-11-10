@@ -1500,12 +1500,14 @@ ship_kind_words = [:teu => "Container", :ceu => "CarCarrier", :tonne => "Bulk"]
 Write the numbers the paper and its extended abstract state as LaTeX macros `\\Num...` to
 paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
 the goals, and the [`class_numbers`](@ref), [`recommendation_numbers`](@ref),
-[`rig_lead_numbers`](@ref) and [`premium_numbers`](@ref) of the class study.
+[`rig_lead_numbers`](@ref), [`premium_numbers`](@ref) and [`fleet_share_numbers`](@ref) of
+the class study.
 """
 function numbers_file()
     classes = read_table(data_file("classes.csv"))
     results = [class_numbers(classes); recommendation_numbers(classes);
-               rig_lead_numbers(classes); premium_numbers(classes)]
+               rig_lead_numbers(classes); premium_numbers(classes);
+               fleet_share_numbers(classes)]
     draft = paper_run.fidelity != :final
     open(joinpath(sections, "numbers.tex"), "w") do io
         for (name, text) in goal_numbers()
@@ -1551,6 +1553,36 @@ function class_numbers(classes)
                 "Leads$name" => string(count(==(rig), leaders)))
         end
     end
+    return numbers
+end
+
+"""
+    fleet_share_numbers(table)
+
+Name and text, per drive of the class table `table`, of each band's share [%] of the
+yearly cost of carrying the fleet's cargo and of the saving, the totals [billion USD], the
+shares of the IMO transport work and of shipping's CO2 the classes carry and the
+[`level_margin`](@ref).
+"""
+function fleet_share_numbers(table)
+    numbers = Pair{String, String}[]
+    for (drive, word) in drive_words
+        split = fleet_split_of(table, drive)
+        bill = sum(split[band].bill for band in fleet_bands)
+        saved = sum(split[band].saved for band in fleet_bands)
+        push!(numbers, "FleetBill$word" => whole_number(bill / 1e9),
+            "FleetSaved$word" => whole_number(saved / 1e9))
+        for band in fleet_bands
+            name = word * uppercasefirst(band)
+            push!(numbers, "FleetShare$name" => whole_number(100split[band].bill / bill),
+                "FleetSavedShare$name" => whole_number(100split[band].saved / saved))
+        end
+    end
+    _, work_share = fleet_work()
+    fuel_share = read_table(joinpath(root, "data", "ship_classes.csv"))["fuel_share"]
+    push!(numbers, "FleetWorkShare" => whole_number(100work_share),
+        "FleetFuelShare" => whole_number(100sum(fuel_share)),
+        "FleetLevelMargin" => whole_number(level_margin))
     return numbers
 end
 

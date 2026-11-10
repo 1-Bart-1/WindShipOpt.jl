@@ -792,6 +792,81 @@ function classes_data()
     write_trips("classes.csv", cases, trips, :class, :route, :drive, :rig, :area, :units)
 end
 
+"points of cost saving within which two rigs count as level: the error of a saving"
+level_margin = 1.0
+
+"bands of the fleet's cost split by rig, in the order drawn"
+fleet_bands = ("kite", "level", "rotors", "wings", "none")
+
+"""
+    fleet_band(savings)
+
+Band of [`fleet_bands`](@ref) of a cell with the cost `savings` [%] of its rigs: the rig
+that saves most, `"level"` where another saves within [`level_margin`](@ref) of it and
+`"none"` where the best saves less than that margin.
+"""
+function fleet_band(savings)
+    best = maximum(values(savings))
+    best < level_margin && return "none"
+    leaders = [rig for (rig, saving) in savings if best - saving < level_margin]
+    return length(leaders) > 1 ? "level" : only(leaders)
+end
+
+"""
+    fleet_split(cells)
+
+Cost and saving [USD a year] of each band of [`fleet_bands`](@ref) over `cells`, each with
+the `bill` [USD a year] of the cell without a rig and the cost `savings` [%] of its rigs.
+A cell in the band `"none"` saves nothing, as no rig is fitted.
+"""
+function fleet_split(cells)
+    split = Dict(band => (bill=0.0, saved=0.0) for band in fleet_bands)
+    for (; bill, savings) in cells
+        band = fleet_band(savings)
+        saved = band == "none" ? 0.0 : bill * maximum(values(savings)) / 100
+        split[band] = (bill=split[band].bill + bill, saved=split[band].saved + saved)
+    end
+    return split
+end
+
+"""
+    read_table(path)
+
+Columns of a CSV file with a header line, as a Dict of name to vector; numbers parsed
+and quotes removed.
+"""
+function read_table(path)
+    lines = readlines(path)
+    names = WindShipOpt.csv_fields(first(lines))
+    rows = [WindShipOpt.csv_fields(line) for line in lines[2:end]]
+    table = Dict{String, Vector}()
+    for (k, name) in enumerate(names)
+        values = getindex.(rows, k)
+        numbers = tryparse.(Float64, values)
+        table[name] = any(isnothing, numbers) ? String.(values) : Float64.(numbers)
+    end
+    return table
+end
+
+"""
+    fleet_work()
+
+The 2018 transport work [tonne-km a year] of each ship class from its IMO size bins, and
+the part of the work of all IMO bins in data/market that these carry.
+"""
+function fleet_work()
+    market = joinpath(pkgdir(WindShipOpt), "data", "market")
+    imo = read_table(joinpath(market, "imo_ghg4_transport_work_by_type_size.csv"))
+    work = Dict(zip(zip(imo["ship_type"], imo["size_bin"]), imo["transport_work"]))
+    bins = read_table(joinpath(market, "fleet_work_bins.csv"))
+    classes = Dict{String, Float64}()
+    for (class, bin) in zip(bins["class"], zip(bins["ship_type"], bins["size_bin"]))
+        classes[class] = get(classes, class, 0.0) + work[bin]
+    end
+    share = sum(values(classes)) / sum(values(work))
+    return Dict(class => 1.852e9billion for (class, billion) in classes), share
+end
+
 """
     searched_sizes(ships, rounds)
 

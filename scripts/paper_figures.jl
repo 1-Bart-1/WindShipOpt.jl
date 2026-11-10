@@ -38,25 +38,6 @@ drive_panels = [(drive, "($(Char('a' + k - 1))) $label")
 rig_area_columns = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
 
 """
-    read_table(path)
-
-Columns of a CSV file with a header line, as a Dict of name to vector; numbers parsed
-and quotes removed.
-"""
-function read_table(path)
-    lines = readlines(path)
-    names = WindShipOpt.csv_fields(first(lines))
-    rows = [WindShipOpt.csv_fields(line) for line in lines[2:end]]
-    table = Dict{String, Vector}()
-    for (k, name) in enumerate(names)
-        values = getindex.(rows, k)
-        numbers = tryparse.(Float64, values)
-        table[name] = any(isnothing, numbers) ? String.(values) : Float64.(numbers)
-    end
-    return table
-end
-
-"""
     kite_geometry_figure()
 
 Planforms of the kites of the three aspect ratios at equal projected area, seen
@@ -984,6 +965,87 @@ function winner_map_figure()
     Legend(figure[length(groups) + 1, 1:length(drive_panels)],
         [PolyElement(color=palette[j]) for j in 1:3], kinds; orientation=:horizontal)
     save(joinpath(figures, "winner_map.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    fleet_split_of(table, drive)
+
+The [`fleet_split`](@ref) of class table `table` on `drive`: each class's transport work
+from [`fleet_work`](@ref) shared equally over the routes, at the cost without a rig.
+"""
+function fleet_split_of(table, drive)
+    work, _ = fleet_work()
+    routes = unique(table["route"])
+    cells = []
+    for class in class_order(table), route in routes
+        bare = cheapest_row(table, class, route, drive, "none")
+        isnothing(bare) && continue
+        push!(cells, (bill=work[class] / length(routes) * table["cost"][bare],
+            savings=best_savings(table, class, route, drive)))
+    end
+    return fleet_split(cells)
+end
+
+"""
+    fleet_share_panel!(axis, splits, measure)
+
+Stacked bar per drive of the share [%] of `measure` (`:bill` or `:saved`) of each band of
+`splits`, a Vector of drive name and [`fleet_split`](@ref), the first drive on top.
+"""
+function fleet_share_panel!(axis, splits, measure)
+    colours = fleet_colours()
+    for (i, (_, split)) in enumerate(splits)
+        total = sum(getfield(split[band], measure) for band in fleet_bands)
+        left = 0.0
+        for band in fleet_bands
+            share = 100getfield(split[band], measure) / total
+            share > 0 || continue
+            poly!(axis, Rect2f(left, i - 0.32, share, 0.64); color=colours[band],
+                strokecolor=:white, strokewidth=0.5)
+            share >= 6 && text!(axis, left + share / 2, i; text=@sprintf("%.0f", share),
+                align=(:center, :center), fontsize=pt(9),
+                color=band in ("level", "none") ? :black : :white)
+            left += share
+        end
+    end
+    xlims!(axis, 0, 100)
+    ylims!(axis, length(splits) + 0.5, 0.5)
+end
+
+"colours of the [`fleet_bands`](@ref): those of the rigs, level hatched, none grey"
+fleet_colours() = Dict("kite" => palette[1], "wings" => palette[2], "rotors" => palette[3],
+    "level" => Pattern("/"; backgroundcolor=(palette[1], 0.35),
+        linecolor=(palette[3], 0.9), width=1.5, tilesize=(6, 6)),
+    "none" => RGBf(0.8, 0.8, 0.8))
+
+"""
+    fleet_share_figure()
+
+Share [%] of the yearly cost of carrying the fleet's cargo (a) and of the yearly saving (b)
+of each band of [`fleet_bands`](@ref) on each drive, with each total in the row's label.
+"""
+function fleet_share_figure()
+    table = read_table(data_file("classes.csv"))
+    splits = [(drive, fleet_split_of(table, drive)) for (drive, _) in drive_labels]
+    figure = Figure(size=(page_width, 175); figure_padding=(4, 16, 4, 4))
+    panels = ((:bill, "(a) yearly cost of carrying the cargo [%]"),
+        (:saved, "(b) yearly cost saved by the rigs [%]"))
+    for (k, (measure, title)) in enumerate(panels)
+        labels = [string(label, "\n", @sprintf("USD %.0f bn", 1e-9 *
+                sum(getfield(split[band], measure) for band in fleet_bands)))
+                  for ((_, label), (_, split)) in zip(drive_labels, splits)]
+        axis = Axis(figure[1, k]; title, yticks=(eachindex(splits), labels),
+            xticks=0:25:100, ygridvisible=false, ytickalign=0, yticksize=0)
+        fleet_share_panel!(axis, splits, measure)
+    end
+    colours = fleet_colours()
+    names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "rotors",
+        "level" => "level (within $(whole_number(level_margin)) point)",
+        "none" => "no rig pays")
+    Legend(figure[2, 1:2], [PolyElement(color=colours[band]) for band in fleet_bands],
+        [names[band] for band in fleet_bands]; orientation=:horizontal)
+    rowgap!(figure.layout, 1, 2)
+    save(joinpath(figures, "fleet_share.pdf"), figure; pt_per_unit=print_scale)
 end
 
 """
