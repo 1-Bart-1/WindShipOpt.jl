@@ -57,7 +57,7 @@ side-force weights & 0, 0.25, 0.5, 1, 1.5, 2, 3, read linearly between & kite tr
 wind reference elevation & \SI{25}{\degree} on the tether & height of the apparent wind of the table \\
 lowest angle of attack & angle where $C_L$ reaches 0.05 & lower bound of the search \\
 points per pattern & 48 & time average of the tether force \\
-pattern search & Nelder--Mead, 200 iterations, three starts and the best pattern of the next stronger wind speed & kite patterns \\
+pattern search & Nelder--Mead, 200 iterations, three starts and the best pattern of the next stronger wind speed, or the three best of a grid of \num{3360} patterns where none of those flies & kite patterns \\
 \multicolumn{3}{@{}l}{\textit{Corridors and routing}}\\
 ocean stage spacing & \SI{360}{nmi} & corridor stages \\
 Channel stage spacing & \SI{30}{nmi} & fixed waypoints from Rotterdam to Ushant, no lateral freedom \\
@@ -76,7 +76,8 @@ longest passage & 50 days & time bins \\
 speeds & every fourth table speed, 13 from \SI{4}{kn} to the ship's maximum & edge choices \\
 final pass & all table speeds, \SI{0.25}{h} bins, within \SI{24}{h} of the path found & passage reported \\
 re-planning interval & \SI{24}{h} & forecast router \\
-forecasts & GEFSv12 reforecast control run, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead & forecast router \\
+plan margin on the kite's limits & \SI{20}{\%} tighter wind limits and more launch wind in a sea, tested & forecast router \\
+forecasts & GEFSv12 reforecast control run and four perturbed members, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead & forecast router \\
 departures & every 14 days from 1 January 2017 to 100 days before the end of 2019; every sixth (12) in all runs, every twelfth (6) for the input screening & weather sample \\
 \multicolumn{3}{@{}l}{\textit{Constants}}\\
 gravitational acceleration & \SI{9.81}{m/s^2} & \\
