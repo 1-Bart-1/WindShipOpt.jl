@@ -63,11 +63,8 @@ operational_group = (; groups[1]..., records=Dict("u10" => "UGRD", "v10" => "VGR
 Make the wave forecasts of `root` those of the GEFSv12 reforecast archive, by a path
 relative to `root`.
 """
-function link_waves(root)
-    link = joinpath(root, "waves")
-    islink(link) && rm(link)
-    symlink(relpath(joinpath(output, "waves"), root), link)
-end
+link_waves(root) =
+    WindShipOpt.link_relative(joinpath(output, "waves"), joinpath(root, "waves"))
 
 if abspath(PROGRAM_FILE) == @__FILE__
     download(operational_group; root=operational_root, schedule=operational_issues)

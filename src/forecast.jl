@@ -24,6 +24,7 @@ struct ArchiveGroup
 end
 
 function ArchiveGroup(directory::AbstractString, origin::DateTime)
+    foreach(require_link_target, readdir(directory; join=true))
     grid = TOML.parsefile(joinpath(directory, "grid.toml"))
     lats, lons = Float64.(grid["lats"]), Float64.(grid["lons"])
     leads = grid["leads"]
@@ -44,6 +45,43 @@ function ArchiveGroup(directory::AbstractString, origin::DateTime)
     return ArchiveGroup(GriddedFields(lats, lons, grid["first_lead_hours"],
             grid["step_hours"], leads, Dict{String, Array{Float32, 3}}()), fields, bias,
         first_issue, grid["issue_hours"])
+end
+
+"""
+    require_link_target(path)
+
+Error, naming the link and its target, if `path` is a link whose target does not exist.
+"""
+function require_link_target(path)
+    islink(path) && !ispath(path) &&
+        error("forecast archive link $path points to $(readlink(path)), which is gone")
+end
+
+"""
+    link_relative(target, link)
+
+Make `link` a link to `target` by a path relative to the folder of `link`, replacing in one
+step a link already there. Error if `link` is a real file or folder.
+"""
+function link_relative(target, link)
+    islink(link) || !ispath(link) || error("$link is not a link, so it is not replaced")
+    pending = tempname(dirname(link); cleanup=false)
+    symlink(relpath(target, dirname(link)), pending)
+    Base.rename(pending, link)
+end
+
+"""
+    link_control_group(control, folder)
+
+Link the bias and the wave period and direction of the archive group in `control` into the
+archive group in `folder`, by paths relative to `folder`, replacing links already there.
+"""
+function link_control_group(control, folder)
+    shared = ("period.f16", "direction_east.f16", "direction_north.f16")
+    entries = filter(name -> startswith(name, "bias_") || name in shared, readdir(control))
+    for entry in entries
+        link_relative(joinpath(control, entry), joinpath(folder, entry))
+    end
 end
 
 issue_time(group::ArchiveGroup, issue) = group.first_issue + group.issue_hours * (issue - 1)
