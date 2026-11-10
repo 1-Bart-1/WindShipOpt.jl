@@ -71,7 +71,7 @@ coastal penalty & cost of an edge into a node near land doubled & objective only
 island disks & island radius plus about \SI{20}{nmi} & land mask \\
 time bin & \SI{3}{h} & state of the dynamic programme \\
 weather along an edge & at most every \SI{3}{h} & fuel and speed of an edge \\
-states searched & within 3\,\% of a backward estimate of the cost to go at \SI{24}{h} knots, 10\,\% with a kite; then 6\,\%, 20\,\% with a kite, then all, if a pass ends above its limit or finds no path; costs at most 0.04 points of cost saving against searching all states & dynamic programme \\
+states searched & within 3\,\% of a backward estimate of the cost to go at \SI{24}{h} knots, 20\,\% with a kite; then 6\,\%, 40\,\% with a kite, then all, if a pass ends above its limit or finds no path; costs at most 0.01 points of cost saving against searching all states & dynamic programme \\
 longest passage & 50 days & time bins \\
 speeds & every fourth table speed, 13 from \SI{4}{kn} to the ship's maximum & edge choices \\
 final pass & all table speeds, \SI{0.25}{h} bins, within \SI{24}{h} of the path found & passage reported \\
