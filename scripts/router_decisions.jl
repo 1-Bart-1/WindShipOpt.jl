@@ -28,9 +28,11 @@ free_launch_table(table) = WindShipOpt.RouteTable(with_fields(table; cycle_cost=
 "`table` of a kite up wherever that pays: launches free, instant and open to any wind or sea"
 function stateless_table(table)
     rig = with_fields(table.ship.rig; launch_min_wind=0.0, launch_max_wind=Inf,
-        launch_max_wave_height=Inf, night_launch=true)
+        night_launch=true)
+    calm = WindShipOpt.LinearTable(table.sea_launch_wind.knots,
+        zero(table.sea_launch_wind.values))
     return WindShipOpt.RouteTable(with_fields(table; ship=with_fields(table.ship; rig),
-        cycle_cost=0.0, handling_hours=0.0, forced_landing_cost=0.0))
+        sea_launch_wind=calm, cycle_cost=0.0, handling_hours=0.0, forced_landing_cost=0.0))
 end
 
 "The ship of `case` with its rig and without it, and the rig's hourly time cost per leg."

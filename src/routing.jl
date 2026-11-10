@@ -4,6 +4,9 @@
 "lateral neighbours an edge may shift by, on each side"
 const MAX_LATERAL_STEP = 2
 
+"step of an edge between nodes of the same lateral number"
+const STRAIGHT_ON = MAX_LATERAL_STEP + 1
+
 "lateral node that edge `step` of node `lateral` leads to"
 next_lateral(lateral, step) = lateral + step - MAX_LATERAL_STEP - 1
 
@@ -233,6 +236,38 @@ waves(forecast::ForecastWeather, lat, lon, time) =
     waves(forecast.weather, lat, lon, forecast_time(forecast, time))
 
 """
+    MetWeather(known, weather, lat, lon, time)
+
+What a ship at (`lat`, `lon`) at `time` [h] expects along its next edge: the forecast
+`known` plus the error of its wind and wave height against the real `weather` there and
+then, kept for the whole edge.
+"""
+struct MetWeather{K}
+    known::K
+    east_error::Float64
+    north_error::Float64
+    height_error::Float64
+end
+
+function MetWeather(known, weather, lat, lon, time)
+    east, north = wind(weather, lat, lon, time)
+    known_east, known_north = wind(known, lat, lon, time)
+    height = first(waves(weather, lat, lon, time))
+    return MetWeather(known, east - known_east, north - known_north,
+        height - first(waves(known, lat, lon, time)))
+end
+
+function wind(met::MetWeather, lat, lon, time)
+    east, north = wind(met.known, lat, lon, time)
+    return east + met.east_error, north + met.north_error
+end
+
+function waves(met::MetWeather, lat, lon, time)
+    height, period, direction = waves(met.known, lat, lon, time)
+    return max(height + met.height_error, 0.0), period, direction
+end
+
+"""
     edge_point(corridor, stage, lateral, next, share)
 
 Latitude and longitude [deg] at `share` (0 to 1) along the straight line in latitude and
@@ -258,11 +293,13 @@ Base.@kwdef struct RouterSettings
     the first try and where that leaves no path [-]; `Inf` searches them all"
     search_margins::NTuple{2, Float64} = (0.03, 0.06)
     "`search_margins` of a ship that can fly a kite [-]"
-    kite_search_margins::NTuple{2, Float64} = (0.1, 0.2)
+    kite_search_margins::NTuple{2, Float64} = (0.2, 0.4)
     "routing speeds, from the lowest routing speed to the ship's top speed"
     routing_speeds::Int = 49
     "speeds the search skips between those it commands, plus one"
     search_speed_stride::Int = 4
+    "time between the knots of the [`CostToGo`](@ref) [h]"
+    to_go_step::Float64 = 24.0
     "length of the time bins of the final pass along the path found [h]"
     final_time_step::Float64 = 0.25
     "how far the final pass strays in time from the path found [h]"
@@ -352,16 +389,6 @@ edge sailed in `hours` [h].
 edge_intervals(hours, sample_hours) = max(1, ceil(Int, hours / sample_hours))
 
 """
-    sails_same(same, speed_index, intervals)
-
-Whether commanding routing speed number `speed_index`, sampled at `intervals`, sails an
-edge as the last speed sailed on it did, which held the same through speed number
-`same.through` sampled at `same.intervals`.
-"""
-sails_same(same, speed_index, intervals) =
-    speed_index <= same.through && intervals == same.intervals
-
-"""
     trapezoid_weight(k, count)
 
 Weight of the `k`-th of `count` equally spaced samples in the trapezoidal mean over them.
@@ -374,38 +401,16 @@ trapezoid_weight(k, count) = (k == 1 || k == count ? 0.5 : 1.0) / (count - 1)
 Highest routing speed number up to `speed_index` of the [`RouteTable`](@ref) `table`
 that the ship can hold at the [`EdgeSample`](@ref) `sample` with the rig stowed, or with
 a kite flying where [`kite_aloft`](@ref) allows, with the fuel power [W] flown and stowed
-there; speed number 0 if it cannot hold the lowest. Last, the highest speed number
-whose command holds the same there, by [`unpowered_through`](@ref).
+there; speed number 0 if it cannot hold the lowest.
 """
-function held_speed(table::RouteTable, speed_index, sample::EdgeSample,
-        limit=length(table.speeds))
-    same_through = speed_index
+function held_speed(table::RouteTable, speed_index, sample::EdgeSample)
     for i in speed_index:-1:1
         flown, stowed = edge_fuels(table, i, sample.condition)
-        i == speed_index && !isfinite(flown) && !isfinite(stowed) &&
-            (same_through = unpowered_through(table, speed_index, sample.condition, limit))
-        isfinite(stowed) && return i, flown, stowed, same_through
+        isfinite(stowed) && return i, flown, stowed
         isfinite(flown) && kite_aloft(table.table, table.speeds[i], sample.headwind,
-            sample.crosswind, sample.condition.wave_height) &&
-            return i, flown, stowed, same_through
+            sample.crosswind) && return i, flown, stowed
     end
-    return 0, Inf, Inf, same_through
-end
-
-"""
-    unpowered_through(table, speed_index, condition)
-
-Highest routing speed number of the [`RouteTable`](@ref) `table` such that the engines can
-power none from `speed_index` up to it in the [`SeaCondition`](@ref) `condition`, with the
-rig stowed or flown.
-"""
-function unpowered_through(table::RouteTable, speed_index, condition::SeaCondition,
-        limit=length(table.speeds))
-    for i in (speed_index + 1):limit
-        flown, stowed = edge_fuels(table, i, condition)
-        (isfinite(flown) || isfinite(stowed)) && return i - 1
-    end
-    return limit
+    return 0, Inf, Inf
 end
 
 """
@@ -418,8 +423,8 @@ struct SailedPoint
     headwind::Float64
     "true wind at the kite's reference height from abeam [m/s]"
     crosswind::Float64
-    "significant wave height [m]"
-    wave_height::Float64
+    "sea condition there"
+    condition::SeaCondition
     "whether the sun is up there"
     daylight::Bool
     "routing speed number held there; 0 where not even the lowest can be held"
@@ -431,30 +436,30 @@ struct SailedPoint
     stowed::Float64
     "hours of the edge the point stands for [h]"
     hours::Float64
-    "highest routing speed number whose command holds the same speed there"
-    same_through::Int
+    "time the ship reaches the point [h]"
+    time::Float64
 end
 
 """
-    SailedPoint(sample, held, flown, stowed, hours, same_through)
+    SailedPoint(sample, held, flown, stowed, hours, time)
 
 [`SailedPoint`](@ref) of the [`EdgeSample`](@ref) `sample`.
 """
-SailedPoint(sample::EdgeSample, held, flown, stowed, hours, same_through) =
-    SailedPoint(sample.headwind, sample.crosswind, sample.condition.wave_height,
-        sample.daylight, held, flown, stowed, hours, same_through)
+SailedPoint(sample::EdgeSample, held, flown, stowed, hours, time) =
+    SailedPoint(sample.headwind, sample.crosswind, sample.condition, sample.daylight,
+        held, flown, stowed, hours, time)
 
 """
-    SailedPoint(table, sample, speed_index, distance)
+    SailedPoint(table, sample, speed_index, distance, time)
 
 [`SailedPoint`](@ref) of `sample` at commanded routing speed number `speed_index` of
-`table`, at the [`held_speed`](@ref), standing for `distance` [m] of the edge.
+`table`, at the [`held_speed`](@ref), standing for `distance` [m] of the edge, reached at
+`time` [h].
 """
-function SailedPoint(table::RouteTable, sample::EdgeSample, speed_index, distance,
-        limit=length(table.speeds))
-    held, flown, stowed, same_through = held_speed(table, speed_index, sample, limit)
+function SailedPoint(table::RouteTable, sample::EdgeSample, speed_index, distance, time)
+    held, flown, stowed = held_speed(table, speed_index, sample)
     hours = held == 0 ? Inf : distance / table.speeds[held] / 3600
-    return SailedPoint(sample, held, flown, stowed, hours, same_through)
+    return SailedPoint(sample, held, flown, stowed, hours, time)
 end
 
 """
@@ -474,10 +479,8 @@ function sail_edge!(points, start, table::RouteTable, weather, corridor, stage, 
     distance = corridor.edge_length[stage, lateral, step]
     intervals = edge_intervals(distance / table.speeds[speed_index] / 3600, sample_hours)
     resize!(points, intervals + 1)
-    limit = same_intervals_through(table, speed_index, distance, intervals, sample_hours)
     points[1] = SailedPoint(table, start, speed_index,
-        trapezoid_weight(1, intervals + 1) * distance, limit)
-    limit = points[1].same_through
+        trapezoid_weight(1, intervals + 1) * distance, time)
     hours, sample_time = points[1].hours, time
     for k in 1:intervals
         isfinite(hours) || return Inf
@@ -485,27 +488,10 @@ function sail_edge!(points, start, table::RouteTable, weather, corridor, stage, 
         sample = EdgeSample(table.table, weather, corridor, stage, lateral, step,
             k / intervals, sample_time)
         points[k + 1] = SailedPoint(table, sample, speed_index,
-            trapezoid_weight(k + 1, intervals + 1) * distance, limit)
-        limit = points[k + 1].same_through
+            trapezoid_weight(k + 1, intervals + 1) * distance, sample_time)
         hours += points[k + 1].hours
     end
     return hours
-end
-
-"""
-    same_intervals_through(table, speed_index, distance, intervals, sample_hours)
-
-Highest routing speed number of `table` from `speed_index` up sampled at the `intervals` of
-an edge of `distance` [m] with samples at most `sample_hours` [h] apart.
-"""
-function same_intervals_through(table::RouteTable, speed_index, distance, intervals,
-        sample_hours)
-    through = speed_index
-    while through < length(table.speeds) && edge_intervals(
-        distance / table.speeds[through + 1] / 3600, sample_hours) == intervals
-        through += 1
-    end
-    return through
 end
 
 """
@@ -564,24 +550,106 @@ of the launch, and outside [`kite_landable`](@ref) it is a [`forced_landing`](@r
 and rotors stay down, burning their fuel with the rig standing.
 """
 function kite_passage(table::RouteTable, points, aloft, prices)
-    start = EdgeTally(0.0, 0.0, 0.0, 0, 0)
-    down, up = aloft ? (NO_TALLY, start) : (start, NO_TALLY)
+    down, up = kite_start(aloft)
     for point in points
-        speed = table.speeds[point.speed_index]
-        (; headwind, crosswind, wave_height, daylight) = point
-        landing = kite_landable(table.table, speed, headwind, crosswind, wave_height) ? up :
-                  forced_landing(up, table.table.forced_landing_cost)
-        next_down = extend(cheaper(down, landing), point.stowed, point.hours, 0.0, STOWED,
-            false, prices, table.table.cycle_cost)
-        stays = kite_aloft(table.table, speed, headwind, crosswind, wave_height) ?
-                aloft_tally(table.table, up, point, false, prices) : NO_TALLY
-        launches = kite_launchable(table.table, speed, headwind, crosswind, wave_height,
-            daylight) ? aloft_tally(table.table, down, point, true, prices) :
-                   NO_TALLY
-        up = cheaper(stays, launches)
-        down = next_down
+        down, up = kite_step(table, point, down, up, prices)
     end
     return down, up
+end
+
+"tallies of a kite down and aloft before the first point of an edge, left `aloft` or down"
+function kite_start(aloft)
+    start = EdgeTally(0.0, 0.0, 0.0, 0, 0)
+    return aloft ? (NO_TALLY, start) : (start, NO_TALLY)
+end
+
+"""
+    kite_step(table, point, down, up, prices)
+
+The way down and the way aloft through [`SailedPoint`](@ref) `point` after the
+[`EdgeTally`](@ref)s
+`down` and `up`, as in [`kite_passage`](@ref), with whether the way down lands the kite
+there, whether the way aloft launches it there and whether a landing there is forced.
+"""
+function kite_step(table::RouteTable, point, down, up, prices)
+    speed = table.speeds[point.speed_index]
+    (; headwind, crosswind, daylight, condition) = point
+    forced = !kite_landable(table.table, speed, headwind, crosswind, condition)
+    landing = forced ? forced_landing(up, table.table.forced_landing_cost) : up
+    landed = landing.cost < down.cost
+    next_down = extend(landed ? landing : down, point.stowed, point.hours, 0.0, STOWED,
+        false, prices, table.table.cycle_cost)
+    stays = kite_aloft(table.table, speed, headwind, crosswind) ?
+            aloft_tally(table.table, up, point, false, prices) : NO_TALLY
+    launches = kite_launchable(table.table, speed, headwind, crosswind, condition,
+        daylight) ? aloft_tally(table.table, down, point, true, prices) : NO_TALLY
+    launched = launches.cost < stays.cost
+    return next_down, launched ? launches : stays, landed, launched, forced
+end
+
+"""
+    kite_flights(table, points, aloft, ends_aloft, prices)
+
+The way [`kite_passage`](@ref) takes through the [`SailedPoint`](@ref)s `points` from a
+kite left `aloft` to the end state `ends_aloft`, or to the other end state if that one
+cannot be reached: for each point whether the kite flies there, launches at it and lands
+at it, and whether that landing was forced.
+"""
+function kite_flights(table::RouteTable, points, aloft, ends_aloft, prices)
+    down, up = kite_start(aloft)
+    landed, launched, forced = (falses(length(points)) for _ in 1:3)
+    for (k, point) in enumerate(points)
+        down, up, landed[k], launched[k], forced[k] =
+            kite_step(table, point, down, up, prices)
+    end
+    state_up = ends_aloft ? isfinite(up.cost) : !isfinite(down.cost)
+    flights = Vector{@NamedTuple{flying::Bool, launched::Bool, landed::Bool,
+        forced::Bool}}(undef, length(points))
+    for k in reverse(eachindex(points))
+        launch = state_up && launched[k]
+        landing = !state_up && landed[k]
+        flights[k] = (; flying=state_up, launched=launch, landed=landing,
+            forced=landing && forced[k])
+        state_up = state_up ? !launched[k] : landed[k]
+    end
+    return flights
+end
+
+"""
+    kite_way(table, points, aloft, ends_aloft, prices)
+
+Whether the kite is up at each of `points` on the way of [`kite_flights`](@ref).
+"""
+function kite_way(table::RouteTable, points, aloft, ends_aloft, prices)
+    flights = kite_flights(table, points, aloft, ends_aloft, prices)
+    return [flight.flying for flight in flights]
+end
+
+"share (0 to 1) of an edge sampled at `count` points that lies before point `k`"
+point_share(k, count) = count == 1 ? 0.0 : (k - 1) / (count - 1)
+
+"the state in `targets`, those along an edge, nearest `share` (0 to 1) of the edge"
+target_at(targets, share) = targets[1 + round(Int, share * (length(targets) - 1))]
+
+"""
+    held_kite_passage(table, points, aloft, targets, prices)
+
+The way through `points` of a kite left `aloft` or down that stays up or down as
+`targets`, the state wanted along the edge, says wherever the limits of [`kite_step`](@ref)
+allow it: the tallies of the way down and aloft, one of them `NO_TALLY`, and whether the
+kite is up at each point.
+"""
+function held_kite_passage(table::RouteTable, points, aloft, targets, prices)
+    down, up = kite_start(aloft)
+    states = Vector{Bool}(undef, length(points))
+    for (k, point) in enumerate(points)
+        share = point_share(k, length(points))
+        wanted = target_at(targets, share)
+        next_down, next_up = kite_step(table, point, down, up, prices)
+        states[k] = wanted ? isfinite(next_up.cost) : !isfinite(next_down.cost)
+        down, up = states[k] ? (NO_TALLY, next_up) : (next_down, NO_TALLY)
+    end
+    return down, up, states
 end
 
 """
@@ -612,15 +680,16 @@ summary_mode(tally::EdgeTally, hours) =
 """
     SailedEdge
 
-An edge sailed at one commanded speed: its hours [h], `Inf` where a point cannot hold the
-lowest routing speed and `NaN` where not sailed, the cheapest ways through it that end
-with the kite down and aloft as [`EdgeTally`](@ref)s, and the highest routing speed
-number whose command sails it the same at the same sample points; 0 where unknown.
+An edge sailed at one commanded speed.
 """
 struct SailedEdge
+    "edge hours [h]; `Inf` where a point cannot hold the lowest speed, `NaN` unsailed"
     hours::Float64
+    "cheapest way through the edge that ends with the kite down"
     down::EdgeTally
+    "cheapest way through the edge that ends with the kite aloft"
     up::EdgeTally
+    "highest routing speed number whose command sails it the same; 0 where unknown"
     same_through::Int
 end
 
@@ -628,24 +697,47 @@ end
 const UNSAILED = SailedEdge(NaN, NO_TALLY, NO_TALLY, 0)
 
 """
-    SailedEdge(table, points, hours, aloft, prices)
+    SailedEdge(table, points, hours, aloft, prices, through)
 
 [`SailedEdge`](@ref) of `hours` [h] through the [`SailedPoint`](@ref)s `points` by
-[`kite_passage`](@ref), for a kite aloft before it if `aloft`.
+[`kite_passage`](@ref), for a kite aloft before it if `aloft`, sailing the same through
+routing speed number `through`.
 """
-function SailedEdge(table::RouteTable, points, hours, aloft, prices)
+function SailedEdge(table::RouteTable, points, hours, aloft, prices, through)
     isfinite(hours) || return SailedEdge(hours, NO_TALLY, NO_TALLY, 0)
-    return SailedEdge(hours, kite_passage(table, points, aloft, prices)...,
-        same_through(points))
+    return SailedEdge(hours, kite_passage(table, points, aloft, prices)..., through)
 end
 
 """
-    same_through(points)
+    unpowered(table, speed_index, condition)
+
+Whether the engines cannot power routing speed number `speed_index` of the
+[`RouteTable`](@ref) `table` in the [`SeaCondition`](@ref) `condition`, with the rig stowed
+or flown.
+"""
+function unpowered(table::RouteTable, speed_index, condition::SeaCondition)
+    flown, stowed = edge_fuels(table, speed_index, condition)
+    return !isfinite(flown) && !isfinite(stowed)
+end
+
+"""
+    same_through(table, points, speed_index, distance, sample_hours)
 
 Highest routing speed number whose command sails the [`SailedPoint`](@ref)s `points` of an
-edge the same, sampled at the same points.
+edge of `distance` [m], sailed at commanded routing speed number `speed_index` with samples
+at most `sample_hours` [h] apart, the same at the same sample points: `speed_index` unless
+every point held a lower speed and each faster command up to that one is sampled alike and
+powered at no point.
 """
-same_through(points) = minimum(point -> point.same_through, points; init=typemax(Int))
+function same_through(table::RouteTable, points, speed_index, distance, sample_hours)
+    any(point -> point.speed_index == speed_index, points) && return speed_index
+    intervals = edge_intervals(distance / table.speeds[speed_index] / 3600, sample_hours)
+    for i in (speed_index + 1):length(table.speeds)
+        edge_intervals(distance / table.speeds[i] / 3600, sample_hours) == intervals &&
+            all(point -> unpowered(table, i, point.condition), points) || return i - 1
+    end
+    return length(table.speeds)
+end
 
 """
     nearest_lateral(corridor, stage, lat, lon)
@@ -732,9 +824,6 @@ Return `workspace` to the free workspaces.
 release_workspace(workspace::RouteWorkspace) = @lock WORKSPACE_LOCK push!(
     FREE_WORKSPACES[size(workspace.cost)[1:2]], workspace)
 
-"time between the knots of a [`CostToGo`](@ref) [h]"
-const COST_TO_GO_STEP = 48.0
-
 "commanded speeds of the search a [`CostToGo`](@ref) skips between its own, plus one"
 const COST_TO_GO_SPEED_STRIDE = 2
 
@@ -757,12 +846,14 @@ struct CostToGo
     values::Array{Float64, 4}
     "time knots in use"
     knots::Int
+    "time between the knots [h]"
+    step::Float64
 end
 
-CostToGo(values::Array{Float64, 4}) = CostToGo(values, size(values, 2))
+CostToGo(values::Array{Float64, 4}, step) = CostToGo(values, size(values, 2), step)
 
 function (to_go::CostToGo)(lateral, aloft, stage, time)
-    position = time / COST_TO_GO_STEP + 1
+    position = time / to_go.step + 1
     knot = floor(Int, position)
     knot < to_go.knots || return Inf
     @inbounds lower, upper = to_go.values[lateral, knot, aloft, stage],
@@ -778,8 +869,8 @@ end
              coastal_penalty)
 
 [`CostToGo`](@ref) of a passage leaving at `departure` [h], held in `workspace`, by a
-backward programme over the states at each stage at knots `COST_TO_GO_STEP` apart that a
-ship can reach between its highest and lowest routing speed, on every
+backward programme over the states at each stage that a ship can reach between its highest
+and lowest routing speed, at the knots of `ROUTER_SETTINGS`, on every
 `COST_TO_GO_SPEED_STRIDE`-th speed the search commands.
 """
 function CostToGo(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable, weather,
@@ -787,8 +878,9 @@ function CostToGo(workspace::RouteWorkspace, corridor::Corridor, table::RouteTab
     stage_count, lateral_count = size(corridor.lat)
     along = corridor.along_centre
     slowest, fastest = first(table.speeds), last(table.speeds)
-    knots = ceil(Int, (last(along) / slowest / 3600 + REACH_SLACK) / COST_TO_GO_STEP) + 2
-    to_go = CostToGo(cleared_to_go_values!(workspace, knots), knots)
+    (; to_go_step) = ROUTER_SETTINGS[]
+    knots = ceil(Int, (last(along) / slowest / 3600 + REACH_SLACK) / to_go_step) + 2
+    to_go = CostToGo(cleared_to_go_values!(workspace, knots), knots, to_go_step)
     to_go.values[centre_index(corridor), 1:knots, 1, stage_count] .= 0.0
     prices = (; fuel=table.table.ship.fuel.price, time=time_cost)
     for stage in (stage_count - 1):-1:first_stage, lateral in 1:lateral_count
@@ -796,8 +888,8 @@ function CostToGo(workspace::RouteWorkspace, corridor::Corridor, table::RouteTab
         sailed = along[stage] - along[first_stage]
         earliest = SHORTEST_SAILED_SHARE * sailed / fastest / 3600
         latest = sailed / slowest / 3600 + REACH_SLACK
-        for knot in max(1, floor(Int, earliest / COST_TO_GO_STEP)):min(knots,
-            ceil(Int, latest / COST_TO_GO_STEP) + 1)
+        for knot in max(1, floor(Int, earliest / to_go_step)):min(knots,
+            ceil(Int, latest / to_go_step) + 1)
 
             fill_knot!(to_go, workspace.points, corridor, table, weather, departure, prices,
                 coastal_penalty, stage, lateral, knot)
@@ -834,7 +926,7 @@ from those of the next stage, with `points` to hold those of the edges.
 """
 function fill_knot!(to_go, points, corridor, table, weather, departure, prices,
         coastal_penalty, stage, lateral, knot)
-    time = (knot - 1) * COST_TO_GO_STEP
+    time = (knot - 1) * to_go.step
     lat, lon = corridor.lat[stage, lateral], corridor.lon[stage, lateral]
     node_wind = wind(weather, lat, lon, departure + time)
     node_waves = waves(weather, lat, lon, departure + time)
@@ -849,11 +941,9 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices,
         start = EdgeSample(table.table, node_wind, node_waves,
             corridor.edge_course[stage, lateral, step], daylight)
         distance = corridor.edge_length[stage, lateral, step]
-        same = (; through=0, intervals=0)
+        through = 0
         for speed_index in commanded_speeds(length(table.speeds), speed_stride)
-            intervals = edge_intervals(distance / table.speeds[speed_index] / 3600,
-                COST_TO_GO_SAMPLE_HOURS)
-            sails_same(same, speed_index, intervals) && continue
+            speed_index <= through && continue
             hours = sail_edge!(points, start, table, weather, corridor, stage, lateral,
                 step, departure + time, speed_index, COST_TO_GO_SAMPLE_HOURS)
             isfinite(hours) || continue
@@ -861,7 +951,8 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices,
             best_down = min(best_down, best_arrival(to_go, table, points, false, arrival))
             kite && (best_up = min(best_up,
                 best_arrival(to_go, table, points, true, arrival)))
-            same = (; through=same_through(points), intervals)
+            through = same_through(table, points, speed_index, distance,
+                COST_TO_GO_SAMPLE_HOURS)
         end
     end
     to_go.values[lateral, knot, 1, stage] = isfinite(best_down) ? best_down : NaN
@@ -953,6 +1044,25 @@ struct PassageBand
 end
 
 """
+    leg_corridor(leg)
+
+[`Corridor`](@ref) of one node per stage along the path of `leg`, nowhere near a coast.
+"""
+function leg_corridor(leg::Leg)
+    stage_count = length(leg.path)
+    lat = reshape([point[1] for point in leg.path], stage_count, 1)
+    lon = reshape([point[2] for point in leg.path], stage_count, 1)
+    edge_length = zeros(stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
+    edge_course = fill(NaN, stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
+    for i in 1:(stage_count - 1)
+        edge_length[i, 1, STRAIGHT_ON] = distance(lat[i], lon[i], lat[i + 1], lon[i + 1])
+        edge_course[i, 1, STRAIGHT_ON] = bearing(lat[i], lon[i], lat[i + 1], lon[i + 1])
+    end
+    return Corridor(lat, lon, trues(stage_count, 1), edge_length, edge_course, 0.0,
+        falses(stage_count, 1), along_centre_line(lat, lon))
+end
+
+"""
     path_corridor(leg, corridor, first_stage)
 
 [`Corridor`](@ref) of one node per stage along the path of `leg` through `corridor`, stage 1
@@ -965,7 +1075,6 @@ function path_corridor(leg::Leg, corridor::Corridor, first_stage)
     near_coast = falses(stage_count, 1)
     edge_length = zeros(stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
     edge_course = fill(NaN, stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
-    straight_on = MAX_LATERAL_STEP + 1
     for i in 1:stage_count
         stage = first_stage + i - 1
         lateral = nearest_lateral(corridor, stage, lat[i], lon[i])
@@ -973,8 +1082,8 @@ function path_corridor(leg::Leg, corridor::Corridor, first_stage)
         i == stage_count && break
         next = nearest_lateral(corridor, stage + 1, lat[i + 1], lon[i + 1])
         step = lateral_step(lateral, next)
-        edge_length[i, 1, straight_on] = corridor.edge_length[stage, lateral, step]
-        edge_course[i, 1, straight_on] = corridor.edge_course[stage, lateral, step]
+        edge_length[i, 1, STRAIGHT_ON] = corridor.edge_length[stage, lateral, step]
+        edge_course[i, 1, STRAIGHT_ON] = corridor.edge_course[stage, lateral, step]
     end
     return Corridor(lat, lon, trues(stage_count, 1), edge_length, edge_course,
         corridor.track_length, near_coast, along_centre_line(lat, lon))
@@ -1035,7 +1144,7 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
         first_lateral, first_aloft, coastal_penalty, speed_stride)
     ship_table = table.table
     (; speeds) = table
-    (; cost, elapsed, points) = workspace
+    (; cost, elapsed) = workspace
     stage_count, lateral_count = size(corridor.lat)
     bins = size(cost, 2)
     prices = (; fuel=ship_table.ship.fuel.price, time=time_cost)
@@ -1065,27 +1174,20 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
                 distance = corridor.edge_length[stage, lateral, step]
                 start = EdgeSample(ship_table, node_wind, node_waves,
                     corridor.edge_course[stage, lateral, step], daylight)
-                same = (; through=0, intervals=0)
+                through = 0
                 for (slot, speed_index) in enumerate(commanded)
+                    speed_index <= through && continue
                     commanded_hours = distance / speeds[speed_index] / 3600
-                    intervals = edge_intervals(commanded_hours, sample_hours)
-                    sails_same(same, speed_index, intervals) && continue
                     edge_within_limit(to_go, limit,
                         here + penalty * time_cost * commanded_hours, next, stage + 1,
                         time + commanded_hours) || continue
-                    index = sharing + (step - 1) * length(commanded) + slot
-                    sailed = aloft == 2 && sharing >= 0 ? workspace.shared[index] :
-                             UNSAILED
-                    if isnan(sailed.hours)
-                        hours = sail_edge!(points, start, table, weather, corridor, stage,
-                            lateral, step, departure + time, speed_index, sample_hours)
-                        sailed = SailedEdge(table, points, hours, aloft == 2, prices)
-                        aloft == 1 && sharing >= 0 && (workspace.shared[index] =
-                            SailedEdge(table, points, hours, true, prices))
-                    end
+                    shared = shared_slot(sharing, step, slot, length(commanded))
+                    sailed = sailed_edge!(workspace, shared, aloft == 2, table, prices,
+                        (; start, weather, corridor, stage, lateral, step, speed_index,
+                            sample_hours, time=departure + time))
                     relax_sailed!(workspace, state, next, sailed, (; here, penalty,
                         speed_index), time_step, prices)
-                    same = (; through=sailed.same_through, intervals)
+                    through = sailed.same_through
                 end
             end
         end
@@ -1116,6 +1218,41 @@ function sharing_edges!(workspace::RouteWorkspace, state, to_go, limit, speed_co
     append!(workspace.shared, Iterators.repeated(UNSAILED,
         (2MAX_LATERAL_STEP + 1) * speed_count))
     return from
+end
+
+"""
+    shared_slot(sharing, step, slot, speed_count)
+
+Index in `workspace.shared` of edge `step` at the commanded speed in place `slot` of
+`speed_count`, for a state whose [`sharing_edges!`](@ref) gave `sharing`; 0 where that is
+-1.
+"""
+shared_slot(sharing, step, slot, speed_count) =
+    sharing < 0 ? 0 : sharing + (step - 1) * speed_count + slot
+
+"""
+    sailed_edge!(workspace, slot, aloft, table, prices, edge)
+
+[`SailedEdge`](@ref) for a kite aloft before it if `aloft` of `edge`, which names the
+arguments of [`sail_edge!`](@ref) other than the points and `table`. A state down fills
+place `slot` of `workspace.shared` where it is not 0 with the edge for the state aloft,
+which reads it there where it was sailed.
+"""
+function sailed_edge!(workspace::RouteWorkspace, slot, aloft, table::RouteTable, prices,
+        edge)
+    known = aloft && slot != 0 ? workspace.shared[slot] : UNSAILED
+    isnan(known.hours) || return known
+    (; points) = workspace
+    (; start, weather, corridor, stage, lateral, step, time) = edge
+    (; speed_index, sample_hours) = edge
+    hours = sail_edge!(points, start, table, weather, corridor, stage, lateral, step, time,
+        speed_index, sample_hours)
+    through = isfinite(hours) ?
+        same_through(table, points, speed_index, corridor.edge_length[stage, lateral, step],
+            sample_hours) : 0
+    !aloft && slot != 0 && (workspace.shared[slot] =
+        SailedEdge(table, points, hours, true, prices, through))
+    return SailedEdge(table, points, hours, aloft, prices, through)
 end
 
 """
@@ -1253,61 +1390,90 @@ function traced_leg(workspace::RouteWorkspace, corridor, table, final, first_sta
 end
 
 """
-    plan_values(plan, corridor, table, weather, departure, first_stage, prices)
+    plan_values(plan, corridor, table, weather, departure, first_stage, prices; slows=false)
 
 Least fuel and rig cost [USD] from each node of `plan`, which leaves stage `first_stage`
 of `corridor` at `departure` [h], to its end with the kite stowed (column 1) or aloft
 (column 2) at that node, sailing the plan's course, times and speeds in `weather` and
-landing the kite by the end; `Inf` where that is not possible.
+landing the kite by the end; `Inf` where that is not possible. With `slows`, an edge
+`weather` stops at the plan's speed is sailed at the highest lower speed that passes, and
+the hours lost are added at `prices.time`.
 """
 function plan_values(plan::Leg, corridor, table::RouteTable, weather, departure,
-        first_stage, prices)
+        first_stage, prices; slows=false)
     nodes = length(plan.path)
     values = fill(Inf, nodes, 2)
     values[nodes, 1] = 0.0
     points = SailedPoint[]
-    next = nearest_lateral(corridor, first_stage + nodes - 1, plan.path[nodes][1],
-        plan.path[nodes][2])
     for i in (nodes - 1):-1:1
-        stage = first_stage + i - 1
-        lateral = nearest_lateral(corridor, stage, plan.path[i][1], plan.path[i][2])
-        step, time = lateral_step(lateral, next), departure + plan.path[i][3]
-        start = EdgeSample(table.table, weather, corridor, stage, lateral, step, 0.0, time)
-        hours = sail_edge!(points, start, table, weather, corridor, stage, lateral, step,
-            time, searchsortedfirst(table.speeds, plan.path[i + 1][4]))
-        if isfinite(hours)
-            for aloft in (false, true)
-                down, up = kite_passage(table, points, aloft, prices)
-                values[i, aloft + 1] = min(down.cost + values[i + 1, 1],
-                    up.cost + values[i + 1, 2])
-            end
+        ahead = (values[i + 1, 1], values[i + 1, 2])
+        for aloft in (false, true)
+            values[i, aloft + 1] = plan_edge_value(points, plan, corridor, table, weather,
+                departure, first_stage, i, aloft, ahead, prices, slows)
         end
-        next = lateral
     end
     return values
 end
 
+"Cost [USD] of edge `i` of `plan` left `aloft` or stowed, and of the `ahead` it ends on."
+function plan_edge_value(points, plan::Leg, corridor, table::RouteTable, weather, departure,
+        first_stage, i, aloft, ahead, prices, slows)
+    stage, lateral, step, time = plan_edge(plan, corridor, departure, first_stage, i)
+    planned = plan.path[i + 1][4]
+    slowest = slows ? 1 : searchsortedfirst(table.speeds, planned)
+    hours, tally, ends_aloft, speed = sail_planned_edge!(points, table, weather, corridor,
+        stage, lateral, step, time, planned, aloft, ahead, prices; slowest)
+    isfinite(hours) || return Inf
+    lost_hours = speed < planned ? hours - (plan.path[i + 1][3] - plan.path[i][3]) : 0.0
+    return tally.cost + prices.time * lost_hours + ahead[ends_aloft + 1]
+end
+
+"Stage, lateral node, step and time [h] at which edge `i` of `plan` leaves its node."
+function plan_edge(plan::Leg, corridor, departure, first_stage, i)
+    stage = first_stage + i - 1
+    lateral = nearest_lateral(corridor, stage, plan.path[i][1], plan.path[i][2])
+    next = nearest_lateral(corridor, stage + 1, plan.path[i + 1][1], plan.path[i + 1][2])
+    return stage, lateral, lateral_step(lateral, next), departure + plan.path[i][3]
+end
+
+"""
+    sail_plan_edge!(points, plan, corridor, table, weather, departure, first_stage, i)
+
+Fill `points` with edge `i` of `plan`, left at `departure` [h] from stage `first_stage` of
+`corridor`, sailed at the plan's speed in `weather`. Returns its hours, `Inf` where blocked.
+"""
+function sail_plan_edge!(points, plan::Leg, corridor, table::RouteTable, weather, departure,
+        first_stage, i)
+    stage, lateral, step, time = plan_edge(plan, corridor, departure, first_stage, i)
+    start = EdgeSample(table.table, weather, corridor, stage, lateral, step, 0.0, time)
+    return sail_edge!(points, start, table, weather, corridor, stage, lateral, step, time,
+        searchsortedfirst(table.speeds, plan.path[i + 1][4]))
+end
+
 """
     sail_planned_edge!(points, table, weather, corridor, stage, lateral, step, time, speed,
-                       aloft, ahead, prices)
+                       aloft, ahead, prices; targets=nothing, slowest=1)
 
 Sail edge `step` of node (`stage`, `lateral`) of `corridor`, left at `time` [h] with the
 kite `aloft` or stowed, in the real `weather` at the planned `speed` [m/s], or at the
-highest lower speed of the [`RouteTable`](@ref) `table` the ship can hold with its kite as
-it is. The kite ends the edge in the state whose cost on the edge plus `ahead`, the cost
-[USD] from the next node with the kite stowed and aloft, is least. Returns the hours, the
-[`EdgeTally`](@ref), whether the kite ends aloft and the speed sailed; `Inf` hours where
-no speed passes.
+highest lower speed of the [`RouteTable`](@ref) `table`, down to index `slowest`, the ship
+can hold with its kite as it is. The kite ends the edge in the state whose cost on the edge
+plus `ahead`, the cost [USD] from the next node with the kite stowed and aloft, is least;
+with `targets`, the
+state the plan wants along the edge, it stays up or down as they say where it can
+([`held_kite_passage`](@ref)). Returns the hours, the [`EdgeTally`](@ref), whether the kite
+ends aloft and the speed sailed; `Inf` hours where no speed passes.
 """
 function sail_planned_edge!(points, table::RouteTable, weather, corridor, stage, lateral,
-        step, time, speed, aloft, ahead, prices)
+        step, time, speed, aloft, ahead, prices; targets=nothing, slowest=1)
     stowed_ahead, aloft_ahead = any(isfinite, ahead) ? ahead : (0.0, 0.0)
     start = EdgeSample(table.table, weather, corridor, stage, lateral, step, 0.0, time)
-    for speed_index in searchsortedfirst(table.speeds, speed):-1:1
+    for speed_index in searchsortedfirst(table.speeds, speed):-1:slowest
         hours = sail_edge!(points, start, table, weather, corridor, stage, lateral, step,
             time, speed_index)
         isfinite(hours) || continue
-        down, up = kite_passage(table, points, aloft, prices)
+        down, up = isnothing(targets) ? kite_passage(table, points, aloft, prices) :
+                   held_kite_passage(table, points, aloft, targets, prices)[1:2]
         ends_aloft = up.cost + aloft_ahead < down.cost + stowed_ahead
         tally = ends_aloft ? up : down
         isfinite(tally.cost) && return hours, tally, ends_aloft, table.speeds[speed_index]
@@ -1316,22 +1482,421 @@ function sail_planned_edge!(points, table::RouteTable, weather, corridor, stage,
 end
 
 """
-    forecast_route(corridor, table, weather, departure; time_cost, horizon=Inf,
-                   forecast=nothing, coastal_penalty=1.0)
+    PlannedKite(forecast)
 
-Passage of a ship that re-plans every 24 hours by [`route`](@ref) on the
-[`RouteTable`](@ref) `table` with the last forecast of the [`ForecastArchive`](@ref)
-`forecast`, or with a [`ForecastWeather`](@ref) of `horizon` hours where `nothing`, and
-sails each plan in the real `weather` until the next re-plan by
+The forecast source `forecast` (`nothing` for a [`ForecastWeather`](@ref) horizon, or a
+[`ForecastArchive`](@ref)) of a ship whose kite does not choose its launches and landings
+in the weather met: [`forecast_route`](@ref) keeps it up or down as the plan put it,
+wherever the real weather allows that.
+"""
+struct PlannedKite{F}
+    forecast::F
+end
+
+"""
+    ForesightKite(forecast)
+
+The forecast source `forecast` of a ship that takes its course and speed from plans on it,
+but whose kite launches and lands as if it knew the real weather along the rest of the plan.
+"""
+struct ForesightKite{F}
+    forecast::F
+end
+
+"""
+    KiteMargin(forecast, margin)
+
+The forecast source `forecast` of a ship that plans its kite inside limits tightened by the
+share `margin` ([`tightened_limits`](@ref)), and sails it within the real ones.
+"""
+struct KiteMargin{F}
+    forecast::F
+    margin::Float64
+end
+
+"""
+    tightened_limits(rig, margin)
+
+The [`KiteRig`](@ref) `rig`, or the kite of a [`CombinedRig`](@ref), with its lowest
+flying and launch winds raised, and its highest flying and launch winds and launch wave
+limit lowered, by the share `margin` of each.
+"""
+tightened_limits(rig::KiteRig, margin) = with_changed(rig;
+    max_wind=rig.max_wind * (1 - margin),
+    min_flight_wind=rig.min_flight_wind * (1 + margin),
+    launch_min_wind=rig.launch_min_wind * (1 + margin),
+    launch_max_wind=rig.launch_max_wind * (1 - margin),
+    launch_max_wave_height=rig.launch_max_wave_height * (1 - margin))
+tightened_limits(rig::CombinedRig, margin) =
+    CombinedRig(tightened_limits(rig.kite, margin), rig.standing)
+tightened_limits(rig, margin) = rig
+
+"""
+    with_changed(item; changes...)
+
+An immutable `item` with its fields `changes` replaced.
+"""
+with_changed(item; changes...) =
+    typeof(item).name.wrapper((get(changes, name, getfield(item, name))
+                               for name in fieldnames(typeof(item)))...)
+
+"""
+    margin_table(table, margin)
+
+The [`RouteTable`](@ref) `table` with the kite limits [`tightened_limits`](@ref) by
+`margin` and its extra launch wind in a sea raised by the same share.
+"""
+function margin_table(table::RouteTable, margin)
+    performance = table.table
+    rig = tightened_limits(performance.ship.rig, margin)
+    ship = with_changed(performance.ship; rig)
+    (; knots, values) = performance.sea_launch_wind
+    return with_changed(table; table=with_changed(performance; ship,
+        sea_launch_wind=LinearTable(knots, values .* (1 + margin))))
+end
+
+"""
+    PerfectForecast()
+
+Forecast source of a ship that re-plans daily knowing the real weather.
+"""
+struct PerfectForecast end
+
+known_weather(::Nothing, weather, time, horizon) = ForecastWeather(weather, time, horizon)
+known_weather(::PerfectForecast, weather, time, horizon) =
+    known_weather(nothing, weather, time, Inf)
+
+"""
+    ReplannedForecast(forecast; interval=24.0, adapts=:nothing)
+
+The forecast source `forecast` of a ship that re-plans at the first node `interval` [h]
+or more after its last plan, and that between plans chooses each edge's speed (`:speed`)
+or also its next node (`:course`) by [`adapted_edge`](@ref).
+"""
+struct ReplannedForecast{F}
+    forecast::F
+    interval::Float64
+    adapts::Symbol
+    function ReplannedForecast(forecast::F; interval=24.0, adapts=:nothing) where {F}
+        adapts in (:nothing, :speed, :course) ||
+            throw(ArgumentError("adapts must be :nothing, :speed or :course, not $adapts"))
+        return new{F}(forecast, interval, adapts)
+    end
+end
+
+"""
+    forecast_plan(known, corridor, table, time, prices; first_stage, first_lateral,
+                  first_aloft, coastal_penalty)
+
+The plan a ship adopts at `time` [h] on `known`, and the [`plan_values`](@ref) of its nodes
+on it, or `(nothing, nothing)` where no plan leaves the node. On a vector of members of an
+ensemble, the plan routed on some member with the least mean of fuel, rig and time cost
+over all members, valued by the mean over the members of its [`plan_values`](@ref) with
+the ship slowing where a member stops it.
+"""
+function forecast_plan(known, corridor, table::RouteTable, time, prices; first_stage,
+        first_lateral, first_aloft, coastal_penalty)
+    plan = route(corridor, table, known, time; time_cost=prices.time, first_stage,
+        first_lateral, first_aloft, coastal_penalty)
+    isnothing(plan) && return nothing, nothing
+    return plan, plan_values(plan, corridor, table, known, time, first_stage, prices)
+end
+
+function forecast_plan(members::Vector, corridor, table::RouteTable, time, prices;
+        first_stage, first_lateral, first_aloft, coastal_penalty)
+    plans = unique(plan -> plan.path, filter(!isnothing,
+        [route(corridor, table, member, time; time_cost=prices.time, first_stage,
+            first_lateral, first_aloft, coastal_penalty) for member in members]))
+    isempty(plans) && return nothing, nothing
+    values = [mean(plan_values(plan, corridor, table, member, time, first_stage, prices;
+                       slows=true) for member in members) for plan in plans]
+    best = argmin([plan_value[1, first_aloft + 1] + prices.time * plan.duration
+                   for (plan, plan_value) in zip(plans, values)])
+    return plans[best], values[best]
+end
+
+"the forecast a plan's kite states are read on: of an ensemble, its first member"
+one_forecast(known) = known
+one_forecast(members::Vector) = first(members)
+
+"""
+    remaining_cost(corridor, table, known, departure, prices; first_stage, coastal_penalty)
+
+[`CostToGo`](@ref) of a ship at `first_stage` of `corridor` planning on `known` at
+`departure` [h].
+"""
+function remaining_cost(corridor::Corridor, table::RouteTable, known, departure, prices;
+        first_stage, coastal_penalty)
+    workspace = acquire_workspace(size(corridor.lat, 2),
+        ceil(Int, MAX_LEG_HOURS / ROUTER_SETTINGS[].time_step), size(corridor.lat, 1))
+    try
+        to_go = CostToGo(workspace, corridor, table, known, departure;
+            time_cost=prices.time, first_stage, coastal_penalty)
+        return CostToGo(copy(to_go.values), to_go.knots)
+    finally
+        release_workspace(workspace)
+    end
+end
+
+"objective [USD] from node `next` of `stage` at `time` by `to_go`, kite down and aloft"
+function values_ahead(to_go::CostToGo, next, stage, time)
+    down, up = to_go(next, 1, stage, time), to_go(next, 2, stage, time)
+    return isnan(down) ? Inf : down, isnan(up) ? Inf : up
+end
+
+"""
+    adapted_edge(points, corridor, table, met, to_go, at, prices, adapts, coastal_penalty)
+
+Step and speed [m/s] of the edge left from `at` (`stage`, `lateral`, planned `step` and
+`speed`, kite `aloft`, `elapsed` hours since the plan, absolute `time`) with the least
+objective in the [`MetWeather`](@ref) `met` plus `to_go` at its end, over the planned step
+(`adapts` `:speed`) or all steps (`:course`) and the search's commanded speeds and the
+planned one, and the values ahead of [`values_ahead`](@ref). Where no edge can be sailed in
+`met` it returns the planned speed, the allowed step nearest the plan and `Inf` ahead.
+"""
+function adapted_edge(points, corridor::Corridor, table::RouteTable, met, to_go, at, prices,
+        adapts, coastal_penalty)
+    (; stage, lateral, aloft, elapsed, time) = at
+    planned_speed = searchsortedfirst(table.speeds, at.speed)
+    stride = ROUTER_SETTINGS[].search_speed_stride
+    commanded = commanded_speeds(length(table.speeds), stride)
+    speeds = sort(unique([planned_speed; commanded]))
+    steps = adapts == :course ? (1:(2MAX_LATERAL_STEP + 1)) : (at.step:at.step)
+    best_value, best_step, best_speed, ahead = Inf, clamp(at.step, extrema(steps)...),
+    at.speed, (Inf, Inf)
+    for step in steps
+        isnan(corridor.edge_course[stage, lateral, step]) && continue
+        next = next_lateral(lateral, step)
+        penalty = edge_penalty(corridor, stage, next, coastal_penalty)
+        start = EdgeSample(table.table, met, corridor, stage, lateral, step, 0.0, time)
+        for speed_index in speeds
+            hours = sail_edge!(points, start, table, met, corridor, stage, lateral, step,
+                time, speed_index)
+            isfinite(hours) || continue
+            arrival = (; penalty, hours, prices, next, stage=stage + 1,
+                time=elapsed + hours)
+            value = best_arrival(to_go, table, points, aloft, arrival)
+            value < best_value || continue
+            best_value, best_step, best_speed = value, step, table.speeds[speed_index]
+            ahead = values_ahead(to_go, next, stage + 1, elapsed + hours)
+        end
+    end
+    return best_step, best_speed, ahead
+end
+
+"""
+    plan_kite_states(plan, corridor, table, known, departure, first_stage, i, prices)
+
+Whether the kite is up at each sample of edge `i` of `plan`, left at `departure` [h] from
+stage `first_stage`, on the cheapest way between the states [`Leg`](@ref) `plan` holds at
+the two ends of the edge in the forecast `known`.
+"""
+function plan_kite_states(plan::Leg, corridor, table::RouteTable, known, departure,
+        first_stage, i, prices)
+    points = SailedPoint[]
+    hours = sail_plan_edge!(points, plan, corridor, table, known, departure, first_stage, i)
+    isfinite(hours) || return [plan.aloft[i]]
+    return kite_way(table, points, plan.aloft[i], plan.aloft[i + 1], prices)
+end
+
+"""
+    KiteSample
+
+One sample of a passage as sailed: hours from departure [h], latitude and longitude
+[deg], whether the kite is up, whether it would be up held to the plan on that edge, true
+and apparent wind at its height [m/s], significant wave height [m], the hours [h] and
+distance [m] it stands for, the speed the plan commanded and the speed held [m/s], why the
+kite is down there, `:up` where it is up ([`kite_down_reason`](@ref)), whether the plan
+wants it up there, the fuel power with the rig flown and stowed there [W], and the highest
+routing speed a flying kite could hold there in the real weather and in the weather known
+to the plan [m/s], the hours from departure [h] at which its edge began, and the
+[`SailedPoint`](@ref) it records.
+"""
+const KiteSample = @NamedTuple{hours::Float64, lat::Float64, lon::Float64, aloft::Bool,
+    planned::Bool, wind_speed::Float64, apparent_wind::Float64, wave_height::Float64,
+    sample_hours::Float64, distance::Float64, planned_speed::Float64, speed::Float64,
+    reason::Symbol, wanted::Bool, flown_power::Float64, stowed_power::Float64,
+    fastest_speed::Float64, forecast_fastest::Float64, edge_start::Float64,
+    point::SailedPoint}
+
+"""
+    KiteRuleEdge
+
+One edge of a passage as sailed, compared with the same edge from the same state with the
+kite held to the plan: whether each ends aloft, the samples whose state differs, and the
+fuel and rig cost of each [USD].
+"""
+const KiteRuleEdge = @NamedTuple{ends_aloft::Bool, held_ends_aloft::Bool,
+    different_samples::Int, samples::Int, cost::Float64, held_cost::Float64}
+
+"""
+    KiteRecord()
+
+What [`forecast_route`](@ref) or [`record_plan!`](@ref) records of a passage: its
+[`KiteSample`](@ref)s, per edge its [`KiteRuleEdge`](@ref), and the hours from departure
+[h] at which the ship started each hold.
+"""
+struct KiteRecord
+    samples::Vector{KiteSample}
+    edges::Vector{KiteRuleEdge}
+    holds::Vector{Float64}
+end
+KiteRecord() = KiteRecord(KiteSample[], KiteRuleEdge[], Float64[])
+
+"""
+    kite_down_reason(table, point, prices)
+
+Why a kite is down at [`SailedPoint`](@ref) `point` on the [`RouteTable`](@ref) `table`,
+`:no_kite` on a ship without one, else the first that holds of:
+`:wind_low_flight`, `:wind_high_flight`, outside the limits it can stay up in;
+`:hull_limit`, where the hull or the engine cannot hold the speed with the kite up;
+`:wind_low_pull`, where it can stay up but the apparent wind is below
+[`lowest_pull_wind`](@ref); `:no_thrust`, in enough wind but with no forward pull at the
+course, the wind coming from too far ahead; `:wind_low_launch`, `:wind_high_launch`,
+`:sea_launch`, `:night`, outside the limits it can launch in; `:no_saving`, where flying
+costs at least as much per hour as staying down; and `:chosen`, where it could launch,
+flying would save, and it stayed down.
+"""
+function kite_down_reason(table::RouteTable, point, prices)
+    rig = table.table.ship.rig
+    kite = rig isa CombinedRig ? rig.kite : rig
+    kite isa KiteRig || return :no_kite
+    speed = table.speeds[max(point.speed_index, 1)]
+    wind = hypot(point.headwind + speed, point.crosswind)
+    wave_height = point.condition.wave_height
+    wind < kite.min_flight_wind && return :wind_low_flight
+    wind > kite.max_wind && return :wind_high_flight
+    isfinite(point.flown) || return :hull_limit
+    point.flown !== point.stowed ||
+        return wind < lowest_pull_wind(kite) ? :wind_low_pull : :no_thrust
+    wind < kite.launch_min_wind && return :wind_low_launch
+    wind > kite.launch_max_wind && return :wind_high_launch
+    sea_wind = extra_launch_wind(table.table, speed, point.condition)
+    (wave_height > kite.launch_max_wave_height || wind < kite.launch_min_wind + sea_wind) &&
+        return :sea_launch
+    point.daylight || kite.night_launch || return :night
+    point.flown * prices.fuel + table.table.wear_cost / 3600 >=
+    point.stowed * prices.fuel && return :no_saving
+    return :chosen
+end
+
+"""
+    push_samples!(record, table, points, corridor, stage, lateral, next, start_hours,
+                  hours, states, planned, planned_speed, prices, targets, known, departure)
+
+Add to `record` the [`KiteSample`](@ref)s of `points`, the edge from node (`stage`,
+`lateral`) to `next`, entered `start_hours` [h] after departure and sailed in `hours` [h]
+at commanded `planned_speed` [m/s], with the kite up as `states` says, as `planned` would
+have it, and as the plan's `targets` want it, and `known` the weather the plan knew, left
+at `departure` [h].
+"""
+function push_samples!(record, table, points, corridor, stage, lateral, next, start_hours,
+        hours, states, planned, planned_speed, prices, targets, known, departure)
+    step = lateral_step(lateral, next)
+    distance = corridor.edge_length[stage, lateral, step]
+    for (k, point) in enumerate(points)
+        share = point_share(k, length(points))
+        lat, lon = edge_point(corridor, stage, lateral, next, share)
+        speed = table.speeds[max(point.speed_index, 1)]
+        reached = departure + start_hours + share * hours
+        forecast_point = SailedPoint(table, EdgeSample(table.table, known, corridor, stage,
+                lateral, step, share, reached), length(table.speeds), 1.0, reached)
+        push!(record.samples, (; hours=start_hours + share * hours, lat, lon,
+            aloft=states[k], planned=planned[k],
+            wind_speed=hypot(point.headwind, point.crosswind),
+            apparent_wind=hypot(point.headwind + speed, point.crosswind),
+            wave_height=point.condition.wave_height, sample_hours=point.hours,
+            distance=trapezoid_weight(k, length(points)) * distance, planned_speed, speed,
+            reason=states[k] ? :up : kite_down_reason(table, point, prices),
+            wanted=target_at(targets, share), flown_power=point.flown,
+            stowed_power=point.stowed, fastest_speed=fastest_flown_speed(table, point),
+            forecast_fastest=fastest_flown_speed(table, forecast_point),
+            edge_start=start_hours, point))
+    end
+end
+
+"""
+    fastest_flown_speed(table, point)
+
+Highest routing speed of `table` [m/s] a kite flying at the conditions of
+[`SailedPoint`](@ref) `point` can hold, zero where none.
+"""
+function fastest_flown_speed(table::RouteTable, point)
+    for i in length(table.speeds):-1:1
+        flown, _ = edge_fuels(table, i, point.condition)
+        isfinite(flown) && kite_aloft(table.table, table.speeds[i], point.headwind,
+            point.crosswind) && return table.speeds[i]
+    end
+    return 0.0
+end
+
+"""
+    record_plan!(record, plan, corridor, table, weather, departure, prices)
+
+Add to `record` the [`Leg`](@ref) `plan` of [`route`](@ref), left at `departure` [h] on
+`corridor` and sailed in `weather`, with the kite up as it is on that route.
+"""
+function record_plan!(record, plan::Leg, corridor, table::RouteTable, weather, departure,
+        prices)
+    points = SailedPoint[]
+    for i in 1:(length(plan.path) - 1)
+        stage, lateral, step, _ = plan_edge(plan, corridor, departure, 1, i)
+        hours = sail_plan_edge!(points, plan, corridor, table, weather, departure, 1, i)
+        states = kite_way(table, points, plan.aloft[i], plan.aloft[i + 1], prices)
+        next = nearest_lateral(corridor, stage + 1, plan.path[i + 1][1:2]...)
+        push_samples!(record, table, points, corridor, stage, lateral, next,
+            plan.path[i][3], hours, states, states, plan.path[i + 1][4], prices, states,
+            weather, departure)
+    end
+end
+
+"""
+    record_edge!(record, table, points, corridor, stage, lateral, next, start_hours, hours,
+                 start_aloft, ends_aloft, targets, prices, cost, keeps_plan, planned_speed,
+                 known, departure)
+
+Add to `record` the sailed `points` of the edge from node (`stage`, `lateral`) to `next`,
+entered `start_hours` [h] after departure with the kite up if `start_aloft`, and the
+comparison of that edge, of fuel and rig `cost` [USD], with the kite held to `targets`;
+`planned_speed` [m/s] is the plan's for the edge and `known` what it knew, left at
+`departure` [h].
+"""
+function record_edge!(record, table, points, corridor, stage, lateral, next, start_hours,
+        hours, start_aloft, ends_aloft, targets, prices, cost, keeps_plan, planned_speed,
+        known, departure)
+    held_down, held_up, held_states = held_kite_passage(table, points, start_aloft, targets,
+        prices)
+    states = keeps_plan ? held_states :
+             kite_way(table, points, start_aloft, ends_aloft, prices)
+    push_samples!(record, table, points, corridor, stage, lateral, next, start_hours, hours,
+        states, held_states, planned_speed, prices, targets, known, departure)
+    push!(record.edges, (; ends_aloft, held_ends_aloft=isfinite(held_up.cost),
+        different_samples=count(states .!= held_states), samples=length(points), cost,
+        held_cost=min(held_down.cost, held_up.cost)))
+end
+
+"""
+    forecast_route(corridor, table, weather, departure; time_cost, horizon=Inf,
+                   forecast=nothing, coastal_penalty=1.0, record=nothing)
+
+Passage of a ship that re-plans by [`forecast_plan`](@ref) on the [`RouteTable`](@ref)
+`table` at the first node 24 hours or more after the last plan, on `forecast`: a
+[`ForecastArchive`](@ref), a [`ForecastEnsemble`](@ref), a [`ShortestLead`](@ref), a
+[`PerfectForecast`](@ref), a [`KiteMargin`](@ref) of one of those, a
+[`ForecastParts`](@ref), a [`ForecastWeather`](@ref) of `horizon` hours where `nothing`, or
+a [`ReplannedForecast`](@ref) with its own interval and adaptation between plans. It sails
+each plan in the real `weather` until the next re-plan by
 [`sail_planned_edge!`](@ref), launching and landing the kite where the real weather of an
-edge and the [`plan_values`](@ref) ahead make that cheapest; fuel, flight hours and
-objective are those of the real weather. Where no plan leaves its node or the real weather stops the next edge, the ship
-holds there with the kite stowed on its hotel load
-until the next forecast, 6 h later, and plans again. Returns `nothing` after holding
-72 h at one node.
+edge and the [`plan_values`](@ref) ahead make that cheapest, or, with `forecast` a
+[`PlannedKite`](@ref), where the plan put it, or with a [`ForesightKite`](@ref), by the
+same values in the real weather. Fuel, flight hours and objective are those
+of the real weather. Where no plan leaves its node or the real weather stops the next
+edge, the ship holds there with the kite stowed on its hotel load until the next forecast,
+6 h later, and plans again. A [`KiteRecord`](@ref) `record` receives what was sailed.
+Returns `nothing` after holding 72 h at one node.
 """
 function forecast_route(corridor::Corridor, table::RouteTable, weather, departure;
-        time_cost, horizon=Inf, forecast=nothing, coastal_penalty=1.0)
+        time_cost, horizon=Inf, forecast=nothing, coastal_penalty=1.0, record=nothing)
     ship_table = table.table
     prices = (; fuel=ship_table.ship.fuel.price, time=time_cost)
     stage_count = size(corridor.lat, 1)
@@ -1343,24 +1908,53 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     aloft_path = [false]
     points = SailedPoint[]
     held = 0.0
+    replanned = forecast isa ReplannedForecast ? forecast : ReplannedForecast(forecast)
+    (; interval, adapts) = replanned
+    planned = replanned.forecast
+    keeps_plan, foresight = planned isa PlannedKite, planned isa ForesightKite
+    with_margin = planned isa KiteMargin
+    source = keeps_plan || foresight || with_margin ? planned.forecast : planned
+    plan_table = with_margin ? margin_table(table, planned.margin) : table
     while stage < stage_count
-        known = isnothing(forecast) ? ForecastWeather(weather, departure + time, horizon) :
-                ArchivedForecast(forecast, weather, departure + time)
-        plan = route(corridor, table, known, departure + time; time_cost,
+        known = known_weather(source, weather, departure + time, horizon)
+        plan, values = forecast_plan(known, corridor, plan_table, departure + time, prices;
             first_stage=stage, first_lateral=lateral, first_aloft=aloft, coastal_penalty)
         blocked = isnothing(plan)
-        plan_start, plan_end = time, blocked ? 1 : length(plan.path)
-        values = blocked ? nothing :
-                 plan_values(plan, corridor, table, known, departure + time, stage, prices)
+        foresight && !blocked && (values = plan_values(plan, corridor, table, weather,
+            departure + time, stage, prices))
+        plan_start, plan_stage, plan_end = time, stage, blocked ? 1 : length(plan.path)
+        to_go = blocked || adapts == :nothing ? nothing :
+                remaining_cost(corridor, plan_table, known, departure + time, prices;
+            first_stage=stage, coastal_penalty)
         for i in 2:plan_end
-            next_lat, next_lon, _, speed, _ = plan.path[i]
+            next_lat, next_lon, _, planned_speed, _ = plan.path[i]
             next = nearest_lateral(corridor, stage + 1, next_lat, next_lon)
             step = lateral_step(lateral, next)
+            ahead = keeps_plan ? (0.0, 0.0) : (values[i, 1], values[i, 2])
+            if adapts != :nothing
+                met = MetWeather(known, weather, corridor.lat[stage, lateral],
+                    corridor.lon[stage, lateral], departure + time)
+                at = (; stage, lateral, step, speed=planned_speed, aloft,
+                    elapsed=time - plan_start, time=departure + time)
+                step, planned_speed, ahead = adapted_edge(points, corridor, table, met,
+                    to_go, at, prices, adapts, coastal_penalty)
+                next = next_lateral(lateral, step)
+                next_lat, next_lon = corridor.lat[stage + 1, next],
+                corridor.lon[stage + 1, next]
+            end
+            targets = keeps_plan || !isnothing(record) ?
+                      plan_kite_states(plan, corridor, plan_table, one_forecast(known),
+                departure + plan_start, plan_stage, i - 1, prices) : nothing
+            start_aloft = aloft
             hours, tally, aloft, speed = sail_planned_edge!(points, table, weather,
-                corridor, stage, lateral, step, departure + time, speed, aloft,
-                (values[i, 1], values[i, 2]), prices)
+                corridor, stage, lateral, step, departure + time, planned_speed, aloft,
+                ahead, prices;
+                targets=keeps_plan ? targets : nothing)
             blocked = !isfinite(hours)
             blocked && break
+            isnothing(record) || record_edge!(record, table, points, corridor, stage,
+                lateral, next, time, hours, start_aloft, aloft, targets, prices, tally.cost,
+                keeps_plan, planned_speed, one_forecast(known), departure)
             penalty = edge_penalty(corridor, stage, next, coastal_penalty)
             objective += edge_objective(penalty, tally.cost, hours, prices)
             fuel_energy += tally.energy
@@ -1372,10 +1966,11 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             stage, lateral = stage + 1, next
             push!(path, (next_lat, next_lon, time, speed, summary_mode(tally, hours)))
             push!(aloft_path, aloft)
-            time - plan_start >= 24.0 && break
+            time - plan_start >= interval && break
         end
         blocked || continue
         held >= LONGEST_HOLD && return nothing
+        isnothing(record) || push!(record.holds, time)
         energy = 3600FORECAST_INTERVAL * fuel_power(ship_table.ship.powertrain, 0.0)
         objective += edge_objective(1.0, energy * prices.fuel, FORECAST_INTERVAL, prices)
         fuel_energy += energy
