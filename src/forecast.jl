@@ -58,6 +58,19 @@ function require_link_target(path)
 end
 
 """
+    link_relative(target, link)
+
+Make `link` a link to `target` by a path relative to the folder of `link`, replacing in one
+step a link already there. Error if `link` is a real file or folder.
+"""
+function link_relative(target, link)
+    islink(link) || !ispath(link) || error("$link is not a link, so it is not replaced")
+    pending = tempname(dirname(link); cleanup=false)
+    symlink(relpath(target, dirname(link)), pending)
+    Base.rename(pending, link)
+end
+
+"""
     link_control_group(control, folder)
 
 Link the bias and the wave period and direction of the archive group in `control` into the
@@ -67,9 +80,7 @@ function link_control_group(control, folder)
     shared = ("period.f16", "direction_east.f16", "direction_north.f16")
     entries = filter(name -> startswith(name, "bias_") || name in shared, readdir(control))
     for entry in entries
-        link = joinpath(folder, entry)
-        islink(link) && rm(link)
-        symlink(relpath(joinpath(control, entry), folder), link)
+        link_relative(joinpath(control, entry), joinpath(folder, entry))
     end
 end
 

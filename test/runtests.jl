@@ -1892,6 +1892,19 @@ end
     @test member.waves.fields["period"] == control.waves.fields["period"]
 end
 
+@testset "linking replaces a link, keeps a real file and leaves nothing beside them" begin
+    folder = mktempdir()
+    target = touch(joinpath(folder, "target"))
+    link = joinpath(folder, "link")
+    symlink("/removed/worktree/target", link)
+    WindShipOpt.link_relative(target, link)
+    @test readlink(link) == "target"
+    @test readdir(folder) == ["link", "target"]
+    file = touch(joinpath(folder, "file"))
+    @test_throws "file is not a link" WindShipOpt.link_relative(target, file)
+    @test !islink(file)
+end
+
 @testset "a forecast archive names the link whose target is gone" begin
     folder = mktempdir()
     symlink("/removed/worktree/bias_2017", joinpath(folder, "bias_2017"))
