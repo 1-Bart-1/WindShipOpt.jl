@@ -971,17 +971,20 @@ end
     fleet_split_of(table, drive)
 
 The [`fleet_split`](@ref) of class table `table` on `drive`: each class's transport work
-from [`fleet_work`](@ref) shared equally over the routes, at the cost without a rig.
+from [`fleet_work`](@ref) shared equally over the routes sailed, at the cost without a rig.
 """
 function fleet_split_of(table, drive)
     work, _ = fleet_work()
-    routes = unique(table["route"])
     cells = []
-    for class in class_order(table), route in routes
-        bare = cheapest_row(table, class, route, drive, "none")
-        isnothing(bare) && continue
-        push!(cells, (bill=work[class] / length(routes) * table["cost"][bare],
-            savings=best_savings(table, class, route, drive)))
+    for class in class_order(table)
+        trips = [(cheapest_row(table, class, route, drive, "none"),
+                  best_savings(table, class, route, drive))
+                 for route in unique(table["route"])]
+        sailed = [(bare, savings) for (bare, savings) in trips
+                  if !isnothing(bare) && !isempty(savings)]
+        for (bare, savings) in sailed
+            push!(cells, (bill=work[class] / length(sailed) * table["cost"][bare], savings))
+        end
     end
     return fleet_split(cells)
 end
@@ -995,7 +998,7 @@ Stacked bar per drive of the share [%] of `measure` (`:bill` or `:saved`) of eac
 function fleet_share_panel!(axis, splits, measure)
     colours = fleet_colours()
     for (i, (_, split)) in enumerate(splits)
-        total = sum(getfield(split[band], measure) for band in fleet_bands)
+        total = fleet_total(split, measure)
         left = 0.0
         for band in fleet_bands
             share = 100getfield(split[band], measure) / total
@@ -1031,8 +1034,8 @@ function fleet_share_figure()
     panels = ((:bill, "(a) yearly cost of carrying the cargo [%]"),
         (:saved, "(b) yearly cost saved by the rigs [%]"))
     for (k, (measure, title)) in enumerate(panels)
-        labels = [string(label, "\n", @sprintf("USD %.0f bn", 1e-9 *
-                sum(getfield(split[band], measure) for band in fleet_bands)))
+        labels = [string(label, "\n",
+                      @sprintf("USD %.0f bn", 1e-9fleet_total(split, measure)))
                   for ((_, label), (_, split)) in zip(drive_labels, splits)]
         axis = Axis(figure[1, k]; title, yticks=(eachindex(splits), labels),
             xticks=0:25:100, ygridvisible=false, ytickalign=0, yticksize=0)
@@ -1041,7 +1044,7 @@ function fleet_share_figure()
     colours = fleet_colours()
     names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "rotors",
         "level" => "level (within $(whole_number(level_margin)) point)",
-        "none" => "no rig pays")
+        "none" => "no rig (saves under $(whole_number(level_margin)) point)")
     Legend(figure[2, 1:2], [PolyElement(color=colours[band]) for band in fleet_bands],
         [names[band] for band in fleet_bands]; orientation=:horizontal)
     rowgap!(figure.layout, 1, 2)

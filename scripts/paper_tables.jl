@@ -1560,22 +1560,20 @@ end
     fleet_share_numbers(table)
 
 Name and text, per drive of the class table `table`, of each band's share [%] of the
-yearly cost of carrying the fleet's cargo and of the saving, the totals [billion USD], the
-shares of the IMO transport work and of shipping's CO2 the classes carry and the
-[`level_margin`](@ref).
+yearly cost of carrying the fleet's cargo, the totals of that cost and of the saving
+[billion USD], the shares of the IMO transport work and of shipping's CO2 the classes
+carry, and the [`level_margin`](@ref).
 """
 function fleet_share_numbers(table)
     numbers = Pair{String, String}[]
     for (drive, word) in drive_words
         split = fleet_split_of(table, drive)
-        bill = sum(split[band].bill for band in fleet_bands)
-        saved = sum(split[band].saved for band in fleet_bands)
+        bill = fleet_total(split, :bill)
         push!(numbers, "FleetBill$word" => whole_number(bill / 1e9),
-            "FleetSaved$word" => whole_number(saved / 1e9))
+            "FleetSaved$word" => whole_number(fleet_total(split, :saved) / 1e9))
         for band in fleet_bands
             name = word * uppercasefirst(band)
-            push!(numbers, "FleetShare$name" => whole_number(100split[band].bill / bill),
-                "FleetSavedShare$name" => whole_number(100split[band].saved / saved))
+            push!(numbers, "FleetShare$name" => whole_number(100split[band].bill / bill))
         end
     end
     _, work_share = fleet_work()

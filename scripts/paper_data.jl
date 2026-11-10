@@ -792,7 +792,7 @@ function classes_data()
     write_trips("classes.csv", cases, trips, :class, :route, :drive, :rig, :area, :units)
 end
 
-"points of cost saving within which two rigs count as level: the error of a saving"
+"points of cost saving within which two rigs count as level"
 level_margin = 1.0
 
 "bands of the fleet's cost split by rig, in the order drawn"
@@ -849,6 +849,14 @@ function read_table(path)
 end
 
 """
+    fleet_total(split, measure)
+
+Sum over the [`fleet_bands`](@ref) of `measure` (`:bill` or `:saved`) of a
+[`fleet_split`](@ref).
+"""
+fleet_total(split, measure) = sum(getfield(split[band], measure) for band in fleet_bands)
+
+"""
     fleet_work()
 
 The 2018 transport work [tonne-km a year] of each ship class from its IMO size bins, and
@@ -864,7 +872,8 @@ function fleet_work()
         classes[class] = get(classes, class, 0.0) + work[bin]
     end
     share = sum(values(classes)) / sum(values(work))
-    return Dict(class => 1.852e9billion for (class, billion) in classes), share
+    return Dict(class => WindShipOpt.NAUTICAL_MILE * 1e6 * billion
+                for (class, billion) in classes), share
 end
 
 """
