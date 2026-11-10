@@ -986,6 +986,13 @@ function kept_cell(table, rig, plan)
         100table["kept_error"][only(found)])
 end
 
+"change of `rig`'s kept share on `plan` from the control with its paired error [points]"
+function kept_change_cell(table, rig, plan)
+    found = only(rows(table, "rig" => rig, "plan" => plan))
+    change = round(Int, 100table["difference_from_control"][found])
+    return @sprintf("\\(%+d \\pm %.0f\\)", change, 100table["difference_error"][found])
+end
+
 """
     forecast_plans_table()
 
@@ -994,17 +1001,59 @@ its standard error over the departures [%], and that of the kite held to its pla
 forecast_plans_table.tex.
 """
 function forecast_plans_table()
-    table = read_table(data_file("forecast_plans_kept.csv"))
-    plans = (("true", "One forecast run"), ("mean", "Ensemble mean"),
-        ("margin", "Margin for wind"), ("members", "Several members"),
-        ("held_kite", "One forecast run, kite held to the plan"),
-        ("kite_margin", "One forecast run, kite limits 20\\,\\% tighter in the plan"))
-    open(joinpath(sections, "forecast_plans_table.tex"), "w") do io
+    write_kept_table("forecast_plans_kept.csv", "forecast_plans_table.tex",
+        (("true", "One forecast run"), ("mean", "Ensemble mean"),
+            ("margin", "Margin for wind"), ("members", "Several members"),
+            ("held_kite", "One forecast run, kite held to the plan"),
+            ("kite_margin", "One forecast run, kite limits 20\\,\\% tighter in the plan")))
+end
+
+"""
+    forecast_replanning_table()
+
+Share of each rig's perfect-foresight cost saving kept per case of the re-planning study,
+with its standard error over the departures [%], and its paired change from the plan it
+differs from in one thing [points]: forecast_replanning_table.tex.
+"""
+function forecast_replanning_table()
+    plans = (("true", "Reforecast, about every 29 h"),
+        ("operational_24h", "Operational, about every 29 h"),
+        ("operational_12h", "Operational, about every 18 h"),
+        ("operational_6h", "Operational, about every 10 h"),
+        ("operational_24h_speed", "About every 29 h, speed adapted"),
+        ("operational_24h_course", "About every 29 h, speed and course adapted"),
+        ("operational_6h_course", "About every 10 h, speed and course adapted"))
+    write_kept_table("forecast_replanning_kept.csv", "forecast_replanning_table.tex", plans;
+        changes=(
+            heading="Change from operational, about every 29 h, unless stated [points]",
+            plans=(plans[1], plans[3], plans[4], plans[5], plans[6],
+                ("operational_6h_course", "About every 10 h, adapted, from unadapted"))))
+end
+
+"""
+    write_kept_table(data_name, table_name, plans; changes=nothing)
+
+Write `table_name` from the kept shares in `data_name`: a row per (plan, label) of `plans`,
+a column per rig, then under `changes.heading` a row per (plan, label) of `changes.plans`
+with the paired change from the data's control.
+"""
+function write_kept_table(data_name, table_name, plans; changes=nothing)
+    table = read_table(data_file(data_name))
+    open(joinpath(sections, table_name), "w") do io
         println(io, "\\begin{tabular}{@{}lccc@{}}\n\\toprule")
         println(io, "Plan & Kite & Wing sails & Rotors \\\\\n\\midrule")
         for (plan, label) in plans
             cells = [kept_cell(table, rig, plan) for rig in ("kite", "wings", "rotors")]
             println(io, label, " & ", join(cells, " & "), " \\\\")
+        end
+        if !isnothing(changes)
+            println(io, "\\midrule\n\\multicolumn{4}{@{}l}{\\textit{", changes.heading,
+                "}} \\\\")
+            for (plan, label) in changes.plans
+                cells = [kept_change_cell(table, rig, plan)
+                         for rig in ("kite", "wings", "rotors")]
+                println(io, "\\quad ", label, " & ", join(cells, " & "), " \\\\")
+            end
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
@@ -1500,12 +1549,14 @@ ship_kind_words = [:teu => "Container", :ceu => "CarCarrier", :tonne => "Bulk"]
 Write the numbers the paper and its extended abstract state as LaTeX macros `\\Num...` to
 paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
 the goals, and the [`class_numbers`](@ref), [`recommendation_numbers`](@ref),
-[`rig_lead_numbers`](@ref) and [`premium_numbers`](@ref) of the class study.
+[`rig_lead_numbers`](@ref), [`premium_numbers`](@ref) and [`fleet_share_numbers`](@ref) of
+the class study.
 """
 function numbers_file()
     classes = read_table(data_file("classes.csv"))
     results = [class_numbers(classes); recommendation_numbers(classes);
-               rig_lead_numbers(classes); premium_numbers(classes)]
+               rig_lead_numbers(classes); premium_numbers(classes);
+               fleet_share_numbers(classes)]
     draft = paper_run.fidelity != :final
     open(joinpath(sections, "numbers.tex"), "w") do io
         for (name, text) in goal_numbers()
@@ -1551,6 +1602,34 @@ function class_numbers(classes)
                 "Leads$name" => string(count(==(rig), leaders)))
         end
     end
+    return numbers
+end
+
+"""
+    fleet_share_numbers(table)
+
+Name and text, per drive of the class table `table`, of each band's share [%] of the
+yearly cost of carrying the fleet's cargo, the totals of that cost and of the saving
+[billion USD], the shares of the IMO transport work and of shipping's CO2 the classes
+carry, and the [`level_margin`](@ref).
+"""
+function fleet_share_numbers(table)
+    numbers = Pair{String, String}[]
+    for (drive, word) in drive_words
+        split = fleet_split_of(table, drive)
+        bill = fleet_total(split, :bill)
+        push!(numbers, "FleetBill$word" => whole_number(bill / 1e9),
+            "FleetSaved$word" => whole_number(fleet_total(split, :saved) / 1e9))
+        for band in fleet_bands
+            name = word * uppercasefirst(band)
+            push!(numbers, "FleetShare$name" => whole_number(100split[band].bill / bill))
+        end
+    end
+    _, work_share = fleet_work()
+    fuel_share = read_table(joinpath(root, "data", "ship_classes.csv"))["fuel_share"]
+    push!(numbers, "FleetWorkShare" => whole_number(100work_share),
+        "FleetFuelShare" => whole_number(100sum(fuel_share)),
+        "FleetLevelMargin" => whole_number(level_margin))
     return numbers
 end
 

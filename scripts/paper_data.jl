@@ -793,6 +793,180 @@ function classes_data()
 end
 
 """
+    rows(table, conditions...)
+
+Indices of the rows of `table` where each `column => value` condition holds, `value`
+being a value to equal or a predicate to meet.
+"""
+function rows(table, conditions...)
+    chosen = trues(length(first(values(table))))
+    for (column, value) in conditions
+        chosen .&= value isa Function ? value.(table[column]) : table[column] .== value
+    end
+    return findall(chosen)
+end
+
+"""
+    percent_saving(cost, reference)
+
+Saving [%] of `cost` against `reference`.
+"""
+percent_saving(cost, reference) = 100 * (1 - cost / reference)
+
+"""
+    best_savings(table, class, route, drive)
+
+Cost saving [%] of the best size of each rig against the class without a rig on one
+route and drive, as a Dict of rig name to saving; missing rigs are left out.
+"""
+best_savings(table, class, route, drive) = rig_savings(table, rig_names,
+    "class" => class, "route" => route, "drive" => drive)
+
+"""
+    rig_savings(table, rigs, conditions...)
+
+Cost saving [%] of the best size of each of `rigs` against no rig among the rows of
+`table` where the `conditions` hold, as a Dict of rig name to saving; missing rigs are
+left out.
+"""
+function rig_savings(table, rigs, conditions...)
+    base = rows(table, conditions..., "rig" => "none")
+    savings = Dict{String, Float64}()
+    isempty(base) && return savings
+    reference = only(table["cost"][base])
+    for rig in rigs
+        chosen = rows(table, conditions..., "rig" => rig)
+        isempty(chosen) && continue
+        savings[rig] = percent_saving(minimum(table["cost"][chosen]), reference)
+    end
+    return savings
+end
+
+"""
+    cheapest_row(table, filters::Pair...)
+    cheapest_row(table, class, route, drive, rig)
+
+Row of `table` with the lowest cost among those matching `filters`, column => value, or of
+`rig` for one class, route and drive; `nothing` where none was run.
+"""
+function cheapest_row(table, filters::Pair...)
+    chosen = rows(table, filters...)
+    return isempty(chosen) ? nothing : chosen[argmin(table["cost"][chosen])]
+end
+
+cheapest_row(table, class, route, drive, rig) = cheapest_row(table, "class" => class,
+    "route" => route, "drive" => drive, "rig" => rig)
+
+"points of cost saving within which two rigs count as level"
+level_margin = 1.0
+
+"bands of the fleet's cost split by rig, in the order drawn"
+fleet_bands = ("kite", "level", "rotors", "wings", "none")
+
+"""
+    fleet_band(savings)
+
+Band of [`fleet_bands`](@ref) of a cell with the cost `savings` [%] of its rigs: the rig
+that saves most, `"level"` where another saves within [`level_margin`](@ref) of it and
+`"none"` where the best saves less than that margin.
+"""
+function fleet_band(savings)
+    best = maximum(values(savings))
+    best < level_margin && return "none"
+    leaders = [rig for (rig, saving) in savings if best - saving < level_margin]
+    return length(leaders) > 1 ? "level" : only(leaders)
+end
+
+"""
+    fleet_split(cells)
+
+Cost and saving [USD a year] of each band of [`fleet_bands`](@ref) over `cells`, each with
+the `bill` [USD a year] of the cell without a rig and the cost `savings` [%] of its rigs.
+A cell in the band `"none"` saves nothing, as no rig is fitted.
+"""
+function fleet_split(cells)
+    split = Dict(band => (bill=0.0, saved=0.0) for band in fleet_bands)
+    for (; bill, savings) in cells
+        band = fleet_band(savings)
+        saved = band == "none" ? 0.0 : bill * maximum(values(savings)) / 100
+        split[band] = (bill=split[band].bill + bill, saved=split[band].saved + saved)
+    end
+    return split
+end
+
+"""
+    read_table(path)
+
+Columns of a CSV file with a header line, as a Dict of name to vector; numbers parsed
+and quotes removed.
+"""
+function read_table(path)
+    lines = readlines(path)
+    names = WindShipOpt.csv_fields(first(lines))
+    rows = [WindShipOpt.csv_fields(line) for line in lines[2:end]]
+    table = Dict{String, Vector}()
+    for (k, name) in enumerate(names)
+        values = getindex.(rows, k)
+        numbers = tryparse.(Float64, values)
+        table[name] = any(isnothing, numbers) ? String.(values) : Float64.(numbers)
+    end
+    return table
+end
+
+"""
+    fleet_total(split, measure)
+
+Sum over the [`fleet_bands`](@ref) of `measure` (`:bill` or `:saved`) of a
+[`fleet_split`](@ref).
+"""
+fleet_total(split, measure) = sum(getfield(split[band], measure) for band in fleet_bands)
+
+"""
+    fleet_work()
+
+The 2018 transport work [tonne-km a year] of each ship class from its IMO size bins, and
+the part of the work of all IMO bins in data/market that these carry.
+"""
+function fleet_work()
+    market = joinpath(pkgdir(WindShipOpt), "data", "market")
+    imo = read_table(joinpath(market, "imo_ghg4_transport_work_by_type_size.csv"))
+    work = Dict(zip(zip(imo["ship_type"], imo["size_bin"]), imo["transport_work"]))
+    bins = read_table(joinpath(market, "fleet_work_bins.csv"))
+    classes = Dict{String, Float64}()
+    for (class, bin) in zip(bins["class"], zip(bins["ship_type"], bins["size_bin"]))
+        classes[class] = get(classes, class, 0.0) + work[bin]
+    end
+    share = sum(values(classes)) / sum(values(work))
+    return Dict(class => WindShipOpt.NAUTICAL_MILE * 1e6 * billion
+                for (class, billion) in classes), share
+end
+
+"""
+    fleet_split_of(table, drive)
+
+The [`fleet_split`](@ref) of class table `table` on `drive`: each class's transport work
+from [`fleet_work`](@ref) shared equally over the table's routes, at the cost without a
+rig. Errors naming every class and route of `drive` the table lacks a result of a rig for.
+"""
+function fleet_split_of(table, drive)
+    work, _ = fleet_work()
+    routes = unique(table["route"])
+    cells, absent = [], String[]
+    for class in keys(work), route in routes
+        bare = cheapest_row(table, class, route, drive, "none")
+        savings = best_savings(table, class, route, drive)
+        if isnothing(bare) || length(savings) < length(rig_names)
+            push!(absent, "$class on $route")
+            continue
+        end
+        bill = work[class] / length(routes) * table["cost"][bare]
+        push!(cells, (; bill, savings))
+    end
+    isempty(absent) || throw(ArgumentError("no $drive results for " * join(absent, ", ")))
+    return fleet_split(cells)
+end
+
+"""
     searched_sizes(ships, rounds)
 
 Cases and round trips of each (class, drive, route) of `ships` without a rig and of the
@@ -970,6 +1144,17 @@ function forecast_plans_data()
     write_kite_rule_records("forecast_rule_steps.csv", "forecast_rule.csv",
         ensemble_departures, ensemble_departures[begin:4:end])
 end
+
+"plans of the re-planning study, each as the `forecast` of its [`trip_case`](@ref)"
+replanning_plans = (false, true, :operational_24h, :operational_12h, :operational_6h,
+    :operational_24h_speed, :operational_24h_course, :operational_6h_course)
+
+"the plan a re-planning case is paired against: the one that differs from it in one thing"
+replanning_control(plan) =
+    plan === :operational_6h_course ? :operational_6h : :operational_24h
+
+"corridor scale of the re-planning study: nodes about 10 h apart, so 6 h is every node"
+replanning_scale = 1.0
 
 "plans whose sailed hours [`forecast_hours_data`](@ref) records"
 forecast_hours_plans = (false, true, :members, :kite_margin)
@@ -1243,26 +1428,54 @@ kite_saving(sample) = 1e-6 *
     (isfinite(sample.stowed_power) ? sample.stowed_power - sample.flown_power : 0.0)
 
 """
-    write_kept_shares(name, cases, trips)
+    forecast_replanning_data()
 
-Write `name`: per rig and plan, the share of the perfect-foresight saving kept, the ratio
-of the mean savings over the departures, with its jackknife standard error and that of the
-difference from the control plan.
+The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
+`ensemble_departures`, for each of the [`replanning_plans`](@ref), at
+[`replanning_scale`](@ref): forecast_replanning.csv, and the share of its perfect-foresight
+saving each rig keeps per plan against the plan of [`replanning_control`](@ref):
+forecast_replanning_kept.csv.
 """
-function write_kept_shares(name, cases, trips)
+function forecast_replanning_data()
+    rigs = [("none", 0.0); reference_rigs]
+    cases, trips = [], []
+    for departure in ensemble_departures
+        step_cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...);
+                              forecast=plan, rig, plan=string(plan), departure,
+                              scale=replanning_scale)
+                          for (rig, area) in rigs, plan in replanning_plans])
+        append!(cases, step_cases)
+        append!(trips, round_trips(step_cases, [departure]))
+    end
+    write_trips("forecast_replanning.csv", cases, trips, :rig, :plan, :departure)
+    write_kept_shares("forecast_replanning_kept.csv", cases, trips, replanning_plans;
+        control_of=replanning_control)
+end
+
+"""
+    write_kept_shares(name, cases, trips, plans=forecast_study_plans;
+                      control_of=Returns(true))
+
+Write `name`: per rig and plan of `plans` after the first, perfect foresight, the share
+of the perfect-foresight saving kept, the ratio of the mean savings over the departures,
+with its jackknife standard error and that of the difference from the plan
+`control_of(plan)`.
+"""
+function write_kept_shares(name, cases, trips, plans=forecast_study_plans;
+        control_of=Returns(true))
     n = length(ensemble_departures)
     open(run_file(name), "w") do io
         println(io, "rig,plan,kept,kept_error,difference_from_control,difference_error")
-        for (rig, _) in reference_rigs, plan in forecast_study_plans[2:end]
+        for (rig, _) in reference_rigs, plan in plans[2:end]
             plan in kite_only_plans && rig != "kite" && continue
             saved, perfect = plan_savings(cases, trips, rig, plan),
             plan_savings(cases, trips, rig, false)
-            control = plan_savings(cases, trips, rig, true)
+            reference = plan_savings(cases, trips, rig, control_of(plan))
             value = kept_share(saved, perfect, 1:n)
             spread = jackknife_error(index -> kept_share(saved, perfect, index), n)
-            difference = value - kept_share(control, perfect, 1:n)
+            difference = value - kept_share(reference, perfect, 1:n)
             difference_spread = jackknife_error(n) do index
-                kept_share(saved, perfect, index) - kept_share(control, perfect, index)
+                kept_share(saved, perfect, index) - kept_share(reference, perfect, index)
             end
             @printf(io, "%s,%s,%.3f,%.3f,%.3f,%.3f\n", rig, plan, value, spread, difference,
                 difference_spread)

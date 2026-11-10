@@ -1,0 +1,15 @@
+class,ship_type,size_bin
+general cargo coaster,General cargo,0-4999
+feeder container ship,Container,1000-1999
+Handysize bulk carrier,Bulk carrier,10000-34999
+Ultramax bulk carrier,Bulk carrier,35000-59999
+Kamsarmax bulk carrier,Bulk carrier,60000-99999
+Capesize bulk carrier,Bulk carrier,100000-199999
+MR product tanker,Oil tanker,20000-59999
+MR product tanker,Chemical tanker,40000-+
+Aframax tanker,Oil tanker,80000-119999
+VLCC,Oil tanker,200000-+
+Panamax container ship,Container,3000-4999
+Neo-Panamax container ship,Container,12000-14499
+Megamax container ship,Container,20000-+
+PCTC car carrier,Vehicle,50000-+
