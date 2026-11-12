@@ -36,41 +36,47 @@ drive_panels = [(drive, "($(Char('a' + k - 1))) $label")
                 for (k, (drive, label)) in enumerate(drive_labels)]
 "each rig with its area column in designs.csv"
 rig_area_columns = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
-"colour of each rig and of the ship without a rig in every figure"
-rig_colours = Dict("none" => :black, "kite" => palette[1], "wings" => palette[2],
-    "rotors" => palette[3])
+"colour of each rig, its place in `rig_names` in `palette`, and of the ship without a rig"
+rig_colours = Dict("none" => :black,
+    (rig => palette[j] for (j, rig) in enumerate(rig_names))...)
 
 "`text` with every m² set as LaTeX maths"
 latex_units(text) = occursin("m²", text) ?
                     Makie.LaTeXString(replace(text, "m²" => raw"$\mathrm{m^2}$")) : text
 
-"ink a legend and its margin may cover in an axis, in pixels of full black: the faint edge
-of a line"
+"ink a legend and its margin may cover in an axis, in pixels of full black"
 legend_tolerance = 6.0
+
+"clear margin around a legend in its axis [px]"
+legend_margin = 6
+
+"inset from an axis's edge within which a legend's margin is not judged [px]"
+legend_inset = 3
 
 "places for a legend in an axis, as `axislegend` names them: the corners, then the middles
 of the top and bottom edges"
 legend_positions = (:rt, :lt, :rb, :lb, :ct, :cb)
 
 """
-    corner_legend!(figure, axes, contents...; options...)
+    corner_legend!(figure, panels, contents...; options...)
 
 Legend of `contents`, as `axislegend` takes them, at the one of the
-[`legend_positions`](@ref) in `axes` where it and a margin of a few points around it cover
-the least of what `figure` already draws inside that axis; in a row of its own below the
-figure where every place covers some of it.
+[`legend_positions`](@ref) in the axes `panels` where it and its [`legend_margin`](@ref)
+cover the least of what `figure` already draws inside that axis; in a row of its own below
+the figure where every place covers some of it. Call it once `figure` is otherwise complete.
 """
-function corner_legend!(figure, axes, contents...; options...)
+function corner_legend!(figure, panels, contents...; options...)
     ink = [1 - (pixel.r + pixel.g + pixel.b) / 3
            for pixel in RGBf.(Makie.colorbuffer(figure; px_per_unit=1))]
-    placements = [(axis, position) for axis in axes for position in legend_positions]
+    placements = [(axis, position) for axis in panels for position in legend_positions]
     covered = map(placements) do (axis, position)
         legend = axislegend(axis, contents...; position, options...)
         box = legend.layoutobservables.computedbbox[]
         delete!(legend)
         inside = axis.scene.viewport[]
-        low = max.(box.origin .- 6, inside.origin .+ 3)
-        high = min.(box.origin .+ box.widths .+ 6, inside.origin .+ inside.widths .- 3)
+        low = max.(box.origin .- legend_margin, inside.origin .+ legend_inset)
+        high = min.(box.origin .+ box.widths .+ legend_margin,
+            inside.origin .+ inside.widths .- legend_inset)
         columns = clamp.(round.(Int, (low[1], high[1])), 1, size(ink, 2))
         lines = clamp.(size(ink, 1) .- round.(Int, (high[2], low[2])), 1, size(ink, 1))
         return sum(ink[lines[1]:lines[2], columns[1]:columns[2]])
@@ -180,11 +186,11 @@ function pattern_figure()
     figure = Figure(size=(page_width, 300))
     courses = 0:30:180
     colours = Makie.resample_cmap(:viridis, length(courses))
-    force_axes = Axis[]
     for (row, wind) in enumerate((6.0, 12.0))
         bottom = row == 2
         letter = ('a', 'b')[row]
         axis = Axis(figure[row, 1]; ylabel="elevation [°]", limits=(-35, 90, 0, 60),
+            yticks=0:20:60,
             xlabel=bottom ? "azimuth off apparent downwind [°]" : "",
             title="($letter) flight paths, apparent wind $(round(Int, wind)) m/s")
         for (i, course) in enumerate(courses)
@@ -205,12 +211,11 @@ function pattern_figure()
             scatterlines!(thrust, forces["course"][chosen], forces[column][chosen] ./ 1e3;
                 color=palette[k], label, markersize=4)
         end
-        push!(force_axes, thrust)
     end
-    corner_legend!(figure, force_axes, first(force_axes))
     Colorbar(figure[3, 1]; colormap=cgrad(colours; categorical=true),
         limits=(-15, 195), ticks=courses, vertical=false, flipaxis=false, height=6,
         label="course off apparent downwind [°]", ticklabelsize=pt(9), labelsize=pt(9))
+    Legend(figure[3, 2], content(figure[1, 2]); orientation=:horizontal)
     colsize!(figure.layout, 1, Relative(0.5))
     save(joinpath(figures, "patterns.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -1956,7 +1961,7 @@ function sensitivity_figure()
     columns = [("cost", "change of cost saving [points]", "cost"),
         ("carbon", rich("change of CO", subscript("2"), " saving [points]"),
             rich("CO", subscript("2")))]
-    axes = Axis[]
+    lever_axes = Axis[]
     for (row, (rig, levers)) in enumerate(zip(rig_names, panels))
         for (column, (name, label, saved)) in enumerate(columns)
             axis = Axis(figure[row, column];
@@ -1965,13 +1970,13 @@ function sensitivity_figure()
                 yticksvisible=column == 1, yticklabelsvisible=column == 1,
                 xlabel=row == length(rig_names) ? label : "", xticks=WilkinsonTicks(4),
                 yticklabelsize=pt(8))
-            push!(axes, axis)
+            push!(lever_axes, axis)
             development_panel!(axis, table, ships, levers, rig, name)
             ylims!(axis, 0.4, length(levers) + 0.6)
         end
         rowsize!(figure.layout, row, Auto(length(levers)))
     end
-    corner_legend!(figure, axes,
+    corner_legend!(figure, lever_axes,
         [[PolyElement(color=palette[j]) for j in eachindex(ships)];
             [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
         [short_ship.(ships); "high end of range"])
@@ -2237,8 +2242,8 @@ function rigid_scaling_figure()
         end
     end
     Legend(figure[2, 1], thrust_axis; orientation=:horizontal, nbanks=2)
-    corner_legend!(figure, [price_axis, annual_axis, wind_axis], price_axis)
     linkxaxes!(price_axis, annual_axis, wind_axis)
+    corner_legend!(figure, [price_axis, annual_axis, wind_axis], price_axis)
     save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -2494,38 +2499,38 @@ function missed_goals_figure()
         goal = Dict(rig => percent_saving(curve_cost(curves[rig],
                 assumptions[Symbol(out_of_service_inputs[rig])]), bare)
                     for rig in rig_names)
-        axes = [Axis(figure[row, column]; xlabel, ylabel=column == 1 ? "saving [%]" : "",
+        panels = [Axis(figure[row, column]; xlabel, ylabel=column == 1 ? "saving [%]" : "",
                     title=row == 1 ? ship : "", xscale=row == 1 ? log10 : identity,
-                    xticks=(([500, 2000, 8000], ["500", "2000", "8000"]), [200, 600, 1000],
+                    xticks=(([500, 2000, 8000], ["500", "2000", "8000"]), WilkinsonTicks(3),
                         Makie.automatic)[row])
                 for (row, xlabel) in enumerate(("canopy life [h]",
                     latex_units("canopy price [USD/m²]"), "out of service [%]"))]
-        for (axis, held) in zip(axes, (rig_names[2:end], rig_names[2:end], rig_names))
+        for (axis, held) in zip(panels, (rig_names[2:end], rig_names[2:end], rig_names))
             for rig in held
                 hlines!(axis, goal[rig]; color=rig_colours[rig], linestyle=:dash,
                     linewidth=1)
             end
         end
-        for (axis, (table, input)) in zip(axes, sweeps)
+        for (axis, (table, input)) in zip(panels, sweeps)
             picked = rows(table, "ship" => ship)
             order = sortperm(table[input][picked])
             values = table[input][picked][order]
             scatterlines!(axis, values, percent_saving.(table["cost"][picked][order], bare);
                 color=palette[1], markersize=4)
         end
-        goal_marks!(axes[1], assumptions.entries[:canopy_life])
+        goal_marks!(panels[1], assumptions.entries[:canopy_life])
         price = WindShipOpt.canopy_price(assumptions)
-        vlines!(axes[2], price; color=:black, linewidth=0.75)
-        vlines!(axes[2], WindShipOpt.canopy_price_today(assumptions); color=:black,
+        vlines!(panels[2], price; color=:black, linewidth=0.75)
+        vlines!(panels[2], WindShipOpt.canopy_price_today(assumptions); color=:black,
             linewidth=0.75, linestyle=:dot)
         for (k, rig) in enumerate(rig_names)
             shares, costs = curves[rig]
-            scatterlines!(axes[3], 100shares, percent_saving.(costs, bare);
+            scatterlines!(panels[3], 100shares, percent_saving.(costs, bare);
                 color=palette[k], markersize=4, label=rig)
-            vlines!(axes[3], 100assumptions[Symbol(out_of_service_inputs[rig])];
+            vlines!(panels[3], 100assumptions[Symbol(out_of_service_inputs[rig])];
                 color=:black, linewidth=0.75)
         end
-        for axis in axes
+        for axis in panels
             hlines!(axis, 0; color=:gray60, linewidth=0.5)
         end
     end
