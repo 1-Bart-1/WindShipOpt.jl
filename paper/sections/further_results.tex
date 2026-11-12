@@ -41,12 +41,12 @@ We keep \SI{0.5}{kN/m^2} for every other result, since the canopy goals of life 
 \subsection{Kite and rotors together}
 \label{sec:res_combination}
 
-Kite and rotors pull best at different wind angles (\cref{fig:rig_polar}), and a kite needs only a launch mast at the forward end of the deck, so it can be added to a row of rotors. On e-ammonia the best pair (\cref{fig:combination}) saves \tbd{0.7} and \tbd{0.5} points more of the cost than the better single rig on the \SI{140}{m} ship and the Kamsarmax, up to \tbd{1.6} points on the best route. On VLSFO it saves \tbd{0.3} points less on the \SI{140}{m} ship and \tbd{0.3} more on the Kamsarmax. It keeps \tbd{about 60}\,\% of the sum of the two single-rig cost savings on e-ammonia and \tbd{60 to 68}\,\% on VLSFO. The likely reason, not separated in the data, is that the two rigs saturate: in a moderate wind either alone covers most of the propulsive power the ship needs at the speed the router picks. Each rig keeps its full capital and annual cost, so the pair pays twice for gains that overlap.
+Kite and rotors pull best at different wind angles (\cref{fig:rig_polar}), and a kite needs only a launch mast at the forward end of the deck, so it can be added to a row of rotors. We take the best kite and the best rotors of the class study on the Handysize and the Kamsarmax bulk carriers and fly three pairs around them: half that kite with those rotors, a quarter of it with those rotors, and half of it with half the rotors, each within the size bounds of its rig. The routes are those to Guadeloupe, on which the class study finds the kite's largest cost saving, and to Bilbao, on which it finds the smallest of both rigs (\cref{sec:res_routes}). On e-ammonia the best of these pairs (\cref{fig:combination}) saves \tbd{1.4} and \tbd{0.5} points more of the cost per tonne-kilometre than the better single rig on the Handysize and the Kamsarmax, \tbd{0.3 to 2.5} points over the routes, beside the \tbd{11}\,\% that the rotors save alone. On VLSFO it saves \tbd{0.2} points less on the Handysize and \tbd{0.2} more on the Kamsarmax, so there a pair is level with the better single rig. Reruns of the first pair with the changes of the routing check, a tether 2\,\% shorter and a smallest turn radius 2\,\% larger (\cref{sec:checks}), put the routing noise of one saving at \tbd{0.05} points here, far below the 0.8 to 1.5 points that the same and two further changes span on the ships of that check, so we read the gain against the larger. The gain is also biased upward, being the best of three pairs against the better of two single rigs, so a gain of about a point is not clear of the noise. A finer search of pairs could only raise it. The pair keeps \tbd{30 to 60}\,\% of the sum of the two single-rig savings. The likely reason, not separated in the data, is that the two rigs saturate: in a moderate wind either alone covers most of the propulsive power the ship needs at the speed the router picks. Each rig keeps its full capital and annual cost, so the pair pays twice for gains that overlap. A kite added to rotors is therefore worth \tbd{at most about one point} of cost saving on e-ammonia, within the routing noise, and \tbd{nothing} on VLSFO.
 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{combination}
-\caption{Kite and rotors together on the \SI{140}{m} ship and the Kamsarmax bulk carrier with a VLSFO and an e-ammonia drive: (a) cost saving against the ship without a rig of the best kite of \SIlist{400;800;1600;3200}{m^2}, the best rotors at a fifth, half and all of the deck capacity left behind the kite's launch mast, and the best pair of a kite of \SIlist{400;800;1600}{m^2} and those rotors flown together; (b) the saving of that pair over the better of the best kite and the best rotors alone. Bars are the mean over the routes, whiskers the range over them. \tbd{Draft run: over the four routes to Guadeloupe, Bilbao, Dakar and Tubarão, as the kite on the 140 m ship has no trip to New York or Houston.}}
+\caption{Kite and rotors together on the Handysize and the Kamsarmax bulk carrier with a VLSFO and an e-ammonia drive: (a) cost saving against the ship without a rig of the best kite and the best rotors of the class study, and of the best of three pairs around them flown together; (b) the saving of that pair over the better of the two single rigs, with twice the routing noise of one such difference shaded. Bars are the mean over the routes to Guadeloupe and Bilbao, whiskers the range over them. \tbd{Draft run.}}
 \label{fig:combination}
 \end{figure*}
 
@@ -96,15 +96,3 @@ Upwind of \SI{30}{\degree} the kite could pull for only \tbd{11}\,\% of the time
 \label{tab:flight}
 \adjustbox{max width=\textwidth}{\InputIfFileExists{sections/flight_table}{}{\tbd{Flight table pending: run the flight\_table step.}}}
 \end{table*}
-
-\subsection{One VTOL kite or several}
-\label{sec:further_vtol}
-
-Whether one wing or several comes out cheaper is decided only at sizes that do not pay (\cref{fig:rigid_size}). Up to \SI{100}{m^2} in total they tie, and at \SI{200}{m^2} several wings win by \tbd{3 to 6} points. The loss from several kites sharing one loop (\cref{eq:loop_share}) and the deck, station and tether that each kite brings hold several small wings back about as much as mass holds one large wing back.
-
-\begin{figure*}[tbp]
-\centering
-\plot[\textwidth]{rigid_size}
-\caption{Cost saving of VTOL kites against the ship without a rig over their total area, on the \SI{140}{m} ship (left) and the Kamsarmax bulk carrier (right) on VLSFO, as the mean over the \tbd{four routes on which every fleet has a trip in this draft}: one line for a single kite of any area and one each for fleets of kites of \SIlist{30;54;100}{m^2}, solid for the airframe mass of \cref{eq:rigid_mass} and dashed for a mass growing as the cube of the span.}
-\label{fig:rigid_size}
-\end{figure*}
