@@ -1479,7 +1479,8 @@ fidelity_parts() = [
         error="three years against a climate", effect=weather_years()),
     (part="Router", varied="corridor grid",
         model="dynamic programming over a corridor grid of positions and speeds",
-        error="half the spacing raises a kite or rotor saving by up to 1.7 points",
+        error="a finer corridor and search raise a kite or rotor saving by up " *
+              "to 2.4 points",
         effect=corridor_grids()),
     (part="Rig size search", varied="every size",
         model="three sizes, then two by interpolation",

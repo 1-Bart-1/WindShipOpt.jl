@@ -194,35 +194,37 @@ Final pass in bins of \SI{0.125}{h}, or within \SI{48}{h} of the path & 0.22, 0.
 \end{tabular}
 \end{table}
 
-\Cref{tab:routing_grid} sets the error of the corridor spacing against the error of the search settings and against computing time, for the same cases, to the stages and points of the results (\SI{90}{nmi}, \SI{60}{nmi}) and the search settings of \cref{tab:numerics}, except that states are skipped against an estimate on knots \SI{48}{h} rather than \SI{24}{h} apart and, with a kite, within 10\,\% and then 20\,\% rather than 20\,\% and then 40\,\%. The settings of \cref{tab:numerics} take about 1.3 times the computing time of these and lose no more than 0.01 points of cost saving by skipping states, against up to 0.27 points with these. The reference is the search of the results' corridor with bins of \SI{1.5}{h}, every second speed and the margins of the first row of \cref{tab:routing_convergence}, 4.6 times as slow. Refining only the stages or only the points gains the kite little and lowers the wing sails' and rotors' saving, so the two are halved together. At the coarser corridors the search settings matter little against the spacing: at stages \SI{180}{nmi} apart the finer search recovers 0.2 of the kite's 1.4 points. At the corridor of the results the two errors are about equal: half the spacing and the finer search each raise the kite's cost saving by about half a point, and the rotors' by 0.25 and 0.1 points, and neither is corrected. A finer search on the corridor of stages \SI{45}{nmi} apart has not been run.
+\Cref{tab:routing_grid} sets the error of the corridor spacing against the error of the search settings and against computing time, for the same cases, to the stages and points of the results (\SI{90}{nmi}, \SI{60}{nmi}) and the search settings of \cref{tab:numerics}, except that states are skipped against an estimate on knots \SI{48}{h} rather than \SI{24}{h} apart and, with a kite, within 10\,\% and then 20\,\% rather than 20\,\% and then 40\,\%. The settings of \cref{tab:numerics} take about 1.3 times the computing time of these and lose no more than 0.01 points of cost saving by skipping states, against up to 0.27 points with these. The reference is finer in both: stages \SI{45}{nmi} and points \SI{30}{nmi} apart, searched with bins of \SI{1.5}{h}, every second speed and the margins of the first row of \cref{tab:routing_convergence}, 13.6 times as slow as the results' corridor and search. Refining only the stages or only the points gains the kite little and lowers the wing sails' and rotors' saving, so the two are halved together. At the coarser corridors the search settings matter little against the spacing: at stages \SI{180}{nmi} apart the finer search recovers 0.2 of the kite's 2.2 points. At the corridor of the results the two errors are of a size: the finer search raises the kite's cost saving by 0.46 points and the rotors' by 0.11, half the spacing by 0.53 and 0.25, and both together by 1.26 and 0.48, more than the sum; none is corrected. The reference is itself not converged: with the finer search the kite's gain per halving of the spacing falls from 2.35 to 1.22 to 0.81 points and the rotors' from 1.75 to 0.71 to 0.37, so the kite's error falls more slowly than the rotors'.
 
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Change of the cost saving per tonne-kilometre, in points, against the reference, over the two ships and three routes: the mean over the six pairs of ship and route, and in brackets the largest change on one pair, for the kite, the wing sails and the rotors, with the computing time as a multiple of that of the base run of the results. Stages 360 and points \SI{120}{nmi} apart found no passage for one of the rotor ships.}
+\caption{Change of the cost saving per tonne-kilometre, in points, against the reference, over the two ships and three routes: the mean over the six pairs of ship and route, and in brackets the largest change on one pair, for the kite, the wing sails and the rotors, with the computing time as a multiple of that of the base run of the results. Stages 360 and points \SI{120}{nmi} apart found no passage for one of the rotor ships, and stages 720 and points \SI{480}{nmi} apart none for the kite and rotor ships on one pair. The coarsest and the finest rows were timed on a later commit than the rest, which routes the same passages, each against the base run of its own commit.}
 \label{tab:routing_grid}
 \begin{tabular}{@{}llrccc@{}}
 \toprule
 Stages, points [nmi] & Search & Time & Kite & Wing sails & Rotors \\
 \midrule
-360, 240 & results & 0.23 & $-3.83$ (6.45) & $-1.07$ (2.76) & $-2.49$ (4.37) \\
-180, 120 & results & 0.46 & $-1.41$ (2.79) & $-0.56$ (1.90) & $-0.82$ (1.79) \\
-90, 60 & results & 1.00 & $-0.46$ (0.88) & $-0.07$ (0.21) & $-0.11$ (0.39) \\
-45, 30 & results & 1.88 & $+0.07$ (1.12) & $-0.12$ (0.47) & $+0.13$ (1.32) \\
-180, 240 & results & 0.24 & $-2.89$ (4.38) & $-1.19$ (2.38) & $-2.35$ (3.65) \\
-360, 120 & results & 0.36 & $-3.83$ (7.42) & $-1.65$ (3.44) & $-2.64$ (4.52) \\
-90, 120 & results & 0.46 & $-1.34$ (2.66) & $-0.77$ (1.51) & $-1.22$ (2.20) \\
-180, 60 & results & 0.52 & $-1.53$ (2.32) & $-1.08$ (2.34) & $-1.69$ (3.14) \\
+720, 480 & results & 0.13 & $-5.62$ (11.06) & $-1.81$ (5.20) & $-3.80$ (6.28) \\
+360, 240 & results & 0.23 & $-4.64$ (8.21) & $-1.10$ (3.35) & $-2.86$ (5.70) \\
+180, 120 & results & 0.46 & $-2.22$ (4.55) & $-0.58$ (2.50) & $-1.19$ (3.12) \\
+90, 60 & results & 1.00 & $-1.26$ (2.39) & $-0.09$ (0.74) & $-0.48$ (1.72) \\
+45, 30 & results & 1.88 & $-0.73$ (1.59) & $-0.14$ (0.31) & $-0.23$ (0.40) \\
+180, 240 & results & 0.24 & $-3.70$ (5.79) & $-1.21$ (2.98) & $-2.72$ (3.91) \\
+360, 120 & results & 0.36 & $-4.64$ (9.19) & $-1.68$ (4.04) & $-2.82$ (4.63) \\
+90, 120 & results & 0.46 & $-2.15$ (4.06) & $-0.79$ (1.54) & $-1.58$ (2.30) \\
+180, 60 & results & 0.52 & $-2.34$ (4.00) & $-1.10$ (2.94) & $-2.06$ (4.09) \\
 \addlinespace
-90, 60 & bins of \SI{1.5}{h} & 1.64 & $-0.13$ (0.26) & $-0.08$ (0.28) & $+0.03$ (0.34) \\
-90, 60 & every second speed & 1.36 & $-0.37$ (0.72) & $-0.07$ (0.19) & $-0.18$ (0.56) \\
-90, 60 & wider margins & 1.90 & $-0.33$ (0.85) & $-0.01$ (0.21) & $-0.04$ (0.14) \\
-90, 60 & all three: the reference & 4.59 & $+0.00$ (0.00) & $+0.00$ (0.00) & $+0.00$ (0.00) \\
-180, 120 & bins of \SI{1.5}{h} & 0.75 & $-1.31$ (2.85) & $-0.54$ (2.02) & $-0.84$ (1.86) \\
-180, 120 & every second speed & 0.63 & $-1.49$ (3.54) & $-0.56$ (2.02) & $-0.87$ (1.73) \\
-180, 120 & wider margins & 0.99 & $-1.36$ (2.79) & $-0.53$ (1.90) & $-0.77$ (1.78) \\
-180, 120 & all three & 1.91 & $-1.22$ (2.87) & $-0.47$ (1.88) & $-0.71$ (1.69) \\
-360, 240 & all three & 0.83 & $-3.57$ (6.03) & $-1.11$ (2.94) & $-2.46$ (4.23) \\
+90, 60 & bins of \SI{1.5}{h} & 1.64 & $-0.94$ (1.96) & $-0.10$ (0.74) & $-0.34$ (1.59) \\
+90, 60 & every second speed & 1.36 & $-1.18$ (2.43) & $-0.10$ (0.64) & $-0.55$ (1.40) \\
+90, 60 & wider margins & 1.90 & $-1.14$ (2.32) & $-0.04$ (0.75) & $-0.41$ (1.41) \\
+90, 60 & all three & 4.59 & $-0.81$ (1.77) & $-0.03$ (0.60) & $-0.37$ (1.33) \\
+180, 120 & bins of \SI{1.5}{h} & 0.75 & $-2.12$ (4.61) & $-0.56$ (2.62) & $-1.20$ (3.19) \\
+180, 120 & every second speed & 0.63 & $-2.29$ (5.30) & $-0.59$ (2.62) & $-1.23$ (3.06) \\
+180, 120 & wider margins & 0.99 & $-2.16$ (4.55) & $-0.56$ (2.49) & $-1.13$ (3.12) \\
+180, 120 & all three & 1.91 & $-2.03$ (4.64) & $-0.49$ (2.48) & $-1.07$ (3.03) \\
+360, 240 & all three & 0.83 & $-4.38$ (7.79) & $-1.14$ (3.54) & $-2.82$ (5.57) \\
+45, 30 & all three: the reference & 13.56 & $0.00$ (0.00) & $0.00$ (0.00) & $0.00$ (0.00) \\
 \bottomrule
 \end{tabular}
 \end{table}
