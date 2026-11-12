@@ -1950,19 +1950,11 @@ combination_rigs = (("kite", "best kite", palette[1]),
     ("kite+rotors", "best kite and rotors together", palette[4]))
 
 """
-    pair_gain(saving)
-
-Extra saving [% points] of the best pair over the better single rig, from a Dict `saving`
-of [`rig_savings`](@ref) over the rigs of `combination_rigs`.
-"""
-pair_gain(saving) = saving["kite+rotors"] - max(saving["kite"], saving["rotors"])
-
-"""
     combination_figure()
 
 Cost saving against no rig of the best kite, the best rotors and the best of the pairs on
-each class and drive of the base sample of combination_pairs.csv, and that pair's saving
-over the better single rig against twice its noise between the base and rerun samples, each
+each class and drive of combination_pairs.csv, and that pair's saving over the better
+single rig against twice its noise, the root mean square of [`pair_gain_errors`](@ref), each
 as the mean over the routes with their range. Prints the means, the share of the summed
 savings the pair keeps and the noise.
 """
@@ -1979,25 +1971,22 @@ function combination_figure()
     linkxaxes!(saving_axis, gain_axis)
     hidexdecorations!(saving_axis)
     rowsize!(figure.layout, 2, Relative(0.4))
-    savings(sample, ship, drive, route) = rig_savings(table, first.(combination_rigs),
-        "sample" => sample, "ship" => ship, "route" => string(route), "drive" => drive)
-    differences = [pair_gain(savings("rerun", ship, drive, route)) -
-                   pair_gain(savings("base", ship, drive, route))
-                   for (ship, drive) in groups for route in pair_routes]
-    gain_noise = rerun_noise(differences)
+    errors = pair_gain_errors(read_table(data_file("combination_departures.csv")))
+    gain_noise = sqrt(mean(abs2, errors))
     hspan!(gain_axis, -2gain_noise, 2gain_noise; color=(:gray50, 0.25))
     for (group, (ship, drive)) in enumerate(groups)
-        base = [savings("base", ship, drive, route) for route in pair_routes]
+        savings = [rig_savings(table, first.(combination_rigs), "ship" => ship,
+                       "route" => string(route), "drive" => drive) for route in pair_routes]
         for (k, (rig, _, colour)) in enumerate(combination_rigs)
-            values = [saving[rig] for saving in base]
+            values = [saving[rig] for saving in savings]
             range_bar!(saving_axis, group + 0.27(k - 2), values, 0.25, colour)
         end
-        gains = pair_gain.(base)
+        gains = pair_gain.(savings)
         range_bar!(gain_axis, group, gains, 0.4, palette[4])
-        print_combination(ship, drive, base, gains)
+        print_combination(ship, drive, savings, gains)
     end
-    @printf("  noise of the extra saving %.2f points, differences %.2f to %.2f\n",
-        gain_noise, extrema(differences)...)
+    @printf("  noise of the extra saving %.2f points, %.2f to %.2f by design\n",
+        gain_noise, extrema(errors)...)
     for axis in (saving_axis, gain_axis)
         hlines!(axis, 0; color=:gray50, linewidth=0.6)
     end

@@ -3016,9 +3016,21 @@ end
     @test ShipDesign(:vlsfo, 100.0; kite_area=800.0).kite_area == 800
 end
 
-@testset "noise is the standard deviation behind a difference of two samples" begin
-    @test PaperData.rerun_noise([3.0, -3.0]) ≈ sqrt(9 / 2)
-    @test PaperData.rerun_noise(zeros(4)) == 0
+@testset "a pair's extra saving has its standard error over the departures as noise" begin
+    rows = [(route, rig, kite_area, rotor_area, cost)
+            for (route, pair_costs) in (("steady", fill(7.0, 4)), ("varying", [7, 8, 7, 8.0]))
+            for (rig, kite_area, rotor_area, costs) in (("none", 0.0, 0.0, fill(10.0, 4)),
+                ("kite", 900.0, 0.0, fill(9.0, 4)), ("rotors", 0.0, 400.0, fill(8.0, 4)),
+                ("kite+rotors", 500.0, 400.0, fill(9.0, 4)),
+                ("kite+rotors", 900.0, 200.0, pair_costs))
+            for cost in costs]
+    column(k) = getindex.(rows, k)
+    table = Dict("ship" => fill("Handysize", length(rows)),
+        "drive" => fill("ammonia", length(rows)), "route" => column(1), "rig" => column(2),
+        "kite_area" => column(3), "rotor_area" => column(4), "cost" => column(5))
+    steady, varying = PaperData.pair_gain_errors(table)
+    @test steady ≈ 0 atol = 1e-12
+    @test varying ≈ sqrt(100 / 3) / 2
 end
 
 @testset "the development study keeps 5 to 20 ranged inputs, each with a reason" begin

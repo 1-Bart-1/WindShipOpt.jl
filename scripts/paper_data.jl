@@ -2608,12 +2608,55 @@ function pair_sizes(kite, rotors, kites, rotor_bounds)
 end
 
 """
-    rerun_noise(differences)
+    pair_gain_errors(table)
 
-Standard deviation [% points] of one result, from `differences` between pairs of results
-that differ only by which departures they sail.
+Jackknife standard error [% points] over the departures of the extra saving of the best
+kite-and-rotor pair over the better single rig, per ship, drive and route of the
+per-departure `table` of combination_departures.csv.
 """
-rerun_noise(differences) = sqrt(mean(abs2, differences) / 2)
+function pair_gain_errors(table)
+    errors = Float64[]
+    for (ship, drive, route) in unique(zip(table["ship"], table["drive"], table["route"]))
+        costs = design_costs(table, "ship" => ship, "drive" => drive, "route" => route)
+        push!(errors, jackknife_error(indices -> departure_pair_gain(costs, indices),
+            length(last(first(costs)))))
+    end
+    return errors
+end
+
+"(rig, cost per departure) of each design among the rows of `table` matching `conditions`"
+function design_costs(table, conditions...)
+    group = rows(table, conditions...)
+    designs = unique(zip(table["rig"][group], table["kite_area"][group],
+        table["rotor_area"][group]))
+    return [(rig, table["cost"][rows(table, conditions..., "rig" => rig,
+                "kite_area" => kite_area, "rotor_area" => rotor_area)])
+            for (rig, kite_area, rotor_area) in designs]
+end
+
+"""
+    pair_gain(saving)
+
+Extra saving [% points] of the best pair over the better single rig, from a Dict `saving`
+of the savings [%] of "kite", "rotors" and "kite+rotors".
+"""
+pair_gain(saving) = saving["kite+rotors"] - max(saving["kite"], saving["rotors"])
+
+"""
+    departure_pair_gain(costs, indices)
+
+[`pair_gain`](@ref) on the mean cost over the departures `indices`, from `costs`, (rig,
+cost per departure) of each design including the ship without a rig.
+"""
+function departure_pair_gain(costs, indices)
+    reference = mean(only(cost for (rig, cost) in costs if rig == "none")[indices])
+    savings = Dict{String, Float64}()
+    for (rig, cost) in costs
+        saving = percent_saving(mean(cost[indices]), reference)
+        savings[rig] = max(get(savings, rig, -Inf), saving)
+    end
+    return pair_gain(savings)
+end
 
 """
     combination_data()
@@ -2621,8 +2664,7 @@ rerun_noise(differences) = sqrt(mean(abs2, differences) / 2)
 Each class of `pair_classes` on each of `pair_routes` on VLSFO and e-ammonia without a rig
 and at each size of [`pair_sizes`](@ref) around its best single sizes in classes.csv, its
 kites among those classes.csv sails, the rotors behind the kite's launch mast in a pair:
-combination_pairs.csv, once on the sampled departures and once, as sample "rerun", on
-[`rerun_departures`](@ref).
+combination_pairs.csv, and the cost of each departure: combination_departures.csv.
 """
 function combination_data()
     classes_table = read_table(data_file("classes.csv"))
@@ -2642,11 +2684,10 @@ function combination_data()
                 rotor_area))
         end
     end
-    samples = [("base", sampled_departures()), ("rerun", rerun_departures())]
-    write_trips("combination_pairs.csv",
-        [merge(case, (; sample)) for (sample, _) in samples for case in cases],
-        reduce(vcat, [round_trips(cases, departures) for (_, departures) in samples]),
-        :sample, :ship, :route, :drive, :rig, :kite_area, :rotor_area)
+    trips = round_trips(cases, sampled_departures())
+    labels = (:ship, :route, :drive, :rig, :kite_area, :rotor_area)
+    write_trips("combination_pairs.csv", cases, trips, labels...)
+    write_departures("combination_departures.csv", cases, trips, labels...)
 end
 
 "routes of the tow point study: westerlies ahead out and astern home, and trade winds abeam"
