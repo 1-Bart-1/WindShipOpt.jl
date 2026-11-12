@@ -1332,26 +1332,6 @@ function published_table()
 end
 
 """
-    speed_size_saving(table, ship, drive, rig, area, pricing, knots)
-
-Over both routes of speed_size.csv, what `area` [m^2] of `rig` saves at `knots` [kn] against
-the ship without a rig at that speed: fuel [%], fuel [GJ per round trip], cost [%], cost
-[USD per 1000 tonne-km], and the rig's mean share of sea time flown; `nothing` where a
-passage failed.
-"""
-function speed_size_saving(table, ship, drive, rig, area, pricing, knots)
-    case(rig_name, rig_area, rig_pricing) = rows(table, "ship" => ship, "drive" => drive,
-        "knots" => knots, "rig" => rig_name, "area" => rig_area, "pricing" => rig_pricing)
-    rigged, bare = case(rig, area, pricing), case("none", 0.0, "priced")
-    (isempty(rigged) || length(rigged) != length(bare)) && return nothing
-    fuel_saved = mean(table["fuel"][bare] .- table["fuel"][rigged])
-    cost_saved = mean(table["cost"][bare] .- table["cost"][rigged])
-    return (fuel_percent=100fuel_saved / mean(table["fuel"][bare]), fuel=fuel_saved,
-        cost_percent=100cost_saved / mean(table["cost"][bare]), cost=1e3cost_saved,
-        flight=100mean(table["flight_share"][rigged]))
-end
-
-"""
     speed_size_table()
 
 Kite savings by held ship speed on each ship and fuel of speed_size.csv: fuel saved by the
@@ -1372,16 +1352,15 @@ function speed_size_table()
         println(io, "\\midrule")
         lines = []
         for grid in speed_size_grid, drive in string.(grid.drives), knots in grid.speeds
-            saving(area, pricing) = speed_size_saving(table, grid.ship, drive, "kite", area,
-                pricing, knots)
+            routes = speed_size_routes(table, grid, drive, knots)
+            saving(area, pricing) = speed_size_saving(table, grid.ship, drive, routes, "kite",
+                area, pricing, knots)
             free = [saving(area, "free") for area in grid.kites]
             priced = [saving(area, "priced") for area in grid.kites]
             (any(isnothing, free) || any(isnothing, priced)) && continue
             most_fuel = argmax(i -> free[i].fuel, eachindex(free))
             most_cost = argmax(i -> priced[i].cost_percent, eachindex(priced))
-            bare = rows(table, "ship" => grid.ship, "drive" => drive, "knots" => knots,
-                "rig" => "none")
-            push!(lines, (; grid.ship, drive, knots, bare=mean(table["fuel"][bare]),
+            push!(lines, (; grid.ship, drive, knots, bare=free[1].bare_fuel,
                 smallest=free[1], most_fuel=free[most_fuel],
                 fuel_area=grid.kites[most_fuel], cost_area=grid.kites[most_cost],
                 cost=priced[most_cost].cost_percent,
@@ -1424,8 +1403,9 @@ fidelity_parts() = [
         error="peak in head waves within the scatter of the data behind SNNM",
         effect=switched(:waves)),
     (part="Windage", varied="removed",
-        model="drag coefficient times the cosine of the apparent wind angle on the front " *
-              "area", error="no side force, no dependence on the deck cargo",
+        model="Blendermann's loading functions on the frontal and lateral area, with " *
+              "side force and yaw moment",
+        error="loading functions by ship type, not measured on these ships",
         effect=switched(:windage)),
     (part="Heel, leeway and rudder limits", varied="removed",
         model="steady balance; side force beyond the limits is shed by trimming the rig",
