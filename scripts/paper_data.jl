@@ -2493,6 +2493,8 @@ simplified_parts = (:calibration, :waves, :windage, :limits, :rudder)
 A new object of the type of `object` with its fields, those named in `changes` replaced.
 """
 function rebuilt(object; changes...)
+    unknown = setdiff(keys(changes), fieldnames(typeof(object)))
+    isempty(unknown) || throw(ArgumentError("$(typeof(object)) has no field $(first(unknown))"))
     fields = (get(changes, name, getfield(object, name))
               for name in fieldnames(typeof(object)))
     return typeof(object).name.wrapper(fields...)
@@ -2515,7 +2517,9 @@ function simplified_ship(ship, part)
         x = (0.0, 0.0, ship.seakeeping.x[3:end]...)
         return rebuilt(ship; seakeeping=rebuilt(ship.seakeeping; x))
     end
-    part == :windage && return rebuilt(ship; windage_drag_coefficient=0.0)
+    part == :windage &&
+        return rebuilt(ship;
+            windage=rebuilt(ship.windage; frontal_area=0.0, lateral_area=eps()))
     part == :limits &&
         return rebuilt(ship; heel_limit=Inf, leeway_limit=Inf, rudder_max_lift=Inf)
     part == :rudder && return rebuilt(ship; rudder_aspect_ratio=Inf)
@@ -3128,6 +3132,42 @@ speed_size_grid = [
     (ship="feeder container ship", drives=(:vlsfo,), speeds=(13.0, 16.0, 19.0),
         kites=(800.0, 1600.0, 3200.0, 6400.0, 12800.0),
         wings=(), rotors=())]
+
+"""
+    speed_size_routes(table, grid, drive, knots)
+
+Routes of speed_size.csv on which, at `knots` [kn] on `drive`, the ship without a rig and
+every kite of `grid` both free and priced have a round trip.
+"""
+function speed_size_routes(table, grid, drive, knots)
+    cases = [("none", 0.0, "priced");
+        vec([("kite", area, pricing) for area in grid.kites, pricing in ("free", "priced")])]
+    sailed = [Set(table["route"][rows(table, "ship" => grid.ship, "drive" => drive,
+                  "knots" => knots, "rig" => rig, "area" => area, "pricing" => pricing)])
+              for (rig, area, pricing) in cases]
+    return collect(intersect(sailed...))
+end
+
+"""
+    speed_size_saving(table, ship, drive, routes, rig, area, pricing, knots)
+
+Over `routes` of speed_size.csv, what `area` [m^2] of `rig` saves at `knots` [kn] against
+the ship without a rig at that speed: fuel [%], fuel [GJ per round trip], cost [%], cost
+[USD per 1000 tonne-km], the rig's mean share of sea time flown, and the bare ship's fuel
+[GJ per round trip]; `nothing` without a route.
+"""
+function speed_size_saving(table, ship, drive, routes, rig, area, pricing, knots)
+    isempty(routes) && return nothing
+    case(rig_name, rig_area, rig_pricing) = filter(i -> table["route"][i] in routes,
+        rows(table, "ship" => ship, "drive" => drive, "knots" => knots, "rig" => rig_name,
+            "area" => rig_area, "pricing" => rig_pricing))
+    rigged, bare = case(rig, area, pricing), case("none", 0.0, "priced")
+    fuel_saved = mean(table["fuel"][bare] .- table["fuel"][rigged])
+    cost_saved = mean(table["cost"][bare] .- table["cost"][rigged])
+    return (fuel_percent=100fuel_saved / mean(table["fuel"][bare]), fuel=fuel_saved,
+        cost_percent=100cost_saved / mean(table["cost"][bare]), cost=1e3cost_saved,
+        flight=100mean(table["flight_share"][rigged]), bare_fuel=mean(table["fuel"][bare]))
+end
 
 """
     speed_size_case(ship, drive, route, knots, rig, area, pricing)
