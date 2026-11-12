@@ -3005,8 +3005,7 @@ end
     @test pairs == [(1000.0, 800.0), (500.0, 800.0), (1000.0, 450.0)]
     noise_names = first.(PaperData.pair_noise_variants())
     @test filter(size -> occursin(" rerun ", size[1]), sizes) ==
-          [[("kite rerun $name", 2000.0, 0.0) for name in noise_names];
-           [("kite+rotors rerun $name", 1000.0, 800.0) for name in noise_names]]
+          [("kite+rotors rerun $name", 1000.0, 800.0) for name in noise_names]
     small_kite = PaperData.pair_sizes(500.0, 900.0, (500.0, 200.0), (16000.0, 800.0))
     @test count(size -> size[1] == "kite+rotors", small_kite) == 2
 end
@@ -3014,10 +3013,9 @@ end
 @testset "a rerun of a pair differs from it only in the input of its name" begin
     tether, turn = PaperData.pair_noise_variants()
     @test PaperData.pair_case_assumptions("kite+rotors") === PaperData.assumptions
-    @test PaperData.pair_case_assumptions("kite rerun $(tether[1])")[:tether_length_ratio] ≈
-          last(tether)[:tether_length_ratio]
-    @test PaperData.pair_case_assumptions("kite rerun $(turn[1])")[:kite_min_turn_radius] ≈
-          last(turn)[:kite_min_turn_radius]
+    rerun(variant) = PaperData.pair_case_assumptions("kite+rotors rerun $(variant[1])")
+    @test rerun(tether)[:tether_length_ratio] ≈ last(tether)[:tether_length_ratio]
+    @test rerun(turn)[:kite_min_turn_radius] ≈ last(turn)[:kite_min_turn_radius]
 end
 
 @testset "a ship with an undefined rig area is refused, never sailed with no rig" begin

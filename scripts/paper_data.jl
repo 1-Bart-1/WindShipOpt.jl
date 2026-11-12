@@ -2608,18 +2608,16 @@ end
     pair_sizes(kite, rotors, lower, upper)
 
 Sizes as (rig, kite area, rotor area) [m^2] around the best single `kite` and `rotors`: each
-alone, three pairs held to the (kite, rotors) bounds `lower` and `upper`, and for the kite
-and the first pair one rerun of each of [`pair_noise_variants`](@ref), `rig` holding
-" rerun " and its name.
+alone, three pairs held to the (kite, rotors) bounds `lower` and `upper`, and for the first
+pair one rerun of each of [`pair_noise_variants`](@ref), `rig` holding " rerun " and its
+name.
 """
 function pair_sizes(kite, rotors, lower, upper)
     pairs = unique([(clamp(kite_area, lower[1], upper[1]),
                         clamp(rotor_area, lower[2], upper[2]))
                     for (kite_area, rotor_area) in
                         ((kite / 2, rotors), (kite / 4, rotors), (kite / 2, rotors / 2))])
-    rerun_of = (("kite", kite, 0.0), ("kite+rotors", first(pairs)...))
-    reruns = [("$rig rerun $name", kite_area, rotor_area)
-              for (rig, kite_area, rotor_area) in rerun_of
+    reruns = [("kite+rotors rerun $name", first(pairs)...)
               for name in first.(pair_noise_variants())]
     return [("kite", kite, 0.0); ("rotors", 0.0, rotors);
         [("kite+rotors", pair...) for pair in pairs]; reruns]
@@ -3230,8 +3228,7 @@ rigid_high_favours = (:rigid_lifetime, :rigid_hover_max_wave_height, :rigid_hove
     rigid_assumptions(scenario, unit)
 
 The assumptions of the rigid kite study at a kite of `unit` [m^2]: at base values for
-"base" and for "optimistic" with every
-rigid kite input at the bound that favours it.
+"base", and for "optimistic" with every rigid kite input at the bound that favours it.
 """
 function rigid_assumptions(scenario, unit)
     base = with_value(assumptions, :rigid_unit_area, unit)
@@ -3258,8 +3255,8 @@ function rigid_kite_data()
     for name in pair_classes, drive in (:vlsfo, :ammonia), route in pair_routes
         class = ship_classes()[name]
         hull = Hull(class, assumptions)
-        push!(cases, trip_case(ShipDesign(drive, class); route, ship=name, drive, rig="none",
-            count=0, unit=0.0))
+        push!(cases, trip_case(ShipDesign(drive, class); route, ship=name, drive,
+            rig="none", count=0, unit=0.0))
         for rig in rig_names
             area = best_area(classes_table, name, string(route), string(drive), rig)
             push!(cases, trip_case(ShipDesign(drive, class; rig_size(rig, area)...); route,

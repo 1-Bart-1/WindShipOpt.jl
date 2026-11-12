@@ -2204,8 +2204,8 @@ end
 """
     print_rigid_kite(table, ship, drive, savings)
 
-Print for one ship and drive the mean saving [%] of each rig over the routes, the routes on
-which rigid kites lead and the most frequent best fleet of each scenario.
+Print for one ship and drive the mean saving [%] of each rig over the routes, and for each
+scenario its best fleet on each route and the routes on which it leads.
 """
 function print_rigid_kite(table, ship, drive, savings)
     @printf("  %s, %s:", ship, drive)
@@ -2225,7 +2225,7 @@ function print_rigid_kite(table, ship, drive, savings)
         leads = count(saving -> saving[scenario] > maximum(saving[rig]
                 for rig in ("kite", "wings", "rotors")), savings)
         println("    $(paper_name(scenario)): best fleets ", join(best, ", "),
-            "; leads on ", leads, " of ", length(route_names), " routes")
+            "; leads on ", leads, " of ", length(pair_routes), " routes")
     end
 end
 
