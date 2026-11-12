@@ -69,7 +69,7 @@ forecast_source(plan) =
     plan === :perfect_replan ? PerfectForecast() :
     plan === :expected ? ExpectedForecast(forecast_archive, forecast_wind_error) :
     haskey(grid_plans, plan) ?
-    ReplannedForecast(forecast_source(grid_plans[plan]); grid=planning_grid) :
+    ReplannedForecast(forecast_source(grid_plans[plan]); grid=planning_grid()) :
     forecast_plans[plan]
 
 """
@@ -1166,7 +1166,7 @@ grid_plans = Dict(:grid_perfect => :perfect_replan, :grid => true,
 grid_spacing = (ocean_spacing=240.0, lateral_spacing=60.0)
 
 "grid that [`grid_plans`](@ref) plan on: their corridor near the ship, coarser beyond"
-planning_grid = PlanningGrid(mask)
+planning_grid() = PlanningGrid(mask)
 
 "[`forecast_study_plans`](@ref) that change only what a kite does"
 kite_only_plans = (:held_kite, :kite_margin)
