@@ -49,7 +49,7 @@ function force_balance_figure()
     speed, wind, angle = 10.5KNOT, 10.0, deg2rad(90)
     rigs = (("(a) kite 800 m²", (kite_area=800.0,)), ("(b) wings 800 m²",
         (wing_area=800.0,)), ("(c) rotors 400 m²", (rotor_area=400.0,)))
-    figure = Figure(size=(page_width, 270))
+    figure = Figure(size=(page_width, 225))
     scale = 0.18
     for (column, (title, area)) in enumerate(rigs)
         ship = Ship(ShipDesign(:vlsfo, 140.0; area...), assumptions)
@@ -63,9 +63,9 @@ function force_balance_figure()
         rudder = WindShipOpt.rudder_side_force(hull, total)
         resistance = thrust + total.thrust
         stern = -hull.length / 2
-        axis = Axis(figure[1, column]; aspect=DataAspect(), title=@sprintf(
-            "%s\nleeway %.1f°, heel %.1f°", title, rad2deg(balance.leeway),
-            rad2deg(balance.heel)))
+        axis = Axis(figure[1, column]; aspect=DataAspect(), title=latex_units(title),
+            subtitle=@sprintf("leeway %.1f°, heel %.1f°", rad2deg(balance.leeway),
+                rad2deg(balance.heel)))
         hidedecorations!(axis)
         hidespines!(axis)
         poly!(axis, hull_outline(hull.length, hull.beam); color=:gray90,
@@ -73,8 +73,10 @@ function force_balance_figure()
         side = leeward * force.side / 1e3
         draw_rig!(axis, ship.rig, hull, Vec2f(side, force.thrust / 1e3))
         rig_origin = (0.0, force.yaw_moment / force.side)
+        tethered = ship.rig isa KiteRig
         force_arrow!(axis, rig_origin, (side, force.thrust / 1e3), "rig"; scale,
-            color=palette[1], align=(:center, :bottom), offset=(0, 2))
+            color=palette[1], align=(:right, tethered ? :top : :bottom),
+            offset=(-2, tethered ? -2 : 2))
         wind_vector = (leeward * wind_load.side / 1e3, wind_load.thrust / 1e3)
         wind_origin = (hull.beam / 2 - wind_vector[1] * scale,
             wind_load.yaw_moment / wind_load.side)
@@ -92,11 +94,11 @@ function force_balance_figure()
         force_arrow!(axis, (-hull.beam / 4, stern - thrust * scale / 1e3),
             (0.0, thrust / 1e3), "propeller"; scale, color=palette[2],
             align=(:right, :top), offset=(0, -2), at_tail=true)
-        arrows2d!(axis, [Point2f(88, -35)], [Vec2f(-25, 0)]; color=:gray50,
+        arrows2d!(axis, [Point2f(120, 100)], [Vec2f(-25, 0)]; color=:gray50,
             shaftwidth=1.3, tipwidth=6, tiplength=6)
-        text!(axis, 88, -35; text=@sprintf("true wind\n%.0f m/s", wind),
+        text!(axis, 120, 100; text=@sprintf("true wind\n%.0f m/s", wind),
             align=(:right, :top), offset=(0, -3), fontsize=pt(8), color=:gray50)
-        limits!(axis, -82, 98, stern - 62, hull.length / 2 + 25)
+        limits!(axis, -112, 132, stern - 62, hull.length / 2 + 45)
     end
     save(joinpath(figures, "force_balance.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -104,12 +106,12 @@ end
 """
     draw_rig!(axis, rig, hull, force)
 
-Plan view of `rig` on `hull`: a kite's tether along its horizontal `force` [x and y], wings
-as their chords, rotors as circles.
+Plan view of `rig` on `hull`: the first 80 m of a kite's tether along its horizontal
+`force` [x and y], wings as their chords, rotors as circles.
 """
 function draw_rig!(axis, rig::KiteRig, hull, force)
     attach = Point2f(0, rig.attach_position)
-    lines!(axis, [attach, attach + 200 * force / hypot(force...)]; color=:gray60,
+    lines!(axis, [attach, attach + 80 * force / hypot(force...)]; color=:gray60,
         linewidth=0.75, linestyle=:dash)
     scatter!(axis, [attach]; color=:black, markersize=4)
 end
@@ -251,8 +253,8 @@ function ship_classes_figure()
                 isnothing(rig) || draw_side_rig!(axis, rig, hull, offset)
             end
             text!(axis, offset[1] - hull.length / 2, y - hull.draft;
-                text=@sprintf("%.0f m²", area), align=(:left, :top), offset=(0, -1),
-                fontsize=pt(7), color=:gray40)
+                text=latex_units(@sprintf("%.0f m²", area)), align=(:left, :top),
+                offset=(0, -1), fontsize=pt(7), color=:gray40)
         end
         text!(axis, -0.03longest, y; text=name, align=(:right, :center), fontsize=pt(8))
     end

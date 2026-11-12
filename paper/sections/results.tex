@@ -50,12 +50,12 @@ A rig narrows the gap between the fuels but does not close it. The cost premium 
 
 Payback is the discounted time until a rig's yearly saving in running cost, before its own capital charges, repays its price at the discount rate (\cref{sec:cost_model}). On e-ammonia the kite pays back in \tbd{0.7 to 1.8} years, the rotors in \tbd{1.8 to 4.0} and the wing sails in \tbd{2.4 to 4.5} (\cref{tab:payback}). On VLSFO the kite takes \tbd{2.0 to 6.0} years, the rotors \tbd{4.3 to 14} and the wing sails \tbd{7.6 to 23}, and on three classes the wing sails never pay back.
 
-A rig sized for the lowest cost leaves fuel unsaved that a larger rig would save at a small extra cost (\cref{fig:abatement}). Where a curve returns to the cost of the ship without a rig, the rig saves the most fuel it can at no extra cost: \tbd{fuel saved at break-even per rig and drive}. On VLSFO the slope beyond that point is the cost of the CO$_2$ abated, \tbd{USD per tonne}.
+A rig sized for the lowest cost leaves fuel unsaved that a larger rig would save at a small extra cost (\cref{fig:abatement}). The most fuel energy a rig saves at no extra cost is where its curve returns to the cost of the ship without a rig, or its largest size where it never does. On the \SI{140}{m} ship that is \tbd{26}\,\% with the kite and \tbd{34}\,\% with the rotors on VLSFO, where the wing sails never pay, and \tbd{38}, \tbd{31} and \tbd{45}\,\% with the kite, wing sails and rotors on e-ammonia, the last two at their largest size. On the Kamsarmax the kite saves \tbd{22}\,\% on VLSFO and \tbd{34}\,\% on e-ammonia, and the wing sails and rotors still pay at their largest size, saving \tbd{27} and \tbd{46}\,\% on VLSFO and \tbd{44} and \tbd{52}\,\% on e-ammonia. Beyond that point only the rotors on the \SI{140}{m} VLSFO ship save more fuel at a cost: their next size abates CO$_2$ at \tbd{USD~220} per tonne. A larger kite saves less fuel there, and the other rigs have no larger size.
 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{abatement}
-\caption{Cost per tonne-kilometre against the fuel energy saved, both relative to the same ship on the same drive without a rig, for every size of each rig on the \SI{140}{m} ship to Guadeloupe (top) and a Kamsarmax bulk carrier to Tubarão (bottom), one column per drive. Markers grow with rig area, up to the largest that fits on deck. In the shaded region the rig costs less than no rig. Where a larger kite flies a smaller share of the time, it saves less fuel and its line turns back.}
+\caption{Cost per tonne-kilometre against the fuel energy saved, both relative to the same ship on the same drive without a rig, for every size of each rig on the \SI{140}{m} ship to Guadeloupe (top) and a Kamsarmax bulk carrier to Tubarão (bottom), one column per drive. Markers grow with rig area, up to the largest that fits on deck. In the shaded region the rig costs less than no rig. Where a larger kite saves less fuel its line turns back: it flies a smaller share of the time, or the ship spends its pull on speed rather than fuel.}
 \label{fig:abatement}
 \end{figure*}
 
@@ -133,7 +133,7 @@ On a voyage the router turns this thrust into fuel or speed. \Cref{fig:passage} 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{passage}
-\caption{One outbound passage to Guadeloupe, departing on 1 January 2017, of a \SI{140}{m} e-ammonia ship without a rig and with a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails or \SI{800}{m^2} of rotors. (a) The routed tracks through the corridor's nodes (dots), the great circle dotted, over the \SI{10}{m} wind six days after departure. (b) Speed through the water, (c) rig thrust on a logarithmic scale, left out below \SI{5}{kN}, and (d) fuel power, every three hours of the passage.}
+\caption{One outbound passage to Guadeloupe, departing on 1 January 2017, of a \SI{140}{m} e-ammonia ship without a rig and with a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails or \SI{800}{m^2} of rotors. (a) The routed tracks through the corridor's nodes (dots), the great circle dotted, over the \SI{10}{m} wind six days after departure. (b) Speed through the water, (c) rig thrust on a logarithmic scale, left out below \SI{5}{kN}, and (d) fuel power, every three hours of the passage. The router holds one speed over each edge of the corridor, so the speed changes in steps and stays flat over a long edge, as where the kite alone pulls the ship and the engine runs at its least power. The kite lands before arrival, so the ship ends on its engine alone.}
 \label{fig:passage}
 \end{figure*}
 
@@ -165,7 +165,7 @@ A deck rig's thrust grows with the square of the apparent wind, so the stronger 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{season}
-\caption{\tbd{Draft numbers.} Cost saving of each departure against the same ship without a rig, over its departure date in the year, for the \SI{140}{m} e-ammonia ship on the six routes, each rig at its best size over the year. Each point is one departure from the years 2017 to 2019, costed on the ship of the whole year.}
+\caption{\tbd{Draft numbers.} Cost saving of each departure against the same ship without a rig, over its departure date in the year, for the \SI{140}{m} e-ammonia ship on the six routes, each rig at its best size over the year. Each point is one departure from the years 2017 to 2019, costed on the ship of the whole year. A rig without a round trip on a route, the route's every departure failing, is named in its panel.}
 \label{fig:season}
 \end{figure*}
 
@@ -206,7 +206,7 @@ The speed is bought with part of the fuel saving. In the time of the ship withou
 
 \begin{table*}[tbp]
 \centering
-\caption{Fuel saved and time saved by the reference rigs on the \SI{140}{m} ship \tbd{to Guadeloupe, and for the wing sails the mean of Guadeloupe and New York}, against the ship without a rig on the same terms: at a fixed speed, in the same time as the ship without a rig routed for cost, and with speed set by cost. A fixed-speed ship drops to the highest of its routing speeds it can hold where it cannot hold that speed, which a rig does more often, so its time changes too. \tbd{Draft run.} Savings are shaded blue, losses red, the deeper the larger.}
+\caption{Fuel saved and time saved by the reference rigs on the \SI{140}{m} ship \tbd{to Guadeloupe, and for the wing sails the mean of Guadeloupe and New York}, against the ship without a rig on the same terms: at a fixed speed, in the same time as the ship without a rig routed for cost, and with speed set by cost. A fixed-speed ship drops to the highest of its routing speeds it can hold where it cannot hold that speed, which a rig does more often, so its time changes too. In the time of the ship without a rig, the router lowers the rigged ship's value of time until its passage takes about as long, in six bisection steps and between discrete speeds, so its time still differs by up to \tbd{2.3}\,\%; a rigged ship already slower when routed for cost keeps its own time. \tbd{Draft run.} Savings are shaded blue, losses red, the deeper the larger.}
 \label{tab:speed_terms}
 \InputIfFileExists{sections/speed_terms_table}{}{\tbd{Terms table pending: run the speed\_terms\_table step.}}
 \end{table*}
