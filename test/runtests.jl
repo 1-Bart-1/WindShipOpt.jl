@@ -1867,6 +1867,50 @@ end
     @test !isfinite(hours)
 end
 
+"""
+Whether edges of `corridor` lead from node `lateral` of its first stage to its last stage.
+"""
+function reaches_last_stage(corridor, lateral)
+    reached = falses(size(corridor.water, 2))
+    reached[lateral] = true
+    for stage in 1:(size(corridor.lat, 1) - 1)
+        ahead = falses(length(reached))
+        for node in findall(reached), step in 1:WindShipOpt.step_count(corridor)
+            isnan(corridor.edge_course[stage, node, step]) && continue
+            ahead[WindShipOpt.next_lateral(corridor, node, step)] = true
+        end
+        reached = ahead
+    end
+    return any(reached)
+end
+
+"""
+The coarse mask with land north-east of Ushant except within 20 nautical miles of the
+Channel track.
+"""
+struct ChannelMask
+    open_sea::LandMask
+    channel::Vector{NTuple{2, Float64}}
+end
+ChannelMask() = ChannelMask(north_atlantic_mask(),
+    WindShipOpt.resample(WindShipOpt.CHANNEL, 5 * WindShipOpt.NAUTICAL_MILE))
+WindShipOpt.is_land(mask::ChannelMask, lat, lon) =
+    WindShipOpt.is_land(mask.open_sea, lat, lon) || lat > 48.6 && lon > -6.5 &&
+    all(point -> WindShipOpt.distance(lat, lon, point...) > 20 * WindShipOpt.NAUTICAL_MILE,
+        mask.channel)
+
+@testset "a ship planning on a coarse far grid can reach port from every stage" begin
+    mask = ChannelMask()
+    grid = PlanningGrid(mask)
+    for leg in route_corridors(:caribbean, mask; ocean_spacing=240.0, lateral_spacing=60.0)
+        centre = WindShipOpt.centre_index(leg)
+        @test all(1:(size(leg.lat, 1) - 1)) do stage
+            planning, first_stage, _ = WindShipOpt.planning_corridor(leg, stage, grid)
+            first_stage == 1 && reaches_last_stage(planning, centre)
+        end
+    end
+end
+
 @testset "a re-planned forecast refuses an adaptation it does not know" begin
     @test ReplannedForecast(nothing; adapts=:course).adapts == :course
     @test_throws ArgumentError ReplannedForecast(nothing; adapts=:coarse)

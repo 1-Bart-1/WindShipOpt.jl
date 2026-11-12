@@ -1685,13 +1685,16 @@ PlanningGrid(mask; near_distance=480.0, far_spacing=720.0, far_row_stride=4,
     PlanningGrid(mask, near_distance, far_spacing, far_row_stride, far_sample_hours)
 
 """
-    planning_stages(along, stage, grid)
+    planning_stages(corridor, stage, grid)
 
-Numbers of the stages at distances `along` [m] a ship at `stage` plans on by the
-[`PlanningGrid`](@ref) `grid`, and how many of them lie in its near part.
+Numbers of the stages of `corridor` a ship at `stage` plans on by the
+[`PlanningGrid`](@ref) `grid`, and how many of them lie in its near part. Its far part
+keeps every stage of the corridor's fixed coastal track and the stage that joins it.
 """
-function planning_stages(along, stage, grid::PlanningGrid)
+function planning_stages(corridor::Corridor, stage, grid::PlanningGrid)
+    along = corridor.along_centre
     stage_count = length(along)
+    fixed = [count(view(corridor.water, i, :)) == 1 for i in 1:stage_count]
     last_near = clamp(searchsortedlast(along, along[stage] + grid.near_distance * NAUTICAL_MILE),
         min(stage + 1, stage_count), stage_count)
     stages = collect(stage:last_near)
@@ -1699,6 +1702,8 @@ function planning_stages(along, stage, grid::PlanningGrid)
     while last(stages) < stage_count
         next = max(searchsortedfirst(along, along[last(stages)] + spacing), last(stages) + 1)
         along[stage_count] - along[min(next, stage_count)] < spacing / 2 && (next = stage_count)
+        coast = findnext(fixed, last(stages) + 1)
+        isnothing(coast) || (next = min(next, max(coast - 1, last(stages) + 1)))
         push!(stages, min(next, stage_count))
     end
     return stages, last_near - stage + 1
@@ -1713,8 +1718,7 @@ there, and how many of its nodes along a plan the ship may sail before planning 
 planning_corridor(corridor::Corridor, stage, ::Nothing) = corridor, stage, typemax(Int)
 
 function planning_corridor(corridor::Corridor, stage, grid::PlanningGrid)
-    along = corridor.along_centre
-    stages, near = planning_stages(along, stage, grid)
+    stages, near = planning_stages(corridor, stage, grid)
     lat, lon = corridor.lat[stages, :], corridor.lon[stages, :]
     water = corridor.water[stages, :]
     centre = centre_index(corridor)
@@ -1722,7 +1726,7 @@ function planning_corridor(corridor::Corridor, stage, grid::PlanningGrid)
     for row in axes(water, 2)
         mod(row - centre, grid.far_row_stride) == 0 || (water[far, row] .= false)
     end
-    lengths = diff(along[stages])
+    lengths = diff(corridor.along_centre[stages])
     spacing = corridor.lateral_spacing
     stage_reach(i) = i < near ? min(corridor.reach, lateral_reach(lengths[i], spacing)) :
                      lateral_reach(lengths[i], spacing)
