@@ -113,7 +113,7 @@ function Corridor(coastal::Vector{NTuple{2, Float64}}, ocean::Vector{NTuple{2, F
     near_coast = [near_land(mask, lat[i], lon[i], COASTAL_CLEARANCE)
                   for i in eachindex(lat)]
     reach = lateral_reach(ocean_spacing, lateral_spacing)
-    return Corridor(lat, lon, water, edges(lat, lon, water, mask, reach)..., track_end,
+    return Corridor(lat, lon, leading_to_port(lat, lon, water, mask, reach)..., track_end,
         reshape(BitVector(near_coast), size(lat)), along_centre_line(lat, lon), reach,
         lateral_spacing * NAUTICAL_MILE, zeros(stage_count))
 end
@@ -191,6 +191,26 @@ function edges(lat, lon, water, mask, reach, stage_reach=Returns(reach))
 end
 
 """
+    leading_to_port(lat, lon, water, mask, reach)
+
+The nodes of `water` from which [`edges`](@ref) lead to the last stage, and those edges.
+"""
+function leading_to_port(lat, lon, water, mask, reach)
+    edge_length, edge_course = edges(lat, lon, water, mask, reach)
+    open = copy(water)
+    for stage in (size(water, 1) - 1):-1:1, lateral in axes(water, 2)
+        for step in axes(edge_course, 3)
+            isnan(edge_course[stage, lateral, step]) && continue
+            open[stage + 1, lateral + step - reach - 1] && continue
+            edge_length[stage, lateral, step] = 0.0
+            edge_course[stage, lateral, step] = NaN
+        end
+        open[stage, lateral] &= any(!isnan, view(edge_course, stage, lateral, :))
+    end
+    return open, edge_length, edge_course
+end
+
+"""
     return_corridor(corridor, mask)
 
 The same corridor sailed from its last stage to its first.
@@ -199,7 +219,7 @@ function return_corridor(corridor::Corridor, mask)
     lat = reverse(corridor.lat; dims=1)
     lon = reverse(corridor.lon; dims=1)
     water = reverse(corridor.water; dims=1)
-    return Corridor(lat, lon, water, edges(lat, lon, water, mask, corridor.reach)...,
+    return Corridor(lat, lon, leading_to_port(lat, lon, water, mask, corridor.reach)...,
         corridor.track_length, reverse(corridor.near_coast; dims=1),
         along_centre_line(lat, lon), corridor.reach, corridor.lateral_spacing,
         reverse(corridor.sample_hours))

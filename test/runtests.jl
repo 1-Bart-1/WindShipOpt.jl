@@ -1868,12 +1868,12 @@ end
 end
 
 """
-Whether edges of `corridor` lead from node `lateral` of its first stage to its last stage.
+Whether edges of `corridor` lead from node `lateral` of stage `from` to its last stage.
 """
-function reaches_last_stage(corridor, lateral)
+function reaches_last_stage(corridor, lateral, from=1)
     reached = falses(size(corridor.water, 2))
     reached[lateral] = true
-    for stage in 1:(size(corridor.lat, 1) - 1)
+    for stage in from:(size(corridor.lat, 1) - 1)
         ahead = falses(length(reached))
         for node in findall(reached), step in 1:WindShipOpt.step_count(corridor)
             isnan(corridor.edge_course[stage, node, step]) && continue
@@ -1908,6 +1908,14 @@ WindShipOpt.is_land(mask::ChannelMask, lat, lon) =
             planning, first_stage, _ = WindShipOpt.planning_corridor(leg, stage, grid)
             first_stage == 1 && reaches_last_stage(planning, centre)
         end
+    end
+end
+
+@testset "every node of a corridor leads to port" begin
+    for leg in route_corridors(:caribbean, ChannelMask(); ocean_spacing=240.0,
+        lateral_spacing=60.0)
+        @test all(reaches_last_stage(leg, node.I[2], node.I[1])
+                  for node in findall(leg.water))
     end
 end
 
@@ -2279,6 +2287,23 @@ end
 
 kite_route_table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0;
             kite_area=400.0), assumptions), assumptions))
+
+@testset "a plan weighing wind error expects a kite that just pulls to fly sometimes" begin
+    speed_index = 4
+    sample(wind, spread) = WindShipOpt.EdgeSample(kite_route_table.table, (wind, 0.0),
+        (1.0, 6.0, 0.0), 0.0, true, spread)
+    fuels(wind, spread) = WindShipOpt.expected_fuels(kite_route_table, speed_index,
+        sample(wind, spread))
+    winds = 0.5:0.5:20.0
+    pulling = winds[findfirst(wind -> fuels(wind, 0.0)[1] < fuels(wind, 0.0)[2] / 2,
+        winds)]
+    certain_flown, certain_stowed, _ = fuels(pulling, 0.0)
+    @test (certain_flown, certain_stowed) == WindShipOpt.edge_fuels(kite_route_table,
+        speed_index, sample(pulling, 0.0).condition)
+    flown, stowed, chance = fuels(pulling, 2.0)
+    @test 0 < chance < 1
+    @test certain_flown < flown < stowed
+end
 
 "Value `share` of the way through interval `i` of `knots`"
 place_in_cell(knots, i, share) = knots[i] + share * (knots[i + 1] - knots[i])
