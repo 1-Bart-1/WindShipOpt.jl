@@ -27,18 +27,6 @@ function forecast_plan_archives(control, directory, weather)
         :members => ForecastEnsemble([control;
             [ForecastArchive(joinpath(directory, member), weather) for member in members]]))
 end
-"""
-    read_forecast_error(path)
-
-The [`ForecastError`](@ref) of the CSV file at `path`, of leads every 6 h.
-"""
-function read_forecast_error(path)
-    rows = split.(readlines(path)[2:end], ",")
-    return ForecastError([parse(Float64, row[2]) for row in rows])
-end
-
-forecast_wind_error = read_forecast_error(joinpath(@__DIR__, "..", "data",
-    "forecast_wind_error.csv"))
 
 """
     replanning_sources(operational)

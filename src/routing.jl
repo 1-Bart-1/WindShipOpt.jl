@@ -11,8 +11,11 @@ const MAX_HEADING_TANGENT = 2MAX_LATERAL_STEP / 3
 const STRAIGHT_ON = MAX_LATERAL_STEP + 1
 
 "rows an edge of `stage_spacing` along a corridor of `lateral_spacing` may shift by"
-lateral_reach(stage_spacing, lateral_spacing) =
-    max(1, floor(Int, MAX_HEADING_TANGENT * stage_spacing / lateral_spacing + 1e-6))
+lateral_reach(stage_spacing, lateral_spacing) = max(1,
+    floor(Int, MAX_HEADING_TANGENT * stage_spacing / lateral_spacing + ROW_TOLERANCE))
+
+"rows by which a reach short of a whole number of rows still counts as reaching it"
+const ROW_TOLERANCE = 1e-6
 
 "stages on each side over which the lateral direction is averaged"
 const NORMAL_SMOOTHING = 8
@@ -52,8 +55,10 @@ end
 "edges leaving each node of `corridor`"
 step_count(corridor::Corridor) = 2corridor.reach + 1
 
-"lateral node that edge `step` of node `lateral` of `corridor` leads to"
-next_lateral(corridor::Corridor, lateral, step) = lateral + step - corridor.reach - 1
+"lateral node that edge `step` of node `lateral` leads to, on edges of up to `reach` rows"
+next_lateral(lateral, step, reach) = lateral + step - reach - 1
+next_lateral(corridor::Corridor, lateral, step) =
+    next_lateral(lateral, step, corridor.reach)
 
 "edge of node `lateral` of `corridor` that leads to lateral node `next`"
 lateral_step(corridor::Corridor, lateral, next) = next - lateral + corridor.reach + 1
@@ -178,7 +183,7 @@ function edges(lat, lon, water, mask, reach, stage_reach=Returns(reach))
     edge_length = zeros(stage_count - 1, lateral_count, steps)
     edge_course = fill(NaN, stage_count - 1, lateral_count, steps)
     for stage in 1:(stage_count - 1), lateral in 1:lateral_count, step in 1:steps
-        next = lateral + step - reach - 1
+        next = next_lateral(lateral, step, reach)
         1 <= next <= lateral_count && abs(next - lateral) <= stage_reach(stage) || continue
         water[stage, lateral] && water[stage + 1, next] || continue
         from = (lat[stage, lateral], lon[stage, lateral])
@@ -205,7 +210,7 @@ function leading_to_port(lat, lon, water, mask, reach, stage_reach=Returns(reach
     for stage in (size(water, 1) - 1):-1:1, lateral in axes(water, 2)
         for step in axes(edge_course, 3)
             isnan(edge_course[stage, lateral, step]) && continue
-            open[stage + 1, lateral + step - reach - 1] && continue
+            open[stage + 1, next_lateral(lateral, step, reach)] && continue
             edge_length[stage, lateral, step] = 0.0
             edge_course[stage, lateral, step] = NaN
         end
@@ -473,6 +478,19 @@ function held_speed(table::RouteTable, speed_index, sample::EdgeSample)
     return 0, Inf, Inf, 0.0
 end
 
+"""
+    certain_fuels(table, speed_index, condition, headwind, crosswind)
+
+Fuel power [W] with the rig flown and with any kite stowed at routing speed number
+`speed_index` of the [`RouteTable`](@ref) `table` in the [`SeaCondition`](@ref)
+`condition`, and 1.0 where a kite can stay up in that wind, else 0.0.
+"""
+function certain_fuels(table::RouteTable, speed_index, condition, headwind, crosswind)
+    flown, stowed = edge_fuels(table, speed_index, condition)
+    aloft = kite_aloft(table.table, table.speeds[speed_index], headwind, crosswind)
+    return flown, stowed, Float64(aloft)
+end
+
 "nodes of the three-point Gauss rule for a standard normal variable, and their weights"
 const SPREAD_NODES, SPREAD_WEIGHTS = (-sqrt(3.0), 0.0, sqrt(3.0)), (1 / 6, 2 / 3, 1 / 6)
 
@@ -485,11 +503,11 @@ over the error of the wind speed of the [`EdgeSample`](@ref) `sample`. A kite th
 stay up in one of the winds burns the stowed fuel there.
 """
 function expected_fuels(table::RouteTable, speed_index, sample::EdgeSample)
-    flown, stowed = edge_fuels(table, speed_index, sample.condition)
-    performance, speed = table.table, table.speeds[speed_index]
     (; spread, wind_speed) = sample
-    spread > 0 || return flown, stowed, Float64(kite_aloft(performance, speed,
-        sample.headwind, sample.crosswind))
+    flown, stowed, aloft = certain_fuels(table, speed_index, sample.condition,
+        sample.headwind, sample.crosswind)
+    spread > 0 || return flown, stowed, aloft
+    performance, speed = table.table, table.speeds[speed_index]
     expected_flown, expected_stowed, chance = 0.0, 0.0, 0.0
     for (node, weight) in zip(SPREAD_NODES, SPREAD_WEIGHTS)
         wind = max(wind_speed + node * spread, 0.0)

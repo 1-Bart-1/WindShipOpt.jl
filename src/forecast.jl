@@ -246,18 +246,19 @@ struct ShortestLeadForecast{W}
 end
 
 """
-    ForecastError(wind)
+    ForecastError(lead_step, wind)
 
-Root mean square error of the vector wind [m/s] of a forecast, per lead of 6, 12, 18...
-hours; later leads take the last value.
+Root mean square error of the vector wind [m/s] of a forecast, per lead of `lead_step`,
+2`lead_step`, 3`lead_step`... [h]; a lead takes the value of the nearest of them.
 """
 struct ForecastError
+    lead_step::Float64
     wind::Vector{Float64}
 end
 
 "standard error [m/s] of one component of the wind forecast at `lead` [h]"
-wind_spread(error::ForecastError, lead) =
-    error.wind[clamp(round(Int, lead / 6), 1, length(error.wind))] / sqrt(2)
+wind_spread(error::ForecastError, lead) = error.wind[
+    clamp(round(Int, lead / error.lead_step), 1, length(error.wind))] / sqrt(2)
 
 """
     ExpectedForecast(forecast, error)

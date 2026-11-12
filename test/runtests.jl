@@ -2307,6 +2307,15 @@ kite_route_table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0;
     @test certain_flown < flown < stowed
 end
 
+@testset "a forecast's wind error at a lead is that of the nearest lead it lists" begin
+    error = ForecastError(6.0, [1.0, 2.0, 4.0])
+    spread(lead) = WindShipOpt.wind_spread(error, lead) * sqrt(2)
+    @test spread(1.0) == 1.0
+    @test spread(10.0) == 2.0
+    @test spread(17.0) == 4.0
+    @test spread(96.0) == 4.0
+end
+
 "Value `share` of the way through interval `i` of `knots`"
 place_in_cell(knots, i, share) = knots[i] + share * (knots[i + 1] - knots[i])
 

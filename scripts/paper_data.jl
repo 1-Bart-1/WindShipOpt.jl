@@ -67,7 +67,7 @@ forecast_source(plan) =
     plan === :kite_margin ? KiteMargin(forecast_archive, forecast_kite_margin) :
     plan === :shortest_lead ? ShortestLead(forecast_archive) :
     plan === :perfect_replan ? PerfectForecast() :
-    plan === :expected ? ExpectedForecast(forecast_archive, forecast_wind_error) :
+    plan === :expected ? ExpectedForecast(forecast_archive, forecast_error()) :
     haskey(grid_plans, plan) ?
     ReplannedForecast(forecast_source(grid_plans[plan]); grid=planning_grid()) :
     forecast_plans[plan]
@@ -1154,6 +1154,20 @@ forecast_error.csv.
 """
 forecast_data() = write_forecast_error("forecast_error.csv", run_corridors(:caribbean)...)
 
+"""
+    forecast_error()
+
+The [`ForecastError`](@ref) of the wind forecast in the forecast_error.csv of
+[`forecast_data`](@ref).
+"""
+function forecast_error()
+    table = read_table(data_file("forecast_error.csv"))
+    leads = 24 * table["lead_days"]
+    leads ≈ first(leads) * eachindex(leads) ||
+        error("the leads of forecast_error.csv are not evenly spaced from the first")
+    return ForecastError(first(leads), table["wind_forecast"])
+end
+
 "plans of the forecast study, each as the `forecast` of its [`trip_case`](@ref)"
 forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite, :kite_margin,
     :expected, :grid_perfect, :grid, :grid_expected)
@@ -1345,12 +1359,12 @@ speed_change_classes = (:no_speed, :no_pay, :pays_edge, :pays_stretch)
 routing speed number `speed_index` of `table`, the kite's fuel powers looked up there.
 """
 function at_speed(table, point, speed_index)
-    flown, stowed = WindShipOpt.edge_fuels(table, speed_index, point.condition)
+    flown, stowed, aloft = WindShipOpt.certain_fuels(table, speed_index, point.condition,
+        point.headwind, point.crosswind)
     sailed, speed = table.speeds[max(point.speed_index, 1)], table.speeds[speed_index]
-    aloft = WindShipOpt.kite_aloft(table.table, speed, point.headwind, point.crosswind)
     return WindShipOpt.SailedPoint(point.headwind, point.crosswind, point.condition,
         point.daylight, speed_index, flown, stowed, point.hours * sailed / speed,
-        point.time, Float64(aloft))
+        point.time, aloft)
 end
 
 "cost [USD] of fuel, rig and time of `points` from a kite `aloft` or down, and its launches"
