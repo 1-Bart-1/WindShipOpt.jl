@@ -3031,6 +3031,9 @@ end
     steady, varying = PaperData.pair_gain_errors(table)
     @test steady ≈ 0 atol = 1e-12
     @test varying ≈ sqrt(100 / 3) / 2
+    lost = findlast(row -> row[1:2] == ("varying", "kite"), rows)
+    @test_throws ArgumentError PaperData.pair_gain_errors(
+        Dict(key => deleteat!(copy(values), lost) for (key, values) in table))
 end
 
 @testset "the development study keeps 5 to 20 ranged inputs, each with a reason" begin

@@ -2618,6 +2618,8 @@ function pair_gain_errors(table)
     errors = Float64[]
     for (ship, drive, route) in unique(zip(table["ship"], table["drive"], table["route"]))
         costs = design_costs(table, "ship" => ship, "drive" => drive, "route" => route)
+        "none" in first.(costs) && allequal(length.(last.(costs))) ||
+            throw(ArgumentError("$ship, $drive, $route lacks a design or a departure"))
         push!(errors, jackknife_error(indices -> departure_pair_gain(costs, indices),
             length(last(first(costs)))))
     end
@@ -2662,9 +2664,8 @@ end
     combination_data()
 
 Each class of `pair_classes` on each of `pair_routes` on VLSFO and e-ammonia without a rig
-and at each size of [`pair_sizes`](@ref) around its best single sizes in classes.csv, its
-kites among those classes.csv sails, the rotors behind the kite's launch mast in a pair:
-combination_pairs.csv, and the cost of each departure: combination_departures.csv.
+and at each of its [`pair_sizes`](@ref) from classes.csv: combination_pairs.csv per round
+trip and combination_departures.csv per departure.
 """
 function combination_data()
     classes_table = read_table(data_file("classes.csv"))
