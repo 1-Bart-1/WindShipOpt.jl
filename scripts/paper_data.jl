@@ -2470,6 +2470,9 @@ function abatement_data()
         :drive, :rig, :area)
 end
 
+"corridor scales of the convergence study"
+convergence_scales = (2.0, 1.0, 0.5)
+
 """
     convergence_data()
 

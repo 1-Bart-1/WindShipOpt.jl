@@ -16,9 +16,6 @@ departures and the rounds of the rig size search.
 fidelities = Dict(:draft => (corridor_scale=8.0, departure_step=12, size_rounds=1),
     :final => (corridor_scale=1.0, departure_step=6, size_rounds=2))
 
-"corridor scales of the convergence study"
-convergence_scales = (2.0, 1.0, 0.5)
-
 """
     mark_fidelity(path, fidelity, steps, figures)
 
