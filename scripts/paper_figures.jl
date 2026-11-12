@@ -1828,53 +1828,61 @@ function abatement_limits(table, ship, drive, bare)
 end
 
 """
-    uniform_swing(table, rig, input)
+    development_panel!(axis, table, ships, levers, rig, column)
 
-Cost savings [%] of `rig` on the 140 m ship in the uniform study `table` with `input` a
-step down and up.
+Bars in `axis` of the change of the saving of `rig` in `column` between the low and high
+bound of each of `levers`, one per ship in the colours of `palette`, with the high bound
+marked.
 """
-uniform_swing(table, rig, input) = (screened_saving(table, "140 m", rig, input, "down"),
-    screened_saving(table, "140 m", rig, input, "up"))
-
-"largest change [points] of any rig's saving between `input` a step down and up"
-uniform_reach(table, input) = maximum(rig -> abs(-(uniform_swing(table, rig, input)...)),
-    rig_names)
+function development_panel!(axis, table, ships, levers, rig, column)
+    vlines!(axis, 0; color=:gray50, linewidth=0.8)
+    for (k, entry) in enumerate(levers), (j, ship) in enumerate(ships)
+        low, high = bound_changes(table, ship, rig, string(entry.input); column)
+        isfinite(low + high) || continue
+        y = k + (2 - j) * 0.27
+        barplot!(axis, [y], [high - low]; offset=low, direction=:x, width=0.22,
+            color=palette[j])
+        scatter!(axis, [high], [y]; marker=:vline, color=:black, markersize=pt(7))
+    end
+end
 
 """
     sensitivity_figure()
 
-Cost saving of each rig on the 140 m e-ammonia reference ship with each of the twelve
-inputs that move any rig most a [`uniform_step`](@ref) down and up, as tornados around
-the base saving, one panel per rig on a shared axis and in the same order.
+Where development pays: for each rig the inputs of [`development_inputs`](@ref) that move
+it, largest effect on top, with the change of its saving of cost per tonne-km (left) and of
+CO2 per tonne-km (right) between the bounds of each input on each ship of the study.
 """
 function sensitivity_figure()
-    table = read_table(data_file("uniform.csv"))
-    inputs = filter(!=("none"), unique(table["input"]))
-    filter!(input -> all(rig -> all(isfinite, uniform_swing(table, rig, input)),
-            rig_names), inputs)
-    shown = last(sort(inputs; by=input -> uniform_reach(table, input)), 12)
-    step = round(Int, 100 * uniform_step)
-    figure = Figure(size=(page_width, 280))
-    axes = Axis[]
-    for (column, rig) in enumerate(rig_names)
-        base = screened_saving(table, "140 m", rig, "none", "value")
-        axis = Axis(figure[1, column]; title="($('a' + column - 1)) $rig",
-            yticks=(eachindex(shown), replace.(shown, "_" => " ")),
-            yticksvisible=column == 1, yticklabelsvisible=column == 1,
-            xlabel="cost saving [%]", xticks=WilkinsonTicks(3), yticklabelsize=pt(8))
-        push!(axes, axis)
-        vlines!(axis, base; color=:gray50, linewidth=0.8)
-        for (k, input) in enumerate(shown)
-            down, up = uniform_swing(table, rig, input)
-            barplot!(axis, [k], [down - base]; offset=base, direction=:x,
-                color=palette[1], width=0.6)
-            barplot!(axis, [k], [up - base]; offset=base, direction=:x,
-                color=palette[2], width=0.6)
-        end
+    table = read_table(data_file("sensitivity.csv"))
+    ships = unique(table["ship"])
+    panels = [filter(entry -> rig in lever_rigs(entry), development_inputs)
+              for rig in rig_names]
+    for (levers, rig) in zip(panels, rig_names)
+        sort!(levers; by=entry -> maximum(ship -> abs(-(bound_changes(table, ship, rig,
+            string(entry.input))...)), ships))
     end
-    linkxaxes!(axes...)
-    Legend(figure[2, 1:3], [PolyElement(color=palette[1]), PolyElement(color=palette[2])],
-        ["$step % lower", "$step % higher"]; orientation=:horizontal)
+    figure = Figure(size=(page_width, 520))
+    columns = [("cost", "change of cost saving [points]", "cost"),
+        ("carbon", rich("change of CO", subscript("2"), " saving [points]"),
+            rich("CO", subscript("2")))]
+    for (row, (rig, levers)) in enumerate(zip(rig_names, panels))
+        for (column, (name, label, saved)) in enumerate(columns)
+            axis = Axis(figure[row, column];
+                title=rich("($('a' + 2 * (row - 1) + column - 1)) $rig, ", saved),
+                yticks=(eachindex(levers), [entry.label for entry in levers]),
+                yticksvisible=column == 1, yticklabelsvisible=column == 1,
+                xlabel=row == length(rig_names) ? label : "", xticks=WilkinsonTicks(4),
+                yticklabelsize=pt(8))
+            development_panel!(axis, table, ships, levers, rig, name)
+            ylims!(axis, 0.4, length(levers) + 0.6)
+        end
+        rowsize!(figure.layout, row, Auto(length(levers)))
+    end
+    Legend(figure[length(rig_names) + 1, 1:2],
+        [[PolyElement(color=palette[j]) for j in eachindex(ships)];
+            [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
+        [short_ship.(ships); "high end of range"]; orientation=:horizontal, tellwidth=false)
     save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -2361,10 +2369,10 @@ end
     missed_goals_figure()
 
 Cost saving of each rig against the canopy life, the canopy price and the share out of
-service, for each screened ship with its rig sizes held: the kite's saving over the swept
-canopy inputs, the other rigs' at their goals, and every rig's over its share out of
-service. Each goal is a vertical line over the shaded range of its input; today's canopy
-price is dotted.
+service, for each ship of the development study with its rig sizes held: the kite's saving
+over the swept canopy inputs, the other rigs' at their goals, and every rig's over its
+share out of service. Each goal is a vertical line over the shaded range of its input;
+today's canopy price is dotted.
 """
 function missed_goals_figure()
     sizes = read_table(data_file("goal_sizes.csv"))

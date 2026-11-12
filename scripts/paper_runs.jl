@@ -81,13 +81,12 @@ Settings of [`fidelities`](@ref) at the fidelity of the run in use.
 run_settings() = fidelities[paper_run.fidelity]
 
 """
-    sampled_departures(; screening=false)
+    sampled_departures()
 
 The departures the studies average over: every `departure_step`-th one of the run's
-fidelity, or half as many for the input `screening`.
+fidelity.
 """
-sampled_departures(; screening=false) =
-    departures[1:(run_settings().departure_step * (screening ? 2 : 1)):end]
+sampled_departures() = departures[1:run_settings().departure_step:end]
 
 """
     run_corridors(name)
