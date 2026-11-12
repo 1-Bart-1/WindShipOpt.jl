@@ -93,8 +93,10 @@ sampled_departures() = departures[1:run_settings().departure_step:end]
 
 As many departures as [`sampled_departures`](@ref), each halfway between two of them.
 """
-rerun_departures() = departures[(1 + run_settings().departure_step ÷ 2):
-    run_settings().departure_step:end]
+function rerun_departures()
+    step = run_settings().departure_step
+    return departures[(1 + step ÷ 2):step:end]
+end
 
 """
     run_corridors(name)
