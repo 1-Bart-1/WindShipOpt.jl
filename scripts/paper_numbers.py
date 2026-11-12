@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Print the numbers of the design, route, season, class, forecast, base kite, screening
-and component studies, from the CSV files of the latest finished run paper.jl made in
+"""Print the numbers of the design, route, season, class, forecast, base kite, development
+study and component studies, from the CSV files of the latest finished run paper.jl made in
 output/runs/. Run: python3 -I scripts/paper_numbers.py [section ...], with the section
 names of SECTIONS; all sections without one."""
 import csv
@@ -264,8 +264,8 @@ def forecast_summary():
 
 
 def other_summaries():
-    """Largest swings of the input screening and the effect of component prices."""
-    print("== input screening: largest swings in saving per ship and rig")
+    """Largest swings of the development study and the effect of component prices."""
+    print("== development study: largest swings in saving per ship and rig")
     rows = table("sensitivity.csv")
     cost = {(r["ship"], r["rig"], r["input"], r["bound"]): float(r["cost"]) for r in rows}
     for ship in sorted({r["ship"] for r in rows}):
