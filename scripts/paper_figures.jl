@@ -38,25 +38,6 @@ drive_panels = [(drive, "($(Char('a' + k - 1))) $label")
 rig_area_columns = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
 
 """
-    read_table(path)
-
-Columns of a CSV file with a header line, as a Dict of name to vector; numbers parsed
-and quotes removed.
-"""
-function read_table(path)
-    lines = readlines(path)
-    names = WindShipOpt.csv_fields(first(lines))
-    rows = [WindShipOpt.csv_fields(line) for line in lines[2:end]]
-    table = Dict{String, Vector}()
-    for (k, name) in enumerate(names)
-        values = getindex.(rows, k)
-        numbers = tryparse.(Float64, values)
-        table[name] = any(isnothing, numbers) ? String.(values) : Float64.(numbers)
-    end
-    return table
-end
-
-"""
     kite_geometry_figure()
 
 Planforms of the kites of the three aspect ratios at equal projected area, seen
@@ -134,27 +115,6 @@ function wind_load_figure()
     Legend(figure[1, 3], longitudinal)
     save(joinpath(figures, "wind_load.pdf"), figure; pt_per_unit=print_scale)
 end
-
-"""
-    rows(table, conditions...)
-
-Indices of the rows of `table` where each `column => value` condition holds, `value`
-being a value to equal or a predicate to meet.
-"""
-function rows(table, conditions...)
-    chosen = trues(length(first(values(table))))
-    for (column, value) in conditions
-        chosen .&= value isa Function ? value.(table[column]) : table[column] .== value
-    end
-    return findall(chosen)
-end
-
-"""
-    percent_saving(cost, reference)
-
-Saving [%] of `cost` against `reference`.
-"""
-percent_saving(cost, reference) = 100 * (1 - cost / reference)
 
 """
     geometric_mean(values)
@@ -530,35 +490,6 @@ function passage_figure()
 end
 
 """
-    best_savings(table, class, route, drive)
-
-Cost saving [%] of the best size of each rig against the class without a rig on one
-route and drive, as a Dict of rig name to saving; missing rigs are left out.
-"""
-best_savings(table, class, route, drive) = rig_savings(table, rig_names,
-    "class" => class, "route" => route, "drive" => drive)
-
-"""
-    rig_savings(table, rigs, conditions...)
-
-Cost saving [%] of the best size of each of `rigs` against no rig among the rows of
-`table` where the `conditions` hold, as a Dict of rig name to saving; missing rigs are
-left out.
-"""
-function rig_savings(table, rigs, conditions...)
-    base = rows(table, conditions..., "rig" => "none")
-    savings = Dict{String, Float64}()
-    isempty(base) && return savings
-    reference = only(table["cost"][base])
-    for rig in rigs
-        chosen = rows(table, conditions..., "rig" => rig)
-        isempty(chosen) && continue
-        savings[rig] = percent_saving(minimum(table["cost"][chosen]), reference)
-    end
-    return savings
-end
-
-"""
     class_order(table)
 
 Classes of the class table sorted by deadweight.
@@ -853,21 +784,6 @@ function print_tow_point(measure, names, savings, markers)
 end
 
 """
-    cheapest_row(table, filters::Pair...)
-    cheapest_row(table, class, route, drive, rig)
-
-Row of `table` with the lowest cost among those matching `filters`, column => value, or of
-`rig` for one class, route and drive; `nothing` where none was run.
-"""
-function cheapest_row(table, filters::Pair...)
-    chosen = rows(table, filters...)
-    return isempty(chosen) ? nothing : chosen[argmin(table["cost"][chosen])]
-end
-
-cheapest_row(table, class, route, drive, rig) = cheapest_row(table, "class" => class,
-    "route" => route, "drive" => drive, "rig" => rig)
-
-"""
     best_area(table, class, route, drive, rig)
 
 Area [m^2] of the size of `rig` with the lowest cost for one class, route and drive, or
@@ -984,6 +900,76 @@ function winner_map_figure()
     Legend(figure[length(groups) + 1, 1:length(drive_panels)],
         [PolyElement(color=palette[j]) for j in 1:3], kinds; orientation=:horizontal)
     save(joinpath(figures, "winner_map.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    fleet_share_panel!(axis, splits, measure)
+
+Stacked bar per drive of the share [%] of `measure` (`:bill` or `:saved`) of each band of
+`splits`, a Vector of drive name and [`fleet_split`](@ref), the first drive on top.
+"""
+function fleet_share_panel!(axis, splits, measure)
+    colours = fleet_colours()
+    for (i, (_, split)) in enumerate(splits)
+        total = fleet_total(split, measure)
+        left = 0.0
+        for band in fleet_bands
+            share = 100getfield(split[band], measure) / total
+            share > 0 || continue
+            poly!(axis, Rect2f(left, i - 0.32, share, 0.64); color=colours[band],
+                strokecolor=:white, strokewidth=0.5)
+            share >= 6 && text!(axis, left + share / 2, i;
+                text=fleet_band_label(share, 1e-9getfield(split[band], measure)),
+                align=(:center, :center), fontsize=pt(9),
+                color=band in ("level", "none") ? :black : :white)
+            left += share
+        end
+    end
+    xlims!(axis, 0, 100)
+    ylims!(axis, length(splits) + 0.5, 0.5)
+end
+
+"label of a band of `share` [%] and `billions` [USD] of a bar, the dollars only if they fit"
+function fleet_band_label(share, billions)
+    share < 14 && return @sprintf("%.0f%%", share)
+    return @sprintf("%.0f%%\n%.*f bn", share, billions < 10 ? 1 : 0, billions)
+end
+
+"colours of the [`fleet_bands`](@ref): those of the rigs, level hatched, none grey"
+fleet_colours() = Dict("kite" => palette[1], "wings" => palette[2], "rotors" => palette[3],
+    "level" => Pattern("/"; backgroundcolor=(palette[1], 0.35),
+        linecolor=(palette[3], 0.9), width=1.5, tilesize=(6, 6)),
+    "none" => RGBf(0.8, 0.8, 0.8))
+
+"""
+    fleet_share_figure()
+
+Share [%] and dollars of each band of [`fleet_bands`](@ref) in the yearly cost of carrying
+the fleet's cargo (a) and in the yearly saving (b) on each drive, each total in the row's
+label.
+"""
+function fleet_share_figure()
+    table = read_table(data_file("classes.csv"))
+    splits = [(drive, fleet_split_of(table, drive)) for (drive, _) in drive_labels]
+    figure = Figure(size=(page_width, 175); figure_padding=(4, 16, 4, 4))
+    panels = ((:bill, "(a) yearly cost of carrying the cargo [%, USD]"),
+        (:saved, "(b) yearly cost saved by the rigs [%, USD]"))
+    for (k, (measure, title)) in enumerate(panels)
+        labels = [string(label, "\n",
+                      @sprintf("USD %.0f bn", 1e-9fleet_total(split, measure)))
+                  for ((_, label), (_, split)) in zip(drive_labels, splits)]
+        axis = Axis(figure[1, k]; title, yticks=(eachindex(splits), labels),
+            xticks=0:25:100, ygridvisible=false, ytickalign=0, yticksize=0)
+        fleet_share_panel!(axis, splits, measure)
+    end
+    colours = fleet_colours()
+    names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "rotors",
+        "level" => "level (within $(whole_number(level_margin)) point)",
+        "none" => "no rig (saves under $(whole_number(level_margin)) point)")
+    Legend(figure[2, 1:2], [PolyElement(color=colours[band]) for band in fleet_bands],
+        [names[band] for band in fleet_bands]; orientation=:horizontal)
+    rowgap!(figure.layout, 1, 2)
+    save(joinpath(figures, "fleet_share.pdf"), figure; pt_per_unit=print_scale)
 end
 
 """
@@ -1842,53 +1828,61 @@ function abatement_limits(table, ship, drive, bare)
 end
 
 """
-    uniform_swing(table, rig, input)
+    development_panel!(axis, table, ships, levers, rig, column)
 
-Cost savings [%] of `rig` on the 140 m ship in the uniform study `table` with `input` a
-step down and up.
+Bars in `axis` of the change of the saving of `rig` in `column` between the low and high
+bound of each of `levers`, one per ship in the colours of `palette`, with the high bound
+marked.
 """
-uniform_swing(table, rig, input) = (screened_saving(table, "140 m", rig, input, "down"),
-    screened_saving(table, "140 m", rig, input, "up"))
-
-"largest change [points] of any rig's saving between `input` a step down and up"
-uniform_reach(table, input) = maximum(rig -> abs(-(uniform_swing(table, rig, input)...)),
-    rig_names)
+function development_panel!(axis, table, ships, levers, rig, column)
+    vlines!(axis, 0; color=:gray50, linewidth=0.8)
+    for (k, entry) in enumerate(levers), (j, ship) in enumerate(ships)
+        low, high = bound_changes(table, ship, rig, string(entry.input); column)
+        isfinite(low + high) || continue
+        y = k + (2 - j) * 0.27
+        barplot!(axis, [y], [high - low]; offset=low, direction=:x, width=0.22,
+            color=palette[j])
+        scatter!(axis, [high], [y]; marker=:vline, color=:black, markersize=pt(7))
+    end
+end
 
 """
     sensitivity_figure()
 
-Cost saving of each rig on the 140 m e-ammonia reference ship with each of the twelve
-inputs that move any rig most a [`uniform_step`](@ref) down and up, as tornados around
-the base saving, one panel per rig on a shared axis and in the same order.
+Where development pays: for each rig the inputs of [`development_inputs`](@ref) that move
+it, largest effect on top, with the change of its saving of cost per tonne-km (left) and of
+CO2 per tonne-km (right) between the bounds of each input on each ship of the study.
 """
 function sensitivity_figure()
-    table = read_table(data_file("uniform.csv"))
-    inputs = filter(!=("none"), unique(table["input"]))
-    filter!(input -> all(rig -> all(isfinite, uniform_swing(table, rig, input)),
-            rig_names), inputs)
-    shown = last(sort(inputs; by=input -> uniform_reach(table, input)), 12)
-    step = round(Int, 100 * uniform_step)
-    figure = Figure(size=(page_width, 280))
-    axes = Axis[]
-    for (column, rig) in enumerate(rig_names)
-        base = screened_saving(table, "140 m", rig, "none", "value")
-        axis = Axis(figure[1, column]; title="($('a' + column - 1)) $rig",
-            yticks=(eachindex(shown), replace.(shown, "_" => " ")),
-            yticksvisible=column == 1, yticklabelsvisible=column == 1,
-            xlabel="cost saving [%]", xticks=WilkinsonTicks(3), yticklabelsize=pt(8))
-        push!(axes, axis)
-        vlines!(axis, base; color=:gray50, linewidth=0.8)
-        for (k, input) in enumerate(shown)
-            down, up = uniform_swing(table, rig, input)
-            barplot!(axis, [k], [down - base]; offset=base, direction=:x,
-                color=palette[1], width=0.6)
-            barplot!(axis, [k], [up - base]; offset=base, direction=:x,
-                color=palette[2], width=0.6)
-        end
+    table = read_table(data_file("sensitivity.csv"))
+    ships = unique(table["ship"])
+    panels = [filter(entry -> rig in lever_rigs(entry), development_inputs)
+              for rig in rig_names]
+    for (levers, rig) in zip(panels, rig_names)
+        sort!(levers; by=entry -> maximum(ship -> abs(-(bound_changes(table, ship, rig,
+            string(entry.input))...)), ships))
     end
-    linkxaxes!(axes...)
-    Legend(figure[2, 1:3], [PolyElement(color=palette[1]), PolyElement(color=palette[2])],
-        ["$step % lower", "$step % higher"]; orientation=:horizontal)
+    figure = Figure(size=(page_width, 520))
+    columns = [("cost", "change of cost saving [points]", "cost"),
+        ("carbon", rich("change of CO", subscript("2"), " saving [points]"),
+            rich("CO", subscript("2")))]
+    for (row, (rig, levers)) in enumerate(zip(rig_names, panels))
+        for (column, (name, label, saved)) in enumerate(columns)
+            axis = Axis(figure[row, column];
+                title=rich("($('a' + 2 * (row - 1) + column - 1)) $rig, ", saved),
+                yticks=(eachindex(levers), [entry.label for entry in levers]),
+                yticksvisible=column == 1, yticklabelsvisible=column == 1,
+                xlabel=row == length(rig_names) ? label : "", xticks=WilkinsonTicks(4),
+                yticklabelsize=pt(8))
+            development_panel!(axis, table, ships, levers, rig, name)
+            ylims!(axis, 0.4, length(levers) + 0.6)
+        end
+        rowsize!(figure.layout, row, Auto(length(levers)))
+    end
+    Legend(figure[length(rig_names) + 1, 1:2],
+        [[PolyElement(color=palette[j]) for j in eachindex(ships)];
+            [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
+        [short_ship.(ships); "high end of range"]; orientation=:horizontal, tellwidth=false)
     save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -2373,10 +2367,10 @@ end
     missed_goals_figure()
 
 Cost saving of each rig against the canopy life, the canopy price and the share out of
-service, for each screened ship with its rig sizes held: the kite's saving over the swept
-canopy inputs, the other rigs' at their goals, and every rig's over its share out of
-service. Each goal is a vertical line over the shaded range of its input; today's canopy
-price is dotted.
+service, for each ship of the development study with its rig sizes held: the kite's saving
+over the swept canopy inputs, the other rigs' at their goals, and every rig's over its
+share out of service. Each goal is a vertical line over the shaded range of its input;
+today's canopy price is dotted.
 """
 function missed_goals_figure()
     sizes = read_table(data_file("goal_sizes.csv"))
