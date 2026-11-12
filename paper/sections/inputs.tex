@@ -3,12 +3,13 @@
 \section{Model inputs}
 \label{sec:inputs}
 
-\Cref{tab:inputs} lists every input that matters for the results, ranked by its effect, with its base value, bounds, unit and source, or its mark as an engineering estimate or assumption. An input matters when moving it between its bounds changes the cost saving of a rig by at least half a percentage point, or the cost of a ship without a rig by at least 2\,\%, on any of three ships: the \SI{140}{m} reference ship on e-ammonia to Guadeloupe, a Kamsarmax bulk carrier on VLSFO to Tubarão and a Neo-Panamax container ship on e-ammonia to New York, each with the best size of each rig. The ship classes are in \cref{tab:classes}, their sources in \cref{tab:class_sources}, and the grids, solver settings and constants in \cref{tab:numerics}. The published regressions (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) keep their published coefficients.
+\Cref{tab:inputs} lists every input with a range, with its base value, bounds, unit and source, or its mark as an engineering estimate or assumption. \Cref{tab:development} gives the 20 of them that the development study of \cref{sec:res_inputs} moves, with the reason each is in it. The ship classes are in \cref{tab:classes}, their sources in \cref{tab:class_sources}, and the grids, solver settings and constants in \cref{tab:numerics}. The published regressions (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) keep their published coefficients.
 
 {\footnotesize
 \setlength{\LTcapwidth}{\textwidth}
 \setlength{\extrarowheight}{1.5pt}
 \InputIfFileExists{sections/input_tables}{}{\tbd{Input tables pending: run the input\_tables step.}}
+\InputIfFileExists{sections/development_table}{}{\tbd{Development table pending: run the development\_table step.}}
 
 \begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{12.2cm}@{}}
 \caption{Sources of the ship class data in \cref{tab:classes}.}
@@ -79,7 +80,7 @@ re-planning interval & first route node \SI{24}{h} after the last plan; 12 and \
 plan margin on the kite's limits & \SI{20}{\%} tighter wind limits and more launch wind in a sea, tested & forecast router \\
 forecasts & GEFSv12 reforecast control run and four perturbed members, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead & forecast router \\
 operational forecasts & GEFS operational control run, wind, issued four times a day, mean bias against ERA5 removed; waves from the daily reforecast & re-planning study \\
-departures & every 14 days from 1 January 2017 to 100 days before the end of 2019; every sixth (12) in all runs, every twelfth (6) for the input screening & weather sample \\
+departures & every 14 days from 1 January 2017 to 100 days before the end of 2019; every sixth (12) in all runs & weather sample \\
 \multicolumn{3}{@{}l}{\textit{Constants}}\\
 gravitational acceleration & \SI{9.81}{m/s^2} & \\
 Earth radius & \SI{6371}{km} & great-circle distances \\

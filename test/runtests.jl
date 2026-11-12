@@ -3016,7 +3016,57 @@ module PaperData
 using Printf, Statistics, WindShipOpt
 assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
+include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
+end
+
+@testset "the development study keeps 5 to 20 ranged inputs, each with a reason" begin
+    inputs = PaperData.development_inputs
+    @test 5 <= length(inputs) <= 20
+    @test allunique(entry.input for entry in inputs)
+    for entry in inputs
+        @test assumptions.entries[entry.input].low != assumptions.entries[entry.input].high
+        @test !isempty(entry.reason)
+    end
+    for rig in PaperData.rig_names
+        levers = [entry.lever for entry in inputs if entry.rig == rig]
+        @test "price" in levers && "force" in levers && "availability" in levers
+    end
+end
+
+@testset "the development study moves the kite's sea and wind limits, lowest and highest" begin
+    inputs = [entry.input for entry in PaperData.development_inputs]
+    limits = (:kite_launch_sea_wind, :kite_launch_min_wind, :kite_launch_max_wind,
+        :kite_landing_max_wind, :kite_max_wind)
+    @test issubset(limits, inputs)
+end
+
+@testset "the model parts measured by the development study read only its inputs" begin
+    PaperData.eval(:(departures = 1:8760))
+    @test !isempty(PaperData.fidelity_parts())
+end
+
+@testset "a development ship whose rig has no size in the class study stops the run" begin
+    PaperData.eval(:(best_area(table, class, route, drive, rig) =
+        rig == "wings" ? NaN : 100.0))
+    @test_throws ErrorException PaperData.study_areas(nothing, "class", :route, :vlsfo)
+end
+
+@testset "a development input's gain and loss are the largest of its rigs with trips" begin
+    PaperData.eval(:(bound_changes(table, ship, rig, input; column="cost") =
+        rig == "kite" ? (1.0, -2.0) : rig == "wings" ? (NaN, 1.0) : (0.5, 0.0)))
+    lever(rig) = PaperData.lever_gain_loss(nothing, "ship", (input=:any, rig))
+    @test lever("condition") == (1.0, -2.0)
+    @test lever("rotors") == (0.5, 0.0)
+    gain, loss = lever("wings")
+    @test isnan(gain) && isnan(loss)
+end
+
+@testset "the input table lists every ranged input once, in the order of its name" begin
+    names = first.(PaperData.ranged_inputs())
+    @test issorted(names) && allunique(names)
+    entries = (assumptions.entries[name] for name in names)
+    @test all(entry -> entry.low != entry.high, entries)
 end
 
 @testset "a fleet's cost goes to the rig that saves most, or level within the margin" begin
@@ -3345,6 +3395,36 @@ end
     @test (lossy.cost_per_tonne_km - base.cost_per_tonne_km) * tonne_km ≈
           0.5rig.count * WindShipOpt.crash_cost(rig, assumptions) * hours /
           (8760assumptions[:availability])
+end
+
+@testset "switching windage off removes the wind load, and a misnamed part is refused" begin
+    ship = Ship(ShipDesign(:ammonia, 140.0), PaperData.assumptions)
+    function force(windage)
+        load = WindShipOpt.wind_force(windage, ship.env, 15.0, π / 3, 5.0)
+        return [getfield(load, name) for name in fieldnames(typeof(load))]
+    end
+    @test any(component -> abs(component) > 1.0, force(ship.windage))
+    @test all(component -> abs(component) < 1e-6,
+        force(PaperData.simplified_ship(ship, :windage).windage))
+    @test_throws ArgumentError PaperData.rebuilt(ship.windage; not_a_field=0.0)
+end
+
+@testset "a held-speed kite saving and its bare ship use the same routes" begin
+    case(route, rig, area, pricing, fuel) = (; ship="ship", drive="vlsfo", knots=10.0, route,
+        rig, area, pricing, fuel, cost=fuel / 10, flight_share=0.5)
+    kite_cases(area, fuel) = [case("sailed", "kite", area, pricing, fuel)
+                              for pricing in ("free", "priced")]
+    cases = [case("sailed", "none", 0.0, "priced", 100.0);
+        case("no kite trip", "none", 0.0, "priced", 300.0);
+        kite_cases(400.0, 90.0); kite_cases(800.0, 80.0)]
+    table = Dict(string(name) => getproperty.(cases, name) for name in keys(first(cases)))
+    routes = PaperData.speed_size_routes(table, (ship="ship", kites=(400.0, 800.0)),
+        "vlsfo", 10.0)
+    @test routes == ["sailed"]
+    saving = PaperData.speed_size_saving(table, "ship", "vlsfo", routes, "kite", 400.0,
+        "free", 10.0)
+    @test saving.bare_fuel == 100.0
+    @test saving.fuel_percent == 10.0
 end
 
 @testset "the pattern data has rows only for conditions where a pattern flies" begin
