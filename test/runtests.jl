@@ -1868,9 +1868,10 @@ end
 end
 
 """
-Whether edges of `corridor` lead from node `lateral` of stage `from` to its last stage.
+Whether edges of `corridor` lead from node `lateral` of stage `from` to its port, the
+centre of its last stage.
 """
-function reaches_last_stage(corridor, lateral, from=1)
+function reaches_port(corridor, lateral, from=1)
     reached = falses(size(corridor.water, 2))
     reached[lateral] = true
     for stage in from:(size(corridor.lat, 1) - 1)
@@ -1881,7 +1882,7 @@ function reaches_last_stage(corridor, lateral, from=1)
         end
         reached = ahead
     end
-    return any(reached)
+    return reached[WindShipOpt.centre_index(corridor)]
 end
 
 """
@@ -1899,14 +1900,15 @@ WindShipOpt.is_land(mask::ChannelMask, lat, lon) =
     all(point -> WindShipOpt.distance(lat, lon, point...) > 20 * WindShipOpt.NAUTICAL_MILE,
         mask.channel)
 
-@testset "a ship planning on a coarse far grid can reach port from every stage" begin
+@testset "a ship planning on a coarse far grid can reach port from every node" begin
     mask = ChannelMask()
     grid = PlanningGrid(mask)
     for leg in route_corridors(:caribbean, mask; ocean_spacing=240.0, lateral_spacing=60.0)
-        centre = WindShipOpt.centre_index(leg)
-        @test all(1:(size(leg.lat, 1) - 1)) do stage
-            planning, first_stage, _ = WindShipOpt.planning_corridor(leg, stage, grid)
-            first_stage == 1 && reaches_last_stage(planning, centre)
+        @test all(findall(leg.water[1:(end - 1), :])) do node
+            stage, lateral = Tuple(node)
+            planning, first_stage, _ = WindShipOpt.planning_corridor(leg, stage, lateral,
+                grid)
+            reaches_port(planning, lateral, first_stage)
         end
     end
 end
@@ -1914,7 +1916,7 @@ end
 @testset "every node of a corridor leads to port" begin
     for leg in route_corridors(:caribbean, ChannelMask(); ocean_spacing=240.0,
         lateral_spacing=60.0)
-        @test all(reaches_last_stage(leg, node.I[2], node.I[1])
+        @test all(reaches_port(leg, node.I[2], node.I[1])
                   for node in findall(leg.water))
     end
 end

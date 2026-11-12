@@ -191,13 +191,17 @@ function edges(lat, lon, water, mask, reach, stage_reach=Returns(reach))
 end
 
 """
-    leading_to_port(lat, lon, water, mask, reach)
+    leading_to_port(lat, lon, water, mask, reach, stage_reach=Returns(reach))
 
-The nodes of `water` from which [`edges`](@ref) lead to the last stage, and those edges.
+The nodes of `water` from which [`edges`](@ref) lead to the port, the centre of the last
+stage, and those edges.
 """
-function leading_to_port(lat, lon, water, mask, reach)
-    edge_length, edge_course = edges(lat, lon, water, mask, reach)
+function leading_to_port(lat, lon, water, mask, reach, stage_reach=Returns(reach))
+    edge_length, edge_course = edges(lat, lon, water, mask, reach, stage_reach)
     open = copy(water)
+    port = centre_index(lat)
+    open[end, :] .= false
+    open[end, port] = water[end, port]
     for stage in (size(water, 1) - 1):-1:1, lateral in axes(water, 2)
         for step in axes(edge_course, 3)
             isnan(edge_course[stage, lateral, step]) && continue
@@ -1730,14 +1734,16 @@ function planning_stages(corridor::Corridor, stage, grid::PlanningGrid)
 end
 
 """
-    planning_corridor(corridor, stage, grid)
+    planning_corridor(corridor, stage, lateral, grid)
 
-The [`Corridor`](@ref) a ship at `stage` of `corridor` plans on, the stage it starts from
-there, and how many of its nodes along a plan the ship may sail before planning again.
+The [`Corridor`](@ref) a ship at `stage` and `lateral` of `corridor` plans on, the stage it
+starts from there, and how many of its nodes along a plan the ship may sail before planning
+again: `corridor` itself where `grid` is `nothing` or leads nowhere from the ship.
 """
-planning_corridor(corridor::Corridor, stage, ::Nothing) = corridor, stage, typemax(Int)
+planning_corridor(corridor::Corridor, stage, lateral, ::Nothing) =
+    corridor, stage, typemax(Int)
 
-function planning_corridor(corridor::Corridor, stage, grid::PlanningGrid)
+function planning_corridor(corridor::Corridor, stage, lateral, grid::PlanningGrid)
     stages, near = planning_stages(corridor, stage, grid)
     lat, lon = corridor.lat[stages, :], corridor.lon[stages, :]
     water = corridor.water[stages, :]
@@ -1751,9 +1757,11 @@ function planning_corridor(corridor::Corridor, stage, grid::PlanningGrid)
     stage_reach(i) = i < near ? min(corridor.reach, lateral_reach(lengths[i], spacing)) :
                      lateral_reach(lengths[i], spacing)
     reach = maximum(stage_reach, eachindex(lengths))
-    planning = Corridor(lat, lon, water, edges(lat, lon, water, grid.mask, reach,
-            stage_reach)..., corridor.track_length, corridor.near_coast[stages, :],
-        along_centre_line(lat, lon), reach, spacing,
+    open, edge_length, edge_course = leading_to_port(lat, lon, water, grid.mask, reach,
+        stage_reach)
+    open[1, lateral] || return planning_corridor(corridor, stage, lateral, nothing)
+    planning = Corridor(lat, lon, open, edge_length, edge_course, corridor.track_length,
+        corridor.near_coast[stages, :], along_centre_line(lat, lon), reach, spacing,
         [i < near ? 0.0 : grid.far_sample_hours for i in eachindex(stages)])
     return planning, 1, near
 end
@@ -2091,7 +2099,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     plan_table = with_margin ? margin_table(table, planned.margin) : table
     while stage < stage_count
         known = known_weather(source, weather, departure + time, horizon)
-        planning, plan_stage, sailable = planning_corridor(corridor, stage, grid)
+        planning, plan_stage, sailable = planning_corridor(corridor, stage, lateral, grid)
         plan, values = forecast_plan(known, planning, plan_table, departure + time, prices;
             first_stage=plan_stage, first_lateral=lateral, first_aloft=aloft,
             coastal_penalty)
