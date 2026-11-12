@@ -434,7 +434,8 @@ end
 """
 function EdgeSample(table::PerformanceTable, weather, corridor, stage, lateral, step,
         share, time)
-    lat, lon = edge_point(corridor, stage, lateral, next_lateral(corridor, lateral, step), share)
+    lat, lon = edge_point(corridor, stage, lateral, next_lateral(corridor, lateral, step),
+        share)
     return EdgeSample(table, wind(weather, lat, lon, time), waves(weather, lat, lon, time),
         corridor.edge_course[stage, lateral, step], is_daylight(lon, time),
         wind_spread(weather, time))
@@ -1252,7 +1253,8 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
     commanded = commanded_speeds(length(speeds), speed_stride)
     for stage in first_stage:(stage_count - 1), lateral in 1:lateral_count
         corridor.water[stage, lateral] || continue
-        sample_hours = max(ROUTER_SETTINGS[].edge_sample_hours, corridor.sample_hours[stage])
+        sample_hours = max(ROUTER_SETTINGS[].edge_sample_hours,
+            corridor.sample_hours[stage])
         lat, lon = corridor.lat[stage, lateral], corridor.lon[stage, lateral]
         empty!(workspace.shared)
         fill!(workspace.shared_from, -1)
@@ -1533,7 +1535,8 @@ function plan_edge(plan::Leg, corridor, departure, first_stage, i)
     stage = first_stage + i - 1
     lateral = nearest_lateral(corridor, stage, plan.path[i][1], plan.path[i][2])
     next = nearest_lateral(corridor, stage + 1, plan.path[i + 1][1], plan.path[i + 1][2])
-    return stage, lateral, lateral_step(corridor, lateral, next), departure + plan.path[i][3]
+    return stage, lateral, lateral_step(corridor, lateral, next),
+    departure + plan.path[i][3]
 end
 
 """
@@ -1719,15 +1722,18 @@ function planning_stages(corridor::Corridor, stage, grid::PlanningGrid)
     along = corridor.along_centre
     stage_count = length(along)
     fixed = [count(view(corridor.water, i, :)) == 1 for i in 1:stage_count]
-    last_near = clamp(searchsortedlast(along, along[stage] + grid.near_distance * NAUTICAL_MILE),
-        min(stage + 1, stage_count), stage_count)
+    near_end = along[stage] + grid.near_distance * NAUTICAL_MILE
+    last_near = clamp(searchsortedlast(along, near_end), min(stage + 1, stage_count),
+        stage_count)
     stages = collect(stage:last_near)
     spacing = grid.far_spacing * NAUTICAL_MILE
     while last(stages) < stage_count
-        next = max(searchsortedfirst(along, along[last(stages)] + spacing), last(stages) + 1)
-        along[stage_count] - along[min(next, stage_count)] < spacing / 2 && (next = stage_count)
-        coast = findnext(fixed, last(stages) + 1)
-        isnothing(coast) || (next = min(next, max(coast - 1, last(stages) + 1)))
+        previous = last(stages)
+        next = max(searchsortedfirst(along, along[previous] + spacing), previous + 1)
+        along[stage_count] - along[min(next, stage_count)] < spacing / 2 &&
+            (next = stage_count)
+        coast = findnext(fixed, previous + 1)
+        isnothing(coast) || (next = min(next, max(coast - 1, previous + 1)))
         push!(stages, min(next, stage_count))
     end
     return stages, last_near - stage + 1
