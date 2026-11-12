@@ -3016,6 +3016,12 @@ end
     rerun(variant) = PaperData.pair_case_assumptions("kite+rotors rerun $(variant[1])")
     @test rerun(tether)[:tether_length_ratio] ≈ last(tether)[:tether_length_ratio]
     @test rerun(turn)[:kite_min_turn_radius] ≈ last(turn)[:kite_min_turn_radius]
+    base = PaperData.assumptions.entries
+    for (name, changes) in (tether, turn)
+        changed = [key for (key, entry) in rerun((name, changes)).entries
+                   if !isequal(entry.value, base[key].value)]
+        @test Set(changed) == Set(keys(changes))
+    end
 end
 
 @testset "a ship with an undefined rig area is refused, never sailed with no rig" begin

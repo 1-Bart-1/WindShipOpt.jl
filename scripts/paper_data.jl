@@ -2578,7 +2578,7 @@ end
 "ship classes of the kite-and-rotors and VTOL kite studies"
 pair_classes = ("Handysize bulk carrier", "Kamsarmax bulk carrier")
 
-"routes of those studies: the largest and smallest extra saving of a full grid"
+"routes of those studies: the kite's largest saving and both rigs' smallest in classes.csv"
 pair_routes = (:caribbean, :bilbao)
 
 """
