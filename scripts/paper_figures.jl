@@ -61,8 +61,8 @@ the least of what `figure` already draws inside that axis; in a row of its own b
 figure where every place covers some of it.
 """
 function corner_legend!(figure, axes, contents...; options...)
-    ink = [1 - (RGBf(pixel).r + RGBf(pixel).g + RGBf(pixel).b) / 3
-           for pixel in Makie.colorbuffer(figure; px_per_unit=1)]
+    ink = [1 - (pixel.r + pixel.g + pixel.b) / 3
+           for pixel in RGBf.(Makie.colorbuffer(figure; px_per_unit=1))]
     placements = [(axis, position) for axis in axes for position in legend_positions]
     covered = map(placements) do (axis, position)
         legend = axislegend(axis, contents...; position, options...)
