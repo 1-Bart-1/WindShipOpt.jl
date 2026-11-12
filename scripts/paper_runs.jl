@@ -89,6 +89,14 @@ fidelity.
 sampled_departures() = departures[1:run_settings().departure_step:end]
 
 """
+    rerun_departures()
+
+As many departures as [`sampled_departures`](@ref), each halfway between two of them.
+"""
+rerun_departures() = departures[(1 + run_settings().departure_step ÷ 2):
+    run_settings().departure_step:end]
+
+"""
     run_corridors(name)
 
 Outbound and return corridors of route `name` at the corridor scale of the run in use.
