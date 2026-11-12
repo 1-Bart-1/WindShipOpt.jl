@@ -1828,53 +1828,61 @@ function abatement_limits(table, ship, drive, bare)
 end
 
 """
-    uniform_swing(table, rig, input)
+    development_panel!(axis, table, ships, levers, rig, column)
 
-Cost savings [%] of `rig` on the 140 m ship in the uniform study `table` with `input` a
-step down and up.
+Bars in `axis` of the change of the saving of `rig` in `column` between the low and high
+bound of each of `levers`, one per ship in the colours of `palette`, with the high bound
+marked.
 """
-uniform_swing(table, rig, input) = (screened_saving(table, "140 m", rig, input, "down"),
-    screened_saving(table, "140 m", rig, input, "up"))
-
-"largest change [points] of any rig's saving between `input` a step down and up"
-uniform_reach(table, input) = maximum(rig -> abs(-(uniform_swing(table, rig, input)...)),
-    rig_names)
+function development_panel!(axis, table, ships, levers, rig, column)
+    vlines!(axis, 0; color=:gray50, linewidth=0.8)
+    for (k, entry) in enumerate(levers), (j, ship) in enumerate(ships)
+        low, high = bound_changes(table, ship, rig, string(entry.input); column)
+        isfinite(low + high) || continue
+        y = k + (2 - j) * 0.27
+        barplot!(axis, [y], [high - low]; offset=low, direction=:x, width=0.22,
+            color=palette[j])
+        scatter!(axis, [high], [y]; marker=:vline, color=:black, markersize=pt(7))
+    end
+end
 
 """
     sensitivity_figure()
 
-Cost saving of each rig on the 140 m e-ammonia reference ship with each of the twelve
-inputs that move any rig most a [`uniform_step`](@ref) down and up, as tornados around
-the base saving, one panel per rig on a shared axis and in the same order.
+Where development pays: for each rig the inputs of [`development_inputs`](@ref) that move
+it, largest effect on top, with the change of its saving of cost per tonne-km (left) and of
+CO2 per tonne-km (right) between the bounds of each input on each ship of the study.
 """
 function sensitivity_figure()
-    table = read_table(data_file("uniform.csv"))
-    inputs = filter(!=("none"), unique(table["input"]))
-    filter!(input -> all(rig -> all(isfinite, uniform_swing(table, rig, input)),
-            rig_names), inputs)
-    shown = last(sort(inputs; by=input -> uniform_reach(table, input)), 12)
-    step = round(Int, 100 * uniform_step)
-    figure = Figure(size=(page_width, 280))
-    axes = Axis[]
-    for (column, rig) in enumerate(rig_names)
-        base = screened_saving(table, "140 m", rig, "none", "value")
-        axis = Axis(figure[1, column]; title="($('a' + column - 1)) $rig",
-            yticks=(eachindex(shown), replace.(shown, "_" => " ")),
-            yticksvisible=column == 1, yticklabelsvisible=column == 1,
-            xlabel="cost saving [%]", xticks=WilkinsonTicks(3), yticklabelsize=pt(8))
-        push!(axes, axis)
-        vlines!(axis, base; color=:gray50, linewidth=0.8)
-        for (k, input) in enumerate(shown)
-            down, up = uniform_swing(table, rig, input)
-            barplot!(axis, [k], [down - base]; offset=base, direction=:x,
-                color=palette[1], width=0.6)
-            barplot!(axis, [k], [up - base]; offset=base, direction=:x,
-                color=palette[2], width=0.6)
-        end
+    table = read_table(data_file("sensitivity.csv"))
+    ships = unique(table["ship"])
+    panels = [filter(entry -> rig in lever_rigs(entry), development_inputs)
+              for rig in rig_names]
+    for (levers, rig) in zip(panels, rig_names)
+        sort!(levers; by=entry -> maximum(ship -> abs(-(bound_changes(table, ship, rig,
+            string(entry.input))...)), ships))
     end
-    linkxaxes!(axes...)
-    Legend(figure[2, 1:3], [PolyElement(color=palette[1]), PolyElement(color=palette[2])],
-        ["$step % lower", "$step % higher"]; orientation=:horizontal)
+    figure = Figure(size=(page_width, 520))
+    columns = [("cost", "change of cost saving [points]", "cost"),
+        ("carbon", rich("change of CO", subscript("2"), " saving [points]"),
+            rich("CO", subscript("2")))]
+    for (row, (rig, levers)) in enumerate(zip(rig_names, panels))
+        for (column, (name, label, saved)) in enumerate(columns)
+            axis = Axis(figure[row, column];
+                title=rich("($('a' + 2 * (row - 1) + column - 1)) $rig, ", saved),
+                yticks=(eachindex(levers), [entry.label for entry in levers]),
+                yticksvisible=column == 1, yticklabelsvisible=column == 1,
+                xlabel=row == length(rig_names) ? label : "", xticks=WilkinsonTicks(4),
+                yticklabelsize=pt(8))
+            development_panel!(axis, table, ships, levers, rig, name)
+            ylims!(axis, 0.4, length(levers) + 0.6)
+        end
+        rowsize!(figure.layout, row, Auto(length(levers)))
+    end
+    Legend(figure[length(rig_names) + 1, 1:2],
+        [[PolyElement(color=palette[j]) for j in eachindex(ships)];
+            [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
+        [short_ship.(ships); "high end of range"]; orientation=:horizontal, tellwidth=false)
     save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1944,29 +1952,34 @@ combination_rigs = (("kite", "best kite", palette[1]),
 """
     combination_figure()
 
-Cost saving against no rig of the best kite, the best rotors and the best pair of both
-on each ship and drive of the combination study, and the combination's saving over the
-better single rig, each as the mean over the routes with the range of the routes.
-Prints the means and the share of the summed single-rig savings the combination keeps.
+Cost saving against no rig of the best kite, the best rotors and the best of the pairs on
+each class and drive of combination_pairs.csv, and that pair's saving over the better single
+rig against twice the routing noise of the reruns, each as the mean over the routes with
+their range. Prints the means, the share of the summed savings the pair keeps and the noise.
 """
 function combination_figure()
-    table = read_table(data_file("combination.csv"))
-    groups = vec([(ship, drive) for drive in ("vlsfo", "ammonia"),
-                  ship in combination_ships])
+    table = read_table(data_file("combination_pairs.csv"))
+    groups = vec([(ship, drive) for drive in ("vlsfo", "ammonia"), ship in pair_classes])
     labels = ["$(replace(ship, " bulk carrier" => ""))\n$(Dict(drive_labels)[drive])"
               for (ship, drive) in groups]
     figure = Figure(size=(page_width, 310))
     saving_axis = Axis(figure[1, 1]; title="(a) cost saving vs no rig",
         ylabel="cost saving [%]")
-    gain_axis = Axis(figure[2, 1]; title="(b) combination over the better single rig",
+    gain_axis = Axis(figure[2, 1]; title="(b) pair over the better single rig",
         xticks=(eachindex(groups), labels), ylabel="extra saving [% points]")
     linkxaxes!(saving_axis, gain_axis)
     hidexdecorations!(saving_axis)
     rowsize!(figure.layout, 2, Relative(0.4))
+    conditions(ship, drive, route) = ("ship" => ship, "route" => string(route),
+        "drive" => drive)
+    differences = [rerun_differences(table, conditions(ship, drive, route)...)
+                   for (ship, drive) in groups for route in pair_routes]
+    single_noise = rerun_noise(reduce(vcat, differences))
+    gain_noise = sqrt(2) * single_noise
+    hspan!(gain_axis, -2gain_noise, 2gain_noise; color=(:gray50, 0.25))
     for (group, (ship, drive)) in enumerate(groups)
-        savings = [rig_savings(table, first.(combination_rigs), "ship" => ship,
-                       "route" => string(route), "drive" => drive)
-                   for route in route_names]
+        savings = [rig_savings(table, first.(combination_rigs),
+                       conditions(ship, drive, route)...) for route in pair_routes]
         for (k, (rig, _, colour)) in enumerate(combination_rigs)
             values = [saving[rig] for saving in savings]
             range_bar!(saving_axis, group + 0.27(k - 2), values, 0.25, colour)
@@ -1976,13 +1989,37 @@ function combination_figure()
         range_bar!(gain_axis, group, gains, 0.4, palette[4])
         print_combination(ship, drive, savings, gains)
     end
+    @printf("  routing noise %.2f points on one saving, %.2f on the extra saving\n",
+        single_noise, gain_noise)
     for axis in (saving_axis, gain_axis)
         hlines!(axis, 0; color=:gray50, linewidth=0.6)
     end
-    entries = [PolyElement(color=colour) for (_, _, colour) in combination_rigs]
-    Legend(figure[3, 1], entries, collect(getindex.(combination_rigs, 2));
-        orientation=:horizontal)
+    entries = [[PolyElement(color=colour) for (_, _, colour) in combination_rigs];
+        PolyElement(color=(:gray50, 0.25))]
+    Legend(figure[3, 1], entries, [collect(getindex.(combination_rigs, 2));
+            "twice the routing noise"]; orientation=:horizontal)
     save(joinpath(figures, "combination.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    rerun_differences(table, conditions...)
+
+Differences [% points] between the cost saving of each rerun of combination_pairs.csv under
+`conditions` and that of the same size at base values.
+"""
+function rerun_differences(table, conditions...)
+    reference = only(table["cost"][rows(table, conditions..., "rig" => "none")])
+    differences = Float64[]
+    for row in rows(table, conditions...)
+        occursin(" rerun ", table["rig"][row]) || continue
+        base = only([other for other in rows(table, conditions...,
+                         "rig" => first(split(table["rig"][row], " rerun ")))
+                     if table["kite_area"][other] == table["kite_area"][row] &&
+                        table["rotor_area"][other] == table["rotor_area"][row]])
+        push!(differences, percent_saving(table["cost"][row], reference) -
+                           percent_saving(table["cost"][base], reference))
+    end
+    return differences
 end
 
 """
@@ -2033,14 +2070,16 @@ function speed_size_figure()
         shades = cgrad(:Blues, length(grid.kites) + 3; categorical=true)
         for (column, (label, pricing, quantity)) in enumerate(panels)
             letter = Char('a' + length(panels) * (row - 1) + column - 1)
-            design = column == 1 ? " $(grid.ship), $(Dict(drive_labels)[drive])" : ""
+            short_ship = replace(grid.ship, " container ship" => "")
+            design = column == 1 ? " $short_ship, $(Dict(drive_labels)[drive])" : ""
             axis = Axis(figure[row, column]; title="($letter)$design",
                 xlabel=row == length(designs) ? "ship speed [kn]" : "", ylabel=label,
                 xticks=collect(grid.speeds))
             ends, drawn = Float64[], Float64[]
             for (k, area) in enumerate(grid.kites)
-                savings = [speed_size_saving(table, grid.ship, drive, "kite", area, pricing,
-                               knots) for knots in grid.speeds]
+                savings = [speed_size_saving(table, grid.ship, drive,
+                               speed_size_routes(table, grid, drive, knots), "kite", area,
+                               pricing, knots) for knots in grid.speeds]
                 held = findall(!isnothing, savings)
                 values = [getproperty(savings[i], quantity) for i in held]
                 scatterlines!(axis, collect(grid.speeds)[held], values;
@@ -2126,76 +2165,6 @@ function rigid_scaling_figure()
     save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
 end
 
-"lines of the rigid size figure with the column selecting their fleets"
-rigid_size_lines = (("one wing", "count" => 1.0), ("30 m² each", "unit" => 30.0),
-    ("54 m² each", "unit" => 54.0), ("100 m² each", "unit" => 100.0))
-
-"""
-    rigid_size_figure()
-
-Cost saving against no rig over the total area of rigid kites on each ship on VLSFO, as the
-mean over the routes, one line per area of a kite and one for a single wing of any area,
-solid for the base mass law and dashed for span cubed. Prints every fleet by saving.
-"""
-function rigid_size_figure()
-    table = read_table(data_file("rigid_kite.csv"))
-    figure = Figure(size=(page_width, 230))
-    for (k, ship) in enumerate(combination_ships)
-        axis = Axis(figure[1, k]; title=ship, xscale=log10, xlabel="total area [m²]",
-            xticks=([30, 100, 300], ["30", "100", "300"]),
-            ylabel=k == 1 ? "cost saving [%]" : "")
-        for (scenario, linestyle) in (("rigid base", :solid), ("rigid cubic", :dash))
-            print_rigid_sizes(table, ship, scenario)
-            for (colour, (label, fleets)) in enumerate(rigid_size_lines)
-                points = sort(fleet_savings(table, ship, scenario, fleets))
-                lines!(axis, getindex.(points, 1), getindex.(points, 2); linestyle, label,
-                    color=palette[colour])
-            end
-        end
-        k == 1 && axislegend(axis; unique=true, position=:lb)
-    end
-    save(joinpath(figures, "rigid_size.pdf"), figure; pt_per_unit=print_scale)
-end
-
-"""
-    fleet_savings(table, ship, scenario, fleets)
-
-(total area [m^2], mean saving [%] over the routes on VLSFO, kites, area of each [m^2]) of
-the rows of `scenario` on `ship` that the column pair `fleets` selects, those flown on
-every route.
-"""
-function fleet_savings(table, ship, scenario, fleets)
-    chosen = rows(table, "ship" => ship, "drive" => "vlsfo", "rig" => scenario, fleets)
-    points = NTuple{4, Float64}[]
-    for (count, unit) in unique(zip(table["count"][chosen], table["unit"][chosen]))
-        savings = Float64[]
-        for route in route_names
-            filters = ("ship" => ship, "route" => string(route), "drive" => "vlsfo")
-            bare = table["cost"][only(rows(table, filters..., "rig" => "none"))]
-            fleet = rows(table, filters..., "rig" => scenario, "unit" => unit,
-                "count" => count)
-            isempty(fleet) || push!(savings, 100 * (1 - table["cost"][only(fleet)] / bare))
-        end
-        length(savings) == length(route_names) || continue
-        push!(points, (count * unit, mean(savings), count, unit))
-    end
-    return points
-end
-
-"""
-    print_rigid_sizes(table, ship, scenario)
-
-Print the mean saving [%] over the routes on VLSFO of every fleet of `scenario` on `ship`,
-best first.
-"""
-function print_rigid_sizes(table, ship, scenario)
-    println("  $ship, $(paper_name(scenario)):")
-    fleets = fleet_savings(table, ship, scenario, "rig" => scenario)
-    for (_, saving, count, unit) in sort(fleets; by=point -> -point[2])
-        @printf("    %.0f x %.0f m²: %.2f %%\n", count, unit, saving)
-    end
-end
-
 "rigs of the rigid kite figure with their legend labels and colours"
 rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
     ("wings", "best wings", palette[2]),
@@ -2212,7 +2181,7 @@ routes. Prints the means and the rigid fleets each scenario prefers.
 function rigid_kite_figure()
     table = read_table(data_file("rigid_kite.csv"))
     groups = vec([(ship, drive) for drive in ("vlsfo", "ammonia"),
-                  ship in combination_ships])
+                  ship in pair_classes])
     figure = Figure(size=(page_width, 240))
     axis = Axis(figure[1, 1]; ylabel="cost saving [%]",
         xticks=(eachindex(groups),
@@ -2221,7 +2190,7 @@ function rigid_kite_figure()
     names = first.(rigid_kite_rigs)
     for (group, (ship, drive)) in enumerate(groups)
         savings = [rig_savings(table, names, "ship" => ship, "route" => string(route),
-                       "drive" => drive) for route in route_names]
+                       "drive" => drive) for route in pair_routes]
         for (k, (rig, _, colour)) in enumerate(rigid_kite_rigs)
             range_bar!(axis, group + 0.17(k - 3), [saving[rig] for saving in savings], 0.15,
                 colour)
@@ -2237,8 +2206,8 @@ end
 """
     print_rigid_kite(table, ship, drive, savings)
 
-Print for one ship and drive the mean saving [%] of each rig over the routes, the routes on
-which rigid kites lead and the most frequent best fleet of each scenario.
+Print for one ship and drive the mean saving [%] of each rig over the routes, and for each
+scenario its best fleet on each route and the routes on which it leads.
 """
 function print_rigid_kite(table, ship, drive, savings)
     @printf("  %s, %s:", ship, drive)
@@ -2249,7 +2218,7 @@ function print_rigid_kite(table, ship, drive, savings)
     end
     println()
     for scenario in ("rigid base", "rigid optimistic")
-        best = map(route_names) do route
+        best = map(pair_routes) do route
             chosen = rows(table, "ship" => ship, "drive" => drive, "route" => string(route),
                 "rig" => scenario)
             row = chosen[argmin(table["cost"][chosen])]
@@ -2258,7 +2227,7 @@ function print_rigid_kite(table, ship, drive, savings)
         leads = count(saving -> saving[scenario] > maximum(saving[rig]
                 for rig in ("kite", "wings", "rotors")), savings)
         println("    $(paper_name(scenario)): best fleets ", join(best, ", "),
-            "; leads on ", leads, " of ", length(route_names), " routes")
+            "; leads on ", leads, " of ", length(pair_routes), " routes")
     end
 end
 
@@ -2359,10 +2328,10 @@ end
     missed_goals_figure()
 
 Cost saving of each rig against the canopy life, the canopy price and the share out of
-service, for each screened ship with its rig sizes held: the kite's saving over the swept
-canopy inputs, the other rigs' at their goals, and every rig's over its share out of
-service. Each goal is a vertical line over the shaded range of its input; today's canopy
-price is dotted.
+service, for each ship of the development study with its rig sizes held: the kite's saving
+over the swept canopy inputs, the other rigs' at their goals, and every rig's over its
+share out of service. Each goal is a vertical line over the shaded range of its input;
+today's canopy price is dotted.
 """
 function missed_goals_figure()
     sizes = read_table(data_file("goal_sizes.csv"))

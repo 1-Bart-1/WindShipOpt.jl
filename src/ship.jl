@@ -228,8 +228,9 @@ positive `kite_area` a towing kite of that projected area and projected
 `kite_aspect_ratio`, a positive `rigid_kite_area` rigid VTOL kites of about that total
 area, a positive `rotor_area` Flettner rotors of that total height times diameter. A kite
 may fly over wings or rotors as a [`CombinedRig`](@ref); wings and
-rotors exclude each other. With a `class` the hull, engine power, price and cargo value
-are those of the class, otherwise the reference coaster is scaled to `length`.
+rotors exclude each other. A rig area that is not finite is an `ArgumentError`. With a
+`class` the hull, engine power, price and cargo value are those of the class, otherwise the
+reference coaster is scaled to `length`.
 """
 Base.@kwdef struct ShipDesign
     drive::Symbol
@@ -241,6 +242,13 @@ Base.@kwdef struct ShipDesign
     rotor_area::Float64 = 0.0
     rigid_kite_area::Float64 = 0.0
     class::Union{Nothing, ShipClass} = nothing
+    function ShipDesign(drive, length, wing_area, kite_area, kite_aspect_ratio, rotor_area,
+            rigid_kite_area, class)
+        all(isfinite, (wing_area, kite_area, rotor_area, rigid_kite_area)) ||
+            throw(ArgumentError("a rig area must be finite"))
+        return new(drive, length, wing_area, kite_area, kite_aspect_ratio, rotor_area,
+            rigid_kite_area, class)
+    end
 end
 
 ShipDesign(drive::Symbol, length::Real; kwargs...) = ShipDesign(; drive, length, kwargs...)
