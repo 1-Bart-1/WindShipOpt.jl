@@ -210,7 +210,7 @@ function pattern_figure()
         limits=(-15, 195), ticks=courses, vertical=false, flipaxis=false, height=6,
         label="course off apparent downwind [°]")
     colsize!(figure.layout, 1, Relative(0.5))
-    save(joinpath(figures, "patterns.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("patterns", figure)
 end
 
 """
@@ -2363,7 +2363,7 @@ function canopy_price_figure()
         [collect(getindex.(sources, 2)); "retail line"; "goal"];
         orientation=:horizontal, nbanks=2, tellwidth=false, valign=:top)
     rowgap!(figure.layout, pt(4))
-    save(joinpath(figures, "canopy_price.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("canopy_price", figure)
 end
 
 """

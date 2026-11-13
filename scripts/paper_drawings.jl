@@ -319,7 +319,7 @@ function kite_frames_figure()
     draw_window!(axes[1])
     draw_side_sphere!(axes[2])
     draw_course_plan!(axes[3])
-    save(joinpath(figures, "kite_frames.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("kite_frames", figure)
 end
 
 "point at `radius` and `angle` [rad] from the +x axis of a figure, counterclockwise"
@@ -353,9 +353,9 @@ function draw_window!(axis)
     lowest = sind(assumptions[:kite_min_elevation])
     for polar in (30, 60)
         radius = sind(polar)
-        lines!(axis, [window_point(radius, roll) for roll in range(0, π; length=60)];
+        lines!(axis, [window_point(radius, roll) for roll in range(π / 2, π; length=30)];
             color=:gray70, linewidth=0.5)
-        text!(axis, polar == 30 ? -radius : radius, 0; text=L"\vartheta = %$(polar)°",
+        text!(axis, radius, 0; text=polar == 30 ? L"\vartheta = 30°" : L"60°",
             align=(:center, :top),
             offset=clear_offset((:center, :top), pt(2)), fontsize=note_size,
             color=:gray50)
@@ -367,7 +367,7 @@ function draw_window!(axis)
     lines!(axis, Point2f[(-1.15, 0), (1.15, 0)]; color=:black, linewidth=0.6)
     text!(axis, window_point(1, deg2rad(130)); text="edge of\nthe window",
         align=(:left, :bottom), offset=(2, 0), fontsize=note_size)
-    text!(axis, 1.03, lowest / 2;
+    text!(axis, 1.03, lowest;
         text="below $(round(Int, assumptions[:kite_min_elevation]))°",
         align=(:left, :center), fontsize=note_size, color=:gray40)
     polar, roll = deg2rad(33), deg2rad(62)
@@ -375,7 +375,7 @@ function draw_window!(axis)
     lines!(axis, [Point2f(0, 0), kite]; color=:gray50, linewidth=0.6, linestyle=:dash)
     lines!(axis, [window_point(0.3, angle) for angle in range(0, roll; length=20)];
         color=category_colours[2])
-    text!(axis, window_point(0.34, 0.6roll); text=L"\phi", align=(:right, :center),
+    text!(axis, window_point(0.37, 0.6roll); text=L"\phi", align=(:right, :center),
         color=category_colours[2])
     outward = Vec2f(kite / hypot(kite...))
     along = Vec2f(outward[2], -outward[1])
@@ -383,8 +383,8 @@ function draw_window!(axis)
     small_arrow!(axis, kite, 0.3outward, L"\hat{\mathbf{e}}_\vartheta";
         align=(:right, :center))
     small_arrow!(axis, kite, 0.3along, L"\hat{\mathbf{e}}_\phi"; align=(:left, :center))
-    small_arrow!(axis, kite, 0.38 * (cos(heading) * outward + sin(heading) * along),
-        L"\hat{\mathbf{h}}"; color=palette[6])
+    small_arrow!(axis, kite, 0.32 * (cos(heading) * outward + sin(heading) * along),
+        L"\hat{\mathbf{h}}"; color=palette[6], align=(:center, :bottom))
     lines!(axis, [kite + 0.12 * (cos(angle) * outward + sin(angle) * along)
                   for angle in range(0, heading; length=12)]; color=palette[6])
     text!(axis, kite + 0.2 * (cos(heading / 2) * outward + sin(heading / 2) * along);
@@ -461,13 +461,13 @@ function draw_course_plan!(axis)
     text!(axis, Point2f(force); text=L"\overline{\mathbf{F}}", align=(:left, :bottom),
         offset=clear_offset((:left, :bottom), pt(2)), color=palette[1])
     for (vector, label, origin, inside, at) in (
-        (along, L"F_\parallel", Point2f(0, 0), force, 0.6),
+        (along, L"F_\parallel", Point2f(0, 0), force, 0.75),
         (force - along, L"F_\perp", Point2f(along), Point2f(0, 0), 0.75))
         arrows2d!(axis, [origin], [vector]; color=palette[6], shaftwidth=0.8)
         normal = Vec2f(vector[2], -vector[1]) / hypot(vector...)
         middle = origin + at * vector
         outward = sum(normal .* (inside - middle)) > 0 ? -normal : normal
-        text!(axis, middle + 0.11outward; text=label, align=(:center, :center),
+        text!(axis, middle + 0.15outward; text=label, align=(:center, :center),
             color=palette[6])
     end
     limits!(axis, -1.1, 1.7, -0.75, 1.3)
