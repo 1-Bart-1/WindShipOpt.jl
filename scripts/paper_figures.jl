@@ -21,9 +21,11 @@ category_colours = [palette[6], Makie.RGBf(0.42, 0.26, 0.64), Makie.RGBf(0.55, 0
 
 Write [`figure_style`](@ref) to paper/figure_style.tex: its colours, and the TikZ styles of
 the paper's LaTeX figures, `force`, `flow`, `dimension`, `leader`, `label`, `note` and
-`box`, with the arrowhead every arrow shares.
+`box`, with the arrowhead every arrow shares; error on any [`tikz_style_faults`](@ref).
 """
 function figure_style_file()
+    faults = tikz_style_faults()
+    isempty(faults) || error("TikZ figures set their own style:\n", join(faults, "\n"))
     sizes = figure_style["sizes"]
     size(name) = @sprintf("%gpt", sizes[name])
     font(name) = @sprintf("\\fontsize{%g}{%g}\\selectfont", sizes[name], 1.2sizes[name])
@@ -43,9 +45,35 @@ function figure_style_file()
         println(io, "  label/.style={font=", font("text"), ", inner sep=1pt, preaction={",
             "fill=white, draw=white, line width=", size("halo"), "}},")
         println(io, "  note/.style={label, font=", font("note"), "},")
-        println(io, "  box/.style={draw, rounded corners=2pt, line width=", size("rule"), "},")
+        println(io, "  box/.style={draw, rounded corners=2pt, line width=", size("rule"),
+            "},")
         println(io, "}")
     end
+end
+
+"""
+    tikz_style_faults()
+
+Lines of the TikZ figures in paper/sections that set a width, font size, colour or style
+of their own rather than one of [`figure_style_file`](@ref): a colour mixed from one that
+is not in [`figure_style`](@ref) counts, a tint of one that is does not.
+"""
+function tikz_style_faults()
+    own = Regex(string("line width|\\b(ultra |very )?(thin|thick)\\b|semithick|/\\.style|",
+        "\\\\(definecolor|colorlet|tiny|scriptsize|footnotesize|small)\\b"))
+    mixed = r"([A-Za-z]+)!\d"
+    faults = String[]
+    for file in filter(endswith(".tex"), readdir(sections; join=true))
+        text = read(file, String)
+        occursin("tikzpicture", text) || continue
+        for (number, line) in enumerate(split(text, '\n'))
+            foreign = any(!haskey(figure_style["colours"], match[1])
+                          for match in eachmatch(mixed, line))
+            (occursin(own, line) || foreign) &&
+                push!(faults, "$(basename(file)):$number: $(strip(line))")
+        end
+    end
+    return faults
 end
 
 "`n` shades of the kite's blue, light to dark"
