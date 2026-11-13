@@ -302,7 +302,7 @@ function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0, day
     condition = WindShipOpt.SeaCondition(table.table, 12.0, π / 2, wave_height, 8.0,
         π / 2)
     sample = WindShipOpt.EdgeSample(condition, headwind, 0.0, daylight)
-    held, flown, stowed, chance = WindShipOpt.held_speed(table, speed_index, sample)
+    held, flown, stowed, chance = WindShipOpt.held_speed(table, speed_index, sample, true)
     return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours, 0.0, chance)
 end
 
@@ -1335,7 +1335,7 @@ WindShipOpt.waves(seas::HeadSeas, lat, lon, time) =
         0.0)
     points = WindShipOpt.SailedPoint[]
     hours = WindShipOpt.sail_edge!(points, start, table, seas, corridor, stage, centre,
-        step, 0.0, commanded)
+        step, 0.0, commanded, false)
     @test 0 < last(points).speed_index < commanded
     @test hours > corridor.edge_length[stage, centre, step] / table.speeds[commanded] / 3600
     storm = HeadSeas(destination, 60NAUTICAL_MILE, wave_from, 8.0, 9.0)
@@ -1366,7 +1366,7 @@ end
     points = WindShipOpt.SailedPoint[]
     for sample_hours in (commanded / 4, commanded / 2)
         WindShipOpt.sail_edge!(points, start, table, weather, corridor, stage, centre, step,
-            24.0, speed_index, sample_hours * 1.001)
+            24.0, speed_index, false, sample_hours * 1.001)
         @test length(points) == round(Int, commanded / sample_hours) + 1
     end
 end
@@ -1742,7 +1742,7 @@ end
     value(member; slows) = WindShipOpt.plan_values(plan, corridor, kite_table, member,
         departure, 1, prices; slows)
     @test value(weather; slows=true) == value(weather; slows=false)
-    @test !isfinite(value(seas; slows=false)[1, 1])
+    @test value(seas; slows=false)[1, 1] > value(weather; slows=false)[1, 1]
     @test isfinite(value(seas; slows=true)[1, 1])
     @test value(seas; slows=true)[1, 1] > value(weather; slows=true)[1, 1]
     known = [ForecastWeather(member, departure, 24.0 * 100) for member in (weather, seas)]
@@ -2539,6 +2539,45 @@ end
     @test workspace.shared[slot] === WindShipOpt.UNSAILED
 end
 
+"""
+    BeamGale(east, north, wave_from)
+
+The same 10 m wind (`east`, `north`) [m/s] and 4 m waves of 8 s from `wave_from` [rad]
+everywhere and at all times.
+"""
+struct BeamGale
+    east::Float64
+    north::Float64
+    wave_from::Float64
+end
+
+WindShipOpt.wind(gale::BeamGale, lat, lon, time) = (gale.east, gale.north)
+WindShipOpt.waves(gale::BeamGale, lat, lon, time) = (4.0, 8.0, gale.wave_from)
+
+@testset "a state down sharing its edge with a kite aloft sails what the stowed rig \
+          holds" begin
+    table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0; kite_area=400.0),
+            assumptions), assumptions))
+    stage, centre, slot = 1, centre_index(corridor), 1
+    step = WindShipOpt.MAX_LATERAL_STEP + 1
+    course = corridor.edge_course[stage, centre, step]
+    gale = BeamGale(8cos(course), -8sin(course), course + π / 2)
+    midnight = mod(-corridor.lon[stage, centre] / 15, 24)
+    prices = (; fuel=table.table.ship.fuel.price, time=0.0)
+    start = WindShipOpt.EdgeSample(table.table, gale, corridor, stage, centre, step, 0.0,
+        midnight)
+    edge = (; start, weather=gale, corridor, stage, lateral=centre, step, time=midnight,
+        speed_index=length(table.speeds), sample_hours=6.0)
+    workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2), 4, size(corridor.lat, 1))
+    push!(workspace.shared, WindShipOpt.UNSAILED)
+    down = WindShipOpt.sailed_edge!(workspace, slot, false, table, prices, edge)
+    aloft = workspace.shared[slot]
+    @test isfinite(aloft.up.cost)
+    @test !isfinite(aloft.down.cost)
+    @test isfinite(down.down.cost)
+    @test down.hours > aloft.hours
+end
+
 @testset "a faster speed counts as sailed the same only where it is sampled alike" begin
     table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
         assumptions))
@@ -2546,7 +2585,7 @@ end
     sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0, true)
     unpowered = findfirst(i -> !isfinite(last(WindShipOpt.edge_fuels(table, i, condition))),
         eachindex(table.speeds))
-    held, flown, stowed, chance = WindShipOpt.held_speed(table, unpowered, sample)
+    held, flown, stowed, chance = WindShipOpt.held_speed(table, unpowered, sample, false)
     point = WindShipOpt.SailedPoint(sample, held, flown, stowed, 1.0, 0.0, chance)
     distance = 1e5
     hours(i) = distance / table.speeds[i] / 3600
@@ -2565,23 +2604,40 @@ end
     powered(i) = isfinite(last(WindShipOpt.edge_fuels(table, i, condition)))
     unpowered = findfirst(!powered, eachindex(table.speeds))
     faster_powered = findnext(powered, eachindex(table.speeds), unpowered)
-    held, flown, stowed, chance = WindShipOpt.held_speed(table, unpowered, sample)
+    held, flown, stowed, chance = WindShipOpt.held_speed(table, unpowered, sample, false)
     point = WindShipOpt.SailedPoint(sample, held, flown, stowed, 1.0, 0.0, chance)
     same_through = WindShipOpt.same_through(table, [point], unpowered, 1e5, 1e6)
     @test same_through == faster_powered - 1
     for speed_index in unpowered:same_through
-        @test WindShipOpt.held_speed(table, speed_index, sample) ==
+        @test WindShipOpt.held_speed(table, speed_index, sample, false) ==
               (held, flown, stowed, chance)
     end
     calm = WindShipOpt.EdgeSample(WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 0.0, 6.0,
         0.0), 0.0, 0.0, true)
     calm_held, calm_flown, calm_stowed, calm_chance = WindShipOpt.held_speed(table,
-        unpowered, calm)
+        unpowered, calm, false)
     calm_point = WindShipOpt.SailedPoint(calm, calm_held, calm_flown, calm_stowed, 1.0, 0.0,
         calm_chance)
     @test WindShipOpt.same_through(table, [point, calm_point], unpowered, 1e5, 1e6) ==
         unpowered
-    @test first(WindShipOpt.held_speed(table, faster_powered, sample)) == faster_powered
+    @test first(WindShipOpt.held_speed(table, faster_powered, sample, false)) ==
+          faster_powered
+end
+
+@testset "an edge begun with the kite down holds what the stowed rig holds" begin
+    table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0; kite_area=400.0),
+            assumptions), assumptions))
+    prices = (; fuel=table.table.ship.fuel.price, time=0.0)
+    condition = WindShipOpt.SeaCondition(table.table, 8.0, π / 2, 4.0, 8.0, π / 2)
+    crosswind, headwind = table.table.kite_wind_factor * 8.0 .* sincos(π / 2)
+    night = WindShipOpt.EdgeSample(condition, headwind, crosswind, false)
+    fastest = length(table.speeds)
+    point(aloft) = WindShipOpt.SailedPoint(table, night, fastest, aloft, 1e4, 0.0)
+    @test point(false).speed_index < point(true).speed_index
+    @test isfinite(point(false).stowed)
+    @test isfinite(first(WindShipOpt.kite_passage(table, [point(false)], false,
+        prices)).cost)
+    @test isfinite(last(WindShipOpt.kite_passage(table, [point(true)], true, prices)).cost)
 end
 
 module PaperRuns
