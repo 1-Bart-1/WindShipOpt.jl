@@ -43,7 +43,7 @@ function force_arrow!(axis, point, force, label; scale, color, align, push=false
     free = push ? tail : tail + vector
     text!(axis, at_point ? Point2f(point) : free; align, fontsize=note_size, color,
         text=@sprintf("%s %.0f kN", label, magnitude),
-        offset=clear_offset(align, pt(iszero(vector) ? 4.5 : 2.5)))
+        offset=clear_offset(align, pt(iszero(vector) || at_point ? 4.5 : 3.5)))
     return [tail, tail + vector]
 end
 
@@ -59,7 +59,7 @@ propeller thrust.
 function force_balance_figure()
     speed, wind, angle = 10.5KNOT, 10.0, deg2rad(90)
     rigs = ((L"(a) kite $800\,\mathrm{m^2}$", (kite_area=800.0,)),
-        (L"(b) wings $800\,\mathrm{m^2}$", (wing_area=800.0,)),
+        (L"(b) wing sails $800\,\mathrm{m^2}$", (wing_area=800.0,)),
         (L"(c) rotors $400\,\mathrm{m^2}$", (rotor_area=400.0,)))
     span = (-222.0, 208.0)
     width = page_width - pt(9)
@@ -72,15 +72,15 @@ function force_balance_figure()
         axis = Axis(figure[row, 1]; width)
         hidedecorations!(axis)
         hidespines!(axis)
-        ends = draw_force_balance!(axis, ship, speed, thrust, force, wind_load,
-            palette[row])
-        low, high = extrema(last.(ends)) .+ (-11, 11)
+        ends = draw_force_balance!(axis, ship, (speed, wind, angle), thrust, force,
+            wind_load, palette[row])
+        low, high = extrema(last.(ends)) .+ (-13, 13)
         limits!(axis, span..., low, high)
         axis.height = width * (high - low) / (span[2] - span[1])
         text!(axis, span[1], high; text=title, align=(:left, :top))
         leeway, heel = round.(rad2deg.((balance.leeway, balance.heel)); digits=1)
         text!(axis, span[1], high; align=(:left, :top), offset=(0, -pt(11)),
-            text=L"leeway $\beta = %$(leeway)^\circ$, heel $\phi = %$(heel)^\circ$",
+            text=L"leeway $\itbeta = %$(leeway)^\circ$, heel $\itphi = %$(heel)^\circ$",
             fontsize=note_size)
     end
     wind_arrow = content(figure[1, 1])
@@ -94,14 +94,16 @@ function force_balance_figure()
 end
 
 """
-    draw_force_balance!(axis, ship, speed, thrust, force, wind_load, colour)
+    draw_force_balance!(axis, ship, (speed, wind, angle), thrust, force, wind_load, colour)
 
-Plan view of `ship` at `speed` [m/s], bow to the right and the wind from above, with its
-rig and the forces [N] of [`force_balance_figure`](@ref): the rig `force` in `colour`, the
-`wind_load`, and the hull, rudder, resistance and propeller `thrust` that balance them;
-returns the ends [m] of the arrows and of the hull's beam.
+Plan view of `ship` at `speed` [m/s] in the true `wind` [m/s] from `angle` [rad] off the
+bow, bow to the right and the wind from above, with its rig and the forces [N] of
+[`force_balance_figure`](@ref): the rig `force` in `colour`, the `wind_load`, and the
+hull, rudder, resistance and propeller `thrust` that balance them; returns the ends [m] of
+the arrows and of the hull's beam.
 """
-function draw_force_balance!(axis, ship, speed, thrust, force, wind_load, colour)
+function draw_force_balance!(axis, ship, (speed, wind, angle), thrust, force, wind_load,
+        colour)
     (; hull, env) = ship
     total = force + wind_load
     scale = 0.12
@@ -115,7 +117,7 @@ function draw_force_balance!(axis, ship, speed, thrust, force, wind_load, colour
     water = style_colour("water")
     poly!(axis, rotated.(hull_outline(hull.length, hull.beam), π / 2);
         color=style_colour("ship"), strokecolor=:black, strokewidth=rule_width)
-    draw_rig!(axis, ship.rig, hull, colour)
+    draw_rig!(axis, ship.rig, ship, (speed, wind, angle), colour)
     arrows = (
         force_arrow!(axis, (force.yaw_moment / force.side, 0),
             (force.thrust / 1e3, windward(force.side)), "rig"; scale, color=colour,
@@ -127,7 +129,7 @@ function draw_force_balance!(axis, ship, speed, thrust, force, wind_load, colour
             (-leeway_drag / 1e3, windward(-total.side - rudder)), "hull"; scale,
             color=water, align=(:left, :bottom)),
         force_arrow!(axis, (stern - 6, 0), (-rudder_drag / 1e3, windward(rudder)),
-            "rudder"; scale, color=water, align=(:right, :bottom)),
+            "rudder"; scale, color=water, align=(:right, :center)),
         force_arrow!(axis, (stern, 0), (thrust / 1e3, 0.0), "propeller"; scale,
             color=water, align=(:right, :top), at_point=true),
         force_arrow!(axis, (bow, 0), (-resistance / 1e3, 0.0), "calm water"; scale,
@@ -136,24 +138,28 @@ function draw_force_balance!(axis, ship, speed, thrust, force, wind_load, colour
 end
 
 """
-    draw_rig!(axis, rig, hull, colour)
+    draw_rig!(axis, rig, ship, (speed, wind, angle), colour)
 
-Plan view of `rig` on `hull`, bow to the right, in `colour`: a kite's tow point, wings as
-their chords, rotors as circles.
+Plan view of `rig` on `ship`, bow to the right, in `colour`, at the ship `speed` [m/s] in
+the true `wind` [m/s] from `angle` [rad] off the bow, coming from above: a kite's tow
+point, rotors as circles, and wings as their chords along the apparent wind at their mid
+height.
 """
-draw_rig!(axis, rig::KiteRig, hull, colour) =
+draw_rig!(axis, rig::KiteRig, ship, conditions, colour) =
     scatter!(axis, [Point2f(rig.attach_position, 0)]; color=colour, markersize=pt(4))
 
-function draw_rig!(axis, rig::WingRig, hull, colour)
+function draw_rig!(axis, rig::WingRig, ship, (speed, wind, angle), colour)
     chord = rig.height / assumptions[:wing_aspect_ratio]
-    for position in WindShipOpt.unit_positions(rig, hull, assumptions)
-        lines!(axis, [Point2f(position - chord / 2, 0), Point2f(position + chord / 2, 0)];
+    _, _, apparent = WindShipOpt.centre_wind(rig, ship.env, wind, angle, speed)
+    along = chord / 2 * Vec2f(cos(apparent), sin(apparent))
+    for position in WindShipOpt.unit_positions(rig, ship.hull, assumptions)
+        lines!(axis, [Point2f(position, 0) - along, Point2f(position, 0) + along];
             color=colour, linewidth=pt(2.5))
     end
 end
 
-function draw_rig!(axis, rig::WindShipOpt.RotorRig, hull, colour)
-    for position in WindShipOpt.unit_positions(rig, hull, assumptions)
+function draw_rig!(axis, rig::WindShipOpt.RotorRig, ship, conditions, colour)
+    for position in WindShipOpt.unit_positions(rig, ship.hull, assumptions)
         poly!(axis, Circle(Point2f(position, 0), rig.diameter / 2); color=colour)
     end
 end
@@ -254,7 +260,7 @@ function ship_classes_figure()
     classes = ship_classes()
     routes_seen = unique(table["route"])
     longest = maximum(classes[name].length for name in names)
-    gap = 0.15longest
+    gap = 0.22longest
     rig_kinds = ("kite", "wings", "rotors")
     rows = [(name, Hull(classes[name], assumptions), [mean_best_area(table, name,
         routes_seen, kind) for kind in rig_kinds]) for name in names]
@@ -281,13 +287,13 @@ function ship_classes_figure()
                 isnothing(rig) || draw_side_rig!(axis, rig, hull, offset)
             end
             text!(axis, offset[1] - hull.length / 2, y - hull.draft;
-                text=area_label(area), align=(:left, :top), offset=(0, -1),
+                text=area_label(area), align=(:left, :top), offset=(0, -pt(2)),
                 fontsize=note_size, color=:gray40)
         end
         text!(axis, -0.06longest, y; text=name, align=(:right, :center))
     end
-    for (column, kind) in enumerate(rig_kinds)
-        text!(axis, (column - 1) * (longest + gap) + longest / 2, 10; text=kind,
+    for (column, title) in enumerate(("kite", "wing sails", "rotors"))
+        text!(axis, (column - 1) * (longest + gap) + longest / 2, 10; text=title,
             align=(:center, :bottom))
     end
     bar = Point2f(-0.25width, -last(tops) + 10)
