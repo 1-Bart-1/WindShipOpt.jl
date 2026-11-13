@@ -317,11 +317,14 @@ on_white_box(scene, box) = any(plot isa Makie.Poly && plot[1][] isa Rect &&
 
 "the rectangle `rect` [data of `scene`] in pixels of `scene`"
 function pixel_rect(scene, rect)
-    corners = [Makie.project(scene, :data, :pixel, Point3f(corner[1], corner[2], 0))
-               for corner in (minimum(rect), maximum(rect))]
+    corners = [pixel_point(scene, corner) for corner in (minimum(rect), maximum(rect))]
     low, high = min.(corners...), max.(corners...)
     return Rect2f(Point2f(low[1], low[2]), Vec2f(high[1] - low[1], high[2] - low[2]))
 end
+
+"the point `point` [data of `scene`] in pixels of `scene`, through its axis scales"
+pixel_point(scene, point) = Point2f(Makie.project(scene, :data, :pixel,
+    Makie.apply_transform(Makie.transform_func(scene), Point3f(point[1], point[2], 0)))[1:2])
 
 "the strings of the text plot `plot`, one per label"
 label_texts(plot) = (text = plot.text[]; text isa AbstractVector ? string.(text) :
@@ -350,8 +353,7 @@ function covers_data(scene, plot, box)
     data = plot isa Makie.Arrows2D ?
            [point for (tail, vector) in zip(plot[1][], plot[2][])
             for point in (tail, tail + vector)] : plot[1][]
-    points = [Point2f(Makie.project(scene, :data, :pixel,
-        Point3f(point[1], point[2], 0))[1:2]) for point in data]
+    points = [pixel_point(scene, point) for point in data]
     plot isa Makie.Scatter && return any(in(box), filter(point -> all(isfinite, point),
         points))
     steps = plot isa Union{Makie.LineSegments, Makie.Arrows2D} ?
