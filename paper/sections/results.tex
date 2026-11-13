@@ -11,7 +11,7 @@
 
 On e-ammonia, averaged over all classes and routes, the rotors save \NumSavingAmmoniaRotors\,\% of the cost, the kite \NumSavingAmmoniaKite\,\% and the wing sails \NumSavingAmmoniaWings\,\% (\cref{fig:class_comparison}). The rotors lead on the car carrier, \NumSavingAmmoniaCarCarrierRotors{} against \NumSavingAmmoniaCarCarrierKite\,\%, and on the bulk carriers and tankers, and kite and rotors are level on the container ships (\cref{sec:res_groups}). On VLSFO at today's prices the best rig saves \tbd{1.2}\,\% of the cost on the \SI{85}{m} coaster to \tbd{5.0}\,\% on the Kamsarmax, on average over the routes. The cost saving does not grow with the size of the ship: bulk carriers and tankers save \tbd{4.1 to 5.0}\,\% and container ships \tbd{1.7 to 2.5}\,\%. Wing sails save at most \tbd{1.3}\,\% of the cost on any class, and cost more than they save on the coaster and the three smaller container ships.
 
-\Cref{fig:winner_map} names the rig that lowers the cost most on each of the 78 combinations of class and route. On e-ammonia the rotors lead in \NumLeadsAmmoniaRotors{} and the kite in \NumLeadsAmmoniaKite{}. On VLSFO the rotors lead in \NumLeadsOilRotors{} and the kite in \NumLeadsOilKite{}, and in the rest no rig pays. Wing sails lead in none. \tbd{On e-ammonia the rotors lead on the car carrier on every route and on the bulk carriers and tankers on nearly every route, and the kite on most routes of the three smaller container ships but not to Tubarão. On VLSFO the kite leads on those three on every route, and on the bulk carriers and tankers the route decides: the kite leads to Bilbao and the rotors to New York, Houston and Tubarão (\cref{sec:res_forces}). The route spreads the cost saving more than the class does. On e-ammonia the kite saves 10.2\,\% of the cost on average to Guadeloupe and the rotors 16.7\,\% to Tubarão, while the better of the two saves only 1.3 to 5.4\,\% of the cost on the short route to Bilbao, on which the kite flies 19 to 30\,\% of the time instead of 26 to 50\,\%.}
+\Cref{fig:winner_map} names the rig that lowers the cost most on each of the 78 combinations of class and route. On e-ammonia the rotors lead in \NumLeadsAmmoniaRotors{}, the kite in \NumLeadsAmmoniaKite{}, and two rigs are level, within \NumFleetLevelMargin{} point, in \NumLevelAmmonia{}. On VLSFO the rotors lead in \NumLeadsOilRotors{}, the kite in \NumLeadsOilKite{}, two rigs are level in \NumLevelOil{}, and in the rest no rig saves \NumFleetLevelMargin{} point. Wing sails lead in none. \tbd{On e-ammonia the rotors lead on the car carrier on every route and on the bulk carriers and tankers on nearly every route, and the kite on most routes of the three smaller container ships but not to Tubarão. On VLSFO the kite leads on those three on every route, and on the bulk carriers and tankers the route decides: the kite leads to Bilbao and the rotors to New York, Houston and Tubarão (\cref{sec:res_forces}). The route spreads the cost saving more than the class does. On e-ammonia the kite saves 10.2\,\% of the cost on average to Guadeloupe and the rotors 16.7\,\% to Tubarão, while the better of the two saves only 1.3 to 5.4\,\% of the cost on the short route to Bilbao, on which the kite flies 19 to 30\,\% of the time instead of 26 to 50\,\%.}
 
 \begin{figure*}[tbp]
 \centering
@@ -23,7 +23,7 @@ On e-ammonia, averaged over all classes and routes, the rotors save \NumSavingAm
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{winner_map}
-\caption{The rig that lowers the cost per tonne-kilometre most for each ship class and route, deadweight-limited classes in the top row and space-limited ones in the bottom row, with a VLSFO (a) and an e-ammonia (b) drive. The number is its cost saving in percent, to one decimal below 1\,\%, and the shade grows with it. In grey cells no rig pays and the number is the smallest loss, negative.}
+\caption{The rig that lowers the cost per tonne-kilometre most for each ship class and route, deadweight-limited classes in the top row and space-limited ones in the bottom row, with a VLSFO (a) and an e-ammonia (b) drive. The number is the best rig's cost saving in percent, to one decimal below 1\,\%, and the shade grows with it. A hatched cell is level: the rig whose colour hatches it saves within 1 point of the best. In grey cells no rig saves 1 point; a negative number there is the smallest loss.}
 \label{fig:winner_map}
 \end{figure*}
 
@@ -112,7 +112,7 @@ Cargo interest is a second axis, apart from the limit, and in the classes above 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{cargo_interest}
-\caption{\tbd{Separate draft run of this study.} What cargo interest does to the rigs on e-ammonia, each the mean over the routes at the best size of the rig: the cost saving on every class at low and high cargo interest (a), the interest on the cargo's value at the low (ring) and high (dot) discount rate of \cref{tab:inputs}, a dot in a ring where both give the same saving; and against cargo value on a Kamsarmax bulk carrier and a Neo-Panamax container ship, the cost saving (b), its part from time as in \cref{tab:split} (c) and the speed the rig adds (d).}
+\caption{\tbd{Separate draft run of this study.} What cargo interest does to the rigs on e-ammonia, each the mean over the routes at the best size of the rig: the cost saving on every class at low and high cargo interest (a), the interest on the cargo's value at the low (ring) and high (pale disc) discount rate of \cref{tab:inputs}, a ring on a disc where both give the same saving; and against cargo value on a Kamsarmax bulk carrier and a Neo-Panamax container ship, the cost saving (b), its part from time as in \cref{tab:split} (c) and the speed the rig adds (d).}
 \label{fig:cargo_interest}
 \end{figure*}
 
@@ -133,7 +133,7 @@ On a voyage the router turns this thrust into fuel or speed. \Cref{fig:passage} 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{passage}
-\caption{One outbound passage to Guadeloupe, departing on 1 January 2017, of a \SI{140}{m} e-ammonia ship without a rig and with a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails or \SI{800}{m^2} of rotors. (a) The routed track of each ship in its colour, a track that ships share drawn one inside the other, through the corridor's nodes (dots), the great circle dotted, over the \SI{10}{m} wind six days after departure (arrow length as keyed in the box). (b) Speed through the water, (c) rig thrust on a logarithmic scale, left out below \SI{5}{kN}, and (d) fuel power, every three hours of the passage.}
+\caption{One outbound passage to Guadeloupe, departing on 1 January 2017, of a \SI{140}{m} e-ammonia ship without a rig and with a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails or \SI{800}{m^2} of rotors. (a) The routed track of each ship in its colour, a track that ships share drawn one inside the other, through the corridor's nodes (dots), the great circle dotted, over the \SI{10}{m} wind six days after departure (arrow length as keyed in the box). Grey is land as the router sees it: the land of the wave grid, which closes the English Channel where the route's first waypoints are fixed, and a disc of margin around each group of islands. (b) Speed through the water, (c) rig thrust on a logarithmic scale, left out below \SI{5}{kN}, and (d) fuel power, every three hours of the passage.}
 \label{fig:passage}
 \end{figure*}
 
@@ -142,7 +142,7 @@ On a voyage the router turns this thrust into fuel or speed. \Cref{fig:passage} 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{wind_angle}
-\caption{Where the wind comes from and where each rig pulls, from the weather-routed round trips of the \SI{140}{m} e-ammonia ship over the sampled departures on every route: (a) share of the time at sea without a rig in each band of true wind angle, outbound (left bar) and homeward (right bar); (b) mean thrust of a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails and \SI{800}{m^2} of rotors in each band over all routes, each on its own routed track; (c) share of each rig's propulsive work from each band per route; (d) mean thrust at sea over the rig's cost per day at sea, kite wear and launches included, at the base rig prices of \cref{tab:inputs}, an estimate, and the kite's canopy at its goals.}
+\caption{Where the wind comes from and where each rig pulls, from the weather-routed round trips of the \SI{140}{m} e-ammonia ship over the sampled departures on every route: (a) share of the time at sea without a rig in each band of true wind angle, outbound (left bar) and homeward (right bar); (b) mean thrust of a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails and \SI{800}{m^2} of rotors in each band over all routes, each on its own routed track; (c) share of each rig's propulsive work from each band per route; (d) mean thrust at sea over the rig's cost per day at sea, kite wear and launches included, at the base rig prices of \cref{tab:inputs} (bar) and at the low and high ends of their estimated ranges (whisker), the kite's canopy at its goals.}
 \label{fig:wind_angle}
 \end{figure*}
 
@@ -151,7 +151,7 @@ Rotors beat wing sails on fuel, not on cost of the rig. Both are priced on the s
 \begin{figure}[tbp]
 \centering
 \plot{breakdown}
-\caption{Cost per tonne-kilometre, in USD per \num{1000}~tkm, split into its parts on the route to Guadeloupe for an \SI{85}{m} and a \SI{200}{m} ship on VLSFO without a rig, and on e-ammonia without a rig and with the best size of each rig, whose area is given with each bar. Capital includes the fuel store. The parts rest on price estimates; the black bar spans the total at the low and at the high fuel price, crew cost and cargo interest (cargo value and discount rate) of \cref{tab:inputs}.}
+\caption{Cost per tonne-kilometre, in USD per \num{1000}~tkm, split into its parts on the route to Guadeloupe for an \SI{85}{m} and a \SI{200}{m} ship on VLSFO without a rig, and on e-ammonia without a rig and with the best size of each rig, whose area is given with each bar. Capital includes the fuel store. The parts rest on price estimates; the black line under each bar spans the total at the low and at the high fuel price, crew cost and cargo interest (cargo value and discount rate) of \cref{tab:inputs}, and leaves out the ranges of the ship and rig prices.}
 \label{fig:breakdown}
 \end{figure}
 
