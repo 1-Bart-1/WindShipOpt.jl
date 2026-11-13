@@ -1191,11 +1191,11 @@ forecast_kite_margin = 0.2
 """
     forecast_plans_data()
 
-The forecast study: [`write_forecast_plans`](@ref) of each of the [`forecast_study_plans`](@ref)
-in forecast_plans.csv and forecast_plans_kept.csv; and the launches and landings of a kite
-that flies in the weather met and of one held to the plan on three passages,
-forecast_rule.csv, and where those two kites differ on every passage of the kite ship:
-forecast_rule_steps.csv.
+The forecast study: [`write_forecast_plans`](@ref) of each of the
+[`forecast_study_plans`](@ref) in forecast_plans.csv and forecast_plans_kept.csv; the
+launches and landings of a kite that flies in the weather met and of one held to the plan
+on three passages, forecast_rule.csv; and where those two kites differ on every passage of
+the kite ship, forecast_rule_steps.csv.
 """
 function forecast_plans_data()
     write_forecast_plans("forecast_plans", forecast_study_plans, true)

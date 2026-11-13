@@ -60,8 +60,8 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :speed_size => speed_size_data]
 
 """
-method studies, run only by name, each choosing or checking a method or setting: run so,
-each is recorded as its tables' and figures' run and its tables are written
+method studies, which choose or check a method or setting, run only by name: each records
+its run for its figures and writes its tables
 """
 study_steps = [:forecast_plans => forecast_plans_data,
     :forecast_replanning => forecast_replanning_data,
@@ -135,9 +135,9 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
 
 Run the named steps, or every data step of the results and then every figure and table
 step when no name is given, at `fidelity` (:draft or :final); `:data` and `:figures` run all
-steps of that kind. Any step but figures and tables alone runs in a new or resumed run: `resume` true
-takes the latest unfinished run at `fidelity` on this git branch, false none, and nothing
-asks on stdin.
+steps of that kind. Any step but figures and tables alone runs in a new or resumed run:
+`resume` true takes the latest unfinished run at `fidelity` on this git branch, false none,
+and nothing asks on stdin.
 Steps that run has done are skipped, and it counts as finished once every step asked of it
 is done. A final run errors on a dirty tree or unpushed commit.
 """
