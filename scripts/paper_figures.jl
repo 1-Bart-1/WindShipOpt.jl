@@ -1354,6 +1354,7 @@ function winner_map_figure()
             yticks=(eachindex(names), names), yreversed=true,
             limits=(0.5, length(route_names_seen) + 0.5, 0.5, length(names) + 0.5),
             yticklabelsvisible=column == 1, xticklabelsvisible=row == length(groups),
+            xticksvisible=row == length(groups),
             xticklabelrotation=π / 4)
         column == 1 && Label(figure[row, 0], "$limit-limited"; rotation=π / 2,
             tellheight=false)
@@ -1366,11 +1367,10 @@ function winner_map_figure()
             best = last(first(ranked))
             shade(rig) = winner_shade(palette[findfirst(==(rig), kinds)], best)
             base = band == "none" ? fleet_colours()["none"] : shade(first(first(ranked)))
-            fill = band == "level" ? Pattern("/"; backgroundcolor=base,
-                linecolor=palette[findfirst(==(first(ranked[2])), kinds)], width=1.2,
-                tilesize=(6, 6)) : base
-            poly!(axis, Rect2f(i - 0.5, k - 0.5, 1, 1); color=fill, strokecolor=base,
+            poly!(axis, Rect2f(i - 0.5, k - 0.5, 1, 1); color=base, strokecolor=base,
                 strokewidth=pt(0.4))
+            band == "level" && hatch!(axis, Rect2f(i - 0.5, k - 0.5, 1, 1),
+                palette[findfirst(==(first(ranked[2])), kinds)])
             text!(axis, i, k; text=typeset_minus(abs(best) < 1 ? @sprintf("%.1f", best) :
                                                  string(round(Int, best))),
                 align=(:center, :center), fontsize=note_size)
@@ -1380,10 +1380,9 @@ function winner_map_figure()
     for (row, (_, names)) in enumerate(groups)
         rowsize!(figure.layout, row, Auto(length(names)))
     end
-    colours = fleet_colours()
     shown = [band for band in fleet_bands if band in bands]
     Legend(figure[0, 1:length(drive_panels)],
-        [PolyElement(color=colours[band]) for band in shown],
+        [band_entry(band) for band in shown],
         [get(Dict("wings" => "wing sails", "none" => "no rig"), band, band)
          for band in shown];
         orientation=:horizontal, halign=:right, tellwidth=false, margin=(0, 0, 0, 0))
@@ -1416,6 +1415,7 @@ function fleet_share_panel!(axis, splits, measure)
             share > 0 || continue
             poly!(axis, Rect2f(left, i - 0.32, share, 0.64); color=colours[band],
                 strokecolor=:white, strokewidth=0.5)
+            band == "level" && hatch!(axis, Rect2f(left, i - 0.32, share, 0.64), palette[3])
             label = fleet_band_label(share, 1e-9getfield(split[band], measure))
             boxed = band in ("level", "none")
             if share >= 10
@@ -1446,14 +1446,76 @@ function fleet_band_label(share, billions)
     return @sprintf("%.0f %%\n%s bn", share, estimate_text(billions))
 end
 
-"fill of what the kite and rotors share: the kite's colour hatched with the rotors'"
-kite_and_rotors_fill() = Pattern("/"; backgroundcolor=(palette[1], 0.55),
-    linecolor=palette[3], width=1.8, tilesize=(6, 6))
+"background of what the kite and rotors share, hatched with the rotors' colour"
+kite_and_rotors_colour = (palette[1], 0.55)
+
+"legend entry of the band `band` of [`fleet_bands`](@ref)"
+band_entry(band) = band == "level" ? hatched_entry(kite_and_rotors_colour, palette[3]) :
+                   PolyElement(color=fleet_colours()[band])
 
 "colours of the [`fleet_bands`](@ref): those of the rigs, level hatched, none grey"
 fleet_colours() = Dict("kite" => palette[1], "wings" => palette[2], "rotors" => palette[3],
-    "level" => kite_and_rotors_fill(),
-    "none" => RGBf(0.8, 0.8, 0.8))
+    "level" => kite_and_rotors_colour, "none" => RGBf(0.8, 0.8, 0.8))
+
+"pitch and width [pt] of the stripes of [`hatch!`](@ref)"
+hatch_pitch, hatch_width = pt(4.5), pt(0.9)
+
+"""
+    hatch!(axis, rect, stripe)
+
+Stripes of `stripe` rising at 45° across the rectangle `rect` [data of `axis`], on one grid
+for the whole axis, drawn as polygons so that no tile seams show as in a pattern fill.
+"""
+function hatch!(axis, rect, stripe)
+    stripes = lift(axis.scene.viewport, axis.finallimits) do viewport, limits
+        scale = widths(viewport) ./ widths(limits) .* (1, axis.yreversed[] ? -1 : 1)
+        corners = minimum(rect) .* scale, maximum(rect) .* scale
+        box = Rect2f(min.(corners...), abs.(corners[2] .- corners[1]))
+        low, high = minimum(box), maximum(box)
+        offsets = hatch_pitch * (floor((low[1] - high[2]) / hatch_pitch):
+                                 ceil((high[1] - low[2]) / hatch_pitch))
+        band = hatch_width * sqrt(2)
+        polygons = [clip_polygon(Point2f[(low[1], low[1] - offset),
+                        (high[1], high[1] - offset), (high[1], high[1] - offset - band),
+                        (low[1], low[1] - offset - band)], box) for offset in offsets]
+        [[Point2f(point ./ scale) for point in polygon] for polygon in polygons
+         if length(polygon) >= 3]
+    end
+    poly!(axis, stripes; color=stripe, strokewidth=0)
+end
+
+"""
+    clip_polygon(points, box)
+
+The convex polygon `points` cut to the rectangle `box`, by the Sutherland-Hodgman method.
+"""
+function clip_polygon(points, box)
+    for (index, bound, below) in ((1, minimum(box)[1], false), (1, maximum(box)[1], true),
+        (2, minimum(box)[2], false), (2, maximum(box)[2], true))
+        isempty(points) && break
+        inside = [below ? point[index] <= bound : point[index] >= bound
+                  for point in points]
+        kept = Point2f[]
+        for k in eachindex(points)
+            previous = mod1(k - 1, length(points))
+            if inside[k] != inside[previous]
+                t = (bound - points[previous][index]) /
+                    (points[k][index] - points[previous][index])
+                push!(kept, points[previous] + t * (points[k] - points[previous]))
+            end
+            inside[k] && push!(kept, points[k])
+        end
+        points = kept
+    end
+    return points
+end
+
+"legend entry of a fill of `background` hatched by [`hatch!`](@ref) with `stripe`"
+hatched_entry(background, stripe) = [PolyElement(color=background);
+    [LineElement(color=stripe, linewidth=hatch_width * print_scale,
+         linepoints=Point2f[(max(0, offset), max(0, -offset)),
+             (min(1, 1 + offset), min(1, 1 - offset))])
+     for offset in (-0.6, -0.2, 0.2, 0.6)]]
 
 """
     fleet_share_figure()
@@ -1475,13 +1537,12 @@ function fleet_share_figure()
             xticks=0:25:100, ygridvisible=false, ytickalign=0, yticksize=0)
         fleet_share_panel!(axis, splits, measure)
     end
-    colours = fleet_colours()
     names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "rotors",
         "level" => "level (within $(whole_number(level_margin)) point)",
         "none" => "no rig (saves under $(whole_number(level_margin)) point)")
     shown = [band for band in fleet_bands
              if any(getfield(split[band], :bill) > 0 for (_, split) in splits)]
-    Legend(figure[2, 1:2], [PolyElement(color=colours[band]) for band in shown],
+    Legend(figure[2, 1:2], [band_entry(band) for band in shown],
         [names[band] for band in shown]; orientation=:horizontal)
     rowgap!(figure.layout, 1, 2)
     save_figure("fleet_share", figure)
@@ -2698,7 +2759,7 @@ end
 "rigs of the combination figure with their legend labels and colours"
 combination_rigs = (("kite", "best kite", palette[1]),
     ("rotors", "best rotors", palette[3]),
-    ("kite+rotors", "best kite and rotors together", kite_and_rotors_fill()))
+    ("kite+rotors", "best kite and rotors together", kite_and_rotors_colour))
 
 """
     combination_figure()
@@ -2731,11 +2792,12 @@ function combination_figure()
                        "route" => string(route), "drive" => drive) for route in pair_routes]
         for (k, (rig, _, colour)) in enumerate(combination_rigs)
             values = [saving[rig] for saving in savings]
-            range_bar!(saving_axis, group + 0.27(k - 2), values, 0.25, colour)
+            range_bar!(saving_axis, group + 0.27(k - 2), values, 0.25, colour;
+                stripe=rig == "kite+rotors" ? palette[3] : nothing)
             push!(tops, maximum(values))
         end
         gains = pair_gain.(savings)
-        range_bar!(gain_axis, group, gains, 0.4, kite_and_rotors_fill())
+        range_bar!(gain_axis, group, gains, 0.4, kite_and_rotors_colour; stripe=palette[3])
         print_combination(ship, drive, savings, gains)
     end
     @printf("  noise of the extra saving %.2f points, %.2f to %.2f by design\n",
@@ -2749,7 +2811,8 @@ function combination_figure()
         text="twice its standard error", align=(:right, :top),
         offset=clear_offset((:right, :top), pt(2)), fontsize=note_size, color=:gray35)
     capped = Point2f[(0.35, 0), (0.65, 0), (0.5, 0), (0.5, 1), (0.35, 1), (0.65, 1)]
-    entries = [[PolyElement(color=colour) for (_, _, colour) in combination_rigs];
+    entries = [[rig == "kite+rotors" ? hatched_entry(colour, palette[3]) :
+                PolyElement(color=colour) for (rig, _, colour) in combination_rigs];
         LineElement(points=capped, color=:black, linewidth=0.8)]
     axislegend(saving_axis, entries, [collect(getindex.(combination_rigs, 2));
         "range over the two routes"]; position=:lt)
@@ -2757,14 +2820,16 @@ function combination_figure()
 end
 
 """
-    range_bar!(axis, x, values, width, colour)
+    range_bar!(axis, x, values, width, colour; stripe=nothing)
 
-Bar of `width` at `x` to the mean of `values` with a range bar from their least to their
-largest.
+Bar of `width` at `x` to the mean of `values`, of `colour` hatched with `stripe` if given,
+with a range bar from their least to their largest.
 """
-function range_bar!(axis, x, values, width, colour)
-    barplot!(axis, [x], [mean(values)]; width, color=colour, strokecolor=:gray20,
+function range_bar!(axis, x, values, width, colour; stripe=nothing)
+    bar = barplot!(axis, [x], [mean(values)]; width, color=colour, strokecolor=:gray20,
         strokewidth=rule_width)
+    drawn = width * (1 - bar.gap[])
+    isnothing(stripe) || hatch!(axis, Rect2f(x - drawn / 2, 0, drawn, mean(values)), stripe)
     rangebars!(axis, [x], [minimum(values)], [maximum(values)]; color=:black,
         whiskerwidth=4, linewidth=0.8)
 end
