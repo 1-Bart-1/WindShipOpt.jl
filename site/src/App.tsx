@@ -24,6 +24,7 @@ import {
 } from "./inputs";
 import { rigColour, RIG_LABELS, type PassageDesign } from "./passages/passages";
 import { PassageView } from "./passages/PassageView";
+import { GridView } from "./grid/GridView";
 
 const driveLabels: Record<string, string> = {
   vlsfo: "fuel oil (VLSFO)",
@@ -136,6 +137,7 @@ function Explorer({ data }: { data: ExplorerData }) {
 
       <WinnerMap data={data} all={all} drive={drive} onPick={(k, j) => { setShip(k); setRoute(j); }} />
       <PassageView route={data.routes[route].name} />
+      <GridView route={data.routes[route].name} />
       <Accuracy data={data} />
     </main>
   );
