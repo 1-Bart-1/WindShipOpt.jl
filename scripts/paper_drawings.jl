@@ -194,7 +194,7 @@ canopy's arc and the canopy's top, drawn just above the mast.
 function side_kite(area, hull)
     span = sqrt(area * design_aspect_ratio)
     deck = assumptions[:deck_mount_height] * hull.length / assumptions[:reference_length]
-    mast_top = deck + assumptions[:launch_mast_height_ratio] * sqrt(area)
+    mast_top = deck + WindShipOpt.launch_mast_height(area, assumptions)
     sag = 0.15span
     return (; span, deck, mast_top, sag, top=mast_top + 20 + sag)
 end
@@ -236,7 +236,7 @@ function ship_classes_figure()
     rows = [(name, Hull(classes[name], assumptions), [mean_best_area(table, name,
         routes_seen, kind) for kind in rig_kinds]) for name in names]
     kite_tops = [draw_height(hull, first(areas)) for (_, hull, areas) in rows]
-    margin = 30.0
+    margin = 55.0
     tops = cumsum([kite_top + hull.draft + margin
                    for (kite_top, (_, hull, _)) in zip(kite_tops, rows)])
     width = 3longest + 2gap
@@ -258,10 +258,10 @@ function ship_classes_figure()
                 isnothing(rig) || draw_side_rig!(axis, rig, hull, offset)
             end
             text!(axis, offset[1] - hull.length / 2, y - hull.draft;
-                text=@sprintf("%.0f m²", area), align=(:left, :top), offset=(0, -1),
+                text=area_label(area), align=(:left, :top), offset=(0, -1),
                 fontsize=note_size, color=:gray40)
         end
-        text!(axis, -0.03longest, y; text=name, align=(:right, :center))
+        text!(axis, -0.06longest, y; text=name, align=(:right, :center))
     end
     for (column, kind) in enumerate(rig_kinds)
         text!(axis, (column - 1) * (longest + gap) + longest / 2, 10; text=kind,
@@ -271,8 +271,21 @@ function ship_classes_figure()
     lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
     text!(axis, bar + Point2f(50, 0); text="100 m", align=(:center, :bottom),
         offset=(0, 2), fontsize=note_size)
-    limits!(axis, -0.36width, width, -last(tops) - 15, 50)
+    limits!(axis, -0.36width, 1.02width, -last(tops) - 15, 50)
     save(joinpath(figures, "ship_classes.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    area_label(area)
+
+`area` [m^2] as a LaTeX label, to three significant digits, with a thin space between the
+thousands from five digits up as the text sets them.
+"""
+function area_label(area)
+    rounded = Int(round(area; sigdigits=3))
+    digits = rounded < 10_000 ? string(rounded) :
+             string(div(rounded, 1000), "\\,", lpad(rem(rounded, 1000), 3, '0'))
+    return L"%$(digits)\,\mathrm{m^2}"
 end
 
 """

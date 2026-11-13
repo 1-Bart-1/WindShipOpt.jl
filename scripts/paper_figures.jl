@@ -280,26 +280,30 @@ Planforms of the kites of the three aspect ratios at equal projected area, seen
 from above and to scale, with their projected span.
 """
 function kite_geometry_figure()
-    figure = Figure(size=(page_width, 90))
     geometries = [read_table(joinpath(polars, "geometry_ar$aspect_ratio.csv"))
                   for aspect_ratio in aspect_ratios]
-    half_span = maximum(maximum(abs, geometry["le_y"]) for geometry in geometries)
-    chords = [extrema([geometry["le_x"]; geometry["te_x"]]) for geometry in geometries]
-    chord_limits = (minimum(first.(chords)) - 0.5, maximum(last.(chords)) + 3)
+    spans = [maximum(geometry["le_y"]) - minimum(geometry["le_y"])
+             for geometry in geometries]
+    leading = -minimum(minimum(geometry["le_x"]) for geometry in geometries)
+    trailing = -maximum(maximum(geometry["te_x"]) for geometry in geometries)
+    gap = 5
+    limits = (-1, sum(spans) + gap * (length(spans) - 1) + 1, trailing - 2.4, leading + 2.6)
+    height = (page_width - pt(9)) * (limits[4] - limits[3]) / (limits[2] - limits[1])
+    figure = Figure(size=(page_width, height + pt(6)))
+    axis = Axis(figure[1, 1]; aspect=DataAspect(), limits)
+    hidedecorations!(axis)
+    hidespines!(axis)
     for (i, (aspect_ratio, geometry)) in enumerate(zip(aspect_ratios, geometries))
-        axis = Axis(figure[1, i]; autolimitaspect=1, title="AR $aspect_ratio",
-            titlealign=:center, limits=(-half_span - 1, half_span + 1, chord_limits...),
-            yreversed=true)
-        hidedecorations!(axis)
-        hidespines!(axis)
-        outline = [Point2f.(geometry["le_y"], geometry["le_x"]);
-            Point2f.(reverse(geometry["te_y"]), reverse(geometry["te_x"]))]
+        span = spans[i]
+        centre = sum(spans[1:i-1]) + gap * (i - 1) + span / 2
+        outline = [Point2f.(centre .+ geometry["le_y"], -geometry["le_x"]);
+            Point2f.(centre .+ reverse(geometry["te_y"]), -reverse(geometry["te_x"]))]
         poly!(axis, outline; color=kite_shades(length(aspect_ratios))[i],
             strokecolor=:black, strokewidth=0.8)
-        span = maximum(geometry["le_y"]) - minimum(geometry["le_y"])
-        text!(axis, 0, maximum(last.(chords)) + 0.6;
-            text="span $(round(span; digits=1)) m", align=(:center, :top),
-            fontsize=note_size)
+        text!(axis, centre, leading + 0.6; text="AR $aspect_ratio",
+            align=(:center, :bottom))
+        text!(axis, centre, trailing - 0.6; text="span $(round(span; digits=1)) m",
+            align=(:center, :top), fontsize=note_size)
     end
     save(joinpath(figures, "kite_geometry.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -312,9 +316,11 @@ without bridle and tether.
 """
 function polar_figure()
     figure = Figure(size=(page_width, 170))
-    lift = Axis(figure[1, 1]; xlabel="angle of attack [°]", ylabel="lift coefficient")
-    drag = Axis(figure[1, 2]; xlabel="angle of attack [°]", ylabel="drag coefficient")
-    glide = Axis(figure[1, 3]; xlabel="angle of attack [°]", ylabel="lift over drag")
+    angle_label = "angle of attack [°]"
+    lift = Axis(figure[1, 1]; title="(a) lift", xlabel=angle_label, ylabel=L"C_L")
+    drag = Axis(figure[1, 2]; title="(b) drag", xlabel=angle_label, ylabel=L"C_D")
+    glide = Axis(figure[1, 3]; title="(c) glide ratio", xlabel=angle_label,
+        ylabel=L"G = C_L/C_D")
     shades = kite_shades(length(aspect_ratios))
     for (i, aspect_ratio) in enumerate(aspect_ratios)
         polar = read_table(joinpath(polars, "kite_ar$aspect_ratio.csv"))
@@ -340,8 +346,10 @@ wind angle, for the [`wind_load_classes`](@ref) with their deck cargo.
 function wind_load_figure()
     figure = Figure(size=(page_width, 170))
     angle_label = "apparent wind angle off the bow [°]"
-    longitudinal = Axis(figure[1, 1]; xlabel=angle_label, ylabel=L"C_X", xticks=0:30:180)
-    side = Axis(figure[1, 2]; xlabel=angle_label, ylabel=L"C_Y", xticks=0:30:180)
+    longitudinal = Axis(figure[1, 1]; title="(a) along the ship", xlabel=angle_label,
+        ylabel=L"C_X", xticks=0:30:180)
+    side = Axis(figure[1, 2]; title="(b) to the side", xlabel=angle_label, ylabel=L"C_Y",
+        xticks=0:30:180)
     angles = 0:180
     classes = ship_classes()
     for (i, name) in enumerate(wind_load_classes)
@@ -351,7 +359,7 @@ function wind_load_figure()
             label=name)
         lines!(side, angles, last.(coefficients); color=category_colours[i])
     end
-    Legend(figure[1, 3], longitudinal)
+    axislegend(longitudinal; position=:rb)
     save(joinpath(figures, "wind_load.pdf"), figure; pt_per_unit=print_scale)
 end
 
