@@ -4,19 +4,21 @@
   part/.style={font=\scriptsize, inner sep=1pt, align=left},
   leader/.style={black!50, very thin},
   stepnum/.style={circle, fill=black, text=white, font=\scriptsize\bfseries, inner sep=0.5pt, minimum size=3.2mm},
-  steptext/.style={font=\scriptsize, align=center, text width=24mm, anchor=north, inner sep=0pt},
-  flow/.style={-{Stealth[length=1.6mm]}, black!55},
+  steptext/.style={font=\scriptsize, align=center, text width=21mm, anchor=north, inner sep=0pt},
+  flow/.style={->, black!55},
+  name/.style={font=\scriptsize, text=black!75, inner sep=0.5pt},
   bow/.pic={
     \fill[blue!12] (-11,-3.6) rectangle (10,0);
     \draw[blue!45, thin] (-11,0) -- (10,0);
     \fill[black!45] (-11,2.8) -- (5,2.8) -- (8,0) -- (6.5,-2) -- (-11,-2) -- cycle;
-    \fill[white] (-3,0.2) rectangle (2.4,2.6);},
-  hatch/.pic={\draw[black!80, line width=0.7pt] (-3.3,2.7) -- (2.7,2.7);},
-  stowed/.pic={\fill[rigkite] (-2.1,0.5) rectangle (1.5,1.9);},
-  mast/.pic={\fill[black!70] (-0.4,1) rectangle (0.4,#1);},
+    \fill[black!25] (-3,0.4) rectangle (2.4,2.8);},
+  hatch/.pic={\fill[black!80] (-3.3,2.8) rectangle (2.7,3.4);},
+  openhatch/.pic={\fill[black!80, rotate around={-70:(-3.3,2.8)}] (-3.3,2.8) rectangle ++(-6,0.6);},
+  packed/.pic={\fill[rigkite, rounded corners=0.4mm] (-1.9,0) rectangle (1.9,1.8);
+    \draw[white, thin] (-0.95,0.3) -- (-0.95,1.5) (0,0.3) -- (0,1.5) (0.95,0.3) -- (0.95,1.5);},
+  mast/.pic={\fill[black!60] (-0.35,0.6) rectangle (0.35,#1);},
   mast/.default=10,
   winch/.pic={\draw[black!70, thin] (1.4,1.2) circle (0.7);},
-  folded/.pic={\fill[rigkite] (-1.2,0) rectangle (1.2,2.2);},
   canopy/.pic={\draw[rigkite, line width=1.3pt] (-3,0.8) arc[start angle=145, end angle=35, radius=3.7];
     \draw[rigkite, thin] (-3,0.8) -- (0,-3) (3,0.8) -- (0,-3) (-1.05,2.2) -- (0,-3) (1.05,2.2) -- (0,-3);
     \fill[black!70] (-0.55,-3.6) rectangle (0.55,-2.6);},
@@ -25,8 +27,9 @@
 ]
 \node[anchor=west, inner sep=0pt] at (0,50) {(a) The parts};
 \begin{scope}[shift={(11,8)}]
-  \pic at (0,0) {bow}; \pic at (0,0) {hatch}; \pic at (0,0) {winch};
+  \pic at (0,0) {bow}; \pic at (-1,0.6) {packed}; \pic at (0,0) {hatch}; \pic at (0,0) {winch};
   \draw[black!70, densely dashed, thin, fill=white] (-0.4,2.7) rectangle (0.4,9);
+  \node[part, anchor=south, align=center] at (0,9.3) {telescopic\\ launch mast};
   \fill[black!85] (3.5,3.2) circle (0.55);
   \draw[black!65, thin] (3.5,3.2) -- (24,30);
   \pic[scale=1.8, rotate=-45] at (27.8,33.8) {canopy};
@@ -35,13 +38,12 @@
     26.8/33.6/32/bridle: the line net spreading the pull,
     24.6/30/25.4/control pod: steers the kite,
     12/14.5/19.5/tether: 13 spans long,
-    4/3.8/13/tow point on the foredeck,
-    0.4/6.5/7/telescopic launch mast,
+    4/3.8/10/tow point on the foredeck,
     2.1/1.3/1.5/winch: holds the tether,
-    -1.5/0.7/-4/stowage under a hatch}
+    -1.5/1.4/-4/kite packed in the hold under a hatch}
     {\draw[leader] (\lx,\ly) -- (45,\ty+0.2); \node[part, anchor=west] at (45,\ty+0.2) {\txt};}
 \end{scope}
-\node[anchor=west, inner sep=0pt] at (100,50) {(b) One flight, in six steps};
+\node[anchor=west, inner sep=0pt] at (93,50) {(b) One flight, in six steps};
 % #1 x, #2 y, #3 step, #4 fill, #5 text, #6 drawing
 \newcommand{\cyclestep}[6]{%
   \begin{scope}[shift={(#1,#2)}, scale=0.74]
@@ -50,16 +52,16 @@
   \end{scope}
   \node[stepnum, fill=#4] at ([shift={(-7.4,9.8)}]#1,#2) {#3};
   \node[steptext] at (#1,#2-4) {#5};}
-\cyclestep{108}{33}{1}{black!70}{Stowed, hatch shut}{\pic at (0,0) {hatch}; \pic at (0,0) {stowed};}
-\cyclestep{132}{33}{2}{black!70}{Mast lifts the folded kite; the wind inflates it}{\pic at (0,0) {mast=8}; \pic at (0,12.2) {canopy};}
-\cyclestep{156}{33}{3}{black!70}{Tether takes the pull; kite leaves the mast and climbs}{\pic at (0,0) {mast=8}; \draw[black!65, thin] (0,8) -- (5,16); \begin{scope}[shift={(6,19.4)}] \pic {canopy}; \end{scope}}
-\cyclestep{156}{4}{4}{rigkite}{Flies figure eights, and pulls; mast down, hatch shut}{\pic at (0,0) {hatch}; \draw[black!65, thin] (0.6,1.5) -- (7,13); \begin{scope}[shift={(8,16.4)}] \pic[scale=0.7] {eight}; \pic {canopy}; \end{scope}}
-\cyclestep{132}{4}{5}{black!70}{Guide line reefs the kite to the mast; winch hauls in}{\pic at (0,0) {mast=9}; \pic at (0,9) {folded}; \draw[black!65, thin, densely dashed] (0,11.2) -- (0,16.5); \draw[rigkite, line width=1.3pt] (-2.4,17) -- (2.4,17);}
-\cyclestep{108}{4}{6}{black!70}{Folded kite goes down the mast; hatch shuts}{\pic at (0,0) {mast=6}; \pic at (0,6) {folded};}
-\draw[flow] (119,38) -- (122,38);
-\draw[flow] (143,38) -- (146,38);
-\draw[flow] (166.5,28) -- (166.5,18);
-\draw[flow] (146,9.5) -- (143,9.5);
-\draw[flow] (122,9.5) -- (119,9.5);
-\draw[flow] (95.5,18) -- (95.5,28);
+\cyclestep{106}{33}{1}{black!70}{Kite packed in the hold, hatch shut}{\pic at (-0.3,0.6) {packed}; \pic at (0,0) {hatch}; \node[name, anchor=south] at (-0.3,4.4) {hatch};}
+\cyclestep{130}{33}{2}{black!70}{Hatch opens; the mast lifts the kite and the wind fills it}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=8.6}; \pic at (0,12.2) {canopy}; \node[name, anchor=west] at (0.6,5.5) {mast};}
+\cyclestep{154}{33}{3}{black!70}{The tether takes the pull; the kite leaves the mast and climbs}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=8.6}; \draw[black!65, thin] (4,2.8) -- (6,15.8); \begin{scope}[shift={(6,19.4)}] \pic {canopy}; \end{scope}}
+\cyclestep{154}{4}{4}{rigkite}{The kite flies figure eights and pulls; hatch shut}{\pic at (0,0) {hatch}; \draw[black!65, thin] (4,3.4) -- (8,12.8); \pic[scale=0.7] at (8,12.8) {eight}; \begin{scope}[shift={(8,16.4)}] \pic {canopy}; \end{scope} \node[name, anchor=east] at (4.6,8.5) {tether};}
+\cyclestep{130}{4}{5}{black!70}{A guide line pulls the kite down to the mast; the winch hauls in}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=8.6}; \draw[black!65, thin, densely dashed] (0,8.6) -- (0,13.4); \begin{scope}[shift={(0,17)}] \pic {canopy}; \end{scope} \node[name, anchor=west] at (0.6,10) {guide line};}
+\cyclestep{106}{4}{6}{black!70}{The mast lowers the packed kite into the hold}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=6}; \pic at (0,6) {packed};}
+\draw[flow] (115.5,38) -- (119.5,38);
+\draw[flow] (139.5,38) -- (143.5,38);
+\draw[flow] (166,28) -- (166,18);
+\draw[flow] (143.5,9.5) -- (139.5,9.5);
+\draw[flow] (119.5,9.5) -- (115.5,9.5);
+\draw[flow] (94,18) -- (94,28);
 \end{tikzpicture}
