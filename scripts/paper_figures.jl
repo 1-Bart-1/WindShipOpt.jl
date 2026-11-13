@@ -355,6 +355,7 @@ function rig_comparison_figure()
     designs = read_table(data_file("designs.csv"))
     lengths = sort(unique(designs["length"]))
     figure = Figure(size=(page_width, 330))
+    panels = []
     for (column, (drive, title)) in enumerate(drive_panels)
         labels = String[]
         cells = Tuple{Int, Int, Float64}[]
@@ -388,28 +389,33 @@ function rig_comparison_figure()
                 push!(best, (i, first_row - 1 + argmax(replace(savings, NaN => -Inf))))
             end
         end
+        push!(panels, (column, title, labels, cells, best))
+    end
+    span = 5ceil(maximum(abs(saving) for (_, _, _, cells, _) in panels
+                         for (_, _, saving) in cells) / 5)
+    for (column, title, labels, cells, best) in panels
         axis = Axis(figure[1, column]; title, xlabel="waterline length [m]",
             xticks=(eachindex(lengths), string.(round.(Int, lengths))),
             yticks=(eachindex(labels), labels), yreversed=true,
             yticklabelsvisible=column == 1)
         for (i, k, saving) in cells
             poly!(axis, Rect2f(i - 0.5, k - 0.5, 1, 1);
-                color=get(cgrad(:RdBu), (clamp(saving, -30, 30) + 30) / 60))
-            text!(axis, i, k; text=typeset_minus(string(round(Int, saving))),
+                color=get(cgrad(:RdBu), (saving + span) / 2span))
+            text!(axis, i, k; text=typeset_minus(@sprintf("%.1f", saving)),
                 fontsize=note_size, align=(:center, :center),
-                color=abs(saving) > 18 ? :white : :black)
+                color=abs(saving) > 0.6span ? :white : :black)
         end
         for (i, k) in best
-            poly!(axis, Rect2f(i - 0.47, k - 0.47, 0.94, 0.94); color=:transparent,
-                strokecolor=:black, strokewidth=1.2)
+            poly!(axis, Rect2f(i - 0.42, k - 0.4, 0.84, 0.8); color=:transparent,
+                strokecolor=:black, strokewidth=pt(1))
         end
         hlines!(axis, [findfirst(startswith("wings"), labels),
             findfirst(startswith("rotors"), labels)] .- 0.5; color=:black,
             linewidth=0.8)
         limits!(axis, 0.5, length(lengths) + 0.5, length(labels) + 0.5, 0.5)
     end
-    Colorbar(figure[1, length(drive_panels) + 1]; colormap=:RdBu, limits=(-30, 30),
-        label="cost saving vs no rig [%]")
+    Colorbar(figure[1, length(drive_panels) + 1]; colormap=:RdBu, limits=(-span, span),
+        label="cost saving against no rig [%]")
     save(joinpath(figures, "rig_comparison.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -904,7 +910,8 @@ end
     class_size_figure()
 
 Best area of each rig for every ship class and drive, the geometric mean over the routes
-as a marker and the range over the routes as a bar, and beside each panel the median
+as a marker and the range over the routes as a bar, with the largest kite searched, and
+beside each panel the median
 number of units of each rig at its best size, each column named in the rig's colour.
 """
 function class_size_figure()
@@ -914,14 +921,19 @@ function class_size_figure()
     figure = Figure(size=(page_width, 285))
     ticks = [100, 1000, 10000]
     row_limits = (0.4, length(names) + 0.6)
-    area_limit = 1.4largest_rig_area("kite", nothing)
+    kite_bound = largest_rig_area("kite", nothing)
+    area_limit = 1.4kite_bound
     for (column, (drive, title)) in enumerate(drive_panels)
         axis = Axis(figure[1, 2 * column - 1]; title, xlabel="best rig area [m²]",
             xscale=log10, xticks=(ticks, string.(ticks)),
             xminorticks=IntervalsBetween(9), xminorticksvisible=true,
             xgridvisible=true, xgridcolor=:gray88,
             yticks=(eachindex(names), names), yreversed=true,
-            yticklabelsvisible=column == 1, limits=((60, area_limit), row_limits))
+            yticklabelsvisible=column == 1, limits=((100, area_limit), row_limits))
+        vlines!(axis, kite_bound; color=palette[1], linestyle=:dash, linewidth=pt(0.6))
+        text!(axis, kite_bound, row_limits[1]; text="kite search\nbound",
+            align=(:right, :top), offset=(-pt(2), -pt(1)), fontsize=note_size,
+            color=palette[1])
         counts = unit_count_axis(figure[1, 2 * column], row_limits)
         colgap!(figure.layout, 2 * column - 1, pt(4))
         for (j, kind) in enumerate(rig_names), (i, name) in enumerate(names)
