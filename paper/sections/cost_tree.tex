@@ -32,25 +32,25 @@
   costbar/.pic={\fill[accent!60] (-4,-1) rectangle (-0.6,1); \fill[ship] (-0.6,-1) rectangle (2,1);
     \fill[water!60] (2,-1) rectangle (4,1);},
 ]
-% #1 name, (#2,#3) centre, #4 kind, #5 title, #6 what it is, #7 picture
-\newcommand{\costbox}[7]{%
-  \node[#4 box, minimum width=30mm, minimum height=20mm] (#1) at (#2,#3) {};
+% #1 name, (#2,#3) centre, #4 kind, #5 title, #6 what it is, #7 picture, #8 height [mm]
+\newcommand{\costbox}[8]{%
+  \node[#4 box, minimum width=30mm, minimum height=#8mm] (#1) at (#2,#3) {};
   \node[box title, anchor=north west, text width=19mm] at ([shift={(2,-1.8)}]#1.north west) {#5};
   \node[box text, anchor=north west, text width=26mm] at ([shift={(2,-9.6)}]#1.north west) {#6};
   \pic[scale=0.8] at ([shift={(-5.4,-4.8)}]#1.north east) {#7};}
-\costbox{tkm}{104}{0}{cost}{Cost per\\ tonne-km}{$c_\mathrm{tkm}$}{costbar}
-\costbox{trip}{63.75}{-26}{cost}{Cost per\\ round trip}{the mean over all departures}{loop}
+\costbox{tkm}{104}{0}{cost}{Cost per\\ tonne-km}{$c_\mathrm{tkm}$}{costbar}{15}
+\costbox{trip}{63.75}{-26}{cost}{Cost per\\ round trip}{the mean over all departures}{loop}{18}
 \node[circle, draw, fill=white, inner sep=0.6pt] (over) at (104,-26) {$\div$};
-\costbox{work}{145}{-26}{ship}{Cargo work}{$m_c\,(L_\mathrm{out}+f_\mathrm{back}L_\mathrm{back})$}{freight}
-\costbox{fuel}{15}{-53}{voyage}{Fuel}{$p_f E_f$}{drop}
-\costbox{wear}{47.5}{-53}{voyage}{Kite wear}{$c_w h_\mathrm{fly}$ + launches}{worn}
-\costbox{port}{80}{-53}{data}{Ports}{$C_\mathrm{port}$, two calls}{crane}
-\costbox{time}{112.5}{-53}{voyage}{Time}{$c_t\,(t_\mathrm{sea}+t_\mathrm{port})$}{clock}
-\costbox{cargo}{145}{-53}{ship}{Cargo $m_c$}{deadweight or slots left after rig, stores and fuel}{stack}
-\costbox{capital}{47.5}{-83}{data}{Capital}{ship, drive, rig}{shipcost}
-\costbox{crew}{80}{-83}{data}{Crew}{$C_\mathrm{crew}$ a year}{person}
-\costbox{maint}{112.5}{-83}{data}{Maintenance}{$f_m C$}{wrench}
-\costbox{interest}{145}{-83}{ship}{Cargo interest}{$m\,v_c\,r$}{interest}
+\costbox{work}{145}{-26}{ship}{Cargo work}{$m_c\,(L_\mathrm{out}+f_\mathrm{back}L_\mathrm{back})$}{freight}{18}
+\costbox{fuel}{15}{-53}{voyage}{Fuel}{$p_f E_f$}{drop}{17}
+\costbox{wear}{47.5}{-53}{voyage}{Kite wear}{$c_w h_\mathrm{fly}$ + launches}{worn}{17}
+\costbox{port}{80}{-53}{data}{Ports}{$C_\mathrm{port}$, two calls}{crane}{17}
+\costbox{time}{112.5}{-53}{voyage}{Time}{$c_t\,(t_\mathrm{sea}+t_\mathrm{port})$}{clock}{17}
+\costbox{cargo}{145}{-53}{ship}{Cargo $m_c$}{deadweight or slots less rig, stores, fuel}{stack}{17}
+\costbox{capital}{47.5}{-83}{data}{Capital}{ship, drive, rig}{shipcost}{15}
+\costbox{crew}{80}{-83}{data}{Crew}{$C_\mathrm{crew}$ a year}{person}{15}
+\costbox{maint}{112.5}{-83}{data}{Maintenance}{$f_m C$}{wrench}{15}
+\costbox{interest}{145}{-83}{ship}{Cargo interest}{$m_c\,v_c\,r$}{interest}{15}
 % the quotient
 \draw[flow] (trip) -- (over);
 \draw[flow] (work) -- (over);
@@ -62,12 +62,13 @@
 \draw[flow] (63.75,-40) -- (trip.south);
 \foreach \n in {capital, crew, maint, interest} \draw (\n.north) -- (\n.north |- 0,-69);
 \draw (47.5,-69) -- (145,-69);
-\draw[flow] (112.5,-69) -- node[note, right] {adds up to $c_t$ per hour} (time.south);
+\draw[flow] (112.5,-69) -- (time.south);
+\node[note, anchor=west] at (114.2,-65.6) {adds up to $c_t$ per hour};
 % legend
 \begin{scope}[shift={(1.5,8.5)}]
-  \foreach \kind/\what [count=\i] in {cost/cost, voyage/from the routed passages, ship/from the cargo carried, data/inputs per ship and rig} {
-    \fill[\kind fill, draw] (0,-4*\i+2.5) rectangle ++(3,-2);
+  \foreach \kind/\what [count=\i] in {cost/cost, voyage/from the routed passages, ship/from the cargo carried, data/from the design and the prices} {
+    \path[fill=\kind fill, draw] (0,-4*\i+2.5) rectangle ++(3,-2);
     \node[anchor=west, inner sep=0pt] at (4.5,-4*\i+1.5) {\what};}
-  \draw[guide] (-1.5,1.5) rectangle (41,-17.5);
+  \draw[guide] (-1.5,0.5) rectangle (41,-17.5);
 \end{scope}
 \end{tikzpicture}

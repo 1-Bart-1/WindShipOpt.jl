@@ -390,7 +390,7 @@ rig_area_columns = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "r
     kite_geometry_figure()
 
 Planforms of the kites of the three aspect ratios at equal projected area, seen
-from above and to scale, with their projected span.
+from above and to scale, each with a dimension line of its projected span.
 """
 function kite_geometry_figure()
     geometries = [read_table(joinpath(polars, "geometry_ar$aspect_ratio.csv"))
@@ -400,7 +400,7 @@ function kite_geometry_figure()
     leading = -minimum(minimum(geometry["le_x"]) for geometry in geometries)
     trailing = -maximum(maximum(geometry["te_x"]) for geometry in geometries)
     gap = 5
-    limits = (-1, sum(spans) + gap * (length(spans) - 1) + 1, trailing - 2.4, leading + 2.6)
+    limits = (-1, sum(spans) + gap * (length(spans) - 1) + 1, trailing - 3.2, leading + 2.6)
     height = (page_width - pt(9)) * (limits[4] - limits[3]) / (limits[2] - limits[1])
     figure = Figure(size=(page_width, height + pt(6)))
     axis = Axis(figure[1, 1]; aspect=DataAspect(), limits)
@@ -415,8 +415,16 @@ function kite_geometry_figure()
             strokecolor=:black, strokewidth=0.8)
         text!(axis, centre, leading + 0.6; text="AR $aspect_ratio",
             align=(:center, :bottom))
-        text!(axis, centre, trailing - 0.6; text="span $(round(span; digits=1)) m",
-            align=(:center, :top), fontsize=note_size)
+        bottom = -maximum(geometry["te_x"]) - 0.6
+        ends = Point2f.(centre .+ extrema(geometry["le_y"]), bottom)
+        lines!(axis, collect(ends); color=style_colour("guide"),
+            linewidth=style_size("dimension"))
+        for x in first.(ends)
+            lines!(axis, Point2f[(x, bottom - 0.25), (x, bottom + 0.25)];
+                color=style_colour("guide"), linewidth=style_size("dimension"))
+        end
+        text!(axis, centre, bottom; text="span $(round(span; digits=1)) m",
+            align=(:center, :top), offset=(0, -pt(2)), fontsize=note_size)
     end
     save_figure("kite_geometry", figure)
 end
@@ -446,9 +454,9 @@ function polar_figure()
     save_figure("polars", figure)
 end
 
-"classes whose wind-load coefficients the wind-load figure shows"
-wind_load_classes = ("Megamax container ship", "PCTC car carrier", "Aframax tanker",
-    "general cargo coaster")
+"classes whose wind-load coefficients the wind-load figure shows, in deadweight order"
+wind_load_classes = ("general cargo coaster", "PCTC car carrier", "Aframax tanker",
+    "Megamax container ship")
 
 """
     wind_load_figure()
@@ -511,7 +519,7 @@ function pattern_figure()
                 rad2deg.(paths["elevation"][chosen]); color=colours[i])
         end
         bottom || hidexdecorations!(axis; ticks=false, ticklabels=false)
-        thrust = Axis(figure[row, 3]; ylabel="force [kN]", limits=((-5, 185),
+        thrust = Axis(figure[row, 3]; ylabel="force [kN]", limits=((-10, 190),
                 (low - 30, high + 30)),
             xlabel=bottom ? "course off apparent downwind [°]" : "", xticks=0:30:180,
             yticks=-400:100:400, title="($(('c', 'd')[row])) force on the ship, $speed")
@@ -523,7 +531,7 @@ function pattern_figure()
             scatterlines!(thrust, forces["course"][chosen], forces[column][chosen] ./ 1e3;
                 color=category_colours[k], label, marker)
         end
-        bottom && axislegend(thrust; position=:rt)
+        bottom || axislegend(thrust; position=:rt)
     end
     Colorbar(figure[1:2, 2]; colormap=cgrad(colours; categorical=true),
         limits=(-15, 195), ticks=courses, width=pt(5),
@@ -753,6 +761,7 @@ with a 3200 m^2 kite, for a winter and a summer departure, over the 10 m wind fi
 after departure with a reference arrow; solid outbound, dashed homeward.
 """
 function route_figure()
+    route_colours = category_colours[[1, 2, 3, 4, 6, 5]]
     designs = (ShipDesign(:ammonia, 140.0), ShipDesign(:ammonia, 140.0; kite_area=3200.0))
     port_hours = 24assumptions[:port_time_per_call]
     seasons = (("winter", 1), ("summer", findfirst(>=(24 * 181), departures)))
@@ -762,17 +771,17 @@ function route_figure()
         axis = Axis(figure[1, column]; title="($('a' + column - 1)) $season departure",
             xlabel="longitude [°]",
             ylabel=column == 1 ? "latitude [°]" : "", aspect=DataAspect(),
-            limits=(-100, 12, -26, 58))
-        draw_land!(axis, mask; lons=-100:0.25:12, lats=-26:0.25:58)
+            limits=(-100, 12, -26, 60))
+        draw_land!(axis, mask; lons=-100:0.25:12, lats=-26:0.25:60)
         departure = departures[index]
-        draw_wind!(axis, weather, departure + 24 * 5; scale=wind_scale, lons=-98:6:10,
-            lats=-24:6:56)
+        draw_wind!(axis, weather, departure + 24 * 5; scale=wind_scale, lons=-96:6:6,
+            lats=-22:6:50)
         for (k, design) in enumerate(designs)
             ship = Ship(design, assumptions)
             table = PerformanceTable(ship, assumptions)
             out_hourly, back_hourly = WindShipOpt.leg_time_costs(ShipCosts(ship,
                 assumptions), assumptions)
-            for (i, name) in enumerate(route_names)
+            for (i, name) in reverse(collect(enumerate(route_names)))
                 outbound, inbound = run_corridors(name)
                 out = route(outbound, table, weather, departure; time_cost=out_hourly)
                 back = route(inbound, table, weather, departure + out.duration +
@@ -781,16 +790,15 @@ function route_figure()
                     color=:black, linestyle=:dot, linewidth=0.8)
                 for (leg, style) in ((out, :solid), (back, :dash))
                     scatterlines!(axis, track_points(leg.path);
-                        color=k == 1 ? (:black, 0.6) : category_colours[i], linestyle=style,
+                        color=k == 1 ? (:black, 0.6) : route_colours[i], linestyle=style,
                         linewidth=k == 1 ? 0.8 : 1.5, markersize=pt(k == 1 ? 2.5 : 3.5))
                 end
             end
         end
         column == 1 &&
-            wind_key!(axis, Point2f(-98, -24), reference_wind, wind_scale, 7)
+            wind_key!(axis, Point2f(-98, 51.5), reference_wind, wind_scale, 7)
     end
-    entries = [[LineElement(color=category_colours[i])
-                for i in eachindex(route_names)];
+    entries = [[LineElement(color=route_colours[i]) for i in eachindex(route_names)];
         LineElement(color=(:black, 0.6), linewidth=0.8);
         LineElement(color=:black, linestyle=:dot, linewidth=0.8);
         LineElement(color=:black, linewidth=0.8);
@@ -1825,7 +1833,8 @@ function canopy_life_figure()
     order = [findall(==("statement"), lives["kind"]);
         findall(==("sail_shape"), lives["kind"]); findall(==("small_kite"), lives["kind"]);
         findall(==("derived"), lives["kind"])]
-    labels = lives["label"][order]
+    labels = [occursin("m²", label) ? square_metres(String.(split(label, "m²"))...) :
+              label for label in lives["label"][order]]
     figure = Figure(size=(page_width, 190))
     axis = Axis(figure[1, 1]; xscale=log10, xlabel="flight hours of the canopy",
         xticks=([100, 300, 1000, 3000, 10000], ["100", "300", "1000", "3000", "10000"]),
@@ -1833,8 +1842,6 @@ function canopy_life_figure()
         limits=((70, 20000), (0.3, length(labels) + 0.7)))
     vspan!(axis, goal.low, goal.high; color=(palette[1], 0.1))
     vlines!(axis, goal.value; color=:black, linewidth=0.75)
-    text!(axis, goal.value, 0.5; text="goal", align=(:right, :top),
-        offset=clear_offset((:right, :top), pt(2)), fontsize=note_size)
     for (i, row) in enumerate(order)
         derived = lives["kind"][row] == "derived"
         colour = derived ? palette[1] : :gray35
@@ -1850,10 +1857,8 @@ function canopy_life_figure()
         label = derived ? "$(estimate_text(lives["life_low"][row])) " *
                           "($(estimate_text(low))–$(estimate_text(high)))" :
                 replace(lives["life_text"][row], "--" => "–")
-        crosses_goal = 1.15high < goal.value < 2.3high
-        text!(axis, crosses_goal ? low / 1.15 : 1.15high, i; text=label,
-            align=(crosses_goal ? :right : :left, :center), fontsize=note_size,
-            color=colour)
+        text!(axis, high < goal.value < 2.6high ? 1.12goal.value : 1.15high, i;
+            text=label, align=(:left, :center), fontsize=note_size, color=colour)
     end
     entries = [MarkerElement(marker=:rect, color=:white, strokecolor=:gray35,
             strokewidth=0.75), MarkerElement(marker=:rect, color=:gray35),
@@ -1955,8 +1960,8 @@ end
     capital_figure()
 
 Capital of an 85 m and a 170 m ship split into the hull with its basic drive, the extra
-cost of a dual-fuel e-ammonia engine, and the rig, with the range of the hull and of the
-rig over the bounds of the inputs one at a time; the fuel tank, sized by the route, is
+cost of a dual-fuel e-ammonia engine, and the rig, with the range of each part over the
+bounds of the inputs one at a time; the fuel tank, sized by the route, is
 left out.
 """
 function capital_figure()
@@ -1964,7 +1969,7 @@ function capital_figure()
         ("+ kite 1600 m²", :ammonia, (kite_area=1600.0,)),
         ("+ wing sails 800 m²", :ammonia, (wing_area=800.0,)),
         ("+ rotors 400 m²", :ammonia, (rotor_area=400.0,))]
-    labels = String[]
+    labels = Any[]
     values = Matrix{Float64}(undef, 0, 3)
     lows, highs = similar(values), similar(values)
     for length in (85.0, 170.0), (label, drive, rig) in cases
@@ -1974,7 +1979,10 @@ function capital_figure()
             WindShipOpt.with_value(assumptions, name, bound))
                                for (name, entry) in assumptions.entries
                                for bound in (entry.low, entry.high)])
-        push!(labels, "$label, $(round(Int, length)) m")
+        suffix = ", $(round(Int, length)) m"
+        push!(labels, occursin("m²", label) ?
+                      square_metres(String(first(split(label, "m²"))), suffix) :
+                      label * suffix)
         values = vcat(values, capital_parts(ships, drive, assumptions)')
         lows = vcat(lows, minimum(spread; dims=2)')
         highs = vcat(highs, maximum(spread; dims=2)')
@@ -1987,14 +1995,14 @@ function capital_figure()
     rig_colours = repeat([:gray; :gray; palette[eachindex(rig_names)]], 2)
     engine_colour = category_colours[2]
     colours = [[:gray55 for _ in labels]; [engine_colour for _ in labels]; rig_colours]
-    barplot!(axis, positions, vec(values); stack, direction=:x, color=colours)
-    start = values[:, 1] .+ values[:, 2]
-    rigged = values[:, 3] .> 0
-    rangebars!(axis, eachindex(labels) .- 0.2, lows[:, 1], highs[:, 1]; direction=:x,
-        color=:black, linewidth=0.8, whiskerwidth=3)
-    rangebars!(axis, findall(rigged) .+ 0.2, start[rigged] .+ lows[rigged, 3],
-        start[rigged] .+ highs[rigged, 3]; direction=:x, color=:black, linewidth=0.8,
-        whiskerwidth=3)
+    barplot!(axis, positions, vec(values); stack, direction=:x, color=colours, width=0.4)
+    for (lane, part) in ((-0.31, 1), (0.28, 2), (0.4, 3))
+        shown = values[:, part] .> 0
+        start = part == 1 ? zeros(length(labels)) : sum(values[:, 1:(part - 1)]; dims=2)
+        rangebars!(axis, findall(shown) .+ lane, start[shown] .+ lows[shown, part],
+            start[shown] .+ highs[shown, part]; direction=:x, color=:black,
+            linewidth=0.8, whiskerwidth=3)
+    end
     names = ["hull and basic drive", "e-ammonia engine", "kite", "wing sails", "rotors"]
     axislegend(axis, [PolyElement(color=:gray55); PolyElement(color=engine_colour);
             [PolyElement(color=palette[k]) for k in eachindex(rig_names)]], names;
@@ -3059,13 +3067,15 @@ end
     min_wind_figure()
 
 Lowest apparent wind against projected area for the kite of the design aspect ratio: the
-crosswind and climbing bounds at the lowest elevation, lift-off with the margin, and the
-launch wind the model uses, which is the largest of these and the reported launch wind,
-with its range over the bounds of the margin and of the reported launch wind in turn.
+crosswind and climbing bounds at the lowest elevation, lift-off with the margin and its
+range over the margin's bounds, and the launch wind the model uses, which is the largest
+of these and the reported launch wind, with its range over the bounds of the margin and of
+the reported launch wind in turn.
 """
 function min_wind_figure()
     figure = Figure(size=(column_width, 190))
-    axis = Axis(figure[1, 1]; xscale=log10, xlabel="projected kite area [m²]",
+    axis = Axis(figure[1, 1]; xscale=log10,
+        xlabel=square_metres("projected kite area [", "]"),
         ylabel="lowest apparent wind [m/s]",
         xticks=([500, 1000, 2000, 4000, 8000, 16000], ["500", "1000", "2000", "4000",
             "8000", "16000"]))
@@ -3083,12 +3093,16 @@ function min_wind_figure()
         (cross=WindShipOpt.crosswind_min_wind(model, elevation),
             climb=WindShipOpt.climbing_min_wind(model, elevation),
             lift=assumptions[:kite_launch_margin] * lift_off,
+            lift_low=assumptions.entries[:kite_launch_margin].low * lift_off,
+            lift_high=assumptions.entries[:kite_launch_margin].high * lift_off,
             launch=WindShipOpt.launch_min_wind(model, tether_mass, assumptions),
             launch_low=minimum(launches), launch_high=maximum(launches))
     end
     launch_colour = :gray60
     band!(axis, areas, getindex.(winds, :launch_low), getindex.(winds, :launch_high);
-        color=(launch_colour, 0.2))
+        color=(launch_colour, 0.25))
+    band!(axis, areas, getindex.(winds, :lift_low), getindex.(winds, :lift_high);
+        color=(category_colours[1], 0.15))
     curves = ((:launch, launch_colour, pt(3.5)), (:lift, category_colours[1], line_width),
         (:climb, category_colours[2], line_width),
         (:cross, category_colours[3], line_width))
@@ -3096,10 +3110,12 @@ function min_wind_figure()
         lines!(axis, areas, getindex.(winds, key); color, linewidth)
     end
     ylims!(axis, 0, 1.35 * maximum(getindex.(winds, :launch_high)))
-    entries = [[LineElement(; color, linewidth) for (_, color, linewidth) in curves];
-        PolyElement(color=(launch_colour, 0.2))]
-    axislegend(axis, entries, ["launch", "lift-off", "climb", "crosswind",
-            "launch range"]; position=:lt, orientation=:horizontal, nbanks=2)
+    bands = [[PolyElement(color=(launch_colour, 0.25))],
+        [PolyElement(color=(category_colours[1], 0.15))], [], []]
+    entries = [[band; LineElement(; color, linewidth)]
+               for (band, (_, color, linewidth)) in zip(bands, curves)]
+    axislegend(axis, entries, ["launch", "lift-off", "climb", "crosswind"]; position=:lt,
+        orientation=:horizontal, nbanks=2)
     save_figure("min_wind", figure)
 end
 
@@ -3221,7 +3237,8 @@ function rigid_mass_figure()
     published = read_table(joinpath(root, "data", "rigid_kite_masses.csv"))
     figure = Figure(size=(column_width, 200))
     ticks = [3, 10, 30, 100, 300]
-    axis = Axis(figure[1, 1]; xscale=log10, yscale=log10, xlabel="wing area [m²]",
+    axis = Axis(figure[1, 1]; xscale=log10, yscale=log10,
+        xlabel=square_metres("wing area [", "]"),
         ylabel="mass [kg]", xticks=(ticks, string.(ticks)),
         yticks=([30, 100, 300, 1000, 3000, 10000, 30000],
             ["30", "100", "300", "1000", "3000", "10000", "30000"]))
@@ -3232,7 +3249,7 @@ function rigid_mass_figure()
     for (value, linestyle) in ((exponent.low, :dot), (exponent.value, :solid),
         (exponent.high, :dash))
         lines!(axis, areas, anchor_mass.value .* (areas ./ anchor_area) .^ (value / 2);
-            color=:black, linestyle, linewidth=0.8, label=L"\kappa = %$(value)")
+            color=:black, linestyle, linewidth=0.8)
     end
     rangebars!(axis, [anchor_area], [anchor_mass.low], [anchor_mass.high]; color=:black,
         linewidth=0.8, whiskerwidth=4)
@@ -3250,11 +3267,13 @@ function rigid_mass_figure()
         scatter!(axis, [published["area"][i]], [mass]; color=built[i] ? color : :white,
             strokecolor=color, strokewidth=0.75, markersize=pt(5))
         law = anchor_mass.value * (published["area"][i] / anchor_area)^(exponent.value / 2)
-        align = mass < law ? (:left, :top) :
+        small = published["area"][i] < 10
+        align = mass < law || small ? (:left, :top) :
                 (published["area"][i] > 10 ? :right : :left, :bottom)
+        offset = small ? (pt(2.5), -pt(14)) : clear_offset(align, pt(2.5))
         text!(axis, published["area"][i], mass; text=first(split(published["name"][i],
-            ",")), align, offset=clear_offset(align, pt(2.5)), fontsize=note_size, color,
-            glowwidth=pt(1.5), glowcolor=:white)
+            ",")), align, offset, fontsize=note_size, color, glowwidth=pt(1.5),
+            glowcolor=:white)
     end
     entries = [[LineElement(; color=:black, linestyle, linewidth=0.8)
                 for linestyle in (:dot, :solid, :dash)];
@@ -3262,7 +3281,7 @@ function rigid_mass_figure()
          for k in 1:2];
         MarkerElement(marker=:circle, color=:white, strokecolor=:black, strokewidth=0.75,
             markersize=pt(5))]
-    names = [[L"\kappa = %$(value)" for value in (exponent.low, exponent.value,
+    names = [[L"\itkappa = %$(value)" for value in (exponent.low, exponent.value,
             exponent.high)]; "with propellers"; "without propellers"; "design"]
     axislegend(axis, entries, names; position=:rb)
     save_figure("rigid_mass", figure)

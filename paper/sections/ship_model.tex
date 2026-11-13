@@ -11,13 +11,14 @@
 \draw[guide, dotted] (13,0) -- (0,0) node[label, text=black, anchor=north west, pos=1] {heading};
 \draw[guide, dashed] (13,0) -- (0,5.25) node[label, text=black, anchor=south west, pos=1] {course};
 \draw[guide] (6,0) arc[start angle=180, end angle=158, radius=7];
-\node[label, inner sep=0pt] at (3,1.7) {$\beta$};
+\node[label, anchor=east] at (-0.3,2.6) {$\beta$};
 % propeller under the stern, rudder behind it
 \fill[ship!30!black] (18.6,0) ellipse (0.55 and 2.8);
 \fill[ship!30!black] (18.6,0) circle (0.8);
 \fill[water] (17.6,0) .. controls (17.2,0.75) and (14.6,0.55) .. (13.4,0)
   .. controls (14.6,-0.55) and (17.2,-0.75) .. (17.6,0) -- cycle;
-\draw[force, water] (18.6,0) -- (39,0) node[label, text=water!60!black, right] {$T_\mathrm{req}$};
+\draw[force, water] (18.6,0) -- (39,0);
+\node[label, text=water!60!black, anchor=west] at (39.6,0) {$T_\mathrm{req}$};
 \draw[leader] (18.6,-3.1) -- (18.6,-7.6);
 \node[label, anchor=north] at (18.6,-7.6) {propeller, \S\ref{sec:ships}};
 \draw[force, water] (15.5,0.7) -- (14.0,10.5);
@@ -27,19 +28,20 @@
 \node[label, wind, anchor=east, align=right] at (39,21.5) {wind on ship: $R_\mathrm{air}$,\\ side force, moments, \S\ref{sec:ships}};
 % rig
 \fill (50,0) circle (1.3);
-\draw[force] (50,0) -- (62,0) node[label, above] {$F_x$};
-\draw[force] (50,0) -- (50,-13) node[label, left, pos=0.8] {$F_y$};
-\node[label, anchor=north west, align=left] (riglabel) at (51.5,-7.5) {rig: $F_x$, $F_y$, $M_x$, $M_z$, $P_\mathrm{rig}$,\\ \S\ref{sec:deck_rigs}, \S\ref{sec:kite}};
+\draw[force] (50,0) -- (62,0);
+\node[label, anchor=west] at (62.6,0) {$F_x$};
+\draw[force] (50,0) -- (50,-13);
+\node[label, anchor=east] at (48.3,-10.5) {$F_y$};
+\node[label, anchor=north west, align=left] (riglabel) at (52,-7.5) {rig: $F_x$, $F_y$, $M_x$, $M_z$, $P_\mathrm{rig}$,\\ \S\ref{sec:deck_rigs}, \S\ref{sec:kite}};
 % hull at leeway
 \draw[force, water] (87.9,-17) -- (86,-4.6);
-\node[label, water!60!black, anchor=west, align=left] at (89,-13.5) {hull at leeway $\beta$:\\ side force, drag $R_\beta$, \S\ref{sec:balance}};
+\node[label, water!60!black, anchor=north, align=center] at (87.9,-17.6) {hull at leeway $\beta$:\\ side force, drag $R_\beta$, \S\ref{sec:balance}};
 % resistances on the bow
-\draw[force, water] (103,2.2) -- (89,2.2);
-\draw[force, water] (103,-2.2) -- (89,-2.2);
-\draw[water] (103,-4.3) sin (104.25,-3.6) cos (105.5,-4.3) sin (106.75,-5) cos (108,-4.3);
-\node[label, water!60!black, anchor=west] at (103,3.6) {$R_\mathrm{cw}$ calm water};
-\node[label, water!60!black, anchor=west] at (103,-0.8) {$R_\mathrm{aw}$ waves};
-\node[label, water!60!black, anchor=north west] at (103,-6) {\S\ref{sec:ships}};
+\draw[force, water] (103,2.2) -- (88.45,2.2);
+\draw[force, water] (103,-2.2) -- (88.45,-2.2);
+\draw[water] (103,-5.3) sin (104.25,-4.6) cos (105.5,-5.3) sin (106.75,-6) cos (108,-5.3);
+\node[label, water!60!black, anchor=west] at (103.5,2.2) {$R_\mathrm{cw}$ calm water, \S\ref{sec:ships}};
+\node[label, water!60!black, anchor=west] at (103.5,-2.2) {$R_\mathrm{aw}$ waves, \S\ref{sec:ships}};
 % ---- from astern, heeled to leeward: wing sail or rotor against kite
 \node[panel] at (122,29) {(b) From astern};
 \begin{scope}[shift={(142,0)}]
@@ -53,17 +55,17 @@
   \end{scope}
   \draw[guide, dashed] (0,0) -- (0,25);
   \draw[guide] (0,22) arc[start angle=90, end angle=82, radius=22];
-  \node[label, inner sep=0pt] at (1.5,24.5) {$\phi$};
+  \node[label, anchor=east] at (-0.5,23.4) {$\phi$};
   \draw[guide, densely dashed] (tow) -- ++(10,6.7) coordinate (tether);
   \node[label, anchor=south west, inner sep=0.5pt] at ([shift={(0.3,0.3)}]tether) {to kite};
   \draw[force] (wing) -- ++(10,0);
-  \node[label, anchor=south west] at ([shift={(1.8,0.3)}]wing) {deck rig};
+  \node[label, anchor=south west] at ([shift={(1.8,0.9)}]wing) {deck rig};
   \draw[force] (tow) -- ++(8,0);
   \draw[force, water] (8,-2.5) -- (-4,-2.5);
-  \draw[dimension, |<->|] (-11,-2.5) -- (-11,0 |- wing) node[note, text=black, above] {deck rig lever};
+  \draw[dimension, |<->|] (-11,-2.5) -- (-11,0 |- wing) node[label, text=black, above] {deck rig lever};
   \draw[dimension, |<->|] (14,-2.5) -- (14,0 |- tow);
-  \node[note, text=black, rotate=90, anchor=north] at (14.8,1.2) {kite lever};
-  \node[label, anchor=north] at (0.25,-9.5) {heel $\phi\le\SI{8}{\degree}$, \S\ref{sec:balance}};
+  \node[label, text=black, rotate=90, anchor=north] at (14.8,1.2) {kite lever};
+  \node[label, anchor=north] at (0.25,-9.5) {heel $\phi\le\SI{8}{\degree}$ (5--\SI{12}{\degree}), \S\ref{sec:balance}};
 \end{scope}
 % ---- how the parts combine
 \pgfmathsetmacro{\rowy}{-34}
