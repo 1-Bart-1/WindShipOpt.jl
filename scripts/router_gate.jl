@@ -8,8 +8,9 @@
 #   julia +1.12 --project=. -t auto scripts/router_gate.jl --reference <out_dir>
 #   julia +1.12 --project=. -t auto scripts/router_gate.jl --fresh <reference_dir> <out_dir>
 #
-# Writes gate_<scale>.csv to <out_dir>, a line per finished case; a rerun on the same code
-# and settings routes only the cases missing there, so another run needs an empty directory.
+# Writes gate_<scale>.csv (`scale_label`) to <out_dir>, a line per finished case; a rerun on
+# the same code and settings routes only the cases missing there, so another run needs an
+# empty directory.
 # Given a reference directory holding gate_<scale>.csv, prints the change per case and exits
 # 1 if a saving moves by more than `SAVING_TOLERANCE` points. `--reference` searches every
 # state, which makes such a directory. `--fresh` makes the reference and compares with it, a
@@ -30,6 +31,10 @@ GATE_HEADER = "ship,rig,route,scale,cost,fuel,days,flight,launches,forced,cargo,
 "router settings of a reference run: every state is searched"
 REFERENCE_SETTINGS = WindShipOpt.RouterSettings(search_margins=(Inf, Inf),
     kite_search_margins=(Inf, Inf))
+
+"name of corridor `scale` in the gate's files, a number or a pair of stage and row scales"
+scale_label(scale) =
+    join((isinteger(factor) ? Int(factor) : factor for factor in scale), "_")
 
 """
     gate_cases(scale)
@@ -62,7 +67,7 @@ function gate_line(case, trip, seconds)
     values = isnothing(trip) ? fill("NA", 7) : repr.((trip.cost_per_tonne_km,
         trip.fuel_per_tonne_km, trip.outbound_days + trip.return_days, trip.flight_share,
         trip.launches, trip.forced_landings, trip.cargo))
-    return join((case.ship, case.rig, case.route, case.scale, values...,
+    return join((case.ship, case.rig, case.route, scale_label(case.scale), values...,
             round(seconds; digits=2)), ",")
 end
 
@@ -164,9 +169,9 @@ function gate_scales(out_dir, reference_dir, scales)
     mkpath(out_dir)
     passed = true
     for scale in scales
-        path = joinpath(out_dir, "gate_$(Int(scale)).csv")
+        path = joinpath(out_dir, "gate_$(scale_label(scale)).csv")
         wall = @elapsed gate_trips(path, gate_cases(scale), departures[1:6:end])
-        @printf("scale %.0f: all cases in %s after %.0f s\n", scale, path, wall)
+        @printf("scale %s: all cases in %s after %.0f s\n", scale_label(scale), path, wall)
         isnothing(reference_dir) && continue
         passed &= gate_passes(path, joinpath(reference_dir, basename(path)))
     end

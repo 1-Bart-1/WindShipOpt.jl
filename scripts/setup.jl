@@ -74,8 +74,8 @@ else
 end
 println("weather: ", weather_name)
 
-"outbound and return corridors built so far, keyed by route name and corridor scale"
-corridor_cache = Dict{Tuple{Symbol, Float64}, Tuple{Corridor, Corridor}}()
+"outbound and return corridors built so far, keyed by route name and corridor scales"
+corridor_cache = Dict{Tuple{Symbol, Float64, Float64}, Tuple{Corridor, Corridor}}()
 
 "guards `corridor_cache` against the threads of a study"
 corridor_lock = ReentrantLock()
@@ -83,11 +83,14 @@ corridor_lock = ReentrantLock()
 """
     corridors(name, scale)
 
-Outbound and return corridors of route `name` at corridor `scale`, built once per session.
+Outbound and return corridors of route `name` at corridor `scale`, one number or a pair of
+stage and row scales, built once per session.
 """
 function corridors(name, scale)
+    stage_scale, lateral_scale = scale isa Number ? (scale, scale) : scale
     return lock(corridor_lock) do
-        get!(() -> route_corridors(name, mask; scale), corridor_cache,
-            (name, Float64(scale)))
+        get!(() -> route_corridors(name, mask; scale=stage_scale,
+                lateral_spacing=WindShipOpt.LATERAL_SPACING * lateral_scale),
+            corridor_cache, (name, Float64(stage_scale), Float64(lateral_scale)))
     end
 end
