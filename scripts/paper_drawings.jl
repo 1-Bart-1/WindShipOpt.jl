@@ -401,7 +401,7 @@ function draw_window!(axis)
         radius = sind(polar)
         lines!(axis, [window_point(radius, roll) for roll in range(π / 2, π; length=30)];
             color=:gray70, linewidth=0.5)
-        text!(axis, radius, 0; text=polar == 30 ? L"\vartheta = 30°" : L"60°",
+        text!(axis, radius, 0; text=polar == 30 ? L"\itvartheta = 30°" : L"60°",
             align=(:center, :top),
             offset=clear_offset((:center, :top), pt(2)), fontsize=note_size,
             color=:gray50)
@@ -413,7 +413,7 @@ function draw_window!(axis)
     lines!(axis, Point2f[(-1.15, 0), (1.15, 0)]; color=:black, linewidth=0.6)
     text!(axis, window_point(1, deg2rad(130)); text="edge of\nthe window",
         align=(:left, :bottom), offset=(2, 0), fontsize=note_size)
-    text!(axis, 1.03, lowest;
+    text!(axis, 1.07, lowest;
         text="below $(round(Int, assumptions[:kite_min_elevation]))°",
         align=(:left, :center), fontsize=note_size, color=:gray40)
     polar, roll = deg2rad(33), deg2rad(62)
@@ -421,20 +421,20 @@ function draw_window!(axis)
     lines!(axis, [Point2f(0, 0), kite]; color=:gray50, linewidth=0.6, linestyle=:dash)
     lines!(axis, [window_point(0.3, angle) for angle in range(0, roll; length=20)];
         color=category_colours[2])
-    text!(axis, window_point(0.37, 0.6roll); text=L"\phi", align=(:right, :center),
+    text!(axis, window_point(0.37, 0.6roll); text=L"\itphi", align=(:right, :center),
         color=category_colours[2])
     outward = Vec2f(kite / hypot(kite...))
     along = Vec2f(outward[2], -outward[1])
     heading = deg2rad(65)
-    small_arrow!(axis, kite, 0.3outward, L"\hat{\mathbf{e}}_\vartheta";
+    small_arrow!(axis, kite, 0.3outward, L"\hat{\mathbf{e}}_\itvartheta";
         align=(:right, :center))
-    small_arrow!(axis, kite, 0.3along, L"\hat{\mathbf{e}}_\phi"; align=(:left, :center))
+    small_arrow!(axis, kite, 0.3along, L"\hat{\mathbf{e}}_\itphi"; align=(:left, :center))
     small_arrow!(axis, kite, 0.32 * (cos(heading) * outward + sin(heading) * along),
         L"\hat{\mathbf{h}}"; color=palette[6], align=(:center, :bottom))
     lines!(axis, [kite + 0.12 * (cos(angle) * outward + sin(angle) * along)
                   for angle in range(0, heading; length=12)]; color=palette[6])
     text!(axis, kite + 0.2 * (cos(heading / 2) * outward + sin(heading / 2) * along);
-        text=L"\psi", align=(:center, :center), color=palette[6])
+        text=L"\itpsi", align=(:center, :center), color=palette[6])
     scatter!(axis, [kite]; color=palette[1], markersize=8)
     small_arrow!(axis, (1.5, 0.28), (-0.2, 0), L"y"; align=(:right, :bottom))
     small_arrow!(axis, (1.5, 0.28), (0, 0.2), L"z"; align=(:center, :bottom))
@@ -464,11 +464,11 @@ function draw_side_sphere!(axis)
         offset=clear_offset((:right, :bottom), pt(2)), color=palette[1])
     lines!(axis, [polar_point(0.3, angle) for angle in range(0, polar; length=20)];
         color=category_colours[2])
-    text!(axis, polar_point(0.36, polar / 2); text=L"\vartheta", align=(:left, :center),
+    text!(axis, polar_point(0.36, polar / 2); text=L"\itvartheta", align=(:left, :center),
         color=category_colours[2])
     scatter!(axis, [Point2f(0, 0)]; color=:black, markersize=4)
-    text!(axis, 0, 0; text="tow point", align=(:right, :bottom), offset=(-2, 2),
-        fontsize=note_size)
+    text!(axis, 0, 0; text="tow point", align=(:center, :top),
+        offset=clear_offset((:center, :top), pt(3)), fontsize=note_size)
     limits!(axis, -0.65, 1.3, -0.4, 1.1)
 end
 
@@ -504,7 +504,7 @@ function draw_course_plan!(axis)
     force = Vec2f(0.68, 0.3)
     along = sum(force .* heading) * heading
     arrows2d!(axis, [Point2f(0, 0)], [force]; color=palette[1], shaftwidth=force_width)
-    text!(axis, Point2f(force); text=L"\overline{\mathbf{F}}", align=(:left, :bottom),
+    text!(axis, Point2f(force); text=L"\overline{\,\mathbf{F}}", align=(:left, :bottom),
         offset=clear_offset((:left, :bottom), pt(2)), color=palette[1])
     for (vector, label, origin, inside, at) in (
         (along, L"F_\parallel", Point2f(0, 0), force, 0.75),
