@@ -1986,7 +1986,9 @@ end
     for leg in route_corridors(:houston, north_atlantic_mask())
         centre = WindShipOpt.centre_index(leg)
         gulf = [stage for stage in axes(leg.lat, 1) if leg.lon[stage, centre] < -85]
-        @test count(stage -> count(leg.water[stage, :]) > 1, gulf) >= length(gulf) - 2
+        rows = [count(leg.water[stage, :]) for stage in gulf]
+        @test count(==(1), rows) == 1
+        @test (maximum(rows) - 1) * leg.lateral_spacing >= 400 * WindShipOpt.NAUTICAL_MILE
     end
 end
 
