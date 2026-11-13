@@ -10,8 +10,8 @@ aspect_ratios = (3, 5, 8)
 "colours of the kite, wings and rotors, in the order of `rig_names`, then of the VTOL kite"
 palette = Makie.wong_colors()
 "colours of what is not a rig, none of them a rig's"
-category_colours = [palette[6], palette[4], palette[5], Makie.RGBf(0.55, 0.47, 0.0), :black,
-    :gray55]
+category_colours = [palette[6], palette[4], Makie.RGBf(0.55, 0.47, 0.0), palette[5],
+    Makie.RGBf(0.55, 0.3, 0.12), :black]
 "`n` shades of the kite's blue, light to dark"
 kite_shades(n) = cgrad(:Blues, n + 2; categorical=true)[3:end]
 column_width = 334
@@ -412,7 +412,7 @@ function route_figure()
             limits=(-100, 12, -26, 58))
         draw_land!(axis, mask; lons=-100:0.25:12, lats=-26:0.25:58)
         departure = departures[index]
-        draw_wind!(axis, weather, departure + 24 * 5; scale=0.12, lons=-98:6:10,
+        draw_wind!(axis, weather, departure + 24 * 5; scale=0.4, lons=-98:6:10,
             lats=-24:6:56)
         for (k, design) in enumerate(designs)
             ship = Ship(design, assumptions)
@@ -480,7 +480,7 @@ function passage_figure()
     map_axis = Axis(figure[1, 1:2]; aspect=DataAspect(), limits=(-64, 6, 13, 54),
         xlabel="longitude [°]", ylabel="latitude [°]", title="(a) routed tracks")
     draw_land!(map_axis, mask)
-    draw_wind!(map_axis, weather, departure + 24 * 6; scale=0.1)
+    draw_wind!(map_axis, weather, departure + 24 * 6; scale=0.3)
     first_path = first(first(legs)).path
     lines!(map_axis, great_circle(first_path[1], first_path[end])...; color=:black,
         linestyle=:dot, linewidth=0.8)
@@ -1833,8 +1833,8 @@ function abatement_figure()
         limits = [abatement_limits(table, name, drive, only(rows(table, "ship" => name,
             "drive" => drive, "rig" => "none"))) for (name, _) in abatement_ships]
         for axis in panels[:, column]
-            limits!(axis, min(0, 1.08 * minimum(saved_all)), 1.08 * maximum(saved_all),
-                minimum(first.(limits)), maximum(last.(limits)))
+            limits!(axis, min(0, minimum(saved_all) - 0.04 * maximum(saved_all)),
+                1.08 * maximum(saved_all), minimum(first.(limits)), maximum(last.(limits)))
         end
     end
     Legend(figure[3, :], panels[1, 1]; orientation=:horizontal)
@@ -2135,7 +2135,8 @@ function rigid_scaling_figure()
         exponent = kind == "rigid" ? base_exponent : 0.0
         chosen = rows(table, "kind" => kind, "area" => area, "exponent" => exponent)
         lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
-            color=kind == "soft" ? palette[1] : category_colours[k],
+            color=kind == "soft" ? palette[1] : cgrad(:RdPu, length(curves) + 2;
+                categorical=true)[k + 2],
             label="$(paper_name(kind)) $(round(Int, area)) m²")
     end
     series = [("rigid", base_exponent, :solid), ("rigid", 3.0, :dash), ("rigid", 3.3, :dot),
