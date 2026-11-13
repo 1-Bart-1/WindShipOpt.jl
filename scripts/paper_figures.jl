@@ -1907,6 +1907,9 @@ function cargo_cost_figure()
     save_figure("cargo_cost", figure)
 end
 
+"sizes [figure units] of the square of a stated life and the star of an estimated one"
+claim_marker_size, estimate_marker_size = 1.6marker_size, 2.2marker_size
+
 """
     canopy_life_figure()
 
@@ -1937,18 +1940,21 @@ function canopy_life_figure()
             linewidth=derived ? 2.5 : 1.5, whiskerwidth=derived || high < 1.1low ? 0 : 4)
         derived && scatter!(axis, [lives["life_low"][row]], [i]; color=colour, markersize=7)
         measured = lives["grade"][row] == "meas"
+        estimated = endswith(lives["life_text"][row], "*")
         lives["kind"][row] == "statement" && scatter!(axis, [sqrt(low * high)], [i];
-            color=measured ? :gray35 : :white, strokecolor=:gray35, strokewidth=0.75,
-            marker=:rect)
+            color=measured || estimated ? :gray35 : :white, strokecolor=:gray35,
+            strokewidth=estimated ? 0 : 0.75, marker=estimated ? :star5 : :rect,
+            markersize=estimated ? estimate_marker_size : claim_marker_size)
         label = derived ? "$(estimate_text(lives["life_low"][row])) " *
                           "($(estimate_text(low))–$(estimate_text(high)))" :
-                replace(lives["life_text"][row], "--" => "–")
+                replace(rstrip(lives["life_text"][row], '*'), "--" => "–")
         text!(axis, high < goal.value < 2.6high ? 1.12goal.value : 1.15high, i;
             text=label, align=(:left, :center), fontsize=note_size, color=colour)
     end
     entries = [MarkerElement(marker=:rect, color=:white, strokecolor=:gray35,
-            strokewidth=0.75), MarkerElement(marker=:rect, color=:gray35),
-        MarkerElement(marker='*', color=:gray35, markersize=pt(9)),
+            strokewidth=0.75, markersize=claim_marker_size),
+        MarkerElement(marker=:rect, color=:gray35, markersize=claim_marker_size),
+        MarkerElement(marker=:star5, color=:gray35, markersize=estimate_marker_size),
         LineElement(color=:black, linewidth=0.75),
         PolyElement(color=(palette[1], 0.1))]
     axislegend(axis, entries, ["claim", "measurement", "hours we estimate",
