@@ -380,11 +380,9 @@ speed_plane(table::LinearTable, speed_weight::KnotWeight) =
 """
     edge_fuels(table, speed, slice, condition)
     edge_fuels(table, speed, speed_weight, condition)
-    edge_fuels(route_table, speed_index, condition)
 
 Fuel power [W] with the rig flown and with any kite stowed at `speed` [m/s] from its
-[`SpeedSlice`](@ref), from its [`KnotWeight`](@ref) on `table.speeds`, or at routing speed
-number `speed_index` of a [`RouteTable`](@ref); the same value for a rig without a kite,
+[`SpeedSlice`](@ref) or from its [`KnotWeight`](@ref) on `table.speeds`; the same value for a rig without a kite,
 which always stands, and `Inf` for a kite up in too high a sea.
 """
 edge_fuels(table::PerformanceTable, speed, slice::SpeedSlice, condition::SeaCondition) =
@@ -643,11 +641,21 @@ function screened_out(table::RouteTable, speed_index, condition::SeaCondition, w
         condition.angle.index, layer.index]
 end
 
-function edge_fuels(table::RouteTable, speed_index, condition::SeaCondition)
+"""
+    edge_fuels(table::RouteTable, speed_index, condition,
+               (waves, layer)=sea_layer(table, speed_index, condition))
+
+[`edge_fuels`](@ref) at routing speed number `speed_index` of `table`, given the added
+resistance `waves` [N] of the sea of `condition` and its [`KnotWeight`](@ref) `layer`.
+"""
+function edge_fuels(table::RouteTable, speed_index, condition::SeaCondition,
+        (waves, layer)=sea_layer(table, speed_index, condition))
     screened_out(table, speed_index, condition) && return Inf, Inf
-    slice = table.slices[speed_index]
-    waves, layer = sea_layer(table.table, slice, condition)
     screened_out(table, speed_index, condition, waves, layer) && return Inf, Inf
-    return edge_fuels(table.table, table.speeds[speed_index], slice, condition, waves,
-        layer)
+    return edge_fuels(table.table, table.speeds[speed_index], table.slices[speed_index],
+        condition, waves, layer)
 end
+
+"[`sea_layer`](@ref) at routing speed number `speed_index` of the [`RouteTable`](@ref) `table`"
+sea_layer(table::RouteTable, speed_index, condition::SeaCondition) =
+    sea_layer(table.table, table.slices[speed_index], condition)

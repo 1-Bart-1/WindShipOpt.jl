@@ -291,6 +291,13 @@ wind_spread(weather, time) = 0.0
 wind_spread(forecast::UncertainForecast, time) =
     wind_spread(forecast.error, time - forecast.issued)
 
+final_time_step(::UncertainForecast) = ROUTER_SETTINGS[].weighed_final_time_step
+
+"[`CostToGo`](@ref) of a plan on `forecast`: that of its forecast without the wind error"
+CostToGo(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable,
+    forecast::UncertainForecast, departure; options...) =
+    CostToGo(workspace, corridor, table, forecast.known, departure; options...)
+
 function known_weather(forecast::ExpectedForecast, weather, time, horizon)
     known = known_weather(forecast.forecast, weather, time, horizon)
     return UncertainForecast(known, known.issued, forecast.error)

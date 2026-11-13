@@ -38,9 +38,11 @@ include("size_search.jl")
 include("paper_data.jl")
 include("explorer_data.jl")
 include("passages_data.jl")
+include("grids_data.jl")
 include("cargo_groups.jl")
 include("paper_figures.jl")
 include("paper_drawings.jl")
+include("router_figures.jl")
 include("paper_tables.jl")
 
 "data steps of the results in the order they run, each writing one or two data files"
@@ -87,7 +89,8 @@ study_tables = Dict(:forecast_plans => [:forecast_plans_table => forecast_plans_
 study_table_steps() = unique(reduce(vcat, values(study_tables)))
 
 "steps outside the paper, run only by name: the data of the companion website"
-website_steps = [:explorer => explorer_data, :passages => passages_data]
+website_steps = [:explorer => explorer_data, :passages => passages_data,
+    :grids => grids_data]
 
 "figure and table steps, each reading the data files and writing one output"
 output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
