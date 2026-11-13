@@ -16,19 +16,84 @@ palette = style_colour.(["kite", "wings", "rotors", "vtol", "water", "accent"])
 "colours of what is not a rig, none of them a rig's"
 category_colours = [palette[6], Makie.RGBf(0.42, 0.26, 0.64), Makie.RGBf(0.55, 0.47, 0.0),
     palette[5], Makie.RGBf(0.55, 0.3, 0.12), :black]
+"least differences of [`figure_style`](@ref): text contrast, colour and grey difference"
+least = figure_style["contrast"]
+
+"relative luminance of `colour`, by WCAG 2"
+function luminance(colour)
+    rgb = Makie.Colors.RGB(Makie.Colors.color(Makie.to_color(colour)))
+    linear(c) = c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055)^2.4
+    return 0.2126linear(rgb.r) + 0.7152linear(rgb.g) + 0.0722linear(rgb.b)
+end
+
+"contrast of the colours `a` and `b`, by WCAG 2: 1 between equal colours, 21 black on white"
+contrast(a, b) = (max(luminance(a), luminance(b)) + 0.05) /
+                 (min(luminance(a), luminance(b)) + 0.05)
+
+"""
+    readable(colour, background)
+
+`colour` as text on `background`: unchanged where it has the contrast `least["text"]`,
+else black or white for a grey, and for a hue the least mix of it with black or white,
+whichever stands out more, that has that contrast.
+"""
+function readable(colour, background)
+    colour = Makie.Colors.RGB{Float32}(Makie.Colors.color(Makie.to_color(colour)))
+    contrast(colour, background) >= least["text"] && return colour
+    black, white = Makie.RGBf(0, 0, 0), Makie.RGBf(1, 1, 1)
+    toward = contrast(black, background) > contrast(white, background) ? black : white
+    Makie.Colors.HSV(colour).s < 0.1 && return toward
+    mixes = (Makie.Colors.weighted_color_mean(1 - share, colour, toward)
+             for share in 0:0.02:1)
+    return first(mix for mix in mixes if contrast(mix, background) >= least["text"])
+end
+
+"""
+    palette_faults()
+
+Pairs of rig colours of [`figure_style`](@ref) that come closer than `least["colour"]` in
+normal or colour-blind vision or than `least["rig_grey"]` in greyscale, and pairs of box
+fills closer than `least["fill_grey"]` in greyscale.
+"""
+function palette_faults()
+    colours = Makie.Colors
+    visions = (identity, colours.deuteranopic, colours.protanopic, colours.tritanopic)
+    lightness(colour) = colours.Lab(colour).l
+    pairs(names) = [(a, b) for (i, a) in enumerate(names) for b in names[(i + 1):end]]
+    faults = String[]
+    for (a, b) in pairs(["kite", "wings", "rotors", "vtol"])
+        one, other = style_colour(a), style_colour(b)
+        difference = minimum(colours.colordiff(see(one), see(other)) for see in visions)
+        difference < least["colour"] &&
+            push!(faults, @sprintf("%s and %s differ by %.1f in some vision", a, b,
+                difference))
+        abs(lightness(one) - lightness(other)) < least["rig_grey"] &&
+            push!(faults, "$a and $b look alike in greyscale")
+    end
+    box_fill(name) = parse(colours.Colorant, "#" * figure_style["fills"][name])
+    for (a, b) in pairs(sort(collect(keys(figure_style["fills"]))))
+        abs(lightness(box_fill(a)) - lightness(box_fill(b))) < least["fill_grey"] &&
+            push!(faults, "fills $a and $b look alike in greyscale")
+    end
+    return faults
+end
 """
     figure_style_file()
 
 Write [`figure_style`](@ref) to paper/figure_style.tex, which the paper and its extended
-abstract load: figures keep their own fonts; TikZ, its libraries and the colours; the TikZ
+abstract load: figures keep their own fonts; TikZ, its libraries and the colours, each
+with a `<name>text` shade of it that is [`readable`](@ref) on white; the TikZ
 styles `force`, `flow`, `dimension`, `leader`, `crossing`, `label`, `note`, `box`, one
 `<kind> box` per fill, `box title`, `box text`, `panel` and `step number`, with the
 arrowhead every arrow shares and no hyphenation; and a warning wherever two `label` or
-`note` nodes of a picture overlap. Errors on any [`tikz_style_faults`](@ref).
+`note` nodes of a picture overlap. Errors on any [`tikz_style_faults`](@ref) or
+[`palette_faults`](@ref).
 """
 function figure_style_file()
     faults = tikz_style_faults()
     isempty(faults) || error("TikZ figures set their own style:\n", join(faults, "\n"))
+    faults = palette_faults()
+    isempty(faults) || error("colours of the figure style: ", join(faults, "; "))
     sizes = figure_style["sizes"]
     size(name) = @sprintf("%gpt", sizes[name])
     font(name) = @sprintf("\\fontsize{%g}{%g}\\selectfont", sizes[name], 1.2sizes[name])
@@ -84,8 +149,11 @@ function figure_style_file()
         println(io, "\\pdfinclusioncopyfonts=1")
         println(io, "\\usepackage{xcolor}\n\\usepackage{tikz}")
         println(io, "\\usetikzlibrary{positioning,arrows.meta,fit}")
+        white = Makie.RGBf(1, 1, 1)
         for (name, hex) in sort(collect(figure_style["colours"]))
             println(io, "\\definecolor{", name, "}{HTML}{", hex, "}")
+            dark = Makie.Colors.hex(readable(style_colour(name), white))
+            println(io, "\\definecolor{", name, "text}{HTML}{", dark, "}")
         end
         for (name, hex) in sort(collect(figure_style["fills"]))
             println(io, "\\definecolor{", name, "fill}{HTML}{", hex, "}")
@@ -215,14 +283,16 @@ halo_width = style_size("halo")
 """
     save_figure(name, figure)
 
-Save `figure` at print size to paper/figures/`name`.pdf, with a halo behind each dark label
-in its axes; error if [`label_faults`](@ref) finds any.
+Save `figure` at print size to paper/figures/`name`.pdf, each label in its axes set
+[`readable`](@ref) on what lies behind it and drawn on a halo of that colour; error if
+[`label_faults`](@ref) finds any.
 """
 function save_figure(name, figure)
     Makie.colorbuffer(figure)
     faults = label_faults(figure)
     isempty(faults) || error("labels of figure $name: ", join(faults, "; "))
-    foreach(add_halo!, axis_labels(figure))
+    labels = axis_labels(figure)
+    foreach(redraw_label!, labels, label_backgrounds(figure, labels))
     path = joinpath(figures, "$name.pdf")
     save(path, figure; pt_per_unit=print_scale)
     rename_font_subsets(path, name)
@@ -250,25 +320,64 @@ end
 axis_labels(figure) = [plot for block in figure.content if block isa Axis
                        for plot in block.scene.plots if plot isa Makie.Text]
 
-"whether `label` is drawn in a dark colour, which a light halo sets off"
-is_dark(label) = all(colour -> Makie.Colors.Gray(Makie.to_color(colour)).val < 0.6,
-    label.color[] isa AbstractVector ? label.color[] : [label.color[]])
+"""
+    label_backgrounds(figure, labels)
+
+Per text plot of `labels` in `figure`, the colour behind each of its strings: the colour
+of median lightness under the string's box, rendered with every label hidden.
+"""
+function label_backgrounds(figure, labels)
+    foreach(label -> label.visible = false, labels)
+    image = Makie.colorbuffer(figure)
+    foreach(label -> label.visible = true, labels)
+    scale = size(image, 2) / widths(figure.scene.viewport[])[1]
+    return [[colour_behind(image, scale, Makie.parent_scene(label), box)
+             for box in Makie.string_boundingboxes(label)] for label in labels]
+end
 
 """
-    add_halo!(label)
+    colour_behind(image, scale, scene, box)
 
-Draw a copy of the text plot `label` beneath it in white with a white outline, above
-every line and fill of its scene.
+The colour of median lightness in `image`, of `scale` pixels per figure unit, under `box`
+[figure units of `scene`].
 """
-function add_halo!(label)
-    is_dark(label) || return
-    halo = text!(Makie.parent_scene(label), label[1]; text=label.text, align=label.align,
-        offset=label.offset, fontsize=label.fontsize, font=label.font,
-        rotation=label.rotation, justification=label.justification,
-        markerspace=label.markerspace, space=label.space, color=:white,
-        strokecolor=:white, strokewidth=halo_width)
+function colour_behind(image, scale, scene, box)
+    origin = minimum(scene.viewport[])
+    low = (origin .+ Point2f(minimum(box)[1:2])) .* scale
+    high = (origin .+ Point2f(maximum(box)[1:2])) .* scale
+    height, width = size(image)
+    rows = (clamp(round(Int, height - high[2]) + 1, 1, height)):(clamp(
+        round(Int, height - low[2]), 1, height))
+    columns = (clamp(round(Int, low[1]) + 1, 1, width)):(clamp(round(Int, high[1]), 1,
+        width))
+    pixels = Makie.Colors.RGB{Float32}.(vec(image[rows, columns]))
+    isempty(pixels) && return Makie.RGBf(1, 1, 1)
+    return sort(pixels; by=luminance)[cld(length(pixels), 2)]
+end
+
+"the one colour of `colours` where all are equal, else `colours`, one per string"
+one_or_each(colours) = allequal(colours) ? first(colours) : colours
+
+"""
+    redraw_label!(label, behind)
+
+Hide the text plot `label` and draw it again above every line and fill of its scene,
+each string [`readable`](@ref) on its colour `behind` and on a halo of that colour.
+"""
+function redraw_label!(label, behind)
+    colours = label.color[] isa AbstractVector ? label.color[] :
+              fill(label.color[], length(behind))
+    length(colours) == length(behind) || (colours = fill(first(colours), length(behind)))
+    copy(; kwargs...) = text!(Makie.parent_scene(label), label[1]; text=label.text[],
+        align=label.align[], offset=label.offset[], fontsize=label.fontsize[],
+        font=label.font[], rotation=label.rotation[], justification=label.justification[],
+        markerspace=label.markerspace[], space=label.space[], kwargs...)
+    halo = copy(; color=one_or_each(behind), strokecolor=one_or_each(behind),
+        strokewidth=halo_width)
+    redrawn = copy(; color=one_or_each(readable.(colours, behind)))
     translate!(halo, 0, 0, 1)
-    translate!(label, 0, 0, 2)
+    translate!(redrawn, 0, 0, 2)
+    label.visible = false
 end
 
 """

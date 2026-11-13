@@ -25,7 +25,7 @@ crossing = 3.0 # width of the white gap a line cuts where it crosses another
 kite = "0072B2"
 wings = "E69F00"
 rotors = "009E73"
-vtol = "CC79A7"
+vtol = "882255"
 water = "56B4E9" # forces of the water: hull, rudder, propeller
 wind = "737373" # the wind and the wind load on the ship
 ship = "BFBFBF" # the hull drawn in plan or side view
@@ -34,9 +34,16 @@ guide = "999999" # dimension lines, leaders, reference lines
 gain = "2166AC" # a saving in table cells
 loss = "B2182B" # a loss in table cells
 
-[fills] # hex RGB; pale fill of a TikZ box by the kind of model part it stands for, the style `<name> box`
-ship = "E3EEF8" # models the ship: hull, propeller, engine, cargo
-rig = "FCEBD0" # models the rig
-voyage = "E2F2E6" # comes from the routed voyages
-cost = "F8E1E1" # a cost
-data = "EEEEEE" # data or an input
+[fills] # hex RGB; fill of a TikZ box by the kind of model part it stands for, the style
+# `<name> box`; each of its own lightness, so that they part in greyscale
+ship = "C8D3DD" # models the ship: hull, propeller, engine, cargo
+rig = "CFBFA5" # models the rig
+voyage = "D7E6DB" # comes from the routed voyages
+cost = "C1ACAC" # a cost
+data = "F3F3F3" # data or an input
+
+[contrast] # least differences the figure_style step and every Julia figure keep
+text = 4.5 # WCAG contrast of any text against what lies behind it
+colour = 10.0 # CIEDE2000 difference of two rig colours, in normal and each colour-blind vision
+rig_grey = 10.0 # lightness L* between two rig colours, as printed in greyscale
+fill_grey = 5.0 # lightness L* between two box fills, as printed in greyscale
