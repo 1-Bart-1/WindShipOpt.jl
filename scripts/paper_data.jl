@@ -1227,7 +1227,8 @@ forecast_result_data() =
 
 The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
 `ensemble_departures`, for each of `plans`, those of [`grid_plans`](@ref) on corridors of
-[`grid_spacing`](@ref): `name`.csv; and the share of its perfect-foresight saving each rig
+[`grid_spacing`](@ref): `name`.csv; the seconds each round trip took to compute:
+`name`_seconds.csv; and the share of its perfect-foresight saving each rig
 keeps per plan with the jackknife standard error over the departures and its difference
 from plan `control`: `name`_kept.csv.
 """
@@ -1245,6 +1246,13 @@ function write_forecast_plans(name, plans, control)
         append!(trips, round_trips(step_cases, [departure]))
     end
     write_trips("$name.csv", cases, trips, :rig, :plan, :departure)
+    open(run_file("$(name)_seconds.csv"), "w") do io
+        println(io, "rig,plan,departure,seconds")
+        for case in cases
+            println(io, join(csv_value.((case.rig, case.plan, case.departure,
+                trip_seconds(case, [case.departure]))), ","))
+        end
+    end
     write_kept_shares("$(name)_kept.csv", cases, trips, plans;
         control_of=Returns(control))
 end

@@ -138,9 +138,9 @@ function edge_allocations(table, weather, corridor)
         waves=allocations(() -> waves(weather, 50.0, -10.0, 100.0)),
         sample=allocations(() -> WindShipOpt.EdgeSample(table.table, weather, corridor,
             stage, lateral, step, 0.5, 100.0)),
-        held_speed=allocations(() -> WindShipOpt.held_speed(table, 3, start)),
+        held_speed=allocations(() -> WindShipOpt.held_speed(table, 3, start, false)),
         sail_edge=allocations(() -> WindShipOpt.sail_edge!(points, start, table, weather,
-            corridor, stage, lateral, step, 100.0, 3)),
+            corridor, stage, lateral, step, 100.0, 3, false)),
         kite_passage=allocations(() -> WindShipOpt.kite_passage(table, points, false,
             prices)))
 end
@@ -193,7 +193,7 @@ end
     for table in rig_tables, weather in (SyntheticWeather(), gridded, forecast)
         kinds = typeof.((table, weather))
         @test isempty(dynamic_calls(WindShipOpt.sail_edge!, (points, WindShipOpt.EdgeSample,
-            kinds[1], kinds[2], Corridor, Int, Int, Int, Float64, Int)))
+            kinds[1], kinds[2], Corridor, Int, Int, Int, Float64, Int, Bool)))
         @test isempty(dynamic_calls(WindShipOpt.kite_passage,
             (kinds[1], points, Bool, prices)))
         @test isempty(dynamic_calls(Core.kwcall, (@NamedTuple{time_cost::Float64},

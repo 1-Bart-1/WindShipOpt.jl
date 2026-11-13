@@ -1335,59 +1335,6 @@ function published_table()
 end
 
 """
-    speed_size_table()
-
-Kite savings by held ship speed on each ship and fuel of speed_size.csv: fuel saved by the
-smallest kite and by the kite that saves the most fuel, both free of running cost, in
-relative and absolute terms, the priced kite that saves the most cost, and the share of sea
-time the largest kite flies: speed_size_table.tex.
-"""
-function speed_size_table()
-    table = read_table(data_file("speed_size.csv"))
-    open(joinpath(sections, "speed_size_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}llrrrrrrrrrr@{}}\n\\toprule")
-        println(io, "Ship & Fuel & Speed & No kite & \\multicolumn{2}{c}{Smallest kite} & ",
-            "\\multicolumn{3}{c}{Most fuel saved} & ",
-            "\\multicolumn{2}{c}{Most cost saved} & Flown \\\\")
-        println(io, "\\cmidrule(lr){5-6}\\cmidrule(lr){7-9}\\cmidrule(lr){10-11}")
-        println(io, " & & [kn] & [GJ] & [\\%] & [GJ] & [\\si{m^2}] & [\\%] & [GJ] & ",
-            "[\\si{m^2}] & [\\%] & [\\%] \\\\")
-        println(io, "\\midrule")
-        lines = []
-        for grid in speed_size_grid, drive in string.(grid.drives), knots in grid.speeds
-            routes = speed_size_routes(table, grid, drive, knots)
-            saving(area, pricing) = speed_size_saving(table, grid.ship, drive, routes, "kite",
-                area, pricing, knots)
-            free = [saving(area, "free") for area in grid.kites]
-            priced = [saving(area, "priced") for area in grid.kites]
-            (any(isnothing, free) || any(isnothing, priced)) && continue
-            most_fuel = argmax(i -> free[i].fuel, eachindex(free))
-            most_cost = argmax(i -> priced[i].cost_percent, eachindex(priced))
-            push!(lines, (; grid.ship, drive, knots, bare=free[1].bare_fuel,
-                smallest=free[1], most_fuel=free[most_fuel],
-                fuel_area=grid.kites[most_fuel], cost_area=grid.kites[most_cost],
-                cost=priced[most_cost].cost_percent,
-                flight=free[end].flight))
-        end
-        fuel_scale = column_scale(getproperty.(getproperty.(lines, :most_fuel),
-            :fuel_percent))
-        cost_scale = column_scale(getproperty.(lines, :cost))
-        for line in lines
-            println(io, join((line.ship, Dict(drive_labels)[line.drive],
-                    @sprintf("%.0f", line.knots), @sprintf("%.0f", line.bare),
-                    shaded_cell(line.smallest.fuel_percent, fuel_scale),
-                    @sprintf("%.0f", line.smallest.fuel), @sprintf("%.0f", line.fuel_area),
-                    shaded_cell(line.most_fuel.fuel_percent, fuel_scale),
-                    @sprintf("%.0f", line.most_fuel.fuel), @sprintf("%.0f", line.cost_area),
-                    shaded_cell(line.cost, cost_scale), @sprintf("%.0f", line.flight)),
-                " & "), " \\\\")
-        end
-        println(io, "\\bottomrule\n\\end{tabular}")
-    end
-end
-
-
-"""
     fidelity_parts()
 
 Each part of the model as (part, varied, model, error, effect): its name, how its effect is

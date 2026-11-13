@@ -57,7 +57,7 @@ function LegTrace(table::PerformanceTable, leg::Leg, weather, departure)
             waves(weather, lat, lon, departure + time), course,
             is_daylight(lon, departure + time))
         sail_edge!(points, start, route_table, weather, corridor, i, 1, STRAIGHT_ON,
-            departure + time, searchsortedfirst(route_table.speeds, speed))
+            departure + time, searchsortedfirst(route_table.speeds, speed), leg.aloft[i])
         flights = kite_flights(route_table, points, leg.aloft[i], leg.aloft[i + 1], prices)
         for (k, point) in enumerate(points)
             flight = flights[k]
