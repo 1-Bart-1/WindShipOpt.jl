@@ -38,10 +38,10 @@ loss = "B2182B" # a loss in table cells
 
 [fills] # hex RGB; fill of a TikZ box by the kind of model part it stands for, the style
 # `<name> box`; each of its own lightness, so that they part in greyscale
-ship = "C8D3DD" # models the ship: hull, propeller, engine, cargo
-rig = "CFBFA5" # models the rig
-voyage = "D7E6DB" # comes from the routed voyages
-cost = "C1ACAC" # a cost
+ship = "C2D4E3" # models the ship: hull, propeller, engine, cargo
+rig = "DCBD83" # models the rig
+voyage = "D1E8D7" # comes from the routed voyages
+cost = "D7A4A5" # a cost
 data = "F3F3F3" # data or an input
 
 [contrast] # least differences the figure_style step and every Julia figure keep
