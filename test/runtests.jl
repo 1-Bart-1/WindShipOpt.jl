@@ -1416,15 +1416,17 @@ end
     kite_table = RouteTable(PerformanceTable(ship, assumptions))
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions))
+    # Homeward in the westerlies the planned kite stays up across most nodes.
+    _, homeward = corridors
     weather, departure = SyntheticWeather(), 24.0 * 121
-    leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+    leg = route(homeward, kite_table, weather, departure; time_cost=kite_hourly)
     i = findfirst(i -> leg.aloft[i] && leg.aloft[i + 1], 1:(length(leg.path) - 1))
-    lateral = WindShipOpt.nearest_lateral(corridor, i, leg.path[i][1], leg.path[i][2])
-    next = WindShipOpt.nearest_lateral(corridor, i + 1, leg.path[i + 1][1],
+    lateral = WindShipOpt.nearest_lateral(homeward, i, leg.path[i][1], leg.path[i][2])
+    next = WindShipOpt.nearest_lateral(homeward, i + 1, leg.path[i + 1][1],
         leg.path[i + 1][2])
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
     sail(ahead) = WindShipOpt.sail_planned_edge!(WindShipOpt.SailedPoint[], kite_table,
-        weather, corridor, i, lateral, WindShipOpt.lateral_step(corridor, lateral, next),
+        weather, homeward, i, lateral, WindShipOpt.lateral_step(homeward, lateral, next),
         departure + leg.path[i][3], leg.path[i + 1][4], true, ahead, prices)
     @test sail((0.0, 0.0))[3]
     @test !sail((0.0, Inf))[3]
@@ -1489,12 +1491,13 @@ end
     ship = table.table.ship
     hotel = 3600WindShipOpt.fuel_power(ship.powertrain, 0.0) * ship.fuel.price
     held = 12.0 * (hotel + hourly)
-    for horizon in (72.0, 0.0)
+    # Blind to the weather ahead, a ship sails 1-2 % above perfect foresight even in calm.
+    for (horizon, tolerance) in ((72.0, 0.005), (0.0, 0.02))
         sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly,
             horizon)
         @test length(sailed.path) == size(corridor.lat, 1)
         @test sailed.path[2][3] > 12.0
-        @test sailed.objective - held ≈ after.objective rtol = 0.015
+        @test sailed.objective - held ≈ after.objective rtol = tolerance
     end
     endless = GaleWeather(SyntheticWeather(), Inf)
     @test isnothing(forecast_route(corridor, table, endless, departure; time_cost=hourly,
@@ -2287,7 +2290,7 @@ end
         speed_stride=WindShipOpt.ROUTER_SETTINGS[].search_speed_stride)
     best = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
         options...)
-    stage = stage_count - 2
+    stage = findlast(stage -> count(view(corridor.water, stage, :)) > 1, 1:stage_count)
     best_node = findfirst(==(best.path[stage][2]), view(corridor.lon, stage, :))
     values = zeros(size(corridor.lat, 2), 200, 2, stage_count)
     values[best_node, :, :, stage] .= Inf
@@ -2800,7 +2803,9 @@ end
         @test last(trace.lat) ≈ leg.path[end][1] atol=1e-9
         @test last(trace.lon) ≈ leg.path[end][2] atol=1e-9
         @test sum(trace.hours) ≈ leg.duration rtol=1e-9
-        @test sum(trace.hours[trace.flying]) ≈ leg.flight_hours rtol=0.05
+        # The router books each flight's launch and landing as stowed, the trace as flown.
+        handled = leg.flight_hours + leg.launches * table.handling_hours
+        @test sum(trace.hours[trace.flying]) ≈ handled rtol=0.02
         @test sum(trace.fuel_power .* trace.hours) ≈ leg.fuel_energy / 3600 rtol=0.05
         @test count(trace.launched) == leg.launches
         @test count(trace.forced) == leg.forced_landings
@@ -3440,7 +3445,13 @@ end
 end
 
 @testset "a round trip's return is planned and sampled for the time it sails" begin
-    weather, departure, port_hours = SyntheticWeather(), 24.0 * 121, 24.0 * 60
+    departure, port_hours = 24.0 * 121, 24.0 * 60
+    calm = route(corridor, table, SyntheticWeather(), departure; time_cost=hourly)
+    stage = findlast(stage -> count(view(corridor.water, stage, :)) > 1,
+        axes(corridor.lat, 1))
+    # A gale on the calm course while the ship sails out turns only the outbound aside.
+    weather = PassingGale(SyntheticWeather(), calm.path[stage][1:2], departure,
+        departure + 2calm.duration)
     costs, corridors = (hourly, hourly), (corridor, corridor)
     outbound, back = PaperData.round_trip_courses(table, corridors, weather, departure,
         port_hours, costs, nothing)
