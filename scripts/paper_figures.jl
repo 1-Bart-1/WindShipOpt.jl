@@ -2956,6 +2956,18 @@ function rigid_scaling_figure()
         label = kind == "soft" ? "soft kite" :
                 L"%$(paper_name(kind)), $\kappa = %$(exponent)$"
         colour = kind == "soft" ? palette[1] : palette[4]
+        if exponent == base_exponent || kind == "soft"
+            low, high = ([scaling_costs(kind, area, exponent, bound) for area in areas]
+                         for bound in (:low, :high))
+            thrusts = table["thrust"][at_twelve]
+            band!(price_axis, areas, 1e3first.(low) ./ thrusts,
+                1e3first.(high) ./ thrusts; color=(colour, 0.15))
+            band!(annual_axis, areas, 1e3last.(low) ./ thrusts, 1e3last.(high) ./ thrusts;
+                color=(colour, 0.15))
+            @printf("  %s: price %.0f%% to %.0f%%, annual %.0f%% to %.0f%% of base\n",
+                kind, extrema(100first.(low) ./ prices)...,
+                extrema(100last.(high) ./ table["annual"][at_twelve])...)
+        end
         lines!(price_axis, areas, per_thrust; linestyle, label, color=colour)
         lines!(annual_axis, areas, annual_per_thrust; linestyle, color=colour)
         kind == "rigid" && lines!(wind_axis, areas, table["lowest_wind"][at_twelve];
