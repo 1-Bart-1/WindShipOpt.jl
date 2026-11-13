@@ -2516,6 +2516,45 @@ end
     @test workspace.shared[slot] === WindShipOpt.UNSAILED
 end
 
+"""
+    BeamGale(east, north, wave_from)
+
+The same 10 m wind (`east`, `north`) [m/s] and 4 m waves of 8 s from `wave_from` [rad]
+everywhere and at all times.
+"""
+struct BeamGale
+    east::Float64
+    north::Float64
+    wave_from::Float64
+end
+
+WindShipOpt.wind(gale::BeamGale, lat, lon, time) = (gale.east, gale.north)
+WindShipOpt.waves(gale::BeamGale, lat, lon, time) = (4.0, 8.0, gale.wave_from)
+
+@testset "a state down sharing its edge with a kite aloft sails what the stowed rig \
+          holds" begin
+    table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0; kite_area=400.0),
+            assumptions), assumptions))
+    stage, centre, slot = 1, centre_index(corridor), 1
+    step = WindShipOpt.MAX_LATERAL_STEP + 1
+    course = corridor.edge_course[stage, centre, step]
+    gale = BeamGale(8cos(course), -8sin(course), course + π / 2)
+    midnight = mod(-corridor.lon[stage, centre] / 15, 24)
+    prices = (; fuel=table.table.ship.fuel.price, time=0.0)
+    start = WindShipOpt.EdgeSample(table.table, gale, corridor, stage, centre, step, 0.0,
+        midnight)
+    edge = (; start, weather=gale, corridor, stage, lateral=centre, step, time=midnight,
+        speed_index=length(table.speeds), sample_hours=6.0)
+    workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2), 4, size(corridor.lat, 1))
+    push!(workspace.shared, WindShipOpt.UNSAILED)
+    down = WindShipOpt.sailed_edge!(workspace, slot, false, table, prices, edge)
+    aloft = workspace.shared[slot]
+    @test isfinite(aloft.up.cost)
+    @test !isfinite(aloft.down.cost)
+    @test isfinite(down.down.cost)
+    @test down.hours > aloft.hours
+end
+
 @testset "a faster speed counts as sailed the same only where it is sampled alike" begin
     table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
         assumptions))
