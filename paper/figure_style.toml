@@ -20,6 +20,8 @@ halo = 1.6 # white outline behind a label
 clearance = 0.75 # least gap between a label and another label, line or arrow
 step = 11.0 # diameter of the disc that numbers a step
 crossing = 3.0 # width of the white gap a line cuts where it crosses another
+hatch_pitch = 4.5 # distance between the stripes of a hatched fill
+hatch_width = 0.9 # width of each stripe of a hatched fill
 
 [colours] # hex RGB
 kite = "0072B2"

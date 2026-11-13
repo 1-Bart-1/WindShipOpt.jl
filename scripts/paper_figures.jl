@@ -1590,8 +1590,8 @@ band_entry(band) = band == "level" ? hatched_entry(kite_and_rotors_colour, palet
 fleet_colours() = Dict("kite" => palette[1], "wings" => palette[2], "rotors" => palette[3],
     "level" => kite_and_rotors_colour, "none" => RGBf(0.8, 0.8, 0.8))
 
-"pitch and width [pt] of the stripes of [`hatch!`](@ref)"
-hatch_pitch, hatch_width = pt(4.5), pt(0.9)
+"pitch and width [figure units] of the stripes of [`hatch!`](@ref)"
+hatch_pitch, hatch_width = style_size("hatch_pitch"), style_size("hatch_width")
 
 """
     hatch!(axis, rect, stripe)
@@ -2513,12 +2513,12 @@ areas that cloth law was run at.
 function force_rating_figure()
     table = read_table(data_file("force_rating.csv"))
     figure = Figure(size=(column_width, 215))
-    axis = Axis(figure[1, 1]; xlabel="force limit [kN/m²]",
+    axis = Axis(figure[1, 1]; xlabel=square_metres("force limit [kN/", "]"),
         ylabel="cost saving [%]", xticks=collect(study_force_ratings))
     base = assumptions[:canopy_cloth_force_exponent]
     reference = assumptions[:canopy_cloth_reference_force]
     laws = ((base, :solid, "keeps its life"), (1.0, :dash, "in proportion"),
-        (0.0, :dot, "fixed at 200 g/m²"))
+        (0.0, :dot, square_metres("fixed at 200 g/")))
     ships = unique(table["ship"])
     for (k, ship) in enumerate(ships)
         bare = table["cost"][only(rows(table, "ship" => ship, "rating" => 0))]
@@ -3029,7 +3029,7 @@ function speed_size_figure()
             column == length(panels) || continue
             spread = spread_labels(ends, 0.13 * (maximum(drawn) - minimum(drawn)))
             for (k, area) in enumerate(grid.kites)
-                text!(axis, last(grid.speeds), spread[k]; text="$(round(Int, area)) m²",
+                text!(axis, last(grid.speeds), spread[k]; text=square_metres("$(round(Int, area)) "),
                     color=shades[k + 3], fontsize=note_size, align=(:left, :center),
                     offset=(5, 0))
             end
@@ -3240,10 +3240,10 @@ weight: the retail prices it rests on, the line through them, and the goal with 
 """
 function canopy_price_figure()
     figure = Figure(size=(page_width, 175))
-    price = Axis(figure[1, 1]; xlabel="price per projected m² [USD]",
+    price = Axis(figure[1, 1]; xlabel=square_metres("price per projected ", " [USD]"),
         title="(a) canopy price")
-    cloth = Axis(figure[1, 2]; xlabel="cloth weight [g/m²]",
-        ylabel="USD per m² of cloth", title="(b) sewn cloth")
+    cloth = Axis(figure[1, 2]; xlabel=square_metres("cloth weight [g/", "]"),
+        ylabel=square_metres("USD per ", " of cloth"), title="(b) sewn cloth")
     colsize!(figure.layout, 1, Relative(0.58))
     cloth_inputs = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
     cases = [("today", WindShipOpt.canopy_price_inputs),
