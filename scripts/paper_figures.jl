@@ -68,6 +68,14 @@ clear_offset(align, gap) = (Dict(:left => gap, :center => 0, :right => -gap)[ali
 """
 estimate_text(value) = @sprintf("%.15g", round(value; sigdigits=2))
 
+"""
+    square_metres(before, after="")
+
+Rich text of `before`, m with a raised 2, and `after`: the unit square metre drawn from the
+digit 2, as the font's own ² is lost where LaTeX swaps in its own copy of the font.
+"""
+square_metres(before, after="") = rich(before, "m", superscript("2"), after)
+
 "`text` with each hyphen set as the minus sign, as the axes print negative numbers"
 typeset_minus(text) = replace(text, "-" => "−")
 "the [`study_drives`](@ref) with their names in figure labels"
@@ -324,8 +332,9 @@ function rig_polar_figure()
     side = Axis(figure[2, 1]; title="(b) side force", xlabel="true wind angle [°]",
         ylabel="side force [kN]", xticks=30:30:180, yautolimitmargin=(0, 0.05))
     angles = 30:5:180
-    rigs = (("kite 800 m²", (kite_area=800.0,)), ("wings 800 m²", (wing_area=800.0,)),
-        ("rotors 400 m²", (rotor_area=400.0,)))
+    rigs = ((square_metres("kite 800 "), (kite_area=800.0,)),
+        (square_metres("wings 800 "), (wing_area=800.0,)),
+        (square_metres("rotors 400 "), (rotor_area=400.0,)))
     for (i, (label, area)) in enumerate(rigs)
         ship = Ship(ShipDesign(:vlsfo, 140.0; area...), assumptions)
         forces = [last(WindShipOpt.best_trim(ship, ship.rig, 10.5KNOT, 10.0,
@@ -357,7 +366,8 @@ function rig_comparison_figure()
     figure = Figure(size=(page_width, 330))
     panels = []
     for (column, (drive, title)) in enumerate(drive_panels)
-        labels = String[]
+        labels = []
+        group_starts = Int[]
         cells = Tuple{Int, Int, Float64}[]
         best = Tuple{Int, Int}[]
         row = 0
@@ -366,9 +376,10 @@ function rig_comparison_figure()
                 "drive" => drive)]))
             areas = filter(>(0), areas)
             first_row = row + 1
+            push!(group_starts, first_row)
             for area in areas
                 row += 1
-                push!(labels, "$kind $(round(Int, area)) m²")
+                push!(labels, square_metres("$kind $(round(Int, area)) "))
             end
             for (i, length) in enumerate(lengths)
                 bare = rows(designs, "scenario" => "base", "drive" => drive,
@@ -389,11 +400,11 @@ function rig_comparison_figure()
                 push!(best, (i, first_row - 1 + argmax(replace(savings, NaN => -Inf))))
             end
         end
-        push!(panels, (column, title, labels, cells, best))
+        push!(panels, (column, title, labels, cells, best, group_starts))
     end
-    span = 5ceil(maximum(abs(saving) for (_, _, _, cells, _) in panels
+    span = 5ceil(maximum(abs(saving) for (_, _, _, cells, _, _) in panels
                          for (_, _, saving) in cells) / 5)
-    for (column, title, labels, cells, best) in panels
+    for (column, title, labels, cells, best, group_starts) in panels
         axis = Axis(figure[1, column]; title, xlabel="waterline length [m]",
             xticks=(eachindex(lengths), string.(round.(Int, lengths))),
             yticks=(eachindex(labels), labels), yreversed=true,
@@ -409,9 +420,7 @@ function rig_comparison_figure()
             poly!(axis, Rect2f(i - 0.42, k - 0.4, 0.84, 0.8); color=:transparent,
                 strokecolor=:black, strokewidth=pt(1))
         end
-        hlines!(axis, [findfirst(startswith("wings"), labels),
-            findfirst(startswith("rotors"), labels)] .- 0.5; color=:black,
-            linewidth=0.8)
+        hlines!(axis, group_starts[2:end] .- 0.5; color=:black, linewidth=0.8)
         limits!(axis, 0.5, length(lengths) + 0.5, length(labels) + 0.5, 0.5)
     end
     Colorbar(figure[1, length(drive_panels) + 1]; colormap=:RdBu, limits=(-span, span),
@@ -476,9 +485,9 @@ The labelled designs of [`passage_figure`](@ref) and each one's routed leg with 
 """
 function figure_passages()
     designs = (("no rig", passage_ship_design("none", 0.0)),
-        ("kite 3200 m²", passage_ship_design("kite", 3200.0)),
-        ("wings 1500 m²", passage_ship_design("wings", 1500.0)),
-        ("rotors 800 m²", passage_ship_design("rotors", 800.0)))
+        (square_metres("kite 3200 "), passage_ship_design("kite", 3200.0)),
+        (square_metres("wings 1500 "), passage_ship_design("wings", 1500.0)),
+        (square_metres("rotors 800 "), passage_ship_design("rotors", 800.0)))
     outbound = first(run_corridors(:caribbean))
     legs = map(designs) do (label, design)
         ship = Ship(design, assumptions)
@@ -924,8 +933,9 @@ function class_size_figure()
     kite_bound = largest_rig_area("kite", nothing)
     area_limit = 1.4kite_bound
     for (column, (drive, title)) in enumerate(drive_panels)
-        axis = Axis(figure[1, 2 * column - 1]; title, xlabel="best rig area [m²]",
-            xscale=log10, xticks=(ticks, string.(ticks)),
+        axis = Axis(figure[1, 2 * column - 1]; title,
+            xlabel=square_metres("best rig area [", "]"), xscale=log10,
+            xticks=(ticks, string.(ticks)),
             xminorticks=IntervalsBetween(9), xminorticksvisible=true,
             xgridvisible=true, xgridcolor=:gray88,
             yticks=(eachindex(names), names), yreversed=true,
@@ -1353,8 +1363,9 @@ function breakdown_figure()
             color=:black, linewidth=pt(0.6), whiskerwidth=pt(3))
         for (i, (k, case)) in enumerate(zip(found, cases))
             (isnothing(k) || isnothing(case[3])) && continue
-            text!(axis, last(bounds[i]), i; text=string(round(Int, designs[case[3]][k]),
-                    " m²"), align=(:left, :center), offset=(pt(3), 0), fontsize=note_size)
+            text!(axis, last(bounds[i]), i;
+                text=square_metres("$(round(Int, designs[case[3]][k])) "),
+                align=(:left, :center), offset=(pt(3), 0), fontsize=note_size)
         end
         xlims!(axis, 0, 1.15maximum(last.(bounds)))
     end
@@ -1933,7 +1944,7 @@ function wind_angle_figure()
         "true wind angle, darkest upwind in each colour";
         orientation=:horizontal, titleposition=:left)
     axislegend(thrust_axis, [PolyElement(color=palette[j]) for j in eachindex(rigs)],
-        ["$rig $area m²" for (rig, area) in rigs]; position=:lt)
+        [square_metres("$rig $area ") for (rig, area) in rigs]; position=:lt)
     save(joinpath(figures, "wind_angle.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -2294,13 +2305,15 @@ function rigid_scaling_figure()
     thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
         xlabel="apparent wind [m/s]", ylabel="thrust [kN]")
     price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
-        xticks=[30, 300, 3000], xlabel="kite area [m²]",
+        xticks=[30, 300, 3000], xlabel=square_metres("kite area [", "]"),
         ylabel="price per thrust [USD/kN]",
         ytickformat=values -> [@sprintf("%.0f", value) for value in values])
     annual_axis = Axis(figure[2, 1]; title="(c) cost a year at 12 m/s", xscale=log10,
-        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="USD/kN a year")
+        xticks=[30, 300, 3000], xlabel=square_metres("kite area [", "]"),
+        ylabel="USD/kN a year")
     wind_axis = Axis(figure[2, 2]; title="(d) lowest wind", xscale=log10,
-        xticks=[30, 100, 300], xlabel="kite area [m²]", ylabel="apparent wind [m/s]")
+        xticks=[30, 100, 300], xlabel=square_metres("kite area [", "]"),
+        ylabel="apparent wind [m/s]")
     exponents = assumptions.entries[:rigid_mass_exponent]
     base_exponent = exponents.value
     curves = (("rigid", 30.0), ("rigid", 54.0), ("rigid", 100.0), ("rigid", 300.0),
@@ -2312,7 +2325,7 @@ function rigid_scaling_figure()
         highest = max(highest, 1e-3maximum(table["thrust"][chosen]))
         lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
             color=kind == "soft" ? palette[1] : vtol_shades(length(curves) - 1)[k],
-            label="$(paper_name(kind)) $(round(Int, area)) m²")
+            label=square_metres("$(paper_name(kind)) $(round(Int, area)) "))
     end
     series = [("rigid", exponents.low, :dash), ("rigid", base_exponent, :solid),
         ("rigid", exponents.high, :dot), ("soft", 0.0, :solid)]
