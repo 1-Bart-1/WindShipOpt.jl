@@ -12,6 +12,7 @@ import tomllib
 from collections import defaultdict
 
 RUNS = os.path.join(os.path.dirname(__file__), "..", "output", "runs")
+STUDY_RUNS = os.path.join(os.path.dirname(__file__), "..", "paper", "study_runs.toml")
 
 
 def latest_finished_run():
@@ -33,9 +34,14 @@ RIGS = ("kite", "wings", "rotors")
 RIG_COLUMNS = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
 
 
-def table(name):
-    """Rows of the CSV file `name` in RESULTS, or none where it is missing."""
-    path = os.path.join(RESULTS, name)
+def table(name, study=None):
+    """Rows of the CSV file `name` in RESULTS, or in the run recorded for method study
+    `study` in STUDY_RUNS, or none where it is missing."""
+    directory = RESULTS
+    if study:
+        with open(STUDY_RUNS, "rb") as file:
+            directory = os.path.join(RUNS, tomllib.load(file)[study]["run"])
+    path = os.path.join(directory, name)
     return list(csv.DictReader(open(path))) if os.path.exists(path) else []
 
 
@@ -249,10 +255,10 @@ def sizes_summary():
 
 
 def forecast_summary():
-    """Mean saving over the departures of each rig on each plan of the forecast study."""
+    """Mean saving over the departures of each rig on each plan of the forecast result."""
     print("== forecast")
     cost = {}
-    for r in table("forecast_plans.csv"):
+    for r in table("forecast_result.csv"):
         cost.setdefault(r["plan"], {}).setdefault(r["rig"], {})[r["departure"]] = float(r["cost"])
     for plan, rigs in cost.items():
         if "none" not in rigs:
@@ -303,7 +309,7 @@ def other_summaries():
 def base_kite_summary():
     """Fuel and cost saving of each base kite variant, and the spread of the noise cases."""
     print("== base kite: fuel and cost saving against the ship without a rig")
-    rows = table("base_kite.csv")
+    rows = table("base_kite.csv", "base_kite")
     bare = {r["ship"]: r for r in rows if r["variant"] == "bare"}
     savings = defaultdict(list)
     for r in rows:

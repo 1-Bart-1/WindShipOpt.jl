@@ -1,6 +1,20 @@
 % SPDX-FileCopyrightText: 2026 Bart van de Lint
 % SPDX-License-Identifier: AGPL-3.0-or-later
 \newcommand{\tbd}[1]{\textcolor{red}{{}#1}}
+% \stale{studies}{text}: text stale until the comma-separated studies rerun.
+\makeatletter
+\newcommand{\stale@left}{}
+\newcommand{\stale@record}[1]{\PackageWarning{stale}{Stale until study #1 reruns, in
+  \ifx\CurrentFile\@empty\jobname.tex\else\CurrentFile\fi}%
+  \ifcsname stale@seen@#1\endcsname\else
+    \global\expandafter\let\csname stale@seen@#1\endcsname\relax
+    \xdef\stale@left{\stale@left\space#1}\fi}
+\NewDocumentCommand{\stale}{m +m}{\@for\stale@study:=#1\do{%
+    \expandafter\stale@record\expandafter{\stale@study}}%
+  {\color{orange!80!black}\sffamily\small[stale until \detokenize{#1} reruns]}\IfBlankF{#2}{~#2}}
+\AtEndDocument{\ifx\stale@left\@empty\else
+  \PackageWarningNoLine{stale}{Studies to rerun for stale text:\stale@left}\fi}
+\makeatother
 % \note{text}: a review note shown in the PDF; \notesfalse hides all.
 \newif\ifnotes\notestrue
 \newcommand{\note}[1]{\ifnotes{\color{teal!70!black}\sffamily\small[#1]}\fi}
@@ -12,4 +26,8 @@
 \graphicspath{{figures/}}
 % \tablerows{file}: the rows of a longtable read from a file, with no empty row after them.
 \makeatletter\newcommand{\tablerows}[1]{\@@input #1 }\makeatother
+% \studyrun{name}: the run, fidelity and commit that made the method study name.
+\newcommand{\studyrunis}[2]{\expandafter\def\csname studyrun:#1\endcsname{#2}}
+\newcommand{\studyrun}[1]{\ifcsname studyrun:#1\endcsname\csname studyrun:#1\endcsname\else\tbd{study \detokenize{#1} not yet run}\fi}
+\InputIfFileExists{sections/study_runs}{}{}
 \input{sections/numbers}

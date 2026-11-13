@@ -1,0 +1,69 @@
+[base_kite]
+commit = "f2aa88d8a88aa5f4efb0ae981112ac7b8d4c45f3"
+fidelity = "draft"
+run = "2026-11-08T2358"
+
+[cargo_interest]
+commit = "d0d42df88865b39e8987e7b358eee80bf0d5b3e2"
+fidelity = "draft"
+run = "2026-11-09T1430"
+
+[convergence]
+commit = "772a5eeaa45adc58012234c8d29921203e2bea95"
+fidelity = "draft"
+run = "2026-11-13T1457"
+
+[forecast_causes]
+commit = "d76218057c13a5ff9859606eb48f3304ab48ccbb"
+fidelity = "draft"
+run = "2026-11-09T1731"
+
+[forecast_hours]
+commit = "be88312a72c08f041454ad5b78fe7d858a998596"
+fidelity = "draft"
+run = "2026-11-09T1945"
+
+[forecast_plans]
+commit = "4e56f30b9c2820744df39905f2e81bf12a58b980"
+fidelity = "draft"
+run = "2026-11-12T1311"
+
+[forecast_replanning]
+commit = "bfc19751b1ec3782f45c5084c0b9c9d790e11b70"
+fidelity = "draft"
+run = "2026-11-09T1749"
+
+[launch]
+commit = "1f29f42ef00580aee18e1d329d2bd26b11a6b69d"
+fidelity = "draft"
+run = "2026-11-08T2358"
+
+[model_parts]
+commit = "772a5eeaa45adc58012234c8d29921203e2bea95"
+fidelity = "draft"
+run = "2026-11-13T1457"
+
+[published_terms]
+commit = "473a0ab894dcae2c01578efe418aa134166b9201"
+fidelity = "draft"
+run = "2026-11-08T2358"
+
+[sea_effect]
+commit = "b3deaea799fb78bb8282719ce80755ee9e6ae1f9"
+fidelity = "draft"
+run = "2026-11-10T1342"
+
+[size_search]
+commit = "772a5eeaa45adc58012234c8d29921203e2bea95"
+fidelity = "draft"
+run = "2026-11-13T1457"
+
+[speed_terms]
+commit = "2cd7c039d872c970cb7fe79ceb5656084dc87fc1"
+fidelity = "draft"
+run = "2026-11-13T1311"
+
+[tow_point]
+commit = "c0c5e04d54b1cefbf627fdaa066b98b1881d0790"
+fidelity = "draft"
+run = "2026-11-06T2346"

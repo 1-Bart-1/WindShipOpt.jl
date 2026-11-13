@@ -10,7 +10,11 @@
 #     paper(:designs, :routes; fidelity=:draft)  # only these steps
 #     paper(:figures; fidelity=:final)         # all figures from the latest final data
 #     paper(; fidelity=:draft, resume=true)    # continue this branch's unfinished run
+#     paper(:sea_effect; fidelity=:draft)      # a method study, its run and its tables
 #
+# A paper run computes the results. Method studies, which choose or check a method, run
+# only by name: paper/study_runs.toml records the run each comes from, which its figures
+# read and the paper names with its commit, and its tables are written only then.
 # Data steps write CSV files to a run directory output/runs/<start time>/ with the record
 # run.toml and the finished round trips, so that a run cut short resumes; without `resume`
 # paper() asks whether to continue an unfinished run. A final run needs a clean tree on a
@@ -41,16 +45,10 @@ include("paper_drawings.jl")
 include("router_figures.jl")
 include("paper_tables.jl")
 
-"data steps in the order they run, each writing one or two data files"
+"data steps of the results in the order they run, each writing one or two data files"
 data_steps = [:patterns => patterns_data, :designs => designs_data,
-    :routes => routes_data, :classes => classes_data,
-    :cargo_interest => cargo_interest_data, :forecast => forecast_data,
-    :forecast_plans => forecast_plans_data,
-    :forecast_replanning => forecast_replanning_data,
-    :forecast_hours => forecast_hours_data,
-    :forecast_causes => forecast_causes_data,
-    :sensitivity => sensitivity_data,
-    :base_kite => base_kite_data,
+    :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
+    :forecast_result => forecast_result_data, :sensitivity => sensitivity_data,
     :aspect_data => aspect_data, :force_rating_data => force_rating_data,
     :goal_size_data => goal_size_data,
     :availability_data => availability_data,
@@ -60,26 +58,49 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :abatement_data => abatement_data,
     :combination_data => combination_data,
     :rigid_scaling_data => rigid_scaling_data, :rigid_kite_data => rigid_kite_data,
+    :flight => flight_data, :speed_choice => speed_choice_data,
+    :speed_size => speed_size_data]
+
+"""
+method studies, which choose or check a method or setting, run only by name: each records
+its run for its figures and writes its tables
+"""
+study_steps = [:forecast_plans => forecast_plans_data,
+    :forecast_replanning => forecast_replanning_data,
+    :forecast_hours => forecast_hours_data,
+    :forecast_causes => forecast_causes_data,
+    :cargo_interest => cargo_interest_data, :base_kite => base_kite_data,
     :launch => launch_data, :sea_effect => sea_effect_data,
-    :convergence => convergence_data, :flight => flight_data,
-    :speed_choice => speed_choice_data, :speed_terms => speed_terms_data,
-    :published_terms => published_terms_data, :speed_size => speed_size_data,
-    :tow_point => tow_point_data, :model_parts => model_parts_data,
-    :size_search => size_search_data]
+    :convergence => convergence_data, :speed_terms => speed_terms_data,
+    :published_terms => published_terms_data, :tow_point => tow_point_data,
+    :model_parts => model_parts_data, :size_search => size_search_data]
+
+"table steps of each method study, written when it runs or by name from its recorded run"
+study_tables = Dict(:forecast_plans => [:forecast_plans_table => forecast_plans_table],
+    :forecast_replanning => [:forecast_replanning_table => forecast_replanning_table],
+    :forecast_hours => [:forecast_hours_table => forecast_hours_table],
+    :forecast_causes => [:forecast_causes_table => forecast_causes_table],
+    :cargo_interest => [:cargo_interest_table => cargo_interest_table],
+    :sea_effect => [:sea_effect_table => sea_effect_table],
+    :speed_terms => [:speed_terms_table => speed_terms_table],
+    :published_terms => [:published_table => published_table])
+
+"every table step of the method studies"
+study_table_steps() = unique(reduce(vcat, values(study_tables)))
 
 "steps outside the paper, run only by name: the data of the companion website"
 website_steps = [:explorer => explorer_data, :passages => passages_data,
     :grids => grids_data]
 
 "figure and table steps, each reading the data files and writing one output"
-output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
+output_steps = [:kite => kite_figure,
     :wind_load => wind_load_figure,
     :capital => capital_figure, :patterns_figure => pattern_figure,
     :canopy_tension_figure => canopy_tension_figure,
     :rig_polar => rig_polar_figure, :routes_figure => route_figure,
     :passage => passage_figure,
     :premium => premium_figure, :breakdown => breakdown_figure,
-    :rig_comparison => rig_comparison_figure, :route_comparison => route_comparison_figure,
+    :rig_comparison => rig_comparison_figure,
     :season_figure => season_figure,
     :class_comparison => class_comparison_figure, :class_sizes => class_size_figure,
     :cargo_interest_figure => cargo_interest_figure,
@@ -91,39 +112,33 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :force_rating_figure => force_rating_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
     :development_table => development_table,
-    :class_table => class_table,
-    :split_table => split_table, :cargo_interest_table => cargo_interest_table,
+    :class_table => class_table, :fidelity_table => fidelity_table,
+    :split_table => split_table,
     :payback_table => payback_table, :goals_table => goals_table,
     :missed_goals_table => missed_goals_table,
     :rig_margin_table => rig_margin_table,
     :abatement => abatement_figure, :combination => combination_figure,
     :rigid_scaling => rigid_scaling_figure, :rigid_kite => rigid_kite_figure,
-    :flight_table => flight_table, :sea_effect_table => sea_effect_table,
-    :speed_choice_table => speed_choice_table,
-    :forecast_plans_table => forecast_plans_table,
-    :forecast_replanning_table => forecast_replanning_table,
-    :forecast_hours_table => forecast_hours_table,
-    :forecast_causes_table => forecast_causes_table,
-    :speed_terms_table => speed_terms_table, :published_table => published_table,
-    :speed_size_table => speed_size_table, :speed_size_figure => speed_size_figure,
+    :flight_table => flight_table, :speed_choice_table => speed_choice_table,
+    :speed_size_figure => speed_size_figure,
     :canopy_price_figure => canopy_price_figure, :min_wind => min_wind_figure,
     :force_balance => force_balance_figure, :ship_classes => ship_classes_figure,
     :kite_frames => kite_frames_figure, :router => router_figure,
     :missed_goals => missed_goals_figure, :cargo_cost => cargo_cost_figure,
     :canopy_life_figure => canopy_life_figure, :large_rigs => large_rigs_figure,
     :canopy_life_table => canopy_life_table, :rigid_mass => rigid_mass_figure,
-    :tow_point_figure => tow_point_figure, :fidelity_table => fidelity_table,
+    :tow_point_figure => tow_point_figure,
     :fleet_share => fleet_share_figure, :numbers => numbers_file,
     :figure_style => figure_style_file]
 
 """
     paper(names...; fidelity, resume=nothing)
 
-Run the named steps, or every data step and then every figure and table step when no name
-is given, at `fidelity` (:draft or :final); `:data` and `:figures` run all steps of that
-kind. Any step but figures and tables alone runs in a new or resumed run: `resume` true
-takes the latest unfinished run at `fidelity` on this git branch, false none, and nothing
-asks on stdin.
+Run the named steps, or every data step of the results and then every figure and table
+step when no name is given, at `fidelity` (:draft or :final); `:data` and `:figures` run all
+steps of that kind. Any step but figures and tables alone runs in a new or resumed run:
+`resume` true takes the latest unfinished run at `fidelity` on this git branch, false none,
+and nothing asks on stdin.
 Steps that run has done are skipped, and it counts as finished once every step asked of it
 is done. A final run errors on a dirty tree or unpushed commit.
 """
@@ -131,7 +146,8 @@ function paper(names::Symbol...; fidelity, resume=nothing)
     haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
     steps = isempty(names) ? [data_steps; output_steps] :
             [step for name in names for step in selected_steps(name)]
-    global paper_run = all(in(first.(output_steps)), first.(steps)) ?
+    outputs = first.([output_steps; study_table_steps()])
+    global paper_run = all(in(outputs), first.(steps)) ?
                        PaperRun(nothing, fidelity, Dict{String, Any}(), 0, 0) :
                        open_run(fidelity, first.(steps), resume)
     for (name, step) in steps
@@ -151,13 +167,19 @@ end
     selected_steps(name)
 
 The steps `name` stands for: all data steps for `:data`, all figure and table steps for
-`:figures`, otherwise the one step of that name.
+`:figures`, for a method study the study, its record and its tables, otherwise the one step
+of that name.
 """
 function selected_steps(name)
     name == :data && return data_steps
     name == :figures && return output_steps
-    matches = [step for step in [data_steps; output_steps; website_steps]
-               if first(step) == name]
+    for (study, step) in study_steps
+        study == name && return [study => step;
+                                 Symbol(study, :_record) => () -> record_study(study);
+                                 get(study_tables, study, [])]
+    end
+    steps = [data_steps; study_table_steps(); output_steps; website_steps]
+    matches = filter(step -> first(step) == name, steps)
     isempty(matches) && throw(ArgumentError("no paper step $name"))
     return matches
 end
