@@ -1887,22 +1887,26 @@ end
 end
 
 """
+The nodes of `corridor` its edges reach from node `lateral` of stage `from`.
+"""
+function reached_from(corridor, lateral, from=1)
+    reached = falses(size(corridor.water))
+    reached[from, lateral] = true
+    for stage in from:(size(corridor.lat, 1) - 1), node in findall(reached[stage, :]),
+        step in 1:WindShipOpt.step_count(corridor)
+
+        isnan(corridor.edge_course[stage, node, step]) && continue
+        reached[stage + 1, WindShipOpt.next_lateral(corridor, node, step)] = true
+    end
+    return reached
+end
+
+"""
 Whether edges of `corridor` lead from node `lateral` of stage `from` to its port, the
 centre of its last stage.
 """
-function reaches_port(corridor, lateral, from=1)
-    reached = falses(size(corridor.water, 2))
-    reached[lateral] = true
-    for stage in from:(size(corridor.lat, 1) - 1)
-        ahead = falses(length(reached))
-        for node in findall(reached), step in 1:WindShipOpt.step_count(corridor)
-            isnan(corridor.edge_course[stage, node, step]) && continue
-            ahead[WindShipOpt.next_lateral(corridor, node, step)] = true
-        end
-        reached = ahead
-    end
-    return reached[WindShipOpt.centre_index(corridor)]
-end
+reaches_port(corridor, lateral, from=1) =
+    reached_from(corridor, lateral, from)[end, WindShipOpt.centre_index(corridor)]
 
 """
 The coarse mask with land north-east of Ushant except within 20 nautical miles of the
@@ -1992,11 +1996,25 @@ end
     end
 end
 
-@testset "every node of a corridor leads to port" begin
-    for leg in route_corridors(:caribbean, ChannelMask(); ocean_spacing=240.0,
-        lateral_spacing=60.0)
-        @test all(reaches_port(leg, node.I[2], node.I[1])
-                  for node in findall(leg.water))
+"""
+Whether every usable node of `corridor` lies on a path of its edges from node `start` of
+its first stage to its port.
+"""
+on_some_passage(corridor, start=WindShipOpt.centre_index(corridor)) =
+    corridor.water == reached_from(corridor, start) &&
+    all(reaches_port(corridor, node.I[2], node.I[1]) for node in findall(corridor.water))
+
+@testset "every node of a corridor lies on a passage from departure to port" begin
+    mask = north_atlantic_mask()
+    grid = PlanningGrid(mask)
+    for route in (:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao),
+        scale in (1, 8), leg in route_corridors(route, mask; scale)
+
+        @test on_some_passage(leg)
+        stage = something(findfirst(>(1), vec(sum(leg.water; dims=2))), 1)
+        lateral = findlast(leg.water[stage, :])
+        planning = first(WindShipOpt.planning_corridor(leg, stage, lateral, grid))
+        @test planning === leg || on_some_passage(planning, lateral)
     end
 end
 

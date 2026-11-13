@@ -128,7 +128,7 @@ function Corridor(departure::Vector{NTuple{2, Float64}},
                   for i in eachindex(lat)]
     reach = lateral_reach(ocean_spacing, lateral_spacing)
     track_length = sum(distance(track[i]..., track[i + 1]...) for i in 1:(stage_count - 1))
-    return Corridor(lat, lon, leading_to_port(lat, lon, water, mask, reach)...,
+    return Corridor(lat, lon, on_passage(lat, lon, water, mask, reach)...,
         track_length, reshape(BitVector(near_coast), size(lat)),
         along_centre_line(lat, lon), reach, lateral_spacing * NAUTICAL_MILE,
         zeros(stage_count))
@@ -207,27 +207,40 @@ function edges(lat, lon, water, mask, reach, stage_reach=Returns(reach))
 end
 
 """
-    leading_to_port(lat, lon, water, mask, reach, stage_reach=Returns(reach))
+    on_passage(lat, lon, water, mask, reach, start=centre_index(lat),
+               stage_reach=Returns(reach))
 
-The nodes of `water` from which [`edges`](@ref) lead to the port, the centre of the last
-stage, and those edges.
+The nodes of `water` that [`edges`](@ref) join to both node `start` of the first stage and
+the port, the centre of the last stage, and the edges between those nodes.
 """
-function leading_to_port(lat, lon, water, mask, reach, stage_reach=Returns(reach))
+function on_passage(lat, lon, water, mask, reach, start=centre_index(lat),
+        stage_reach=Returns(reach))
     edge_length, edge_course = edges(lat, lon, water, mask, reach, stage_reach)
-    open = copy(water)
-    port = centre_index(lat)
-    open[end, :] .= false
-    open[end, port] = water[end, port]
-    for stage in (size(water, 1) - 1):-1:1, lateral in axes(water, 2)
+    stage_count = size(water, 1)
+    leads_on = falses(size(water))
+    leads_on[end, centre_index(lat)] = water[end, centre_index(lat)]
+    for stage in (stage_count - 1):-1:1, lateral in axes(water, 2)
         for step in axes(edge_course, 3)
             isnan(edge_course[stage, lateral, step]) && continue
-            open[stage + 1, next_lateral(lateral, step, reach)] && continue
+            leads_on[stage + 1, next_lateral(lateral, step, reach)] && continue
             edge_length[stage, lateral, step] = 0.0
             edge_course[stage, lateral, step] = NaN
         end
-        open[stage, lateral] &= any(!isnan, view(edge_course, stage, lateral, :))
+        leads_on[stage, lateral] = any(!isnan, view(edge_course, stage, lateral, :))
     end
-    return open, edge_length, edge_course
+    reached = falses(size(water))
+    reached[1, start] = leads_on[1, start]
+    for stage in 1:(stage_count - 1), lateral in axes(water, 2)
+        if !reached[stage, lateral]
+            edge_length[stage, lateral, :] .= 0.0
+            edge_course[stage, lateral, :] .= NaN
+        end
+        for step in axes(edge_course, 3)
+            isnan(edge_course[stage, lateral, step]) && continue
+            reached[stage + 1, next_lateral(lateral, step, reach)] = true
+        end
+    end
+    return reached, edge_length, edge_course
 end
 
 """
@@ -239,7 +252,7 @@ function return_corridor(corridor::Corridor, mask)
     lat = reverse(corridor.lat; dims=1)
     lon = reverse(corridor.lon; dims=1)
     water = reverse(corridor.water; dims=1)
-    return Corridor(lat, lon, leading_to_port(lat, lon, water, mask, corridor.reach)...,
+    return Corridor(lat, lon, on_passage(lat, lon, water, mask, corridor.reach)...,
         corridor.track_length, reverse(corridor.near_coast; dims=1),
         along_centre_line(lat, lon), corridor.reach, corridor.lateral_spacing,
         reverse(corridor.sample_hours))
@@ -1914,7 +1927,7 @@ function planning_corridor(corridor::Corridor, stage, lateral, grid::PlanningGri
     stage_reach(i) = i < near ? min(corridor.reach, lateral_reach(lengths[i], spacing)) :
                      lateral_reach(lengths[i], spacing)
     reach = maximum(stage_reach, eachindex(lengths))
-    open, edge_length, edge_course = leading_to_port(lat, lon, water, grid.mask, reach,
+    open, edge_length, edge_course = on_passage(lat, lon, water, grid.mask, reach, lateral,
         stage_reach)
     open[1, lateral] || return planning_corridor(corridor, stage, lateral, nothing)
     planning = Corridor(lat, lon, open, edge_length, edge_course, corridor.track_length,
