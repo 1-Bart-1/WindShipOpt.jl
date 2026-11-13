@@ -1147,9 +1147,9 @@ forecast_cause_groups = (
             ("Perfect foresight, on the planning grid", cause_saving(:grid_perfect)),
             ("Forecast plan", cause_saving(:forecast)))),
     ("Share kept by the forecast plan [\\%]",
-        (("Of the saving with perfect foresight on the corridor",
+        (("Of perfect foresight on the corridor",
                 cause_kept(:forecast, :perfect)),
-            ("Of the saving with perfect foresight on the grid",
+            ("Of perfect foresight on the grid",
                 cause_kept(:forecast, :grid_perfect)))),
     ("Cost saving lost [points]",
         (("Total", cause_loss(:perfect, :forecast)),
@@ -1174,9 +1174,9 @@ forecast_cause_groups = (
 """
     kite_margin_values(margins, trips, knowledge, plan)
 
-Per row of [`kite_margin_rows`](@ref) and for the kite's launches per round trip, the
-values per departure [%, -] on `knowledge` of forecast_margins.csv read into `margins` and
-on `plan` of forecast_causes.csv read into `trips`, `NaN` where a trip is missing.
+Per row of [`kite_margin_rows`](@ref) and for the kite's launches per round trip, its label
+and values per departure [%, -] on `knowledge` of forecast_margins.csv read into `margins`
+and on `plan` of forecast_causes.csv read into `trips`, `NaN` where a trip is missing.
 """
 function kite_margin_values(margins, trips, knowledge, plan)
     departures = sort(unique(trips["departure"]))
@@ -1184,8 +1184,9 @@ function kite_margin_values(margins, trips, knowledge, plan)
     launches = Dict(trips["departure"][i] => trips["launches"][i]
                     for i in eachindex(trips["rig"])
                     if trips["rig"][i] == "kite" && trips["plan"][i] == plan)
-    shares = [100 .* margins[column][rows] for (_, column) in kite_margin_rows]
-    return [shares; [[get(launches, departure, NaN) for departure in departures]]]
+    shares = [(label, 100 .* margins[column][rows]) for (label, column) in kite_margin_rows]
+    per_trip = [get(launches, departure, NaN) for departure in departures]
+    return [shares; ("Launches per round trip", per_trip)]
 end
 
 "LaTeX of an (value, error) estimate of [`cause_estimate`](@ref)"
@@ -1222,10 +1223,9 @@ function forecast_causes_table()
         end
         println(io, "\\midrule\nThe kite [\\%, of its time at sea unless stated] & ",
             "Perfect foresight & Forecast plan & Change & & \\\\\n\\midrule")
-        labels = [first.(kite_margin_rows); "Launches per round trip"]
         perfect = kite_margin_values(margins, table, "perfect", "grid_perfect")
         forecast = kite_margin_values(margins, table, "forecast", "forecast")
-        for (label, before, after) in zip(labels, perfect, forecast)
+        for ((label, before), (_, after)) in zip(perfect, forecast)
             values = Dict(:perfect => before, :forecast => after)
             cells = [cause_estimate(cause_saving(:perfect), values),
                 cause_estimate(cause_saving(:forecast), values),

@@ -1757,7 +1757,7 @@ function forecast_errors(known, other_year, points, time)
     return sums
 end
 
-"departures of [`forecast_causes_data`](@ref): every third, those of the forecast result too"
+"departures of [`forecast_causes_data`](@ref): every third of the run's departures"
 forecast_cause_departures() = departures[1:3:end]
 
 """
@@ -1875,7 +1875,8 @@ function forecast_cause_savings(table, rig)
                         for departure in departures]
     saving(plan, bare) = (1 .- cost(rig, plan) ./ cost("none", bare)) .* 100
     plans = (first.(forecast_cause_plans)..., first.(forecast_cause_courses)...)
-    saved = Dict(plan => saving(plan, plan) for plan in plans if !(plan in kite_cause_plans))
+    saved = Dict(plan => saving(plan, plan)
+                 for plan in plans if !(plan in kite_cause_plans))
     for (plan, bare) in zip(kite_cause_plans, (:forecast, :course_forecast))
         saved[plan] = rig == "kite" ? saving(plan, bare) : saved[bare]
     end
@@ -2005,8 +2006,8 @@ end
 
 "rows of forecast_causes_table.tex on how near the kite is to its limits, as (label, name)"
 kite_margin_rows = (
-    ("Aloft within 4 m/s of its lowest wind, of the time aloft", "wind_within_4"),
-    ("Aloft within 1.25 m/s of its lowest wind, of the time aloft", "wind_within_1p25"),
+    ("Within 4 m/s of its lowest wind, of time aloft", "wind_within_4"),
+    ("Within 1.25 m/s of its lowest wind, of time aloft", "wind_within_1p25"),
     ("Kept down by the sea at launch", "down_sea"),
     ("Kept down by wind outside its launch range", "down_wind"),
     ("Down otherwise", "down_other"))

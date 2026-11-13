@@ -3398,6 +3398,20 @@ kite_sample(aloft, apparent_wind, reason=aloft ? :up : :chosen) = (; hours=0.0, 
     @test all(column -> haskey(shares, Symbol(column)), columns)
 end
 
+@testset "each row of the kite's margins in the causes table keeps its own label" begin
+    margins = Dict("knowledge" => ["perfect", "perfect"], "departure" => [0, 24])
+    for (index, (_, column)) in enumerate(PaperData.kite_margin_rows)
+        margins[column] = [0.01index, 0.02index]
+    end
+    trips = Dict("rig" => ["kite", "kite", "none"], "plan" => fill("grid_perfect", 3),
+        "departure" => [0, 24, 0], "launches" => [5.0, 7.0, 0.0])
+    rows = PaperData.kite_margin_values(margins, trips, "perfect", "grid_perfect")
+    @test first.(rows) == [collect(first.(PaperData.kite_margin_rows));
+        "Launches per round trip"]
+    @test last(rows[2]) ≈ [2.0, 4.0]
+    @test last(rows[end]) == [5.0, 7.0]
+end
+
 @testset "a round trip's return is planned and sampled for the time it sails" begin
     weather, departure, port_hours = SyntheticWeather(), 24.0 * 121, 24.0 * 60
     costs, corridors = (hourly, hourly), (corridor, corridor)
