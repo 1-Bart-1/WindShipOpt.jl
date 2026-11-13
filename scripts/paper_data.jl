@@ -3428,6 +3428,10 @@ kite_price_inputs = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight,
     :rigid_tether_price, :rigid_hover_energy_price, :kite_cycle_course_cost,
     :kite_cycle_crew_cost, :market_price_factor)
 
+"the price inputs of the parts of every rig: [`kite_price_inputs`](@ref), wings and rotors"
+rig_price_inputs = (kite_price_inputs..., :wing_cost_per_area, :wing_unit_cost,
+    :rotor_cost_per_area, :rotor_unit_cost)
+
 """
     scaling_rig(kind, area, exponent)
 
