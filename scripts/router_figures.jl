@@ -69,16 +69,18 @@ function state_map(record)
 end
 
 """
-    draw_search_map!(axis, case; colorrange)
+    draw_search_map!(axis, case; colorrange, rows=false)
 
-The water nodes of the corridor of `case` on a longitude-latitude `axis`, coloured by
+The water nodes of the corridor of `case` on a longitude-latitude `axis`, with its rows
+drawn where `rows` holds, coloured by
 [`node_excess`](@ref) within `colorrange` where the search kept a state, open where it
 pruned all, faint where it reached none; the edges allowed from each node of the passage;
 the 10 m wind at a share of the nodes when the passage reached their stage; and the passage,
 in the kite's colour where the kite flies. Returns the plot of the coloured nodes.
 """
-function draw_search_map!(axis, case; colorrange)
+function draw_search_map!(axis, case; colorrange, rows=false)
     (; corridor, leg, record) = case
+    rows && draw_rows!(axis, corridor)
     excess = node_excess(case)
     water = findall(corridor.water)
     kept = filter(index -> excess[index] <= limit_excess(record), water)
@@ -100,6 +102,24 @@ function draw_search_map!(axis, case; colorrange)
             linewidth=pt(2.4))
     end
     return nodes
+end
+
+"""
+    draw_rows!(axis, corridor)
+
+The rows of `corridor`, each a line through its water nodes from stage to stage, so that a
+row stepping backwards or crossing another shows.
+"""
+function draw_rows!(axis, corridor)
+    points = Point2f[]
+    for lateral in axes(corridor.lat, 2)
+        for stage in axes(corridor.lat, 1)
+            corridor.water[stage, lateral] || (push!(points, Point2f(NaN)); continue)
+            push!(points, Point2f(corridor.lon[stage, lateral], corridor.lat[stage, lateral]))
+        end
+        push!(points, Point2f(NaN))
+    end
+    lines!(axis, points; row_style...)
 end
 
 "longitude and latitude [deg] of the nodes of `corridor` at `indices`, as points"
@@ -206,6 +226,9 @@ function draw_flights!(axis, days, flying)
     isempty(starts) || vspan!(axis, starts, stops; color=flight_shade)
 end
 
+"line style of the rows of a corridor"
+row_style = (; color=(:black, 0.25), linewidth=pt(0.3))
+
 "line style of the edges of a corridor"
 edge_style = (; color=(:black, 0.45), linewidth=pt(0.4))
 
@@ -249,7 +272,7 @@ function router_view(cases, file; limits=nothing)
             title=case_title(case), xlabel="longitude [°]", ylabel=ylabel("latitude [°]"))
         draw_land!(map_axis, mask; lons=limits[1]:0.25:limits[2],
             lats=limits[3]:0.25:limits[4])
-        nodes = draw_search_map!(map_axis, case; colorrange)
+        nodes = draw_search_map!(map_axis, case; colorrange, rows=true)
         column == length(cases) && Colorbar(figure[1, column + 1], nodes;
             label="best passage through node,\n% above the one found")
         state_axis = Axis(figure[2, column]; xlabel="distance along corridor [1000 nmi]",
@@ -265,8 +288,9 @@ function router_view(cases, file; limits=nothing)
     linkxaxes!(passage_axes...)
     linkyaxes!(passage_axes[1:2:end]...)
     linkyaxes!(passage_axes[2:2:end]...)
-    Legend(figure[5, 1:length(cases)], router_legend_entries()...; orientation=:horizontal,
-        nbanks=length(cases) > 2 ? 1 : 2)
+    entries, labels = router_legend_entries()
+    Legend(figure[5, 1:length(cases)], [entries; LineElement(; row_style...)],
+        [labels; "rows"]; orientation=:horizontal, nbanks=length(cases) > 2 ? 1 : 2)
     rowsize!(figure.layout, 1, Auto(2.4))
     rowgap!(figure.layout, 3, pt(3))
     save(file, figure; pt_per_unit=print_scale)
