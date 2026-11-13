@@ -62,8 +62,13 @@ and African coast as the longitude east of which everything is land, per latitud
 """
 struct LandMask
     islands::Vector{Island}
+    "coast latitudes [deg], ascending"
     coast_lats::Vector{Float64}
     coast_lons::Vector{Float64}
+    function LandMask(islands, coast_lats, coast_lons)
+        issorted(coast_lats) || throw(ArgumentError("coast latitudes must ascend"))
+        return new(islands, coast_lats, coast_lons)
+    end
 end
 
 """
@@ -77,7 +82,7 @@ function north_atlantic_mask()
         Island(37.8, -25.4, 70e3), Island(32.7, -16.9, 60e3), Island(28.3, -16.6, 140e3),
         Island(28.6, -13.9, 120e3), Island(16.0, -24.0, 240e3), Island(32.3, -64.8, 50e3)]
     coast = [(10.0, -15.0), (15.0, -17.5), (21.0, -17.3), (28.0, -13.0), (33.0, -9.0),
-        (36.0, -6.5), (37.0, -9.2), (43.0, -9.6), (43.8, -8.0), (43.6, -1.6),
+        (36.0, -6.5), (37.0, -9.2), (43.0, -9.6), (43.4, -8.2), (43.5, -2.0),
         (46.0, -1.4), (47.4, -2.8), (48.3, -4.9), (48.5, -5.2)]
     return LandMask(islands, first.(coast), last.(coast))
 end
