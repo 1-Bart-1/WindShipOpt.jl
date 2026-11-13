@@ -2349,20 +2349,35 @@ function wind_angle_figure()
         highest = max(highest, maximum(thrust))
     end
     ylims!(thrust_axis, 0, 1.45highest)
-    work_axis = Axis(figure[2, 1]; title="(c) share of each rig's work by band",
+    work_axis = Axis(figure[2, 1]; title="(c) share of each rig’s work by band",
         ylabel="share of work [%]", xticks=ticks, xticklabelrotation=π / 6)
     cost_axis = Axis(figure[2, 2]; title="(d) mean thrust per rig cost",
-        ylabel="kN/(1000 USD/day)", xticks=ticks, xticklabelrotation=π / 6)
-    for (i, name) in enumerate(names), (j, (rig, _)) in enumerate(rigs)
-        work = band_totals(table, rig, "work"; route=name)
-        stacked_bar!(work_axis, i + (j - 2) * 0.28, 100 .* work ./ sum(work), 0.25,
-            palette[j])
-        chosen = rows(table, "rig" => rig, "route" => name)
-        thrust = sum(table["thrust_hours"][chosen]) / sum(table["hours"][chosen])
-        per_day = 24 * first(table["rig_cost"][chosen]) / 1e3
-        barplot!(cost_axis, [i + (j - 2) * 0.27], [thrust / per_day]; width=0.25,
-            color=palette[j])
+        ylabel="thrust per cost [kN per 1000 USD/day]", xticks=ticks,
+        xticklabelrotation=π / 6)
+    fixed = Dict((rig, bound) => rig_fixed_cost(rig, area, bound)
+                 for (rig, area) in reference_rigs for bound in (:value, :low, :high))
+    highest = 0.0
+    for (i, name) in enumerate(names)
+        cost(rig) = first(table["rig_cost"][rows(table, "rig" => rig, "route" => name)])
+        spread = mean(cost(rig) / fixed[(rig, :value)] for rig in ("wings", "rotors"))
+        for (j, (rig, _)) in enumerate(rigs)
+            work = band_totals(table, rig, "work"; route=name)
+            stacked_bar!(work_axis, i + (j - 2) * 0.28, 100 .* work ./ sum(work), 0.25,
+                palette[j])
+            chosen = rows(table, "rig" => rig, "route" => name)
+            thrust = sum(table["thrust_hours"][chosen]) / sum(table["hours"][chosen])
+            per_day(bound) = 24e-3 * (cost(rig) +
+                                      spread * (fixed[(rig, bound)] - fixed[(rig, :value)]))
+            x = i + (j - 2) * 0.27
+            barplot!(cost_axis, [x], [thrust / per_day(:value)]; width=0.25,
+                color=palette[j])
+            bounds = thrust ./ per_day.((:high, :low))
+            rangebars!(cost_axis, [x], [bounds[1]], [bounds[2]]; color=:black,
+                linewidth=rule_width, whiskerwidth=pt(2.5))
+            highest = max(highest, bounds[2])
+        end
     end
+    ylims!(cost_axis, 0, 1.08highest)
     hidexdecorations!(time_axis; ticks=false, ticklabels=false)
     Legend(figure[3, 1:2], [PolyElement(color=(:gray25, alpha)) for alpha in band_alphas],
         ["$name $(round(Int, low))–$(round(Int, high))°"
@@ -2370,8 +2385,29 @@ function wind_angle_figure()
         "true wind angle, darkest upwind in each colour";
         orientation=:horizontal, titleposition=:left)
     axislegend(thrust_axis, [PolyElement(color=palette[j]) for j in eachindex(rigs)],
-        [square_metres("$rig $area ") for (rig, area) in rigs]; position=:lt)
+        [square_metres("$(rig_label(rig)) $area ") for (rig, area) in rigs]; position=:lt)
     save_figure("wind_angle", figure)
+end
+
+"the inputs that price each rig's hardware, a kite's canopy left at its goal"
+rig_price_inputs = Dict("wings" => (:wing_cost_per_area, :market_price_factor),
+    "rotors" => (:rotor_cost_per_area, :market_price_factor),
+    "kite" => (:winch_fixed_cost, :winch_cost_per_force, :launch_mast_mass_coefficient,
+        :docking_head_cost, :control_unit_cost, :control_unit_cost_per_area,
+        :kite_integration_fraction, :market_price_factor))
+
+"""
+    rig_fixed_cost(rig, area, bound)
+
+Fixed annual cost [USD] that `area` [m^2] of `rig` adds to the 140 m e-ammonia ship, with
+its [`rig_price_inputs`](@ref) at `bound` (`:value`, `:low` or `:high`).
+"""
+function rig_fixed_cost(rig, area, bound)
+    inputs = changed_assumptions(NamedTuple(name => getfield(assumptions.entries[name],
+        bound) for name in rig_price_inputs[rig]))
+    ship = Ship(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...), inputs)
+    bare = Ship(ShipDesign(:ammonia, 140.0), inputs)
+    return ShipCosts(ship, inputs).fixed_annual - ShipCosts(bare, inputs).fixed_annual
 end
 
 """
