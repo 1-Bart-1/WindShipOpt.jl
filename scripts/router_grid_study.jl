@@ -28,7 +28,10 @@ STUDY = Dict("coarse" => planner_fidelity(0.5), "base" => planner_fidelity(1),
     "legs_360" => (; scale=(1.5, 1), settings=base_settings),
     "legs_480" => (; scale=(2, 1), settings=base_settings),
     "rows_30" => (; scale=(1, 0.5), settings=base_settings),
-    "legs_480_rows_30" => (; scale=(2, 0.5), settings=base_settings))
+    "legs_480_rows_30" => (; scale=(2, 0.5), settings=base_settings),
+    "to_go_48" => (; scale=1, settings=varied(to_go_step=48.0)),
+    "final_1h_legs_360" => (; scale=(1.5, 1), settings=varied(final_time_step=1.0)),
+    "whole" => (; scale=1, settings=varied(near_distance=Inf)))
 
 """
     run_study(out_dir, names=keys(STUDY))
