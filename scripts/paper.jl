@@ -81,10 +81,7 @@ study_tables = Dict(:forecast_plans => [:forecast_plans_table => forecast_plans_
     :cargo_interest => [:cargo_interest_table => cargo_interest_table],
     :sea_effect => [:sea_effect_table => sea_effect_table],
     :speed_terms => [:speed_terms_table => speed_terms_table],
-    :published_terms => [:published_table => published_table],
-    :model_parts => [:fidelity_table => fidelity_table],
-    :convergence => [:fidelity_table => fidelity_table],
-    :size_search => [:fidelity_table => fidelity_table])
+    :published_terms => [:published_table => published_table])
 
 "every table step of the method studies"
 study_table_steps() = unique(reduce(vcat, values(study_tables)))
@@ -112,7 +109,7 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :force_rating_figure => force_rating_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
     :development_table => development_table,
-    :class_table => class_table,
+    :class_table => class_table, :fidelity_table => fidelity_table,
     :split_table => split_table,
     :payback_table => payback_table, :goals_table => goals_table,
     :missed_goals_table => missed_goals_table,
