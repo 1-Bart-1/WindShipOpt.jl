@@ -1744,29 +1744,45 @@ fuel_lines = [(:e_ammonia_price, :ammonia, "e-ammonia", :solid),
     fuel_figure()
 
 Cost saving of the best size of each rig over the fuel price on each ship of the situation
-study, on e-ammonia and on e-methanol, each at the prices of the situation study. Prints
-where the lead changes.
+study, on e-ammonia and on e-methanol, each at the prices of the situation study, with
+each fuel's price range and base value in a strip below. Prints where the lead changes.
 """
 function fuel_figure()
     table = read_table(data_file("situations.csv"))
-    figure = Figure(size=(page_width, 230))
-    for (k, (ship, route, _)) in enumerate(situation_ships)
-        axis = Axis(figure[1, k]; title="($('a' + k - 1)) $ship", xscale=log10,
-            xticks=[30, 45, 60, 90, 120], xlabel="fuel price [USD/GJ]",
-            ylabel=k == 1 ? "cost saving [%]" : "")
+    figure = Figure(size=(page_width, 240))
+    axes = map(enumerate(situation_ships)) do (k, (ship, route, _))
+        axis = Axis(figure[1, k]; title="($('a' + k - 1)) $ship, $(route_label(route))",
+            xscale=log10, ylabel=k == 1 ? "cost saving [%]" : "")
         for (input, drive, label, linestyle) in fuel_lines
             values, savings = situation_savings(table, ship, route, drive, input)
             print_leaders("$ship, $label", input, log10.(values), savings, exp10)
             for rig in 1:3
-                lines!(axis, values, savings[rig, :]; color=palette[rig], linestyle)
+                scatterlines!(axis, values, savings[rig, :]; color=palette[rig], linestyle,
+                    markersize=0.8marker_size)
             end
         end
+        prices = Axis(figure[2, k]; xscale=log10, xticks=[30, 45, 60, 90, 120],
+            xlabel="fuel price [USD/GJ], logarithmic", height=pt(14),
+            limits=(nothing, (0.4, length(fuel_lines) + 0.6)), yticksvisible=false,
+            yticklabelsvisible=false, bottomspinevisible=true, topspinevisible=false,
+            leftspinevisible=false, rightspinevisible=false)
+        for (j, (input, _, _, linestyle)) in enumerate(fuel_lines)
+            price = assumptions.entries[input]
+            lines!(prices, [price.low, price.high], [j, j]; color=:black, linestyle,
+                linewidth=pt(0.8))
+            scatter!(prices, [price.value], [j]; color=:black, marker=:vline,
+                markersize=pt(5))
+        end
+        linkxaxes!(axis, prices)
+        hidexdecorations!(axis; ticks=false)
+        return axis
     end
-    Legend(figure[1, 3], [rig_entries(false),
-            [LineElement(color=:black, linestyle=style)
-             for (_, _, _, style) in fuel_lines]],
-        [["kite", "wings", "rotors"], [label for (_, _, label, _) in fuel_lines]],
-        ["best size of each rig", "fuel"])
+    rowgap!(figure.layout, 1, pt(3))
+    axislegend(axes[2], rig_entries(false), ["kite", "wings", "rotors"];
+        position=:lt, orientation=:horizontal)
+    axislegend(axes[1], [LineElement(color=:black, linestyle=style)
+                         for (_, _, _, style) in fuel_lines],
+        [label for (_, _, label, _) in fuel_lines]; position=:rb)
     save(joinpath(figures, "fuels.pdf"), figure; pt_per_unit=print_scale)
 end
 
