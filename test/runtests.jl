@@ -1982,6 +1982,14 @@ end
     end
 end
 
+@testset "the route to Houston chooses its track across the Gulf of Mexico" begin
+    for leg in route_corridors(:houston, north_atlantic_mask())
+        centre = WindShipOpt.centre_index(leg)
+        gulf = [stage for stage in axes(leg.lat, 1) if leg.lon[stage, centre] < -85]
+        @test count(stage -> count(leg.water[stage, :]) > 1, gulf) >= length(gulf) - 2
+    end
+end
+
 @testset "every node of a corridor leads to port" begin
     for leg in route_corridors(:caribbean, ChannelMask(); ocean_spacing=240.0,
         lateral_spacing=60.0)
