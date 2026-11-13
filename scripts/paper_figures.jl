@@ -1032,9 +1032,8 @@ a ring shows two equal savings.
 """
 function interest_classes_panel!(axis, table, drive, names)
     vlines!(axis, 0; color=:gray, linewidth=0.5)
-    for (j, kind) in enumerate(rig_names),
-        (level, factor) in pairs(cargo_interest_factors())
-
+    for (j, kind) in enumerate(rig_names), level in (:high, :low)
+        factor = cargo_interest_factors()[level]
         level_table = interest_level_rows(table, factor)
         y = eachindex(names) .+ (j - 2) * 0.22
         savings = [only(mean_savings(level_table, ("cost",), [name], drive, kind))
@@ -1074,7 +1073,8 @@ function cargo_interest_figure()
 
         for (axis, measure) in zip(sweep_axes, sweep_measures(table, drive, kind, name))
             lines!(axis, values, measure; color=palette[j], linestyle=style)
-            scatter!(axis, values, measure; color=palette[j])
+            scatter!(axis, values, measure; color=palette[j], strokecolor=:white,
+                strokewidth=pt(0.4))
         end
     end
     hlines!.(sweep_axes[2:3], 0; color=:gray, linewidth=0.5)
@@ -1086,11 +1086,15 @@ function cargo_interest_figure()
                      for level in keys(cargo_interest_factors())]
     class_entries = [LineElement(; color=:black, linestyle=style)
                      for style in class_styles]
-    Legend(figure[4, 1:2], [rig_entries, level_entries, class_entries],
-        [collect(rig_names), ["$(round(Int, 100bound)) %" for bound in (rate.low,
-                rate.high)], collect(cargo_value_sweep.classes)],
+    blank = MarkerElement(; color=:transparent, marker=:circle)
+    Legend(figure[4, 1:2], [rig_entries, [level_entries; blank], [class_entries; blank]],
+        [collect(rig_label.(rig_names)),
+            [["$(round(Int, 100bound)) %" for bound in (rate.low, rate.high)]; " "],
+            [collect(cargo_value_sweep.classes); " "]],
         ["rig", "discount rate (a)", "ship (b to d)"]; orientation=:horizontal,
         titleposition=:top, nbanks=3)
+    space = maximum(tight_yticklabel_spacing!, sweep_axes)
+    foreach(axis -> axis.yticklabelspace = space, sweep_axes)
     save_figure("cargo_interest", figure)
 end
 
@@ -1100,9 +1104,9 @@ end
 Marker attributes of a saving at cargo interest `level` (`:low` or `:high`) in `colour`.
 """
 interest_marker(level, colour) = level == :high ?
-    (; color=colour, marker=:circle, markersize=0.7marker_size) :
+    (; color=(colour, 0.45), marker=:circle, markersize=1.3marker_size) :
     (; color=:transparent, strokecolor=colour, strokewidth=pt(0.8), marker=:circle,
-        markersize=1.5marker_size)
+        markersize=1.3marker_size)
 
 "the tow points of the tow point study with their labels, then a midship mast in a bay"
 tow_point_markers = (("bow", "bow"), ("centre", "lateral centre"),
