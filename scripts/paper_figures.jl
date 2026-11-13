@@ -1610,24 +1610,25 @@ function premium_figure()
     figure = Figure(size=(column_width, 165))
     lengths = sort(unique(designs["length"]))
     axis = Axis(figure[1, 1]; xlabel="waterline length [m]",
-        xticks=round.(Int, lengths), ylabel="cost premium closed [%]")
-    ends = Float64[]
-    for (k, (label, column_name)) in enumerate(rig_area_columns)
-        shares = [premium_closed(designs, "ammonia", length, column_name)
-                  for length in lengths]
-        valid = isfinite.(shares)
+        xticks=(lengths, string.(round.(Int, lengths))), ylabel="cost premium closed [%]")
+    shares = [[premium_closed(designs, "ammonia", length, column_name) for length in lengths]
+              for (_, column_name) in rig_area_columns]
+    for (k, (_, column_name)) in enumerate(rig_area_columns)
+        valid = isfinite.(shares[k])
         bounds = [extrema(premium_closed(table, "ammonia", length, column_name)
                           for table in corners) for length in lengths[valid]]
-        rangebars!(axis, lengths[valid] .+ 2.5(k - 2), first.(bounds), last.(bounds);
+        x = [length + 2.5(count(rig -> isfinite(shares[rig][i]), 1:k) -
+                          (count(rig -> isfinite(rig[i]), shares) + 1) / 2)
+             for (i, length) in enumerate(lengths) if valid[i]]
+        rangebars!(axis, x, first.(bounds), last.(bounds);
             color=(palette[k], 0.6), whiskerwidth=pt(3))
-        scatter!(axis, lengths[valid] .+ 2.5(k - 2), shares[valid]; color=palette[k])
-        push!(ends, last(shares[valid]))
+        scatter!(axis, x, shares[k][valid]; color=palette[k])
     end
-    for (k, (label, _)) in enumerate(rig_area_columns)
-        text!(axis, last(lengths) + 8, spread_labels(ends, 3.5)[k]; text=label,
-            color=palette[k], fontsize=note_size, align=(:left, :center))
-    end
-    xlims!(axis, first(lengths) - 8, last(lengths) + 30)
+    axislegend(axis, [[LineElement(; color=(palette[k], 0.6), linewidth=line_width),
+                       MarkerElement(; color=palette[k], marker=:circle)]
+                      for k in eachindex(rig_area_columns)],
+        collect(rig_label.(first.(rig_area_columns))); position=:lt)
+    xlims!(axis, first(lengths) - 8, last(lengths) + 8)
     ylims!(axis, 0, nothing)
     save_figure("premium", figure)
 end
