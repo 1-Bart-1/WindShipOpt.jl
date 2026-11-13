@@ -2410,7 +2410,8 @@ function abatement_figure()
             areas = table["area"][chosen]
             lines!(axis, saved, change; color=(palette[k], 0.6), linewidth=0.9)
             scatter!(axis, saved, change; color=palette[k], marker=rig_markers[k],
-                markersize=area_marker_size.(areas))
+                markersize=area_marker_size.(areas), strokecolor=:white,
+                strokewidth=pt(0.25))
         end
     end
     saved_all = [100 * (1 - table["fuel"][i] / table["fuel"][only(rows(table, "ship" =>
@@ -2425,11 +2426,11 @@ function abatement_figure()
                 1.08 * maximum(saved_all), minimum(first.(limits)), maximum(last.(limits)))
         end
     end
-    axislegend(panels[1, 2],
+    axislegend(panels[1, 1],
         [[LineElement(color=(palette[k], 0.6), linewidth=0.9),
           MarkerElement(color=palette[k], marker=rig_markers[k])]
          for k in eachindex(rig_names)],
-        collect(rig_names); position=:rt)
+        collect(rig_label.(rig_names)); position=:rt)
     key_areas = (200, 800, 3200, 12800)
     axislegend(panels[1, 1],
         [MarkerElement(color=:gray40, marker=:circle, markersize=area_marker_size(area))
