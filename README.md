@@ -24,7 +24,7 @@ Every number the model assumes, with its sensitivity range and the reason for it
 
 ## Companion explorer
 
-`site/` is the paper's companion website: a reader picks a ship, a route and a fuel, changes the prices and rig goals, and sees each rig's best size and what it saves against the same ship on e-ammonia and on fuel oil. It evaluates the model's own cost formulas, recorded over those inputs, on the voyages the class study routed, so no cost formula is written twice. The data step writes them next to the class study:
+`site/` is the paper's companion website, one page read top to bottom: a reader picks a ship, a route and a fuel, changes the prices and rig goals, and sees each rig's best size and what it saves against the same ship on e-ammonia and on fuel oil. Each input marks when it differs from the paper's value and has a button that sets it back, and one button sets back all of them. It evaluates the model's own cost formulas, recorded over those inputs, on the voyages the class study routed, so no cost formula is written twice. The data step writes them next to the class study:
 
 ```julia
 include("scripts/paper.jl")
@@ -39,7 +39,7 @@ npm --prefix site test      # fails where the site and the model disagree at the
 npm --prefix site run build # static site in site/dist
 ```
 
-The site's route view reads the routed passages of `paper(:passages; fidelity=:draft)` from the newest run that has them (`PASSAGES_DIRECTORY=<path>` picks another): the passage figure's ship on every route, a ladder of sizes per rig and every sampled departure, with the state of the ship and rig at each point the router sailed. A build without such a run has no route view.
+The page's passages, shown on the route chosen at its top, are the routed passages of `paper(:passages; fidelity=:draft)`, read from the newest run that has them (`PASSAGES_DIRECTORY=<path>` picks another): the passage figure's ship on every route, a ladder of sizes per rig and every sampled departure, with the state of the ship and rig at each point the router sailed. A build without such a run leaves them out.
 
 ## Status
 

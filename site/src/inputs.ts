@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Bart van de Lint
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { ExplorerData } from "./explorer";
+
 /** How the explorer shows one input of the model: label, scale and slider range. */
 export type InputControl = {
   name: string;
@@ -85,3 +87,15 @@ export const canopyPriceInputs = [
   "canopy_cloth_base_price",
   "canopy_cloth_price_per_weight",
 ];
+
+/** Whether `value` differs from the paper's `base` by more than rounding. */
+export const differs = (value: number, base: number) =>
+  Math.abs(value - base) > 1e-9 * Math.max(1, Math.abs(base));
+
+/** Names in `changes` whose value differs from the paper's, in the order of `changes`. */
+export const changedInputs = (data: ExplorerData, changes: Record<string, number>) =>
+  Object.keys(changes).filter((name) => differs(changes[name], data.inputs[name].value));
+
+/** `changes` without `names`, which then take the paper's values. */
+export const resetInputs = (changes: Record<string, number>, names: string[]) =>
+  Object.fromEntries(Object.entries(changes).filter(([name]) => !names.includes(name)));

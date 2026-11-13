@@ -24,18 +24,18 @@ import { brandColour } from "./scene";
 
 const rigOrder: PassageDesign["rig"][] = ["none", "kite", "wings", "rotors"];
 
-/** Routed passages on a globe, with the ship and its rig, on one time cursor. */
-export function PassageView() {
+/** Routed passages of route `route` on a globe, with the ship and its rig, on one time cursor. */
+export function PassageView({ route }: { route: string }) {
   const [index, setIndex] = useState<PassageIndex>();
   useEffect(() => {
     loadJson<PassageIndex>("passages.json").then(setIndex).catch(() => undefined);
   }, []);
-  if (!index) return null;
-  return <Passages index={index} />;
+  const shown = index?.routes.findIndex((entry) => entry.name === route) ?? -1;
+  if (!index || shown < 0) return null;
+  return <Passages index={index} route={shown} />;
 }
 
-function Passages({ index }: { index: PassageIndex }) {
-  const [route, setRoute] = useState(0);
+function Passages({ index, route }: { index: PassageIndex; route: number }) {
   const [rig, setRig] = useState<PassageDesign["rig"]>("kite");
   const [size, setSize] = useState(0);
   const [departure, setDeparture] = useState(0);
@@ -83,14 +83,13 @@ function Passages({ index }: { index: PassageIndex }) {
         <span className="rule flex-1" />
       </header>
       <p className="max-w-3xl">
-        Each passage is the one the router found for this ship and rig, with its speed, thrust, fuel power and the
+        Each passage is the one the router found for a {index.designs[0].length.toLocaleString("en")} m ship
+        with this rig on the route chosen above, with its speed, thrust, fuel power and the
         rig's trim recorded at every point it sailed. Drag the time cursor or press play.
       </p>
       <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className="space-y-4">
           <div className="panel space-y-3">
-            <Select label="Route from Rotterdam to" value={route} onChange={setRoute}
-              options={index.routes.map((entry, k) => [k, entry.label])} />
             <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Rig">
               {rigOrder.filter((name) => designs.some((entry) => entry.rig === name)).map((name) => (
                 <button key={name} role="radio" aria-checked={rig === name}
