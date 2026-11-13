@@ -1262,6 +1262,10 @@ function premium_closed(designs, drive, length, column_name)
     return 100 * (bare - best_cost(designs, drive, length, column_name)) / (bare - fossil)
 end
 
+"factor on the base value of the input `name` at its `bound`, `:low` or `:high`"
+input_factor(name, bound) =
+    getfield(assumptions.entries[name], bound) / assumptions.entries[name].value
+
 """
     fuel_repriced(designs, bounds)
 
@@ -1270,11 +1274,8 @@ end
 """
 function fuel_repriced(designs, bounds)
     price_names = Dict("ammonia" => :e_ammonia_price, "vlsfo" => :vlsfo_price)
-    function factor(drive)
-        haskey(bounds, drive) || return 1.0
-        price = assumptions.entries[price_names[drive]]
-        return getfield(price, bounds[drive]) / price.value
-    end
+    factor(drive) =
+        haskey(bounds, drive) ? input_factor(price_names[drive], bounds[drive]) : 1.0
     repriced = copy(designs)
     repriced["cost"] = designs["cost"] .+
                        designs["fuel_cost"] .* (factor.(designs["drive"]) .- 1)
@@ -1301,7 +1302,8 @@ end
     breakdown_figure()
 
 Cost per tonne-km split into its parts for an 85 m and a 200 m ship on VLSFO without a
-rig, and on e-ammonia without a rig and with the cheapest size of each rig.
+rig, and on e-ammonia without a rig and with the cheapest size of each rig, with a bar
+over the total at the low and at the high fuel price, crew cost and cargo interest.
 """
 function breakdown_figure()
     designs = read_table(data_file("designs.csv"))
@@ -1309,7 +1311,12 @@ function breakdown_figure()
         "interest_cost"]
     names = ["fuel", "kite wear", "port", "crew", "capital and maintenance",
         "cargo interest"]
-    colours = [:gray30, palette[1], :gray75, category_colours[2], :gray55, palette[6]]
+    colours = [:gray30, palette[1], category_colours[3], category_colours[2], :gray68,
+        palette[6]]
+    fuel_prices = Dict("vlsfo" => :vlsfo_price, "ammonia" => :e_ammonia_price)
+    bound_factors(drive, bound) = [input_factor(fuel_prices[drive], bound), 1, 1,
+        input_factor(:crew_cost, bound), 1,
+        input_factor(:cargo_value, bound) * input_factor(:discount_rate, bound)]
     cases = Tuple{String, String, Union{Nothing, String}}[("VLSFO", "vlsfo", nothing),
         ("e-ammonia", "ammonia", nothing)]
     for (rig, column) in rig_area_columns
@@ -1328,12 +1335,16 @@ function breakdown_figure()
         stack = repeat(eachindex(parts), inner=length(labels))
         barplot!(axis, positions, vec(values); stack, direction=:x, color=colours[stack])
         totals = vec(sum(values; dims=2))
+        bounds = [[sum(values[i, :] .* bound_factors(drive, bound))
+                   for bound in (:low, :high)] for (i, (_, drive, _)) in enumerate(cases)]
+        rangebars!(axis, eachindex(labels), first.(bounds), last.(bounds); direction=:x,
+            color=:black, linewidth=pt(0.6), whiskerwidth=pt(3))
         for (i, (k, case)) in enumerate(zip(found, cases))
             (isnothing(k) || isnothing(case[3])) && continue
-            text!(axis, totals[i], i; text=string(round(Int, designs[case[3]][k]), " m²"),
-                align=(:left, :center), offset=(2, 0), fontsize=note_size)
+            text!(axis, last(bounds[i]), i; text=string(round(Int, designs[case[3]][k]),
+                    " m²"), align=(:left, :center), offset=(pt(3), 0), fontsize=note_size)
         end
-        xlims!(axis, 0, 1.2maximum(totals))
+        xlims!(axis, 0, 1.15maximum(last.(bounds)))
     end
     Legend(figure[2, 1:2], [PolyElement(; color) for color in colours], names;
         orientation=:horizontal)
@@ -1849,11 +1860,11 @@ from each band per route; (d) mean thrust over the rig's cost per day at sea.
 """
 function wind_angle_figure()
     table = read_table(data_file("wind_angle.csv"))
-    names = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
+    names = route_order
     rigs = [(rig, round(Int, area)) for (rig, area) in reference_rigs]
     figure = Figure(size=(page_width, 380))
     ticks = (eachindex(names), route_label.(names))
-    time_axis = Axis(figure[1, 1]; title="(a) time at sea without a rig, out | home",
+    time_axis = Axis(figure[1, 1]; title="(a) time at sea without a rig, out and home",
         ylabel="share of time [%]", xticks=ticks, xticklabelrotation=π / 6)
     for (i, name) in enumerate(names),
         (offset, direction) in ((-0.2, "out"), (0.2, "home"))
@@ -1872,11 +1883,11 @@ function wind_angle_figure()
             width=0.25, color=palette[j])
         highest = max(highest, maximum(thrust))
     end
-    ylims!(thrust_axis, 0, 1.9highest)
-    work_axis = Axis(figure[2, 1]; title="(c) rig work by band: kite | wings | rotors",
+    ylims!(thrust_axis, 0, 1.45highest)
+    work_axis = Axis(figure[2, 1]; title="(c) share of each rig's work by band",
         ylabel="share of work [%]", xticks=ticks, xticklabelrotation=π / 6)
     cost_axis = Axis(figure[2, 2]; title="(d) mean thrust per rig cost",
-        ylabel="kN per 1000 USD/day", xticks=ticks, xticklabelrotation=π / 6)
+        ylabel="kN/(1000 USD/day)", xticks=ticks, xticklabelrotation=π / 6)
     for (i, name) in enumerate(names), (j, (rig, _)) in enumerate(rigs)
         work = band_totals(table, rig, "work"; route=name)
         stacked_bar!(work_axis, i + (j - 2) * 0.28, 100 .* work ./ sum(work), 0.25,
@@ -1890,7 +1901,9 @@ function wind_angle_figure()
     hidexdecorations!(time_axis; ticks=false, ticklabels=false)
     Legend(figure[3, 1:2], [PolyElement(color=(:gray25, alpha)) for alpha in band_alphas],
         ["$name $(round(Int, low))–$(round(Int, high))°"
-         for (name, low, high) in angle_bands]; orientation=:horizontal)
+         for (name, low, high) in angle_bands],
+        "true wind angle, darkest upwind in each colour";
+        orientation=:horizontal, titleposition=:left)
     axislegend(thrust_axis, [PolyElement(color=palette[j]) for j in eachindex(rigs)],
         ["$rig $area m²" for (rig, area) in rigs]; position=:lt)
     save(joinpath(figures, "wind_angle.pdf"), figure; pt_per_unit=print_scale)
