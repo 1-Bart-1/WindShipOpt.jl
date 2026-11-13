@@ -738,7 +738,7 @@ function split_table()
     cells = split_cells(lines)
     trip_scale = column_scale([line.trip for line in lines])
     open(joinpath(sections, "split_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule")
+        println(io, "\\begin{tabular}{@{}llrrrrrr}\n\\toprule")
         println(io, " & & Saving & Fuel & Time & Rig and other & Shorter & ",
             "Round trip \\\\")
         println(io, "Drive & Rig & [\\%] & [points] & [points] & [points] & [\\%] & ",
@@ -943,17 +943,22 @@ function payback_table()
                    for class in class_order(table))
     scale = column_scale(1 ./ reduce(vcat, values(medians)))
     open(joinpath(sections, "payback_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}l", "r"^(3length(drive_labels)), "@{}}")
+        println(io, "\\begin{tabular}{@{}l", "r"^(3length(drive_labels)), "}")
         println(io, "\\toprule\n & ", drive_header(2))
         println(io, "Class & ", rig_header())
         println(io, "\\midrule")
         for class in class_order(table)
-            cells = [shaded_cell(1 / years, scale; shown=years) for years in medians[class]]
+            cells = [shaded_cell(1 / years, scale; shown=payback_shown(years),
+                         format=payback_shown(years) < 2 ? "%.1f" : "%.0f")
+                     for years in medians[class]]
             println(io, latex_escape(class), " & ", join(cells, " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
 end
+
+"payback `years` as the table gives it: to the half year below two years, else whole"
+payback_shown(years) = years < 2 ? round(2years) / 2 : round(years)
 
 """
     median_payback(years)
@@ -1093,11 +1098,12 @@ function speed_choice_table()
     open(joinpath(sections, "speed_choice_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}llrrrrr@{}}\n\\toprule")
         println(io, "Drive & Rig & No rig & With rig & Rig free of cost & Force held & ",
-            "Sailing on the force \\\\\n\\midrule")
+            "Force alone \\\\\n\\midrule")
         for (drive, drive_label) in drive_labels[1:2], rig in ("kite", "wings", "rotors")
             found = rows(table, "drive" => drive, "rig" => rig)
             cells = (@sprintf("%.1f", median(table[column][found])) for column in columns)
-            println(io, drive_label, " & ", rig, " & ", join(cells, " & "), " \\\\")
+            println(io, rig == "kite" ? drive_label : "", " & ", rig, " & ",
+                join(cells, " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
@@ -1369,7 +1375,7 @@ function speed_terms_table()
         ("10kn", "\\SI{10}{kn}, fixed"), ("same_time", "same time as no rig"),
         ("cost", "speed set by cost")]
     open(joinpath(sections, "speed_terms_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule")
+        println(io, "\\begin{tabular}{@{}llrrrrrr}\n\\toprule")
         println(io, " & & \\multicolumn{3}{c}{Fuel saved [\\%]} & ",
             "\\multicolumn{3}{c}{Time saved [\\%]} \\\\")
         println(io, "\\cmidrule(lr){3-5}\\cmidrule(lr){6-8}")
@@ -1380,9 +1386,11 @@ function speed_terms_table()
                  for (drive, drive_label) in drive_labels[1:2] for (terms, label) in labels]
         fuel_scale, time_scale = (column_scale(reduce(vcat, getindex.(lines, k)))
                                   for k in 3:4)
-        for (drive_label, label, fuel, hours) in lines
+        for (k, (drive_label, label, fuel, hours)) in enumerate(lines)
             cells = [shaded_cell.(fuel, fuel_scale); shaded_cell.(hours, time_scale)]
-            println(io, drive_label, " & ", label, " & ", join(cells, " & "), " \\\\")
+            first_of_drive = k == 1 || lines[k - 1][1] != drive_label
+            println(io, first_of_drive ? drive_label : "", " & ", label, " & ",
+                join(cells, " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
@@ -1917,9 +1925,14 @@ function rig_margin_table()
         println(io, "\\cmidrule(l){6-7}")
         println(io, "Ship type & Fuel & Best & Next & Margin [points] & Canopy life [h] & ",
             "Kites lost [per year] \\\\\n\\midrule")
-        for row in rig_lead_rows(read_table(data_file("classes.csv")))
-            println(io, join([row.label, Dict(drive_labels)[row.drive], row.rig, row.rival,
-                    @sprintf("%.1f", row.margin), life_limit_text(row.life),
+        rows_of_types = rig_lead_rows(read_table(data_file("classes.csv")))
+        for (k, row) in enumerate(rows_of_types)
+            leaders = row.margin < level_margin ?
+                      "\\multicolumn{2}{l}{$(row.rig) and $(row.rival) level}" :
+                      "$(row.rig) & $(row.rival)"
+            first_of_type = k == 1 || rows_of_types[k - 1].label != row.label
+            println(io, join([first_of_type ? row.label : "", Dict(drive_labels)[row.drive],
+                    leaders, @sprintf("%.1f", row.margin), life_limit_text(row.life),
                     crash_cell(row.losses)], " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
