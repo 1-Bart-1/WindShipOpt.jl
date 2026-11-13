@@ -761,16 +761,17 @@ function split_table()
 end
 
 """
-    shaded_cell(value, scale; shown=value, format="%.1f")
+    shaded_cell(value, scale; shown=value, format="%.1f", lightest=0)
 
 Table cell of `shown` in `format`, a dash where it is not finite, on a background of the
-paper's gain colour where `value` is positive and its loss colour where negative, the deeper
-the larger `value` is against `scale`; plain where `value` is zero or not finite.
+paper's gain colour where `value` is positive and its loss colour where negative, from
+`lightest` to 40 % deep the larger `value` is against `scale`; plain where `value` is zero
+or not finite.
 """
-function shaded_cell(value, scale; shown=value, format="%.1f")
+function shaded_cell(value, scale; shown=value, format="%.1f", lightest=0)
     text = dash_cell(shown, format)
     isfinite(value) && value != 0 || return text
-    depth = round(Int, 40 * min(abs(value) / scale, 1))
+    depth = round(Int, lightest + (40 - lightest) * min(abs(value) / scale, 1))
     return @sprintf("\\cellcolor{%s!%d}%s", value > 0 ? "gain" : "loss", depth, text)
 end
 
@@ -1509,8 +1510,11 @@ function speed_size_table()
         fuel_scale = column_scale(getproperty.(getproperty.(lines, :most_fuel),
             :fuel_percent))
         cost_scale = column_scale(getproperty.(lines, :cost))
-        signed(value, scale) = shaded_cell(value, scale;
-            shown=round(value; digits=1) + 0.0, format="\\(%.1f\\)")
+        function signed(value, scale)
+            shown = round(value; digits=1) + 0.0
+            return shaded_cell(shown == 0 ? 0.0 : value, scale; shown,
+                format="\\(%.1f\\)", lightest=12)
+        end
         for line in lines
             println(io, join((line.ship == "140 m" ? "140 m ship" : line.ship,
                     Dict(drive_labels)[line.drive], @sprintf("%.0f", line.knots),
