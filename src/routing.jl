@@ -1111,7 +1111,7 @@ const MAX_LEG_HOURS = 1200.0
 
 """
     route(corridor, table, weather, departure; time_cost, first_stage=1, first_lateral,
-          first_aloft=false, coastal_penalty=1.0)
+          first_aloft=false, coastal_penalty=1.0, record=nothing)
 
 Weather routing by forward dynamic programming over (stage, lateral node, arrival time
 bin, kite aloft) on the routing speeds of the [`RouteTable`](@ref) `table`, or of a
@@ -1127,11 +1127,12 @@ leg reports.
 The time bins, the speeds commanded and the states searched follow `ROUTER_SETTINGS`: those
 within a margin of a [`CostToGo`](@ref), wider where that leaves no path within the margin,
 then all of them. A [`final_pass`](@ref) then refines the speeds along the path found.
-Returns `nothing` if no path arrives within `MAX_LEG_HOURS`.
+A [`SearchRecord`](@ref) `record` receives what the search kept. Returns `nothing` if no
+path arrives within `MAX_LEG_HOURS`.
 """
 function route(corridor::Corridor, table::RouteTable, weather, departure; time_cost,
         first_stage=1, first_lateral=centre_index(corridor), first_aloft=false,
-        coastal_penalty=1.0)
+        coastal_penalty=1.0, record=nothing)
     (; time_step) = ROUTER_SETTINGS[]
     options = (; time_step, time_cost, first_stage, first_lateral, first_aloft,
         coastal_penalty, speed_stride=ROUTER_SETTINGS[].search_speed_stride)
@@ -1141,8 +1142,11 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
         to_go = CostToGo(workspace, corridor, table, weather, departure; time_cost,
             first_stage, coastal_penalty)
         estimate = to_go(first_lateral, first_aloft + 1, first_stage, 0.0)
-        leg = searched_leg(workspace, corridor, table, weather, departure, to_go,
-            (1 .+ margins_searched(table, ROUTER_SETTINGS[])) .* estimate; options...)
+        limits = (1 .+ margins_searched(table, ROUTER_SETTINGS[])) .* estimate
+        leg, limit = searched_leg(workspace, corridor, table, weather, departure, to_go,
+            limits; options...)
+        isnothing(record) || record!(record, workspace, size(corridor.lat, 1),
+            (; to_go, estimate, limits, limit, found=leg, time_step))
         isnothing(leg) && return nothing
         return final_pass(leg, corridor, table, weather, departure; time_cost, first_stage,
             first_aloft, coastal_penalty)
@@ -1250,16 +1254,89 @@ end
     searched_leg(workspace, corridor, table, weather, departure, to_go, limits; options...)
 
 The [`Leg`](@ref) of the first [`route_pass`](@ref) under `limits` [USD] that ends within
-its limit, else of a pass over all states, which is `nothing` if no path arrives.
+its limit, and that limit, else of a pass over all states, which is `nothing` if no path
+arrives, and `Inf`.
 """
 function searched_leg(workspace, corridor, table, weather, departure, to_go, limits;
         options...)
     for limit in limits
         leg = route_pass(workspace, corridor, table, weather, departure, to_go, limit;
             options...)
-        !isnothing(leg) && leg.objective <= limit && return leg
+        !isnothing(leg) && leg.objective <= limit && return leg, limit
     end
-    return route_pass(workspace, corridor, table, weather, departure; options...)
+    return route_pass(workspace, corridor, table, weather, departure; options...), Inf
+end
+
+"""
+    SearchRecord()
+
+What a [`route`](@ref) search kept: its [`CostToGo`](@ref) and the estimate it gave at the
+departure [USD], the limits tried [USD] and the one whose pass gave the path (`Inf` for a
+pass over all states), the objective [USD] and hours after departure of the best arrival
+at each state of that pass (lateral × time bin × kite down 1 or aloft 2 × stage; `Inf`
+where none arrived), the length of its time bins [h], and the [`Leg`](@ref) it found
+before the [`final_pass`](@ref), `nothing` where none arrived.
+"""
+mutable struct SearchRecord
+    to_go::CostToGo
+    estimate::Float64
+    limits::Vector{Float64}
+    limit::Float64
+    cost::Array{Float64, 4}
+    elapsed::Array{Float64, 4}
+    time_step::Float64
+    found::Union{Leg, Nothing}
+    SearchRecord() = new()
+end
+
+"""
+    record!(record, workspace, stage_count, search)
+
+Copy into the [`SearchRecord`](@ref) `record` the states of the first `stage_count` stages
+held in `workspace` and the rest of the `search`, named as its fields.
+"""
+function record!(record::SearchRecord, workspace, stage_count, search)
+    (; to_go) = search
+    record.to_go = CostToGo(to_go.values[:, :, :, 1:stage_count], to_go.knots, to_go.step)
+    record.estimate, record.limit = search.estimate, search.limit
+    record.limits = collect(search.limits)
+    record.cost = workspace.cost[:, :, :, 1:stage_count]
+    record.elapsed = workspace.elapsed[:, :, :, 1:stage_count]
+    record.time_step, record.found = search.time_step, search.found
+    return record
+end
+
+"""
+    kept_states(record)
+
+Whether each state of the [`SearchRecord`](@ref) `record` was reached and searched on, its
+objective plus the cost to go within the limit; lateral × time bin × aloft × stage.
+"""
+kept_states(record::SearchRecord) = [isfinite(record.cost[state]) &&
+                                     within_limit(record.to_go, record.limit,
+                                         record.cost[state], state[1], state[3], state[4],
+                                         record.elapsed[state])
+                                     for state in CartesianIndices(record.cost)]
+
+"""
+    through_node(record)
+
+Least objective [USD] of a passage through each node of the search in the
+[`SearchRecord`](@ref) `record`, stage × lateral: the objective of a state reached there
+plus its cost to go, the least over its time bins and kite states; `Inf` where no state
+was reached or no path found onward.
+"""
+function through_node(record::SearchRecord)
+    lateral_count, _, _, stage_count = size(record.cost)
+    through = fill(Inf, stage_count, lateral_count)
+    for state in CartesianIndices(record.cost)
+        here = record.cost[state]
+        isfinite(here) || continue
+        lateral, _, aloft, stage = Tuple(state)
+        total = here + record.to_go(lateral, aloft, stage, record.elapsed[state])
+        isnan(total) || (through[stage, lateral] = min(through[stage, lateral], total))
+    end
+    return through
 end
 
 """
