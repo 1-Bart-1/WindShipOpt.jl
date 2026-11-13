@@ -18,6 +18,7 @@ No master knows the weather of the whole passage as the base router does (\cref{
 
 \begin{table}[tbp]
 \centering
+\footnotesize
 \caption{Share of the cost saving with perfect foresight on the draft's route grid that each rig keeps when re-planned every 24 hours on each plan, on the archived forecasts or, where the row says so, on the real weather, against the ship without a rig on the same plan, for the \SI{140}{m} e-ammonia ship to Guadeloupe, with its standard error over the departures [\%]. \tbd{Draft, 12 departures.}}
 \label{tab:forecast_plans}
 \InputIfFileExists{sections/forecast_plans_table}{}{\tbd{Forecast plans table pending: run the forecast\_plans\_table step.}}
@@ -39,7 +40,7 @@ No master knows the weather of the whole passage as the base router does (\cref{
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{Where each rig's cost saving goes when it is re-planned every 24 hours on one run of the archived forecasts, for the \SI{140}{m} e-ammonia ship to Guadeloupe, and the kite's excess over the wing sails and over the rotors, paired per departure, each with its standard error over the departures. Cost savings are against the ship without a rig on the same plan. Each block splits the loss by changing one thing at a time: the plan's course, then re-planning once a day, then its speed, then the kite's decision to fly (course first); re-planning, then speed and kite together, then the course (course last); re-planning, the forecast model against ERA5 at its shortest lead, then the error that grows with lead time; and, after re-planning, the wave and the wind forecast in both orders, the wind split with the waves first by whether the wind speed lies in the band near the kite's lowest flying wind. The last block is the kite's time near its limits on the forecasts per departure. The fixed course is the one the ship without a rig takes with perfect foresight. \tbd{Draft, 12 departures, in the earlier model with a fixed wave limit for a launch.}}
+\caption{Where each rig's cost saving goes when it is re-planned every 24 hours on one run of the archived forecasts, for the \SI{140}{m} e-ammonia ship to Guadeloupe, and the kite's excess over the wing sails and over the rotors, paired per departure, each with its standard error over the departures. Cost savings are against the ship without a rig on the same plan. Each block splits the loss by changing one thing at a time: the plan's course, then re-planning once a day, then its speed, then the kite's decision to fly (course first); re-planning, then speed and kite together, then the course (course last); re-planning, the forecast model against ERA5 at its shortest lead, then the error that grows with lead time; and, after re-planning, the wave and the wind forecast in both orders, the wind split with the waves first by whether the wind speed lies in the band near the kite's lowest flying wind. The last block is the kite's time near its limits on the forecasts per departure. The fixed course is the one the ship without a rig takes with perfect foresight. \tbd{Draft, 12 departures, in the earlier model with a fixed wave limit for a launch, so its cost savings differ from those of \cref{fig:forecast}.}}
 \label{tab:forecast_causes}
 \InputIfFileExists{sections/forecast_causes_table}{}{\tbd{Forecast causes table pending: run the forecast\_causes\_table step.}}
 \end{table*}
@@ -47,7 +48,7 @@ No master knows the weather of the whole passage as the base router does (\cref{
 \begin{figure}[tbp]
 \centering
 \plot{forecast}
-\caption{Cost saving of a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails and \SI{800}{m^2} of rotors on the \SI{140}{m} e-ammonia ship to Guadeloupe, routed with perfect foresight and re-planned every 24 hours on several members of the archived GEFSv12 forecasts and on one forecast run, each against the ship without a rig routed the same way (a); and the root-mean-square error against ERA5 along the route of the bias-corrected forecast and of the weather of the same date in another year, by lead time, for the vector wind at 10~m (b) and the significant wave height (c). \tbd{Draft, 12 departures.}}
+\caption{Cost saving of a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails and \SI{800}{m^2} of rotors on the \SI{140}{m} e-ammonia ship to Guadeloupe, routed with perfect foresight and re-planned every 24 hours on several members of the archived GEFSv12 forecasts and on one forecast run, each against the ship without a rig routed the same way, with whiskers of the standard error over the departures (a); and the root-mean-square error against ERA5 along the route of the bias-corrected forecast and of the weather of the same date in another year, by lead time, for the vector wind at 10~m (b) and the significant wave height (c). \tbd{Draft, 12 departures.}}
 \label{fig:forecast}
 \end{figure}
 
@@ -68,7 +69,8 @@ How much the kite's handling in waves carries is shown apart, as it rests on a s
 
 \begin{table}[tbp]
 \centering
-\caption{The kite's cost saving per tonne-kilometre against the same ship without a rig and its share of the time at sea in the air, with the extra launch wind of \cref{eq:sea_wind} and with no sea effect on the launch, on e-ammonia, averaged over the six routes. \tbd{Draft run; the \SI{140}{m} ship over four routes, as the router found no passage on New York and Houston.}}
+\footnotesize
+\caption{The kite's cost saving per tonne-kilometre against the same ship without a rig and its share of the time at sea in the air, with the extra launch wind of \cref{eq:sea_wind} and with no sea effect on the launch, on e-ammonia, averaged over the six routes. The extra launch wind is an estimate from one reported case; its range, from none to twice the reported rise, is in \cref{tab:development}. \tbd{Draft run; the \SI{140}{m} ship over four routes, as the router found no passage on New York and Houston.}}
 \label{tab:sea_effect}
 \InputIfFileExists{sections/sea_effect_table}{}{\tbd{Sea effect table pending: run the sea\_effect\_table step.}}
 \end{table}
@@ -76,7 +78,7 @@ How much the kite's handling in waves carries is shown apart, as it rests on a s
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{sensitivity}
-\caption{Where development pays: the change of each rig's saving of cost per tonne-kilometre (left) and of CO$_2$ per tonne-kilometre (right) when one input of \cref{tab:development} goes to the low or the high end of its range, on three ships with rig sizes held, in percentage points against that rig's saving at the base inputs. The inputs are ordered by their largest effect on the cost saving, and a black tick marks the high end.}
+\caption{Where development pays: the change of each rig's saving of cost per tonne-kilometre (left) and of CO$_2$ per tonne-kilometre (right) when one input of \cref{tab:development} goes to the low or the high end of its range, on three ships with rig sizes held, in percentage points against that rig's saving at the base inputs. The inputs are ordered by their largest effect on the cost saving, a black tick marks the high end, a tick in the ship's colour on the zero line marks an input that moves that ship's saving at neither end, and each column has one scale.}
 \label{fig:sensitivity}
 \end{figure*}
 
@@ -90,7 +92,7 @@ The cost savings above assume that every goal is reached. \Cref{fig:missed_goals
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{missed_goals}
-\caption{Cost saving of each rig on three ships against the canopy life, the canopy price and the share of its units' round trips each rig is out of service, the other goals met and the rig sizes held. The kite's cost saving is swept over the canopy inputs. The dashed lines are the wing sails and rotors at their goals. Vertical lines mark the goals, the dotted line today's canopy price and the shaded band the range of the canopy life input. Where a curve crosses zero the rig stops paying. Where it crosses the next rig's line it falls behind it (\cref{tab:missed_goals}).}
+\caption{Cost saving of each rig on three ships against the canopy life, the canopy price and the share of its units' round trips each rig is out of service, the other goals met and the rig sizes held. The kite's cost saving is swept over the canopy inputs. The dashed lines are the wing sails and rotors at their goals. Solid vertical lines mark the goals, over the grey range of their inputs: the canopy life, the canopy price from the range of each of its inputs, and the share out of service, whose range is the widest of the three rigs'. The dotted line marks today's canopy price, itself an estimate, over its range in blue. The share out of service is on a scale stretched near zero. Where a curve crosses zero the rig stops paying. Where it crosses the next rig's line it falls behind it (\cref{tab:missed_goals}).}
 \label{fig:missed_goals}
 \end{figure*}
 
@@ -109,7 +111,7 @@ These limits are upper bounds. They charge money only: the time out after a cras
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{\tbd{Draft numbers.} Where each rig stops paying (pays no more) and comes level with its rival, the best of the other rigs at the goals (level), if one goal is missed and the others are met: the \SI{140}{m} e-ammonia ship to Guadeloupe, the Kamsarmax bulk carrier on VLSFO to Tubar\~ao and the Neo-Panamax container ship on e-ammonia to New York, all on \tbd{6} departures. (a) Each rig at its best size, with the points of cost saving by which it leads its rival at the goals, negative where it trails. For the leading rig a level limit is where it loses the lead, for the others where it would draw level. Out of service counts a unit's round trips. Dashes mark a limit that does not apply, a rig already behind its rival or not paying at the goals, or a limit outside the range swept. Blue shading marks positive cost savings and leads and limits the goal can be missed by, red negative ones and limits the goal falls short of. (b) Crashes a year of each rig at the same size, with its flight hours a year, shaded blue by the room they leave; money only, with no time out, recovery or repair, and the rival has no events.}
+\caption{\tbd{Draft numbers.} Where each rig stops paying (pays no more) and comes level with its rival, the best of the other rigs at the goals (level), if one goal is missed and the others are met: the \SI{140}{m} e-ammonia ship to Guadeloupe, the Kamsarmax bulk carrier on VLSFO to Tubar\~ao and the Neo-Panamax container ship on e-ammonia to New York, all on \tbd{6} departures. (a) Each rig at its best size, with the points of cost saving by which it leads its rival at the goals, negative where it trails. For the leading rig a level limit is where it loses the lead, for the others where it would draw level. Out of service counts a unit's round trips. Dashes mark a limit that does not apply, a rig already behind its rival or not paying at the goals, or a limit outside the range swept. Blue shading marks positive cost savings and leads and limits the goal can be missed by, red negative ones and limits the goal falls short of. Sizes and limits are given to two digits. (b) Crashes a year of each rig at the same size, with its flight hours a year, shaded blue by the room they leave; money only, with no time out, recovery or repair, and the rival has no events. The cost of one crash or lost unit (One) is an estimate from the rig prices of \cref{tab:inputs} and carries their ranges.}
 \label{tab:missed_goals}
 \InputIfFileExists{sections/missed_goals_table}{}{\tbd{Missed-goal table pending the routed run on three ships.}}
 \end{table*}
@@ -128,6 +130,6 @@ No change to the wing sails alone puts them ahead. At a quarter of their price t
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{situations}
-\caption{Cost saving of the best size of each rig, from kites of \SIlist{800;1600;3200;6400}{m^2}, wing sails of \SIlist{800;1500;2400}{m^2} and rotors of \SIlist{400;800;1600}{m^2} on the \SI{140}{m} ship to Guadeloupe (solid) and around the class study's best sizes on a Kamsarmax bulk carrier to Tubarão (dashed), with one input changed at a time from its base (dashed grey line; the panel title gives the base value): (a) the fuel price, VLSFO up to \SI{30}{USD/GJ} and e-ammonia from there; (b) the value of the cargo, on the \SI{140}{m} ship only; (c) the discount rate; (d) the life of the wing sails; (e) the unit and area price of the wing sails together; (f) the highest surface speed of the rotors. All but (a) are on e-ammonia.}
+\caption{Cost saving of the best size of each rig, from kites of \SIlist{800;1600;3200;6400}{m^2}, wing sails of \SIlist{800;1500;2400}{m^2} and rotors of \SIlist{400;800;1600}{m^2} on the \SI{140}{m} ship to Guadeloupe (solid, filled markers) and around the class study's best sizes on a Kamsarmax bulk carrier to Tubarão (dashed, open markers), with one input changed at a time from its base (thin grey line), on one scale: (a) the fuel price, VLSFO up to \SI{30}{USD/GJ} and e-ammonia from there (shaded); (b) the value of the cargo, on the \SI{140}{m} ship only; (c) the discount rate; (d) the life of the wing sails; (e) the unit and area price of the wing sails together; (f) the highest surface speed of the rotors. All but (a) are on e-ammonia.}
 \label{fig:situations}
 \end{figure*}
