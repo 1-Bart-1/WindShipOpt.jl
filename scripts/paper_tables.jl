@@ -187,7 +187,7 @@ end
 "a change in points with its sign, as LaTeX; no sign where it rounds to zero"
 function signed_points(change)
     abs(change) < 0.05 && return "0.0"
-    return text_minus(@sprintf("%+.1f", change))
+    return typeset_minus(@sprintf("%+.1f", change), "\$-\$")
 end
 
 "the LaTeX cell of a gain and a loss in points, draft-marked; dashes without trips"
@@ -256,10 +256,11 @@ function write_lever_row(io, table, ships, entry)
     unit = strip(assumption.unit, '"')
     carbons = [lever_gain_loss(table, ship, entry; column="carbon") for ship in ships]
     carbon = (maximum(first, carbons), minimum(last, carbons))
-    estimate(value) = latex_number(round(value; sigdigits=2))
+    estimates = latex_number.(rounded_estimate.((assumption.value, assumption.low,
+        assumption.high)))
     goal = entry.input in goal_inputs ? "\\textsuperscript{g}" : ""
-    println(io, uppercasefirst(entry.label), " & ", estimate(assumption.value), goal, " (",
-        estimate(assumption.low), "--", estimate(assumption.high), ")",
+    println(io, uppercasefirst(entry.label), " & ", estimates[1], goal, " (", estimates[2],
+        "--", estimates[3], ")",
         unit == "-" ? "" : string(" ", latex_escape(unit)), " & ",
         join([effect_cell(lever_gain_loss(table, ship, entry)) for ship in ships], " & "),
         " & ", effect_cell(carbon), " & ", entry.reason, " \\\\")
@@ -286,9 +287,19 @@ curve_cost((shares, costs), share) = costs[findfirst(≈(share), shares)]
 "value of the input `name` in years with its range, as a table cell"
 years(name) = string(@sprintf("%.0f years", assumptions[name]), " ", input_range(name))
 
+"the range from `low` to `high` as estimates, in brackets"
+range_text(low, high) = string("(", estimate_text(low), " to ", estimate_text(high), ")")
+
 "the range of the input `name`, `scale` times its bounds as estimates, in brackets"
-input_range(name; scale=1) = string("(", estimate_text(scale * assumptions.entries[name].low),
-    " to ", estimate_text(scale * assumptions.entries[name].high), ")")
+input_range(name; scale=1) = range_text(scale * assumptions.entries[name].low,
+    scale * assumptions.entries[name].high)
+
+"chance [-] of a kite lost or damaged in one launch and landing, its inputs at `bound`"
+cycle_loss(bound) = sum(getfield(assumptions.entries[name], bound)
+    for name in (:kite_cycle_damage_probability, :kite_cycle_loss_probability))
+
+"[`cycle_loss`](@ref) at `bound` as one in so many cycles, in LaTeX"
+one_in_text(bound) = @sprintf("1 in \\num{%s}", estimate_text(1 / cycle_loss(bound)))
 
 """
     service_range()
@@ -315,24 +326,16 @@ function goal_rows()
     canopy = @sprintf("\\num{%.0f} h (\\numrange{%.0f}{%.0f}) at %.0f g/m\$^2\$",
         life.value, life.low, life.high, assumptions[:canopy_cloth_weight])
     service = @sprintf("%.0f\\,\\%% %s", 100out_of_service_goal(), service_range())
-    one_in(bound) = @sprintf("1 in \\num{%s}", estimate_text(1 / sum(
-        getfield(assumptions.entries[name], bound)
-        for name in (:kite_cycle_damage_probability, :kite_cycle_loss_probability))))
-    loss = "$(one_in(:value)) ($(one_in(:low)) to $(one_in(:high)))"
-    crew_entry = assumptions.entries[:kite_cycle_crew_cost]
-    crew = string("USD~", estimate_text(crew_entry.value), " per cycle (",
-        estimate_text(crew_entry.low), " to ", estimate_text(crew_entry.high), ")")
-    loss_high = assumptions.entries[:kite_cycle_damage_probability].high +
-                assumptions.entries[:kite_cycle_loss_probability].high
-    goal_low, goal_high = canopy_price_range(assumptions, ())
+    loss = "$(one_in_text(:value)) ($(one_in_text(:low)) to $(one_in_text(:high)))"
+    crew = string("USD~", estimate_text(assumptions[:kite_cycle_crew_cost]), " per cycle ",
+        input_range(:kite_cycle_crew_cost))
     price = string("USD~", estimate_text(WindShipOpt.canopy_price(assumptions)),
-        "/m\$^2\$ (", estimate_text(goal_low), " to ", estimate_text(goal_high), ")")
+        "/m\$^2\$ ", range_text(canopy_price_range(assumptions, ())...))
     today_inputs = WindShipOpt.with_today(assumptions, WindShipOpt.canopy_price_inputs)
-    low, high = canopy_price_range(today_inputs, WindShipOpt.canopy_price_inputs)
     today = string("our estimate USD~",
-        estimate_text(WindShipOpt.canopy_price(today_inputs)), "/m\$^2\$ (",
-        estimate_text(low), " to ", estimate_text(high),
-        "), from retail cloth and hand sewing")
+        estimate_text(WindShipOpt.canopy_price(today_inputs)), "/m\$^2\$ ",
+        range_text(canopy_price_range(today_inputs, WindShipOpt.canopy_price_inputs)...),
+        ", from retail cloth and hand sewing")
     return [("Canopy life", "kite", canopy,
             "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements; " *
             "small kites expected 100 to \\num{1000} h"),
@@ -349,8 +352,8 @@ function goal_rows()
                 "flights, three of them in hover or landing \\citep{echeverri2020part1}")),
         ("Unit lost", "wings, rotors", "none", "none reported, and no duty to report one"),
         ("Lost per launch and landing", "kite", loss,
-            "our estimate 0.25\\,\\% (up to $(estimate_text(100loss_high))\\,\\%); " *
-            "no record for a ship"),
+            "our estimate 0.25\\,\\% " *
+            "(up to $(estimate_text(100cycle_loss(:high)))\\,\\%); no record for a ship"),
         ("Launch and landing crew", "kite", crew,
             "an estimate, not a goal: no source gives crew time per launch")]
 end
@@ -450,18 +453,19 @@ end
 
 Of the trip in `row` of the goal_sizes.csv `table`: ship, rig, area [m^2], cost saving [%],
 the `rival` rig and the points of saving [%] by which the rig leads it at `rival_cost`,
-cost of one crash [USD], the crashes a year at which it stops paying for itself against the
-cost per tonne-km `bare` and comes level with its rival, and flight hours a year.
+cost of one crash [USD] and its range over the bounds of [`rig_price_inputs`](@ref), the
+crashes a year at which it stops paying for itself against the cost per tonne-km `bare`
+and comes level with its rival, and flight hours a year.
 """
 function size_limits(table, row, bare, rival, rival_cost)
     ship, rig, area, cost = table["ship"][row], table["rig"][row], table["area"][row],
     table["cost"][row]
     design = ShipDesign(Symbol(table["drive"][row]), study_hull(ship);
         rig_size(rig, area)...)
-    unit = Ship(design, assumptions).rig
-    crash = WindShipOpt.crash_cost(unit, assumptions)
-    crash_range = [WindShipOpt.crash_cost(unit,
-        at_bound(assumptions, rig_price_inputs, bound)) for bound in (:low, :high)]
+    built = Ship(design, assumptions).rig
+    crash = WindShipOpt.crash_cost(built, assumptions)
+    crash_range = [WindShipOpt.crash_cost(built,
+        at_bound(assumptions, rig_price_inputs[rig], bound)) for bound in (:low, :high)]
     work, trips = yearly_trips(table, row, table["route"][row])
     return (; ship, rig, area, crash, crash_range, saving=percent_saving(cost, bare), rival,
         lead=percent_saving(cost, bare) - percent_saving(rival_cost, bare),
@@ -569,7 +573,7 @@ function missed_goals_table()
                      100 .* row.share...]
             limits = [shaded_cell(margin[k], margin_scales[k]; shown=shown[k],
                           format="%.0f") for k in 1:6]
-            cells = [short_ship(row.ship); table_rig(row.rig); area_cell(row.area);
+            cells = [short_ship(row.ship); table_rig(row.rig); estimate_text(row.area);
                      shaded_cell(row.saving, saving_scale); table_rig(row.rival);
                      shaded_cell(row.lead, lead_scale; format="\\(%+.1f\\)"); limits]
             println(io, join(cells, " & "), " \\\\")
@@ -590,8 +594,8 @@ function missed_goals_table()
         println(io, " & & & & & & \\multicolumn{2}{c}{Crashes a year where} & ",
             "Flight \\\\")
         println(io, "\\cmidrule(lr){7-8}")
-        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Cost saving [\\%] & Rival & ",
-            "One [kUSD] & pays no more & level & [h/year] \\\\")
+        println(io, "Ship & Rig & Size [m\\textsuperscript{2}] & Cost saving [\\%] & ",
+            "Rival & One [kUSD] & pays no more & level & [h/year] \\\\")
         println(io, "\\midrule")
         crash_scales = [column_scale(getindex.(getproperty.(crash_rows, :crashes), k))
                         for k in 1:2]
@@ -599,11 +603,11 @@ function missed_goals_table()
             flight = row.rig == "kite" ? @sprintf("%.0f", row.flight_hours) : "--"
             crashes = [shaded_cell(sqrt(row.crashes[k]), sqrt(crash_scales[k]);
                            shown=row.crashes[k], format="%.2g") for k in 1:2]
-            one = @sprintf("%s (%s--%s)",
+            crash = @sprintf("%s (%s--%s)",
                 estimate_text.([row.crash; row.crash_range] ./ 1e3)...)
             @printf(io, "%s & %s & %s & %s & %s & %s & %s & %s & %s \\\\\n",
-                short_ship(row.ship), table_rig(row.rig), area_cell(row.area),
-                shaded_cell(row.saving, saving_scale), table_rig(row.rival), one,
+                short_ship(row.ship), table_rig(row.rig), estimate_text(row.area),
+                shaded_cell(row.saving, saving_scale), table_rig(row.rival), crash,
                 crashes..., flight)
         end
         println(io, "\\bottomrule\n\\end{tabular}}")
@@ -613,18 +617,18 @@ end
 "`rig` as a table names it"
 table_rig(rig) = rig_label(paper_name(rig))
 
-"rig area [m^2] of a swept size, to two significant digits, as a table cell"
-area_cell(area) = @sprintf("%.0f", round(area; sigdigits=2))
-
 "`ship` without its type, for a table column"
 short_ship(ship) = replace(ship, " bulk carrier" => "", " container ship" => "")
 
+"`ship` as a table row names it, the 140 m study ship as such"
+table_ship(ship) = ship == "140 m" ? "140 m ship" : ship
+
+"the `k`th of the row `labels` where it starts a group of equal labels, else empty"
+group_label(labels, k) = k == 1 || labels[k - 1] != labels[k] ? labels[k] : ""
+
 "`value` in `format`, a dash where it is not finite, a minus sign where it is negative"
 dash_cell(value, format) = isfinite(value) ?
-                           text_minus(Printf.format(Printf.Format(format), value)) : "--"
-
-"the table cell `text` with its leading hyphen set as the minus sign of the paper"
-text_minus(text) = startswith(text, "-") ? "\$-\$" * chop(text; head=1, tail=0) : text
+    typeset_minus(Printf.format(Printf.Format(format), value), "\$-\$") : "--"
 
 share_cell(share) = isnan(share) ? "--" : @sprintf("%.0f", 100share)
 
@@ -633,12 +637,9 @@ crash_cell(crashes) = isnan(crashes) ? "--" : @sprintf("%.2g", crashes)
 """
     class_table()
 
-Tabulars of the ship classes in class_table.tex, one above the other: their main
-dimensions, deadweight and unit capacity, the limit their cargo fills first, speed, engine
-power, resistance calibration and price; then cargo value, the inputs of deck cargo and
-port operations and the frontal and lateral wind areas to three digits, with a dagger on
-what the sources estimate. The rows of their sources go to class_sources.tex. An infinite
-fixed-rig delay, where a fixed rig prevents cargo handling, is printed as ∞.
+Write the main data, cargo and port inputs and wind areas of the ship classes to
+class_table.tex, a dagger on estimates and ∞ for an infinite fixed-rig delay, and their
+sources to class_sources.tex.
 """
 function class_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
@@ -1146,10 +1147,10 @@ function speed_choice_table()
         println(io, "\\begin{tabular}{@{}llrrrrr@{}}\n\\toprule")
         println(io, "Drive & Rig & No rig & With rig & Rig free of cost & Force held & ",
             "Force alone \\\\\n\\midrule")
-        for (drive, drive_label) in drive_labels[1:2], rig in ("kite", "wings", "rotors")
+        for (drive, drive_label) in drive_labels[1:2], rig in rig_names
             found = rows(table, "drive" => drive, "rig" => rig)
             cells = (@sprintf("%.1f", median(table[column][found])) for column in columns)
-            println(io, rig == "kite" ? drive_label : "", " & ", rig, " & ",
+            println(io, rig == first(rig_names) ? drive_label : "", " & ", rig, " & ",
                 join(cells, " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
@@ -1224,7 +1225,6 @@ change from the data's control.
 """
 function write_kept_table(data_name, table_name, blocks; changes=nothing)
     table = read_table(data_file(data_name))
-    rigs = ("kite", "wings", "rotors")
     open(joinpath(sections, table_name), "w") do io
         println(io, "\\begin{tabular}{@{}lccc@{}}\n\\toprule")
         println(io, "Plan & Kite & Wing sails & Rotors \\\\\n\\midrule")
@@ -1233,7 +1233,7 @@ function write_kept_table(data_name, table_name, blocks; changes=nothing)
                 println(io, "\\multicolumn{4}{@{}l}{\\textit{", heading, "}} \\\\")
             indent = isnothing(heading) ? "" : "\\quad "
             for (plan, label) in plans
-                cells = [kept_cell(table, rig, plan) for rig in rigs]
+                cells = [kept_cell(table, rig, plan) for rig in rig_names]
                 println(io, indent, label, " & ", join(cells, " & "), " \\\\")
             end
         end
@@ -1241,7 +1241,7 @@ function write_kept_table(data_name, table_name, blocks; changes=nothing)
             println(io, "\\midrule\n\\multicolumn{4}{@{}l}{\\textit{", changes.heading,
                 "}} \\\\")
             for (plan, label) in changes.plans
-                cells = [kept_change_cell(table, rig, plan) for rig in rigs]
+                cells = [kept_change_cell(table, rig, plan) for rig in rig_names]
                 println(io, "\\quad ", label, " & ", join(cells, " & "), " \\\\")
             end
         end
@@ -1298,10 +1298,22 @@ error to two significant digits and both to the same place, whole units at the f
 """
 function hours_cell(table, plan, column)
     values = table[column][rows(table, "plan" => plan)]
-    error = std(values) / sqrt(length(values))
-    place = error < 10 ? 0 : floor(Int, log10(round(error; sigdigits=2))) - 1
-    rounded(value) = round(Int, round(value; digits=-place))
-    return @sprintf("\\(%d \\pm %d\\)", rounded(mean(values)), rounded(error))
+    return error_cell(mean(values), std(values) / sqrt(length(values)); finest=0)
+end
+
+"""
+    error_cell(value, standard_error; finest)
+
+LaTeX of `value` with its `standard_error`, the error to two significant digits and to
+`finest` decimals at the finest, and the value to the same place.
+"""
+function error_cell(value, standard_error; finest)
+    magnitude = standard_error > 0 ?
+                floor(Int, log10(round(standard_error; sigdigits=2))) : 0
+    digits = min(finest, 1 - magnitude)
+    format = Printf.Format("\\(%.$(max(digits, 0))f \\pm %.$(max(digits, 0))f\\)")
+    return Printf.format(format, round(value; digits) + 0.0,
+        round(standard_error; digits) + 0.0)
 end
 
 "groups of forecast_causes_table.tex as (heading, rows of (label, statistic))"
@@ -1363,14 +1375,10 @@ end
 """
     cause_cell(estimate)
 
-LaTeX of an (value, error) estimate of [`cause_estimate`](@ref), the error to two
-significant digits, one decimal at the finest, and the value to the same place.
+[`error_cell`](@ref) of an (value, error) estimate of [`cause_estimate`](@ref), to one
+decimal at the finest.
 """
-function cause_cell(estimate)
-    digits = estimate.error < 9.95 ? 1 : 0
-    return Printf.format(Printf.Format("\\(%.$(digits)f \\pm %.$(digits)f\\)"),
-        round(estimate.value; digits) + 0.0, estimate.error)
-end
+cause_cell(estimate) = error_cell(estimate.value, estimate.error; finest=1)
 
 """
     forecast_causes_table()
@@ -1381,8 +1389,7 @@ departures of forecast_causes.csv: forecast_causes_table.tex.
 """
 function forecast_causes_table()
     table = read_table(data_file("forecast_causes.csv"))
-    saved = Dict(rig => forecast_cause_savings(table, rig)
-                 for rig in ("kite", "wings", "rotors"))
+    saved = Dict(rig => forecast_cause_savings(table, rig) for rig in rig_names)
     open(joinpath(sections, "forecast_causes_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}lccccc@{}}\n\\toprule")
         println(io, " & Kite & Wing sails & Rotors & Kite less wing sails & ",
@@ -1390,8 +1397,7 @@ function forecast_causes_table()
         for (heading, group) in forecast_cause_groups
             println(io, "\\multicolumn{6}{@{}l}{\\textit{", heading, "}} \\\\")
             for (label, statistic) in group
-                cells = [[cause_estimate(statistic, saved[rig])
-                          for rig in ("kite", "wings", "rotors")];
+                cells = [[cause_estimate(statistic, saved[rig]) for rig in rig_names];
                     [cause_estimate(statistic, saved["kite"], saved[rig])
                      for rig in ("wings", "rotors")]]
                 println(io, "\\quad ", label, " & ", join(cause_cell.(cells), " & "),
@@ -1435,8 +1441,7 @@ function speed_terms_table()
                                   for k in 3:4)
         for (k, (drive_label, label, fuel, hours)) in enumerate(lines)
             cells = [shaded_cell.(fuel, fuel_scale); shaded_cell.(hours, time_scale)]
-            first_of_drive = k == 1 || lines[k - 1][1] != drive_label
-            println(io, first_of_drive ? drive_label : "", " & ", label, " & ",
+            println(io, group_label(first.(lines), k), " & ", label, " & ",
                 join(cells, " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
@@ -1509,6 +1514,13 @@ function published_table()
     end
 end
 
+"a shaded cell of `value` [%] on `scale`, to one decimal and with its sign"
+function signed_cell(value, scale)
+    shown = round(value; digits=1) + 0.0
+    return shaded_cell(shown == 0 ? 0.0 : value, scale; shown, format="\\(%.1f\\)",
+        lightest=12)
+end
+
 """
     speed_size_table()
 
@@ -1531,8 +1543,8 @@ function speed_size_table()
         lines = []
         for grid in speed_size_grid, drive in string.(grid.drives), knots in grid.speeds
             routes = speed_size_routes(table, grid, drive, knots)
-            saving(area, pricing) = speed_size_saving(table, grid.ship, drive, routes, "kite",
-                area, pricing, knots)
+            saving(area, pricing) = speed_size_saving(table, grid.ship, drive, routes,
+                "kite", area, pricing, knots)
             free = [saving(area, "free") for area in grid.kites]
             priced = [saving(area, "priced") for area in grid.kites]
             (any(isnothing, free) || any(isnothing, priced)) && continue
@@ -1547,20 +1559,15 @@ function speed_size_table()
         fuel_scale = column_scale(getproperty.(getproperty.(lines, :most_fuel),
             :fuel_percent))
         cost_scale = column_scale(getproperty.(lines, :cost))
-        function signed(value, scale)
-            shown = round(value; digits=1) + 0.0
-            return shaded_cell(shown == 0 ? 0.0 : value, scale; shown,
-                format="\\(%.1f\\)", lightest=12)
-        end
         for line in lines
-            println(io, join((line.ship == "140 m" ? "140 m ship" : line.ship,
+            println(io, join((table_ship(line.ship),
                     Dict(drive_labels)[line.drive], @sprintf("%.0f", line.knots),
                     @sprintf("%.0f", line.bare),
-                    signed(line.smallest.fuel_percent, fuel_scale),
+                    signed_cell(line.smallest.fuel_percent, fuel_scale),
                     @sprintf("%.0f", line.smallest.fuel), @sprintf("%.0f", line.fuel_area),
-                    signed(line.most_fuel.fuel_percent, fuel_scale),
+                    signed_cell(line.most_fuel.fuel_percent, fuel_scale),
                     @sprintf("%.0f", line.most_fuel.fuel), @sprintf("%.0f", line.cost_area),
-                    signed(line.cost, cost_scale), @sprintf("%.0f", line.flight)),
+                    signed_cell(line.cost, cost_scale), @sprintf("%.0f", line.flight)),
                 " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
@@ -1982,8 +1989,8 @@ function rig_margin_table()
             leaders = row.margin < level_margin ?
                       "\\multicolumn{2}{l}{$(row.rig) and $(row.rival) level}" :
                       "$(row.rig) & $(row.rival)"
-            first_of_type = k == 1 || rows_of_types[k - 1].label != row.label
-            println(io, join([first_of_type ? row.label : "", Dict(drive_labels)[row.drive],
+            println(io, join([group_label(getproperty.(rows_of_types, :label), k),
+                    Dict(drive_labels)[row.drive],
                     leaders, @sprintf("%.1f", row.margin), life_limit_text(row.life),
                     crash_cell(row.losses)], " & "), " \\\\")
         end
@@ -2039,7 +2046,7 @@ function sea_effect_table()
             aloft = sea_effect_flight.(Ref(table), ship, ("model", "none"))
             # adding 0.0 turns a rounded -0.0 into 0.0
             @printf(io, "%s & %.1f & %.1f & \\(%.1f\\) & %.1f & %.1f \\\\\n",
-                ship == "140 m" ? "140 m ship" : ship, saved...,
+                table_ship(ship), saved...,
                 round(saved[1] - saved[2]; digits=1) + 0.0, aloft...)
         end
         println(io, "\\bottomrule\n\\end{tabular}")

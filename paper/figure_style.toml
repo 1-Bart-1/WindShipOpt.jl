@@ -1,16 +1,17 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
-#
-# The graphical vocabulary of every figure of the paper. The Julia figures read it
-# through scripts/paper_figures.jl; the figure_style step writes it to
-# paper/figure_style.tex as the TikZ styles and colours of the LaTeX figures.
+# Sizes and colours of every figure of the paper, read by scripts/paper_figures.jl and
+# written by its figure_style step to paper/figure_style.tex for the TikZ figures.
 
 [sizes] # [pt] as printed
 text = 8.0 # labels, ticks, legends and panel titles
 note = 7.0 # values written on the data and notes beside it
 rule = 0.5 # axis lines, ticks, frames and box outlines
 line = 1.0 # data lines
+goal = 0.7 # goal lines, laws drawn through data and range bars
 marker = 4.0 # data markers
+outline = 0.7 # outline of a hollow marker
+whisker = 3.0 # end mark of a range bar
 force = 1.3 # shaft of an arrow that draws a force
 flow = 0.6 # shaft of an arrow that links boxes or steps
 dimension = 0.4 # dimension lines and leaders to a label
@@ -37,7 +38,7 @@ gain = "2166AC" # a saving in table cells
 loss = "B2182B" # a loss in table cells
 
 [fills] # hex RGB; fill of a TikZ box by the kind of model part it stands for, the style
-# `<name> box`; each of its own lightness, so that they part in greyscale
+# `<name> box`; each of its own lightness
 ship = "C2D4E3" # models the ship: hull, propeller, engine, cargo
 rig = "DCBD83" # models the rig
 voyage = "D1E8D7" # comes from the routed voyages
@@ -46,6 +47,6 @@ data = "F3F3F3" # data or an input
 
 [contrast] # least differences the figure_style step and every Julia figure keep
 text = 4.5 # WCAG contrast of any text against what lies behind it
-colour = 10.0 # CIEDE2000 difference of two rig colours, in normal and each colour-blind vision
+colour = 10.0 # CIEDE2000 difference of two rig colours, in normal and colour-blind vision
 rig_grey = 10.0 # lightness L* between two rig colours, as printed in greyscale
 fill_grey = 5.0 # lightness L* between two box fills, as printed in greyscale
