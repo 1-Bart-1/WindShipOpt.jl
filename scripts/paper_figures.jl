@@ -194,7 +194,8 @@ end
 
 Lines of the TikZ figures in paper/sections that set a width, font size, colour or style
 of their own rather than one of [`figure_style_file`](@ref): a colour mixed from one that
-is not in [`figure_style`](@ref) counts, a tint of one that is does not.
+is not in [`figure_style`](@ref) counts, a tint of one that is does not, and so does
+[`faint_text`](@ref).
 """
 function tikz_style_faults()
     own = Regex(string("line width|\\b(ultra |very )?(thin|thick)\\b|semithick|/\\.style|",
@@ -207,11 +208,34 @@ function tikz_style_faults()
         for (number, line) in enumerate(split(text, '\n'))
             foreign = any(!haskey(figure_style["colours"], match[1])
                           for match in eachmatch(mixed, line))
-            (occursin(own, line) || foreign) &&
+            (occursin(own, line) || foreign || !isempty(faint_text(line))) &&
                 push!(faults, "$(basename(file)):$number: $(strip(line))")
         end
     end
     return faults
+end
+
+"""
+    faint_text(line)
+
+The colours of node text and `\\textcolor` in the TikZ `line` that are a colour of
+[`figure_style`](@ref) less than [`readable`](@ref) on white, or a tint of one, where its
+`<name>text` shade belongs.
+"""
+function faint_text(line)
+    white = Makie.RGBf(1, 1, 1)
+    faint = String[]
+    options = [option for found in eachmatch(r"node\s*\[([^\]]*)\]", line)
+               for option in split(found[1], ',')]
+    named = [found[1] for found in eachmatch(r"\\textcolor\{([^}]*)\}", line)]
+    for option in [options; named]
+        colour = strip(replace(strip(option), r"^text\s*=\s*" => ""))
+        name = first(split(colour, '!'))
+        haskey(figure_style["colours"], name) || continue
+        (occursin('!', colour) || contrast(style_colour(name), white) < least["text"]) &&
+            push!(faint, colour)
+    end
+    return faint
 end
 
 "`n` shades of the kite's blue, light to dark"
