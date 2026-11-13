@@ -2242,16 +2242,39 @@ end
     best = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
         options...)
     stage = stage_count - 2
-    best_node = findfirst(==(best.path[stage][2]), view(corridor.lon, stage, :))
+    best_node = WindShipOpt.nearest_lateral(corridor, stage, best.path[stage][1:2]...)
     values = zeros(size(corridor.lat, 2), 200, 2, stage_count)
     values[best_node, :, :, stage] .= Inf
     to_go = WindShipOpt.CostToGo(values, 48.0)
     detour = WindShipOpt.route_pass(workspace, corridor, table, weather, departure, to_go,
         floatmax(); options...)
     @test detour.objective > best.objective
-    leg = WindShipOpt.searched_leg(workspace, corridor, table, weather, departure, to_go,
-        (prevfloat(detour.objective),); options...)
+    leg, limit = WindShipOpt.searched_leg(workspace, corridor, table, weather, departure,
+        to_go, (prevfloat(detour.objective),); options...)
     @test leg.objective == best.objective
+    @test limit == Inf
+end
+
+@testset "a recorded search holds the path it found, the limit it kept and its states" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    record = SearchRecord()
+    leg = route(corridor, table, weather, departure; time_cost=hourly, record)
+    @test leg.path == route(corridor, table, weather, departure; time_cost=hourly).path
+    @test [point[1:2] for point in record.found.path] == [point[1:2] for point in leg.path]
+    @test leg.objective <= record.found.objective <= record.limit
+    @test record.limit == first(record.limits)
+    centre = centre_index(corridor)
+    @test record.estimate == record.to_go(centre, 1, 1, 0.0)
+    through = through_node(record)
+    @test through[1, centre] == record.estimate
+    laterals = [WindShipOpt.nearest_lateral(corridor, stage, point[1:2]...)
+                for (stage, point) in enumerate(record.found.path)]
+    @test all(through[stage, lateral] <= record.limit
+              for (stage, lateral) in enumerate(laterals))
+    kept = kept_states(record)
+    reached = isfinite.(record.cost)
+    @test count(kept) < count(reached)
+    @test all(any(kept[lateral, :, :, stage]) for (stage, lateral) in enumerate(laterals))
 end
 
 @testset "router settings return to those in force after a call under others" begin
