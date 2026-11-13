@@ -6,4 +6,6 @@
 \newcommand{\note}[1]{\ifnotes{\color{teal!70!black}\sffamily\small[#1]}\fi}
 \newcommand{\plot}[2][]{\IfFileExists{figures/#2.pdf}{\includegraphics[max width=\textwidth]{#2}}{\fbox{\parbox[c][3cm][c]{0.9\textwidth}{\centering\tbd{Figure \detokenize{#2} pending data.}}}}}
 \graphicspath{{figures/}}
+% \tablerows{file}: the rows of a longtable read from a file, with no empty row after them.
+\makeatletter\newcommand{\tablerows}[1]{\@@input #1 }\makeatother
 \input{sections/numbers}

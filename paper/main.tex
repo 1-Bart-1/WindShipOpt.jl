@@ -27,6 +27,8 @@
 \input{figure_style}
 
 \input{commands}
+\AddToHook{env/table/begin}{\setlength{\belowcaptionskip}{4pt}}
+\AddToHook{env/table*/begin}{\setlength{\belowcaptionskip}{4pt}}
 \setlength{\emergencystretch}{1.5em}
 \renewcommand{\topfraction}{0.9}
 \renewcommand{\bottomfraction}{0.6}

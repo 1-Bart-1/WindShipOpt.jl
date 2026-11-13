@@ -10,8 +10,8 @@
 {\footnotesize
 \setlength{\LTcapwidth}{\textwidth}
 \setlength{\tabcolsep}{3.5pt}
-\setlength{\extrarowheight}{1pt}
-\begin{longtable}{@{}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{3.9cm}rrr>{\raggedright\arraybackslash}p{2.1cm}>{\raggedright\arraybackslash}p{3.5cm}@{}}
+\setlength{\extrarowheight}{3pt}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{3.9cm}rrr@{\hspace{1.5em}}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{3.5cm}@{}}
 \caption{Each part of the model, how its effect is measured, its model, its effect on the cost saving of each rig, the ships where it changes which rig is cheapest, and its known error. The effect is the largest difference in a rig's cost saving, in percentage points, between the model as it stands and the model with the part changed, or with the inputs named at the part moved over their ranges, over the three ships of the development study.}
 \label{tab:model_detail}\\
 \toprule
@@ -27,5 +27,5 @@ Part & Model & kite & wings & rotors & Cheapest rig changes & Known error \\
 \endhead
 \bottomrule
 \endfoot
-\InputIfFileExists{sections/fidelity_table}{}{\multicolumn{7}{@{}l}{\tbd{Pending: run the fidelity\_table step.}}\\}
+\tablerows{sections/fidelity_table}
 \end{longtable}}

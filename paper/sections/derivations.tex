@@ -69,7 +69,7 @@ Today's hours are the low end of what a maker's 50 hours per paraglider gives \c
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Cell layout of a paraglider and of ship kites. \tbd{Paraglider data: cite Ozone Rush 5.} The SkySails cell count is from \citet{paulig2013}, the widths by our reading.}
+\caption{Cell layout of a paraglider and of ship kites. \tbd{Paraglider data: cite Ozone Rush 5.} The SkySails cell count is from \citet{paulig2013}; its cell width and proportion ($\approx$) are our reading of it, and this kite takes that proportion.}
 \label{tab:seam_cloth}
 \begin{tabular}{@{}lrrr@{}}
 \toprule
@@ -77,8 +77,8 @@ Today's hours are the low end of what a maker's 50 hours per paraglider gives \c
 \midrule
 Flat aspect ratio & 5.55 & -- & 3.76 \\
 Cells & 57 & 22 & 31 \\
-Cell width (m) & 0.21 & 1.1 & 1.9 \\
-Cell length over width & 10.3 & 8.1 & 8.1 \\
+Cell width (m) & 0.21 & $\approx$1.1 & 1.9 \\
+Cell length over width & 10.3 & $\approx$8.1 & 8.1 \\
 Seam per flat m$^2$ (m) & 14 & -- & 2.5 to 4.5 \\
 \bottomrule
 \end{tabular}
@@ -91,13 +91,13 @@ For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre and rib
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Effect of a lower cloth ratio or fewer sewing hours on the goal price and the canopy mass.}
+\caption{Effect of a lower cloth ratio or fewer sewing hours on the goal price, as a change against the base goal price of about USD~150 (98 to 420) per projected square metre (\cref{tab:canopy_price}), and on the canopy mass.}
 \label{tab:canopy_variants}
 \begin{tabular}{@{}lrr@{}}
 \toprule
-Variant & Price (USD/m$^2$) & Canopy mass (kg/m$^2$) \\
+Variant & Change of price (USD/m$^2$) & Canopy mass (kg/m$^2$) \\
 \midrule
-Base & 150 & 0.75 \\
+Base, at the goals & 0 & 0.75 \\
 Cloth ratio 3.0 & $-9$ & 0.65 \\
 Cloth ratio 2.4, no ribs & $-21$ & 0.53 \\
 Sewing 0.8 h & $-12$ & 0.75 \\
@@ -130,12 +130,14 @@ For sewing the ratio per doubling is $p=0.93$ for the sewing section of a shirt 
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Canopy life at \SI{200}{g/m^2} with one input at each bound, in flight hours.}
+\caption{Canopy life at \SI{200}{g/m^2} from the strength decay with one input at each bound, in flight hours, the bound giving the shorter life first; the goal is \num{3000} hours, with this table's range of \numrange{1200}{6900} hours.}
 \label{tab:canopy_life_range}
 \begin{tabular}{@{}lrr@{}}
 \toprule
-Input changed alone & Low & High \\
+Input changed alone & Shorter life & Longer life \\
 \midrule
+All inputs at base & \multicolumn{2}{c}{\num{3800}} \\
+\addlinespace
 Wear rate $r$ & \num{2200} & \num{6900} \\
 Reference dose $D_\mathrm{ref}$ & \num{3100} & \num{4400} \\
 UV exponent $a$ & \num{3600} & \num{4200} \\
@@ -176,55 +178,60 @@ The cases are the 12 departures of the results for the \SI{140}{m} e-methanol sh
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Largest change of the cost saving, in points, against the base settings, for the kite, the wing sails and the rotors, with the other settings at the base, at a corridor of stages \SI{360}{nmi} and points \SI{240}{nmi} apart. The last two rows, one figure each over all rigs, were measured on a finer search with knots \SI{48}{h} apart.}
+\caption{Largest change of the cost saving, in points, against the base settings, for each rig, with the other settings at the base, at a corridor of stages \SI{360}{nmi} and points \SI{240}{nmi} apart. The rows below the rule, one figure each over all rigs, were measured on a finer search with knots \SI{48}{h} apart.}
 \label{tab:routing_convergence}
-\begin{tabular}{@{}p{10.5cm}r@{}}
+\begin{tabular}{@{}p{9.5cm}rrr@{}}
 \toprule
-Setting changed & Change \\
+& \multicolumn{3}{c}{Change [points]} \\
+\cmidrule(l){2-4}
+Setting changed & Kite & Wing sails & Rotors \\
 \midrule
-Margins 12\,\%, 20\,\% (kite 25\,\%, 50\,\%), bins of \SI{1.5}{h}, every second speed, 3 nodes & 0.72, 0.07, 0.48 \\
-Time bins of \SI{1.5}{h} rather than \SI{3}{h} & 0.70, 0.05, 0.10 \\
-Every second speed rather than every fourth & 0.29, 0.14, 0.22 \\
-Edges of up to 3 lateral nodes rather than 2 & 0.74, 0.89, 1.12 \\
-Margins 6\,\%, then 12\,\%, for ships without a kite & 0, 0.08, 0.01 \\
-Weather every \SI{6}{h} rather than \SI{3}{h} & 0.56, 0.15, 0.45 \\
-Table of 97 speeds, every fourth, against all 49 & 0.11 \\
-Final pass in bins of \SI{0.125}{h}, or within \SI{48}{h} of the path & 0.22, 0.19 \\
+Margins 12\,\%, 20\,\% (kite 25\,\%, 50\,\%), bins of \SI{1.5}{h}, every second speed, 3 nodes & 0.72 & 0.07 & 0.48 \\
+Time bins of \SI{1.5}{h} rather than \SI{3}{h} & 0.70 & 0.05 & 0.10 \\
+Every second speed rather than every fourth & 0.29 & 0.14 & 0.22 \\
+Edges of up to 3 lateral nodes rather than 2 & 0.74 & 0.89 & 1.12 \\
+Margins 6\,\%, then 12\,\%, for ships without a kite & 0.00 & 0.08 & 0.01 \\
+Weather every \SI{6}{h} rather than \SI{3}{h} & 0.56 & 0.15 & 0.45 \\
+\midrule
+Table of 97 speeds, every fourth, against all 49 & \multicolumn{3}{c}{0.11} \\
+Final pass in bins of \SI{0.125}{h} & \multicolumn{3}{c}{0.22} \\
+Final pass within \SI{48}{h} of the path & \multicolumn{3}{c}{0.19} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\Cref{tab:routing_grid} sets the error of the corridor spacing against the error of the search settings and against computing time, for the same cases, to the stages and points of the results (\SI{90}{nmi}, \SI{60}{nmi}) and the search settings of \cref{tab:numerics}, except that states are skipped against an estimate on knots \SI{48}{h} rather than \SI{24}{h} apart and, with a kite, within 10\,\% and then 20\,\% rather than 20\,\% and then 40\,\%. The settings of \cref{tab:numerics} take about 1.3 times the computing time of these and lose no more than 0.01 points of cost saving by skipping states, against up to 0.27 points with these. The reference is finer in both: stages \SI{45}{nmi} and points \SI{30}{nmi} apart, searched with bins of \SI{1.5}{h}, every second speed and the margins of the first row of \cref{tab:routing_convergence}, 13.6 times as slow as the results' corridor and search. Refining only the stages or only the points gains the kite little and lowers the wing sails' and rotors' saving, so the two are halved together. Halving the points alone also changes the headings a step can sail, since an edge reaches at most two points to either side: about 0, 34 and \SI{53}{\degree} off the corridor's line on the corridor of the results. Halving the points and letting an edge reach four of them keeps those headings and adds about 18 and \SI{45}{\degree} between them. On the corridor of the results this raises the kite's cost saving by 0.24 points on average and lowers the wing sails' by 0.10 and the rotors' by 0.01, by at most 0.6 points on one pair of ship and route, at 3.0 times the computing time; on stages \SI{180}{nmi} apart it moves them by 0.32, $-0.05$ and $-0.09$ points at 2.8 times. It lowers the cost of the ship without a rig by 1.5\,\% and 2.0\,\%, about as much as with a rig, so the headings between are not added. At the coarser corridors the search settings matter little against the spacing: at stages \SI{180}{nmi} apart the finer search recovers 0.2 of the kite's 2.2 points. At the corridor of the results the two errors are of a size: the finer search raises the kite's cost saving by 0.46 points and the rotors' by 0.11, half the spacing by 0.53 and 0.25, and both together by 1.26 and 0.48, more than the sum; none is corrected. The reference is itself not converged: with the finer search the kite's gain per halving of the spacing falls from 2.35 to 1.22 to 0.81 points and the rotors' from 1.75 to 0.71 to 0.37, so the kite's error falls more slowly than the rotors'.
+\Cref{tab:routing_grid} sets the error of the corridor spacing against the error of the search settings and against computing time, for the same cases, to the stages and points of the results (\SI{90}{nmi}, \SI{60}{nmi}) and the search settings of \cref{tab:numerics}, except that states are skipped against an estimate on knots \SI{48}{h} rather than \SI{24}{h} apart and, with a kite, within 10\,\% and then 20\,\% rather than 20\,\% and then 40\,\%. The settings of \cref{tab:numerics} take about 1.3 times the computing time of these and lose no more than 0.01 points of cost saving by skipping states, against up to 0.27 points with these. The reference is finer in both: stages \SI{45}{nmi} and points \SI{30}{nmi} apart, searched with bins of \SI{1.5}{h}, every second speed and the margins of the first row of \cref{tab:routing_convergence}, about 14 times as slow as the results' corridor and search. Refining only the stages or only the points gains the kite little and lowers the wing sails' and rotors' saving, so the two are halved together. Halving the points alone also changes the headings a step can sail, since an edge reaches at most two points to either side: about 0, 34 and \SI{53}{\degree} off the corridor's line on the corridor of the results. Halving the points and letting an edge reach four of them keeps those headings and adds about 18 and \SI{45}{\degree} between them. On the corridor of the results this raises the kite's cost saving by 0.24 points on average and lowers the wing sails' by 0.10 and the rotors' by 0.01, by at most 0.6 points on one pair of ship and route, at 3.0 times the computing time; on stages \SI{180}{nmi} apart it moves them by 0.32, $-0.05$ and $-0.09$ points at 2.8 times. It lowers the cost of the ship without a rig by 1.5\,\% and 2.0\,\%, about as much as with a rig, so the headings between are not added. At the coarser corridors the search settings matter little against the spacing: at stages \SI{180}{nmi} apart the finer search recovers 0.2 of the kite's 2.2 points. At the corridor of the results the two errors are of a size: the finer search raises the kite's cost saving by 0.46 points and the rotors' by 0.11, half the spacing by 0.53 and 0.25, and both together by 1.26 and 0.48, more than the sum; none is corrected. The reference is itself not converged: with the finer search the kite's gain per halving of the spacing falls from 2.35 to 1.22 to 0.81 points and the rotors' from 1.75 to 0.71 to 0.37, so the kite's error falls more slowly than the rotors'.
 
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Change of the cost saving per tonne-kilometre, in points, against the reference, over the two ships and three routes: the mean over the six pairs of ship and route, and in brackets the largest change on one pair, for the kite, the wing sails and the rotors, with the computing time as a multiple of that of the base run of the results. Stages 360 and points \SI{120}{nmi} apart found no passage for one of the rotor ships, and stages 720 and points \SI{480}{nmi} apart none for the kite and rotor ships on one pair. The coarsest and the finest rows were timed on a later commit than the rest, which routes the same passages, each against the base run of its own commit.}
+\caption{Change of the cost saving per tonne-kilometre, in points, against the reference, over the two ships and three routes: the mean over the six pairs of ship and route, and in brackets the largest change on one pair, for the kite, the wing sails and the rotors, with the computing time, measured once, as a multiple of that of the base run of the results. A dagger marks a mean over fewer pairs: stages 360 and points \SI{120}{nmi} apart found no passage for one of the rotor ships, and stages 720 and points \SI{480}{nmi} apart none for the kite and rotor ships on one pair. The coarsest and the finest rows were timed on a later commit than the rest, which routes the same passages, each against the base run of its own commit.}
 \label{tab:routing_grid}
-\begin{tabular}{@{}llrccc@{}}
+\begin{tabular}{@{}llrrrr@{}}
 \toprule
 Stages, points [nmi] & Search & Time & Kite & Wing sails & Rotors \\
 \midrule
-720, 480 & results & 0.13 & $-5.62$ (11.06) & $-1.81$ (5.20) & $-3.80$ (6.28) \\
-360, 240 & results & 0.23 & $-4.64$ (8.21) & $-1.10$ (3.35) & $-2.86$ (5.70) \\
-180, 120 & results & 0.46 & $-2.22$ (4.55) & $-0.58$ (2.50) & $-1.19$ (3.12) \\
-90, 60 & results & 1.00 & $-1.26$ (2.39) & $-0.09$ (0.74) & $-0.48$ (1.72) \\
-45, 30 & results & 1.88 & $-0.73$ (1.59) & $-0.14$ (0.31) & $-0.23$ (0.40) \\
-180, 240 & results & 0.24 & $-3.70$ (5.79) & $-1.21$ (2.98) & $-2.72$ (3.91) \\
-360, 120 & results & 0.36 & $-4.64$ (9.19) & $-1.68$ (4.04) & $-2.82$ (4.63) \\
-90, 120 & results & 0.46 & $-2.15$ (4.06) & $-0.79$ (1.54) & $-1.58$ (2.30) \\
-180, 60 & results & 0.52 & $-2.34$ (4.00) & $-1.10$ (2.94) & $-2.06$ (4.09) \\
+720, 480 & results & 0.13 & $-5.62$ (11.06)$^\dagger$ & $-1.81$ (5.20) & $-3.80$ (6.28)$^\dagger$ \\
+360, 240 & results & 0.23 & $-4.64$ (8.21)\phantom{$^\dagger$} & $-1.10$ (3.35) & $-2.86$ (5.70)\phantom{$^\dagger$} \\
+180, 120 & results & 0.46 & $-2.22$ (4.55)\phantom{$^\dagger$} & $-0.58$ (2.50) & $-1.19$ (3.12)\phantom{$^\dagger$} \\
+90, 60 & results & 1 & $-1.26$ (2.39)\phantom{$^\dagger$} & $-0.09$ (0.74) & $-0.48$ (1.72)\phantom{$^\dagger$} \\
+45, 30 & results & 1.9 & $-0.73$ (1.59)\phantom{$^\dagger$} & $-0.14$ (0.31) & $-0.23$ (0.40)\phantom{$^\dagger$} \\
 \addlinespace
-90, 60 & bins of \SI{1.5}{h} & 1.64 & $-0.94$ (1.96) & $-0.10$ (0.74) & $-0.34$ (1.59) \\
-90, 60 & every second speed & 1.36 & $-1.18$ (2.43) & $-0.10$ (0.64) & $-0.55$ (1.40) \\
-90, 60 & wider margins & 1.90 & $-1.14$ (2.32) & $-0.04$ (0.75) & $-0.41$ (1.41) \\
-90, 60 & all three & 4.59 & $-0.81$ (1.77) & $-0.03$ (0.60) & $-0.37$ (1.33) \\
-180, 120 & bins of \SI{1.5}{h} & 0.75 & $-2.12$ (4.61) & $-0.56$ (2.62) & $-1.20$ (3.19) \\
-180, 120 & every second speed & 0.63 & $-2.29$ (5.30) & $-0.59$ (2.62) & $-1.23$ (3.06) \\
-180, 120 & wider margins & 0.99 & $-2.16$ (4.55) & $-0.56$ (2.49) & $-1.13$ (3.12) \\
-180, 120 & all three & 1.91 & $-2.03$ (4.64) & $-0.49$ (2.48) & $-1.07$ (3.03) \\
-360, 240 & all three & 0.83 & $-4.38$ (7.79) & $-1.14$ (3.54) & $-2.82$ (5.57) \\
-45, 30 & all three: the reference & 13.56 & $0.00$ (0.00) & $0.00$ (0.00) & $0.00$ (0.00) \\
+180, 240 & results & 0.24 & $-3.70$ (5.79)\phantom{$^\dagger$} & $-1.21$ (2.98) & $-2.72$ (3.91)\phantom{$^\dagger$} \\
+360, 120 & results & 0.36 & $-4.64$ (9.19)\phantom{$^\dagger$} & $-1.68$ (4.04) & $-2.82$ (4.63)$^\dagger$ \\
+90, 120 & results & 0.46 & $-2.15$ (4.06)\phantom{$^\dagger$} & $-0.79$ (1.54) & $-1.58$ (2.30)\phantom{$^\dagger$} \\
+180, 60 & results & 0.52 & $-2.34$ (4.00)\phantom{$^\dagger$} & $-1.10$ (2.94) & $-2.06$ (4.09)\phantom{$^\dagger$} \\
+\addlinespace
+360, 240 & all three & 0.83 & $-4.38$ (7.79)\phantom{$^\dagger$} & $-1.14$ (3.54) & $-2.82$ (5.57)\phantom{$^\dagger$} \\
+180, 120 & bins of \SI{1.5}{h} & 0.75 & $-2.12$ (4.61)\phantom{$^\dagger$} & $-0.56$ (2.62) & $-1.20$ (3.19)\phantom{$^\dagger$} \\
+180, 120 & every second speed & 0.63 & $-2.29$ (5.30)\phantom{$^\dagger$} & $-0.59$ (2.62) & $-1.23$ (3.06)\phantom{$^\dagger$} \\
+180, 120 & wider margins & 0.99 & $-2.16$ (4.55)\phantom{$^\dagger$} & $-0.56$ (2.49) & $-1.13$ (3.12)\phantom{$^\dagger$} \\
+180, 120 & all three & 1.9 & $-2.03$ (4.64)\phantom{$^\dagger$} & $-0.49$ (2.48) & $-1.07$ (3.03)\phantom{$^\dagger$} \\
+90, 60 & bins of \SI{1.5}{h} & 1.6 & $-0.94$ (1.96)\phantom{$^\dagger$} & $-0.10$ (0.74) & $-0.34$ (1.59)\phantom{$^\dagger$} \\
+90, 60 & every second speed & 1.4 & $-1.18$ (2.43)\phantom{$^\dagger$} & $-0.10$ (0.64) & $-0.55$ (1.40)\phantom{$^\dagger$} \\
+90, 60 & wider margins & 1.9 & $-1.14$ (2.32)\phantom{$^\dagger$} & $-0.04$ (0.75) & $-0.41$ (1.41)\phantom{$^\dagger$} \\
+90, 60 & all three & 4.6 & $-0.81$ (1.77)\phantom{$^\dagger$} & $-0.03$ (0.60) & $-0.37$ (1.33)\phantom{$^\dagger$} \\
+45, 30 & all three: the reference & 14 & $0.00$ (0.00)\phantom{$^\dagger$} & $0.00$ (0.00) & $0.00$ (0.00)\phantom{$^\dagger$} \\
 \bottomrule
 \end{tabular}
 \end{table}
