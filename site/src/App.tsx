@@ -66,6 +66,7 @@ function Explorer({ data }: { data: ExplorerData }) {
           Pick a ship, a route and a fuel, change the inputs, and see what each rig saves at its best size.
           Results read: if each rig reaches these goals, it saves this much.
         </p>
+        <a className="label" href="grid.html">The router's grid</a>
         {data.fidelity !== "final" && (
           <p className="rounded-[14px] bg-mustard/30 px-3 py-2 text-sm text-ink">
             Draft results ({data.fidelity} run, commit {data.git_commit.slice(0, 7)}): coarser routing than the

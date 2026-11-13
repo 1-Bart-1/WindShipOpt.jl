@@ -41,6 +41,8 @@ npm --prefix site run build # static site in site/dist
 
 The site's route view reads the routed passages of `paper(:passages; fidelity=:draft)` from the newest run that has them (`PASSAGES_DIRECTORY=<path>` picks another): the passage figure's ship on every route, a ladder of sizes per rig and every sampled departure, with the state of the ship and rig at each point the router sailed. A build without such a run has no route view.
 
+The grid page, `grid.html` (http://localhost:5173/grid.html), draws the weather router's corridor grids on a globe from `paper(:grids; fidelity=:draft)` (`GRIDS_JSON=<path>` picks another file): every route's outbound corridor at draft and final spacing, its usable, near-coast and unusable nodes, the edges the router may take, and in rust every edge or row step running more than 90° off the centre line's course. Clicking a node shows every route from Rotterdam to port through it.
+
 ## Status
 
 Runs on ERA5 wind and waves when `era5/atlantic_wide/` exists, otherwise on synthetic weather. Not in the model: currents, batteries with regeneration, a coastline finer than the ERA5 grid, an outer design optimiser.

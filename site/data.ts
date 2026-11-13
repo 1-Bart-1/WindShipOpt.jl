@@ -48,3 +48,13 @@ export function passagesDirectory(): string | undefined {
   const chosen = newestRun("passages.json");
   return chosen ? join(runs, chosen) : undefined;
 }
+
+/**
+ * Path of the router grids the grid page shows: `GRIDS_JSON` if set, else the newest
+ * grids.json of a final run, else of a draft run; undefined if there is none.
+ */
+export function gridsPath(): string | undefined {
+  if (process.env.GRIDS_JSON) return resolve(process.env.GRIDS_JSON);
+  const chosen = newestRun("grids.json");
+  return chosen ? join(runs, chosen, "grids.json") : undefined;
+}
