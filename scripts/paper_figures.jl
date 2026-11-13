@@ -578,9 +578,9 @@ function savings_panel!(axis, table, groups, drive, column, format)
     isempty(all_routes) && return
     means = [[only(mean_savings(table, (column,), classes, drive, kind))
               for kind in rig_names] for (_, classes) in groups]
-    span = extrema(all_routes)
+    span = extrema([all_routes; 0])
     width = span[2] - span[1]
-    number_x = span[2] + 0.28 * width
+    number_x = span[2] + 0.07 * width
     for (i, group_means) in enumerate(means)
         known = findall(isfinite, group_means)
         isempty(known) && continue
@@ -588,7 +588,7 @@ function savings_panel!(axis, table, groups, drive, column, format)
         hspan!(axis, i - 0.5, i + 0.5;
             color=group_means[leader] > 0 ? (palette[leader], 0.2) : (:gray, 0.2))
         text!(axis, number_x, i; text=typeset_minus(Printf.format(format,
-                group_means[leader])), align=(:right, :center), fontsize=note_size)
+                group_means[leader])), align=(:left, :center), fontsize=note_size)
     end
     vlines!(axis, 0; color=:gray, linewidth=0.5)
     hlines!(axis, length(groups) - 1.5; color=:black, linewidth=0.5)
@@ -599,9 +599,9 @@ function savings_panel!(axis, table, groups, drive, column, format)
             direction=:x, color=(palette[j], 0.6))
         scatter!(axis, [means[i][j]], [y]; color=palette[j])
     end
-    limits!(axis, span[1] - 0.04 * width, number_x + 0.02 * width, length(groups) + 0.5,
-        0.5)
-    axis.xticks = Makie.get_tickvalues(Makie.WilkinsonTicks(4), span...)
+    limits!(axis, span[1] - 0.04 * width, span[2] + 0.3 * width, length(groups) + 0.5, 0.5)
+    axis.xticks = Makie.get_tickvalues(
+        Makie.WilkinsonTicks(4; Q=[(1.0, 1.0), (5.0, 0.9), (2.0, 0.7)]), span...)
 end
 
 """
@@ -629,9 +629,10 @@ function class_comparison_figure()
         end
     end
     rowgap!(figure.layout, 1, 4)
-    Legend(figure[3, 1:2length(drive_panels)],
+    Legend(figure[1, 2length(drive_panels)],
         [MarkerElement(; color=palette[j], marker=:circle)
-         for j in eachindex(rig_names)], collect(rig_names); orientation=:horizontal)
+         for j in eachindex(rig_names)], collect(rig_names); orientation=:horizontal,
+        halign=:right, valign=:bottom, tellwidth=false, margin=(0, 0, 0, 0))
     save(joinpath(figures, "class_comparison.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -914,33 +915,42 @@ function winner_map_figure()
     groups = limit_groups(table)
     route_names_seen = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
     kinds = ["kite", "wings", "rotors"]
-    figure = Figure(size=(page_width, 420))
+    winners = Set{String}()
+    figure = Figure(size=(page_width, 400))
     for (row, (limit, names)) in enumerate(groups), (column, (drive, title)) in
                                                      enumerate(drive_panels)
         axis = Axis(figure[row, column];
             title=row == 1 ? title : "",
             xticks=(eachindex(route_names_seen), route_label.(route_names_seen)),
             yticks=(eachindex(names), names), yreversed=true,
-            ylabel=column == 1 ? "$limit-limited" : "",
+            limits=(0.5, length(route_names_seen) + 0.5, 0.5, length(names) + 0.5),
             yticklabelsvisible=column == 1, xticklabelsvisible=row == length(groups),
             xticklabelrotation=π / 4)
+        column == 1 && Label(figure[row, 0], "$limit-limited"; rotation=π / 2,
+            tellheight=false)
         for (i, route) in enumerate(route_names_seen), (k, name) in enumerate(names)
             savings = best_savings(table, name, route, drive)
             isempty(savings) && continue
             winner = argmax(savings)
             best = savings[winner]
-            colour = best > 0 ? (palette[findfirst(==(winner), kinds)], 0.35 + 0.65 *
-                                 min(best, 40) / 40) : (:gray, 0.25)
+            best > 0 && push!(winners, winner)
+            colour = best > 0 ? (palette[findfirst(==(winner), kinds)], 0.45 + 0.55 *
+                                 min(best, 40) / 40) : (:gray, 0.6)
             poly!(axis, Rect2f(i - 0.5, k - 0.5, 1, 1); color=colour)
-            text!(axis, i, k; text=typeset_minus(string(round(Int, best))),
+            text!(axis, i, k; text=typeset_minus(abs(best) < 1 ? @sprintf("%.1f", best) :
+                                                 string(round(Int, best))),
                 align=(:center, :center), fontsize=note_size)
         end
     end
+    colgap!(figure.layout, 1, pt(4))
     for (row, (_, names)) in enumerate(groups)
         rowsize!(figure.layout, row, Auto(length(names)))
     end
-    Legend(figure[length(groups) + 1, 1:length(drive_panels)],
-        [PolyElement(color=palette[j]) for j in 1:3], kinds; orientation=:horizontal)
+    shown = filter(in(winners), kinds)
+    Legend(figure[1, length(drive_panels), Top()],
+        [PolyElement(color=palette[findfirst(==(kind), kinds)]) for kind in shown], shown;
+        orientation=:horizontal, halign=:right, valign=:bottom, tellwidth=false,
+        margin=(0, 0, pt(2), 0))
     save(joinpath(figures, "winner_map.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1076,7 +1086,7 @@ function season_figure()
     for (k, name) in enumerate(names)
         row, column = fldmod1(k, 3)
         axis = Axis(figure[row, column]; title="($('a' + k - 1)) $(route_label(name))",
-            limits=((-0.3, 12), nothing),
+            limits=((-0.4, 12.4), nothing),
             xticks=((0:11) .+ 0.5, ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N",
                 "D"]), ylabel=column == 1 ? "cost saving [%]" : "")
         hlines!(axis, 0; color=:gray, linewidth=0.5)
@@ -1150,27 +1160,34 @@ end
     premium_figure()
 
 Share of the cost premium of an e-ammonia ship over a VLSFO ship without a rig that the
-best size of each rig closes, over ship length on the route to Guadeloupe.
+best size of each rig closes, over ship length on the route to Guadeloupe, as a marker with
+a bar over the shares at the corners of the ranges of the e-ammonia and VLSFO prices.
 """
 function premium_figure()
     designs = read_table(data_file("designs.csv"))
+    corners = [fuel_repriced(designs, Dict("ammonia" => ammonia, "vlsfo" => vlsfo))
+               for ammonia in (:low, :high), vlsfo in (:low, :high)]
     figure = Figure(size=(column_width, 165))
-    axis = Axis(figure[1, 1]; xlabel="waterline length [m]", xticks=85:25:200,
-        ylabel="fuel premium closed [%]")
     lengths = sort(unique(designs["length"]))
+    axis = Axis(figure[1, 1]; xlabel="waterline length [m]",
+        xticks=round.(Int, lengths), ylabel="cost premium closed [%]")
     ends = Float64[]
     for (k, (label, column_name)) in enumerate(rig_area_columns)
         shares = [premium_closed(designs, "ammonia", length, column_name)
                   for length in lengths]
         valid = isfinite.(shares)
-        scatterlines!(axis, lengths[valid], shares[valid]; color=palette[k])
+        bounds = [extrema(premium_closed(table, "ammonia", length, column_name)
+                          for table in corners) for length in lengths[valid]]
+        rangebars!(axis, lengths[valid] .+ 2.5(k - 2), first.(bounds), last.(bounds);
+            color=(palette[k], 0.6), whiskerwidth=pt(3))
+        scatter!(axis, lengths[valid] .+ 2.5(k - 2), shares[valid]; color=palette[k])
         push!(ends, last(shares[valid]))
     end
     for (k, (label, _)) in enumerate(rig_area_columns)
-        text!(axis, last(lengths), spread_labels(ends, 3.5)[k]; text=label,
-            color=palette[k], fontsize=note_size, align=(:left, :center), offset=(5, 0))
+        text!(axis, last(lengths) + 8, spread_labels(ends, 3.5)[k]; text=label,
+            color=palette[k], fontsize=note_size, align=(:left, :center))
     end
-    xlims!(axis, first(lengths) - 5, last(lengths) + 28)
+    xlims!(axis, first(lengths) - 8, last(lengths) + 30)
     ylims!(axis, 0, nothing)
     save(joinpath(figures, "premium.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -1185,6 +1202,25 @@ function premium_closed(designs, drive, length, column_name)
     fossil = best_cost(designs, "vlsfo", length, nothing)
     bare = best_cost(designs, drive, length, nothing)
     return 100 * (bare - best_cost(designs, drive, length, column_name)) / (bare - fossil)
+end
+
+"""
+    fuel_repriced(designs, bounds)
+
+`designs` with the cost of each row of a drive in `bounds`, a Dict of drive to `:low` or
+`:high`, at that bound of the price of its fuel.
+"""
+function fuel_repriced(designs, bounds)
+    price_names = Dict("ammonia" => :e_ammonia_price, "vlsfo" => :vlsfo_price)
+    function factor(drive)
+        haskey(bounds, drive) || return 1.0
+        price = assumptions.entries[price_names[drive]]
+        return getfield(price, bounds[drive]) / price.value
+    end
+    repriced = copy(designs)
+    repriced["cost"] = designs["cost"] .+
+                       designs["fuel_cost"] .* (factor.(designs["drive"]) .- 1)
+    return repriced
 end
 
 """
