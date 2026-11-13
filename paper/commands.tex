@@ -6,4 +6,8 @@
 \newcommand{\note}[1]{\ifnotes{\color{teal!70!black}\sffamily\small[#1]}\fi}
 \newcommand{\plot}[2][]{\IfFileExists{figures/#2.pdf}{\includegraphics[max width=\textwidth]{#2}}{\fbox{\parbox[c][3cm][c]{0.9\textwidth}{\centering\tbd{Figure \detokenize{#2} pending data.}}}}}
 \graphicspath{{figures/}}
+% \studyrun{name}: the run, fidelity and commit that made the method study name.
+\newcommand{\studyrunis}[2]{\expandafter\def\csname studyrun:#1\endcsname{#2}}
+\newcommand{\studyrun}[1]{\ifcsname studyrun:#1\endcsname\csname studyrun:#1\endcsname\else\tbd{study \detokenize{#1} not yet run}\fi}
+\InputIfFileExists{sections/study_runs}{}{}
 \input{sections/numbers}

@@ -54,7 +54,7 @@ forecast at every time where `:shortest_lead`, the real weather re-planned daily
 control forecast's waves with the real wind where `:wave_forecast`, its wind with the real
 waves where `:wind_forecast`, its waves and its wind in `plan.wind_band` [m/s]
 ([`ForecastParts`](@ref)) where `plan` has one, the plan of [`grid_plans`](@ref) made on
-[`planning_grid`](@ref) where `plan` is one of those, or the [`forecast_plans`](@ref)
+[`planning_grid`](@ref) where `plan` is one of those, or the [`write_forecast_plans`](@ref)
 entry `plan`.
 """
 forecast_source(plan) =
@@ -1191,16 +1191,41 @@ forecast_kite_margin = 0.2
 """
     forecast_plans_data()
 
-The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
-`ensemble_departures`, for each of the [`forecast_study_plans`](@ref), those of
-[`grid_plans`](@ref) on corridors of [`grid_spacing`](@ref): forecast_plans.csv;
-the share of its perfect-foresight saving each rig keeps per plan with the jackknife
-standard error over the departures: forecast_plans_kept.csv; and the launches and landings
-of a kite that flies in the weather met and of one held to the plan on three passages,
-forecast_rule.csv; and where those two kites differ on every passage of the kite ship:
+The forecast study: [`write_forecast_plans`](@ref) of each of the [`forecast_study_plans`](@ref)
+in forecast_plans.csv and forecast_plans_kept.csv; and the launches and landings of a kite
+that flies in the weather met and of one held to the plan on three passages,
+forecast_rule.csv, and where those two kites differ on every passage of the kite ship:
 forecast_rule_steps.csv.
 """
 function forecast_plans_data()
+    write_forecast_plans("forecast_plans", forecast_study_plans, true)
+    write_kite_rule_records("forecast_rule_steps.csv", "forecast_rule.csv",
+        ensemble_departures, ensemble_departures[begin:4:end])
+end
+
+"plans of the paper's forecast result: perfect foresight on the run's corridors and on the
+planning grid, and the plan the results use"
+forecast_result_plans = (false, :grid_perfect, :grid_expected)
+
+"""
+    forecast_result_data()
+
+The paper's forecast result: [`write_forecast_plans`](@ref) of each of the
+[`forecast_result_plans`](@ref) in forecast_result.csv and forecast_result_kept.csv.
+"""
+forecast_result_data() =
+    write_forecast_plans("forecast_result", forecast_result_plans, :grid_perfect)
+
+"""
+    write_forecast_plans(name, plans, control)
+
+The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
+`ensemble_departures`, for each of `plans`, those of [`grid_plans`](@ref) on corridors of
+[`grid_spacing`](@ref): `name`.csv; and the share of its perfect-foresight saving each rig
+keeps per plan with the jackknife standard error over the departures and its difference
+from plan `control`: `name`_kept.csv.
+"""
+function write_forecast_plans(name, plans, control)
     rigs = [("none", 0.0); reference_rigs]
     grid_corridors = route_corridors(:caribbean, mask; grid_spacing...)
     cases, trips = [], []
@@ -1208,15 +1233,14 @@ function forecast_plans_data()
         step_cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...);
                               forecast=plan, rig, plan=string(plan), departure,
                               paths=haskey(grid_plans, plan) ? grid_corridors : nothing)
-                          for (rig, area) in rigs, plan in forecast_study_plans
+                          for (rig, area) in rigs, plan in plans
                               if !(plan in kite_only_plans) || rig == "kite"])
         append!(cases, step_cases)
         append!(trips, round_trips(step_cases, [departure]))
     end
-    write_trips("forecast_plans.csv", cases, trips, :rig, :plan, :departure)
-    write_kept_shares("forecast_plans_kept.csv", cases, trips)
-    write_kite_rule_records("forecast_rule_steps.csv", "forecast_rule.csv",
-        ensemble_departures, ensemble_departures[begin:4:end])
+    write_trips("$name.csv", cases, trips, :rig, :plan, :departure)
+    write_kept_shares("$(name)_kept.csv", cases, trips, plans;
+        control_of=Returns(control))
 end
 
 "plans of the re-planning study, each as the `forecast` of its [`trip_case`](@ref)"
@@ -1529,7 +1553,7 @@ function forecast_replanning_data()
 end
 
 """
-    write_kept_shares(name, cases, trips, plans=forecast_study_plans;
+    write_kept_shares(name, cases, trips, plans;
                       control_of=Returns(true))
 
 Write `name`: per rig and plan of `plans` after the first, perfect foresight, the share
@@ -1537,7 +1561,7 @@ of the perfect-foresight saving kept, the ratio of the mean savings over the dep
 with its jackknife standard error and that of the difference from the plan
 `control_of(plan)`.
 """
-function write_kept_shares(name, cases, trips, plans=forecast_study_plans;
+function write_kept_shares(name, cases, trips, plans;
         control_of=Returns(true))
     n = length(ensemble_departures)
     open(run_file(name), "w") do io

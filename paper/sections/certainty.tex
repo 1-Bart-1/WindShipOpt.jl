@@ -18,28 +18,28 @@ No master knows the weather of the whole passage as the base router does (\cref{
 
 \begin{table}[tbp]
 \centering
-\caption{Share of the cost saving with perfect foresight on the draft's route grid that each rig keeps when re-planned every 24 hours on each plan, on the archived forecasts or, where the row says so, on the real weather, against the ship without a rig on the same plan, for the \SI{140}{m} e-ammonia ship to Guadeloupe, with its standard error over the departures [\%]. \tbd{Draft, 12 departures.}}
+\caption{Share of the cost saving with perfect foresight on the draft's route grid that each rig keeps when re-planned every 24 hours on each plan, on the archived forecasts or, where the row says so, on the real weather, against the ship without a rig on the same plan, for the \SI{140}{m} e-ammonia ship to Guadeloupe, with its standard error over the departures [\%]. \tbd{Draft, 12 departures.} Method study, \studyrun{forecast_plans}.}
 \label{tab:forecast_plans}
 \InputIfFileExists{sections/forecast_plans_table}{}{\tbd{Forecast plans table pending: run the forecast\_plans\_table step.}}
 \end{table}
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Share of the cost saving with perfect foresight each rig keeps per re-planning case, for the \SI{140}{m} e-ammonia ship to Guadeloupe on a route grid of \SI{90}{nmi} stages, against the ship without a rig on the same plan, with its standard error over the departures [\%], and the change from the plan the row names or, where it names none, from the operational forecasts about every 29 hours, paired per departure [points]. A plan changes at the first node 24, 12 or 6 hours after the last plan, about every 29, 18 and 10 hours as measured on three departures of the ship without a rig. \tbd{Draft, 12 departures.}}
+\caption{Share of the cost saving with perfect foresight each rig keeps per re-planning case, for the \SI{140}{m} e-ammonia ship to Guadeloupe on a route grid of \SI{90}{nmi} stages, against the ship without a rig on the same plan, with its standard error over the departures [\%], and the change from the plan the row names or, where it names none, from the operational forecasts about every 29 hours, paired per departure [points]. A plan changes at the first node 24, 12 or 6 hours after the last plan, about every 29, 18 and 10 hours as measured on three departures of the ship without a rig. \tbd{Draft, 12 departures.} Method study, \studyrun{forecast_replanning}.}
 \label{tab:forecast_replanning}
 \InputIfFileExists{sections/forecast_replanning_table}{}{\tbd{Forecast re-planning table pending: run the forecast\_replanning\_table step.}}
 \end{table}
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Hours and fuel of the kite ship per round trip with perfect foresight, re-planned every 24 hours on one forecast run, on several forecast members, and on one forecast run in a plan with the kite's wind limits 20\,\% tighter and its extra launch wind in a sea 20\,\% higher than the real ones, for the \SI{140}{m} e-ammonia ship to Guadeloupe, mean with standard error over the departures. Fast sailing is at 12 knots or more, which only a flying kite holds on this ship; ``possible'' says where the real weather let it hold and ``forecast'' where the forecast the ship planned on said it could, sample by sample and over edges where every sample allows it. On several members, what the plan wanted and what the forecast said are read on the first member. \tbd{Draft, 12 departures.}}
+\caption{Hours and fuel of the kite ship per round trip with perfect foresight, re-planned every 24 hours on one forecast run, on several forecast members, and on one forecast run in a plan with the kite's wind limits 20\,\% tighter and its extra launch wind in a sea 20\,\% higher than the real ones, for the \SI{140}{m} e-ammonia ship to Guadeloupe, mean with standard error over the departures. Fast sailing is at 12 knots or more, which only a flying kite holds on this ship; ``possible'' says where the real weather let it hold and ``forecast'' where the forecast the ship planned on said it could, sample by sample and over edges where every sample allows it. On several members, what the plan wanted and what the forecast said are read on the first member. \tbd{Draft, 12 departures.} Method study, \studyrun{forecast_hours}.}
 \label{tab:forecast_hours}
 \InputIfFileExists{sections/forecast_hours_table}{}{\tbd{Forecast hours table pending: run the forecast\_hours\_table step.}}
 \end{table}
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{Where each rig's cost saving goes when it is re-planned every 24 hours on one run of the archived forecasts, for the \SI{140}{m} e-ammonia ship to Guadeloupe, and the kite's excess over the wing sails and over the rotors, paired per departure, each with its standard error over the departures. Cost savings are against the ship without a rig on the same plan. Each block splits the loss by changing one thing at a time: the plan's course, then re-planning once a day, then its speed, then the kite's decision to fly (course first); re-planning, then speed and kite together, then the course (course last); re-planning, the forecast model against ERA5 at its shortest lead, then the error that grows with lead time; and, after re-planning, the wave and the wind forecast in both orders, the wind split with the waves first by whether the wind speed lies in the band near the kite's lowest flying wind. The last block is the kite's time near its limits on the forecasts per departure. The fixed course is the one the ship without a rig takes with perfect foresight. \tbd{Draft, 12 departures, in the earlier model with a fixed wave limit for a launch.}}
+\caption{Where each rig's cost saving goes when it is re-planned every 24 hours on one run of the archived forecasts, for the \SI{140}{m} e-ammonia ship to Guadeloupe, and the kite's excess over the wing sails and over the rotors, paired per departure, each with its standard error over the departures. Cost savings are against the ship without a rig on the same plan. Each block splits the loss by changing one thing at a time: the plan's course, then re-planning once a day, then its speed, then the kite's decision to fly (course first); re-planning, then speed and kite together, then the course (course last); re-planning, the forecast model against ERA5 at its shortest lead, then the error that grows with lead time; and, after re-planning, the wave and the wind forecast in both orders, the wind split with the waves first by whether the wind speed lies in the band near the kite's lowest flying wind. The last block is the kite's time near its limits on the forecasts per departure. The fixed course is the one the ship without a rig takes with perfect foresight. \tbd{Draft, 12 departures, in the earlier model with a fixed wave limit for a launch.} Method study, \studyrun{forecast_causes}.}
 \label{tab:forecast_causes}
 \InputIfFileExists{sections/forecast_causes_table}{}{\tbd{Forecast causes table pending: run the forecast\_causes\_table step.}}
 \end{table*}
@@ -47,7 +47,7 @@ No master knows the weather of the whole passage as the base router does (\cref{
 \begin{figure}[tbp]
 \centering
 \plot{forecast}
-\caption{Cost saving of a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails and \SI{800}{m^2} of rotors on the \SI{140}{m} e-ammonia ship to Guadeloupe, routed with perfect foresight and re-planned every 24 hours on several members of the archived GEFSv12 forecasts and on one forecast run, each against the ship without a rig routed the same way (a); and the root-mean-square error against ERA5 along the route of the bias-corrected forecast and of the weather of the same date in another year, by lead time, for the vector wind at 10~m (b) and the significant wave height (c). \tbd{Draft, 12 departures.}}
+\caption{Cost saving of a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails and \SI{800}{m^2} of rotors on the \SI{140}{m} e-ammonia ship to Guadeloupe, routed with perfect foresight on the corridor of the results and on the planning grid, and re-planned every 24 hours on the forecast plan of the results, which weighs the wind error of the archived GEFSv12 forecasts on that grid, each against the ship without a rig routed the same way (a); and the root-mean-square error against ERA5 along the route of the bias-corrected forecast and of the weather of the same date in another year, by lead time, for the vector wind at 10~m (b) and the significant wave height (c). \tbd{Draft, 12 departures.}}
 \label{fig:forecast}
 \end{figure}
 
@@ -68,7 +68,7 @@ How much the kite's handling in waves carries is shown apart, as it rests on a s
 
 \begin{table}[tbp]
 \centering
-\caption{The kite's cost saving per tonne-kilometre against the same ship without a rig and its share of the time at sea in the air, with the extra launch wind of \cref{eq:sea_wind} and with no sea effect on the launch, on e-ammonia, averaged over the six routes. \tbd{Draft run; the \SI{140}{m} ship over four routes, as the router found no passage on New York and Houston.}}
+\caption{The kite's cost saving per tonne-kilometre against the same ship without a rig and its share of the time at sea in the air, with the extra launch wind of \cref{eq:sea_wind} and with no sea effect on the launch, on e-ammonia, averaged over the six routes. \tbd{Draft run; the \SI{140}{m} ship over four routes, as the router found no passage on New York and Houston.} Method study, \studyrun{sea_effect}.}
 \label{tab:sea_effect}
 \InputIfFileExists{sections/sea_effect_table}{}{\tbd{Sea effect table pending: run the sea\_effect\_table step.}}
 \end{table}
