@@ -46,7 +46,7 @@
 \node[panel] at (90,50) {(b) One flight, in six steps};
 % #1 x, #2 y, #3 step, #4 badge colour, #5 text, #6 drawing
 \newcommand{\cyclestep}[6]{%
-  \begin{scope}[shift={(#1,#2)}, scale=0.74]
+  \begin{scope}[shift={(#1,#2)}, scale=0.74, every pic/.style={scale=0.74}]
     \pic at (0,0) {bow}; \pic at (0,0) {winch};
     #6
   \end{scope}
