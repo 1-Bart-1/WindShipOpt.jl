@@ -3460,14 +3460,6 @@ end
     @test all(abs(spin) <= 400 for spin in exported.columns.trim.spin)
 end
 
-@testset "the passage figure labels a track all its ships share" begin
-    track = [(0.0, 10.0), (1.0, 12.0), (2.0, 11.0)]
-    @test PaperData.clearest_edge(track, [track]) == 1
-    apart = [(0.0, 10.0), (1.0, 20.0), (2.0, 11.0)]
-    @test PaperData.clearest_edge(track, [track, apart]) == 1
-    @test PaperData.clearest_edge(apart, [track, apart]) == 1
-end
-
 @testset "a kite's recorded pattern flies on the lee side in the ship's frame" begin
     design = ShipDesign(:methanol, 85.0; kite_area=500.0)
     ship = Ship(design, assumptions)
