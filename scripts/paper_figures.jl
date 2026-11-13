@@ -636,7 +636,8 @@ function canopy_tension_figure()
     hlines!(force_axis, peak_force; color=category_colours[2], linestyle=:dot)
     lines!(force_axis, times, forces; color=palette[1])
     text!(force_axis, times[end], mean_force;
-        text="mean $(estimate_text(mean_force)) MN, $(estimate_text(tension(mean_force))) kN/m",
+        text=@sprintf("mean %s MN, %s kN/m", estimate_text(mean_force),
+            estimate_text(tension(mean_force))),
         fontsize=note_size, align=(:right, :top), color=category_colours[1],
         offset=clear_offset((:right, :top), pt(2)))
     text!(force_axis, times[1], peak_force;
@@ -855,7 +856,6 @@ function passage_figure()
     draw_land!(map_axis, mask)
     wind_scale = 0.3
     draw_wind!(map_axis, weather, departure + 24 * 6; scale=wind_scale)
-    wind_key!(map_axis, Point2f(-63, 51.5), 10, wind_scale, 3)
     first_path = first(first(legs)).path
     lines!(map_axis, great_circle(first_path[1], first_path[end])...; color=:black,
         linestyle=:dot, linewidth=0.8)
@@ -884,12 +884,28 @@ function passage_figure()
         end
     end
     linkxaxes!(panels...)
-    Legend(figure[2, 1:3],
+    legend = Legend(figure[2, 1:3],
         [[LineElement(; color=design_colours[i]) for i in eachindex(designs)];
          PolyElement(; color=(:grey, 0.55))], [collect(first.(designs)); "land"];
         orientation=:horizontal, tellwidth=false)
+    key_size = (10wind_scale + 2.8 * 3, 3) .+ 0.4
+    key = Axis(figure[2, 1:3]; tellwidth=false, tellheight=false,
+        limits=(-0.2, key_size[1] - 0.2, -0.2, key_size[2] - 0.2))
+    hidedecorations!(key)
+    hidespines!(key)
+    wind_key!(key, Point2f(0, 0), 10, wind_scale, 3)
     rowsize!(figure.layout, 1, Relative(0.64))
     rowgap!(figure.layout, 1, pt(4))
+    Makie.colorbuffer(figure)
+    key.width, key.height = key_size .* (widths(map_axis.scene.viewport[])[1] /
+                                         widths(map_axis.finallimits[])[1])
+    total, legend_width = widths(figure.scene.viewport[])[1],
+    widths(legend.layoutobservables.computedbbox[])[1]
+    legend.halign = (total - legend_width - pt(6) - key.width[]) / 2 /
+                    (total - legend_width)
+    Makie.colorbuffer(figure)
+    key.halign = (maximum(legend.layoutobservables.computedbbox[])[1] + pt(6)) /
+                 (total - key.width[])
     save_figure("passage", figure)
 end
 
@@ -2202,6 +2218,9 @@ end
 fuel_lines = [(:e_ammonia_price, :ammonia, "e-ammonia", :solid),
     (:e_methanol_price, :methanol, "e-methanol", (:dash, :loose))]
 
+"fuel prices [USD/GJ] ticked on the axes of [`fuel_figure`](@ref)"
+fuel_price_ticks = [30, 45, 60, 90, 120]
+
 """
     fuel_figure()
 
@@ -2214,7 +2233,8 @@ function fuel_figure()
     figure = Figure(size=(page_width, 240))
     axes = map(enumerate(situation_ships)) do (k, (ship, route, _))
         axis = Axis(figure[1, k]; title="($('a' + k - 1)) $ship, $(route_label(route))",
-            xscale=log10, ylabel=k == 1 ? "cost saving [%]" : "")
+            xscale=log10, xticks=fuel_price_ticks,
+            ylabel=k == 1 ? "cost saving [%]" : "")
         for (input, drive, label, linestyle) in fuel_lines
             values, savings = situation_savings(table, ship, route, drive, input)
             print_leaders("$ship, $label", input, log10.(values), savings, exp10)
@@ -2223,7 +2243,7 @@ function fuel_figure()
                     markersize=0.8marker_size)
             end
         end
-        prices = Axis(figure[2, k]; xscale=log10, xticks=[30, 45, 60, 90, 120],
+        prices = Axis(figure[2, k]; xscale=log10, xticks=fuel_price_ticks,
             xlabel="fuel price [USD/GJ], logarithmic", height=pt(14),
             limits=(nothing, (0.4, length(fuel_lines) + 0.6)), yticksvisible=false,
             yticklabelsvisible=false, bottomspinevisible=true, topspinevisible=false,
