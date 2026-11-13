@@ -721,8 +721,8 @@ function cargo_interest_figure()
     class_entries = [LineElement(; color=:black, linestyle=style)
                      for style in class_styles]
     Legend(figure[4, 1:2], [rig_entries, level_entries, class_entries],
-        [collect(rig_names), ["$(round(Int, 100rate.low)) %", "$(round(Int, 100rate.high)) %"],
-            collect(cargo_value_sweep.classes)],
+        [collect(rig_names), ["$(round(Int, 100bound)) %" for bound in (rate.low,
+                rate.high)], collect(cargo_value_sweep.classes)],
         ["rig", "discount rate (a)", "ship (b to d)"]; orientation=:horizontal,
         titleposition=:top, nbanks=3)
     save(joinpath(figures, "cargo_interest.pdf"), figure; pt_per_unit=print_scale)
@@ -1910,7 +1910,8 @@ function abatement_figure()
     end
     axislegend(panels[1, 2],
         [[LineElement(color=(palette[k], 0.6), linewidth=0.9),
-          MarkerElement(color=palette[k], marker=rig_markers[k])] for k in eachindex(rig_names)],
+          MarkerElement(color=palette[k], marker=rig_markers[k])]
+         for k in eachindex(rig_names)],
         collect(rig_names); position=:rt)
     key_areas = (200, 800, 3200, 12800)
     axislegend(panels[1, 1],
@@ -1920,7 +1921,7 @@ function abatement_figure()
     save(joinpath(figures, "abatement.pdf"), figure; pt_per_unit=print_scale)
 end
 
-"markers of the kite, wings and rotors in the order of `rig_names` where shape tells them apart"
+"markers of the kite, wings and rotors, in the order of `rig_names`, told apart by shape"
 rig_markers = (:circle, :rect, :utriangle)
 
 "marker size [figure units] of a rig of `area` [m²], growing with its logarithm"
