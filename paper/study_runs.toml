@@ -9,9 +9,9 @@ fidelity = "draft"
 run = "2026-11-09T1430"
 
 [convergence]
-commit = "1f29f42ef00580aee18e1d329d2bd26b11a6b69d"
+commit = "772a5eeaa45adc58012234c8d29921203e2bea95"
 fidelity = "draft"
-run = "2026-11-08T2358"
+run = "2026-11-13T1457"
 
 [forecast_causes]
 commit = "d76218057c13a5ff9859606eb48f3304ab48ccbb"
@@ -54,9 +54,9 @@ fidelity = "draft"
 run = "2026-11-10T1342"
 
 [size_search]
-commit = "1f6d721342815ad9c41d8b5274c4edf52da8375d"
+commit = "772a5eeaa45adc58012234c8d29921203e2bea95"
 fidelity = "draft"
-run = "2026-11-06T1552"
+run = "2026-11-13T1457"
 
 [speed_terms]
 commit = "2cd7c039d872c970cb7fe79ceb5656084dc87fc1"
