@@ -1710,7 +1710,7 @@ function breakdown_figure()
     cases = Tuple{String, String, Union{Nothing, String}}[("VLSFO", "vlsfo", nothing),
         ("e-ammonia", "ammonia", nothing)]
     for (rig, column) in rig_area_columns
-        push!(cases, ("e-ammonia + $rig", "ammonia", column))
+        push!(cases, ("e-ammonia + $(rig_label(rig))", "ammonia", column))
     end
     labels = first.(cases)
     figure = Figure(size=(page_width, 175))
@@ -1723,15 +1723,16 @@ function breakdown_figure()
             xlabel="cost [USD per 1000 tkm]", yticklabelsvisible=panel == 1)
         positions = repeat(eachindex(labels), outer=length(parts))
         stack = repeat(eachindex(parts), inner=length(labels))
-        barplot!(axis, positions, vec(values); stack, direction=:x, color=colours[stack])
+        barplot!(axis, positions, vec(values); stack, direction=:x, color=colours[stack],
+            width=0.56)
         totals = vec(sum(values; dims=2))
         bounds = [[sum(values[i, :] .* bound_factors(drive, bound))
                    for bound in (:low, :high)] for (i, (_, drive, _)) in enumerate(cases)]
-        rangebars!(axis, eachindex(labels), first.(bounds), last.(bounds); direction=:x,
-            color=:black, linewidth=pt(0.6), whiskerwidth=pt(3))
+        rangebars!(axis, eachindex(labels) .+ 0.39, first.(bounds), last.(bounds);
+            direction=:x, color=:black, linewidth=pt(0.6), whiskerwidth=pt(2.5))
         for (i, (k, case)) in enumerate(zip(found, cases))
             (isnothing(k) || isnothing(case[3])) && continue
-            text!(axis, last(bounds[i]), i;
+            text!(axis, totals[i], i;
                 text=square_metres("$(round(Int, designs[case[3]][k])) "),
                 align=(:left, :center), offset=(pt(3), 0), fontsize=note_size)
         end
