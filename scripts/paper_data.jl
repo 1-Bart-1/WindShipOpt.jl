@@ -71,7 +71,7 @@ forecast_source(plan) =
     plan === :wave_forecast ? ForecastParts(expected_forecast(), false, true) :
     plan === :wind_forecast ? ForecastParts(expected_forecast(), true, false) :
     haskey(grid_plans, plan) ? ReplannedForecast(forecast_source(grid_plans[plan]);
-        grid=planning_grid(), adapts=plan in live_plans ? :live : :nothing) :
+        grid=planning_grid(), adapts=get(live_plans, plan, :nothing)) :
     forecast_plans[plan]
 
 "the control forecast weighing its wind error ([`forecast_error`](@ref))"
@@ -1181,10 +1181,15 @@ forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite, :kite
 grid_plans = Dict(:grid_perfect => :perfect_replan, :grid => true,
     :grid_expected => :expected, :grid_wave_forecast => :wave_forecast,
     :grid_wind_forecast => :wind_forecast, :grid_expected_margin => :expected_margin,
-    :grid_perfect_live => :perfect_replan, :grid_live => :expected)
+    :grid_perfect_live => :perfect_replan, :grid_live => :expected,
+    :grid_perfect_live_to_go => :perfect_replan, :grid_live_to_go => :expected)
 
-"[`grid_plans`](@ref) whose ship sails live, choosing speed and kite hour by hour"
-live_plans = (:grid_perfect_live, :grid_live)
+"""
+[`grid_plans`](@ref) whose ship sails live, choosing speed and kite hour by hour, and how
+it values the passage beyond each edge, an `adapts` of [`ReplannedForecast`](@ref)
+"""
+live_plans = Dict(:grid_perfect_live => :live, :grid_live => :live,
+    :grid_perfect_live_to_go => :live_to_go, :grid_live_to_go => :live_to_go)
 
 "spacing of the stages and rows [nmi] of the corridors [`grid_plans`](@ref) sail"
 grid_spacing = (ocean_spacing=240.0, lateral_spacing=60.0)
@@ -1229,10 +1234,10 @@ forecast_result_data() =
 """
 plans of the live-sailing study: perfect foresight on the run's corridors, and the forecast
 result's plans with perfect foresight and on the forecast, each sailed holding the plan's
-speed and sailed live
+speed and sailed live, valuing what lies beyond an edge by the plan and by the cost to go
 """
 forecast_live_plans = (false, :grid_perfect, :grid_expected, :grid_perfect_live,
-    :grid_live)
+    :grid_live, :grid_perfect_live_to_go, :grid_live_to_go)
 
 """
     forecast_live_data()
