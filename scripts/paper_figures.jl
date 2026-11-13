@@ -7,7 +7,13 @@
 figures = mkpath(joinpath(root, "paper", "figures"))
 polars = joinpath(root, "data", "kite_polars")
 aspect_ratios = (3, 5, 8)
+"colours of the kite, wings and rotors, in the order of `rig_names`, then of the VTOL kite"
 palette = Makie.wong_colors()
+"colours of what is not a rig, none of them a rig's"
+category_colours = [palette[6], palette[4], palette[5], Makie.RGBf(0.55, 0.47, 0.0), :black,
+    :gray55]
+"`n` shades of the kite's blue, light to dark"
+kite_shades(n) = cgrad(:Blues, n + 2; categorical=true)[3:end]
 column_width = 334
 page_width = 522
 # points per figure unit, so that a page-wide figure is the 468 pt text width
@@ -38,6 +44,7 @@ set_theme!(fontsize=text_size, linewidth=line_width, markersize=marker_size,
         titlefont=:regular, titlealign=:left, titlegap=pt(3), spinewidth=rule_width,
         xtickwidth=rule_width, ytickwidth=rule_width, xticksize=pt(2.5),
         yticksize=pt(2.5), xlabelpadding=pt(2), ylabelpadding=pt(3)),
+    Arrows2D=(; shaftwidth=pt(1), tipwidth=pt(3.2), tiplength=pt(4)),
     Colorbar=(; spinewidth=rule_width, tickwidth=rule_width, ticksize=pt(2.5)),
     Legend=(; backgroundcolor=:white, framecolor=:gray55, framewidth=rule_width,
         titlefont=:regular, patchsize=(pt(11), pt(6)), patchlabelgap=pt(3), rowgap=0,
@@ -75,8 +82,8 @@ function kite_geometry_figure()
         hidespines!(axis)
         outline = [Point2f.(geometry["le_y"], geometry["le_x"]);
             Point2f.(reverse(geometry["te_y"]), reverse(geometry["te_x"]))]
-        poly!(axis, outline; color=(palette[i], 0.8), strokecolor=:black,
-            strokewidth=0.8)
+        poly!(axis, outline; color=kite_shades(length(aspect_ratios))[i],
+            strokecolor=:black, strokewidth=0.8)
         span = maximum(geometry["le_y"]) - minimum(geometry["le_y"])
         text!(axis, 0, maximum(last.(chords)) + 0.6;
             text="span $(round(span; digits=1)) m", align=(:center, :top),
@@ -96,12 +103,13 @@ function polar_figure()
     lift = Axis(figure[1, 1]; xlabel="angle of attack [°]", ylabel="lift coefficient")
     drag = Axis(figure[1, 2]; xlabel="angle of attack [°]", ylabel="drag coefficient")
     glide = Axis(figure[1, 3]; xlabel="angle of attack [°]", ylabel="lift over drag")
+    shades = kite_shades(length(aspect_ratios))
     for (i, aspect_ratio) in enumerate(aspect_ratios)
         polar = read_table(joinpath(polars, "kite_ar$aspect_ratio.csv"))
         label = "AR $aspect_ratio"
-        lines!(lift, polar["alpha"], polar["cl"]; color=palette[i])
-        lines!(drag, polar["alpha"], polar["cd"]; color=palette[i], label)
-        lines!(glide, polar["alpha"], polar["cl"] ./ polar["cd"]; color=palette[i])
+        lines!(lift, polar["alpha"], polar["cl"]; color=shades[i])
+        lines!(drag, polar["alpha"], polar["cd"]; color=shades[i], label)
+        lines!(glide, polar["alpha"], polar["cl"] ./ polar["cd"]; color=shades[i])
     end
     axislegend(drag; position=:lt)
     save(joinpath(figures, "polars.pdf"), figure; pt_per_unit=print_scale)
@@ -127,8 +135,9 @@ function wind_load_figure()
     for (i, name) in enumerate(wind_load_classes)
         windage = WindShipOpt.Windage(classes[name], assumptions)
         coefficients = WindShipOpt.wind_coefficients.(Ref(windage), deg2rad.(angles))
-        lines!(longitudinal, angles, first.(coefficients); color=palette[i], label=name)
-        lines!(side, angles, last.(coefficients); color=palette[i])
+        lines!(longitudinal, angles, first.(coefficients); color=category_colours[i],
+            label=name)
+        lines!(side, angles, last.(coefficients); color=category_colours[i])
     end
     Legend(figure[1, 3], longitudinal)
     save(joinpath(figures, "wind_load.pdf"), figure; pt_per_unit=print_scale)
@@ -175,7 +184,7 @@ function pattern_figure()
         for (k, (column, label)) in enumerate((("thrust", "thrust"),
             ("side", "side force")))
             scatterlines!(thrust, forces["course"][chosen], forces[column][chosen] ./ 1e3;
-                color=palette[k], label)
+                color=category_colours[k], label)
         end
         row == 1 && Legend(figure[3, 2], thrust; orientation=:horizontal)
     end
@@ -195,17 +204,17 @@ pressure that force implies over the canopy, and a cell whose skin carries the t
 """
 function draw_force_balance!(axis, area, force, radius)
     pressure = force / area
-    style = (shaftwidth=1.5, tipwidth=7, tiplength=7)
+    style = (shaftwidth=1.5)
     arc(centre, reach, sweep) = [centre .+ reach .* (cos(angle), sin(angle))
                                  for angle in sweep]
     lines!(axis, arc((0.0, -1.0), 2.0, range(π / 4, 3π / 4; length=40)); color=:black,
         linewidth=2)
     wedge = [(x, sqrt(4 - x^2) - 1.0) for x in range(-1.2, 1.2; length=5)]
-    arrows2d!(axis, first.(wedge), last.(wedge), zeros(5), fill(0.4, 5); color=palette[2],
-        style...)
-    arrows2d!(axis, [0.0], [0.8], [0.0], [-2.3]; color=palette[1], style...)
+    arrows2d!(axis, first.(wedge), last.(wedge), zeros(5), fill(0.4, 5);
+        color=category_colours[1])
+    arrows2d!(axis, [0.0], [0.8], [0.0], [-2.3]; color=palette[1])
     text!(axis, 0.0, 1.5; text=L"p = F/A = %$(round(Int, pressure))\,\mathrm{N/m^2}",
-        align=(:center, :bottom), color=palette[2])
+        align=(:center, :bottom), color=category_colours[1])
     text!(axis, -0.35, -0.9;
         text=L"F = %$(round(force / 1e6; digits=1))\,\mathrm{MN}", align=(:right, :bottom),
         color=palette[1])
@@ -219,20 +228,20 @@ function draw_force_balance!(axis, area, force, radius)
         linewidth=2)
     lines!(axis, [left, (left[1], -1.3)]; color=:gray60, linewidth=2)
     lines!(axis, [right, (right[1], -1.3)]; color=:gray60, linewidth=2)
-    arrows2d!(axis, [centre[1]], [centre[2]], [0.0], [reach]; color=:gray40, style...)
+    arrows2d!(axis, [centre[1]], [centre[2]], [0.0], [reach]; color=:gray40)
     text!(axis, centre[1], -1.05; text=L"R = %$(round(radius; digits=1))\,\mathrm{m}",
         align=(:center, :center))
     for (corner, side) in ((left, 1), (right, -1))
         arrows2d!(axis, [corner[1]], [corner[2]], [0.8side * sin(opening)],
-            [0.8cos(opening)]; color=palette[3], style...)
+                [0.8cos(opening)]; color=category_colours[2])
     end
     tension = round(Int, pressure * radius)
     text!(axis, centre[1], 1.25; text=L"T = p\,R = %$(tension)\,\mathrm{N/m}",
-        align=(:center, :bottom), color=palette[3])
+        align=(:center, :bottom), color=category_colours[2])
     text!(axis, left[1] - 0.1, -0.8; text="rib", fontsize=note_size, align=(:right,
         :center),
         color=:gray40)
-    arrows2d!(axis, [1.9], [0.3], [0.8], [0.0]; color=:gray60, style...)
+    arrows2d!(axis, [1.9], [0.3], [0.8], [0.0]; color=:gray60)
     hidedecorations!(axis)
     hidespines!(axis)
 end
@@ -273,15 +282,15 @@ function canopy_tension_figure()
     ylims!(force_axis, lowest, highest)
     ylims!(cloth_axis, tension(lowest), tension(highest))
     lines!(force_axis, times, forces; color=palette[1])
-    hlines!(force_axis, mean_force; color=palette[2], linestyle=:dash)
-    hlines!(force_axis, peak_force; color=palette[3], linestyle=:dot)
+    hlines!(force_axis, mean_force; color=category_colours[1], linestyle=:dash)
+    hlines!(force_axis, peak_force; color=category_colours[2], linestyle=:dot)
     text!(force_axis, times[end], mean_force;
         text=@sprintf("mean %.2f MN, %.2f kN/m", mean_force, tension(mean_force)),
-        fontsize=note_size, align=(:right, :top), color=palette[2])
+        fontsize=note_size, align=(:right, :top), color=category_colours[1])
     text!(force_axis, times[1], peak_force;
         text=@sprintf("peak %.2f MN, %.2f kN/m\nnew cloth %.0f kN/m, %.0f × peak",
             peak_force, tension(peak_force), strength, strength / tension(peak_force)),
-        fontsize=note_size, align=(:left, :bottom), color=palette[3])
+        fontsize=note_size, align=(:left, :bottom), color=category_colours[2])
     colsize!(figure.layout, 1, Relative(0.52))
     save(joinpath(figures, "canopy_tension.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -419,13 +428,13 @@ function route_figure()
                     color=:black, linestyle=:dot, linewidth=0.8)
                 for (leg, style) in ((out, :solid), (back, :dash))
                     scatterlines!(axis, track_points(leg.path);
-                        color=k == 1 ? (:black, 0.6) : palette[i], linestyle=style,
+                        color=k == 1 ? (:black, 0.6) : category_colours[i], linestyle=style,
                         linewidth=k == 1 ? 0.8 : 1.5, markersize=k == 1 ? 2 : 3)
                 end
             end
         end
     end
-    entries = [[LineElement(color=palette[i])
+    entries = [[LineElement(color=category_colours[i])
                 for i in eachindex(route_names)]; LineElement(color=(:black, 0.6),
         linewidth=0.8); LineElement(color=:black, linestyle=:dot, linewidth=0.8)]
     names = [[route_label(name) * " + kite" for name in route_names]; "no rig";
@@ -460,11 +469,12 @@ end
 
 One winter outbound passage to Guadeloupe of a 140 m e-ammonia ship without a rig and
 with each rig: the routed tracks through the corridor's nodes over the 10 m wind six days
-after departure, each labelled with the ships that take it, and the speed, rig thrust and
+after departure, each in the colour of its ship, and the speed, rig thrust and
 fuel power at each sample of the passage.
 """
 function passage_figure()
     designs, legs = figure_passages()
+    design_colours = [:black; palette[eachindex(rig_names)]]
     departure = departures[1]
     figure = Figure(size=(page_width, 360))
     map_axis = Axis(figure[1, 1:2]; aspect=DataAspect(), limits=(-64, 6, 13, 54),
@@ -475,17 +485,11 @@ function passage_figure()
     lines!(map_axis, great_circle(first_path[1], first_path[end])...; color=:black,
         linestyle=:dot, linewidth=0.8)
     tracks = [track_points(leg.path) for (leg, _) in legs]
-    for track in unique(tracks)
-        sharing = [replace(first(designs[i]), r" \d+ m²" => "") for i in eachindex(tracks)
-                   if tracks[i] == track]
-        scatterlines!(map_axis, track; color=:black, markersize=pt(3))
-        edge = clearest_edge(track, unique(tracks))
-        middle = edge_middle(track, edge)
-        north = middle[2] == maximum(edge_middle(other, edge)[2] for other in tracks)
-        text!(map_axis, middle; text=join(sharing, ", "),
-            align=(:center, north ? :bottom : :top), offset=(0, north ? 5 : -5),
-            glowcolor=(:white, 0.9), glowwidth=3)
+    for (i, track) in enumerate(tracks)
+        lines!(map_axis, track; color=design_colours[i],
+            linewidth=pt(1 + 0.9(length(tracks) - i)))
     end
+    scatter!(map_axis, unique(reduce(vcat, tracks)); color=:black, markersize=pt(2.5))
     labels = ("speed [kn]", "rig thrust [kN]", "fuel power [MW]")
     titles = ("(b) speed through the water", "(c) rig thrust", "(d) fuel power")
     panels = [Axis(figure[2, column]; ylabel=labels[column], title=titles[column],
@@ -499,7 +503,8 @@ function passage_figure()
         thrust = [value >= 5e3 ? value / 1e3 : NaN for value in trace.rig_thrust]
         for (panel, values) in zip(panels, (trace.speed ./ KNOT, thrust,
             trace.fuel_power ./ 1e6))
-            stairs!(panel, trace.time ./ 24, values; step=:post, color=palette[i], label)
+            stairs!(panel, trace.time ./ 24, values; step=:post, color=design_colours[i],
+                label)
         end
     end
     linkxaxes!(panels...)
@@ -763,7 +768,7 @@ function tow_point_figure()
         axis = Axis(figure[1, column]; title, xlabel="against the bow [% points]",
             yticks=(eachindex(names), names), yreversed=true,
             yticklabelsvisible=column == 1)
-        vlines!(axis, 0; color=palette[1], linewidth=0.8)
+        vlines!(axis, 0; color=:gray50, linewidth=0.8)
         savings = [tow_point_savings(table, name, route, measure)
                    for name in names, route in routes_seen]
         markers = measure == "cost" ? tow_point_markers : tow_point_markers[1:3]
@@ -771,8 +776,8 @@ function tow_point_figure()
             values = [saving[tow] - saving["bow"] for saving in savings[i, :]]
             y = i + (j - 2) * 0.22
             rangebars!(axis, [y], [minimum(values)], [maximum(values)]; direction=:x,
-                color=(palette[j + 1], 0.6))
-            scatter!(axis, [mean(values)], [y]; color=palette[j + 1],
+                color=(category_colours[j], 0.6))
+            scatter!(axis, [mean(values)], [y]; color=category_colours[j],
                 label=i == 1 && column == 2 ? label : nothing)
         end
         print_tow_point(measure, names, savings, markers)
@@ -956,10 +961,13 @@ function fleet_band_label(share, billions)
     return @sprintf("%.0f%%\n%.*f bn", share, billions < 10 ? 1 : 0, billions)
 end
 
+"fill of what the kite and rotors share: the kite's colour hatched with the rotors'"
+kite_and_rotors_fill() = Pattern("/"; backgroundcolor=(palette[1], 0.35),
+    linecolor=(palette[3], 0.9), width=1.5, tilesize=(6, 6))
+
 "colours of the [`fleet_bands`](@ref): those of the rigs, level hatched, none grey"
 fleet_colours() = Dict("kite" => palette[1], "wings" => palette[2], "rotors" => palette[3],
-    "level" => Pattern("/"; backgroundcolor=(palette[1], 0.35),
-        linecolor=(palette[3], 0.9), width=1.5, tilesize=(6, 6)),
+    "level" => kite_and_rotors_fill(),
     "none" => RGBf(0.8, 0.8, 0.8))
 
 """
@@ -1191,6 +1199,7 @@ function breakdown_figure()
         "interest_cost"]
     names = ["fuel", "kite wear", "port", "crew", "capital and maintenance",
         "cargo interest"]
+    colours = [:gray30, palette[1], :gray75, palette[4], :gray55, palette[6]]
     cases = Tuple{String, String, Union{Nothing, String}}[("VLSFO", "vlsfo", nothing),
         ("e-ammonia", "ammonia", nothing)]
     for (rig, column) in rig_area_columns
@@ -1207,7 +1216,7 @@ function breakdown_figure()
             xlabel="cost [USD per 1000 tkm]", yticklabelsvisible=panel == 1)
         positions = repeat(eachindex(labels), outer=length(parts))
         stack = repeat(eachindex(parts), inner=length(labels))
-        barplot!(axis, positions, vec(values); stack, direction=:x, color=palette[stack])
+        barplot!(axis, positions, vec(values); stack, direction=:x, color=colours[stack])
         totals = vec(sum(values; dims=2))
         for (i, (k, case)) in enumerate(zip(found, cases))
             (isnothing(k) || isnothing(case[3])) && continue
@@ -1216,7 +1225,7 @@ function breakdown_figure()
         end
         xlims!(axis, 0, 1.2maximum(totals))
     end
-    Legend(figure[2, 1:2], [PolyElement(color=palette[i]) for i in eachindex(parts)], names;
+    Legend(figure[2, 1:2], [PolyElement(; color) for color in colours], names;
         orientation=:horizontal)
     rowgap!(figure.layout, 1, 6)
     save(joinpath(figures, "breakdown.pdf"), figure; pt_per_unit=print_scale)
@@ -1255,7 +1264,7 @@ function cargo_cost_figure()
     groups = limit_groups(table)
     figure = Figure(size=(page_width, 235))
     largest = maximum(length.(last.(groups)))
-    for (column, (limit, names)) in enumerate(groups)
+    axes = map(enumerate(groups)) do (column, (limit, names))
         axis = Axis(figure[1, column]; title="($(Char('a' + column - 1))) $limit-limited",
             xlabel="cost saving [%]",
             yticks=(eachindex(names), names), yreversed=true,
@@ -1269,11 +1278,11 @@ function cargo_cost_figure()
         end
         vlines!(axis, 0; color=:gray, linewidth=0.5)
         xlims!(axis, 0, nothing)
+        return axis
     end
-    Legend(figure[1, 2], [PolyElement(color=palette[1]), PolyElement(color=palette[2]),
+    axislegend(last(axes), [PolyElement(color=palette[1]), PolyElement(color=palette[2]),
             PolyElement(color=palette[3]), PolyElement(color=(:gray40, 0.3))],
-        ["kite", "wings", "rotors", "lost to displaced cargo"]; tellwidth=false,
-        tellheight=false, halign=:right, valign=:bottom)
+        ["kite", "wings", "rotors", "lost to displaced cargo"]; position=:rb)
     save(joinpath(figures, "cargo_cost.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1420,10 +1429,12 @@ function capital_figure()
         xticks=0:10:40)
     positions = repeat(eachindex(labels), outer=3)
     stack = repeat(1:3, inner=length(labels))
-    barplot!(axis, positions, vec(values); stack, direction=:x, color=palette[stack])
-    names = ["hull and basic drive", "e-ammonia engine", "rig"]
-    axislegend(axis, [PolyElement(color=palette[i]) for i in 1:3], names;
-        position=:rt)
+    rig_colours = repeat([:gray; :gray; palette[eachindex(rig_names)]], 2)
+    colours = [[:gray55 for _ in labels]; [palette[6] for _ in labels]; rig_colours]
+    barplot!(axis, positions, vec(values); stack, direction=:x, color=colours)
+    names = ["hull and basic drive", "e-ammonia engine", "rig, in its colour"]
+    axislegend(axis, [PolyElement(color=:gray55), PolyElement(color=palette[6]),
+            PolyElement(color=:gray80)], names; position=:rt)
     save(joinpath(figures, "capital.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1635,8 +1646,8 @@ function aspect_figure()
         bare = table["cost"][only(filter(row -> table["aspect_ratio"][row] == 0, chosen))]
         kites = filter(row -> table["aspect_ratio"][row] > 0, chosen)
         savings = percent_saving.(table["cost"][kites], bare)
-        scatterlines!(axis, table["aspect_ratio"][kites], savings; color=palette[k],
-            label=ship)
+        scatterlines!(axis, table["aspect_ratio"][kites], savings;
+            color=category_colours[k], label=ship)
     end
     Legend(figure[2, 1], axis; orientation=:horizontal, nbanks=2)
     save(joinpath(figures, "aspect.pdf"), figure; pt_per_unit=print_scale)
@@ -1680,10 +1691,10 @@ function force_rating_figure()
             savings = [best_force_rating_saving(table, ship, rating,
                            rating == reference ? base : exponent, areas, bare)
                        for rating in ratings]
-            lines!(axis, ratings, savings; color=palette[k], linestyle)
+            lines!(axis, ratings, savings; color=category_colours[k], linestyle)
         end
     end
-    ship_entries = [LineElement(color=palette[k]) for k in eachindex(ships)]
+    ship_entries = [LineElement(color=category_colours[k]) for k in eachindex(ships)]
     law_entries = [LineElement(; color=:black, linestyle)
                    for (_, linestyle, _) in laws]
     Legend(figure[2, 1], [ship_entries, law_entries], [ships, collect(last.(laws))],
@@ -1801,7 +1812,7 @@ function abatement_figure()
             xlabel=row == 2 ? "fuel energy saved [%]" : "",
             ylabel=column == 1 ? "cost change [%]" : "",
             xticklabelsvisible=row == 2)
-        hspan!(axis, -100, 0; color=(palette[3], 0.08))
+        hspan!(axis, -100, 0; color=(:gray, 0.08))
         hlines!(axis, 0; color=:gray50, linewidth=0.6)
         for (k, rig) in enumerate(rig_names)
             chosen = rows(table, "ship" => name, "drive" => drive, "rig" => rig)
@@ -1822,8 +1833,8 @@ function abatement_figure()
         limits = [abatement_limits(table, name, drive, only(rows(table, "ship" => name,
             "drive" => drive, "rig" => "none"))) for (name, _) in abatement_ships]
         for axis in panels[:, column]
-            limits!(axis, 0, 1.08 * maximum(saved_all), minimum(first.(limits)),
-                maximum(last.(limits)))
+            limits!(axis, min(0, 1.08 * minimum(saved_all)), 1.08 * maximum(saved_all),
+                minimum(first.(limits)), maximum(last.(limits)))
         end
     end
     Legend(figure[3, :], panels[1, 1]; orientation=:horizontal)
@@ -1858,7 +1869,7 @@ function development_panel!(axis, table, ships, levers, rig, column)
         isfinite(low + high) || continue
         y = k + (2 - j) * 0.27
         barplot!(axis, [y], [high - low]; offset=low, direction=:x, width=0.22,
-            color=palette[j])
+            color=category_colours[j])
         scatter!(axis, [high], [y]; marker=:vline, color=:black, markersize=pt(7))
     end
 end
@@ -1896,7 +1907,7 @@ function sensitivity_figure()
         rowsize!(figure.layout, row, Auto(length(levers)))
     end
     Legend(figure[length(rig_names) + 1, 1:2],
-        [[PolyElement(color=palette[j]) for j in eachindex(ships)];
+        [[PolyElement(color=category_colours[j]) for j in eachindex(ships)];
             [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
         [short_ship.(ships); "high end of range"]; orientation=:horizontal, tellwidth=false)
     save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
@@ -1919,14 +1930,16 @@ function forecast_figure()
     figure = Figure(size=(page_width, 200))
     axis = Axis(figure[1, 1]; xticks=(1:3, ["kite", "wings", "rotors"]),
         ylabel="cost saving [%]", title="(a) saving")
+    plan_alphas = (1.0, 0.6, 0.3)
     for (j, (plan, _)) in enumerate(forecast_figure_plans)
         savings = [forecast_saving(table, rig, plan) for rig in rig_names]
         positions = (1:3) .+ (j - 2) * 0.27
         routed = isfinite.(savings)
-        barplot!(axis, positions[routed], savings[routed]; width=0.25, color=palette[j])
+        barplot!(axis, positions[routed], savings[routed]; width=0.25,
+            color=[(palette[rig], plan_alphas[j]) for rig in findall(routed)])
         unrouted = count(.!routed)
         text!(axis, positions[.!routed], zeros(unrouted); text=fill("none", unrouted),
-            rotation=pi / 2, align=(:left, :center), fontsize=note_size, color=palette[j])
+            rotation=pi / 2, align=(:left, :center), fontsize=note_size, color=:gray30)
     end
     errors = read_table(data_file("forecast_error.csv"))
     for (column, (quantity, unit)) in enumerate((("wind", "m/s"), ("height", "m")))
@@ -1939,7 +1952,7 @@ function forecast_figure()
             color=:gray50, linestyle=:dash)
         ylims!(panel, 0, nothing)
     end
-    Legend(figure[2, 1:3], [[PolyElement(color=palette[j]) for j in 1:3];
+    Legend(figure[2, 1:3], [[PolyElement(color=(:gray25, alpha)) for alpha in plan_alphas];
             LineElement(color=:black); LineElement(color=:gray50, linestyle=:dash)],
         [last.(forecast_figure_plans)...; "archived forecast"; "same date in another year"];
         orientation=:horizontal, nbanks=2)
@@ -1963,7 +1976,7 @@ end
 "rigs of the combination figure with their legend labels and colours"
 combination_rigs = (("kite", "best kite", palette[1]),
     ("rotors", "best rotors", palette[3]),
-    ("kite+rotors", "best kite and rotors together", palette[4]))
+    ("kite+rotors", "best kite and rotors together", kite_and_rotors_fill()))
 
 """
     combination_figure()
@@ -1998,7 +2011,7 @@ function combination_figure()
             range_bar!(saving_axis, group + 0.27(k - 2), values, 0.25, colour)
         end
         gains = pair_gain.(savings)
-        range_bar!(gain_axis, group, gains, 0.4, palette[4])
+        range_bar!(gain_axis, group, gains, 0.4, kite_and_rotors_fill())
         print_combination(ship, drive, savings, gains)
     end
     @printf("  noise of the extra saving %.2f points, %.2f to %.2f by design\n",
@@ -2122,7 +2135,8 @@ function rigid_scaling_figure()
         exponent = kind == "rigid" ? base_exponent : 0.0
         chosen = rows(table, "kind" => kind, "area" => area, "exponent" => exponent)
         lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
-            color=palette[k], label="$(paper_name(kind)) $(round(Int, area)) m²")
+            color=kind == "soft" ? palette[1] : category_colours[k],
+            label="$(paper_name(kind)) $(round(Int, area)) m²")
     end
     series = [("rigid", base_exponent, :solid), ("rigid", 3.0, :dash), ("rigid", 3.3, :dot),
         ("soft", 0.0, :solid)]
@@ -2134,7 +2148,7 @@ function rigid_scaling_figure()
         annual_per_thrust = 1e3 .* table["annual"][at_twelve] ./ table["thrust"][at_twelve]
         label = kind == "soft" ? "soft kite" :
                 L"%$(paper_name(kind)), $\kappa = %$(exponent)$"
-        colour = kind == "soft" ? palette[5] : palette[1]
+        colour = kind == "soft" ? palette[1] : palette[4]
         lines!(price_axis, areas, per_thrust; linestyle, label, color=colour)
         lines!(annual_axis, areas, annual_per_thrust; linestyle, color=colour)
         kind == "rigid" && lines!(wind_axis, areas, table["lowest_wind"][at_twelve];
@@ -2242,7 +2256,7 @@ function canopy_price_figure()
         ("goal, today's cloth", WindShipOpt.with_today(assumptions, cloth_inputs)),
         ("goal", assumptions)]
     parts = ("cloth", "sewing, lines, hardware", "market margin")
-    part_colors = [palette[1], palette[2], :gray60]
+    part_colors = [palette[1], palette[5], :gray60]
     for (row, (label, inputs)) in enumerate(cases)
         making = inputs[:canopy_making_cost_per_area]
         cost = WindShipOpt.Canopy(inputs).cost_per_area
@@ -2305,8 +2319,10 @@ function min_wind_figure()
             lift=assumptions[:kite_launch_margin] * lift_off,
             launch=WindShipOpt.launch_min_wind(model, tether_mass, assumptions))
     end
-    curves = ((:launch, "launch", :black, 2.5), (:lift, "lift-off", palette[2], 1.2),
-        (:climb, "climb", palette[1], 1.2), (:cross, "crosswind", palette[3], 1.2))
+    curves = ((:launch, "launch", :black, 2.5),
+        (:lift, "lift-off", category_colours[1], 1.2),
+        (:climb, "climb", category_colours[2], 1.2),
+        (:cross, "crosswind", category_colours[3], 1.2))
     for (key, label, color, linewidth) in curves
         lines!(axis, areas, getindex.(winds, key); color, linewidth, label)
     end
@@ -2420,8 +2436,8 @@ function rigid_mass_figure()
     scatter!(axis, [anchor_area], [anchor_mass]; color=:black, marker=:diamond,
         markersize=8, label="MX2 design")
     with_rotors = published["rotors"] .== "true"
-    for (chosen, color, label) in ((with_rotors, palette[1], "with propellers"),
-        (.!with_rotors, palette[2], "without propellers"))
+    for (chosen, color, label) in ((with_rotors, category_colours[1], "with propellers"),
+        (.!with_rotors, category_colours[2], "without propellers"))
         rangebars!(axis, published["area"][chosen], published["mass_low"][chosen],
             published["mass_high"][chosen]; color)
         scatter!(axis, published["area"][chosen], (published["mass_low"][chosen] .+

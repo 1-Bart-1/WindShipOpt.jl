@@ -69,7 +69,7 @@
 \pipebox{table}{0}{-70}{routec}{8}{Performance table}{required thrust over speed, wind and waves, \S\ref{sec:routing}}{grid}
 \node[box, routec, minimum width=68mm] (router) at (56,-70) {};
 \node[boxtext, text width=40mm, font=\footnotesize\bfseries] at ([shift={(2.5,-2)}]router.north west) {Weather router};
-\node[boxtext, text width=52mm] at ([shift={(2,-7)}]router.north west) {sails tracks and speeds through the corridor, with fuel from propeller and engine, and keeps the cheapest voyage (fuel, price of time, kite launches and wear), giving its route, fuel and hours, \S\ref{sec:routing}};
+\node[boxtext, text width=52mm] at ([shift={(2,-6)}]router.north west) {sails tracks and speeds through the corridor, with fuel from propeller and engine, and keeps the cheapest voyage (fuel, price of time, kite launches and wear), giving its route, fuel and hours, \S\ref{sec:routing}};
 \pic[scale=0.85] at ([shift={(-6,-5.2)}]router.north east) {route};
 \node[stepnum] at (router.north west) {9};
 \pipebox{cost}{123}{-70}{moneyc}{10}{Cost per tonne-km}{all departures: fuel, capital, crew, ports, wear, cargo interest, \S\ref{sec:cost_model}}{costbar}
