@@ -39,39 +39,40 @@
   pages/.pic={\draw[fill=white] (-3,-3.5) rectangle (2,3); \draw[fill=white] (-2,-2.5) rectangle (3,4);
     \foreach \y in {2.5,1.5,0.5,-0.5,-1.5} \draw[guide] (-1.4,\y) -- (2.4,\y);},
 ]
-% #1 name, (#2,#3) centre, #4 kind, #5 step, #6 title, #7 what it does, #8 picture
-\newcommand{\pipebox}[8]{%
-  \node[#4 box, minimum width=33mm, minimum height=26mm] (#1) at (#2,#3) {};
+% #1 name, (#2,#3) centre, #4 kind, #5 step, #6 title, #7 what it does, #8 picture,
+% #9 height [mm]
+\newcommand{\pipebox}[9]{%
+  \node[#4 box, minimum width=33mm, minimum height=#9mm] (#1) at (#2,#3) {};
   \node[step number] at ([shift={(2.8,-2.8)}]#1.north west) {#5};
   \node[box title, anchor=north west, text width=17mm] at ([shift={(5.8,-1.3)}]#1.north west) {#6};
   \node[box text, anchor=north west, text width=29mm] at ([shift={(2,-10)}]#1.north west) {#7};
   \pic[scale=0.75] at ([shift={(-5,-4.6)}]#1.north east) {#8};}
 % inputs
-\pipebox{design}{16.5}{2}{data}{1}{Design}{ship class, drive and one rig with its area, \S\ref{sec:ships}}{shipwithkite}
-\pipebox{weather}{69}{2}{data}{2}{Weather}{hourly wind and waves 2017--2019 on six routes, \S\ref{sec:routes}}{weathermap}
-\pipebox{inputs}{130.5}{2}{data}{3}{Inputs}{prices, lives and goals, each with its range and source, \cref{sec:inputs}}{pages}
+\pipebox{design}{16.5}{0}{data}{1}{Design}{ship class, drive and one rig with its area, \S\ref{sec:ships}}{shipwithkite}{22}
+\pipebox{inputs}{130.5}{0}{data}{3}{Inputs}{prices, lives and goals, each with its range and source, \cref{sec:inputs}}{pages}{22}
 % one operating point
-\pipebox{apparent}{16.5}{-36}{ship}{4}{Apparent wind}{ship speed and true wind give the wind at the rig, \S\ref{sec:deck_rigs}}{windtriangle}
-\pipebox{rigs}{54.5}{-36}{rig}{5}{Rig forces}{thrust and side force of kite \S\ref{sec:kite}, wings or rotors \S\ref{sec:deck_rigs}}{polar}
-\pipebox{balance}{92.5}{-36}{ship}{6}{Force balance}{hull, rudder and windage hold the side force: drag and leeway, \S\ref{sec:balance}}{topview}
-\pipebox{power}{130.5}{-36}{ship}{7}{Required thrust}{hull, air and wave resistance less the rig's thrust, \S\ref{sec:ships}}{hull}
+\pipebox{apparent}{16.5}{-36}{ship}{4}{Apparent wind}{ship speed and true wind give the wind at the rig, \S\ref{sec:deck_rigs}}{windtriangle}{22}
+\pipebox{rigs}{54.5}{-36}{rig}{5}{Rig forces}{thrust and side force of kite \S\ref{sec:kite}, wings or rotors \S\ref{sec:deck_rigs}}{polar}{22}
+\pipebox{balance}{92.5}{-36}{ship}{6}{Force balance}{hull, rudder and windage hold the side force: drag and leeway, \S\ref{sec:balance}}{topview}{22}
+\pipebox{power}{130.5}{-36}{ship}{7}{Required thrust}{hull, air and wave resistance less the rig's thrust, \S\ref{sec:ships}}{hull}{22}
 % voyages and cost
-\pipebox{table}{16.5}{-70}{voyage}{8}{Performance table}{required thrust over speed, wind and waves, \S\ref{sec:routing}}{grid}
+\pipebox{table}{16.5}{-70}{voyage}{8}{Performance table}{required thrust over speed, wind and waves, \S\ref{sec:routing}}{grid}{26}
 \node[voyage box, minimum width=62mm, minimum height=26mm] (router) at (69,-70) {};
 \node[step number] at ([shift={(2.8,-2.8)}]router.north west) {9};
 \node[box title, anchor=north west] at ([shift={(5.8,-1.3)}]router.north west) {Weather router};
 \node[box text, anchor=north west, text width=58mm] at ([shift={(2,-8.3)}]router.north west) {sails tracks and speeds through the corridor, with fuel from propeller and engine, and keeps the cheapest voyage (fuel, price of time, kite launches and wear), giving its route, fuel and hours, \S\ref{sec:routing}};
 \pic[scale=0.75] at ([shift={(-5,-4.6)}]router.north east) {route};
-\pipebox{cost}{130.5}{-70}{cost}{10}{Cost per tonne-km}{all departures: fuel, capital, crew, ports, wear, cargo interest, \S\ref{sec:cost_model}}{costbar}
-\pipebox{search}{16.5}{-109}{cost}{11}{Rig-size search}{next area until the cost is lowest, \S\ref{sec:res_size}}{search}
-\pipebox{compare}{54.5}{-109}{cost}{12}{Comparison}{saving of the best size against the same ship without a rig, \S\ref{sec:results}}{bars}
+\pipebox{cost}{130.5}{-70}{cost}{10}{Cost per tonne-km}{all departures: fuel, capital, crew, ports, wear, cargo interest, \S\ref{sec:cost_model}}{costbar}{26}
+\pipebox{weather}{54.5}{-110}{data}{2}{Weather}{hourly wind and waves 2017--2019 on six routes, \S\ref{sec:routes}}{weathermap}{22}
+\pipebox{compare}{92.5}{-110}{cost}{12}{Comparison}{saving of the best size against the same ship without a rig, \S\ref{sec:results}}{bars}{22}
+\pipebox{search}{130.5}{-110}{cost}{11}{Rig-size search}{next area until the cost is lowest, \S\ref{sec:res_size}}{search}{22}
 % loops
 \draw[guide, dashed, rounded corners=4pt] (-2.5,-17) rectangle (149.5,-91);
 \node[label, anchor=east] at (147,-17) {\textit{for each design}};
 \draw[guide, dashed, rounded corners=4pt] (-1.5,-20) rectangle (148.5,-50.5);
 \node[label, anchor=west] at (2,-20) {\textit{for each operating point: ship speed, true wind and waves}};
-\draw[guide, dashed, rounded corners=4pt] (36.5,-55.5) rectangle (101.5,-86);
-\node[label] at (69,-86) {\textit{for each departure, out and home}};
+\draw[guide, dashed, rounded corners=4pt] (36.5,-55.5) rectangle (103,-86);
+\node[label, anchor=east] at (101,-86) {\textit{for each departure, out and home}};
 % flow
 \draw[flow] (design.south) -- (16.5,-17);
 \draw[flow] (apparent) -- (rigs);
@@ -79,12 +80,11 @@
 \draw[flow] (balance) -- (power);
 \draw[flow] (power.south) -- (130.5,-53) -- (16.5,-53) -- (table.north);
 \draw[flow] (table) -- (router);
-\draw[crossing] (73.5,-34) -- (73.5,-38) (73.5,-51.5) -- (73.5,-54.5);
-\draw[flow] (weather.south -| 73.5,0) -- (73.5,-57.5);
+\draw[flow] (weather.north -| 42,0) -- (42,-83);
 \draw[flow] ([yshift=-5mm]router.east) -- ([yshift=-5mm]cost.west);
-\draw[flow] ([yshift=6mm]cost.west) -- node[note, above, yshift=0.8mm, align=center] {price\\ of time} ([yshift=6mm]router.east);
-\draw[flow] (inputs.east) -- (153,2) |- (cost.east);
-\draw[flow] (cost.south) -- (130.5,-94) -- (16.5,-94) -- (search.north);
+\draw[flow] ([yshift=6mm]cost.west) -- node[note, above, yshift=0.8mm, pos=0.39, align=center] {price\\ of time} ([yshift=6mm]router.east);
+\draw[flow] (inputs.east) -- (153,0) |- (cost.east);
+\draw[flow] (cost) -- (search);
 \draw[flow] (search) -- (compare);
-\draw[flow] (search.west) -- (-5.5,-109) |- node[note, pos=0.25, rotate=90, anchor=south] {next area} (design.west);
+\draw[flow] (search.south) -- (130.5,-125) -| node[note, pos=0.75, rotate=90, anchor=south] {next area} (-5.5,0) -- (design.west);
 \end{tikzpicture}
