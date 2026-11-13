@@ -49,9 +49,9 @@
 \begin{scope}[shift={(57,0)}]
   \node[title, rigwing!75!black] at (-29,44) {Wing sails};
   \pic at (0,0) {ship};
-  \foreach \x in {-13,-1,11}
+  \foreach \x in {-14,-4,6}
     \fill[rigwing] (\x-3.6,2.6) -- (\x+2.2,2.6) -- (\x+1.6,26) .. controls (\x-0.4,29.5) and (\x-2.2,27.5) .. (\x-2.9,26) -- cycle;
-  \draw[pull, rigwing!55!black] (-1,14.5) -- (17,14.5);
+  \draw[pull, rigwing!55!black] (-4,14.5) -- (14,14.5);
   \draw[dim] (23,0) -- (23,29.5) node[midway, dimlabel, anchor=south, rotate=90] {up to \SI{45}{m} air draft};
   \node[font=\scriptsize, rigwing!75!black, anchor=west, inner sep=1pt, align=left] at (-27,35) {pulls at mid height, tens of metres up};
   \node[note] at (-29,-15) {\textcolor{rigwing!75!black}{\textbf{Gives}} a steady pull, trimmed like a sail. \textbf{Takes} deck space and access for cargo handling.};
@@ -60,11 +60,11 @@
 \begin{scope}[shift={(114,0)}]
   \node[title, rigrotor!80!black] at (-29,44) {Flettner rotors};
   \pic at (0,0) {ship};
-  \foreach \x in {-14,-2,10} {
+  \foreach \x in {-14,-4,6} {
     \fill[rigrotor] (\x-1.6,2.6) rectangle (\x+1.6,23);
     \fill[rigrotor] (\x-3.2,22.5) rectangle (\x+3.2,23.6);
     \draw[rigrotor!55!black, semithick, ->] (\x-2.4,18.6) arc[start angle=180, end angle=355, x radius=2.4, y radius=0.8];}
-  \draw[pull, rigrotor!55!black] (-2,13) -- (17,13);
+  \draw[pull, rigrotor!55!black] (-4,13) -- (14,13);
   \draw[dim] (23,0) -- (23,23.6) node[midway, dimlabel, anchor=south, rotate=90] {up to \SI{45}{m} air draft};
   \node[font=\scriptsize, rigrotor!80!black, anchor=west, inner sep=1pt, align=left] at (-27,35) {pulls at mid height, tens of metres up};
   \node[note] at (-29,-15) {\textcolor{rigrotor!80!black}{\textbf{Gives}} about five times the lift of a wing sail of the same area. \textbf{Takes} deck space and access for cargo handling, the most mass, and power to spin.};
