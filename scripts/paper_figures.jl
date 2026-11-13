@@ -1374,13 +1374,14 @@ function large_rigs_figure()
     flat_per_projected = 160 / 125
     flown, bound = 320 / flat_per_projected, largest_rig_area("kite", nothing)
     designed = (1000 / flat_per_projected, 1040)
-    marks = ((flown, "largest ship kite flown\n(320 m² flat)", :bottom),
+    marks = ((flown, rich("largest ship kite flown\n(320 m", superscript("2"), " flat)"),
+            :bottom),
         (first(designed), "largest ship kite designed,\nlargest cargo parachute",
             :bottom), (bound, "upper bound of the search", :top))
     rotors_in_service = 5
     figure = Figure(size=(page_width, 215))
     areas = Axis(figure[1, 1]; title="(a) best kite area", xscale=log10,
-        xlabel="projected area [m²]",
+        xlabel=rich("projected area [m", superscript("2"), "]"),
         xticks=([100, 1000, 10000], ["100", "1000", "10000"]),
         yticks=(eachindex(names), names), yreversed=true,
         limits=((100, 30000), (0.3, length(names) + 0.7)))
@@ -1642,7 +1643,8 @@ function situations_figure()
     end
     ships = [[LineElement(; color=:black, linestyle),
         MarkerElement(color=linestyle == :solid ? :black : :white, strokecolor=:black,
-            strokewidth=rule_width, marker=:circle)] for (_, _, linestyle) in situation_ships]
+            strokewidth=rule_width, marker=:circle)]
+             for (_, _, linestyle) in situation_ships]
     Legend(figure[2, 3:4],
         [rig_entries(true); ships; LineElement(color=:gray50, linewidth=rule_width)],
         ["best kite", "best wing sails", "best rotors", "140 m, Guadeloupe",
@@ -2513,7 +2515,8 @@ function missed_goals_figure()
                 for (row, (xlabel, xscale, xticks)) in enumerate((
                     ("canopy life [h]", log10,
                         ([500, 2000, 8000], ["500", "2000", "8000"])),
-                    ("canopy price [USD/m²]", identity, Makie.automatic),
+                    (rich("canopy price [USD/m", superscript("2"), "]"), identity,
+                        Makie.automatic),
                     ("out of service [%]", Makie.pseudolog10, [0, 1, 3, 10, 30, 100])))]
         goal_marks!(axes[1], assumptions.entries[:canopy_life])
         vspan!(axes[2], canopy_price_range(assumptions, ())...; color=(:gray50, 0.15))
