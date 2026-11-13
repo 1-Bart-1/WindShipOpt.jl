@@ -4,7 +4,7 @@
   part/.style={font=\scriptsize, inner sep=1pt, align=left},
   leader/.style={black!50, very thin},
   stepnum/.style={circle, fill=black, text=white, font=\scriptsize\bfseries, inner sep=0.5pt, minimum size=3.2mm},
-  steptext/.style={font=\scriptsize, align=center, text width=21mm, anchor=north, inner sep=0pt},
+  steptext/.style={font=\scriptsize, align=center, text width=23mm, anchor=north, inner sep=0pt},
   flow/.style={->, black!55},
   name/.style={font=\scriptsize, text=black!75, inner sep=0.5pt},
   bow/.pic={
@@ -52,12 +52,12 @@
   \end{scope}
   \node[stepnum, fill=#4] at ([shift={(-7.4,9.8)}]#1,#2) {#3};
   \node[steptext] at (#1,#2-4) {#5};}
-\cyclestep{106}{33}{1}{black!70}{Kite packed in the hold, hatch shut}{\pic at (-0.3,0.6) {packed}; \pic at (0,0) {hatch}; \node[name, anchor=south] at (-0.3,4.4) {hatch};}
-\cyclestep{130}{33}{2}{black!70}{Hatch opens; the mast lifts the kite and the wind fills it}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=8.6}; \pic at (0,12.2) {canopy}; \node[name, anchor=west] at (0.6,5.5) {mast};}
-\cyclestep{154}{33}{3}{black!70}{The tether takes the pull; the kite leaves the mast and climbs}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=8.6}; \draw[black!65, thin] (4,2.8) -- (6,15.8); \begin{scope}[shift={(6,19.4)}] \pic {canopy}; \end{scope}}
-\cyclestep{154}{4}{4}{rigkite}{The kite flies figure eights and pulls; hatch shut}{\pic at (0,0) {hatch}; \draw[black!65, thin] (4,3.4) -- (8,12.8); \pic[scale=0.7] at (8,12.8) {eight}; \begin{scope}[shift={(8,16.4)}] \pic {canopy}; \end{scope} \node[name, anchor=east] at (4.6,8.5) {tether};}
-\cyclestep{130}{4}{5}{black!70}{A guide line pulls the kite down to the mast; the winch hauls in}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=8.6}; \draw[black!65, thin, densely dashed] (0,8.6) -- (0,13.4); \begin{scope}[shift={(0,17)}] \pic {canopy}; \end{scope} \node[name, anchor=west] at (0.6,10) {guide line};}
-\cyclestep{106}{4}{6}{black!70}{The mast lowers the packed kite into the hold}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=6}; \pic at (0,6) {packed};}
+\cyclestep{106}{33}{1}{black!70}{Stowed: no thrust and no wear}{\pic at (-0.3,0.6) {packed}; \pic at (0,0) {hatch};}
+\cyclestep{130}{33}{2}{black!70}{Launch below 17\,m/s, more in a sea: crew, retry, tear}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=8.6}; \pic at (0,12.2) {canopy}; \node[name, anchor=west] at (0.6,5.5) {mast};}
+\cyclestep{154}{33}{3}{black!70}{Climb: tether bends over the winch; no thrust in 2--3}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=8.6}; \draw[black!65, thin] (4,2.8) -- (6,15.8); \begin{scope}[shift={(6,19.4)}] \pic {canopy}; \end{scope}}
+\cyclestep{154}{4}{4}{rigkite}{Flight up to 25\,m/s: thrust, canopy wear per hour}{\pic at (0,0) {hatch}; \draw[black!65, thin] (4,3.4) -- (8,12.8); \pic[scale=0.7] at (8,12.8) {eight}; \begin{scope}[shift={(8,16.4)}] \pic {canopy}; \end{scope} \node[name, anchor=east] at (4.6,8.5) {tether};}
+\cyclestep{130}{4}{5}{black!70}{Landing below 20\,m/s: crew, tether bends, tear}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=8.6}; \draw[black!65, thin, densely dashed] (0,8.6) -- (0,13.4); \begin{scope}[shift={(0,17)}] \pic {canopy}; \end{scope}}
+\cyclestep{106}{4}{6}{black!70}{Stowed again; no thrust in 5--6}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=6}; \pic at (0,6) {packed};}
 \draw[flow] (115.5,38) -- (119.5,38);
 \draw[flow] (139.5,38) -- (143.5,38);
 \draw[flow] (166,28) -- (166,18);

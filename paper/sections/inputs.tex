@@ -3,13 +3,21 @@
 \section{Model inputs}
 \label{sec:inputs}
 
-\Cref{tab:inputs} lists every input with a range, with its base value, bounds, unit and source, or its mark as an engineering estimate or assumption. \Cref{tab:development} gives the 20 of them that the development study of \cref{sec:res_inputs} moves, with the reason each is in it. The ship classes are in \cref{tab:classes}, their sources in \cref{tab:class_sources}, and the grids, solver settings and constants in \cref{tab:numerics}. The published regressions (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) keep their published coefficients.
+\Cref{tab:inputs} lists every input with a range, with its base value, bounds, unit and source, or its mark as an engineering estimate or assumption. \Cref{tab:development} gives the 20 of them that the development study of \cref{sec:res_inputs} moves, with the reason each is in it. The ship classes are in \cref{tab:classes}, their sources in \cref{tab:class_sources}, the grids, solver settings and constants in \cref{tab:numerics}, and the split of the cargo interest study behind \cref{fig:cargo_interest} in \cref{tab:cargo_interest}. The published regressions (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) keep their published coefficients.
 
 {\footnotesize
 \setlength{\LTcapwidth}{\textwidth}
 \setlength{\extrarowheight}{1.5pt}
 \InputIfFileExists{sections/input_tables}{}{\tbd{Input tables pending: run the input\_tables step.}}
 \InputIfFileExists{sections/development_table}{}{\tbd{Development table pending: run the development\_table step.}}
+
+\begin{table*}[tbp]
+\centering
+\footnotesize
+\caption{The thirteen standard ship classes, ordered by deadweight as in all class figures: waterline length $L$, beam $B$, design draught $T$, block coefficient $C_B$ at that draught (the underwater volume over that of a box of the same length, beam and draught), deadweight at the scantling draught, slot or deck capacity of the space-limited ships in TEU or standard cars (CEU), the limit the cargo of the class fills first, service speed and main-engine power of the source design, the factor $f_R$ that calibrates the calm-water resistance to it, newbuild price, cargo value, container tiers on deck, the lowest air draft (height above the waterline) on common calls, the share of calls a fixed rig above it loses and the time a fixed rig costs cargo handling per call ($\infty$ where it prevents it), and the frontal and lateral areas above the waterline with the deck cargo; \cref{sec:deck_rigs} explains the air draft, the lost calls and the delay. Where a source gives only the scantling draught, as for the container ships and the Aframax tanker, the design draught is the scantling draught times the ratio of the two in a published design of the same type. Each value has its own source.}
+\label{tab:classes}
+\input{sections/class_table}
+\end{table*}
 
 \begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{12.2cm}@{}}
 \caption{Sources of the ship class data in \cref{tab:classes}.}
@@ -87,3 +95,11 @@ Earth radius & \SI{6371}{km} & great-circle distances \\
 nautical mile & \SI{1852}{m} & \\
 hours in a year & 8760 & annual costs \\
 \end{longtable}}
+
+\begin{table*}[tbp]
+\centering
+\footnotesize
+\caption{Cost saving of the cheapest size of each rig on e-ammonia at low and at high cargo interest, the mean over the classes and routes, split as in \cref{tab:split}; the median change of the round trip; and the mean speed along the route's track over the days at sea, with and without the rig. Method study, \studyrun{cargo_interest}.}
+\label{tab:cargo_interest}
+\InputIfFileExists{sections/cargo_interest_table}{}{\tbd{Cargo interest table pending: run the cargo\_interest\_table step.}}
+\end{table*}
