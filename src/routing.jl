@@ -477,9 +477,9 @@ function held_speed(table::RouteTable, speed_index, sample::EdgeSample, aloft)
     for i in speed_index:-1:1
         flown, stowed, chance = expected_fuels(table, i, sample)
         isfinite(stowed) && return i, flown, stowed, chance
-        flying == 0 && isfinite(flown) && chance > 0 || continue
+        isfinite(flown) && chance > 0 || continue
         aloft && return i, flown, stowed, chance
-        flying = i
+        flying == 0 && (flying = i)
     end
     flying == 0 && return 0, Inf, Inf, 0.0
     return flying, expected_fuels(table, flying, sample)...
@@ -593,11 +593,10 @@ end
 
 Fill `points` with the [`SailedPoint`](@ref)s of edge `step` of node (`stage`, `lateral`)
 left at `time` [h] with a kite `aloft` or down at commanded routing speed number
-`speed_index` of `table`, the first
-from the [`EdgeSample`](@ref) `start`: equally spaced in distance, at most
-`sample_hours` [h] apart at the commanded speed, each standing for its trapezoidal share
-of the distance at the speed held there, and each taken when the ship would reach it at
-the speed held at the point before. Returns the hours of the edge, the sum of those
+`speed_index` of `table`, the first from the [`EdgeSample`](@ref) `start`: equally spaced
+in distance, at most `sample_hours` [h] apart at the commanded speed, each standing for its
+trapezoidal share of the distance at the speed held there, and each taken when the ship
+would reach it at the speed held at the point before. Returns the hours of the edge, the sum of those
 shares, or `Inf` if a point cannot hold the lowest routing speed.
 """
 function sail_edge!(points, start, table::RouteTable, weather, corridor, stage, lateral,
