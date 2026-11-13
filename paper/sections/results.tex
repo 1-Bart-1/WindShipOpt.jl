@@ -48,7 +48,7 @@ A rig narrows the gap between the fuels but does not close it. The cost premium 
 \label{fig:premium}
 \end{figure}
 
-Payback is the discounted time until a rig's yearly saving in running cost, before its own capital charges, repays its price at the discount rate (\cref{sec:cost_model}). On e-ammonia the kite pays back in \tbd{0.7 to 1.8} years, the rotors in \tbd{1.8 to 4.0} and the wing sails in \tbd{2.4 to 4.5} (\cref{tab:payback}). On VLSFO the kite takes \tbd{2.0 to 6.0} years, the rotors \tbd{4.3 to 14} and the wing sails \tbd{7.6 to 23}, and on three classes the wing sails never pay back.
+Payback is the discounted time until a rig's yearly saving in running cost, before its own capital charges, repays its price at the discount rate (\cref{sec:cost_model}). On e-ammonia the kite pays back in \tbd{half a year to two} years, the rotors in \tbd{2 to 4} and the wing sails in \tbd{2 to 4} (\cref{tab:payback}). On VLSFO the kite takes \tbd{2 to 6} years, the rotors \tbd{4 to 14} and the wing sails \tbd{8 to 23}, and on three classes the wing sails never pay back.
 
 A rig sized for the lowest cost leaves fuel unsaved that a larger rig would save at a small extra cost (\cref{fig:abatement}). Where a curve returns to the cost of the ship without a rig, the rig saves the most fuel it can at no extra cost: \tbd{fuel saved at break-even per rig and drive}. On VLSFO the slope beyond that point is the cost of the CO$_2$ abated, \tbd{USD per tonne}.
 
@@ -62,7 +62,7 @@ A rig sized for the lowest cost leaves fuel unsaved that a larger rig would save
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{Discounted payback time in years of the best size of each rig on each ship class, the median over the six routes, at the base discount rate. A dash marks where the median rig does not pay back within its life. The shorter the payback, the deeper the blue.}
+\caption{Discounted payback time in years of the best size of each rig on each ship class, the median over the six routes, at the base discount rate. A dash marks where the median rig does not pay back within its life. The shorter the payback, the deeper the blue. Payback scales with the rig's price, an estimate with a wide range (\cref{tab:inputs}), so it is given in whole years, below two years to the half year; the kite's holds at its goals.}
 \label{tab:payback}
 \InputIfFileExists{sections/payback_table}{}{\tbd{Payback table pending: run the payback\_table step.}}
 \end{table*}
@@ -79,7 +79,7 @@ On the feeder, Panamax and Neo-Panamax container ships the kite saves \tbd{8.8, 
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{\tbd{Draft numbers from the class study, replaced by the final run.} The rig that cuts the cost per tonne-kilometre most on each kind of ship and fuel, the next rig, the margin in points of cost saving between them, and, where the kite leads the rotors, the canopy life and the kites lost per ship and year at which it falls behind them, the other goals met. Each saving is the mean over the classes of that kind and the six routes of the best size of each rig. A dash means the kite does not lead the rotors. \Cref{sec:res_missed} says how the limits are made.}
+\caption{\tbd{Draft numbers from the class study, replaced by the final run.} The rig that cuts the cost per tonne-kilometre most on each kind of ship and fuel, the next rig, the margin in points of cost saving between them, and, where the kite leads the rotors, the canopy life and the kites lost per ship and year at which it falls behind them, the other goals met. Each saving is the mean over the classes of that kind and the six routes of the best size of each rig. Two rigs within one point are level, as far as the method can tell. A dash means the kite does not lead the rotors. \Cref{sec:res_missed} says how the limits are made.}
 \label{tab:rig_margins}
 \InputIfFileExists{sections/rig_margin_table}{}{\tbd{Margin table pending: run the rig\_margin\_table step.}}
 \end{table*}
@@ -104,7 +104,7 @@ Cargo interest is a second axis, apart from the limit, and in the classes above 
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{\tbd{Separate draft run of this study.} Cost saving of the cheapest size of each rig on e-ammonia at low and at high cargo interest, the mean over the classes and routes, split as in \cref{tab:split}; the median change of the round trip; and the mean speed along the route's track over the days at sea, with and without the rig.}
+\caption{\tbd{Separate draft run of this study.} Cost saving of the cheapest size of each rig on e-ammonia at low and at high cargo interest, the interest on the cargo's value at the low and the high discount rate of \cref{tab:inputs}, the mean over the classes and routes, split as in \cref{tab:split}; the median change of the round trip; and the mean speed along the route's track over the days at sea, with and without the rig.}
 \label{tab:cargo_interest}
 \InputIfFileExists{sections/cargo_interest_table}{}{\tbd{Cargo interest table pending: run the cargo\_interest\_table step.}}
 \end{table*}
@@ -197,6 +197,7 @@ A rig that gave the same thrust at every speed would not change the best speed: 
 
 \begin{table}[tbp]
 \centering
+\footnotesize
 \caption{Cost-optimal speed [kn] of the \SI{140}{m} ship in steady wind, median over winds of 6, 10 and \SI{14}{m/s} at 60, 90, 120 and \SI{150}{\degree}, with the reference rigs: with the rig's capital and wear left out of the cost, with its force held at its value at the speed of the ship without a rig, and the speed at which that held force alone moves the ship. \tbd{Draft run.}}
 \label{tab:speed_choice}
 \adjustbox{max width=\columnwidth}{\InputIfFileExists{sections/speed_choice_table}{}{\tbd{Speed table pending: run the speed\_choice\_table step.}}}
@@ -206,6 +207,7 @@ The speed is bought with part of the fuel saving. In the time of the ship withou
 
 \begin{table*}[tbp]
 \centering
+\footnotesize
 \caption{Fuel saved and time saved by the reference rigs on the \SI{140}{m} ship \tbd{to Guadeloupe, and for the wing sails the mean of Guadeloupe and New York}, against the ship without a rig on the same terms: at a fixed speed, in the same time as the ship without a rig routed for cost, and with speed set by cost. A fixed-speed ship drops to the highest of its routing speeds it can hold where it cannot hold that speed, which a rig does more often, so its time changes too. \tbd{Draft run.} Savings are shaded blue, losses red, the deeper the larger.}
 \label{tab:speed_terms}
 \InputIfFileExists{sections/speed_terms_table}{}{\tbd{Terms table pending: run the speed\_terms\_table step.}}
