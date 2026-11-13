@@ -155,7 +155,27 @@ function save_figure(name, figure)
     faults = label_faults(figure)
     isempty(faults) || error("labels of figure $name: ", join(faults, "; "))
     foreach(add_halo!, axis_labels(figure))
-    save(joinpath(figures, "$name.pdf"), figure; pt_per_unit=print_scale)
+    path = joinpath(figures, "$name.pdf")
+    save(path, figure; pt_per_unit=print_scale)
+    rename_font_subsets(path, name)
+end
+
+"""
+    rename_font_subsets(path, name)
+
+Give each font subset in the PDF at `path` a tag of its own, drawn from `name`: Cairo tags
+the same subset alike in every figure, and a viewer then takes one figure's glyphs for
+another's in the paper.
+"""
+function rename_font_subsets(path, name)
+    pdf = read(path, String)
+    tags = unique(match.match for match in eachmatch(r"/[A-Z]{6}\+", pdf))
+    for tag in tags
+        letters = string(hash((name, tag)); base=26, pad=6)[1:6]
+        new = "/" * map(letter -> Char('A' + parse(Int, letter; base=26)), letters) * "+"
+        pdf = replace(pdf, tag => new)
+    end
+    write(path, pdf)
 end
 
 "the text plots in the axes of `figure`, those of its legends and decorations left out"
@@ -307,7 +327,7 @@ function kite_geometry_figure()
         text!(axis, centre, trailing - 0.6; text="span $(round(span; digits=1)) m",
             align=(:center, :top), fontsize=note_size)
     end
-    save(joinpath(figures, "kite_geometry.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("kite_geometry", figure)
 end
 
 """
@@ -332,7 +352,7 @@ function polar_figure()
         lines!(glide, polar["alpha"], polar["cl"] ./ polar["cd"]; color=shades[i])
     end
     axislegend(drag; position=:lt)
-    save(joinpath(figures, "polars.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("polars", figure)
 end
 
 "classes whose wind-load coefficients the wind-load figure shows"
@@ -362,7 +382,7 @@ function wind_load_figure()
         lines!(side, angles, last.(coefficients); color=category_colours[i])
     end
     axislegend(longitudinal; position=:rb)
-    save(joinpath(figures, "wind_load.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("wind_load", figure)
 end
 
 """
@@ -519,7 +539,7 @@ function canopy_tension_figure()
         fontsize=note_size, align=(:left, :bottom), color=category_colours[2],
         offset=clear_offset((:left, :bottom), pt(2)))
     colsize!(figure.layout, 1, Relative(0.52))
-    save(joinpath(figures, "canopy_tension.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("canopy_tension", figure)
 end
 
 """
@@ -548,7 +568,7 @@ function rig_polar_figure()
     axislegend(side, entries, collect(first.(rigs)); position=:rt)
     linkxaxes!(thrust, side)
     hidexdecorations!(thrust; grid=false)
-    save(joinpath(figures, "rig_polar.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("rig_polar", figure)
 end
 
 """
@@ -617,7 +637,7 @@ function rig_comparison_figure()
     end
     Colorbar(figure[1, length(drive_panels) + 1]; colormap=:RdBu, limits=(-30, 30),
         label="cost saving vs no rig [%]")
-    save(joinpath(figures, "rig_comparison.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("rig_comparison", figure)
 end
 
 """
@@ -673,7 +693,7 @@ function route_figure()
     names = [[route_label(name) * " + kite" for name in route_names]; "no rig";
         "great circle"; "outbound"; "homeward"; "corridor node"]
     Legend(figure[2, 1:2], entries, names; orientation=:horizontal, nbanks=2)
-    save(joinpath(figures, "routes.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("routes", figure)
 end
 
 """
@@ -759,7 +779,7 @@ function passage_figure()
     linkxaxes!(panels...)
     Legend(figure[1, 3], panels[1]; tellheight=false, tellwidth=false)
     rowsize!(figure.layout, 1, Relative(0.6))
-    save(joinpath(figures, "passage.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("passage", figure)
 end
 
 """
@@ -865,7 +885,7 @@ function class_comparison_figure()
     Legend(figure[3, 1:2length(drive_panels)],
         [MarkerElement(; color=palette[j], marker=:circle)
          for j in eachindex(rig_names)], collect(rig_names); orientation=:horizontal)
-    save(joinpath(figures, "class_comparison.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("class_comparison", figure)
 end
 
 """
@@ -955,7 +975,7 @@ function cargo_interest_figure()
         [collect(rig_names), ["low", "high"], collect(cargo_value_sweep.classes)],
         ["rig", "cargo interest", "ship"]; orientation=:horizontal, titleposition=:top,
         nbanks=2)
-    save(joinpath(figures, "cargo_interest.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("cargo_interest", figure)
 end
 
 "the tow points of the tow point study with their labels, then a midship mast in a bay"
@@ -1037,7 +1057,7 @@ function tow_point_figure()
     axislegend(content(figure[1, 1]),
         [MarkerElement(marker=:circle, color=category_colours[j]) for j in 1:3],
         ["lateral centre", "midship", "midship, mast in a bay"]; position=:lb)
-    save(joinpath(figures, "tow_point.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("tow_point", figure)
 end
 
 """
@@ -1136,7 +1156,7 @@ function class_size_figure()
                 fontsize=note_size, align=(:center, :center), color=palette[j])
         end
     end
-    save(joinpath(figures, "class_sizes.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("class_sizes", figure)
 end
 
 """
@@ -1178,7 +1198,7 @@ function winner_map_figure()
     end
     Legend(figure[length(groups) + 1, 1:length(drive_panels)],
         [PolyElement(color=palette[j]) for j in 1:3], kinds; orientation=:horizontal)
-    save(joinpath(figures, "winner_map.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("winner_map", figure)
 end
 
 """
@@ -1261,7 +1281,7 @@ function fleet_share_figure()
     Legend(figure[2, 1:2], [PolyElement(color=colours[band]) for band in shown],
         [names[band] for band in shown]; orientation=:horizontal)
     rowgap!(figure.layout, 1, 2)
-    save(joinpath(figures, "fleet_share.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("fleet_share", figure)
 end
 
 """
@@ -1308,7 +1328,7 @@ function route_comparison_figure()
             [PolyElement(color=palette[j]) for j in eachindex(kinds)],
             rig_label.(kinds); position=:rt)
     end
-    save(joinpath(figures, "route_comparison.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("route_comparison", figure)
 end
 
 function season_figure()
@@ -1341,7 +1361,7 @@ function season_figure()
         [MarkerElement(marker=:circle, color=palette[j])
          for j in eachindex(rig_names)], collect(rig_names); orientation=:horizontal)
     rowgap!(figure.layout, 2, 0)
-    save(joinpath(figures, "season.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("season", figure)
 end
 
 """
@@ -1416,7 +1436,7 @@ function premium_figure()
     end
     xlims!(axis, first(lengths) - 5, last(lengths) + 28)
     ylims!(axis, 0, nothing)
-    save(joinpath(figures, "premium.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("premium", figure)
 end
 
 """
@@ -1488,7 +1508,7 @@ function breakdown_figure()
     Legend(figure[2, 1:2], [PolyElement(; color) for color in colours], names;
         orientation=:horizontal)
     rowgap!(figure.layout, 1, 6)
-    save(joinpath(figures, "breakdown.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("breakdown", figure)
 end
 
 """
@@ -1543,7 +1563,7 @@ function cargo_cost_figure()
     axislegend(last(axes), [PolyElement(color=palette[1]), PolyElement(color=palette[2]),
             PolyElement(color=palette[3]), PolyElement(color=(:gray40, 0.3))],
         ["kite", "wings", "rotors", "lost to displaced cargo"]; position=:rb)
-    save(joinpath(figures, "cargo_cost.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("cargo_cost", figure)
 end
 
 """
@@ -1595,7 +1615,7 @@ function canopy_life_figure()
         PolyElement(color=(palette[1], 0.1))]
     axislegend(axis, entries, ["claim", "measurement", "hours we estimate",
             "goal", "derived range"]; position=:lt)
-    save(joinpath(figures, "canopy_life.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("canopy_life", figure)
 end
 
 """
@@ -1667,7 +1687,7 @@ function large_rigs_figure()
         MarkerElement(marker=:circle, color=palette[3])],
         ["(a) kite on VLSFO", "(a) kite on e-ammonia", "(a) range cut by the bound",
             "(b) wing sails", "(b) rotors"]; position=:rt)
-    save(joinpath(figures, "large_rigs.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("large_rigs", figure)
 end
 
 """
@@ -1732,7 +1752,7 @@ function capital_figure()
     axislegend(axis, [PolyElement(color=:gray55); PolyElement(color=engine_colour);
             [PolyElement(color=palette[k]) for k in eachindex(rig_names)]], names;
         position=:rt)
-    save(joinpath(figures, "capital.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("capital", figure)
 end
 
 """
@@ -1911,7 +1931,7 @@ function situations_figure()
         ["best kite", "best wing sails", "best rotors", "140 m, Guadeloupe",
             "Kamsarmax, Tubarão", "base input"]; tellheight=false, tellwidth=false,
         halign=:left, valign=:bottom)
-    save(joinpath(figures, "situations.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("situations", figure)
 end
 
 "e-fuels of the fuel figure as (price input, drive, label, line style)"
@@ -1945,7 +1965,7 @@ function fuel_figure()
              for (_, _, _, style) in fuel_lines]],
         [["kite", "wings", "rotors"], [label for (_, _, label, _) in fuel_lines]],
         ["best size of each rig", "fuel"])
-    save(joinpath(figures, "fuels.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("fuels", figure)
 end
 
 """
@@ -1968,7 +1988,7 @@ function aspect_figure()
             color=category_colours[k], label=ship)
     end
     Legend(figure[2, 1], axis; orientation=:horizontal, nbanks=2)
-    save(joinpath(figures, "aspect.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("aspect", figure)
 end
 
 """
@@ -2019,7 +2039,7 @@ function force_rating_figure()
         ["ship", "cloth"]; orientation=:horizontal, nbanks=3, titleposition=:left,
         titlegap=6)
     rowgap!(figure.layout, 1, 6)
-    save(joinpath(figures, "force_rating.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("force_rating", figure)
 end
 
 """
@@ -2094,7 +2114,7 @@ function wind_angle_figure()
          for (name, low, high) in angle_bands]; orientation=:horizontal)
     axislegend(thrust_axis, [PolyElement(color=palette[j]) for j in eachindex(rigs)],
         ["$rig $area m²" for (rig, area) in rigs]; position=:lt)
-    save(joinpath(figures, "wind_angle.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("wind_angle", figure)
 end
 
 """
@@ -2156,7 +2176,7 @@ function abatement_figure()
         end
     end
     Legend(figure[3, :], panels[1, 1]; orientation=:horizontal)
-    save(joinpath(figures, "abatement.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("abatement", figure)
 end
 
 """
@@ -2247,7 +2267,7 @@ function sensitivity_figure()
             rowsize!(figure.layout, row, Auto(length(levers)))
         end
     end
-    save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("sensitivity", figure)
 end
 
 "plans of the forecast figure's saving panel, as (plan of forecast_plans.csv, label)"
@@ -2304,7 +2324,7 @@ function forecast_figure()
         column == 2 && axislegend(panel, [forecast, other_year],
             ["archived forecast", "same date, other year"]; position=:rb)
     end
-    save(joinpath(figures, "forecast.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("forecast", figure)
 end
 
 """
@@ -2377,7 +2397,7 @@ function combination_figure()
     axislegend(saving_axis, entries, [collect(getindex.(combination_rigs, 2));
             "range over the two routes"; "(b) twice the noise of the extra saving"];
         position=:ct, orientation=:horizontal, nbanks=2)
-    save(joinpath(figures, "combination.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("combination", figure)
 end
 
 """
@@ -2457,7 +2477,7 @@ function speed_size_figure()
                 last(grid.speeds) + 0.55 * (last(grid.speeds) - first(grid.speeds)))
         end
     end
-    save(joinpath(figures, "speed_size.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("speed_size", figure)
 end
 
 "`name`, a kind of kite or scenario in the rigid kite data, as the paper names it"
@@ -2522,7 +2542,7 @@ function rigid_scaling_figure()
     Legend(figure[2, 1], thrust_axis; orientation=:horizontal, nbanks=2)
     Legend(figure[2, 2], price_axis; orientation=:horizontal, nbanks=2)
     linkxaxes!(price_axis, annual_axis, wind_axis)
-    save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("rigid_scaling", figure)
 end
 
 "rigs of the rigid kite figure with their legend labels and colours"
@@ -2560,7 +2580,7 @@ function rigid_kite_figure()
     hlines!(axis, 0; color=:gray50, linewidth=0.6)
     Legend(figure[2, 1], [PolyElement(color=colour) for (_, _, colour) in rigid_kite_rigs],
         collect(getindex.(rigid_kite_rigs, 2)); orientation=:horizontal, nbanks=2)
-    save(joinpath(figures, "rigid_kite.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("rigid_kite", figure)
 end
 
 """
@@ -2750,7 +2770,7 @@ function min_wind_figure()
         PolyElement(color=(launch_colour, 0.2))]
     axislegend(axis, entries, ["launch", "lift-off", "climb", "crosswind",
             "launch range"]; position=:lt, orientation=:horizontal, nbanks=2)
-    save(joinpath(figures, "min_wind.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("min_wind", figure)
 end
 
 """
@@ -2845,7 +2865,7 @@ function missed_goals_figure()
                     LineElement(color=:black, linewidth=0.75, linestyle=:dot)]],
             ["goal, its range", "today, its range"]; position=(1, 0.6))
     end
-    save(joinpath(figures, "missed_goals.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("missed_goals", figure)
 end
 
 """
@@ -2915,5 +2935,5 @@ function rigid_mass_figure()
     names = [[L"\kappa = %$(value)" for value in (exponent.low, exponent.value,
             exponent.high)]; "with propellers"; "without propellers"; "design"]
     axislegend(axis, entries, names; position=:rb)
-    save(joinpath(figures, "rigid_mass.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("rigid_mass", figure)
 end

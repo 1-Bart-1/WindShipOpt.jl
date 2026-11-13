@@ -294,8 +294,8 @@ function ship_classes_figure()
     lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
     text!(axis, bar + Point2f(50, 0); text="100 m", align=(:center, :bottom),
         offset=(0, 2), fontsize=note_size)
-    limits!(axis, -0.36width, 1.02width, -last(tops) - 15, 50)
-    save(joinpath(figures, "ship_classes.pdf"), figure; pt_per_unit=print_scale)
+    limits!(axis, -0.36width, 1.02width, -last(tops) - 15, 80)
+    save_figure("ship_classes", figure)
 end
 
 """
@@ -529,7 +529,7 @@ function router_figure()
     end
     draw_router_grid!(grid)
     draw_kite_states!(states)
-    save(joinpath(figures, "router.pdf"), figure; pt_per_unit=print_scale)
+    save_figure("router", figure)
 end
 
 """
@@ -560,7 +560,7 @@ function draw_router_grid!(axis)
     settings = WindShipOpt.ROUTER_SETTINGS[]
     speeds = length(WindShipOpt.commanded_speeds(settings.routing_speeds,
         settings.search_speed_stride))
-    text!(axis, from + Point2f(1, WindShipOpt.MAX_LATERAL_STEP); text=@sprintf(
+    text!(axis, Point2f(8.4, 3.2); text=@sprintf(
         "edges to ±%d nodes,\n%d speeds from %g kn", WindShipOpt.MAX_LATERAL_STEP, speeds,
         WindShipOpt.LOWEST_ROUTING_KNOTS),
         align=(:left, :bottom), offset=(3, 0), fontsize=note_size,
