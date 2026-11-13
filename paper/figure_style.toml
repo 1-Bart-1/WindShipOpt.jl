@@ -18,6 +18,7 @@ arrow_length = 4.0 # arrowhead length, the same on every arrow
 arrow_width = 3.2 # arrowhead width
 halo = 1.6 # white outline behind a label
 clearance = 0.75 # least gap between a label and another label, line or arrow
+step = 10.0 # diameter of the disc that numbers a step
 
 [colours] # hex RGB
 kite = "0072B2"
@@ -31,3 +32,10 @@ accent = "D55E00" # one highlighted thing that is not a rig
 guide = "999999" # dimension lines, leaders, reference lines
 gain = "2166AC" # a saving in table cells
 loss = "B2182B" # a loss in table cells
+
+[fills] # hex RGB; pale fill of a TikZ box by the kind of model part it stands for, the style `<name> box`
+ship = "E3EEF8" # models the ship: hull, propeller, engine, cargo
+rig = "FCEBD0" # models the rig
+voyage = "E2F2E6" # comes from the routed voyages
+cost = "F8E1E1" # a cost
+data = "EEEEEE" # data or an input

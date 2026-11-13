@@ -10,14 +10,73 @@
 \definecolor{water}{HTML}{56B4E9}
 \definecolor{wind}{HTML}{737373}
 \definecolor{wings}{HTML}{E69F00}
+\definecolor{costfill}{HTML}{F8E1E1}
+\definecolor{datafill}{HTML}{EEEEEE}
+\definecolor{rigfill}{HTML}{FCEBD0}
+\definecolor{shipfill}{HTML}{E3EEF8}
+\definecolor{voyagefill}{HTML}{E2F2E6}
+\ExplSyntaxOn
+\seq_new:N \g_figstyle_labels_seq
+\cs_new_protected:Npn \figurestylerecord #1
+  {
+    \group_begin:
+    \pgftransformreset
+    \pgfpointanchor {#1} {south~west}
+    \pgfgetlastxy \l_figstyle_ax_tl \l_figstyle_ay_tl
+    \pgfpointanchor {#1} {north~east}
+    \pgfgetlastxy \l_figstyle_bx_tl \l_figstyle_by_tl
+    \seq_gput_right:Nx \g_figstyle_labels_seq
+      {
+        { \dim_eval:n { \dim_min:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+        { \dim_eval:n { \dim_min:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+        { \dim_eval:n { \dim_max:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+        { \dim_eval:n { \dim_max:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+      }
+    \group_end:
+  }
+\cs_new_protected:Npn \figstyle_overlap:nnnnnnnn #1#2#3#4#5#6#7#8
+  {
+    \bool_lazy_all:nT
+      {
+        { \dim_compare_p:n { #1 < #7 } } { \dim_compare_p:n { #5 < #3 } }
+        { \dim_compare_p:n { #2 < #8 } } { \dim_compare_p:n { #6 < #4 } }
+      }
+      { \PackageWarning {figurestyle} { labels~overlap~at~(#1,~#2)~and~(#5,~#6) } }
+  }
+\cs_new_protected:Npn \figurestylecheck
+  {
+    \int_step_inline:nn { \seq_count:N \g_figstyle_labels_seq }
+      {
+        \int_step_inline:nnn { ##1 + 1 } { \seq_count:N \g_figstyle_labels_seq }
+          {
+            \use:e
+              {
+                \exp_not:N \figstyle_overlap:nnnnnnnn
+                \seq_item:Nn \g_figstyle_labels_seq { ##1 }
+                \seq_item:Nn \g_figstyle_labels_seq { ####1 }
+              }
+          }
+      }
+    \seq_gclear:N \g_figstyle_labels_seq
+  }
+\ExplSyntaxOff
 \tikzset{
   >={Stealth[length=4pt, width=3.2pt]},
-  every picture/.style={line width=0.5pt},
+  every picture/.style={line width=0.5pt, font=\fontsize{8}{9.6}\selectfont, execute at end picture=\figurestylecheck},
   force/.style={->, line width=1.3pt},
   flow/.style={->, line width=0.6pt},
   dimension/.style={<->, guide, line width=0.4pt},
   leader/.style={guide, line width=0.4pt},
-  label/.style={font=\fontsize{8}{9.6}\selectfont, inner sep=1pt, preaction={fill=white, draw=white, line width=1.6pt}},
+  label/.style={font=\fontsize{8}{9.6}\selectfont, inner sep=1pt, preaction={fill=white, draw=white, line width=1.6pt}, append after command={\pgfextra{\figurestylerecord{\tikzlastnode}}}},
   note/.style={label, font=\fontsize{7}{8.4}\selectfont},
   box/.style={draw, rounded corners=2pt, line width=0.5pt},
+  cost box/.style={box, fill=costfill},
+  data box/.style={box, fill=datafill},
+  rig box/.style={box, fill=rigfill},
+  ship box/.style={box, fill=shipfill},
+  voyage box/.style={box, fill=voyagefill},
+  box title/.style={font=\fontsize{8}{9.6}\selectfont\bfseries, align=left, inner sep=0pt},
+  box text/.style={align=left, inner sep=0pt},
+  panel/.style={anchor=west, inner sep=0pt},
+  step number/.style={circle, fill=black, text=white, font=\fontsize{7}{8.4}\selectfont\bfseries, inner sep=0pt, minimum size=10pt},
 }
