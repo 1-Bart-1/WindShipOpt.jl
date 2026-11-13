@@ -52,6 +52,22 @@ set_theme!(fontsize=text_size, linewidth=line_width, markersize=marker_size,
         titlefont=:regular, patchsize=(pt(11), pt(6)), patchlabelgap=pt(3), rowgap=0,
         colgap=pt(7), titlegap=pt(2), groupgap=pt(5), padding=(pt(3), pt(3), pt(1.5),
             pt(1.5)), margin=(pt(3), pt(3), pt(3), pt(3))))
+"""
+    clear_offset(align, gap)
+
+Offset [figure units] that moves text of `align` by `gap` away from its anchor, so that
+it clears what ends there.
+"""
+clear_offset(align, gap) = (Dict(:left => gap, :center => 0, :right => -gap)[align[1]],
+    Dict(:bottom => gap, :center => 0, :top => -gap)[align[2]])
+
+"""
+    estimate_text(value)
+
+`value` as an estimate is written: to two significant digits, with no trailing zero.
+"""
+estimate_text(value) = @sprintf("%.15g", round(value; sigdigits=2))
+
 "`text` with each hyphen set as the minus sign, as the axes print negative numbers"
 typeset_minus(text) = replace(text, "-" => "−")
 "the [`study_drives`](@ref) with their names in figure labels"
@@ -2237,61 +2253,116 @@ function print_rigid_kite(table, ship, drive, savings)
 end
 
 """
+    canopy_price_range(inputs, today)
+
+Lowest and highest [`WindShipOpt.canopy_price`](@ref) [USD/m^2] of `inputs` with each input
+of the price in turn at its low and its high bound, those of the `_today` input for the
+names in `today`.
+"""
+function canopy_price_range(inputs, today)
+    names = (:canopy_cloth_area_ratio, :market_price_factor,
+        WindShipOpt.canopy_price_inputs...)
+    bounds = [assumptions.entries[name in today ? Symbol(name, :_today) : name]
+              for name in names]
+    prices = [WindShipOpt.canopy_price(WindShipOpt.with_value(inputs, name, bound))
+              for (name, entry) in zip(names, bounds) for bound in (entry.low, entry.high)]
+    return extrema(prices)
+end
+
+"""
+    retail_cloth_prices()
+
+Cloth weights [g/m^2], prices [USD per m^2 sewn, without VAT, with offcuts] and sources of
+the retail cloths in data/canopy_cloth_prices.csv.
+"""
+function retail_cloth_prices()
+    table = read_table(joinpath(root, "data", "canopy_cloth_prices.csv"))
+    metres = Dict("m" => 1.0, "yd" => 0.9144)
+    dollars = Dict("USD" => 1.0, "EUR" => assumptions[:usd_per_eur])
+    prices = [price * dollars[currency] / (1 + vat) / (metres[per] * width)
+              for (price, currency, per, width, vat) in zip(table["price"],
+        table["currency"], table["per"], table["width"], table["vat"])]
+    return table["weight"], cloth_offcut_factor * prices, table["source"]
+end
+
+"cloth bought per m^2 of cloth sewn into a canopy [-]"
+cloth_offcut_factor = 1.15
+
+"""
     canopy_price_figure()
 
 (a) Price of a canopy per projected m^2 as built today, at the goal with today's cloth, and
-at the goal, split into cloth, sewing with lines and hardware, and the market margin; (b)
-price of a sewn m^2 of cloth against cloth weight, today and at the goal.
+at the goal, split into cloth, sewing with lines and hardware, and the market margin, with
+the range over the bounds of its inputs; (b) price of a sewn m^2 of cloth against cloth
+weight: the retail prices it rests on, the line through them, and the goal with its range.
 """
 function canopy_price_figure()
-    figure = Figure(size=(page_width, 165))
+    figure = Figure(size=(page_width, 175))
     price = Axis(figure[1, 1]; xlabel="price per projected m² [USD]",
         title="(a) canopy price")
     cloth = Axis(figure[1, 2]; xlabel="cloth weight [g/m²]",
         ylabel="USD per m² of cloth", title="(b) sewn cloth")
-    colsize!(figure.layout, 1, Relative(0.62))
+    colsize!(figure.layout, 1, Relative(0.58))
     cloth_inputs = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
-    cases = [("today", WindShipOpt.with_today(assumptions,
-            WindShipOpt.canopy_price_inputs)),
-        ("goal, today's cloth", WindShipOpt.with_today(assumptions, cloth_inputs)),
-        ("goal", assumptions)]
+    cases = [("today", WindShipOpt.canopy_price_inputs),
+        ("goal, today's cloth", cloth_inputs), ("goal", ())]
     parts = ("cloth", "sewing, lines, hardware", "market margin")
     part_colors = [palette[1], palette[5], :gray60]
-    for (row, (label, inputs)) in enumerate(cases)
+    for (row, (label, today)) in enumerate(cases)
+        inputs = WindShipOpt.with_today(assumptions, today)
         making = inputs[:canopy_making_cost_per_area]
         cost = WindShipOpt.Canopy(inputs).cost_per_area
         segments = [cost - making, making, (inputs[:market_price_factor] - 1) * cost]
         barplot!(price, fill(row, 3), segments; stack=1:3, direction=:x,
-            color=part_colors, gap=0.35)
-        text!(price, cumsum(segments) .- segments ./ 2, fill(row, 3);
-            text=[@sprintf("%.0f", segment) for segment in segments],
-            align=(:center, :center), fontsize=note_size, color=:white)
-        text!(price, sum(segments), row; text=@sprintf(" %.0f", sum(segments)),
-            align=(:left, :center))
+            color=part_colors, gap=0.3)
+        text!(price, cumsum(segments) .- segments ./ 2, fill(row - 0.14, 3);
+            text=estimate_text.(segments), align=(:center, :center),
+            fontsize=note_size, color=:white)
+        low, high = canopy_price_range(inputs, today)
+        rangebars!(price, [row + 0.17], [low], [high]; direction=:x, color=:black,
+            linewidth=line_width, whiskerwidth=pt(4))
+        text!(price, sum(segments), row - 0.14; text=string(estimate_text(sum(segments)),
+                " (", estimate_text(low), "–", estimate_text(high), ")"),
+            align=(:left, :center), offset=clear_offset((:left, :center), pt(3)))
     end
     price.yticks = (eachindex(cases), first.(cases))
     price.yreversed = true
-    xlims!(price, 0, 1.12 * WindShipOpt.canopy_price_today(assumptions))
+    xlims!(price, 0, nothing)
     hideydecorations!(price; ticklabels=false)
     weights = 0:5:400
     weight = WindShipOpt.cloth_weight(assumptions)
-    cloth_cases = (("today", WindShipOpt.with_today(assumptions, cloth_inputs), :solid),
-        ("goal", assumptions, :dash))
-    for (label, inputs, linestyle) in cloth_cases
-        line = WindShipOpt.sewn_cloth_price.(Ref(inputs), weights)
-        lines!(cloth, weights, line; color=:black, linestyle)
-        text!(cloth, weights[end], line[end]; text=label, align=(:right, :top),
-            offset=(0, -4))
-        price = WindShipOpt.sewn_cloth_price(inputs, weight)
-        scatter!(cloth, weight, price; color=:black)
-        text!(cloth, weight, price; text=@sprintf("%.1f", price), align=(:right, :bottom),
-            offset=(-2, 2), fontsize=note_size)
+    goal_band = [extrema(WindShipOpt.sewn_cloth_price(WindShipOpt.with_value(assumptions,
+                         name, bound), cloth_weight)
+                         for name in cloth_inputs
+                         for bound in (assumptions.entries[name].low,
+                             assumptions.entries[name].high))
+                 for cloth_weight in weights]
+    band!(cloth, weights, first.(goal_band), last.(goal_band); color=(palette[1], 0.15))
+    retail_weights, retail_prices, sources = retail_cloth_prices()
+    sources = (("extremtextil_prices_2026", "extremtextil", :circle),
+        ("sailrite_dacron_prices_2026", "Sailrite", :rect),
+        ("jonesairfoils_icarex", "Jones Airfoils", :diamond))
+    retail_weights, retail_prices, retail_sources = retail_cloth_prices()
+    source_elements = map(sources) do (source, _, marker)
+        chosen = retail_sources .== source
+        scatter!(cloth, retail_weights[chosen], retail_prices[chosen]; marker,
+            color=:white, strokecolor=:black, strokewidth=rule_width)
+        MarkerElement(; marker, color=:white, strokecolor=:black, strokewidth=rule_width)
     end
-    vlines!(cloth, weight; color=:gray, linewidth=0.75)
+    lines!(cloth, weights, WindShipOpt.sewn_cloth_price.(Ref(WindShipOpt.with_today(
+        assumptions, cloth_inputs)), weights); color=:black)
+    lines!(cloth, weights, WindShipOpt.sewn_cloth_price.(Ref(assumptions), weights);
+        color=palette[1], linestyle=:dash)
+    vlines!(cloth, weight; color=:gray, linewidth=rule_width)
     ylims!(cloth, 0, nothing)
-    Legend(figure[2, 1:2], [PolyElement(; color) for color in part_colors],
-        collect(parts); orientation=:horizontal, tellwidth=false)
-    rowgap!(figure.layout, 4)
+    Legend(figure[2, 1], [PolyElement(; color) for color in part_colors],
+        collect(parts); orientation=:horizontal, tellwidth=false, valign=:top)
+    Legend(figure[2, 2], [collect(source_elements); LineElement(; color=:black);
+            [[PolyElement(; color=(palette[1], 0.15)),
+                LineElement(; color=palette[1], linestyle=:dash)]]],
+        [collect(getindex.(sources, 2)); "retail line"; "goal"];
+        orientation=:horizontal, nbanks=2, tellwidth=false, valign=:top)
+    rowgap!(figure.layout, pt(4))
     save(joinpath(figures, "canopy_price.pdf"), figure; pt_per_unit=print_scale)
 end
 

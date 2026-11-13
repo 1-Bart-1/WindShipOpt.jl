@@ -832,15 +832,15 @@ canopy_making_cost_per_area:
 canopy_making_cost_per_area_today:
   value: 57.0
   low: 57.0
-  high: 57.0
+  high: 80.0
   unit: USD/m^2
-  reason: "Manufacturing cost per m^2 of projected area of today's canopy besides its cloth: per flat m^2 1.5 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2; with 36 g/m^2 cloth and the retail cloth line it matches sport kite retail prices."
+  reason: "Manufacturing cost per m^2 of projected area of today's canopy besides its cloth: per flat m^2 1.5 h of sewing, the low end of the 1.5-2.25 h that 50 h per paraglider of 22-33 m^2 give (SKY Paragliders 2017), at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2; with 36 g/m^2 cloth and the retail cloth line it matches sport kite retail prices."
 canopy_cloth_base_price_today:
-  value: 11.0
-  low: 11.0
-  high: 11.0
+  value: 11.4
+  low: 11.4
+  high: 11.4
   unit: USD/m^2
-  reason: "Retail price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: least-squares line through retail prices of polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT, with 2.8 USD/m^2 scatter (extremtextil.de, Sailrite, Jones Airfoils, 2026-11-01)."
+  reason: "Retail price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: least-squares line through the 12 retail prices of polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT in canopy_cloth_prices.csv, with 2.8 USD/m^2 scatter (extremtextil.de, Sailrite, Jones Airfoils, 2026-11-01)."
 canopy_cloth_price_per_weight_today:
   value: 0.031
   low: 0.031

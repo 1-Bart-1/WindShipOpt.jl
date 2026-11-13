@@ -250,9 +250,12 @@ function goal_rows()
                 assumptions[:kite_cycle_loss_probability]
     loss = @sprintf("1 in \\num{%.0f}", 1 / kite_loss)
     crew = @sprintf("USD~%.0f per cycle", assumptions[:kite_cycle_crew_cost])
-    price = @sprintf("USD~%.0f/m\$^2\$", WindShipOpt.canopy_price(assumptions))
-    today = @sprintf("our estimate USD~%.0f/m\$^2\$, from retail cloth and hand sewing",
-        WindShipOpt.canopy_price_today(assumptions))
+    price = "USD~$(estimate_text(WindShipOpt.canopy_price(assumptions)))/m\$^2\$"
+    today_inputs = WindShipOpt.with_today(assumptions, WindShipOpt.canopy_price_inputs)
+    low, high = canopy_price_range(today_inputs, WindShipOpt.canopy_price_inputs)
+    today = string("our estimate USD~", estimate_text(WindShipOpt.canopy_price(today_inputs)),
+        "/m\$^2\$ (", estimate_text(low), " to ", estimate_text(high),
+        "), from retail cloth and hand sewing")
     return [("Canopy life", "kite", canopy,
             "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements; " *
             "small kites expected 100 to \\num{1000} h"),
@@ -1593,8 +1596,8 @@ at the goal and today, and the share of time out of service.
 """
 goal_numbers() = [
     "CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
-    "CanopyPriceGoal" => @sprintf("%.0f", WindShipOpt.canopy_price(assumptions)),
-    "CanopyPriceToday" => @sprintf("%.0f", WindShipOpt.canopy_price_today(assumptions)),
+    "CanopyPriceGoal" => estimate_text(WindShipOpt.canopy_price(assumptions)),
+    "CanopyPriceToday" => estimate_text(WindShipOpt.canopy_price_today(assumptions)),
     "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal())]
 
 """

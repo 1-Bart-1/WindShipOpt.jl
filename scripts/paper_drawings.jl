@@ -306,7 +306,7 @@ Seen from the side, the angle off downwind. (c) Seen from above, the mean tether
 resolved along and across the ship's course.
 """
 function kite_frames_figure()
-    figure = Figure(size=(page_width, 160))
+    figure = Figure(size=(page_width, 135))
     titles = ("(a) looking downwind", "(b) from the side", "(c) from above")
     axes = [Axis(figure[1, k]; autolimitaspect=1, title) for (k, title) in
             enumerate(titles)]
@@ -332,7 +332,8 @@ A thin arrow of `vector` from `origin` with `label` at its tip.
 """
 function small_arrow!(axis, origin, vector, label; color=:black, align=(:left, :center))
     arrows2d!(axis, [Point2f(origin)], [Vec2f(vector)]; color, shaftwidth=0.8)
-    text!(axis, Point2f(origin) + Vec2f(vector); text=label, align, offset=(2, 0), color)
+    text!(axis, Point2f(origin) + Vec2f(vector); text=label, align,
+        offset=clear_offset(align, pt(2)), color)
 end
 
 "point of the window seen looking downwind at `radius` and `roll` [rad], `y` to the left"
@@ -349,16 +350,18 @@ function draw_window!(axis)
     band = deg2rad.((35, 75))
     poly!(axis, vcat([Point2f(0, 0)], [window_point(1, roll) for roll in range(band...;
         length=30)]); color=(palette[1], 0.15))
+    lowest = sind(assumptions[:kite_min_elevation])
     for polar in (30, 60)
-        lines!(axis, [window_point(sind(polar), roll) for roll in range(0, π; length=60)];
+        radius = sind(polar)
+        lines!(axis, [window_point(radius, roll) for roll in range(0, π; length=60)];
             color=:gray70, linewidth=0.5)
-        text!(axis, window_point(sind(polar), deg2rad(150));
-            text=L"\vartheta = %$(polar)°", align=(:right, :top), offset=(-2, -1),
-            fontsize=note_size, color=:gray50)
+        text!(axis, polar == 30 ? -radius : radius, 0; text=L"\vartheta = %$(polar)°",
+            align=(:center, :top),
+            offset=clear_offset((:center, :top), pt(2)), fontsize=note_size,
+            color=:gray50)
     end
     lines!(axis, [window_point(1, roll) for roll in range(0, π; length=90)];
         color=:black)
-    lowest = sind(assumptions[:kite_min_elevation])
     poly!(axis, Point2f[(-sqrt(1 - lowest^2), lowest), (sqrt(1 - lowest^2), lowest),
         (1, 0), (-1, 0)]; color=(:gray50, 0.3))
     lines!(axis, Point2f[(-1.15, 0), (1.15, 0)]; color=:black, linewidth=0.6)
@@ -370,26 +373,26 @@ function draw_window!(axis)
     polar, roll = deg2rad(33), deg2rad(62)
     kite = window_point(sin(polar), roll)
     lines!(axis, [Point2f(0, 0), kite]; color=:gray50, linewidth=0.6, linestyle=:dash)
-    lines!(axis, [window_point(0.22, angle) for angle in range(0, roll; length=20)];
+    lines!(axis, [window_point(0.3, angle) for angle in range(0, roll; length=20)];
         color=category_colours[2])
-    text!(axis, window_point(0.26, roll / 2); text=L"\phi", align=(:right, :center),
+    text!(axis, window_point(0.34, 0.6roll); text=L"\phi", align=(:right, :center),
         color=category_colours[2])
     outward = Vec2f(kite / hypot(kite...))
     along = Vec2f(outward[2], -outward[1])
     heading = deg2rad(65)
     small_arrow!(axis, kite, 0.3outward, L"\hat{\mathbf{e}}_\vartheta";
-        align=(:right, :bottom))
-    small_arrow!(axis, kite, 0.3along, L"\hat{\mathbf{e}}_\phi"; align=(:left, :top))
+        align=(:right, :center))
+    small_arrow!(axis, kite, 0.3along, L"\hat{\mathbf{e}}_\phi"; align=(:left, :center))
     small_arrow!(axis, kite, 0.38 * (cos(heading) * outward + sin(heading) * along),
         L"\hat{\mathbf{h}}"; color=palette[6])
-    lines!(axis, [kite + 0.14 * (cos(angle) * outward + sin(angle) * along)
+    lines!(axis, [kite + 0.12 * (cos(angle) * outward + sin(angle) * along)
                   for angle in range(0, heading; length=12)]; color=palette[6])
     text!(axis, kite + 0.2 * (cos(heading / 2) * outward + sin(heading / 2) * along);
         text=L"\psi", align=(:center, :center), color=palette[6])
     scatter!(axis, [kite]; color=palette[1], markersize=8)
     small_arrow!(axis, (1.5, 0.28), (-0.2, 0), L"y"; align=(:right, :bottom))
     small_arrow!(axis, (1.5, 0.28), (0, 0.2), L"z"; align=(:center, :bottom))
-    limits!(axis, -1.2, 1.6, -0.08, 1.12)
+    limits!(axis, -1.2, 1.6, -0.16, 1.12)
 end
 
 """
@@ -402,15 +405,17 @@ function draw_side_sphere!(axis)
     lines!(axis, [polar_point(1, angle) for angle in range(0, π / 2; length=40)];
         color=:black)
     lines!(axis, Point2f[(-0.1, 0), (1.25, 0)]; color=:black, linewidth=0.6)
-    small_arrow!(axis, (0.55, -0.15), (0.45, 0), L"x"; align=(:left, :center))
+    small_arrow!(axis, (0.55, -0.15), (0.45, 0), ""; align=(:left, :center))
     text!(axis, 0.75, -0.18; text="apparent wind", align=(:center, :top),
         fontsize=note_size)
+    small_arrow!(axis, (-0.55, 0.45), (0.2, 0), L"x"; align=(:left, :center))
+    small_arrow!(axis, (-0.55, 0.45), (0, 0.2), L"z"; align=(:center, :bottom))
     polar = deg2rad(50)
     kite = polar_point(1, polar)
     lines!(axis, [Point2f(0, 0), kite]; color=palette[1], linewidth=1.5)
     scatter!(axis, [kite]; color=palette[1], markersize=8)
     text!(axis, kite / 2; text=L"r\,\hat{\mathbf{e}}_r", align=(:right, :bottom),
-        color=palette[1])
+        offset=clear_offset((:right, :bottom), pt(2)), color=palette[1])
     lines!(axis, [polar_point(0.3, angle) for angle in range(0, polar; length=20)];
         color=category_colours[2])
     text!(axis, polar_point(0.36, polar / 2); text=L"\vartheta", align=(:left, :center),
@@ -436,29 +441,33 @@ function draw_course_plan!(axis)
     poly!(axis, [Point2f(sin(angle), cos(angle)) for angle in range(-π / 2, π / 2;
         length=60)]; color=(palette[1], 0.12), strokecolor=:black, strokewidth=0.6)
     arrows2d!(axis, [Point2f(0, 0)], [Vec2f(0, 1.2)]; color=:black, shaftwidth=0.8)
-    text!(axis, 0, 1.2; text="apparent downwind", align=(:left, :top), offset=(3, 0),
-        fontsize=note_size)
+    text!(axis, 0, 1.2; text="apparent downwind", align=(:left, :top),
+        offset=clear_offset((:left, :center), pt(4)), fontsize=note_size)
     course = deg2rad(110)
     heading = Vec2f(sin(course), cos(course))
-    poly!(axis, rotated.(hull_outline(0.5, 0.09), course); color=:gray80,
-        strokecolor=:black, strokewidth=0.6)
+    poly!(axis, rotated.(hull_outline(0.36, 0.08) .- Point2f(0, 0.18), course);
+        color=:gray80, strokecolor=:black, strokewidth=0.6)
     lines!(axis, [Point2f(0, 0), Point2f(1.25heading)]; color=:black, linestyle=:dash,
         linewidth=0.6)
     text!(axis, Point2f(1.25heading); text="course", align=(:left, :center),
-        fontsize=note_size)
+        offset=clear_offset((:left, :center), pt(3)), fontsize=note_size)
     lines!(axis, [0.3Point2f(sin(angle), cos(angle)) for angle in range(0, course;
         length=30)]; color=category_colours[2])
     text!(axis, 0.36Point2f(sin(course / 2), cos(course / 2)); text=L"\chi",
         align=(:left, :bottom), color=category_colours[2])
-    force = Vec2f(0.85, 0.35)
+    force = Vec2f(0.68, 0.3)
     along = sum(force .* heading) * heading
     arrows2d!(axis, [Point2f(0, 0)], [force]; color=palette[1], shaftwidth=1.3)
     text!(axis, Point2f(force); text=L"\overline{\mathbf{F}}", align=(:left, :bottom),
-        offset=(2, 2), color=palette[1])
-    for (vector, label, origin) in ((along, L"F_\parallel", Point2f(0, 0)),
-        (force - along, L"F_\perp", Point2f(along)))
+        offset=clear_offset((:left, :bottom), pt(2)), color=palette[1])
+    for (vector, label, origin, inside, at) in (
+        (along, L"F_\parallel", Point2f(0, 0), force, 0.6),
+        (force - along, L"F_\perp", Point2f(along), Point2f(0, 0), 0.75))
         arrows2d!(axis, [origin], [vector]; color=palette[6], shaftwidth=0.8)
-        text!(axis, origin + vector / 2; text=label, align=(:left, :top), offset=(3, 0),
+        normal = Vec2f(vector[2], -vector[1]) / hypot(vector...)
+        middle = origin + at * vector
+        outward = sum(normal .* (inside - middle)) > 0 ? -normal : normal
+        text!(axis, middle + 0.11outward; text=label, align=(:center, :center),
             color=palette[6])
     end
     limits!(axis, -1.1, 1.7, -0.75, 1.3)
