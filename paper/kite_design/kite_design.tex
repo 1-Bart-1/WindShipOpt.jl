@@ -1,0 +1,71 @@
+% SPDX-FileCopyrightText: 2026 Bart van de Lint
+% SPDX-License-Identifier: AGPL-3.0-or-later
+\documentclass[3p,times,authoryear]{elsarticle}
+
+\input{preamble}
+
+\journal{Applied Energy}
+
+\begin{document}
+
+\begin{frontmatter}
+
+\title{How should a ship's towing kite be designed? Force limit and aspect ratio}
+
+\author[1]{Bart van de Lint\corref{cor1}}
+\ead{bart@vandelint.net}
+\cortext[cor1]{Corresponding author}
+\affiliation[1]{organization={\tbd{Affiliation}}}
+
+\begin{abstract}
+\tbd{Draft.} A towing kite on a cargo ship is today designed with a force limit of about \SI{0.5}{kN} per square metre and a projected aspect ratio of about 3. We ask whether these values are the cheapest for a ship. With the routed cost model of our comparison of towing kites, wing sails and Flettner rotors on cargo ships, we fly kites of other aspect ratios at the same price and kites built for other force limits at their best area on three ships. \tbd{A lower force limit saves more of the cost on all three ships, and a higher aspect ratio more up to about 5, if a launch system can handle it at the same cost.}
+\end{abstract}
+
+\begin{keyword}
+wind-assisted ship propulsion \sep towing kite \sep kite design \sep weather routing \sep techno-economics
+\end{keyword}
+
+\end{frontmatter}
+
+\section{Introduction}
+\label{sec:intro}
+
+Our comparison of towing kites, wing sails and Flettner rotors on cargo ships, the main paper this one builds on, fixes the kite's design at today's values: a force limit of \SI{0.5}{kN/m^2} of projected area, at which its canopy goals of life and cloth weight are stated, below the 0.9 to \SI{1.3}{kN/m^2} SkySails designed its kites for and reports from operation if their areas are flat \citep{paulig2013,skypower100_tib}, and a projected aspect ratio of 3, used by industry with no public reference, above the less than 2 of the SkySails kites \citep{paulig2013,folkersma2020}. It moves both only over their ranges as inputs a developer can change. Here we ask what each would be worth if a kite were designed for a ship's routed voyage instead.
+
+\section{Method}
+\label{sec:method}
+
+We use the model of the main paper unchanged: the ship, its rig and its weather routing over three years of ERA5 weather, with the full voyage cost per tonne-kilometre. The ships are the three of its development study: the \SI{140}{m} ship on e-ammonia to Guadeloupe, a Kamsarmax bulk carrier on VLSFO to Tubarão and a Neo-Panamax container ship on e-ammonia to New York, each with the kite size the main paper's class study finds cheapest, the \SI{140}{m} ship with \SI{3200}{m^2}. Every saving is that of the cost per tonne-kilometre against the same ship without a rig.
+
+\section{Aspect ratio of the kite}
+\label{sec:aspect}
+
+The main paper's results use the base aspect ratio of 3, span squared over area. \Cref{fig:aspect} shows what a higher one would be worth if such a kite could be handled at the same cost: the same area, with the launch gear, the tether, the canopy and everything else priced as at the base value, the same canopy mass per area and force limit, the largest tether force allowed, and the polars of a design shape that does not deform. It does not say the kite should fly at that value. On that assumption the cost saving of the base kite on the \SI{140}{m} ship goes from \tbd{8.4}\,\% at aspect ratio 3 to \tbd{13.5}\,\% at 5 and falls to \tbd{10.0}\,\% at 8. \tbd{Draft numbers, at the canopy price goal, with the kite held at \SIlist{3200;2828;13777}{m^2} on the three ships. The final run replaces them.}
+
+\begin{figure}[tbp]
+\centering
+\plot[\columnwidth]{aspect}
+\caption{What-if: cost saving of the kite at the same area and the same price against its aspect ratio, on the \SI{140}{m} e-ammonia ship to Guadeloupe, a Kamsarmax on VLSFO to Tubarão and a Neo-Panamax container ship on e-ammonia to New York.}
+\label{fig:aspect}
+\end{figure}
+
+\section{Force limit of the kite}
+\label{sec:force}
+
+Every kite of the main paper's results is built for \SI{0.5}{kN/m^2}. A kite built for more force has a thicker tether and bridle, a dearer winch and heavier, dearer cloth, and it depowers in stronger winds only. \Cref{fig:force_rating} routes the three ships of \cref{fig:aspect} with kites built for \SIrange{0.3}{1}{kN/m^2}, each at its best of the areas searched, a factor $\sqrt2$ apart. A lower limit saves more of the cost on all three ships, and on the Kamsarmax and the Neo-Panamax the best area grows as the limit falls. A heavier kite needs more wind to fly and is up for less of the passage.
+
+Doubling the limit to \SI{1}{kN/m^2} takes \tbd{4.2, 1.7 and 4.7} points of cost saving on the \SI{140}{m} ship, the Kamsarmax and the Neo-Panamax, far beyond the scatter of the pattern search, about 0.5 points on a difference between two cost savings. Lowering it to \SI{0.3}{kN/m^2} gains \tbd{3.5, 1.3 and 1.0} points, more than that scatter and of the same sign on every ship. Most of the loss at a higher limit comes from the tether, bridle and winch, which keep the kite down in light wind. On the same areas, cloth fixed at \SI{200}{g/m^2} whatever the limit, with the seams and reinforcements still growing with it, changes the cost saving at \SI{1}{kN/m^2} by \tbd{-0.2}, \tbd{+0.1} and \tbd{+0.5} points. Cloth in proportion to the limit costs \tbd{4.1}, \tbd{1.1} and \tbd{1.5} points more than the decay law, the loss of cloth strength to sunlight and wear that sets the canopy's life in the main paper. \tbd{These savings were found with a control unit of fixed mass. At \SI{0.22}{kg} per kN of force limit it weighs \SI{88}{kg} on a kite of \SI{800}{m^2} built for \SI{0.5}{kN/m^2} and \SI{176}{kg} built for \SI{1}{kN/m^2}, so the final run will charge a higher limit somewhat more.}
+
+The main paper keeps \SI{0.5}{kN/m^2}, since the canopy goals of life and cloth weight are stated at that limit. Its kite's cost savings may therefore be \tbd{one to three and a half} points short of what a kite built for a lower force would reach. \tbd{Draft numbers. The final run replaces them.}
+
+\begin{figure}[tbp]
+\centering
+\plot[\columnwidth]{force_rating}
+\caption{Cost saving of the kite at its best area against the force limit it is built for, on the ships of \cref{fig:aspect}, with cloth that keeps its life under the decay law (solid), in proportion to the limit (dashed) and fixed at \SI{200}{g/m^2} (dotted). The dashed and dotted lines take the best of three areas around the ship's own kite, the solid line of five.}
+\label{fig:force_rating}
+\end{figure}
+
+\bibliographystyle{elsarticle-harv}
+\bibliography{refs,literature}
+
+\end{document}
