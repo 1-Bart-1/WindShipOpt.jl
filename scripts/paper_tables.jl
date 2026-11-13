@@ -49,13 +49,16 @@ latex_escape(text) = replace(text, "\\" => "\\textbackslash{}", "&" => "\\&", "%
     latex_prose(text)
 
 Plain-text source note `text` escaped and typeset: about for `~`, en dashes in ranges,
-minus and times signs, digit groups, subscripts, degrees Celsius and unbroken page numbers.
+minus and times signs, digit groups, subscripts, degrees Celsius, the paper's \$C_B\$ and
+TEU, and page numbers and numbers with their unit unbroken.
 """
 function latex_prose(text)
     text = replace(latex_escape(replace(text, "~" => "about ")),
-        r"\d{1,3}(,\d{3})+(?!\d)" => digit_groups)
+        r"\d{1,3}(,\d{3})+(?!\d)|(?<![\w.,-])\d{5,}(?=\+|-\d{5,}\b)|(?<=\d-)\d{5,}\b" =>
+            digit_groups)
     return replace(text,
         r"(?<![\w-])(\d+(?:\.\d+)?)-(?=\d+(?:\.\d+)?(?![\w-]))" => s"\1--",
+        r"(?<![\w-])([A-Z])-(?=[A-Z](?![\w-]))" => s"\1--",
         r"(^|[\s(=])-(?=\d)" => s"\1\\ensuremath{-}",
         r"(\d) - (?=\d)" => s"\1 \\ensuremath{-} ",
         r"(\w)\*(?=\w)" => s"\1\\ensuremath{\\times}",
@@ -63,7 +66,9 @@ function latex_prose(text)
         r"\b([A-Za-z])\\_([A-Za-z]+)\b" => s"\\ensuremath{\1_\\mathrm{\2}}",
         r"\bFn\b" => "\\ensuremath{F_n}",
         r"(\d) C(?![\w\\])" => s"\1\\,\\si{\\degreeCelsius}",
-        r"(\d) \\%" => s"\1\\,\\%", r"\bp\. (?=\d)" => "p.~")
+        r"(\d) \\%" => s"\1\\,\\%", r"\bp\. (?=\d)" => "p.~",
+        r"\bCb\b" => "\\ensuremath{C_B}", r"\bteu\b" => "TEU",
+        r"(\d) (?=(m|t|kn|kW|MW|TEU|CEU|dwt|GT)\b)" => s"\1~")
 end
 
 "a number written with thousands commas, regrouped as the paper's numbers are"
@@ -215,7 +220,8 @@ function development_table()
             "at the better end of the range and its loss at the worse end, in percentage ",
             "points, in cost per tonne-km on each ship and the largest of each in ",
             "CO\\textsubscript{2} per tonne-km over the ships; and why the input is in ",
-            "the study. Values are estimates, conditions or goals (g), to two digits; ",
+            "the study. Values are estimates, conditions or goals (g), to two digits, and ",
+            "the gains and losses model output, to a tenth of a point; ",
             "\\cref{tab:goals} gives what is known today against each goal.}\n",
             "\\label{tab:development}\\\\")
         header = string("\\toprule\n & & \\multicolumn{3}{c}{Cost saving} & & \\\\\n",
@@ -705,7 +711,8 @@ limit_label(class) = string(WindShipOpt.cargo_limit(class, assumptions))
     class_source_notes()
 
 Source note of each ship class by name from the class file, without the references to
-the project's own notes.
+the project's own notes, with the currency of its prices in millions and the unit of its
+lengths overall.
 """
 function class_source_notes()
     lines = readlines(joinpath(root, "data", "ship_classes.csv"))
@@ -713,7 +720,9 @@ function class_source_notes()
     notes = Dict{String, String}()
     for line in lines[2:end]
         row = Dict(zip(header, WindShipOpt.csv_fields(line)))
-        notes[row["name"]] = replace(row["source"], r" \([^()]*notes\)" => "")
+        notes[row["name"]] = replace(row["source"], r" \([^()]*notes\)" => "",
+            r"(?<![\w.])(\d+(?:\.\d+)?) M\b" => s"USD \1 M",
+            r"\bLOA (\d+(?:\.\d+)?)" => s"LOA \1 m")
     end
     return notes
 end
@@ -752,16 +761,17 @@ function split_table()
 end
 
 """
-    shaded_cell(value, scale; shown=value, format="%.1f")
+    shaded_cell(value, scale; shown=value, format="%.1f", lightest=0)
 
 Table cell of `shown` in `format`, a dash where it is not finite, on a background of the
-paper's gain colour where `value` is positive and its loss colour where negative, the deeper
-the larger `value` is against `scale`; plain where `value` is zero or not finite.
+paper's gain colour where `value` is positive and its loss colour where negative, from
+`lightest` to 40 % deep the larger `value` is against `scale`; plain where `value` is zero
+or not finite.
 """
-function shaded_cell(value, scale; shown=value, format="%.1f")
+function shaded_cell(value, scale; shown=value, format="%.1f", lightest=0)
     text = dash_cell(shown, format)
     isfinite(value) && value != 0 || return text
-    depth = round(Int, 40 * min(abs(value) / scale, 1))
+    depth = round(Int, lightest + (40 - lightest) * min(abs(value) / scale, 1))
     return @sprintf("\\cellcolor{%s!%d}%s", value > 0 ? "gain" : "loss", depth, text)
 end
 
@@ -1500,8 +1510,11 @@ function speed_size_table()
         fuel_scale = column_scale(getproperty.(getproperty.(lines, :most_fuel),
             :fuel_percent))
         cost_scale = column_scale(getproperty.(lines, :cost))
-        signed(value, scale) = shaded_cell(value, scale;
-            shown=round(value; digits=1) + 0.0, format="\\(%.1f\\)")
+        function signed(value, scale)
+            shown = round(value; digits=1) + 0.0
+            return shaded_cell(shown == 0 ? 0.0 : value, scale; shown,
+                format="\\(%.1f\\)", lightest=12)
+        end
         for line in lines
             println(io, join((line.ship == "140 m" ? "140 m ship" : line.ship,
                     Dict(drive_labels)[line.drive], @sprintf("%.0f", line.knots),
