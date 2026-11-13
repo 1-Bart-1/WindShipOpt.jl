@@ -3,7 +3,7 @@
 \section{Method}
 \label{sec:model}
 
-The model turns a ship design into a cost per tonne-kilometre on a route. A design is a hull, a drive and at most one rig: a towing kite, a set of rigid wing sails or a set of Flettner rotors. The drive is a mechanical diesel engine on VLSFO or a mechanical dual-fuel engine on e-ammonia, the zero-emission fuel of this paper (\cref{sec:fuel_choice}). Ship models give the thrust the propeller must deliver in every wind, wave and speed. A table of these drives a weather router through three years of recorded weather. The cost model turns the passages into a cost per tonne-kilometre and sets the hourly price of time that the router trades against fuel (\cref{fig:pipeline}). A cost saving is the drop in this cost that a rig gives against the same ship without a rig on the same fuel and routes, and a point is one percentage point of that saving. The code is open source.\tbd{ Repository link.} \Cref{sec:details} gives the formulas, calibrations and sources in the order of this section.
+The model turns a ship design into a cost per tonne-kilometre on a route. A design is a hull, a drive and at most one rig: a towing kite, a set of rigid wing sails or a set of Flettner rotors. The drive is a mechanical diesel engine on VLSFO or a mechanical dual-fuel engine on e-ammonia, the zero-emission fuel of this paper (\cref{sec:fuel_choice}). Ship models give the thrust the propeller must deliver in every wind, wave and speed (\cref{fig:ship_model}). A table of these drives a weather router through three years of recorded weather. The cost model turns the passages into a cost per tonne-kilometre and sets the hourly price of time that the router trades against fuel (\cref{fig:pipeline}). A cost saving is the drop in this cost that a rig gives against the same ship without a rig on the same fuel and routes, and a point is one percentage point of that saving. The code is open source.\tbd{ Repository link.} \Cref{sec:details} gives the formulas, calibrations and sources in the order of this section.
 
 \begin{figure*}[tbp]
 \centering
@@ -15,7 +15,7 @@ The model turns a ship design into a cost per tonne-kilometre on a route. A desi
 \subsection{Ships}
 \label{sec:ships}
 
-The model starts with the ship. Thirteen standard classes of merchant ship (\cref{tab:classes,fig:ship_classes}) run from an \SI{85}{m} coaster to a container ship of \num{24000}~TEU, and that coaster scaled geometrically to \SI{200}{m} isolates the effect of size. The data of the classes come from MAN Energy Solutions' propulsion-trend papers, named ships, broker reports and contracts of 2025 and 2026, and commodity prices. Each hull floats at its design draught, the loaded draught its engine and propeller are designed for, with the deadweight (the mass of cargo, fuel and stores it can carry) of the deeper scantling draught its structure allows. Each class keeps the engine power of its source design, and the router chooses the speed.
+Thirteen standard classes of merchant ship (\cref{tab:classes,fig:ship_classes}) run from an \SI{85}{m} coaster to a container ship of \num{24000}~TEU, and that coaster scaled geometrically to \SI{200}{m} isolates the effect of size. The data of the classes come from MAN Energy Solutions' propulsion-trend papers, named ships, broker reports and contracts of 2025 and 2026, and commodity prices. Each hull floats at its design draught, the loaded draught its engine and propeller are designed for, with the deadweight (the mass of cargo, fuel and stores it can carry) of the deeper scantling draught its structure allows. Each class keeps the engine power of its source design, and the router chooses the speed.
 
 \begin{figure*}[tbp]
 \centering
@@ -33,6 +33,13 @@ The classes fall into two groups that pay for a rig in different ways: deadweigh
 \label{tab:classes}
 \input{sections/class_table}
 \end{table*}
+
+\begin{figure*}[tbp]
+\centering
+\input{sections/ship_model}
+\caption{The ship model by its parts, each force where it acts with its section, not to scale: (a) from above, a row of deck rigs in a wind forward of the beam; (b) from astern, heel. Below, how the parts combine into the engine output the rig's trim minimises. Blue forces come from the water, grey from the wind on the ship and orange from the rig; \cref{fig:force_balance} draws them to scale.}
+\label{fig:ship_model}
+\end{figure*}
 
 \paragraph{Calm water} The resistance $R_\mathrm{cw}(V)$, the force needed to push the hull through calm water at speed $V$, follows Holtrop and Mennen \citep{holtrop1982,holtrop1984}\tbd{ (sources not read)}, an empirical method fitted to model tests. It asks for 9 to 71\,\% more power than the class's source design implies, so one factor $f_R$ per class (\cref{tab:classes}) scales it to the source design's power at its service speed, less the sea margin kept for wind, waves and fouling (\cref{sec:det_ships}).
 
@@ -58,19 +65,19 @@ The e-ammonia engine burns 5\,\% of its energy as VLSFO pilot fuel, priced and c
 \subsection{Balance of rig forces}
 \label{sec:balance}
 
-A rig adds to these resistances a force with a component along the heading, the thrust $F_x$, and one across it, the side force $F_y$. It heels the ship with a moment $M_x$ and turns it with a yaw moment $M_z$, and a rotor draws a power $P_\mathrm{rig}$ to spin; $F_y$, $M_x$ and $M_z$ below include the wind on the ship. The hull answers the side force at a small leeway angle $\beta$, acting as a low, long wing with an induced drag $R_\beta$, and the rudder answers the yaw moment with a drag $R_r$. The hull is a regression fitted to model tests \citep{kim2021} and the rudder is sized by classification rules, the technical rules of the societies that certify a ship \citep{dnv_rudder} (\cref{fig:force_balance}). The thrust the propeller must give is
+A rig adds a thrust $F_x$ along the heading and a side force $F_y$ across it, heels the ship with a moment $M_x$ and turns it with a yaw moment $M_z$, and a rotor draws a power $P_\mathrm{rig}$ to spin; $F_y$, $M_x$ and $M_z$ below include the wind on the ship. The hull answers the side force at a small leeway angle $\beta$, as a low, long wing with an induced drag $R_\beta$, from a regression fitted to model tests \citep{kim2021}. The rudder, sized by the rules of the societies that certify ships \citep{dnv_rudder}, answers the yaw moment with a drag $R_r$ (\cref{fig:ship_model,fig:force_balance}). The propeller must give
 \begin{equation}
 T_\mathrm{req} = R_\mathrm{cw} + R_\mathrm{air} + R_\mathrm{aw} + R_\beta + R_r - F_x,
 \label{eq:thrust}
 \end{equation}
-the resistances and the costs of side force, less the rig's thrust. A setting is not used if it heels the ship more than \SI{8}{\degree} \citep{tillig2020}, needs a leeway above \SI{10}{\degree} or a rudder lift coefficient above 1, or, where the wind on the ship alone passes one of these limits, goes further past it. Of the rest the ship uses the setting that needs the least engine output. Each trim, the wing sail's lift, the rotor's spin and the kite's weight on side force below, is solved as a continuous quantity, so every rig sits equally close to its own optimum (\cref{sec:det_balance}).
+A setting is not used if it heels the ship more than \SI{8}{\degree} \citep{tillig2020}, needs a leeway above \SI{10}{\degree} or a rudder lift coefficient above 1, or, where the wind on the ship alone passes one of these limits, goes further past it. Of the rest the ship uses the setting that needs the least engine output. Each trim, the wing sail's lift, the rotor's spin and the kite's weight on side force below, is solved as a continuous quantity, so every rig sits equally close to its own optimum (\cref{sec:det_balance}).
 
-A single wing or rotor stands at the hull's lateral centre, where the hull's own side force acts, so its side force costs only leeway and heel; the rudder carries the yaw moment of a row centred at the middle of the deck. The soft kite tows from the foot of its launch mast at the forward end of the deck, as the ship kites built so far do \citep{fritz2013} and kite studies assume \citep{traut2014}, so the rudder holds a small turning moment (\cref{sec:tow_point}). The VTOL kite tows from the lateral centre. The kite pulls from low on the ship, so for the same side force it heels the ship less than a deck rig.
+A single wing or rotor stands at the hull's lateral centre, where the hull's own side force acts, so its side force costs only leeway and heel; the rudder carries the yaw moment of a row centred at the middle of the deck. The soft kite tows from the foot of its launch mast at the forward end of the deck, as the ship kites built so far do \citep{fritz2013} and kite studies assume \citep{traut2014}, so the rudder holds a small turning moment (\cref{sec:tow_point}). The VTOL kite tows from the lateral centre. The kite pulls from low on the ship, so for the same side force it heels the ship less than a deck rig (\cref{fig:ship_model}b).
 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{force_balance}
-\caption{Horizontal forces on the \SI{140}{m} ship at \SI{10.5}{kn} in a \SI{10}{m/s} true wind on the beam, seen from above with the bow up, to scale, for each rig at its best trim. The rig force acts at the kite's towing point or at the centre of the wing sails or rotors, and the wind load on the ship above the waterline at its own centre; the hull answers their side force at its lateral centre, and the rudder carries what yaw moment remains. The drag is the calm-water and wave resistance with the drag of leeway and rudder, and the propeller gives what the rig and the wind load leave of it (\cref{eq:thrust}). The dashed line is the kite's tether.}
+\caption{Horizontal forces on the \SI{140}{m} ship at \SI{10.5}{kn} in a \SI{10}{m/s} true wind on the beam, seen from above with the bow up, to scale, for each rig at its best trim; \cref{fig:ship_model} names the forces. The drag is the calm-water and wave resistance with the drag of leeway and rudder, and the propeller gives what the rig and the wind load leave of it (\cref{eq:thrust}). The dashed line is the kite's tether.}
 \label{fig:force_balance}
 \end{figure*}
 
