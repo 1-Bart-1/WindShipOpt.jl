@@ -2242,16 +2242,39 @@ end
     best = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
         options...)
     stage = stage_count - 2
-    best_node = findfirst(==(best.path[stage][2]), view(corridor.lon, stage, :))
+    best_node = WindShipOpt.nearest_lateral(corridor, stage, best.path[stage][1:2]...)
     values = zeros(size(corridor.lat, 2), 200, 2, stage_count)
     values[best_node, :, :, stage] .= Inf
     to_go = WindShipOpt.CostToGo(values, 48.0)
     detour = WindShipOpt.route_pass(workspace, corridor, table, weather, departure, to_go,
         floatmax(); options...)
     @test detour.objective > best.objective
-    leg = WindShipOpt.searched_leg(workspace, corridor, table, weather, departure, to_go,
-        (prevfloat(detour.objective),); options...)
+    leg, limit = WindShipOpt.searched_leg(workspace, corridor, table, weather, departure,
+        to_go, (prevfloat(detour.objective),); options...)
     @test leg.objective == best.objective
+    @test limit == Inf
+end
+
+@testset "a recorded search holds the path it found, the limit it kept and its states" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    record = SearchRecord()
+    leg = route(corridor, table, weather, departure; time_cost=hourly, record)
+    @test leg.path == route(corridor, table, weather, departure; time_cost=hourly).path
+    @test [point[1:2] for point in record.found.path] == [point[1:2] for point in leg.path]
+    @test leg.objective <= record.found.objective <= record.limit
+    @test record.limit == first(record.limits)
+    centre = centre_index(corridor)
+    @test record.estimate == record.to_go(centre, 1, 1, 0.0)
+    through = through_node(record)
+    @test through[1, centre] == record.estimate
+    laterals = [WindShipOpt.nearest_lateral(corridor, stage, point[1:2]...)
+                for (stage, point) in enumerate(record.found.path)]
+    @test all(through[stage, lateral] <= record.limit
+              for (stage, lateral) in enumerate(laterals))
+    kept = kept_states(record)
+    reached = isfinite.(record.cost)
+    @test count(kept) < count(reached)
+    @test all(any(kept[lateral, :, :, stage]) for (stage, lateral) in enumerate(laterals))
 end
 
 @testset "router settings return to those in force after a call under others" begin
@@ -2331,6 +2354,26 @@ end
     @test spread(10.0) == 2.0
     @test spread(17.0) == 4.0
     @test spread(96.0) == 4.0
+end
+
+@testset "a plan weighing wind error estimates the rest of its passage on its forecast" begin
+    stage_count, lateral_count = size(corridor.lat)
+    workspace = WindShipOpt.RouteWorkspace(lateral_count, 800, stage_count)
+    known = SyntheticWeather()
+    uncertain = WindShipOpt.UncertainForecast(known, 0.0, ForecastError(6.0, [4.0]))
+    estimate(weather) = copy(WindShipOpt.CostToGo(workspace, corridor, kite_route_table,
+        weather, 24.0 * 31; time_cost=hourly, first_stage=1, coastal_penalty=1.0).values)
+    @test isequal(estimate(uncertain), estimate(known))
+end
+
+@testset "the final pass of a plan weighing wind error runs on its own time bins" begin
+    settings = WindShipOpt.RouterSettings(final_time_step=0.5, weighed_final_time_step=2.0)
+    uncertain = WindShipOpt.UncertainForecast(SyntheticWeather(), 0.0,
+        ForecastError(6.0, [4.0]))
+    steps = WindShipOpt.with_router_settings(settings) do
+        WindShipOpt.final_time_step.((SyntheticWeather(), uncertain))
+    end
+    @test steps == (0.5, 2.0)
 end
 
 "Value `share` of the way through interval `i` of `knots`"
@@ -3458,14 +3501,6 @@ end
     @test any(<(0), exported.columns.apparent_angle) &&
           any(>(0), exported.columns.apparent_angle)
     @test all(abs(spin) <= 400 for spin in exported.columns.trim.spin)
-end
-
-@testset "the passage figure labels a track all its ships share" begin
-    track = [(0.0, 10.0), (1.0, 12.0), (2.0, 11.0)]
-    @test PaperData.clearest_edge(track, [track]) == 1
-    apart = [(0.0, 10.0), (1.0, 20.0), (2.0, 11.0)]
-    @test PaperData.clearest_edge(track, [track, apart]) == 1
-    @test PaperData.clearest_edge(apart, [track, apart]) == 1
 end
 
 @testset "a kite's recorded pattern flies on the lee side in the ship's frame" begin
