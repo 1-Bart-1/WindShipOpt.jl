@@ -1416,7 +1416,6 @@ end
     kite_table = RouteTable(PerformanceTable(ship, assumptions))
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions))
-    # Homeward in the westerlies the planned kite stays up across most nodes.
     _, homeward = corridors
     weather, departure = SyntheticWeather(), 24.0 * 121
     leg = route(homeward, kite_table, weather, departure; time_cost=kite_hourly)
@@ -1491,7 +1490,6 @@ end
     ship = table.table.ship
     hotel = 3600WindShipOpt.fuel_power(ship.powertrain, 0.0) * ship.fuel.price
     held = 12.0 * (hotel + hourly)
-    # Blind to the weather ahead, a ship sails 1-2 % above perfect foresight even in calm.
     for (horizon, tolerance) in ((72.0, 0.005), (0.0, 0.02))
         sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly,
             horizon)
@@ -1951,15 +1949,19 @@ function edge_angles(corridor, stage, lateral)
 end
 
 """
-Whether every edge of every node of `corridor` with a choice of edges makes progress, and
-the widest of them stays within `tolerance` [rad] of the corridor's design angle.
+Whether every edge of every node of `corridor` makes progress, and the widest edge of a
+node with a choice stays under the design angle plus `tolerance` [rad] and, where land and
+the band's edge leave it all its edges, its tangent above half the design tangent.
 """
 function headings_even(corridor; tolerance=deg2rad(10))
     design = atan(WindShipOpt.MAX_HEADING_TANGENT)
     for node in findall(corridor.water[1:(end - 1), :])
         angles = edge_angles(corridor, Tuple(node)...)
+        all(<(π / 2), angles) || return false
         length(angles) > 1 || continue
-        all(<(π / 2), angles) && maximum(angles) < design + tolerance || return false
+        widest, full = maximum(angles), length(angles) == size(corridor.edge_course, 3)
+        narrow = tan(widest) < WindShipOpt.MAX_HEADING_TANGENT / 2
+        widest < design + tolerance && !(full && narrow) || return false
     end
     return true
 end
@@ -3529,7 +3531,6 @@ end
     calm = route(corridor, table, SyntheticWeather(), departure; time_cost=hourly)
     stage = findlast(stage -> count(view(corridor.water, stage, :)) > 1,
         axes(corridor.lat, 1))
-    # A gale on the calm course while the ship sails out turns only the outbound aside.
     weather = PassingGale(SyntheticWeather(), calm.path[stage][1:2], departure,
         departure + 2calm.duration)
     costs, corridors = (hourly, hourly), (corridor, corridor)
