@@ -27,6 +27,7 @@ function forecast_plan_archives(control, directory, weather)
         :members => ForecastEnsemble([control;
             [ForecastArchive(joinpath(directory, member), weather) for member in members]]))
 end
+
 """
     replanning_sources(operational)
 
@@ -88,7 +89,8 @@ stage and row scales, built once per session.
 function corridors(name, scale)
     stage_scale, lateral_scale = scale isa Number ? (scale, scale) : scale
     return lock(corridor_lock) do
-        get!(() -> route_corridors(name, mask; scale=stage_scale, lateral_scale),
+        get!(() -> route_corridors(name, mask; scale=stage_scale,
+                lateral_spacing=WindShipOpt.LATERAL_SPACING * lateral_scale),
             corridor_cache, (name, Float64(stage_scale), Float64(lateral_scale)))
     end
 end
