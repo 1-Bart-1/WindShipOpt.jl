@@ -37,6 +37,7 @@ include("passages_data.jl")
 include("cargo_groups.jl")
 include("paper_figures.jl")
 include("paper_drawings.jl")
+include("router_figures.jl")
 include("paper_tables.jl")
 
 "data steps in the order they run, each writing one or two data files"
