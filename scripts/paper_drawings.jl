@@ -58,14 +58,13 @@ propeller thrust.
 """
 function force_balance_figure()
     speed, wind, angle = 10.5KNOT, 10.0, deg2rad(90)
-    rigs = ((L"(a) kite $800\,\mathrm{m^2}$", (kite_area=800.0,)),
-        (L"(b) wing sails $800\,\mathrm{m^2}$", (wing_area=800.0,)),
-        (L"(c) rotors $400\,\mathrm{m^2}$", (rotor_area=400.0,)))
     span = (-222.0, 208.0)
     width = page_width - pt(9)
     figure = Figure(size=(page_width, 300))
-    for (row, (title, area)) in enumerate(rigs)
-        ship = Ship(ShipDesign(:vlsfo, 140.0; area...), assumptions)
+    for (row, (rig, area)) in enumerate(trim_rigs)
+        ship = Ship(ShipDesign(:vlsfo, 140.0; rig_size(rig, area)...), assumptions)
+        letter = 'a' + row - 1
+        title = L"(%$letter) %$(rig_label(rig)) $%$(round(Int, area))\,\mathrm{m^2}$"
         thrust, force = WindShipOpt.best_trim(ship, ship.rig, speed, wind, angle)
         wind_load = WindShipOpt.wind_force(ship.windage, ship.env, wind, angle, speed)
         balance = WindShipOpt.HullBalance(ship, speed, force + wind_load)
@@ -149,7 +148,7 @@ point, rotors as circles, and wings as their chords along the apparent wind at t
 height.
 """
 draw_rig!(axis, rig::KiteRig, ship, conditions, colour) =
-    scatter!(axis, [Point2f(rig.attach_position, 0)]; color=colour, markersize=pt(4))
+    scatter!(axis, [Point2f(rig.attach_position, 0)]; color=colour, markersize=marker_size)
 
 function draw_rig!(axis, rig::WingRig, ship, (speed, wind, angle), colour)
     chord = rig.height / assumptions[:wing_aspect_ratio]
@@ -264,9 +263,8 @@ function ship_classes_figure()
     routes_seen = unique(table["route"])
     longest = maximum(classes[name].length for name in names)
     gap = 0.22longest
-    rig_kinds = ("kite", "wings", "rotors")
     rows = [(name, Hull(classes[name], assumptions), [mean_best_area(table, name,
-        routes_seen, kind) for kind in rig_kinds]) for name in names]
+        routes_seen, kind) for kind in rig_names]) for name in names]
     kite_tops = [draw_height(hull, first(areas)) for (_, hull, areas) in rows]
     margin = 55.0
     tops = cumsum([kite_top + hull.draft + margin
@@ -278,7 +276,7 @@ function ship_classes_figure()
     hidespines!(axis)
     for (row, (name, hull, areas)) in enumerate(rows)
         y = -tops[row] + hull.draft + margin
-        for (column, (kind, area)) in enumerate(zip(rig_kinds, areas))
+        for (column, (kind, area)) in enumerate(zip(rig_names, areas))
             offset = ((column - 1) * (longest + gap) + longest / 2, y)
             draw_ship!(axis, hull, offset)
             isfinite(area) || continue
@@ -295,7 +293,7 @@ function ship_classes_figure()
         end
         text!(axis, -0.06longest, y; text=name, align=(:right, :center))
     end
-    for (column, title) in enumerate(("kite", "wing sails", "rotors"))
+    for (column, title) in enumerate(rig_label.(rig_names))
         text!(axis, (column - 1) * (longest + gap) + longest / 2, 10; text=title,
             align=(:center, :bottom))
     end
@@ -307,18 +305,9 @@ function ship_classes_figure()
     save_figure("ship_classes", figure)
 end
 
-"""
-    area_label(area)
-
-`area` [m^2] as a LaTeX label, to three significant digits, with a thin space between the
-thousands from five digits up as the text sets them.
-"""
-function area_label(area)
-    rounded = Int(round(area; sigdigits=3))
-    digits = rounded < 10_000 ? string(rounded) :
-             string(div(rounded, 1000), "\\,", lpad(rem(rounded, 1000), 3, '0'))
-    return L"%$(digits)\,\mathrm{m^2}"
-end
+"`area` [m^2] as a LaTeX label to three significant digits, its digits grouped"
+area_label(area) =
+    L"%$(digit_groups(string(Int(round(area; sigdigits=3)))))\,\mathrm{m^2}"
 
 """
     mean_best_area(table, class, routes, rig)
@@ -506,12 +495,12 @@ function draw_course_plan!(axis)
     arrows2d!(axis, [Point2f(0, 0)], [force]; color=palette[1], shaftwidth=force_width)
     text!(axis, Point2f(force); text=L"\overline{\,\mathbf{F}}", align=(:left, :bottom),
         offset=clear_offset((:left, :bottom), pt(2)), color=palette[1])
-    for (vector, label, origin, inside, at) in (
-        (along, L"F_\parallel", Point2f(0, 0), force, 0.75),
-        (force - along, L"F_\perp", Point2f(along), Point2f(0, 0), 0.75))
+    for (vector, label, origin, inside) in (
+        (along, L"F_\parallel", Point2f(0, 0), force),
+        (force - along, L"F_\perp", Point2f(along), Point2f(0, 0)))
         arrows2d!(axis, [origin], [vector]; color=palette[6], shaftwidth=force_width)
         normal = Vec2f(vector[2], -vector[1]) / hypot(vector...)
-        middle = origin + at * vector
+        middle = origin + 0.75vector
         outward = sum(normal .* (inside - middle)) > 0 ? -normal : normal
         text!(axis, middle + 0.15outward; text=label, align=(:center, :center),
             color=palette[6])
