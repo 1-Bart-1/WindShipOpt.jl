@@ -4,6 +4,10 @@
 % \note{text}: a review note shown in the PDF; \notesfalse hides all.
 \newif\ifnotes\notestrue
 \newcommand{\note}[1]{\ifnotes{\color{teal!70!black}\sffamily\small[#1]}\fi}
+\newcommand{\confidential}{Unpublished work in progress, shared in confidence. Do not distribute or cite.}
+\AddToHook{shipout/foreground}{\put(0,0){\makebox[\paperwidth][c]{\raisebox{\dimexpr-\paperheight+6mm\relax}{\normalfont\scriptsize\color{black!60}\confidential}}}}
+% \keywordlist{separator}: the paper's keywords, joined by the separator.
+\newcommand{\keywordlist}[1]{wind-assisted ship propulsion#1 towing kite#1 airborne wind energy#1 rigid wing sail#1 Flettner rotor#1 weather routing#1 maritime decarbonisation#1 e-ammonia}
 \newcommand{\plot}[2][]{\IfFileExists{figures/#2.pdf}{\includegraphics[max width=\textwidth]{#2}}{\fbox{\parbox[c][3cm][c]{0.9\textwidth}{\centering\tbd{Figure \detokenize{#2} pending data.}}}}}
 \graphicspath{{figures/}}
 \input{sections/numbers}
