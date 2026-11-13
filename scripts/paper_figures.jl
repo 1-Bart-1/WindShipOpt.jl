@@ -21,10 +21,10 @@ category_colours = [palette[6], Makie.RGBf(0.42, 0.26, 0.64), Makie.RGBf(0.55, 0
 
 Write [`figure_style`](@ref) to paper/figure_style.tex, which the paper and its extended
 abstract load: TikZ and its libraries, the colours, and the TikZ styles of the LaTeX
-figures, `force`, `flow`, `dimension`, `leader`, `label`, `note`, `box`, one `<kind> box`
-per fill, `box title`, `box text`, `panel` and `step number`, with the arrowhead every
-arrow shares and a warning wherever two `label` or `note` nodes of a picture overlap;
-error on any [`tikz_style_faults`](@ref).
+figures, `force`, `flow`, `dimension`, `leader`, `crossing`, `label`, `note`, `box`, one
+`<kind> box` per fill, `box title`, `box text`, `panel` and `step number`, with the
+arrowhead every arrow shares, no hyphenation, and a warning wherever two `label` or
+`note` nodes of a picture overlap; error on any [`tikz_style_faults`](@ref).
 """
 function figure_style_file()
     faults = tikz_style_faults()
@@ -94,11 +94,13 @@ function figure_style_file()
         println(io, "  >={Stealth[length=", size("arrow_length"), ", width=",
             size("arrow_width"), "]},")
         println(io, "  every picture/.style={line width=", size("rule"), ", font=",
-            font("text"), ", execute at end picture=\\figurestylecheck},")
+            font("text"), ", execute at end picture=\\figurestylecheck, every node/.style=",
+            "{execute at begin node={\\hyphenpenalty=10000\\relax}}},")
         println(io, "  force/.style={->, line width=", size("force"), "},")
         println(io, "  flow/.style={->, line width=", size("flow"), "},")
         println(io, "  dimension/.style={<->, guide, line width=", size("dimension"), "},")
         println(io, "  leader/.style={guide, line width=", size("dimension"), "},")
+        println(io, "  crossing/.style={draw=white, line width=", size("crossing"), "},")
         println(io, "  label/.style={font=", font("text"), ", inner sep=1pt, preaction={",
             "fill=white, draw=white, line width=", size("halo"), "}, append after ",
             "command={\\pgfextra{\\figurestylerecord{\\tikzlastnode}}}},")

@@ -18,7 +18,8 @@ arrow_length = 4.0 # arrowhead length, the same on every arrow
 arrow_width = 3.2 # arrowhead width
 halo = 1.6 # white outline behind a label
 clearance = 0.75 # least gap between a label and another label, line or arrow
-step = 10.0 # diameter of the disc that numbers a step
+step = 11.0 # diameter of the disc that numbers a step
+crossing = 3.0 # width of the white gap a line cuts where it crosses another
 
 [colours] # hex RGB
 kite = "0072B2"

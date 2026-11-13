@@ -47,7 +47,7 @@
   \foreach \x in {-14,-4,6} {
     \fill[wings] (\x-2.4,2.6) -- (\x+1.6,2.6) -- (\x+1.2,11.8) .. controls (\x-0.1,13.6) and (\x-1.4,12.9) .. (\x-1.9,11.8) -- cycle;
     \draw[force, wings] (\x+1.4,7.2) -- ++(5,0);}
-  \draw[dimension] (23,0) -- (23,13.4) node[note, text=black, anchor=south, align=center] {air draft\\ up to \SI{45}{m}};
+  \draw[dimension] (23,0) -- (23,13.4) node[note, text=black, anchor=south east, align=right, xshift=1mm] {air draft\\ up to \SI{45}{m}};
   \node[label, wings!80!black, anchor=west, align=left] at (-27,22) {pulls at mid height, tens of metres up};
   \node[note, anchor=north west, text width=52mm, align=left] at (-28,-18) {\textcolor{wings!80!black}{\textbf{Gives}} a steady pull, trimmed like a sail. \textbf{Takes} deck space and access for cargo handling.};
   \rigstrip{wings}{2}{7}{2 (1--7)}{0.25}{0.12}{0.36}{\SI{0.25}{t} (0.12--0.36)}
@@ -60,7 +60,7 @@
     \fill[rotors] (\x-1.3,11.7) rectangle (\x+1.3,12.4);
     \draw[flow, rotors!60!black] (\x-1.3,9.6) arc[start angle=180, end angle=355, x radius=1.3, y radius=0.5];
     \draw[force, rotors] (\x+0.75,7.3) -- ++(5,0);}
-  \draw[dimension] (23,0) -- (23,13.4) node[note, text=black, anchor=south, align=center] {air draft\\ up to \SI{45}{m}};
+  \draw[dimension] (23,0) -- (23,13.4) node[note, text=black, anchor=south east, align=right, xshift=1mm] {air draft\\ up to \SI{45}{m}};
   \node[label, rotors!80!black, anchor=west, align=left] at (-27,22) {pulls at mid height, tens of metres up};
   \node[note, anchor=north west, text width=52mm, align=left] at (-28,-18) {\textcolor{rotors!80!black}{\textbf{Gives}} about five times the lift of a wing sail of the same area. \textbf{Takes} deck space and access for cargo handling, the most mass, and power to spin.};
   \rigstrip{rotors}{3}{5}{3 (2--5)}{0.63}{0.30}{0.70}{\SI{0.63}{t} (0.30--0.70)}

@@ -65,11 +65,12 @@
 \ExplSyntaxOff
 \tikzset{
   >={Stealth[length=4pt, width=3.2pt]},
-  every picture/.style={line width=0.5pt, font=\fontsize{8}{9.6}\selectfont, execute at end picture=\figurestylecheck},
+  every picture/.style={line width=0.5pt, font=\fontsize{8}{9.6}\selectfont, execute at end picture=\figurestylecheck, every node/.style={execute at begin node={\hyphenpenalty=10000\relax}}},
   force/.style={->, line width=1.3pt},
   flow/.style={->, line width=0.6pt},
   dimension/.style={<->, guide, line width=0.4pt},
   leader/.style={guide, line width=0.4pt},
+  crossing/.style={draw=white, line width=3pt},
   label/.style={font=\fontsize{8}{9.6}\selectfont, inner sep=1pt, preaction={fill=white, draw=white, line width=1.6pt}, append after command={\pgfextra{\figurestylerecord{\tikzlastnode}}}},
   note/.style={label, font=\fontsize{7}{8.4}\selectfont},
   box/.style={draw, rounded corners=2pt, line width=0.5pt},
@@ -81,5 +82,5 @@
   box title/.style={font=\fontsize{8}{9.6}\selectfont\bfseries, align=left, inner sep=0pt},
   box text/.style={align=left, inner sep=0pt},
   panel/.style={anchor=west, inner sep=0pt},
-  step number/.style={circle, fill=black, text=white, font=\fontsize{7}{8.4}\selectfont\bfseries, inner sep=0pt, minimum size=10pt},
+  step number/.style={circle, fill=black, text=white, font=\fontsize{7}{8.4}\selectfont\bfseries, inner sep=0pt, minimum size=11pt},
 }

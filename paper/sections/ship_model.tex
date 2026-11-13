@@ -43,7 +43,7 @@
 % ---- from astern, heeled to leeward: wing sail or rotor against kite
 \node[panel] at (122,29) {(b) From astern};
 \begin{scope}[shift={(142,0)}]
-  \fill[water!15] (-9.5,-9) rectangle (10,0);
+  \fill[water!15] (-9.5,-9) rectangle (11,0);
   \begin{scope}[rotate=-8]
     \draw[fill=ship!30] (-8,5) -- (-8,-3) arc[start angle=180, end angle=270, radius=2]
       -- (6,-5) arc[start angle=270, end angle=360, radius=2] -- (8,5) -- cycle;
@@ -61,7 +61,8 @@
   \draw[force] (tow) -- ++(8,0);
   \draw[force, water] (8,-2.5) -- (-4,-2.5);
   \draw[dimension, |<->|] (-11,-2.5) -- (-11,0 |- wing) node[note, text=black, above] {deck rig lever};
-  \draw[dimension, |<->|] (13,-2.5) -- (13,0 |- tow) node[midway, note, text=black, rotate=90, anchor=north] {kite lever};
+  \draw[dimension, |<->|] (14,-2.5) -- (14,0 |- tow);
+  \node[note, text=black, rotate=90, anchor=north] at (14.8,1.2) {kite lever};
   \node[label, anchor=north] at (0.25,-9.5) {heel $\phi\le\SI{8}{\degree}$, \S\ref{sec:balance}};
 \end{scope}
 % ---- how the parts combine
