@@ -942,17 +942,19 @@ function savings_panel!(axis, table, groups, drive, column, format)
               for kind in rig_names] for (_, classes) in groups]
     span = extrema([all_routes; 0])
     width = span[2] - span[1]
-    number_x = span[2] + 0.07 * width
+    low = span[1] < 0 ? min(span[1] - 0.04 * width, -0.1 * width) : 0.0
+    high = span[2] + 0.35 * width
     for (i, group_means) in enumerate(means)
         known = findall(isfinite, group_means)
         isempty(known) && continue
         leader = known[argmax(group_means[known])]
         hspan!(axis, i - 0.5, i + 0.5;
             color=group_means[leader] > 0 ? (palette[leader], 0.2) : (:gray, 0.2))
-        text!(axis, number_x, i; text=typeset_minus(Printf.format(format,
-                group_means[leader])), align=(:left, :center), fontsize=note_size)
+        text!(axis, high, i; text=typeset_minus(Printf.format(format,
+                group_means[leader])), align=(:right, :center), fontsize=note_size,
+            offset=clear_offset((:right, :center), pt(2.5)))
     end
-    vlines!(axis, 0; color=:gray, linewidth=0.5)
+    low < 0 && vlines!(axis, 0; color=:gray, linewidth=0.5)
     hlines!(axis, length(groups) - 1.5; color=:black, linewidth=0.5)
     for (i, rigs) in enumerate(savings), (j, values) in enumerate(rigs)
         isempty(values) && continue
@@ -961,7 +963,7 @@ function savings_panel!(axis, table, groups, drive, column, format)
             direction=:x, color=(palette[j], 0.6))
         scatter!(axis, [means[i][j]], [y]; color=palette[j])
     end
-    limits!(axis, span[1] - 0.04 * width, span[2] + 0.3 * width, length(groups) + 0.5, 0.5)
+    limits!(axis, low, high, length(groups) + 0.5, 0.5)
     axis.xticks = Makie.get_tickvalues(
         Makie.WilkinsonTicks(4; Q=[(1.0, 1.0), (5.0, 0.9), (2.0, 0.7)]), span...)
 end
@@ -979,7 +981,7 @@ function class_comparison_figure()
               [("mean, $limit-limited", names) for (limit, names) in limit_groups(table)]]
     figure = Figure(size=(page_width, 390))
     for (k, (drive, title)) in enumerate(drive_panels)
-        Label(figure[1, (2k - 1):2k], title; tellwidth=false, halign=:left)
+        Label(figure[1, (2k - 1):2k], title; tellwidth=false)
         fuel_label = drive == "vlsfo" ? rich("fuel, CO", subscript("2"), " saving [%]") :
                      "fuel saving [%]"
         panels = (("cost", "cost saving [%]", "%.1f"), ("fuel", fuel_label, "%.0f"))
@@ -991,10 +993,12 @@ function class_comparison_figure()
         end
     end
     rowgap!(figure.layout, 1, 4)
-    Legend(figure[1, 2length(drive_panels)],
-        [MarkerElement(; color=palette[j], marker=:circle)
-         for j in eachindex(rig_names)], collect(rig_names); orientation=:horizontal,
-        halign=:right, valign=:bottom, tellwidth=false, margin=(0, 0, 0, 0))
+    Legend(figure[3, 1:2length(drive_panels)],
+        [[LineElement(; color=(palette[j], 0.6), linewidth=rule_width * 2),
+          MarkerElement(; color=palette[j], marker=:circle)]
+         for j in eachindex(rig_names)], rig_label.(collect(rig_names));
+        orientation=:horizontal, tellwidth=false)
+    rowgap!(figure.layout, 2, pt(4))
     save_figure("class_comparison", figure)
 end
 
