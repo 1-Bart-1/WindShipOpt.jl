@@ -1930,6 +1930,52 @@ WindShipOpt.is_land(mask::ChannelMask, lat, lon) =
     end
 end
 
+"""
+Angles [rad] between the edges leaving node `lateral` of stage `stage` of `corridor` and
+the forward direction there, square to the node's row and pointing to the next stage.
+"""
+function edge_angles(corridor, stage, lateral)
+    neighbour = lateral < size(corridor.lat, 2) ? lateral + 1 : lateral - 1
+    row = WindShipOpt.bearing(corridor.lat[stage, lateral], corridor.lon[stage, lateral],
+        corridor.lat[stage, neighbour], corridor.lon[stage, neighbour])
+    ahead = WindShipOpt.bearing(corridor.lat[stage, lateral], corridor.lon[stage, lateral],
+        corridor.lat[stage + 1, lateral], corridor.lon[stage + 1, lateral])
+    off(course) = abs(mod(course + π, 2π) - π)
+    forward = argmin(course -> off(course - ahead), (row - π / 2, row + π / 2))
+    courses = filter(!isnan, corridor.edge_course[stage, lateral, :])
+    return [off(course - forward) for course in courses]
+end
+
+"""
+Whether every edge of every node of `corridor` with a choice of edges makes progress, and
+the widest of them stays within `tolerance` [rad] of the corridor's design angle.
+"""
+function headings_even(corridor; tolerance=deg2rad(10))
+    design = atan(WindShipOpt.MAX_HEADING_TANGENT)
+    for node in findall(corridor.water[1:(end - 1), :])
+        angles = edge_angles(corridor, Tuple(node)...)
+        length(angles) > 1 || continue
+        all(<(π / 2), angles) && maximum(angles) < design + tolerance || return false
+    end
+    return true
+end
+
+@testset "every node of every corridor offers an even spread of forward headings" begin
+    mask = north_atlantic_mask()
+    grid = PlanningGrid(mask)
+    for route in (:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao),
+        scale in (1, 8), leg in route_corridors(route, mask; scale)
+
+        @test headings_even(leg)
+        scale == 1 || continue
+        @test all(1:6:(size(leg.lat, 1) - 1)) do stage
+            centre = WindShipOpt.centre_index(leg)
+            leg.water[stage, centre] || return true
+            headings_even(first(WindShipOpt.planning_corridor(leg, stage, centre, grid)))
+        end
+    end
+end
+
 @testset "every node of a corridor leads to port" begin
     for leg in route_corridors(:caribbean, ChannelMask(); ocean_spacing=240.0,
         lateral_spacing=60.0)

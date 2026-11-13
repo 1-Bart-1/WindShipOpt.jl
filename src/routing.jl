@@ -17,8 +17,8 @@ lateral_reach(stage_spacing, lateral_spacing) = max(1,
 "rows by which a reach short of a whole number of rows still counts as reaching it"
 const ROW_TOLERANCE = 1e-6
 
-"stages on each side over which the lateral direction is averaged"
-const NORMAL_SMOOTHING = 8
+"distance between the stages of a fixed coastal path [nmi]"
+const COASTAL_SPACING = 30.0
 
 """
     Corridor
@@ -84,29 +84,34 @@ function near_land(mask, lat, lon, clearance)
 end
 
 """
-    Corridor(coastal, ocean, mask; ocean_spacing, lateral_spacing, lateral_count)
+    Corridor(departure, arrival, mask; ocean_spacing, lateral_spacing, lateral_count)
 
-Corridor that follows the fixed `coastal` waypoints (lat, lon) without lateral freedom,
-then opens into a band around the `ocean` waypoints, the last of which is the
-destination. Coastal stages lie 30 nautical miles apart; spacings in nautical miles.
+Corridor that follows the fixed `departure` path (lat, lon), crosses the open ocean on the
+great circle from its end to the start of the fixed `arrival` path, and follows that path
+to the port, its last point. Only the open-ocean stages have lateral nodes, on rows
+perpendicular to the great circle. Fixed stages lie `COASTAL_SPACING` apart; spacings in
+nautical miles.
 """
-function Corridor(coastal::Vector{NTuple{2, Float64}}, ocean::Vector{NTuple{2, Float64}},
-        mask; ocean_spacing, lateral_spacing, lateral_count)
-    track = resample(coastal, 30.0 * NAUTICAL_MILE)
-    coastal_stages = length(track)
-    append!(track, resample([last(coastal); ocean], ocean_spacing * NAUTICAL_MILE)[2:end])
+function Corridor(departure::Vector{NTuple{2, Float64}},
+        arrival::Vector{NTuple{2, Float64}}, mask; ocean_spacing, lateral_spacing,
+        lateral_count)
+    departing = resample(departure, COASTAL_SPACING * NAUTICAL_MILE)
+    arriving = resample(arrival, COASTAL_SPACING * NAUTICAL_MILE)
+    crossing = resample([last(departure), first(arrival)], ocean_spacing * NAUTICAL_MILE)
+    track = [departing; crossing[2:(end - 1)]; arriving]
+    open_ocean = [falses(length(departing)); trues(length(crossing) - 2);
+                  falses(length(arriving))]
     stage_count = length(track)
-    along = cumsum([0.0; [distance(track[i]..., track[i + 1]...)
-                          for i in 1:(stage_count - 1)]])
-    track_end = last(along)
+    landfall = length(departing) + length(crossing) - 1
     half = (lateral_count - 1) ÷ 2
     lat = zeros(stage_count, lateral_count)
     lon = zeros(stage_count, lateral_count)
     water = falses(stage_count, lateral_count)
     for (stage, (stage_lat, stage_lon)) in enumerate(track)
-        course = bearing(track[max(stage - NORMAL_SMOOTHING, 1)]...,
-            track[min(stage + NORMAL_SMOOTHING, stage_count)]...)
-        width = stage <= coastal_stages ? 0 : half
+        course = stage < stage_count && stage != landfall ?
+                 bearing(track[stage]..., track[stage + 1]...) :
+                 bearing(track[stage]..., track[stage - 1]...) + π
+        width = open_ocean[stage] ? half : 0
         for lateral in 1:lateral_count
             offset = (lateral - half - 1) * lateral_spacing * NAUTICAL_MILE
             point = destination_point(stage_lat, stage_lon, course + π / 2, offset)
@@ -118,7 +123,8 @@ function Corridor(coastal::Vector{NTuple{2, Float64}}, ocean::Vector{NTuple{2, F
     near_coast = [near_land(mask, lat[i], lon[i], COASTAL_CLEARANCE)
                   for i in eachindex(lat)]
     reach = lateral_reach(ocean_spacing, lateral_spacing)
-    return Corridor(lat, lon, leading_to_port(lat, lon, water, mask, reach)..., track_end,
+    track_length = sum(distance(track[i]..., track[i + 1]...) for i in 1:(stage_count - 1))
+    return Corridor(lat, lon, leading_to_port(lat, lon, water, mask, reach)..., track_length,
         reshape(BitVector(near_coast), size(lat)), along_centre_line(lat, lon), reach,
         lateral_spacing * NAUTICAL_MILE, zeros(stage_count))
 end
@@ -2221,32 +2227,31 @@ const CHANNEL = [(51.98, 4.05), (51.05, 1.60), (50.05, -1.50), (48.80, -6.00)]
 const OCEAN_SPACING, LATERAL_SPACING = 90.0, 60.0
 
 """
+Fixed path from the open ocean to the port of each route (latitude, longitude) [deg], the
+port last: Houston's runs from north of the Bahamas through the Florida Strait.
+"""
+const PORT_APPROACHES = Dict(:caribbean => [(16.15, -61.20)],
+    :new_york => [(40.3, -72.5)], :bilbao => [(43.6, -3.0)], :dakar => [(14.6, -17.6)],
+    :houston => [(28.0, -79.5), (26.5, -79.5), (25.5, -79.8), (24.6, -80.3), (24.2, -81.5),
+        (24.4, -83.3), (25.5, -86.5), (28.8, -94.5)],
+    :tubarao => [(-20.4, -39.8)])
+
+"""
     route_corridors(route, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
                     lateral_spacing=LATERAL_SPACING * scale)
 
 Outbound and return corridors between Rotterdam and the port of `route`: `:caribbean`
-(Guadeloupe; outbound via the trade winds, homeward on the great circle), `:new_york`,
-`:bilbao`, `:dakar`, `:houston` (through the Florida Strait) or `:tubarao` (Brazil), the
-same band both ways. All run through the Channel to Ushant.
+(Guadeloupe), `:new_york`, `:bilbao`, `:dakar`, `:houston` or `:tubarao` (Brazil), the same
+band both ways. Each runs through the Channel to Ushant, crosses the open ocean on the great
+circle and follows the `PORT_APPROACHES` path to the port.
 `ocean_spacing` and `lateral_spacing` are the stage and row spacing [nmi]; the band reaches
 `CORRIDOR_HALF_WIDTH` to either side.
 """
 function route_corridors(route::Symbol, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
         lateral_spacing=LATERAL_SPACING * scale)
-    spacing = (ocean_spacing, lateral_spacing,
+    outbound = Corridor(CHANNEL, PORT_APPROACHES[route], mask; ocean_spacing,
+        lateral_spacing,
         lateral_count=2 * ceil(Int, CORRIDOR_HALF_WIDTH / lateral_spacing) + 1)
-    if route == :caribbean
-        guadeloupe = (16.15, -61.20)
-        outbound = Corridor(CHANNEL, [(40.0, -14.0), (27.0, -28.0), guadeloupe], mask;
-            spacing...)
-        return outbound,
-        return_corridor(Corridor(CHANNEL, [guadeloupe], mask; spacing...), mask)
-    end
-    ocean = Dict(:new_york => [(40.3, -72.5)], :bilbao => [(43.6, -3.0)],
-        :dakar => [(43.5, -11.0), (14.6, -17.6)],
-        :houston => [(30.5, -76.0), (23.9, -81.5), (25.5, -86.5), (28.8, -94.5)],
-        :tubarao => [(30.0, -22.0), (0.0, -30.0), (-20.4, -39.8)])[route]
-    outbound = Corridor(CHANNEL, ocean, mask; spacing...)
     return outbound, return_corridor(outbound, mask)
 end
 
