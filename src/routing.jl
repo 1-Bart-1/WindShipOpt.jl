@@ -69,6 +69,9 @@ lateral_step(corridor::Corridor, lateral, next) = next - lateral + corridor.reac
 centre_index(lat::AbstractMatrix) = (size(lat, 2) + 1) ÷ 2
 centre_index(corridor::Corridor) = centre_index(corridor.lat)
 
+"latitude north and south of which a corridor has no usable node [deg]"
+const SAILABLE_LATITUDE = 60.0
+
 "distance from land within which the wind grid does not resolve the coast [m]"
 const COASTAL_CLEARANCE = 50 * NAUTICAL_MILE
 
@@ -91,8 +94,8 @@ end
 Corridor that follows the fixed `departure` path (lat, lon), crosses the open ocean on the
 great circle from its end to the start of the fixed `arrival` path, and follows that path
 to the port, its last point. Only the open-ocean stages have lateral nodes, on rows
-perpendicular to the great circle. Fixed stages lie `COASTAL_SPACING` apart; spacings in
-nautical miles.
+perpendicular to the great circle and within `SAILABLE_LATITUDE`. Fixed stages lie
+`COASTAL_SPACING` apart; spacings in nautical miles.
 """
 function Corridor(departure::Vector{NTuple{2, Float64}},
         arrival::Vector{NTuple{2, Float64}}, mask; ocean_spacing, lateral_spacing,
@@ -119,6 +122,7 @@ function Corridor(departure::Vector{NTuple{2, Float64}},
             point = destination_point(stage_lat, stage_lon, course + π / 2, offset)
             lat[stage, lateral], lon[stage, lateral] = point
             water[stage, lateral] = abs(lateral - half - 1) <= width &&
+                                    abs(first(point)) <= SAILABLE_LATITUDE &&
                                     !is_land(mask, point...)
         end
     end
@@ -126,9 +130,10 @@ function Corridor(departure::Vector{NTuple{2, Float64}},
                   for i in eachindex(lat)]
     reach = lateral_reach(ocean_spacing, lateral_spacing)
     track_length = sum(distance(track[i]..., track[i + 1]...) for i in 1:(stage_count - 1))
-    return Corridor(lat, lon, leading_to_port(lat, lon, water, mask, reach)..., track_length,
-        reshape(BitVector(near_coast), size(lat)), along_centre_line(lat, lon), reach,
-        lateral_spacing * NAUTICAL_MILE, zeros(stage_count), mask)
+    return Corridor(lat, lon, leading_to_port(lat, lon, water, mask, reach)...,
+        track_length, reshape(BitVector(near_coast), size(lat)),
+        along_centre_line(lat, lon), reach, lateral_spacing * NAUTICAL_MILE,
+        zeros(stage_count), mask)
 end
 
 """

@@ -1984,11 +1984,21 @@ end
 
         @test headings_even(leg)
         scale == 1 || continue
+        @test any(>(1), sum(leg.water; dims=2))
         @test all(1:6:(size(leg.lat, 1) - 1)) do stage
             centre = WindShipOpt.centre_index(leg)
             leg.water[stage, centre] || return true
             headings_even(first(WindShipOpt.planning_corridor(leg, stage, centre)))
         end
+    end
+end
+
+@testset "no corridor reaches past the latitudes a ship can sail" begin
+    mask = north_atlantic_mask()
+    for route in (:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao),
+        scale in (1, 8), leg in route_corridors(route, mask; scale)
+
+        @test all(abs(lat) <= WindShipOpt.SAILABLE_LATITUDE for lat in leg.lat[leg.water])
     end
 end
 
