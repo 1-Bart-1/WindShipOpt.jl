@@ -807,7 +807,7 @@ The labelled designs of [`passage_figure`](@ref) and each one's routed leg with 
 function figure_passages()
     designs = (("no rig", passage_ship_design("none", 0.0)),
         (square_metres("kite 3200 "), passage_ship_design("kite", 3200.0)),
-        (square_metres("wings 1500 "), passage_ship_design("wings", 1500.0)),
+        (square_metres("wing sails 1500 "), passage_ship_design("wings", 1500.0)),
         (square_metres("rotors 800 "), passage_ship_design("rotors", 800.0)))
     outbound = first(run_corridors(:caribbean))
     legs = map(designs) do (label, design)
@@ -832,8 +832,8 @@ function passage_figure()
     designs, legs = figure_passages()
     design_colours = [:black; palette[eachindex(rig_names)]]
     departure = departures[1]
-    figure = Figure(size=(page_width, 360))
-    map_axis = Axis(figure[1, 1:2]; aspect=DataAspect(), limits=(-64, 10, 13, 56),
+    figure = Figure(size=(page_width, 410))
+    map_axis = Axis(figure[1, 1:3]; aspect=DataAspect(), limits=(-64, 10, 13, 56),
         xlabel="longitude [°]", ylabel="latitude [°]", title="(a) routed tracks")
     draw_land!(map_axis, mask)
     wind_scale = 0.3
@@ -850,7 +850,7 @@ function passage_figure()
     scatter!(map_axis, unique(reduce(vcat, tracks)); color=:black, markersize=pt(2.5))
     labels = ("speed [kn]", "rig thrust [kN]", "fuel power [MW]")
     titles = ("(b) speed through the water", "(c) rig thrust", "(d) fuel power")
-    panels = [Axis(figure[2, column]; ylabel=labels[column], title=titles[column],
+    panels = [Axis(figure[3, column]; ylabel=labels[column], title=titles[column],
                   xlabel="days since departure",
                   yticks=WilkinsonTicks(4; Q=[(1.0, 1.0), (5.0, 0.9), (2.0, 0.7)]),
                   yscale=column == 2 ? log10 : identity)
@@ -867,9 +867,12 @@ function passage_figure()
         end
     end
     linkxaxes!(panels...)
-    Legend(figure[1, 3], panels[1]; tellheight=false, tellwidth=false, halign=:left,
-        valign=:top)
-    rowsize!(figure.layout, 1, Relative(0.6))
+    Legend(figure[2, 1:3],
+        [[LineElement(; color=design_colours[i]) for i in eachindex(designs)];
+         PolyElement(; color=(:grey, 0.55))], [collect(first.(designs)); "land"];
+        orientation=:horizontal, tellwidth=false)
+    rowsize!(figure.layout, 1, Relative(0.64))
+    rowgap!(figure.layout, 1, pt(4))
     save_figure("passage", figure)
 end
 
