@@ -118,6 +118,9 @@ function draw_force_balance!(axis, ship, (speed, wind, angle), thrust, force, wi
     poly!(axis, rotated.(hull_outline(hull.length, hull.beam), π / 2);
         color=style_colour("ship"), strokecolor=:black, strokewidth=rule_width)
     draw_rig!(axis, ship.rig, ship, (speed, wind, angle), colour)
+    rudder_tip = stern - 6
+    lines!(axis, [Point2f(stern, 0), Point2f(rudder_tip, 0)]; color=:black,
+        linewidth=pt(1.5))
     arrows = (
         force_arrow!(axis, (force.yaw_moment / force.side, 0),
             (force.thrust / 1e3, windward(force.side)), "rig"; scale, color=colour,
@@ -128,8 +131,8 @@ function draw_force_balance!(axis, ship, (speed, wind, angle), thrust, force, wi
         force_arrow!(axis, (WindShipOpt.lateral_centre(hull), 0),
             (-leeway_drag / 1e3, windward(-total.side - rudder)), "hull"; scale,
             color=water, align=(:left, :bottom)),
-        force_arrow!(axis, (stern - 6, 0), (-rudder_drag / 1e3, windward(rudder)),
-            "rudder"; scale, color=water, align=(:right, :bottom)),
+        force_arrow!(axis, (rudder_tip, 0), (-rudder_drag / 1e3, windward(rudder)),
+            "rudder"; scale, color=water, align=(:right, :center)),
         force_arrow!(axis, (stern, 0), (thrust / 1e3, 0.0), "propeller"; scale,
             color=water, align=(:right, :top), at_point=true),
         force_arrow!(axis, (bow, 0), (-resistance / 1e3, 0.0), "calm water"; scale,
