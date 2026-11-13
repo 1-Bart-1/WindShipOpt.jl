@@ -16,6 +16,7 @@ import {
 import { canopyPriceInputs, exactInputs, inputGroups, type InputControl } from "./inputs";
 import { rigColour, RIG_LABELS, type PassageDesign } from "./passages/passages";
 import { PassageView } from "./passages/PassageView";
+import { GridView } from "./grid/GridView";
 
 const driveLabels: Record<string, string> = {
   vlsfo: "fuel oil (VLSFO)",
@@ -84,6 +85,8 @@ function Explorer({ data }: { data: ExplorerData }) {
       </section>
 
       <PassageView />
+
+      <GridView />
 
       <Results best={best} drive={drive} />
 

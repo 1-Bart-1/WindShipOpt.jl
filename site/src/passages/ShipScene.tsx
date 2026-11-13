@@ -4,7 +4,8 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { PassageDesign, PassageState } from "./passages";
-import { brandColour, disposeTree } from "./scene";
+import { brandColour } from "../brand";
+import { disposeTree } from "./scene";
 
 const flat = (name: string, options: THREE.MeshBasicMaterialParameters = {}) =>
   new THREE.MeshBasicMaterial({ color: brandColour(name), ...options });
