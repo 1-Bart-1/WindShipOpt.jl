@@ -201,7 +201,7 @@ function Results({ best, drive }: { best: Map<string, Outcome>; drive: string })
   const ownFuel = drive !== "ammonia" && drive !== "vlsfo";
   return (
     <section className="overflow-x-auto rounded-[14px] border-2 border-ink bg-paper p-5">
-      <table className="w-full text-sm">
+      <table className="w-full text-sm [&_td+td]:pl-2 [&_th+th]:pl-2">
         <thead className="text-left text-ink">
           <tr>
             <th className="py-1">Rig</th>
@@ -219,8 +219,8 @@ function Results({ best, drive }: { best: Map<string, Outcome>; drive: string })
               <td />
               <td className="text-right">{formatted(1000 * bare.cost, 3)}</td>
               {ownFuel && <td className="text-right">–</td>}
-              <td className="text-right">{formatted(bare.ammoniaSaving)} %</td>
-              <td className="text-right">{formatted(bare.vlsfoSaving)} %</td>
+              <td className="text-right">{formatted(bare.ammoniaSaving)}&nbsp;%</td>
+              <td className="text-right">{formatted(bare.vlsfoSaving)}&nbsp;%</td>
             </tr>
           )}
           {rigs.map((rig) => {
@@ -236,9 +236,9 @@ function Results({ best, drive }: { best: Map<string, Outcome>; drive: string })
                   <>
                     <td>{formatted(outcome.design.area, 0)} m² in {outcome.design.units} unit{outcome.design.units === 1 ? "" : "s"}</td>
                     <td className="text-right">{formatted(1000 * outcome.cost, 3)}</td>
-                    {ownFuel && <td className="text-right">{formatted(outcome.saving)} %</td>}
-                    <td className="text-right">{formatted(outcome.ammoniaSaving)} %</td>
-                    <td className="text-right">{formatted(outcome.vlsfoSaving)} %</td>
+                    {ownFuel && <td className="text-right">{formatted(outcome.saving)}&nbsp;%</td>}
+                    <td className="text-right">{formatted(outcome.ammoniaSaving)}&nbsp;%</td>
+                    <td className="text-right">{formatted(outcome.vlsfoSaving)}&nbsp;%</td>
                   </>
                 ) : (
                   <td colSpan={ownFuel ? 5 : 4} className="text-ink-light">no feasible design</td>
