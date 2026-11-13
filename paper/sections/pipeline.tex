@@ -67,14 +67,14 @@
 \pipebox{compare}{92.5}{-110}{cost}{12}{Comparison}{saving of the best size against the same ship without a rig, \S\ref{sec:results}}{bars}{22}
 \pipebox{search}{130.5}{-110}{cost}{11}{Rig-size search}{next area until the cost is lowest, \S\ref{sec:res_size}}{search}{22}
 % loops
-\draw[guide, dashed, rounded corners=4pt] (-2.5,-17) rectangle (149.5,-91);
-\node[label, anchor=east] at (147,-17) {\textit{for each design}};
+\draw[guide, dashed, rounded corners=4pt] (-2.5,-16) rectangle (149.5,-91);
+\node[label, anchor=east] at (147,-16) {\textit{for each design}};
 \draw[guide, dashed, rounded corners=4pt] (-1.5,-20) rectangle (148.5,-50.5);
 \node[label, anchor=west] at (2,-20) {\textit{for each operating point: ship speed, true wind and waves}};
-\draw[guide, dashed, rounded corners=4pt] (36.5,-55.5) rectangle (103,-86);
-\node[label, anchor=east] at (101,-86) {\textit{for each departure, out and home}};
+\draw[guide, dashed, rounded corners=4pt] (36.5,-55.5) rectangle (103,-87.3);
+\node[label, anchor=east] at (101,-87.3) {\textit{for each departure, out and home}};
 % flow
-\draw[flow] (design.south) -- (16.5,-17);
+\draw[flow] (design.south) -- (16.5,-16);
 \draw[flow] (apparent) -- (rigs);
 \draw[flow] (rigs) -- (balance);
 \draw[flow] (balance) -- (power);
