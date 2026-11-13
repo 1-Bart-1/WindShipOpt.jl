@@ -27,19 +27,19 @@
 ]
 \node[anchor=west, inner sep=0pt] at (0,50) {(a) The parts};
 \begin{scope}[shift={(11,8)}]
-  \pic at (0,0) {bow}; \pic at (-1,0.6) {packed}; \pic at (0,0) {hatch}; \pic at (0,0) {winch};
+  \pic at (0,0) {bow}; \pic at (-1,0.6) {packed}; \pic at (0,0) {hatch};
   \draw[black!70, densely dashed, thin, fill=white] (-0.4,2.7) rectangle (0.4,9);
   \node[part, anchor=south, align=center] at (0,9.3) {telescopic\\ launch mast};
-  \fill[black!85] (3.5,3.2) circle (0.55);
-  \draw[black!65, thin] (3.5,3.2) -- (24,30);
+  \fill[black!70] (3.2,2.8) rectangle (4.6,3.3);
+  \draw[black!80, fill=black!20] (3.9,4.05) circle (0.75);
+  \draw[black!65, thin] (3.9,4.8) .. controls (13,10) and (20,19) .. (24,30);
   \pic[scale=1.8, rotate=-45] at (27.8,33.8) {canopy};
   \foreach \lx/\ly/\ty/\txt in {
     32/38.5/39/canopy: a ram-air wing,
     26.8/33.6/32/bridle: the line net spreading the pull,
     24.6/30/25.4/control pod: steers the kite,
-    12/14.5/19.5/tether: 13 spans long,
-    4/3.8/10/tow point on the foredeck,
-    2.1/1.3/1.5/winch: holds the tether,
+    13.8/12.7/18/tether: 13 spans long,
+    4.6/4.4/9/winch at the tow point:\\ holds and reels the tether,
     -1.5/1.4/-4/kite packed in the hold under a hatch}
     {\draw[leader] (\lx,\ly) -- (45,\ty+0.2); \node[part, anchor=west] at (45,\ty+0.2) {\txt};}
 \end{scope}
