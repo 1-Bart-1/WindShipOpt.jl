@@ -1570,7 +1570,8 @@ WindShipOpt.waves(weather::KiteOnlySeas, lat, lon, time) =
     sailed = forecast_route(corridor, kite_table, seas, 24.0 * 31; time_cost=kite_hourly,
         horizon=0.0)
     @test length(sailed.path) == size(corridor.lat, 1)
-    @test sailed.path[2][4] < 5KNOT
+    edge_hours = sailed.path[2][3] - sailed.path[1][3]
+    @test corridor.edge_length[1, centre, step] / (edge_hours * 3600) < 5KNOT
 end
 
 "[`WindShipOpt.SailedPoint`](@ref)s of edge `i` of `leg`, sailed at its speed in `weather`."
