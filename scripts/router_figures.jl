@@ -114,8 +114,9 @@ function draw_rows!(axis, corridor)
     points = Point2f[]
     for lateral in axes(corridor.lat, 2)
         for stage in axes(corridor.lat, 1)
-            corridor.water[stage, lateral] || (push!(points, Point2f(NaN)); continue)
-            push!(points, Point2f(corridor.lon[stage, lateral], corridor.lat[stage, lateral]))
+            index = CartesianIndex(stage, lateral)
+            push!(points, corridor.water[index] ? only(node_points(corridor, [index])) :
+                          Point2f(NaN))
         end
         push!(points, Point2f(NaN))
     end
