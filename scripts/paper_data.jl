@@ -2622,64 +2622,90 @@ pair_classes = ("Handysize bulk carrier", "Kamsarmax bulk carrier")
 pair_routes = (:caribbean, :bilbao)
 
 """
-    pair_noise_variants()
+    nearest_area(areas, area)
 
-The reruns of a size that measure its routing noise: the tether 2 % short and the smallest
-turn radius 2 % long, as (name, changed inputs).
+The one of `areas` nearest `area` on a log scale.
 """
-pair_noise_variants() = [(name, changes)
-    for (name, _, changes) in noise_variants(assumptions[:tether_length_ratio],
-        assumptions[:kite_min_turn_radius])[[1, 4]]]
+nearest_area(areas, area) = areas[argmin(abs.(log.(areas ./ area)))]
 
 """
-    pair_case_assumptions(rig)
-
-Assumptions of the case of combination_pairs.csv labelled `rig`: the base values, with a
-rerun's own change of [`pair_noise_variants`](@ref).
-"""
-function pair_case_assumptions(rig)
-    occursin(" rerun ", rig) || return assumptions
-    changes = last(only(filter(variant -> endswith(rig, first(variant)),
-        pair_noise_variants())))
-    return changed_assumptions(changes)
-end
-
-"""
-    pair_sizes(kite, rotors, lower, upper)
+    pair_sizes(kite, rotors, kites, rotor_bounds)
 
 Sizes as (rig, kite area, rotor area) [m^2] around the best single `kite` and `rotors`: each
-alone, three pairs held to the (kite, rotors) bounds `lower` and `upper`, and for the first
-pair one rerun of each of [`pair_noise_variants`](@ref), `rig` holding " rerun " and its
-name.
+alone and three pairs, their kite the one of the areas `kites` nearest half or a quarter of
+`kite` and their rotors `rotors` or half of it, held to `rotor_bounds`.
 """
-function pair_sizes(kite, rotors, lower, upper)
-    pairs = unique([(clamp(kite_area, lower[1], upper[1]),
-                        clamp(rotor_area, lower[2], upper[2]))
+function pair_sizes(kite, rotors, kites, rotor_bounds)
+    pairs = unique([(nearest_area(kites, kite_area), clamp(rotor_area, rotor_bounds...))
                     for (kite_area, rotor_area) in
                         ((kite / 2, rotors), (kite / 4, rotors), (kite / 2, rotors / 2))])
-    reruns = [("kite+rotors rerun $name", first(pairs)...)
-              for name in first.(pair_noise_variants())]
     return [("kite", kite, 0.0); ("rotors", 0.0, rotors);
-        [("kite+rotors", pair...) for pair in pairs]; reruns]
+        [("kite+rotors", pair...) for pair in pairs]]
 end
 
 """
-    rerun_noise(differences)
+    pair_gain_errors(table)
 
-Standard deviation [% points] of one saving, from `differences` between pairs of savings
-that differ by routing noise alone.
+Jackknife standard error [% points] over the departures of the extra saving of the best
+kite-and-rotor pair over the better single rig, per ship, drive and route of the
+per-departure `table` of combination_departures.csv.
 """
-rerun_noise(differences) = sqrt(mean(abs2, differences) / 2)
+function pair_gain_errors(table)
+    errors = Float64[]
+    for (ship, drive, route) in unique(zip(table["ship"], table["drive"], table["route"]))
+        costs = design_costs(table, "ship" => ship, "drive" => drive, "route" => route)
+        "none" in first.(costs) && allequal(length.(last.(costs))) ||
+            throw(ArgumentError("$ship, $drive, $route lacks a design or a departure"))
+        push!(errors, jackknife_error(indices -> departure_pair_gain(costs, indices),
+            length(last(first(costs)))))
+    end
+    return errors
+end
+
+"(rig, cost per departure) of each design among the rows of `table` matching `conditions`"
+function design_costs(table, conditions...)
+    group = rows(table, conditions...)
+    designs = unique(zip(table["rig"][group], table["kite_area"][group],
+        table["rotor_area"][group]))
+    return [(rig, table["cost"][rows(table, conditions..., "rig" => rig,
+                "kite_area" => kite_area, "rotor_area" => rotor_area)])
+            for (rig, kite_area, rotor_area) in designs]
+end
+
+"""
+    pair_gain(saving)
+
+Extra saving [% points] of the best pair over the better single rig, from a Dict `saving`
+of the savings [%] of "kite", "rotors" and "kite+rotors".
+"""
+pair_gain(saving) = saving["kite+rotors"] - max(saving["kite"], saving["rotors"])
+
+"""
+    departure_pair_gain(costs, indices)
+
+[`pair_gain`](@ref) on the mean cost over the departures `indices`, from `costs`, (rig,
+cost per departure) of each design including the ship without a rig.
+"""
+function departure_pair_gain(costs, indices)
+    reference = mean(only(cost for (rig, cost) in costs if rig == "none")[indices])
+    savings = Dict{String, Float64}()
+    for (rig, cost) in costs
+        saving = percent_saving(mean(cost[indices]), reference)
+        savings[rig] = max(get(savings, rig, -Inf), saving)
+    end
+    return pair_gain(savings)
+end
 
 """
     combination_data()
 
 Each class of `pair_classes` on each of `pair_routes` on VLSFO and e-ammonia without a rig
-and at each size of [`pair_sizes`](@ref) around its best single sizes in classes.csv, the
-rotors behind the kite's launch mast in a pair: combination_pairs.csv.
+and at each of its [`pair_sizes`](@ref) from classes.csv: combination_pairs.csv per round
+trip and combination_departures.csv per departure.
 """
 function combination_data()
     classes_table = read_table(data_file("classes.csv"))
+    kites = unique(classes_table["area"][rows(classes_table, "rig" => "kite")])
     cases = []
     for name in pair_classes, drive in (:vlsfo, :ammonia), route in pair_routes
         class = ship_classes()[name]
@@ -2688,16 +2714,17 @@ function combination_data()
         rotors = best_area(classes_table, name, string(route), string(drive), "rotors")
         room = largest_area(WindShipOpt.RotorRig, hull;
             forward_reserve=WindShipOpt.launch_mast_reserve(assumptions))
-        sizes = [("none", 0.0, 0.0);
-            pair_sizes(kite, rotors, (500.0, 0.2room), (16000.0, room))]
-        for (rig, kite_area, rotor_area) in sizes
+        for (rig, kite_area, rotor_area) in
+            [("none", 0.0, 0.0); pair_sizes(kite, rotors, kites, (0.2room, room))]
             design = ShipDesign(drive, class; kite_area, rotor_area)
-            push!(cases, trip_case(design; assumptions=pair_case_assumptions(rig), route,
-                ship=name, drive, rig, kite_area, rotor_area))
+            push!(cases, trip_case(design; route, ship=name, drive, rig, kite_area,
+                rotor_area))
         end
     end
-    write_trips("combination_pairs.csv", cases, round_trips(cases, sampled_departures()),
-        :ship, :route, :drive, :rig, :kite_area, :rotor_area)
+    trips = round_trips(cases, sampled_departures())
+    labels = (:ship, :route, :drive, :rig, :kite_area, :rotor_area)
+    write_trips("combination_pairs.csv", cases, trips, labels...)
+    write_departures("combination_departures.csv", cases, trips, labels...)
 end
 
 "routes of the tow point study: westerlies ahead out and astern home, and trade winds abeam"

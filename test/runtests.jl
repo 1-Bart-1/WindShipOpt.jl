@@ -3084,29 +3084,15 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 end
 
-@testset "kite-and-rotor pairs sit around the best single sizes and fit the bounds" begin
-    sizes = PaperData.pair_sizes(2000.0, 900.0, (500.0, 200.0), (16000.0, 800.0))
+@testset "kite-and-rotor pairs fly only kites already sized, near the best sizes" begin
+    kites = [500.0, 1024.0, 1448.0, 2048.0, 4096.0]
+    sizes = PaperData.pair_sizes(2000.0, 900.0, kites, (200.0, 800.0))
+    @test sizes[1:2] == [("kite", 2000.0, 0.0), ("rotors", 0.0, 900.0)]
     pairs = [size[2:3] for size in sizes if size[1] == "kite+rotors"]
-    @test pairs == [(1000.0, 800.0), (500.0, 800.0), (1000.0, 450.0)]
-    noise_names = first.(PaperData.pair_noise_variants())
-    @test filter(size -> occursin(" rerun ", size[1]), sizes) ==
-          [("kite+rotors rerun $name", 1000.0, 800.0) for name in noise_names]
-    small_kite = PaperData.pair_sizes(500.0, 900.0, (500.0, 200.0), (16000.0, 800.0))
+    @test pairs == [(1024.0, 800.0), (500.0, 800.0), (1024.0, 450.0)]
+    @test all(pair -> pair[1] in kites, pairs)
+    small_kite = PaperData.pair_sizes(500.0, 900.0, kites, (200.0, 800.0))
     @test count(size -> size[1] == "kite+rotors", small_kite) == 2
-end
-
-@testset "a rerun of a pair differs from it only in the input of its name" begin
-    tether, turn = PaperData.pair_noise_variants()
-    @test PaperData.pair_case_assumptions("kite+rotors") === PaperData.assumptions
-    rerun(variant) = PaperData.pair_case_assumptions("kite+rotors rerun $(variant[1])")
-    @test rerun(tether)[:tether_length_ratio] ≈ last(tether)[:tether_length_ratio]
-    @test rerun(turn)[:kite_min_turn_radius] ≈ last(turn)[:kite_min_turn_radius]
-    base = PaperData.assumptions.entries
-    for (name, changes) in (tether, turn)
-        changed = [key for (key, entry) in rerun((name, changes)).entries
-                   if !isequal(entry.value, base[key].value)]
-        @test Set(changed) == Set(keys(changes))
-    end
 end
 
 @testset "a ship with an undefined rig area is refused, never sailed with no rig" begin
@@ -3115,9 +3101,24 @@ end
     @test ShipDesign(:vlsfo, 100.0; kite_area=800.0).kite_area == 800
 end
 
-@testset "routing noise is the standard deviation behind a difference of two runs" begin
-    @test PaperData.rerun_noise([3.0, -3.0]) ≈ sqrt(9 / 2)
-    @test PaperData.rerun_noise(zeros(4)) == 0
+@testset "a pair's extra saving has its standard error over the departures as noise" begin
+    rows = [(route, rig, kite_area, rotor_area, cost)
+            for (route, pair_costs) in (("steady", fill(7.0, 4)), ("varying", [7, 8, 7, 8.0]))
+            for (rig, kite_area, rotor_area, costs) in (("none", 0.0, 0.0, fill(10.0, 4)),
+                ("kite", 900.0, 0.0, fill(9.0, 4)), ("rotors", 0.0, 400.0, fill(8.0, 4)),
+                ("kite+rotors", 500.0, 400.0, fill(9.0, 4)),
+                ("kite+rotors", 900.0, 200.0, pair_costs))
+            for cost in costs]
+    column(k) = getindex.(rows, k)
+    table = Dict("ship" => fill("Handysize", length(rows)),
+        "drive" => fill("ammonia", length(rows)), "route" => column(1), "rig" => column(2),
+        "kite_area" => column(3), "rotor_area" => column(4), "cost" => column(5))
+    steady, varying = PaperData.pair_gain_errors(table)
+    @test steady ≈ 0 atol = 1e-12
+    @test varying ≈ sqrt(100 / 3) / 2
+    lost = findlast(row -> row[1:2] == ("varying", "kite"), rows)
+    @test_throws ArgumentError PaperData.pair_gain_errors(
+        Dict(key => deleteat!(copy(values), lost) for (key, values) in table))
 end
 
 @testset "the development study keeps 5 to 20 ranged inputs, each with a reason" begin
