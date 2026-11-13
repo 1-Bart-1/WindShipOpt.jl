@@ -3,7 +3,7 @@
 \section{Method}
 \label{sec:model}
 
-The model turns a ship design into a cost per tonne-kilometre on a route. A design is a hull, a drive and at most one rig: a towing kite, a set of rigid wing sails or a set of Flettner rotors. The drive is a mechanical diesel engine on VLSFO or a mechanical dual-fuel engine on e-ammonia, the zero-emission fuel of this paper (\cref{sec:fuel_choice}). Ship models give the thrust the propeller must deliver in every wind, wave and speed. A table of these drives a weather router through three years of recorded weather. The cost model turns the passages into a cost per tonne-kilometre and sets the hourly price of time that the router trades against fuel (\cref{fig:pipeline}). A cost saving is the drop in this cost that a rig gives against the same ship without a rig on the same fuel and routes, and a point is one percentage point of that saving. The code is open source.\tbd{ Repository link.} \Cref{sec:details} gives the formulas, calibrations and sources in the order of this section.
+The model turns a ship design into a cost per tonne-kilometre on a route. A design is a hull, a drive and at most one rig: a towing kite, a set of rigid wing sails or a set of Flettner rotors. The drive is a mechanical diesel engine on VLSFO or a mechanical dual-fuel engine on e-ammonia, the zero-emission fuel of this paper (\cref{sec:fuel_choice}). Ship models give the thrust the propeller must deliver in every wind, wave and speed (\cref{fig:ship_model}). A table of these drives a weather router through three years of recorded weather. The cost model turns the passages into a cost per tonne-kilometre and sets the hourly price of time that the router trades against fuel (\cref{fig:pipeline}). A cost saving is the drop in this cost that a rig gives against the same ship without a rig on the same fuel and routes, and a point is one percentage point of that saving. The code is open source.\tbd{ Repository link.} \Cref{sec:details} gives the formulas, calibrations and sources in the order of this section.
 
 \begin{figure*}[tbp]
 \centering
@@ -34,12 +34,10 @@ The classes fall into two groups that pay for a rig in different ways: deadweigh
 \input{sections/class_table}
 \end{table*}
 
-\Cref{fig:ship_model} shows the parts of the ship model and how they combine.
-
 \begin{figure*}[tbp]
 \centering
 \input{sections/ship_model}
-\caption{The ship model by its parts, each force drawn where it acts and labelled with its section, not to scale: (a) from above, with the apparent wind forward of the beam; (b) from astern, where the side forces heel the ship about the hull's own side force at half the draught, a deck rig's on a long lever from high on its mast and a kite's on a short one from its tow point on the deck. Below, how the parts combine into the engine output the rig's trim minimises. Blue forces come from the water, grey from the wind on the ship and orange from the rig; \cref{fig:force_balance} draws them to scale.}
+\caption{The ship model by its parts, each force where it acts with its section, not to scale: (a) from above, a row of deck rigs in a wind forward of the beam; (b) from astern, heel. Below, how the parts combine into the engine output the rig's trim minimises. Blue forces come from the water, grey from the wind on the ship and orange from the rig; \cref{fig:force_balance} draws them to scale.}
 \label{fig:ship_model}
 \end{figure*}
 

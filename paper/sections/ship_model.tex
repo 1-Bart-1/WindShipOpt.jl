@@ -26,7 +26,7 @@
 \fill[black] (19.2,-2) rectangle (19.8,2);
 \draw[line width=1.6pt] (16.5,-1.6) -- (16.5,1.6);
 \draw[force] (21,0) -- (39,0) node[right, inner sep=1pt] {$T_\mathrm{req}$};
-\draw[force, water] (16.5,0) -- (16.5,-10);
+\draw[force, water] (16.5,0) -- (16.5,10);
 \node[part, anchor=north, align=center] at (17,-10.5) {propeller: $T_\mathrm{req}$\\ \textcolor{blue!70!black}{rudder: $F_r$, drag $R_r$}\\ \S\ref{sec:ships}, \S\ref{sec:balance}};
 % wind on the ship
 \draw[force, air] (38,16) -- (31,6.5);
@@ -36,7 +36,7 @@
 \draw[rig, dashed, ->, semithick] (50,0) -- (62,0) node[above, rig, inner sep=1pt] {$F_x$};
 \draw[rig, dashed, ->, semithick] (50,0) -- (50,-14) node[pos=0.55, left, rig] {$F_y$};
 \draw[force, rig] (50,0) -- (62,-14);
-\node[part, rig, anchor=north, align=center] at (52,-15.5) {rig: $F_x$, $F_y$, $M_x$, $M_z$, $P_\mathrm{rig}$,\\ \S\ref{sec:deck_rigs}, \S\ref{sec:kite}};
+\node[part, rig, anchor=north, align=center] (riglabel) at (52,-15.5) {rig: $F_x$, $F_y$, $M_x$, $M_z$, $P_\mathrm{rig}$,\\ \S\ref{sec:deck_rigs}, \S\ref{sec:kite}};
 % hull at leeway
 \draw[force, water] (74,-18) -- (74,-6);
 \node[part, water, anchor=west] at (75,-14) {hull at leeway $\beta$:\\ side force, drag $R_\beta$, \S\ref{sec:balance}};
@@ -73,19 +73,19 @@
 % ---- how the parts combine
 \pgfmathsetmacro{\rowy}{-34}
 \node[box, shipc, minimum width=52mm, anchor=north west] (thrust) at (0,\rowy) {};
-\node[boxtitle] at ([shift={(2,-2)}]thrust.north west) {Required thrust, \cref{eq:thrust}};
-\node[boxtext, text width=49mm] at ([shift={(2,-7)}]thrust.north west) {$T_\mathrm{req} = R_\mathrm{cw} + R_\mathrm{air} + R_\mathrm{aw} + R_\beta + R_r - F_x$:\\ the resistances less the rig's thrust};
+\node[boxtitle] at ([shift={(2,-2)}]thrust.north west) {Required thrust $T_\mathrm{req}$};
+\node[boxtext, text width=49mm] at ([shift={(2,-7)}]thrust.north west) {the resistances less the rig's\\ thrust $F_x$, \cref{eq:thrust}};
 \node[box, shipc, minimum width=34mm, anchor=north west] (prop) at (56,\rowy) {};
 \node[boxtitle] at ([shift={(2,-2)}]prop.north west) {Propeller};
-\node[boxtext, text width=31mm] at ([shift={(2,-7)}]prop.north west) {ideal disk with a viscous loss, power $P_D$, \S\ref{sec:ships}};
+\node[boxtext, text width=31mm] at ([shift={(2,-7)}]prop.north west) {ideal disk with a viscous loss, \S\ref{sec:ships}};
 \node[box, shipc, minimum width=36mm, anchor=north west] (engine) at (94,\rowy) {};
 \node[boxtitle] at ([shift={(2,-2)}]engine.north west) {Engine and fuel};
-\node[boxtext, text width=33mm] at ([shift={(2,-7)}]engine.north west) {$P = P_D/\eta_\mathrm{tr} + P_\mathrm{rig} + P_\mathrm{hotel}$, fuel at part-load efficiency, \S\ref{sec:ships}};
+\node[boxtext, text width=33mm] at ([shift={(2,-7)}]engine.north west) {output $P$ for propeller, rotor spin $P_\mathrm{rig}$ and hotel load; fuel at part load, \S\ref{sec:ships}};
 \node[box, rigc, minimum width=30mm, anchor=north west] (trim) at (134,\rowy) {};
 \node[boxtitle] at ([shift={(2,-2)}]trim.north west) {Best trim};
 \node[boxtext, text width=27mm] at ([shift={(2,-7)}]trim.north west) {least $P$ within the limits on $\phi$, $\beta$ and rudder, \S\ref{sec:balance}};
 \draw[arrow] (thrust) -- (prop);
 \draw[arrow] (prop) -- (engine);
 \draw[arrow] (engine) -- (trim);
-\draw[arrow, rig] (trim.north) -- (149,-28.5) -| node[pos=0.25, above, font=\scriptsize] {trim of the rig} (52,-25);
+\draw[arrow, rig] (trim.north) -- ++(0,5.5) -| node[pos=0.25, above, font=\scriptsize] {trim of the rig} (riglabel.south);
 \end{tikzpicture}
