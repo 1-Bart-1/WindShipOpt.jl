@@ -8,10 +8,11 @@
 \draw[flow, wind] (68,27) -- (61,17);
 \node[label, wind, anchor=west] at (68.5,26) {apparent wind};
 % leeway: the heading against the course through the water
-\draw[guide, dotted] (13,0) -- (0,0) node[label, text=black, anchor=north west, pos=1] {heading};
+\draw[guide, dotted] (13,0) -- (0,0);
+\node[label, anchor=north west] at (0,-0.7) {heading};
 \draw[guide, dashed] (13,0) -- (0,5.25) node[label, text=black, anchor=south west, pos=1] {course};
 \draw[guide] (6,0) arc[start angle=180, end angle=158, radius=7];
-\node[label, anchor=east] at (-0.3,2.6) {$\beta$};
+\node[label] at (3.4,1.7) {$\beta$};
 % propeller under the stern, rudder behind it
 \fill[ship!30!black] (18.6,0) ellipse (0.55 and 2.8);
 \fill[ship!30!black] (18.6,0) circle (0.8);

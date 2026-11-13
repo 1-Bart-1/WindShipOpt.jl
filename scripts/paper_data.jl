@@ -141,13 +141,16 @@ launch_cost_inputs = (:kite_cycle_crew_cost, :kite_cycle_damage_probability,
     :kite_launch_minutes, :kite_landing_minutes)
 
 """
-    launch_cost_assumptions(bound)
+    at_bound(inputs, names, bound)
 
-Inputs with every one of `launch_cost_inputs` at its `bound` (`:low`, `:high` or `:value`).
+`inputs` with every input of `names` at its `bound` (`:low`, `:high` or `:value`).
 """
-launch_cost_assumptions(bound) = foldl(launch_cost_inputs; init=assumptions) do inputs, name
-    with_value(inputs, name, getfield(assumptions.entries[name], bound))
+at_bound(inputs, names, bound) = foldl(names; init=inputs) do changed, name
+    with_value(changed, name, getfield(assumptions.entries[name], bound))
 end
+
+"inputs with every one of `launch_cost_inputs` at its `bound`"
+launch_cost_assumptions(bound) = at_bound(assumptions, launch_cost_inputs, bound)
 
 "the ship classes of the sea effect study, in order of length"
 sea_effect_classes = ("general cargo coaster", "feeder container ship",
@@ -3416,6 +3419,47 @@ function beam_thrust(rig, i)
     return 0.5air_density * rig.wind_speeds[i]^2 * rig.area * force.force[2]
 end
 
+"the price inputs of the parts and launches of a soft or a VTOL kite"
+kite_price_inputs = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight,
+    :canopy_making_cost_per_area, :control_unit_cost, :control_unit_cost_per_area,
+    :docking_head_cost, :launch_mast_steel_cost, :winch_cost_per_force, :winch_fixed_cost,
+    :tether_price, :rigid_avionics_cost, :rigid_drive_cost, :rigid_perch_cost,
+    :rigid_ship_power_cost, :rigid_structure_cost_per_area, :rigid_structure_cost_per_mass,
+    :rigid_tether_price, :rigid_hover_energy_price, :kite_cycle_course_cost,
+    :kite_cycle_crew_cost, :market_price_factor)
+
+"the price inputs of the parts of every rig: [`kite_price_inputs`](@ref), wings and rotors"
+rig_price_inputs = (kite_price_inputs..., :wing_cost_per_area, :wing_unit_cost,
+    :rotor_cost_per_area, :rotor_unit_cost)
+
+"""
+    scaling_rig(kind, area, exponent)
+
+The `"rigid"` kite of wing `area` [m^2] and mass `exponent`, or the `"soft"` kite of `area`,
+of the rigid kite scaling study on the 140 m ship, with the inputs it is built on.
+"""
+function scaling_rig(kind, area, exponent)
+    hull = Hull(study_hull("140 m"), assumptions)
+    kind == "soft" && return KiteRig(area, 3.0, hull, assumptions), assumptions
+    inputs = with_value(with_value(assumptions, :rigid_unit_area, area),
+        :rigid_mass_exponent, exponent)
+    rig = WindShipOpt.rigid_kite_rig(area, hull, inputs; courses=[π / 2],
+        side_weights=[0.0])
+    return rig, inputs
+end
+
+"""
+    scaling_costs(kind, area, exponent, bound)
+
+Price and [`annual_kite_cost`](@ref) [USD] of the [`scaling_rig`](@ref) with every input of
+[`kite_price_inputs`](@ref) at its `bound`.
+"""
+function scaling_costs(kind, area, exponent, bound)
+    rig, inputs = scaling_rig(kind, area, exponent)
+    priced = at_bound(inputs, kite_price_inputs, bound)
+    return first(WindShipOpt.rig_costs(rig, priced)), annual_kite_cost(rig, priced)
+end
+
 """
     rigid_scaling_data()
 
@@ -3424,22 +3468,17 @@ lowest flying wind, price, annual cost and beam thrust over apparent wind; per a
 soft kite with the canopy at its goal: the last four: rigid_scaling.csv.
 """
 function rigid_scaling_data()
-    hull = Hull(study_hull("140 m"), assumptions)
     env = Environment(assumptions)
     open(run_file("rigid_scaling.csv"), "w") do file
         println(file, "kind,area,exponent,span,mass,stall,hover_power,lowest_wind,price,",
             "annual,wind,thrust")
         for area in rigid_scaling_areas, exponent in rigid_scaling_exponents
-            changed = with_value(with_value(assumptions, :rigid_unit_area, area),
-                :rigid_mass_exponent, exponent)
-            rig = WindShipOpt.rigid_kite_rig(area, hull, changed; courses=[π / 2],
-                side_weights=[0.0])
+            rig, changed = scaling_rig("rigid", area, exponent)
             (; mass, hover_power) = rig.airframe
             span = sqrt(area * changed[:rigid_aspect_ratio])
             stall = sqrt(2mass * env.gravity /
                          (env.air_density * area * changed[:rigid_max_lift]))
-            price = first(WindShipOpt.rig_costs(rig, changed))
-            annual = annual_kite_cost(rig, changed)
+            price, annual = scaling_costs("rigid", area, exponent, :value)
             for i in eachindex(rig.wind_speeds)
                 println(file, join(("rigid", area, exponent, span, mass, stall, hover_power,
                         rig.min_flight_wind, price, annual, rig.wind_speeds[i],
@@ -3447,9 +3486,8 @@ function rigid_scaling_data()
             end
         end
         for area in rigid_scaling_soft_kites
-            rig = KiteRig(area, 3.0, hull, assumptions)
-            price = first(WindShipOpt.rig_costs(rig, assumptions))
-            annual = annual_kite_cost(rig, assumptions)
+            rig, _ = scaling_rig("soft", area, 0.0)
+            price, annual = scaling_costs("soft", area, 0.0, :value)
             for i in eachindex(rig.wind_speeds)
                 println(file, join(("soft", area, 0.0, 0.0, 0.0, 0.0, 0.0,
                         rig.min_flight_wind, price, annual, rig.wind_speeds[i],

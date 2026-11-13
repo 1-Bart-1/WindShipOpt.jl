@@ -44,20 +44,21 @@
 \end{scope}
 % ---- one flight
 \node[panel] at (90,50) {(b) One flight, in six steps};
+\newcommand{\stepscale}{0.74}
 % #1 x, #2 y, #3 step, #4 badge colour, #5 text, #6 drawing
 \newcommand{\cyclestep}[6]{%
-  \begin{scope}[shift={(#1,#2)}, scale=0.74]
-    \pic at (0,0) {bow}; \pic at (0,0) {winch};
+  \begin{scope}[shift={(#1,#2)}, scale=\stepscale]
+    \pic[scale=\stepscale] at (0,0) {bow}; \pic[scale=\stepscale] at (0,0) {winch};
     #6
   \end{scope}
   \node[step number, fill=#4] at ([shift={(-8.6,6.5)}]#1,#2) {#3};
   \node[note, anchor=north, align=center, text width=22mm] at (#1,#2-3.2) {#5};}
-\cyclestep{103}{30}{1}{black}{Kite packed in the hold, hatch shut}{\pic at (-0.3,0.6) {packed}; \pic at (0,0) {hatch}; \node[note, anchor=south] at (-0.3,5.2) {hatch};}
-\cyclestep{126}{30}{2}{black}{Hatch opens; the mast lifts the kite and the wind fills it}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=9.4}; \pic at (3.4,10) {canopy}; \node[note, anchor=west] at (5.2,7.8) {mast};}
-\cyclestep{149}{30}{3}{black}{The tether takes the pull; the kite leaves the mast and climbs}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=9.4}; \draw[kite] (4.6,3.5) -- (9,13); \pic at (9,13) {canopy};}
-\cyclestep{149}{-1}{4}{kite}{The kite flies figure eights and pulls; hatch shut}{\pic at (0,0) {hatch}; \draw[kite] (4.6,3.5) -- (9,13.5); \pic at (9,20.4) {eight}; \pic at (9,13.5) {canopy}; \node[note, anchor=west] at (8.8,7) {tether};}
-\cyclestep{126}{-1}{5}{black}{A guide line pulls the kite to the mast; the winch hauls in}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=9.4}; \draw[kite, densely dashed] (3.4,9.4) -- (3.4,13.5); \pic at (3.4,13.5) {canopy}; \node[note, anchor=west, align=left] at (5.8,12.2) {guide\\ line};}
-\cyclestep{103}{-1}{6}{black}{The mast lowers the packed kite into the hold}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=6}; \pic at (1.5,6) {packed};}
+\cyclestep{103}{30}{1}{black}{Kite packed in the hold, hatch shut}{\pic[scale=\stepscale] at (-0.3,0.6) {packed}; \pic[scale=\stepscale] at (0,0) {hatch}; \node[note, anchor=south] at (-0.3,5.2) {hatch};}
+\cyclestep{126}{30}{2}{black}{Hatch opens; the mast lifts the kite and the wind fills it}{\pic[scale=\stepscale] at (0,0) {openhatch}; \pic[scale=\stepscale] at (0,0) {mast=9.4}; \pic[scale=\stepscale] at (3.4,10) {canopy}; \node[note, anchor=west] at (5.2,7.8) {mast};}
+\cyclestep{149}{30}{3}{black}{The tether takes the pull; the kite leaves the mast and climbs}{\pic[scale=\stepscale] at (0,0) {openhatch}; \pic[scale=\stepscale] at (0,0) {mast=9.4}; \draw[kite] (4.6,3.5) -- (9,13); \pic[scale=\stepscale] at (9,13) {canopy};}
+\cyclestep{149}{-1}{4}{kite}{The kite flies figure eights and pulls; hatch shut}{\pic[scale=\stepscale] at (0,0) {hatch}; \draw[kite] (4.6,3.5) -- (9,13.5); \pic[scale=\stepscale] at (9,20.4) {eight}; \pic[scale=\stepscale] at (9,13.5) {canopy}; \node[note, anchor=west] at (8.8,7) {tether};}
+\cyclestep{126}{-1}{5}{black}{A guide line pulls the kite to the mast; the winch hauls in}{\pic[scale=\stepscale] at (0,0) {openhatch}; \pic[scale=\stepscale] at (0,0) {mast=9.4}; \draw[kite, densely dashed] (3.4,9.4) -- (3.4,13.5); \pic[scale=\stepscale] at (3.4,13.5) {canopy}; \node[note, anchor=west, align=left] at (5.8,12.2) {guide\\ line};}
+\cyclestep{103}{-1}{6}{black}{The mast lowers the packed kite into the hold}{\pic[scale=\stepscale] at (0,0) {openhatch}; \pic[scale=\stepscale] at (0,0) {mast=6}; \pic[scale=\stepscale] at (1.5,6) {packed};}
 \draw[flow, guide] (111.2,32) -- (116.8,32);
 \draw[flow, guide] (134.2,32) -- (139.8,32);
 \draw[flow, guide] (162,22) -- (162,12);
