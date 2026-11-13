@@ -641,13 +641,13 @@ Thrust and side force of the best trim over true wind angle on a 140 m ship at 1
 """
 function rig_polar_figure()
     figure = Figure(size=(column_width, 398))
-    thrust = Axis(figure[1, 1]; title="(a) thrust", ylabel="thrust [kN]",
+    thrust = Axis(figure[1, 1]; title="(a) thrust", ylabel="thrust [kN]", xticks=30:30:180,
         yautolimitmargin=(0, 0.08))
     side = Axis(figure[2, 1]; title="(b) side force", xlabel="true wind angle [°]",
         ylabel="side force [kN]", xticks=30:30:180, yautolimitmargin=(0, 0.05))
     angles = 30:5:180
     rigs = ((square_metres("kite 800 "), (kite_area=800.0,)),
-        (square_metres("wings 800 "), (wing_area=800.0,)),
+        (square_metres("wing sails 800 "), (wing_area=800.0,)),
         (square_metres("rotors 400 "), (rotor_area=400.0,)))
     for (i, (label, area)) in enumerate(rigs)
         ship = Ship(ShipDesign(:vlsfo, 140.0; area...), assumptions)
