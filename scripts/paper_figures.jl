@@ -6,14 +6,11 @@
 
 figures = mkpath(joinpath(root, "paper", "figures"))
 polars = joinpath(root, "data", "kite_polars")
-aspect_ratios = (3, 5, 8)
 "colours of the kite, wings and rotors, in the order of `rig_names`, then of the VTOL kite"
 palette = Makie.wong_colors()
 "colours of what is not a rig, none of them a rig's"
 category_colours = [palette[6], Makie.RGBf(0.42, 0.26, 0.64), Makie.RGBf(0.55, 0.47, 0.0),
     palette[5], Makie.RGBf(0.55, 0.3, 0.12), :black]
-"`n` shades of the kite's blue, light to dark"
-kite_shades(n) = cgrad(:Blues, n + 2; categorical=true)[3:end]
 "`n` shades of the VTOL kite's pink, light to dark"
 vtol_shades(n) = cgrad(:RdPu, n + 2; categorical=true)[3:end]
 column_width = 334
@@ -64,57 +61,42 @@ drive_panels = [(drive, "($(Char('a' + k - 1))) $label")
 rig_area_columns = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
 
 """
-    kite_geometry_figure()
+    kite_figure()
 
-Planforms of the kites of the three aspect ratios at equal projected area, seen
-from above and to scale, with their projected span.
+The kite the paper flies, at the design aspect ratio: (a) its planform seen from above
+at 100 m², with its projected span, and its lift and drag coefficients (b) and glide
+ratio (c) in the design shape over angle of attack, without bridle and tether.
 """
-function kite_geometry_figure()
-    figure = Figure(size=(page_width, 90))
-    geometries = [read_table(joinpath(polars, "geometry_ar$aspect_ratio.csv"))
-                  for aspect_ratio in aspect_ratios]
-    half_span = maximum(maximum(abs, geometry["le_y"]) for geometry in geometries)
-    chords = [extrema([geometry["le_x"]; geometry["te_x"]]) for geometry in geometries]
-    chord_limits = (minimum(first.(chords)) - 0.5, maximum(last.(chords)) + 3)
-    for (i, (aspect_ratio, geometry)) in enumerate(zip(aspect_ratios, geometries))
-        axis = Axis(figure[1, i]; autolimitaspect=1, title="AR $aspect_ratio",
-            titlealign=:center, limits=(-half_span - 1, half_span + 1, chord_limits...),
-            yreversed=true)
-        hidedecorations!(axis)
-        hidespines!(axis)
-        outline = [Point2f.(geometry["le_y"], geometry["le_x"]);
-            Point2f.(reverse(geometry["te_y"]), reverse(geometry["te_x"]))]
-        poly!(axis, outline; color=kite_shades(length(aspect_ratios))[i],
-            strokecolor=:black, strokewidth=0.8)
-        span = maximum(geometry["le_y"]) - minimum(geometry["le_y"])
-        text!(axis, 0, maximum(last.(chords)) + 0.6;
-            text="span $(round(span; digits=1)) m", align=(:center, :top),
-            fontsize=note_size)
-    end
-    save(joinpath(figures, "kite_geometry.pdf"), figure; pt_per_unit=print_scale)
-end
-
-"""
-    polar_figure()
-
-Lift, drag and glide ratio of the kites in their design shape over angle of attack,
-without bridle and tether.
-"""
-function polar_figure()
-    figure = Figure(size=(page_width, 170))
-    lift = Axis(figure[1, 1]; xlabel="angle of attack [°]", ylabel="lift coefficient")
-    drag = Axis(figure[1, 2]; xlabel="angle of attack [°]", ylabel="drag coefficient")
-    glide = Axis(figure[1, 3]; xlabel="angle of attack [°]", ylabel="lift over drag")
-    shades = kite_shades(length(aspect_ratios))
-    for (i, aspect_ratio) in enumerate(aspect_ratios)
-        polar = read_table(joinpath(polars, "kite_ar$aspect_ratio.csv"))
-        label = "AR $aspect_ratio"
-        lines!(lift, polar["alpha"], polar["cl"]; color=shades[i])
-        lines!(drag, polar["alpha"], polar["cd"]; color=shades[i], label)
-        lines!(glide, polar["alpha"], polar["cl"] ./ polar["cd"]; color=shades[i])
-    end
-    axislegend(drag; position=:lt)
-    save(joinpath(figures, "polars.pdf"), figure; pt_per_unit=print_scale)
+function kite_figure()
+    aspect_ratio = isinteger(design_aspect_ratio) ? Int(design_aspect_ratio) :
+                   design_aspect_ratio
+    geometry = read_table(joinpath(polars, "geometry_ar$aspect_ratio.csv"))
+    polar = read_table(joinpath(polars, "kite_ar$aspect_ratio.csv"))
+    figure = Figure(size=(page_width, 150))
+    planform = Axis(figure[1, 1]; autolimitaspect=1, title="(a) planform",
+        yreversed=true)
+    hidedecorations!(planform)
+    hidespines!(planform)
+    outline = [Point2f.(geometry["le_y"], geometry["le_x"]);
+        Point2f.(reverse(geometry["te_y"]), reverse(geometry["te_x"]))]
+    poly!(planform, outline; color=palette[1], strokecolor=:black, strokewidth=0.8)
+    span = maximum(geometry["le_y"]) - minimum(geometry["le_y"])
+    chord_end = maximum([geometry["le_x"]; geometry["te_x"]])
+    text!(planform, 0, chord_end + 0.6; text="span $(round(span; digits=1)) m",
+        align=(:center, :top), fontsize=note_size)
+    angle = "angle of attack [°]"
+    coefficients = Axis(figure[1, 2]; xlabel=angle, ylabel="coefficient",
+        title="(b) lift and drag")
+    lines!(coefficients, polar["alpha"], polar["cl"]; color=palette[1],
+        label=L"C_L")
+    lines!(coefficients, polar["alpha"], polar["cd"]; color=palette[1],
+        linestyle=:dash, label=L"C_D")
+    axislegend(coefficients; position=:lt)
+    glide = Axis(figure[1, 3]; xlabel=angle, ylabel="lift over drag",
+        title="(c) glide ratio")
+    lines!(glide, polar["alpha"], polar["cl"] ./ polar["cd"]; color=palette[1])
+    colsize!(figure.layout, 1, Relative(0.3))
+    save(joinpath(figures, "kite.pdf"), figure; pt_per_unit=print_scale)
 end
 
 "classes whose wind-load coefficients the wind-load figure shows"
@@ -1009,41 +991,6 @@ Name of the destination of route `name` for figure labels.
 route_label(name) = Dict("caribbean" => "Guadeloupe", "new_york" => "New York",
     "bilbao" => "Bilbao", "dakar" => "Dakar", "houston" => "Houston",
     "tubarao" => "Tubarão")[string(name)]
-
-"""
-    route_comparison_figure()
-
-Cost saving of the best size of each rig against the same ship without a rig, per route,
-for three ship lengths and each drive.
-"""
-function route_comparison_figure()
-    routes_table = read_table(data_file("routes.csv"))
-    figure = Figure(size=(page_width, 300))
-    names = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
-    kinds = ["kite", "wings", "rotors"]
-    for (row, (drive, drive_label)) in enumerate(drive_labels),
-        (column, ship_length) in enumerate((85.0, 140.0, 200.0))
-
-        letter = 'a' + 3(row - 1) + column - 1
-        axis = Axis(figure[row, column];
-            title="($letter) $drive_label, $(round(Int, ship_length)) m",
-            xticks=(eachindex(names), route_label.(names)), xticklabelrotation=π / 4,
-            ylabel=column == 1 ? "cost saving [%]" : "")
-        hlines!(axis, 0; color=:gray, linewidth=0.5)
-        for (j, kind) in enumerate(kinds), (i, name) in enumerate(names)
-            savings = rig_savings(routes_table, (kind,), "route" => name, "drive" => drive,
-                "length" => ship_length)
-            haskey(savings, kind) || continue
-            barplot!(axis, [i + (j - 2) * 0.27], [savings[kind]]; width=0.25,
-                color=palette[j], label=i == 1 ? kind : nothing)
-        end
-        row < length(drive_labels) && hidexdecorations!(axis; grid=false, ticks=false)
-    end
-    Legend(figure[length(drive_labels) + 1, 1:3],
-        [PolyElement(color=palette[j]) for j in eachindex(kinds)], kinds;
-        orientation=:horizontal)
-    save(joinpath(figures, "route_comparison.pdf"), figure; pt_per_unit=print_scale)
-end
 
 """
     season_figure()
