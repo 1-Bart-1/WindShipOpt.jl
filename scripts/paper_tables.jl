@@ -249,7 +249,11 @@ function goal_rows()
     kite_loss = assumptions[:kite_cycle_damage_probability] +
                 assumptions[:kite_cycle_loss_probability]
     loss = @sprintf("1 in \\num{%.0f}", 1 / kite_loss)
-    crew = @sprintf("USD~%.0f per cycle", assumptions[:kite_cycle_crew_cost])
+    crew_entry = assumptions.entries[:kite_cycle_crew_cost]
+    crew = string("USD~", estimate_text(crew_entry.value), " per cycle (",
+        estimate_text(crew_entry.low), " to ", estimate_text(crew_entry.high), ")")
+    loss_high = assumptions.entries[:kite_cycle_damage_probability].high +
+                assumptions.entries[:kite_cycle_loss_probability].high
     price = "USD~$(estimate_text(WindShipOpt.canopy_price(assumptions)))/m\$^2\$"
     today_inputs = WindShipOpt.with_today(assumptions, WindShipOpt.canopy_price_inputs)
     low, high = canopy_price_range(today_inputs, WindShipOpt.canopy_price_inputs)
@@ -265,14 +269,17 @@ function goal_rows()
         ("Rig life", "rotors", years(:rotor_lifetime),
             "stated design life; about 8 years on record"),
         ("Out of service", "all", service,
-            "one rotor operator's 97\\,\\%; nothing for kites"),
+            "our reading of one rotor operator's 97\\,\\% usable " *
+            "\\citep{spliethoff2021}; nothing for kites"),
         ("Crash in flight", "kite", "none",
             string("no record for a ship; M600 lost all four kites in twenty crosswind ",
                 "flights, three of them in hover or landing \\citep{echeverri2020part1}")),
         ("Unit lost", "wings, rotors", "none", "none reported, and no duty to report one"),
         ("Lost per launch and landing", "kite", loss,
-            "our estimate 0.25\\,\\%; no record for a ship"),
-        ("Launch and landing crew", "kite", crew, "our estimate")]
+            "our estimate 0.25\\,\\% (up to $(estimate_text(100loss_high))\\,\\%); " *
+            "no record for a ship"),
+        ("Launch and landing crew", "kite", crew,
+            "an estimate, not a goal: no source gives crew time per launch")]
 end
 
 "share of time each rig is out of service at its goal, the same for all [-]"
@@ -288,9 +295,8 @@ function goals_table()
     open(joinpath(sections, "goals_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}lllp{0.40\\textwidth}@{}}\n\\toprule")
         println(io, "Goal & Rig & Value & Today \\\\\n\\midrule")
-        for row in goal_rows()
-            println(io, join(row, " & "), " \\\\")
-        end
+        println(io, join([join(row, " & ") for row in goal_rows()],
+            " \\\\\\addlinespace\n"), " \\\\")
         println(io, "\\bottomrule\n\\end{tabular}")
     end
 end
