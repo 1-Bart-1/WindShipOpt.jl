@@ -6,20 +6,23 @@ import { join } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
-import { explorerPath, passagesDirectory } from "./data";
+import { explorerPath, gridsPath, passagesDirectory } from "./data";
 
-/** Serves the explorer data at /explorer.json in development and emits it in a build. */
-function explorerData(): Plugin {
+/** Serves the run file `name` found at `path()` in development and emits it in a build, when there is one. */
+function runFile(name: string, path: () => string | undefined): Plugin {
   return {
-    name: "explorer-data",
+    name: `run-file-${name}`,
     configureServer(server) {
-      server.middlewares.use("/explorer.json", (_request, response) => {
+      server.middlewares.use(`/${name}`, (_request, response, next) => {
+        const file = path();
+        if (!file) return next();
         response.setHeader("Content-Type", "application/json");
-        response.end(readFileSync(explorerPath()));
+        response.end(readFileSync(file));
       });
     },
     generateBundle() {
-      this.emitFile({ type: "asset", fileName: "explorer.json", source: readFileSync(explorerPath()) });
+      const file = path();
+      if (file) this.emitFile({ type: "asset", fileName: name, source: readFileSync(file) });
     },
   };
 }
@@ -50,5 +53,11 @@ function passagesData(): Plugin {
 
 export default defineConfig({
   base: "./",
-  plugins: [react(), tailwindcss(), explorerData(), passagesData()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    runFile("explorer.json", explorerPath),
+    runFile("grids.json", gridsPath),
+    passagesData(),
+  ],
 });
