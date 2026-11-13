@@ -1653,7 +1653,9 @@ function premium_figure()
             color=(palette[k], 0.6), whiskerwidth=pt(3))
         scatter!(axis, x, shares[k][valid]; color=palette[k])
     end
-    axislegend(axis, [[LineElement(; color=(palette[k], 0.6), linewidth=line_width),
+    whisker = Point2f[(0.5, 0), (0.5, 1)]
+    axislegend(axis, [[LineElement(; color=(palette[k], 0.6), linewidth=line_width,
+                           linepoints=whisker),
                        MarkerElement(; color=palette[k], marker=:circle)]
                       for k in eachindex(rig_area_columns)],
         collect(rig_label.(first.(rig_area_columns))); position=:lt)
@@ -1895,7 +1897,7 @@ function large_rigs_figure()
         (first(designed), "largest ship kite designed,\nlargest cargo parachute"))
     rotors_in_service = 5
     foot, gap, cut_size = length(names) + 0.5, pt(3), pt(5)
-    rows = (-0.6, length(names) + 0.7)
+    rows = (-1.2, length(names) + 0.7)
     figure = Figure(size=(page_width, 225))
     areas = Axis(figure[1, 1]; title="(a) best kite area", xscale=log10,
         xlabel=rich("projected area [m", superscript("2"), "]"),
@@ -1943,7 +1945,7 @@ function large_rigs_figure()
     axislegend(areas, [MarkerElement(marker=:circle, color=:white,
             strokecolor=palette[1], strokewidth=0.75),
         MarkerElement(marker=:circle, color=palette[1])], ["VLSFO", "e-ammonia"];
-        position=:rt, orientation=:horizontal)
+        position=(0.75, 1))
     axislegend(units, [MarkerElement(marker=:circle, color=palette[j]) for j in (2, 3)],
         ["wing sails", "rotors"]; position=:rt, orientation=:horizontal)
     save_figure("large_rigs", figure)
@@ -2375,7 +2377,7 @@ function wind_angle_figure()
     work_axis = Axis(figure[2, 1]; title="(c) share of each rig’s work by band",
         ylabel="share of work [%]", xticks=ticks, xticklabelrotation=π / 6)
     cost_axis = Axis(figure[2, 2]; title="(d) mean thrust per rig cost",
-        ylabel="thrust per cost [kN per 1000 USD/day]", xticks=ticks,
+        ylabel="thrust per cost\n[kN per 1000 USD/day]", xticks=ticks,
         xticklabelrotation=π / 6)
     fixed = Dict((rig, bound) => rig_fixed_cost(rig, area, bound)
                  for (rig, area) in reference_rigs for bound in (:value, :low, :high))
@@ -2653,7 +2655,7 @@ function forecast_figure()
             color=:gray50, linestyle=:dash)
         ylims!(panel, 0, 1.2 * maximum([errors["$(quantity)_forecast"];
             errors["$(quantity)_other_year"]]))
-        column == 2 && axislegend(panel, [forecast, other_year],
+        column == 1 && axislegend(panel, [forecast, other_year],
             ["archived forecast", "same date, other year"]; position=:rb)
     end
     save_figure("forecast", figure)
