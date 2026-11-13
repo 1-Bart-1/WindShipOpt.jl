@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { gridsPath } from "../../data";
-import { edgesFrom, foldCentre, formatCount, gridCounts, routesThrough, type Grid, type GridData } from "./grid";
+import { edgesFrom, foldCentre, formatCount, gridCounts, gridEdges, routesThrough, type Grid, type GridData } from "./grid";
 
 // Three stages of three rows: one start node, a fan, and the port in the middle of the last stage.
 const grid: Grid = {
@@ -39,7 +39,7 @@ describe("the grid page", () => {
 
   it("counts nodes, edges and backward steps", () => {
     expect(gridCounts(grid)).toEqual({ usable: 5, nearCoast: 1, unusable: 4, edges: 6, backwardEdges: 1, backwardRowSteps: 1 });
-    expect(foldCentre(grid)).toEqual([0.5, 0.5]);
+    expect(foldCentre(grid, gridEdges(grid))).toEqual([0.5, 0.5]);
   });
 
   it("writes huge route counts in powers of ten", () => {

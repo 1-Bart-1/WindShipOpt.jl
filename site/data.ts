@@ -27,10 +27,7 @@ function newestRun(file: string): string | undefined {
   );
 }
 
-/**
- * Path of the explorer data the site shows: `EXPLORER_JSON` if set, else the newest
- * explorer.json of a final run, else the newest of a draft run.
- */
+/** Path of the explorer data the site shows: `EXPLORER_JSON` if set, else the newest run's. */
 export function explorerPath(): string {
   if (process.env.EXPLORER_JSON) return resolve(process.env.EXPLORER_JSON);
   const chosen = newestRun("explorer.json");
@@ -39,20 +36,14 @@ export function explorerPath(): string {
   return join(runs, chosen, "explorer.json");
 }
 
-/**
- * Directory of the routed passages the site shows: `PASSAGES_DIRECTORY` if set, else the newest
- * run with a passages.json, final before draft; undefined if there is none.
- */
+/** Directory of the routed passages the site shows: `PASSAGES_DIRECTORY` if set, else the newest run's. */
 export function passagesDirectory(): string | undefined {
   if (process.env.PASSAGES_DIRECTORY) return resolve(process.env.PASSAGES_DIRECTORY);
   const chosen = newestRun("passages.json");
   return chosen ? join(runs, chosen) : undefined;
 }
 
-/**
- * Path of the router grids the grid page shows: `GRIDS_JSON` if set, else the newest
- * grids.json of a final run, else of a draft run; undefined if there is none.
- */
+/** Path of the router grids the grid page shows: `GRIDS_JSON` if set, else the newest run's. */
 export function gridsPath(): string | undefined {
   if (process.env.GRIDS_JSON) return resolve(process.env.GRIDS_JSON);
   const chosen = newestRun("grids.json");

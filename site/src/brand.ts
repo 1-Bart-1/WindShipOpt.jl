@@ -8,3 +8,7 @@ import "@fontsource/ibm-plex-sans/600.css";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
 import "./index.css";
+
+/** The CSS value of the brand colour `name`. */
+export const brandColour = (name: string) =>
+  getComputedStyle(document.documentElement).getPropertyValue(`--brand-${name}`).trim();

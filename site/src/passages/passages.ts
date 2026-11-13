@@ -81,12 +81,6 @@ export interface RouteWinds {
   winds: (WindField | null)[];
 }
 
-export async function loadJson<T>(path: string): Promise<T> {
-  const response = await fetch(path);
-  if (!response.ok) throw new Error(`${path}: ${response.status}`);
-  return (await response.json()) as T;
-}
-
 /** The legs of `route`'s file for one design, direction and departure number; undefined if not routed. */
 export const findLeg = (passages: RoutePassages, design: number, direction: Leg["direction"], departure: number) =>
   passages.legs.find((leg) => leg.design === design && leg.direction === direction && leg.departure === departure);

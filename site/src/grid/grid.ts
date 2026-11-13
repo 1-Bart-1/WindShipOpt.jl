@@ -133,9 +133,9 @@ export function gridCounts(grid: Grid): GridCounts {
   return counts;
 }
 
-/** Longitude and latitude [deg] at the middle of the backward edges of `grid`, or undefined if there are none. */
-export function foldCentre(grid: Grid): [number, number] | undefined {
-  const ends = gridEdges(grid).filter((edge) => edge.backward).flatMap((edge) => [edge.from, edge.to]);
+/** Longitude and latitude [deg] at the middle of the backward ones of `edges` of `grid`, or undefined if there are none. */
+export function foldCentre(grid: Grid, edges: Edge[]): [number, number] | undefined {
+  const ends = edges.filter((edge) => edge.backward).flatMap((edge) => [edge.from, edge.to]);
   if (ends.length === 0) return undefined;
   const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
   return [mean(ends.map((node) => position(grid, node)[0])), mean(ends.map((node) => position(grid, node)[1]))];

@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { loadJson } from "../passages/passages";
+import { loadJson } from "../load";
 import { Select } from "../Select";
-import { foldCentre, formatCount, gridCounts, kindOf, edgesFrom, position, routesThrough, type Grid, type GridData } from "./grid";
-import { GridGlobe, type GridNode, type PickedNode, type ShownGrid } from "./GridGlobe";
+import { edgesFrom, foldCentre, formatCount, gridCounts, gridEdges, kindOf, position, routesThrough, type Grid, type GridData } from "./grid";
+import { GridMap, type GridNode, type PickedNode, type ShownGrid } from "./GridMap";
 
 type Shown = "final" | "draft" | "both";
 type Layer = "mesh" | "unusable" | "allEdges" | "folds";
@@ -22,7 +22,7 @@ const degrees = (angle: number, positive: string, negative: string) =>
 
 const kindLabels = { w: "open water", c: "water near the coast", x: "unusable" };
 
-/** The router's corridor grids on a globe, from grids.json. */
+/** The router's corridor grids on a globe or a flat map, from grids.json. */
 export function GridPage() {
   const [data, setData] = useState<GridData>();
   const [error, setError] = useState<string>();
@@ -37,10 +37,11 @@ export function GridPage() {
 function Grids({ data }: { data: GridData }) {
   const [route, setRoute] = useState(data.routes[0].name);
   const [shown, setShown] = useState<Shown>("final");
+  const [flat, setFlat] = useState(false);
   const [layers, setLayers] = useState<Record<Layer, boolean>>({ mesh: true, unusable: true, allEdges: false, folds: true });
   const [picked, setPicked] = useState<PickedNode>();
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [globe, setGlobe] = useState<GridGlobe>();
+  const [map, setMap] = useState<GridMap>();
   const pickRoute = useRef(route);
   pickRoute.current = route;
 
@@ -48,27 +49,30 @@ function Grids({ data }: { data: GridData }) {
     () =>
       data.spacings
         .filter((spacing) => shown === "both" || shown === spacing)
-        .map((spacing) => ({ spacing, grid: data.grids[spacing][route], coarse: spacing === "draft" }))
+        .map((spacing) => {
+          const grid = data.grids[spacing][route];
+          return { spacing, grid, edges: gridEdges(grid), coarse: spacing === "draft" };
+        })
         .sort((a, b) => Number(a.coarse) - Number(b.coarse)),
     [data, route, shown],
   );
 
   useEffect(() => {
-    const created = new GridGlobe(canvas.current!, (node?: GridNode) =>
+    const created = new GridMap(canvas.current!, (node?: GridNode) =>
       setPicked(node && { ...node, routes: routesThrough(data.grids[node.spacing][pickRoute.current], node.node) }),
     );
-    setGlobe(created);
+    setMap(created);
     return () => created.dispose();
   }, [data]);
 
   useEffect(() => {
     const grid = data.grids.final[route];
-    globe?.centre(position(grid, Math.floor(grid.kind.length / 2)), 1.4);
-  }, [globe, data, route]);
+    map?.centre(position(grid, Math.floor(grid.kind.length / 2)), 1.4);
+  }, [map, data, route]);
 
-  useEffect(() => globe?.show({ grids, ...layers, picked }), [globe, grids, layers, picked]);
+  useEffect(() => map?.show({ grids, flat, ...layers, picked }), [map, grids, flat, layers, picked]);
 
-  const fold = foldCentre(grids[0].grid);
+  const fold = useMemo(() => grids.map((shown) => foldCentre(shown.grid, shown.edges)).find(Boolean), [grids]);
   return (
     <main className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
       <header className="space-y-2">
@@ -76,18 +80,18 @@ function Grids({ data }: { data: GridData }) {
         <h1 className="text-4xl leading-[0.9] md:text-6xl">The router's grid</h1>
         <p className="max-w-3xl">
           The weather router searches each passage over a grid of stages along the route, each a row of nodes across
-          it. An edge joins a node to nearby rows of the next stage. Drag to turn the globe, scroll to zoom, and click a
+          it. An edge joins a node to nearby rows of the next stage. Drag to turn or pan the map, scroll to zoom, and click a
           node to see every route from Rotterdam to port through it.
         </p>
       </header>
       <div className="rule" />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="relative">
-          <canvas ref={canvas} className="aspect-square max-h-[calc(100vh-3rem)] w-full cursor-grab touch-none active:cursor-grabbing"
-            aria-label="Globe with the router's corridor grid" />
+          <canvas ref={canvas} className={`${flat ? "aspect-[2/1]" : "aspect-square"} max-h-[calc(100vh-3rem)] w-full cursor-grab touch-none active:cursor-grabbing`}
+            aria-label="Map of the router's corridor grid" />
           <div className="absolute right-2 top-2 flex flex-col gap-1">
-            <button className="button-outline" aria-label="Zoom in" onClick={() => globe?.zoomBy(1.5)}>+</button>
-            <button className="button-outline" aria-label="Zoom out" onClick={() => globe?.zoomBy(1 / 1.5)}>−</button>
+            <button className="button-outline" aria-label="Zoom in" onClick={() => map?.zoomBy(1.5)}>+</button>
+            <button className="button-outline" aria-label="Zoom out" onClick={() => map?.zoomBy(1 / 1.5)}>−</button>
           </div>
         </div>
         <aside className="space-y-5">
@@ -106,6 +110,17 @@ function Grids({ data }: { data: GridData }) {
                 ))}
               </div>
             </div>
+            <div className="grid gap-1">
+              <span className="label">Map</span>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Map">
+                {[false, true].map((each) => (
+                  <button key={String(each)} role="radio" aria-checked={flat === each} className={flat === each ? "button" : "button-outline"}
+                    onClick={() => setFlat(each)}>
+                    {each ? "Flat" : "Globe"}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="grid gap-1.5 text-sm">
               {layerLabels.map(([layer, text]) => (
                 <label key={layer} className="flex cursor-pointer items-center gap-2">
@@ -115,7 +130,7 @@ function Grids({ data }: { data: GridData }) {
                 </label>
               ))}
             </div>
-            <button className="button w-full disabled:opacity-40" disabled={!fold} onClick={() => fold && globe?.centre(fold, 4)}>
+            <button className="button w-full disabled:opacity-40" disabled={!fold} onClick={() => fold && map?.centre(fold, 4)}>
               {fold ? "Go to the steps that run backwards" : "No step runs backwards"}
             </button>
           </div>
@@ -179,7 +194,7 @@ function Counts({ data, route }: { data: GridData; route: string }) {
 }
 
 function Picked({ picked, data, route }: { picked?: PickedNode; data: GridData; route: string }) {
-  if (!picked) return <p className="text-sm text-ink-light">Click a node on the globe.</p>;
+  if (!picked) return <p className="text-sm text-ink-light">Click a node on the map.</p>;
   const grid = data.grids[picked.spacing][route];
   const stage = Math.floor(picked.node / grid.laterals);
   const row = (picked.node % grid.laterals) - (grid.laterals - 1) / 2;

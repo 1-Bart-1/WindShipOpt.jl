@@ -1,16 +1,17 @@
 // SPDX-FileCopyrightText: 2026 Bart van de Lint
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { geoDistance, geoGraticule10, geoOrthographic, geoPath, type GeoPath } from "d3-geo";
+import { geoDistance, geoEquirectangular, geoGraticule10, geoOrthographic, geoPath, type GeoPath, type GeoProjection } from "d3-geo";
 import { feature } from "topojson-client";
 import land from "world-atlas/land-110m.json";
-import { brandColour } from "../passages/scene";
-import { edgesFrom, gridEdges, kindOf, position, type Edge, type Grid, type RoutesThrough } from "./grid";
+import { brandColour } from "../brand";
+import { edgesFrom, kindOf, position, type Edge, type Grid, type RoutesThrough } from "./grid";
 
-/** One grid on the globe, coarse grids drawn with larger nodes. */
+/** One grid on the map with its edges, coarse grids drawn with larger nodes. */
 export interface ShownGrid {
   spacing: string;
   grid: Grid;
+  edges: Edge[];
   coarse: boolean;
 }
 
@@ -24,9 +25,10 @@ export interface PickedNode extends GridNode {
   routes: RoutesThrough;
 }
 
-/** What the globe draws. */
+/** What the map draws, on a globe or flat. */
 export interface GridView {
   grids: ShownGrid[];
+  flat: boolean;
   mesh: boolean;
   unusable: boolean;
   allEdges: boolean;
@@ -38,16 +40,22 @@ const topology = land as unknown as Parameters<typeof feature>[0] & { objects: {
 const landShape = feature(topology, topology.objects.land) as unknown as GeoJSON.FeatureCollection;
 const pickRadius = 12;
 
-/** An orthographic globe on a canvas drawing router grids; drag turns it, the wheel zooms, a click picks a node. */
-export class GridGlobe {
+/**
+ * Router grids on a canvas, as an orthographic globe or a flat longitude and latitude map;
+ * drag turns or pans it, the wheel zooms, a click picks a node.
+ */
+export class GridMap {
   private context: CanvasRenderingContext2D;
-  private projection = geoOrthographic().rotate([40, -35]).clipAngle(90).precision(0.3);
+  private globe = geoOrthographic().clipAngle(90).precision(0.3);
+  private plane = geoEquirectangular().precision(0.3);
+  private projection: GeoProjection = this.globe;
   private path: GeoPath;
+  private facing: [number, number] = [-40, 35];
   private zoom = 1;
   private width = 0;
   private height = 0;
-  private view: GridView = { grids: [], mesh: true, unusable: true, allEdges: false, folds: true };
-  private drag?: { x: number; y: number; rotate: [number, number, number]; moved: boolean };
+  private view: GridView = { grids: [], flat: false, mesh: true, unusable: true, allEdges: false, folds: true };
+  private drag?: { x: number; y: number; facing: [number, number]; moved: boolean };
   private observer: ResizeObserver;
 
   constructor(
@@ -66,12 +74,14 @@ export class GridGlobe {
 
   show(view: GridView) {
     this.view = view;
+    this.projection = view.flat ? this.plane : this.globe;
+    this.path = geoPath(this.projection, this.context);
     this.draw();
   }
 
-  /** Turn the globe to face longitude and latitude `[lon, lat]` [deg], at `zoom` if given. */
-  centre([lon, lat]: [number, number], zoom?: number) {
-    this.projection.rotate([-lon, -lat]);
+  /** Face longitude and latitude `[lon, lat]` [deg], at `zoom` if given. */
+  centre(facing: [number, number], zoom?: number) {
+    this.facing = facing;
     if (zoom) this.zoom = zoom;
     this.draw();
   }
@@ -100,8 +110,17 @@ export class GridGlobe {
   }
 
   private visible(point: [number, number]) {
-    const [lambda, phi] = this.projection.rotate();
-    return geoDistance(point, [-lambda, -phi]) < Math.PI / 2;
+    return this.view.flat || geoDistance(point, this.facing) < Math.PI / 2;
+  }
+
+  private place() {
+    const [lon, lat] = this.facing;
+    const centre: [number, number] = [this.width / 2, this.height / 2];
+    if (!this.view.flat) {
+      this.globe.rotate([-lon, -lat]).scale((Math.min(...centre) - 8) * this.zoom).translate(centre);
+      return;
+    }
+    this.plane.rotate([-lon, 0]).center([0, lat]).scale((this.width / (2 * Math.PI)) * this.zoom).translate(centre);
   }
 
   private stroke(lines: [number, number][][], colour: string, width: number, alpha = 1) {
@@ -122,7 +141,7 @@ export class GridGlobe {
   private draw() {
     if (!this.width) return;
     const context = this.context;
-    this.projection.scale((Math.min(this.width, this.height) / 2 - 8) * this.zoom).translate([this.width / 2, this.height / 2]);
+    this.place();
     context.clearRect(0, 0, this.width, this.height);
     context.beginPath();
     this.path({ type: "Sphere" });
@@ -140,11 +159,10 @@ export class GridGlobe {
     if (this.view.picked) this.drawPicked(this.view.picked);
   }
 
-  private drawGrid({ grid, coarse }: ShownGrid) {
+  private drawGrid({ grid, edges, coarse }: ShownGrid) {
     const { mesh, unusable, allEdges, folds } = this.view;
     const ink = brandColour("ink");
     if (mesh) this.stroke(this.meshLines(grid), ink, coarse ? 1 : 0.6, 0.3);
-    const edges = allEdges || folds ? gridEdges(grid) : [];
     if (allEdges) this.stroke(this.edgeLines(grid, edges), brandColour("teal"), 0.5, 0.3);
     const radius = (coarse ? 3.2 : 1.7) * Math.min(Math.sqrt(this.zoom), 1.6);
     const colours = { w: brandColour("teal"), c: brandColour("mustard"), x: brandColour("mid") };
@@ -218,7 +236,7 @@ export class GridGlobe {
   }
 
   private pointerDown = (event: PointerEvent) => {
-    this.drag = { x: event.clientX, y: event.clientY, rotate: this.projection.rotate(), moved: false };
+    this.drag = { x: event.clientX, y: event.clientY, facing: this.facing, moved: false };
     this.canvas.setPointerCapture(event.pointerId);
   };
 
@@ -227,10 +245,9 @@ export class GridGlobe {
     const dx = event.clientX - this.drag.x;
     const dy = event.clientY - this.drag.y;
     if (Math.hypot(dx, dy) > 3) this.drag.moved = true;
-    const sensitivity = 0.25 / this.zoom;
-    const [lambda, phi] = this.drag.rotate;
-    this.projection.rotate([lambda + dx * sensitivity, Math.max(-90, Math.min(90, phi - dy * sensitivity))]);
-    this.draw();
+    const sensitivity = (this.view.flat ? 360 / this.width : 0.25) / this.zoom;
+    const [lon, lat] = this.drag.facing;
+    this.centre([lon - dx * sensitivity, Math.max(-90, Math.min(90, lat + dy * sensitivity))]);
   };
 
   private pointerUp = (event: PointerEvent) => {

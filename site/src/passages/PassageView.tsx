@@ -7,7 +7,6 @@ import { Panels } from "./Panels";
 import { ShipScene } from "./ShipScene";
 import {
   findLeg,
-  loadJson,
   RIG_BRAND,
   RIG_LABELS,
   rigColour,
@@ -20,7 +19,8 @@ import {
   type RoutePassages,
   type RouteWinds,
 } from "./passages";
-import { brandColour } from "./scene";
+import { brandColour } from "../brand";
+import { loadJson } from "../load";
 import { Select } from "../Select";
 
 const rigOrder: PassageDesign["rig"][] = ["none", "kite", "wings", "rotors"];
