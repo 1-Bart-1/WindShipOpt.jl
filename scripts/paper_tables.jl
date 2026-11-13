@@ -597,9 +597,9 @@ crash_cell(crashes) = isnan(crashes) ? "--" : @sprintf("%.2g", crashes)
 Tabulars of the ship classes in class_table.tex, one above the other: their main
 dimensions, deadweight and unit capacity, the limit their cargo fills first, speed, engine
 power, resistance calibration and price; then cargo value, the inputs of deck cargo and
-port operations and the frontal and lateral wind areas, with a dagger on what the sources
-estimate. The rows of their sources go to class_sources.tex. An infinite fixed-rig delay,
-where a fixed rig prevents cargo handling, is printed as ∞.
+port operations and the frontal and lateral wind areas to three digits, with a dagger on
+what the sources estimate. The rows of their sources go to class_sources.tex. An infinite
+fixed-rig delay, where a fixed rig prevents cargo handling, is printed as ∞.
 """
 function class_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
@@ -666,8 +666,8 @@ function write_class_cargo_row(io, class, estimated)
         " & ", latex_number(class.deck_tiers), " & ", latex_number(class.air_draft_limit),
         " & ",
         latex_number(round(100class.restricted_call_share; digits=1)), " & ", delay, " & ",
-        latex_number(round(Int, windage.frontal_area)), " & ",
-        latex_number(round(Int, windage.lateral_area)), " \\\\")
+        latex_number(round(Int, round(windage.frontal_area; sigdigits=3))), " & ",
+        latex_number(round(Int, round(windage.lateral_area; sigdigits=3))), " \\\\")
 end
 
 """

@@ -129,7 +129,7 @@ function draw_force_balance!(axis, ship, (speed, wind, angle), thrust, force, wi
             (-leeway_drag / 1e3, windward(-total.side - rudder)), "hull"; scale,
             color=water, align=(:left, :bottom)),
         force_arrow!(axis, (stern - 6, 0), (-rudder_drag / 1e3, windward(rudder)),
-            "rudder"; scale, color=water, align=(:right, :center)),
+            "rudder"; scale, color=water, align=(:right, :bottom)),
         force_arrow!(axis, (stern, 0), (thrust / 1e3, 0.0), "propeller"; scale,
             color=water, align=(:right, :top), at_point=true),
         force_arrow!(axis, (bow, 0), (-resistance / 1e3, 0.0), "calm water"; scale,
