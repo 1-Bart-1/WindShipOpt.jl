@@ -20,9 +20,11 @@ category_colours = [palette[6], Makie.RGBf(0.42, 0.26, 0.64), Makie.RGBf(0.55, 0
     figure_style_file()
 
 Write [`figure_style`](@ref) to paper/figure_style.tex, which the paper and its extended
-abstract load: figures keep their own fonts; TikZ, its libraries and the colours; and the
-TikZ styles `force`, `flow`, `dimension`, `leader`, `label`, `note` and `box`, with the
-arrowhead every arrow shares. Errors on any [`tikz_style_faults`](@ref).
+abstract load: figures keep their own fonts; TikZ, its libraries and the colours; the TikZ
+styles `force`, `flow`, `dimension`, `leader`, `crossing`, `label`, `note`, `box`, one
+`<kind> box` per fill, `box title`, `box text`, `panel` and `step number`, with the
+arrowhead every arrow shares and no hyphenation; and a warning wherever two `label` or
+`note` nodes of a picture overlap. Errors on any [`tikz_style_faults`](@ref).
 """
 function figure_style_file()
     faults = tikz_style_faults()
@@ -30,6 +32,53 @@ function figure_style_file()
     sizes = figure_style["sizes"]
     size(name) = @sprintf("%gpt", sizes[name])
     font(name) = @sprintf("\\fontsize{%g}{%g}\\selectfont", sizes[name], 1.2sizes[name])
+    overlap_check = raw"""
+        \ExplSyntaxOn
+        \seq_new:N \g_figstyle_labels_seq
+        \cs_new_protected:Npn \figurestylerecord #1
+          {
+            \group_begin:
+            \pgftransformreset
+            \pgfpointanchor {#1} {south~west}
+            \pgfgetlastxy \l_figstyle_ax_tl \l_figstyle_ay_tl
+            \pgfpointanchor {#1} {north~east}
+            \pgfgetlastxy \l_figstyle_bx_tl \l_figstyle_by_tl
+            \seq_gput_right:Nx \g_figstyle_labels_seq
+              {
+                { \dim_eval:n { \dim_min:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+                { \dim_eval:n { \dim_min:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+                { \dim_eval:n { \dim_max:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+                { \dim_eval:n { \dim_max:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+              }
+            \group_end:
+          }
+        \cs_new_protected:Npn \figstyle_overlap:nnnnnnnn #1#2#3#4#5#6#7#8
+          {
+            \bool_lazy_all:nT
+              {
+                { \dim_compare_p:n { #1 < #7 } } { \dim_compare_p:n { #5 < #3 } }
+                { \dim_compare_p:n { #2 < #8 } } { \dim_compare_p:n { #6 < #4 } }
+              }
+              { \PackageWarning {figurestyle} { labels~overlap~at~(#1,~#2)~and~(#5,~#6) } }
+          }
+        \cs_new_protected:Npn \figurestylecheck
+          {
+            \int_step_inline:nn { \seq_count:N \g_figstyle_labels_seq }
+              {
+                \int_step_inline:nnn { ##1 + 1 } { \seq_count:N \g_figstyle_labels_seq }
+                  {
+                    \use:e
+                      {
+                        \exp_not:N \figstyle_overlap:nnnnnnnn
+                        \seq_item:Nn \g_figstyle_labels_seq { ##1 }
+                        \seq_item:Nn \g_figstyle_labels_seq { ####1 }
+                      }
+                  }
+              }
+            \seq_gclear:N \g_figstyle_labels_seq
+          }
+        \ExplSyntaxOff
+        """
     open(joinpath(root, "paper", "figure_style.tex"), "w") do io
         println(io, "% Written by the figure_style step from figure_style.toml; edit that.")
         println(io, "\\pdfinclusioncopyfonts=1")
@@ -38,19 +87,36 @@ function figure_style_file()
         for (name, hex) in sort(collect(figure_style["colours"]))
             println(io, "\\definecolor{", name, "}{HTML}{", hex, "}")
         end
+        for (name, hex) in sort(collect(figure_style["fills"]))
+            println(io, "\\definecolor{", name, "fill}{HTML}{", hex, "}")
+        end
+        print(io, overlap_check)
         println(io, "\\tikzset{")
         println(io, "  >={Stealth[length=", size("arrow_length"), ", width=",
             size("arrow_width"), "]},")
-        println(io, "  every picture/.style={line width=", size("rule"), "},")
+        println(io, "  every picture/.style={line width=", size("rule"), ", font=",
+            font("text"), ", execute at end picture=\\figurestylecheck, every node/.style=",
+            "{execute at begin node={\\hyphenpenalty=10000\\relax}}},")
         println(io, "  force/.style={->, line width=", size("force"), "},")
         println(io, "  flow/.style={->, line width=", size("flow"), "},")
         println(io, "  dimension/.style={<->, guide, line width=", size("dimension"), "},")
         println(io, "  leader/.style={guide, line width=", size("dimension"), "},")
+        println(io, "  crossing/.style={draw=white, line width=", size("crossing"), "},")
         println(io, "  label/.style={font=", font("text"), ", inner sep=1pt, preaction={",
-            "fill=white, draw=white, line width=", size("halo"), "}},")
+            "fill=white, draw=white, line width=", size("halo"), "}, append after ",
+            "command={\\pgfextra{\\figurestylerecord{\\tikzlastnode}}}},")
         println(io, "  note/.style={label, font=", font("note"), "},")
         println(io, "  box/.style={draw, rounded corners=2pt, line width=", size("rule"),
             "},")
+        for name in sort(collect(keys(figure_style["fills"])))
+            println(io, "  ", name, " box/.style={box, fill=", name, "fill},")
+        end
+        println(io, "  box title/.style={font=", font("text"), "\\bfseries, align=left, ",
+            "inner sep=0pt},")
+        println(io, "  box text/.style={align=left, inner sep=0pt},")
+        println(io, "  panel/.style={anchor=west, inner sep=0pt},")
+        println(io, "  step number/.style={circle, fill=black, text=white, font=",
+            font("note"), "\\bfseries, inner sep=0pt, minimum size=", size("step"), "},")
         println(io, "}")
     end
 end
