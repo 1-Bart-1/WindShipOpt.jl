@@ -39,9 +39,9 @@ fidelity = "draft"
 run = "2026-11-08T2358"
 
 [model_parts]
-commit = "1f6d721342815ad9c41d8b5274c4edf52da8375d"
+commit = "772a5eeaa45adc58012234c8d29921203e2bea95"
 fidelity = "draft"
-run = "2026-11-06T1552"
+run = "2026-11-13T1457"
 
 [published_terms]
 commit = "473a0ab894dcae2c01578efe418aa134166b9201"
