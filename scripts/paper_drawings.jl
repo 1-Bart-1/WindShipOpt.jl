@@ -22,16 +22,17 @@ function hull_outline(length, beam)
 end
 
 """
-    force_arrow!(axis, origin, force, label; scale, color, align, offset, at_tail)
+    force_arrow!(axis, origin, force, label; scale, color, align, offset, at_tail, label_at)
 
 Arrow of `force` [kN, x and y] from `origin` [m], `scale` metres per kN, labelled with its
-magnitude at its tip, or at its tail when `at_tail`.
+magnitude at its tip, at its tail when `at_tail`, or at the point `label_at` [m] if given.
 """
 function force_arrow!(axis, origin, force, label; scale, color, align=(:center, :center),
-        offset=(0, 0), at_tail=false)
+        offset=(0, 0), at_tail=false, label_at=nothing)
     vector = Vec2f(force .* scale)
     arrows2d!(axis, [Point2f(origin)], [vector]; color, shaftwidth=1.3)
-    text!(axis, at_tail ? Point2f(origin) : Point2f(origin) + vector;
+    anchor = at_tail ? Point2f(origin) : Point2f(origin) + vector
+    text!(axis, Point2f(something(label_at, anchor));
         text=@sprintf("%s %.0f kN", label, hypot(force...)), align, offset,
         fontsize=note_size, color)
 end
@@ -86,12 +87,10 @@ function force_balance_figure()
             color=category_colours[1], align=(:left, :bottom), offset=(2, 2), at_tail=true)
         if abs(rudder) > 1
             reach = leeward * rudder / 1e3 * scale
-            arrows2d!(axis, [Point2f(0, stern)], [Vec2f(reach, 0)];
-                color=category_colours[3], shaftwidth=1.3)
-            text!(axis, sign(reach) * max(hull.beam / 2, abs(reach)), stern;
-                text=@sprintf("rudder %.0f kN", abs(rudder) / 1e3),
-                offset=(3sign(reach), 0), align=(reach > 0 ? :left : :right, :center),
-                fontsize=note_size, color=category_colours[3])
+            force_arrow!(axis, (0.0, stern), (leeward * rudder / 1e3, 0.0), "rudder";
+                scale, color=category_colours[3], offset=(3sign(reach), 0),
+                align=(reach > 0 ? :left : :right, :center),
+                label_at=(sign(reach) * max(hull.beam / 2, abs(reach)), stern))
         end
         force_arrow!(axis, (hull.beam / 4, stern), (0.0, -resistance / 1e3), "drag";
             scale, color=:gray30, align=(:left, :top), offset=(0, -2))

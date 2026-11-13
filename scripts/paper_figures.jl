@@ -10,10 +10,12 @@ aspect_ratios = (3, 5, 8)
 "colours of the kite, wings and rotors, in the order of `rig_names`, then of the VTOL kite"
 palette = Makie.wong_colors()
 "colours of what is not a rig, none of them a rig's"
-category_colours = [palette[6], palette[4], Makie.RGBf(0.55, 0.47, 0.0), palette[5],
-    Makie.RGBf(0.55, 0.3, 0.12), :black]
+category_colours = [palette[6], Makie.RGBf(0.42, 0.26, 0.64), Makie.RGBf(0.55, 0.47, 0.0),
+    palette[5], Makie.RGBf(0.55, 0.3, 0.12), :black]
 "`n` shades of the kite's blue, light to dark"
 kite_shades(n) = cgrad(:Blues, n + 2; categorical=true)[3:end]
+"`n` shades of the VTOL kite's pink, light to dark"
+vtol_shades(n) = cgrad(:RdPu, n + 2; categorical=true)[3:end]
 column_width = 334
 page_width = 522
 # points per figure unit, so that a page-wide figure is the 468 pt text width
@@ -204,7 +206,6 @@ pressure that force implies over the canopy, and a cell whose skin carries the t
 """
 function draw_force_balance!(axis, area, force, radius)
     pressure = force / area
-    style = (shaftwidth=1.5)
     arc(centre, reach, sweep) = [centre .+ reach .* (cos(angle), sin(angle))
                                  for angle in sweep]
     lines!(axis, arc((0.0, -1.0), 2.0, range(π / 4, 3π / 4; length=40)); color=:black,
@@ -238,9 +239,8 @@ function draw_force_balance!(axis, area, force, radius)
     tension = round(Int, pressure * radius)
     text!(axis, centre[1], 1.25; text=L"T = p\,R = %$(tension)\,\mathrm{N/m}",
         align=(:center, :bottom), color=category_colours[2])
-    text!(axis, left[1] - 0.1, -0.8; text="rib", fontsize=note_size, align=(:right,
-        :center),
-        color=:gray40)
+    text!(axis, left[1] - 0.1, -0.8; text="rib", fontsize=note_size,
+        align=(:right, :center), color=:gray40)
     arrows2d!(axis, [1.9], [0.3], [0.8], [0.0]; color=:gray60)
     hidedecorations!(axis)
     hidespines!(axis)
@@ -1199,7 +1199,7 @@ function breakdown_figure()
         "interest_cost"]
     names = ["fuel", "kite wear", "port", "crew", "capital and maintenance",
         "cargo interest"]
-    colours = [:gray30, palette[1], :gray75, palette[4], :gray55, palette[6]]
+    colours = [:gray30, palette[1], :gray75, category_colours[2], :gray55, palette[6]]
     cases = Tuple{String, String, Union{Nothing, String}}[("VLSFO", "vlsfo", nothing),
         ("e-ammonia", "ammonia", nothing)]
     for (rig, column) in rig_area_columns
@@ -1859,8 +1859,8 @@ end
     development_panel!(axis, table, ships, levers, rig, column)
 
 Bars in `axis` of the change of the saving of `rig` in `column` between the low and high
-bound of each of `levers`, one per ship in the colours of `palette`, with the high bound
-marked.
+bound of each of `levers`, one per ship in the colours of `category_colours`, with the
+high bound marked.
 """
 function development_panel!(axis, table, ships, levers, rig, column)
     vlines!(axis, 0; color=:gray50, linewidth=0.8)
@@ -2135,8 +2135,7 @@ function rigid_scaling_figure()
         exponent = kind == "rigid" ? base_exponent : 0.0
         chosen = rows(table, "kind" => kind, "area" => area, "exponent" => exponent)
         lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
-            color=kind == "soft" ? palette[1] : cgrad(:RdPu, length(curves) + 2;
-                categorical=true)[k + 2],
+            color=kind == "soft" ? palette[1] : vtol_shades(length(curves))[k],
             label="$(paper_name(kind)) $(round(Int, area)) m²")
     end
     series = [("rigid", base_exponent, :solid), ("rigid", 3.0, :dash), ("rigid", 3.3, :dot),
@@ -2175,7 +2174,7 @@ end
 rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
     ("wings", "best wings", palette[2]),
     ("rotors", "best rotors", palette[3]), ("rigid base", "best VTOL kites", palette[4]),
-    ("rigid optimistic", "best VTOL kites, favourable inputs", palette[5]))
+    ("rigid optimistic", "best VTOL kites, favourable inputs", vtol_shades(4)[3]))
 
 """
     rigid_kite_figure()
