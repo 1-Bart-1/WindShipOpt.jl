@@ -7,11 +7,47 @@
 figures = mkpath(joinpath(root, "paper", "figures"))
 polars = joinpath(root, "data", "kite_polars")
 aspect_ratios = (3, 5, 8)
+"the paper's figure style: sizes [pt] and colours, shared with its TikZ figures"
+figure_style = TOML.parsefile(joinpath(root, "paper", "figure_style.toml"))
+"the colour `name` of [`figure_style`](@ref)"
+style_colour(name) = parse(Makie.Colors.Colorant, "#" * figure_style["colours"][name])
 "colours of the kite, wings and rotors, in the order of `rig_names`, then of the VTOL kite"
-palette = Makie.wong_colors()
+palette = style_colour.(["kite", "wings", "rotors", "vtol", "water", "accent"])
 "colours of what is not a rig, none of them a rig's"
 category_colours = [palette[6], Makie.RGBf(0.42, 0.26, 0.64), Makie.RGBf(0.55, 0.47, 0.0),
     palette[5], Makie.RGBf(0.55, 0.3, 0.12), :black]
+"""
+    figure_style_file()
+
+Write [`figure_style`](@ref) to paper/figure_style.tex: its colours, and the TikZ styles of
+the paper's LaTeX figures, `force`, `flow`, `dimension`, `leader`, `label`, `note` and
+`box`, with the arrowhead every arrow shares.
+"""
+function figure_style_file()
+    sizes = figure_style["sizes"]
+    size(name) = @sprintf("%gpt", sizes[name])
+    font(name) = @sprintf("\\fontsize{%g}{%g}\\selectfont", sizes[name], 1.2sizes[name])
+    open(joinpath(root, "paper", "figure_style.tex"), "w") do io
+        println(io, "% Written by the figure_style step from figure_style.toml; edit that.")
+        for (name, hex) in sort(collect(figure_style["colours"]))
+            println(io, "\\definecolor{", name, "}{HTML}{", hex, "}")
+        end
+        println(io, "\\tikzset{")
+        println(io, "  >={Stealth[length=", size("arrow_length"), ", width=",
+            size("arrow_width"), "]},")
+        println(io, "  every picture/.style={line width=", size("rule"), "},")
+        println(io, "  force/.style={->, line width=", size("force"), "},")
+        println(io, "  flow/.style={->, line width=", size("flow"), "},")
+        println(io, "  dimension/.style={<->, guide, line width=", size("dimension"), "},")
+        println(io, "  leader/.style={guide, line width=", size("dimension"), "},")
+        println(io, "  label/.style={font=", font("text"), ", inner sep=1pt, preaction={",
+            "fill=white, draw=white, line width=", size("halo"), "}},")
+        println(io, "  note/.style={label, font=", font("note"), "},")
+        println(io, "  box/.style={draw, rounded corners=2pt, line width=", size("rule"), "},")
+        println(io, "}")
+    end
+end
+
 "`n` shades of the kite's blue, light to dark"
 kite_shades(n) = cgrad(:Blues, n + 2; categorical=true)[3:end]
 "`n` shades of the VTOL kite's pink, light to dark"
@@ -28,16 +64,22 @@ Makie.MathTeXEngine.set_texfont_family!(Makie.MathTeXEngine.FontFamily(Dict(
     :regular => paper_font("regular"), :italic => paper_font("italic"),
     :bold => paper_font("bold"), :bolditalic => paper_font("bold"),
     :math => paper_font("math"))))
+"figure units of the size `name` [pt] of [`figure_style`](@ref)"
+style_size(name) = pt(figure_style["sizes"][name])
 "figure units of the text in figures: labels, ticks, legends and panel titles"
-text_size = pt(8)
+text_size = style_size("text")
 "figure units of secondary text: values written on the data and notes beside it"
-note_size = pt(7)
+note_size = style_size("note")
 "figure units of the width of axis lines, ticks and frames"
-rule_width = pt(0.5)
+rule_width = style_size("rule")
 "figure units of the width of data lines"
-line_width = pt(1)
+line_width = style_size("line")
 "figure units of the size of data markers"
-marker_size = pt(4)
+marker_size = style_size("marker")
+"figure units of the shaft of an arrow that draws a force"
+force_width = style_size("force")
+"figure units of the shaft of an arrow that links boxes or steps, or a unit vector"
+flow_width = style_size("flow")
 set_theme!(fontsize=text_size, linewidth=line_width, markersize=marker_size,
     figure_padding=(pt(3), pt(6), pt(3), pt(3)), rowgap=pt(8), colgap=pt(10),
     fonts=(; regular=paper_font("regular"), italic=paper_font("italic"),
@@ -46,7 +88,8 @@ set_theme!(fontsize=text_size, linewidth=line_width, markersize=marker_size,
         titlefont=:regular, titlealign=:left, titlegap=pt(3), spinewidth=rule_width,
         xtickwidth=rule_width, ytickwidth=rule_width, xticksize=pt(2.5),
         yticksize=pt(2.5), xlabelpadding=pt(2), ylabelpadding=pt(3)),
-    Arrows2D=(; shaftwidth=pt(1), tipwidth=pt(3.2), tiplength=pt(4)),
+    Arrows2D=(; shaftwidth=line_width, tipwidth=style_size("arrow_width"),
+        tiplength=style_size("arrow_length")),
     Colorbar=(; spinewidth=rule_width, tickwidth=rule_width, ticksize=pt(2.5)),
     Legend=(; backgroundcolor=:white, framecolor=:gray55, framewidth=rule_width,
         titlefont=:regular, patchsize=(pt(11), pt(6)), patchlabelgap=pt(3), rowgap=0,
@@ -69,7 +112,7 @@ clear_offset(align, gap) = (Dict(:left => gap, :center => 0, :right => -gap)[ali
 estimate_text(value) = @sprintf("%.15g", round(value; sigdigits=2))
 
 "figure units of the halo in the background colour behind each dark label"
-halo_width = pt(1.6)
+halo_width = style_size("halo")
 
 """
     save_figure(name, figure)
@@ -152,7 +195,7 @@ label_texts(plot) = (text = plot.text[]; text isa AbstractVector ? string.(text)
                                           [string(text)])
 
 "clearance [figure units] a label keeps from other labels and from lines and markers"
-label_clearance = pt(0.75)
+label_clearance = style_size("clearance")
 
 "whether the rectangles `a` and `b` come closer than [`label_clearance`](@ref)"
 overlaps(a, b) = all(min.(maximum(a), maximum(b)) .- max.(minimum(a), minimum(b)) .>

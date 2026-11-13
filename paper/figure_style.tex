@@ -1,0 +1,23 @@
+% Written by the figure_style step from figure_style.toml; edit that.
+\definecolor{accent}{HTML}{D55E00}
+\definecolor{gain}{HTML}{2166AC}
+\definecolor{guide}{HTML}{999999}
+\definecolor{kite}{HTML}{0072B2}
+\definecolor{loss}{HTML}{B2182B}
+\definecolor{rotors}{HTML}{009E73}
+\definecolor{ship}{HTML}{BFBFBF}
+\definecolor{vtol}{HTML}{CC79A7}
+\definecolor{water}{HTML}{56B4E9}
+\definecolor{wind}{HTML}{737373}
+\definecolor{wings}{HTML}{E69F00}
+\tikzset{
+  >={Stealth[length=4pt, width=3.2pt]},
+  every picture/.style={line width=0.5pt},
+  force/.style={->, line width=1.3pt},
+  flow/.style={->, line width=0.6pt},
+  dimension/.style={<->, guide, line width=0.4pt},
+  leader/.style={guide, line width=0.4pt},
+  label/.style={font=\fontsize{8}{9.6}\selectfont, inner sep=1pt, preaction={fill=white, draw=white, line width=1.6pt}},
+  note/.style={label, font=\fontsize{7}{8.4}\selectfont},
+  box/.style={draw, rounded corners=2pt, line width=0.5pt},
+}

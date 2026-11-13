@@ -27,47 +27,47 @@
     \node[font=\scriptsize\bfseries, anchor=west, inner sep=1pt, text=black!80] at (-5+#4,1.7) {#5};
   \end{scope}}
 \begin{scope}[shift={(0,0)}]
-  \node[title, rigkite] at (-29,44) {Towing kite};
+  \node[title, kite] at (-29,44) {Towing kite};
   \pic at (0,0) {ship};
-  \draw[rigkite!45, densely dashed, thin] plot[smooth cycle, tension=1] coordinates {(14.5,32.7) (18,35.2) (21.5,32.7) (25,29.7) (28.5,32.2) (25,35) (21.5,31.7) (18,29.2)};
-  \begin{scope}[rigkite, shift={(21.5,35.8)}]
+  \draw[kite!45, densely dashed, thin] plot[smooth cycle, tension=1] coordinates {(14.5,32.7) (18,35.2) (21.5,32.7) (25,29.7) (28.5,32.2) (25,35) (21.5,31.7) (18,29.2)};
+  \begin{scope}[kite, shift={(21.5,35.8)}]
     \draw[line width=1.8pt] (-3,1.2) arc[start angle=140, end angle=40, radius=3.9];
     \draw[thin] (-3,1.2) -- (0,-3.2) (3,1.2) -- (0,-3.2) (-1.2,2.3) -- (0,-3.2) (1.2,2.3) -- (0,-3.2);
   \end{scope}
   \fill[black!70] (20.9,32.0) rectangle (22.1,33.0);
-  \draw[rigkite, thin] (9,2.6) -- (21.5,32.0);
-  \draw[pull, rigkite] (9,2.6) -- (14.3,15.1);
+  \draw[kite, thin] (9,2.6) -- (21.5,32.0);
+  \draw[pull, kite] (9,2.6) -- (14.3,15.1);
   \begin{scope}[shift={(17.6,22.9)}, rotate=67]
     \fill[white] (-0.45,-1.2) rectangle (0.45,1.2);
-    \draw[rigkite, thin] (-0.45,-1.2) -- (-0.45,1.2) (0.45,-1.2) -- (0.45,1.2);
+    \draw[kite, thin] (-0.45,-1.2) -- (-0.45,1.2) (0.45,-1.2) -- (0.45,1.2);
   \end{scope}
-  \node[font=\scriptsize, rigkite, anchor=west, inner sep=1pt, align=left] at (-27,24) {pulls from the bow,\\ low on the ship};
+  \node[font=\scriptsize, kite, anchor=west, inner sep=1pt, align=left] at (-27,24) {pulls from the bow,\\ low on the ship};
   \draw[dim] (0,0) -- (0,32.2) node[midway, dimlabel] {flies about\\ \SI{270}{m} up};
-  \node[note] at (-29,-15) {\textcolor{rigkite}{\textbf{Gives}} a strong pull: the wind high up, multiplied by flying figure eights. \textbf{Takes} almost no deck space, but a launch and landing every flight, and its canopy wears out.};
-  \rigstrip{0}{rigkite}{1}{1.8}{\SI{0.05}{t}}
+  \node[note] at (-29,-15) {\textcolor{kite}{\textbf{Gives}} a strong pull: the wind high up, multiplied by flying figure eights. \textbf{Takes} almost no deck space, but a launch and landing every flight, and its canopy wears out.};
+  \rigstrip{0}{kite}{1}{1.8}{\SI{0.05}{t}}
 \end{scope}
 \begin{scope}[shift={(57,0)}]
-  \node[title, rigwing!75!black] at (-29,44) {Wing sails};
+  \node[title, wings!75!black] at (-29,44) {Wing sails};
   \pic at (0,0) {ship};
   \foreach \x in {-13,-1,11}
-    \fill[rigwing] (\x-3.6,2.6) -- (\x+2.2,2.6) -- (\x+1.6,26) .. controls (\x-0.4,29.5) and (\x-2.2,27.5) .. (\x-2.9,26) -- cycle;
-  \draw[pull, rigwing!55!black] (-1,14.5) -- (17,14.5);
+    \fill[wings] (\x-3.6,2.6) -- (\x+2.2,2.6) -- (\x+1.6,26) .. controls (\x-0.4,29.5) and (\x-2.2,27.5) .. (\x-2.9,26) -- cycle;
+  \draw[pull, wings!55!black] (-1,14.5) -- (17,14.5);
   \draw[dim] (23,0) -- (23,29.5) node[midway, dimlabel, anchor=south, rotate=90] {up to \SI{45}{m} air draft};
-  \node[font=\scriptsize, rigwing!75!black, anchor=west, inner sep=1pt, align=left] at (-27,35) {pulls at mid height, tens of metres up};
-  \node[note] at (-29,-15) {\textcolor{rigwing!75!black}{\textbf{Gives}} a steady pull, trimmed like a sail. \textbf{Takes} deck space and access for cargo handling.};
-  \rigstrip{0}{rigwing}{2}{9.0}{\SI{0.25}{t}}
+  \node[font=\scriptsize, wings!75!black, anchor=west, inner sep=1pt, align=left] at (-27,35) {pulls at mid height, tens of metres up};
+  \node[note] at (-29,-15) {\textcolor{wings!75!black}{\textbf{Gives}} a steady pull, trimmed like a sail. \textbf{Takes} deck space and access for cargo handling.};
+  \rigstrip{0}{wings}{2}{9.0}{\SI{0.25}{t}}
 \end{scope}
 \begin{scope}[shift={(114,0)}]
-  \node[title, rigrotor!80!black] at (-29,44) {Flettner rotors};
+  \node[title, rotors!80!black] at (-29,44) {Flettner rotors};
   \pic at (0,0) {ship};
   \foreach \x in {-14,-2,10} {
-    \fill[rigrotor] (\x-1.6,2.6) rectangle (\x+1.6,23);
-    \fill[rigrotor] (\x-3.2,22.5) rectangle (\x+3.2,23.6);
-    \draw[rigrotor!55!black, semithick, ->] (\x-2.4,18.6) arc[start angle=180, end angle=355, x radius=2.4, y radius=0.8];}
-  \draw[pull, rigrotor!55!black] (-2,13) -- (17,13);
+    \fill[rotors] (\x-1.6,2.6) rectangle (\x+1.6,23);
+    \fill[rotors] (\x-3.2,22.5) rectangle (\x+3.2,23.6);
+    \draw[rotors!55!black, semithick, ->] (\x-2.4,18.6) arc[start angle=180, end angle=355, x radius=2.4, y radius=0.8];}
+  \draw[pull, rotors!55!black] (-2,13) -- (17,13);
   \draw[dim] (23,0) -- (23,23.6) node[midway, dimlabel, anchor=south, rotate=90] {up to \SI{45}{m} air draft};
-  \node[font=\scriptsize, rigrotor!80!black, anchor=west, inner sep=1pt, align=left] at (-27,35) {pulls at mid height, tens of metres up};
-  \node[note] at (-29,-15) {\textcolor{rigrotor!80!black}{\textbf{Gives}} about five times the lift of a wing sail of the same area. \textbf{Takes} deck space and access for cargo handling, the most mass, and power to spin.};
-  \rigstrip{0}{rigrotor}{3}{22.8}{\SI{0.63}{t}}
+  \node[font=\scriptsize, rotors!80!black, anchor=west, inner sep=1pt, align=left] at (-27,35) {pulls at mid height, tens of metres up};
+  \node[note] at (-29,-15) {\textcolor{rotors!80!black}{\textbf{Gives}} about five times the lift of a wing sail of the same area. \textbf{Takes} deck space and access for cargo handling, the most mass, and power to spin.};
+  \rigstrip{0}{rotors}{3}{22.8}{\SI{0.63}{t}}
 \end{scope}
 \end{tikzpicture}

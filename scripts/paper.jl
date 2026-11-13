@@ -110,7 +110,8 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :canopy_life_figure => canopy_life_figure, :large_rigs => large_rigs_figure,
     :canopy_life_table => canopy_life_table, :rigid_mass => rigid_mass_figure,
     :tow_point_figure => tow_point_figure, :fidelity_table => fidelity_table,
-    :fleet_share => fleet_share_figure, :numbers => numbers_file]
+    :fleet_share => fleet_share_figure, :numbers => numbers_file,
+    :figure_style => figure_style_file]
 
 """
     paper(names...; fidelity, resume=nothing)

@@ -14,15 +14,15 @@
     \fill[black!25] (-3,0.4) rectangle (2.4,2.8);},
   hatch/.pic={\fill[black!80] (-3.3,2.8) rectangle (2.7,3.4);},
   openhatch/.pic={\fill[black!80, rotate around={-70:(-3.3,2.8)}] (-3.3,2.8) rectangle ++(-6,0.6);},
-  packed/.pic={\fill[rigkite, rounded corners=0.4mm] (-1.9,0) rectangle (1.9,1.8);
+  packed/.pic={\fill[kite, rounded corners=0.4mm] (-1.9,0) rectangle (1.9,1.8);
     \draw[white, thin] (-0.95,0.3) -- (-0.95,1.5) (0,0.3) -- (0,1.5) (0.95,0.3) -- (0.95,1.5);},
   mast/.pic={\fill[black!60] (-0.35,0.6) rectangle (0.35,#1);},
   mast/.default=10,
   winch/.pic={\draw[black!70, thin] (1.4,1.2) circle (0.7);},
-  canopy/.pic={\draw[rigkite, line width=1.3pt] (-3,0.8) arc[start angle=145, end angle=35, radius=3.7];
-    \draw[rigkite, thin] (-3,0.8) -- (0,-3) (3,0.8) -- (0,-3) (-1.05,2.2) -- (0,-3) (1.05,2.2) -- (0,-3);
+  canopy/.pic={\draw[kite, line width=1.3pt] (-3,0.8) arc[start angle=145, end angle=35, radius=3.7];
+    \draw[kite, thin] (-3,0.8) -- (0,-3) (3,0.8) -- (0,-3) (-1.05,2.2) -- (0,-3) (1.05,2.2) -- (0,-3);
     \fill[black!70] (-0.55,-3.6) rectangle (0.55,-2.6);},
-  eight/.pic={\draw[rigkite!45, densely dashed, thin] plot[smooth cycle, tension=1] coordinates
+  eight/.pic={\draw[kite!45, densely dashed, thin] plot[smooth cycle, tension=1] coordinates
     {(-8,0.5) (-4,3.4) (0,0.5) (4,-2.8) (8,0) (4,3.2) (0,-0.5) (-4,-3.4)};},
 ]
 \node[anchor=west, inner sep=0pt] at (0,50) {(a) The parts};
@@ -55,7 +55,7 @@
 \cyclestep{106}{33}{1}{black!70}{Kite packed in the hold, hatch shut}{\pic at (-0.3,0.6) {packed}; \pic at (0,0) {hatch}; \node[name, anchor=south] at (-0.3,4.4) {hatch};}
 \cyclestep{130}{33}{2}{black!70}{Hatch opens; the mast lifts the kite and the wind fills it}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=8.6}; \pic at (0,12.2) {canopy}; \node[name, anchor=west] at (0.6,5.5) {mast};}
 \cyclestep{154}{33}{3}{black!70}{The tether takes the pull; the kite leaves the mast and climbs}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=8.6}; \draw[black!65, thin] (4,2.8) -- (6,15.8); \begin{scope}[shift={(6,19.4)}] \pic {canopy}; \end{scope}}
-\cyclestep{154}{4}{4}{rigkite}{The kite flies figure eights and pulls; hatch shut}{\pic at (0,0) {hatch}; \draw[black!65, thin] (4,3.4) -- (8,12.8); \pic[scale=0.7] at (8,12.8) {eight}; \begin{scope}[shift={(8,16.4)}] \pic {canopy}; \end{scope} \node[name, anchor=east] at (4.6,8.5) {tether};}
+\cyclestep{154}{4}{4}{kite}{The kite flies figure eights and pulls; hatch shut}{\pic at (0,0) {hatch}; \draw[black!65, thin] (4,3.4) -- (8,12.8); \pic[scale=0.7] at (8,12.8) {eight}; \begin{scope}[shift={(8,16.4)}] \pic {canopy}; \end{scope} \node[name, anchor=east] at (4.6,8.5) {tether};}
 \cyclestep{130}{4}{5}{black!70}{A guide line pulls the kite down to the mast; the winch hauls in}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=8.6}; \draw[black!65, thin, densely dashed] (0,8.6) -- (0,13.4); \begin{scope}[shift={(0,17)}] \pic {canopy}; \end{scope} \node[name, anchor=west] at (0.6,10) {guide line};}
 \cyclestep{106}{4}{6}{black!70}{The mast lowers the packed kite into the hold}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=6}; \pic at (0,6) {packed};}
 \draw[flow] (115.5,38) -- (119.5,38);

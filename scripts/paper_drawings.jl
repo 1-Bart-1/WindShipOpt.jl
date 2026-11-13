@@ -30,7 +30,7 @@ magnitude at its tip, at its tail when `at_tail`, or at the point `label_at` [m]
 function force_arrow!(axis, origin, force, label; scale, color, align=(:center, :center),
         offset=(0, 0), at_tail=false, label_at=nothing)
     vector = Vec2f(force .* scale)
-    arrows2d!(axis, [Point2f(origin)], [vector]; color, shaftwidth=1.3)
+    arrows2d!(axis, [Point2f(origin)], [vector]; color, shaftwidth=force_width)
     anchor = at_tail ? Point2f(origin) : Point2f(origin) + vector
     text!(axis, Point2f(something(label_at, anchor));
         text=@sprintf("%s %.0f kN", label, hypot(force...)), align, offset,
@@ -98,7 +98,8 @@ function force_balance_figure()
             (0.0, thrust / 1e3), "propeller"; scale, color=category_colours[4],
             align=(:right, :top), offset=(0, -2), at_tail=true)
         wind_tail = Point2f(105, hull.length / 2 + 24)
-        arrows2d!(axis, [wind_tail], [Vec2f(-25, 0)]; color=:gray50, shaftwidth=1.3)
+        arrows2d!(axis, [wind_tail], [Vec2f(-25, 0)]; color=:gray50,
+            shaftwidth=force_width)
         text!(axis, wind_tail; text=@sprintf("true wind\n%.0f m/s", wind),
             align=(:right, :top), offset=(0, -3), fontsize=note_size, color=:gray50)
         limits!(axis, -122, 110, stern - 80, hull.length / 2 + 25)
@@ -331,7 +332,7 @@ polar_point(radius, angle) = Point2f(radius * cos(angle), radius * sin(angle))
 A thin arrow of `vector` from `origin` with `label` at its tip.
 """
 function small_arrow!(axis, origin, vector, label; color=:black, align=(:left, :center))
-    arrows2d!(axis, [Point2f(origin)], [Vec2f(vector)]; color, shaftwidth=0.8)
+    arrows2d!(axis, [Point2f(origin)], [Vec2f(vector)]; color, shaftwidth=flow_width)
     text!(axis, Point2f(origin) + Vec2f(vector); text=label, align,
         offset=clear_offset(align, pt(2)), color)
 end
@@ -440,7 +441,7 @@ and across the course.
 function draw_course_plan!(axis)
     poly!(axis, [Point2f(sin(angle), cos(angle)) for angle in range(-π / 2, π / 2;
         length=60)]; color=(palette[1], 0.12), strokecolor=:black, strokewidth=0.6)
-    arrows2d!(axis, [Point2f(0, 0)], [Vec2f(0, 1.2)]; color=:black, shaftwidth=0.8)
+    arrows2d!(axis, [Point2f(0, 0)], [Vec2f(0, 1.2)]; color=:black, shaftwidth=flow_width)
     text!(axis, 0, 1.2; text="apparent downwind", align=(:left, :top),
         offset=clear_offset((:left, :center), pt(4)), fontsize=note_size)
     course = deg2rad(110)
@@ -457,13 +458,13 @@ function draw_course_plan!(axis)
         align=(:left, :bottom), color=category_colours[2])
     force = Vec2f(0.68, 0.3)
     along = sum(force .* heading) * heading
-    arrows2d!(axis, [Point2f(0, 0)], [force]; color=palette[1], shaftwidth=1.3)
+    arrows2d!(axis, [Point2f(0, 0)], [force]; color=palette[1], shaftwidth=force_width)
     text!(axis, Point2f(force); text=L"\overline{\mathbf{F}}", align=(:left, :bottom),
         offset=clear_offset((:left, :bottom), pt(2)), color=palette[1])
     for (vector, label, origin, inside, at) in (
         (along, L"F_\parallel", Point2f(0, 0), force, 0.75),
         (force - along, L"F_\perp", Point2f(along), Point2f(0, 0), 0.75))
-        arrows2d!(axis, [origin], [vector]; color=palette[6], shaftwidth=0.8)
+        arrows2d!(axis, [origin], [vector]; color=palette[6], shaftwidth=force_width)
         normal = Vec2f(vector[2], -vector[1]) / hypot(vector...)
         middle = origin + at * vector
         outward = sum(normal .* (inside - middle)) > 0 ? -normal : normal
