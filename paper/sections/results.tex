@@ -124,7 +124,7 @@ Cargo explains why the class decides on some ships; the wind explains why the ro
 \begin{figure}[tbp]
 \centering
 \plot{rig_polar}
-\caption{Thrust (top) and side force (bottom) over the true wind angle of an \SI{800}{m^2} kite, \SI{800}{m^2} of wing sails and \SI{400}{m^2} of rotors on a \SI{140}{m} ship at \SI{10.5}{kn} in a \SI{10}{m/s} wind at \SI{10}{m}, each at the setting that needs the least engine power.}
+\caption{Thrust (a) and side force (b) over the true wind angle of an \SI{800}{m^2} kite, \SI{800}{m^2} of wing sails and \SI{400}{m^2} of rotors on a \SI{140}{m} ship at \SI{10.5}{kn} in a \SI{10}{m/s} wind at \SI{10}{m}, each at the setting that needs the least engine power.}
 \label{fig:rig_polar}
 \end{figure}
 
@@ -133,7 +133,7 @@ On a voyage the router turns this thrust into fuel or speed. \Cref{fig:passage} 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{passage}
-\caption{One outbound passage to Guadeloupe, departing on 1 January 2017, of a \SI{140}{m} e-ammonia ship without a rig and with a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails or \SI{800}{m^2} of rotors. (a) The routed track of each ship in its colour, a track that ships share drawn one inside the other, through the corridor's nodes (dots), the great circle dotted, over the \SI{10}{m} wind six days after departure. (b) Speed through the water, (c) rig thrust on a logarithmic scale, left out below \SI{5}{kN}, and (d) fuel power, every three hours of the passage.}
+\caption{One outbound passage to Guadeloupe, departing on 1 January 2017, of a \SI{140}{m} e-ammonia ship without a rig and with a \SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails or \SI{800}{m^2} of rotors. (a) The routed track of each ship in its colour, a track that ships share drawn one inside the other, through the corridor's nodes (dots), the great circle dotted, over the \SI{10}{m} wind six days after departure (arrow length as keyed in the box). (b) Speed through the water, (c) rig thrust on a logarithmic scale, left out below \SI{5}{kN}, and (d) fuel power, every three hours of the passage.}
 \label{fig:passage}
 \end{figure*}
 
@@ -162,12 +162,12 @@ These averages over the year hide the seasons. We call departures from October t
 
 A deck rig's thrust grows with the square of the apparent wind, so the stronger winter wind raises the cost saving of the rotors and the wing sails alike. Two things hold the kite back. In light wind it cannot fly: \tbd{to Bilbao it is up 37\,\% of the time in winter and 7\,\% in summer.} In heavy weather its wind limits, and on small ships the launch wind a rough sea raises (\cref{sec:kite}), keep it down while a deck rig pulls on. \tbd{On the departure of 4 November 2018, the costliest for the ship without a rig on five of the six routes, the kite flies 32 to 46\,\% of the time on the three ocean routes and saves 6.1 to 7.9\,\% of the cost, while the rotors save 13.4 to 20.8\,\%.}
 
-\begin{figure*}[tbp]
+\begin{figure}[tbp]
 \centering
-\plot[\textwidth]{season}
-\caption{\tbd{Draft numbers.} Cost saving of each departure against the same ship without a rig, over its departure date in the year, for the \SI{140}{m} e-ammonia ship on the six routes, each rig at its best size over the year. Each point is one departure from the years 2017 to 2019, costed on the ship of the whole year.}
+\plot{season}
+\caption{\tbd{Draft numbers.} Cost saving against the same ship without a rig, by month of departure, for the \SI{140}{m} e-ammonia ship, each rig at its best size over the year, over the routes named above the plot, those on which every rig was run. The marker is the mean over these routes of each route's mean saving over its departures in that month, and the bar spans the lowest to the highest of these route means; a line joins consecutive months. Each departure is costed on the ship of the whole year.}
 \label{fig:season}
-\end{figure*}
+\end{figure}
 
 \subsection{Rig size}
 \label{sec:res_size}

@@ -319,8 +319,10 @@ Thrust and side force of the best trim over true wind angle on a 140 m ship at 1
 """
 function rig_polar_figure()
     figure = Figure(size=(column_width, 398))
-    thrust = Axis(figure[1, 1]; ylabel="thrust [kN]")
-    side = Axis(figure[2, 1]; xlabel="true wind angle [°]", ylabel="side force [kN]")
+    thrust = Axis(figure[1, 1]; title="(a) thrust", ylabel="thrust [kN]",
+        yautolimitmargin=(0, 0.08))
+    side = Axis(figure[2, 1]; title="(b) side force", xlabel="true wind angle [°]",
+        ylabel="side force [kN]", xticks=30:30:180, yautolimitmargin=(0, 0.05))
     angles = 30:5:180
     rigs = (("kite 800 m²", (kite_area=800.0,)), ("wings 800 m²", (wing_area=800.0,)),
         ("rotors 400 m²", (rotor_area=400.0,)))
@@ -336,7 +338,9 @@ function rig_polar_figure()
     entries = [LineElement(color=palette[i]) for i in eachindex(rigs)]
     axislegend(side, entries, collect(first.(rigs)); position=:rt)
     linkxaxes!(thrust, side)
-    hidexdecorations!(thrust; grid=false)
+    hidexdecorations!(thrust; grid=false, ticks=false)
+    ylims!(thrust; low=0)
+    ylims!(side; low=0)
     save(joinpath(figures, "rig_polar.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -493,10 +497,12 @@ function passage_figure()
     design_colours = [:black; palette[eachindex(rig_names)]]
     departure = departures[1]
     figure = Figure(size=(page_width, 360))
-    map_axis = Axis(figure[1, 1:2]; aspect=DataAspect(), limits=(-64, 6, 13, 54),
+    map_axis = Axis(figure[1, 1:2]; aspect=DataAspect(), limits=(-64, 10, 13, 56),
         xlabel="longitude [°]", ylabel="latitude [°]", title="(a) routed tracks")
     draw_land!(map_axis, mask)
-    draw_wind!(map_axis, weather, departure + 24 * 6; scale=0.3)
+    wind_scale = 0.3
+    draw_wind!(map_axis, weather, departure + 24 * 6; scale=wind_scale)
+    wind_key!(map_axis, Point2f(-63, 51.5), 10, wind_scale)
     first_path = first(first(legs)).path
     lines!(map_axis, great_circle(first_path[1], first_path[end])...; color=:black,
         linestyle=:dot, linewidth=0.8)
@@ -509,10 +515,11 @@ function passage_figure()
     labels = ("speed [kn]", "rig thrust [kN]", "fuel power [MW]")
     titles = ("(b) speed through the water", "(c) rig thrust", "(d) fuel power")
     panels = [Axis(figure[2, column]; ylabel=labels[column], title=titles[column],
-                  xlabel="days since departure", yticks=WilkinsonTicks(3),
+                  xlabel="days since departure",
+                  yticks=WilkinsonTicks(4; Q=[(1.0, 1.0), (5.0, 0.9), (2.0, 0.7)]),
                   yscale=column == 2 ? log10 : identity)
               for column in 1:3]
-    ylims!(panels[2], 5, 3000)
+    ylims!(panels[2], 3, 3000)
     panels[2].yticks = [10, 100, 1000]
     for (i, (label, _)) in enumerate(designs)
         trace = legs[i][2]
@@ -524,9 +531,26 @@ function passage_figure()
         end
     end
     linkxaxes!(panels...)
-    Legend(figure[1, 3], panels[1]; tellheight=false, tellwidth=false)
+    Legend(figure[1, 3], panels[1]; tellheight=false, tellwidth=false, halign=:left,
+        valign=:top)
     rowsize!(figure.layout, 1, Relative(0.6))
     save(joinpath(figures, "passage.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"""
+    wind_key!(axis, corner, speed, scale)
+
+A white box with its lower left at `corner` [deg] in `axis` holding a wind arrow of
+`speed` [m/s] at the `scale` of [`draw_wind!`](@ref), labelled with that speed.
+"""
+function wind_key!(axis, corner, speed, scale)
+    poly!(axis, Rect2f(corner, Vec2f(speed * scale + 8.5, 3)); color=:white,
+        strokecolor=:gray55, strokewidth=rule_width)
+    start = corner .+ Point2f(1, 1.5)
+    arrows2d!(axis, [start], [Vec2f(speed * scale, 0)]; color=(:black, 0.35),
+        shaftwidth=0.6, tiplength=2.8, tipwidth=2.6)
+    text!(axis, start .+ Point2f(speed * scale + 0.8, 0); text="$speed m/s",
+        align=(:left, :center), fontsize=note_size)
 end
 
 """
@@ -925,7 +949,7 @@ rig and labelled with its saving [%]; grey where no rig pays.
 function winner_map_figure()
     table = read_table(data_file("classes.csv"))
     groups = limit_groups(table)
-    route_names_seen = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
+    route_names_seen = route_order
     kinds = ["kite", "wings", "rotors"]
     winners = Set{String}()
     figure = Figure(size=(page_width, 400))
@@ -1086,40 +1110,69 @@ end
 """
     season_figure()
 
-Cost saving of each departure with the best size over the year of each rig against the
-140 m e-ammonia ship without a rig, over the day of the year it sails, per route.
+Cost saving of each rig at its best size over the year against the 140 m e-ammonia ship
+without a rig, per month of departure, over the routes on which every rig was run: the
+mean of the routes' monthly means, joined over consecutive months, with a bar over their
+range.
 """
 function season_figure()
     routes_table = read_table(data_file("routes.csv"))
     departures = read_table(data_file("route_departures.csv"))
-    names = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
     ship = ("drive" => "ammonia", "length" => 140.0)
-    figure = Figure(size=(page_width, 290))
-    for (k, name) in enumerate(names)
-        row, column = fldmod1(k, 3)
-        axis = Axis(figure[row, column]; title="($('a' + k - 1)) $(route_label(name))",
-            limits=((-0.4, 12.4), nothing),
-            xticks=((0:11) .+ 0.5, ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N",
-                "D"]), ylabel=column == 1 ? "cost saving [%]" : "")
-        hlines!(axis, 0; color=:gray, linewidth=0.5)
-        bare = departure_costs(departures, "route" => name, ship..., "rig" => "none")
-        for (j, rig) in enumerate(rig_names)
-            sizes = rows(routes_table, "route" => name, ship..., "rig" => rig)
-            isempty(sizes) && continue
-            area = routes_table["area"][sizes[argmin(routes_table["cost"][sizes])]]
-            costs = departure_costs(departures, "route" => name, ship..., "rig" => rig,
-                "area" => area)
-            dates = collect(keys(costs))
-            scatter!(axis, year_months.(dates),
-                [percent_saving(costs[date], bare[date]) for date in dates];
-                color=palette[j])
-        end
+    savings = Dict(name => month_savings(routes_table, departures, name, ship)
+                   for name in unique(routes_table["route"]))
+    names = [name for name in route_order if haskey(savings, name) &&
+                 all(!isempty(savings[name][rig]) for rig in rig_names)]
+    isempty(names) && error("no route of the 140 m e-ammonia ship has departures of " *
+                            "every rig")
+    figure = Figure(size=(column_width, 190))
+    axis = Axis(figure[1, 1]; ylabel="cost saving [%]",
+        title=join(route_label.(names), ", "), limits=((0.4, 12.6), nothing),
+        xticks=(1:12, ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"]))
+    hlines!(axis, 0; color=:gray, linewidth=0.5)
+    for (j, rig) in enumerate(rig_names)
+        route_means = [[mean(get(savings[name][rig], month, [NaN])) for name in names]
+                       for month in 1:12]
+        shown = findall(means -> all(isfinite, means), route_means)
+        x = shown .+ 0.22(j - 2)
+        rangebars!(axis, x, minimum.(route_means[shown]), maximum.(route_means[shown]);
+            color=(palette[j], 0.6), whiskerwidth=pt(3))
+        lines!(axis, (1:12) .+ 0.22(j - 2), mean.(route_means); color=(palette[j], 0.6),
+            linewidth=pt(0.8))
+        scatter!(axis, x, mean.(route_means[shown]); color=palette[j])
     end
-    Legend(figure[3, 1:3],
-        [MarkerElement(marker=:circle, color=palette[j])
-         for j in eachindex(rig_names)], collect(rig_names); orientation=:horizontal)
-    rowgap!(figure.layout, 2, 0)
+    Legend(figure[1, 1, Top()], [MarkerElement(color=palette[j], marker=:circle)
+                                 for j in eachindex(rig_names)], collect(rig_names);
+        orientation=:horizontal, halign=:right, valign=:bottom, tellwidth=false,
+        margin=(0, 0, pt(2), 0))
     save(joinpath(figures, "season.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"routes in the order the paper names them"
+route_order = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
+
+"""
+    month_savings(routes_table, departures, name, ship)
+
+Cost saving [%] of each departure of each rig of `rig_names` at its cheapest size over the
+year on route `name` against `ship` without a rig, as a Dict of rig to a Dict of month of
+departure to the savings of that month; empty for a rig not run there.
+"""
+function month_savings(routes_table, departures, name, ship)
+    bare = departure_costs(departures, "route" => name, ship..., "rig" => "none")
+    return Dict(map(rig_names) do rig
+        sizes = rows(routes_table, "route" => name, ship..., "rig" => rig)
+        months = Dict{Int, Vector{Float64}}()
+        (isempty(sizes) || isempty(bare)) && return rig => months
+        area = routes_table["area"][sizes[argmin(routes_table["cost"][sizes])]]
+        costs = departure_costs(departures, "route" => name, ship..., "rig" => rig,
+            "area" => area)
+        for (date, cost) in costs
+            haskey(bare, date) || continue
+            push!(get!(months, month(date), Float64[]), percent_saving(cost, bare[date]))
+        end
+        return rig => months
+    end)
 end
 
 """
@@ -1130,13 +1183,6 @@ as a Dict of departure date to cost.
 """
 departure_costs(table, conditions...) =
     Dict(Date(table["date"][k]) => table["cost"][k] for k in rows(table, conditions...))
-
-"""
-    year_months(date)
-
-Months [-] from 1 January of the year of `date` to `date`.
-"""
-year_months(date) = 12 * (dayofyear(date) - 1) / daysinyear(date)
 
 """
     best_cost(designs, drive, length, column_name)
