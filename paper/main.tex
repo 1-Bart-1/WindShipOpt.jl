@@ -22,11 +22,11 @@
 \Crefformat{appendix}{#2#1#3}
 \crefformat{subappendix}{#2#1#3}
 \Crefformat{subappendix}{#2#1#3}
-\usepackage{tikz}
-\usetikzlibrary{positioning,arrows.meta,fit}
 \input{figure_style}
 
 \input{commands}
+\AddToHook{env/table/begin}{\setlength{\belowcaptionskip}{4pt}}
+\AddToHook{env/table*/begin}{\setlength{\belowcaptionskip}{4pt}}
 \setlength{\emergencystretch}{1.5em}
 \renewcommand{\topfraction}{0.9}
 \renewcommand{\bottomfraction}{0.6}
@@ -41,7 +41,7 @@
 
 \begin{frontmatter}
 
-\title{Towing kites, wing sails and Flettner rotors on cargo ships: a routed cost comparison across ship classes, routes and fuels}
+\title{Towing kites, wing sails and Flettner rotors on cargo ships: a routed cost comparison across ship classes, routes and fuels\\[1ex]{\normalsize\normalfont\itshape\confidential}}
 
 \author[1]{Bart van de Lint\corref{cor1}}
 \ead{bart@vandelint.net}
@@ -62,7 +62,7 @@
 \end{highlights}
 
 \begin{keyword}
-wind-assisted ship propulsion \sep towing kite \sep rigid wing sail \sep Flettner rotor \sep weather routing \sep techno-economics \sep e-ammonia
+\keywordlist{\sep}
 \end{keyword}
 
 \end{frontmatter}

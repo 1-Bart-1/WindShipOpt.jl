@@ -29,7 +29,7 @@ The classes fall into two groups that pay for a rig in different ways: deadweigh
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{The thirteen standard ship classes, ordered by deadweight as in all class figures: waterline length $L$, beam $B$, design draught $T$, block coefficient $C_B$ at that draught (the underwater volume over that of a box of the same length, beam and draught), deadweight at the scantling draught, slot or deck capacity of the space-limited ships in TEU or standard cars (CEU), the limit the cargo of the class fills first, service speed and main-engine power of the source design, the factor $f_R$ that calibrates the calm-water resistance to it, newbuild price, cargo value, container tiers on deck, the lowest air draft (height above the waterline) on common calls, the share of calls a fixed rig above it loses and the time a fixed rig costs cargo handling per call ($\infty$ where it prevents it), and the frontal and lateral areas above the waterline with the deck cargo; \cref{sec:deck_rigs} explains the air draft, the lost calls and the delay. Where a source gives only the scantling draught, as for the container ships and the Aframax tanker, the design draught is the scantling draught times the ratio of the two in a published design of the same type. Each value has its own source.}
+\caption{The thirteen standard ship classes, ordered by deadweight as in all class figures: waterline length $L$, beam $B$, design draught $T$, block coefficient $C_B$ at that draught (the underwater volume over that of a box of the same length, beam and draught), deadweight at the scantling draught, slot or deck capacity of the space-limited ships in TEU or standard cars (CEU), the limit the cargo of the class fills first, service speed and main-engine power of the source design, the factor $f_R$ that calibrates the calm-water resistance to it, newbuild price, cargo value, container tiers on deck, the lowest air draft (height above the waterline) on common calls, the share of calls a fixed rig above it loses and the time a fixed rig costs cargo handling per call ($\infty$ where it prevents it), and the frontal and lateral areas above the waterline with the deck cargo; \cref{sec:deck_rigs} explains the air draft, the lost calls and the delay. Where a source gives only the scantling draught, as for the container ships and the Aframax tanker, the design draught is the scantling draught times the ratio of the two in a published design of the same type. Each value has its source in \cref{tab:class_sources}; those marked $\dagger$ are our estimates, for which no range is given.}
 \label{tab:classes}
 \input{sections/class_table}
 \end{table*}
@@ -48,7 +48,7 @@ The classes fall into two groups that pay for a rig in different ways: deadweigh
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{wind_load}
-\caption{Coefficients of the wind load on the ship itself over the apparent wind angle, on its lateral area, for one class of four types with their deck cargo, from the loading functions of \citet{blendermann1993}: (left) along the ship, positive forward, and (right) to the side. The other container ships and bulk carriers follow the Megamax and the Aframax tanker.}
+\caption{Coefficients of the wind load on the ship itself over the apparent wind angle, on its lateral area, for one class of four types with their deck cargo, from the loading functions of \citet{blendermann1993}: (a) along the ship, positive forward, and (b) to the side. The other container ships and bulk carriers follow the Megamax and the Aframax tanker.}
 \label{fig:wind_load}
 \end{figure*}
 
@@ -77,7 +77,7 @@ A single wing or rotor stands at the hull's lateral centre, where the hull's own
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{force_balance}
-\caption{Horizontal forces on the \SI{140}{m} ship at \SI{10.5}{kn} in a \SI{10}{m/s} true wind on the beam, seen from above with the bow up, to scale, for each rig at its best trim; \cref{fig:ship_model} names the forces. The drag is the calm-water and wave resistance with the drag of leeway and rudder, and the propeller gives what the rig and the wind load leave of it (\cref{eq:thrust}). The dashed line is the kite's tether.}
+\caption{Horizontal forces on the \SI{140}{m} ship at \SI{10.5}{kn} in a \SI{10}{m/s} true wind on the beam, seen from above with the bow to the right as in \cref{fig:ship_model}, which names the forces in the same colours, for each rig at its best trim, all to one scale and in kN as the model computes them, with the leeway $\beta$ and heel $\phi$ each rig causes. Each arrow starts where its force acts: the rig's at the kite's tow point or at the centre of effort of the wing sails or rotors, the hull's at its lateral centre, the rudder's behind the stern and the propeller's at the stern; the wind load and the calm-water resistance are drawn onto the side and the bow they push. The hull's and the rudder's forces lean aft by their drag, and the propeller gives what the rig and the wind load leave of the resistance (\cref{eq:thrust}); a ring marks a force of zero.}
 \label{fig:force_balance}
 \end{figure*}
 
@@ -102,14 +102,14 @@ A wing sail is a rigid upright wing of aspect ratio, span squared over area, 2, 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{kite_geometry}
-\caption{Planforms of the kites of projected aspect ratio 3, 5 and 8 seen from above, to scale, at a projected area of \SI{100}{m^2}, with their projected span. The leading edge is at the top.}
+\caption{Planforms of the kites of projected aspect ratio (AR) 3, 5 and 8 seen from above, to scale, at a projected area of \SI{100}{m^2}, with their projected span. The leading edge is at the top.}
 \label{fig:kite}
 \end{figure*}
 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{polars}
-\caption{Lift, drag and glide ratio of the kites of projected aspect ratio 3, 5 and 8 in their design shape over angle of attack, from the Vortex Step Method, without bridle, tether and flight drag.}
+\caption{(a) Lift, (b) drag and (c) glide ratio of the kites of projected aspect ratio (AR) 3, 5 and 8 in their design shape over angle of attack, from the Vortex Step Method, without bridle, tether and flight drag.}
 \label{fig:polars}
 \end{figure*}
 
@@ -151,7 +151,7 @@ The force on the ship is the tether force averaged over one cycle of the kite's 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{patterns}
-\caption{Optimal flight paths of the base \SI{800}{m^2} kite over one cycle, as elevation over azimuth off the apparent downwind direction, coloured by the ship's course off the apparent downwind direction, in an apparent wind of \SI{6}{m/s} (a) and \SI{12}{m/s} (b), without side-force weight, and the time-averaged thrust and side force they put on the ship (c, d). Downwind the kite flies figure eights through the wind window. Towards the wind it sweeps along the edge of the window, and where its thrust (c, d) is negative the ship stows it.}
+\caption{Optimal flight paths of the base \SI{800}{m^2} kite over one cycle, as elevation over azimuth off the apparent downwind direction, coloured by the ship's course off the apparent downwind direction, in an apparent wind of \SI{6}{m/s} (a) and \SI{12}{m/s} (b), without side-force weight, and the time-averaged thrust and side force they put on the ship (c, d), on one force scale. Downwind the kite flies figure eights through the wind window. Towards the wind it sweeps along the edge of the window, and where its thrust (c, d) is negative the ship stows it. In \SI{6}{m/s} no pattern flies beyond a course of \ang{60}, so (a) and (c) end there.}
 \label{fig:patterns}
 \end{figure*}
 
@@ -163,7 +163,7 @@ The wind limits above have a lower end, since a kite needs enough wind to carry 
 \begin{figure}[tbp]
 \centering
 \plot{min_wind}
-\caption{Lowest apparent wind against projected area for the kite of aspect ratio 3 at the lowest elevation: the crosswind bound $V_\mathrm{cross}$ (\cref{eq:min_cross}), the climb $V_\mathrm{climb}$ (\cref{eq:min_climb}), lift-off with its margin $V_\mathrm{lift}$ (\cref{eq:lift_off}), and the launch wind the model uses, the largest of the last two and the reported launch wind.}
+\caption{Lowest apparent wind against projected area for the kite of aspect ratio 3 at the lowest elevation: the crosswind bound $V_\mathrm{cross}$ (\cref{eq:min_cross}), the climb $V_\mathrm{climb}$ (\cref{eq:min_climb}), lift-off with its margin $V_\mathrm{lift}$ (\cref{eq:lift_off}), and the launch wind the model uses, the largest of the last two and the launch wind of \SI{5}{m/s} reported for ships \citep{paulig2013}. Shaded is the range of the launch wind with each of its two inputs in turn at its bounds: the lift-off margin, our estimate, from 1.1 to 1.8, and the reported launch wind from 3 to \SI{7}{m/s}.}
 \label{fig:min_wind}
 \end{figure}
 
@@ -179,7 +179,7 @@ No source settles whether a canopy reaches the goal. We argue that it can becaus
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{canopy_life}
-\caption{What is stated of the life of polyester canopies and what we use: makers' statements in flight hours \citep{flynn2015,kubicek2026,supair2016,lynn2007}, a hollow square for a claim, a filled one for a measurement and an asterisk for our estimate of a value not stated; the hours a sail keeps its shape \citep{flynn2015}; the life small kites' developers expected \citep{vandervlugt2013,bormann2013}; and the life we derive, with its range shaded, against the goal.}
+\caption{What is stated of the life of polyester canopies and what we use: makers' statements in flight hours \citep{flynn2015,kubicek2026,supair2016,lynn2007}, a hollow square for a claim, a filled one for a measurement and an asterisk for hours we estimate where they are not stated; the hours a sail keeps its shape \citep{flynn2015}; the life small kites' developers expected \citep{vandervlugt2013,bormann2013}; and the life we derive (blue), with its range shaded, against the goal (black line).}
 \label{fig:canopy_life}
 \end{figure*}
 
@@ -191,7 +191,7 @@ The fourth rig is the VTOL kite, for vertical take-off and landing: one or sever
 \begin{figure}[tbp]
 \centering
 \plot{rigid_mass}
-\caption{Mass of a VTOL kite against its wing area: the mass law of \cref{eq:rigid_mass} through the MX2 design at the base exponent and its bounds, and the published wings with propellers, Makani's Wing 7 that flew \citep{vanderlind2013} and the M600 that was built \citep{echeverri2020part1}, and without, the designs of \citet{joshi2025} and \citet{eijkelhof2020reference}. The wings differ in aspect ratio, which the law holds fixed.}
+\caption{Mass of a VTOL kite against its wing area: the mass law of \cref{eq:rigid_mass} through the MX2 design at the base exponent and its bounds, with the MX2's mass up to the \SI{40}{\percent} overrun the M600 showed (whisker), and the published wings, filled where built and hollow where only designed, with propellers, Makani's Wing 7 that flew \citep{vanderlind2013} and the M600 that was built \citep{echeverri2020part1}, and without, the designs of \citet{joshi2025} and \citet{eijkelhof2020reference}. The wings differ in aspect ratio, which the law holds fixed.}
 \label{fig:rigid_mass}
 \end{figure}
 
@@ -209,7 +209,7 @@ Six routes from Rotterdam, Europe's largest port, stand for six trades and their
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{routes}
-\caption{Routed passages on the six routes of a \SI{140}{m} e-ammonia ship without a rig (thin grey) and with a \SI{3200}{m^2} kite (coloured by route), for a winter (a) and a summer (b) departure, over the \SI{10}{m} wind five days after departure. Dotted lines are great circles. Solid lines are outbound, dashed lines homeward, each through the corridor's nodes (dots).}
+\caption{Routed passages on the six routes of a \SI{140}{m} e-ammonia ship without a rig (thin grey) and with a \SI{3200}{m^2} kite (coloured by route), for a winter (a) and a summer (b) departure, over the \SI{10}{m} wind five days after departure. Dotted lines are great circles. Solid lines are outbound, dashed lines homeward, each through the corridor's nodes (dots). The arrow in the box is a \SI{10}{m/s} wind.}
 \label{fig:routes}
 \end{figure*}
 
@@ -240,19 +240,19 @@ Dynamic programming over stages, lateral points and time and a speed chosen per 
 \footnotesize
 \caption{This router and the routers it is compared with, each as its publication describes it. Speed is the ship's speed through the water or, where marked, the engine power that sets it.}
 \label{tab:routers}
-\begin{tabular}{@{}p{2.4cm}p{3.1cm}p{2.2cm}p{2.7cm}p{3.8cm}@{}}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.4cm}>{\raggedright\arraybackslash}p{3.1cm}>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}p{2.7cm}>{\raggedright\arraybackslash}p{3.8cm}@{}}
 \toprule
 Router & Search & Speed & Objective and arrival & Rig, and how the search treats it \\
 \midrule
-This paper & forward dynamic programming on a corridor with time bins & chosen per step & money: fuel, kite wear and launches, time at a price; arrival free & kite, wing sails, rotors; kite up or down in the search state, launch and landing charged \\
-\citet{wei2012} & forward dynamic programming on stages, lateral points and time & chosen per step & fuel at a given arrival time & none \\
-\citet{mason2023} & dynamic programming over position and speed, arrival time rounded & chosen per stage, 8 to \SI{14}{kn} & fuel, arrival limit & rotors, set by a rule in the performance model \\
-\citet{wendling2025} & dynamic programming over position and time & engine power chosen per arc & front of time against energy & wing sails, in speed tables made before the search \\
-\citet{dhainaut2025} & gradient-based optimal control, to a local optimum & continuous & fuel, maximum travel time & rotors, spin and position trimmed continuously, no on or off \\
-\citet{wang2021} & genetic algorithm seeded by shortest paths and dynamic programming & eight engine power levels per leg & fuel and closeness to an arrival time & none \\
-\citet{mannarini2024} (VISIR-2) & shortest path in time-varying weather, one cost per point & engine load set per run & distance, time or CO$_2$; arrival free & sailing boat, rig fixed before the search \\
-\citet{marzi2024} & isofuel, which extends each route by an equal amount of fuel & constant for the voyage & fuel & none \\
-\citet{bentin2016,bentin2018} & A$^*$, a shortest-path search guided by an estimate & \SI{13}{kn} held & energy, maximum travel time & rotors (2016); kite, rotors, DynaRig (2018), as force models; no launch or landing \\
+This paper & forward dynamic programming on a corridor with time bins & chosen per step & money: fuel, kite wear and launches, time at a price; arrival free & kite, wing sails, rotors; kite up or down in the search state, launch and landing charged \\ \addlinespace
+\citet{wei2012} & forward dynamic programming on stages, lateral points and time & chosen per step & fuel at a given arrival time & none \\ \addlinespace
+\citet{mason2023} & dynamic programming over position and speed, arrival time rounded & chosen per stage, 8 to \SI{14}{kn} & fuel, arrival limit & rotors, set by a rule in the performance model \\ \addlinespace
+\citet{wendling2025} & dynamic programming over position and time & engine power chosen per arc & front of time against energy & wing sails, in speed tables made before the search \\ \addlinespace
+\citet{dhainaut2025} & gradient-based optimal control, to a local optimum & continuous & fuel, maximum travel time & rotors, spin and position trimmed continuously, no on or off \\ \addlinespace
+\citet{wang2021} & genetic algorithm seeded by shortest paths and dynamic programming & eight engine power levels per leg & fuel and closeness to an arrival time & none \\ \addlinespace
+\citet{mannarini2024} (VISIR-2) & shortest path in time-varying weather, one cost per point & engine load set per run & distance, time or CO$_2$; arrival free & sailing boat, rig fixed before the search \\ \addlinespace
+\citet{marzi2024} & isofuel, which extends each route by an equal amount of fuel & constant for the voyage & fuel & none \\ \addlinespace
+\citet{bentin2016,bentin2018} & A$^*$, a shortest-path search guided by an estimate & \SI{13}{kn} held & energy, maximum travel time & rotors (2016); kite, rotors, DynaRig (2018), as force models; no launch or landing \\ \addlinespace
 \citet{leskinen2024} & shortest path on a variable grid & set by the wind, electric motor below that & least time & kite, in a table of ship speed; no launch or landing \\
 \bottomrule
 \end{tabular}
