@@ -474,15 +474,16 @@ tether_bending_cost(tether, assumptions) =
 """
     rigid_airframe_price(rig, assumptions)
 
-Market price of the kites of `rig` alone: structure by mass and area, avionics and
-on-board drive [USD].
+Market price of the kites of `rig` alone: structure by its mass and area, avionics, and
+rotors with their drives by the power they are rated for [USD].
 """
 function rigid_airframe_price(rig::KiteRig{RigidAirframe}, assumptions)
-    (; count, mass, hover_power) = rig.airframe
-    one = assumptions[:rigid_structure_cost_per_mass] * mass +
+    (; count, hover_power) = rig.airframe
+    one = assumptions[:rigid_structure_cost_per_mass] *
+          rigid_structure_mass(rig.area, assumptions) +
           assumptions[:rigid_structure_cost_per_area] * rig.area +
           assumptions[:rigid_avionics_cost] +
-          assumptions[:rigid_drive_cost] * assumptions[:rigid_drive_margin] * hover_power
+          assumptions[:rigid_drive_cost] * drive_power(hover_power, assumptions)
     return assumptions[:market_price_factor] * count * one
 end
 
