@@ -535,11 +535,12 @@ crash_cell(crashes) = isnan(crashes) ? "--" : @sprintf("%.2g", crashes)
 """
     class_table()
 
-Tabular of the ship classes with their main dimensions, deadweight and unit capacity,
-the limit their cargo fills first, speed, engine power, resistance calibration, price,
-cargo value, the inputs of deck cargo and port operations and the frontal and lateral
-wind areas, in class_table.tex, and the rows of their sources in class_sources.tex; an
-infinite fixed-rig delay, where a fixed rig prevents cargo handling, is printed as ∞.
+Tabulars of the ship classes in class_table.tex, one above the other: their main
+dimensions, deadweight and unit capacity, the limit their cargo fills first, speed, engine
+power, resistance calibration and price; then cargo value, the inputs of deck cargo and
+port operations and the frontal and lateral wind areas, with a dagger on what the sources
+estimate. The rows of their sources go to class_sources.tex. An infinite fixed-rig delay,
+where a fixed rig prevents cargo handling, is printed as ∞.
 """
 function class_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
@@ -552,46 +553,76 @@ function class_table()
     end
     open(joinpath(sections, "class_table.tex"), "w") do io
         println(io, "\\setlength{\\tabcolsep}{3pt}")
-        println(io, "\\begin{adjustbox}{max width=\\textwidth}")
-        println(io, "\\begin{tabular}{@{}l", "r"^6, "l", "r"^11, "@{}}")
+        println(io, "\\begin{tabular}{@{}l", "r"^6, "l", "r"^4, "@{}}")
         println(io, "\\toprule")
         println(io, "Class & \$L\$ & \$B\$ & \$T\$ & \$C_B\$ & Deadweight & Capacity & ",
-            "Limit & Speed & Power & \$f_R\$ & Price & Cargo & Deck & Air draft & Lost & ",
-            "Fixed-rig & \$A_\\mathrm{F}\$ & \$A_\\mathrm{L}\$ \\\\")
-        println(io, " & [m] & [m] & [m] & & [t] & & & [kn] & [MW] & & [MUSD] & [USD/t] & ",
-            "tiers & limit [m] & calls [\\%] & delay [h] & [m\$^2\$] & [m\$^2\$] \\\\")
+            "Limit & Speed & Power & \$f_R\$ & Price \\\\")
+        println(io, " & [m] & [m] & [m] & & [t] & & & [kn] & [MW] & & [MUSD] \\\\")
+        println(io, "\\midrule")
+        foreach(class -> write_class_design_row(io, class), classes)
+        println(io, "\\bottomrule\n\\end{tabular}\n\n\\medskip")
+        println(io, "\\begin{tabular}{@{}l", "r"^7, "@{}}")
+        println(io, "\\toprule")
+        estimate = "\$^\\dagger\$"
+        println(io, "Class & Cargo value & Deck & Air draft$estimate & Lost$estimate & ",
+            "Fixed-rig$estimate & \$A_\\mathrm{F}\$ & \$A_\\mathrm{L}\$ \\\\")
+        println(io, " & [USD/t] & tiers & limit [m] & calls [\\%] & delay [h] & ",
+            "[m\$^2\$] & [m\$^2\$] \\\\")
         println(io, "\\midrule")
         for class in classes
-            write_class_row(io, class)
+            write_class_cargo_row(io, class, estimated_fields(notes[class.name]))
         end
-        println(io, "\\bottomrule")
-        println(io, "\\end{tabular}")
-        println(io, "\\end{adjustbox}")
+        println(io, "\\bottomrule\n\\end{tabular}")
     end
 end
 
 """
-    write_class_row(io, class)
+    write_class_design_row(io, class)
 
-One row of the ship class table.
+One row of the design part of the ship class table.
 """
-function write_class_row(io, class)
+function write_class_design_row(io, class)
+    println(io, latex_escape(class.name), " & ", latex_number(class.length), " & ",
+        dash_cell(class.beam, "\\num{%.1f}"), " & ", dash_cell(class.draft, "\\num{%.1f}"),
+        " & ", dash_cell(class.block_coefficient, "\\num{%.2f}"), " & ",
+        latex_number(class.deadweight), " & ", unit_capacity(class), " & ",
+        limit_label(class), " & ", dash_cell(class.service_speed, "\\num{%.1f}"), " & ",
+        dash_cell(class.power / 1e3, "\\num{%.1f}"), " & ",
+        dash_cell(Hull(class, assumptions).resistance_factor, "\\num{%.2f}"), " & ",
+        dash_cell(class.newbuild_price / 1e6, "\\num{%.1f}"), " \\\\")
+end
+
+"""
+    write_class_cargo_row(io, class, estimated)
+
+One row of the cargo and operations part of the ship class table, with a dagger on the
+cargo value where it is among the `estimated` fields of the class's source note.
+"""
+function write_class_cargo_row(io, class, estimated)
     delay = isfinite(class.fixed_rig_port_hours) ?
             latex_number(class.fixed_rig_port_hours) : "\$\\infty\$"
+    mark = "cargo value" in estimated ? "\\rlap{\$^\\dagger\$}" : ""
     windage = WindShipOpt.Windage(class, assumptions)
-    println(io, latex_escape(class.name), " & ", latex_number(class.length), " & ",
-        latex_number(class.beam), " & ", latex_number(class.draft), " & ",
-        latex_number(class.block_coefficient), " & ", latex_number(class.deadweight), " & ",
-        unit_capacity(class), " & ", limit_label(class), " & ",
-        latex_number(class.service_speed), " & ",
-        latex_number(round(class.power / 1e3; digits=1)), " & ",
-        latex_number(round(Hull(class, assumptions).resistance_factor; digits=2)), " & ",
-        latex_number(round(class.newbuild_price / 1e6; digits=1)), " & ",
-        latex_number(class.cargo_value), " & ", latex_number(class.deck_tiers), " & ",
-        latex_number(class.air_draft_limit), " & ",
+    println(io, latex_escape(class.name), " & ", latex_number(class.cargo_value), mark,
+        " & ", latex_number(class.deck_tiers), " & ", latex_number(class.air_draft_limit),
+        " & ",
         latex_number(round(100class.restricted_call_share; digits=1)), " & ", delay, " & ",
         latex_number(round(Int, windage.frontal_area)), " & ",
         latex_number(round(Int, windage.lateral_area)), " \\\\")
+end
+
+"""
+    estimated_fields(note)
+
+Names of the fields that the source `note` of a ship class gives as an estimate.
+"""
+function estimated_fields(note)
+    fields = String[]
+    for part in split(note, "; ")
+        names, text = (split(part, ": "; limit=2)..., "")
+        occursin("estimate", text) && append!(fields, strip.(split(names, r"[,/]")))
+    end
+    return fields
 end
 
 """
