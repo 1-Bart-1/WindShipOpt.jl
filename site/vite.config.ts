@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { readdirSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
@@ -60,9 +60,4 @@ export default defineConfig({
     runFile("grids.json", gridsPath),
     passagesData(),
   ],
-  build: {
-    rollupOptions: {
-      input: { explorer: resolve(import.meta.dirname, "index.html"), grid: resolve(import.meta.dirname, "grid.html") },
-    },
-  },
 });

@@ -22,15 +22,13 @@ const degrees = (angle: number, positive: string, negative: string) =>
 
 const kindLabels = { w: "open water", c: "water near the coast", x: "unusable" };
 
-/** The router's corridor grids on a globe or a flat map, from grids.json. */
-export function GridPage() {
+/** The router's corridor grids on a globe or a flat map, from grids.json; nothing without one. */
+export function GridView() {
   const [data, setData] = useState<GridData>();
-  const [error, setError] = useState<string>();
   useEffect(() => {
-    loadJson<GridData>("grids.json").then(setData).catch((reason) => setError(String(reason)));
+    loadJson<GridData>("grids.json").then(setData).catch(() => undefined);
   }, []);
-  if (error) return <p className="p-8 text-rust">Could not load the grids: {error}. Run paper(:grids; fidelity=:draft).</p>;
-  if (!data) return <p className="p-8">Loading the grids…</p>;
+  if (!data) return null;
   return <Grids data={data} />;
 }
 
@@ -74,17 +72,16 @@ function Grids({ data }: { data: GridData }) {
 
   const fold = useMemo(() => grids.map((shown) => foldCentre(shown.grid, shown.edges)).find(Boolean), [grids]);
   return (
-    <main className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 md:px-8">
-      <header className="space-y-2">
-        <a className="label" href="./">Wind ships explorer</a>
-        <h1 className="text-4xl leading-[0.9] md:text-6xl">The router's grid</h1>
-        <p className="max-w-3xl">
-          The weather router searches each passage over a grid of stages along the route, each a row of nodes across
-          it. An edge joins a node to nearby rows of the next stage. Drag to turn or pan the map, scroll to zoom, and click a
-          node to see every route from Rotterdam to port through it.
-        </p>
+    <section className="space-y-6" aria-label="The router's grid">
+      <header className="flex items-center gap-4">
+        <span className="label">The router's grid</span>
+        <span className="rule flex-1" />
       </header>
-      <div className="rule" />
+      <p className="max-w-3xl">
+        The weather router searches each passage over a grid of stages along the route, each a row of nodes across
+        it. An edge joins a node to nearby rows of the next stage. Drag to turn or pan the map, scroll to zoom, and click a
+        node to see every route from Rotterdam to port through it.
+      </p>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="relative">
           <canvas ref={canvas} className={`${flat ? "aspect-[2/1]" : "aspect-square"} max-h-[calc(100vh-3rem)] w-full cursor-grab touch-none active:cursor-grabbing`}
@@ -142,7 +139,7 @@ function Grids({ data }: { data: GridData }) {
       <p className="font-mono text-xs text-ink-light">
         Exported at commit {data.git_commit.slice(0, 7)}; land mask of the weather: {data.weather}.
       </p>
-    </main>
+    </section>
   );
 }
 
