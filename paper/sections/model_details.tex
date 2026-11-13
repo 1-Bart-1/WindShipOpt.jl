@@ -22,7 +22,7 @@ where $A_\mathrm{L}$ and $A_\mathrm{F}$ are the lateral and frontal areas above 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{wind_load}
-\caption{Coefficients of the wind load on the ship itself over the apparent wind angle, on its lateral area, for one class of four types with their deck cargo, from the loading functions of \citet{blendermann1993}: (left) along the ship, positive forward, and (right) to the side. The other container ships and bulk carriers follow the Megamax and the Aframax tanker.}
+\caption{Coefficients of the wind load on the ship itself over the apparent wind angle, on its lateral area, for one class of four types with their deck cargo, from the loading functions that \citet{blendermann1993} fitted to wind-tunnel tests, with his Table~4 coefficients for each type; the curves are that published fit, not measurements: (a) along the ship, positive forward, and (b) to the side. The other container ships and bulk carriers follow the Megamax and the Aframax tanker.}
 \label{fig:wind_load}
 \end{figure*}
 
@@ -211,7 +211,7 @@ with $w_\mathrm{ref}=\SI{100}{g/m^2}$.
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{Life statements behind the wear rate: the implied $r=w\ln M/L-w\dot D/D_0(w)$ at $a=0.4$ and $D_\mathrm{ref}=\SI{70}{MJ/m^2}$. Grades: claim, a maker's statement with no test shown; meas, a maker's measurement. An asterisk marks our estimate; $T/w$ and $\sigma_w$ are in N/m per g/m². Under $a=1$ the median is 0.15, under $a=0.1$ it is 0.09.}
+\caption{Life statements behind the wear rate: the implied $r=w\ln M/L-w\dot D/D_0(w)$ at $a=0.4$ and $D_\mathrm{ref}=\SI{70}{MJ/m^2}$. Grades: claim, a maker's statement with no test shown; meas, a maker's measurement. An asterisk marks our estimate, a single value for which no source gives a range; $T/w$ and $\sigma_w$ are in N/m per g/m$^2$. Under $a=1$ the median is 0.15, under $a=0.1$ it is 0.09.}
 \label{tab:canopy_life}
 \adjustbox{max width=\textwidth}{%
 \setlength{\tabcolsep}{3pt}
@@ -225,12 +225,12 @@ with $w_\mathrm{ref}=\SI{100}{g/m^2}$.
 
 This check feeds no cost (\cref{fig:canopy_tension}). The tether force $F$ is carried by a pressure $p=F/A$ over the canopy, and a skin bulging to radius $R$ between ribs carries $T=pR$ per unit width. The force limit caps the peak at $p=\SI{500}{N/m^2}$. We state one radius, $R=\SI{0.5}{m}$; the cell equilibrium of \citet{wang2018} gives \SI{0.41}{m} on the SkySails kite (\cref{app:cloth_tension}), and cells of that width on the chord of the \SI{3200}{m^2} kite bulge to \SI{1.2}{m}.
 
-The cloth carries \SI{250}{N/m} at the peak. With the pressure $p(1+1/C_L)$ on the top skin near the leading edge \citep{wang2018}, the margin of new cloth of \SI{200}{g/m^2} falls from 136 to about 60 times, and at a radius of \SI{1.2}{m} to 55 times. The model leaves out gusts, ship motion, launch loads and flutter, and no test of canopy cloth covers the range of \SI{71}{N/m} at 44 cycles an hour.
+The cloth carries \SI{250}{N/m} at the peak. With the pressure $p(1+1/C_L)$ on the top skin near the leading edge \citep{wang2018}, the margin of new cloth of \SI{200}{g/m^2} falls from about 140 to about 60 times, and at a radius of \SI{1.2}{m} to 55 times. The model leaves out gusts, ship motion, launch loads and flutter, and no test of canopy cloth covers the range of \SI{71}{N/m} at 44 cycles an hour.
 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{canopy_tension}
-\caption{From tether force to cloth tension on the \SI{3200}{m^2} kite at $R=\SI{0.5}{m}$. (a) The force balance at the force limit. (b) Tether force and area-averaged cloth tension over one optimal cycle in \SI{12}{m/s} of apparent wind, \SI{90}{\degree} off downwind, with the strength of new cloth of \SI{200}{g/m^2}.}
+\caption{From tether force to cloth tension on the \SI{3200}{m^2} kite at $R=\SI{0.5}{m}$, an estimate between \SI{0.41}{m} and \SI{1.2}{m}. (a) The force balance at the force limit of \SI{0.5}{kN/m^2}, an estimate between 0.4 and \SI{1.0}{kN/m^2}. (b) Tether force and area-averaged cloth tension over one optimal cycle in \SI{12}{m/s} of apparent wind, \SI{90}{\degree} off downwind, with the estimated strength of new cloth of \SI{200}{g/m^2}; the margin over the peak falls as the radius and the force limit rise.}
 \label{fig:canopy_tension}
 \end{figure*}
 
@@ -284,21 +284,21 @@ The worth of searching with the rig (\cref{sec:routing}) is measured on the 12 d
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{This router and the routers it is compared with, each as its publication describes it. Speed is the ship's speed through the water or, where marked, the engine power that sets it.}
+\caption{This router and the routers it is compared with, each as its publication describes it. Speed is the ship's speed through the water, or the engine power that sets it where the entry says so.}
 \label{tab:routers}
-\begin{tabular}{@{}p{2.4cm}p{3.1cm}p{2.2cm}p{2.7cm}p{3.8cm}@{}}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{2.4cm}>{\raggedright\arraybackslash}p{3.1cm}>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}p{2.7cm}>{\raggedright\arraybackslash}p{3.8cm}@{}}
 \toprule
 Router & Search & Speed & Objective and arrival & Rig, and how the search treats it \\
 \midrule
-This paper & forward dynamic programming on a corridor with time bins & chosen per step & money: fuel, kite wear and launches, time at a price; arrival free & kite, wing sails, rotors; kite up or down in the search state, launch and landing charged \\
-\citet{wei2012} & forward dynamic programming on stages, lateral points and time & chosen per step & fuel at a given arrival time & none \\
-\citet{mason2023} & dynamic programming over position and speed, arrival time rounded & chosen per stage, 8 to \SI{14}{kn} & fuel, arrival limit & rotors, set by a rule in the performance model \\
-\citet{wendling2025} & dynamic programming over position and time & engine power chosen per arc & front of time against energy & wing sails, in speed tables made before the search \\
-\citet{dhainaut2025} & gradient-based optimal control, to a local optimum & continuous & fuel, maximum travel time & rotors, spin and position trimmed continuously, no on or off \\
-\citet{wang2021} & genetic algorithm seeded by shortest paths and dynamic programming & eight engine power levels per leg & fuel and closeness to an arrival time & none \\
-\citet{mannarini2024} (VISIR-2) & shortest path in time-varying weather, one cost per point & engine load set per run & distance, time or CO$_2$; arrival free & sailing boat, rig fixed before the search \\
-\citet{marzi2024} & isofuel, which extends each route by an equal amount of fuel & constant for the voyage & fuel & none \\
-\citet{bentin2016,bentin2018} & A$^*$, a shortest-path search guided by an estimate & \SI{13}{kn} held & energy, maximum travel time & rotors (2016); kite, rotors, DynaRig (2018), as force models; no launch or landing \\
+This paper & forward dynamic programming on a corridor with time bins & chosen per step & money: fuel, kite wear and launches, time at a price; arrival free & kite, wing sails, rotors; kite up or down in the search state, launch and landing charged \\ \addlinespace
+\citet{wei2012} & forward dynamic programming on stages, lateral points and time & chosen per step & fuel at a given arrival time & none \\ \addlinespace
+\citet{mason2023} & dynamic programming over position and speed, arrival time rounded & chosen per stage, 8~to~\SI{14}{kn} & fuel, arrival limit & rotors, set by a rule in the performance model \\ \addlinespace
+\citet{wendling2025} & dynamic programming over position and time & engine power chosen per arc & front of time against energy & wing sails, in speed tables made before the search \\ \addlinespace
+\citet{dhainaut2025} & gradient-based optimal control, to a local optimum & continuous & fuel, maximum travel time & rotors, spin and position trimmed continuously, no on or off \\ \addlinespace
+\citet{wang2021} & genetic algorithm seeded by shortest paths and dynamic programming & eight engine power levels per leg & fuel and closeness to an arrival time & none \\ \addlinespace
+\citet{mannarini2024} (VISIR-2) & shortest path in time-varying weather, one cost per point & engine load set per run & distance, time or CO$_2$; arrival free & sailing boat, rig fixed before the search \\ \addlinespace
+\citet{marzi2024} & isofuel, which extends each route by an equal amount of fuel & constant for the voyage & fuel & none \\ \addlinespace
+\citet{bentin2016,bentin2018} & A$^*$, a shortest-path search guided by an estimate & \SI{13}{kn} held & energy, maximum travel time & rotors (2016); kite, rotors, DynaRig (2018), as force models; no launch or landing \\ \addlinespace
 \citet{leskinen2024} & shortest path on a variable grid & set by the wind, electric motor below that & least time & kite, in a table of ship speed; no launch or landing \\
 \bottomrule
 \end{tabular}
@@ -324,6 +324,7 @@ A rig that gave the same thrust at every speed would not change the best speed: 
 
 \begin{table}[tbp]
 \centering
+\footnotesize
 \caption{Cost-optimal speed [kn] of the \SI{140}{m} ship in steady wind, median over winds of 6, 10 and \SI{14}{m/s} at 60, 90, 120 and \SI{150}{\degree}, with the reference rigs: with the rig's capital and wear left out of the cost, with its force held at its value at the speed of the ship without a rig, and the speed at which that held force alone moves the ship. \tbd{Draft run.}}
 \label{tab:speed_choice}
 \adjustbox{max width=\columnwidth}{\InputIfFileExists{sections/speed_choice_table}{}{\tbd{Speed table pending: run the speed\_choice\_table step.}}}

@@ -19,6 +19,7 @@ path = [
     "paper/sections/fidelity.tex",
     "paper/sections/input_tables.tex",
     "paper/sections/numbers.tex",
+    "paper/figure_style.tex",
     "paper/sections/study_runs.tex",
     "paper/study_runs.toml",
 ]

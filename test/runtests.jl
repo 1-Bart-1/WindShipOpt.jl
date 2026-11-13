@@ -578,9 +578,9 @@ end
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
 end
 
-@testset "a canopy costs its goal price, and USD 234 as built today" begin
+@testset "a canopy costs its goal price, and USD 237 as built today" begin
     @test WindShipOpt.canopy_price(assumptions) ≈ 149.8
-    @test WindShipOpt.canopy_price_today(assumptions) ≈ 234.4
+    @test WindShipOpt.canopy_price_today(assumptions) ≈ 237.2
     cloth = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
     today_cloth = WindShipOpt.with_today(assumptions, cloth)
     @test all(today_cloth[name] == assumptions[Symbol(name, :_today)] for name in cloth)
@@ -588,7 +588,7 @@ end
           assumptions[:canopy_making_cost_per_area]
     weight = WindShipOpt.cloth_weight(assumptions)
     @test WindShipOpt.sewn_cloth_price(assumptions, weight) ≈ 9.4
-    @test WindShipOpt.sewn_cloth_price(today_cloth, weight) ≈ 17.2
+    @test WindShipOpt.sewn_cloth_price(today_cloth, weight) ≈ 17.6
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈ 149.8rig.area
 end

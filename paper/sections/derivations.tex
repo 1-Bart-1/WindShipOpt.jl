@@ -57,18 +57,18 @@ The \SI{225}{m^2} flat SkySails kite of \SI{120}{kg} with its lines, \SI{0.68}{k
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Canopy price today and at the goal, USD per projected square metre unless stated. Sourced inputs are in \cref{tab:inputs}.}
+\caption{Canopy price today and at the goal, USD per projected square metre unless stated. Every value rests on estimates or goals, so each is given to two digits, with in brackets its range when each input in turn takes its low or high bound (\cref{tab:inputs}); today's cloth is the retail line through sourced prices (\cref{fig:canopy_price}b).}
 \label{tab:canopy_price}
 \begin{tabular}{@{}lrr@{}}
 \toprule
 & Today & Goal \\
 \midrule
-Cloth, USD per sewn m$^2$ of cloth & 17 & 9.4 \\
-Cloth per projected m$^2$ & 60 & 33 \\
-Sewing, hours per flat m$^2$ & 1.5 & 1.0 \\
-Making cost & 57 & 42 \\
-Cost to make & 117 & 75 \\
-Price at a market factor of 2 & 234 & 150 \\
+Cloth, USD per sewn m$^2$ of cloth & 18 & 9.4 (5.4--20) \\
+Cloth & 62 (53--76) & 33 (19--71) \\
+Sewing, hours per flat m$^2$ & 1.5 (1.5--2.3) & 1.0 (0.14--5.5) \\
+Sewing, lines and hardware & 57 (57--80) & 42 (16--180) \\
+Manufacturing cost & 120 (110--140) & 75 (49--210) \\
+Price at a market factor of 2 (1.6--2.5) & 240 (190--300) & 150 (98--420) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -81,7 +81,7 @@ Today's hours are the low end of what a maker's 50 hours per paraglider gives \c
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Cell layout of a paraglider and of ship kites. \tbd{Paraglider data: cite Ozone Rush 5.} The SkySails cell count is from \citet{paulig2013}, the widths by our reading.}
+\caption{Cell layout of a paraglider and of ship kites. \tbd{Paraglider data: cite Ozone Rush 5.} The SkySails cell count is from \citet{paulig2013}; its cell width and proportion ($\approx$) are our reading of it, and this kite takes that proportion.}
 \label{tab:seam_cloth}
 \begin{tabular}{@{}lrrr@{}}
 \toprule
@@ -89,9 +89,9 @@ Today's hours are the low end of what a maker's 50 hours per paraglider gives \c
 \midrule
 Flat aspect ratio & 5.55 & -- & 3.76 \\
 Cells & 57 & 22 & 31 \\
-Cell width (m) & 0.21 & 1.1 & 1.9 \\
-Cell length over width & 10.3 & 8.1 & 8.1 \\
-Seam per flat m$^2$ (m) & 14 & -- & 2.5 to 4.5 \\
+Cell width [m] & 0.21 & $\approx$1.1 & 1.9 \\
+Cell length over width & 10.3 & $\approx$8.1 & 8.1 \\
+Seam per flat m$^2$ [m] & 14 & -- & 2.5--4.5 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -103,13 +103,13 @@ For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre and rib
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Effect of a lower cloth ratio or fewer sewing hours on the goal price and the canopy mass.}
+\caption{Effect of a lower cloth ratio or fewer sewing hours on the goal price, as a change against the base goal price of about USD~150 (98 to 420) per projected square metre (\cref{tab:canopy_price}), and on the canopy mass, at the base with in brackets its range when each input in turn takes its low or high bound (\cref{tab:inputs}).}
 \label{tab:canopy_variants}
 \begin{tabular}{@{}lrr@{}}
 \toprule
-Variant & Price (USD/m$^2$) & Canopy mass (kg/m$^2$) \\
+Variant & Change of price [USD/m$^2$] & Canopy mass [kg/m$^2$] \\
 \midrule
-Base & 150 & 0.75 \\
+Base, at the goals & 0 & 0.75 (0.65--0.94) \\
 Cloth ratio 3.0 & $-9$ & 0.65 \\
 Cloth ratio 2.4, no ribs & $-21$ & 0.53 \\
 Sewing 0.8 h & $-12$ & 0.75 \\
@@ -142,12 +142,14 @@ For sewing the ratio per doubling is $p=0.93$ for the sewing section of a shirt 
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Canopy life at \SI{200}{g/m^2} with one input at each bound, in flight hours.}
+\caption{Canopy life at \SI{200}{g/m^2} from the strength decay with one input at each bound, in flight hours, the bound giving the shorter life first. The base retires the cloth at 4\,\% of its new strength, below both retirement strengths of the last row, so both give a shorter life. The goal is \num{3000} hours, with this table's range of \numrange{1200}{6900} hours.}
 \label{tab:canopy_life_range}
 \begin{tabular}{@{}lrr@{}}
 \toprule
-Input changed alone & Low & High \\
+Input changed alone & Shorter life & Longer life \\
 \midrule
+All inputs at base & \multicolumn{2}{c}{\num{3800}} \\
+\addlinespace
 Wear rate $r$ & \num{2200} & \num{6900} \\
 Reference dose $D_\mathrm{ref}$ & \num{3100} & \num{4400} \\
 UV exponent $a$ & \num{3600} & \num{4200} \\

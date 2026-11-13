@@ -3,12 +3,12 @@
 \section{What it means for shipping}
 \label{sec:industry}
 
-For a shipowner the comparison turns on the fuel. Payback is the discounted time until a rig's yearly saving in running cost, before its own capital charges, repays its price at the discount rate (\cref{sec:cost_model}). On VLSFO at today's price wind pays, but slowly: the best kite pays back in \tbd{2.0 to 6.0} years, the rotors in \tbd{4.3 to 14} and the wing sails in \tbd{7.6 to 23}, and on three classes the wing sails never pay back (\cref{tab:payback}). The kite reaches those years only at its goals, while the rotors already have a service record (\cref{sec:res_goals}). On e-ammonia every rig pays back within a few years on every class, the kite in \tbd{0.7 to 1.8} years, the rotors in \tbd{1.8 to 4.0} and the wing sails in \tbd{2.4 to 4.5}. Choose the rig with the fuel in mind, because the rig sized for VLSFO is smaller than the one sized for e-ammonia (\cref{fig:class_sizes}).
+For a shipowner the comparison turns on the fuel. Payback is the discounted time until a rig's yearly saving in running cost, before its own capital charges, repays its price at the discount rate (\cref{sec:cost_model}). On VLSFO at today's price wind pays, but slowly: the best kite pays back in \tbd{2 to 6} years, the rotors in \tbd{4 to 14} and the wing sails in \tbd{8 to 23}, and on three classes the wing sails never pay back (\cref{tab:payback}). The kite reaches those years only at its goals, while the rotors already have a service record (\cref{sec:res_goals}). On e-ammonia every rig pays back within a few years on every class, the kite in \tbd{half a year to two} years, the rotors in \tbd{2 to 4} and the wing sails in \tbd{2 to 4}. Choose the rig with the fuel in mind, because the rig sized for VLSFO is smaller than the one sized for e-ammonia (\cref{fig:class_sizes}).
 
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{Discounted payback time in years of the best size of each rig on each ship class, the median over the six routes, at the base discount rate. A dash marks where the median rig does not pay back within its life. The shorter the payback, the deeper the blue.}
+\caption{Discounted payback time in years of the best size of each rig on each ship class, the median over the six routes, at the base discount rate. A dash marks where the median rig does not pay back within its life. The shorter the payback, the deeper the blue. Payback scales with the rig's price, an estimate with a wide range (\cref{tab:inputs}), so it is given in whole years, below two years to the half year; the kite's holds at its goals.}
 \label{tab:payback}
 \InputIfFileExists{sections/payback_table}{}{\tbd{Payback table pending: run the payback\_table step.}}
 \end{table*}
@@ -18,7 +18,7 @@ A rig narrows the gap between the fuels but does not close it. The cost premium 
 \begin{figure}[tbp]
 \centering
 \plot{premium}
-\caption{Share of the cost premium of an e-ammonia ship over the same ship on VLSFO without a rig that the best size of each rig closes, over waterline length on the route to Guadeloupe. At 100\,\% a ship on that fuel with that rig costs as much per tonne-kilometre as a fossil-fuelled ship today.}
+\caption{Share of the cost premium of an e-ammonia ship over the same ship on VLSFO without a rig that the best size of each rig closes, over waterline length on the route to Guadeloupe, at the base fuel prices (marker) and over the ranges of the e-ammonia and VLSFO prices of \cref{tab:inputs} (bar); lengths without a marker were not run for that rig. At 100\,\% a ship on that fuel with that rig costs as much per tonne-kilometre as a fossil-fuelled ship.}
 \label{fig:premium}
 \end{figure}
 
@@ -27,7 +27,7 @@ How much of shipping does each rig suit? \Cref{fig:fleet_share} adds up the clas
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{fleet_share}
-\caption{Share of the yearly cost of carrying the cargo of the thirteen ship classes (a) and of the yearly cost the rigs save (b) that goes to each rig, if each ship class and route fits the rig that lowers its cost per tonne-kilometre most and each rig reaches its goals, on VLSFO and e-ammonia. Each segment gives its share and, where it fits, its yearly US dollars; the total of each bar is under its fuel. Hatched: two rigs within the error of the cost saving, so neither can be named. Weighted by the 2018 transport work of the IMO size bins the classes stand for \citep{faber2020}. With perfect foresight of the weather. \tbd{The VLSFO split is not settled, see the text.}}
+\caption{Share of the yearly cost of carrying the cargo of the thirteen ship classes (a) and of the yearly cost the rigs save (b) that goes to each rig, if each ship class and route fits the rig that lowers its cost per tonne-kilometre most and each rig reaches its goals, on VLSFO and e-ammonia. Each segment gives its share, above the bar where the segment is too narrow for it, and, where they fit, its yearly US dollars to two digits, as they rest on estimated inputs; the total of each bar is under its fuel. Hatched: two rigs within the error of the cost saving, so neither can be named. Weighted by the 2018 transport work of the IMO size bins the classes stand for \citep{faber2020}. With perfect foresight of the weather. \tbd{The VLSFO split is not settled, see the text.}}
 \label{fig:fleet_share}
 \end{figure*}
 
