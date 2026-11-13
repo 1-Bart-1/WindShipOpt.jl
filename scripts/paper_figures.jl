@@ -19,8 +19,8 @@ category_colours = [palette[6], Makie.RGBf(0.42, 0.26, 0.64), Makie.RGBf(0.55, 0
 """
     figure_style_file()
 
-Write [`figure_style`](@ref) to paper/figure_style.tex: its colours, and the TikZ styles of
-the paper's LaTeX figures, `force`, `flow`, `dimension`, `leader`, `label`, `note` and
+Write [`figure_style`](@ref) to paper/figure_style.tex, which the paper and its extended
+abstract load: TikZ and its libraries, the colours, and the TikZ styles of the LaTeX figures, `force`, `flow`, `dimension`, `leader`, `label`, `note` and
 `box`, with the arrowhead every arrow shares; error on any [`tikz_style_faults`](@ref).
 """
 function figure_style_file()
@@ -31,6 +31,8 @@ function figure_style_file()
     font(name) = @sprintf("\\fontsize{%g}{%g}\\selectfont", sizes[name], 1.2sizes[name])
     open(joinpath(root, "paper", "figure_style.tex"), "w") do io
         println(io, "% Written by the figure_style step from figure_style.toml; edit that.")
+        println(io, "\\usepackage{xcolor}\n\\usepackage{tikz}")
+        println(io, "\\usetikzlibrary{positioning,arrows.meta,fit}")
         for (name, hex) in sort(collect(figure_style["colours"]))
             println(io, "\\definecolor{", name, "}{HTML}{", hex, "}")
         end

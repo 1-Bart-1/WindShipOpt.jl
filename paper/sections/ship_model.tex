@@ -28,8 +28,8 @@
 \fill[water] (17.6,0) .. controls (17.2,0.75) and (14.6,0.55) .. (13.4,0)
   .. controls (14.6,-0.55) and (17.2,-0.75) .. (17.6,0) -- cycle;
 \draw[force] (18.6,0) -- (39,0) node[right, inner sep=1pt] {$T_\mathrm{req}$};
-\draw[force, water] (15.5,0.7) -- (15.5,10.5);
-\node[part, water, anchor=south, align=center] at (15.5,10.8) {rudder: $F_r$, drag $R_r$, \S\ref{sec:balance}};
+\draw[force, water] (15.5,0.7) -- (14.0,10.5);
+\node[part, water, anchor=south, align=center] at (14.0,10.8) {rudder: $F_r$, drag $R_r$, \S\ref{sec:balance}};
 \node[part, anchor=north east, align=right] at (19.4,-4.6) {propeller, \S\ref{sec:ships}};
 % wind on the ship
 \draw[force, air] (40,19) -- (31,6.5);
@@ -41,8 +41,8 @@
 \draw[force, rig] (50,0) -- (62,-14);
 \node[part, rig, anchor=north, align=center] (riglabel) at (52,-15.5) {rig: $F_x$, $F_y$, $M_x$, $M_z$, $P_\mathrm{rig}$,\\ \S\ref{sec:deck_rigs}, \S\ref{sec:kite}};
 % hull at leeway
-\draw[force, water] (74,-18) -- (74,-6);
-\node[part, water, anchor=west] at (75,-14) {hull at leeway $\beta$:\\ side force, drag $R_\beta$, \S\ref{sec:balance}};
+\draw[force, water] (75.9,-18) -- (74,-6);
+\node[part, water, anchor=west] at (77,-14) {hull at leeway $\beta$:\\ side force, drag $R_\beta$, \S\ref{sec:balance}};
 % resistances on the bow
 \draw[force, water] (106,2.2) -- (89,2.2);
 \draw[force, water] (106,-2.2) -- (89,-2.2);
