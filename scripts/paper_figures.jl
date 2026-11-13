@@ -670,7 +670,7 @@ value on the classes of the cargo value sweep, each as the mean over the routes,
 cost saving, (c) its part from time and (d) the speed the rig adds.
 """
 function cargo_interest_figure()
-    table = read_table(data_file("cargo_interest.csv"))
+    table = read_table(study_file(:cargo_interest, "cargo_interest.csv"))
     drive = string(last(study_drives))
     names = class_order(interest_level_rows(table, cargo_interest_factors().low))
     figure = Figure(size=(page_width, 400))
@@ -758,7 +758,7 @@ bow: the mean over the routes as a marker and the range over the routes as a bar
 Prints the savings and the losses against the bow.
 """
 function tow_point_figure()
-    table = read_table(data_file("tow_point.csv"))
+    table = read_table(study_file(:tow_point, "tow_point.csv"))
     names = filter(name -> !isempty(rows(table, "class" => name, "tow" => "bow")),
         class_order(table))
     routes_seen = unique(table["route"])
@@ -1913,9 +1913,10 @@ function sensitivity_figure()
     save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
 end
 
-"plans of the forecast figure's saving panel, as (plan of forecast_plans.csv, label)"
+"plans of the forecast figure's saving panel, as (plan of forecast_result.csv, label)"
 forecast_figure_plans = (("false", "perfect foresight"),
-    ("members", "several forecast members"), ("true", "one forecast run"))
+    ("grid_perfect", "perfect foresight, planning grid"),
+    ("grid_expected", "re-planned on the forecasts"))
 
 """
     forecast_figure()
@@ -1926,7 +1927,7 @@ of its bar; (b, c) root mean square error of the archived forecasts' wind and wa
 along the route against lead time, beside that of the same date in another year.
 """
 function forecast_figure()
-    table = read_table(data_file("forecast_plans.csv"))
+    table = read_table(data_file("forecast_result.csv"))
     figure = Figure(size=(page_width, 200))
     axis = Axis(figure[1, 1]; xticks=(1:3, ["kite", "wings", "rotors"]),
         ylabel="cost saving [%]", title="(a) saving")
