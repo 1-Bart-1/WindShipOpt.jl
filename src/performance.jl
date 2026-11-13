@@ -295,12 +295,25 @@ end
 
 function SeaCondition(table::PerformanceTable, wind, angle, wave_height, wave_period,
         wave_heading)
-    _, winds, angles = table.flown_thrust.knots
+    _, _, angles = table.flown_thrust.knots
     _, periods, headings = table.wave_resistance.knots
-    return SeaCondition(KnotWeight(winds, min(wind, table.max_wind)),
-        KnotWeight(angles, angle), wave_height, KnotWeight(periods, wave_period),
-        KnotWeight(headings, wave_heading))
+    return SeaCondition(wind_weight(table, wind), KnotWeight(angles, angle), wave_height,
+        KnotWeight(periods, wave_period), KnotWeight(headings, wave_heading))
 end
+
+"""
+    with_wind(table, condition, wind)
+
+The [`SeaCondition`](@ref) `condition` in a 10 m true wind of `wind` [m/s] from the same
+angle.
+"""
+with_wind(table::PerformanceTable, condition::SeaCondition, wind) = SeaCondition(
+    wind_weight(table, wind), condition.angle, condition.wave_height,
+    condition.wave_period, condition.wave_heading)
+
+"weight of a 10 m true wind of `wind` [m/s] among the winds of `table`, held at its highest"
+wind_weight(table::PerformanceTable, wind) =
+    KnotWeight(table.flown_thrust.knots[2], min(wind, table.max_wind))
 
 """
     extra_launch_wind(table, speed, condition)
