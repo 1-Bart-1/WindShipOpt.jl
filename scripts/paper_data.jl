@@ -70,8 +70,8 @@ forecast_source(plan) =
     plan === :expected_margin ? KiteMargin(expected_forecast(), forecast_kite_margin) :
     plan === :wave_forecast ? ForecastParts(expected_forecast(), false, true) :
     plan === :wind_forecast ? ForecastParts(expected_forecast(), true, false) :
-    haskey(grid_plans, plan) ?
-    ReplannedForecast(forecast_source(grid_plans[plan]); grid=planning_grid()) :
+    haskey(grid_plans, plan) ? ReplannedForecast(forecast_source(grid_plans[plan]);
+        grid=planning_grid(), adapts=plan in live_plans ? :live : :nothing) :
     forecast_plans[plan]
 
 "the control forecast weighing its wind error ([`forecast_error`](@ref))"
@@ -1180,7 +1180,11 @@ forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite, :kite
 "plans of the forecast study made on [`planning_grid`](@ref), and the plan each makes there"
 grid_plans = Dict(:grid_perfect => :perfect_replan, :grid => true,
     :grid_expected => :expected, :grid_wave_forecast => :wave_forecast,
-    :grid_wind_forecast => :wind_forecast, :grid_expected_margin => :expected_margin)
+    :grid_wind_forecast => :wind_forecast, :grid_expected_margin => :expected_margin,
+    :grid_perfect_live => :perfect_replan, :grid_live => :expected)
+
+"[`grid_plans`](@ref) whose ship sails live, choosing speed and kite hour by hour"
+live_plans = (:grid_perfect_live, :grid_live)
 
 "spacing of the stages and rows [nmi] of the corridors [`grid_plans`](@ref) sail"
 grid_spacing = (ocean_spacing=240.0, lateral_spacing=60.0)
@@ -1223,20 +1227,38 @@ forecast_result_data() =
     write_forecast_plans("forecast_result", forecast_result_plans, :grid_perfect)
 
 """
-    write_forecast_plans(name, plans, control)
+plans of the live-sailing study: perfect foresight on the run's corridors, and the forecast
+result's plans with perfect foresight and on the forecast, each sailed holding the plan's
+speed and sailed live
+"""
+forecast_live_plans = (false, :grid_perfect, :grid_expected, :grid_perfect_live,
+    :grid_live)
+
+"""
+    forecast_live_data()
+
+The live-sailing study: [`write_forecast_plans`](@ref) of each of the
+[`forecast_live_plans`](@ref) over the [`forecast_cause_departures`](@ref) in
+forecast_live.csv and forecast_live_kept.csv.
+"""
+forecast_live_data() = write_forecast_plans("forecast_live", forecast_live_plans,
+    :grid_expected; departures=forecast_cause_departures())
+
+"""
+    write_forecast_plans(name, plans, control; departures=ensemble_departures)
 
 The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
-`ensemble_departures`, for each of `plans`, those of [`grid_plans`](@ref) on corridors of
+`departures`, for each of `plans`, those of [`grid_plans`](@ref) on corridors of
 [`grid_spacing`](@ref): `name`.csv; the seconds each round trip took to compute:
 `name`_seconds.csv; and the share of its perfect-foresight saving each rig
 keeps per plan with the jackknife standard error over the departures and its difference
 from plan `control`: `name`_kept.csv.
 """
-function write_forecast_plans(name, plans, control)
+function write_forecast_plans(name, plans, control; departures=ensemble_departures)
     rigs = [("none", 0.0); reference_rigs]
     grid_corridors = route_corridors(:caribbean, mask; grid_spacing...)
     cases, trips = [], []
-    for departure in ensemble_departures
+    for departure in departures
         step_cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...);
                               forecast=plan, rig, plan=string(plan), departure,
                               paths=haskey(grid_plans, plan) ? grid_corridors : nothing)
@@ -1254,7 +1276,7 @@ function write_forecast_plans(name, plans, control)
         end
     end
     write_kept_shares("$(name)_kept.csv", cases, trips, plans;
-        control_of=Returns(control))
+        control_of=Returns(control), departures)
 end
 
 "plans of the re-planning study, each as the `forecast` of its [`trip_case`](@ref)"
@@ -1568,23 +1590,23 @@ end
 
 """
     write_kept_shares(name, cases, trips, plans;
-                      control_of=Returns(true))
+                      control_of=Returns(true), departures=ensemble_departures)
 
 Write `name`: per rig and plan of `plans` after the first, perfect foresight, the share
-of the perfect-foresight saving kept, the ratio of the mean savings over the departures,
+of the perfect-foresight saving kept, the ratio of the mean savings over `departures`,
 with its jackknife standard error and that of the difference from the plan
 `control_of(plan)`.
 """
 function write_kept_shares(name, cases, trips, plans;
-        control_of=Returns(true))
-    n = length(ensemble_departures)
+        control_of=Returns(true), departures=ensemble_departures)
+    n = length(departures)
     open(run_file(name), "w") do io
         println(io, "rig,plan,kept,kept_error,difference_from_control,difference_error")
         for (rig, _) in reference_rigs, plan in plans[2:end]
             plan in kite_only_plans && rig != "kite" && continue
-            saved, perfect = plan_savings(cases, trips, rig, plan),
-            plan_savings(cases, trips, rig, false)
-            reference = plan_savings(cases, trips, rig, control_of(plan))
+            saved, perfect = plan_savings(cases, trips, rig, plan, departures),
+            plan_savings(cases, trips, rig, false, departures)
+            reference = plan_savings(cases, trips, rig, control_of(plan), departures)
             value = kept_share(saved, perfect, 1:n)
             spread = jackknife_error(index -> kept_share(saved, perfect, index), n)
             difference = value - kept_share(reference, perfect, 1:n)
@@ -1604,11 +1626,12 @@ function plan_cost(cases, trips, rig, plan, departure)
     return trips[index].cost_per_tonne_km
 end
 
-"cost saving of `rig` on `plan` per departure, against no rig on the same forecast"
-plan_savings(cases, trips, rig, plan) =
+"cost saving of `rig` on `plan` per departure of `departures`, against no rig on the same
+forecast"
+plan_savings(cases, trips, rig, plan, departures) =
     [1 - plan_cost(cases, trips, rig, plan, departure) /
          plan_cost(cases, trips, "none", plan in kite_only_plans ? true : plan, departure)
-     for departure in ensemble_departures]
+     for departure in departures]
 
 "share of the mean saving of `perfect` that `saved` keeps over the departures `indices`"
 kept_share(saved, perfect, indices) = mean(saved[indices]) / mean(perfect[indices])
@@ -1869,26 +1892,36 @@ function round_trip_courses(table, hourly, corridors, weather, departure, port_h
 end
 
 """
-    forecast_cause_savings(table, rig)
+    rig_savings(table, rig, plans; bare_of=identity)
 
-Cost saving [%] of `rig` against the ship with no rig on the same plan, per case of
-forecast_causes.csv read into `table` and per departure, `NaN` where a trip is missing. A
-case only a kite has ([`kite_cause_plans`](@ref)) is set against the ship's plan on the
-same forecast, `:forecast` or `:course_forecast`, and for a deck rig is that plan.
+Cost saving [%] of `rig` per plan of `plans` and per departure of the trips read into
+`table`, against the ship with no rig on plan `bare_of(plan)`, `NaN` where a trip is
+missing.
 """
-function forecast_cause_savings(table, rig)
+function rig_savings(table, rig, plans; bare_of=identity)
     costs = Dict(zip(zip(table["rig"], table["plan"], table["departure"]), table["cost"]))
     departures = sort(unique(table["departure"]))
     cost(name, plan) = [get(costs, (name, string(plan), departure), NaN)
                         for departure in departures]
-    saving(plan, bare) = (1 .- cost(rig, plan) ./ cost("none", bare)) .* 100
+    return Dict(plan => (1 .- cost(rig, plan) ./ cost("none", bare_of(plan))) .* 100
+                for plan in plans)
+end
+
+"""
+    forecast_cause_savings(table, rig)
+
+[`rig_savings`](@ref) of `rig` per case of forecast_causes.csv read into `table`. A case
+only a kite has ([`kite_cause_plans`](@ref)) is set against the ship's plan on the same
+forecast, `:forecast` or `:course_forecast`, and for a deck rig is that plan.
+"""
+function forecast_cause_savings(table, rig)
     plans = (first.(forecast_cause_plans)..., first.(forecast_cause_courses)...)
-    saved = Dict(plan => saving(plan, plan)
-                 for plan in plans if !(plan in kite_cause_plans))
-    for (plan, bare) in zip(kite_cause_plans, (:forecast, :course_forecast))
-        saved[plan] = rig == "kite" ? saving(plan, bare) : saved[bare]
-    end
-    return saved
+    saved = rig_savings(table, rig, filter(plan -> !(plan in kite_cause_plans), plans))
+    bare = Dict(zip(kite_cause_plans, (:forecast, :course_forecast)))
+    kite_saved = rig == "kite" ?
+                 rig_savings(table, rig, kite_cause_plans; bare_of=plan -> bare[plan]) :
+                 Dict(plan => saved[bare[plan]] for plan in kite_cause_plans)
+    return merge(saved, kite_saved)
 end
 
 "statistic of savings per case over some departures: points lost from `earlier` to `later`"
