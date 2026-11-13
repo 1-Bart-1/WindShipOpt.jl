@@ -3180,9 +3180,10 @@ function min_wind_figure()
         xticks=([500, 1000, 2000, 4000, 8000, 16000], ["500", "1000", "2000", "4000",
             "8000", "16000"]))
     areas = exp.(range(log(500), log(16000); length=40))
-    elevation = deg2rad(assumptions[:kite_min_elevation])
+    elevation = assumptions.entries[:kite_min_elevation]
+    elevations = deg2rad.((elevation.value, elevation.low, elevation.high))
     bounds = [WindShipOpt.with_value(assumptions, name, bound)
-              for name in (:kite_launch_margin, :kite_launch_min_wind)
+              for name in (:kite_launch_margin, :kite_launch_min_wind, :kite_min_elevation)
               for bound in (assumptions.entries[name].low, assumptions.entries[name].high)]
     winds = map(areas) do area
         model, _, diameter = WindShipOpt.kite_model(area, design_aspect_ratio, assumptions)
@@ -3190,8 +3191,10 @@ function min_wind_figure()
         lift_off = WindShipOpt.static_wind(model.mass - tether_mass / 2, model)
         launches = [WindShipOpt.launch_min_wind(model, tether_mass, inputs)
                     for inputs in bounds]
-        (cross=WindShipOpt.crosswind_min_wind(model, elevation),
-            climb=WindShipOpt.climbing_min_wind(model, elevation),
+        cross = [WindShipOpt.crosswind_min_wind(model, angle) for angle in elevations]
+        climb = [WindShipOpt.climbing_min_wind(model, angle) for angle in elevations]
+        (cross=cross[1], cross_low=minimum(cross), cross_high=maximum(cross),
+            climb=climb[1], climb_low=minimum(climb), climb_high=maximum(climb),
             lift=assumptions[:kite_launch_margin] * lift_off,
             lift_low=assumptions.entries[:kite_launch_margin].low * lift_off,
             lift_high=assumptions.entries[:kite_launch_margin].high * lift_off,
@@ -3201,19 +3204,19 @@ function min_wind_figure()
     launch_colour = :gray60
     band!(axis, areas, getindex.(winds, :launch_low), getindex.(winds, :launch_high);
         color=(launch_colour, 0.25))
-    band!(axis, areas, getindex.(winds, :lift_low), getindex.(winds, :lift_high);
-        color=(category_colours[1], 0.15))
     curves = ((:launch, launch_colour, pt(3.5)), (:lift, category_colours[1], line_width),
         (:climb, category_colours[2], line_width),
         (:cross, category_colours[3], line_width))
+    for (key, color, _) in curves[2:end]
+        band!(axis, areas, getindex.(winds, Symbol(key, :_low)),
+            getindex.(winds, Symbol(key, :_high)); color=(color, 0.15))
+    end
     for (key, color, linewidth) in curves
         lines!(axis, areas, getindex.(winds, key); color, linewidth)
     end
     ylims!(axis, 0, 1.35 * maximum(getindex.(winds, :launch_high)))
-    bands = [[PolyElement(color=(launch_colour, 0.25))],
-        [PolyElement(color=(category_colours[1], 0.15))], [], []]
-    entries = [[band; LineElement(; color, linewidth)]
-               for (band, (_, color, linewidth)) in zip(bands, curves)]
+    entries = [[PolyElement(color=(color, key == :launch ? 0.25 : 0.15)),
+                   LineElement(; color, linewidth)] for (key, color, linewidth) in curves]
     axislegend(axis, entries, ["launch", "lift-off", "climb", "crosswind"]; position=:lt,
         orientation=:horizontal, nbanks=2)
     save_figure("min_wind", figure)
