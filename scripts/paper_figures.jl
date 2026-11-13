@@ -1790,9 +1790,9 @@ function cargo_cost_figure()
     Legend(cells[2][2, 1],
         [[PolyElement(color=palette[j]) for j in eachindex(rig_names)],
          [PolyElement(color=(palette[j], 0.3)) for j in eachindex(rig_names)]],
-        [collect(rig_names), collect(rig_names)], ["saving", "lost to cargo"];
+        fill(collect(rig_label.(rig_names)), 2), ["saving", "lost to cargo"];
         orientation=:horizontal, nbanks=3, titleposition=:top, tellheight=false,
-        halign=:right, valign=:bottom)
+        halign=:right, valign=:bottom, margin=(0, 0, 0, 0))
     Makie.update_state_before_display!(figure)
     axes[2].height = length(last(groups[2])) / largest * height(axes[1].scene.viewport[])
     save_figure("cargo_cost", figure)
