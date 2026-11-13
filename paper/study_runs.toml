@@ -24,9 +24,9 @@ fidelity = "draft"
 run = "2026-11-09T1945"
 
 [forecast_plans]
-commit = "4e56f30b9c2820744df39905f2e81bf12a58b980"
+commit = "3da266451bd665cea4b8e8691e9e403881f4e4d3"
 fidelity = "draft"
-run = "2026-11-12T1311"
+run = "2026-11-13T2022"
 
 [forecast_replanning]
 commit = "bfc19751b1ec3782f45c5084c0b9c9d790e11b70"
