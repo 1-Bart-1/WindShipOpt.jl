@@ -1871,19 +1871,27 @@ function abatement_limits(table, ship, drive, bare)
     return low - margin, high + margin
 end
 
+"`rig` as the text names it"
+rig_label(rig) = replace(rig, "wings" => "wing sails")
+
 """
     development_panel!(axis, table, ships, levers, rig, column)
 
 Bars in `axis` of the change of the saving of `rig` in `column` between the low and high
 bound of each of `levers`, one per ship in the colours of `category_colours`, with the
-high bound marked.
+high bound marked, and a tick in the ship's colour where neither bound moves it.
 """
 function development_panel!(axis, table, ships, levers, rig, column)
-    vlines!(axis, 0; color=:gray50, linewidth=0.8)
+    vlines!(axis, 0; color=:gray70, linewidth=rule_width)
     for (k, entry) in enumerate(levers), (j, ship) in enumerate(ships)
         low, high = bound_changes(table, ship, rig, string(entry.input); column)
         isfinite(low + high) || continue
         y = k + (2 - j) * 0.27
+        if abs(high) + abs(low) < 0.01
+            scatter!(axis, [0.0], [y]; marker=:vline, color=category_colours[j],
+                markersize=pt(7), strokecolor=category_colours[j], strokewidth=pt(0.6))
+            continue
+        end
         barplot!(axis, [y], [high - low]; offset=low, direction=:x, width=0.22,
             color=category_colours[j])
         scatter!(axis, [high], [y]; marker=:vline, color=:black, markersize=pt(7))
@@ -1895,7 +1903,8 @@ end
 
 Where development pays: for each rig the inputs of [`development_inputs`](@ref) that move
 it, largest effect on top, with the change of its saving of cost per tonne-km (left) and of
-CO2 per tonne-km (right) between the bounds of each input on each ship of the study.
+CO2 per tonne-km (right) between the bounds of each input on each ship of the study, on one
+scale per column.
 """
 function sensitivity_figure()
     table = read_table(data_file("sensitivity.csv"))
@@ -1906,26 +1915,36 @@ function sensitivity_figure()
         sort!(levers; by=entry -> maximum(ship -> abs(-(bound_changes(table, ship, rig,
             string(entry.input))...)), ships))
     end
-    figure = Figure(size=(page_width, 520))
-    columns = [("cost", "change of cost saving [points]", "cost"),
-        ("carbon", rich("change of CO", subscript("2"), " saving [points]"),
-            rich("CO", subscript("2")))]
-    for (row, (rig, levers)) in enumerate(zip(rig_names, panels))
-        for (column, (name, label, saved)) in enumerate(columns)
-            axis = Axis(figure[row, column];
-                title=rich("($('a' + 2 * (row - 1) + column - 1)) $rig, ", saved),
+    figure = Figure(size=(page_width, 500))
+    columns = [("cost", "change of cost saving [points]", 2),
+        ("carbon", rich("change of CO", subscript("2"), " saving [points]"), 5)]
+    for (column, (name, label, step)) in enumerate(columns)
+        changes = [change for (levers, rig) in zip(panels, rig_names) for entry in levers
+                   for ship in ships
+                   for change in bound_changes(table, ship, rig, string(entry.input);
+                       column=name) if isfinite(change)]
+        low, high = min(minimum(changes), 0), max(maximum(changes), 0)
+        margin = 0.06 * (high - low)
+        for (row, (rig, levers)) in enumerate(zip(rig_names, panels))
+            letter = 'a' + 2 * (row - 1) + column - 1
+            title = column == 1 ?
+                    rich("($letter) $(rig_label(rig)), cost",
+                subscript("2"; color=:transparent)) :
+                    rich("($letter) $(rig_label(rig)), CO", subscript("2"))
+            axis = Axis(figure[row, column]; title,
                 yticks=(eachindex(levers), [entry.label for entry in levers]),
                 yticksvisible=column == 1, yticklabelsvisible=column == 1,
-                xlabel=row == length(rig_names) ? label : "", xticks=WilkinsonTicks(4))
+                xlabel=row == length(rig_names) ? label : "",
+                xticks=step * (ceil(low / step):floor(high / step)),
+                limits=((low - margin, high + margin), (0.4, length(levers) + 0.6)))
             development_panel!(axis, table, ships, levers, rig, name)
-            ylims!(axis, 0.4, length(levers) + 0.6)
+            row == 2 && column == 2 && axislegend(axis,
+                [[PolyElement(color=category_colours[j]) for j in eachindex(ships)];
+                    [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
+                [short_ship.(ships); "high end of range"]; position=:lb)
+            rowsize!(figure.layout, row, Auto(length(levers)))
         end
-        rowsize!(figure.layout, row, Auto(length(levers)))
     end
-    Legend(figure[length(rig_names) + 1, 1:2],
-        [[PolyElement(color=category_colours[j]) for j in eachindex(ships)];
-            [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
-        [short_ship.(ships); "high end of range"]; orientation=:horizontal, tellwidth=false)
     save(joinpath(figures, "sensitivity.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1936,43 +1955,53 @@ forecast_figure_plans = (("false", "perfect foresight"),
 """
     forecast_figure()
 
-(a) Mean cost saving over the departures of each rig on a 140 m e-ammonia ship per plan of
-[`forecast_figure_plans`](@ref), a plan with no feasible round trip marked "none" in place
-of its bar; (b, c) root mean square error of the archived forecasts' wind and wave height
-along the route against lead time, beside that of the same date in another year.
+(a) Mean cost saving over the departures, with its standard error, of each rig on a 140 m
+e-ammonia ship per plan of [`forecast_figure_plans`](@ref), a plan with no feasible round
+trip marked "none" in place of its bar; (b, c) root mean square error of the archived
+forecasts' wind and wave height along the route against lead time, beside that of the same
+date in another year.
 """
 function forecast_figure()
     table = read_table(data_file("forecast_plans.csv"))
-    figure = Figure(size=(page_width, 200))
-    axis = Axis(figure[1, 1]; xticks=(1:3, ["kite", "wings", "rotors"]),
+    figure = Figure(size=(page_width, 180))
+    axis = Axis(figure[1, 1]; xticks=(1:3, ["kite", "wing sails", "rotors"]),
         ylabel="cost saving [%]", title="(a) saving")
     plan_alphas = (1.0, 0.6, 0.3)
+    tops = Float64[]
     for (j, (plan, _)) in enumerate(forecast_figure_plans)
         savings = [forecast_saving(table, rig, plan) for rig in rig_names]
         positions = (1:3) .+ (j - 2) * 0.27
-        routed = isfinite.(savings)
-        barplot!(axis, positions[routed], savings[routed]; width=0.25,
+        routed = isfinite.(first.(savings))
+        means, errors = first.(savings[routed]), last.(savings[routed])
+        barplot!(axis, positions[routed], means; width=0.25,
             color=[(palette[rig], plan_alphas[j]) for rig in findall(routed)])
+        errorbars!(axis, positions[routed], means, errors; color=:black,
+            whiskerwidth=pt(3), linewidth=rule_width)
+        append!(tops, means .+ errors)
         unrouted = count(.!routed)
         text!(axis, positions[.!routed], zeros(unrouted); text=fill("none", unrouted),
             rotation=pi / 2, align=(:left, :center), fontsize=note_size, color=:gray30)
     end
+    ylims!(axis, 0, 1.7 * maximum(tops))
+    rig_patch(rig) = Point2f[((rig - 1) / 3, 0), (rig / 3, 0), (rig / 3, 1),
+        ((rig - 1) / 3, 1)]
+    axislegend(axis, [[PolyElement(color=(palette[rig], alpha), points=rig_patch(rig))
+                       for rig in 1:3] for alpha in plan_alphas],
+        collect(last.(forecast_figure_plans)); position=:lt)
     errors = read_table(data_file("forecast_error.csv"))
     for (column, (quantity, unit)) in enumerate((("wind", "m/s"), ("height", "m")))
         panel = Axis(figure[1, column + 1]; xlabel="lead time [days]",
             ylabel="rms error [$unit]",
             title=column == 1 ? "(b) wind at 10 m" : "(c) wave height")
-        lines!(panel, errors["lead_days"], errors["$(quantity)_forecast"];
+        forecast = lines!(panel, errors["lead_days"], errors["$(quantity)_forecast"];
             color=:black)
-        lines!(panel, errors["lead_days"], errors["$(quantity)_other_year"];
+        other_year = lines!(panel, errors["lead_days"], errors["$(quantity)_other_year"];
             color=:gray50, linestyle=:dash)
-        ylims!(panel, 0, nothing)
+        ylims!(panel, 0, 1.2 * maximum([errors["$(quantity)_forecast"];
+            errors["$(quantity)_other_year"]]))
+        column == 2 && axislegend(panel, [forecast, other_year],
+            ["archived forecast", "same date, other year"]; position=:rb)
     end
-    Legend(figure[2, 1:3], [[PolyElement(color=(:gray25, alpha)) for alpha in plan_alphas];
-            LineElement(color=:black); LineElement(color=:gray50, linestyle=:dash)],
-        [last.(forecast_figure_plans)...; "archived forecast"; "same date in another year"];
-        orientation=:horizontal, nbanks=2)
-    rowgap!(figure.layout, 1, 4)
     save(joinpath(figures, "forecast.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1980,13 +2009,14 @@ end
     forecast_saving(table, rig, plan)
 
 Mean over the departures of the cost saving [%] of `rig` on `plan`, against the ship
-without a rig on the same plan, `NaN` where the two cannot be paired: a departure without a
-feasible round trip is no row of the table.
+without a rig on the same plan, with its standard error, `(NaN, NaN)` where the two cannot
+be paired: a departure without a feasible round trip is no row of the table.
 """
 function forecast_saving(table, rig, plan)
     cost(name) = table["cost"][rows(table, "rig" => name, "plan" => plan)]
-    length(cost(rig)) == length(cost("none")) || return NaN
-    return 100 * (1 - mean(cost(rig) ./ cost("none")))
+    length(cost(rig)) == length(cost("none")) || return (NaN, NaN)
+    savings = 100 .* (1 .- cost(rig) ./ cost("none"))
+    return (mean(savings), std(savings) / sqrt(length(savings)))
 end
 
 "rigs of the combination figure with their legend labels and colours"
@@ -2409,7 +2439,7 @@ Cost saving of each rig against the canopy life, the canopy price and the share 
 service, for each ship of the development study with its rig sizes held: the kite's saving
 over the swept canopy inputs, the other rigs' at their goals, and every rig's over its
 share out of service. Each goal is a vertical line over the shaded range of its input;
-today's canopy price is dotted.
+today's canopy price is dotted over its own range.
 """
 function missed_goals_figure()
     sizes = read_table(data_file("goal_sizes.csv"))
@@ -2418,6 +2448,11 @@ function missed_goals_figure()
     prices = read_table(data_file("canopy_price.csv"))
     ships = unique(service["ship"])
     sweeps = ((lives, "life"), (prices, "price"))
+    price_inputs = WindShipOpt.canopy_price_inputs
+    price_today = WindShipOpt.with_today(assumptions, price_inputs)
+    service_inputs = [assumptions.entries[Symbol(out_of_service_inputs[rig])]
+                      for rig in rig_names]
+    service_goal = only(unique(input.value for input in service_inputs))
     figure = Figure(size=(page_width, 410))
     for (column, ship) in enumerate(ships)
         bare = bare_cost(sizes, ship)
@@ -2426,12 +2461,28 @@ function missed_goals_figure()
                 assumptions[Symbol(out_of_service_inputs[rig])]), bare)
                     for rig in rig_names)
         axes = [Axis(figure[row, column]; xlabel, ylabel=column == 1 ? "saving [%]" : "",
-                    title=row == 1 ? "($('a' + column - 1)) $ship" : "",
-                    xscale=row == 1 ? log10 : identity,
-                    xticks=row == 1 ? ([500, 2000, 8000], ["500", "2000", "8000"]) :
-                           Makie.automatic)
-                for (row, xlabel) in enumerate(("canopy life [h]",
-                    "canopy price [USD/m²]", "out of service [%]"))]
+                    title=row == 1 ? "($('a' + column - 1)) $ship" : "", xscale, xticks,
+                    yticks=WilkinsonTicks(4; Q=[(1.0, 1.0), (5.0, 0.9), (2.0, 0.7)]),
+                    yautolimitmargin=(0.05, 0.1))
+                for (row, (xlabel, xscale, xticks)) in enumerate((
+                    ("canopy life [h]", log10,
+                        ([500, 2000, 8000], ["500", "2000", "8000"])),
+                    ("canopy price [USD/m²]", identity, Makie.automatic),
+                    ("out of service [%]", Makie.pseudolog10, [0, 1, 3, 10, 30, 100])))]
+        goal_marks!(axes[1], assumptions.entries[:canopy_life])
+        vspan!(axes[2], canopy_price_range(assumptions, ())...; color=(:gray50, 0.15))
+        vlines!(axes[2], WindShipOpt.canopy_price(assumptions); color=:black,
+            linewidth=0.75)
+        vspan!(axes[2], canopy_price_range(price_today, price_inputs)...;
+            color=(palette[1], 0.1))
+        vlines!(axes[2], WindShipOpt.canopy_price(price_today); color=:black,
+            linewidth=0.75, linestyle=:dot)
+        vspan!(axes[3], 100minimum(input.low for input in service_inputs),
+            100maximum(input.high for input in service_inputs); color=(:gray50, 0.15))
+        vlines!(axes[3], 100service_goal; color=:black, linewidth=0.75)
+        for axis in axes
+            hlines!(axis, 0; color=:gray60, linewidth=0.5)
+        end
         for (axis, (table, input)) in zip(axes, sweeps)
             picked = rows(table, "ship" => ship)
             order = sortperm(table[input][picked])
@@ -2443,28 +2494,35 @@ function missed_goals_figure()
             scatterlines!(axis, values, percent_saving.(table["cost"][picked][order], bare);
                 color=palette[1])
         end
-        goal_marks!(axes[1], assumptions.entries[:canopy_life])
-        price = WindShipOpt.canopy_price(assumptions)
-        vlines!(axes[2], price; color=:black, linewidth=0.75)
-        vlines!(axes[2], WindShipOpt.canopy_price_today(assumptions); color=:black,
-            linewidth=0.75, linestyle=:dot)
         for (k, rig) in enumerate(rig_names)
             shares, costs = curves[rig]
             scatterlines!(axes[3], 100shares, percent_saving.(costs, bare);
-                color=palette[k], label=rig)
-            input = assumptions.entries[Symbol(out_of_service_inputs[rig])]
-            vlines!(axes[3], 100input.value; color=palette[k], linewidth=0.75)
+                color=palette[k])
         end
-        for axis in axes
-            hlines!(axis, 0; color=:gray60, linewidth=0.5)
+        if column == 1
+            price_high = maximum(prices["price"])
+            for (k, rig) in enumerate(rig_names)
+                rig == "kite" && continue
+                align = rig == "rotors" ? (:right, :top) : (:right, :bottom)
+                text!(axes[2], price_high, goal[rig];
+                    text="$(rig_label(rig)) at their goals", color=palette[k],
+                    fontsize=note_size, align,
+                    offset=clear_offset(align, pt(2)))
+            end
+            picked = rows(prices, "ship" => ship)
+            middle = picked[argmin(abs.(prices["price"][picked] .- price_high / 1.4))]
+            text!(axes[2], prices["price"][middle],
+                percent_saving(prices["cost"][middle], bare); text="kite",
+                color=palette[1], fontsize=note_size, align=(:left, :bottom),
+                offset=clear_offset((:left, :bottom), pt(3)))
         end
+        column == 2 && axislegend(axes[2],
+            [[PolyElement(color=(:gray50, 0.15)),
+                    LineElement(color=:black, linewidth=0.75)],
+                [PolyElement(color=(palette[1], 0.1)),
+                    LineElement(color=:black, linewidth=0.75, linestyle=:dot)]],
+            ["goal, its range", "today, its range"]; position=(1, 0.6))
     end
-    entries = [[LineElement(color=palette[k]) for k in eachindex(rig_names)];
-        LineElement(color=:black, linewidth=0.75);
-        LineElement(color=:black, linewidth=0.75, linestyle=:dot);
-        PolyElement(color=(:gray50, 0.15))]
-    Legend(figure[4, 1:3], entries, [collect(rig_names); "goal"; "today"; "range"];
-        orientation=:horizontal)
     save(joinpath(figures, "missed_goals.pdf"), figure; pt_per_unit=print_scale)
 end
 
