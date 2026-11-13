@@ -25,7 +25,8 @@ end
 function draw_wind!(axis, weather, time; scale, lons=-74:4:8, lats=8:4:54)
     points = [Point2f(lon, lat) for lon in lons for lat in lats]
     vectors = [Vec2f(wind(weather, point[2], point[1], time)...) for point in points]
-    arrows2d!(axis, points, vectors .* Float32(scale); color=(:black, 0.35))
+    arrows2d!(axis, points, vectors .* Float32(scale); color=(:black, 0.35), shaftwidth=0.6,
+        tiplength=2.8, tipwidth=2.6, minshaftlength=0)
 end
 
 """

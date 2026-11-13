@@ -2207,9 +2207,12 @@ const CORRIDOR_HALF_WIDTH = 2400.0
 "waypoints from Rotterdam through the Channel to Ushant (latitude, longitude) [deg]"
 const CHANNEL = [(51.98, 4.05), (51.05, 1.60), (50.05, -1.50), (48.80, -6.00)]
 
+"stage and row spacing of a corridor at scale 1 [nmi]"
+const OCEAN_SPACING, LATERAL_SPACING = 90.0, 60.0
+
 """
-    route_corridors(route, mask; scale=1, ocean_spacing=90.0 * scale,
-                    lateral_spacing=60.0 * scale)
+    route_corridors(route, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
+                    lateral_spacing=LATERAL_SPACING * scale)
 
 Outbound and return corridors between Rotterdam and the port of `route`: `:caribbean`
 (Guadeloupe; outbound via the trade winds, homeward on the great circle), `:new_york`,
@@ -2218,8 +2221,8 @@ same band both ways. All run through the Channel to Ushant.
 `ocean_spacing` and `lateral_spacing` are the stage and row spacing [nmi]; the band reaches
 `CORRIDOR_HALF_WIDTH` to either side.
 """
-function route_corridors(route::Symbol, mask; scale=1, ocean_spacing=90.0 * scale,
-        lateral_spacing=60.0 * scale)
+function route_corridors(route::Symbol, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
+        lateral_spacing=LATERAL_SPACING * scale)
     spacing = (ocean_spacing, lateral_spacing,
         lateral_count=2 * ceil(Int, CORRIDOR_HALF_WIDTH / lateral_spacing) + 1)
     if route == :caribbean

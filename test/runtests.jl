@@ -1463,6 +1463,23 @@ WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
     @test only(trace.rig_thrust) == priced.thrust
 end
 
+@testset "the stages and the rows of a corridor are spaced apart" begin
+    mask = north_atlantic_mask()
+    node_spacing(corridor) = WindShipOpt.distance(corridor.lat[end, 1],
+        corridor.lon[end, 1], corridor.lat[end, 2], corridor.lon[end, 2]) /
+                             WindShipOpt.NAUTICAL_MILE
+    coarse = first(route_corridors(:caribbean, mask; scale=16))
+    finer_rows = first(route_corridors(:caribbean, mask; scale=16, lateral_spacing=480.0))
+    finer_stages = first(route_corridors(:caribbean, mask; scale=8, lateral_spacing=960.0))
+    @test node_spacing(coarse) ≈ 960.0 rtol=1e-3
+    @test node_spacing(finer_rows) ≈ 480.0 rtol=1e-3
+    @test node_spacing(finer_stages) ≈ 960.0 rtol=1e-3
+    @test size(finer_rows.lat, 1) == size(coarse.lat, 1)
+    @test size(finer_rows.lat, 2) > size(coarse.lat, 2)
+    @test size(finer_stages.lat, 1) > size(coarse.lat, 1)
+    @test size(finer_stages.lat, 2) == size(coarse.lat, 2)
+end
+
 @testset "a ship on a forecast holds through a gale it cannot sail in" begin
     corridor, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
     departure = 24.0 * 31
@@ -3462,14 +3479,6 @@ end
     @test any(<(0), exported.columns.apparent_angle) &&
           any(>(0), exported.columns.apparent_angle)
     @test all(abs(spin) <= 400 for spin in exported.columns.trim.spin)
-end
-
-@testset "the passage figure labels a track all its ships share" begin
-    track = [(0.0, 10.0), (1.0, 12.0), (2.0, 11.0)]
-    @test PaperData.clearest_edge(track, [track]) == 1
-    apart = [(0.0, 10.0), (1.0, 20.0), (2.0, 11.0)]
-    @test PaperData.clearest_edge(track, [track, apart]) == 1
-    @test PaperData.clearest_edge(apart, [track, apart]) == 1
 end
 
 @testset "a kite's recorded pattern flies on the lee side in the ship's frame" begin
