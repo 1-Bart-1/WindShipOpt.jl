@@ -307,8 +307,8 @@ function goal_rows()
     price = "USD~$(estimate_text(WindShipOpt.canopy_price(assumptions)))/m\$^2\$"
     today_inputs = WindShipOpt.with_today(assumptions, WindShipOpt.canopy_price_inputs)
     low, high = canopy_price_range(today_inputs, WindShipOpt.canopy_price_inputs)
-    today = string("our estimate USD~", estimate_text(WindShipOpt.canopy_price(today_inputs)),
-        "/m\$^2\$ (", estimate_text(low), " to ", estimate_text(high),
+    today = string("our estimate USD~",
+        estimate_text(WindShipOpt.canopy_price(today_inputs)), "/m\$^2\$ (", estimate_text(low), " to ", estimate_text(high),
         "), from retail cloth and hand sewing")
     return [("Canopy life", "kite", canopy,
             "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements; " *

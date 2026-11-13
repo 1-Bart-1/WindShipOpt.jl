@@ -323,8 +323,11 @@ function pixel_rect(scene, rect)
 end
 
 "the point `point` [data of `scene`] in pixels of `scene`, through its axis scales"
-pixel_point(scene, point) = Point2f(Makie.project(scene, :data, :pixel,
-    Makie.apply_transform(Makie.transform_func(scene), Point3f(point[1], point[2], 0)))[1:2])
+function pixel_point(scene, point)
+    scaled = Makie.apply_transform(Makie.transform_func(scene),
+        Point3f(point[1], point[2], 0))
+    return Point2f(Makie.project(scene, :data, :pixel, scaled)[1:2])
+end
 
 "the strings of the text plot `plot`, one per label"
 label_texts(plot) = (text = plot.text[]; text isa AbstractVector ? string.(text) :
@@ -1364,7 +1367,8 @@ function winner_map_figure()
     shown = [band for band in fleet_bands if band in bands]
     Legend(figure[0, 1:length(drive_panels)],
         [PolyElement(color=colours[band]) for band in shown],
-        [get(Dict("wings" => "wing sails", "none" => "no rig"), band, band) for band in shown];
+        [get(Dict("wings" => "wing sails", "none" => "no rig"), band, band)
+         for band in shown];
         orientation=:horizontal, halign=:right, tellwidth=false, margin=(0, 0, 0, 0))
     rowgap!(figure.layout, 1, 0)
     save_figure("winner_map", figure)
@@ -1635,8 +1639,8 @@ function premium_figure()
     lengths = sort(unique(designs["length"]))
     axis = Axis(figure[1, 1]; xlabel="waterline length [m]",
         xticks=(lengths, string.(round.(Int, lengths))), ylabel="cost premium closed [%]")
-    shares = [[premium_closed(designs, "ammonia", length, column_name) for length in lengths]
-              for (_, column_name) in rig_area_columns]
+    shares = [[premium_closed(designs, "ammonia", length, column_name)
+               for length in lengths] for (_, column_name) in rig_area_columns]
     for (k, (_, column_name)) in enumerate(rig_area_columns)
         valid = isfinite.(shares[k])
         bounds = [extrema(premium_closed(table, "ammonia", length, column_name)
