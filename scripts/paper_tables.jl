@@ -49,13 +49,16 @@ latex_escape(text) = replace(text, "\\" => "\\textbackslash{}", "&" => "\\&", "%
     latex_prose(text)
 
 Plain-text source note `text` escaped and typeset: about for `~`, en dashes in ranges,
-minus and times signs, digit groups, subscripts, degrees Celsius and unbroken page numbers.
+minus and times signs, digit groups, subscripts, degrees Celsius, the paper's \$C_B\$ and
+TEU, and page numbers and numbers with their unit unbroken.
 """
 function latex_prose(text)
     text = replace(latex_escape(replace(text, "~" => "about ")),
-        r"\d{1,3}(,\d{3})+(?!\d)" => digit_groups)
+        r"\d{1,3}(,\d{3})+(?!\d)|(?<![\w.,-])\d{5,}(?=\+|-\d{5,}\b)|(?<=\d-)\d{5,}\b" =>
+            digit_groups)
     return replace(text,
         r"(?<![\w-])(\d+(?:\.\d+)?)-(?=\d+(?:\.\d+)?(?![\w-]))" => s"\1--",
+        r"(?<![\w-])([A-Z])-(?=[A-Z](?![\w-]))" => s"\1--",
         r"(^|[\s(=])-(?=\d)" => s"\1\\ensuremath{-}",
         r"(\d) - (?=\d)" => s"\1 \\ensuremath{-} ",
         r"(\w)\*(?=\w)" => s"\1\\ensuremath{\\times}",
@@ -63,7 +66,9 @@ function latex_prose(text)
         r"\b([A-Za-z])\\_([A-Za-z]+)\b" => s"\\ensuremath{\1_\\mathrm{\2}}",
         r"\bFn\b" => "\\ensuremath{F_n}",
         r"(\d) C(?![\w\\])" => s"\1\\,\\si{\\degreeCelsius}",
-        r"(\d) \\%" => s"\1\\,\\%", r"\bp\. (?=\d)" => "p.~")
+        r"(\d) \\%" => s"\1\\,\\%", r"\bp\. (?=\d)" => "p.~",
+        r"\bCb\b" => "\\ensuremath{C_B}", r"\bteu\b" => "TEU",
+        r"(\d) (?=(m|t|kn|kW|MW|TEU|CEU|dwt|GT)\b)" => s"\1~")
 end
 
 "a number written with thousands commas, regrouped as the paper's numbers are"
@@ -705,7 +710,8 @@ limit_label(class) = string(WindShipOpt.cargo_limit(class, assumptions))
     class_source_notes()
 
 Source note of each ship class by name from the class file, without the references to
-the project's own notes.
+the project's own notes, with the currency of its prices in millions and the unit of its
+lengths overall.
 """
 function class_source_notes()
     lines = readlines(joinpath(root, "data", "ship_classes.csv"))
@@ -713,7 +719,9 @@ function class_source_notes()
     notes = Dict{String, String}()
     for line in lines[2:end]
         row = Dict(zip(header, WindShipOpt.csv_fields(line)))
-        notes[row["name"]] = replace(row["source"], r" \([^()]*notes\)" => "")
+        notes[row["name"]] = replace(row["source"], r" \([^()]*notes\)" => "",
+            r"(?<![\w.])(\d+(?:\.\d+)?) M\b" => s"USD \1 M",
+            r"\bLOA (\d+(?:\.\d+)?)" => s"LOA \1 m")
     end
     return notes
 end
