@@ -6,7 +6,7 @@
     \draw[water] (-11,0) -- (10,0);
     \fill[ship] (-11,2.8) -- (5,2.8) -- (8,0) -- (6.5,-2) -- (-11,-2) -- cycle;
     \fill[ship!40] (-3,0.4) rectangle (2,2.8);},
-  hatch/.pic={\fill (-3.3,2.8) rectangle (2.3,3.4);},
+  hatch/.pic={\fill (-3.3,2.8) rectangle (2,3.4);},
   openhatch/.pic={\fill[rotate around={-70:(-3.3,2.8)}] (-3.3,2.8) rectangle ++(-6,0.6);},
   packed/.pic={\fill[kite, rounded corners=0.4mm] (-1.9,0) rectangle (1.9,1.8);
     \draw[white] (-0.95,0.3) -- (-0.95,1.5) (0,0.3) -- (0,1.5) (0.95,0.3) -- (0.95,1.5);},
@@ -55,7 +55,7 @@
 \cyclestep{103}{30}{1}{black}{Kite packed in the hold, hatch shut}{\pic at (-0.3,0.6) {packed}; \pic at (0,0) {hatch}; \node[note, anchor=south] at (-0.3,5.2) {hatch};}
 \cyclestep{126}{30}{2}{black}{Hatch opens; the mast lifts the kite and the wind fills it}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=9.4}; \pic at (3.4,10) {canopy}; \node[note, anchor=west] at (5.2,7.8) {mast};}
 \cyclestep{149}{30}{3}{black}{The tether takes the pull; the kite leaves the mast and climbs}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=9.4}; \draw[kite] (4.6,3.5) -- (9,13); \pic at (9,13) {canopy};}
-\cyclestep{149}{-1}{4}{kite}{The kite flies figure eights and pulls; hatch shut}{\pic at (0,0) {hatch}; \draw[kite] (4.6,3.5) -- (9,13.5); \pic at (9,20.4) {eight}; \pic at (9,13.5) {canopy}; \node[note, anchor=east] at (4.8,9.5) {tether};}
+\cyclestep{149}{-1}{4}{kite}{The kite flies figure eights and pulls; hatch shut}{\pic at (0,0) {hatch}; \draw[kite] (4.6,3.5) -- (9,13.5); \pic at (9,20.4) {eight}; \pic at (9,13.5) {canopy}; \node[note, anchor=west] at (8.8,7) {tether};}
 \cyclestep{126}{-1}{5}{black}{A guide line pulls the kite to the mast; the winch hauls in}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=9.4}; \draw[kite, densely dashed] (3.4,9.4) -- (3.4,13.5); \pic at (3.4,13.5) {canopy}; \node[note, anchor=west, align=left] at (5.8,12.2) {guide\\ line};}
 \cyclestep{103}{-1}{6}{black}{The mast lowers the packed kite into the hold}{\pic at (0,0) {openhatch}; \pic at (0,0) {mast=6}; \pic at (1.5,6) {packed};}
 \draw[flow, guide] (111.2,32) -- (116.8,32);
