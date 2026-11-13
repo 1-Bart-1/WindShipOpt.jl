@@ -220,7 +220,8 @@ function development_table()
             "at the better end of the range and its loss at the worse end, in percentage ",
             "points, in cost per tonne-km on each ship and the largest of each in ",
             "CO\\textsubscript{2} per tonne-km over the ships; and why the input is in ",
-            "the study. Values are estimates, conditions or goals (g), to two digits; ",
+            "the study. Values are estimates, conditions or goals (g), to two digits, and ",
+            "the gains and losses model output, to a tenth of a point; ",
             "\\cref{tab:goals} gives what is known today against each goal.}\n",
             "\\label{tab:development}\\\\")
         header = string("\\toprule\n & & \\multicolumn{3}{c}{Cost saving} & & \\\\\n",
