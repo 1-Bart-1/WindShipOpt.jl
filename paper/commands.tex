@@ -1,8 +1,7 @@
 % SPDX-FileCopyrightText: 2026 Bart van de Lint
 % SPDX-License-Identifier: AGPL-3.0-or-later
 \newcommand{\tbd}[1]{\textcolor{red}{{}#1}}
-% \stale{studies}{text}: text a merged change made stale until the comma-separated studies
-% rerun; the build warns at each and lists the studies left at its end.
+% \stale{studies}{text}: text stale until the comma-separated studies rerun.
 \makeatletter
 \newcommand{\stale@left}{}
 \newcommand{\stale@record}[1]{\PackageWarning{stale}{Stale until study #1 reruns, in
@@ -12,7 +11,7 @@
     \xdef\stale@left{\stale@left\space#1}\fi}
 \NewDocumentCommand{\stale}{m +m}{\@for\stale@study:=#1\do{%
     \expandafter\stale@record\expandafter{\stale@study}}%
-  {\color{orange!80!black}\sffamily\small[stale until \detokenize{#1} reruns]}~#2}
+  {\color{orange!80!black}\sffamily\small[stale until \detokenize{#1} reruns]}\IfBlankF{#2}{~#2}}
 \AtEndDocument{\ifx\stale@left\@empty\else
   \PackageWarningNoLine{stale}{Studies to rerun for stale text:\stale@left}\fi}
 \makeatother
