@@ -3251,7 +3251,8 @@ function rigid_mass_figure()
     anchor_area = assumptions[:rigid_reference_area]
     anchor_mass = assumptions.entries[:rigid_reference_mass]
     exponent = assumptions.entries[:rigid_mass_exponent]
-    areas = exp.(range(log(3), log(500); length=40))
+    areas = exp.(range(log(minimum(published["area"])), log(500); length=40))
+    xlims!(axis, 1.6, nothing)
     for (value, linestyle) in ((exponent.low, :dot), (exponent.value, :solid),
         (exponent.high, :dash))
         lines!(axis, areas, anchor_mass.value .* (areas ./ anchor_area) .^ (value / 2);
@@ -3273,14 +3274,18 @@ function rigid_mass_figure()
         scatter!(axis, [published["area"][i]], [mass]; color=built[i] ? color : :white,
             strokecolor=color, strokewidth=0.75, markersize=pt(5))
         law = anchor_mass.value * (published["area"][i] / anchor_area)^(exponent.value / 2)
-        small = published["area"][i] < 10
-        align = mass < law || small ? (:left, :top) :
+        name = first(split(published["name"][i], ","))
+        if published["area"][i] == minimum(published["area"])
+            text!(axis, published["area"][i], mass; text=replace(name, " Wing" => "\nWing"),
+                align=(:right, :center), offset=(-pt(5), 0), fontsize=note_size, color,
+                justification=:right)
+            continue
+        end
+        align = mass < law ? (:left, :top) :
                 (published["area"][i] > 10 ? :right : :left, :bottom)
-        offset = small ? (pt(2.5), -pt(14)) :
-                 mass < law ? (pt(2.5), -pt(6)) : clear_offset(align, pt(2.5))
-        text!(axis, published["area"][i], mass; text=first(split(published["name"][i],
-            ",")), align, offset, fontsize=note_size, color, glowwidth=pt(1.5),
-            glowcolor=:white)
+        offset = mass < law ? (pt(2.5), -pt(6)) : clear_offset(align, pt(2.5))
+        text!(axis, published["area"][i], mass; text=name, align, offset,
+            fontsize=note_size, color, glowwidth=pt(1.5), glowcolor=:white)
     end
     entries = [[LineElement(; color=:black, linestyle, linewidth=0.8)
                 for linestyle in (:dot, :solid, :dash)];
