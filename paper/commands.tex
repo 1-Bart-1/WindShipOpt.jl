@@ -1,6 +1,20 @@
 % SPDX-FileCopyrightText: 2026 Bart van de Lint
 % SPDX-License-Identifier: AGPL-3.0-or-later
 \newcommand{\tbd}[1]{\textcolor{red}{{}#1}}
+% \stale{studies}{text}: text stale until the comma-separated studies rerun.
+\makeatletter
+\newcommand{\stale@left}{}
+\newcommand{\stale@record}[1]{\PackageWarning{stale}{Stale until study #1 reruns, in
+  \ifx\CurrentFile\@empty\jobname.tex\else\CurrentFile\fi}%
+  \ifcsname stale@seen@#1\endcsname\else
+    \global\expandafter\let\csname stale@seen@#1\endcsname\relax
+    \xdef\stale@left{\stale@left\space#1}\fi}
+\NewDocumentCommand{\stale}{m +m}{\@for\stale@study:=#1\do{%
+    \expandafter\stale@record\expandafter{\stale@study}}%
+  {\color{orange!80!black}\sffamily\small[stale until \detokenize{#1} reruns]}\IfBlankF{#2}{~#2}}
+\AtEndDocument{\ifx\stale@left\@empty\else
+  \PackageWarningNoLine{stale}{Studies to rerun for stale text:\stale@left}\fi}
+\makeatother
 % \note{text}: a review note shown in the PDF; \notesfalse hides all.
 \newif\ifnotes\notestrue
 \newcommand{\note}[1]{\ifnotes{\color{teal!70!black}\sffamily\small[#1]}\fi}
@@ -10,4 +24,8 @@
 \newcommand{\keywordlist}[1]{wind-assisted ship propulsion#1 towing kite#1 airborne wind energy#1 rigid wing sail#1 Flettner rotor#1 weather routing#1 maritime decarbonisation#1 e-ammonia}
 \newcommand{\plot}[2][]{\IfFileExists{figures/#2.pdf}{\includegraphics[max width=\textwidth]{#2}}{\fbox{\parbox[c][3cm][c]{0.9\textwidth}{\centering\tbd{Figure \detokenize{#2} pending data.}}}}}
 \graphicspath{{figures/}}
+% \studyrun{name}: the run, fidelity and commit that made the method study name.
+\newcommand{\studyrunis}[2]{\expandafter\def\csname studyrun:#1\endcsname{#2}}
+\newcommand{\studyrun}[1]{\ifcsname studyrun:#1\endcsname\csname studyrun:#1\endcsname\else\tbd{study \detokenize{#1} not yet run}\fi}
+\InputIfFileExists{sections/study_runs}{}{}
 \input{sections/numbers}

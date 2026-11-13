@@ -126,6 +126,48 @@ function data_file(name)
     error("no $(paper_run.fidelity) run has $name")
 end
 
+"record of the run each method study's tables and figures come from"
+study_runs_path = joinpath(root, "paper", "study_runs.toml")
+
+"""
+    study_file(study, name)
+
+Path of the data file `name` of method study `study` in the run recorded for it in
+paper/study_runs.toml.
+"""
+study_file(study, name) =
+    joinpath(runs_directory, TOML.parsefile(study_runs_path)[string(study)]["run"], name)
+
+"""
+    record_study(study)
+
+Record the run in use, its fidelity and the commit of its step `study` as the run of
+method study `study` in paper/study_runs.toml, and write [`study_sources`](@ref).
+"""
+function record_study(study)
+    step = only(filter(step -> step["name"] == string(study), paper_run.record["steps"]))
+    runs = TOML.parsefile(study_runs_path)
+    runs[string(study)] = Dict("run" => basename(paper_run.directory),
+        "fidelity" => string(paper_run.fidelity), "commit" => step["git_commit"])
+    open(io -> TOML.print(io, runs; sorted=true), study_runs_path, "w")
+    study_sources(runs)
+end
+
+"""
+    study_sources(runs)
+
+Write to paper/sections/study_runs.tex, for each method study in `runs`, the run, fidelity
+and commit it comes from, as the `\\studyrunis` definitions captions read.
+"""
+function study_sources(runs)
+    open(joinpath(sections, "study_runs.tex"), "w") do io
+        for (study, run) in sort(collect(runs); by=first)
+            println(io, "\\studyrunis{", study, "}{run ", run["run"], " at ",
+                run["fidelity"], " fidelity, commit ", first(run["commit"], 7), "}")
+        end
+    end
+end
+
 """
     fidelity_runs(fidelity)
 
