@@ -389,6 +389,7 @@ Hide the text plot `label` and draw it again above every line and fill of its sc
 each string [`readable`](@ref) on its colour `behind` and on a halo of that colour.
 """
 function redraw_label!(label, behind)
+    isempty(behind) && return
     colours = label.color[] isa AbstractVector ? label.color[] :
               fill(label.color[], length(behind))
     length(colours) == length(behind) || (colours = fill(first(colours), length(behind)))
