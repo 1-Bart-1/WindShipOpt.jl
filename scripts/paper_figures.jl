@@ -636,12 +636,13 @@ function canopy_tension_figure()
     hlines!(force_axis, peak_force; color=category_colours[2], linestyle=:dot)
     lines!(force_axis, times, forces; color=palette[1])
     text!(force_axis, times[end], mean_force;
-        text=@sprintf("mean %.2f MN, %.2f kN/m", mean_force, tension(mean_force)),
+        text="mean $(estimate_text(mean_force)) MN, $(estimate_text(tension(mean_force))) kN/m",
         fontsize=note_size, align=(:right, :top), color=category_colours[1],
         offset=clear_offset((:right, :top), pt(2)))
     text!(force_axis, times[1], peak_force;
-        text=@sprintf("peak %.2f MN, %.2f kN/m\nnew cloth about %s kN/m, %s × peak",
-            peak_force, tension(peak_force), estimate_text(strength),
+        text=@sprintf("peak %s MN, %s kN/m\nnew cloth about %s kN/m, %s × peak",
+            estimate_text(peak_force), estimate_text(tension(peak_force)),
+            estimate_text(strength),
             estimate_text(strength / tension(peak_force))),
         fontsize=note_size, align=(:left, :bottom), color=category_colours[2],
         offset=clear_offset((:left, :bottom), pt(2)))
@@ -1425,8 +1426,8 @@ Label of a band of `share` [%] and `billions` [USD] of a bar, the dollars, an es
 only if they fit.
 """
 function fleet_band_label(share, billions)
-    share < 14 && return @sprintf("%.0f%%", share)
-    return @sprintf("%.0f%%\n%s bn", share, estimate_text(billions))
+    share < 14 && return @sprintf("%.0f %%", share)
+    return @sprintf("%.0f %%\n%s bn", share, estimate_text(billions))
 end
 
 "fill of what the kite and rotors share: the kite's colour hatched with the rotors'"
