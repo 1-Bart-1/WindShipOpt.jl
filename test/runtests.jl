@@ -3454,10 +3454,10 @@ kite_sample(aloft, apparent_wind, reason=aloft ? :up : :chosen) = (; hours=0.0, 
     @test all(column -> haskey(shares, Symbol(column)), columns)
 end
 
-@testset "each row of the kite's margins in the causes table keeps its own label" begin
-    margins = Dict("knowledge" => ["perfect", "perfect"], "departure" => [0, 24])
+@testset "each row of the kite's margins in the causes table keeps its label and departure" begin
+    margins = Dict("knowledge" => ["perfect", "perfect"], "departure" => [24, 0])
     for (index, (_, column)) in enumerate(PaperData.kite_margin_rows)
-        margins[column] = [0.01index, 0.02index]
+        margins[column] = [0.02index, 0.01index]
     end
     trips = Dict("rig" => ["kite", "kite", "none"], "plan" => fill("grid_perfect", 3),
         "departure" => [0, 24, 0], "launches" => [5.0, 7.0, 0.0])

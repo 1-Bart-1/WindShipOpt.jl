@@ -1166,7 +1166,7 @@ forecast_cause_groups = (
             ("Speed", cause_loss(:course_perfect, :course_foresight)),
             ("The kite's launches and landings", cause_loss(:course_foresight,
                 :course_forecast)),
-            ("Sailing the course as a fixed track", cause_loss(:course_forecast,
+            ("Re-planning the course on later forecasts", cause_loss(:course_forecast,
                 :forecast)))),
     ("A plan inside kite limits 20\\,\\% tighter [points]",
         (("Gain over the forecast plan", cause_loss(:kite_margin, :forecast)),)))
@@ -1180,11 +1180,14 @@ and on `plan` of forecast_causes.csv read into `trips`, `NaN` where a trip is mi
 """
 function kite_margin_values(margins, trips, knowledge, plan)
     departures = sort(unique(trips["departure"]))
-    rows = findall(==(knowledge), margins["knowledge"])
+    row_of = Dict(margins["departure"][i] => i for i in eachindex(margins["knowledge"])
+                  if margins["knowledge"][i] == knowledge)
     launches = Dict(trips["departure"][i] => trips["launches"][i]
                     for i in eachindex(trips["rig"])
                     if trips["rig"][i] == "kite" && trips["plan"][i] == plan)
-    shares = [(label, 100 .* margins[column][rows]) for (label, column) in kite_margin_rows]
+    rows = [get(row_of, departure, 0) for departure in departures]
+    shares = [(label, [row == 0 ? NaN : 100 * margins[column][row] for row in rows])
+              for (label, column) in kite_margin_rows]
     per_trip = [get(launches, departure, NaN) for departure in departures]
     return [shares; ("Launches per round trip", per_trip)]
 end
