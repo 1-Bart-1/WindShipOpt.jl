@@ -2290,29 +2290,32 @@ scaling table.
 """
 function rigid_scaling_figure()
     table = read_table(data_file("rigid_scaling.csv"))
-    figure = Figure(size=(page_width, 360))
+    figure = Figure(size=(page_width, 330))
     thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
         xlabel="apparent wind [m/s]", ylabel="thrust [kN]")
     price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
         xticks=[30, 300, 3000], xlabel="kite area [m²]",
         ylabel="price per thrust [USD/kN]",
         ytickformat=values -> [@sprintf("%.0f", value) for value in values])
-    annual_axis = Axis(figure[3, 1]; title="(c) cost a year at 12 m/s", xscale=log10,
+    annual_axis = Axis(figure[2, 1]; title="(c) cost a year at 12 m/s", xscale=log10,
         xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="USD/kN a year")
-    wind_axis = Axis(figure[3, 2]; title="(d) lowest wind", xscale=log10,
-        xticks=[30, 300, 3000], xlabel="kite area [m²]", ylabel="apparent wind [m/s]")
-    base_exponent = assumptions[:rigid_mass_exponent]
+    wind_axis = Axis(figure[2, 2]; title="(d) lowest wind", xscale=log10,
+        xticks=[30, 100, 300], xlabel="kite area [m²]", ylabel="apparent wind [m/s]")
+    exponents = assumptions.entries[:rigid_mass_exponent]
+    base_exponent = exponents.value
     curves = (("rigid", 30.0), ("rigid", 54.0), ("rigid", 100.0), ("rigid", 300.0),
         ("soft", 1000.0))
+    highest = 0.0
     for (k, (kind, area)) in enumerate(curves)
         exponent = kind == "rigid" ? base_exponent : 0.0
         chosen = rows(table, "kind" => kind, "area" => area, "exponent" => exponent)
+        highest = max(highest, 1e-3maximum(table["thrust"][chosen]))
         lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
-            color=kind == "soft" ? palette[1] : vtol_shades(length(curves))[k],
+            color=kind == "soft" ? palette[1] : vtol_shades(length(curves) - 1)[k],
             label="$(paper_name(kind)) $(round(Int, area)) m²")
     end
-    series = [("rigid", base_exponent, :solid), ("rigid", 3.0, :dash), ("rigid", 3.3, :dot),
-        ("soft", 0.0, :solid)]
+    series = [("rigid", exponents.low, :dash), ("rigid", base_exponent, :solid),
+        ("rigid", exponents.high, :dot), ("soft", 0.0, :solid)]
     for (kind, exponent, linestyle) in series
         at_twelve = filter(row -> table["thrust"][row] > 0,
             rows(table, "kind" => kind, "exponent" => exponent, "wind" => 12.0))
@@ -2337,9 +2340,14 @@ function rigid_scaling_figure()
                 table["lowest_wind"][row], 1e-3table["thrust"][row], 1e-6prices[i])
         end
     end
-    Legend(figure[2, 1], thrust_axis; orientation=:horizontal, nbanks=2)
-    Legend(figure[2, 2], price_axis; orientation=:horizontal, nbanks=2)
-    linkxaxes!(price_axis, annual_axis, wind_axis)
+    axislegend(thrust_axis; position=:lt, orientation=:horizontal, nbanks=3)
+    ylims!(thrust_axis, -0.04highest, 1.65highest)
+    axislegend(price_axis; position=:rt)
+    linkxaxes!(price_axis, annual_axis)
+    for axis in (price_axis, annual_axis, wind_axis)
+        axis.yautolimitmargin = (0.05, 0.1)
+    end
+    xlims!(wind_axis, 25, 600)
     save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -2376,8 +2384,9 @@ function rigid_kite_figure()
         print_rigid_kite(table, ship, drive, savings)
     end
     hlines!(axis, 0; color=:gray50, linewidth=0.6)
-    Legend(figure[2, 1], [PolyElement(color=colour) for (_, _, colour) in rigid_kite_rigs],
-        collect(getindex.(rigid_kite_rigs, 2)); orientation=:horizontal, nbanks=2)
+    axis.yautolimitmargin = (0.05, 0.3)
+    axislegend(axis, [PolyElement(color=colour) for (_, _, colour) in rigid_kite_rigs],
+        collect(getindex.(rigid_kite_rigs, 2)); position=:lt)
     save(joinpath(figures, "rigid_kite.pdf"), figure; pt_per_unit=print_scale)
 end
 
