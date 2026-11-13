@@ -68,6 +68,129 @@ clear_offset(align, gap) = (Dict(:left => gap, :center => 0, :right => -gap)[ali
 """
 estimate_text(value) = @sprintf("%.15g", round(value; sigdigits=2))
 
+"figure units of the halo in the background colour behind each dark label"
+halo_width = pt(1.6)
+
+"""
+    save_figure(name, figure)
+
+Save `figure` at print size to paper/figures/`name`.pdf, with a halo behind each dark label
+in its axes; error if [`label_faults`](@ref) finds any.
+"""
+function save_figure(name, figure)
+    Makie.colorbuffer(figure)
+    faults = label_faults(figure)
+    isempty(faults) || error("labels of figure $name: ", join(faults, "; "))
+    foreach(add_halo!, axis_labels(figure))
+    save(joinpath(figures, "$name.pdf"), figure; pt_per_unit=print_scale)
+end
+
+"the text plots in the axes of `figure`, those of its legends and decorations left out"
+axis_labels(figure) = [plot for block in figure.content if block isa Axis
+                       for plot in block.scene.plots if plot isa Makie.Text]
+
+"whether `label` is drawn in a dark colour, which a light halo sets off"
+is_dark(label) = all(colour -> Makie.Colors.Gray(Makie.to_color(colour)).val < 0.6,
+    label.color[] isa AbstractVector ? label.color[] : [label.color[]])
+
+"""
+    add_halo!(label)
+
+Draw a copy of the text plot `label` beneath it in white with a white outline, above
+every line and fill of its scene.
+"""
+function add_halo!(label)
+    is_dark(label) || return
+    halo = text!(Makie.parent_scene(label), label[1]; text=label.text, align=label.align,
+        offset=label.offset, fontsize=label.fontsize, font=label.font,
+        rotation=label.rotation, justification=label.justification,
+        markerspace=label.markerspace, space=label.space, color=:white,
+        strokecolor=:white, strokewidth=halo_width)
+    translate!(halo, 0, 0, 1)
+    translate!(label, 0, 0, 2)
+end
+
+"""
+    label_faults(figure)
+
+Descriptions of the labels in the axes of `figure` that overlap another label, run past
+the edge of their axis, or lie over a line or marker of the data; `figure` laid out.
+"""
+function label_faults(figure)
+    faults = String[]
+    for block in figure.content
+        block isa Axis || continue
+        scene = block.scene
+        width, height = widths(scene.viewport[])
+        labels = [(text, box) for plot in scene.plots if plot isa Makie.Text
+                  for (text, box) in zip(label_texts(plot),
+            Makie.string_boundingboxes(plot)) if !isempty(text)]
+        boxes = [Rect2f(Point2f(minimum(box)[1:2]), Vec2f(widths(box)[1:2]))
+                 for (_, box) in labels]
+        texts = first.(labels)
+        for (i, box) in enumerate(boxes)
+            inside = Rect2f(0, 0, width, height)
+            in_axis(box, inside) || push!(faults, "\"$(texts[i])\" runs past its axis")
+            for j in (i + 1):length(boxes)
+                overlaps(box, boxes[j]) &&
+                    push!(faults, "\"$(texts[i])\" overlaps \"$(texts[j])\"")
+            end
+            margin = Rect2f(minimum(box) .- label_clearance,
+                widths(box) .+ 2label_clearance)
+            for plot in scene.plots
+                covers_data(scene, plot, margin) &&
+                    push!(faults,
+                        "\"$(texts[i])\" lies over a $(Makie.plotfunc(plot)) plot")
+            end
+        end
+    end
+    return unique(faults)
+end
+
+"the strings of the text plot `plot`, one per label"
+label_texts(plot) = (text = plot.text[]; text isa AbstractVector ? string.(text) :
+                                          [string(text)])
+
+"clearance [figure units] a label keeps from other labels and from lines and markers"
+label_clearance = pt(0.75)
+
+"whether the rectangles `a` and `b` come closer than [`label_clearance`](@ref)"
+overlaps(a, b) = all(min.(maximum(a), maximum(b)) .- max.(minimum(a), minimum(b)) .>
+                     -label_clearance)
+
+"whether `box` lies within `inside`, to half a point"
+in_axis(box, inside) = all(minimum(box) .>= minimum(inside) .- pt(0.5)) &&
+                       all(maximum(box) .<= maximum(inside) .+ pt(0.5))
+
+"""
+    covers_data(scene, plot, box)
+
+Whether `box` [pixels of `scene`] covers a vertex or crosses a segment of `plot`, when it
+is a line or scatter plot of data.
+"""
+function covers_data(scene, plot, box)
+    plot isa Union{Makie.Lines, Makie.Scatter, Makie.LineSegments, Makie.Arrows2D} ||
+        return false
+    data = plot isa Makie.Arrows2D ?
+           [point for (tail, vector) in zip(plot[1][], plot[2][])
+            for point in (tail, tail + vector)] : plot[1][]
+    points = [Point2f(Makie.project(scene, :data, :pixel,
+        Point3f(point[1], point[2], 0))[1:2]) for point in data]
+    plot isa Makie.Scatter && return any(in(box), filter(point -> all(isfinite, point),
+        points))
+    steps = plot isa Union{Makie.LineSegments, Makie.Arrows2D} ?
+            (1:2:(length(points) - 1)) :
+            (1:(length(points) - 1))
+    return any(segment_crosses(points[k], points[k + 1], box) for k in steps
+               if all(isfinite, points[k]) && all(isfinite, points[k + 1]))
+end
+
+"whether the segment from `a` to `b` passes through `box`, sampled every half point"
+function segment_crosses(a, b, box)
+    samples = max(2, ceil(Int, hypot((b - a)...) / pt(0.5)))
+    return any(in(a + (b - a) * (k / samples), box) for k in 0:samples)
+end
+
 "`text` with each hyphen set as the minus sign, as the axes print negative numbers"
 typeset_minus(text) = replace(text, "-" => "−")
 "the [`study_drives`](@ref) with their names in figure labels"
