@@ -17,20 +17,23 @@
 \fill[black!25] (23.5,-4.5) rectangle (29,4.5);
 \draw[air, ->, thick] (68,27) -- (61,17) node[pos=0.3, right] {apparent wind};
 % leeway: the heading against the course through the water
-\draw[black!50, dotted] (20,0) -- (2,0);
-\draw[black!50, dashed] (55,0) -- (2,5.8);
-\draw[black!50] (8,0) arc[start angle=180, end angle=173.7, radius=47];
-\node[black!60] at (5.5,2.3) {$\beta$};
-\node[black!60, anchor=south west, inner sep=1pt] at (2,5.8) {course};
-% propeller and rudder
-\fill[black] (19.2,-2) rectangle (19.8,2);
-\draw[line width=1.6pt] (16.5,-1.6) -- (16.5,1.6);
-\draw[force] (21,0) -- (39,0) node[right, inner sep=1pt] {$T_\mathrm{req}$};
-\draw[force, water] (16.5,0) -- (16.5,10);
-\node[part, anchor=north, align=center] at (17,-10.5) {propeller: $T_\mathrm{req}$\\ \textcolor{blue!70!black}{rudder: $F_r$, drag $R_r$}\\ \S\ref{sec:ships}, \S\ref{sec:balance}};
+\draw[black!50, dotted] (13,0) -- (0,0) node[black!70, anchor=north west, inner sep=1pt, pos=1] {heading};
+\draw[black!50, dashed] (55,0) -- (0,6);
+\draw[black!50] (6,0) arc[start angle=180, end angle=173.7, radius=49];
+\node[black!70] at (3.6,2.1) {$\beta$};
+\node[black!70, anchor=south west, inner sep=1pt] at (0,6) {course};
+% propeller under the stern, rudder behind it
+\fill[black!75] (18.6,0) ellipse (0.55 and 2.8);
+\fill[black!75] (18.6,0) circle (0.8);
+\fill[water] (17.6,0) .. controls (17.2,0.75) and (14.6,0.55) .. (13.4,0)
+  .. controls (14.6,-0.55) and (17.2,-0.75) .. (17.6,0) -- cycle;
+\draw[force] (18.6,0) -- (39,0) node[right, inner sep=1pt] {$T_\mathrm{req}$};
+\draw[force, water] (15.5,0.7) -- (15.5,10.5);
+\node[part, water, anchor=south, align=center] at (15.5,10.8) {rudder: $F_r$, drag $R_r$, \S\ref{sec:balance}};
+\node[part, anchor=north east, align=right] at (19.4,-4.6) {propeller, \S\ref{sec:ships}};
 % wind on the ship
-\draw[force, air] (38,16) -- (31,6.5);
-\node[part, air, anchor=east, align=right] at (37,18) {wind on ship: $R_\mathrm{air}$,\\ side force, moments, \S\ref{sec:ships}};
+\draw[force, air] (40,19) -- (31,6.5);
+\node[part, air, anchor=east, align=right] at (39,21.5) {wind on ship: $R_\mathrm{air}$,\\ side force, moments, \S\ref{sec:ships}};
 % rig
 \fill[rig] (50,0) circle (1.3);
 \draw[rig, dashed, ->, semithick] (50,0) -- (62,0) node[above, rig, inner sep=1pt] {$F_x$};
