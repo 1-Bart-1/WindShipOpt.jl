@@ -2333,6 +2333,26 @@ end
     @test spread(96.0) == 4.0
 end
 
+@testset "a plan weighing wind error estimates the rest of its passage on its forecast" begin
+    stage_count, lateral_count = size(corridor.lat)
+    workspace = WindShipOpt.RouteWorkspace(lateral_count, 800, stage_count)
+    known = SyntheticWeather()
+    uncertain = WindShipOpt.UncertainForecast(known, 0.0, ForecastError(6.0, [4.0]))
+    estimate(weather) = copy(WindShipOpt.CostToGo(workspace, corridor, kite_route_table,
+        weather, 24.0 * 31; time_cost=hourly, first_stage=1, coastal_penalty=1.0).values)
+    @test isequal(estimate(uncertain), estimate(known))
+end
+
+@testset "the final pass of a plan weighing wind error runs on its own time bins" begin
+    settings = WindShipOpt.RouterSettings(final_time_step=0.5, weighed_final_time_step=2.0)
+    uncertain = WindShipOpt.UncertainForecast(SyntheticWeather(), 0.0,
+        ForecastError(6.0, [4.0]))
+    steps = WindShipOpt.with_router_settings(settings) do
+        WindShipOpt.final_time_step.((SyntheticWeather(), uncertain))
+    end
+    @test steps == (0.5, 2.0)
+end
+
 "Value `share` of the way through interval `i` of `knots`"
 place_in_cell(knots, i, share) = knots[i] + share * (knots[i + 1] - knots[i])
 

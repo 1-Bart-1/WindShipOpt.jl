@@ -357,6 +357,8 @@ Base.@kwdef struct RouterSettings
     to_go_step::Float64 = 24.0
     "length of the time bins of the final pass along the path found [h]"
     final_time_step::Float64 = 0.25
+    "`final_time_step` of a plan that weighs the wind error of its forecast [h]"
+    weighed_final_time_step::Float64 = 1.0
     "how far the final pass strays in time from the path found [h]"
     final_time_band::Float64 = 24.0
 end
@@ -1210,22 +1212,27 @@ function path_corridor(leg::Leg, corridor::Corridor, first_stage)
         0.0, zeros(stage_count))
 end
 
+"length of the time bins [h] of the [`final_pass`](@ref) of a plan on `weather`"
+final_time_step(weather) = ROUTER_SETTINGS[].final_time_step
+
 """
     final_pass(leg, corridor, table, weather, departure; time_cost, first_stage,
                first_aloft, coastal_penalty)
 
 The cheaper of `leg` and the [`route_pass`](@ref) along its path at all speeds of `table`,
-on the bins and within the band in time of `ROUTER_SETTINGS`.
+on the bins of [`final_time_step`](@ref) and within the band in time of
+`ROUTER_SETTINGS`.
 """
 function final_pass(leg::Leg, corridor, table, weather, departure; time_cost, first_stage,
         first_aloft, coastal_penalty)
-    (; final_time_step, final_time_band) = ROUTER_SETTINGS[]
-    workspace = acquire_workspace(1, ceil(Int, MAX_LEG_HOURS / final_time_step),
+    time_step = final_time_step(weather)
+    workspace = acquire_workspace(1, ceil(Int, MAX_LEG_HOURS / time_step),
         length(leg.path))
     try
-        band = PassageBand([point[3] for point in leg.path], final_time_band)
+        band = PassageBand([point[3] for point in leg.path],
+            ROUTER_SETTINGS[].final_time_band)
         refined = route_pass(workspace, path_corridor(leg, corridor, first_stage), table,
-            weather, departure, band; time_cost, time_step=final_time_step, first_stage=1,
+            weather, departure, band; time_cost, time_step, first_stage=1,
             first_lateral=1, first_aloft, coastal_penalty, speed_stride=1)
         return isnothing(refined) || refined.objective > leg.objective ? leg : refined
     finally
@@ -1712,7 +1719,7 @@ struct ReplannedForecast{F, G}
 end
 
 """
-    PlanningGrid(mask; near_distance=480.0, far_spacing=720.0, far_row_stride=4,
+    PlanningGrid(mask; near_distance=240.0, far_spacing=720.0, far_row_stride=8,
                  far_sample_hours=12.0)
 
 Stages a re-planning ship plans on: those of its corridor within `near_distance` [nmi]
@@ -1728,7 +1735,7 @@ struct PlanningGrid{M}
     far_sample_hours::Float64
 end
 
-PlanningGrid(mask; near_distance=480.0, far_spacing=720.0, far_row_stride=4,
+PlanningGrid(mask; near_distance=240.0, far_spacing=720.0, far_row_stride=8,
     far_sample_hours=12.0) =
     PlanningGrid(mask, near_distance, far_spacing, far_row_stride, far_sample_hours)
 
