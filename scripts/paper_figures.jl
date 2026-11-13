@@ -1300,7 +1300,7 @@ function winner_map_figure()
     groups = limit_groups(table)
     route_names_seen = route_order
     kinds = ["kite", "wings", "rotors"]
-    winners = Set{String}()
+    bands = Set{String}()
     figure = Figure(size=(page_width, 400))
     for (row, (limit, names)) in enumerate(groups), (column, (drive, title)) in
                                                      enumerate(drive_panels)
@@ -1316,12 +1316,17 @@ function winner_map_figure()
         for (i, route) in enumerate(route_names_seen), (k, name) in enumerate(names)
             savings = best_savings(table, name, route, drive)
             isempty(savings) && continue
-            winner = argmax(savings)
-            best = savings[winner]
-            best > 0 && push!(winners, winner)
-            colour = best > 0 ? (palette[findfirst(==(winner), kinds)], 0.45 + 0.55 *
-                                 min(best, 40) / 40) : (:gray, 0.6)
-            poly!(axis, Rect2f(i - 0.5, k - 0.5, 1, 1); color=colour)
+            band = fleet_band(savings)
+            push!(bands, band)
+            ranked = sort(collect(savings); by=last, rev=true)
+            best = last(first(ranked))
+            shade(rig) = winner_shade(palette[findfirst(==(rig), kinds)], best)
+            base = band == "none" ? fleet_colours()["none"] : shade(first(first(ranked)))
+            fill = band == "level" ? Pattern("/"; backgroundcolor=base,
+                linecolor=palette[findfirst(==(first(ranked[2])), kinds)], width=1.2,
+                tilesize=(6, 6)) : base
+            poly!(axis, Rect2f(i - 0.5, k - 0.5, 1, 1); color=fill, strokecolor=base,
+                strokewidth=pt(0.4))
             text!(axis, i, k; text=typeset_minus(abs(best) < 1 ? @sprintf("%.1f", best) :
                                                  string(round(Int, best))),
                 align=(:center, :center), fontsize=note_size)
@@ -1331,13 +1336,24 @@ function winner_map_figure()
     for (row, (_, names)) in enumerate(groups)
         rowsize!(figure.layout, row, Auto(length(names)))
     end
-    shown = filter(in(winners), kinds)
-    Legend(figure[1, length(drive_panels), Top()],
-        [PolyElement(color=palette[findfirst(==(kind), kinds)]) for kind in shown], shown;
-        orientation=:horizontal, halign=:right, valign=:bottom, tellwidth=false,
-        margin=(0, 0, pt(2), 0))
+    colours = fleet_colours()
+    shown = [band for band in fleet_bands if band in bands]
+    Legend(figure[0, 1:length(drive_panels)],
+        [PolyElement(color=colours[band]) for band in shown],
+        [get(Dict("wings" => "wing sails", "none" => "no rig"), band, band) for band in shown];
+        orientation=:horizontal, halign=:right, tellwidth=false, margin=(0, 0, 0, 0))
+    rowgap!(figure.layout, 1, 0)
     save_figure("winner_map", figure)
 end
+
+"""
+    winner_shade(colour, saving)
+
+`colour` mixed with white for a cell of the winner map whose best rig saves `saving` [%]:
+the paler, the smaller the saving, full at 40 %.
+"""
+winner_shade(colour, saving) = Makie.Colors.weighted_color_mean(
+    0.55 + 0.45 * clamp(saving, 0, 40) / 40, RGBf(Makie.to_color(colour)), RGBf(1, 1, 1))
 
 """
     fleet_share_panel!(axis, splits, measure)

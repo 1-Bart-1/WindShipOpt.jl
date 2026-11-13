@@ -1732,7 +1732,8 @@ goal_numbers() = [
 
 Name and text, per drive and rig, of the mean over the classes and routes of the class
 table `classes` of the cost saving [%] of the cheapest size, and of the cells of class
-and route where the rig saves most and saves at all, with the count of cells.
+and route where the rig leads by [`fleet_band`](@ref), with the counts of cells and of
+level cells.
 """
 function class_numbers(classes)
     numbers = Pair{String, String}[]
@@ -1740,13 +1741,14 @@ function class_numbers(classes)
         cells = filter(!isempty, [best_savings(classes, class, route, drive)
                                   for class in class_order(classes)
                                   for route in unique(classes["route"])])
-        leaders = [argmax(cell) for cell in cells if maximum(values(cell)) > 0]
-        push!(numbers, "Cells$word" => string(length(cells)))
+        bands = fleet_band.(cells)
+        push!(numbers, "Cells$word" => string(length(cells)),
+            "Level$word" => string(count(==("level"), bands)))
         for rig in rig_names
             name = word * uppercasefirst(rig)
             push!(numbers, "Saving$name" => whole_number(
                     mean(cell[rig] for cell in cells if haskey(cell, rig))),
-                "Leads$name" => string(count(==(rig), leaders)))
+                "Leads$name" => string(count(==(rig), bands)))
         end
     end
     return numbers
