@@ -43,6 +43,8 @@ set_theme!(fontsize=text_size, linewidth=line_width, markersize=marker_size,
         titlefont=:regular, patchsize=(pt(11), pt(6)), patchlabelgap=pt(3), rowgap=0,
         colgap=pt(7), titlegap=pt(2), groupgap=pt(5), padding=(pt(3), pt(3), pt(1.5),
             pt(1.5)), margin=(pt(3), pt(3), pt(3), pt(3))))
+"`text` with each hyphen set as the minus sign, as the axes print negative numbers"
+typeset_minus(text) = replace(text, "-" => "−")
 "the [`study_drives`](@ref) with their names in figure labels"
 drive_labels = [string(drive) => Dict(:vlsfo => "VLSFO", :ammonia => "e-ammonia")[drive]
                 for drive in study_drives]
@@ -364,8 +366,9 @@ function rig_comparison_figure()
         for (i, k, saving) in cells
             poly!(axis, Rect2f(i - 0.5, k - 0.5, 1, 1);
                 color=get(cgrad(:RdBu), (clamp(saving, -30, 30) + 30) / 60))
-            text!(axis, i, k; text=string(round(Int, saving)), fontsize=note_size,
-                align=(:center, :center), color=abs(saving) > 18 ? :white : :black)
+            text!(axis, i, k; text=typeset_minus(string(round(Int, saving))),
+                fontsize=note_size, align=(:center, :center),
+                color=abs(saving) > 18 ? :white : :black)
         end
         for (i, k) in best
             poly!(axis, Rect2f(i - 0.47, k - 0.47, 0.94, 0.94); color=:transparent,
@@ -392,7 +395,7 @@ function route_figure()
     designs = (ShipDesign(:ammonia, 140.0), ShipDesign(:ammonia, 140.0; kite_area=3200.0))
     port_hours = 24assumptions[:port_time_per_call]
     seasons = (("winter", 1), ("summer", findfirst(>=(24 * 181), departures)))
-    figure = Figure(size=(page_width, 300))
+    figure = Figure(size=(page_width, 255))
     for (column, (season, index)) in enumerate(seasons)
         axis = Axis(figure[1, column]; title="($('a' + column - 1)) $season departure",
             xlabel="longitude [°]",
@@ -500,7 +503,7 @@ function passage_figure()
         end
     end
     linkxaxes!(panels...)
-    Legend(figure[1, 3], panels[1]; tellheight=false)
+    Legend(figure[1, 3], panels[1]; tellheight=false, tellwidth=false)
     rowsize!(figure.layout, 1, Relative(0.6))
     save(joinpath(figures, "passage.pdf"), figure; pt_per_unit=print_scale)
 end
@@ -563,8 +566,8 @@ function savings_panel!(axis, table, groups, drive, column, format)
         leader = known[argmax(group_means[known])]
         hspan!(axis, i - 0.5, i + 0.5;
             color=group_means[leader] > 0 ? (palette[leader], 0.2) : (:gray, 0.2))
-        text!(axis, number_x, i; text=replace(Printf.format(format, group_means[leader]),
-                "-" => "−"), align=(:right, :center), fontsize=note_size)
+        text!(axis, number_x, i; text=typeset_minus(Printf.format(format,
+                group_means[leader])), align=(:right, :center), fontsize=note_size)
     end
     vlines!(axis, 0; color=:gray, linewidth=0.5)
     hlines!(axis, length(groups) - 1.5; color=:black, linewidth=0.5)
@@ -908,8 +911,8 @@ function winner_map_figure()
             colour = best > 0 ? (palette[findfirst(==(winner), kinds)], 0.35 + 0.65 *
                                  min(best, 40) / 40) : (:gray, 0.25)
             poly!(axis, Rect2f(i - 0.5, k - 0.5, 1, 1); color=colour)
-            text!(axis, i, k; text=string(round(Int, best)), align=(:center, :center),
-                fontsize=note_size)
+            text!(axis, i, k; text=typeset_minus(string(round(Int, best))),
+                align=(:center, :center), fontsize=note_size)
         end
     end
     for (row, (_, names)) in enumerate(groups)
