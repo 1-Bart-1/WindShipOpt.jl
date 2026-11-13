@@ -603,7 +603,7 @@ end
     @test WindShipOpt.wear_cost(rig, shorter) - flown ≈ canopy / assumptions[:canopy_life]
 end
 
-# Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
+# Expected forces are the hand calculation of tab:hand in paper/sections/trust.tex.
 @testset "wing force follows true wind, shear and ship speed as worked by hand" begin
     env = Environment(assumptions)
     wings = WingRig(800.0, Hull(140.0, assumptions), assumptions)
@@ -620,7 +620,7 @@ end
     @test force(0).thrust < 0 < force(0).side
 end
 
-# Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
+# Expected forces are the hand calculation of tab:hand in paper/sections/trust.tex.
 @testset "rotor force and spin power follow the apparent wind as worked by hand" begin
     env = Environment(assumptions)
     rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions)
@@ -637,7 +637,7 @@ end
     @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.UNREACHABLE_RIG_FORCE
 end
 
-# Expected forces are the hand calculation of tab:hand in paper/sections/checks.tex.
+# Expected forces are the hand calculation of tab:hand in paper/sections/trust.tex.
 @testset "kite force turns from the wind's frame onto the course as worked by hand" begin
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
