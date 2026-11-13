@@ -14,7 +14,8 @@ const PAPER_HULL = Hull(; length=205.0, beam=32.0, draft=10.0, displacement_volu
     appendage_area=50.0, appendage_form_factor=1.5)
 
 assumptions = Assumptions()
-corridors = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+corridors = route_corridors(:caribbean, north_atlantic_mask(); ocean_spacing=1440.0,
+    lateral_spacing=960.0)
 
 # The study's search is too coarse for the small route differences tested here.
 WindShipOpt.ROUTER_SETTINGS[] = WindShipOpt.RouterSettings(time_step=1.5,
@@ -1396,6 +1397,10 @@ end
     @test sailed.duration > 0 && sailed.fuel_energy > 0
 end
 
+"the result of `call()` by a planner that plans on the whole corridor, as `route` does"
+on_whole_corridor(call) = WindShipOpt.with_router_settings(call,
+    WindShipOpt.with_changed(WindShipOpt.ROUTER_SETTINGS[]; near_distance=Inf))
+
 @testset "a ship on a long forecast flies its kite about as the plan does" begin
     ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
     kite_table = RouteTable(PerformanceTable(ship, assumptions))
@@ -1403,8 +1408,10 @@ end
         assumptions))
     weather, departure = SyntheticWeather(), 24.0 * 121
     leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
-    sailed = forecast_route(corridor, kite_table, weather, departure;
-        time_cost=kite_hourly, horizon=24.0 * 100)
+    sailed = on_whole_corridor() do
+        forecast_route(corridor, kite_table, weather, departure; time_cost=kite_hourly,
+            horizon=24.0 * 100)
+    end
     @test leg.launches > 0
     @test sailed.launches == leg.launches
     @test sailed.flight_hours ≈ leg.flight_hours rtol = 0.02
@@ -1469,9 +1476,12 @@ end
     node_spacing(corridor) = WindShipOpt.distance(corridor.lat[end, 1],
         corridor.lon[end, 1], corridor.lat[end, 2], corridor.lon[end, 2]) /
                              WindShipOpt.NAUTICAL_MILE
-    coarse = first(route_corridors(:caribbean, mask; scale=16))
-    finer_rows = first(route_corridors(:caribbean, mask; scale=16, lateral_spacing=480.0))
-    finer_stages = first(route_corridors(:caribbean, mask; scale=8, lateral_spacing=960.0))
+    coarse = first(route_corridors(:caribbean, mask; ocean_spacing=1440.0,
+        lateral_spacing=960.0))
+    finer_rows = first(route_corridors(:caribbean, mask; ocean_spacing=1440.0,
+        lateral_spacing=480.0))
+    finer_stages = first(route_corridors(:caribbean, mask; ocean_spacing=720.0,
+        lateral_spacing=960.0))
     @test node_spacing(coarse) ≈ 960.0 rtol=1e-3
     @test node_spacing(finer_rows) ≈ 480.0 rtol=1e-3
     @test node_spacing(finer_stages) ≈ 960.0 rtol=1e-3
@@ -1482,7 +1492,8 @@ end
 end
 
 @testset "a ship on a forecast holds through a gale it cannot sail in" begin
-    corridor, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    corridor, _ = route_corridors(:caribbean, north_atlantic_mask(); ocean_spacing=720.0,
+        lateral_spacing=480.0)
     departure = 24.0 * 31
     weather = GaleWeather(SyntheticWeather(), departure + 10.0)
     @test isnothing(route(corridor, table, weather, departure; time_cost=hourly))
@@ -1587,7 +1598,8 @@ an 85 m e-methanol coaster with 400 m^2 of kite.
 """
 function kite_coaster_routing()
     ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
-    return (; corridor=first(route_corridors(:caribbean, north_atlantic_mask(); scale=8)),
+    return (; corridor=first(route_corridors(:caribbean, north_atlantic_mask();
+            ocean_spacing=720.0, lateral_spacing=480.0)),
         kite_table=RouteTable(PerformanceTable(ship, assumptions)),
         kite_hourly=first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
             assumptions)), weather=SyntheticWeather(), departure=24.0 * 121)
@@ -1854,7 +1866,8 @@ end
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions))
     departure, weather = 24.0 * 121, SyntheticWeather()
-    finer, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    finer, _ = route_corridors(:caribbean, north_atlantic_mask(); ocean_spacing=720.0,
+        lateral_spacing=480.0)
     plan_only, by_speed, by_course = (forecast_route(finer, kite_table, weather, departure;
             time_cost=kite_hourly,
             forecast=ReplannedForecast(CountedForecast(8.0, 0); interval=48.0, adapts)).objective
@@ -1871,7 +1884,7 @@ end
     closed = WindShipOpt.Corridor(corridor.lat, corridor.lon, corridor.water,
         corridor.edge_length, edge_course, corridor.track_length, corridor.near_coast,
         corridor.along_centre, corridor.reach, corridor.lateral_spacing,
-        corridor.sample_hours)
+        corridor.sample_hours, corridor.mask)
     prices = (; fuel=table.table.ship.fuel.price, time=hourly)
     to_go = WindShipOpt.remaining_cost(corridor, table, weather, departure, prices;
         first_stage=1, coastal_penalty=1.0)
@@ -1921,12 +1934,10 @@ WindShipOpt.is_land(mask::ChannelMask, lat, lon) =
 
 @testset "a ship planning on a coarse far grid can reach port from every node" begin
     mask = ChannelMask()
-    grid = PlanningGrid(mask)
     for leg in route_corridors(:caribbean, mask; ocean_spacing=240.0, lateral_spacing=60.0)
         @test all(findall(leg.water[1:(end - 1), :])) do node
             stage, lateral = Tuple(node)
-            planning, first_stage, _ = WindShipOpt.planning_corridor(leg, stage, lateral,
-                grid)
+            planning, first_stage, _ = WindShipOpt.planning_corridor(leg, stage, lateral)
             reaches_port(planning, lateral, first_stage)
         end
     end
@@ -1968,7 +1979,6 @@ end
 
 @testset "every node of every corridor offers an even spread of forward headings" begin
     mask = north_atlantic_mask()
-    grid = PlanningGrid(mask)
     for route in (:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao),
         scale in (1, 8), leg in route_corridors(route, mask; scale)
 
@@ -1977,7 +1987,7 @@ end
         @test all(1:6:(size(leg.lat, 1) - 1)) do stage
             centre = WindShipOpt.centre_index(leg)
             leg.water[stage, centre] || return true
-            headings_even(first(WindShipOpt.planning_corridor(leg, stage, centre, grid)))
+            headings_even(first(WindShipOpt.planning_corridor(leg, stage, centre)))
         end
     end
 end
@@ -2868,7 +2878,8 @@ end
 end
 
 @testset "a trace of a leg replays the kite decisions and the rig trim the router made" begin
-    outbound, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    outbound, _ = route_corridors(:caribbean, north_atlantic_mask(); ocean_spacing=1440.0,
+        lateral_spacing=960.0)
     weather = SyntheticWeather()
     departure = 24.0 * 31
     for design in (ShipDesign(:methanol, 85.0; kite_area=500.0),
@@ -3534,16 +3545,16 @@ end
     weather = PassingGale(SyntheticWeather(), calm.path[stage][1:2], departure,
         departure + 2calm.duration)
     costs, corridors = (hourly, hourly), (corridor, corridor)
-    outbound, back = PaperData.round_trip_courses(table, corridors, weather, departure,
-        port_hours, costs, nothing)
+    outbound, back = on_whole_corridor(() -> PaperData.round_trip_courses(table, corridors,
+        weather, departure, port_hours, costs, nothing))
     out = route(corridor, table, weather, departure; time_cost=hourly)
     course_from(start) = WindShipOpt.path_corridor(
         route(corridor, table, weather, start; time_cost=hourly), corridor, 1).lat
     @test outbound.lat == course_from(departure)
     @test back.lat == course_from(departure + out.duration + port_hours)
     @test back.lat != course_from(departure)
-    samples = PaperData.round_trip_samples(table, corridors, weather, departure, port_hours,
-        costs, PerfectForecast())
+    samples = on_whole_corridor(() -> PaperData.round_trip_samples(table, corridors,
+        weather, departure, port_hours, costs, PerfectForecast()))
     @test issorted(sample.hours for sample in samples)
     @test maximum(sample.hours for sample in samples) > out.duration + port_hours
 end
@@ -3602,7 +3613,8 @@ end
     @test rad2deg(PaperData.wing_incidence(wings, stalled)) ≈ 90 atol=1e-6
     ship = Ship(ShipDesign(:methanol, 85.0; rotor_area=100.0), assumptions)
     table = PerformanceTable(ship, assumptions)
-    outbound, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=16)
+    outbound, _ = route_corridors(:caribbean, north_atlantic_mask(); ocean_spacing=1440.0,
+        lateral_spacing=960.0)
     weather = SyntheticWeather()
     leg = route(outbound, RouteTable(table), weather, 24.0 * 31; time_cost=300.0)
     trace = LegTrace(table, leg, weather, 24.0 * 31)

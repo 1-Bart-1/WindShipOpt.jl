@@ -26,7 +26,7 @@ const COASTAL_SPACING = 30.0
 Graph for weather routing: stages along a reference track, each with a row of lateral
 nodes; edges join a node to nodes up to `reach` rows away in the next stage.
 """
-struct Corridor
+struct Corridor{M}
     "node latitude [deg], stage × lateral"
     lat::Matrix{Float64}
     "node longitude [deg], stage × lateral"
@@ -50,6 +50,8 @@ struct Corridor
     "longest time between the weather samples along the edges of each stage that a plan may
     use [h]; 0 keeps the plan's own"
     sample_hours::Vector{Float64}
+    "land the corridor's edges keep clear of, `nothing` for one whose edges are given"
+    mask::M
 end
 
 "edges leaving each node of `corridor`"
@@ -126,7 +128,7 @@ function Corridor(departure::Vector{NTuple{2, Float64}},
     track_length = sum(distance(track[i]..., track[i + 1]...) for i in 1:(stage_count - 1))
     return Corridor(lat, lon, leading_to_port(lat, lon, water, mask, reach)..., track_length,
         reshape(BitVector(near_coast), size(lat)), along_centre_line(lat, lon), reach,
-        lateral_spacing * NAUTICAL_MILE, zeros(stage_count))
+        lateral_spacing * NAUTICAL_MILE, zeros(stage_count), mask)
 end
 
 """
@@ -228,7 +230,7 @@ end
 """
     return_corridor(corridor, mask)
 
-The same corridor sailed from its last stage to its first.
+The same corridor sailed from its last stage to its first, clear of land by `mask`.
 """
 function return_corridor(corridor::Corridor, mask)
     lat = reverse(corridor.lat; dims=1)
@@ -237,7 +239,7 @@ function return_corridor(corridor::Corridor, mask)
     return Corridor(lat, lon, leading_to_port(lat, lon, water, mask, corridor.reach)...,
         corridor.track_length, reverse(corridor.near_coast; dims=1),
         along_centre_line(lat, lon), corridor.reach, corridor.lateral_spacing,
-        reverse(corridor.sample_hours))
+        reverse(corridor.sample_hours), mask)
 end
 
 """
@@ -343,7 +345,8 @@ end
 """
     RouterSettings
 
-Numerical settings of [`route`](@ref).
+Numerical settings of the planner: the search of [`route`](@ref) and the grid
+[`forecast_route`](@ref) plans each stretch on by [`planning_corridor`](@ref).
 """
 Base.@kwdef struct RouterSettings
     "longest time between the weather samples along an edge [h]"
@@ -367,6 +370,16 @@ Base.@kwdef struct RouterSettings
     weighed_final_time_step::Float64 = 1.0
     "how far the final pass strays in time from the path found [h]"
     final_time_band::Float64 = 24.0
+    "longest time between the weather samples along an edge of the [`CostToGo`](@ref) [h]"
+    to_go_sample_hours::Float64 = 6.0
+    "how far ahead of the ship a plan keeps every stage and row of its corridor [nmi]"
+    near_distance::Float64 = 240.0
+    "spacing of the stages a plan keeps beyond `near_distance` [nmi]"
+    far_spacing::Float64 = 720.0
+    "rows a plan keeps beyond `near_distance`: every `far_row_stride`-th from the centre"
+    far_row_stride::Int = 8
+    "longest time between the weather samples along an edge beyond `near_distance` [h]"
+    far_sample_hours::Float64 = 12.0
 end
 
 "[`RouterSettings`](@ref) in force"
@@ -960,9 +973,6 @@ const COST_TO_GO_SPEED_STRIDE = 2
 "Indices of every `stride`-th of `count` ascending speeds, ending at the fastest"
 commanded_speeds(count, stride) = (1 + (count - 1) % stride):stride:count
 
-"longest time between the weather samples along an edge of a [`CostToGo`](@ref) [h]"
-const COST_TO_GO_SAMPLE_HOURS = 6.0
-
 """
     CostToGo
 
@@ -1063,7 +1073,7 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices,
     daylight = is_daylight(lon, departure + time)
     kite = has_kite(table)
     speed_stride = COST_TO_GO_SPEED_STRIDE * ROUTER_SETTINGS[].search_speed_stride
-    sample_hours = max(COST_TO_GO_SAMPLE_HOURS, corridor.sample_hours[stage])
+    sample_hours = max(ROUTER_SETTINGS[].to_go_sample_hours, corridor.sample_hours[stage])
     best_down, best_up = Inf, Inf
     for step in 1:step_count(corridor)
         isnan(corridor.edge_course[stage, lateral, step]) && continue
@@ -1199,7 +1209,7 @@ function leg_corridor(leg::Leg)
     end
     return Corridor(lat, lon, trues(stage_count, 1), edge_length, edge_course, 0.0,
         falses(stage_count, 1), along_centre_line(lat, lon), MAX_LATERAL_STEP, 0.0,
-        zeros(stage_count))
+        zeros(stage_count), nothing)
 end
 
 """
@@ -1227,7 +1237,7 @@ function path_corridor(leg::Leg, corridor::Corridor, first_stage)
     end
     return Corridor(lat, lon, trues(stage_count, 1), edge_length, edge_course,
         corridor.track_length, near_coast, along_centre_line(lat, lon), MAX_LATERAL_STEP,
-        0.0, zeros(stage_count))
+        0.0, zeros(stage_count), nothing)
 end
 
 "length of the time bins [h] of the [`final_pass`](@ref) of a plan on `weather`"
@@ -1816,63 +1826,40 @@ known_weather(::PerfectForecast, weather, time, horizon) =
     known_weather(nothing, weather, time, Inf)
 
 """
-    ReplannedForecast(forecast; interval=24.0, adapts=:nothing, grid=nothing)
+    ReplannedForecast(forecast; interval=24.0, adapts=:nothing)
 
 The forecast source `forecast` of a ship that re-plans at the first node `interval` [h]
-or more after its last plan, that between plans chooses each edge's speed (`:speed`)
-or also its next node (`:course`) by [`adapted_edge`](@ref), and that plans on the
-[`PlanningGrid`](@ref) `grid`, or on its whole corridor where that is `nothing`.
+or more after its last plan, and that between plans chooses each edge's speed (`:speed`)
+or also its next node (`:course`) by [`adapted_edge`](@ref).
 """
-struct ReplannedForecast{F, G}
+struct ReplannedForecast{F}
     forecast::F
     interval::Float64
     adapts::Symbol
-    grid::G
-    function ReplannedForecast(forecast::F; interval=24.0, adapts=:nothing,
-            grid::G=nothing) where {F, G}
+    function ReplannedForecast(forecast::F; interval=24.0, adapts=:nothing) where {F}
         adapts in (:nothing, :speed, :course) ||
             throw(ArgumentError("adapts must be :nothing, :speed or :course, not $adapts"))
-        return new{F, G}(forecast, interval, adapts, grid)
+        return new{F}(forecast, interval, adapts)
     end
 end
 
 """
-    PlanningGrid(mask; near_distance=240.0, far_spacing=720.0, far_row_stride=8,
-                 far_sample_hours=12.0)
-
-Stages a re-planning ship plans on: those of its corridor within `near_distance` [nmi]
-ahead, then stages about `far_spacing` [nmi] apart whose edges may shift as many rows as
-their length allows, on every `far_row_stride`-th row, with weather samples at most
-`far_sample_hours` [h] apart, clear of land by `mask`.
-"""
-struct PlanningGrid{M}
-    mask::M
-    near_distance::Float64
-    far_spacing::Float64
-    far_row_stride::Int
-    far_sample_hours::Float64
-end
-
-PlanningGrid(mask; near_distance=240.0, far_spacing=720.0, far_row_stride=8,
-    far_sample_hours=12.0) =
-    PlanningGrid(mask, near_distance, far_spacing, far_row_stride, far_sample_hours)
-
-"""
-    planning_stages(corridor, stage, grid)
+    planning_stages(corridor, stage, settings)
 
 Numbers of the stages of `corridor` a ship at `stage` plans on by the
-[`PlanningGrid`](@ref) `grid`, and how many of them lie in its near part. Its far part
-keeps every stage of the corridor's fixed coastal track and the stage that joins it.
+[`RouterSettings`](@ref) `settings`, and how many of them lie in its near part: every
+stage within `near_distance` ahead, then stages about `far_spacing` apart, keeping every
+stage of the corridor's fixed coastal track and the stage that joins it.
 """
-function planning_stages(corridor::Corridor, stage, grid::PlanningGrid)
+function planning_stages(corridor::Corridor, stage, settings::RouterSettings)
     along = corridor.along_centre
     stage_count = length(along)
     fixed = [count(view(corridor.water, i, :)) == 1 for i in 1:stage_count]
-    near_end = along[stage] + grid.near_distance * NAUTICAL_MILE
+    near_end = along[stage] + settings.near_distance * NAUTICAL_MILE
     last_near = clamp(searchsortedlast(along, near_end), min(stage + 1, stage_count),
         stage_count)
     stages = collect(stage:last_near)
-    spacing = grid.far_spacing * NAUTICAL_MILE
+    spacing = settings.far_spacing * NAUTICAL_MILE
     while last(stages) < stage_count
         previous = last(stages)
         next = max(searchsortedfirst(along, along[previous] + spacing), previous + 1)
@@ -1886,35 +1873,40 @@ function planning_stages(corridor::Corridor, stage, grid::PlanningGrid)
 end
 
 """
-    planning_corridor(corridor, stage, lateral, grid)
+    planning_corridor(corridor, stage, lateral)
 
 The [`Corridor`](@ref) a ship at `stage` and `lateral` of `corridor` plans on, the stage it
 starts from there, and how many of its nodes along a plan the ship may sail before planning
-again: `corridor` itself where `grid` is `nothing` or leads nowhere from the ship.
+again. It keeps the [`planning_stages`](@ref), beyond the near part only every
+`far_row_stride`-th row, with edges that may shift as many rows as their length allows and
+weather samples at most `far_sample_hours` apart, by the `ROUTER_SETTINGS` in force. Where
+that leads nowhere from the ship, or `corridor` has no land mask to keep new edges clear by,
+it is `corridor` itself.
 """
-planning_corridor(corridor::Corridor, stage, lateral, ::Nothing) =
-    corridor, stage, typemax(Int)
-
-function planning_corridor(corridor::Corridor, stage, lateral, grid::PlanningGrid)
-    stages, near = planning_stages(corridor, stage, grid)
+function planning_corridor(corridor::Corridor, stage, lateral)
+    whole = (corridor, stage, typemax(Int))
+    isnothing(corridor.mask) && return whole
+    settings = ROUTER_SETTINGS[]
+    stages, near = planning_stages(corridor, stage, settings)
     lat, lon = corridor.lat[stages, :], corridor.lon[stages, :]
     water = corridor.water[stages, :]
     centre = centre_index(corridor)
     far = (near + 1):length(stages)
     for row in axes(water, 2)
-        mod(row - centre, grid.far_row_stride) == 0 || (water[far, row] .= false)
+        mod(row - centre, settings.far_row_stride) == 0 || (water[far, row] .= false)
     end
     lengths = diff(corridor.along_centre[stages])
     spacing = corridor.lateral_spacing
     stage_reach(i) = i < near ? min(corridor.reach, lateral_reach(lengths[i], spacing)) :
                      lateral_reach(lengths[i], spacing)
     reach = maximum(stage_reach, eachindex(lengths))
-    open, edge_length, edge_course = leading_to_port(lat, lon, water, grid.mask, reach,
+    open, edge_length, edge_course = leading_to_port(lat, lon, water, corridor.mask, reach,
         stage_reach)
-    open[1, lateral] || return planning_corridor(corridor, stage, lateral, nothing)
+    open[1, lateral] || return whole
     planning = Corridor(lat, lon, open, edge_length, edge_course, corridor.track_length,
         corridor.near_coast[stages, :], along_centre_line(lat, lon), reach, spacing,
-        [i < near ? 0.0 : grid.far_sample_hours for i in eachindex(stages)])
+        [i < near ? 0.0 : settings.far_sample_hours for i in eachindex(stages)],
+        corridor.mask)
     return planning, 1, near
 end
 
@@ -2212,11 +2204,12 @@ end
     forecast_route(corridor, table, weather, departure; time_cost, horizon=Inf,
                    forecast=nothing, coastal_penalty=1.0, record=nothing)
 
-Passage of a ship that re-plans by [`forecast_plan`](@ref) on the [`RouteTable`](@ref)
-`table` at the first node 24 hours or more after the last plan, on `forecast`: a
+Passage of a ship that plans by [`forecast_plan`](@ref) on the [`RouteTable`](@ref)
+`table` on its [`planning_corridor`](@ref) and re-plans at the first node 24 hours or more
+after the last plan or past the plan's near part, on `forecast`: a
 [`ForecastArchive`](@ref), a [`ForecastEnsemble`](@ref), a [`ShortestLead`](@ref), a
 [`PerfectForecast`](@ref), a [`KiteMargin`](@ref) of one of those, a
-[`ForecastParts`](@ref), a [`ForecastWeather`](@ref) of `horizon` hours where `nothing`, or
+[`ForecastParts`](@ref), the real weather known `horizon` hours ahead where `nothing`, or
 a [`ReplannedForecast`](@ref) with its own interval and adaptation between plans. It sails
 each plan in the real `weather` until the next re-plan by
 [`sail_planned_edge!`](@ref), launching and landing the kite where the real weather of an
@@ -2242,7 +2235,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     points = SailedPoint[]
     held = 0.0
     replanned = forecast isa ReplannedForecast ? forecast : ReplannedForecast(forecast)
-    (; interval, adapts, grid) = replanned
+    (; interval, adapts) = replanned
     planned = replanned.forecast
     keeps_plan, foresight = planned isa PlannedKite, planned isa ForesightKite
     with_margin = planned isa KiteMargin
@@ -2250,7 +2243,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     plan_table = with_margin ? margin_table(table, planned.margin) : table
     while stage < stage_count
         known = known_weather(source, weather, departure + time, horizon)
-        planning, plan_stage, sailable = planning_corridor(corridor, stage, lateral, grid)
+        planning, plan_stage, sailable = planning_corridor(corridor, stage, lateral)
         plan, values = forecast_plan(known, planning, plan_table, departure + time, prices;
             first_stage=plan_stage, first_lateral=lateral, first_aloft=aloft,
             coastal_penalty)
@@ -2335,7 +2328,10 @@ const CORRIDOR_HALF_WIDTH = 2400.0
 const CHANNEL = [(51.98, 4.05), (51.05, 1.60), (50.05, -1.50), (48.80, -6.00)]
 
 "stage and row spacing of a corridor at scale 1 [nmi]"
-const OCEAN_SPACING, LATERAL_SPACING = 90.0, 60.0
+const OCEAN_SPACING, LATERAL_SPACING = 240.0, 60.0
+
+"fewest open-ocean stages of a corridor whose stages are `OCEAN_SPACING` apart"
+const MIN_OCEAN_STAGES = 10
 
 """
 Fixed path from the open ocean to the port of each route (latitude, longitude) [deg], the
@@ -2349,18 +2345,25 @@ const PORT_APPROACHES = Dict(:caribbean => [(16.15, -61.20)],
 
 """
     route_corridors(route, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
-                    lateral_spacing=LATERAL_SPACING * scale)
+                    lateral_spacing=LATERAL_SPACING * scale,
+                    min_ocean_stages=MIN_OCEAN_STAGES * OCEAN_SPACING / ocean_spacing)
 
 Outbound and return corridors between Rotterdam and the port of `route`: `:caribbean`
 (Guadeloupe), `:new_york`, `:bilbao`, `:dakar`, `:houston` or `:tubarao` (Brazil), the same
 band both ways. Each runs through the Channel to Ushant, crosses the open ocean on the great
 circle and follows the `PORT_APPROACHES` path to the port.
-`ocean_spacing` and `lateral_spacing` are the stage and row spacing [nmi]; the band reaches
-`CORRIDOR_HALF_WIDTH` to either side.
+`ocean_spacing` and `lateral_spacing` are the stage and row spacing [nmi], both shrunk
+alike where the crossing would otherwise have fewer than `min_ocean_stages` stages; the band
+reaches `CORRIDOR_HALF_WIDTH` to either side.
 """
 function route_corridors(route::Symbol, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
-        lateral_spacing=LATERAL_SPACING * scale)
-    outbound = Corridor(CHANNEL, PORT_APPROACHES[route], mask; ocean_spacing,
+        lateral_spacing=LATERAL_SPACING * scale,
+        min_ocean_stages=MIN_OCEAN_STAGES * OCEAN_SPACING / ocean_spacing)
+    arrival = PORT_APPROACHES[route]
+    crossing = distance(last(CHANNEL)..., first(arrival)...) / NAUTICAL_MILE
+    shrink = min(1.0, crossing / (min_ocean_stages * ocean_spacing))
+    lateral_spacing *= shrink
+    outbound = Corridor(CHANNEL, arrival, mask; ocean_spacing=ocean_spacing * shrink,
         lateral_spacing,
         lateral_count=2 * ceil(Int, CORRIDOR_HALF_WIDTH / lateral_spacing) + 1)
     return outbound, return_corridor(outbound, mask)

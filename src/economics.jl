@@ -668,25 +668,21 @@ end
     route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly,
                      horizon, forecast)
 
-Outbound and return [`Leg`](@ref) on the [`RouteTable`](@ref) `table` for one departure
-at the outbound and return time costs `hourly` [USD/h], or `nothing` if either fails;
-with a finite forecast `horizon` [h] or a [`ForecastArchive`](@ref) `forecast` the ship
-re-plans daily by [`forecast_route`](@ref).
+Outbound and return [`Leg`](@ref) of [`forecast_route`](@ref) on the [`RouteTable`](@ref)
+`table` for one departure at the outbound and return time costs `hourly` [USD/h], or
+`nothing` if either fails, planned on `forecast`, or on the real weather known `horizon`
+[h] ahead where that is `nothing`.
 """
 function route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly,
         horizon, forecast)
-    out = sail(outbound, table, weather, departure, first(hourly), horizon, forecast)
+    out = forecast_route(outbound, table, weather, departure; time_cost=first(hourly),
+        horizon, forecast)
     isnothing(out) && return nothing
-    back = sail(inbound, table, weather, departure + out.duration + port_hours,
-        last(hourly), horizon, forecast)
+    back = forecast_route(inbound, table, weather, departure + out.duration + port_hours;
+        time_cost=last(hourly), horizon, forecast)
     isnothing(back) && return nothing
     return out, back
 end
-
-sail(corridor, table, weather, departure, hourly, horizon, forecast) =
-    isfinite(horizon) || !isnothing(forecast) ?
-    forecast_route(corridor, table, weather, departure; time_cost=hourly, horizon,
-        forecast) : route(corridor, table, weather, departure; time_cost=hourly)
 
 """
     fuel_store(ship, largest_leg, assumptions)

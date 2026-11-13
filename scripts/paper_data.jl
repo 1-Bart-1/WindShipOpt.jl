@@ -53,8 +53,7 @@ forecast at every time where `:shortest_lead`, the real weather re-planned daily
 `:perfect_replan`, the control forecast weighing its wind error where `:expected`, the
 control forecast's waves with the real wind where `:wave_forecast`, its wind with the real
 waves where `:wind_forecast`, its waves and its wind in `plan.wind_band` [m/s]
-([`ForecastParts`](@ref)) where `plan` has one, the plan of [`grid_plans`](@ref) made on
-[`planning_grid`](@ref) where `plan` is one of those, or the [`write_forecast_plans`](@ref)
+([`ForecastParts`](@ref)) where `plan` has one, or the [`write_forecast_plans`](@ref)
 entry `plan`.
 """
 forecast_source(plan) =
@@ -68,8 +67,6 @@ forecast_source(plan) =
     plan === :shortest_lead ? ShortestLead(forecast_archive) :
     plan === :perfect_replan ? PerfectForecast() :
     plan === :expected ? ExpectedForecast(forecast_archive, forecast_error()) :
-    haskey(grid_plans, plan) ?
-    ReplannedForecast(forecast_source(grid_plans[plan]); grid=planning_grid()) :
     forecast_plans[plan]
 
 """
@@ -1170,17 +1167,7 @@ end
 
 "plans of the forecast study, each as the `forecast` of its [`trip_case`](@ref)"
 forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite, :kite_margin,
-    :expected, :grid_perfect, :grid, :grid_expected)
-
-"plans of the forecast study made on [`planning_grid`](@ref), and the plan each makes there"
-grid_plans = Dict(:grid_perfect => :perfect_replan, :grid => true,
-    :grid_expected => :expected)
-
-"spacing of the stages and rows [nmi] of the corridors [`grid_plans`](@ref) sail"
-grid_spacing = (ocean_spacing=240.0, lateral_spacing=60.0)
-
-"grid that [`grid_plans`](@ref) plan on: their corridor near the ship, coarser beyond"
-planning_grid() = PlanningGrid(mask)
+    :expected)
 
 "[`forecast_study_plans`](@ref) that change only what a kite does"
 kite_only_plans = (:held_kite, :kite_margin)
@@ -1203,9 +1190,9 @@ function forecast_plans_data()
         ensemble_departures, ensemble_departures[begin:4:end])
 end
 
-"plans of the paper's forecast result: perfect foresight on the run's corridors and on the
-planning grid, and the plan the results use"
-forecast_result_plans = (false, :grid_perfect, :grid_expected)
+"plans of the paper's forecast result: perfect foresight, and planned on the control
+forecast weighing its wind error"
+forecast_result_plans = (false, :expected)
 
 """
     forecast_result_data()
@@ -1214,25 +1201,22 @@ The paper's forecast result: [`write_forecast_plans`](@ref) of each of the
 [`forecast_result_plans`](@ref) in forecast_result.csv and forecast_result_kept.csv.
 """
 forecast_result_data() =
-    write_forecast_plans("forecast_result", forecast_result_plans, :grid_perfect)
+    write_forecast_plans("forecast_result", forecast_result_plans, false)
 
 """
     write_forecast_plans(name, plans, control)
 
 The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
-`ensemble_departures`, for each of `plans`, those of [`grid_plans`](@ref) on corridors of
-[`grid_spacing`](@ref): `name`.csv; and the share of its perfect-foresight saving each rig
-keeps per plan with the jackknife standard error over the departures and its difference
-from plan `control`: `name`_kept.csv.
+`ensemble_departures`, for each of `plans`: `name`.csv; and the share of its
+perfect-foresight saving each rig keeps per plan with the jackknife standard error over
+the departures and its difference from plan `control`: `name`_kept.csv.
 """
 function write_forecast_plans(name, plans, control)
     rigs = [("none", 0.0); reference_rigs]
-    grid_corridors = route_corridors(:caribbean, mask; grid_spacing...)
     cases, trips = [], []
     for departure in ensemble_departures
         step_cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...);
-                              forecast=plan, rig, plan=string(plan), departure,
-                              paths=haskey(grid_plans, plan) ? grid_corridors : nothing)
+                              forecast=plan, rig, plan=string(plan), departure)
                           for (rig, area) in rigs, plan in plans
                               if !(plan in kite_only_plans) || rig == "kite"])
         append!(cases, step_cases)

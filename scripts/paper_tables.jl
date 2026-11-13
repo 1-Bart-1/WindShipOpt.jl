@@ -1037,10 +1037,7 @@ function forecast_plans_table()
             ("margin", "Margin for wind"), ("members", "Several members"),
             ("held_kite", "One forecast run, kite held to the plan"),
             ("kite_margin", "One forecast run, kite limits 20\\,\\% tighter in the plan"),
-            ("expected", "One forecast run, wind error weighed"),
-            ("grid_perfect", "Perfect foresight, fine grid near the ship"),
-            ("grid", "One forecast run, fine grid near the ship"),
-            ("grid_expected", "Wind error weighed, fine grid near the ship")))
+            ("expected", "One forecast run, wind error weighed")))
 end
 
 """
