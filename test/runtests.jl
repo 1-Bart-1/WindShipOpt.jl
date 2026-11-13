@@ -140,7 +140,7 @@ function best_pattern_path(model, max_force, assumptions, course)
     return path
 end
 
-@testset "steps of a flown cycle give the pattern's force and peak" begin
+@testset "steps of a flown cycle give its force and peak, noses on the sphere" begin
     soft, soft_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     rigid, rigid_force, = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
     steered = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15))
@@ -157,6 +157,8 @@ end
         @test all(pull ./ (period * load) .≈ force.force)
         @test maximum(step.tension for step in path) ≈ force.peak_tension * load
         @test maximum(step.tension for step in path) <= max_force
+        @test all(abs(WindShipOpt.dot3(step.radial, step.nose)) < 1e-9 &&
+                  WindShipOpt.norm3(step.nose) ≈ 1 for step in path)
     end
 end
 
@@ -3529,6 +3531,10 @@ end
     @test all(isapprox.(position((1.0, 0.0, 0.0), -1), (90.0, 0.0); atol=1e-9))
     @test all(isapprox.(position((0.0, 1.0, 0.0)), (0.0, 0.0); atol=1e-9))
     @test all(isapprox.(position((0.0, 0.0, 1.0)), (0.0, 90.0); atol=1e-9))
+    nose(direction, side=1) = PaperData.nose_angle((0.0, 1.0, 0.0), direction, π / 2, side)
+    @test nose((0.0, 0.0, 1.0)) ≈ 0 atol=1e-9
+    @test nose((1.0, 0.0, 0.0)) ≈ -90 atol=1e-9
+    @test nose((1.0, 0.0, 0.0), -1) ≈ 90 atol=1e-9
     wing_ship = Ship(ShipDesign(:methanol, 85.0; wing_area=300.0), assumptions)
     wings = wing_ship.rig
     attached_range, stalled_range = WindShipOpt.trim_ranges(wings, wing_ship.env, 10.0,
@@ -3561,11 +3567,11 @@ end
     model = first(WindShipOpt.kite_model(500.0, design.kite_aspect_ratio, assumptions))
     table = (; wind_speeds=[12.0], courses=[deg2rad(90.0)], side_weights=[0.0],
         ship.rig.max_force)
-    points, period = only(PaperData.kite_patterns((; rig=table), model))
-    @test length(points) == PaperData.pattern_samples
-    @test period > 0
-    azimuths = [first(PaperData.ship_frame_position(point, deg2rad(90.0), 1))
-                for point in points]
+    cycle = only(PaperData.kite_patterns((; rig=table), model))
+    @test length(cycle.radials) == length(cycle.noses) == PaperData.pattern_samples
+    @test cycle.period > 0
+    azimuths = [first(PaperData.ship_frame_position(radial, deg2rad(90.0), 1))
+                for radial in cycle.radials]
     @test all(azimuth < 0 for azimuth in azimuths)
 end
 

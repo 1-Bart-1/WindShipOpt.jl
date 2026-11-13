@@ -29,7 +29,7 @@ const leg: Leg = {
     apparent_angle: [-170, 170, 160],
     flying: [0, 1, 1],
     event: [0, 1, 0],
-    trim: { pattern: [null, [10, 20, 30, 40, 50], [30, 40, 50, 60, 70]] },
+    trim: { pattern: [null, [10, 20, 30, 40, 50, 60, 70], [30, 40, 50, 60, 70, 80, 90]] },
   },
 };
 
@@ -57,7 +57,8 @@ describe("a passage replayed at a time", () => {
     expect(state.flying).toBe(true);
     expect(state.pattern?.azimuth).toEqual([1, 2]);
     expect(state.pattern?.elevation).toEqual([3, 4]);
-    expect(state.pattern?.period).toBe(5);
+    expect(state.pattern?.nose).toEqual([5, 6]);
+    expect(state.pattern?.period).toBe(7);
   });
 
   it("keeps the kite stowed until the sample it launched at", () => {
