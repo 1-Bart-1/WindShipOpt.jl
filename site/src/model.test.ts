@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { explorerPath } from "../data";
 import { evaluated, inputValues, type ExplorerData } from "./explorer";
+import { changedInputs, inputGroups, resetInputs } from "./inputs";
 import { evaluate, type RecordedNode } from "./recording";
 
 const data: ExplorerData = JSON.parse(readFileSync(explorerPath(), "utf8"));
@@ -34,3 +35,15 @@ test("the site gives the model's cost at changed inputs on the routes of the pap
     expect(gap(values[data.designs[check.design].nodes.cost], check.recosted), check.label).toBeLessThan(1e-12);
   }
 }, 120_000);
+
+test("resetting each input, or all at once, gives back exactly the paper's inputs", () => {
+  const names = inputGroups.flatMap((group) => group.controls.map((control) => control.name));
+  const moved = Object.fromEntries(names.map((name) => [name, 1.5 * data.inputs[name].value + 0.01]));
+  expect(changedInputs(data, moved)).toEqual(names);
+  const paper = evaluated(data, inputValues(data, {}, 1));
+  let changes = moved;
+  for (const name of names) changes = resetInputs(changes, [name]);
+  expect(changedInputs(data, changes)).toEqual([]);
+  expect(evaluated(data, inputValues(data, changes, 1))).toEqual(paper);
+  expect(evaluated(data, inputValues(data, resetInputs(moved, names), 1))).toEqual(paper);
+});

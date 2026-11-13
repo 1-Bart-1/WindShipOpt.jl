@@ -103,6 +103,11 @@ h3 {
     background: var(--brand-paper);
     color: var(--brand-ink);
   }
+  .button:disabled,
+  .button-outline:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
   .rule {
     height: 15px;
     background: var(--brand-rule);

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 Bart van de Lint
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   bestDesigns,
   bestRig,
@@ -13,7 +13,15 @@ import {
   type ExplorerData,
   type Outcome,
 } from "./explorer";
-import { canopyPriceInputs, exactInputs, inputGroups, type InputControl } from "./inputs";
+import {
+  canopyPriceInputs,
+  changedInputs,
+  differs,
+  exactInputs,
+  inputGroups,
+  resetInputs,
+  type InputControl,
+} from "./inputs";
 import { rigColour, RIG_LABELS, type PassageDesign } from "./passages/passages";
 import { PassageView } from "./passages/PassageView";
 import { GridView } from "./grid/GridView";
@@ -52,11 +60,13 @@ function Explorer({ data }: { data: ExplorerData }) {
   );
   const all = useMemo(() => outcomes(data, values), [data, values]);
   const best = bestDesigns(all, ship, route, drive);
+  const changed = changedInputs(data, changes).length + (differs(cargoFactor, 1) ? 1 : 0);
   const change = (name: string, value: number) => setChanges({ ...changes, [name]: value });
-  const setCanopy = (suffix: string) =>
+  const reset = (names: string[]) => setChanges(resetInputs(changes, names));
+  const setCanopyToday = () =>
     setChanges({
       ...changes,
-      ...Object.fromEntries(canopyPriceInputs.map((name) => [name, data.inputs[name + suffix].value])),
+      ...Object.fromEntries(canopyPriceInputs.map((name) => [name, data.inputs[`${name}_today`].value])),
     });
 
   return (
@@ -84,42 +94,50 @@ function Explorer({ data }: { data: ExplorerData }) {
           options={drives.map((name) => [name, driveLabels[name]])} />
       </section>
 
-      <PassageView />
-
-      <GridView />
-
       <Results best={best} drive={drive} />
 
-      <section className="grid gap-6 md:grid-cols-2">
-        {inputGroups.map((group) => (
-          <fieldset key={group.title} className="space-y-3 rounded-[14px] border-2 border-ink bg-paper p-5">
-            <legend className="px-1 font-semibold">{group.title}</legend>
-            {group.title === "Kite goals" && (
-              <p className="text-sm text-ink">
-                Canopy price {formatted(values[data.canopy_price.node], 0)} USD/m².{" "}
-                <button className="underline" onClick={() => setCanopy("")}>Goal</button>{" · "}
-                <button className="underline" onClick={() => setCanopy("_today")}>As built today</button>
-              </p>
-            )}
-            {group.controls.map((control) => (
-              <Slider key={control.name} control={control}
-                value={changes[control.name] ?? data.inputs[control.name].value}
-                base={data.inputs[control.name].value} onChange={(value) => change(control.name, value)} />
-            ))}
-            {group.title === "Money and time" && (
-              <Slider
-                control={{ name: "cargo", label: `Cargo value (base ${formatted(data.inputs[`cargo_value:${data.classes[ship].name}`].value, 0)} USD/t)`, unit: "% of base", scale: 100, min: 25, max: 400, step: 5 }}
-                value={cargoFactor} base={1} onChange={setCargoFactor} />
-            )}
-          </fieldset>
-        ))}
+      <section className="space-y-4" aria-label="Inputs">
+        <div className="sticky top-0 z-20 -mx-2 flex flex-wrap items-center gap-x-4 gap-y-2 bg-paper px-2 py-2">
+          <span className="label">The inputs</span>
+          <span className="text-sm text-ink-light">
+            {changed === 0 ? "all at the paper's values" : `${changed} changed from the paper's values`}
+          </span>
+          <span className="rule hidden flex-1 sm:block" />
+          <button className="button" disabled={changed === 0}
+            onClick={() => { setChanges({}); setCargoFactor(1); }}>
+            Back to the paper's inputs
+          </button>
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          {inputGroups.map((group) => (
+            <fieldset key={group.title} className="space-y-3 rounded-[14px] border-2 border-ink bg-paper p-5">
+              <legend className="px-1 font-semibold">{group.title}</legend>
+              {group.title === "Kite goals" && (
+                <p className="text-sm text-ink">
+                  Canopy price {formatted(values[data.canopy_price.node], 0)} USD/m².{" "}
+                  <button className="underline" onClick={() => reset(canopyPriceInputs)}>Goal</button>{" · "}
+                  <button className="underline" onClick={setCanopyToday}>As built today</button>
+                </p>
+              )}
+              {group.controls.map((control) => (
+                <Slider key={control.name} control={control}
+                  value={changes[control.name] ?? data.inputs[control.name].value}
+                  base={data.inputs[control.name].value} onChange={(value) => change(control.name, value)}
+                  onReset={() => reset([control.name])} />
+              ))}
+              {group.title === "Money and time" && (
+                <Slider
+                  control={{ name: "cargo", label: `Cargo value (base ${formatted(data.inputs[`cargo_value:${data.classes[ship].name}`].value, 0)} USD/t)`, unit: "% of base", scale: 100, min: 25, max: 400, step: 5 }}
+                  value={cargoFactor} base={1} onChange={setCargoFactor} onReset={() => setCargoFactor(1)} />
+              )}
+            </fieldset>
+          ))}
+        </div>
       </section>
-      <button className="rounded-[14px] bg-ink px-3 py-1 text-white"
-        onClick={() => { setChanges({}); setCargoFactor(1); }}>
-        Back to the paper's inputs
-      </button>
 
       <WinnerMap data={data} all={all} drive={drive} onPick={(k, j) => { setShip(k); setRoute(j); }} />
+      <PassageView route={data.routes[route].name} />
+      <GridView route={data.routes[route].name} />
       <Accuracy data={data} />
     </main>
   );
@@ -145,20 +163,35 @@ function Choice<T extends string | number>(props: {
   );
 }
 
-function Slider(props: { control: InputControl; value: number; base: number; onChange: (value: number) => void }) {
+function Slider(props: {
+  control: InputControl;
+  value: number;
+  base: number;
+  onChange: (value: number) => void;
+  onReset: () => void;
+}) {
   const { control } = props;
-  const shown = props.value * control.scale;
+  const id = useId();
+  const moved = differs(props.value, props.base);
   return (
-    <label className="block text-sm">
-      <span className="flex justify-between">
-        <span>{control.label}</span>
-        <span className={props.value === props.base ? "text-ink-light" : "font-semibold"}>
-          {formatted(shown, 3)} {control.unit}
+    <div className={`border-l-4 pl-2 text-sm ${moved ? "border-orange" : "border-transparent"}`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-2">
+        <label htmlFor={id}>{control.label}</label>
+        <span className="flex items-baseline gap-2">
+          {moved && <span className="text-xs text-ink-light">paper {formatted(props.base * control.scale, 3)}</span>}
+          <span className={moved ? "font-semibold" : "text-ink-light"}>
+            {formatted(props.value * control.scale, 3)} {control.unit}
+          </span>
+          <button className={`px-1 leading-none ${moved ? "" : "invisible"}`} onClick={props.onReset}
+            title="Back to the paper's value" aria-label={`Reset ${control.label} to the paper's value`}>
+            ↺
+          </button>
         </span>
-      </span>
-      <input type="range" className="w-full" min={control.min} max={control.max} step={control.step}
-        value={shown} onChange={(event) => props.onChange(Number(event.target.value) / control.scale)} />
-    </label>
+      </div>
+      <input id={id} type="range" className="w-full" min={control.min} max={control.max} step={control.step}
+        value={props.value * control.scale}
+        onChange={(event) => props.onChange(Number(event.target.value) / control.scale)} />
+    </div>
   );
 }
 
@@ -168,7 +201,7 @@ function Results({ best, drive }: { best: Map<string, Outcome>; drive: string })
   const ownFuel = drive !== "ammonia" && drive !== "vlsfo";
   return (
     <section className="overflow-x-auto rounded-[14px] border-2 border-ink bg-paper p-5">
-      <table className="w-full text-sm">
+      <table className="w-full text-sm [&_td+td]:pl-2 [&_th+th]:pl-2">
         <thead className="text-left text-ink">
           <tr>
             <th className="py-1">Rig</th>
@@ -186,8 +219,8 @@ function Results({ best, drive }: { best: Map<string, Outcome>; drive: string })
               <td />
               <td className="text-right">{formatted(1000 * bare.cost, 3)}</td>
               {ownFuel && <td className="text-right">–</td>}
-              <td className="text-right">{formatted(bare.ammoniaSaving)} %</td>
-              <td className="text-right">{formatted(bare.vlsfoSaving)} %</td>
+              <td className="text-right">{formatted(bare.ammoniaSaving)}&nbsp;%</td>
+              <td className="text-right">{formatted(bare.vlsfoSaving)}&nbsp;%</td>
             </tr>
           )}
           {rigs.map((rig) => {
@@ -203,9 +236,9 @@ function Results({ best, drive }: { best: Map<string, Outcome>; drive: string })
                   <>
                     <td>{formatted(outcome.design.area, 0)} m² in {outcome.design.units} unit{outcome.design.units === 1 ? "" : "s"}</td>
                     <td className="text-right">{formatted(1000 * outcome.cost, 3)}</td>
-                    {ownFuel && <td className="text-right">{formatted(outcome.saving)} %</td>}
-                    <td className="text-right">{formatted(outcome.ammoniaSaving)} %</td>
-                    <td className="text-right">{formatted(outcome.vlsfoSaving)} %</td>
+                    {ownFuel && <td className="text-right">{formatted(outcome.saving)}&nbsp;%</td>}
+                    <td className="text-right">{formatted(outcome.ammoniaSaving)}&nbsp;%</td>
+                    <td className="text-right">{formatted(outcome.vlsfoSaving)}&nbsp;%</td>
                   </>
                 ) : (
                   <td colSpan={ownFuel ? 5 : 4} className="text-ink-light">no feasible design</td>

@@ -3,7 +3,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadJson } from "../load";
-import { Select } from "../Select";
 import { edgesFrom, foldCentre, formatCount, gridCounts, gridEdges, kindOf, position, routesThrough, type Grid, type GridData } from "./grid";
 import { GridMap, type GridNode, type PickedNode, type ShownGrid } from "./GridMap";
 
@@ -22,18 +21,17 @@ const degrees = (angle: number, positive: string, negative: string) =>
 
 const kindLabels = { w: "open water", c: "water near the coast", x: "unusable" };
 
-/** The router's corridor grids on a globe or a flat map, from grids.json; nothing without one. */
-export function GridView() {
+/** The router's corridor grids of `route` on a globe or a flat map, from grids.json; nothing without one. */
+export function GridView({ route }: { route: string }) {
   const [data, setData] = useState<GridData>();
   useEffect(() => {
     loadJson<GridData>("grids.json").then(setData).catch(() => undefined);
   }, []);
-  if (!data) return null;
-  return <Grids data={data} />;
+  if (!data?.routes.some((entry) => entry.name === route)) return null;
+  return <Grids data={data} route={route} />;
 }
 
-function Grids({ data }: { data: GridData }) {
-  const [route, setRoute] = useState(data.routes[0].name);
+function Grids({ data, route }: { data: GridData; route: string }) {
   const [shown, setShown] = useState<Shown>("final");
   const [flat, setFlat] = useState(false);
   const [layers, setLayers] = useState<Record<Layer, boolean>>({ mesh: true, unusable: true, allEdges: false, folds: true });
@@ -64,6 +62,7 @@ function Grids({ data }: { data: GridData }) {
   }, [data]);
 
   useEffect(() => {
+    setPicked(undefined);
     const grid = data.grids.final[route];
     map?.centre(position(grid, Math.floor(grid.kind.length / 2)), 1.4);
   }, [map, data, route]);
@@ -93,9 +92,6 @@ function Grids({ data }: { data: GridData }) {
         </div>
         <aside className="space-y-5">
           <div className="panel space-y-4">
-            <Select label="Outbound from Rotterdam to" value={route}
-              onChange={(value: string) => { setRoute(value); setPicked(undefined); }}
-              options={data.routes.map((entry) => [entry.name, entry.label])} />
             <div className="grid gap-1">
               <span className="label">Grid</span>
               <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Grid">
