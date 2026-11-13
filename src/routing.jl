@@ -479,14 +479,17 @@ function held_speed(table::RouteTable, speed_index, sample::EdgeSample)
 end
 
 """
-    certain_fuels(table, speed_index, condition, headwind, crosswind)
+    certain_fuels(table, speed_index, condition, headwind, crosswind,
+                  sea=sea_layer(table, speed_index, condition))
 
 Fuel power [W] with the rig flown and with any kite stowed at routing speed number
 `speed_index` of the [`RouteTable`](@ref) `table` in the [`SeaCondition`](@ref)
-`condition`, and 1.0 where a kite can stay up in that wind, else 0.0.
+`condition`, whose [`sea_layer`](@ref) is `sea`, and 1.0 where a kite can stay up in that
+wind, else 0.0.
 """
-function certain_fuels(table::RouteTable, speed_index, condition, headwind, crosswind)
-    flown, stowed = edge_fuels(table, speed_index, condition)
+function certain_fuels(table::RouteTable, speed_index, condition, headwind, crosswind,
+        sea=sea_layer(table, speed_index, condition))
+    flown, stowed = edge_fuels(table, speed_index, condition, sea)
     aloft = kite_aloft(table.table, table.speeds[speed_index], headwind, crosswind)
     return flown, stowed, Float64(aloft)
 end
@@ -503,20 +506,20 @@ over the error of the wind speed of the [`EdgeSample`](@ref) `sample`. A kite th
 stay up in one of the winds burns the stowed fuel there.
 """
 function expected_fuels(table::RouteTable, speed_index, sample::EdgeSample)
-    (; spread, wind_speed) = sample
-    flown, stowed, aloft = certain_fuels(table, speed_index, sample.condition,
-        sample.headwind, sample.crosswind)
+    (; spread, wind_speed, condition, headwind, crosswind) = sample
+    sea = sea_layer(table, speed_index, condition)
+    flown, stowed, aloft = certain_fuels(table, speed_index, condition, headwind,
+        crosswind, sea)
     spread > 0 || return flown, stowed, aloft
-    performance, speed = table.table, table.speeds[speed_index]
     expected_flown, expected_stowed, chance = 0.0, 0.0, 0.0
     for (node, weight) in zip(SPREAD_NODES, SPREAD_WEIGHTS)
         wind = max(wind_speed + node * spread, 0.0)
         scale = wind_speed > 0 ? wind / wind_speed : 1.0
-        condition = with_wind(performance, sample.condition, wind)
-        node_flown, node_stowed = edge_fuels(table, speed_index, condition)
+        node_flown, node_stowed, node_aloft = node == 0 ? (flown, stowed, aloft) :
+            certain_fuels(table, speed_index, with_wind(table.table, condition, wind),
+                scale * headwind, scale * crosswind, sea)
         isfinite(node_stowed) || (node_stowed = stowed)
-        up = isfinite(node_flown) && kite_aloft(performance, speed,
-            scale * sample.headwind, scale * sample.crosswind)
+        up = isfinite(node_flown) && node_aloft > 0
         expected_stowed += weight * node_stowed
         expected_flown += weight * (up ? node_flown : node_stowed)
         chance += weight * up
