@@ -3,11 +3,7 @@
 
 # Figures of what the weather router saw and did on real routed passages: the corridor and
 # the nodes its search kept, the weather met, the states searched and pruned and the
-# passage with its speeds and kite flights. Included by paper.jl, after paper_figures.jl.
-#
-#     case = routed_case(ShipDesign(:ammonia, 140.0; kite_area=3200.0), :caribbean,
-#         departures[1]; scale=1.0)
-#     router_view([case], ".agent/scratch/kite.png")
+# passage with its speeds and kite flights.
 
 """
     routed_case(design, name, departure; scale, weather=weather, label="")
@@ -44,7 +40,7 @@ path_laterals(corridor, leg) =
 
 Least objective of a passage through each water node of the corridor of `case`, as the
 search estimated it, in percent above the objective of the path it found, stage × lateral;
-`NaN` where no state was reached.
+`NaN` where no state was reached or none has an estimate onward.
 """
 function node_excess(case)
     through = through_node(case.record)
@@ -57,41 +53,47 @@ end
 limit_excess(record) = 100 * (record.limit / record.found.objective - 1)
 
 """
-    state_map(record)
+    search_levels(record, dims)
 
-Whether each time bin of each stage of `record` held no state (0), only states the search
-pruned (1) or a state it searched on (2), stage × bin.
+Whether the states of `record` grouped over `dims` held none (0), only states the search
+pruned (1) or a state it searched on (2), stage last.
 """
-function state_map(record)
-    kept = dropdims(any(kept_states(record); dims=(1, 3)); dims=(1, 3))
-    reached = dropdims(any(isfinite.(record.cost); dims=(1, 3)); dims=(1, 3))
-    return permutedims(reached .+ kept)
+function search_levels(record, dims)
+    kept = any(kept_states(record); dims)
+    reached = any(isfinite.(record.cost); dims)
+    return permutedims(dropdims(reached .+ kept; dims))
 end
+
+"[`search_levels`](@ref) of each time bin of each stage of `record`, stage × bin"
+state_map(record) = search_levels(record, (1, 3))
+
+"[`search_levels`](@ref) of each node of `record`, stage × lateral"
+node_map(record) = search_levels(record, (2, 3))
 
 """
     draw_search_map!(axis, case; colorrange, rows=false)
 
 The water nodes of the corridor of `case` on a longitude-latitude `axis`, with its rows
-drawn where `rows` holds, coloured by
-[`node_excess`](@ref) within `colorrange` where the search kept a state, open where it
-pruned all, faint where it reached none; the edges allowed from each node of the passage;
-the 10 m wind at a share of the nodes when the passage reached their stage; and the passage,
-in the kite's colour where the kite flies. Returns the plot of the coloured nodes.
+drawn where `rows` holds, coloured by [`node_excess`](@ref) within `colorrange` where the
+search kept a state, dark where it kept one with no estimate onward, open where it pruned
+all, faint where it reached none; the edges allowed from each node of the passage; the
+10 m wind at a share of the nodes when the passage reached their stage; and the passage, in
+the kite's colour where the kite flies. Returns the plot of the coloured nodes.
 """
 function draw_search_map!(axis, case; colorrange, rows=false)
     (; corridor, leg, record) = case
     rows && draw_rows!(axis, corridor)
     excess = node_excess(case)
+    level = node_map(record)
     water = findall(corridor.water)
-    kept = filter(index -> excess[index] <= limit_excess(record), water)
-    pruned = filter(index -> excess[index] > limit_excess(record), water)
-    unreached = filter(index -> isnan(excess[index]), water)
+    unreached, pruned, kept = [filter(index -> level[index] == value, water)
+                               for value in 0:2]
     dot = node_dot(corridor)
     scatter!(axis, node_points(corridor, unreached); color=:gray80, markersize=0.5dot)
     scatter!(axis, node_points(corridor, pruned); color=:transparent, strokecolor=:gray45,
         strokewidth=pt(0.3), markersize=dot)
     nodes = scatter!(axis, node_points(corridor, kept); color=excess[kept],
-        colormap=:viridis, colorrange, markersize=dot)
+        colormap=:viridis, colorrange, nan_color=no_estimate_shade, markersize=dot)
     draw_edge_fans!(axis, corridor, leg)
     draw_met_wind!(axis, case)
     track = track_points(leg.path)
@@ -176,10 +178,11 @@ end
     draw_states!(axis, case)
 
 The time bins of each stage of the search of `case`, by distance along the corridor and
-days since departure: searched on, only pruned, or never reached; with the passage found.
+days since departure: searched on, only pruned, or never reached; with the passage the
+search found, dashed, and the passage the final pass made of it.
 """
 function draw_states!(axis, case)
-    (; corridor, record) = case
+    (; corridor, record, leg) = case
     states = state_map(record)
     along = corridor.along_centre ./ NAUTICAL_MILE ./ 1000
     edges = [along[1]; (along[1:(end - 1)] .+ along[2:end]) ./ 2; along[end]]
@@ -187,8 +190,9 @@ function draw_states!(axis, case)
     used = findlast(any(>(0), states; dims=1)[:])
     heatmap!(axis, edges, days[1:(used + 1)], states[:, 1:used]; colorrange=(0, 2),
         colormap=[:white, :gray75, :gray35])
-    lines!(axis, along, [point[3] / 24 for point in record.found.path]; color=:black,
+    lines!(axis, along, [point[3] / 24 for point in leg.path]; color=:black,
         linewidth=pt(1.2))
+    lines!(axis, along, [point[3] / 24 for point in record.found.path]; found_style...)
 end
 
 """
@@ -233,6 +237,12 @@ row_style = (; color=(:black, 0.25), linewidth=pt(0.3))
 "line style of the edges of a corridor"
 edge_style = (; color=(:black, 0.45), linewidth=pt(0.4))
 
+"line style of the passage a search found before its final pass"
+found_style = (; color=palette[2], linewidth=pt(1.2), linestyle=:dash)
+
+"colour of the nodes a search kept with no estimate onward"
+no_estimate_shade = :gray35
+
 "colour of the hours a kite flies along a passage"
 flight_shade = (palette[1], 0.25)
 
@@ -240,7 +250,7 @@ flight_shade = (palette[1], 0.25)
     case_title(case)
 
 Title of a column of [`router_view`](@ref): the label of `case`, the corridor spacings, the
-margin kept and the time routing took.
+margin kept, what the final pass saved and the time routing took.
 """
 function case_title(case)
     (; corridor, record) = case
@@ -250,17 +260,46 @@ function case_title(case)
     pass = isfinite(record.limit) ?
            @sprintf("margin %.0f %%", 100 * (record.limit / record.estimate - 1)) :
            "every state"
-    return @sprintf("%s\n%.0f × %.0f nmi grid, %s, %.0f s", case.label, stage_spacing,
-        corridor.lateral_spacing / NAUTICAL_MILE, pass, case.seconds)
+    saved = 100 * (1 - case.leg.objective / record.found.objective)
+    return @sprintf("%s\n%.0f × %.0f nmi grid, %s, final pass %.1f %%, %.0f s", case.label,
+        stage_spacing, corridor.lateral_spacing / NAUTICAL_MILE, pass, saved, case.seconds)
+end
+
+"""
+    router_panels!(positions, case; limits, colorrange, titles, ylabels=true, rows=false)
+
+Axes at the four grid `positions` of a figure with their `titles`, latitude and other
+y labels where `ylabels` holds, and on them land and the [`draw_search_map!`](@ref) of
+`case` within `limits` (west, east, south, north) [deg] and `colorrange`, its
+[`draw_states!`](@ref) and its [`draw_passage!`](@ref). Returns the axes as `map`, `states`,
+`speed` and `wind`, and the plot of the coloured nodes.
+"""
+function router_panels!(positions, case; limits, colorrange, titles, ylabels=true,
+        rows=false)
+    ylabel(label) = ylabels ? label : ""
+    map_axis = Axis(positions[1]; aspect=DataAspect(), limits, title=titles[1],
+        xlabel="longitude [°]", ylabel=ylabel("latitude [°]"))
+    state_axis = Axis(positions[2]; title=titles[2],
+        xlabel="distance along corridor [1000 nmi]", ylabel=ylabel("time [d]"))
+    speed_axis = Axis(positions[3]; title=titles[3], ylabel=ylabel("speed [kn]"),
+        xticklabelsvisible=false)
+    wind_axis = Axis(positions[4]; title=titles[4], xlabel="days since departure",
+        ylabel=ylabel("10 m wind [m/s]"))
+    linkxaxes!(speed_axis, wind_axis)
+    draw_land!(map_axis, mask; lons=limits[1]:0.25:limits[2],
+        lats=limits[3]:0.25:limits[4])
+    nodes = draw_search_map!(map_axis, case; colorrange, rows)
+    draw_states!(state_axis, case)
+    draw_passage!(speed_axis, wind_axis, case)
+    return (; map=map_axis, states=state_axis, speed=speed_axis, wind=wind_axis), nodes
 end
 
 """
     router_view(cases, file; limits=nothing)
 
-Save to `file` one column per routed case of [`routed_case`](@ref): the
-[`draw_search_map!`](@ref) of its corridor within `limits` (west, east, south, north) [deg],
-by default that of all the corridors' water nodes, its [`draw_states!`](@ref) and its
-[`draw_passage!`](@ref).
+Save to `file` one column of [`router_panels!`](@ref) per routed case of
+[`routed_case`](@ref), with the corridor's rows, its map within `limits` (west, east,
+south, north) [deg], by default that of all the corridors' water nodes.
 """
 function router_view(cases, file; limits=nothing)
     limits = something(limits, map_limits(cases))
@@ -268,58 +307,56 @@ function router_view(cases, file; limits=nothing)
     figure = Figure(size=(page_width / 2 * max(2, length(cases)), 540))
     passage_axes = Axis[]
     for (column, case) in enumerate(cases)
-        ylabel(label) = column == 1 ? label : ""
-        map_axis = Axis(figure[1, column]; aspect=DataAspect(), limits,
-            title=case_title(case), xlabel="longitude [°]", ylabel=ylabel("latitude [°]"))
-        draw_land!(map_axis, mask; lons=limits[1]:0.25:limits[2],
-            lats=limits[3]:0.25:limits[4])
-        nodes = draw_search_map!(map_axis, case; colorrange, rows=true)
+        axes, nodes = router_panels!([figure[row, column] for row in 1:4], case; limits,
+            colorrange, titles=(case_title(case), "", "", ""), ylabels=column == 1,
+            rows=true)
         column == length(cases) && Colorbar(figure[1, column + 1], nodes;
-            label="best passage through node,\n% above the one found")
-        state_axis = Axis(figure[2, column]; xlabel="distance along corridor [1000 nmi]",
-            ylabel=ylabel("time [d]"))
-        draw_states!(state_axis, case)
-        speed_axis = Axis(figure[3, column]; ylabel=ylabel("speed [kn]"),
-            xticklabelsvisible=false)
-        wind_axis = Axis(figure[4, column]; xlabel="days since departure",
-            ylabel=ylabel("10 m wind [m/s]"))
-        draw_passage!(speed_axis, wind_axis, case)
-        push!(passage_axes, speed_axis, wind_axis)
+            label=excess_label)
+        push!(passage_axes, axes.speed, axes.wind)
     end
     linkxaxes!(passage_axes...)
     linkyaxes!(passage_axes[1:2:end]...)
     linkyaxes!(passage_axes[2:2:end]...)
     entries, labels = router_legend_entries()
     Legend(figure[5, 1:length(cases)], [entries; LineElement(; row_style...)],
-        [labels; "rows"]; orientation=:horizontal, nbanks=length(cases) > 2 ? 1 : 2)
+        [labels; "rows"]; orientation=:horizontal, nbanks=length(cases) > 2 ? 2 : 3)
     rowsize!(figure.layout, 1, Auto(2.4))
     rowgap!(figure.layout, 3, pt(3))
     save(file, figure; pt_per_unit=print_scale)
     return figure
 end
 
+"label of the colour bar of [`node_excess`](@ref)"
+excess_label = "best passage through node,\n% above the one found"
+
 """
     excess_range(cases)
 
 Colour range of the [`node_excess`](@ref) of `cases` [%]: from the least, or zero, to the
-widest limit of their searches.
+widest limit of their searches, or the greatest excess of a search over all states.
 """
-excess_range(cases) = (
-    min(0, minimum(minimum(filter(!isnan, node_excess(case))) for case in cases)),
-    maximum(limit_excess(case.record) for case in cases))
+function excess_range(cases)
+    excesses = [filter(isfinite, node_excess(case)) for case in cases]
+    tops = [isfinite(case.record.limit) ? limit_excess(case.record) : maximum(excess)
+            for (case, excess) in zip(cases, excesses)]
+    return (min(0, minimum(minimum.(excesses))), maximum(tops))
+end
 
 "legend entries and labels of the marks of [`router_view`](@ref) and the router figure"
 router_legend_entries() = (
     [LineElement(color=:black, linewidth=pt(1.2)),
+        LineElement(; found_style...),
         [PolyElement(color=flight_shade),
             LineElement(color=palette[1], linewidth=pt(2.4))],
         LineElement(; edge_style...),
+        MarkerElement(marker=:circle, color=no_estimate_shade, markersize=pt(3)),
         MarkerElement(marker=:circle, color=:transparent, strokecolor=:gray45,
             strokewidth=pt(0.3), markersize=pt(3)),
         MarkerElement(marker=:circle, color=:gray80, markersize=pt(1.5)),
         PolyElement(color=:gray35), PolyElement(color=:gray75)],
-    ["passage", "kite flying", "edges allowed", "node pruned", "node not reached",
-        "states searched", "states pruned"])
+    ["passage", "before final pass", "kite flying", "edges allowed",
+        "node kept, no estimate", "node pruned", "node not reached", "states searched",
+        "states pruned"])
 
 """
     map_limits(cases; pad=1)
@@ -337,32 +374,20 @@ end
 """
     router_figure()
 
-The router on one winter passage to Guadeloupe of a 140 m e-ammonia ship with a 3200 m^2
-kite, on the corridor of the run in use: (a) the [`draw_search_map!`](@ref) of the search,
-(b) its [`draw_states!`](@ref), (c, d) the speed held and the wind met along the passage.
+The [`router_panels!`](@ref) of one winter passage to Guadeloupe of a 140 m e-ammonia ship
+with a 3200 m^2 kite, on the corridor of the run in use.
 """
 function router_figure()
     case = routed_case(ShipDesign(:ammonia, 140.0; kite_area=3200.0), :caribbean,
         departures[1]; scale=run_settings().corridor_scale)
     figure = Figure(size=(page_width, 300))
-    limits = map_limits([case])
-    map_axis = Axis(figure[1:3, 1]; aspect=DataAspect(), limits,
-        title="(a) nodes searched and the passage", xlabel="longitude [°]",
-        ylabel="latitude [°]")
-    draw_land!(map_axis, mask; lons=limits[1]:0.25:limits[2], lats=limits[3]:0.25:limits[4])
-    nodes = draw_search_map!(map_axis, case; colorrange=excess_range([case]))
-    Colorbar(figure[1:3, 2], nodes;
-        label="best passage through node, % above the one found")
-    state_axis = Axis(figure[1, 3]; title="(b) states searched",
-        xlabel="distance along corridor [1000 nmi]", ylabel="time [d]")
-    draw_states!(state_axis, case)
-    Legend(figure[4, 1:3], router_legend_entries()...; orientation=:horizontal, nbanks=2)
-    speed_axis = Axis(figure[2, 3]; title="(c) speed held", ylabel="speed [kn]",
-        xticklabelsvisible=false)
-    wind_axis = Axis(figure[3, 3]; title="(d) wind met", xlabel="days since departure",
-        ylabel="10 m wind [m/s]")
-    linkxaxes!(speed_axis, wind_axis)
-    draw_passage!(speed_axis, wind_axis, case)
+    _, nodes = router_panels!(
+        [figure[1:3, 1], figure[1, 3], figure[2, 3], figure[3, 3]], case;
+        limits=map_limits([case]), colorrange=excess_range([case]),
+        titles=("(a) nodes searched and the passage", "(b) states searched",
+            "(c) speed held", "(d) wind met"))
+    Colorbar(figure[1:3, 2], nodes; label=replace(excess_label, "\n" => " "))
+    Legend(figure[4, 1:3], router_legend_entries()...; orientation=:horizontal, nbanks=3)
     colsize!(figure.layout, 1, Auto(1.25))
     save(joinpath(figures, "router.pdf"), figure; pt_per_unit=print_scale)
 end

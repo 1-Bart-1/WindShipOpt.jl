@@ -2242,7 +2242,7 @@ end
     best = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
         options...)
     stage = stage_count - 2
-    best_node = findfirst(==(best.path[stage][2]), view(corridor.lon, stage, :))
+    best_node = WindShipOpt.nearest_lateral(corridor, stage, best.path[stage][1:2]...)
     values = zeros(size(corridor.lat, 2), 200, 2, stage_count)
     values[best_node, :, :, stage] .= Inf
     to_go = WindShipOpt.CostToGo(values, 48.0)
@@ -2267,7 +2267,7 @@ end
     @test record.estimate == record.to_go(centre, 1, 1, 0.0)
     through = through_node(record)
     @test through[1, centre] == record.estimate
-    laterals = [findfirst(==(point[2]), view(corridor.lon, stage, :))
+    laterals = [WindShipOpt.nearest_lateral(corridor, stage, point[1:2]...)
                 for (stage, point) in enumerate(record.found.path)]
     @test all(through[stage, lateral] <= record.limit
               for (stage, lateral) in enumerate(laterals))
