@@ -1,6 +1,20 @@
 % SPDX-FileCopyrightText: 2026 Bart van de Lint
 % SPDX-License-Identifier: AGPL-3.0-or-later
 \newcommand{\tbd}[1]{\textcolor{red}{{}#1}}
+% \stale{studies}{text}: text stale until the comma-separated studies rerun.
+\makeatletter
+\newcommand{\stale@left}{}
+\newcommand{\stale@record}[1]{\PackageWarning{stale}{Stale until study #1 reruns, in
+  \ifx\CurrentFile\@empty\jobname.tex\else\CurrentFile\fi}%
+  \ifcsname stale@seen@#1\endcsname\else
+    \global\expandafter\let\csname stale@seen@#1\endcsname\relax
+    \xdef\stale@left{\stale@left\space#1}\fi}
+\NewDocumentCommand{\stale}{m +m}{\@for\stale@study:=#1\do{%
+    \expandafter\stale@record\expandafter{\stale@study}}%
+  {\color{orange!80!black}\sffamily\small[stale until \detokenize{#1} reruns]}\IfBlankF{#2}{~#2}}
+\AtEndDocument{\ifx\stale@left\@empty\else
+  \PackageWarningNoLine{stale}{Studies to rerun for stale text:\stale@left}\fi}
+\makeatother
 % \note{text}: a review note shown in the PDF; \notesfalse hides all.
 \newif\ifnotes\notestrue
 \newcommand{\note}[1]{\ifnotes{\color{teal!70!black}\sffamily\small[#1]}\fi}
