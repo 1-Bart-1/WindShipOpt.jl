@@ -12,6 +12,7 @@ This repository holds a ship and rig cost model, and a paper built on it: "Towin
 - The paper refers to no local file. The kite canopy is polyester ripstop.
 - On the box, build the paper in a TeX Live container (Docker) after every change to its text, tables or figures, and look at the rendered pages you changed: a table or figure that is cut, overflowing, scaled up or hard to read is a defect. Never commit the PDF or LaTeX build files. Bart builds his own copy.
 - Prose is one paragraph per line. `\tbd{...}` marks a number or claim still to be confirmed.
+- `\stale{<studies>}{...}` marks text, a table or a figure caption whose numbers a merged change made stale until the named studies rerun, comma-separated. The paper build warns at each and lists the studies left at its end; the pull request that rewrites the text from the rerun removes the marker.
 
 ## Data outside the repository
 

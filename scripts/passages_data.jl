@@ -40,27 +40,6 @@ wind_side(east, north, course) = sin(atan(-east, -north) - course) >= 0 ? 1 : -1
 wind_sides(trace) = wind_side.(trace.wind_east, trace.wind_north, trace.course)
 
 """
-    edge_middle(track, edge)
-
-The middle of the `edge`-th edge between the nodes of `track`.
-"""
-edge_middle(track, edge) = (track[edge] .+ track[edge + 1]) ./ 2
-
-"""
-    clearest_edge(track, tracks)
-
-The edge of `track` whose middle lies furthest in latitude from that edge of the others, the
-first where there are no others.
-"""
-function clearest_edge(track, tracks)
-    others = filter(!=(track), tracks)
-    return argmax(firstindex(track):(lastindex(track) - 1)) do edge
-        latitude = edge_middle(track, edge)[2]
-        minimum((abs(latitude - edge_middle(other, edge)[2]) for other in others); init=Inf)
-    end
-end
-
-"""
     wing_incidence(rig, (lift, drag))
 
 Angle [rad] between the chord and the apparent wind of a wing at the trim `(lift, drag)` of

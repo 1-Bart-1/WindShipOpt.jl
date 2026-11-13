@@ -1508,7 +1508,8 @@ Largest difference [points] in the cost saving of each rig between the condition
 any one of `groups` in data file `file` of method study `study`, or of the paper run where
 `study` is `nothing`, over its ships in `ship_column`, `nothing`
 for a file of the 140 m ship alone; and for each set of rigs that take turns at being
-cheapest within a group, the ships where they do.
+cheapest within a group, the ships where they do. Errors where the file has no row of a
+condition set.
 """
 function part_effect((study, file, ship_column, groups))
     table = read_table(isnothing(study) ? data_file(file) : study_file(study, file))
@@ -1517,6 +1518,9 @@ function part_effect((study, file, ship_column, groups))
     ships = isnothing(ship_column) ? [nothing] : unique(table[ship_column])
     for ship in ships, group in groups
         at_ship = isnothing(ship) ? () : (ship_column => ship,)
+        for variant in group
+            isempty(rows(table, at_ship..., variant...)) && error("$file has no $variant")
+        end
         costs = filter(cost -> all(isfinite, values(cost)),
             [best_costs(table, (at_ship..., variant...)) for variant in group])
         length(costs) > 1 || continue

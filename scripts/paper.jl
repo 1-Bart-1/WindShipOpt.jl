@@ -38,9 +38,11 @@ include("size_search.jl")
 include("paper_data.jl")
 include("explorer_data.jl")
 include("passages_data.jl")
+include("grids_data.jl")
 include("cargo_groups.jl")
 include("paper_figures.jl")
 include("paper_drawings.jl")
+include("router_figures.jl")
 include("paper_tables.jl")
 
 "data steps of the results in the order they run, each writing one or two data files"
@@ -80,16 +82,14 @@ study_tables = Dict(:forecast_plans => [:forecast_plans_table => forecast_plans_
     :cargo_interest => [:cargo_interest_table => cargo_interest_table],
     :sea_effect => [:sea_effect_table => sea_effect_table],
     :speed_terms => [:speed_terms_table => speed_terms_table],
-    :published_terms => [:published_table => published_table],
-    :model_parts => [:fidelity_table => fidelity_table],
-    :convergence => [:fidelity_table => fidelity_table],
-    :size_search => [:fidelity_table => fidelity_table])
+    :published_terms => [:published_table => published_table])
 
 "every table step of the method studies"
 study_table_steps() = unique(reduce(vcat, values(study_tables)))
 
 "steps outside the paper, run only by name: the data of the companion website"
-website_steps = [:explorer => explorer_data, :passages => passages_data]
+website_steps = [:explorer => explorer_data, :passages => passages_data,
+    :grids => grids_data]
 
 "figure and table steps, each reading the data files and writing one output"
 output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
@@ -110,7 +110,7 @@ output_steps = [:kite_geometry => kite_geometry_figure, :polars => polar_figure,
     :sensitivity_figure => sensitivity_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
     :development_table => development_table,
-    :class_table => class_table,
+    :class_table => class_table, :fidelity_table => fidelity_table,
     :split_table => split_table,
     :payback_table => payback_table, :goals_table => goals_table,
     :missed_goals_table => missed_goals_table,

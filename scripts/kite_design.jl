@@ -122,8 +122,8 @@ function aspect_figure()
         bare = table["cost"][only(filter(row -> table["aspect_ratio"][row] == 0, chosen))]
         kites = filter(row -> table["aspect_ratio"][row] > 0, chosen)
         savings = percent_saving.(table["cost"][kites], bare)
-        scatterlines!(axis, table["aspect_ratio"][kites], savings; color=palette[k],
-            markersize=5, linewidth=1.3, label=ship)
+        scatterlines!(axis, table["aspect_ratio"][kites], savings;
+            color=category_colours[k], label=ship)
     end
     Legend(figure[2, 1], axis; orientation=:horizontal, nbanks=2)
     save(joinpath(kite_design_figures, "aspect.pdf"), figure; pt_per_unit=print_scale)
@@ -151,12 +151,12 @@ areas that cloth law was run at.
 function force_rating_figure()
     table = read_table(data_file("force_rating.csv"))
     figure = Figure(size=(column_width, 215))
-    axis = Axis(figure[1, 1]; xlabel=L"force limit $[\mathrm{kN/m^2}]$",
-        ylabel=L"cost saving $[\%]$", xticks=collect(study_force_ratings))
+    axis = Axis(figure[1, 1]; xlabel="force limit [kN/m²]",
+        ylabel="cost saving [%]", xticks=collect(study_force_ratings))
     base = assumptions[:canopy_cloth_force_exponent]
     reference = assumptions[:canopy_cloth_reference_force]
     laws = ((base, :solid, "keeps its life"), (1.0, :dash, "in proportion"),
-        (0.0, :dot, L"fixed at $200\,\mathrm{g/m^2}$"))
+        (0.0, :dot, "fixed at 200 g/m²"))
     ships = unique(table["ship"])
     for (k, ship) in enumerate(ships)
         bare = table["cost"][only(rows(table, "ship" => ship, "rating" => 0))]
@@ -167,11 +167,11 @@ function force_rating_figure()
             savings = [best_force_rating_saving(table, ship, rating,
                            rating == reference ? base : exponent, areas, bare)
                        for rating in ratings]
-            lines!(axis, ratings, savings; color=palette[k], linestyle, linewidth=1.3)
+            lines!(axis, ratings, savings; color=category_colours[k], linestyle)
         end
     end
-    ship_entries = [LineElement(color=palette[k], linewidth=1.3) for k in eachindex(ships)]
-    law_entries = [LineElement(; color=:black, linestyle, linewidth=1.3)
+    ship_entries = [LineElement(color=category_colours[k]) for k in eachindex(ships)]
+    law_entries = [LineElement(; color=:black, linestyle)
                    for (_, linestyle, _) in laws]
     Legend(figure[2, 1], [ship_entries, law_entries], [ships, collect(last.(laws))],
         ["ship", "cloth"]; orientation=:horizontal, nbanks=3, titleposition=:left,
