@@ -342,41 +342,35 @@ function waves(forecast::ArchivedForecast, lat, lon, time)
 end
 
 """
-    ForecastParts(forecast, wind_band=(Inf, Inf), forecast_waves=true)
+    ForecastParts(forecast, forecast_wind, forecast_waves)
 
-Forecast source of a ship that plans on the waves of `forecast` where `forecast_waves`,
-otherwise on the real waves, and on the real wind except where the real or the forecast
-wind speed at 10 m lies in `wind_band` [m/s], where it plans on the wind of `forecast`.
+Forecast source of a ship that plans on the wind of `forecast` where `forecast_wind` and on
+its waves where `forecast_waves`, and on the real weather otherwise.
 """
 struct ForecastParts{F}
     forecast::F
-    wind_band::NTuple{2, Float64}
+    forecast_wind::Bool
     forecast_waves::Bool
 end
-ForecastParts(forecast, wind_band=(Inf, Inf)) = ForecastParts(forecast, wind_band, true)
 
-"What a [`ForecastParts`](@ref) ship knows: `wind_band` splits `known` from the `truth`."
+"What a [`ForecastParts`](@ref) ship knows: each of wind and waves from `known` or `truth`."
 struct PartlyKnownWeather{K, W}
     known::K
     truth::W
-    wind_band::NTuple{2, Float64}
+    forecast_wind::Bool
     forecast_waves::Bool
 end
 
 known_weather(parts::ForecastParts, weather, time, horizon) = PartlyKnownWeather(
-    known_weather(parts.forecast, weather, time, horizon), weather, parts.wind_band,
+    known_weather(parts.forecast, weather, time, horizon), weather, parts.forecast_wind,
     parts.forecast_waves)
 
-function wind(partly::PartlyKnownWeather, lat, lon, time)
-    real_wind = wind(partly.truth, lat, lon, time)
-    forecast_wind = wind(partly.known, lat, lon, time)
-    low, high = partly.wind_band
-    in_band(vector) = low <= hypot(vector...) <= high
-    return in_band(real_wind) || in_band(forecast_wind) ? forecast_wind : real_wind
-end
-
+wind(partly::PartlyKnownWeather, lat, lon, time) =
+    wind(partly.forecast_wind ? partly.known : partly.truth, lat, lon, time)
 waves(partly::PartlyKnownWeather, lat, lon, time) =
     waves(partly.forecast_waves ? partly.known : partly.truth, lat, lon, time)
+wind_spread(partly::PartlyKnownWeather, time) =
+    partly.forecast_wind ? wind_spread(partly.known, time) : 0.0
 
 wind(forecast::ShortestLeadForecast, lat, lon, time) =
     wind(ArchivedForecast(forecast.archive, forecast.weather, time), lat, lon, time)

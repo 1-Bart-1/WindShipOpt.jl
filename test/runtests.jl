@@ -2182,26 +2182,19 @@ end
     archive = small_archive(joinpath(directory, "forecast"), weather, year -> 3.0)
     time = 24.0 * 2 + 9.0
     place = (40.0, -31.0, time)
-    forecast = WindShipOpt.known_weather(archive, weather, time, Inf)
-    true_speed, forecast_speed = hypot(wind(weather, place...)...),
-    hypot(wind(forecast, place...)...)
-    known(band) = WindShipOpt.known_weather(ForecastParts(archive, band), weather, time,
-        Inf)
+    expected = ExpectedForecast(archive, ForecastError(6.0, [1.0, 2.0, 4.0]))
+    forecast = WindShipOpt.known_weather(expected, weather, time, Inf)
+    known(forecast_wind, forecast_waves) = WindShipOpt.known_weather(
+        ForecastParts(expected, forecast_wind, forecast_waves), weather, time, Inf)
     @test wind(forecast, place...) != wind(weather, place...)
-    waves_only = WindShipOpt.known_weather(ForecastParts(archive), weather, time, Inf)
+    waves_only, wind_only = known(false, true), known(true, false)
     @test wind(waves_only, place...) == wind(weather, place...)
     @test waves(waves_only, place...) == waves(forecast, place...)
-    @test wind(known((true_speed - 0.1, true_speed + 0.1)), place...) ==
-          wind(forecast, place...)
-    @test wind(known((forecast_speed - 0.1, forecast_speed + 0.1)), place...) ==
-          wind(forecast, place...)
-    outside = max(true_speed, forecast_speed) + 1.0
-    @test wind(known((outside, outside + 1.0)), place...) == wind(weather, place...)
-    @test waves(known((outside, outside + 1.0)), place...) == waves(forecast, place...)
-    wind_only = WindShipOpt.known_weather(ForecastParts(archive, (-Inf, Inf), false),
-        weather, time, Inf)
+    @test WindShipOpt.wind_spread(waves_only, time + 12.0) == 0.0
     @test wind(wind_only, place...) == wind(forecast, place...)
     @test waves(wind_only, place...) == waves(weather, place...)
+    @test WindShipOpt.wind_spread(wind_only, time + 12.0) ==
+          WindShipOpt.wind_spread(forecast, time + 12.0) > 0
 end
 
 @testset "a ship on the shortest lead reads each time from the forecast last issued" begin
@@ -3402,34 +3395,35 @@ function cause_table(savings, bare_forecast)
     end
     for ((name, case), saved) in savings, (day, saving) in zip(0.0:2.0, saved)
         isnan(saving) && continue
-        reference = case == "forecast" || case == "foresight_kite" ? bare_forecast : 1.0
+        reference = case in ("forecast", "kite_margin") ? bare_forecast : 1.0
         add!(name, case, day, reference * (1 - saving / 100))
     end
     for case in Set(last.(keys(savings))), day in 0.0:2.0
-        case == "foresight_kite" && continue
+        case in string.(PaperData.kite_cause_plans) && continue
         add!("none", case, day, case == "forecast" ? bare_forecast : 1.0)
     end
     return Dict("rig" => rig, "plan" => plan, "departure" => departure, "cost" => cost)
 end
 
 @testset "the kite's excess loss over a rig is paired per departure" begin
-    fixed = ("replanned", "shortest_lead", "forecast_course", "perfect_course",
-        "common_perfect", "common_forecast", "wave_forecast", "wind_near_limit",
-        "wind_forecast", "forecast_course_replanned", "perfect_course_replanned")
     savings = Dict(("kite", "perfect") => [10.0, 12.0, 14.0],
         ("kite", "forecast") => [2.0, 4.0, 9.0],
-        ("kite", "foresight_kite") => [50.0, 50.0, 50.0],
+        ("kite", "kite_margin") => [50.0, 50.0, 50.0],
         ("rotors", "perfect") => [20.0, 22.0, 24.0],
         ("rotors", "forecast") => [15.0, 17.0, 22.0])
-    for case in fixed, name in ("kite", "rotors")
-        savings[(name, case)] = [5.0, 5.0, 5.0]
+    cases = (first.(PaperData.forecast_cause_plans)...,
+        first.(PaperData.forecast_cause_courses)...)
+    others = setdiff(string.(cases), ("perfect", "forecast"))
+    for case in others, name in ("kite", "rotors")
+        haskey(savings, (name, case)) || (savings[(name, case)] = [5.0, 5.0, 5.0])
     end
-    savings[("rotors", "perfect_course")] = [5.0, 5.0, NaN]
+    savings[("rotors", "course_perfect")] = [5.0, 5.0, NaN]
     table = cause_table(savings, 0.8)
     kite, rotors = (PaperData.forecast_cause_savings(table, name)
                     for name in ("kite", "rotors"))
-    @test kite[:foresight_kite] ≈ fill(50.0, 3)
-    @test rotors[:foresight_kite] == rotors[:forecast]
+    @test kite[:kite_margin] ≈ fill(50.0, 3)
+    @test rotors[:kite_margin] == rotors[:forecast]
+    @test rotors[:course_foresight] == rotors[:course_forecast]
     total = PaperData.cause_loss(:perfect, :forecast)
     alone = PaperData.cause_estimate(total, kite)
     @test alone.departures == 3 && alone.error > 0
@@ -3438,9 +3432,6 @@ end
     @test excess.error ≈ 0 atol = 1e-12
     kept = PaperData.cause_kept(:forecast, :perfect)
     @test PaperData.cause_estimate(kept, kite).value ≈ 100 * (5 / 12)
-    routing = PaperData.cause_difference(total,
-        PaperData.cause_loss(:common_perfect, :common_forecast))
-    @test PaperData.cause_estimate(routing, kite).value ≈ alone.value
 end
 
 "a [`KiteSample`](@ref) of a kite up or down in `apparent_wind` [m/s] for `reason`"
@@ -3463,20 +3454,25 @@ kite_sample(aloft, apparent_wind, reason=aloft ? :up : :chosen) = (; hours=0.0, 
     @test all(column -> haskey(shares, Symbol(column)), columns)
 end
 
-@testset "the wind band near the kite's limit holds the winds of the samples near it" begin
-    weather = SyntheticWeather()
-    near = kite_sample(true, 9.0, 1.0)
-    far = kite_sample(true, 30.0, 1.0)
-    speeds = PaperData.near_limit_wind_speeds([near, far], 240.0, 7.0, weather)
-    @test speeds ≈ [hypot(wind(weather, 0.0, 0.0, 240.0)...)]
-    @test PaperData.central_band([1.0:100.0;]) == (5.95, 95.05)
+@testset "each row of the kite's margins in the causes table keeps its label and departure" begin
+    margins = Dict("knowledge" => ["perfect", "perfect"], "departure" => [24, 0])
+    for (index, (_, column)) in enumerate(PaperData.kite_margin_rows)
+        margins[column] = [0.02index, 0.01index]
+    end
+    trips = Dict("rig" => ["kite", "kite", "none"], "plan" => fill("grid_perfect", 3),
+        "departure" => [0, 24, 0], "launches" => [5.0, 7.0, 0.0])
+    rows = PaperData.kite_margin_values(margins, trips, "perfect", "grid_perfect")
+    @test first.(rows) == [collect(first.(PaperData.kite_margin_rows));
+        "Launches per round trip"]
+    @test last(rows[2]) ≈ [2.0, 4.0]
+    @test last(rows[end]) == [5.0, 7.0]
 end
 
 @testset "a round trip's return is planned and sampled for the time it sails" begin
     weather, departure, port_hours = SyntheticWeather(), 24.0 * 121, 24.0 * 60
     costs, corridors = (hourly, hourly), (corridor, corridor)
-    outbound, back = PaperData.round_trip_courses(table, corridors, weather, departure,
-        port_hours, costs, nothing)
+    outbound, back = PaperData.round_trip_courses(table, costs, corridors, weather,
+        departure, port_hours, nothing)
     out = route(corridor, table, weather, departure; time_cost=hourly)
     course_from(start) = WindShipOpt.path_corridor(
         route(corridor, table, weather, start; time_cost=hourly), corridor, 1).lat
