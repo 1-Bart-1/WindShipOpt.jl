@@ -11,6 +11,7 @@
 \InputIfFileExists{sections/input_tables}{}{\tbd{Input tables pending: run the input\_tables step.}}
 \InputIfFileExists{sections/development_table}{}{\tbd{Development table pending: run the development\_table step.}}
 
+{\setlength{\extrarowheight}{3pt}
 \begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{12.2cm}@{}}
 \caption{Sources of the ship class data in \cref{tab:classes}.}
 \label{tab:class_sources}\\
@@ -25,11 +26,11 @@ Class & Sources \\
 \endhead
 \bottomrule
 \endfoot
-\InputIfFileExists{sections/class_sources}{}{}
-\end{longtable}
+\tablerows{sections/class_sources}
+\end{longtable}}
 
 \begin{longtable}{@{}>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}p{4.8cm}>{\raggedright\arraybackslash}p{6.6cm}@{}}
-\caption{Grids, solver settings and constants. Corridor spacings are given at the resolution of the results, four times the base spacing of 90 and \SI{60}{nmi}.}
+\caption{Grids, solver settings and constants. Corridor spacings are those of the results; the draft run's are eight times as wide.}
 \label{tab:numerics}\\
 \toprule
 Setting & Value & Use \\
@@ -43,47 +44,47 @@ Setting & Value & Use \\
 \bottomrule
 \endfoot
 \multicolumn{3}{@{}l}{\textit{Performance table}}\\
-speed through the water & 49 speeds evenly from \SI{4}{kn} to the speed at $F_n=0.28$, the same step down to \SI{1.5}{m/s} & thrust and fuel power tables \\
-true wind at \SI{10}{m} & 0 to \SI{30}{m/s}, steps of \SI{1}{m/s} & stronger wind is held at \SI{30}{m/s} \\
-true wind angle & 0 to \SI{180}{\degree}, steps of \SI{7.5}{\degree} & \\
-peak period & 3 to \SI{18}{s}, steps of \SI{1}{s} & table of $R_\mathrm{aw}/H_s^2$ \\
-wave heading & 0 to \SI{180}{\degree}, steps of \SI{15}{\degree} & table of $R_\mathrm{aw}/H_s^2$ \\
-wave frequencies & 0.1 to \SI{6}{rad/s}, 240 points & spectral integral of $R_\mathrm{aw}$ \\
-wing trim & $C_L$ 0 to $C_{L,\max}$ attached, angle of attack 25 to \SI{90}{\degree} stalled, solved continuously & best trim \\
-rotor trim & spin ratio 0 to 4 or the surface-speed limit, solved continuously & best trim \\
+Speed through the water & 49 speeds evenly from \SI{4}{kn} to the speed at $F_n=0.28$, the same step down to \SI{1.5}{m/s} & thrust and fuel power tables \\
+True wind at \SI{10}{m} & 0 to \SI{30}{m/s}, steps of \SI{1}{m/s} & stronger wind is held at \SI{30}{m/s} \\
+True wind angle & 0 to \SI{180}{\degree}, steps of \SI{7.5}{\degree} & thrust and fuel power tables \\
+Peak period & 3 to \SI{18}{s}, steps of \SI{1}{s} & table of $R_\mathrm{aw}/H_s^2$ \\
+Wave heading & 0 to \SI{180}{\degree}, steps of \SI{15}{\degree} & table of $R_\mathrm{aw}/H_s^2$ \\
+Wave frequencies & 0.1 to \SI{6}{rad/s}, 240 points & spectral integral of $R_\mathrm{aw}$ \\
+Wing trim & $C_L$ 0 to $C_{L,\max}$ attached, angle of attack 25 to \SI{90}{\degree} stalled, solved continuously & best trim \\
+Rotor trim & spin ratio 0 to 4 or the surface-speed limit, solved continuously & best trim \\
 \multicolumn{3}{@{}l}{\textit{Kite pattern table}}\\
-apparent wind & 3 to \SI{9}{m/s} in steps of \SI{1}{m/s}, then 10.5, 12 and on to \SI{30}{m/s} in steps of \SI{3}{m/s} & pattern search \\
-course off apparent downwind & 0 to \SI{180}{\degree}, steps of \SI{15}{\degree} & pattern search \\
-side-force weights & 0, 0.25, 0.5, 1, 1.5, 2, 3, read linearly between & kite trim, solved continuously \\
-wind reference elevation & \SI{25}{\degree} on the tether & height of the apparent wind of the table \\
-lowest angle of attack & angle where $C_L$ reaches 0.05 & lower bound of the search \\
-points per pattern & 48 & time average of the tether force \\
-pattern search & Nelder--Mead, 200 iterations, three starts and the best pattern of the next stronger wind speed, or the three best of a grid of \num{3360} patterns where none of those flies & kite patterns \\
+Apparent wind & 3 to \SI{9}{m/s} in steps of \SI{1}{m/s}, then 10.5, 12 and on to \SI{30}{m/s} in steps of \SI{3}{m/s} & pattern search \\
+Course off apparent downwind & 0 to \SI{180}{\degree}, steps of \SI{15}{\degree} & pattern search \\
+Side-force weights & 0, 0.25, 0.5, 1, 1.5, 2, 3, read linearly between & kite trim, solved continuously \\
+Wind reference elevation & \SI{25}{\degree} on the tether & height of the apparent wind of the table \\
+Lowest angle of attack & angle where $C_L$ reaches 0.05 & lower bound of the search \\
+Points per pattern & 48 & time average of the tether force \\
+Pattern search & Nelder--Mead, 200 iterations, three starts and the best pattern of the next stronger wind speed, or the three best of a grid of \num{3360} patterns where none of those flies & kite patterns \\
 \multicolumn{3}{@{}l}{\textit{Corridors and routing}}\\
-ocean stage spacing & \SI{90}{nmi} & corridor stages \\
+Ocean stage spacing & \SI{90}{nmi} & corridor stages \\
 Channel stage spacing & \SI{30}{nmi} & fixed waypoints from Rotterdam to Ushant, no lateral freedom \\
-lateral node spacing & \SI{60}{nmi} & nodes across the track \\
-corridor half width & \SI{2400}{nmi} & reach of the nodes to either side of the track \\
-lateral step & up to 2 nodes per stage & edges between stages \\
-lateral direction smoothing & 8 stages to either side & direction of the node rows \\
-land check along edges & every \SI{20}{nmi} & removes edges over land \\
-coastal clearance & \SI{50}{nmi}, on rings at 25 and \SI{50}{nmi} of 16 bearings & nodes near land \\
-coastal penalty & cost of an edge into a node near land doubled & objective only \\
-island disks & island radius plus about \SI{20}{nmi} & land mask \\
-time bin & \SI{3}{h} & state of the dynamic programme \\
-weather along an edge & at most every \SI{3}{h} & fuel and speed of an edge \\
-states searched & within 3\,\% of a backward estimate of the cost to go at \SI{24}{h} knots, 20\,\% with a kite; then 6\,\%, 40\,\% with a kite, then all, if a pass ends above its limit or finds no path; costs at most 0.01 points of cost saving against searching all states & dynamic programme \\
-longest passage & 50 days & time bins \\
-speeds & every fourth table speed, 13 from \SI{4}{kn} to the ship's maximum & edge choices \\
-final pass & all table speeds, \SI{0.25}{h} bins, within \SI{24}{h} of the path found & passage reported \\
-re-planning interval & first route node \SI{24}{h} after the last plan; 12 and \SI{6}{h} in the re-planning study & forecast router \\
-plan margin on the kite's limits & \SI{20}{\%} tighter wind limits and more launch wind in a sea, tested & forecast router \\
-forecasts & GEFSv12 reforecast control run and four perturbed members, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead & forecast router \\
-operational forecasts & GEFS operational control run, wind, issued four times a day, mean bias against ERA5 removed; waves from the daily reforecast & re-planning study \\
-departures & every 14 days from 1 January 2017 to 100 days before the end of 2019; every sixth (12) in all runs & weather sample \\
+Lateral node spacing & \SI{60}{nmi} & nodes across the track \\
+Corridor half width & \SI{2400}{nmi} & reach of the nodes to either side of the track \\
+Lateral step & up to 2 nodes per stage & edges between stages \\
+Lateral direction smoothing & 8 stages to either side & direction of the node rows \\
+Land check along edges & every \SI{20}{nmi} & removes edges over land \\
+Coastal clearance & \SI{50}{nmi}, on rings at 25 and \SI{50}{nmi} of 16 bearings & nodes near land \\
+Coastal penalty & cost of an edge into a node near land doubled & objective only \\
+Island disks & island radius plus about \SI{20}{nmi} & land mask \\
+Time bin & \SI{3}{h} & state of the dynamic programme \\
+Weather along an edge & at most every \SI{3}{h} & fuel and speed of an edge \\
+States searched & within 3\,\% of a backward estimate of the cost to go at \SI{24}{h} knots, 20\,\% with a kite; then 6\,\%, 40\,\% with a kite, then all, if a pass ends above its limit or finds no path; costs at most 0.01 points of cost saving against searching all states & dynamic programme \\
+Longest passage & 50 days & time bins \\
+Speeds & every fourth table speed, 13 from \SI{4}{kn} to the ship's maximum & edge choices \\
+Final pass & all table speeds, \SI{0.25}{h} bins, within \SI{24}{h} of the path found & passage reported \\
+Re-planning interval & first route node \SI{24}{h} after the last plan; 12 and \SI{6}{h} in the re-planning study & forecast router \\
+Plan margin on the kite's limits & \SI{20}{\%} tighter wind limits and more launch wind in a sea, tested & forecast router \\
+Forecasts & GEFSv12 reforecast control run and four perturbed members, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead & forecast router \\
+Operational forecasts & GEFS operational control run, wind, issued four times a day, mean bias against ERA5 removed; waves from the daily reforecast & re-planning study \\
+Departures & every 14 days from 1 January 2017 to 100 days before the end of 2019; every sixth (12) in all runs & weather sample \\
 \multicolumn{3}{@{}l}{\textit{Constants}}\\
-gravitational acceleration & \SI{9.81}{m/s^2} & \\
+Gravitational acceleration & \SI{9.81}{m/s^2} & Froude number and waves \\
 Earth radius & \SI{6371}{km} & great-circle distances \\
-nautical mile & \SI{1852}{m} & \\
-hours in a year & 8760 & annual costs \\
+Nautical mile & \SI{1852}{m} & distances and speeds in knots \\
+Hours in a year & 8760 & annual costs \\
 \end{longtable}}

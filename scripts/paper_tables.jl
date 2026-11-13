@@ -40,6 +40,35 @@ latex_escape(text) = replace(text, "\\" => "\\textbackslash{}", "&" => "\\&", "%
     "<" => "\\textless{}", r"\^(-?\d)" => s"\\textsuperscript{\1}", "^" => "\\^{}")
 
 """
+    latex_prose(text)
+
+Plain-text source note `text` escaped and typeset: about for `~`, en dashes in ranges,
+minus and times signs, digit groups, subscripts, degrees Celsius and unbroken page numbers.
+"""
+function latex_prose(text)
+    text = replace(latex_escape(replace(text, "~" => "about ")),
+        r"\d{1,3}(,\d{3})+(?!\d)" => digit_groups)
+    return replace(text,
+        r"(?<![\w-])(\d+(?:\.\d+)?)-(?=\d+(?:\.\d+)?(?![\w-]))" => s"\1--",
+        r"(^|[\s(=])-(?=\d)" => s"\1\\ensuremath{-}",
+        r"(\d) - (?=\d)" => s"\1 \\ensuremath{-} ",
+        r"(\w)\*(?=\w)" => s"\1\\ensuremath{\\times}",
+        r"(\S) x (?=\d)" => s"\1 \\ensuremath{\\times} ",
+        r"\b([A-Za-z])\\_([A-Za-z]+)\b" => s"\\ensuremath{\1_\\mathrm{\2}}",
+        r"\bFn\b" => "\\ensuremath{F_n}",
+        r"(\d) C(?![\w\\])" => s"\1\\,\\si{\\degreeCelsius}",
+        r"(\d) \\%" => s"\1\\,\\%", r"\bp\. (?=\d)" => "p.~")
+end
+
+"a number written with thousands commas, regrouped as the paper's numbers are"
+function digit_groups(number)
+    digits = replace(number, "," => "")
+    length(digits) <= 4 && return digits
+    groups = Iterators.partition(reverse(digits), 3)
+    return join(reverse([reverse(join(group)) for group in groups]), "\\,")
+end
+
+"""
     latex_number(value)
 
 `value` as a siunitx number, whole numbers below a million without a decimal point.
@@ -57,7 +86,7 @@ function input_tables()
     ragged = ">{\\raggedright\\arraybackslash}"
     open(joinpath(sections, "input_tables.tex"), "w") do io
         println(io, "\\begin{longtable}{@{}", ragged, "p{3.2cm}rr", ragged, "p{1.3cm}",
-            ragged, "p{6.6cm}@{}}")
+            ragged, "p{6.0cm}@{}}")
         println(io, "\\caption{Every input with a range, with its base value, range, unit ",
             "and source.}\n\\label{tab:inputs}\\\\")
         println(io, input_header, "\n\\endfirsthead")
@@ -83,11 +112,12 @@ input_header = "\\toprule\nInput & Value & Range & Unit & Source \\\\\n\\midrule
 One row of the input table: name, base value, range, unit and the full source note.
 """
 function write_input_row(io, entry, name)
-    label = replace(string(name), "_" => " ")
+    label = uppercasefirst(replace(string(name), "_" => " ", r"^e_" => "e-",
+        r"(?<![a-z])(vlsfo|teu|ceu|usd|eur)(?![a-z])" => uppercase, "froude" => "Froude"))
     unit = strip(entry.unit, '"')
-    println(io, latex_escape(label), " & ", latex_number(entry.value), " & ",
-        latex_number(entry.low), "--", latex_number(entry.high), " & ",
-        unit == "-" ? "--" : latex_escape(unit), " & ", latex_escape(entry.reason), " \\\\")
+    println(io, latex_escape(label), " & ", latex_number(entry.value),
+        " & ", latex_number(entry.low), "--", latex_number(entry.high), " & ",
+        unit == "-" ? "--" : latex_escape(unit), " & ", latex_prose(entry.reason), " \\\\")
 end
 
 """
@@ -172,23 +202,25 @@ function development_table()
     ships = unique(table["ship"])
     ragged = ">{\\raggedright\\arraybackslash}"
     open(joinpath(sections, "development_table.tex"), "w") do io
-        println(io, "\\begin{longtable}{@{}", ragged, "p{2.5cm}", ragged, "p{2.0cm}rrrr",
-            ragged, "p{4.0cm}@{}}")
+        println(io, "\\begin{longtable}{@{}", ragged, "p{2.5cm}", ragged, "p{2.6cm}rrrr",
+            ragged, "p{3.4cm}@{}}")
         println(io, "\\caption{The inputs of the development study by the rig whose ",
             "developer can change them: base value and range; the gain of a rig's saving ",
             "at the better end of the range and its loss at the worse end, in percentage ",
             "points, in cost per tonne-km on each ship and the largest of each in ",
             "CO\\textsubscript{2} per tonne-km over the ships; and why the input is in ",
-            "the study.}\n",
+            "the study. Values are estimates, conditions or goals (g), to two digits; ",
+            "\\cref{tab:goals} gives what is known today against each goal.}\n",
             "\\label{tab:development}\\\\")
-        header = string("\\toprule\nInput & Value (range) & ",
+        header = string("\\toprule\n & & \\multicolumn{3}{c}{Cost saving} & & \\\\\n",
+            "\\cmidrule(lr){3-5}\nInput & Value (range) & ",
             join(short_ship.(ships), " & "),
-            " & CO\\textsubscript{2} & Why \\\\\n",
-            " & & \\multicolumn{3}{c}{cost saving} & & \\\\\n\\midrule")
+            " & CO\\textsubscript{2} & Why \\\\\n\\midrule")
         println(io, header, "\n\\endfirsthead")
         println(io, "\\multicolumn{7}{@{}l}{\\cref{tab:development} (continued)}\\\\")
         println(io, header, "\n\\endhead\n\\bottomrule\n\\endfoot")
         for (rig, heading) in development_groups
+            rig == first(first(development_groups)) || println(io, "\\addlinespace")
             println(io, "\\multicolumn{7}{@{}l}{\\textit{", heading, "}}\\\\*")
             for entry in filter(entry -> entry.rig == rig, development_inputs)
                 write_lever_row(io, table, ships, entry)
@@ -197,6 +229,10 @@ function development_table()
         println(io, "\\end{longtable}")
     end
 end
+
+"the inputs of the development study that are development goals"
+goal_inputs = (:canopy_making_cost_per_area, :canopy_life, :kite_out_of_service,
+    :wing_out_of_service, :rotor_out_of_service)
 
 """
     write_lever_row(io, table, ships, entry)
@@ -208,8 +244,10 @@ function write_lever_row(io, table, ships, entry)
     unit = strip(assumption.unit, '"')
     carbons = [lever_gain_loss(table, ship, entry; column="carbon") for ship in ships]
     carbon = (maximum(first, carbons), minimum(last, carbons))
-    println(io, entry.label, " & ", latex_number(assumption.value), " (",
-        latex_number(assumption.low), "--", latex_number(assumption.high), ")",
+    estimate(value) = latex_number(round(value; sigdigits=2))
+    goal = entry.input in goal_inputs ? "\\textsuperscript{g}" : ""
+    println(io, uppercasefirst(entry.label), " & ", estimate(assumption.value), goal, " (",
+        estimate(assumption.low), "--", estimate(assumption.high), ")",
         unit == "-" ? "" : string(" ", latex_escape(unit)), " & ",
         join([effect_cell(lever_gain_loss(table, ship, entry)) for ship in ships], " & "),
         " & ", effect_cell(carbon), " & ", entry.reason, " \\\\")
@@ -546,7 +584,7 @@ function class_table()
     notes = class_source_notes()
     open(joinpath(sections, "class_sources.tex"), "w") do io
         for class in classes
-            println(io, latex_escape(class.name), " & ", latex_escape(notes[class.name]),
+            println(io, latex_escape(class.name), " & ", latex_prose(notes[class.name]),
                 " \\\\")
         end
     end
