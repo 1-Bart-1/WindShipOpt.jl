@@ -3276,7 +3276,8 @@ function rigid_mass_figure()
         small = published["area"][i] < 10
         align = mass < law || small ? (:left, :top) :
                 (published["area"][i] > 10 ? :right : :left, :bottom)
-        offset = small ? (pt(2.5), -pt(14)) : clear_offset(align, pt(2.5))
+        offset = small ? (pt(2.5), -pt(14)) :
+                 mass < law ? (pt(2.5), -pt(6)) : clear_offset(align, pt(2.5))
         text!(axis, published["area"][i], mass; text=first(split(published["name"][i],
             ",")), align, offset, fontsize=note_size, color, glowwidth=pt(1.5),
             glowcolor=:white)
