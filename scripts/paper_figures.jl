@@ -20,8 +20,9 @@ category_colours = [palette[6], Makie.RGBf(0.42, 0.26, 0.64), Makie.RGBf(0.55, 0
     figure_style_file()
 
 Write [`figure_style`](@ref) to paper/figure_style.tex, which the paper and its extended
-abstract load: figures keep their own fonts, TikZ and its libraries, the colours, and the TikZ styles of the LaTeX figures, `force`, `flow`, `dimension`, `leader`, `label`, `note` and
-`box`, with the arrowhead every arrow shares; error on any [`tikz_style_faults`](@ref).
+abstract load: figures keep their own fonts; TikZ, its libraries and the colours; and the
+TikZ styles `force`, `flow`, `dimension`, `leader`, `label`, `note` and `box`, with the
+arrowhead every arrow shares. Errors on any [`tikz_style_faults`](@ref).
 """
 function figure_style_file()
     faults = tikz_style_faults()
@@ -231,6 +232,7 @@ function label_faults(figure)
             end
             margin = Rect2f(minimum(box) .- label_clearance,
                 widths(box) .+ 2label_clearance)
+            on_white_box(scene, box) && continue
             for plot in scene.plots
                 covers_data(scene, plot, margin) &&
                     push!(faults,
@@ -239,6 +241,20 @@ function label_faults(figure)
         end
     end
     return unique(faults)
+end
+
+"whether `box` [pixels of `scene`] lies on a white rectangle drawn in `scene`"
+on_white_box(scene, box) = any(plot isa Makie.Poly && plot[1][] isa Rect &&
+                               Makie.to_color(plot.color[]) == Makie.to_color(:white) &&
+                               in_axis(box, pixel_rect(scene, plot[1][]))
+                               for plot in scene.plots)
+
+"the rectangle `rect` [data of `scene`] in pixels of `scene`"
+function pixel_rect(scene, rect)
+    corners = [Makie.project(scene, :data, :pixel, Point3f(corner[1], corner[2], 0))
+               for corner in (minimum(rect), maximum(rect))]
+    low, high = min.(corners...), max.(corners...)
+    return Rect2f(Point2f(low[1], low[2]), Vec2f(high[1] - low[1], high[2] - low[2]))
 end
 
 "the strings of the text plot `plot`, one per label"
@@ -470,9 +486,9 @@ function draw_force_balance!(axis, area, force, radius)
         align=(:center, :bottom), color=category_colours[1])
     text!(axis, -0.35, -0.9;
         text=L"F = %$(round(force / 1e6; digits=1))\,\mathrm{MN}", align=(:right, :bottom),
-        color=palette[1])
+        offset=(0, pt(1)), color=palette[1])
     text!(axis, -0.35, -0.9; text=L"A = %$(round(Int, area))\,\mathrm{m^2}",
-        align=(:right, :top), color=palette[1])
+        align=(:right, :top), offset=(0, -pt(1)), color=palette[1])
     left, right = (3.3, 0.0), (6.3, 0.0)
     centre = ((left[1] + right[1]) / 2, -0.75)
     reach = hypot(left[1] - centre[1], centre[2])
@@ -701,7 +717,8 @@ function route_figure()
                 end
             end
         end
-        column == 1 && wind_key!(axis, wind_scale, reference_wind)
+        column == 1 &&
+            wind_key!(axis, Point2f(-98, -24), reference_wind, wind_scale, 7)
     end
     entries = [[LineElement(color=category_colours[i])
                 for i in eachindex(route_names)];
@@ -714,22 +731,6 @@ function route_figure()
         "great circle"; "outbound"; "homeward"; "corridor node"]
     Legend(figure[2, 1:2], entries, names; orientation=:horizontal, nbanks=2)
     save_figure("routes", figure)
-end
-
-"""
-    wind_key!(axis, scale, speed)
-
-Reference arrow of `speed` [m/s] drawn at `scale` [deg per m/s] in a white box in the
-lower left corner of a map `axis`.
-"""
-function wind_key!(axis, scale, speed)
-    corner = Point2f(-98, -24)
-    poly!(axis, Rect2f(corner, Vec2f(scale * speed + 14, 7)); color=:white,
-        strokecolor=:gray55, strokewidth=rule_width)
-    arrows2d!(axis, [corner .+ Point2f(2, 3.5)], [Vec2f(scale * speed, 0)];
-        color=(:black, 0.35), shaftwidth=0.6, tiplength=2.8, tipwidth=2.6)
-    text!(axis, corner .+ Point2f(scale * speed + 3, 3.5); text="$speed m/s",
-        align=(:left, :center), fontsize=note_size)
 end
 
 """
@@ -771,7 +772,7 @@ function passage_figure()
     draw_land!(map_axis, mask)
     wind_scale = 0.3
     draw_wind!(map_axis, weather, departure + 24 * 6; scale=wind_scale)
-    wind_key!(map_axis, Point2f(-63, 51.5), 10, wind_scale)
+    wind_key!(map_axis, Point2f(-63, 51.5), 10, wind_scale, 3)
     first_path = first(first(legs)).path
     lines!(map_axis, great_circle(first_path[1], first_path[end])...; color=:black,
         linestyle=:dot, linewidth=0.8)
@@ -807,19 +808,21 @@ function passage_figure()
 end
 
 """
-    wind_key!(axis, corner, speed, scale)
+    wind_key!(axis, corner, speed, scale, height)
 
-A white box with its lower left at `corner` [deg] in `axis` holding a wind arrow of
-`speed` [m/s] at the `scale` of [`draw_wind!`](@ref), labelled with that speed.
+A white box of `height` [deg] with its lower left at `corner` [deg] in the map `axis`,
+holding a wind arrow of `speed` [m/s] at the `scale` [deg per m/s] of
+[`draw_wind!`](@ref), labelled with that speed.
 """
-function wind_key!(axis, corner, speed, scale)
-    poly!(axis, Rect2f(corner, Vec2f(speed * scale + 8.5, 3)); color=:white,
+function wind_key!(axis, corner, speed, scale, height)
+    poly!(axis, Rect2f(corner, Vec2f(speed * scale + 2.8height, height)); color=:white,
         strokecolor=:gray55, strokewidth=rule_width)
-    start = corner .+ Point2f(1, 1.5)
+    start = corner .+ Point2f(height / 3, height / 2)
     arrows2d!(axis, [start], [Vec2f(speed * scale, 0)]; color=(:black, 0.35),
         shaftwidth=0.6, tiplength=2.8, tipwidth=2.6)
-    text!(axis, start .+ Point2f(speed * scale + 0.8, 0); text="$speed m/s",
-        align=(:left, :center), fontsize=note_size)
+    text!(axis, start .+ Point2f(speed * scale, 0); text="$speed m/s",
+        align=(:left, :center), offset=clear_offset((:left, :center), pt(2.5)),
+        fontsize=note_size)
 end
 
 """
@@ -1616,7 +1619,7 @@ function breakdown_figure()
         push!(cases, ("e-ammonia + $rig", "ammonia", column))
     end
     labels = first.(cases)
-    figure = Figure(size=(page_width, 140))
+    figure = Figure(size=(page_width, 175))
     for (panel, ship_length) in enumerate((85.0, 200.0))
         found = [cheapest_design(designs, drive, ship_length, column)
                  for (_, drive, column) in cases]
@@ -1774,10 +1777,10 @@ function large_rigs_figure()
     flat_per_projected = 160 / 125
     flown, bound = 320 / flat_per_projected, largest_rig_area("kite", nothing)
     designed = (1000 / flat_per_projected, 1040)
-    marks = ((flown, rich("largest ship kite flown\n(320 m", superscript("2"), " flat)"),
-            :bottom),
-        (first(designed), "largest ship kite designed,\nlargest cargo parachute",
-            :bottom), (bound, "upper bound of the search", :top))
+    marks = ((flown, rich("largest ship kite flown, 320 m", superscript("2"), " flat"),
+            :bottom), (first(designed),
+            "largest ship kite designed,\nlargest cargo parachute", :bottom),
+        (bound, "upper bound of the search", :top))
     rotors_in_service = 5
     figure = Figure(size=(page_width, 215))
     areas = Axis(figure[1, 1]; title="(a) best kite area", xscale=log10,
