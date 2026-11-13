@@ -1392,9 +1392,10 @@ end
     fidelity_parts()
 
 Each part of the model as (part, varied, model, error, effect): its name, how its effect is
-measured, how it is modelled, its known error, and the path of the data file with the
-groups of condition sets whose results [`part_effect`](@ref) compares, `nothing` for a part
-with no measured effect.
+measured, how it is modelled, its known error, and the method study whose run holds the
+data file (`nothing` for a result of the paper run), that file and the groups of condition
+sets whose results [`part_effect`](@ref) compares, `nothing` for a part with no measured
+effect.
 """
 fidelity_parts() = [
     (part="Calm-water resistance", varied="calibration off",
@@ -1474,42 +1475,43 @@ fidelity_parts() = [
 
 "the whole model and the model with `part` off, in the model-part study"
 switched(part) =
-    (study_file(:model_parts, "model_parts.csv"), "ship",
+    (:model_parts, "model_parts.csv", "ship",
         [[("part" => "none",), ("part" => string(part),)]])
 
 "for each of `inputs` of the development study, the base and both of its bounds"
 function varied_inputs(inputs...)
     issubset(inputs, (entry.input for entry in development_inputs)) ||
         error("not all of $inputs are in the development study")
-    return (data_file("sensitivity.csv"), "ship",
+    return (nothing, "sensitivity.csv", "ship",
     [[("input" => "none", "bound" => "value"); [("input" => string(input), "bound" => bound)
                                                 for bound in ("low", "high")]]
      for input in inputs])
 end
 
 "each weather year"
-weather_years() = (study_file(:model_parts, "weather_years.csv"), "ship",
+weather_years() = (:model_parts, "weather_years.csv", "ship",
     [[("year" => year,) for year in 1:ceil(Int, last(departures) / 8760)]])
 
 "each corridor scale of the convergence study, on its one ship"
 corridor_grids() =
-    (study_file(:convergence, "convergence.csv"), nothing,
+    (:convergence, "convergence.csv", nothing,
         [[("scale" => scale,) for scale in convergence_scales]])
 
 "the best size found by the search and the best of every size"
 size_search_grid() =
-    (study_file(:size_search, "size_search.csv"), "class", [[(), ("round" => >=(0),)]])
+    (:size_search, "size_search.csv", "class", [[(), ("round" => >=(0),)]])
 
 """
-    part_effect((path, ship_column, groups))
+    part_effect((study, file, ship_column, groups))
 
 Largest difference [points] in the cost saving of each rig between the condition sets of
-any one of `groups` in the data file at `path`, over its ships in `ship_column`, `nothing`
+any one of `groups` in data file `file` of method study `study`, or of the paper run where
+`study` is `nothing`, over its ships in `ship_column`, `nothing`
 for a file of the 140 m ship alone; and for each set of rigs that take turns at being
 cheapest within a group, the ships where they do.
 """
-function part_effect((path, ship_column, groups))
-    table = read_table(path)
+function part_effect((study, file, ship_column, groups))
+    table = read_table(isnothing(study) ? data_file(file) : study_file(study, file))
     spread = Dict(rig => 0.0 for rig in rig_names)
     swaps = Dict{String, Set{String}}()
     ships = isnothing(ship_column) ? [nothing] : unique(table[ship_column])
