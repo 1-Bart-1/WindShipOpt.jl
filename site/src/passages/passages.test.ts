@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { passagesDirectory } from "../../data";
 import * as THREE from "three";
 import { findLeg, interpolateAngle, legEvents, passageDays, sampleAt, stateAt, Timeline, windAt, type Leg, type WindField } from "./passages";
-import { disposeTree, towardsEdge } from "./scene";
+import { disposeTree } from "./scene";
 
 const leg: Leg = {
   design: 1,
@@ -29,7 +29,7 @@ const leg: Leg = {
     apparent_angle: [-170, 170, 160],
     flying: [0, 1, 1],
     event: [0, 1, 0],
-    trim: { pattern: [null, [10, 20, 30, 40, 50], [30, 40, 50, 60, 70]] },
+    trim: { pattern: [null, [10, 20, 30, 40, 50, 60, 70, 80, 90], [30, 40, 50, 60, 70, 80, 90, 100, 110]] },
   },
 };
 
@@ -57,7 +57,9 @@ describe("a passage replayed at a time", () => {
     expect(state.flying).toBe(true);
     expect(state.pattern?.azimuth).toEqual([1, 2]);
     expect(state.pattern?.elevation).toEqual([3, 4]);
-    expect(state.pattern?.period).toBe(5);
+    expect(state.pattern?.nose).toEqual([5, 6]);
+    expect(state.pattern?.pitch).toEqual([7, 8]);
+    expect(state.pattern?.period).toBe(9);
   });
 
   it("keeps the kite stowed until the sample it launched at", () => {
@@ -118,16 +120,6 @@ describe("the three.js scene helpers", () => {
     root.add(new THREE.Mesh(geometry, material));
     disposeTree(root);
     expect(disposed).toBe(2);
-  });
-});
-
-describe("a kite held still", () => {
-  it("points its nose along the tether sphere, upwind towards the window's edge", () => {
-    const radial = new THREE.Vector3(-0.5, Math.sqrt(3) / 2, 0);
-    const nose = towardsEdge(radial, 0);
-    expect(nose.dot(radial)).toBeCloseTo(0);
-    expect(nose.x).toBeCloseTo(Math.sqrt(3) / 2);
-    expect(nose.y).toBeCloseTo(0.5);
   });
 });
 

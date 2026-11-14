@@ -217,8 +217,8 @@ end
     TensionExcess(model, wind, radial, heading, turn, max_tension, along_path)
 
 Called on an angle of attack [rad], the tension of the [`steering_point`](@ref) of `model`
-accelerating at `along_path` [m/s^2] there above `max_tension` [N] and that point; minus
-`max_tension` and `nothing` where it cannot fly.
+accelerating at `along_path` [m/s^2] there above `max_tension` [N] and that point with the
+angle appended; minus `max_tension` and `nothing` where it cannot fly.
 """
 struct TensionExcess
     model::KiteModel
@@ -235,7 +235,7 @@ function (excess::TensionExcess)(angle)
     point = steering_point(KiteAero(model, angle), excess.wind, excess.radial,
         excess.heading, excess.turn, model.tether_length, excess.along_path)
     isnothing(point) && return -excess.max_tension, point
-    return point[2] - excess.max_tension, point
+    return point[2] - excess.max_tension, (point..., angle)
 end
 
 """
@@ -266,7 +266,7 @@ end
 
 [`steering_point`](@ref) of `model` at angle of attack `angle` [rad], depowered towards
 its lowest angle where the tension would exceed `max_tension` [N], keeping the most lift
-that stays within the limit.
+that stays within the limit, with the angle of attack it flies at [rad] appended.
 """
 function limited_point(model::KiteModel, angle, wind, radial, heading, turn, max_tension,
         along_path=NO_ACCELERATION)
@@ -323,8 +323,13 @@ end
 
 const NO_PATTERN = PatternForce((NaN, NaN, NaN), NaN, NaN)
 
-"one step of a flown cycle: unit position, tether tension [N] and duration [s]"
-const PatternStep = @NamedTuple{radial::NTuple{3, Float64}, tension::Float64, time::Float64}
+"""
+one step of a flown cycle: unit position, apparent wind at the kite [m/s] (the wind less
+the kite's own velocity), angle of attack [rad], tether tension [N] and duration [s]
+"""
+const PatternStep = @NamedTuple{radial::NTuple{3, Float64},
+    apparent_wind::NTuple{3, Float64}, angle_of_attack::Float64, tension::Float64,
+    time::Float64}
 
 "maximum integration steps before a pattern counts as not settling into a cycle"
 const MAX_PATTERN_STEPS = 2000
@@ -366,13 +371,14 @@ function PatternForce(model::KiteModel, pattern::SteeringPattern, wind_speed, ma
         point = limited_point(model, pattern.angle_of_attack, wind, radial, direction,
             turn, max_tension)
         isnothing(point) && return NO_PATTERN
-        airspeed, tension, ground = point
+        airspeed, tension, ground, angle = point
         time = step / airspeed
         total = total .+ (tension * time) .* radial
         duration += time
         peak = max(peak, tension)
         lowest = min(lowest, asin(radial[3]))
-        isnothing(path) || push!(cycle, (; radial, tension, time))
+        isnothing(path) || push!(cycle, (; radial, apparent_wind=wind .- ground,
+            angle_of_attack=angle, tension, time))
         turned = step / model.min_turn_radius
         heading = clamp(target, heading - turned, heading + turned)
         off_wind += dot3(ground, edge) * time / radius
@@ -400,8 +406,8 @@ end
     StillKite
 
 Kite held still at `roll` [rad] about the apparent downwind direction, as in
-[`window_position`](@ref), at `angle_of_attack` [rad], its nose towards the edge of the wind
-window: it rests where lift, drag, weight and tether tension balance with no motion.
+[`window_position`](@ref), at `angle_of_attack` [rad] to the apparent wind: it rests where
+lift, drag, weight and tether tension balance with no motion.
 """
 struct StillKite
     roll::Float64
@@ -441,7 +447,8 @@ function PatternForce(model::KiteModel, still::StillKite, wind_speed, max_tensio
     off_wind, tension = balance
     tension <= max_tension || return NO_PATTERN
     radial = window_position(off_wind, still.roll)
-    isnothing(path) || push!(path, (; radial, tension, time=1.0))
+    isnothing(path) || push!(path, (; radial, apparent_wind=(wind_speed, 0.0, 0.0),
+        angle_of_attack=still.angle_of_attack, tension, time=1.0))
     load = 0.5model.air_density * wind_speed^2 * model.area
     return PatternForce(tension .* radial ./ load, tension / load, asin(radial[3]))
 end
@@ -507,7 +514,7 @@ function PatternForce(model::KiteModel, pattern::LoopPattern, wind_speed, max_te
         point = limited_point(model, pattern.angle_of_attack, wind, radial, heading, turn,
             max_tension, along_path)
         isnothing(point) && return NO_PATTERN
-        airspeed, tension, ground = point
+        airspeed, tension, ground, angle = point
         ground_speed = dot3(ground, heading)
         ground_speed > 0 || return NO_PATTERN
         time = segment / ground_speed
@@ -516,7 +523,8 @@ function PatternForce(model::KiteModel, pattern::LoopPattern, wind_speed, max_te
         air_distance += airspeed * time
         peak = max(peak, tension)
         lowest, highest = min(lowest, radial[3]), max(highest, radial[3])
-        isnothing(path) || push!(path, (; radial, tension, time))
+        isnothing(path) || push!(path, (; radial, apparent_wind=wind .- ground,
+            angle_of_attack=angle, tension, time))
     end
     holds_speed(model, air_distance / duration, model.tether_length * (highest - lowest)) ||
         return NO_PATTERN
