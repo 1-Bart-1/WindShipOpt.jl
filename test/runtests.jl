@@ -1827,13 +1827,15 @@ end
     for hole in (NaN16, zero(Float16))
         whole = WindShipOpt.ArchiveGroup(grid,
             Dict(name => ones(Float16, 2, 2, 2, 2) for name in names),
-            Dict{Int, Dict{String, Array{Float32, 3}}}(), 0.0, 24.0)
+            Dict{Int, Dict{String, Array{Float32, 3}}}(),
+            Dict{Int, Array{Float32, 3}}(), 0.0, 24.0)
         @test WindShipOpt.issued_in(whole, 2)
         for missing_field in names
             group = WindShipOpt.ArchiveGroup(grid,
                 Dict(name => name == missing_field ? issues(hole) :
                              ones(Float16, 2, 2, 2, 2) for name in names),
-                Dict{Int, Dict{String, Array{Float32, 3}}}(), 0.0, 24.0)
+                Dict{Int, Dict{String, Array{Float32, 3}}}(),
+                Dict{Int, Array{Float32, 3}}(), 0.0, 24.0)
             @test WindShipOpt.issued_in(group, 1)
             @test !WindShipOpt.issued_in(group, 2)
         end
