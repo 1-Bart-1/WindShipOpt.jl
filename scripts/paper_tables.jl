@@ -1751,8 +1751,7 @@ function fleet_share_numbers(table)
     for (drive, word) in drive_words
         split = fleet_split_of(table, drive)
         bill = fleet_total(split, :bill)
-        push!(numbers, "FleetBill$word" => whole_number(bill / 1e9),
-            "FleetSaved$word" => whole_number(fleet_total(split, :saved) / 1e9))
+        push!(numbers, "FleetBill$word" => whole_number(bill / 1e9))
         for band in fleet_bands
             name = word * uppercasefirst(band)
             push!(numbers, "FleetShare$name" => whole_number(100split[band].bill / bill))
