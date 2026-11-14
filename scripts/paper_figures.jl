@@ -137,8 +137,9 @@ geometric_mean(values) = exp(sum(log, values) / length(values))
 """
     pattern_figure()
 
-Optimal flight paths seen from the ship over the course off apparent downwind, in light
-and strong apparent wind, without side-force weight.
+Optimal flight paths seen from the ship over the course off apparent downwind, a ring where
+the kite is held still, nested where still kites share a point, in light and strong
+apparent wind, without side-force weight.
 """
 function pattern_figure()
     paths = read_table(data_file("patterns.csv"))
@@ -152,11 +153,20 @@ function pattern_figure()
         axis = Axis(figure[row, 1]; ylabel="elevation [°]", limits=(-35, 90, 0, 60),
             xlabel=bottom ? "azimuth off apparent downwind [°]" : "",
             title="($letter) flight paths, apparent wind $(round(Int, wind)) m/s")
+        held = Dict{NTuple{2, Float64}, Int}()
         for (i, course) in enumerate(courses)
             chosen = rows(paths, "wind" => wind, "course" => course, "side_weight" => 0.0)
             isempty(chosen) && continue
-            lines!(axis, rad2deg.(paths["azimuth"][chosen]),
-                rad2deg.(paths["elevation"][chosen]); color=colours[i])
+            azimuths = rad2deg.(paths["azimuth"][chosen])
+            elevations = rad2deg.(paths["elevation"][chosen])
+            if allequal(azimuths) && allequal(elevations)
+                point = (round(azimuths[1]; digits=1), round(elevations[1]; digits=1))
+                rings = held[point] = get(held, point, 0) + 1
+                scatter!(axis, [point]; color=:transparent, strokecolor=colours[i],
+                    strokewidth=line_width, markersize=marker_size * (1 + rings))
+            else
+                lines!(axis, azimuths, elevations; color=colours[i])
+            end
         end
         bottom || hidexdecorations!(axis; ticks=false, ticklabels=false)
         thrust = Axis(figure[row, 2]; ylabel="force [kN]", limits=((-5, 185), nothing),

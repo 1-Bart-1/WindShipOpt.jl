@@ -17,8 +17,8 @@ lateral_reach(stage_spacing, lateral_spacing) = max(1,
 "rows by which a reach short of a whole number of rows still counts as reaching it"
 const ROW_TOLERANCE = 1e-6
 
-"stages on each side over which the lateral direction is averaged"
-const NORMAL_SMOOTHING = 8
+"distance between the stages of a fixed coastal path [nmi]"
+const COASTAL_SPACING = 30.0
 
 """
     Corridor
@@ -67,6 +67,9 @@ lateral_step(corridor::Corridor, lateral, next) = next - lateral + corridor.reac
 centre_index(lat::AbstractMatrix) = (size(lat, 2) + 1) ÷ 2
 centre_index(corridor::Corridor) = centre_index(corridor.lat)
 
+"latitude north and south of which a corridor has no usable node [deg]"
+const SAILABLE_LATITUDE = 60.0
+
 "distance from land within which the wind grid does not resolve the coast [m]"
 const COASTAL_CLEARANCE = 50 * NAUTICAL_MILE
 
@@ -84,43 +87,51 @@ function near_land(mask, lat, lon, clearance)
 end
 
 """
-    Corridor(coastal, ocean, mask; ocean_spacing, lateral_spacing, lateral_count)
+    Corridor(paths, mask; ocean_spacing, lateral_spacing, lateral_count)
 
-Corridor that follows the fixed `coastal` waypoints (lat, lon) without lateral freedom,
-then opens into a band around the `ocean` waypoints, the last of which is the
-destination. Coastal stages lie 30 nautical miles apart; spacings in nautical miles.
+Corridor that follows the fixed coastal `paths` (lat, lon) in turn and crosses the open sea
+between each path and the next on the great circle from the end of one to the start of the
+next, the port the last point of the last path. Only the open-sea stages have lateral
+nodes, on rows perpendicular to their great circle and within `SAILABLE_LATITUDE`. Fixed
+stages lie `COASTAL_SPACING` apart; spacings in nautical miles.
 """
-function Corridor(coastal::Vector{NTuple{2, Float64}}, ocean::Vector{NTuple{2, Float64}},
-        mask; ocean_spacing, lateral_spacing, lateral_count)
-    track = resample(coastal, 30.0 * NAUTICAL_MILE)
-    coastal_stages = length(track)
-    append!(track, resample([last(coastal); ocean], ocean_spacing * NAUTICAL_MILE)[2:end])
+function Corridor(paths::Vector{Vector{NTuple{2, Float64}}}, mask; ocean_spacing,
+        lateral_spacing, lateral_count)
+    track = resample(first(paths), COASTAL_SPACING * NAUTICAL_MILE)
+    open_sea = falses(length(track))
+    for (from, to) in zip(paths[1:(end - 1)], paths[2:end])
+        crossing = resample([last(from), first(to)], ocean_spacing * NAUTICAL_MILE)
+        coastal = resample(to, COASTAL_SPACING * NAUTICAL_MILE)
+        append!(track, crossing[2:(end - 1)], coastal)
+        append!(open_sea, trues(length(crossing) - 2), falses(length(coastal)))
+    end
     stage_count = length(track)
-    along = cumsum([0.0; [distance(track[i]..., track[i + 1]...)
-                          for i in 1:(stage_count - 1)]])
-    track_end = last(along)
     half = (lateral_count - 1) ÷ 2
     lat = zeros(stage_count, lateral_count)
     lon = zeros(stage_count, lateral_count)
     water = falses(stage_count, lateral_count)
     for (stage, (stage_lat, stage_lon)) in enumerate(track)
-        course = bearing(track[max(stage - NORMAL_SMOOTHING, 1)]...,
-            track[min(stage + NORMAL_SMOOTHING, stage_count)]...)
-        width = stage <= coastal_stages ? 0 : half
+        incoming = stage == stage_count || stage > 1 && open_sea[stage - 1]
+        course = incoming ? bearing(track[stage]..., track[stage - 1]...) + π :
+                 bearing(track[stage]..., track[stage + 1]...)
+        width = open_sea[stage] ? half : 0
         for lateral in 1:lateral_count
             offset = (lateral - half - 1) * lateral_spacing * NAUTICAL_MILE
             point = destination_point(stage_lat, stage_lon, course + π / 2, offset)
             lat[stage, lateral], lon[stage, lateral] = point
             water[stage, lateral] = abs(lateral - half - 1) <= width &&
+                                    abs(first(point)) <= SAILABLE_LATITUDE &&
                                     !is_land(mask, point...)
         end
     end
     near_coast = [near_land(mask, lat[i], lon[i], COASTAL_CLEARANCE)
                   for i in eachindex(lat)]
     reach = lateral_reach(ocean_spacing, lateral_spacing)
-    return Corridor(lat, lon, leading_to_port(lat, lon, water, mask, reach)..., track_end,
-        reshape(BitVector(near_coast), size(lat)), along_centre_line(lat, lon), reach,
-        lateral_spacing * NAUTICAL_MILE, zeros(stage_count))
+    track_length = sum(distance(track[i]..., track[i + 1]...) for i in 1:(stage_count - 1))
+    return Corridor(lat, lon, on_passage(lat, lon, water, mask, reach)...,
+        track_length, reshape(BitVector(near_coast), size(lat)),
+        along_centre_line(lat, lon), reach, lateral_spacing * NAUTICAL_MILE,
+        zeros(stage_count))
 end
 
 """
@@ -196,27 +207,40 @@ function edges(lat, lon, water, mask, reach, stage_reach=Returns(reach))
 end
 
 """
-    leading_to_port(lat, lon, water, mask, reach, stage_reach=Returns(reach))
+    on_passage(lat, lon, water, mask, reach, start=centre_index(lat),
+               stage_reach=Returns(reach))
 
-The nodes of `water` from which [`edges`](@ref) lead to the port, the centre of the last
-stage, and those edges.
+The nodes of `water` that [`edges`](@ref) join to both node `start` of the first stage and
+the port, the centre of the last stage, and the edges between those nodes.
 """
-function leading_to_port(lat, lon, water, mask, reach, stage_reach=Returns(reach))
+function on_passage(lat, lon, water, mask, reach, start=centre_index(lat),
+        stage_reach=Returns(reach))
     edge_length, edge_course = edges(lat, lon, water, mask, reach, stage_reach)
-    open = copy(water)
-    port = centre_index(lat)
-    open[end, :] .= false
-    open[end, port] = water[end, port]
-    for stage in (size(water, 1) - 1):-1:1, lateral in axes(water, 2)
+    stage_count = size(water, 1)
+    leads_on = falses(size(water))
+    leads_on[end, centre_index(lat)] = water[end, centre_index(lat)]
+    for stage in (stage_count - 1):-1:1, lateral in axes(water, 2)
         for step in axes(edge_course, 3)
             isnan(edge_course[stage, lateral, step]) && continue
-            open[stage + 1, next_lateral(lateral, step, reach)] && continue
+            leads_on[stage + 1, next_lateral(lateral, step, reach)] && continue
             edge_length[stage, lateral, step] = 0.0
             edge_course[stage, lateral, step] = NaN
         end
-        open[stage, lateral] &= any(!isnan, view(edge_course, stage, lateral, :))
+        leads_on[stage, lateral] = any(!isnan, view(edge_course, stage, lateral, :))
     end
-    return open, edge_length, edge_course
+    reached = falses(size(water))
+    reached[1, start] = leads_on[1, start]
+    for stage in 1:(stage_count - 1), lateral in axes(water, 2)
+        if !reached[stage, lateral]
+            edge_length[stage, lateral, :] .= 0.0
+            edge_course[stage, lateral, :] .= NaN
+        end
+        for step in axes(edge_course, 3)
+            isnan(edge_course[stage, lateral, step]) && continue
+            reached[stage + 1, next_lateral(lateral, step, reach)] = true
+        end
+    end
+    return reached, edge_length, edge_course
 end
 
 """
@@ -228,7 +252,7 @@ function return_corridor(corridor::Corridor, mask)
     lat = reverse(corridor.lat; dims=1)
     lon = reverse(corridor.lon; dims=1)
     water = reverse(corridor.water; dims=1)
-    return Corridor(lat, lon, leading_to_port(lat, lon, water, mask, corridor.reach)...,
+    return Corridor(lat, lon, on_passage(lat, lon, water, mask, corridor.reach)...,
         corridor.track_length, reverse(corridor.near_coast; dims=1),
         along_centre_line(lat, lon), corridor.reach, corridor.lateral_spacing,
         reverse(corridor.sample_hours))
@@ -1903,7 +1927,7 @@ function planning_corridor(corridor::Corridor, stage, lateral, grid::PlanningGri
     stage_reach(i) = i < near ? min(corridor.reach, lateral_reach(lengths[i], spacing)) :
                      lateral_reach(lengths[i], spacing)
     reach = maximum(stage_reach, eachindex(lengths))
-    open, edge_length, edge_course = leading_to_port(lat, lon, water, grid.mask, reach,
+    open, edge_length, edge_course = on_passage(lat, lon, water, grid.mask, reach, lateral,
         stage_reach)
     open[1, lateral] || return planning_corridor(corridor, stage, lateral, nothing)
     planning = Corridor(lat, lon, open, edge_length, edge_course, corridor.track_length,
@@ -2077,12 +2101,10 @@ Why a kite is down at [`SailedPoint`](@ref) `point` on the [`RouteTable`](@ref) 
 `:no_kite` on a ship without one, else the first that holds of:
 `:wind_low_flight`, `:wind_high_flight`, outside the limits it can stay up in;
 `:hull_limit`, where the hull or the engine cannot hold the speed with the kite up;
-`:wind_low_pull`, where it can stay up but the apparent wind is below
-[`lowest_pull_wind`](@ref); `:no_thrust`, in enough wind but with no forward pull at the
-course, the wind coming from too far ahead; `:wind_low_launch`, `:wind_high_launch`,
-`:sea_launch`, `:night`, outside the limits it can launch in; `:no_saving`, where flying
-costs at least as much per hour as staying down; and `:chosen`, where it could launch,
-flying would save, and it stayed down.
+`:no_thrust`, with no forward pull at the course, the wind coming from too far ahead;
+`:wind_low_launch`, `:wind_high_launch`, `:sea_launch`, `:night`, outside the limits it
+can launch in; `:no_saving`, where flying costs at least as much per hour as staying down;
+and `:chosen`, where it could launch, flying would save, and it stayed down.
 """
 function kite_down_reason(table::RouteTable, point, prices)
     rig = table.table.ship.rig
@@ -2094,8 +2116,7 @@ function kite_down_reason(table::RouteTable, point, prices)
     wind < kite.min_flight_wind && return :wind_low_flight
     wind > kite.max_wind && return :wind_high_flight
     isfinite(point.flown) || return :hull_limit
-    point.flown !== point.stowed ||
-        return wind < lowest_pull_wind(kite) ? :wind_low_pull : :no_thrust
+    point.flown !== point.stowed || return :no_thrust
     wind < kite.launch_min_wind && return :wind_low_launch
     wind > kite.launch_max_wind && return :wind_high_launch
     sea_wind = extra_launch_wind(table.table, speed, point.condition)
@@ -2331,33 +2352,35 @@ const CHANNEL = [(51.98, 4.05), (51.05, 1.60), (50.05, -1.50), (48.80, -6.00)]
 "stage and row spacing of a corridor at scale 1 [nmi]"
 const OCEAN_SPACING, LATERAL_SPACING = 90.0, 60.0
 
+"fixed path from north of the Bahamas through the Florida Strait into the Gulf of Mexico"
+const FLORIDA_STRAIT = [(28.0, -79.5), (26.5, -79.5), (25.5, -79.8), (24.6, -80.3),
+    (24.2, -81.5), (24.4, -83.3)]
+
+"""
+Fixed coastal paths each route follows after the Channel (latitude, longitude) [deg], the
+port last; the route crosses the open sea between one path and the next.
+"""
+const COASTAL_PATHS = Dict(:caribbean => [[(16.15, -61.20)]],
+    :new_york => [[(40.3, -72.5)]], :bilbao => [[(43.6, -3.0)]],
+    :dakar => [[(14.6, -17.6)]], :houston => [FLORIDA_STRAIT, [(28.8, -94.5)]],
+    :tubarao => [[(-20.4, -39.8)]])
+
 """
     route_corridors(route, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
                     lateral_spacing=LATERAL_SPACING * scale)
 
 Outbound and return corridors between Rotterdam and the port of `route`: `:caribbean`
-(Guadeloupe; outbound via the trade winds, homeward on the great circle), `:new_york`,
-`:bilbao`, `:dakar`, `:houston` (through the Florida Strait) or `:tubarao` (Brazil), the
-same band both ways. All run through the Channel to Ushant.
+(Guadeloupe), `:new_york`, `:bilbao`, `:dakar`, `:houston` or `:tubarao` (Brazil), the same
+band both ways. Each runs through the Channel to Ushant and on through the route's
+`COASTAL_PATHS`, crossing the open sea between them on great circles.
 `ocean_spacing` and `lateral_spacing` are the stage and row spacing [nmi]; the band reaches
 `CORRIDOR_HALF_WIDTH` to either side.
 """
 function route_corridors(route::Symbol, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
         lateral_spacing=LATERAL_SPACING * scale)
-    spacing = (ocean_spacing, lateral_spacing,
+    outbound = Corridor([[CHANNEL]; COASTAL_PATHS[route]], mask; ocean_spacing,
+        lateral_spacing,
         lateral_count=2 * ceil(Int, CORRIDOR_HALF_WIDTH / lateral_spacing) + 1)
-    if route == :caribbean
-        guadeloupe = (16.15, -61.20)
-        outbound = Corridor(CHANNEL, [(40.0, -14.0), (27.0, -28.0), guadeloupe], mask;
-            spacing...)
-        return outbound,
-        return_corridor(Corridor(CHANNEL, [guadeloupe], mask; spacing...), mask)
-    end
-    ocean = Dict(:new_york => [(40.3, -72.5)], :bilbao => [(43.6, -3.0)],
-        :dakar => [(43.5, -11.0), (14.6, -17.6)],
-        :houston => [(30.5, -76.0), (23.9, -81.5), (25.5, -86.5), (28.8, -94.5)],
-        :tubarao => [(30.0, -22.0), (0.0, -30.0), (-20.4, -39.8)])[route]
-    outbound = Corridor(CHANNEL, ocean, mask; spacing...)
     return outbound, return_corridor(outbound, mask)
 end
 
