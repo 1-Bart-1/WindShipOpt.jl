@@ -780,25 +780,73 @@ canopy_cloth_weight:
   low: 200.0
   high: 200.0
   unit: g/m^2
-  reason: "Weight of the polyester ripstop of the canopy at canopy_cloth_reference_force, fixed with the goal canopy_life: under a life that does not depend on it the lightest cloth would always win. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+  reason: "Weight of the polyester ripstop the canopy is sewn from: the canopy_cloth_reference_weight the goal canopy_life is stated at. A lighter or heavier cloth lasts as canopy_life scaled by the strength decay in the paper. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+canopy_cloth_reference_weight:
+  value: 200.0
+  low: 200.0
+  high: 200.0
+  unit: g/m^2
+  reason: "Cloth weight at which the goal canopy_life is stated."
 canopy_cloth_reference_force:
   value: 0.5
   low: 0.5
   high: 0.5
   unit: kN/m^2
-  reason: "Force limit at which canopy_cloth_weight, canopy_mass_overhead and the goal canopy_life are stated, the base kite_max_force_per_area; the canopy scales from it whatever limit a kite is built for, so moving the base limit leaves the goals where they were stated."
-canopy_cloth_force_exponent:
-  value: 0.27
-  low: 0.27
-  high: 0.27
+  reason: "Force limit at which canopy_mass_overhead and the goal canopy_life are stated, the base kite_max_force_per_area, so moving the base limit leaves the goals where they were stated."
+canopy_uv_reference_dose:
+  value: 70.0
+  low: 70.0
+  high: 70.0
+  unit: MJ/m^2
+  reason: "UV dose (295-385 nm) that leaves 1/e of the strength of polyester cloth of 100 g/m^2 without a UV blocker: least-squares fit over outdoor and lamp tests, lamp doses times 3 (canopy_life_notes.md; bounds 35-160 move canopy_life within its range)."
+canopy_uv_weight_exponent:
+  value: 0.4
+  low: 0.4
+  high: 0.4
   unit: "-"
-  reason: "Cloth weight grows with the force limit to this power, the fit that holds the 3,800 h of the strength decay in the paper over limits of 0.25 to 2 kN/m^2. Each decay input at its bound gives 0.19 to 0.34, except the wear exponent b at its low bound of 0, which gives 0.8. Tension enters the decay only through the logarithm of the margin, so where heavier cloth also wears for longer it asks for far less than the exponent 1 of a constant share of strength, the upper bound of the force rating study; 0 is cloth that ignores the limit."
+  reason: "Power of the cloth weight in the UV dose to 1/e of strength: the same fit, 0.40 +/- 0.12 (canopy_life_notes.md; bounds 0.1-1)."
+canopy_uv_dose_rate:
+  value: 0.02
+  low: 0.02
+  high: 0.02
+  unit: MJ/m^2/h
+  reason: "UV dose on the top skin per flight hour, about 55 % of the yearly mean in Florida, flown day and night and stowed out of the sun on deck (canopy_life_notes.md; bounds 0.012-0.035). No source measures it on a kite."
+canopy_wear_rate:
+  value: 0.13
+  low: 0.13
+  high: 0.13
+  unit: g/m^2/h
+  reason: "Strength-equivalent cloth weight lost to wear per flight hour by cloth of 100 g/m^2: between the medians of 0.10 and 0.19 that makers' life statements imply after removing their UV (canopy_life_notes.md; bounds 0.052-0.26). Physics does not set it."
+canopy_wear_weight_exponent:
+  value: 1.0
+  low: 1.0
+  high: 1.0
+  unit: "-"
+  reason: "Power of the cloth weight in the wear life: our choice of 1 between the 0 of a sailmaker's one life for every sail and the 1.5 of a balloon maker's lives (canopy_life_notes.md). No test of life against cloth weight at one tension exists."
+canopy_cloth_specific_strength:
+  value: 170.0
+  low: 170.0
+  high: 170.0
+  unit: N/m per g/m^2
+  reason: "Strength of new canopy cloth per unit cloth weight, within the 110-210 of canopy and sail cloth data (Porcher 2006, Ambroziak and Klosowski 2018)."
+canopy_strength_kept:
+  value: 5.0
+  low: 5.0
+  high: 5.0
+  unit: "-"
+  reason: "Strength over skin tension at the force limit at which a canopy is retired, our estimate (bounds 3-8)."
+canopy_skin_radius:
+  value: 0.5
+  low: 0.5
+  high: 0.5
+  unit: m
+  reason: "Radius the canopy skin bulges to between ribs, which sets its tension as pressure times radius: 0.41 m from the cell equilibrium of Wang and He 2018 on the SkySails kite, rounded up."
 canopy_life:
   value: 3000.0
   low: 1200.0
   high: 6900.0
   unit: flight hours
-  reason: "Development goal for the life of a canopy of 200 g/m^2 cloth: what development can reach, not where things stand today. No life is measured on a kite. Reachable and on the careful side of what makers state: below the 3,500-4,000 h of their longest statements and the 3,800 h that strength decay under UV and a wear rate from makers' statements gives. Each decay input changed alone gives the bounds."
+  reason: "Development goal for the life of a canopy of canopy_cloth_reference_weight cloth at canopy_cloth_reference_force: what development can reach, not where things stand today. No life is measured on a kite. Reachable and on the careful side of what makers state: below the 3,500-4,000 h of their longest statements and the 3,800 h that strength decay under UV and a wear rate from makers' statements gives. Each decay input changed alone gives the bounds."
 canopy_cloth_area_ratio:
   value: 3.5
   low: 3.0
@@ -1008,7 +1056,7 @@ kite_max_force_per_area:
   low: 0.4
   high: 1.0
   unit: kN/m^2
-  reason: "Maximum wing loading on the projected area. 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2). SkySails design load on flat area: 160 kN on 225 m^2, about 0.7 kN/m^2 (Paulig et al. 2013), 0.9 on the projected area at 1.28 flat over projected (Folkersma et al. 2020). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4). The canopy cloth, seams and reinforcements follow the limit (canopy_cloth_force_exponent), so the bounds carry them too."
+  reason: "Maximum wing loading on the projected area. 450 N/m^2 (Faggiani & Schmehl 2018); Kitepower Falcon 3.5 t on 60-80 m^2 (0.43-0.57 kN/m^2). SkySails design load on flat area: 160 kN on 225 m^2, about 0.7 kN/m^2 (Paulig et al. 2013), 0.9 on the projected area at 1.28 flat over projected (Folkersma et al. 2020). The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience (SkyPower100 final report, Junge et al. 2023, sec. I.4). Seams and reinforcements follow the limit, the cloth does not, and its life follows the skin tension through the strength decay, so the bounds carry them."
 kite_tow_position:
   value: 1.0
   low: 1.0

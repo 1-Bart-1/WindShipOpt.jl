@@ -231,14 +231,12 @@ end
     @test heavy_wind > light_wind
 end
 
-@testset "a kite built for more force is heavier and dearer at the same life" begin
+@testset "a kite built for more force keeps its cloth and wears it out sooner" begin
     stronger = with_value(assumptions, :kite_max_force_per_area, 1.0)
-    @test WindShipOpt.cloth_weight(assumptions) == 200
-    @test WindShipOpt.cloth_weight(stronger) ≈ 200 * 2^0.27
     base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger))
     @test strong_canopy.mass_per_area > base_canopy.mass_per_area
-    @test strong_canopy.cost_per_area > base_canopy.cost_per_area
-    @test strong_canopy.lifetime == base_canopy.lifetime
+    @test strong_canopy.cost_per_area == base_canopy.cost_per_area
+    @test strong_canopy.lifetime ≈ 3000 * log(27.2 / 2) / log(27.2)
     base_model, _, base_tether = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     strong_model, _, strong_tether = WindShipOpt.kite_model(800.0, 3.0, stronger)
     @test strong_model.mass > base_model.mass
@@ -255,12 +253,14 @@ end
     end
 end
 
-@testset "canopy life is the goal input, whatever the cloth weight" begin
-    @test WindShipOpt.Canopy(assumptions).lifetime == 3000
-    @test assumptions[:canopy_cloth_weight] == 200
+@testset "canopy life is the goal at the standard cloth and follows the decay law off it" begin
+    @test WindShipOpt.decay_life(assumptions, 200.0, 0.5) ≈ 3812 atol = 1
+    @test WindShipOpt.decay_life(assumptions, 100.0, 0.5) ≈ 1646 atol = 1
+    @test WindShipOpt.Canopy(assumptions).lifetime ≈ 3000
     goal = with_value(assumptions, :canopy_life, 1200.0)
-    @test WindShipOpt.Canopy(goal).lifetime == 1200
-    @test WindShipOpt.Canopy(with_value(goal, :canopy_cloth_weight, 60.0)).lifetime == 1200
+    @test WindShipOpt.Canopy(goal).lifetime ≈ 1200
+    lighter = with_value(goal, :canopy_cloth_weight, 100.0)
+    @test WindShipOpt.Canopy(lighter).lifetime ≈ 1200 * 1646 / 3812 rtol = 1e-3
 end
 
 @testset "hulls fuller than Holtrop's range use the formulas at its limit" begin
@@ -626,7 +626,7 @@ end
     @test all(today_cloth[name] == assumptions[Symbol(name, :_today)] for name in cloth)
     @test today_cloth[:canopy_making_cost_per_area] ==
           assumptions[:canopy_making_cost_per_area]
-    weight = WindShipOpt.cloth_weight(assumptions)
+    weight = assumptions[:canopy_cloth_weight]
     @test WindShipOpt.sewn_cloth_price(assumptions, weight) ≈ 9.4
     @test WindShipOpt.sewn_cloth_price(today_cloth, weight) ≈ 17.2
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
