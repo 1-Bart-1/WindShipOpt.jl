@@ -230,9 +230,9 @@ end
 """
     patterns_data()
 
-Optimal flight patterns of the base 800 m^2 kite over the ship's course off the apparent
-downwind direction in light and strong apparent wind: patterns.csv (path points) and
-pattern_forces.csv.
+Optimal flight patterns and still kites of the base 800 m^2 kite over the ship's course off
+the apparent downwind direction in light and strong apparent wind: patterns.csv (path
+points) and pattern_forces.csv.
 """
 function patterns_data()
     model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
@@ -252,17 +252,18 @@ end
 """
     best_pattern_cycle(model, max_force, min_elevation, wind, course, side_weight)
 
-Force of the optimal pattern at apparent wind `wind` [m/s] and `course` [°], and the steps
-of its steered cycle.
+Force of the kite's best state at apparent wind `wind` [m/s] and `course` [°], a pattern or
+a still kite ([`WindShipOpt.kite_state`](@ref)), and the steps of its cycle, one step
+where it is held still.
 """
 function best_pattern_cycle(model, max_force, min_elevation, wind, course, side_weight)
     problem = WindShipOpt.PatternProblem(model, max_force, min_elevation, wind,
         deg2rad(course), side_weight)
-    force, parameters = WindShipOpt.optimal_pattern(problem,
+    flown, parameters = WindShipOpt.optimal_pattern(problem,
         WindShipOpt.pattern_starts(deg2rad(course)))
+    force, state = WindShipOpt.kite_state(problem, flown, parameters)
     path = WindShipOpt.PatternStep[]
-    WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters), wind, max_force;
-        path)
+    WindShipOpt.PatternForce(model, state, wind, max_force; path)
     return force, path
 end
 
@@ -270,7 +271,8 @@ end
     write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
                   side_weight)
 
-Optimise one pattern and write its force and its path; nothing where no pattern flies.
+Optimise the kite's state and write its force and its path; nothing where the kite neither
+flies a pattern nor holds still.
 """
 function write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
         side_weight)
@@ -1302,7 +1304,7 @@ forecast_hours_plans = (false, true, :members, :kite_margin)
 fast_speed = 12KNOT
 
 "reasons a kite is down, as [`WindShipOpt.kite_down_reason`](@ref) gives them, per row"
-kite_down_groups = (too_little_wind=(:wind_low_flight, :wind_low_launch, :wind_low_pull),
+kite_down_groups = (too_little_wind=(:wind_low_flight, :wind_low_launch),
     no_forward_pull=(:no_thrust,), too_much_wind=(:wind_high_flight, :wind_high_launch),
     hull_limit=(:hull_limit,), sea=(:sea_launch,), night=(:night,),
     no_saving=(:no_saving,), chosen=(:chosen,))
