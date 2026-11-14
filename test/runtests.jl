@@ -143,7 +143,7 @@ end
 @testset "steps of a flown cycle give the pattern's force and peak" begin
     soft, soft_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     rigid, rigid_force, = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
-    steered = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15))
+    steered = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15), deg2rad(20))
     loop = WindShipOpt.LoopPattern(π / 2, 0.8, 0.3, deg2rad(8))
     for (model, max_force, pattern, wind) in
         ((soft, soft_force, steered, 12.0), (rigid, rigid_force, loop, 30.0))
