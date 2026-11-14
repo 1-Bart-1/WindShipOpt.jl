@@ -1598,20 +1598,22 @@ end
                       control_of=Returns(true), departures=ensemble_departures)
 
 Write `name`: per rig and plan of `plans` after the first, perfect foresight, the share
-of the perfect-foresight saving kept, the ratio of the mean savings over `departures`,
-with its jackknife standard error and that of the difference from the plan
-`control_of(plan)`.
+of the perfect-foresight saving kept, the ratio of the mean savings over the `departures`
+where all three trips exist, with its jackknife standard error and that of the difference
+from the plan `control_of(plan)`.
 """
 function write_kept_shares(name, cases, trips, plans;
         control_of=Returns(true), departures=ensemble_departures)
-    n = length(departures)
     open(run_file(name), "w") do io
         println(io, "rig,plan,kept,kept_error,difference_from_control,difference_error")
         for (rig, _) in reference_rigs, plan in plans[2:end]
             plan in kite_only_plans && rig != "kite" && continue
-            saved, perfect = plan_savings(cases, trips, rig, plan, departures),
-            plan_savings(cases, trips, rig, false, departures)
-            reference = plan_savings(cases, trips, rig, control_of(plan), departures)
+            all_saved = [plan_savings(cases, trips, rig, kept, departures)
+                         for kept in (plan, false, control_of(plan))]
+            usable = findall(i -> all(isfinite(saved[i]) for saved in all_saved),
+                eachindex(departures))
+            saved, perfect, reference = [saved[usable] for saved in all_saved]
+            n = length(usable)
             value = kept_share(saved, perfect, 1:n)
             spread = jackknife_error(index -> kept_share(saved, perfect, index), n)
             difference = value - kept_share(reference, perfect, 1:n)
@@ -1624,11 +1626,14 @@ function write_kept_shares(name, cases, trips, plans;
     end
 end
 
-"cost per tonne-kilometre of `rig` on `plan` from `departure` among `cases` and `trips`"
+"""
+cost per tonne-kilometre of `rig` on `plan` from `departure` among `cases` and `trips`,
+`NaN` where that trip failed
+"""
 function plan_cost(cases, trips, rig, plan, departure)
     index = findfirst(i -> cases[i].rig == rig && cases[i].forecast === plan &&
                                cases[i].departure == departure, eachindex(cases))
-    return trips[index].cost_per_tonne_km
+    return isnothing(trips[index]) ? NaN : trips[index].cost_per_tonne_km
 end
 
 "cost saving of `rig` on `plan` per departure of `departures`, against no rig on the same
