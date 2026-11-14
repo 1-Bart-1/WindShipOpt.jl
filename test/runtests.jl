@@ -2210,12 +2210,34 @@ function small_era5(directory)
 end
 
 """
-    small_archive(directory, weather, offset)
+    small_climate(directory, weather)
+
+Monthly means on the grids of `weather`: an east wind of the month's number, a north wind
+of -1 m/s and a mean wind speed of 15 m/s; waves of 1.5 m and 7 s from the east.
+"""
+function small_climate(directory, weather)
+    month_values = Dict("u10" => month -> Float32(month), "v10" => month -> -1.0f0,
+        "speed" => month -> 15.0f0, "height" => month -> 1.5f0,
+        "period" => month -> 7.0f0, "direction_east" => month -> 0.8f0,
+        "direction_north" => month -> 0.0f0)
+    for (group, fields, names) in (("wind", weather.wind, ["speed", "u10", "v10"]),
+        ("waves", weather.waves,
+            ["direction_east", "direction_north", "height", "period"]))
+        write_fields(joinpath(directory, group),
+            (name, month) -> fill(month_values[name](month), 2, 2), 12,
+            Dict("lats" => fields.lats, "lons" => fields.lons, "variables" => names))
+    end
+    return Climatology(directory, weather.origin)
+end
+
+"""
+    small_archive(directory, weather, offset; noise)
 
 Four daily forecasts from 2017-12-30 on the grids of `weather`, each the weather it
-forecasts plus `offset(year)` on the east wind and half that on the wave height.
+forecasts plus `offset(year) + noise(issue)` on the east wind and half `offset(year)` on
+the wave height, with their bias and blend weights against [`small_climate`](@ref).
 """
-function small_archive(directory, weather, offset;
+function small_archive(directory, weather, offset; noise=issue -> 0.0,
         wind_schedule=(24.0, "2017-12-30T00:00:00", 24))
     for (group, observed, names, leads, (first_issue, first_date, issue_hours)) in (
         ("wind", weather.wind, ["u10", "v10"], 6:6:24, wind_schedule),
@@ -2226,7 +2248,8 @@ function small_archive(directory, weather, offset;
             time = first_issue + issue_hours * (issue - 1) + leads[lead]
             step = Int((time - observed.time_offset) / observed.step_hours + 1)
             year = issue <= 2 ? 2017 : 2018
-            shift = name == "u10" ? offset(year) : name == "height" ? offset(year) / 2 : 0.0
+            shift = name == "u10" ? offset(year) + noise(issue) :
+                    name == "height" ? offset(year) / 2 : 0.0
             return Float16.(observed.fields[name][:, :, step] .+ shift)
         end
         write_fields(joinpath(directory, group), field, 4length(leads),
@@ -2235,8 +2258,35 @@ function small_archive(directory, weather, offset;
                 "first_lead_hours" => first(leads), "step_hours" => step(leads),
                 "leads" => length(leads), "variables" => names))
     end
+    climate = small_climate(joinpath(directory, "climate"), weather)
     write_forecast_bias(directory, weather)
-    return ForecastArchive(directory, weather)
+    write_forecast_weights(directory, weather, climate)
+    return ForecastArchive(directory, weather, climate)
+end
+
+@testset "the climatology turns the year halfway between December and January" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    climate = small_climate(joinpath(directory, "climate"), weather)
+    new_year = 72.0
+    @test WindShipOpt.month_position(weather.origin, new_year) ≈ -0.5
+    @test all(WindShipOpt.climate_wind(climate, 40.5, -30.5, new_year) .≈ (6.5, -1, 15))
+    @test WindShipOpt.climate_wind(climate, 40.5, -30.5, new_year + 24 * 15.5)[1] ≈ 1.0
+end
+
+@testset "a forecast's weight is fitted on the other years, near zero for noise" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather, year -> 0.0;
+        noise=issue -> issue <= 2 ? 0.0 : isodd(issue) ? 20.0 : -20.0)
+    @test all(isapprox.(archive.wind.weights[2018], 1; atol=0.001))
+    @test all(archive.wind.weights[2017] .< 0.02)
+    late_2017 = ArchivedForecast(archive, 24.0 * 2 + 7.0)
+    time = late_2017.issued + 12.0
+    normal = WindShipOpt.climate_wind(archive.climate, 40.5, -30.5, time)
+    @test all(isapprox.(wind(late_2017, 40.5, -30.5, time),
+        WindShipOpt.scaled_to(normal...); atol=0.3))
+    @test hypot(wind(late_2017, 40.5, -30.5, time)...) ≈ 15 atol = 0.2
 end
 
 @testset "a member archive keeps its control's bias wherever the data folder moves" begin
@@ -2254,12 +2304,14 @@ end
         WindShipOpt.link_control_group(joinpath(root, "forecast", group), folder)
         append!(links, filter(islink, readdir(folder; join=true)))
     end
-    @test length(links) == 7
+    @test length(links) == 11
     @test !any(isabspath ∘ readlink, links)
     moved = joinpath(directory, "moved")
     mv(root, moved)
-    member = ForecastArchive(joinpath(moved, "forecast_members", "mean"), weather)
+    member = ForecastArchive(joinpath(moved, "forecast_members", "mean"), weather,
+        control.climate)
     @test member.wind.bias == control.wind.bias
+    @test member.wind.weights == control.wind.weights
     @test member.waves.bias == control.waves.bias
     @test member.waves.fields["period"] == control.waves.fields["period"]
 end
@@ -2289,12 +2341,11 @@ end
     weather = small_era5(joinpath(directory, "era5"))
     archive = small_archive(joinpath(directory, "forecast"), weather, year -> 0.0;
         wind_schedule=(60.0, "2017-12-31T12:00:00", 6))
-    known = ArchivedForecast(archive, weather, 73.0)
+    known = ArchivedForecast(archive, 73.0)
     @test known.issue == 2 && known.issued == 66.0
     @test known.wave_issue == 2 && known.wave_issued == 48.0
-    @test known.beyond.issue_time == 48.0
     same = ArchivedForecast(small_archive(joinpath(directory, "daily"), weather,
-            year -> 0.0), weather, 73.0)
+            year -> 0.0), 73.0)
     @test same.issue == same.wave_issue == 2
 end
 
@@ -2302,7 +2353,7 @@ end
     directory = mktempdir()
     weather = small_era5(joinpath(directory, "era5"))
     archive = small_archive(joinpath(directory, "forecast"), weather, year -> 1.5)
-    known = ArchivedForecast(archive, weather, 24.0 * 3 + 7.0)
+    known = ArchivedForecast(archive, 24.0 * 3 + 7.0)
     for time in known.issued .+ (6.0, 12.0, 21.0)
         @test all(isapprox.(wind(known, 40.5, -30.5, time),
             wind(weather, 40.5, -30.5, time); atol=0.01))
@@ -2316,7 +2367,7 @@ end
     weather = small_era5(joinpath(directory, "era5"))
     archive = small_archive(joinpath(directory, "forecast"), weather,
         year -> year == 2017 ? 1.0 : 3.0)
-    late_2017 = ArchivedForecast(archive, weather, 24.0 * 2 + 7.0)
+    late_2017 = ArchivedForecast(archive, 24.0 * 2 + 7.0)
     @test late_2017.year == 2017
     time = late_2017.issued + 18.0
     @test first(wind(late_2017, 40.5, -30.5, time)) ≈
@@ -2324,24 +2375,23 @@ end
     @test first(waves(late_2017, 40.5, -30.5, time)) ≈ 2.0 + 0.5 - 1.5 atol = 0.01
 end
 
-@testset "a ship reads the last forecast to reach it, beyond its leads another year" begin
+@testset "a ship reads the last forecast to reach it, beyond its leads climatology" begin
     directory = mktempdir()
     weather = small_era5(joinpath(directory, "era5"))
     archive = small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
     third = 24.0 * 3
-    @test ArchivedForecast(archive, weather, third + WindShipOpt.FORECAST_LATENCY).issued ==
-          third
-    @test ArchivedForecast(archive, weather, third + 5.0).issued == third - 24.0
-    known = ArchivedForecast(archive, weather, third + 7.0)
+    @test ArchivedForecast(archive, third + WindShipOpt.FORECAST_LATENCY).issued == third
+    @test ArchivedForecast(archive, third + 5.0).issued == third - 24.0
+    known = ArchivedForecast(archive, third + 7.0)
     beyond = third + 30.0
-    @test wind(known, 40.5, -30.5, beyond) ==
-          wind(ForecastWeather(weather, third, 24.0), 40.5, -30.5, beyond)
+    @test wind(known, 40.5, -30.5, beyond) == WindShipOpt.scaled_to(
+        WindShipOpt.climate_wind(archive.climate, 40.5, -30.5, beyond)...)
 end
 
 @testset "a ship whose latest forecast is missing from the archive reads the one before" begin
     directory = mktempdir()
     weather = small_era5(joinpath(directory, "era5"))
-    small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
+    control = small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
     for name in ("direction_east", "direction_north", "height", "period")
         open(joinpath(directory, "forecast", "waves", "$name.f16"), "r+") do io
             issue_bytes = filesize(io) ÷ 4
@@ -2349,26 +2399,25 @@ end
             write(io, fill(NaN16, issue_bytes ÷ 2))
         end
     end
-    archive = ForecastArchive(joinpath(directory, "forecast"), weather)
+    archive = ForecastArchive(joinpath(directory, "forecast"), weather, control.climate)
     fourth = 24.0 * 4
-    @test ArchivedForecast(archive, weather, fourth + 7.0).issued == fourth - 24.0
+    @test ArchivedForecast(archive, fourth + 7.0).issued == fourth - 24.0
 end
 
-@testset "a ship reads another year's waves where its forecast has none" begin
+@testset "a ship reads the climatology's waves where its forecast has none" begin
     directory = mktempdir()
     weather = small_era5(joinpath(directory, "era5"))
-    small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
+    control = small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
     for name in ("direction_east", "direction_north", "height", "period")
         path = joinpath(directory, "forecast", "waves", "$name.f16")
         values = read!(path, Vector{Float16}(undef, filesize(path) ÷ 2))
         values[1:4:end] .= NaN16
         write(path, values)
     end
-    known = ArchivedForecast(ForecastArchive(joinpath(directory, "forecast"), weather),
-        weather, 24.0 * 3 + 7.0)
+    known = ArchivedForecast(ForecastArchive(joinpath(directory, "forecast"), weather,
+            control.climate), 24.0 * 3 + 7.0)
     time = known.issued + 18.0
-    @test waves(known, 40.0, -31.0, time) == waves(known.beyond, 40.0, -31.0, time)
-    @test first(waves(known, 40.0, -31.0, time)) > 0
+    @test all(waves(known, 40.0, -31.0, time) .≈ (1.5, 7.0, π / 2))
 end
 
 function forecast_kite_routing()
@@ -2427,12 +2476,12 @@ end
     known = WindShipOpt.known_weather(ShortestLead(archive), weather, 24.0, Inf)
     for time in (24.0 * 2 + 9.0, 24.0 * 3 + 9.0)
         @test wind(known, 40.0, -31.0, time) ==
-              wind(ArchivedForecast(archive, weather, time), 40.0, -31.0, time)
+              wind(ArchivedForecast(archive, time), 40.0, -31.0, time)
         @test waves(known, 40.0, -31.0, time) ==
-              waves(ArchivedForecast(archive, weather, time), 40.0, -31.0, time)
+              waves(ArchivedForecast(archive, time), 40.0, -31.0, time)
     end
-    @test ArchivedForecast(archive, weather, 24.0 * 2 + 9.0).issue !=
-          ArchivedForecast(archive, weather, 24.0 * 3 + 9.0).issue
+    @test ArchivedForecast(archive, 24.0 * 2 + 9.0).issue !=
+          ArchivedForecast(archive, 24.0 * 3 + 9.0).issue
 end
 
 @testset "a ship on one fixed course re-plans along it and leaves no other path" begin

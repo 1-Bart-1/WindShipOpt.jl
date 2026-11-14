@@ -118,10 +118,87 @@ wind(weather::ERA5Weather, lat, lon, time) =
 Significant wave height [m], peak period [s] and the direction the waves come from
 [rad clockwise from north]; zero height on land.
 """
-function waves(weather::ERA5Weather, lat, lon, time)
-    height, period, east, north = sample(weather.waves, weather.wave_arrays, lat, lon, time)
+waves(weather::ERA5Weather, lat, lon, time) =
+    wave_values(sample(weather.waves, weather.wave_arrays, lat, lon, time))
+
+"""
+    wave_values((height, period, east, north))
+
+Wave height [m] and period [s], at least zero, and the direction [rad clockwise from north]
+of the east and north components; all zero where `height` is NaN (land).
+"""
+function wave_values((height, period, east, north))
     isnan(height) && return 0.0, 0.0, 0.0
-    return height, period, atan(east, north)
+    return max(height, 0.0), max(period, 0.0), atan(east, north)
+end
+
+"""
+    Climatology(directory, origin)
+
+Monthly mean ERA5 wind and waves per cell, read from the `wind` and `waves` folders that
+`scripts/download_era5.jl` writes to `directory` with `ERA5_PRODUCT=climate`, on the time
+axis of hours from `origin`, varying linearly between the middles of the months.
+"""
+struct Climatology
+    origin::DateTime
+    "wind per (lon, lat, month), December to December and January again, time in months"
+    wind::GriddedFields
+    "waves per (lon, lat, month), on the same months as `wind`"
+    waves::GriddedFields
+    "east and north wind of the mean vector, and the mean wind speed [m/s]"
+    wind_arrays::NTuple{3, Array{Float32, 3}}
+    "wave height [m], peak period [s] and the mean east and north direction components"
+    wave_arrays::NTuple{4, Array{Float32, 3}}
+end
+
+function Climatology(directory::AbstractString, origin::DateTime)
+    wind = monthly_fields(joinpath(directory, "wind"))
+    waves = monthly_fields(joinpath(directory, "waves"))
+    return Climatology(origin, wind, waves,
+        (wind.fields["u10"], wind.fields["v10"], wind.fields["speed"]),
+        (waves.fields["height"], waves.fields["period"], waves.fields["direction_east"],
+            waves.fields["direction_north"]))
+end
+
+"""
+    monthly_fields(directory)
+
+The (lon, lat, month) fields in `directory` with December put before January and January
+after December, on a time axis in months from the middle of January.
+"""
+function monthly_fields(directory)
+    grid = TOML.parsefile(joinpath(directory, "grid.toml"))
+    lats, lons = Float64.(grid["lats"]), Float64.(grid["lons"])
+    fields = Dict{String, Array{Float32, 3}}()
+    for name in grid["variables"]
+        months = read!(joinpath(directory, "$name.f32"),
+            Array{Float32, 3}(undef, length(lons), length(lats), 12))
+        fields[name] = cat(months[:, :, 12:12], months, months[:, :, 1:1]; dims=3)
+    end
+    return GriddedFields(lats, lons, -1.0, 1.0, 14, fields)
+end
+
+"months from the middle of January to `time` [h] after `origin`, within its year"
+function month_position(origin::DateTime, time)
+    moment = origin + Dates.Millisecond(round(Int, 3_600_000 * time))
+    start = DateTime(Dates.firstdayofmonth(moment))
+    return Dates.month(moment) - 1.5 +
+           Dates.value(moment - start) / (86_400_000 * Dates.daysinmonth(moment))
+end
+
+"east and north wind of the climate's mean vector and its mean wind speed [m/s]"
+climate_wind(climate::Climatology, lat, lon, time) = sample(climate.wind,
+    climate.wind_arrays, lat, lon, month_position(climate.origin, time))
+
+"wave height [m], period [s] and mean east and north direction components; NaN on land"
+climate_waves(climate::Climatology, lat, lon, time) = sample(climate.waves,
+    climate.wave_arrays, lat, lon, month_position(climate.origin, time))
+
+"the vector (`east`, `north`) scaled to the length `speed`, or zero where it has none"
+function scaled_to(east, north, speed)
+    length = hypot(east, north)
+    iszero(length) && return 0.0, 0.0
+    return east * speed / length, north * speed / length
 end
 
 """

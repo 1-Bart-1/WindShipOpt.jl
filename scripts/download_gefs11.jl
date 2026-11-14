@@ -4,9 +4,9 @@
 # Download the 10 m wind of the control run of NOAA's operational GEFSv11 forecasts, issued
 # every 6 h through 2017-2019, onto the ERA5 wind grid in
 # era5/atlantic_wide/forecast_gefs11/wind/, as download_forecast.jl does for the GEFSv12
-# reforecast, with its mean bias against ERA5 from the other years. Waves of this archive
-# are those of the GEFSv12 wave reforecast, which starts once a day: no public archive
-# holds wave forecasts of those years issued more often. Resumable: rerun to continue.
+# reforecast, with its mean bias against ERA5 and its blend weights from the other years.
+# Waves of this archive are those of the GEFSv12 wave reforecast, which starts once a day:
+# no public archive holds wave forecasts of those years issued more often. Resumable: rerun to continue.
 ENV["ERA5_REGION"] = "atlantic_wide"
 include("setup.jl")
 include("download_forecast.jl")
@@ -73,5 +73,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     WindShipOpt.write_group_bias(wind_directory,
         WindShipOpt.ArchiveGroup(wind_directory, weather.origin), weather.wind,
         ("u10", "v10"), weather.origin)
+    WindShipOpt.write_group_weights(wind_directory,
+        WindShipOpt.ArchiveGroup(wind_directory, weather.origin), weather.wind,
+        forecast_archive.climate.wind, ("u10", "v10"), weather.origin)
     println("operational forecast archive complete")
 end

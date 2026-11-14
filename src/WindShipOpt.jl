@@ -33,7 +33,7 @@ export ForecastWeather, ForecastArchive, ForecastEnsemble, ArchivedForecast, Pla
 export ReplannedForecast, ForecastParts, ForesightKite, PerfectForecast,
        ShortestLead
 export forecast_route
-export write_forecast_bias, ShipClass, ship_classes
+export write_forecast_bias, write_forecast_weights, Climatology, ShipClass, ship_classes
 export ShipCosts, RoundTrip, round_trip, KNOT, NAUTICAL_MILE
 export LegTrace
 

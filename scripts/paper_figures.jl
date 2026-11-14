@@ -1805,18 +1805,19 @@ forecast_figure_plans = (("false", "perfect foresight"),
 
 (a) Mean cost saving over the departures of each rig on a 140 m e-ammonia ship per plan of
 [`forecast_figure_plans`](@ref), a plan with no feasible round trip marked "none" in place
-of its bar; (b, c) root mean square error of the archived forecasts' wind and wave height
-along the route against lead time, beside that of the same date in another year.
+of its bar; (b, c) root mean square error along the route against lead time of the archived
+forecasts' wind and wave height, of their blend with the climatology and of the
+climatology; (d) the forecast's mean weight in the blend.
 """
 function forecast_figure()
     table = read_table(data_file("forecast_result.csv"))
-    figure = Figure(size=(page_width, 200))
+    figure = Figure(size=(page_width, 330))
     axis = Axis(figure[1, 1]; xticks=(1:3, ["kite", "wings", "rotors"]),
         ylabel="cost saving [%]", title="(a) saving")
-    plan_alphas = (1.0, 0.6, 0.3)
+    plan_alphas = (1.0, 0.6, 0.3)[eachindex(forecast_figure_plans)]
     for (j, (plan, _)) in enumerate(forecast_figure_plans)
         savings = [forecast_saving(table, rig, plan) for rig in rig_names]
-        positions = (1:3) .+ (j - 2) * 0.27
+        positions = (1:3) .+ (j - (length(forecast_figure_plans) + 1) / 2) * 0.27
         routed = isfinite.(savings)
         barplot!(axis, positions[routed], savings[routed]; width=0.25,
             color=[(palette[rig], plan_alphas[j]) for rig in findall(routed)])
@@ -1825,23 +1826,36 @@ function forecast_figure()
             rotation=pi / 2, align=(:left, :center), fontsize=note_size, color=:gray30)
     end
     errors = read_table(data_file("forecast_error.csv"))
-    for (column, (quantity, unit)) in enumerate((("wind", "m/s"), ("height", "m")))
-        panel = Axis(figure[1, column + 1]; xlabel="lead time [days]",
+    days = errors["lead_days"]
+    for (column, (quantity, unit, place)) in enumerate((("wind", "m/s", (1, 2)),
+        ("height", "m", (2, 1))))
+        panel = Axis(figure[place...]; xlabel="lead time [days]",
             ylabel="rms error [$unit]",
             title=column == 1 ? "(b) wind at 10 m" : "(c) wave height")
-        lines!(panel, errors["lead_days"], errors["$(quantity)_forecast"];
-            color=:black)
-        lines!(panel, errors["lead_days"], errors["$(quantity)_other_year"];
-            color=:gray50, linestyle=:dash)
+        for (name, style) in forecast_error_lines
+            lines!(panel, days, errors["$(quantity)_$name"]; style...)
+        end
         ylims!(panel, 0, nothing)
     end
-    Legend(figure[2, 1:3], [[PolyElement(color=(:gray25, alpha)) for alpha in plan_alphas];
-            LineElement(color=:black); LineElement(color=:gray50, linestyle=:dash)],
-        [last.(forecast_figure_plans)...; "archived forecast"; "same date in another year"];
+    weights = Axis(figure[2, 2]; xlabel="lead time [days]", ylabel="weight a(L)",
+        title="(d) weight of the forecast in the blend")
+    for (quantity, linestyle) in (("wind", :solid), ("height", :dash))
+        lines!(weights, days, errors["$(quantity)_weight"]; color=:black, linestyle)
+    end
+    ylims!(weights, 0, 1)
+    Legend(figure[3, 1:2], [[PolyElement(color=(:gray25, alpha)) for alpha in plan_alphas];
+            [LineElement(; style...) for (_, style) in forecast_error_lines];
+            LineElement(color=:black); LineElement(color=:black, linestyle=:dash)],
+        [last.(forecast_figure_plans)...; "archived forecast"; "blend planned on";
+            "climatology"; "weight, wind"; "weight, wave height"];
         orientation=:horizontal, nbanks=2)
-    rowgap!(figure.layout, 1, 4)
+    rowgap!(figure.layout, 2, 4)
     save(joinpath(figures, "forecast.pdf"), figure; pt_per_unit=print_scale)
 end
+
+"columns of forecast_error.csv in the forecast figure's error panels, with their style"
+forecast_error_lines = (("forecast", (; color=:black)), ("blend", (; color=palette[1])),
+    ("climate", (; color=:gray50, linestyle=:dash)))
 
 """
     forecast_saving(table, rig, plan)

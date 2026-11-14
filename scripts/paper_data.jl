@@ -1209,15 +1209,15 @@ forecast_data() = write_forecast_error("forecast_error.csv", run_corridors(:cari
 """
     forecast_error()
 
-The [`ForecastError`](@ref) of the wind forecast in the forecast_error.csv of
-[`forecast_data`](@ref).
+The [`ForecastError`](@ref) of the wind the router plans on, the forecast blended with the
+climatology, in the forecast_error.csv of [`forecast_data`](@ref).
 """
 function forecast_error()
     table = read_table(data_file("forecast_error.csv"))
     leads = 24 * table["lead_days"]
     leads ≈ first(leads) * eachindex(leads) ||
         error("the leads of forecast_error.csv are not evenly spaced from the first")
-    return ForecastError(first(leads), table["wind_forecast"])
+    return ForecastError(first(leads), table["wind_blend"])
 end
 
 "plans of the forecast study, each as the `forecast` of its [`trip_case`](@ref)"
@@ -1785,53 +1785,69 @@ end
 
 Write `name` to the directory of the run in use: per lead day, the root mean square error
 against ERA5 of the vector wind [m/s] and the wave height [m] of the archived forecasts
-and of the same date in another year, over the nodes of `corridors` and every forecast
-in the archive.
+less their bias, of their blend with the climatology that the router plans on and of that
+climatology alone, and the mean weight of the forecast in the blend, over the nodes of
+`corridors` and every forecast in the archive.
 """
 function write_forecast_error(name, corridors...)
     points = unique(vcat([vec(collect(zip(corridor.lat, corridor.lon)))
                           for corridor in corridors]...))
     leads = 6.0:6.0:384.0
-    totals, samples = zeros(length(leads), 4), zeros(Int, length(leads))
+    totals, counts = zeros(length(leads), 8), zeros(Int, length(leads), 8)
     for issue in 1:WindShipOpt.issue_count(forecast_archive.wind)
         issued = WindShipOpt.issue_time(forecast_archive, issue)
-        known = ArchivedForecast(forecast_archive, weather,
-            issued + WindShipOpt.FORECAST_LATENCY)
+        known = ArchivedForecast(forecast_archive, issued + WindShipOpt.FORECAST_LATENCY)
         known.issue == issue || continue
-        other_year = ForecastWeather(weather, issued, 0.0)
         for (row, lead) in enumerate(leads)
             issued + lead <= WindShipOpt.duration(weather) || continue
-            totals[row, :] .+= forecast_errors(known, other_year, points, issued + lead)
-            samples[row] += length(points)
+            add_forecast_errors!(view(totals, row, :), view(counts, row, :), known, points,
+                issued + lead)
         end
     end
     open(run_file(name), "w") do io
-        println(io, "lead_days,wind_forecast,wind_other_year,height_forecast,",
-            "height_other_year")
+        println(io, "lead_days,wind_forecast,wind_blend,wind_climate,wind_weight,",
+            "height_forecast,height_blend,height_climate,height_weight")
         for (row, lead) in enumerate(leads)
-            rms = sqrt.(totals[row, :] ./ samples[row])
-            @printf(io, "%.2f,%.3f,%.3f,%.3f,%.3f\n", lead / 24, rms...)
+            means = totals[row, :] ./ counts[row, :]
+            columns = [column in (4, 8) ? mean : sqrt(mean)
+                       for (column, mean) in enumerate(means)]
+            @printf(io, "%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", lead / 24,
+                columns...)
         end
     end
 end
 
 """
-    forecast_errors(known, other_year, points, time)
+    add_forecast_errors!(totals, counts, known, points, time)
 
-Sums over `points` of the squared error against the weather at `time` of the vector wind
-and the wave height of the forecast `known` and of the weather `other_year`.
+Add to `totals` over `points`, and count in `counts`, the squared error against the
+weather at `time` of the vector wind of the forecast `known` less its bias, of its blend
+and of the climatology, then the forecast's weight, and the same four for the wave
+height, leaving out a value the forecast does not hold.
 """
-function forecast_errors(known, other_year, points, time)
-    sums = zeros(4)
+function add_forecast_errors!(totals, counts, known, points, time)
+    climate = forecast_archive.climate
     for (lat, lon) in points
         truth_wind, truth_height = wind(weather, lat, lon, time),
         first(waves(weather, lat, lon, time))
-        for (column, guess) in ((1, known), (2, other_year))
-            sums[column] += sum(abs2, wind(guess, lat, lon, time) .- truth_wind)
-            sums[column + 2] += (first(waves(guess, lat, lon, time)) - truth_height)^2
+        east, north, wind_weight = WindShipOpt.forecast_wind(known, lat, lon, time)
+        height, _, _, _, height_weight = WindShipOpt.forecast_waves(known, lat, lon, time)
+        normal_wind = WindShipOpt.scaled_to(WindShipOpt.climate_wind(climate, lat, lon,
+            time)...)
+        normal_height = first(WindShipOpt.wave_values(WindShipOpt.climate_waves(climate,
+            lat, lon, time)))
+        errors = (sum(abs2, (east, north) .- truth_wind),
+            sum(abs2, wind(known, lat, lon, time) .- truth_wind),
+            sum(abs2, normal_wind .- truth_wind), wind_weight,
+            (height - truth_height)^2,
+            (first(waves(known, lat, lon, time)) - truth_height)^2,
+            (normal_height - truth_height)^2, height_weight)
+        for (column, value) in enumerate(errors)
+            isnan(value) && continue
+            totals[column] += value
+            counts[column] += 1
         end
     end
-    return sums
 end
 
 "departures of [`forecast_causes_data`](@ref): every third of the run's departures"
