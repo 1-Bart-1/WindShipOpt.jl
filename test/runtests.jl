@@ -1987,6 +1987,16 @@ end
     end
 end
 
+@testset "the route to Houston chooses its track across the Gulf of Mexico" begin
+    for leg in route_corridors(:houston, north_atlantic_mask())
+        centre = WindShipOpt.centre_index(leg)
+        gulf = [stage for stage in axes(leg.lat, 1) if leg.lon[stage, centre] < -85]
+        rows = [count(leg.water[stage, :]) for stage in gulf]
+        @test count(==(1), rows) == 1
+        @test (maximum(rows) - 1) * leg.lateral_spacing >= 400 * WindShipOpt.NAUTICAL_MILE
+    end
+end
+
 @testset "no corridor reaches past the latitudes a ship can sail" begin
     mask = north_atlantic_mask()
     for route in (:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao),
