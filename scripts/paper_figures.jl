@@ -238,12 +238,6 @@ function draw_force_balance!(axis, area, force, radius)
     hidespines!(axis)
 end
 
-"area-averaged radius [m] the canopy skin bulges to between ribs, in the cloth check"
-skin_radius = 0.5
-
-"strength over weight [N/m per g/m^2] of new canopy cloth, in the cloth check"
-cloth_specific_strength = 170.0
-
 """
     canopy_tension_figure()
 
@@ -257,8 +251,10 @@ function canopy_tension_figure()
     times, forces = table["time"], table["tension"] ./ 1e6
     mean_force = sum(forces .* table["duration"]) / sum(table["duration"])
     peak_force = maximum(forces)
+    skin_radius = assumptions[:canopy_skin_radius]
     tension(force) = 1e3force / area * skin_radius
-    strength = cloth_specific_strength * WindShipOpt.cloth_weight(assumptions) / 1e3
+    strength = assumptions[:canopy_cloth_specific_strength] *
+               assumptions[:canopy_cloth_weight] / 1e3
     figure = Figure(size=(page_width, 210))
     balance = Axis(figure[1, 1]; autolimitaspect=1, limits=(-3.0, 7.0, -1.8, 2.3),
         title="(a) from tether force to cloth tension")
@@ -2158,7 +2154,7 @@ function canopy_price_figure()
     xlims!(price, 0, 1.12 * WindShipOpt.canopy_price_today(assumptions))
     hideydecorations!(price; ticklabels=false)
     weights = 0:5:400
-    weight = WindShipOpt.cloth_weight(assumptions)
+    weight = assumptions[:canopy_cloth_weight]
     cloth_cases = (("today", WindShipOpt.with_today(assumptions, cloth_inputs), :solid),
         ("goal", assumptions, :dash))
     for (label, inputs, linestyle) in cloth_cases

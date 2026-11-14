@@ -49,6 +49,12 @@ end
 "force limits of the kite in the force rating study [kN/m^2]"
 study_force_ratings = (0.3, 0.5, 0.7, 1.0)
 
+"canopy cloth weights of the force rating study [g/m^2]"
+study_cloth_weights = (100.0, 141.0, 200.0, 283.0)
+
+"wear weight exponents of the force rating study: its base, then its bounds"
+study_wear_exponents = (1.0, 0.0, 1.5)
+
 "kite areas of the force rating study [m^2]"
 study_kite_areas = [1600.0 * sqrt(2.0)^k for k in 0:6]
 
@@ -64,35 +70,60 @@ function nearby_kite_areas(kite_area, reach)
 end
 
 """
-    force_rating_case(bare, route, ship, rating, exponent, area)
+    canopy_design(rating, cloth, wear_exponent)
 
-Trip case of the ship `bare` with a kite of `area` built for the force limit `rating`, its
-cloth following the limit to the power `exponent`.
+The base assumptions with a kite built for the force limit `rating` [kN/m^2] from cloth of
+`cloth` [g/m^2], its wear growing with cloth weight to the power `wear_exponent` and the
+wear rate refitted so that cloth of `canopy_cloth_reference_weight` keeps its decay life.
 """
-function force_rating_case(bare, route, ship, rating, exponent, area)
-    rated = changed_assumptions((; kite_max_force_per_area=rating,
-        canopy_cloth_force_exponent=exponent))
-    design = ShipDesign(; bare.drive, bare.length, bare.class, kite_area=area)
-    return trip_case(design; assumptions=rated, route, ship, rating, exponent, area)
+function canopy_design(rating, cloth, wear_exponent)
+    reference = assumptions[:canopy_cloth_reference_weight] /
+                WindShipOpt.decay_reference_weight
+    wear_rate = assumptions[:canopy_wear_rate] *
+                reference^(wear_exponent - assumptions[:canopy_wear_weight_exponent])
+    return changed_assumptions((; kite_max_force_per_area=rating, canopy_cloth_weight=cloth,
+        canopy_wear_weight_exponent=wear_exponent, canopy_wear_rate=wear_rate))
 end
+
+"""
+    force_rating_case(bare, route, ship, rating, cloth, wear_exponent, area)
+
+Trip case of the ship `bare` with a kite of `area` and the canopy of
+[`canopy_design`](@ref), labelled with its canopy life.
+"""
+function force_rating_case(bare, route, ship, rating, cloth, wear_exponent, area)
+    designed = canopy_design(rating, cloth, wear_exponent)
+    design = ShipDesign(; bare.drive, bare.length, bare.class, kite_area=area)
+    return trip_case(design; assumptions=designed, route, ship, rating, cloth,
+        wear_exponent, area, life=WindShipOpt.canopy_lifetime(designed))
+end
+
+"""
+    rated_cases(bare, route, ship, kite_area, wear_exponent, reach)
+
+Cases of [`force_rating_case`](@ref) at each of [`study_force_ratings`](@ref) and
+[`study_cloth_weights`](@ref), at `wear_exponent`, over `reach` area steps around
+`kite_area`.
+"""
+rated_cases(bare, route, ship, kite_area, wear_exponent, reach) =
+    vec([force_rating_case(bare, route, ship, rating, cloth, wear_exponent, area)
+         for rating in study_force_ratings, cloth in study_cloth_weights,
+         area in nearby_kite_areas(kite_area, reach)])
 
 """
     force_rating_cases(bare, route, ship, kite_area)
 
-Cases of one ship in the force rating study: without a rig; with its kite at each of
-[`study_force_ratings`](@ref) and two area steps around `kite_area`; and at the lowest and
-highest limit and one area step with cloth that follows the limit in proportion or not at
-all.
+Cases of one ship in the force rating study: without a rig, then its
+[`rated_cases`](@ref) at the base of [`study_wear_exponents`](@ref) over one area step
+around `kite_area` and at its bounds at the area nearest it.
 """
 function force_rating_cases(bare, route, ship, kite_area)
-    base = assumptions[:canopy_cloth_force_exponent]
-    return [trip_case(bare; route, ship, rating=0.0, exponent=base, area=0.0);
-            vec([force_rating_case(bare, route, ship, rating, base, area)
-                 for rating in study_force_ratings,
-                 area in nearby_kite_areas(kite_area, 2)]);
-            vec([force_rating_case(bare, route, ship, rating, exponent, area)
-                 for rating in extrema(study_force_ratings), exponent in (0.0, 1.0),
-                 area in nearby_kite_areas(kite_area, 1)])]
+    base, bounds... = study_wear_exponents
+    return [trip_case(bare; route, ship, rating=0.0, cloth=0.0, wear_exponent=base,
+                area=0.0, life=0.0);
+            rated_cases(bare, route, ship, kite_area, base, 1);
+            reduce(vcat, [rated_cases(bare, route, ship, kite_area, bound, 0)
+                          for bound in bounds])]
 end
 
 """
@@ -105,7 +136,7 @@ function force_rating_data()
     cases = reduce(vcat, [force_rating_cases(bare, route, ship, areas.kite.kite_area)
                           for (ship, bare, route, areas) in sensitivity_ships()])
     write_trips("force_rating.csv", cases, round_trips(cases, sampled_departures()), :ship,
-        :rating, :exponent, :area)
+        :rating, :cloth, :wear_exponent, :area, :life)
 end
 
 """
@@ -132,53 +163,59 @@ function aspect_figure()
 end
 
 """
-    best_force_rating_saving(table, ship, rating, exponent, areas, bare)
+    best_force_rating_saving(table, ship, bare, conditions...)
 
-Highest saving [%] over `areas` in force_rating.csv of `ship`, costing `bare` without a rig,
-with a kite built for `rating` whose cloth follows the limit to the power `exponent`.
+Highest saving [%] of `ship`, costing `bare` without a rig, over the rows of
+force_rating.csv that meet `conditions`, with that row.
 """
-function best_force_rating_saving(table, ship, rating, exponent, areas, bare)
-    chosen = rows(table, "ship" => ship, "rating" => rating, "exponent" => exponent)
-    return maximum(percent_saving(table["cost"][row], bare)
-                   for row in chosen if table["area"][row] in areas)
+function best_force_rating_saving(table, ship, bare, conditions...)
+    chosen = rows(table, "ship" => ship, conditions...)
+    savings = percent_saving.(table["cost"][chosen], bare)
+    best = argmax(savings)
+    return savings[best], chosen[best]
 end
 
 """
     force_rating_figure()
 
-Saving of each study ship at its best kite area against the force limit, with cloth that
-follows the limit by the base exponent, in proportion, or not at all, each over the kite
-areas that cloth law was run at.
+(a) Saving of each study ship at its best cloth weight and kite area against the force
+limit, at each of [`study_wear_exponents`](@ref); (b) at the base force limit and wear
+exponent, its saving at its best area against the cloth weight.
 """
 function force_rating_figure()
     table = read_table(data_file("force_rating.csv"))
-    figure = Figure(size=(column_width, 215))
-    axis = Axis(figure[1, 1]; xlabel="force limit [kN/m²]",
-        ylabel="cost saving [%]", xticks=collect(study_force_ratings))
-    base = assumptions[:canopy_cloth_force_exponent]
-    reference = assumptions[:canopy_cloth_reference_force]
-    laws = ((base, :solid, "keeps its life"), (1.0, :dash, "in proportion"),
-        (0.0, :dot, "fixed at 200 g/m²"))
+    figure = Figure(size=(column_width, 330))
+    by_limit = Axis(figure[1, 1]; xlabel="force limit [kN/m²]", ylabel="cost saving [%]",
+        xticks=collect(study_force_ratings), title="(a) best cloth and area")
+    by_cloth = Axis(figure[2, 1]; xlabel="cloth weight [g/m²]", ylabel="cost saving [%]",
+        xticks=collect(study_cloth_weights),
+        title="(b) at the base force limit and wear exponent")
+    base_exponent = first(study_wear_exponents)
+    base_limit = assumptions[:kite_max_force_per_area]
+    linestyles = (:solid, :dash, :dot)
     ships = unique(table["ship"])
     for (k, ship) in enumerate(ships)
         bare = table["cost"][only(rows(table, "ship" => ship, "rating" => 0))]
-        for (exponent, linestyle, _) in laws
-            ratings = exponent == base ? collect(study_force_ratings) :
-                      sort([extrema(study_force_ratings)..., reference])
-            areas = Set(table["area"][rows(table, "ship" => ship, "exponent" => exponent)])
-            savings = [best_force_rating_saving(table, ship, rating,
-                           rating == reference ? base : exponent, areas, bare)
-                       for rating in ratings]
-            lines!(axis, ratings, savings; color=category_colours[k], linestyle)
+        for (wear_exponent, linestyle) in zip(study_wear_exponents, linestyles)
+            savings = [first(best_force_rating_saving(table, ship, bare, "rating" => rating,
+                           "wear_exponent" => wear_exponent))
+                       for rating in study_force_ratings]
+            lines!(by_limit, collect(study_force_ratings), savings;
+                color=category_colours[k], linestyle)
         end
+        savings = [first(best_force_rating_saving(table, ship, bare, "rating" => base_limit,
+                       "wear_exponent" => base_exponent, "cloth" => cloth))
+                   for cloth in study_cloth_weights]
+        scatterlines!(by_cloth, collect(study_cloth_weights), savings;
+            color=category_colours[k])
     end
     ship_entries = [LineElement(color=category_colours[k]) for k in eachindex(ships)]
-    law_entries = [LineElement(; color=:black, linestyle)
-                   for (_, linestyle, _) in laws]
-    Legend(figure[2, 1], [ship_entries, law_entries], [ships, collect(last.(laws))],
-        ["ship", "cloth"]; orientation=:horizontal, nbanks=3, titleposition=:left,
+    wear_entries = [LineElement(; color=:black, linestyle) for linestyle in linestyles]
+    Legend(figure[3, 1], [ship_entries, wear_entries],
+        [ships, [@sprintf("b = %g", exponent) for exponent in study_wear_exponents]],
+        ["ship", "wear"]; orientation=:horizontal, nbanks=3, titleposition=:left,
         titlegap=6)
-    rowgap!(figure.layout, 1, 6)
+    rowgap!(figure.layout, 2, 6)
     save(joinpath(kite_design_figures, "force_rating.pdf"), figure; pt_per_unit=print_scale)
 end
 
