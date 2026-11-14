@@ -34,12 +34,14 @@ function live_cases()
                    for departure in ensemble_departures]
     full = [(; check="full", case.ship, case.route, case.rig, case.design, departure)
             for case in gate_cases(1.0) for departure in ensemble_departures[1:3:end]]
+    entries = [development; full]
+    corridors = Dict(route => route_corridors(route, mask; grid_spacing...)
+                     for route in unique(entry.route for entry in entries))
     settings = [(; setting, step, stride) for (setting, step, stride) in LIVE_SETTINGS]
     return [(; entry..., setting...,
                 case=trip_case(entry.design; forecast=:grid_live, entry.route,
-                    entry.rig, entry.departure,
-                    paths=route_corridors(entry.route, mask; grid_spacing...)))
-            for entry in [development; full] for setting in settings
+                    entry.rig, entry.departure, paths=corridors[entry.route]))
+            for entry in entries for setting in settings
             if entry.check == "development" || setting.setting != "half"]
 end
 
@@ -69,6 +71,17 @@ function write_live_costs(path, cases, costs)
 end
 
 """
+    live_savings(cost, (check, ship, route), setting, rig, departures)
+
+Cost saving [%] of `rig` against no rig per departure of `departures` on `check`, `ship`,
+`route` and `setting`, from `cost` keyed as in [`print_convergence`](@ref).
+"""
+live_savings(cost, (check, ship, route), setting, rig, departures) =
+    [100 * (1 - cost[(check, setting, ship, route, rig, departure)] /
+                cost[(check, setting, ship, route, "none", departure)])
+     for departure in departures]
+
+"""
     print_convergence(cases, costs)
 
 Per check, ship, route and setting, each rig's mean saving [%], its mean change from the
@@ -78,31 +91,24 @@ function print_convergence(cases, costs)
     cost = Dict((entry.check, entry.setting, entry.ship, entry.route, entry.rig,
                     entry.departure) => value for (entry, value) in zip(cases, costs))
     finest = first(last(LIVE_SETTINGS))
-    for (check, ship, route) in unique((entry.check, entry.ship, entry.route)
-                                       for entry in cases)
-        group = filter(entry -> (entry.check, entry.ship, entry.route) ==
-                                (check, ship, route), cases)
-        rigs = filter(!=("none"), unique(entry.rig for entry in group))
-        departures = unique(entry.departure for entry in group)
-        saving(setting, rig) = [100 * (1 - cost[(check, setting, ship, route, rig,
-                                                 departure)] /
-                                           cost[(check, setting, ship, route, "none",
-                                                 departure)])
-                                for departure in departures]
-        settings = unique(entry.setting for entry in group)
-        usable = findall(i -> all(isfinite(saving(setting, rig)[i])
-                                  for setting in settings, rig in rigs),
-            eachindex(departures))
-        mean_saving(setting, rig) = mean(saving(setting, rig)[usable])
+    for group in unique((entry.check, entry.ship, entry.route) for entry in cases)
+        members = filter(entry -> (entry.check, entry.ship, entry.route) == group, cases)
+        rigs = filter(!=("none"), unique(entry.rig for entry in members))
+        departures = unique(entry.departure for entry in members)
+        settings = unique(entry.setting for entry in members)
+        savings = Dict((setting, rig) => live_savings(cost, group, setting, rig, departures)
+                       for setting in settings for rig in rigs)
+        usable = complete_departures(collect(values(savings)))
+        means = Dict(key => mean(saving[usable]) for (key, saving) in savings)
         for setting in settings
-            change = Dict(rig => mean_saving(setting, rig) - mean_saving(finest, rig)
+            change = Dict(rig => means[(setting, rig)] - means[(finest, rig)]
                           for rig in rigs)
             gap = maximum((abs(change[first] - change[second])
                            for first in rigs, second in rigs); init=0.0)
-            @printf("%-11s %-12s %-9s %-7s %d deps: %s; gap change %.2f\n", check, ship,
-                route, setting, length(usable),
-                join((@sprintf("%s %.2f (%+.2f)", rig, mean_saving(setting, rig),
-                          change[rig]) for rig in rigs), ", "), gap)
+            @printf("%-11s %-12s %-9s %-7s %d deps: %s; gap change %.2f\n", group...,
+                setting, length(usable),
+                join((@sprintf("%s %.2f (%+.2f)", rig, means[(setting, rig)], change[rig])
+                      for rig in rigs), ", "), gap)
         end
     end
 end

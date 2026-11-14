@@ -70,8 +70,8 @@ forecast_source(plan) =
     plan === :expected_margin ? KiteMargin(expected_forecast(), forecast_kite_margin) :
     plan === :wave_forecast ? ForecastParts(expected_forecast(), false, true) :
     plan === :wind_forecast ? ForecastParts(expected_forecast(), true, false) :
-    haskey(grid_plans, plan) ? ReplannedForecast(forecast_source(grid_plans[plan]);
-        grid=planning_grid(), adapts=get(live_plans, plan, :nothing)) :
+    haskey(grid_plans, plan) ? ReplannedForecast(forecast_source(grid_plans[plan].plan);
+        grid=planning_grid(), grid_plans[plan].adapts) :
     forecast_plans[plan]
 
 "the control forecast weighing its wind error ([`forecast_error`](@ref))"
@@ -1179,19 +1179,21 @@ end
 forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite, :kite_margin,
     :expected, :grid_perfect, :grid, :grid_expected)
 
-"plans of the forecast study made on [`planning_grid`](@ref), and the plan each makes there"
-grid_plans = Dict(:grid_perfect => :perfect_replan, :grid => true,
-    :grid_expected => :expected, :grid_wave_forecast => :wave_forecast,
-    :grid_wind_forecast => :wind_forecast, :grid_expected_margin => :expected_margin,
-    :grid_perfect_live => :perfect_replan, :grid_live => :expected,
-    :grid_perfect_live_to_go => :perfect_replan, :grid_live_to_go => :expected)
-
 """
-[`grid_plans`](@ref) whose ship sails live, choosing speed and kite hour by hour, and how
-it values the passage beyond each edge, an `adapts` of [`ReplannedForecast`](@ref)
+plans of the forecast study made on [`planning_grid`](@ref), each as the plan it makes
+there and how its ship sails it, an `adapts` of [`ReplannedForecast`](@ref): `:live` and
+`:live_to_go` choose speed and kite hour by hour
 """
-live_plans = Dict(:grid_perfect_live => :live, :grid_live => :live,
-    :grid_perfect_live_to_go => :live_to_go, :grid_live_to_go => :live_to_go)
+grid_plans = Dict(:grid_perfect => (plan=:perfect_replan, adapts=:nothing),
+    :grid => (plan=true, adapts=:nothing),
+    :grid_expected => (plan=:expected, adapts=:nothing),
+    :grid_wave_forecast => (plan=:wave_forecast, adapts=:nothing),
+    :grid_wind_forecast => (plan=:wind_forecast, adapts=:nothing),
+    :grid_expected_margin => (plan=:expected_margin, adapts=:nothing),
+    :grid_perfect_live => (plan=:perfect_replan, adapts=:live),
+    :grid_live => (plan=:expected, adapts=:live),
+    :grid_perfect_live_to_go => (plan=:perfect_replan, adapts=:live_to_go),
+    :grid_live_to_go => (plan=:expected, adapts=:live_to_go))
 
 "spacing of the stages and rows [nmi] of the corridors [`grid_plans`](@ref) sail"
 grid_spacing = (ocean_spacing=240.0, lateral_spacing=60.0)
@@ -1612,8 +1614,7 @@ function write_kept_shares(name, cases, trips, plans;
             plan in kite_only_plans && rig != "kite" && continue
             all_saved = [plan_savings(cases, trips, rig, kept, departures)
                          for kept in (plan, false, control_of(plan))]
-            usable = findall(i -> all(isfinite(saved[i]) for saved in all_saved),
-                eachindex(departures))
+            usable = complete_departures(all_saved)
             saved, perfect, reference = [saved[usable] for saved in all_saved]
             n = length(usable)
             value = kept_share(saved, perfect, 1:n)
@@ -1644,6 +1645,10 @@ plan_savings(cases, trips, rig, plan, departures) =
     [1 - plan_cost(cases, trips, rig, plan, departure) /
          plan_cost(cases, trips, "none", plan in kite_only_plans ? true : plan, departure)
      for departure in departures]
+
+"indices of the departures at which every one of the per-departure `series` is finite"
+complete_departures(series) =
+    findall(i -> all(isfinite(values[i]) for values in series), eachindex(first(series)))
 
 "share of the mean saving of `perfect` that `saved` keeps over the departures `indices`"
 kept_share(saved, perfect, indices) = mean(saved[indices]) / mean(perfect[indices])
@@ -1956,8 +1961,7 @@ case has a trip, as (value, error, departures).
 """
 function cause_estimate(statistic, saved, against=nothing)
     rigs = isnothing(against) ? (saved,) : (saved, against)
-    usable = findall(i -> all(!isnan(case[i]) for rig in rigs for case in values(rig)),
-        eachindex(first(values(saved))))
+    usable = complete_departures([case for rig in rigs for case in values(rig)])
     excess(indices) = statistic(saved, usable[indices]) -
                       (isnothing(against) ? 0.0 : statistic(against, usable[indices]))
     n = length(usable)
