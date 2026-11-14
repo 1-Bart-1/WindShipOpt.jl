@@ -2973,6 +2973,18 @@ end
     end
 end
 
+@testset "a route can choose among more routing speeds than a byte counts" begin
+    _, back = corridors
+    many_speeds = WindShipOpt.RouterSettings(routing_speeds=193)
+    leg = WindShipOpt.with_router_settings(many_speeds) do
+        table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
+            assumptions))
+        @test length(table.speeds) == 193
+        route(back, table, SyntheticWeather(), 24.0 * 91; time_cost=300.0)
+    end
+    @test isfinite(leg.objective)
+end
+
 @testset "a held speed steps down through the ship's own speeds, and is commanded" begin
     table = PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions), assumptions)
     held = WindShipOpt.held_speed_table(table, 11.3)

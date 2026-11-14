@@ -930,7 +930,7 @@ struct RouteWorkspace
     "state of the previous stage, as the linear index of (bin, lateral, aloft)"
     parent::Array{Int32, 4}
     "routing speed number of the edge into the state"
-    speed_index::Array{Int8, 4}
+    speed_index::Array{Int16, 4}
     "mode of the edge into the state"
     mode::Array{Int8, 4}
     "the points of the edge in hand"
@@ -952,7 +952,7 @@ Workspace for corridors of `lateral_count` nodes per stage, `bins` time bins and
 function RouteWorkspace(lateral_count, bins, stage_count)
     shape = (lateral_count, bins, 2, stage_count)
     return RouteWorkspace(fill(Inf, shape), zeros(shape), zeros(shape), zeros(shape),
-        zeros(Int32, shape), zeros(Int32, shape), zeros(Int32, shape), zeros(Int8, shape),
+        zeros(Int32, shape), zeros(Int32, shape), zeros(Int32, shape), zeros(Int16, shape),
         zeros(Int8, shape), SailedPoint[], Ref(zeros(lateral_count, 0, 2, stage_count)),
         SailedEdge[], fill(-1, bins))
 end
