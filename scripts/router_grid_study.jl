@@ -36,6 +36,11 @@ STUDY = Dict("coarse" => planner_fidelity(0.5), "base" => planner_fidelity(1),
     "far_240" => (; scale=1, settings=varied(far_spacing=240.0)),
     "rows_1" => (; scale=1, settings=varied(far_row_stride=1)),
     "far_samples_3" => (; scale=1, settings=varied(far_sample_hours=3.0)),
+    "far_240_samples_3" => (; scale=1, settings=varied(far_spacing=240.0, far_sample_hours=3.0)),
+    "far_240_samples_6" => (; scale=1, settings=varied(far_spacing=240.0, far_sample_hours=6.0)),
+    "far_480_samples_3" => (; scale=1, settings=varied(far_spacing=480.0, far_sample_hours=3.0)),
+    "near_480_far_240_samples_3" => (; scale=1,
+        settings=varied(near_distance=480.0, far_spacing=240.0, far_sample_hours=3.0)),
     "whole" => (; scale=1, settings=varied(near_distance=Inf)))
 
 """
