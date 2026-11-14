@@ -1385,11 +1385,11 @@ fidelity_parts() = [
         error="fit to CFD and full-scale data within its scatter; interference from two " *
               "to four rotors",
         effect=varied_inputs(:rotor_lift_factor, :rotor_max_wind)),
-    (part="Kite flight", varied="turn radius, drag, force limit",
+    (part="Kite flight", varied="turn radius, aspect ratio, force limit",
         model="quasi-steady pattern with mass, bridle and tether drag, searched for each " *
               "wind and course",
         error="glide ratio of 4 matched to flight data",
-        effect=varied_inputs(:kite_min_turn_radius, :kite_flight_drag,
+        effect=varied_inputs(:kite_min_turn_radius, :kite_aspect_ratio,
             :kite_max_force_per_area)),
     (part="Kite launch and sea limits", varied="wind limits, extra launch wind in a sea",
         model="fixed wind limits for launch, flight and landing; launch wind raised with " *

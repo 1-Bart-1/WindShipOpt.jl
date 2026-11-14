@@ -427,7 +427,7 @@ end
 
 @testset "a kite without flight drag flies where every fixed start misses" begin
     low_drag = WindShipOpt.with_value(assumptions, :kite_flight_drag, 0.0)
-    aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
+    aspect_ratio = assumptions[:kite_aspect_ratio]
     model, max_force, _ = WindShipOpt.kite_model(13777.0, aspect_ratio, low_drag)
     course = deg2rad(120.0)
     flown = only(WindShipOpt.compute_pattern_table(model, max_force, low_drag, [15.0],
@@ -442,7 +442,7 @@ end
 end
 
 @testset "the pattern grid is only searched where no fixed start flies" begin
-    aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
+    aspect_ratio = assumptions[:kite_aspect_ratio]
     model, max_force, _ = WindShipOpt.kite_model(13777.0, aspect_ratio, assumptions)
     course = deg2rad(120.0)
     problem = WindShipOpt.PatternProblem(model, max_force,
@@ -1135,10 +1135,11 @@ end
 
 @testset "a longer span at the same area costs the same to buy, fly and launch" begin
     base = uniform_kite(Hull(140.0, assumptions), assumptions)
-    ratio = 8 / 3
+    ratio = 8 / assumptions[:kite_aspect_ratio]
     slender = KiteRig(; (name => getfield(base, name) for name in fieldnames(KiteRig))...,
         tether_length=base.tether_length * sqrt(ratio))
-    prices = WindShipOpt.base_aspect_ratio_prices(assumptions, ratio)
+    prices = WindShipOpt.with_kite_aspect_ratio(assumptions, 8.0)
+    @test prices[:kite_aspect_ratio] == 8.0
     @test WindShipOpt.rig_price_parts(slender, prices) ==
           WindShipOpt.rig_price_parts(base, assumptions)
     @test WindShipOpt.wear_cost(slender, prices) ≈ WindShipOpt.wear_cost(base, assumptions)
@@ -1146,6 +1147,14 @@ end
           WindShipOpt.cycle_cost(base, assumptions)
     @test WindShipOpt.handling_hours(slender, prices) ==
           WindShipOpt.handling_hours(base, assumptions)
+end
+
+@testset "a kite flies the assumed aspect ratio unless its design names its own" begin
+    slender = WindShipOpt.with_value(assumptions, :kite_aspect_ratio, 4.0)
+    @test WindShipOpt.kite_aspect_ratio(ShipDesign(:vlsfo, 100.0; kite_area=800.0),
+        slender) == 4.0
+    @test WindShipOpt.kite_aspect_ratio(ShipDesign(:vlsfo, 100.0; kite_area=800.0,
+        kite_aspect_ratio=5.0), slender) == 5.0
 end
 
 @testset "kite inputs give the SkySails kites at their projected areas" begin
@@ -3375,6 +3384,22 @@ end
     end
 end
 
+@testset "the development study moves the kite's aspect ratio at the base kite's price" begin
+    @test :kite_aspect_ratio in (entry.input for entry in PaperData.development_inputs)
+    base = uniform_kite(Hull(140.0, assumptions), assumptions)
+    for bound in (:low, :high)
+        moved = PaperData.bound_assumptions(:kite_aspect_ratio, bound)
+        @test moved[:kite_aspect_ratio] ==
+              getfield(assumptions.entries[:kite_aspect_ratio], bound)
+        ratio = moved[:kite_aspect_ratio] / assumptions[:kite_aspect_ratio]
+        moved_kite = KiteRig(;
+            (name => getfield(base, name) for name in fieldnames(KiteRig))...,
+            tether_length=base.tether_length * sqrt(ratio))
+        @test collect(WindShipOpt.consumable_costs(moved_kite, moved)) ≈
+              collect(WindShipOpt.consumable_costs(base, assumptions))
+    end
+end
+
 @testset "the development study moves the kite's sea and wind limits, lowest and highest" begin
     inputs = [entry.input for entry in PaperData.development_inputs]
     limits = (:kite_launch_sea_wind, :kite_launch_min_wind, :kite_launch_max_wind,
@@ -3702,7 +3727,7 @@ end
 @testset "a kite's recorded pattern flies on the lee side in the ship's frame" begin
     design = ShipDesign(:methanol, 85.0; kite_area=500.0)
     ship = Ship(design, assumptions)
-    model = first(WindShipOpt.kite_model(500.0, design.kite_aspect_ratio, assumptions))
+    model = first(WindShipOpt.kite_model(500.0, assumptions[:kite_aspect_ratio], assumptions))
     table = (; wind_speeds=[12.0], courses=[deg2rad(90.0)], side_weights=[0.0],
         ship.rig.max_force)
     cycle = only(PaperData.kite_patterns((; rig=table), model))
@@ -3716,7 +3741,8 @@ end
 @testset "a kite held still upwind is exported as one sample, its nose into the wind" begin
     design = ShipDesign(:methanol, 85.0; kite_area=500.0)
     ship = Ship(design, assumptions)
-    model = first(WindShipOpt.kite_model(500.0, design.kite_aspect_ratio, assumptions))
+    aspect_ratio = WindShipOpt.kite_aspect_ratio(design, assumptions)
+    model = first(WindShipOpt.kite_model(500.0, aspect_ratio, assumptions))
     table = (; wind_speeds=[10.5], courses=[π], side_weights=[0.0], ship.rig.max_force)
     cycle = only(PaperData.kite_patterns((; rig=table), model))
     @test cycle.period == 0

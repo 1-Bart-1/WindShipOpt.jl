@@ -8,7 +8,7 @@
 study_drives = (:vlsfo, :ammonia)
 
 "projected aspect ratio of the kite of every design that names none"
-design_aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
+design_aspect_ratio = assumptions[:kite_aspect_ratio]
 
 """
     trip_case(design; assumptions, route, scale, forecast, held_knots, part, labels...)
@@ -729,7 +729,8 @@ function write_design(io, case, trip, work_per_tonne)
     (; design) = case
     @printf(io, "%s,%s,%.0f,%.0f,%.0f,%.0f,%.0f,%.6f,%.5f,%.3f,%.2f,%.2f,%.0f,%.0f,",
         case.scenario, design.drive, design.length, design.kite_area,
-        design.kite_aspect_ratio, design.wing_area, design.rotor_area,
+        WindShipOpt.kite_aspect_ratio(design, case.assumptions), design.wing_area,
+        design.rotor_area,
         trip.cost_per_tonne_km, trip.fuel_per_tonne_km, trip.carbon_per_tonne_km,
         trip.outbound_days, trip.return_days, trip.cargo, trip.capital)
     @printf(io, "%.3f,%.2f", trip.flight_share, trip.launches)
@@ -2025,11 +2026,15 @@ kite_margin_rows = (
 """
     bound_assumptions(name, bound)
 
-The assumptions with input `name` at its `bound` (:low or :high).
+The assumptions with input `name` at its `bound` (:low or :high), the kite's aspect ratio
+at the price of the base kite.
 """
 function bound_assumptions(name, bound)
     entry = assumptions.entries[name]
-    return with_value(assumptions, name, bound == :low ? entry.low : entry.high)
+    value = bound == :low ? entry.low : entry.high
+    name == :kite_aspect_ratio &&
+        return WindShipOpt.with_kite_aspect_ratio(assumptions, value)
+    return with_value(assumptions, name, value)
 end
 
 "class ships of the development study, each with its drive and route"
@@ -2096,9 +2101,9 @@ development_inputs = [
     (input=:kite_min_turn_radius, label="kite smallest turn radius", rig="kite",
         lever="force", reason="Steering and control decide how tight, and so how " *
                               "powerful, a pattern can be."),
-    (input=:kite_flight_drag, label="kite flight drag", rig="kite", lever="force",
-        reason="Deformation, control unit and steering; the low bound, a kite that keeps " *
-               "its design shape, is the most a better design can recover."),
+    (input=:kite_aspect_ratio, label="kite aspect ratio", rig="kite", lever="force",
+        reason="The shape of the wing, fixed at today's in the results; a slenderer kite " *
+               "glides better if launch and canopy can handle it, priced as the base."),
     (input=:kite_launch_sea_wind, label="kite extra launch wind in a sea", rig="kite",
         lever="weather", reason="How far the launch system takes up the ship's motion; " *
                                 "the kite's only limit on the sea."),
@@ -2171,99 +2176,6 @@ function sensitivity_data()
     trips[base] = round_trips(cases[base], sampled_departures())
     trips[changed] = round_trips(cases[changed], sampled_departures())
     write_trips("sensitivity.csv", cases, trips, :ship, :rig, :input, :bound)
-end
-
-"projected aspect ratios of the kite in the aspect ratio study, those with a polar"
-study_aspect_ratios = (3.0, 4.0, 5.0, 6.0, 8.0)
-
-"""
-    aspect_data()
-
-Each ship of [`sensitivity_ships`](@ref) without a rig and with its kite at each of
-[`study_aspect_ratios`](@ref), at the same area and the same price: aspect.csv.
-"""
-function aspect_data()
-    cases = []
-    for (ship, bare, route, areas) in sensitivity_ships()
-        push!(cases, trip_case(bare; route, ship, aspect_ratio=0.0))
-        for aspect_ratio in study_aspect_ratios
-            design = ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...,
-                kite_aspect_ratio=aspect_ratio)
-            push!(cases, trip_case(design; route, ship, aspect_ratio,
-                assumptions=WindShipOpt.base_aspect_ratio_prices(assumptions,
-                    aspect_ratio / design_aspect_ratio)))
-        end
-    end
-    trips = round_trips(cases, sampled_departures())
-    open(run_file("aspect.csv"), "w") do io
-        println(io, "ship,aspect_ratio,area,cost,flight_share,launches,cargo")
-        for (case, trip) in zip(cases, trips)
-            isnothing(trip) && continue
-            @printf(io, "%s,%.0f,%.0f,%.6f,%.3f,%.2f,%.0f\n", csv_value(case.ship),
-                case.aspect_ratio, case.design.kite_area, trip.cost_per_tonne_km,
-                trip.flight_share, trip.launches, trip.cargo)
-        end
-    end
-end
-
-"force limits of the kite in the force rating study [kN/m^2]"
-study_force_ratings = (0.3, 0.5, 0.7, 1.0)
-
-"kite areas of the force rating study [m^2]"
-study_kite_areas = [1600.0 * sqrt(2.0)^k for k in 0:6]
-
-"""
-    nearby_kite_areas(kite_area, reach)
-
-Those of [`study_kite_areas`](@ref) within `reach` grid steps of the one nearest `kite_area`.
-"""
-function nearby_kite_areas(kite_area, reach)
-    nearest = argmin(abs.(log.(study_kite_areas ./ kite_area)))
-    return study_kite_areas[max(1, nearest - reach):min(end, nearest + reach)]
-end
-
-"""
-    force_rating_case(bare, route, ship, rating, exponent, area)
-
-Trip case of the ship `bare` with a kite of `area` built for the force limit `rating`, its
-cloth following the limit to the power `exponent`.
-"""
-function force_rating_case(bare, route, ship, rating, exponent, area)
-    rated = changed_assumptions((; kite_max_force_per_area=rating,
-        canopy_cloth_force_exponent=exponent))
-    design = ShipDesign(; bare.drive, bare.length, bare.class, kite_area=area)
-    return trip_case(design; assumptions=rated, route, ship, rating, exponent, area)
-end
-
-"""
-    force_rating_cases(bare, route, ship, kite_area)
-
-Cases of one ship in the force rating study: without a rig; with its kite at each of
-[`study_force_ratings`](@ref) and two area steps around `kite_area`; and at the lowest and
-highest limit and one area step with cloth that follows the limit in proportion or not at
-all.
-"""
-function force_rating_cases(bare, route, ship, kite_area)
-    base = assumptions[:canopy_cloth_force_exponent]
-    return [trip_case(bare; route, ship, rating=0.0, exponent=base, area=0.0);
-            vec([force_rating_case(bare, route, ship, rating, base, area)
-                 for rating in study_force_ratings, area in nearby_kite_areas(kite_area, 2)]);
-            vec([force_rating_case(bare, route, ship, rating, exponent, area)
-                 for rating in extrema(study_force_ratings), exponent in (0.0, 1.0),
-                 area in nearby_kite_areas(kite_area, 1)])]
-end
-
-"""
-    force_rating_data()
-
-Each ship of [`sensitivity_ships`](@ref) with the cases of [`force_rating_cases`](@ref):
-force_rating.csv.
-"""
-function force_rating_data()
-    cases = reduce(vcat, [force_rating_cases(bare, route, ship, areas.kite.kite_area)
-                          for (ship, bare, route, areas) in sensitivity_ships()])
-    write_trips("force_rating.csv", cases, round_trips(cases, sampled_departures()), :ship,
-        :rating, :exponent, :area)
 end
 
 """
