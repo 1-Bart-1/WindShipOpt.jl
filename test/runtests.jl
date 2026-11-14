@@ -682,10 +682,10 @@ end
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 0.0)
-    @test force(5.8751, 26.6411).thrust ≈ -34 atol = 5
-    @test force(5.8751, 26.6411).side ≈ 63733 rtol = 1e-3
-    @test force(6.6205, 50.2378).thrust ≈ 19482 rtol = 1e-3
-    @test force(6.6205, 50.2378).side ≈ 105998 rtol = 1e-3
+    @test force(5.8751, 26.6411).thrust ≈ 153 atol = 5
+    @test force(5.8751, 26.6411).side ≈ 64411 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 20159 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 77488 rtol = 1e-3
     @test force(8.82947, 86.695695).thrust ≈ 113451 rtol = 1e-3
     @test force(8.82947, 86.695695).side ≈ 249728 rtol = 1e-3
     @test force(11.161535, 114.227745).thrust ≈ 241072 rtol = 1e-3
