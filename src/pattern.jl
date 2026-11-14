@@ -325,7 +325,8 @@ const NO_PATTERN = PatternForce((NaN, NaN, NaN), NaN, NaN)
 
 """
 one step of a flown cycle: unit position, apparent wind at the kite [m/s] (the wind less
-the kite's own velocity), angle of attack [rad], tether tension [N] and duration [s]
+the kite's own velocity), angle of attack [rad], tether tension [N] and duration [s], zero
+for a still kite
 """
 const PatternStep = @NamedTuple{radial::NTuple{3, Float64},
     apparent_wind::NTuple{3, Float64}, angle_of_attack::Float64, tension::Float64,
@@ -448,7 +449,7 @@ function PatternForce(model::KiteModel, still::StillKite, wind_speed, max_tensio
     tension <= max_tension || return NO_PATTERN
     radial = window_position(off_wind, still.roll)
     isnothing(path) || push!(path, (; radial, apparent_wind=(wind_speed, 0.0, 0.0),
-        angle_of_attack=still.angle_of_attack, tension, time=1.0))
+        angle_of_attack=still.angle_of_attack, tension, time=0.0))
     load = 0.5model.air_density * wind_speed^2 * model.area
     return PatternForce(tension .* radial ./ load, tension / load, asin(radial[3]))
 end

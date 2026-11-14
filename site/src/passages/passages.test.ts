@@ -62,6 +62,13 @@ describe("a passage replayed at a time", () => {
     expect(state.pattern?.period).toBe(9);
   });
 
+  it("switches between a still kite and a flown pattern rather than blending them", () => {
+    const held: Leg = { ...leg, columns: { ...leg.columns, trim: { pattern: [null, [10, 20, 30, 40, 50, 60, 70, 80, 90], [30, 30, 50, 50, 70, 70, 90, 90, 0]] } } };
+    expect(stateAt(held, 8)?.pattern?.period).toBe(9);
+    expect(stateAt(held, 10)?.pattern?.period).toBe(0);
+    expect(stateAt(held, 10)?.pattern?.azimuth).toEqual([3, 3]);
+  });
+
   it("keeps the kite stowed until the sample it launched at", () => {
     expect(stateAt(leg, 3).flying).toBe(false);
     expect(stateAt(leg, 5.9).flying).toBe(false);

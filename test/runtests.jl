@@ -164,8 +164,6 @@ end
     end
 end
 
-# At rest in a wind along x the tether pull, the drag along the wind and the weight leave
-# a lift across the wind of exactly the kite's lift coefficient.
 @testset "a still kite rests where lift, drag, weight and tether tension balance" begin
     model, max_force, _ = WindShipOpt.kite_model(1600.0, 3.0, assumptions)
     wind = 10.5

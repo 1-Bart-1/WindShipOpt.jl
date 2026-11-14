@@ -143,6 +143,7 @@ function patternOf(raw: number[] | null | undefined): PassageState["pattern"] {
 
 function blendPattern(from: PassageState["pattern"], to: PassageState["pattern"], share: number): PassageState["pattern"] {
   if (!from || !to) return from ?? to;
+  if ((from.period === 0) !== (to.period === 0)) return share < 0.5 ? from : to;
   return {
     azimuth: from.azimuth.map((angle, i) => interpolateAngle(angle, to.azimuth[i], share)),
     elevation: from.elevation.map((angle, i) => interpolate(angle, to.elevation[i], share)),
