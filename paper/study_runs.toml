@@ -23,6 +23,11 @@ commit = "be88312a72c08f041454ad5b78fe7d858a998596"
 fidelity = "draft"
 run = "2026-11-09T1945"
 
+[forecast_live]
+commit = "f6d4c86bdf77363c3a7924372d91cbe42191c208"
+fidelity = "draft"
+run = "2026-11-14T0026"
+
 [forecast_plans]
 commit = "3da266451bd665cea4b8e8691e9e403881f4e4d3"
 fidelity = "draft"

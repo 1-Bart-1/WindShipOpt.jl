@@ -1911,6 +1911,70 @@ end
     @test by_course <= by_speed
 end
 
+"""
+The 85 m methanol ship with a kite of `area` [m²], on the finer Caribbean corridor, as its
+route table, hourly time cost of the outbound leg and that corridor.
+"""
+function kite_coaster_routing(area)
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=area), assumptions)
+    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
+        assumptions))
+    finer, _ = route_corridors(:caribbean, north_atlantic_mask(); scale=8)
+    return RouteTable(PerformanceTable(ship, assumptions)), kite_hourly, finer
+end
+
+@testset "a ship sailing live recovers more of a wrong forecast than one holding speed" begin
+    kite_table, kite_hourly, finer = kite_coaster_routing(400.0)
+    departure, weather = 24.0 * 121, SyntheticWeather()
+    sources = (ReplannedForecast(CountedForecast(8.0, 0); interval=48.0, adapts)
+               for adapts in (:nothing, :live, :live_to_go))
+    held, live, live_to_go = (forecast_route(finer, kite_table, weather, departure;
+            time_cost=kite_hourly, forecast).objective for forecast in sources)
+    @test live < held
+    @test live_to_go < held
+end
+
+@testset "a ship sailing live changes speed within an edge, past the plan's speed" begin
+    kite_table, kite_hourly, finer = kite_coaster_routing(400.0)
+    record = WindShipOpt.KiteRecord()
+    forecast_route(finer, kite_table, SyntheticWeather(), 24.0 * 121;
+        time_cost=kite_hourly, record,
+        forecast=ReplannedForecast(CountedForecast(8.0, 0); adapts=:live))
+    edges = Dict{Float64, Vector{Float64}}()
+    for sample in record.samples
+        push!(get!(edges, sample.edge_start, Float64[]), sample.speed)
+    end
+    @test any(speeds -> length(unique(speeds)) > 1, values(edges))
+    @test any(sample -> sample.speed > sample.planned_speed, record.samples)
+    @test all(sample -> sample.sample_hours <= 1.0 + 1e-9, record.samples)
+end
+
+@testset "a ship sailing live on a true forecast sails about as its plan" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    planned, live, live_to_go = (forecast_route(corridor, table, weather, departure;
+            time_cost=hourly,
+            forecast=ReplannedForecast(CountedForecast(0.0, 0); adapts)).objective
+        for adapts in (:nothing, :live, :live_to_go))
+    @test live ≈ planned rtol = 0.01
+    @test live_to_go ≈ planned rtol = 0.01
+end
+
+@testset "the remaining cost of a re-planning ship reads the hours it searched" begin
+    departure, weather = 24.0 * 31, SyntheticWeather()
+    prices = (; fuel=table.table.ship.fuel.price, time=hourly)
+    to_go = WindShipOpt.remaining_cost(corridor, table, weather, departure, prices;
+        first_stage=1, coastal_penalty=1.0)
+    workspace = WindShipOpt.acquire_workspace(size(corridor.lat, 2),
+        ceil(Int, WindShipOpt.MAX_LEG_HOURS / WindShipOpt.ROUTER_SETTINGS[].time_step),
+        size(corridor.lat, 1))
+    searched = WindShipOpt.CostToGo(workspace, corridor, table, weather, departure;
+        time_cost=hourly, first_stage=1, coastal_penalty=1.0)
+    centre = WindShipOpt.centre_index(corridor)
+    @test all(to_go(centre, 1, 2, hours) ≈ searched(centre, 1, 2, hours)
+              for hours in 0.0:7.0:200.0 if isfinite(searched(centre, 1, 2, hours)))
+    WindShipOpt.release_workspace(workspace)
+end
+
 @testset "a ship drifted off its plan holds where no edge of its node can be sailed" begin
     departure, weather = 24.0 * 31, SyntheticWeather()
     centre = WindShipOpt.centre_index(corridor)
@@ -2078,6 +2142,7 @@ end
 
 @testset "a re-planned forecast refuses an adaptation it does not know" begin
     @test ReplannedForecast(nothing; adapts=:course).adapts == :course
+    @test ReplannedForecast(nothing; adapts=:live).adapts == :live
     @test_throws ArgumentError ReplannedForecast(nothing; adapts=:coarse)
 end
 

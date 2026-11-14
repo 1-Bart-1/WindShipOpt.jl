@@ -1358,6 +1358,79 @@ cause_cell(estimate) = @sprintf("\\(%.1f \\pm %.1f\\)",
     round(estimate.value; digits=1) + 0.0, estimate.error)
 
 """
+    write_cause_groups(io, groups, saved)
+
+Write to `io` the head of a table of the kite, wing sails and rotors and the kite's
+excess over each deck rig, and per group of `groups`, as (heading, rows of (label,
+statistic)), each row's [`cause_estimate`](@ref)s on the savings `saved` per rig.
+"""
+function write_cause_groups(io, groups, saved)
+    println(io, "\\begin{tabular}{@{}lccccc@{}}\n\\toprule")
+    println(io, " & Kite & Wing sails & Rotors & Kite less wing sails & ",
+        "Kite less rotors \\\\\n\\midrule")
+    for (heading, group) in groups
+        println(io, "\\multicolumn{6}{@{}l}{\\textit{", heading, "}} \\\\")
+        for (label, statistic) in group
+            cells = [[cause_estimate(statistic, saved[rig])
+                      for rig in ("kite", "wings", "rotors")];
+                [cause_estimate(statistic, saved["kite"], saved[rig])
+                 for rig in ("wings", "rotors")]]
+            println(io, "\\quad ", label, " & ", join(cause_cell.(cells), " & "),
+                " \\\\")
+        end
+    end
+end
+
+"groups of forecast_live_table.tex as (heading, rows of (label, statistic))"
+forecast_live_groups = (
+    ("Cost saving [\\%]",
+        (("Perfect foresight, on the corridor of the results", cause_saving(false)),
+            ("Perfect foresight on the planning grid, plan's speed held",
+                cause_saving(:grid_perfect)),
+            ("\\quad sailed live, valued by the plan", cause_saving(:grid_perfect_live)),
+            ("\\quad sailed live, valued by the cost to go",
+                cause_saving(:grid_perfect_live_to_go)),
+            ("Forecast plan, plan's speed held", cause_saving(:grid_expected)),
+            ("\\quad sailed live, valued by the plan", cause_saving(:grid_live)),
+            ("\\quad sailed live, valued by the cost to go",
+                cause_saving(:grid_live_to_go)))),
+    ("Forecast plan's loss against perfect foresight on the corridor [points]",
+        (("Plan's speed held", cause_loss(false, :grid_expected)),
+            ("Sailed live, valued by the plan", cause_loss(false, :grid_live)),
+            ("Sailed live, valued by the cost to go",
+                cause_loss(false, :grid_live_to_go)))),
+    ("Forecast plan's loss against perfect foresight sailed the same way [points]",
+        (("Plan's speed held", cause_loss(:grid_perfect, :grid_expected)),
+            ("Sailed live, valued by the plan", cause_loss(:grid_perfect_live, :grid_live)),
+            ("Sailed live, valued by the cost to go",
+                cause_loss(:grid_perfect_live_to_go, :grid_live_to_go)))),
+    ("Gain of sailing live on the forecast plan [points]",
+        (("Valued by the plan", cause_loss(:grid_live, :grid_expected)),
+            ("Valued by the cost to go", cause_loss(:grid_live_to_go, :grid_expected)))),
+    ("Gain of sailing live with perfect foresight [points]",
+        (("Valued by the plan", cause_loss(:grid_perfect_live, :grid_perfect)),
+            ("Valued by the cost to go",
+                cause_loss(:grid_perfect_live_to_go, :grid_perfect)))))
+
+"""
+    forecast_live_table()
+
+Per rig the cost saving with perfect foresight and on the forecast result's plan, each
+holding the plan's speed and sailed live, what the forecast costs each way and what sailing
+live gains, and the kite's excess over the wing sails and the rotors, paired per departure
+with standard errors over the departures of forecast_live.csv: forecast_live_table.tex.
+"""
+function forecast_live_table()
+    table = read_table(study_file(:forecast_live, "forecast_live.csv"))
+    saved = Dict(rig => rig_savings(table, rig, forecast_live_plans)
+                 for rig in ("kite", "wings", "rotors"))
+    open(joinpath(sections, "forecast_live_table.tex"), "w") do io
+        write_cause_groups(io, forecast_live_groups, saved)
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
     forecast_causes_table()
 
 Per rig the cost saving lost by the forecast result's plan per cause, and the kite's excess
@@ -1371,20 +1444,7 @@ function forecast_causes_table()
                  for rig in ("kite", "wings", "rotors"))
     margins = read_table(study_file(:forecast_causes, "forecast_margins.csv"))
     open(joinpath(sections, "forecast_causes_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}lccccc@{}}\n\\toprule")
-        println(io, " & Kite & Wing sails & Rotors & Kite less wing sails & ",
-            "Kite less rotors \\\\\n\\midrule")
-        for (heading, group) in forecast_cause_groups
-            println(io, "\\multicolumn{6}{@{}l}{\\textit{", heading, "}} \\\\")
-            for (label, statistic) in group
-                cells = [[cause_estimate(statistic, saved[rig])
-                          for rig in ("kite", "wings", "rotors")];
-                    [cause_estimate(statistic, saved["kite"], saved[rig])
-                     for rig in ("wings", "rotors")]]
-                println(io, "\\quad ", label, " & ", join(cause_cell.(cells), " & "),
-                    " \\\\")
-            end
-        end
+        write_cause_groups(io, forecast_cause_groups, saved)
         println(io, "\\midrule\nThe kite [\\%, of its time at sea unless stated] & ",
             "Perfect foresight & Forecast plan & Change & & \\\\\n\\midrule")
         perfect = kite_margin_values(margins, table, "perfect", "grid_perfect")
