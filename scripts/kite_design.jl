@@ -55,7 +55,8 @@ study_kite_areas = [1600.0 * sqrt(2.0)^k for k in 0:6]
 """
     nearby_kite_areas(kite_area, reach)
 
-Those of [`study_kite_areas`](@ref) within `reach` grid steps of the one nearest `kite_area`.
+Those of [`study_kite_areas`](@ref) within `reach` grid steps of the one nearest
+`kite_area`.
 """
 function nearby_kite_areas(kite_area, reach)
     nearest = argmin(abs.(log.(study_kite_areas ./ kite_area)))
@@ -87,7 +88,8 @@ function force_rating_cases(bare, route, ship, kite_area)
     base = assumptions[:canopy_cloth_force_exponent]
     return [trip_case(bare; route, ship, rating=0.0, exponent=base, area=0.0);
             vec([force_rating_case(bare, route, ship, rating, base, area)
-                 for rating in study_force_ratings, area in nearby_kite_areas(kite_area, 2)]);
+                 for rating in study_force_ratings,
+                 area in nearby_kite_areas(kite_area, 2)]);
             vec([force_rating_case(bare, route, ship, rating, exponent, area)
                  for rating in extrema(study_force_ratings), exponent in (0.0, 1.0),
                  area in nearby_kite_areas(kite_area, 1)])]
@@ -181,7 +183,8 @@ function force_rating_figure()
 end
 
 "data steps of the follow-up paper in the order they run"
-kite_design_data_steps = [:aspect_data => aspect_data, :force_rating_data => force_rating_data]
+kite_design_data_steps = [:aspect_data => aspect_data,
+    :force_rating_data => force_rating_data]
 
 "figure steps of the follow-up paper, each reading the data files and writing one figure"
 kite_design_figure_steps = [:aspect_figure => aspect_figure,

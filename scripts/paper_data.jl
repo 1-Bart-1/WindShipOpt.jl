@@ -722,7 +722,8 @@ function write_design(io, case, trip, work_per_tonne)
     (; design) = case
     @printf(io, "%s,%s,%.0f,%.0f,%.0f,%.0f,%.0f,%.6f,%.5f,%.3f,%.2f,%.2f,%.0f,%.0f,",
         case.scenario, design.drive, design.length, design.kite_area,
-        WindShipOpt.kite_aspect_ratio(design, case.assumptions), design.wing_area, design.rotor_area,
+        WindShipOpt.kite_aspect_ratio(design, case.assumptions), design.wing_area,
+        design.rotor_area,
         trip.cost_per_tonne_km, trip.fuel_per_tonne_km, trip.carbon_per_tonne_km,
         trip.outbound_days, trip.return_days, trip.cargo, trip.capital)
     @printf(io, "%.3f,%.2f", trip.flight_share, trip.launches)

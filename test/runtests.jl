@@ -3262,13 +3262,17 @@ end
 
 @testset "the development study moves the kite's aspect ratio at the base kite's price" begin
     @test :kite_aspect_ratio in (entry.input for entry in PaperData.development_inputs)
+    base = uniform_kite(Hull(140.0, assumptions), assumptions)
     for bound in (:low, :high)
         moved = PaperData.bound_assumptions(:kite_aspect_ratio, bound)
         @test moved[:kite_aspect_ratio] ==
               getfield(assumptions.entries[:kite_aspect_ratio], bound)
-        @test moved[:tether_price] ==
-              WindShipOpt.with_kite_aspect_ratio(assumptions,
-            moved[:kite_aspect_ratio])[:tether_price]
+        ratio = moved[:kite_aspect_ratio] / assumptions[:kite_aspect_ratio]
+        moved_kite = KiteRig(;
+            (name => getfield(base, name) for name in fieldnames(KiteRig))...,
+            tether_length=base.tether_length * sqrt(ratio))
+        @test collect(WindShipOpt.consumable_costs(moved_kite, moved)) ≈
+              collect(WindShipOpt.consumable_costs(base, assumptions))
     end
 end
 
