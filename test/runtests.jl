@@ -143,10 +143,11 @@ end
 @testset "steps of a flown cycle give its force and peak and its own apparent wind" begin
     soft, soft_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     rigid, rigid_force, = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
-    steered = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15), deg2rad(20))
+    straight = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15), 0.0)
+    weaving = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15), deg2rad(20))
     loop = WindShipOpt.LoopPattern(π / 2, 0.8, 0.3, deg2rad(8))
-    for (model, max_force, pattern, wind) in
-        ((soft, soft_force, steered, 12.0), (rigid, rigid_force, loop, 30.0))
+    for (model, max_force, pattern, wind) in ((soft, soft_force, straight, 12.0),
+        (soft, soft_force, weaving, 12.0), (rigid, rigid_force, loop, 30.0))
         path = WindShipOpt.PatternStep[]
         force = WindShipOpt.PatternForce(model, pattern, wind, max_force; path)
         load = 0.5model.air_density * wind^2 * model.area
@@ -216,10 +217,11 @@ end
         deg2rad(assumptions[:kite_min_elevation]), 12.0, course, 0.0)
     weaving, parameters = WindShipOpt.optimal_pattern(problem,
         WindShipOpt.pattern_starts(course))
-    straight = WindShipOpt.PatternForce(model,
-        WindShipOpt.pattern_of([parameters[1:4]; 0.0]), 12.0, max_force)
+    chosen = WindShipOpt.pattern_of(parameters)
+    straight = WindShipOpt.PatternForce(model, WindShipOpt.SteeringPattern(chosen.centre,
+        chosen.half_width, chosen.heading, chosen.angle_of_attack, 0.0), 12.0, max_force)
     thrust(force) = force.force[1] * cos(course) + force.force[2] * sin(course)
-    @test abs(parameters[5]) > deg2rad(10)
+    @test chosen.weave > deg2rad(10)
     @test thrust(weaving) > thrust(straight)
 end
 

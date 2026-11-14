@@ -342,6 +342,15 @@ const MAX_PATTERN_STEPS = 2000
 const CYCLE_TOLERANCE = deg2rad(0.1)
 
 """
+    next_swing(swing, target)
+
+Side of its leg heading `target` [rad] a weaving leg turns to once it reaches its aim: -1,
+0 or 1 times the weave, starting at 0 (the heading itself), then away from the edge
+direction, then alternating.
+"""
+next_swing(swing, target) = swing == 0 ? sign(target) : -swing
+
+"""
     PatternForce(model, pattern, wind_speed, max_tension; path=nothing)
 
 Fly `pattern` quasi-steadily in a uniform apparent wind of `wind_speed` [m/s] from its
@@ -359,7 +368,7 @@ function PatternForce(model::KiteModel, pattern::SteeringPattern, wind_speed, ma
     off_wind = clamp(atan(4cos(pattern.heading)), 0.3, 1.4)
     roll = pattern.centre
     heading = target = aim = pattern.heading
-    swing = 0
+    swing = 0.0
     switches = 0
     cycle_start = NaN
     total = (0.0, 0.0, 0.0)
@@ -386,7 +395,7 @@ function PatternForce(model::KiteModel, pattern::SteeringPattern, wind_speed, ma
             angle_of_attack=angle, tension, time))
         turned = step / model.min_turn_radius
         heading = clamp(aim, heading - turned, heading + turned)
-        heading == aim && (swing = swing == 0 ? sign(target) : -swing)
+        heading == aim && (swing = next_swing(swing, target))
         aim = target + swing * pattern.weave
         off_wind += dot3(ground, edge) * time / radius
         roll += dot3(ground, around) * time / (radius * sin(off_wind))
@@ -394,7 +403,7 @@ function PatternForce(model::KiteModel, pattern::SteeringPattern, wind_speed, ma
         if target > 0 && roll > pattern.centre + pattern.half_width ||
            target < 0 && roll < pattern.centre - pattern.half_width
             target = aim = -target
-            swing = 0
+            swing = 0.0
             switches += 1
             iseven(switches) || continue
             if abs(off_wind - cycle_start) < CYCLE_TOLERANCE
