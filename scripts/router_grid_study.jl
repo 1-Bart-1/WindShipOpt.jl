@@ -31,6 +31,11 @@ STUDY = Dict("coarse" => planner_fidelity(0.5), "base" => planner_fidelity(1),
     "legs_480_rows_30" => (; scale=(2, 0.5), settings=base_settings),
     "to_go_48" => (; scale=1, settings=varied(to_go_step=48.0)),
     "final_1h_legs_360" => (; scale=(1.5, 1), settings=varied(final_time_step=1.0)),
+    "near_960" => (; scale=1, settings=varied(near_distance=960.0)),
+    "near_1920" => (; scale=1, settings=varied(near_distance=1920.0)),
+    "far_240" => (; scale=1, settings=varied(far_spacing=240.0)),
+    "rows_1" => (; scale=1, settings=varied(far_row_stride=1)),
+    "far_samples_3" => (; scale=1, settings=varied(far_sample_hours=3.0)),
     "whole" => (; scale=1, settings=varied(near_distance=Inf)))
 
 """
