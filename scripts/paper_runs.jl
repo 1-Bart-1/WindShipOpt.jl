@@ -13,7 +13,7 @@ using WindShipOpt: inputs_read
 Settings of each fidelity of the paper: the corridor scale, the step between sampled
 departures and the rounds of the rig size search.
 """
-fidelities = Dict(:draft => (corridor_scale=8.0, departure_step=12, size_rounds=1),
+fidelities = Dict(:draft => (corridor_scale=3.0, departure_step=12, size_rounds=1),
     :final => (corridor_scale=1.0, departure_step=6, size_rounds=2))
 
 """
