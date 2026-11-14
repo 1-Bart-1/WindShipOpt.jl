@@ -1780,6 +1780,10 @@ function write_kite_rule_steps(io, departure, leg, edges)
         sum(edge.cost for edge in edges), sum(edge.held_cost for edge in edges))
 end
 
+"columns of forecast_error.csv after the lead, in the order `add_forecast_errors!` adds"
+forecast_error_columns = Tuple("$(quantity)_$kind" for quantity in ("wind", "height")
+                               for kind in ("forecast", "blend", "climate", "weight"))
+
 """
     write_forecast_error(name, corridors...)
 
@@ -1793,7 +1797,8 @@ function write_forecast_error(name, corridors...)
     points = unique(vcat([vec(collect(zip(corridor.lat, corridor.lon)))
                           for corridor in corridors]...))
     leads = 6.0:6.0:384.0
-    totals, counts = zeros(length(leads), 8), zeros(Int, length(leads), 8)
+    shape = (length(leads), length(forecast_error_columns))
+    totals, counts = zeros(shape), zeros(Int, shape)
     for issue in 1:WindShipOpt.issue_count(forecast_archive.wind)
         issued = WindShipOpt.issue_time(forecast_archive, issue)
         known = ArchivedForecast(forecast_archive, issued + WindShipOpt.FORECAST_LATENCY)
@@ -1805,12 +1810,11 @@ function write_forecast_error(name, corridors...)
         end
     end
     open(run_file(name), "w") do io
-        println(io, "lead_days,wind_forecast,wind_blend,wind_climate,wind_weight,",
-            "height_forecast,height_blend,height_climate,height_weight")
+        println(io, join(("lead_days", forecast_error_columns...), ","))
         for (row, lead) in enumerate(leads)
             means = totals[row, :] ./ counts[row, :]
-            columns = [column in (4, 8) ? mean : sqrt(mean)
-                       for (column, mean) in enumerate(means)]
+            columns = [endswith(column, "weight") ? mean : sqrt(mean)
+                       for (column, mean) in zip(forecast_error_columns, means)]
             @printf(io, "%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", lead / 24,
                 columns...)
         end
@@ -1830,12 +1834,10 @@ function add_forecast_errors!(totals, counts, known, points, time)
     for (lat, lon) in points
         truth_wind, truth_height = wind(weather, lat, lon, time),
         first(waves(weather, lat, lon, time))
-        east, north, wind_weight = WindShipOpt.forecast_wind(known, lat, lon, time)
-        height, _, _, _, height_weight = WindShipOpt.forecast_waves(known, lat, lon, time)
-        normal_wind = WindShipOpt.scaled_to(WindShipOpt.climate_wind(climate, lat, lon,
-            time)...)
-        normal_height = first(WindShipOpt.wave_values(WindShipOpt.climate_waves(climate,
-            lat, lon, time)))
+        east, north, wind_weight = WindShipOpt.corrected_wind(known, lat, lon, time)
+        height, _, _, _, height_weight = WindShipOpt.corrected_waves(known, lat, lon, time)
+        normal_wind = wind(climate, lat, lon, time)
+        normal_height = first(waves(climate, lat, lon, time))
         errors = (sum(abs2, (east, north) .- truth_wind),
             sum(abs2, wind(known, lat, lon, time) .- truth_wind),
             sum(abs2, normal_wind .- truth_wind), wind_weight,

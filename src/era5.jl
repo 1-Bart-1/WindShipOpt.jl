@@ -141,7 +141,7 @@ axis of hours from `origin`, varying linearly between the middles of the months.
 """
 struct Climatology
     origin::DateTime
-    "wind per (lon, lat, month), December to December and January again, time in months"
+    "wind per (lon, lat, month), the months December, January to December, January"
     wind::GriddedFields
     "waves per (lon, lat, month), on the same months as `wind`"
     waves::GriddedFields
@@ -193,6 +193,11 @@ climate_wind(climate::Climatology, lat, lon, time) = sample(climate.wind,
 "wave height [m], period [s] and mean east and north direction components; NaN on land"
 climate_waves(climate::Climatology, lat, lon, time) = sample(climate.waves,
     climate.wave_arrays, lat, lon, month_position(climate.origin, time))
+
+wind(climate::Climatology, lat, lon, time) =
+    scaled_to(climate_wind(climate, lat, lon, time)...)
+waves(climate::Climatology, lat, lon, time) =
+    wave_values(climate_waves(climate, lat, lon, time))
 
 "the vector (`east`, `north`) scaled to the length `speed`, or zero where it has none"
 function scaled_to(east, north, speed)

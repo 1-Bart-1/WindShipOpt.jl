@@ -3,10 +3,9 @@
 
 # Download ERA5 for one region into era5/<group>/ (North Atlantic) or
 # era5/<region>/<group>/, one Float32 file per variable plus grid.toml. With
-# ERA5_PRODUCT=climate it writes instead the monthly means of 1991-2016, years the paper
-# does not route, per cell (lon, lat, month) to era5/<region>/climate/<group>/, from every
-# other wind chunk and a wave field every 102 h. The region is the ERA5_REGION environment
-# variable:
+# ERA5_PRODUCT=climate it writes instead the monthly means of 1991-2016 per cell (lon, lat,
+# month) to era5/<region>/climate/<group>/, from every other wind chunk and a wave field
+# every 102 h. The region is the ERA5_REGION environment variable:
 # - "atlantic" (default): Rotterdam to the Caribbean
 # - "north_sea": Rotterdam to Norway and Iceland
 # - "atlantic_wide": the Atlantic from Brazil and the US Gulf to Europe
@@ -98,6 +97,22 @@ function arco_source(times)
         read_chunk)
 end
 
+"""
+    fetch_blocks(source, batch, names)
+
+The chunks numbered `batch` of the variables `names` of `source`, cut to its region and
+times, by (name, chunk number).
+"""
+function fetch_blocks(source::Source, batch, names)
+    jobs = [(name, index) for index in batch for name in names]
+    blocks = asyncmap(jobs; ntasks=16) do (name, index)
+        chunk, steps = source.chunks[index]
+        url = "$(source.store)/$(source.variables[name])/$chunk.0.0"
+        return source.read_chunk(url)[source.rows, source.columns, steps]
+    end
+    return Dict(zip(jobs, blocks))
+end
+
 function download(source::Source, group)
     directory = mkpath(joinpath(output, group))
     names = sort(collect(keys(source.variables)))
@@ -122,14 +137,9 @@ function download(source::Source, group)
     skip = done - sum(length(last(entry)) for entry in source.chunks[1:(chunk_start - 1)];
         init=0)
     for batch in Iterators.partition(chunk_start:length(source.chunks), 8)
-        jobs = [(name, index) for index in batch for name in names]
-        blocks = asyncmap(jobs; ntasks=16) do (name, index)
-            chunk = first(source.chunks[index])
-            url = "$(source.store)/$(source.variables[name])/$chunk.0.0"
-            block = source.read_chunk(url)
-            return block[source.rows, source.columns, last(source.chunks[index])]
-        end
-        for ((name, index), block) in zip(jobs, blocks)
+        blocks = fetch_blocks(source, batch, names)
+        for index in batch, name in names
+            block = blocks[(name, index)]
             steps = axes(block, 3)
             index == chunk_start && (steps = steps[(skip + 1):end])
             for step in steps
@@ -178,17 +188,12 @@ function write_climate(source::Source, group)
     names = sort(collect(keys(source.variables)))
     time_index = 0
     for batch in Iterators.partition(eachindex(source.chunks), 8)
-        jobs = [(name, index) for index in batch for name in names]
-        blocks = asyncmap(jobs; ntasks=16) do (name, index)
-            chunk, steps = source.chunks[index]
-            url = "$(source.store)/$(source.variables[name])/$chunk.0.0"
-            return source.read_chunk(url)[source.rows, source.columns, steps]
-        end
+        blocks = fetch_blocks(source, batch, names)
         for index in batch, step in eachindex(last(source.chunks[index]))
             time_index += 1
             month = Dates.month(source.times[time_index])
-            fields = Dict(name => permutedims(blocks[findfirst(==((name, index)), jobs)][
-                :, :, step]) for name in names)
+            fields = Dict(name => permutedims(blocks[(name, index)][:, :, step])
+                          for name in names)
             for (name, field) in climate_fields(fields)
                 total = get!(() -> zeros(shape), totals, name)
                 count = get!(() -> zeros(Int, shape), counts, name)

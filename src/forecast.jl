@@ -43,10 +43,11 @@ function ArchiveGroup(directory::AbstractString, origin::DateTime)
     for entry in readdir(directory)
         path = joinpath(directory, entry)
         if startswith(entry, "bias_")
-            bias[parse(Int, entry[6:end])] = Dict(first(splitext(file)) => Mmap.mmap(
-                joinpath(path, file), Array{Float32, 3}, shape) for file in readdir(path))
+            bias[parse(Int, chopprefix(entry, "bias_"))] = Dict(
+                first(splitext(file)) => Mmap.mmap(joinpath(path, file),
+                    Array{Float32, 3}, shape) for file in readdir(path))
         elseif startswith(entry, "weight_")
-            weights[parse(Int, first(splitext(entry))[8:end])] =
+            weights[parse(Int, chopprefix(chopsuffix(entry, ".f32"), "weight_"))] =
                 Mmap.mmap(path, Array{Float32, 3}, shape)
         end
     end
@@ -171,8 +172,11 @@ end
 
 issue_time(archive::ForecastArchive, issue) = issue_time(archive.wind, issue)
 
+"year of issue number `issue` of `group`, on the time axis of hours from `origin`"
+issue_year(group::ArchiveGroup, origin, issue) =
+    Dates.year(origin + Dates.Hour(round(Int, issue_time(group, issue))))
 issue_year(archive::ForecastArchive, issue) =
-    Dates.year(archive.origin + Dates.Hour(round(Int, issue_time(archive, issue))))
+    issue_year(archive.wind, archive.origin, issue)
 
 "number of the last issue of `group` to have reached the ship at `time` [h]"
 latest_issue(group::ArchiveGroup, time) =
@@ -329,14 +333,14 @@ issue_arrays(group::ArchiveGroup, issue, names) =
 bias_arrays(group::ArchiveGroup, year, names) = map(name -> group.bias[year][name], names)
 
 """
-    forecast_wind(forecast, lat, lon, time)
+    corrected_wind(forecast, lat, lon, time)
 
 East and north wind [m/s] of `forecast` less its bias, and its weight in the blend with
-climatology at that lead; zero weight beyond its last lead.
+climatology at that lead; NaN beyond its last lead.
 """
-function forecast_wind(forecast::ArchivedForecast, lat, lon, time)
+function corrected_wind(forecast::ArchivedForecast, lat, lon, time)
     group = forecast.archive.wind
-    within(group, forecast.issued, time) || return 0.0, 0.0, 0.0
+    within(group, forecast.issued, time) || return NaN, NaN, NaN
     names = ("u10", "v10")
     east, north, east_bias, north_bias, weight = sample(group.grid,
         (issue_arrays(group, forecast.issue, names)...,
@@ -346,13 +350,13 @@ function forecast_wind(forecast::ArchivedForecast, lat, lon, time)
 end
 
 """
-    forecast_waves(forecast, lat, lon, time)
+    corrected_waves(forecast, lat, lon, time)
 
 Wave height [m] and period [s] of `forecast` less their bias, its east and north direction
 components, and its weight in the blend with climatology at that lead; NaN where it holds no
 waves or beyond its last lead.
 """
-function forecast_waves(forecast::ArchivedForecast, lat, lon, time)
+function corrected_waves(forecast::ArchivedForecast, lat, lon, time)
     group = forecast.archive.waves
     within(group, forecast.wave_issued, time) || return NaN, NaN, NaN, NaN, NaN
     height, period, east, north, height_bias, period_bias, weight = sample(group.grid,
@@ -367,7 +371,8 @@ end
 blend(climate, forecast, weight) = climate + weight * (forecast - climate)
 
 function wind(forecast::ArchivedForecast, lat, lon, time)
-    east, north, weight = forecast_wind(forecast, lat, lon, time)
+    east, north, weight = corrected_wind(forecast, lat, lon, time)
+    isnan(weight) && return wind(forecast.archive.climate, lat, lon, time)
     mean_east, mean_north, mean_speed = climate_wind(forecast.archive.climate, lat, lon,
         time)
     return scaled_to(blend(mean_east, east, weight), blend(mean_north, north, weight),
@@ -375,9 +380,9 @@ function wind(forecast::ArchivedForecast, lat, lon, time)
 end
 
 function waves(forecast::ArchivedForecast, lat, lon, time)
+    known = corrected_waves(forecast, lat, lon, time)
+    isnan(first(known)) && return waves(forecast.archive.climate, lat, lon, time)
     climate = climate_waves(forecast.archive.climate, lat, lon, time)
-    known = forecast_waves(forecast, lat, lon, time)
-    isnan(first(known)) && return wave_values(climate)
     isnan(first(climate)) && return wave_values(known)
     return wave_values(map((normal, value) -> blend(normal, value, last(known)), climate,
         known[1:4]))
@@ -426,8 +431,8 @@ Time [h] of each issue of the archive `group` on the time axis from `origin`, an
 it is scored in.
 """
 function scored_issues(group::ArchiveGroup, origin)
-    issue_times = issue_time.(Ref(group), 1:issue_count(group))
-    return issue_times, Dates.year.(origin .+ Dates.Hour.(round.(Int, issue_times)))
+    issues = 1:issue_count(group)
+    return issue_time.(Ref(group), issues), issue_year.(Ref(group), origin, issues)
 end
 
 """
@@ -509,12 +514,12 @@ Write [`write_group_bias`](@ref) of the wind and the wave height and period of t
 archive in `directory` against `weather`.
 """
 function write_forecast_bias(directory::AbstractString, weather::ERA5Weather)
-    write_group_bias(joinpath(directory, "wind"),
-        ArchiveGroup(joinpath(directory, "wind"), weather.origin), weather.wind,
-        ("u10", "v10"), weather.origin)
-    write_group_bias(joinpath(directory, "waves"),
-        ArchiveGroup(joinpath(directory, "waves"), weather.origin), weather.waves,
-        ("height", "period"), weather.origin)
+    for (group, observed, names) in (("wind", weather.wind, ("u10", "v10")),
+        ("waves", weather.waves, ("height", "period")))
+        folder = joinpath(directory, group)
+        write_group_bias(folder, ArchiveGroup(folder, weather.origin), observed, names,
+            weather.origin)
+    end
 end
 
 """
@@ -523,8 +528,8 @@ end
 Weight of the bias-corrected forecast of the archive `group` in its blend with the
 climatology `normals` per (lon, lat, lead), for each year scored: the regression of the
 anomaly of `observed` from `normals` on that of the forecast, without intercept, over the
-issues of the other years and the variables `names`, within 0 and 1. `normals` share the
-group's grid; times are hours from `origin`.
+issues of the other years and the variables `names`, within 0 and 1, and 0 where never met.
+Times are hours from `origin`.
 """
 function forecast_weights(group::ArchiveGroup, observed::GriddedFields,
         normals::GriddedFields, origin, names)
@@ -549,7 +554,7 @@ function forecast_weights(group::ArchiveGroup, observed::GriddedFields,
         end
     end
     return Dict(year => Float32.(ifelse.(squares[year] .> 0,
-        clamp.(products[year] ./ squares[year], 0, 1), NaN)) for year in keys(products))
+        clamp.(products[year] ./ squares[year], 0, 1), 0)) for year in keys(products))
 end
 
 "the (lon, lat) field `name` of the monthly `fields` at `position` [months]"

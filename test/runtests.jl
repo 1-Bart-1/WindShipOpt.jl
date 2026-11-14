@@ -2285,9 +2285,8 @@ end
     @test all(archive.wind.weights[2017] .< 0.02)
     late_2017 = ArchivedForecast(archive, 24.0 * 2 + 7.0)
     time = late_2017.issued + 12.0
-    normal = WindShipOpt.climate_wind(archive.climate, 40.5, -30.5, time)
     @test all(isapprox.(wind(late_2017, 40.5, -30.5, time),
-        WindShipOpt.scaled_to(normal...); atol=0.3))
+        wind(archive.climate, 40.5, -30.5, time); atol=0.3))
     @test hypot(wind(late_2017, 40.5, -30.5, time)...) ≈ 15 atol = 0.2
 end
 
@@ -2386,8 +2385,7 @@ end
     @test ArchivedForecast(archive, third + 5.0).issued == third - 24.0
     known = ArchivedForecast(archive, third + 7.0)
     beyond = third + 30.0
-    @test wind(known, 40.5, -30.5, beyond) == WindShipOpt.scaled_to(
-        WindShipOpt.climate_wind(archive.climate, 40.5, -30.5, beyond)...)
+    @test wind(known, 40.5, -30.5, beyond) == wind(archive.climate, 40.5, -30.5, beyond)
 end
 
 @testset "a ship whose latest forecast is missing from the archive reads the one before" begin
