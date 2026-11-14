@@ -392,9 +392,8 @@ Base.@kwdef struct RouterSettings
     to_go_sample_hours::Float64 = 6.0
     "how far ahead of the ship a plan keeps every stage and row of its corridor [nmi]"
     near_distance::Float64 = 240.0
-    "spacing of the stages a plan keeps beyond `near_distance` [nmi]"
-    far_spacing::Float64 = 240.0
-    "rows a plan keeps beyond `near_distance`: every `far_row_stride`-th from the centre"
+    "rows a plan keeps beyond `near_distance`: every `far_row_stride`-th from the centre,
+    on stages far enough apart for an edge to shift by that many rows"
     far_row_stride::Int = 8
     "longest time between the weather samples along an edge beyond `near_distance` [h]"
     far_sample_hours::Float64 = 6.0
@@ -1866,8 +1865,9 @@ end
 
 Numbers of the stages of `corridor` a ship at `stage` plans on by the
 [`RouterSettings`](@ref) `settings`, and how many of them lie in its near part: every
-stage within `near_distance` ahead, then stages about `far_spacing` apart, keeping every
-stage of the corridor's fixed coastal track and the stage that joins it.
+stage within `near_distance` ahead, then the nearest stages far enough apart for an edge to
+shift by `far_row_stride` rows, keeping every stage of the corridor's fixed coastal track
+and the stage that joins it.
 """
 function planning_stages(corridor::Corridor, stage, settings::RouterSettings)
     along = corridor.along_centre
@@ -1877,7 +1877,7 @@ function planning_stages(corridor::Corridor, stage, settings::RouterSettings)
     last_near = clamp(searchsortedlast(along, near_end), min(stage + 1, stage_count),
         stage_count)
     stages = collect(stage:last_near)
-    spacing = settings.far_spacing * NAUTICAL_MILE
+    spacing = settings.far_row_stride * corridor.lateral_spacing / MAX_HEADING_TANGENT
     while last(stages) < stage_count
         previous = last(stages)
         next = max(searchsortedfirst(along, along[previous] + spacing), previous + 1)

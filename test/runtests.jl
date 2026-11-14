@@ -1947,6 +1947,17 @@ WindShipOpt.is_land(mask::ChannelMask, lat, lon) =
     end
 end
 
+@testset "beyond its near part a plan keeps more than one row of the open sea" begin
+    mask = north_atlantic_mask()
+    for ocean_spacing in (240.0, 120.0)
+        leg = first(route_corridors(:caribbean, mask; ocean_spacing, lateral_spacing=60.0))
+        stage = findfirst(>(1), vec(sum(leg.water; dims=2)))
+        planning, _, near = WindShipOpt.planning_corridor(leg, stage,
+            WindShipOpt.centre_index(leg))
+        @test any(>(1), sum(planning.water[(near + 1):end, :]; dims=2))
+    end
+end
+
 """
 Angles [rad] between the edges leaving node `lateral` of stage `stage` of `corridor` and
 the forward direction there, square to the node's row and pointing to the next stage.

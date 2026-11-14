@@ -37,14 +37,14 @@ gate_departures() = departures[1:6:end]
     planner_fidelity(factor=1; scale=1, settings=RouterSettings())
 
 Corridor scale and router settings of the planner `factor` times as fine as `scale` and
-`settings` in every spacing and step: stage and row spacing, the far stages' spacing, time
-bins, weather samples along edges and the cost to go's knots, with `factor` times as many
-speeds.
+`settings` in every spacing and step: stage and row spacing, and with them the far stages',
+time bins, weather samples along edges and the cost to go's knots, with `factor` times as
+many speeds.
 """
 function planner_fidelity(factor=1; scale=1, settings=WindShipOpt.RouterSettings())
     finer(name) = getfield(settings, name) / factor
     steps = (:edge_sample_hours, :time_step, :to_go_step, :final_time_step,
-        :weighed_final_time_step, :to_go_sample_hours, :far_spacing, :far_sample_hours)
+        :weighed_final_time_step, :to_go_sample_hours, :far_sample_hours)
     speeds = round(Int, (settings.routing_speeds - 1) * factor) + 1
     return (; scale=scale / factor,
         settings=WindShipOpt.with_changed(settings; routing_speeds=speeds,
