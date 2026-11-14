@@ -89,34 +89,34 @@ function near_land(mask, lat, lon, clearance)
 end
 
 """
-    Corridor(departure, arrival, mask; ocean_spacing, lateral_spacing, lateral_count)
+    Corridor(paths, mask; ocean_spacing, lateral_spacing, lateral_count)
 
-Corridor that follows the fixed `departure` path (lat, lon), crosses the open ocean on the
-great circle from its end to the start of the fixed `arrival` path, and follows that path
-to the port, its last point. Only the open-ocean stages have lateral nodes, on rows
-perpendicular to the great circle and within `SAILABLE_LATITUDE`. Fixed stages lie
-`COASTAL_SPACING` apart; spacings in nautical miles.
+Corridor that follows the fixed coastal `paths` (lat, lon) in turn and crosses the open sea
+between each path and the next on the great circle from the end of one to the start of the
+next, the port the last point of the last path. Only the open-sea stages have lateral
+nodes, on rows perpendicular to their great circle and within `SAILABLE_LATITUDE`. Fixed
+stages lie `COASTAL_SPACING` apart; spacings in nautical miles.
 """
-function Corridor(departure::Vector{NTuple{2, Float64}},
-        arrival::Vector{NTuple{2, Float64}}, mask; ocean_spacing, lateral_spacing,
-        lateral_count)
-    departing = resample(departure, COASTAL_SPACING * NAUTICAL_MILE)
-    arriving = resample(arrival, COASTAL_SPACING * NAUTICAL_MILE)
-    crossing = resample([last(departure), first(arrival)], ocean_spacing * NAUTICAL_MILE)
-    track = [departing; crossing[2:(end - 1)]; arriving]
-    open_ocean = [falses(length(departing)); trues(length(crossing) - 2);
-                  falses(length(arriving))]
+function Corridor(paths::Vector{Vector{NTuple{2, Float64}}}, mask; ocean_spacing,
+        lateral_spacing, lateral_count)
+    track = resample(first(paths), COASTAL_SPACING * NAUTICAL_MILE)
+    open_sea = falses(length(track))
+    for (from, to) in zip(paths[1:(end - 1)], paths[2:end])
+        crossing = resample([last(from), first(to)], ocean_spacing * NAUTICAL_MILE)
+        coastal = resample(to, COASTAL_SPACING * NAUTICAL_MILE)
+        append!(track, crossing[2:(end - 1)], coastal)
+        append!(open_sea, trues(length(crossing) - 2), falses(length(coastal)))
+    end
     stage_count = length(track)
-    landfall = length(departing) + length(crossing) - 1
     half = (lateral_count - 1) ÷ 2
     lat = zeros(stage_count, lateral_count)
     lon = zeros(stage_count, lateral_count)
     water = falses(stage_count, lateral_count)
     for (stage, (stage_lat, stage_lon)) in enumerate(track)
-        course = stage < stage_count && stage != landfall ?
-                 bearing(track[stage]..., track[stage + 1]...) :
-                 bearing(track[stage]..., track[stage - 1]...) + π
-        width = open_ocean[stage] ? half : 0
+        incoming = stage == stage_count || stage > 1 && open_sea[stage - 1]
+        course = incoming ? bearing(track[stage]..., track[stage - 1]...) + π :
+                 bearing(track[stage]..., track[stage + 1]...)
+        width = open_sea[stage] ? half : 0
         for lateral in 1:lateral_count
             offset = (lateral - half - 1) * lateral_spacing * NAUTICAL_MILE
             point = destination_point(stage_lat, stage_lon, course + π / 2, offset)
@@ -2351,15 +2351,18 @@ const OCEAN_SPACING, LATERAL_SPACING = 240.0, 60.0
 "fewest open-ocean stages of a corridor whose stages are `OCEAN_SPACING` apart"
 const MIN_OCEAN_STAGES = 10
 
+"fixed path from north of the Bahamas through the Florida Strait into the Gulf of Mexico"
+const FLORIDA_STRAIT = [(28.0, -79.5), (26.5, -79.5), (25.5, -79.8), (24.6, -80.3),
+    (24.2, -81.5), (24.4, -83.3)]
+
 """
-Fixed path from the open ocean to the port of each route (latitude, longitude) [deg], the
-port last: Houston's runs from north of the Bahamas through the Florida Strait.
+Fixed coastal paths each route follows after the Channel (latitude, longitude) [deg], the
+port last; the route crosses the open sea between one path and the next.
 """
-const PORT_APPROACHES = Dict(:caribbean => [(16.15, -61.20)],
-    :new_york => [(40.3, -72.5)], :bilbao => [(43.6, -3.0)], :dakar => [(14.6, -17.6)],
-    :houston => [(28.0, -79.5), (26.5, -79.5), (25.5, -79.8), (24.6, -80.3), (24.2, -81.5),
-        (24.4, -83.3), (25.5, -86.5), (28.8, -94.5)],
-    :tubarao => [(-20.4, -39.8)])
+const COASTAL_PATHS = Dict(:caribbean => [[(16.15, -61.20)]],
+    :new_york => [[(40.3, -72.5)]], :bilbao => [[(43.6, -3.0)]],
+    :dakar => [[(14.6, -17.6)]], :houston => [FLORIDA_STRAIT, [(28.8, -94.5)]],
+    :tubarao => [[(-20.4, -39.8)]])
 
 """
     route_corridors(route, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
@@ -2368,20 +2371,21 @@ const PORT_APPROACHES = Dict(:caribbean => [(16.15, -61.20)],
 
 Outbound and return corridors between Rotterdam and the port of `route`: `:caribbean`
 (Guadeloupe), `:new_york`, `:bilbao`, `:dakar`, `:houston` or `:tubarao` (Brazil), the same
-band both ways. Each runs through the Channel to Ushant, crosses the open ocean on the great
-circle and follows the `PORT_APPROACHES` path to the port.
+band both ways. Each runs through the Channel to Ushant and on through the route's
+`COASTAL_PATHS`, crossing the open sea between them on great circles.
 `ocean_spacing` and `lateral_spacing` are the stage and row spacing [nmi], both shrunk
-alike where the crossing would otherwise have fewer than `min_ocean_stages` stages; the band
-reaches `CORRIDOR_HALF_WIDTH` to either side.
+alike where the crossings would otherwise have fewer than `min_ocean_stages` stages in all;
+the band reaches `CORRIDOR_HALF_WIDTH` to either side.
 """
 function route_corridors(route::Symbol, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
         lateral_spacing=LATERAL_SPACING * scale,
         min_ocean_stages=MIN_OCEAN_STAGES * OCEAN_SPACING / ocean_spacing)
-    arrival = PORT_APPROACHES[route]
-    crossing = distance(last(CHANNEL)..., first(arrival)...) / NAUTICAL_MILE
-    shrink = min(1.0, crossing / (min_ocean_stages * ocean_spacing))
+    paths = [[CHANNEL]; COASTAL_PATHS[route]]
+    crossings = sum(distance(last(from)..., first(to)...)
+                    for (from, to) in zip(paths[1:(end - 1)], paths[2:end])) / NAUTICAL_MILE
+    shrink = min(1.0, crossings / (min_ocean_stages * ocean_spacing))
     lateral_spacing *= shrink
-    outbound = Corridor(CHANNEL, arrival, mask; ocean_spacing=ocean_spacing * shrink,
+    outbound = Corridor(paths, mask; ocean_spacing=ocean_spacing * shrink,
         lateral_spacing,
         lateral_count=2 * ceil(Int, CORRIDOR_HALF_WIDTH / lateral_spacing) + 1)
     return outbound, return_corridor(outbound, mask)
