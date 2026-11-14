@@ -39,6 +39,7 @@ STUDY = Dict("coarse" => planner_fidelity(0.5), "base" => planner_fidelity(1),
     "grid_fine" => (; scale=0.5, settings=base_settings),
     "grid_finest" => (; scale=0.25, settings=base_settings),
     "grid_8x" => (; scale=0.125, settings=base_settings),
+    "grid_finest_steps_fine" => planner_fidelity(2; scale=0.5),
     "steps_fine" => planner_fidelity(2; scale=2),
     "whole" => (; scale=1, settings=varied(near_distance=Inf)))
 
