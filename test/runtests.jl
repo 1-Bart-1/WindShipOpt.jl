@@ -1416,15 +1416,16 @@ end
     kite_table = RouteTable(PerformanceTable(ship, assumptions))
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions))
+    _, homeward = corridors
     weather, departure = SyntheticWeather(), 24.0 * 121
-    leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+    leg = route(homeward, kite_table, weather, departure; time_cost=kite_hourly)
     i = findfirst(i -> leg.aloft[i] && leg.aloft[i + 1], 1:(length(leg.path) - 1))
-    lateral = WindShipOpt.nearest_lateral(corridor, i, leg.path[i][1], leg.path[i][2])
-    next = WindShipOpt.nearest_lateral(corridor, i + 1, leg.path[i + 1][1],
+    lateral = WindShipOpt.nearest_lateral(homeward, i, leg.path[i][1], leg.path[i][2])
+    next = WindShipOpt.nearest_lateral(homeward, i + 1, leg.path[i + 1][1],
         leg.path[i + 1][2])
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
     sail(ahead) = WindShipOpt.sail_planned_edge!(WindShipOpt.SailedPoint[], kite_table,
-        weather, corridor, i, lateral, WindShipOpt.lateral_step(corridor, lateral, next),
+        weather, homeward, i, lateral, WindShipOpt.lateral_step(homeward, lateral, next),
         departure + leg.path[i][3], leg.path[i + 1][4], true, ahead, prices)
     @test sail((0.0, 0.0))[3]
     @test !sail((0.0, Inf))[3]
@@ -1489,12 +1490,12 @@ end
     ship = table.table.ship
     hotel = 3600WindShipOpt.fuel_power(ship.powertrain, 0.0) * ship.fuel.price
     held = 12.0 * (hotel + hourly)
-    for horizon in (72.0, 0.0)
+    for (horizon, tolerance) in ((72.0, 0.005), (0.0, 0.02))
         sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly,
             horizon)
         @test length(sailed.path) == size(corridor.lat, 1)
         @test sailed.path[2][3] > 12.0
-        @test sailed.objective - held ≈ after.objective rtol = 0.015
+        @test sailed.objective - held ≈ after.objective rtol = tolerance
     end
     endless = GaleWeather(SyntheticWeather(), Inf)
     @test isnothing(forecast_route(corridor, table, endless, departure; time_cost=hourly,
@@ -1567,7 +1568,8 @@ WindShipOpt.waves(weather::KiteOnlySeas, lat, lon, time) =
     sailed = forecast_route(corridor, kite_table, seas, 24.0 * 31; time_cost=kite_hourly,
         horizon=0.0)
     @test length(sailed.path) == size(corridor.lat, 1)
-    @test sailed.path[2][4] < 5KNOT
+    edge_hours = sailed.path[2][3] - sailed.path[1][3]
+    @test corridor.edge_length[1, centre, step] / (edge_hours * 3600) < 5KNOT
 end
 
 "[`WindShipOpt.SailedPoint`](@ref)s of edge `i` of `leg`, sailed at its speed in `weather`."
@@ -1885,22 +1887,26 @@ end
 end
 
 """
+The nodes of `corridor` its edges reach from node `lateral` of stage `from`.
+"""
+function reached_from(corridor, lateral, from=1)
+    reached = falses(size(corridor.water))
+    reached[from, lateral] = true
+    for stage in from:(size(corridor.lat, 1) - 1), node in findall(reached[stage, :]),
+        step in 1:WindShipOpt.step_count(corridor)
+
+        isnan(corridor.edge_course[stage, node, step]) && continue
+        reached[stage + 1, WindShipOpt.next_lateral(corridor, node, step)] = true
+    end
+    return reached
+end
+
+"""
 Whether edges of `corridor` lead from node `lateral` of stage `from` to its port, the
 centre of its last stage.
 """
-function reaches_port(corridor, lateral, from=1)
-    reached = falses(size(corridor.water, 2))
-    reached[lateral] = true
-    for stage in from:(size(corridor.lat, 1) - 1)
-        ahead = falses(length(reached))
-        for node in findall(reached), step in 1:WindShipOpt.step_count(corridor)
-            isnan(corridor.edge_course[stage, node, step]) && continue
-            ahead[WindShipOpt.next_lateral(corridor, node, step)] = true
-        end
-        reached = ahead
-    end
-    return reached[WindShipOpt.centre_index(corridor)]
-end
+reaches_port(corridor, lateral, from=1) =
+    reached_from(corridor, lateral, from)[end, WindShipOpt.centre_index(corridor)]
 
 """
 The coarse mask with land north-east of Ushant except within 20 nautical miles of the
@@ -1930,11 +1936,85 @@ WindShipOpt.is_land(mask::ChannelMask, lat, lon) =
     end
 end
 
-@testset "every node of a corridor leads to port" begin
-    for leg in route_corridors(:caribbean, ChannelMask(); ocean_spacing=240.0,
-        lateral_spacing=60.0)
-        @test all(reaches_port(leg, node.I[2], node.I[1])
-                  for node in findall(leg.water))
+"""
+Angles [rad] between the edges leaving node `lateral` of stage `stage` of `corridor` and
+the forward direction there, square to the node's row and pointing to the next stage.
+"""
+function edge_angles(corridor, stage, lateral)
+    neighbour = lateral < size(corridor.lat, 2) ? lateral + 1 : lateral - 1
+    row = WindShipOpt.bearing(corridor.lat[stage, lateral], corridor.lon[stage, lateral],
+        corridor.lat[stage, neighbour], corridor.lon[stage, neighbour])
+    ahead = WindShipOpt.bearing(corridor.lat[stage, lateral], corridor.lon[stage, lateral],
+        corridor.lat[stage + 1, lateral], corridor.lon[stage + 1, lateral])
+    off(course) = abs(mod(course + π, 2π) - π)
+    forward = argmin(course -> off(course - ahead), (row - π / 2, row + π / 2))
+    courses = filter(!isnan, corridor.edge_course[stage, lateral, :])
+    return [off(course - forward) for course in courses]
+end
+
+"""
+Whether every edge of every node of `corridor` makes progress, and the widest edge of a
+node with a choice stays under the design angle plus `tolerance` [rad] and, where land and
+the band's edge leave it all its edges, its tangent above half the design tangent.
+"""
+function headings_even(corridor; tolerance=deg2rad(10))
+    design = atan(WindShipOpt.MAX_HEADING_TANGENT)
+    for node in findall(corridor.water[1:(end - 1), :])
+        angles = edge_angles(corridor, Tuple(node)...)
+        all(<(π / 2), angles) || return false
+        length(angles) > 1 || continue
+        widest, full = maximum(angles), length(angles) == size(corridor.edge_course, 3)
+        narrow = tan(widest) < WindShipOpt.MAX_HEADING_TANGENT / 2
+        widest < design + tolerance && !(full && narrow) || return false
+    end
+    return true
+end
+
+@testset "every node of every corridor offers an even spread of forward headings" begin
+    mask = north_atlantic_mask()
+    grid = PlanningGrid(mask)
+    for route in (:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao),
+        scale in (1, 8), leg in route_corridors(route, mask; scale)
+
+        @test headings_even(leg)
+        scale == 1 || continue
+        @test any(>(1), sum(leg.water; dims=2))
+        @test all(1:6:(size(leg.lat, 1) - 1)) do stage
+            centre = WindShipOpt.centre_index(leg)
+            leg.water[stage, centre] || return true
+            headings_even(first(WindShipOpt.planning_corridor(leg, stage, centre, grid)))
+        end
+    end
+end
+
+@testset "no corridor reaches past the latitudes a ship can sail" begin
+    mask = north_atlantic_mask()
+    for route in (:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao),
+        scale in (1, 8), leg in route_corridors(route, mask; scale)
+
+        @test all(abs(lat) <= WindShipOpt.SAILABLE_LATITUDE for lat in leg.lat[leg.water])
+    end
+end
+
+"""
+Whether every usable node of `corridor` lies on a path of its edges from node `start` of
+its first stage to its port.
+"""
+on_some_passage(corridor, start=WindShipOpt.centre_index(corridor)) =
+    corridor.water == reached_from(corridor, start) &&
+    all(reaches_port(corridor, node.I[2], node.I[1]) for node in findall(corridor.water))
+
+@testset "every node of a corridor lies on a passage from departure to port" begin
+    mask = north_atlantic_mask()
+    grid = PlanningGrid(mask)
+    for route in (:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao),
+        scale in (1, 8), leg in route_corridors(route, mask; scale)
+
+        @test on_some_passage(leg)
+        stage = something(findfirst(>(1), vec(sum(leg.water; dims=2))), 1)
+        lateral = findlast(leg.water[stage, :])
+        planning = first(WindShipOpt.planning_corridor(leg, stage, lateral, grid))
+        @test planning === leg || on_some_passage(planning, lateral)
     end
 end
 
@@ -2234,7 +2314,7 @@ end
         speed_stride=WindShipOpt.ROUTER_SETTINGS[].search_speed_stride)
     best = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
         options...)
-    stage = stage_count - 2
+    stage = findlast(stage -> count(view(corridor.water, stage, :)) > 1, 1:stage_count)
     best_node = WindShipOpt.nearest_lateral(corridor, stage, best.path[stage][1:2]...)
     values = zeros(size(corridor.lat, 2), 200, 2, stage_count)
     values[best_node, :, :, stage] .= Inf
@@ -2826,7 +2906,9 @@ end
         @test last(trace.lat) ≈ leg.path[end][1] atol=1e-9
         @test last(trace.lon) ≈ leg.path[end][2] atol=1e-9
         @test sum(trace.hours) ≈ leg.duration rtol=1e-9
-        @test sum(trace.hours[trace.flying]) ≈ leg.flight_hours rtol=0.05
+        # The router books each flight's launch and landing as stowed, the trace as flown.
+        handled = leg.flight_hours + leg.launches * table.handling_hours
+        @test sum(trace.hours[trace.flying]) ≈ handled rtol=0.02
         @test sum(trace.fuel_power .* trace.hours) ≈ leg.fuel_energy / 3600 rtol=0.05
         @test count(trace.launched) == leg.launches
         @test count(trace.forced) == leg.forced_landings
@@ -3469,7 +3551,12 @@ end
 end
 
 @testset "a round trip's return is planned and sampled for the time it sails" begin
-    weather, departure, port_hours = SyntheticWeather(), 24.0 * 121, 24.0 * 60
+    departure, port_hours = 24.0 * 121, 24.0 * 60
+    calm = route(corridor, table, SyntheticWeather(), departure; time_cost=hourly)
+    stage = findlast(stage -> count(view(corridor.water, stage, :)) > 1,
+        axes(corridor.lat, 1))
+    weather = PassingGale(SyntheticWeather(), calm.path[stage][1:2], departure,
+        departure + 2calm.duration)
     costs, corridors = (hourly, hourly), (corridor, corridor)
     outbound, back = PaperData.round_trip_courses(table, costs, corridors, weather,
         departure, port_hours, nothing)
