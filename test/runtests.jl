@@ -2483,6 +2483,22 @@ end
     @test WindShipOpt.ROUTER_SETTINGS[] == earlier
 end
 
+@testset "router settings refuse a second task while a call under others runs" begin
+    entered, release = Base.Event(), Base.Event()
+    other = WindShipOpt.RouterSettings(live_step_hours=0.5)
+    running = Threads.@spawn WindShipOpt.with_router_settings(other) do
+        notify(entered)
+        wait(release)
+        return WindShipOpt.ROUTER_SETTINGS[]
+    end
+    wait(entered)
+    @test_throws ErrorException WindShipOpt.with_router_settings(() -> nothing, other)
+    notify(release)
+    @test fetch(running) == other
+    @test WindShipOpt.with_router_settings(() -> WindShipOpt.ROUTER_SETTINGS[], other) ==
+          other
+end
+
 @testset "the backward estimate's knots sit the set spacing apart, 24 h by default" begin
     @test WindShipOpt.RouterSettings().to_go_step == 24.0
     stage_count, lateral_count = size(corridor.lat)
