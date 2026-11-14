@@ -2420,6 +2420,18 @@ end
     @test all(waves(known, 40.0, -31.0, time) .≈ (1.5, 7.0, π / 2))
 end
 
+@testset "a ship reads no waves where the climatology has none, whatever its forecast" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    control = small_archive(joinpath(directory, "forecast"), weather, year -> 0.0)
+    path = joinpath(directory, "forecast", "climate", "waves", "height.f32")
+    write(path, fill(NaN32, filesize(path) ÷ 4))
+    climate = Climatology(joinpath(directory, "forecast", "climate"), weather.origin)
+    known = ArchivedForecast(ForecastArchive(joinpath(directory, "forecast"), weather,
+            climate), 24.0 * 3 + 7.0)
+    @test waves(known, 40.5, -30.5, known.issued + 18.0) == (0.0, 0.0, 0.0)
+end
+
 function forecast_kite_routing()
     ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),

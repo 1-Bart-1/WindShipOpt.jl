@@ -381,9 +381,8 @@ end
 
 function waves(forecast::ArchivedForecast, lat, lon, time)
     known = corrected_waves(forecast, lat, lon, time)
-    isnan(first(known)) && return waves(forecast.archive.climate, lat, lon, time)
     climate = climate_waves(forecast.archive.climate, lat, lon, time)
-    isnan(first(climate)) && return wave_values(known)
+    (isnan(first(known)) || isnan(first(climate))) && return wave_values(climate)
     return wave_values(map((normal, value) -> blend(normal, value, last(known)), climate,
         known[1:4]))
 end
@@ -559,8 +558,7 @@ end
 
 "the (lon, lat) field `name` of the monthly `fields` at `position` [months]"
 function month_field(fields::GriddedFields, name, position)
-    k = floor(Int, (position - fields.time_offset) / fields.step_hours) + 1
-    t = (position - fields.time_offset) / fields.step_hours + 1 - k
+    k, t = time_cell(fields, position)
     months = fields.fields[name]
     return (1 - t) .* view(months, :, :, k) .+ t .* view(months, :, :, k + 1)
 end

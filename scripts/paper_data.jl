@@ -1812,11 +1812,11 @@ function write_forecast_error(name, corridors...)
     open(run_file(name), "w") do io
         println(io, join(("lead_days", forecast_error_columns...), ","))
         for (row, lead) in enumerate(leads)
-            means = totals[row, :] ./ counts[row, :]
-            columns = [endswith(column, "weight") ? mean : sqrt(mean)
-                       for (column, mean) in zip(forecast_error_columns, means)]
+            averages = totals[row, :] ./ counts[row, :]
+            printed = [endswith(column, "weight") ? average : sqrt(average)
+                       for (column, average) in zip(forecast_error_columns, averages)]
             @printf(io, "%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", lead / 24,
-                columns...)
+                printed...)
         end
     end
 end
@@ -1836,14 +1836,14 @@ function add_forecast_errors!(totals, counts, known, points, time)
         first(waves(weather, lat, lon, time))
         east, north, wind_weight = WindShipOpt.corrected_wind(known, lat, lon, time)
         height, _, _, _, height_weight = WindShipOpt.corrected_waves(known, lat, lon, time)
-        normal_wind = wind(climate, lat, lon, time)
-        normal_height = first(waves(climate, lat, lon, time))
+        climatology_wind = wind(climate, lat, lon, time)
+        climatology_height = first(waves(climate, lat, lon, time))
         errors = (sum(abs2, (east, north) .- truth_wind),
             sum(abs2, wind(known, lat, lon, time) .- truth_wind),
-            sum(abs2, normal_wind .- truth_wind), wind_weight,
+            sum(abs2, climatology_wind .- truth_wind), wind_weight,
             (height - truth_height)^2,
             (first(waves(known, lat, lon, time)) - truth_height)^2,
-            (normal_height - truth_height)^2, height_weight)
+            (climatology_height - truth_height)^2, height_weight)
         for (column, value) in enumerate(errors)
             isnan(value) && continue
             totals[column] += value

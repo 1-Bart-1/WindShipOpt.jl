@@ -78,6 +78,15 @@ function cell(axis::Vector{Float64}, value)
     return index, position - index
 end
 
+"step `k` of `fields` at or before `time`, clamped to the stored times, and the share `t`
+of the way to the next"
+function time_cell(fields::GriddedFields, time)
+    steps = step_count(fields)
+    position = clamp((time - fields.time_offset) / fields.step_hours + 1, 1, steps)
+    k = min(floor(Int, position), steps - 1)
+    return k, position - k
+end
+
 """
     sample(fields, arrays, lat, lon, time)
 
@@ -87,10 +96,7 @@ out of the weighting; NaN where all corners are land.
 function sample(fields::GriddedFields, arrays::Tuple, lat, lon, time)
     i, x = cell(fields.lons, lon)
     j, y = cell(fields.lats, lat)
-    steps = step_count(fields)
-    position = clamp((time - fields.time_offset) / fields.step_hours + 1, 1, steps)
-    k = min(floor(Int, position), steps - 1)
-    t = position - k
+    k, t = time_cell(fields, time)
     totals = map(_ -> 0.0, arrays)
     weight_sum = 0.0
     for (dk, wt) in ((0, 1 - t), (1, t)), (dj, wy) in ((0, 1 - y), (1, y)),
