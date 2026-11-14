@@ -44,6 +44,8 @@ STUDY = Dict("coarse" => planner_fidelity(0.5), "base" => planner_fidelity(1),
         settings=varied(far_spacing=480.0, far_sample_hours=3.0)),
     "near_480_far_240_samples_3" => (; scale=1,
         settings=varied(near_distance=480.0, far_spacing=240.0, far_sample_hours=3.0)),
+    "legs_120" => (; scale=(0.5, 1), settings=base_settings),
+    "steps_fine" => planner_fidelity(2; scale=2),
     "whole" => (; scale=1, settings=varied(near_distance=Inf)))
 
 """

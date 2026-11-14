@@ -393,11 +393,11 @@ Base.@kwdef struct RouterSettings
     "how far ahead of the ship a plan keeps every stage and row of its corridor [nmi]"
     near_distance::Float64 = 240.0
     "spacing of the stages a plan keeps beyond `near_distance` [nmi]"
-    far_spacing::Float64 = 720.0
+    far_spacing::Float64 = 240.0
     "rows a plan keeps beyond `near_distance`: every `far_row_stride`-th from the centre"
     far_row_stride::Int = 8
     "longest time between the weather samples along an edge beyond `near_distance` [h]"
-    far_sample_hours::Float64 = 12.0
+    far_sample_hours::Float64 = 6.0
 end
 
 "[`RouterSettings`](@ref) in force"
