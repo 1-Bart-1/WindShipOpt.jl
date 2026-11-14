@@ -2101,12 +2101,10 @@ Why a kite is down at [`SailedPoint`](@ref) `point` on the [`RouteTable`](@ref) 
 `:no_kite` on a ship without one, else the first that holds of:
 `:wind_low_flight`, `:wind_high_flight`, outside the limits it can stay up in;
 `:hull_limit`, where the hull or the engine cannot hold the speed with the kite up;
-`:wind_low_pull`, where it can stay up but the apparent wind is below
-[`lowest_pull_wind`](@ref); `:no_thrust`, in enough wind but with no forward pull at the
-course, the wind coming from too far ahead; `:wind_low_launch`, `:wind_high_launch`,
-`:sea_launch`, `:night`, outside the limits it can launch in; `:no_saving`, where flying
-costs at least as much per hour as staying down; and `:chosen`, where it could launch,
-flying would save, and it stayed down.
+`:no_thrust`, with no forward pull at the course, the wind coming from too far ahead;
+`:wind_low_launch`, `:wind_high_launch`, `:sea_launch`, `:night`, outside the limits it
+can launch in; `:no_saving`, where flying costs at least as much per hour as staying down;
+and `:chosen`, where it could launch, flying would save, and it stayed down.
 """
 function kite_down_reason(table::RouteTable, point, prices)
     rig = table.table.ship.rig
@@ -2118,8 +2116,7 @@ function kite_down_reason(table::RouteTable, point, prices)
     wind < kite.min_flight_wind && return :wind_low_flight
     wind > kite.max_wind && return :wind_high_flight
     isfinite(point.flown) || return :hull_limit
-    point.flown !== point.stowed ||
-        return wind < lowest_pull_wind(kite) ? :wind_low_pull : :no_thrust
+    point.flown !== point.stowed || return :no_thrust
     wind < kite.launch_min_wind && return :wind_low_launch
     wind > kite.launch_max_wind && return :wind_high_launch
     sea_wind = extra_launch_wind(table.table, speed, point.condition)

@@ -349,7 +349,7 @@ Base.@kwdef struct KiteRig{A}
     reference_height::Float64
     "highest apparent wind at kite altitude in which the kite stays up [m/s]"
     max_wind::Float64
-    "lowest apparent wind at kite altitude in which the kite flies a pattern [m/s]"
+    "lowest apparent wind at kite altitude in which the kite stays up [m/s]"
     min_flight_wind::Float64
     "lowest apparent wind in which the kite is launched [m/s]"
     launch_min_wind::Float64
@@ -592,18 +592,6 @@ function launch_min_wind(model::KiteModel, tether_mass, assumptions::Assumptions
 end
 
 """
-    lowest_pull_wind(rig)
-
-Lowest apparent wind [m/s] in the force table of [`KiteRig`](@ref) `rig` at which any
-pattern gives a force.
-"""
-function lowest_pull_wind(rig::KiteRig)
-    row = findfirst(i -> any(cell -> isfinite(cell.force[1]), @view rig.forces[i, :, :]),
-        axes(rig.forces, 1))
-    return rig.wind_speeds[row]
-end
-
-"""
     rigid_polar(assumptions)
 
 Polar of a rigid wing against angle of attack from zero lift: lift-curve slope of a finite
@@ -754,10 +742,12 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
     model, max_force, tether_diameter = kite_model(area, aspect_ratio, assumptions)
     tether_length = model.tether_length
     wind_speeds = [3.0:1.0:9.0; 10.5; 12.0:3.0:30.0]
+    forces = pattern_table(model, max_force, assumptions, wind_speeds, courses, SIDE_WEIGHTS)
     return KiteRig(; area, tether_diameter, tether_length,
         reference_height=tether_length * sin(deg2rad(25)),
         max_wind=assumptions[:kite_max_wind],
-        min_flight_wind=min_flight_wind(model, assumptions),
+        min_flight_wind=max(min_flight_wind(model, assumptions),
+            lowest_flying_wind(wind_speeds, forces)),
         launch_min_wind=launch_min_wind(model,
             rope_mass(tether_diameter, tether_length, assumptions), assumptions),
         launch_max_wind=assumptions[:kite_launch_max_wind],
@@ -765,9 +755,7 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
         landing_max_wind=assumptions[:kite_landing_max_wind],
         landing_max_wave_height=Inf, max_force,
         attach_height=assumptions[:kite_attach_height] * scale,
-        attach_position, wind_speeds, courses, side_weights=SIDE_WEIGHTS,
-        forces=pattern_table(model, max_force, assumptions, wind_speeds, courses,
-            SIDE_WEIGHTS))
+        attach_position, wind_speeds, courses, side_weights=SIDE_WEIGHTS, forces)
 end
 
 """
