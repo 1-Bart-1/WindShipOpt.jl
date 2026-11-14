@@ -209,6 +209,20 @@ least_off_wind(path) = minimum(acos(first(step.radial)) for step in path)
     @test least_off_wind(downwind) < π / 4
 end
 
+@testset "a kite weaves its legs where weaving pulls harder than straight legs" begin
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    course = deg2rad(120)
+    problem = WindShipOpt.PatternProblem(model, max_force,
+        deg2rad(assumptions[:kite_min_elevation]), 12.0, course, 0.0)
+    weaving, parameters = WindShipOpt.optimal_pattern(problem,
+        WindShipOpt.pattern_starts(course))
+    straight = WindShipOpt.PatternForce(model,
+        WindShipOpt.pattern_of([parameters[1:4]; 0.0]), 12.0, max_force)
+    thrust(force) = force.force[1] * cos(course) + force.force[2] * sin(course)
+    @test abs(parameters[5]) > deg2rad(10)
+    @test thrust(weaving) > thrust(straight)
+end
+
 @testset "a heavy wing flies crosswind though it cannot hang at rest" begin
     wing = WindShipOpt.KiteAero(60.0, 1.25, 0.15, 1500.0, 1.225, 9.81)
     off_wind, wind = 1.3, (14.0, 0.0, 0.0)
