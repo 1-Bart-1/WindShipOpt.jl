@@ -143,10 +143,11 @@ end
 @testset "steps of a flown cycle give its force and peak and its own apparent wind" begin
     soft, soft_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     rigid, rigid_force, = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
-    steered = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15))
+    straight = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15), 0.0)
+    weaving = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15), deg2rad(20))
     loop = WindShipOpt.LoopPattern(π / 2, 0.8, 0.3, deg2rad(8))
-    for (model, max_force, pattern, wind) in
-        ((soft, soft_force, steered, 12.0), (rigid, rigid_force, loop, 30.0))
+    for (model, max_force, pattern, wind) in ((soft, soft_force, straight, 12.0),
+        (soft, soft_force, weaving, 12.0), (rigid, rigid_force, loop, 30.0))
         path = WindShipOpt.PatternStep[]
         force = WindShipOpt.PatternForce(model, pattern, wind, max_force; path)
         load = 0.5model.air_density * wind^2 * model.area
@@ -207,6 +208,21 @@ least_off_wind(path) = minimum(acos(first(step.radial)) for step in path)
     @test least_off_wind(upwind) > π / 4
     downwind = best_pattern_path(model, max_force, assumptions, 0.0)
     @test least_off_wind(downwind) < π / 4
+end
+
+@testset "a kite weaves its legs where weaving pulls harder than straight legs" begin
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    course = deg2rad(120)
+    problem = WindShipOpt.PatternProblem(model, max_force,
+        deg2rad(assumptions[:kite_min_elevation]), 12.0, course, 0.0)
+    weaving, parameters = WindShipOpt.optimal_pattern(problem,
+        WindShipOpt.pattern_starts(course))
+    chosen = WindShipOpt.pattern_of(parameters)
+    straight = WindShipOpt.PatternForce(model, WindShipOpt.SteeringPattern(chosen.centre,
+        chosen.half_width, chosen.heading, chosen.angle_of_attack, 0.0), 12.0, max_force)
+    thrust(force) = force.force[1] * cos(course) + force.force[2] * sin(course)
+    @test chosen.weave > deg2rad(10)
+    @test thrust(weaving) > thrust(straight)
 end
 
 @testset "a heavy wing flies crosswind though it cannot hang at rest" begin
@@ -686,12 +702,12 @@ end
     @test force(5.8751, 26.6411).side ≈ 64411 rtol = 1e-3
     @test force(6.6205, 50.2378).thrust ≈ 20159 rtol = 1e-3
     @test force(6.6205, 50.2378).side ≈ 77488 rtol = 1e-3
-    @test force(8.82947, 86.695695).thrust ≈ 113451 rtol = 1e-3
-    @test force(8.82947, 86.695695).side ≈ 249728 rtol = 1e-3
-    @test force(11.161535, 114.227745).thrust ≈ 241072 rtol = 1e-3
-    @test force(11.161535, 114.227745).side ≈ 216840 rtol = 1e-3
-    @test force(13.802571, 148.57094).thrust ≈ 337744 rtol = 1e-3
-    @test force(13.802571, 148.57094).side ≈ 77976 rtol = 1e-3
+    @test force(8.82947, 86.695695).thrust ≈ 118083 rtol = 1e-3
+    @test force(8.82947, 86.695695).side ≈ 239738 rtol = 1e-3
+    @test force(11.161535, 114.227745).thrust ≈ 246678 rtol = 1e-3
+    @test force(11.161535, 114.227745).side ≈ 205691 rtol = 1e-3
+    @test force(13.802571, 148.57094).thrust ≈ 343903 rtol = 1e-3
+    @test force(13.802571, 148.57094).side ≈ 4260 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
