@@ -1995,7 +1995,7 @@ end
 @testset "every node of every corridor offers an even spread of forward headings" begin
     mask = north_atlantic_mask()
     for route in (:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao),
-        scale in (1, 3), leg in route_corridors(route, mask; scale)
+        scale in (1, 4), leg in route_corridors(route, mask; scale)
 
         @test headings_even(leg)
         scale == 1 || continue
@@ -2021,7 +2021,7 @@ end
 @testset "no corridor reaches past the latitudes a ship can sail" begin
     mask = north_atlantic_mask()
     for route in (:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao),
-        scale in (1, 3), leg in route_corridors(route, mask; scale)
+        scale in (1, 4), leg in route_corridors(route, mask; scale)
 
         @test all(abs(lat) <= WindShipOpt.SAILABLE_LATITUDE for lat in leg.lat[leg.water])
     end
@@ -2038,7 +2038,7 @@ on_some_passage(corridor, start=WindShipOpt.centre_index(corridor)) =
 @testset "every node of a corridor lies on a passage from departure to port" begin
     mask = north_atlantic_mask()
     for route in (:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao),
-        scale in (1, 3), leg in route_corridors(route, mask; scale)
+        scale in (1, 4), leg in route_corridors(route, mask; scale)
 
         @test on_some_passage(leg)
         stage = something(findfirst(>(1), vec(sum(leg.water; dims=2))), 1)
