@@ -219,18 +219,19 @@ function resistance_calibration(class::ShipClass, hull::Hull, assumptions::Assum
 end
 
 """
-    ShipDesign(drive, length; wing_area=0, kite_area=0, kite_aspect_ratio=3, rotor_area=0)
+    ShipDesign(drive, length; wing_area=0, kite_area=0, kite_aspect_ratio=nothing,
+        rotor_area=0)
     ShipDesign(drive, class::ShipClass; kwargs...)
 
 Design point of the optimization. `drive` names a [`Drive`](@ref): `:vlsfo`, `:methanol`
 or `:ammonia`. A positive `wing_area` adds rigid wings of that total area [m^2], a
 positive `kite_area` a towing kite of that projected area and projected
-`kite_aspect_ratio`, a positive `rigid_kite_area` rigid VTOL kites of about that total
-area, a positive `rotor_area` Flettner rotors of that total height times diameter. A kite
-may fly over wings or rotors as a [`CombinedRig`](@ref); wings and
-rotors exclude each other. A rig area that is not finite is an `ArgumentError`. With a
-`class` the hull, engine power, price and cargo value are those of the class, otherwise the
-reference coaster is scaled to `length`.
+`kite_aspect_ratio`, by default the assumption `kite_aspect_ratio`, a positive
+`rigid_kite_area` rigid VTOL kites of about that total area, a positive `rotor_area`
+Flettner rotors of that total height times diameter. A kite may fly over wings or rotors as
+a [`CombinedRig`](@ref); wings and rotors exclude each other. A rig area that is not finite
+is an `ArgumentError`. With a `class` the hull, engine power, price and cargo value are
+those of the class, otherwise the reference coaster is scaled to `length`.
 """
 Base.@kwdef struct ShipDesign
     drive::Symbol
@@ -238,7 +239,7 @@ Base.@kwdef struct ShipDesign
     length::Float64
     wing_area::Float64 = 0.0
     kite_area::Float64 = 0.0
-    kite_aspect_ratio::Float64 = 3.0
+    kite_aspect_ratio::Union{Nothing, Float64} = nothing
     rotor_area::Float64 = 0.0
     rigid_kite_area::Float64 = 0.0
     class::Union{Nothing, ShipClass} = nothing
@@ -364,20 +365,30 @@ with_rig(ship::Ship, rig) = Ship(ship.design, ship.env, ship.hull, ship.wave_coe
 
 Power [W] delivered to the propeller at the rating of the main engine of `ship`: the
 engine power of its class's source design through the shaft, or for the reference coaster
-family the calm-water power at the service speed with the sea and engine margins.
+family the calm-water power at the service speed with any kite stowed and the sea and
+engine margins.
 """
 function rated_delivered_power(ship::Ship, assumptions::Assumptions)
     (; class) = ship.design
     isnothing(class) || return 1e3class.power * assumptions[:shaft_efficiency]
     speed = assumptions[:service_speed] * KNOT
     calm = delivered_power(ship.propeller, ship.env, speed,
-        first(best_trim(ship, ship.rig, speed, 0.0, 0.0)))
+        first(best_trim(ship, standing_rig(ship.rig), speed, 0.0, 0.0)))
     return calm * (1 + assumptions[:sea_margin]) / assumptions[:engine_rating_fraction]
 end
 
 has_rig(design::ShipDesign) =
     any(>(0), (design.wing_area, design.kite_area, design.rotor_area,
         design.rigid_kite_area))
+
+"""
+    kite_aspect_ratio(design, assumptions)
+
+Projected aspect ratio of the kite of `design`: its own, else the assumption
+`kite_aspect_ratio`.
+"""
+kite_aspect_ratio(design::ShipDesign, assumptions::Assumptions) =
+    something(design.kite_aspect_ratio, assumptions[:kite_aspect_ratio])
 
 function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions)
     if design.rigid_kite_area > 0
@@ -389,10 +400,12 @@ function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions)
         throw(ArgumentError("a design carries wings or rotors, not both"))
     standing_type, standing_area = design.wing_area > 0 ? (WingRig, design.wing_area) :
                                    (RotorRig, design.rotor_area)
-    design.kite_area > 0 && standing_area > 0 && return CombinedRig(design.kite_area,
-        design.kite_aspect_ratio, standing_type, standing_area, hull, assumptions)
-    design.kite_area > 0 && return KiteRig(design.kite_area, design.kite_aspect_ratio, hull,
-        assumptions)
+    if design.kite_area > 0
+        aspect_ratio = kite_aspect_ratio(design, assumptions)
+        standing_area > 0 && return CombinedRig(design.kite_area, aspect_ratio,
+            standing_type, standing_area, hull, assumptions)
+        return KiteRig(design.kite_area, aspect_ratio, hull, assumptions)
+    end
     standing_area > 0 && return standing_type(standing_area, hull, assumptions)
     return nothing
 end

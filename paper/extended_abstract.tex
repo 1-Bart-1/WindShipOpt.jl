@@ -15,9 +15,7 @@
 \definecolor{rigkite}{HTML}{0072B2}
 \definecolor{rigwing}{HTML}{E69F00}
 \definecolor{rigrotor}{HTML}{009E73}
-\usepackage{xr-hyper}
 \usepackage[colorlinks,allcolors={blue!50!black}]{hyperref}
-\externaldocument{main}[main.pdf]
 \usepackage[capitalise]{cleveref}
 \crefname{figure}{Fig.}{Figs.}
 \crefformat{appendix}{#2#1#3}
@@ -35,6 +33,7 @@
 \renewcommand{\floatpagefraction}{0.75}
 
 \input{commands}
+\renewcommand{\inpaper}[1]{}
 
 \title{\vspace{-1.5cm}Towing kites, wing sails and Flettner rotors on cargo ships: which rig is best where\\[0.3ex]\large Extended abstract\\[0.5ex]\small\itshape\confidential}
 \author{Bart van de Lint, \tbd{co-authors}}
@@ -49,7 +48,7 @@
 
 \noindent\textbf{Keywords:} \keywordlist{;}
 
-Towing kites, rigid wing sails and Flettner rotors all sail on cargo ships today (\cref{ea:rigs}), but their published savings come from different ships, routes and methods, so no one can say which rig is best where. We compare the three on one model: thirteen ship classes, from an \SI{85}{m} coaster to the largest container ships, six Atlantic routes from Rotterdam, three years of real weather and two fuels, fuel oil (VLSFO) and e-ammonia, the zero-emission fuel that net-zero pathways expect to carry most deep-sea shipping by 2050. Each rig is sized for the lowest cost of carrying a tonne of cargo a kilometre, and every rigged ship is compared with the same ship on the same fuel without a rig. This summary is written for rig makers, shipowners and researchers: it gives what to fit, what each rig must still prove, where development pays, and what the model lets others test. Section numbers in the figures refer to the full paper.
+Towing kites, rigid wing sails and Flettner rotors all sail on cargo ships today (\cref{ea:rigs}), but their published savings come from different ships, routes and methods, so no one can say which rig is best where. We compare the three on one model: thirteen ship classes, from an \SI{85}{m} coaster to the largest container ships, six Atlantic routes from Rotterdam, three years of real weather and two fuels, fuel oil (VLSFO) and e-ammonia, the zero-emission fuel that net-zero pathways expect to carry most deep-sea shipping by 2050. Each rig is sized for the lowest total cost of carrying a tonne of cargo a kilometre: the ship's capital, crew, port dues and fuel, the rig's price and wear, and the interest on the cargo while it sails. Every rigged ship is compared with the same ship on the same fuel without a rig.
 
 \begin{figure}[!htb]
 \centering
@@ -125,7 +124,7 @@ The best rig depends on the route sailed, and the route depends on the rig, sinc
 \begin{figure}[!htb]
 \centering
 \adjustbox{max width=\textwidth}{\input{sections/pipeline}}
-\caption{The model, step by step. Arrows carry what one step hands the next, and dashed frames mark what is repeated. Blue boxes model the ship, orange the rig, green the voyage and red the cost; grey boxes are data. Section numbers refer to the full paper.}
+\caption{The model, step by step. Arrows carry what one step hands the next, and dashed frames mark what is repeated. Blue boxes model the ship, orange the rig, green the voyage and red the cost; grey boxes are data.}
 \label{ea:pipeline}
 \end{figure}
 
@@ -134,7 +133,7 @@ For one moment of a voyage, the ship model (\cref{ea:ship_model}) takes the ship
 \begin{figure}[!htb]
 \centering
 \adjustbox{max width=\textwidth}{\input{sections/ship_model}}
-\caption{The ship model by its parts, each force where it acts, not to scale: (a) from above, a row of deck rigs in a wind forward of the beam; (b) from astern, heel. Below, how the parts combine into the engine output that the rig's trim minimises. Blue forces come from the water, grey from the wind on the ship and orange from the rig. Section and equation numbers refer to the full paper.}
+\caption{The ship model by its parts, each force where it acts, not to scale: (a) from above, a row of deck rigs in a wind forward of the beam; (b) from astern, heel. Below, how the parts combine into the engine output that the rig's trim minimises. Blue forces come from the water, grey from the wind on the ship and orange from the rig.}
 \label{ea:ship_model}
 \end{figure}
 
@@ -195,7 +194,7 @@ Where development can still change a number, such as the kite's canopy life and 
 
 \section{What the work offers}
 
-The model is open: its code, every input with its range and source, and the scripts behind every figure are available at \tbd{repository URL}, and a companion website at \tbd{URL} lets readers change the assumptions themselves. A rig maker can put in its own prices, lives and forces and see where its rig leads and by how much; a shipowner can see which rig suits a class, route and fuel, and what the result rests on; a researcher can replace any part, from the kite's aerodynamics to the router. We welcome measured canopy lives, launch records and service data, the inputs on which the comparison now turns. The full paper gives the model, its inputs and sources, and how each result moves with them.
+The model is open: its code, every input with its range and source, and the scripts behind every figure are available at \tbd{repository URL}, and a companion website at \tbd{URL} lets readers change the assumptions themselves. A rig maker can put in its own prices, lives and forces and see where its rig leads and by how much; a shipowner can see which rig suits a class, route and fuel, and what the result rests on; a researcher can replace any part, from the kite's aerodynamics to the router. We welcome measured canopy lives, launch records and service data, the inputs on which the comparison now turns.
 
 \bibliographystyle{elsarticle-harv}
 \bibliography{refs,literature}

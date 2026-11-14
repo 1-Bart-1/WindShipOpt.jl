@@ -897,13 +897,7 @@ function payback_years(table, class, drive, route, rig)
         "rig" => "none")
     best = cheapest_row(table, class, route, drive, rig)
     (isempty(bare) || isnothing(best)) && return Inf
-    design = ShipDesign(Symbol(drive), ship_classes()[class];
-        rig_size(rig, table["area"][best])...)
-    ship = Ship(design, assumptions)
-    retractable = table["retractable"][best] == "true"
-    price = ShipCosts(ship, assumptions; retractable).capital -
-            ShipCosts(Ship(ShipDesign(Symbol(drive), ship_classes()[class]), assumptions),
-                assumptions).capital
+    price, ship = rig_price(table, best)
     rate = assumptions[:discount_rate]
     lifetime = rig == "kite" ? assumptions[:kite_lifetime] :
                rig == "wings" ? assumptions[:wing_lifetime] : assumptions[:rotor_lifetime]
@@ -915,6 +909,173 @@ function payback_years(table, class, drive, route, rig)
     saving > rate * price || return Inf
     years = -log(1 - rate * price / saving) / log(1 + rate)
     return years <= lifetime ? years : Inf
+end
+
+"""
+    rig_price(table, row)
+
+Price [USD] of the rig of `row` of class table `table`, the capital of its ship less that
+of the same ship without a rig, and that rig ship.
+"""
+function rig_price(table, row)
+    class, drive = ship_classes()[table["class"][row]], Symbol(table["drive"][row])
+    ship = Ship(ShipDesign(drive, class; rig_size(table["rig"][row], table["area"][row])...),
+        assumptions)
+    retractable = table["retractable"][row] == "true"
+    bare = Ship(ShipDesign(drive, class), assumptions)
+    price = ShipCosts(ship, assumptions; retractable).capital -
+            ShipCosts(bare, assumptions).capital
+    return price, ship
+end
+
+"what the fleet market of a rig sums over its cells: scale to the unit shown, name, unit"
+market_columns = (ships=(1, "Ships", ""), units=(1, "Rig units", ""),
+    area=(1e-6, "Area", "[km\\textsuperscript{2}]"), sales=(1e-9, "Sales", "[USD bn]"),
+    saved=(1e-9, "Saving", "[USD bn/yr]"), fuel=(1e-9, "Fuel", "[Mt/yr]"),
+    carbon=(1e-12, "CO\\textsubscript{2}", "[Mt/yr]"))
+
+"names of the [`market_columns`](@ref)"
+market_measures = keys(market_columns)
+
+"""
+    cell_market(table, cell, rig)
+
+Each of the [`market_measures`](@ref) of the best size of `rig` fitted to every ship of a
+[`fleet_cells`](@ref) cell of class table `table`: ships, rig units, rig area [m^2], rig
+sales [USD], and the yearly saving in cost [USD], fuel [kg] and tank-to-wake CO2 [g] over
+the cell's transport work.
+"""
+function cell_market(table, cell, rig)
+    (; ships, work, bare) = cell
+    row = cell.best[rig]
+    price, ship = rig_price(table, row)
+    fuel = work * (table["fuel"][bare] - table["fuel"][row]) * 1e6 / ship.fuel.heating_value
+    return (; ships, units=ships * table["units"][row], area=ships * table["area"][row],
+        sales=ships * price, saved=cell_saved(cell, rig), fuel,
+        carbon=work * (table["carbon"][bare] - table["carbon"][row]))
+end
+
+"""
+    cell_markets(table, drive)
+
+The [`fleet_cells`](@ref) of class table `table` on `drive` that fit a rig, each with the
+ship `type` of its class, its [`fleet_leaders`](@ref) and the [`cell_market`](@ref) of
+each leader and, as `"any"`, of the one that saves most.
+"""
+function cell_markets(table, drive)
+    classes = ship_classes()
+    markets = []
+    for cell in fleet_cells(table, drive)
+        leaders = fleet_leaders(cell.savings)
+        isempty(leaders) && continue
+        sums = Dict(rig => cell_market(table, cell, rig) for rig in leaders)
+        sums["any"] = sums[argmax(rig -> cell.savings[rig], leaders)]
+        push!(markets, (; classes[cell.class].type, leaders, sums))
+    end
+    return markets
+end
+
+"""
+    fleet_market(markets)
+
+Low and high sums of the [`market_measures`](@ref) of each rig, and of `"any"`, over the
+[`cell_markets`](@ref) `markets` that rig leads: low over those it alone leads, high
+over all.
+"""
+function fleet_market(markets)
+    no_market = NamedTuple{market_measures}(zeros(length(market_measures)))
+    market = Dict(rig => (low=no_market, high=no_market) for rig in (rig_names..., "any"))
+    for (; leaders, sums) in markets, (rig, cell) in sums
+        (; low, high) = market[rig]
+        market[rig] = (low=length(leaders) == 1 ? map(+, low, cell) : low,
+            high=map(+, high, cell))
+    end
+    return market
+end
+
+"""
+    two_digits(x)
+
+`x` rounded to two significant digits, as LaTeX.
+"""
+function two_digits(x)
+    x == 0 && return "0"
+    rounded = round(x; sigdigits=2)
+    decimals = max(0, 1 - floor(Int, log10(abs(rounded))))
+    return @sprintf("\\num{%.*f}", decimals, rounded)
+end
+
+"""
+    market_range(range, measure)
+
+Low to high of `measure` of a [`fleet_market`](@ref) `range`, in the unit of its
+[`market_columns`](@ref) to two digits; one number where they agree, a dash where both
+are zero.
+"""
+function market_range(range, measure)
+    scale = first(market_columns[measure])
+    low, high = two_digits.(scale .* (range.low[measure], range.high[measure]))
+    high == "0" && return "--"
+    return low == high ? high : "$low--$high"
+end
+
+"""
+    market_table()
+
+Tabulars of the [`fleet_market`](@ref) on each drive, low to high: of each rig and the
+best rig in market_table.tex, and of each rig's ships and sales by ship type in
+market_type_table.tex.
+"""
+function market_table()
+    table = read_table(data_file("classes.csv"))
+    markets = Dict(drive => cell_markets(table, drive) for (drive, _) in drive_labels)
+    open(joinpath(sections, "market_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}ll", "r"^length(market_columns), "@{}}\n\\toprule")
+        println(io, "Fuel & Rig & ", join(getindex.(values(market_columns), 2), " & "),
+            " \\\\\n & & ", join(last.(values(market_columns)), " & "), " \\\\")
+        for (drive, label) in drive_labels
+            market = fleet_market(markets[drive])
+            println(io, "\\midrule")
+            for (k, rig) in enumerate((rig_names..., "any"))
+                cells = [market_range(market[rig], measure) for measure in market_measures]
+                println(io, k == 1 ? label : "", " & ", rig == "any" ? "best rig" : rig,
+                    " & ", join(cells, " & "), " \\\\")
+            end
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+    write_market_types(markets)
+end
+
+"""
+    write_market_types(markets)
+
+Tabular of the ships and sales [USD bn] of the [`fleet_market`](@ref) of each rig with a
+market on some drive over the [`cell_markets`](@ref) of each ship type in `markets`, by
+drive: market_type_table.tex.
+"""
+function write_market_types(markets)
+    types = unique(class.type for class in values(ship_classes()))
+    rigs = [rig for rig in rig_names
+            if any(market -> fleet_market(market)[rig].high.ships > 0, values(markets))]
+    open(joinpath(sections, "market_type_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}ll", "rr"^length(rigs), "@{}}\n\\toprule")
+        println(io, " & & ", join(("\\multicolumn{2}{c}{$rig}" for rig in rigs), " & "),
+            " \\\\")
+        println(io, join(("\\cmidrule(lr){$(2k + 1)-$(2k + 2)}" for k in eachindex(rigs))))
+        println(io, "Fuel & Ship type", " & Ships & Sales [USD bn]"^length(rigs), " \\\\")
+        for (drive, label) in drive_labels
+            println(io, "\\midrule")
+            for (k, type) in enumerate(sort(types))
+                market = fleet_market(filter(cell -> cell.type == type, markets[drive]))
+                cells = [market_range(market[rig], measure)
+                         for rig in rigs for measure in (:ships, :sales)]
+                println(io, k == 1 ? label : "", " & ", type, " & ", join(cells, " & "),
+                    " \\\\")
+            end
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
 end
 
 "true wind angle bands of flight.csv as the table of where the rigs work names them"
@@ -1188,6 +1349,73 @@ cause_cell(estimate) = @sprintf("\\(%.1f \\pm %.1f\\)",
     round(estimate.value; digits=1) + 0.0, estimate.error)
 
 """
+    write_cause_groups(io, groups, saved)
+
+Write to `io` the head of a table of the kite, wing sails and rotors and the kite's
+excess over each deck rig, and per group of `groups`, as (heading, rows of (label,
+statistic)), each row's [`cause_estimate`](@ref)s on the savings `saved` per rig.
+"""
+function write_cause_groups(io, groups, saved)
+    println(io, "\\begin{tabular}{@{}lccccc@{}}\n\\toprule")
+    println(io, " & Kite & Wing sails & Rotors & Kite less wing sails & ",
+        "Kite less rotors \\\\\n\\midrule")
+    for (heading, group) in groups
+        println(io, "\\multicolumn{6}{@{}l}{\\textit{", heading, "}} \\\\")
+        for (label, statistic) in group
+            cells = [[cause_estimate(statistic, saved[rig])
+                      for rig in ("kite", "wings", "rotors")];
+                [cause_estimate(statistic, saved["kite"], saved[rig])
+                 for rig in ("wings", "rotors")]]
+            println(io, "\\quad ", label, " & ", join(cause_cell.(cells), " & "),
+                " \\\\")
+        end
+    end
+end
+
+"groups of forecast_live_table.tex as (heading, rows of (label, statistic))"
+forecast_live_groups = (
+    ("Cost saving [\\%]",
+        (("Perfect foresight, plan's speed held", cause_saving(false)),
+            ("\\quad sailed live, valued by the plan", cause_saving(:perfect_live)),
+            ("\\quad sailed live, valued by the cost to go",
+                cause_saving(:perfect_live_to_go)),
+            ("Forecast plan, plan's speed held", cause_saving(:expected)),
+            ("\\quad sailed live, valued by the plan", cause_saving(:live)),
+            ("\\quad sailed live, valued by the cost to go", cause_saving(:live_to_go)))),
+    ("Forecast plan's loss against perfect foresight at the plan's speed [points]",
+        (("Sailed live, valued by the plan", cause_loss(false, :live)),
+            ("Sailed live, valued by the cost to go", cause_loss(false, :live_to_go)))),
+    ("Forecast plan's loss against perfect foresight sailed the same way [points]",
+        (("Plan's speed held", cause_loss(false, :expected)),
+            ("Sailed live, valued by the plan", cause_loss(:perfect_live, :live)),
+            ("Sailed live, valued by the cost to go",
+                cause_loss(:perfect_live_to_go, :live_to_go)))),
+    ("Gain of sailing live on the forecast plan [points]",
+        (("Valued by the plan", cause_loss(:live, :expected)),
+            ("Valued by the cost to go", cause_loss(:live_to_go, :expected)))),
+    ("Gain of sailing live with perfect foresight [points]",
+        (("Valued by the plan", cause_loss(:perfect_live, false)),
+            ("Valued by the cost to go", cause_loss(:perfect_live_to_go, false)))))
+
+"""
+    forecast_live_table()
+
+Per rig the cost saving with perfect foresight and on the forecast result's plan, each
+holding the plan's speed and sailed live, what the forecast costs each way and what sailing
+live gains, and the kite's excess over the wing sails and the rotors, paired per departure
+with standard errors over the departures of forecast_live.csv: forecast_live_table.tex.
+"""
+function forecast_live_table()
+    table = read_table(study_file(:forecast_live, "forecast_live.csv"))
+    saved = Dict(rig => rig_savings(table, rig, forecast_live_plans)
+                 for rig in ("kite", "wings", "rotors"))
+    open(joinpath(sections, "forecast_live_table.tex"), "w") do io
+        write_cause_groups(io, forecast_live_groups, saved)
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
     forecast_causes_table()
 
 Per rig the cost saving lost by the forecast result's plan per cause, and the kite's excess
@@ -1201,20 +1429,7 @@ function forecast_causes_table()
                  for rig in ("kite", "wings", "rotors"))
     margins = read_table(study_file(:forecast_causes, "forecast_margins.csv"))
     open(joinpath(sections, "forecast_causes_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}lccccc@{}}\n\\toprule")
-        println(io, " & Kite & Wing sails & Rotors & Kite less wing sails & ",
-            "Kite less rotors \\\\\n\\midrule")
-        for (heading, group) in forecast_cause_groups
-            println(io, "\\multicolumn{6}{@{}l}{\\textit{", heading, "}} \\\\")
-            for (label, statistic) in group
-                cells = [[cause_estimate(statistic, saved[rig])
-                          for rig in ("kite", "wings", "rotors")];
-                    [cause_estimate(statistic, saved["kite"], saved[rig])
-                     for rig in ("wings", "rotors")]]
-                println(io, "\\quad ", label, " & ", join(cause_cell.(cells), " & "),
-                    " \\\\")
-            end
-        end
+        write_cause_groups(io, forecast_cause_groups, saved)
         println(io, "\\midrule\nThe kite [\\%, of its time at sea unless stated] & ",
             "Perfect foresight & Forecast plan & Change & & \\\\\n\\midrule")
         perfect = kite_margin_values(margins, table, "perfect", "perfect")
@@ -1376,11 +1591,11 @@ fidelity_parts() = [
         error="fit to CFD and full-scale data within its scatter; interference from two " *
               "to four rotors",
         effect=varied_inputs(:rotor_lift_factor, :rotor_max_wind)),
-    (part="Kite flight", varied="turn radius, drag, force limit",
+    (part="Kite flight", varied="turn radius, aspect ratio, force limit",
         model="quasi-steady pattern with mass, bridle and tether drag, searched for each " *
               "wind and course",
         error="glide ratio of 4 matched to flight data",
-        effect=varied_inputs(:kite_min_turn_radius, :kite_flight_drag,
+        effect=varied_inputs(:kite_min_turn_radius, :kite_aspect_ratio,
             :kite_max_force_per_area)),
     (part="Kite launch and sea limits", varied="wind limits, extra launch wind in a sea",
         model="fixed wind limits for launch, flight and landing; launch wind raised with " *
@@ -1515,14 +1730,14 @@ ship_kind_words = [:teu => "Container", :ceu => "CarCarrier", :tonne => "Bulk"]
 Write the numbers the paper and its extended abstract state as LaTeX macros `\\Num...` to
 paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
 the goals, and the [`class_numbers`](@ref), [`recommendation_numbers`](@ref),
-[`rig_lead_numbers`](@ref), [`premium_numbers`](@ref) and [`fleet_share_numbers`](@ref) of
-the class study.
+[`rig_lead_numbers`](@ref), [`premium_numbers`](@ref), [`fleet_share_numbers`](@ref) and
+[`market_numbers`](@ref) of the class study.
 """
 function numbers_file()
     classes = read_table(data_file("classes.csv"))
     results = [class_numbers(classes); recommendation_numbers(classes);
                rig_lead_numbers(classes); premium_numbers(classes);
-               fleet_share_numbers(classes)]
+               fleet_share_numbers(classes); market_numbers(classes)]
     draft = paper_run.fidelity != :final
     open(joinpath(sections, "numbers.tex"), "w") do io
         for (name, text) in goal_numbers()
@@ -1584,8 +1799,7 @@ function fleet_share_numbers(table)
     for (drive, word) in drive_words
         split = fleet_split_of(table, drive)
         bill = fleet_total(split, :bill)
-        push!(numbers, "FleetBill$word" => whole_number(bill / 1e9),
-            "FleetSaved$word" => whole_number(fleet_total(split, :saved) / 1e9))
+        push!(numbers, "FleetBill$word" => whole_number(bill / 1e9))
         for band in fleet_bands
             name = word * uppercasefirst(band)
             push!(numbers, "FleetShare$name" => whole_number(100split[band].bill / bill))
@@ -1596,6 +1810,25 @@ function fleet_share_numbers(table)
     push!(numbers, "FleetWorkShare" => whole_number(100work_share),
         "FleetFuelShare" => whole_number(100sum(fuel_share)),
         "FleetLevelMargin" => whole_number(level_margin))
+    return numbers
+end
+
+"""
+    market_numbers(table)
+
+Name and text, per drive of the class table `table`, of the [`market_range`](@ref) of each
+of the [`market_measures`](@ref) of each rig's [`fleet_market`](@ref) and of the best rig's.
+"""
+function market_numbers(table)
+    numbers = Pair{String, String}[]
+    for (drive, word) in drive_words
+        market = fleet_market(cell_markets(table, drive))
+        for rig in (rig_names..., "any"), measure in market_measures
+            name = string("Market", word, uppercasefirst(rig),
+                uppercasefirst(string(measure)))
+            push!(numbers, name => market_range(market[rig], measure))
+        end
+    end
     return numbers
 end
 

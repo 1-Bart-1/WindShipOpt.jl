@@ -137,8 +137,9 @@ geometric_mean(values) = exp(sum(log, values) / length(values))
 """
     pattern_figure()
 
-Optimal flight paths seen from the ship over the course off apparent downwind, in light
-and strong apparent wind, without side-force weight.
+Optimal flight paths seen from the ship over the course off apparent downwind, a ring where
+the kite is held still, nested where still kites share a point, in light and strong
+apparent wind, without side-force weight.
 """
 function pattern_figure()
     paths = read_table(data_file("patterns.csv"))
@@ -152,11 +153,20 @@ function pattern_figure()
         axis = Axis(figure[row, 1]; ylabel="elevation [°]", limits=(-35, 90, 0, 60),
             xlabel=bottom ? "azimuth off apparent downwind [°]" : "",
             title="($letter) flight paths, apparent wind $(round(Int, wind)) m/s")
+        held = Dict{NTuple{2, Float64}, Int}()
         for (i, course) in enumerate(courses)
             chosen = rows(paths, "wind" => wind, "course" => course, "side_weight" => 0.0)
             isempty(chosen) && continue
-            lines!(axis, rad2deg.(paths["azimuth"][chosen]),
-                rad2deg.(paths["elevation"][chosen]); color=colours[i])
+            azimuths = rad2deg.(paths["azimuth"][chosen])
+            elevations = rad2deg.(paths["elevation"][chosen])
+            if allequal(azimuths) && allequal(elevations)
+                point = (round(azimuths[1]; digits=1), round(elevations[1]; digits=1))
+                rings = held[point] = get(held, point, 0) + 1
+                scatter!(axis, [point]; color=:transparent, strokecolor=colours[i],
+                    strokewidth=line_width, markersize=marker_size * (1 + rings))
+            else
+                lines!(axis, azimuths, elevations; color=colours[i])
+            end
         end
         bottom || hidexdecorations!(axis; ticks=false, ticklabels=false)
         thrust = Axis(figure[row, 2]; ylabel="force [kN]", limits=((-5, 185), nothing),
@@ -1578,80 +1588,6 @@ function fuel_figure()
 end
 
 """
-    aspect_figure()
-
-Saving of the kite of each study ship against its aspect ratio, at the same area and the
-same price.
-"""
-function aspect_figure()
-    table = read_table(data_file("aspect.csv"))
-    figure = Figure(size=(column_width, 200))
-    axis = Axis(figure[1, 1]; xlabel="kite aspect ratio", ylabel="cost saving [%]",
-        xticks=collect(study_aspect_ratios))
-    for (k, ship) in enumerate(unique(table["ship"]))
-        chosen = rows(table, "ship" => ship)
-        bare = table["cost"][only(filter(row -> table["aspect_ratio"][row] == 0, chosen))]
-        kites = filter(row -> table["aspect_ratio"][row] > 0, chosen)
-        savings = percent_saving.(table["cost"][kites], bare)
-        scatterlines!(axis, table["aspect_ratio"][kites], savings;
-            color=category_colours[k], label=ship)
-    end
-    Legend(figure[2, 1], axis; orientation=:horizontal, nbanks=2)
-    save(joinpath(figures, "aspect.pdf"), figure; pt_per_unit=print_scale)
-end
-
-"""
-    best_force_rating_saving(table, ship, rating, exponent, areas, bare)
-
-Highest saving [%] over `areas` in force_rating.csv of `ship`, costing `bare` without a rig,
-with a kite built for `rating` whose cloth follows the limit to the power `exponent`.
-"""
-function best_force_rating_saving(table, ship, rating, exponent, areas, bare)
-    chosen = rows(table, "ship" => ship, "rating" => rating, "exponent" => exponent)
-    return maximum(percent_saving(table["cost"][row], bare)
-                   for row in chosen if table["area"][row] in areas)
-end
-
-"""
-    force_rating_figure()
-
-Saving of each study ship at its best kite area against the force limit, with cloth that
-follows the limit by the base exponent, in proportion, or not at all, each over the kite
-areas that cloth law was run at.
-"""
-function force_rating_figure()
-    table = read_table(data_file("force_rating.csv"))
-    figure = Figure(size=(column_width, 215))
-    axis = Axis(figure[1, 1]; xlabel="force limit [kN/m²]",
-        ylabel="cost saving [%]", xticks=collect(study_force_ratings))
-    base = assumptions[:canopy_cloth_force_exponent]
-    reference = assumptions[:canopy_cloth_reference_force]
-    laws = ((base, :solid, "keeps its life"), (1.0, :dash, "in proportion"),
-        (0.0, :dot, "fixed at 200 g/m²"))
-    ships = unique(table["ship"])
-    for (k, ship) in enumerate(ships)
-        bare = table["cost"][only(rows(table, "ship" => ship, "rating" => 0))]
-        for (exponent, linestyle, _) in laws
-            ratings = exponent == base ? collect(study_force_ratings) :
-                      sort([extrema(study_force_ratings)..., reference])
-            areas = Set(table["area"][rows(table, "ship" => ship, "exponent" => exponent)])
-            savings = [best_force_rating_saving(table, ship, rating,
-                           rating == reference ? base : exponent, areas, bare)
-                       for rating in ratings]
-            lines!(axis, ratings, savings; color=category_colours[k], linestyle)
-        end
-    end
-    ship_entries = [LineElement(color=category_colours[k]) for k in eachindex(ships)]
-    law_entries = [LineElement(; color=:black, linestyle)
-                   for (_, linestyle, _) in laws]
-    Legend(figure[2, 1], [ship_entries, law_entries], [ships, collect(last.(laws))],
-        ["ship", "cloth"]; orientation=:horizontal, nbanks=3, titleposition=:left,
-        titlegap=6)
-    rowgap!(figure.layout, 1, 6)
-    save(joinpath(figures, "force_rating.pdf"), figure; pt_per_unit=print_scale)
-end
-
-"""
     band_totals(table, rig, column; route=nothing, direction=nothing)
 
 Sum of `column` of wind_angle.csv for `rig` in each band of `angle_bands`, over every
@@ -1862,7 +1798,7 @@ end
 
 "plans of the forecast figure's saving panel, as (plan of forecast_result.csv, label)"
 forecast_figure_plans = (("false", "perfect foresight"),
-    ("expected", "re-planned on the forecasts"))
+    ("live", "re-planned on the forecasts"))
 
 """
     forecast_figure()
