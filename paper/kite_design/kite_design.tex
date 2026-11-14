@@ -18,7 +18,7 @@
 \affiliation[1]{organization={\tbd{Affiliation}}}
 
 \begin{abstract}
-\tbd{Draft.} A towing kite on a cargo ship is today designed with a force limit of about \SI{0.5}{kN} per square metre and a projected aspect ratio of about 3. We ask whether these values are the cheapest for a ship. With the routed cost model of our comparison of towing kites, wing sails and Flettner rotors on cargo ships, we fly kites of other aspect ratios at the same price and kites built for other force limits at their best area on three ships. \tbd{A lower force limit saves more of the cost on all three ships, and a higher aspect ratio more up to 5 to 8, depending on the ship, if a launch system can handle it at the same cost.}
+\tbd{Draft.} A towing kite on a cargo ship is today designed with a force limit of about \SI{0.5}{kN} per square metre and a projected aspect ratio of about 3. We ask whether these values are the cheapest for a ship. With the routed cost model of our comparison of towing kites, wing sails and Flettner rotors on cargo ships, we fly kites of other aspect ratios at the same price and kites built for other force limits from other cloth weights, with a canopy life that falls with lighter cloth and higher load, at their best area on three ships. \tbd{Force limit and cloth: pending the rerun of the study.} \tbd{A higher aspect ratio saves more up to 5 to 8, depending on the ship, if a launch system can handle it at the same cost.}
 \end{abstract}
 
 \begin{keyword}
@@ -49,19 +49,27 @@ The main paper's results use the base aspect ratio of 3, span squared over area.
 \label{fig:aspect}
 \end{figure}
 
-\section{Force limit of the kite}
+\section{Force limit and cloth of the kite}
 \label{sec:force}
 
-Every kite of the main paper's results is built for \SI{0.5}{kN/m^2}. A kite built for more force has a thicker tether and bridle, a dearer winch and heavier, dearer cloth, and it depowers in stronger winds only. \Cref{fig:force_rating} routes the three ships of \cref{fig:aspect} with kites built for \SIrange{0.3}{1}{kN/m^2}, each at its best of the areas searched, a factor $\sqrt2$ apart. A lower limit saves more of the cost on all three ships, and on each the best area grows as the limit falls. A heavier kite needs more wind to fly and is up for less of the passage.
+Every kite of the main paper's results is built for \SI{0.5}{kN/m^2} from cloth of \SI{200}{g/m^2}, the standard canopy its life goal of \num{3000} flight hours is stated for. A kite built for more force has a thicker tether and bridle, a dearer winch and heavier seams, and it depowers in stronger winds only. Its cloth carries more tension and so lasts less. A lighter cloth costs less and weighs less, so the kite flies in lighter wind, but it lasts less too. Which force limit is cheapest therefore depends on the cloth, and which cloth on how its life falls with its weight.
 
-Doubling the limit to \SI{1}{kN/m^2} takes \tbd{3.1, 2.0 and 3.5} points of cost saving on the \SI{140}{m} ship, the Kamsarmax and the Neo-Panamax, far beyond the scatter of the pattern search, about 0.5 points on a difference between two cost savings. Lowering it to \SI{0.3}{kN/m^2} gains \tbd{1.2, 0.8 and 1.0} points, more than that scatter and of the same sign on every ship; on the Neo-Panamax the best area at that limit is the largest searched, so its gain there is a lower bound. Most of the loss at a higher limit comes from the tether, bridle and winch, which keep the kite down in light wind. On the same areas, cloth fixed at \SI{200}{g/m^2} whatever the limit, with the seams and reinforcements still growing with it, changes the cost saving at \SI{1}{kN/m^2} by \tbd{$-0.4$}, \tbd{+0.2} and \tbd{+0.2} points. Cloth in proportion to the limit costs \tbd{3.5}, \tbd{1.0} and \tbd{2.1} points more than the decay law, the loss of cloth strength to sunlight and wear that sets the canopy's life in the main paper.
+\paragraph{Canopy life} We take the life from the strength decay of the main paper: the cloth loses strength to sunlight and to wear until it keeps five times the tension of its skin at the force limit,
+\begin{equation}
+\frac{1}{t}=\frac{1}{t_\mathrm{UV}}+\frac{1}{t_\mathrm{wear}},\qquad
+t_\mathrm{UV} = \frac{D_\mathrm{ref}}{\dot D}\left(\frac{w}{w_\mathrm{ref}}\right)^{a}\ln M,\qquad
+t_\mathrm{wear} = \frac{w_\mathrm{ref}}{r}\left(\frac{w}{w_\mathrm{ref}}\right)^{b}\ln M,\qquad
+M=\frac{\sigma_w w}{5pR},
+\label{eq:life}
+\end{equation}
+with cloth weight $w$, $w_\mathrm{ref}=\SI{100}{g/m^2}$, the force limit $p$, the skin radius $R=\SI{0.5}{m}$, the strength $\sigma_w=\SI{170}{N/m}$ per g/m² of new cloth, a UV dose of $D_\mathrm{ref}=\SI{70}{MJ/m^2}$ to $1/e$ of strength at $w_\mathrm{ref}$, growing with weight to the power $a=0.4$, a dose of $\dot D=\SI{0.02}{MJ/m^2}$ per flight hour and a wear rate of $r=\SI{0.13}{g/m^2}$ per flight hour at $w_\mathrm{ref}$. A canopy lasts the main paper's goal times $t$ over its value at \SI{200}{g/m^2} and \SI{0.5}{kN/m^2}, so the goal holds for the standard canopy and every other canopy is scaled from it. The load enters only through $\ln M$, so the life falls slowly with the force limit: the standard cloth lasts \num{3500} hours at \SI{0.3}{kN/m^2} and \num{2400} at \SI{1}{kN/m^2}. The weight enters also through the exponents $a$ and $b$. The wear exponent $b$, how much longer a heavier cloth lasts at the same load, is not measured: a sailmaker's one life for every sail reads as 0 and a balloon maker's lives as 1.5 \citep{flynn2015,kubicek2026}. We take 1 and give the result at 0 and 1.5 as well, with the wear rate refitted so that the standard canopy keeps its life. At $b=1$ cloth of \SI{100}{g/m^2} lasts \num{1300} hours at \SI{0.5}{kN/m^2} and cloth of \SI{283}{g/m^2} \num{4400}; at $b=0$ \num{2200} and \num{3400}, at $b=1.5$ \num{970} and \num{5000}.
 
-The main paper keeps \SI{0.5}{kN/m^2}, since the canopy goals of life and cloth weight are stated at that limit. Its kite's cost savings may therefore be \tbd{one} point short of what a kite built for a lower force would reach. \tbd{Draft numbers. The final run replaces them.}
+\paragraph{The study} \Cref{fig:force_rating} routes the three ships of \cref{fig:aspect} with kites built for \SIrange{0.3}{1}{kN/m^2} from cloth of 100 to \SI{283}{g/m^2}, a factor $\sqrt2$ apart, at $b=1$ on three areas around the ship's own kite, a factor $\sqrt2$ apart, and at $b=0$ and 1.5 on the area nearest it. \tbd{Results pending the rerun of this study.}
 
 \begin{figure}[tbp]
 \centering
 \plot[\columnwidth]{force_rating}
-\caption{Cost saving of the kite at its best area against the force limit it is built for, on the ships of \cref{fig:aspect}, with cloth that keeps its life under the decay law (solid), in proportion to the limit (dashed) and fixed at \SI{200}{g/m^2} (dotted). The dashed and dotted lines take the best of up to three areas around the ship's own kite and the solid line of up to five, fewer where these pass the largest area searched.}
+\caption{(a) Cost saving of the kite at its best cloth weight and area against the force limit it is built for, on the ships of \cref{fig:aspect}, with the wear exponent $b$ of \cref{eq:life} at 1 (solid), 0 (dashed) and 1.5 (dotted); at $b=1$ over three areas around the ship's own kite, fewer where these pass the largest area searched, and at the bounds of $b$ on the area nearest it. (b) At \SI{0.5}{kN/m^2} and $b=1$, the cost saving at the best area against the cloth weight.}
 \label{fig:force_rating}
 \end{figure}
 

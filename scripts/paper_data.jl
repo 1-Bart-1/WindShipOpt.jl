@@ -2097,7 +2097,8 @@ development_inputs = [
         reason="What a maker's reliability work is worth; the same lever for every rig."),
     (input=:kite_max_force_per_area, label="kite force limit per area", rig="kite",
         lever="force",
-        reason="Its structure decides the force each m\\textsuperscript{2} may carry."),
+        reason=string("Its structure decides the force each m\\textsuperscript{2} may ",
+            "carry; its cloth stays and lasts less at a higher limit.")),
     (input=:kite_min_turn_radius, label="kite smallest turn radius", rig="kite",
         lever="force", reason="Steering and control decide how tight, and so how " *
                               "powerful, a pattern can be."),

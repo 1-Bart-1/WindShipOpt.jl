@@ -253,7 +253,7 @@ end
     end
 end
 
-@testset "canopy life is the goal at the standard cloth and follows the decay law off it" begin
+@testset "canopy life is the goal at the standard canopy and decays off it" begin
     @test WindShipOpt.decay_life(assumptions, 200.0, 0.5) ≈ 3812 atol = 1
     @test WindShipOpt.decay_life(assumptions, 100.0, 0.5) ≈ 1646 atol = 1
     @test WindShipOpt.Canopy(assumptions).lifetime ≈ 3000
