@@ -212,7 +212,8 @@ function force_rating_figure()
     ship_entries = [LineElement(color=category_colours[k]) for k in eachindex(ships)]
     wear_entries = [LineElement(; color=:black, linestyle) for linestyle in linestyles]
     Legend(figure[3, 1], [ship_entries, wear_entries],
-        [ships, [@sprintf("b = %g", exponent) for exponent in study_wear_exponents]],
+        [ships, [Makie.latexstring("b = ", @sprintf("%g", exponent))
+            for exponent in study_wear_exponents]],
         ["ship", "wear"]; orientation=:horizontal, nbanks=3, titleposition=:left,
         titlegap=6)
     rowgap!(figure.layout, 2, 6)
