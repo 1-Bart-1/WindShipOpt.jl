@@ -2,17 +2,17 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Accuracy gate of the planner: routes cases departure by departure at a planner fidelity
-# and compares each rig's cost saving against the same ship without a rig with a reference
-# run, by the repository's accuracy-for-speed standard.
+# and compares each rig's cost saving against the same ship without a rig with the saving
+# extrapolated from it and a reference run, by the repository's accuracy-for-speed standard.
 #
-#   julia +1.12 --project=. -t auto scripts/router_gate.jl [--reference] [--bilbao] \
-#       <out_dir> [reference_dir]
+#   julia +1.12 --project=. -t auto scripts/router_gate.jl [--reference] <out_dir> \
+#       [reference_dir]
 #
 # Runs `gate_cases` at the default fidelity into <out_dir>/gate.csv, a line per departure of
 # each finished case, and its CPU time into <out_dir>/times.csv; a rerun routes only the
-# cases missing there. Given a reference directory, it prints each rig's saving against the
-# reference's and exits 1 where the standard fails. `--reference` routes on a planner twice
-# as fine, `--bilbao` routes `bilbao_cases` instead.
+# cases missing there. `--reference` routes on a grid twice as fine. Given a reference
+# directory, it prints each rig's saving against the saving extrapolated from the two and
+# exits 1 where the standard fails.
 using Printf, Statistics
 include(joinpath(@__DIR__, "setup.jl"))
 
@@ -22,10 +22,6 @@ SAVING_TOLERANCE = 3.0
 "largest change of the gap between two rigs' savings against the reference that passes
 [points]"
 GAP_TOLERANCE = 1.0
-
-"largest change of a saving on a planner twice as fine at which a fidelity counts as
-converged [points]"
-CONVERGED_TOLERANCE = 0.25
 
 "first line of a gate file"
 GATE_HEADER = "ship,rig,route,departure,cost,fuel,flight"
@@ -81,22 +77,16 @@ development_cases() = gate_case_list([("140m", :caribbean, ("none", "kite", "rot
     gate_cases()
 
 The full check: every rig on the 140 m e-ammonia ship to Guadeloupe, to Houston, whose
-approach through the Florida Strait is the hardest, and to New York, and on an e-ammonia
-Kamsarmax to Tubarão.
+approach through the Florida Strait is the hardest, to New York and to Bilbao, whose short
+crossing only the floor on open-ocean stages gives a grid, and on an e-ammonia Kamsarmax to
+Tubarão.
 """
 function gate_cases()
     every_rig = ("none", "kite", "wings", "rotors")
-    return gate_case_list([("140m", :caribbean, every_rig), ("140m", :houston, every_rig),
-        ("140m", :new_york, every_rig), ("kamsarmax", :tubarao, every_rig)])
+    return gate_case_list([("140m", route, every_rig)
+                           for route in (:caribbean, :houston, :new_york, :bilbao)]) ∪
+           gate_case_list([("kamsarmax", :tubarao, every_rig)])
 end
-
-"""
-    bilbao_cases()
-
-The 140 m e-ammonia ship to Bilbao, whose short crossing only the floor on open-ocean stages
-gives a grid, without a rig, with a kite and with rotors.
-"""
-bilbao_cases() = gate_case_list([("140m", :bilbao, ("none", "kite", "rotors"))])
 
 "CPU time this process has used, over all its threads [s]"
 cpu_seconds() = sum(parse.(Float64, split(read("/proc/self/stat", String))[14:15])) / 100
@@ -184,13 +174,15 @@ function departure_savings(rows)
 end
 
 """
-    saving_changes(new, reference)
+    saving_changes(new, reference; extrapolated=false)
 
 Per (ship, rig, route) of the gate files' rows `reference`: the mean saving over the
 departures in `reference` and in `new` [points], the mean and the standard error of their
-paired change [points]; `nothing` for a case that is infeasible in either.
+paired change [points]; `nothing` for a case that is infeasible in either. With
+`extrapolated`, `reference` is a grid twice as fine as `new`, and each departure's reference
+saving is extrapolated from the two at first order.
 """
-function saving_changes(new, reference)
+function saving_changes(new, reference; extrapolated=false)
     new_savings, reference_savings = departure_savings(new), departure_savings(reference)
     changes = Dict()
     for (key, by_departure) in reference_savings
@@ -200,6 +192,7 @@ function saving_changes(new, reference)
             changes[key] = nothing
             continue
         end
+        extrapolated && (pairs = [(saving, 2 * finer - saving) for (saving, finer) in pairs])
         paired = [first(pair) - last(pair) for pair in pairs]
         changes[key] = (; new=mean(first.(pairs)), reference=mean(last.(pairs)),
             change=mean(paired), error=std(paired) / sqrt(length(paired)))
@@ -208,14 +201,15 @@ function saving_changes(new, reference)
 end
 
 """
-    standard_passes(new, reference; tolerance=SAVING_TOLERANCE)
+    standard_passes(new, reference; extrapolated=false)
 
-Print each rig's saving in the gate files' rows `new` against `reference` and the change
-of the gap between each two rigs; whether every saving moves by at most `tolerance` and
-every gap by at most `GAP_TOLERANCE` points, and every case feasible in one is in the other.
+Print each rig's saving in the gate files' rows `new` against `reference`, extrapolated as
+[`saving_changes`](@ref) says, and the change of the gap between each two rigs; whether
+every saving moves by at most `SAVING_TOLERANCE` and every gap by at most `GAP_TOLERANCE` points,
+and every case feasible in one is in the other.
 """
-function standard_passes(new, reference; tolerance=SAVING_TOLERANCE)
-    changes = saving_changes(new, reference)
+function standard_passes(new, reference; extrapolated=false)
+    changes = saving_changes(new, reference; extrapolated)
     passed = true
     for key in sort!(collect(keys(changes)))
         found = changes[key]
@@ -226,7 +220,7 @@ function standard_passes(new, reference; tolerance=SAVING_TOLERANCE)
         end
         @printf("%-28s saving %6.2f, reference %6.2f, change %+.2f ± %.2f points\n",
             join(key, " "), found.new, found.reference, found.change, found.error)
-        passed &= abs(found.change) <= tolerance
+        passed &= abs(found.change) <= SAVING_TOLERANCE
     end
     for (one, other) in Iterators.product(keys(changes), keys(changes))
         one[1] == other[1] && one[3] == other[3] && one[2] < other[2] || continue
@@ -241,16 +235,17 @@ end
 """
     gate_passes(out_dir, reference_dir)
 
-Whether the gate in `out_dir` meets the standard against the one in `reference_dir`,
-printing each case.
+Whether the gate in `out_dir` meets the standard against the savings extrapolated from it
+and the one in `reference_dir`, on a grid twice as fine, printing each case.
 """
 gate_passes(out_dir, reference_dir) =
     standard_passes(read_gate(joinpath(out_dir, "gate.csv")),
-        read_gate(joinpath(reference_dir, "gate.csv")))
+        read_gate(joinpath(reference_dir, "gate.csv")); extrapolated=true)
 
 if abspath(PROGRAM_FILE) == @__FILE__
     directories = filter(!startswith("--"), ARGS)
-    cases = "--bilbao" in ARGS ? bilbao_cases() : gate_cases()
-    gate_trips(first(directories), cases, planner_fidelity("--reference" in ARGS ? 2 : 1))
+    fidelity = "--reference" in ARGS ? (; scale=0.5, settings=WindShipOpt.RouterSettings()) :
+               planner_fidelity()
+    gate_trips(first(directories), gate_cases(), fidelity)
     length(directories) > 1 && exit(gate_passes(directories...) ? 0 : 1)
 end

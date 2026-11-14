@@ -11,37 +11,16 @@
 # against the entry named <entry>, and whether it meets the standard against it.
 include(joinpath(@__DIR__, "router_gate.jl"))
 
-"settings of the planner the study varies from"
-base_settings = WindShipOpt.RouterSettings()
-
-"`base_settings` with the fields `changes` replaced"
-varied(; changes...) = WindShipOpt.with_changed(base_settings; changes...)
-
-"the study's entries by name, each a corridor scale and router settings"
-STUDY = Dict("coarse" => planner_fidelity(0.5), "base" => planner_fidelity(1),
-    "fine" => planner_fidelity(2), "finest" => planner_fidelity(4),
-    "final_1h" => (; scale=1, settings=varied(final_time_step=1.0)),
-    "near_480" => (; scale=1, settings=varied(near_distance=480.0)),
-    "near_120" => (; scale=1, settings=varied(near_distance=120.0)),
-    "rows_4" => (; scale=1, settings=varied(far_row_stride=4)),
-    "rows_16" => (; scale=1, settings=varied(far_row_stride=16)),
-    "legs_360" => (; scale=(1.5, 1), settings=base_settings),
-    "legs_480" => (; scale=(2, 1), settings=base_settings),
-    "rows_30" => (; scale=(1, 0.5), settings=base_settings),
-    "legs_480_rows_30" => (; scale=(2, 0.5), settings=base_settings),
-    "to_go_48" => (; scale=1, settings=varied(to_go_step=48.0)),
-    "final_1h_legs_360" => (; scale=(1.5, 1), settings=varied(final_time_step=1.0)),
-    "near_960" => (; scale=1, settings=varied(near_distance=960.0)),
-    "near_1920" => (; scale=1, settings=varied(near_distance=1920.0)),
-    "rows_1" => (; scale=1, settings=varied(far_row_stride=1)),
-    "far_samples_3" => (; scale=1, settings=varied(far_sample_hours=3.0)),
-    "legs_120" => (; scale=(0.5, 1), settings=base_settings),
-    "grid_fine" => (; scale=0.5, settings=base_settings),
-    "grid_finest" => (; scale=0.25, settings=base_settings),
-    "grid_8x" => (; scale=0.125, settings=base_settings),
-    "grid_finest_steps_fine" => planner_fidelity(2; scale=0.5),
-    "steps_fine" => planner_fidelity(2; scale=2),
-    "whole" => (; scale=1, settings=varied(near_distance=Inf)))
+"""
+The study's entries by name, each a corridor scale and router settings: the planner on its
+default settings and on grids with stages of the named length [nmi], its time steps halved,
+and the full-corridor search on 240 nmi stages.
+"""
+STUDY = Dict("base" => planner_fidelity(), "grid_240" => planner_fidelity(; scale=4),
+    "grid_120" => planner_fidelity(; scale=2), "grid_30" => planner_fidelity(; scale=0.5),
+    "steps_half" => planner_fidelity(2; scale=2),
+    "whole_240" => (; scale=4,
+        settings=WindShipOpt.with_changed(WindShipOpt.RouterSettings(); near_distance=Inf)))
 
 """
     run_study(out_dir, names=keys(STUDY))
