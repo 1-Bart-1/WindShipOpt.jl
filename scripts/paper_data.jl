@@ -1219,8 +1219,8 @@ function forecast_plans_data()
 end
 
 "plans of the paper's forecast result: perfect foresight on the run's corridors and on the
-planning grid, and the plan the results use"
-forecast_result_plans = (false, :grid_perfect, :grid_expected)
+planning grid, and the plan the results use, sailed live"
+forecast_result_plans = (false, :grid_perfect, :grid_live)
 
 """
     forecast_result_data()

@@ -1863,7 +1863,7 @@ end
 "plans of the forecast figure's saving panel, as (plan of forecast_result.csv, label)"
 forecast_figure_plans = (("false", "perfect foresight"),
     ("grid_perfect", "perfect foresight, planning grid"),
-    ("grid_expected", "re-planned on the forecasts"))
+    ("grid_live", "re-planned on the forecasts"))
 
 """
     forecast_figure()
