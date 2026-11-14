@@ -793,12 +793,18 @@ canopy_cloth_reference_force:
   high: 0.5
   unit: kN/m^2
   reason: "Force limit at which canopy_mass_overhead and the goal canopy_life are stated, the base kite_max_force_per_area, so moving the base limit leaves the goals where they were stated."
+canopy_decay_reference_weight:
+  value: 100.0
+  low: 100.0
+  high: 100.0
+  unit: g/m^2
+  reason: "Cloth weight that canopy_uv_reference_dose and canopy_wear_rate are stated at."
 canopy_uv_reference_dose:
   value: 70.0
   low: 70.0
   high: 70.0
   unit: MJ/m^2
-  reason: "UV dose (295-385 nm) that leaves 1/e of the strength of polyester cloth of 100 g/m^2 without a UV blocker: least-squares fit over outdoor and lamp tests, lamp doses times 3 (canopy_life_notes.md; bounds 35-160 move canopy_life within its range)."
+  reason: "UV dose (295-385 nm) that leaves 1/e of the strength of polyester cloth of canopy_decay_reference_weight without a UV blocker: least-squares fit over outdoor and lamp tests, lamp doses times 3 (canopy_life_notes.md; bounds 35-160 move canopy_life within its range)."
 canopy_uv_weight_exponent:
   value: 0.4
   low: 0.4
@@ -816,7 +822,7 @@ canopy_wear_rate:
   low: 0.13
   high: 0.13
   unit: g/m^2/h
-  reason: "Strength-equivalent cloth weight lost to wear per flight hour by cloth of 100 g/m^2: between the medians of 0.10 and 0.19 that makers' life statements imply after removing their UV (canopy_life_notes.md; bounds 0.052-0.26). Physics does not set it."
+  reason: "Strength-equivalent cloth weight lost to wear per flight hour by cloth of canopy_decay_reference_weight: between the medians of 0.10 and 0.19 that makers' life statements imply after removing their UV (canopy_life_notes.md; bounds 0.052-0.26). Physics does not set it."
 canopy_wear_weight_exponent:
   value: 1.0
   low: 1.0

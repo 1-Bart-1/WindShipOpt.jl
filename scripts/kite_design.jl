@@ -47,10 +47,10 @@ function aspect_data()
 end
 
 "force limits of the kite in the force rating study [kN/m^2]"
-study_force_ratings = (0.3, 0.5, 0.7, 1.0)
+study_force_ratings = (0.2, 0.3, 0.5, 0.7, 1.0)
 
 "canopy cloth weights of the force rating study [g/m^2]"
-study_cloth_weights = (100.0, 141.0, 200.0, 283.0)
+study_cloth_weights = (100.0, 141.0, 200.0, 283.0, 400.0)
 
 "wear weight exponents of the force rating study: its base, then its bounds"
 study_wear_exponents = (1.0, 0.0, 1.5)
@@ -78,7 +78,7 @@ wear rate refitted so that cloth of `canopy_cloth_reference_weight` keeps its de
 """
 function canopy_design(rating, cloth, wear_exponent)
     reference = assumptions[:canopy_cloth_reference_weight] /
-                WindShipOpt.decay_reference_weight
+                assumptions[:canopy_decay_reference_weight]
     wear_rate = assumptions[:canopy_wear_rate] *
                 reference^(wear_exponent - assumptions[:canopy_wear_weight_exponent])
     return changed_assumptions((; kite_max_force_per_area=rating, canopy_cloth_weight=cloth,
@@ -166,13 +166,11 @@ end
     best_force_rating_saving(table, ship, bare, conditions...)
 
 Highest saving [%] of `ship`, costing `bare` without a rig, over the rows of
-force_rating.csv that meet `conditions`, with that row.
+force_rating.csv that meet `conditions`.
 """
 function best_force_rating_saving(table, ship, bare, conditions...)
     chosen = rows(table, "ship" => ship, conditions...)
-    savings = percent_saving.(table["cost"][chosen], bare)
-    best = argmax(savings)
-    return savings[best], chosen[best]
+    return maximum(percent_saving.(table["cost"][chosen], bare))
 end
 
 """
@@ -197,14 +195,14 @@ function force_rating_figure()
     for (k, ship) in enumerate(ships)
         bare = table["cost"][only(rows(table, "ship" => ship, "rating" => 0))]
         for (wear_exponent, linestyle) in zip(study_wear_exponents, linestyles)
-            savings = [first(best_force_rating_saving(table, ship, bare, "rating" => rating,
-                           "wear_exponent" => wear_exponent))
+            savings = [best_force_rating_saving(table, ship, bare, "rating" => rating,
+                           "wear_exponent" => wear_exponent)
                        for rating in study_force_ratings]
             lines!(by_limit, collect(study_force_ratings), savings;
                 color=category_colours[k], linestyle)
         end
-        savings = [first(best_force_rating_saving(table, ship, bare, "rating" => base_limit,
-                       "wear_exponent" => base_exponent, "cloth" => cloth))
+        savings = [best_force_rating_saving(table, ship, bare, "rating" => base_limit,
+                       "wear_exponent" => base_exponent, "cloth" => cloth)
                    for cloth in study_cloth_weights]
         scatterlines!(by_cloth, collect(study_cloth_weights), savings;
             color=category_colours[k])

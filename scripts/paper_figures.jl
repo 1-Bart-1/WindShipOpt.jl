@@ -1243,15 +1243,14 @@ end
     canopy_life_figure()
 
 Flight hours of canopies of data/canopy_life_statements.csv as ranges by what stated them,
-with the derived life and its range of the assumptions, and the goal.
+with [`reference_decay_life`](@ref) and its range of the assumptions, and the goal.
 """
 function canopy_life_figure()
     lives = read_table(joinpath(root, "data", "canopy_life_statements.csv"))
     goal = assumptions.entries[:canopy_life]
     order = [findall(==("statement"), lives["kind"]);
-        findall(==("sail_shape"), lives["kind"]); findall(==("small_kite"), lives["kind"]);
-        findall(==("derived"), lives["kind"])]
-    labels = lives["label"][order]
+        findall(==("sail_shape"), lives["kind"]); findall(==("small_kite"), lives["kind"])]
+    labels = [lives["label"][order]; "derived life"]
     figure = Figure(size=(page_width, 190))
     axis = Axis(figure[1, 1]; xscale=log10, xlabel="flight hours of the canopy",
         xticks=([100, 300, 1000, 3000, 10000], ["100", "300", "1000", "3000", "10000"]),
@@ -1262,23 +1261,23 @@ function canopy_life_figure()
     text!(axis, goal.value, 0.5; text="goal", align=(:right, :top), offset=(-2, 0),
         fontsize=note_size, color=palette[1])
     for (i, row) in enumerate(order)
-        derived = lives["kind"][row] == "derived"
-        colour = derived ? palette[1] : :gray35
-        low, high = derived ? (goal.low, goal.high) :
-                    (lives["life_low"][row], lives["life_high"][row])
-        rangebars!(axis, [i], [low], [high]; direction=:x, color=colour,
-            linewidth=derived ? 2.5 : 1.5, whiskerwidth=derived ? 0 : 4)
-        derived && scatter!(axis, [lives["life_low"][row]], [i]; color=colour, markersize=7)
+        low, high = lives["life_low"][row], lives["life_high"][row]
+        rangebars!(axis, [i], [low], [high]; direction=:x, color=:gray35, linewidth=1.5,
+            whiskerwidth=4)
         measured = lives["grade"][row] == "meas"
         lives["kind"][row] == "statement" && scatter!(axis, [sqrt(low * high)], [i];
             color=measured ? :gray35 : :white, strokecolor=:gray35, strokewidth=0.75,
             marker=:rect)
-        bounds = "$(round(Int, low))–$(round(Int, high))"
-        label = derived ? "$(round(Int, lives["life_low"][row])) ($bounds)" :
-                replace(lives["life_text"][row], "--" => "–")
-        text!(axis, 1.15high, i; text=label, align=(:left, :center), fontsize=note_size,
-            color=colour)
+        text!(axis, 1.15high, i; text=replace(lives["life_text"][row], "--" => "–"),
+            align=(:left, :center), fontsize=note_size, color=:gray35)
     end
+    derived, i = WindShipOpt.reference_decay_life(assumptions), length(labels)
+    rangebars!(axis, [i], [goal.low], [goal.high]; direction=:x, color=palette[1],
+        linewidth=2.5, whiskerwidth=0)
+    scatter!(axis, [derived], [i]; color=palette[1], markersize=7)
+    bounds = "$(round(Int, goal.low))–$(round(Int, goal.high))"
+    text!(axis, 1.15goal.high, i; text="$(Int(round(derived; sigdigits=2))) ($bounds)",
+        align=(:left, :center), fontsize=note_size, color=palette[1])
     save(joinpath(figures, "canopy_life.pdf"), figure; pt_per_unit=print_scale)
 end
 

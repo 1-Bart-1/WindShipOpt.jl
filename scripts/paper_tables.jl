@@ -253,9 +253,12 @@ function goal_rows()
     price = @sprintf("USD~%.0f/m\$^2\$", WindShipOpt.canopy_price(assumptions))
     today = @sprintf("our estimate USD~%.0f/m\$^2\$, from retail cloth and hand sewing",
         WindShipOpt.canopy_price_today(assumptions))
+    life = assumptions.entries[:canopy_life]
+    derived = @sprintf("derived \\num{%.0f} h (\\numrange{%.0f}{%.0f}), ",
+        round(WindShipOpt.reference_decay_life(assumptions); sigdigits=2), life.low,
+        life.high)
     return [("Canopy life", "kite", canopy,
-            "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements; " *
-            "small kites expected 100 to \\num{1000} h"),
+            derived * "on makers' statements; small kites expected 100 to \\num{1000} h"),
         ("Canopy price", "kite", price, today),
         ("Rig life", "wings", years(:wing_lifetime),
             "stated design life; about 2 years on record"),

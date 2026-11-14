@@ -236,7 +236,10 @@ end
     base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger))
     @test strong_canopy.mass_per_area > base_canopy.mass_per_area
     @test strong_canopy.cost_per_area == base_canopy.cost_per_area
-    @test strong_canopy.lifetime ≈ 3000 * log(27.2 / 2) / log(27.2)
+    margin = assumptions[:canopy_cloth_specific_strength] *
+             assumptions[:canopy_cloth_weight] / (assumptions[:canopy_strength_kept] *
+              1e3assumptions[:kite_max_force_per_area] * assumptions[:canopy_skin_radius])
+    @test strong_canopy.lifetime ≈ 3000 * log(margin / 2) / log(margin)
     base_model, _, base_tether = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     strong_model, _, strong_tether = WindShipOpt.kite_model(800.0, 3.0, stronger)
     @test strong_model.mass > base_model.mass
