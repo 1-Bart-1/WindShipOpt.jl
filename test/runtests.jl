@@ -3486,6 +3486,55 @@ end
     end
 end
 
+@testset "a rig's market counts the cells it leads alone, and up to those it leads level" begin
+    work, _ = PaperData.fleet_work()
+    ships = PaperData.fleet_ships()
+    routes, drive, class = ["caribbean", "dakar", "tubarao"], "vlsfo", "Kamsarmax bulk carrier"
+    costs = Dict(("caribbean", "none") => 0.02, ("caribbean", "rotors") => 0.018,
+        ("dakar", "none") => 0.02, ("dakar", "rotors") => 0.019,
+        ("dakar", "wings") => 0.0191)
+    cases = vec([(; class=name, route, rig) for name in keys(work), route in routes,
+                 rig in ("none", PaperData.rig_names...)])
+    function cost(case)
+        case.class == class || return 0.01
+        return get(costs, (case.route, case.rig), 0.02)
+    end
+    column(f) = f.(cases)
+    table = Dict{String, Vector}("class" => column(case -> case.class),
+        "route" => column(case -> case.route), "drive" => fill(drive, length(cases)),
+        "rig" => column(case -> case.rig), "cost" => cost.(cases),
+        "area" => column(case -> case.rig == "wings" ? 1500.0 : 1000.0),
+        "units" => column(case -> case.rig == "wings" ? 3.0 : 5.0),
+        "fuel" => column(case -> case.rig == "none" ? 0.03 : 0.02),
+        "carbon" => column(case -> case.rig == "none" ? 2.0 : 1.5),
+        "retractable" => fill("true", length(cases)))
+    markets = PaperData.cell_markets(table, drive)
+    market = PaperData.fleet_market(markets)
+    @test PaperData.fleet_market(filter(cell -> cell.type == "bulk carrier", markets)) ==
+          market
+    @test all(iszero, PaperData.fleet_market(filter(cell -> cell.type == "container",
+        markets))["any"].high)
+    cell_ships, cell_work = ships[class] / 3, work[class] / 3
+    rotors = market["rotors"]
+    @test rotors.low.ships ≈ cell_ships
+    @test rotors.high.ships ≈ 2cell_ships
+    @test rotors.low.units ≈ 5cell_ships
+    @test rotors.low.area ≈ 1000cell_ships
+    @test rotors.low.saved ≈ cell_work * 0.02 * 0.1
+    heating_value = WindShipOpt.vlsfo(assumptions).heating_value
+    @test rotors.low.fuel ≈ cell_work * 0.01e6 / heating_value
+    @test rotors.low.carbon ≈ cell_work * 0.5
+    row = only(i for i in eachindex(cases)
+               if cases[i] == (; class, route="caribbean", rig="rotors"))
+    price, _ = PaperData.rig_price(table, row)
+    @test price > 0
+    @test rotors.low.sales ≈ cell_ships * price
+    @test all(iszero, market["wings"].low)
+    @test market["wings"].high.ships ≈ cell_ships
+    @test all(iszero, market["kite"].high)
+    @test market["any"] == rotors
+end
+
 @testset "a following wind is flown at a lower speed and a rough sea at no speed" begin
     (; corridor, kite_table, kite_hourly, weather, departure) = kite_routing
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)

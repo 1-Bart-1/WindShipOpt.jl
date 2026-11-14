@@ -109,7 +109,7 @@ end
     write_trips(name, cases, trips, columns...)
 
 Write `name` to the directory of the run in use with the given label `columns` of each
-case and the cost [USD/tkm], fuel [MJ/tkm], CO2 [kg/tkm], round-trip days, kite flight
+case and the cost [USD/tkm], fuel [MJ/tkm], CO2 [g/tkm], round-trip days, kite flight
 share, kite launches and forced landings per round trip, cargo [t], whether the rig
 retracts and the [`cost_columns`](@ref), of each feasible trip.
 """
@@ -918,16 +918,27 @@ level_margin = 1.0
 fleet_bands = ("kite", "level", "rotors", "wings", "none")
 
 """
+    fleet_leaders(savings)
+
+Rigs of a cell with the cost `savings` [%] of its rigs that save within
+[`level_margin`](@ref) of the best; none where the best saves less than that margin.
+"""
+function fleet_leaders(savings)
+    best = maximum(values(savings))
+    best < level_margin && return String[]
+    return [rig for (rig, saving) in savings if best - saving < level_margin]
+end
+
+"""
     fleet_band(savings)
 
-Band of [`fleet_bands`](@ref) of a cell with the cost `savings` [%] of its rigs: the rig
-that saves most, `"level"` where another saves within [`level_margin`](@ref) of it and
-`"none"` where the best saves less than that margin.
+Band of [`fleet_bands`](@ref) of a cell with the cost `savings` [%] of its rigs: its one
+[`fleet_leaders`](@ref) rig, `"level"` where there are more and `"none"` where there are
+none.
 """
 function fleet_band(savings)
-    best = maximum(values(savings))
-    best < level_margin && return "none"
-    leaders = [rig for (rig, saving) in savings if best - saving < level_margin]
+    leaders = fleet_leaders(savings)
+    isempty(leaders) && return "none"
     return length(leaders) > 1 ? "level" : only(leaders)
 end
 
@@ -940,13 +951,22 @@ A cell in the band `"none"` saves nothing, as no rig is fitted.
 """
 function fleet_split(cells)
     split = Dict(band => (bill=0.0, saved=0.0) for band in fleet_bands)
-    for (; bill, savings) in cells
-        band = fleet_band(savings)
-        saved = band == "none" ? 0.0 : bill * maximum(values(savings)) / 100
-        split[band] = (bill=split[band].bill + bill, saved=split[band].saved + saved)
+    for cell in cells
+        band = fleet_band(cell.savings)
+        best = argmax(rig -> cell.savings[rig], keys(cell.savings))
+        saved = band == "none" ? 0.0 : cell_saved(cell, best)
+        split[band] = (bill=split[band].bill + cell.bill, saved=split[band].saved + saved)
     end
     return split
 end
+
+"""
+    cell_saved(cell, rig)
+
+Yearly cost [USD] `rig` saves on a fleet cell with the `bill` [USD a year] of the cell
+without a rig and the cost `savings` [%] of its rigs.
+"""
+cell_saved(cell, rig) = cell.bill * cell.savings[rig] / 100
 
 """
     read_table(path)
@@ -996,29 +1016,54 @@ function fleet_work()
 end
 
 """
-    fleet_split_of(table, drive)
+    fleet_ships()
 
-The [`fleet_split`](@ref) of class table `table` on `drive`: each class's transport work
-from [`fleet_work`](@ref) shared equally over the table's routes, at the cost without a
-rig. Errors naming every class and route of `drive` the table lacks a result of a rig for.
+Ships of each class in its IMO size bins in 2018, the `fleet` of data/ship_classes.csv.
 """
-function fleet_split_of(table, drive)
+function fleet_ships()
+    classes = read_table(joinpath(pkgdir(WindShipOpt), "data", "ship_classes.csv"))
+    return Dict(zip(classes["name"], classes["fleet"]))
+end
+
+"""
+    fleet_cells(table, drive)
+
+Each class and route of class table `table` on `drive`, with the class's transport work
+[tonne-km a year] from [`fleet_work`](@ref) and its ships from [`fleet_ships`](@ref) shared
+equally over the table's routes, the yearly cost `bill` [USD] of that work without a rig,
+the row of the ship without a rig and of the best size of each rig, and their cost
+`savings` [%]. Errors naming every class and route of `drive` the table lacks a result of
+a rig for.
+"""
+function fleet_cells(table, drive)
     work, _ = fleet_work()
+    ships = fleet_ships()
     routes = unique(table["route"])
     cells, absent = [], String[]
     for class in keys(work), route in routes
         bare = cheapest_row(table, class, route, drive, "none")
-        savings = best_savings(table, class, route, drive)
-        if isnothing(bare) || length(savings) < length(rig_names)
+        best = Dict(rig => cheapest_row(table, class, route, drive, rig) for rig in rig_names)
+        if isnothing(bare) || any(isnothing, values(best))
             push!(absent, "$class on $route")
             continue
         end
-        bill = work[class] / length(routes) * table["cost"][bare]
-        push!(cells, (; bill, savings))
+        share = work[class] / length(routes)
+        reference = table["cost"][bare]
+        savings = Dict(rig => percent_saving(table["cost"][row], reference)
+                       for (rig, row) in best)
+        push!(cells, (; class, route, work=share, ships=ships[class] / length(routes),
+            bill=share * reference, bare, best, savings))
     end
     isempty(absent) || throw(ArgumentError("no $drive results for " * join(absent, ", ")))
-    return fleet_split(cells)
+    return cells
 end
+
+"""
+    fleet_split_of(table, drive)
+
+The [`fleet_split`](@ref) of the [`fleet_cells`](@ref) of class table `table` on `drive`.
+"""
+fleet_split_of(table, drive) = fleet_split(fleet_cells(table, drive))
 
 """
     searched_sizes(ships, rounds)
