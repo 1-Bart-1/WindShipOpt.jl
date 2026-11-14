@@ -959,10 +959,12 @@ end
     @test balance(midship).drag > balance(bow).drag
 end
 
-@testset "a rig ship is sized near the bare ship in calm water" begin
+@testset "a rig ship is sized near the bare ship in calm water, a kite ship as it" begin
     bare = Ship(ShipDesign(:vlsfo, 140.0), assumptions)
     rotors = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=300.0), assumptions)
     @test rotors.powertrain.installed_power ≈ bare.powertrain.installed_power rtol = 0.02
+    kite = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
+    @test kite.powertrain == Ship(ShipDesign(:methanol, 85.0), assumptions).powertrain
 end
 
 @testset "rotor ships pay for the spin power in the routing lookup" begin
