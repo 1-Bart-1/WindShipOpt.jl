@@ -57,16 +57,19 @@ export function spherePosition(azimuth: number, elevation: number): THREE.Vector
 
 /**
  * Rotation of a kite drawn with its span along x, its back along y and its chord along z, at `azimuth` and `elevation` [deg]
- * on its tether sphere with its nose `nose` [deg] from rising elevation towards rising azimuth.
+ * on its tether sphere: its nose `nose` [deg] from rising elevation towards rising azimuth and pitched `pitch` [deg] out of
+ * the sphere, away from the ship.
  */
-export function kiteAttitude(azimuth: number, elevation: number, nose: number): THREE.Quaternion {
+export function kiteAttitude(azimuth: number, elevation: number, nose: number, pitch: number): THREE.Quaternion {
   const radial = spherePosition(azimuth, elevation);
   const risingElevation = spherePosition(azimuth, elevation + 90);
   const risingAzimuth = spherePosition(azimuth + 90, 0);
-  const noseRadians = THREE.MathUtils.degToRad(nose);
-  const flight = risingElevation.multiplyScalar(Math.cos(noseRadians)).addScaledVector(risingAzimuth, Math.sin(noseRadians));
-  const span = new THREE.Vector3().crossVectors(radial, flight);
-  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(span, radial, flight));
+  const [noseRadians, pitchRadians] = [nose, pitch].map(THREE.MathUtils.degToRad);
+  const along = risingElevation.multiplyScalar(Math.cos(noseRadians)).addScaledVector(risingAzimuth, Math.sin(noseRadians));
+  const chord = along.clone().multiplyScalar(Math.cos(pitchRadians)).addScaledVector(radial, Math.sin(pitchRadians));
+  const back = radial.multiplyScalar(Math.cos(pitchRadians)).addScaledVector(along, -Math.sin(pitchRadians));
+  const span = new THREE.Vector3().crossVectors(back, chord);
+  return new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(span, back, chord));
 }
 
 /** The ship carrying its rig on the water, with a kite on its tether where it flies. */
@@ -257,9 +260,10 @@ export class ShipScene {
     const azimuth = interpolateAngle(pattern.azimuth[low], pattern.azimuth[high], share);
     const elevation = pattern.elevation[low] + share * (pattern.elevation[high] - pattern.elevation[low]);
     const nose = interpolateAngle(pattern.nose[low], pattern.nose[high], share);
+    const pitch = pattern.pitch[low] + share * (pattern.pitch[high] - pattern.pitch[low]);
     const position = this.kitePosition(design, azimuth, elevation);
     this.kite.position.copy(position);
-    this.kite.quaternion.copy(kiteAttitude(azimuth, elevation, nose));
+    this.kite.quaternion.copy(kiteAttitude(azimuth, elevation, nose, pitch));
     this.tether!.geometry.setFromPoints([this.tetherAnchor(design), position]);
     this.loop!.geometry.setFromPoints(pattern.azimuth.map((angle, i) => this.kitePosition(design, angle, pattern.elevation[i])));
     this.loop!.computeLineDistances();

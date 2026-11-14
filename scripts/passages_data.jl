@@ -79,43 +79,64 @@ function ship_frame_position(radial, apparent_angle, side)
 end
 
 """
-    nose_angle(radial, nose, apparent_angle, side)
+    kite_chord(radial, apparent_wind, angle_of_attack)
 
-Angle [deg] in the ship's frame of the kite's direction of flight `nose` at the unit
-position `radial`, both of [`ship_frame`](@ref): from the direction of rising elevation
-towards rising azimuth on the tether sphere.
+Unit direction from the trailing edge to the nose of a kite at the unit position `radial`:
+into its `apparent_wind`, pitched up by `angle_of_attack` [rad] towards the tether's
+outward direction, which sets the kite's up.
 """
-function nose_angle(radial, nose, apparent_angle, side)
+function kite_chord(radial, apparent_wind, angle_of_attack)
+    into = .-apparent_wind ./ WindShipOpt.norm3(apparent_wind)
+    outward = radial .- WindShipOpt.dot3(radial, into) .* into
+    outward = outward ./ WindShipOpt.norm3(outward)
+    return cos(angle_of_attack) .* into .+ sin(angle_of_attack) .* outward
+end
+
+"""
+    chord_angles(radial, chord, apparent_angle, side)
+
+The unit `chord` of [`kite_chord`](@ref) at the unit position `radial`, both of
+[`ship_frame`](@ref), as two angles [deg] in the ship's frame: of its part along the tether
+sphere, from the direction of rising elevation towards rising azimuth, and of its pitch out
+of the sphere, positive away from the ship.
+"""
+function chord_angles(radial, chord, apparent_angle, side)
     azimuth, elevation = deg2rad.(ship_frame_position(radial, apparent_angle, side))
-    flight = ship_frame(nose, apparent_angle, side)
+    nose = ship_frame(chord, apparent_angle, side)
+    outward = ship_frame(radial, apparent_angle, side)
     rising_elevation = (-sin(elevation) * cos(azimuth), -sin(elevation) * sin(azimuth),
         cos(elevation))
     rising_azimuth = (-sin(azimuth), cos(azimuth), 0.0)
-    return atand(WindShipOpt.dot3(flight, rising_azimuth),
-        WindShipOpt.dot3(flight, rising_elevation))
+    return atand(WindShipOpt.dot3(nose, rising_azimuth),
+        WindShipOpt.dot3(nose, rising_elevation)),
+    asind(clamp(WindShipOpt.dot3(nose, outward), -1.0, 1.0))
 end
 
 """
     resampled_cycle(path)
 
 The closed cycle `path` of [`PatternStep`](@ref)s at [`pattern_samples`](@ref) equal
-fractions of its duration: its unit positions `radials` and directions of flight `noses`,
-and its duration `period` [s].
+fractions of its duration: its unit positions `radials` and the [`kite_chord`](@ref)s
+`chords` there, and its duration `period` [s].
 """
 function resampled_cycle(path)
     period = sum(step.time for step in path)
     times = cumsum(step.time for step in path) .- first(path).time
     closed = [path; path[1]]
     radials = Vector{NTuple{3, Float64}}(undef, pattern_samples)
-    noses = Vector{NTuple{3, Float64}}(undef, pattern_samples)
+    chords = Vector{NTuple{3, Float64}}(undef, pattern_samples)
     for k in 1:pattern_samples
         t = (k - 1) * period / pattern_samples
         i = clamp(searchsortedlast(times, t), 1, length(path))
         share = clamp((t - times[i]) / path[i].time, 0.0, 1.0)
         radials[k] = closed[i].radial .+ share .* (closed[i + 1].radial .- closed[i].radial)
-        noses[k] = closed[i].nose .+ share .* (closed[i + 1].nose .- closed[i].nose)
+        apparent_wind = closed[i].apparent_wind .+
+                        share .* (closed[i + 1].apparent_wind .- closed[i].apparent_wind)
+        angle = closed[i].angle_of_attack +
+                share * (closed[i + 1].angle_of_attack - closed[i].angle_of_attack)
+        chords[k] = kite_chord(radials[k], apparent_wind, angle)
     end
-    return (; radials, noses, period)
+    return (; radials, chords, period)
 end
 
 """
@@ -142,8 +163,8 @@ end
     recorded_pattern(case, trace, i)
 
 Azimuths and elevations [0.1 deg] of the [`pattern_samples`](@ref) points of the table
-pattern nearest the apparent wind, course and side weight of sample `i` of `trace`, the
-[`nose_angle`](@ref) [0.1 deg] at each, then its period [0.1 s]; `nothing` where the kite
+pattern nearest the apparent wind, course and side weight of sample `i` of `trace`, the two
+[`chord_angles`](@ref) [0.1 deg] at each, then its period [0.1 s]; `nothing` where the kite
 is down.
 """
 function recorded_pattern(case, trace, i)
@@ -156,10 +177,10 @@ function recorded_pattern(case, trace, i)
     side = wind_side(trace.wind_east[i], trace.wind_north[i], trace.course[i])
     angle = trace.apparent_angle[i]
     positions = [ship_frame_position(radial, angle, side) for radial in pattern.radials]
-    noses = nose_angle.(pattern.radials, pattern.noses, angle, side)
+    chords = chord_angles.(pattern.radials, pattern.chords, angle, side)
     tenths(values) = round.(Int, 10 .* values)
-    return [tenths(first.(positions)); tenths(last.(positions)); tenths(noses);
-            tenths(pattern.period)]
+    return [tenths(first.(positions)); tenths(last.(positions)); tenths(first.(chords));
+            tenths(last.(chords)); tenths(pattern.period)]
 end
 
 """

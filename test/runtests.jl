@@ -140,7 +140,7 @@ function best_pattern_path(model, max_force, assumptions, course)
     return path
 end
 
-@testset "steps of a flown cycle give its force and peak, noses on the sphere" begin
+@testset "steps of a flown cycle give its force and peak and its own apparent wind" begin
     soft, soft_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     rigid, rigid_force, = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
     steered = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15))
@@ -157,8 +157,10 @@ end
         @test all(pull ./ (period * load) .≈ force.force)
         @test maximum(step.tension for step in path) ≈ force.peak_tension * load
         @test maximum(step.tension for step in path) <= max_force
-        @test all(abs(WindShipOpt.dot3(step.radial, step.nose)) < 1e-9 &&
-                  WindShipOpt.norm3(step.nose) ≈ 1 for step in path)
+        @test all(WindShipOpt.dot3(step.apparent_wind, step.radial) ≈ wind * step.radial[1]
+                  for step in path)
+        @test all(model.lowest_angle - 1e-9 <= step.angle_of_attack <=
+                  pattern.angle_of_attack + 1e-9 for step in path)
     end
 end
 
@@ -3531,10 +3533,14 @@ end
     @test all(isapprox.(position((1.0, 0.0, 0.0), -1), (90.0, 0.0); atol=1e-9))
     @test all(isapprox.(position((0.0, 1.0, 0.0)), (0.0, 0.0); atol=1e-9))
     @test all(isapprox.(position((0.0, 0.0, 1.0)), (0.0, 90.0); atol=1e-9))
-    nose(direction, side=1) = PaperData.nose_angle((0.0, 1.0, 0.0), direction, π / 2, side)
-    @test nose((0.0, 0.0, 1.0)) ≈ 0 atol=1e-9
-    @test nose((1.0, 0.0, 0.0)) ≈ -90 atol=1e-9
-    @test nose((1.0, 0.0, 0.0), -1) ≈ 90 atol=1e-9
+    chord(direction, side=1) = PaperData.chord_angles((0.0, 1.0, 0.0), direction, π / 2,
+        side)
+    @test all(isapprox.(chord((0.0, 0.0, 1.0)), (0.0, 0.0); atol=1e-9))
+    @test all(isapprox.(chord((1.0, 0.0, 0.0)), (-90.0, 0.0); atol=1e-9))
+    @test all(isapprox.(chord((1.0, 0.0, 0.0), -1), (90.0, 0.0); atol=1e-9))
+    @test last(chord((0.0, 1.0, 0.0))) ≈ 90 atol=1e-9
+    @test all(isapprox.(PaperData.kite_chord((0.0, 0.0, 1.0), (10.0, 0.0, 0.0), 0.2),
+        (-cos(0.2), 0.0, sin(0.2)); atol=1e-12))
     wing_ship = Ship(ShipDesign(:methanol, 85.0; wing_area=300.0), assumptions)
     wings = wing_ship.rig
     attached_range, stalled_range = WindShipOpt.trim_ranges(wings, wing_ship.env, 10.0,
@@ -3568,7 +3574,7 @@ end
     table = (; wind_speeds=[12.0], courses=[deg2rad(90.0)], side_weights=[0.0],
         ship.rig.max_force)
     cycle = only(PaperData.kite_patterns((; rig=table), model))
-    @test length(cycle.radials) == length(cycle.noses) == PaperData.pattern_samples
+    @test length(cycle.radials) == length(cycle.chords) == PaperData.pattern_samples
     @test cycle.period > 0
     azimuths = [first(PaperData.ship_frame_position(radial, deg2rad(90.0), 1))
                 for radial in cycle.radials]

@@ -129,16 +129,16 @@ export interface PassageState {
   /** Held at the last sample, as `speed`. */
   lift?: number;
   spin?: number;
-  /** Azimuths, elevations and nose angles [deg] of the recorded cycle, or undefined where none flies. */
-  pattern?: { azimuth: number[]; elevation: number[]; nose: number[]; period: number };
+  /** Azimuths, elevations, nose angles and nose pitches [deg] of the recorded cycle, or undefined where none flies. */
+  pattern?: { azimuth: number[]; elevation: number[]; nose: number[]; pitch: number[]; period: number };
 }
 
 function patternOf(raw: number[] | null | undefined): PassageState["pattern"] {
   if (!raw) return undefined;
-  const n = (raw.length - 1) / 3;
+  const n = (raw.length - 1) / 4;
   const inDegrees = (tenths: number) => tenths / 10;
   const block = (k: number) => raw.slice(k * n, (k + 1) * n).map(inDegrees);
-  return { azimuth: block(0), elevation: block(1), nose: block(2), period: raw[3 * n] / 10 };
+  return { azimuth: block(0), elevation: block(1), nose: block(2), pitch: block(3), period: raw[4 * n] / 10 };
 }
 
 function blendPattern(from: PassageState["pattern"], to: PassageState["pattern"], share: number): PassageState["pattern"] {
@@ -147,6 +147,7 @@ function blendPattern(from: PassageState["pattern"], to: PassageState["pattern"]
     azimuth: from.azimuth.map((angle, i) => interpolateAngle(angle, to.azimuth[i], share)),
     elevation: from.elevation.map((angle, i) => interpolate(angle, to.elevation[i], share)),
     nose: from.nose.map((angle, i) => interpolateAngle(angle, to.nose[i], share)),
+    pitch: from.pitch.map((angle, i) => interpolate(angle, to.pitch[i], share)),
     period: interpolate(from.period, to.period, share),
   };
 }
