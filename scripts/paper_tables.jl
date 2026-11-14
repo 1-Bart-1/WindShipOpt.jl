@@ -956,26 +956,39 @@ function cell_market(table, cell, rig)
 end
 
 """
-    fleet_market(table, drive)
+    cell_markets(table, drive)
 
-Low and high sums of the [`market_measures`](@ref) of each rig of class table `table` on
-`drive` over the [`fleet_cells`](@ref) where it is one of the [`fleet_leaders`](@ref):
-low over the cells it alone leads, high over all. `"any"` sums the best rig of each cell,
-low over the cells with one leader.
+The [`fleet_cells`](@ref) of class table `table` on `drive` that fit a rig, each with the
+ship `type` of its class, its [`fleet_leaders`](@ref) and the [`cell_market`](@ref) of
+each leader and, as `"any"`, of the one that saves most.
 """
-function fleet_market(table, drive)
-    nothing_yet = NamedTuple{market_measures}(zeros(length(market_measures)))
-    market = Dict(rig => (low=nothing_yet, high=nothing_yet) for rig in (rig_names..., "any"))
+function cell_markets(table, drive)
+    classes = ship_classes()
+    markets = []
     for cell in fleet_cells(table, drive)
         leaders = fleet_leaders(cell.savings)
         isempty(leaders) && continue
         sums = Dict(rig => cell_market(table, cell, rig) for rig in leaders)
         sums["any"] = sums[argmax(rig -> cell.savings[rig], leaders)]
-        for (rig, sum) in sums
-            (; low, high) = market[rig]
-            market[rig] = (low=length(leaders) == 1 ? map(+, low, sum) : low,
-                high=map(+, high, sum))
-        end
+        push!(markets, (; classes[cell.class].type, leaders, sums))
+    end
+    return markets
+end
+
+"""
+    fleet_market(markets)
+
+Low and high sums of the [`market_measures`](@ref) of each rig, and of `"any"`, over the
+[`cell_markets`](@ref) `markets` that rig leads: low over those it alone leads, high
+over all.
+"""
+function fleet_market(markets)
+    nothing_yet = NamedTuple{market_measures}(zeros(length(market_measures)))
+    market = Dict(rig => (low=nothing_yet, high=nothing_yet) for rig in (rig_names..., "any"))
+    for (; leaders, sums) in markets, (rig, sum) in sums
+        (; low, high) = market[rig]
+        market[rig] = (low=length(leaders) == 1 ? map(+, low, sum) : low,
+            high=map(+, high, sum))
     end
     return market
 end
@@ -1009,22 +1022,53 @@ end
 """
     market_table()
 
-Tabular of the [`fleet_market`](@ref) of each rig and of the best rig on each drive, low
-to high: market_table.tex.
+Tabulars of the [`fleet_market`](@ref) on each drive, low to high: of each rig and the
+best rig in market_table.tex, and of each rig's ships and sales by ship type in
+market_type_table.tex.
 """
 function market_table()
     table = read_table(data_file("classes.csv"))
+    markets = Dict(drive => cell_markets(table, drive) for (drive, _) in drive_labels)
     open(joinpath(sections, "market_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}ll", "r"^length(market_columns), "@{}}\n\\toprule")
         println(io, "Fuel & Rig & ", join(getindex.(values(market_columns), 2), " & "),
             " \\\\\n & & ", join(last.(values(market_columns)), " & "), " \\\\")
         for (drive, label) in drive_labels
-            market = fleet_market(table, drive)
+            market = fleet_market(markets[drive])
             println(io, "\\midrule")
             for (k, rig) in enumerate((rig_names..., "any"))
                 cells = [market_range(market[rig], measure) for measure in market_measures]
                 println(io, k == 1 ? label : "", " & ", rig == "any" ? "best rig" : rig,
                     " & ", join(cells, " & "), " \\\\")
+            end
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+    write_market_types(markets)
+end
+
+"""
+    write_market_types(markets)
+
+Tabular of the ships and sales [USD bn] of each rig's [`fleet_market`](@ref) over the
+[`cell_markets`](@ref) of each ship type in `markets`, by drive: market_type_table.tex.
+"""
+function write_market_types(markets)
+    types = unique(class.type for class in values(ship_classes()))
+    open(joinpath(sections, "market_type_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}ll", "rr"^length(rig_names), "@{}}\n\\toprule")
+        println(io, " & & ", join(("\\multicolumn{2}{c}{$rig}" for rig in rig_names), " & "),
+            " \\\\")
+        println(io, join(("\\cmidrule(lr){$(2k + 1)-$(2k + 2)}" for k in eachindex(rig_names))))
+        println(io, "Fuel & Ship type", " & Ships & Sales [USD bn]"^length(rig_names), " \\\\")
+        for (drive, label) in drive_labels
+            println(io, "\\midrule")
+            for (k, type) in enumerate(sort(types))
+                market = fleet_market(filter(cell -> cell.type == type, markets[drive]))
+                cells = [market_range(market[rig], measure)
+                         for rig in rig_names for measure in (:ships, :sales)]
+                println(io, k == 1 ? label : "", " & ", type, " & ", join(cells, " & "),
+                    " \\\\")
             end
         end
         println(io, "\\bottomrule\n\\end{tabular}")
@@ -1726,12 +1770,20 @@ end
     market_numbers(table)
 
 Name and text, per drive of the class table `table`, of the [`market_range`](@ref) of each
-of the [`market_measures`](@ref) of the best rig of each cell.
+of the [`market_measures`](@ref) of each rig's [`fleet_market`](@ref) and of the best rig's.
 """
-market_numbers(table) = [
-    "Market$word$(uppercasefirst(string(measure)))" => market_range(
-        fleet_market(table, drive)["any"], measure)
-    for (drive, word) in drive_words for measure in market_measures]
+function market_numbers(table)
+    numbers = Pair{String, String}[]
+    for (drive, word) in drive_words
+        market = fleet_market(cell_markets(table, drive))
+        for rig in (rig_names..., "any"), measure in market_measures
+            name = string("Market", word, uppercasefirst(rig),
+                uppercasefirst(string(measure)))
+            push!(numbers, name => market_range(market[rig], measure))
+        end
+    end
+    return numbers
+end
 
 """
     recommendation_numbers(table)

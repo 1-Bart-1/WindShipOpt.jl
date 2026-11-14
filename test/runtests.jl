@@ -3508,7 +3508,12 @@ end
         "fuel" => column(case -> case.rig == "none" ? 0.03 : 0.02),
         "carbon" => column(case -> case.rig == "none" ? 2.0 : 1.5),
         "retractable" => fill("true", length(cases)))
-    market = PaperData.fleet_market(table, drive)
+    markets = PaperData.cell_markets(table, drive)
+    market = PaperData.fleet_market(markets)
+    @test PaperData.fleet_market(filter(cell -> cell.type == "bulk carrier", markets)) ==
+          market
+    @test all(iszero, PaperData.fleet_market(filter(cell -> cell.type == "container",
+        markets))["any"].high)
     cell_ships, cell_work = ships[class] / 3, work[class] / 3
     rotors = market["rotors"]
     @test rotors.low.ships ≈ cell_ships
