@@ -160,6 +160,40 @@ end
     end
 end
 
+# At rest in a wind along x the tether pull, the drag along the wind and the weight leave
+# a lift across the wind of exactly the kite's lift coefficient.
+@testset "a still kite rests where lift, drag, weight and tether tension balance" begin
+    model, max_force, _ = WindShipOpt.kite_model(1600.0, 3.0, assumptions)
+    wind = 10.5
+    problem = WindShipOpt.PatternProblem(model, max_force,
+        deg2rad(assumptions[:kite_min_elevation]), wind, π, 0.0)
+    force, still = WindShipOpt.still_kite(problem)
+    path = WindShipOpt.PatternStep[]
+    WindShipOpt.PatternForce(model, still, wind, max_force; path)
+    (; radial, tension) = only(path)
+    (; lift, drag) = WindShipOpt.KiteAero(model, still.angle_of_attack)
+    load = 0.5model.air_density * wind^2 * model.area
+    lift_force = tension .* radial .- (load * drag, 0.0, 0.0) .+
+                 (0.0, 0.0, model.mass * model.gravity)
+    @test abs(lift_force[1]) < 1e-3 * load * lift
+    @test hypot(lift_force...) ≈ load * lift rtol = 1e-4
+    @test all(force.force .* load .≈ tension .* radial)
+    @test force.lowest_elevation >= deg2rad(assumptions[:kite_min_elevation]) - 1e-6
+end
+
+@testset "upwind a kite no pattern pulls forward is held still, pulling back less" begin
+    model, max_force, _ = WindShipOpt.kite_model(1600.0, 3.0, assumptions)
+    problem = WindShipOpt.PatternProblem(model, max_force,
+        deg2rad(assumptions[:kite_min_elevation]), 10.5, π, 0.0)
+    swept, parameters = WindShipOpt.optimal_pattern(problem,
+        WindShipOpt.pattern_starts(model, π))
+    @test first(WindShipOpt.course_force(problem, swept)) < 0
+    held, state = WindShipOpt.kite_state(problem, swept, parameters)
+    @test state isa WindShipOpt.StillKite
+    @test first(WindShipOpt.course_force(problem, swept)) <
+          first(WindShipOpt.course_force(problem, held)) < 0
+end
+
 "least angle [rad] of a pattern's `path` off the apparent downwind direction"
 least_off_wind(path) = minimum(acos(first(step.radial)) for step in path)
 
@@ -361,16 +395,20 @@ end
     @test force_at(6.1).thrust != 0
 end
 
-@testset "no pattern gives force under the launch wind" begin
+@testset "no pattern flies under the launch wind" begin
     for area in (800.0, 3200.0)
         model, max_force, tether_diameter = WindShipOpt.kite_model(area, 3.0, assumptions)
         tether = WindShipOpt.rope_mass(tether_diameter, model.tether_length, assumptions)
         launch = WindShipOpt.launch_min_wind(model, tether, assumptions)
         @test launch >= WindShipOpt.min_flight_wind(model, assumptions)
         @test launch >= assumptions[:kite_launch_min_wind]
-        forces = WindShipOpt.compute_pattern_table(model, max_force, assumptions,
-            [launch - 0.5], deg2rad.(0.0:15.0:180.0), [0.0])
-        @test all(force -> !isfinite(force.force[1]), forces)
+        for course in deg2rad.(0.0:15.0:180.0)
+            problem = WindShipOpt.PatternProblem(model, max_force,
+                deg2rad(assumptions[:kite_min_elevation]), launch - 0.5, course, 0.0)
+            force, _ = WindShipOpt.optimal_pattern(problem,
+                WindShipOpt.pattern_starts(model, course))
+            @test !isfinite(force.peak_tension)
+        end
     end
 end
 
@@ -1655,13 +1693,10 @@ end
     down(wind, flown, condition=calm_sea) = WindShipOpt.kite_down_reason(kite_table,
         (; speed_index=1, headwind=wind - speed, crosswind=0.0, condition, flown,
             stowed=2.0e6, daylight=true), prices)
-    light = (rig.min_flight_wind + WindShipOpt.lowest_pull_wind(rig)) / 2
-    @test rig.min_flight_wind < light < WindShipOpt.lowest_pull_wind(rig)
     no_force = 2.0e6
-    @test down(light, no_force) == :wind_low_pull
     @test down(rig.min_flight_wind - 0.1, no_force) == :wind_low_flight
-    @test down(WindShipOpt.lowest_pull_wind(rig) + 1.0, no_force) == :no_thrust
-    @test down(WindShipOpt.lowest_pull_wind(rig) + 1.0, Inf) == :hull_limit
+    @test down(rig.min_flight_wind + 1.0, no_force) == :no_thrust
+    @test down(rig.min_flight_wind + 1.0, Inf) == :hull_limit
     rough_sea = WindShipOpt.SeaCondition(kite_table.table, 0.0, 0.0, 2.0, 8.0, 0.0)
     raised = WindShipOpt.extra_launch_wind(kite_table.table, speed, rough_sea)
     short_of_raised = rig.launch_min_wind + raised / 2
@@ -3417,7 +3452,7 @@ end
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
     rig = kite_table.table.ship.rig
     sailed = length(kite_table.speeds) ÷ 2
-    tailwind = first(kite_table.speeds) + WindShipOpt.lowest_pull_wind(rig) + 1.0
+    tailwind = first(kite_table.speeds) + rig.min_flight_wind + 1.0
     wind_10m = tailwind / kite_table.table.kite_wind_factor
     following_sea(wave_height) = WindShipOpt.SeaCondition(kite_table.table, wind_10m,
         float(π), wave_height, 8.0, 0.0)
@@ -3719,7 +3754,7 @@ end
     @test saving.fuel_percent == 10.0
 end
 
-@testset "the pattern data has rows only for conditions where a pattern flies" begin
+@testset "the pattern data has rows only where the kite flies or holds still" begin
     @test all(isempty, written_pattern(3.0, 120))
     for (wind, course) in ((6.0, 120), (12.0, 90))
         paths, forces = written_pattern(wind, course)

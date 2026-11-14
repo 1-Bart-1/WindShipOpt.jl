@@ -72,9 +72,11 @@ end
     resampled_cycle(path)
 
 The closed cycle `path` of [`PatternStep`](@ref)s as unit positions at
-[`pattern_samples`](@ref) equal fractions of its duration, and its duration [s].
+[`pattern_samples`](@ref) equal fractions of its duration, and its duration [s]; a path of
+one step is a still kite, its position repeated with no duration.
 """
 function resampled_cycle(path)
+    isone(length(path)) && return fill(only(path).radial, pattern_samples), 0.0
     period = sum(step.time for step in path)
     times = cumsum(step.time for step in path) .- first(path).time
     closed = [path; path[1]]
@@ -93,17 +95,17 @@ end
 
 For the kite rig of `ship` flown as `model`: the unit positions and period [s] of the cycle
 of each pattern of its table, by index (wind speed, course, side weight); `nothing` where
-no pattern flies.
+the kite neither flies a pattern nor holds still.
 """
 function kite_patterns(ship, model)
     rig = ship.rig
-    forces, parameters = WindShipOpt.solved_patterns(model, rig.max_force, assumptions,
+    forces, states = WindShipOpt.solved_patterns(model, rig.max_force, assumptions,
         rig.wind_speeds, rig.courses, rig.side_weights)
     return map(CartesianIndices(forces)) do index
         isfinite(forces[index].force[1]) || return nothing
         path = WindShipOpt.PatternStep[]
-        WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters[index]),
-            rig.wind_speeds[index[1]], rig.max_force; path)
+        WindShipOpt.PatternForce(model, states[index], rig.wind_speeds[index[1]],
+            rig.max_force; path)
         return isempty(path) ? nothing : resampled_cycle(path)
     end
 end

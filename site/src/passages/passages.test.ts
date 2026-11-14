@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { passagesDirectory } from "../../data";
 import * as THREE from "three";
 import { findLeg, interpolateAngle, legEvents, passageDays, sampleAt, stateAt, Timeline, windAt, type Leg, type WindField } from "./passages";
-import { disposeTree } from "./scene";
+import { disposeTree, towardsEdge } from "./scene";
 
 const leg: Leg = {
   design: 1,
@@ -118,6 +118,16 @@ describe("the three.js scene helpers", () => {
     root.add(new THREE.Mesh(geometry, material));
     disposeTree(root);
     expect(disposed).toBe(2);
+  });
+});
+
+describe("a kite held still", () => {
+  it("points its nose along the tether sphere, upwind towards the window's edge", () => {
+    const radial = new THREE.Vector3(-0.5, Math.sqrt(3) / 2, 0);
+    const nose = towardsEdge(radial, 0);
+    expect(nose.dot(radial)).toBeCloseTo(0);
+    expect(nose.x).toBeCloseTo(Math.sqrt(3) / 2);
+    expect(nose.y).toBeCloseTo(0.5);
   });
 });
 

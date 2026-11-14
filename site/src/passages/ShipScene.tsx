@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { PassageDesign, PassageState } from "./passages";
 import { brandColour } from "../brand";
-import { disposeTree } from "./scene";
+import { disposeTree, towardsEdge } from "./scene";
 
 const flat = (name: string, options: THREE.MeshBasicMaterialParameters = {}) =>
   new THREE.MeshBasicMaterial({ color: brandColour(name), ...options });
@@ -225,7 +225,8 @@ export class ShipScene {
     this.kite.visible = flying;
     this.bundle!.visible = !flying;
     this.tether!.visible = flying;
-    this.loop!.visible = flying;
+    const still = pattern?.period === 0;
+    this.loop!.visible = flying && !still;
     if (!pattern || !flying) return;
     const count = pattern.azimuth.length;
     this.cycle = (this.cycle + (dt * count) / Math.max(pattern.period / 6, 3)) % count;
@@ -239,7 +240,8 @@ export class ShipScene {
     const anchor = new THREE.Vector3(design.attach_position!, design.attach_height!, 0);
     this.kite.position.copy(position);
     const radial = position.clone().sub(anchor).normalize();
-    const motion = ahead.sub(position).normalize();
+    const step = ahead.sub(position);
+    const motion = still || step.lengthSq() < 1e-6 ? towardsEdge(radial, state.apparentAngle) : step.normalize();
     const along = new THREE.Vector3().crossVectors(radial, motion).normalize();
     const basis = new THREE.Matrix4().makeBasis(along, radial, motion.clone().cross(along).negate());
     this.kite.quaternion.setFromRotationMatrix(basis);
