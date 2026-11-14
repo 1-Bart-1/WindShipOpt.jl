@@ -364,14 +364,15 @@ with_rig(ship::Ship, rig) = Ship(ship.design, ship.env, ship.hull, ship.wave_coe
 
 Power [W] delivered to the propeller at the rating of the main engine of `ship`: the
 engine power of its class's source design through the shaft, or for the reference coaster
-family the calm-water power at the service speed with the sea and engine margins.
+family the calm-water power at the service speed with any kite stowed and the sea and
+engine margins.
 """
 function rated_delivered_power(ship::Ship, assumptions::Assumptions)
     (; class) = ship.design
     isnothing(class) || return 1e3class.power * assumptions[:shaft_efficiency]
     speed = assumptions[:service_speed] * KNOT
     calm = delivered_power(ship.propeller, ship.env, speed,
-        first(best_trim(ship, ship.rig, speed, 0.0, 0.0)))
+        first(best_trim(ship, standing_rig(ship.rig), speed, 0.0, 0.0)))
     return calm * (1 + assumptions[:sea_margin]) / assumptions[:engine_rating_fraction]
 end
 
