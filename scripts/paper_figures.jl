@@ -1837,18 +1837,18 @@ function forecast_figure()
         end
         ylims!(panel, 0, nothing)
     end
-    weights = Axis(figure[2, 2]; xlabel="lead time [days]", ylabel="weight a(L)",
+    weights = Axis(figure[2, 2]; xlabel="lead time [days]", ylabel=L"weight $a(L)$",
         title="(d) weight of the forecast in the blend")
-    for (quantity, linestyle) in (("wind", :solid), ("height", :dash))
-        lines!(weights, days, errors["$(quantity)_weight"]; color=:black, linestyle)
+    for (quantity, label, linestyle) in (("wind", "wind", :solid),
+        ("height", "wave height", :dash))
+        lines!(weights, days, errors["$(quantity)_weight"]; color=:black, linestyle, label)
     end
     ylims!(weights, 0, 1)
+    axislegend(weights; position=:rt)
     Legend(figure[3, 1:2], [[PolyElement(color=(:gray25, alpha)) for alpha in plan_alphas];
-            [LineElement(; style...) for (_, style) in forecast_error_lines];
-            LineElement(color=:black); LineElement(color=:black, linestyle=:dash)],
+            [LineElement(; style...) for (_, style) in forecast_error_lines]],
         [last.(forecast_figure_plans)...; "archived forecast"; "blend planned on";
-            "climatology"; "weight, wind"; "weight, wave height"];
-        orientation=:horizontal, nbanks=2)
+            "climatology"]; orientation=:horizontal, nbanks=2)
     rowgap!(figure.layout, 2, 4)
     save(joinpath(figures, "forecast.pdf"), figure; pt_per_unit=print_scale)
 end
