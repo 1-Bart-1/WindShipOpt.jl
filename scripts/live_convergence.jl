@@ -33,14 +33,12 @@ function live_cases()
                    if rig in ("none", "kite", "rotors")
                    for departure in ensemble_departures]
     full = [(; check="full", case.ship, case.route, case.rig, case.design, departure)
-            for case in gate_cases(1.0) for departure in ensemble_departures[1:3:end]]
+            for case in gate_cases() for departure in ensemble_departures[1:3:end]]
     entries = [development; full]
-    corridors = Dict(route => route_corridors(route, mask; grid_spacing...)
-                     for route in unique(entry.route for entry in entries))
     settings = [(; setting, step, stride) for (setting, step, stride) in LIVE_SETTINGS]
     return [(; entry..., setting...,
-                case=trip_case(entry.design; forecast=:grid_live, entry.route,
-                    entry.rig, entry.departure, paths=corridors[entry.route]))
+                case=trip_case(entry.design; forecast=:live, entry.route, entry.rig,
+                    entry.departure))
             for entry in entries for setting in settings
             if entry.check == "development" || setting.setting != "half"]
 end
