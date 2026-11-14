@@ -1,31 +1,32 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Convergence of sailing the forecast result's plan live, at the router's live settings and
-# with the time between choices and the speeds skipped halved twice: on the development
-# case, the 140 m e-ammonia ship to Guadeloupe without a rig, with the kite and with the
-# rotors over its 12 departures; and on the full check, the router gate's ships, routes and
-# rigs over four of them, at the live settings and the finest.
+# Convergence of sailing the forecast result's plan live, at the given live settings: on
+# the development check, the 140 m e-ammonia ship to Guadeloupe without a rig, with the
+# kite and with the rotors over its 12 departures; or on the full check, the router gate's
+# ships, routes and rigs over four of them.
 #
-#   julia --project=scripts -t auto scripts/live_convergence.jl <out_dir>
+#   julia --project=scripts -t auto scripts/live_convergence.jl <out_dir> <check> <setting>...
 #
-# Writes live_convergence.csv, a line per round trip, and prints per check, ship, route and
-# setting each rig's mean cost saving, its change from the finest setting and the largest
-# change of a gap between two rigs, over the departures where every case has a trip.
+# with <check> development or full and each <setting> a name of LIVE_SETTINGS. Writes
+# live_convergence.csv, a line per round trip, and prints per ship, route and setting each
+# rig's mean cost saving, its change from the finest setting and the largest change of a
+# gap between two rigs, over the departures where every case has a trip.
 include("paper.jl")
 include("router_gate.jl")
 
 "live settings compared, as (name, time between choices [h], speeds skipped plus one)"
-LIVE_SETTINGS = (("hourly", 1.0, 4), ("half", 0.5, 2), ("quarter", 0.25, 1))
+LIVE_SETTINGS = (("hourly", 1.0, 4), ("half", 0.5, 2), ("quarter", 0.25, 1),
+    ("eighth", 0.125, 1))
 
 """
-    live_cases()
+    live_cases(check, names)
 
-Per check, setting of `LIVE_SETTINGS`, ship, route, rig and departure, the case sailing the
-forecast result's plan live, as (check, setting, step, stride, ship, route, departure,
-case).
+Per setting of `LIVE_SETTINGS` named in `names`, ship, route, rig and departure of `check`,
+the case sailing the forecast result's plan live, as (check, setting, step, stride, ship,
+route, departure, case).
 """
-function live_cases()
+function live_cases(check, names)
     development = [(; check="development", ship="140m_ammonia", route=:caribbean, rig,
                        design=ShipDesign(:ammonia, 140.0; rig_size(rig, area)...),
                        departure)
@@ -34,15 +35,15 @@ function live_cases()
                    for departure in ensemble_departures]
     full = [(; check="full", case.ship, case.route, case.rig, case.design, departure)
             for case in gate_cases(1.0) for departure in ensemble_departures[1:3:end]]
-    entries = [development; full]
+    entries = Dict("development" => development, "full" => full)[check]
     corridors = Dict(route => route_corridors(route, mask; grid_spacing...)
                      for route in unique(entry.route for entry in entries))
-    settings = [(; setting, step, stride) for (setting, step, stride) in LIVE_SETTINGS]
+    settings = [(; setting, step, stride) for (setting, step, stride) in LIVE_SETTINGS
+                if setting in names]
     return [(; entry..., setting...,
                 case=trip_case(entry.design; forecast=:grid_live, entry.route,
                     entry.rig, entry.departure, paths=corridors[entry.route]))
-            for entry in entries for setting in settings
-            if entry.check == "development" || setting.setting != "half"]
+            for entry in entries for setting in settings]
 end
 
 "cost per tonne-kilometre [USD/tkm] of each of `cases`, `NaN` where its trip fails"
@@ -85,12 +86,12 @@ live_savings(cost, (check, ship, route), setting, rig, departures) =
     print_convergence(cases, costs)
 
 Per check, ship, route and setting, each rig's mean saving [%], its mean change from the
-finest setting and the largest change of a gap between two rigs [points].
+finest setting among them and the largest change of a gap between two rigs [points].
 """
 function print_convergence(cases, costs)
     cost = Dict((entry.check, entry.setting, entry.ship, entry.route, entry.rig,
                     entry.departure) => value for (entry, value) in zip(cases, costs))
-    finest = first(last(LIVE_SETTINGS))
+    finest = argmin(entry -> entry.step, cases).setting
     for group in unique((entry.check, entry.ship, entry.route) for entry in cases)
         members = filter(entry -> (entry.check, entry.ship, entry.route) == group, cases)
         rigs = filter(!=("none"), unique(entry.rig for entry in members))
@@ -115,7 +116,7 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     global paper_run = PaperRun(nothing, :draft, Dict{String, Any}(), 0, 0)
-    cases = live_cases()
+    cases = live_cases(ARGS[2], ARGS[3:end])
     costs = live_costs(cases)
     write_live_costs(joinpath(mkpath(first(ARGS)), "live_convergence.csv"), cases, costs)
     print_convergence(cases, costs)
