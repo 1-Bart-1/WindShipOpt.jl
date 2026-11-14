@@ -49,15 +49,22 @@ end
 "cost per tonne-kilometre [USD/tkm] of each of `cases`, `NaN` where its trip fails"
 function live_costs(cases)
     costs = fill(NaN, length(cases))
-    Threads.@threads :greedy for k in eachindex(cases)
-        (; step, stride, departure, case) = cases[k]
+    for (step, stride) in unique((entry.step, entry.stride) for entry in cases)
         settings = WindShipOpt.RouterSettings(live_step_hours=step,
             live_speed_stride=stride)
-        trip = WindShipOpt.with_router_settings(() -> case_trip(case, [departure]),
-            settings)
-        isnothing(trip) || (costs[k] = trip.cost_per_tonne_km)
+        members = findall(entry -> (entry.step, entry.stride) == (step, stride), cases)
+        WindShipOpt.with_router_settings(() -> trip_costs!(costs, cases, members), settings)
     end
     return costs
+end
+
+"set `costs` at `members` of `cases` to each trip's cost per tonne-kilometre [USD/tkm]"
+function trip_costs!(costs, cases, members)
+    Threads.@threads :greedy for k in members
+        (; departure, case) = cases[k]
+        trip = case_trip(case, [departure])
+        isnothing(trip) || (costs[k] = trip.cost_per_tonne_km)
+    end
 end
 
 "write `cases` and their `costs` to the CSV file `path`"
