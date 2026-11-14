@@ -1012,6 +1012,9 @@ end
 
 CostToGo(values::Array{Float64, 4}, step) = CostToGo(values, size(values, 2), step)
 
+"A [`CostToGo`](@ref) of the values of `to_go` that `to_go` does not share"
+Base.copy(to_go::CostToGo) = CostToGo(copy(to_go.values), to_go.knots, to_go.step)
+
 function (to_go::CostToGo)(lateral, aloft, stage, time)
     position = time / to_go.step + 1
     knot = floor(Int, position)
@@ -1169,15 +1172,15 @@ A [`SearchRecord`](@ref) `record` receives what the search kept. Returns `nothin
 path arrives within `MAX_LEG_HOURS`.
 """
 route(corridor::Corridor, table::RouteTable, weather, departure; options...) =
-    first(route_and_cost_to_go(corridor, table, weather, departure; options...))
+    first(route_keeping(Returns(nothing), corridor, table, weather, departure; options...))
 
 """
-    route_and_cost_to_go(corridor, table, weather, departure; options...)
+    route_keeping(keep, corridor, table, weather, departure; options...)
 
-The [`route`](@ref) with these arguments, and a copy of the [`CostToGo`](@ref) that bounded
-its search.
+The [`route`](@ref) with these arguments, and `keep` of the [`CostToGo`](@ref) that bounded
+its search, which is the router's own and reused once it returns.
 """
-function route_and_cost_to_go(corridor::Corridor, table::RouteTable, weather, departure;
+function route_keeping(keep, corridor::Corridor, table::RouteTable, weather, departure;
         time_cost, first_stage=1, first_lateral=centre_index(corridor), first_aloft=false,
         coastal_penalty=1.0, record=nothing)
     (; time_step) = ROUTER_SETTINGS[]
@@ -1194,7 +1197,7 @@ function route_and_cost_to_go(corridor::Corridor, table::RouteTable, weather, de
             limits; options...)
         isnothing(record) || record!(record, workspace, size(corridor.lat, 1),
             (; to_go, estimate, limits, limit, found=leg, time_step))
-        kept = CostToGo(copy(to_go.values), to_go.knots, to_go.step)
+        kept = keep(to_go)
         isnothing(leg) && return nothing, kept
         return final_pass(leg, corridor, table, weather, departure; time_cost, first_stage,
             first_aloft, coastal_penalty), kept
@@ -1976,7 +1979,7 @@ it, and the mean of the members' [`CostToGo`](@ref).
 """
 function forecast_plan(known, corridor, table::RouteTable, time, prices; first_stage,
         first_lateral, first_aloft, coastal_penalty)
-    plan, to_go = route_and_cost_to_go(corridor, table, known, time;
+    plan, to_go = route_keeping(copy, corridor, table, known, time;
         time_cost=prices.time, first_stage, first_lateral, first_aloft, coastal_penalty)
     isnothing(plan) && return nothing, nothing, nothing
     return plan, plan_values(plan, corridor, table, known, time, first_stage, prices), to_go
@@ -1984,7 +1987,7 @@ end
 
 function forecast_plan(members::Vector, corridor, table::RouteTable, time, prices;
         first_stage, first_lateral, first_aloft, coastal_penalty)
-    routed = [route_and_cost_to_go(corridor, table, member, time; time_cost=prices.time,
+    routed = [route_keeping(copy, corridor, table, member, time; time_cost=prices.time,
                   first_stage, first_lateral, first_aloft, coastal_penalty)
               for member in members]
     plans = unique(plan -> plan.path, filter(!isnothing, first.(routed)))
@@ -2017,7 +2020,7 @@ function remaining_cost(corridor::Corridor, table::RouteTable, known, departure,
     try
         to_go = CostToGo(workspace, corridor, table, known, departure;
             time_cost=prices.time, first_stage, coastal_penalty, to_go_step)
-        return CostToGo(copy(to_go.values), to_go.knots, to_go.step)
+        return copy(to_go)
     finally
         release_workspace(workspace)
     end
