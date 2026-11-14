@@ -82,7 +82,7 @@ weather along an edge & at most every \SI{3}{h} & fuel and speed of an edge \\
 states searched & within 3\,\% of a backward estimate of the cost to go at \SI{24}{h} knots, 20\,\% with a kite; then 6\,\%, 40\,\% with a kite, then all, if a pass ends above its limit or finds no path; costs at most 0.01 points of cost saving against searching all states & dynamic programme \\
 longest passage & 50 days & time bins \\
 speeds & every fourth table speed, 13 from \SI{4}{kn} to the ship's maximum & edge choices \\
-final pass & all table speeds, \SI{0.25}{h} bins, within \SI{24}{h} of the path found & passage reported \\
+final pass & all table speeds, \SI{0.25}{h} bins, \SI{1}{h} on the forecast plan weighing the wind error, within \SI{24}{h} of the path found & passage reported \\
 re-planning interval & first route node \SI{24}{h} after the last plan; 12 and \SI{6}{h} in the re-planning study & forecast router \\
 plan margin on the kite's limits & \SI{20}{\%} tighter wind limits and more launch wind in a sea, tested & forecast router \\
 forecasts & GEFSv12 reforecast control run and four perturbed members, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead & forecast router \\

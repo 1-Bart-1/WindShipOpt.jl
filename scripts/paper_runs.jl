@@ -395,33 +395,53 @@ case_directory(case, departures) = joinpath(paper_run.directory, "cases",
         paper_run.record["code_hash"])))
 
 """
-    cached_trip(directory, assumptions)
+    cached_entry(directory, assumptions)
 
-Round trip stored in the cache `directory` under assumptions with the values of
-`assumptions` in every input it read, or `missing` where there is none.
+Entry stored in the cache `directory` under assumptions with the values of `assumptions` in
+every input it read, with its round trip `trip` and the `seconds` it took to compute, or
+`missing` where there is none.
 """
-function cached_trip(directory, assumptions)
+function cached_entry(directory, assumptions)
     isdir(directory) || return missing
     for file in readdir(directory; join=true)
         endswith(file, ".bin") || continue
-        (; inputs, trip) = deserialize(file)
-        all(assumptions[name] == value for (name, value) in inputs) && return trip
+        entry = deserialize(file)
+        all(assumptions[name] == value for (name, value) in entry.inputs) && return entry
     end
     return missing
 end
 
 """
+    cached_trip(directory, assumptions)
+
+Round trip of the [`cached_entry`](@ref) of `directory` and `assumptions`, or `missing`.
+"""
+function cached_trip(directory, assumptions)
+    entry = cached_entry(directory, assumptions)
+    return ismissing(entry) ? missing : entry.trip
+end
+
+"""
+    trip_seconds(case, departures)
+
+Seconds [s] the round trip of `case` over `departures` cached in the run in use took to
+compute.
+"""
+trip_seconds(case, departures) =
+    cached_entry(case_directory(case, departures), case.assumptions).seconds
+
+"""
     stored_trip(compute, directory, assumptions)
 
 Round trip `compute()` returns, stored in the cache `directory` through a temporary file
-with the values in `assumptions` of the inputs it read.
+with the values in `assumptions` of the inputs it read and the seconds it took.
 """
 function stored_trip(compute, directory, assumptions)
-    trip, names = inputs_read(compute)
+    seconds = @elapsed (trip, names) = inputs_read(compute)
     inputs = sort([name => assumptions[name] for name in names])
     mkpath(directory)
     temporary = tempname(directory; cleanup=false)
-    serialize(temporary, (; inputs, trip))
+    serialize(temporary, (; inputs, trip, seconds))
     mv(temporary, joinpath(directory, content_hash(inputs) * ".bin"); force=true)
     return trip
 end
