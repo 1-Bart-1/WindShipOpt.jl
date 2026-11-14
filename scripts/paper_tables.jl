@@ -951,7 +951,7 @@ function cell_market(table, cell, rig)
     price, ship = rig_price(table, row)
     fuel = work * (table["fuel"][bare] - table["fuel"][row]) * 1e6 / ship.fuel.heating_value
     return (; ships, units=ships * table["units"][row], area=ships * table["area"][row],
-        sales=ships * price, saved=cell.bill * cell.savings[rig] / 100, fuel,
+        sales=ships * price, saved=cell_saved(cell, rig), fuel,
         carbon=work * (table["carbon"][bare] - table["carbon"][row]))
 end
 
@@ -983,12 +983,12 @@ Low and high sums of the [`market_measures`](@ref) of each rig, and of `"any"`, 
 over all.
 """
 function fleet_market(markets)
-    nothing_yet = NamedTuple{market_measures}(zeros(length(market_measures)))
-    market = Dict(rig => (low=nothing_yet, high=nothing_yet) for rig in (rig_names..., "any"))
-    for (; leaders, sums) in markets, (rig, sum) in sums
+    no_market = NamedTuple{market_measures}(zeros(length(market_measures)))
+    market = Dict(rig => (low=no_market, high=no_market) for rig in (rig_names..., "any"))
+    for (; leaders, sums) in markets, (rig, cell) in sums
         (; low, high) = market[rig]
-        market[rig] = (low=length(leaders) == 1 ? map(+, low, sum) : low,
-            high=map(+, high, sum))
+        market[rig] = (low=length(leaders) == 1 ? map(+, low, cell) : low,
+            high=map(+, high, cell))
     end
     return market
 end
@@ -1050,23 +1050,26 @@ end
 """
     write_market_types(markets)
 
-Tabular of the ships and sales [USD bn] of each rig's [`fleet_market`](@ref) over the
-[`cell_markets`](@ref) of each ship type in `markets`, by drive: market_type_table.tex.
+Tabular of the ships and sales [USD bn] of the [`fleet_market`](@ref) of each rig with a
+market on some drive over the [`cell_markets`](@ref) of each ship type in `markets`, by
+drive: market_type_table.tex.
 """
 function write_market_types(markets)
     types = unique(class.type for class in values(ship_classes()))
+    rigs = [rig for rig in rig_names
+            if any(market -> fleet_market(market)[rig].high.ships > 0, values(markets))]
     open(joinpath(sections, "market_type_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}ll", "rr"^length(rig_names), "@{}}\n\\toprule")
-        println(io, " & & ", join(("\\multicolumn{2}{c}{$rig}" for rig in rig_names), " & "),
+        println(io, "\\begin{tabular}{@{}ll", "rr"^length(rigs), "@{}}\n\\toprule")
+        println(io, " & & ", join(("\\multicolumn{2}{c}{$rig}" for rig in rigs), " & "),
             " \\\\")
-        println(io, join(("\\cmidrule(lr){$(2k + 1)-$(2k + 2)}" for k in eachindex(rig_names))))
-        println(io, "Fuel & Ship type", " & Ships & Sales [USD bn]"^length(rig_names), " \\\\")
+        println(io, join(("\\cmidrule(lr){$(2k + 1)-$(2k + 2)}" for k in eachindex(rigs))))
+        println(io, "Fuel & Ship type", " & Ships & Sales [USD bn]"^length(rigs), " \\\\")
         for (drive, label) in drive_labels
             println(io, "\\midrule")
             for (k, type) in enumerate(sort(types))
                 market = fleet_market(filter(cell -> cell.type == type, markets[drive]))
                 cells = [market_range(market[rig], measure)
-                         for rig in rig_names for measure in (:ships, :sales)]
+                         for rig in rigs for measure in (:ships, :sales)]
                 println(io, k == 1 ? label : "", " & ", type, " & ", join(cells, " & "),
                     " \\\\")
             end

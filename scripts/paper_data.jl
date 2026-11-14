@@ -951,13 +951,22 @@ A cell in the band `"none"` saves nothing, as no rig is fitted.
 """
 function fleet_split(cells)
     split = Dict(band => (bill=0.0, saved=0.0) for band in fleet_bands)
-    for (; bill, savings) in cells
-        band = fleet_band(savings)
-        saved = band == "none" ? 0.0 : bill * maximum(values(savings)) / 100
-        split[band] = (bill=split[band].bill + bill, saved=split[band].saved + saved)
+    for cell in cells
+        band = fleet_band(cell.savings)
+        best = argmax(rig -> cell.savings[rig], keys(cell.savings))
+        saved = band == "none" ? 0.0 : cell_saved(cell, best)
+        split[band] = (bill=split[band].bill + cell.bill, saved=split[band].saved + saved)
     end
     return split
 end
+
+"""
+    cell_saved(cell, rig)
+
+Yearly cost [USD] `rig` saves on a fleet cell with the `bill` [USD a year] of the cell
+without a rig and the cost `savings` [%] of its rigs.
+"""
+cell_saved(cell, rig) = cell.bill * cell.savings[rig] / 100
 
 """
     read_table(path)
@@ -1039,9 +1048,11 @@ function fleet_cells(table, drive)
             continue
         end
         share = work[class] / length(routes)
+        reference = table["cost"][bare]
+        savings = Dict(rig => percent_saving(table["cost"][row], reference)
+                       for (rig, row) in best)
         push!(cells, (; class, route, work=share, ships=ships[class] / length(routes),
-            bill=share * table["cost"][bare], bare, best,
-            savings=best_savings(table, class, route, drive)))
+            bill=share * reference, bare, best, savings))
     end
     isempty(absent) || throw(ArgumentError("no $drive results for " * join(absent, ", ")))
     return cells
