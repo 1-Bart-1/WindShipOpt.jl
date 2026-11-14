@@ -27,14 +27,14 @@ member_groups = (groups[1], (; groups[2]..., records=Dict("height" => "HTSGW"),
 Numbers of the issues read by ships leaving at `departures` [h] over `window_days` days.
 """
 study_issues(departures) =
-    sort(unique([ArchivedForecast(forecast_archive, weather, departure + 24.0 * day).issue
+    sort(unique([ArchivedForecast(forecast_archive, departure + 24.0 * day).issue
                  for departure in departures, day in 0:window_days]))
 
 """
     link_archive(directory)
 
-Make `directory` an archive with the grids, the bias and the wave period and direction of
-the control archive in `output`.
+Make `directory` an archive with the grids, the bias, the blend weights and the wave period
+and direction of the control archive in `output`.
 """
 function link_archive(directory)
     for group in ("wind", "waves")

@@ -7,7 +7,8 @@
 # region (ERA5_REGION, as for download_era5.jl). Wind is averaged over each 1.5° cell,
 # waves are sampled at the 0.5° points. An issue the archive holds incomplete is left empty
 # (NaN). Run on its own, it downloads the control run of every issue and writes the mean
-# bias of each year's forecasts against ERA5, from the other years. Resumable: rerun to
+# bias of each year's forecasts against ERA5 and their weights in a blend with the
+# climatology of download_era5.jl, both from the other years. Resumable: rerun to
 # continue. forecast_ensemble.jl includes it for the perturbed members.
 using Dates
 using Downloads
@@ -254,6 +255,9 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     foreach(download, groups)
-    write_forecast_bias(output, ERA5Weather(era5))
+    weather = ERA5Weather(era5)
+    write_forecast_bias(output, weather)
+    write_forecast_weights(output, weather,
+        Climatology(joinpath(era5, "climate"), weather.origin))
     println("forecast archive complete")
 end
