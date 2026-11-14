@@ -3741,7 +3741,8 @@ end
 @testset "a kite held still upwind is exported as one sample, its nose into the wind" begin
     design = ShipDesign(:methanol, 85.0; kite_area=500.0)
     ship = Ship(design, assumptions)
-    model = first(WindShipOpt.kite_model(500.0, design.kite_aspect_ratio, assumptions))
+    aspect_ratio = WindShipOpt.kite_aspect_ratio(design, assumptions)
+    model = first(WindShipOpt.kite_model(500.0, aspect_ratio, assumptions))
     table = (; wind_speeds=[10.5], courses=[π], side_weights=[0.0], ship.rig.max_force)
     cycle = only(PaperData.kite_patterns((; rig=table), model))
     @test cycle.period == 0
