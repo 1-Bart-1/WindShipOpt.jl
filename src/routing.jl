@@ -1168,8 +1168,17 @@ then all of them. A [`final_pass`](@ref) then refines the speeds along the path 
 A [`SearchRecord`](@ref) `record` receives what the search kept. Returns `nothing` if no
 path arrives within `MAX_LEG_HOURS`.
 """
-function route(corridor::Corridor, table::RouteTable, weather, departure; time_cost,
-        first_stage=1, first_lateral=centre_index(corridor), first_aloft=false,
+route(corridor::Corridor, table::RouteTable, weather, departure; options...) =
+    first(route_and_cost_to_go(corridor, table, weather, departure; options...))
+
+"""
+    route_and_cost_to_go(corridor, table, weather, departure; options...)
+
+The [`route`](@ref) with these arguments, and a copy of the [`CostToGo`](@ref) that bounded
+its search.
+"""
+function route_and_cost_to_go(corridor::Corridor, table::RouteTable, weather, departure;
+        time_cost, first_stage=1, first_lateral=centre_index(corridor), first_aloft=false,
         coastal_penalty=1.0, record=nothing)
     (; time_step) = ROUTER_SETTINGS[]
     options = (; time_step, time_cost, first_stage, first_lateral, first_aloft,
@@ -1185,9 +1194,10 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
             limits; options...)
         isnothing(record) || record!(record, workspace, size(corridor.lat, 1),
             (; to_go, estimate, limits, limit, found=leg, time_step))
-        isnothing(leg) && return nothing
+        kept = CostToGo(copy(to_go.values), to_go.knots, to_go.step)
+        isnothing(leg) && return nothing, kept
         return final_pass(leg, corridor, table, weather, departure; time_cost, first_stage,
-            first_aloft, coastal_penalty)
+            first_aloft, coastal_penalty), kept
     finally
         release_workspace(workspace)
     end
@@ -1853,9 +1863,9 @@ or more after its last plan, that between plans chooses each edge's speed (`:spe
 or also its next node (`:course`) by [`adapted_edge`](@ref), or sails the plan's course
 choosing speed and kite every few hours on the weather it meets by
 [`sail_live_edge!`](@ref), valuing the passage beyond each edge by the
-[`plan_to_go`](@ref) of the plan's course and planning again at a node it reaches
-[`off_plan`](@ref) (`:live`), or by the [`CostToGo`](@ref) of [`remaining_cost`](@ref)
-(`:live_to_go`), and that plans on the [`PlanningGrid`](@ref) `grid`, or on its whole
+[`plan_to_go`](@ref) of the plan's course (`:live`) or by the [`CostToGo`](@ref) the
+router found making the plan (`:live_to_go`), and planning again at a node it reaches
+[`off_plan`](@ref), and that plans on the [`PlanningGrid`](@ref) `grid`, or on its whole
 corridor where that is `nothing`.
 """
 struct ReplannedForecast{F, G}
@@ -1957,31 +1967,36 @@ end
     forecast_plan(known, corridor, table, time, prices; first_stage, first_lateral,
                   first_aloft, coastal_penalty)
 
-The plan a ship adopts at `time` [h] on `known`, and the [`plan_values`](@ref) of its nodes
-on it, or `(nothing, nothing)` where no plan leaves the node. On a vector of members of an
-ensemble, the plan routed on some member with the least mean of fuel, rig and time cost
-over all members, valued by the mean over the members of its [`plan_values`](@ref) with
-the ship slowing where a member stops it.
+The plan a ship adopts at `time` [h] on `known`, the [`plan_values`](@ref) of its nodes on
+it and the [`CostToGo`](@ref) the router found on it, or `(nothing, nothing, nothing)` where
+no plan leaves the node. On a vector of members of an ensemble, the plan routed on some
+member with the least mean of fuel, rig and time cost over all members, valued by the mean
+over the members of its [`plan_values`](@ref) with the ship slowing where a member stops
+it, and the mean of the members' [`CostToGo`](@ref).
 """
 function forecast_plan(known, corridor, table::RouteTable, time, prices; first_stage,
         first_lateral, first_aloft, coastal_penalty)
-    plan = route(corridor, table, known, time; time_cost=prices.time, first_stage,
-        first_lateral, first_aloft, coastal_penalty)
-    isnothing(plan) && return nothing, nothing
-    return plan, plan_values(plan, corridor, table, known, time, first_stage, prices)
+    plan, to_go = route_and_cost_to_go(corridor, table, known, time;
+        time_cost=prices.time, first_stage, first_lateral, first_aloft, coastal_penalty)
+    isnothing(plan) && return nothing, nothing, nothing
+    return plan, plan_values(plan, corridor, table, known, time, first_stage, prices), to_go
 end
 
 function forecast_plan(members::Vector, corridor, table::RouteTable, time, prices;
         first_stage, first_lateral, first_aloft, coastal_penalty)
-    plans = unique(plan -> plan.path, filter(!isnothing,
-        [route(corridor, table, member, time; time_cost=prices.time, first_stage,
-            first_lateral, first_aloft, coastal_penalty) for member in members]))
-    isempty(plans) && return nothing, nothing
+    routed = [route_and_cost_to_go(corridor, table, member, time; time_cost=prices.time,
+                  first_stage, first_lateral, first_aloft, coastal_penalty)
+              for member in members]
+    plans = unique(plan -> plan.path, filter(!isnothing, first.(routed)))
+    isempty(plans) && return nothing, nothing, nothing
     values = [mean(plan_values(plan, corridor, table, member, time, first_stage, prices;
                        slows=true) for member in members) for plan in plans]
     best = argmin([plan_value[1, first_aloft + 1] + prices.time * plan.duration
                    for (plan, plan_value) in zip(plans, values)])
-    return plans[best], values[best]
+    tables = last.(routed)
+    to_go = CostToGo(mean(table.values for table in tables), first(tables).knots,
+        first(tables).step)
+    return plans[best], values[best], to_go
 end
 
 "the forecast a plan's kite states are read on: of an ensemble, its first member"
@@ -2035,7 +2050,7 @@ end
 """
     off_plan(to_go, plan, i, lateral, stage, aloft, elapsed, prices)
 
-Whether the [`plan_to_go`](@ref) `to_go` from node `i` of `plan` (`lateral` of `stage` of
+Whether the [`CostToGo`](@ref) `to_go` from node `i` of `plan` (`lateral` of `stage` of
 the corridor it was planned on), reached `elapsed` [h] after the plan with the kite
 `aloft`, exceeds its value at the plan's time and kite state by more than
 `replan_margin_hours` at `prices.time`, or is not finite.
@@ -2464,9 +2479,9 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     while stage < stage_count
         known = known_weather(source, weather, departure + time, horizon)
         planning, plan_stage, sailable = planning_corridor(corridor, stage, lateral, grid)
-        plan, values = forecast_plan(known, planning, plan_table, departure + time, prices;
-            first_stage=plan_stage, first_lateral=lateral, first_aloft=aloft,
-            coastal_penalty)
+        plan, values, planner_to_go = forecast_plan(known, planning, plan_table,
+            departure + time, prices; first_stage=plan_stage, first_lateral=lateral,
+            first_aloft=aloft, coastal_penalty)
         blocked = isnothing(plan)
         foresight && !blocked && (values = plan_values(plan, planning, table, weather,
             departure + time, plan_stage, prices))
@@ -2477,8 +2492,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             plan_to_go(plan, planning, plan_table, known, departure + time, plan_stage,
                 prices; coastal_penalty)
         else
-            remaining_cost(corridor, plan_table, known, departure + time, prices;
-                first_stage=stage, coastal_penalty)
+            planner_to_go
         end
         for i in 2:plan_end
             next_lat, next_lon, _, planned_speed, _ = plan.path[i]
@@ -2504,8 +2518,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             if adapts in (:live, :live_to_go)
                 edge = (; stage, lateral, step, next, time=departure + time, penalty,
                     speed=planned_speed, aloft)
-                beyond = NodeToGo(to_go, next,
-                    adapts == :live ? plan_stage + i - 1 : stage + 1, departure + plan_start)
+                beyond = NodeToGo(to_go, next, plan_stage + i - 1, departure + plan_start)
                 hours, tally, aloft = sail_live_edge!(steps, points, table, weather, known,
                     beyond, corridor, edge, prices)
                 speed = corridor.edge_length[stage, lateral, step] / 3600hours
@@ -2536,7 +2549,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             push!(path, (next_lat, next_lon, time, speed, summary_mode(tally, hours)))
             push!(aloft_path, aloft)
             time - plan_start >= interval && break
-            adapts == :live && i < plan_end && off_plan(to_go, plan, i, next,
+            adapts in (:live, :live_to_go) && i < plan_end && off_plan(to_go, plan, i, next,
                 plan_stage + i - 1, aloft, time - plan_start, prices) && break
         end
         blocked || continue

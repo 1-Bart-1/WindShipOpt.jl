@@ -1975,6 +1975,17 @@ end
     WindShipOpt.release_workspace(workspace)
 end
 
+@testset "a plan carries the cost to go its router searched with" begin
+    departure, weather = 24.0 * 31, SyntheticWeather()
+    prices = (; fuel=table.table.ship.fuel.price, time=hourly)
+    _, _, carried = WindShipOpt.forecast_plan(weather, corridor, table, departure, prices;
+        first_stage=1, first_lateral=WindShipOpt.centre_index(corridor), first_aloft=false,
+        coastal_penalty=1.0)
+    searched = WindShipOpt.remaining_cost(corridor, table, weather, departure, prices;
+        first_stage=1, coastal_penalty=1.0)
+    @test isequal(carried.values, searched.values)
+end
+
 @testset "a ship drifted off its plan holds where no edge of its node can be sailed" begin
     departure, weather = 24.0 * 31, SyntheticWeather()
     centre = WindShipOpt.centre_index(corridor)
