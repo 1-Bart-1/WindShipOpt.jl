@@ -375,7 +375,8 @@ Base.@kwdef struct RouterSettings
     the first try and where that leaves no path [-]; `Inf` searches them all"
     search_margins::NTuple{2, Float64} = (0.03, 0.06)
     "whether the search of a ship that can fly a kite keeps an arrival with it down and one
-    aloft at each node and time bin, rather than the one its [`KiteRule`](@ref) prefers"
+    aloft at each node and time bin, the reference its [`KiteRule`](@ref) is checked against,
+    rather than the one that rule prefers"
     kite_states_searched::Bool = false
     "routing speeds, from the lowest routing speed to the ship's top speed"
     routing_speeds::Int = 49
