@@ -86,11 +86,12 @@ const APPROACH_RADIUS = 2COASTAL_CLEARANCE
     near_land(mask, lat, lon, clearance)
 
 Whether land lies within `clearance` [m] of the point, sampled on two rings of 16
-bearings.
+bearings; the edge of the grid of `mask` is no land.
 """
 function near_land(mask, lat, lon, clearance)
     for radius in (clearance / 2, clearance), course in range(0, 2π; length=17)[1:16]
-        is_land(mask, destination(lat, lon, course, radius)...) && return true
+        sample = destination(lat, lon, course, radius)
+        on_grid(mask, sample...) && is_land(mask, sample...) && return true
     end
     return false
 end

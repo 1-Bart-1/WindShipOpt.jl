@@ -2190,6 +2190,18 @@ end
     end
 end
 
+@testset "the edge of a weather grid bounds the routes but is no coast" begin
+    lats, lons = collect(0.0:1.5:30.0), collect(-40.0:1.5:-10.0)
+    land = falses(length(lons), length(lats))
+    land[findfirst(==(-25.0), lons), findfirst(==(15.0), lats)] = true
+    mask = GridMask(lats, lons, land, WindShipOpt.Island[])
+    clearance = WindShipOpt.COASTAL_CLEARANCE
+    @test WindShipOpt.is_land(mask, 31.0, -25.0)
+    @test !WindShipOpt.near_land(mask, 29.7, -25.0, clearance)
+    @test !WindShipOpt.near_land(mask, 10.0, -39.7, clearance)
+    @test WindShipOpt.near_land(mask, 15.0, -26.0, clearance)
+end
+
 @testset "a re-planned forecast refuses an adaptation it does not know" begin
     @test ReplannedForecast(nothing; adapts=:course).adapts == :course
     @test ReplannedForecast(nothing; adapts=:live).adapts == :live

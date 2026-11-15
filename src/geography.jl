@@ -94,6 +94,8 @@ function on_island(islands, lat, lon)
     return false
 end
 
+on_grid(mask::LandMask, lat, lon) = true
+
 function is_land(mask::LandMask, lat, lon)
     on_island(mask.islands, lat, lon) && return true
     first(mask.coast_lats) <= lat <= last(mask.coast_lats) || return false
