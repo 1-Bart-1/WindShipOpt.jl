@@ -1942,11 +1942,10 @@ end
     kite_table, kite_hourly, finer = kite_coaster_routing(400.0)
     departure, weather = 24.0 * 121, SyntheticWeather()
     sources = (ReplannedForecast(CountedForecast(8.0, 0); interval=48.0, adapts)
-               for adapts in (:nothing, :live, :live_to_go))
-    held, live, live_to_go = (forecast_route(finer, kite_table, weather, departure;
+               for adapts in (:nothing, :live))
+    held, live = (forecast_route(finer, kite_table, weather, departure;
             time_cost=kite_hourly, forecast).objective for forecast in sources)
     @test live < held
-    @test live_to_go < held
 end
 
 @testset "a ship sailing live changes speed within an edge, past the plan's speed" begin
@@ -1966,12 +1965,11 @@ end
 
 @testset "a ship sailing live on a true forecast sails about as its plan" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
-    planned, live, live_to_go = (forecast_route(corridor, table, weather, departure;
+    planned, live = (forecast_route(corridor, table, weather, departure;
             time_cost=hourly,
             forecast=ReplannedForecast(CountedForecast(0.0, 0); adapts)).objective
-        for adapts in (:nothing, :live, :live_to_go))
+        for adapts in (:nothing, :live))
     @test live ≈ planned rtol = 0.01
-    @test live_to_go ≈ planned rtol = 0.01
 end
 
 @testset "the remaining cost of a re-planning ship reads the hours it searched" begin

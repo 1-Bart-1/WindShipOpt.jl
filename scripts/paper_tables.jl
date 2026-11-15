@@ -1376,26 +1376,17 @@ end
 forecast_live_groups = (
     ("Cost saving [\\%]",
         (("Perfect foresight, plan's speed held", cause_saving(false)),
-            ("\\quad sailed live, valued by the plan", cause_saving(:perfect_live)),
-            ("\\quad sailed live, valued by the cost to go",
-                cause_saving(:perfect_live_to_go)),
+            ("\\quad sailed live", cause_saving(:perfect_live)),
             ("Forecast plan, plan's speed held", cause_saving(:expected)),
-            ("\\quad sailed live, valued by the plan", cause_saving(:live)),
-            ("\\quad sailed live, valued by the cost to go", cause_saving(:live_to_go)))),
+            ("\\quad sailed live", cause_saving(:live)))),
     ("Forecast plan's loss against perfect foresight at the plan's speed [points]",
-        (("Sailed live, valued by the plan", cause_loss(false, :live)),
-            ("Sailed live, valued by the cost to go", cause_loss(false, :live_to_go)))),
+        (("Sailed live", cause_loss(false, :live)),)),
     ("Forecast plan's loss against perfect foresight sailed the same way [points]",
         (("Plan's speed held", cause_loss(false, :expected)),
-            ("Sailed live, valued by the plan", cause_loss(:perfect_live, :live)),
-            ("Sailed live, valued by the cost to go",
-                cause_loss(:perfect_live_to_go, :live_to_go)))),
-    ("Gain of sailing live on the forecast plan [points]",
-        (("Valued by the plan", cause_loss(:live, :expected)),
-            ("Valued by the cost to go", cause_loss(:live_to_go, :expected)))),
-    ("Gain of sailing live with perfect foresight [points]",
-        (("Valued by the plan", cause_loss(:perfect_live, false)),
-            ("Valued by the cost to go", cause_loss(:perfect_live_to_go, false)))))
+            ("Sailed live", cause_loss(:perfect_live, :live)))),
+    ("Gain of sailing live [points]",
+        (("On the forecast plan", cause_loss(:live, :expected)),
+            ("With perfect foresight", cause_loss(:perfect_live, false)))))
 
 """
     forecast_live_table()

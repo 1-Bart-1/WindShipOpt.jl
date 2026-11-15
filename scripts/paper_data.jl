@@ -1226,12 +1226,10 @@ forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite, :kite
 
 """
 plans sailed live, each as the plan it sails and how its ship sails it, an `adapts` of
-[`ReplannedForecast`](@ref): `:live` and `:live_to_go` choose speed and kite hour by hour
+[`ReplannedForecast`](@ref): `:live` chooses speed and kite hour by hour
 """
 live_plans = Dict(:perfect_live => (plan=:perfect_replan, adapts=:live),
-    :live => (plan=:expected, adapts=:live),
-    :perfect_live_to_go => (plan=:perfect_replan, adapts=:live_to_go),
-    :live_to_go => (plan=:expected, adapts=:live_to_go))
+    :live => (plan=:expected, adapts=:live))
 
 "[`forecast_study_plans`](@ref) that change only what a kite does"
 kite_only_plans = (:held_kite, :kite_margin)
@@ -1269,11 +1267,9 @@ forecast_result_data() =
 
 """
 plans of the live-sailing study: the forecast result's plans with perfect foresight and on
-the forecast, each sailed holding the plan's speed and sailed live, valuing what lies beyond
-an edge by the plan and by the cost to go
+the forecast, each sailed holding the plan's speed and sailed live
 """
-forecast_live_plans = (false, :expected, :perfect_live, :live, :perfect_live_to_go,
-    :live_to_go)
+forecast_live_plans = (false, :expected, :perfect_live, :live)
 
 """
     forecast_live_data()
