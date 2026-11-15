@@ -2346,7 +2346,8 @@ end
     weather = small_era5(joinpath(directory, "era5"))
     control = small_archive(joinpath(directory, "forecast"), weather, year -> 1.5)
     mean_directory = joinpath(directory, "mean")
-    small_archive(mean_directory, weather, year -> 3.0)
+    small_archive(mean_directory, weather, year -> 3.0;
+        noise=issue -> issue <= 2 ? 0.0 : isodd(issue) ? 20.0 : -20.0)
     for group in ("wind", "waves")
         folder = joinpath(mean_directory, group)
         foreach(name -> rm(joinpath(folder, name); recursive=true),
@@ -2360,6 +2361,8 @@ end
     kept = ForecastArchive(joinpath(directory, "forecast"), weather, control.climate)
     @test all(isapprox.(fitted.wind.bias[2017]["u10"], 3.0; atol=0.01))
     @test all(isapprox.(kept.wind.bias[2017]["u10"], 1.5; atol=0.01))
+    @test all(fitted.wind.weights[2017] .< 0.02)
+    @test all(isapprox.(kept.wind.weights[2017], 1; atol=0.001))
     @test !any(islink, readdir(joinpath(mean_directory, "wind"); join=true))
 end
 
