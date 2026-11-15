@@ -959,6 +959,11 @@ struct RouteWorkspace
     points::Vector{SailedPoint}
     "values of the latest [`CostToGo`](@ref), grown to the most time knots asked of it"
     to_go_values::Base.RefValue{Array{Float64, 4}}
+    "whether each knot of the latest [`CostToGo`](@ref) is still to compute, grown as
+    `to_go_values`"
+    pending_knots::Base.RefValue{BitArray{3}}
+    "buffers for the points of an edge of the [`CostToGo`](@ref), not in use"
+    spare_points::Vector{Vector{SailedPoint}}
     "edges sailed from a node with the kite down for its state aloft at the same time"
     shared::Vector{SailedEdge}
     "index in `shared` before the edges of each time bin, -1 where it holds none"
@@ -976,7 +981,8 @@ function RouteWorkspace(lateral_count, bins, stage_count)
     return RouteWorkspace(fill(Inf, shape), zeros(shape), zeros(shape), zeros(shape),
         zeros(Int32, shape), zeros(Int32, shape), zeros(Int32, shape), zeros(Int16, shape),
         zeros(Int8, shape), SailedPoint[], Ref(zeros(lateral_count, 0, 2, stage_count)),
-        SailedEdge[], fill(-1, bins))
+        Ref(falses(lateral_count, 0, stage_count)), Vector{SailedPoint}[], SailedEdge[],
+        fill(-1, bins))
 end
 
 "workspaces not in use, by (lateral count, time bins), shared by the threads that route"
@@ -1039,8 +1045,8 @@ CostToGo(values::Array{Float64, 4}, step) = CostToGo(values, size(values, 2), st
     KnotFiller
 
 What [`fill_knot!`](@ref) needs to compute the values of a [`CostToGo`](@ref) still
-pending: the passage it estimates, the knots still to compute, the points of an edge in
-hand at each stage, and the earlier estimate its values beyond `near_hours` are read from.
+pending: the passage it estimates, the knots still to compute, buffers for the points of
+an edge, and the earlier estimate its values beyond `near_hours` are read from.
 """
 struct KnotFiller{C, T, W, P}
     corridor::C
@@ -1053,11 +1059,11 @@ struct KnotFiller{C, T, W, P}
     coastal_penalty::Float64
     "whether each knot is still to compute, lateral × knot × stage"
     pending::BitArray{3}
-    "points of the edge in hand at each stage"
-    points::Vector{Vector{SailedPoint}}
+    "buffers for the points of an edge, not in use"
+    spare_points::Vector{Vector{SailedPoint}}
     "the [`CostToGo`](@ref) of an earlier plan its values beyond `near_hours` are read
     from, or `nothing`"
-    previous::Union{Nothing, CostToGo}
+    previous::Union{Nothing, CostToGo{KnotFiller{C, T, W, P}}}
     "hours after `departure` within which the values are computed [h]"
     near_hours::Float64
 end
@@ -1090,14 +1096,14 @@ them.
 """
 function CostToGo(held, corridor::Corridor, table::RouteTable, weather, departure;
         time_cost, first_stage, coastal_penalty, previous=nothing)
-    stage_count, lateral_count = size(corridor.lat)
+    stage_count = size(corridor.lat, 1)
     along = corridor.along_centre
     slowest, fastest = first(table.speeds), last(table.speeds)
     (; to_go_step) = ROUTER_SETTINGS[]
     knots = ceil(Int, (last(along) / slowest / 3600 + REACH_SLACK) / to_go_step) + 2
     values = cleared_to_go_values!(held, knots)
     values[centre_index(corridor), 1:knots, 1, stage_count] .= 0.0
-    pending = falses(lateral_count, knots, stage_count)
+    pending = cleared_pending_knots!(held, knots)
     for stage in first_stage:(stage_count - 1)
         sailed = along[stage] - along[first_stage]
         earliest = SHORTEST_SAILED_SHARE * sailed / fastest / 3600
@@ -1109,7 +1115,7 @@ function CostToGo(held, corridor::Corridor, table::RouteTable, weather, departur
     prices = (; fuel=table.table.ship.fuel.price, time=time_cost)
     (; to_go_near_hours) = ROUTER_SETTINGS[]
     filler = KnotFiller(corridor, table, weather, Float64(departure), prices,
-        Float64(coastal_penalty), pending, [SailedPoint[] for _ in 1:stage_count],
+        Float64(coastal_penalty), pending, spare_points(held),
         isfinite(to_go_near_hours) ? previous : nothing, to_go_near_hours)
     return CostToGo(values, knots, to_go_step, filler)
 end
@@ -1131,6 +1137,25 @@ function cleared_to_go_values!(held::Base.RefValue{Array{Float64, 4}}, knots)
 end
 
 """
+    cleared_pending_knots!(held, knots)
+
+Whether each knot of the [`CostToGo`](@ref) whose values `held` holds is still to compute,
+lateral × knot × stage, with room for `knots` time knots, all `false`.
+"""
+function cleared_pending_knots!(workspace::RouteWorkspace, knots)
+    lateral_count, room, stage_count = size(workspace.pending_knots[])
+    room < knots && (workspace.pending_knots[] = falses(lateral_count, knots, stage_count))
+    return fill!(workspace.pending_knots[], false)
+end
+
+cleared_pending_knots!(held::Base.RefValue{Array{Float64, 4}}, knots) =
+    falses(size(held[], 1), knots, size(held[], 4))
+
+"buffers for the points of an edge not in use, kept in `held` where it is a workspace"
+spare_points(workspace::RouteWorkspace) = workspace.spare_points
+spare_points(::Base.RefValue{Array{Float64, 4}}) = Vector{SailedPoint}[]
+
+"""
     filled!(to_go, lateral, knot, stage)
 
 Compute the values of `to_go` at node (`stage`, `lateral`) and `knot` where they are still
@@ -1143,8 +1168,10 @@ function filled!(to_go::CostToGo{<:KnotFiller}, lateral, knot, stage)
     filler.pending[lateral, knot, stage] || return nothing
     filler.pending[lateral, knot, stage] = false
     read_earlier!(to_go, filler.previous, lateral, knot, stage) && return nothing
-    fill_knot!(to_go, filler.points[stage], filler.corridor, filler.table, filler.weather,
+    points = isempty(filler.spare_points) ? SailedPoint[] : pop!(filler.spare_points)
+    fill_knot!(to_go, points, filler.corridor, filler.table, filler.weather,
         filler.departure, filler.prices, filler.coastal_penalty, stage, lateral, knot)
+    push!(filler.spare_points, points)
     return nothing
 end
 
@@ -1176,8 +1203,8 @@ end
 all_filled!(to_go::CostToGo{Nothing}) = to_go
 
 function all_filled!(to_go::CostToGo{<:KnotFiller})
-    for index in reverse(findall(to_go.filler.pending))
-        lateral, knot, stage = Tuple(index)
+    laterals, knots, stages = axes(to_go.filler.pending)
+    for stage in reverse(stages), lateral in laterals, knot in knots
         filled!(to_go, lateral, knot, stage)
     end
     return to_go
