@@ -229,7 +229,6 @@ end
 GridMask(weather::ERA5Weather, islands::Vector{Island}) = GridMask(weather.waves.lats,
     weather.waves.lons, isnan.(weather.waves.fields["height"][:, :, 1]), islands)
 
-"whether the point (lat, lon) [deg] lies on the grid of `mask`"
 on_grid(mask::GridMask, lat, lon) =
     first(mask.lats) <= lat <= last(mask.lats) && first(mask.lons) <= lon <= last(mask.lons)
 
