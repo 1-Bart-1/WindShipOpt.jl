@@ -60,6 +60,10 @@
     \fill[black!35] (-0.7,5) rectangle (0.7,27);
     \coordinate (wing) at (0,18);
     \coordinate (tow) at (0,5);
+    % centre of gravity at the waterline, metacentre on the mast
+    \draw[black!60, |<->|] (-2.5,0) -- (-2.5,14.4) node[pos=0.6, left, inner sep=1pt] {$GM$};
+    \fill[black] (0,0) circle (0.45);
+    \draw[black, fill=white] (0,14.4) circle (0.45);
   \end{scope}
   \draw[black!60, dashed] (0,0) -- (0,25);
   \draw[black!60] (0,22) arc[start angle=90, end angle=82, radius=22];
@@ -68,9 +72,13 @@
   \draw[force, rig] (wing) -- ++(10,0);
   \node[part, rig, anchor=south west] at ([shift={(1.8,0.3)}]wing) {deck rig};
   \draw[force, rig] (tow) -- ++(8,0);
-  \draw[force, water] (8,-2.5) -- (-4,-2.5);
-  \draw[black!60, |<->|] (-11,-2.5) -- (-11,0 |- wing) node[above] {deck rig lever};
-  \draw[black!60, |<->|] (-14,-2.5) -- (-14,0 |- tow) node[above left, xshift=2mm] {kite lever};
+  % righting couple: weight down through the centre of gravity, buoyancy up to leeward of it
+  \draw[force] (0,0) -- (0,-4.4) node[pos=0.6, left, inner sep=1pt] {$\Delta g$};
+  \fill[water] (2,-3.4) circle (0.45);
+  \draw[force, water] (2,-3.4) -- (2,1.4) node[pos=0.55, right, water, inner sep=1pt] {$\Delta g$};
+  \draw[force, water] (17.5,-2.5) -- (7.9,-2.5);
+  \draw[black!60, |<->|] (-18.5,-2.5) -- (-18.5,0 |- wing) node[above right, align=left, inner sep=1pt, xshift=-1mm] {deck rig\\ lever};
+  \draw[black!60, |<->|] (-12,-2.5) -- (-12,0 |- tow) node[above, align=center, inner sep=1pt] {kite\\ lever};
   \node[black!60, anchor=north] at (5,-9.5) {heel $\phi\le\SI{8}{\degree}$\inpaper{, \S\ref{sec:balance}}};
 \end{scope}
 % ---- how the parts combine
