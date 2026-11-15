@@ -8,7 +8,9 @@ using WindShipOpt
 
 atlantic_wide = joinpath(@__DIR__, "..", "era5", "atlantic_wide")
 members_root = joinpath(atlantic_wide, "forecast_members")
+"the archives that fit their own bias and blend weights"
+fitted = ("mean", "margin")
 for member in readdir(members_root), group in ("wind", "waves")
     WindShipOpt.link_control_group(joinpath(atlantic_wide, "forecast", group),
-        joinpath(members_root, member, group))
+        joinpath(members_root, member, group); calibration=member ∉ fitted)
 end

@@ -80,7 +80,7 @@ port approach & \SI{90}{nmi}, one wind cell, from a port or the end of a coastal
 island disks & island radius plus about \SI{20}{nmi} & land mask \\
 time bin & \SI{3}{h} & state of the dynamic programme \\
 weather along an edge & at most every \SI{3}{h}, \SI{6}{h} beyond the first \SI{240}{nmi} of a plan & fuel and speed of an edge \\
-states searched & within 3\,\% of a backward estimate of the cost to go at \SI{24}{h} knots, 20\,\% with a kite; then 6\,\%, 40\,\% with a kite, then all, if a pass ends above its limit or finds no path; costs at most 0.01 points of cost saving against searching all states & dynamic programme \\
+states searched & within 3\,\% of a backward estimate of the cost to go at \SI{24}{h} knots, then 6\,\%, then all, if a pass ends above its limit or finds no path; costs at most 0.01 points of cost saving against searching all states, 0.35 for the kite & dynamic programme \\
 longest passage & 50 days & time bins \\
 speeds & every fourth table speed, 13 from \SI{4}{kn} to the ship's maximum & edge choices \\
 final pass & all table speeds, \SI{0.25}{h} bins, \SI{1}{h} on the forecast plan weighing the wind error, within \SI{24}{h} of the path found & passage reported \\
