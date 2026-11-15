@@ -19,7 +19,7 @@ corridors = route_corridors(:caribbean, north_atlantic_mask(); ocean_spacing=144
 
 # The study's search is too coarse for the small route differences tested here.
 WindShipOpt.ROUTER_SETTINGS[] = WindShipOpt.RouterSettings(time_step=1.5,
-    search_speed_stride=2, search_margins=(0.12, 0.2), kite_search_margins=(0.25, 0.5))
+    search_speed_stride=2, search_margins=(0.12, 0.2))
 
 @testset "Holtrop components match the published example at 25 kn" begin
     speed = 25KNOT
@@ -2622,17 +2622,6 @@ end
     rising = WindShipOpt.CostToGo(reshape([0.0, 10.0, 40.0], 1, 3, 1, 1), 12.0)
     @test rising(1, 1, 1, 12.0) == 10.0
     @test rising(1, 1, 1, 18.0) == 25.0
-end
-
-@testset "a ship that can fly a kite is searched at the kite margins" begin
-    settings = WindShipOpt.RouterSettings(search_margins=(0.1, 0.2),
-        kite_search_margins=(0.3, 0.4))
-    kite_ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
-    kite_table = RouteTable(PerformanceTable(kite_ship, assumptions))
-    bare_table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
-        assumptions))
-    @test WindShipOpt.margins_searched(kite_table, settings) == (0.3, 0.4)
-    @test WindShipOpt.margins_searched(bare_table, settings) == (0.1, 0.2)
 end
 
 kite_route_table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0;

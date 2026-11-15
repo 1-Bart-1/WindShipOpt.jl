@@ -32,8 +32,8 @@ end; on grids with stages of the named length [nmi] and far rows every fourth; o
 stages with its time bins alone halved, and with rows 7.5 nmi apart and far rows 60 nmi
 apart; refined in grid and time steps together from 60 nmi stages, by the named factor,
 with far rows 60 nmi apart; the full-corridor search on 240 nmi stages; and on the default
-grid the kite's states searched and kept by its rule, on the kite's search margins of 20 %
-or the named smaller ones [%], the second twice the first.
+grid the kite's states searched and kept by its rule, on the search margins of 3 % or the
+named larger ones [%], the second twice the first.
 """
 STUDY = Dict("base" => planner_fidelity(),
     "near_480" => (; scale=1, settings=changed(; near_distance=480.0)),
@@ -51,10 +51,10 @@ STUDY = Dict("base" => planner_fidelity(),
      for (name, factor) in ("ladder_240" => 1 / 4, "ladder_120" => 1 / 2,
         "grid_30_steps_half" => 2))...,
     "whole_240" => (; scale=stages(240), settings=two_zone(; near_distance=Inf)),
-    ("kite_$(searched ? "searched" : "rule")$(margin == 20 ? "" : "_margin_$margin")" =>
+    ("kite_$(searched ? "searched" : "rule")$(margin == 3 ? "" : "_margin_$margin")" =>
         (; scale=1, settings=changed(; kite_states_searched=searched,
-            kite_search_margins=(margin / 100, 2margin / 100)))
-     for searched in (true, false) for margin in (20, 10, 3))...)
+            search_margins=(margin / 100, 2margin / 100)))
+     for searched in (true, false) for margin in (3, 10, 20))...)
 
 """
     run_study(out_dir, names=keys(STUDY))

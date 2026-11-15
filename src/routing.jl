@@ -374,8 +374,6 @@ Base.@kwdef struct RouterSettings
     "how far above the [`CostToGo`](@ref) of the departure the states searched reach, on
     the first try and where that leaves no path [-]; `Inf` searches them all"
     search_margins::NTuple{2, Float64} = (0.03, 0.06)
-    "`search_margins` of a ship that can fly a kite [-]"
-    kite_search_margins::NTuple{2, Float64} = (0.2, 0.4)
     "whether the search of a ship that can fly a kite keeps an arrival with it down and one
     aloft at each node and time bin, rather than the one its [`KiteRule`](@ref) prefers"
     kite_states_searched::Bool = false
@@ -1196,7 +1194,7 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
         to_go = CostToGo(workspace, corridor, table, weather, departure; time_cost,
             first_stage, coastal_penalty)
         estimate = to_go(first_lateral, first_aloft + 1, first_stage, 0.0)
-        limits = (1 .+ margins_searched(table, ROUTER_SETTINGS[])) .* estimate
+        limits = (1 .+ ROUTER_SETTINGS[].search_margins) .* estimate
         kite = has_kite(table) && !ROUTER_SETTINGS[].kite_states_searched ?
                KiteRule(table.table.cycle_cost, size(corridor.lat, 1)) : nothing
         leg, limit = searched_leg(workspace, corridor, table, weather, departure, to_go,
@@ -1236,10 +1234,6 @@ function arrival_value(rule::KiteRule, aloft, stage)
     aloft == 1 && return 0.0
     return stage == rule.last_stage ? Inf : -rule.relaunch
 end
-
-"The margins of `settings` that the search of a ship with `table` uses [-]"
-margins_searched(table::RouteTable, settings::RouterSettings) =
-    has_kite(table) ? settings.kite_search_margins : settings.search_margins
 
 """
     PassageBand(elapsed, width)
