@@ -21,8 +21,16 @@ MAP_DEPARTURE = 10080.0
 "departures timed [h]"
 TIMED_DEPARTURES = (0.0, 10080.0, 20160.0)
 
-"(label, study entry) of the settings timed: the old full-corridor search, 60/15 and 45/11"
-TIMED = (("full corridor, 240/60", "whole_240"), ("60/15", "grid_60"), ("45/11", "base"))
+"""
+(label, study entry) of the settings timed: the old full-corridor search, 60/15, and 45/11
+with far rows a fixed stride apart and graded
+"""
+TIMED = (("full corridor 240/60", "whole_240"), ("60/15", "grid_60"),
+    ("45/11 two zones", "two_zone"), ("45/11 graded", "base"))
+
+"(label, study entry) of the settings whose tracks the map draws"
+TRACKED = (("60/15", "grid_60"), ("45/11 two zones", "two_zone"),
+    ("45/11 graded", "base"), ("30/7.5 steps halved", "grid_30_steps_half"))
 
 """
     planned_trip(case, departure, fidelity; live=false)
@@ -84,48 +92,60 @@ function write_track(io, label, trip)
 end
 
 """
+    open_rows(path, header)
+
+`path` opened to append, with the line `header` written where it is new, and the settings
+named in the first column of its rows.
+"""
+function open_rows(path, header)
+    isfile(path) || write(path, header * "\n")
+    return open(path, "a"), Set(first.(split.(readlines(path)[2:end], ",")))
+end
+
+"""
     route_figures(out_dir)
 
-Route what the figures draw into `out_dir`: the planning grid, the kite's tracks at
-[`MAP_DEPARTURE`](@ref) on 60/15, on 45/11 and on the reference grid, and the seconds of
+Route what the figures draw into `out_dir`: the planning grid at the default settings, the
+kite's tracks at [`MAP_DEPARTURE`](@ref) at each of [`TRACKED`](@ref), and the seconds of
 each round trip of [`TIMED_DEPARTURES`](@ref) at each of [`TIMED`](@ref), planned and sailed
-edge by edge and sailed live.
+edge by edge and sailed live; settings already in its files are skipped.
 """
 function route_figures(out_dir)
     mkpath(out_dir)
     kite = only(filter(case -> case.rig == "kite", development_cases()))
     Ship(kite.design, assumptions)
-    open(joinpath(out_dir, "tracks.csv"), "w") do io
-        println(io, "setting,leg,lat,lon,aloft")
-        for (label, name) in (("60/15", "grid_60"), ("45/11", "base"),
-            ("30/7.5, steps halved", "grid_30_steps_half"))
-            fidelity = STUDY[name]
-            WindShipOpt.with_router_settings(fidelity.settings) do
-                trip, _ = planned_trip(kite, MAP_DEPARTURE, fidelity)
-                write_track(io, label, trip)
-                name == "base" && write_planning_grid(out_dir, trip)
+    io, done = open_rows(joinpath(out_dir, "tracks.csv"), "setting,leg,lat,lon,aloft")
+    for (label, name) in TRACKED
+        label in done && continue
+        fidelity = STUDY[name]
+        WindShipOpt.with_router_settings(fidelity.settings) do
+            trip, _ = planned_trip(kite, MAP_DEPARTURE, fidelity)
+            write_track(io, label, trip)
+            name == "base" && write_planning_grid(out_dir, trip)
+        end
+        flush(io)
+    end
+    close(io)
+    io, done = open_rows(joinpath(out_dir, "seconds.csv"),
+        "setting,rig,departure,live,seconds")
+    for (label, name) in TIMED
+        label in done && continue
+        fidelity = STUDY[name]
+        corridors(:caribbean, fidelity.scale)
+        jobs = [(case, departure, live) for case in development_cases()
+                for departure in TIMED_DEPARTURES for live in (false, true)]
+        lines = Vector{String}(undef, length(jobs))
+        WindShipOpt.with_router_settings(fidelity.settings) do
+            Threads.@threads :greedy for k in eachindex(jobs)
+                case, departure, live = jobs[k]
+                _, seconds = planned_trip(case, departure, fidelity; live)
+                lines[k] = join((label, case.rig, departure, live, seconds), ",")
             end
         end
+        foreach(line -> println(io, line), lines)
+        flush(io)
     end
-    open(joinpath(out_dir, "seconds.csv"), "w") do io
-        println(io, "setting,rig,departure,live,seconds")
-        for (label, name) in TIMED
-            fidelity = STUDY[name]
-            corridors(:caribbean, fidelity.scale)
-            jobs = [(case, departure, live) for case in development_cases()
-                    for departure in TIMED_DEPARTURES for live in (false, true)]
-            lines = Vector{String}(undef, length(jobs))
-            WindShipOpt.with_router_settings(fidelity.settings) do
-                Threads.@threads :greedy for k in eachindex(jobs)
-                    case, departure, live = jobs[k]
-                    _, seconds = planned_trip(case, departure, fidelity; live)
-                    lines[k] = join((label, case.rig, departure, live, seconds), ",")
-                end
-            end
-            foreach(line -> println(io, line), lines)
-            flush(io)
-        end
-    end
+    close(io)
 end
 
 "rows of the CSV file at `path` as named tuples of strings"
@@ -141,7 +161,8 @@ row_points(rows) =
 
 "(label, colour, line style) of each track on the map"
 TRACK_STYLES = (("60/15", Makie.wong_colors()[2], :solid),
-    ("45/11", :black, :solid), ("30/7.5, steps halved", Makie.wong_colors()[1], :dash))
+    ("45/11 two zones", Makie.wong_colors()[3], :solid), ("45/11 graded", :black, :solid),
+    ("30/7.5 steps halved", Makie.wong_colors()[1], :dash))
 
 """
     track_figure(path, tracks, styles; grid=nothing, titles, limits)
@@ -217,7 +238,8 @@ function outlier_figure(out_dir, case, departure, settings)
     styles = ((first(settings[1]), :black, :solid),
         (first(settings[2]), Makie.wong_colors()[1], :dash))
     track_figure(joinpath(out_dir, "$name.png"), tracks, styles;
-        titles=("(a) outbound, $(case.route), $(case.rig), departure $(round(Int, departure)) h",
+        titles=("(a) outbound, $(case.route), $(case.rig), " *
+                "departure $(round(Int, departure)) h",
             "(b) return"),
         limits=(minimum(lons) - 3, maximum(lons) + 3, minimum(lats) - 3, maximum(lats) + 3))
 end
@@ -232,14 +254,17 @@ function draw_outliers(out_dir, new_dir, reference_dir, settings)
     changes = saving_changes(read_gate(joinpath(new_dir, "gate.csv")),
         read_gate(joinpath(reference_dir, "gate.csv")))
     cases = Dict((case.ship, case.rig, String(case.route)) => case for case in gate_cases())
-    for (key, found) in changes, (departure, _) in something(found, (; outliers=())).outliers
-        outlier_figure(out_dir, cases[key], departure, settings)
+    for (key, found) in changes
+        for (departure, _) in something(found, (; outliers=())).outliers
+            outlier_figure(out_dir, cases[key], departure, settings)
+        end
     end
 end
 
 "(label, study entry, colour, marker) of each setting judged against the reference"
 JUDGED = (("60/15", "grid_60", Makie.wong_colors()[2], :rect),
-    ("45/11", "base", :black, :circle))
+    ("45/11 two zones", "two_zone", Makie.wong_colors()[3], :diamond),
+    ("45/11 graded", "base", :black, :circle))
 
 """
     savings_figure(out_dir, study_dir)
