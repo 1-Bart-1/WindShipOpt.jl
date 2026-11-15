@@ -10,7 +10,7 @@
 #       [--rigs=<rig>,...] [--every=<n>]
 #
 # with <check> development or full and each <setting> a name of LIVE_SETTINGS; --rigs keeps
-# only those rigs besides no rig, and --every every n-th of those departures. Writes
+# only those rigs besides no rig, and --every every n-th of the check's departures. Writes
 # live_convergence.csv, a line per round trip, and prints per ship, route and setting each
 # rig's mean cost saving, its change from the finest setting and the largest change of a
 # gap between two rigs, over the departures where every case has a trip.
@@ -22,26 +22,42 @@ LIVE_SETTINGS = (("hourly", 1.0, 4), ("half", 0.5, 2), ("quarter", 0.25, 1),
     ("eighth", 0.125, 1))
 
 """
+    check_designs(check)
+
+Ship, route, rig and design of each case of `check`, and the departures it sails.
+"""
+function check_designs(check)
+    check == "development" && return (
+        [(; check, ship="140m_ammonia", route=:caribbean, rig,
+             design=ShipDesign(:ammonia, 140.0; rig_size(rig, area)...))
+         for (rig, area) in [("none", 0.0); reference_rigs]
+         if rig in ("none", "kite", "rotors")], ensemble_departures)
+    check == "full" && return (
+        [(; check, case.ship, case.route, case.rig, case.design)
+         for case in gate_cases(1.0)], ensemble_departures[1:3:end])
+    throw(ArgumentError("check is development or full, not $check"))
+end
+
+"""
     live_cases(check, names; rigs=nothing, every=1)
 
 Per setting of `LIVE_SETTINGS` named in `names`, ship, route, rig and departure of `check`,
 the case sailing the forecast result's plan live, as (check, setting, step, stride, ship,
 route, departure, case); with `rigs`, only those rigs and no rig, and only every `every`-th
-departure.
+of the check's departures.
 """
 function live_cases(check, names; rigs=nothing, every=1)
-    development = [(; check="development", ship="140m_ammonia", route=:caribbean, rig,
-                       design=ShipDesign(:ammonia, 140.0; rig_size(rig, area)...),
-                       departure)
-                   for (rig, area) in [("none", 0.0); reference_rigs]
-                   if rig in ("none", "kite", "rotors")
-                   for departure in ensemble_departures]
-    full = [(; check="full", case.ship, case.route, case.rig, case.design, departure)
-            for case in gate_cases(1.0) for departure in ensemble_departures[1:3:end]]
-    departures = ensemble_departures[1:every:end]
-    entries = filter(entry -> entry.departure in departures &&
-                              (isnothing(rigs) || entry.rig == "none" || entry.rig in rigs),
-        Dict("development" => development, "full" => full)[check])
+    unknown = setdiff(names, first.(LIVE_SETTINGS))
+    isempty(unknown) ||
+        throw(ArgumentError("unknown live settings: $(join(unknown, ", "))"))
+    designs, departures = check_designs(check)
+    unknown = setdiff(something(rigs, String[]), (design.rig for design in designs))
+    isempty(unknown) ||
+        throw(ArgumentError("not in the $check check: $(join(unknown, ", "))"))
+    entries = [(; design..., departure)
+               for design in designs
+               if isnothing(rigs) || design.rig == "none" || design.rig in rigs
+               for departure in departures[1:every:end]]
     corridors = Dict(route => route_corridors(route, mask; grid_spacing...)
                      for route in unique(entry.route for entry in entries))
     settings = [(; setting, step, stride) for (setting, step, stride) in LIVE_SETTINGS
