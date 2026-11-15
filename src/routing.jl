@@ -399,8 +399,8 @@ Base.@kwdef struct RouterSettings
     the first try and where that leaves no path [-]; `Inf` searches them all"
     search_margins::NTuple{2, Float64} = (0.03, 0.06)
     "whether the search of a ship that can fly a kite keeps an arrival with it down and one
-    aloft at each node and time bin, the reference its [`KiteRule`](@ref) is checked against,
-    rather than the one that rule prefers"
+    aloft at each node and time bin, the reference its [`KiteRule`](@ref) is checked
+    against, rather than the one that rule prefers"
     kite_states_searched::Bool = false
     "routing speeds, from the lowest routing speed to the ship's top speed"
     routing_speeds::Int = 49
@@ -1436,12 +1436,12 @@ end
                time_cost, time_step, first_stage, first_lateral, first_aloft, speed_stride,
                kite=nothing)
 
-The dynamic programme of [`route`](@ref) in `workspace`, whose bins are `time_step` [h]
-long, keeping one kite state per node and time bin by the [`KiteRule`](@ref) `kite`, or
-both where it is `nothing`, commanding the [`commanded_speeds`](@ref) of `table` at
-`speed_stride`, skipping states and commanded edges outside the [`PassageBand`](@ref)
-`to_go`, or, with a [`CostToGo`](@ref) `to_go`, those whose objective plus it exceeds
-`limit` [USD]. Returns the [`Leg`](@ref) or `nothing`.
+The dynamic programme of [`route`](@ref) in `workspace`, whose bins are the
+[`time_bin`](@ref)s of `time_step` [h], keeping one kite state per node and time bin by
+the [`KiteRule`](@ref) `kite`, or both where it is `nothing`, commanding the
+[`commanded_speeds`](@ref) of `table` at `speed_stride`, skipping states and commanded
+edges outside the [`PassageBand`](@ref) `to_go`, or, with a [`CostToGo`](@ref) `to_go`,
+those whose objective plus it exceeds `limit` [USD]. Returns the [`Leg`](@ref) or `nothing`.
 """
 function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable,
         weather, departure, to_go=nothing, limit=Inf; time_cost, time_step, first_stage,
@@ -1492,7 +1492,7 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
                         (; start, weather, corridor, stage, lateral, step, speed_index,
                             sample_hours, time=departure + time))
                     relax_sailed!(workspace, state, next, sailed, (; here, speed_index),
-                        time_step, prices, kite)
+                        (; time_step, departure), prices, kite)
                     through = sailed.same_through
                 end
             end
@@ -1587,19 +1587,31 @@ function sailed_down!(points, table::RouteTable, edge, hours, through)
 end
 
 """
-    relax_sailed!(workspace, state, next, sailed, edge, time_step, prices, kite)
+    time_bin(elapsed, departure, time_step)
+
+Time bin of `time_step` [h] that holds the time `elapsed` [h] after `departure` [h], the
+bins being aligned to the clock and the departure lying in bin 1.
+"""
+time_bin(elapsed, departure, time_step) =
+    floor(Int, (mod(departure, time_step) + elapsed) / time_step) + 1
+
+"""
+    relax_sailed!(workspace, state, next, sailed, edge, (; time_step, departure), prices,
+                  kite)
 
 [`relax!`](@ref) the states of node `next` of the next stage, kite down and aloft, from
-`state` by the [`SailedEdge`](@ref) `sailed`, where it arrives within the time bins of
-`time_step` [h]; `edge` holds the objective `here` [USD] of `state` and the commanded
+`state` by the [`SailedEdge`](@ref) `sailed`, where it arrives within the
+[`time_bin`](@ref)s of `time_step` [h] of a passage left at `departure` [h]; `edge` holds
+the objective `here` [USD] of `state` and the commanded
 `speed_index`. With a [`KiteRule`](@ref) `kite`, the node and bin keep the one arrival it
 values least.
 """
 function relax_sailed!(workspace::RouteWorkspace, state, next, sailed::SailedEdge, edge,
-        time_step, prices, kite)
+        (; time_step, departure), prices, kite)
+    isfinite(sailed.hours) || return
     arrival = workspace.elapsed[state...] + sailed.hours
-    arrival < size(workspace.cost, 2) * time_step || return
-    next_bin = floor(Int, arrival / time_step) + 1
+    next_bin = time_bin(arrival, departure, time_step)
+    next_bin <= size(workspace.cost, 2) || return
     edge = (; edge..., sailed.hours)
     if isnothing(kite)
         relax!(workspace, state, (next, next_bin, 1), sailed.down, edge, prices)
