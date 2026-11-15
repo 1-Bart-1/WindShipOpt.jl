@@ -21,8 +21,9 @@ changed(; changes...) = WindShipOpt.with_changed(WindShipOpt.RouterSettings(); c
 The study's entries by name, each a corridor scale and router settings: the planner on its
 default settings and on grids with stages of the named length [nmi]; on 60 nmi stages with
 its time bins alone halved, and with rows 7.5 nmi apart and far rows 60 nmi apart; on 30 nmi
-stages with time steps halved and far rows 60 nmi apart; and the full-corridor search on 240
-nmi stages.
+stages with time steps halved and far rows 60 nmi apart; on the default grid with far rows
+twice as far apart each time the distance ahead doubles, alone, with a near part of 480 nmi
+and with far rows starting at every second; and the full-corridor search on 240 nmi stages.
 """
 STUDY = Dict("base" => planner_fidelity(),
     (name => planner_fidelity(; scale=stages(stage))
@@ -32,6 +33,11 @@ STUDY = Dict("base" => planner_fidelity(),
         settings=changed(; far_row_stride=8)),
     "grid_30_steps_half" => planner_fidelity(2; scale=stages(60),
         settings=changed(; far_row_stride=8)),
+    "graded" => (; scale=1, settings=changed(; row_doubling_ratio=2.0)),
+    "graded_near_480" => (; scale=1,
+        settings=changed(; row_doubling_ratio=2.0, near_distance=480.0)),
+    "graded_stride_2" => (; scale=1,
+        settings=changed(; row_doubling_ratio=2.0, far_row_stride=2)),
     "whole_240" => (; scale=stages(240), settings=changed(; near_distance=Inf)))
 
 """

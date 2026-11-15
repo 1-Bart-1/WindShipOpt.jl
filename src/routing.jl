@@ -392,9 +392,12 @@ Base.@kwdef struct RouterSettings
     to_go_sample_hours::Float64 = 6.0
     "how far ahead of the ship a plan keeps every stage and row of its corridor [nmi]"
     near_distance::Float64 = 240.0
-    "rows a plan keeps beyond `near_distance`: every `far_row_stride`-th from the centre,
-    on stages far enough apart for an edge to shift by that many rows"
+    "rows a plan keeps just beyond `near_distance`: every `far_row_stride`-th from the
+    centre, on stages far enough apart for an edge to shift by that many rows"
     far_row_stride::Int = 4
+    "growth of the distance ahead over which the rows a plan keeps beyond `near_distance`
+    double in spacing [-]; `Inf` keeps every `far_row_stride`-th row to the end"
+    row_doubling_ratio::Float64 = Inf
     "longest time between the weather samples along an edge beyond `near_distance` [h]"
     far_sample_hours::Float64 = 6.0
     "time between the choices of speed and kite of a ship sailing live [h]"
@@ -1876,13 +1879,23 @@ struct ReplannedForecast{F}
 end
 
 """
+    far_row_stride(settings, ahead)
+
+Every how many rows of its corridor a plan keeps at distance `ahead` [nmi] beyond its near
+part, by the [`RouterSettings`](@ref) `settings`.
+"""
+far_row_stride(settings::RouterSettings, ahead) = settings.far_row_stride *
+    2^max(0, floor(Int, log(ahead / settings.near_distance) / log(settings.row_doubling_ratio)))
+
+"""
     planning_stages(corridor, stage, settings)
 
 Numbers of the stages of `corridor` a ship at `stage` plans on by the
-[`RouterSettings`](@ref) `settings`, and how many of them lie in its near part: every
-stage within `near_distance` ahead, then the nearest stages far enough apart for an edge to
-shift by `far_row_stride` rows, keeping every stage of the corridor's fixed coastal track
-and the stage that joins it.
+[`RouterSettings`](@ref) `settings`, how many of them lie in its near part, and every how
+many rows each keeps: every stage and row within `near_distance` ahead, then rows by
+[`far_row_stride`](@ref), on the nearest stages far enough apart for an edge to shift by
+that many rows, keeping every stage of the corridor's fixed coastal track and the stage
+that joins it.
 """
 function planning_stages(corridor::Corridor, stage, settings::RouterSettings)
     along = corridor.along_centre
@@ -1892,9 +1905,11 @@ function planning_stages(corridor::Corridor, stage, settings::RouterSettings)
     last_near = clamp(searchsortedlast(along, near_end), min(stage + 1, stage_count),
         stage_count)
     stages = collect(stage:last_near)
-    spacing = settings.far_row_stride * corridor.lateral_spacing / MAX_HEADING_TANGENT
+    ahead(i) = (along[i] - along[stage]) / NAUTICAL_MILE
     while last(stages) < stage_count
         previous = last(stages)
+        spacing = far_row_stride(settings, ahead(previous)) * corridor.lateral_spacing /
+                  MAX_HEADING_TANGENT
         next = max(searchsortedfirst(along, along[previous] + spacing), previous + 1)
         along[stage_count] - along[min(next, stage_count)] < spacing / 2 &&
             (next = stage_count)
@@ -1902,7 +1917,10 @@ function planning_stages(corridor::Corridor, stage, settings::RouterSettings)
         isnothing(coast) || (next = min(next, max(coast - 1, previous + 1)))
         push!(stages, min(next, stage_count))
     end
-    return stages, last_near - stage + 1
+    near = last_near - stage + 1
+    strides = [k <= near ? 1 : far_row_stride(settings, ahead(stages[k]))
+               for k in eachindex(stages)]
+    return stages, near, strides
 end
 
 """
@@ -1910,8 +1928,8 @@ end
 
 The [`Corridor`](@ref) a ship at `stage` and `lateral` of `corridor` plans on, the stage it
 starts from there, and how many of its nodes along a plan the ship may sail before planning
-again. It keeps the [`planning_stages`](@ref), beyond the near part only every
-`far_row_stride`-th row, with edges that may shift as many rows as their length allows and
+again. It keeps the [`planning_stages`](@ref), beyond the near part only their rows, with
+edges that may shift as many rows as their length allows and
 weather samples at most `far_sample_hours` apart, by the `ROUTER_SETTINGS` in force. Where
 that leads nowhere from the ship, or `corridor` has no land mask to keep new edges clear by,
 it is `corridor` itself.
@@ -1920,13 +1938,12 @@ function planning_corridor(corridor::Corridor, stage, lateral)
     whole = (corridor, stage, typemax(Int))
     isnothing(corridor.mask) && return whole
     settings = ROUTER_SETTINGS[]
-    stages, near = planning_stages(corridor, stage, settings)
+    stages, near, strides = planning_stages(corridor, stage, settings)
     lat, lon = corridor.lat[stages, :], corridor.lon[stages, :]
     water = corridor.water[stages, :]
     centre = centre_index(corridor)
-    far = (near + 1):length(stages)
-    for row in axes(water, 2)
-        mod(row - centre, settings.far_row_stride) == 0 || (water[far, row] .= false)
+    for k in (near + 1):length(stages), row in axes(water, 2)
+        mod(row - centre, strides[k]) == 0 || (water[k, row] = false)
     end
     lengths = diff(corridor.along_centre[stages])
     spacing = corridor.lateral_spacing
