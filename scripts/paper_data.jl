@@ -312,8 +312,8 @@ their high bounds.
 function kite_market_prices()
     names = (:winch_fixed_cost, :winch_cost_per_force, :launch_mast_mass_coefficient,
         :docking_head_cost, :control_unit_cost, :control_unit_cost_per_area,
-        :kite_integration_fraction, :canopy_making_cost_per_area,
-        :canopy_cloth_base_price, :canopy_cloth_price_per_weight, :market_price_factor)
+        :canopy_making_cost_per_area, :canopy_cloth_base_price,
+        :canopy_cloth_price_per_weight, :market_price_factor)
     return changed_assumptions(NamedTuple(name => assumptions.entries[name].high
                                           for name in names))
 end

@@ -368,9 +368,9 @@ wing_cost_per_area:
 wing_installation_fraction:
   value: 0.15
   low: 0.10
-  high: 0.25
+  high: 0.20
   unit: "-"
-  reason: "Installation over unit price: 15 % on a newbuild, 25 % as a retrofit (EMSA 2023, Table 7)."
+  reason: "Installation at the yard over unit price. EMSA 2023 (Table 7) assumes 15 % on a newbuild and gives no range; our range of 10-20 % spans the lower share EMSA expects on the largest units and on a yard's repeated designs and the higher one of a one-off design."
 wing_lifetime:
   value: 25.0
   low: 20.0
@@ -446,9 +446,9 @@ rotor_cost_per_area:
 rotor_installation_fraction:
   value: 0.15
   low: 0.10
-  high: 0.25
+  high: 0.20
   unit: "-"
-  reason: "Installation over unit price, the foundation being in the unit price: 15 % on a newbuild, 25 % as a retrofit (EMSA 2023, Table 7)."
+  reason: "Installation at the yard over unit price, the foundation being in the unit price. EMSA 2023 (Table 7) assumes 15 % on a newbuild and gives no range; our range of 10-20 % spans the lower share EMSA expects on the largest units and on a yard's repeated designs and the higher one of a one-off design."
 rotor_lifetime:
   value: 25.0
   low: 20.0
@@ -1185,10 +1185,10 @@ control_unit_cost_per_area:
   reason: "Engineering estimate of the manufacturing cost of the three steering actuators, which grow with kite area: 3 x 5 kUSD at 1,000 m^2."
 kite_integration_fraction:
   value: 0.15
-  low: 0.15
-  high: 0.25
+  low: 0.10
+  high: 0.20
   unit: "-"
-  reason: "Installation over hardware price: 15 % on a newbuild, 25 % as a retrofit (EMSA 2023, Table 7)."
+  reason: "Installation at the yard over hardware price. EMSA 2023 (Table 7) assumes 15 % on a newbuild and gives no range; our range of 10-20 % spans the lower share EMSA expects on the largest units and on a yard's repeated designs and the higher one of a one-off design."
 kite_mass_per_area:
   value: 0.05
   low: 0.01
