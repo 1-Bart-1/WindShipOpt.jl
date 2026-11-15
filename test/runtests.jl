@@ -2638,6 +2638,21 @@ end
 kite_route_table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0;
             kite_area=400.0), assumptions), assumptions))
 
+@testset "a kite ship's search keeps one kite state per node and time, down at port" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    record = SearchRecord()
+    leg = route(corridor, kite_route_table, weather, departure; time_cost=hourly, record)
+    reached = isfinite.(record.cost)
+    @test any(reached[:, :, 2, :])
+    @test !any(reached[:, :, 1, :] .& reached[:, :, 2, :])
+    @test !any(reached[:, :, 2, end])
+    searched = WindShipOpt.with_router_settings(WindShipOpt.with_changed(
+        WindShipOpt.ROUTER_SETTINGS[]; kite_states_searched=true)) do
+        route(corridor, kite_route_table, weather, departure; time_cost=hourly)
+    end
+    @test leg.objective ≈ searched.objective rtol = 0.01
+end
+
 @testset "a plan weighing wind error expects a kite that just pulls to fly sometimes" begin
     speed_index = 4
     sample(wind, spread) = WindShipOpt.EdgeSample(kite_route_table.table, (wind, 0.0),
