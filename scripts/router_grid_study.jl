@@ -14,15 +14,19 @@ include(joinpath(@__DIR__, "router_gate.jl"))
 """
 The study's entries by name, each a corridor scale and router settings: the planner on its
 default settings and on grids with stages of the named length [nmi], its time steps halved,
-its time bins alone halved, on 30 nmi stages with time steps halved and far rows 60 nmi apart, and the full-corridor
+its time bins alone halved, on 30 nmi stages with time steps halved and far rows 60 nmi apart,
+on its own stages with rows 7.5 nmi apart and far rows 60 nmi apart, and the full-corridor
 search on 240 nmi stages.
 """
 STUDY = Dict("base" => planner_fidelity(), "grid_240" => planner_fidelity(; scale=4),
     "grid_120" => planner_fidelity(; scale=2), "grid_30" => planner_fidelity(; scale=0.5),
+    "grid_45" => planner_fidelity(; scale=0.75),
     "steps_half" => planner_fidelity(2; scale=2),
     "bins_half" => (; scale=1,
         settings=WindShipOpt.with_changed(WindShipOpt.RouterSettings(); time_step=1.5)),
     "grid_30_steps_half" => planner_fidelity(2;
+        settings=WindShipOpt.with_changed(WindShipOpt.RouterSettings(); far_row_stride=8)),
+    "rows_7.5" => (; scale=(1, 0.5),
         settings=WindShipOpt.with_changed(WindShipOpt.RouterSettings(); far_row_stride=8)),
     "whole_240" => (; scale=4,
         settings=WindShipOpt.with_changed(WindShipOpt.RouterSettings(); near_distance=Inf)))
