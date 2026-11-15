@@ -179,7 +179,7 @@ function development_table()
             "at the better end of the range and its loss at the worse end, in percentage ",
             "points, in cost per tonne-km on each ship and the largest of each in ",
             "CO\\textsubscript{2} per tonne-km over the ships; and why the input is in ",
-            "the study.}\n",
+            "the study. Each change carries the routing noise of \\cref{sec:checks}.}\n",
             "\\label{tab:development}\\\\")
         header = string("\\toprule\nInput & Value (range) & ",
             join(short_ship.(ships), " & "),
@@ -938,9 +938,10 @@ market_columns = (ships=(1, "Ships", ""), units=(1, "Rig units", ""),
 "names of the [`market_columns`](@ref)"
 market_measures = keys(market_columns)
 
-"what a rig saves a ship a year: scale to the unit shown, name, unit"
-type_saving_columns = (saved=(1e-3, "Cost", "[USD 1000]"), share=(1, "Cost", "[\\%]"),
-    fuel=(1e-3, "Fuel", "[t]"), carbon=(1e-6, "CO\\textsubscript{2}", "[t]"))
+"what a rig saves a ship a year: scale to the unit shown, name, unit, text of a cell"
+type_saving_columns = (saved=(1e-3, "Cost", "[USD 1000]", two_digits),
+    share=(1, "Cost", "[\\%]", one_decimal), fuel=(1e-3, "Fuel", "[t]", two_digits),
+    carbon=(1e-6, "CO\\textsubscript{2}", "[t]", two_digits))
 
 """
     cell_saving(table, cell, rig)
@@ -1047,18 +1048,6 @@ function fleet_market(markets)
 end
 
 """
-    two_digits(x)
-
-`x` rounded to two significant digits, as LaTeX.
-"""
-function two_digits(x)
-    x == 0 && return "0"
-    rounded = round(x; sigdigits=2)
-    decimals = max(0, 1 - floor(Int, log10(abs(rounded))))
-    return @sprintf("\\num{%.*f}", decimals, rounded)
-end
-
-"""
     market_range(range, measure)
 
 Low to high of `measure` of a [`fleet_market`](@ref) `range`, in the unit of its
@@ -1116,8 +1105,8 @@ function write_type_savings(table)
             for (k, (; type, rigs, leaders)) in enumerate(type_savings(table, drive))
                 k > 1 && println(io, "\\addlinespace")
                 for (j, rig) in enumerate(rig_names)
-                    cells = [two_digits(first(type_saving_columns[measure]) *
-                                        rigs[rig][measure]) for measure in measures]
+                    cells = [text(scale * rigs[rig][measure])
+                        for (measure, (scale, _, _, text)) in pairs(type_saving_columns)]
                     name = rig in leaders ? "\\textbf{$rig}" : rig
                     println(io, k == j == 1 ? label : "", " & ", j == 1 ? type : "", " & ",
                         name, " & ", join(cells, " & "), " \\\\")
@@ -1455,8 +1444,8 @@ function kite_margin_values(margins, trips, knowledge, plan)
 end
 
 "LaTeX of an (value, error) estimate of [`cause_estimate`](@ref)"
-cause_cell(estimate) = @sprintf("\\(%.1f \\pm %.1f\\)",
-    round(estimate.value; digits=1) + 0.0, estimate.error)
+cause_cell(estimate) = @sprintf("\\(%s \\pm %.1f\\)", one_decimal(estimate.value),
+    estimate.error)
 
 """
     write_cause_groups(io, groups, saved)
@@ -1950,7 +1939,7 @@ function type_saving_numbers(table)
             name = string("TypeSaving", word, type_word, uppercasefirst(rig))
             (; saved, share, carbon) = rigs[rig]
             push!(numbers, "$(name)Cost" => two_digits(1e-6saved),
-                "$(name)Share" => two_digits(share),
+                "$(name)Share" => whole_number(share),
                 "$(name)Carbon" => two_digits(1e-6carbon))
         end
     end
@@ -2074,14 +2063,14 @@ life_limit_text(life) = isnan(life) ? "--" : @sprintf("\\num{%.0f}", 100round(li
     rig_lead_numbers(table)
 
 Name and text, per kind of ship of `ship_types` and drive of the class table `table`, of
-the margin [points] of the best rig, and on container ships where the kite falls behind
-the rotors.
+the margin of the best rig by [`whole_points`](@ref), and on container ships where the
+kite falls behind the rotors.
 """
 function rig_lead_numbers(table)
     numbers = Pair{String, String}[]
     for row in rig_lead_rows(table)
         name = row.drive_word * row.word
-        push!(numbers, "Margin$name" => @sprintf("%.1f", row.margin))
+        push!(numbers, "Margin$name" => whole_points(row.margin))
         row.word == "Container" || continue
         push!(numbers, "KiteLifeLimit$name" => life_limit_text(row.life),
             "KiteLossLimit$name" => crash_cell(row.losses))
@@ -2157,9 +2146,8 @@ function sea_effect_table()
         for ship in ships
             saved = sea_effect_saving.(Ref(table), ship, ("model", "none"))
             aloft = sea_effect_flight.(Ref(table), ship, ("model", "none"))
-            # adding 0.0 turns a rounded -0.0 into 0.0
-            @printf(io, "%s & %.1f & %.1f & %.1f & %.1f & %.1f \\\\\n", ship, saved...,
-                round(saved[1] - saved[2]; digits=1) + 0.0, aloft...)
+            @printf(io, "%s & %.1f & %.1f & %s & %.1f & %.1f \\\\\n", ship, saved...,
+                one_decimal(saved[1] - saved[2]), aloft...)
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
