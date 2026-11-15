@@ -2008,6 +2008,30 @@ end
     @test !any(swept.filler.pending)
 end
 
+@testset "a re-plan reads the cost to go beyond its near hours from its last plan's" begin
+    departure, weather = 24.0 * 31, SyntheticWeather()
+    prices = (; fuel=table.table.ship.fuel.price, time=hourly)
+    centre, stage = WindShipOpt.centre_index(corridor), size(corridor.lat, 1) ÷ 2
+    remaining(start, previous) = WindShipOpt.remaining_cost(corridor, table, weather,
+        start, prices; first_stage=2, coastal_penalty=1.0, previous)
+    last_plan = remaining(departure, nothing)
+    near(hours) = WindShipOpt.with_router_settings(
+        () -> remaining(departure + 30.0, last_plan),
+        WindShipOpt.RouterSettings(to_go_near_hours=hours))
+    alone, all_near, read = remaining(departure + 30.0, nothing), near(Inf), near(48.0)
+    reads = [(lateral, hours) for lateral in (centre - 1, centre, centre + 1)
+             for hours in 0.0:7.0:200.0]
+    @test all(isequal(all_near(lateral, 1, stage, hours), alone(lateral, 1, stage, hours))
+              for (lateral, hours) in reads)
+    far = [(lateral, hours) for lateral in (centre - 1, centre, centre + 1)
+           for hours in 72.0:24.0:168.0 if isfinite(last_plan(lateral, 1, stage, hours + 30))]
+    @test !isempty(far)
+    @test all(read(lateral, 1, stage, hours) == last_plan(lateral, 1, stage, hours + 30.0)
+              for (lateral, hours) in far)
+    @test any(read(lateral, 1, stage, hours) != alone(lateral, 1, stage, hours)
+              for (lateral, hours) in far)
+end
+
 @testset "a ship drifted off its plan holds where no edge of its node can be sailed" begin
     departure, weather = 24.0 * 31, SyntheticWeather()
     centre = WindShipOpt.centre_index(corridor)
