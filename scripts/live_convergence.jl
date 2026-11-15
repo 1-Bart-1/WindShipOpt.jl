@@ -7,8 +7,10 @@
 # ships, routes and rigs over four of them.
 #
 #   julia --project=scripts -t auto scripts/live_convergence.jl <out_dir> <check> <setting>...
+#       [--rigs=<rig>,...] [--every=<n>]
 #
-# with <check> development or full and each <setting> a name of LIVE_SETTINGS. Writes
+# with <check> development or full and each <setting> a name of LIVE_SETTINGS; --rigs keeps
+# only those rigs besides no rig, and --every every n-th of those departures. Writes
 # live_convergence.csv, a line per round trip, and prints per ship, route and setting each
 # rig's mean cost saving, its change from the finest setting and the largest change of a
 # gap between two rigs, over the departures where every case has a trip.
@@ -20,13 +22,14 @@ LIVE_SETTINGS = (("hourly", 1.0, 4), ("half", 0.5, 2), ("quarter", 0.25, 1),
     ("eighth", 0.125, 1))
 
 """
-    live_cases(check, names)
+    live_cases(check, names; rigs=nothing, every=1)
 
 Per setting of `LIVE_SETTINGS` named in `names`, ship, route, rig and departure of `check`,
 the case sailing the forecast result's plan live, as (check, setting, step, stride, ship,
-route, departure, case).
+route, departure, case); with `rigs`, only those rigs and no rig, and only every `every`-th
+departure.
 """
-function live_cases(check, names)
+function live_cases(check, names; rigs=nothing, every=1)
     development = [(; check="development", ship="140m_ammonia", route=:caribbean, rig,
                        design=ShipDesign(:ammonia, 140.0; rig_size(rig, area)...),
                        departure)
@@ -35,7 +38,10 @@ function live_cases(check, names)
                    for departure in ensemble_departures]
     full = [(; check="full", case.ship, case.route, case.rig, case.design, departure)
             for case in gate_cases(1.0) for departure in ensemble_departures[1:3:end]]
-    entries = Dict("development" => development, "full" => full)[check]
+    departures = ensemble_departures[1:every:end]
+    entries = filter(entry -> entry.departure in departures &&
+                              (isnothing(rigs) || entry.rig == "none" || entry.rig in rigs),
+        Dict("development" => development, "full" => full)[check])
     corridors = Dict(route => route_corridors(route, mask; grid_spacing...)
                      for route in unique(entry.route for entry in entries))
     settings = [(; setting, step, stride) for (setting, step, stride) in LIVE_SETTINGS
@@ -123,7 +129,10 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     global paper_run = PaperRun(nothing, :draft, Dict{String, Any}(), 0, 0)
-    cases = live_cases(ARGS[2], ARGS[3:end])
+    options = Dict(split(arg, '=') for arg in ARGS[3:end] if startswith(arg, "--"))
+    cases = live_cases(ARGS[2], filter(!startswith("--"), ARGS[3:end]);
+        rigs=haskey(options, "--rigs") ? split(options["--rigs"], ',') : nothing,
+        every=parse(Int, get(options, "--every", "1")))
     costs = live_costs(cases)
     write_live_costs(joinpath(mkpath(first(ARGS)), "live_convergence.csv"), cases, costs)
     print_convergence(cases, costs)
