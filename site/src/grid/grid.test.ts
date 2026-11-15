@@ -15,7 +15,7 @@ const grid: Grid = {
   lateral_spacing: 60,
   lat: [0, 0, 0, 100, 100, 100, 200, 200, 200],
   lon: [-100, 0, 100, -100, 0, 100, -100, 0, 100],
-  kind: "xwxcwwxwx",
+  kind: "xwxwwwxwx",
   edges: [0, 0b111, 0, 0b100, 0b010, 0b001, 0, 0, 0],
   backward: [0, 0b100, 0, 0, 0, 0, 0, 0, 0],
   row_backward: [0, 0, 0, 0, 1, 1, 0, 0, 0],
@@ -38,7 +38,7 @@ describe("the grid page", () => {
   });
 
   it("counts nodes, edges and backward steps", () => {
-    expect(gridCounts(grid)).toEqual({ usable: 5, nearCoast: 1, unusable: 4, edges: 6, backwardEdges: 1, backwardRowSteps: 1 });
+    expect(gridCounts(grid)).toEqual({ usable: 5, unusable: 4, edges: 6, backwardEdges: 1, backwardRowSteps: 1 });
     expect(foldCentre(grid, gridEdges(grid))).toEqual([0.5, 0.5]);
   });
 
