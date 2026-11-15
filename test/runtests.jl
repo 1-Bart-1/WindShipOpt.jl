@@ -3617,6 +3617,15 @@ end
     @test market["any"] == rotors
 end
 
+@testset "the market shows its yearly saving and its rig sales apart, each measure once" begin
+    totals = [measure for view in PaperData.market_views for measure in view.total]
+    @test sort(totals) == sort(collect(PaperData.market_measures))
+    for view in PaperData.market_views
+        @test issubset(view.types, view.total)
+    end
+    @test PaperData.market_views.saving.total == (:saved, :fuel, :carbon)
+end
+
 @testset "a following wind is flown at a lower speed and a rough sea at no speed" begin
     (; corridor, kite_table, kite_hourly, weather, departure) = kite_routing
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)

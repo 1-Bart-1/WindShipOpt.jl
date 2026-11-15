@@ -932,7 +932,7 @@ end
 "what the fleet market of a rig sums over its cells: scale to the unit shown, name, unit"
 market_columns = (ships=(1, "Ships", ""), units=(1, "Rig units", ""),
     area=(1e-6, "Area", "[km\\textsuperscript{2}]"), sales=(1e-9, "Sales", "[USD bn]"),
-    saved=(1e-9, "Saving", "[USD bn/yr]"), fuel=(1e-9, "Fuel", "[Mt/yr]"),
+    saved=(1e-9, "Cost", "[USD bn/yr]"), fuel=(1e-9, "Fuel", "[Mt/yr]"),
     carbon=(1e-12, "CO\\textsubscript{2}", "[Mt/yr]"))
 
 "names of the [`market_columns`](@ref)"
@@ -1021,56 +1021,89 @@ function market_range(range, measure)
 end
 
 """
+the [`market_measures`](@ref) of each view of the fleet market, in total and by ship type:
+the yearly saving the rigs bring, and the rig sales they mean
+"""
+market_views = (saving=(total=(:saved, :fuel, :carbon), types=(:saved, :fuel, :carbon)),
+    sales=(total=(:ships, :units, :area, :sales), types=(:ships, :sales)))
+
+"""
     market_table()
 
-Tabulars of the [`fleet_market`](@ref) on each drive, low to high: of each rig and the
-best rig in market_table.tex, and of each rig's ships and sales by ship type in
-market_type_table.tex.
+Tabulars of the [`fleet_market`](@ref) on each drive, low to high, for each of the
+[`market_views`](@ref): of each rig and the best rig in market_<view>_table.tex, and of each
+rig with a market by ship type in market_<view>_type_table.tex.
 """
 function market_table()
     table = read_table(data_file("classes.csv"))
     markets = Dict(drive => cell_markets(table, drive) for (drive, _) in drive_labels)
-    open(joinpath(sections, "market_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}ll", "r"^length(market_columns), "@{}}\n\\toprule")
-        println(io, "Fuel & Rig & ", join(getindex.(values(market_columns), 2), " & "),
-            " \\\\\n & & ", join(last.(values(market_columns)), " & "), " \\\\")
+    for (view, (; total, types)) in pairs(market_views)
+        write_market_totals(markets, "market_$(view)_table.tex", total)
+        write_market_types(markets, "market_$(view)_type_table.tex", types)
+    end
+end
+
+"""
+    market_header(io, label, measures, repeats)
+
+Header rows of a market tabular: `Fuel`, `label` and the names of `measures` of the
+[`market_columns`](@ref), `repeats` times over, then their units.
+"""
+function market_header(io, label, measures, repeats)
+    names, units = ([market_columns[measure][k] for measure in measures] for k in (2, 3))
+    println(io, "Fuel & ", label, " & ", join(repeat(names, repeats), " & "), " \\\\")
+    println(io, " & & ", join(repeat(units, repeats), " & "), " \\\\")
+end
+
+"""
+    write_market_totals(markets, file, measures)
+
+Tabular of `measures` of the [`fleet_market`](@ref) of each rig and the best rig over the
+[`cell_markets`](@ref) `markets` of each drive: `file` in the paper's sections.
+"""
+function write_market_totals(markets, file, measures)
+    open(joinpath(sections, file), "w") do io
+        println(io, "\\begin{tabular}{@{}ll", "r"^length(measures), "@{}}\n\\toprule")
+        market_header(io, "Rig", measures, 1)
         for (drive, label) in drive_labels
             market = fleet_market(markets[drive])
             println(io, "\\midrule")
             for (k, rig) in enumerate((rig_names..., "any"))
-                cells = [market_range(market[rig], measure) for measure in market_measures]
+                cells = [market_range(market[rig], measure) for measure in measures]
                 println(io, k == 1 ? label : "", " & ", rig == "any" ? "best rig" : rig,
                     " & ", join(cells, " & "), " \\\\")
             end
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
-    write_market_types(markets)
 end
 
 """
-    write_market_types(markets)
+    write_market_types(markets, file, measures)
 
-Tabular of the ships and sales [USD bn] of the [`fleet_market`](@ref) of each rig with a
-market on some drive over the [`cell_markets`](@ref) of each ship type in `markets`, by
-drive: market_type_table.tex.
+Tabular of `measures` of the [`fleet_market`](@ref) of each rig with a market on some drive
+over the [`cell_markets`](@ref) of each ship type in `markets`, by drive: `file` in the
+paper's sections.
 """
-function write_market_types(markets)
+function write_market_types(markets, file, measures)
     types = unique(class.type for class in values(ship_classes()))
     rigs = [rig for rig in rig_names
             if any(market -> fleet_market(market)[rig].high.ships > 0, values(markets))]
-    open(joinpath(sections, "market_type_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}ll", "rr"^length(rigs), "@{}}\n\\toprule")
-        println(io, " & & ", join(("\\multicolumn{2}{c}{$rig}" for rig in rigs), " & "),
-            " \\\\")
-        println(io, join(("\\cmidrule(lr){$(2k + 1)-$(2k + 2)}" for k in eachindex(rigs))))
-        println(io, "Fuel & Ship type", " & Ships & Sales [USD bn]"^length(rigs), " \\\\")
+    width = length(measures)
+    open(joinpath(sections, file), "w") do io
+        println(io, "\\begin{tabular}{@{}ll", "r"^(width * length(rigs)),
+            "@{}}\n\\toprule")
+        heads = ("\\multicolumn{$width}{c}{$rig}" for rig in rigs)
+        println(io, " & & ", join(heads, " & "), " \\\\")
+        println(io, join(("\\cmidrule(lr){$(width * k - width + 3)-$(width * k + 2)}"
+                          for k in eachindex(rigs))))
+        market_header(io, "Ship type", measures, length(rigs))
         for (drive, label) in drive_labels
             println(io, "\\midrule")
             for (k, type) in enumerate(sort(types))
                 market = fleet_market(filter(cell -> cell.type == type, markets[drive]))
                 cells = [market_range(market[rig], measure)
-                         for rig in rigs for measure in (:ships, :sales)]
+                         for rig in rigs for measure in measures]
                 println(io, k == 1 ? label : "", " & ", type, " & ", join(cells, " & "),
                     " \\\\")
             end
