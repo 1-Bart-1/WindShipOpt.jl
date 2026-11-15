@@ -391,22 +391,28 @@ Base.@kwdef struct RouterSettings
     live_speed_stride::Int = 4
 end
 
-"[`RouterSettings`](@ref) in force"
+"[`RouterSettings`](@ref) in force, in every task"
 const ROUTER_SETTINGS = Ref(RouterSettings())
+
+"held by the task whose [`with_router_settings`](@ref) call is running"
+const ROUTER_SETTINGS_LOCK = ReentrantLock()
 
 """
     with_router_settings(call, settings)
 
 The result of `call()` with the [`RouterSettings`](@ref) `settings` in force, and those in
-force before it afterwards.
+force before it afterwards. Throws while a call from another task is running.
 """
 function with_router_settings(call, settings::RouterSettings)
+    trylock(ROUTER_SETTINGS_LOCK) ||
+        error("router settings hold in every task: set them outside a threaded loop")
     earlier = ROUTER_SETTINGS[]
     ROUTER_SETTINGS[] = settings
     try
         return call()
     finally
         ROUTER_SETTINGS[] = earlier
+        unlock(ROUTER_SETTINGS_LOCK)
     end
 end
 
