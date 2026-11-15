@@ -191,8 +191,8 @@ function track_figure(path, tracks, styles; grid=nothing, titles, limits)
                 tracks))
             lines!(axis, points; color, linestyle, linewidth=2, label="track, $label")
         end
-        k == 1 && axislegend(axis; position=:lb, framevisible=true, backgroundcolor=:white,
-            labelsize=11, markersize=8)
+        k == 1 && Legend(fig[2, 1:2], axis; orientation=:horizontal, nbanks=2,
+            labelsize=11, markersize=8, framevisible=false)
     end
     resize_to_layout!(fig)
     save(path, fig)
@@ -285,9 +285,8 @@ function savings_figure(out_dir, study_dir)
             (by, d) -> change(by, "kite", d) - change(by, "rotors", d)))
     fig = Figure(size=(1000, 330))
     for (k, (title, bound, value)) in enumerate(panels)
-        axis = Axis(fig[1, k]; title, xlabel="departure [day of year]",
-            ylabel=k == 1 ? "change against reference [points]" : "",
-            xticks=0:30:360)
+        axis = Axis(fig[1, k]; title, xlabel="departure [days from 1 January 2017]",
+            ylabel=k == 1 ? "change against reference [points]" : "")
         hspan!(axis, -bound, bound; color=(:green, 0.08))
         hlines!(axis, [-bound, bound]; color=:green, linestyle=:dot, linewidth=1.5,
             label="bound of the standard on the mean")
@@ -300,8 +299,10 @@ function savings_figure(out_dir, study_dir)
             hlines!(axis, [sum(values) / length(values)]; color, linewidth=1.5,
                 label="$label, mean")
         end
-        k == 1 && axislegend(axis; position=:lb, labelsize=10, backgroundcolor=:white)
+        k == 1 && Legend(fig[2, 1:3], axis; orientation=:horizontal, nbanks=2,
+            labelsize=10, framevisible=false)
     end
+    resize_to_layout!(fig)
     save(joinpath(out_dir, "savings.png"), fig)
 end
 
@@ -318,9 +319,9 @@ function seconds_figure(out_dir)
     mean_seconds(setting, rig, live) = (found = [parse(Float64, row.seconds) for row in rows
         if row.setting == setting && row.rig == rig && row.live == string(live)];
         sum(found) / length(found))
-    fig = Figure(size=(800, 380))
+    fig = Figure(size=(900, 380))
     axis = Axis(fig[1, 1]; ylabel="seconds per round trip, one rig and departure",
-        xticks=(1:length(TIMED), first.(TIMED)))
+        xticks=(1:length(TIMED), collect(first.(TIMED))))
     width = 0.8 / length(rigs)
     for (j, rig) in enumerate(rigs), (i, (setting, _)) in enumerate(TIMED)
         x = i + (j - (length(rigs) + 1) / 2) * width
