@@ -326,10 +326,46 @@ def base_kite_summary():
               f"cost {max(cost) - min(cost):.2f} points")
 
 
+def reduction(rows, name):
+    """Saving [%] of the column `name` of `rows` against their column "without", over the
+    rows where it is a number, and how many it is not."""
+    kept = [r for r in rows if r[name] != "NaN"]
+    return saving(sum(float(r[name]) for r in kept),
+                  sum(float(r["without"]) for r in kept)), len(rows) - len(kept)
+
+
+def router_decisions_summary():
+    """Reduction of the router's cost against the ship without a rig per rig: searched,
+    held to the path without a rig, and for the kite with free launches and stateless."""
+    print("== router decisions: reduction [%] of the router's cost against no rig")
+    rows = table("router_decisions.csv", "router_decisions")
+    for rig in RIGS:
+        chosen = [r for r in rows if r["rig"] == rig]
+        if not chosen:
+            continue
+        searched, _ = reduction(chosen, "searched")
+        alone, missing = reduction(chosen, "alone")
+        cheaper = [100 * (float(r["searched"]) - float(r["alone"])) / float(r["without"])
+                   for r in chosen if r["alone"] != "NaN"
+                   and float(r["alone"]) < float(r["searched"])]
+        print(f"{rig:7s} {len(chosen)} passages: searched {searched:.2f}%, "
+              f"path without rig {alone:.2f}% ({missing} not sailed), gives up "
+              f"{(searched - alone) / searched:.2f} of it; path without rig cheaper on "
+              f"{len(cheaper)}, by at most {max(cheaper, default=0):.2f}% of no rig")
+        if rig == "kite":
+            free, _ = reduction(chosen, "free")
+            stateless, _ = reduction(chosen, "stateless")
+            sailed, _ = reduction(chosen, "stateless_sailed")
+            print(f"        free launches {free - searched:+.2f} pt, stateless reported "
+                  f"{stateless - searched:+.2f} pt, its path sailed "
+                  f"{sailed - searched:+.2f} pt")
+
+
 SECTIONS = {"designs": designs_summary, "routes": routes_summary,
             "seasons": seasons_summary, "classes": classes_summary,
             "winners": winners_summary,
             "sizes": sizes_summary, "forecast": forecast_summary, "base_kite": base_kite_summary,
+            "router_decisions": router_decisions_summary,
             "other": other_summaries}
 for section in sys.argv[1:] or SECTIONS:
     SECTIONS[section]()

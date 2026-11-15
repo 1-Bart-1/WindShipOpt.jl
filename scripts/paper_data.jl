@@ -3455,3 +3455,117 @@ function rigid_scaling_data()
         end
     end
 end
+
+"ship, drive, and kite, wing sail and rotor areas [m^2] of the router decisions study"
+router_decision_ships = (("140 m", :ammonia, (1600.0, 1500.0, 800.0)),
+    ("Kamsarmax bulk carrier", :vlsfo, (3200.0, 3000.0, 1600.0)))
+
+"""
+    router_decision_case(ship, drive, rig, area, route)
+
+The route tables of `ship` on `drive` with `area` [m^2] of `rig` and without a rig, the
+time price [USD/h] of each leg of the ship with the rig, and the corridors of `route`.
+"""
+function router_decision_case(ship, drive, rig, area, route)
+    rigged = Ship(ShipDesign(drive, study_hull(ship); rig_size(rig, area)...), assumptions)
+    bare = Ship(ShipDesign(drive, study_hull(ship)), assumptions)
+    hourly = WindShipOpt.leg_time_costs(first(WindShipOpt.ship_costs(rigged, assumptions)),
+        assumptions)
+    table = RouteTable(PerformanceTable(rigged, assumptions))
+    return (; ship, rig, area, route, table, hourly, corridors=run_corridors(route),
+        bare=RouteTable(PerformanceTable(bare, assumptions)))
+end
+
+"`table` with the kite's launches and landings free"
+free_launch_table(table::RouteTable) = WindShipOpt.with_changed(table;
+    table=WindShipOpt.with_changed(table.table; cycle_cost=0.0))
+
+"""
+    stateless_table(table)
+
+`table` with the kite up wherever that pays: its launches and landings free, instant and
+open to any wind, sea and hour, so its state carries nothing.
+"""
+function stateless_table(table::RouteTable)
+    performance = table.table
+    rig = WindShipOpt.with_changed(performance.ship.rig; launch_min_wind=0.0,
+        launch_max_wind=Inf, launch_max_wave_height=Inf, landing_max_wind=Inf,
+        landing_max_wave_height=Inf, night_launch=true)
+    (; knots, values) = performance.sea_launch_wind
+    return WindShipOpt.with_changed(table; table=WindShipOpt.with_changed(performance;
+        ship=WindShipOpt.with_changed(performance.ship; rig),
+        sea_launch_wind=WindShipOpt.LinearTable(knots, zero(values)), cycle_cost=0.0,
+        handling_hours=0.0, forced_landing_cost=0.0))
+end
+
+"""
+    router_decision_passages(case, departure)
+
+Each leg of the round trip of `case` from `departure`, planned as in the results: its cost
+for the ship without a rig, for the rig, and for the rig held to the path planned without
+it; for a kite also with free launches, and planned by [`stateless_table`](@ref), as
+reported and with the real kite held to that path. Stops at a leg the planner cannot sail.
+"""
+function router_decision_passages(case, departure)
+    rows = []
+    start = departure
+    kite = case.rig == "kite"
+    for (leg, corridor, time_cost) in zip(("out", "back"), case.corridors, case.hourly)
+        plan(table) = forecast_route(corridor, table, weather, start; time_cost)
+        searched, without = plan(case.table), plan(case.bare)
+        (isnothing(searched) || isnothing(without)) && break
+        free = kite ? plan(free_launch_table(case.table)) : nothing
+        stateless = kite ? plan(stateless_table(case.table)) : nothing
+        push!(rows, (; case.ship, case.rig, case.area, case.route, departure, leg,
+            without=without.objective, searched=searched.objective,
+            alone=held_objective(without, corridor, case.table, start, time_cost),
+            free=isnothing(free) ? NaN :
+                 free.objective + free.launches * case.table.table.cycle_cost,
+            stateless=leg_objective(stateless),
+            stateless_sailed=held_objective(stateless, corridor, case.table, start,
+                time_cost),
+            searched_launches=searched.launches,
+            free_launches=isnothing(free) ? -1 : free.launches))
+        start += searched.duration + 24assumptions[:port_time_per_call]
+    end
+    return rows
+end
+
+"objective of `leg`, NaN where there is none"
+leg_objective(leg) = isnothing(leg) ? NaN : leg.objective
+
+"""
+    held_objective(leg, corridor, table, start, time_cost)
+
+Objective of the ship of `table` planned from `start` [h] along the path of `leg` through
+`corridor`, NaN where there is no `leg` or no passage along it.
+"""
+function held_objective(leg, corridor, table, start, time_cost)
+    isnothing(leg) && return NaN
+    path = WindShipOpt.path_corridor(leg, corridor, 1)
+    return leg_objective(forecast_route(path, table, weather, start; time_cost))
+end
+
+"""
+    router_decisions_data()
+
+What planning with the rig is worth: on the routes to Guadeloupe, New York and Tubarão,
+each rig of [`router_decision_ships`](@ref) planned per leg by
+[`router_decision_passages`](@ref): router_decisions.csv.
+"""
+function router_decisions_data()
+    cases = [router_decision_case(ship, drive, rig, area, route)
+             for (ship, drive, areas) in router_decision_ships
+             for (rig, area) in zip(("kite", "wings", "rotors"), areas)
+             for route in (:caribbean, :new_york, :tubarao)]
+    passages = vec(collect(Iterators.product(cases, sampled_departures())))
+    found = Vector{Any}(undef, length(passages))
+    Threads.@threads :greedy for k in eachindex(passages)
+        found[k] = router_decision_passages(passages[k]...)
+    end
+    rows = reduce(vcat, found)
+    open(run_file("router_decisions.csv"), "w") do io
+        println(io, join(keys(first(rows)), ","))
+        foreach(row -> println(io, join(csv_value.(values(row)), ",")), rows)
+    end
+end
