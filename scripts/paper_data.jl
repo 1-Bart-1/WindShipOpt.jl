@@ -8,7 +8,7 @@
 study_drives = (:vlsfo, :ammonia)
 
 "projected aspect ratio of the kite of every design that names none"
-design_aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
+design_aspect_ratio = assumptions[:kite_aspect_ratio]
 
 """
     trip_case(design; assumptions, route, scale, forecast, held_knots, part, labels...)
@@ -109,7 +109,7 @@ end
     write_trips(name, cases, trips, columns...)
 
 Write `name` to the directory of the run in use with the given label `columns` of each
-case and the cost [USD/tkm], fuel [MJ/tkm], CO2 [kg/tkm], round-trip days, kite flight
+case and the cost [USD/tkm], fuel [MJ/tkm], CO2 [g/tkm], round-trip days, kite flight
 share, kite launches and forced landings per round trip, cargo [t], whether the rig
 retracts and the [`cost_columns`](@ref), of each feasible trip.
 """
@@ -729,7 +729,8 @@ function write_design(io, case, trip, work_per_tonne)
     (; design) = case
     @printf(io, "%s,%s,%.0f,%.0f,%.0f,%.0f,%.0f,%.6f,%.5f,%.3f,%.2f,%.2f,%.0f,%.0f,",
         case.scenario, design.drive, design.length, design.kite_area,
-        design.kite_aspect_ratio, design.wing_area, design.rotor_area,
+        WindShipOpt.kite_aspect_ratio(design, case.assumptions), design.wing_area,
+        design.rotor_area,
         trip.cost_per_tonne_km, trip.fuel_per_tonne_km, trip.carbon_per_tonne_km,
         trip.outbound_days, trip.return_days, trip.cargo, trip.capital)
     @printf(io, "%.3f,%.2f", trip.flight_share, trip.launches)
@@ -917,16 +918,27 @@ level_margin = 1.0
 fleet_bands = ("kite", "level", "rotors", "wings", "none")
 
 """
+    fleet_leaders(savings)
+
+Rigs of a cell with the cost `savings` [%] of its rigs that save within
+[`level_margin`](@ref) of the best; none where the best saves less than that margin.
+"""
+function fleet_leaders(savings)
+    best = maximum(values(savings))
+    best < level_margin && return String[]
+    return [rig for (rig, saving) in savings if best - saving < level_margin]
+end
+
+"""
     fleet_band(savings)
 
-Band of [`fleet_bands`](@ref) of a cell with the cost `savings` [%] of its rigs: the rig
-that saves most, `"level"` where another saves within [`level_margin`](@ref) of it and
-`"none"` where the best saves less than that margin.
+Band of [`fleet_bands`](@ref) of a cell with the cost `savings` [%] of its rigs: its one
+[`fleet_leaders`](@ref) rig, `"level"` where there are more and `"none"` where there are
+none.
 """
 function fleet_band(savings)
-    best = maximum(values(savings))
-    best < level_margin && return "none"
-    leaders = [rig for (rig, saving) in savings if best - saving < level_margin]
+    leaders = fleet_leaders(savings)
+    isempty(leaders) && return "none"
     return length(leaders) > 1 ? "level" : only(leaders)
 end
 
@@ -939,13 +951,22 @@ A cell in the band `"none"` saves nothing, as no rig is fitted.
 """
 function fleet_split(cells)
     split = Dict(band => (bill=0.0, saved=0.0) for band in fleet_bands)
-    for (; bill, savings) in cells
-        band = fleet_band(savings)
-        saved = band == "none" ? 0.0 : bill * maximum(values(savings)) / 100
-        split[band] = (bill=split[band].bill + bill, saved=split[band].saved + saved)
+    for cell in cells
+        band = fleet_band(cell.savings)
+        best = argmax(rig -> cell.savings[rig], keys(cell.savings))
+        saved = band == "none" ? 0.0 : cell_saved(cell, best)
+        split[band] = (bill=split[band].bill + cell.bill, saved=split[band].saved + saved)
     end
     return split
 end
+
+"""
+    cell_saved(cell, rig)
+
+Yearly cost [USD] `rig` saves on a fleet cell with the `bill` [USD a year] of the cell
+without a rig and the cost `savings` [%] of its rigs.
+"""
+cell_saved(cell, rig) = cell.bill * cell.savings[rig] / 100
 
 """
     read_table(path)
@@ -995,29 +1016,54 @@ function fleet_work()
 end
 
 """
-    fleet_split_of(table, drive)
+    fleet_ships()
 
-The [`fleet_split`](@ref) of class table `table` on `drive`: each class's transport work
-from [`fleet_work`](@ref) shared equally over the table's routes, at the cost without a
-rig. Errors naming every class and route of `drive` the table lacks a result of a rig for.
+Ships of each class in its IMO size bins in 2018, the `fleet` of data/ship_classes.csv.
 """
-function fleet_split_of(table, drive)
+function fleet_ships()
+    classes = read_table(joinpath(pkgdir(WindShipOpt), "data", "ship_classes.csv"))
+    return Dict(zip(classes["name"], classes["fleet"]))
+end
+
+"""
+    fleet_cells(table, drive)
+
+Each class and route of class table `table` on `drive`, with the class's transport work
+[tonne-km a year] from [`fleet_work`](@ref) and its ships from [`fleet_ships`](@ref) shared
+equally over the table's routes, the yearly cost `bill` [USD] of that work without a rig,
+the row of the ship without a rig and of the best size of each rig, and their cost
+`savings` [%]. Errors naming every class and route of `drive` the table lacks a result of
+a rig for.
+"""
+function fleet_cells(table, drive)
     work, _ = fleet_work()
+    ships = fleet_ships()
     routes = unique(table["route"])
     cells, absent = [], String[]
     for class in keys(work), route in routes
         bare = cheapest_row(table, class, route, drive, "none")
-        savings = best_savings(table, class, route, drive)
-        if isnothing(bare) || length(savings) < length(rig_names)
+        best = Dict(rig => cheapest_row(table, class, route, drive, rig) for rig in rig_names)
+        if isnothing(bare) || any(isnothing, values(best))
             push!(absent, "$class on $route")
             continue
         end
-        bill = work[class] / length(routes) * table["cost"][bare]
-        push!(cells, (; bill, savings))
+        share = work[class] / length(routes)
+        reference = table["cost"][bare]
+        savings = Dict(rig => percent_saving(table["cost"][row], reference)
+                       for (rig, row) in best)
+        push!(cells, (; class, route, work=share, ships=ships[class] / length(routes),
+            bill=share * reference, bare, best, savings))
     end
     isempty(absent) || throw(ArgumentError("no $drive results for " * join(absent, ", ")))
-    return fleet_split(cells)
+    return cells
 end
+
+"""
+    fleet_split_of(table, drive)
+
+The [`fleet_split`](@ref) of the [`fleet_cells`](@ref) of class table `table` on `drive`.
+"""
+fleet_split_of(table, drive) = fleet_split(fleet_cells(table, drive))
 
 """
     searched_sizes(ships, rounds)
@@ -1181,8 +1227,8 @@ forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite, :kite
 
 """
 plans of the forecast study made on [`planning_grid`](@ref), each as the plan it makes
-there and how its ship sails it, an `adapts` of [`ReplannedForecast`](@ref): `:live` and
-`:live_to_go` choose speed and kite hour by hour
+there and how its ship sails it, an `adapts` of [`ReplannedForecast`](@ref): `:live`
+chooses speed and kite hour by hour
 """
 grid_plans = Dict(:grid_perfect => (plan=:perfect_replan, adapts=:nothing),
     :grid => (plan=true, adapts=:nothing),
@@ -1191,9 +1237,7 @@ grid_plans = Dict(:grid_perfect => (plan=:perfect_replan, adapts=:nothing),
     :grid_wind_forecast => (plan=:wind_forecast, adapts=:nothing),
     :grid_expected_margin => (plan=:expected_margin, adapts=:nothing),
     :grid_perfect_live => (plan=:perfect_replan, adapts=:live),
-    :grid_live => (plan=:expected, adapts=:live),
-    :grid_perfect_live_to_go => (plan=:perfect_replan, adapts=:live_to_go),
-    :grid_live_to_go => (plan=:expected, adapts=:live_to_go))
+    :grid_live => (plan=:expected, adapts=:live))
 
 "spacing of the stages and rows [nmi] of the corridors [`grid_plans`](@ref) sail"
 grid_spacing = (ocean_spacing=240.0, lateral_spacing=60.0)
@@ -1238,10 +1282,10 @@ forecast_result_data() =
 """
 plans of the live-sailing study: perfect foresight on the run's corridors, and the forecast
 result's plans with perfect foresight and on the forecast, each sailed holding the plan's
-speed and sailed live, valuing what lies beyond an edge by the plan and by the cost to go
+speed and sailed live
 """
 forecast_live_plans = (false, :grid_perfect, :grid_expected, :grid_perfect_live,
-    :grid_live, :grid_perfect_live_to_go, :grid_live_to_go)
+    :grid_live)
 
 """
     forecast_live_data()
@@ -2072,11 +2116,15 @@ kite_margin_rows = (
 """
     bound_assumptions(name, bound)
 
-The assumptions with input `name` at its `bound` (:low or :high).
+The assumptions with input `name` at its `bound` (:low or :high), the kite's aspect ratio
+at the price of the base kite.
 """
 function bound_assumptions(name, bound)
     entry = assumptions.entries[name]
-    return with_value(assumptions, name, bound == :low ? entry.low : entry.high)
+    value = bound == :low ? entry.low : entry.high
+    name == :kite_aspect_ratio &&
+        return WindShipOpt.with_kite_aspect_ratio(assumptions, value)
+    return with_value(assumptions, name, value)
 end
 
 "class ships of the development study, each with its drive and route"
@@ -2143,9 +2191,9 @@ development_inputs = [
     (input=:kite_min_turn_radius, label="kite smallest turn radius", rig="kite",
         lever="force", reason="Steering and control decide how tight, and so how " *
                               "powerful, a pattern can be."),
-    (input=:kite_flight_drag, label="kite flight drag", rig="kite", lever="force",
-        reason="Deformation, control unit and steering; the low bound, a kite that keeps " *
-               "its design shape, is the most a better design can recover."),
+    (input=:kite_aspect_ratio, label="kite aspect ratio", rig="kite", lever="force",
+        reason="The shape of the wing, fixed at today's in the results; a slenderer kite " *
+               "glides better if launch and canopy can handle it, priced as the base."),
     (input=:kite_launch_sea_wind, label="kite extra launch wind in a sea", rig="kite",
         lever="weather", reason="How far the launch system takes up the ship's motion; " *
                                 "the kite's only limit on the sea."),
@@ -2218,99 +2266,6 @@ function sensitivity_data()
     trips[base] = round_trips(cases[base], sampled_departures())
     trips[changed] = round_trips(cases[changed], sampled_departures())
     write_trips("sensitivity.csv", cases, trips, :ship, :rig, :input, :bound)
-end
-
-"projected aspect ratios of the kite in the aspect ratio study, those with a polar"
-study_aspect_ratios = (3.0, 4.0, 5.0, 6.0, 8.0)
-
-"""
-    aspect_data()
-
-Each ship of [`sensitivity_ships`](@ref) without a rig and with its kite at each of
-[`study_aspect_ratios`](@ref), at the same area and the same price: aspect.csv.
-"""
-function aspect_data()
-    cases = []
-    for (ship, bare, route, areas) in sensitivity_ships()
-        push!(cases, trip_case(bare; route, ship, aspect_ratio=0.0))
-        for aspect_ratio in study_aspect_ratios
-            design = ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...,
-                kite_aspect_ratio=aspect_ratio)
-            push!(cases, trip_case(design; route, ship, aspect_ratio,
-                assumptions=WindShipOpt.base_aspect_ratio_prices(assumptions,
-                    aspect_ratio / design_aspect_ratio)))
-        end
-    end
-    trips = round_trips(cases, sampled_departures())
-    open(run_file("aspect.csv"), "w") do io
-        println(io, "ship,aspect_ratio,area,cost,flight_share,launches,cargo")
-        for (case, trip) in zip(cases, trips)
-            isnothing(trip) && continue
-            @printf(io, "%s,%.0f,%.0f,%.6f,%.3f,%.2f,%.0f\n", csv_value(case.ship),
-                case.aspect_ratio, case.design.kite_area, trip.cost_per_tonne_km,
-                trip.flight_share, trip.launches, trip.cargo)
-        end
-    end
-end
-
-"force limits of the kite in the force rating study [kN/m^2]"
-study_force_ratings = (0.3, 0.5, 0.7, 1.0)
-
-"kite areas of the force rating study [m^2]"
-study_kite_areas = [1600.0 * sqrt(2.0)^k for k in 0:6]
-
-"""
-    nearby_kite_areas(kite_area, reach)
-
-Those of [`study_kite_areas`](@ref) within `reach` grid steps of the one nearest `kite_area`.
-"""
-function nearby_kite_areas(kite_area, reach)
-    nearest = argmin(abs.(log.(study_kite_areas ./ kite_area)))
-    return study_kite_areas[max(1, nearest - reach):min(end, nearest + reach)]
-end
-
-"""
-    force_rating_case(bare, route, ship, rating, exponent, area)
-
-Trip case of the ship `bare` with a kite of `area` built for the force limit `rating`, its
-cloth following the limit to the power `exponent`.
-"""
-function force_rating_case(bare, route, ship, rating, exponent, area)
-    rated = changed_assumptions((; kite_max_force_per_area=rating,
-        canopy_cloth_force_exponent=exponent))
-    design = ShipDesign(; bare.drive, bare.length, bare.class, kite_area=area)
-    return trip_case(design; assumptions=rated, route, ship, rating, exponent, area)
-end
-
-"""
-    force_rating_cases(bare, route, ship, kite_area)
-
-Cases of one ship in the force rating study: without a rig; with its kite at each of
-[`study_force_ratings`](@ref) and two area steps around `kite_area`; and at the lowest and
-highest limit and one area step with cloth that follows the limit in proportion or not at
-all.
-"""
-function force_rating_cases(bare, route, ship, kite_area)
-    base = assumptions[:canopy_cloth_force_exponent]
-    return [trip_case(bare; route, ship, rating=0.0, exponent=base, area=0.0);
-            vec([force_rating_case(bare, route, ship, rating, base, area)
-                 for rating in study_force_ratings, area in nearby_kite_areas(kite_area, 2)]);
-            vec([force_rating_case(bare, route, ship, rating, exponent, area)
-                 for rating in extrema(study_force_ratings), exponent in (0.0, 1.0),
-                 area in nearby_kite_areas(kite_area, 1)])]
-end
-
-"""
-    force_rating_data()
-
-Each ship of [`sensitivity_ships`](@ref) with the cases of [`force_rating_cases`](@ref):
-force_rating.csv.
-"""
-function force_rating_data()
-    cases = reduce(vcat, [force_rating_cases(bare, route, ship, areas.kite.kite_area)
-                          for (ship, bare, route, areas) in sensitivity_ships()])
-    write_trips("force_rating.csv", cases, round_trips(cases, sampled_departures()), :ship,
-        :rating, :exponent, :area)
 end
 
 """

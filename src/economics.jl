@@ -433,14 +433,17 @@ function wear_cost(rig::KiteRig, assumptions)
 end
 
 """
-    base_aspect_ratio_prices(assumptions, aspect_ratio_factor)
+    with_kite_aspect_ratio(assumptions, aspect_ratio)
 
-`assumptions` with the tether, the only priced part that follows span, cheaper per kg so
-that a kite of `aspect_ratio_factor` times the base aspect ratio pays what the base pays.
+`assumptions` with the kite at projected `aspect_ratio` and the tether, the only priced part
+that follows span, cheaper per kg so that it pays what a kite of the aspect ratio of
+`assumptions` pays.
 """
-base_aspect_ratio_prices(assumptions::Assumptions, aspect_ratio_factor) =
-    with_value(assumptions, :tether_price,
-        assumptions[:tether_price] / sqrt(aspect_ratio_factor))
+function with_kite_aspect_ratio(assumptions::Assumptions, aspect_ratio)
+    factor = aspect_ratio / assumptions[:kite_aspect_ratio]
+    slender = with_value(assumptions, :kite_aspect_ratio, aspect_ratio)
+    return with_value(slender, :tether_price, assumptions[:tether_price] / sqrt(factor))
+end
 
 """
     cycle_cost(rig, assumptions)

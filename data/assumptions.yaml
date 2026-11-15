@@ -877,6 +877,12 @@ bridle_cascade_factor:
   high: 1.0
   unit: "-"
   reason: "Engineering estimate: total bridle line length over the number of attachment lines times bridle height, from cascading lines into fewer main lines at 1:2 to 1:4 (Dunker 2013); 1 is no cascading."
+kite_aspect_ratio:
+  value: 3.0
+  low: 2.5
+  high: 4.0
+  unit: "-"
+  reason: "Projected span squared over projected area. 3 is used by industry, with no public reference. SkySails gave its ship kite a projected aspect ratio below 2 for tolerance to angle of attack and stability at launch and landing (Paulig et al. 2013), and a SkySails Power wing has 1.86 (Folkersma et al. 2020); 2.5 is the lowest with a polar. The high bound is an estimate of what a launch system and canopy could handle. Priced as the base kite: the tether, the only priced part that follows span, is made cheaper per kg."
 kite_flight_drag:
   value: 0.08
   low: 0.0

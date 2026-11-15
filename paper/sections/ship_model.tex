@@ -29,27 +29,27 @@
   .. controls (14.6,-0.55) and (17.2,-0.75) .. (17.6,0) -- cycle;
 \draw[force] (18.6,0) -- (39,0) node[right, inner sep=1pt] {$T_\mathrm{req}$};
 \draw[force, water] (15.5,0.7) -- (14.0,10.5);
-\node[part, water, anchor=south, align=center] at (14.0,10.8) {rudder: $F_r$, drag $R_r$, \S\ref{sec:balance}};
-\node[part, anchor=north east, align=right] at (19.4,-4.6) {propeller, \S\ref{sec:ships}};
+\node[part, water, anchor=south, align=center] at (14.0,10.8) {rudder: $F_r$, drag $R_r$\inpaper{, \S\ref{sec:balance}}};
+\node[part, anchor=north east, align=right] at (19.4,-4.6) {propeller\inpaper{, \S\ref{sec:ships}}};
 % wind on the ship
 \draw[force, air] (40,19) -- (31,6.5);
-\node[part, air, anchor=east, align=right] at (39,21.5) {wind on ship: $R_\mathrm{air}$,\\ side force, moments, \S\ref{sec:ships}};
+\node[part, air, anchor=east, align=right] at (39,21.5) {wind on ship: $R_\mathrm{air}$,\\ side force, moments\inpaper{, \S\ref{sec:ships}}};
 % rig
 \fill[rig] (50,0) circle (1.3);
 \draw[rig, dashed, ->, semithick] (50,0) -- (62,0) node[above, rig, inner sep=1pt] {$F_x$};
 \draw[rig, dashed, ->, semithick] (50,0) -- (50,-14) node[pos=0.55, left, rig] {$F_y$};
 \draw[force, rig] (50,0) -- (62,-14);
-\node[part, rig, anchor=north, align=center] (riglabel) at (52,-15.5) {rig: $F_x$, $F_y$, $M_x$, $M_z$, $P_\mathrm{rig}$,\\ \S\ref{sec:deck_rigs}, \S\ref{sec:kite}};
+\node[part, rig, anchor=north, align=center] (riglabel) at (52,-15.5) {rig: $F_x$, $F_y$, $M_x$, $M_z$, $P_\mathrm{rig}$\inpaper{,\\ \S\ref{sec:deck_rigs}, \S\ref{sec:kite}}};
 % hull at leeway
 \draw[force, water] (75.9,-18) -- (74,-6);
-\node[part, water, anchor=west] at (77,-14) {hull at leeway $\beta$:\\ side force, drag $R_\beta$, \S\ref{sec:balance}};
+\node[part, water, anchor=west] at (77,-14) {hull at leeway $\beta$:\\ side force, drag $R_\beta$\inpaper{, \S\ref{sec:balance}}};
 % resistances on the bow
 \draw[force, water] (106,2.2) -- (89,2.2);
 \draw[force, water] (106,-2.2) -- (89,-2.2);
 \draw[water, semithick] (106,-4.3) sin (107.25,-3.6) cos (108.5,-4.3) sin (109.75,-5) cos (111,-4.3);
 \node[part, water, anchor=west] at (106,3.6) {$R_\mathrm{cw}$ calm water};
 \node[part, water, anchor=west] at (106,-0.8) {$R_\mathrm{aw}$ waves};
-\node[part, water, anchor=north west] at (106,-6) {\S\ref{sec:ships}};
+\node[part, water, anchor=north west] at (106,-6) {\inpaper{\S\ref{sec:ships}}};
 % ---- from astern, heeled to leeward: wing sail or rotor against kite
 \node[font=\footnotesize\itshape, anchor=west] at (122,29) {(b) from astern};
 \begin{scope}[shift={(142,0)}]
@@ -71,22 +71,22 @@
   \draw[force, water] (8,-2.5) -- (-4,-2.5);
   \draw[black!60, |<->|] (-11,-2.5) -- (-11,0 |- wing) node[above] {deck rig lever};
   \draw[black!60, |<->|] (-14,-2.5) -- (-14,0 |- tow) node[above left, xshift=2mm] {kite lever};
-  \node[black!60, anchor=north] at (5,-9.5) {heel $\phi\le\SI{8}{\degree}$, \S\ref{sec:balance}};
+  \node[black!60, anchor=north] at (5,-9.5) {heel $\phi\le\SI{8}{\degree}$\inpaper{, \S\ref{sec:balance}}};
 \end{scope}
 % ---- how the parts combine
 \pgfmathsetmacro{\rowy}{-34}
 \node[box, shipc, minimum width=52mm, anchor=north west] (thrust) at (0,\rowy) {};
 \node[boxtitle] at ([shift={(2,-2)}]thrust.north west) {Required thrust $T_\mathrm{req}$};
-\node[boxtext, text width=49mm] at ([shift={(2,-7)}]thrust.north west) {the resistances less the rig's\\ thrust $F_x$, \cref{eq:thrust}};
+\node[boxtext, text width=49mm] at ([shift={(2,-7)}]thrust.north west) {the resistances less the rig's\\ thrust $F_x$\inpaper{, \cref{eq:thrust}}};
 \node[box, shipc, minimum width=34mm, anchor=north west] (prop) at (56,\rowy) {};
 \node[boxtitle] at ([shift={(2,-2)}]prop.north west) {Propeller};
-\node[boxtext, text width=31mm] at ([shift={(2,-7)}]prop.north west) {ideal disk with a viscous loss, \S\ref{sec:ships}};
+\node[boxtext, text width=31mm] at ([shift={(2,-7)}]prop.north west) {ideal disk with a viscous loss\inpaper{, \S\ref{sec:ships}}};
 \node[box, shipc, minimum width=36mm, anchor=north west] (engine) at (94,\rowy) {};
 \node[boxtitle] at ([shift={(2,-2)}]engine.north west) {Engine and fuel};
-\node[boxtext, text width=33mm] at ([shift={(2,-7)}]engine.north west) {output $P$ for propeller, rotor spin $P_\mathrm{rig}$ and hotel load; fuel at part load, \S\ref{sec:ships}};
+\node[boxtext, text width=33mm] at ([shift={(2,-7)}]engine.north west) {output $P$ for propeller, rotor spin $P_\mathrm{rig}$ and hotel load; fuel at part load\inpaper{, \S\ref{sec:ships}}};
 \node[box, rigc, minimum width=30mm, anchor=north west] (trim) at (134,\rowy) {};
 \node[boxtitle] at ([shift={(2,-2)}]trim.north west) {Best trim};
-\node[boxtext, text width=27mm] at ([shift={(2,-7)}]trim.north west) {least $P$ within the limits on $\phi$, $\beta$ and rudder, \S\ref{sec:balance}};
+\node[boxtext, text width=27mm] at ([shift={(2,-7)}]trim.north west) {least $P$ within the limits on $\phi$, $\beta$ and rudder\inpaper{, \S\ref{sec:balance}}};
 \draw[arrow] (thrust) -- (prop);
 \draw[arrow] (prop) -- (engine);
 \draw[arrow] (engine) -- (trim);

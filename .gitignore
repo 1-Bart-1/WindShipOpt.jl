@@ -19,3 +19,6 @@ paper/extended_abstract.*
 /kite_polars/output/
 /kite_polars/Manifest.toml
 /paper/figures/
+paper/kite_design/kite_design.*
+!paper/kite_design/kite_design.tex
+/paper/kite_design/figures/

@@ -49,7 +49,6 @@ include("paper_tables.jl")
 data_steps = [:patterns => patterns_data, :designs => designs_data,
     :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
     :forecast_result => forecast_result_data, :sensitivity => sensitivity_data,
-    :aspect_data => aspect_data, :force_rating_data => force_rating_data,
     :goal_size_data => goal_size_data,
     :availability_data => availability_data,
     :canopy_life_data => canopy_life_data, :canopy_price_data => canopy_price_data,
@@ -110,13 +109,13 @@ output_steps = [:kite => kite_figure,
     :situations_figure => situations_figure,
     :fuels => fuel_figure,
     :wind_angle_figure => wind_angle_figure,
-    :sensitivity_figure => sensitivity_figure, :aspect_figure => aspect_figure,
-    :force_rating_figure => force_rating_figure,
+    :sensitivity_figure => sensitivity_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
     :development_table => development_table,
     :class_table => class_table, :fidelity_table => fidelity_table,
     :split_table => split_table,
-    :payback_table => payback_table, :goals_table => goals_table,
+    :payback_table => payback_table, :market_table => market_table,
+    :goals_table => goals_table,
     :missed_goals_table => missed_goals_table,
     :rig_margin_table => rig_margin_table,
     :abatement => abatement_figure, :combination => combination_figure,
@@ -144,10 +143,22 @@ Steps that run has done are skipped, and it counts as finished once every step a
 is done. A final run errors on a dirty tree or unpushed commit.
 """
 function paper(names::Symbol...; fidelity, resume=nothing)
-    haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
     steps = isempty(names) ? [data_steps; output_steps] :
             [step for name in names for step in selected_steps(name)]
-    outputs = first.([output_steps; study_table_steps()])
+    run_steps(steps, first.([output_steps; study_table_steps()]); fidelity, resume)
+    mark_fidelity(joinpath(sections, "fidelity.tex"), fidelity, first.(steps),
+        first.(output_steps))
+    return nothing
+end
+
+"""
+    run_steps(steps, outputs; fidelity, resume)
+
+Run `steps` at `fidelity` in a new or resumed run as [`paper`](@ref) does, or without a run
+when all of them are among the figure and table steps `outputs`.
+"""
+function run_steps(steps, outputs; fidelity, resume)
+    haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
     global paper_run = all(in(outputs), first.(steps)) ?
                        PaperRun(nothing, fidelity, Dict{String, Any}(), 0, 0) :
                        open_run(fidelity, first.(steps), resume)
@@ -159,9 +170,6 @@ function paper(names::Symbol...; fidelity, resume=nothing)
         run_step!(paper_run, name, step)
     end
     finish_run!(paper_run)
-    mark_fidelity(joinpath(sections, "fidelity.tex"), fidelity, first.(steps),
-        first.(output_steps))
-    return nothing
 end
 
 """
