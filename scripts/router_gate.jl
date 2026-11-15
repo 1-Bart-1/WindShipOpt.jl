@@ -23,6 +23,9 @@ SAVING_TOLERANCE = 3.0
 [points]"
 GAP_TOLERANCE = 1.0
 
+"change of one departure's saving against the reference that flags it to be drawn [points]"
+OUTLIER_POINTS = 3.0
+
 "first line of a gate file"
 GATE_HEADER = "ship,rig,route,departure,cost,fuel,flight"
 
@@ -178,7 +181,8 @@ end
 
 Per (ship, rig, route) of the gate files' rows `reference`: the mean saving over the
 departures in `reference` and in `new` [points], the mean and the standard error of their
-paired change [points]; `nothing` for a case that is infeasible in either. With
+paired change [points], and the departures whose change exceeds `OUTLIER_POINTS` with
+their change; `nothing` for a case that is infeasible in either. With
 `extrapolated`, `reference` is a grid twice as fine as `new`, and each departure's reference
 saving is extrapolated from the two at first order.
 """
@@ -194,8 +198,11 @@ function saving_changes(new, reference; extrapolated=false)
         end
         extrapolated && (pairs = [(saving, 2 * finer - saving) for (saving, finer) in pairs])
         paired = [first(pair) - last(pair) for pair in pairs]
+        outliers = [departure => change
+                    for (departure, change) in zip(keys(by_departure), paired)
+                    if abs(change) > OUTLIER_POINTS]
         changes[key] = (; new=mean(first.(pairs)), reference=mean(last.(pairs)),
-            change=mean(paired), error=std(paired) / sqrt(length(paired)))
+            change=mean(paired), error=std(paired) / sqrt(length(paired)), outliers)
     end
     return changes
 end
@@ -204,9 +211,9 @@ end
     standard_passes(new, reference; extrapolated=false)
 
 Print each rig's saving in the gate files' rows `new` against `reference`, extrapolated as
-[`saving_changes`](@ref) says, and the change of the gap between each two rigs; whether
-every saving moves by at most `SAVING_TOLERANCE` and every gap by at most `GAP_TOLERANCE` points,
-and every case feasible in one is in the other.
+[`saving_changes`](@ref) says, each departure flagged as an outlier, and the change of the
+gap between each two rigs; whether every saving moves by at most `SAVING_TOLERANCE` and
+every gap by at most `GAP_TOLERANCE` points, and every case feasible in one is in the other.
 """
 function standard_passes(new, reference; extrapolated=false)
     changes = saving_changes(new, reference; extrapolated)
@@ -220,6 +227,9 @@ function standard_passes(new, reference; extrapolated=false)
         end
         @printf("%-28s saving %6.2f, reference %6.2f, change %+.2f ± %.2f points\n",
             join(key, " "), found.new, found.reference, found.change, found.error)
+        for (departure, change) in sort(found.outliers)
+            @printf("    outlier: departure %.0f h, change %+.2f points\n", departure, change)
+        end
         passed &= abs(found.change) <= SAVING_TOLERANCE
     end
     for (one, other) in Iterators.product(keys(changes), keys(changes))

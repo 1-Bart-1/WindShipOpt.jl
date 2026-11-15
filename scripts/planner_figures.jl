@@ -8,6 +8,7 @@
 #   julia +1.12 --project=scripts -t auto scripts/planner_figures.jl <out_dir>
 #   julia +1.12 --project=scripts scripts/planner_figures.jl --plot <out_dir> <study_dir>
 #
+# `draw_outliers` routes and draws each departure a gate comparison flags.
 # The first routes into <out_dir>; the second draws from it and from the gate files of the
 # grid study in <study_dir> into <out_dir>/*.png.
 using CairoMakie
@@ -38,7 +39,7 @@ function planned_trip(case, departure, fidelity; live=false)
     port = 24assumptions[:port_time_per_call]
     trip = nothing
     seconds = @elapsed trip = WindShipOpt.route_round_trip(table,
-        corridors(:caribbean, fidelity.scale)..., weather, departure, port, hourly, Inf,
+        corridors(case.route, fidelity.scale)..., weather, departure, port, hourly, Inf,
         forecast)
     return trip, seconds
 end
@@ -143,27 +144,28 @@ TRACK_STYLES = (("60/15", Makie.wong_colors()[2], :solid),
     ("45/11", :black, :solid), ("30/7.5, steps halved", Makie.wong_colors()[1], :dash))
 
 """
-    map_figure(out_dir)
+    track_figure(path, tracks, styles; grid=nothing, titles, limits)
 
-The outbound and return passages of the kite at [`MAP_DEPARTURE`](@ref): the corridor, the
-nodes the first plan keeps near the ship and far from it, and the tracks on each grid.
+Save to `path` the outbound and return passages of the rows `tracks` (setting, leg, lat,
+lon), one line per (label, colour, line style) of `styles`, over land, in panels titled
+`titles` with axis `limits`; where `grid(leg, part)` gives the "all", "far" and "near"
+nodes of a plan, those as well.
 """
-function map_figure(out_dir)
-    tracks = read_rows(joinpath(out_dir, "tracks.csv"))
+function track_figure(path, tracks, styles; grid=nothing, titles, limits)
     fig = Figure(size=(1000, 430))
-    for (k, (leg, title)) in enumerate((("out", "(a) Ushant to Guadeloupe"),
-        ("back", "(b) Guadeloupe to Ushant")))
+    for (k, (leg, title)) in enumerate(zip(("out", "back"), titles))
         axis = Axis(fig[1, k]; title, aspect=DataAspect(), xlabel="longitude [°]",
-            ylabel=k == 1 ? "latitude [°]" : "", limits=(-66, 0, 10, 52))
+            ylabel=k == 1 ? "latitude [°]" : "", limits)
         draw_land!(axis, mask)
-        grid(part) = row_points(read_rows(joinpath(out_dir, "grid_$(leg)_$(part).csv")))
-        scatter!(axis, grid("all"); color=(:grey, 0.25), markersize=1.2,
-            label="corridor, 45/11 nmi")
-        scatter!(axis, grid("far"); color=:grey35, markersize=3.5,
-            label="far nodes of the first plan")
-        scatter!(axis, grid("near"); color=:darkorange, markersize=2.5,
-            label="near nodes of the first plan")
-        for (label, color, linestyle) in TRACK_STYLES
+        if !isnothing(grid)
+            scatter!(axis, grid(leg, "all"); color=(:grey, 0.25), markersize=1.2,
+                label="corridor, 45/11 nmi")
+            scatter!(axis, grid(leg, "far"); color=:grey35, markersize=3.5,
+                label="far nodes of the plan")
+            scatter!(axis, grid(leg, "near"); color=:darkorange, markersize=2.5,
+                label="near nodes of the plan")
+        end
+        for (label, color, linestyle) in styles
             points = row_points(filter(row -> row.setting == label && row.leg == leg,
                 tracks))
             lines!(axis, points; color, linestyle, linewidth=2, label="track, $label")
@@ -171,7 +173,68 @@ function map_figure(out_dir)
         k == 1 && axislegend(axis; position=:lb, framevisible=true, backgroundcolor=:white,
             labelsize=11, markersize=8)
     end
-    save(joinpath(out_dir, "planning_grid.png"), fig)
+    resize_to_layout!(fig)
+    save(path, fig)
+end
+
+"""
+    map_figure(out_dir)
+
+The outbound and return passages of the kite at [`MAP_DEPARTURE`](@ref): the corridor, the
+nodes the plan [`MAP_PLAN_HOURS`](@ref) into each leg keeps near the ship and far from it,
+and the tracks on each grid.
+"""
+map_figure(out_dir) = track_figure(joinpath(out_dir, "planning_grid.png"),
+    read_rows(joinpath(out_dir, "tracks.csv")), TRACK_STYLES;
+    grid=(leg, part) -> row_points(read_rows(joinpath(out_dir, "grid_$(leg)_$(part).csv"))),
+    titles=("(a) Ushant to Guadeloupe", "(b) Guadeloupe to Ushant"),
+    limits=(-66, 0, 10, 52))
+
+"""
+    outlier_figure(out_dir, case, departure, settings)
+
+Route the round trip of the gate `case` leaving at `departure` [h] at each (label,
+fidelity) of `settings`, the first drawn in black and the second dashed, and draw both legs
+to `out_dir`/outlier_<route>_<rig>_<departure>.png.
+"""
+function outlier_figure(out_dir, case, departure, settings)
+    name = "outlier_$(case.route)_$(case.rig)_$(round(Int, departure))"
+    mkpath(out_dir)
+    Ship(case.design, assumptions)
+    rows = String[]
+    for (label, fidelity) in settings
+        WindShipOpt.with_router_settings(fidelity.settings) do
+            trip, _ = planned_trip(case, departure, fidelity)
+            io = IOBuffer()
+            write_track(io, label, trip)
+            append!(rows, split(String(take!(io)), "\n"; keepempty=false))
+        end
+    end
+    tracks = [NamedTuple{(:setting, :leg, :lat, :lon, :aloft)}(Tuple(split(row, ",")))
+              for row in rows]
+    lats = [parse(Float64, row.lat) for row in tracks]
+    lons = [parse(Float64, row.lon) for row in tracks]
+    styles = ((first(settings[1]), :black, :solid),
+        (first(settings[2]), Makie.wong_colors()[1], :dash))
+    track_figure(joinpath(out_dir, "$name.png"), tracks, styles;
+        titles=("(a) outbound, $(case.route), $(case.rig), departure $(round(Int, departure)) h",
+            "(b) return"),
+        limits=(minimum(lons) - 3, maximum(lons) + 3, minimum(lats) - 3, maximum(lats) + 3))
+end
+
+"""
+    draw_outliers(out_dir, new_dir, reference_dir, settings)
+
+Draw by [`outlier_figure`](@ref), at the two (label, fidelity) of `settings` that made them,
+every departure the gate files in `new_dir` and `reference_dir` flag as an outlier.
+"""
+function draw_outliers(out_dir, new_dir, reference_dir, settings)
+    changes = saving_changes(read_gate(joinpath(new_dir, "gate.csv")),
+        read_gate(joinpath(reference_dir, "gate.csv")))
+    cases = Dict((case.ship, case.rig, String(case.route)) => case for case in gate_cases())
+    for (key, found) in changes, (departure, _) in something(found, (; outliers=())).outliers
+        outlier_figure(out_dir, cases[key], departure, settings)
+    end
 end
 
 "(label, study entry, colour, marker) of each setting judged against the reference"
