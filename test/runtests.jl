@@ -3253,8 +3253,6 @@ end
           "\\newcommand{\\NumSavingOilKite}{\\tbd{4}}\n"
     @test PaperRuns.number_macro("SavingOilKite", "4", false) ==
           "\\newcommand{\\NumSavingOilKite}{4}\n"
-    @test PaperRuns.whole_number(-0.4) == "0"
-    @test PaperRuns.whole_number(12.6) == "13"
 end
 
 @testset "every number the paper and its extended abstract print from the numbers step \
@@ -3559,6 +3557,17 @@ assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
+end
+
+@testset "a result prints in whole points and a table cell to one decimal, never as -0" begin
+    @test PaperData.whole_number(-0.4) == "0"
+    @test PaperData.whole_number(12.6) == "13"
+    @test PaperData.whole_number(2.5) == "3"
+    @test PaperData.whole_points(0.4) == "less than 1 point"
+    @test PaperData.whole_points(1.2) == "1 point"
+    @test PaperData.whole_points(2.6) == "3 points"
+    @test PaperData.one_decimal(-0.04) == "0.0"
+    @test PaperData.one_decimal(3.46) == "3.5"
 end
 
 @testset "kite-and-rotor pairs fly only kites already sized, near the best sizes" begin

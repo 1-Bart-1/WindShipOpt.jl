@@ -58,43 +58,6 @@ where `draft` is true.
 number_macro(name, text, draft) = string("\\newcommand{\\Num", name, "}{",
     draft ? "\\tbd{$text}" : text, "}\n")
 
-"""
-    whole_number(x)
-
-Text of `x` rounded to a whole number, halves away from zero, never "-0".
-"""
-whole_number(x) = string(round(Int, x, RoundNearestTiesAway))
-
-"""
-    whole_points(x)
-
-Text of `x` [points] in whole points with the unit, "less than 1 point" below a half.
-"""
-function whole_points(x)
-    points = whole_number(x)
-    points == "0" && return "less than 1 point"
-    return string(points, points in ("1", "-1") ? " point" : " points")
-end
-
-"""
-    one_decimal(x)
-
-Text of `x` rounded to one decimal, never "-0.0".
-"""
-one_decimal(x) = @sprintf("%.1f", round(x; digits=1) + 0.0)
-
-"""
-    two_digits(x)
-
-`x` rounded to two significant digits, as LaTeX.
-"""
-function two_digits(x)
-    x == 0 && return "0"
-    rounded = round(x; sigdigits=2)
-    decimals = max(0, 1 - floor(Int, log10(abs(rounded))))
-    return @sprintf("\\num{%.*f}", decimals, rounded)
-end
-
 "directory with one directory per run, named by the time the run started"
 runs_directory = normpath(joinpath(root, "output", "runs"))
 
