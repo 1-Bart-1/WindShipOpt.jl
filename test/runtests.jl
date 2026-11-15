@@ -3205,12 +3205,14 @@ end
 
 @testset "every rig's route costs what a search at every speed finds" begin
     _, back = corridors
-    every_speed = WindShipOpt.RouterSettings(search_speed_stride=1)
-    for (design, departure) in ((ShipDesign(:methanol, 85.0; wing_area=400.0), 24.0 * 91),
-        (ShipDesign(:methanol, 85.0; kite_area=800.0), 24.0 * 211))
+    every_speed = WindShipOpt.with_changed(WindShipOpt.ROUTER_SETTINGS[];
+        search_speed_stride=1)
+    for design in (ShipDesign(:methanol, 85.0; wing_area=400.0),
+            ShipDesign(:methanol, 85.0; kite_area=800.0)),
+        day in 1:30:331
 
         table = RouteTable(PerformanceTable(Ship(design, assumptions), assumptions))
-        passage() = route(back, table, SyntheticWeather(), departure; time_cost=300.0)
+        passage() = route(back, table, SyntheticWeather(), 24.0 * day; time_cost=300.0)
         full = WindShipOpt.with_router_settings(passage, every_speed)
         @test passage().objective <= full.objective * (1 + 1e-4)
     end

@@ -1303,22 +1303,26 @@ final_time_step(weather) = ROUTER_SETTINGS[].final_time_step
     final_pass(leg, corridor, table, weather, departure; time_cost, first_stage,
                first_aloft, coastal_penalty)
 
-The cheaper of `leg` and the [`route_pass`](@ref) along its path at all speeds of `table`,
-on the bins of [`final_time_step`](@ref) and within the band in time of
-`ROUTER_SETTINGS`.
+`leg` refined by [`route_pass`](@ref)es along its path at all speeds of `table`, on the
+bins of [`final_time_step`](@ref), each within the band in time of `ROUTER_SETTINGS` about
+the leg the one before found, for as long as they make it cheaper.
 """
 function final_pass(leg::Leg, corridor, table, weather, departure; time_cost, first_stage,
         first_aloft, coastal_penalty)
     time_step = final_time_step(weather)
     workspace = acquire_workspace(1, ceil(Int, MAX_LEG_HOURS / time_step),
         length(leg.path))
+    path = path_corridor(leg, corridor, first_stage)
     try
-        band = PassageBand([point[3] for point in leg.path],
-            ROUTER_SETTINGS[].final_time_band)
-        refined = route_pass(workspace, path_corridor(leg, corridor, first_stage), table,
-            weather, departure, band; time_cost, time_step, first_stage=1,
-            first_lateral=1, first_aloft, coastal_penalty, speed_stride=1)
-        return isnothing(refined) || refined.objective > leg.objective ? leg : refined
+        while true
+            band = PassageBand([point[3] for point in leg.path],
+                ROUTER_SETTINGS[].final_time_band)
+            refined = route_pass(workspace, path, table, weather, departure, band;
+                time_cost, time_step, first_stage=1, first_lateral=1, first_aloft,
+                coastal_penalty, speed_stride=1)
+            (isnothing(refined) || refined.objective >= leg.objective) && return leg
+            leg = refined
+        end
     finally
         release_workspace(workspace)
     end
