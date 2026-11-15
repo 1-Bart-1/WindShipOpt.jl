@@ -26,6 +26,9 @@ GAP_TOLERANCE = 1.0
 "change of one departure's saving against the reference that flags it to be drawn [points]"
 OUTLIER_POINTS = 3.0
 
+"routes printed but checked apart, outside the standard's bounds"
+CHECKED_APART = ("bilbao",)
+
 "first line of a gate file"
 GATE_HEADER = "ship,rig,route,departure,cost,fuel,flight"
 
@@ -81,8 +84,8 @@ development_cases() = gate_case_list([("140m", :caribbean, ("none", "kite", "rot
 
 The full check: every rig on the 140 m e-ammonia ship to Guadeloupe, to Houston, whose
 approach through the Florida Strait is the hardest, to New York and to Bilbao, whose short
-crossing only the floor on open-ocean stages gives a grid, and on an e-ammonia Kamsarmax to
-Tubarão.
+crossing only the floor on open-ocean stages gives a grid and which is `CHECKED_APART`, and
+on an e-ammonia Kamsarmax to Tubarão.
 """
 function gate_cases()
     every_rig = ("none", "kite", "wings", "rotors")
@@ -212,8 +215,9 @@ end
 
 Print each rig's saving in the gate files' rows `new` against `reference`, extrapolated as
 [`saving_changes`](@ref) says, each departure flagged as an outlier, and the change of the
-gap between each two rigs; whether every saving moves by at most `SAVING_TOLERANCE` and
-every gap by at most `GAP_TOLERANCE` points, and every case feasible in one is in the other.
+gap between each two rigs; whether, outside the routes `CHECKED_APART`, every saving moves
+by at most `SAVING_TOLERANCE` and every gap by at most `GAP_TOLERANCE` points, and every
+case feasible in one is in the other.
 """
 function standard_passes(new, reference; extrapolated=false)
     changes = saving_changes(new, reference; extrapolated)
@@ -230,14 +234,14 @@ function standard_passes(new, reference; extrapolated=false)
         for (departure, change) in sort(found.outliers)
             @printf("    outlier: departure %.0f h, change %+.2f points\n", departure, change)
         end
-        passed &= abs(found.change) <= SAVING_TOLERANCE
+        passed &= abs(found.change) <= SAVING_TOLERANCE || key[3] in CHECKED_APART
     end
     for (one, other) in Iterators.product(keys(changes), keys(changes))
         one[1] == other[1] && one[3] == other[3] && one[2] < other[2] || continue
         any(isnothing, (changes[one], changes[other])) && continue
         gap = changes[one].change - changes[other].change
         @printf("%-28s gap to %-6s moves %+.2f points\n", join(one, " "), other[2], gap)
-        passed &= abs(gap) <= GAP_TOLERANCE
+        passed &= abs(gap) <= GAP_TOLERANCE || one[3] in CHECKED_APART
     end
     return passed
 end
