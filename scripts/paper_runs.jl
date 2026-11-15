@@ -61,9 +61,9 @@ number_macro(name, text, draft) = string("\\newcommand{\\Num", name, "}{",
 """
     whole_number(x)
 
-Text of `x` rounded to a whole number, never "-0".
+Text of `x` rounded to a whole number, halves away from zero, never "-0".
 """
-whole_number(x) = string(Int(round(x)))
+whole_number(x) = string(round(Int, x, RoundNearestTiesAway))
 
 """
     whole_points(x)
@@ -71,9 +71,9 @@ whole_number(x) = string(Int(round(x)))
 Text of `x` [points] in whole points with the unit, "less than 1 point" below a half.
 """
 function whole_points(x)
-    points = Int(round(x))
-    points == 0 && return "less than 1 point"
-    return string(points, abs(points) == 1 ? " point" : " points")
+    points = whole_number(x)
+    points == "0" && return "less than 1 point"
+    return string(points, points in ("1", "-1") ? " point" : " points")
 end
 
 """

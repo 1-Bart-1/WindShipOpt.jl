@@ -179,7 +179,7 @@ function development_table()
             "at the better end of the range and its loss at the worse end, in percentage ",
             "points, in cost per tonne-km on each ship and the largest of each in ",
             "CO\\textsubscript{2} per tonne-km over the ships; and why the input is in ",
-            "the study. Each change carries the routing noise of \\cref{sec:checks}.}\n",
+            "the study. \\savingerror}\n",
             "\\label{tab:development}\\\\")
         header = string("\\toprule\nInput & Value (range) & ",
             join(short_ship.(ships), " & "),
