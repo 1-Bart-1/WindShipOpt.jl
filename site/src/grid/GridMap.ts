@@ -165,7 +165,7 @@ export class GridMap {
     if (mesh) this.stroke(this.meshLines(grid), ink, coarse ? 1 : 0.6, 0.3);
     if (allEdges) this.stroke(this.edgeLines(grid, edges), brandColour("teal"), 0.5, 0.3);
     const radius = (coarse ? 3.2 : 1.7) * Math.min(Math.sqrt(this.zoom), 1.6);
-    const colours = { w: brandColour("teal"), c: brandColour("mustard"), x: brandColour("mid") };
+    const colours = { w: brandColour("teal"), x: brandColour("mid") };
     for (let node = 0; node < grid.kind.length; node++) {
       const kind = kindOf(grid, node);
       if (kind === "x" && !unusable) continue;

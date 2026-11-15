@@ -29,8 +29,8 @@ export interface GridData {
   grids: Record<string, Record<string, Grid>>;
 }
 
-/** Open water, water near the coast, or unusable. */
-export type NodeKind = "w" | "c" | "x";
+/** Open water or unusable. */
+export type NodeKind = "w" | "x";
 
 /** An edge from node `from` to node `to` of the next stage. */
 export interface Edge {
@@ -108,7 +108,6 @@ export function routesThrough(grid: Grid, node: number): RoutesThrough {
 
 export interface GridCounts {
   usable: number;
-  nearCoast: number;
   unusable: number;
   edges: number;
   backwardEdges: number;
@@ -117,12 +116,11 @@ export interface GridCounts {
 
 /** Node and edge counts of `grid`; row steps count only between usable nodes. */
 export function gridCounts(grid: Grid): GridCounts {
-  const counts = { usable: 0, nearCoast: 0, unusable: 0, edges: 0, backwardEdges: 0, backwardRowSteps: 0 };
+  const counts = { usable: 0, unusable: 0, edges: 0, backwardEdges: 0, backwardRowSteps: 0 };
   for (let node = 0; node < grid.kind.length; node++) {
     const kind = kindOf(grid, node);
     if (kind === "x") counts.unusable++;
     else counts.usable++;
-    if (kind === "c") counts.nearCoast++;
     for (const edge of edgesFrom(grid, node)) {
       counts.edges++;
       if (edge.backward) counts.backwardEdges++;

@@ -57,13 +57,12 @@ end
     grid_data(corridor, scale)
 
 The nodes of `corridor`, built at corridor `scale`, for the site, stage after stage:
-positions [deg ×100], kinds (`w` water, `c` near the coast, `x` unusable) and the
+positions [deg ×100], kinds (`w` water, `x` unusable) and the
 [`grid_node_columns`](@ref); its stage and row spacing [nmi].
 """
 function grid_data(corridor, scale)
     stage_count, lateral_count = size(corridor.lat)
-    kind = [!corridor.water[stage, lateral] ? 'x' :
-            corridor.near_coast[stage, lateral] ? 'c' : 'w'
+    kind = [corridor.water[stage, lateral] ? 'w' : 'x'
             for lateral in 1:lateral_count, stage in 1:stage_count]
     return (; stages=stage_count, laterals=lateral_count, corridor.reach,
         stage_spacing=WindShipOpt.OCEAN_SPACING * scale,

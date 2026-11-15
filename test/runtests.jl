@@ -1347,17 +1347,14 @@ end
     (; time_step, search_speed_stride) = WindShipOpt.ROUTER_SETTINGS[]
     workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2),
         ceil(Int, 1200 / time_step), size(corridor.lat, 1))
-    for coastal_penalty in (0.0, 1.0)
-        leg = route(corridor, table, weather, departure; time_cost=hourly, coastal_penalty)
-        searched = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
-            time_cost=hourly, time_step, first_stage=1,
-            first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty,
-            speed_stride=search_speed_stride)
-        full = WindShipOpt.final_pass(searched, corridor, table, weather, departure;
-            time_cost=hourly, first_stage=1, first_aloft=false, coastal_penalty)
-        @test leg.objective == full.objective
-        @test leg.path == full.path
-    end
+    leg = route(corridor, table, weather, departure; time_cost=hourly)
+    searched = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
+        time_cost=hourly, time_step, first_stage=1, first_lateral=centre_index(corridor),
+        first_aloft=false, speed_stride=search_speed_stride)
+    full = WindShipOpt.final_pass(searched, corridor, table, weather, departure;
+        time_cost=hourly, first_stage=1, first_aloft=false)
+    @test leg.objective == full.objective
+    @test leg.path == full.path
 end
 
 """
@@ -1776,8 +1773,7 @@ end
 @testset "a ship on an ensemble adopts the plan cheapest across its members" begin
     (; corridor, kite_table, kite_hourly, weather, departure) = kite_routing
     prices = (; fuel=kite_table.table.ship.fuel.price, time=kite_hourly)
-    options = (; first_stage=1, first_lateral=centre_index(corridor), first_aloft=false,
-        coastal_penalty=1.0)
+    options = (; first_stage=1, first_lateral=centre_index(corridor), first_aloft=false)
     same = ForecastWeather(weather, departure, 24.0 * 100)
     plan_one = WindShipOpt.forecast_plan(same, corridor, kite_table, departure, prices;
         options...)
@@ -1812,7 +1808,7 @@ end
     @test value(seas; slows=true)[1, 1] > value(weather; slows=true)[1, 1]
     known = [ForecastWeather(member, departure, 24.0 * 100) for member in (weather, seas)]
     adopted, values = WindShipOpt.forecast_plan(known, corridor, kite_table, departure,
-        prices; first_stage=1, first_lateral=centre, first_aloft=false, coastal_penalty=1.0)
+        prices; first_stage=1, first_lateral=centre, first_aloft=false)
     candidates = [route(corridor, kite_table, member, departure; time_cost=kite_hourly)
                   for member in known]
     cost(option) = sum(WindShipOpt.plan_values(option, corridor, kite_table, member,
@@ -1979,12 +1975,12 @@ end
     departure, weather = 24.0 * 31, SyntheticWeather()
     prices = (; fuel=table.table.ship.fuel.price, time=hourly)
     to_go = WindShipOpt.remaining_cost(corridor, table, weather, departure, prices;
-        first_stage=1, coastal_penalty=1.0)
+        first_stage=1)
     workspace = WindShipOpt.acquire_workspace(size(corridor.lat, 2),
         ceil(Int, WindShipOpt.MAX_LEG_HOURS / WindShipOpt.ROUTER_SETTINGS[].time_step),
         size(corridor.lat, 1))
     searched = WindShipOpt.CostToGo(workspace, corridor, table, weather, departure;
-        time_cost=hourly, first_stage=1, coastal_penalty=1.0)
+        time_cost=hourly, first_stage=1)
     centre = WindShipOpt.centre_index(corridor)
     @test all(to_go(centre, 1, 2, hours) ≈ searched(centre, 1, 2, hours)
               for hours in 0.0:7.0:200.0 if isfinite(searched(centre, 1, 2, hours)))
@@ -1997,16 +1993,15 @@ end
     edge_course = copy(corridor.edge_course)
     edge_course[1, centre, :] .= NaN
     closed = WindShipOpt.Corridor(corridor.lat, corridor.lon, corridor.water,
-        corridor.edge_length, edge_course, corridor.track_length, corridor.near_coast,
-        corridor.along_centre, corridor.reach, corridor.lateral_spacing,
-        corridor.sample_hours, corridor.mask)
+        corridor.edge_length, edge_course, corridor.track_length, corridor.along_centre,
+        corridor.reach, corridor.lateral_spacing, corridor.sample_hours, corridor.mask)
     prices = (; fuel=table.table.ship.fuel.price, time=hourly)
     to_go = WindShipOpt.remaining_cost(corridor, table, weather, departure, prices;
-        first_stage=1, coastal_penalty=1.0)
+        first_stage=1)
     at = (; stage=1, lateral=centre, step=7, speed=table.speeds[end], aloft=false,
         elapsed=0.0, time=departure)
     step, speed, ahead = WindShipOpt.adapted_edge(WindShipOpt.SailedPoint[], closed, table,
-        weather, to_go, at, prices, :course, 1.0)
+        weather, to_go, at, prices, :course)
     @test step in 1:(2WindShipOpt.MAX_LATERAL_STEP + 1)
     @test all(isinf, ahead)
     hours, _ = WindShipOpt.sail_planned_edge!(WindShipOpt.SailedPoint[], table, weather,
@@ -2174,6 +2169,24 @@ on_some_passage(corridor, start=WindShipOpt.centre_index(corridor)) =
         lateral = findlast(leg.water[stage, :])
         planning = first(WindShipOpt.planning_corridor(leg, stage, lateral))
         @test planning === leg || on_some_passage(planning, lateral)
+    end
+end
+
+@testset "a corridor's open sea keeps clear of land except in the approaches" begin
+    mask = north_atlantic_mask()
+    for route in (:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao),
+        leg in route_corridors(route, mask)
+
+        paths = [[WindShipOpt.CHANNEL]; WindShipOpt.COASTAL_PATHS[route]]
+        approaches = [first.(paths); last.(paths)]
+        approached(lat, lon) = any(point -> WindShipOpt.distance(lat, lon, point...) <=
+                                            WindShipOpt.APPROACH_RADIUS, approaches)
+        open_sea = [node for node in findall(leg.water)
+                    if count(leg.water[node.I[1], :]) > 1 &&
+                       !approached(leg.lat[node], leg.lon[node])]
+        @test !isempty(open_sea)
+        @test !any(node -> WindShipOpt.near_land(mask, leg.lat[node], leg.lon[node],
+            WindShipOpt.COASTAL_CLEARANCE), open_sea)
     end
 end
 
@@ -2529,7 +2542,7 @@ end
     workspace = WindShipOpt.RouteWorkspace(size(corridor.lat, 2),
         ceil(Int, 1200 / time_step), stage_count)
     options = (; time_step, time_cost=hourly, first_stage=1,
-        first_lateral=centre_index(corridor), first_aloft=false, coastal_penalty=1.0,
+        first_lateral=centre_index(corridor), first_aloft=false,
         speed_stride=WindShipOpt.ROUTER_SETTINGS[].search_speed_stride)
     best = WindShipOpt.route_pass(workspace, corridor, table, weather, departure;
         options...)
@@ -2603,7 +2616,7 @@ end
     estimate(step) = WindShipOpt.with_router_settings(
         WindShipOpt.RouterSettings(to_go_step=step)) do
         WindShipOpt.CostToGo(workspace, corridor, table, weather, departure;
-            time_cost=hourly, first_stage=1, coastal_penalty=1.0)
+            time_cost=hourly, first_stage=1)
     end
     fine, coarse = estimate(12.0), estimate(48.0)
     @test fine.step == 12.0 && coarse.step == 48.0
@@ -2614,7 +2627,7 @@ end
         to_go = WindShipOpt.CostToGo(zeros(lateral_count, 30, 2, stage_count), step)
         prices = (; fuel=table.table.ship.fuel.price, time=hourly)
         WindShipOpt.fill_knot!(to_go, workspace.points, corridor, table, weather, departure,
-            prices, 1.0, stage, centre, knot)
+            prices, stage, centre, knot)
         return to_go.values[centre, knot, 1, stage]
     end
     @test knot_value(12.0, 3) == knot_value(24.0, 2) != knot_value(12.0, 2)
@@ -2670,7 +2683,7 @@ end
     known = SyntheticWeather()
     uncertain = WindShipOpt.UncertainForecast(known, 0.0, ForecastError(6.0, [4.0]))
     estimate(weather) = copy(WindShipOpt.CostToGo(workspace, corridor, kite_route_table,
-        weather, 24.0 * 31; time_cost=hourly, first_stage=1, coastal_penalty=1.0).values)
+        weather, 24.0 * 31; time_cost=hourly, first_stage=1).values)
     @test isequal(estimate(uncertain), estimate(known))
 end
 
