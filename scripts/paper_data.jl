@@ -1227,8 +1227,8 @@ forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite, :kite
 
 """
 plans of the forecast study made on [`planning_grid`](@ref), each as the plan it makes
-there and how its ship sails it, an `adapts` of [`ReplannedForecast`](@ref): `:live` and
-`:live_to_go` choose speed and kite hour by hour
+there and how its ship sails it, an `adapts` of [`ReplannedForecast`](@ref): `:live`
+chooses speed and kite hour by hour
 """
 grid_plans = Dict(:grid_perfect => (plan=:perfect_replan, adapts=:nothing),
     :grid => (plan=true, adapts=:nothing),
@@ -1237,9 +1237,7 @@ grid_plans = Dict(:grid_perfect => (plan=:perfect_replan, adapts=:nothing),
     :grid_wind_forecast => (plan=:wind_forecast, adapts=:nothing),
     :grid_expected_margin => (plan=:expected_margin, adapts=:nothing),
     :grid_perfect_live => (plan=:perfect_replan, adapts=:live),
-    :grid_live => (plan=:expected, adapts=:live),
-    :grid_perfect_live_to_go => (plan=:perfect_replan, adapts=:live_to_go),
-    :grid_live_to_go => (plan=:expected, adapts=:live_to_go))
+    :grid_live => (plan=:expected, adapts=:live))
 
 "spacing of the stages and rows [nmi] of the corridors [`grid_plans`](@ref) sail"
 grid_spacing = (ocean_spacing=240.0, lateral_spacing=60.0)
@@ -1284,10 +1282,10 @@ forecast_result_data() =
 """
 plans of the live-sailing study: perfect foresight on the run's corridors, and the forecast
 result's plans with perfect foresight and on the forecast, each sailed holding the plan's
-speed and sailed live, valuing what lies beyond an edge by the plan and by the cost to go
+speed and sailed live
 """
 forecast_live_plans = (false, :grid_perfect, :grid_expected, :grid_perfect_live,
-    :grid_live, :grid_perfect_live_to_go, :grid_live_to_go)
+    :grid_live)
 
 """
     forecast_live_data()
