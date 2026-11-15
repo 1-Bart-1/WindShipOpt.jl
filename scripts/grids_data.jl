@@ -57,8 +57,8 @@ end
     grid_data(corridor, scale)
 
 The nodes of `corridor`, built at corridor `scale`, for the site, stage after stage:
-positions [deg ×100], kinds (`w` water, `x` unusable) and the
-[`grid_node_columns`](@ref); its stage and row spacing [nmi].
+positions [deg ×100], kinds (`w` water, `x` unusable) and the [`grid_node_columns`](@ref);
+its stage and row spacing [nmi].
 """
 function grid_data(corridor, scale)
     stage_count, lateral_count = size(corridor.lat)

@@ -1725,6 +1725,7 @@ end
         any(edge -> edge.ends_aloft != edge.held_ends_aloft, edges) || continue
         differing += 1
         @test free.objective < held.objective
+        @test free.flight_hours != held.flight_hours
     end
     @test differing >= length(monthly_departures) / 4
 end
@@ -2197,13 +2198,10 @@ end
     for route in (:caribbean, :new_york, :bilbao, :dakar, :houston, :tubarao),
         leg in route_corridors(route, mask)
 
-        paths = [[WindShipOpt.CHANNEL]; WindShipOpt.COASTAL_PATHS[route]]
-        approaches = [first.(paths); last.(paths)]
-        approached(lat, lon) = any(point -> WindShipOpt.distance(lat, lon, point...) <=
-                                            WindShipOpt.APPROACH_RADIUS, approaches)
+        ends = WindShipOpt.approaches(WindShipOpt.route_paths(route))
         open_sea = [node for node in findall(leg.water)
                     if count(leg.water[node.I[1], :]) > 1 &&
-                       !approached(leg.lat[node], leg.lon[node])]
+                       !WindShipOpt.approached((leg.lat[node], leg.lon[node]), ends)]
         @test !isempty(open_sea)
         @test !any(node -> WindShipOpt.near_land(mask, leg.lat[node], leg.lon[node],
             WindShipOpt.COASTAL_CLEARANCE), open_sea)

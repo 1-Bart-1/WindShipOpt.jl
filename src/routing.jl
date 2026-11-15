@@ -97,14 +97,20 @@ function near_land(mask, lat, lon, clearance)
 end
 
 """
-    offshore(mask, point, approaches)
+    approaches(paths)
 
-Whether an open-sea node at `point` (lat, lon) [deg] lies beyond `COASTAL_CLEARANCE` of land
-by `mask`, or within `APPROACH_RADIUS` of one of the `approaches` (lat, lon) [deg].
+Where the open sea meets the fixed coastal `paths` (lat, lon) [deg]: the end of each path
+but the last and the start of each but the first.
 """
-offshore(mask, point, approaches) =
-    any(end_point -> distance(point..., end_point...) <= APPROACH_RADIUS, approaches) ||
-    !near_land(mask, point..., COASTAL_CLEARANCE)
+approaches(paths) = [last.(paths[1:(end - 1)]); first.(paths[2:end])]
+
+"""
+    approached(point, ends)
+
+Whether `point` (lat, lon) [deg] lies within `APPROACH_RADIUS` of one of the `ends`.
+"""
+approached(point, ends) =
+    any(end_point -> distance(point..., end_point...) <= APPROACH_RADIUS, ends)
 
 """
     Corridor(paths, mask; ocean_spacing, lateral_spacing, lateral_count)
@@ -120,7 +126,7 @@ function Corridor(paths::Vector{Vector{NTuple{2, Float64}}}, mask; ocean_spacing
         lateral_spacing, lateral_count)
     track = resample(first(paths), COASTAL_SPACING * NAUTICAL_MILE)
     open_sea = falses(length(track))
-    approaches = [last.(paths[1:(end - 1)]); first.(paths[2:end])]
+    ends = approaches(paths)
     for (from, to) in zip(paths[1:(end - 1)], paths[2:end])
         crossing = resample([last(from), first(to)], ocean_spacing * NAUTICAL_MILE)
         coastal = resample(to, COASTAL_SPACING * NAUTICAL_MILE)
@@ -144,7 +150,8 @@ function Corridor(paths::Vector{Vector{NTuple{2, Float64}}}, mask; ocean_spacing
             water[stage, lateral] = abs(lateral - half - 1) <= width &&
                                     abs(first(point)) <= SAILABLE_LATITUDE &&
                                     !is_land(mask, point...) &&
-                                    (!open_sea[stage] || offshore(mask, point, approaches))
+                                    (!open_sea[stage] || approached(point, ends) ||
+                                     !near_land(mask, point..., COASTAL_CLEARANCE))
         end
     end
     reach = lateral_reach(ocean_spacing, lateral_spacing)
@@ -274,8 +281,7 @@ function return_corridor(corridor::Corridor, mask)
     water = reverse(corridor.water; dims=1)
     return Corridor(lat, lon, on_passage(lat, lon, water, mask, corridor.reach)...,
         corridor.track_length, along_centre_line(lat, lon), corridor.reach,
-        corridor.lateral_spacing,
-        reverse(corridor.sample_hours), mask)
+        corridor.lateral_spacing, reverse(corridor.sample_hours), mask)
 end
 
 """
@@ -2143,15 +2149,14 @@ const LiveStep = @NamedTuple{point::SailedPoint, aloft::Bool, share::Float64}
     sail_live_edge!(steps, points, table, weather, known, beyond, corridor, edge, prices)
 
 Sail `edge` (`stage`, `lateral`, `step` to node `next` of `corridor`, left with the kite
-`aloft` at `time` [h], with the plan's `speed` [m/s]) in the real
-`weather` as a ship deciding every `live_step_hours` on the weather it meets: at each
-step's start it holds the speed and kite state, over every `live_speed_stride`-th speed and
-the plan's, whose objective over the step in the weather met, plus the rest of the edge at
-that speed in the [`MetWeather`](@ref) of `known` and the cost beyond `next` by the
-[`NodeToGo`](@ref) `beyond` is least ([`rest_of_edge`](@ref)). Fills `steps` with its
-[`LiveStep`](@ref)s, using `points` for the rest of the edge. Returns the hours, the
-[`EdgeTally`](@ref) and whether the kite ends aloft; `Inf` hours where no speed can be
-held.
+`aloft` at `time` [h], with the plan's `speed` [m/s]) in the real `weather` as a ship
+deciding every `live_step_hours` on the weather it meets: at each step's start it holds the
+speed and kite state, over every `live_speed_stride`-th speed and the plan's, whose
+objective over the step in the weather met, plus the rest of the edge at that speed in the
+[`MetWeather`](@ref) of `known` and the cost beyond `next` by the [`NodeToGo`](@ref)
+`beyond` is least ([`rest_of_edge`](@ref)). Fills `steps` with its [`LiveStep`](@ref)s,
+using `points` for the rest of the edge. Returns the hours, the [`EdgeTally`](@ref) and
+whether the kite ends aloft; `Inf` hours where no speed can be held.
 """
 function sail_live_edge!(steps, points, table::RouteTable, weather, known, beyond,
         corridor, edge, prices)
@@ -2616,6 +2621,14 @@ const COASTAL_PATHS = Dict(:caribbean => [[(16.15, -61.20)]],
     :tubarao => [[(-20.4, -39.8)]])
 
 """
+    route_paths(route)
+
+The fixed coastal paths (lat, lon) [deg] of `route`, the Channel first; see
+[`route_corridors`](@ref).
+"""
+route_paths(route) = [[CHANNEL]; COASTAL_PATHS[route]]
+
+"""
     route_corridors(route, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
                     lateral_spacing=LATERAL_SPACING * scale,
                     min_ocean_stages=MIN_OCEAN_STAGES * OCEAN_SPACING / ocean_spacing)
@@ -2631,7 +2644,7 @@ the band reaches `CORRIDOR_HALF_WIDTH` to either side.
 function route_corridors(route::Symbol, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
         lateral_spacing=LATERAL_SPACING * scale,
         min_ocean_stages=MIN_OCEAN_STAGES * OCEAN_SPACING / ocean_spacing)
-    paths = [[CHANNEL]; COASTAL_PATHS[route]]
+    paths = route_paths(route)
     crossings = sum(distance(last(from)..., first(to)...)
                     for (from, to) in zip(paths[1:(end - 1)], paths[2:end])) / NAUTICAL_MILE
     shrink = min(1.0, crossings / (min_ocean_stages * ocean_spacing))
