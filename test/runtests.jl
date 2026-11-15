@@ -1255,7 +1255,7 @@ end
     @test working.forced_landings > 0
     @test half.forced_landings ≈ working.forced_landings / 2
     @test half.launches ≈ working.launches / 2
-    dearer = with_value(hard, :kite_forced_landing_loss_probability, 2e-5)
+    dearer = with_value(hard, :kite_forced_landing_loss_probability, 1e-4)
     @test trip_with_share(kite, :kite_out_of_service, 0.5, dearer).cost_per_tonne_km >
           half.cost_per_tonne_km
 end
