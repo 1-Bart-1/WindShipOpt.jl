@@ -5,70 +5,39 @@
 
 This appendix holds the evidence behind the accuracy the main text states: how far the router converges and what forecasts cost it, the checks of the model against hand calculations and measurements, how much each part of the model moves the result, and the assumptions of the discussion that rest on data from outside the model.
 
-\subsection{Convergence of the routing search}
+\subsection{Convergence of the router}
 \label{app:routing_convergence}
 
-The cases are the 12 departures of the results for the \SI{140}{m} e-methanol ship and the Kamsarmax on VLSFO, each bare and with each rig, on the routes to Guadeloupe, New York and Tubarão.
+The router's grid and search are judged on the 12 departures of the \SI{140}{m} e-ammonia ship to Guadeloupe without a rig, with \SI{3200}{m^2} of kite and with \SI{800}{m^2} of rotors, departure by departure; the wing sails move least with any setting and are left out. A setting is accepted when each rig's cost saving moves by at most 3 points from a reference and the gap between the two rigs by at most 1 point, and of the settings accepted the fastest is taken. The reference would be the planner at a setting where twice as fine moves each saving by less than 0.25 points, but no grid we can afford gets there. From stages 240 to 120, 60 and \SI{30}{nmi} apart, with rows a quarter of that, the kite's saving rises by 1.7, 2.2 and 0.8 points and the rotors' by 2.0, 0.8 and 0.5 (\cref{tab:routing_grid}). On the finest grid a stage takes \SI{2.5}{h} to sail, less than a time bin, and halving every time step there raises the kite's saving by a further 2.7 points and the rotors' by 0.3. That grid with halved time steps is the reference, at six times the computing time of the results. Its savings still lie below the converged ones, so each error measured against it is a lower bound.
+
+The grid of the results, stages \SI{45}{nmi} and rows \SI{11.25}{nmi} apart, meets the standard against the reference, and on stages \SI{60}{nmi} and rows \SI{15}{nmi} apart the kite's gap to the rotors moves by 1.2 points, which does not. There the grid carries the error rather than the time steps: halving the time bins alone moves the kite by 0.3 points and the rotors by 0.1. Halving the rows alone, to \SI{7.5}{nmi}, meets the standard narrowly at about the computing time of the results. Beyond the first \SI{240}{nmi} the plan keeps every fourth row; every eighth loses the kite a further 1.6 points on stages \SI{60}{nmi} apart. The search of the whole corridor at once, on stages \SI{240}{nmi} apart, understates the kite by 5.3 points, at 1.5 times the computing time of the results.
+
+Once chosen, the grid was checked once on every rig, for the \SI{140}{m} ship to Guadeloupe, New York, Houston and Bilbao and the Kamsarmax to Tubarão, 12 departures each, against stages \SI{30}{nmi} and rows \SI{7.5}{nmi} apart at the time steps of the results, a grid that every route can afford. Every cost saving lies within 2.3 points of it and every gap between two rigs within 0.9 points, except the kite's gaps to the rotors and to the wing sails to Guadeloupe, 2.5 and 2.4 points, where that grid's coarse time steps understate the kite by the 2.7 points above. Every case found a passage on both grids.
 
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Largest change of the cost saving, in points, against the base settings, for the kite, the wing sails and the rotors, with the other settings at the base, at a corridor of stages \SI{360}{nmi} and points \SI{240}{nmi} apart. The last two rows, one figure each over all rigs, were measured on a finer search with knots \SI{48}{h} apart. \stale{router_grid}{}}
-\label{tab:routing_convergence}
-\begin{tabular}{@{}p{10.5cm}r@{}}
-\toprule
-Setting changed & Change \\
-\midrule
-Margins 12\,\%, 20\,\% (kite 25\,\%, 50\,\%), bins of \SI{1.5}{h}, every second speed, 3 nodes & 0.72, 0.07, 0.48 \\
-Time bins of \SI{1.5}{h} rather than \SI{3}{h} & 0.70, 0.05, 0.10 \\
-Every second speed rather than every fourth & 0.29, 0.14, 0.22 \\
-Edges of up to 3 lateral nodes rather than 2 & 0.74, 0.89, 1.12 \\
-Margins 6\,\%, then 12\,\%, for ships without a kite & 0, 0.08, 0.01 \\
-Weather every \SI{6}{h} rather than \SI{3}{h} & 0.56, 0.15, 0.45 \\
-Table of 97 speeds, every fourth, against all 49 & 0.11 \\
-Final pass in bins of \SI{0.125}{h}, or within \SI{48}{h} of the path & 0.22, 0.19 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\stale{router_grid}{\Cref{tab:routing_grid} sets the error of the corridor spacing against the error of the search settings and against computing time, for the same cases, to the stages and points of the results (\SI{90}{nmi}, \SI{60}{nmi}) and the search settings of \cref{tab:numerics}, except that states are skipped against an estimate on knots \SI{48}{h} rather than \SI{24}{h} apart and, with a kite, within 10\,\% and then 20\,\% rather than 20\,\% and then 40\,\%. The settings of \cref{tab:numerics} take about 1.3 times the computing time of these and lose no more than 0.01 points of cost saving by skipping states, against up to 0.27 points with these. The reference is finer in both: stages \SI{45}{nmi} and points \SI{30}{nmi} apart, searched with bins of \SI{1.5}{h}, every second speed and the margins of the first row of \cref{tab:routing_convergence}, 13.6 times as slow as the results' corridor and search. Refining only the stages or only the points gains the kite little and lowers the wing sails' and rotors' saving, so the two are halved together. Halving the points alone also changes the headings a step can sail, since an edge reaches at most two points to either side: about 0, 34 and \SI{53}{\degree} off the corridor's line on the corridor of the results. Halving the points and letting an edge reach four of them keeps those headings and adds about 18 and \SI{45}{\degree} between them. On the corridor of the results this raises the kite's cost saving by 0.24 points on average and lowers the wing sails' by 0.10 and the rotors' by 0.01, by at most 0.6 points on one pair of ship and route, at 3.0 times the computing time; on stages \SI{180}{nmi} apart it moves them by 0.32, $-0.05$ and $-0.09$ points at 2.8 times. It lowers the cost of the ship without a rig by 1.5\,\% and 2.0\,\%, about as much as with a rig, so the headings between are not added. At the coarser corridors the search settings matter little against the spacing: at stages \SI{180}{nmi} apart the finer search recovers 0.2 of the kite's 2.2 points. At the corridor of the results the two errors are of a size: the finer search raises the kite's cost saving by 0.46 points and the rotors' by 0.11, half the spacing by 0.53 and 0.25, and both together by 1.26 and 0.48, more than the sum; none is corrected. The reference is itself not converged: with the finer search the kite's gain per halving of the spacing falls from 2.35 to 1.22 to 0.81 points and the rotors' from 1.75 to 0.71 to 0.37, so the kite's error falls more slowly than the rotors'.}
-
-\begin{table}[tbp]
-\centering
-\footnotesize
-\caption{Change of the cost saving per tonne-kilometre, in points, against the reference, over the two ships and three routes: the mean over the six pairs of ship and route, and in brackets the largest change on one pair, for the kite, the wing sails and the rotors, with the computing time as a multiple of that of the base run of the results. Stages 360 and points \SI{120}{nmi} apart found no passage for one of the rotor ships, and stages 720 and points \SI{480}{nmi} apart none for the kite and rotor ships on one pair. The coarsest and the finest rows were timed on a later commit than the rest, which routes the same passages, each against the base run of its own commit. \stale{router_grid}{}}
+\caption{Change of the cost saving per tonne-kilometre, in points, against the reference, stages \SI{30}{nmi} and rows \SI{7.5}{nmi} apart with every time step halved, for the \SI{140}{m} e-ammonia ship to Guadeloupe with a kite and with rotors: the mean over 12 departures with its standard error, the change of the kite's gap to the rotors, and the computing time of one rig's 12 round trips. The plan keeps every fourth row beyond the first \SI{240}{nmi} unless the far rows say otherwise; the whole corridor is searched at once in the last row. Times come from runs on a shared machine, so ratios under about 1.2 are not firm. Development runs of 2026-11-14 and 15, commits 4c05b87 to e88e7dc.}
 \label{tab:routing_grid}
-\begin{tabular}{@{}llrccc@{}}
+\begin{tabular}{@{}lrrrr@{}}
 \toprule
-Stages, points [nmi] & Search & Time & Kite & Wing sails & Rotors \\
+Stages, rows [nmi] & Kite & Rotors & Gap & CPU [s] \\
 \midrule
-720, 480 & results & 0.13 & $-5.62$ (11.06) & $-1.81$ (5.20) & $-3.80$ (6.28) \\
-360, 240 & results & 0.23 & $-4.64$ (8.21) & $-1.10$ (3.35) & $-2.86$ (5.70) \\
-180, 120 & results & 0.46 & $-2.22$ (4.55) & $-0.58$ (2.50) & $-1.19$ (3.12) \\
-90, 60 & results & 1.00 & $-1.26$ (2.39) & $-0.09$ (0.74) & $-0.48$ (1.72) \\
-45, 30 & results & 1.88 & $-0.73$ (1.59) & $-0.14$ (0.31) & $-0.23$ (0.40) \\
-180, 240 & results & 0.24 & $-3.70$ (5.79) & $-1.21$ (2.98) & $-2.72$ (3.91) \\
-360, 120 & results & 0.36 & $-4.64$ (9.19) & $-1.68$ (4.04) & $-2.82$ (4.63) \\
-90, 120 & results & 0.46 & $-2.15$ (4.06) & $-0.79$ (1.54) & $-1.58$ (2.30) \\
-180, 60 & results & 0.52 & $-2.34$ (4.00) & $-1.10$ (2.94) & $-2.06$ (4.09) \\
-\addlinespace
-90, 60 & bins of \SI{1.5}{h} & 1.64 & $-0.94$ (1.96) & $-0.10$ (0.74) & $-0.34$ (1.59) \\
-90, 60 & every second speed & 1.36 & $-1.18$ (2.43) & $-0.10$ (0.64) & $-0.55$ (1.40) \\
-90, 60 & wider margins & 1.90 & $-1.14$ (2.32) & $-0.04$ (0.75) & $-0.41$ (1.41) \\
-90, 60 & all three & 4.59 & $-0.81$ (1.77) & $-0.03$ (0.60) & $-0.37$ (1.33) \\
-180, 120 & bins of \SI{1.5}{h} & 0.75 & $-2.12$ (4.61) & $-0.56$ (2.62) & $-1.20$ (3.19) \\
-180, 120 & every second speed & 0.63 & $-2.29$ (5.30) & $-0.59$ (2.62) & $-1.23$ (3.06) \\
-180, 120 & wider margins & 0.99 & $-2.16$ (4.55) & $-0.56$ (2.49) & $-1.13$ (3.12) \\
-180, 120 & all three & 1.91 & $-2.03$ (4.64) & $-0.49$ (2.48) & $-1.07$ (3.03) \\
-360, 240 & all three & 0.83 & $-4.38$ (7.79) & $-1.14$ (3.54) & $-2.82$ (5.57) \\
-45, 30 & all three: the reference & 13.56 & $0.00$ (0.00) & $0.00$ (0.00) & $0.00$ (0.00) \\
+240, 60, far rows every eighth & $-7.35 \pm 0.70$ & $-3.62 \pm 0.61$ & $-3.73$ & 315 \\
+120, 30, far rows every eighth & $-5.65 \pm 0.78$ & $-1.61 \pm 0.20$ & $-4.04$ & 506 \\
+60, 15, far rows every eighth & $-3.45 \pm 0.50$ & $-0.81 \pm 0.23$ & $-2.64$ & 914 \\
+30, 7.5, far rows every eighth & $-2.65 \pm 0.68$ & $-0.29 \pm 0.08$ & $-2.36$ & 2257 \\
+60, 15 & $-1.83 \pm 0.57$ & $-0.63 \pm 0.11$ & $-1.20$ & 1972 \\
+60, 15, time bins halved & $-1.57 \pm 0.53$ & $-0.54 \pm 0.11$ & $-1.03$ & 2926 \\
+60, 7.5, far rows every eighth & $-1.63 \pm 0.52$ & $-0.72 \pm 0.14$ & $-0.91$ & 2216 \\
+\textbf{45, 11.25: the results} & $-0.44 \pm 0.06$ & $-0.58 \pm 0.20$ & $+0.14$ & 2288 \\
+240, 60, whole corridor & $-5.26 \pm 0.51$ & $-2.27 \pm 0.26$ & $-2.99$ & 3391 \\
+30, 7.5, steps halved: the reference & 0 & 0 & 0 & 13539 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \stale{router_grid}{A table of 25 speeds, or 9 commanded, understates the kite's cost saving by 0.26 and 0.34 points on average and by up to 1.3 points. Whole knots from \SI{4}{kn} understate the kite's cost saving by 0.39 points on average, the rotors' by 0.15 and the wings' by 0.06.}
-
-On a corridor four times as coarse, with states skipped as in the results, the search settings lower the cost saving per tonne-kilometre by 0.32 points for the kite and 0.10 for the rotors, and leave the wing sails' unchanged. Stages \SI{45}{nmi} and points \SI{30}{nmi} apart, at 1.9 times the computing time, raise the cost saving by 0.5 points on average for the kite and 0.25 for the rotors, leave the wing sails' within 0.1 and change the cost of the ship without a rig by at most 0.5\,\%. More headings between the same widest ones, at three times the computing time, lower every ship's cost per tonne-kilometre by about 1.5\,\%, with or without a rig, and move the kite's cost saving by 0.24 points and the others' by less. Each halving of the spacing adds less than the one before, but the kite's gain falls more slowly than the rotors', so even the reference understates the kite more.
 
 \subsection{Forecast studies}
 \label{app:forecast_studies}
