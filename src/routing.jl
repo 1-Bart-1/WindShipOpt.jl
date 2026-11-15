@@ -2000,16 +2000,17 @@ end
 """
     adapted_edge(points, corridor, table, met, to_go, at, prices, adapts, coastal_penalty)
 
-Step and speed [m/s] of the edge left from `at` (`stage`, `lateral`, planned `step` and
-`speed`, kite `aloft`, `elapsed` hours since the plan, absolute `time`) with the least
-objective in the [`MetWeather`](@ref) `met` plus `to_go` at its end, over the planned step
-(`adapts` `:speed`) or all steps (`:course`) and the search's commanded speeds and the
-planned one, and the values ahead of [`values_ahead`](@ref). Where no edge can be sailed in
-`met` it returns the planned speed, the allowed step nearest the plan and `Inf` ahead.
+Step and speed [m/s] of the edge left from `at` (`stage`, its number `to_go_stage` in
+`to_go`, `lateral`, planned `step` and `speed`, kite `aloft`, `elapsed` hours since the
+plan, absolute `time`) with the least objective in the [`MetWeather`](@ref) `met` plus
+`to_go` at its end, over the planned step (`adapts` `:speed`) or all steps (`:course`) and
+the search's commanded speeds and the planned one, and the values ahead of
+[`values_ahead`](@ref). Where no edge can be sailed in `met` it returns the planned speed,
+the allowed step nearest the plan and `Inf` ahead.
 """
 function adapted_edge(points, corridor::Corridor, table::RouteTable, met, to_go, at, prices,
         adapts, coastal_penalty)
-    (; stage, lateral, aloft, elapsed, time) = at
+    (; stage, to_go_stage, lateral, aloft, elapsed, time) = at
     planned_speed = searchsortedfirst(table.speeds, at.speed)
     stride = ROUTER_SETTINGS[].search_speed_stride
     commanded = commanded_speeds(length(table.speeds), stride)
@@ -2026,11 +2027,11 @@ function adapted_edge(points, corridor::Corridor, table::RouteTable, met, to_go,
             hours = sail_edge!(points, start, table, met, corridor, stage, lateral, step,
                 time, speed_index, aloft)
             isfinite(hours) || continue
-            arrival = (; penalty, prices, next, stage=stage + 1, time=elapsed)
+            arrival = (; penalty, prices, next, stage=to_go_stage + 1, time=elapsed)
             value = best_arrival(to_go, table, points, aloft, hours, arrival)
             value < best_value || continue
             best_value, best_step, best_speed = value, step, table.speeds[speed_index]
-            ahead = values_ahead(to_go, next, stage + 1, elapsed + hours)
+            ahead = values_ahead(to_go, next, to_go_stage + 1, elapsed + hours)
         end
     end
     return best_step, best_speed, ahead
@@ -2415,8 +2416,9 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             departure + time, plan_stage, prices))
         plan_start, plan_end = time, blocked ? 1 : min(length(plan.path), sailable)
         to_go = blocked || adapts == :nothing ? nothing :
-                remaining_cost(corridor, plan_table, known, departure + time, prices;
-            first_stage=stage, coastal_penalty)
+                remaining_cost(planning, plan_table, known, departure + time, prices;
+            first_stage=plan_stage, coastal_penalty)
+        to_go_offset = plan_stage - stage
         for i in 2:plan_end
             next_lat, next_lon, _, planned_speed, _ = plan.path[i]
             next = nearest_lateral(corridor, stage + 1, next_lat, next_lon)
@@ -2425,8 +2427,9 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             if adapts in (:speed, :course)
                 met = MetWeather(known, weather, corridor.lat[stage, lateral],
                     corridor.lon[stage, lateral], departure + time)
-                at = (; stage, lateral, step, speed=planned_speed, aloft,
-                    elapsed=time - plan_start, time=departure + time)
+                at = (; stage, to_go_stage=stage + to_go_offset, lateral, step,
+                    speed=planned_speed, aloft, elapsed=time - plan_start,
+                    time=departure + time)
                 step, planned_speed, ahead = adapted_edge(points, corridor, table, met,
                     to_go, at, prices, adapts, coastal_penalty)
                 next = next_lateral(corridor, lateral, step)
@@ -2441,7 +2444,8 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             if adapts == :live
                 edge = (; stage, lateral, step, next, time=departure + time, penalty,
                     speed=planned_speed, aloft)
-                beyond = NodeToGo(to_go, next, stage + 1, departure + plan_start)
+                beyond = NodeToGo(to_go, next, stage + 1 + to_go_offset,
+                    departure + plan_start)
                 hours, tally, aloft = sail_live_edge!(steps, points, table, weather, known,
                     beyond, corridor, edge, prices)
                 speed = corridor.edge_length[stage, lateral, step] / 3600hours
