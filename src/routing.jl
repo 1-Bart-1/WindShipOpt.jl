@@ -394,7 +394,7 @@ Base.@kwdef struct RouterSettings
     near_distance::Float64 = 240.0
     "rows a plan keeps beyond `near_distance`: every `far_row_stride`-th from the centre,
     on stages far enough apart for an edge to shift by that many rows"
-    far_row_stride::Int = 8
+    far_row_stride::Int = 4
     "longest time between the weather samples along an edge beyond `near_distance` [h]"
     far_sample_hours::Float64 = 6.0
     "time between the choices of speed and kite of a ship sailing live [h]"
