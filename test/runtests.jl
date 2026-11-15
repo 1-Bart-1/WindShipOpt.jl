@@ -1991,6 +1991,23 @@ end
     WindShipOpt.release_workspace(workspace)
 end
 
+@testset "the cost to go computes a value when first asked, as a full sweep would" begin
+    departure, weather = 24.0 * 31, SyntheticWeather()
+    stage_count, lateral_count = size(corridor.lat)
+    estimate() = WindShipOpt.CostToGo(Ref(zeros(lateral_count, 0, 2, stage_count)),
+        corridor, table, weather, departure; time_cost=hourly, first_stage=1,
+        coastal_penalty=1.0)
+    asked, swept = estimate(), WindShipOpt.all_filled!(estimate())
+    centre = WindShipOpt.centre_index(corridor)
+    pending = count(asked.filler.pending)
+    reads = [(lateral, stage, hours) for lateral in (centre - 1, centre, centre + 1)
+             for stage in (2, stage_count ÷ 2) for hours in 0.0:7.0:200.0]
+    @test all(isequal(asked(lateral, 1, stage, hours), swept(lateral, 1, stage, hours))
+              for (lateral, stage, hours) in reads)
+    @test 0 < count(asked.filler.pending) < pending
+    @test !any(swept.filler.pending)
+end
+
 @testset "a ship drifted off its plan holds where no edge of its node can be sailed" begin
     departure, weather = 24.0 * 31, SyntheticWeather()
     centre = WindShipOpt.centre_index(corridor)
@@ -2669,8 +2686,9 @@ end
     workspace = WindShipOpt.RouteWorkspace(lateral_count, 800, stage_count)
     known = SyntheticWeather()
     uncertain = WindShipOpt.UncertainForecast(known, 0.0, ForecastError(6.0, [4.0]))
-    estimate(weather) = copy(WindShipOpt.CostToGo(workspace, corridor, kite_route_table,
-        weather, 24.0 * 31; time_cost=hourly, first_stage=1, coastal_penalty=1.0).values)
+    estimate(weather) = copy(WindShipOpt.all_filled!(WindShipOpt.CostToGo(workspace,
+        corridor, kite_route_table, weather, 24.0 * 31; time_cost=hourly, first_stage=1,
+        coastal_penalty=1.0)).values)
     @test isequal(estimate(uncertain), estimate(known))
 end
 
