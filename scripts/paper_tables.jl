@@ -938,22 +938,74 @@ market_columns = (ships=(1, "Ships", ""), units=(1, "Rig units", ""),
 "names of the [`market_columns`](@ref)"
 market_measures = keys(market_columns)
 
+"what a rig saves a ship a year: scale to the unit shown, name, unit"
+type_saving_columns = (saved=(1e-3, "Cost", "[USD 1000]"), share=(1, "Cost", "[\\%]"),
+    fuel=(1e-3, "Fuel", "[t]"), carbon=(1e-6, "CO\\textsubscript{2}", "[t]"))
+
+"""
+    cell_saving(table, cell, rig)
+
+Yearly saving of the best size of `rig` fitted to every ship of a [`fleet_cells`](@ref)
+cell of class table `table`: in cost [USD], fuel [kg] and tank-to-wake CO2 [g] over the
+cell's transport work.
+"""
+function cell_saving(table, cell, rig)
+    (; work, bare) = cell
+    row = cell.best[rig]
+    fuel = WindShipOpt.Drive(Symbol(table["drive"][row]), assumptions).fuel
+    return (; saved=cell_saved(cell, rig),
+        fuel=work * (table["fuel"][bare] - table["fuel"][row]) * 1e6 / fuel.heating_value,
+        carbon=work * (table["carbon"][bare] - table["carbon"][row]))
+end
+
 """
     cell_market(table, cell, rig)
 
 Each of the [`market_measures`](@ref) of the best size of `rig` fitted to every ship of a
-[`fleet_cells`](@ref) cell of class table `table`: ships, rig units, rig area [m^2], rig
-sales [USD], and the yearly saving in cost [USD], fuel [kg] and tank-to-wake CO2 [g] over
-the cell's transport work.
+[`fleet_cells`](@ref) cell of class table `table`: ships, rig units, rig area [m^2] and rig
+sales [USD], then its [`cell_saving`](@ref).
 """
 function cell_market(table, cell, rig)
-    (; ships, work, bare) = cell
+    (; ships) = cell
     row = cell.best[rig]
-    price, ship = rig_price(table, row)
-    fuel = work * (table["fuel"][bare] - table["fuel"][row]) * 1e6 / ship.fuel.heating_value
+    price, _ = rig_price(table, row)
     return (; ships, units=ships * table["units"][row], area=ships * table["area"][row],
-        sales=ships * price, saved=cell_saved(cell, rig), fuel,
-        carbon=work * (table["carbon"][bare] - table["carbon"][row]))
+        sales=ships * price, cell_saving(table, cell, rig)...)
+end
+
+"""
+    type_savings(table, drive)
+
+Each ship type of the [`fleet_cells`](@ref) of class table `table` on `drive`, with the
+yearly saving per ship of the best size of each rig on average over the type's ships, in
+cost [USD], as a share of the cost without a rig [%], in fuel [kg] and in CO2 [g], and
+its [`fleet_leaders`](@ref) on the cost share as its `leaders`.
+"""
+function type_savings(table, drive)
+    classes = ship_classes()
+    cells = fleet_cells(table, drive)
+    savings = []
+    for type in sort(unique(classes[cell.class].type for cell in cells))
+        own = filter(cell -> classes[cell.class].type == type, cells)
+        rigs = Dict(rig => saving_per_ship(table, own, rig) for rig in rig_names)
+        leaders = fleet_leaders(Dict(rig => saving.share for (rig, saving) in rigs))
+        push!(savings, (; type, rigs, leaders))
+    end
+    return savings
+end
+
+"""
+    saving_per_ship(table, cells, rig)
+
+The [`cell_saving`](@ref) of `rig` summed over `cells` of class table `table`, per ship of
+those cells, with the cost saved as a `share` [%] of their cost without a rig.
+"""
+function saving_per_ship(table, cells, rig)
+    (; saved, fuel, carbon) = mapreduce(cell -> cell_saving(table, cell, rig),
+        (one, other) -> map(+, one, other), cells)
+    ships = sum(cell.ships for cell in cells)
+    return (; saved=saved / ships, share=100saved / sum(cell.bill for cell in cells),
+        fuel=fuel / ships, carbon=carbon / ships)
 end
 
 """
@@ -1023,54 +1075,111 @@ end
 """
     market_table()
 
-Tabulars of the [`fleet_market`](@ref) on each drive, low to high: of each rig and the
-best rig in market_table.tex, and of each rig's ships and sales by ship type in
-market_type_table.tex.
+Tabulars of what each rig saves a ship of each type a year, in type_saving_table.tex, and
+of the rig sales of each rig's [`fleet_market`](@ref) on each drive, low to high, in total
+in market_sales_table.tex and by ship type in market_sales_type_table.tex.
 """
 function market_table()
     table = read_table(data_file("classes.csv"))
+    write_type_savings(table)
     markets = Dict(drive => cell_markets(table, drive) for (drive, _) in drive_labels)
-    open(joinpath(sections, "market_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}ll", "r"^length(market_columns), "@{}}\n\\toprule")
-        println(io, "Fuel & Rig & ", join(getindex.(values(market_columns), 2), " & "),
-            " \\\\\n & & ", join(last.(values(market_columns)), " & "), " \\\\")
+    write_market_sales(markets)
+    write_market_types(markets)
+end
+
+"""
+    table_header(io, labels, columns, measures, repeats=1)
+
+Header rows of a tabular: `labels` and the names of `measures` of `columns` (scale, name,
+unit), `repeats` times over, then the units under them.
+"""
+function table_header(io, labels, columns, measures, repeats=1)
+    names, units = ([columns[measure][k] for measure in measures] for k in (2, 3))
+    println(io, join([labels; repeat(names, repeats)], " & "), " \\\\")
+    println(io, join([fill("", length(labels)); repeat(units, repeats)], " & "), " \\\\")
+end
+
+"""
+    write_type_savings(table)
+
+Tabular of the [`type_savings`](@ref) of class table `table` on each drive in the unit of
+the [`type_saving_columns`](@ref), the `leaders` of each type in bold:
+type_saving_table.tex.
+"""
+function write_type_savings(table)
+    measures = keys(type_saving_columns)
+    open(joinpath(sections, "type_saving_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lll", "r"^length(measures), "@{}}\n\\toprule")
+        table_header(io, ["Fuel", "Ship type", "Rig"], type_saving_columns, measures)
+        for (drive, label) in drive_labels
+            println(io, "\\midrule")
+            for (k, (; type, rigs, leaders)) in enumerate(type_savings(table, drive))
+                k > 1 && println(io, "\\addlinespace")
+                for (j, rig) in enumerate(rig_names)
+                    cells = [two_digits(first(type_saving_columns[measure]) *
+                                        rigs[rig][measure]) for measure in measures]
+                    name = rig in leaders ? "\\textbf{$rig}" : rig
+                    println(io, k == j == 1 ? label : "", " & ", j == 1 ? type : "", " & ",
+                        name, " & ", join(cells, " & "), " \\\\")
+                end
+            end
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
+    write_market_sales(markets)
+
+Tabular of the ships, rig units, rig area and sales of the [`fleet_market`](@ref) of each
+rig and the best rig over the [`cell_markets`](@ref) `markets` of each drive:
+market_sales_table.tex.
+"""
+function write_market_sales(markets)
+    measures = (:ships, :units, :area, :sales)
+    open(joinpath(sections, "market_sales_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}ll", "r"^length(measures), "@{}}\n\\toprule")
+        table_header(io, ["Fuel", "Rig"], market_columns, measures)
         for (drive, label) in drive_labels
             market = fleet_market(markets[drive])
             println(io, "\\midrule")
             for (k, rig) in enumerate((rig_names..., "any"))
-                cells = [market_range(market[rig], measure) for measure in market_measures]
+                cells = [market_range(market[rig], measure) for measure in measures]
                 println(io, k == 1 ? label : "", " & ", rig == "any" ? "best rig" : rig,
                     " & ", join(cells, " & "), " \\\\")
             end
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
-    write_market_types(markets)
 end
 
 """
     write_market_types(markets)
 
-Tabular of the ships and sales [USD bn] of the [`fleet_market`](@ref) of each rig with a
-market on some drive over the [`cell_markets`](@ref) of each ship type in `markets`, by
-drive: market_type_table.tex.
+Tabular of the ships and sales of the [`fleet_market`](@ref) of each rig with a market on
+some drive over the [`cell_markets`](@ref) of each ship type in `markets`, by drive:
+market_sales_type_table.tex.
 """
 function write_market_types(markets)
+    measures = (:ships, :sales)
     types = unique(class.type for class in values(ship_classes()))
     rigs = [rig for rig in rig_names
             if any(market -> fleet_market(market)[rig].high.ships > 0, values(markets))]
-    open(joinpath(sections, "market_type_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}ll", "rr"^length(rigs), "@{}}\n\\toprule")
-        println(io, " & & ", join(("\\multicolumn{2}{c}{$rig}" for rig in rigs), " & "),
-            " \\\\")
-        println(io, join(("\\cmidrule(lr){$(2k + 1)-$(2k + 2)}" for k in eachindex(rigs))))
-        println(io, "Fuel & Ship type", " & Ships & Sales [USD bn]"^length(rigs), " \\\\")
+    width = length(measures)
+    open(joinpath(sections, "market_sales_type_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}ll", "r"^(width * length(rigs)),
+            "@{}}\n\\toprule")
+        heads = ("\\multicolumn{$width}{c}{$rig}" for rig in rigs)
+        println(io, " & & ", join(heads, " & "), " \\\\")
+        println(io, join(("\\cmidrule(lr){$(width * k - width + 3)-$(width * k + 2)}"
+                          for k in eachindex(rigs))))
+        table_header(io, ["Fuel", "Ship type"], market_columns, measures, length(rigs))
         for (drive, label) in drive_labels
             println(io, "\\midrule")
             for (k, type) in enumerate(sort(types))
                 market = fleet_market(filter(cell -> cell.type == type, markets[drive]))
                 cells = [market_range(market[rig], measure)
-                         for rig in rigs for measure in (:ships, :sales)]
+                         for rig in rigs for measure in measures]
                 println(io, k == 1 ? label : "", " & ", type, " & ", join(cells, " & "),
                     " \\\\")
             end
@@ -1734,14 +1843,15 @@ ship_kind_words = [:teu => "Container", :ceu => "CarCarrier", :tonne => "Bulk"]
 Write the numbers the paper and its extended abstract state as LaTeX macros `\\Num...` to
 paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
 the goals, and the [`class_numbers`](@ref), [`recommendation_numbers`](@ref),
-[`rig_lead_numbers`](@ref), [`premium_numbers`](@ref), [`fleet_share_numbers`](@ref) and
-[`market_numbers`](@ref) of the class study.
+[`rig_lead_numbers`](@ref), [`premium_numbers`](@ref), [`fleet_share_numbers`](@ref),
+[`market_numbers`](@ref) and [`type_saving_numbers`](@ref) of the class study.
 """
 function numbers_file()
     classes = read_table(data_file("classes.csv"))
     results = [class_numbers(classes); recommendation_numbers(classes);
                rig_lead_numbers(classes); premium_numbers(classes);
-               fleet_share_numbers(classes); market_numbers(classes)]
+               fleet_share_numbers(classes); market_numbers(classes);
+               type_saving_numbers(classes)]
     draft = paper_run.fidelity != :final
     open(joinpath(sections, "numbers.tex"), "w") do io
         for (name, text) in goal_numbers()
@@ -1820,17 +1930,40 @@ end
 """
     market_numbers(table)
 
-Name and text, per drive of the class table `table`, of the [`market_range`](@ref) of each
-of the [`market_measures`](@ref) of each rig's [`fleet_market`](@ref) and of the best rig's.
+Name and text, per drive of the class table `table`, of the [`market_range`](@ref) of the
+ships, sales, cost saved and CO2 saved of each rig's [`fleet_market`](@ref) and of the best
+rig's.
 """
 function market_numbers(table)
     numbers = Pair{String, String}[]
     for (drive, word) in drive_words
         market = fleet_market(cell_markets(table, drive))
-        for rig in (rig_names..., "any"), measure in market_measures
+        for rig in (rig_names..., "any"), measure in (:ships, :sales, :saved, :carbon)
             name = string("Market", word, uppercasefirst(rig),
                 uppercasefirst(string(measure)))
             push!(numbers, name => market_range(market[rig], measure))
+        end
+    end
+    return numbers
+end
+
+"""
+    type_saving_numbers(table)
+
+Name and text, per drive of the class table `table`, ship type and rig, of the
+[`type_savings`](@ref) per ship a year in cost [USD million], as a share of the cost [%]
+and in CO2 [t].
+"""
+function type_saving_numbers(table)
+    numbers = Pair{String, String}[]
+    for (drive, word) in drive_words, (; type, rigs) in type_savings(table, drive)
+        type_word = join(uppercasefirst.(split(type)))
+        for rig in rig_names
+            name = string("TypeSaving", word, type_word, uppercasefirst(rig))
+            (; saved, share, carbon) = rigs[rig]
+            push!(numbers, "$(name)Cost" => two_digits(1e-6saved),
+                "$(name)Share" => two_digits(share),
+                "$(name)Carbon" => two_digits(1e-6carbon))
         end
     end
     return numbers
