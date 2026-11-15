@@ -54,9 +54,8 @@ forecast at every time where `:shortest_lead`, the real weather re-planned daily
 same with the kite's decisions knowing the real weather ahead where `:expected_foresight`
 or planned inside tightened limits where `:expected_margin`, its waves with the real wind
 where `:wave_forecast` and its wind, weighing the error, with the real waves where
-`:wind_forecast` ([`ForecastParts`](@ref)), the plan of [`grid_plans`](@ref) made on
-[`planning_grid`](@ref) where `plan` is one of those, or the [`write_forecast_plans`](@ref)
-entry `plan`.
+`:wind_forecast` ([`ForecastParts`](@ref)), a plan of [`live_plans`](@ref) sailed live,
+or the [`write_forecast_plans`](@ref) entry `plan`.
 """
 forecast_source(plan) =
     plan === false ? nothing : plan === true ? forecast_archive :
@@ -70,8 +69,8 @@ forecast_source(plan) =
     plan === :expected_margin ? KiteMargin(expected_forecast(), forecast_kite_margin) :
     plan === :wave_forecast ? ForecastParts(expected_forecast(), false, true) :
     plan === :wind_forecast ? ForecastParts(expected_forecast(), true, false) :
-    haskey(grid_plans, plan) ? ReplannedForecast(forecast_source(grid_plans[plan].plan);
-        grid=planning_grid(), grid_plans[plan].adapts) :
+    haskey(live_plans, plan) ? ReplannedForecast(forecast_source(live_plans[plan].plan);
+        live_plans[plan].adapts) :
     forecast_plans[plan]
 
 "the control forecast weighing its wind error ([`forecast_error`](@ref))"
@@ -1210,40 +1209,27 @@ forecast_data() = write_forecast_error("forecast_error.csv", run_corridors(:cari
 """
     forecast_error()
 
-The [`ForecastError`](@ref) of the wind forecast in the forecast_error.csv of
-[`forecast_data`](@ref).
+The [`ForecastError`](@ref) of the wind the router plans on, the forecast blended with the
+climatology, in the forecast_error.csv of [`forecast_data`](@ref).
 """
 function forecast_error()
     table = read_table(data_file("forecast_error.csv"))
     leads = 24 * table["lead_days"]
     leads ≈ first(leads) * eachindex(leads) ||
         error("the leads of forecast_error.csv are not evenly spaced from the first")
-    return ForecastError(first(leads), table["wind_forecast"])
+    return ForecastError(first(leads), table["wind_blend"])
 end
 
 "plans of the forecast study, each as the `forecast` of its [`trip_case`](@ref)"
 forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite, :kite_margin,
-    :expected, :grid_perfect, :grid, :grid_expected)
+    :expected)
 
 """
-plans of the forecast study made on [`planning_grid`](@ref), each as the plan it makes
-there and how its ship sails it, an `adapts` of [`ReplannedForecast`](@ref): `:live`
-chooses speed and kite hour by hour
+plans sailed live, each as the plan it sails and how its ship sails it, an `adapts` of
+[`ReplannedForecast`](@ref): `:live` chooses speed and kite hour by hour
 """
-grid_plans = Dict(:grid_perfect => (plan=:perfect_replan, adapts=:nothing),
-    :grid => (plan=true, adapts=:nothing),
-    :grid_expected => (plan=:expected, adapts=:nothing),
-    :grid_wave_forecast => (plan=:wave_forecast, adapts=:nothing),
-    :grid_wind_forecast => (plan=:wind_forecast, adapts=:nothing),
-    :grid_expected_margin => (plan=:expected_margin, adapts=:nothing),
-    :grid_perfect_live => (plan=:perfect_replan, adapts=:live),
-    :grid_live => (plan=:expected, adapts=:live))
-
-"spacing of the stages and rows [nmi] of the corridors [`grid_plans`](@ref) sail"
-grid_spacing = (ocean_spacing=240.0, lateral_spacing=60.0)
-
-"grid that [`grid_plans`](@ref) plan on: their corridor near the ship, coarser beyond"
-planning_grid() = PlanningGrid(mask)
+live_plans = Dict(:perfect_live => (plan=:perfect_replan, adapts=:live),
+    :live => (plan=:expected, adapts=:live))
 
 "[`forecast_study_plans`](@ref) that change only what a kite does"
 kite_only_plans = (:held_kite, :kite_margin)
@@ -1266,9 +1252,9 @@ function forecast_plans_data()
         ensemble_departures, ensemble_departures[begin:4:end])
 end
 
-"plans of the paper's forecast result: perfect foresight on the run's corridors and on the
-planning grid, and the plan the results use, sailed live"
-forecast_result_plans = (false, :grid_perfect, :grid_live)
+"plans of the paper's forecast result: perfect foresight, and the plan the results use,
+sailed live"
+forecast_result_plans = (false, :live)
 
 """
     forecast_result_data()
@@ -1277,15 +1263,13 @@ The paper's forecast result: [`write_forecast_plans`](@ref) of each of the
 [`forecast_result_plans`](@ref) in forecast_result.csv and forecast_result_kept.csv.
 """
 forecast_result_data() =
-    write_forecast_plans("forecast_result", forecast_result_plans, :grid_perfect)
+    write_forecast_plans("forecast_result", forecast_result_plans, false)
 
 """
-plans of the live-sailing study: perfect foresight on the run's corridors, and the forecast
-result's plans with perfect foresight and on the forecast, each sailed holding the plan's
-speed and sailed live
+plans of the live-sailing study: the forecast result's plans with perfect foresight and on
+the forecast, each sailed holding the plan's speed and sailed live
 """
-forecast_live_plans = (false, :grid_perfect, :grid_expected, :grid_perfect_live,
-    :grid_live)
+forecast_live_plans = (false, :expected, :perfect_live, :live)
 
 """
     forecast_live_data()
@@ -1295,26 +1279,23 @@ The live-sailing study: [`write_forecast_plans`](@ref) of each of the
 forecast_live.csv and forecast_live_kept.csv.
 """
 forecast_live_data() = write_forecast_plans("forecast_live", forecast_live_plans,
-    :grid_expected; departures=forecast_cause_departures())
+    :expected; departures=forecast_cause_departures())
 
 """
     write_forecast_plans(name, plans, control; departures=ensemble_departures)
 
 The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
-`departures`, for each of `plans`, those of [`grid_plans`](@ref) on corridors of
-[`grid_spacing`](@ref): `name`.csv; the seconds each round trip took to compute:
-`name`_seconds.csv; and the share of its perfect-foresight saving each rig
+`departures`, for each of `plans`: `name`.csv; the seconds each round trip took to
+compute: `name`_seconds.csv; and the share of its perfect-foresight saving each rig
 keeps per plan with the jackknife standard error over the departures and its difference
 from plan `control`: `name`_kept.csv.
 """
 function write_forecast_plans(name, plans, control; departures=ensemble_departures)
     rigs = [("none", 0.0); reference_rigs]
-    grid_corridors = route_corridors(:caribbean, mask; grid_spacing...)
     cases, trips = [], []
     for departure in departures
         step_cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...);
-                              forecast=plan, rig, plan=string(plan), departure,
-                              paths=haskey(grid_plans, plan) ? grid_corridors : nothing)
+                              forecast=plan, rig, plan=string(plan), departure)
                           for (rig, area) in rigs, plan in plans
                               if !(plan in kite_only_plans) || rig == "kite"])
         append!(cases, step_cases)
@@ -1795,71 +1776,87 @@ function write_kite_rule_steps(io, departure, leg, edges)
         sum(edge.cost for edge in edges), sum(edge.held_cost for edge in edges))
 end
 
+"columns of forecast_error.csv after the lead, in the order `add_forecast_errors!` adds"
+forecast_error_columns = Tuple("$(quantity)_$kind" for quantity in ("wind", "height")
+                               for kind in ("forecast", "blend", "climate", "weight"))
+
 """
     write_forecast_error(name, corridors...)
 
 Write `name` to the directory of the run in use: per lead day, the root mean square error
 against ERA5 of the vector wind [m/s] and the wave height [m] of the archived forecasts
-and of the same date in another year, over the nodes of `corridors` and every forecast
-in the archive.
+less their bias, of their blend with the climatology that the router plans on and of that
+climatology alone, and the mean weight of the forecast in the blend, over the nodes of
+`corridors` and every forecast in the archive.
 """
 function write_forecast_error(name, corridors...)
     points = unique(vcat([vec(collect(zip(corridor.lat, corridor.lon)))
                           for corridor in corridors]...))
     leads = 6.0:6.0:384.0
-    totals, samples = zeros(length(leads), 4), zeros(Int, length(leads))
+    shape = (length(leads), length(forecast_error_columns))
+    totals, counts = zeros(shape), zeros(Int, shape)
     for issue in 1:WindShipOpt.issue_count(forecast_archive.wind)
         issued = WindShipOpt.issue_time(forecast_archive, issue)
-        known = ArchivedForecast(forecast_archive, weather,
-            issued + WindShipOpt.FORECAST_LATENCY)
+        known = ArchivedForecast(forecast_archive, issued + WindShipOpt.FORECAST_LATENCY)
         known.issue == issue || continue
-        other_year = ForecastWeather(weather, issued, 0.0)
         for (row, lead) in enumerate(leads)
             issued + lead <= WindShipOpt.duration(weather) || continue
-            totals[row, :] .+= forecast_errors(known, other_year, points, issued + lead)
-            samples[row] += length(points)
+            add_forecast_errors!(view(totals, row, :), view(counts, row, :), known, points,
+                issued + lead)
         end
     end
     open(run_file(name), "w") do io
-        println(io, "lead_days,wind_forecast,wind_other_year,height_forecast,",
-            "height_other_year")
+        println(io, join(("lead_days", forecast_error_columns...), ","))
         for (row, lead) in enumerate(leads)
-            rms = sqrt.(totals[row, :] ./ samples[row])
-            @printf(io, "%.2f,%.3f,%.3f,%.3f,%.3f\n", lead / 24, rms...)
+            averages = totals[row, :] ./ counts[row, :]
+            printed = [endswith(column, "weight") ? average : sqrt(average)
+                       for (column, average) in zip(forecast_error_columns, averages)]
+            @printf(io, "%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", lead / 24,
+                printed...)
         end
     end
 end
 
 """
-    forecast_errors(known, other_year, points, time)
+    add_forecast_errors!(totals, counts, known, points, time)
 
-Sums over `points` of the squared error against the weather at `time` of the vector wind
-and the wave height of the forecast `known` and of the weather `other_year`.
+Add to `totals` over `points`, and count in `counts`, the squared error against the
+weather at `time` of the vector wind of the forecast `known` less its bias, of its blend
+and of the climatology, then the forecast's weight, and the same four for the wave
+height, leaving out a value the forecast does not hold.
 """
-function forecast_errors(known, other_year, points, time)
-    sums = zeros(4)
+function add_forecast_errors!(totals, counts, known, points, time)
+    climate = forecast_archive.climate
     for (lat, lon) in points
         truth_wind, truth_height = wind(weather, lat, lon, time),
         first(waves(weather, lat, lon, time))
-        for (column, guess) in ((1, known), (2, other_year))
-            sums[column] += sum(abs2, wind(guess, lat, lon, time) .- truth_wind)
-            sums[column + 2] += (first(waves(guess, lat, lon, time)) - truth_height)^2
+        east, north, wind_weight = WindShipOpt.corrected_wind(known, lat, lon, time)
+        height, _, _, _, height_weight = WindShipOpt.corrected_waves(known, lat, lon, time)
+        climatology_wind = wind(climate, lat, lon, time)
+        climatology_height = first(waves(climate, lat, lon, time))
+        errors = (sum(abs2, (east, north) .- truth_wind),
+            sum(abs2, wind(known, lat, lon, time) .- truth_wind),
+            sum(abs2, climatology_wind .- truth_wind), wind_weight,
+            (height - truth_height)^2,
+            (first(waves(known, lat, lon, time)) - truth_height)^2,
+            (climatology_height - truth_height)^2, height_weight)
+        for (column, value) in enumerate(errors)
+            isnan(value) && continue
+            totals[column] += value
+            counts[column] += 1
         end
     end
-    return sums
 end
 
 "departures of [`forecast_causes_data`](@ref): every third of the run's departures"
 forecast_cause_departures() = departures[1:3:end]
 
 """
-routed cases of [`forecast_causes_data`](@ref) as (name, plan): perfect foresight on the
-run's corridors, and on [`planning_grid`](@ref) perfect foresight, the forecast's waves,
-its wind, both, and both with the kite planned inside tightened limits
+routed cases of [`forecast_causes_data`](@ref) as (name, plan): perfect foresight, the
+forecast's waves, its wind, both, and both with the kite planned inside tightened limits
 """
-forecast_cause_plans = ((:perfect, false), (:grid_perfect, :grid_perfect),
-    (:wave_forecast, :grid_wave_forecast), (:wind_forecast, :grid_wind_forecast),
-    (:forecast, :grid_expected), (:kite_margin, :grid_expected_margin))
+forecast_cause_plans = ((:perfect, false), (:wave_forecast, :wave_forecast),
+    (:wind_forecast, :wind_forecast), (:forecast, :expected), (:kite_margin, :expected_margin))
 
 "cases of [`forecast_causes_data`](@ref) on the course of `:forecast`, as (name, plan)"
 forecast_cause_courses = ((:course_perfect, :perfect_replan),
@@ -1881,16 +1878,15 @@ with perfect foresight and on that plan, per departure, forecast_margins.csv
 function forecast_causes_data()
     rigs = ["none"; first.(reference_rigs)]
     inputs = Dict(rig => routing_inputs(rig) for rig in rigs)
-    grid_corridors = route_corridors(:caribbean, mask; grid_spacing...)
-    samples = Dict(knowledge => sailed_samples(inputs["kite"], grid_corridors,
+    corridors = run_corridors(:caribbean)
+    samples = Dict(knowledge => sailed_samples(inputs["kite"], corridors,
                        forecast_source(plan), forecast_cause_departures())
-                   for (knowledge, plan) in (("perfect", :grid_perfect),
-        ("forecast", :grid_expected)))
-    courses = forecast_courses(inputs, grid_corridors, forecast_cause_departures())
+                   for (knowledge, plan) in (("perfect", false), ("forecast", :expected)))
+    courses = forecast_courses(inputs, corridors, forecast_cause_departures())
     cases, trips = [], []
     for departure in forecast_cause_departures()
         step_cases = [case for rig in rigs
-                      for case in forecast_cause_cases(rig, departure, grid_corridors,
+                      for case in forecast_cause_cases(rig, departure,
             courses[(rig, departure)])]
         append!(cases, step_cases)
         append!(trips, round_trips(step_cases, [departure]))
@@ -1901,17 +1897,15 @@ function forecast_causes_data()
 end
 
 """
-    forecast_cause_cases(rig, departure, grid_corridors, course)
+    forecast_cause_cases(rig, departure, course)
 
 Round trips from `departure` of the ship with `rig`: the [`forecast_cause_plans`](@ref),
-those on [`planning_grid`](@ref) on `grid_corridors`, and the
-[`forecast_cause_courses`](@ref) on the corridors `course`, without those only a kite has
-where `rig` is no kite.
+and the [`forecast_cause_courses`](@ref) on the corridors `course`, without those only a
+kite has where `rig` is no kite.
 """
-function forecast_cause_cases(rig, departure, grid_corridors, course)
+function forecast_cause_cases(rig, departure, course)
     design = forecast_study_design(rig)
-    routed = [trip_case(design; forecast=plan, rig, plan=name, departure,
-                  paths=haskey(grid_plans, plan) ? grid_corridors : nothing)
+    routed = [trip_case(design; forecast=plan, rig, plan=name, departure)
               for (name, plan) in forecast_cause_plans]
     fixed = [trip_case(design; forecast=plan, paths=course, course=name, rig, plan=name,
                  departure) for (name, plan) in forecast_cause_courses]
@@ -1932,7 +1926,7 @@ function forecast_courses(inputs, corridors, departures)
     Threads.@threads :greedy for i in eachindex(rig_departures)
         rig, departure = rig_departures[i]
         courses[i] = round_trip_courses(inputs[rig]..., corridors, weather, departure,
-            port_hours(), forecast_source(:grid_expected))
+            port_hours(), forecast_source(:expected))
     end
     return Dict(zip(rig_departures, courses))
 end

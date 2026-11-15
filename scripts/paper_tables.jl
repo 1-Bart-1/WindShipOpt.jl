@@ -1308,10 +1308,7 @@ function forecast_plans_table()
             ("margin", "Margin for wind"), ("members", "Several members"),
             ("held_kite", "One forecast run, kite held to the plan"),
             ("kite_margin", "One forecast run, kite limits 20\\,\\% tighter in the plan"),
-            ("expected", "One forecast run, wind error weighed"),
-            ("grid_perfect", "Perfect foresight, fine grid near the ship"),
-            ("grid", "One forecast run, fine grid near the ship"),
-            ("grid_expected", "Wind error weighed, fine grid near the ship")))
+            ("expected", "One forecast run, wind error weighed")))
 end
 
 """
@@ -1414,26 +1411,20 @@ end
 "groups of forecast_causes_table.tex as (heading, rows of (label, statistic))"
 forecast_cause_groups = (
     ("Cost saving [\\%]",
-        (("Perfect foresight, on the corridor of the results", cause_saving(:perfect)),
-            ("Perfect foresight, on the planning grid", cause_saving(:grid_perfect)),
+        (("Perfect foresight", cause_saving(:perfect)),
             ("Forecast plan", cause_saving(:forecast)))),
     ("Share kept by the forecast plan [\\%]",
-        (("Of perfect foresight on the corridor",
-                cause_kept(:forecast, :perfect)),
-            ("Of perfect foresight on the grid",
-                cause_kept(:forecast, :grid_perfect)))),
+        (("Of perfect foresight", cause_kept(:forecast, :perfect)),)),
     ("Cost saving lost [points]",
-        (("Total", cause_loss(:perfect, :forecast)),
-            ("Planning grid with perfect foresight", cause_loss(:perfect, :grid_perfect)),
-            ("Forecast, on the grid", cause_loss(:grid_perfect, :forecast)))),
+        (("Total", cause_loss(:perfect, :forecast)),)),
     ("Of the forecast's loss, by what it gets wrong, waves first",
-        (("Wave forecast", cause_loss(:grid_perfect, :wave_forecast)),
+        (("Wave forecast", cause_loss(:perfect, :wave_forecast)),
             ("Wind forecast", cause_loss(:wave_forecast, :forecast)))),
     ("Of the forecast's loss, by what it gets wrong, wind first",
-        (("Wind forecast", cause_loss(:grid_perfect, :wind_forecast)),
+        (("Wind forecast", cause_loss(:perfect, :wind_forecast)),
             ("Wave forecast", cause_loss(:wind_forecast, :forecast)))),
     ("Of the forecast's loss, by what the plan decides",
-        (("Course", cause_loss(:grid_perfect, :course_perfect)),
+        (("Course", cause_loss(:perfect, :course_perfect)),
             ("Speed", cause_loss(:course_perfect, :course_foresight)),
             ("The kite's launches and landings", cause_loss(:course_foresight,
                 :course_forecast)),
@@ -1494,21 +1485,18 @@ end
 "groups of forecast_live_table.tex as (heading, rows of (label, statistic))"
 forecast_live_groups = (
     ("Cost saving [\\%]",
-        (("Perfect foresight, on the corridor of the results", cause_saving(false)),
-            ("Perfect foresight on the planning grid, plan's speed held",
-                cause_saving(:grid_perfect)),
-            ("\\quad sailed live", cause_saving(:grid_perfect_live)),
-            ("Forecast plan, plan's speed held", cause_saving(:grid_expected)),
-            ("\\quad sailed live", cause_saving(:grid_live)))),
-    ("Forecast plan's loss against perfect foresight on the corridor [points]",
-        (("Plan's speed held", cause_loss(false, :grid_expected)),
-            ("Sailed live", cause_loss(false, :grid_live)))),
+        (("Perfect foresight, plan's speed held", cause_saving(false)),
+            ("\\quad sailed live", cause_saving(:perfect_live)),
+            ("Forecast plan, plan's speed held", cause_saving(:expected)),
+            ("\\quad sailed live", cause_saving(:live)))),
+    ("Forecast plan's loss against perfect foresight at the plan's speed [points]",
+        (("Sailed live", cause_loss(false, :live)),)),
     ("Forecast plan's loss against perfect foresight sailed the same way [points]",
-        (("Plan's speed held", cause_loss(:grid_perfect, :grid_expected)),
-            ("Sailed live", cause_loss(:grid_perfect_live, :grid_live)))),
+        (("Plan's speed held", cause_loss(false, :expected)),
+            ("Sailed live", cause_loss(:perfect_live, :live)))),
     ("Gain of sailing live [points]",
-        (("On the forecast plan", cause_loss(:grid_live, :grid_expected)),
-            ("With perfect foresight", cause_loss(:grid_perfect_live, :grid_perfect)))))
+        (("On the forecast plan", cause_loss(:live, :expected)),
+            ("With perfect foresight", cause_loss(:perfect_live, false)))))
 
 """
     forecast_live_table()
@@ -1545,7 +1533,7 @@ function forecast_causes_table()
         write_cause_groups(io, forecast_cause_groups, saved)
         println(io, "\\midrule\nThe kite [\\%, of its time at sea unless stated] & ",
             "Perfect foresight & Forecast plan & Change & & \\\\\n\\midrule")
-        perfect = kite_margin_values(margins, table, "perfect", "grid_perfect")
+        perfect = kite_margin_values(margins, table, "perfect", "perfect")
         forecast = kite_margin_values(margins, table, "forecast", "forecast")
         for ((label, before), (_, after)) in zip(perfect, forecast)
             values = Dict(:perfect => before, :forecast => after)

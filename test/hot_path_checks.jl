@@ -193,11 +193,12 @@ end
     for table in rig_tables, weather in (SyntheticWeather(), gridded, forecast)
         kinds = typeof.((table, weather))
         @test isempty(dynamic_calls(WindShipOpt.sail_edge!, (points, WindShipOpt.EdgeSample,
-            kinds[1], kinds[2], Corridor, Int, Int, Int, Float64, Int, Bool)))
+            kinds[1], kinds[2], typeof(coarse_corridor), Int, Int, Int, Float64, Int,
+            Bool)))
         @test isempty(dynamic_calls(WindShipOpt.kite_passage,
             (kinds[1], points, Bool, prices)))
         @test isempty(dynamic_calls(Core.kwcall, (@NamedTuple{time_cost::Float64},
-            typeof(route), Corridor, kinds[1], kinds[2], Float64)))
+            typeof(route), typeof(coarse_corridor), kinds[1], kinds[2], Float64)))
     end
 end
 
@@ -212,6 +213,7 @@ end
 @testset "a routed leg makes the same few allocations at any corridor scale" begin
     leg_counts = [leg_allocations(table, gridded, coarse_corridor) for table in rig_tables]
     @test all(<=(40), leg_counts)
-    finer_corridor = first(route_corridors(:caribbean, north_atlantic_mask(); scale=8))
+    finer_corridor = first(route_corridors(:caribbean, north_atlantic_mask();
+        ocean_spacing=720.0, lateral_spacing=480.0))
     @test leg_allocations(rig_tables.bare, gridded, finer_corridor) == first(leg_counts)
 end

@@ -34,7 +34,7 @@ function check_designs(check)
          if rig in ("none", "kite", "rotors")], ensemble_departures)
     check == "full" && return (
         [(; check, case.ship, case.route, case.rig, case.design)
-         for case in gate_cases(1.0)], ensemble_departures[1:3:end])
+         for case in gate_cases()], ensemble_departures[1:3:end])
     throw(ArgumentError("check is development or full, not $check"))
 end
 
@@ -58,13 +58,11 @@ function live_cases(check, names; rigs=nothing, every=1)
                for design in designs
                if isnothing(rigs) || design.rig == "none" || design.rig in rigs
                for departure in departures[1:every:end]]
-    corridors = Dict(route => route_corridors(route, mask; grid_spacing...)
-                     for route in unique(entry.route for entry in entries))
     settings = [(; setting, step, stride) for (setting, step, stride) in LIVE_SETTINGS
                 if setting in names]
     return [(; entry..., setting...,
-                case=trip_case(entry.design; forecast=:grid_live, entry.route,
-                    entry.rig, entry.departure, paths=corridors[entry.route]))
+                case=trip_case(entry.design; forecast=:live, entry.route, entry.rig,
+                    entry.departure))
             for entry in entries for setting in settings]
 end
 
