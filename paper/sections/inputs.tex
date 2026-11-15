@@ -73,13 +73,13 @@ coastal stage spacing & \SI{30}{nmi} & fixed paths from Rotterdam to Ushant, thr
 lateral node spacing & \SI{11.25}{nmi} & nodes on rows square to the great circle of each open stretch \\
 corridor half width & \SI{2400}{nmi} & reach of the nodes to either side of the track, within \ang{60} of latitude \\
 lateral step & up to 5 rows per stage, \SI{51}{\degree} off the corridor's line & edges between stages \\
-planning grid & every stage and row for \SI{240}{nmi} ahead of the ship; beyond, every fourth row, on stages far enough apart for an edge to reach the next row kept, weather every \SI{6}{h} & each plan \\
+planning grid & every stage and row for \SI{240}{nmi} ahead of the ship; beyond, every fourth row to \SI{480}{nmi} and half as many again each time the distance ahead doubles, on stages far enough apart for an edge to reach the next row kept, weather every \SI{6}{h} & each plan \\
 land check along edges & every \SI{20}{nmi} & removes edges over land \\
 coastal clearance & \SI{50}{nmi}, on rings at 25 and \SI{50}{nmi} of 16 bearings & nodes near land \\
 coastal penalty & cost of an edge into a node near land doubled & objective only \\
 island disks & island radius plus about \SI{20}{nmi} & land mask \\
 time bin & \SI{3}{h} & state of the dynamic programme \\
-weather along an edge & at most every \SI{3}{h} & fuel and speed of an edge \\
+weather along an edge & at most every \SI{3}{h}, \SI{6}{h} beyond the first \SI{240}{nmi} of a plan & fuel and speed of an edge \\
 states searched & within 3\,\% of a backward estimate of the cost to go at \SI{24}{h} knots, 20\,\% with a kite; then 6\,\%, 40\,\% with a kite, then all, if a pass ends above its limit or finds no path; costs at most 0.01 points of cost saving against searching all states & dynamic programme \\
 longest passage & 50 days & time bins \\
 speeds & every fourth table speed, 13 from \SI{4}{kn} to the ship's maximum & edge choices \\
