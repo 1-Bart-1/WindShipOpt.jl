@@ -2051,33 +2051,95 @@ function planning_corridor(corridor::Corridor, stage, lateral)
 end
 
 """
+    rest_of_plan(plan, i)
+
+The path, kite states and duration of the [`Leg`](@ref) `plan` from its node `i` on, its
+times counted from there; its totals of fuel, flight and objective are `NaN`.
+"""
+function rest_of_plan(plan::Leg, i)
+    start = plan.path[i][3]
+    path = [(lat, lon, time - start, speed, mode)
+            for (lat, lon, time, speed, mode) in plan.path[i:end]]
+    return Leg(NaN, NaN, NaN, 0, 0, plan.duration - start, NaN, path, plan.aloft[i:end])
+end
+
+"""
+    lies_on(plan, corridor, first_stage, first_lateral)
+
+Whether the path of `plan` leaves node (`first_stage`, `first_lateral`) of `corridor` and
+runs along its nodes and edges to its last stage.
+"""
+function lies_on(plan::Leg, corridor::Corridor, first_stage, first_lateral)
+    length(plan.path) == size(corridor.lat, 1) - first_stage + 1 || return false
+    lateral = first_lateral
+    for (k, (lat, lon)) in enumerate(plan.path)
+        stage = first_stage + k - 1
+        corridor.water[stage, lateral] && corridor.lat[stage, lateral] == lat &&
+            corridor.lon[stage, lateral] == lon || return false
+        k == length(plan.path) && break
+        next_lat, next_lon = plan.path[k + 1]
+        next = nearest_lateral(corridor, stage + 1, next_lat, next_lon)
+        step = lateral_step(corridor, lateral, next)
+        1 <= step <= step_count(corridor) &&
+            !isnan(corridor.edge_course[stage, lateral, step]) || return false
+        lateral = next
+    end
+    return true
+end
+
+"""
     forecast_plan(known, corridor, table, time, prices; first_stage, first_lateral,
-                  first_aloft)
+                  first_aloft, held=nothing)
 
 The plan a ship adopts at `time` [h] on `known`, and the [`plan_values`](@ref) of its nodes
-on it, or `(nothing, nothing)` where no plan leaves the node. On a vector of members of an
-ensemble, the plan routed on some member with the least mean of fuel, rig and time cost
-over all members, valued by the mean over the members of its [`plan_values`](@ref) with
-the ship slowing where a member stops it.
+on it, or `(nothing, nothing)` where no plan leaves the node: of the plan routed on
+`known` and the rest of the plan `held` where that [`lies_on`](@ref) `corridor`, the one
+with the least fuel, rig and time cost on `known`. On a vector of members of an ensemble,
+the plans are those routed on each member and `held`, the cost is the mean over the
+members, and the ship slows where a member stops it.
 """
 function forecast_plan(known, corridor, table::RouteTable, time, prices; first_stage,
+        first_lateral, first_aloft, held=nothing)
+    routed = route(corridor, table, known, time; time_cost=prices.time, first_stage,
         first_lateral, first_aloft)
-    plan = route(corridor, table, known, time; time_cost=prices.time, first_stage,
-        first_lateral, first_aloft)
-    isnothing(plan) && return nothing, nothing
-    return plan, plan_values(plan, corridor, table, known, time, first_stage, prices)
+    plans = candidate_plans([routed], held, corridor, first_stage, first_lateral)
+    isempty(plans) && return nothing, nothing
+    values = [plan_values(plan, corridor, table, known, time, first_stage, prices)
+              for plan in plans]
+    return cheapest_plan(plans, values, prices, first_aloft)
 end
 
 function forecast_plan(members::Vector, corridor, table::RouteTable, time, prices;
-        first_stage, first_lateral, first_aloft)
-    plans = unique(plan -> plan.path, filter(!isnothing,
-        [route(corridor, table, member, time; time_cost=prices.time, first_stage,
-            first_lateral, first_aloft) for member in members]))
+        first_stage, first_lateral, first_aloft, held=nothing)
+    routed = [route(corridor, table, member, time; time_cost=prices.time, first_stage,
+        first_lateral, first_aloft) for member in members]
+    plans = candidate_plans(routed, held, corridor, first_stage, first_lateral)
     isempty(plans) && return nothing, nothing
     values = [mean(plan_values(plan, corridor, table, member, time, first_stage, prices;
                        slows=true) for member in members) for plan in plans]
-    best = argmin([plan_value[1, first_aloft + 1] + prices.time * plan.duration
-                   for (plan, plan_value) in zip(plans, values)])
+    return cheapest_plan(plans, values, prices, first_aloft)
+end
+
+"""
+    candidate_plans(routed, held, corridor, first_stage, first_lateral)
+
+The distinct paths among the plans `held`, where it [`lies_on`](@ref) `corridor`, and
+`routed`, `nothing` where none was found.
+"""
+function candidate_plans(routed, held, corridor, first_stage, first_lateral)
+    kept = !isnothing(held) && lies_on(held, corridor, first_stage, first_lateral)
+    return unique(plan -> plan.path, filter(!isnothing, kept ? [held; routed] : routed))
+end
+
+"""
+    cheapest_plan(plans, values, prices, aloft)
+
+Of `plans`, the one, with its [`plan_values`](@ref) in `values`, whose cost from its first
+node with the kite `aloft` plus its hours at `prices.time` is least; the first of equals.
+"""
+function cheapest_plan(plans, values, prices, aloft)
+    best = argmin([value[1, aloft + 1] + prices.time * plan.duration
+                   for (plan, value) in zip(plans, values)])
     return plans[best], values[best]
 end
 
@@ -2478,9 +2540,10 @@ end
     forecast_route(corridor, table, weather, departure; time_cost, horizon=Inf,
                    forecast=nothing, record=nothing)
 
-Passage of a ship that plans by [`forecast_plan`](@ref) on the [`RouteTable`](@ref)
-`table` on its [`planning_corridor`](@ref) and re-plans at the first node 24 hours or more
-after the last plan or past the plan's near part, on `forecast`: a
+Passage of a ship that plans by [`forecast_plan`](@ref), weighing the rest of the plan it
+holds, on the [`RouteTable`](@ref) `table` on its [`planning_corridor`](@ref) and re-plans
+at the first node 24 hours or more after the last plan or past the plan's near part, on
+`forecast`: a
 [`ForecastArchive`](@ref), a [`ForecastEnsemble`](@ref), a [`ShortestLead`](@ref), a
 [`PerfectForecast`](@ref), a [`KiteMargin`](@ref) of one of those, a
 [`ForecastParts`](@ref), the real weather known `horizon` hours ahead where `nothing`, or
@@ -2515,11 +2578,12 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     with_margin = planned isa KiteMargin
     source = keeps_plan || foresight || with_margin ? planned.forecast : planned
     plan_table = with_margin ? margin_table(table, planned.margin) : table
+    rest = nothing
     while stage < stage_count
         known = known_weather(source, weather, departure + time, horizon)
         planning, plan_stage, sailable = planning_corridor(corridor, stage, lateral)
         plan, values = forecast_plan(known, planning, plan_table, departure + time, prices;
-            first_stage=plan_stage, first_lateral=lateral, first_aloft=aloft)
+            first_stage=plan_stage, first_lateral=lateral, first_aloft=aloft, held=rest)
         blocked = isnothing(plan)
         foresight && !blocked && (values = plan_values(plan, planning, table, weather,
             departure + time, plan_stage, prices))
@@ -2527,6 +2591,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
         to_go = blocked || adapts == :nothing ? nothing :
                 remaining_cost(corridor, plan_table, known, departure + time, prices;
             first_stage=stage)
+        reached = 1
         for i in 2:plan_end
             next_lat, next_lon, _, planned_speed, _ = plan.path[i]
             next = nearest_lateral(corridor, stage + 1, next_lat, next_lon)
@@ -2580,8 +2645,10 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             stage, lateral = stage + 1, next
             push!(path, (next_lat, next_lon, time, speed, summary_mode(tally, hours)))
             push!(aloft_path, aloft)
+            reached = i
             time - plan_start >= interval && break
         end
+        isnothing(plan) || (rest = rest_of_plan(plan, reached))
         blocked || continue
         held >= LONGEST_HOLD && return nothing
         isnothing(record) || push!(record.holds, time)

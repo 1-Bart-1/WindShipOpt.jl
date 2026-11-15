@@ -1474,8 +1474,8 @@ end
         end
         @test leg.launches > 0
         @test sailed.launches == leg.launches
-        @test sailed.flight_hours ≈ leg.flight_hours rtol = 0.1
-        @test sailed.objective ≈ leg.objective rtol = 0.01
+        @test sailed.flight_hours ≈ leg.flight_hours rtol = 0.025
+        @test sailed.objective ≈ leg.objective rtol = 1e-3
     end
 end
 
