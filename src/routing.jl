@@ -2511,7 +2511,7 @@ const CORRIDOR_HALF_WIDTH = 2400.0
 const CHANNEL = [(51.98, 4.05), (51.05, 1.60), (50.05, -1.50), (48.80, -6.00)]
 
 "stage and row spacing of a corridor at scale 1 [nmi]"
-const OCEAN_SPACING, LATERAL_SPACING = 60.0, 15.0
+const OCEAN_SPACING, LATERAL_SPACING = 45.0, 11.25
 
 "fewest open-ocean stages of a corridor whose stages are `OCEAN_SPACING` apart"
 const MIN_OCEAN_STAGES = 10

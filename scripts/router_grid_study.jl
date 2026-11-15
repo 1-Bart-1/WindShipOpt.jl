@@ -11,25 +11,28 @@
 # against the entry named <entry>, and whether it meets the standard against it.
 include(joinpath(@__DIR__, "router_gate.jl"))
 
+"corridor scale of stages `stage` [nmi] apart"
+stages(stage) = stage / WindShipOpt.OCEAN_SPACING
+
+"default router settings with `changes` made"
+changed(; changes...) = WindShipOpt.with_changed(WindShipOpt.RouterSettings(); changes...)
+
 """
 The study's entries by name, each a corridor scale and router settings: the planner on its
-default settings and on grids with stages of the named length [nmi], its time steps halved,
-its time bins alone halved, on 30 nmi stages with time steps halved and far rows 60 nmi apart,
-on its own stages with rows 7.5 nmi apart and far rows 60 nmi apart, and the full-corridor
-search on 240 nmi stages.
+default settings and on grids with stages of the named length [nmi]; on 60 nmi stages with
+its time bins alone halved, and with rows 7.5 nmi apart and far rows 60 nmi apart; on 30 nmi
+stages with time steps halved and far rows 60 nmi apart; and the full-corridor search on 240
+nmi stages.
 """
-STUDY = Dict("base" => planner_fidelity(), "grid_240" => planner_fidelity(; scale=4),
-    "grid_120" => planner_fidelity(; scale=2), "grid_30" => planner_fidelity(; scale=0.5),
-    "grid_45" => planner_fidelity(; scale=0.75),
-    "steps_half" => planner_fidelity(2; scale=2),
-    "bins_half" => (; scale=1,
-        settings=WindShipOpt.with_changed(WindShipOpt.RouterSettings(); time_step=1.5)),
-    "grid_30_steps_half" => planner_fidelity(2;
-        settings=WindShipOpt.with_changed(WindShipOpt.RouterSettings(); far_row_stride=8)),
-    "rows_7.5" => (; scale=(1, 0.5),
-        settings=WindShipOpt.with_changed(WindShipOpt.RouterSettings(); far_row_stride=8)),
-    "whole_240" => (; scale=4,
-        settings=WindShipOpt.with_changed(WindShipOpt.RouterSettings(); near_distance=Inf)))
+STUDY = Dict("base" => planner_fidelity(),
+    (name => planner_fidelity(; scale=stages(stage))
+     for (name, stage) in ("grid_240" => 240, "grid_120" => 120, "grid_60" => 60))...,
+    "grid_60_bins_half" => (; scale=stages(60), settings=changed(; time_step=1.5)),
+    "grid_60_rows_7.5" => (; scale=(stages(60), 7.5 / WindShipOpt.LATERAL_SPACING),
+        settings=changed(; far_row_stride=8)),
+    "grid_30_steps_half" => planner_fidelity(2; scale=stages(60),
+        settings=changed(; far_row_stride=8)),
+    "whole_240" => (; scale=stages(240), settings=changed(; near_distance=Inf)))
 
 """
     run_study(out_dir, names=keys(STUDY))
