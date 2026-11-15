@@ -2000,8 +2000,8 @@ end
     prices = (; fuel=table.table.ship.fuel.price, time=hourly)
     to_go = WindShipOpt.remaining_cost(corridor, table, weather, departure, prices;
         first_stage=1, coastal_penalty=1.0)
-    at = (; stage=1, to_go_stage=1, lateral=centre, step=7, speed=table.speeds[end],
-        aloft=false, elapsed=0.0, time=departure)
+    at = (; stage=1, lateral=centre, step=7, speed=table.speeds[end], aloft=false,
+        elapsed=0.0, time=departure)
     step, speed, ahead = WindShipOpt.adapted_edge(WindShipOpt.SailedPoint[], closed, table,
         weather, to_go, at, prices, :course, 1.0)
     @test step in 1:(2WindShipOpt.MAX_LATERAL_STEP + 1)
