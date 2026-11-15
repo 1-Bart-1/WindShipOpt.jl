@@ -3573,7 +3573,8 @@ end
 
 A class table on VLSFO over three routes in which only the Kamsarmax bulk carrier gains
 from a rig: the rotors save 10 % of its cost on one route and 5 % on another, the wing
-sails 4.5 % on the second. Every rig saves a third of the fuel and a quarter of the CO2.
+sails 4.5 % on the second. Without a rig the Kamsarmax costs 0.02 per tonne-kilometre and
+every other class 0.01. Every rig saves a third of the fuel and a quarter of the CO2.
 """
 function market_class_table()
     work, _ = PaperData.fleet_work()
