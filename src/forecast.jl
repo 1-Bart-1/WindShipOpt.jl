@@ -81,16 +81,17 @@ function link_relative(target, link)
 end
 
 """
-    link_control_group(control, folder)
+    link_control_group(control, folder; calibration=true)
 
-Link the bias, the blend weights and the wave period and direction of the archive group in
-`control` into the archive group in `folder`, by paths relative to `folder`, replacing
-links already there.
+Link the wave period and direction of the archive group in `control`, and its bias and
+blend weights where `calibration`, into the archive group in `folder`, by paths relative to
+`folder`, replacing links already there.
 """
-function link_control_group(control, folder)
+function link_control_group(control, folder; calibration=true)
     shared = ("period.f16", "direction_east.f16", "direction_north.f16")
-    entries = filter(name -> startswith(name, "bias_") || startswith(name, "weight_") ||
-                             name in shared, readdir(control))
+    entries = filter(name -> name in shared || calibration &&
+                                 (startswith(name, "bias_") || startswith(name, "weight_")),
+        readdir(control))
     for entry in entries
         link_relative(joinpath(control, entry), joinpath(folder, entry))
     end
@@ -437,13 +438,15 @@ end
 """
     observed_leads(group, observed, issue_times)
 
-Each (issue, lead, time [h], step) at which a forecast of the archive `group` issued at
-`issue_times` [h] meets the stored time `step` of `observed`.
+Each (issue, lead, time [h], step) at which a forecast the archive `group` holds, issued at
+`issue_times` [h], meets the stored time `step` of `observed`.
 """
 function observed_leads(group::ArchiveGroup, observed::GriddedFields, issue_times)
     meetings = Tuple{Int, Int, Float64, Int}[]
-    for (issue, issued) in enumerate(issue_times), lead in 1:group.grid.steps
-        time = issued + group.grid.time_offset + (lead - 1) * group.grid.step_hours
+    held = filter(issue -> issued_in(group, issue), eachindex(issue_times))
+    for issue in held, lead in 1:group.grid.steps
+        time = issue_times[issue] + group.grid.time_offset +
+               (lead - 1) * group.grid.step_hours
         step = (time - observed.time_offset) / observed.step_hours + 1
         isinteger(step) && 1 <= step <= observed.steps &&
             push!(meetings, (issue, lead, time, Int(step)))
@@ -488,18 +491,21 @@ function add_difference!(total, count, forecast, observed)
     end
 end
 
+"`path`, with the link there removed so that writing to it never reaches its target"
+unlinked(path) = (islink(path) && rm(path); path)
+
 """
     write_group_bias(directory, group, observed, names, origin)
 
 Write [`forecast_bias`](@ref) of the variables `names` of the archive `group` in
 `directory` against `observed`, on the time axis from `origin`, to a `bias_<year>` folder
-per year scored.
+per year scored, in place of a link there.
 """
 function write_group_bias(directory::AbstractString, group::ArchiveGroup,
         observed::GriddedFields, names, origin)
     for (year, fields) in forecast_bias(group, observed, scored_issues(group, origin)...,
         names)
-        folder = mkpath(joinpath(directory, "bias_$year"))
+        folder = mkpath(unlinked(joinpath(directory, "bias_$year")))
         for (variable, bias) in fields
             write(joinpath(folder, "$variable.f32"), bias)
         end
@@ -578,12 +584,12 @@ end
 
 Write [`forecast_weights`](@ref) of the variables `names` of the archive `group` in
 `directory` against `observed` and the climatology `normals`, on the time axis from
-`origin`, to a `weight_<year>.f32` file per year scored.
+`origin`, to a `weight_<year>.f32` file per year scored, in place of a link there.
 """
 function write_group_weights(directory::AbstractString, group::ArchiveGroup,
         observed::GriddedFields, normals::GriddedFields, names, origin)
     for (year, weights) in forecast_weights(group, observed, normals, origin, names)
-        write(joinpath(directory, "weight_$year.f32"), weights)
+        write(unlinked(joinpath(directory, "weight_$year.f32")), weights)
     end
 end
 

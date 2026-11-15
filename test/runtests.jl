@@ -2248,14 +2248,15 @@ function small_climate(directory, weather)
 end
 
 """
-    small_archive(directory, weather, offset; noise)
+    small_archive(directory, weather, offset; noise, wind_schedule, hole)
 
 Four daily forecasts from 2017-12-30 on the grids of `weather`, each the weather it
 forecasts plus `offset(year) + noise(issue)` on the east wind and half `offset(year)` on
-the wave height, with their bias and blend weights against [`small_climate`](@ref).
+the wave height, with their bias and blend weights against [`small_climate`](@ref). The
+wind of issue `hole` is zero, as an issue never downloaded.
 """
 function small_archive(directory, weather, offset; noise=issue -> 0.0,
-        wind_schedule=(24.0, "2017-12-30T00:00:00", 24))
+        wind_schedule=(24.0, "2017-12-30T00:00:00", 24), hole=nothing)
     for (group, observed, names, leads, (first_issue, first_date, issue_hours)) in (
         ("wind", weather.wind, ["u10", "v10"], 6:6:24, wind_schedule),
         ("waves", weather.waves, ["direction_east", "direction_north", "height", "period"],
@@ -2267,6 +2268,7 @@ function small_archive(directory, weather, offset; noise=issue -> 0.0,
             year = issue <= 2 ? 2017 : 2018
             shift = name == "u10" ? offset(year) + noise(issue) :
                     name == "height" ? offset(year) / 2 : 0.0
+            group == "wind" && issue == hole && return zeros(Float16, 2, 2)
             return Float16.(observed.fields[name][:, :, step] .+ shift)
         end
         write_fields(joinpath(directory, group), field, 4length(leads),
@@ -2330,6 +2332,38 @@ end
     @test member.wind.weights == control.wind.weights
     @test member.waves.bias == control.waves.bias
     @test member.waves.fields["period"] == control.waves.fields["period"]
+end
+
+@testset "a sparse archive fits its bias on the issues it holds, not on its holes" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather, year -> 1.5; hole=4)
+    @test all(isapprox.(archive.wind.bias[2017]["u10"], 1.5; atol=0.01))
+end
+
+@testset "an archive fits its own bias and weights where the control's were linked" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    control = small_archive(joinpath(directory, "forecast"), weather, year -> 1.5)
+    mean_directory = joinpath(directory, "mean")
+    small_archive(mean_directory, weather, year -> 3.0;
+        noise=issue -> issue <= 2 ? 0.0 : isodd(issue) ? 20.0 : -20.0)
+    for group in ("wind", "waves")
+        folder = joinpath(mean_directory, group)
+        foreach(name -> rm(joinpath(folder, name); recursive=true),
+            filter(name -> !(name in ("grid.toml", "u10.f16", "v10.f16", "height.f16")),
+                readdir(folder)))
+        WindShipOpt.link_control_group(joinpath(directory, "forecast", group), folder)
+    end
+    write_forecast_bias(mean_directory, weather)
+    write_forecast_weights(mean_directory, weather, control.climate)
+    fitted = ForecastArchive(mean_directory, weather, control.climate)
+    kept = ForecastArchive(joinpath(directory, "forecast"), weather, control.climate)
+    @test all(isapprox.(fitted.wind.bias[2017]["u10"], 3.0; atol=0.01))
+    @test all(isapprox.(kept.wind.bias[2017]["u10"], 1.5; atol=0.01))
+    @test all(fitted.wind.weights[2017] .< 0.02)
+    @test all(isapprox.(kept.wind.weights[2017], 1; atol=0.001))
+    @test !any(islink, readdir(joinpath(mean_directory, "wind"); join=true))
 end
 
 @testset "linking replaces a link, keeps a real file and leaves nothing beside them" begin
