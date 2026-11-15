@@ -1198,9 +1198,10 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
             first_stage, coastal_penalty)
         estimate = to_go(first_lateral, first_aloft + 1, first_stage, 0.0)
         limits = (1 .+ margins_searched(table, ROUTER_SETTINGS[])) .* estimate
-        kite = kite_choice(ROUTER_SETTINGS[].kite_state, table, to_go, size(corridor.lat, 1))
+        kite = kite_choice(ROUTER_SETTINGS[].kite_state, table, to_go,
+            size(corridor.lat, 1))
         leg, limit = searched_leg(workspace, corridor, table, weather, departure, to_go,
-            limits; kite, options...)
+            limits, kite; options...)
         isnothing(record) || record!(record, workspace, size(corridor.lat, 1),
             (; to_go, estimate, limits, limit, found=leg, time_step))
         isnothing(leg) && return nothing
@@ -1236,7 +1237,8 @@ The [`KiteChoice`](@ref) of the `kite_state` of [`RouterSettings`](@ref) for a s
 """
 function kite_choice(kite_state, table::RouteTable, to_go, last_stage)
     has_kite(table) && kite_state !== :searched || return nothing
-    kite_state in (:rule, :to_go) || throw(ArgumentError("unknown kite_state $kite_state"))
+    kite_state in (:rule, :to_go) ||
+        throw(ArgumentError("kite_state is not :searched, :rule or :to_go"))
     return KiteChoice(kite_state === :to_go ? to_go : nothing, table.table.cycle_cost,
         last_stage)
 end
@@ -1350,20 +1352,21 @@ function final_pass(leg::Leg, corridor, table, weather, departure; time_cost, fi
 end
 
 """
-    searched_leg(workspace, corridor, table, weather, departure, to_go, limits; options...)
+    searched_leg(workspace, corridor, table, weather, departure, to_go, limits,
+                 kite=nothing; options...)
 
-The [`Leg`](@ref) of the first [`route_pass`](@ref) under `limits` [USD] that ends within
-its limit, and that limit, else of a pass over all states, which is `nothing` if no path
-arrives, and `Inf`.
+The [`Leg`](@ref) of the first [`route_pass`](@ref) with the [`KiteChoice`](@ref) `kite`
+under `limits` [USD] that ends within its limit, and that limit, else of a pass over all
+states, which is `nothing` if no path arrives, and `Inf`.
 """
-function searched_leg(workspace, corridor, table, weather, departure, to_go, limits;
-        options...)
+function searched_leg(workspace, corridor, table, weather, departure, to_go, limits,
+        kite=nothing; options...)
     for limit in limits
         leg = route_pass(workspace, corridor, table, weather, departure, to_go, limit;
-            options...)
+            kite, options...)
         !isnothing(leg) && leg.objective <= limit && return leg, limit
     end
-    return route_pass(workspace, corridor, table, weather, departure; options...), Inf
+    return route_pass(workspace, corridor, table, weather, departure; kite, options...), Inf
 end
 
 """
@@ -1445,10 +1448,10 @@ end
 
 The dynamic programme of [`route`](@ref) in `workspace`, whose bins are `time_step` [h]
 long, keeping one kite state per node and time bin by the [`KiteChoice`](@ref) `kite`, or
-both where it is `nothing`, commanding the [`commanded_speeds`](@ref) of `table` at `speed_stride`, skipping
-states and commanded edges outside the [`PassageBand`](@ref) `to_go`, or, with a
-[`CostToGo`](@ref) `to_go`, those whose objective plus it exceeds `limit` [USD]. Returns the
-[`Leg`](@ref) or `nothing`.
+both where it is `nothing`, commanding the [`commanded_speeds`](@ref) of `table` at
+`speed_stride`, skipping states and commanded edges outside the [`PassageBand`](@ref)
+`to_go`, or, with a [`CostToGo`](@ref) `to_go`, those whose objective plus it exceeds
+`limit` [USD]. Returns the [`Leg`](@ref) or `nothing`.
 """
 function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable,
         weather, departure, to_go=nothing, limit=Inf; time_cost, time_step, first_stage,
