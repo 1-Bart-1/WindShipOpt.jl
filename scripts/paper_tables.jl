@@ -253,9 +253,12 @@ function goal_rows()
     price = @sprintf("USD~%.0f/m\$^2\$", WindShipOpt.canopy_price(assumptions))
     today = @sprintf("our estimate USD~%.0f/m\$^2\$, from retail cloth and hand sewing",
         WindShipOpt.canopy_price_today(assumptions))
+    life = assumptions.entries[:canopy_life]
+    derived = @sprintf("derived \\num{%.0f} h (\\numrange{%.0f}{%.0f}), ",
+        round(WindShipOpt.reference_decay_life(assumptions); sigdigits=2), life.low,
+        life.high)
     return [("Canopy life", "kite", canopy,
-            "derived \\num{3800} h (\\numrange{1200}{6900}), on makers' statements; " *
-            "small kites expected 100 to \\num{1000} h"),
+            derived * "on makers' statements; small kites expected 100 to \\num{1000} h"),
         ("Canopy price", "kite", price, today),
         ("Rig life", "wings", years(:wing_lifetime),
             "stated design life; about 2 years on record"),
@@ -263,9 +266,7 @@ function goal_rows()
             "stated design life; about 8 years on record"),
         ("Out of service", "all", service,
             "one rotor operator's 97\\,\\%; nothing for kites"),
-        ("Crash in flight", "kite", "none",
-            string("no record for a ship; M600 lost all four kites in twenty crosswind ",
-                "flights, three of them in hover or landing \\citep{echeverri2020part1}")),
+        ("Crash in flight", "kite", "none", "no crash record published for a ship kite"),
         ("Unit lost", "wings, rotors", "none", "none reported, and no duty to report one"),
         ("Lost per launch and landing", "kite", loss,
             "our estimate 0.25\\,\\%; no record for a ship"),
