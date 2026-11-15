@@ -3568,9 +3568,15 @@ end
     end
 end
 
-@testset "a rig's market counts the cells it leads alone, and up to those it leads level" begin
+"""
+    market_class_table()
+
+A class table on VLSFO over three routes in which only the Kamsarmax bulk carrier gains
+from a rig: the rotors save 10 % of its cost on one route and 5 % on another, the wing
+sails 4.5 % on the second. Every rig saves a third of the fuel and a quarter of the CO2.
+"""
+function market_class_table()
     work, _ = PaperData.fleet_work()
-    ships = PaperData.fleet_ships()
     routes, drive, class = ["caribbean", "dakar", "tubarao"], "vlsfo", "Kamsarmax bulk carrier"
     costs = Dict(("caribbean", "none") => 0.02, ("caribbean", "rotors") => 0.018,
         ("dakar", "none") => 0.02, ("dakar", "rotors") => 0.019,
@@ -3590,6 +3596,13 @@ end
         "fuel" => column(case -> case.rig == "none" ? 0.03 : 0.02),
         "carbon" => column(case -> case.rig == "none" ? 2.0 : 1.5),
         "retractable" => fill("true", length(cases)))
+    return (; table, cases, class, drive)
+end
+
+@testset "a rig's market counts the cells it leads alone, and up to those it leads level" begin
+    work, _ = PaperData.fleet_work()
+    ships = PaperData.fleet_ships()
+    (; table, cases, class, drive) = market_class_table()
     markets = PaperData.cell_markets(table, drive)
     market = PaperData.fleet_market(markets)
     @test PaperData.fleet_market(filter(cell -> cell.type == "bulk carrier", markets)) ==
@@ -3617,13 +3630,29 @@ end
     @test market["any"] == rotors
 end
 
-@testset "the market shows its yearly saving and its rig sales apart, each measure once" begin
-    totals = [measure for view in PaperData.market_views for measure in view.total]
-    @test sort(totals) == sort(collect(PaperData.market_measures))
-    for view in PaperData.market_views
-        @test issubset(view.types, view.total)
-    end
-    @test PaperData.market_views.saving.total == (:saved, :fuel, :carbon)
+@testset "a ship type's saving per ship is what each rig saves it, over its ships" begin
+    work, _ = PaperData.fleet_work()
+    ships = PaperData.fleet_ships()
+    (; table, class, drive) = market_class_table()
+    classes = PaperData.ship_classes()
+    savings = PaperData.type_savings(table, drive)
+    bulk = only(saving for saving in savings if saving.type == "bulk carrier")
+    bulk_classes = [name for name in keys(work) if classes[name].type == "bulk carrier"]
+    bulk_ships = sum(ships[name] for name in bulk_classes)
+    bulk_work = sum(work[name] for name in bulk_classes)
+    saved = work[class] / 3 * 0.02 * (0.10 + 0.05)
+    bill = 0.01 * bulk_work + 0.01 * work[class]
+    rotors = bulk.rigs["rotors"]
+    @test rotors.saved * bulk_ships ≈ saved
+    @test rotors.share ≈ 100saved / bill
+    heating_value = WindShipOpt.vlsfo(assumptions).heating_value
+    @test rotors.fuel * bulk_ships ≈ bulk_work * 0.01e6 / heating_value
+    @test rotors.carbon * bulk_ships ≈ bulk_work * 0.5
+    @test iszero(bulk.rigs["kite"].saved)
+    @test bulk.rigs["wings"].share < rotors.share
+    container = only(saving for saving in savings if saving.type == "container")
+    @test isempty(container.leaders)
+    @test all(saving -> iszero(saving.rigs["rotors"].saved), filter(!=(bulk), savings))
 end
 
 @testset "a following wind is flown at a lower speed and a rough sea at no speed" begin

@@ -932,28 +932,80 @@ end
 "what the fleet market of a rig sums over its cells: scale to the unit shown, name, unit"
 market_columns = (ships=(1, "Ships", ""), units=(1, "Rig units", ""),
     area=(1e-6, "Area", "[km\\textsuperscript{2}]"), sales=(1e-9, "Sales", "[USD bn]"),
-    saved=(1e-9, "Cost", "[USD bn/yr]"), fuel=(1e-9, "Fuel", "[Mt/yr]"),
+    saved=(1e-9, "Saving", "[USD bn/yr]"), fuel=(1e-9, "Fuel", "[Mt/yr]"),
     carbon=(1e-12, "CO\\textsubscript{2}", "[Mt/yr]"))
 
 "names of the [`market_columns`](@ref)"
 market_measures = keys(market_columns)
 
+"what a rig saves a ship a year: scale to the unit shown, name, unit"
+ship_saving_columns = (saved=(1e-3, "Cost", "[USD 1000]"), share=(1, "Cost", "[\\%]"),
+    fuel=(1e-3, "Fuel", "[t]"), carbon=(1e-6, "CO\\textsubscript{2}", "[t]"))
+
+"""
+    cell_saving(table, cell, rig)
+
+Yearly saving of the best size of `rig` fitted to every ship of a [`fleet_cells`](@ref)
+cell of class table `table`: in cost [USD], fuel [kg] and tank-to-wake CO2 [g] over the
+cell's transport work.
+"""
+function cell_saving(table, cell, rig)
+    (; work, bare) = cell
+    row = cell.best[rig]
+    fuel = WindShipOpt.Drive(Symbol(table["drive"][row]), assumptions).fuel
+    return (; saved=cell_saved(cell, rig),
+        fuel=work * (table["fuel"][bare] - table["fuel"][row]) * 1e6 / fuel.heating_value,
+        carbon=work * (table["carbon"][bare] - table["carbon"][row]))
+end
+
 """
     cell_market(table, cell, rig)
 
 Each of the [`market_measures`](@ref) of the best size of `rig` fitted to every ship of a
-[`fleet_cells`](@ref) cell of class table `table`: ships, rig units, rig area [m^2], rig
-sales [USD], and the yearly saving in cost [USD], fuel [kg] and tank-to-wake CO2 [g] over
-the cell's transport work.
+[`fleet_cells`](@ref) cell of class table `table`: ships, rig units, rig area [m^2] and rig
+sales [USD], then its [`cell_saving`](@ref).
 """
 function cell_market(table, cell, rig)
-    (; ships, work, bare) = cell
+    (; ships) = cell
     row = cell.best[rig]
-    price, ship = rig_price(table, row)
-    fuel = work * (table["fuel"][bare] - table["fuel"][row]) * 1e6 / ship.fuel.heating_value
+    price, _ = rig_price(table, row)
     return (; ships, units=ships * table["units"][row], area=ships * table["area"][row],
-        sales=ships * price, saved=cell_saved(cell, rig), fuel,
-        carbon=work * (table["carbon"][bare] - table["carbon"][row]))
+        sales=ships * price, cell_saving(table, cell, rig)...)
+end
+
+"""
+    type_savings(table, drive)
+
+Each ship type of the [`fleet_cells`](@ref) of class table `table` on `drive`, with the
+yearly saving per ship of the best size of each rig on average over the type's ships, in
+cost [USD], as a share of the cost without a rig [%], in fuel [kg] and in CO2 [g], and
+the rigs that save within [`level_margin`](@ref) of the best as its `leaders`.
+"""
+function type_savings(table, drive)
+    classes = ship_classes()
+    cells = fleet_cells(table, drive)
+    savings = []
+    for type in sort(unique(classes[cell.class].type for cell in cells))
+        own = filter(cell -> classes[cell.class].type == type, cells)
+        rigs = Dict(rig => ship_saving(table, own, rig) for rig in rig_names)
+        leaders = fleet_leaders(Dict(rig => saving.share for (rig, saving) in rigs))
+        push!(savings, (; type, rigs, leaders))
+    end
+    return savings
+end
+
+"""
+    ship_saving(table, cells, rig)
+
+The [`cell_saving`](@ref) of `rig` summed over `cells` of class table `table`, per ship of
+those cells, with the cost saved as a `share` [%] of their cost without a rig.
+"""
+function ship_saving(table, cells, rig)
+    (; saved, fuel, carbon) = mapreduce(cell -> cell_saving(table, cell, rig),
+        (one, other) -> map(+, one, other), cells)
+    ships = sum(cell.ships for cell in cells)
+    return (; saved=saved / ships, share=100saved / sum(cell.bill for cell in cells),
+        fuel=fuel / ships, carbon=carbon / ships)
 end
 
 """
@@ -1021,50 +1073,73 @@ function market_range(range, measure)
 end
 
 """
-the [`market_measures`](@ref) of each view of the fleet market, in total and by ship type:
-the yearly saving the rigs bring, and the rig sales they mean
-"""
-market_views = (saving=(total=(:saved, :fuel, :carbon), types=(:saved, :fuel, :carbon)),
-    sales=(total=(:ships, :units, :area, :sales), types=(:ships, :sales)))
-
-"""
     market_table()
 
-Tabulars of the [`fleet_market`](@ref) on each drive, low to high, for each of the
-[`market_views`](@ref): of each rig and the best rig in market_<view>_table.tex, and of each
-rig with a market by ship type in market_<view>_type_table.tex.
+Tabulars of what each rig saves a ship of each type a year, in ship_saving_table.tex, and
+of the rig sales of each rig's [`fleet_market`](@ref) on each drive, low to high, in total
+in market_sales_table.tex and by ship type in market_sales_type_table.tex.
 """
 function market_table()
     table = read_table(data_file("classes.csv"))
+    write_ship_savings(table)
     markets = Dict(drive => cell_markets(table, drive) for (drive, _) in drive_labels)
-    for (view, (; total, types)) in pairs(market_views)
-        write_market_totals(markets, "market_$(view)_table.tex", total)
-        write_market_types(markets, "market_$(view)_type_table.tex", types)
+    write_market_sales(markets)
+    write_market_types(markets)
+end
+
+"""
+    table_header(io, labels, columns, measures, repeats=1)
+
+Header rows of a tabular: `labels` and the names of `measures` of `columns` (scale, name,
+unit), `repeats` times over, then the units under them.
+"""
+function table_header(io, labels, columns, measures, repeats=1)
+    names, units = ([columns[measure][k] for measure in measures] for k in (2, 3))
+    println(io, join([labels; repeat(names, repeats)], " & "), " \\\\")
+    println(io, join([fill("", length(labels)); repeat(units, repeats)], " & "), " \\\\")
+end
+
+"""
+    write_ship_savings(table)
+
+Tabular of the [`type_savings`](@ref) of class table `table` on each drive in the unit of
+the [`ship_saving_columns`](@ref), the `leaders` of each type in bold:
+ship_saving_table.tex.
+"""
+function write_ship_savings(table)
+    measures = keys(ship_saving_columns)
+    open(joinpath(sections, "ship_saving_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lll", "r"^length(measures), "@{}}\n\\toprule")
+        table_header(io, ["Fuel", "Ship type", "Rig"], ship_saving_columns, measures)
+        for (drive, label) in drive_labels
+            println(io, "\\midrule")
+            for (k, (; type, rigs, leaders)) in enumerate(type_savings(table, drive))
+                k > 1 && println(io, "\\addlinespace")
+                for (j, rig) in enumerate(rig_names)
+                    cells = [two_digits(first(ship_saving_columns[measure]) *
+                                        rigs[rig][measure]) for measure in measures]
+                    name = rig in leaders ? "\\textbf{$rig}" : rig
+                    println(io, k == j == 1 ? label : "", " & ", j == 1 ? type : "", " & ",
+                        name, " & ", join(cells, " & "), " \\\\")
+                end
+            end
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
     end
 end
 
 """
-    market_header(io, label, measures, repeats)
+    write_market_sales(markets)
 
-Header rows of a market tabular: `Fuel`, `label` and the names of `measures` of the
-[`market_columns`](@ref), `repeats` times over, then their units.
+Tabular of the ships, rig units, rig area and sales of the [`fleet_market`](@ref) of each
+rig and the best rig over the [`cell_markets`](@ref) `markets` of each drive:
+market_sales_table.tex.
 """
-function market_header(io, label, measures, repeats)
-    names, units = ([market_columns[measure][k] for measure in measures] for k in (2, 3))
-    println(io, "Fuel & ", label, " & ", join(repeat(names, repeats), " & "), " \\\\")
-    println(io, " & & ", join(repeat(units, repeats), " & "), " \\\\")
-end
-
-"""
-    write_market_totals(markets, file, measures)
-
-Tabular of `measures` of the [`fleet_market`](@ref) of each rig and the best rig over the
-[`cell_markets`](@ref) `markets` of each drive: `file` in the paper's sections.
-"""
-function write_market_totals(markets, file, measures)
-    open(joinpath(sections, file), "w") do io
+function write_market_sales(markets)
+    measures = (:ships, :units, :area, :sales)
+    open(joinpath(sections, "market_sales_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}ll", "r"^length(measures), "@{}}\n\\toprule")
-        market_header(io, "Rig", measures, 1)
+        table_header(io, ["Fuel", "Rig"], market_columns, measures)
         for (drive, label) in drive_labels
             market = fleet_market(markets[drive])
             println(io, "\\midrule")
@@ -1079,25 +1154,26 @@ function write_market_totals(markets, file, measures)
 end
 
 """
-    write_market_types(markets, file, measures)
+    write_market_types(markets)
 
-Tabular of `measures` of the [`fleet_market`](@ref) of each rig with a market on some drive
-over the [`cell_markets`](@ref) of each ship type in `markets`, by drive: `file` in the
-paper's sections.
+Tabular of the ships and sales of the [`fleet_market`](@ref) of each rig with a market on
+some drive over the [`cell_markets`](@ref) of each ship type in `markets`, by drive:
+market_sales_type_table.tex.
 """
-function write_market_types(markets, file, measures)
+function write_market_types(markets)
+    measures = (:ships, :sales)
     types = unique(class.type for class in values(ship_classes()))
     rigs = [rig for rig in rig_names
             if any(market -> fleet_market(market)[rig].high.ships > 0, values(markets))]
     width = length(measures)
-    open(joinpath(sections, file), "w") do io
+    open(joinpath(sections, "market_sales_type_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}ll", "r"^(width * length(rigs)),
             "@{}}\n\\toprule")
         heads = ("\\multicolumn{$width}{c}{$rig}" for rig in rigs)
         println(io, " & & ", join(heads, " & "), " \\\\")
         println(io, join(("\\cmidrule(lr){$(width * k - width + 3)-$(width * k + 2)}"
                           for k in eachindex(rigs))))
-        market_header(io, "Ship type", measures, length(rigs))
+        table_header(io, ["Fuel", "Ship type"], market_columns, measures, length(rigs))
         for (drive, label) in drive_labels
             println(io, "\\midrule")
             for (k, type) in enumerate(sort(types))
