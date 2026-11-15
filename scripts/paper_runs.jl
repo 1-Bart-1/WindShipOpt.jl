@@ -13,8 +13,25 @@ using WindShipOpt: inputs_read
 Settings of each fidelity of the paper: the corridor scale, the step between sampled
 departures and the rounds of the rig size search.
 """
-fidelities = Dict(:draft => (corridor_scale=4.0, departure_step=12, size_rounds=1),
+fidelities = Dict(:draft => (corridor_scale=1.0, departure_step=36, size_rounds=1),
     :final => (corridor_scale=1.0, departure_step=6, size_rounds=2))
+
+"""
+Spread [points] of a draft result about the final run's on the development case: of the
+kite's and the rotors' savings and of the gap between them
+"""
+DRAFT_SPREAD = (kite=4.9, rotors=3.7, gap=2.8)
+
+"text of the paper's draft marker: what a draft run leaves out and how far it may lie off"
+function draft_marker()
+    ratio = fidelities[:draft].departure_step ÷ fidelities[:final].departure_step
+    return "\\tbd{Results at draft fidelity: the final run's grid on one in $ratio of " *
+           "its departures, with one round of the rig size search instead of two. On the " *
+           "development case a draft saving lies about the final run's by " *
+           "$(DRAFT_SPREAD.kite) points for the kite, $(DRAFT_SPREAD.rotors) for the " *
+           "rotors and $(DRAFT_SPREAD.gap) for the gap between them (one standard " *
+           "deviation), with no bias from the grid.}\n"
+end
 
 """
     mark_fidelity(path, fidelity, steps, figures)
@@ -28,9 +45,7 @@ function mark_fidelity(path, fidelity, steps, figures)
     if fidelity == :final
         issetequal(drawn, figures) && write(path, "")
     elseif !isempty(drawn)
-        ratio = fidelities[:draft].corridor_scale / fidelities[:final].corridor_scale
-        write(path, "\\tbd{Results at draft fidelity: corridors $(Int(ratio)) times as " *
-            "coarse and half the departures of the final run.}\n")
+        write(path, draft_marker())
     end
 end
 
