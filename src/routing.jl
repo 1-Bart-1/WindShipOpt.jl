@@ -374,8 +374,10 @@ Base.@kwdef struct RouterSettings
     "how far above the [`CostToGo`](@ref) of the departure the states searched reach, on
     the first try and where that leaves no path [-]; `Inf` searches them all"
     search_margins::NTuple{2, Float64} = (0.03, 0.06)
-    "`search_margins` of a ship that can fly a kite [-]"
-    kite_search_margins::NTuple{2, Float64} = (0.2, 0.4)
+    "whether the search of a ship that can fly a kite keeps an arrival with it down and one
+    aloft at each node and time bin, the reference its [`KiteRule`](@ref) is checked against,
+    rather than the one that rule prefers"
+    kite_states_searched::Bool = false
     "routing speeds, from the lowest routing speed to the ship's top speed"
     routing_speeds::Int = 49
     "speeds the search skips between those it commands, plus one"
@@ -1256,9 +1258,11 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
         to_go = CostToGo(workspace, corridor, table, weather, departure; time_cost,
             first_stage, coastal_penalty)
         estimate = to_go(first_lateral, first_aloft + 1, first_stage, 0.0)
-        limits = (1 .+ margins_searched(table, ROUTER_SETTINGS[])) .* estimate
+        limits = (1 .+ ROUTER_SETTINGS[].search_margins) .* estimate
+        kite = has_kite(table) && !ROUTER_SETTINGS[].kite_states_searched ?
+               KiteRule(table.table.cycle_cost, size(corridor.lat, 1)) : nothing
         leg, limit = searched_leg(workspace, corridor, table, weather, departure, to_go,
-            limits; options...)
+            limits, kite; options...)
         isnothing(record) || record!(record, workspace, size(corridor.lat, 1),
             (; to_go, estimate, limits, limit, found=leg, time_step))
         isnothing(leg) && return nothing
@@ -1272,9 +1276,28 @@ end
 route(corridor::Corridor, table::PerformanceTable, weather, departure; options...) =
     route(corridor, RouteTable(table), weather, departure; options...)
 
-"The margins of `settings` that the search of a ship with `table` uses [-]"
-margins_searched(table::RouteTable, settings::RouterSettings) =
-    has_kite(table) ? settings.kite_search_margins : settings.search_margins
+"""
+    KiteRule(relaunch, last_stage)
+
+How a search that keeps one kite state per node and time bin values an arrival with the
+kite aloft against one with it down: as worth the cost `relaunch` [USD] of a launch, except
+at `last_stage`, where the kite must be down.
+"""
+struct KiteRule
+    relaunch::Float64
+    last_stage::Int
+end
+
+"""
+    arrival_value(rule, aloft, stage)
+
+Value [USD] the [`KiteRule`](@ref) `rule` adds to an arrival at `stage` with the kite down
+(`aloft` 1) or aloft (2); `Inf` where it cannot go on.
+"""
+function arrival_value(rule::KiteRule, aloft, stage)
+    aloft == 1 && return 0.0
+    return stage == rule.last_stage ? Inf : -rule.relaunch
+end
 
 """
     PassageBand(elapsed, width)
@@ -1365,20 +1388,21 @@ function final_pass(leg::Leg, corridor, table, weather, departure; time_cost, fi
 end
 
 """
-    searched_leg(workspace, corridor, table, weather, departure, to_go, limits; options...)
+    searched_leg(workspace, corridor, table, weather, departure, to_go, limits,
+                 kite=nothing; options...)
 
-The [`Leg`](@ref) of the first [`route_pass`](@ref) under `limits` [USD] that ends within
-its limit, and that limit, else of a pass over all states, which is `nothing` if no path
-arrives, and `Inf`.
+The [`Leg`](@ref) of the first [`route_pass`](@ref) with the [`KiteRule`](@ref) `kite`
+under `limits` [USD] that ends within its limit, and that limit, else of a pass over all
+states, which is `nothing` if no path arrives, and `Inf`.
 """
-function searched_leg(workspace, corridor, table, weather, departure, to_go, limits;
-        options...)
+function searched_leg(workspace, corridor, table, weather, departure, to_go, limits,
+        kite=nothing; options...)
     for limit in limits
         leg = route_pass(workspace, corridor, table, weather, departure, to_go, limit;
-            options...)
+            kite, options...)
         !isnothing(leg) && leg.objective <= limit && return leg, limit
     end
-    return route_pass(workspace, corridor, table, weather, departure; options...), Inf
+    return route_pass(workspace, corridor, table, weather, departure; kite, options...), Inf
 end
 
 """
@@ -1456,17 +1480,18 @@ end
 """
     route_pass(workspace, corridor, table, weather, departure, to_go=nothing, limit=Inf;
                time_cost, time_step, first_stage, first_lateral, first_aloft,
-               coastal_penalty, speed_stride)
+               coastal_penalty, speed_stride, kite=nothing)
 
 The dynamic programme of [`route`](@ref) in `workspace`, whose bins are `time_step` [h]
-long, commanding the [`commanded_speeds`](@ref) of `table` at `speed_stride`, skipping
-states and commanded edges outside the [`PassageBand`](@ref) `to_go`, or, with a
-[`CostToGo`](@ref) `to_go`, those whose objective plus it exceeds `limit` [USD]. Returns the
-[`Leg`](@ref) or `nothing`.
+long, keeping one kite state per node and time bin by the [`KiteRule`](@ref) `kite`, or
+both where it is `nothing`, commanding the [`commanded_speeds`](@ref) of `table` at
+`speed_stride`, skipping states and commanded edges outside the [`PassageBand`](@ref)
+`to_go`, or, with a [`CostToGo`](@ref) `to_go`, those whose objective plus it exceeds
+`limit` [USD]. Returns the [`Leg`](@ref) or `nothing`.
 """
 function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable,
         weather, departure, to_go=nothing, limit=Inf; time_cost, time_step, first_stage,
-        first_lateral, first_aloft, coastal_penalty, speed_stride)
+        first_lateral, first_aloft, coastal_penalty, speed_stride, kite=nothing)
     ship_table = table.table
     (; speeds) = table
     (; cost, elapsed) = workspace
@@ -1514,7 +1539,7 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
                         (; start, weather, corridor, stage, lateral, step, speed_index,
                             sample_hours, time=departure + time))
                     relax_sailed!(workspace, state, next, sailed, (; here, penalty,
-                        speed_index), time_step, prices)
+                        speed_index), time_step, prices, kite)
                     through = sailed.same_through
                 end
             end
@@ -1609,21 +1634,53 @@ function sailed_down!(points, table::RouteTable, edge, hours, through)
 end
 
 """
-    relax_sailed!(workspace, state, next, sailed, edge, time_step, prices)
+    relax_sailed!(workspace, state, next, sailed, edge, time_step, prices, kite)
 
 [`relax!`](@ref) the states of node `next` of the next stage, kite down and aloft, from
 `state` by the [`SailedEdge`](@ref) `sailed`, where it arrives within the time bins of
 `time_step` [h]; `edge` holds the objective `here` [USD] of `state`, the coastal `penalty`
-and the commanded `speed_index`.
+and the commanded `speed_index`. With a [`KiteRule`](@ref) `kite`, the node and bin keep
+the one arrival it values least.
 """
 function relax_sailed!(workspace::RouteWorkspace, state, next, sailed::SailedEdge, edge,
-        time_step, prices)
+        time_step, prices, kite)
     arrival = workspace.elapsed[state...] + sailed.hours
     arrival < size(workspace.cost, 2) * time_step || return
     next_bin = floor(Int, arrival / time_step) + 1
     edge = (; edge..., sailed.hours)
-    relax!(workspace, state, (next, next_bin, 1), sailed.down, edge, prices)
-    relax!(workspace, state, (next, next_bin, 2), sailed.up, edge, prices)
+    if isnothing(kite)
+        relax!(workspace, state, (next, next_bin, 1), sailed.down, edge, prices)
+        relax!(workspace, state, (next, next_bin, 2), sailed.up, edge, prices)
+    else
+        relax_chosen!(workspace, state, (next, next_bin), sailed, edge, prices, kite)
+    end
+end
+
+"""
+    relax_chosen!(workspace, origin, (next, bin), sailed, edge, prices, kite)
+
+Arrive at node `next` of the next stage in time bin `bin` from the state `origin` by the
+[`SailedEdge`](@ref) `sailed` with the kite down or aloft, whichever the [`KiteRule`](@ref)
+`kite` values less, if that is less than the arrival kept there so far, which it replaces.
+"""
+function relax_chosen!(workspace, origin, (next, bin), sailed::SailedEdge, edge, prices,
+        kite::KiteRule)
+    cost = workspace.cost
+    stage = origin[4] + 1
+    best, aloft, total = Inf, 1, Inf
+    for (tally, state) in ((sailed.down, 1), (sailed.up, 2))
+        isfinite(tally.cost) || continue
+        objective = edge.here + edge_objective(edge.penalty, tally.cost, edge.hours, prices)
+        value = objective + arrival_value(kite, state, stage)
+        value < best && ((best, aloft, total) = (value, state, objective))
+    end
+    isfinite(best) || return
+    for kept in 1:2
+        best < cost[next, bin, kept, stage] + arrival_value(kite, kept, stage) || return
+    end
+    cost[next, bin, 3 - aloft, stage] = Inf
+    arrive!(workspace, origin, (next, bin, aloft), aloft == 1 ? sailed.down : sailed.up,
+        edge, total)
 end
 
 """
@@ -1690,13 +1747,24 @@ is cheaper than the best arrival there so far.
 """
 function relax!(workspace, origin, arrival, tally::EdgeTally, edge, prices)
     isfinite(tally.cost) || return
+    total = edge.here + edge_objective(edge.penalty, tally.cost, edge.hours, prices)
+    total < workspace.cost[arrival..., origin[4] + 1] || return
+    arrive!(workspace, origin, arrival, tally, edge, total)
+end
+
+"""
+    arrive!(workspace, origin, arrival, tally, edge, total)
+
+Make state `arrival` (lateral, bin, aloft) of the next stage the arrival from the state
+`origin` by an `edge` of `hours` [h] passed as the [`EdgeTally`](@ref) `tally`, at the
+objective `total` [USD].
+"""
+function arrive!(workspace, origin, arrival, tally::EdgeTally, edge, total)
     (; cost, elapsed, energy, flight_hours, launches, forced_landings, parent, speed_index,
         mode) = workspace
     (; hours) = edge
-    total = edge.here + edge_objective(edge.penalty, tally.cost, hours, prices)
     lateral, bin, origin_aloft, stage = origin
     arrival = (arrival..., stage + 1)
-    total < cost[arrival...] || return
     cost[arrival...] = total
     elapsed[arrival...] = elapsed[origin...] + hours
     energy[arrival...] = energy[origin...] + tally.energy

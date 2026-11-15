@@ -19,7 +19,7 @@ corridors = route_corridors(:caribbean, north_atlantic_mask(); ocean_spacing=144
 
 # The study's search is too coarse for the small route differences tested here.
 WindShipOpt.ROUTER_SETTINGS[] = WindShipOpt.RouterSettings(time_step=1.5,
-    search_speed_stride=2, search_margins=(0.12, 0.2), kite_search_margins=(0.25, 0.5))
+    search_speed_stride=2, search_margins=(0.12, 0.2))
 
 @testset "Holtrop components match the published example at 25 kn" begin
     speed = 25KNOT
@@ -2265,14 +2265,15 @@ function small_climate(directory, weather)
 end
 
 """
-    small_archive(directory, weather, offset; noise)
+    small_archive(directory, weather, offset; noise, wind_schedule, hole)
 
 Four daily forecasts from 2017-12-30 on the grids of `weather`, each the weather it
 forecasts plus `offset(year) + noise(issue)` on the east wind and half `offset(year)` on
-the wave height, with their bias and blend weights against [`small_climate`](@ref).
+the wave height, with their bias and blend weights against [`small_climate`](@ref). The
+wind of issue `hole` is zero, as an issue never downloaded.
 """
 function small_archive(directory, weather, offset; noise=issue -> 0.0,
-        wind_schedule=(24.0, "2017-12-30T00:00:00", 24))
+        wind_schedule=(24.0, "2017-12-30T00:00:00", 24), hole=nothing)
     for (group, observed, names, leads, (first_issue, first_date, issue_hours)) in (
         ("wind", weather.wind, ["u10", "v10"], 6:6:24, wind_schedule),
         ("waves", weather.waves, ["direction_east", "direction_north", "height", "period"],
@@ -2284,6 +2285,7 @@ function small_archive(directory, weather, offset; noise=issue -> 0.0,
             year = issue <= 2 ? 2017 : 2018
             shift = name == "u10" ? offset(year) + noise(issue) :
                     name == "height" ? offset(year) / 2 : 0.0
+            group == "wind" && issue == hole && return zeros(Float16, 2, 2)
             return Float16.(observed.fields[name][:, :, step] .+ shift)
         end
         write_fields(joinpath(directory, group), field, 4length(leads),
@@ -2347,6 +2349,38 @@ end
     @test member.wind.weights == control.wind.weights
     @test member.waves.bias == control.waves.bias
     @test member.waves.fields["period"] == control.waves.fields["period"]
+end
+
+@testset "a sparse archive fits its bias on the issues it holds, not on its holes" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    archive = small_archive(joinpath(directory, "forecast"), weather, year -> 1.5; hole=4)
+    @test all(isapprox.(archive.wind.bias[2017]["u10"], 1.5; atol=0.01))
+end
+
+@testset "an archive fits its own bias and weights where the control's were linked" begin
+    directory = mktempdir()
+    weather = small_era5(joinpath(directory, "era5"))
+    control = small_archive(joinpath(directory, "forecast"), weather, year -> 1.5)
+    mean_directory = joinpath(directory, "mean")
+    small_archive(mean_directory, weather, year -> 3.0;
+        noise=issue -> issue <= 2 ? 0.0 : isodd(issue) ? 20.0 : -20.0)
+    for group in ("wind", "waves")
+        folder = joinpath(mean_directory, group)
+        foreach(name -> rm(joinpath(folder, name); recursive=true),
+            filter(name -> !(name in ("grid.toml", "u10.f16", "v10.f16", "height.f16")),
+                readdir(folder)))
+        WindShipOpt.link_control_group(joinpath(directory, "forecast", group), folder)
+    end
+    write_forecast_bias(mean_directory, weather)
+    write_forecast_weights(mean_directory, weather, control.climate)
+    fitted = ForecastArchive(mean_directory, weather, control.climate)
+    kept = ForecastArchive(joinpath(directory, "forecast"), weather, control.climate)
+    @test all(isapprox.(fitted.wind.bias[2017]["u10"], 3.0; atol=0.01))
+    @test all(isapprox.(kept.wind.bias[2017]["u10"], 1.5; atol=0.01))
+    @test all(fitted.wind.weights[2017] .< 0.02)
+    @test all(isapprox.(kept.wind.weights[2017], 1; atol=0.001))
+    @test !any(islink, readdir(joinpath(mean_directory, "wind"); join=true))
 end
 
 @testset "linking replaces a link, keeps a real file and leaves nothing beside them" begin
@@ -2641,19 +2675,23 @@ end
     @test rising(1, 1, 1, 18.0) == 25.0
 end
 
-@testset "a ship that can fly a kite is searched at the kite margins" begin
-    settings = WindShipOpt.RouterSettings(search_margins=(0.1, 0.2),
-        kite_search_margins=(0.3, 0.4))
-    kite_ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
-    kite_table = RouteTable(PerformanceTable(kite_ship, assumptions))
-    bare_table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
-        assumptions))
-    @test WindShipOpt.margins_searched(kite_table, settings) == (0.3, 0.4)
-    @test WindShipOpt.margins_searched(bare_table, settings) == (0.1, 0.2)
-end
-
 kite_route_table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0;
             kite_area=400.0), assumptions), assumptions))
+
+@testset "a kite ship's search keeps one kite state per node and time, down at port" begin
+    weather, departure = SyntheticWeather(), 24.0 * 31
+    record = SearchRecord()
+    leg = route(corridor, kite_route_table, weather, departure; time_cost=hourly, record)
+    reached = isfinite.(record.cost)
+    @test any(reached[:, :, 2, :])
+    @test !any(reached[:, :, 1, :] .& reached[:, :, 2, :])
+    @test !any(reached[:, :, 2, end])
+    searched = WindShipOpt.with_router_settings(WindShipOpt.with_changed(
+        WindShipOpt.ROUTER_SETTINGS[]; kite_states_searched=true)) do
+        route(corridor, kite_route_table, weather, departure; time_cost=hourly)
+    end
+    @test leg.objective ≈ searched.objective rtol = 0.01
+end
 
 @testset "a plan weighing wind error expects a kite that just pulls to fly sometimes" begin
     speed_index = 4
