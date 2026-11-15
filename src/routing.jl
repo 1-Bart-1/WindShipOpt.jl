@@ -1858,25 +1858,38 @@ known_weather(::Nothing, weather, time, horizon) = ForecastWeather(weather, time
 known_weather(::PerfectForecast, weather, time, horizon) =
     known_weather(nothing, weather, time, Inf)
 
+"whether what a ship knows of the weather by the forecast source `forecast`, seen `horizon`
+[h] ahead, is the same at every plan"
+knows_all(::Nothing, horizon) = horizon == Inf
+knows_all(::PerfectForecast, horizon) = true
+knows_all(forecast, horizon) = false
+
 """
-    ReplannedForecast(forecast; interval=24.0, adapts=:nothing)
+    ReplannedForecast(forecast; interval=24.0, adapts=:live)
 
 The forecast source `forecast` of a ship that re-plans at the first node `interval` [h]
-or more after its last plan, and that between plans chooses each edge's speed (`:speed`)
-or also its next node (`:course`) by [`adapted_edge`](@ref), or sails the plan's course
-choosing speed and kite every few hours on the weather it meets by
-[`sail_live_edge!`](@ref) (`:live`).
+or more after its last plan, and that between plans sails the plan's course choosing speed
+and kite every few hours on the weather it meets by [`sail_live_edge!`](@ref) (`:live`),
+holds each edge's planned speed (`:nothing`, the default of a [`PlannedKite`](@ref) or
+[`ForesightKite`](@ref), which are never sailed live), or chooses each edge's speed
+(`:speed`) or also its next node (`:course`) by [`adapted_edge`](@ref).
 """
 struct ReplannedForecast{F}
     forecast::F
     interval::Float64
     adapts::Symbol
-    function ReplannedForecast(forecast::F; interval=24.0, adapts=:nothing) where {F}
+    function ReplannedForecast(forecast::F; interval=24.0,
+            adapts=held_speed_rule(forecast) ? :nothing : :live) where {F}
         adapts in (:nothing, :speed, :course, :live) || throw(ArgumentError(
             "adapts must be :nothing, :speed, :course or :live, not $adapts"))
+        adapts == :live && held_speed_rule(forecast) && throw(ArgumentError(
+            "a kite held to the plan or on foresight is not sailed live"))
         return new{F}(forecast, interval, adapts)
     end
 end
+
+"whether `forecast` sets its kite by a rule of a ship holding each edge's planned speed"
+held_speed_rule(forecast) = forecast isa Union{PlannedKite, ForesightKite}
 
 """
     far_row_stride(settings, ahead)
@@ -2399,14 +2412,17 @@ after the last plan or past the plan's near part, on `forecast`: a
 [`ForecastArchive`](@ref), a [`ForecastEnsemble`](@ref), a [`ShortestLead`](@ref), a
 [`PerfectForecast`](@ref), a [`KiteMargin`](@ref) of one of those, a
 [`ForecastParts`](@ref), the real weather known `horizon` hours ahead where `nothing`, or
-a [`ReplannedForecast`](@ref) with its own interval and adaptation between plans. It sails
-each plan in the real `weather` until the next re-plan by
-[`sail_planned_edge!`](@ref), launching and landing the kite where the real weather of an
-edge and the [`plan_values`](@ref) ahead make that cheapest, or, with `forecast` a
+a [`ReplannedForecast`](@ref) with its own interval and way of sailing a plan, live by
+default. It sails each plan in the real `weather` until the next re-plan. Sailed live, it
+values the passage beyond each edge by [`remaining_cost`](@ref) over the whole corridor,
+built once per passage and after each hold where the ship knows the real weather, and at
+each plan otherwise. Holding the planned speed by [`sail_planned_edge!`](@ref), it
+launches and lands the kite where the real weather of an edge and the
+[`plan_values`](@ref) ahead make that cheapest, or, with `forecast` a
 [`PlannedKite`](@ref), where the plan put it, or with a [`ForesightKite`](@ref), by the
-same values in the real weather. Fuel, flight hours and objective are those
-of the real weather. Where no plan leaves its node or the real weather stops the next
-edge, the ship holds there with the kite stowed on its hotel load until the next forecast,
+same values in the real weather. Fuel, flight hours and objective are those of the real
+weather. Where no plan leaves its node or the real weather stops the next edge, the ship
+holds there with the kite stowed on its hotel load until the next forecast,
 6 h later, and plans again. A [`KiteRecord`](@ref) `record` receives what was sailed.
 Returns `nothing` after holding 72 h at one node.
 """
@@ -2430,6 +2446,8 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     with_margin = planned isa KiteMargin
     source = keeps_plan || foresight || with_margin ? planned.forecast : planned
     plan_table = with_margin ? margin_table(table, planned.margin) : table
+    fixed_known = knows_all(source, horizon)
+    to_go, to_go_start = nothing, 0.0
     while stage < stage_count
         known = known_weather(source, weather, departure + time, horizon)
         planning, plan_stage, sailable = planning_corridor(corridor, stage, lateral)
@@ -2440,9 +2458,11 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
         foresight && !blocked && (values = plan_values(plan, planning, table, weather,
             departure + time, plan_stage, prices))
         plan_start, plan_end = time, blocked ? 1 : min(length(plan.path), sailable)
-        to_go = blocked || adapts == :nothing ? nothing :
-                remaining_cost(corridor, plan_table, known, departure + time, prices;
-            first_stage=stage, coastal_penalty)
+        if !blocked && adapts != :nothing && (isnothing(to_go) || !fixed_known)
+            to_go = remaining_cost(corridor, plan_table, known, departure + time, prices;
+                first_stage=stage, coastal_penalty)
+            to_go_start = time
+        end
         for i in 2:plan_end
             next_lat, next_lon, _, planned_speed, _ = plan.path[i]
             next = nearest_lateral(corridor, stage + 1, next_lat, next_lon)
@@ -2452,7 +2472,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
                 met = MetWeather(known, weather, corridor.lat[stage, lateral],
                     corridor.lon[stage, lateral], departure + time)
                 at = (; stage, lateral, step, speed=planned_speed, aloft,
-                    elapsed=time - plan_start, time=departure + time)
+                    elapsed=time - to_go_start, time=departure + time)
                 step, planned_speed, ahead = adapted_edge(points, corridor, table, met,
                     to_go, at, prices, adapts, coastal_penalty)
                 next = next_lateral(corridor, lateral, step)
@@ -2467,7 +2487,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             if adapts == :live
                 edge = (; stage, lateral, step, next, time=departure + time, penalty,
                     speed=planned_speed, aloft)
-                beyond = NodeToGo(to_go, next, stage + 1, departure + plan_start)
+                beyond = NodeToGo(to_go, next, stage + 1, departure + to_go_start)
                 hours, tally, aloft = sail_live_edge!(steps, points, table, weather, known,
                     beyond, corridor, edge, prices)
                 speed = corridor.edge_length[stage, lateral, step] / 3600hours
@@ -2508,6 +2528,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
         time += FORECAST_INTERVAL
         held += FORECAST_INTERVAL
         aloft = false
+        to_go = nothing
     end
     return Leg(fuel_energy, fuel_energy * prices.fuel, flight_hours, launches,
         forced_landings, time, objective, path, aloft_path)

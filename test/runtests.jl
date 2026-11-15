@@ -1455,7 +1455,7 @@ end
 on_whole_corridor(call) = WindShipOpt.with_router_settings(call,
     WindShipOpt.with_changed(WindShipOpt.ROUTER_SETTINGS[]; near_distance=Inf))
 
-@testset "a ship on a long forecast flies its kite about as the plan does" begin
+@testset "a ship holding a long forecast's speeds flies its kite as the plan does" begin
     ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
     kite_table = RouteTable(PerformanceTable(ship, assumptions))
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
@@ -1464,7 +1464,7 @@ on_whole_corridor(call) = WindShipOpt.with_router_settings(call,
     leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
     sailed = on_whole_corridor() do
         forecast_route(corridor, kite_table, weather, departure; time_cost=kite_hourly,
-            horizon=24.0 * 100)
+            horizon=24.0 * 100, forecast=ReplannedForecast(nothing; adapts=:nothing))
     end
     @test leg.launches > 0
     @test sailed.launches == leg.launches
@@ -1973,6 +1973,22 @@ end
             forecast=ReplannedForecast(CountedForecast(0.0, 0); adapts)).objective
         for adapts in (:nothing, :live))
     @test live ≈ planned rtol = 0.01
+end
+
+@testset "a ship re-planning on the real weather sails each passage live" begin
+    kite_table, kite_hourly, finer = kite_coaster_routing(400.0)
+    sailed(forecast) = forecast_route(finer, kite_table, SyntheticWeather(), 24.0 * 121;
+        time_cost=kite_hourly, forecast).objective
+    @test sailed(nothing) == sailed(ReplannedForecast(PerfectForecast(); adapts=:live))
+    @test ReplannedForecast(PlannedKite(nothing)).adapts == :nothing
+    @test_throws ArgumentError ReplannedForecast(ForesightKite(nothing); adapts=:live)
+end
+
+@testset "a ship knowing the real weather values each plan by one cost to go" begin
+    kite_table, kite_hourly, finer = kite_coaster_routing(400.0)
+    sailed(horizon) = forecast_route(finer, kite_table, SyntheticWeather(), 24.0 * 121;
+        time_cost=kite_hourly, horizon).objective
+    @test sailed(Inf) ≈ sailed(1e9) rtol = 0.002
 end
 
 @testset "the remaining cost of a re-planning ship reads the hours it searched" begin

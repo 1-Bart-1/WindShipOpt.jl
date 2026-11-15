@@ -31,9 +31,12 @@ starting at every second; on the default grid with far rows a fixed stride apart
 end; on grids with stages of the named length [nmi] and far rows every fourth; on 60 nmi
 stages with its time bins alone halved, and with rows 7.5 nmi apart and far rows 60 nmi
 apart; refined in grid and time steps together from 60 nmi stages, by the named factor,
-with far rows 60 nmi apart; and the full-corridor search on 240 nmi stages.
+with far rows 60 nmi apart; the full-corridor search on 240 nmi stages; and the default
+planner holding each edge's planned speed rather than sailing live.
 """
 STUDY = Dict("base" => planner_fidelity(),
+    "held" => (; planner_fidelity()...,
+        forecast=ReplannedForecast(nothing; adapts=:nothing)),
     "near_480" => (; scale=1, settings=changed(; near_distance=480.0)),
     "stride_2" => (; scale=1, settings=changed(; far_row_stride=2)),
     "two_zone" => (; scale=1, settings=two_zone()),

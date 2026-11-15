@@ -54,8 +54,8 @@ forecast at every time where `:shortest_lead`, the real weather re-planned daily
 same with the kite's decisions knowing the real weather ahead where `:expected_foresight`
 or planned inside tightened limits where `:expected_margin`, its waves with the real wind
 where `:wave_forecast` and its wind, weighing the error, with the real waves where
-`:wind_forecast` ([`ForecastParts`](@ref)), a plan of [`live_plans`](@ref) sailed live,
-or the [`write_forecast_plans`](@ref) entry `plan`.
+`:wind_forecast` ([`ForecastParts`](@ref)), a plan of [`held_plans`](@ref) sailed holding
+each edge's planned speed, or the [`write_forecast_plans`](@ref) entry `plan`.
 """
 forecast_source(plan) =
     plan === false ? nothing : plan === true ? forecast_archive :
@@ -69,8 +69,8 @@ forecast_source(plan) =
     plan === :expected_margin ? KiteMargin(expected_forecast(), forecast_kite_margin) :
     plan === :wave_forecast ? ForecastParts(expected_forecast(), false, true) :
     plan === :wind_forecast ? ForecastParts(expected_forecast(), true, false) :
-    haskey(live_plans, plan) ? ReplannedForecast(forecast_source(live_plans[plan].plan);
-        live_plans[plan].adapts) :
+    haskey(held_plans, plan) ?
+    ReplannedForecast(forecast_source(held_plans[plan]); adapts=:nothing) :
     forecast_plans[plan]
 
 "the control forecast weighing its wind error ([`forecast_error`](@ref))"
@@ -1224,12 +1224,9 @@ end
 forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite, :kite_margin,
     :expected)
 
-"""
-plans sailed live, each as the plan it sails and how its ship sails it, an `adapts` of
-[`ReplannedForecast`](@ref): `:live` chooses speed and kite hour by hour
-"""
-live_plans = Dict(:perfect_live => (plan=:perfect_replan, adapts=:live),
-    :live => (plan=:expected, adapts=:live))
+"plans sailed holding each edge's planned speed, each as the plan it sails, which is sailed
+live otherwise"
+held_plans = Dict(:perfect_held => :perfect_replan, :expected_held => :expected)
 
 "[`forecast_study_plans`](@ref) that change only what a kite does"
 kite_only_plans = (:held_kite, :kite_margin)
@@ -1252,9 +1249,8 @@ function forecast_plans_data()
         ensemble_departures, ensemble_departures[begin:4:end])
 end
 
-"plans of the paper's forecast result: perfect foresight, and the plan the results use,
-sailed live"
-forecast_result_plans = (false, :live)
+"plans of the paper's forecast result: perfect foresight, and the plan the results use"
+forecast_result_plans = (false, :expected)
 
 """
     forecast_result_data()
@@ -1269,7 +1265,7 @@ forecast_result_data() =
 plans of the live-sailing study: the forecast result's plans with perfect foresight and on
 the forecast, each sailed holding the plan's speed and sailed live
 """
-forecast_live_plans = (false, :expected, :perfect_live, :live)
+forecast_live_plans = (:perfect_held, :expected_held, false, :expected)
 
 """
     forecast_live_data()

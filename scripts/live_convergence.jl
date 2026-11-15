@@ -61,7 +61,7 @@ function live_cases(check, names; rigs=nothing, every=1)
     settings = [(; setting, step, stride) for (setting, step, stride) in LIVE_SETTINGS
                 if setting in names]
     return [(; entry..., setting...,
-                case=trip_case(entry.design; forecast=:live, entry.route, entry.rig,
+                case=trip_case(entry.design; forecast=:expected, entry.route, entry.rig,
                     entry.departure))
             for entry in entries for setting in settings]
 end

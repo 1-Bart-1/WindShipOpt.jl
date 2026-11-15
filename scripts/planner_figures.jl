@@ -36,14 +36,15 @@ TRACKED = (("60/15", "grid_60"), ("45/11 two zones", "two_zone"),
     planned_trip(case, departure, fidelity; live=false)
 
 Round trip of `case` leaving at `departure` [h] at the grid study's `fidelity`, sailed live
-where `live`: the two `Leg`s, or `nothing`, and the seconds it took.
+where `live` and holding each edge's planned speed otherwise: the two `Leg`s, or `nothing`,
+and the seconds it took.
 """
 function planned_trip(case, departure, fidelity; live=false)
     ship = Ship(case.design, assumptions)
     hourly = WindShipOpt.leg_time_costs(first(WindShipOpt.ship_costs(ship, assumptions)),
         assumptions)
     table = WindShipOpt.RouteTable(WindShipOpt.PerformanceTable(ship, assumptions))
-    forecast = live ? ReplannedForecast(PerfectForecast(); adapts=:live) : nothing
+    forecast = ReplannedForecast(PerfectForecast(); adapts=live ? :live : :nothing)
     port = 24assumptions[:port_time_per_call]
     trip = nothing
     seconds = @elapsed trip = WindShipOpt.route_round_trip(table,

@@ -1376,18 +1376,18 @@ end
 "groups of forecast_live_table.tex as (heading, rows of (label, statistic))"
 forecast_live_groups = (
     ("Cost saving [\\%]",
-        (("Perfect foresight, plan's speed held", cause_saving(false)),
-            ("\\quad sailed live", cause_saving(:perfect_live)),
-            ("Forecast plan, plan's speed held", cause_saving(:expected)),
-            ("\\quad sailed live", cause_saving(:live)))),
+        (("Perfect foresight, plan's speed held", cause_saving(:perfect_held)),
+            ("\\quad sailed live", cause_saving(false)),
+            ("Forecast plan, plan's speed held", cause_saving(:expected_held)),
+            ("\\quad sailed live", cause_saving(:expected)))),
     ("Forecast plan's loss against perfect foresight at the plan's speed [points]",
-        (("Sailed live", cause_loss(false, :live)),)),
+        (("Sailed live", cause_loss(:perfect_held, :expected)),)),
     ("Forecast plan's loss against perfect foresight sailed the same way [points]",
-        (("Plan's speed held", cause_loss(false, :expected)),
-            ("Sailed live", cause_loss(:perfect_live, :live)))),
+        (("Plan's speed held", cause_loss(:perfect_held, :expected_held)),
+            ("Sailed live", cause_loss(false, :expected)))),
     ("Gain of sailing live [points]",
-        (("On the forecast plan", cause_loss(:live, :expected)),
-            ("With perfect foresight", cause_loss(:perfect_live, false)))))
+        (("On the forecast plan", cause_loss(:expected, :expected_held)),
+            ("With perfect foresight", cause_loss(false, :perfect_held)))))
 
 """
     forecast_live_table()

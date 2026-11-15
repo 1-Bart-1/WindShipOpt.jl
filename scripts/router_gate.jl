@@ -101,8 +101,9 @@ cpu_seconds() = sum(parse.(Float64, split(read("/proc/self/stat", String))[14:15
     gate_trips(out_dir, cases, fidelity)
 
 Route the round trip over the [`gate_departures`](@ref) of each of `cases` not yet in
-`out_dir`/gate.csv at `fidelity`, threaded, adding a line per departure as its case
-finishes, and the CPU time of the cases routed to `out_dir`/times.csv.
+`out_dir`/gate.csv at `fidelity`, on its `forecast` where it has one, threaded, adding a
+line per departure as its case finishes, and the CPU time of the cases routed to
+`out_dir`/times.csv.
 """
 function gate_trips(out_dir, cases, fidelity)
     mkpath(out_dir)
@@ -123,7 +124,8 @@ function gate_trips(out_dir, cases, fidelity)
         Threads.@threads :greedy for case in waiting
             ship = Ship(case.design, assumptions)
             trip = isnothing(ship) ? nothing : round_trip(ship,
-                corridors(case.route, fidelity.scale)..., weather, sampled, assumptions)
+                corridors(case.route, fidelity.scale)..., weather, sampled, assumptions;
+                forecast=get(fidelity, :forecast, nothing))
             lines = gate_lines(case, trip, sampled)
             lock(() -> open(io -> foreach(line -> println(io, line), lines), path, "a"),
                 file_lock)
