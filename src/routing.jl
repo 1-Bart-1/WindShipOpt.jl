@@ -397,7 +397,7 @@ Base.@kwdef struct RouterSettings
     far_row_stride::Int = 4
     "growth of the distance ahead over which the rows a plan keeps beyond `near_distance`
     double in spacing [-]; `Inf` keeps every `far_row_stride`-th row to the end"
-    row_doubling_ratio::Float64 = Inf
+    row_doubling_ratio::Float64 = 2.0
     "longest time between the weather samples along an edge beyond `near_distance` [h]"
     far_sample_hours::Float64 = 6.0
     "time between the choices of speed and kite of a ship sailing live [h]"
@@ -1884,8 +1884,11 @@ end
 Every how many rows of its corridor a plan keeps at distance `ahead` [nmi] beyond its near
 part, by the [`RouterSettings`](@ref) `settings`.
 """
-far_row_stride(settings::RouterSettings, ahead) = settings.far_row_stride *
-    2^max(0, floor(Int, log(ahead / settings.near_distance) / log(settings.row_doubling_ratio)))
+function far_row_stride(settings::RouterSettings, ahead)
+    (; near_distance, row_doubling_ratio) = settings
+    doublings = floor(Int, log(ahead / near_distance) / log(row_doubling_ratio))
+    return settings.far_row_stride * 2^max(0, doublings)
+end
 
 """
     planning_stages(corridor, stage, settings)

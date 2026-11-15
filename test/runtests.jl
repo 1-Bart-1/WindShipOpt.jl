@@ -2076,17 +2076,15 @@ end
 @testset "a graded plan keeps rows and stages further apart the further ahead" begin
     leg = first(route_corridors(:caribbean, north_atlantic_mask()))
     stage = findfirst(>(1), vec(sum(leg.water; dims=2)))
-    graded = WindShipOpt.with_changed(WindShipOpt.ROUTER_SETTINGS[]; row_doubling_ratio=2.0)
-    stages, near, strides = WindShipOpt.planning_stages(leg, stage, graded)
+    stages, near, strides = WindShipOpt.planning_stages(leg, stage,
+        WindShipOpt.ROUTER_SETTINGS[])
     far = (near + 1):length(stages)
     @test issorted(strides[far]) && last(strides) >= 4first(strides[far])
     lengths = diff(leg.along_centre[stages[far]])
     @test maximum(lengths) >= 4minimum(lengths)
-    WindShipOpt.with_router_settings(graded) do
-        planning, first_stage, _ = WindShipOpt.planning_corridor(leg, stage,
-            WindShipOpt.centre_index(leg))
-        @test reaches_port(planning, WindShipOpt.centre_index(leg), first_stage)
-    end
+    planning, first_stage, _ = WindShipOpt.planning_corridor(leg, stage,
+        WindShipOpt.centre_index(leg))
+    @test reaches_port(planning, WindShipOpt.centre_index(leg), first_stage)
 end
 
 """
