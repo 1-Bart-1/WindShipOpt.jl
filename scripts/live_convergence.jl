@@ -48,8 +48,8 @@ end
 
 Per setting of `LIVE_SETTINGS` named in `names`, ship, route, rig and departure of `check`,
 the case sailing the forecast result's plan live, as (check, setting, step, stride, near,
-ship, route, departure, case); with `rigs`, only those rigs and no rig, and only every `every`-th
-of the check's departures.
+ship, route, departure, case); with `rigs`, only those rigs and no rig, and only every
+`every`-th of the check's departures.
 """
 function live_cases(check, names; rigs=nothing, every=1)
     unknown = setdiff(names, first.(LIVE_SETTINGS))

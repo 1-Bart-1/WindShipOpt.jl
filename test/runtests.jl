@@ -2038,7 +2038,8 @@ end
     @test all(isequal(all_near(lateral, 1, stage, hours), alone(lateral, 1, stage, hours))
               for (lateral, hours) in reads)
     far = [(lateral, hours) for lateral in (centre - 1, centre, centre + 1)
-           for hours in 72.0:24.0:168.0 if isfinite(last_plan(lateral, 1, stage, hours + 30))]
+           for hours in 72.0:24.0:168.0
+           if isfinite(last_plan(lateral, 1, stage, hours + 30.0))]
     @test !isempty(far)
     @test all(read(lateral, 1, stage, hours) == last_plan(lateral, 1, stage, hours + 30.0)
               for (lateral, hours) in far)
