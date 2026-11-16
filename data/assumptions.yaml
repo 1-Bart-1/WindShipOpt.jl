@@ -518,11 +518,11 @@ rigid_aspect_ratio:
   unit: "-"
   reason: "MX2 design: 26 m span on 54 m^2 (Echeverri et al. 2020, Part I, Table 2)."
 rigid_reference_mass:
-  value: 1852.0
-  low: 1852.0
-  high: 2600.0
+  value: 1372.0
+  low: 1372.0
+  high: 1921.0
   unit: kg
-  reason: "Mass of the MX2 design with its rotors, without tether (Echeverri et al. 2020, Part I, Table 2). The high bound adds the 40 % overrun that M600 showed over its mid-design targets (Part I, p.265)."
+  reason: "Structure of the MX2 design without its rotors and drives: 1852 kg (Echeverri et al. 2020, Part I, Table 2) less the 480 kg of nacelles, powertrains, rotors, spinners and booms in Makani's mass roll-up of the 26 m wing, which totals 1854 kg (Part II, pp.275, 287-288). The high bound adds the 40 % overrun that M600 showed over its mid-design targets (Part I, p.265)."
 rigid_reference_area:
   value: 54.0
   low: 54.0
@@ -561,12 +561,12 @@ rigid_span_efficiency:
   high: 0.95
   unit: "-"
   reason: "Engineering assumption for a straight high-aspect-ratio wing."
-rigid_idle_rotor_drag:
-  value: 0.022
-  low: 0.01
-  high: 0.042
+rigid_feathered_rotor_drag:
+  value: 0.0036
+  low: 0.0015
+  high: 0.0072
   unit: "-"
-  reason: "Drag of the windmilling rotors on the wing area of a kite that only pulls: from Makani's rotor table at zero aero power, eight rotors with disc area 0.615 of the wing area, at 40-50 m/s; the low bound is 4-6 degrees more blade pitch, the high bound 60 m/s (Makani code release, database/m600/rotor_rev4.json). A simulated table; a stopped rotor is not in it."
+  reason: "Drag of the stopped rotors on their disc area, blades feathered: 5.8 lb on a 9 ft propeller feathered at 88 degrees at 100 mph, against 94.4 lb locked and 60.1 lb free-wheeling at 17 degrees, 0.058 and 0.037 on the disc (Hartman 1933, table p.12; Tc 0.0014 at 88 degrees, p.6). Free-wheeling matches the 0.022 on 0.61 of the wing of Makani's rotor table. Low bound: rotor hub drag of NASA's lift and cruise concept, 0.0014-0.0019 on the disc of its lift rotors, which stop in cruise (Silva et al. 2018, Table 3); high bound twice the measured value, our estimate for blades a few degrees off feather."
 
 rigid_min_turn_radius:
   value: 3.46
@@ -607,9 +607,9 @@ rigid_tether_price:
 rigid_rotor_area_ratio:
   value: 0.61
   low: 0.4
-  high: 0.8
+  high: 1.0
   unit: "-"
-  reason: "Rotor disc area over wing area: about 33 m^2 of rotors on the 54 m^2 of MX2 (Echeverri et al. 2020, Part I, p.184), held in proportion."
+  reason: "Rotor disc area over wing area: about 33 m^2 of rotors on the 54 m^2 of MX2 (Echeverri et al. 2020, Part I, p.184), held in proportion. Feathered rotors cost little drag, so a kite that only hovers on them pays less for larger ones; the high bound is the top of the 0.3-1 of the wing area that Vander Lind (2013, Fig. 28.6) gives for airborne rotors."
 rigid_hover_thrust_ratio:
   value: 1.25
   low: 1.15
@@ -690,12 +690,30 @@ rigid_drive_cost:
   high: 0.2
   unit: USD/W
   reason: "On-board drive at two thirds of the 0.15 $/W of Bauer et al. (2018, p.14): three times the retail price per W of a hobby motor, rounded up, for the motor, its drive electronics and the ground electronics, which the ship power cost holds here; the bounds are estimates."
-rigid_drive_margin:
-  value: 1.33
-  low: 1.2
-  high: 1.5
+rigid_rotor_mass_per_area:
+  value: 2.5
+  low: 1.96
+  high: 3.9
+  unit: kg/m^2
+  reason: "Rotors and spinners per m^2 of disc: 65 kg on 8 rotors of 4.15 m^2 for M600 (Echeverri et al. 2020, Part II, p.20; Part I, Table 1), the low bound for fixed-pitch rotors. The base adds our estimate of a quarter for hubs that feather, the high bound doubles the rotor."
+rigid_drive_reference_mass:
+  value: 411.0
+  low: 241.0
+  high: 575.0
+  unit: kg
+  reason: "Motors, controllers, nacelles and booms of MX2: the 480 kg of its powertrain roll-up (Echeverri et al. 2020, Part II, p.288) less its rotors at the mass per disc area of M600. Low bound: its 344 kg of motors and controllers, 36 kg and 7 kg each for 150 kW (Part II, pp.46-47), at the 6.9 kW/kg of motor, inverter and cooling of NASA's model for motors of about 170 kW (Johnson et al. 2018, p.5), 174 kg; high bound the 40 % overrun of M600 (Part I, p.265)."
+rigid_drive_reference_power:
+  value: 1364000.0
+  low: 1364000.0
+  high: 1364000.0
+  unit: W
+  reason: "Electric power the drives of MX2 are rated for: 1.2 MW of shaft, eight rotors at the power six need in hover (Echeverri et al. 2020, Part I, p.184), at the electric to shaft efficiency of 0.88 of the Makani code release."
+rigid_drive_mass_exponent:
+  value: 0.81
+  low: 0.81
+  high: 1.0
   unit: "-"
-  reason: "Largest shaft power over hover power: 1.2 MW over 900 kW for MX2 (Echeverri et al. 2020, Part I, p.184)."
+  reason: "Exponent of drive mass on rated power at a fixed number of rotors: 0.81 from NASA's motor regression over 64 motors of 15-410 kW, mass as peak torque to the 0.8129, times 1.63 for controller, inverter and cooling (Johnson et al. 2018, p.5); 1.0 where motor mass goes linearly with torque as Makani found for direct drives (Echeverri et al. 2020, Part I, p.184)."
 rigid_ship_power_cost:
   value: 0.15
   low: 0.08

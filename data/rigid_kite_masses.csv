@@ -1,6 +1,7 @@
 name,area,mass_low,mass_high,rotors,source,where
 "Makani Wing 7, flown",3.96,60,60,true,vanderlind2013,"Fig. 28.7: 8 m span"
 "Makani M600, built",32.9,1692,1731,true,echeverri2020part1,"Table 1; data/rigid_kite_notes.md"
+"Makani MX2, design",54,1852,1852,true,echeverri2020part1,"Table 2"
 "Joshi et al., design",20,700,700,false,joshi2025,"smallest design"
 "Joshi et al., design",160,10663,10663,false,joshi2025,"largest design"
 "Eijkelhof et al., reference",150,6885,6885,false,eijkelhof2020reference,"reference design"
