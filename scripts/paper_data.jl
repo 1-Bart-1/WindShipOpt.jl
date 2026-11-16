@@ -1795,7 +1795,7 @@ function write_forecast_error(name, corridors...)
     leads = 6.0:6.0:384.0
     issues = [Threads.@spawn issue_forecast_errors(weather, forecast_archive, issue, points,
                   leads) for issue in 1:WindShipOpt.issue_count(forecast_archive.wind)]
-    totals, counts = reduce((total, issue) -> total .+ issue, fetch.(issues))
+    totals, counts = reduce(.+, fetch.(issues))
     open(run_file(name), "w") do io
         println(io, join(("lead_days", forecast_error_columns...), ","))
         for (row, lead) in enumerate(leads)
