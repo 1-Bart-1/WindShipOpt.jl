@@ -647,7 +647,8 @@ rigid_structure_mass(area, assumptions::Assumptions) =
     rigid_kite_mass(area, tether_mass, assumptions)
 
 Mass [kg] of a rigid kite of `area` [m^2] with its rotors and the drives that hover it and
-`tether_mass` [kg] with a rotor out, and that hover power [W].
+`tether_mass` [kg] with a rotor out, and that hover power [W]. Errors where the drives
+grow faster than the mass they hover, so that no such kite exists.
 """
 function rigid_kite_mass(area, tether_mass, assumptions::Assumptions)
     fixed = rigid_structure_mass(area, assumptions) +
@@ -655,7 +656,7 @@ function rigid_kite_mass(area, tether_mass, assumptions::Assumptions)
             area
     mass = fixed + assumptions[:rigid_drive_reference_mass]
     power = hover_power(mass + tether_mass, area, assumptions)
-    while true
+    for _ in 1:100
         drives = assumptions[:rigid_drive_reference_mass] *
                  (drive_power(power, assumptions) /
                   assumptions[:rigid_drive_reference_power])^
@@ -664,6 +665,7 @@ function rigid_kite_mass(area, tether_mass, assumptions::Assumptions)
         mass = fixed + drives
         power = hover_power(mass + tether_mass, area, assumptions)
     end
+    error("no rigid kite of $area m^2 can carry the drives that hover it")
 end
 
 """

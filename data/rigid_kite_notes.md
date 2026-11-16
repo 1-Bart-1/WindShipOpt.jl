@@ -16,7 +16,7 @@ MX2 generates with its rotors. A kite that only pulls departs from it in three w
 | Rotors feathered | 160 kN | 2.34 M | 2691 |
 | Mass from structure, rotors and hover-rated drives; structure priced alone | 160 kN | 2.05 M | 2441 |
 
-At 300 m² the same steps give 4284, 3868 and 3280. A 1000 m² soft kite costs 779.
+At 300 m² the same steps give 4284, 3868 and 3280. A 1000 m² soft kite costs 902 (at 3000 canopy hours; 779 at the earlier 4000), so the 54 m² kite costs about 2.7 times as much.
 
 - Rotor size: at 54 m², 0.3 of the wing as disc costs 14510 USD/kN, 0.61 12790, 1.0 12110, thrust within 1 %. Feathered, larger rotors pay; 0.61 is kept, 1.0 is the favourable bound.
 - Tether: the M600 tether, which MX2 takes over, is rated 1 MW (Part II, p.40), about MX2's hover, so the conductors stay. A battery for an 850 kW peak at the 1.5 kW/kg estimated for a car pack (Sripad and Viswanathan 2021, SI) weighs about 560 kg, twice the whole tether.

@@ -3333,6 +3333,10 @@ end
             (:rigid_rotor_area_ratio, 8 * 4.38 / 54)); init=makani_hover)
     mass, _ = WindShipOpt.rigid_kite_mass(54.0, 275.0, makani_rotors)
     @test mass ≈ 1852 rtol=0.03
+    heavy = with_value(with_value(assumptions, :rigid_mass_exponent, 3.3),
+        :rigid_drive_mass_exponent, 1.0)
+    @test WindShipOpt.rigid_kite_mass(500.0, 0.0, heavy)[1] > 0
+    @test_throws ErrorException WindShipOpt.rigid_kite_mass(3000.0, 0.0, heavy)
     tether_drag = assumptions[:rigid_tether_drag_coefficient] * diameter *
                   model.tether_length / (4 * 54.0)
     @test tether_drag ≈ 0.152 - 0.123 rtol=0.05
