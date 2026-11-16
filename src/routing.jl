@@ -1200,8 +1200,8 @@ end
     read_earlier!(to_go, previous, lateral, knot, stage)
 
 Whether the values of `to_go` at node (`stage`, `lateral`) and `knot` are set from the
-[`CostToGo`](@ref) `previous` of an earlier plan at the same time, as they are beyond
-the filler's `near_hours` where `previous` has a value there.
+[`CostToGo`](@ref) `previous` of an earlier plan at the same time, interpolated between
+its knots, as they are beyond the filler's `near_hours` where `previous` has a value there.
 """
 read_earlier!(to_go, ::Nothing, lateral, knot, stage) = false
 
