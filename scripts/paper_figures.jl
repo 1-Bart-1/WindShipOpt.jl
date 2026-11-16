@@ -2041,13 +2041,8 @@ function rigid_scaling_figure()
             color=kind == "soft" ? palette[1] : vtol_shades(length(curves))[k],
             label=L"%$(name) $%$(round(Int, area))\,\mathrm{m^2}$")
     end
-    favourable_exponent = rigid_assumptions("favourable", 0.0)[:rigid_mass_exponent]
-    series = (("rigid base", base_exponent), ("rigid base", built_wing_exponent),
-        ("rigid base", assumptions.entries[:rigid_mass_exponent].high),
-        ("rigid favourable", favourable_exponent), ("soft", 0.0))
-    for (kind, exponent) in series
-        at_wind = filter(row -> table["thrust"][row] > 0, rows(table, "kind" => kind,
-            "exponent" => exponent, "wind" => rigid_compared_wind))
+    for (kind, exponent) in (rigid_scaling_series()..., ("soft", 0.0))
+        at_wind = flying_rows(table, kind, exponent)
         areas = table["area"][at_wind]
         per_thrust = table["price"][at_wind] ./ table["thrust"][at_wind]
         style = kind == "soft" ? (; color=palette[1], linestyle=:solid) :
@@ -2071,6 +2066,12 @@ function rigid_scaling_figure()
     save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
 end
 
+"ticks at 125 times the powers of two, spanning `low` to `high`"
+function doubling_ticks(low, high)
+    powers = floor(Int, log2(low / 125)):ceil(Int, log2(high / 125))
+    return [125 * 2^power for power in powers]
+end
+
 "rigs of the VTOL kite figure with their legend labels and colours"
 rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
     ("wings", "best wings", palette[2]), ("rotors", "best rotors", palette[3]),
@@ -2089,19 +2090,20 @@ function rigid_kite_figure()
     scaling = read_table(data_file("rigid_scaling.csv"))
     table = read_table(data_file("rigid_kite.csv"))
     figure = Figure(size=(page_width, 190))
-    cost_ticks = [500, 1000, 2000, 4000]
     cost_axis = Axis(figure[1, 1]; title="(a) cost a year at 12 m/s", xscale=log10,
-        yscale=log10, xticks=[30, 300, 3000], yticks=(cost_ticks, string.(cost_ticks)),
-        xlabel=L"kite area [$\mathrm{m^2}$]", ylabel="USD/kN a year")
+        yscale=log10, xticks=[30, 300, 3000], xlabel=L"kite area [$\mathrm{m^2}$]",
+        ylabel="USD/kN a year")
     groups = vec([(ship, route) for route in pair_routes, ship in pair_classes])
     saving_axis = Axis(figure[1, 2]; title="(b) on e-ammonia", ylabel="cost saving [%]",
         xticks=(eachindex(groups),
             ["$(replace(ship, " bulk carrier" => ""))\n$(route_label(string(route)))"
              for (ship, route) in groups]))
+    all_costs = Float64[]
     for scenario in rigid_scenarios
         kind = "rigid " * scenario
-        exponent = rigid_assumptions(scenario, 0.0)[:rigid_mass_exponent]
+        exponent = rigid_exponent(scenario)
         areas, costs = thrust_costs(scaling, kind, exponent)
+        append!(all_costs, costs)
         lines!(cost_axis, areas, costs; rigid_style(kind, exponent)...)
         routed = argmin(costs)
         scatter!(cost_axis, areas[routed:routed], costs[routed:routed];
@@ -2111,6 +2113,8 @@ function rigid_kite_figure()
     end
     soft_areas, soft_costs = thrust_costs(scaling, "soft", 0.0)
     lines!(cost_axis, soft_areas, soft_costs; color=palette[1])
+    cost_ticks = doubling_ticks(extrema([all_costs; soft_costs])...)
+    cost_axis.yticks = (cost_ticks, string.(cost_ticks))
     @printf("  soft: USD/kN a year %s at %s m2\n", join(round.(Int, soft_costs), ", "),
         join(round.(Int, soft_areas), ", "))
     names = first.(rigid_kite_rigs)

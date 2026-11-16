@@ -3385,21 +3385,35 @@ end
 "mass exponent of the two VTOL kites built, which the scaling study also runs"
 built_wing_exponent = 3.0
 
+"mass exponent [-] of the VTOL kite in input `scenario`"
+rigid_exponent(scenario) = rigid_assumptions(scenario, 0.0)[:rigid_mass_exponent]
+
+"""
+    rigid_scaling_series()
+
+(kind, mass exponent) of each series of VTOL kites in the scaling study: base inputs at
+the base, the built wings' and the high exponent, and favourable inputs.
+"""
+function rigid_scaling_series()
+    exponent = assumptions.entries[:rigid_mass_exponent]
+    return (("rigid base", exponent.value), ("rigid base", built_wing_exponent),
+        ("rigid base", exponent.high), ("rigid favourable", rigid_exponent("favourable")))
+end
+
 """
     rigid_scaling_cases()
 
-(kind, area, assumptions) of each VTOL kite of the scaling study: at each of
-`rigid_scaling_areas` on base inputs at the base, the built wings' and the high mass
-exponent, and on favourable inputs.
+(kind, area, assumptions) of each VTOL kite of the scaling study: each series of
+[`rigid_scaling_series`](@ref) at each of `rigid_scaling_areas`.
 """
 function rigid_scaling_cases()
-    exponent = assumptions.entries[:rigid_mass_exponent]
-    return [[("rigid base", area, with_value(rigid_assumptions("base", area),
-                 :rigid_mass_exponent, κ))
-             for area in rigid_scaling_areas
-             for κ in (exponent.value, built_wing_exponent, exponent.high)];
-            [("rigid favourable", area, rigid_assumptions("favourable", area))
-             for area in rigid_scaling_areas]]
+    cases = []
+    for (kind, exponent) in rigid_scaling_series(), area in rigid_scaling_areas
+        scenario = replace(kind, "rigid " => "")
+        inputs = with_value(rigid_assumptions(scenario, area), :rigid_mass_exponent, exponent)
+        push!(cases, (kind, area, inputs))
+    end
+    return cases
 end
 
 """
@@ -3444,14 +3458,21 @@ function rigid_scaling_data()
 end
 
 """
+    flying_rows(table, kind, exponent)
+
+Rows of the scaling `table` of the kites of `kind` at mass `exponent` at
+`rigid_compared_wind`, where they fly.
+"""
+flying_rows(table, kind, exponent) = filter(row -> table["thrust"][row] > 0,
+    rows(table, "kind" => kind, "exponent" => exponent, "wind" => rigid_compared_wind))
+
+"""
     thrust_costs(table, kind, exponent)
 
-Areas [m^2] and annual cost per thrust [USD/kN] at `rigid_compared_wind` of the kites of
-`kind` at mass `exponent` in the scaling `table`, where they fly.
+Areas [m^2] and annual cost per thrust [USD/kN] of the kites of [`flying_rows`](@ref).
 """
 function thrust_costs(table, kind, exponent)
-    flying = filter(row -> table["thrust"][row] > 0, rows(table, "kind" => kind,
-        "exponent" => exponent, "wind" => rigid_compared_wind))
+    flying = flying_rows(table, kind, exponent)
     return table["area"][flying], 1e3 .* table["annual"][flying] ./ table["thrust"][flying]
 end
 
@@ -3462,8 +3483,7 @@ Wing area [m^2] of the VTOL kite of `scenario` with the least annual cost per th
 scaling `table`.
 """
 function cheapest_rigid_area(table, scenario)
-    exponent = rigid_assumptions(scenario, 0.0)[:rigid_mass_exponent]
-    areas, costs = thrust_costs(table, "rigid " * scenario, exponent)
+    areas, costs = thrust_costs(table, "rigid " * scenario, rigid_exponent(scenario))
     return areas[argmin(costs)]
 end
 
