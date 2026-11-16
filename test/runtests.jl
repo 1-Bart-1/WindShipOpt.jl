@@ -3248,10 +3248,11 @@ end
 
 @testset "every rig's route costs what a search at every speed finds" begin
     _, back = corridors
-    # an edge here takes days, so the best timing can lie that far from the coarse search's
     room_in_time = WindShipOpt.with_changed(WindShipOpt.ROUTER_SETTINGS[];
         final_time_band=96.0)
     every_speed = WindShipOpt.with_changed(room_in_time; search_speed_stride=1)
+    every_speed_by_default = WindShipOpt.with_changed(WindShipOpt.ROUTER_SETTINGS[];
+        search_speed_stride=1)
     for design in (ShipDesign(:methanol, 85.0; wing_area=400.0),
         ShipDesign(:methanol, 85.0; kite_area=800.0))
 
@@ -3261,6 +3262,8 @@ end
             coarse = WindShipOpt.with_router_settings(passage, room_in_time)
             full = WindShipOpt.with_router_settings(passage, every_speed)
             @test coarse.objective <= full.objective * (1 + 1e-4)
+            by_default = WindShipOpt.with_router_settings(passage, every_speed_by_default)
+            @test passage().objective <= by_default.objective * (1 + 1e-2)
         end
     end
 end
