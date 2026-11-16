@@ -2036,9 +2036,10 @@ function rigid_scaling_figure()
     for (k, (kind, area)) in enumerate(curves)
         exponent = kind == "soft" ? 0.0 : base_exponent
         chosen = rows(table, "kind" => kind, "area" => area, "exponent" => exponent)
+        name = kind == "soft" ? "soft" : "VTOL"
         lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
             color=kind == "soft" ? palette[1] : vtol_shades(length(curves))[k],
-            label=L"%$(kind == "soft" ? "soft" : "VTOL") $%$(round(Int, area))\,\mathrm{m^2}$")
+            label=L"%$(name) $%$(round(Int, area))\,\mathrm{m^2}$")
     end
     favourable_exponent = rigid_assumptions("favourable", 0.0)[:rigid_mass_exponent]
     series = (("rigid base", base_exponent), ("rigid base", built_wing_exponent),
