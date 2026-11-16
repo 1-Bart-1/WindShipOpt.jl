@@ -411,7 +411,7 @@ Base.@kwdef struct RouterSettings
     "hours past its re-plan interval within which a ship sailing live computes the
     [`CostToGo`](@ref) of each plan on its forecast, reading it beyond them from that of
     the plan before [h]; `Inf` computes it all"
-    to_go_near_hours::Float64 = 0.0
+    to_go_near_hours::Float64 = 72.0
     "length of the time bins of the final pass along the path found [h]"
     final_time_step::Float64 = 0.25
     "`final_time_step` of a plan that weighs the wind error of its forecast [h]"
