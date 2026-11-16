@@ -9,7 +9,8 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import { feature } from "topojson-client";
 import land from "world-atlas/land-110m.json";
 import { legEvents, windAt, type Leg, type PassageState, type WindField } from "./passages";
-import { brandColour, disposeTree } from "./scene";
+import { brandColour } from "../brand";
+import { disposeTree } from "./scene";
 
 /** Unit vector of a latitude and longitude in degrees, on the sphere of the land texture. */
 export function surfacePoint(lat: number, lon: number, radius = 1): THREE.Vector3 {

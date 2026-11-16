@@ -8,7 +8,7 @@
 study_drives = (:vlsfo, :ammonia)
 
 "projected aspect ratio of the kite of every design that names none"
-design_aspect_ratio = ShipDesign(:vlsfo, 100.0).kite_aspect_ratio
+design_aspect_ratio = assumptions[:kite_aspect_ratio]
 
 """
     trip_case(design; assumptions, route, scale, forecast, held_knots, part, labels...)
@@ -51,26 +51,30 @@ knowing the real weather ahead where `:foresight_kite`, or planned inside limits
 by [`forecast_kite_margin`](@ref) where `:kite_margin`, the shortest lead of the control
 forecast at every time where `:shortest_lead`, the real weather re-planned daily where
 `:perfect_replan`, the control forecast weighing its wind error where `:expected`, the
-control forecast's waves with the real wind where `:wave_forecast`, its wind with the real
-waves where `:wind_forecast`, its waves and its wind in `plan.wind_band` [m/s]
-([`ForecastParts`](@ref)) where `plan` has one, the plan of [`grid_plans`](@ref) made on
-[`planning_grid`](@ref) where `plan` is one of those, or the [`forecast_plans`](@ref)
-entry `plan`.
+same with the kite's decisions knowing the real weather ahead where `:expected_foresight`
+or planned inside tightened limits where `:expected_margin`, its waves with the real wind
+where `:wave_forecast` and its wind, weighing the error, with the real waves where
+`:wind_forecast` ([`ForecastParts`](@ref)), a plan of [`live_plans`](@ref) sailed live,
+or the [`write_forecast_plans`](@ref) entry `plan`.
 """
 forecast_source(plan) =
     plan === false ? nothing : plan === true ? forecast_archive :
-    plan isa NamedTuple ? ForecastParts(forecast_archive, plan.wind_band) :
-    plan === :wave_forecast ? ForecastParts(forecast_archive) :
-    plan === :wind_forecast ? ForecastParts(forecast_archive, (-Inf, Inf), false) :
     plan === :held_kite ? PlannedKite(forecast_archive) :
     plan === :foresight_kite ? ForesightKite(forecast_archive) :
     plan === :kite_margin ? KiteMargin(forecast_archive, forecast_kite_margin) :
     plan === :shortest_lead ? ShortestLead(forecast_archive) :
     plan === :perfect_replan ? PerfectForecast() :
-    plan === :expected ? ExpectedForecast(forecast_archive, forecast_error()) :
-    haskey(grid_plans, plan) ?
-    ReplannedForecast(forecast_source(grid_plans[plan]); grid=planning_grid()) :
+    plan === :expected ? expected_forecast() :
+    plan === :expected_foresight ? ForesightKite(expected_forecast()) :
+    plan === :expected_margin ? KiteMargin(expected_forecast(), forecast_kite_margin) :
+    plan === :wave_forecast ? ForecastParts(expected_forecast(), false, true) :
+    plan === :wind_forecast ? ForecastParts(expected_forecast(), true, false) :
+    haskey(live_plans, plan) ? ReplannedForecast(forecast_source(live_plans[plan].plan);
+        live_plans[plan].adapts) :
     forecast_plans[plan]
+
+"the control forecast weighing its wind error ([`forecast_error`](@ref))"
+expected_forecast() = ExpectedForecast(forecast_archive, forecast_error())
 
 """
     round_trips(cases, departures)
@@ -104,7 +108,7 @@ end
     write_trips(name, cases, trips, columns...)
 
 Write `name` to the directory of the run in use with the given label `columns` of each
-case and the cost [USD/tkm], fuel [MJ/tkm], CO2 [kg/tkm], round-trip days, kite flight
+case and the cost [USD/tkm], fuel [MJ/tkm], CO2 [g/tkm], round-trip days, kite flight
 share, kite launches and forced landings per round trip, cargo [t], whether the rig
 retracts and the [`cost_columns`](@ref), of each feasible trip.
 """
@@ -225,9 +229,9 @@ end
 """
     patterns_data()
 
-Optimal flight patterns of the base 800 m^2 kite over the ship's course off the apparent
-downwind direction in light and strong apparent wind: patterns.csv (path points) and
-pattern_forces.csv.
+Optimal flight patterns and still kites of the base 800 m^2 kite over the ship's course off
+the apparent downwind direction in light and strong apparent wind: patterns.csv (path
+points) and pattern_forces.csv.
 """
 function patterns_data()
     model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
@@ -247,17 +251,18 @@ end
 """
     best_pattern_cycle(model, max_force, min_elevation, wind, course, side_weight)
 
-Force of the optimal pattern at apparent wind `wind` [m/s] and `course` [°], and the steps
-of its steered cycle.
+Force of the kite's best state at apparent wind `wind` [m/s] and `course` [°], a pattern or
+a still kite ([`WindShipOpt.kite_state`](@ref)), and the steps of its cycle, one step
+where it is held still.
 """
 function best_pattern_cycle(model, max_force, min_elevation, wind, course, side_weight)
     problem = WindShipOpt.PatternProblem(model, max_force, min_elevation, wind,
         deg2rad(course), side_weight)
-    force, parameters = WindShipOpt.optimal_pattern(problem,
+    flown, parameters = WindShipOpt.optimal_pattern(problem,
         WindShipOpt.pattern_starts(deg2rad(course)))
+    force, state = WindShipOpt.kite_state(problem, flown, parameters)
     path = WindShipOpt.PatternStep[]
-    WindShipOpt.PatternForce(model, WindShipOpt.pattern_of(parameters), wind, max_force;
-        path)
+    WindShipOpt.PatternForce(model, state, wind, max_force; path)
     return force, path
 end
 
@@ -265,7 +270,8 @@ end
     write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
                   side_weight)
 
-Optimise one pattern and write its force and its path; nothing where no pattern flies.
+Optimise the kite's state and write its force and its path; nothing where the kite neither
+flies a pattern nor holds still.
 """
 function write_pattern(paths, forces, model, max_force, min_elevation, wind, course,
         side_weight)
@@ -305,8 +311,8 @@ their high bounds.
 function kite_market_prices()
     names = (:winch_fixed_cost, :winch_cost_per_force, :launch_mast_mass_coefficient,
         :docking_head_cost, :control_unit_cost, :control_unit_cost_per_area,
-        :kite_integration_fraction, :canopy_making_cost_per_area,
-        :canopy_cloth_base_price, :canopy_cloth_price_per_weight, :market_price_factor)
+        :canopy_making_cost_per_area, :canopy_cloth_base_price,
+        :canopy_cloth_price_per_weight, :market_price_factor)
     return changed_assumptions(NamedTuple(name => assumptions.entries[name].high
                                           for name in names))
 end
@@ -722,7 +728,8 @@ function write_design(io, case, trip, work_per_tonne)
     (; design) = case
     @printf(io, "%s,%s,%.0f,%.0f,%.0f,%.0f,%.0f,%.6f,%.5f,%.3f,%.2f,%.2f,%.0f,%.0f,",
         case.scenario, design.drive, design.length, design.kite_area,
-        design.kite_aspect_ratio, design.wing_area, design.rotor_area,
+        WindShipOpt.kite_aspect_ratio(design, case.assumptions), design.wing_area,
+        design.rotor_area,
         trip.cost_per_tonne_km, trip.fuel_per_tonne_km, trip.carbon_per_tonne_km,
         trip.outbound_days, trip.return_days, trip.cargo, trip.capital)
     @printf(io, "%.3f,%.2f", trip.flight_share, trip.launches)
@@ -910,16 +917,27 @@ level_margin = 1.0
 fleet_bands = ("kite", "level", "rotors", "wings", "none")
 
 """
+    fleet_leaders(savings)
+
+Rigs of a cell with the cost `savings` [%] of its rigs that save within
+[`level_margin`](@ref) of the best; none where the best saves less than that margin.
+"""
+function fleet_leaders(savings)
+    best = maximum(values(savings))
+    best < level_margin && return String[]
+    return [rig for (rig, saving) in savings if best - saving < level_margin]
+end
+
+"""
     fleet_band(savings)
 
-Band of [`fleet_bands`](@ref) of a cell with the cost `savings` [%] of its rigs: the rig
-that saves most, `"level"` where another saves within [`level_margin`](@ref) of it and
-`"none"` where the best saves less than that margin.
+Band of [`fleet_bands`](@ref) of a cell with the cost `savings` [%] of its rigs: its one
+[`fleet_leaders`](@ref) rig, `"level"` where there are more and `"none"` where there are
+none.
 """
 function fleet_band(savings)
-    best = maximum(values(savings))
-    best < level_margin && return "none"
-    leaders = [rig for (rig, saving) in savings if best - saving < level_margin]
+    leaders = fleet_leaders(savings)
+    isempty(leaders) && return "none"
     return length(leaders) > 1 ? "level" : only(leaders)
 end
 
@@ -932,13 +950,22 @@ A cell in the band `"none"` saves nothing, as no rig is fitted.
 """
 function fleet_split(cells)
     split = Dict(band => (bill=0.0, saved=0.0) for band in fleet_bands)
-    for (; bill, savings) in cells
-        band = fleet_band(savings)
-        saved = band == "none" ? 0.0 : bill * maximum(values(savings)) / 100
-        split[band] = (bill=split[band].bill + bill, saved=split[band].saved + saved)
+    for cell in cells
+        band = fleet_band(cell.savings)
+        best = argmax(rig -> cell.savings[rig], keys(cell.savings))
+        saved = band == "none" ? 0.0 : cell_saved(cell, best)
+        split[band] = (bill=split[band].bill + cell.bill, saved=split[band].saved + saved)
     end
     return split
 end
+
+"""
+    cell_saved(cell, rig)
+
+Yearly cost [USD] `rig` saves on a fleet cell with the `bill` [USD a year] of the cell
+without a rig and the cost `savings` [%] of its rigs.
+"""
+cell_saved(cell, rig) = cell.bill * cell.savings[rig] / 100
 
 """
     read_table(path)
@@ -988,29 +1015,54 @@ function fleet_work()
 end
 
 """
-    fleet_split_of(table, drive)
+    fleet_ships()
 
-The [`fleet_split`](@ref) of class table `table` on `drive`: each class's transport work
-from [`fleet_work`](@ref) shared equally over the table's routes, at the cost without a
-rig. Errors naming every class and route of `drive` the table lacks a result of a rig for.
+Ships of each class in its IMO size bins in 2018, the `fleet` of data/ship_classes.csv.
 """
-function fleet_split_of(table, drive)
+function fleet_ships()
+    classes = read_table(joinpath(pkgdir(WindShipOpt), "data", "ship_classes.csv"))
+    return Dict(zip(classes["name"], classes["fleet"]))
+end
+
+"""
+    fleet_cells(table, drive)
+
+Each class and route of class table `table` on `drive`, with the class's transport work
+[tonne-km a year] from [`fleet_work`](@ref) and its ships from [`fleet_ships`](@ref) shared
+equally over the table's routes, the yearly cost `bill` [USD] of that work without a rig,
+the row of the ship without a rig and of the best size of each rig, and their cost
+`savings` [%]. Errors naming every class and route of `drive` the table lacks a result of
+a rig for.
+"""
+function fleet_cells(table, drive)
     work, _ = fleet_work()
+    ships = fleet_ships()
     routes = unique(table["route"])
     cells, absent = [], String[]
     for class in keys(work), route in routes
         bare = cheapest_row(table, class, route, drive, "none")
-        savings = best_savings(table, class, route, drive)
-        if isnothing(bare) || length(savings) < length(rig_names)
+        best = Dict(rig => cheapest_row(table, class, route, drive, rig) for rig in rig_names)
+        if isnothing(bare) || any(isnothing, values(best))
             push!(absent, "$class on $route")
             continue
         end
-        bill = work[class] / length(routes) * table["cost"][bare]
-        push!(cells, (; bill, savings))
+        share = work[class] / length(routes)
+        reference = table["cost"][bare]
+        savings = Dict(rig => percent_saving(table["cost"][row], reference)
+                       for (rig, row) in best)
+        push!(cells, (; class, route, work=share, ships=ships[class] / length(routes),
+            bill=share * reference, bare, best, savings))
     end
     isempty(absent) || throw(ArgumentError("no $drive results for " * join(absent, ", ")))
-    return fleet_split(cells)
+    return cells
 end
+
+"""
+    fleet_split_of(table, drive)
+
+The [`fleet_split`](@ref) of the [`fleet_cells`](@ref) of class table `table` on `drive`.
+"""
+fleet_split_of(table, drive) = fleet_split(fleet_cells(table, drive))
 
 """
     searched_sizes(ships, rounds)
@@ -1157,30 +1209,27 @@ forecast_data() = write_forecast_error("forecast_error.csv", run_corridors(:cari
 """
     forecast_error()
 
-The [`ForecastError`](@ref) of the wind forecast in the forecast_error.csv of
-[`forecast_data`](@ref).
+The [`ForecastError`](@ref) of the wind the router plans on, the forecast blended with the
+climatology, in the forecast_error.csv of [`forecast_data`](@ref).
 """
 function forecast_error()
     table = read_table(data_file("forecast_error.csv"))
     leads = 24 * table["lead_days"]
     leads ≈ first(leads) * eachindex(leads) ||
         error("the leads of forecast_error.csv are not evenly spaced from the first")
-    return ForecastError(first(leads), table["wind_forecast"])
+    return ForecastError(first(leads), table["wind_blend"])
 end
 
 "plans of the forecast study, each as the `forecast` of its [`trip_case`](@ref)"
 forecast_study_plans = (false, true, :mean, :margin, :members, :held_kite, :kite_margin,
-    :expected, :grid_perfect, :grid, :grid_expected)
+    :expected)
 
-"plans of the forecast study made on [`planning_grid`](@ref), and the plan each makes there"
-grid_plans = Dict(:grid_perfect => :perfect_replan, :grid => true,
-    :grid_expected => :expected)
-
-"spacing of the stages and rows [nmi] of the corridors [`grid_plans`](@ref) sail"
-grid_spacing = (ocean_spacing=240.0, lateral_spacing=60.0)
-
-"grid that [`grid_plans`](@ref) plan on: their corridor near the ship, coarser beyond"
-planning_grid() = PlanningGrid(mask)
+"""
+plans sailed live, each as the plan it sails and how its ship sails it, an `adapts` of
+[`ReplannedForecast`](@ref): `:live` chooses speed and kite hour by hour
+"""
+live_plans = Dict(:perfect_live => (plan=:perfect_replan, adapts=:live),
+    :live => (plan=:expected, adapts=:live))
 
 "[`forecast_study_plans`](@ref) that change only what a kite does"
 kite_only_plans = (:held_kite, :kite_margin)
@@ -1191,32 +1240,77 @@ forecast_kite_margin = 0.2
 """
     forecast_plans_data()
 
-The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
-`ensemble_departures`, for each of the [`forecast_study_plans`](@ref), those of
-[`grid_plans`](@ref) on corridors of [`grid_spacing`](@ref): forecast_plans.csv;
-the share of its perfect-foresight saving each rig keeps per plan with the jackknife
-standard error over the departures: forecast_plans_kept.csv; and the launches and landings
-of a kite that flies in the weather met and of one held to the plan on three passages,
-forecast_rule.csv; and where those two kites differ on every passage of the kite ship:
-forecast_rule_steps.csv.
+The forecast study: [`write_forecast_plans`](@ref) of each of the
+[`forecast_study_plans`](@ref) in forecast_plans.csv and forecast_plans_kept.csv; the
+launches and landings of a kite that flies in the weather met and of one held to the plan
+on three passages, forecast_rule.csv; and where those two kites differ on every passage of
+the kite ship, forecast_rule_steps.csv.
 """
 function forecast_plans_data()
+    write_forecast_plans("forecast_plans", forecast_study_plans, true)
+    write_kite_rule_records("forecast_rule_steps.csv", "forecast_rule.csv",
+        ensemble_departures, ensemble_departures[begin:4:end])
+end
+
+"plans of the paper's forecast result: perfect foresight, and the plan the results use,
+sailed live"
+forecast_result_plans = (false, :live)
+
+"""
+    forecast_result_data()
+
+The paper's forecast result: [`write_forecast_plans`](@ref) of each of the
+[`forecast_result_plans`](@ref) in forecast_result.csv and forecast_result_kept.csv.
+"""
+forecast_result_data() =
+    write_forecast_plans("forecast_result", forecast_result_plans, false)
+
+"""
+plans of the live-sailing study: the forecast result's plans with perfect foresight and on
+the forecast, each sailed holding the plan's speed and sailed live
+"""
+forecast_live_plans = (false, :expected, :perfect_live, :live)
+
+"""
+    forecast_live_data()
+
+The live-sailing study: [`write_forecast_plans`](@ref) of each of the
+[`forecast_live_plans`](@ref) over the [`forecast_cause_departures`](@ref) in
+forecast_live.csv and forecast_live_kept.csv.
+"""
+forecast_live_data() = write_forecast_plans("forecast_live", forecast_live_plans,
+    :expected; departures=forecast_cause_departures())
+
+"""
+    write_forecast_plans(name, plans, control; departures=ensemble_departures)
+
+The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
+`departures`, for each of `plans`: `name`.csv; the seconds each round trip took to
+compute: `name`_seconds.csv; and the share of its perfect-foresight saving each rig
+keeps per plan with the jackknife standard error over the departures and its difference
+from plan `control`: `name`_kept.csv.
+"""
+function write_forecast_plans(name, plans, control; departures=ensemble_departures)
     rigs = [("none", 0.0); reference_rigs]
-    grid_corridors = route_corridors(:caribbean, mask; grid_spacing...)
     cases, trips = [], []
-    for departure in ensemble_departures
+    for departure in departures
         step_cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...);
-                              forecast=plan, rig, plan=string(plan), departure,
-                              paths=haskey(grid_plans, plan) ? grid_corridors : nothing)
-                          for (rig, area) in rigs, plan in forecast_study_plans
+                              forecast=plan, rig, plan=string(plan), departure)
+                          for (rig, area) in rigs, plan in plans
                               if !(plan in kite_only_plans) || rig == "kite"])
         append!(cases, step_cases)
         append!(trips, round_trips(step_cases, [departure]))
     end
-    write_trips("forecast_plans.csv", cases, trips, :rig, :plan, :departure)
-    write_kept_shares("forecast_plans_kept.csv", cases, trips)
-    write_kite_rule_records("forecast_rule_steps.csv", "forecast_rule.csv",
-        ensemble_departures, ensemble_departures[begin:4:end])
+    write_trips("$name.csv", cases, trips, :rig, :plan, :departure)
+    open(run_file("$(name)_seconds.csv"), "w") do io
+        println(io, "rig,plan,departure,seconds")
+        for case in cases
+            println(io, join(csv_value.((case.rig, case.plan, case.departure,
+                trip_seconds(case, [case.departure]))), ","))
+        end
+    end
+    write_kept_shares("$(name)_kept.csv", cases, trips, plans;
+        control_of=Returns(control), departures)
 end
 
 "plans of the re-planning study, each as the `forecast` of its [`trip_case`](@ref)"
@@ -1237,7 +1331,7 @@ forecast_hours_plans = (false, true, :members, :kite_margin)
 fast_speed = 12KNOT
 
 "reasons a kite is down, as [`WindShipOpt.kite_down_reason`](@ref) gives them, per row"
-kite_down_groups = (too_little_wind=(:wind_low_flight, :wind_low_launch, :wind_low_pull),
+kite_down_groups = (too_little_wind=(:wind_low_flight, :wind_low_launch),
     no_forward_pull=(:no_thrust,), too_much_wind=(:wind_high_flight, :wind_high_launch),
     hull_limit=(:hull_limit,), sea=(:sea_launch,), night=(:night,),
     no_saving=(:no_saving,), chosen=(:chosen,))
@@ -1529,24 +1623,25 @@ function forecast_replanning_data()
 end
 
 """
-    write_kept_shares(name, cases, trips, plans=forecast_study_plans;
-                      control_of=Returns(true))
+    write_kept_shares(name, cases, trips, plans;
+                      control_of=Returns(true), departures=ensemble_departures)
 
 Write `name`: per rig and plan of `plans` after the first, perfect foresight, the share
-of the perfect-foresight saving kept, the ratio of the mean savings over the departures,
-with its jackknife standard error and that of the difference from the plan
-`control_of(plan)`.
+of the perfect-foresight saving kept, the ratio of the mean savings over the `departures`
+where all three trips exist, with its jackknife standard error and that of the difference
+from the plan `control_of(plan)`.
 """
-function write_kept_shares(name, cases, trips, plans=forecast_study_plans;
-        control_of=Returns(true))
-    n = length(ensemble_departures)
+function write_kept_shares(name, cases, trips, plans;
+        control_of=Returns(true), departures=ensemble_departures)
     open(run_file(name), "w") do io
         println(io, "rig,plan,kept,kept_error,difference_from_control,difference_error")
         for (rig, _) in reference_rigs, plan in plans[2:end]
             plan in kite_only_plans && rig != "kite" && continue
-            saved, perfect = plan_savings(cases, trips, rig, plan),
-            plan_savings(cases, trips, rig, false)
-            reference = plan_savings(cases, trips, rig, control_of(plan))
+            all_saved = [plan_savings(cases, trips, rig, kept, departures)
+                         for kept in (plan, false, control_of(plan))]
+            usable = complete_departures(all_saved)
+            saved, perfect, reference = [saved[usable] for saved in all_saved]
+            n = length(usable)
             value = kept_share(saved, perfect, 1:n)
             spread = jackknife_error(index -> kept_share(saved, perfect, index), n)
             difference = value - kept_share(reference, perfect, 1:n)
@@ -1559,18 +1654,26 @@ function write_kept_shares(name, cases, trips, plans=forecast_study_plans;
     end
 end
 
-"cost per tonne-kilometre of `rig` on `plan` from `departure` among `cases` and `trips`"
+"""
+cost per tonne-kilometre of `rig` on `plan` from `departure` among `cases` and `trips`,
+`NaN` where that trip failed
+"""
 function plan_cost(cases, trips, rig, plan, departure)
     index = findfirst(i -> cases[i].rig == rig && cases[i].forecast === plan &&
                                cases[i].departure == departure, eachindex(cases))
-    return trips[index].cost_per_tonne_km
+    return isnothing(trips[index]) ? NaN : trips[index].cost_per_tonne_km
 end
 
-"cost saving of `rig` on `plan` per departure, against no rig on the same forecast"
-plan_savings(cases, trips, rig, plan) =
+"cost saving of `rig` on `plan` per departure of `departures`, against no rig on the same
+forecast"
+plan_savings(cases, trips, rig, plan, departures) =
     [1 - plan_cost(cases, trips, rig, plan, departure) /
          plan_cost(cases, trips, "none", plan in kite_only_plans ? true : plan, departure)
-     for departure in ensemble_departures]
+     for departure in departures]
+
+"indices of the departures at which every one of the per-departure `series` is finite"
+complete_departures(series) =
+    findall(i -> all(isfinite(values[i]) for values in series), eachindex(first(series)))
 
 "share of the mean saving of `perfect` that `saved` keeps over the departures `indices`"
 kept_share(saved, perfect, indices) = mean(saved[indices]) / mean(perfect[indices])
@@ -1673,149 +1776,169 @@ function write_kite_rule_steps(io, departure, leg, edges)
         sum(edge.cost for edge in edges), sum(edge.held_cost for edge in edges))
 end
 
+"columns of forecast_error.csv after the lead, in the order `add_forecast_errors!` adds"
+forecast_error_columns = Tuple("$(quantity)_$kind" for quantity in ("wind", "height")
+                               for kind in ("forecast", "blend", "climate", "weight"))
+
 """
     write_forecast_error(name, corridors...)
 
 Write `name` to the directory of the run in use: per lead day, the root mean square error
 against ERA5 of the vector wind [m/s] and the wave height [m] of the archived forecasts
-and of the same date in another year, over the nodes of `corridors` and every forecast
-in the archive.
+less their bias, of their blend with the climatology that the router plans on and of that
+climatology alone, and the mean weight of the forecast in the blend, over the nodes of
+`corridors` and every forecast in the archive.
 """
 function write_forecast_error(name, corridors...)
     points = unique(vcat([vec(collect(zip(corridor.lat, corridor.lon)))
                           for corridor in corridors]...))
     leads = 6.0:6.0:384.0
-    totals, samples = zeros(length(leads), 4), zeros(Int, length(leads))
+    shape = (length(leads), length(forecast_error_columns))
+    totals, counts = zeros(shape), zeros(Int, shape)
     for issue in 1:WindShipOpt.issue_count(forecast_archive.wind)
         issued = WindShipOpt.issue_time(forecast_archive, issue)
-        known = ArchivedForecast(forecast_archive, weather,
-            issued + WindShipOpt.FORECAST_LATENCY)
+        known = ArchivedForecast(forecast_archive, issued + WindShipOpt.FORECAST_LATENCY)
         known.issue == issue || continue
-        other_year = ForecastWeather(weather, issued, 0.0)
         for (row, lead) in enumerate(leads)
             issued + lead <= WindShipOpt.duration(weather) || continue
-            totals[row, :] .+= forecast_errors(known, other_year, points, issued + lead)
-            samples[row] += length(points)
+            add_forecast_errors!(view(totals, row, :), view(counts, row, :), known, points,
+                issued + lead)
         end
     end
     open(run_file(name), "w") do io
-        println(io, "lead_days,wind_forecast,wind_other_year,height_forecast,",
-            "height_other_year")
+        println(io, join(("lead_days", forecast_error_columns...), ","))
         for (row, lead) in enumerate(leads)
-            rms = sqrt.(totals[row, :] ./ samples[row])
-            @printf(io, "%.2f,%.3f,%.3f,%.3f,%.3f\n", lead / 24, rms...)
+            averages = totals[row, :] ./ counts[row, :]
+            printed = [endswith(column, "weight") ? average : sqrt(average)
+                       for (column, average) in zip(forecast_error_columns, averages)]
+            @printf(io, "%.2f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f\n", lead / 24,
+                printed...)
         end
     end
 end
 
 """
-    forecast_errors(known, other_year, points, time)
+    add_forecast_errors!(totals, counts, known, points, time)
 
-Sums over `points` of the squared error against the weather at `time` of the vector wind
-and the wave height of the forecast `known` and of the weather `other_year`.
+Add to `totals` over `points`, and count in `counts`, the squared error against the
+weather at `time` of the vector wind of the forecast `known` less its bias, of its blend
+and of the climatology, then the forecast's weight, and the same four for the wave
+height, leaving out a value the forecast does not hold.
 """
-function forecast_errors(known, other_year, points, time)
-    sums = zeros(4)
+function add_forecast_errors!(totals, counts, known, points, time)
+    climate = forecast_archive.climate
     for (lat, lon) in points
         truth_wind, truth_height = wind(weather, lat, lon, time),
         first(waves(weather, lat, lon, time))
-        for (column, guess) in ((1, known), (2, other_year))
-            sums[column] += sum(abs2, wind(guess, lat, lon, time) .- truth_wind)
-            sums[column + 2] += (first(waves(guess, lat, lon, time)) - truth_height)^2
+        east, north, wind_weight = WindShipOpt.corrected_wind(known, lat, lon, time)
+        height, _, _, _, height_weight = WindShipOpt.corrected_waves(known, lat, lon, time)
+        climatology_wind = wind(climate, lat, lon, time)
+        climatology_height = first(waves(climate, lat, lon, time))
+        errors = (sum(abs2, (east, north) .- truth_wind),
+            sum(abs2, wind(known, lat, lon, time) .- truth_wind),
+            sum(abs2, climatology_wind .- truth_wind), wind_weight,
+            (height - truth_height)^2,
+            (first(waves(known, lat, lon, time)) - truth_height)^2,
+            (climatology_height - truth_height)^2, height_weight)
+        for (column, value) in enumerate(errors)
+            isnan(value) && continue
+            totals[column] += value
+            counts[column] += 1
         end
     end
-    return sums
 end
 
-"cases of [`forecast_causes_data`](@ref) sailed on the study's corridors, as (name, plan)"
-forecast_cause_plans = ((:perfect, false), (:replanned, :perfect_replan), (:forecast, true),
-    (:shortest_lead, :shortest_lead), (:foresight_kite, :foresight_kite),
-    (:wave_forecast, :wave_forecast), (:wind_forecast, :wind_forecast))
+"departures of [`forecast_causes_data`](@ref): every third of the run's departures"
+forecast_cause_departures() = departures[1:3:end]
+
+"""
+routed cases of [`forecast_causes_data`](@ref) as (name, plan): perfect foresight, the
+forecast's waves, its wind, both, and both with the kite planned inside tightened limits
+"""
+forecast_cause_plans = ((:perfect, false), (:wave_forecast, :wave_forecast),
+    (:wind_forecast, :wind_forecast), (:forecast, :expected), (:kite_margin, :expected_margin))
+
+"cases of [`forecast_causes_data`](@ref) on the course of `:forecast`, as (name, plan)"
+forecast_cause_courses = ((:course_perfect, :perfect_replan),
+    (:course_foresight, :expected_foresight), (:course_forecast, :expected))
+
+"[`forecast_cause_plans`](@ref) and [`forecast_cause_courses`](@ref) only a kite has"
+kite_cause_plans = (:kite_margin, :course_foresight)
 
 """
     forecast_causes_data()
 
 The 140 m e-ammonia ship to Guadeloupe without a rig and with each rig, per departure of
-`ensemble_departures`, split into what the loss on the control forecast comes from:
-forecast_causes.csv with each [`forecast_cause_cases`](@ref), which
-[`forecast_causes_table`](@ref) turns into losses; and how near the kite's limits passages
-fly, per departure, forecast_margins.csv ([`write_kite_margins`](@ref)).
+[`forecast_cause_departures`](@ref), split into what the loss of the forecast result's plan
+comes from: forecast_causes.csv with each [`forecast_cause_cases`](@ref), which
+[`forecast_causes_table`](@ref) turns into losses; and how near the kite's limits it sails
+with perfect foresight and on that plan, per departure, forecast_margins.csv
+([`write_kite_margins`](@ref)).
 """
 function forecast_causes_data()
-    inputs = Dict(rig => routing_inputs(rig) for rig in ("none", first.(reference_rigs)...))
-    samples = Dict(name => sailed_samples(inputs["kite"], source, ensemble_departures)
-                   for (name, source) in (("perfect", PerfectForecast()),
-        ("forecast", forecast_archive)))
-    wind_band = near_limit_wind_band(samples["perfect"], ensemble_departures,
-        inputs["kite"][1].table.ship.rig.min_flight_wind)
-    write_wind_band("forecast_wind_band.csv", wind_band, samples["perfect"],
-        ensemble_departures)
+    rigs = ["none"; first.(reference_rigs)]
+    inputs = Dict(rig => routing_inputs(rig) for rig in rigs)
+    corridors = run_corridors(:caribbean)
+    samples = Dict(knowledge => sailed_samples(inputs["kite"], corridors,
+                       forecast_source(plan), forecast_cause_departures())
+                   for (knowledge, plan) in (("perfect", false), ("forecast", :expected)))
+    courses = forecast_courses(inputs, corridors, forecast_cause_departures())
     cases, trips = [], []
-    for departure in ensemble_departures
-        step_cases = forecast_cause_cases(departure, inputs, wind_band)
+    for departure in forecast_cause_departures()
+        step_cases = [case for rig in rigs
+                      for case in forecast_cause_cases(rig, departure,
+            courses[(rig, departure)])]
         append!(cases, step_cases)
         append!(trips, round_trips(step_cases, [departure]))
     end
     write_trips("forecast_causes.csv", cases, trips, :rig, :plan, :departure)
-    write_kite_margins("forecast_margins.csv", samples, ensemble_departures,
+    write_kite_margins("forecast_margins.csv", samples, forecast_cause_departures(),
         kite_limits(inputs["kite"][1].table))
 end
 
 """
-    forecast_cause_cases(departure, inputs, wind_band)
+    forecast_cause_cases(rig, departure, course)
 
-Round trips from `departure` of the ship with no rig and each rig: the
-[`forecast_cause_plans`](@ref) on the study's corridors (`:foresight_kite` for the kite
-only) and the forecast's waves with its wind only in `wind_band` [m/s]; and on fixed
-courses: the course of the same rig on the control forecast and with perfect foresight,
-each with speed and kite known perfectly and re-planned daily on the real weather, its
-perfect-foresight course planned on the control forecast, and the perfect-foresight
-course of the ship with no rig both with perfect foresight and on the control forecast.
-`inputs` holds each rig's [`routing_inputs`](@ref).
+Round trips from `departure` of the ship with `rig`: the [`forecast_cause_plans`](@ref),
+and the [`forecast_cause_courses`](@ref) on the corridors `course`, without those only a
+kite has where `rig` is no kite.
 """
-function forecast_cause_cases(departure, inputs, wind_band)
-    rigs = ["none"; first.(reference_rigs)]
-    bare_course = course_corridors(inputs["none"], false, departure)
-    cases = []
-    for rig in rigs
-        design = forecast_study_design(rig)
-        for (name, plan) in (forecast_cause_plans..., (:wind_near_limit, (; wind_band)))
-            plan === :foresight_kite && rig != "kite" && continue
-            push!(cases, trip_case(design; forecast=plan, rig, plan=name, departure))
-        end
-        forecast_path = course_corridors(inputs[rig], true, departure)
-        perfect_path = course_corridors(inputs[rig], false, departure)
-        fixed = ((:forecast_course, forecast_path, false),
-            (:forecast_course_replanned, forecast_path, :perfect_replan),
-            (:perfect_course, perfect_path, true),
-            (:perfect_course_replanned, perfect_path, :perfect_replan),
-            (:common_perfect, bare_course, false), (:common_forecast, bare_course, true))
-        for (name, paths, plan) in fixed
-            push!(cases, trip_case(design; forecast=plan, paths, course=name, rig,
-                plan=name, departure))
-        end
-    end
-    return cases
+function forecast_cause_cases(rig, departure, course)
+    design = forecast_study_design(rig)
+    routed = [trip_case(design; forecast=plan, rig, plan=name, departure)
+              for (name, plan) in forecast_cause_plans]
+    fixed = [trip_case(design; forecast=plan, paths=course, course=name, rig, plan=name,
+                 departure) for (name, plan) in forecast_cause_courses]
+    return filter(case -> rig == "kite" || !(case.plan in kite_cause_plans),
+        [routed; fixed])
 end
 
 """
-    course_corridors((table, hourly), plan, departure)
+    forecast_courses(inputs, corridors, departures)
 
-[`round_trip_courses`](@ref) of the ship with the [`routing_inputs`](@ref)
-`(table, hourly)` from `departure` with perfect foresight where `plan` is false and on the
-control forecast where true.
+Per rig of the Dict `inputs` of [`routing_inputs`](@ref) and per departure of
+`departures`, the corridors along the courses it sails on `corridors` with the forecast
+result's plan ([`round_trip_courses`](@ref)), threaded.
 """
-course_corridors((table, hourly), plan, departure) = round_trip_courses(table,
-    run_corridors(:caribbean), weather, departure, port_hours(),
-    hourly, forecast_source(plan))
+function forecast_courses(inputs, corridors, departures)
+    rig_departures = vec(collect(Iterators.product(collect(keys(inputs)), departures)))
+    courses = Vector{Any}(undef, length(rig_departures))
+    Threads.@threads :greedy for i in eachindex(rig_departures)
+        rig, departure = rig_departures[i]
+        courses[i] = round_trip_courses(inputs[rig]..., corridors, weather, departure,
+            port_hours(), forecast_source(:expected))
+    end
+    return Dict(zip(rig_departures, courses))
+end
 
 """
-    round_trip_courses(table, corridors, weather, departure, port_hours, hourly, forecast)
+    round_trip_courses(table, hourly, corridors, weather, departure, port_hours, forecast)
 
 Corridors of one node per stage along the outbound and return courses of the
-[`route_round_trip`](@ref) from `departure` on the outbound and return `corridors`.
+[`route_round_trip`](@ref) from `departure` on the outbound and return `corridors`, at
+the time costs `hourly`.
 """
-function round_trip_courses(table, corridors, weather, departure, port_hours, hourly,
+function round_trip_courses(table, hourly, corridors, weather, departure, port_hours,
         forecast)
     legs = WindShipOpt.route_round_trip(table, corridors..., weather, departure, port_hours,
         hourly, Inf, forecast)
@@ -1824,27 +1947,36 @@ function round_trip_courses(table, corridors, weather, departure, port_hours, ho
 end
 
 """
-    forecast_cause_savings(table, rig)
+    rig_savings(table, rig, plans; bare_of=identity)
 
-Cost saving [%] of `rig` against the ship with no rig on the same plan, per case of
-forecast_causes.csv read into `table` and per departure, `NaN` where a trip is missing. The
-kite with its decisions foreseen is set against the ship's forecast plan, and for a deck
-rig that case is its forecast plan.
+Cost saving [%] of `rig` per plan of `plans` and per departure of the trips read into
+`table`, against the ship with no rig on plan `bare_of(plan)`, `NaN` where a trip is
+missing.
 """
-function forecast_cause_savings(table, rig)
+function rig_savings(table, rig, plans; bare_of=identity)
     costs = Dict(zip(zip(table["rig"], table["plan"], table["departure"]), table["cost"]))
     departures = sort(unique(table["departure"]))
     cost(name, plan) = [get(costs, (name, string(plan), departure), NaN)
                         for departure in departures]
-    saving(plan, bare) = (1 .- cost(rig, plan) ./ cost("none", bare)) .* 100
-    plans = (:perfect, :replanned, :forecast, :shortest_lead, :forecast_course,
-        :perfect_course, :common_perfect, :common_forecast, :wave_forecast,
-        :wind_near_limit, :wind_forecast, :forecast_course_replanned,
-        :perfect_course_replanned)
-    saved = Dict(plan => saving(plan, plan) for plan in plans)
-    saved[:foresight_kite] = rig == "kite" ? saving(:foresight_kite, :forecast) :
-                             saved[:forecast]
-    return saved
+    return Dict(plan => (1 .- cost(rig, plan) ./ cost("none", bare_of(plan))) .* 100
+                for plan in plans)
+end
+
+"""
+    forecast_cause_savings(table, rig)
+
+[`rig_savings`](@ref) of `rig` per case of forecast_causes.csv read into `table`. A case
+only a kite has ([`kite_cause_plans`](@ref)) is set against the ship's plan on the same
+forecast, `:forecast` or `:course_forecast`, and for a deck rig is that plan.
+"""
+function forecast_cause_savings(table, rig)
+    plans = (first.(forecast_cause_plans)..., first.(forecast_cause_courses)...)
+    saved = rig_savings(table, rig, filter(plan -> !(plan in kite_cause_plans), plans))
+    bare = Dict(zip(kite_cause_plans, (:forecast, :course_forecast)))
+    kite_saved = rig == "kite" ?
+                 rig_savings(table, rig, kite_cause_plans; bare_of=plan -> bare[plan]) :
+                 Dict(plan => saved[bare[plan]] for plan in kite_cause_plans)
+    return merge(saved, kite_saved)
 end
 
 "statistic of savings per case over some departures: points lost from `earlier` to `later`"
@@ -1858,10 +1990,6 @@ cause_saving(plan) = (saved, indices) -> mean(saved[plan][indices])
 cause_kept(kept, perfect) = (saved, indices) ->
     100kept_share(saved[kept], saved[perfect], indices)
 
-"statistic of savings per case over some departures: `statistic` less `other`"
-cause_difference(statistic, other) = (saved, indices) ->
-    statistic(saved, indices) - other(saved, indices)
-
 """
     cause_estimate(statistic, saved, against=nothing)
 
@@ -1871,8 +1999,7 @@ case has a trip, as (value, error, departures).
 """
 function cause_estimate(statistic, saved, against=nothing)
     rigs = isnothing(against) ? (saved,) : (saved, against)
-    usable = findall(i -> all(!isnan(case[i]) for rig in rigs for case in values(rig)),
-        eachindex(first(values(saved))))
+    usable = complete_departures([case for rig in rigs for case in values(rig)])
     excess(indices) = statistic(saved, usable[indices]) -
                       (isnothing(against) ? 0.0 : statistic(against, usable[indices]))
     n = length(usable)
@@ -1911,13 +2038,12 @@ function write_kite_margins(name, samples, departures, limits)
 end
 
 """
-    sailed_samples((table, hourly), source, departures)
+    sailed_samples((table, hourly), corridors, source, departures)
 
 Per departure of `departures`, the [`round_trip_samples`](@ref) of the kite ship with the
-[`routing_inputs`](@ref) `(table, hourly)` re-planning daily on `source`.
+[`routing_inputs`](@ref) `(table, hourly)` on `corridors`, re-planning daily on `source`.
 """
-function sailed_samples((table, hourly), source, departures)
-    corridors = run_corridors(:caribbean)
+function sailed_samples((table, hourly), corridors, source, departures)
     sets = Vector{Vector{WindShipOpt.KiteSample}}(undef, length(departures))
     Threads.@threads :greedy for i in eachindex(departures)
         sets[i] = round_trip_samples(table, corridors, weather, departures[i], port_hours(),
@@ -1975,61 +2101,24 @@ end
 
 "rows of forecast_causes_table.tex on how near the kite is to its limits, as (label, name)"
 kite_margin_rows = (
-    ("Aloft within 4 m/s of its lowest wind, of the time aloft", "wind_within_4"),
-    ("Aloft within 1.25 m/s of its lowest wind, of the time aloft", "wind_within_1p25"),
+    ("Within 4 m/s of its lowest wind, of time aloft", "wind_within_4"),
+    ("Within 1.25 m/s of its lowest wind, of time aloft", "wind_within_1p25"),
     ("Kept down by the sea at launch", "down_sea"),
     ("Kept down by wind outside its launch range", "down_wind"),
     ("Down otherwise", "down_other"))
 
 """
-    near_limit_wind_speeds(samples, departure, min_flight_wind, weather)
-
-Real wind speed at 10 m [m/s] at each of the [`KiteRecord`](@ref) `samples` from
-`departure` with apparent wind within 4 m/s of `min_flight_wind` [m/s].
-"""
-function near_limit_wind_speeds(samples, departure, min_flight_wind, weather)
-    near = filter(sample -> abs(sample.apparent_wind - min_flight_wind) <= 4.0, samples)
-    return [hypot(wind(weather, sample.lat, sample.lon, departure + sample.hours)...)
-            for sample in near]
-end
-
-"the 5 and 95 % quantiles of `speeds` [m/s]"
-central_band(speeds) = Tuple(quantile(speeds, (0.05, 0.95)))
-
-"""
-    near_limit_wind_band(sets, departures, min_flight_wind)
-
-Band of the real wind speed at 10 m [m/s] that holds most of the samples of `sets`, one
-set per departure of `departures`, within 4 m/s of `min_flight_wind` [m/s] in apparent wind
-([`near_limit_wind_speeds`](@ref)).
-"""
-near_limit_wind_band(sets, departures, min_flight_wind) = central_band(reduce(vcat,
-    [near_limit_wind_speeds(set, departure, min_flight_wind, weather)
-     for (set, departure) in zip(sets, departures)]))
-
-"""
-    write_wind_band(name, wind_band, sets, departures)
-
-Write `name`: the limits [m/s] of `wind_band` and the share of the samples of `sets`, one
-set per departure of `departures`, with real wind speed at 10 m inside it.
-"""
-function write_wind_band(name, wind_band, sets, departures)
-    speeds = [hypot(wind(weather, sample.lat, sample.lon, departure + sample.hours)...)
-              for (set, departure) in zip(sets, departures) for sample in set]
-    open(run_file(name), "w") do io
-        @printf(io, "low,high,share\n%.3f,%.3f,%.3f\n", wind_band...,
-            count(speed -> wind_band[1] <= speed <= wind_band[2], speeds) / length(speeds))
-    end
-end
-
-"""
     bound_assumptions(name, bound)
 
-The assumptions with input `name` at its `bound` (:low or :high).
+The assumptions with input `name` at its `bound` (:low or :high), the kite's aspect ratio
+at the price of the base kite.
 """
 function bound_assumptions(name, bound)
     entry = assumptions.entries[name]
-    return with_value(assumptions, name, bound == :low ? entry.low : entry.high)
+    value = bound == :low ? entry.low : entry.high
+    name == :kite_aspect_ratio &&
+        return WindShipOpt.with_kite_aspect_ratio(assumptions, value)
+    return with_value(assumptions, name, value)
 end
 
 "class ships of the development study, each with its drive and route"
@@ -2092,13 +2181,14 @@ development_inputs = [
         reason="What a maker's reliability work is worth; the same lever for every rig."),
     (input=:kite_max_force_per_area, label="kite force limit per area", rig="kite",
         lever="force",
-        reason="Its structure decides the force each m\\textsuperscript{2} may carry."),
+        reason=string("Its structure decides the force each m\\textsuperscript{2} may ",
+            "carry; its cloth stays and lasts less at a higher limit.")),
     (input=:kite_min_turn_radius, label="kite smallest turn radius", rig="kite",
         lever="force", reason="Steering and control decide how tight, and so how " *
                               "powerful, a pattern can be."),
-    (input=:kite_flight_drag, label="kite flight drag", rig="kite", lever="force",
-        reason="Deformation, control unit and steering; the low bound, a kite that keeps " *
-               "its design shape, is the most a better design can recover."),
+    (input=:kite_aspect_ratio, label="kite aspect ratio", rig="kite", lever="force",
+        reason="The shape of the wing, fixed at today's in the results; a slenderer kite " *
+               "glides better if launch and canopy can handle it, priced as the base."),
     (input=:kite_launch_sea_wind, label="kite extra launch wind in a sea", rig="kite",
         lever="weather", reason="How far the launch system takes up the ship's motion; " *
                                 "the kite's only limit on the sea."),
@@ -2171,99 +2261,6 @@ function sensitivity_data()
     trips[base] = round_trips(cases[base], sampled_departures())
     trips[changed] = round_trips(cases[changed], sampled_departures())
     write_trips("sensitivity.csv", cases, trips, :ship, :rig, :input, :bound)
-end
-
-"projected aspect ratios of the kite in the aspect ratio study, those with a polar"
-study_aspect_ratios = (3.0, 4.0, 5.0, 6.0, 8.0)
-
-"""
-    aspect_data()
-
-Each ship of [`sensitivity_ships`](@ref) without a rig and with its kite at each of
-[`study_aspect_ratios`](@ref), at the same area and the same price: aspect.csv.
-"""
-function aspect_data()
-    cases = []
-    for (ship, bare, route, areas) in sensitivity_ships()
-        push!(cases, trip_case(bare; route, ship, aspect_ratio=0.0))
-        for aspect_ratio in study_aspect_ratios
-            design = ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...,
-                kite_aspect_ratio=aspect_ratio)
-            push!(cases, trip_case(design; route, ship, aspect_ratio,
-                assumptions=WindShipOpt.base_aspect_ratio_prices(assumptions,
-                    aspect_ratio / design_aspect_ratio)))
-        end
-    end
-    trips = round_trips(cases, sampled_departures())
-    open(run_file("aspect.csv"), "w") do io
-        println(io, "ship,aspect_ratio,area,cost,flight_share,launches,cargo")
-        for (case, trip) in zip(cases, trips)
-            isnothing(trip) && continue
-            @printf(io, "%s,%.0f,%.0f,%.6f,%.3f,%.2f,%.0f\n", csv_value(case.ship),
-                case.aspect_ratio, case.design.kite_area, trip.cost_per_tonne_km,
-                trip.flight_share, trip.launches, trip.cargo)
-        end
-    end
-end
-
-"force limits of the kite in the force rating study [kN/m^2]"
-study_force_ratings = (0.3, 0.5, 0.7, 1.0)
-
-"kite areas of the force rating study [m^2]"
-study_kite_areas = [1600.0 * sqrt(2.0)^k for k in 0:6]
-
-"""
-    nearby_kite_areas(kite_area, reach)
-
-Those of [`study_kite_areas`](@ref) within `reach` grid steps of the one nearest `kite_area`.
-"""
-function nearby_kite_areas(kite_area, reach)
-    nearest = argmin(abs.(log.(study_kite_areas ./ kite_area)))
-    return study_kite_areas[max(1, nearest - reach):min(end, nearest + reach)]
-end
-
-"""
-    force_rating_case(bare, route, ship, rating, exponent, area)
-
-Trip case of the ship `bare` with a kite of `area` built for the force limit `rating`, its
-cloth following the limit to the power `exponent`.
-"""
-function force_rating_case(bare, route, ship, rating, exponent, area)
-    rated = changed_assumptions((; kite_max_force_per_area=rating,
-        canopy_cloth_force_exponent=exponent))
-    design = ShipDesign(; bare.drive, bare.length, bare.class, kite_area=area)
-    return trip_case(design; assumptions=rated, route, ship, rating, exponent, area)
-end
-
-"""
-    force_rating_cases(bare, route, ship, kite_area)
-
-Cases of one ship in the force rating study: without a rig; with its kite at each of
-[`study_force_ratings`](@ref) and two area steps around `kite_area`; and at the lowest and
-highest limit and one area step with cloth that follows the limit in proportion or not at
-all.
-"""
-function force_rating_cases(bare, route, ship, kite_area)
-    base = assumptions[:canopy_cloth_force_exponent]
-    return [trip_case(bare; route, ship, rating=0.0, exponent=base, area=0.0);
-            vec([force_rating_case(bare, route, ship, rating, base, area)
-                 for rating in study_force_ratings, area in nearby_kite_areas(kite_area, 2)]);
-            vec([force_rating_case(bare, route, ship, rating, exponent, area)
-                 for rating in extrema(study_force_ratings), exponent in (0.0, 1.0),
-                 area in nearby_kite_areas(kite_area, 1)])]
-end
-
-"""
-    force_rating_data()
-
-Each ship of [`sensitivity_ships`](@ref) with the cases of [`force_rating_cases`](@ref):
-force_rating.csv.
-"""
-function force_rating_data()
-    cases = reduce(vcat, [force_rating_cases(bare, route, ship, areas.kite.kite_area)
-                          for (ship, bare, route, areas) in sensitivity_ships()])
-    write_trips("force_rating.csv", cases, round_trips(cases, sampled_departures()), :ship,
-        :rating, :exponent, :area)
 end
 
 """
@@ -3455,5 +3452,127 @@ function rigid_scaling_data()
                         beam_thrust(rig, i)), ","))
             end
         end
+    end
+end
+
+"ship, drive, and kite, wing sail and rotor areas [m^2] of the router decisions study"
+router_decision_ships = (("140 m", :ammonia, (1600.0, 1500.0, 800.0)),
+    ("Kamsarmax bulk carrier", :vlsfo, (3200.0, 3000.0, 1600.0)))
+
+"""
+    router_decision_case(ship, drive, rig, area, route)
+
+The route tables of `ship` on `drive` with `area` [m^2] of `rig` and without a rig, the
+time price [USD/h] of each leg of the ship with the rig, and the corridors of `route`.
+"""
+function router_decision_case(ship, drive, rig, area, route)
+    rigged = Ship(ShipDesign(drive, study_hull(ship); rig_size(rig, area)...), assumptions)
+    bare = Ship(ShipDesign(drive, study_hull(ship)), assumptions)
+    hourly = WindShipOpt.leg_time_costs(first(WindShipOpt.ship_costs(rigged, assumptions)),
+        assumptions)
+    table = RouteTable(PerformanceTable(rigged, assumptions))
+    return (; ship, rig, area, route, table, hourly, corridors=run_corridors(route),
+        bare=RouteTable(PerformanceTable(bare, assumptions)))
+end
+
+"`table` with the kite's launches and landings free"
+free_launch_table(table::RouteTable) = WindShipOpt.with_changed(table;
+    table=WindShipOpt.with_changed(table.table; cycle_cost=0.0))
+
+"""
+    stateless_table(table)
+
+`table` with the kite up wherever that pays: its launches and landings free, instant and
+open to any wind, sea and hour, so its state carries nothing.
+"""
+function stateless_table(table::RouteTable)
+    performance = table.table
+    rig = WindShipOpt.with_changed(performance.ship.rig; launch_min_wind=0.0,
+        launch_max_wind=Inf, launch_max_wave_height=Inf, landing_max_wind=Inf,
+        landing_max_wave_height=Inf, night_launch=true)
+    (; knots, values) = performance.sea_launch_wind
+    return WindShipOpt.with_changed(table; table=WindShipOpt.with_changed(performance;
+        ship=WindShipOpt.with_changed(performance.ship; rig),
+        sea_launch_wind=WindShipOpt.LinearTable(knots, zero(values)), cycle_cost=0.0,
+        handling_hours=0.0, forced_landing_cost=0.0))
+end
+
+"""
+    router_decision_passages(case, departure)
+
+Each leg of the round trip of `case` from `departure`, planned as in the results: its cost
+for the ship without a rig, for the rig, and for the rig held to the path planned without
+it; for a kite also its free-launch plan charged for each launch it makes, and the plan of
+[`stateless_table`](@ref) as reported and with the real kite held to its path. Every
+variant of a leg starts when the rig's searched plan of the leg before arrives in port.
+Stops at a leg the planner cannot sail.
+"""
+function router_decision_passages(case, departure)
+    rows = NamedTuple[]
+    start = departure
+    kite = case.rig == "kite"
+    for (leg, corridor, time_cost) in zip(("out", "back"), case.corridors, case.hourly)
+        searched = leg_plan(case.table, corridor, start, time_cost)
+        without = leg_plan(case.bare, corridor, start, time_cost)
+        (isnothing(searched) || isnothing(without)) && break
+        free, stateless = kite ?
+            (leg_plan(free_launch_table(case.table), corridor, start, time_cost),
+             leg_plan(stateless_table(case.table), corridor, start, time_cost)) :
+            (nothing, nothing)
+        push!(rows, (; case.ship, case.rig, case.area, case.route, departure, leg,
+            without=without.objective, searched=searched.objective,
+            alone=held_objective(without, corridor, case.table, start, time_cost),
+            free=isnothing(free) ? NaN :
+                 free.objective + free.launches * case.table.table.cycle_cost,
+            stateless=leg_objective(stateless),
+            stateless_sailed=held_objective(stateless, corridor, case.table, start,
+                time_cost),
+            searched_launches=searched.launches,
+            free_launches=isnothing(free) ? -1 : free.launches))
+        start += searched.duration + 24assumptions[:port_time_per_call]
+    end
+    return rows
+end
+
+"[`forecast_route`](@ref) of `table` through `corridor` from `start` [h] at `time_cost`"
+leg_plan(table, corridor, start, time_cost) =
+    forecast_route(corridor, table, weather, start; time_cost)
+
+"objective of `leg`, NaN where there is none"
+leg_objective(leg) = isnothing(leg) ? NaN : leg.objective
+
+"""
+    held_objective(leg, corridor, table, start, time_cost)
+
+Objective of the ship of `table` planned from `start` [h] along the path of `leg` through
+`corridor`, NaN where there is no `leg` or no passage along it.
+"""
+function held_objective(leg, corridor, table, start, time_cost)
+    isnothing(leg) && return NaN
+    path = WindShipOpt.path_corridor(leg, corridor, 1)
+    return leg_objective(leg_plan(table, path, start, time_cost))
+end
+
+"""
+    router_decisions_data()
+
+What planning with the rig is worth: on the routes to Guadeloupe, New York and Tubarão,
+each rig of [`router_decision_ships`](@ref) planned per leg by
+[`router_decision_passages`](@ref): router_decisions.csv.
+"""
+function router_decisions_data()
+    cases = [router_decision_case(ship, drive, rig, area, route)
+             for (ship, drive, areas) in router_decision_ships
+             for (rig, area) in zip(("kite", "wings", "rotors"), areas)
+             for route in (:caribbean, :new_york, :tubarao)]
+    passages = vec(collect(Iterators.product(cases, sampled_departures())))
+    found = Vector{Vector{NamedTuple}}(undef, length(passages))
+    Threads.@threads :greedy for k in eachindex(passages)
+        found[k] = router_decision_passages(passages[k]...)
+    end
+    rows = reduce(vcat, found)
+    open(run_file("router_decisions.csv"), "w") do io
+        println(io, join(keys(first(rows)), ","))
+        foreach(row -> println(io, join(csv_value.(values(row)), ",")), rows)
     end
 end

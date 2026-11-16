@@ -21,11 +21,9 @@ archives of the ensemble mean and of the margin in `directory`, and the
 """
 function forecast_plan_archives(control, directory, weather)
     members = filter(startswith("p"), readdir(directory))
-    return Dict(:control => control,
-        :mean => ForecastArchive(joinpath(directory, "mean"), weather),
-        :margin => ForecastArchive(joinpath(directory, "margin"), weather),
-        :members => ForecastEnsemble([control;
-            [ForecastArchive(joinpath(directory, member), weather) for member in members]]))
+    archive(name) = ForecastArchive(joinpath(directory, name), weather, control.climate)
+    return Dict(:control => control, :mean => archive("mean"), :margin => archive("margin"),
+        :members => ForecastEnsemble([control; archive.(members)]))
 end
 
 """
@@ -52,8 +50,9 @@ if isfile(joinpath(era5_directory, "waves", "grid.toml"))
     departures = collect(0.0:(24 * 14.0):last_departure)
     weather_name = "ERA5 from $(weather.origin), $(length(departures)) departures"
     forecast_directory = joinpath(era5_directory, "forecast")
-    forecast_archive = isdir(forecast_directory) ?
-                       ForecastArchive(forecast_directory, weather) : nothing
+    climate_directory = joinpath(era5_directory, "climate")
+    forecast_archive = isdir(forecast_directory) ? ForecastArchive(forecast_directory,
+        weather, Climatology(climate_directory, weather.origin)) : nothing
     members_directory = joinpath(era5_directory, "forecast_members")
     ensemble_departures = departures[1:6:end]
     forecast_plans = isdir(joinpath(members_directory, "mean")) ?
@@ -61,7 +60,8 @@ if isfile(joinpath(era5_directory, "waves", "grid.toml"))
                      Dict{Symbol, Any}()
     operational_directory = joinpath(era5_directory, "forecast_gefs11")
     isdir(joinpath(operational_directory, "wind", "bias_2017")) && merge!(forecast_plans,
-        replanning_sources(ForecastArchive(operational_directory, weather)))
+        replanning_sources(ForecastArchive(operational_directory, weather,
+            forecast_archive.climate)))
 else
     weather = SyntheticWeather()
     weather_origin = DateTime(2017)

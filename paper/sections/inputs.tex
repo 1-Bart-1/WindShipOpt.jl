@@ -3,13 +3,21 @@
 \section{Model inputs}
 \label{sec:inputs}
 
-\Cref{tab:inputs} lists every input with a range, with its base value, bounds, unit and source, or its mark as an engineering estimate or assumption. \Cref{tab:development} gives the 20 of them that the development study of \cref{sec:res_inputs} moves, with the reason each is in it. The ship classes are in \cref{tab:classes}, their sources in \cref{tab:class_sources}, and the grids, solver settings and constants in \cref{tab:numerics}. The published regressions (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) keep their published coefficients.
+\Cref{tab:inputs} lists every input with a range, with its base value, bounds, unit and source, or its mark as an engineering estimate or assumption. \Cref{tab:development} gives the 20 of them that the development study of \cref{sec:res_inputs} moves, with the reason each is in it. The ship classes are in \cref{tab:classes}, their sources in \cref{tab:class_sources}, the grids, solver settings and constants in \cref{tab:numerics}, and the split of the cargo interest study behind \cref{fig:cargo_interest} in \cref{tab:cargo_interest}. The published regressions (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) keep their published coefficients.
 
 {\footnotesize
 \setlength{\LTcapwidth}{\textwidth}
 \setlength{\extrarowheight}{1.5pt}
 \InputIfFileExists{sections/input_tables}{}{\tbd{Input tables pending: run the input\_tables step.}}
 \InputIfFileExists{sections/development_table}{}{\tbd{Development table pending: run the development\_table step.}}
+
+\begin{table*}[tbp]
+\centering
+\footnotesize
+\caption{The thirteen standard ship classes, ordered by deadweight as in all class figures: waterline length $L$, beam $B$, design draught $T$, block coefficient $C_B$ at that draught (the underwater volume over that of a box of the same length, beam and draught), deadweight at the scantling draught, slot or deck capacity of the space-limited ships in TEU or standard cars (CEU), the limit the cargo of the class fills first, service speed and main-engine power of the source design, the factor $f_R$ that calibrates the calm-water resistance to it, newbuild price, cargo value, container tiers on deck, the lowest air draft (height above the waterline) on common calls, the share of calls a fixed rig above it loses and the time a fixed rig costs cargo handling per call ($\infty$ where it prevents it), and the frontal and lateral areas above the waterline with the deck cargo; \cref{sec:deck_rigs} explains the air draft, the lost calls and the delay. Where a source gives only the scantling draught, as for the container ships and the Aframax tanker, the design draught is the scantling draught times the ratio of the two in a published design of the same type. Each value has its own source.}
+\label{tab:classes}
+\input{sections/class_table}
+\end{table*}
 
 \begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{12.2cm}@{}}
 \caption{Sources of the ship class data in \cref{tab:classes}.}
@@ -29,7 +37,7 @@ Class & Sources \\
 \end{longtable}
 
 \begin{longtable}{@{}>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}p{4.8cm}>{\raggedright\arraybackslash}p{6.6cm}@{}}
-\caption{Grids, solver settings and constants. Corridor spacings are given at the resolution of the results, four times the base spacing of 90 and \SI{60}{nmi}.}
+\caption{Grids, solver settings and constants. Corridor spacings are those of the results, which the draft run shares on a sixth of the departures.}
 \label{tab:numerics}\\
 \toprule
 Setting & Value & Use \\
@@ -60,26 +68,27 @@ lowest angle of attack & angle where $C_L$ reaches 0.05 & lower bound of the sea
 points per pattern & 48 & time average of the tether force \\
 pattern search & Nelder--Mead, 200 iterations, three starts and the best pattern of the next stronger wind speed, or the three best of a grid of \num{3360} patterns where none of those flies & kite patterns \\
 \multicolumn{3}{@{}l}{\textit{Corridors and routing}}\\
-ocean stage spacing & \SI{90}{nmi} & corridor stages \\
-Channel stage spacing & \SI{30}{nmi} & fixed waypoints from Rotterdam to Ushant, no lateral freedom \\
-lateral node spacing & \SI{60}{nmi} & nodes across the track \\
-corridor half width & \SI{2400}{nmi} & reach of the nodes to either side of the track \\
-lateral step & up to 2 nodes per stage & edges between stages \\
-lateral direction smoothing & 8 stages to either side & direction of the node rows \\
+ocean stage spacing & \SI{45}{nmi}, at least ten stages over a route's open stretches & corridor stages \\
+coastal stage spacing & \SI{30}{nmi} & fixed paths from Rotterdam to Ushant, through the Florida Strait and into each port, no lateral freedom \\
+lateral node spacing & \SI{11.25}{nmi} & nodes on rows square to the great circle of each open stretch \\
+corridor half width & \SI{2400}{nmi} & reach of the nodes to either side of the track, within \ang{60} of latitude \\
+lateral step & up to 5 rows per stage, \SI{51}{\degree} off the corridor's line & edges between stages \\
+planning grid & every stage and row for \SI{240}{nmi} ahead of the ship; beyond, every fourth row to \SI{480}{nmi} and half as many again each time the distance ahead doubles, on stages far enough apart for an edge to reach the next row kept, weather every \SI{6}{h} & each plan \\
 land check along edges & every \SI{20}{nmi} & removes edges over land \\
-coastal clearance & \SI{50}{nmi}, on rings at 25 and \SI{50}{nmi} of 16 bearings & nodes near land \\
-coastal penalty & cost of an edge into a node near land doubled & objective only \\
+coastal clearance & \SI{45}{nmi}, half a wind cell, on rings at 22.5 and \SI{45}{nmi} of 16 bearings & no open-sea node nearer land \\
+port approach & \SI{90}{nmi}, one wind cell, from a port or the end of a coastal path & open-sea nodes kept near land \\
 island disks & island radius plus about \SI{20}{nmi} & land mask \\
 time bin & \SI{3}{h} & state of the dynamic programme \\
-weather along an edge & at most every \SI{3}{h} & fuel and speed of an edge \\
-states searched & within 3\,\% of a backward estimate of the cost to go at \SI{24}{h} knots, 20\,\% with a kite; then 6\,\%, 40\,\% with a kite, then all, if a pass ends above its limit or finds no path; costs at most 0.01 points of cost saving against searching all states & dynamic programme \\
+weather along an edge & at most every \SI{3}{h}, \SI{6}{h} beyond the first \SI{240}{nmi} of a plan & fuel and speed of an edge \\
+states searched & within 3\,\% of a backward estimate of the cost to go at \SI{24}{h} knots, then 6\,\%, then all, if a pass ends above its limit or finds no path; costs at most 0.01 points of cost saving against searching all states, 0.35 for the kite & dynamic programme \\
 longest passage & 50 days & time bins \\
 speeds & every fourth table speed, 13 from \SI{4}{kn} to the ship's maximum & edge choices \\
-final pass & all table speeds, \SI{0.25}{h} bins, within \SI{24}{h} of the path found & passage reported \\
-re-planning interval & first route node \SI{24}{h} after the last plan; 12 and \SI{6}{h} in the re-planning study & forecast router \\
-plan margin on the kite's limits & \SI{20}{\%} tighter wind limits and more launch wind in a sea, tested & forecast router \\
-forecasts & GEFSv12 reforecast control run and four perturbed members, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead & forecast router \\
-operational forecasts & GEFS operational control run, wind, issued four times a day, mean bias against ERA5 removed; waves from the daily reforecast & re-planning study \\
+final pass & all table speeds, \SI{0.25}{h} bins, \SI{1}{h} on the forecast plan weighing the wind error, within \SI{24}{h} of the path found & passage reported \\
+live sailing & speed and kite chosen every \SI{1}{h} over every fourth table speed and the plan's, on the forecast result & planner on forecasts \\
+re-planning interval & first route node \SI{24}{h} after the last plan; 12 and \SI{6}{h} in the re-planning study & planner on forecasts \\
+plan margin on the kite's limits & \SI{20}{\%} tighter wind limits and more launch wind in a sea, tested & planner on forecasts \\
+forecasts & GEFSv12 reforecast control run and four perturbed members, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead, blended with ERA5's 1991--2016 monthly climatology by a weight fitted per grid point and lead & planner on forecasts \\
+operational forecasts & GEFS operational control run, wind, issued four times a day, mean bias against ERA5 removed and blended with the climatology in the same way; waves from the daily reforecast & re-planning study \\
 departures & every 14 days from 1 January 2017 to 100 days before the end of 2019; every sixth (12) in all runs & weather sample \\
 \multicolumn{3}{@{}l}{\textit{Constants}}\\
 gravitational acceleration & \SI{9.81}{m/s^2} & \\
@@ -87,3 +96,11 @@ Earth radius & \SI{6371}{km} & great-circle distances \\
 nautical mile & \SI{1852}{m} & \\
 hours in a year & 8760 & annual costs \\
 \end{longtable}}
+
+\begin{table*}[tbp]
+\centering
+\footnotesize
+\caption{Cost saving of the cheapest size of each rig on e-ammonia at low and at high cargo interest, the mean over the classes and routes, split as in \cref{tab:split}; the median change of the round trip; and the mean speed along the route's track over the days at sea, with and without the rig. \savingerror{} Method study, \studyrun{cargo_interest}.}
+\label{tab:cargo_interest}
+\InputIfFileExists{sections/cargo_interest_table}{}{\tbd{Cargo interest table pending: run the cargo\_interest\_table step.}}
+\end{table*}

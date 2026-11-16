@@ -57,24 +57,24 @@
   \pic[scale=0.85] at ([shift={(-6,-5.2)}]#1.north east) {#8};
   \node[stepnum] at (#1.north west) {#5};}
 % inputs
-\pipebox{design}{0}{0}{datac}{1}{Design}{ship class, drive and one rig with its area, \S\ref{sec:ships}}{shipwithkite}
-\pipebox{weather}{61.5}{0}{datac}{2}{Weather}{hourly wind and waves 2017--2019 on six routes, \S\ref{sec:routes}}{weathermap}
-\pipebox{inputs}{123}{0}{datac}{3}{Inputs}{prices, lives and goals, each with its range and source, \cref{sec:inputs}}{pages}
+\pipebox{design}{0}{0}{datac}{1}{Design}{ship class, drive and one rig with its area\inpaper{, \S\ref{sec:ships}}}{shipwithkite}
+\pipebox{weather}{61.5}{0}{datac}{2}{Weather}{hourly wind and waves 2017--2019 on six routes\inpaper{, \S\ref{sec:routes}}}{weathermap}
+\pipebox{inputs}{123}{0}{datac}{3}{Inputs}{prices, lives and goals, each with its range and source\inpaper{, \cref{sec:inputs}}}{pages}
 % one operating point
-\pipebox{apparent}{0}{-36}{shipc}{4}{Apparent wind}{ship speed and true wind give the wind at the rig, \S\ref{sec:deck_rigs}}{windtriangle}
-\pipebox{rigs}{41}{-36}{rigc}{5}{Rig forces}{thrust and side force of kite \S\ref{sec:kite}, wings or rotors \S\ref{sec:deck_rigs}}{polar}
-\pipebox{balance}{82}{-36}{shipc}{6}{Force balance}{hull, rudder and windage hold the side force: drag and leeway, \S\ref{sec:balance}}{topview}
-\pipebox{power}{123}{-36}{shipc}{7}{Required thrust}{hull, air and wave resistance less the rig's thrust, \S\ref{sec:ships}}{hull}
+\pipebox{apparent}{0}{-36}{shipc}{4}{Apparent wind}{ship speed and true wind give the wind at the rig\inpaper{, \S\ref{sec:deck_rigs}}}{windtriangle}
+\pipebox{rigs}{41}{-36}{rigc}{5}{Rig forces}{thrust and side force of kite\inpaper{ \S\ref{sec:kite}}, wings or rotors\inpaper{ \S\ref{sec:deck_rigs}}}{polar}
+\pipebox{balance}{82}{-36}{shipc}{6}{Force balance}{hull, rudder and windage hold the side force: drag and leeway\inpaper{, \S\ref{sec:balance}}}{topview}
+\pipebox{power}{123}{-36}{shipc}{7}{Required thrust}{hull, air and wave resistance less the rig's thrust\inpaper{, \S\ref{sec:ships}}}{hull}
 % voyages and cost
-\pipebox{table}{0}{-70}{routec}{8}{Performance table}{required thrust over speed, wind and waves, \S\ref{sec:routing}}{grid}
+\pipebox{table}{0}{-70}{routec}{8}{Performance table}{required thrust over speed, wind and waves\inpaper{, \S\ref{sec:routing}}}{grid}
 \node[box, routec, minimum width=68mm] (router) at (56,-70) {};
 \node[boxtext, text width=40mm, font=\footnotesize\bfseries] at ([shift={(2.5,-2)}]router.north west) {Weather router};
-\node[boxtext, text width=52mm] at ([shift={(2,-6)}]router.north west) {sails tracks and speeds through the corridor, with fuel from propeller and engine, and keeps the cheapest voyage (fuel, price of time, kite launches and wear), giving its route, fuel and hours, \S\ref{sec:routing}};
+\node[boxtext, text width=52mm] at ([shift={(2,-6)}]router.north west) {sails tracks and speeds through the corridor, with fuel from propeller and engine, and keeps the cheapest voyage (fuel, price of time, kite launches and wear), giving its route, fuel and hours\inpaper{, \S\ref{sec:routing}}};
 \pic[scale=0.85] at ([shift={(-6,-5.2)}]router.north east) {route};
 \node[stepnum] at (router.north west) {9};
-\pipebox{cost}{123}{-70}{moneyc}{10}{Cost per tonne-km}{all departures: fuel, capital, crew, ports, wear, cargo interest, \S\ref{sec:cost_model}}{costbar}
-\pipebox{search}{0}{-104}{moneyc}{11}{Rig-size search}{next area until the cost is lowest, \S\ref{sec:res_size}}{search}
-\pipebox{compare}{41}{-104}{moneyc}{12}{Comparison}{saving of the best size against the same ship without a rig, \S\ref{sec:results}}{bars}
+\pipebox{cost}{123}{-70}{moneyc}{10}{Cost per tonne-km}{all departures: fuel, capital, crew, ports, wear, cargo interest\inpaper{, \S\ref{sec:cost_model}}}{costbar}
+\pipebox{search}{0}{-104}{moneyc}{11}{Rig-size search}{next area until the cost is lowest\inpaper{, \S\ref{sec:res_size}}}{search}
+\pipebox{compare}{41}{-104}{moneyc}{12}{Comparison}{saving of the best size against the same ship without a rig\inpaper{, \S\ref{sec:results}}}{bars}
 % loops
 \draw[loopframe] (-21,-18.5) rectangle (144.5,-85.5);
 \node[looplabel, anchor=east] at (142,-18.5) {for each design};

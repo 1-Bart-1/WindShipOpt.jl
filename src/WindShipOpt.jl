@@ -27,12 +27,13 @@ export ShipDesign, Ship, Fuel, fuel_power
 export PerformanceTable, RouteTable, lookup
 export LandMask, GridMask, north_atlantic_mask, SyntheticWeather, ERA5Weather, wind, waves
 export Corridor, return_corridor, route_corridors, centre_index, Leg, route
+export SearchRecord, kept_states, through_node
 export ForecastWeather, ForecastArchive, ForecastEnsemble, ArchivedForecast, PlannedKite,
        KiteMargin, ForecastError, ExpectedForecast
-export ReplannedForecast, PlanningGrid, ForecastParts, ForesightKite, PerfectForecast,
+export ReplannedForecast, ForecastParts, ForesightKite, PerfectForecast,
        ShortestLead
 export forecast_route
-export write_forecast_bias, ShipClass, ship_classes
+export write_forecast_bias, write_forecast_weights, Climatology, ShipClass, ship_classes
 export ShipCosts, RoundTrip, round_trip, KNOT, NAUTICAL_MILE
 export LegTrace
 

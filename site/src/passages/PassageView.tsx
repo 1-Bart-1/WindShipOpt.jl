@@ -7,7 +7,6 @@ import { Panels } from "./Panels";
 import { ShipScene } from "./ShipScene";
 import {
   findLeg,
-  loadJson,
   RIG_BRAND,
   RIG_LABELS,
   rigColour,
@@ -20,7 +19,9 @@ import {
   type RoutePassages,
   type RouteWinds,
 } from "./passages";
-import { brandColour } from "./scene";
+import { brandColour } from "../brand";
+import { loadJson } from "../load";
+import { Select } from "../Select";
 
 const rigOrder: PassageDesign["rig"][] = ["none", "kite", "wings", "rotors"];
 
@@ -127,18 +128,6 @@ function Passages({ index }: { index: PassageIndex }) {
         </div>
       </div>
     </section>
-  );
-}
-
-function Select({ label, value, options, onChange }: { label: string; value: string | number; options: [string | number, string][]; onChange: (value: never) => void }) {
-  return (
-    <label className="grid gap-1">
-      <span className="label">{label}</span>
-      <select className="rounded-[14px] border-2 border-ink bg-paper px-3 py-1.5" value={value}
-        onChange={(event) => { const raw = event.target.value; const numeric = Number(raw); onChange((Number.isNaN(numeric) ? raw : numeric) as never); }}>
-        {options.map(([key, text]) => <option key={key} value={key}>{text}</option>)}
-      </select>
-    </label>
   );
 }
 
@@ -263,7 +252,7 @@ function ReadOut({ leg, design, timeline }: { leg: Leg; design: PassageDesign; t
   ];
   if (design.rig === "wings") rows.push(["Sail chord", `${leg.columns.trim.chord?.[state.sample].toFixed(0)}° off the bow, lift ${state.lift?.toFixed(2)}`]);
   if (design.rig === "rotors") rows.push(["Spin ratio", `${Math.abs(state.spin ?? 0).toFixed(2)}`]);
-  if (design.rig === "kite") rows.push(["Kite", state.flying ? (state.pattern ? `flying, pattern ${state.pattern.period.toFixed(0)} s` : "flying") : "stowed"]);
+  if (design.rig === "kite") rows.push(["Kite", state.flying ? (state.pattern ? (state.pattern.period === 0 ? "held still" : `flying, pattern ${state.pattern.period.toFixed(0)} s`) : "flying") : "stowed"]);
   return (
     <dl className="panel grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
       {rows.map(([name, value]) => (

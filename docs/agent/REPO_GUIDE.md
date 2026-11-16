@@ -12,6 +12,7 @@ This repository holds a ship and rig cost model, and a paper built on it: "Towin
 - The paper refers to no local file. The kite canopy is polyester ripstop.
 - On the box, build the paper in a TeX Live container (Docker) after every change to its text, tables or figures, and look at the rendered pages you changed: a table or figure that is cut, overflowing, scaled up or hard to read is a defect. Never commit the PDF or LaTeX build files. Bart builds his own copy.
 - Prose is one paragraph per line. `\tbd{...}` marks a number or claim still to be confirmed.
+- `\stale{<studies>}{...}` marks text, a table or a figure caption whose numbers a merged change made stale until the named studies rerun, comma-separated. The paper build warns at each and lists the studies left at its end; the pull request that rewrites the text from the rerun removes the marker.
 
 ## Data outside the repository
 
@@ -28,3 +29,4 @@ This repository holds a ship and rig cost model, and a paper built on it: "Towin
 - Use Julia 1.12, with `Manifest-v1.12.toml.default` and `scripts/Manifest-v1.12.toml.default` copied to `Manifest-v1.12.toml` next to them.
 - `paper(names...; fidelity, resume)` in `scripts/paper.jl` runs the studies. Each run writes to `output/runs/<stamp>/`, with its code hash and commit in `run.toml`.
 - A final run refuses a dirty tree or an unpushed commit.
+- A paper run computes the results only. A method study, which chooses or checks a method or setting, is one of `study_steps` and runs by name, `paper(:sea_effect; fidelity=:draft)`: that records its run in `paper/study_runs.toml` and writes its tables, whose captions name the run and commit through `\studyrun`. Commit both with the tables.

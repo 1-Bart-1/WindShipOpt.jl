@@ -13,8 +13,25 @@ using WindShipOpt: inputs_read
 Settings of each fidelity of the paper: the corridor scale, the step between sampled
 departures and the rounds of the rig size search.
 """
-fidelities = Dict(:draft => (corridor_scale=8.0, departure_step=12, size_rounds=1),
+fidelities = Dict(:draft => (corridor_scale=1.0, departure_step=36, size_rounds=1),
     :final => (corridor_scale=1.0, departure_step=6, size_rounds=2))
+
+"""
+Spread [points] of a draft result about the final run's on the development case: of the
+kite's and the rotors' savings and of the gap between them
+"""
+DRAFT_SPREAD = (kite=4.9, rotors=3.7, gap=2.8)
+
+"text of the paper's draft marker: what a draft run leaves out and how far it may lie off"
+function draft_marker()
+    ratio = fidelities[:draft].departure_step ÷ fidelities[:final].departure_step
+    return "\\tbd{Results at draft fidelity: the final run's grid on one in $ratio of " *
+           "its departures, with one round of the rig size search instead of two. On the " *
+           "development case a draft saving lies about the final run's by " *
+           "$(DRAFT_SPREAD.kite) points for the kite, $(DRAFT_SPREAD.rotors) for the " *
+           "rotors and $(DRAFT_SPREAD.gap) for the gap between them (one standard " *
+           "deviation), with no bias from the grid.}\n"
+end
 
 """
     mark_fidelity(path, fidelity, steps, figures)
@@ -28,9 +45,7 @@ function mark_fidelity(path, fidelity, steps, figures)
     if fidelity == :final
         issetequal(drawn, figures) && write(path, "")
     elseif !isempty(drawn)
-        ratio = fidelities[:draft].corridor_scale / fidelities[:final].corridor_scale
-        write(path, "\\tbd{Results at draft fidelity: corridors $(Int(ratio)) times as " *
-            "coarse and half the departures of the final run.}\n")
+        write(path, draft_marker())
     end
 end
 
@@ -42,13 +57,6 @@ where `draft` is true.
 """
 number_macro(name, text, draft) = string("\\newcommand{\\Num", name, "}{",
     draft ? "\\tbd{$text}" : text, "}\n")
-
-"""
-    whole_number(x)
-
-Text of `x` rounded to a whole number, never "-0".
-"""
-whole_number(x) = string(Int(round(x)))
 
 "directory with one directory per run, named by the time the run started"
 runs_directory = normpath(joinpath(root, "output", "runs"))
@@ -124,6 +132,48 @@ function data_file(name)
         return path
     end
     error("no $(paper_run.fidelity) run has $name")
+end
+
+"record of the run each method study's tables and figures come from"
+study_runs_path = joinpath(root, "paper", "study_runs.toml")
+
+"""
+    study_file(study, name)
+
+Path of the data file `name` of method study `study` in the run recorded for it in
+paper/study_runs.toml.
+"""
+study_file(study, name) =
+    joinpath(runs_directory, TOML.parsefile(study_runs_path)[string(study)]["run"], name)
+
+"""
+    record_study(study)
+
+Record the run in use, its fidelity and the commit of its step `study` as the run of
+method study `study` in paper/study_runs.toml, and write [`study_sources`](@ref).
+"""
+function record_study(study)
+    step = only(filter(step -> step["name"] == string(study), paper_run.record["steps"]))
+    runs = TOML.parsefile(study_runs_path)
+    runs[string(study)] = Dict("run" => basename(paper_run.directory),
+        "fidelity" => string(paper_run.fidelity), "commit" => step["git_commit"])
+    open(io -> TOML.print(io, runs; sorted=true), study_runs_path, "w")
+    study_sources(runs)
+end
+
+"""
+    study_sources(runs)
+
+Write to paper/sections/study_runs.tex, for each method study in `runs`, the run, fidelity
+and commit it comes from, as the `\\studyrunis` definitions captions read.
+"""
+function study_sources(runs)
+    open(joinpath(sections, "study_runs.tex"), "w") do io
+        for (study, run) in sort(collect(runs); by=first)
+            println(io, "\\studyrunis{", study, "}{run ", run["run"], " at ",
+                run["fidelity"], " fidelity, commit ", first(run["commit"], 7), "}")
+        end
+    end
 end
 
 """
@@ -353,33 +403,53 @@ case_directory(case, departures) = joinpath(paper_run.directory, "cases",
         paper_run.record["code_hash"])))
 
 """
-    cached_trip(directory, assumptions)
+    cached_entry(directory, assumptions)
 
-Round trip stored in the cache `directory` under assumptions with the values of
-`assumptions` in every input it read, or `missing` where there is none.
+Entry stored in the cache `directory` under assumptions with the values of `assumptions` in
+every input it read, with its round trip `trip` and the `seconds` it took to compute, or
+`missing` where there is none.
 """
-function cached_trip(directory, assumptions)
+function cached_entry(directory, assumptions)
     isdir(directory) || return missing
     for file in readdir(directory; join=true)
         endswith(file, ".bin") || continue
-        (; inputs, trip) = deserialize(file)
-        all(assumptions[name] == value for (name, value) in inputs) && return trip
+        entry = deserialize(file)
+        all(assumptions[name] == value for (name, value) in entry.inputs) && return entry
     end
     return missing
 end
 
 """
+    cached_trip(directory, assumptions)
+
+Round trip of the [`cached_entry`](@ref) of `directory` and `assumptions`, or `missing`.
+"""
+function cached_trip(directory, assumptions)
+    entry = cached_entry(directory, assumptions)
+    return ismissing(entry) ? missing : entry.trip
+end
+
+"""
+    trip_seconds(case, departures)
+
+Seconds [s] the round trip of `case` over `departures` cached in the run in use took to
+compute.
+"""
+trip_seconds(case, departures) =
+    cached_entry(case_directory(case, departures), case.assumptions).seconds
+
+"""
     stored_trip(compute, directory, assumptions)
 
 Round trip `compute()` returns, stored in the cache `directory` through a temporary file
-with the values in `assumptions` of the inputs it read.
+with the values in `assumptions` of the inputs it read and the seconds it took.
 """
 function stored_trip(compute, directory, assumptions)
-    trip, names = inputs_read(compute)
+    seconds = @elapsed (trip, names) = inputs_read(compute)
     inputs = sort([name => assumptions[name] for name in names])
     mkpath(directory)
     temporary = tempname(directory; cleanup=false)
-    serialize(temporary, (; inputs, trip))
+    serialize(temporary, (; inputs, trip, seconds))
     mv(temporary, joinpath(directory, content_hash(inputs) * ".bin"); force=true)
     return trip
 end
