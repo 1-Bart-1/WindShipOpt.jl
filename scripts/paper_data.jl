@@ -3503,19 +3503,23 @@ end
 
 Each leg of the round trip of `case` from `departure`, planned as in the results: its cost
 for the ship without a rig, for the rig, and for the rig held to the path planned without
-it; for a kite also with free launches, and planned by [`stateless_table`](@ref), as
-reported and with the real kite held to that path. Stops at a leg the planner cannot sail.
+it; for a kite also its free-launch plan charged for each launch it makes, and the plan of
+[`stateless_table`](@ref) as reported and with the real kite held to its path. Every
+variant of a leg starts when the rig's searched plan of the leg before arrives in port.
+Stops at a leg the planner cannot sail.
 """
 function router_decision_passages(case, departure)
-    rows = []
+    rows = NamedTuple[]
     start = departure
     kite = case.rig == "kite"
     for (leg, corridor, time_cost) in zip(("out", "back"), case.corridors, case.hourly)
-        plan(table) = forecast_route(corridor, table, weather, start; time_cost)
-        searched, without = plan(case.table), plan(case.bare)
+        searched = leg_plan(case.table, corridor, start, time_cost)
+        without = leg_plan(case.bare, corridor, start, time_cost)
         (isnothing(searched) || isnothing(without)) && break
-        free = kite ? plan(free_launch_table(case.table)) : nothing
-        stateless = kite ? plan(stateless_table(case.table)) : nothing
+        free, stateless = kite ?
+            (leg_plan(free_launch_table(case.table), corridor, start, time_cost),
+             leg_plan(stateless_table(case.table), corridor, start, time_cost)) :
+            (nothing, nothing)
         push!(rows, (; case.ship, case.rig, case.area, case.route, departure, leg,
             without=without.objective, searched=searched.objective,
             alone=held_objective(without, corridor, case.table, start, time_cost),
@@ -3531,6 +3535,10 @@ function router_decision_passages(case, departure)
     return rows
 end
 
+"[`forecast_route`](@ref) of `table` through `corridor` from `start` [h] at `time_cost`"
+leg_plan(table, corridor, start, time_cost) =
+    forecast_route(corridor, table, weather, start; time_cost)
+
 "objective of `leg`, NaN where there is none"
 leg_objective(leg) = isnothing(leg) ? NaN : leg.objective
 
@@ -3543,7 +3551,7 @@ Objective of the ship of `table` planned from `start` [h] along the path of `leg
 function held_objective(leg, corridor, table, start, time_cost)
     isnothing(leg) && return NaN
     path = WindShipOpt.path_corridor(leg, corridor, 1)
-    return leg_objective(forecast_route(path, table, weather, start; time_cost))
+    return leg_objective(leg_plan(table, path, start, time_cost))
 end
 
 """
@@ -3559,7 +3567,7 @@ function router_decisions_data()
              for (rig, area) in zip(("kite", "wings", "rotors"), areas)
              for route in (:caribbean, :new_york, :tubarao)]
     passages = vec(collect(Iterators.product(cases, sampled_departures())))
-    found = Vector{Any}(undef, length(passages))
+    found = Vector{Vector{NamedTuple}}(undef, length(passages))
     Threads.@threads :greedy for k in eachindex(passages)
         found[k] = router_decision_passages(passages[k]...)
     end
