@@ -163,13 +163,6 @@ The fourth rig is the VTOL kite, for vertical take-off and landing: one or sever
 
 It hovers because no other launch of a rigid wing fits a deck and starts from rest; that launch has flown from a floating base once, and lost the kite \citep{echeverri2020part1}. Its structure's mass grows with span to the power 2.75 (\cref{eq:rigid_mass,fig:rigid_mass}) and, for lack of a source, not with the force limit, which favours it at the high bound of that limit. Too heavy for figure eights, it flies circles on a cone, several kites sharing one circle. Its structure, drives and tether are priced from cost models for power-generating kites at a series of 50 or more \citep{joshi2025,bauer2018}, which gives USD~2.05 million for the \SI{54}{m^2} kite with its tether, winch and perch. Its life of 15 years and its loss of one kite in \num{10000} launches and landings are goals, against the M600, Makani's \SI{600}{kW} prototype and the largest wing flown with propellers on board, of which all four crosswind kites were lost in twenty crosswind flights (\cref{sec:det_rigid}).
 
-\begin{figure}[tbp]
-\centering
-\plot{rigid_mass}
-\caption{Mass of a VTOL kite against its wing area: the kite of \cref{eq:rigid_mass} at the base exponent and its bounds, and the published wings with propellers, Makani's Wing 7 that flew \citep{vanderlind2013}, the M600 that was built and the MX2 design \citep{echeverri2020part1}, and without, the designs of \citet{joshi2025} and \citet{eijkelhof2020reference}. The wings differ in aspect ratio, which the law holds fixed.}
-\label{fig:rigid_mass}
-\end{figure}
-
 \subsection{Performance table}
 
 The router needs the fuel power of all these models millions of times, so the model tabulates it over speed through the water, true wind speed at \SI{10}{m} height, true wind angle and the waves' added resistance (\cref{app:perf_grid}), with the rig at its best setting of \cref{eq:thrust} and stowed. The setting is solved against the added resistance as well, so a rig with thrust to spare puts it against the waves, and waves are assumed not to change the rig forces. Whether a kite is down or flying is left to the router; wing sails and rotors cannot be stowed and stay at their best setting.
