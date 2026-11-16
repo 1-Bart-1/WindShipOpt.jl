@@ -2021,12 +2021,12 @@ and at favourable inputs. Prints the scaling table.
 """
 function rigid_scaling_figure()
     table = read_table(data_file("rigid_scaling.csv"))
-    figure = Figure(size=(page_width, 200))
+    figure = Figure(size=(page_width, 215))
     thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
         xlabel="apparent wind [m/s]", ylabel="thrust [kN]", limits=(nothing, (0, 2600)))
     price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
         xticks=[30, 300, 3000], xlabel=L"kite area [$\mathrm{m^2}$]",
-        ylabel="price per thrust [kUSD/kN]")
+        ylabel="kUSD/kN")
     wind_axis = Axis(figure[1, 3]; title="(c) lowest wind", xscale=log10,
         xticks=[30, 100, 300], xlabel=L"kite area [$\mathrm{m^2}$]",
         ylabel="apparent wind [m/s]")
@@ -2067,7 +2067,7 @@ function rigid_scaling_figure()
         end
     end
     axislegend(thrust_axis; position=:lt, nbanks=2)
-    axislegend(price_axis; position=:lt)
+    Legend(figure[2, 1:3], price_axis; orientation=:horizontal)
     save(joinpath(figures, "rigid_scaling.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -2089,9 +2089,10 @@ function rigid_kite_figure()
     scaling = read_table(data_file("rigid_scaling.csv"))
     table = read_table(data_file("rigid_kite.csv"))
     figure = Figure(size=(page_width, 190))
+    cost_ticks = [500, 1000, 2000, 4000]
     cost_axis = Axis(figure[1, 1]; title="(a) cost a year at 12 m/s", xscale=log10,
-        yscale=log10, xticks=[30, 300, 3000], xlabel=L"kite area [$\mathrm{m^2}$]",
-        ylabel="USD/kN a year")
+        yscale=log10, xticks=[30, 300, 3000], yticks=(cost_ticks, string.(cost_ticks)),
+        xlabel=L"kite area [$\mathrm{m^2}$]", ylabel="USD/kN a year")
     groups = vec([(ship, route) for route in pair_routes, ship in pair_classes])
     saving_axis = Axis(figure[1, 2]; title="(b) on e-ammonia", ylabel="cost saving [%]",
         xticks=(eachindex(groups),
