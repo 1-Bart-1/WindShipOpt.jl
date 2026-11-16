@@ -2008,6 +2008,45 @@ end
     WindShipOpt.release_workspace(workspace)
 end
 
+@testset "the cost to go computes a value when first asked, as a full sweep would" begin
+    departure, weather = 24.0 * 31, SyntheticWeather()
+    stage_count, lateral_count = size(corridor.lat)
+    estimate() = WindShipOpt.CostToGo(Ref(zeros(lateral_count, 0, 2, stage_count)),
+        corridor, table, weather, departure; time_cost=hourly, first_stage=1)
+    asked, swept = estimate(), WindShipOpt.all_filled!(estimate())
+    centre = WindShipOpt.centre_index(corridor)
+    pending = count(asked.filler.pending)
+    reads = [(lateral, stage, hours) for lateral in (centre - 1, centre, centre + 1)
+             for stage in (2, stage_count ÷ 2) for hours in 0.0:7.0:200.0]
+    @test all(isequal(asked(lateral, 1, stage, hours), swept(lateral, 1, stage, hours))
+              for (lateral, stage, hours) in reads)
+    @test 0 < count(asked.filler.pending) < pending
+    @test !any(swept.filler.pending)
+end
+
+@testset "a re-plan reads the cost to go beyond its near hours from its last plan's" begin
+    departure, weather = 24.0 * 31, SyntheticWeather()
+    prices = (; fuel=table.table.ship.fuel.price, time=hourly)
+    centre, stage = WindShipOpt.centre_index(corridor), size(corridor.lat, 1) ÷ 2
+    remaining(start, previous; near_hours=Inf) = WindShipOpt.remaining_cost(corridor,
+        table, weather, start, prices; first_stage=2, previous, near_hours)
+    last_plan = remaining(departure, nothing)
+    near(hours) = remaining(departure + 30.0, last_plan; near_hours=hours)
+    alone, all_near, read = remaining(departure + 30.0, nothing), near(Inf), near(48.0)
+    reads = [(lateral, hours) for lateral in (centre - 1, centre, centre + 1)
+             for hours in 0.0:7.0:200.0]
+    @test all(isequal(all_near(lateral, 1, stage, hours), alone(lateral, 1, stage, hours))
+              for (lateral, hours) in reads)
+    far = [(lateral, hours) for lateral in (centre - 1, centre, centre + 1)
+           for hours in 72.0:24.0:168.0
+           if isfinite(last_plan(lateral, 1, stage, hours + 30.0))]
+    @test !isempty(far)
+    @test all(read(lateral, 1, stage, hours) == last_plan(lateral, 1, stage, hours + 30.0)
+              for (lateral, hours) in far)
+    @test any(read(lateral, 1, stage, hours) != alone(lateral, 1, stage, hours)
+              for (lateral, hours) in far)
+end
+
 @testset "a ship drifted off its plan holds where no edge of its node can be sailed" begin
     departure, weather = 24.0 * 31, SyntheticWeather()
     centre = WindShipOpt.centre_index(corridor)
@@ -2750,8 +2789,9 @@ end
     workspace = WindShipOpt.RouteWorkspace(lateral_count, 800, stage_count)
     known = SyntheticWeather()
     uncertain = WindShipOpt.UncertainForecast(known, 0.0, ForecastError(6.0, [4.0]))
-    estimate(weather) = copy(WindShipOpt.CostToGo(workspace, corridor, kite_route_table,
-        weather, 24.0 * 31; time_cost=hourly, first_stage=1).values)
+    estimate(weather) = copy(WindShipOpt.all_filled!(WindShipOpt.CostToGo(workspace,
+        corridor, kite_route_table, weather, 24.0 * 31; time_cost=hourly,
+        first_stage=1)).values)
     @test isequal(estimate(uncertain), estimate(known))
 end
 
