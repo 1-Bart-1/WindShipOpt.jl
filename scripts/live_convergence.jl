@@ -20,11 +20,11 @@ include("router_gate.jl")
 
 """
 live settings compared, as (name, time between choices [h], speeds skipped plus one, hours
-ahead of each re-plan its cost to go is computed on its forecast)
+past its re-plan interval each plan's cost to go is computed on its forecast)
 """
 LIVE_SETTINGS = (("hourly", 1.0, 4, Inf), ("half", 0.5, 2, Inf), ("quarter", 0.25, 1, Inf),
-    ("eighth", 0.125, 1, Inf), ("near96", 1.0, 4, 96.0), ("near48", 1.0, 4, 48.0),
-    ("near24", 1.0, 4, 24.0), ("near0", 1.0, 4, 0.0))
+    ("eighth", 0.125, 1, Inf), ("near72", 1.0, 4, 72.0), ("near24", 1.0, 4, 24.0),
+    ("near0", 1.0, 4, 0.0))
 
 """
     check_designs(check)

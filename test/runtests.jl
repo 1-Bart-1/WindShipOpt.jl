@@ -2028,12 +2028,10 @@ end
     departure, weather = 24.0 * 31, SyntheticWeather()
     prices = (; fuel=table.table.ship.fuel.price, time=hourly)
     centre, stage = WindShipOpt.centre_index(corridor), size(corridor.lat, 1) ÷ 2
-    remaining(start, previous) = WindShipOpt.remaining_cost(corridor, table, weather,
-        start, prices; first_stage=2, previous)
+    remaining(start, previous; near_hours=Inf) = WindShipOpt.remaining_cost(corridor,
+        table, weather, start, prices; first_stage=2, previous, near_hours)
     last_plan = remaining(departure, nothing)
-    near(hours) = WindShipOpt.with_router_settings(
-        () -> remaining(departure + 30.0, last_plan),
-        WindShipOpt.RouterSettings(to_go_near_hours=hours))
+    near(hours) = remaining(departure + 30.0, last_plan; near_hours=hours)
     alone, all_near, read = remaining(departure + 30.0, nothing), near(Inf), near(48.0)
     reads = [(lateral, hours) for lateral in (centre - 1, centre, centre + 1)
              for hours in 0.0:7.0:200.0]

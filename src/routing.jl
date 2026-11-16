@@ -408,10 +408,10 @@ Base.@kwdef struct RouterSettings
     search_speed_stride::Int = 4
     "time between the knots of the [`CostToGo`](@ref) [h]"
     to_go_step::Float64 = 24.0
-    "hours ahead of each re-plan of a ship sailing live within which the [`CostToGo`](@ref)
-    is computed on its forecast, read beyond them from that of the plan before [h]; `Inf`
-    computes it all"
-    to_go_near_hours::Float64 = Inf
+    "hours past its re-plan interval within which a ship sailing live computes the
+    [`CostToGo`](@ref) of each plan on its forecast, reading it beyond them from that of
+    the plan before [h]; `Inf` computes it all"
+    to_go_near_hours::Float64 = 0.0
     "length of the time bins of the final pass along the path found [h]"
     final_time_step::Float64 = 0.25
     "`final_time_step` of a plan that weighs the wind error of its forecast [h]"
@@ -1107,18 +1107,18 @@ end
 
 """
     CostToGo(held, corridor, table, weather, departure; time_cost, first_stage,
-             previous=nothing)
+             previous=nothing, near_hours=Inf)
 
 [`CostToGo`](@ref) of a passage leaving at `departure` [h], its values held in `held`, a
 [`RouteWorkspace`](@ref) or a reference to an array, by a backward programme over the
 states at each stage that a ship can reach between its highest and lowest routing speed,
 at the knots of `ROUTER_SETTINGS`, on every `COST_TO_GO_SPEED_STRIDE`-th speed the search
 commands. Each value is computed when first asked; with a [`CostToGo`](@ref) `previous`
-of an earlier plan, those more than `to_go_near_hours` ahead are read from it where it has
+of an earlier plan, those more than `near_hours` [h] ahead are read from it where it has
 them.
 """
 function CostToGo(held, corridor::Corridor, table::RouteTable, weather, departure;
-        time_cost, first_stage, previous=nothing)
+        time_cost, first_stage, previous=nothing, near_hours=Inf)
     stage_count = size(corridor.lat, 1)
     along = corridor.along_centre
     slowest, fastest = first(table.speeds), last(table.speeds)
@@ -1136,10 +1136,8 @@ function CostToGo(held, corridor::Corridor, table::RouteTable, weather, departur
         pending[:, searched, stage] .= view(corridor.water, stage, :)
     end
     prices = (; fuel=table.table.ship.fuel.price, time=time_cost)
-    (; to_go_near_hours) = ROUTER_SETTINGS[]
     filler = KnotFiller(corridor, table, weather, Float64(departure), prices, pending,
-        spare_points(held), isfinite(to_go_near_hours) ? previous : nothing,
-        to_go_near_hours)
+        spare_points(held), isfinite(near_hours) ? previous : nothing, near_hours)
     return CostToGo(values, knots, to_go_step, filler)
 end
 
@@ -2198,17 +2196,18 @@ one_forecast(known) = known
 one_forecast(members::Vector) = first(members)
 
 """
-    remaining_cost(corridor, table, known, departure, prices; first_stage, previous=nothing)
+    remaining_cost(corridor, table, known, departure, prices; first_stage, previous=nothing,
+                   near_hours=Inf)
 
 [`CostToGo`](@ref) of a ship at `first_stage` of `corridor` planning on `known` at
-`departure` [h], beyond `to_go_near_hours` read from the one of its last plan, `previous`,
+`departure` [h], beyond `near_hours` [h] read from the one of its last plan, `previous`,
 where there is one.
 """
 function remaining_cost(corridor::Corridor, table::RouteTable, known, departure, prices;
-        first_stage, previous=nothing)
+        first_stage, previous=nothing, near_hours=Inf)
     values = Ref(Array{Float64}(undef, size(corridor.lat, 2), 0, 2, size(corridor.lat, 1)))
     return CostToGo(values, corridor, table, known, departure; time_cost=prices.time,
-        first_stage, previous)
+        first_stage, previous, near_hours)
 end
 
 "objective [USD] from node `next` of `stage` at `time` by `to_go`, kite down and aloft"
@@ -2634,7 +2633,8 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
         plan_start, plan_end = time, blocked ? 1 : min(length(plan.path), sailable)
         to_go = blocked || adapts == :nothing ? nothing :
                 remaining_cost(corridor, plan_table, known, departure + time, prices;
-            first_stage=stage, previous=to_go)
+            first_stage=stage, previous=adapts == :live ? to_go : nothing,
+            near_hours=interval + ROUTER_SETTINGS[].to_go_near_hours)
         for i in 2:plan_end
             next_lat, next_lon, _, planned_speed, _ = plan.path[i]
             next = nearest_lateral(corridor, stage + 1, next_lat, next_lon)
