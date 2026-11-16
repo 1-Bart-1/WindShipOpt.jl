@@ -958,7 +958,8 @@ at `assumptions` was not routed.
 """
 function repriced(trip::RoundTrip, ship::Ship, outbound, inbound, assumptions)
     shares = first.(service_states(ship.rig, assumptions))
-    any(share > 0 && isnothing(service) for (share, service) in zip(shares, trip.passages)) &&
+    any(share > 0 && isnothing(service)
+        for (share, service) in zip(shares, trip.passages)) &&
         error("a service state of the trip with a share was not routed")
     return priced_trip(ship, ship_costs(ship, assumptions), trip.passages,
         [outcome.departure for outcome in trip.departures], outbound, inbound, assumptions)

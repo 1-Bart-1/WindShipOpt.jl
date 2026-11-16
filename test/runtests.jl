@@ -4172,12 +4172,13 @@ end
     @test_throws ErrorException Float64(cost)
 end
 
-@testset "a trip priced again on its routes is the trip routed again where routes hold" begin
+@testset "a trip priced again on routes that hold is the trip routed again" begin
     design = ShipDesign(:methanol, 85.0; kite_area=800.0)
     trip(inputs) = round_trip(Ship(design, inputs), corridors..., SyntheticWeather(),
         [24.0 * 31, 24.0 * 200], inputs)
     base = trip(assumptions)
-    repriced(inputs) = WindShipOpt.repriced(base, Ship(design, inputs), corridors..., inputs)
+    repriced(inputs) =
+        WindShipOpt.repriced(base, Ship(design, inputs), corridors..., inputs)
     @test repriced(assumptions).cost_per_tonne_km == base.cost_per_tonne_km
     stowed_longer = with_value(assumptions, :kite_out_of_service, 0.15)
     rerouted, priced = trip(stowed_longer), repriced(stowed_longer)
@@ -4185,7 +4186,8 @@ end
     @test priced.carbon_per_tonne_km ≈ rerouted.carbon_per_tonne_km rtol = 1e-12
     @test [outcome.cost_per_tonne_km for outcome in priced.departures] ≈
           [outcome.cost_per_tonne_km for outcome in rerouted.departures] rtol = 1e-12
-    dearer_fuel = with_value(assumptions, :e_methanol_price, 2assumptions[:e_methanol_price])
+    price = assumptions[:e_methanol_price]
+    dearer_fuel = with_value(assumptions, :e_methanol_price, 2price)
     @test repriced(dearer_fuel).cost_per_tonne_km >= trip(dearer_fuel).cost_per_tonne_km
 end
 

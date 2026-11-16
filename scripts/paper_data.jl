@@ -2266,11 +2266,11 @@ function sensitivity_data()
     routed = setdiff(eachindex(cases), base, priced)
     trips = Vector{Any}(nothing, length(cases))
     trips[base] = round_trips(cases[base], sampled_departures())
-    trips[routed] = round_trips(cases[routed], sampled_departures())
     base_trips = Dict((case.ship, case.rig) => trip for (case, trip) in zip(cases, trips)
                       if case.input == :none)
     trips[priced] = [base_trip_priced(case, base_trips[(case.ship, case.rig)])
                      for case in cases[priced]]
+    trips[routed] = round_trips(cases[routed], sampled_departures())
     write_trips("sensitivity.csv", cases, trips, :ship, :rig, :input, :bound)
 end
 
