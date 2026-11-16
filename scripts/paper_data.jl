@@ -2238,13 +2238,19 @@ function rig_cases(ship, bare, route, areas; labels...)
     return cases
 end
 
+"inputs of [`development_inputs`](@ref) whose lever changes what a route costs, not where
+it goes"
+priced_inputs = [entry.input for entry in development_inputs
+                 if entry.lever in ("price", "life", "availability", "condition")]
+
 """
     sensitivity_data()
 
 Every ship of [`sensitivity_ships`](@ref) without a rig and with each rig, at the base
 inputs and with each of [`development_inputs`](@ref) at its low and high bound:
-sensitivity.csv. The base trips are routed first, so a changed case whose trip never reads
-its input reuses them.
+sensitivity.csv. A case changing one of [`priced_inputs`](@ref) is the base trip of its ship
+and rig priced at its inputs, not routed again; the base trips are routed first, so a
+changed case whose trip never reads its input reuses them.
 """
 function sensitivity_data()
     cases = []
@@ -2256,11 +2262,28 @@ function sensitivity_data()
         end
     end
     base = findall(case -> case.input == :none, cases)
-    changed = setdiff(eachindex(cases), base)
+    priced = findall(case -> case.input in priced_inputs, cases)
+    routed = setdiff(eachindex(cases), base, priced)
     trips = Vector{Any}(nothing, length(cases))
     trips[base] = round_trips(cases[base], sampled_departures())
-    trips[changed] = round_trips(cases[changed], sampled_departures())
+    trips[routed] = round_trips(cases[routed], sampled_departures())
+    base_trips = Dict((case.ship, case.rig) => trip for (case, trip) in zip(cases, trips)
+                      if case.input == :none)
+    trips[priced] = [base_trip_priced(case, base_trips[(case.ship, case.rig)])
+                     for case in cases[priced]]
     write_trips("sensitivity.csv", cases, trips, :ship, :rig, :input, :bound)
+end
+
+"""
+    base_trip_priced(case, trip)
+
+The base `trip` of `case` priced at the assumptions of `case` on the routes it sailed;
+`nothing` where there is no trip or no ship.
+"""
+function base_trip_priced(case, trip)
+    ship = Ship(case.design, case.assumptions)
+    (isnothing(trip) || isnothing(ship)) && return nothing
+    return WindShipOpt.repriced(trip, ship, case.corridors..., case.assumptions)
 end
 
 """

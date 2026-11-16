@@ -4163,13 +4163,30 @@ end
     cost = WindShipOpt.record(recording) do
         inputs = WindShipOpt.recorded_inputs(assumptions, names)
         return WindShipOpt.voyage_costs(ship, WindShipOpt.ship_costs(ship, inputs),
-            WindShipOpt.state_rigs(ship.rig, assumptions), trip.passages, corridors...,
-            inputs).cheaper
+            WindShipOpt.state_rigs(ship.rig, assumptions),
+            WindShipOpt.mean_passages.(trip.passages), corridors..., inputs).cheaper
     end
     @test cost.value == trip.cost_per_tonne_km
     @test recorded_names(recording, cost.node) == Set(string.(names))
     @test_throws ErrorException cost < 1.0
     @test_throws ErrorException Float64(cost)
+end
+
+@testset "a trip priced again on its routes is the trip routed again where routes hold" begin
+    design = ShipDesign(:methanol, 85.0; kite_area=800.0)
+    trip(inputs) = round_trip(Ship(design, inputs), corridors..., SyntheticWeather(),
+        [24.0 * 31, 24.0 * 200], inputs)
+    base = trip(assumptions)
+    repriced(inputs) = WindShipOpt.repriced(base, Ship(design, inputs), corridors..., inputs)
+    @test repriced(assumptions).cost_per_tonne_km == base.cost_per_tonne_km
+    stowed_longer = with_value(assumptions, :kite_out_of_service, 0.15)
+    rerouted, priced = trip(stowed_longer), repriced(stowed_longer)
+    @test priced.cost_per_tonne_km ≈ rerouted.cost_per_tonne_km rtol = 1e-12
+    @test priced.carbon_per_tonne_km ≈ rerouted.carbon_per_tonne_km rtol = 1e-12
+    @test [outcome.cost_per_tonne_km for outcome in priced.departures] ≈
+          [outcome.cost_per_tonne_km for outcome in rerouted.departures] rtol = 1e-12
+    dearer_fuel = with_value(assumptions, :e_methanol_price, 2assumptions[:e_methanol_price])
+    @test repriced(dearer_fuel).cost_per_tonne_km >= trip(dearer_fuel).cost_per_tonne_km
 end
 
 @testset "a unit lost a year costs its share of one unit, and leaves the routes alone" begin

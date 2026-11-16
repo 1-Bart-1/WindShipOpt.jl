@@ -661,8 +661,9 @@ struct RoundTrip
     forced_landings::Float64
     "whether the wings or rotors are retractable, the cheaper option for the ship"
     retractable::Bool
-    "what each of the [`service_states`](@ref) does, `nothing` where it was not routed"
-    passages::Vector{Union{Nothing, Passages}}
+    "what each of the [`service_states`](@ref) does on each departure, `nothing` where it
+    was not routed"
+    passages::Vector{Union{Nothing, Vector{Passages}}}
     "each departure [h] with its cost [USD per tonne-km], fuel per tonne-km [MJ] and kite
     flight share [-], the ship and its cargo as over all departures"
     departures::Vector{DepartureOutcome}
@@ -824,8 +825,10 @@ end
 """
     mean_passages(departures)
 
-[`Passages`](@ref) averaged over the `departures` of one service state.
+[`Passages`](@ref) averaged over the `departures` of one service state; `nothing` for a
+state not routed.
 """
+mean_passages(::Nothing) = nothing
 mean_passages(departures) = Passages(mean(passage.energy for passage in departures),
     mean(passage.out_hours for passage in departures),
     mean(passage.back_hours for passage in departures),
@@ -920,15 +923,12 @@ end
                forecast=nothing, held_knots=nothing)
 
 Route `ship` out along `outbound` and back along `inbound` for each departure time
-[h] in each of its [`service_states`](@ref) with a share, and turn the result averaged
-over the departures and the states into the cost per tonne-km of the transport service
-by [`voyage_costs`](@ref), and that of each departure with the same ship by
-[`departure_outcome`](@ref). With a finite forecast `horizon` [h] the router knows the
+[h] in each of its [`service_states`](@ref) with a share, and price the routes by
+[`priced_trip`](@ref). With a finite forecast `horizon` [h] the router knows the
 weather only that far ahead, with a [`ForecastArchive`](@ref) `forecast` it re-plans daily
 on its forecasts, and with `held_knots` [kn] the ship holds that speed instead of choosing
-by cost. Wings and rotors are fixed or retractable, whichever costs less. The router
-prices time at the hold's cargo before the fuel store. Returns `nothing` if any passage
-is infeasible or the fuel store leaves no cargo.
+by cost. The router prices time at the hold's cargo before the fuel store. Returns
+`nothing` if any passage is infeasible or the fuel store leaves no cargo.
 """
 function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
         departures, assumptions::Assumptions; horizon=Inf, forecast=nothing,
@@ -945,8 +945,39 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
                 for (share, rig) in states]
     any(isnothing(service) && share > 0
         for ((share, _), service) in zip(states, services)) && return nothing
-    passages = [isnothing(service) ? nothing : mean_passages(service)
-                for service in services]
+    return priced_trip(ship, costs, services, departures, outbound, inbound, assumptions)
+end
+
+"""
+    repriced(trip, ship, outbound, inbound, assumptions)
+
+`trip` of `ship` out along `outbound` and back along `inbound` priced by
+[`priced_trip`](@ref) at `assumptions` on the routes it sailed, without routing again;
+`nothing` if the fuel store leaves no cargo. An error where a service state with a share
+at `assumptions` was not routed.
+"""
+function repriced(trip::RoundTrip, ship::Ship, outbound, inbound, assumptions)
+    shares = first.(service_states(ship.rig, assumptions))
+    any(share > 0 && isnothing(service) for (share, service) in zip(shares, trip.passages)) &&
+        error("a service state of the trip with a share was not routed")
+    return priced_trip(ship, ship_costs(ship, assumptions), trip.passages,
+        [outcome.departure for outcome in trip.departures], outbound, inbound, assumptions)
+end
+
+"""
+    priced_trip(ship, costs, services, departures, outbound, inbound, assumptions)
+
+[`RoundTrip`](@ref) of `ship` with the [`ship_costs`](@ref) `costs` from the
+[`Passages`](@ref) `services` of each of its [`service_states`](@ref) on each of the
+`departures` [h], `nothing` where a state was not routed: the cost per tonne-km of the
+transport service by [`voyage_costs`](@ref) over the mean of the departures, and that of
+each departure with the same ship by [`departure_outcome`](@ref). Wings and rotors are
+fixed or retractable, whichever costs less. Returns `nothing` if the fuel store leaves no
+cargo.
+"""
+function priced_trip(ship, costs, services, departures, outbound, inbound, assumptions)
+    states = service_states(ship.rig, assumptions)
+    passages = mean_passages.(services)
     voyage = voyage_costs(ship, costs, last.(states), passages, outbound, inbound,
         assumptions)
     isnothing(voyage) && return nothing
@@ -967,7 +998,7 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
         ship.powertrain.installed_power / 1e3,
         mean_of(passage -> passage.flight_hours) / sea_hours,
         mean_of(passage -> passage.launches), mean_of(passage -> passage.forced_landings),
-        retractable, passages, outcomes)
+        retractable, services, outcomes)
 end
 
 """

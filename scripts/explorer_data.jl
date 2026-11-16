@@ -149,8 +149,8 @@ Cost per tonne-km [USD] of `ship` with [`ShipCosts`](@ref) `costs` on the routes
 `trip` for `case`, at `inputs`.
 """
 recosted(ship, costs, trip, case, inputs) = WindShipOpt.voyage_costs(ship, costs,
-    WindShipOpt.state_rigs(ship.rig, assumptions), trip.passages, case.corridors...,
-    inputs).cheaper
+    WindShipOpt.state_rigs(ship.rig, assumptions), WindShipOpt.mean_passages.(trip.passages),
+    case.corridors..., inputs).cheaper
 
 """
     explorer_checks(cases, trips)
@@ -178,11 +178,8 @@ end
 Cost per tonne-km [USD] of `case` at its inputs on the routes of `trip`, routed at the
 base inputs.
 """
-function changed_cost(case, trip)
-    ship = Ship(case.design, case.assumptions)
-    costs = WindShipOpt.ship_costs(ship, case.assumptions)
-    return recosted(ship, costs, trip, case, case.assumptions)
-end
+changed_cost(case, trip) = WindShipOpt.repriced(trip, Ship(case.design, case.assumptions),
+    case.corridors..., case.assumptions).cost_per_tonne_km
 
 """
     checked_case(case, changes, cargo_factor)
