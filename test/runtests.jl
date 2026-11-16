@@ -2026,6 +2026,45 @@ end
     WindShipOpt.release_workspace(workspace)
 end
 
+@testset "the cost to go computes a value when first asked, as a full sweep would" begin
+    departure, weather = 24.0 * 31, SyntheticWeather()
+    stage_count, lateral_count = size(corridor.lat)
+    estimate() = WindShipOpt.CostToGo(Ref(zeros(lateral_count, 0, 2, stage_count)),
+        corridor, table, weather, departure; time_cost=hourly, first_stage=1)
+    asked, swept = estimate(), WindShipOpt.all_filled!(estimate())
+    centre = WindShipOpt.centre_index(corridor)
+    pending = count(asked.filler.pending)
+    reads = [(lateral, stage, hours) for lateral in (centre - 1, centre, centre + 1)
+             for stage in (2, stage_count ÷ 2) for hours in 0.0:7.0:200.0]
+    @test all(isequal(asked(lateral, 1, stage, hours), swept(lateral, 1, stage, hours))
+              for (lateral, stage, hours) in reads)
+    @test 0 < count(asked.filler.pending) < pending
+    @test !any(swept.filler.pending)
+end
+
+@testset "a re-plan reads the cost to go beyond its near hours from its last plan's" begin
+    departure, weather = 24.0 * 31, SyntheticWeather()
+    prices = (; fuel=table.table.ship.fuel.price, time=hourly)
+    centre, stage = WindShipOpt.centre_index(corridor), size(corridor.lat, 1) ÷ 2
+    remaining(start, previous; near_hours=Inf) = WindShipOpt.remaining_cost(corridor,
+        table, weather, start, prices; first_stage=2, previous, near_hours)
+    last_plan = remaining(departure, nothing)
+    near(hours) = remaining(departure + 30.0, last_plan; near_hours=hours)
+    alone, all_near, read = remaining(departure + 30.0, nothing), near(Inf), near(48.0)
+    reads = [(lateral, hours) for lateral in (centre - 1, centre, centre + 1)
+             for hours in 0.0:7.0:200.0]
+    @test all(isequal(all_near(lateral, 1, stage, hours), alone(lateral, 1, stage, hours))
+              for (lateral, hours) in reads)
+    far = [(lateral, hours) for lateral in (centre - 1, centre, centre + 1)
+           for hours in 72.0:24.0:168.0
+           if isfinite(last_plan(lateral, 1, stage, hours + 30.0))]
+    @test !isempty(far)
+    @test all(read(lateral, 1, stage, hours) == last_plan(lateral, 1, stage, hours + 30.0)
+              for (lateral, hours) in far)
+    @test any(read(lateral, 1, stage, hours) != alone(lateral, 1, stage, hours)
+              for (lateral, hours) in far)
+end
+
 @testset "a ship drifted off its plan holds where no edge of its node can be sailed" begin
     departure, weather = 24.0 * 31, SyntheticWeather()
     centre = WindShipOpt.centre_index(corridor)
@@ -2761,8 +2800,9 @@ end
     workspace = WindShipOpt.RouteWorkspace(lateral_count, 800, stage_count)
     known = SyntheticWeather()
     uncertain = WindShipOpt.UncertainForecast(known, 0.0, ForecastError(6.0, [4.0]))
-    estimate(weather) = copy(WindShipOpt.CostToGo(workspace, corridor, kite_route_table,
-        weather, 24.0 * 31; time_cost=hourly, first_stage=1).values)
+    estimate(weather) = copy(WindShipOpt.all_filled!(WindShipOpt.CostToGo(workspace,
+        corridor, kite_route_table, weather, 24.0 * 31; time_cost=hourly,
+        first_stage=1)).values)
     @test isequal(estimate(uncertain), estimate(known))
 end
 
@@ -3259,15 +3299,22 @@ end
 
 @testset "every rig's route costs what a search at every speed finds" begin
     _, back = corridors
-    every_speed = WindShipOpt.RouterSettings(search_speed_stride=1)
+    room_in_time = WindShipOpt.with_changed(WindShipOpt.ROUTER_SETTINGS[];
+        final_time_band=96.0)
+    every_speed = WindShipOpt.with_changed(room_in_time; search_speed_stride=1)
+    every_speed_by_default = WindShipOpt.with_changed(WindShipOpt.ROUTER_SETTINGS[];
+        search_speed_stride=1)
     for design in (ShipDesign(:methanol, 85.0; wing_area=400.0),
         ShipDesign(:methanol, 85.0; kite_area=800.0))
 
         table = RouteTable(PerformanceTable(Ship(design, assumptions), assumptions))
         for departure in monthly_departures
             passage() = route(back, table, SyntheticWeather(), departure; time_cost=300.0)
+            coarse = WindShipOpt.with_router_settings(passage, room_in_time)
             full = WindShipOpt.with_router_settings(passage, every_speed)
-            @test passage().objective <= full.objective * 1.01
+            @test coarse.objective <= full.objective * (1 + 1e-4)
+            by_default = WindShipOpt.with_router_settings(passage, every_speed_by_default)
+            @test passage().objective <= by_default.objective * (1 + 1e-2)
         end
     end
 end
@@ -3309,8 +3356,6 @@ end
           "\\newcommand{\\NumSavingOilKite}{\\tbd{4}}\n"
     @test PaperRuns.number_macro("SavingOilKite", "4", false) ==
           "\\newcommand{\\NumSavingOilKite}{4}\n"
-    @test PaperRuns.whole_number(-0.4) == "0"
-    @test PaperRuns.whole_number(12.6) == "13"
 end
 
 @testset "every number the paper and its extended abstract print from the numbers step \
@@ -3330,11 +3375,19 @@ end
     model, force, diameter, airframe = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
     @test diameter ≈ 0.0294 rtol=0.01
     @test airframe.tether_mass ≈ 275 rtol=0.05
-    @test airframe.mass ≈ 1852
     @test force ≈ 300e3 rtol=0.01
     makani_hover = with_value(with_value(assumptions, :rigid_hover_air_density, 0.95),
         :rigid_hover_efficiency, 0.71)
     @test WindShipOpt.hover_power(2180.0, 54.0, makani_hover) ≈ 900e3 rtol=0.05
+    makani_rotors = foldl((inputs, (name, value)) -> with_value(inputs, name, value),
+        ((:rigid_hover_efficiency, 0.71 * 0.88), (:rigid_rotor_mass_per_area, 1.96),
+            (:rigid_rotor_area_ratio, 8 * 4.38 / 54)); init=makani_hover)
+    mass, _ = WindShipOpt.rigid_kite_mass(54.0, 275.0, makani_rotors)
+    @test mass ≈ 1852 rtol=0.03
+    heavy = with_value(with_value(assumptions, :rigid_mass_exponent, 3.3),
+        :rigid_drive_mass_exponent, 1.0)
+    @test WindShipOpt.rigid_kite_mass(500.0, 0.0, heavy)[1] > 0
+    @test_throws ErrorException WindShipOpt.rigid_kite_mass(3000.0, 0.0, heavy)
     tether_drag = assumptions[:rigid_tether_drag_coefficient] * diameter *
                   model.tether_length / (4 * 54.0)
     @test tether_drag ≈ 0.152 - 0.123 rtol=0.05
@@ -3397,6 +3450,23 @@ function rigid_fleet(count, assumptions)
     return KiteRig(; area=54.0, tether_diameter, model.tether_length, reference_height=10.0,
         WindShipOpt.rigid_wind_limits(5.0, assumptions)..., max_force, attach_height=10.0,
         attach_position=0.0, wind_speeds, courses, side_weights, forces, airframe)
+end
+
+@testset "a rigid kite's structure is priced by its own mass, its rotors by their rating" begin
+    one = rigid_fleet(1, assumptions)
+    (; mass, hover_power) = one.airframe
+    structure = WindShipOpt.rigid_structure_mass(54.0, assumptions)
+    @test structure < mass
+    @test hover_power ≈ WindShipOpt.hover_power(mass + one.airframe.tether_mass, 54.0,
+        assumptions) rtol=1e-5
+    price(inputs) = WindShipOpt.rigid_airframe_price(one, inputs)
+    heavier = with_value(assumptions, :rigid_structure_cost_per_mass,
+        assumptions[:rigid_structure_cost_per_mass] + 1.0)
+    dearer = with_value(assumptions, :rigid_drive_cost, assumptions[:rigid_drive_cost] + 1.0)
+    factor = assumptions[:market_price_factor]
+    @test price(heavier) - price(assumptions) ≈ factor * structure
+    @test price(dearer) - price(assumptions) ≈
+          factor * hover_power / assumptions[:rigid_rotor_fill]
 end
 
 @testset "rigid kites stand one span apart within the deck" begin
@@ -3615,6 +3685,17 @@ assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
+end
+
+@testset "a result prints in whole points and a table cell to one decimal, never as -0" begin
+    @test PaperData.whole_number(-0.4) == "0"
+    @test PaperData.whole_number(12.6) == "13"
+    @test PaperData.whole_number(2.5) == "3"
+    @test PaperData.whole_points(0.4) == "less than 1 point"
+    @test PaperData.whole_points(1.2) == "1 point"
+    @test PaperData.whole_points(2.6) == "3 points"
+    @test PaperData.one_decimal(-0.04) == "0.0"
+    @test PaperData.one_decimal(3.46) == "3.5"
 end
 
 @testset "kite-and-rotor pairs fly only kites already sized, near the best sizes" begin

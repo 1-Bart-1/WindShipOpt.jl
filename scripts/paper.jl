@@ -73,7 +73,8 @@ study_steps = [:forecast_plans => forecast_plans_data,
     :launch => launch_data, :sea_effect => sea_effect_data,
     :convergence => convergence_data, :speed_terms => speed_terms_data,
     :published_terms => published_terms_data, :tow_point => tow_point_data,
-    :model_parts => model_parts_data, :size_search => size_search_data]
+    :model_parts => model_parts_data, :size_search => size_search_data,
+    :router_decisions => router_decisions_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
 study_tables = Dict(:forecast_plans => [:forecast_plans_table => forecast_plans_table],

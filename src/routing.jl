@@ -408,6 +408,10 @@ Base.@kwdef struct RouterSettings
     search_speed_stride::Int = 4
     "time between the knots of the [`CostToGo`](@ref) [h]"
     to_go_step::Float64 = 24.0
+    "hours past its re-plan interval within which a ship sailing live computes the
+    [`CostToGo`](@ref) of each plan on its forecast, reading it beyond them from that of
+    the plan before [h]; `Inf` computes it all"
+    to_go_near_hours::Float64 = 72.0
     "length of the time bins of the final pass along the path found [h]"
     final_time_step::Float64 = 0.25
     "`final_time_step` of a plan that weighs the wind error of its forecast [h]"
@@ -979,6 +983,11 @@ struct RouteWorkspace
     points::Vector{SailedPoint}
     "values of the latest [`CostToGo`](@ref), grown to the most time knots asked of it"
     to_go_values::Base.RefValue{Array{Float64, 4}}
+    "whether each knot of the latest [`CostToGo`](@ref) is still to compute, grown as
+    `to_go_values`"
+    pending_knots::Base.RefValue{BitArray{3}}
+    "buffers for the points of an edge of the [`CostToGo`](@ref), not in use"
+    spare_points::Vector{Vector{SailedPoint}}
     "edges sailed from a node with the kite down for its state aloft at the same time"
     shared::Vector{SailedEdge}
     "index in `shared` before the edges of each time bin, -1 where it holds none"
@@ -996,7 +1005,8 @@ function RouteWorkspace(lateral_count, bins, stage_count)
     return RouteWorkspace(fill(Inf, shape), zeros(shape), zeros(shape), zeros(shape),
         zeros(Int32, shape), zeros(Int32, shape), zeros(Int32, shape), zeros(Int16, shape),
         zeros(Int8, shape), SailedPoint[], Ref(zeros(lateral_count, 0, 2, stage_count)),
-        SailedEdge[], fill(-1, bins))
+        Ref(falses(lateral_count, 0, stage_count)), Vector{SailedPoint}[], SailedEdge[],
+        fill(-1, bins))
 end
 
 "workspaces not in use, by (lateral count, time bins), shared by the threads that route"
@@ -1038,23 +1048,55 @@ commanded_speeds(count, stride) = (1 + (count - 1) % stride):stride:count
 Estimate of the objective [USD] from a state to the destination, from a coarser programme:
 it can lie on either side of the true value. Called on (lateral, aloft 1 or 2, stage,
 hours after departure), interpolating in time; `NaN` where no path was found although
-the time was searched, `Inf` beyond the times searched.
+the time was searched, `Inf` beyond the times searched. A value its [`KnotFiller`](@ref)
+holds pending is computed when first asked.
 """
-struct CostToGo
+struct CostToGo{F}
     "objective to the destination [USD], lateral × knot × aloft × stage"
     values::Array{Float64, 4}
     "time knots in use"
     knots::Int
     "time between the knots [h]"
     step::Float64
+    "the [`KnotFiller`](@ref) of the values not yet computed, `nothing` where all are"
+    filler::F
 end
 
+CostToGo(values::Array{Float64, 4}, knots, step) = CostToGo(values, knots, step, nothing)
 CostToGo(values::Array{Float64, 4}, step) = CostToGo(values, size(values, 2), step)
+
+"""
+    KnotFiller
+
+What [`fill_knot!`](@ref) needs to compute the values of a [`CostToGo`](@ref) still
+pending: the passage it estimates, the knots still to compute, buffers for the points of
+an edge, and the earlier estimate its values beyond `near_hours` are read from.
+"""
+struct KnotFiller{C, T, W, P}
+    corridor::C
+    table::T
+    weather::W
+    "departure of the passage [h]"
+    departure::Float64
+    "fuel price [USD/J] and time cost [USD/h], as `fuel` and `time`"
+    prices::P
+    "whether each knot is still to compute, lateral × knot × stage"
+    pending::BitArray{3}
+    "buffers for the points of an edge, not in use"
+    spare_points::Vector{Vector{SailedPoint}}
+    "the [`CostToGo`](@ref) of an earlier plan its values beyond `near_hours` are read
+    from, or `nothing`"
+    previous::Union{Nothing, CostToGo{KnotFiller{C, T, W, P}}}
+    "hours after `departure` within which the values are computed [h]"
+    near_hours::Float64
+end
 
 function (to_go::CostToGo)(lateral, aloft, stage, time)
     position = time / to_go.step + 1
     knot = floor(Int, position)
     knot < to_go.knots || return Inf
+    filled!(to_go, lateral, knot, stage)
+    filled!(to_go, lateral, knot + 1, stage)
     @inbounds lower, upper = to_go.values[lateral, knot, aloft, stage],
     to_go.values[lateral, knot + 1, aloft, stage]
     isfinite(lower) && isfinite(upper) && return lower + (position - knot) * (upper - lower)
@@ -1064,49 +1106,129 @@ function (to_go::CostToGo)(lateral, aloft, stage, time)
 end
 
 """
-    CostToGo(workspace, corridor, table, weather, departure; time_cost, first_stage)
+    CostToGo(held, corridor, table, weather, departure; time_cost, first_stage,
+             previous=nothing, near_hours=Inf)
 
-[`CostToGo`](@ref) of a passage leaving at `departure` [h], held in `workspace`, by a
-backward programme over the states at each stage that a ship can reach between its highest
-and lowest routing speed, at the knots of `ROUTER_SETTINGS`, on every
-`COST_TO_GO_SPEED_STRIDE`-th speed the search commands.
+[`CostToGo`](@ref) of a passage leaving at `departure` [h], its values held in `held`, a
+[`RouteWorkspace`](@ref) or a reference to an array, by a backward programme over the
+states at each stage that a ship can reach between its highest and lowest routing speed,
+at the knots of `ROUTER_SETTINGS`, on every `COST_TO_GO_SPEED_STRIDE`-th speed the search
+commands. Each value is computed when first asked; with a [`CostToGo`](@ref) `previous`
+of an earlier plan, those more than `near_hours` [h] ahead are read from it where it has
+them.
 """
-function CostToGo(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable, weather,
-        departure; time_cost, first_stage)
-    stage_count, lateral_count = size(corridor.lat)
+function CostToGo(held, corridor::Corridor, table::RouteTable, weather, departure;
+        time_cost, first_stage, previous=nothing, near_hours=Inf)
+    stage_count = size(corridor.lat, 1)
     along = corridor.along_centre
     slowest, fastest = first(table.speeds), last(table.speeds)
     (; to_go_step) = ROUTER_SETTINGS[]
     knots = ceil(Int, (last(along) / slowest / 3600 + REACH_SLACK) / to_go_step) + 2
-    to_go = CostToGo(cleared_to_go_values!(workspace, knots), knots, to_go_step)
-    to_go.values[centre_index(corridor), 1:knots, 1, stage_count] .= 0.0
-    prices = (; fuel=table.table.ship.fuel.price, time=time_cost)
-    for stage in (stage_count - 1):-1:first_stage, lateral in 1:lateral_count
-        corridor.water[stage, lateral] || continue
+    values = cleared_to_go_values!(held, knots)
+    values[centre_index(corridor), 1:knots, 1, stage_count] .= 0.0
+    pending = cleared_pending_knots!(held, knots)
+    for stage in first_stage:(stage_count - 1)
         sailed = along[stage] - along[first_stage]
         earliest = SHORTEST_SAILED_SHARE * sailed / fastest / 3600
         latest = sailed / slowest / 3600 + REACH_SLACK
-        for knot in max(1, floor(Int, earliest / to_go_step)):min(knots,
+        searched = max(1, floor(Int, earliest / to_go_step)):min(knots,
             ceil(Int, latest / to_go_step) + 1)
-
-            fill_knot!(to_go, workspace.points, corridor, table, weather, departure, prices,
-                stage, lateral, knot)
-        end
+        pending[:, searched, stage] .= view(corridor.water, stage, :)
     end
-    return to_go
+    prices = (; fuel=table.table.ship.fuel.price, time=time_cost)
+    filler = KnotFiller(corridor, table, weather, Float64(departure), prices, pending,
+        spare_points(held), isfinite(near_hours) ? previous : nothing, near_hours)
+    return CostToGo(values, knots, to_go_step, filler)
 end
 
 """
-    cleared_to_go_values!(workspace, knots)
+    cleared_to_go_values!(held, knots)
 
-The [`CostToGo`](@ref) values of `workspace`, with room for `knots` time knots, all `Inf`.
+The [`CostToGo`](@ref) values of the [`RouteWorkspace`](@ref) or array reference `held`,
+with room for `knots` time knots, all `Inf`.
 """
-function cleared_to_go_values!(workspace::RouteWorkspace, knots)
-    lateral_count, held, aloft, stage_count = size(workspace.to_go_values[])
-    held < knots &&
-        (workspace.to_go_values[] = Array{Float64}(undef, lateral_count, knots, aloft,
-            stage_count))
-    return fill!(workspace.to_go_values[], Inf)
+cleared_to_go_values!(workspace::RouteWorkspace, knots) =
+    cleared_to_go_values!(workspace.to_go_values, knots)
+
+function cleared_to_go_values!(held::Base.RefValue{Array{Float64, 4}}, knots)
+    lateral_count, room, aloft, stage_count = size(held[])
+    room < knots &&
+        (held[] = Array{Float64}(undef, lateral_count, knots, aloft, stage_count))
+    return fill!(held[], Inf)
+end
+
+"""
+    cleared_pending_knots!(held, knots)
+
+Whether each knot of the [`CostToGo`](@ref) whose values `held` holds is still to compute,
+lateral × knot × stage, with room for `knots` time knots, all `false`.
+"""
+function cleared_pending_knots!(workspace::RouteWorkspace, knots)
+    lateral_count, room, stage_count = size(workspace.pending_knots[])
+    room < knots && (workspace.pending_knots[] = falses(lateral_count, knots, stage_count))
+    return fill!(workspace.pending_knots[], false)
+end
+
+cleared_pending_knots!(held::Base.RefValue{Array{Float64, 4}}, knots) =
+    falses(size(held[], 1), knots, size(held[], 4))
+
+"buffers for the points of an edge not in use, kept in `held` where it is a workspace"
+spare_points(workspace::RouteWorkspace) = workspace.spare_points
+spare_points(::Base.RefValue{Array{Float64, 4}}) = Vector{SailedPoint}[]
+
+"""
+    filled!(to_go, lateral, knot, stage)
+
+Compute the values of `to_go` at node (`stage`, `lateral`) and `knot` where they are still
+pending.
+"""
+filled!(::CostToGo{Nothing}, lateral, knot, stage) = nothing
+
+function filled!(to_go::CostToGo{<:KnotFiller}, lateral, knot, stage)
+    filler = to_go.filler
+    filler.pending[lateral, knot, stage] || return nothing
+    filler.pending[lateral, knot, stage] = false
+    read_earlier!(to_go, filler.previous, lateral, knot, stage) && return nothing
+    points = isempty(filler.spare_points) ? SailedPoint[] : pop!(filler.spare_points)
+    fill_knot!(to_go, points, filler.corridor, filler.table, filler.weather,
+        filler.departure, filler.prices, stage, lateral, knot)
+    push!(filler.spare_points, points)
+    return nothing
+end
+
+"""
+    read_earlier!(to_go, previous, lateral, knot, stage)
+
+Whether the values of `to_go` at node (`stage`, `lateral`) and `knot` are set from the
+[`CostToGo`](@ref) `previous` of an earlier plan at the same time, interpolated between
+its knots, as they are beyond the filler's `near_hours` where `previous` has a value there.
+"""
+read_earlier!(to_go, ::Nothing, lateral, knot, stage) = false
+
+function read_earlier!(to_go, previous::CostToGo, lateral, knot, stage)
+    time = (knot - 1) * to_go.step
+    time > to_go.filler.near_hours || return false
+    earlier = time + to_go.filler.departure - previous.filler.departure
+    down = previous(lateral, 1, stage, earlier)
+    down == Inf && return false
+    to_go.values[lateral, knot, 1, stage] = down
+    to_go.values[lateral, knot, 2, stage] = previous(lateral, 2, stage, earlier)
+    return true
+end
+
+"""
+    all_filled!(to_go)
+
+`to_go` with every value it holds pending computed.
+"""
+all_filled!(to_go::CostToGo{Nothing}) = to_go
+
+function all_filled!(to_go::CostToGo{<:KnotFiller})
+    laterals, knots, stages = axes(to_go.filler.pending)
+    for stage in reverse(stages), lateral in laterals, knot in knots
+        filled!(to_go, lateral, knot, stage)
+    end
+    return to_go
 end
 
 "hours a [`CostToGo`](@ref) searches beyond the arrival at the lowest routing speed [h]"
@@ -1370,7 +1492,7 @@ where none arrived), the length of its time bins [h], and the [`Leg`](@ref) it f
 before the [`final_pass`](@ref), `nothing` where none arrived.
 """
 mutable struct SearchRecord
-    to_go::CostToGo
+    to_go::CostToGo{Nothing}
     estimate::Float64
     limits::Vector{Float64}
     limit::Float64
@@ -1388,7 +1510,7 @@ Copy into the [`SearchRecord`](@ref) `record` the states of the first `stage_cou
 held in `workspace` and the rest of the `search`, named as its fields.
 """
 function record!(record::SearchRecord, workspace, stage_count, search)
-    (; to_go) = search
+    to_go = all_filled!(search.to_go)
     record.to_go = CostToGo(to_go.values[:, :, :, 1:stage_count], to_go.knots, to_go.step)
     record.estimate, record.limit = search.estimate, search.limit
     record.limits = collect(search.limits)
@@ -2148,22 +2270,18 @@ one_forecast(known) = known
 one_forecast(members::Vector) = first(members)
 
 """
-    remaining_cost(corridor, table, known, departure, prices; first_stage)
+    remaining_cost(corridor, table, known, departure, prices; first_stage, previous=nothing,
+                   near_hours=Inf)
 
 [`CostToGo`](@ref) of a ship at `first_stage` of `corridor` planning on `known` at
-`departure` [h].
+`departure` [h], beyond `near_hours` [h] read from the one of its last plan, `previous`,
+where there is one.
 """
 function remaining_cost(corridor::Corridor, table::RouteTable, known, departure, prices;
-        first_stage)
-    workspace = acquire_workspace(size(corridor.lat, 2),
-        ceil(Int, MAX_LEG_HOURS / ROUTER_SETTINGS[].time_step), size(corridor.lat, 1))
-    try
-        to_go = CostToGo(workspace, corridor, table, known, departure;
-            time_cost=prices.time, first_stage)
-        return CostToGo(copy(to_go.values), to_go.knots, to_go.step)
-    finally
-        release_workspace(workspace)
-    end
+        first_stage, previous=nothing, near_hours=Inf)
+    values = Ref(Array{Float64}(undef, size(corridor.lat, 2), 0, 2, size(corridor.lat, 1)))
+    return CostToGo(values, corridor, table, known, departure; time_cost=prices.time,
+        first_stage, previous, near_hours)
 end
 
 "objective [USD] from node `next` of `stage` at `time` by `to_go`, kite down and aloft"
@@ -2323,8 +2441,8 @@ end
 
 The [`CostToGo`](@ref) `to_go` of a plan made at `start` [h], from node `next` of `stage`.
 """
-struct NodeToGo
-    to_go::CostToGo
+struct NodeToGo{C <: CostToGo}
+    to_go::C
     next::Int
     stage::Int
     start::Float64
@@ -2578,7 +2696,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     with_margin = planned isa KiteMargin
     source = keeps_plan || foresight || with_margin ? planned.forecast : planned
     plan_table = with_margin ? margin_table(table, planned.margin) : table
-    rest = nothing
+    rest, to_go = nothing, nothing
     while stage < stage_count
         known = known_weather(source, weather, departure + time, horizon)
         planning, plan_stage, sailable = planning_corridor(corridor, stage, lateral)
@@ -2590,7 +2708,8 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
         plan_start, plan_end = time, blocked ? 1 : min(length(plan.path), sailable)
         to_go = blocked || adapts == :nothing ? nothing :
                 remaining_cost(corridor, plan_table, known, departure + time, prices;
-            first_stage=stage)
+            first_stage=stage, previous=adapts == :live ? to_go : nothing,
+            near_hours=interval + ROUTER_SETTINGS[].to_go_near_hours)
         reached = 1
         for i in 2:plan_end
             next_lat, next_lon, _, planned_speed, _ = plan.path[i]

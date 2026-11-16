@@ -3307,31 +3307,30 @@ function speed_size_data()
     end
 end
 
-"rigid kites [number, m^2 each] of the rigid kite study"
-rigid_kite_fleets = [(1, 30.0), (1, 54.0), (1, 100.0), (2, 100.0), (1, 200.0)]
-
-"inputs where the low bound favours a rigid kite"
+"inputs where the low bound favours a VTOL kite"
 rigid_low_favours = (:rigid_tether_price, :rigid_tether_density,
     :rigid_tether_drag_coefficient, :rigid_structure_cost_per_mass,
     :rigid_structure_cost_per_area, :rigid_avionics_cost, :rigid_drive_cost,
-    :rigid_drive_margin, :rigid_ship_power_cost, :rigid_perch_cost, :rigid_perch_width,
-    :rigid_station_mass, :rigid_upkeep_per_area, :rigid_cycle_loss_probability,
-    :rigid_idle_rotor_drag, :rigid_hover_energy_price, :rigid_hover_minutes,
-    :rigid_hover_thrust_ratio, :rigid_mass_exponent, :rigid_profile_drag,
-    :rigid_min_turn_radius, :kite_out_of_service)
+    :rigid_drive_reference_mass, :rigid_rotor_mass_per_area, :rigid_ship_power_cost,
+    :rigid_perch_cost, :rigid_perch_width, :rigid_station_mass, :rigid_upkeep_per_area,
+    :rigid_cycle_loss_probability, :rigid_feathered_rotor_drag, :rigid_hover_energy_price,
+    :rigid_hover_minutes, :rigid_hover_thrust_ratio, :rigid_mass_exponent,
+    :rigid_profile_drag, :rigid_min_turn_radius, :kite_out_of_service)
 
-"inputs where the high bound favours a rigid kite"
+"inputs where the high bound favours a VTOL kite"
 rigid_high_favours = (:rigid_lifetime, :rigid_hover_max_wave_height, :rigid_hover_max_wind,
-    :rigid_max_wind,
-    :rigid_max_lift, :rigid_span_efficiency, :rigid_max_force_per_area,
+    :rigid_max_wind, :rigid_max_lift, :rigid_span_efficiency, :rigid_max_force_per_area,
     :rigid_tether_stress, :rigid_rotor_area_ratio, :rigid_rotor_fill,
     :rigid_hover_air_density, :rigid_hover_efficiency)
+
+"input scenarios of the VTOL kite studies"
+rigid_scenarios = ("base", "favourable")
 
 """
     rigid_assumptions(scenario, unit)
 
-The assumptions of the rigid kite study at a kite of `unit` [m^2]: at base values for
-"base", and for "optimistic" with every rigid kite input at the bound that favours it.
+The assumptions of the VTOL kite studies at a kite of `unit` [m^2]: at base values for
+"base", and for "favourable" with every VTOL kite input at the bound that favours it.
 """
 function rigid_assumptions(scenario, unit)
     base = with_value(assumptions, :rigid_unit_area, unit)
@@ -3345,46 +3344,16 @@ function rigid_assumptions(scenario, unit)
     return base
 end
 
-"""
-    rigid_kite_data()
-
-Each class of `pair_classes` on each of `pair_routes` on VLSFO and e-ammonia without a rig,
-with each other rig at its best size in classes.csv and with each fleet of
-`rigid_kite_fleets` that fits at base and optimistic inputs: rigid_kite.csv.
-"""
-function rigid_kite_data()
-    classes_table = read_table(data_file("classes.csv"))
-    cases = []
-    for name in pair_classes, drive in (:vlsfo, :ammonia), route in pair_routes
-        class = ship_classes()[name]
-        hull = Hull(class, assumptions)
-        push!(cases, trip_case(ShipDesign(drive, class); route, ship=name, drive,
-            rig="none", count=0, unit=0.0))
-        for rig in rig_names
-            area = best_area(classes_table, name, string(route), string(drive), rig)
-            push!(cases, trip_case(ShipDesign(drive, class; rig_size(rig, area)...); route,
-                ship=name, drive, rig, count=0, unit=0.0))
-        end
-        for (count, unit) in rigid_kite_fleets, scenario in ("base", "optimistic")
-            WindShipOpt.rigid_kites_fit(count, hull,
-                with_value(assumptions, :rigid_unit_area, unit)) || continue
-            design = ShipDesign(drive, class; rigid_kite_area=count * unit)
-            push!(cases, trip_case(design; assumptions=rigid_assumptions(scenario, unit),
-                route, ship=name, drive, rig="rigid " * scenario, count, unit))
-        end
-    end
-    write_trips("rigid_kite.csv", cases, round_trips(cases, sampled_departures()), :ship,
-        :route, :drive, :rig, :count, :unit)
-end
-
-"wing areas [m^2] and mass exponents of the rigid kite scaling study"
+"wing areas [m^2] of the VTOL kite scaling study"
 rigid_scaling_areas = (30.0, 54.0, 100.0, 200.0, 300.0, 500.0)
-rigid_scaling_exponents = (2.2, 2.75, 3.0, 3.3)
+
+"apparent wind [m/s] on a beam course at which the scaling study compares cost per thrust"
+rigid_compared_wind = 12.0
 
 "flight hours and launches a year of the annual cost of a kite"
 kite_year = (flight_hours=3000.0, launches=150.0)
 
-"soft kite areas [m^2] the rigid kite scaling study compares with"
+"soft kite areas [m^2] the VTOL kite scaling study compares with"
 rigid_scaling_soft_kites = (500.0, 1000.0, 2000.0, 4000.0)
 
 """
@@ -3413,10 +3382,44 @@ function beam_thrust(rig, i)
     return 0.5air_density * rig.wind_speeds[i]^2 * rig.area * force.force[2]
 end
 
+"mass exponent of the two VTOL kites built, which the scaling study also runs"
+built_wing_exponent = 3.0
+
+"mass exponent [-] of the VTOL kite in input `scenario`"
+rigid_exponent(scenario) = rigid_assumptions(scenario, 0.0)[:rigid_mass_exponent]
+
+"""
+    rigid_scaling_series()
+
+(kind, mass exponent) of each series of VTOL kites in the scaling study: base inputs at
+the base, the built wings' and the high exponent, and favourable inputs.
+"""
+function rigid_scaling_series()
+    exponent = assumptions.entries[:rigid_mass_exponent]
+    return (("rigid base", exponent.value), ("rigid base", built_wing_exponent),
+        ("rigid base", exponent.high), ("rigid favourable", rigid_exponent("favourable")))
+end
+
+"""
+    rigid_scaling_cases()
+
+(kind, area, assumptions) of each VTOL kite of the scaling study: each series of
+[`rigid_scaling_series`](@ref) at each of `rigid_scaling_areas`.
+"""
+function rigid_scaling_cases()
+    cases = []
+    for (kind, exponent) in rigid_scaling_series(), area in rigid_scaling_areas
+        scenario = replace(kind, "rigid " => "")
+        inputs = with_value(rigid_assumptions(scenario, area), :rigid_mass_exponent, exponent)
+        push!(cases, (kind, area, inputs))
+    end
+    return cases
+end
+
 """
     rigid_scaling_data()
 
-Per wing area and mass exponent of a rigid kite: span, mass, stall speed, hover power,
+Per VTOL kite of [`rigid_scaling_cases`](@ref): span, mass, stall speed, hover power,
 lowest flying wind, price, annual cost and beam thrust over apparent wind; per area of a
 soft kite with the canopy at its goal: the last four: rigid_scaling.csv.
 """
@@ -3426,21 +3429,19 @@ function rigid_scaling_data()
     open(run_file("rigid_scaling.csv"), "w") do file
         println(file, "kind,area,exponent,span,mass,stall,hover_power,lowest_wind,price,",
             "annual,wind,thrust")
-        for area in rigid_scaling_areas, exponent in rigid_scaling_exponents
-            changed = with_value(with_value(assumptions, :rigid_unit_area, area),
-                :rigid_mass_exponent, exponent)
-            rig = WindShipOpt.rigid_kite_rig(area, hull, changed; courses=[π / 2],
+        for (kind, area, inputs) in rigid_scaling_cases()
+            rig = WindShipOpt.rigid_kite_rig(area, hull, inputs; courses=[π / 2],
                 side_weights=[0.0])
             (; mass, hover_power) = rig.airframe
-            span = sqrt(area * changed[:rigid_aspect_ratio])
+            span = sqrt(area * inputs[:rigid_aspect_ratio])
             stall = sqrt(2mass * env.gravity /
-                         (env.air_density * area * changed[:rigid_max_lift]))
-            price = first(WindShipOpt.rig_costs(rig, changed))
-            annual = annual_kite_cost(rig, changed)
+                         (env.air_density * area * inputs[:rigid_max_lift]))
+            price = first(WindShipOpt.rig_costs(rig, inputs))
+            annual = annual_kite_cost(rig, inputs)
             for i in eachindex(rig.wind_speeds)
-                println(file, join(("rigid", area, exponent, span, mass, stall, hover_power,
-                        rig.min_flight_wind, price, annual, rig.wind_speeds[i],
-                        beam_thrust(rig, i)), ","))
+                println(file, join((kind, area, inputs[:rigid_mass_exponent], span, mass,
+                        stall, hover_power, rig.min_flight_wind, price, annual,
+                        rig.wind_speeds[i], beam_thrust(rig, i)), ","))
             end
         end
         for area in rigid_scaling_soft_kites
@@ -3453,5 +3454,197 @@ function rigid_scaling_data()
                         beam_thrust(rig, i)), ","))
             end
         end
+    end
+end
+
+"""
+    flying_rows(table, kind, exponent)
+
+Rows of the scaling `table` of the kites of `kind` at mass `exponent` at
+`rigid_compared_wind`, where they fly.
+"""
+flying_rows(table, kind, exponent) = filter(row -> table["thrust"][row] > 0,
+    rows(table, "kind" => kind, "exponent" => exponent, "wind" => rigid_compared_wind))
+
+"""
+    thrust_costs(table, kind, exponent)
+
+Areas [m^2] and annual cost per thrust [USD/kN] of the kites of [`flying_rows`](@ref).
+"""
+function thrust_costs(table, kind, exponent)
+    flying = flying_rows(table, kind, exponent)
+    return table["area"][flying], 1e3 .* table["annual"][flying] ./ table["thrust"][flying]
+end
+
+"""
+    cheapest_rigid_area(table, scenario)
+
+Wing area [m^2] of the VTOL kite of `scenario` with the least annual cost per thrust in the
+scaling `table`.
+"""
+function cheapest_rigid_area(table, scenario)
+    areas, costs = thrust_costs(table, "rigid " * scenario, rigid_exponent(scenario))
+    return areas[argmin(costs)]
+end
+
+"""
+    rigid_kite_data()
+
+Each class of `pair_classes` on each of `pair_routes` on e-ammonia without a rig, with each
+other rig at its best size in classes.csv, and with one VTOL kite of the area cheapest per
+thrust in rigid_scaling.csv for each of `rigid_scenarios`: rigid_kite.csv.
+"""
+function rigid_kite_data()
+    classes_table = read_table(data_file("classes.csv"))
+    scaling_table = read_table(data_file("rigid_scaling.csv"))
+    fleet = [(scenario, cheapest_rigid_area(scaling_table, scenario))
+             for scenario in rigid_scenarios]
+    cases = []
+    for name in pair_classes
+        class = ship_classes()[name]
+        hull = Hull(class, assumptions)
+        for (scenario, unit) in fleet
+            WindShipOpt.rigid_kites_fit(1, hull, rigid_assumptions(scenario, unit)) ||
+                throw(ArgumentError("a VTOL kite of $unit m^2 does not fit the $name"))
+        end
+        for route in pair_routes
+            labels = (; route, ship=name, drive=:ammonia)
+            push!(cases, trip_case(ShipDesign(:ammonia, class); labels..., rig="none",
+                unit=0.0))
+            for rig in rig_names
+                area = best_area(classes_table, name, string(route), "ammonia", rig)
+                push!(cases, trip_case(ShipDesign(:ammonia, class; rig_size(rig, area)...);
+                    labels..., rig, unit=0.0))
+            end
+            for (scenario, unit) in fleet
+                push!(cases, trip_case(ShipDesign(:ammonia, class; rigid_kite_area=unit);
+                    assumptions=rigid_assumptions(scenario, unit), labels...,
+                    rig="rigid " * scenario, unit))
+            end
+        end
+    end
+    write_trips("rigid_kite.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :route, :drive, :rig, :unit)
+end
+
+"ship, drive, and kite, wing sail and rotor areas [m^2] of the router decisions study"
+router_decision_ships = (("140 m", :ammonia, (1600.0, 1500.0, 800.0)),
+    ("Kamsarmax bulk carrier", :vlsfo, (3200.0, 3000.0, 1600.0)))
+
+"""
+    router_decision_case(ship, drive, rig, area, route)
+
+The route tables of `ship` on `drive` with `area` [m^2] of `rig` and without a rig, the
+time price [USD/h] of each leg of the ship with the rig, and the corridors of `route`.
+"""
+function router_decision_case(ship, drive, rig, area, route)
+    rigged = Ship(ShipDesign(drive, study_hull(ship); rig_size(rig, area)...), assumptions)
+    bare = Ship(ShipDesign(drive, study_hull(ship)), assumptions)
+    hourly = WindShipOpt.leg_time_costs(first(WindShipOpt.ship_costs(rigged, assumptions)),
+        assumptions)
+    table = RouteTable(PerformanceTable(rigged, assumptions))
+    return (; ship, rig, area, route, table, hourly, corridors=run_corridors(route),
+        bare=RouteTable(PerformanceTable(bare, assumptions)))
+end
+
+"`table` with the kite's launches and landings free"
+free_launch_table(table::RouteTable) = WindShipOpt.with_changed(table;
+    table=WindShipOpt.with_changed(table.table; cycle_cost=0.0))
+
+"""
+    stateless_table(table)
+
+`table` with the kite up wherever that pays: its launches and landings free, instant and
+open to any wind, sea and hour, so its state carries nothing.
+"""
+function stateless_table(table::RouteTable)
+    performance = table.table
+    rig = WindShipOpt.with_changed(performance.ship.rig; launch_min_wind=0.0,
+        launch_max_wind=Inf, launch_max_wave_height=Inf, landing_max_wind=Inf,
+        landing_max_wave_height=Inf, night_launch=true)
+    (; knots, values) = performance.sea_launch_wind
+    return WindShipOpt.with_changed(table; table=WindShipOpt.with_changed(performance;
+        ship=WindShipOpt.with_changed(performance.ship; rig),
+        sea_launch_wind=WindShipOpt.LinearTable(knots, zero(values)), cycle_cost=0.0,
+        handling_hours=0.0, forced_landing_cost=0.0))
+end
+
+"""
+    router_decision_passages(case, departure)
+
+Each leg of the round trip of `case` from `departure`, planned as in the results: its cost
+for the ship without a rig, for the rig, and for the rig held to the path planned without
+it; for a kite also its free-launch plan charged for each launch it makes, and the plan of
+[`stateless_table`](@ref) as reported and with the real kite held to its path. Every
+variant of a leg starts when the rig's searched plan of the leg before arrives in port.
+Stops at a leg the planner cannot sail.
+"""
+function router_decision_passages(case, departure)
+    rows = NamedTuple[]
+    start = departure
+    kite = case.rig == "kite"
+    for (leg, corridor, time_cost) in zip(("out", "back"), case.corridors, case.hourly)
+        searched = leg_plan(case.table, corridor, start, time_cost)
+        without = leg_plan(case.bare, corridor, start, time_cost)
+        (isnothing(searched) || isnothing(without)) && break
+        free, stateless = kite ?
+            (leg_plan(free_launch_table(case.table), corridor, start, time_cost),
+             leg_plan(stateless_table(case.table), corridor, start, time_cost)) :
+            (nothing, nothing)
+        push!(rows, (; case.ship, case.rig, case.area, case.route, departure, leg,
+            without=without.objective, searched=searched.objective,
+            alone=held_objective(without, corridor, case.table, start, time_cost),
+            free=isnothing(free) ? NaN :
+                 free.objective + free.launches * case.table.table.cycle_cost,
+            stateless=leg_objective(stateless),
+            stateless_sailed=held_objective(stateless, corridor, case.table, start,
+                time_cost),
+            searched_launches=searched.launches,
+            free_launches=isnothing(free) ? -1 : free.launches))
+        start += searched.duration + 24assumptions[:port_time_per_call]
+    end
+    return rows
+end
+
+"[`forecast_route`](@ref) of `table` through `corridor` from `start` [h] at `time_cost`"
+leg_plan(table, corridor, start, time_cost) =
+    forecast_route(corridor, table, weather, start; time_cost)
+
+"objective of `leg`, NaN where there is none"
+leg_objective(leg) = isnothing(leg) ? NaN : leg.objective
+
+"""
+    held_objective(leg, corridor, table, start, time_cost)
+
+Objective of the ship of `table` planned from `start` [h] along the path of `leg` through
+`corridor`, NaN where there is no `leg` or no passage along it.
+"""
+function held_objective(leg, corridor, table, start, time_cost)
+    isnothing(leg) && return NaN
+    path = WindShipOpt.path_corridor(leg, corridor, 1)
+    return leg_objective(leg_plan(table, path, start, time_cost))
+end
+
+"""
+    router_decisions_data()
+
+What planning with the rig is worth: on the routes to Guadeloupe, New York and Tubarão,
+each rig of [`router_decision_ships`](@ref) planned per leg by
+[`router_decision_passages`](@ref): router_decisions.csv.
+"""
+function router_decisions_data()
+    cases = [router_decision_case(ship, drive, rig, area, route)
+             for (ship, drive, areas) in router_decision_ships
+             for (rig, area) in zip(("kite", "wings", "rotors"), areas)
+             for route in (:caribbean, :new_york, :tubarao)]
+    passages = vec(collect(Iterators.product(cases, sampled_departures())))
+    found = Vector{Vector{NamedTuple}}(undef, length(passages))
+    Threads.@threads :greedy for k in eachindex(passages)
+        found[k] = router_decision_passages(passages[k]...)
+    end
+    rows = reduce(vcat, found)
+    open(run_file("router_decisions.csv"), "w") do io
+        println(io, join(keys(first(rows)), ","))
+        foreach(row -> println(io, join(csv_value.(values(row)), ",")), rows)
     end
 end
