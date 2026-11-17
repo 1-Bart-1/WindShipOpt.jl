@@ -793,22 +793,34 @@ Best pattern force for each apparent wind speed, course and side weight, warm-st
 each speed from the next stronger one. A kite seen before reuses its table: from this
 session, or from the disk cache in output/pattern_tables/, keyed by every field of the
 kite model and the source of this file, so that a change to either computes the tables
-afresh.
+afresh. Threads asking for the same table together wait for one computation of it.
 """
 function pattern_table(model::KiteModel, max_force, assumptions::Assumptions, wind_speeds,
         courses, side_weights)
     key = ((getfield(model, name) for name in fieldnames(KiteModel) if name != :polar)...,
         model.polar.angle_of_attack, model.polar.lift, model.polar.drag, max_force,
         assumptions[:kite_min_elevation], wind_speeds, courses, side_weights)
-    cached = lock(() -> get(PATTERN_TABLES, key, nothing), PATTERN_LOCK)
-    isnothing(cached) || return cached
+    table = lock(PATTERN_LOCK) do
+        get!(() -> Threads.@spawn(load_pattern_table(model, max_force, assumptions,
+                wind_speeds, courses, side_weights, key)), PATTERN_TABLES, key)
+    end
+    return fetch(table)::Array{PatternForce, 3}
+end
+
+"""
+    load_pattern_table(model, max_force, assumptions, wind_speeds, courses, side_weights,
+                       key)
+
+The [`pattern_table`](@ref) of `key` read from its disk cache, or computed and stored there.
+"""
+function load_pattern_table(model::KiteModel, max_force, assumptions::Assumptions,
+        wind_speeds, courses, side_weights, key)
     path = pattern_table_path(key)
-    size = (length(wind_speeds), length(courses), length(side_weights))
-    forces = isfile(path) ? read_pattern_table(path, size) :
-             compute_pattern_table(model, max_force, assumptions, wind_speeds, courses,
+    isfile(path) && return read_pattern_table(path,
+        (length(wind_speeds), length(courses), length(side_weights)))
+    forces = compute_pattern_table(model, max_force, assumptions, wind_speeds, courses,
         side_weights)
-    isfile(path) || write_pattern_table(path, forces)
-    lock(() -> PATTERN_TABLES[key] = forces, PATTERN_LOCK)
+    write_pattern_table(path, forces)
     return forces
 end
 
@@ -876,9 +888,9 @@ function write_pattern_table(path, forces)
     mkpath(dirname(path))
     values = [field for force in forces
               for field in (force.force..., force.peak_tension, force.lowest_elevation)]
-    temporary = path * ".$(Threads.threadid()).tmp"
+    temporary = "$path.$(getpid()).tmp"
     write(temporary, values)
-    mv(temporary, path; force=true)
+    Base.Filesystem.rename(temporary, path)
 end
 
 """
@@ -893,6 +905,6 @@ function read_pattern_table(path, size)
     return reshape(forces, size)
 end
 
-"pattern tables already computed in this session, by kite and table grid"
-const PATTERN_TABLES = Dict{Any, Array{PatternForce, 3}}()
+"pattern tables of this session, computed or being computed, by kite and table grid"
+const PATTERN_TABLES = Dict{Any, Task}()
 const PATTERN_LOCK = ReentrantLock()
