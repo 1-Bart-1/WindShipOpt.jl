@@ -36,7 +36,7 @@ reference_length:
   low: 84.0
   high: 88.0
   unit: m
-  reason: "Real 3,800 dwt coasters: Damen Combi Freighter 3850 Lpp 84.97 m, Conoship CIP3800 Lpp 84.19 m; waterline length is ~2-4 % longer (MAN ES, Basic Principles of Ship Propulsion, 2018)."
+  reason: "Real 3,800 dwt coasters: Damen Combi Freighter 3850 Lpp 84.97 m, Conoship CIP3800 Lpp 84.19 m."
 reference_beam:
   value: 13.2
   low: 12.5
@@ -66,7 +66,7 @@ waterline_length_ratio:
   low: 1.02
   high: 1.04
   unit: "-"
-  reason: "Waterline length over length between perpendiculars of the class hulls, on which Holtrop-Mennen is evaluated: Lpp = 0.96-0.98 Lwl (MAN ES 2023, p. 7)."
+  reason: "Waterline length over length between perpendiculars of the class hulls and the coaster family, on which Holtrop-Mennen is evaluated: Lpp = 0.96-0.98 Lwl (MAN ES 2023, p. 7)."
 midship_coefficient:
   value: 0.99
   low: 0.98

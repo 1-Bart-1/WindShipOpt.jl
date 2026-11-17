@@ -43,6 +43,14 @@ end
     @test 700 < ship.powertrain.installed_power / 1e3 < 1500
 end
 
+@testset "the coaster family's resistance is evaluated on its waterline length" begin
+    for length in (85.0, 140.0)
+        hull = Hull(length, assumptions)
+        @test hull.waterline_length ≈ assumptions[:waterline_length_ratio] * length
+        @test WindShipOpt.block_coefficient(hull) ≈ assumptions[:block_coefficient]
+    end
+end
+
 @testset "hull wind load follows Blendermann's loading functions" begin
     env = Environment(assumptions)
     windage = WindShipOpt.Windage("vehicle carrier", 180.0, 30.0, 0.0, assumptions)
