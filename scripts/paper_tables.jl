@@ -592,7 +592,7 @@ share_cell(share) = isnan(share) ? "--" : @sprintf("%.0f", 100share)
 crash_cell(crashes) = isnan(crashes) ? "--" : @sprintf("%.2g", crashes)
 
 """
-    class_table()
+    class_dimension_table()
 
 Tabular of the ship classes with their main dimensions, deadweight and unit capacity,
 the limit their cargo fills first, speed, engine power, resistance calibration, price,
@@ -600,7 +600,7 @@ cargo value, the inputs of deck cargo and port operations and the frontal and la
 wind areas, in class_table.tex, and the rows of their sources in class_sources.tex; an
 infinite fixed-rig delay, where a fixed rig prevents cargo handling, is printed as ∞.
 """
-function class_table()
+function class_dimension_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
     notes = class_source_notes()
     open(joinpath(sections, "class_sources.tex"), "w") do io
@@ -1906,14 +1906,15 @@ end
 
 Name and text of the goals the abstracts state: canopy life, the canopy price
 at the goal and today, and the share of time out of service; and of the
-[`kite_gap_bias`](@ref).
+[`kite_gap_bias`](@ref) and the `highlight_limit` the paper build checks.
 """
 goal_numbers() = [
     "CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
     "CanopyPriceGoal" => @sprintf("%.0f", WindShipOpt.canopy_price(assumptions)),
     "CanopyPriceToday" => @sprintf("%.0f", WindShipOpt.canopy_price_today(assumptions)),
     "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal()),
-    "KiteGapBias" => @sprintf("%.1f", kite_gap_bias)]
+    "KiteGapBias" => @sprintf("%.1f", kite_gap_bias),
+    "HighlightLimit" => string(highlight_limit)]
 
 """
     class_numbers(classes)
@@ -2129,77 +2130,230 @@ life_limit_text(life) = isnan(life) ? "--" : @sprintf("\\num{%.0f}", 100round(li
 """
     rig_lead_numbers(table)
 
-Name and text, per kind of ship of `ship_types` and drive of the class table `table`, of
-the [`lead_verdict`](@ref), and on container ships where the kite falls behind the rotors;
-and per drive of the [`advice_text`](@ref).
+Name and text, from the [`rig_lead_rows`](@ref) of the class table `table`, of the
+[`verdict_text`](@ref) of each of `verdict_groups`, the [`advice_text`](@ref), the
+[`highlight_text`](@ref), and on container ships per drive where the kite falls behind
+the rotors.
 """
 function rig_lead_numbers(table)
-    numbers = Pair{String, String}[]
     rows = rig_lead_rows(table)
+    numbers = ["Advice" => advice_text(rows), "HighlightAdvice" => highlight_text(rows)]
+    for (word, types, drives) in verdict_groups
+        push!(numbers, "Verdict$word" =>
+            verdict_text(filter(row -> row.word in types && row.drive in drives, rows)))
+    end
     for row in rows
-        name = row.drive_word * row.word
-        push!(numbers, "Verdict$name" => lead_verdict(row))
         row.word == "Container" || continue
+        name = row.drive_word * row.word
         push!(numbers, "KiteLifeLimit$name" => life_limit_text(row.life),
             "KiteLossLimit$name" => crash_cell(row.losses))
-    end
-    for (drive, word) in drive_words
-        on_drive = filter(row -> row.drive == drive, rows)
-        push!(numbers, "Advice$word" => advice_text(on_drive))
     end
     return numbers
 end
 
-"""
-    advice(lead)
+"name of each drive in the text"
+fuel_names = Dict("vlsfo" => "fuel oil", "ammonia" => "e-ammonia")
 
-Rig to use by a [`rig_lead`](@ref) `lead`: the rig that leads, either of two level, in
-the order of `rig_names`, or no rig.
-"""
-function advice(lead)
-    lead.verdict == "none" && return "no rig"
-    lead.verdict == "leads" && return first(rig_subjects[lead.rig])
-    pair = sort([lead.rig, lead.rival]; by=rig -> findfirst(==(rig), rig_names))
-    return "either " * join((first(rig_subjects[rig]) for rig in pair), " or ")
+"ship types whose verdicts the text states together: word in number macros, the words of
+their `ship_types`, drives"
+verdict_groups = let all_types = first.(ship_types), both = ("ammonia", "vlsfo")
+    (("Container", ("Container",), both), ("CarCarrier", ("CarCarrier",), both),
+        ("GeneralCargo", ("GeneralCargo",), both),
+        ("BulkTanker", ("BulkCarrier", "Tanker"), both),
+        ("BulkTankerGeneralCargo", ("BulkCarrier", "Tanker", "GeneralCargo"), both),
+        ("FleetAmmonia", all_types, ("ammonia",)), ("Fleet", all_types, both))
 end
 
-"""
-    advice_text(leads)
-
-Text of the [`advice`](@ref) of each [`rig_lead`](@ref) of `leads`, each of a kind of ship
-with its `label`, the kinds given the same advice named together.
-"""
-function advice_text(leads)
-    kinds = Pair{String, Vector{String}}[]
-    for lead in leads
-        rig = advice(lead)
-        at = findfirst(kind -> first(kind) == rig, kinds)
-        if isnothing(at)
-            push!(kinds, rig => [lowercase(lead.label)])
-        else
-            push!(last(kinds[at]), lowercase(lead.label))
-        end
-    end
-    return join(("$rig on " * join(labels, ", ", " and ") for (rig, labels) in kinds), ", ",
-        ", and ")
-end
+"most characters a highlight of the paper may have"
+highlight_limit = 85
 
 "names of the rigs in the text, with the verb a rig leads by"
 rig_subjects = Dict("kite" => ("the kite", "leads"), "wings" => ("the wing sails", "lead"),
     "rotors" => ("the rotors", "lead"))
 
 """
-    lead_verdict(lead)
+    listed(items)
 
-Text of a [`rig_lead`](@ref) `lead`: the best rig leading its rival by their margin, the
-two level and the margin between them, or no rig clearly saving.
+`items` joined by commas and a final "and".
 """
-function lead_verdict(lead)
-    lead.verdict == "none" && return "no rig clearly saves"
-    (rig, verb), (rival, _) = rig_subjects[lead.rig], rig_subjects[lead.rival]
-    margin = whole_points(lead.margin)
-    lead.verdict == "leads" && return "$rig $verb $rival by $margin"
-    return "$rig and $rival are level, $margin apart"
+listed(items) = join(items, ", ", " and ")
+
+"""
+    grouped(keys, items)
+
+Each distinct key of `keys` in order of first appearance, paired with its `items`.
+"""
+function grouped(keys, items)
+    groups = Pair{eltype(keys), Vector{eltype(items)}}[]
+    for (key, item) in zip(keys, items)
+        at = findfirst(group -> first(group) == key, groups)
+        isnothing(at) ? push!(groups, key => [item]) : push!(last(groups[at]), item)
+    end
+    return groups
+end
+
+"""
+    ship_list(labels, scope)
+
+Text naming the ship types of `labels`: "every ship type" where they are all of
+`ship_types` and `scope` holds more than one.
+"""
+function ship_list(labels, scope)
+    length(scope) > 1 && length(labels) == length(ship_types) && return "every ship type"
+    return listed(lowercase.(labels))
+end
+
+"""
+    places(rows, scope)
+
+Where rig lead `rows` hold among the [`rig_lead_rows`](@ref) of `scope`: their ship types
+and fuels, each named only where `scope` holds more than one.
+"""
+function places(rows, scope)
+    labels = unique(row.label for row in scope)
+    drives = unique(row.drive for row in scope)
+    on = [Set(row.drive for row in rows if row.label == label) for label in labels]
+    texts = String[]
+    for (fuels, names) in grouped(on, labels)
+        isempty(fuels) && continue
+        ships = length(labels) > 1 ? "on " * ship_list(names, labels) : ""
+        fuel = length(drives) == 1 ? "" :
+               length(fuels) == length(drives) ? "on both fuels" :
+               "on " * fuel_names[only(fuels)]
+        push!(texts, strip(ships * " " * fuel))
+    end
+    return listed(texts)
+end
+
+"""
+    points_range(margins)
+
+Text of `margins` [points] in whole points: one value, or the range they span.
+"""
+function points_range(margins)
+    low, high = extrema(parse.(Int, whole_number.(margins)))
+    low == high && return whole_points(first(margins))
+    return "$low to $high points"
+end
+
+"""
+    verdict_key(row)
+
+What a rig lead `row` says, margin aside: its verdict, with the best rig and its rival
+where one leads, and the two in the order of `rig_names` where they are level.
+"""
+function verdict_key(row)
+    row.verdict == "none" && return (row.verdict,)
+    row.verdict == "leads" && return (row.verdict, row.rig, row.rival)
+    order(rig) = findfirst(==(rig), rig_names)
+    return (row.verdict, sort([row.rig, row.rival]; by=order)...)
+end
+
+"""
+    verdict_phrase(key, margins, where)
+
+Text of a [`verdict_key`](@ref) `key` holding with `margins` [points] at the
+[`places`](@ref) `where`: the best rig leading its rival by their margin, the two level
+and how far apart, or no rig clearly saving.
+"""
+function verdict_phrase(key, margins, where)
+    first(key) == "none" && return strip("no rig clearly saves " * where)
+    (rig, verb), (rival, _) = rig_subjects[key[2]], rig_subjects[key[3]]
+    margin = points_range(margins)
+    first(key) == "leads" && return strip("$rig $verb $rival by $margin $where")
+    low, high = extrema(margins)
+    apart = whole_number(low) == whole_number(high) ? whole_points(high) :
+            "at most " * whole_points(high)
+    return "$rig and $rival are level, $apart apart" * (isempty(where) ? "" : ", $where")
+end
+
+"""
+    verdict_text(rows)
+
+Text of the verdicts of rig lead `rows` of [`rig_lead_rows`](@ref), each kind of
+[`verdict_phrase`](@ref) once with the [`places`](@ref) it holds, e-ammonia first.
+"""
+function verdict_text(rows)
+    rows = sort(rows; by=row -> row.drive != "ammonia")
+    parts = [verdict_phrase(key, [row.margin for row in held], places(held, rows))
+             for (key, held) in grouped(verdict_key.(rows), rows)]
+    length(parts) > 2 && return join(parts, "; ", "; and ")
+    return join(parts, ", and ")
+end
+
+"""
+    advice(lead; short=false)
+
+Rig to use by a [`rig_lead`](@ref) `lead`: the rig that leads, either of two level, in
+the order of `rig_names`, or no rig; `short` names a rig without its article.
+"""
+function advice(lead; short=false)
+    lead.verdict == "none" && return "no rig"
+    name(rig) = short ? rig_short_names[rig] : first(rig_subjects[rig])
+    lead.verdict == "leads" && return name(lead.rig)
+    pair = sort([lead.rig, lead.rival]; by=rig -> findfirst(==(rig), rig_names))
+    return (short ? "" : "either ") * join(name.(pair), " or ")
+end
+
+"names of the rigs in the shortest text"
+rig_short_names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "rotors")
+
+"""
+    advice_text(rows)
+
+Text of the [`advice`](@ref) of rig lead `rows` of [`rig_lead_rows`](@ref): first the rigs
+to use whatever the fuel, ship types given the same rig named together, then per ship
+type where the fuel changes the rig, the rig on each fuel.
+"""
+function advice_text(rows)
+    labels = unique(row.label for row in rows)
+    drives = sort(unique(row.drive for row in rows); by=drive -> drive != "ammonia")
+    advised = [[advice(only(filter(row -> row.label == label && row.drive == drive, rows)))
+                for drive in drives] for label in labels]
+    same = [all(==(first(rigs)), rigs) for rigs in advised]
+    fuels = length(drives) == 1 ? fuel_names[only(drives)] : "both fuels"
+    common = ["$(first(rigs)) on " * ship_list(names, labels)
+              for (rigs, names) in grouped(advised[same], labels[same])]
+    differing, previous = String[], String[]
+    for (rigs, names) in grouped(advised[.!same], labels[.!same])
+        on_fuels = previous == reverse(rigs) ? "the other way round" :
+                   listed(["$rig on $(fuel_names[drive])" for (rig, drive) in zip(rigs,
+            drives)])
+        verb = isempty(differing) ? "use " : ""
+        push!(differing, "on $(ship_list(names, labels)) $verb$on_fuels")
+        previous = rigs
+    end
+    parts = String[]
+    isempty(common) || push!(parts, "on $fuels use " * join(common, ", ", ", and "))
+    isempty(differing) || push!(parts, join(differing, ", ", ", and "))
+    return join(parts, "; ")
+end
+
+"""
+    highlight_text(rows)
+
+Highlight of the advice of rig lead `rows`: the [`advice_text`](@ref) on both fuels, else
+on e-ammonia, else on e-ammonia in short with the last rig "elsewhere", else with the
+number of ship types per rig, whichever first has at most `highlight_limit` characters;
+the shortest, with a warning, where none has.
+"""
+function highlight_text(rows)
+    ammonia = filter(row -> row.drive == "ammonia", rows)
+    groups = last.(grouped(advice.(ammonia), ammonia))
+    rigs = [advice(first(held); short=true) for held in groups]
+    named = [rig * " on " * ship_list([row.label for row in held], ammonia)
+             for (rig, held) in zip(rigs, groups)]
+    length(groups) > 1 && (named[end] = last(rigs) * " elsewhere")
+    counts = ["$rig on $(length(held))" for (rig, held) in zip(rigs, groups)]
+    counts[1] *= length(first(groups)) == 1 ? " ship type" : " ship types"
+    sentences = [uppercasefirst(advice_text(rows)) * ".",
+        uppercasefirst(advice_text(ammonia)) * ".", "On e-ammonia: $(join(named, ", ")).",
+        "On e-ammonia: $(join(counts, ", "))."]
+    fits = findfirst(sentence -> length(sentence) <= highlight_limit, sentences)
+    isnothing(fits) || return sentences[fits]
+    shortest = argmin(length, sentences)
+    @warn "No highlight of the advice fits $highlight_limit characters" shortest
+    return shortest
 end
 
 """

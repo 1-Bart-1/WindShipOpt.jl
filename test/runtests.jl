@@ -3974,25 +3974,67 @@ end
     @test split["rotors"].bill == split["wings"].bill == 0
 end
 
-@testset "a lead between ship types reads as a lead, a level or no rig by its verdict" begin
-    lead = (; rig="kite", rival="rotors", margin=2.4, verdict="leads")
-    @test PaperData.lead_verdict(lead) == "the kite leads the rotors by 2 points"
-    level = (; lead..., rig="rotors", rival="kite", verdict="level")
-    @test PaperData.lead_verdict(level) ==
-          "the rotors and the kite are level, 2 points apart"
-    @test PaperData.lead_verdict((; lead..., verdict="none")) == "no rig clearly saves"
+"rig lead row of the made-up outcome of `rig` against `rival` on ship type `word`"
+function lead_row(word, drive, verdict, margin, rig="kite", rival="rotors")
+    label = only(label for (type, label, _) in PaperData.ship_types if type == word)
+    return (; word, label, drive, rig, rival, verdict, margin)
 end
 
-@testset "the advice names each kind of ship once, kinds with the same rig together" begin
-    lead(label, rig, rival, verdict) = (; label, rig, rival, verdict)
-    leads = [lead("Container ships", "kite", "rotors", "leads"),
-        lead("Car carriers", "rotors", "kite", "level"),
-        lead("Bulk carriers", "kite", "rotors", "level"),
-        lead("Tankers", "kite", "rotors", "leads"),
-        lead("General cargo ships", "rotors", "wings", "none")]
-    @test PaperData.advice_text(leads) ==
-          "the kite on container ships and tankers, either the kite or the rotors on " *
-          "car carriers and bulk carriers, and no rig on general cargo ships"
+"rig lead rows of the draft run: the kite leading or level with the rotors"
+draft_leads = [lead_row("Container", "vlsfo", "leads", 4.1),
+    lead_row("Container", "ammonia", "leads", 3.8),
+    lead_row("CarCarrier", "vlsfo", "level", 0.3),
+    lead_row("CarCarrier", "ammonia", "level", 0.2),
+    lead_row("BulkCarrier", "vlsfo", "level", 1.2),
+    lead_row("BulkCarrier", "ammonia", "level", 0.9),
+    lead_row("Tanker", "vlsfo", "level", 1.0), lead_row("Tanker", "ammonia", "leads", 2.3),
+    lead_row("GeneralCargo", "vlsfo", "leads", 3.1),
+    lead_row("GeneralCargo", "ammonia", "level", 1.1)]
+
+@testset "a verdict states each kind of lead once, with where it holds" begin
+    lead = lead_row("Container", "vlsfo", "leads", 2.4)
+    @test PaperData.verdict_text([lead]) == "the kite leads the rotors by 2 points"
+    @test PaperData.verdict_text([lead_row("Container", "vlsfo", "level", 2.4, "rotors",
+        "kite")]) == "the kite and the rotors are level, 2 points apart"
+    @test PaperData.verdict_text([lead_row("Container", "vlsfo", "none", 0.1)]) ==
+          "no rig clearly saves"
+    container = filter(row -> row.word == "Container", draft_leads)
+    @test PaperData.verdict_text(container) ==
+          "the kite leads the rotors by 4 points on both fuels"
+    @test PaperData.verdict_text(draft_leads) ==
+          "the kite leads the rotors by 2 to 4 points on container ships on both fuels, " *
+          "on tankers on e-ammonia and on general cargo ships on fuel oil, and the kite " *
+          "and the rotors are level, at most 1 point apart, on car carriers and bulk " *
+          "carriers on both fuels, on tankers on fuel oil and on general cargo ships on " *
+          "e-ammonia"
+end
+
+@testset "the advice gives the rigs for both fuels once, then where the fuel changes" begin
+    @test PaperData.advice_text(draft_leads) ==
+          "on both fuels use the kite on container ships, and either the kite or the " *
+          "rotors on car carriers and bulk carriers; on tankers use the kite on " *
+          "e-ammonia and either the kite or the rotors on fuel oil, and on general cargo " *
+          "ships the other way round"
+    all_kite = [(; row..., verdict="leads") for row in draft_leads]
+    @test PaperData.advice_text(all_kite) == "on both fuels use the kite on every ship type"
+    ammonia = filter(row -> row.drive == "ammonia", draft_leads)
+    @test PaperData.advice_text(ammonia) ==
+          "on e-ammonia use the kite on container ships and tankers, and either the kite " *
+          "or the rotors on car carriers, bulk carriers and general cargo ships"
+end
+
+@testset "the highlight of the advice fits the journal for any four kinds of advice" begin
+    @test PaperData.highlight_text(draft_leads) ==
+          "On e-ammonia: kite on container ships and tankers, kite or rotors elsewhere."
+    kinds = [("leads", "kite", "rotors"), ("leads", "rotors", "kite"),
+        ("level", "kite", "rotors"), ("none", "kite", "rotors")]
+    words = first.(PaperData.ship_types)
+    outcome(picks) = [lead_row(word, drive, kinds[kind][1], 2.0, kinds[kind][2:3]...)
+                      for (word, pick) in zip(words, picks)
+                      for (drive, kind) in (("vlsfo", 5 - pick), ("ammonia", pick))]
+    outcomes = Iterators.product(fill(eachindex(kinds), length(words))...)
+    @test all(length(PaperData.highlight_text(outcome(picks))) <= PaperData.highlight_limit
+              for picks in outcomes)
 end
 
 @testset "a ship type where the best rig does not clearly save has no leader" begin
