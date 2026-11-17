@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Hands the round trips a run is missing to jobs that compute them into the case store:
-# Slurm jobs on a cluster, or processes on this machine. The run waits for the store,
-# launches a job again that ended with round trips missing, and stops naming the cases still
-# missing once it has tried enough. Included by paper_runs.jl; cluster.jl starts the jobs.
+# Hands the round trips a run is missing to Slurm jobs that compute them into the case
+# store. The run waits for the store, launches a job again that ended with round trips
+# missing, and stops naming the cases still missing once it has tried enough. Included by
+# paper_runs.jl; cluster.jl starts the jobs.
 
 """
     SlurmJobs
@@ -17,31 +17,12 @@ struct SlurmJobs
     settings::Dict{String, Any}
 end
 
-"""
-    LocalJobs
-
-Round trips computed by Julia processes on this machine, each of `cores` threads, at most
-`jobs` at once besides the run, each launched again at most `retries` times.
-"""
-struct LocalJobs
-    "threads of each process"
-    cores::Int
-    "processes at once"
-    jobs::Int
-    "launches of a shard after its first"
-    retries::Int
-end
-
 "where the run in use hands its missing round trips, or nothing to compute them itself"
 case_jobs = nothing
 
-cores(jobs::LocalJobs) = jobs.cores
 cores(jobs::SlurmJobs) = jobs.settings["cores"]
-job_count(jobs::LocalJobs) = jobs.jobs
 job_count(jobs::SlurmJobs) = jobs.settings["jobs"] - 1
-retries(jobs::LocalJobs) = jobs.retries
 retries(jobs::SlurmJobs) = jobs.settings["retries"]
-poll_seconds(::LocalJobs) = 1.0
 poll_seconds(::SlurmJobs) = 60.0
 
 """
@@ -72,18 +53,17 @@ shard_count(jobs, count) = clamp(cld(count, cores(jobs)), 1, job_count(jobs))
 
 Write the `cases` with their case-store `directories` over `departures`, and what a job
 needs of the run in use to store their round trips as it would, to a batch file in the run's
-[`jobs_directory`](@ref), with its summary beside it as TOML; return its path.
+[`jobs_directory`](@ref); return its path.
 """
 function write_batch(cases, directories, departures)
     run = paper_run
-    path = joinpath(mkpath(jobs_directory(run.directory)), content_hash(directories))
+    path = joinpath(mkpath(jobs_directory(run.directory)),
+        content_hash(directories) * ".bin")
     record = Dict("git_commit" => run.record["git_commit"],
         "git_dirty" => run.record["git_dirty"])
-    serialize(path * ".bin", (; run.directory, run.fidelity, record, run.only,
-        run.trip_model, cases, directories, departures))
-    open(io -> TOML.print(io, Dict("trip_model" => run.trip_model, "cases" => directories,
-            "started" => string(floor(now(), Second)))), path * ".toml", "w")
-    return path * ".bin"
+    serialize(path, (; run.directory, run.fidelity, record, run.only, run.trip_model, cases,
+        directories, departures))
+    return path
 end
 
 """
@@ -102,6 +82,18 @@ wrote it, without its definitions.
 """
 batch_run(batch) = PaperRun(batch.directory, batch.fidelity, batch.record, batch.only,
     Dict{Symbol, Vector{Any}}(), batch.trip_model, StepTally())
+
+"""
+    stored_count(path)
+
+Number of the round trips of the batch file `path` ([`write_batch`](@ref)) that the run
+which wrote it finds in the case store.
+"""
+function stored_count(path)
+    batch = deserialize(path)
+    global paper_run = batch_run(batch)
+    return length(batch.cases) - length(shard_missing(batch, 1, 1))
+end
 
 """
     shard_missing(batch, shard, shards)
@@ -163,12 +155,6 @@ job_command(cores, arguments...) = `$(Base.julia_cmd()) --project=$(@__DIR__) -t
 Start a job computing the missing round trips of shard `shard` of `shards` of the batch
 file `batch`; return its handle.
 """
-function launch(jobs::LocalJobs, batch, shard, shards)
-    log = string(batch, "-", shard, ".log")
-    command = job_command(cores(jobs), "shard", batch, shard, shards)
-    return run(pipeline(command; stdout=log, stderr=log, append=true); wait=false)
-end
-
 function launch(jobs::SlurmJobs, batch, shard, shards)
     log = string(batch, "-", shard, "-%j.log")
     command = slurm_command(jobs.settings, "windship-cases", jobs.settings["case_time"],
@@ -181,11 +167,12 @@ end
 
 Those of `handles` whose jobs have not ended; all of them while the queue cannot be read.
 """
-running(::LocalJobs, handles) = filter(process_running, handles)
-
 function running(::SlurmJobs, handles)
     queue = IOBuffer()
-    success(pipeline(`squeue --me --noheader --format=%i`; stdout=queue)) || return handles
+    if !success(pipeline(`squeue --me --noheader --format=%i`; stdout=queue))
+        println("  squeue failed at ", floor(now(), Second), "; waiting for every job")
+        return handles
+    end
     return filter(in(split(String(take!(queue)))), handles)
 end
 

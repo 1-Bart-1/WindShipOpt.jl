@@ -2,17 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Paper runs on a Slurm cluster, with the settings of cluster.toml; bin/cluster calls it.
-#
-#     bin/cluster submit draft            # submit a draft run of every step
-#     bin/cluster submit final classes    # a final run of the class study alone
-#     bin/cluster status                  # jobs queued, and what each latest run has done
-#
 # A submitted run is one job running `paper`, which hands each batch of missing round trips
 # to jobs of its own and waits for them. The jobs call this script as `run` and `shard`.
-using Dates
 using Printf
-using Serialization
-using TOML
 
 command = isempty(ARGS) ? "help" : popfirst!(ARGS)
 if command in ("run", "shard")
@@ -26,12 +18,13 @@ end
     submit_run(fidelity, steps)
 
 Submit the job running `paper(steps...; fidelity, resume=true)` with jobs computing its
-round trips, unless such a job is queued or running already.
+round trips, unless a job of a paper run is queued or running already.
 """
 function submit_run(fidelity, steps)
-    queued = read(`squeue --me --noheader --name=windship-run --format=%i`, String)
-    isempty(strip(queued)) || error("a paper run is queued or running already: job ",
-        strip(queued))
+    queued = read(`squeue --me --noheader --name=windship-run,windship-cases --format=%i`,
+        String)
+    isempty(strip(queued)) || error("jobs of a paper run are queued or running already: ",
+        join(split(queued), ", "))
     settings = cluster_settings()
     log = joinpath(mkpath(joinpath(root, "output", "slurm")), "run-%j.log")
     job = job_command(settings["cores"], "run", fidelity, steps...)
@@ -64,18 +57,15 @@ end
 """
     print_batches(directory)
 
-Print for each batch summary in `directory` ([`write_batch`](@ref)) how many of its round
-trips the case store holds by its code.
+Print for each batch file in `directory` ([`write_batch`](@ref)) how many of its round
+trips its run finds in the case store ([`stored_count`](@ref)).
 """
 function print_batches(directory)
     isdir(directory) || return
-    for file in filter(endswith(".toml"), readdir(directory; join=true))
-        batch = TOML.parsefile(file)
-        stored = count(batch["cases"]) do case
-            isdir(case) && any(startswith(batch["trip_model"]), readdir(case))
-        end
-        @printf("  batch of %s: %d of %d round trips stored\n", batch["started"], stored,
-            length(batch["cases"]))
+    for file in filter(endswith(".bin"), readdir(directory; join=true))
+        started = floor(unix2datetime(mtime(file)), Second)
+        @printf("  batch of %s UTC: %d of %d round trips stored\n", started,
+            stored_count(file), length(deserialize(file).cases))
     end
 end
 

@@ -3384,6 +3384,11 @@ handed_cases = [(; assumptions, label) for label in 1:10]
     entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
     @test [entry.trip for entry in entries] == (1:10) .^ 2
     @test jobs.launches == Dict(1 => 2, 2 => 1, 3 => 2, 4 => 1)
+    batch = only(readdir(PaperRuns.jobs_directory(PaperRuns.paper_run.directory);
+        join=true))
+    @test PaperRuns.stored_count(batch) == 10
+    foreach(rm, readdir(directories[2]; join=true))
+    @test PaperRuns.stored_count(batch) == 9
 end
 
 @testset "a batch whose job keeps dying stops the run naming the cases it lacks" begin
@@ -3409,6 +3414,8 @@ end
     @test ismissing(PaperRuns.stored_entry(directory, case))
     store_run(:draft, "code")
     @test PaperRuns.stored_entry(directory, case).trip == 1.0
+    @test PaperRuns.entry_file(directory, entry) !=
+          PaperRuns.entry_file(directory, merge(entry, (; processor="another processor")))
 end
 
 @testset "a Slurm job is submitted only with the account and partition set" begin

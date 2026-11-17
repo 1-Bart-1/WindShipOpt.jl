@@ -669,10 +669,19 @@ function stored_trip(compute, directory, case)
     mkpath(directory)
     temporary = tempname(directory; cleanup=false)
     serialize(temporary, entry)
-    key = content_hash((inputs, entry.files, entry.commit, entry.dirty))
-    mv(temporary, joinpath(directory, string(entry.model, "-", key, ".bin")); force=true)
+    mv(temporary, entry_file(directory, entry); force=true)
     return entry
 end
+
+"""
+    entry_file(directory, entry)
+
+File of the case store `directory` holding `entry`, named by its code and a hash of the
+inputs and data files it read, its commit, dirty flag and processor.
+"""
+entry_file(directory, entry) = joinpath(directory, string(entry.model, "-",
+    content_hash((entry.inputs, entry.files, entry.commit, entry.dirty, entry.processor)),
+    ".bin"))
 
 "model name of the processor this process runs on"
 processor() = strip(Sys.cpu_info()[1].model)
