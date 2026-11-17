@@ -257,7 +257,7 @@ those of the class, otherwise the reference coaster is scaled to `length`.
 """
 Base.@kwdef struct ShipDesign
     drive::Symbol
-    "waterline length [m]"
+    "length between perpendiculars [m]"
     length::Float64
     wing_area::Float64 = 0.0
     kite_area::Float64 = 0.0

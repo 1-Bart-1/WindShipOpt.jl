@@ -3389,15 +3389,15 @@ end
         for departure in monthly_departures
             passage(corridor) = route(corridor, table, SyntheticWeather(), departure;
                 time_cost=300.0)
-            passage() = passage(back)
-            coarse = WindShipOpt.with_router_settings(passage, room_in_time)
+            coarse = WindShipOpt.with_router_settings(() -> passage(back), room_in_time)
             own_path = WindShipOpt.path_corridor(coarse, back, 1)
             along = WindShipOpt.with_router_settings(() -> passage(own_path), every_speed)
             @test coarse.objective <= along.objective * (1 + 1e-4)
-            full = WindShipOpt.with_router_settings(passage, every_speed)
+            full = WindShipOpt.with_router_settings(() -> passage(back), every_speed)
             @test coarse.objective <= full.objective * (1 + 1e-2)
-            by_default = WindShipOpt.with_router_settings(passage, every_speed_by_default)
-            @test passage().objective <= by_default.objective * (1 + 1e-2)
+            by_default = WindShipOpt.with_router_settings(() -> passage(back),
+                every_speed_by_default)
+            @test passage(back).objective <= by_default.objective * (1 + 1e-2)
         end
     end
 end
