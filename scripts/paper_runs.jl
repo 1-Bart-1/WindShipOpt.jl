@@ -29,10 +29,10 @@ function draft_marker()
     kite, rotors, gap = round.(Int, values(DRAFT_SPREAD))
     illustrative_saving = 23
     return "\\tbd{These are draft results from a quick run: one in $ratio of the final " *
-           "run's departures, and one round of the rig size search instead of two. On the " *
-           "140\\,m e-ammonia ship to Guadeloupe, two times in three a draft cost saving " *
-           "lies within $kite percentage points of the final run's for the kite and " *
-           "$rotors for the rotors, as often above as below, so a " *
+           "run's departures, and one round of the rig size search instead of two. On " *
+           "the 140\\,m e-ammonia ship to Guadeloupe, two times in three a draft cost " *
+           "saving lies within $kite percentage points of the final run's for the kite " *
+           "and $rotors for the rotors, as often above as below, so a " *
            "$illustrative_saving\\,\\% kite saving may read " *
            "$(illustrative_saving - kite) to $(illustrative_saving + kite)\\,\\%. The " *
            "kite's lead over the rotors lies within $gap percentage points of the final " *
@@ -223,8 +223,10 @@ end
 
 Hash in hex of the contents of [`code_files`](@ref).
 """
-code_hash() =
-    string(hash(join(basename(file) * read(file, String) for file in code_files())); base=16)
+function code_hash()
+    sources = join(basename(file) * read(file, String) for file in code_files())
+    return string(hash(sources); base=16)
+end
 
 """
     git_output(arguments...)
