@@ -562,7 +562,7 @@ sea [USD/h]: wind_angle.csv.
 function wind_angle_data()
     cases = vec([(name, rig, area) for name in route_names,
                  (rig, area) in [("none", 0.0); reference_rigs]])
-    Ship(ShipDesign(:ammonia, 140.0; kite_area=Dict(reference_rigs)["kite"]), assumptions)
+    build_kite_tables(Dict(reference_rigs)["kite"])
     results = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         results[k] = angle_sums(cases[k]...)
@@ -579,18 +579,33 @@ function wind_angle_data()
 end
 
 """
+    build_kite_tables(area)
+
+Compute once the pattern tables of the 140 m e-ammonia ship's kite of `area` [m^2], which
+the threads that route it then share.
+"""
+build_kite_tables(area) = (Ship(ShipDesign(:ammonia, 140.0; kite_area=area), assumptions);
+                           nothing)
+
+"""
+    track_seasons()
+
+The winter and the summer departure [h] of the routes figure's tracks, by season.
+"""
+track_seasons() = ("winter" => departures[1],
+    "summer" => departures[findfirst(>=(24 * 181), departures)])
+
+"""
     route_tracks_data()
 
 The 140 m e-ammonia ship without a rig and with a 3200 m^2 kite routed out and home on
-every route from a winter and a summer departure: latitude and longitude [°] of each stage
-of each leg, in order: route_tracks.csv.
+every route from the [`track_seasons`](@ref): latitude and longitude [°] of each stage of
+each leg, in order: route_tracks.csv. Errors where a leg cannot be routed.
 """
 function route_tracks_data()
-    seasons = ("winter" => departures[1],
-        "summer" => departures[findfirst(>=(24 * 181), departures)])
-    cases = vec([(season, name, area) for season in seasons, name in route_names,
+    cases = vec([(season, name, area) for season in track_seasons(), name in route_names,
                  area in (0.0, 3200.0)])
-    Ship(ShipDesign(:ammonia, 140.0; kite_area=3200.0), assumptions)
+    build_kite_tables(3200.0)
     trips = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         (_, departure), name, area = cases[k]
@@ -598,11 +613,12 @@ function route_tracks_data()
         hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
         trips[k] = out_and_back(RouteTable(PerformanceTable(ship, assumptions)), name,
             departure, hourly)
+        isnothing(trips[k]) &&
+            error("no round trip on $name from $departure h with $area m^2 of kite")
     end
     open(run_file("route_tracks.csv"), "w") do io
         println(io, "season,departure,route,kite_area,direction,lat,lon")
         for (((season, departure), name, area), trip) in zip(cases, trips)
-            isnothing(trip) && continue
             for (direction, leg) in (("out", trip.out), ("back", trip.back))
                 for (lat, lon) in leg.path
                     @printf(io, "%s,%.0f,%s,%.0f,%s,%.4f,%.4f\n", season, departure,

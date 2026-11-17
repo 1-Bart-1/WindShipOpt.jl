@@ -391,20 +391,19 @@ wind five days after departure; solid outbound, dashed homeward.
 function route_figure()
     tracks = read_table(data_file("route_tracks.csv"))
     figure = Figure(size=(page_width, 255))
-    for (column, season) in enumerate(("winter", "summer"))
+    for (column, (season, departure)) in enumerate(track_seasons())
         axis = Axis(figure[1, column]; title="($('a' + column - 1)) $season departure",
             xlabel="longitude [°]",
             ylabel=column == 1 ? "latitude [°]" : "", aspect=DataAspect(),
             limits=(-100, 12, -26, 58))
         draw_land!(axis, mask; lons=-100:0.25:12, lats=-26:0.25:58)
-        departure = tracks["departure"][first(rows(tracks, "season" => season))]
         draw_wind!(axis, weather, departure + 24 * 5; scale=0.4, lons=-98:6:10,
             lats=-24:6:56)
         for (k, area) in enumerate((0.0, 3200.0)), (i, name) in enumerate(route_names)
             for (direction, style) in (("out", :solid), ("back", :dash))
                 leg = rows(tracks, "season" => season, "route" => string(name),
                     "kite_area" => area, "direction" => direction)
-                isempty(leg) && continue
+                isempty(leg) && error("no $direction track on $name in $season")
                 path = tuple.(tracks["lat"][leg], tracks["lon"][leg])
                 k == 1 && direction == "out" &&
                     lines!(axis, great_circle(first(path), last(path))...;
