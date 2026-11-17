@@ -3016,15 +3016,14 @@ fixed_speed_sums(table, knots, name, hourly) = speed_term_sums(
     speed_term_sums(table, name, hourly, durations)
 
 Fuel energy [GJ], hours, kite flight hours and the leg durations of round trips on route
-`name` over the sampled departures on the [`RouteTable`](@ref) `table`, each leg taking
-the time in `durations` where given by [`scheduled_leg`](@ref
-WindShipOpt.scheduled_leg); `nothing` if a passage fails.
+`name` over the sampled departures on the [`RouteTable`](@ref) `table`, each leg arriving
+by its time in `durations` where given; `nothing` if a passage fails.
 """
 function speed_term_sums(table, name, hourly, durations)
     corridors_of_route = run_corridors(name)
     legs = []
     for (k, departure) in enumerate(sampled_departures())
-        schedule = isnothing(durations) ? (nothing, nothing) :
+        schedule = isnothing(durations) ? (Inf, Inf) :
                    (durations[2k - 1], durations[2k])
         pair = WindShipOpt.route_round_trip(table, corridors_of_route..., weather,
             departure, port_hours(), hourly, Inf, nothing; schedule)

@@ -670,80 +670,22 @@ end
 
 """
     route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly,
-                     horizon, forecast; schedule=(nothing, nothing))
+                     horizon, forecast; schedule=(Inf, Inf))
 
 Outbound and return [`Leg`](@ref) of [`forecast_route`](@ref) on the [`RouteTable`](@ref)
-`table` for one departure at the outbound and return time costs `hourly` [USD/h], or
-`nothing` if either fails, planned on `forecast`, or on the real weather known `horizon`
-[h] ahead where that is `nothing`. Each leg keeps its time [h] in `schedule` by
-[`scheduled_leg`](@ref) where that is given.
+`table` for one departure at the outbound and return time costs `hourly` [USD/h], each
+arriving by its time [h] in `schedule`, or `nothing` if either fails, planned on
+`forecast`, or on the real weather known `horizon` [h] ahead where that is `nothing`.
 """
 function route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly,
-        horizon, forecast; schedule=(nothing, nothing))
-    out = scheduled_leg(first(hourly), first(schedule)) do time_cost
-        forecast_route(outbound, table, weather, departure; time_cost, horizon, forecast)
-    end
+        horizon, forecast; schedule=(Inf, Inf))
+    out = forecast_route(outbound, table, weather, departure; time_cost=first(hourly),
+        arrival_by=first(schedule), horizon, forecast)
     isnothing(out) && return nothing
-    back_departure = departure + out.duration + port_hours
-    back = scheduled_leg(last(hourly), last(schedule)) do time_cost
-        forecast_route(inbound, table, weather, back_departure; time_cost, horizon,
-            forecast)
-    end
+    back = forecast_route(inbound, table, weather, departure + out.duration + port_hours;
+        time_cost=last(hourly), arrival_by=last(schedule), horizon, forecast)
     isnothing(back) && return nothing
     return out, back
-end
-
-"lowest share of its price of time a leg held to a schedule is routed at [-]"
-const LOWEST_SCHEDULE_PRICE = 0.02
-
-"""
-    scheduled_leg(sail, hourly, duration)
-
-Leg `sail(time_cost)` at the time cost `hourly` [USD/h], or, where `duration` [h] is given
-and that leg misses it by more than the [`RouterSettings`](@ref) allow, the slowest leg of
-a search over the time cost that arrives within `duration` and the allowance, or the
-fastest where none does. `nothing` if the leg at `hourly` fails.
-"""
-function scheduled_leg(sail, hourly, duration)
-    leg = sail(hourly)
-    (isnothing(leg) || isnothing(duration)) && return leg
-    (; schedule_tolerance, schedule_routings) = ROUTER_SETTINGS[]
-    tolerance = schedule_tolerance * duration
-    best, factor = leg, 1.0
-    low, high = LOWEST_SCHEDULE_PRICE, Float64(HELD_SPEED_TIME_FACTOR)
-    for _ in 2:schedule_routings
-        abs(leg.duration - duration) <= tolerance && break
-        leg.duration < duration ? (high = factor) : (low = factor)
-        factor = schedule_price_step(factor, leg.duration / duration, low, high)
-        leg = sail(factor * hourly)
-        isnothing(leg) && break
-        best = punctual_leg(best, leg, duration + tolerance)
-    end
-    return best
-end
-
-"""
-    punctual_leg(leg, other, latest)
-
-Of `leg` and `other`, the slower of those arriving by `latest` [h], or the faster where
-neither does.
-"""
-function punctual_leg(leg, other, latest)
-    on_time, other_on_time = leg.duration <= latest, other.duration <= latest
-    on_time != other_on_time && return on_time ? leg : other
-    return (other.duration > leg.duration) == on_time ? other : leg
-end
-
-"""
-    schedule_price_step(factor, time_ratio, low, high)
-
-Next share of the price of time in the search of [`scheduled_leg`](@ref): from `factor`,
-whose leg took `time_ratio` of its scheduled time, by the cube law of speed against price
-where that stays between `low` and `high`, else midway between them in log.
-"""
-function schedule_price_step(factor, time_ratio, low, high)
-    step = factor * time_ratio^3
-    return low < step < high ? step : sqrt(low * high)
 end
 
 """
@@ -858,7 +800,7 @@ end
 """
     service_passages(ship, outbound, inbound, weather, departures, assumptions, hourly,
                      port_hours, horizon, forecast, held_knots;
-                     schedules=Iterators.repeated((nothing, nothing)))
+                     schedules=Iterators.repeated((Inf, Inf)))
 
 [`Passages`](@ref) of `ship` on the round trip of each of `departures`; `nothing` if any
 passage is infeasible. The router holds `held_knots` [kn] by [`held_speed_table`](@ref),
@@ -866,7 +808,7 @@ or chooses speed where `nothing`, each round trip keeping its leg times in `sche
 """
 function service_passages(ship::Ship, outbound, inbound, weather, departures, assumptions,
         hourly, port_hours, horizon, forecast, held_knots;
-        schedules=Iterators.repeated((nothing, nothing)))
+        schedules=Iterators.repeated((Inf, Inf)))
     table = PerformanceTable(ship, assumptions)
     route_table = isnothing(held_knots) ? RouteTable(table) :
                   held_speed_table(table, held_knots)
@@ -1001,7 +943,7 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
     scheduled = isnothing(held_knots) && keeps_schedule(ship)
     schedules = scheduled ?
                 liner_schedules(ship, outbound, inbound, weather, departures, assumptions,
-        port_hours, horizon, forecast) : Iterators.repeated((nothing, nothing))
+        port_hours, horizon, forecast) : Iterators.repeated((Inf, Inf))
     isnothing(schedules) && return nothing
     states = service_states(ship.rig, assumptions)
     services = [share > 0 ?
