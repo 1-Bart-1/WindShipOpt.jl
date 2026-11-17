@@ -76,6 +76,41 @@ latex_escape(text) = replace(text, "\\" => "\\textbackslash{}", "&" => "\\&", "%
     ">=" => "\\ensuremath{\\geq}", "<=" => "\\ensuremath{\\leq}", ">" => "\\textgreater{}",
     "<" => "\\textless{}", r"\^(-?\d)" => s"\\textsuperscript{\1}", "^" => "\\^{}")
 
+"citation in a source note: a bracketed group of `@key, locator` parts, or a bare `@key`"
+citation = r"\[(@[^\]]*)\]|@([A-Za-z0-9_:-]+)"
+
+"""
+    cited_note(note)
+
+Source `note` for LaTeX: the text escaped, a bracketed group `[@key, locator; @key]` set
+in parentheses as `\\citealp` citations and a bare `@key` as `\\citet{key}`.
+"""
+function cited_note(note)
+    parts = String[]
+    start = 1
+    for found in eachmatch(citation, note)
+        push!(parts, latex_escape(note[start:prevind(note, found.offset)]))
+        push!(parts, isnothing(found[1]) ? string("\\citet{", found[2], "}") :
+                     string("(", join(cite_part.(split(found[1], ";")), "; "), ")"))
+        start = found.offset + ncodeunits(found.match)
+    end
+    push!(parts, latex_escape(note[start:end]))
+    return join(parts)
+end
+
+"""
+    cite_part(part)
+
+`\\citealp` of one `@key` or `@key, locator` part of a bracketed citation group.
+"""
+function cite_part(part)
+    found = match(r"^\s*@([A-Za-z0-9_:-]+)\s*(?:,\s*(.*?))?\s*$", part)
+    isnothing(found) && error("citation part \"$part\" is not `@key` or `@key, locator`")
+    key, locator = found
+    isnothing(locator) && return string("\\citealp{", key, "}")
+    return string("\\citealp[", latex_escape(locator), "]{", key, "}")
+end
+
 """
     latex_number(value)
 
@@ -136,7 +171,7 @@ function write_input_row(io, entry, name)
     unit = strip(entry.unit, '"')
     println(io, latex_escape(input_label(name)), " & ", latex_number(entry.value), " & ",
         latex_number(entry.low), "--", latex_number(entry.high), " & ",
-        unit == "-" ? "--" : latex_escape(unit), " & ", latex_escape(entry.reason), " \\\\")
+        unit == "-" ? "--" : latex_escape(unit), " & ", cited_note(entry.reason), " \\\\")
 end
 
 """
@@ -605,7 +640,7 @@ function class_table()
     notes = class_source_notes()
     open(joinpath(sections, "class_sources.tex"), "w") do io
         for class in classes
-            println(io, latex_escape(class.name), " & ", latex_escape(notes[class.name]),
+            println(io, latex_escape(class.name), " & ", cited_note(notes[class.name]),
                 " \\\\")
         end
     end
