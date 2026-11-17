@@ -180,7 +180,7 @@ container_tier_height:
   low: 2.591
   high: 2.896
   unit: m
-  reason: "Height of a standard container, 2.59 m [@mao2020icct, p. 5]; the high bound is a stack of high-cube boxes (9 ft 6 in)."
+  reason: "Height of a standard ISO 668 container, 2.591 m; the high bound is a stack of high-cube boxes, 2.896 m [@hapaglloyd_container_spec, p. 4]."
 container_stowage_fraction:
   value: 0.77
   low: 0.70
@@ -1146,7 +1146,7 @@ winch_cost_per_force:
   low: 0.01
   high: 0.084
   unit: USD/N
-  reason: "Authors' estimate of the manufacturing cost per N of brake holding force: drum, brake and frame steel at 5 kg/kN and a gearbox for a quarter of the holding force."
+  reason: "Authors' estimate of the manufacturing cost per N of brake holding force: drum, brake and frame steel at 5 kg/kN and a gearbox for a quarter of the holding force at the WISDEM gearbox cost of 12.9 USD/kg [@wisdem_csm]."
 launch_mast_height_ratio:
   value: 1.3
   low: 0.8
