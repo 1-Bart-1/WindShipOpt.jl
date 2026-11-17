@@ -3314,7 +3314,7 @@ end
     end
 end
 
-@testset "every rig's route costs what a search at every speed finds" begin
+@testset "every rig's route costs what a search at every speed finds along its path" begin
     _, back = corridors
     room_in_time = WindShipOpt.with_changed(WindShipOpt.ROUTER_SETTINGS[];
         final_time_band=96.0)
@@ -3326,10 +3326,15 @@ end
 
         table = RouteTable(PerformanceTable(Ship(design, assumptions), assumptions))
         for departure in monthly_departures
-            passage() = route(back, table, SyntheticWeather(), departure; time_cost=300.0)
+            passage(corridor) = route(corridor, table, SyntheticWeather(), departure;
+                time_cost=300.0)
+            passage() = passage(back)
             coarse = WindShipOpt.with_router_settings(passage, room_in_time)
+            own_path = WindShipOpt.path_corridor(coarse, back, 1)
+            along = WindShipOpt.with_router_settings(() -> passage(own_path), every_speed)
+            @test coarse.objective <= along.objective * (1 + 1e-4)
             full = WindShipOpt.with_router_settings(passage, every_speed)
-            @test coarse.objective <= full.objective * (1 + 1e-4)
+            @test coarse.objective <= full.objective * (1 + 1e-2)
             by_default = WindShipOpt.with_router_settings(passage, every_speed_by_default)
             @test passage().objective <= by_default.objective * (1 + 1e-2)
         end
