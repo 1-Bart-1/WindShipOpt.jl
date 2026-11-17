@@ -252,10 +252,11 @@ end
     range_cell(input)
 
 The development table's cell of the base value and range of `input` with its unit, or of
-where the kite's weather window lists its limits.
+how many assumptions one of [`joint_inputs`](@ref) moves.
 """
 function range_cell(input)
-    input == :kite_weather_window && return "five limits, \\cref{tab:inputs}"
+    haskey(joint_inputs, input) &&
+        return string(length(joint_inputs[input]), " inputs, \\cref{tab:inputs}")
     assumption = assumptions.entries[input]
     unit = strip(assumption.unit, '"')
     return string(latex_number(assumption.value), " (", latex_number(assumption.low), "--",

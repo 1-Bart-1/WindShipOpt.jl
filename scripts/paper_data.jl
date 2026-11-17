@@ -2120,18 +2120,22 @@ kite_margin_rows = (
     ("Kept down by wind outside its launch range", "down_wind"),
     ("Down otherwise", "down_other"))
 
-"the kite's weather limits, each with the end of its range that widens its weather window"
-kite_weather_limits = (kite_launch_sea_wind=:low, kite_launch_min_wind=:low,
-    kite_launch_max_wind=:high, kite_landing_max_wind=:high, kite_max_wind=:high)
+"""
+Inputs of the development study that move several assumptions together, each with the
+end of every assumption's range that its high bound takes.
+"""
+joint_inputs = (kite_weather_window=(kite_launch_sea_wind=:low, kite_launch_min_wind=:low,
+    kite_launch_max_wind=:high, kite_landing_max_wind=:high, kite_max_wind=:high),)
 
 """
     bound_assumptions(name, bound)
 
 The assumptions with input `name` at its `bound` (:low or :high), the kite's aspect ratio
-at the price of the base kite and its `:kite_weather_window` by [`weather_window`](@ref).
+at the price of the base kite and each of [`joint_inputs`](@ref) by
+[`moved_together`](@ref).
 """
 function bound_assumptions(name, bound)
-    name == :kite_weather_window && return weather_window(bound)
+    haskey(joint_inputs, name) && return moved_together(joint_inputs[name], bound)
     entry = assumptions.entries[name]
     value = bound == :low ? entry.low : entry.high
     name == :kite_aspect_ratio &&
@@ -2140,17 +2144,17 @@ function bound_assumptions(name, bound)
 end
 
 """
-    weather_window(bound)
+    moved_together(high_ends, bound)
 
-The assumptions with each of [`kite_weather_limits`](@ref) at the end of its range that
-narrows the kite's weather window where `bound` is `:low` and widens it where `:high`.
+The assumptions with each one named in `high_ends` at the end of its range given there
+where `bound` is `:high`, and at the other end where it is `:low`.
 """
-function weather_window(bound)
-    narrowing = Dict(:low => :high, :high => :low)
+function moved_together(high_ends, bound)
+    other_end = Dict(:low => :high, :high => :low)
     moved = assumptions
-    for (limit, widening) in pairs(kite_weather_limits)
-        end_of_range = bound == :high ? widening : narrowing[widening]
-        moved = with_value(moved, limit, getfield(assumptions.entries[limit], end_of_range))
+    for (name, high_end) in pairs(high_ends)
+        end_of_range = bound == :high ? high_end : other_end[high_end]
+        moved = with_value(moved, name, getfield(assumptions.entries[name], end_of_range))
     end
     return moved
 end

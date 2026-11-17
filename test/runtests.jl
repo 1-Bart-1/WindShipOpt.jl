@@ -3116,6 +3116,7 @@ end
 end
 
 @testset "the draft sensitivity study routes every other one of the final run's departures" begin
+    run = PaperRuns.paper_run
     @eval PaperRuns departures = collect(0.0:24.0:(71 * 24.0))
     function routed(fidelity)
         @eval PaperRuns paper_run = PaperRun(nothing, $(QuoteNode(fidelity)),
@@ -3125,6 +3126,7 @@ end
     final = routed(:final)
     @test length(final) == 12
     @test routed(:draft) == final[1:2:end]
+    @eval PaperRuns paper_run = $run
 end
 
 @testset "resuming never takes over another branch's unfinished run" begin
