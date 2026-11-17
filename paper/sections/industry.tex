@@ -53,15 +53,7 @@ The class study answers two questions for industry, and we answer each on its ow
 \InputIfFileExists{sections/market_sales_table}{}{\tbd{Market sales table pending: run the market\_table step.}}
 \end{table*}
 
-\stale{classes}{By ship type the sales show which a maker would enter first (\cref{tab:market_sales_types}). \tbd{The rotors' sales are mostly to bulk carriers and then tankers, on both fuels. The kite's are spread over bulk carriers, container ships and crude oil tankers, so a kite maker would enter on container ships, the one type where the kite leads clearly on both fuels.} The split between kite and rotors rests on small margins (above), so its markets are read with their ranges.}
-
-\begin{table*}[tbp]
-\centering
-\footnotesize
-\caption{\stale{classes}{} Ships and rig sales of \cref{tab:market_sales} by ship type for the kite and the rotors, the rigs that win some class and route, on each fuel, from the classes and routes the rig wins alone to those where it is level with another rig too, by the rule of \cref{sec:res_robustness}. Estimates on the same fleet data and assumptions; a dash marks no sales.}
-\label{tab:market_sales_types}
-\InputIfFileExists{sections/market_sales_type_table}{}{\tbd{Market sales type table pending: run the market\_table step.}}
-\end{table*}
+\stale{classes}{By ship type (\cref{tab:market_sales_types}): \tbd{The rotors' sales are mostly to bulk carriers and then tankers, on both fuels. The kite's are spread over bulk carriers, container ships and crude oil tankers, so a kite maker would enter on container ships, the one type where the kite leads clearly on both fuels.}}
 
 How the cost saving is taken depends on how the ship trades. A tramp has its speed set by cost, so part of its cost saving is time (\cref{tab:split}). Container ships and car carriers run liner services, so the model keeps them to the time of the same ship without a rig on every leg, and they take the gain as fuel alone (\cref{sec:routing,tab:speed_terms}). A tramp operator could gain more than our fixed round trips show (\cref{sec:disc_common}).
 
