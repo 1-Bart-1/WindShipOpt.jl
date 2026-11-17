@@ -3799,6 +3799,13 @@ end
     @test PaperData.one_decimal(3.46) == "3.5"
 end
 
+@testset "an input prints under its name in words, the rigid kite named only as a prefix" begin
+    @test PaperData.input_label(:e_ammonia_price) == "e-ammonia price"
+    @test PaperData.input_label(:cargo_per_teu) == "cargo per TEU"
+    @test PaperData.input_label(:rigid_hover_minutes) == "rigid kite hover minutes"
+    @test PaperData.input_label(:mast_rigid_share) == "mast rigid share"
+end
+
 @testset "kite-and-rotor pairs fly only kites already sized, near the best sizes" begin
     kites = [500.0, 1024.0, 1448.0, 2048.0, 4096.0]
     sizes = PaperData.pair_sizes(2000.0, 900.0, kites, (200.0, 800.0))

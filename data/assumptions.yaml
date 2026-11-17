@@ -292,7 +292,7 @@ wing_endplate_factor:
   low: 1.1
   high: 2.0
   unit: "-"
-  reason: "Effective over geometric aspect ratio from the deck mirror: 2.0 sealed, 1.36 at a root gap of 1 % of span, 1.21 at 5 %, 1.09 at 20 % (the authors' calculation of minimum induced drag in the Trefftz plane). WindWings stand about 7.5 m and the Oceanbird wing about 6 m above deck on pedestals (BAR; Oceanbird), the low bound."
+  reason: "Effective over geometric aspect ratio from the deck mirror: 2.0 sealed, 1.36 at a root gap of 1 % of span, 1.21 at 5 %, 1.09 at 20 % (the authors' calculation of minimum induced drag in the Trefftz plane). The low bound is the authors' estimate for a wing on a pedestal 6-8 m above deck."
 wing_max_lift_coefficient:
   value: 2.0
   low: 1.6
@@ -1110,7 +1110,7 @@ tether_price:
   low: 40.0
   high: 300.0
   unit: USD/kg
-  reason: "Purchase price of Dyneema rope at a series of 50 or more, EUR 80/kg (Joshi et al. 2025, p.703), paid to the rope maker without the market price factor; retail small diameters sell at 300-350 USD/kg (Marlow D12 via Mauripro/Binks); the low bound is the authors' estimate for bulk rope of large diameter."
+  reason: "Purchase price of Dyneema rope at a series of 50 or more, EUR 80/kg (Joshi et al. 2025, p.703), paid to the rope maker without the market price factor; the bounds are the authors' estimates for bulk rope of large diameter and for rope of small diameter bought at retail."
 tether_rope_density:
   value: 830.0
   low: 590.0
@@ -1280,13 +1280,13 @@ crew_cost:
   low: 350000.0
   high: 800000.0
   unit: USD/year
-  reason: "Authors' estimate: ~1,370 USD/day fits a mixed crew of seven, while 3,000 dwt coasters earned only ~1,500-2,000 USD/day on time charter in 2024 (ISM), which implies low-cost crewing; an all-EU crew is at the high end."
+  reason: "Authors' estimate: ~1,370 USD/day for a mixed crew of seven on low-cost terms; an all-EU crew is at the high end."
 crew_cost_exponent:
   value: 0.15
   low: 0.0
   high: 0.3
   unit: "-"
-  reason: "Exponent of crew cost over deadweight relative to the reference coaster: Handysize opex USD 4,500/day at 34.7k dwt and Supramax USD 4,910/day at 58.6k dwt (Pacific Basin 2024 interim report) minus the maintenance fraction of their newbuild price leaves ~USD 0.71-0.74 M/year of crew cost, against the 0.5 M coaster value. Drewry puts manning at over half of opex."
+  reason: "Exponent of crew cost over deadweight relative to the reference coaster, authors' estimate: a bulk carrier of 35,000-60,000 dwt taken to spend about USD 0.7 M/year on crew against the 0.5 M of the coaster."
 maintenance_fraction:
   value: 0.03
   low: 0.02

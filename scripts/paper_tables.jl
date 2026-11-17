@@ -116,7 +116,7 @@ input_header = "\\toprule\nInput & Value & Range & Unit & Source \\\\\n\\midrule
 
 "words of an input's name printed otherwise in the input table"
 input_words = Dict("e" => "e-", "teu" => "TEU", "ceu" => "CEU", "usd" => "USD",
-    "eur" => "EUR", "vlsfo" => "VLSFO", "holtrop" => "Holtrop", "rigid" => "rigid kite")
+    "eur" => "EUR", "vlsfo" => "VLSFO", "holtrop" => "Holtrop")
 
 """
     input_label(name)
@@ -125,7 +125,7 @@ Name of the input `name` as the input table prints it, in words rather than as a
 """
 input_label(name) = replace(join([get(input_words, word, word)
                                   for word in split(string(name), "_")], " "),
-    "e- " => "e-")
+    "e- " => "e-", r"^rigid " => "rigid kite ")
 
 """
     write_input_row(io, entry, name)
