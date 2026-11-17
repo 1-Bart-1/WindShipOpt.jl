@@ -2480,27 +2480,26 @@ end
 
 """
     push_samples!(record, table, points, shares, corridor, stage, lateral, next,
-                  start_hours, hours, states, planned, planned_speed, prices, targets,
-                  known, departure)
+                  start_hours, states, planned, planned_speed, prices, targets, known,
+                  departure)
 
 Add to `record` the [`KiteSample`](@ref)s of `points`, at `shares` (0 to 1) along the edge
 from node (`stage`, `lateral`) to `next`, entered `start_hours` [h] after departure and
-sailed in `hours` [h] at commanded `planned_speed` [m/s], with the kite up as `states`
-says, as `planned` would have it, and as the plan's `targets` want it, and `known` the
-weather the plan knew, left at `departure` [h].
+sailed at commanded `planned_speed` [m/s], each once the ship has sailed the hours of the
+points before it, with the kite up as `states` says, as `planned` would have it, and as the
+plan's `targets` want it, and `known` the weather the plan knew, left at `departure` [h].
 """
 function push_samples!(record, table, points, shares, corridor, stage, lateral, next,
-        start_hours, hours, states, planned, planned_speed, prices, targets, known,
-        departure)
+        start_hours, states, planned, planned_speed, prices, targets, known, departure)
     step = lateral_step(corridor, lateral, next)
+    hours = start_hours
     for (k, point) in enumerate(points)
         share = shares[k]
         lat, lon = edge_point(corridor, stage, lateral, next, share)
         speed = table.speeds[max(point.speed_index, 1)]
-        reached = departure + start_hours + share * hours
         forecast = EdgeSample(table.table, known, corridor, stage, lateral, step, share,
-            reached)
-        push!(record.samples, (; hours=start_hours + share * hours, lat, lon,
+            departure + hours)
+        push!(record.samples, (; hours, lat, lon,
             aloft=states[k], planned=planned[k],
             wind_speed=hypot(point.headwind, point.crosswind),
             apparent_wind=hypot(point.headwind + speed, point.crosswind),
@@ -2511,6 +2510,7 @@ function push_samples!(record, table, points, shares, corridor, stage, lateral, 
             stowed_power=point.stowed, fastest_speed=fastest_flown_speed(table, point),
             forecast_fastest=fastest_flown_speed(table, forecast),
             edge_start=start_hours, point))
+        hours += point.hours
     end
 end
 
@@ -2540,11 +2540,11 @@ function record_plan!(record, plan::Leg, corridor, table::RouteTable, weather, d
     points = SailedPoint[]
     for i in 1:(length(plan.path) - 1)
         stage, lateral, step, _ = plan_edge(plan, corridor, departure, 1, i)
-        hours = sail_plan_edge!(points, plan, corridor, table, weather, departure, 1, i)
+        sail_plan_edge!(points, plan, corridor, table, weather, departure, 1, i)
         states = kite_way(table, points, plan.aloft[i], plan.aloft[i + 1], prices)
         next = nearest_lateral(corridor, stage + 1, plan.path[i + 1][1:2]...)
         push_samples!(record, table, points, point_shares(points), corridor, stage,
-            lateral, next, plan.path[i][3], hours, states, states, plan.path[i + 1][4],
+            lateral, next, plan.path[i][3], states, states, plan.path[i + 1][4],
             prices, states, weather, departure)
     end
 end
@@ -2554,7 +2554,7 @@ point_shares(points) = [point_share(k, length(points)) for k in eachindex(points
 
 """
     record_edge!(record, table, points, shares, live_states, corridor, stage, lateral,
-                 next, start_hours, hours, start_aloft, ends_aloft, targets, prices, cost,
+                 next, start_hours, start_aloft, ends_aloft, targets, prices, cost,
                  keeps_plan, planned_speed, known, departure)
 
 Add to `record` the sailed `points` at `shares` (0 to 1) of the edge from node (`stage`,
@@ -2565,7 +2565,7 @@ it knew, left at `departure` [h]. The kite is up at each point as `live_states` 
 where that is `nothing` as the cheapest way to `ends_aloft` has it.
 """
 function record_edge!(record, table, points, shares, live_states, corridor, stage, lateral,
-        next, start_hours, hours, start_aloft, ends_aloft, targets, prices, cost,
+        next, start_hours, start_aloft, ends_aloft, targets, prices, cost,
         keeps_plan, planned_speed, known, departure)
     held_down, held_up, held_states = held_kite_passage(table, points, start_aloft, targets,
         prices)
@@ -2573,8 +2573,7 @@ function record_edge!(record, table, points, shares, live_states, corridor, stag
              !isnothing(live_states) ? live_states :
              kite_way(table, points, start_aloft, ends_aloft, prices)
     push_samples!(record, table, points, shares, corridor, stage, lateral, next,
-        start_hours, hours, states, held_states, planned_speed, prices, targets, known,
-        departure)
+        start_hours, states, held_states, planned_speed, prices, targets, known, departure)
     push!(record.edges, (; ends_aloft, held_ends_aloft=isfinite(held_up.cost),
         different_samples=count(states .!= held_states), samples=length(points), cost,
         held_cost=min(held_down.cost, held_up.cost)))
@@ -2675,7 +2674,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             blocked = !isfinite(hours)
             blocked && break
             isnothing(record) || record_edge!(record, table, sailed, shares, live_states,
-                corridor, stage, lateral, next, time, hours, start_aloft, aloft, targets,
+                corridor, stage, lateral, next, time, start_aloft, aloft, targets,
                 prices, tally.cost, keeps_plan, planned_speed, one_forecast(known),
                 departure)
             objective += edge_objective(tally.cost, hours, prices)
