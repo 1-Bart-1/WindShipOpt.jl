@@ -3056,7 +3056,7 @@ end
           powers" begin
     table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
         assumptions))
-    condition = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 3.0, 6.0, 2π / 3)
+    condition = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 3.0, 7.0, π)
     sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0, true)
     powered(i) = isfinite(last(WindShipOpt.edge_fuels(table, i, condition)))
     unpowered = findfirst(!powered, eachindex(table.speeds))
