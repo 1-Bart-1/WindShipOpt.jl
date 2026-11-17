@@ -3944,6 +3944,14 @@ end
     @test PaperData.input_label(:mast_rigid_share) == "mast rigid share"
 end
 
+@testset "a source note prints each source as a citation of its key" begin
+    note = "Kalverla's profile [@kalverla2019, Ch. 2; @schelbergen2020] gives 5 %; @imo2020 too."
+    @test PaperData.cited_note(note) == "Kalverla's profile (\\citealp[Ch. 2]{kalverla2019}; " *
+        "\\citealp{schelbergen2020}) gives 5 \\%; \\citet{imo2020} too."
+    @test PaperData.cited_note("no source, 50 %") == "no source, 50 \\%"
+    @test_throws ErrorException PaperData.cited_note("[@a2020; Table 3]")
+end
+
 @testset "kite-and-rotor pairs fly only kites already sized, near the best sizes" begin
     kites = [500.0, 1024.0, 1448.0, 2048.0, 4096.0]
     sizes = PaperData.pair_sizes(2000.0, 900.0, kites, (200.0, 800.0))
