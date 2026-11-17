@@ -296,13 +296,12 @@ end
           every speed" begin
     env = Environment(assumptions)
     class = ship_classes()["MR product tanker"]
-    hull = Hull(class.length, class.beam, class.draft, class.block_coefficient, assumptions;
-        class.centre_of_buoyancy,
-        waterline_length=assumptions[:waterline_length_ratio] * class.length)
+    hull = Hull(class, assumptions)
     propeller = WindShipOpt.Propeller(hull, 6.7 / class.draft, assumptions)
     ratios = map(((14.0, 6230), (14.5, 7155), (15.1, 8380))) do (knots, rating)
         speed = knots * KNOT
-        delivered_power(propeller, env, speed, resistance(hull, env, speed)) /
+        uncalibrated = resistance(hull, env, speed) / hull.resistance_factor
+        delivered_power(propeller, env, speed, uncalibrated) /
         (1e3rating / 1.15 * 0.99)
     end
     @test all(ratio -> 0.95 < ratio < 1.06, ratios)

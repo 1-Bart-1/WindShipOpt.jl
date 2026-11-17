@@ -69,7 +69,8 @@ end
 """
     Hull(length, assumptions)
 
-Reference coaster of `assumptions`, scaled geometrically to waterline `length` [m].
+Reference coaster of `assumptions`, scaled geometrically to `length` [m], which is also
+its waterline length.
 """
 function Hull(length::Real, assumptions::Assumptions)
     scale = length / assumptions[:reference_length]
