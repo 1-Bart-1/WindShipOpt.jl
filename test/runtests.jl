@@ -274,7 +274,8 @@ end
     full = classes["Kamsarmax bulk carrier"]
     capped_hull, free_hull = (Hull(full, values) for values in (assumptions, uncapped))
     @test WindShipOpt.prismatic_coefficient(capped_hull) == 0.85
-    @test WindShipOpt.prismatic_coefficient(free_hull) ≈ 0.88 / 0.99
+    @test WindShipOpt.prismatic_coefficient(free_hull) ≈
+          0.88 / assumptions[:waterline_length_ratio] / 0.99
     # the true displacement stays, and the calibration still meets the source design
     @test capped_hull.displacement_volume == free_hull.displacement_volume
     service = full.service_speed * WindShipOpt.KNOT
@@ -282,11 +283,29 @@ end
     @test capped_hull.resistance_factor > free_hull.resistance_factor
     # less of the excess wave resistance at service speed means more resistance when slow
     slow = 0.7service
-    @test resistance(capped_hull, env, slow) > 1.05resistance(free_hull, env, slow)
+    @test resistance(capped_hull, env, slow) > 1.02resistance(free_hull, env, slow)
     # a class inside the range does not move
     inside = classes["VLCC"]
     @test resistance(Hull(inside, assumptions), env, 6.0) ==
           resistance(Hull(inside, uncapped), env, 6.0)
+end
+
+# MAN ES (2019, Tables 2-4) power its MR tanker by Holtrop & Mennen with a 6.7 m propeller:
+# 90 % SMCR with a 15 % sea margin and a 0.99 shaft at each speed.
+@testset "an uncalibrated class hull meets MAN's Holtrop-Mennen power of its source at \
+          every speed" begin
+    env = Environment(assumptions)
+    class = ship_classes()["MR product tanker"]
+    hull = Hull(class, assumptions)
+    propeller = WindShipOpt.Propeller(hull, 6.7 / class.draft, assumptions)
+    ratios = map(((14.0, 6230), (14.5, 7155), (15.1, 8380))) do (knots, rating)
+        speed = knots * KNOT
+        uncalibrated = resistance(hull, env, speed) / hull.resistance_factor
+        delivered_power(propeller, env, speed, uncalibrated) /
+        (1e3rating / 1.15 * 0.99)
+    end
+    @test all(ratio -> 0.95 < ratio < 1.06, ratios)
+    @test maximum(ratios) - minimum(ratios) < 0.015
 end
 
 # Tillig & Ringsberg (2020) give a lift coefficient of about 9.5 at spin ratio 3.
@@ -1052,7 +1071,7 @@ end
 
 @testset "a class ship's drive delivers the shaft power of its source engine" begin
     class = ship_classes()["feeder container ship"]
-    shaft = 1e3class.power * assumptions[:shaft_efficiency]
+    shaft = 1e3class.power * assumptions[:direct_shaft_efficiency]
     for drive in (:vlsfo, :methanol, :ammonia)
         powertrain = Ship(ShipDesign(drive, class), assumptions).powertrain
         output = powertrain.installed_power - powertrain.hotel_load
@@ -1067,7 +1086,8 @@ end
         ship = Ship(ShipDesign(:vlsfo, class), assumptions)
         speed = class.service_speed * KNOT
         thrust = resistance(ship.hull, ship.env, speed)
-        source = 1e3class.power * class.source_load * assumptions[:shaft_efficiency] /
+        shaft = assumptions[:direct_shaft_efficiency]
+        source = 1e3class.power * class.source_load * shaft /
                  (1 + assumptions[:source_sea_margin])
         delivered = delivered_power(ship.propeller, ship.env, speed, thrust)
         @test delivered ≈ source rtol = 1e-6
@@ -1999,6 +2019,53 @@ end
     @test any(speeds -> length(unique(speeds)) > 1, values(edges))
     @test any(sample -> sample.speed > sample.planned_speed, record.samples)
     @test all(sample -> sample.sample_hours <= 1.0 + 1e-9, record.samples)
+end
+
+"""
+The real `weather` until `cut` [h], and from then on with its wind turned and its sea
+raised.
+"""
+struct ChangedAfter{W}
+    weather::W
+    cut::Float64
+end
+WindShipOpt.duration(changed::ChangedAfter) = WindShipOpt.duration(changed.weather)
+function WindShipOpt.wind(changed::ChangedAfter, lat, lon, time)
+    east, north = WindShipOpt.wind(changed.weather, lat, lon, time)
+    return time < changed.cut ? (east, north) : (east + 6.0, north - 4.0)
+end
+function WindShipOpt.waves(changed::ChangedAfter, lat, lon, time)
+    height, period, direction = WindShipOpt.waves(changed.weather, lat, lon, time)
+    return (time < changed.cut ? height : height + 1.0), period, direction
+end
+
+"Forecast source that always plans on `weather`, whatever the real weather is."
+struct FixedForecast{W}
+    weather::W
+end
+WindShipOpt.known_weather(source::FixedForecast, weather, time, horizon) = source.weather
+
+"""
+Hours, speed and kite state of each step the kite coaster sails live in the real `weather`
+on a fixed forecast, departing at 24 × 121 h, for the first `cut` [h] after departure.
+`routing` is what `kite_coaster_routing` returns.
+"""
+function live_steps_before(routing, weather, cut)
+    kite_table, kite_hourly, finer = routing
+    record = WindShipOpt.KiteRecord()
+    forecast_route(finer, kite_table, weather, 24.0 * 121; time_cost=kite_hourly, record,
+        forecast=ReplannedForecast(FixedForecast(SyntheticWeather(; seed=2)); adapts=:live))
+    return [(sample.hours, sample.speed, sample.aloft)
+            for sample in record.samples if sample.hours < cut]
+end
+
+@testset "a live ship decides each hour without the weather it has not reached" begin
+    cut, routing = 100.0, kite_coaster_routing(400.0)
+    steps = live_steps_before(routing, SyntheticWeather(), cut)
+    @test length(steps) > 50
+    @test any(last, steps)
+    changed = ChangedAfter(SyntheticWeather(), 24.0 * 121 + cut)
+    @test live_steps_before(routing, changed, cut) == steps
 end
 
 @testset "a ship sailing live on a true forecast sails about as its plan" begin

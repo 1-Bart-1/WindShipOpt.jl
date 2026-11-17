@@ -1793,18 +1793,9 @@ function write_forecast_error(name, corridors...)
     points = unique(vcat([vec(collect(zip(corridor.lat, corridor.lon)))
                           for corridor in corridors]...))
     leads = 6.0:6.0:384.0
-    shape = (length(leads), length(forecast_error_columns))
-    totals, counts = zeros(shape), zeros(Int, shape)
-    for issue in 1:WindShipOpt.issue_count(forecast_archive.wind)
-        issued = WindShipOpt.issue_time(forecast_archive, issue)
-        known = ArchivedForecast(forecast_archive, issued + WindShipOpt.FORECAST_LATENCY)
-        known.issue == issue || continue
-        for (row, lead) in enumerate(leads)
-            issued + lead <= WindShipOpt.duration(weather) || continue
-            add_forecast_errors!(view(totals, row, :), view(counts, row, :), known, points,
-                issued + lead)
-        end
-    end
+    issues = [Threads.@spawn issue_forecast_errors(weather, forecast_archive, issue, points,
+                  leads) for issue in 1:WindShipOpt.issue_count(forecast_archive.wind)]
+    totals, counts = reduce(.+, fetch.(issues))
     open(run_file(name), "w") do io
         println(io, join(("lead_days", forecast_error_columns...), ","))
         for (row, lead) in enumerate(leads)
@@ -1818,15 +1809,37 @@ function write_forecast_error(name, corridors...)
 end
 
 """
-    add_forecast_errors!(totals, counts, known, points, time)
+    issue_forecast_errors(weather, archive, issue, points, leads)
 
-Add to `totals` over `points`, and count in `counts`, the squared error against the
-weather at `time` of the vector wind of the forecast `known` less its bias, of its blend
-and of the climatology, then the forecast's weight, and the same four for the wave
-height, leaving out a value the forecast does not hold.
+Totals and counts per lead of `leads` [h] and column of [`forecast_error_columns`](@ref),
+as [`add_forecast_errors!`](@ref) adds them over `points`, of forecast `issue` of `archive`
+against `weather`; none where that issue is not the one known as it reaches the ship, or
+for a lead past the end of `weather`.
 """
-function add_forecast_errors!(totals, counts, known, points, time)
-    climate = forecast_archive.climate
+function issue_forecast_errors(weather, archive, issue, points, leads)
+    shape = (length(leads), length(forecast_error_columns))
+    totals, counts = zeros(shape), zeros(Int, shape)
+    issued = WindShipOpt.issue_time(archive, issue)
+    known = ArchivedForecast(archive, issued + WindShipOpt.FORECAST_LATENCY)
+    known.issue == issue || return totals, counts
+    for (row, lead) in enumerate(leads)
+        issued + lead <= WindShipOpt.duration(weather) || continue
+        add_forecast_errors!(view(totals, row, :), view(counts, row, :), weather, known,
+            points, issued + lead)
+    end
+    return totals, counts
+end
+
+"""
+    add_forecast_errors!(totals, counts, weather, known, points, time)
+
+Add to `totals` over `points`, and count in `counts`, the squared error against `weather`
+at `time` of the vector wind of the forecast `known` less its bias, of its blend and of the
+climatology, then the forecast's weight, and the same four for the wave height, leaving
+out a value the forecast does not hold.
+"""
+function add_forecast_errors!(totals, counts, weather, known, points, time)
+    climate = known.archive.climate
     for (lat, lon) in points
         truth_wind, truth_height = wind(weather, lat, lon, time),
         first(waves(weather, lat, lon, time))

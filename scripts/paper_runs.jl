@@ -17,20 +17,26 @@ fidelities = Dict(:draft => (corridor_scale=1.0, departure_step=36, size_rounds=
     :final => (corridor_scale=1.0, departure_step=6, size_rounds=2))
 
 """
-Spread [points] of a draft result about the final run's on the development case: of the
-kite's and the rotors' savings and of the gap between them
+Spread of a draft result about the final run's on the 140 m e-ammonia ship to Guadeloupe,
+one standard deviation [percentage points]: of the kite's and the rotors' cost savings and
+of the kite's lead over the rotors
 """
 DRAFT_SPREAD = (kite=4.9, rotors=3.7, gap=2.8)
 
 "text of the paper's draft marker: what a draft run leaves out and how far it may lie off"
 function draft_marker()
     ratio = fidelities[:draft].departure_step ÷ fidelities[:final].departure_step
-    return "\\tbd{Results at draft fidelity: the final run's grid on one in $ratio of " *
-           "its departures, with one round of the rig size search instead of two. On the " *
-           "development case a draft saving lies about the final run's by " *
-           "$(DRAFT_SPREAD.kite) points for the kite, $(DRAFT_SPREAD.rotors) for the " *
-           "rotors and $(DRAFT_SPREAD.gap) for the gap between them (one standard " *
-           "deviation), with no bias from the grid.}\n"
+    kite, rotors, gap = round.(Int, values(DRAFT_SPREAD))
+    illustrative_saving = 23
+    return "\\tbd{These are draft results from a quick run: one in $ratio of the final " *
+           "run's departures, and one round of the rig size search instead of two. On " *
+           "the 140\\,m e-ammonia ship to Guadeloupe, two times in three a draft cost " *
+           "saving lies within $kite percentage points of the final run's for the kite " *
+           "and $rotors for the rotors, as often above as below, so a " *
+           "$illustrative_saving\\,\\% kite saving may read " *
+           "$(illustrative_saving - kite) to $(illustrative_saving + kite)\\,\\%. The " *
+           "kite's lead over the rotors lies within $gap percentage points of the final " *
+           "run's lead, so a smaller lead between two rigs is not yet settled.}\n"
 end
 
 """
@@ -217,8 +223,10 @@ end
 
 Hash in hex of the contents of [`code_files`](@ref).
 """
-code_hash() =
-    string(hash(join(basename(file) * read(file, String) for file in code_files())); base=16)
+function code_hash()
+    sources = join(basename(file) * read(file, String) for file in code_files())
+    return string(hash(sources); base=16)
+end
 
 """
     git_output(arguments...)
