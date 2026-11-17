@@ -670,22 +670,80 @@ end
 
 """
     route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly,
-                     horizon, forecast)
+                     horizon, forecast; schedule=(nothing, nothing))
 
 Outbound and return [`Leg`](@ref) of [`forecast_route`](@ref) on the [`RouteTable`](@ref)
 `table` for one departure at the outbound and return time costs `hourly` [USD/h], or
 `nothing` if either fails, planned on `forecast`, or on the real weather known `horizon`
-[h] ahead where that is `nothing`.
+[h] ahead where that is `nothing`. Each leg keeps its time [h] in `schedule` by
+[`scheduled_leg`](@ref) where that is given.
 """
 function route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly,
-        horizon, forecast)
-    out = forecast_route(outbound, table, weather, departure; time_cost=first(hourly),
-        horizon, forecast)
+        horizon, forecast; schedule=(nothing, nothing))
+    out = scheduled_leg(first(hourly), first(schedule)) do time_cost
+        forecast_route(outbound, table, weather, departure; time_cost, horizon, forecast)
+    end
     isnothing(out) && return nothing
-    back = forecast_route(inbound, table, weather, departure + out.duration + port_hours;
-        time_cost=last(hourly), horizon, forecast)
+    back_departure = departure + out.duration + port_hours
+    back = scheduled_leg(last(hourly), last(schedule)) do time_cost
+        forecast_route(inbound, table, weather, back_departure; time_cost, horizon,
+            forecast)
+    end
     isnothing(back) && return nothing
     return out, back
+end
+
+"lowest share of its price of time a leg held to a schedule is routed at [-]"
+const LOWEST_SCHEDULE_PRICE = 0.02
+
+"""
+    scheduled_leg(sail, hourly, duration)
+
+Leg `sail(time_cost)` at the time cost `hourly` [USD/h], or, where `duration` [h] is given
+and that leg misses it by more than the [`RouterSettings`](@ref) allow, the slowest leg of
+a search over the time cost that arrives within `duration` and the allowance, or the
+fastest where none does. `nothing` if the leg at `hourly` fails.
+"""
+function scheduled_leg(sail, hourly, duration)
+    leg = sail(hourly)
+    (isnothing(leg) || isnothing(duration)) && return leg
+    (; schedule_tolerance, schedule_routings) = ROUTER_SETTINGS[]
+    tolerance = schedule_tolerance * duration
+    best, factor = leg, 1.0
+    low, high = LOWEST_SCHEDULE_PRICE, Float64(HELD_SPEED_TIME_FACTOR)
+    for _ in 2:schedule_routings
+        abs(leg.duration - duration) <= tolerance && break
+        leg.duration < duration ? (high = factor) : (low = factor)
+        factor = schedule_price_step(factor, leg.duration / duration, low, high)
+        leg = sail(factor * hourly)
+        isnothing(leg) && break
+        best = punctual_leg(best, leg, duration + tolerance)
+    end
+    return best
+end
+
+"""
+    punctual_leg(leg, other, latest)
+
+Of `leg` and `other`, the slower of those arriving by `latest` [h], or the faster where
+neither does.
+"""
+function punctual_leg(leg, other, latest)
+    on_time, other_on_time = leg.duration <= latest, other.duration <= latest
+    on_time != other_on_time && return on_time ? leg : other
+    return (other.duration > leg.duration) == on_time ? other : leg
+end
+
+"""
+    schedule_price_step(factor, time_ratio, low, high)
+
+Next share of the price of time in the search of [`scheduled_leg`](@ref): from `factor`,
+whose leg took `time_ratio` of its scheduled time, by the cube law of speed against price
+where that stays between `low` and `high`, else midway between them in log.
+"""
+function schedule_price_step(factor, time_ratio, low, high)
+    step = factor * time_ratio^3
+    return low < step < high ? step : sqrt(low * high)
 end
 
 """
@@ -799,20 +857,22 @@ end
 
 """
     service_passages(ship, outbound, inbound, weather, departures, assumptions, hourly,
-                     port_hours, horizon, forecast, held_knots)
+                     port_hours, horizon, forecast, held_knots;
+                     schedules=Iterators.repeated((nothing, nothing)))
 
 [`Passages`](@ref) of `ship` on the round trip of each of `departures`; `nothing` if any
 passage is infeasible. The router holds `held_knots` [kn] by [`held_speed_table`](@ref),
-or chooses speed where `nothing`.
+or chooses speed where `nothing`, each round trip keeping its leg times in `schedules`.
 """
 function service_passages(ship::Ship, outbound, inbound, weather, departures, assumptions,
-        hourly, port_hours, horizon, forecast, held_knots)
+        hourly, port_hours, horizon, forecast, held_knots;
+        schedules=Iterators.repeated((nothing, nothing)))
     table = PerformanceTable(ship, assumptions)
     route_table = isnothing(held_knots) ? RouteTable(table) :
                   held_speed_table(table, held_knots)
     legs = fetch.([Threads.@spawn route_round_trip(route_table, outbound, inbound, weather,
-                       departure, port_hours, hourly, horizon, forecast)
-                   for departure in departures])
+                       departure, port_hours, hourly, horizon, forecast; schedule)
+                   for (departure, schedule) in zip(departures, schedules)])
     any(isnothing, legs) && return nothing
     largest_leg = maximum(max(out.fuel_energy, back.fuel_energy) for (out, back) in legs)
     return [Passages(out.fuel_energy + back.fuel_energy, out.duration, back.duration,
@@ -926,7 +986,8 @@ by [`voyage_costs`](@ref), and that of each departure with the same ship by
 [`departure_outcome`](@ref). With a finite forecast `horizon` [h] the router knows the
 weather only that far ahead, with a [`ForecastArchive`](@ref) `forecast` it re-plans daily
 on its forecasts, and with `held_knots` [kn] the ship holds that speed instead of choosing
-by cost. Wings and rotors are fixed or retractable, whichever costs less. The router
+by cost. A ship of a liner class keeps the [`liner_schedules`](@ref) where it chooses its
+speed. Wings and rotors are fixed or retractable, whichever costs less. The router
 prices time at the hold's cargo before the fuel store. Returns `nothing` if any passage
 is infeasible or the fuel store leaves no cargo.
 """
@@ -937,11 +998,16 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
     costs = ship_costs(ship, assumptions)
     hourly = leg_time_costs(first(costs), assumptions)
     router_hourly = isnothing(held_knots) ? hourly : HELD_SPEED_TIME_FACTOR .* hourly
+    scheduled = isnothing(held_knots) && keeps_schedule(ship)
+    schedules = scheduled ?
+                liner_schedules(ship, outbound, inbound, weather, departures, assumptions,
+        port_hours, horizon, forecast) : Iterators.repeated((nothing, nothing))
+    isnothing(schedules) && return nothing
     states = service_states(ship.rig, assumptions)
     services = [share > 0 ?
                 service_passages(with_rig(ship, rig), outbound, inbound, weather,
                     departures, assumptions, router_hourly, port_hours, horizon,
-                    forecast, held_knots) : nothing
+                    forecast, held_knots; schedules) : nothing
                 for (share, rig) in states]
     any(isnothing(service) && share > 0
         for ((share, _), service) in zip(states, services)) && return nothing
@@ -968,6 +1034,32 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
         mean_of(passage -> passage.flight_hours) / sea_hours,
         mean_of(passage -> passage.launches), mean_of(passage -> passage.forced_landings),
         retractable, passages, outcomes)
+end
+
+"""
+    keeps_schedule(ship)
+
+Whether `ship` has a rig and is of a liner class, so that it keeps the schedule of the
+same ship without its rig.
+"""
+keeps_schedule(ship::Ship) =
+    !isnothing(ship.rig) && !isnothing(ship.design.class) && ship.design.class.liner
+
+"""
+    liner_schedules(ship, outbound, inbound, weather, departures, assumptions, port_hours,
+                    horizon, forecast)
+
+Outbound and return times [h] of each of `departures` of `ship` without its rig, routed
+for cost as [`round_trip`](@ref) routes it, or `nothing` if a passage fails.
+"""
+function liner_schedules(ship, outbound, inbound, weather, departures, assumptions,
+        port_hours, horizon, forecast)
+    bare = with_rig(ship, nothing)
+    hourly = leg_time_costs(ShipCosts(bare, assumptions), assumptions)
+    passages = service_passages(bare, outbound, inbound, weather, departures, assumptions,
+        hourly, port_hours, horizon, forecast, nothing)
+    isnothing(passages) && return nothing
+    return [(passage.out_hours, passage.back_hours) for passage in passages]
 end
 
 """

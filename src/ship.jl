@@ -110,7 +110,7 @@ end
 
 A standard merchant ship size class with its kind, main dimensions, deadweight, service
 speed and engine power, newbuild price, the value of its cargo, its capacity in cargo
-units and its container tiers on deck.
+units, its container tiers on deck and whether it runs a liner service.
 """
 Base.@kwdef struct ShipClass
     name::String
@@ -155,6 +155,9 @@ Base.@kwdef struct ShipClass
     "extra time per port call that a fixed deck rig costs cargo handling, Inf where it
     prevents it [h]"
     fixed_rig_port_hours::Float64
+    "whether the class runs a liner service to a fixed schedule rather than trading voyage
+    by voyage"
+    liner::Bool
 end
 
 """
@@ -182,7 +185,8 @@ function ship_classes()
             "newbuild_price", "cargo_value", "deck_tiers", "air_draft_limit",
             "restricted_call_share", "fixed_rig_port_hours", "unit_capacity"))
         classes[row["name"]] = ShipClass(; name=row["name"], type=row["type"],
-            cargo_unit=Symbol(lowercase(row["cargo_unit"])), values...)
+            cargo_unit=Symbol(lowercase(row["cargo_unit"])),
+            liner=(; liner=true, tramp=false)[Symbol(row["service"])], values...)
     end
     return classes
 end

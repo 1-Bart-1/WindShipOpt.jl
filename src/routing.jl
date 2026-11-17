@@ -387,8 +387,9 @@ end
 """
     RouterSettings
 
-Numerical settings of the planner: the search of [`route`](@ref) and the grid
-[`forecast_route`](@ref) plans each stretch on by [`planning_corridor`](@ref).
+Numerical settings of the planner: the search of [`route`](@ref), the grid
+[`forecast_route`](@ref) plans each stretch on by [`planning_corridor`](@ref) and the
+search of [`scheduled_leg`](@ref).
 """
 Base.@kwdef struct RouterSettings
     "longest time between the weather samples along an edge [h]"
@@ -434,6 +435,10 @@ Base.@kwdef struct RouterSettings
     live_step_hours::Float64 = 1.0
     "speeds a ship sailing live skips between those it weighs, plus one"
     live_speed_stride::Int = 4
+    "how far a leg held to a schedule may miss its time, as a share of that time [-]"
+    schedule_tolerance::Float64 = 0.005
+    "most routings of a leg held to a schedule in the search for its price of time"
+    schedule_routings::Int = 6
 end
 
 "[`RouterSettings`](@ref) in force, in every task"

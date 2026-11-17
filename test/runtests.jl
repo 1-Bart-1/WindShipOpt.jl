@@ -1408,6 +1408,22 @@ end
     @test chosen.cost_per_tonne_km <= minimum(trip.cost_per_tonne_km for trip in held)
 end
 
+@testset "a liner keeps the time of its ship without a rig and takes the gain as fuel" begin
+    liner = ship_classes()["feeder container ship"]
+    tramp = ShipClass(; (name => getfield(liner, name) for name in fieldnames(ShipClass))...,
+        liner=false)
+    departures = [24.0 * 31, 24.0 * 200]
+    trip(class; rig...) = round_trip(Ship(ShipDesign(:ammonia, class; rig...), assumptions),
+        corridors..., SyntheticWeather(), departures, assumptions)
+    days(trip) = trip.outbound_days + trip.return_days
+    bare, scheduled, free = trip(liner), trip(liner; rotor_area=600.0),
+    trip(tramp; rotor_area=600.0)
+    @test days(free) < 0.99days(bare)
+    @test days(free) < days(scheduled) <= 1.005days(bare)
+    @test scheduled.fuel_energy < free.fuel_energy
+    @test days(trip(tramp)) == days(bare)
+end
+
 @testset "an edge is sampled at most the asked hours apart at the commanded speed" begin
     weather, stage, centre = SyntheticWeather(), 1, centre_index(corridor)
     step = WindShipOpt.MAX_LATERAL_STEP + 1
