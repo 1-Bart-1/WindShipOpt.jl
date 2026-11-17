@@ -28,11 +28,12 @@ class CheckNumbers(unittest.TestCase):
                "\\given{\\SI{140}{m}} ship over \\given{12} departures.")
         self.assertEqual(numbers(tex), [])
 
-    def test_stale_in_a_float_covers_the_float(self):
+    def test_only_an_empty_stale_covers_a_whole_float(self):
         tex = ("\\begin{table}\\caption{\\stale{convergence}{} Error.}\n"
                "\\begin{tabular}{lr} Kite & 1.2 \\\\ \\end{tabular}\\end{table}\n"
-               "\\begin{table}\\caption{Error.} 3.4 \\end{table}")
-        self.assertEqual(hand_typed(tex), [(3, "3.4")])
+               "\\begin{table}\\caption{Error.} 3.4 \\end{table}\n"
+               "\\begin{table}\\caption{\\stale{routes}{Up to 2 points.}} 5.6 \\end{table}")
+        self.assertEqual(hand_typed(tex), [(3, "3.4"), (4, "5.6")])
 
     def test_generated_values_references_and_layout_pass(self):
         tex = ("% 99 in a comment\n\\NumSavingOilKite\\,\\% in \\cref{tab:a2} "

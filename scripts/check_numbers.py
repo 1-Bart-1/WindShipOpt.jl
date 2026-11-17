@@ -30,6 +30,7 @@ NUMBER = re.compile(r"(?<![A-Za-z0-9.])\d[\d,.]*")
 DIMENSION = re.compile(r"\s*(pt|em|ex|cm|mm|in|bp|\\(text|line|column)width)\b")
 YEAR = re.compile(r"(19|20)\d\d")
 FLOAT = re.compile(r"\\begin\{(table|figure|longtable)\*?\}.*?\\end\{\1\*?\}", re.S)
+FLOAT_MARKER = re.compile(r"\\stale\{[^}]*\}\{\}")
 
 
 def group_end(text, start):
@@ -63,13 +64,13 @@ def arguments(text, index):
 
 
 def masked(text):
-    """`text` with comments, the preamble, floats holding a \\stale marker, units,
+    """`text` with comments, the preamble, floats marked whole by \\stale{studies}{}, units,
     subscripts, superscripts and the arguments of `SKIPPED` and `SKIPPED_ARGUMENTS`
     blanked: what is left is the typed text whose numbers count."""
     text = re.sub(r"(?<!\\)%[^\n]*", lambda match: " " * len(match.group()), text)
     text = blank(text, 0, max(text.find("\\begin{document}"), 0))
     for match in FLOAT.finditer(text):
-        if "\\stale{" in match.group():
+        if FLOAT_MARKER.search(match.group()):
             text = blank(text, match.start(), match.end())
     text = re.sub(r"[_^](\{[^}]*\}|\\?[A-Za-z0-9]+)",
                   lambda match: " " * len(match.group()), text)
