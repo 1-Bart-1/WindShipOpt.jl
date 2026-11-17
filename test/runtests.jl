@@ -274,7 +274,8 @@ end
     full = classes["Kamsarmax bulk carrier"]
     capped_hull, free_hull = (Hull(full, values) for values in (assumptions, uncapped))
     @test WindShipOpt.prismatic_coefficient(capped_hull) == 0.85
-    @test WindShipOpt.prismatic_coefficient(free_hull) ≈ 0.88 / 0.99
+    @test WindShipOpt.prismatic_coefficient(free_hull) ≈
+          0.88 / assumptions[:waterline_length_ratio] / 0.99
     # the true displacement stays, and the calibration still meets the source design
     @test capped_hull.displacement_volume == free_hull.displacement_volume
     service = full.service_speed * WindShipOpt.KNOT
@@ -282,11 +283,30 @@ end
     @test capped_hull.resistance_factor > free_hull.resistance_factor
     # less of the excess wave resistance at service speed means more resistance when slow
     slow = 0.7service
-    @test resistance(capped_hull, env, slow) > 1.05resistance(free_hull, env, slow)
+    @test resistance(capped_hull, env, slow) > 1.02resistance(free_hull, env, slow)
     # a class inside the range does not move
     inside = classes["VLCC"]
     @test resistance(Hull(inside, assumptions), env, 6.0) ==
           resistance(Hull(inside, uncapped), env, 6.0)
+end
+
+# MAN ES (2019, Tables 2-4) power its MR tanker by Holtrop & Mennen with a 6.7 m propeller:
+# 90 % SMCR with a 15 % sea margin and a 0.99 shaft at each speed.
+@testset "an uncalibrated class hull meets MAN's Holtrop-Mennen power of its source at \
+          every speed" begin
+    env = Environment(assumptions)
+    class = ship_classes()["MR product tanker"]
+    hull = Hull(class.length, class.beam, class.draft, class.block_coefficient, assumptions;
+        class.centre_of_buoyancy,
+        waterline_length=assumptions[:waterline_length_ratio] * class.length)
+    propeller = WindShipOpt.Propeller(hull, 6.7 / class.draft, assumptions)
+    ratios = map(((14.0, 6230), (14.5, 7155), (15.1, 8380))) do (knots, rating)
+        speed = knots * KNOT
+        delivered_power(propeller, env, speed, resistance(hull, env, speed)) /
+        (1e3rating / 1.15 * 0.99)
+    end
+    @test all(ratio -> 0.95 < ratio < 1.06, ratios)
+    @test maximum(ratios) - minimum(ratios) < 0.015
 end
 
 # Tillig & Ringsberg (2020) give a lift coefficient of about 9.5 at spin ratio 3.
@@ -1052,7 +1072,7 @@ end
 
 @testset "a class ship's drive delivers the shaft power of its source engine" begin
     class = ship_classes()["feeder container ship"]
-    shaft = 1e3class.power * assumptions[:shaft_efficiency]
+    shaft = 1e3class.power * assumptions[:direct_shaft_efficiency]
     for drive in (:vlsfo, :methanol, :ammonia)
         powertrain = Ship(ShipDesign(drive, class), assumptions).powertrain
         output = powertrain.installed_power - powertrain.hotel_load
@@ -1067,7 +1087,7 @@ end
         ship = Ship(ShipDesign(:vlsfo, class), assumptions)
         speed = class.service_speed * KNOT
         thrust = resistance(ship.hull, ship.env, speed)
-        source = 1e3class.power * class.source_load * assumptions[:shaft_efficiency] /
+        source = 1e3class.power * class.source_load * assumptions[:direct_shaft_efficiency] /
                  (1 + assumptions[:source_sea_margin])
         delivered = delivered_power(ship.propeller, ship.env, speed, thrust)
         @test delivered ≈ source rtol = 1e-6

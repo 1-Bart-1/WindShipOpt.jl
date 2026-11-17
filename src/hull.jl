@@ -32,7 +32,7 @@ end
 Main dimensions and form coefficients of a single-screw hull, as used by Holtrop–Mennen.
 """
 Base.@kwdef struct Hull
-    "waterline length [m]"
+    "length between perpendiculars [m]"
     length::Float64
     "moulded breadth [m]"
     beam::Float64
@@ -62,6 +62,8 @@ Base.@kwdef struct Hull
     resistance_factor::Float64 = 1.0
     "largest prismatic coefficient the Holtrop formulas are evaluated at [-]"
     max_prismatic::Float64 = 1.0
+    "waterline length, on which the Holtrop formulas are evaluated [m]"
+    waterline_length::Float64 = length
 end
 
 """
@@ -76,19 +78,23 @@ function Hull(length::Real, assumptions::Assumptions)
 end
 
 """
-    Hull(length, beam, draft, block, assumptions; centre_of_buoyancy, resistance_factor=1)
+    Hull(length, beam, draft, block, assumptions; centre_of_buoyancy, resistance_factor=1,
+        waterline_length=length)
 
-Hull of the given main dimensions [m] and block coefficient, with the form ratios of the
-reference coaster, its centre of buoyancy [% of length] unless given, and the factor on
-its calm-water resistance. Its form terms stop at the prismatic coefficient
-`holtrop_max_prismatic`, while its displacement stays that of `block`.
+Hull of the given main dimensions [m] and block coefficient on `length`, with the form
+ratios of the reference coaster, its centre of buoyancy [% of length] unless given, and
+the factor on its calm-water resistance. Its form terms take `waterline_length` and stop at
+the prismatic coefficient `holtrop_max_prismatic`, while its displacement stays that of
+`block`.
 """
 function Hull(length, beam, draft, block, assumptions::Assumptions;
-        centre_of_buoyancy=assumptions[:centre_of_buoyancy], resistance_factor=1.0)
+        centre_of_buoyancy=assumptions[:centre_of_buoyancy], resistance_factor=1.0,
+        waterline_length=length)
     midship = assumptions[:midship_coefficient]
     max_prismatic = assumptions[:holtrop_max_prismatic]
-    prismatic = prismatic_coefficient(block, midship, max_prismatic)
-    return Hull(; length, beam, draft,
+    prismatic = prismatic_coefficient(block * length / waterline_length, midship,
+        max_prismatic)
+    return Hull(; length, beam, draft, waterline_length,
         displacement_volume=length * beam * draft * block,
         midship_coefficient=midship,
         waterplane_coefficient=0.763 * (prismatic + 0.34),
@@ -99,10 +105,11 @@ function Hull(length, beam, draft, block, assumptions::Assumptions;
         appendage_form_factor=assumptions[:appendage_form_factor])
 end
 
-block_coefficient(hull::Hull) =
-    hull.displacement_volume / (hull.length * hull.beam * hull.draft)
+block_coefficient(hull::Hull; length=hull.length) =
+    hull.displacement_volume / (length * hull.beam * hull.draft)
+waterline_block_coefficient(hull::Hull) = block_coefficient(hull; length=hull.waterline_length)
 prismatic_coefficient(block, midship, max_prismatic) = min(block / midship, max_prismatic)
-prismatic_coefficient(hull::Hull) = prismatic_coefficient(block_coefficient(hull),
+prismatic_coefficient(hull::Hull) = prismatic_coefficient(waterline_block_coefficient(hull),
     hull.midship_coefficient, hull.max_prismatic)
 displacement_mass(hull::Hull, env::Environment) =
     env.water_density * hull.displacement_volume
@@ -113,8 +120,9 @@ displacement_mass(hull::Hull, env::Environment) =
 Holtrop's estimate of the wetted hull surface [m^2].
 """
 function wetted_surface(hull::Hull)
-    (; length, beam, draft, midship_coefficient, waterplane_coefficient, bulb_area) = hull
-    block = block_coefficient(hull)
+    (; beam, draft, midship_coefficient, waterplane_coefficient, bulb_area) = hull
+    length = hull.waterline_length
+    block = waterline_block_coefficient(hull)
     return length * (2draft + beam) * sqrt(midship_coefficient) *
            (0.453 + 0.4425block - 0.2862midship_coefficient - 0.003467beam / draft +
             0.3696waterplane_coefficient) + 2.38bulb_area / block
@@ -122,7 +130,7 @@ end
 
 function run_length(hull::Hull)
     prismatic = prismatic_coefficient(hull)
-    return hull.length * (1 - prismatic +
+    return hull.waterline_length * (1 - prismatic +
                           0.06prismatic * hull.centre_of_buoyancy / (4prismatic - 1))
 end
 
@@ -132,7 +140,8 @@ end
 Viscous form factor 1+k1 of Holtrop (1984).
 """
 function form_factor(hull::Hull)
-    (; length, beam, draft, displacement_volume) = hull
+    (; beam, draft, displacement_volume) = hull
+    length = hull.waterline_length
     prismatic = prismatic_coefficient(hull)
     stern = 1 + 0.011hull.stern_shape
     return 0.93 + 0.487118stern * (beam / length)^1.06806 * (draft / length)^0.46106 *
@@ -157,7 +166,8 @@ struct WaveCoefficients
 end
 
 function WaveCoefficients(hull::Hull)
-    (; length, beam, draft, displacement_volume, bulb_area, bulb_height) = hull
+    (; beam, draft, displacement_volume, bulb_area, bulb_height) = hull
+    length = hull.waterline_length
     prismatic = prismatic_coefficient(hull)
     lcb = hull.centre_of_buoyancy
     slenderness = beam / length
@@ -221,10 +231,10 @@ end
 Holtrop's model-ship correlation coefficient C_A [-].
 """
 function correlation_allowance(hull::Hull, coefficients::WaveCoefficients)
-    (; length, draft) = hull
+    length, draft = hull.waterline_length, hull.draft
     c4 = min(draft / length, 0.04)
     return 0.006(length + 100)^-0.16 - 0.00205 +
-           0.003sqrt(length / 7.5) * block_coefficient(hull)^4 * coefficients.c2 *
+           0.003sqrt(length / 7.5) * waterline_block_coefficient(hull)^4 * coefficients.c2 *
            (0.04 - c4)
 end
 
@@ -237,10 +247,11 @@ times the hull's `resistance_factor`.
 function resistance(hull::Hull, env::Environment, speed;
         coefficients=WaveCoefficients(hull))
     speed > 0 || return 0.0
-    froude = speed / sqrt(env.gravity * hull.length)
+    length = hull.waterline_length
+    froude = speed / sqrt(env.gravity * length)
     froude <= 0.4 || error("Holtrop low-speed formula is invalid at Fn = $froude")
     dynamic_pressure = 0.5env.water_density * speed^2
-    cf = friction_coefficient(speed * hull.length / env.water_viscosity)
+    cf = friction_coefficient(speed * length / env.water_viscosity)
     surface = wetted_surface(hull)
     friction = dynamic_pressure * surface * cf
     appendages = dynamic_pressure * hull.appendage_area * hull.appendage_form_factor * cf
