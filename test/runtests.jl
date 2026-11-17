@@ -2111,7 +2111,7 @@ end
     held = [sample for sample in record.samples if sample.reason == :held]
     @test !isnothing(leg) && isempty(record.holds)
     @test all(sample -> 80.0 <= sample.hours < 86.0 && sample.speed == 0, held)
-    @test sum(sample -> sample.sample_hours, held) ≈ 6.0
+    @test sum(sample -> sample.sample_hours, held; init=0.0) ≈ 6.0
 end
 
 @testset "a ship sailing live on a true forecast sails about as its plan" begin
