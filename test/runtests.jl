@@ -3299,6 +3299,71 @@ end
     @test ismissing(PaperRuns.stored_entry(directory, case))
 end
 
+@testset "a dirty draft never overwrites a clean run's stored round trip" begin
+    directory = mktempdir()
+    case = (; assumptions)
+    store_run(:final, "same code")
+    PaperRuns.stored_trip(() -> 1.0, directory, case)
+    PaperRuns.paper_run.record["git_dirty"] = true
+    PaperRuns.stored_trip(() -> 2.0, directory, case)
+    @test count(endswith(".bin"), readdir(directory)) == 2
+    store_run(:final, "same code")
+    @test PaperRuns.stored_entry(directory, case).trip == 1.0
+end
+
+"""
+    tallied_step(run, cases)
+
+A step of `run` using a stored round trip for each `(case, commit)` of `cases`.
+"""
+function tallied_step(run, cases)
+    run.record["code_hash"] = "code"
+    run.record["steps"] = Dict{String, Any}[]
+    stored(commit) =
+        (; trip=1.0, commit, dirty=false, model="newer code", processor="cpu", inputs=[])
+    return () -> for (case, commit) in cases
+        PaperRuns.tally_case!(case, "store-$(case.class)", stored(commit))
+    end
+end
+
+@testset "a sliced draft records the commit that made each round trip" begin
+    run = store_run(:draft, "newer code"; only=(class="handysize",))
+    cases = [(; assumptions, class="handysize") => "b",
+        (; assumptions, class="panamax") => "a"]
+    PaperRuns.run_step!(run, :classes, tallied_step(run, cases))
+    entry = PaperRuns.step_entry(run.record, :classes)
+    @test readlines(joinpath(run.directory, entry["case_record"]))[2:end] ==
+          ["\"class=handysize\",\"store-handysize\",\"b\",\"false\",\"newer code\",\"cpu\"",
+           "\"class=panamax\",\"store-panamax\",\"a\",\"false\",\"newer code\",\"cpu\""]
+    @test PaperRuns.part_commits([(run.directory, entry)]) == ["a", "b"]
+end
+
+@testset "a slice no case of the step carries is refused" begin
+    run = store_run(:draft, "newer code"; only=(clas="handysize",))
+    step = tallied_step(run, [(; assumptions, class="handysize") => "a"])
+    @test_throws ArgumentError PaperRuns.run_step!(run, :classes, step)
+    @test isnothing(PaperRuns.step_entry(run.record, :classes))
+end
+
+@testset "a final run's parts name every commit and dirty tree they come from" begin
+    part(commit, dirty, cases) = ("run", Dict{String, Any}("git_commit" => commit,
+        "git_dirty" => dirty, "case_commits" => cases))
+    @test PaperRuns.part_commits([part("a", false, Dict("a" => 2))]) == ["a"]
+    @test PaperRuns.part_commits([part("a", false, Dict("a" => 2)),
+        part("b", true, Dict("a" => 1, "b-dirty" => 1))]) == ["a", "b-dirty"]
+end
+
+@testset "a data file a step rewrites is read with its new contents" begin
+    run = store_run(:draft, "code")
+    write(PaperRuns.run_file("sizes.csv"), "size\n1\n")
+    PaperRuns.data_file("sizes.csv")
+    before = PaperRuns.read_hash("sizes.csv")
+    write(PaperRuns.run_file("sizes.csv"), "size\n2\n")
+    @test PaperRuns.read_hash("sizes.csv") != before
+    @test PaperRuns.read_hash("sizes.csv") ==
+          PaperRuns.file_hash(joinpath(run.directory, "sizes.csv"))
+end
+
 @testset "a step's code is what it reaches by name, docstrings and layout aside" begin
     file = tempname() * ".jl"
     hashes(text) = (write(file, text); PaperRuns.code_hashes(

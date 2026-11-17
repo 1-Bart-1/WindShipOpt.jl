@@ -96,7 +96,7 @@ function round_trips(cases, departures)
         entries[k] = stored_trip(() -> case_trip(cases[k], departures), directories[k],
             cases[k])
     end
-    foreach(tally_case!, entries)
+    foreach(tally_case!, cases, directories, entries)
     trips = [entry.trip for entry in entries]
     older = count(entry -> entry.model != paper_run.trip_model, entries)
     println("  ", count(!isnothing, trips), " of ", length(cases), " round trips, ",

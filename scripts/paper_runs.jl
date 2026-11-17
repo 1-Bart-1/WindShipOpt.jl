@@ -83,16 +83,14 @@ cases_directory = normpath(joinpath(root, "output", "cases"))
 What the step in progress computed and rests on, for its entry in run.toml.
 """
 mutable struct StepTally
-    "round-trip cases"
-    cases::Int
     "feasible round trips"
     trips::Int
-    "cases by the commit that computed them, `-dirty` appended where its tree differed"
-    commits::Dict{String, Int}
-    "cases by the processor that computed them"
-    processors::Dict{String, Int}
     "cases kept from code older than the run's"
     older::Int
+    "cases carrying the labels of the run's `only`"
+    sliced::Int
+    "each case's labels, store directory, commit, dirty tree, round-trip code and processor"
+    made::Vector{NamedTuple}
     "names of the inputs its round trips read"
     inputs::Set{Symbol}
     "data files it read, each with its content hash and run"
@@ -103,7 +101,7 @@ mutable struct StepTally
     lock::ReentrantLock
 end
 
-StepTally() = StepTally(0, 0, Dict{String, Int}(), Dict{String, Int}(), 0, Set{Symbol}(),
+StepTally() = StepTally(0, 0, 0, NamedTuple[], Set{Symbol}(),
     Dict{String, Dict{String, String}}(), Dict{String, String}(), ReentrantLock())
 
 """
@@ -172,9 +170,13 @@ run_corridors(name) = corridors(name, run_settings().corridor_scale)
 """
     run_file(name)
 
-Path in the directory of the run in use of the data file `name` a step writes.
+Path in the directory of the run in use of the data file `name` a step writes; forgets the
+content hash the step in progress found for it.
 """
-run_file(name) = joinpath(paper_run.directory, name)
+function run_file(name)
+    @lock paper_run.tally.lock delete!(paper_run.tally.file_hashes, name)
+    return joinpath(paper_run.directory, name)
+end
 
 "the data files a round trip computing in this task has read, or nothing outside one"
 files_read_scope = ScopedValue{Union{Nothing, Dict{String, String}}}(nothing)
@@ -204,7 +206,7 @@ end
     read_hash(name)
 
 Content hash of the data file `name` as [`resolved_data_file`](@ref) finds it, found once
-per step.
+per step until it writes the file ([`run_file`](@ref)).
 """
 read_hash(name) = @lock paper_run.tally.lock get!(paper_run.tally.file_hashes, name) do
     file_hash(resolved_data_file(name))
@@ -261,7 +263,7 @@ end
 
 Hash in hex of the contents of the file at `path`.
 """
-file_hash(path) = string(hash(read(path, String)); base=16)
+file_hash(path) = content_hash(read(path, String))
 
 "record of the run each method study's tables and figures come from"
 study_runs_path = joinpath(root, "paper", "study_runs.toml")
@@ -357,26 +359,25 @@ model_files() = [files_in(joinpath(root, "src"), joinpath(root, "data"),
     joinpath(@__DIR__, "Manifest-v$(VERSION.major).$(VERSION.minor).toml.default")]
 
 """
-    files_hash(files)
+    file_contents(files)
 
-Hash in hex of the names and contents of `files`.
+The name of each of `files` with its contents.
 """
-files_hash(files) =
-    string(hash(join(basename(file) * read(file, String) for file in files)); base=16)
+file_contents(files) = [basename(file) => read(file, String) for file in files]
 
 """
     code_hash()
 
 Hash in hex of the contents of [`code_files`](@ref).
 """
-code_hash() = files_hash(code_files())
+code_hash() = content_hash(file_contents(code_files()))
 
 """
     model_hash()
 
 Hash in hex of the contents of [`model_files`](@ref) and the Julia version.
 """
-model_hash() = string(hash((files_hash(model_files()), VERSION)); base=16)
+model_hash() = content_hash((file_contents(model_files()), VERSION))
 
 """
     script_files()
@@ -535,8 +536,9 @@ end
 Run `step` and record in the record of `run` its name, start, duration, the files it wrote,
 the commit and the code it ran ([`step_code`](@ref)), the base value of every input it read
 and the data files it read; and, where it computed round trips, their number,
-the feasible ones, the code of a round trip, the commits and processors that computed them
-and how many are kept from older code.
+the feasible ones, the code of a round trip, the commits and processors that computed them,
+how many are kept from older code and the list of them ([`write_cases`](@ref)). Raise an
+error where the run has an `only` that none of the step's round trips carries.
 """
 function run_step!(run, name, step)
     println("step ", name)
@@ -546,6 +548,9 @@ function run_step!(run, name, step)
     println("  ", seconds, " s")
     isnothing(run.directory) && return
     tally = run.tally
+    cases = length(tally.made)
+    isnothing(run.only) || cases == 0 || tally.sliced > 0 ||
+        throw(ArgumentError("no case of step $name carries the labels only=$(run.only)"))
     entry = Dict{String, Any}("name" => string(name), "started" => string(started),
         "seconds" => seconds, "files" => first.(setdiff(file_times(run), before)),
         "code_hash" => run.record["code_hash"], "git_commit" => run.record["git_commit"],
@@ -553,9 +558,13 @@ function run_step!(run, name, step)
         "inputs" => Dict(string(input) => assumptions[input]
                          for input in union(names, tally.inputs)),
         "reads" => tally.reads)
-    tally.cases > 0 && merge!(entry, Dict("cases" => tally.cases, "trips" => tally.trips,
-        "trip_model" => run.trip_model, "case_commits" => tally.commits,
-        "case_processors" => tally.processors, "older_cases" => tally.older))
+    cases > 0 && merge!(entry, Dict("cases" => cases, "trips" => tally.trips,
+        "trip_model" => run.trip_model,
+        "case_commits" => counts(commit_label(made.commit, made.dirty)
+                                 for made in tally.made),
+        "case_processors" => counts(made.processor for made in tally.made),
+        "older_cases" => tally.older,
+        "case_record" => write_cases(run, name, tally.made)))
     filter!(earlier -> earlier["name"] != string(name), run.record["steps"])
     push!(run.record["steps"], entry)
     write_record(run)
@@ -658,28 +667,82 @@ function stored_trip(compute, directory, case)
     mkpath(directory)
     temporary = tempname(directory; cleanup=false)
     serialize(temporary, entry)
-    mv(temporary, joinpath(directory,
-            string(entry.model, "-", content_hash((inputs, entry.files)), ".bin"));
-        force=true)
+    key = content_hash((inputs, entry.files, entry.commit, entry.dirty))
+    mv(temporary, joinpath(directory, string(entry.model, "-", key, ".bin")); force=true)
     return entry
 end
 
 """
-    tally_case!(entry)
+    tally_case!(case, directory, entry)
 
-Count the stored round-trip `entry` a case of the step in progress uses in its tally.
+Count in the tally of the step in progress the stored round-trip `entry` it uses for `case`
+from the case store `directory`, and list what made it.
 """
-function tally_case!(entry)
+function tally_case!(case, directory, entry)
     tally = paper_run.tally
-    commit = entry.dirty ? entry.commit * "-dirty" : entry.commit
+    made = (case=case_labels(case), store=basename(directory), entry.commit, entry.dirty,
+        trip_model=entry.model, entry.processor)
     @lock tally.lock begin
-        tally.cases += 1
         tally.trips += !isnothing(entry.trip)
-        tally.commits[commit] = get(tally.commits, commit, 0) + 1
-        tally.processors[entry.processor] = get(tally.processors, entry.processor, 0) + 1
         tally.older += entry.model != paper_run.trip_model
+        tally.sliced += in_slice(case, paper_run.only)
+        push!(tally.made, made)
         union!(tally.inputs, first.(entry.inputs))
     end
+end
+
+"""
+    case_labels(case)
+
+Each label of `case` with its value, as `label=value` separated by spaces: the fields of its
+[`trip_case`](@ref) but the design, assumptions, corridor scale and corridors.
+"""
+case_labels(case) = join([string(label, "=", value) for (label, value) in pairs(case)
+                          if !(label in (:design, :assumptions, :scale, :corridors))], " ")
+
+"""
+    commit_label(commit, dirty)
+
+`commit`, with `-dirty` appended where `dirty`, the tree differing from it.
+"""
+commit_label(commit, dirty) = dirty ? commit * "-dirty" : commit
+
+"""
+    counts(values)
+
+Each distinct one of `values` with how often it occurs.
+"""
+function counts(values)
+    tally = Dict{String, Int}()
+    for value in values
+        tally[value] = get(tally, value, 0) + 1
+    end
+    return tally
+end
+
+"""
+    csv_field(text)
+
+`text` as a quoted CSV field.
+"""
+csv_field(text) = string('"', replace(text, '"' => "\"\""), '"')
+
+"""
+    write_cases(run, name, made)
+
+Write to cases/`name`.csv in the directory of `run` a line for each round trip of `made`
+([`StepTally`](@ref)) and return its path in the run.
+"""
+function write_cases(run, name, made)
+    path = joinpath("cases", "$name.csv")
+    mkpath(joinpath(run.directory, "cases"))
+    open(joinpath(run.directory, path), "w") do io
+        println(io, "case,store,commit,dirty,trip_model,processor")
+        for row in sort(made; by=values)
+            println(io, join(csv_field.(string.(values(row))), ","))
+        end
+    end
+    return path
 end
 
 """
@@ -785,4 +848,34 @@ function print_status(name, location, reasons, current_trips)
         println(" "^24, entry["trip_model"] == current_trips ?
                         "its round trips are stored but for those reading what changed" :
                         "its $(entry["cases"]) round trips recompute")
+end
+
+"""
+    part_commits(locations)
+
+The commits that made the steps at `locations`, each a run directory and run-record entry,
+and their round trips, with `-dirty` appended where the tree differed from the commit.
+"""
+function part_commits(locations)
+    commits = Set{String}()
+    for (_, entry) in locations
+        push!(commits, commit_label(entry["git_commit"], get(entry, "git_dirty", false)))
+        union!(commits, keys(get(entry, "case_commits", Dict())))
+    end
+    return sort(collect(commits))
+end
+
+"""
+    print_commits(commits)
+
+Print whether `commits` ([`part_commits`](@ref)) are one clean commit, or which they are.
+"""
+function print_commits(commits)
+    if isempty(commits)
+        println("no step has data at this fidelity")
+    elseif length(commits) == 1 && !endswith(only(commits), "-dirty")
+        println("every part comes from clean commit ", only(commits))
+    else
+        println("not one clean commit: parts come from ", join(commits, ", "))
+    end
 end

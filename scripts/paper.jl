@@ -203,9 +203,24 @@ Print for each data step and method study at `fidelity` whether the data the pap
 from it are current and, where not, why and whether its round trips recompute; return the
 names of those out of date in the order they run, for [`paper`](@ref). A step is out of
 date where [`step_reasons`](@ref) gives a reason or it reads a data file of a step that is.
+At `:final`, also print whether all of them come from one clean commit.
 """
 function paper_status(; fidelity)
+    previous = paper_run
     global paper_run = PaperRun(fidelity)
+    try
+        return print_steps_status(fidelity)
+    finally
+        global paper_run = previous
+    end
+end
+
+"""
+    print_steps_status(fidelity)
+
+Print and return what [`paper_status`](@ref) does, with the run in use set to `fidelity`.
+"""
+function print_steps_status(fidelity)
     definitions = script_definitions(script_files())
     current_trips = trip_model(definitions)
     steps = [data_steps; study_steps]
@@ -219,5 +234,7 @@ function paper_status(; fidelity)
     for (name, _) in steps
         print_status(name, found[name], reasons[name], current_trips)
     end
+    fidelity == :final &&
+        print_commits(part_commits(filter(!isnothing, collect(values(found)))))
     return [name for (name, _) in steps if !isempty(reasons[name])]
 end
