@@ -21,6 +21,8 @@
 \AtEndDocument{\ifx\stale@left\@empty\else
   \PackageWarningNoLine{stale}{Studies to rerun for stale text:\stale@left}\fi}
 \makeatother
+% \given{text}: an input, literature value or method constant typed in result text; shown as is.
+\newcommand{\given}[1]{#1}
 % \note{text}: a review note shown in the PDF; \notesfalse hides all.
 \newif\ifnotes\notestrue
 \newcommand{\note}[1]{\ifnotes{\color{teal!70!black}\sffamily\small[#1]}\fi}
