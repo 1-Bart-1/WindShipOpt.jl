@@ -3856,20 +3856,85 @@ end
     @test all(entry -> entry.low != entry.high, entries)
 end
 
-@testset "a fleet's cost goes to the rig that saves most, or level within the margin" begin
-    cell(bill, kite, wings, rotors) = (; bill,
-        savings=Dict("kite" => kite, "wings" => wings, "rotors" => rotors))
-    margin = PaperData.level_margin
-    @test PaperData.fleet_band(cell(1.0, 5.0, 2.0, 3.0).savings) == "kite"
-    @test PaperData.fleet_band(cell(1.0, 2.0, 2.0, 5.0).savings) == "rotors"
-    @test PaperData.fleet_band(cell(1.0, 5.0 - margin / 2, 2.0, 5.0).savings) == "level"
-    @test PaperData.fleet_band(cell(1.0, margin / 2, -1.0, 0.0).savings) == "none"
-    split = PaperData.fleet_split([cell(100.0, 10.0, 0.0, 2.0), cell(50.0, 4.0, 0.0, 4.0),
-        cell(50.0, -1.0, -2.0, 0.5)])
+"""
+    fleet_cell(bill, savings, wobble=Dict())
+
+Fleet cell of `bill` with the cost `savings` [%] of its rigs over two departures, each
+rig's saving on one departure `wobble[rig]` points below and on the other above it.
+"""
+function fleet_cell(bill, savings, wobble=Dict())
+    costs(rig, saving) = (1 - saving / 100) .+ [1, -1] .* get(wobble, rig, 0.0) ./ 100
+    return (; bill, savings, departures=Dict("none" => [1.0, 1.0],
+        (rig => costs(rig, saving) for (rig, saving) in savings)...))
+end
+
+@testset "a gap's error over departures cancels what the rigs' weather shares" begin
+    shared = fleet_cell(1.0, Dict("kite" => 10.0, "rotors" => 8.0),
+        Dict("kite" => 3.0, "rotors" => 3.0))
+    @test PaperData.gap_error([shared], [1.0], "kite", "rotors") == (0.0, 2)
+    error, n = PaperData.gap_error([shared], [1.0], "kite", "none")
+    @test error ≈ 3.0 && n == 2
+    apart = fleet_cell(1.0, Dict("kite" => 10.0, "rotors" => 8.0),
+        Dict("kite" => -3.0, "rotors" => 3.0))
+    @test first(PaperData.gap_error([shared, apart], [3.0, 1.0], "kite", "rotors")) ≈ 1.5
+end
+
+@testset "a rig leads only by more than its gap's error and the router's bias" begin
+    @test PaperData.lead_factor(2) ≈ 1.837 atol=0.04
+    @test PaperData.lead_factor(12) ≈ 1.0476 atol=0.001
+    @test PaperData.lead_factor(10^6) ≈ 1 atol=1e-5
+    bias = PaperData.kite_gap_bias
+    @test PaperData.leads("kite", "rotors", 0.5, (0.2, 12))
+    @test !PaperData.leads("kite", "rotors", 0.5, (0.5, 12))
+    @test !PaperData.leads("rotors", "kite", bias, (0.0, 12))
+    @test PaperData.leads("rotors", "kite", bias + 0.1, (0.0, 12))
+    @test PaperData.leads("rotors", "wings", 0.1, (0.0, 12))
+end
+
+@testset "a fleet's cost goes to the clear leader, or to level within the error" begin
+    rigs(kite, wings, rotors) = Dict("kite" => kite, "wings" => wings, "rotors" => rotors)
+    band(savings, wobble=Dict()) = PaperData.fleet_band(fleet_cell(1.0, savings, wobble))
+    bias = PaperData.kite_gap_bias
+    @test band(rigs(5.0, 2.0, 3.0), Dict("kite" => 1.0, "rotors" => 1.0)) == "kite"
+    @test band(rigs(5.0, 4.0, 2.0), Dict("kite" => 1.0, "wings" => 0.0)) == "level"
+    @test band(rigs(2.0, 2.0, 3.0 + bias)) == "rotors"
+    @test band(rigs(3.0, 2.0, 3.0 + bias)) == "level"
+    @test band(rigs(1.0, -1.0, 0.0), Dict("kite" => 1.0)) == "none"
+    split = PaperData.fleet_split([fleet_cell(100.0, rigs(10.0, 0.0, 2.0)),
+        fleet_cell(50.0, rigs(4.0, 0.0, 4.0)),
+        fleet_cell(50.0, rigs(-1.0, -2.0, 0.5), Dict("rotors" => 1.0))])
     @test split["kite"] == (bill=100.0, saved=10.0)
     @test split["level"] == (bill=50.0, saved=2.0)
     @test split["none"] == (bill=50.0, saved=0.0)
     @test split["rotors"].bill == split["wings"].bill == 0
+end
+
+@testset "a lead between ship types reads as a lead, a level or no rig by its verdict" begin
+    lead = (; rig="kite", rival="rotors", margin=2.4, verdict="leads")
+    @test PaperData.lead_verdict(lead) == "the kite leads the rotors by 2 points"
+    level = (; lead..., rig="rotors", rival="kite", verdict="level")
+    @test PaperData.lead_verdict(level) ==
+          "the rotors and the kite are level, 2 points apart"
+    @test PaperData.lead_verdict((; lead..., verdict="none")) == "no rig clearly saves"
+end
+
+@testset "the advice names each kind of ship once, kinds with the same rig together" begin
+    lead(label, rig, rival, verdict) = (; label, rig, rival, verdict)
+    leads = [lead("Container ships", "kite", "rotors", "leads"),
+        lead("Car carriers", "rotors", "kite", "level"),
+        lead("Bulk carriers", "kite", "rotors", "level"),
+        lead("Tankers", "kite", "rotors", "leads"),
+        lead("General cargo ships", "rotors", "wings", "none")]
+    @test PaperData.advice_text(leads) ==
+          "the kite on container ships and tankers, either the kite or the rotors on " *
+          "car carriers and bulk carriers, and no rig on general cargo ships"
+end
+
+@testset "a ship type where the best rig does not clearly save has no leader" begin
+    savings = Dict("kite" => 1.0, "wings" => 0.2, "rotors" => -0.5)
+    lead = PaperData.rig_lead([fleet_cell(1.0, savings, Dict("kite" => 2.0))])
+    @test lead.verdict == "none"
+    @test PaperData.rig_lead([fleet_cell(1.0, savings)]).verdict == "leads"
 end
 
 @testset "fleet work takes each class's IMO bins, summing the two of the MR tanker" begin
@@ -3893,7 +3958,8 @@ end
     end
     table(kept) = Dict{String, Vector}("class" => getfield.(kept, :class),
         "route" => getfield.(kept, :route), "drive" => fill(drive, length(kept)),
-        "rig" => getfield.(kept, :rig), "cost" => cost.(kept))
+        "rig" => getfield.(kept, :rig), "cost" => cost.(kept),
+        "departure_costs" => [fill(cost(case), 2) for case in kept])
     split = PaperData.fleet_split_of(table(cases), drive)
     bill = work[class] / length(routes) * 0.02
     @test split["kite"].bill ≈ bill
@@ -3912,8 +3978,9 @@ end
 
 A class table on VLSFO over three routes in which only the Kamsarmax bulk carrier gains
 from a rig: the rotors save 10 % of its cost on one route and 5 % on another, the wing
-sails 4.5 % on the second. Without a rig the Kamsarmax costs 0.02 per tonne-kilometre and
-every other class 0.01. Every rig saves a third of the fuel and a quarter of the CO2.
+sails 4.5 % on the second, level with the rotors as the two swap a point over its two
+departures. Without a rig the Kamsarmax costs 0.02 per tonne-kilometre and every other
+class 0.01. Every rig saves a third of the fuel and a quarter of the CO2.
 """
 function market_class_table()
     work, _ = PaperData.fleet_work()
@@ -3927,10 +3994,16 @@ function market_class_table()
         case.class == class || return 0.01
         return get(costs, (case.route, case.rig), 0.02)
     end
+    swap = Dict("rotors" => 1e-4, "wings" => -1e-4)
+    function departure_costs(case)
+        (case.class, case.route) == (class, "dakar") || return fill(cost(case), 2)
+        return cost(case) .+ [-1, 1] .* get(swap, case.rig, 0.0)
+    end
     column(f) = f.(cases)
     table = Dict{String, Vector}("class" => column(case -> case.class),
         "route" => column(case -> case.route), "drive" => fill(drive, length(cases)),
         "rig" => column(case -> case.rig), "cost" => cost.(cases),
+        "departure_costs" => departure_costs.(cases),
         "area" => column(case -> case.rig == "wings" ? 1500.0 : 1000.0),
         "units" => column(case -> case.rig == "wings" ? 3.0 : 5.0),
         "fuel" => column(case -> case.rig == "none" ? 0.03 : 0.02),
@@ -3968,6 +4041,19 @@ end
     @test market["wings"].high.ships ≈ cell_ships
     @test all(iszero, market["kite"].high)
     @test market["any"] == rotors
+end
+
+@testset "a class leads over its routes by its mean gap and that gap's own error" begin
+    (; table, class, drive) = market_class_table()
+    cells = PaperData.fleet_cells(table, drive)
+    lead = PaperData.rig_lead(filter(cell -> cell.class == class, cells))
+    @test (lead.rig, lead.rival) == ("rotors", "wings")
+    @test lead.margin ≈ (10 + 0.5) / 3
+    @test lead.error ≈ 1 / 3
+    @test lead.verdict == "leads"
+    bands = PaperData.fleet_band.(cells)
+    @test count(==("rotors"), bands) == count(==("level"), bands) == 1
+    @test count(==("none"), bands) == length(bands) - 2
 end
 
 @testset "a ship type's saving per ship is what each rig saves it, over its ships" begin

@@ -536,14 +536,14 @@ route_savings(table, column, classes, drive, rig) = filter(isfinite,
      for route in unique(table["route"])])
 
 """
-    savings_panel!(axis, table, groups, drive, column, format)
+    savings_panel!(axis, table, groups, drive, column, format, fills)
 
 Draw on `axis`, per `(label, classes)` of `groups`, each rig's [`mean_savings`](@ref) in
-`column` as a marker with a bar over its [`route_savings`](@ref), a band in the colour of
-the rig with the largest mean (grey where none is positive) and that mean printed with
-`format`. What was not run is left out, so a drive without data leaves `axis` blank.
+`column` as a marker with a bar over its [`route_savings`](@ref), a band of its colour of
+`fills` and the largest mean printed with `format`. What was not run is left out, so a
+drive without data leaves `axis` blank.
 """
-function savings_panel!(axis, table, groups, drive, column, format)
+function savings_panel!(axis, table, groups, drive, column, format, fills)
     savings = [[route_savings(table, column, classes, drive, kind) for kind in rig_names]
                for (_, classes) in groups]
     all_routes = reduce(vcat, reduce(vcat, savings))
@@ -553,14 +553,12 @@ function savings_panel!(axis, table, groups, drive, column, format)
     span = extrema(all_routes)
     width = span[2] - span[1]
     number_x = span[2] + 0.28 * width
-    for (i, group_means) in enumerate(means)
-        known = findall(isfinite, group_means)
+    for (i, (group_means, fill)) in enumerate(zip(means, fills))
+        known = filter(isfinite, group_means)
         isempty(known) && continue
-        leader = known[argmax(group_means[known])]
-        hspan!(axis, i - 0.5, i + 0.5;
-            color=group_means[leader] > 0 ? (palette[leader], 0.2) : (:gray, 0.2))
-        text!(axis, number_x, i; text=typeset_minus(Printf.format(format,
-                group_means[leader])), align=(:right, :center), fontsize=note_size)
+        hspan!(axis, i - 0.5, i + 0.5; color=fill)
+        text!(axis, number_x, i; text=typeset_minus(Printf.format(format, maximum(known))),
+            align=(:right, :center), fontsize=note_size)
     end
     vlines!(axis, 0; color=:gray, linewidth=0.5)
     hlines!(axis, length(groups) - 1.5; color=:black, linewidth=0.5)
@@ -577,6 +575,19 @@ function savings_panel!(axis, table, groups, drive, column, format)
 end
 
 """
+    lead_fill(lead)
+
+Fill of a band by the verdict of the [`rig_lead`](@ref) `lead`: the colour of the rig that
+leads, hatched in the colours of the two where they are level, grey where no rig clearly
+saves.
+"""
+function lead_fill(lead)
+    lead.verdict == "none" && return (:gray, 0.2)
+    lead.verdict == "level" && return level_fill(lead.rig, lead.rival)
+    return (palette[findfirst(==(lead.rig), rig_names)], 0.2)
+end
+
+"""
     class_comparison_figure()
 
 Cost saving and fuel saving of the best size of each rig for every ship class and the mean
@@ -584,12 +595,15 @@ of the deadweight-limited and of the space-limited classes, a [`savings_panel!`]
 each per drive.
 """
 function class_comparison_figure()
-    table = read_table(data_file("classes.csv"))
+    table = class_table()
     groups = [[(name, [name]) for name in class_order(table)];
               [("mean, $limit-limited", names) for (limit, names) in limit_groups(table)]]
     figure = Figure(size=(page_width, 390))
     for (k, (drive, title)) in enumerate(drive_panels)
         Label(figure[1, (2k - 1):2k], title; tellwidth=false, halign=:left)
+        cells = fleet_cells(table, drive)
+        fills = [lead_fill(rig_lead(filter(cell -> cell.class in classes, cells)))
+                 for (_, classes) in groups]
         fuel_label = drive == "vlsfo" ? rich("fuel, CO", subscript("2"), " saving [%]") :
                      "fuel saving [%]"
         panels = (("cost", "cost saving [%]", "%.1f"), ("fuel", fuel_label, "%.0f"))
@@ -597,7 +611,7 @@ function class_comparison_figure()
             axis = Axis(figure[2, 2k - 2 + offset]; xlabel,
                 yticks=(eachindex(groups), first.(groups)), yreversed=true,
                 yticklabelsvisible=(k, offset) == (1, 1))
-            savings_panel!(axis, table, groups, drive, column, Printf.Format(format))
+            savings_panel!(axis, table, groups, drive, column, Printf.Format(format), fills)
         end
     end
     rowgap!(figure.layout, 1, 4)
@@ -877,12 +891,13 @@ end
 """
     winner_map_figure()
 
-The rig with the largest cost saving for every ship class and route, deadweight-limited
-classes in the top row and space-limited ones below, one column per drive, coloured by
-rig and labelled with its saving [%]; grey where no rig pays.
+The [`fleet_band`](@ref) of every ship class and route, deadweight-limited classes in the
+top row and space-limited ones below, one column per drive, coloured by the rig that
+leads, hatched in the colours of the two best where they are level and grey where no rig
+clearly saves, and labelled with the best cost saving [%].
 """
 function winner_map_figure()
-    table = read_table(data_file("classes.csv"))
+    table = class_table()
     groups = limit_groups(table)
     route_names_seen = ["caribbean", "new_york", "bilbao", "dakar", "houston", "tubarao"]
     kinds = ["kite", "wings", "rotors"]
@@ -896,13 +911,15 @@ function winner_map_figure()
             ylabel=column == 1 ? "$limit-limited" : "",
             yticklabelsvisible=column == 1, xticklabelsvisible=row == length(groups),
             xticklabelrotation=π / 4)
+        cells = fleet_cells(table, drive)
         for (i, route) in enumerate(route_names_seen), (k, name) in enumerate(names)
-            savings = best_savings(table, name, route, drive)
-            isempty(savings) && continue
-            winner = argmax(savings)
-            best = savings[winner]
-            colour = best > 0 ? (palette[findfirst(==(winner), kinds)], 0.35 + 0.65 *
-                                 min(best, 40) / 40) : (:gray, 0.25)
+            cell = only(filter(cell -> (cell.class, cell.route) == (name, route), cells))
+            lead = rig_lead([cell])
+            best = cell.savings[lead.rig]
+            colour = lead.verdict == "none" ? (:gray, 0.25) :
+                     lead.verdict == "level" ? level_fill(lead.rig, lead.rival) :
+                     (palette[findfirst(==(lead.rig), kinds)],
+                         0.35 + 0.65 * min(best, 40) / 40)
             poly!(axis, Rect2f(i - 0.5, k - 0.5, 1, 1); color=colour)
             text!(axis, i, k; text=typeset_minus(string(round(Int, best))),
                 align=(:center, :center), fontsize=note_size)
@@ -912,7 +929,9 @@ function winner_map_figure()
         rowsize!(figure.layout, row, Auto(length(names)))
     end
     Legend(figure[length(groups) + 1, 1:length(drive_panels)],
-        [PolyElement(color=palette[j]) for j in 1:3], kinds; orientation=:horizontal)
+        [[PolyElement(color=palette[j]) for j in 1:3];
+         PolyElement(color=level_fill("kite", "rotors")); PolyElement(color=(:gray, 0.25))],
+        [kinds; "level"; "no rig"]; orientation=:horizontal)
     save(joinpath(figures, "winner_map.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -949,14 +968,18 @@ function fleet_band_label(share, billions)
     return @sprintf("%.0f%%\n%.*f bn", share, billions < 10 ? 1 : 0, billions)
 end
 
-"fill of what the kite and rotors share: the kite's colour hatched with the rotors'"
-kite_and_rotors_fill() = Pattern("/"; backgroundcolor=(palette[1], 0.35),
-    linecolor=(palette[3], 0.9), width=1.5, tilesize=(6, 6))
+"""
+    level_fill(rig, other)
+
+Fill of what two rigs share: the colour of `rig` hatched with that of `other`.
+"""
+level_fill(rig, other) = Pattern("/";
+    backgroundcolor=(palette[findfirst(==(rig), rig_names)], 0.35),
+    linecolor=(palette[findfirst(==(other), rig_names)], 0.9), width=1.5, tilesize=(6, 6))
 
 "colours of the [`fleet_bands`](@ref): those of the rigs, level hatched, none grey"
 fleet_colours() = Dict("kite" => palette[1], "wings" => palette[2], "rotors" => palette[3],
-    "level" => kite_and_rotors_fill(),
-    "none" => RGBf(0.8, 0.8, 0.8))
+    "level" => level_fill("kite", "rotors"), "none" => RGBf(0.8, 0.8, 0.8))
 
 """
     fleet_share_figure()
@@ -966,7 +989,7 @@ the fleet's cargo (a) and in the yearly saving (b) on each drive, each total in 
 label.
 """
 function fleet_share_figure()
-    table = read_table(data_file("classes.csv"))
+    table = class_table()
     splits = [(drive, fleet_split_of(table, drive)) for (drive, _) in drive_labels]
     figure = Figure(size=(page_width, 175))
     panels = ((:bill, "(a) yearly cost of carrying the cargo [%, USD]"),
@@ -981,8 +1004,7 @@ function fleet_share_figure()
     end
     colours = fleet_colours()
     names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "rotors",
-        "level" => "level (within $(whole_number(level_margin)) point)",
-        "none" => "no rig (saves under $(whole_number(level_margin)) point)")
+        "level" => "level within the error", "none" => "no rig saves beyond the error")
     Legend(figure[2, 1:2], [PolyElement(color=colours[band]) for band in fleet_bands],
         [names[band] for band in fleet_bands]; orientation=:horizontal)
     rowgap!(figure.layout, 1, 2)
@@ -1868,7 +1890,7 @@ end
 "rigs of the combination figure with their legend labels and colours"
 combination_rigs = (("kite", "best kite", palette[1]),
     ("rotors", "best rotors", palette[3]),
-    ("kite+rotors", "best kite and rotors together", kite_and_rotors_fill()))
+    ("kite+rotors", "best kite and rotors together", level_fill("kite", "rotors")))
 
 """
     combination_figure()
@@ -1903,7 +1925,7 @@ function combination_figure()
             range_bar!(saving_axis, group + 0.27(k - 2), values, 0.25, colour)
         end
         gains = pair_gain.(savings)
-        range_bar!(gain_axis, group, gains, 0.4, kite_and_rotors_fill())
+        range_bar!(gain_axis, group, gains, 0.4, level_fill("kite", "rotors"))
         print_combination(ship, drive, savings, gains)
     end
     @printf("  noise of the extra saving %.2f points, %.2f to %.2f by design\n",

@@ -1026,7 +1026,8 @@ function type_savings(table, drive)
     for type in sort(unique(classes[cell.class].type for cell in cells))
         own = filter(cell -> classes[cell.class].type == type, cells)
         rigs = Dict(rig => saving_per_ship(table, own, rig) for rig in rig_names)
-        leaders = fleet_leaders(Dict(rig => saving.share for (rig, saving) in rigs))
+        leaders = fleet_leaders(Dict(rig => saving.share for (rig, saving) in rigs), own,
+            [cell.bill for cell in own])
         push!(savings, (; type, rigs, leaders))
     end
     return savings
@@ -1057,7 +1058,7 @@ function cell_markets(table, drive)
     classes = ship_classes()
     markets = []
     for cell in fleet_cells(table, drive)
-        leaders = fleet_leaders(cell.savings)
+        leaders = fleet_leaders(cell.savings, [cell])
         isempty(leaders) && continue
         sums = Dict(rig => cell_market(table, cell, rig) for rig in leaders)
         sums["any"] = sums[argmax(rig -> cell.savings[rig], leaders)]
@@ -1106,7 +1107,7 @@ of the rig sales of each rig's [`fleet_market`](@ref) on each drive, low to high
 in market_sales_table.tex and by ship type in market_sales_type_table.tex.
 """
 function market_table()
-    table = read_table(data_file("classes.csv"))
+    table = class_table()
     write_type_savings(table)
     markets = Dict(drive => cell_markets(table, drive) for (drive, _) in drive_labels)
     write_market_sales(markets)
@@ -1861,7 +1862,7 @@ the goals, and the [`class_numbers`](@ref), [`recommendation_numbers`](@ref),
 [`market_numbers`](@ref) and [`type_saving_numbers`](@ref) of the class study.
 """
 function numbers_file()
-    classes = read_table(data_file("classes.csv"))
+    classes = class_table()
     results = [class_numbers(classes); recommendation_numbers(classes);
                rig_lead_numbers(classes); premium_numbers(classes);
                fleet_share_numbers(classes); market_numbers(classes);
@@ -1881,34 +1882,36 @@ end
     goal_numbers()
 
 Name and text of the goals the abstracts state: canopy life, the canopy price
-at the goal and today, and the share of time out of service.
+at the goal and today, and the share of time out of service; and of the
+[`kite_gap_bias`](@ref).
 """
 goal_numbers() = [
     "CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
     "CanopyPriceGoal" => @sprintf("%.0f", WindShipOpt.canopy_price(assumptions)),
     "CanopyPriceToday" => @sprintf("%.0f", WindShipOpt.canopy_price_today(assumptions)),
-    "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal())]
+    "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal()),
+    "KiteGapBias" => @sprintf("%.1f", kite_gap_bias)]
 
 """
     class_numbers(classes)
 
-Name and text, per drive and rig, of the mean over the classes and routes of the class
-table `classes` of the cost saving [%] of the cheapest size, and of the cells of class
-and route where the rig saves most and saves at all, with the count of cells.
+Name and text, per drive and rig, of the mean over the [`fleet_cells`](@ref) of class and
+route of the class table `classes` of the cost saving [%] of the cheapest size, and the
+count of cells in each [`fleet_band`](@ref).
 """
 function class_numbers(classes)
     numbers = Pair{String, String}[]
     for (drive, word) in drive_words
-        cells = filter(!isempty, [best_savings(classes, class, route, drive)
-                                  for class in class_order(classes)
-                                  for route in unique(classes["route"])])
-        leaders = [argmax(cell) for cell in cells if maximum(values(cell)) > 0]
-        push!(numbers, "Cells$word" => string(length(cells)))
+        cells = fleet_cells(classes, drive)
+        bands = fleet_band.(cells)
+        push!(numbers, "Cells$word" => string(length(cells)),
+            "Level$word" => string(count(==("level"), bands)),
+            "NoRig$word" => string(count(==("none"), bands)))
         for rig in rig_names
             name = word * uppercasefirst(rig)
             push!(numbers, "Saving$name" => whole_number(
-                    mean(cell[rig] for cell in cells if haskey(cell, rig))),
-                "Leads$name" => string(count(==(rig), leaders)))
+                    mean(cell.savings[rig] for cell in cells)),
+                "Leads$name" => string(count(==(rig), bands)))
         end
     end
     return numbers
@@ -1919,8 +1922,8 @@ end
 
 Name and text, per drive of the class table `table`, of each band's share [%] of the
 yearly cost of carrying the fleet's cargo, the totals of that cost and of the saving
-[billion USD], the shares of the IMO transport work and of shipping's CO2 the classes
-carry, and the [`level_margin`](@ref).
+[billion USD], and the shares of the IMO transport work and of shipping's CO2 the classes
+carry.
 """
 function fleet_share_numbers(table)
     numbers = Pair{String, String}[]
@@ -1936,8 +1939,7 @@ function fleet_share_numbers(table)
     _, work_share = fleet_work()
     fuel_share = read_table(joinpath(root, "data", "ship_classes.csv"))["fuel_share"]
     push!(numbers, "FleetWorkShare" => whole_number(100work_share),
-        "FleetFuelShare" => whole_number(100sum(fuel_share)),
-        "FleetLevelMargin" => whole_number(level_margin))
+        "FleetFuelShare" => whole_number(100sum(fuel_share)))
     return numbers
 end
 
@@ -2014,19 +2016,23 @@ ship_types = (("Container", "Container ships", ("container",)),
     ("GeneralCargo", "General cargo ships", ("general cargo",)))
 
 """
-    rig_lead(table, classes, drive)
+    rig_lead(cells)
 
-Of the [`mean_savings`](@ref) of the cost [%] of each rig over `classes` and routes in the
-class table `table`: the rig saving most, its rival saving next most, the margin between
-them [points] and the lead of the kite over the rotors [points].
+Of the mean cost saving [%] of each rig over fleet `cells`: the rig saving most, its
+rival, the one level with it where there is one and else the next, the margin between
+them [points] with its [`gap_error`](@ref), the `verdict` of the [`fleet_leaders`](@ref),
+`"leads"`, `"level"` or `"none"` where no rig clearly saves, and the lead of the kite over
+the rotors [points].
 """
-function rig_lead(table, classes, drive)
-    savings = Dict(rig => only(mean_savings(table, ("cost",), classes, drive, rig))
-                   for rig in rig_names)
-    (; rig, rival) = first(WindShipOpt.ranked_rivals(Dict(rig => -saving
-                                                          for (rig, saving) in savings)))
-    return (; rig, rival, margin=savings[rig] - savings[rival],
-        kite_lead=savings["kite"] - savings["rotors"])
+function rig_lead(cells)
+    savings = Dict(rig => mean(cell.savings[rig] for cell in cells) for rig in rig_names)
+    ranked = sort(collect(rig_names); by=rig -> -savings[rig])
+    leaders = sort(fleet_leaders(savings, cells); by=rig -> -savings[rig])
+    rig, rival = first(ranked), length(leaders) > 1 ? leaders[2] : ranked[2]
+    margin = savings[rig] - savings[rival]
+    verdict = isempty(leaders) ? "none" : length(leaders) > 1 ? "level" : "leads"
+    return (; rig, rival, margin, error=first(gap_error(cells, ones(length(cells)), rig,
+            rival)), verdict, kite_lead=savings["kite"] - savings["rotors"])
 end
 
 """
@@ -2080,9 +2086,10 @@ For each of `ship_types` and drive of the class table `table`: its words and lab
 """
 function rig_lead_rows(table)
     classes = ship_classes()
+    cells = Dict(drive => fleet_cells(table, drive) for (drive, _) in drive_words)
     return [begin
                 names = [name for name in class_order(table) if classes[name].type in types]
-                lead = rig_lead(table, names, drive)
+                lead = rig_lead(filter(cell -> cell.class in names, cells[drive]))
                 (; word, label, drive, drive_word, lead...,
                     kite_limits(table, names, drive, lead.kite_lead)...)
             end
@@ -2100,37 +2107,96 @@ life_limit_text(life) = isnan(life) ? "--" : @sprintf("\\num{%.0f}", 100round(li
     rig_lead_numbers(table)
 
 Name and text, per kind of ship of `ship_types` and drive of the class table `table`, of
-the margin of the best rig by [`whole_points`](@ref), and on container ships where the
-kite falls behind the rotors.
+the [`lead_verdict`](@ref), and on container ships where the kite falls behind the rotors;
+and per drive of the [`advice_text`](@ref).
 """
 function rig_lead_numbers(table)
     numbers = Pair{String, String}[]
-    for row in rig_lead_rows(table)
+    rows = rig_lead_rows(table)
+    for row in rows
         name = row.drive_word * row.word
-        push!(numbers, "Margin$name" => whole_points(row.margin))
+        push!(numbers, "Verdict$name" => lead_verdict(row))
         row.word == "Container" || continue
         push!(numbers, "KiteLifeLimit$name" => life_limit_text(row.life),
             "KiteLossLimit$name" => crash_cell(row.losses))
+    end
+    for (drive, word) in drive_words
+        on_drive = filter(row -> row.drive == drive, rows)
+        push!(numbers, "Advice$word" => advice_text(on_drive))
     end
     return numbers
 end
 
 """
+    advice(lead)
+
+Rig to use by a [`rig_lead`](@ref) `lead`: the rig that leads, either of two level, in
+the order of `rig_names`, or no rig.
+"""
+function advice(lead)
+    lead.verdict == "none" && return "no rig"
+    lead.verdict == "leads" && return first(rig_subjects[lead.rig])
+    pair = sort([lead.rig, lead.rival]; by=rig -> findfirst(==(rig), rig_names))
+    return "either " * join((first(rig_subjects[rig]) for rig in pair), " or ")
+end
+
+"""
+    advice_text(leads)
+
+Text of the [`advice`](@ref) of each [`rig_lead`](@ref) of `leads`, each of a kind of ship
+with its `label`, the kinds given the same advice named together.
+"""
+function advice_text(leads)
+    kinds = Pair{String, Vector{String}}[]
+    for lead in leads
+        rig = advice(lead)
+        at = findfirst(kind -> first(kind) == rig, kinds)
+        if isnothing(at)
+            push!(kinds, rig => [lowercase(lead.label)])
+        else
+            push!(last(kinds[at]), lowercase(lead.label))
+        end
+    end
+    return join(("$rig on " * join(labels, ", ", " and ") for (rig, labels) in kinds), ", ",
+        ", and ")
+end
+
+"names of the rigs in the text, with the verb a rig leads by"
+rig_subjects = Dict("kite" => ("the kite", "leads"), "wings" => ("the wing sails", "lead"),
+    "rotors" => ("the rotors", "lead"))
+
+"""
+    lead_verdict(lead)
+
+Text of a [`rig_lead`](@ref) `lead`: the best rig leading its rival by their margin, the
+two level and the margin between them, or no rig clearly saving.
+"""
+function lead_verdict(lead)
+    lead.verdict == "none" && return "no rig clearly saves"
+    (rig, verb), (rival, _) = rig_subjects[lead.rig], rig_subjects[lead.rival]
+    margin = whole_points(lead.margin)
+    lead.verdict == "leads" && return "$rig $verb $rival by $margin"
+    return "$rig and $rival are level, $margin apart"
+end
+
+"""
     rig_margin_table()
 
-Tabular per kind of ship and drive of the best rig, the next and the margin between their
-cost savings, and where the kite falls behind the rotors, in rig_margin_table.tex.
+Tabular per kind of ship and drive of the best rig, the next, the margin between their
+cost savings with its error and whether the best leads or the two are level, and where
+the kite falls behind the rotors, in rig_margin_table.tex.
 """
 function rig_margin_table()
     open(joinpath(sections, "rig_margin_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}llllrrr@{}}\n\\toprule")
-        println(io, " & & & & & \\multicolumn{2}{c}{Kite behind rotors at} \\\\")
-        println(io, "\\cmidrule(l){6-7}")
-        println(io, "Ship type & Fuel & Best & Next & Margin [points] & Canopy life [h] & ",
-            "Kites lost [per year] \\\\\n\\midrule")
-        for row in rig_lead_rows(read_table(data_file("classes.csv")))
+        println(io, "\\begin{tabular}{@{}llllrlrr@{}}\n\\toprule")
+        println(io, " & & & & & & \\multicolumn{2}{c}{Kite behind rotors at} \\\\")
+        println(io, "\\cmidrule(l){7-8}")
+        println(io, "Ship type & Fuel & Best & Next & Margin [points] & Verdict & ",
+            "Canopy life [h] & Kites lost [per year] \\\\\n\\midrule")
+        for row in rig_lead_rows(class_table())
             println(io, join([row.label, Dict(drive_labels)[row.drive], row.rig, row.rival,
-                    @sprintf("%.1f", row.margin), life_limit_text(row.life),
+                    @sprintf("\\(%.1f \\pm %.1f\\)", row.margin, row.error),
+                    row.verdict, life_limit_text(row.life),
                     crash_cell(row.losses)], " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
