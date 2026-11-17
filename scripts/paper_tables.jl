@@ -114,15 +114,27 @@ ranged_inputs() = sort!([pair for pair in assumptions.entries
 "header row of the input table"
 input_header = "\\toprule\nInput & Value & Range & Unit & Source \\\\\n\\midrule"
 
+"words of an input's name printed otherwise in the input table"
+input_words = Dict("e" => "e-", "teu" => "TEU", "ceu" => "CEU", "usd" => "USD",
+    "eur" => "EUR", "vlsfo" => "VLSFO", "holtrop" => "Holtrop")
+
+"""
+    input_label(name)
+
+Name of the input `name` as the input table prints it, in words rather than as a key.
+"""
+input_label(name) = replace(join([get(input_words, word, word)
+                                  for word in split(string(name), "_")], " "),
+    "e- " => "e-", r"^rigid " => "rigid kite ")
+
 """
     write_input_row(io, entry, name)
 
 One row of the input table: name, base value, range, unit and the full source note.
 """
 function write_input_row(io, entry, name)
-    label = replace(string(name), "_" => " ")
     unit = strip(entry.unit, '"')
-    println(io, latex_escape(label), " & ", latex_number(entry.value), " & ",
+    println(io, latex_escape(input_label(name)), " & ", latex_number(entry.value), " & ",
         latex_number(entry.low), "--", latex_number(entry.high), " & ",
         unit == "-" ? "--" : latex_escape(unit), " & ", latex_escape(entry.reason), " \\\\")
 end
