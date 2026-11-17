@@ -2245,9 +2245,11 @@ where one leads, and the two in the order of `rig_names` where they are level.
 function verdict_key(row)
     row.verdict == "none" && return (row.verdict,)
     row.verdict == "leads" && return (row.verdict, row.rig, row.rival)
-    order(rig) = findfirst(==(rig), rig_names)
-    return (row.verdict, sort([row.rig, row.rival]; by=order)...)
+    return (row.verdict, rig_pair(row)...)
 end
+
+"the best rig of a [`rig_lead`](@ref) `lead` and its rival, in the order of `rig_names`"
+rig_pair(lead) = sort([lead.rig, lead.rival]; by=rig -> findfirst(==(rig), rig_names))
 
 """
     verdict_phrase(key, margins, where)
@@ -2291,8 +2293,7 @@ function advice(lead; short=false)
     lead.verdict == "none" && return "no rig"
     name(rig) = short ? rig_short_names[rig] : first(rig_subjects[rig])
     lead.verdict == "leads" && return name(lead.rig)
-    pair = sort([lead.rig, lead.rival]; by=rig -> findfirst(==(rig), rig_names))
-    return (short ? "" : "either ") * join(name.(pair), " or ")
+    return (short ? "" : "either ") * join(name.(rig_pair(lead)), " or ")
 end
 
 "names of the rigs in the shortest text"
@@ -2316,9 +2317,8 @@ function advice_text(rows)
               for (rigs, names) in grouped(advised[same], labels[same])]
     differing, previous = String[], String[]
     for (rigs, names) in grouped(advised[.!same], labels[.!same])
-        on_fuels = previous == reverse(rigs) ? "the other way round" :
-                   listed(["$rig on $(fuel_names[drive])" for (rig, drive) in zip(rigs,
-            drives)])
+        per_fuel = ["$rig on $(fuel_names[drive])" for (rig, drive) in zip(rigs, drives)]
+        on_fuels = previous == reverse(rigs) ? "the other way round" : listed(per_fuel)
         verb = isempty(differing) ? "use " : ""
         push!(differing, "on $(ship_list(names, labels)) $verb$on_fuels")
         previous = rigs
