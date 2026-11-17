@@ -79,28 +79,28 @@ expected_forecast() = ExpectedForecast(forecast_archive, forecast_error())
 """
     round_trips(cases, departures)
 
-Round trips of all `cases`, threaded, reusing those cached in the run in use under the same
-value of every input they read; the kite pattern tables of the others are computed first,
-one kite at a time.
+Round trips of all `cases`, threaded, taking those the case store holds for the run in use
+([`stored_entry`](@ref)) and storing the others; the kite pattern tables of the others are
+computed first, one kite at a time.
 """
 function round_trips(cases, departures)
     directories = [case_directory(case, departures) for case in cases]
-    trips = Any[cached_trip(directory, case.assumptions)
-                for (case, directory) in zip(cases, directories)]
-    computed = findall(ismissing, trips)
+    entries = Any[stored_entry(directory, case)
+                  for (case, directory) in zip(cases, directories)]
+    computed = findall(ismissing, entries)
     for case in cases[computed]
         max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
             Ship(case.design, case.assumptions)
     end
     Threads.@threads :greedy for k in computed
-        trips[k] = stored_trip(() -> case_trip(cases[k], departures), directories[k],
-            cases[k].assumptions)
+        entries[k] = stored_trip(() -> case_trip(cases[k], departures), directories[k],
+            cases[k])
     end
-    feasible = count(!isnothing, trips)
-    paper_run.cases += length(cases)
-    paper_run.trips += feasible
-    println("  ", feasible, " of ", length(cases), " round trips, ",
-        length(cases) - length(computed), " cached")
+    foreach(tally_case!, entries)
+    trips = [entry.trip for entry in entries]
+    older = count(entry -> entry.model != paper_run.trip_model, entries)
+    println("  ", count(!isnothing, trips), " of ", length(cases), " round trips, ",
+        length(cases) - length(computed), " stored", older > 0 ? ", $older by older code" : "")
     return trips
 end
 
