@@ -1528,7 +1528,7 @@ end
 
 "indices of `samples` that begin a new leg of the round trip"
 leg_starts(samples) = [1; [i for i in 2:length(samples)
-                           if samples[i].hours < samples[i - 1].hours]]
+                           if samples[i].edge_start < samples[i - 1].edge_start]]
 
 """
     speed_change_hours(table, samples, prices)
