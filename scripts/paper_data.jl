@@ -2192,17 +2192,42 @@ kite_margin_rows = (
     ("Down otherwise", "down_other"))
 
 """
+Inputs of the development study that move several assumptions together, each with the
+end of every assumption's range that its high bound takes.
+"""
+joint_inputs = (kite_weather_window=(kite_launch_sea_wind=:low, kite_launch_min_wind=:low,
+    kite_launch_max_wind=:high, kite_landing_max_wind=:high, kite_max_wind=:high),)
+
+"""
     bound_assumptions(name, bound)
 
 The assumptions with input `name` at its `bound` (:low or :high), the kite's aspect ratio
-at the price of the base kite.
+at the price of the base kite and each of [`joint_inputs`](@ref) by
+[`moved_together`](@ref).
 """
 function bound_assumptions(name, bound)
+    haskey(joint_inputs, name) && return moved_together(joint_inputs[name], bound)
     entry = assumptions.entries[name]
     value = bound == :low ? entry.low : entry.high
     name == :kite_aspect_ratio &&
         return WindShipOpt.with_kite_aspect_ratio(assumptions, value)
     return with_value(assumptions, name, value)
+end
+
+"""
+    moved_together(high_ends, bound)
+
+The assumptions with each one named in `high_ends` at the end of its range given there
+where `bound` is `:high`, and at the other end where it is `:low`.
+"""
+function moved_together(high_ends, bound)
+    other_end = Dict(:low => :high, :high => :low)
+    moved = assumptions
+    for (name, high_end) in pairs(high_ends)
+        end_of_range = bound == :high ? high_end : other_end[high_end]
+        moved = with_value(moved, name, getfield(assumptions.entries[name], end_of_range))
+    end
+    return moved
 end
 
 "class ships of the development study, each with its drive and route"
@@ -2273,17 +2298,9 @@ development_inputs = [
     (input=:kite_aspect_ratio, label="kite aspect ratio", rig="kite", lever="force",
         reason="The shape of the wing, fixed at today's in the results; a slenderer kite " *
                "glides better if launch and canopy can handle it, priced as the base."),
-    (input=:kite_launch_sea_wind, label="kite extra launch wind in a sea", rig="kite",
-        lever="weather", reason="How far the launch system takes up the ship's motion; " *
-                                "the kite's only limit on the sea."),
-    (input=:kite_launch_min_wind, label="kite lowest launch wind", rig="kite",
-        lever="weather", reason="A lighter kite and a surer launch reach calmer air."),
-    (input=:kite_launch_max_wind, label="kite highest launch wind", rig="kite",
-        lever="weather", reason="How hard a wind the launch system can handle."),
-    (input=:kite_landing_max_wind, label="kite highest landing wind", rig="kite",
-        lever="weather", reason="How hard a wind the landing and stowage can handle."),
-    (input=:kite_max_wind, label="kite highest wind in flight", rig="kite",
-        lever="weather", reason="Its structure and control decide when it must come down."),
+    (input=:kite_weather_window, label="kite weather window", rig="kite", lever="weather",
+        reason="Its launch system, structure and control decide the sea and the winds " *
+               "in which it launches, flies and lands; its five limits moved together."),
     (input=:wing_cost_per_area, label="wing sail cost per area", rig="wings", lever="price",
         reason="Structure and series production set a wing's price."),
     (input=:wing_max_lift_coefficient, label="wing sail maximum lift", rig="wings",
@@ -2326,9 +2343,9 @@ end
     sensitivity_data()
 
 Every ship of [`sensitivity_ships`](@ref) without a rig and with each rig, at the base
-inputs and with each of [`development_inputs`](@ref) at its low and high bound:
-sensitivity.csv. The base trips are routed first, so a changed case whose trip never reads
-its input reuses them.
+inputs and with each of [`development_inputs`](@ref) at its low and high bound, over the
+[`sensitivity_departures`](@ref): sensitivity.csv. The base trips are routed first, so a
+changed case whose trip never reads its input reuses them.
 """
 function sensitivity_data()
     cases = []
@@ -2342,8 +2359,8 @@ function sensitivity_data()
     base = findall(case -> case.input == :none, cases)
     changed = setdiff(eachindex(cases), base)
     trips = Vector{Any}(nothing, length(cases))
-    trips[base] = round_trips(cases[base], sampled_departures())
-    trips[changed] = round_trips(cases[changed], sampled_departures())
+    trips[base] = round_trips(cases[base], sensitivity_departures())
+    trips[changed] = round_trips(cases[changed], sensitivity_departures())
     write_trips("sensitivity.csv", cases, trips, :ship, :rig, :input, :bound)
 end
 
