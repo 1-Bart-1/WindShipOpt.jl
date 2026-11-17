@@ -1428,6 +1428,37 @@ end
     @test chosen.cost_per_tonne_km <= minimum(trip.cost_per_tonne_km for trip in held)
 end
 
+@testset "a liner keeps the time of its ship without a rig and takes the gain as fuel" begin
+    liner = ship_classes()["feeder container ship"]
+    tramp = ShipClass(; (name => getfield(liner, name) for name in fieldnames(ShipClass))...,
+        liner=false)
+    departures = [24.0 * 31, 24.0 * 200]
+    trip(class; rig...) = round_trip(Ship(ShipDesign(:ammonia, class; rig...), assumptions),
+        corridors..., SyntheticWeather(), departures, assumptions)
+    days(trip) = trip.outbound_days + trip.return_days
+    bare, scheduled, free = trip(liner), trip(liner; rotor_area=600.0),
+    trip(tramp; rotor_area=600.0)
+    @test days(free) < 0.99days(bare)
+    @test days(free) < days(scheduled) <= days(bare)
+    @test days(trip(tramp)) == days(bare)
+end
+
+@testset "a leg arrives by its time on the least fuel that does" begin
+    ship = Ship(ShipDesign(:ammonia, ship_classes()["feeder container ship"];
+        rotor_area=600.0), assumptions)
+    table = RouteTable(PerformanceTable(ship, assumptions))
+    time_cost = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions))
+    sail(arrival_by) = route(first(corridors), table, SyntheticWeather(), 24.0 * 31;
+        time_cost, arrival_by)
+    free = sail(Inf)
+    later, earlier = sail(free.duration + 24), sail(free.duration - 12)
+    @test free.duration < later.duration <= free.duration + 24
+    @test later.fuel_energy < free.fuel_energy
+    @test earlier.duration <= free.duration - 12
+    @test earlier.fuel_energy > free.fuel_energy
+    @test sail(1.0).duration <= minimum(sail(hours).duration for hours in (Inf, 100.0))
+end
+
 @testset "an edge is sampled at most the asked hours apart at the commanded speed" begin
     weather, stage, centre = SyntheticWeather(), 1, centre_index(corridor)
     step = WindShipOpt.MAX_LATERAL_STEP + 1

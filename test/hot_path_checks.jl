@@ -197,8 +197,12 @@ end
             Bool)))
         @test isempty(dynamic_calls(WindShipOpt.kite_passage,
             (kinds[1], points, Bool, prices)))
-        @test isempty(dynamic_calls(Core.kwcall, (@NamedTuple{time_cost::Float64},
-            typeof(route), typeof(coarse_corridor), kinds[1], kinds[2], Float64)))
+        for options in (@NamedTuple{time_cost::Float64},
+            @NamedTuple{time_cost::Float64, arrival_by::Float64})
+
+            @test isempty(dynamic_calls(Core.kwcall, (options, typeof(route),
+                typeof(coarse_corridor), kinds[1], kinds[2], Float64)))
+        end
     end
 end
 
