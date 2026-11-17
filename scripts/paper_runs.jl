@@ -12,6 +12,7 @@ using TOML
 using WindShipOpt: inputs_read
 
 include("step_code.jl")
+include("case_jobs.jl")
 
 """
 Settings of each fidelity of the paper: the corridor scale, the step between sampled
@@ -619,8 +620,9 @@ end
 
 Entry of the case store `directory` the run in use takes for `case`, or `missing`: one its
 code computed under the values of `case.assumptions` in every input it read and from the
-data files it read as they are now, and of its commit and a clean tree in a final run. In a
-draft, a case outside its `only` takes the latest such entry of any code where none is.
+data files it read as they are now, and of its commit, a clean tree and this processor in a
+final run. In a draft, a case outside its `only` takes the latest such entry of any code
+where none is.
 """
 function stored_entry(directory, case)
     isdir(directory) || return missing
@@ -629,8 +631,8 @@ function stored_entry(directory, case)
     filter!(entry -> reads_unchanged(entry, case), entries)
     current = filter(entry -> entry.model == paper_run.trip_model, entries)
     if paper_run.fidelity == :final
-        filter!(entry -> entry.commit == paper_run.record["git_commit"] && !entry.dirty,
-            current)
+        filter!(entry -> entry.commit == paper_run.record["git_commit"] && !entry.dirty &&
+                         entry.processor == processor(), current)
     end
     isempty(current) || return first(current)
     (paper_run.fidelity == :final || in_slice(case, paper_run.only)) && return missing
@@ -663,14 +665,26 @@ function stored_trip(compute, directory, case)
     record = paper_run.record
     entry = (; inputs, files=sort(collect(files)), trip, seconds,
         model=paper_run.trip_model, commit=record["git_commit"], dirty=record["git_dirty"],
-        processor=strip(Sys.cpu_info()[1].model), made=now())
+        processor=processor(), made=now())
     mkpath(directory)
     temporary = tempname(directory; cleanup=false)
     serialize(temporary, entry)
-    key = content_hash((inputs, entry.files, entry.commit, entry.dirty))
-    mv(temporary, joinpath(directory, string(entry.model, "-", key, ".bin")); force=true)
+    mv(temporary, entry_file(directory, entry); force=true)
     return entry
 end
+
+"""
+    entry_file(directory, entry)
+
+File of the case store `directory` holding `entry`, named by its code and a hash of the
+inputs and data files it read, its commit, dirty flag and processor.
+"""
+entry_file(directory, entry) = joinpath(directory, string(entry.model, "-",
+    content_hash((entry.inputs, entry.files, entry.commit, entry.dirty, entry.processor)),
+    ".bin"))
+
+"model name of the processor this process runs on"
+processor() = strip(Sys.cpu_info()[1].model)
 
 """
     tally_case!(case, directory, entry)
