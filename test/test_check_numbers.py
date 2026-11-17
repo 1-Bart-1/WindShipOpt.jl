@@ -37,7 +37,8 @@ class CheckNumbers(unittest.TestCase):
     def test_generated_values_references_and_layout_pass(self):
         tex = ("% 99 in a comment\n\\NumSavingOilKite\\,\\% in \\cref{tab:a2} "
                "\\citep[p.~3]{b1} CO$_2$ in 2050, \\SI{3}{m^2}\\\\[1ex] "
-               "\\includegraphics[width=0.8\\textwidth]{f1} \\studyrun{forecast_live}")
+               "\\includegraphics[width=0.8\\textwidth]{f1} \\studyrun{forecast_live} "
+               "\\cmidrule(lr){3-5}")
         self.assertEqual(numbers(tex), ["3"])
 
     def test_preamble_passes(self):

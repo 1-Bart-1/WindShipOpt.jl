@@ -29,12 +29,12 @@ COMMAND = re.compile(r"\\([A-Za-z]+)\*?")
 NUMBER = re.compile(r"(?<![A-Za-z0-9.])\d[\d,.]*")
 DIMENSION = re.compile(r"\s*(pt|em|ex|cm|mm|in|bp|\\(text|line|column)width)\b")
 YEAR = re.compile(r"(19|20)\d\d")
-FLOAT = re.compile(r"\\begin\{(table|figure)\*?\}.*?\\end\{\1\*?\}", re.S)
+FLOAT = re.compile(r"\\begin\{(table|figure|longtable)\*?\}.*?\\end\{\1\*?\}", re.S)
 
 
 def group_end(text, start):
-    """Index after the brace or bracket group opening at `start`."""
-    close = {"{": "}", "[": "]"}[text[start]]
+    """Index after the brace, bracket or parenthesis group opening at `start`."""
+    close = {"{": "}", "[": "]", "(": ")"}[text[start]]
     depth = 0
     for index in range(start, len(text)):
         if text[index] == text[start] and text[index - 1] != "\\":
@@ -52,9 +52,10 @@ def blank(text, start, stop):
 
 
 def arguments(text, index):
-    """Spans of the bracket and brace groups that follow `index` directly."""
+    """Spans of the groups in brackets, braces or parentheses that follow `index`
+    directly."""
     spans = []
-    while index < len(text) and text[index] in "[{":
+    while index < len(text) and text[index] in "[{(":
         stop = group_end(text, index)
         spans.append((index, stop))
         index = stop
@@ -76,7 +77,7 @@ def masked(text):
         name = match.group(1)
         spans = arguments(text, match.end())
         braces = [span for span in spans if text[span[0]] == "{"]
-        skipped = [span for span in spans if text[span[0]] == "["]
+        skipped = [span for span in spans if text[span[0]] in "[("]
         if name in SKIPPED:
             skipped = spans + [(match.start(), match.end())]
         elif name in SKIPPED_ARGUMENTS:
