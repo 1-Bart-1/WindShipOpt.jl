@@ -2074,15 +2074,14 @@ WindShipOpt.known_weather(source::FixedForecast, weather, time, horizon) = sourc
 
 """
 The leg the kite coaster sails live in the real `weather` on a fixed forecast, departing
-at 24 × 121 h, and its [`WindShipOpt.KiteRecord`](@ref). `routing` is what
-`kite_coaster_routing` returns.
+at 24 × 121 h, and its `KiteRecord`; `routing` is what `kite_coaster_routing` returns.
 """
 function live_leg(routing, weather)
     kite_table, kite_hourly, finer = routing
     record = WindShipOpt.KiteRecord()
+    forecast = ReplannedForecast(FixedForecast(SyntheticWeather(; seed=2)); adapts=:live)
     leg = forecast_route(finer, kite_table, weather, 24.0 * 121; time_cost=kite_hourly,
-        record,
-        forecast=ReplannedForecast(FixedForecast(SyntheticWeather(; seed=2)); adapts=:live))
+        record, forecast)
     return leg, record
 end
 
@@ -2090,7 +2089,7 @@ end
 steps_before(record, cut) = [(sample.hours, sample.speed, sample.aloft)
                              for sample in record.samples if sample.hours < cut]
 
-"[`steps_before`](@ref) `cut` of the kite coaster sailing live by [`live_leg`](@ref)."
+"`steps_before` `cut` of the kite coaster sailing live by `live_leg`."
 live_steps_before(routing, weather, cut) =
     steps_before(last(live_leg(routing, weather)), cut)
 
