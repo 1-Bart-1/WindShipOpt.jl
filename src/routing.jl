@@ -1306,13 +1306,15 @@ end
 const MAX_LEG_HOURS = 1200.0
 
 """
-    route(corridor, table, weather, departure; time_cost, first_stage=1, first_lateral,
-          first_aloft=false, record=nothing)
+    route(corridor, table, weather, departure; time_cost, arrival_by=Inf, first_stage=1,
+          first_lateral, first_aloft=false, record=nothing)
 
 Weather routing by forward dynamic programming over (stage, lateral node, arrival time
 bin, kite aloft) on the routing speeds of the [`RouteTable`](@ref) `table`, or of a
 [`PerformanceTable`](@ref). Minimises fuel cost plus rig wear and kite launches plus
 `time_cost` [USD/h] times duration for a departure at `departure` [h]; times in hours.
+With a finite `arrival_by` [h] it arrives by then, charged that time, or as early as it can
+where no path does.
 Each edge is sailed at a commanded speed by [`sail_edge!`](@ref), slowing where the
 engine cannot hold it, with the kite managed along it by [`kite_passage`](@ref); it is
 infeasible only where the lowest routing speed cannot be held. The passage starts at node
@@ -1325,10 +1327,10 @@ A [`SearchRecord`](@ref) `record` receives what the search kept. Returns `nothin
 path arrives within `MAX_LEG_HOURS`.
 """
 function route(corridor::Corridor, table::RouteTable, weather, departure; time_cost,
-        first_stage=1, first_lateral=centre_index(corridor), first_aloft=false,
-        record=nothing)
+        arrival_by=Inf, first_stage=1, first_lateral=centre_index(corridor),
+        first_aloft=false, record=nothing)
     (; time_step) = ROUTER_SETTINGS[]
-    options = (; time_step, time_cost, first_stage, first_lateral, first_aloft,
+    options = (; time_step, time_cost, arrival_by, first_stage, first_lateral, first_aloft,
         speed_stride=ROUTER_SETTINGS[].search_speed_stride)
     workspace = acquire_workspace(size(corridor.lat, 2), bin_count(time_step),
         size(corridor.lat, 1))
@@ -1344,8 +1346,8 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
         isnothing(record) || record!(record, workspace, size(corridor.lat, 1),
             (; to_go, estimate, limits, limit, found=leg, time_step))
         isnothing(leg) && return nothing
-        return final_pass(leg, corridor, table, weather, departure; time_cost, first_stage,
-            first_aloft)
+        return final_pass(leg, corridor, table, weather, departure; time_cost, arrival_by,
+            first_stage, first_aloft)
     finally
         release_workspace(workspace)
     end
@@ -1439,24 +1441,27 @@ end
 final_time_step(weather) = ROUTER_SETTINGS[].final_time_step
 
 """
-    final_pass(leg, corridor, table, weather, departure; time_cost, first_stage,
-               first_aloft)
+    final_pass(leg, corridor, table, weather, departure; time_cost, arrival_by=Inf,
+               first_stage, first_aloft)
 
 The cheaper of `leg` and the [`route_pass`](@ref) along its path at all speeds of `table`,
 on the bins of [`final_time_step`](@ref) and within the band in time of
-`ROUTER_SETTINGS`.
+`ROUTER_SETTINGS`, of those arriving by `arrival_by` [h] or no later than `leg`.
 """
-function final_pass(leg::Leg, corridor, table, weather, departure; time_cost, first_stage,
-        first_aloft)
+function final_pass(leg::Leg, corridor, table, weather, departure; time_cost,
+        arrival_by=Inf, first_stage, first_aloft)
     time_step = final_time_step(weather)
     workspace = acquire_workspace(1, bin_count(time_step), length(leg.path))
     try
         band = PassageBand([point[3] for point in leg.path],
             ROUTER_SETTINGS[].final_time_band)
         refined = route_pass(workspace, path_corridor(leg, corridor, first_stage), table,
-            weather, departure, band; time_cost, time_step, first_stage=1,
+            weather, departure, band; time_cost, arrival_by, time_step, first_stage=1,
             first_lateral=1, first_aloft, speed_stride=1)
-        return isnothing(refined) || refined.objective > leg.objective ? leg : refined
+        isnothing(refined) && return leg
+        refined.duration <= arrival_by < leg.duration && return refined
+        refined.duration > max(arrival_by, leg.duration) && return leg
+        return refined.objective > leg.objective ? leg : refined
     finally
         release_workspace(workspace)
     end
@@ -1467,15 +1472,17 @@ end
                  kite=nothing; options...)
 
 The [`Leg`](@ref) of the first [`route_pass`](@ref) with the [`KiteRule`](@ref) `kite`
-under `limits` [USD] that ends within its limit, and that limit, else of a pass over all
-states, which is `nothing` if no path arrives, and `Inf`.
+under `limits` [USD] that ends within its limit and by the `arrival_by` of `options`, and
+that limit, else of a pass over all states, which is `nothing` if no path arrives, and
+`Inf`.
 """
 function searched_leg(workspace, corridor, table, weather, departure, to_go, limits,
         kite=nothing; options...)
     for limit in limits
         leg = route_pass(workspace, corridor, table, weather, departure, to_go, limit;
             kite, options...)
-        !isnothing(leg) && leg.objective <= limit && return leg, limit
+        isnothing(leg) && continue
+        leg.objective <= limit && leg.duration <= options[:arrival_by] && return leg, limit
     end
     return route_pass(workspace, corridor, table, weather, departure; kite, options...), Inf
 end
@@ -1554,19 +1561,20 @@ end
 
 """
     route_pass(workspace, corridor, table, weather, departure, to_go=nothing, limit=Inf;
-               time_cost, time_step, first_stage, first_lateral, first_aloft, speed_stride,
-               kite=nothing)
+               time_cost, arrival_by=Inf, time_step, first_stage, first_lateral,
+               first_aloft, speed_stride, kite=nothing)
 
 The dynamic programme of [`route`](@ref) in `workspace`, whose bins are the
 [`time_bin`](@ref)s of `time_step` [h], keeping one kite state per node and time bin by
 the [`KiteRule`](@ref) `kite`, or both where it is `nothing`, commanding the
 [`commanded_speeds`](@ref) of `table` at `speed_stride`, skipping states and commanded
 edges outside the [`PassageBand`](@ref) `to_go`, or, with a [`CostToGo`](@ref) `to_go`,
-those whose objective plus it exceeds `limit` [USD]. Returns the [`Leg`](@ref) or `nothing`.
+those whose objective plus it exceeds `limit` [USD]. Returns the [`Leg`](@ref) of the
+[`final_arrival`](@ref) by `arrival_by` [h], or `nothing`.
 """
 function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable,
-        weather, departure, to_go=nothing, limit=Inf; time_cost, time_step, first_stage,
-        first_lateral, first_aloft, speed_stride, kite=nothing)
+        weather, departure, to_go=nothing, limit=Inf; time_cost, arrival_by=Inf, time_step,
+        first_stage, first_lateral, first_aloft, speed_stride, kite=nothing)
     ship_table = table.table
     (; speeds) = table
     (; cost, elapsed) = workspace
@@ -1619,10 +1627,33 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
             end
         end
     end
-    objective, bin = findmin(view(cost, centre_index(corridor), :, 1, stage_count))
+    final = (centre_index(corridor), :, 1, stage_count)
+    objective, bin = final_arrival(view(cost, final...), view(elapsed, final...),
+        time_cost, arrival_by)
     isfinite(objective) || return nothing
     return traced_leg(workspace, corridor, table, (centre_index(corridor), bin, 1,
-        stage_count), first_stage)
+        stage_count), first_stage, objective)
+end
+
+"""
+    final_arrival(costs, hours, time_cost, arrival_by)
+
+Objective [USD] and time bin of the best of the arrivals at objectives `costs` [USD] after
+`hours` [h]: the least, or, with a finite `arrival_by` [h], the least of those arriving by
+then charged `time_cost` [USD/h] for that time, else the earliest; `Inf` where none arrives.
+"""
+function final_arrival(costs, hours, time_cost, arrival_by)
+    isinf(arrival_by) && return findmin(costs)
+    best, bin, earliest = Inf, 0, 0
+    for i in eachindex(costs, hours)
+        isfinite(costs[i]) || continue
+        (earliest == 0 || hours[i] < hours[earliest]) && (earliest = i)
+        hours[i] <= arrival_by || continue
+        objective = costs[i] + time_cost * (arrival_by - hours[i])
+        objective < best && ((best, bin) = (objective, i))
+    end
+    bin > 0 && return best, bin
+    return earliest == 0 ? (Inf, 1) : (costs[earliest], earliest)
 end
 
 """
@@ -1858,12 +1889,13 @@ function arrive!(workspace, origin, arrival, tally::EdgeTally, edge, total)
 end
 
 """
-    traced_leg(workspace, corridor, table, final, first_stage)
+    traced_leg(workspace, corridor, table, final, first_stage, objective)
 
-[`Leg`](@ref) ending in state `final` (lateral, bin, aloft, stage) of `workspace`, its
-path traced back to `first_stage`.
+[`Leg`](@ref) of `objective` [USD] ending in state `final` (lateral, bin, aloft, stage) of
+`workspace`, its path traced back to `first_stage`.
 """
-function traced_leg(workspace::RouteWorkspace, corridor, table, final, first_stage)
+function traced_leg(workspace::RouteWorkspace, corridor, table, final, first_stage,
+        objective)
     (; elapsed, parent, speed_index, mode) = workspace
     lateral_count, bins = size(parent, 1), size(parent, 2)
     lateral, bin, aloft, stage = final
@@ -1886,8 +1918,7 @@ function traced_leg(workspace::RouteWorkspace, corridor, table, final, first_sta
     energy = workspace.energy[final...]
     return Leg(energy, energy * table.table.ship.fuel.price,
         workspace.flight_hours[final...], workspace.launches[final...],
-        workspace.forced_landings[final...], elapsed[final...], workspace.cost[final...],
-        path, aloft_path)
+        workspace.forced_landings[final...], elapsed[final...], objective, path, aloft_path)
 end
 
 """
@@ -2214,21 +2245,23 @@ function lies_on(plan::Leg, corridor::Corridor, first_stage, first_lateral)
 end
 
 """
-    forecast_plan(known, corridor, table, time, prices; first_stage, first_lateral,
-                  first_aloft, held=nothing)
+    forecast_plan(known, corridor, table, time, prices; arrival_by=Inf, first_stage,
+                  first_lateral, first_aloft, held=nothing)
 
-The plan a ship adopts at `time` [h] on `known`, and the [`plan_values`](@ref) of its nodes
-on it, or `(nothing, nothing)` where no plan leaves the node: of the plan routed on
-`known` and the rest of the plan `held` where that [`lies_on`](@ref) `corridor`, the one
-with the least fuel, rig and time cost on `known`. On a vector of members of an ensemble,
+The plan a ship adopts at `time` [h] on `known` to arrive by `arrival_by` [h], and the
+[`plan_values`](@ref) of its nodes on it, or `(nothing, nothing)` where no plan leaves the
+node: of the plan [`route`](@ref) finds on `known` and the rest of the plan `held` where
+that [`lies_on`](@ref) `corridor` and arrives by `arrival_by`, the one with the least
+fuel, rig and time cost on `known`. On a vector of members of an ensemble,
 the plans are those routed on each member and `held`, the cost is the mean over the
 members, and the ship slows where a member stops it.
 """
-function forecast_plan(known, corridor, table::RouteTable, time, prices; first_stage,
-        first_lateral, first_aloft, held=nothing)
-    routed = route(corridor, table, known, time; time_cost=prices.time, first_stage,
-        first_lateral, first_aloft)
-    plans = candidate_plans([routed], held, corridor, first_stage, first_lateral)
+function forecast_plan(known, corridor, table::RouteTable, time, prices; arrival_by=Inf,
+        first_stage, first_lateral, first_aloft, held=nothing)
+    routed = route(corridor, table, known, time; time_cost=prices.time, arrival_by,
+        first_stage, first_lateral, first_aloft)
+    plans = candidate_plans([routed], held, corridor, first_stage, first_lateral,
+        arrival_by)
     isempty(plans) && return nothing, nothing
     values = [plan_values(plan, corridor, table, known, time, first_stage, prices)
               for plan in plans]
@@ -2236,10 +2269,11 @@ function forecast_plan(known, corridor, table::RouteTable, time, prices; first_s
 end
 
 function forecast_plan(members::Vector, corridor, table::RouteTable, time, prices;
-        first_stage, first_lateral, first_aloft, held=nothing)
-    routed = [route(corridor, table, member, time; time_cost=prices.time, first_stage,
-        first_lateral, first_aloft) for member in members]
-    plans = candidate_plans(routed, held, corridor, first_stage, first_lateral)
+        arrival_by=Inf, first_stage, first_lateral, first_aloft, held=nothing)
+    routed = [route(corridor, table, member, time; time_cost=prices.time, arrival_by,
+        first_stage, first_lateral, first_aloft) for member in members]
+    plans = candidate_plans(routed, held, corridor, first_stage, first_lateral,
+        arrival_by)
     isempty(plans) && return nothing, nothing
     values = [mean(plan_values(plan, corridor, table, member, time, first_stage, prices;
                        slows=true) for member in members) for plan in plans]
@@ -2247,13 +2281,14 @@ function forecast_plan(members::Vector, corridor, table::RouteTable, time, price
 end
 
 """
-    candidate_plans(routed, held, corridor, first_stage, first_lateral)
+    candidate_plans(routed, held, corridor, first_stage, first_lateral, arrival_by)
 
-The distinct paths among the plans `held`, where it [`lies_on`](@ref) `corridor`, and
-`routed`, `nothing` where none was found.
+The distinct paths among the plans `held`, where it [`lies_on`](@ref) `corridor` and
+arrives by `arrival_by` [h], and `routed`, `nothing` where none was found.
 """
-function candidate_plans(routed, held, corridor, first_stage, first_lateral)
-    kept = !isnothing(held) && lies_on(held, corridor, first_stage, first_lateral)
+function candidate_plans(routed, held, corridor, first_stage, first_lateral, arrival_by)
+    kept = !isnothing(held) && held.duration <= arrival_by &&
+           lies_on(held, corridor, first_stage, first_lateral)
     return unique(plan -> plan.path, filter(!isnothing, kept ? [held; routed] : routed))
 end
 
@@ -2658,8 +2693,8 @@ function record_edge!(record, table, points, shares, live_states, corridor, stag
 end
 
 """
-    forecast_route(corridor, table, weather, departure; time_cost, horizon=Inf,
-                   forecast=nothing, record=nothing)
+    forecast_route(corridor, table, weather, departure; time_cost, arrival_by=Inf,
+                   horizon=Inf, forecast=nothing, record=nothing)
 
 Passage of a ship that plans by [`forecast_plan`](@ref), weighing the rest of the plan it
 holds, on the [`RouteTable`](@ref) `table` on its [`planning_corridor`](@ref) and re-plans
@@ -2674,12 +2709,12 @@ launching and landing the kite where the real weather of an edge and the
 where the plan put it, or with a [`ForesightKite`](@ref), by the same values in the real
 weather. Fuel, flight hours and objective are those of the real weather. Where no plan
 leaves its node or the real weather stops the next edge, the ship holds there with the kite
-stowed on its hotel load until the next forecast, 6 h later, and plans again. A
-[`KiteRecord`](@ref) `record` receives what was sailed. Returns `nothing` after holding 72 h
-at one node.
+stowed on its hotel load until the next forecast, 6 h later, and plans again. Each plan
+arrives `arrival_by` [h] after `departure` as [`route`](@ref) does. A [`KiteRecord`](@ref)
+`record` receives what was sailed. Returns `nothing` after holding 72 h at one node.
 """
 function forecast_route(corridor::Corridor, table::RouteTable, weather, departure;
-        time_cost, horizon=Inf, forecast=nothing, record=nothing)
+        time_cost, arrival_by=Inf, horizon=Inf, forecast=nothing, record=nothing)
     ship_table = table.table
     prices = (; fuel=ship_table.ship.fuel.price, time=time_cost)
     stage_count = size(corridor.lat, 1)
@@ -2703,7 +2738,8 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
         known = known_weather(source, weather, departure + time, horizon)
         planning, plan_stage, sailable = planning_corridor(corridor, stage, lateral)
         plan, values = forecast_plan(known, planning, plan_table, departure + time, prices;
-            first_stage=plan_stage, first_lateral=lateral, first_aloft=aloft, held=rest)
+            arrival_by=arrival_by - time, first_stage=plan_stage, first_lateral=lateral,
+            first_aloft=aloft, held=rest)
         blocked = isnothing(plan)
         foresight && !blocked && (values = plan_values(plan, planning, table, weather,
             departure + time, plan_stage, prices))
