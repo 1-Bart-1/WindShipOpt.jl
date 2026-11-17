@@ -2052,6 +2052,20 @@ function WindShipOpt.waves(changed::ChangedAfter, lat, lon, time)
     return (time < changed.cut ? height : height + 1.0), period, direction
 end
 
+"The real `weather` with its sea raised 15 m from `from` until `until` [h]."
+struct StormBetween{W}
+    weather::W
+    from::Float64
+    until::Float64
+end
+WindShipOpt.duration(storm::StormBetween) = WindShipOpt.duration(storm.weather)
+WindShipOpt.wind(storm::StormBetween, lat, lon, time) =
+    WindShipOpt.wind(storm.weather, lat, lon, time)
+function WindShipOpt.waves(storm::StormBetween, lat, lon, time)
+    height, period, direction = WindShipOpt.waves(storm.weather, lat, lon, time)
+    return (storm.from <= time < storm.until ? height + 15.0 : height), period, direction
+end
+
 "Forecast source that always plans on `weather`, whatever the real weather is."
 struct FixedForecast{W}
     weather::W
@@ -2059,18 +2073,26 @@ end
 WindShipOpt.known_weather(source::FixedForecast, weather, time, horizon) = source.weather
 
 """
-Hours, speed and kite state of each step the kite coaster sails live in the real `weather`
-on a fixed forecast, departing at 24 × 121 h, for the first `cut` [h] after departure.
-`routing` is what `kite_coaster_routing` returns.
+The leg the kite coaster sails live in the real `weather` on a fixed forecast, departing
+at 24 × 121 h, and its [`WindShipOpt.KiteRecord`](@ref). `routing` is what
+`kite_coaster_routing` returns.
 """
-function live_steps_before(routing, weather, cut)
+function live_leg(routing, weather)
     kite_table, kite_hourly, finer = routing
     record = WindShipOpt.KiteRecord()
-    forecast_route(finer, kite_table, weather, 24.0 * 121; time_cost=kite_hourly, record,
+    leg = forecast_route(finer, kite_table, weather, 24.0 * 121; time_cost=kite_hourly,
+        record,
         forecast=ReplannedForecast(FixedForecast(SyntheticWeather(; seed=2)); adapts=:live))
-    return [(sample.hours, sample.speed, sample.aloft)
-            for sample in record.samples if sample.hours < cut]
+    return leg, record
 end
+
+"Hours, speed and kite state of each step of `record` in the first `cut` [h]."
+steps_before(record, cut) = [(sample.hours, sample.speed, sample.aloft)
+                             for sample in record.samples if sample.hours < cut]
+
+"[`steps_before`](@ref) `cut` of the kite coaster sailing live by [`live_leg`](@ref)."
+live_steps_before(routing, weather, cut) =
+    steps_before(last(live_leg(routing, weather)), cut)
 
 @testset "a live ship decides each hour without the weather it has not reached" begin
     cut, routing = 100.0, kite_coaster_routing(400.0)
@@ -2079,6 +2101,17 @@ end
     @test any(last, steps)
     changed = ChangedAfter(SyntheticWeather(), 24.0 * 121 + cut)
     @test live_steps_before(routing, changed, cut) == steps
+end
+
+@testset "a live ship meeting a storm mid-edge holds there until it can sail on" begin
+    routing, departure = kite_coaster_routing(400.0), 24.0 * 121
+    storm = StormBetween(SyntheticWeather(), departure + 80.0, departure + 86.0)
+    leg, record = live_leg(routing, storm)
+    @test steps_before(record, 80.0) == live_steps_before(routing, SyntheticWeather(), 80.0)
+    held = [sample for sample in record.samples if sample.reason == :held]
+    @test !isnothing(leg) && isempty(record.holds)
+    @test all(sample -> 80.0 <= sample.hours < 86.0 && sample.speed == 0, held)
+    @test sum(sample -> sample.sample_hours, held) ≈ 6.0
 end
 
 @testset "a ship sailing live on a true forecast sails about as its plan" begin
