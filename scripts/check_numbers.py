@@ -15,15 +15,15 @@ RESULT_FILES = ("sections/abstract.tex", "sections/highlights.tex",
                 "extended_abstract.tex")
 
 # Commands whose every argument holds no number of the text: markers, references,
-# file names, layout and units.
+# file names and layout.
 SKIPPED = {"stale", "given", "cref", "Cref", "ref", "eqref", "label", "cite", "citep",
            "citet", "citealp", "input", "include", "plot", "includegraphics",
-           "studyrun", "url", "href", "begin", "end", "si", "textsubscript",
-           "textsuperscript", "hspace", "vspace", "setlength", "addtolength",
-           "multicolumn", "cmidrule", "rule", "resizebox", "scalebox", "columnwidth",
-           "fontsize", "color", "textcolor"}
-# Commands whose last argument is a unit.
-UNIT_LAST = {"SI": 2, "SIrange": 3}
+           "studyrun", "url", "begin", "end", "si", "textsubscript", "textsuperscript",
+           "hspace", "vspace", "setlength", "addtolength", "cmidrule", "rule",
+           "resizebox", "scalebox", "fontsize", "color"}
+# Commands with the brace arguments, counted from 0, that hold a unit, a count or a colour.
+SKIPPED_ARGUMENTS = {"SI": (1,), "SIrange": (2,), "multicolumn": (0, 1), "href": (0,),
+                     "textcolor": (0,)}
 
 COMMAND = re.compile(r"\\([A-Za-z]+)\*?")
 NUMBER = re.compile(r"(?<![A-Za-z0-9.])\d[\d,.]*")
@@ -37,8 +37,6 @@ def group_end(text, start):
     close = {"{": "}", "[": "]"}[text[start]]
     depth = 0
     for index in range(start, len(text)):
-        if text[index] == "\\":
-            continue
         if text[index] == text[start] and text[index - 1] != "\\":
             depth += 1
         elif text[index] == close and text[index - 1] != "\\":
@@ -64,29 +62,27 @@ def arguments(text, index):
 
 
 def masked(text):
-    """`text` with comments, floats holding a \\stale marker, the arguments of `SKIPPED`
-    commands, units, subscripts and superscripts blanked: what is left is the typed text
-    whose numbers count."""
+    """`text` with comments, the preamble, floats holding a \\stale marker, units,
+    subscripts, superscripts and the arguments of `SKIPPED` and `SKIPPED_ARGUMENTS`
+    blanked: what is left is the typed text whose numbers count."""
     text = re.sub(r"(?<!\\)%[^\n]*", lambda match: " " * len(match.group()), text)
+    text = blank(text, 0, max(text.find("\\begin{document}"), 0))
     for match in FLOAT.finditer(text):
         if "\\stale{" in match.group():
             text = blank(text, match.start(), match.end())
     text = re.sub(r"[_^](\{[^}]*\}|\\?[A-Za-z0-9]+)",
                   lambda match: " " * len(match.group()), text)
     for match in reversed(list(COMMAND.finditer(text))):
-        spans = arguments(text, match.end())
         name = match.group(1)
+        spans = arguments(text, match.end())
+        braces = [span for span in spans if text[span[0]] == "{"]
+        skipped = [span for span in spans if text[span[0]] == "["]
         if name in SKIPPED:
-            spans = spans[:1] if name == "multicolumn" else spans
-        elif name in UNIT_LAST:
-            spans = [span for span in spans if text[span[0]] == "{"]
-            spans = spans[UNIT_LAST[name] - 1:UNIT_LAST[name]]
-        else:
-            spans = [span for span in spans if text[span[0]] == "["]
-        for start, stop in reversed(spans):
+            skipped = spans + [(match.start(), match.end())]
+        elif name in SKIPPED_ARGUMENTS:
+            skipped += [braces[i] for i in SKIPPED_ARGUMENTS[name] if i < len(braces)]
+        for start, stop in skipped:
             text = blank(text, start, stop)
-        if name in SKIPPED and name != "multicolumn":
-            text = blank(text, match.start(), match.end())
     return text
 
 
@@ -114,7 +110,8 @@ def problems(paper):
 
 
 if __name__ == "__main__":
-    root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent.parent / "paper"
+    paper = Path(__file__).parent.parent / "paper"
+    root = Path(sys.argv[1]) if len(sys.argv) > 1 else paper
     found = problems(root)
     print("\n".join(found))
     print(f"{len(found)} result numbers typed by hand outside a marker", file=sys.stderr)
