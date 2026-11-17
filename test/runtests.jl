@@ -4023,15 +4023,18 @@ end
           "or the rotors on car carriers, bulk carriers and general cargo ships"
 end
 
-@testset "the highlight of the advice fits the journal for any four kinds of advice" begin
+@testset "the highlight of the advice fits the journal for any kind of advice" begin
     @test PaperData.highlight_text(draft_leads) ==
-          "On e-ammonia: kite on container ships and tankers, kite or rotors elsewhere."
+          "On e-ammonia: kite on container ships and tankers, either kite or rotors " *
+          "elsewhere."
     kinds = [("leads", "kite", "rotors"), ("leads", "rotors", "kite"),
-        ("level", "kite", "rotors"), ("none", "kite", "rotors")]
+        ("leads", "wings", "rotors"), ("level", "kite", "rotors"),
+        ("level", "wings", "rotors"), ("none", "kite", "rotors")]
     words = first.(PaperData.ship_types)
     outcome(picks) = [lead_row(word, drive, kinds[kind][1], 2.0, kinds[kind][2:3]...)
                       for (word, pick) in zip(words, picks)
-                      for (drive, kind) in (("vlsfo", 5 - pick), ("ammonia", pick))]
+                      for (drive, kind) in (("vlsfo", length(kinds) + 1 - pick),
+                          ("ammonia", pick))]
     outcomes = Iterators.product(fill(eachindex(kinds), length(words))...)
     @test all(length(PaperData.highlight_text(outcome(picks))) <= PaperData.highlight_limit
               for picks in outcomes)

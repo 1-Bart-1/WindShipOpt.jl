@@ -1880,9 +1880,10 @@ ship_kind_words = [:teu => "Container", :ceu => "CarCarrier", :tonne => "Bulk"]
 
 Write the numbers the paper and its extended abstract state as LaTeX macros `\\Num...` to
 paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
-the goals, and the [`class_numbers`](@ref), [`recommendation_numbers`](@ref),
-[`rig_lead_numbers`](@ref), [`premium_numbers`](@ref), [`fleet_share_numbers`](@ref),
-[`market_numbers`](@ref) and [`type_saving_numbers`](@ref) of the class study.
+the goals, the `highlight_limit` the paper build checks, and the [`class_numbers`](@ref),
+[`recommendation_numbers`](@ref), [`rig_lead_numbers`](@ref), [`premium_numbers`](@ref),
+[`fleet_share_numbers`](@ref), [`market_numbers`](@ref) and [`type_saving_numbers`](@ref)
+of the class study.
 """
 function numbers_file()
     classes = class_table()
@@ -1895,6 +1896,7 @@ function numbers_file()
         for (name, text) in goal_numbers()
             print(io, number_macro(name, text, false))
         end
+        print(io, number_macro("HighlightLimit", string(highlight_limit), false))
         for (name, text) in results
             print(io, number_macro(name, text, draft))
         end
@@ -1906,15 +1908,14 @@ end
 
 Name and text of the goals the abstracts state: canopy life, the canopy price
 at the goal and today, and the share of time out of service; and of the
-[`kite_gap_bias`](@ref) and the `highlight_limit` the paper build checks.
+[`kite_gap_bias`](@ref).
 """
 goal_numbers() = [
     "CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
     "CanopyPriceGoal" => @sprintf("%.0f", WindShipOpt.canopy_price(assumptions)),
     "CanopyPriceToday" => @sprintf("%.0f", WindShipOpt.canopy_price_today(assumptions)),
     "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal()),
-    "KiteGapBias" => @sprintf("%.1f", kite_gap_bias),
-    "HighlightLimit" => string(highlight_limit)]
+    "KiteGapBias" => @sprintf("%.1f", kite_gap_bias)]
 
 """
     class_numbers(classes)
@@ -2284,6 +2285,16 @@ function verdict_text(rows)
 end
 
 """
+    rig_name(rig, short)
+
+Name of `rig` in the text, without its article where `short`.
+"""
+rig_name(rig, short) = short ? rig_short_names[rig] : first(rig_subjects[rig])
+
+"names of the rigs in the shortest text"
+rig_short_names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "rotors")
+
+"""
     advice(lead; short=false)
 
 Rig to use by a [`rig_lead`](@ref) `lead`: the rig that leads, either of two level, in
@@ -2291,13 +2302,9 @@ the order of `rig_names`, or no rig; `short` names a rig without its article.
 """
 function advice(lead; short=false)
     lead.verdict == "none" && return "no rig"
-    name(rig) = short ? rig_short_names[rig] : first(rig_subjects[rig])
-    lead.verdict == "leads" && return name(lead.rig)
-    return (short ? "" : "either ") * join(name.(rig_pair(lead)), " or ")
+    lead.verdict == "leads" && return rig_name(lead.rig, short)
+    return "either " * join(rig_name.(rig_pair(lead), short), " or ")
 end
-
-"names of the rigs in the shortest text"
-rig_short_names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "rotors")
 
 """
     advice_text(rows)
@@ -2334,8 +2341,9 @@ end
 
 Highlight of the advice of rig lead `rows`: the [`advice_text`](@ref) on both fuels, else
 on e-ammonia, else on e-ammonia in short with the last rig "elsewhere", else with the
-number of ship types per rig, whichever first has at most `highlight_limit` characters;
-the shortest, with a warning, where none has.
+number of ship types per rig, else the rigs best on some ship type on e-ammonia, whichever
+first has at most `highlight_limit` characters; the shortest, with a warning, where none
+has.
 """
 function highlight_text(rows)
     ammonia = filter(row -> row.drive == "ammonia", rows)
@@ -2346,9 +2354,14 @@ function highlight_text(rows)
     length(groups) > 1 && (named[end] = last(rigs) * " elsewhere")
     counts = ["$rig on $(length(held))" for (rig, held) in zip(rigs, groups)]
     counts[1] *= length(first(groups)) == 1 ? " ship type" : " ship types"
+    best = Set(rig for row in ammonia if row.verdict != "none"
+               for rig in (row.verdict == "leads" ? [row.rig] : rig_pair(row)))
+    options = [rig_short_names[rig] for rig in rig_names if rig in best]
+    any(row -> row.verdict == "none", ammonia) && push!(options, "none")
     sentences = [uppercasefirst(advice_text(rows)) * ".",
         uppercasefirst(advice_text(ammonia)) * ".", "On e-ammonia: $(join(named, ", ")).",
-        "On e-ammonia: $(join(counts, ", "))."]
+        "On e-ammonia: $(join(counts, ", ")).",
+        "On e-ammonia the best rig depends on the ship type: $(join(options, ", ", " or "))."]
     fits = findfirst(sentence -> length(sentence) <= highlight_limit, sentences)
     isnothing(fits) || return sentences[fits]
     shortest = argmin(length, sentences)
