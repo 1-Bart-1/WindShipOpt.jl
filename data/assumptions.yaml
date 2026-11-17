@@ -230,7 +230,7 @@ vlsfo_engine_efficiency:
   low: 0.42
   high: 0.45
   unit: "-"
-  reason: "Wartsila 20: 189.6 g/kWh with engine-driven pumps at a heating value of 42.7 MJ/kg [@wartsila2024w20, p. 4], 0.445 by our conversion; the bounds are the authors' estimate."
+  reason: "Wartsila 20: 189.6 g/kWh with engine-driven pumps at a heating value of 42.7 MJ/kg [@wartsila2024w20, p. 4], 0.445 by our conversion; the bounds span the MAN L21/31 at full load, 189.1-199.9 g/kWh at 900 and 1000 rpm and variable speed, with and without engine-driven pumps [@man2024l2131, p. 137, Tables 1-4], 0.42-0.45 by our conversion."
 methanol_engine_efficiency:
   value: 0.44
   low: 0.42
@@ -242,7 +242,7 @@ part_load_penalty:
   low: 0.1
   high: 0.3
   unit: "-"
-  reason: "Authors' estimate of the fall in engine efficiency at part load."
+  reason: "Our least-squares fit of the efficiency model to the MAN L21/31 fuel consumption at 25-100 % load [@man2024l2131, p. 137, Tables 1-4] gives 0.13-0.27, depending on speed and engine-driven pumps."
 genset_count:
   value: 3
   low: 2
