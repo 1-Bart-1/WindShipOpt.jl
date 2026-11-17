@@ -3195,8 +3195,6 @@ end
 
 @testset "a round trip at a held speed or with a model part off is stored apart" begin
     @eval PaperRuns weather_name = "synthetic"
-    PaperRuns.paper_run = PaperRuns.PaperRun(mktempdir(), :draft,
-        Dict{String, Any}("code_hash" => "held"), 0, 0)
     case_at(held_knots, part; course=:routed) = (; design=ShipDesign(:vlsfo, 100.0),
         assumptions, route=:caribbean, scale=8.0, course, forecast=false, held_knots, part)
     @test allunique(PaperRuns.case_directory(case_at(held_knots, :none), [24.0])
@@ -3207,24 +3205,21 @@ end
                     for course in (:routed, :common_perfect))
 end
 
-@testset "the code hash keying stored trips covers the ship data tables" begin
-    files = normpath.(PaperRuns.code_files())
+@testset "the model every stored trip is keyed by covers the ship data tables" begin
+    files = normpath.(PaperRuns.model_files())
     @test joinpath(pkgdir(WindShipOpt), "data", "ship_classes.csv") in files
     @test joinpath(pkgdir(WindShipOpt), "data", "ship_categories.csv") in files
 end
 
 @testset "the draft sensitivity study routes every other one of the final run's departures" begin
-    run = PaperRuns.paper_run
     @eval PaperRuns departures = collect(0.0:24.0:(71 * 24.0))
     function routed(fidelity)
-        @eval PaperRuns paper_run = PaperRun(nothing, $(QuoteNode(fidelity)),
-            Dict{String, Any}(), 0, 0)
+        PaperRuns.paper_run = PaperRuns.PaperRun(fidelity)
         return PaperRuns.sensitivity_departures()
     end
     final = routed(:final)
     @test length(final) == 12
     @test routed(:draft) == final[1:2:end]
-    @eval PaperRuns paper_run = $run
 end
 
 @testset "resuming never takes over another branch's unfinished run" begin
@@ -3252,26 +3247,169 @@ end
     branch = PaperRuns.git_output("rev-parse", "--abbrev-ref", "HEAD")
     own = finished_run("2026-01-01T0000", branch)
     other = finished_run("2026-01-01T0001", "another-branch")
-    @eval PaperRuns paper_run = PaperRun(nothing, :final, Dict{String, Any}(), 0, 0)
+    PaperRuns.paper_run = PaperRuns.PaperRun(:final)
     @test PaperRuns.data_file("study.csv") == own
     rm(own)
     @test PaperRuns.data_file("study.csv") == other
 end
 
+"""
+    store_run(fidelity, trip_model; commit="a", only=nothing)
+
+A run of the paper at `fidelity` with round-trip code `trip_model` at clean `commit`,
+computing only the cases matching `only`, set as the run in use.
+"""
+store_run(fidelity, trip_model; commit="a", only=nothing) =
+    PaperRuns.paper_run = PaperRuns.PaperRun(mktempdir(), fidelity,
+        Dict{String, Any}("git_commit" => commit, "git_dirty" => false), only,
+        Dict{Symbol, Vector{Any}}(), trip_model, PaperRuns.StepTally())
+
 @testset "a rig's stored trip serves an input it never reads, and no other" begin
+    store_run(:draft, "rotor code")
     rotors = ShipDesign(:methanol, 85.0; rotor_area=200.0)
     routed(inputs) = round_trip(Ship(rotors, inputs), corridors..., SyntheticWeather(),
         [24.0 * 31, 24.0 * 200], inputs)
-    at_high(name) = with_value(assumptions, name, assumptions.entries[name].high)
+    at_high(name) = (; assumptions=with_value(assumptions, name,
+        assumptions.entries[name].high))
     directory = mktempdir()
-    PaperRuns.stored_trip(() -> routed(assumptions), directory, assumptions)
+    PaperRuns.stored_trip(() -> routed(assumptions), directory, (; assumptions))
     dearer_canopy = at_high(:canopy_cloth_base_price)
-    reused = PaperRuns.cached_trip(directory, dearer_canopy)
-    rerouted = routed(dearer_canopy)
+    reused = PaperRuns.stored_entry(directory, dearer_canopy).trip
+    rerouted = routed(dearer_canopy.assumptions)
     @test reused.cost_per_tonne_km == rerouted.cost_per_tonne_km
     @test reused.fuel_energy == rerouted.fuel_energy
-    @test ismissing(PaperRuns.cached_trip(directory, at_high(:rotor_unit_cost)))
-    @test ismissing(PaperRuns.cached_trip(directory, at_high(:market_price_factor)))
+    @test ismissing(PaperRuns.stored_entry(directory, at_high(:rotor_unit_cost)))
+    @test ismissing(PaperRuns.stored_entry(directory, at_high(:market_price_factor)))
+end
+
+@testset "only a draft outside its slice keeps round trips of older code" begin
+    directory = mktempdir()
+    case = (; assumptions, class="handysize")
+    store_run(:draft, "older code")
+    PaperRuns.stored_trip(() -> assumptions[:discount_rate], directory, case)
+    store_run(:draft, "newer code")
+    @test ismissing(PaperRuns.stored_entry(directory, case))
+    store_run(:draft, "newer code"; only=(class=("panamax", "capesize"),))
+    @test PaperRuns.stored_entry(directory, case).model == "older code"
+    store_run(:draft, "newer code"; only=(class="handysize",))
+    @test ismissing(PaperRuns.stored_entry(directory, case))
+    store_run(:final, "older code")
+    @test PaperRuns.stored_entry(directory, case).commit == "a"
+    store_run(:final, "older code"; commit="b")
+    @test ismissing(PaperRuns.stored_entry(directory, case))
+end
+
+@testset "a dirty draft never overwrites a clean run's stored round trip" begin
+    directory = mktempdir()
+    case = (; assumptions)
+    store_run(:final, "same code")
+    PaperRuns.stored_trip(() -> 1.0, directory, case)
+    PaperRuns.paper_run.record["git_dirty"] = true
+    PaperRuns.stored_trip(() -> 2.0, directory, case)
+    @test count(endswith(".bin"), readdir(directory)) == 2
+    store_run(:final, "same code")
+    @test PaperRuns.stored_entry(directory, case).trip == 1.0
+end
+
+"""
+    tallied_step(run, cases)
+
+A step of `run` using a stored round trip for each `(case, commit)` of `cases`.
+"""
+function tallied_step(run, cases)
+    run.record["code_hash"] = "code"
+    run.record["steps"] = Dict{String, Any}[]
+    stored(commit) =
+        (; trip=1.0, commit, dirty=false, model="newer code", processor="cpu", inputs=[])
+    return () -> for (case, commit) in cases
+        PaperRuns.tally_case!(case, "store-$(case.class)", stored(commit))
+    end
+end
+
+@testset "a sliced draft records the commit that made each round trip" begin
+    run = store_run(:draft, "newer code"; only=(class="handysize",))
+    cases = [(; assumptions, class="handysize") => "b",
+        (; assumptions, class="panamax") => "a"]
+    PaperRuns.run_step!(run, :classes, tallied_step(run, cases))
+    entry = PaperRuns.step_entry(run.record, :classes)
+    @test readlines(joinpath(run.directory, entry["case_record"]))[2:end] ==
+          ["\"class=handysize\",\"store-handysize\",\"b\",\"false\",\"newer code\",\"cpu\"",
+           "\"class=panamax\",\"store-panamax\",\"a\",\"false\",\"newer code\",\"cpu\""]
+    @test PaperRuns.part_commits([(run.directory, entry)]) == ["a", "b"]
+end
+
+@testset "a slice no case of the step carries is refused" begin
+    run = store_run(:draft, "newer code"; only=(clas="handysize",))
+    step = tallied_step(run, [(; assumptions, class="handysize") => "a"])
+    @test_throws ArgumentError PaperRuns.run_step!(run, :classes, step)
+    @test isnothing(PaperRuns.step_entry(run.record, :classes))
+end
+
+@testset "a final run's parts name every commit and dirty tree they come from" begin
+    part(commit, dirty, cases) = ("run", Dict{String, Any}("git_commit" => commit,
+        "git_dirty" => dirty, "case_commits" => cases))
+    @test PaperRuns.part_commits([part("a", false, Dict("a" => 2))]) == ["a"]
+    @test PaperRuns.part_commits([part("a", false, Dict("a" => 2)),
+        part("b", true, Dict("a" => 1, "b-dirty" => 1))]) == ["a", "b-dirty"]
+end
+
+@testset "a data file a step rewrites is read with its new contents" begin
+    run = store_run(:draft, "code")
+    write(PaperRuns.run_file("sizes.csv"), "size\n1\n")
+    PaperRuns.data_file("sizes.csv")
+    before = PaperRuns.read_hash("sizes.csv")
+    write(PaperRuns.run_file("sizes.csv"), "size\n2\n")
+    @test PaperRuns.read_hash("sizes.csv") != before
+    @test PaperRuns.read_hash("sizes.csv") ==
+          PaperRuns.file_hash(joinpath(run.directory, "sizes.csv"))
+end
+
+@testset "a step's code is what it reaches by name, docstrings and layout aside" begin
+    file = tempname() * ".jl"
+    hashes(text) = (write(file, text); PaperRuns.code_hashes(
+        PaperRuns.script_definitions([file]), [:cost]))
+    base = hashes("\"cost\"\ncost(x) = price(x) + 1\nprice(x) = 2x\nspeed(x) = 3\n")
+    @test issetequal(keys(base), ["cost", "price"])
+    @test hashes("\"cost of x\"\ncost(x) =\n    price(x) + 1\n\nprice(x) = 2x\n") == base
+    changed = hashes("cost(x) = price(x) + 1\nprice(x) = 3x\n")
+    @test changed["cost"] == base["cost"] && changed["price"] != base["price"]
+end
+
+@testset "a step is out of date once an input or file it read changes, and its readers" begin
+    @eval PaperRuns assumptions = $assumptions
+    @eval PaperRuns runs_directory = mktempdir()
+    directory = joinpath(PaperRuns.runs_directory, "2026-01-01T0000")
+    mkpath(directory)
+    write(joinpath(directory, "classes.csv"), "class,cost\nhandysize,1.0\n")
+    open(io -> PaperRuns.TOML.print(io, Dict("fidelity" => "draft", "finished" => "done",
+            "git_branch" => "main")), joinpath(directory, "run.toml"), "w")
+    PaperRuns.paper_run = PaperRuns.PaperRun(:draft)
+    code = Dict("model" => "m", "sensitivity_data" => "s")
+    entry = Dict{String, Any}("code" => code,
+        "inputs" => Dict("discount_rate" => assumptions[:discount_rate]),
+        "reads" => Dict("classes.csv" => Dict("hash" => PaperRuns.file_hash(
+            joinpath(directory, "classes.csv")))))
+    @test isempty(PaperRuns.step_reasons(entry, code))
+    @test PaperRuns.step_reasons(entry, Dict("model" => "m", "sensitivity_data" => "t")) ==
+          ["its code changed: sensitivity_data"]
+    entry["inputs"]["discount_rate"] += 0.01
+    @test PaperRuns.step_reasons(entry, code) == ["inputs changed: discount_rate"]
+    entry["inputs"]["discount_rate"] = assumptions[:discount_rate]
+    write(joinpath(directory, "classes.csv"), "class,cost\nhandysize,2.0\n")
+    @test occursin("classes.csv changed", only(PaperRuns.step_reasons(entry, code)))
+    location(files, reads) = (directory, Dict("files" => files,
+        "reads" => Dict(read => Dict() for read in reads)))
+    found = Dict(:classes => location(["classes.csv"], []),
+        :goal_size => location(["goal_sizes.csv"], ["classes.csv"]),
+        :availability => location(["availability.csv"], ["goal_sizes.csv"]),
+        :speed_size => location(["speed_size.csv"], []))
+    reasons = Dict(:classes => ["its code changed: classes_data"], :goal_size => String[],
+        :availability => String[], :speed_size => String[])
+    makers = Dict(file => name for (name, (_, entry)) in found for file in entry["files"])
+    PaperRuns.spread_staleness!(reasons, found, makers)
+    @test reasons[:availability] ==
+          ["reads goal_sizes.csv of goal_size, which is out of date"]
+    @test isempty(reasons[:speed_size])
 end
 
 @testset "an input read in a task spawned while recording is recorded" begin
