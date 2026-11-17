@@ -65,9 +65,9 @@ Towing kites, rigid wing sails and Flettner rotors all sail on cargo ships today
 
 \stale{classes}{} \textbf{Car carriers: a kite or Flettner rotors.} \tbd{The two are level on both fuels, \NumMarginAmmoniaCarCarrier{} apart.} The rotors save \NumSavingAmmoniaCarCarrierRotors\,\% of the cost on e-ammonia, and on fuel oil \NumSavingOilCarCarrierRotors\,\% of the cost and \NumCarbonCarCarrierRotors\,\% of the CO$_2$.
 
-\textbf{Bulk carriers, tankers and general cargo ships: a kite or rotors, by fuel.} \tbd{On e-ammonia the kite saves about \NumSavingAmmoniaBulkKite\,\% of the cost of bulk carriers and tankers and the rotors \NumSavingAmmoniaBulkRotors\,\%: the two are level on bulk carriers and general cargo ships, \NumMarginAmmoniaBulkCarrier{} apart, and the kite leads on tankers by \NumMarginAmmoniaTanker{}. On fuel oil the kite saves \NumSavingOilBulkKite\,\% of the cost and \NumCarbonBulkKite\,\% of the CO$_2$ and the rotors \NumSavingOilBulkRotors\,\% of the cost and \NumCarbonBulkRotors\,\% of the CO$_2$: the two are level on bulk carriers and tankers, \NumMarginOilBulkCarrier{} apart, and the kite leads on general cargo ships by \NumMarginOilGeneralCargo{}. The route decides between them: the kite leads to Bilbao and Houston and the rotors to Tubarão.}
+\stale{classes}{} \textbf{Bulk carriers, tankers and general cargo ships: a kite or rotors, by fuel.} \tbd{On e-ammonia the kite saves about \NumSavingAmmoniaBulkKite\,\% of the cost of bulk carriers and tankers and the rotors \NumSavingAmmoniaBulkRotors\,\%: the two are level on bulk carriers and general cargo ships, \NumMarginAmmoniaBulkCarrier{} apart, and the kite leads on tankers by \NumMarginAmmoniaTanker{}. On fuel oil the kite saves \NumSavingOilBulkKite\,\% of the cost and \NumCarbonBulkKite\,\% of the CO$_2$ and the rotors \NumSavingOilBulkRotors\,\% of the cost and \NumCarbonBulkRotors\,\% of the CO$_2$: the two are level on bulk carriers and tankers, \NumMarginOilBulkCarrier{} apart, and the kite leads on general cargo ships by \NumMarginOilGeneralCargo{}. The route decides between them: the kite leads to Bilbao and Houston and the rotors to Tubarão.}
 
-\textbf{Wing sails are nowhere the best rig.} They save about half as much of the cost as rotors on e-ammonia and \tbd{a quarter} on fuel oil: a square metre of rotor costs about three times a square metre of wing sail and pulls about five times as hard.
+\stale{classes}{} \textbf{Wing sails are nowhere the best rig.} They save about half as much of the cost as rotors on e-ammonia and \tbd{a quarter} on fuel oil: a square metre of rotor costs about three times a square metre of wing sail and pulls about five times as hard.
 
 \stale{classes}{} \textbf{No rig makes zero-emission shipping as cheap as fuel oil.} An e-ammonia ship costs about \NumPremiumNoRig\,\% more per tonne-kilometre than the same ship on fuel oil, and about \NumPremiumBestRig\,\% more with its best rig, which closes about \NumPremiumClosed\,\% of that premium.
 
@@ -108,12 +108,12 @@ Towing kites, rigid wing sails and Flettner rotors all sail on cargo ships today
 
 \section{The fuel decides how much, not which}
 
-Wind pays far more against an e-fuel than against fuel oil, but the rig that saves most hardly moves with the fuel's price or kind (\cref{ea:fuels}). Over e-fuel prices from 30 to \SI{120}{USD/GJ} every rig's saving grows steadily and \tbd{the leader stays ahead: the kite on the \SI{140}{m} ship and the rotors on a Kamsarmax}, and e-methanol at the same price as e-ammonia gives savings within \tbd{2 points} of it and \tbd{the same order of rigs}. E-fuels differ mainly in what the engine and tank cost, which every rig shares.
+\stale{situations_data}{} Wind pays far more against an e-fuel than against fuel oil, but the rig that saves most hardly moves with the fuel's price or kind (\cref{ea:fuels}). Over e-fuel prices from 30 to \SI{120}{USD/GJ} every rig's saving grows steadily and \tbd{the leader stays ahead: the kite on the \SI{140}{m} ship and the rotors on a Kamsarmax}, and e-methanol at the same price as e-ammonia gives savings within \tbd{2 points} of it and \tbd{the same order of rigs}. E-fuels differ mainly in what the engine and tank cost, which every rig shares.
 
 \begin{figure}[!htb]
 \centering
 \adjustbox{max width=0.75\textwidth}{\plot[\textwidth]{fuels}}
-\caption{Cost saving of the best size of each rig over the price of the e-fuel on a \SI{140}{m} ship to Guadeloupe (a) and a Kamsarmax bulk carrier to Tubarão (b), on e-ammonia in a dual-fuel engine (solid) and on e-methanol in a diesel-electric drive (dashed).}
+\caption{\stale{situations_data}{} Cost saving of the best size of each rig over the price of the e-fuel on a \SI{140}{m} ship to Guadeloupe (a) and a Kamsarmax bulk carrier to Tubarão (b), on e-ammonia in a dual-fuel engine (solid) and on e-methanol in a diesel-electric drive (dashed).}
 \label{ea:fuels}
 \end{figure}
 
@@ -160,18 +160,18 @@ A weather router then sails each ship on a grid of tracks and speeds through a c
 \InputIfFileExists{sections/goals_table}{}{\tbd{Goals table pending: run the goals\_table step.}}
 \end{table}
 
-\stale{canopy_life_data}{} \Cref{ea:missed_goals} shows what a missed goal costs. A canopy lasting half its goal would cost the kite \tbd{3 to 7} points of cost saving on the three ships studied, and staying at today's canopy price \tbd{2 to 4}. Averaged over the container ships, the kite falls behind the rotors below \NumKiteLifeLimitOilContainer{} flight hours or above \NumKiteLossLimitOilContainer{} kites lost per ship and year on fuel oil, and below \NumKiteLifeLimitAmmoniaContainer{} flight hours or above \NumKiteLossLimitAmmoniaContainer{} on e-ammonia. Reliability therefore decides whether a ship kite is worth building.
+\stale{goal_size_data,canopy_life_data,canopy_price_data,availability_data,classes}{} \Cref{ea:missed_goals} shows what a missed goal costs. A canopy lasting half its goal would cost the kite \tbd{3 to 7} points of cost saving on the three ships studied, and staying at today's canopy price \tbd{2 to 4}. Averaged over the container ships, the kite falls behind the rotors below \NumKiteLifeLimitOilContainer{} flight hours or above \NumKiteLossLimitOilContainer{} kites lost per ship and year on fuel oil, and below \NumKiteLifeLimitAmmoniaContainer{} flight hours or above \NumKiteLossLimitAmmoniaContainer{} on e-ammonia. Reliability therefore decides whether a ship kite is worth building.
 
 \begin{figure}[!htb]
 \centering
 \adjustbox{max width=0.85\textwidth}{\plot[\textwidth]{missed_goals}}
-\caption{\stale{goal_size_data,availability_data,canopy_life_data,canopy_price_data}{} Cost saving of each rig on three ships against the canopy life, the canopy price and the share of round trips each rig is out of service, the other goals met and the rig sizes held. The dashed lines are the wing sails and rotors at their goals. Vertical lines mark the goals, the dotted line today's canopy price and the shaded band the range of canopy life we derive. Where a curve crosses zero the rig stops paying; where it crosses another rig's line it falls behind it.}
+\caption{\stale{goal_size_data,canopy_life_data,canopy_price_data,availability_data}{} Cost saving of each rig on three ships against the canopy life, the canopy price and the share of round trips each rig is out of service, the other goals met and the rig sizes held. The dashed lines are the wing sails and rotors at their goals. Vertical lines mark the goals, the dotted line today's canopy price and the shaded band the range of canopy life we derive. Where a curve crosses zero the rig stops paying; where it crosses another rig's line it falls behind it.}
 \label{ea:missed_goals}
 \end{figure}
 
 \section{Where development pays}
 
-\Cref{ea:sensitivity} moves each input that a rig's developer can change to the low and the high end of its range, one at a time, on three ships. \tbd{For a kite developer the largest gains lie in a longer canopy life, 2 to 4 points of cost saving, a slenderer kite, 2 to 3, and a cheaper canopy, 1 to 2; missing the canopy goals costs most. A kite built for more force per area loses, because it pays to carry force it seldom uses, and a wider envelope of launch and flight wind is not where effort pays first. For wing sails and rotors the price per area decides most, then the lift.} The price of fuel moves every rig's saving as much as the largest of a developer's levers, but it is no developer's to change.
+\stale{sensitivity}{} \Cref{ea:sensitivity} moves each input that a rig's developer can change to the low and the high end of its range, one at a time, on three ships. \tbd{For a kite developer the largest gains lie in a longer canopy life, 2 to 4 points of cost saving, a slenderer kite, 2 to 3, and a cheaper canopy, 1 to 2; missing the canopy goals costs most. A kite built for more force per area loses, because it pays to carry force it seldom uses, and a wider envelope of launch and flight wind is not where effort pays first. For wing sails and rotors the price per area decides most, then the lift.} The price of fuel moves every rig's saving as much as the largest of a developer's levers, but it is no developer's to change.
 
 \begin{figure}[!htb]
 \centering
@@ -188,9 +188,9 @@ A weather router then sails each ship on a grid of tracks and speeds through a c
 
 \textbf{Routing on forecasts.} No master knows the weather of the whole passage. \tbd{On the one ship and route tested on forecasts actually issued, a plan that weighs the forecast's wind error, re-planned daily and sailed hour by hour, keeps 89\,\% of the rotors' cost saving, 83\,\% of the wing sails' and 77\,\% of the kite's, and the kite's lead of 2 points there with perfect foresight becomes a level.} The kite waits on wind and sea to launch, so it loses most, and whether its lead on container ships holds on forecasts is not known.
 
-\textbf{Rigs larger than any built.} The results assume series-production prices \citep{joshi2025} no kite maker has reached, deck rigs with many more units than any ship carries, kites far larger than any designed, and one wind profile for every region. Held to the rotor counts makers offer today, the kite leads by \tbd{1 to 4} points on four of the six bulk carriers and tankers that have a listed count. Every route starts in Rotterdam and lies in the Atlantic, and the hulls' resistance in waves is a mean estimate; these limits act on every rig alike.
+\stale{classes}{} \textbf{Rigs larger than any built.} The results assume series-production prices \citep{joshi2025} no kite maker has reached, deck rigs with many more units than any ship carries, kites far larger than any designed, and one wind profile for every region. Held to the rotor counts makers offer today, the kite leads by \tbd{1 to 4} points on four of the six bulk carriers and tankers that have a listed count. Every route starts in Rotterdam and lies in the Atlantic, and the hulls' resistance in waves is a mean estimate; these limits act on every rig alike.
 
-\textbf{Other kites.} A VTOL kite, a rigid wing that takes off and lands on its own propellers, flies at ship scale but costs about 2.7 times a soft kite's yearly cost per unit of thrust, and on e-ammonia it saves \tbd{less than half} of what a soft kite or rotors save. A kite added to rotors saves at most \tbd{2} points more on e-ammonia.
+\stale{rigid_kite_data,combination_data}{} \textbf{Other kites.} A VTOL kite, a rigid wing that takes off and lands on its own propellers, flies at ship scale but costs about 2.7 times a soft kite's yearly cost per unit of thrust, and on e-ammonia it saves \tbd{less than half} of what a soft kite or rotors save. A kite added to rotors saves at most \tbd{2} points more on e-ammonia.
 
 \section{What the work offers}
 
