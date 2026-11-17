@@ -2308,8 +2308,9 @@ deciding every `live_step_hours` on the weather it meets: at each step's start i
 speed and kite state, over every `live_speed_stride`-th speed and the plan's, whose
 objective over the step in the weather met, plus the rest of the edge at that speed in the
 [`MetWeather`](@ref) of `known` and the cost beyond `next` by the [`NodeToGo`](@ref)
-`beyond` is least ([`rest_of_edge`](@ref)). Where no speed can be held past the edge's
-start, it holds there for the step with the kite down, at the fuel of zero speed. Fills
+`beyond` is least ([`rest_of_edge`](@ref)). Where no speed holds over the step and the
+rest of the edge as it knows them, past the edge's start, it holds there for the step with
+the kite down, at the fuel of zero speed. Fills
 `steps` with its [`LiveStep`](@ref)s, using `points` for the rest of the edge. Returns the
 hours, the [`EdgeTally`](@ref) and whether the kite ends aloft; `Inf` hours where no speed
 can be held at the edge's start, and `nothing` after holding `LONGEST_HOLD` on the edge.
@@ -2708,8 +2709,8 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
                 isnothing(live) && return nothing
                 hours, tally, aloft = live
                 speed = corridor.edge_length[stage, lateral, step] / 3600hours
-                sailed = [live.point for live in steps]
-                shares = [live.share for live in steps]
+                sailed = [live_step.point for live_step in steps]
+                shares = [live_step.share for live_step in steps]
                 live_states = [live.aloft for live in steps]
             else
                 hours, tally, aloft, speed = sail_planned_edge!(points, table, weather,

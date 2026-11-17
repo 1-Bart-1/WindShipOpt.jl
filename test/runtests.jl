@@ -2111,6 +2111,10 @@ end
     @test !isnothing(leg) && isempty(record.holds)
     @test all(sample -> 80.0 <= sample.hours < 86.0 && sample.speed == 0, held)
     @test sum(sample -> sample.sample_hours, held; init=0.0) ≈ 6.0
+    endless = StormBetween(SyntheticWeather(), departure + 80.0,
+        departure + 80.0 + 2WindShipOpt.LONGEST_HOLD)
+    leg, record = live_leg(routing, endless)
+    @test isnothing(leg) && isempty(record.holds)
 end
 
 @testset "a ship sailing live on a true forecast sails about as its plan" begin
