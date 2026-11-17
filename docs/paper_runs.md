@@ -35,3 +35,40 @@ paper(:classes; fidelity=:draft, only=(route=(:caribbean, :new_york), drive=:amm
 ## Final runs
 
 A final run needs a clean tree on a pushed commit, and it takes from the case store only round trips computed at that commit with a clean tree, so every part of it comes from one commit. `paper_status(; fidelity=:final)` prints the commit of each step's data and ends by saying whether every step and round trip comes from one clean commit, naming the commits where not.
+
+## Runs on a Slurm cluster
+
+A run can hand its round trips to a Slurm cluster such as TU Delft's DelftBlue. The run itself is one job running `paper`, as on a workstation. Each time a step has more round trips missing than the job has cores, the run writes them to a batch file under `output/jobs/<run>/` and submits jobs that compute them into the case store, one job per as many round trips as it has cores, every `k`-th round trip to the `k`-th job. The run then waits for the store and goes on, so the cases of a later wave, such as the next round of the rig size search, are handed out once the data they read exist. The run folder that comes out is the one a workstation writes: one start time, one commit, one record.
+
+A job killed at its wall time or by a node fault costs only the round trips it had not stored. The run submits that job again, which computes only what is still missing, up to `retries` times; after that the run stops with an error naming every case still missing. Submitting the run again resumes it: it computes nothing that is stored, and hands out the rest.
+
+Every cluster setting is in `scripts/cluster.toml`: the account and partition, which you must set, the cores and memory of each job, the wall time of the run's job and of each computing job, how many jobs run at once, and the retries. All jobs of a run use the one partition, so one processor model computes the whole run. A final run takes only round trips computed on the processor it runs on; a draft takes them from any machine, so a draft may mix round trips from a workstation and from the cluster.
+
+### Setting it up once, on a DelftBlue login node
+
+Compute nodes have no internet, so Julia and the packages are installed on a login node. The commands below keep the repository on `/scratch`, which holds 5 TB but is cleared of old files, so copy the results back after each run.
+
+```bash
+ssh <netid>@login.delftblue.tudelft.nl
+curl -fsSL https://install.julialang.org | sh -s -- --yes   # juliaup, in your home
+source ~/.bashrc && juliaup add 1.12
+cd /scratch/$USER && git clone https://github.com/1-Bart-1/WindShipOpt.jl && cd WindShipOpt.jl
+./bin/install -y                                            # installs and precompiles the packages
+sacctmgr list user $USER withassoc format='user%-20,account%-45'   # your accounts
+```
+
+Set `account` (on DelftBlue `research-<faculty>-<department>`; without one a job is charged to `innovation`, limited to 24 hours and 4 jobs) and `partition` (`compute-p1`: 48 cores, at most `3996M` per core; `compute-p2`: 64 cores, at most `4000M`) in `scripts/cluster.toml`, keeping `cores` at the partition's cores per node, and commit them, since a final run needs a clean tree on a pushed commit. Then copy the weather from the machine that has it:
+
+```bash
+rsync -a era5/ <netid>@login.delftblue.tudelft.nl:/scratch/<netid>/WindShipOpt.jl/era5/
+```
+
+### Running
+
+```bash
+bin/cluster submit draft            # a draft run of every step; `final` for a final run
+bin/cluster submit draft classes    # or only the steps named
+bin/cluster status                  # jobs queued, and what the latest run of each fidelity has done
+```
+
+`status` lists the jobs, each run's steps done and still to do, and for each batch how many of its round trips are stored. The run's log is `output/slurm/run-<job>.log` and each job's log sits beside its batch in `output/jobs/<run>/`. A run that stopped, at its wall time or naming the cases still missing, is finished by submitting it again with the same command. Bring the run and the case store home with `rsync -a <netid>@login.delftblue.tudelft.nl:/scratch/<netid>/WindShipOpt.jl/output/ output/`. Pull on the cluster before submitting a final run, so it runs the commit you mean.

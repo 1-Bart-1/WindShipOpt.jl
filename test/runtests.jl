@@ -3411,6 +3411,15 @@ end
     @test PaperRuns.stored_entry(directory, case).trip == 1.0
 end
 
+@testset "a Slurm job is submitted only with the account and partition set" begin
+    settings = PaperRuns.cluster_settings()
+    @test_throws "set the account" PaperRuns.slurm_command(settings, "run", "1:00:00",
+        "log", `true`)
+    settings = merge(settings, Dict("account" => "research-me", "partition" => "p1"))
+    command = PaperRuns.slurm_command(settings, "run", "1:00:00", "log", `true`)
+    @test "--account=research-me" in command.exec && "--partition=p1" in command.exec
+end
+
 @testset "a final run's parts name every commit and dirty tree they come from" begin
     part(commit, dirty, cases) = ("run", Dict{String, Any}("git_commit" => commit,
         "git_dirty" => dirty, "case_commits" => cases))

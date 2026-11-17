@@ -621,7 +621,8 @@ end
 Entry of the case store `directory` the run in use takes for `case`, or `missing`: one its
 code computed under the values of `case.assumptions` in every input it read and from the
 data files it read as they are now, and of its commit, a clean tree and this processor in a
-final run. In a draft, a case outside its `only` takes the latest such entry of any code where none is.
+final run. In a draft, a case outside its `only` takes the latest such entry of any code
+where none is.
 """
 function stored_entry(directory, case)
     isdir(directory) || return missing

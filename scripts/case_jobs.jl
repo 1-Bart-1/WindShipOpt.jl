@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Hands the round trips a run is missing to jobs that compute them into the case store: Slurm
-# jobs on a cluster, or processes on this machine. The run waits for the store, launches a
-# job again that ended with round trips missing, and stops naming the cases still missing
-# once it has tried enough. Included by paper_runs.jl; cluster.jl starts the jobs.
+# Hands the round trips a run is missing to jobs that compute them into the case store:
+# Slurm jobs on a cluster, or processes on this machine. The run waits for the store,
+# launches a job again that ended with round trips missing, and stops naming the cases still
+# missing once it has tried enough. Included by paper_runs.jl; cluster.jl starts the jobs.
 
 """
     SlurmJobs
@@ -144,7 +144,8 @@ function job_trips(jobs, cases, directories, departures)
     isempty(lacking) || error("no round trip in the case store for ",
         length(lacking), " cases of batch ", batch, ":\n",
         join(case_labels.(cases[sort(lacking)]), "\n"))
-    return Any[stored_entry(directory, case) for (case, directory) in zip(cases, directories)]
+    return Any[stored_entry(directory, case)
+               for (case, directory) in zip(cases, directories)]
 end
 
 """
@@ -178,13 +179,14 @@ end
 """
     running(jobs, handles)
 
-Those of `handles` whose jobs have not ended.
+Those of `handles` whose jobs have not ended; all of them while the queue cannot be read.
 """
 running(::LocalJobs, handles) = filter(process_running, handles)
 
 function running(::SlurmJobs, handles)
-    queued = split(read(`squeue --me --noheader --format=%i`, String))
-    return filter(in(queued), handles)
+    queue = IOBuffer()
+    success(pipeline(`squeue --me --noheader --format=%i`; stdout=queue)) || return handles
+    return filter(in(split(String(take!(queue)))), handles)
 end
 
 """
@@ -195,9 +197,10 @@ cores, memory, account and partition of `settings`, writing to `log`, which prin
 id.
 """
 function slurm_command(settings, name, time, log, command)
-    isempty(settings["partition"]) && error("set the partition in scripts/cluster.toml")
-    account = isempty(settings["account"]) ? `` : `--account=$(settings["account"])`
-    return `sbatch --parsable --job-name=$name $account
+    for setting in ("account", "partition")
+        isempty(settings[setting]) && error("set the $setting in scripts/cluster.toml")
+    end
+    return `sbatch --parsable --job-name=$name --account=$(settings["account"])
         --partition=$(settings["partition"]) --time=$time --ntasks=1
         --cpus-per-task=$(settings["cores"]) --mem-per-cpu=$(settings["memory_per_core"])
         --output=$log --wrap=$(Base.shell_escape(command.exec...))`

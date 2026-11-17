@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Paper runs on a Slurm cluster: `bin/cluster submit draft|final [step ...]`, `bin/cluster status`.
+# Paper runs on a Slurm cluster: `bin/cluster submit draft|final [step ...]`, `bin/cluster
+# status`; docs/paper_runs.md says how to set it up.
 set -euo pipefail
 
 repo=$(dirname "${BASH_SOURCE[0]}")/..
