@@ -1549,6 +1549,18 @@ end
     end
 end
 
+@testset "a re-plan weighs the plan a ship holds only where it still arrives in time" begin
+    kite_table, kite_hourly = forecast_kite_routing(800.0)
+    lateral = centre_index(corridor)
+    planning, first_stage = WindShipOpt.planning_corridor(corridor, 1, lateral)
+    held = route(planning, kite_table, SyntheticWeather(), 24.0 * 61; time_cost=kite_hourly,
+        first_stage, first_lateral=lateral)
+    candidates(arrival_by) = WindShipOpt.candidate_plans([nothing], held, planning,
+        first_stage, lateral, arrival_by)
+    @test candidates(Inf) == candidates(held.duration) == [held]
+    @test isempty(candidates(held.duration - 1))
+end
+
 @testset "a kite flying in good wind stays up unless the plan ahead needs it stowed" begin
     kite_table, kite_hourly = forecast_kite_routing(800.0)
     _, homeward = corridors
