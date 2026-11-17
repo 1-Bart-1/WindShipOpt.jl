@@ -6,7 +6,7 @@
 % \inpaper{text}: a pointer into the full paper, such as a section number in a figure; the extended abstract drops it.
 \newcommand{\inpaper}[1]{#1}
 % \savingerror: the error of a cost saving, for the caption of every table of them.
-\newcommand{\savingerror}{Cost savings carry an error of 0.4 to 1.0 points from the departures sampled, and the router's grid understates them by up to 2 points, the kite's most\inpaper{ (\cref{sec:res_robustness})}.}
+\newcommand{\savingerror}{\stale{classes,router_grid}{Cost savings carry an error of 0.4 to 1.0 points from the departures sampled, and the router's grid understates them by up to 2 points, the kite's most}\inpaper{ (\cref{sec:res_robustness})}.}
 % \stale{studies}{text}: text stale until the comma-separated studies rerun.
 \makeatletter
 \newcommand{\stale@left}{}
@@ -21,6 +21,8 @@
 \AtEndDocument{\ifx\stale@left\@empty\else
   \PackageWarningNoLine{stale}{Studies to rerun for stale text:\stale@left}\fi}
 \makeatother
+% \given{text}: an input, literature value or method constant typed in result text; shown as is.
+\newcommand{\given}[1]{#1}
 % \note{text}: a review note shown in the PDF; \notesfalse hides all.
 \newif\ifnotes\notestrue
 \newcommand{\note}[1]{\ifnotes{\color{teal!70!black}\sffamily\small[#1]}\fi}
