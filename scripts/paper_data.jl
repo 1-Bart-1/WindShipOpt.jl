@@ -1191,7 +1191,10 @@ Cargo values [USD/t] of the cargo value sweep, those of the classes' iron ore, c
 general cargo, containers and cars, and the deadweight-limited and the space-limited class
 that carry each of them in turn.
 """
-cargo_value_sweep = (values=(100.0, 506.0, 2500.0, 5120.0, 15000.0),
+cargo_value_sweep = (
+    values=Tuple(ship_classes()[name].cargo_value for name in ("Capesize bulk carrier",
+        "Aframax tanker", "general cargo coaster", "Neo-Panamax container ship",
+        "PCTC car carrier")),
     classes=("Kamsarmax bulk carrier", "Neo-Panamax container ship"))
 
 """
