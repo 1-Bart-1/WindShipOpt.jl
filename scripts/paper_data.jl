@@ -988,8 +988,8 @@ fleet_bands = ("kite", "level", "rotors", "wings", "none")
     fleet_leaders(savings, cells, weights=ones(length(cells)))
 
 Rigs of the cost `savings` [%], each the `weights`-weighted mean over fleet `cells`, that
-the best does not clearly [`leads`](@ref): the best and those level with it; none where
-the best does not clearly save.
+are level with the best: the best and each rig it does not clearly [`leads`](@ref); none
+where the best does not clearly save.
 """
 function fleet_leaders(savings, cells, weights=ones(length(cells)))
     best = argmax(rig -> savings[rig], keys(savings))

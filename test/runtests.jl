@@ -3842,11 +3842,32 @@ end
     @test split["rotors"].bill == split["wings"].bill == 0
 end
 
-@testset "a lead between ship types reads as a lead or a level by its verdict" begin
-    lead = (; rig="kite", rival="rotors", margin=2.4, clear=true)
+@testset "a lead between ship types reads as a lead, a level or no rig by its verdict" begin
+    lead = (; rig="kite", rival="rotors", margin=2.4, verdict="leads")
     @test PaperData.lead_verdict(lead) == "the kite leads the rotors by 2 points"
-    @test PaperData.lead_verdict((; lead..., rig="rotors", rival="kite", clear=false)) ==
+    level = (; lead..., rig="rotors", rival="kite", verdict="level")
+    @test PaperData.lead_verdict(level) ==
           "the rotors and the kite are level, 2 points apart"
+    @test PaperData.lead_verdict((; lead..., verdict="none")) == "no rig clearly saves"
+end
+
+@testset "the advice names each kind of ship once, kinds with the same rig together" begin
+    lead(label, rig, rival, verdict) = (; label, rig, rival, verdict)
+    leads = [lead("Container ships", "kite", "rotors", "leads"),
+        lead("Car carriers", "rotors", "kite", "level"),
+        lead("Bulk carriers", "kite", "rotors", "level"),
+        lead("Tankers", "kite", "rotors", "leads"),
+        lead("General cargo ships", "rotors", "wings", "none")]
+    @test PaperData.advice_text(leads) ==
+          "the kite on container ships and tankers, either the kite or the rotors on " *
+          "car carriers and bulk carriers, and no rig on general cargo ships"
+end
+
+@testset "a ship type where the best rig does not clearly save has no leader" begin
+    savings = Dict("kite" => 1.0, "wings" => 0.2, "rotors" => -0.5)
+    lead = PaperData.rig_lead([fleet_cell(1.0, savings, Dict("kite" => 2.0))])
+    @test lead.verdict == "none"
+    @test PaperData.rig_lead([fleet_cell(1.0, savings)]).verdict == "leads"
 end
 
 @testset "fleet work takes each class's IMO bins, summing the two of the MR tanker" begin
@@ -3957,12 +3978,13 @@ end
 
 @testset "a class leads over its routes by its mean gap and that gap's own error" begin
     (; table, class, drive) = market_class_table()
-    lead = PaperData.rig_lead(table, [class], drive)
+    cells = PaperData.fleet_cells(table, drive)
+    lead = PaperData.rig_lead(filter(cell -> cell.class == class, cells))
     @test (lead.rig, lead.rival) == ("rotors", "wings")
     @test lead.margin ≈ (10 + 0.5) / 3
     @test lead.error ≈ 1 / 3
-    @test lead.clear
-    bands = PaperData.fleet_band.(PaperData.fleet_cells(table, drive))
+    @test lead.verdict == "leads"
+    bands = PaperData.fleet_band.(cells)
     @test count(==("rotors"), bands) == count(==("level"), bands) == 1
     @test count(==("none"), bands) == length(bands) - 2
 end
