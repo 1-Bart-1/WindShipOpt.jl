@@ -2003,6 +2003,53 @@ end
     @test all(sample -> sample.sample_hours <= 1.0 + 1e-9, record.samples)
 end
 
+"""
+The real `weather` until `cut` [h], and from then on with its wind turned and its sea
+raised.
+"""
+struct ChangedAfter{W}
+    weather::W
+    cut::Float64
+end
+WindShipOpt.duration(changed::ChangedAfter) = WindShipOpt.duration(changed.weather)
+function WindShipOpt.wind(changed::ChangedAfter, lat, lon, time)
+    east, north = WindShipOpt.wind(changed.weather, lat, lon, time)
+    return time < changed.cut ? (east, north) : (east + 6.0, north - 4.0)
+end
+function WindShipOpt.waves(changed::ChangedAfter, lat, lon, time)
+    height, period, direction = WindShipOpt.waves(changed.weather, lat, lon, time)
+    return (time < changed.cut ? height : height + 1.0), period, direction
+end
+
+"Forecast source that always plans on `weather`, whatever the real weather is."
+struct FixedForecast{W}
+    weather::W
+end
+WindShipOpt.known_weather(source::FixedForecast, weather, time, horizon) = source.weather
+
+"""
+Hours, speed and kite state of each step the kite coaster sails live in the real `weather`
+on a fixed forecast, departing at 24 × 121 h, for the first `cut` [h] after departure.
+`routing` is what `kite_coaster_routing` returns.
+"""
+function live_steps_before(routing, weather, cut)
+    kite_table, kite_hourly, finer = routing
+    record = WindShipOpt.KiteRecord()
+    forecast_route(finer, kite_table, weather, 24.0 * 121; time_cost=kite_hourly, record,
+        forecast=ReplannedForecast(FixedForecast(SyntheticWeather(; seed=2)); adapts=:live))
+    return [(sample.hours, sample.speed, sample.aloft)
+            for sample in record.samples if sample.hours < cut]
+end
+
+@testset "a live ship decides each hour without the weather it has not reached" begin
+    cut, routing = 100.0, kite_coaster_routing(400.0)
+    steps = live_steps_before(routing, SyntheticWeather(), cut)
+    @test length(steps) > 50
+    @test any(last, steps)
+    changed = ChangedAfter(SyntheticWeather(), 24.0 * 121 + cut)
+    @test live_steps_before(routing, changed, cut) == steps
+end
+
 @testset "a ship sailing live on a true forecast sails about as its plan" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
     planned, live = (forecast_route(corridor, table, weather, departure;
