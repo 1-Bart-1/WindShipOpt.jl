@@ -1087,7 +1087,8 @@ end
         ship = Ship(ShipDesign(:vlsfo, class), assumptions)
         speed = class.service_speed * KNOT
         thrust = resistance(ship.hull, ship.env, speed)
-        source = 1e3class.power * class.source_load * assumptions[:direct_shaft_efficiency] /
+        shaft = assumptions[:direct_shaft_efficiency]
+        source = 1e3class.power * class.source_load * shaft /
                  (1 + assumptions[:source_sea_margin])
         delivered = delivered_power(ship.propeller, ship.env, speed, thrust)
         @test delivered ≈ source rtol = 1e-6

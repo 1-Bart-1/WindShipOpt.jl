@@ -107,7 +107,8 @@ end
 
 block_coefficient(hull::Hull; length=hull.length) =
     hull.displacement_volume / (length * hull.beam * hull.draft)
-waterline_block_coefficient(hull::Hull) = block_coefficient(hull; length=hull.waterline_length)
+waterline_block_coefficient(hull::Hull) =
+    block_coefficient(hull; length=hull.waterline_length)
 prismatic_coefficient(block, midship, max_prismatic) = min(block / midship, max_prismatic)
 prismatic_coefficient(hull::Hull) = prismatic_coefficient(waterline_block_coefficient(hull),
     hull.midship_coefficient, hull.max_prismatic)
