@@ -3,7 +3,7 @@
 \section{Model inputs}
 \label{sec:inputs}
 
-\Cref{tab:inputs} lists every input with a range, with its base value, bounds, unit and source, or its mark as an engineering estimate or assumption. \Cref{tab:development} gives the 20 of them that the development study of \cref{sec:res_inputs} moves, with the reason each is in it. The ship classes are in \cref{tab:classes}, their sources in \cref{tab:class_sources}, the grids, solver settings and constants in \cref{tab:numerics}, and the split of the cargo interest study behind \cref{fig:cargo_interest} in \cref{tab:cargo_interest}. The published regressions (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) keep their published coefficients.
+\Cref{tab:inputs} lists every input with a range, with its base value, bounds, unit and source, or its mark as the authors' estimate. \Cref{tab:development} gives the 20 of them that the development study of \cref{sec:res_inputs} moves, with the reason each is in it. The ship classes are in \cref{tab:classes}, their sources in \cref{tab:class_sources}, the grids, solver settings and constants in \cref{tab:numerics}, and the split of the cargo interest study behind \cref{fig:cargo_interest} in \cref{tab:cargo_interest}. The published regressions (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) keep their published coefficients.
 
 {\footnotesize
 \setlength{\LTcapwidth}{\textwidth}
@@ -103,4 +103,12 @@ hours in a year & 8760 & annual costs \\
 \caption{\stale{cargo_interest}{} Cost saving of the cheapest size of each rig on e-ammonia at low and at high cargo interest, the mean over the classes and routes, split as in \cref{tab:split}; the median change of the round trip; and the mean speed along the route's track over the days at sea, with and without the rig. \savingerror{} Method study, \studyrun{cargo_interest}.}
 \label{tab:cargo_interest}
 \InputIfFileExists{sections/cargo_interest_table}{}{\tbd{Cargo interest table pending: run the cargo\_interest\_table step.}}
+\end{table*}
+
+\begin{table*}[tbp]
+\centering
+\footnotesize
+\caption{\stale{classes}{} Ships and rig sales of \cref{tab:market_sales} by ship type for the kite and the rotors, the rigs that win some class and route, on each fuel, from the classes and routes the rig wins alone to those where it is level with another rig too, by the rule of \cref{sec:res_robustness}. Estimates on the same fleet data and assumptions; a dash marks no sales.}
+\label{tab:market_sales_types}
+\InputIfFileExists{sections/market_sales_type_table}{}{\tbd{Market sales type table pending: run the market\_table step.}}
 \end{table*}

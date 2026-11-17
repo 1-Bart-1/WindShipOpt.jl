@@ -73,6 +73,11 @@ class CheckSources(unittest.TestCase):
     def test_duplicate_row_fails(self):
         self.assertEqual(self.check(HELD + OTHER + OTHER), ["other: more than one row"])
 
+    def test_table_citation_of_unread_source_fails(self):
+        tex = r"(\citealp[Ch. 2]{held}; \citealp{other}) \citet{held}"
+        rows = HELD + f"other,,held.pdf,{HASH},held_unread\n"
+        self.assertEqual(self.check(rows, tex), ["other: cited but held_unread"])
+
     def test_commented_citation_is_not_a_citation(self):
         self.assertEqual(self.check(HELD, r"\cite{held} % \cite{other}"), [])
 

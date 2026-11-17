@@ -4012,6 +4012,21 @@ end
     @test PaperData.one_decimal(3.46) == "3.5"
 end
 
+@testset "an input prints under its name in words, the rigid kite named only as a prefix" begin
+    @test PaperData.input_label(:e_ammonia_price) == "e-ammonia price"
+    @test PaperData.input_label(:cargo_per_teu) == "cargo per TEU"
+    @test PaperData.input_label(:rigid_hover_minutes) == "rigid kite hover minutes"
+    @test PaperData.input_label(:mast_rigid_share) == "mast rigid share"
+end
+
+@testset "a source note prints each source as a citation of its key" begin
+    note = "Kalverla's profile [@kalverla2019, Ch. 2; @schelbergen2020] gives 5 %; @imo2020 too."
+    @test PaperData.cited_note(note) == "Kalverla's profile (\\citealp[Ch. 2]{kalverla2019}; " *
+        "\\citealp{schelbergen2020}) gives 5 \\%; \\citet{imo2020} too."
+    @test PaperData.cited_note("no source, 50 %") == "no source, 50 \\%"
+    @test_throws ErrorException PaperData.cited_note("[@a2020; Table 3]")
+end
+
 @testset "kite-and-rotor pairs fly only kites already sized, near the best sizes" begin
     kites = [500.0, 1024.0, 1448.0, 2048.0, 4096.0]
     sizes = PaperData.pair_sizes(2000.0, 900.0, kites, (200.0, 800.0))
@@ -4180,25 +4195,70 @@ end
     @test split["rotors"].bill == split["wings"].bill == 0
 end
 
-@testset "a lead between ship types reads as a lead, a level or no rig by its verdict" begin
-    lead = (; rig="kite", rival="rotors", margin=2.4, verdict="leads")
-    @test PaperData.lead_verdict(lead) == "the kite leads the rotors by 2 points"
-    level = (; lead..., rig="rotors", rival="kite", verdict="level")
-    @test PaperData.lead_verdict(level) ==
-          "the rotors and the kite are level, 2 points apart"
-    @test PaperData.lead_verdict((; lead..., verdict="none")) == "no rig clearly saves"
+"rig lead row of the made-up outcome of `rig` against `rival` on ship type `word`"
+function lead_row(word, drive, verdict, margin, rig="kite", rival="rotors")
+    label = only(label for (type, label, _) in PaperData.ship_types if type == word)
+    return (; word, label, drive, rig, rival, verdict, margin)
 end
 
-@testset "the advice names each kind of ship once, kinds with the same rig together" begin
-    lead(label, rig, rival, verdict) = (; label, rig, rival, verdict)
-    leads = [lead("Container ships", "kite", "rotors", "leads"),
-        lead("Car carriers", "rotors", "kite", "level"),
-        lead("Bulk carriers", "kite", "rotors", "level"),
-        lead("Tankers", "kite", "rotors", "leads"),
-        lead("General cargo ships", "rotors", "wings", "none")]
-    @test PaperData.advice_text(leads) ==
-          "the kite on container ships and tankers, either the kite or the rotors on " *
-          "car carriers and bulk carriers, and no rig on general cargo ships"
+"rig lead rows of the draft run: the kite leading or level with the rotors"
+draft_leads = [lead_row("Container", "vlsfo", "leads", 4.1),
+    lead_row("Container", "ammonia", "leads", 3.8),
+    lead_row("CarCarrier", "vlsfo", "level", 0.3),
+    lead_row("CarCarrier", "ammonia", "level", 0.2),
+    lead_row("BulkCarrier", "vlsfo", "level", 1.2),
+    lead_row("BulkCarrier", "ammonia", "level", 0.9),
+    lead_row("Tanker", "vlsfo", "level", 1.0), lead_row("Tanker", "ammonia", "leads", 2.3),
+    lead_row("GeneralCargo", "vlsfo", "leads", 3.1),
+    lead_row("GeneralCargo", "ammonia", "level", 1.1)]
+
+@testset "a verdict states each kind of lead once, with where it holds" begin
+    lead = lead_row("Container", "vlsfo", "leads", 2.4)
+    @test PaperData.verdict_text([lead]) == "the kite leads the rotors by 2 points"
+    @test PaperData.verdict_text([lead_row("Container", "vlsfo", "level", 2.4, "rotors",
+        "kite")]) == "the kite and the rotors are level, 2 points apart"
+    @test PaperData.verdict_text([lead_row("Container", "vlsfo", "none", 0.1)]) ==
+          "no rig clearly saves"
+    container = filter(row -> row.word == "Container", draft_leads)
+    @test PaperData.verdict_text(container) ==
+          "the kite leads the rotors by 4 points on both fuels"
+    @test PaperData.verdict_text(draft_leads) ==
+          "the kite leads the rotors by 2 to 4 points on container ships on both fuels, " *
+          "on tankers on e-ammonia and on general cargo ships on fuel oil, and the kite " *
+          "and the rotors are level, at most 1 point apart, on car carriers and bulk " *
+          "carriers on both fuels, on tankers on fuel oil and on general cargo ships on " *
+          "e-ammonia"
+end
+
+@testset "the advice gives the rigs for both fuels once, then where the fuel changes" begin
+    @test PaperData.advice_text(draft_leads) ==
+          "on both fuels use the kite on container ships, and either the kite or the " *
+          "rotors on car carriers and bulk carriers; on tankers use the kite on " *
+          "e-ammonia and either the kite or the rotors on fuel oil, and on general cargo " *
+          "ships the other way round"
+    all_kite = [(; row..., verdict="leads") for row in draft_leads]
+    @test PaperData.advice_text(all_kite) == "on both fuels use the kite on every ship type"
+    ammonia = filter(row -> row.drive == "ammonia", draft_leads)
+    @test PaperData.advice_text(ammonia) ==
+          "on e-ammonia use the kite on container ships and tankers, and either the kite " *
+          "or the rotors on car carriers, bulk carriers and general cargo ships"
+end
+
+@testset "the highlight of the advice fits the journal for any kind of advice" begin
+    @test PaperData.highlight_text(draft_leads) ==
+          "On e-ammonia: kite on container ships and tankers, either kite or rotors " *
+          "elsewhere."
+    kinds = [("leads", "kite", "rotors"), ("leads", "rotors", "kite"),
+        ("leads", "wings", "rotors"), ("level", "kite", "rotors"),
+        ("level", "wings", "rotors"), ("none", "kite", "rotors")]
+    words = first.(PaperData.ship_types)
+    outcome(picks) = [lead_row(word, drive, kinds[kind][1], 2.0, kinds[kind][2:3]...)
+                      for (word, pick) in zip(words, picks)
+                      for (drive, kind) in (("vlsfo", length(kinds) + 1 - pick),
+                          ("ammonia", pick))]
+    outcomes = Iterators.product(fill(eachindex(kinds), length(words))...)
+    @test all(length(PaperData.highlight_text(outcome(picks))) <= PaperData.highlight_limit
+              for picks in outcomes)
 end
 
 @testset "a ship type where the best rig does not clearly save has no leader" begin
