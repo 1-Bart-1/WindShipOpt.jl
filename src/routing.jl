@@ -2485,20 +2485,21 @@ end
 
 Add to `record` the [`KiteSample`](@ref)s of `points`, at `shares` (0 to 1) along the edge
 from node (`stage`, `lateral`) to `next`, entered `start_hours` [h] after departure and
-sailed at commanded `planned_speed` [m/s], each at the hour the ship reached it, with the
-kite up as `states` says, as `planned` would have it, and as the plan's `targets` want it,
-and `known` the weather the plan knew, left at `departure` [h].
+sailed at commanded `planned_speed` [m/s], each once the ship has sailed the hours of the
+points before it, with the kite up as `states` says, as `planned` would have it, and as the
+plan's `targets` want it, and `known` the weather the plan knew, left at `departure` [h].
 """
 function push_samples!(record, table, points, shares, corridor, stage, lateral, next,
         start_hours, states, planned, planned_speed, prices, targets, known, departure)
     step = lateral_step(corridor, lateral, next)
+    hours = start_hours
     for (k, point) in enumerate(points)
         share = shares[k]
         lat, lon = edge_point(corridor, stage, lateral, next, share)
         speed = table.speeds[max(point.speed_index, 1)]
         forecast = EdgeSample(table.table, known, corridor, stage, lateral, step, share,
-            point.time)
-        push!(record.samples, (; hours=point.time - departure, lat, lon,
+            departure + hours)
+        push!(record.samples, (; hours, lat, lon,
             aloft=states[k], planned=planned[k],
             wind_speed=hypot(point.headwind, point.crosswind),
             apparent_wind=hypot(point.headwind + speed, point.crosswind),
@@ -2509,6 +2510,7 @@ function push_samples!(record, table, points, shares, corridor, stage, lateral, 
             stowed_power=point.stowed, fastest_speed=fastest_flown_speed(table, point),
             forecast_fastest=fastest_flown_speed(table, forecast),
             edge_start=start_hours, point))
+        hours += point.hours
     end
 end
 
