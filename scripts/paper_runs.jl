@@ -17,20 +17,24 @@ fidelities = Dict(:draft => (corridor_scale=1.0, departure_step=36, size_rounds=
     :final => (corridor_scale=1.0, departure_step=6, size_rounds=2))
 
 """
-Spread [points] of a draft result about the final run's on the development case: of the
-kite's and the rotors' savings and of the gap between them
+Spread of a draft result about the final run's on the development case, one standard
+deviation [percentage points]: of the kite's and the rotors' cost savings and of the gap
+between them
 """
 DRAFT_SPREAD = (kite=4.9, rotors=3.7, gap=2.8)
 
 "text of the paper's draft marker: what a draft run leaves out and how far it may lie off"
 function draft_marker()
     ratio = fidelities[:draft].departure_step ÷ fidelities[:final].departure_step
-    return "\\tbd{Results at draft fidelity: the final run's grid on one in $ratio of " *
-           "its departures, with one round of the rig size search instead of two. On the " *
-           "development case a draft saving lies about the final run's by " *
-           "$(DRAFT_SPREAD.kite) points for the kite, $(DRAFT_SPREAD.rotors) for the " *
-           "rotors and $(DRAFT_SPREAD.gap) for the gap between them (one standard " *
-           "deviation), with no bias from the grid.}\n"
+    kite, rotors, gap = round.(Int, values(DRAFT_SPREAD))
+    return "\\tbd{These are draft results from a quick run: one in $ratio of the final " *
+           "run's departures, and one round of the rig size search instead of two. " *
+           "Measured on the 140\\,m e-ammonia ship to Guadeloupe, a draft cost saving " *
+           "lies, two times in three, within $kite percentage points of the final run's " *
+           "for the kite and $rotors for the rotors, as often above as below: a " *
+           "23\\,\\% kite saving may read $(23 - kite) to $(23 + kite)\\,\\%. The " *
+           "kite's lead over the rotors lies within $gap points, so a smaller lead " *
+           "between two rigs is not yet settled.}\n"
 end
 
 """
