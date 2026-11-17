@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Slurm settings of the paper runs on a cluster, read by scripts/cluster.jl.
+account = "" # Slurm account to charge, research-<faculty>-<department> on DelftBlue; "" for the default
+partition = "" # the one partition every job of a run uses, so one processor computes all of it
+cores = 48 # [-] cores of each job, the run's own and each computing round trips
+memory_per_core = "3800M" # memory per core, as Slurm's --mem-per-cpu
+run_time = "120:00:00" # wall time of the job running the paper run, hours:minutes:seconds
+case_time = "24:00:00" # wall time of each job computing round trips, hours:minutes:seconds
+jobs = 64 # [-] jobs running at once, the run's own included
+retries = 2 # [-] times a job that ended with round trips missing is launched again

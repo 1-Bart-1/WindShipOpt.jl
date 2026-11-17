@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Paper runs on a Slurm cluster: `bin/cluster submit draft|final [step ...]`, `bin/cluster status`.
+set -euo pipefail
+
+repo=$(dirname "${BASH_SOURCE[0]}")/..
+major=$("$repo/bin/julia_version")
+
+exec julia "+$major" --project="$repo/scripts" "$repo/scripts/cluster.jl" "$@"

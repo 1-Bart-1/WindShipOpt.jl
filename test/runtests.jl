@@ -3345,6 +3345,72 @@ end
     @test isnothing(PaperRuns.step_entry(run.record, :classes))
 end
 
+"""
+    StubJobs
+
+Jobs computing in tasks of this process the square of each case's `label`, the first launch
+of each shard in `dying` stopping after one case, each shard launched again at most
+`retries` times.
+"""
+struct StubJobs
+    dying::Vector{Int}
+    retries::Int
+    launches::Dict{Int, Int}
+end
+
+PaperRuns.cores(::StubJobs) = 3
+PaperRuns.job_count(::StubJobs) = 4
+PaperRuns.retries(jobs::StubJobs) = jobs.retries
+PaperRuns.poll_seconds(::StubJobs) = 0.01
+PaperRuns.running(::StubJobs, handles) = filter(!istaskdone, handles)
+
+function PaperRuns.launch(jobs::StubJobs, path, shard, shards)
+    launch = jobs.launches[shard] = get(jobs.launches, shard, 0) + 1
+    batch = PaperRuns.deserialize(path)
+    todo = PaperRuns.shard_missing(batch, shard, shards)
+    shard in jobs.dying && launch == 1 && (todo = first(todo, 1))
+    return Threads.@spawn for k in todo
+        PaperRuns.stored_trip(() -> batch.cases[k].label^2, batch.directories[k],
+            batch.cases[k])
+    end
+end
+
+handed_cases = [(; assumptions, label) for label in 1:10]
+
+@testset "a batch handed to jobs is complete once each job that died has run again" begin
+    store_run(:draft, "code")
+    jobs = StubJobs([1, 3], 1, Dict{Int, Int}())
+    directories = [mktempdir() for _ in handed_cases]
+    entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
+    @test [entry.trip for entry in entries] == (1:10) .^ 2
+    @test jobs.launches == Dict(1 => 2, 2 => 1, 3 => 2, 4 => 1)
+end
+
+@testset "a batch whose job keeps dying stops the run naming the cases it lacks" begin
+    store_run(:draft, "code")
+    directories = [mktempdir() for _ in handed_cases]
+    lacking = try
+        PaperRuns.job_trips(StubJobs([2], 0, Dict{Int, Int}()), handed_cases, directories,
+            [24.0])
+    catch error
+        error.msg
+    end
+    @test contains(lacking, "for 2 cases") && contains(lacking, "label=6\nlabel=10")
+end
+
+@testset "a final run takes only round trips computed on its own processor" begin
+    directory = mktempdir()
+    case = (; assumptions)
+    store_run(:final, "code")
+    PaperRuns.stored_trip(() -> 1.0, directory, case)
+    file = only(readdir(directory; join=true))
+    entry = PaperRuns.deserialize(file)
+    PaperRuns.serialize(file, merge(entry, (; processor="another processor")))
+    @test ismissing(PaperRuns.stored_entry(directory, case))
+    store_run(:draft, "code")
+    @test PaperRuns.stored_entry(directory, case).trip == 1.0
+end
+
 @testset "a final run's parts name every commit and dirty tree they come from" begin
     part(commit, dirty, cases) = ("run", Dict{String, Any}("git_commit" => commit,
         "git_dirty" => dirty, "case_commits" => cases))
