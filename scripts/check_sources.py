@@ -21,7 +21,8 @@ NEEDS_FILE = {"read_in_full", "held_unread"}
 CITE = re.compile(r"\\[A-Za-z]*cite[A-Za-z]*\*?(?:\[[^\]]*\])*\{([^}]*)\}")
 COMMENT = re.compile(r"(?<!\\)%.*")
 NOTE_TABLES = ("input_tables.tex", "class_sources.tex")
-YEAR = r"(?:1[89]|20)\d\d[a-z]?\b"
+SPACE = re.compile(r"(?:\s|~|\\textasciitilde\{\})+")
+YEAR = r"(?<!\{)(?:1[89]|20)\d\d[a-z]?\b"
 NOT_A_MONTH = r"(?!(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b)"
 FREE_TEXT_SOURCE = re.compile(
     rf"\b{NOT_A_MONTH}[A-Z][\w-]+(?: et al\.?| (?:and|\\&) [A-Z][\w-]+)?,? \(?{YEAR}\)?"
@@ -41,11 +42,18 @@ def cited_keys(sections):
 
 
 def free_text_sources(sections):
-    """A problem for each source the note tables in `sections` name in words, not by key."""
+    """A problem for each source the note tables in `sections` name in words, not by key,
+    where a year in braces, as in `IMO {2020}`, is marked as no source."""
     found = []
     for name in NOTE_TABLES:
-        text = CITE.sub("", COMMENT.sub("", (sections / name).read_text(encoding="utf-8")))
-        found += [f"{name}: names a source without its key: {match.group()!r}"
+        table = sections / name
+        if not table.is_file():
+            found.append(f"{name}: no such note table in {sections}")
+            continue
+        text = CITE.sub("", COMMENT.sub("", table.read_text(encoding="utf-8")))
+        text = SPACE.sub(" ", text)
+        found += [f"{name}: names a source without its key, or a year in braces is no "
+                  f"source: {match.group()!r}"
                   for match in FREE_TEXT_SOURCE.finditer(text)]
     return found
 
