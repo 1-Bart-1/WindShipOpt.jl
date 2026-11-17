@@ -79,28 +79,29 @@ expected_forecast() = ExpectedForecast(forecast_archive, forecast_error())
 """
     round_trips(cases, departures)
 
-Round trips of all `cases`, threaded, reusing those cached in the run in use under the same
-value of every input they read; the kite pattern tables of the others are computed first,
-one kite at a time.
+Round trips of all `cases`, threaded, taking those the case store holds for the run in use
+([`stored_entry`](@ref)) and storing the others; the kite pattern tables of the others are
+computed first, one kite at a time.
 """
 function round_trips(cases, departures)
     directories = [case_directory(case, departures) for case in cases]
-    trips = Any[cached_trip(directory, case.assumptions)
-                for (case, directory) in zip(cases, directories)]
-    computed = findall(ismissing, trips)
+    entries = Any[stored_entry(directory, case)
+                  for (case, directory) in zip(cases, directories)]
+    computed = findall(ismissing, entries)
     for case in cases[computed]
         max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
             Ship(case.design, case.assumptions)
     end
     Threads.@threads :greedy for k in computed
-        trips[k] = stored_trip(() -> case_trip(cases[k], departures), directories[k],
-            cases[k].assumptions)
+        entries[k] = stored_trip(() -> case_trip(cases[k], departures), directories[k],
+            cases[k])
     end
-    feasible = count(!isnothing, trips)
-    paper_run.cases += length(cases)
-    paper_run.trips += feasible
-    println("  ", feasible, " of ", length(cases), " round trips, ",
-        length(cases) - length(computed), " cached")
+    foreach(tally_case!, cases, directories, entries)
+    trips = [entry.trip for entry in entries]
+    older = count(entry -> entry.model != paper_run.trip_model, entries)
+    println("  ", count(!isnothing, trips), " of ", length(cases), " round trips, ",
+        length(cases) - length(computed), " stored",
+        older > 0 ? ", $older by older code" : "")
     return trips
 end
 
@@ -3090,26 +3091,6 @@ function speed_choice_data()
 end
 
 """
-    same_time_leg(corridor, table, weather, departure, hourly, duration)
-
-Routed leg whose time cost is scaled down from `hourly` [USD/h] by bisection until it takes
-about `duration` [h], or the fuel-only limit; the leg closest to it.
-"""
-function same_time_leg(corridor, table, weather, departure, hourly, duration)
-    low, high = 0.02, 1.0
-    best = route(corridor, table, weather, departure; time_cost=hourly)
-    (isnothing(best) || best.duration >= duration) && return best
-    for _ in 1:6
-        factor = sqrt(low * high)
-        leg = route(corridor, table, weather, departure; time_cost=factor * hourly)
-        isnothing(leg) && break
-        abs(leg.duration - duration) < abs(best.duration - duration) && (best = leg)
-        leg.duration < duration ? (high = factor) : (low = factor)
-    end
-    return best
-end
-
-"""
     fixed_speed_sums(table, knots, name, hourly)
 
 [`speed_term_sums`](@ref) of a ship that holds `knots` [kn] by
@@ -3124,39 +3105,22 @@ fixed_speed_sums(table, knots, name, hourly) = speed_term_sums(
     speed_term_sums(table, name, hourly, durations)
 
 Fuel energy [GJ], hours, kite flight hours and the leg durations of round trips on route
-`name` over the sampled departures on the [`RouteTable`](@ref) `table`, each leg taking
-about the time in `durations` where given; `nothing` if a passage fails.
+`name` over the sampled departures on the [`RouteTable`](@ref) `table`, each leg arriving
+by its time in `durations` where given; `nothing` if a passage fails.
 """
 function speed_term_sums(table, name, hourly, durations)
     corridors_of_route = run_corridors(name)
     legs = []
     for (k, departure) in enumerate(sampled_departures())
-        pair = isnothing(durations) ?
-               WindShipOpt.route_round_trip(table, corridors_of_route..., weather,
-            departure, port_hours(), hourly, Inf, nothing) :
-               same_time_round_trip(table, corridors_of_route, departure, port_hours(),
-            hourly, durations[(2k - 1):2k])
+        schedule = isnothing(durations) ? (Inf, Inf) :
+                   (durations[2k - 1], durations[2k])
+        pair = WindShipOpt.route_round_trip(table, corridors_of_route..., weather,
+            departure, port_hours(), hourly, Inf, nothing; schedule)
         isnothing(pair) && return nothing
         append!(legs, pair)
     end
     return sum(leg.fuel_energy for leg in legs) / 1e9, sum(leg.duration for leg in legs),
     sum(leg.flight_hours for leg in legs), [leg.duration for leg in legs]
-end
-
-"""
-    same_time_round_trip(table, corridors, departure, port_hours, hourly, durations)
-
-Outbound and return [`same_time_leg`](@ref) along the pair of `corridors` from
-`departure` [h], each taking about its time in `durations` [h]; `nothing` if either fails.
-"""
-function same_time_round_trip(table, corridors, departure, port_hours, hourly, durations)
-    out = same_time_leg(first(corridors), table, weather, departure, first(hourly),
-        first(durations))
-    isnothing(out) && return nothing
-    back = same_time_leg(last(corridors), table, weather,
-        departure + out.duration + port_hours, last(hourly), last(durations))
-    isnothing(back) && return nothing
-    return out, back
 end
 
 """
