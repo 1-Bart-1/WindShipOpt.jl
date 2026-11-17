@@ -43,6 +43,14 @@ end
     @test 700 < ship.powertrain.installed_power / 1e3 < 1500
 end
 
+@testset "the coaster family's resistance is evaluated on its waterline length" begin
+    for length in (85.0, 140.0)
+        hull = Hull(length, assumptions)
+        @test hull.waterline_length ≈ assumptions[:waterline_length_ratio] * length
+        @test WindShipOpt.block_coefficient(hull) ≈ assumptions[:block_coefficient]
+    end
+end
+
 @testset "hull wind load follows Blendermann's loading functions" begin
     env = Environment(assumptions)
     windage = WindShipOpt.Windage("vehicle carrier", 180.0, 30.0, 0.0, assumptions)
@@ -3162,7 +3170,7 @@ end
           powers" begin
     table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
         assumptions))
-    condition = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 3.0, 6.0, 2π / 3)
+    condition = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 3.0, 7.0, π)
     sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0, true)
     powered(i) = isfinite(last(WindShipOpt.edge_fuels(table, i, condition)))
     unpowered = findfirst(!powered, eachindex(table.speeds))
@@ -3654,7 +3662,7 @@ end
     end
 end
 
-@testset "every rig's route costs what a search at every speed finds" begin
+@testset "every rig's route costs what a search at every speed finds along its path" begin
     _, back = corridors
     room_in_time = WindShipOpt.with_changed(WindShipOpt.ROUTER_SETTINGS[];
         final_time_band=96.0)
@@ -3666,12 +3674,17 @@ end
 
         table = RouteTable(PerformanceTable(Ship(design, assumptions), assumptions))
         for departure in monthly_departures
-            passage() = route(back, table, SyntheticWeather(), departure; time_cost=300.0)
-            coarse = WindShipOpt.with_router_settings(passage, room_in_time)
-            full = WindShipOpt.with_router_settings(passage, every_speed)
-            @test coarse.objective <= full.objective * (1 + 1e-4)
-            by_default = WindShipOpt.with_router_settings(passage, every_speed_by_default)
-            @test passage().objective <= by_default.objective * (1 + 1e-2)
+            passage(corridor) = route(corridor, table, SyntheticWeather(), departure;
+                time_cost=300.0)
+            coarse = WindShipOpt.with_router_settings(() -> passage(back), room_in_time)
+            own_path = WindShipOpt.path_corridor(coarse, back, 1)
+            along = WindShipOpt.with_router_settings(() -> passage(own_path), every_speed)
+            @test coarse.objective <= along.objective * (1 + 1e-4)
+            full = WindShipOpt.with_router_settings(() -> passage(back), every_speed)
+            @test coarse.objective <= full.objective * (1 + 1e-2)
+            by_default = WindShipOpt.with_router_settings(() -> passage(back),
+                every_speed_by_default)
+            @test passage(back).objective <= by_default.objective * (1 + 1e-2)
         end
     end
 end
