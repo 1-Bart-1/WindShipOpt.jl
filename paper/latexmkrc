@@ -2,3 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Every build first lists the result numbers typed by hand outside a marker.
 system("python3", "-I", "../scripts/check_numbers.py", ".");
+
+# The article and its supplement read each other's labels from a copy made after each pass,
+# so that neither reads an .aux file the other build is still writing.
+$pdflatex = 'pdflatex %O %S && cp %B.aux %B.labels.tmp && mv %B.labels.tmp %B.labels.aux';

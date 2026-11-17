@@ -26,8 +26,8 @@
 % \note{text}: a review note shown in the PDF; \notesfalse hides all.
 \newif\ifnotes\notestrue
 \newcommand{\note}[1]{\ifnotes{\color{teal!70!black}\sffamily\small[#1]}\fi}
-% \otherdocument{name}: read the labels of document name, built beside this one, so that references into it resolve.
-\newcommand{\otherdocument}[1]{\IfFileExists{#1.aux}{}{\typeout{No file #1.aux.}}\externaldocument{#1}}
+% \otherdocument{name}: read the labels of document name, built beside this one, so that references into it resolve; latexmk keeps them in name.labels.aux.
+\newcommand{\otherdocument}[1]{\IfFileExists{#1.labels.aux}{}{\typeout{No file #1.labels.aux.}}\externaldocument[][nocite]{#1.labels}[#1.pdf]}
 \newcommand{\confidential}{Unpublished work in progress, shared in confidence. Do not distribute or cite.}
 \AddToHook{shipout/foreground}{\put(0,0){\makebox[\paperwidth][c]{\raisebox{\dimexpr-\paperheight+6mm\relax}{\normalfont\scriptsize\color{black!60}\confidential}}}}
 % \keywordlist{separator}: the paper's keywords, joined by the separator.
