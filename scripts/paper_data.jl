@@ -2268,9 +2268,9 @@ end
     sensitivity_data()
 
 Every ship of [`sensitivity_ships`](@ref) without a rig and with each rig, at the base
-inputs and with each of [`development_inputs`](@ref) at its low and high bound:
-sensitivity.csv. The base trips are routed first, so a changed case whose trip never reads
-its input reuses them.
+inputs and with each of [`development_inputs`](@ref) at its low and high bound, over the
+[`sensitivity_departures`](@ref): sensitivity.csv. The base trips are routed first, so a
+changed case whose trip never reads its input reuses them.
 """
 function sensitivity_data()
     cases = []
@@ -2284,8 +2284,8 @@ function sensitivity_data()
     base = findall(case -> case.input == :none, cases)
     changed = setdiff(eachindex(cases), base)
     trips = Vector{Any}(nothing, length(cases))
-    trips[base] = round_trips(cases[base], sampled_departures())
-    trips[changed] = round_trips(cases[changed], sampled_departures())
+    trips[base] = round_trips(cases[base], sensitivity_departures())
+    trips[changed] = round_trips(cases[changed], sensitivity_departures())
     write_trips("sensitivity.csv", cases, trips, :ship, :rig, :input, :bound)
 end
 

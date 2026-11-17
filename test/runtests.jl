@@ -3115,6 +3115,18 @@ end
     @test joinpath(pkgdir(WindShipOpt), "data", "ship_categories.csv") in files
 end
 
+@testset "the draft sensitivity study routes every other one of the final run's departures" begin
+    @eval PaperRuns departures = collect(0.0:24.0:(71 * 24.0))
+    function routed(fidelity)
+        @eval PaperRuns paper_run = PaperRun(nothing, $(QuoteNode(fidelity)),
+            Dict{String, Any}(), 0, 0)
+        return PaperRuns.sensitivity_departures()
+    end
+    final = routed(:final)
+    @test length(final) == 12
+    @test routed(:draft) == final[1:2:end]
+end
+
 @testset "resuming never takes over another branch's unfinished run" begin
     @eval PaperRuns runs_directory = mktempdir()
     other_branch = joinpath(PaperRuns.runs_directory, "2000-01-01T0000")

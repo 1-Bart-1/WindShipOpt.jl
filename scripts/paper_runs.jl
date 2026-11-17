@@ -11,10 +11,13 @@ using WindShipOpt: inputs_read
 
 """
 Settings of each fidelity of the paper: the corridor scale, the step between sampled
-departures and the rounds of the rig size search.
+departures, that step in the sensitivity study and the rounds of the rig size search.
 """
-fidelities = Dict(:draft => (corridor_scale=1.0, departure_step=36, size_rounds=1),
-    :final => (corridor_scale=1.0, departure_step=6, size_rounds=2))
+fidelities = Dict(
+    :draft => (corridor_scale=1.0, departure_step=36, sensitivity_departure_step=12,
+        size_rounds=1),
+    :final => (corridor_scale=1.0, departure_step=6, sensitivity_departure_step=6,
+        size_rounds=2))
 
 """
 Spread [points] of a draft result about the final run's on the development case: of the
@@ -96,6 +99,14 @@ The departures the studies average over: every `departure_step`-th one of the ru
 fidelity.
 """
 sampled_departures() = departures[1:run_settings().departure_step:end]
+
+"""
+    sensitivity_departures()
+
+The departures the sensitivity study averages over: every `sensitivity_departure_step`-th
+one of the run's fidelity.
+"""
+sensitivity_departures() = departures[1:run_settings().sensitivity_departure_step:end]
 
 """
     run_corridors(name)
