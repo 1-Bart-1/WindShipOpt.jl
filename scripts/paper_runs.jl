@@ -234,8 +234,10 @@ function reading_order()
     branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
     runs = sort(fidelity_runs(paper_run.fidelity);
         by=run -> get(last(run), "git_branch", "") != branch)
-    current = isnothing(paper_run.directory) ? [] : [(paper_run.directory, paper_run.record)]
-    return [current; filter(is_finished ∘ last, runs); filter(!is_finished ∘ last, runs)]
+    current = isnothing(paper_run.directory) ? [] :
+              [(paper_run.directory, paper_run.record)]
+    return [current; filter(is_finished ∘ last, runs);
+            filter(!is_finished ∘ last, runs)]
 end
 
 """
@@ -584,17 +586,6 @@ function finish_run!(run)
 end
 
 """
-    content_hash(value)
-
-Hash of the serialized `value` as a hexadecimal string, the same in every session.
-"""
-function content_hash(value)
-    io = IOBuffer()
-    serialize(io, value)
-    return string(hash(String(take!(io))); base=16)
-end
-
-"""
     case_directory(case, departures)
 
 Directory in the case store of the round trips of `case` over `departures`, named by a hash
@@ -661,8 +652,8 @@ function stored_trip(compute, directory, case)
         files_read_scope => files)
     inputs = sort([name => case.assumptions[name] for name in names])
     record = paper_run.record
-    entry = (; inputs, files=sort(collect(files)), trip, seconds, model=paper_run.trip_model,
-        commit=record["git_commit"], dirty=record["git_dirty"],
+    entry = (; inputs, files=sort(collect(files)), trip, seconds,
+        model=paper_run.trip_model, commit=record["git_commit"], dirty=record["git_dirty"],
         processor=strip(Sys.cpu_info()[1].model), made=now())
     mkpath(directory)
     temporary = tempname(directory; cleanup=false)
@@ -696,7 +687,8 @@ end
 
 Seconds [s] the round trip of `case` over `departures` in the case store took to compute.
 """
-trip_seconds(case, departures) = stored_entry(case_directory(case, departures), case).seconds
+trip_seconds(case, departures) =
+    stored_entry(case_directory(case, departures), case).seconds
 
 """
     step_reasons(entry, code)
@@ -724,9 +716,11 @@ function step_reasons(entry, code)
         catch
             nothing
         end
-        isnothing(now_read) && (push!(reasons, "no run has $file, which it reads"); continue)
-        file_hash(now_read) == read["hash"] ||
+        if isnothing(now_read)
+            push!(reasons, "no run has $file, which it reads")
+        elseif file_hash(now_read) != read["hash"]
             push!(reasons, "$file changed: run $(basename(dirname(now_read))) has another")
+        end
     end
     older = get(entry, "older_cases", 0)
     older > 0 && push!(reasons, "$older round trips kept from older code")
@@ -789,6 +783,6 @@ function print_status(name, location, reasons, current_trips)
     foreach(reason -> println(" "^24, reason), reasons)
     isempty(reasons) || !haskey(entry, "trip_model") ||
         println(" "^24, entry["trip_model"] == current_trips ?
-                        "its round trips are stored, but those reading changed inputs" :
+                        "its round trips are stored but for those reading what changed" :
                         "its $(entry["cases"]) round trips recompute")
 end

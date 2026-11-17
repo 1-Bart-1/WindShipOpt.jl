@@ -3282,7 +3282,7 @@ store_run(fidelity, trip_model; commit="a", only=nothing) =
     @test ismissing(PaperRuns.stored_entry(directory, at_high(:market_price_factor)))
 end
 
-@testset "a draft keeps older code's round trips only outside its slice, a final run none" begin
+@testset "only a draft outside its slice keeps round trips of older code" begin
     directory = mktempdir()
     case = (; assumptions, class="handysize")
     store_run(:draft, "older code")
@@ -3310,7 +3310,7 @@ end
     @test changed["cost"] == base["cost"] && changed["price"] != base["price"]
 end
 
-@testset "a step is out of date once an input or a data file it read changes, as are its readers" begin
+@testset "a step is out of date once an input or file it read changes, and its readers" begin
     @eval PaperRuns assumptions = $assumptions
     @eval PaperRuns runs_directory = mktempdir()
     directory = joinpath(PaperRuns.runs_directory, "2026-01-01T0000")
@@ -3342,7 +3342,8 @@ end
         :availability => String[], :speed_size => String[])
     makers = Dict(file => name for (name, (_, entry)) in found for file in entry["files"])
     PaperRuns.spread_staleness!(reasons, found, makers)
-    @test reasons[:availability] == ["reads goal_sizes.csv of goal_size, which is out of date"]
+    @test reasons[:availability] ==
+          ["reads goal_sizes.csv of goal_size, which is out of date"]
     @test isempty(reasons[:speed_size])
 end
 

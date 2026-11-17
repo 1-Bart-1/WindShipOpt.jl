@@ -76,7 +76,8 @@ Add to `names` every symbol, quoted or not, that occurs in `expression`.
 """
 function names_used!(names, expression)
     expression isa Symbol && push!(names, expression)
-    expression isa QuoteNode && expression.value isa Symbol && push!(names, expression.value)
+    expression isa QuoteNode && expression.value isa Symbol &&
+        push!(names, expression.value)
     expression isa Expr && foreach(part -> names_used!(names, part), expression.args)
     return names
 end
@@ -107,16 +108,16 @@ end
 Each name of `definitions` that `roots` reach, as a string, with a hash in hex of its
 expressions.
 """
-code_hashes(definitions, roots) = Dict(string(name) => expressions_hash(definitions[name])
+code_hashes(definitions, roots) = Dict(string(name) => content_hash(definitions[name])
                                       for name in reachable_definitions(definitions, roots))
 
 """
-    expressions_hash(expressions)
+    content_hash(value)
 
-Hash in hex of the serialized `expressions`, the same in every session.
+Hash of the serialized `value` as a hexadecimal string, the same in every session.
 """
-function expressions_hash(expressions)
+function content_hash(value)
     io = IOBuffer()
-    serialize(io, expressions)
-    return string(hash(take!(io)); base=16)
+    serialize(io, value)
+    return string(hash(String(take!(io))); base=16)
 end

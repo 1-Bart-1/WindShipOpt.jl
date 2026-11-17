@@ -100,7 +100,8 @@ function round_trips(cases, departures)
     trips = [entry.trip for entry in entries]
     older = count(entry -> entry.model != paper_run.trip_model, entries)
     println("  ", count(!isnothing, trips), " of ", length(cases), " round trips, ",
-        length(cases) - length(computed), " stored", older > 0 ? ", $older by older code" : "")
+        length(cases) - length(computed), " stored",
+        older > 0 ? ", $older by older code" : "")
     return trips
 end
 
