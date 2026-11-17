@@ -384,41 +384,34 @@ end
 """
     route_figure()
 
-Weather-routed passages on every route of a 140 m e-ammonia ship without a rig and
-with a 3200 m^2 kite, for a winter and a summer departure, over the 10 m wind five days
-after departure; solid outbound, dashed homeward.
+Weather-routed passages of route_tracks.csv on every route of a 140 m e-ammonia ship
+without a rig and with a 3200 m^2 kite, for a winter and a summer departure, over the 10 m
+wind five days after departure; solid outbound, dashed homeward.
 """
 function route_figure()
-    designs = (ShipDesign(:ammonia, 140.0), ShipDesign(:ammonia, 140.0; kite_area=3200.0))
-    port_hours = 24assumptions[:port_time_per_call]
-    seasons = (("winter", 1), ("summer", findfirst(>=(24 * 181), departures)))
+    tracks = read_table(data_file("route_tracks.csv"))
     figure = Figure(size=(page_width, 255))
-    for (column, (season, index)) in enumerate(seasons)
+    for (column, season) in enumerate(("winter", "summer"))
         axis = Axis(figure[1, column]; title="($('a' + column - 1)) $season departure",
             xlabel="longitude [°]",
             ylabel=column == 1 ? "latitude [°]" : "", aspect=DataAspect(),
             limits=(-100, 12, -26, 58))
         draw_land!(axis, mask; lons=-100:0.25:12, lats=-26:0.25:58)
-        departure = departures[index]
+        departure = tracks["departure"][first(rows(tracks, "season" => season))]
         draw_wind!(axis, weather, departure + 24 * 5; scale=0.4, lons=-98:6:10,
             lats=-24:6:56)
-        for (k, design) in enumerate(designs)
-            ship = Ship(design, assumptions)
-            table = PerformanceTable(ship, assumptions)
-            out_hourly, back_hourly = WindShipOpt.leg_time_costs(ShipCosts(ship,
-                assumptions), assumptions)
-            for (i, name) in enumerate(route_names)
-                outbound, inbound = run_corridors(name)
-                out = route(outbound, table, weather, departure; time_cost=out_hourly)
-                back = route(inbound, table, weather, departure + out.duration +
-                                                      port_hours; time_cost=back_hourly)
-                k == 1 && lines!(axis, great_circle(out.path[1], out.path[end])...;
-                    color=:black, linestyle=:dot, linewidth=0.8)
-                for (leg, style) in ((out, :solid), (back, :dash))
-                    scatterlines!(axis, track_points(leg.path);
-                        color=k == 1 ? (:black, 0.6) : category_colours[i], linestyle=style,
-                        linewidth=k == 1 ? 0.8 : 1.5, markersize=k == 1 ? 2 : 3)
-                end
+        for (k, area) in enumerate((0.0, 3200.0)), (i, name) in enumerate(route_names)
+            for (direction, style) in (("out", :solid), ("back", :dash))
+                leg = rows(tracks, "season" => season, "route" => string(name),
+                    "kite_area" => area, "direction" => direction)
+                isempty(leg) && continue
+                path = tuple.(tracks["lat"][leg], tracks["lon"][leg])
+                k == 1 && direction == "out" &&
+                    lines!(axis, great_circle(first(path), last(path))...;
+                        color=:black, linestyle=:dot, linewidth=0.8)
+                scatterlines!(axis, track_points(path);
+                    color=k == 1 ? (:black, 0.6) : category_colours[i], linestyle=style,
+                    linewidth=k == 1 ? 0.8 : 1.5, markersize=k == 1 ? 2 : 3)
             end
         end
     end
