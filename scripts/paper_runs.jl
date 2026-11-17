@@ -1,13 +1,17 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Runs of the paper: each data-making call of `paper` keeps its data files, the round
-# trips it has finished and its record run.toml in output/runs/<start time>/, so that a
-# run cut short resumes where it stopped. Included by paper.jl.
+# Runs of the paper: each data-making call of `paper` keeps its data files and its record
+# run.toml in output/runs/<start time>/, and every round trip it computes in the case store
+# output/cases/ that all runs share, so that a run cut short resumes where it stopped and
+# a rerun computes only the round trips a change touched. Included by paper.jl.
+using Base.ScopedValues: ScopedValue, with
 using Dates
 using Serialization
 using TOML
 using WindShipOpt: inputs_read
+
+include("step_code.jl")
 
 """
 Settings of each fidelity of the paper: the corridor scale, the step between sampled
@@ -70,10 +74,40 @@ number_macro(name, text, draft) = string("\\newcommand{\\Num", name, "}{",
 "directory with one directory per run, named by the time the run started"
 runs_directory = normpath(joinpath(root, "output", "runs"))
 
+"directory of the round trips every run stores and reuses, one directory per case"
+cases_directory = normpath(joinpath(root, "output", "cases"))
+
+"""
+    StepTally
+
+What the step in progress computed and rests on, for its entry in run.toml.
+"""
+mutable struct StepTally
+    "feasible round trips"
+    trips::Int
+    "cases kept from code older than the run's"
+    older::Int
+    "cases carrying the labels of the run's `only`"
+    sliced::Int
+    "each case's labels, store directory, commit, dirty tree, round-trip code and processor"
+    made::Vector{NamedTuple}
+    "names of the inputs its round trips read"
+    inputs::Set{Symbol}
+    "data files it read, each with its content hash and run"
+    reads::Dict{String, Dict{String, String}}
+    "content hash of each data file read, by name"
+    file_hashes::Dict{String, String}
+    "lock guarding the tally against the threads of a step"
+    lock::ReentrantLock
+end
+
+StepTally() = StepTally(0, 0, 0, NamedTuple[], Set{Symbol}(),
+    Dict{String, Dict{String, String}}(), Dict{String, String}(), ReentrantLock())
+
 """
     PaperRun
 
-A call of `paper` with the counts of the step in progress.
+A call of `paper`, with the code it runs and the tally of the step in progress.
 """
 mutable struct PaperRun
     "directory of the run; nothing when only figure and table steps run"
@@ -82,11 +116,23 @@ mutable struct PaperRun
     fidelity::Symbol
     "contents of run.toml"
     record::Dict{String, Any}
-    "round-trip cases of the step in progress"
-    cases::Int
-    "feasible round trips of the step in progress"
-    trips::Int
+    "labels a case must carry to be computed with the run's code, or nothing for every case"
+    only::Union{Nothing, NamedTuple}
+    "top-level definitions of the scripts ([`script_definitions`](@ref))"
+    definitions::Dict{Symbol, Vector{Any}}
+    "hash of the code a round trip runs ([`trip_model`](@ref))"
+    trip_model::String
+    "what the step in progress computed and read"
+    tally::StepTally
 end
+
+"""
+    PaperRun(fidelity)
+
+A run at `fidelity` with no directory, for figure and table steps alone.
+"""
+PaperRun(fidelity) = PaperRun(nothing, fidelity, Dict{String, Any}(), nothing,
+    Dict{Symbol, Vector{Any}}(), "", StepTally())
 
 "the run in use, set by `paper`"
 paper_run = nothing
@@ -124,32 +170,100 @@ run_corridors(name) = corridors(name, run_settings().corridor_scale)
 """
     run_file(name)
 
-Path in the directory of the run in use of the data file `name` a step writes.
+Path in the directory of the run in use of the data file `name` a step writes; forgets the
+content hash the step in progress found for it.
 """
-run_file(name) = joinpath(paper_run.directory, name)
+function run_file(name)
+    @lock paper_run.tally.lock delete!(paper_run.tally.file_hashes, name)
+    return joinpath(paper_run.directory, name)
+end
+
+"the data files a round trip computing in this task has read, or nothing outside one"
+files_read_scope = ScopedValue{Union{Nothing, Dict{String, String}}}(nothing)
 
 """
     data_file(name)
 
 Path of the data file `name` a step reads: in the run in use, else in the latest finished
 run of its fidelity that has it, this branch's before any other's, else in the latest
-unfinished one.
+unfinished one. Records the file and its content hash as read by the step in progress and
+by the round trip computing.
 """
 function data_file(name)
-    branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
-    runs = sort(fidelity_runs(paper_run.fidelity);
-        by=run -> get(last(run), "git_branch", "") != branch)
-    finished = [directory for (directory, record) in runs if is_finished(record)]
-    unfinished = [directory for (directory, record) in runs if !is_finished(record)]
-    for directory in filter(!isnothing, [paper_run.directory; finished; unfinished])
+    path = resolved_data_file(name)
+    directory = dirname(path)
+    directory == paper_run.directory || println("  ", name, " of run ", basename(directory))
+    tally = paper_run.tally
+    trip_files = files_read_scope[]
+    @lock tally.lock begin
+        tally.reads[name] = Dict("hash" => read_hash(name), "run" => basename(directory))
+        isnothing(trip_files) || (trip_files[name] = read_hash(name))
+    end
+    return path
+end
+
+"""
+    read_hash(name)
+
+Content hash of the data file `name` as [`resolved_data_file`](@ref) finds it, found once
+per step until it writes the file ([`run_file`](@ref)).
+"""
+read_hash(name) = @lock paper_run.tally.lock get!(paper_run.tally.file_hashes, name) do
+    file_hash(resolved_data_file(name))
+end
+
+"""
+    resolved_data_file(name)
+
+Path [`data_file`](@ref) gives for `name`, without recording it.
+"""
+function resolved_data_file(name)
+    for (directory, _) in reading_order()
         path = joinpath(directory, name)
-        isfile(path) || continue
-        directory == paper_run.directory || println("  ", name, " of run ",
-            basename(directory))
-        return path
+        isfile(path) && return path
     end
     error("no $(paper_run.fidelity) run has $name")
 end
+
+"""
+    reading_order()
+
+Directories and records of the runs data are read from, in the order they are looked in:
+the run in use, then the finished runs of its fidelity, this branch's before any other's,
+latest first, then the unfinished ones.
+"""
+function reading_order()
+    branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
+    runs = sort(fidelity_runs(paper_run.fidelity);
+        by=run -> get(last(run), "git_branch", "") != branch)
+    current = isnothing(paper_run.directory) ? [] :
+              [(paper_run.directory, paper_run.record)]
+    return [current; filter(is_finished ∘ last, runs);
+            filter(!is_finished ∘ last, runs)]
+end
+
+"""
+    latest_step(name)
+
+Directory of the run and entry of step `name` whose data files are read, the first in
+[`reading_order`](@ref) holding every file the step wrote, or nothing.
+"""
+function latest_step(name)
+    for (directory, record) in reading_order()
+        entry = step_entry(record, name)
+        isnothing(entry) && continue
+        all(isfile(joinpath(directory, file)) for file in entry["files"]) &&
+            return directory, entry
+    end
+    return nothing
+end
+
+"""
+    file_hash(path)
+
+Hash in hex of the contents of the file at `path`.
+"""
+file_hash(path) = content_hash(read(path, String))
 
 "record of the run each method study's tables and figures come from"
 study_runs_path = joinpath(root, "paper", "study_runs.toml")
@@ -218,26 +332,77 @@ Whether the run of `record` finished every step it was asked for.
 is_finished(record) = !isempty(record["finished"])
 
 """
+    files_in(directories...)
+
+Paths of the Julia and CSV files directly in `directories`.
+"""
+files_in(directories...) = [joinpath(directory, name) for directory in directories
+                            for name in readdir(directory) if endswith(name, r"\.(jl|csv)")]
+
+"""
     code_files()
 
 Paths of the source in src/, the scripts, the data tables and the kite polars.
 """
-function code_files()
-    directories = (joinpath(root, "src"), @__DIR__, joinpath(root, "data"),
-        joinpath(root, "data", "kite_polars"))
-    return [joinpath(directory, name) for directory in directories
-            for name in readdir(directory) if endswith(name, r"\.(jl|csv)")]
-end
+code_files() = files_in(joinpath(root, "src"), @__DIR__, joinpath(root, "data"),
+    joinpath(root, "data", "kite_polars"))
+
+"""
+    model_files()
+
+Paths of what every step and round trip runs on: the source in src/, the data tables, the
+kite polars, the weather and corridor setup and the package versions.
+"""
+model_files() = [files_in(joinpath(root, "src"), joinpath(root, "data"),
+    joinpath(root, "data", "kite_polars")); joinpath(@__DIR__, "setup.jl");
+    joinpath(root, "Manifest-v$(VERSION.major).$(VERSION.minor).toml.default");
+    joinpath(@__DIR__, "Manifest-v$(VERSION.major).$(VERSION.minor).toml.default")]
+
+"""
+    file_contents(files)
+
+The name of each of `files` with its contents.
+"""
+file_contents(files) = [basename(file) => read(file, String) for file in files]
 
 """
     code_hash()
 
 Hash in hex of the contents of [`code_files`](@ref).
 """
-function code_hash()
-    sources = join(basename(file) * read(file, String) for file in code_files())
-    return string(hash(sources); base=16)
-end
+code_hash() = content_hash(file_contents(code_files()))
+
+"""
+    model_hash()
+
+Hash in hex of the contents of [`model_files`](@ref) and the Julia version.
+"""
+model_hash() = content_hash((file_contents(model_files()), VERSION))
+
+"""
+    script_files()
+
+Paths of the Julia scripts, whose definitions steps reach.
+"""
+script_files() = filter(endswith(".jl"), readdir(@__DIR__; join=true))
+
+"""
+    step_code(definitions, step)
+
+The code step function `step` runs: `"model"` with the [`model_hash`](@ref), and each
+definition of `definitions` it reaches with the hash of its expressions.
+"""
+step_code(definitions, step) =
+    merge(Dict("model" => model_hash()), code_hashes(definitions, [nameof(step)]))
+
+"""
+    trip_model(definitions)
+
+Hash in hex of the code of a round trip: the [`model_hash`](@ref) and the definitions of
+`definitions` that [`trip_case`](@ref) and [`case_trip`](@ref) reach.
+"""
+trip_model(definitions) = string(hash((model_hash(),
+    sort(collect(code_hashes(definitions, [:trip_case, :case_trip]))))); base=16)
 
 """
     git_output(arguments...)
@@ -270,14 +435,18 @@ function check_final_commit()
 end
 
 """
-    open_run(fidelity, names, resume)
+    open_run(fidelity, names, resume; only=nothing)
 
 The run to make steps `names` in: the latest unfinished run at `fidelity` on this git branch
 if `resume` is true, or nothing and confirmed on stdin; otherwise, or without one, a new
-run. A final run needs a clean tree on a pushed commit.
+run. A final run needs a clean tree on a pushed commit and computes every case; a draft
+computes with its code only the cases whose labels match `only`, where given.
 """
-function open_run(fidelity, names, resume)
-    fidelity == :final && check_final_commit()
+function open_run(fidelity, names, resume; only=nothing)
+    if fidelity == :final
+        isnothing(only) || throw(ArgumentError("a final run computes every case"))
+        check_final_commit()
+    end
     branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
     runs = filter(run -> !is_finished(last(run)) && last(run)["git_branch"] == branch,
         fidelity_runs(fidelity))
@@ -285,14 +454,14 @@ function open_run(fidelity, names, resume)
               (resume == true || confirm_resume(first(runs)...))
     code = code_hash()
     directory, record = resumed ? first(runs) : new_run(fidelity, code)
-    record["code_hash"] == code || println("code changed since run ", basename(directory),
-        " last ran: cases cached by other code will not be reused")
     record["code_hash"] = code
     record["git_commit"] = git_output("rev-parse", "HEAD")
     record["git_branch"] = branch
     record["git_dirty"] = !isempty(changed_files())
     record["requested"] = union(record["requested"], string.(names))
-    run = PaperRun(directory, fidelity, record, 0, 0)
+    definitions = script_definitions(script_files())
+    run = PaperRun(directory, fidelity, record, only, definitions,
+        trip_model(definitions), StepTally())
     write_record(run)
     println(resumed ? "resuming" : "new", " run ", directory)
     return run
@@ -346,30 +515,56 @@ Whether `run` has finished step `name` and still has every file it wrote.
 """
 function step_done(run, name)
     isnothing(run.directory) && return false
-    for step in run.record["steps"]
-        step["name"] == string(name) || continue
-        return all(isfile(joinpath(run.directory, file)) for file in step["files"])
-    end
-    return false
+    entry = step_entry(run.record, name)
+    return !isnothing(entry) &&
+           all(isfile(joinpath(run.directory, file)) for file in entry["files"])
+end
+
+"""
+    step_entry(record, name)
+
+The entry of step `name` in run record `record`, or nothing.
+"""
+function step_entry(record, name)
+    index = findfirst(step -> step["name"] == string(name), get(record, "steps", []))
+    return isnothing(index) ? nothing : record["steps"][index]
 end
 
 """
     run_step!(run, name, step)
 
-Run `step` and record its name, start, duration, the files it wrote and, if it computed
-round trips, their number and the feasible ones in the record of `run`.
+Run `step` and record in the record of `run` its name, start, duration, the files it wrote,
+the commit and the code it ran ([`step_code`](@ref)), the base value of every input it read
+and the data files it read; and, where it computed round trips, their number,
+the feasible ones, the code of a round trip, the commits and processors that computed them,
+how many are kept from older code and the list of them ([`write_cases`](@ref)). Raise an
+error where the run has an `only` that none of the step's round trips carries.
 """
 function run_step!(run, name, step)
     println("step ", name)
-    run.cases = run.trips = 0
+    run.tally = StepTally()
     started, before = floor(now(), Second), file_times(run)
-    seconds = round(@elapsed(step()); digits=1)
+    seconds = round(@elapsed((_, names) = inputs_read(step)); digits=1)
     println("  ", seconds, " s")
     isnothing(run.directory) && return
+    tally = run.tally
+    cases = length(tally.made)
+    isnothing(run.only) || cases == 0 || tally.sliced > 0 ||
+        throw(ArgumentError("no case of step $name carries the labels only=$(run.only)"))
     entry = Dict{String, Any}("name" => string(name), "started" => string(started),
         "seconds" => seconds, "files" => first.(setdiff(file_times(run), before)),
-        "code_hash" => run.record["code_hash"], "git_commit" => run.record["git_commit"])
-    run.cases > 0 && merge!(entry, Dict("cases" => run.cases, "trips" => run.trips))
+        "code_hash" => run.record["code_hash"], "git_commit" => run.record["git_commit"],
+        "git_dirty" => run.record["git_dirty"], "code" => step_code(run.definitions, step),
+        "inputs" => Dict(string(input) => assumptions[input]
+                         for input in union(names, tally.inputs)),
+        "reads" => tally.reads)
+    cases > 0 && merge!(entry, Dict("cases" => cases, "trips" => tally.trips,
+        "trip_model" => run.trip_model,
+        "case_commits" => counts(commit_label(made.commit, made.dirty)
+                                 for made in tally.made),
+        "case_processors" => counts(made.processor for made in tally.made),
+        "older_cases" => tally.older,
+        "case_record" => write_cases(run, name, tally.made)))
     filter!(earlier -> earlier["name"] != string(name), run.record["steps"])
     push!(run.record["steps"], entry)
     write_record(run)
@@ -400,75 +595,287 @@ function finish_run!(run)
 end
 
 """
-    content_hash(value)
-
-Hash of the serialized `value` as a hexadecimal string, the same in every session.
-"""
-function content_hash(value)
-    io = IOBuffer()
-    serialize(io, value)
-    return string(hash(String(take!(io))); base=16)
-end
-
-"""
     case_directory(case, departures)
 
-Cache directory in the run in use of the round trips of `case` over `departures`, named by
-a hash of the inputs of the trip other than its assumptions and the code hash of the run.
+Directory in the case store of the round trips of `case` over `departures`, named by a hash
+of the inputs of the trip other than its assumptions and the code.
 """
-case_directory(case, departures) = joinpath(paper_run.directory, "cases",
+case_directory(case, departures) = joinpath(cases_directory,
     content_hash((case.design, case.route, case.scale, case.course, case.forecast,
-        case.held_knots, case.part, departures, weather_name,
-        paper_run.record["code_hash"])))
+        case.held_knots, case.part, departures, weather_name)))
 
 """
-    cached_entry(directory, assumptions)
+    in_slice(case, only)
 
-Entry stored in the cache `directory` under assumptions with the values of `assumptions` in
-every input it read, with its round trip `trip` and the `seconds` it took to compute, or
-`missing` where there is none.
+Whether `case` carries every label of `only` at one of its given values, compared as text.
 """
-function cached_entry(directory, assumptions)
-    isdir(directory) || return missing
-    for file in readdir(directory; join=true)
-        endswith(file, ".bin") || continue
-        entry = deserialize(file)
-        all(assumptions[name] == value for (name, value) in entry.inputs) && return entry
-    end
-    return missing
+in_slice(case, only) = isnothing(only) || all(pairs(only)) do (label, values)
+    hasproperty(case, label) &&
+        string(getproperty(case, label)) in string.(values isa Tuple ? values : (values,))
 end
 
 """
-    cached_trip(directory, assumptions)
+    stored_entry(directory, case)
 
-Round trip of the [`cached_entry`](@ref) of `directory` and `assumptions`, or `missing`.
+Entry of the case store `directory` the run in use takes for `case`, or `missing`: one its
+code computed under the values of `case.assumptions` in every input it read and from the
+data files it read as they are now, and of its commit and a clean tree in a final run. In a
+draft, a case outside its `only` takes the latest such entry of any code where none is.
 """
-function cached_trip(directory, assumptions)
-    entry = cached_entry(directory, assumptions)
-    return ismissing(entry) ? missing : entry.trip
+function stored_entry(directory, case)
+    isdir(directory) || return missing
+    entries = [deserialize(file) for file in readdir(directory; join=true)
+               if endswith(file, ".bin")]
+    filter!(entry -> reads_unchanged(entry, case), entries)
+    current = filter(entry -> entry.model == paper_run.trip_model, entries)
+    if paper_run.fidelity == :final
+        filter!(entry -> entry.commit == paper_run.record["git_commit"] && !entry.dirty,
+            current)
+    end
+    isempty(current) || return first(current)
+    (paper_run.fidelity == :final || in_slice(case, paper_run.only)) && return missing
+    isempty(entries) && return missing
+    return entries[argmax([entry.made for entry in entries])]
+end
+
+"""
+    reads_unchanged(entry, case)
+
+Whether every input the stored `entry` read has the same value in `case.assumptions` and
+every data file it read the same contents now.
+"""
+reads_unchanged(entry, case) =
+    all(case.assumptions[name] == value for (name, value) in entry.inputs) &&
+    all(read_hash(name) == hash for (name, hash) in entry.files)
+
+"""
+    stored_trip(compute, directory, case)
+
+Round trip `compute()` returns for `case`, stored in the case store `directory` through a
+temporary file with the values in `case.assumptions` of the inputs it read, the data files
+it read, the seconds it took, the code that computed it, its commit and processor.
+"""
+function stored_trip(compute, directory, case)
+    files = Dict{String, String}()
+    seconds = @elapsed (trip, names) = with(() -> inputs_read(compute),
+        files_read_scope => files)
+    inputs = sort([name => case.assumptions[name] for name in names])
+    record = paper_run.record
+    entry = (; inputs, files=sort(collect(files)), trip, seconds,
+        model=paper_run.trip_model, commit=record["git_commit"], dirty=record["git_dirty"],
+        processor=strip(Sys.cpu_info()[1].model), made=now())
+    mkpath(directory)
+    temporary = tempname(directory; cleanup=false)
+    serialize(temporary, entry)
+    key = content_hash((inputs, entry.files, entry.commit, entry.dirty))
+    mv(temporary, joinpath(directory, string(entry.model, "-", key, ".bin")); force=true)
+    return entry
+end
+
+"""
+    tally_case!(case, directory, entry)
+
+Count in the tally of the step in progress the stored round-trip `entry` it uses for `case`
+from the case store `directory`, and list what made it.
+"""
+function tally_case!(case, directory, entry)
+    tally = paper_run.tally
+    made = (case=case_labels(case), store=basename(directory), entry.commit, entry.dirty,
+        trip_model=entry.model, entry.processor)
+    @lock tally.lock begin
+        tally.trips += !isnothing(entry.trip)
+        tally.older += entry.model != paper_run.trip_model
+        tally.sliced += in_slice(case, paper_run.only)
+        push!(tally.made, made)
+        union!(tally.inputs, first.(entry.inputs))
+    end
+end
+
+"""
+    case_labels(case)
+
+Each label of `case` with its value, as `label=value` separated by spaces: the fields of its
+[`trip_case`](@ref) but the design, assumptions, corridor scale and corridors.
+"""
+case_labels(case) = join([string(label, "=", value) for (label, value) in pairs(case)
+                          if !(label in (:design, :assumptions, :scale, :corridors))], " ")
+
+"""
+    commit_label(commit, dirty)
+
+`commit`, with `-dirty` appended where `dirty`, the tree differing from it.
+"""
+commit_label(commit, dirty) = dirty ? commit * "-dirty" : commit
+
+"""
+    counts(values)
+
+Each distinct one of `values` with how often it occurs.
+"""
+function counts(values)
+    tally = Dict{String, Int}()
+    for value in values
+        tally[value] = get(tally, value, 0) + 1
+    end
+    return tally
+end
+
+"""
+    csv_field(text)
+
+`text` as a quoted CSV field.
+"""
+csv_field(text) = string('"', replace(text, '"' => "\"\""), '"')
+
+"""
+    write_cases(run, name, made)
+
+Write to cases/`name`.csv in the directory of `run` a line for each round trip of `made`
+([`StepTally`](@ref)) and return its path in the run.
+"""
+function write_cases(run, name, made)
+    path = joinpath("cases", "$name.csv")
+    mkpath(joinpath(run.directory, "cases"))
+    open(joinpath(run.directory, path), "w") do io
+        println(io, "case,store,commit,dirty,trip_model,processor")
+        for row in sort(made; by=values)
+            println(io, join(csv_field.(string.(values(row))), ","))
+        end
+    end
+    return path
 end
 
 """
     trip_seconds(case, departures)
 
-Seconds [s] the round trip of `case` over `departures` cached in the run in use took to
-compute.
+Seconds [s] the round trip of `case` over `departures` in the case store took to compute.
 """
 trip_seconds(case, departures) =
-    cached_entry(case_directory(case, departures), case.assumptions).seconds
+    stored_entry(case_directory(case, departures), case).seconds
 
 """
-    stored_trip(compute, directory, assumptions)
+    step_reasons(entry, code)
 
-Round trip `compute()` returns, stored in the cache `directory` through a temporary file
-with the values in `assumptions` of the inputs it read and the seconds it took.
+Why the step of run-record `entry` is out of date against the code `code` it would run now
+([`step_code`](@ref)): each a line naming the code, inputs or data files that changed since
+it ran, or the round trips it kept from older code; none where it is current.
 """
-function stored_trip(compute, directory, assumptions)
-    seconds = @elapsed (trip, names) = inputs_read(compute)
-    inputs = sort([name => assumptions[name] for name in names])
-    mkpath(directory)
-    temporary = tempname(directory; cleanup=false)
-    serialize(temporary, (; inputs, trip, seconds))
-    mv(temporary, joinpath(directory, content_hash(inputs) * ".bin"); force=true)
-    return trip
+function step_reasons(entry, code)
+    haskey(entry, "code") || return ["made before runs recorded their code"]
+    reasons = String[]
+    changed = sort([name for name in union(keys(code), keys(entry["code"]))
+                    if get(code, name, "") != get(entry["code"], name, "")])
+    "model" in changed &&
+        push!(reasons, "the model changed: src/, data/, setup.jl or the packages")
+    others = setdiff(changed, ["model"])
+    isempty(others) || push!(reasons, "its code changed: " * join(others, ", "))
+    inputs = sort([name for (name, value) in entry["inputs"]
+                   if !haskey(assumptions.entries, Symbol(name)) ||
+                      assumptions[Symbol(name)] != value])
+    isempty(inputs) || push!(reasons, "inputs changed: " * join(inputs, ", "))
+    for (file, read) in sort(collect(entry["reads"]); by=first)
+        now_read = try
+            resolved_data_file(file)
+        catch
+            nothing
+        end
+        if isnothing(now_read)
+            push!(reasons, "no run has $file, which it reads")
+        elseif file_hash(now_read) != read["hash"]
+            push!(reasons, "$file changed: run $(basename(dirname(now_read))) has another")
+        end
+    end
+    older = get(entry, "older_cases", 0)
+    older > 0 && push!(reasons, "$older round trips kept from older code")
+    return reasons
+end
+
+"""
+    step_location(name)
+
+Directory of the run and run-record entry of the data the paper reads from step `name`: of
+the run paper/study_runs.toml names for a method study, else [`latest_step`](@ref).
+"""
+function step_location(name)
+    studies = TOML.parsefile(study_runs_path)
+    haskey(studies, string(name)) || return latest_step(name)
+    directory = joinpath(runs_directory, studies[string(name)]["run"])
+    path = joinpath(directory, "run.toml")
+    entry = isfile(path) ? step_entry(TOML.parsefile(path), name) : nothing
+    return isnothing(entry) ? nothing : (directory, entry)
+end
+
+"""
+    spread_staleness!(reasons, found, makers)
+
+Add to `reasons` of each step that reads a data file whose maker in `makers` is out of date
+a reason naming it, until no step changes.
+"""
+function spread_staleness!(reasons, found, makers)
+    spreading = true
+    while spreading
+        spreading = false
+        for (name, location) in found
+            (isnothing(location) || !isempty(reasons[name])) && continue
+            for file in keys(get(last(location), "reads", Dict()))
+                maker = get(makers, file, name)
+                (maker == name || isempty(reasons[maker])) && continue
+                push!(reasons[name], "reads $file of $maker, which is out of date")
+                spreading = true
+            end
+        end
+    end
+end
+
+"""
+    print_status(name, location, reasons, current_trips)
+
+Print the line of step `name` of [`paper_status`](@ref): its run, commit and time, and its
+`reasons` with whether its round trips recompute under the round-trip code `current_trips`.
+"""
+function print_status(name, location, reasons, current_trips)
+    if isnothing(location)
+        println(rpad(name, 22), "out of date: ", only(reasons))
+        return
+    end
+    directory, entry = location
+    hours = round(entry["seconds"] / 3600; digits=1)
+    println(rpad(name, 22), isempty(reasons) ? "current" : "out of date", ", run ",
+        basename(directory), " at ", first(entry["git_commit"], 7),
+        get(entry, "git_dirty", false) ? " (dirty)" : "", ", ", hours, " h")
+    foreach(reason -> println(" "^24, reason), reasons)
+    isempty(reasons) || !haskey(entry, "trip_model") ||
+        println(" "^24, entry["trip_model"] == current_trips ?
+                        "its round trips are stored but for those reading what changed" :
+                        "its $(entry["cases"]) round trips recompute")
+end
+
+"""
+    part_commits(locations)
+
+The commits that made the steps at `locations`, each a run directory and run-record entry,
+and their round trips, with `-dirty` appended where the tree differed from the commit.
+"""
+function part_commits(locations)
+    commits = Set{String}()
+    for (_, entry) in locations
+        push!(commits, commit_label(entry["git_commit"], get(entry, "git_dirty", false)))
+        union!(commits, keys(get(entry, "case_commits", Dict())))
+    end
+    return sort(collect(commits))
+end
+
+"""
+    print_commits(commits)
+
+Print whether `commits` ([`part_commits`](@ref)) are one clean commit, or which they are.
+"""
+function print_commits(commits)
+    if isempty(commits)
+        println("no step has data at this fidelity")
+    elseif length(commits) == 1 && !endswith(only(commits), "-dirty")
+        println("every part comes from clean commit ", only(commits))
+    else
+        println("not one clean commit: parts come from ", join(commits, ", "))
+    end
 end

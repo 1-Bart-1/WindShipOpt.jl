@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Every build first lists the result numbers typed by hand outside a marker.
+# Every build first lists the result numbers typed by hand outside a marker, and the
+# highlights longer than the journal allows.
 system("python3", "-I", "../scripts/check_numbers.py", ".");
+system("python3", "-I", "../scripts/check_highlights.py", ".");
 
 # The article and its supplement read each other's labels from a copy made after each pass,
 # so that neither reads an .aux file the other build is still writing.
