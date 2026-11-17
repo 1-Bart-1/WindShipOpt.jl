@@ -2,7 +2,8 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-"""Check paper/sources.csv against the citations in paper/sections and the held files.
+"""Check paper/sources.csv against the citations in paper/sections and the held files,
+and that the notes of the input and class source tables name every source by its key.
 
 Usage: scripts/check_sources.py [source_dir], where source_dir defaults to
 /var/lib/windship/literature_pdfs. Prints each problem and exits 1 if there are any.
@@ -19,6 +20,14 @@ STATUSES = {"read_in_full", "partial", "abstract_only", "held_unread", "missing"
 NEEDS_FILE = {"read_in_full", "held_unread"}
 CITE = re.compile(r"\\[A-Za-z]*cite[A-Za-z]*\*?(?:\[[^\]]*\])*\{([^}]*)\}")
 COMMENT = re.compile(r"(?<!\\)%.*")
+NOTE_TABLES = ("input_tables.tex", "class_sources.tex")
+YEAR = r"(?:1[89]|20)\d\d[a-z]?\b"
+NOT_A_MONTH = r"(?!(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b)"
+FREE_TEXT_SOURCE = re.compile(
+    rf"\b{NOT_A_MONTH}[A-Z][\w-]+(?: et al\.?| (?:and|\\&) [A-Z][\w-]+)?,? \(?{YEAR}\)?"
+    rf"|\b{YEAR}(?: [\w-]+){{0,2}} (?:datasheet|data sheet|brochure|catalogue|press release"
+    r"|product guide|project guide)\b"
+)
 
 
 def cited_keys(sections):
@@ -29,6 +38,16 @@ def cited_keys(sections):
         for group in CITE.findall(text):
             keys.update(key.strip() for key in group.split(",") if key.strip())
     return keys
+
+
+def free_text_sources(sections):
+    """A problem for each source the note tables in `sections` name in words, not by key."""
+    found = []
+    for name in NOTE_TABLES:
+        text = CITE.sub("", COMMENT.sub("", (sections / name).read_text(encoding="utf-8")))
+        found += [f"{name}: names a source without its key: {match.group()!r}"
+                  for match in FREE_TEXT_SOURCE.finditer(text)]
+    return found
 
 
 def row_problems(row, source_dir):
@@ -49,7 +68,7 @@ def row_problems(row, source_dir):
 
 
 def problems(paper, source_dir):
-    """What is wrong with the rows of the index in `paper` and the keys its sections cite."""
+    """What is wrong with the index in `paper`, the keys its sections cite and its notes."""
     with (paper / "sources.csv").open(newline="", encoding="utf-8") as index:
         rows = list(csv.DictReader(index))
     found = [line for row in rows for line in row_problems(row, source_dir)]
@@ -63,7 +82,7 @@ def problems(paper, source_dir):
             found.append(f"{key}: cited but has no row")
         elif status_of[key] != "read_in_full":
             found.append(f"{key}: cited but {status_of[key]}")
-    return found
+    return found + free_text_sources(paper / "sections")
 
 
 def main():

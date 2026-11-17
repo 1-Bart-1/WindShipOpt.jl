@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-from check_sources import problems
+from check_sources import NOTE_TABLES, PAPER, free_text_sources, problems
 
 HEADER = "key,doi,file,sha256,status\n"
 CONTENT = b"full text"
@@ -21,11 +21,13 @@ OTHER = f"other,,held.pdf,{HASH},read_in_full\n"
 
 
 class CheckSources(unittest.TestCase):
-    def check(self, rows, tex=r"\citep[p.~3]{held, other} \citet{held}"):
+    def check(self, rows, tex=r"\citep[p.~3]{held, other} \citet{held}", note=""):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "sections").mkdir()
             (root / "sections" / "a.tex").write_text(tex)
+            for table in NOTE_TABLES:
+                (root / "sections" / table).write_text(note)
             (root / "sources.csv").write_text(HEADER + rows)
             (root / "held.pdf").write_bytes(CONTENT)
             return problems(root, root)
@@ -80,6 +82,22 @@ class CheckSources(unittest.TestCase):
 
     def test_commented_citation_is_not_a_citation(self):
         self.assertEqual(self.check(HELD, r"\cite{held} % \cite{other}"), [])
+
+    def test_source_named_in_words_in_a_note_fails(self):
+        for words in ("Smith et al. (2020)", "Smith 2020", r"Smith \& Jones, 2020a",
+                      "the maker's 2024 datasheet"):
+            note = f"x & Price per kW from {words}, 5 \\% margin. \\\\"
+            found = self.check(HELD + OTHER, note=note)
+            self.assertEqual(len(found), len(NOTE_TABLES), words)
+            self.assertIn("names a source without its key", found[0])
+
+    def test_dates_and_years_beside_a_key_pass(self):
+        note = (r"Price on 23 Oct 2026 (\citealp[p. 7]{held}), Norsepower's 2019 prices "
+                r"(\citealp{other}), the 2025 wage scale, Brent in 2025 (\citealp{held}).")
+        self.assertEqual(self.check(HELD + OTHER, note=note), [])
+
+    def test_notes_of_the_paper_name_every_source_by_key(self):
+        self.assertEqual(free_text_sources(PAPER / "sections"), [])
 
 
 if __name__ == "__main__":
