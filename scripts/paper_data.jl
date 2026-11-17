@@ -80,18 +80,13 @@ expected_forecast() = ExpectedForecast(forecast_archive, forecast_error())
     round_trips(cases, departures)
 
 Round trips of all `cases`, threaded, reusing those cached in the run in use under the same
-value of every input they read; the kite pattern tables of the others are computed first,
-one kite at a time.
+value of every input they read.
 """
 function round_trips(cases, departures)
     directories = [case_directory(case, departures) for case in cases]
     trips = Any[cached_trip(directory, case.assumptions)
                 for (case, directory) in zip(cases, directories)]
     computed = findall(ismissing, trips)
-    for case in cases[computed]
-        max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
-            Ship(case.design, case.assumptions)
-    end
     Threads.@threads :greedy for k in computed
         trips[k] = stored_trip(() -> case_trip(cases[k], departures), directories[k],
             cases[k].assumptions)
@@ -562,7 +557,6 @@ sea [USD/h]: wind_angle.csv.
 function wind_angle_data()
     cases = vec([(name, rig, area) for name in route_names,
                  (rig, area) in [("none", 0.0); reference_rigs]])
-    build_kite_tables(Dict(reference_rigs)["kite"])
     results = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         results[k] = angle_sums(cases[k]...)
@@ -577,15 +571,6 @@ function wind_angle_data()
         end
     end
 end
-
-"""
-    build_kite_tables(area)
-
-Compute once the pattern tables of the 140 m e-ammonia ship's kite of `area` [m^2], which
-the threads that route it then share.
-"""
-build_kite_tables(area) = (Ship(ShipDesign(:ammonia, 140.0; kite_area=area), assumptions);
-                           nothing)
 
 """
     track_seasons()
@@ -605,7 +590,6 @@ each leg, in order: route_tracks.csv. Errors where a leg cannot be routed.
 function route_tracks_data()
     cases = vec([(season, name, area) for season in track_seasons(), name in route_names,
                  area in (0.0, 3200.0)])
-    build_kite_tables(3200.0)
     trips = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         (_, departure), name, area = cases[k]
