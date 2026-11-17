@@ -241,15 +241,26 @@ end
 One row of the development table.
 """
 function write_lever_row(io, table, ships, entry)
-    assumption = assumptions.entries[entry.input]
-    unit = strip(assumption.unit, '"')
     carbons = [lever_gain_loss(table, ship, entry; column="carbon") for ship in ships]
     carbon = (maximum(first, carbons), minimum(last, carbons))
-    println(io, entry.label, " & ", latex_number(assumption.value), " (",
-        latex_number(assumption.low), "--", latex_number(assumption.high), ")",
-        unit == "-" ? "" : string(" ", latex_escape(unit)), " & ",
+    println(io, entry.label, " & ", range_cell(entry.input), " & ",
         join([effect_cell(lever_gain_loss(table, ship, entry)) for ship in ships], " & "),
         " & ", effect_cell(carbon), " & ", entry.reason, " \\\\")
+end
+
+"""
+    range_cell(input)
+
+The development table's cell of the base value and range of `input` with its unit, or of
+where the kite's weather window lists its limits.
+"""
+function range_cell(input)
+    input == :kite_weather_window && return "five limits, \\cref{tab:inputs}"
+    assumption = assumptions.entries[input]
+    unit = strip(assumption.unit, '"')
+    return string(latex_number(assumption.value), " (", latex_number(assumption.low), "--",
+        latex_number(assumption.high), ")",
+        unit == "-" ? "" : string(" ", latex_escape(unit)))
 end
 
 """
@@ -1728,8 +1739,7 @@ fidelity_parts() = [
         model="fixed wind limits for launch, flight and landing; launch wind raised with " *
               "the launch mast's motion in the sea",
         error="extra launch wind scaled on one reported pair of wind speeds",
-        effect=varied_inputs(:kite_launch_sea_wind, :kite_launch_min_wind,
-            :kite_launch_max_wind, :kite_landing_max_wind, :kite_max_wind)),
+        effect=varied_inputs(:kite_weather_window)),
     (part="Wear and availability", varied="canopy life, out of service",
         model="canopy life from UV and wear per flight hour; launch damage and loss; " *
               "time out of service for every rig",

@@ -3729,7 +3729,9 @@ end
     @test 5 <= length(inputs) <= 20
     @test allunique(entry.input for entry in inputs)
     for entry in inputs
-        @test assumptions.entries[entry.input].low != assumptions.entries[entry.input].high
+        low, high = (PaperData.bound_assumptions(entry.input, bound)
+                     for bound in (:low, :high))
+        @test any(name -> low[name] != high[name], keys(assumptions.entries))
         @test !isempty(entry.reason)
     end
     for rig in PaperData.rig_names
@@ -3754,11 +3756,22 @@ end
     end
 end
 
-@testset "the development study moves the kite's sea and wind limits, lowest and highest" begin
+@testset "the kite's weather window moves its five limits together, wide at its high end" begin
     inputs = [entry.input for entry in PaperData.development_inputs]
     limits = (:kite_launch_sea_wind, :kite_launch_min_wind, :kite_launch_max_wind,
         :kite_landing_max_wind, :kite_max_wind)
-    @test issubset(limits, inputs)
+    @test :kite_weather_window in inputs && !any(in(inputs), limits)
+    narrow, wide = (PaperData.bound_assumptions(:kite_weather_window, bound)
+                    for bound in (:low, :high))
+    for limit in limits
+        entry = assumptions.entries[limit]
+        @test minmax(narrow[limit], wide[limit]) == (entry.low, entry.high)
+    end
+    @test wide[:kite_launch_sea_wind] < narrow[:kite_launch_sea_wind]
+    @test wide[:kite_launch_min_wind] < narrow[:kite_launch_min_wind]
+    @test wide[:kite_launch_max_wind] > narrow[:kite_launch_max_wind]
+    @test wide[:kite_landing_max_wind] > narrow[:kite_landing_max_wind]
+    @test wide[:kite_max_wind] > narrow[:kite_max_wind]
 end
 
 @testset "the model parts measured by the development study read only its inputs" begin

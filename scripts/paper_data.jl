@@ -2120,18 +2120,39 @@ kite_margin_rows = (
     ("Kept down by wind outside its launch range", "down_wind"),
     ("Down otherwise", "down_other"))
 
+"the kite's weather limits, each with the end of its range that widens its weather window"
+kite_weather_limits = (kite_launch_sea_wind=:low, kite_launch_min_wind=:low,
+    kite_launch_max_wind=:high, kite_landing_max_wind=:high, kite_max_wind=:high)
+
 """
     bound_assumptions(name, bound)
 
 The assumptions with input `name` at its `bound` (:low or :high), the kite's aspect ratio
-at the price of the base kite.
+at the price of the base kite and its `:kite_weather_window` by [`weather_window`](@ref).
 """
 function bound_assumptions(name, bound)
+    name == :kite_weather_window && return weather_window(bound)
     entry = assumptions.entries[name]
     value = bound == :low ? entry.low : entry.high
     name == :kite_aspect_ratio &&
         return WindShipOpt.with_kite_aspect_ratio(assumptions, value)
     return with_value(assumptions, name, value)
+end
+
+"""
+    weather_window(bound)
+
+The assumptions with each of [`kite_weather_limits`](@ref) at the end of its range that
+narrows the kite's weather window where `bound` is `:low` and widens it where `:high`.
+"""
+function weather_window(bound)
+    narrowing = Dict(:low => :high, :high => :low)
+    moved = assumptions
+    for (limit, widening) in pairs(kite_weather_limits)
+        end_of_range = bound == :high ? widening : narrowing[widening]
+        moved = with_value(moved, limit, getfield(assumptions.entries[limit], end_of_range))
+    end
+    return moved
 end
 
 "class ships of the development study, each with its drive and route"
@@ -2202,17 +2223,9 @@ development_inputs = [
     (input=:kite_aspect_ratio, label="kite aspect ratio", rig="kite", lever="force",
         reason="The shape of the wing, fixed at today's in the results; a slenderer kite " *
                "glides better if launch and canopy can handle it, priced as the base."),
-    (input=:kite_launch_sea_wind, label="kite extra launch wind in a sea", rig="kite",
-        lever="weather", reason="How far the launch system takes up the ship's motion; " *
-                                "the kite's only limit on the sea."),
-    (input=:kite_launch_min_wind, label="kite lowest launch wind", rig="kite",
-        lever="weather", reason="A lighter kite and a surer launch reach calmer air."),
-    (input=:kite_launch_max_wind, label="kite highest launch wind", rig="kite",
-        lever="weather", reason="How hard a wind the launch system can handle."),
-    (input=:kite_landing_max_wind, label="kite highest landing wind", rig="kite",
-        lever="weather", reason="How hard a wind the landing and stowage can handle."),
-    (input=:kite_max_wind, label="kite highest wind in flight", rig="kite",
-        lever="weather", reason="Its structure and control decide when it must come down."),
+    (input=:kite_weather_window, label="kite weather window", rig="kite", lever="weather",
+        reason="Its launch system, structure and control decide the sea and the winds " *
+               "in which it launches, flies and lands; its five limits moved together."),
     (input=:wing_cost_per_area, label="wing sail cost per area", rig="wings", lever="price",
         reason="Structure and series production set a wing's price."),
     (input=:wing_max_lift_coefficient, label="wing sail maximum lift", rig="wings",
