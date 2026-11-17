@@ -1441,15 +1441,15 @@ end
 final_time_step(weather) = ROUTER_SETTINGS[].final_time_step
 
 """
-    final_pass(leg, corridor, table, weather, departure; time_cost, arrival_by,
+    final_pass(leg, corridor, table, weather, departure; time_cost, arrival_by=Inf,
                first_stage, first_aloft)
 
 The cheaper of `leg` and the [`route_pass`](@ref) along its path at all speeds of `table`,
 on the bins of [`final_time_step`](@ref) and within the band in time of
 `ROUTER_SETTINGS`, of those arriving by `arrival_by` [h] or no later than `leg`.
 """
-function final_pass(leg::Leg, corridor, table, weather, departure; time_cost, arrival_by,
-        first_stage, first_aloft)
+function final_pass(leg::Leg, corridor, table, weather, departure; time_cost,
+        arrival_by=Inf, first_stage, first_aloft)
     time_step = final_time_step(weather)
     workspace = acquire_workspace(1, ceil(Int, MAX_LEG_HOURS / time_step),
         length(leg.path))
