@@ -1,0 +1,4 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Every build first lists the result numbers typed by hand outside a marker.
+system("python3", "-I", "../scripts/check_numbers.py", ".");
