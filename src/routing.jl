@@ -1330,8 +1330,8 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
     (; time_step) = ROUTER_SETTINGS[]
     options = (; time_step, time_cost, first_stage, first_lateral, first_aloft,
         speed_stride=ROUTER_SETTINGS[].search_speed_stride)
-    workspace = acquire_workspace(size(corridor.lat, 2),
-        ceil(Int, MAX_LEG_HOURS / time_step), size(corridor.lat, 1))
+    workspace = acquire_workspace(size(corridor.lat, 2), bin_count(time_step),
+        size(corridor.lat, 1))
     try
         to_go = CostToGo(workspace, corridor, table, weather, departure; time_cost,
             first_stage)
@@ -1449,8 +1449,7 @@ on the bins of [`final_time_step`](@ref) and within the band in time of
 function final_pass(leg::Leg, corridor, table, weather, departure; time_cost, first_stage,
         first_aloft)
     time_step = final_time_step(weather)
-    workspace = acquire_workspace(1, ceil(Int, MAX_LEG_HOURS / time_step),
-        length(leg.path))
+    workspace = acquire_workspace(1, bin_count(time_step), length(leg.path))
     try
         band = PassageBand([point[3] for point in leg.path],
             ROUTER_SETTINGS[].final_time_band)
@@ -1717,6 +1716,10 @@ bins being aligned to the clock and the departure lying in bin 1.
 time_bin(elapsed, departure, time_step) =
     floor(Int, (mod(departure, time_step) + elapsed) / time_step) + 1
 
+"Number of [`time_bin`](@ref)s of `time_step` [h] that hold every arrival within
+`MAX_LEG_HOURS`, whatever the hour of departure."
+bin_count(time_step) = ceil(Int, MAX_LEG_HOURS / time_step) + 1
+
 """
     relax_sailed!(workspace, state, next, sailed, edge, (; time_step, departure), prices,
                   kite)
@@ -1724,9 +1727,8 @@ time_bin(elapsed, departure, time_step) =
 [`relax!`](@ref) the states of node `next` of the next stage, kite down and aloft, from
 `state` by the [`SailedEdge`](@ref) `sailed`, where it arrives within the
 [`time_bin`](@ref)s of `time_step` [h] of a passage left at `departure` [h]; `edge` holds
-the objective `here` [USD] of `state` and the commanded
-`speed_index`. With a [`KiteRule`](@ref) `kite`, the node and bin keep the one arrival it
-values least.
+the objective `here` [USD] of `state` and the commanded `speed_index`. With a
+[`KiteRule`](@ref) `kite`, the node and bin keep the one arrival it values least.
 """
 function relax_sailed!(workspace::RouteWorkspace, state, next, sailed::SailedEdge, edge,
         (; time_step, departure), prices, kite)
@@ -2176,12 +2178,14 @@ end
     rest_of_plan(plan, i)
 
 The path, kite states and duration of the [`Leg`](@ref) `plan` from its node `i` on, its
-times counted from there; its totals of fuel, flight and objective are `NaN`.
+times counted from there and its first node carrying no speed or mode, as a routed plan's
+does; its totals of fuel, flight and objective are `NaN`.
 """
 function rest_of_plan(plan::Leg, i)
-    start = plan.path[i][3]
-    path = [(lat, lon, time - start, speed, mode)
-            for (lat, lon, time, speed, mode) in plan.path[i:end]]
+    first_lat, first_lon, start = plan.path[i]
+    path = [(first_lat, first_lon, 0.0, 0.0, 0.0);
+            [(lat, lon, time - start, speed, mode)
+             for (lat, lon, time, speed, mode) in plan.path[(i + 1):end]]]
     return Leg(NaN, NaN, NaN, 0, 0, plan.duration - start, NaN, path, plan.aloft[i:end])
 end
 
@@ -2660,20 +2664,19 @@ end
 Passage of a ship that plans by [`forecast_plan`](@ref), weighing the rest of the plan it
 holds, on the [`RouteTable`](@ref) `table` on its [`planning_corridor`](@ref) and re-plans
 at the first node 24 hours or more after the last plan or past the plan's near part, on
-`forecast`: a
-[`ForecastArchive`](@ref), a [`ForecastEnsemble`](@ref), a [`ShortestLead`](@ref), a
-[`PerfectForecast`](@ref), a [`KiteMargin`](@ref) of one of those, a
-[`ForecastParts`](@ref), the real weather known `horizon` hours ahead where `nothing`, or
+`forecast`: a [`ForecastArchive`](@ref), a [`ForecastEnsemble`](@ref), a
+[`ShortestLead`](@ref), a [`PerfectForecast`](@ref), a [`KiteMargin`](@ref) of one of those,
+a [`ForecastParts`](@ref), the real weather known `horizon` hours ahead where `nothing`, or
 a [`ReplannedForecast`](@ref) with its own interval and adaptation between plans. It sails
-each plan in the real `weather` until the next re-plan by
-[`sail_planned_edge!`](@ref), launching and landing the kite where the real weather of an
-edge and the [`plan_values`](@ref) ahead make that cheapest, or, with `forecast` a
-[`PlannedKite`](@ref), where the plan put it, or with a [`ForesightKite`](@ref), by the
-same values in the real weather. Fuel, flight hours and objective are those
-of the real weather. Where no plan leaves its node or the real weather stops the next
-edge, the ship holds there with the kite stowed on its hotel load until the next forecast,
-6 h later, and plans again. A [`KiteRecord`](@ref) `record` receives what was sailed.
-Returns `nothing` after holding 72 h at one node.
+each plan in the real `weather` until the next re-plan by [`sail_planned_edge!`](@ref),
+launching and landing the kite where the real weather of an edge and the
+[`plan_values`](@ref) ahead make that cheapest, or, with `forecast` a [`PlannedKite`](@ref),
+where the plan put it, or with a [`ForesightKite`](@ref), by the same values in the real
+weather. Fuel, flight hours and objective are those of the real weather. Where no plan
+leaves its node or the real weather stops the next edge, the ship holds there with the kite
+stowed on its hotel load until the next forecast, 6 h later, and plans again. A
+[`KiteRecord`](@ref) `record` receives what was sailed. Returns `nothing` after holding 72 h
+at one node.
 """
 function forecast_route(corridor::Corridor, table::RouteTable, weather, departure;
         time_cost, horizon=Inf, forecast=nothing, record=nothing)
