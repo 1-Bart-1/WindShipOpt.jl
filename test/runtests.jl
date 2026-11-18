@@ -2854,6 +2854,20 @@ end
     @test [point[1:2] for point in repeated.path] == [point[1:2] for point in leg.path]
 end
 
+@testset "the shortest path through a corridor joins its centres and is no longer than \
+          a routed path" begin
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    leg = route(corridor, table, weather, departure; time_cost=hourly)
+    shortest = WindShipOpt.shortest_corridor(corridor)
+    centre = centre_index(corridor)
+    @test (shortest.lat[1], shortest.lat[end]) == (corridor.lat[1, centre],
+        corridor.lat[end, centre])
+    @test shortest.track_length == corridor.track_length
+    @test all(isfinite, shortest.edge_length[:, 1, WindShipOpt.STRAIGHT_ON])
+    @test sum(shortest.edge_length) <=
+          sum(WindShipOpt.path_corridor(leg, corridor, 1).edge_length)
+end
+
 @testset "a search that cuts off the best path and overruns its limit widens" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
     (; time_step) = WindShipOpt.ROUTER_SETTINGS[]
@@ -3809,9 +3823,10 @@ end
              for name in readdir(directory) if endswith(name, ".tex")]
     used = Set(m.match for text in texts
                for m in eachmatch(r"\\Num[A-Za-z]+", read(text, String)))
-    defined = Set(m[1] for name in ("numbers.tex", "rigid_numbers.tex")
+    sections = joinpath(paper, "sections")
+    defined = Set(m[1] for name in readdir(sections) if endswith(name, "numbers.tex")
                   for m in eachmatch(r"\\newcommand\{(\\Num[A-Za-z]+)\}",
-                      read(joinpath(paper, "sections", name), String)))
+                      read(joinpath(sections, name), String)))
     @test !isempty(used)
     @test used ⊆ defined
 end
@@ -4155,6 +4170,23 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 end
 
+@testset "routing and a rig save against the unrouted ship without a rig, \
+          per departure" begin
+    case = ("140 m", "ammonia")
+    table = Dict("ship" => fill(case[1], 3), "drive" => fill(case[2], 3),
+        "rig" => ["none", "kite", "none"], "course" => ["routed", "routed", "shortest"],
+        "speed" => ["cost", "cost", "same_time"], "cost" => [9.0, 7.0, 10.0])
+    @test PaperData.routing_saving(table, case..., "none", "same_time") ≈ 10
+    @test PaperData.routing_saving(table, case..., "kite", "same_time") ≈ 30
+    departures(days) = Dict("ship" => fill(case[1], 4), "drive" => fill(case[2], 4),
+        "rig" => fill("none", 4), "course" => ["routed", "routed", "shortest", "shortest"],
+        "speed" => ["cost", "cost", "same_time", "same_time"], "departure" => days,
+        "cost" => [9.0, 8.0, 10.0, 12.0])
+    @test PaperData.routing_error(departures([0, 24, 24, 0]), case..., "same_time") ≈ 2.5
+    @test_throws ErrorException PaperData.routing_error(departures([0, 24, 24, 48]),
+        case..., "same_time")
+end
+
 @testset "a result prints in whole points and a table cell to one decimal, never as -0" begin
     @test PaperData.whole_number(-0.4) == "0"
     @test PaperData.whole_number(12.6) == "13"
@@ -4371,7 +4403,8 @@ end
 "rig lead row of the made-up outcome of `rig` against `rival` on ship type `word`"
 function lead_row(word, drive, verdict, margin, rig="kite", rival="rotors")
     label = only(label for (type, label, _) in PaperData.ship_types if type == word)
-    return (; word, label, drive, rig, rival, verdict, margin)
+    return (; word, label, name=lowercase(label), where=PaperData.ship_places, drive, rig,
+        rival, verdict, margin)
 end
 
 "rig lead rows of the draft run: the kite leading or level with the rotors"
@@ -4417,6 +4450,18 @@ end
           "or the rotors on car carriers, bulk carriers and general cargo ships"
 end
 
+@testset "the brief advice names each ship type's rigs on any fuel, most types last" begin
+    @test PaperData.brief_advice_text(draft_leads) ==
+          "the kite on container ships and the kite or the rotors on the other ship types"
+    all_kite = [(; row..., verdict="leads") for row in draft_leads]
+    @test PaperData.brief_advice_text(all_kite) == "the kite on every ship type"
+    no_cars = [row.word == "CarCarrier" ? (; row..., verdict="none") : row
+               for row in draft_leads]
+    @test PaperData.brief_advice_text(no_cars) ==
+          "the kite on container ships, no rig on car carriers and the kite or the " *
+          "rotors on the other ship types"
+end
+
 @testset "the answer gives each ship type its rig and what it saves a ship a year" begin
     saved(share, usd, carbon) = (; saved=usd, share, carbon)
     per_ship = Dict("kite" => saved(14.2, 5.3e6, 9.6e9), "wings" => saved(4.5, 1.7e6, 2.9e9),
@@ -4433,6 +4478,10 @@ end
     @test count("; ", PaperData.answer_text(rows)) == length(rows) - 1
     @test isempty(PaperData.advised_savings((; rows[1]..., verdict="none")))
     saved = reduce(vcat, PaperData.advised_savings.(rows))
+    @test Dict(PaperData.answer_ranges(rows)) == Dict("Shares" => "14",
+        "Carbon" => "\\num{9200} to \\num{9600}", "MoneyLow" => "\\num{4.1}",
+        "MoneyLowShips" => "car carriers", "MoneyHigh" => "\\num{5.3}",
+        "MoneyHighShips" => "container ships")
     @test PaperData.saved_figures(saved, "vlsfo") == "14\\,\\%, USD~\\num{4.1} to " *
                                                      "\\num{5.3} million and \\num{9200} to " *
                                                      "\\num{9600}~t of CO\$_2\$"
