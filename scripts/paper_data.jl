@@ -88,9 +88,11 @@ function round_trips(cases, departures)
     entries = Any[stored_entry(directory, case)
                   for (case, directory) in zip(cases, directories)]
     computed = findall(ismissing, entries)
-    todo = (cases[computed], directories[computed], departures)
-    entries[computed] = handed_out(case_jobs, length(computed)) ?
-                        job_trips(case_jobs, todo...) : compute_trips(todo...)
+    if isempty(computed) || !handed_out(case_jobs, length(cases))
+        entries[computed] = compute_trips(cases[computed], directories[computed], departures)
+    else
+        entries = job_trips(case_jobs, cases, directories, departures)
+    end
     foreach(tally_case!, cases, directories, entries)
     trips = [entry.trip for entry in entries]
     older = count(entry -> entry.model != paper_run.trip_model, entries)
@@ -3298,6 +3300,117 @@ function speed_terms(case)
     isnothing(bare_sums) || push!(rows_of_case, ("same_time",
         speed_term_sums(free, case.route, hourly, last(bare_sums))))
     return rows_of_case
+end
+
+"""
+    routing_value_ships()
+
+Ships of the routing value study, each as its name, its hull length [m] or class and its
+route: the 140 m ship to Guadeloupe and the tramp and the liner of [`study_classes`](@ref).
+"""
+function routing_value_ships()
+    ships = [("140 m", :caribbean); [(name, route) for (name, _, route) in study_classes]]
+    return [(ship, study_hull(ship), route) for (ship, route) in ships]
+end
+
+"""
+    routing_value_data()
+
+The [`routing_value_ships`](@ref) on each of the [`study_drives`](@ref) without a rig,
+routed for cost and on the shortest path through the corridors of their route at each of
+their [`held_speeds`](@ref), and the 140 m ship with each of the [`reference_rigs`](@ref), routed,
+each ship and drive over the [`sailable_departures`](@ref) of its ship on the shortest
+route: routing_value.csv, and the cost of each departure: routing_value_departures.csv.
+"""
+function routing_value_data()
+    groups = [(; ship, build, route, drive)
+              for (ship, build, route) in routing_value_ships() for drive in study_drives]
+    cases, trips = routing_value_trips(groups, sampled_departures())
+    reruns = Dict{Any, Vector{Any}}()
+    for group in groups
+        failed = [case for (case, trip) in zip(cases, trips)
+                  if isnothing(trip) && in_group(case, group)]
+        isempty(failed) && continue
+        push!(get!(reruns, sailable_departures(failed, sampled_departures()), []), group)
+    end
+    for (departures, rerun) in reruns
+        kept = [!any(group -> in_group(case, group), rerun) for case in cases]
+        again = routing_value_trips(rerun, departures)
+        cases, trips = [cases[kept]; first(again)], [trips[kept]; last(again)]
+    end
+    labels = (:ship, :drive, :rig, :area, :course, :speed, :held_knots)
+    write_trips("routing_value.csv", cases, trips, labels...)
+    open(run_file("routing_value_departures.csv"), "w") do io
+        println(io, join([collect(string.(labels)); ["departure", "cost"]], ","))
+        for (case, trip) in zip(cases, trips)
+            isnothing(trip) && continue
+            fields = [csv_value(getproperty(case, label)) for label in labels]
+            for outcome in trip.departures
+                println(io, join([fields; csv_value(outcome.departure);
+                        string(outcome.cost_per_tonne_km)], ","))
+            end
+        end
+    end
+end
+
+"whether `case` is of the ship and drive of `group`"
+in_group(case, group) = (case.ship, case.drive) == (group.ship, group.drive)
+
+"""
+    routing_value_trips(groups, departures)
+
+Cases and round trips over `departures` of each ship, with its build, route and drive, in
+`groups`: without a rig, and for the 140 m ship with each of the [`reference_rigs`](@ref),
+routed, then without a rig on the shortest path through their corridors at each
+[`held_speeds`](@ref).
+"""
+function routing_value_trips(groups, departures)
+    routed = []
+    for (; ship, build, route, drive) in groups
+        for (rig, area) in [("none", 0.0); ship == "140 m" ? reference_rigs : []]
+            design = ShipDesign(drive, build; rig_size(rig, area)...)
+            push!(routed, trip_case(design; route, ship, drive, rig, area, speed="cost"))
+        end
+    end
+    routed_trips = round_trips(routed, departures)
+    held = []
+    for (case, trip) in zip(routed, routed_trips)
+        (case.rig == "none" && !isnothing(trip)) || continue
+        paths = WindShipOpt.shortest_corridor.(case.corridors)
+        for (speed, knots) in held_speeds(case, trip)
+            push!(held, trip_case(case.design; case.route, case.ship, case.drive, case.rig,
+                case.area, speed, paths, course=:shortest, held_knots=knots))
+        end
+    end
+    return [routed; held], [routed_trips; round_trips(held, departures)]
+end
+
+"""
+    sailable_departures(cases, departures)
+
+The `departures` on which the round trip of each of `cases` succeeds alone.
+"""
+function sailable_departures(cases, departures)
+    sails = fetch.([Threads.@spawn all(!isnothing(case_trip(case, [departure]))
+                                       for case in cases) for departure in departures])
+    return departures[sails]
+end
+
+"""
+    held_speeds(case, trip)
+
+Name and speed [kn] of each speed the ship of `case`, routed in `trip`, holds on the
+shortest route: `same_time`, which sails its track in the routed ship's time at sea, and
+for a class `operating`, the fleet's mean operating speed in data/ship_classes.csv.
+"""
+function held_speeds(case, trip)
+    track = sum(corridor.track_length for corridor in case.corridors)
+    hours = 24(trip.outbound_days + trip.return_days)
+    speeds = ["same_time" => round(track / 3600hours / WindShipOpt.KNOT; digits=2)]
+    case.ship == "140 m" && return speeds
+    classes = read_table(joinpath(root, "data", "ship_classes.csv"))
+    operating = classes["operating_speed"][only(rows(classes, "name" => case.ship))]
+    return push!(speeds, "operating" => operating)
 end
 
 """

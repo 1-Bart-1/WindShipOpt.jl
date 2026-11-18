@@ -3,9 +3,8 @@
 # Slurm settings of the paper runs on a cluster, read by scripts/cluster.jl.
 account = "" # Slurm account to charge, research-<faculty>-<department> on DelftBlue
 partition = "" # the one partition every job of a run uses: compute-p1 or compute-p2
-cores = 48 # [-] cores of each job, the run's own and each computing round trips
+cores = 64 # [-] cores of each job, the run's own and each computing round trips
 memory_per_core = "3800M" # memory per core, as Slurm's --mem-per-cpu
-run_time = "120:00:00" # wall time of the job running the paper run, hours:minutes:seconds
-case_time = "24:00:00" # wall time of each job computing round trips, hours:minutes:seconds
-jobs = 64 # [-] jobs running at once, the run's own included
-retries = 2 # [-] times a job that ended with round trips missing is launched again
+wall_time = "24:00:00" # wall time of every job, hours:minutes:seconds
+jobs = 4 # [-] jobs running at once, the run's own included
+retries = 2 # [-] launches in a row of a job that stored nothing new, before the run stops
