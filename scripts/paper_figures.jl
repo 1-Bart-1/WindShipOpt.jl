@@ -1874,19 +1874,6 @@ end
 forecast_error_lines = (("forecast", (; color=:black)), ("blend", (; color=palette[1])),
     ("climate", (; color=:gray50, linestyle=:dash)))
 
-"""
-    forecast_saving(table, rig, plan)
-
-Mean over the departures of the cost saving [%] of `rig` on `plan`, against the ship
-without a rig on the same plan, `NaN` where the two cannot be paired: a departure without a
-feasible round trip is no row of the table.
-"""
-function forecast_saving(table, rig, plan)
-    cost(name) = table["cost"][rows(table, "rig" => name, "plan" => plan)]
-    length(cost(rig)) == length(cost("none")) || return NaN
-    return 100 * (1 - mean(cost(rig) ./ cost("none")))
-end
-
 "rigs of the combination figure with their legend labels and colours"
 combination_rigs = (("kite", "best kite", palette[1]),
     ("rotors", "best rotors", palette[3]),
