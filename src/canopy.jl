@@ -74,15 +74,40 @@ sewn_cloth_price(assumptions::Assumptions, weight) = assumptions[:canopy_cloth_b
     assumptions[:canopy_cloth_price_per_weight] * weight
 
 """
-    Canopy(assumptions)
+    chord_over_cell_width(assumptions, chord)
 
-[`Canopy`](@ref) of `canopy_cloth_weight`, cloth plus an overhead for mass and cost, with
-the mass overhead of seams, tapes and reinforcements in proportion to the force limit,
+Chord over cell width [-] of a ram-air canopy of mean `chord` [m]: `canopy_chord_cells` at
+`canopy_reference_chord`, the cell width growing with the chord to the power
+`canopy_cell_width_exponent`.
+"""
+chord_over_cell_width(assumptions::Assumptions, chord) = assumptions[:canopy_chord_cells] *
+    (chord / assumptions[:canopy_reference_chord])^
+    (1 - assumptions[:canopy_cell_width_exponent])
+
+"""
+    cloth_area_ratio(assumptions, area, aspect_ratio)
+
+Cloth [m^2] sewn into a ram-air canopy of projected `area` [m^2] and projected
+`aspect_ratio` per m^2 of projected area: on each flat m^2 two skins, and ribs and diagonals
+in proportion to the [`chord_over_cell_width`](@ref) at its mean chord.
+"""
+function cloth_area_ratio(assumptions::Assumptions, area, aspect_ratio)
+    cells = chord_over_cell_width(assumptions, sqrt(area / aspect_ratio))
+    return assumptions[:canopy_flat_area_ratio] * (assumptions[:canopy_skin_cloth_ratio] +
+            assumptions[:canopy_rib_cloth_ratio] * cells)
+end
+
+"""
+    Canopy(assumptions, area, aspect_ratio)
+
+[`Canopy`](@ref) of a kite of projected `area` [m^2] and projected `aspect_ratio`, sewn from
+`canopy_cloth_weight` in its [`cloth_area_ratio`](@ref), plus an overhead for mass and cost,
+with the mass overhead of seams, tapes and reinforcements in proportion to the force limit,
 lasting [`canopy_lifetime`](@ref).
 """
-function Canopy(assumptions::Assumptions)
+function Canopy(assumptions::Assumptions, area, aspect_ratio)
     weight = assumptions[:canopy_cloth_weight]
-    cloth_area = assumptions[:canopy_cloth_area_ratio]
+    cloth_area = cloth_area_ratio(assumptions, area, aspect_ratio)
     return Canopy(1e-3cloth_area * weight +
                   assumptions[:canopy_mass_overhead] * force_rating(assumptions),
         assumptions[:canopy_making_cost_per_area] +

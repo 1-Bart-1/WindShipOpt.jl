@@ -258,7 +258,7 @@ end
 
 @testset "a kite built for more force keeps its cloth and wears it out sooner" begin
     stronger = with_value(assumptions, :kite_max_force_per_area, 1.0)
-    base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger))
+    base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger), 800.0, 3.0)
     @test strong_canopy.mass_per_area > base_canopy.mass_per_area
     @test strong_canopy.cost_per_area == base_canopy.cost_per_area
     margin = assumptions[:canopy_cloth_specific_strength] *
@@ -284,11 +284,11 @@ end
 @testset "canopy life is the goal at the standard canopy and decays off it" begin
     @test WindShipOpt.decay_life(assumptions, 200.0, 0.5) ≈ 3812 atol = 1
     @test WindShipOpt.decay_life(assumptions, 100.0, 0.5) ≈ 1646 atol = 1
-    @test WindShipOpt.Canopy(assumptions).lifetime ≈ 3000
+    @test WindShipOpt.canopy_lifetime(assumptions) ≈ 3000
     goal = with_value(assumptions, :canopy_life, 1200.0)
-    @test WindShipOpt.Canopy(goal).lifetime ≈ 1200
+    @test WindShipOpt.canopy_lifetime(goal) ≈ 1200
     lighter = with_value(goal, :canopy_cloth_weight, 100.0)
-    @test WindShipOpt.Canopy(lighter).lifetime ≈ 1200 * 1646 / 3812 rtol = 1e-3
+    @test WindShipOpt.canopy_lifetime(lighter) ≈ 1200 * 1646 / 3812 rtol = 1e-3
 end
 
 @testset "hulls fuller than Holtrop's range use the formulas at its limit" begin
@@ -347,7 +347,8 @@ end
 """
 function uniform_kite(hull, assumptions)
     pattern = WindShipOpt.PatternForce((0.3, 0.8, 0.2), 1.0, 0.3)
-    return KiteRig(; area=800.0, tether_diameter=0.05, tether_length=300.0,
+    return KiteRig(; area=800.0, aspect_ratio=assumptions[:kite_aspect_ratio],
+        tether_diameter=0.05, tether_length=300.0,
         reference_height=120.0, max_wind=30.0, min_flight_wind=4.0, launch_min_wind=5.0,
         launch_max_wind=17.0,
         launch_max_wave_height=Inf,
@@ -683,9 +684,10 @@ end
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
 end
 
-@testset "a canopy costs its goal price, and USD 234 as built today" begin
-    @test WindShipOpt.canopy_price(assumptions) ≈ 149.8
-    @test WindShipOpt.canopy_price_today(assumptions) ≈ 234.4
+@testset "a canopy whose cells widen with its chord costs its goal, USD 234 today" begin
+    proportional = with_value(assumptions, :canopy_cell_width_exponent, 1.0)
+    @test WindShipOpt.canopy_price(proportional, 800.0, 3.0) ≈ 149.8 rtol = 1e-3
+    @test WindShipOpt.canopy_price_today(proportional, 800.0, 3.0) ≈ 234.4 rtol = 1e-3
     cloth = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
     today_cloth = WindShipOpt.with_today(assumptions, cloth)
     @test all(today_cloth[name] == assumptions[Symbol(name, :_today)] for name in cloth)
@@ -695,7 +697,8 @@ end
     @test WindShipOpt.sewn_cloth_price(assumptions, weight) ≈ 9.4
     @test WindShipOpt.sewn_cloth_price(today_cloth, weight) ≈ 17.2
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
-    @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈ 149.8rig.area
+    @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈
+          WindShipOpt.canopy_price(assumptions, rig.area, rig.aspect_ratio) * rig.area
 end
 
 @testset "a flown kite wears canopy and tether by their lives" begin
@@ -3799,11 +3802,34 @@ end
     @test used ⊆ defined
 end
 
-@testset "a soft kite's mass without its tether grows in proportion to its area" begin
-    mass_per_area(area) = WindShipOpt.soft_kite_mass(area, 3.0, 500area, assumptions) / area
-    @test mass_per_area(3000.0) ≈ mass_per_area(200.0) rtol=0.05
+"mass [kg] per projected area of a soft kite of `area` [m^2] without its tether"
+soft_mass_per_area(area, inputs) =
+    WindShipOpt.soft_kite_mass(area, 3.0, 500area, inputs) / area
+
+@testset "a soft kite's mass per area grows with its chord, its cells widening slower" begin
+    @test soft_mass_per_area(3000.0, assumptions) >
+          1.1soft_mass_per_area(200.0, assumptions)
+    proportional = with_value(assumptions, :canopy_cell_width_exponent, 1.0)
+    @test soft_mass_per_area(3000.0, proportional) ≈
+          soft_mass_per_area(200.0, proportional) rtol=0.05
     model, _ = WindShipOpt.kite_model(200.0, 3.0, assumptions)
-    @test model.mass > 200mass_per_area(200.0)
+    @test model.mass > 200soft_mass_per_area(200.0, assumptions)
+end
+
+@testset "a ram-air canopy sews more rib cloth per area the longer its chord" begin
+    ratio(area, inputs) = WindShipOpt.cloth_area_ratio(inputs, area, 3.0)
+    @test ratio(200.0, assumptions) < ratio(800.0, assumptions) < ratio(3000.0, assumptions)
+    chord = assumptions[:canopy_reference_chord]
+    reference = 3.0 * chord^2
+    @test WindShipOpt.chord_over_cell_width(assumptions, chord) ≈
+          assumptions[:canopy_chord_cells]
+    @test ratio(reference, assumptions) ≈ assumptions[:canopy_flat_area_ratio] *
+          (assumptions[:canopy_skin_cloth_ratio] +
+           assumptions[:canopy_rib_cloth_ratio] * assumptions[:canopy_chord_cells])
+    proportional = with_value(assumptions, :canopy_cell_width_exponent, 1.0)
+    @test ratio(16000.0, proportional) ≈ ratio(reference, assumptions)
+    @test WindShipOpt.canopy_price(assumptions, 3000.0, 3.0) >
+          WindShipOpt.canopy_price(assumptions, 200.0, 3.0)
 end
 
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
@@ -3898,7 +3924,8 @@ function rigid_fleet(count, assumptions)
     forces = [WindShipOpt.PatternForce(
                   (1e5 / (0.5 * model.air_density * speed^2 * 54.0), 0.0, 0.0), 1.0, 0.5)
               for speed in wind_speeds, _ in courses, _ in side_weights]
-    return KiteRig(; area=54.0, tether_diameter, model.tether_length, reference_height=10.0,
+    return KiteRig(; area=54.0, aspect_ratio=assumptions[:rigid_aspect_ratio],
+        tether_diameter, model.tether_length, reference_height=10.0,
         WindShipOpt.rigid_wind_limits(5.0, assumptions)..., max_force, attach_height=10.0,
         attach_position=0.0, wind_speeds, courses, side_weights, forces, airframe)
 end

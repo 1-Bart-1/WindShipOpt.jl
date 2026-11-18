@@ -85,7 +85,7 @@ function explorer_data()
         classes=[explorer_class(classes[name]) for name in names],
         routes=[(; name=string(name), label=route_label(name)) for name in route_names],
         canopy_price=(node=outputs.canopy_price - 1,
-            value=WindShipOpt.canopy_price(assumptions)),
+            value=reference_canopy_price(assumptions)),
         designs=[explorer_design(case, trip, design, names)
                  for (case, trip, design) in zip(cases, trips, outputs.designs)],
         nodes=recording.nodes, checks=explorer_checks(cases, trips))
@@ -112,7 +112,7 @@ function recorded_designs(cases, trips, class_names)
                    ammonia_saving=saving_node(bare, case, cost, :ammonia),
                    vlsfo_saving=saving_node(bare, case, cost, :vlsfo))
                for (case, cost) in zip(cases, costs)]
-    return (; canopy_price=WindShipOpt.canopy_price(inputs).node, designs)
+    return (; canopy_price=reference_canopy_price(inputs).node, designs)
 end
 
 """

@@ -144,7 +144,7 @@ A weather router then sails each ship on a grid of tracks and speeds through a c
 \begin{figure}[!htb]
 \centering
 \adjustbox{max width=0.8\textwidth}{\plot[\textwidth]{routes}}
-\caption{\stale{routes_figure}{} Routed passages on the six routes of a \given{\SI{140}{m}} e-ammonia ship without a rig (thin grey) and with a \given{\SI{3200}{m^2}} kite (coloured by route), for a winter (a) and a summer (b) departure, over the wind five days after departure. Dotted lines are great circles; solid lines are outbound, dashed lines homeward.}
+\caption{\stale{routes_figure,route_tracks}{} Routed passages on the six routes of a \given{\SI{140}{m}} e-ammonia ship without a rig (thin grey) and with a \given{\SI{3200}{m^2}} kite (coloured by route), for a winter (a) and a summer (b) departure, over the wind five days after departure. Dotted lines are great circles; solid lines are outbound, dashed lines homeward.}
 \label{ea:routes}
 \end{figure}
 
@@ -192,7 +192,7 @@ A weather router then sails each ship on a grid of tracks and speeds through a c
 
 \stale{classes}{\textbf{Rigs larger than any built.} The results assume series-production prices \citep{joshi2025} no kite maker has reached, deck rigs with many more units than any ship carries, kites far larger than any designed, and one wind profile for every region. Held to the rotor counts makers offer today, the kite leads by 1 to 4 points of cost saving on e-ammonia on four of the six bulk carriers and tankers that have a listed count. Every route starts in Rotterdam and lies in the Atlantic, and the hulls' resistance in waves is a mean estimate; these limits act on every rig alike.}
 
-\textbf{Other kites.} A VTOL kite, a rigid wing that takes off and lands on its own propellers, flies at ship scale but costs about \NumRigidCostRatio{} times a soft kite's yearly cost per unit of thrust, and on e-ammonia it saves about half the cost per tonne-kilometre that a soft kite or rotors save to Guadeloupe, and on the short route to Bilbao it \NumRigidRoutedBilbaoRigid{}. \stale{combination_data}{A kite added to rotors saves at most 2 points more of the cost on e-ammonia.}
+\stale{rigid_scaling_data,rigid_kite_data,classes}{\textbf{Other kites.} A VTOL kite, a rigid wing that takes off and lands on its own propellers, flies at ship scale but costs about \NumRigidCostRatio{} times a soft kite's yearly cost per unit of thrust, and on e-ammonia it saves about half the cost per tonne-kilometre that a soft kite or rotors save to Guadeloupe, and on the short route to Bilbao it \NumRigidRoutedBilbaoRigid{}.} \stale{combination_data}{A kite added to rotors saves at most 2 points more of the cost on e-ammonia.}
 
 \section{What the work offers}
 

@@ -354,6 +354,17 @@ study_hull(ship) = ship == "140 m" ? 140.0 : ship_classes()[ship]
 "reference size of each rig on the 140 m ship"
 reference_rigs = [("kite", 3200.0), ("wings", 1500.0), ("rotors", 800.0)]
 
+"projected area [m^2] and aspect ratio at `inputs` of the reference kite of the 140 m ship"
+reference_kite_shape(inputs) = (Dict(reference_rigs)["kite"], inputs[:kite_aspect_ratio])
+
+"canopy price [USD/m^2] at `inputs` of the reference kite of the 140 m ship"
+reference_canopy_price(inputs) =
+    WindShipOpt.canopy_price(inputs, reference_kite_shape(inputs)...)
+
+"canopy price [USD/m^2] as built today at `inputs` of the reference kite of the 140 m ship"
+reference_canopy_price_today(inputs) =
+    WindShipOpt.canopy_price_today(inputs, reference_kite_shape(inputs)...)
+
 "the rigs, as named in the output"
 rig_names = ("kite", "wings", "rotors")
 
@@ -2672,9 +2683,9 @@ Canopy prices [USD/m^2] the kite is routed at for the missed-goal table: the goa
 and either side of them, up to where the kite stops paying on every ship.
 """
 function canopy_prices()
-    goal = WindShipOpt.canopy_price(assumptions)
+    goal = reference_canopy_price(assumptions)
     return sort([goal .* [0.5, 0.75, 1.0, 1.25, 2.5, 3.5, 5.0, 7.0];
-                  WindShipOpt.canopy_price_today(assumptions)])
+                  reference_canopy_price_today(assumptions)])
 end
 
 """
@@ -2684,7 +2695,7 @@ The kite of each ship of [`goal_limit_ships`](@ref) at each of [`canopy_prices`]
 size and every other input held: canopy_price.csv.
 """
 function canopy_price_data()
-    goal = WindShipOpt.canopy_price(assumptions)
+    goal = reference_canopy_price(assumptions)
     inputs = WindShipOpt.canopy_price_inputs
     cases = [trip_case(ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...);
                  assumptions=scaled(inputs, price / goal), route, ship, price)

@@ -350,9 +350,9 @@ function goal_rows()
                 assumptions[:kite_cycle_loss_probability]
     loss = @sprintf("1 in \\num{%.0f}", 1 / kite_loss)
     crew = @sprintf("USD~%.0f per cycle", assumptions[:kite_cycle_crew_cost])
-    price = @sprintf("USD~%.0f/m\$^2\$", WindShipOpt.canopy_price(assumptions))
+    price = @sprintf("USD~%.0f/m\$^2\$", reference_canopy_price(assumptions))
     today = @sprintf("our estimate USD~%.0f/m\$^2\$, from retail cloth and hand sewing",
-        WindShipOpt.canopy_price_today(assumptions))
+        reference_canopy_price_today(assumptions))
     life = assumptions.entries[:canopy_life]
     derived = @sprintf("derived \\num{%.0f} h (\\numrange{%.0f}{%.0f}), ",
         round(WindShipOpt.reference_decay_life(assumptions); sigdigits=2), life.low,
@@ -435,13 +435,13 @@ function missed_goal_rows()
         WindShipOpt.check_goal_cost(ship, "canopy life", Dict("kite" => goal["kite"]),
             Dict("kite" => curve_cost(life_curve, assumptions[:canopy_life])))
         WindShipOpt.check_goal_cost(ship, "canopy price", Dict("kite" => goal["kite"]),
-            Dict("kite" => curve_cost(price_curve, WindShipOpt.canopy_price(assumptions))))
+            Dict("kite" => curve_cost(price_curve, reference_canopy_price(assumptions))))
         for (; rig, rival, rival_cost, ahead) in WindShipOpt.ranked_rivals(goal)
             curve = curves[rig]
             half_goal = assumptions[:canopy_life] / 2
             saving_short = rig == "kite" ?
                            percent_saving(curve_cost(life_curve, half_goal), bare) : NaN
-            today = WindShipOpt.canopy_price_today(assumptions)
+            today = reference_canopy_price_today(assumptions)
             saving_today = rig == "kite" ?
                            percent_saving(curve_cost(price_curve, today), bare) : NaN
             push!(result, (; size_limits(sizes, cheapest[rig], bare, rival, rival_cost)...,
@@ -538,7 +538,7 @@ out of service: positive where the goal can be missed by that much, negative whe
 falls short of it.
 """
 function goal_margins(row)
-    life, price = assumptions[:canopy_life], WindShipOpt.canopy_price(assumptions)
+    life, price = assumptions[:canopy_life], reference_canopy_price(assumptions)
     share = assumptions[Symbol(out_of_service_inputs[row.rig])]
     return [(life .- row.life) ./ life...; (row.price .- price) ./ price...;
             (row.share .- share)...]
@@ -2062,8 +2062,8 @@ at the goal and today, and the share of time out of service; and of the
 """
 goal_numbers() = [
     "CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
-    "CanopyPriceGoal" => @sprintf("%.0f", WindShipOpt.canopy_price(assumptions)),
-    "CanopyPriceToday" => @sprintf("%.0f", WindShipOpt.canopy_price_today(assumptions)),
+    "CanopyPriceGoal" => @sprintf("%.0f", reference_canopy_price(assumptions)),
+    "CanopyPriceToday" => @sprintf("%.0f", reference_canopy_price_today(assumptions)),
     "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal()),
     "KiteGapBias" => @sprintf("%.1f", kite_gap_bias)]
 

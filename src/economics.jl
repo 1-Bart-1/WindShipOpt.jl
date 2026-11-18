@@ -348,25 +348,25 @@ function rig_price_parts(rig::KiteRig{RigidAirframe}, assumptions)
 end
 
 """
-    canopy_price(assumptions)
+    canopy_price(assumptions, area, aspect_ratio)
 
-Price of a canopy per m^2 of projected area [USD/m^2]: its manufacturing cost times the
-market price factor.
+Price of the canopy of a kite of projected `area` [m^2] and projected `aspect_ratio` per m^2
+of projected area [USD/m^2]: its manufacturing cost times the market price factor.
 """
-canopy_price(assumptions) = assumptions[:market_price_factor] *
-                            Canopy(assumptions).cost_per_area
+canopy_price(assumptions, area, aspect_ratio) = assumptions[:market_price_factor] *
+    Canopy(assumptions, area, aspect_ratio).cost_per_area
 
 "inputs that together make the canopy price, the goal's; each has a `_today` counterpart"
 canopy_price_inputs = (:canopy_making_cost_per_area, :canopy_cloth_base_price,
     :canopy_cloth_price_per_weight)
 
 """
-    canopy_price_today(assumptions)
+    canopy_price_today(assumptions, area, aspect_ratio)
 
 [`canopy_price`](@ref) [USD/m^2] of the canopy as built today, from the `_today` inputs.
 """
-canopy_price_today(assumptions) = canopy_price(with_today(assumptions,
-    canopy_price_inputs))
+canopy_price_today(assumptions, area, aspect_ratio) =
+    canopy_price(with_today(assumptions, canopy_price_inputs), area, aspect_ratio)
 
 """
     with_today(assumptions, names)
@@ -385,7 +385,8 @@ market price factor, the tether at its purchase price.
 """
 function consumable_costs(rig::KiteRig, assumptions)
     tether_mass = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
-    return canopy_price(assumptions) * rig.area, assumptions[:tether_price] * tether_mass
+    return canopy_price(assumptions, rig.area, rig.aspect_ratio) * rig.area,
+    assumptions[:tether_price] * tether_mass
 end
 
 """
@@ -429,7 +430,7 @@ wear_cost(rig::CombinedRig, assumptions) = wear_cost(rig.kite, assumptions)
 
 function wear_cost(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
-    return canopy / Canopy(assumptions).lifetime + tether / assumptions[:tether_lifetime]
+    return canopy / canopy_lifetime(assumptions) + tether / assumptions[:tether_lifetime]
 end
 
 """
