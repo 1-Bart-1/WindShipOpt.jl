@@ -134,13 +134,13 @@ end
     latex_prose(text)
 
 Plain-text source note `text` escaped and typeset: about for `~`, en dashes in ranges,
-minus and times signs, digit groups, subscripts, degrees Celsius, the paper's \$C_B\$ and
+minus and times signs, [`prose_number`](@ref)s, subscripts, degrees Celsius, the paper's \$C_B\$ and
 TEU, and page numbers and numbers with their unit unbroken.
 """
 function latex_prose(text)
     text = replace(latex_escape(replace(text, "~" => "about ")),
         r"\d{1,3}(,\d{3})+(?!\d)|(?<![\w.,-])\d{5,}(?=\+|-\d{5,}\b)|(?<=\d-)\d{5,}\b" =>
-            digit_groups)
+            prose_number)
     return replace(text,
         r"(?<![\w-])(\d+(?:\.\d+)?)-(?=\d+(?:\.\d+)?(?![\w-]))" => s"\1--",
         r"(?<![\w-])([A-Z])-(?=[A-Z](?![\w-]))" => s"\1--",
@@ -153,7 +153,19 @@ function latex_prose(text)
         r"(\d) C(?![\w\\])" => s"\1\\,\\si{\\degreeCelsius}",
         r"(\d) \\%" => s"\1\\,\\%", r"\bp\. (?=\d)" => "p.~",
         r"\bCb\b" => "\\ensuremath{C_B}", r"\bteu\b" => "TEU",
-        r"(\d) (?=(m|t|kn|kW|MW|TEU|CEU|dwt|GT)\b)" => s"\1~")
+        r"(\d\}?) (?=(m|t|kn|kW|MW|TEU|CEU|dwt|GT)\b)" => s"\1~")
+end
+
+"""
+    prose_number(number)
+
+`number`, written with thousands commas, as a source note prints it: in
+[`digit_groups`](@ref), and in braces where it has four digits, so that it never reads
+as a year.
+"""
+function prose_number(number)
+    grouped = digit_groups(number)
+    return occursin("\\,", grouped) ? grouped : string("\\num{", grouped, "}")
 end
 
 "a number written with thousands commas, regrouped as the paper's numbers are"

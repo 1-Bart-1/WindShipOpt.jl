@@ -4149,6 +4149,8 @@ end
     @test PaperData.cited_note(note) == "Kalverla's profile (\\citealp[Ch. 2]{kalverla2019}; " *
         "\\citealp{schelbergen2020}) gives 5\\,\\%; \\citet{imo2020} too."
     @test PaperData.cited_note("no source, 50 %") == "no source, 50\\,\\%"
+    @test PaperData.cited_note("Euroseas 1,800 TEU, 12,000 TEU") ==
+          "Euroseas \\num{1800}~TEU, 12\\,000~TEU"
     @test_throws ErrorException PaperData.cited_note("[@a2020; Table 3]")
 end
 
