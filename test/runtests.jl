@@ -464,6 +464,16 @@ end
     @test all(table === first(tables) for table in tables)
 end
 
+@testset "a pattern table written to disk reads back whole, with no temporary file left" begin
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    forces = WindShipOpt.pattern_table(model, max_force, assumptions, [7.3],
+        [deg2rad(60.0)], [0.0])
+    path = joinpath(mktempdir(), "table.bin")
+    WindShipOpt.write_pattern_table(path, forces)
+    @test readdir(dirname(path)) == ["table.bin"]
+    @test WindShipOpt.read_pattern_table(path, size(forces)) == forces
+end
+
 @testset "a kite without flight drag flies where every fixed start misses" begin
     low_drag = WindShipOpt.with_value(assumptions, :kite_flight_drag, 0.0)
     aspect_ratio = assumptions[:kite_aspect_ratio]

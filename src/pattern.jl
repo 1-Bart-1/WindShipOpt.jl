@@ -802,20 +802,21 @@ function pattern_table(model::KiteModel, max_force, assumptions::Assumptions, wi
         assumptions[:kite_min_elevation], wind_speeds, courses, side_weights)
     table = lock(PATTERN_LOCK) do
         get!(() -> Threads.@spawn(load_pattern_table(model, max_force, assumptions,
-                wind_speeds, courses, side_weights, key)), PATTERN_TABLES, key)
+                wind_speeds, courses, side_weights, pattern_table_path(key))),
+            PATTERN_TABLES, key)
     end
     return fetch(table)::Array{PatternForce, 3}
 end
 
 """
     load_pattern_table(model, max_force, assumptions, wind_speeds, courses, side_weights,
-                       key)
+                       path)
 
-The [`pattern_table`](@ref) of `key` read from its disk cache, or computed and stored there.
+The [`pattern_table`](@ref) read from the disk cache file `path`, or computed and stored
+there.
 """
 function load_pattern_table(model::KiteModel, max_force, assumptions::Assumptions,
-        wind_speeds, courses, side_weights, key)
-    path = pattern_table_path(key)
+        wind_speeds, courses, side_weights, path)
     isfile(path) && return read_pattern_table(path,
         (length(wind_speeds), length(courses), length(side_weights)))
     forces = compute_pattern_table(model, max_force, assumptions, wind_speeds, courses,
