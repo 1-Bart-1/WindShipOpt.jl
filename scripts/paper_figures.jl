@@ -499,9 +499,11 @@ in_axis(box, inside) = all(minimum(box) .>= minimum(inside) .- pt(0.5)) &&
     covers_data(scene, plot, box)
 
 Whether `box` [pixels of `scene`] covers a vertex or crosses a segment of `plot`, when it
-is a line or scatter plot of data.
+is a line, scatter, range or error bar plot of data.
 """
 function covers_data(scene, plot, box)
+    plot isa Union{Makie.Rangebars, Makie.Errorbars} &&
+        return any(bar -> bar.space[] == :data && covers_data(scene, bar, box), plot.plots)
     plot isa Union{Makie.Lines, Makie.Scatter, Makie.LineSegments, Makie.Arrows2D} ||
         return false
     data = plot isa Makie.Arrows2D ?
@@ -2102,8 +2104,7 @@ function large_rigs_figure()
     flat_per_projected = 160 / 125
     flown, bound = 320 / flat_per_projected, largest_rig_area("kite", nothing)
     designed = (1000 / flat_per_projected, 1040)
-    marks = ((flown, square_metres("largest ship kite flown, 320 ", " flat")),
-        (first(designed), "largest ship kite designed,\nlargest cargo parachute"))
+    marks = ((flown, "flown"), (first(designed), "designed"))
     rotors_in_service = 5
     foot, gap, cut_size = length(names) + 0.5, pt(3), pt(5)
     rows = (-1.2, length(names) + 0.7)
@@ -2119,8 +2120,8 @@ function large_rigs_figure()
     reference_line!(areas, flown; vertical=true)
     reference_line!(areas, bound; vertical=true, linestyle=:dash)
     for (area, label) in marks
-        text!(areas, area, foot; text=label, rotation=π / 2, align=(:left, :bottom),
-            offset=(-gap, 0), fontsize=note_size, color=:gray35)
+        text!(areas, area, first(rows); text=label, align=(:right, :top),
+            offset=(-gap, -gap), fontsize=note_size, color=:gray35)
     end
     text!(areas, bound, foot; text="upper bound of the search", rotation=π / 2,
         align=(:left, :top), offset=(gap, 0), fontsize=note_size, color=:gray35)
