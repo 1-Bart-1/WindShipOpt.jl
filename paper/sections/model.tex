@@ -15,7 +15,7 @@ The model turns a ship design into a cost per tonne-kilometre on a route. A desi
 \subsection{Ships}
 \label{sec:ships}
 
-Thirteen standard classes of merchant ship (\cref{tab:classes,fig:ship_classes}) run from an \SI{85}{m} coaster to a container ship of \num{24000}~TEU, and that coaster scaled geometrically to \SI{200}{m} isolates the effect of size. The data of the classes come from MAN Energy Solutions' propulsion-trend papers, named ships, broker reports and contracts of 2025 and 2026, and commodity prices. Each hull floats at its design draught, the loaded draught its engine and propeller are designed for, with the deadweight (the mass of cargo, fuel and stores it can carry) of the deeper scantling draught its structure allows. Each class keeps the engine power of its source design, and the router chooses the speed.
+Thirteen standard classes of merchant ship (\cref{tab:classes,fig:ship_classes}) run from an \SI{85}{m} coaster to a container ship of \num{24000}~TEU, and that coaster scaled geometrically to \SI{200}{m} isolates the effect of size. A ship's length is its length between perpendiculars. The data of the classes come from MAN Energy Solutions' propulsion-trend papers, named ships, broker reports and contracts of 2025 and 2026, and commodity prices. Each hull floats at its design draught, the loaded draught its engine and propeller are designed for, with the deadweight (the mass of cargo, fuel and stores it can carry) of the deeper scantling draught its structure allows. Each class keeps the engine power of its source design, and the router chooses the speed.
 
 \begin{figure*}[tbp]
 \centering
@@ -56,7 +56,7 @@ A setting is not used if it heels the ship more than \SI{8}{\degree} \citep{till
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{force_balance}
-\caption{Horizontal forces on the \SI{140}{m} ship at \SI{10.5}{kn} in a \SI{10}{m/s} true wind on the beam, seen from above with the bow up, to scale, for each rig at its best trim; \cref{fig:ship_model} names the forces. The drag is the calm-water and wave resistance with the drag of leeway and rudder, and the propeller gives what the rig and the wind load leave of it (\cref{eq:thrust}). The dashed line is the kite's tether.}
+\caption{\stale{force_balance}{} Horizontal forces on the \SI{140}{m} ship at \SI{10.5}{kn} in a \SI{10}{m/s} true wind on the beam, seen from above with the bow up, to scale, for each rig at its best trim; \cref{fig:ship_model} names the forces. The drag is the calm-water and wave resistance with the drag of leeway and rudder, and the propeller gives what the rig and the wind load leave of it (\cref{eq:thrust}). The dashed line is the kite's tether.}
 \label{fig:force_balance}
 \end{figure*}
 
@@ -139,7 +139,7 @@ Six routes from Rotterdam, Europe's largest port, stand for six trades and their
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{routes}
-\caption{Routed passages on the six routes of a \SI{140}{m} e-ammonia ship without a rig (thin grey) and with a \SI{3200}{m^2} kite (coloured by route), for a winter (a) and a summer (b) departure, over the \SI{10}{m} wind five days after departure. Dotted lines are great circles. Solid lines are outbound, dashed lines homeward, each through the corridor's nodes (dots).}
+\caption{\stale{routes_figure}{} Routed passages on the six routes of a \SI{140}{m} e-ammonia ship without a rig (thin grey) and with a \SI{3200}{m^2} kite (coloured by route), for a winter (a) and a summer (b) departure, over the \SI{10}{m} wind five days after departure. Dotted lines are great circles. Solid lines are outbound, dashed lines homeward, each through the corridor's nodes (dots).}
 \label{fig:routes}
 \end{figure*}
 
@@ -161,7 +161,7 @@ A ship does not plan its passage once. It plans the rest of the passage at depar
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{router}
-\caption{The weather router on one winter passage to Guadeloupe of a \SI{140}{m} e-ammonia ship with a \SI{3200}{m^2} kite, on the corridor of the results. (a) The corridor's nodes, coloured by the cheapest passage through each as the search estimated it, its cost so far plus the estimated cost to go, above the passage found; the search went on from the coloured nodes and from the dark ones, for which the estimate found no path onward, pruned every state it reached at the open ones and reached none of the grey dots. Thin lines are the edges each node of the passage may take to the next stage, arrows the \SI{10}{m} wind at a share of the nodes when the passage reached their stage. The passage is blue where the kite flies. (b) Speed held and (c) \SI{10}{m} wind along the passage, shaded where the kite flies.}
+\caption{\stale{router}{} The weather router on one winter passage to Guadeloupe of a \SI{140}{m} e-ammonia ship with a \SI{3200}{m^2} kite, on the corridor of the results. (a) The corridor's nodes, coloured by the cheapest passage through each as the search estimated it, its cost so far plus the estimated cost to go, above the passage found; the search went on from the coloured nodes and from the dark ones, for which the estimate found no path onward, pruned every state it reached at the open ones and reached none of the grey dots. Thin lines are the edges each node of the passage may take to the next stage, arrows the \SI{10}{m} wind at a share of the nodes when the passage reached their stage. The passage is blue where the kite flies. (b) Speed held and (c) \SI{10}{m} wind along the passage, shaded where the kite flies.}
 \label{fig:router}
 \end{figure*}
 

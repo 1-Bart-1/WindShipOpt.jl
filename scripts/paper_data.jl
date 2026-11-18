@@ -79,23 +79,18 @@ expected_forecast() = ExpectedForecast(forecast_archive, forecast_error())
 """
     round_trips(cases, departures)
 
-Round trips of all `cases`, threaded, taking those the case store holds for the run in use
-([`stored_entry`](@ref)) and storing the others; the kite pattern tables of the others are
-computed first, one kite at a time.
+Round trips of all `cases`, taking those the case store holds for the run in use
+([`stored_entry`](@ref)) and computing the others, by the jobs of `case_jobs` where
+[`handed_out`](@ref) says so, else here ([`compute_trips`](@ref)).
 """
 function round_trips(cases, departures)
     directories = [case_directory(case, departures) for case in cases]
     entries = Any[stored_entry(directory, case)
                   for (case, directory) in zip(cases, directories)]
     computed = findall(ismissing, entries)
-    for case in cases[computed]
-        max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
-            Ship(case.design, case.assumptions)
-    end
-    Threads.@threads :greedy for k in computed
-        entries[k] = stored_trip(() -> case_trip(cases[k], departures), directories[k],
-            cases[k])
-    end
+    todo = (cases[computed], directories[computed], departures)
+    entries[computed] = handed_out(case_jobs, length(computed)) ?
+                        job_trips(case_jobs, todo...) : compute_trips(todo...)
     foreach(tally_case!, cases, directories, entries)
     trips = [entry.trip for entry in entries]
     older = count(entry -> entry.model != paper_run.trip_model, entries)
@@ -103,6 +98,26 @@ function round_trips(cases, departures)
         length(cases) - length(computed), " stored",
         older > 0 ? ", $older by older code" : "")
     return trips
+end
+
+"""
+    compute_trips(cases, directories, departures)
+
+Case-store entries of the round trips of `cases` over `departures`, computed on the threads
+of this process and stored in `directories`, the kite pattern tables first, one kite at a
+time.
+"""
+function compute_trips(cases, directories, departures)
+    for case in cases
+        max(case.design.kite_area, case.design.rigid_kite_area) > 0 &&
+            Ship(case.design, case.assumptions)
+    end
+    entries = Vector{Any}(undef, length(cases))
+    Threads.@threads :greedy for k in eachindex(cases)
+        entries[k] = stored_trip(() -> case_trip(cases[k], departures), directories[k],
+            cases[k])
+    end
+    return entries
 end
 
 """

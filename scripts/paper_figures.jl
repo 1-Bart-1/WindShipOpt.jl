@@ -356,7 +356,7 @@ function rig_comparison_figure()
                 push!(best, (i, first_row - 1 + argmax(replace(savings, NaN => -Inf))))
             end
         end
-        axis = Axis(figure[1, column]; title, xlabel="waterline length [m]",
+        axis = Axis(figure[1, column]; title, xlabel="ship length [m]",
             xticks=(eachindex(lengths), string.(round.(Int, lengths))),
             yticks=(eachindex(labels), labels), yreversed=true,
             yticklabelsvisible=column == 1)
@@ -1114,7 +1114,7 @@ best size of each rig closes, over ship length on the route to Guadeloupe.
 function premium_figure()
     designs = read_table(data_file("designs.csv"))
     figure = Figure(size=(column_width, 165))
-    axis = Axis(figure[1, 1]; xlabel="waterline length [m]", xticks=85:25:200,
+    axis = Axis(figure[1, 1]; xlabel="ship length [m]", xticks=85:25:200,
         ylabel="fuel premium closed [%]")
     lengths = sort(unique(designs["length"]))
     ends = Float64[]
