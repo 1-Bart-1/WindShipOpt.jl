@@ -173,6 +173,21 @@ Part & Model & kite & wings & rotors & Cheapest rig changes & Known error \\
 \InputIfFileExists{sections/fidelity_table}{}{\multicolumn{7}{@{}l}{\tbd{Pending: run the fidelity\_table step.}}\\}
 \end{longtable}}
 
+\subsection{Limits that act on every rig}
+\label{sec:disc_common}
+
+The limits below act on the ship with and without a rig, and on all rigs alike, so they move the cost savings more than the order of the rigs.
+
+\textbf{Six routes, three years of weather.} The routes cover the trade winds of both hemispheres, the westerlies, the Bay of Biscay and the African coast, but all start in Rotterdam and lie in the Atlantic. They stand for wind climates, not for the trades of each class. The Pacific and the Indian Ocean are missing, and three years cannot show the variation between years. The wind field, \given{\SI{1.5}{\degree}} and six hours, is coarse enough that it more likely understates the gain from wind than overstates it \citep{wendling2025}.
+
+\textbf{Calm-water resistance.} Each class hull is calibrated so that its calm-water power at service speed matches its source design (\cref{sec:model}), with the resistance from the method of \citet{holtrop1982}. One factor fixes the level, not how the resistance grows with speed, on which the router trades fuel against time. On tank tests of comparable hulls the method's resistance grows \given{2 to 7}\,\% too fast between \given{\SI{10}{kn}} and service speed (\cref{sec:checks}), so the calibrated hulls ask up to that much too little fuel when slow, which makes slowing down look cheaper than it is. Where the bulk carriers' excess of up to \given{32}\,\% lies is not known (\cref{app:calm_calibration}): were it all in the friction and form drag, their resistance would be up to \given{5}\,\% lower at \given{\SI{8}{kn}} and up to \given{5}\,\% higher \given{\SI{2}{kn}} above service speed than one factor gives, and up to \given{2}\,\% on the other classes. The Kamsarmax, with a prismatic coefficient of \given{0.86}, lies beyond the hulls the method covers. Evaluated there unchanged it would make its calm-water power at operating speed \given{3}\,\% lower, so we evaluate the formulas at \given{0.85}, with its true displacement (\cref{app:full_hulls}); the tank test of the Japan Bulk Carrier, at \given{0.84}, supports the method up to there.
+
+\textbf{Added resistance in waves is a mean estimate.} The recalibrated formula we use explains \given{73}\,\% of the variance of \given{\num{1127}} model-test samples from \given{25} ships \citep{mittendorf2022}. It acts alike on the ship with and without a rig, except where a rough sea keeps the kite from launching.
+
+\textbf{The wind on the ship itself.} Measured wind loads of single ships scatter about the wind-tunnel coefficients of their type \citep{blendermann1993}, and the bulk carriers borrow the laden tanker's shape without their cranes and hatch coamings, the raised rims of the cargo hatches. \stale{model_parts}{Against a simpler estimate with no side force the method lowers the cost saving of each rig on VLSFO by 0.06 to 0.34 points on the four container ships and the car carrier, and the order of the rigs that save money stays the same.}
+
+\textbf{Round trips on fixed trades.} Every ship sails out and back between the same two ports, with the return passage free to bend into the westerlies or the trades within its corridor, as liner services run. Tramp bulk carriers and tankers, which have no fixed route, follow the next cargo, often on triangular or ballast voyages, and could prefer voyages that follow the clockwise circulation of the North Atlantic winds, so our round trips understate what such an operator could gain.
+
 \subsection{Where each rig acts on the ship}
 \label{sec:tow_point}
 
@@ -198,6 +213,10 @@ A rig's side force turns the ship unless it acts where the hull's own side force
 
 \Cref{tab:flight} gives where the kite works by band of wind angle (\cref{sec:res_forces}), and \cref{tab:sea_effect} its cost saving with and without the extra launch wind in a sea (\cref{sec:kite,sec:res_inputs}).
 
+Where the kite flies follows from the wind angles at which it pulls (\cref{fig:rig_polar,tab:flight}). Upwind of \given{\SI{30}{\degree}} \stale{flight}{it could pull for only 11\,\% of the time and is rarely up}. From \given{\SIrange{60}{150}{\degree}} it flies for most of the time it could pull, and the router keeps it down where the thrust would not pay for its wear. In lulls it is held still at the side of the window, where it still pulls a little, and through short stretches of head wind it stays up held still, since landing and launching cost more than its drag, so \stale{flight}{\tbd{17}\,\%} of its hours aloft give no thrust. \stale{flight}{It pulls down to an apparent wind angle of 15.1\,\si{\degree} (\cref{eq:upwind_limit}), the wing sails and rotors to \SI{6.4}{\degree} and \SI{8.4}{\degree}, because their lift to drag is higher than the kite's whole-system value. Over the 28 cases with a kite it is up 34\,\% of the time.}
+
+\stale{sea_effect}{How much the kite's handling in waves carries is shown apart, as it rests on a single reported case (\cref{sec:kite}). \Cref{tab:sea_effect} gives the kite's cost saving on six ships from \given{\SIrange{85}{350}{m}} with the extra launch wind and with no sea effect at all. The effect costs the kite 1 point on the \SI{85}{m} coaster and on the \SI{140}{m} ship and less than half a point on the larger ships, whose difference is inside the router's noise, and the time the kite is up falls by 4 points on the coaster, 3 on the \SI{140}{m} ship and at most 1 on the larger ships. Its scale, from no sea effect to twice the reported rise, is one of the five limits the kite's weather window moves together (\cref{tab:development}).}
+
 \begin{table*}[tbp]
 \centering
 \caption{\stale{flight}{} Where the kite works over the 28 cases with a kite, each with its cheapest size, by band of true wind angle: share of the time in the band, share of that time in which the kite could pull, is up and pulls, its mean thrust while up, lulls and upwind drag included, the share of the hours at each ship speed in which it could pull and in which it is up, the speed of the ship without a rig and of the kite ship in that band, and the lowest apparent wind angle (AWA) at which each rig pulls. \tbd{Draft run.}}
@@ -215,6 +234,8 @@ A rig's side force turns the ship unless it acts where the hull's own side force
 \subsection{Interference between deck rigs}
 \label{app:interference}
 
+\textbf{Deck rigs.} No ship in service carries more than five rotors \citep{gcaptain2021seazhoushan,maritimeexecutive2024sohar}, \stale{classes}{far fewer than the study asks for on the largest ships} (\cref{fig:large_rigs}). Wing sails and rotors are modelled at the same level as the kite: steady force coefficients and the same leeway, heel and rudder balance. Interference is the least certain coefficient and matters most for long rows. CFD (computational fluid dynamics) and wind-tunnel tests of two to four units find losses of up to \given{37}\,\% of the driving force, and the rotor tests stop at a spin ratio of \given{2}, below the \given{3} at which our rotors run. Our array factor, the share of the force of isolated units that a row keeps, lies low against CFD of widely spaced wing sails and high for close ones. Both rigs can stay up when the kite would have to come down, which the model counts only as the absence of a launch limit.
+
 In two-dimensional potential flow, three wing sails in line lose up to \given{6}\,\% of thrust and four in a two-by-two layout \given{10} to \given{28}\,\% \citep{vanreen2026}. In the wind tunnel, two rotors three diameters apart in line lost up to \given{37}\,\% of driving force at \given{\SI{30}{\degree}} apparent wind, gained up to \given{17}\,\% downwind, and lost \given{4} to \given{6}\,\% on average over the wind angles of a reaching ship \citep{bordogna2020}. CFD of wing sails on a bulk carrier gives \given{98}\,\% of the isolated thrust for three sails \given{2.4} chords apart and \given{77}\,\% for five sails \given{1.4} chords apart \citep{mboumba2022}, the chord being the depth of a wing from front to back. Our array factor gives \given{91} and \given{85}\,\%, which takes back a third of the loss for sails trimmed one by one, and \given{87} and \given{78}\,\% at fixed trim.
 
 \subsection{Wind shear by region}
@@ -229,6 +250,8 @@ In the well-mixed trade-wind belt our ERA5 profiles give only \given{1.17} times
 
 \subsection{Cost split against published studies}
 \label{app:cost_split}
+
+\stale{classes}{The cost per tonne-kilometre stays the measure for all ships, so that classes compare like for like. For space-limited ships it stands in for a cost per slot, since their tonnes are their slots times a fixed cargo per unit. As a check, the cost per TEU-kilometre of the container ships and per car-kilometre of the car carrier is \tbd{values to be added} US cents.}
 
 Published cost splits leave out the interest on the cargo, which the cargo owner bears, and mostly the port dues. \stale{designs}{On that basis fuel is 30\,\% rather than a quarter of the cost of our \SI{85}{m} ship and 41\,\% of our \SI{200}{m} ship on VLSFO, at the speeds chosen by cost of about 10 to 11~kn.} \Citet{karvonen2020} give \given{23}\,\% for a general cargo ship of \given{\num{3500}}~t deadweight at \given{\SI{9}{kn}} and \given{51}\,\% for a bulk carrier of \given{\num{60000}}~t at \given{\SI{11.6}{kn}}, with fuel about a sixth cheaper than ours. The day rates of \citet{healy2019} give \given{30} to \given{45}\,\% for a Handysize bulk carrier between \given{10} and \given{\SI{13}{kn}}, once we count their earnings as the return on capital. Fuel's share grows with speed, so ours sits where these put it. \stale{designs}{On the same basis capital with maintenance and insurance is 48 to 50\,\% of our cost against 34 to 58\,\% in \citet{karvonen2020}, crew and other running costs are 9 to 17\,\% against their 11 to 13\,\%, larger on the smaller ship, and port dues are about 4\,\%.} \stale{designs}{Cargo interest grows from an eighth of our cost on the \SI{85}{m} ship to two fifths on the \SI{200}{m} ship,} because every ship of the design study carries general cargo worth USD~\given{\num{2500}} a tonne (\cref{sec:inputs}); a bulk carrier's cargo is worth a tenth of that or less, and the class study prices each class's own cargo (\cref{tab:classes}).
 
@@ -285,8 +308,21 @@ The kites of \citet{podeur2016} and \citet{leloup2013} pull with a glide ratio o
 \label{fig:cargo_interest}
 \end{figure*}
 
+\subsection{One passage}
+\label{app:passage}
+
+On a voyage the router turns a rig's thrust (\cref{fig:rig_polar}) into fuel or speed. \Cref{fig:passage} follows one winter passage to Guadeloupe. \stale{passage}{The ships with a rig take a track south of the great circle, in the trade winds, while the ship without a rig stays close to it, and the kite and rotor ships arrive about two days before it.} \stale{passage}{The wing sails' thrust, about 40~kN on average and at most 170~kN on this passage, is too small to speed their ship much. The kite's and the rotors', about 560 and 150~kN, are enough. The kite pulls in long bursts, in which its ship speeds up to as much as 16~kn and its fuel power drops to almost nothing, and sails on the engine in between.} The rotors pull more steadily and less.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{passage}
+\caption{\stale{passage}{} One outbound passage to Guadeloupe, departing on \given{1 January 2017}, of a \given{\SI{140}{m}} e-ammonia ship without a rig and with a \given{\SI{3200}{m^2}} kite, \given{\SI{1500}{m^2}} of wing sails or \given{\SI{800}{m^2}} of rotors. (a) The routed track of each ship in its colour, a track that ships share drawn one inside the other, through the corridor's nodes (dots), the great circle dotted, over the \given{\SI{10}{m}} wind six days after departure. (b) Speed through the water, (c) rig thrust on a logarithmic scale, left out below \given{\SI{5}{kN}}, and (d) fuel power, every three hours of the passage.}
+\label{fig:passage}
+\end{figure*}
+
 \subsection{Through the year}
 \label{app:seasons}
+\label{sec:res_seasons}
 
 These averages over the year hide the seasons. We call departures from October to March winter and those from April to September summer (\cref{fig:season}). Each rig stands at its best size over the year and each departure is costed on the ship of the whole year, with its fuel store, cargo and rig, so a point carries one year's weather as well as the season. \stale{routes}{On the \SI{140}{m} e-ammonia ship, on the three ocean routes this draft finished for every rig (Guadeloupe, Dakar, Tubarão), the rotors save 16 to 20\,\% of the cost in winter and 8 to 15\,\% in summer, the kite about 10 and 3 to 9\,\%, and the wing sails 7 to 12 and 2 to 8\,\%. The rotors lead in both halves on these routes. To Bilbao the rotors save 7\,\%, the kite 6\,\% and the wing sails 3\,\% of the cost in winter, and in summer only the rotors pay, by 1\,\%.} \stale{routes}{This draft has three departures in each half, and one departure moves a half's cost saving by several points. The final run has twelve departures over the year.}
 
@@ -297,6 +333,25 @@ A deck rig's thrust grows with the square of the apparent wind, so the stronger 
 \plot[\textwidth]{season}
 \caption{\stale{routes}{} Cost saving of each departure against the same ship without a rig, over its departure date in the year, for the \SI{140}{m} e-ammonia ship on the six routes, each rig at its best size over the year. Each point is one departure from the years 2017 to 2019, costed on the ship of the whole year.}
 \label{fig:season}
+\end{figure*}
+
+\subsection{Rig size}
+\label{sec:res_size}
+
+\stale{classes}{Every cost saving of the article is at a rig's best size, and on the largest ships a bound sets that size. On most large ships the best wing sails and rotors are the largest that fit on deck, up to 15 wing sails and 23 rotors on the Megamax container ship, so there the deck sets their size and their cost saving (\cref{fig:class_sizes,fig:rig_comparison}). The best kite reaches \given{\SI{16000}{m^2}}, the upper bound of the search, on the Megamax on four of the six routes on e-ammonia and one on VLSFO, and otherwise lies one step inside it; on the Neo-Panamax and the VLCC it stands on the step inside the bound on most routes and on the bound on at most one. The largest ship kite designed so far is \given{\SI{1000}{m^2}} \citep{airseas_seawing_web}. The bound is a limit of the model, so on these three ships the kite's best size and cost saving are not known, only that they are at least this large. At the other end the best kite of the coaster is the smallest searched, \given{\SI{500}{m^2}}, on four of the six routes on both drives. \stale{designs}{On the \SI{140}{m} e-ammonia ship to Guadeloupe the kite saves 10\,\% of the cost at \SI{1600}{m^2} and about one point less at half or twice that area.} \Cref{sec:disc_size} takes up what these sizes mean, and \cref{fig:abatement} shows the fuel that a rig larger than the cheapest would still save.}
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{class_sizes}
+\caption{\stale{classes}{} The rig area that lowers the cost per tonne-kilometre most for each ship class with a VLSFO (a) and an e-ammonia (b) drive: the geometric mean over the six routes (marker) and the range over them (bar). Beside each panel is the median number of units of each rig at that size, in a column with the rig's name at its foot, in the colour of its marker and bar; a kite rig is one kite. Kites were searched from \given{\SIrange{500}{16000}{m^2}}, wing sails and rotors from a fifth to all of what fits on deck. Where a bound was the best size searched, the search also tried the size one step inside it.}
+\label{fig:class_sizes}
+\end{figure*}
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{rig_comparison}
+\caption{\stale{designs}{} Cost saving against the same ship without a rig on the route to Guadeloupe, for every size of kite, wing sails and rotors (rows) and ship length (columns), with a VLSFO (a) and an e-ammonia (b) drive. The outlined cell is the best size of each rig on each ship. Blank cells are sizes that do not fit on deck or were not run. Wing sails and rotors were run on three of the five lengths.}
+\label{fig:rig_comparison}
 \end{figure*}
 
 \subsection{Fuel saved beyond the cheapest size}
