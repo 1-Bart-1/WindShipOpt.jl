@@ -96,6 +96,13 @@ export const differs = (value: number, base: number) =>
 export const changedInputs = (data: ExplorerData, changes: Record<string, number>) =>
   Object.keys(changes).filter((name) => differs(changes[name], data.inputs[name].value));
 
+/** The factor on each ship's cargo value that the paper uses. */
+export const paperCargoFactor = 1;
+
+/** How many inputs, the cargo value's factor among them, differ from the paper's. */
+export const changedCount = (data: ExplorerData, changes: Record<string, number>, cargoFactor: number) =>
+  changedInputs(data, changes).length + (differs(cargoFactor, paperCargoFactor) ? 1 : 0);
+
 /** `changes` without `names`, which then take the paper's values. */
 export const resetInputs = (changes: Record<string, number>, names: string[]) =>
   Object.fromEntries(Object.entries(changes).filter(([name]) => !names.includes(name)));

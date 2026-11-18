@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { explorerPath } from "../data";
 import { evaluated, inputValues, type ExplorerData } from "./explorer";
-import { changedInputs, inputGroups, resetInputs } from "./inputs";
+import { changedCount, changedInputs, inputGroups, paperCargoFactor, resetInputs } from "./inputs";
 import { evaluate, type RecordedNode } from "./recording";
 
 const data: ExplorerData = JSON.parse(readFileSync(explorerPath(), "utf8"));
@@ -46,4 +46,14 @@ test("resetting each input, or all at once, gives back exactly the paper's input
   expect(changedInputs(data, changes)).toEqual([]);
   expect(evaluated(data, inputValues(data, changes, 1))).toEqual(paper);
   expect(evaluated(data, inputValues(data, resetInputs(moved, names), 1))).toEqual(paper);
+});
+
+test("the cargo value counts as a changed input, and its paper value gives back the paper's results", () => {
+  const moved = { vlsfo_price: 2 * data.inputs.vlsfo_price.value };
+  expect(changedCount(data, moved, 2)).toBe(2);
+  expect(changedCount(data, {}, 2)).toBe(1);
+  expect(changedCount(data, {}, paperCargoFactor)).toBe(0);
+  const paper = evaluated(data, inputValues(data, {}, paperCargoFactor));
+  expect(evaluated(data, inputValues(data, {}, 2))).not.toEqual(paper);
+  expect(evaluated(data, inputValues(data, resetInputs(moved, Object.keys(moved)), paperCargoFactor))).toEqual(paper);
 });

@@ -21,13 +21,15 @@ const degrees = (angle: number, positive: string, negative: string) =>
 
 const kindLabels = { w: "open water", x: "unusable" };
 
-/** The router's corridor grids of `route` on a globe or a flat map, from grids.json; nothing without one. */
+/** The router's corridor grids of `route` on a globe or a flat map, from grids.json; a note where it has none for `route`. */
 export function GridView({ route }: { route: string }) {
   const [data, setData] = useState<GridData>();
   useEffect(() => {
     loadJson<GridData>("grids.json").then(setData).catch(() => undefined);
   }, []);
-  if (!data?.routes.some((entry) => entry.name === route)) return null;
+  if (!data) return null;
+  if (!data.routes.some((entry) => entry.name === route))
+    return <p className="text-ink-light">No router grid was exported for this route.</p>;
   return <Grids data={data} route={route} />;
 }
 

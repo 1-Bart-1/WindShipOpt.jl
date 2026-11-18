@@ -15,10 +15,11 @@ import {
 } from "./explorer";
 import {
   canopyPriceInputs,
-  changedInputs,
+  changedCount,
   differs,
   exactInputs,
   inputGroups,
+  paperCargoFactor,
   resetInputs,
   type InputControl,
 } from "./inputs";
@@ -53,14 +54,14 @@ function Explorer({ data }: { data: ExplorerData }) {
   const [route, setRoute] = useState(0);
   const [drive, setDrive] = useState<string>("ammonia");
   const [changes, setChanges] = useState<Record<string, number>>({});
-  const [cargoFactor, setCargoFactor] = useState(1);
+  const [cargoFactor, setCargoFactor] = useState(paperCargoFactor);
   const values = useMemo(
     () => evaluated(data, inputValues(data, changes, cargoFactor)),
     [data, changes, cargoFactor],
   );
   const all = useMemo(() => outcomes(data, values), [data, values]);
   const best = bestDesigns(all, ship, route, drive);
-  const changed = changedInputs(data, changes).length + (differs(cargoFactor, 1) ? 1 : 0);
+  const changed = changedCount(data, changes, cargoFactor);
   const change = (name: string, value: number) => setChanges({ ...changes, [name]: value });
   const reset = (names: string[]) => setChanges(resetInputs(changes, names));
   const setCanopyToday = () =>
@@ -104,7 +105,7 @@ function Explorer({ data }: { data: ExplorerData }) {
           </span>
           <span className="rule hidden flex-1 sm:block" />
           <button className="button" disabled={changed === 0}
-            onClick={() => { setChanges({}); setCargoFactor(1); }}>
+            onClick={() => { setChanges({}); setCargoFactor(paperCargoFactor); }}>
             Back to the paper's inputs
           </button>
         </div>
@@ -128,7 +129,8 @@ function Explorer({ data }: { data: ExplorerData }) {
               {group.title === "Money and time" && (
                 <Slider
                   control={{ name: "cargo", label: `Cargo value (base ${formatted(data.inputs[`cargo_value:${data.classes[ship].name}`].value, 0)} USD/t)`, unit: "% of base", scale: 100, min: 25, max: 400, step: 5 }}
-                  value={cargoFactor} base={1} onChange={setCargoFactor} onReset={() => setCargoFactor(1)} />
+                  value={cargoFactor} base={paperCargoFactor} onChange={setCargoFactor}
+                  onReset={() => setCargoFactor(paperCargoFactor)} />
               )}
             </fieldset>
           ))}

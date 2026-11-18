@@ -25,14 +25,16 @@ import { Select } from "../Select";
 
 const rigOrder: PassageDesign["rig"][] = ["none", "kite", "wings", "rotors"];
 
-/** Routed passages of route `route` on a globe, with the ship and its rig, on one time cursor. */
+/** Routed passages of route `route` on a globe, with the ship and its rig, on one time cursor;
+ * a note where passages.json has none for `route`. */
 export function PassageView({ route }: { route: string }) {
   const [index, setIndex] = useState<PassageIndex>();
   useEffect(() => {
     loadJson<PassageIndex>("passages.json").then(setIndex).catch(() => undefined);
   }, []);
   const shown = index?.routes.findIndex((entry) => entry.name === route) ?? -1;
-  if (!index || shown < 0) return null;
+  if (!index) return null;
+  if (shown < 0) return <p className="text-ink-light">No routed passages were exported for this route.</p>;
   return <Passages index={index} route={shown} />;
 }
 
@@ -84,9 +86,9 @@ function Passages({ index, route }: { index: PassageIndex; route: number }) {
         <span className="rule flex-1" />
       </header>
       <p className="max-w-3xl">
-        Each passage is the one the router found for a {index.designs[0].length.toLocaleString("en")} m ship
-        with this rig on the route chosen above, with its speed, thrust, fuel power and the
-        rig's trim recorded at every point it sailed. Drag the time cursor or press play.
+        Each passage is the one the router found on the route chosen above for a{" "}
+        {index.designs[0].length.toLocaleString("en")} m ship with this rig, whichever ship is picked above.
+        Its speed, thrust, fuel power and the rig's trim are recorded at every point it sailed. Drag the time cursor or press play.
       </p>
       <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className="space-y-4">

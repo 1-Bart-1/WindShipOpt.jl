@@ -39,6 +39,7 @@ export interface GridView {
 /** One shown grid's lines and nodes in longitude and latitude [deg], built once per view. */
 interface GridLayer extends ShownGrid {
   meshLines: [number, number][][];
+  /** empty unless the view shows every edge */
   edgeLines: [number, number][][];
   rowFolds: [number, number][][];
   backwardEdges: [number, number][][];
