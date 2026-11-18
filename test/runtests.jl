@@ -152,10 +152,11 @@ end
 @testset "steps of a flown cycle give its force and peak and its own apparent wind" begin
     soft, soft_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     rigid, rigid_force, = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
-    steered = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15))
+    straight = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15), 0.0)
+    weaving = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15), deg2rad(20))
     loop = WindShipOpt.LoopPattern(π / 2, 0.8, 0.3, deg2rad(8))
-    for (model, max_force, pattern, wind) in
-        ((soft, soft_force, steered, 12.0), (rigid, rigid_force, loop, 30.0))
+    for (model, max_force, pattern, wind) in ((soft, soft_force, straight, 12.0),
+        (soft, soft_force, weaving, 12.0), (rigid, rigid_force, loop, 30.0))
         path = WindShipOpt.PatternStep[]
         force = WindShipOpt.PatternForce(model, pattern, wind, max_force; path)
         load = 0.5model.air_density * wind^2 * model.area
@@ -216,6 +217,21 @@ least_off_wind(path) = minimum(acos(first(step.radial)) for step in path)
     @test least_off_wind(upwind) > π / 4
     downwind = best_pattern_path(model, max_force, assumptions, 0.0)
     @test least_off_wind(downwind) < π / 4
+end
+
+@testset "a kite weaves its legs where weaving pulls harder than straight legs" begin
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    course = deg2rad(120)
+    problem = WindShipOpt.PatternProblem(model, max_force,
+        deg2rad(assumptions[:kite_min_elevation]), 12.0, course, 0.0)
+    weaving, parameters = WindShipOpt.optimal_pattern(problem,
+        WindShipOpt.pattern_starts(course))
+    chosen = WindShipOpt.pattern_of(parameters)
+    straight = WindShipOpt.PatternForce(model, WindShipOpt.SteeringPattern(chosen.centre,
+        chosen.half_width, chosen.heading, chosen.angle_of_attack, 0.0), 12.0, max_force)
+    thrust(force) = force.force[1] * cos(course) + force.force[2] * sin(course)
+    @test chosen.weave > deg2rad(10)
+    @test thrust(weaving) > thrust(straight)
 end
 
 @testset "a heavy wing flies crosswind though it cannot hang at rest" begin
@@ -454,6 +470,24 @@ end
     thrust(force) = force.force[1] * cos(course) + force.force[2] * sin(course)
     @test isfinite(flown[1].peak_tension)
     @test thrust(flown[1]) > 0
+end
+
+@testset "threads asking for one kite's pattern table together share one table" begin
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    winds, courses, side_weights = [7.3], [deg2rad(60.0)], [0.0]
+    tables = fetch.([Threads.@spawn WindShipOpt.pattern_table(model, max_force,
+                         assumptions, winds, courses, side_weights) for _ in 1:4])
+    @test all(table === first(tables) for table in tables)
+end
+
+@testset "a pattern table written to disk reads back whole, with no temporary file left" begin
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    forces = WindShipOpt.pattern_table(model, max_force, assumptions, [7.3],
+        [deg2rad(60.0)], [0.0])
+    path = joinpath(mktempdir(), "table.bin")
+    WindShipOpt.write_pattern_table(path, forces)
+    @test readdir(dirname(path)) == ["table.bin"]
+    @test WindShipOpt.read_pattern_table(path, size(forces)) == forces
 end
 
 @testset "a kite without flight drag flies where every fixed start misses" begin
@@ -717,12 +751,12 @@ end
     @test force(5.8751, 26.6411).side ≈ 64411 rtol = 1e-3
     @test force(6.6205, 50.2378).thrust ≈ 20159 rtol = 1e-3
     @test force(6.6205, 50.2378).side ≈ 77488 rtol = 1e-3
-    @test force(8.82947, 86.695695).thrust ≈ 113451 rtol = 1e-3
-    @test force(8.82947, 86.695695).side ≈ 249728 rtol = 1e-3
-    @test force(11.161535, 114.227745).thrust ≈ 241072 rtol = 1e-3
-    @test force(11.161535, 114.227745).side ≈ 216840 rtol = 1e-3
-    @test force(13.802571, 148.57094).thrust ≈ 337744 rtol = 1e-3
-    @test force(13.802571, 148.57094).side ≈ 77976 rtol = 1e-3
+    @test force(8.82947, 86.695695).thrust ≈ 118083 rtol = 1e-3
+    @test force(8.82947, 86.695695).side ≈ 239738 rtol = 1e-3
+    @test force(11.161535, 114.227745).thrust ≈ 246678 rtol = 1e-3
+    @test force(11.161535, 114.227745).side ≈ 205691 rtol = 1e-3
+    @test force(13.802571, 148.57094).thrust ≈ 343903 rtol = 1e-3
+    @test force(13.802571, 148.57094).side ≈ 4260 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
@@ -4182,6 +4216,23 @@ end
     @test ShipDesign(:vlsfo, 100.0; kite_area=800.0).kite_area == 800
 end
 
+@testset "the fuel premium a rig closes is ranged over the ship lengths it was run at" begin
+    rows = [("base", "vlsfo", 85.0, 0, 0, 0, 1.0), ("base", "ammonia", 85.0, 0, 0, 0, 1.5),
+        ("base", "ammonia", 85.0, 800, 0, 0, 1.2),
+        ("base", "ammonia", 85.0, 1600, 0, 0, 1.25),
+        ("high", "ammonia", 85.0, 800, 0, 0, 1.0),
+        ("base", "ammonia", 85.0, 0, 0, 400, 1.3),
+        ("base", "ammonia", 85.0, 0, 300, 0, 1.4), ("base", "vlsfo", 140.0, 0, 0, 0, 1.0),
+        ("base", "ammonia", 140.0, 0, 0, 0, 1.4),
+        ("base", "ammonia", 140.0, 800, 0, 0, 1.1)]
+    names = ("scenario", "drive", "length", "kite_area", "wing_area", "rotor_area", "cost")
+    designs = Dict(name => getindex.(rows, k) for (k, name) in enumerate(names))
+    @test Dict(PaperData.design_premium_numbers(designs)) == Dict(
+        "DesignPremium" => "40 to 50", "DesignPremiumBestRig" => "20",
+        "DesignPremiumClosedKite" => "60 to 75", "DesignPremiumClosedWings" => "20",
+        "DesignPremiumClosedRotors" => "40")
+end
+
 @testset "a pair's extra saving has its standard error over the departures as noise" begin
     rows = [(route, rig, kite_area, rotor_area, cost)
             for (route, pair_costs) in (("steady", fill(7.0, 4)), ("varying", [7, 8, 7, 8.0]))
@@ -4380,6 +4431,37 @@ end
     @test PaperData.advice_text(ammonia) ==
           "on e-ammonia use the kite on container ships and tankers, and either the kite " *
           "or the rotors on car carriers, bulk carriers and general cargo ships"
+end
+
+@testset "the answer gives each ship type its rig and what it saves a ship a year" begin
+    saved(share, usd, carbon) = (; saved=usd, share, carbon)
+    per_ship = Dict("kite" => saved(14.2, 5.3e6, 9.6e9), "wings" => saved(4.5, 1.7e6, 2.9e9),
+        "rotors" => saved(13.8, 4.1e6, 9.2e9))
+    rows = [(; row..., per_ship) for row in draft_leads if row.drive == "vlsfo"]
+    @test PaperData.answer_clause(rows[1]) ==
+          "the kite on container ships, 14\\,\\%, USD~\\num{5.3} million and " *
+          "\\num{9600}~t of CO\$_2\$"
+    @test PaperData.answer_clause((; rows[2]..., drive="ammonia")) ==
+          "either the kite or the rotors on car carriers, 14\\,\\% and USD~\\num{4.1} to " *
+          "\\num{5.3} million"
+    @test PaperData.answer_clause((; rows[1]..., verdict="none")) ==
+          "no rig on container ships, where none clearly saves"
+    @test count("; ", PaperData.answer_text(rows)) == length(rows) - 1
+    @test isempty(PaperData.advised_savings((; rows[1]..., verdict="none")))
+    saved = reduce(vcat, PaperData.advised_savings.(rows))
+    @test PaperData.saved_figures(saved, "vlsfo") == "14\\,\\%, USD~\\num{4.1} to " *
+                                                     "\\num{5.3} million and \\num{9200} to " *
+                                                     "\\num{9600}~t of CO\$_2\$"
+end
+
+@testset "the forecast lead of the kite over the rotors is signed and paired" begin
+    rigs = ["none", "kite", "rotors"]
+    costs = Dict("none" => [10.0, 10.0], "kite" => [8.0, 9.0], "rotors" => [9.0, 9.0])
+    table = Dict("rig" => repeat(rigs; inner=2), "plan" => fill("live", 6),
+        "cost" => reduce(vcat, costs[rig] for rig in rigs))
+    @test PaperData.forecast_saving(table, "kite", "live") ≈ 15
+    @test PaperData.forecast_lead_cell(table, "live") == "\\(+5 \\pm 5\\)"
+    @test isnan(PaperData.forecast_saving(table, "wings", "live"))
 end
 
 @testset "the highlight of the advice fits the journal for any kind of advice" begin
