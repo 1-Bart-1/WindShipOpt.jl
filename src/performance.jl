@@ -403,7 +403,20 @@ struct RouteTable{T <: PerformanceTable}
     "routing speeds [m/s], ascending"
     speeds::Vector{Float64}
     slices::Vector{SpeedSlice}
+    "whether a kite launches and lands for free wherever it can stay up; launch charge
+    [USD per flight hour] is added to its wear"
+    free_launch::Bool
+    free_flight_charge::Float64
+    "whether the free kite flies only where it could also launch, day or night"
+    free_needs_launch::Bool
+    "apparent wind above the launch minimum over which the free kite's share of the time
+    aloft ramps from 0 to 1 [m/s]; 0 is a hard limit"
+    free_ramp::Float64
 end
+
+RouteTable(table, speeds, slices) = RouteTable(table, speeds, slices, false, 0.0, false, 0.0)
+free_launch_table(table::RouteTable, charge=0.0, needs_launch=false, ramp=0.0) =
+    RouteTable(table.table, table.speeds, table.slices, true, charge, needs_launch, ramp)
 
 "Whether the ship of `table` can fly a kite"
 has_kite(table::RouteTable) = table.table.stowed_thrust !== table.table.flown_thrust
