@@ -32,6 +32,9 @@
 \input{commands}
 \AddToHook{env/table/begin}{\setlength{\belowcaptionskip}{4pt}}
 \AddToHook{env/table*/begin}{\setlength{\belowcaptionskip}{4pt}}
+% A new page unless a third of the page is left, so a long table does not start at its foot.
+\newcommand{\newpageunlessthirdleft}{\par\begingroup\dimen0=\pagegoal
+  \advance\dimen0-\pagetotal\ifdim\dimen0<0.3\textheight\vfil\newpage\fi\endgroup}
 \setlength{\emergencystretch}{1.5em}
 \renewcommand{\topfraction}{0.9}
 \renewcommand{\bottomfraction}{0.6}
