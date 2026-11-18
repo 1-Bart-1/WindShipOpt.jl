@@ -3802,17 +3802,25 @@ end
           "\\newcommand{\\NumSavingOilKite}{4}\n"
 end
 
-@testset "every number the paper and its extended abstract print from the numbers step \
-          is one it wrote" begin
+@testset "every number the paper and its extended abstract print from the numbers steps \
+          is one they wrote" begin
     paper = joinpath(PaperRuns.root, "paper")
     texts = [joinpath(directory, name) for directory in (paper, joinpath(paper, "sections"))
              for name in readdir(directory) if endswith(name, ".tex")]
     used = Set(m.match for text in texts
                for m in eachmatch(r"\\Num[A-Za-z]+", read(text, String)))
-    defined = Set(m[1] for m in eachmatch(r"\\newcommand\{(\\Num[A-Za-z]+)\}",
-        read(joinpath(paper, "sections", "numbers.tex"), String)))
+    defined = Set(m[1] for name in ("numbers.tex", "rigid_numbers.tex")
+                  for m in eachmatch(r"\\newcommand\{(\\Num[A-Za-z]+)\}",
+                      read(joinpath(paper, "sections", name), String)))
     @test !isempty(used)
     @test used ⊆ defined
+end
+
+@testset "a soft kite's mass without its tether grows in proportion to its area" begin
+    mass_per_area(area) = WindShipOpt.soft_kite_mass(area, 3.0, 500area, assumptions) / area
+    @test mass_per_area(3000.0) ≈ mass_per_area(200.0) rtol=0.05
+    model, _ = WindShipOpt.kite_model(200.0, 3.0, assumptions)
+    @test model.mass > 200mass_per_area(200.0)
 end
 
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
@@ -3826,12 +3834,15 @@ end
     makani_rotors = foldl((inputs, (name, value)) -> with_value(inputs, name, value),
         ((:rigid_hover_efficiency, 0.71 * 0.88), (:rigid_rotor_mass_per_area, 1.96),
             (:rigid_rotor_area_ratio, 8 * 4.38 / 54)); init=makani_hover)
-    mass, _ = WindShipOpt.rigid_kite_mass(54.0, 275.0, makani_rotors)
+    mass, _ = WindShipOpt.rigid_kite_mass(54.0, force, 275.0, makani_rotors)
     @test mass ≈ 1852 rtol=0.03
-    heavy = with_value(with_value(assumptions, :rigid_mass_exponent, 3.3),
-        :rigid_drive_mass_exponent, 1.0)
-    @test WindShipOpt.rigid_kite_mass(500.0, 0.0, heavy)[1] > 0
-    @test_throws ErrorException WindShipOpt.rigid_kite_mass(3000.0, 0.0, heavy)
+    heavy = foldl((inputs, (name, value)) -> with_value(inputs, name, value),
+        ((:rigid_shell_mass, assumptions.entries[:rigid_shell_mass].high),
+            (:rigid_load_mass, assumptions.entries[:rigid_load_mass].high),
+            (:rigid_drive_mass_exponent, 1.0)); init=assumptions)
+    @test WindShipOpt.rigid_kite_mass(500.0, 500force / 54, 0.0, heavy)[1] > 0
+    @test_throws ErrorException WindShipOpt.rigid_kite_mass(20_000.0, 20_000force / 54,
+        0.0, heavy)
     tether_drag = assumptions[:rigid_tether_drag_coefficient] * diameter *
                   model.tether_length / (4 * 54.0)
     @test tether_drag ≈ 0.152 - 0.123 rtol=0.05
@@ -3839,6 +3850,19 @@ end
     lift = 1.81
     angle = lift / (polar.lift[2] / polar.angle_of_attack[2])
     @test WindShipOpt.polar_value(polar, polar.drag, angle) ≈ 0.123 rtol=0.02
+end
+
+@testset "a rigid wing's structure grows with the force it holds, the span and the area" begin
+    structure(area, force, inputs=assumptions) =
+        WindShipOpt.rigid_structure_mass(area, force, inputs)
+    aspect_ratio = assumptions[:rigid_aspect_ratio]
+    @test structure(54.0, 300e3) ≈ 1372 rtol=0.01
+    @test structure(54.0, 600e3) - structure(54.0, 300e3) ≈
+          assumptions[:rigid_load_mass] * 300 * sqrt(54 * aspect_ratio) * aspect_ratio
+    @test 4structure(54.0, 300e3) < structure(216.0, 1200e3) < 8structure(54.0, 300e3)
+    @test structure(54.0, 0.0) ≈ 54assumptions[:rigid_shell_mass]
+    megawes = with_value(assumptions, :rigid_aspect_ratio, 12.1)
+    @test structure(150.3, 617e3 / 0.37, megawes) ≈ 6885 rtol=0.1
 end
 
 """
@@ -3899,7 +3923,7 @@ end
 @testset "a rigid kite's structure is priced by its own mass, its rotors by their rating" begin
     one = rigid_fleet(1, assumptions)
     (; mass, hover_power) = one.airframe
-    structure = WindShipOpt.rigid_structure_mass(54.0, assumptions)
+    structure = WindShipOpt.rigid_structure_mass(54.0, one.max_force, assumptions)
     @test structure < mass
     @test hover_power ≈ WindShipOpt.hover_power(mass + one.airframe.tether_mass, 54.0,
         assumptions) rtol=1e-5
@@ -4144,6 +4168,8 @@ end
 
 @testset "an input prints under its name in words, the rigid kite named only as a prefix" begin
     @test PaperData.input_label(:e_ammonia_price) == "e-ammonia price"
+    @test PaperData.input_label(:rigid_rotor_fill) == "rigid kite propeller fill"
+    @test PaperData.input_label(:rotor_max_wind) == "rotor max wind"
     @test PaperData.input_label(:cargo_per_teu) == "cargo per TEU"
     @test PaperData.input_label(:rigid_hover_minutes) == "rigid kite hover minutes"
     @test PaperData.input_label(:mast_rigid_share) == "mast rigid share"
