@@ -966,23 +966,26 @@ end
           [(single.centre_position, 0.0)]
 end
 
-@testset "rotors stand in two columns at the deck edges where they lose less" begin
-    hull = Hull(ship_classes()["Kamsarmax bulk carrier"], assumptions)
-    row_only = WindShipOpt.with_value(assumptions, :deck_columns, 1)
-    largest(inputs) = maximum(area for area in 500.0:100.0:6000.0
-                              if !isnothing(WindShipOpt.RotorRig(area, hull, inputs)))
-    @test isnothing(WindShipOpt.RotorRig(largest(row_only) + 100, hull, row_only))
-    rig = WindShipOpt.RotorRig(largest(row_only) + 100, hull, assumptions)
+@testset "rotors stand in two columns near the deck edges where they lose less" begin
+    hull = Hull(ship_classes()["Capesize bulk carrier"], assumptions)
+    layout(columns, area) =
+        WindShipOpt.column_layout(columns, area, :rotor, hull, assumptions, 0.0)
+    row_max = maximum(area for area in 500.0:100.0:6000.0 if !isnothing(layout(1, area)))
+    rig = WindShipOpt.RotorRig(row_max + 100, hull, assumptions)
     @test rig.columns == 2 && iseven(rig.count)
-    @test rig.column_offset ≈ (hull.beam - rig.diameter) / 2
+    clearance = assumptions[:rotor_spacing] * rig.diameter
+    @test rig.column_offset ≈ (hull.beam - clearance) / 2
     positions = WindShipOpt.unit_positions(rig, hull, assumptions)
     @test length(positions) == rig.count
     @test sort(unique(last.(positions))) ≈ [-rig.column_offset, rig.column_offset]
     @test sum(first.(positions)) / rig.count ≈ rig.centre_position
-    row = WindShipOpt.RotorRig(largest(row_only), hull, row_only)
-    chosen = WindShipOpt.RotorRig(largest(row_only), hull, assumptions)
-    @test row.columns == 1
-    @test chosen.interference_factor >= row.interference_factor
+    for (area, better, worse) in ((500.0, 1, 2), (row_max, 2, 1))
+        @test WindShipOpt.RotorRig(area, hull, assumptions).columns == better
+        @test layout(better, area).interference_factor >
+              layout(worse, area).interference_factor
+    end
+    pair = layout(2, 100.0)
+    @test pair.count == 2 && pair.centre_position ≈ WindShipOpt.lateral_centre(hull)
     narrow = Hull(140.0, assumptions)
     @test all(WingRig(area, narrow, assumptions).columns == 1 for area in 400.0:400.0:1600.0
               if !isnothing(WingRig(area, narrow, assumptions)))

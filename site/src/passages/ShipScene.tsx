@@ -128,9 +128,9 @@ export class ShipScene {
     const freeboard = Math.max(design.depth - design.draft, 1);
     this.root.add(hullMesh(design, freeboard));
     if (design.rig === "wings") {
-      design.positions!.forEach((position, i) => this.addWing(design, position, design.offsets?.[i] ?? 0));
+      design.positions!.forEach((position, i) => this.addWing(design, position, design.offsets![i]));
     } else if (design.rig === "rotors") {
-      design.positions!.forEach((position, i) => this.addRotor(design, position, design.offsets?.[i] ?? 0));
+      design.positions!.forEach((position, i) => this.addRotor(design, position, design.offsets![i]));
     } else if (design.rig === "kite") {
       this.addKite(design);
     }

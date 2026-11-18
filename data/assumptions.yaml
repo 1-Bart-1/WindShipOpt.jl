@@ -352,13 +352,7 @@ wing_abreast_loss:
   low: 1.0
   high: 2.5
   unit: "-"
-  reason: "Interference loss of two wings abreast over that of two in line at the same spacing, for the two columns of the deck layout: four wings in a square lose 1.5 times what three in a line lose per wing behind another, averaged over 60, 90 and 120 degrees of apparent wind, 2.2 times at 90 degrees [@vanreen2026, Tables 3.2-3.3]; the low bound has no penalty, the authors' estimate."
-deck_columns:
-  value: 2
-  low: 1
-  high: 2
-  unit: "-"
-  reason: "Most columns wing sails and rotors may stand in: one row on the centreline, or two abreast at the deck edges as on the E-Ship 1 [@bordogna2020, Fig. 1]; 1 is the row alone."
+  reason: "Interference loss of two wings abreast over that of two in line at the same spacing, for the two columns of the deck layout: four wings in a square lose 1.5 times what three in a line lose per wing behind another, averaged over 60, 90 and 120 degrees of apparent wind, 2.2 times at 90 degrees [@vanreen2026, Tables 3.2-3.3], with the whole loss of the square, which also holds pairs in line and on the diagonal, put on its pairs abreast; the low bound has no penalty, the authors' estimate."
 deck_length_fraction:
   value: 0.75
   low: 0.65

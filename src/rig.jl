@@ -120,71 +120,69 @@ Base.@kwdef struct WingRig
 end
 
 """
-    deck_row(total_area, unit, hull, assumptions, forward_reserve)
+    deck_layout(total_area, unit, hull, assumptions, forward_reserve)
 
-Layout of identical `unit`s, `:wing` or `:rotor`, of `total_area` [m^2] of height times
-width on `hull`: as few as the air draft and the tallest unit allow, in one row on the
-centreline or, up to `deck_columns`, in two columns abreast at the deck edges, whichever
-keeps the larger interference factor, each column spread over the deck length for rigs less
-`forward_reserve` [m] at its forward end. Returns the count, columns, unit height [m],
-foot height above the waterline [m], centre of effort forward of midship [m] (a single
-unit stands at the hull's lateral centre), column offset from the centreline [m] and
-interference factor, or `nothing` if the units fit neither way.
+[`column_layout`](@ref) of `unit`s of `total_area` [m^2] on `hull` in one row on the
+centreline or in two columns abreast, whichever keeps the larger interference factor, or
+`nothing` if they fit neither way.
 """
-function deck_row(total_area, unit, hull::Hull, assumptions::Assumptions, forward_reserve)
-    aspect_ratio = assumptions[Symbol(unit, :_aspect_ratio)]
-    scale = hull.length / assumptions[:reference_length]
-    foot_height = assumptions[:deck_mount_height] * scale
-    max_height = min(assumptions[:max_air_draft] - foot_height,
-        assumptions[Symbol(unit, :_max_height)])
-    deck_length = assumptions[:deck_length_fraction] * hull.length - forward_reserve
-    units = total_area / (max_height^2 / aspect_ratio)
+function deck_layout(total_area, unit, hull::Hull, assumptions::Assumptions,
+        forward_reserve)
     layouts = filter(!isnothing,
-        [deck_columns(columns * ceil(Int, units / columns), columns, total_area, unit,
-             hull, deck_length, assumptions)
-         for columns in 1:round(Int, assumptions[:deck_columns])])
+        [column_layout(columns, total_area, unit, hull, assumptions, forward_reserve)
+         for columns in 1:2])
     isempty(layouts) && return nothing
-    layout = argmax(layout -> layout.interference_factor, layouts)
-    return (; layout..., foot_height,
-        centre_position=layout.count == 1 ? lateral_centre(hull) : -forward_reserve / 2)
+    return argmax(layout -> layout.interference_factor, layouts)
 end
 
 """
-    deck_columns(count, columns, total_area, unit, hull, deck_length, assumptions)
+    column_layout(columns, total_area, unit, hull, assumptions, forward_reserve)
 
-`count` `unit`s of `total_area` [m^2] in `columns` columns of `deck_length` [m] on `hull`,
-two of them abreast at the deck edges: their height [m], column offset from the
-centreline [m] and [`array_factor`](@ref) in line times that of a pair abreast, which
-loses `abreast_loss` times as much; `nothing` where units stand closer than the closest
-spacing along or across.
+Layout of identical `unit`s, `:wing` or `:rotor`, of `total_area` [m^2] of height times
+width on `hull` in `columns` columns, one on the centreline or two abreast with half the
+closest spacing clear of the deck edges: as few as the air draft and the tallest unit
+allow, each column spread over the deck length for rigs less `forward_reserve` [m] at its
+forward end. Returns the count, unit height [m], foot height above the waterline [m],
+centre of effort forward of midship [m] (units abreast of each other alone stand at the
+hull's lateral centre), column offset from the centreline [m] and interference factor:
+[`array_factor`](@ref) in line times that of a pair abreast, which loses the unit's
+abreast loss times as much. `nothing` where units stand closer than the closest spacing.
 """
-function deck_columns(count, columns, total_area, unit, hull::Hull, deck_length,
-        assumptions::Assumptions)
+function column_layout(columns, total_area, unit, hull::Hull, assumptions::Assumptions,
+        forward_reserve)
     setting(name) = assumptions[Symbol(unit, name)]
-    height = sqrt(setting(:_aspect_ratio) * total_area / count)
-    width = height / setting(:_aspect_ratio)
-    in_column = count ÷ columns
-    column_offset = columns == 1 ? 0.0 : (hull.beam - width) / 2
-    in_column * setting(:_spacing) * width <= deck_length || return nothing
-    columns == 1 || 2column_offset >= setting(:_spacing) * width || return nothing
+    aspect_ratio = setting(:_aspect_ratio)
+    foot_height =
+        assumptions[:deck_mount_height] * hull.length / assumptions[:reference_length]
+    max_height = min(assumptions[:max_air_draft] - foot_height, setting(:_max_height))
+    deck_length = assumptions[:deck_length_fraction] * hull.length - forward_reserve
+    in_column = ceil(Int, total_area / (max_height^2 / aspect_ratio) / columns)
+    count = columns * in_column
+    height = sqrt(aspect_ratio * total_area / count)
+    width = height / aspect_ratio
+    clearance = setting(:_spacing) * width
+    column_offset = columns == 1 ? 0.0 : (hull.beam - clearance) / 2
+    in_column * clearance <= deck_length || return nothing
+    columns == 1 || 2column_offset >= clearance || return nothing
     amplitude = setting(:_interference_amplitude)
     decay = setting(:_interference_decay)
     interference_factor =
         array_factor(in_column, deck_length / in_column / width, amplitude, decay) *
         array_factor(columns, 2column_offset / width, setting(:_abreast_loss) * amplitude,
             decay)
-    return (; count, columns, height, column_offset, interference_factor)
+    centre_position = in_column == 1 ? lateral_centre(hull) : -forward_reserve / 2
+    return (; count, columns, height, foot_height, centre_position, column_offset,
+        interference_factor)
 end
 
 """
     unit_positions(rig, hull, assumptions)
 
 Positions [m] of the units of the wing or rotor `rig` on `hull`, forward of midship and to
-starboard of the centreline, spread evenly over each column as [`deck_row`](@ref) lays
+starboard of the centreline, spread evenly over each column as [`deck_layout`](@ref) lays
 them out.
 """
 function unit_positions(rig, hull::Hull, assumptions::Assumptions)
-    rig.count == 1 && return [(rig.centre_position, 0.0)]
     in_column = rig.count ÷ rig.columns
     pitch = (assumptions[:deck_length_fraction] * hull.length + 2rig.centre_position) /
             in_column
@@ -196,22 +194,22 @@ end
 """
     WingRig(total_area, hull, assumptions; forward_reserve=0)
 
-Wing rig of `total_area` [m^2] on `hull` laid out by [`deck_row`](@ref), or `nothing`
+Wing rig of `total_area` [m^2] on `hull` laid out by [`deck_layout`](@ref), or `nothing`
 if the wings do not fit at the closest spacing.
 """
 function WingRig(total_area::Real, hull::Hull, assumptions::Assumptions;
         forward_reserve=0.0)
-    row = deck_row(total_area, :wing, hull, assumptions, forward_reserve)
-    isnothing(row) && return nothing
-    return WingRig(; row.count, row.columns, area=total_area / row.count, row.height,
-        row.foot_height, row.centre_position, row.column_offset,
+    layout = deck_layout(total_area, :wing, hull, assumptions, forward_reserve)
+    isnothing(layout) && return nothing
+    return WingRig(; layout.count, layout.columns, area=total_area / layout.count,
+        layout.height, layout.foot_height, layout.centre_position, layout.column_offset,
         effective_aspect_ratio=assumptions[:wing_endplate_factor] *
                                assumptions[:wing_aspect_ratio],
         max_lift_coefficient=assumptions[:wing_max_lift_coefficient],
         profile_drag_coefficient=assumptions[:wing_profile_drag_coefficient],
         separation_drag_factor=assumptions[:wing_separation_drag_factor],
         stalled_drag_coefficient=assumptions[:wing_stalled_drag_coefficient],
-        span_efficiency=assumptions[:wing_span_efficiency], row.interference_factor)
+        span_efficiency=assumptions[:wing_span_efficiency], layout.interference_factor)
 end
 
 total_area(rig::WingRig) = rig.count * rig.area
@@ -296,18 +294,18 @@ end
     RotorRig(total_area, hull, assumptions; forward_reserve=0)
 
 Rotors of `total_area` [m^2] of height times diameter on `hull` laid out by
-[`deck_row`](@ref), or `nothing` if they do not fit at the closest spacing.
+[`deck_layout`](@ref), or `nothing` if they do not fit at the closest spacing.
 """
 function RotorRig(total_area::Real, hull::Hull, assumptions::Assumptions;
         forward_reserve=0.0)
-    row = deck_row(total_area, :rotor, hull, assumptions, forward_reserve)
-    isnothing(row) && return nothing
-    return RotorRig(; row.count, row.columns, row.height,
-        diameter=row.height / assumptions[:rotor_aspect_ratio], row.foot_height,
-        row.centre_position, row.column_offset,
+    layout = deck_layout(total_area, :rotor, hull, assumptions, forward_reserve)
+    isnothing(layout) && return nothing
+    return RotorRig(; layout.count, layout.columns, layout.height,
+        diameter=layout.height / assumptions[:rotor_aspect_ratio], layout.foot_height,
+        layout.centre_position, layout.column_offset,
         max_wind=assumptions[:rotor_max_wind],
         max_surface_speed=assumptions[:rotor_max_surface_speed],
-        lift_factor=assumptions[:rotor_lift_factor], row.interference_factor)
+        lift_factor=assumptions[:rotor_lift_factor], layout.interference_factor)
 end
 
 total_area(rig::RotorRig) = rig.count * rig.height * rig.diameter
