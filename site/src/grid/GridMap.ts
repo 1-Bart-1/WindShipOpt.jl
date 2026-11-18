@@ -5,7 +5,19 @@ import { geoEquirectangular, geoGraticule10, geoOrthographic, geoPath, type GeoP
 import { feature } from "topojson-client";
 import land from "world-atlas/land-110m.json";
 import { brandColour } from "../brand";
-import { edgesFrom, kindOf, position, type Edge, type Grid, type RoutesThrough } from "./grid";
+import {
+  edgesFrom,
+  faceGlobe,
+  kindOf,
+  position,
+  screenPoints,
+  unitVectors,
+  type Edge,
+  type Grid,
+  type RoutesThrough,
+  type ScreenPoints,
+  type UnitVectors,
+} from "./grid";
 
 /** One grid on the map with its edges, coarse grids drawn with larger nodes. */
 export interface ShownGrid {
@@ -45,15 +57,9 @@ interface GridLayer extends ShownGrid {
   backwardEdges: number[][];
   usable: number[];
   unusable: number[];
+  sphere: UnitVectors;
   /** where each node lies on the canvas [px] in the last drawing */
   screen: ScreenPoints;
-}
-
-/** Canvas position [px] of each node, and how far it faces the viewer: above 0 on the near side. */
-interface ScreenPoints {
-  x: Float64Array;
-  y: Float64Array;
-  facing: Float64Array;
 }
 
 /** The last full drawing and the view it shows, moved and scaled in place during a gesture. */
@@ -171,15 +177,11 @@ export class GridMap {
   }
 
   /** Project every node of `layer` once, into its screen points. */
-  private project({ grid, screen }: GridLayer) {
-    const [lon, lat] = this.facing.map((degrees) => (degrees * Math.PI) / 180);
+  private project({ grid, sphere, screen }: GridLayer) {
+    if (!this.view.flat) return faceGlobe(sphere, this.facing, this.globe.scale(), this.globe.translate(), screen);
     for (let node = 0; node < grid.kind.length; node++) {
-      const point = position(grid, node);
-      [screen.x[node], screen.y[node]] = this.projection(point)!;
-      const [nodeLon, nodeLat] = point.map((degrees) => (degrees * Math.PI) / 180);
-      screen.facing[node] = this.view.flat
-        ? 1
-        : Math.sin(lat) * Math.sin(nodeLat) + Math.cos(lat) * Math.cos(nodeLat) * Math.cos(nodeLon - lon);
+      [screen.x[node], screen.y[node]] = this.projection(position(grid, node))!;
+      screen.facing[node] = 1;
     }
   }
 
@@ -305,7 +307,8 @@ export class GridMap {
       backwardEdges: this.edgeLines(edges.filter((edge) => edge.backward)),
       usable: ofKind("w"),
       unusable: ofKind("x"),
-      screen: { x: new Float64Array(count), y: new Float64Array(count), facing: new Float64Array(count) },
+      sphere: unitVectors(grid),
+      screen: screenPoints(count),
     };
   }
 
@@ -329,11 +332,12 @@ export class GridMap {
     context.beginPath();
     for (const node of nodes) {
       if (facing[node] <= 0) continue;
-      context.moveTo(x[node] + radius, y[node]);
-      context.arc(x[node], y[node], radius, 0, 2 * Math.PI);
+      context.moveTo(x[node], y[node]);
+      context.lineTo(x[node], y[node]);
     }
-    context.fillStyle = colour;
-    context.fill();
+    context.lineCap = "round";
+    this.stroke(colour, 2 * radius);
+    context.lineCap = "butt";
   }
 
   /** The stage lines across the corridor and the row lines along it. */
@@ -368,10 +372,12 @@ export class GridMap {
     this.stroke(brandColour("rust"), 2.5);
   }
 
-  /** The shown node nearest the canvas position `x`, `y` [px] in the last drawing, within the pick radius. */
+  /** The shown node nearest the canvas position `x`, `y` [px], within the pick radius. */
   private nodeAt(x: number, y: number) {
     let best: GridNode | undefined;
     let nearest = pickRadius;
+    this.place();
+    for (const layer of this.layers) this.project(layer);
     for (const { spacing, grid, screen } of this.layers)
       for (let node = 0; node < grid.kind.length; node++) {
         if ((kindOf(grid, node) === "x" && !this.view.unusable) || screen.facing[node] <= 0) continue;

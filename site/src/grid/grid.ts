@@ -42,6 +42,52 @@ export interface Edge {
 /** Longitude and latitude [deg] of `node`. */
 export const position = (grid: Grid, node: number): [number, number] => [grid.lon[node] / 100, grid.lat[node] / 100];
 
+/** Each node as a unit vector from the earth's centre: x to 0° 0°, y to 90° east, z to the north pole. */
+export interface UnitVectors {
+  x: Float64Array;
+  y: Float64Array;
+  z: Float64Array;
+}
+
+/** Canvas position [px] of each node, and how far it faces the viewer: above 0 on the near side. */
+export interface ScreenPoints {
+  x: Float64Array;
+  y: Float64Array;
+  facing: Float64Array;
+}
+
+/** Room for the screen points of `count` nodes. */
+export const screenPoints = (count: number): ScreenPoints =>
+  ({ x: new Float64Array(count), y: new Float64Array(count), facing: new Float64Array(count) });
+
+/** The unit vectors of the nodes of `grid`. */
+export function unitVectors(grid: Grid): UnitVectors {
+  const count = grid.kind.length;
+  const sphere = { x: new Float64Array(count), y: new Float64Array(count), z: new Float64Array(count) };
+  for (let node = 0; node < count; node++) {
+    const [lon, lat] = position(grid, node).map((degrees) => (degrees * Math.PI) / 180);
+    sphere.x[node] = Math.cos(lat) * Math.cos(lon);
+    sphere.y[node] = Math.cos(lat) * Math.sin(lon);
+    sphere.z[node] = Math.sin(lat);
+  }
+  return sphere;
+}
+
+/**
+ * Project `sphere` into `screen` on an orthographic globe facing longitude and latitude
+ * `[lon, lat]` [deg], of radius `scale` [px] about the canvas point `centre` [px].
+ */
+export function faceGlobe(sphere: UnitVectors, [lon, lat]: [number, number], scale: number, [centreX, centreY]: [number, number], screen: ScreenPoints) {
+  const [lonAngle, latAngle] = [lon, lat].map((degrees) => (degrees * Math.PI) / 180);
+  const [cosLon, sinLon, cosLat, sinLat] = [Math.cos(lonAngle), Math.sin(lonAngle), Math.cos(latAngle), Math.sin(latAngle)];
+  for (let node = 0; node < sphere.x.length; node++) {
+    const toFacing = sphere.x[node] * cosLon + sphere.y[node] * sinLon;
+    screen.facing[node] = toFacing * cosLat + sphere.z[node] * sinLat;
+    screen.x[node] = centreX + scale * (sphere.y[node] * cosLon - sphere.x[node] * sinLon);
+    screen.y[node] = centreY - scale * (sphere.z[node] * cosLat - toFacing * sinLat);
+  }
+}
+
 /** The kind of `node`. */
 export const kindOf = (grid: Grid, node: number) => grid.kind[node] as NodeKind;
 
