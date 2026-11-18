@@ -4,7 +4,7 @@
 """
     RigPrice
 
-A price paid, quoted or estimated for one unit of a rig, a row of `data/rig_prices.csv`.
+A price paid, quoted or estimated for one unit of a rig, a row of `data/rig_price_basis.csv`.
 """
 struct RigPrice
     "kind of rig: `:kite`, `:wing` or `:rotor`"
@@ -30,13 +30,13 @@ struct RigPrice
     source::String
 end
 
-const RIG_PRICES_FILE = joinpath(pkgdir(@__MODULE__), "data", "rig_prices.csv")
+const RIG_PRICES_FILE = joinpath(pkgdir(@__MODULE__), "data", "rig_price_basis.csv")
 include_dependency(RIG_PRICES_FILE)
 
 """
     rig_prices()
 
-Every [`RigPrice`](@ref) of `data/rig_prices.csv`.
+Every [`RigPrice`](@ref) of `data/rig_price_basis.csv`.
 """
 function rig_prices()
     lines = readlines(RIG_PRICES_FILE)

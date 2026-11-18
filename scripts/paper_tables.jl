@@ -411,7 +411,7 @@ end
 """
     rig_prices_table()
 
-Write each real price of `data/rig_prices.csv` to paper/sections/rig_prices_table.tex: its
+Write each real price of `data/rig_price_basis.csv` to paper/sections/rig_prices_table.tex: its
 unit, units built by then, price in today's money, build-up price, both as paid and at the
 production stage, and the source of the price; then each rig's price at the stage over its
 build-up, with its range over the learning rate.
