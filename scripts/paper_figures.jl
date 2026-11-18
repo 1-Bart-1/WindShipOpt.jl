@@ -622,9 +622,10 @@ geometric_mean(values) = exp(sum(log, values) / length(values))
 """
     pattern_figure()
 
-Optimal flight paths seen from the ship over the course off apparent downwind, in light
-and strong apparent wind, without side-force weight, and the thrust and side force they
-put on the ship, on one force scale.
+Optimal flight paths seen from the ship over the course off apparent downwind, a ring where
+the kite is held still, nested where still kites share a point, in light and strong
+apparent wind, without side-force weight, and the thrust and side force they put on the
+ship, on one force scale.
 """
 function pattern_figure()
     paths = read_table(data_file("patterns.csv"))
@@ -640,11 +641,20 @@ function pattern_figure()
         axis = Axis(figure[row, 1]; ylabel="elevation [°]", limits=(-35, 90, 0, 60),
             xlabel=bottom ? "azimuth off apparent downwind [°]" : "",
             title="($(('a', 'b')[row])) flight paths, $speed")
+        held = Dict{NTuple{2, Float64}, Int}()
         for (i, course) in enumerate(courses)
             chosen = rows(paths, "wind" => wind, "course" => course, "side_weight" => 0.0)
             isempty(chosen) && continue
-            lines!(axis, rad2deg.(paths["azimuth"][chosen]),
-                rad2deg.(paths["elevation"][chosen]); color=colours[i])
+            azimuths = rad2deg.(paths["azimuth"][chosen])
+            elevations = rad2deg.(paths["elevation"][chosen])
+            if allequal(azimuths) && allequal(elevations)
+                point = (round(azimuths[1]; digits=1), round(elevations[1]; digits=1))
+                rings = held[point] = get(held, point, 0) + 1
+                scatter!(axis, [point]; color=:transparent, strokecolor=colours[i],
+                    strokewidth=line_width, markersize=marker_size * (1 + rings))
+            else
+                lines!(axis, azimuths, elevations; color=colours[i])
+            end
         end
         bottom || hidexdecorations!(axis; ticks=false, ticklabels=false)
         thrust = Axis(figure[row, 3]; ylabel="force [kN]", limits=((-10, 190),
@@ -720,12 +730,6 @@ function draw_force_balance!(axis, area, force, radius)
     hidespines!(axis)
 end
 
-"area-averaged radius [m] the canopy skin bulges to between ribs, in the cloth check"
-skin_radius = 0.5
-
-"strength over weight [N/m per g/m^2] of new canopy cloth, in the cloth check"
-cloth_specific_strength = 170.0
-
 """
     canopy_tension_figure()
 
@@ -739,8 +743,10 @@ function canopy_tension_figure()
     times, forces = table["time"], table["tension"] ./ 1e6
     mean_force = sum(forces .* table["duration"]) / sum(table["duration"])
     peak_force = maximum(forces)
+    skin_radius = assumptions[:canopy_skin_radius]
     tension(force) = 1e3force / area * skin_radius
-    strength = cloth_specific_strength * WindShipOpt.cloth_weight(assumptions) / 1e3
+    strength = assumptions[:canopy_cloth_specific_strength] *
+               assumptions[:canopy_cloth_weight] / 1e3
     figure = Figure(size=(page_width, 185))
     balance = Axis(figure[1, 1]; autolimitaspect=1, limits=(-2.4, 7.3, -1.7, 2.2),
         title="(a) from tether force to cloth tension")
@@ -860,7 +866,7 @@ function rig_comparison_figure()
     span = 5ceil(maximum(abs(saving) for (_, _, _, cells, _, _) in panels
                          for (_, _, saving) in cells) / 5)
     for (column, title, labels, cells, best, group_starts) in panels
-        axis = Axis(figure[1, column]; title, xlabel="waterline length [m]",
+        axis = Axis(figure[1, column]; title, xlabel="ship length [m]",
             xticks=(eachindex(lengths), string.(round.(Int, lengths))),
             yticks=(eachindex(labels), labels), yreversed=true,
             yticklabelsvisible=column == 1)
@@ -886,43 +892,36 @@ end
 """
     route_figure()
 
-Weather-routed passages on every route of a 140 m e-ammonia ship without a rig and
-with a 3200 m^2 kite, for a winter and a summer departure, over the 10 m wind five days
-after departure with a reference arrow; solid outbound, dashed homeward.
+Weather-routed passages of route_tracks.csv on every route of a 140 m e-ammonia ship
+without a rig and with a 3200 m^2 kite, for a winter and a summer departure, over the 10 m
+wind five days after departure with a reference arrow; solid outbound, dashed homeward.
 """
 function route_figure()
     route_colours = category_colours[[1, 2, 3, 4, 6, 5]]
-    designs = (ShipDesign(:ammonia, 140.0), ShipDesign(:ammonia, 140.0; kite_area=3200.0))
-    port_hours = 24assumptions[:port_time_per_call]
-    seasons = (("winter", 1), ("summer", findfirst(>=(24 * 181), departures)))
+    tracks = read_table(data_file("route_tracks.csv"))
     wind_scale, reference_wind = 0.4, 10
     figure = Figure(size=(page_width, 255))
-    for (column, (season, index)) in enumerate(seasons)
+    for (column, (season, departure)) in enumerate(track_seasons())
         axis = Axis(figure[1, column]; title="($('a' + column - 1)) $season departure",
             xlabel="longitude [°]",
             ylabel=column == 1 ? "latitude [°]" : "", aspect=DataAspect(),
             limits=(-100, 12, -26, 60))
         draw_land!(axis, mask; lons=-100:0.25:12, lats=-26:0.25:60)
-        departure = departures[index]
         draw_wind!(axis, weather, departure + 24 * 5; scale=wind_scale, lons=-96:6:6,
             lats=-22:6:50)
-        for (k, design) in enumerate(designs)
-            ship = Ship(design, assumptions)
-            table = PerformanceTable(ship, assumptions)
-            out_hourly, back_hourly = WindShipOpt.leg_time_costs(ShipCosts(ship,
-                assumptions), assumptions)
-            for (i, name) in reverse(collect(enumerate(route_names)))
-                outbound, inbound = run_corridors(name)
-                out = route(outbound, table, weather, departure; time_cost=out_hourly)
-                back = route(inbound, table, weather, departure + out.duration +
-                                                      port_hours; time_cost=back_hourly)
-                k == 1 && lines!(axis, great_circle(out.path[1], out.path[end])...;
-                    color=:black, linestyle=:dot, linewidth=0.8)
-                for (leg, style) in ((out, :solid), (back, :dash))
-                    scatterlines!(axis, track_points(leg.path);
-                        color=k == 1 ? (:black, 0.6) : route_colours[i], linestyle=style,
-                        linewidth=k == 1 ? 0.8 : 1.5, markersize=pt(k == 1 ? 2.5 : 3.5))
-                end
+        for (k, area) in enumerate((0.0, 3200.0))
+            for (i, name) in reverse(collect(enumerate(route_names))),
+                (direction, style) in (("out", :solid), ("back", :dash))
+                leg = rows(tracks, "season" => season, "route" => string(name),
+                    "kite_area" => area, "direction" => direction)
+                isempty(leg) && error("no $direction track on $name in $season")
+                path = tuple.(tracks["lat"][leg], tracks["lon"][leg])
+                k == 1 && direction == "out" &&
+                    lines!(axis, great_circle(first(path), last(path))...;
+                        color=:black, linestyle=:dot, linewidth=0.8)
+                scatterlines!(axis, track_points(path);
+                    color=k == 1 ? (:black, 0.6) : route_colours[i], linestyle=style,
+                    linewidth=k == 1 ? 0.8 : 1.5, markersize=pt(k == 1 ? 2.5 : 3.5))
             end
         end
         column == 1 &&
@@ -1084,14 +1083,14 @@ route_savings(table, column, classes, drive, rig) = filter(isfinite,
      for route in unique(table["route"])])
 
 """
-    savings_panel!(axis, table, groups, drive, column, format)
+    savings_panel!(axis, table, groups, drive, column, format, fills)
 
 Draw on `axis`, per `(label, classes)` of `groups`, each rig's [`mean_savings`](@ref) in
-`column` as a marker with a bar over its [`route_savings`](@ref), a band in the colour of
-the rig with the largest mean (grey where none is positive) and that mean printed with
-`format`. What was not run is left out, so a drive without data leaves `axis` blank.
+`column` as a marker with a bar over its [`route_savings`](@ref), a band of its colour of
+`fills` and the largest mean printed with `format`. What was not run is left out, so a
+drive without data leaves `axis` blank.
 """
-function savings_panel!(axis, table, groups, drive, column, format)
+function savings_panel!(axis, table, groups, drive, column, format, fills)
     savings = [[route_savings(table, column, classes, drive, kind) for kind in rig_names]
                for (_, classes) in groups]
     all_routes = reduce(vcat, reduce(vcat, savings))
@@ -1102,14 +1101,12 @@ function savings_panel!(axis, table, groups, drive, column, format)
     width = span[2] - span[1]
     low = span[1] < 0 ? min(span[1] - 0.04 * width, -0.1 * width) : 0.0
     high = span[2] + 0.35 * width
-    for (i, group_means) in enumerate(means)
-        known = findall(isfinite, group_means)
+    for (i, (group_means, fill)) in enumerate(zip(means, fills))
+        known = filter(isfinite, group_means)
         isempty(known) && continue
-        leader = known[argmax(group_means[known])]
-        hspan!(axis, i - 0.5, i + 0.5;
-            color=group_means[leader] > 0 ? (palette[leader], 0.2) : (:gray, 0.2))
-        text!(axis, high, i; text=typeset_minus(Printf.format(format,
-                group_means[leader])), align=(:right, :center), fontsize=note_size,
+        fill_rect!(axis, Rect2f(low, i - 0.5, high - low, 1), fill)
+        text!(axis, high, i; text=typeset_minus(Printf.format(format, maximum(known))),
+            align=(:right, :center), fontsize=note_size,
             offset=clear_offset((:right, :center), pt(2.5)))
     end
     low < 0 && reference_line!(axis; vertical=true)
@@ -1127,6 +1124,20 @@ function savings_panel!(axis, table, groups, drive, column, format)
 end
 
 """
+    lead_fill(lead)
+
+Fill of a band by the verdict of the [`rig_lead`](@ref) `lead`: the colour of the rig that
+leads, hatched in the colours of the two where they are level, grey where no rig clearly
+saves.
+"""
+function lead_fill(lead)
+    lead.verdict == "none" && return (:gray, 0.2)
+    background = (rig_colour(lead.rig), 0.2)
+    lead.verdict == "level" && return level_fill(lead.rig, lead.rival; background)
+    return background
+end
+
+"""
     class_comparison_figure()
 
 Cost saving and fuel saving of the best size of each rig for every ship class and the mean
@@ -1134,12 +1145,15 @@ of the deadweight-limited and of the space-limited classes, a [`savings_panel!`]
 each per drive.
 """
 function class_comparison_figure()
-    table = read_table(data_file("classes.csv"))
+    table = class_table()
     groups = [[(name, [name]) for name in class_order(table)];
               [("mean, $limit-limited", names) for (limit, names) in limit_groups(table)]]
     figure = Figure(size=(page_width, 390))
     for (k, (drive, title)) in enumerate(drive_panels)
         Label(figure[1, (2k - 1):2k], title; tellwidth=false)
+        cells = fleet_cells(table, drive)
+        fills = [lead_fill(rig_lead(filter(cell -> cell.class in classes, cells)))
+                 for (_, classes) in groups]
         fuel_label = drive == "vlsfo" ? rich("fuel, CO", subscript("2"), " saving [%]") :
                      "fuel saving [%]"
         panels = (("cost", "cost saving [%]", "%.1f"), ("fuel", fuel_label, "%.0f"))
@@ -1147,7 +1161,7 @@ function class_comparison_figure()
             axis = Axis(figure[2, 2k - 2 + offset]; xlabel,
                 yticks=(eachindex(groups), first.(groups)), yreversed=true,
                 yticklabelsvisible=(k, offset) == (1, 1))
-            savings_panel!(axis, table, groups, drive, column, Printf.Format(format))
+            savings_panel!(axis, table, groups, drive, column, Printf.Format(format), fills)
         end
     end
     rowgap!(figure.layout, 1, 4)
@@ -1457,12 +1471,13 @@ end
 """
     winner_map_figure()
 
-The rig with the largest cost saving for every ship class and route, deadweight-limited
-classes in the top row and space-limited ones below, one column per drive, coloured by
-rig and labelled with its saving [%]; grey where no rig pays.
+The [`fleet_band`](@ref) of every ship class and route, deadweight-limited classes in the
+top row and space-limited ones below, one column per drive, coloured by the rig that
+leads, hatched in the colours of the two best where they are level and grey where no rig
+clearly saves, and labelled with the best cost saving [%].
 """
 function winner_map_figure()
-    table = read_table(data_file("classes.csv"))
+    table = class_table()
     groups = limit_groups(table)
     route_names_seen = route_order
     bands = Set{String}()
@@ -1479,19 +1494,18 @@ function winner_map_figure()
             xticklabelrotation=π / 4)
         column == 1 && Label(figure[row, 0], "$limit-limited"; rotation=π / 2,
             tellheight=false)
+        cells = fleet_cells(table, drive)
         for (i, route) in enumerate(route_names_seen), (k, name) in enumerate(names)
-            savings = best_savings(table, name, route, drive)
-            isempty(savings) && continue
-            band = fleet_band(savings)
+            cell = only(filter(cell -> (cell.class, cell.route) == (name, route), cells))
+            lead = rig_lead([cell])
+            band = lead.verdict == "leads" ? lead.rig : lead.verdict
             push!(bands, band)
-            ranked = sort(collect(savings); by=last, rev=true)
-            best = last(first(ranked))
-            winner = palette[findfirst(==(first(first(ranked))), rig_names)]
-            base = band == "none" ? fleet_colours()["none"] : winner_shade(winner, best)
-            poly!(axis, Rect2f(i - 0.5, k - 0.5, 1, 1); color=base, strokecolor=base,
-                strokewidth=pt(0.4))
-            band == "level" && hatch!(axis, Rect2f(i - 0.5, k - 0.5, 1, 1),
-                palette[findfirst(==(first(ranked[2])), rig_names)])
+            best = cell.savings[lead.rig]
+            shade = winner_shade(rig_colour(lead.rig), best)
+            fill = band == "none" ? fleet_colours()["none"] :
+                   band == "level" ? level_fill(lead.rig, lead.rival; background=shade) :
+                   shade
+            fill_rect!(axis, Rect2f(i - 0.5, k - 0.5, 1, 1), fill)
             text!(axis, i, k; text=typeset_minus(abs(best) < 1 ? @sprintf("%.1f", best) :
                                                  string(round(Int, best))),
                 align=(:center, :center), fontsize=note_size)
@@ -1533,9 +1547,8 @@ function fleet_share_panel!(axis, splits, measure)
         for band in fleet_bands
             share = 100getfield(split[band], measure) / total
             share > 0 || continue
-            poly!(axis, Rect2f(left, i - 0.32, share, 0.64); color=colours[band],
+            fill_rect!(axis, Rect2f(left, i - 0.32, share, 0.64), colours[band];
                 strokecolor=:white, strokewidth=0.5)
-            band == "level" && hatch!(axis, Rect2f(left, i - 0.32, share, 0.64), palette[3])
             label = fleet_band_label(share, 1e-9getfield(split[band], measure))
             boxed = band in ("level", "none")
             if share >= 10
@@ -1566,16 +1579,41 @@ function fleet_band_label(share, billions)
     return @sprintf("%.0f %%\n%s bn", share, estimate_text(billions))
 end
 
-"background of what the kite and rotors share, hatched with the rotors' colour"
-kite_and_rotors_colour = (palette[1], 0.55)
+"colour of the rig `rig` of [`rig_names`](@ref)"
+rig_colour(rig) = palette[findfirst(==(rig), rig_names)]
+
+"""
+    level_fill(rig, other; background=(rig_colour(rig), 0.55))
+
+Fill of what two rigs share: `background`, by default the colour of `rig`, hatched by
+[`hatch!`](@ref) with the colour of `other`.
+"""
+level_fill(rig, other; background=(rig_colour(rig), 0.55)) =
+    (; background, stripe=rig_colour(other))
+
+"""
+    fill_rect!(axis, rect, fill; attributes...)
+
+Fill the rectangle `rect` [data of `axis`] with the colour `fill`, or with the background of
+a [`level_fill`](@ref) hatched with its stripe.
+"""
+fill_rect!(axis, rect, fill; attributes...) = poly!(axis, rect; color=fill, attributes...)
+
+function fill_rect!(axis, rect, fill::NamedTuple; attributes...)
+    poly!(axis, rect; color=fill.background, attributes...)
+    hatch!(axis, rect, fill.stripe)
+end
+
+"legend entry of the colour or [`level_fill`](@ref) `fill`"
+fill_entry(fill) = PolyElement(color=fill)
+fill_entry(fill::NamedTuple) = hatched_entry(fill.background, fill.stripe)
 
 "legend entry of the band `band` of [`fleet_bands`](@ref)"
-band_entry(band) = band == "level" ? hatched_entry(kite_and_rotors_colour, palette[3]) :
-                   PolyElement(color=fleet_colours()[band])
+band_entry(band) = fill_entry(fleet_colours()[band])
 
 "colours of the [`fleet_bands`](@ref): those of the rigs, level hatched, none grey"
 fleet_colours() = Dict("kite" => palette[1], "wings" => palette[2], "rotors" => palette[3],
-    "level" => kite_and_rotors_colour, "none" => RGBf(0.8, 0.8, 0.8))
+    "level" => level_fill("kite", "rotors"), "none" => RGBf(0.8, 0.8, 0.8))
 
 "pitch and width [figure units] of the stripes of [`hatch!`](@ref)"
 hatch_pitch, hatch_width = style_size("hatch_pitch"), style_size("hatch_width")
@@ -1655,7 +1693,7 @@ the fleet's cargo (a) and in the yearly saving (b) on each drive, each total in 
 label.
 """
 function fleet_share_figure()
-    table = read_table(data_file("classes.csv"))
+    table = class_table()
     splits = [(drive, fleet_split_of(table, drive)) for (drive, _) in drive_labels]
     figure = Figure(size=(page_width, 175))
     panels = ((:bill, "(a) yearly cost of carrying the cargo [%, USD]"),
@@ -1668,8 +1706,7 @@ function fleet_share_figure()
         fleet_share_panel!(axis, splits, measure)
     end
     names = Dict((rig_names .=> rig_label.(rig_names))...,
-        "level" => "level (within $(whole_number(level_margin)) point)",
-        "none" => "no rig (saves under $(whole_number(level_margin)) point)")
+        "level" => "level within the error", "none" => "no rig saves beyond the error")
     shown = [band for band in fleet_bands
              if any(getfield(split[band], :bill) > 0 for (_, split) in splits)]
     Legend(figure[2, 1:2], [band_entry(band) for band in shown],
@@ -1807,7 +1844,7 @@ function premium_figure()
                for ammonia in (:low, :high), vlsfo in (:low, :high)]
     figure = Figure(size=(column_width, 165))
     lengths = sort(unique(designs["length"]))
-    axis = Axis(figure[1, 1]; xlabel="waterline length [m]",
+    axis = Axis(figure[1, 1]; xlabel="ship length [m]",
         xticks=(lengths, string.(round.(Int, lengths))), ylabel="cost premium closed [%]")
     shares = [[premium_closed(designs, "ammonia", length, column_name)
                for length in lengths] for (_, column_name) in rig_area_columns]
@@ -2025,15 +2062,14 @@ square_metre_label(text) =
     canopy_life_figure()
 
 Flight hours of canopies of data/canopy_life_statements.csv as ranges by what stated them,
-with the derived life and its range of the assumptions, and the goal.
+with [`reference_decay_life`](@ref) and its range of the assumptions, and the goal.
 """
 function canopy_life_figure()
     lives = read_table(joinpath(root, "data", "canopy_life_statements.csv"))
     goal = assumptions.entries[:canopy_life]
     order = [findall(==("statement"), lives["kind"]);
-        findall(==("sail_shape"), lives["kind"]); findall(==("small_kite"), lives["kind"]);
-        findall(==("derived"), lives["kind"])]
-    labels = square_metre_label.(lives["label"][order])
+        findall(==("sail_shape"), lives["kind"]); findall(==("small_kite"), lives["kind"])]
+    labels = [square_metre_label.(lives["label"][order]); "derived life"]
     figure = Figure(size=(page_width, 190))
     axis = Axis(figure[1, 1]; xscale=log10, xlabel="flight hours of the canopy",
         xticks=([100, 300, 1000, 3000, 10000], ["100", "300", "1000", "3000", "10000"]),
@@ -2042,26 +2078,26 @@ function canopy_life_figure()
     goal_marks!(axis, goal; shade=(palette[1], 0.1))
     stated = :gray35
     for (i, row) in enumerate(order)
-        derived = lives["kind"][row] == "derived"
-        colour = derived ? palette[1] : stated
-        low, high = derived ? (goal.low, goal.high) :
-                    (lives["life_low"][row], lives["life_high"][row])
-        rangebars!(axis, [i], [low], [high]; direction=:x, color=colour,
-            linewidth=derived ? 2line_width : 1.4line_width,
-            whiskerwidth=derived || high < 1.1low ? 0 : whisker_width)
-        derived && scatter!(axis, [lives["life_low"][row]], [i]; color=colour, markersize=7)
+        low, high = lives["life_low"][row], lives["life_high"][row]
+        rangebars!(axis, [i], [low], [high]; direction=:x, color=stated,
+            linewidth=1.4line_width, whiskerwidth=high < 1.1low ? 0 : whisker_width)
         measured = lives["grade"][row] == "meas"
         estimated = endswith(lives["life_text"][row], "*")
         lives["kind"][row] == "statement" && scatter!(axis, [sqrt(low * high)], [i];
             color=measured || estimated ? stated : :white, strokecolor=stated,
             strokewidth=estimated ? 0 : outline_width, marker=estimated ? :star5 : :rect,
             markersize=estimated ? estimate_marker_size : claim_marker_size)
-        label = derived ? "$(estimate_text(lives["life_low"][row])) " *
-                          "($(estimate_text(low))–$(estimate_text(high)))" :
-                replace(rstrip(lives["life_text"][row], '*'), "--" => "–")
         text!(axis, high < goal.value < 2.6high ? 1.12goal.value : 1.15high, i;
-            text=label, align=(:left, :center), fontsize=note_size, color=colour)
+            text=replace(rstrip(lives["life_text"][row], '*'), "--" => "–"),
+            align=(:left, :center), fontsize=note_size, color=stated)
     end
+    derived, i = WindShipOpt.reference_decay_life(assumptions), length(labels)
+    rangebars!(axis, [i], [goal.low], [goal.high]; direction=:x, color=palette[1],
+        linewidth=2line_width, whiskerwidth=0)
+    scatter!(axis, [derived], [i]; color=palette[1], markersize=7)
+    text!(axis, 1.15goal.high, i; text="$(estimate_text(derived)) " *
+                                       "($(estimate_text(goal.low))–$(estimate_text(goal.high)))",
+        align=(:left, :center), fontsize=note_size, color=palette[1])
     entries = [MarkerElement(marker=:rect, color=:white, strokecolor=stated,
             strokewidth=outline_width, markersize=claim_marker_size),
         MarkerElement(marker=:rect, color=stated, markersize=claim_marker_size),
@@ -2442,80 +2478,6 @@ function fuel_figure()
 end
 
 """
-    aspect_figure()
-
-Saving of the kite of each study ship against its aspect ratio, at the same area and the
-same price.
-"""
-function aspect_figure()
-    table = read_table(data_file("aspect.csv"))
-    figure = Figure(size=(column_width, 200))
-    axis = Axis(figure[1, 1]; xlabel="kite aspect ratio", ylabel="cost saving [%]",
-        xticks=collect(study_aspect_ratios))
-    for (k, ship) in enumerate(unique(table["ship"]))
-        chosen = rows(table, "ship" => ship)
-        bare = table["cost"][only(filter(row -> table["aspect_ratio"][row] == 0, chosen))]
-        kites = filter(row -> table["aspect_ratio"][row] > 0, chosen)
-        savings = percent_saving.(table["cost"][kites], bare)
-        scatterlines!(axis, table["aspect_ratio"][kites], savings;
-            color=category_colours[k], label=ship)
-    end
-    Legend(figure[2, 1], axis; orientation=:horizontal, nbanks=2)
-    save_figure("aspect", figure)
-end
-
-"""
-    best_force_rating_saving(table, ship, rating, exponent, areas, bare)
-
-Highest saving [%] over `areas` in force_rating.csv of `ship`, costing `bare` without a rig,
-with a kite built for `rating` whose cloth follows the limit to the power `exponent`.
-"""
-function best_force_rating_saving(table, ship, rating, exponent, areas, bare)
-    chosen = rows(table, "ship" => ship, "rating" => rating, "exponent" => exponent)
-    return maximum(percent_saving(table["cost"][row], bare)
-                   for row in chosen if table["area"][row] in areas)
-end
-
-"""
-    force_rating_figure()
-
-Saving of each study ship at its best kite area against the force limit, with cloth that
-follows the limit by the base exponent, in proportion, or not at all, each over the kite
-areas that cloth law was run at.
-"""
-function force_rating_figure()
-    table = read_table(data_file("force_rating.csv"))
-    figure = Figure(size=(column_width, 215))
-    axis = Axis(figure[1, 1]; xlabel=square_metres("force limit [kN/", "]"),
-        ylabel="cost saving [%]", xticks=collect(study_force_ratings))
-    base = assumptions[:canopy_cloth_force_exponent]
-    reference = assumptions[:canopy_cloth_reference_force]
-    laws = ((base, :solid, "keeps its life"), (1.0, :dash, "in proportion"),
-        (0.0, :dot, square_metres("fixed at 200 g/")))
-    ships = unique(table["ship"])
-    for (k, ship) in enumerate(ships)
-        bare = table["cost"][only(rows(table, "ship" => ship, "rating" => 0))]
-        for (exponent, linestyle, _) in laws
-            ratings = exponent == base ? collect(study_force_ratings) :
-                      sort([extrema(study_force_ratings)..., reference])
-            areas = Set(table["area"][rows(table, "ship" => ship, "exponent" => exponent)])
-            savings = [best_force_rating_saving(table, ship, rating,
-                           rating == reference ? base : exponent, areas, bare)
-                       for rating in ratings]
-            lines!(axis, ratings, savings; color=category_colours[k], linestyle)
-        end
-    end
-    ship_entries = [LineElement(color=category_colours[k]) for k in eachindex(ships)]
-    law_entries = [LineElement(; color=:black, linestyle)
-                   for (_, linestyle, _) in laws]
-    Legend(figure[2, 1], [ship_entries, law_entries], [ships, collect(last.(laws))],
-        ["ship", "cloth"]; orientation=:horizontal, nbanks=3, titleposition=:left,
-        titlegap=6)
-    rowgap!(figure.layout, 1, 6)
-    save_figure("force_rating", figure)
-end
-
-"""
     band_totals(table, rig, column; route=nothing, direction=nothing)
 
 Sum of `column` of wind_angle.csv for `rig` in each band of `angle_bands`, over every
@@ -2791,8 +2753,7 @@ end
 
 "plans of the forecast figure's saving panel, as (plan of forecast_result.csv, label)"
 forecast_figure_plans = (("false", "perfect foresight"),
-    ("grid_perfect", "perfect foresight, planning grid"),
-    ("grid_expected", "re-planned on the forecasts"))
+    ("live", "re-planned on the forecasts"))
 
 "the `k`th third, from the left, of the unit square of a legend patch"
 third_patch(k) = Point2f[((k - 1) / 3, 0), (k / 3, 0), (k / 3, 1), ((k - 1) / 3, 1)]
@@ -2802,20 +2763,20 @@ third_patch(k) = Point2f[((k - 1) / 3, 0), (k / 3, 0), (k / 3, 1), ((k - 1) / 3,
 
 (a) Mean cost saving over the departures, with its standard error, of each rig on a 140 m
 e-ammonia ship per plan of [`forecast_figure_plans`](@ref), a plan with no feasible round
-trip marked "none" in place of its bar; (b, c) root mean square error of the archived
-forecasts' wind and wave height along the route against lead time, beside that of the same
-date in another year.
+trip marked "none" in place of its bar; (b, c) root mean square error along the route
+against lead time of the archived forecasts' wind and wave height, of their blend with the
+climatology and of the climatology; (d) the forecast's mean weight in the blend.
 """
 function forecast_figure()
     table = read_table(data_file("forecast_result.csv"))
-    figure = Figure(size=(page_width, 180))
+    figure = Figure(size=(page_width, 300))
     axis = Axis(figure[1, 1]; xticks=(1:3, collect(rig_label.(rig_names))),
         ylabel="cost saving [%]", title="(a) saving")
-    plan_alphas = (1.0, 0.6, 0.3)
+    plan_alphas = (1.0, 0.6, 0.3)[eachindex(forecast_figure_plans)]
     tops = Float64[]
     for (j, (plan, _)) in enumerate(forecast_figure_plans)
         savings = [forecast_saving(table, rig, plan) for rig in rig_names]
-        positions = (1:3) .+ (j - 2) * 0.27
+        positions = (1:3) .+ (j - (length(forecast_figure_plans) + 1) / 2) * 0.27
         routed = isfinite.(first.(savings))
         means, errors = first.(savings[routed]), last.(savings[routed])
         barplot!(axis, positions[routed], means; width=0.25,
@@ -2832,21 +2793,33 @@ function forecast_figure()
                        for rig in 1:3] for alpha in plan_alphas],
         collect(last.(forecast_figure_plans)); position=:lt)
     errors = read_table(data_file("forecast_error.csv"))
-    for (column, (quantity, unit)) in enumerate((("wind", "m/s"), ("height", "m")))
-        panel = Axis(figure[1, column + 1]; xlabel="lead time [days]",
+    days = errors["lead_days"]
+    for (column, (quantity, unit, place)) in enumerate((("wind", "m/s", (1, 2)),
+        ("height", "m", (2, 1))))
+        panel = Axis(figure[place...]; xlabel="lead time [days]",
             ylabel="rms error [$unit]",
             title=column == 1 ? "(b) wind at 10 m" : "(c) wave height")
-        forecast = lines!(panel, errors["lead_days"], errors["$(quantity)_forecast"];
-            color=:black)
-        other_year = lines!(panel, errors["lead_days"], errors["$(quantity)_other_year"];
-            color=:gray50, linestyle=:dash)
-        ylims!(panel, 0, 1.2 * maximum([errors["$(quantity)_forecast"];
-            errors["$(quantity)_other_year"]]))
-        column == 1 && axislegend(panel, [forecast, other_year],
-            ["archived forecast", "same date, other year"]; position=:rb)
+        drawn = [lines!(panel, days, errors["$(quantity)_$name"]; style...)
+                 for (name, style) in forecast_error_lines]
+        ylims!(panel, 0, 1.25 * maximum(maximum(errors["$(quantity)_$name"])
+                                        for (name, _) in forecast_error_lines))
+        column == 1 && axislegend(panel, drawn,
+            ["archived forecast", "blend planned on", "climatology"]; position=:rb)
     end
+    weights = Axis(figure[2, 2]; xlabel="lead time [days]", ylabel=L"weight $a(L)$",
+        title="(d) weight of the forecast in the blend")
+    for (quantity, label, linestyle) in (("wind", "wind", :solid),
+        ("height", "wave height", :dash))
+        lines!(weights, days, errors["$(quantity)_weight"]; color=:black, linestyle, label)
+    end
+    ylims!(weights, 0, 1)
+    axislegend(weights; position=:rt)
     save_figure("forecast", figure)
 end
+
+"columns of forecast_error.csv in the forecast figure's error panels, with their style"
+forecast_error_lines = (("forecast", (; color=:black)), ("blend", (; color=palette[1])),
+    ("climate", (; color=:gray50, linestyle=:dash)))
 
 """
     forecast_saving(table, rig, plan)
@@ -2865,7 +2838,7 @@ end
 "rigs of the combination figure with their legend labels and colours"
 combination_rigs = (("kite", "best kite", palette[1]),
     ("rotors", "best rotors", palette[3]),
-    ("kite+rotors", "best kite and rotors together", kite_and_rotors_colour))
+    ("kite+rotors", "best kite and rotors together", level_fill("kite", "rotors")))
 
 """
     combination_figure()
@@ -2898,12 +2871,11 @@ function combination_figure()
                        "route" => string(route), "drive" => drive) for route in pair_routes]
         for (k, (rig, _, colour)) in enumerate(combination_rigs)
             values = [saving[rig] for saving in savings]
-            range_bar!(saving_axis, group + 0.27(k - 2), values, 0.25, colour;
-                stripe=rig == "kite+rotors" ? palette[3] : nothing)
+            range_bar!(saving_axis, group + 0.27(k - 2), values, 0.2, colour)
             push!(tops, maximum(values))
         end
         gains = pair_gain.(savings)
-        range_bar!(gain_axis, group, gains, 0.4, kite_and_rotors_colour; stripe=palette[3])
+        range_bar!(gain_axis, group, gains, 0.32, level_fill("kite", "rotors"))
         print_combination(ship, drive, savings, gains)
     end
     @printf("  noise of the extra saving %.2f points, %.2f to %.2f by design\n",
@@ -2917,8 +2889,7 @@ function combination_figure()
         text="twice its standard error", align=(:right, :top),
         offset=clear_offset((:right, :top), pt(2)), fontsize=note_size, color=:gray35)
     capped = Point2f[(0.35, 0), (0.65, 0), (0.5, 0), (0.5, 1), (0.35, 1), (0.65, 1)]
-    entries = [[rig == "kite+rotors" ? hatched_entry(colour, palette[3]) :
-                PolyElement(color=colour) for (rig, _, colour) in combination_rigs];
+    entries = [[fill_entry(colour) for (_, _, colour) in combination_rigs];
         LineElement(points=capped, color=:black, linewidth=0.8)]
     axislegend(saving_axis, entries, [collect(getindex.(combination_rigs, 2));
         "range over the two routes"]; position=:lt)
@@ -2926,16 +2897,14 @@ function combination_figure()
 end
 
 """
-    range_bar!(axis, x, values, width, colour; stripe=nothing)
+    range_bar!(axis, x, values, width, fill)
 
-Bar of `width` at `x` to the mean of `values`, of `colour` hatched with `stripe` if given,
+Bar of `width` at `x` to the mean of `values`, filled by [`fill_rect!`](@ref) with `fill`,
 with a range bar from their least to their largest.
 """
-function range_bar!(axis, x, values, width, colour; stripe=nothing)
-    bar = barplot!(axis, [x], [mean(values)]; width, color=colour, strokecolor=:gray20,
-        strokewidth=rule_width)
-    drawn = width * (1 - bar.gap[])
-    isnothing(stripe) || hatch!(axis, Rect2f(x - drawn / 2, 0, drawn, mean(values)), stripe)
+function range_bar!(axis, x, values, width, fill)
+    fill_rect!(axis, Rect2f(x - width / 2, 0, width, mean(values)), fill;
+        strokecolor=:gray20, strokewidth=rule_width)
     rangebars!(axis, [x], [minimum(values)], [maximum(values)]; color=:black,
         whiskerwidth=4, linewidth=0.8)
 end
@@ -3010,156 +2979,156 @@ end
 "`name`, a kind of kite or scenario in the rigid kite data, as the paper names it"
 paper_name(name) = replace(name, "rigid" => "VTOL")
 
+"line style of the VTOL kite of each input scenario and mass exponent in the figures"
+function rigid_style(kind, exponent)
+    kind == "rigid favourable" && return (; color=vtol_shades(4)[2], linestyle=:solid)
+    linestyle = exponent == assumptions[:rigid_mass_exponent] ? :solid :
+                exponent == built_wing_exponent ? :dash : :dot
+    return (; color=palette[4], linestyle)
+end
+
+"legend label of the VTOL kite of each input scenario and mass exponent"
+rigid_label(kind, exponent) = kind == "rigid favourable" ? "VTOL kite, favourable inputs" :
+                              L"VTOL kite, $\kappa = %$(exponent)$"
+
 """
     rigid_scaling_figure()
 
-Beam thrust of VTOL kites and a soft kite over apparent wind, and price and annual cost per
-unit of thrust at 12 m/s over area for the mass exponents of the scaling study. Prints the
-scaling table.
+Beam thrust of VTOL kites and a soft kite over apparent wind, and price per unit of thrust
+at 12 m/s and the VTOL kites' lowest wind over area, at base inputs for two mass exponents
+and at favourable inputs. Prints the scaling table.
 """
 function rigid_scaling_figure()
     table = read_table(data_file("rigid_scaling.csv"))
-    figure = Figure(size=(page_width, 330))
+    figure = Figure(size=(page_width, 215))
     thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
         xlabel="apparent wind [m/s]", ylabel="thrust [kN]")
     price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
         xticks=[30, 300, 3000], xlabel=square_metres("kite area [", "]"),
-        ylabel="price per thrust [USD/kN]",
-        ytickformat=values -> [@sprintf("%.0f", value) for value in values])
-    annual_axis = Axis(figure[2, 1]; title="(c) cost a year at 12 m/s", xscale=log10,
-        xticks=[30, 300, 3000], xlabel=square_metres("kite area [", "]"),
-        ylabel="USD/kN a year")
-    wind_axis = Axis(figure[2, 2]; title="(d) lowest wind", xscale=log10,
+        ylabel="kUSD/kN")
+    wind_axis = Axis(figure[1, 3]; title="(c) lowest wind", xscale=log10,
         xticks=[30, 100, 300], xlabel=square_metres("kite area [", "]"),
         ylabel="apparent wind [m/s]")
-    exponents = assumptions.entries[:rigid_mass_exponent]
-    base_exponent = exponents.value
-    curves = (("rigid", 30.0), ("rigid", 54.0), ("rigid", 100.0), ("rigid", 300.0),
-        ("soft", 1000.0))
+    base_exponent = assumptions[:rigid_mass_exponent]
+    curves = (("rigid base", 30.0), ("rigid base", 54.0), ("rigid base", 100.0),
+        ("rigid base", 300.0), ("soft", 1000.0))
     highest = 0.0
     for (k, (kind, area)) in enumerate(curves)
-        exponent = kind == "rigid" ? base_exponent : 0.0
+        exponent = kind == "soft" ? 0.0 : base_exponent
         chosen = rows(table, "kind" => kind, "area" => area, "exponent" => exponent)
         highest = max(highest, 1e-3maximum(table["thrust"][chosen]))
         lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
             color=kind == "soft" ? palette[1] : vtol_shades(length(curves) - 1)[k],
-            label=square_metres("$(paper_name(kind)) $(round(Int, area)) "))
+            label=square_metres("$(paper_name(kind == "soft" ? kind : "rigid")) " *
+                                "$(round(Int, area)) "))
     end
-    series = [("rigid", exponents.low, :dash), ("rigid", base_exponent, :solid),
-        ("rigid", exponents.high, :dot), ("soft", 0.0, :solid)]
-    for (kind, exponent, linestyle) in series
-        at_twelve = filter(row -> table["thrust"][row] > 0,
-            rows(table, "kind" => kind, "exponent" => exponent, "wind" => 12.0))
-        areas, prices = table["area"][at_twelve], table["price"][at_twelve]
-        per_thrust = 1e3 .* prices ./ table["thrust"][at_twelve]
-        annual_per_thrust = 1e3 .* table["annual"][at_twelve] ./ table["thrust"][at_twelve]
-        label = kind == "soft" ? "soft kite" :
-                L"%$(paper_name(kind)), $\kappa = %$(exponent)$"
-        colour = kind == "soft" ? palette[1] : palette[4]
-        if exponent == base_exponent || kind == "soft"
-            low, high = ([scaling_costs(scaling_rig(kind, area, exponent)..., bound)
-                          for area in areas] for bound in (:low, :high))
-            thrusts = table["thrust"][at_twelve]
-            annuals = table["annual"][at_twelve]
-            band!(price_axis, areas, 1e3first.(low) ./ thrusts,
-                1e3first.(high) ./ thrusts; color=(colour, 0.15))
-            band!(annual_axis, areas, 1e3last.(low) ./ thrusts, 1e3last.(high) ./ thrusts;
-                color=(colour, 0.15))
-            @printf("  %s: price %.0f%% to %.0f%%, annual %.0f%% to %.0f%% of base\n",
-                kind, minimum(100first.(low) ./ prices), maximum(100first.(high) ./ prices),
-                minimum(100last.(low) ./ annuals), maximum(100last.(high) ./ annuals))
+    for (kind, exponent) in (rigid_scaling_series()..., ("soft", 0.0))
+        at_wind = flying_rows(table, kind, exponent)
+        areas, thrusts = table["area"][at_wind], table["thrust"][at_wind]
+        style = kind == "soft" ? (; color=palette[1], linestyle=:solid) :
+                rigid_style(kind, exponent)
+        label = kind == "soft" ? "soft kite" : rigid_label(kind, exponent)
+        if (kind, exponent) in (("rigid base", base_exponent), ("soft", 0.0))
+            low, high = ([first(scaling_costs(scaling_rig(kind, area, inputs), inputs,
+                              bound)) for (area, inputs) in
+                          zip(areas, scaling_inputs.(kind, areas, exponent))]
+                         for bound in (:low, :high))
+            band!(price_axis, areas, low ./ thrusts, high ./ thrusts;
+                color=(style.color, 0.15))
+            prices = table["price"][at_wind]
+            @printf("  %s: price %.0f%% to %.0f%% of base\n", paper_name(kind),
+                minimum(100low ./ prices), maximum(100high ./ prices))
         end
-        lines!(price_axis, areas, per_thrust; linestyle, label, color=colour)
-        lines!(annual_axis, areas, annual_per_thrust; linestyle, color=colour)
-        kind == "rigid" && lines!(wind_axis, areas, table["lowest_wind"][at_twelve];
-            linestyle, color=colour)
-        @printf("  %s %.1f: USD/kN a year %s\n", kind, exponent,
-            join(round.(Int, annual_per_thrust), ", "))
-        kind == "rigid" && exponent == base_exponent && for i in eachindex(areas)
-            row = at_twelve[i]
+        lines!(price_axis, areas, table["price"][at_wind] ./ thrusts; label, style...)
+        kind == "soft" || lines!(wind_axis, areas, table["lowest_wind"][at_wind]; style...)
+        kind == "soft" && continue
+        @printf("  %s, kappa %.2f:\n", paper_name(kind), exponent)
+        for (area, row) in zip(areas, at_wind)
             @printf("  %3.0f m2: span %.0f m, mass %.1f t, stall %.0f m/s, hover %.1f MW, ",
-                areas[i], table["span"][row], 1e-3table["mass"][row], table["stall"][row],
+                area, table["span"][row], 1e-3table["mass"][row], table["stall"][row],
                 1e-6table["hover_power"][row])
-            @printf("flies from %.0f m/s, %.0f kN at 12 m/s, %.1f MUSD\n",
-                table["lowest_wind"][row], 1e-3table["thrust"][row], 1e-6prices[i])
+            @printf("flies from %.0f m/s, %.0f kN at 12 m/s, %.2f MUSD\n",
+                table["lowest_wind"][row], 1e-3table["thrust"][row],
+                1e-6table["price"][row])
         end
     end
     axislegend(thrust_axis; position=:lt, orientation=:horizontal, nbanks=3)
     ylims!(thrust_axis, -0.04highest, 1.65highest)
     axislegend(price_axis; position=:rt)
-    linkxaxes!(price_axis, annual_axis)
-    for axis in (price_axis, annual_axis, wind_axis)
+    for axis in (price_axis, wind_axis)
         axis.yautolimitmargin = (0.05, 0.1)
     end
     xlims!(wind_axis, 25, 600)
     save_figure("rigid_scaling", figure)
 end
 
-"rigs of the rigid kite figure with their legend labels and colours"
+"ticks at 125 times the powers of two, spanning `low` to `high`"
+function doubling_ticks(low, high)
+    powers = floor(Int, log2(low / 125)):ceil(Int, log2(high / 125))
+    return [125 * 2^power for power in powers]
+end
+
+"rigs of the VTOL kite figure with their legend labels and colours"
 rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
-    ("wings", "best wings", palette[2]),
-    ("rotors", "best rotors", palette[3]), ("rigid base", "best VTOL kites", palette[4]),
-    ("rigid optimistic", "best VTOL kites, favourable inputs", vtol_shades(4)[3]))
+    ("wings", "best wings", palette[2]), ("rotors", "best rotors", palette[3]),
+    ("rigid base", "VTOL kite", palette[4]),
+    ("rigid favourable", "VTOL kite, favourable inputs", vtol_shades(4)[2]))
 
 """
     rigid_kite_figure()
 
-Cost saving against no rig of the best size of each rig of `rigid_kite_rigs` on each ship
-and drive of the rigid kite study, as the mean over the routes with the range of the
-routes. Prints the means and the rigid fleets each scenario prefers.
+(a) Annual cost per unit of thrust at 12 m/s over area of VTOL kites at base and
+favourable inputs and of soft kites, the routed VTOL kites marked; (b) cost saving against
+no rig on e-ammonia of each rig of `rigid_kite_rigs` on each ship and route of the VTOL
+kite study. Prints both.
 """
 function rigid_kite_figure()
+    scaling = read_table(data_file("rigid_scaling.csv"))
     table = read_table(data_file("rigid_kite.csv"))
-    groups = vec([(ship, drive) for drive in ("vlsfo", "ammonia"),
-                  ship in pair_classes])
-    figure = Figure(size=(page_width, 240))
-    axis = Axis(figure[1, 1]; ylabel="cost saving [%]",
+    figure = Figure(size=(page_width, 190))
+    cost_axis = Axis(figure[1, 1]; title="(a) cost a year at 12 m/s", xscale=log10,
+        yscale=log10, xticks=[30, 300, 3000], xlabel=L"kite area [$\mathrm{m^2}$]",
+        ylabel="USD/kN a year")
+    groups = vec([(ship, route) for route in pair_routes, ship in pair_classes])
+    saving_axis = Axis(figure[1, 2]; title="(b) on e-ammonia", ylabel="cost saving [%]",
         xticks=(eachindex(groups),
-            ["$(replace(ship, " bulk carrier" => ""))\n$(Dict(drive_labels)[drive])"
-             for (ship, drive) in groups]))
+            ["$(replace(ship, " bulk carrier" => ""))\n$(route_label(string(route)))"
+             for (ship, route) in groups]))
+    all_costs = Float64[]
+    for scenario in rigid_scenarios
+        kind = "rigid " * scenario
+        exponent = rigid_exponent(scenario)
+        areas, costs = thrust_costs(scaling, kind, exponent)
+        append!(all_costs, costs)
+        lines!(cost_axis, areas, costs; rigid_style(kind, exponent)...)
+        routed = argmin(costs)
+        scatter!(cost_axis, areas[routed:routed], costs[routed:routed];
+            color=rigid_style(kind, exponent).color)
+        @printf("  %s: USD/kN a year %s at %s m2\n", paper_name(kind),
+            join(round.(Int, costs), ", "), join(round.(Int, areas), ", "))
+    end
+    soft_areas, soft_costs = thrust_costs(scaling, "soft", 0.0)
+    lines!(cost_axis, soft_areas, soft_costs; color=palette[1])
+    cost_ticks = doubling_ticks(extrema([all_costs; soft_costs])...)
+    cost_axis.yticks = (cost_ticks, string.(cost_ticks))
+    @printf("  soft: USD/kN a year %s at %s m2\n", join(round.(Int, soft_costs), ", "),
+        join(round.(Int, soft_areas), ", "))
     names = first.(rigid_kite_rigs)
-    for (group, (ship, drive)) in enumerate(groups)
-        savings = [rig_savings(table, names, "ship" => ship, "route" => string(route),
-                       "drive" => drive) for route in pair_routes]
+    for (group, (ship, route)) in enumerate(groups)
+        savings = rig_savings(table, names, "ship" => ship, "route" => string(route))
         for (k, (rig, _, colour)) in enumerate(rigid_kite_rigs)
-            range_bar!(axis, group + 0.17(k - 3), [saving[rig] for saving in savings], 0.15,
-                colour)
+            barplot!(saving_axis, [group + 0.17(k - 3)], [savings[rig]]; width=0.15,
+                color=colour)
         end
-        print_rigid_kite(table, ship, drive, savings)
+        @printf("  %s, %s: %s\n", ship, route, join([@sprintf("%s %.1f %%",
+            paper_name(rig), savings[rig]) for rig in names], ", "))
     end
-    reference_line!(axis)
-    axis.yautolimitmargin = (0.05, 0.3)
-    axislegend(axis, [PolyElement(color=colour) for (_, _, colour) in rigid_kite_rigs],
+    reference_line!(saving_axis)
+    saving_axis.yautolimitmargin = (0.05, 0.3)
+    axislegend(saving_axis, [PolyElement(color=colour) for (_, _, colour) in rigid_kite_rigs],
         collect(getindex.(rigid_kite_rigs, 2)); position=:lt)
+    colsize!(figure.layout, 1, Relative(0.36))
     save_figure("rigid_kite", figure)
-end
-
-"""
-    print_rigid_kite(table, ship, drive, savings)
-
-Print for one ship and drive the mean saving [%] of each rig over the routes, and for each
-scenario its best fleet on each route and the routes on which it leads.
-"""
-function print_rigid_kite(table, ship, drive, savings)
-    @printf("  %s, %s:", ship, drive)
-    for (rig, _, _) in rigid_kite_rigs
-        @printf(" %s %.1f (%.1f to %.1f) %%,", paper_name(rig),
-            mean(saving[rig] for saving in savings),
-            extrema(saving[rig] for saving in savings)...)
-    end
-    println()
-    for scenario in ("rigid base", "rigid optimistic")
-        best = map(pair_routes) do route
-            chosen = rows(table, "ship" => ship, "drive" => drive, "route" => string(route),
-                "rig" => scenario)
-            row = chosen[argmin(table["cost"][chosen])]
-            "$(round(Int, table["count"][row])) x $(round(Int, table["unit"][row]))"
-        end
-        leads = count(saving -> saving[scenario] > maximum(saving[rig]
-                for rig in rig_names), savings)
-        println("    $(paper_name(scenario)): best fleets ", join(best, ", "),
-            "; leads on ", leads, " of ", length(pair_routes), " routes")
-    end
 end
 
 """
@@ -3238,7 +3207,7 @@ function canopy_price_figure()
     xlims!(price, 0, nothing)
     hideydecorations!(price; ticklabels=false)
     weights = 0:5:400
-    weight = WindShipOpt.cloth_weight(assumptions)
+    weight = assumptions[:canopy_cloth_weight]
     varied = one_at_a_time(assumptions, cloth_inputs)
     goal_band = [extrema(WindShipOpt.sewn_cloth_price(inputs, cloth_weight)
                          for inputs in varied) for cloth_weight in weights]
@@ -3442,13 +3411,17 @@ reference_line!(axis, value=0; vertical=false, linestyle=:solid) =
     (vertical ? vlines! : hlines!)(axis, value; color=style_colour("guide"),
         linewidth=rule_width, linestyle)
 
+"mass [kg] of one VTOL kite of wing `area` [m^2] built on `inputs`"
+rigid_model_mass(area, inputs=assumptions) =
+    last(WindShipOpt.rigid_kite_model(area, 1, inputs)).mass
+
 """
     rigid_mass_figure()
 
-Mass of a rigid kite against its area: the mass law of the assumptions at the base
-exponent and its bounds through the MX2 anchor with the range of its mass, and the
-published wings of data/rigid_kite_masses.csv, its `area` [m^2] and `mass_low` to
-`mass_high` [kg], with and without rotors, filled where built and hollow where designed.
+Mass of a rigid kite against its area: the kite of the assumptions at the base exponent
+and its bounds, and the published wings of data/rigid_kite_masses.csv, its `area` [m^2]
+and `mass_low` to `mass_high` [kg], with and without rotors, filled where built and hollow
+where designed.
 """
 function rigid_mass_figure()
     published = read_table(joinpath(root, "data", "rigid_kite_masses.csv"))
@@ -3459,22 +3432,15 @@ function rigid_mass_figure()
         ylabel="mass [kg]", xticks=(ticks, string.(ticks)),
         yticks=([30, 100, 300, 1000, 3000, 10000, 30000],
             ["30", "100", "300", "1000", "3000", "10000", "30000"]))
-    anchor_area = assumptions[:rigid_reference_area]
-    anchor_mass = assumptions.entries[:rigid_reference_mass]
     exponent = assumptions.entries[:rigid_mass_exponent]
     areas = exp.(range(log(minimum(published["area"])), log(500); length=40))
     xlims!(axis, 1.6, nothing)
     for (value, linestyle) in ((exponent.low, :dot), (exponent.value, :solid),
         (exponent.high, :dash))
-        lines!(axis, areas, anchor_mass.value .* (areas ./ anchor_area) .^ (value / 2);
-            color=:black, linestyle, linewidth=goal_width)
+        inputs = with_value(assumptions, :rigid_mass_exponent, value)
+        lines!(axis, areas, rigid_model_mass.(areas, Ref(inputs)); color=:black, linestyle,
+            linewidth=goal_width)
     end
-    rangebars!(axis, [anchor_area], [anchor_mass.low], [anchor_mass.high]; color=:black,
-        linewidth=goal_width, whiskerwidth=whisker_width)
-    scatter!(axis, [anchor_area], [anchor_mass.value]; color=:white, strokecolor=:black,
-        strokewidth=outline_width, marker=:diamond, markersize=pt(7))
-    text!(axis, anchor_area, anchor_mass.value; text="MX2", align=(:left, :top),
-        offset=clear_offset((:left, :top), pt(4)), fontsize=note_size)
     with_rotors = published["rotors"] .== "true"
     built = occursin.(r"flown|built", published["name"])
     for i in eachindex(built)
@@ -3484,7 +3450,7 @@ function rigid_mass_figure()
             [published["mass_high"][i]]; color)
         scatter!(axis, [published["area"][i]], [mass]; color=built[i] ? color : :white,
             strokecolor=color, strokewidth=outline_width, markersize=pt(5))
-        law = anchor_mass.value * (published["area"][i] / anchor_area)^(exponent.value / 2)
+        law = rigid_model_mass(published["area"][i])
         name = first(split(published["name"][i], ","))
         if published["area"][i] == minimum(published["area"])
             text!(axis, published["area"][i], mass; text=replace(name, " Wing" => "\nWing"),

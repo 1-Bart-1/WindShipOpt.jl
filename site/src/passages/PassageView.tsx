@@ -252,7 +252,7 @@ function ReadOut({ leg, design, timeline }: { leg: Leg; design: PassageDesign; t
   ];
   if (design.rig === "wings") rows.push(["Sail chord", `${leg.columns.trim.chord?.[state.sample].toFixed(0)}° off the bow, lift ${state.lift?.toFixed(2)}`]);
   if (design.rig === "rotors") rows.push(["Spin ratio", `${Math.abs(state.spin ?? 0).toFixed(2)}`]);
-  if (design.rig === "kite") rows.push(["Kite", state.flying ? (state.pattern ? `flying, pattern ${state.pattern.period.toFixed(0)} s` : "flying") : "stowed"]);
+  if (design.rig === "kite") rows.push(["Kite", state.flying ? (state.pattern ? (state.pattern.period === 0 ? "held still" : `flying, pattern ${state.pattern.period.toFixed(0)} s`) : "flying") : "stowed"]);
   return (
     <dl className="panel grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
       {rows.map(([name, value]) => (

@@ -3,10 +3,11 @@
 
 # Download the perturbed members of the GEFSv12 reforecast (10 m wind and significant wave
 # height) for the issues a ship uses on the departures of the forecast study, into
-# era5/atlantic_wide/forecast_members/<member>/{wind,waves}/, and write the ensemble mean
-# and a margin for the wind that may not come beside them, in the layout and with the bias
-# of the control archive, whose wave period and direction they share. Issues outside the
-# study stay holes in the files. Resumable.
+# era5/atlantic_wide/forecast_members/<member>/{wind,waves}/, in the layout and with the
+# bias and blend weights of the control archive, and write the ensemble mean and a margin
+# for the wind that may not come beside them, with their own bias and blend weights. All
+# share the control's wave period and direction. Issues outside the study stay holes in the
+# files. Resumable.
 ENV["ERA5_REGION"] = "atlantic_wide"
 include("setup.jl")
 include("download_forecast.jl")
@@ -27,20 +28,20 @@ member_groups = (groups[1], (; groups[2]..., records=Dict("height" => "HTSGW"),
 Numbers of the issues read by ships leaving at `departures` [h] over `window_days` days.
 """
 study_issues(departures) =
-    sort(unique([ArchivedForecast(forecast_archive, weather, departure + 24.0 * day).issue
+    sort(unique([ArchivedForecast(forecast_archive, departure + 24.0 * day).issue
                  for departure in departures, day in 0:window_days]))
 
 """
-    link_archive(directory)
+    link_archive(directory; calibration=true)
 
-Make `directory` an archive with the grids, the bias and the wave period and direction of
-the control archive in `output`.
+Make `directory` an archive with the grids and the wave period and direction of the control
+archive in `output`, and its bias and blend weights where `calibration`.
 """
-function link_archive(directory)
+function link_archive(directory; calibration=true)
     for group in ("wind", "waves")
         folder = mkpath(joinpath(directory, group))
         cp(joinpath(output, group, "grid.toml"), joinpath(folder, "grid.toml"); force=true)
-        WindShipOpt.link_control_group(joinpath(output, group), folder)
+        WindShipOpt.link_control_group(joinpath(output, group), folder; calibration)
     end
 end
 
@@ -51,7 +52,8 @@ Write the issues numbered `wanted` of the archives `mean` and `margin`, from the
 archive and the member archives, at their places in files spanning every issue.
 """
 function write_statistics(wanted)
-    foreach(name -> link_archive(joinpath(members_root, name)), ("mean", "margin"))
+    foreach(name -> link_archive(joinpath(members_root, name); calibration=false),
+        ("mean", "margin"))
     for (group, names) in (("wind", ["u10", "v10"]), ("waves", ["height"]))
         archives = [WindShipOpt.ArchiveGroup(joinpath(output, group), weather.origin);
                     [WindShipOpt.ArchiveGroup(joinpath(members_root, member, group),
@@ -103,5 +105,10 @@ if abspath(PROGRAM_FILE) == @__FILE__
         link_archive(joinpath(members_root, member))
     end
     write_statistics(wanted)
+    for name in ("mean", "margin")
+        write_forecast_bias(joinpath(members_root, name), weather)
+        write_forecast_weights(joinpath(members_root, name), weather,
+            forecast_archive.climate)
+    end
     println("forecast ensemble complete")
 end
