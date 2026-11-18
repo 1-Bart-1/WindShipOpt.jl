@@ -8,7 +8,6 @@
 \subsection{Which rig where, and how much cost it saves}
 \label{sec:res_fuel}
 \label{sec:res_routes}
-\label{sec:res_combination}
 
 \stale{classes}{On e-ammonia, averaged over all classes and routes, the kite saves \NumSavingAmmoniaKite\,\% of the cost, the rotors \NumSavingAmmoniaRotors\,\% and the wing sails \NumSavingAmmoniaWings\,\% (\cref{fig:class_comparison}). By ship type, \NumVerdictFleetAmmonia{} (\cref{sec:res_groups}). On VLSFO at today's prices the best rig saves 5\,\% of the cost on the \SI{85}{m} coaster to 8\,\% on the Handysize, on average over the routes. The cost saving does not grow with the size of the ship: bulk carriers and tankers save 6 to 8\,\% and container ships 4 to 6\,\%. Wing sails save at most 1\,\% of the cost on any class, and cost more than they save on the coaster and the three smaller container ships.}
 
@@ -40,8 +39,6 @@
 \InputIfFileExists{sections/split_table}{}{\tbd{Split table pending: run the split\_table step.}}
 \end{table*}
 
-\stale{combination_data}{A kite needs only a launch mast at the forward end of the deck, so it can be added to a row of rotors, but it adds little there: in a moderate wind either rig alone covers most of the power the ship needs at the speed the router picks, and each keeps its full capital and yearly cost (\cref{app:combination}).}
-
 \subsection{Deadweight-limited and space-limited ships}
 \label{sec:res_groups}
 
@@ -68,7 +65,7 @@
 
 \stale{classes}{The group a ship falls in can decide which rig leads, and on two container ships the line is close (\cref{sec:deck_rigs}). With \given{\SI{9.5}{t}} of goods per loaded TEU instead of \given{\SI{10.2}{t}} the Megamax would be space-limited and its rotors would lose the lead they have at the base, and at \given{\SI{11.1}{t}} the Neo-Panamax would be deadweight-limited and its rotors would lead \tbd{(what the shift is worth comes from the final run)}. A bulk carrier with a light cargo fills its holds before its deadweight, and its rotors would lead. A car carrier loaded to its deadweight would favour the kite. The mean mass of a box differs between trades and between the two directions of one trade, so on container ships the order of kite and rotors rests on the cargo as much as on the wind. \Cref{sec:disc_size} asks whether deck space is as free on a deadweight-limited ship as the model takes it to be.}
 
-\stale{cargo_interest,classes}{Cargo interest is a second axis, apart from the limit, and in the classes above the two go together: every space-limited ship also carries valuable cargo. Routed apart, cargo interest does not change which rig leads, and the limit sets how far ahead it is (\cref{app:cargo_interest}).}
+\stale{cargo_interest,classes}{Cargo interest is a second axis, apart from the limit, and in the classes above the two go together: every space-limited ship also carries valuable cargo. Routed apart, at low and high cargo interest on every class and over cargo values from \given{100 to \SI{15000}{USD/t}} on a Kamsarmax and a Neo-Panamax (\cref{app:cargo_interest}), cargo interest does not change which rig leads, and the limit sets how far ahead it is. Which cargo and trade suit which rig follows from how the ship loads, not from what the cargo is worth: bulk, oil, general cargo and cars suit the rotors, and containers on a ship that fills its slots first suit the kite to New York, Houston and Bilbao. Dearer cargo does not enlarge the part of a saving that is time: it makes the ship without a rig sail fast, leaving a rig less speed to give back, so on valuable cargo a rig pays through the fuel it saves at the speed the ship sails anyway.}
 
 \subsection{Why the rigs differ}
 \label{sec:res_forces}
@@ -82,6 +79,15 @@ Cargo explains why the class decides on some ships; the wind explains why the ro
 \label{fig:rig_polar}
 \end{figure}
 
+On a voyage the router turns this thrust into fuel or speed. \Cref{fig:passage} follows one winter passage to Guadeloupe. \stale{passage}{The ships with a rig take a track south of the great circle, in the trade winds, while the ship without a rig stays close to it, and the kite and rotor ships arrive about two days before it.} \stale{passage}{The wing sails' thrust, about 40~kN on average and at most 170~kN on this passage, is too small to speed their ship much. The kite's and the rotors', about 560 and 150~kN, are enough. The kite pulls in long bursts, in which its ship speeds up to as much as 16~kn and its fuel power drops to almost nothing, and sails on the engine in between.} The rotors pull more steadily and less.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{passage}
+\caption{\stale{passage}{} One outbound passage to Guadeloupe, departing on \given{1 January 2017}, of a \given{\SI{140}{m}} e-ammonia ship without a rig and with a \given{\SI{3200}{m^2}} kite, \given{\SI{1500}{m^2}} of wing sails or \given{\SI{800}{m^2}} of rotors. (a) The routed track of each ship in its colour, a track that ships share drawn one inside the other, through the corridor's nodes (dots), the great circle dotted, over the \given{\SI{10}{m}} wind six days after departure. (b) Speed through the water, (c) rig thrust on a logarithmic scale, left out below \given{\SI{5}{kN}}, and (d) fuel power, every three hours of the passage.}
+\label{fig:passage}
+\end{figure*}
+
 \stale{wind_angle_data}{On the routed round trips of the \SI{140}{m} e-ammonia ship (\cref{fig:wind_angle}) the kite earns 68\,\% of its propulsive work, thrust times distance, downwind, and the rotors and wing sails 54 and 50\,\% abeam and 37 and 40\,\% downwind. Per dollar of rig cost, kite wear included, the kite gives the most thrust to Bilbao, Houston and New York and the rotors to Guadeloupe, Dakar and Tubar\~ao on this draft.}
 
 \begin{figure*}[tbp]
@@ -90,6 +96,8 @@ Cargo explains why the class decides on some ships; the wind explains why the ro
 \caption{\stale{wind_angle_data}{} Where the wind comes from and where each rig pulls, from the weather-routed round trips of the \given{\SI{140}{m}} e-ammonia ship over the sampled departures on every route: (a) share of the time at sea without a rig in each band of true wind angle, outbound (left bar) and homeward (right bar); (b) mean thrust of a \given{\SI{3200}{m^2} kite, \SI{1500}{m^2} of wing sails and \SI{800}{m^2} of rotors} in each band over all routes, each on its own routed track; (c) share of each rig's propulsive work from each band per route; (d) mean thrust at sea over the rig's cost per day at sea, kite wear and launches included.}
 \label{fig:wind_angle}
 \end{figure*}
+
+Where the kite flies follows from these angles (\cref{tab:flight}). Upwind of \given{\SI{30}{\degree}} \stale{flight}{it could pull for only 11\,\% of the time and is rarely up}. From \given{\SIrange{60}{150}{\degree}} it flies for most of the time it could pull, and the router keeps it down where the thrust would not pay for its wear. In lulls it is held still at the side of the window, where it still pulls a little, and through short stretches of head wind it stays up held still, since landing and launching cost more than its drag, so \stale{flight}{\tbd{17}\,\%} of its hours aloft give no thrust. \stale{flight}{It pulls down to an apparent wind angle of 15.1\,\si{\degree} (\cref{eq:upwind_limit}), the wing sails and rotors to \SI{6.4}{\degree} and \SI{8.4}{\degree}, because their lift to drag is higher than the kite's whole-system value. Over the 28 cases with a kite it is up 34\,\% of the time.}
 
 \stale{classes}{Rotors beat wing sails on fuel, not on cost of the rig. Both are priced on the same basis with the same life of \given{25} years (\cref{sec:costs,sec:inputs}). A square metre of rotor costs about three times one of wing sail and pulls about five times as hard, so at similar thrust they add about the same capital and maintenance per tonne-kilometre (\cref{fig:breakdown}), and on e-ammonia the rotors save nearly twice the share of the cost that the wing sails save. \stale{designs}{On VLSFO fuel is a quarter of the cost of the \SI{85}{m} ship,} too small a part for either deck rig to pay.}
 
@@ -100,7 +108,7 @@ Cargo explains why the class decides on some ships; the wind explains why the ro
 \label{fig:breakdown}
 \end{figure}
 
-\subsection{Another e-fuel}
+\subsection{Another e-fuel does not change which rig leads}
 \label{sec:res_fuels}
 
 \stale{situations_data}{The last question on fuel is whether another e-fuel would change the answer. On the \given{\SI{140}{m}} ship to Guadeloupe and a Kamsarmax to Tubarão, at the same price the two e-fuels give cost savings within 2 points of each other on both ships, and the rig that saves most is the same on both at every price swept: the kite on the \SI{140}{m} ship and the rotors on the Kamsarmax. \Cref{fig:fuels} sweeps e-ammonia from \given{\SIrange{30}{120}{USD/GJ}} and e-methanol from \given{\SIrange{40}{120}{USD/GJ}}, the latter as it would be installed, with a diesel-electric drive and a tank that takes no cargo space (\cref{sec:fuel_choice}). One assessment puts 2030 prices at \given{\SIrange{47}{82}{USD/GJ}} for e-ammonia, \given{\SIrange{73}{118}{USD/GJ}} for e-methanol and \given{\SIrange{60}{98}{USD/GJ}} for e-LNG \citep{lrumas2020}. E-fuels differ mainly in what the engine and tank cost, which every rig shares, and in the tank space and mass a rig saves, largest for ammonia. E-LNG is not in the model. The sweep covers its price, but its insulated tank would give a rig that saves fuel some more to gain, as ammonia's does.}
@@ -112,11 +120,15 @@ Cargo explains why the class decides on some ships; the wind explains why the ro
 \label{fig:fuels}
 \end{figure*}
 
+\subsection{Kite and rotors together add little}
+\label{sec:res_combination}
+
+\stale{combination_data,classes,base_kite}{Kite and rotors pull best at different wind angles (\cref{fig:rig_polar}), and a kite needs only a launch mast at the forward end of the deck, so it can be added to a row of rotors. Flown together on the Handysize and the Kamsarmax bulk carriers to Guadeloupe and Bilbao (\cref{app:combination}), a kite added to rotors is worth 1 and 2 points of cost saving on e-ammonia on the Kamsarmax and the Handysize, clear of the noise only on the Handysize to Guadeloupe, and nothing on VLSFO: in a moderate wind either rig alone covers most of the power the ship needs at the speed the router picks, and each keeps its full capital and yearly cost.}
+
 \subsection{VTOL kites are too expensive at ship scale}
 \label{sec:res_rigid}
-\label{sec:rigid_kite}
 
-That leaves the fourth rig, the VTOL kite, for vertical take-off and landing: a rigid wing that carries propellers to rise from the deck and land on it like a helicopter, on a tether that carries electric power. It shares the force balance, pattern search, router and cost model of the soft kite, and its inputs start from the MX2 design of the company Makani, a \given{\SI{54}{m^2}} wing designed and never built \citep{echeverri2020part1}; its life of \given{15} years and its loss of one kite in \given{\num{10000}} launches and landings are goals (\cref{sec:det_rigid}). \stale{rigid_scaling_data,rigid_kite_data}{If it reaches its goals, a VTOL kite flies at ship scale but costs about 2.7 times what a soft kite costs for each unit of thrust, and on e-ammonia it saves less than half of what a soft kite or rotors save} (\cref{fig:rigid_kite}). At \given{\SI{12}{m/s}} of apparent wind on a beam course \stale{rigid_scaling_data}{the \SI{54}{m^2} wing pulls \SI{160}{kN} for USD~2.05 million, USD~\num{12800} per kilonewton, and a \SI{1000}{m^2} soft kite pulls \SI{291}{kN} at USD~\num{2340} per kilonewton}. The rigid wing's life of \given{15} years against a canopy of \NumCanopyLifeGoal{} flight hours closes part of that gap: over a year of \NumCanopyLifeGoal{} flight hours and \given{150} launches, each at its goals, \stale{rigid_scaling_data}{the wing costs USD~\num{2440} per kilonewton and the soft kite USD~900. The cost per kilonewton is lowest near the \SI{54}{m^2} of MX2 and rises steeply above \SI{100}{m^2}}, because the wing's mass grows with its span to the power $\kappa$, the mass exponent, and the heavier wing needs more wind to reach the top of its circle (\cref{fig:rigid_scaling}). The speed of the ship does not close this gap, since wind from ahead gives drag and not thrust.
+That leaves the fourth rig. \stale{rigid_scaling_data,rigid_kite_data}{If it reaches its goals, a VTOL kite flies at ship scale but costs about 2.7 times what a soft kite costs for each unit of thrust, and on e-ammonia it saves less than half of what a soft kite or rotors save} (\cref{fig:rigid_kite}). At \given{\SI{12}{m/s}} of apparent wind on a beam course \stale{rigid_scaling_data}{the \SI{54}{m^2} wing pulls \SI{160}{kN} for USD~2.05 million, USD~\num{12800} per kilonewton, and a \SI{1000}{m^2} soft kite pulls \SI{291}{kN} at USD~\num{2340} per kilonewton}. The rigid wing's life of \given{15} years against a canopy of \NumCanopyLifeGoal{} flight hours closes part of that gap: over a year of \NumCanopyLifeGoal{} flight hours and \given{150} launches, each at its goals, \stale{rigid_scaling_data}{the wing costs USD~\num{2440} per kilonewton and the soft kite USD~900. The cost per kilonewton is lowest near the \SI{54}{m^2} of MX2 and rises steeply above \SI{100}{m^2}}, because the wing's mass grows with its span to the power $\kappa$, the mass exponent, and the heavier wing needs more wind to reach the top of its circle (\cref{fig:rigid_scaling}). The speed of the ship does not close this gap, since wind from ahead gives drag and not thrust.
 
 \begin{figure*}[tbp]
 \centering
