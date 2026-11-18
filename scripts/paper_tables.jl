@@ -2001,7 +2001,8 @@ the goals, the `highlight_limit` the paper build checks, the [`class_numbers`](@
 [`class_range_numbers`](@ref), [`recommendation_numbers`](@ref),
 [`rig_lead_numbers`](@ref), [`route_numbers`](@ref), [`split_numbers`](@ref),
 [`payback_numbers`](@ref), [`premium_numbers`](@ref), [`fleet_share_numbers`](@ref),
-[`market_numbers`](@ref) and [`type_saving_numbers`](@ref) of the class study, and the
+[`market_numbers`](@ref) and [`type_saving_numbers`](@ref) of the class study, the
+[`design_premium_numbers`](@ref) of the design study and the
 [`forecast_numbers`](@ref).
 """
 function numbers_file()
@@ -2009,8 +2010,10 @@ function numbers_file()
     results = [class_numbers(classes); class_range_numbers(classes);
                recommendation_numbers(classes); rig_lead_numbers(classes);
                route_numbers(classes); split_numbers(classes); payback_numbers(classes);
-               premium_numbers(classes); fleet_share_numbers(classes);
-               market_numbers(classes); type_saving_numbers(classes); forecast_numbers()]
+               premium_numbers(classes);
+               design_premium_numbers(read_table(data_file("designs.csv")));
+               fleet_share_numbers(classes); market_numbers(classes);
+               type_saving_numbers(classes); forecast_numbers()]
     draft = paper_run.fidelity != :final
     open(joinpath(sections, "numbers.tex"), "w") do io
         for (name, text) in goal_numbers()
@@ -2120,8 +2123,8 @@ end
     fleet_share_numbers(table)
 
 Name and text, per drive of the class table `table`, of each band's share [%] of the
-yearly cost of carrying the fleet's cargo, the totals of that cost and of the saving
-[billion USD], and the shares of the IMO transport work and of shipping's CO2 the classes
+yearly cost of carrying the fleet's cargo and the total of that cost [billion USD], and
+the shares of the IMO transport work and of shipping's CO2 the classes
 carry.
 """
 function fleet_share_numbers(table)
@@ -2783,6 +2786,40 @@ function premium_numbers(table)
     return ["PremiumNoRig" => whole_number(mean(without)),
         "PremiumBestRig" => whole_number(mean(with)),
         "PremiumClosed" => whole_number(100 * (1 - mean(with) / mean(without)))]
+end
+
+"""
+    design_premium_numbers(designs)
+
+Name and text of the [`whole_range`](@ref) over the ship lengths of designs.csv `designs`,
+on the route to Guadeloupe, of how much more [%] the e-ammonia ship costs than the same
+ship on VLSFO without a rig, of the share of that premium the best size of each rig closes
+([`premium_closed`](@ref)), and of how much more it costs with the better of kite and
+rotors, at the lengths where both were run.
+"""
+function design_premium_numbers(designs)
+    lengths = sort(unique(designs["length"]))
+    premium(column) = [fuel_premium(designs, "ammonia", length, column)
+                       for length in lengths]
+    numbers = ["DesignPremium" => whole_range(premium(nothing)),
+        "DesignPremiumBestRig" => whole_range(min.(premium("kite_area"),
+            premium("rotor_area")))]
+    for (rig, column) in rig_area_columns
+        closed = [premium_closed(designs, "ammonia", length, column) for length in lengths]
+        push!(numbers, "DesignPremiumClosed" * uppercasefirst(rig) => whole_range(closed))
+    end
+    return numbers
+end
+
+"""
+    whole_range(values)
+
+Lowest to highest of the finite `values` in whole numbers, `"<low> to <high>"`, or the one
+number where both round alike.
+"""
+function whole_range(values)
+    low, high = whole_number.(extrema(filter(isfinite, values)))
+    return low == high ? low : "$low to $high"
 end
 
 """
