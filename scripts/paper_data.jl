@@ -3296,7 +3296,7 @@ function routing_value_data()
         println(io, join([collect(string.(labels)); ["departure", "cost"]], ","))
         for (case, trip) in zip(cases, trips)
             isnothing(trip) && continue
-            fields = csv_value.(getproperty.(Ref(case), labels))
+            fields = [csv_value(getproperty(case, label)) for label in labels]
             for outcome in trip.departures
                 println(io, join([fields; csv_value(outcome.departure);
                         string(outcome.cost_per_tonne_km)], ","))
@@ -3315,7 +3315,7 @@ for a class `operating`, the fleet's mean operating speed in data/ship_classes.c
 function held_speeds(case, trip)
     track = sum(corridor.track_length for corridor in case.corridors)
     hours = 24(trip.outbound_days + trip.return_days)
-    speeds = ["same_time" => round(track / hours / WindShipOpt.KNOT; digits=2)]
+    speeds = ["same_time" => round(track / 3600hours / WindShipOpt.KNOT; digits=2)]
     case.ship == "140 m" && return speeds
     classes = read_table(joinpath(root, "data", "ship_classes.csv"))
     operating = classes["operating_speed"][only(rows(classes, "name" => case.ship))]
