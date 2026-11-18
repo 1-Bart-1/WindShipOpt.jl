@@ -2159,7 +2159,9 @@ end
 
 Name and text, per drive of the class table `table`, of the [`market_range`](@ref) of the
 ships, sales, cost saved and CO2 saved of each rig's [`fleet_market`](@ref) and of the best
-rig's.
+rig's; and of what the best rig fitted wherever one clearly saves saves the fleet a year:
+the cost [billion USD], its share [%] of the yearly cost of carrying the fleet's cargo and
+the CO2 [million t].
 """
 function market_numbers(table)
     numbers = Pair{String, String}[]
@@ -2170,6 +2172,11 @@ function market_numbers(table)
                 uppercasefirst(string(measure)))
             push!(numbers, name => market_range(market[rig], measure))
         end
+        (; saved, carbon) = market["any"].high
+        bill = sum(cell.bill for cell in fleet_cells(table, drive))
+        push!(numbers, "FleetSaved$word" => two_digits(1e-9saved),
+            "FleetSavedShare$word" => whole_number(100saved / bill),
+            "FleetCarbon$word" => two_digits(1e-12carbon))
     end
     return numbers
 end
