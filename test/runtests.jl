@@ -955,13 +955,37 @@ end
     for (rig, row_length) in ((WingRig(800.0, hull, assumptions), deck),
         (WindShipOpt.RotorRig(800.0, hull, assumptions; forward_reserve=reserve),
             deck - reserve))
-        positions = WindShipOpt.unit_positions(rig, hull, assumptions)
+        positions = first.(WindShipOpt.unit_positions(rig, hull, assumptions))
+        @test rig.columns == 1
         @test length(positions) == rig.count > 1
         @test sum(positions) / rig.count ≈ rig.centre_position
         @test all(diff(positions) .≈ row_length / rig.count)
     end
     single = WingRig(100.0, hull, assumptions)
-    @test WindShipOpt.unit_positions(single, hull, assumptions) == [single.centre_position]
+    @test WindShipOpt.unit_positions(single, hull, assumptions) ==
+          [(single.centre_position, 0.0)]
+end
+
+@testset "rotors stand in two columns at the deck edges where they lose less" begin
+    hull = Hull(ship_classes()["Kamsarmax bulk carrier"], assumptions)
+    row_only = WindShipOpt.with_value(assumptions, :deck_columns, 1)
+    largest(inputs) = maximum(area for area in 500.0:100.0:6000.0
+                              if !isnothing(WindShipOpt.RotorRig(area, hull, inputs)))
+    @test isnothing(WindShipOpt.RotorRig(largest(row_only) + 100, hull, row_only))
+    rig = WindShipOpt.RotorRig(largest(row_only) + 100, hull, assumptions)
+    @test rig.columns == 2 && iseven(rig.count)
+    @test rig.column_offset ≈ (hull.beam - rig.diameter) / 2
+    positions = WindShipOpt.unit_positions(rig, hull, assumptions)
+    @test length(positions) == rig.count
+    @test sort(unique(last.(positions))) ≈ [-rig.column_offset, rig.column_offset]
+    @test sum(first.(positions)) / rig.count ≈ rig.centre_position
+    row = WindShipOpt.RotorRig(largest(row_only), hull, row_only)
+    chosen = WindShipOpt.RotorRig(largest(row_only), hull, assumptions)
+    @test row.columns == 1
+    @test chosen.interference_factor >= row.interference_factor
+    narrow = Hull(140.0, assumptions)
+    @test all(WingRig(area, narrow, assumptions).columns == 1 for area in 400.0:400.0:1600.0
+              if !isnothing(WingRig(area, narrow, assumptions)))
 end
 
 @testset "the rudder cancels the yaw moment about the hull's lateral centre" begin

@@ -319,14 +319,16 @@ function passage_design(case)
     rig = case.ship.rig
     common = (; case.rig, case.area, length=hull.length, beam=hull.beam, draft=hull.draft,
         depth=assumptions[:depth_draft_ratio] * hull.draft)
-    positions(unit) = WindShipOpt.unit_positions(unit, hull, assumptions)
+    positions(unit) = first.(WindShipOpt.unit_positions(unit, hull, assumptions))
+    offsets(unit) = last.(WindShipOpt.unit_positions(unit, hull, assumptions))
     if rig isa WindShipOpt.WingRig
         return (; common..., count=rig.count, height=rig.height,
             foot_height=rig.foot_height, width=rig.height / assumptions[:wing_aspect_ratio],
-            positions=positions(rig))
+            positions=positions(rig), offsets=offsets(rig))
     elseif rig isa WindShipOpt.RotorRig
         return (; common..., count=rig.count, height=rig.height,
-            foot_height=rig.foot_height, diameter=rig.diameter, positions=positions(rig))
+            foot_height=rig.foot_height, diameter=rig.diameter, positions=positions(rig),
+            offsets=offsets(rig))
     elseif rig isa WindShipOpt.KiteRig
         aspect_ratio = WindShipOpt.kite_aspect_ratio(case.design, assumptions)
         return (; common..., span=sqrt(aspect_ratio * rig.area),

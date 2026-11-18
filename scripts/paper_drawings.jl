@@ -121,15 +121,15 @@ end
 
 function draw_rig!(axis, rig::WingRig, hull, force)
     chord = rig.height / assumptions[:wing_aspect_ratio]
-    for position in WindShipOpt.unit_positions(rig, hull, assumptions)
-        lines!(axis, [Point2f(0, position + chord / 2), Point2f(0, position - chord / 2)];
-            color=:black, linewidth=2.5)
+    for (position, offset) in WindShipOpt.unit_positions(rig, hull, assumptions)
+        lines!(axis, [Point2f(offset, position + chord / 2),
+                Point2f(offset, position - chord / 2)]; color=:black, linewidth=2.5)
     end
 end
 
 function draw_rig!(axis, rig::WindShipOpt.RotorRig, hull, force)
-    for position in WindShipOpt.unit_positions(rig, hull, assumptions)
-        poly!(axis, Circle(Point2f(0, position), rig.diameter / 2); color=:white,
+    for (position, offset) in WindShipOpt.unit_positions(rig, hull, assumptions)
+        poly!(axis, Circle(Point2f(offset, position), rig.diameter / 2); color=:white,
             strokecolor=:black, strokewidth=0.75)
     end
 end
@@ -175,7 +175,7 @@ height times its chord or diameter, standing at its foot height.
 """
 function draw_side_rig!(axis, rig, hull, offset)
     width = rig isa WingRig ? rig.height / assumptions[:wing_aspect_ratio] : rig.diameter
-    for position in WindShipOpt.unit_positions(rig, hull, assumptions)
+    for (position, _) in WindShipOpt.unit_positions(rig, hull, assumptions)
         poly!(axis, Rect2f(Point2f(offset) + Point2f(position - width / 2,
                     rig.foot_height), Vec2f(width, rig.height));
             color=palette[rig isa WingRig ? 2 : 3],
