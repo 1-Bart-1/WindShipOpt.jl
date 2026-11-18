@@ -53,7 +53,8 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :availability_data => availability_data,
     :canopy_life_data => canopy_life_data, :canopy_price_data => canopy_price_data,
     :situations_data => situations_data,
-    :wind_angle_data => wind_angle_data, :canopy_tension => canopy_tension_data,
+    :wind_angle_data => wind_angle_data, :route_tracks => route_tracks_data,
+    :canopy_tension => canopy_tension_data,
     :abatement_data => abatement_data,
     :combination_data => combination_data,
     :rigid_scaling_data => rigid_scaling_data, :rigid_kite_data => rigid_kite_data,
@@ -113,7 +114,7 @@ output_steps = [:kite => kite_figure,
     :sensitivity_figure => sensitivity_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
     :development_table => development_table,
-    :class_table => class_table, :fidelity_table => fidelity_table,
+    :class_table => class_dimension_table, :fidelity_table => fidelity_table,
     :split_table => split_table,
     :payback_table => payback_table, :market_table => market_table,
     :goals_table => goals_table,
@@ -128,12 +129,13 @@ output_steps = [:kite => kite_figure,
     :kite_frames => kite_frames_figure, :router => router_figure,
     :missed_goals => missed_goals_figure, :cargo_cost => cargo_cost_figure,
     :canopy_life_figure => canopy_life_figure, :large_rigs => large_rigs_figure,
-    :canopy_life_table => canopy_life_table, :rigid_mass => rigid_mass_figure,
+    :canopy_life_table => canopy_life_table, :kite_mass => kite_mass_figure,
     :tow_point_figure => tow_point_figure,
-    :fleet_share => fleet_share_figure, :numbers => numbers_file]
+    :fleet_share => fleet_share_figure, :numbers => numbers_file,
+    :rigid_numbers => rigid_numbers_file]
 
 """
-    paper(names...; fidelity, resume=nothing)
+    paper(names...; fidelity, resume=nothing, only=nothing)
 
 Run the named steps, or every data step of the results and then every figure and table
 step when no name is given, at `fidelity` (:draft or :final); `:data` and `:figures` run all
@@ -141,28 +143,30 @@ steps of that kind. Any step but figures and tables alone runs in a new or resum
 `resume` true takes the latest unfinished run at `fidelity` on this git branch, false none,
 and nothing asks on stdin.
 Steps that run has done are skipped, and it counts as finished once every step asked of it
-is done. A final run errors on a dirty tree or unpushed commit.
+is done. Round trips the case store holds for the code and inputs are reused. A draft with
+`only`, labels and their values such as `(class="handysize", route=:caribbean)`, computes
+only the cases carrying them and keeps the latest stored round trip of the others, of any
+code. A final run errors on a dirty tree or unpushed commit.
 """
-function paper(names::Symbol...; fidelity, resume=nothing)
+function paper(names::Symbol...; fidelity, resume=nothing, only=nothing)
     steps = isempty(names) ? [data_steps; output_steps] :
             [step for name in names for step in selected_steps(name)]
-    run_steps(steps, first.([output_steps; study_table_steps()]); fidelity, resume)
+    run_steps(steps, first.([output_steps; study_table_steps()]); fidelity, resume, only)
     mark_fidelity(joinpath(sections, "fidelity.tex"), fidelity, first.(steps),
         first.(output_steps))
     return nothing
 end
 
 """
-    run_steps(steps, outputs; fidelity, resume)
+    run_steps(steps, outputs; fidelity, resume, only=nothing)
 
 Run `steps` at `fidelity` in a new or resumed run as [`paper`](@ref) does, or without a run
 when all of them are among the figure and table steps `outputs`.
 """
-function run_steps(steps, outputs; fidelity, resume)
+function run_steps(steps, outputs; fidelity, resume, only=nothing)
     haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
-    global paper_run = all(in(outputs), first.(steps)) ?
-                       PaperRun(nothing, fidelity, Dict{String, Any}(), 0, 0) :
-                       open_run(fidelity, first.(steps), resume)
+    global paper_run = all(in(outputs), first.(steps)) ? PaperRun(fidelity) :
+                       open_run(fidelity, first.(steps), resume; only)
     for (name, step) in steps
         if step_done(paper_run, name)
             println("step ", name, " already done")
@@ -192,4 +196,47 @@ function selected_steps(name)
     matches = filter(step -> first(step) == name, steps)
     isempty(matches) && throw(ArgumentError("no paper step $name"))
     return matches
+end
+
+"""
+    paper_status(; fidelity)
+
+Print for each data step and method study at `fidelity` whether the data the paper reads
+from it are current and, where not, why and whether its round trips recompute; return the
+names of those out of date in the order they run, for [`paper`](@ref). A step is out of
+date where [`step_reasons`](@ref) gives a reason or it reads a data file of a step that is.
+At `:final`, also print whether all of them come from one clean commit.
+"""
+function paper_status(; fidelity)
+    previous = paper_run
+    global paper_run = PaperRun(fidelity)
+    try
+        return print_steps_status(fidelity)
+    finally
+        global paper_run = previous
+    end
+end
+
+"""
+    print_steps_status(fidelity)
+
+Print and return what [`paper_status`](@ref) does, with the run in use set to `fidelity`.
+"""
+function print_steps_status(fidelity)
+    definitions = script_definitions(script_files())
+    current_trips = trip_model(definitions)
+    steps = [data_steps; study_steps]
+    found = Dict(name => step_location(name) for (name, _) in steps)
+    reasons = Dict(name => isnothing(found[name]) ? ["never ran at $fidelity fidelity"] :
+                           step_reasons(last(found[name]), step_code(definitions, step))
+                   for (name, step) in steps)
+    makers = Dict(file => name for (name, location) in found if !isnothing(location)
+                  for file in last(location)["files"])
+    spread_staleness!(reasons, found, makers)
+    for (name, _) in steps
+        print_status(name, found[name], reasons[name], current_trips)
+    end
+    fidelity == :final &&
+        print_commits(part_commits(filter(!isnothing, collect(values(found)))))
+    return [name for (name, _) in steps if !isempty(reasons[name])]
 end
