@@ -3588,7 +3588,7 @@ end
 end
 
 @testset "run jobs that find their run unmoved are counted until it moves" begin
-    @eval PaperRuns runs_directory = mktempdir()
+    @eval PaperRuns runs_directory = joinpath(mktempdir(), "runs")
     @test PaperRuns.stalled_run_jobs(:draft) == 0
     directory = joinpath(PaperRuns.runs_directory, "2026-01-01T0000")
     mkpath(directory)
