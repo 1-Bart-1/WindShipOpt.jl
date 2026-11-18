@@ -8,8 +8,9 @@
 using Printf
 
 command = isempty(ARGS) ? "help" : popfirst!(ARGS)
-if command in ("run", "shard")
+if command in ("run", "shard", "estimate")
     include(joinpath(@__DIR__, "paper.jl"))
+    include(joinpath(@__DIR__, "run_estimate.jl"))
 else
     root = joinpath(@__DIR__, "..")
     include(joinpath(@__DIR__, "paper_runs.jl"))
@@ -122,6 +123,9 @@ elseif command == "run"
     run_job(ARGS[1], ARGS[2:end])
 elseif command == "shard"
     compute_shard(ARGS[1], parse(Int, ARGS[2]), parse(Int, ARGS[3]))
+elseif command == "estimate"
+    print_estimate(; box_cores=isempty(ARGS) ? 20 : parse(Int, only(ARGS)))
 else
-    println("usage: bin/cluster submit draft|final [step ...] | bin/cluster status")
+    println("usage: bin/cluster submit draft|final [step ...] | bin/cluster status | ",
+        "bin/cluster estimate [box cores]")
 end

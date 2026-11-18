@@ -1,0 +1,163 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# What a final and a draft paper run take: the round trips of each data step of the latest
+# draft run, scaled to each fidelity, times the core seconds this machine takes for a sample
+# of round trips at this commit. Included by cluster.jl for `bin/cluster estimate`.
+
+"""
+Setting of `fidelities` that samples the departures of each data step's round trips, where
+it is not `departure_step`; nothing for a step sailing the same departures at every fidelity
+"""
+step_departure_settings = Dict("sensitivity" => :sensitivity_departure_step,
+    "forecast_result" => nothing)
+
+"share of each rig among the cases of the class study: one without a rig per three sizes"
+rig_shares = Dict("none" => 0.1, "kite" => 0.3, "wings" => 0.3, "rotors" => 0.3)
+
+"CPU seconds, user and system, this process has used on all its threads"
+function cpu_seconds()
+    usage = zeros(Int64, 18)
+    ccall(:getrusage, Cint, (Cint, Ptr{Int64}), 0, usage)
+    return usage[1] + usage[2] / 1e6 + usage[3] + usage[4] / 1e6
+end
+
+"""
+    sample_cost(cases, departures)
+
+Core seconds per departure of the round trips of `cases` over `departures`, the ships and
+kite pattern tables built beforehand, stored apart from the case store.
+"""
+function sample_cost(cases, departures)
+    foreach(case -> Ship(case.design, case.assumptions), cases)
+    start = cpu_seconds()
+    compute_trips(cases, [mktempdir() for _ in cases], departures)
+    return (cpu_seconds() - start) / (length(cases) * length(departures))
+end
+
+"""
+    measure_trip_costs()
+
+Core seconds per departure of a sample of round trips on this machine: one case of each
+ship class with each rig at the draft's departures (`class`), the 140 m e-ammonia ship to
+Guadeloupe with each rig at the final run's departures (`development`), and that ship's
+plan sailed live (`live`).
+"""
+function measure_trip_costs()
+    global paper_run = PaperRun(mktempdir(), :draft,
+        Dict{String, Any}("git_commit" => git_output("rev-parse", "HEAD"),
+            "git_dirty" => true), nothing, Dict{Symbol, Vector{Any}}(), "estimate",
+        StepTally())
+    sampled(fidelity) = departures[1:fidelities[fidelity].departure_step:end]
+    development(rig, area; plan=false) = trip_case(
+        ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); route=:caribbean, forecast=plan)
+    classes = collect(values(ship_classes()))
+    rigs = [("none", 0.0); reference_rigs]
+    costs = Dict{String, Any}("processor" => processor(), "threads" => Threads.nthreads())
+    sample_cost([development("none", 0.0)], departures[1:1])
+    for (rig, area) in rigs
+        cases = map(enumerate(classes)) do (i, class)
+            bounds = rig == "none" ? (0.0, 0.0) : size_bounds(class)[rig]
+            class_case(class, study_drives[mod1(i, 2)], rig, sqrt(prod(bounds)),
+                route_names[mod1(i, length(route_names))])
+        end
+        costs["class_$rig"] = sample_cost(cases, sampled(:draft))
+        costs["development_$rig"] = sample_cost([development(rig, area)], sampled(:final))
+        costs["live_$rig"] = sample_cost([development(rig, area; plan=:live)],
+            departures[1:1])
+    end
+    return costs
+end
+
+"""
+    trip_costs()
+
+[`measure_trip_costs`](@ref) at this commit on this processor, measured once and kept in
+output/estimates/.
+"""
+function trip_costs()
+    name = string(first(git_output("rev-parse", "HEAD"), 7), "-",
+        content_hash(processor()), ".toml")
+    path = joinpath(mkpath(joinpath(root, "output", "estimates")), name)
+    isfile(path) && return TOML.parsefile(path)
+    costs = measure_trip_costs()
+    open(io -> TOML.print(io, costs), path, "w")
+    return costs
+end
+
+"""
+    weighted_cost(costs, sample)
+
+Core seconds per departure of a round trip of `sample` in `costs`, its rigs weighted by
+[`rig_shares`](@ref).
+"""
+weighted_cost(costs, sample) =
+    sum(share * costs["$(sample)_$rig"] for (rig, share) in rig_shares)
+
+"""
+    step_departures(name, fidelity)
+
+Departures each round trip of data step `name` sails over at `fidelity`.
+"""
+function step_departures(name, fidelity)
+    setting = get(step_departure_settings, name, :departure_step)
+    isnothing(setting) && return 1
+    return length(departures[1:getproperty(fidelities[fidelity], setting):end])
+end
+
+"""
+    run_counts(record)
+
+For each data step of the draft run `record` with round trips: its name, its cases at the
+draft and at the final fidelity, the final's one more round of the rig size search adding at
+most a quarter of the draft's cases (three sizes for every thirteen).
+"""
+function run_counts(record)
+    return map(filter(step -> haskey(step, "cases"), record["steps"])) do step
+        extra = (fidelities[:final].size_rounds - fidelities[:draft].size_rounds) *
+                (step["name"] == "classes")
+        (name=step["name"], draft=step["cases"], final=step["cases"] * (1 + 3extra / 13))
+    end
+end
+
+"""
+    print_estimate(; box_cores=20)
+
+Print what a final and a draft run take in core hours on this machine and in days on the
+cluster's jobs of cluster.toml, on one of those jobs alone, and on `box_cores` cores here,
+from the latest finished draft run's cases and [`trip_costs`](@ref): the forecast result
+at the mean of its plan sailed live and with perfect foresight, every other step between
+the class and the development sample.
+"""
+function print_estimate(; box_cores=20)
+    directory, record = first(filter(run -> is_finished(last(run)) &&
+                                                any(haskey.(last(run)["steps"], "cases")),
+        fidelity_runs(:draft)))
+    costs = trip_costs()
+    settings = cluster_settings()
+    range = extrema(weighted_cost.(Ref(costs), ("class", "development")))
+    forecast_cost = (weighted_cost(costs, "live") + weighted_cost(costs, "development")) / 2
+    println("cases of draft run ", basename(directory), "; core seconds per departure on ",
+        costs["processor"], ": ", join([@sprintf("%s %.0f", key, value)
+                                        for (key, value) in sort(collect(costs))
+                                        if value isa Number && key != "threads"], ", "))
+    for fidelity in (:final, :draft)
+        @printf("\n%s run\n%-20s %8s %12s %12s\n", fidelity, "step", "cases",
+            "departures", "core hours")
+        hours = zeros(2)
+        for step in run_counts(record)
+            cases = getproperty(step, fidelity)
+            trips = cases * step_departures(step.name, fidelity)
+            cost = step.name == "forecast_result" ? forecast_cost .* (1, 1) : range
+            hours .+= trips .* cost ./ 3600
+            @printf("%-20s %8.0f %12.0f %5.0f to %5.0f\n", step.name, cases, trips,
+                (trips .* cost ./ 3600)...)
+        end
+        @printf("%-20s %34.0f to %5.0f\n", "total", hours...)
+        for (place, cores) in (("cluster, jobs of cluster.toml",
+                                   settings["jobs"] * settings["cores"]),
+            ("cluster, one job", settings["cores"]), ("$box_cores cores here", box_cores))
+            @printf("  on %-32s %5.1f to %5.1f days\n", place, (hours ./ cores ./ 24)...)
+        end
+    end
+end
