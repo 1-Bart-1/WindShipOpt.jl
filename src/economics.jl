@@ -385,8 +385,8 @@ market price factor, the tether at its purchase price.
 """
 function consumable_costs(rig::KiteRig, assumptions)
     tether_mass = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
-    return canopy_price(assumptions, rig.area, rig.aspect_ratio) * rig.area,
-    assumptions[:tether_price] * tether_mass
+    canopy = canopy_price(assumptions, rig.area, rig.aspect_ratio) * rig.area
+    return canopy, assumptions[:tether_price] * tether_mass
 end
 
 """
