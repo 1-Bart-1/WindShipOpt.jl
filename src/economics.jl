@@ -483,7 +483,7 @@ rotors with their drives by the power they are rated for [USD].
 function rigid_airframe_price(rig::KiteRig{RigidAirframe}, assumptions)
     (; count, hover_power) = rig.airframe
     one = assumptions[:rigid_structure_cost_per_mass] *
-          rigid_structure_mass(rig.area, assumptions) +
+          rigid_structure_mass(rig.area, rig.max_force, assumptions) +
           assumptions[:rigid_structure_cost_per_area] * rig.area +
           assumptions[:rigid_avionics_cost] +
           assumptions[:rigid_drive_cost] * drive_power(hover_power, assumptions)

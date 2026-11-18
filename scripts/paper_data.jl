@@ -161,7 +161,7 @@ launch_cost_inputs = (:kite_cycle_crew_cost, :kite_cycle_damage_probability,
 `inputs` with every input of `names` at its `bound` (`:low`, `:high` or `:value`).
 """
 at_bound(inputs, names, bound) = foldl(names; init=inputs) do changed, name
-    with_value(changed, name, getfield(assumptions.entries[name], bound))
+    with_value(changed, name, getfield(changed.entries[name], bound))
 end
 
 """
@@ -3510,7 +3510,7 @@ rigid_low_favours = (:rigid_tether_price, :rigid_tether_density,
     :rigid_drive_reference_mass, :rigid_rotor_mass_per_area, :rigid_ship_power_cost,
     :rigid_perch_cost, :rigid_perch_width, :rigid_station_mass, :rigid_upkeep_per_area,
     :rigid_cycle_loss_probability, :rigid_feathered_rotor_drag, :rigid_hover_energy_price,
-    :rigid_hover_minutes, :rigid_hover_thrust_ratio, :rigid_mass_exponent,
+    :rigid_hover_minutes, :rigid_hover_thrust_ratio, :rigid_shell_mass, :rigid_load_mass,
     :rigid_profile_drag, :rigid_min_turn_radius, :kite_out_of_service)
 
 "inputs where the high bound favours a VTOL kite"
@@ -3519,25 +3519,46 @@ rigid_high_favours = (:rigid_lifetime, :rigid_hover_max_wave_height, :rigid_hove
     :rigid_tether_stress, :rigid_rotor_area_ratio, :rigid_rotor_fill,
     :rigid_hover_air_density, :rigid_hover_efficiency)
 
-"input scenarios of the VTOL kite studies"
+"inputs of the mass of a VTOL kite's structure"
+rigid_structure_inputs = (:rigid_shell_mass, :rigid_load_mass)
+
+"input scenarios of the routed VTOL kite study"
 rigid_scenarios = ("base", "favourable")
+
+"input scenarios of the VTOL kite scaling study"
+rigid_scaling_scenarios = ("base", "light", "heavy", "cubed", "favourable")
+
+"""
+    cubed_structure(inputs)
+
+`inputs` with the structure's mass all load-bearing, growing with the span cubed at a fixed
+force per area, and equal to the base structure at the base wing area.
+"""
+function cubed_structure(inputs)
+    area = assumptions[:rigid_unit_area]
+    force = 1e3inputs[:rigid_max_force_per_area] * area
+    span = sqrt(area * inputs[:rigid_aspect_ratio])
+    load_mass = WindShipOpt.rigid_structure_mass(area, force, assumptions) /
+                (1e-3force * span * inputs[:rigid_aspect_ratio])
+    return with_value(with_value(inputs, :rigid_shell_mass, 0.0), :rigid_load_mass,
+        load_mass)
+end
 
 """
     rigid_assumptions(scenario, unit)
 
 The assumptions of the VTOL kite studies at a kite of `unit` [m^2]: at base values for
-"base", and for "favourable" with every VTOL kite input at the bound that favours it.
+"base", with the structure's mass at its low bounds for "light", at its high bounds for
+"heavy" and growing with the span cubed for "cubed", and for "favourable" with every VTOL
+kite input at the bound that favours it.
 """
 function rigid_assumptions(scenario, unit)
     base = with_value(assumptions, :rigid_unit_area, unit)
     scenario == "base" && return base
-    for name in rigid_low_favours
-        base = with_value(base, name, base.entries[name].low)
-    end
-    for name in rigid_high_favours
-        base = with_value(base, name, base.entries[name].high)
-    end
-    return base
+    scenario == "light" && return at_bound(base, rigid_structure_inputs, :low)
+    scenario == "heavy" && return at_bound(base, rigid_structure_inputs, :high)
+    scenario == "cubed" && return cubed_structure(base)
+    return at_bound(at_bound(base, rigid_low_favours, :low), rigid_high_favours, :high)
 end
 
 "wing areas [m^2] of the VTOL kite scaling study"
@@ -3595,35 +3616,14 @@ rig_price_inputs = Dict("kite" => kite_price_inputs,
     "rotors" => (:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
         :market_price_factor))
 
-"mass exponent of the two VTOL kites built, which the scaling study also runs"
-built_wing_exponent = 3.0
-
-"mass exponent [-] of the VTOL kite in input `scenario`"
-rigid_exponent(scenario) = rigid_assumptions(scenario, 0.0)[:rigid_mass_exponent]
-
 """
-    rigid_scaling_series()
+    scaling_inputs(kind, area)
 
-(kind, mass exponent) of each series of VTOL kites in the scaling study: base inputs at
-the base, the built wings' and the high exponent, and favourable inputs.
+Inputs of the kite of `kind` (`"soft"` or `"rigid <scenario>"` of `rigid_scaling_scenarios`)
+and wing `area` [m^2] in the scaling study.
 """
-function rigid_scaling_series()
-    exponent = assumptions.entries[:rigid_mass_exponent]
-    return (("rigid base", exponent.value), ("rigid base", built_wing_exponent),
-        ("rigid base", exponent.high), ("rigid favourable", rigid_exponent("favourable")))
-end
-
-"""
-    scaling_inputs(kind, area, exponent)
-
-Inputs of the kite of `kind` (`"soft"` or a series of [`rigid_scaling_series`](@ref)), wing
-`area` [m^2] and mass `exponent` in the scaling study.
-"""
-function scaling_inputs(kind, area, exponent)
-    kind == "soft" && return assumptions
-    scenario = replace(kind, "rigid " => "")
-    return with_value(rigid_assumptions(scenario, area), :rigid_mass_exponent, exponent)
-end
+scaling_inputs(kind, area) = kind == "soft" ? assumptions :
+                             rigid_assumptions(replace(kind, "rigid " => ""), area)
 
 """
     scaling_rig(kind, area, inputs)
@@ -3652,18 +3652,18 @@ end
 """
     rigid_scaling_data()
 
-Per VTOL kite of each [`rigid_scaling_series`](@ref) at each of `rigid_scaling_areas`: span,
-mass, stall speed, hover power, lowest flying wind, price, annual cost and beam thrust over
+Per VTOL kite of each of `rigid_scaling_scenarios` and `rigid_scaling_areas`: span, mass,
+stall speed, hover power, lowest flying wind, price, annual cost and beam thrust over
 apparent wind; per area of a soft kite with the canopy at its goal: the last four:
 rigid_scaling.csv.
 """
 function rigid_scaling_data()
     env = Environment(assumptions)
     open(run_file("rigid_scaling.csv"), "w") do file
-        println(file, "kind,area,exponent,span,mass,stall,hover_power,lowest_wind,price,",
-            "annual,wind,thrust")
-        for (kind, exponent) in rigid_scaling_series(), area in rigid_scaling_areas
-            inputs = scaling_inputs(kind, area, exponent)
+        println(file, "kind,area,span,mass,stall,hover_power,lowest_wind,price,annual,",
+            "wind,thrust")
+        for kind in "rigid " .* rigid_scaling_scenarios, area in rigid_scaling_areas
+            inputs = scaling_inputs(kind, area)
             rig = scaling_rig(kind, area, inputs)
             (; mass, hover_power) = rig.airframe
             span = sqrt(area * inputs[:rigid_aspect_ratio])
@@ -3671,8 +3671,8 @@ function rigid_scaling_data()
                          (env.air_density * area * inputs[:rigid_max_lift]))
             price, annual = scaling_costs(rig, inputs, :value)
             for i in eachindex(rig.wind_speeds)
-                println(file, join((kind, area, inputs[:rigid_mass_exponent], span, mass,
-                        stall, hover_power, rig.min_flight_wind, price, annual,
+                println(file, join((kind, area, span, mass, stall,
+                        hover_power, rig.min_flight_wind, price, annual,
                         rig.wind_speeds[i], beam_thrust(rig, i)), ","))
             end
         end
@@ -3680,7 +3680,7 @@ function rigid_scaling_data()
             rig = scaling_rig("soft", area, assumptions)
             price, annual = scaling_costs(rig, assumptions, :value)
             for i in eachindex(rig.wind_speeds)
-                println(file, join(("soft", area, 0.0, 0.0, 0.0, 0.0, 0.0,
+                println(file, join(("soft", area, 0.0, 0.0, 0.0, 0.0,
                         rig.min_flight_wind, price, annual, rig.wind_speeds[i],
                         beam_thrust(rig, i)), ","))
             end
@@ -3689,21 +3689,20 @@ function rigid_scaling_data()
 end
 
 """
-    flying_rows(table, kind, exponent)
+    flying_rows(table, kind)
 
-Rows of the scaling `table` of the kites of `kind` at mass `exponent` at
-`rigid_compared_wind`, where they fly.
+Rows of the scaling `table` of the kites of `kind` at `rigid_compared_wind`, where they fly.
 """
-flying_rows(table, kind, exponent) = filter(row -> table["thrust"][row] > 0,
-    rows(table, "kind" => kind, "exponent" => exponent, "wind" => rigid_compared_wind))
+flying_rows(table, kind) = filter(row -> table["thrust"][row] > 0,
+    rows(table, "kind" => kind, "wind" => rigid_compared_wind))
 
 """
-    thrust_costs(table, kind, exponent)
+    thrust_costs(table, kind)
 
 Areas [m^2] and annual cost per thrust [USD/kN] of the kites of [`flying_rows`](@ref).
 """
-function thrust_costs(table, kind, exponent)
-    flying = flying_rows(table, kind, exponent)
+function thrust_costs(table, kind)
+    flying = flying_rows(table, kind)
     return table["area"][flying], 1e3 .* table["annual"][flying] ./ table["thrust"][flying]
 end
 
@@ -3714,7 +3713,7 @@ Wing area [m^2] of the VTOL kite of `scenario` with the least annual cost per th
 scaling `table`.
 """
 function cheapest_rigid_area(table, scenario)
-    areas, costs = thrust_costs(table, "rigid " * scenario, rigid_exponent(scenario))
+    areas, costs = thrust_costs(table, "rigid " * scenario)
     return areas[argmin(costs)]
 end
 
