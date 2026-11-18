@@ -22,6 +22,8 @@ Every number the model assumes, with its sensitivity range and the reason for it
 ./bin/run_julia scripts/compare_designs.jl
 ```
 
+The paper's results come from `paper` in `scripts/paper.jl`; [`docs/paper_runs.md`](docs/paper_runs.md) says how a run is kept and how to rerun only what a change made out of date.
+
 ## Companion explorer
 
 `site/` is the paper's companion website, one page read top to bottom: a reader picks a ship, a route and a fuel, changes the prices and rig goals, and sees each rig's best size and what it saves against the same ship on e-ammonia and on fuel oil. Each input marks when it differs from the paper's value and has a button that sets it back, and one button sets back all of them. It evaluates the model's own cost formulas, recorded over those inputs, on the voyages the class study routed, so no cost formula is written twice. The data step writes them next to the class study:

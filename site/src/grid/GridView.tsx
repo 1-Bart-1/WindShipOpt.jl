@@ -19,7 +19,7 @@ const layerLabels: [Layer, string][] = [
 const degrees = (angle: number, positive: string, negative: string) =>
   `${Math.abs(angle).toFixed(2)}° ${angle < 0 ? negative : positive}`;
 
-const kindLabels = { w: "open water", c: "water near the coast", x: "unusable" };
+const kindLabels = { w: "open water", x: "unusable" };
 
 /** The router's corridor grids of `route` on a globe or a flat map, from grids.json; nothing without one. */
 export function GridView({ route }: { route: string }) {
@@ -146,8 +146,7 @@ function Legend() {
   return (
     <div className="grid gap-1 text-sm">
       <span className="flex items-center gap-2">{swatch("teal")}Open water</span>
-      <span className="flex items-center gap-2">{swatch("mustard")}Water near the coast, where the router charges a penalty</span>
-      <span className="flex items-center gap-2">{swatch("mid")}Unusable: land, or the port is out of reach</span>
+      <span className="flex items-center gap-2">{swatch("mid")}Unusable: land, open sea near land, or the port is out of reach</span>
       <span className="flex items-center gap-2">{swatch("rust", false)}An edge or row step more than 90° off the centre line's course</span>
       <span className="flex items-center gap-2">{swatch("orange", false)}Routes through the picked node; bold: its own edges</span>
     </div>
@@ -176,7 +175,6 @@ function Counts({ data, route }: { data: GridData; route: string }) {
         {line("Row spacing [nmi]", rows.map(([, grid]) => grid.lateral_spacing))}
         {line("Stages × rows", rows.map(([, grid]) => `${grid.stages} × ${grid.laterals}`))}
         {line("Usable nodes", counts.map((each) => each.usable))}
-        {line("of them near the coast", counts.map((each) => each.nearCoast))}
         {line("Unusable nodes", counts.map((each) => each.unusable))}
         {line("Edges", counts.map((each) => each.edges))}
         {line("Edges run backwards", counts.map((each) => each.backwardEdges))}
