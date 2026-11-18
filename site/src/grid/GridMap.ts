@@ -46,10 +46,18 @@ interface GridLayer extends ShownGrid {
   unusable: [number, number][];
 }
 
+/** The last full drawing and the view it shows, moved and scaled in place during a gesture. */
+interface Snapshot {
+  image: HTMLCanvasElement;
+  facing: [number, number];
+  zoom: number;
+}
+
 const topology = land as unknown as Parameters<typeof feature>[0] & { objects: { land: never } };
 const landShape = feature(topology, topology.objects.land) as unknown as GeoJSON.FeatureCollection;
 const graticule = geoGraticule10().coordinates as [number, number][][];
 const pickRadius = 12;
+const settleDelay = 150; // [ms] after the last wheel event before the map is drawn in full again
 
 /**
  * Router grids on a canvas, as an orthographic globe or a flat longitude and latitude map;
@@ -68,6 +76,9 @@ export class GridMap {
   private view: GridView = { grids: [], flat: false, mesh: true, unusable: true, allEdges: false, folds: true };
   private layers: GridLayer[] = [];
   private frame = 0;
+  private snapshot: Snapshot = { image: document.createElement("canvas"), facing: [0, 0], zoom: 1 };
+  private gesture = false;
+  private settle = 0;
   private drag?: { x: number; y: number; facing: [number, number]; moved: boolean };
   private observer: ResizeObserver;
 
@@ -107,6 +118,7 @@ export class GridMap {
 
   dispose() {
     cancelAnimationFrame(this.frame);
+    clearTimeout(this.settle);
     this.observer.disconnect();
     this.canvas.removeEventListener("pointerdown", this.pointerDown);
     this.canvas.removeEventListener("pointermove", this.pointerMove);
@@ -153,13 +165,55 @@ export class GridMap {
     return edges.map((edge) => [position(grid, edge.from), position(grid, edge.to)]);
   }
 
-  /** Draw on the next animation frame, once however often it is asked for before then. */
+  /**
+   * Draw on the next animation frame, once however often it is asked for before then; during a
+   * gesture, by moving and scaling the last full drawing where that shows the new view.
+   */
   private draw() {
     if (this.frame) return;
     this.frame = requestAnimationFrame(() => {
       this.frame = 0;
+      if (this.gesture && this.fromSnapshot()) return;
       this.render();
     });
+  }
+
+  /** Show the view by moving and scaling the snapshot; false where a turned globe needs a full drawing. */
+  private fromSnapshot() {
+    const { image, facing, zoom } = this.snapshot;
+    if (!this.view.flat && (facing[0] !== this.facing[0] || facing[1] !== this.facing[1])) return false;
+    this.place();
+    const [x, y] = this.projection(facing)!;
+    const scale = this.zoom / zoom;
+    const context = this.context;
+    context.clearRect(0, 0, this.width, this.height);
+    context.save();
+    context.translate(x, y);
+    context.scale(scale, scale);
+    context.drawImage(image, -this.width / 2, -this.height / 2, this.width, this.height);
+    context.restore();
+    return true;
+  }
+
+  private takeSnapshot() {
+    const { image } = this.snapshot;
+    image.width = this.canvas.width;
+    image.height = this.canvas.height;
+    image.getContext("2d")!.drawImage(this.canvas, 0, 0);
+    this.snapshot = { image, facing: this.facing, zoom: this.zoom };
+  }
+
+  /** Mark a gesture under way, drawn in full `delay` [ms] after its last event if given. */
+  private moving(delay?: number) {
+    if (!this.gesture) this.takeSnapshot();
+    this.gesture = true;
+    clearTimeout(this.settle);
+    if (delay !== undefined) this.settle = window.setTimeout(() => this.settled(), delay);
+  }
+
+  private settled() {
+    this.gesture = false;
+    this.draw();
   }
 
   private render() {
@@ -282,6 +336,7 @@ export class GridMap {
     const dx = event.clientX - this.drag.x;
     const dy = event.clientY - this.drag.y;
     if (Math.hypot(dx, dy) > 3) this.drag.moved = true;
+    if (this.drag.moved) this.moving();
     const sensitivity = (this.view.flat ? 360 / this.width : 0.25) / this.zoom;
     const [lon, lat] = this.drag.facing;
     this.centre([lon - dx * sensitivity, Math.max(-90, Math.min(90, lat + dy * sensitivity))]);
@@ -292,11 +347,13 @@ export class GridMap {
       const box = this.canvas.getBoundingClientRect();
       this.onPick(this.nodeAt(event.clientX - box.left, event.clientY - box.top));
     }
+    if (this.drag?.moved) this.settled();
     this.drag = undefined;
   };
 
   private wheel = (event: WheelEvent) => {
     event.preventDefault();
+    this.moving(settleDelay);
     this.zoomBy(Math.exp(-event.deltaY * 0.0015));
   };
 }
