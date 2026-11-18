@@ -3764,6 +3764,13 @@ end
     @test used ⊆ defined
 end
 
+@testset "a soft kite's mass without its tether grows in proportion to its area" begin
+    mass_per_area(area) = WindShipOpt.soft_kite_mass(area, 3.0, 500area, assumptions) / area
+    @test mass_per_area(3000.0) ≈ mass_per_area(200.0) rtol=0.05
+    model, _ = WindShipOpt.kite_model(200.0, 3.0, assumptions)
+    @test model.mass > 200mass_per_area(200.0)
+end
+
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
     model, force, diameter, airframe = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
     @test diameter ≈ 0.0294 rtol=0.01

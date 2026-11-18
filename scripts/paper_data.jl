@@ -3410,7 +3410,7 @@ rigid_structure_inputs = (:rigid_shell_mass, :rigid_load_mass)
 rigid_scenarios = ("base", "favourable")
 
 "input scenarios of the VTOL kite scaling study"
-rigid_scaling_scenarios = ("base", "light", "heavy", "favourable")
+rigid_scaling_scenarios = ("base", "light", "heavy", "cubed", "favourable")
 
 "`inputs` with each of `names` at its `bound` (`:low` or `:high`)"
 at_bound(inputs, names, bound) = foldl(names; init=inputs) do changed, name
@@ -3418,17 +3418,35 @@ at_bound(inputs, names, bound) = foldl(names; init=inputs) do changed, name
 end
 
 """
+    cubed_structure(inputs)
+
+`inputs` with the structure's mass all load-bearing, growing with the span cubed at a fixed
+force per area, and equal to the base structure at the base wing area.
+"""
+function cubed_structure(inputs)
+    area = assumptions[:rigid_unit_area]
+    force = 1e3inputs[:rigid_max_force_per_area] * area
+    span = sqrt(area * inputs[:rigid_aspect_ratio])
+    load_mass = WindShipOpt.rigid_structure_mass(area, force, assumptions) /
+                (1e-3force * span * inputs[:rigid_aspect_ratio])
+    return with_value(with_value(inputs, :rigid_shell_mass, 0.0), :rigid_load_mass,
+        load_mass)
+end
+
+"""
     rigid_assumptions(scenario, unit)
 
 The assumptions of the VTOL kite studies at a kite of `unit` [m^2]: at base values for
-"base", with the structure's mass at its low bounds for "light" and its high bounds for
-"heavy", and for "favourable" with every VTOL kite input at the bound that favours it.
+"base", with the structure's mass at its low bounds for "light", at its high bounds for
+"heavy" and growing with the span cubed for "cubed", and for "favourable" with every VTOL
+kite input at the bound that favours it.
 """
 function rigid_assumptions(scenario, unit)
     base = with_value(assumptions, :rigid_unit_area, unit)
     scenario == "base" && return base
     scenario == "light" && return at_bound(base, rigid_structure_inputs, :low)
     scenario == "heavy" && return at_bound(base, rigid_structure_inputs, :high)
+    scenario == "cubed" && return cubed_structure(base)
     return at_bound(at_bound(base, rigid_low_favours, :low), rigid_high_favours, :high)
 end
 

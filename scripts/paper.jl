@@ -128,9 +128,10 @@ output_steps = [:kite => kite_figure,
     :kite_frames => kite_frames_figure, :router => router_figure,
     :missed_goals => missed_goals_figure, :cargo_cost => cargo_cost_figure,
     :canopy_life_figure => canopy_life_figure, :large_rigs => large_rigs_figure,
-    :canopy_life_table => canopy_life_table, :rigid_mass => rigid_mass_figure,
+    :canopy_life_table => canopy_life_table, :kite_mass => kite_mass_figure,
     :tow_point_figure => tow_point_figure,
-    :fleet_share => fleet_share_figure, :numbers => numbers_file]
+    :fleet_share => fleet_share_figure, :numbers => numbers_file,
+    :rigid_numbers => rigid_numbers_file]
 
 """
     paper(names...; fidelity, resume=nothing, only=nothing)

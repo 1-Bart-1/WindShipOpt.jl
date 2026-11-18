@@ -446,6 +446,17 @@ function bridle_lines(area, aspect_ratio, max_force, assumptions::Assumptions)
 end
 
 """
+    soft_kite_mass(area, aspect_ratio, max_force, assumptions)
+
+Mass [kg] of a soft kite of projected `area` [m^2] and `aspect_ratio` without its tether:
+canopy, bridle and control unit, sized for `max_force` [N].
+"""
+soft_kite_mass(area, aspect_ratio, max_force, assumptions::Assumptions) =
+    Canopy(assumptions).mass_per_area * area +
+    last(bridle_lines(area, aspect_ratio, max_force, assumptions)) +
+    1e-3assumptions[:control_unit_mass_per_force] * max_force
+
+"""
     kite_model(area, aspect_ratio, assumptions)
 
 [`KiteModel`](@ref) of a kite of projected `area` [m^2] and `aspect_ratio`, its tether
@@ -460,9 +471,8 @@ function kite_model(area, aspect_ratio, assumptions::Assumptions)
     tether_drag = assumptions[:tether_drag_coefficient] * tether_diameter * tether_length /
                   (4area)
     tether_mass = rope_mass(tether_diameter, tether_length, assumptions)
-    bridle_drag, bridle_mass = bridle_lines(area, aspect_ratio, max_force, assumptions)
-    mass = Canopy(assumptions).mass_per_area * area + bridle_mass +
-           1e-3assumptions[:control_unit_mass_per_force] * max_force + tether_mass / 2
+    bridle_drag, _ = bridle_lines(area, aspect_ratio, max_force, assumptions)
+    mass = soft_kite_mass(area, aspect_ratio, max_force, assumptions) + tether_mass / 2
     polar = KitePolar(aspect_ratio)
     stall = argmax(polar.lift)
     model = KiteModel(area, mass, tether_length, env.air_density, env.gravity, polar,

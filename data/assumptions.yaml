@@ -522,7 +522,7 @@ rigid_unit_area:
   low: 30.0
   high: 100.0
   unit: m^2
-  reason: "Wing area of one kite: the MX2 design of Makani [@echeverri2020part1, Part I, Table 2] and near the lowest price per thrust in the authors' scaling of the rigid kite."
+  reason: "Wing area of one kite: the MX2 design of Makani [@echeverri2020part1, Part I, Table 2], within 3 % of the lowest yearly cost per thrust, near 100 m^2, in the authors' scaling of the rigid kite."
 rigid_aspect_ratio:
   value: 12.5
   low: 12.5
