@@ -63,7 +63,17 @@ A setting is not used if it heels the ship more than \SI{8}{\degree} \citep{till
 \subsection{Wing sails and rotors}
 \label{sec:deck_rigs}
 
-The two deck rigs stand in a row on the centreline, split into as few units as the \SI{45}{m} air draft above the waterline and the tallest units built allow, over 75\,\% of the deck length. Units close together lose force in each other's disturbed wind, the interference. We fit this loss to wind-tunnel tests and flow simulations \citep{bordogna2020,han2025,malmek2024,xu2025} and take back a third of the wing sails' loss for sheeting each sail on its own \citep{vanreen2026}. Both rigs take the wind at their mid height, from a fitted wind profile (\cref{sec:disc_profile}).
+The two deck rigs are split into as few units as the \SI{45}{m} air draft above the waterline and the tallest units built allow, over 75\,\% of the deck length, at least 1.5 chords apart for wing sails and three diameters for rotors. Units close together lose force in each other's disturbed wind, the interference. The thrust of $n$ units in line, $d$ chords or diameters apart, is a factor
+\begin{equation}
+f_a(n, d) = 1 - \left(1 - \frac{1}{n}\right) k_a\, e^{-d/d_0}
+\label{eq:array_factor}
+\end{equation}
+of that of $n$ isolated units, averaged over wind angles, with $k_a$ and $d_0$ fitted to wind-tunnel tests and flow simulations of units in line \citep{bordogna2020,han2025,malmek2024,xu2025}; for wing sails we take back a third of the loss for sheeting each sail on its own \citep{vanreen2026}. The units stand in one row on the centreline or in two columns abreast at the deck edges, whichever keeps more thrust at the same area. Real ships use both, and some a single column along one side, to keep hatches, cranes and the view from the bridge clear \citep{emsa2023,contopoulos2023}. Units in line shade each other in head and following winds, where little thrust is lost, but units abreast in beam winds, where the rigs drive most, so a pair abreast loses $\beta$ times what a pair in line loses at the same spacing, $\beta=1.5$ for wing sails and 1.6 for rotors \citep{bordogna2020,vanreen2026}. Two columns of $n/2$ units, their centres $s$ unit widths apart, keep
+\begin{equation}
+f_c = f_a\!\left(\tfrac{n}{2}, d\right) \left[1 - \tfrac{1}{2}\, \beta k_a\, e^{-s/d_0}\right].
+\label{eq:column_factor}
+\end{equation}
+Two columns therefore pay only where one row would crowd its units: they stand the same rotors further apart and let them grow on the wider ships, by up to 2 points of cost saving on the tankers. Wing sails, whose units are three times as wide, stand in two columns only on ships of \SI{44}{m} beam or more (\cref{sec:det_deck}). Both rigs take the wind at their mid height, from a fitted wind profile (\cref{sec:disc_profile}).
 
 A wing sail is a rigid upright wing of aspect ratio, span squared over area, 2, trimmed like a sail by its lift coefficient $C_L$, or stalled at a steep angle when running before the wind. A rotor carries end discs, and its spin turns the passing wind into a large lift, the Magnus effect, which the rotor points forward. Its lift, drag and spin power follow the measured curves of the ShipCLEAN model over the spin ratio, surface speed over wind speed \citep{tillig2020}. It is trimmed by its spin and stopped above \SI{20}{m/s} of apparent wind, and a stopped rotor still has drag (\cref{sec:det_deck}).
 

@@ -1094,6 +1094,17 @@ end
     @test 0.9 < megamax.deadweight / megamax.space < 1
 end
 
+@testset "rotors that take enough deck slots leave the Megamax space-limited" begin
+    megamax = ship_classes()["Megamax container ship"]
+    hold(area) = WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, megamax; rotor_area=area),
+            assumptions), assumptions)
+    @test WindShipOpt.cargo_limit(hold(1000.0)) == :deadweight
+    rotors = hold(5000.0)
+    @test WindShipOpt.cargo_limit(rotors) == :space
+    @test WindShipOpt.cargo_mass(rotors) ≈
+          WindShipOpt.unit_limits(rotors).space * rotors.unit.cargo
+end
+
 @testset "empty boxes take container slots and tare but carry no cargo" begin
     teu = WindShipOpt.CargoUnit(:teu, assumptions)
     loaded = 1 - assumptions[:empty_container_share]
