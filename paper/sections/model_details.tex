@@ -264,3 +264,15 @@ The speed is bought with part of the fuel saving. \stale{speed_terms}{Kept to th
 \end{table*}
 
 The speed result has limits. The router knows the weather ahead and no schedule binds a tramp, while a liner, held to the schedule of the ship without a rig, takes its gain as fuel (\cref{sec:routing,tab:speed_terms}). The gain depends on the value of time, which holds capital, crew and cargo interest (\cref{sec:cost_model}), and on the fuel price. Above the speed its engine alone could reach, a ship is sailing under its rig, and the \given{\SI{140}{m}} VLSFO ship reaches \given{\SI{11}{kn}} on its \given{\SI{2.2}{MW}}. We charge no drag for a propeller trailing at zero thrust, which flatters the fastest sailing hours, \stale{routes}{3.7\,\% of the kite's time above \SI{14}{kn}}. The hull's resistance at these speeds rests on the same calibration as at service speed (\cref{sec:disc_common}).
+
+\subsection{What routing alone saves}
+\label{app:routing_value}
+
+The ship without a rig of \cref{sec:routing} is compared with the same ship without weather routing: on the shortest track through the corridor, at one held speed. On open sea that track follows the great circle, and it keeps the corridor's distance from land and its fixed coastal paths, so it never crosses land or leaves the weather data. Where the ship cannot hold its speed it slows to the highest speed it can hold, as the router's ship does (\cref{sec:det_routing}), but it keeps its track. The held speed is the routed ship's mean speed over the round trip, so that both spend the same time at sea, and for the two classes also the fleet's mean operating speed (\cref{tab:classes}), the speed today's ships sail. A ship without routing in this sense still goes through every storm on its track. On one of the 12 departures of the \SI{140}{m} ship, in November, a storm stops the outbound track at every speed down to \SI{4}{kn}, where a real master would steer around it or heave to, so that departure is left out of both sides of the comparison of that ship; the two classes sail all 12. \Cref{tab:routing_value} gives what routing saves, with its standard error over the departures, and for each rig on the \SI{140}{m} ship its saving against the routed ship without a rig, as in the results, and against the unrouted one.
+
+\begin{table}[tbp]
+\centering
+\caption{Saving in cost per tonne-kilometre of the ship without a rig routed for cost against the same ship on the shortest track at a held speed, the routed ship's mean speed (as routed) or the fleet's mean operating speed (fleet mean), with its standard error over the departures, and of each reference rig against the routed ship without a rig, as in the results, and against the unrouted one. The \SI{140}{m} ship sails to Guadeloupe over \NumRoutingDepartures{} departures, the Kamsarmax bulk carrier to Tubarão and the Neo-Panamax container ship to New York over 12. Method study, \studyrun{routing_value}.}
+\label{tab:routing_value}
+\adjustbox{max width=\columnwidth}{\InputIfFileExists{sections/routing_value_table}{}{\tbd{Routing value table pending: run the routing\_value study.}}}
+\end{table}
