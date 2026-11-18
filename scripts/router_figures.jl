@@ -131,7 +131,8 @@ end
     draw_met_wind!(axis, case; spacing=240)
 
 10 m wind arrows at the water nodes of the corridor of `case` about `spacing` [nmi] apart,
-each at the hour the passage reached its stage.
+each at the hour the passage reached its stage, those whose tip stays within the limits of
+`axis`.
 """
 function draw_met_wind!(axis, case; spacing=240)
     (; corridor, leg, departure, weather) = case
@@ -148,8 +149,12 @@ function draw_met_wind!(axis, case; spacing=240)
         push!(points, Point2f(lon, lat))
         push!(vectors, Vec2f(wind(weather, lat, lon, departure + leg.path[stage][3])...))
     end
-    arrows2d!(axis, points, vectors .* 0.3f0; color=(:black, 0.55), shaftwidth=rule_width,
-        minshaftlength=0)
+    vectors .*= 0.3f0
+    west, east, south, north = axis.limits[]
+    inside = [west <= tip[1] <= east && south <= tip[2] <= north
+              for tip in points .+ vectors]
+    arrows2d!(axis, points[inside], vectors[inside]; color=(:black, 0.55),
+        shaftwidth=rule_width, minshaftlength=0)
 end
 
 """
@@ -195,7 +200,7 @@ edge_style = (; color=(:black, 0.45), linewidth=style_size("dimension"))
 no_estimate_shade = :gray35
 
 "colour of a node the search did not reach"
-unreached_shade = :gray65
+unreached_shade = :gray55
 
 "colour of the hours a kite flies along a passage"
 flight_shade = (palette[1], 0.25)
@@ -280,7 +285,7 @@ The [`router_panels!`](@ref) of one winter passage to Guadeloupe of a
 function router_figure()
     case = routed_case(ShipDesign(:ammonia, 140.0; kite_area=3200.0), :caribbean,
         departures[1]; scale=run_settings().corridor_scale)
-    figure = Figure(size=(page_width, 280))
+    figure = Figure(size=(page_width, 240))
     nodes = router_panels!((; map=figure[1:2, 1], speed=figure[1, 3],
             wind=figure[2, 3]), case;
         limits=map_limits([case]), colorrange=excess_range([case]),

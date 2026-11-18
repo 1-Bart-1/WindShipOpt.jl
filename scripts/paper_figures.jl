@@ -425,8 +425,9 @@ copy_label(label; kwargs...) = text!(Makie.parent_scene(label), label[1];
 """
     label_faults(figure)
 
-Descriptions of the labels in the axes of `figure` that overlap another label, run past
-the edge of their axis, or lie over a line or marker of the data; `figure` laid out.
+Descriptions of the labels in the axes of `figure` that overlap another label or a legend,
+run past the edge of their axis, or lie over a line or marker of the data, and of the
+legends in an axis that lie over its data; `figure` laid out.
 """
 function label_faults(figure)
     faults = String[]
@@ -456,8 +457,25 @@ function label_faults(figure)
                         "\"$(texts[i])\" lies over a $(Makie.plotfunc(plot)) plot")
             end
         end
+        for legend in axis_legends(figure, block)
+            any(box -> overlaps(box, legend), boxes) &&
+                push!(faults, "a legend overlaps a label")
+            for plot in scene.plots
+                (covers_data(scene, plot, legend) || covers_bars(scene, plot, legend)) &&
+                    push!(faults, "a legend lies over a $(Makie.plotfunc(plot)) plot")
+            end
+        end
     end
     return unique(faults)
+end
+
+"the boxes [pixels of the scene of `axis`] of the legends of `figure` inside `axis`"
+function axis_legends(figure, axis)
+    viewport = Rect2f(axis.scene.viewport[])
+    boxes = [Rect2f(block.layoutobservables.computedbbox[]) for block in figure.content
+             if block isa Legend]
+    return [Rect2f(minimum(box) .- minimum(viewport), widths(box)) for box in boxes
+            if in_axis(box, viewport)]
 end
 
 "whether `box` [pixels of `scene`] lies on a white rectangle drawn in `scene`"
@@ -518,6 +536,11 @@ function covers_data(scene, plot, box)
     return any(segment_crosses(points[k], points[k + 1], box) for k in steps
                if all(isfinite, points[k]) && all(isfinite, points[k + 1]))
 end
+
+"whether `box` [pixels of `scene`] comes within the clearance of a bar of `plot`"
+covers_bars(scene, plot, box) = plot isa Makie.BarPlot &&
+    any(bar -> overlaps(pixel_rect(scene, bar), box),
+        filter(bar -> bar isa Rect, first(plot.plots)[1][]))
 
 "whether the segment from `start` to `stop` passes through `box`, sampled every half point"
 function segment_crosses(start, stop, box)
@@ -1779,10 +1802,10 @@ function season_figure()
             linewidth=pt(0.8))
         scatter!(axis, x, mean.(route_means[shown]); color=palette[j])
     end
-    Legend(figure[1, 1, Top()], [MarkerElement(color=palette[j], marker=:circle)
-                                 for j in eachindex(rig_names)], collect(rig_names);
-        orientation=:horizontal, halign=:right, valign=:bottom, tellwidth=false,
-        margin=(0, 0, pt(2), 0))
+    Legend(figure[2, 1], [MarkerElement(color=palette[j], marker=:circle)
+                          for j in eachindex(rig_names)], collect(rig_label.(rig_names));
+        orientation=:horizontal)
+    rowgap!(figure.layout, 1, pt(4))
     save_figure("season", figure)
 end
 
@@ -2654,10 +2677,10 @@ function abatement_figure()
          for k in eachindex(rig_names)],
         collect(rig_label.(rig_names)); position=:rt)
     key_areas = (200, 800, 3200, 12800)
-    axislegend(panels[1, 1],
+    axislegend(panels[1, 2],
         [MarkerElement(color=:gray40, marker=:circle, markersize=area_marker_size(area))
          for area in key_areas], ["$area" for area in key_areas], L"\mathrm{m^2}";
-        position=:rb, orientation=:horizontal, titleposition=:left)
+        position=:rt, orientation=:horizontal, titleposition=:left)
     save_figure("abatement", figure)
 end
 
@@ -2748,13 +2771,13 @@ function sensitivity_figure()
                 xticks=step * (ceil(low / step):floor(high / step)),
                 limits=((low - margin, high + margin), (0.4, length(levers) + 0.6)))
             development_panel!(axis, table, ships, levers, rig, name)
-            row == 2 && column == 2 && axislegend(axis,
-                [[PolyElement(color=category_colours[j]) for j in eachindex(ships)];
-                    [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
-                [short_ship.(ships); "high end of range"]; position=:lb)
             rowsize!(figure.layout, row, Auto(length(levers)))
         end
     end
+    Legend(figure[length(rig_names) + 1, 1:2],
+        [[PolyElement(color=category_colours[j]) for j in eachindex(ships)];
+            [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
+        [short_ship.(ships); "high end of range"]; orientation=:horizontal)
     save_figure("sensitivity", figure)
 end
 
@@ -3059,7 +3082,7 @@ end
 
 "rigs of the VTOL kite figure with their legend labels and colours"
 rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
-    ("wings", "best wings", palette[2]), ("rotors", "best rotors", palette[3]),
+    ("wings", "best wing sails", palette[2]), ("rotors", "best rotors", palette[3]),
     ("rigid base", "VTOL kite", palette[4]),
     ("rigid favourable", "VTOL kite, favourable inputs", vtol_shades(4)[2]))
 
@@ -3074,7 +3097,7 @@ kite study. Prints both.
 function rigid_kite_figure()
     scaling = read_table(data_file("rigid_scaling.csv"))
     table = read_table(data_file("rigid_kite.csv"))
-    figure = Figure(size=(page_width, 190))
+    figure = Figure(size=(page_width, 210))
     cost_axis = Axis(figure[1, 1]; title="(a) cost a year at 12 m/s",
         doubling_axis(:x, 30, 3200; base=25)..., xlabel=square_metres("kite area [", "]"),
         ylabel="USD/kN a year")
@@ -3114,10 +3137,9 @@ function rigid_kite_figure()
             paper_name(rig), savings[rig]) for rig in names], ", "))
     end
     reference_line!(saving_axis)
-    saving_axis.yautolimitmargin = (0.05, 0.3)
-    axislegend(saving_axis,
+    Legend(figure[2, 1:2],
         [PolyElement(color=colour) for (_, _, colour) in rigid_kite_rigs],
-        collect(getindex.(rigid_kite_rigs, 2)); position=:lt)
+        collect(getindex.(rigid_kite_rigs, 2)); orientation=:horizontal)
     colsize!(figure.layout, 1, Relative(0.36))
     save_figure("rigid_kite", figure)
 end
@@ -3356,7 +3378,7 @@ function missed_goals_figure()
                 rig == "kite" && continue
                 align = rig == "rotors" ? (:right, :top) : (:right, :bottom)
                 text!(axes[2], price_high, goal[rig];
-                    text="$(rig_label(rig)) at their goals", color=palette[k],
+                    text=rig_label(rig), color=palette[k],
                     fontsize=note_size, align,
                     offset=clear_offset(align, pt(2)))
             end
@@ -3420,7 +3442,7 @@ function rigid_mass_figure()
         xlabel=square_metres("wing area [", "]"), ylabel="mass [kg]")
     exponent = assumptions.entries[:rigid_mass_exponent]
     areas = exp.(range(log(minimum(published["area"])), log(500); length=40))
-    xlims!(axis, 1.6, nothing)
+    limits!(axis, 1.6, nothing, 10, nothing)
     for (value, linestyle) in ((exponent.low, :dot), (exponent.value, :solid),
         (exponent.high, :dash))
         inputs = with_value(assumptions, :rigid_mass_exponent, value)
