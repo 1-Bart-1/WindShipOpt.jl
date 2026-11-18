@@ -3,7 +3,7 @@
 \section{Limits of the model}
 \label{sec:discussion}
 
-The previous section moved the model's inputs; this one asks what the model leaves out, taking its limits in the order in which they could change the comparison between the rigs. \Cref{app:trust} gives the evidence behind several of them. One rig type is left out altogether: suction sails, which are installed on cargo ships beside rotors and wing sails \citep{emsa2023}, so the comparison cannot place them.
+The previous section moved the model's inputs; this one asks what the model leaves out. Five limits act on every rig and on the ship without one alike, and so move the cost savings more than the order of the rigs: the six Atlantic routes and three years of weather on a coarse wind field, the calm-water resistance, the added resistance in waves, the wind on the ship itself and the round trips on fixed trades, of which the coarse wind field and the round trips more likely understate the gain from wind than overstate it (\cref{sec:disc_common}). The limits below bear on one rig more than on another, and are taken in the order in which they could change the comparison between the rigs; \cref{app:trust} gives the evidence behind several of them.
 
 \subsection{Canopy life and kite handling}
 \label{sec:disc_kite}
@@ -45,5 +45,3 @@ On the largest ships the cost optimum lies at rows of wing sails and rotors that
 \label{sec:disc_profile}
 
 The wind grows with height, and the kite flies hundreds of metres above the deck rigs, so the assumed growth decides how much more wind the kite gets. All rigs take their wind from one power-law profile with exponent \given{0.05}, which gives \given{1.18} times the \given{\SI{10}{m}} wind at \given{\SI{270}{m}}, where the base kite flies. It matches the mean of ERA5 model-level profiles over the study region \citep{hersbach2020}, but the shear, the growth of the wind with height, is weaker in the trade-wind belt and stronger north of \given{\SI{40}{\degree N}} (\cref{app:shear}). One profile therefore understates the kite's thrust on the North Atlantic routes and overstates it in the trades, by \given{10 to 20}\,\%, so the kite's cost saving on the route to New York is more likely understated than overstated. Other ship studies use exponents of \given{0.11} \citep{rechevilanova2021}, \given{1/7} \citep{penloup2021} and \given{0.27} \citep{tillig2020}, above the mean shear over the open sea, and so give the kite more wind than we do.
-
-Five further limits act on every rig and on the ship without one alike, and so move the cost savings more than the order of the rigs: the six Atlantic routes and three years of weather on a coarse wind field, the calm-water resistance, the added resistance in waves, the wind on the ship itself and the round trips on fixed trades, of which the coarse wind field and the round trips more likely understate the gain from wind than overstate it (\cref{sec:disc_common}).
