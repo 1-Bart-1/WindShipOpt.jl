@@ -364,7 +364,7 @@ deck_length_fraction:
   low: 0.65
   high: 0.8
   unit: "-"
-  reason: "Authors' estimate: share of the ship's length between forecastle and deckhouse that a row of rigs can use; an MR tanker has 140 m of upper deck on 182 m [@han2025], a CFD layout of five wing sails on a Kamsarmax spans 165 of 222 m [@mboumba2022]."
+  reason: "Authors' estimate: share of the ship's length between forecastle and deckhouse that a row or column of rigs can use; an MR tanker has 140 m of upper deck on 182 m [@han2025], a CFD layout of five wing sails on a Kamsarmax spans 165 of 222 m [@mboumba2022]."
 max_air_draft:
   value: 45.0
   low: 35.0
