@@ -112,6 +112,37 @@ Where the kite flies follows from these angles (\cref{tab:flight}). Upwind of \g
 \label{fig:breakdown}
 \end{figure}
 
+\subsection{Rig size}
+\label{sec:res_size}
+
+\stale{classes}{Every cost saving of this paper is at a rig's best size, and on the largest ships a bound sets that size. On most large ships the best wing sails and rotors are the largest that fit on deck, up to 15 wing sails and 23 rotors on the Megamax container ship, so there the deck sets their size and their cost saving (\cref{fig:class_sizes,fig:rig_comparison}). The best kite reaches \given{\SI{16000}{m^2}}, the upper bound of the search, on the Megamax on four of the six routes on e-ammonia and one on VLSFO, and otherwise lies one step inside it; on the Neo-Panamax and the VLCC it stands on the step inside the bound on most routes and on the bound on at most one. The largest ship kite designed so far is \given{\SI{1000}{m^2}} \citep{airseas_seawing_web}. The bound is a limit of the model, so on these three ships the kite's best size and cost saving are not known, only that they are at least this large. At the other end the best kite of the coaster is the smallest searched, \given{\SI{500}{m^2}}, on four of the six routes on both drives. \stale{designs}{On the \SI{140}{m} e-ammonia ship to Guadeloupe the kite saves 10\,\% of the cost at \SI{1600}{m^2} and about one point less at half or twice that area.} \Cref{sec:disc_size} takes up what these sizes mean, and \cref{fig:abatement} shows the fuel that a rig larger than the cheapest would still save.}
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{class_sizes}
+\caption{\stale{classes}{} The rig area that lowers the cost per tonne-kilometre most for each ship class with a VLSFO (a) and an e-ammonia (b) drive: the geometric mean over the six routes (marker) and the range over them (bar). Beside each panel is the median number of units of each rig at that size, in a column with the rig's name at its foot, in the colour of its marker and bar; a kite rig is one kite. Kites were searched from \given{\SIrange{500}{16000}{m^2}}, wing sails and rotors from a fifth to all of what fits on deck. Where a bound was the best size searched, the search also tried the size one step inside it.}
+\label{fig:class_sizes}
+\end{figure*}
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{rig_comparison}
+\caption{\stale{designs}{} Cost saving against the same ship without a rig on the route to Guadeloupe, for every size of kite, wing sails and rotors (rows) and ship length (columns), with a VLSFO (a) and an e-ammonia (b) drive. The outlined cell is the best size of each rig on each ship. Blank cells are sizes that do not fit on deck or were not run. Wing sails and rotors were run on three of the five lengths.}
+\label{fig:rig_comparison}
+\end{figure*}
+
+\subsection{Fuel saved beyond the cheapest size}
+\label{app:abatement}
+
+\stale{abatement_data}{A rig sized for the lowest cost leaves fuel unsaved that a larger rig would save at a small extra cost (\cref{fig:abatement}). Where a curve returns to the cost of the ship without a rig, the rig saves the most fuel it can at no extra cost. On VLSFO the slope beyond that point is the cost of the CO$_2$ abated.}
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{abatement}
+\caption{\stale{abatement_data}{} Cost per tonne-kilometre against the fuel energy saved, both relative to the same ship on the same drive without a rig, for every size of each rig on the \given{\SI{140}{m}} ship to Guadeloupe (a, b) and a Kamsarmax bulk carrier to Tubarão (c, d), on VLSFO (a, c) and e-ammonia (b, d). Markers grow with rig area, up to the largest that fits on deck. In the shaded region the rig costs less than no rig. Where a larger kite flies a smaller share of the time, it saves less fuel and its line turns back.}
+\label{fig:abatement}
+\end{figure*}
+
 \subsection{Another e-fuel does not change which rig leads}
 \label{sec:res_fuels}
 
@@ -133,6 +164,13 @@ Where the kite flies follows from these angles (\cref{tab:flight}). Upwind of \g
 \label{sec:res_rigid}
 
 That leaves the fourth rig. \stale{rigid_scaling_data,rigid_kite_data}{If it reaches its goals, a VTOL kite flies at ship scale but costs about 2.7 times what a soft kite costs for each unit of thrust, and on e-ammonia it saves less than half the cost per tonne-kilometre that a soft kite or rotors save} (\cref{fig:rigid_kite}). At \given{\SI{12}{m/s}} of apparent wind on a beam course \stale{rigid_scaling_data}{the \SI{54}{m^2} wing pulls \SI{160}{kN} for USD~2.05 million, USD~\num{12800} per kilonewton, and a \SI{1000}{m^2} soft kite pulls \SI{291}{kN} at USD~\num{2340} per kilonewton}. The rigid wing's life of \given{15} years against a canopy of \NumCanopyLifeGoal{} flight hours closes part of that gap: over a year of \NumCanopyLifeGoal{} flight hours and \given{150} launches, each at its goals, \stale{rigid_scaling_data}{the wing costs USD~\num{2440} per kilonewton and the soft kite USD~900. The cost per kilonewton is lowest near the \SI{54}{m^2} of MX2 and rises steeply above \SI{100}{m^2}}, because the wing's mass grows with its span to the power $\kappa$, the mass exponent, and the heavier wing needs more wind to reach the top of its circle (\cref{fig:rigid_scaling}). The speed of the ship does not close this gap, since wind from ahead gives drag and not thrust.
+
+\begin{figure*}[tbp]
+\centering
+\plot[\textwidth]{rigid_scaling}
+\caption{VTOL kites and soft kites over size, each at its goals: (a) thrust of one kite on a beam course over the apparent wind, (b) price per unit of thrust at \given{\SI{12}{m/s}} of apparent wind, of VTOL kites at three mass exponents and with every input at the bound that favours it, and of soft kites, and (c) the lowest apparent wind in which a VTOL kite flies its loops. Wings that do not fly at \given{\SI{12}{m/s}} are left out.}
+\label{fig:rigid_scaling}
+\end{figure*}
 
 \begin{figure*}[tbp]
 \centering
