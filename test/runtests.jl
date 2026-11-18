@@ -4344,6 +4344,16 @@ end
                                                      "\\num{9600}~t of CO\$_2\$"
 end
 
+@testset "the forecast lead of the kite over the rotors is signed and paired" begin
+    rigs = ["none", "kite", "rotors"]
+    costs = Dict("none" => [10.0, 10.0], "kite" => [8.0, 9.0], "rotors" => [9.0, 9.0])
+    table = Dict("rig" => repeat(rigs; inner=2), "plan" => fill("live", 6),
+        "cost" => reduce(vcat, costs[rig] for rig in rigs))
+    @test PaperData.forecast_saving(table, "kite", "live") ≈ 15
+    @test PaperData.forecast_lead_cell(table, "live") == "\\(+5 \\pm 5\\)"
+    @test isnan(PaperData.forecast_saving(table, "wings", "live"))
+end
+
 @testset "the highlight of the advice fits the journal for any kind of advice" begin
     @test PaperData.highlight_text(draft_leads) ==
           "On e-ammonia: kite on container ships and tankers, either kite or rotors " *

@@ -1382,6 +1382,40 @@ function kept_change_cell(table, rig, plan)
 end
 
 """
+    forecast_ratios(table, rig, plan)
+
+Cost of `rig` over that of the ship without a rig on `plan`, per departure of forecast table
+`table`; empty where the two cannot be paired, as a departure without a feasible round trip
+is no row of the table.
+"""
+function forecast_ratios(table, rig, plan)
+    cost(name) = table["cost"][rows(table, "rig" => name, "plan" => plan)]
+    length(cost(rig)) == length(cost("none")) || return Float64[]
+    return cost(rig) ./ cost("none")
+end
+
+"""
+    forecast_saving(table, rig, plan)
+
+Mean over the departures of forecast table `table` of the cost saving [%] of `rig` on
+`plan` by [`forecast_ratios`](@ref), `NaN` where they are empty.
+"""
+forecast_saving(table, rig, plan) = 100 * (1 - mean(forecast_ratios(table, rig, plan)))
+
+"""
+    forecast_lead_cell(table, plan)
+
+Mean over the departures of forecast table `table` of the kite's cost saving on `plan` less
+the rotors' [points], signed, with its [`jackknife_error`](@ref), as a LaTeX cell.
+"""
+function forecast_lead_cell(table, plan)
+    leads = 100 .* (forecast_ratios(table, "rotors", plan) .-
+                    forecast_ratios(table, "kite", plan))
+    spread = jackknife_error(departures -> mean(leads[departures]), length(leads))
+    return @sprintf("\\(%+d \\pm %.0f\\)", round(Int, mean(leads)), spread)
+end
+
+"""
     forecast_plans_table()
 
 Share of each rig's perfect-foresight cost saving kept per plan of the forecast study, with
@@ -2048,13 +2082,25 @@ end
 """
     forecast_numbers()
 
-Name and text, per rig, of the share [%] of its cost saving the forecast result keeps live,
-with its error, as [`kept_cell`](@ref) gives it.
+Name and text of the forecast result re-planned live: per rig its cost saving [%] and the
+share of it kept [%] with its error by [`kept_cell`](@ref); the [`forecast_lead_cell`](@ref)
+live and with perfect foresight; and the kite's mean flight share [%], launches and forced
+landings a round trip.
 """
 function forecast_numbers()
-    table = read_table(data_file("forecast_result_kept.csv"))
-    return ["ForecastKept" * uppercasefirst(rig) => kept_cell(table, rig, "live")
-            for rig in rig_names]
+    kept = read_table(data_file("forecast_result_kept.csv"))
+    result = read_table(data_file("forecast_result.csv"))
+    kite = rows(result, "rig" => "kite", "plan" => "live")
+    kite_mean(column) = mean(result[column][kite])
+    return [["ForecastKept" * uppercasefirst(rig) => kept_cell(kept, rig, "live")
+             for rig in rig_names];
+            ["ForecastSaving" * uppercasefirst(rig) =>
+                 whole_number(forecast_saving(result, rig, "live")) for rig in rig_names];
+            "ForecastLeadLive" => forecast_lead_cell(result, "live");
+            "ForecastLeadPerfect" => forecast_lead_cell(result, "false");
+            "ForecastFlightShare" => whole_number(100kite_mean("flight_share"));
+            "ForecastLaunches" => whole_number(kite_mean("launches"));
+            "ForecastForcedLandings" => one_decimal(kite_mean("forced_landings"))]
 end
 
 """
@@ -2291,9 +2337,8 @@ end
 Text of `margins` [points] in whole points: one value, or the range they span.
 """
 function points_range(margins)
-    low, high = extrema(parse.(Int, whole_number.(margins)))
-    low == high && return whole_points(first(margins))
-    return "$low to $high points"
+    reads_alike(margins, whole_number) && return whole_points(first(margins))
+    return value_range(margins, whole_number) * " points"
 end
 
 """
@@ -2323,9 +2368,8 @@ function verdict_phrase(key, margins, where)
     (rig, verb), (rival, _) = rig_subjects[key[2]], rig_subjects[key[3]]
     margin = points_range(margins)
     first(key) == "leads" && return strip("$rig $verb $rival by $margin $where")
-    low, high = extrema(margins)
-    apart = whole_number(low) == whole_number(high) ? whole_points(high) :
-            "at most " * whole_points(high)
+    apart = (reads_alike(margins, whole_number) ? "" : "at most ") *
+            whole_points(maximum(margins))
     return "$rig and $rival are level, $apart apart" * (isempty(where) ? "" : ", $where")
 end
 
@@ -2395,15 +2439,18 @@ function advice_text(rows)
     return join(parts, "; ")
 end
 
+"whether every one of `values` reads alike by `format`"
+reads_alike(values, format) = allequal(format.(values))
+
 """
     value_range(values, format)
 
-Text of `values` by `format`: one value where the lowest and highest read alike, else the
-range they span.
+Text of `values` by `format`: one value where they [`reads_alike`](@ref), else the range
+they span.
 """
 function value_range(values, format)
     low, high = format.(extrema(values))
-    return low == high ? low : "$low to $high"
+    return reads_alike(values, format) ? low : "$low to $high"
 end
 
 """
