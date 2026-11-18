@@ -4146,6 +4146,23 @@ end
     @test ShipDesign(:vlsfo, 100.0; kite_area=800.0).kite_area == 800
 end
 
+@testset "the fuel premium a rig closes is ranged over the ship lengths it was run at" begin
+    rows = [("base", "vlsfo", 85.0, 0, 0, 0, 1.0), ("base", "ammonia", 85.0, 0, 0, 0, 1.5),
+        ("base", "ammonia", 85.0, 800, 0, 0, 1.2),
+        ("base", "ammonia", 85.0, 1600, 0, 0, 1.25),
+        ("high", "ammonia", 85.0, 800, 0, 0, 1.0),
+        ("base", "ammonia", 85.0, 0, 0, 400, 1.3),
+        ("base", "ammonia", 85.0, 0, 300, 0, 1.4), ("base", "vlsfo", 140.0, 0, 0, 0, 1.0),
+        ("base", "ammonia", 140.0, 0, 0, 0, 1.4),
+        ("base", "ammonia", 140.0, 800, 0, 0, 1.1)]
+    names = ("scenario", "drive", "length", "kite_area", "wing_area", "rotor_area", "cost")
+    designs = Dict(name => getindex.(rows, k) for (k, name) in enumerate(names))
+    @test Dict(PaperData.design_premium_numbers(designs)) == Dict(
+        "DesignPremium" => "40 to 50", "DesignPremiumBestRig" => "20",
+        "DesignPremiumClosedKite" => "60 to 75", "DesignPremiumClosedWings" => "20",
+        "DesignPremiumClosedRotors" => "40")
+end
+
 @testset "a pair's extra saving has its standard error over the departures as noise" begin
     rows = [(route, rig, kite_area, rotor_area, cost)
             for (route, pair_costs) in (("steady", fill(7.0, 4)), ("varying", [7, 8, 7, 8.0]))
@@ -4344,6 +4361,37 @@ end
     @test PaperData.advice_text(ammonia) ==
           "on e-ammonia use the kite on container ships and tankers, and either the kite " *
           "or the rotors on car carriers, bulk carriers and general cargo ships"
+end
+
+@testset "the answer gives each ship type its rig and what it saves a ship a year" begin
+    saved(share, usd, carbon) = (; saved=usd, share, carbon)
+    per_ship = Dict("kite" => saved(14.2, 5.3e6, 9.6e9), "wings" => saved(4.5, 1.7e6, 2.9e9),
+        "rotors" => saved(13.8, 4.1e6, 9.2e9))
+    rows = [(; row..., per_ship) for row in draft_leads if row.drive == "vlsfo"]
+    @test PaperData.answer_clause(rows[1]) ==
+          "the kite on container ships, 14\\,\\%, USD~\\num{5.3} million and " *
+          "\\num{9600}~t of CO\$_2\$"
+    @test PaperData.answer_clause((; rows[2]..., drive="ammonia")) ==
+          "either the kite or the rotors on car carriers, 14\\,\\% and USD~\\num{4.1} to " *
+          "\\num{5.3} million"
+    @test PaperData.answer_clause((; rows[1]..., verdict="none")) ==
+          "no rig on container ships, where none clearly saves"
+    @test count("; ", PaperData.answer_text(rows)) == length(rows) - 1
+    @test isempty(PaperData.advised_savings((; rows[1]..., verdict="none")))
+    saved = reduce(vcat, PaperData.advised_savings.(rows))
+    @test PaperData.saved_figures(saved, "vlsfo") == "14\\,\\%, USD~\\num{4.1} to " *
+                                                     "\\num{5.3} million and \\num{9200} to " *
+                                                     "\\num{9600}~t of CO\$_2\$"
+end
+
+@testset "the forecast lead of the kite over the rotors is signed and paired" begin
+    rigs = ["none", "kite", "rotors"]
+    costs = Dict("none" => [10.0, 10.0], "kite" => [8.0, 9.0], "rotors" => [9.0, 9.0])
+    table = Dict("rig" => repeat(rigs; inner=2), "plan" => fill("live", 6),
+        "cost" => reduce(vcat, costs[rig] for rig in rigs))
+    @test PaperData.forecast_saving(table, "kite", "live") ≈ 15
+    @test PaperData.forecast_lead_cell(table, "live") == "\\(+5 \\pm 5\\)"
+    @test isnan(PaperData.forecast_saving(table, "wings", "live"))
 end
 
 @testset "the highlight of the advice fits the journal for any kind of advice" begin
