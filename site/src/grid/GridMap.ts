@@ -36,9 +36,29 @@ export interface GridView {
   picked?: PickedNode;
 }
 
+/** One shown grid's lines and nodes in longitude and latitude [deg], built once per view. */
+interface GridLayer extends ShownGrid {
+  meshLines: [number, number][][];
+  /** empty unless the view shows every edge */
+  edgeLines: [number, number][][];
+  rowFolds: [number, number][][];
+  backwardEdges: [number, number][][];
+  usable: [number, number][];
+  unusable: [number, number][];
+}
+
+/** The last full drawing and the view it shows, moved and scaled in place during a gesture. */
+interface Snapshot {
+  image: HTMLCanvasElement;
+  facing: [number, number];
+  zoom: number;
+}
+
 const topology = land as unknown as Parameters<typeof feature>[0] & { objects: { land: never } };
 const landShape = feature(topology, topology.objects.land) as unknown as GeoJSON.FeatureCollection;
+const graticule = geoGraticule10().coordinates as [number, number][][];
 const pickRadius = 12;
+const settleDelay = 150; // [ms] after the last wheel event before the map is drawn in full again
 
 /**
  * Router grids on a canvas, as an orthographic globe or a flat longitude and latitude map;
@@ -46,8 +66,8 @@ const pickRadius = 12;
  */
 export class GridMap {
   private context: CanvasRenderingContext2D;
-  private globe = geoOrthographic().clipAngle(90).precision(0.3);
-  private plane = geoEquirectangular().precision(0.3);
+  private globe = geoOrthographic().clipAngle(90).precision(1);
+  private plane = geoEquirectangular().precision(1);
   private projection: GeoProjection = this.globe;
   private path: GeoPath;
   private facing: [number, number] = [-40, 35];
@@ -55,6 +75,11 @@ export class GridMap {
   private width = 0;
   private height = 0;
   private view: GridView = { grids: [], flat: false, mesh: true, unusable: true, allEdges: false, folds: true };
+  private layers: GridLayer[] = [];
+  private frame = 0;
+  private snapshot: Snapshot = { image: document.createElement("canvas"), facing: [0, 0], zoom: 1 };
+  private gesture = false;
+  private settle = 0;
   private drag?: { x: number; y: number; facing: [number, number]; moved: boolean };
   private observer: ResizeObserver;
 
@@ -76,6 +101,7 @@ export class GridMap {
     this.view = view;
     this.projection = view.flat ? this.plane : this.globe;
     this.path = geoPath(this.projection, this.context);
+    this.layers = view.grids.map((shown) => this.layer(shown));
     this.draw();
   }
 
@@ -92,6 +118,8 @@ export class GridMap {
   }
 
   dispose() {
+    cancelAnimationFrame(this.frame);
+    clearTimeout(this.settle);
     this.observer.disconnect();
     this.canvas.removeEventListener("pointerdown", this.pointerDown);
     this.canvas.removeEventListener("pointermove", this.pointerMove);
@@ -106,7 +134,7 @@ export class GridMap {
     this.canvas.width = this.width * ratio;
     this.canvas.height = this.height * ratio;
     this.context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    this.draw();
+    this.render();
   }
 
   private visible(point: [number, number]) {
@@ -138,7 +166,58 @@ export class GridMap {
     return edges.map((edge) => [position(grid, edge.from), position(grid, edge.to)]);
   }
 
+  /**
+   * Draw on the next animation frame, once however often it is asked for before then; during a
+   * gesture, by moving and scaling the last full drawing where that shows the new view.
+   */
   private draw() {
+    if (this.frame) return;
+    this.frame = requestAnimationFrame(() => {
+      this.frame = 0;
+      if (this.gesture && this.fromSnapshot()) return;
+      this.render();
+    });
+  }
+
+  /** Show the view by moving and scaling the snapshot; false where a turned globe needs a full drawing. */
+  private fromSnapshot() {
+    const { image, facing, zoom } = this.snapshot;
+    if (!this.view.flat && (facing[0] !== this.facing[0] || facing[1] !== this.facing[1])) return false;
+    this.place();
+    const [x, y] = this.projection(facing)!;
+    const scale = this.zoom / zoom;
+    const context = this.context;
+    context.clearRect(0, 0, this.width, this.height);
+    context.save();
+    context.translate(x, y);
+    context.scale(scale, scale);
+    context.drawImage(image, -this.width / 2, -this.height / 2, this.width, this.height);
+    context.restore();
+    return true;
+  }
+
+  private takeSnapshot() {
+    const { image } = this.snapshot;
+    image.width = this.canvas.width;
+    image.height = this.canvas.height;
+    image.getContext("2d")!.drawImage(this.canvas, 0, 0);
+    this.snapshot = { image, facing: this.facing, zoom: this.zoom };
+  }
+
+  /** Mark a gesture under way, drawn in full `delay` [ms] after its last event if given. */
+  private moving(delay?: number) {
+    if (!this.gesture) this.takeSnapshot();
+    this.gesture = true;
+    clearTimeout(this.settle);
+    if (delay !== undefined) this.settle = window.setTimeout(() => this.settled(), delay);
+  }
+
+  private settled() {
+    this.gesture = false;
+    this.draw();
+  }
+
+  private render() {
     if (!this.width) return;
     const context = this.context;
     this.place();
@@ -147,7 +226,7 @@ export class GridMap {
     this.path({ type: "Sphere" });
     context.fillStyle = brandColour("sky");
     context.fill();
-    this.stroke(geoGraticule10().coordinates as [number, number][][], brandColour("ink"), 0.5, 0.15);
+    this.stroke(graticule, brandColour("ink"), 0.5, 0.15);
     context.beginPath();
     this.path(landShape);
     context.fillStyle = brandColour("paper-deep");
@@ -155,32 +234,45 @@ export class GridMap {
     context.strokeStyle = brandColour("ink");
     context.lineWidth = 0.6;
     context.stroke();
-    for (const shown of this.view.grids) this.drawGrid(shown);
+    for (const layer of this.layers) this.drawGrid(layer);
     if (this.view.picked) this.drawPicked(this.view.picked);
   }
 
-  private drawGrid({ grid, edges, coarse }: ShownGrid) {
+  private layer(shown: ShownGrid): GridLayer {
+    const { grid, edges } = shown;
+    const nodes = Array.from({ length: grid.kind.length }, (_, node) => node);
+    const ofKind = (kind: string) => nodes.filter((node) => kindOf(grid, node) === kind).map((node) => position(grid, node));
+    return {
+      ...shown,
+      meshLines: this.meshLines(grid),
+      edgeLines: this.view.allEdges ? this.edgeLines(grid, edges) : [],
+      rowFolds: this.rowFoldLines(grid),
+      backwardEdges: this.edgeLines(grid, edges.filter((edge) => edge.backward)),
+      usable: ofKind("w"),
+      unusable: ofKind("x"),
+    };
+  }
+
+  private drawGrid(layer: GridLayer) {
     const { mesh, unusable, allEdges, folds } = this.view;
     const ink = brandColour("ink");
-    if (mesh) this.stroke(this.meshLines(grid), ink, coarse ? 1 : 0.6, 0.3);
-    if (allEdges) this.stroke(this.edgeLines(grid, edges), brandColour("teal"), 0.5, 0.3);
-    const radius = (coarse ? 3.2 : 1.7) * Math.min(Math.sqrt(this.zoom), 1.6);
-    const colours = { w: brandColour("teal"), x: brandColour("mid") };
-    for (let node = 0; node < grid.kind.length; node++) {
-      const kind = kindOf(grid, node);
-      if (kind === "x" && !unusable) continue;
-      const point = position(grid, node);
-      if (!this.visible(point)) continue;
-      const [x, y] = this.projection(point)!;
-      this.context.beginPath();
-      this.context.arc(x, y, radius, 0, 2 * Math.PI);
-      this.context.fillStyle = colours[kind];
-      this.context.fill();
-    }
+    if (mesh) this.stroke(layer.meshLines, ink, layer.coarse ? 1 : 0.6, 0.3);
+    if (allEdges) this.stroke(layer.edgeLines, brandColour("teal"), 0.5, 0.3);
+    const radius = (layer.coarse ? 3.2 : 1.7) * Math.min(Math.sqrt(this.zoom), 1.6);
+    this.dots(layer.usable, radius, brandColour("teal"));
+    if (unusable) this.dots(layer.unusable, radius, brandColour("mid"));
     if (folds) {
-      this.stroke(this.rowFoldLines(grid), brandColour("rust"), coarse ? 3 : 2.2);
-      this.stroke(this.edgeLines(grid, edges.filter((edge) => edge.backward)), brandColour("rust"), 1.4);
+      this.stroke(layer.rowFolds, brandColour("rust"), layer.coarse ? 3 : 2.2);
+      this.stroke(layer.backwardEdges, brandColour("rust"), 1.4);
     }
+  }
+
+  /** Fill a dot of `radius` [px] at each of `points` on the visible side, as one path. */
+  private dots(points: [number, number][], radius: number, colour: string) {
+    this.context.beginPath();
+    this.path.pointRadius(radius)({ type: "MultiPoint", coordinates: points });
+    this.context.fillStyle = colour;
+    this.context.fill();
   }
 
   /** The stage lines across the corridor and the row lines along it. */
@@ -245,6 +337,7 @@ export class GridMap {
     const dx = event.clientX - this.drag.x;
     const dy = event.clientY - this.drag.y;
     if (Math.hypot(dx, dy) > 3) this.drag.moved = true;
+    if (this.drag.moved) this.moving();
     const sensitivity = (this.view.flat ? 360 / this.width : 0.25) / this.zoom;
     const [lon, lat] = this.drag.facing;
     this.centre([lon - dx * sensitivity, Math.max(-90, Math.min(90, lat + dy * sensitivity))]);
@@ -255,11 +348,13 @@ export class GridMap {
       const box = this.canvas.getBoundingClientRect();
       this.onPick(this.nodeAt(event.clientX - box.left, event.clientY - box.top));
     }
+    if (this.drag?.moved) this.settled();
     this.drag = undefined;
   };
 
   private wheel = (event: WheelEvent) => {
     event.preventDefault();
+    this.moving(settleDelay);
     this.zoomBy(Math.exp(-event.deltaY * 0.0015));
   };
 }

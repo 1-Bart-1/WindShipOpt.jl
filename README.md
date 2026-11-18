@@ -22,11 +22,11 @@ Every number the model assumes, with its sensitivity range and the reason for it
 ./bin/run_julia scripts/compare_designs.jl
 ```
 
-The paper's results come from `paper` in `scripts/paper.jl`; [`docs/paper_runs.md`](docs/paper_runs.md) says how a run is kept and how to rerun only what a change made out of date.
+The paper's results come from `paper` in `scripts/paper.jl`; [`docs/paper_runs.md`](docs/paper_runs.md) says how a run is kept and how to rerun only what a change made out of date. [`docs/router_speed.md`](docs/router_speed.md) says what the router does only for speed, why each is safe and what its settings cost to run.
 
 ## Companion explorer
 
-`site/` is the paper's companion website: a reader picks a ship, a route and a fuel, changes the prices and rig goals, and sees each rig's best size and what it saves against the same ship on e-ammonia and on fuel oil. It evaluates the model's own cost formulas, recorded over those inputs, on the voyages the class study routed, so no cost formula is written twice. The data step writes them next to the class study:
+`site/` is the paper's companion website, one page read top to bottom: a reader picks a ship, a route and a fuel, changes the prices and rig goals, and sees each rig's best size and what it saves against the same ship on e-ammonia and on fuel oil. Each input marks when it differs from the paper's value and has a button that sets it back, and one button sets back all of them. It evaluates the model's own cost formulas, recorded over those inputs, on the voyages the class study routed, so no cost formula is written twice. The data step writes them next to the class study:
 
 ```julia
 include("scripts/paper.jl")
@@ -41,9 +41,9 @@ npm --prefix site test      # fails where the site and the model disagree at the
 npm --prefix site run build # static site in site/dist
 ```
 
-The site's route view reads the routed passages of `paper(:passages; fidelity=:draft)` from the newest run that has them (`PASSAGES_DIRECTORY=<path>` picks another): the passage figure's ship on every route, a ladder of sizes per rig and every sampled departure, with the state of the ship and rig at each point the router sailed. A build without such a run has no route view.
+The page's passages, shown on the route chosen at its top, are the routed passages of `paper(:passages; fidelity=:draft)`, read from the newest run that has them (`PASSAGES_DIRECTORY=<path>` picks another): the passage figure's ship on every route, a ladder of sizes per rig and every sampled departure, with the state of the ship and rig at each point the router sailed. A build without such a run leaves them out.
 
-The router's grid, a section of the site below the passage viewer, draws the weather router's corridor grids on a globe or a flat map from `paper(:grids; fidelity=:draft)` (`GRIDS_JSON=<path>` picks another file): every route's outbound corridor at draft and final spacing, its usable, near-coast and unusable nodes, the edges the router may take, and in rust every edge or row step running more than 90° off the centre line's course. Clicking a node shows every route from Rotterdam to port through it.
+The router's grid, a section of the site below the passage viewer, draws the weather router's corridor grids for the route chosen at the top on a globe or a flat map from `paper(:grids; fidelity=:draft)` (`GRIDS_JSON=<path>` picks another file): that route's outbound corridor at draft and final spacing, its usable, near-coast and unusable nodes, the edges the router may take, and in rust every edge or row step running more than 90° off the centre line's course. Clicking a node shows every route from Rotterdam to port through it.
 
 ## Status
 
