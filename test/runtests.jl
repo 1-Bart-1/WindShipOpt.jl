@@ -3285,6 +3285,7 @@ end
 module PaperRuns
 root = pkgdir(Main.WindShipOpt)
 include(joinpath(root, "scripts", "paper_runs.jl"))
+include(joinpath(root, "scripts", "run_estimate.jl"))
 runs_directory = mktempdir()
 end
 
@@ -3463,59 +3464,99 @@ end
 """
     StubJobs
 
-Jobs computing in tasks of this process the square of each case's `label`, the first launch
-of each shard in `dying` stopping after one case, each shard launched again at most
-`retries` times.
+Jobs computing in tasks of this process the square of each case's `label`: each launch on a
+shard in `wall` stores at most that many round trips and ends, as a job at its wall time
+does, and a shard in `left` has a task a stopped run left running on it.
 """
 struct StubJobs
-    dying::Vector{Int}
+    wall::Dict{Int, Int}
     retries::Int
+    left::Dict{Int, Task}
     launches::Dict{Int, Int}
+    computed::Threads.Atomic{Int}
 end
+
+StubJobs(wall, retries; left=Dict{Int, Task}()) =
+    StubJobs(wall, retries, left, Dict{Int, Int}(), Threads.Atomic{Int}(0))
 
 PaperRuns.cores(::StubJobs) = 3
 PaperRuns.job_count(::StubJobs) = 4
 PaperRuns.retries(jobs::StubJobs) = jobs.retries
 PaperRuns.poll_seconds(::StubJobs) = 0.01
 PaperRuns.running(::StubJobs, handles) = filter(!istaskdone, handles)
+PaperRuns.left_running(jobs::StubJobs, batch, shard) = get(jobs.left, shard, nothing)
 
-function PaperRuns.launch(jobs::StubJobs, path, shard, shards)
-    launch = jobs.launches[shard] = get(jobs.launches, shard, 0) + 1
-    batch = PaperRuns.deserialize(path)
-    todo = PaperRuns.shard_missing(batch, shard, shards)
-    shard in jobs.dying && launch == 1 && (todo = first(todo, 1))
+"""
+    store_squares(jobs, batch, todo)
+
+Task storing the square of the `label` of the cases `todo` of the batch file `batch`,
+counted in `jobs.computed`.
+"""
+function store_squares(jobs, batch, todo)
     return Threads.@spawn for k in todo
         PaperRuns.stored_trip(() -> batch.cases[k].label^2, batch.directories[k],
             batch.cases[k])
+        Threads.atomic_add!(jobs.computed, 1)
     end
+end
+
+function PaperRuns.launch(jobs::StubJobs, path, shard, shards)
+    jobs.launches[shard] = get(jobs.launches, shard, 0) + 1
+    batch = PaperRuns.deserialize(path)
+    todo = PaperRuns.shard_missing(batch, shard, shards)
+    return store_squares(jobs, batch, first(todo, get(jobs.wall, shard, length(todo))))
 end
 
 handed_cases = [(; assumptions, label) for label in 1:10]
 
-@testset "a batch handed to jobs is complete once each job that died has run again" begin
+@testset "a job ended at its wall time is launched again until its shard is stored" begin
     store_run(:draft, "code")
-    jobs = StubJobs([1, 3], 1, Dict{Int, Int}())
+    jobs = StubJobs(Dict(1 => 1, 3 => 1), 0)
     directories = [mktempdir() for _ in handed_cases]
     entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
     @test [entry.trip for entry in entries] == (1:10) .^ 2
-    @test jobs.launches == Dict(1 => 2, 2 => 1, 3 => 2, 4 => 1)
-    batch = only(readdir(PaperRuns.jobs_directory(PaperRuns.paper_run.directory);
-        join=true))
+    @test jobs.launches == Dict(1 => 3, 2 => 1, 3 => 2, 4 => 1)
+    batch = only(filter(endswith(".bin"),
+        readdir(PaperRuns.jobs_directory(PaperRuns.paper_run.directory); join=true)))
     @test PaperRuns.stored_count(batch) == 10
     foreach(rm, readdir(directories[2]; join=true))
     @test PaperRuns.stored_count(batch) == 9
 end
 
-@testset "a batch whose job keeps dying stops the run naming the cases it lacks" begin
+@testset "a batch whose job stores nothing stops the run naming the cases it lacks" begin
     store_run(:draft, "code")
+    jobs = StubJobs(Dict(2 => 0), 1)
     directories = [mktempdir() for _ in handed_cases]
     lacking = try
-        PaperRuns.job_trips(StubJobs([2], 0, Dict{Int, Int}()), handed_cases, directories,
-            [24.0])
+        PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
     catch error
         error.msg
     end
-    @test contains(lacking, "for 2 cases") && contains(lacking, "label=6\nlabel=10")
+    @test contains(lacking, "for 3 cases") && contains(lacking, "label=6\nlabel=10")
+    @test jobs.launches[2] == 2
+end
+
+@testset "a resumed run computes only the round trips its stopped run did not store" begin
+    store_run(:draft, "code")
+    directories = [mktempdir() for _ in handed_cases]
+    @test_throws ErrorException PaperRuns.job_trips(StubJobs(Dict(2 => 0), 0),
+        handed_cases, directories, [24.0])
+    jobs = StubJobs(Dict{Int, Int}(), 0)
+    entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
+    @test [entry.trip for entry in entries] == (1:10) .^ 2
+    @test jobs.computed[] == 3 && jobs.launches == Dict(2 => 1)
+end
+
+@testset "a job a stopped run left running is waited for rather than launched again" begin
+    store_run(:draft, "code")
+    directories = [mktempdir() for _ in handed_cases]
+    left = StubJobs(Dict{Int, Int}(), 0)
+    batch = (; cases=handed_cases, directories)
+    jobs = StubJobs(Dict{Int, Int}(), 0;
+        left=Dict(3 => store_squares(left, batch, PaperRuns.shard_missing(batch, 3, 4))))
+    entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
+    @test [entry.trip for entry in entries] == (1:10) .^ 2
+    @test !haskey(jobs.launches, 3) && left.computed[] == 2
 end
 
 @testset "a final run takes only round trips computed on its own processor" begin
@@ -3535,11 +3576,80 @@ end
 
 @testset "a Slurm job is submitted only with the account and partition set" begin
     settings = PaperRuns.cluster_settings()
-    @test_throws "set the account" PaperRuns.slurm_command(settings, "run", "1:00:00",
-        "log", `true`)
+    @test_throws "set the account" PaperRuns.slurm_command(settings, "run", "log", `true`)
     settings = merge(settings, Dict("account" => "research-me", "partition" => "p1"))
-    command = PaperRuns.slurm_command(settings, "run", "1:00:00", "log", `true`)
+    command = PaperRuns.slurm_command(settings, "run", "log", `true`)
     @test "--account=research-me" in command.exec && "--partition=p1" in command.exec
+end
+
+@testset "a run resumed on new round-trip code hands out a batch of its own" begin
+    directories = [mktempdir() for _ in handed_cases]
+    store_run(:draft, "code")
+    batch = PaperRuns.write_batch(handed_cases, directories, [24.0])
+    @test PaperRuns.write_batch(handed_cases, directories, [24.0]) == batch
+    PaperRuns.paper_run = PaperRuns.PaperRun(PaperRuns.paper_run.directory, :draft,
+        PaperRuns.paper_run.record, nothing, Dict{Symbol, Vector{Any}}(), "newer code",
+        PaperRuns.StepTally())
+    newer = PaperRuns.write_batch(handed_cases, directories, [24.0])
+    @test newer != batch && PaperRuns.deserialize(newer).trip_model == "newer code"
+end
+
+@testset "the run's own share that fails has ended, as a failed job has" begin
+    failed = Threads.@spawn error("a trip failed")
+    wait(Threads.@spawn try wait(failed) catch end)
+    jobs = PaperRuns.SlurmJobs(PaperRuns.cluster_settings())
+    @test isempty(PaperRuns.running(jobs, Any[failed]))
+end
+
+@testset "run jobs that find their run unmoved are counted until it moves" begin
+    @eval PaperRuns runs_directory = joinpath(mktempdir(), "runs")
+    @test PaperRuns.stalled_run_jobs(:draft) == 0
+    directory = joinpath(PaperRuns.runs_directory, "2026-01-01T0000")
+    mkpath(directory)
+    record = Dict("fidelity" => "draft", "finished" => "", "git_branch" => "b",
+        "steps" => [Dict("name" => "designs")])
+    write_record() = open(io -> PaperRuns.TOML.print(io, record),
+        joinpath(directory, "run.toml"), "w")
+    write_record()
+    @test PaperRuns.stalled_run_jobs(:draft) == 0
+    @test PaperRuns.stalled_run_jobs(:draft) == 1
+    @test PaperRuns.stalled_run_jobs(:draft) == 2
+    push!(record["steps"], Dict("name" => "routes"))
+    write_record()
+    @test PaperRuns.stalled_run_jobs(:draft) == 0
+end
+
+@testset "the jobs of a run ask for no more than the cluster allows" begin
+    settings = merge(PaperRuns.cluster_settings(),
+        Dict("account" => "research-me", "partition" => "p2"))
+    command = PaperRuns.slurm_command(settings, "run", "log", `true`; after="7")
+    option(name) = only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
+    hours, minutes, seconds = parse.(Int, split(option("time"), ":"))
+    @test hours * 3600 + minutes * 60 + seconds <= 24 * 3600
+    @test parse(Int, option("cpus-per-task")) <= 64
+    @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 4
+    @test option("dependency") == "afterany:7"
+end
+
+@testset "a final run's estimate counts the draft's cases and one more size search round" begin
+    record = Dict("steps" => [Dict("name" => "patterns"),
+        Dict("name" => "classes", "cases" => 26), Dict("name" => "routes", "cases" => 10)])
+    @test PaperRuns.run_counts(record, 3) == [(name="classes", draft=26, final=32.0),
+        (name="routes", draft=10, final=10.0)]
+end
+
+@testset "the estimate counts the draft run with the most data steps, not the newest" begin
+    run(name, finished, steps...) = (name, Dict{String, Any}("finished" => finished,
+        "steps" => [Dict("name" => step, "cases" => 1) for step in steps]))
+    runs = [run("rerun", "18 Nov", "routing_value"), run("going", "", "a", "b", "c"),
+        run("full", "17 Nov", "classes", "routes"), run("older", "15 Nov", "a", "b")]
+    @test first(PaperRuns.counted_run(runs)) == "full"
+end
+
+@testset "the estimate prints the sample costs beside the processor it names" begin
+    costs = Dict{String, Any}("processor" => "box", "threads" => 12, "class_kite" => 241.9,
+        "development_none" => 35.2)
+    @test PaperRuns.cost_line(costs) == "class_kite 242, development_none 35"
 end
 
 @testset "a final run's parts name every commit and dirty tree they come from" begin
