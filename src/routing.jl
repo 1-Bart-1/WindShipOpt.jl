@@ -264,6 +264,8 @@ Base.@kwdef struct RouterSettings
     final_time_step::Float64 = 0.25
     "how far the final pass strays in time from the path found [h]"
     final_time_band::Float64 = 24.0
+    "longest time between the weather samples along an edge of the final pass [h]"
+    final_sample_hours::Float64 = 3.0
 end
 
 "[`RouterSettings`](@ref) in force"
@@ -374,12 +376,13 @@ a kite flying where [`kite_aloft`](@ref) allows, with the fuel power [W] flown a
 there; speed number 0 if it cannot hold the lowest. Last, the highest speed number
 whose command holds the same there, by [`unpowered_through`](@ref).
 """
-function held_speed(table::RouteTable, speed_index, sample::EdgeSample)
+function held_speed(table::RouteTable, speed_index, sample::EdgeSample,
+        limit=length(table.speeds))
     same_through = speed_index
     for i in speed_index:-1:1
         flown, stowed = edge_fuels(table, i, sample.condition)
         i == speed_index && !isfinite(flown) && !isfinite(stowed) &&
-            (same_through = unpowered_through(table, speed_index, sample.condition))
+            (same_through = unpowered_through(table, speed_index, sample.condition, limit))
         isfinite(stowed) && return i, flown, stowed, same_through
         isfinite(flown) && kite_aloft(table.table, table.speeds[i], sample.headwind,
             sample.crosswind, sample.condition.wave_height) &&
@@ -395,12 +398,13 @@ Highest routing speed number of the [`RouteTable`](@ref) `table` such that the e
 power none from `speed_index` up to it in the [`SeaCondition`](@ref) `condition`, with the
 rig stowed or flown.
 """
-function unpowered_through(table::RouteTable, speed_index, condition::SeaCondition)
-    for i in (speed_index + 1):length(table.speeds)
+function unpowered_through(table::RouteTable, speed_index, condition::SeaCondition,
+        limit=length(table.speeds))
+    for i in (speed_index + 1):limit
         flown, stowed = edge_fuels(table, i, condition)
         (isfinite(flown) || isfinite(stowed)) && return i - 1
     end
-    return length(table.speeds)
+    return limit
 end
 
 """
@@ -445,8 +449,9 @@ SailedPoint(sample::EdgeSample, held, flown, stowed, hours, same_through) =
 [`SailedPoint`](@ref) of `sample` at commanded routing speed number `speed_index` of
 `table`, at the [`held_speed`](@ref), standing for `distance` [m] of the edge.
 """
-function SailedPoint(table::RouteTable, sample::EdgeSample, speed_index, distance)
-    held, flown, stowed, same_through = held_speed(table, speed_index, sample)
+function SailedPoint(table::RouteTable, sample::EdgeSample, speed_index, distance,
+        limit=length(table.speeds))
+    held, flown, stowed, same_through = held_speed(table, speed_index, sample, limit)
     hours = held == 0 ? Inf : distance / table.speeds[held] / 3600
     return SailedPoint(sample, held, flown, stowed, hours, same_through)
 end
@@ -468,8 +473,10 @@ function sail_edge!(points, start, table::RouteTable, weather, corridor, stage, 
     distance = corridor.edge_length[stage, lateral, step]
     intervals = edge_intervals(distance / table.speeds[speed_index] / 3600, sample_hours)
     resize!(points, intervals + 1)
+    limit = same_intervals_through(table, speed_index, distance, intervals, sample_hours)
     points[1] = SailedPoint(table, start, speed_index,
-        trapezoid_weight(1, intervals + 1) * distance)
+        trapezoid_weight(1, intervals + 1) * distance, limit)
+    limit = points[1].same_through
     hours, sample_time = points[1].hours, time
     for k in 1:intervals
         isfinite(hours) || return Inf
@@ -477,10 +484,27 @@ function sail_edge!(points, start, table::RouteTable, weather, corridor, stage, 
         sample = EdgeSample(table.table, weather, corridor, stage, lateral, step,
             k / intervals, sample_time)
         points[k + 1] = SailedPoint(table, sample, speed_index,
-            trapezoid_weight(k + 1, intervals + 1) * distance)
+            trapezoid_weight(k + 1, intervals + 1) * distance, limit)
+        limit = points[k + 1].same_through
         hours += points[k + 1].hours
     end
     return hours
+end
+
+"""
+    same_intervals_through(table, speed_index, distance, intervals, sample_hours)
+
+Highest routing speed number of `table` from `speed_index` up sampled at the `intervals` of
+an edge of `distance` [m] with samples at most `sample_hours` [h] apart.
+"""
+function same_intervals_through(table::RouteTable, speed_index, distance, intervals,
+        sample_hours)
+    through = speed_index
+    while through < length(table.speeds) && edge_intervals(
+        distance / table.speeds[through + 1] / 3600, sample_hours) == intervals
+        through += 1
+    end
+    return through
 end
 
 """
@@ -964,15 +988,19 @@ on the bins and within the band in time of `ROUTER_SETTINGS`.
 """
 function final_pass(leg::Leg, corridor, table, weather, departure; time_cost, first_stage,
         first_aloft, coastal_penalty)
-    (; final_time_step, final_time_band) = ROUTER_SETTINGS[]
+    (; final_time_step, final_time_band, final_sample_hours, edge_sample_hours) =
+        ROUTER_SETTINGS[]
     workspace = acquire_workspace(1, ceil(Int, MAX_LEG_HOURS / final_time_step),
         length(leg.path))
     try
         band = PassageBand([point[3] for point in leg.path], final_time_band)
         refined = route_pass(workspace, path_corridor(leg, corridor, first_stage), table,
             weather, departure, band; time_cost, time_step=final_time_step, first_stage=1,
-            first_lateral=1, first_aloft, coastal_penalty, speed_stride=1)
-        return isnothing(refined) || refined.objective > leg.objective ? leg : refined
+            first_lateral=1, first_aloft, coastal_penalty, speed_stride=1,
+            sample_hours=final_sample_hours)
+        isnothing(refined) && return leg
+        return final_sample_hours == edge_sample_hours &&
+               refined.objective > leg.objective ? leg : refined
     finally
         release_workspace(workspace)
     end
@@ -1007,7 +1035,8 @@ states and commanded edges outside the [`PassageBand`](@ref) `to_go`, or, with a
 """
 function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable,
         weather, departure, to_go=nothing, limit=Inf; time_cost, time_step, first_stage,
-        first_lateral, first_aloft, coastal_penalty, speed_stride)
+        first_lateral, first_aloft, coastal_penalty, speed_stride,
+        sample_hours=ROUTER_SETTINGS[].edge_sample_hours)
     ship_table = table.table
     (; speeds) = table
     (; cost, elapsed, points) = workspace
@@ -1017,7 +1046,6 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
     fill!(view(cost, :, :, :, first_stage:stage_count), Inf)
     start_state!(workspace, (first_lateral, 1, first_aloft + 1, first_stage))
     commanded = commanded_speeds(length(speeds), speed_stride)
-    sample_hours = ROUTER_SETTINGS[].edge_sample_hours
     for stage in first_stage:(stage_count - 1), lateral in 1:lateral_count
         corridor.water[stage, lateral] || continue
         lat, lon = corridor.lat[stage, lateral], corridor.lon[stage, lateral]
