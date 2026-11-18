@@ -3135,11 +3135,10 @@ end
     @test length(workspace.shared) == from + 5 * (2WindShipOpt.MAX_LATERAL_STEP + 1)
     @test share(aloft) == from
     @test share(later_down) == share(later_aloft) == -1
-    speed_count, step_count = 5, 2WindShipOpt.MAX_LATERAL_STEP + 1
-    slots = [WindShipOpt.shared_slot(from, step, slot, speed_count)
-             for step in 1:step_count, slot in 1:speed_count]
-    @test sort(vec(slots)) == from .+ (1:(step_count * speed_count))
-    @test WindShipOpt.shared_slot(-1, 2, 3, speed_count) == 0
+    edge_count = 5 * (2WindShipOpt.MAX_LATERAL_STEP + 1)
+    slots = [WindShipOpt.shared_slot(from, slot) for slot in 1:edge_count]
+    @test slots == from .+ (1:edge_count)
+    @test WindShipOpt.shared_slot(-1, 3) == 0
 end
 
 @testset "a kite aloft reads the edge a state down sailed at the same time as its own" begin
@@ -3776,14 +3775,18 @@ end
     speeds = collect(range(2.0, 8.0; length=49))
     commanded = Int[]
     for distance in (20e3, 500e3, 3500e3), time_step in (0.25, 1.5, 3.0), stride in 1:4
-        WindShipOpt.commanded_speeds!(commanded, speeds, stride, distance, time_step)
+        WindShipOpt.commanded_speeds!(empty!(commanded), speeds, stride, distance,
+            time_step)
         @test issubset(WindShipOpt.commanded_speeds(length(speeds), stride), commanded)
         @test all(>(0), diff(commanded))
         gaps = -diff(distance ./ speeds[commanded] ./ 3600)
         @test all(gaps .<= time_step .|| diff(commanded) .== 1)
     end
-    WindShipOpt.commanded_speeds!(commanded, speeds, 4, 20e3, 3.0)
+    WindShipOpt.commanded_speeds!(empty!(commanded), speeds, 4, 20e3, 3.0)
     @test commanded == WindShipOpt.commanded_speeds(length(speeds), 4)
+    WindShipOpt.commanded_speeds!(commanded, speeds, 4, 3500e3, 3.0)
+    @test commanded[1:13] == WindShipOpt.commanded_speeds(length(speeds), 4)
+    @test issubset(WindShipOpt.commanded_speeds(length(speeds), 4), commanded[14:end])
 end
 
 @testset "soft and rigid kites both stop depowering where their lift reaches 0.05" begin
