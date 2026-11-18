@@ -2526,8 +2526,8 @@ end
 fuel_lines = [(:e_ammonia_price, :ammonia, "e-ammonia", :solid),
     (:e_methanol_price, :methanol, "e-methanol", (:dash, :loose))]
 
-"fuel prices [USD/GJ] ticked on the axes of [`fuel_figure`](@ref)"
-fuel_price_ticks = doubling_ticks(15, 120; base=15)
+"keyword arguments of the fuel price axes of [`fuel_figure`](@ref), log [USD/GJ]"
+fuel_price_axis = doubling_axis(:x, 15, 120; base=15)
 
 """
     fuel_figure()
@@ -2541,8 +2541,7 @@ function fuel_figure()
     figure = Figure(size=(page_width, 240))
     axes = map(enumerate(situation_ships)) do (k, (ship, route, _))
         axis = Axis(figure[1, k]; title="($('a' + k - 1)) $ship, $(route_label(route))",
-            xscale=log10, xticks=fuel_price_ticks, xminorticks=IntervalsBetween(2),
-            xminorticksvisible=true, ylabel=k == 1 ? "cost saving [%]" : "")
+            fuel_price_axis..., ylabel=k == 1 ? "cost saving [%]" : "")
         for (input, drive, label, linestyle) in fuel_lines
             values, savings = situation_savings(table, ship, route, drive, input)
             print_leaders("$ship, $label", input, log10.(values), savings, exp10)
@@ -2551,9 +2550,8 @@ function fuel_figure()
                     markersize=0.8marker_size)
             end
         end
-        prices = Axis(figure[2, k]; xscale=log10, xticks=fuel_price_ticks,
-            xminorticks=IntervalsBetween(2), xminorticksvisible=true,
-            xlabel="fuel price [USD/GJ], logarithmic", height=pt(14),
+        prices = Axis(figure[2, k]; fuel_price_axis..., xlabel="fuel price [USD/GJ]",
+            height=pt(14),
             limits=(nothing, (0.4, length(fuel_lines) + 0.6)), yticksvisible=false,
             yticklabelsvisible=false, bottomspinevisible=true, topspinevisible=false,
             leftspinevisible=false, rightspinevisible=false)
