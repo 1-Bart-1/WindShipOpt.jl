@@ -2132,16 +2132,19 @@ class_saving(table, column, class, drive, rig) =
     fleet_share_numbers(table)
 
 Name and text, per drive of the class table `table`, of each band's share [%] of the
-yearly cost of carrying the fleet's cargo and the total of that cost [billion USD], and
-the shares of the IMO transport work and of shipping's CO2 the classes
-carry.
+yearly cost of carrying the fleet's cargo, the total of that cost [billion USD] and the
+tank-to-wake CO2 that carrying it without a rig emits [million t a year], and the shares
+of the IMO transport work and of shipping's CO2 the classes carry.
 """
 function fleet_share_numbers(table)
     numbers = Pair{String, String}[]
     for (drive, word) in drive_words
-        split = fleet_split_of(table, drive)
+        cells = fleet_cells(table, drive)
+        split = fleet_split(cells)
         bill = fleet_total(split, :bill)
-        push!(numbers, "FleetBill$word" => whole_number(bill / 1e9))
+        emitted = sum(cell.work * table["carbon"][cell.bare] for cell in cells)
+        push!(numbers, "FleetBill$word" => whole_number(bill / 1e9),
+            "FleetEmitted$word" => two_digits(1e-12emitted))
         for band in fleet_bands
             name = word * uppercasefirst(band)
             push!(numbers, "FleetShare$name" => whole_number(100split[band].bill / bill))
