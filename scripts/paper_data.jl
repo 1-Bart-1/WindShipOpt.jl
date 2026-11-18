@@ -2772,9 +2772,9 @@ at, by [`write_leeway`](@ref): leeway.csv; and whole over the
 function model_parts_data()
     cases = [case for ship_case in sensitivity_ships(), part in (:none, simplified_parts...)
              for case in rig_cases(ship_case...; part)]
+    write_leeway("leeway.csv")
     write_trips("model_parts.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :rig, :part)
-    write_leeway("leeway.csv")
     cases, trips = [], []
     for year in 1:ceil(Int, last(departures) / 8760)
         batch = [case for ship_case in sensitivity_ships()
