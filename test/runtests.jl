@@ -701,6 +701,16 @@ end
     @test factor(:kite, as_paid) > factor(:kite)
 end
 
+@testset "a real price is set against the build-up of the same unit as sold" begin
+    folding = only(price for price in WindShipOpt.RIG_PRICES if price.retractable)
+    fixed = WindShipOpt.RigPrice(folding.rig, folding.kind, folding.year,
+        folding.units_built, folding.height, folding.diameter, folding.area, folding.price,
+        folding.currency, folding.installed, false, folding.hicp, folding.source)
+    @test WindShipOpt.bottom_up_price(folding, assumptions) ≈
+          (1 + assumptions[:retractable_rig_premium]) *
+          WindShipOpt.bottom_up_price(fixed, assumptions)
+end
+
 @testset "a canopy costs its bottom-up cost times the kite's price factor" begin
     weight = assumptions[:canopy_cloth_weight]
     @test WindShipOpt.sewn_cloth_price(assumptions, weight) ≈ 17.2

@@ -4,7 +4,8 @@
 """
     RigPrice
 
-A price paid, quoted or estimated for one unit of a rig, a row of `data/rig_price_basis.csv`.
+A price paid, quoted or estimated for one unit of a rig, a row of
+`data/rig_price_basis.csv`.
 """
 struct RigPrice
     "kind of rig: `:kite`, `:wing` or `:rotor`"
@@ -25,6 +26,8 @@ struct RigPrice
     currency::String
     "whether the price includes installation on the ship"
     installed::Bool
+    "whether the rig folds, tilts or telescopes"
+    retractable::Bool
     "consumer price index of `year`, as `hicp_today`"
     hicp::Float64
     source::String
@@ -47,7 +50,8 @@ function rig_prices()
         RigPrice(Symbol(row["rig"]), Symbol(row["kind"]), parse(Int, row["year"]),
             number(row["units_built"]), number(row["height"]), number(row["diameter"]),
             number(row["area"]), number(row["price"]), row["currency"],
-            row["installed"] == "true", number(row["hicp"]), row["source"])
+            row["installed"] == "true", row["retractable"] == "true", number(row["hicp"]),
+            row["source"])
     end
 end
 
@@ -67,7 +71,8 @@ end
     bottom_up_price(price, assumptions)
 
 Bottom-up price [USD] of the unit `price` is for: its manufacturing cost times the market
-price factor, with installation where `price` includes it; a kite's with its canopy.
+price factor, with installation and the retractable rig premium where `price` includes them;
+a kite's with its canopy.
 """
 function bottom_up_price(price::RigPrice, assumptions)
     if price.rig == :kite
@@ -82,7 +87,8 @@ function bottom_up_price(price::RigPrice, assumptions)
         deck_price_parts(1, price.area, assumptions, :wing_unit_cost, :wing_cost_per_area,
             :wing_installation_fraction)
     cost = parts.units + parts.surface + (price.installed ? parts.installation : 0.0)
-    return assumptions[:market_price_factor] * cost
+    premium = price.retractable ? 1 + assumptions[:retractable_rig_premium] : 1.0
+    return assumptions[:market_price_factor] * premium * cost
 end
 
 """
