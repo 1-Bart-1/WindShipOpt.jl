@@ -1231,8 +1231,8 @@ function cargo_interest_figure()
         xlabel="cost saving [%]", yticks=(eachindex(names), names), yreversed=true)
     interest_classes_panel!(classes_axis, table, drive, names)
     values = collect(cargo_value_sweep.values)
-    sweep_axes = [Axis(figure[i, 2]; title, ylabel, xscale=log10, xticks=[100, 1000, 10000],
-                      xtickformat=ticks -> [@sprintf("%.0f", tick) for tick in ticks],
+    sweep_axes = [Axis(figure[i, 2]; title, ylabel,
+                      doubling_axis(:x, extrema(values)...; base=100)...,
                       xlabel=i == 3 ? "cargo value [USD/t]" : "", xticklabelsvisible=i == 3,
                       yautolimitmargin=(0.05, 0.12))
                   for (i, (title, ylabel)) in enumerate((("(b) cost saving",
@@ -2071,10 +2071,10 @@ function canopy_life_figure()
         findall(==("sail_shape"), lives["kind"]); findall(==("small_kite"), lives["kind"])]
     labels = [square_metre_label.(lives["label"][order]); "derived life"]
     figure = Figure(size=(page_width, 190))
-    axis = Axis(figure[1, 1]; xscale=log10, xlabel="flight hours of the canopy",
-        xticks=([100, 300, 1000, 3000, 10000], ["100", "300", "1000", "3000", "10000"]),
+    axis = Axis(figure[1, 1]; doubling_axis(:x, 62.5, 16000)...,
+        xlabel="flight hours of the canopy",
         yticks=(eachindex(labels), labels), yreversed=true,
-        limits=((70, 20000), (0.3, length(labels) + 0.7)))
+        limits=((55, 20000), (0.3, length(labels) + 0.7)))
     goal_marks!(axis, goal; shade=(palette[1], 0.1))
     stated = :gray35
     for (i, row) in enumerate(order)
@@ -2129,9 +2129,8 @@ function large_rigs_figure()
     foot, gap, cut_size = length(names) + 0.5, pt(3), pt(5)
     rows = (-1.2, length(names) + 0.7)
     figure = Figure(size=(page_width, 225))
-    areas = Axis(figure[1, 1]; title="(a) best kite area", xscale=log10,
-        xlabel=square_metres("projected area [", "]"),
-        xticks=([100, 1000, 10000], ["100", "1000", "10000"]),
+    areas = Axis(figure[1, 1]; title="(a) best kite area",
+        doubling_axis(:x, 125, 32000)..., xlabel=square_metres("projected area [", "]"),
         yticks=(eachindex(names), names), yreversed=true,
         limits=((100, 40000), rows))
     units = Axis(figure[1, 2]; title="(b) deck units at the best size", xlabel="units",
@@ -2329,9 +2328,9 @@ prices.
 situation_panels = [
     ("fuel price", "fuel price [USD/GJ]",
         [(:vlsfo_price, :vlsfo), (:e_ammonia_price, :ammonia)], log10, 1.0,
-        [8, 15, 30, 60, 120]),
+        doubling_ticks(7.5, 120; base=7.5)),
     ("cargo value", "cargo value [1000 USD/t]", [(:cargo_value, :ammonia)], log10, 1e-3,
-        ([1, 2.5, 5, 10, 20], ["1", "2.5", "5", "10", "20"])),
+        doubling_ticks(1.25, 20; base=1.25)),
     ("discount rate", "discount rate [%]", [(:discount_rate, :ammonia)], identity, 100.0,
         Makie.automatic),
     ("wing life", "wing life [years]", [(:wing_lifetime, :ammonia)], identity, 1.0,
@@ -2375,6 +2374,7 @@ function situations_figure()
         xticks))
         axis = Axis(figure[(k - 1) ÷ 4 + 1, (k - 1) % 4 + 1];
             title="($('a' + k - 1)) $title", xlabel, xscale=scale, xticks,
+            xminorticks=IntervalsBetween(2), xminorticksvisible=scale == log10,
             ylabel=(k - 1) % 4 == 0 ? "cost saving [%]" : "",
             yticklabelsvisible=(k - 1) % 4 == 0)
         reference_line!(axis)
@@ -2428,7 +2428,7 @@ fuel_lines = [(:e_ammonia_price, :ammonia, "e-ammonia", :solid),
     (:e_methanol_price, :methanol, "e-methanol", (:dash, :loose))]
 
 "fuel prices [USD/GJ] ticked on the axes of [`fuel_figure`](@ref)"
-fuel_price_ticks = [30, 45, 60, 90, 120]
+fuel_price_ticks = doubling_ticks(15, 120; base=15)
 
 """
     fuel_figure()
@@ -2442,8 +2442,8 @@ function fuel_figure()
     figure = Figure(size=(page_width, 240))
     axes = map(enumerate(situation_ships)) do (k, (ship, route, _))
         axis = Axis(figure[1, k]; title="($('a' + k - 1)) $ship, $(route_label(route))",
-            xscale=log10, xticks=fuel_price_ticks,
-            ylabel=k == 1 ? "cost saving [%]" : "")
+            xscale=log10, xticks=fuel_price_ticks, xminorticks=IntervalsBetween(2),
+            xminorticksvisible=true, ylabel=k == 1 ? "cost saving [%]" : "")
         for (input, drive, label, linestyle) in fuel_lines
             values, savings = situation_savings(table, ship, route, drive, input)
             print_leaders("$ship, $label", input, log10.(values), savings, exp10)
@@ -2453,6 +2453,7 @@ function fuel_figure()
             end
         end
         prices = Axis(figure[2, k]; xscale=log10, xticks=fuel_price_ticks,
+            xminorticks=IntervalsBetween(2), xminorticksvisible=true,
             xlabel="fuel price [USD/GJ], logarithmic", height=pt(14),
             limits=(nothing, (0.4, length(fuel_lines) + 0.6)), yticksvisible=false,
             yticklabelsvisible=false, bottomspinevisible=true, topspinevisible=false,
@@ -3003,11 +3004,11 @@ function rigid_scaling_figure()
     figure = Figure(size=(page_width, 215))
     thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
         xlabel="apparent wind [m/s]", ylabel="thrust [kN]")
-    price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s", xscale=log10,
-        xticks=[30, 300, 3000], xlabel=square_metres("kite area [", "]"),
+    price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s",
+        doubling_axis(:x, 30, 3200; base=25)..., xlabel=square_metres("kite area [", "]"),
         ylabel="kUSD/kN")
-    wind_axis = Axis(figure[1, 3]; title="(c) lowest wind", xscale=log10,
-        xticks=[30, 100, 300], xlabel=square_metres("kite area [", "]"),
+    wind_axis = Axis(figure[1, 3]; title="(c) lowest wind",
+        doubling_axis(:x, 25, 600; base=25)..., xlabel=square_metres("kite area [", "]"),
         ylabel="apparent wind [m/s]")
     base_exponent = assumptions[:rigid_mass_exponent]
     curves = (("rigid base", 30.0), ("rigid base", 54.0), ("rigid base", 100.0),
@@ -3062,11 +3063,30 @@ function rigid_scaling_figure()
     save_figure("rigid_scaling", figure)
 end
 
-"ticks at 125 times the powers of two, spanning `low` to `high`"
-function doubling_ticks(low, high)
-    powers = floor(Int, log2(low / 125)):ceil(Int, log2(high / 125))
-    return [125 * 2^power for power in powers]
+"""
+    doubling_ticks(low, high; base=125)
+
+Ticks of a log axis from `low` to `high` at each doubling of `base`, as values and labels,
+every other one labelled where there are more than eight.
+"""
+function doubling_ticks(low, high; base=125)
+    powers = floor(Int, log2(low / base) + 1e-9):ceil(Int, log2(high / base) - 1e-9)
+    values = [base * 2.0^power for power in powers]
+    step = length(values) > 8 ? 2 : 1
+    labels = [(i - 1) % step == 0 ? @sprintf("%.15g", value) : ""
+              for (i, value) in enumerate(values)]
+    return values, labels
 end
+
+"""
+    doubling_axis(side, low, high; base=125)
+
+Keyword arguments of an `Axis` that draw its `side` (`:x` or `:y`) on a log scale from `low`
+to `high`, with the [`doubling_ticks`](@ref) of `base` and a minor tick between each two.
+"""
+doubling_axis(side, low, high; base=125) = NamedTuple{(Symbol(side, :scale),
+    Symbol(side, :ticks), Symbol(side, :minorticks), Symbol(side, :minorticksvisible))}((
+    log10, doubling_ticks(low, high; base), IntervalsBetween(2), true))
 
 "rigs of the VTOL kite figure with their legend labels and colours"
 rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
@@ -3086,8 +3106,8 @@ function rigid_kite_figure()
     scaling = read_table(data_file("rigid_scaling.csv"))
     table = read_table(data_file("rigid_kite.csv"))
     figure = Figure(size=(page_width, 190))
-    cost_axis = Axis(figure[1, 1]; title="(a) cost a year at 12 m/s", xscale=log10,
-        yscale=log10, xticks=[30, 300, 3000], xlabel=L"kite area [$\mathrm{m^2}$]",
+    cost_axis = Axis(figure[1, 1]; title="(a) cost a year at 12 m/s",
+        doubling_axis(:x, 30, 3200; base=25)..., xlabel=square_metres("kite area [", "]"),
         ylabel="USD/kN a year")
     groups = vec([(ship, route) for route in pair_routes, ship in pair_classes])
     saving_axis = Axis(figure[1, 2]; title="(b) on e-ammonia", ylabel="cost saving [%]",
@@ -3109,8 +3129,9 @@ function rigid_kite_figure()
     end
     soft_areas, soft_costs = thrust_costs(scaling, "soft", 0.0)
     lines!(cost_axis, soft_areas, soft_costs; color=palette[1])
-    cost_ticks = doubling_ticks(extrema([all_costs; soft_costs])...)
-    cost_axis.yticks = (cost_ticks, string.(cost_ticks))
+    for (name, value) in pairs(doubling_axis(:y, extrema([all_costs; soft_costs])...))
+        setproperty!(cost_axis, name, value)
+    end
     @printf("  soft: USD/kN a year %s at %s m2\n", join(round.(Int, soft_costs), ", "),
         join(round.(Int, soft_areas), ", "))
     names = first.(rigid_kite_rigs)
@@ -3250,11 +3271,9 @@ the reported launch wind in turn.
 """
 function min_wind_figure()
     figure = Figure(size=(column_width, 190))
-    axis = Axis(figure[1, 1]; xscale=log10,
+    axis = Axis(figure[1, 1]; doubling_axis(:x, 500, 16000)...,
         xlabel=square_metres("projected kite area [", "]"),
-        ylabel="lowest apparent wind [m/s]",
-        xticks=([500, 1000, 2000, 4000, 8000, 16000], ["500", "1000", "2000", "4000",
-            "8000", "16000"]))
+        ylabel="lowest apparent wind [m/s]")
     areas = exp.(range(log(500), log(16000); length=40))
     elevation = assumptions.entries[:kite_min_elevation]
     elevations = deg2rad.((elevation.value, elevation.low, elevation.high))
@@ -3330,11 +3349,10 @@ function missed_goals_figure()
                     yticks=WilkinsonTicks(4; Q=[(1.0, 1.0), (5.0, 0.9), (2.0, 0.7)]),
                     yautolimitmargin=(0.05, 0.1))
                 for (row, (xlabel, xscale, xticks)) in enumerate((
-                    ("canopy life [h]", log10,
-                        ([500, 2000, 8000], ["500", "2000", "8000"])),
+                    ("canopy life [h]", log10, doubling_ticks(500, 16000)),
                     (square_metres("canopy price [USD/", "]"), identity,
                         Makie.automatic),
-                    ("out of service [%]", Makie.pseudolog10, [0, 1, 3, 10, 30, 100])))]
+                    ("out of service [%]", Makie.pseudolog10, [0, 1, 2, 4, 8, 16, 32, 64])))]
         goal_marks!(axes[1], assumptions.entries[:canopy_life])
         goal_marks!(axes[2], WindShipOpt.canopy_price(assumptions),
             canopy_price_range(assumptions, ())...)
@@ -3426,12 +3444,9 @@ where designed.
 function rigid_mass_figure()
     published = read_table(joinpath(root, "data", "rigid_kite_masses.csv"))
     figure = Figure(size=(column_width, 200))
-    ticks = [3, 10, 30, 100, 300]
-    axis = Axis(figure[1, 1]; xscale=log10, yscale=log10,
-        xlabel=square_metres("wing area [", "]"),
-        ylabel="mass [kg]", xticks=(ticks, string.(ticks)),
-        yticks=([30, 100, 300, 1000, 3000, 10000, 30000],
-            ["30", "100", "300", "1000", "3000", "10000", "30000"]))
+    axis = Axis(figure[1, 1]; doubling_axis(:x, 2.5, 320; base=2.5)...,
+        doubling_axis(:y, 25, 25600; base=25)...,
+        xlabel=square_metres("wing area [", "]"), ylabel="mass [kg]")
     exponent = assumptions.entries[:rigid_mass_exponent]
     areas = exp.(range(log(minimum(published["area"])), log(500); length=40))
     xlims!(axis, 1.6, nothing)
