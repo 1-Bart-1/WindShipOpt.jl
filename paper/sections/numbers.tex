@@ -3,21 +3,40 @@
 \newcommand{\NumCanopyPriceToday}{234}
 \newcommand{\NumOutOfServiceGoal}{3}
 \newcommand{\NumKiteGapBias}{1.6}
+\newcommand{\NumDraftSpreadKite}{\tbd{4.9}}
+\newcommand{\NumDraftSpreadRotors}{\tbd{3.7}}
+\newcommand{\NumDraftSpreadGap}{\tbd{2.8}}
 \newcommand{\NumHighlightLimit}{85}
 \newcommand{\NumCellsOil}{\tbd{78}}
+\newcommand{\NumLevelOil}{\tbd{15}}
+\newcommand{\NumNoRigOil}{\tbd{13}}
+\newcommand{\NumWingsShareOil}{\tbd{an eighth}}
 \newcommand{\NumSavingOilKite}{\tbd{6}}
-\newcommand{\NumLeadsOilKite}{\tbd{61}}
+\newcommand{\NumLeadsOilKite}{\tbd{45}}
 \newcommand{\NumSavingOilWings}{\tbd{1}}
 \newcommand{\NumLeadsOilWings}{\tbd{0}}
 \newcommand{\NumSavingOilRotors}{\tbd{4}}
-\newcommand{\NumLeadsOilRotors}{\tbd{11}}
+\newcommand{\NumLeadsOilRotors}{\tbd{5}}
 \newcommand{\NumCellsAmmonia}{\tbd{78}}
+\newcommand{\NumLevelAmmonia}{\tbd{16}}
+\newcommand{\NumNoRigAmmonia}{\tbd{1}}
+\newcommand{\NumWingsShareAmmonia}{\tbd{half}}
 \newcommand{\NumSavingAmmoniaKite}{\tbd{17}}
-\newcommand{\NumLeadsAmmoniaKite}{\tbd{54}}
+\newcommand{\NumLeadsAmmoniaKite}{\tbd{44}}
 \newcommand{\NumSavingAmmoniaWings}{\tbd{8}}
 \newcommand{\NumLeadsAmmoniaWings}{\tbd{0}}
 \newcommand{\NumSavingAmmoniaRotors}{\tbd{15}}
-\newcommand{\NumLeadsAmmoniaRotors}{\tbd{24}}
+\newcommand{\NumLeadsAmmoniaRotors}{\tbd{17}}
+\newcommand{\NumFuelRangeOilKite}{\tbd{21 to 40}}
+\newcommand{\NumFuelRangeOilWings}{\tbd{3 to 19}}
+\newcommand{\NumFuelRangeOilRotors}{\tbd{13 to 46}}
+\newcommand{\NumFuelRangeAmmoniaKite}{\tbd{35 to 57}}
+\newcommand{\NumFuelRangeAmmoniaWings}{\tbd{12 to 47}}
+\newcommand{\NumFuelRangeAmmoniaRotors}{\tbd{28 to 60}}
+\newcommand{\NumWingsBestOil}{\tbd{1}}
+\newcommand{\NumWingsLossClassesOil}{\tbd{the general cargo coaster, feeder container ship, Panamax container ship and Neo-Panamax container ship}}
+\newcommand{\NumMostUnitsWings}{\tbd{15}}
+\newcommand{\NumMostUnitsRotors}{\tbd{23}}
 \newcommand{\NumSavingOilContainerKite}{\tbd{5}}
 \newcommand{\NumSavingAmmoniaContainerKite}{\tbd{14}}
 \newcommand{\NumCarbonContainerKite}{\tbd{25}}
@@ -45,25 +64,67 @@
 \newcommand{\NumSavingOilBulkRotors}{\tbd{5}}
 \newcommand{\NumSavingAmmoniaBulkRotors}{\tbd{18}}
 \newcommand{\NumCarbonBulkRotors}{\tbd{38}}
-\newcommand{\NumAdvice}{\tbd{on both fuels use the kite on container ships, and either the kite or the rotors on car carriers and bulk carriers; on tankers use the kite on e-ammonia and either the kite or the rotors on fuel oil, and on general cargo ships the other way round}}
+\newcommand{\NumAdvice}{\tbd{on both fuels use the kite on container ships, and either the kite or the rotors on car carriers; on bulk carriers and general cargo ships use either the kite or the rotors on e-ammonia and the kite on fuel oil, and on tankers the other way round}}
+\newcommand{\NumAdviceBrief}{\tbd{the kite on container ships and the kite or the rotors on the other ship types}}
 \newcommand{\NumHighlightAdvice}{\tbd{On e-ammonia: kite on container ships and tankers, either kite or rotors elsewhere.}}
-\newcommand{\NumAnswerOil}{\tbd{the kite on container ships, 5\,\%, USD~\num{1.4} million and \num{9600}~t of CO$_2$; either the kite or the rotors on car carriers, 4 to 5\,\%, USD~\num{1.0} to \num{1.1} million and \num{7100} to \num{7300}~t of CO$_2$; either the kite or the rotors on bulk carriers, 6 to 7\,\%, USD~\num{0.33} to \num{0.40} million and \num{3300} to \num{3600}~t of CO$_2$; either the kite or the rotors on tankers, 5 to 6\,\%, USD~\num{0.57} to \num{0.71} million and \num{5200} to \num{5500}~t of CO$_2$; the kite on general cargo ships, 4\,\%, USD~\num{0.10} million and \num{910}~t of CO$_2$}}
-\newcommand{\NumAnswerRangeOil}{\tbd{4 to 7\,\%, USD~\num{0.10} to \num{1.4} million and \num{910} to \num{9600}~t of CO$_2$}}
+\newcommand{\NumWingsAdvised}{\tbd{on no ship type}}
+\newcommand{\NumAnswerOil}{\tbd{the kite on container ships, 5\,\%, USD~\num{1.4} million and \num{9600}~t of CO$_2$; either the kite or the rotors on car carriers, 4 to 5\,\%, USD~\num{1.0} to \num{1.1} million and \num{7100} to \num{7300}~t of CO$_2$; the kite on bulk carriers, 7\,\%, USD~\num{0.40} million and \num{3300}~t of CO$_2$; either the kite or the rotors on tankers, 5 to 6\,\%, USD~\num{0.57} to \num{0.71} million and \num{5200} to \num{5500}~t of CO$_2$; the kite on general cargo ships, 4\,\%, USD~\num{0.10} million and \num{910}~t of CO$_2$}}
+\newcommand{\NumAnswerCarbonOil}{\tbd{\num{910} to \num{9600}}}
+\newcommand{\NumAnswerMoneyLowOil}{\tbd{\num{0.10}}}
+\newcommand{\NumAnswerMoneyLowShipsOil}{\tbd{general cargo ships}}
+\newcommand{\NumAnswerMoneyHighOil}{\tbd{\num{1.4}}}
+\newcommand{\NumAnswerMoneyHighShipsOil}{\tbd{container ships}}
 \newcommand{\NumAnswerSharesOil}{\tbd{4 to 7}}
 \newcommand{\NumAnswerAmmonia}{\tbd{the kite on container ships, 14\,\% and USD~\num{5.3} million; either the kite or the rotors on car carriers, 13\,\% and USD~\num{4.4} million; either the kite or the rotors on bulk carriers, 19 to 20\,\% and USD~\num{1.6} million; the kite on tankers, 18\,\% and USD~\num{3.0} million; either the kite or the rotors on general cargo ships, 14 to 15\,\% and USD~\num{0.46} to \num{0.50} million}}
-\newcommand{\NumAnswerRangeAmmonia}{\tbd{13 to 20\,\% and USD~\num{0.46} to \num{5.3} million}}
+\newcommand{\NumAnswerCarbonAmmonia}{\tbd{\num{42} to \num{480}}}
+\newcommand{\NumAnswerMoneyLowAmmonia}{\tbd{\num{0.46}}}
+\newcommand{\NumAnswerMoneyLowShipsAmmonia}{\tbd{general cargo ships}}
+\newcommand{\NumAnswerMoneyHighAmmonia}{\tbd{\num{5.3}}}
+\newcommand{\NumAnswerMoneyHighShipsAmmonia}{\tbd{container ships}}
 \newcommand{\NumAnswerSharesAmmonia}{\tbd{13 to 20}}
 \newcommand{\NumVerdictContainer}{\tbd{the kite leads the rotors by 4 points on both fuels}}
 \newcommand{\NumVerdictCarCarrier}{\tbd{the kite and the rotors are level, less than 1 point apart, on both fuels}}
 \newcommand{\NumVerdictGeneralCargo}{\tbd{the kite and the rotors are level, 1 point apart, on e-ammonia, and the kite leads the rotors by 3 points on fuel oil}}
-\newcommand{\NumVerdictBulkTanker}{\tbd{the kite and the rotors are level, 1 point apart, on bulk carriers on both fuels and on tankers on fuel oil, and the kite leads the rotors by 2 points on tankers on e-ammonia}}
-\newcommand{\NumVerdictBulkTankerGeneralCargo}{\tbd{the kite and the rotors are level, 1 point apart, on bulk carriers on both fuels, on tankers on fuel oil and on general cargo ships on e-ammonia, and the kite leads the rotors by 2 to 3 points on tankers on e-ammonia and on general cargo ships on fuel oil}}
+\newcommand{\NumVerdictBulkTanker}{\tbd{the kite and the rotors are level, 1 point apart, on bulk carriers on e-ammonia and on tankers on fuel oil, and the kite leads the rotors by 1 to 2 points on bulk carriers on fuel oil and on tankers on e-ammonia}}
+\newcommand{\NumVerdictBulkTankerGeneralCargo}{\tbd{the kite and the rotors are level, 1 point apart, on bulk carriers and general cargo ships on e-ammonia and on tankers on fuel oil, and the kite leads the rotors by 1 to 3 points on bulk carriers and general cargo ships on fuel oil and on tankers on e-ammonia}}
+\newcommand{\NumVerdictContainerAmmonia}{\tbd{the kite leads the rotors by 4 points}}
+\newcommand{\NumVerdictBulkCarrierAmmonia}{\tbd{the kite and the rotors are level, 1 point apart}}
 \newcommand{\NumVerdictFleetAmmonia}{\tbd{the kite leads the rotors by 2 to 4 points on container ships and tankers, and the kite and the rotors are level, at most 1 point apart, on car carriers, bulk carriers and general cargo ships}}
-\newcommand{\NumVerdictFleet}{\tbd{the kite leads the rotors by 2 to 4 points on container ships on both fuels, on tankers on e-ammonia and on general cargo ships on fuel oil, and the kite and the rotors are level, at most 1 point apart, on car carriers and bulk carriers on both fuels, on tankers on fuel oil and on general cargo ships on e-ammonia}}
+\newcommand{\NumVerdictFleetOil}{\tbd{the kite leads the rotors by 1 to 4 points on container ships, bulk carriers and general cargo ships, and the kite and the rotors are level, at most 1 point apart, on car carriers and tankers}}
+\newcommand{\NumVerdictFleet}{\tbd{the kite leads the rotors by 1 to 4 points on container ships on both fuels, on bulk carriers and general cargo ships on fuel oil and on tankers on e-ammonia, and the kite and the rotors are level, at most 1 point apart, on car carriers on both fuels, on bulk carriers and general cargo ships on e-ammonia and on tankers on fuel oil}}
 \newcommand{\NumKiteLifeLimitOilContainer}{\tbd{\num{1000}}}
 \newcommand{\NumKiteLossLimitOilContainer}{\tbd{1}}
 \newcommand{\NumKiteLifeLimitAmmoniaContainer}{\tbd{\num{1300}}}
 \newcommand{\NumKiteLossLimitAmmoniaContainer}{\tbd{0.84}}
+\newcommand{\NumRouteSavingsOil}{\tbd{11\,\% to New York, 11\,\% to Houston, 8\,\% to Guadeloupe, 5\,\% to Tubarão, 3\,\% to Dakar and 0\,\% to Bilbao}}
+\newcommand{\NumRouteVerdictOilContainer}{\tbd{the kite leads the rotors by 2 to 6 points to Guadeloupe, New York, Dakar, Houston and Tubarão, and no rig clearly saves to Bilbao}}
+\newcommand{\NumRouteVerdictOilCarCarrier}{\tbd{the kite leads the rotors by 1 to 2 points to Guadeloupe and New York; no rig clearly saves to Bilbao; the kite and the rotors are level, at most 1 point apart, to Dakar and Houston; and the rotors lead the kite by 1 point to Tubarão}}
+\newcommand{\NumRouteVerdictOilBulk}{\tbd{the kite leads the rotors by 1 to 3 points to Guadeloupe, New York, Dakar and Houston; no rig clearly saves to Bilbao; and the rotors lead the kite by 1 point to Tubarão}}
+\newcommand{\NumRouteSavingsAmmonia}{\tbd{25\,\% to New York, 25\,\% to Houston, 21\,\% to Guadeloupe, 19\,\% to Tubarão, 14\,\% to Dakar and 3\,\% to Bilbao}}
+\newcommand{\NumRouteVerdictAmmoniaContainer}{\tbd{the kite leads the rotors by 2 to 6 points on every route}}
+\newcommand{\NumRouteVerdictAmmoniaCarCarrier}{\tbd{the rotors lead the kite by 1 point to Guadeloupe and Tubarão; the kite leads the rotors by 1 point to New York; and the kite and the rotors are level, at most 1 point apart, to Bilbao, Dakar and Houston}}
+\newcommand{\NumRouteVerdictAmmoniaBulk}{\tbd{the kite leads the rotors by 2 to 3 points to Guadeloupe, Bilbao and Houston; the kite and the rotors are level, 1 point apart, to New York; and the rotors lead the kite by 1 to 4 points to Dakar and Tubarão}}
+\newcommand{\NumKiteFlightBilbao}{\tbd{12 to 28}}
+\newcommand{\NumKiteFlightOcean}{\tbd{20 to 68}}
+\newcommand{\NumSplitFuelOilKite}{\tbd{10}}
+\newcommand{\NumSplitTimeOilKite}{\tbd{1}}
+\newcommand{\NumSplitFuelOilWings}{\tbd{4}}
+\newcommand{\NumSplitTimeOilWings}{\tbd{0}}
+\newcommand{\NumSplitFuelOilRotors}{\tbd{10}}
+\newcommand{\NumSplitTimeOilRotors}{\tbd{0}}
+\newcommand{\NumSplitFuelAmmoniaKite}{\tbd{17}}
+\newcommand{\NumSplitTimeAmmoniaKite}{\tbd{6}}
+\newcommand{\NumSplitFuelAmmoniaWings}{\tbd{12}}
+\newcommand{\NumSplitTimeAmmoniaWings}{\tbd{0}}
+\newcommand{\NumSplitFuelAmmoniaRotors}{\tbd{18}}
+\newcommand{\NumSplitTimeAmmoniaRotors}{\tbd{4}}
+\newcommand{\NumFuelShort}{\tbd{no rig}}
+\newcommand{\NumPaybackOilKite}{\tbd{\num{1.4} to \num{2.8} years}}
+\newcommand{\NumPaybackOilWings}{\tbd{\num{9.9} to \num{14} years, and on 4 classes never}}
+\newcommand{\NumPaybackOilRotors}{\tbd{\num{4.5} to \num{15} years}}
+\newcommand{\NumPaybackAmmoniaKite}{\tbd{\num{0.46} to \num{1.3} years}}
+\newcommand{\NumPaybackAmmoniaWings}{\tbd{\num{2.5} to \num{4.5} years}}
+\newcommand{\NumPaybackAmmoniaRotors}{\tbd{\num{1.6} to \num{3.1} years}}
 \newcommand{\NumPremiumNoRig}{\tbd{44}}
 \newcommand{\NumPremiumBestRig}{\tbd{18}}
 \newcommand{\NumPremiumClosed}{\tbd{59}}
@@ -73,12 +134,14 @@
 \newcommand{\NumDesignPremiumClosedWings}{\tbd{20 to 26}}
 \newcommand{\NumDesignPremiumClosedRotors}{\tbd{51 to 71}}
 \newcommand{\NumFleetBillOil}{\tbd{188}}
+\newcommand{\NumFleetEmittedOil}{\tbd{\num{260}}}
 \newcommand{\NumFleetShareOilKite}{\tbd{56}}
 \newcommand{\NumFleetShareOilLevel}{\tbd{16}}
 \newcommand{\NumFleetShareOilRotors}{\tbd{6}}
 \newcommand{\NumFleetShareOilWings}{\tbd{0}}
 \newcommand{\NumFleetShareOilNone}{\tbd{22}}
 \newcommand{\NumFleetBillAmmonia}{\tbd{269}}
+\newcommand{\NumFleetEmittedAmmonia}{\tbd{\num{7.5}}}
 \newcommand{\NumFleetShareAmmoniaKite}{\tbd{60}}
 \newcommand{\NumFleetShareAmmoniaLevel}{\tbd{19}}
 \newcommand{\NumFleetShareAmmoniaRotors}{\tbd{20}}
@@ -102,6 +165,9 @@
 \newcommand{\NumMarketOilAnySales}{\tbd{\num{34}--\num{59}}}
 \newcommand{\NumMarketOilAnySaved}{\tbd{\num{8.9}--\num{11}}}
 \newcommand{\NumMarketOilAnyCarbon}{\tbd{\num{66}--\num{85}}}
+\newcommand{\NumFleetSavedOil}{\tbd{\num{11}}}
+\newcommand{\NumFleetSavedShareOil}{\tbd{6}}
+\newcommand{\NumFleetCarbonOil}{\tbd{\num{85}}}
 \newcommand{\NumMarketAmmoniaKiteShips}{\tbd{\num{8600}--\num{14000}}}
 \newcommand{\NumMarketAmmoniaKiteSales}{\tbd{\num{24}--\num{35}}}
 \newcommand{\NumMarketAmmoniaKiteSaved}{\tbd{\num{24}--\num{34}}}
@@ -118,6 +184,10 @@
 \newcommand{\NumMarketAmmoniaAnySales}{\tbd{\num{80}--\num{110}}}
 \newcommand{\NumMarketAmmoniaAnySaved}{\tbd{\num{36}--\num{46}}}
 \newcommand{\NumMarketAmmoniaAnyCarbon}{\tbd{\num{3.1}--\num{3.9}}}
+\newcommand{\NumFleetSavedAmmonia}{\tbd{\num{46}}}
+\newcommand{\NumFleetSavedShareAmmonia}{\tbd{17}}
+\newcommand{\NumFleetCarbonAmmonia}{\tbd{\num{3.9}}}
+\newcommand{\NumWingsLossTypesOil}{\tbd{container and general cargo ships}}
 \newcommand{\NumTypeSavingOilBulkCarrierKiteCost}{\tbd{\num{0.40}}}
 \newcommand{\NumTypeSavingOilBulkCarrierKiteShare}{\tbd{7}}
 \newcommand{\NumTypeSavingOilBulkCarrierKiteCarbon}{\tbd{\num{3300}}}
