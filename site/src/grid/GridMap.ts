@@ -8,6 +8,7 @@ import { brandColour } from "../brand";
 import {
   edgesFrom,
   faceGlobe,
+  horizon,
   kindOf,
   position,
   screenPoints,
@@ -74,6 +75,9 @@ const landShape = feature(topology, topology.objects.land) as unknown as GeoJSON
 const graticule = geoGraticule10().coordinates as [number, number][][];
 const pickRadius = 12;
 const settleDelay = 150; // [ms] after the last wheel event before the map is drawn in full again
+
+/** Each of `edges` as the line through its two nodes. */
+const edgeLines = (edges: Edge[]) => edges.map((edge) => [edge.from, edge.to]);
 
 /**
  * Router grids on a canvas, as an orthographic globe or a flat longitude and latitude map;
@@ -172,13 +176,9 @@ export class GridMap {
     context.globalAlpha = 1;
   }
 
-  private edgeLines(edges: Edge[]) {
-    return edges.map((edge) => [edge.from, edge.to]);
-  }
-
   /** Project every node of `layer` once, into its screen points. */
   private project({ grid, sphere, screen }: GridLayer) {
-    if (!this.view.flat) return faceGlobe(sphere, this.facing, this.globe.scale(), this.globe.translate(), screen);
+    if (!this.view.flat) return faceGlobe(sphere, this.globe, screen);
     for (let node = 0; node < grid.kind.length; node++) {
       [screen.x[node], screen.y[node]] = this.projection(position(grid, node))!;
       screen.facing[node] = 1;
@@ -186,37 +186,41 @@ export class GridMap {
   }
 
   /**
-   * Stroke the polylines through the nodes of `lines` in `layer`, as one path: cut where they pass
-   * the globe's horizon, and left out on the flat map where a step jumps across its edge.
+   * Stroke the polylines through the nodes of `lines` in `layer`, as one path, cut where they
+   * pass the globe's horizon or the flat map's edge.
    */
   private strokeNodes(layer: GridLayer, lines: number[][], colour: string, width: number, alpha = 1) {
-    const { x, y, facing } = layer.screen;
-    const seam = Math.PI * this.plane.scale();
+    const { screen } = layer;
+    const { x, y, facing } = screen;
     const context = this.context;
     context.beginPath();
     for (const line of lines) {
       let penDown = false;
       for (let i = 1; i < line.length; i++) {
         const [from, to] = [line[i - 1], line[i]];
-        if ((facing[from] <= 0 && facing[to] <= 0) || (this.view.flat && Math.abs(x[to] - x[from]) > seam)) {
+        if (facing[from] <= 0 && facing[to] <= 0) {
           penDown = false;
           continue;
         }
-        if (!penDown) context.moveTo(...(facing[from] > 0 ? [x[from], y[from]] as const : this.horizon(layer, to, from)));
+        if (!penDown) context.moveTo(...(facing[from] > 0 ? [x[from], y[from]] as const : horizon(screen, to, from, this.globe)));
+        if (this.view.flat) this.acrossEdge(screen, from, to);
         penDown = facing[to] > 0;
-        context.lineTo(...(penDown ? [x[to], y[to]] as const : this.horizon(layer, from, to)));
+        context.lineTo(...(penDown ? [x[to], y[to]] as const : horizon(screen, from, to, this.globe)));
       }
     }
     this.stroke(colour, width, alpha);
   }
 
-  /** Canvas position [px] where the step from node `near` on the near side to node `far` meets the horizon. */
-  private horizon({ grid, screen }: GridLayer, near: number, far: number): [number, number] {
-    const share = screen.facing[near] / (screen.facing[near] - screen.facing[far]);
-    const [nearLon, nearLat] = position(grid, near);
-    const [farLon, farLat] = position(grid, far);
-    const lonStep = ((((farLon - nearLon + 180) % 360) + 360) % 360) - 180;
-    return this.projection([nearLon + share * lonStep, nearLat + share * (farLat - nearLat)])!;
+  /** Where the flat map's step from node `from` to `to` crosses its edge, draw to it and lift the pen to the other edge. */
+  private acrossEdge({ x, y }: ScreenPoints, from: number, to: number) {
+    const mapWidth = 2 * Math.PI * this.plane.scale();
+    const jump = x[to] - x[from];
+    if (Math.abs(jump) <= mapWidth / 2) return;
+    const shift = Math.sign(jump) * mapWidth;
+    const edge = this.plane.translate()[0] - shift / 2;
+    const edgeY = y[from] + ((edge - x[from]) / (jump - shift)) * (y[to] - y[from]);
+    this.context.lineTo(edge, edgeY);
+    this.context.moveTo(edge + shift, edgeY);
   }
 
   /**
@@ -302,9 +306,9 @@ export class GridMap {
     return {
       ...shown,
       meshLines: this.meshLines(grid),
-      edgeLines: this.view.allEdges ? this.edgeLines(edges) : [],
+      edgeLines: this.view.allEdges ? edgeLines(edges) : [],
       rowFolds: this.rowFoldLines(grid),
-      backwardEdges: this.edgeLines(edges.filter((edge) => edge.backward)),
+      backwardEdges: edgeLines(edges.filter((edge) => edge.backward)),
       usable: ofKind("w"),
       unusable: ofKind("x"),
       sphere: unitVectors(grid),
@@ -363,8 +367,8 @@ export class GridMap {
     const layer = this.layers.find((each) => each.spacing === spacing);
     if (!layer) return;
     const orange = brandColour("orange");
-    this.strokeNodes(layer, this.edgeLines(routes.edges), orange, 1, 0.55);
-    this.strokeNodes(layer, this.edgeLines(edgesFrom(layer.grid, node)), orange, 3);
+    this.strokeNodes(layer, edgeLines(routes.edges), orange, 1, 0.55);
+    this.strokeNodes(layer, edgeLines(edgesFrom(layer.grid, node)), orange, 3);
     const { x, y, facing } = layer.screen;
     if (facing[node] <= 0) return;
     this.context.beginPath();

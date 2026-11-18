@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 Bart van de Lint
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { GeoProjection } from "d3-geo";
+
 /**
  * One outbound corridor of grids.json. Nodes run stage after stage, `laterals` per stage;
  * bit k of `edges` is the edge to row `lateral + k - reach` of the next stage, and of
@@ -74,24 +76,33 @@ export function unitVectors(grid: Grid): UnitVectors {
 }
 
 /**
- * Project `sphere` into `screen` on an orthographic globe facing longitude and latitude
- * `[lon, lat]` [deg], of radius `scale` [px] about the canvas point `centre` [px].
+ * Project `sphere` into `screen` as the orthographic `globe` does, from its first two rotation
+ * angles, its scale and its centre.
  */
-export function faceGlobe(
-  sphere: UnitVectors,
-  [lon, lat]: [number, number],
-  scale: number,
-  [centreX, centreY]: [number, number],
-  screen: ScreenPoints,
-) {
-  const [lonAngle, latAngle] = [lon, lat].map((degrees) => (degrees * Math.PI) / 180);
+export function faceGlobe(sphere: UnitVectors, globe: GeoProjection, screen: ScreenPoints) {
+  const [lonAngle, latAngle] = globe.rotate().map((degrees) => (-degrees * Math.PI) / 180);
   const [cosLon, sinLon, cosLat, sinLat] = [Math.cos(lonAngle), Math.sin(lonAngle), Math.cos(latAngle), Math.sin(latAngle)];
+  const [centreX, centreY] = globe.translate();
+  const scale = globe.scale();
   for (let node = 0; node < sphere.x.length; node++) {
     const toFacing = sphere.x[node] * cosLon + sphere.y[node] * sinLon;
     screen.facing[node] = toFacing * cosLat + sphere.z[node] * sinLat;
     screen.x[node] = centreX + scale * (sphere.y[node] * cosLon - sphere.x[node] * sinLon);
     screen.y[node] = centreY - scale * (sphere.z[node] * cosLat - toFacing * sinLat);
   }
+}
+
+/**
+ * Canvas position [px] where the great circle from node `near` on the near side of `globe` to
+ * node `far` behind it meets the globe's edge, from their points in `screen`.
+ */
+export function horizon({ x, y, facing }: ScreenPoints, near: number, far: number, globe: GeoProjection): [number, number] {
+  const share = facing[near] / (facing[near] - facing[far]);
+  const [centreX, centreY] = globe.translate();
+  const offsetX = x[near] + share * (x[far] - x[near]) - centreX;
+  const offsetY = y[near] + share * (y[far] - y[near]) - centreY;
+  const stretch = globe.scale() / Math.hypot(offsetX, offsetY);
+  return [centreX + stretch * offsetX, centreY + stretch * offsetY];
 }
 
 /** The kind of `node`. */
