@@ -967,12 +967,15 @@ function fleet_share_panel!(axis, splits, measure, label)
     ylims!(axis, length(splits) + 0.5, 0.5)
 end
 
+"share [%] of its bar below which a band of the fleet share figure is too narrow to label"
+least_labelled_share = 4
+
 "label of a band of `share` [%] of the cost carried, empty where it does not fit"
-cost_band_label(share, _) = share < 4 ? "" : percent_text(share)
+cost_band_label(share, _) = share < least_labelled_share ? "" : percent_text(share)
 
 "label of a band of `share` [%] and `billions` [USD a year] saved, short where narrow"
 function saving_band_label(share, billions)
-    share < 4 && return ""
+    share < least_labelled_share && return ""
     share < 15 && return percent_text(share)
     return string("USD ", billions_text(billions), " bn, ", percent_text(share))
 end
@@ -1234,7 +1237,7 @@ which together make the saving if the ship carried its cargo as without a rig.
 function cargo_cost_figure()
     table = read_table(data_file("classes.csv"))
     groups = limit_groups(table)
-    figure = Figure(size=(page_width, 250))
+    figure = Figure(size=(page_width, 235))
     largest = maximum(length.(last.(groups)))
     axes = map(enumerate(groups)) do (column, (limit, names))
         axis = Axis(figure[1, column]; title="($(Char('a' + column - 1))) $limit-limited",
