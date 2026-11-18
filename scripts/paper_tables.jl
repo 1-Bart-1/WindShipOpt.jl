@@ -2097,16 +2097,16 @@ save; and per deck rig the most units of any cheapest size.
 function class_range_numbers(table)
     classes = class_order(table)
     numbers = Pair{String, String}[]
-    class_saving(column, class, drive, rig) =
-        only(mean_savings(table, (column,), [class], drive, rig))
     for (drive, word) in drive_words, rig in rig_names
-        fuel = [class_saving("fuel", class, drive, rig) for class in classes]
+        fuel = [class_saving(table, "fuel", class, drive, rig) for class in classes]
         push!(numbers, "FuelRange$word$(uppercasefirst(rig))" =>
             value_range(filter(isfinite, fuel), whole_number))
     end
-    wings = Dict(class => class_saving("cost", class, "vlsfo", "wings") for class in classes)
+    wings = Dict(class => class_saving(table, "cost", class, "vlsfo", "wings")
+                 for class in classes)
     losing = [class for class in classes if wings[class] < 0]
-    push!(numbers, "WingsBestOil" => whole_number(maximum(filter(isfinite, collect(values(wings))))),
+    best = maximum(filter(isfinite, collect(values(wings))))
+    push!(numbers, "WingsBestOil" => whole_number(best),
         "WingsLossClassesOil" => isempty(losing) ? "no class" : "the " * listed(losing))
     for rig in ("wings", "rotors")
         cheapest = filter(!isnothing, [cheapest_row(table, class, route, drive, rig)
@@ -2118,6 +2118,15 @@ function class_range_numbers(table)
     end
     return numbers
 end
+
+"""
+    class_saving(table, column, class, drive, rig)
+
+Mean over the routes of the class table `table` of the saving [%] in `column` of the
+cheapest size of `rig` on `class` and `drive`.
+"""
+class_saving(table, column, class, drive, rig) =
+    only(mean_savings(table, (column,), [class], drive, rig))
 
 """
     fleet_share_numbers(table)
@@ -2344,12 +2353,13 @@ function route_lead_rows(table)
     classes = ship_classes()
     routes = unique(table["route"])
     where = (preposition="to", every="on every route", total=length(routes))
-    lead_rows = []
+    lead_rows = NamedTuple[]
     for (drive, drive_word) in drive_words
         cells = fleet_cells(table, drive)
         for (unit, kind) in ship_kind_words, route in routes
-            own = filter(cell -> cell.route == route && classes[cell.class].cargo_unit == unit,
-                cells)
+            own = filter(cells) do cell
+                cell.route == route && classes[cell.class].cargo_unit == unit
+            end
             push!(lead_rows, (; kind, name=route_label(route), where, drive, drive_word,
                 rig_lead(own)...))
         end
@@ -2362,8 +2372,8 @@ end
 
 Name and text, per drive of the class table `table`, of the [`route_savings_text`](@ref) and
 per kind of ship of `ship_kind_words` of the [`verdict_text`](@ref) of its
-[`route_lead_rows`](@ref); and of the range over classes and drives of the kite's share of
-the time aloft [%] of its cheapest size on the short route to Bilbao and on the others.
+[`route_lead_rows`](@ref); and of the [`kite_flight_range`](@ref) on the short route to
+Bilbao and on the others.
 """
 function route_numbers(table)
     lead_rows = route_lead_rows(table)
@@ -2376,14 +2386,23 @@ function route_numbers(table)
         end
     end
     for (name, on_route) in ("Bilbao" => ==("bilbao"), "Ocean" => !=("bilbao"))
-        kites = filter(!isnothing, [cheapest_row(table, class, route, drive, "kite")
-                                    for class in class_order(table)
-                                    for route in filter(on_route, unique(table["route"]))
-                                    for (drive, _) in drive_words])
         push!(numbers, "KiteFlight$name" =>
-            value_range(100table["flight_share"][kites], whole_number))
+            kite_flight_range(table, filter(on_route, unique(table["route"]))))
     end
     return numbers
+end
+
+"""
+    kite_flight_range(table, routes)
+
+Text of the range over the classes, `routes` and drives of the class table `table` of the
+share of the time aloft [%] of the kite's cheapest size, where that size saves cost.
+"""
+function kite_flight_range(table, routes)
+    kites = [cheapest_row(table, class, route, drive, "kite")
+             for class in class_order(table), route in routes, (drive, _) in drive_words
+             if cheapest_saving(table, "cost", class, drive, route, "kite") > 0]
+    return value_range(100table["flight_share"][kites], whole_number)
 end
 
 """
@@ -2395,15 +2414,22 @@ that saving.
 """
 function route_savings_text(table, drive)
     routes = unique(table["route"])
-    best(class, route) = maximum(cheapest_saving(table, "cost", class, drive, route, rig)
-                                 for rig in rig_names)
-    savings = Dict(route => mean(filter(isfinite, [best(class, route)
+    savings = Dict(route => mean(filter(isfinite, [best_saving(table, class, drive, route)
                                                    for class in class_order(table)]))
                    for route in routes)
     ordered = sort(routes; by=route -> -savings[route])
     return listed(["$(whole_number(savings[route]))\\,\\% to $(route_label(route))"
                    for route in ordered])
 end
+
+"""
+    best_saving(table, class, drive, route)
+
+Cost saving [%] of the cheapest size of the rig that saves most on one class, drive and
+route of the class table `table`.
+"""
+best_saving(table, class, drive, route) =
+    maximum(cheapest_saving(table, "cost", class, drive, route, rig) for rig in rig_names)
 
 """
     life_limit_text(life)
