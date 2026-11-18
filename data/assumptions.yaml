@@ -615,7 +615,7 @@ rigid_rotor_area_ratio:
   low: 0.4
   high: 1.0
   unit: "-"
-  reason: "Rotor disc area over wing area: about 33 m^2 of propellers on the 54 m^2 of MX2 [@echeverri2020part1, Part I, p.184], held in proportion. Feathered propellers cost little drag, so a kite that only hovers on them pays less for larger ones; the high bound is the top of the 0.3-1 of the wing area given for airborne propellers [@vanderlind2013, Fig. 28.6]."
+  reason: "Propeller disc area over wing area: about 33 m^2 of propellers on the 54 m^2 of MX2 [@echeverri2020part1, Part I, p.184], held in proportion. Feathered propellers cost little drag, so a kite that only hovers on them pays less for larger ones; the high bound is the top of the 0.3-1 of the wing area given for airborne propellers [@vanderlind2013, Fig. 28.6]."
 rigid_hover_thrust_ratio:
   value: 1.25
   low: 1.15
