@@ -2146,9 +2146,9 @@ end
 """
     canopy_price_figure()
 
-(a) Price of a canopy per projected m^2 as built today, at the goal with today's cloth, and
-at the goal, split into cloth, sewing with lines and hardware, and the market margin; (b)
-price of a sewn m^2 of cloth against cloth weight, today and at the goal.
+(a) Price of a canopy per projected m^2 as paid today and at the production stage, split
+into cloth, sewing with lines and hardware, and the price over that cost; (b) price of a
+sewn m^2 of cloth against cloth weight.
 """
 function canopy_price_figure()
     figure = Figure(size=(page_width, 165))
@@ -2157,17 +2157,14 @@ function canopy_price_figure()
     cloth = Axis(figure[1, 2]; xlabel="cloth weight [g/m²]",
         ylabel="USD per m² of cloth", title="(b) sewn cloth")
     colsize!(figure.layout, 1, Relative(0.62))
-    cloth_inputs = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
-    cases = [("today", WindShipOpt.with_today(assumptions,
-            WindShipOpt.canopy_price_inputs)),
-        ("goal, today's cloth", WindShipOpt.with_today(assumptions, cloth_inputs)),
-        ("goal", assumptions)]
-    parts = ("cloth", "sewing, lines, hardware", "market margin")
+    stage = @sprintf("at %.0f ships", assumptions[:stage_ships])
+    cases = [("as paid today", WindShipOpt.as_paid(assumptions)), (stage, assumptions)]
+    parts = ("cloth", "sewing, lines, hardware", "price over cost")
     part_colors = [palette[1], palette[5], :gray60]
+    making = assumptions[:canopy_making_cost_per_area]
+    cost = WindShipOpt.Canopy(assumptions).cost_per_area
     for (row, (label, inputs)) in enumerate(cases)
-        making = inputs[:canopy_making_cost_per_area]
-        cost = WindShipOpt.Canopy(inputs).cost_per_area
-        segments = [cost - making, making, (inputs[:market_price_factor] - 1) * cost]
+        segments = [cost - making, making, WindShipOpt.canopy_price(inputs) - cost]
         barplot!(price, fill(row, 3), segments; stack=1:3, direction=:x,
             color=part_colors, gap=0.35)
         text!(price, cumsum(segments) .- segments ./ 2, fill(row, 3);
@@ -2178,22 +2175,16 @@ function canopy_price_figure()
     end
     price.yticks = (eachindex(cases), first.(cases))
     price.yreversed = true
-    xlims!(price, 0, 1.12 * WindShipOpt.canopy_price_today(assumptions))
+    xlims!(price, 0, 1.12 * WindShipOpt.canopy_price(first(cases)[2]))
     hideydecorations!(price; ticklabels=false)
     weights = 0:5:400
     weight = assumptions[:canopy_cloth_weight]
-    cloth_cases = (("today", WindShipOpt.with_today(assumptions, cloth_inputs), :solid),
-        ("goal", assumptions, :dash))
-    for (label, inputs, linestyle) in cloth_cases
-        line = WindShipOpt.sewn_cloth_price.(Ref(inputs), weights)
-        lines!(cloth, weights, line; color=:black, linestyle)
-        text!(cloth, weights[end], line[end]; text=label, align=(:right, :top),
-            offset=(0, -4))
-        price = WindShipOpt.sewn_cloth_price(inputs, weight)
-        scatter!(cloth, weight, price; color=:black)
-        text!(cloth, weight, price; text=@sprintf("%.1f", price), align=(:right, :bottom),
-            offset=(-2, 2), fontsize=note_size)
-    end
+    line = WindShipOpt.sewn_cloth_price.(Ref(assumptions), weights)
+    lines!(cloth, weights, line; color=:black)
+    sewn = WindShipOpt.sewn_cloth_price(assumptions, weight)
+    scatter!(cloth, weight, sewn; color=:black)
+    text!(cloth, weight, sewn; text=@sprintf("%.1f", sewn), align=(:right, :bottom),
+        offset=(-2, 2), fontsize=note_size)
     vlines!(cloth, weight; color=:gray, linewidth=0.75)
     ylims!(cloth, 0, nothing)
     Legend(figure[2, 1:2], [PolyElement(; color) for color in part_colors],
@@ -2282,8 +2273,8 @@ function missed_goals_figure()
         goal_marks!(axes[1], assumptions.entries[:canopy_life])
         price = WindShipOpt.canopy_price(assumptions)
         vlines!(axes[2], price; color=:black, linewidth=0.75)
-        vlines!(axes[2], WindShipOpt.canopy_price_today(assumptions); color=:black,
-            linewidth=0.75, linestyle=:dot)
+        vlines!(axes[2], WindShipOpt.canopy_price(WindShipOpt.as_paid(assumptions));
+            color=:black, linewidth=0.75, linestyle=:dot)
         for (k, rig) in enumerate(rig_names)
             shares, costs = curves[rig]
             scatterlines!(axes[3], 100shares, percent_saving.(costs, bare);

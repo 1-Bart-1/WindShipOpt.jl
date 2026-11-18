@@ -13,7 +13,7 @@ import {
   type ExplorerData,
   type Outcome,
 } from "./explorer";
-import { canopyPriceInputs, exactInputs, inputGroups, type InputControl } from "./inputs";
+import { exactInputs, inputGroups, type InputControl } from "./inputs";
 import { rigColour, RIG_LABELS, type PassageDesign } from "./passages/passages";
 import { PassageView } from "./passages/PassageView";
 import { GridView } from "./grid/GridView";
@@ -53,11 +53,7 @@ function Explorer({ data }: { data: ExplorerData }) {
   const all = useMemo(() => outcomes(data, values), [data, values]);
   const best = bestDesigns(all, ship, route, drive);
   const change = (name: string, value: number) => setChanges({ ...changes, [name]: value });
-  const setCanopy = (suffix: string) =>
-    setChanges({
-      ...changes,
-      ...Object.fromEntries(canopyPriceInputs.map((name) => [name, data.inputs[name + suffix].value])),
-    });
+  const setLearning = (value: number) => setChanges({ ...changes, learning_rate: value });
 
   return (
     <main className="mx-auto max-w-[1120px] space-y-10 px-5 py-8 md:px-8">
@@ -97,8 +93,10 @@ function Explorer({ data }: { data: ExplorerData }) {
             {group.title === "Kite goals" && (
               <p className="text-sm text-ink">
                 Canopy price {formatted(values[data.canopy_price.node], 0)} USD/m².{" "}
-                <button className="underline" onClick={() => setCanopy("")}>Goal</button>{" · "}
-                <button className="underline" onClick={() => setCanopy("_today")}>As built today</button>
+                <button className="underline" onClick={() => setLearning(data.inputs.learning_rate.value)}>
+                  At the production stage
+                </button>{" · "}
+                <button className="underline" onClick={() => setLearning(0)}>As paid today</button>
               </p>
             )}
             {group.controls.map((control) => (

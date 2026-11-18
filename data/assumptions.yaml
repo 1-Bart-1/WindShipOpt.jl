@@ -442,13 +442,49 @@ market_price_factor:
   low: 1.6
   high: 2.5
   unit: "-"
-  reason: "Market price over manufacturing cost for wings, rotors and kites alike: full production cost of 1.37 times materials and direct labour, our ratio for the two glass-fibre blades of the NREL blade cost model, 1.36 and 1.38 [@bortolotti2019blade, Tables 23 and 26], over one minus a gross margin of 30 %. The bounds take margins of 13 %, the authors' estimate for a large maker, and 45 %, that of European machinery [@damodaran2026margins]."
+  reason: "Price over manufacturing cost at which a maker covers its overhead and margin, for wings, rotors and kites alike: full production cost of 1.37 times materials and direct labour, our ratio for the two glass-fibre blades of the NREL blade cost model, 1.36 and 1.38 [@bortolotti2019blade, Tables 23 and 26], over one minus a gross margin of 30 %. The bounds take margins of 13 %, the authors' estimate for a large maker, and 45 %, that of European machinery [@damodaran2026margins]."
+learning_rate:
+  value: 0.12
+  low: 0.05
+  high: 0.19
+  unit: "-"
+  reason: "Fall of a rig's price per doubling of the units of its kind built, the same for every rig: the mean of 12 studies of onshore and of 2 of offshore wind farms, the machines nearest to a rig, and the offshore range [@rubin2015, Table 1]."
+stage_ships:
+  value: 1000.0
+  low: 1000.0
+  high: 1000.0
+  unit: ships
+  reason: "Ships fitted with a rig of a kind at the production stage every rig is priced at, the same for all three."
+kites_per_ship:
+  value: 1.0
+  low: 1.0
+  high: 1.0
+  unit: "-"
+  reason: "Kites a ship carries [@emsa2023, p. 45]."
+rotors_per_ship:
+  value: 3.0
+  low: 3.0
+  high: 3.0
+  unit: "-"
+  reason: "Rotors a ship carries, as wind propulsion units on a bulk carrier or tanker [@emsa2023, Table 5]."
+wings_per_ship:
+  value: 3.0
+  low: 3.0
+  high: 3.0
+  unit: "-"
+  reason: "Wing sails a ship carries, as wind propulsion units on a bulk carrier or tanker [@emsa2023, Table 5]."
+hicp_today:
+  value: 128.75
+  low: 128.75
+  high: 128.75
+  unit: "-"
+  reason: "Euro area consumer price index of 2025, 2015 = 100, that brings a rig price to today's money [@eurostat2026hicp]."
 rotor_unit_cost:
   value: 74000.0
   low: 36000.0
   high: 165000.0
   unit: USD
-  reason: "Manufacturing cost of one rotor's fixed parts: least-squares line through the authors' bottom-up costs of the Norsepower rotor sizes and masses [@norsepower2025, p. 3], composite at the material prices of the NREL blade cost model [@bortolotti2019blade, Tables 1-2] and steel at the authors' cost; times the market price factor it reproduces Norsepower's 2019 prices [@tillig2020b] to within -13 % to +6 %."
+  reason: "Manufacturing cost of one rotor's fixed parts: least-squares line through the authors' bottom-up costs of the Norsepower rotor sizes and masses [@norsepower2025, p. 3], composite at the material prices of the NREL blade cost model [@bortolotti2019blade, Tables 1-2] and steel at the authors' cost."
 rotor_cost_per_area:
   value: 2040.0
   low: 1260.0
@@ -896,41 +932,23 @@ canopy_mass_overhead:
   unit: kg/m^2
   reason: "Canopy mass per m^2 of projected area besides its cloth, at a force limit of 0.5 kN/m^2 and in proportion to the force limit, as they carry the load at the bridle attachments: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.24 kg/m^2 projected [@ozone_ultralite3; @ozone_ultralite4; @nova_mentor6] carry 0-20 g/m^2 per flat m^2 besides their cloth, the authors' fit taking their stated weights to include lines and risers; the high bound is what a 120 kg SkySails kite with lines, 225 m^2 flat, 176 m^2 projected, leaves beyond about 66 kg of cloth and 18 kg of lines, both the authors' estimates [@paulig2013], which load patches for the ~1 t point loads of a ship kite [@thedens2015_awesco_slides] could account for in part."
 canopy_cloth_base_price:
-  value: 6.0
+  value: 11.0
   low: 2.0
   high: 17.0
   unit: USD/m^2
-  reason: "Goal for the price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: the retail line through polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT on 1 November 2026, 11 USD/m^2 plus 0.031 USD/m^2 per g/m^2 [@extremtextil_prices_2026; @sailrite_dacron_prices_2026; @jonesairfoils_icarex], scaled to USD 9.4 at 200 g/m^2, what a maker buying by the roll and from the mill can reach."
+  reason: "Price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: least-squares line through the retail prices of polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT on 1 November 2026, with 2.8 USD/m^2 scatter [@extremtextil_prices_2026; @sailrite_dacron_prices_2026; @jonesairfoils_icarex]; the low bound is a maker buying by the roll from the mill."
 canopy_cloth_price_per_weight:
-  value: 0.017
+  value: 0.031
   low: 0.006
   high: 0.05
   unit: USD/g
-  reason: "Rise of the goal price of a sewn m^2 of cloth per g/m^2 of cloth weight: the slope of the retail line, 0.031, scaled as the cloth base price; within Dacron sailcloth the price grows with weight to the power 0.6-1.0."
+  reason: "Rise of the price of a sewn m^2 of cloth per g/m^2 of cloth weight, the slope of the same retail line; within Dacron sailcloth the price grows with weight to the power 0.6-1.0."
 canopy_making_cost_per_area:
-  value: 42.0
+  value: 57.0
   low: 16.0
   high: 179.0
   unit: USD/m^2
-  reason: "Goal for the manufacturing cost per m^2 of projected area of a ram-air canopy besides its cloth: per flat m^2 1.0 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2. Today 1.5-2.25 h per flat m^2, 50 h of manufacturing per paraglider [@skycz2017] over 22-33 m^2; the US G-12 cargo parachute implies 0.6-1.0 h at series volume if materials take 57 % of sales as in 2000, up to 1.75 h at the 25-50 % of other years [@bis2004]."
-canopy_making_cost_per_area_today:
-  value: 57.0
-  low: 57.0
-  high: 57.0
-  unit: USD/m^2
-  reason: "Manufacturing cost per m^2 of projected area of today's canopy besides its cloth: per flat m^2 1.5 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2; with 36 g/m^2 cloth and the retail cloth line it matches sport kite retail prices."
-canopy_cloth_base_price_today:
-  value: 11.0
-  low: 11.0
-  high: 11.0
-  unit: USD/m^2
-  reason: "Retail price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: least-squares line through retail prices of polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT, with 2.8 USD/m^2 scatter (extremtextil.de, Sailrite, Jones Airfoils, 2026-11-01)."
-canopy_cloth_price_per_weight_today:
-  value: 0.031
-  low: 0.031
-  high: 0.031
-  unit: USD/g
-  reason: "Rise of the retail price of a sewn m^2 of cloth per g/m^2 of cloth weight, from the same line."
+  reason: "Manufacturing cost per m^2 of projected area of a ram-air canopy besides its cloth: per flat m^2 1.5 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2; 1.5-2.25 h per flat m^2 from 50 h of manufacturing per paraglider [@skycz2017] over 22-33 m^2, and 0.6-1.0 h for the US G-12 cargo parachute at series volume if materials take 57 % of sales as in 2000, up to 1.75 h at the 25-50 % of other years [@bis2004]."
 control_unit_mass_per_force:
   value: 0.22
   low: 0.15

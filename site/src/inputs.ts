@@ -63,6 +63,7 @@ export const inputGroups: { title: string; controls: InputControl[] }[] = [
       control("wing_loss_rate", "Wings lost", "per wing·year", 0, 2, 0.02),
       control("rotor_loss_rate", "Rotors lost", "per rotor·year", 0, 2, 0.02),
       control("market_price_factor", "Market price over cost", "×", 1, 3.5, 0.05),
+      percent("learning_rate", "Price fall per doubling of units built", 30, 1),
       control("wing_lifetime", "Wing life", "years", 10, 40, 1),
       control("rotor_lifetime", "Rotor life", "years", 10, 40, 1),
     ],
@@ -78,10 +79,3 @@ export const inputGroups: { title: string; controls: InputControl[] }[] = [
 
 /** Inputs whose change the explorer shows without any routing error. */
 export const exactInputs = ["kite_crash_rate", "wing_loss_rate", "rotor_loss_rate"];
-
-/** The inputs of the canopy price; each has a counterpart `<name>_today` as built today. */
-export const canopyPriceInputs = [
-  "canopy_making_cost_per_area",
-  "canopy_cloth_base_price",
-  "canopy_cloth_price_per_weight",
-];

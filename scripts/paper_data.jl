@@ -313,20 +313,6 @@ function changed_assumptions(changes)
     return changed
 end
 
-"""
-    kite_market_prices()
-
-The assumptions with every kite hardware and canopy price and the market price factor at
-their high bounds.
-"""
-function kite_market_prices()
-    names = (:winch_fixed_cost, :winch_cost_per_force, :launch_mast_mass_coefficient,
-        :docking_head_cost, :control_unit_cost, :control_unit_cost_per_area,
-        :canopy_making_cost_per_area, :canopy_cloth_base_price,
-        :canopy_cloth_price_per_weight, :market_price_factor)
-    return changed_assumptions(NamedTuple(name => assumptions.entries[name].high
-                                          for name in names))
-end
 
 "design keyword of each rig"
 rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area,
@@ -740,13 +726,13 @@ tonne_km_per_tonne(name) = tonne_km_per_tonne(run_corridors(name)...)
     designs_data()
 
 The design grid on the route to Guadeloupe: length, the [`study_drives`](@ref) and size of
-each rig, a carbon price on VLSFO, and kites without flight drag and at market prices, with
-the cost per tonne-km split into its parts: designs.csv.
+each rig, a carbon price on VLSFO, and kites without flight drag and at the prices paid
+today, with the cost per tonne-km split into its parts: designs.csv.
 """
 function designs_data()
     taxed = with_value(assumptions, :carbon_coverage, 1.0)
     rigid = with_value(assumptions, :kite_flight_drag, 0.0)
-    market = kite_market_prices()
+    market = WindShipOpt.as_paid(assumptions)
     cases = []
     for length in (85.0, 110.0, 140.0, 170.0, 200.0), drive in study_drives,
         area in (0.0, 400.0, 800.0, 1600.0, 3200.0, 6400.0)
@@ -2668,13 +2654,29 @@ end
 """
     canopy_prices()
 
-Canopy prices [USD/m^2] the kite is routed at for the missed-goal table: the goal, today's
-and either side of them, up to where the kite stops paying on every ship.
+Canopy prices [USD/m^2] the kite is routed at for the missed-goal table: the goal, the price
+as paid today and either side of them, up to where the kite stops paying on every ship.
 """
 function canopy_prices()
     goal = WindShipOpt.canopy_price(assumptions)
     return sort([goal .* [0.5, 0.75, 1.0, 1.25, 2.5, 3.5, 5.0, 7.0];
-                  WindShipOpt.canopy_price_today(assumptions)])
+                  WindShipOpt.canopy_price(WindShipOpt.as_paid(assumptions))])
+end
+
+"""
+    at_canopy_price(price)
+
+The assumptions with the canopy's manufacturing cost inputs scaled together until the
+canopy costs `price` [USD/m^2], the kite's price factor following them.
+"""
+function at_canopy_price(price)
+    low, high = 0.0, 20.0
+    for _ in 1:60
+        middle = (low + high) / 2
+        cost = WindShipOpt.canopy_price(scaled(WindShipOpt.canopy_price_inputs, middle))
+        cost < price ? (low = middle) : (high = middle)
+    end
+    return scaled(WindShipOpt.canopy_price_inputs, high)
 end
 
 """
@@ -2684,10 +2686,8 @@ The kite of each ship of [`goal_limit_ships`](@ref) at each of [`canopy_prices`]
 size and every other input held: canopy_price.csv.
 """
 function canopy_price_data()
-    goal = WindShipOpt.canopy_price(assumptions)
-    inputs = WindShipOpt.canopy_price_inputs
     cases = [trip_case(ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...);
-                 assumptions=scaled(inputs, price / goal), route, ship, price)
+                 assumptions=at_canopy_price(price), route, ship, price)
              for (ship, bare, route, areas) in goal_limit_ships(), price in canopy_prices()]
     write_trips("canopy_price.csv", vec(cases),
         round_trips(vec(cases), sampled_departures()), :ship, :price)

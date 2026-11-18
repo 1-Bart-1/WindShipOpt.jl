@@ -346,16 +346,17 @@ function goal_rows()
                 assumptions[:kite_cycle_loss_probability]
     loss = @sprintf("1 in \\num{%.0f}", 1 / kite_loss)
     crew = @sprintf("USD~%.0f per cycle", assumptions[:kite_cycle_crew_cost])
-    price = @sprintf("USD~%.0f/m\$^2\$", WindShipOpt.canopy_price(assumptions))
-    today = @sprintf("our estimate USD~%.0f/m\$^2\$, from retail cloth and hand sewing",
-        WindShipOpt.canopy_price_today(assumptions))
+    canopy_price(inputs) = @sprintf("USD~%.0f/m\$^2\$",
+        round(WindShipOpt.canopy_price(inputs); sigdigits=2))
     life = assumptions.entries[:canopy_life]
     derived = @sprintf("derived \\num{%.0f} h (\\numrange{%.0f}{%.0f}), ",
         round(WindShipOpt.reference_decay_life(assumptions); sigdigits=2), life.low,
         life.high)
     return [("Canopy life", "kite", canopy,
             derived * "on makers' statements; small kites expected 100 to \\num{1000} h"),
-        ("Canopy price", "kite", price, today),
+        price_goal_rows()...,
+        ("Canopy price", "kite", canopy_price(assumptions),
+            canopy_price(WindShipOpt.as_paid(assumptions)) * " as paid"),
         ("Rig life", "wings", years(:wing_lifetime),
             "stated design life; about 2 years on record"),
         ("Rig life", "rotors", years(:rotor_lifetime),
@@ -367,6 +368,87 @@ function goal_rows()
         ("Lost per launch and landing", "kite", loss,
             "our estimate 0.25\\,\\%; no record for a ship"),
         ("Launch and landing crew", "kite", crew, "our estimate")]
+end
+
+"rigs as (kind, name in the paper)"
+rig_kinds = ((:kite, "kite"), (:wing, "wings"), (:rotor, "rotors"))
+
+"""
+    price_goal_rows()
+
+Goal rows of each rig's price at the production stage over its build-up, and today's as
+paid with the real prices it rests on.
+"""
+function price_goal_rows()
+    as_paid = WindShipOpt.as_paid(assumptions)
+    return map(rig_kinds) do (kind, name)
+        stage = @sprintf("%.1f times its build-up at \\num{%.0f} units",
+            WindShipOpt.stage_price_factor(kind, assumptions),
+            WindShipOpt.stage_units(kind, assumptions))
+        today = @sprintf("%.1f times as paid, from %s",
+            WindShipOpt.stage_price_factor(kind, as_paid), price_sources(kind))
+        ("Price", name, stage, today)
+    end
+end
+
+"""
+    price_sources(kind)
+
+How many sources of each kind the real prices of rigs of `kind` come from, in words.
+"""
+function price_sources(kind)
+    prices = filter(price -> price.rig == kind, WindShipOpt.RIG_PRICES)
+    words = Dict(:paid => "paid", :quoted => "quoted", :estimate => "estimated")
+    parts = map((:paid, :quoted, :estimate)) do category
+        count = length(unique(first(eachmatch(r"@\w+", price.source)).match
+                              for price in prices if price.kind == category))
+        count == 0 ? nothing : string(count, " ", words[category])
+    end
+    return join(filter(!isnothing, collect(parts)), ", ", " and ") *
+           (any(price.kind == :paid for price in prices) ? "" : "; none paid")
+end
+
+"""
+    rig_prices_table()
+
+Write each real price of `data/rig_prices.csv` to paper/sections/rig_prices_table.tex: its
+unit, units built by then, price in today's money, build-up price, both as paid and at the
+production stage, and its source; then each rig's price at the stage over its build-up,
+with its range over the learning rate.
+"""
+function rig_prices_table()
+    ragged = ">{\\raggedright\\arraybackslash}"
+    as_paid = WindShipOpt.as_paid(assumptions)
+    rate = assumptions.entries[:learning_rate]
+    open(joinpath(sections, "rig_prices_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}llrlrrrr", ragged, "p{4.6cm}@{}}\n\\toprule")
+        println(io, "Rig & Kind & Built & Unit & USD k & Build-up & As paid & ",
+            "At stage & Source \\\\\n\\midrule")
+        for (kind, name) in rig_kinds, price in WindShipOpt.RIG_PRICES
+            price.rig == kind || continue
+            unit = kind == :rotor ?
+                   @sprintf("%.0f\\,m \\texttimes{} %.0f\\,m", price.height, price.diameter) :
+                   @sprintf("\\SI{%.0f}{m^2}", price.area)
+            paid = WindShipOpt.today_price(price, assumptions)
+            built = WindShipOpt.bottom_up_price(price, assumptions)
+            println(io, name, " & ", price.kind, " ", price.year, " & ",
+                latex_number(price.units_built), " & ", unit, " & ",
+                latex_number(round(paid / 1e3)), " & ", latex_number(round(built / 1e3)),
+                @sprintf(" & %.2f & %.2f & ", WindShipOpt.stage_ratio(price, as_paid),
+                    WindShipOpt.stage_ratio(price, assumptions)),
+                cited_note(price.source), " \\\\")
+        end
+        println(io, "\\midrule")
+        for (kind, name) in rig_kinds
+            factors = [WindShipOpt.stage_price_factor(kind,
+                           with_value(assumptions, :learning_rate, value))
+                       for value in (rate.value, rate.high, rate.low)]
+            println(io, @sprintf("%s & \\multicolumn{6}{l}{at \\num{%.0f} units, ",
+                    name, WindShipOpt.stage_units(kind, assumptions)),
+                @sprintf("price over build-up} & %.1f (%.1f--%.1f) & \\\\", factors...))
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
 end
 
 "share of time each rig is out of service at its goal, the same for all [-]"
@@ -437,7 +519,7 @@ function missed_goal_rows()
             half_goal = assumptions[:canopy_life] / 2
             saving_short = rig == "kite" ?
                            percent_saving(curve_cost(life_curve, half_goal), bare) : NaN
-            today = WindShipOpt.canopy_price_today(assumptions)
+            today = WindShipOpt.canopy_price(WindShipOpt.as_paid(assumptions))
             saving_today = rig == "kite" ?
                            percent_saving(curve_cost(price_curve, today), bare) : NaN
             push!(result, (; size_limits(sizes, cheapest[rig], bare, rival, rival_cost)...,
@@ -1977,16 +2059,30 @@ end
 """
     goal_numbers()
 
-Name and text of the goals the abstracts state: canopy life, the canopy price
-at the goal and today, and the share of time out of service; and of the
+Name and text of the goals the abstracts state: canopy life, the canopy price at the
+production stage and as paid today, the kite's price at the stage over its build-up with
+its range over the learning rate, and the share of time out of service; and of the
 [`kite_gap_bias`](@ref).
 """
-goal_numbers() = [
-    "CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
-    "CanopyPriceGoal" => @sprintf("%.0f", WindShipOpt.canopy_price(assumptions)),
-    "CanopyPriceToday" => @sprintf("%.0f", WindShipOpt.canopy_price_today(assumptions)),
-    "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal()),
-    "KiteGapBias" => @sprintf("%.1f", kite_gap_bias)]
+function goal_numbers()
+    rate = assumptions.entries[:learning_rate]
+    return ["CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
+        "CanopyPriceStage" => canopy_price_text(assumptions),
+        "CanopyPricePaid" => canopy_price_text(WindShipOpt.as_paid(assumptions)),
+        "KitePriceStage" => kite_price_text(rate.value),
+        "KitePriceLow" => kite_price_text(rate.high),
+        "KitePriceHigh" => kite_price_text(rate.low), "KitePricePaid" => kite_price_text(0.0),
+        "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal()),
+        "KiteGapBias" => @sprintf("%.1f", kite_gap_bias)]
+end
+
+"canopy price [USD/m^2] at `inputs` to two significant digits, as text"
+canopy_price_text(inputs) =
+    @sprintf("%.0f", round(WindShipOpt.canopy_price(inputs); sigdigits=2))
+
+"the kite's price at the stage over its build-up at learning rate `rate`, as text"
+kite_price_text(rate) = @sprintf("%.1f", WindShipOpt.stage_price_factor(:kite,
+    with_value(assumptions, :learning_rate, rate)))
 
 """
     class_numbers(classes)
