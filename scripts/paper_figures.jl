@@ -82,7 +82,7 @@ function palette_faults()
     return faults
 end
 
-"LaTeX3 code that records the box of each `label` node and warns where two overlap"
+"LaTeX3 code that records the box of each `label` node and stops the build where two meet"
 label_overlap_check = raw"""
     \ExplSyntaxOn
     \seq_new:N \g_figstyle_labels_seq
@@ -110,7 +110,7 @@ label_overlap_check = raw"""
             { \dim_compare_p:n { #1 < #7 } } { \dim_compare_p:n { #5 < #3 } }
             { \dim_compare_p:n { #2 < #8 } } { \dim_compare_p:n { #6 < #4 } }
           }
-          { \PackageWarning {figurestyle} { labels~overlap~at~(#1,~#2)~and~(#5,~#6) } }
+          { \PackageError {figurestyle} { labels~overlap~at~(#1,~#2)~and~(#5,~#6) } { } }
       }
     \cs_new_protected:Npn \figurestylecheck
       {
@@ -3199,7 +3199,7 @@ function canopy_price_figure()
     cases = [("today", WindShipOpt.canopy_price_inputs),
         ("goal, today's cloth", cloth_inputs), ("goal", ())]
     parts = ("cloth", "sewing, lines, hardware", "market margin")
-    part_colors = [palette[1], palette[5], :gray60]
+    part_colors = [palette[1], palette[5], style_colour("slate")]
     for (row, (label, today)) in enumerate(cases)
         inputs = WindShipOpt.with_today(assumptions, today)
         making = inputs[:canopy_making_cost_per_area]
@@ -3209,10 +3209,10 @@ function canopy_price_figure()
             color=part_colors, gap=0.3)
         text!(price, cumsum(segments) .- segments ./ 2, fill(row - 0.14, 3);
             text=estimate_text.(segments), align=(:center, :center),
-            fontsize=note_size, color=:white)
+            fontsize=note_size, color=readable.(:white, part_colors))
         low, high = canopy_price_range(inputs, today)
         rangebars!(price, [row + 0.17], [low], [high]; direction=:x, color=:black,
-            linewidth=line_width, whiskerwidth=pt(4))
+            linewidth=line_width, whiskerwidth=whisker_width)
         text!(price, sum(segments), row - 0.14; text=string(estimate_text(sum(segments)),
                 " (", estimate_text(low), "–", estimate_text(high), ")"),
             align=(:left, :center), offset=clear_offset((:left, :center), pt(3)))

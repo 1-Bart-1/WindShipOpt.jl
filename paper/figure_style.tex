@@ -62,7 +62,7 @@
         { \dim_compare_p:n { #1 < #7 } } { \dim_compare_p:n { #5 < #3 } }
         { \dim_compare_p:n { #2 < #8 } } { \dim_compare_p:n { #6 < #4 } }
       }
-      { \PackageWarning {figurestyle} { labels~overlap~at~(#1,~#2)~and~(#5,~#6) } }
+      { \PackageError {figurestyle} { labels~overlap~at~(#1,~#2)~and~(#5,~#6) } { } }
   }
 \cs_new_protected:Npn \figurestylecheck
   {
