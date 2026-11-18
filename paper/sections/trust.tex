@@ -3,41 +3,41 @@
 \section{How far the model can be trusted}
 \label{app:trust}
 
-This section holds the evidence behind the accuracy the article states: how far the router converges and what forecasts cost it, the checks of the model against hand calculations and measurements, how much each part of the model moves the result, and the assumptions of the discussion that rest on data from outside the model.
+This section holds the evidence behind the accuracy the body of the paper states: how far the router converges and what forecasts cost it, the checks of the model against hand calculations and measurements, how much each part of the model moves the result, and the assumptions of the discussion that rest on data from outside the model.
 
 \subsection{Convergence of the router}
 \label{app:routing_convergence}
 
-\stale{router_grid}{The router's grid and search are judged on the 12 departures of the \SI{140}{m} e-ammonia ship to Guadeloupe without a rig, with \SI{3200}{m^2} of kite and with \SI{800}{m^2} of rotors, departure by departure; the wing sails move least with any setting and are left out. A setting is accepted when each rig's cost saving moves by at most 3 points from a reference and the gap between the two rigs by at most 1 point, and of the settings accepted the fastest is taken. The reference would be the planner at a setting where twice as fine moves each saving by less than 0.25 points, but no grid we can afford gets there. Refining the grid and every time step together, from stages 240 to 120, 60 and \SI{30}{nmi} apart with rows a quarter of that and time bins from 12 to \SI{1.5}{h}, raises the kite's saving by 4.0, 2.2 and 1.3 points and the rotors' by 1.8, 1.1 and 0.6 (\cref{tab:routing_grid}). These leave out the one departure where the finest grid finds a trade-wind route that the coarser ones miss, which raises the kite's saving there by 7.8 points; the grid of the results finds it too. Each step is about half the one before: the order fitted to the three coarsest grids predicts the finest within 0.15 points for each rig. The finest grid is the reference, at 15 times the computing time of the results. Extrapolated from the three finest grids, at the fitted order or at order one, the converged savings lie 1.3 to 1.8 points above the reference's for the kite and 0.6 to 0.7 for the rotors, so each error measured against the reference understates the true one by about that much. Refining the grid alone is not enough: on stages \SI{30}{nmi} apart a stage takes \SI{2.5}{h} to sail, less than a \SI{3}{h} time bin, and halving every time step there raises the kite's saving by 2.7 points and the rotors' by 0.3.}
+\stale{router_grid}{The router's grid and search are judged on the 12 departures of the \SI{140}{m} e-ammonia ship to Guadeloupe without a rig, with \SI{3200}{m^2} of kite and with \SI{800}{m^2} of rotors, departure by departure; the wing sails move least with any setting and are left out. A setting is accepted when each rig's cost saving moves by at most 3 points from a reference and the gap between the two rigs by at most 1 point, and of the settings accepted the cheapest to compute is taken. The reference would be the planner at a setting where twice as fine moves each saving by less than 0.25 points, but no grid we can afford gets there. Refining the grid and every time step together, from stages 240 to 120, 60 and \SI{30}{nmi} apart with rows a quarter of that and time bins from 12 to \SI{1.5}{h}, raises the kite's saving by 4.0, 2.2 and 1.3 points and the rotors' by 1.8, 1.1 and 0.6 (\cref{tab:routing_grid}). These leave out the one departure where the finest grid finds a trade-wind route that the coarser ones miss, which raises the kite's saving there by 7.8 points; the grid of the results finds it too. Each step is about half the one before: the order fitted to the three coarsest grids predicts the finest within 0.15 points for each rig. The finest grid is the reference. Extrapolated from the three finest grids, at the fitted order or at order one, the converged savings lie 1.3 to 1.8 points above the reference's for the kite and 0.6 to 0.7 for the rotors, so each error measured against the reference understates the true one by about that much. Refining the grid alone is not enough: on stages \SI{30}{nmi} apart a stage takes \SI{2.5}{h} to sail, less than a \SI{3}{h} time bin, and halving every time step there raises the kite's saving by 2.7 points and the rotors' by 0.3.}
 
-\stale{router_grid}{The grid of the results, stages \SI{45}{nmi} and rows \SI{11.25}{nmi} apart with the plan coarsening beyond the first \SI{240}{nmi}, meets the standard against the reference. On stages \SI{60}{nmi} and rows \SI{15}{nmi} apart the kite's gap to the rotors moves by 1.2 points, which does not. There the grid carries the error rather than the time steps: halving the time bins alone moves the kite by 0.3 points and the rotors by 0.1. Halving the rows alone, to \SI{7.5}{nmi}, meets the standard narrowly at more than twice the computing time of the results. Keeping every fourth row to the end of each plan, rather than half as many each time the distance ahead doubles, moves the kite by 0.5 points and the rotors by less than 0.1, at 2.4 times the computing time; keeping every stage and row for the first \SI{480}{nmi}, or every second row at first, moves them less, at 1.6 to 2.3 times. Every eighth row from the first \SI{240}{nmi} on loses the kite a further 1.6 points on stages \SI{60}{nmi} apart. The search of the whole corridor at once, on stages \SI{240}{nmi} apart, understates the kite by 5.3 points, at 3.7 times the computing time of the results.}
+\stale{router_grid}{The grid of the results, stages \SI{45}{nmi} and rows \SI{11.25}{nmi} apart with the plan coarsening beyond the first \SI{240}{nmi}, meets the standard against the reference. On stages \SI{60}{nmi} and rows \SI{15}{nmi} apart the kite's gap to the rotors moves by 1.2 points, which does not. There the grid carries the error rather than the time steps: halving the time bins alone moves the kite by 0.3 points and the rotors by 0.1. Keeping every fourth row to the end of each plan, rather than half as many each time the distance ahead doubles, moves the kite by 0.5 points and the rotors by less than 0.1; keeping every stage and row for the first \SI{480}{nmi}, or every second row at first, moves them less. Every eighth row from the first \SI{240}{nmi} on loses the kite a further 1.6 points on stages \SI{60}{nmi} apart. The search of the whole corridor at once, on stages \SI{240}{nmi} apart, understates the kite by 5.3 points.}
 
-\stale{router_grid}{A draft run routes on the grid of the results but on one in six of the final run's departures, since a coarser grid would bias it. A draft on stages \SI{240}{nmi} apart and half the departures takes about as long, but understates the kite's saving by 4 points and its gap to the rotors by 2.2. On one in six of the departures a draft saving has no bias from the grid and lies about the final run's with a spread of 4.9 points for the kite, 3.7 for the rotors and 2.8 for the gap between them, measured on this case.}
+\stale{router_grid}{A draft run routes on the grid of the results but on one in six of the final run's departures, since a coarser grid would bias it. A draft on stages \SI{240}{nmi} apart and half the departures would understate the kite's saving by 4 points and its gap to the rotors by 2.2. On one in six of the departures a draft saving has no bias from the grid and lies about the final run's with a spread of 4.9 points for the kite, 3.7 for the rotors and 2.8 for the gap between them, measured on this case.}
 
-\stale{router_grid}{Once chosen, the grid was checked once on every rig, for the \SI{140}{m} ship to Guadeloupe, New York and Houston and the Kamsarmax to Tubarão, 12 departures each, against stages \SI{30}{nmi} and rows \SI{7.5}{nmi} apart at the time steps of the results, a grid that every route can afford. Every cost saving lies within 1.7 points of it and every gap between two rigs within 0.7 points, except the kite's gaps to the rotors and to the wing sails to Guadeloupe, 2.0 and 1.6 points, where that grid's coarse time steps understate the kite by the 2.7 points above. Against the plan that keeps every fourth row to the end, every saving lies within 1.4 points and every gap within 1 point, at less than half the computing time. Every case found a passage on both grids. Bilbao, whose short crossing only the floor on open-sea stages gives a grid, is checked apart, so that one short route cannot set every route's grid: its savings move by at most 0.7 points and its gaps by at most 0.8, though one departure with rotors loses 9.5 points, sailing slower from the start because the coarse far part of its early plans across Biscay values a later arrival.}
+\stale{router_grid}{Once chosen, the grid was checked once on every rig, for the \SI{140}{m} ship to Guadeloupe, New York and Houston and the Kamsarmax to Tubarão, 12 departures each, against stages \SI{30}{nmi} and rows \SI{7.5}{nmi} apart at the time steps of the results, a grid that every route can afford. Every cost saving lies within 1.7 points of it and every gap between two rigs within 0.7 points, except the kite's gaps to the rotors and to the wing sails to Guadeloupe, 2.0 and 1.6 points, where that grid's coarse time steps understate the kite by the 2.7 points above. Against the plan that keeps every fourth row to the end, every saving lies within 1.4 points and every gap within 1 point. Every case found a passage on both grids. Bilbao, whose short crossing only the floor on open-sea stages gives a grid, is checked apart, so that one short route cannot set every route's grid: its savings move by at most 0.7 points and its gaps by at most 0.8, though one departure with rotors loses 9.5 points, sailing slower from the start because the coarse far part of its early plans across Biscay values a later arrival.}
 
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{\stale{router_grid}{} Change of the cost saving per tonne-kilometre, in points, against the reference, stages \SI{30}{nmi} and rows \SI{7.5}{nmi} apart with every time step halved, for the \SI{140}{m} e-ammonia ship to Guadeloupe with a kite and with rotors: the mean over 12 departures with its standard error, the change of the kite's gap to the rotors, and the computing time of one rig's 12 round trips. The plan keeps every fourth row beyond the first \SI{240}{nmi}, to the end unless graded, and the time steps are those of the results unless scaled with the grid; the whole corridor is searched at once in the last row. Times come from runs on a shared machine, so ratios under about 1.2 are not firm. Development runs of 2026-11-14 and 15, commits 4c05b87 to 2b0e5e5.}
+\caption{\stale{router_grid}{} Change of the cost saving per tonne-kilometre, in points, against the reference, stages \SI{30}{nmi} and rows \SI{7.5}{nmi} apart with every time step halved, for the \SI{140}{m} e-ammonia ship to Guadeloupe with a kite and with rotors: the mean over 12 departures with its standard error, and the change of the kite's gap to the rotors. The plan keeps every fourth row beyond the first \SI{240}{nmi}, to the end unless graded, and the time steps are those of the results unless scaled with the grid; the whole corridor is searched at once in the last row. Development runs of 2026-11-14 and 15, commits 4c05b87 to 2b0e5e5.}
 \label{tab:routing_grid}
-\begin{tabular}{@{}lrrrr@{}}
+\begin{tabular}{@{}lrrr@{}}
 \toprule
-Stages, rows [nmi] & Kite & Rotors & Gap & CPU [s] \\
+Stages, rows [nmi] & Kite & Rotors & Gap \\
 \midrule
-240, 60, time steps 4 times as long & $-7.36 \pm 1.04$ & $-3.66 \pm 0.34$ & $-3.70$ & 160 \\
-120, 30, time steps twice as long & $-3.69 \pm 0.40$ & $-1.79 \pm 0.26$ & $-1.90$ & 359 \\
-60, 15, far rows every eighth & $-3.45 \pm 0.50$ & $-0.81 \pm 0.23$ & $-2.64$ & 914 \\
-30, 7.5, far rows every eighth & $-2.65 \pm 0.68$ & $-0.29 \pm 0.08$ & $-2.36$ & 2257 \\
-60, 15 & $-1.83 \pm 0.57$ & $-0.63 \pm 0.11$ & $-1.20$ & 1972 \\
-60, 15, time bins halved & $-1.57 \pm 0.53$ & $-0.54 \pm 0.11$ & $-1.03$ & 2926 \\
-60, 7.5, far rows every eighth & $-1.63 \pm 0.52$ & $-0.72 \pm 0.14$ & $-0.91$ & 2216 \\
-45, 11.25 & $-0.44 \pm 0.06$ & $-0.58 \pm 0.20$ & $+0.14$ & 2199 \\
-45, 11.25, graded, near \SI{480}{nmi} & $-0.67 \pm 0.28$ & $-0.45 \pm 0.20$ & $-0.23$ & 2124 \\
-45, 11.25, graded, every second row at first & $-0.79 \pm 0.19$ & $-0.43 \pm 0.19$ & $-0.36$ & 1428 \\
-\textbf{45, 11.25, graded: the results} & $-0.97 \pm 0.29$ & $-0.62 \pm 0.25$ & $-0.35$ & 919 \\
-240, 60, whole corridor & $-5.26 \pm 0.51$ & $-2.27 \pm 0.26$ & $-2.99$ & 3391 \\
-30, 7.5, steps halved: the reference & 0 & 0 & 0 & 13539 \\
+240, 60, time steps 4 times as long & $-7.36 \pm 1.04$ & $-3.66 \pm 0.34$ & $-3.70$ \\
+120, 30, time steps twice as long & $-3.69 \pm 0.40$ & $-1.79 \pm 0.26$ & $-1.90$ \\
+60, 15, far rows every eighth & $-3.45 \pm 0.50$ & $-0.81 \pm 0.23$ & $-2.64$ \\
+30, 7.5, far rows every eighth & $-2.65 \pm 0.68$ & $-0.29 \pm 0.08$ & $-2.36$ \\
+60, 15 & $-1.83 \pm 0.57$ & $-0.63 \pm 0.11$ & $-1.20$ \\
+60, 15, time bins halved & $-1.57 \pm 0.53$ & $-0.54 \pm 0.11$ & $-1.03$ \\
+60, 7.5, far rows every eighth & $-1.63 \pm 0.52$ & $-0.72 \pm 0.14$ & $-0.91$ \\
+45, 11.25 & $-0.44 \pm 0.06$ & $-0.58 \pm 0.20$ & $+0.14$ \\
+45, 11.25, graded, near \SI{480}{nmi} & $-0.67 \pm 0.28$ & $-0.45 \pm 0.20$ & $-0.23$ \\
+45, 11.25, graded, every second row at first & $-0.79 \pm 0.19$ & $-0.43 \pm 0.19$ & $-0.36$ \\
+\textbf{45, 11.25, graded: the results} & $-0.97 \pm 0.29$ & $-0.62 \pm 0.25$ & $-0.35$ \\
+240, 60, whole corridor & $-5.26 \pm 0.51$ & $-2.27 \pm 0.26$ & $-2.99$ \\
+30, 7.5, steps halved: the reference & 0 & 0 & 0 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -217,8 +217,6 @@ A rig's side force turns the ship unless it acts where the hull's own side force
 
 \Cref{tab:flight} gives where the kite works by band of wind angle (\cref{sec:res_forces}).
 
-\stale{sea_effect}{How much the kite's handling in waves carries is shown apart, as it rests on a single reported case (\cref{sec:kite}). \Cref{tab:sea_effect} gives the kite's cost saving on six ships from \given{\SIrange{85}{350}{m}} with the extra launch wind and with no sea effect at all. The effect costs the kite 1 point on the \SI{85}{m} coaster and on the \SI{140}{m} ship and less than half a point on the larger ships, whose difference is inside the router's noise, and the time the kite is up falls by 4 points on the coaster, 3 on the \SI{140}{m} ship and at most 1 on the larger ships. Its scale, from no sea effect to twice the reported rise, is one of the five limits the kite's weather window moves together (\cref{tab:development}).}
-
 \begin{table*}[tbp]
 \centering
 \footnotesize
@@ -226,14 +224,6 @@ A rig's side force turns the ship unless it acts where the hull's own side force
 \label{tab:flight}
 \adjustbox{max width=\textwidth}{\InputIfFileExists{sections/flight_table}{}{\tbd{Flight table pending: run the flight\_table step.}}}
 \end{table*}
-
-\begin{table}[tbp]
-\centering
-\footnotesize
-\caption{\stale{sea_effect}{} The kite's cost saving per tonne-kilometre against the same ship without a rig and its share of the time at sea in the air, with the extra launch wind of \cref{eq:sea_wind} and with no sea effect on the launch, on e-ammonia, averaged over the six routes. The extra launch wind is an estimate from one reported case; its range, from none to twice the reported rise, is in \cref{tab:development}. \savingerror{} \stale{sea_effect}{Draft run; the \SI{140}{m} ship over four routes, as the router found no passage on New York and Houston.} Method study, \studyrun{sea_effect}.}
-\label{tab:sea_effect}
-\InputIfFileExists{sections/sea_effect_table}{}{\tbd{Sea effect table pending: run the sea\_effect\_table step.}}
-\end{table}
 
 \subsection{Interference between deck rigs}
 \label{app:interference}
@@ -311,44 +301,7 @@ The kites of \citet{podeur2016} and \citet{leloup2013} pull with a glide ratio o
 \label{app:seasons}
 \label{sec:res_seasons}
 
-These averages over the year hide the seasons. We call departures from October to March winter and those from April to September summer (\cref{fig:season}). Each rig stands at its best size over the year and each departure is costed on the ship of the whole year, with its fuel store, cargo and rig, so a point carries one year's weather as well as the season. \stale{routes}{On the \SI{140}{m} e-ammonia ship, on the three ocean routes this draft finished for every rig (Guadeloupe, Dakar, Tubarão), the rotors save 16 to 20\,\% of the cost in winter and 8 to 15\,\% in summer, the kite about 10 and 3 to 9\,\%, and the wing sails 7 to 12 and 2 to 8\,\%. The rotors lead in both halves on these routes. To Bilbao the rotors save 7\,\%, the kite 6\,\% and the wing sails 3\,\% of the cost in winter, and in summer only the rotors pay, by 1\,\%.} \stale{routes}{This draft has three departures in each half, and one departure moves a half's cost saving by several points. The final run has twelve departures over the year.}
+We call departures from October to March winter and those from April to September summer (\cref{fig:season}). Each rig stands at its best size over the year and each departure is costed on the ship of the whole year, with its fuel store, cargo and rig, so a point carries one year's weather as well as the season. \stale{routes}{On the \SI{140}{m} e-ammonia ship, on the three ocean routes this draft finished for every rig (Guadeloupe, Dakar, Tubarão), the rotors save 16 to 20\,\% of the cost in winter and 8 to 15\,\% in summer, the kite about 10 and 3 to 9\,\%, and the wing sails 7 to 12 and 2 to 8\,\%. The rotors lead in both halves on these routes. To Bilbao the rotors save 7\,\%, the kite 6\,\% and the wing sails 3\,\% of the cost in winter, and in summer only the rotors pay, by 1\,\%.} \stale{routes}{This draft has three departures in each half, and one departure moves a half's cost saving by several points. The final run has twelve departures over the year.}
 
-A deck rig's thrust grows with the square of the apparent wind, so the stronger winter wind raises the cost saving of the rotors and the wing sails alike. Two things hold the kite back. In light wind it cannot fly: \stale{routes}{to Bilbao it is up 37\,\% of the time in winter and 7\,\% in summer.} In heavy weather its wind limits, and on small ships the launch wind a rough sea raises (\cref{sec:kite}), keep it down while a deck rig pulls on. \stale{routes}{On the departure of 4 November 2018, the costliest for the ship without a rig on five of the six routes, the kite flies 32 to 46\,\% of the time on the three ocean routes and saves 6 to 8\,\% of the cost, while the rotors save 13 to 21\,\%.}
+Of the two things that hold the kite back (\cref{sec:res_fuel}), light wind shows on the short route: \stale{routes}{to Bilbao it is up 37\,\% of the time in winter and 7\,\% in summer.} Heavy weather shows on one winter departure. \stale{routes}{On the departure of 4 November 2018, the costliest for the ship without a rig on five of the six routes, the kite flies 32 to 46\,\% of the time on the three ocean routes and saves 6 to 8\,\% of the cost, while the rotors save 13 to 21\,\%.}
 
-\begin{figure}[tbp]
-\centering
-\plot{season}
-\caption{\stale{routes}{} \tbd{Draft numbers.} Cost saving against the same ship without a rig, by month of departure, for the \SI{140}{m} e-ammonia ship, each rig at its best size over the year, over the routes named above the plot, those on which every rig was run. The marker is the mean over these routes of each route's mean saving over its departures in that month, and the bar spans the lowest to the highest of these route means; a line joins consecutive months. Each departure is costed on the ship of the whole year.}
-\label{fig:season}
-\end{figure}
-
-\subsection{Rig size}
-\label{sec:res_size}
-
-\stale{classes}{Every cost saving of the article is at a rig's best size, and on the largest ships a bound sets that size. On most large ships the best wing sails and rotors are the largest that fit on deck, up to 15 wing sails and 23 rotors on the Megamax container ship, so there the deck sets their size and their cost saving (\cref{fig:class_sizes,fig:rig_comparison}). The best kite reaches \given{\SI{16000}{m^2}}, the upper bound of the search, on the Megamax on four of the six routes on e-ammonia and one on VLSFO, and otherwise lies one step inside it; on the Neo-Panamax and the VLCC it stands on the step inside the bound on most routes and on the bound on at most one. The largest ship kite designed so far is \given{\SI{1000}{m^2}} \citep{airseas_seawing_web}. The bound is a limit of the model, so on these three ships the kite's best size and cost saving are not known, only that they are at least this large. At the other end the best kite of the coaster is the smallest searched, \given{\SI{500}{m^2}}, on four of the six routes on both drives. \stale{designs}{On the \SI{140}{m} e-ammonia ship to Guadeloupe the kite saves 10\,\% of the cost at \SI{1600}{m^2} and about one point less at half or twice that area.} \Cref{sec:disc_size} takes up what these sizes mean, and \cref{fig:abatement} shows the fuel that a rig larger than the cheapest would still save.}
-
-\begin{figure*}[tbp]
-\centering
-\plot[\textwidth]{class_sizes}
-\caption{\stale{classes}{} The rig area that lowers the cost per tonne-kilometre most for each ship class with a VLSFO (a) and an e-ammonia (b) drive: the geometric mean over the six routes (marker) and the range over them (bar). Beside each panel is the median number of units of each rig at that size, in a column with the rig's name at its foot, in the colour of its marker and bar; a kite rig is one kite. Kites were searched from \given{\SIrange{500}{16000}{m^2}} (the upper bound dashed), wing sails and rotors from a fifth to all of what fits on deck. Where a bound was the best size searched, the search also tried the size one step inside it.}
-\label{fig:class_sizes}
-\end{figure*}
-
-\begin{figure*}[tbp]
-\centering
-\plot[\textwidth]{rig_comparison}
-\caption{\stale{designs}{} Cost saving against the same ship without a rig on the route to Guadeloupe, for every size of kite, wing sails and rotors (rows) and ship length (columns), with a VLSFO (a) and an e-ammonia (b) drive, in percent to one decimal. The outlined cell is the best size of each rig on each ship. Blank cells are sizes that do not fit on deck or were not run. Wing sails and rotors were run on three of the five lengths.}
-\label{fig:rig_comparison}
-\end{figure*}
-
-\subsection{Fuel saved beyond the cheapest size}
-\label{app:abatement}
-
-\stale{abatement_data}{A rig sized for the lowest cost leaves fuel unsaved that a larger rig would save at a small extra cost (\cref{fig:abatement}). Where a curve returns to the cost of the ship without a rig, the rig saves the most fuel it can at no extra cost. On VLSFO the slope beyond that point is the cost of the CO$_2$ abated.}
-
-\begin{figure*}[tbp]
-\centering
-\plot[\textwidth]{abatement}
-\caption{\stale{abatement_data}{} Cost per tonne-kilometre against the fuel energy saved, both relative to the same ship on the same drive without a rig, for every size of each rig on the \given{\SI{140}{m}} ship to Guadeloupe (top) and a Kamsarmax bulk carrier to Tubarão (bottom), one column per drive. Markers grow with rig area (key in a), up to the largest that fits on deck, and a line joins the sizes of one rig. In the shaded region the rig costs less than no rig. Where a larger kite flies a smaller share of the time, it saves less fuel and its line turns back.}
-\label{fig:abatement}
-\end{figure*}
