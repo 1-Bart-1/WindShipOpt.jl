@@ -1422,23 +1422,65 @@ end
 being its `first_stage`.
 """
 function path_corridor(leg::Leg, corridor::Corridor, first_stage)
-    stage_count = length(leg.path)
-    lat = reshape([point[1] for point in leg.path], stage_count, 1)
-    lon = reshape([point[2] for point in leg.path], stage_count, 1)
+    lat = [point[1] for point in leg.path]
+    lon = [point[2] for point in leg.path]
+    laterals = [nearest_lateral(corridor, first_stage + i - 1, lat[i], lon[i])
+                for i in eachindex(lat)]
+    return path_corridor(corridor, first_stage, laterals, lat, lon)
+end
+
+"""
+    path_corridor(corridor, first_stage, laterals, lat, lon)
+
+[`Corridor`](@ref) of one node per stage, at `lat` and `lon` [deg], along the edges of
+`corridor` through lateral node `laterals[i]` of its stage `first_stage + i - 1`; `lat` and
+`lon` default to those nodes.
+"""
+function path_corridor(corridor::Corridor, first_stage, laterals,
+        lat=getindex.(Ref(corridor.lat), first_stage - 1 .+ eachindex(laterals), laterals),
+        lon=getindex.(Ref(corridor.lon), first_stage - 1 .+ eachindex(laterals), laterals))
+    stage_count = length(laterals)
     edge_length = zeros(stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
     edge_course = fill(NaN, stage_count - 1, 1, 2MAX_LATERAL_STEP + 1)
-    for i in 1:stage_count
+    for i in 1:(stage_count - 1)
         stage = first_stage + i - 1
-        lateral = nearest_lateral(corridor, stage, lat[i], lon[i])
-        i == stage_count && break
-        next = nearest_lateral(corridor, stage + 1, lat[i + 1], lon[i + 1])
-        step = lateral_step(corridor, lateral, next)
-        edge_length[i, 1, STRAIGHT_ON] = corridor.edge_length[stage, lateral, step]
-        edge_course[i, 1, STRAIGHT_ON] = corridor.edge_course[stage, lateral, step]
+        step = lateral_step(corridor, laterals[i], laterals[i + 1])
+        edge_length[i, 1, STRAIGHT_ON] = corridor.edge_length[stage, laterals[i], step]
+        edge_course[i, 1, STRAIGHT_ON] = corridor.edge_course[stage, laterals[i], step]
     end
-    return Corridor(lat, lon, trues(stage_count, 1), edge_length, edge_course,
-        corridor.track_length, along_centre_line(lat, lon), MAX_LATERAL_STEP,
-        0.0, zeros(stage_count), nothing)
+    return Corridor(reshape(lat, stage_count, 1), reshape(lon, stage_count, 1),
+        trues(stage_count, 1), edge_length, edge_course, corridor.track_length,
+        along_centre_line(reshape(lat, stage_count, 1), reshape(lon, stage_count, 1)),
+        MAX_LATERAL_STEP, 0.0, zeros(stage_count), nothing)
+end
+
+"""
+    shortest_corridor(corridor)
+
+[`path_corridor`](@ref) along the shortest path through `corridor` from the centre of its
+first stage to the centre of its last.
+"""
+function shortest_corridor(corridor::Corridor)
+    stages, laterals = size(corridor.lat)
+    centre = centre_index(corridor)
+    distance_to = fill(Inf, stages, laterals)
+    previous = zeros(Int, stages, laterals)
+    distance_to[1, centre] = 0.0
+    for stage in 1:(stages - 1), lateral in 1:laterals, step in 1:step_count(corridor)
+        next = next_lateral(corridor, lateral, step)
+        (1 <= next <= laterals && !isnan(corridor.edge_course[stage, lateral, step])) ||
+            continue
+        through = distance_to[stage, lateral] + corridor.edge_length[stage, lateral, step]
+        through < distance_to[stage + 1, next] || continue
+        distance_to[stage + 1, next] = through
+        previous[stage + 1, next] = lateral
+    end
+    isfinite(distance_to[stages, centre]) || error("no path through the corridor")
+    path = [centre]
+    for stage in stages:-1:2
+        pushfirst!(path, previous[stage, first(path)])
+    end
+    return path_corridor(corridor, 1, path)
 end
 
 "length of the time bins [h] of the [`final_pass`](@ref) of a plan on `weather`"

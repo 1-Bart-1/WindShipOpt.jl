@@ -1752,6 +1752,127 @@ function speed_terms_table()
 end
 
 """
+    routing_value_table()
+
+What weather routing saves the ships of the routing value study without a rig against the
+same ship on the shortest route at a held speed, and what the reference rigs save routed
+alone and together with routing: routing_value_table.tex, and the
+[`routing_value_numbers`](@ref) as `\\Num...` macros: routing_value_numbers.tex.
+"""
+function routing_value_table()
+    table = read_table(study_file(:routing_value, "routing_value.csv"))
+    departures = read_table(study_file(:routing_value, "routing_value_departures.csv"))
+    speed_labels = Dict("same_time" => "as routed", "operating" => "fleet mean")
+    lines = []
+    for ship in unique(table["ship"]), (drive, drive_label) in drive_labels
+        case = ("ship" => ship, "drive" => drive)
+        bare = only(rows(table, case..., "rig" => "none", "course" => "routed"))
+        for unrouted in rows(table, case..., "course" => "shortest")
+            speed = table["speed"][unrouted]
+            routing = routing_saving(table, ship, drive, "none", speed)
+            error = routing_error(departures, ship, drive, speed)
+            rigs = map(rig_names) do rig
+                rigged = rows(table, case..., "rig" => rig)
+                isempty(rigged) && return "--"
+                alone = 100(1 - table["cost"][only(rigged)] / table["cost"][bare])
+                both = routing_saving(table, ship, drive, rig, speed)
+                return @sprintf("%.0f / %.0f", alone, both)
+            end
+            knots = parse(Float64, string(table["held_knots"][unrouted]))
+            held = @sprintf("%.1f, %s", knots, speed_labels[speed])
+            push!(lines, (ship, drive_label, held,
+                @sprintf("%.1f \\pm %.1f", routing, error), rigs...))
+        end
+    end
+    open(joinpath(sections, "routing_value_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lllrrrr@{}}\n\\toprule")
+        println(io, " & & & & \\multicolumn{3}{c}{Rig saves [\\%] against} \\\\")
+        println(io, " & & Shortest route & Routing & \\multicolumn{3}{c}{routed / unrouted} ",
+            "\\\\")
+        println(io, "\\cmidrule(lr){5-7}")
+        println(io, "Ship & Drive & at [kn] & saves [\\%] & kite & wings & rotors \\\\")
+        println(io, "\\midrule")
+        for (ship, drive, speed, routing, rigs...) in lines
+            println(io, ship, " & ", drive, " & ", speed, " & \$", routing, "\$ & ",
+                join(rigs, " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+    draft = TOML.parsefile(study_runs_path)["routing_value"]["fidelity"] != "final"
+    open(joinpath(sections, "routing_value_numbers.tex"), "w") do io
+        for (name, text) in routing_value_numbers(table, departures)
+            print(io, number_macro(name, text, draft))
+        end
+    end
+end
+
+"""
+    routing_error(departures, ship, drive, speed)
+
+Standard error [percentage points] of the mean over the departures in `departures` of what
+routing saves `ship` on `drive` against the shortest route at held speed `speed`, each
+departure routed and unrouted paired by its date.
+"""
+function routing_error(departures, ship, drive, speed)
+    case = ("ship" => ship, "drive" => drive, "rig" => "none")
+    cost_on(rows_of) = Dict(departures["departure"][row] => departures["cost"][row]
+                            for row in rows_of)
+    routed = cost_on(rows(departures, case..., "course" => "routed"))
+    unrouted = cost_on(rows(departures, case..., "speed" => speed))
+    keys(routed) == keys(unrouted) ||
+        error("$ship on $drive: routed and unrouted sail different departures")
+    savings = [100(1 - routed[day] / unrouted[day]) for day in keys(routed)]
+    return std(savings) / sqrt(length(savings))
+end
+
+"""
+    routing_value_numbers(table, departures)
+
+Name and text of the [`routing_saving`](@ref)s in whole per cent that the paper quotes, all
+but the last against the routed ship's mean speed: of the 140 m ship without a rig and the
+range over the reference rigs on it, the range over the classes on each drive at that speed
+and at the fleet's mean operating speed; and the number of departures sampled and of those
+the 140 m ship is compared over, from the routing value `table` and its `departures`.
+"""
+function routing_value_numbers(table, departures)
+    classes = filter(!=("140 m"), unique(table["ship"]))
+    sailed = rows(departures, "ship" => "140 m")
+    savings = []
+    for (drive, name) in ("vlsfo" => "Oil", "ammonia" => "Ammonia")
+        saving(ship, rig, speed) = routing_saving(table, ship, drive, rig, speed)
+        rigs = [saving("140 m", rig, "same_time") for rig in rig_names]
+        same_time = [saving(ship, "none", "same_time") for ship in classes]
+        fleet = [saving(ship, "none", "operating") for ship in classes]
+        push!(savings, "RoutingAlone$name" => saving("140 m", "none", "same_time"),
+            "RoutingRig$(name)Low" => minimum(rigs),
+            "RoutingRig$(name)High" => maximum(rigs),
+            "RoutingClass$(name)Low" => minimum(same_time),
+            "RoutingClass$(name)High" => maximum(same_time),
+            "RoutingFleet$(name)Low" => minimum(fleet),
+            "RoutingFleet$(name)High" => maximum(fleet))
+    end
+    return [[name => replace(whole_number(value), "-" => "\\ensuremath{-}")
+             for (name, value) in savings];
+        "RoutingSampled" => string(length(unique(departures["departure"])));
+        "RoutingDepartures" => string(length(unique(departures["departure"][sailed])))]
+end
+
+"""
+    routing_saving(table, ship, drive, rig, speed)
+
+Saving [%] in cost per tonne-kilometre of `ship` on `drive` with `rig`, routed, against the
+same ship without a rig on the shortest route at held speed `speed`, from the routing value
+`table`.
+"""
+function routing_saving(table, ship, drive, rig, speed)
+    case = ("ship" => ship, "drive" => drive)
+    routed = only(rows(table, case..., "rig" => rig, "course" => "routed"))
+    unrouted = only(rows(table, case..., "rig" => "none", "course" => "shortest",
+        "speed" => speed))
+    return 100(1 - table["cost"][routed] / table["cost"][unrouted])
+end
+
+"""
     speed_term_savings(table, drive, terms, column)
 
 Saving [%] in `column` of kite, wings and rotors on `terms` against the ship without a rig,
