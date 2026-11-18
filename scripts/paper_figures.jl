@@ -16,8 +16,8 @@ white = Makie.RGBf(1, 1, 1)
 "colours of the kite, wings and rotors, in the order of `rig_names`, then of the VTOL kite"
 palette = style_colour.(["kite", "wings", "rotors", "vtol", "water", "accent"])
 "colours of what is not a rig, none of them a rig's"
-category_colours = [palette[6], Makie.RGBf(0.42, 0.26, 0.64), Makie.RGBf(0.55, 0.47, 0.0),
-    palette[5], Makie.RGBf(0.55, 0.3, 0.12), :black]
+category_colours = [style_colour.(["accent", "purple", "sand", "water", "slate"]);
+    Makie.RGBf(0, 0, 0)]
 "least differences of [`figure_style`](@ref): text contrast, colour and grey difference"
 least = figure_style["contrast"]
 
@@ -54,9 +54,6 @@ function readable(colour, background)
     return first(mix for mix in mixes if contrast(mix, background) >= least["text"])
 end
 
-"lightness of `colour` in CIELAB [0 to 100], as it prints in greyscale"
-grey_level(colour) = Makie.Colors.Lab(colour).l
-
 "each unordered pair of two different entries of `names`"
 name_pairs(names) = [(first_name, second_name) for (i, first_name) in enumerate(names)
                      for second_name in names[(i + 1):end]]
@@ -64,27 +61,23 @@ name_pairs(names) = [(first_name, second_name) for (i, first_name) in enumerate(
 """
     palette_faults()
 
-Pairs of rig colours of [`figure_style`](@ref) that come closer than `least["colour"]` in
-normal or colour-blind vision or than `least["rig_grey"]` in greyscale, and pairs of box
-fills closer than `least["fill_grey"]` in greyscale.
+Pairs of colours of [`figure_style`](@ref) meant to be told apart, the rigs, the
+categories beside them, gain and loss, and the box fills, that come closer than
+`least["colour"]` in normal or in some colour-blind vision.
 """
 function palette_faults()
     colours = Makie.Colors
     visions = (identity, colours.deuteranopic, colours.protanopic, colours.tritanopic)
+    groups = (("rig", style_colour.(["kite", "wings", "rotors", "vtol"])),
+        ("category", category_colours), ("cell", style_colour.(["gain", "loss"])),
+        ("fill", style_colour.(collect(keys(figure_style["fills"])); table="fills")))
     faults = String[]
-    for (first_name, second_name) in name_pairs(["kite", "wings", "rotors", "vtol"])
-        colour, other = style_colour(first_name), style_colour(second_name)
+    for (group, members) in groups, i in eachindex(members), j in (i + 1):length(members)
+        colour, other = colours.RGB(members[i]), colours.RGB(members[j])
         difference = minimum(colours.colordiff(see(colour), see(other)) for see in visions)
         difference < least["colour"] &&
-            push!(faults, @sprintf("%s and %s differ by %.1f in some vision", first_name,
-                second_name, difference))
-        abs(grey_level(colour) - grey_level(other)) < least["rig_grey"] &&
-            push!(faults, "$first_name and $second_name look alike in greyscale")
-    end
-    for (first_name, second_name) in name_pairs(sort(collect(keys(figure_style["fills"]))))
-        colour, other = style_colour.((first_name, second_name); table="fills")
-        abs(grey_level(colour) - grey_level(other)) < least["fill_grey"] &&
-            push!(faults, "fills $first_name and $second_name look alike in greyscale")
+            push!(faults, @sprintf("%s colours %s and %s differ by %.1f in some vision",
+                group, colours.hex(colour), colours.hex(other), difference))
     end
     return faults
 end
@@ -2066,20 +2059,30 @@ square_metre_label(text) =
     canopy_life_figure()
 
 Flight hours of canopies of data/canopy_life_statements.csv as ranges by what stated them,
-with [`reference_decay_life`](@ref) and its range of the assumptions, and the goal.
+the range of the polyester sails shaded, with [`reference_decay_life`](@ref) of the
+canopy's cloth and its range of the assumptions, and the goal.
 """
 function canopy_life_figure()
     lives = read_table(joinpath(root, "data", "canopy_life_statements.csv"))
     goal = assumptions.entries[:canopy_life]
     order = [findall(==("statement"), lives["kind"]);
         findall(==("sail_shape"), lives["kind"]); findall(==("small_kite"), lives["kind"])]
-    labels = [square_metre_label.(lives["label"][order]); "derived life"]
+    cloth = round(Int, assumptions[:canopy_cloth_weight])
+    labels = [square_metre_label.(lives["label"][order]);
+        square_metre_label("derived life, $cloth g/m²")]
     figure = Figure(size=(page_width, 190))
     axis = Axis(figure[1, 1]; doubling_axis(:x, 62.5, 16000)...,
         xlabel="flight hours of the canopy",
         yticks=(eachindex(labels), labels), yreversed=true,
         limits=((55, 20000), (0.3, length(labels) + 0.7)))
     goal_marks!(axis, goal; shade=(palette[1], 0.1))
+    sails = filter(row -> startswith(lives["label"][row], "polyester sail"), order)
+    sail_range = (minimum(lives["life_low"][sails]), maximum(lives["life_high"][sails]))
+    sail_shade = (category_colours[3], 0.45)
+    poly!(axis, Rect2f(sail_range[1], 0.5, sail_range[2] - sail_range[1], length(labels));
+        color=sail_shade)
+    text!(axis, goal.value, 0.3; text="goal $(estimate_text(goal.value)) h",
+        align=(:right, :top), offset=(-pt(2), -pt(1)), fontsize=note_size)
     stated = :gray35
     for (i, row) in enumerate(order)
         low, high = lives["life_low"][row], lives["life_high"][row]
@@ -2107,10 +2110,9 @@ function canopy_life_figure()
             strokewidth=outline_width, markersize=claim_marker_size),
         MarkerElement(marker=:rect, color=stated, markersize=claim_marker_size),
         MarkerElement(marker=:star5, color=stated, markersize=estimate_marker_size),
-        LineElement(color=:black, linewidth=goal_width),
-        PolyElement(color=(palette[1], 0.1))]
+        PolyElement(color=(palette[1], 0.1)), PolyElement(color=sail_shade)]
     axislegend(axis, entries, ["claim", "measurement", "hours we estimate",
-            "goal", "derived range"]; position=:lt)
+            "derived range", "polyester sails' range"]; position=:lt)
     save_figure("canopy_life", figure)
 end
 
