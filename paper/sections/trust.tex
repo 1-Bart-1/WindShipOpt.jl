@@ -173,6 +173,21 @@ Part & Model & kite & wings & rotors & Cheapest rig changes & Known error \\
 \InputIfFileExists{sections/fidelity_table}{}{\multicolumn{7}{@{}l}{\tbd{Pending: run the fidelity\_table step.}}\\}
 \end{longtable}}
 
+\subsection{Limits that act on every rig}
+\label{sec:disc_common}
+
+The limits below act on the ship with and without a rig, and on all rigs alike, so they move the cost savings more than the order of the rigs.
+
+\textbf{Six routes, three years of weather.} The routes cover the trade winds of both hemispheres, the westerlies, the Bay of Biscay and the African coast, but all start in Rotterdam and lie in the Atlantic. They stand for wind climates, not for the trades of each class. The Pacific and the Indian Ocean are missing, and three years cannot show the variation between years. The wind field, \given{\SI{1.5}{\degree}} and six hours, is coarse enough that it more likely understates the gain from wind than overstates it \citep{wendling2025}.
+
+\textbf{Calm-water resistance.} Each class hull is calibrated so that its calm-water power at service speed matches its source design (\cref{sec:model}), with the resistance from the method of \citet{holtrop1982}. One factor fixes the level, not how the resistance grows with speed, on which the router trades fuel against time. On tank tests of comparable hulls the method's resistance grows \given{2 to 7}\,\% too fast between \given{\SI{10}{kn}} and service speed (\cref{sec:checks}), so the calibrated hulls ask up to that much too little fuel when slow, which makes slowing down look cheaper than it is. Where the bulk carriers' excess of up to \given{32}\,\% lies is not known (\cref{app:calm_calibration}): were it all in the friction and form drag, their resistance would be up to \given{5}\,\% lower at \given{\SI{8}{kn}} and up to \given{5}\,\% higher \given{\SI{2}{kn}} above service speed than one factor gives, and up to \given{2}\,\% on the other classes. The Kamsarmax lies beyond the hulls the method covers (\cref{app:full_hulls}).
+
+\textbf{Added resistance in waves is a mean estimate.} The recalibrated formula we use explains \given{73}\,\% of the variance of \given{\num{1127}} model-test samples from \given{25} ships \citep{mittendorf2022}. It acts alike on the ship with and without a rig, except where a rough sea keeps the kite from launching.
+
+\textbf{The wind on the ship itself.} Measured wind loads of single ships scatter about the wind-tunnel coefficients of their type \citep{blendermann1993}, and the bulk carriers borrow the laden tanker's shape without their cranes and hatch coamings, the raised rims of the cargo hatches. \stale{model_parts}{Against a simpler estimate with no side force the method lowers the cost saving of each rig on VLSFO by 0.06 to 0.34 points on the four container ships and the car carrier, and the order of the rigs that save money stays the same.}
+
+\textbf{Round trips on fixed trades.} Every ship sails out and back between the same two ports, with the return passage free to bend into the westerlies or the trades within its corridor, as liner services run. Tramp bulk carriers and tankers, which have no fixed route, follow the next cargo, often on triangular or ballast voyages, and could prefer voyages that follow the clockwise circulation of the North Atlantic winds, so our round trips understate what such an operator could gain.
+
 \subsection{Where each rig acts on the ship}
 \label{sec:tow_point}
 
@@ -227,7 +242,7 @@ In the well-mixed trade-wind belt our ERA5 profiles give only \given{1.17} times
 \subsection{Calm-water resistance of full hulls}
 \label{app:full_hulls}
 
-\citet{holtrop1982} limit their method to hulls resembling their average ship and call its high-block adjustments tentative. \citet{ortigosa2009} tabulate a prismatic coefficient of at most \given{0.85} for tankers and bulk carriers, a limit we could read only second-hand. Beyond it the fitted wave term, the part of the resistance due to the waves the hull makes, grows steeply. On its waterline length only the Kamsarmax lies beyond it, at \given{0.86}. Uncalibrated the wave term takes \given{17}\,\% of its resistance at service speed against \given{14}\,\% at \given{0.85}, and one calibration factor scales every component, which is what would make its power at operating speed too low.
+\citet{holtrop1982} limit their method to hulls resembling their average ship and call its high-block adjustments tentative. \citet{ortigosa2009} tabulate a prismatic coefficient of at most \given{0.85} for tankers and bulk carriers, a limit we could read only second-hand. Beyond it the fitted wave term, the part of the resistance due to the waves the hull makes, grows steeply. On its waterline length only the Kamsarmax lies beyond it, at \given{0.86}. Uncalibrated the wave term takes \given{17}\,\% of its resistance at service speed against \given{14}\,\% at \given{0.85}, and one calibration factor scales every component, which is what would make its power at operating speed too low. Evaluated there unchanged it would make its calm-water power at operating speed \given{3}\,\% lower, so we evaluate the formulas at \given{0.85}, with its true displacement; the tank test of the Japan Bulk Carrier, at \given{0.84}, supports the method up to there.
 
 \subsection{Cost split against published studies}
 \label{app:cost_split}
