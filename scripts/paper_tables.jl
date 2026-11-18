@@ -1791,10 +1791,17 @@ fidelity_parts() = [
     (part="Heel, leeway and rudder limits", varied="removed",
         model="steady balance; side force beyond the limits is shed by trimming the rig",
         error="limits are design rules, not measured", effect=switched(:limits)),
-    (part="Leeway and rudder drag", varied="rudder drag off",
-        model="Kijima side force slope; rudder as a lifting line carrying the yaw moment",
-        error="hull side force from regression, not from tests of these hulls",
-        effect=switched(:rudder)),
+    (part="Rudder drag", varied="removed",
+        model="lifting line carrying the yaw moment in the free stream",
+        error="no wake or propeller slipstream at the rudder", effect=switched(:rudder)),
+    (part="Leeway and rudder drag", varied="both removed",
+        model="Kijima side-force slope; induced drag of a slender wing and cross flow",
+        error="regression on merchant-ship models, not on these hulls",
+        effect=switched(:side_force)),
+    (part="Hull side-force slope", varied="at its low bound",
+        model="Kijima regression on merchant-ship models in calm water",
+        error="hulls without a skeg tested at 0.4 to 0.5 times it",
+        effect=switched(:weak_hull)),
     (part="Propeller and engine", varied="not measured",
         model="actuator disk with viscous loss; engine efficiency falling at part load",
         error="no open-water curve of a real propeller",
@@ -1952,14 +1959,14 @@ paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draf
 the goals, the `highlight_limit` the paper build checks, the [`class_numbers`](@ref),
 [`recommendation_numbers`](@ref), [`rig_lead_numbers`](@ref), [`premium_numbers`](@ref),
 [`fleet_share_numbers`](@ref), [`market_numbers`](@ref) and [`type_saving_numbers`](@ref)
-of the class study, and the [`forecast_numbers`](@ref).
+of the class study, the [`forecast_numbers`](@ref) and the [`side_force_numbers`](@ref).
 """
 function numbers_file()
     classes = class_table()
     results = [class_numbers(classes); recommendation_numbers(classes);
                rig_lead_numbers(classes); premium_numbers(classes);
                fleet_share_numbers(classes); market_numbers(classes);
-               type_saving_numbers(classes); forecast_numbers()]
+               type_saving_numbers(classes); forecast_numbers(); side_force_numbers()]
     draft = paper_run.fidelity != :final
     open(joinpath(sections, "numbers.tex"), "w") do io
         for (name, text) in goal_numbers()
@@ -2101,6 +2108,38 @@ function forecast_numbers()
             "ForecastFlightShare" => whole_number(100kite_mean("flight_share"));
             "ForecastLaunches" => whole_number(kite_mean("launches"));
             "ForecastForcedLandings" => one_decimal(kite_mean("forced_landings"))]
+end
+
+"""
+    side_force_numbers()
+
+Name and text, per rig, from the model-part study: over its e-ammonia ships, how much a side
+force free of leeway and rudder drag would add to the cost saving [% of the saving] and the
+points the hull's side-force slope at its low bound takes from it; over all its ships, the
+median leeway [deg] and the share of hours within half a degree of the limit [%].
+"""
+function side_force_numbers()
+    parts = read_table(study_file(:model_parts, "model_parts.csv"))
+    leeway = read_table(study_file(:model_parts, "leeway.csv"))
+    ammonia = [name for (name, design) in sensitivity_ships() if design.drive == :ammonia]
+    cost(ship, rig, part) =
+        only(parts["cost"][rows(parts, "ship" => ship, "rig" => rig, "part" => part)])
+    saving(ship, rig, part) =
+        percent_saving(cost(ship, rig, part), cost(ship, "none", part))
+    numbers = Pair{String, String}[]
+    for rig in rig_names
+        name = uppercasefirst(rig)
+        added = [100(saving(ship, rig, "side_force") / saving(ship, rig, "none") - 1)
+                 for ship in ammonia]
+        lost = [saving(ship, rig, "none") - saving(ship, rig, "weak_hull")
+                for ship in ammonia]
+        sailed = rows(leeway, "rig" => rig)
+        push!(numbers, "SideForce$name" => value_range(added, whole_number),
+            "WeakHull$name" => value_range(lost, whole_number),
+            "Leeway$name" => value_range(leeway["median"][sailed], whole_number),
+            "LeewayLimit$name" => value_range(100leeway["at_limit"][sailed], whole_number))
+    end
+    return numbers
 end
 
 """
