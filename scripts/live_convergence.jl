@@ -164,7 +164,7 @@ function print_convergence(cases, costs, seconds)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    global paper_run = PaperRun(nothing, :draft, Dict{String, Any}(), 0, 0)
+    global paper_run = PaperRun(:draft)
     options = Dict(split(arg, '=') for arg in ARGS[3:end] if startswith(arg, "--"))
     cases = live_cases(ARGS[2], filter(!startswith("--"), ARGS[3:end]);
         rigs=haskey(options, "--rigs") ? split(options["--rigs"], ',') : nothing,

@@ -77,27 +77,34 @@ Base.@kwdef struct Drive{F <: Fuel}
     store::FuelStore = FuelStore()
 end
 
-Drive(name::Symbol, assumptions::Assumptions) = Drive(Val(name), assumptions)
+"""
+    Drive(name, assumptions; shaft=assumptions[:shaft_efficiency])
 
-Drive(::Val{:vlsfo}, assumptions) = Drive(; fuel=vlsfo(assumptions),
-    transmission_efficiency=assumptions[:shaft_efficiency],
+[`Drive`](@ref) of `name`, its mechanical drives turning the propeller through a shaft of
+efficiency `shaft`.
+"""
+Drive(name::Symbol, assumptions::Assumptions; shaft=assumptions[:shaft_efficiency]) =
+    Drive(Val(name), assumptions, shaft)
+
+Drive(::Val{:vlsfo}, assumptions, shaft) = Drive(; fuel=vlsfo(assumptions),
+    transmission_efficiency=shaft,
     unit_count=1, peak_efficiency=assumptions[:vlsfo_engine_efficiency],
     part_load_penalty=assumptions[:part_load_penalty],
     power_cost=assumptions[:mechanical_propulsion_cost])
 
-Drive(::Val{:methanol}, assumptions) = Drive(; fuel=e_methanol(assumptions),
+Drive(::Val{:methanol}, assumptions, shaft) = Drive(; fuel=e_methanol(assumptions),
     transmission_efficiency=assumptions[:electric_chain_efficiency],
     unit_count=round(Int, assumptions[:genset_count]),
     peak_efficiency=assumptions[:methanol_engine_efficiency],
     part_load_penalty=assumptions[:part_load_penalty],
     power_cost=assumptions[:electric_propulsion_cost])
 
-function Drive(::Val{:ammonia}, assumptions)
+function Drive(::Val{:ammonia}, assumptions, shaft)
     store = FuelStore(; mass_ratio=1 / assumptions[:ammonia_tank_gravimetric_density],
         volume=1 / assumptions[:ammonia_tank_volumetric_density],
         price=assumptions[:ammonia_tank_cost])
     return Drive(; fuel=e_ammonia(assumptions),
-        transmission_efficiency=assumptions[:shaft_efficiency],
+        transmission_efficiency=shaft,
         unit_count=1, peak_efficiency=assumptions[:vlsfo_engine_efficiency],
         part_load_penalty=assumptions[:part_load_penalty],
         power_cost=assumptions[:mechanical_propulsion_cost] +
@@ -110,13 +117,13 @@ end
 
 A standard merchant ship size class with its kind, main dimensions, deadweight, service
 speed and engine power, newbuild price, the value of its cargo, its capacity in cargo
-units and its container tiers on deck.
+units, its container tiers on deck and whether it runs a liner service.
 """
 Base.@kwdef struct ShipClass
     name::String
     "kind of ship: general cargo, container, bulk carrier, tanker or vehicle carrier"
     type::String
-    "waterline length [m]"
+    "length between perpendiculars [m]"
     length::Float64
     "moulded breadth [m]"
     beam::Float64
@@ -155,6 +162,9 @@ Base.@kwdef struct ShipClass
     "extra time per port call that a fixed deck rig costs cargo handling, Inf where it
     prevents it [h]"
     fixed_rig_port_hours::Float64
+    "whether the class runs a liner service to a fixed schedule rather than trading voyage
+    by voyage"
+    liner::Bool
 end
 
 """
@@ -182,7 +192,8 @@ function ship_classes()
             "newbuild_price", "cargo_value", "deck_tiers", "air_draft_limit",
             "restricted_call_share", "fixed_rig_port_hours", "unit_capacity"))
         classes[row["name"]] = ShipClass(; name=row["name"], type=row["type"],
-            cargo_unit=Symbol(lowercase(row["cargo_unit"])), values...)
+            cargo_unit=Symbol(lowercase(row["cargo_unit"])),
+            liner=(; liner=true, tramp=false)[Symbol(row["service"])], values...)
     end
     return classes
 end
@@ -190,29 +201,44 @@ end
 """
     Hull(class, assumptions)
 
-Hull of the main dimensions and centre of buoyancy of ship `class`, its calm-water
-resistance calibrated to the source design by [`resistance_calibration`](@ref).
+Hull of the main dimensions and centre of buoyancy of ship `class`, with the waterline
+length `waterline_length_ratio` times its length, its calm-water resistance calibrated to
+the source design by [`resistance_calibration`](@ref).
 """
 function Hull(class::ShipClass, assumptions::Assumptions)
     dimensions = (class.length, class.beam, class.draft, class.block_coefficient)
-    holtrop = Hull(dimensions..., assumptions; class.centre_of_buoyancy)
-    return Hull(dimensions..., assumptions; class.centre_of_buoyancy,
+    form = (; class.centre_of_buoyancy,
+        waterline_length=assumptions[:waterline_length_ratio] * class.length)
+    holtrop = Hull(dimensions..., assumptions; form...)
+    return Hull(dimensions..., assumptions; form...,
         resistance_factor=resistance_calibration(class, holtrop, assumptions))
 end
+
+"""
+    shaft_efficiency(class, assumptions)
+
+Efficiency of the shaft from a mechanical engine to the propeller: a direct-coupled
+two-stroke on a ship of `class`, a geared engine on the reference coaster family
+(`class` nothing) [-].
+"""
+shaft_efficiency(::ShipClass, assumptions::Assumptions) =
+    assumptions[:direct_shaft_efficiency]
+shaft_efficiency(::Nothing, assumptions::Assumptions) = assumptions[:shaft_efficiency]
 
 """
     resistance_calibration(class, hull, assumptions)
 
 Factor on the uncalibrated calm-water resistance of `hull` of ship `class` that makes the
 power delivered to its propeller at the service speed that of the source design: its
-`source_load` of the engine power through the shaft without the source sea margin; 1
+`source_load` of the engine power through its [`shaft_efficiency`](@ref) without the
+source sea margin; 1
 where the class has no source design point.
 """
 function resistance_calibration(class::ShipClass, hull::Hull, assumptions::Assumptions)
     isnan(class.source_load) && return 1.0
     env = Environment(assumptions)
     speed = class.service_speed * KNOT
-    delivered = 1e3class.power * class.source_load * assumptions[:shaft_efficiency] /
+    delivered = 1e3class.power * class.source_load * shaft_efficiency(class, assumptions) /
                 (1 + assumptions[:source_sea_margin])
     propeller = Propeller(hull, class.propeller_diameter_ratio, assumptions)
     return delivered_thrust(propeller, env, speed, delivered) / resistance(hull, env, speed)
@@ -235,7 +261,7 @@ those of the class, otherwise the reference coaster is scaled to `length`.
 """
 Base.@kwdef struct ShipDesign
     drive::Symbol
-    "waterline length [m]"
+    "length between perpendiculars [m]"
     length::Float64
     wing_area::Float64 = 0.0
     kite_area::Float64 = 0.0
@@ -330,7 +356,8 @@ function Ship(design::ShipDesign, assumptions::Assumptions)
     isnothing(rig) && has_rig(design) && return nothing
     stiffness = displacement_mass(hull, env) * env.gravity *
                 assumptions[:metacentric_height_ratio] * hull.beam
-    drive = Drive(design.drive, assumptions)
+    drive = Drive(design.drive, assumptions;
+        shaft=shaft_efficiency(design.class, assumptions))
     hotel_load = 1e3assumptions[:hotel_load]
     hull_parts = (design, env, hull, WaveCoefficients(hull),
         SeakeepingHull(hull, assumptions), Propeller(design, hull, assumptions))
@@ -364,13 +391,14 @@ with_rig(ship::Ship, rig) = Ship(ship.design, ship.env, ship.hull, ship.wave_coe
     rated_delivered_power(ship, assumptions)
 
 Power [W] delivered to the propeller at the rating of the main engine of `ship`: the
-engine power of its class's source design through the shaft, or for the reference coaster
+engine power of its class's source design through its [`shaft_efficiency`](@ref), or for
+the reference coaster
 family the calm-water power at the service speed with any kite stowed and the sea and
 engine margins.
 """
 function rated_delivered_power(ship::Ship, assumptions::Assumptions)
     (; class) = ship.design
-    isnothing(class) || return 1e3class.power * assumptions[:shaft_efficiency]
+    isnothing(class) || return 1e3class.power * shaft_efficiency(class, assumptions)
     speed = assumptions[:service_speed] * KNOT
     calm = delivered_power(ship.propeller, ship.env, speed,
         first(best_trim(ship, standing_rig(ship.rig), speed, 0.0, 0.0)))

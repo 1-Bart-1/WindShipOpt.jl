@@ -10,7 +10,7 @@ The derivations behind the inputs of \cref{sec:inputs}, in the order of the part
 
 MAN rates its bulk carriers at 85\,\% of the rating up to \num{84000}~t and at 75\,\% for the Capesize \citep{man2022bulk}, and the MR tanker \citep{man2019mr} and the container ships \citep{man2024container} at 90\,\%, all with $s=15\,\%$. For the Aframax tanker and the VLCC, whose sources state no margins, we take the traditional 10\,\% engine margin and 15\,\% sea margin \citep{man2011}. The car carrier's source design makes \SI{15.0}{kn} at 43\,\% of its rating with a 15\,\% sea margin \citep{keh_8600ceu_df_pctc}.
 
-Before calibrating we set the propeller diameter by type and the centre of buoyancy by Schneekluth's regressions \citep{ventura_estimation}. The larger propeller removes 8 to 23 points of the excess of uncalibrated power. The rest is the method itself on full hulls. On the Ultramax and Kamsarmax, whose block coefficients of 0.86 and 0.88 exceed the 0.75 to 0.85 that \citet{man2011} lists for bulk carriers, the wave-making coefficient drives the excess to 61 and 84\,\%.
+Before calibrating we set the propeller diameter by type and the centre of buoyancy by Schneekluth's regressions \citep{ventura_estimation}. Uncalibrated, the model then needs 4 to 14\,\% more power than the source designs of the container ships, the car carrier, the Handysize and the MR and Aframax tankers, 6\,\% less for the VLCC, and 19, 27 and 32\,\% more for the Capesize, Kamsarmax and Ultramax bulk carriers. On the MR tanker, whose source MAN powers by Holtrop and Mennen itself \citep{man2019mr}, it needs 4\,\% more at each of its three speeds, and it reproduces tank tests of comparable modern hulls (\cref{sec:checks}), so the excess on the bulk carriers is not the method's. It lies between their source powers, which MAN predicts for statistical average hulls without naming its method \citep{man2022bulk}, and the hull forms we estimate for them: a block coefficient 0.02 lower would raise $f_R$ by 0.03 to 0.06, a bulb half as large again or a centre of buoyancy one point further aft by up to 0.02. Which of the two is nearer the real ships we cannot tell.
 
 \subsection{Cargo units}
 \label{app:cargo_units}
@@ -39,7 +39,7 @@ We carry the law of \citet{davies2015}, measured on a \SI{19}{mm} rope over a sh
 \subsection{Kite losses and launch cost today and at the goal}
 \label{app:launch_loss}
 
-At today's estimate of 0.25\,\% per launch and landing, a canopy is lost about every 62 round trips on the \SI{140}{m} ship, about fourteen times a year in a fleet of a hundred. At the goal of 1 in \num{10000} the same fleet loses one in about a year and a half. One launch and landing of an \SI{800}{m^2} kite then costs USD~235 instead of USD~740, and of a \SI{3200}{m^2} kite USD~286 instead of USD~\num{2350} (\cref{sec:kite}).
+\stale{launch}{At today's estimate of 0.25\,\% per launch and landing, a canopy is lost about every 62 round trips on the \SI{140}{m} ship, about fourteen times a year in a fleet of a hundred. At the goal of 1 in \num{10000} the same fleet loses one in about a year and a half. One launch and landing of an \SI{800}{m^2} kite then costs USD~235 instead of USD~740, and of a \SI{3200}{m^2} kite USD~286 instead of USD~\num{2350} (\cref{sec:kite}).}
 
 \subsection{Launch mast height and mass}
 \label{app:mast}
@@ -81,7 +81,7 @@ Today's hours are the low end of what a maker's 50 hours per paraglider gives \c
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Cell layout of a paraglider and of ship kites. \tbd{Paraglider data: cite Ozone Rush 5.} The SkySails cell count is from \citet{paulig2013}, the widths by our reading.}
+\caption{Cell layout of a paraglider and of ship kites. The paraglider is an Ozone Rush~5 \tbd{(source to add)}. The SkySails cell count is from \citet{paulig2013}, the widths by our reading.}
 \label{tab:seam_cloth}
 \begin{tabular}{@{}lrrr@{}}
 \toprule
@@ -98,7 +98,7 @@ Seam per flat m$^2$ (m) & 14 & -- & 2.5 to 4.5 \\
 
 No source says what share of the hours follows seam length. At shares of 20, 50 and 80\,\% the 1.5 hours become about 1.3, 0.9 and 0.6 hours, before heavier cloth, load seams and the handling of large panels. \citet{dunker2013} recommends about \SI{115}{kg} at most per subassembly under a sewing machine, so our \SI{600}{kg} canopy of \SI{800}{m^2} takes at least six modules.
 
-For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre and ribs and diagonals scale with the proportion, giving \SI{3.3}{m^2} per projected square metre at 31 cells (2.9 to 3.9), 3.0 at 22 cells and a floor of 2.4 at no ribs. Cell width is typically below section thickness \citep{dunker2013}, so 3.3 is the more likely. The spread of the cost savings in \cref{tab:missed_goals} suggests 0.2 to 0.4 points of cost saving for USD~9 and 0.4 to 1.0 for USD~24.
+For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre and ribs and diagonals scale with the proportion, giving \SI{3.3}{m^2} per projected square metre at 31 cells (2.9 to 3.9), 3.0 at 22 cells and a floor of 2.4 at no ribs, against the 3.5 the model uses (\cref{tab:inputs}). Cell width is typically below section thickness \citep{dunker2013}, so 3.3 is the more likely. The spread of the cost savings in \cref{tab:missed_goals} suggests 0.2 to 0.4 points of cost saving for USD~9 and 0.4 to 1.0 for USD~24.
 
 \begin{table}[tbp]
 \centering
@@ -121,7 +121,7 @@ Sewing 0.6 h & $-24$ & 0.75 \\
 \subsection{Learning curve check of the canopy price}
 \label{app:learning_curve}
 
-For sewing the ratio per doubling is $p=0.93$ for the sewing section of a shirt plant over 15 shirts \tbd{cite badri2016} and 0.77 to 0.83 for three experienced machinists on a new task over 20 cycles \tbd{cite yepez2025}, against the 0.75 to 0.95 called typical of industry \tbd{cite tamas2020}. These runs last hours at most. We take 0.83 and 0.93 as the ends, leaving out the 0.77 of the fastest machinist since a check should not rest on one person; with it the fastest case at \num{1000} canopies would be 0.62 rather than 0.80 hours. No maker publishes its volume, so the curve starts at 0.1 and at 1 million flat square metres, a new plant inheriting part of the paraglider experience and the whole history of an established maker. We test no floor and a floor of 0.6 hours, the bottom of the G-12 range, with the curve acting on the time above it. At \num{1000} canopies of \SI{800}{m^2} this gives 0.80 to 1.44 hours per flat square metre and at \num{10000} canopies 0.44 to 1.30 hours. With the floor and $p=0.93$ learning alone never reaches the goal at a volume a fleet would buy. Polyester fibre has $p=0.72$ \tbd{cite lafond2018} on world output \tbd{cite Textile Exchange 2025}, far more than a fleet buys.
+For sewing the ratio per doubling is $p=0.93$ for the sewing section of a shirt plant over 15 shirts \citep{badri2016}\tbd{ (source not read)} and 0.77 to 0.83 for three experienced machinists on a new task over 20 cycles \citep{yepez2025}\tbd{ (source not read)}, against the 0.75 to 0.95 called typical of industry \citep{tamas2020}\tbd{ (source not read)}. These runs last hours at most. We take 0.83 and 0.93 as the ends, leaving out the 0.77 of the fastest machinist since a check should not rest on one person; with it the fastest case at \num{1000} canopies would be 0.62 rather than 0.80 hours. No maker publishes its volume, so the curve starts at 0.1 and at 1 million flat square metres, a new plant inheriting part of the paraglider experience and the whole history of an established maker. We test no floor and a floor of 0.6 hours, the bottom of the G-12 range, with the curve acting on the time above it. At \num{1000} canopies of \SI{800}{m^2} this gives 0.80 to 1.44 hours per flat square metre and at \num{10000} canopies 0.44 to 1.30 hours. With the floor and $p=0.93$ learning alone never reaches the goal at a volume a fleet would buy. Polyester fibre has $p=0.72$ \citep{lafond2018}\tbd{ (source not read)} on world output \tbd{(source to add: Textile Exchange 2025)}, far more than a fleet buys.
 
 \subsection{Data behind the canopy life}
 \label{app:canopy_life_inputs}

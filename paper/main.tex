@@ -5,8 +5,13 @@
 \input{preamble}
 
 \journal{Applied Energy}
+\otherdocument{supplement}
+\crefname{supsec}{Supplement}{Supplement}
+\Crefname{supsec}{Supplement}{Supplement}
 
 \begin{document}
+
+\fidelitynote
 
 \begin{frontmatter}
 
@@ -22,7 +27,6 @@
 \affiliation[3]{organization={\tbd{Affiliation}}}
 
 \begin{abstract}
-\InputIfFileExists{sections/fidelity}{}{}
 \input{sections/abstract}
 \end{abstract}
 
@@ -54,10 +58,7 @@
 \crefalias{subsubsection}{subappendix}
 \counterwithin*{figure}{section}
 \counterwithin*{table}{section}
-\input{sections/model_details}
-\input{sections/derivations}
-\input{sections/trust}
-\input{sections/inputs}
+\input{sections/ship_classes}
 
 \bibliographystyle{elsarticle-harv}
 \bibliography{refs,literature}

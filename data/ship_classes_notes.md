@@ -15,6 +15,7 @@ Sources behind every value in `ship_classes.csv`. Built 2026-10-31. Units: m, kn
 - `cargo_value`: value of one tonne of the typical cargo, FOB-level.
 - `fleet`: IMO Table 35 "Type 1 and 2" vessels (international, AIS-observed, 2018) in the matching size bin.
 - `fuel_share`: CO2 of the bin over total 2018 shipping CO2 in Table 35 (1,056.5 Mt, international + domestic + fishing; matches the study's 1,056 Mt headline). CO2 stands in for fuel; HFO, MGO and LNG differ by a few percent in carbon factor.
+- `service`: `liner` for a class that sails fixed rotations to published schedules, `tramp` for one that trades voyage by voyage (tramp or industrial shipping). Container and ro-ro ships, the car carriers among them, usually run liner services (Chandra, Fagerholt and Christiansen 2015, Procedia Soc. Behav. Sci. 189, introduction and section 2; MAN ES Basic Principles Table 1.01 lists the container ship as a liner carrier; EMSA 2023 p. 3 and p. 70: liner shipping has fixed schedules and routes, tramp trades have none). Bulk carriers trade tramp (MAN ES Basic Principles p. 47), and so do tankers and the coaster here, in the tramp or industrial mode of Chandra et al.
 
 ## Primary documents
 

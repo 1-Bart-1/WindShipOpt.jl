@@ -2,6 +2,8 @@
 \newcommand{\NumCanopyPriceGoal}{150}
 \newcommand{\NumCanopyPriceToday}{234}
 \newcommand{\NumOutOfServiceGoal}{3}
+\newcommand{\NumKiteGapBias}{1.6}
+\newcommand{\NumHighlightLimit}{85}
 \newcommand{\NumCellsOil}{\tbd{78}}
 \newcommand{\NumSavingOilKite}{\tbd{6}}
 \newcommand{\NumLeadsOilKite}{\tbd{61}}
@@ -43,20 +45,19 @@
 \newcommand{\NumSavingOilBulkRotors}{\tbd{5}}
 \newcommand{\NumSavingAmmoniaBulkRotors}{\tbd{18}}
 \newcommand{\NumCarbonBulkRotors}{\tbd{38}}
-\newcommand{\NumMarginOilContainer}{\tbd{4 points}}
+\newcommand{\NumAdvice}{\tbd{on both fuels use the kite on container ships, and either the kite or the rotors on car carriers and bulk carriers; on tankers use the kite on e-ammonia and either the kite or the rotors on fuel oil, and on general cargo ships the other way round}}
+\newcommand{\NumHighlightAdvice}{\tbd{On e-ammonia: kite on container ships and tankers, either kite or rotors elsewhere.}}
+\newcommand{\NumVerdictContainer}{\tbd{the kite leads the rotors by 4 points on both fuels}}
+\newcommand{\NumVerdictCarCarrier}{\tbd{the kite and the rotors are level, less than 1 point apart, on both fuels}}
+\newcommand{\NumVerdictGeneralCargo}{\tbd{the kite and the rotors are level, 1 point apart, on e-ammonia, and the kite leads the rotors by 3 points on fuel oil}}
+\newcommand{\NumVerdictBulkTanker}{\tbd{the kite and the rotors are level, 1 point apart, on bulk carriers on both fuels and on tankers on fuel oil, and the kite leads the rotors by 2 points on tankers on e-ammonia}}
+\newcommand{\NumVerdictBulkTankerGeneralCargo}{\tbd{the kite and the rotors are level, 1 point apart, on bulk carriers on both fuels, on tankers on fuel oil and on general cargo ships on e-ammonia, and the kite leads the rotors by 2 to 3 points on tankers on e-ammonia and on general cargo ships on fuel oil}}
+\newcommand{\NumVerdictFleetAmmonia}{\tbd{the kite leads the rotors by 2 to 4 points on container ships and tankers, and the kite and the rotors are level, at most 1 point apart, on car carriers, bulk carriers and general cargo ships}}
+\newcommand{\NumVerdictFleet}{\tbd{the kite leads the rotors by 2 to 4 points on container ships on both fuels, on tankers on e-ammonia and on general cargo ships on fuel oil, and the kite and the rotors are level, at most 1 point apart, on car carriers and bulk carriers on both fuels, on tankers on fuel oil and on general cargo ships on e-ammonia}}
 \newcommand{\NumKiteLifeLimitOilContainer}{\tbd{\num{1000}}}
 \newcommand{\NumKiteLossLimitOilContainer}{\tbd{1}}
-\newcommand{\NumMarginAmmoniaContainer}{\tbd{4 points}}
 \newcommand{\NumKiteLifeLimitAmmoniaContainer}{\tbd{\num{1300}}}
 \newcommand{\NumKiteLossLimitAmmoniaContainer}{\tbd{0.84}}
-\newcommand{\NumMarginOilCarCarrier}{\tbd{less than 1 point}}
-\newcommand{\NumMarginAmmoniaCarCarrier}{\tbd{less than 1 point}}
-\newcommand{\NumMarginOilBulkCarrier}{\tbd{1 point}}
-\newcommand{\NumMarginAmmoniaBulkCarrier}{\tbd{1 point}}
-\newcommand{\NumMarginOilTanker}{\tbd{1 point}}
-\newcommand{\NumMarginAmmoniaTanker}{\tbd{2 points}}
-\newcommand{\NumMarginOilGeneralCargo}{\tbd{3 points}}
-\newcommand{\NumMarginAmmoniaGeneralCargo}{\tbd{1 point}}
 \newcommand{\NumPremiumNoRig}{\tbd{44}}
 \newcommand{\NumPremiumBestRig}{\tbd{18}}
 \newcommand{\NumPremiumClosed}{\tbd{59}}
@@ -74,7 +75,6 @@
 \newcommand{\NumFleetShareAmmoniaNone}{\tbd{1}}
 \newcommand{\NumFleetWorkShare}{\tbd{62}}
 \newcommand{\NumFleetFuelShare}{\tbd{39}}
-\newcommand{\NumFleetLevelMargin}{\tbd{1}}
 \newcommand{\NumMarketOilKiteShips}{\tbd{\num{12000}--\num{17000}}}
 \newcommand{\NumMarketOilKiteSales}{\tbd{\num{22}--\num{32}}}
 \newcommand{\NumMarketOilKiteSaved}{\tbd{\num{8.2}--\num{10}}}
