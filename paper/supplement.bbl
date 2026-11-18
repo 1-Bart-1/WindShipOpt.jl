@@ -1,0 +1,2170 @@
+\begin{thebibliography}{245}
+\expandafter\ifx\csname natexlab\endcsname\relax\def\natexlab#1{#1}\fi
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\href}[2]{#2}
+\providecommand{\path}[1]{#1}
+\providecommand{\DOIprefix}{doi:}
+\providecommand{\ArXivprefix}{arXiv:}
+\providecommand{\URLprefix}{URL: }
+\providecommand{\Pubmedprefix}{pmid:}
+\providecommand{\doi}[1]{\href{http://dx.doi.org/#1}{\path{#1}}}
+\providecommand{\Pubmed}[1]{\href{pmid:#1}{\path{#1}}}
+\providecommand{\bibinfo}[2]{#2}
+\ifx\xfnm\relax \def\xfnm[#1]{\unskip,\space#1}\fi
+%Type = Misc
+\bibitem[{{ADVANCE}(2026)}]{advance_alpha8}
+\bibinfo{author}{{ADVANCE}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{{ALPHA} 8 product manual: technical data}.
+\newblock \URLprefix \url{https://manual.advance.ch/en/alpha_8/4013}.
+  \bibinfo{note}{online manual, accessed 17 November 2026}.
+%Type = Misc
+\bibitem[{{Airseas}(2026)}]{airseas_seawing_web}
+\bibinfo{author}{{Airseas}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Seawing system}.
+\newblock \bibinfo{howpublished}{Company web page}.
+\newblock \URLprefix \url{https://airseas.com/en/seawing-system/}.
+  \bibinfo{note}{accessed 1 November 2026}.
+%Type = Misc
+\bibitem[{{Alfa Laval}(2026)}]{alfalaval2026oceanbird}
+\bibinfo{author}{{Alfa Laval}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Oceanbird completes installation and successful sea
+  trial of its first onboard prototype}.
+\newblock \URLprefix
+  \url{https://www.alfalaval.com/media/news/2026/oceanbird-completes-installation-and-successful-sea-trial-of-its-first-onboard-prototype/}.
+  \bibinfo{note}{news item, 2 July 2026}.
+%Type = Misc
+\bibitem[{{Allied Shipbroking}(2026)}]{allied2026}
+\bibinfo{author}{{Allied Shipbroking}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Weekly shipping market report, week 43}.
+\newblock \URLprefix
+  \url{https://cyprusshippingnews.com/wp-content/uploads/2026/10/ALLIED-Weekly-Market-Report-Week-43.pdf}.
+  \bibinfo{note}{weekly market report, 27 October 2026; data as of 23 October
+  2026}.
+%Type = Article
+\bibitem[{Ambroziak and K{\l}osowski(2018)}]{ambroziak2018}
+\bibinfo{author}{Ambroziak, A.}, \bibinfo{author}{K{\l}osowski, P.},
+  \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Polyester sail technical woven fabric behaviour under
+  uniaxial and biaxial tensile tests}.
+\newblock \bibinfo{journal}{Journal of Theoretical and Applied Mechanics}
+  \bibinfo{volume}{56}, \bibinfo{pages}{227--238}.
+\newblock \DOIprefix\doi{10.15632/jtam-pl.56.1.227}.
+%Type = Techreport
+\bibitem[{Andersson and M{\'a}rquez~Salazar(2015)}]{fcbi2015methanol}
+\bibinfo{author}{Andersson, K.}, \bibinfo{author}{M{\'a}rquez~Salazar, C.},
+  \bibinfo{year}{2015}.
+\newblock \bibinfo{title}{Methanol as a Marine Fuel Report}.
+\newblock \bibinfo{type}{Technical Report}. FCBI Energy (FC Business
+  Intelligence Ltd.), prepared for the Methanol Institute.
+  \bibinfo{address}{London}.
+\newblock \URLprefix
+  \url{https://methanol.org/wp-content/uploads/2018/03/FCBI-Methanol-Marine-Fuel-Report-Final-English.pdf}.
+%Type = Misc
+\bibitem[{{Anemoi Marine Technologies}(2024)}]{anemoi2024brochure}
+\bibinfo{author}{{Anemoi Marine Technologies}}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Setting the world in motion with wind: {Anemoi} rotor
+  sails}.
+\newblock \bibinfo{howpublished}{Product brochure, version 2.1}.
+\newblock \URLprefix
+  \url{https://anemoimarine.com/wp-content/uploads/2024/04/Anemoi-Marine-Brochure-English.pdf}.
+%Type = Misc
+\bibitem[{{Anemoi Marine Technologies}(2026a)}]{anemoi2026}
+\bibinfo{author}{{Anemoi Marine Technologies}}, \bibinfo{year}{2026}a.
+\newblock \bibinfo{title}{Anemoi rotor sails confirm long-term reliability as
+  m/v afros completes successful second dry dock survey}.
+\newblock \bibinfo{howpublished}{Cyprus Shipping News}.
+\newblock \URLprefix
+  \url{https://cyprusshippingnews.com/2026/05/15/anemoi-rotor-sails-confirm-long-term-reliability-as-m-v-afros-completes-successful-second-dry-dock-survey/}.
+%Type = Misc
+\bibitem[{{Anemoi Marine Technologies}(2026b)}]{anemoi_deploy}
+\bibinfo{author}{{Anemoi Marine Technologies}}, \bibinfo{year}{2026}b.
+\newblock \bibinfo{title}{Flettner rotor ship: deployment systems}.
+\newblock \URLprefix \url{https://anemoimarine.com/flettner-rotor-ship/}.
+  \bibinfo{note}{web page, retrieved 6 November 2026}.
+%Type = Article
+\bibitem[{Asadi et~al.(2021)Asadi, Uhlemann, Stranghöner and
+  Ulbricht}]{asadi2021}
+\bibinfo{author}{Asadi, H.}, \bibinfo{author}{Uhlemann, J.},
+  \bibinfo{author}{Stranghöner, N.}, \bibinfo{author}{Ulbricht, M.},
+  \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Artificial weathering mechanisms of uncoated
+  structural polyethylene terephthalate fabrics with focus on tensile strength
+  degradation}.
+\newblock \bibinfo{journal}{Materials} \bibinfo{volume}{14},
+  \bibinfo{pages}{618}.
+\newblock \DOIprefix\doi{10.3390/ma14030618}.
+%Type = Inproceedings
+\bibitem[{Badri et~al.(2016)Badri, Deros, Syahri, Saleh and Fitria}]{badri2016}
+\bibinfo{author}{Badri, H.M.}, \bibinfo{author}{Deros, B.M.},
+  \bibinfo{author}{Syahri, M.}, \bibinfo{author}{Saleh, C.},
+  \bibinfo{author}{Fitria, A.}, \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Implementation learning and forgetting curve to
+  scheduling in garment industry}, in: \bibinfo{booktitle}{IOP Conference
+  Series: Materials Science and Engineering}, p. \bibinfo{pages}{012068}.
+\newblock \DOIprefix\doi{10.1088/1757-899X/114/1/012068}.
+%Type = Misc
+\bibitem[{{Baird Maritime}(2021)}]{baird2021pertaminapride}
+\bibinfo{author}{{Baird Maritime}}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{New {VLCC} delivered to indonesia's pertamina}.
+\newblock \URLprefix
+  \url{https://www.bairdmaritime.com/shipping/tankers/new-vlcc-delivered-to-indonesias-pertamina}.
+  \bibinfo{note}{news item, 16 February 2021}.
+%Type = Misc
+\bibitem[{{Baird Maritime}(2024)}]{baird2024_hoegh_aurora}
+\bibinfo{author}{{Baird Maritime}}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Vessel review: Hoegh aurora -- first in new series of
+  ammonia-ready car carriers for norwegian owner}.
+\newblock \URLprefix
+  \url{https://www.bairdmaritime.com/shipping/dry-cargo/pcc-pctc/vessel-review-hoegh-aurora-first-in-new-series-of-ammonia-ready-car-carriers-for-norwegian-owner}.
+  \bibinfo{note}{news item, 7 August 2024}.
+%Type = Misc
+\bibitem[{{Baird Maritime}(2026a)}]{baird2026arion}
+\bibinfo{author}{{Baird Maritime}}, \bibinfo{year}{2026}a.
+\newblock \bibinfo{title}{Vessel review: Arion -- jhi steamship's new aframax
+  tanker built for regional and intercontinental trade}.
+\newblock \URLprefix
+  \url{https://www.bairdmaritime.com/amp/story/shipping/tankers/vessel-review-arion-jhi-steamships-new-aframax-tanker-built-for-regional-and-intercontinental-trade}.
+  \bibinfo{note}{news item, 18 June 2026}.
+%Type = Misc
+\bibitem[{{Baird Maritime}(2026b)}]{baird2026vigor}
+\bibinfo{author}{{Baird Maritime}}, \bibinfo{year}{2026}b.
+\newblock \bibinfo{title}{Vessel review: Vigor ol brave -- handysize bulker
+  optimised for coal, grain and steel transport}.
+\newblock \URLprefix
+  \url{https://www.bairdmaritime.com/amp/story/shipping/dry-cargo/bulkers/vessel-review-vigor-ol-brave-handysize-bulker-optimised-for-coal-grain-and-steel-transport}.
+  \bibinfo{note}{news item, 26 August 2026}.
+%Type = Misc
+\bibitem[{{Baird Maritime}(2026c)}]{baird2026_vive_ut_vivas}
+\bibinfo{author}{{Baird Maritime}}, \bibinfo{year}{2026}c.
+\newblock \bibinfo{title}{Vessel review: Vive ut vivas -- trafigura welcomes
+  319,000dwt vlcc to fleet}.
+\newblock \URLprefix
+  \url{https://www.bairdmaritime.com/shipping/tankers/vive-ut-vivas-vlcc-review}.
+  \bibinfo{note}{news item, 9 October 2026}.
+%Type = Misc
+\bibitem[{{BAR Technologies}(2026)}]{bar2026windwings}
+\bibinfo{author}{{BAR Technologies}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{{WindWings}}.
+\newblock \URLprefix
+  \url{https://www.bartechnologies.uk/commercial-ships/windwings/}.
+  \bibinfo{note}{product page with Integration sub-page, accessed 17 November
+  2026}.
+%Type = Article
+\bibitem[{Bauer et~al.(2018)Bauer, Kennel, Hackl, Campagnolo, Patt and
+  Schmehl}]{bauer2018}
+\bibinfo{author}{Bauer, F.}, \bibinfo{author}{Kennel, R.M.},
+  \bibinfo{author}{Hackl, C.M.}, \bibinfo{author}{Campagnolo, F.},
+  \bibinfo{author}{Patt, M.}, \bibinfo{author}{Schmehl, R.},
+  \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Drag power kite with very high lift coefficient}.
+\newblock \bibinfo{journal}{Renewable Energy}
+  \DOIprefix\doi{10.1016/j.renene.2017.10.073}.
+%Type = Misc
+\bibitem[{{Beluga Fleet Management} and {SkySails}(2009)}]{wintecc2009_record}
+\bibinfo{author}{{Beluga Fleet Management}}, \bibinfo{author}{{SkySails}},
+  \bibinfo{year}{2009}.
+\newblock \bibinfo{title}{{WINTECC}: Demonstration of an innovative wind
+  propulsion technology for cargo vessels ({LIFE06 ENV/D/000479})}.
+\newblock \bibinfo{howpublished}{EU LIFE programme project record}.
+\newblock \URLprefix
+  \url{https://webgate.ec.europa.eu/life/publicWebsite/project/LIFE06-ENV-D-000479/demonstration-of-an-innovative-wind-propulsion-technology-for-cargo-vessels}.
+%Type = Article
+\bibitem[{Bentin et~al.(2018)Bentin, Kotzur, Schlaak, Zastrau and
+  Freye}]{bentin2018}
+\bibinfo{author}{Bentin, M.}, \bibinfo{author}{Kotzur, S.},
+  \bibinfo{author}{Schlaak, M.}, \bibinfo{author}{Zastrau, D.},
+  \bibinfo{author}{Freye, D.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Perspectives for a wind assisted ship propulsion}.
+\newblock \bibinfo{journal}{International Journal of Maritime Engineering}
+  \bibinfo{volume}{160}.
+\newblock \DOIprefix\doi{10.5750/ijme.v160iA1.1043}.
+%Type = Article
+\bibitem[{Bentin et~al.(2016)Bentin, Zastrau, Schlaak, Freye, Elsner and
+  Kotzur}]{bentin2016}
+\bibinfo{author}{Bentin, M.}, \bibinfo{author}{Zastrau, D.},
+  \bibinfo{author}{Schlaak, M.}, \bibinfo{author}{Freye, D.},
+  \bibinfo{author}{Elsner, R.}, \bibinfo{author}{Kotzur, S.},
+  \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{A new routing optimization tool -- influence of wind
+  and waves on fuel consumption of ships with and without wind assisted ship
+  propulsion systems}.
+\newblock \bibinfo{journal}{Transportation Research Procedia}
+  \bibinfo{volume}{14}, \bibinfo{pages}{153--162}.
+\newblock \DOIprefix\doi{10.1016/j.trpro.2016.05.051}.
+%Type = Incollection
+\bibitem[{Bigi et~al.(2018)Bigi, N{\^e}me, Roncin, Leroux, Bles, Jochum and
+  Parlier}]{bigi2018}
+\bibinfo{author}{Bigi, N.}, \bibinfo{author}{N{\^e}me, A.},
+  \bibinfo{author}{Roncin, K.}, \bibinfo{author}{Leroux, J.B.},
+  \bibinfo{author}{Bles, G.}, \bibinfo{author}{Jochum, C.},
+  \bibinfo{author}{Parlier, Y.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Analytical tether model for static kite flight}, in:
+  \bibinfo{editor}{Schmehl, R.} (Ed.), \bibinfo{booktitle}{Airborne Wind
+  Energy: Advances in Technology Development and Research}.
+  \bibinfo{publisher}{Springer}, pp. \bibinfo{pages}{57--78}.
+\newblock \DOIprefix\doi{10.1007/978-981-10-1947-0_3}.
+%Type = Techreport
+\bibitem[{Blendermann(1993)}]{blendermann1993}
+\bibinfo{author}{Blendermann, W.}, \bibinfo{year}{1993}.
+\newblock \bibinfo{title}{Schiffsform und {W}indlast: {K}orrelations- und
+  {R}egressionsanalyse von {W}indkanalmessungen am {M}odell}.
+\newblock \bibinfo{type}{Bericht} \bibinfo{number}{533}. Institut f{\"u}r
+  Schiffbau der Universit{\"a}t Hamburg.
+\newblock \DOIprefix\doi{10.15480/882.965}.
+%Type = Article
+\bibitem[{Bordogna et~al.(2020)Bordogna, Muggiasca, Giappino, Belloli, Keuning
+  and Huijsmans}]{bordogna2020}
+\bibinfo{author}{Bordogna, G.}, \bibinfo{author}{Muggiasca, S.},
+  \bibinfo{author}{Giappino, S.}, \bibinfo{author}{Belloli, M.},
+  \bibinfo{author}{Keuning, J.A.}, \bibinfo{author}{Huijsmans, R.H.M.},
+  \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{The effects of the aerodynamic interaction on the
+  performance of two {Flettner} rotors}.
+\newblock \bibinfo{journal}{Journal of Wind Engineering and Industrial
+  Aerodynamics} \bibinfo{volume}{196}, \bibinfo{pages}{104024}.
+\newblock \DOIprefix\doi{10.1016/j.jweia.2019.104024}.
+%Type = Techreport
+\bibitem[{Bortolotti et~al.(2019)Bortolotti, Berry, Murray, Gaertner, Jenne,
+  Damiani, Barter and Dykes}]{bortolotti2019blade}
+\bibinfo{author}{Bortolotti, P.}, \bibinfo{author}{Berry, D.},
+  \bibinfo{author}{Murray, R.}, \bibinfo{author}{Gaertner, E.},
+  \bibinfo{author}{Jenne, D.}, \bibinfo{author}{Damiani, R.},
+  \bibinfo{author}{Barter, G.}, \bibinfo{author}{Dykes, K.},
+  \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{A Detailed Wind Turbine Blade Cost Model}.
+\newblock \bibinfo{type}{Technical Report}
+  \bibinfo{number}{NREL/TP-5000-73585}. National Renewable Energy Laboratory.
+  \bibinfo{address}{Golden, CO}.
+\newblock \URLprefix \url{https://www.nrel.gov/docs/fy19osti/73585.pdf},
+  \DOIprefix\doi{10.2172/1529217}.
+%Type = Incollection
+\bibitem[{Bosman et~al.(2013)Bosman, Reid, Vlasblom and Smeets}]{bosman2013}
+\bibinfo{author}{Bosman, R.}, \bibinfo{author}{Reid, V.},
+  \bibinfo{author}{Vlasblom, M.}, \bibinfo{author}{Smeets, P.},
+  \bibinfo{year}{2013}.
+\newblock \bibinfo{title}{Airborne wind energy tethers with high-modulus
+  polyethylene fibers}, in: \bibinfo{editor}{Ahrens, U.},
+  \bibinfo{editor}{Diehl, M.}, \bibinfo{editor}{Schmehl, R.} (Eds.),
+  \bibinfo{booktitle}{Airborne Wind Energy}. \bibinfo{publisher}{Springer},
+  \bibinfo{address}{Berlin, Heidelberg}. Green Energy and Technology, pp.
+  \bibinfo{pages}{563--585}.
+\newblock \DOIprefix\doi{10.1007/978-3-642-39965-7_33}.
+%Type = Misc
+\bibitem[{{Bruce Goldsmith Design}(2026)}]{bgd2026}
+\bibinfo{author}{{Bruce Goldsmith Design}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Paraglider inspection recommendations}.
+\newblock
+  \bibinfo{howpublished}{\url{https://paramotor.flybgd.com/fr/paramoteur/recommandations-revision-13-0-0.html},
+  read 2 November 2026}.
+%Type = Article
+\bibitem[{Campos et~al.(2024)Campos, Abdolali, Alves, Masarik, Meixner, Mehra,
+  Figurskey, Banihashemi, Sienkiewicz and Lumpkin}]{campos2024}
+\bibinfo{author}{Campos, R.M.}, \bibinfo{author}{Abdolali, A.},
+  \bibinfo{author}{Alves, J.H.}, \bibinfo{author}{Masarik, M.},
+  \bibinfo{author}{Meixner, J.}, \bibinfo{author}{Mehra, A.},
+  \bibinfo{author}{Figurskey, D.}, \bibinfo{author}{Banihashemi, S.},
+  \bibinfo{author}{Sienkiewicz, J.}, \bibinfo{author}{Lumpkin, R.},
+  \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Development and validation of {NOAA}'s 20-year global
+  wave ensemble reforecast}.
+\newblock \bibinfo{journal}{Weather and Forecasting} \bibinfo{volume}{39},
+  \bibinfo{pages}{1651--1672}.
+\newblock \DOIprefix\doi{10.1175/WAF-D-24-0043.1}.
+%Type = Article
+\bibitem[{Cayon et~al.(2023)Cayon, Gaunaa and Schmehl}]{cayon2023}
+\bibinfo{author}{Cayon, O.}, \bibinfo{author}{Gaunaa, M.},
+  \bibinfo{author}{Schmehl, R.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Fast aero-structural model of a leading-edge
+  inflatable kite}.
+\newblock \bibinfo{journal}{Energies} \bibinfo{volume}{16},
+  \bibinfo{pages}{3061}.
+\newblock \DOIprefix\doi{10.3390/en16073061}.
+%Type = Techreport
+\bibitem[{{CE Delft} et~al.(2016){CE Delft}, {Tyndall Centre for Climate Change
+  Research}, {Fraunhofer ISI} and {Chalmers University of
+  Technology}}]{cedelft2016}
+\bibinfo{author}{{CE Delft}}, \bibinfo{author}{{Tyndall Centre for Climate
+  Change Research}}, \bibinfo{author}{{Fraunhofer ISI}},
+  \bibinfo{author}{{Chalmers University of Technology}}, \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Study on the analysis of market potentials and market
+  barriers for wind propulsion technologies for ships}.
+\newblock \bibinfo{type}{Technical Report}. European Commission,
+  Directorate-General for Climate Action. \bibinfo{address}{Luxembourg}.
+\newblock \DOIprefix\doi{10.2834/68747}.
+%Type = Article
+\bibitem[{Ceylan et~al.(2023)Ceylan, Ne{\c{s}}er and
+  Bozdo{\u{g}}an}]{ceylan2023}
+\bibinfo{author}{Ceylan, {\.I}.}, \bibinfo{author}{Ne{\c{s}}er, G.},
+  \bibinfo{author}{Bozdo{\u{g}}an, F.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{The effect of marine environment on the mechanical
+  performance of {Dacron} sailcloth}.
+\newblock \bibinfo{journal}{Industria Textila} \bibinfo{volume}{74},
+  \bibinfo{pages}{595--600}.
+\newblock \DOIprefix\doi{10.35530/IT.074.05.202165}.
+%Type = Misc
+\bibitem[{{Conoship International}(2023)}]{conoship2023cip3800}
+\bibinfo{author}{{Conoship International}}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{{CIP3800} general cargo vessel}.
+\newblock \URLprefix
+  \url{https://www.conoship.com/portfolio-item/3800-tdw-general-cargo-vessel/}.
+  \bibinfo{note}{design datasheet, 12 June 2023}.
+%Type = Misc
+\bibitem[{Coppens(2007)}]{nextnature2007kiteship}
+\bibinfo{author}{Coppens, R.}, \bibinfo{year}{2007}.
+\newblock \bibinfo{title}{Kite ship}.
+\newblock \bibinfo{howpublished}{Next Nature}.
+\newblock \URLprefix
+  \url{https://nextnature.org/en/magazine/story/2007/kite-ship}.
+  \bibinfo{note}{news item, 19 December 2007}.
+%Type = Misc
+\bibitem[{{Damen Shipyards}(2025)}]{damen2025cf3850}
+\bibinfo{author}{{Damen Shipyards}}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Combi freighter 3850: product sheet}.
+\newblock \URLprefix
+  \url{https://medialibrary.damen.com/m/4537b8913b7e976d/original/product-sheet-combi-freighter-3850.pdf}.
+  \bibinfo{note}{datasheet}.
+%Type = Misc
+\bibitem[{Damodaran(2026a)}]{damodaran2026wacc}
+\bibinfo{author}{Damodaran, A.}, \bibinfo{year}{2026}a.
+\newblock \bibinfo{title}{Cost of equity and capital ({US})}.
+\newblock \bibinfo{howpublished}{Damodaran Online, NYU Stern}.
+\newblock \URLprefix
+  \url{https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/wacc.html}.
+  \bibinfo{note}{dataset, data as of January 2026}.
+%Type = Misc
+\bibitem[{Damodaran(2026b)}]{damodaran2026margins}
+\bibinfo{author}{Damodaran, A.}, \bibinfo{year}{2026}b.
+\newblock \bibinfo{title}{Margins by sector (europe)}.
+\newblock \bibinfo{howpublished}{Damodaran Online, NYU Stern}.
+\newblock \URLprefix
+  \url{https://pages.stern.nyu.edu/~adamodar/pc/datasets/marginEurope.xls}.
+  \bibinfo{note}{dataset, updated January 2026}.
+%Type = Article
+\bibitem[{Davies et~al.(2015)Davies, Fran{\c{c}}ois, Lacotte, Vu and
+  Durville}]{davies2015}
+\bibinfo{author}{Davies, P.}, \bibinfo{author}{Fran{\c{c}}ois, M.},
+  \bibinfo{author}{Lacotte, N.}, \bibinfo{author}{Vu, T.D.},
+  \bibinfo{author}{Durville, D.}, \bibinfo{year}{2015}.
+\newblock \bibinfo{title}{An empirical model to predict the lifetime of braided
+  {HMPE} handling ropes under cyclic bend over sheave ({CBOS}) loading}.
+\newblock \bibinfo{journal}{Ocean Engineering} \bibinfo{volume}{97},
+  \bibinfo{pages}{74--81}.
+\newblock \DOIprefix\doi{10.1016/j.oceaneng.2015.01.003}.
+%Type = Article
+\bibitem[{Dekani{\'c} et~al.(2023)Dekani{\'c}, {\v{S}}aravanja, Volmajer~Valh
+  and Pu{\v{s}}i{\'c}}]{dekanic2023}
+\bibinfo{author}{Dekani{\'c}, T.}, \bibinfo{author}{{\v{S}}aravanja, A.},
+  \bibinfo{author}{Volmajer~Valh, J.}, \bibinfo{author}{Pu{\v{s}}i{\'c}, T.},
+  \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Simulation of accelerated ageing of polyester
+  fabric}.
+\newblock \bibinfo{journal}{Advanced Technologies} \bibinfo{volume}{12},
+  \bibinfo{pages}{19--24}.
+\newblock \DOIprefix\doi{10.5937/savteh2302018D}.
+%Type = Misc
+\bibitem[{{Deltamarin}(2026)}]{deltamarin_hoegh_aurora}
+\bibinfo{author}{{Deltamarin}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{H{\"o}egh {Aurora}, {PCTC} reference sheet}.
+\newblock \URLprefix
+  \url{https://deltamarin.com/references/pctc/hoegh-aurora/}.
+  \bibinfo{note}{reference sheet}.
+%Type = Techreport
+\bibitem[{{Det Norske Veritas}(2000)}]{dnv_rudder}
+\bibinfo{author}{{Det Norske Veritas}}, \bibinfo{year}{2000}.
+\newblock \bibinfo{title}{Rules for Classification of Ships: Newbuildings, Hull
+  and Equipment, Main Class}.
+\newblock \bibinfo{type}{Technical Report}. Det Norske Veritas.
+\newblock \bibinfo{note}{January 2000, Pt. 3 Ch. 3 Sec. 2, C 106, guidance
+  note, p. 9}.
+%Type = Manual
+\bibitem[{{Det Norske Veritas}(2010)}]{dnv2010rpc205}
+\bibinfo{author}{{Det Norske Veritas}}, \bibinfo{year}{2010}.
+\newblock \bibinfo{title}{Environmental Conditions and Environmental Loads}.
+  \bibinfo{edition}{october 2010} ed.
+\newblock \bibinfo{organization}{Det Norske Veritas}.
+\newblock \URLprefix
+  \url{https://rules.dnv.com/docs/pdf/DNVPM/codes/docs/2010-10/RP-C205.pdf}.
+  \bibinfo{note}{recommended Practice}.
+%Type = Article
+\bibitem[{Dhainaut et~al.(2025)Dhainaut, Sacher, Leroux, Pernod and
+  Podeur}]{dhainaut2025}
+\bibinfo{author}{Dhainaut, C.}, \bibinfo{author}{Sacher, M.},
+  \bibinfo{author}{Leroux, J.B.}, \bibinfo{author}{Pernod, L.},
+  \bibinfo{author}{Podeur, V.}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{A large-scale optimization framework for simultaneous
+  design and routing of wind-assisted ships}.
+\newblock \bibinfo{journal}{Journal of Sailing Technology}
+  \bibinfo{volume}{10}, \bibinfo{pages}{92--125}.
+\newblock \DOIprefix\doi{10.5957/jst/2025.10.1.92}.
+%Type = Techreport
+\bibitem[{D{\'i}az et~al.(2025)D{\'i}az, Tietge, Dornoff and
+  Mock}]{icct2025_eea_brief}
+\bibinfo{author}{D{\'i}az, S.}, \bibinfo{author}{Tietge, U.},
+  \bibinfo{author}{Dornoff, J.}, \bibinfo{author}{Mock, P.},
+  \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{{CO2} emissions from new passenger cars in {Europe}:
+  Car manufacturers' performance in 2024}.
+\newblock \bibinfo{type}{Research Brief} \bibinfo{number}{ID 482}.
+  International Council on Clean Transportation.
+\newblock \URLprefix
+  \url{https://theicct.org/wp-content/uploads/2025/12/ID-482-%E2%80%93-EEA-briefing-Research-Brief-A4-70179-v7.pdf}.
+%Type = Techreport
+\bibitem[{{DNV}(2025)}]{dnv2025mf}
+\bibinfo{author}{{DNV}}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Maritime Forecast to 2050}.
+\newblock \bibinfo{type}{Technical Report}. DNV. \bibinfo{address}{Høvik}.
+\newblock \URLprefix
+  \url{https://www.dnv.com/publications/maritime-forecast-edition-2025/}.
+  \bibinfo{note}{energy Transition Outlook 2025}.
+%Type = Misc
+\bibitem[{Doedee(2023)}]{sustainableships2023methanol}
+\bibinfo{author}{Doedee, V.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{The state of methanol as marine fuel 2023}.
+\newblock \bibinfo{howpublished}{Sustainable Ships}.
+\newblock \URLprefix
+  \url{https://www.sustainable-ships.org/tools/2023/methanol-marine-fuel}.
+  \bibinfo{note}{news item, 22 March 2023}.
+%Type = Misc
+\bibitem[{Doyle(2011)}]{doyle2011}
+\bibinfo{author}{Doyle, B.P.}, \bibinfo{year}{2011}.
+\newblock \bibinfo{title}{Sailcloth}.
+\newblock \bibinfo{howpublished}{US Patent 7,886,777 B2, North Sails Group}.
+%Type = Misc
+\bibitem[{{DSM Dyneema}(2019)}]{dsm_sk78_mooring}
+\bibinfo{author}{{DSM Dyneema}}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Selecting the right fiber for mooring lines:
+  {Dyneema} {SK78}}.
+\newblock \bibinfo{howpublished}{White paper}.
+\newblock \URLprefix
+  \url{https://www.dsm.com/content/dam/dsm/dyneema/en_gb/documents/whitepaper-sk78-selecting-the-right-fiber-for-mooring-lines.pdf}.
+%Type = Misc
+\bibitem[{{DST -- Development Centre for Ship Technology and Transport
+  Systems}(2019)}]{eu2019dieselelectric}
+\bibinfo{author}{{DST -- Development Centre for Ship Technology and Transport
+  Systems}}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Fact sheet n\textsuperscript{o} 2: Diesel-electric
+  propulsion}.
+\newblock \URLprefix
+  \url{https://indanube.eu/wp-content/uploads/sites/4/2019/03/D-3-1-3_GRENDEL_Factsheets_02_Diesel-Electric_v1.0_FINAL_2019-02-25.pdf}.
+  \bibinfo{note}{datasheet, GRENDEL -- Green and Efficient Danube Fleet,
+  Interreg Danube Transnational Programme, deliverable D 3.1.3, edition January
+  2019}.
+%Type = Misc
+\bibitem[{{Dudek Paragliders}(2026)}]{dudek2026}
+\bibinfo{author}{{Dudek Paragliders}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Przegl{\k{a}}dy i naprawy}.
+\newblock
+  \bibinfo{howpublished}{\url{https://dudek.eu/en/przeglady-i-naprawy/}, read 2
+  November 2026}.
+%Type = Incollection
+\bibitem[{Dunker(2013)}]{dunker2013}
+\bibinfo{author}{Dunker, S.}, \bibinfo{year}{2013}.
+\newblock \bibinfo{title}{Ram-air wing design considerations for airborne wind
+  energy}, in: \bibinfo{editor}{Ahrens, U.}, \bibinfo{editor}{Diehl, M.},
+  \bibinfo{editor}{Schmehl, R.} (Eds.), \bibinfo{booktitle}{Airborne Wind
+  Energy}. \bibinfo{publisher}{Springer}, \bibinfo{address}{Berlin,
+  Heidelberg}. Green Energy and Technology, pp. \bibinfo{pages}{517--546}.
+\newblock \DOIprefix\doi{10.1007/978-3-642-39965-7_31}.
+%Type = Phdthesis
+\bibitem[{Dupuy(2025)}]{dupuy2025thesis}
+\bibinfo{author}{Dupuy, M.}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Adding some continuity in discrete ship weather
+  routing}.
+\newblock Ph.D. thesis. Institut Polytechnique de Paris.
+\newblock \DOIprefix\doi{10.70675/0ef4875ezf550z431az87cczb5b659f19f19}.
+%Type = Book
+\bibitem[{Echeverri et~al.(2020a)Echeverri, Fricke, Homsy and
+  Tucker}]{echeverri2020part1}
+\bibinfo{author}{Echeverri, P.}, \bibinfo{author}{Fricke, T.},
+  \bibinfo{author}{Homsy, G.}, \bibinfo{author}{Tucker, N.},
+  \bibinfo{year}{2020}a.
+\newblock \bibinfo{title}{The Energy Kite: Selected Results from the Design,
+  Development, and Testing of Makani's Airborne Wind Turbines (Part I of III)}.
+\newblock \URLprefix \url{https://x.company/projects/makani}.
+%Type = Book
+\bibitem[{Echeverri et~al.(2020b)Echeverri, Fricke, Homsy and
+  Tucker}]{echeverri2020part2}
+\bibinfo{author}{Echeverri, P.}, \bibinfo{author}{Fricke, T.},
+  \bibinfo{author}{Homsy, G.}, \bibinfo{author}{Tucker, N.},
+  \bibinfo{year}{2020}b.
+\newblock \bibinfo{title}{The Energy Kite: Selected Results from the Design,
+  Development, and Testing of Makani's Airborne Wind Turbines (Part II of
+  III)}.
+\newblock \URLprefix \url{https://x.company/projects/makani}.
+%Type = Misc
+\bibitem[{{ECO FLETTNER GmbH}(2026)}]{ecoflettner2026rotor}
+\bibinfo{author}{{ECO FLETTNER GmbH}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{{ECO FLETTNER} rotor: technical specifications}.
+\newblock \URLprefix \url{https://ecoflettner.de/}. \bibinfo{note}{product web
+  page, accessed 17 November 2026}.
+%Type = Article
+\bibitem[{Eijkelhof et~al.(2020)Eijkelhof, Rapp, Fasel, Gaunaa and
+  Schmehl}]{eijkelhof2020reference}
+\bibinfo{author}{Eijkelhof, D.}, \bibinfo{author}{Rapp, S.},
+  \bibinfo{author}{Fasel, U.}, \bibinfo{author}{Gaunaa, M.},
+  \bibinfo{author}{Schmehl, R.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Reference design and simulation framework of a
+  multi-megawatt airborne wind energy system}.
+\newblock \bibinfo{journal}{Journal of Physics: Conference Series}
+  \bibinfo{volume}{1618}, \bibinfo{pages}{032020}.
+\newblock \DOIprefix\doi{10.1088/1742-6596/1618/3/032020}.
+%Type = Article
+\bibitem[{Erhard and Strauch(2013a)}]{erhard2013}
+\bibinfo{author}{Erhard, M.}, \bibinfo{author}{Strauch, H.},
+  \bibinfo{year}{2013}a.
+\newblock \bibinfo{title}{Control of towing kites for seagoing vessels}.
+\newblock \bibinfo{journal}{IEEE Transactions on Control Systems Technology}
+  \bibinfo{volume}{21}, \bibinfo{pages}{1629--1640}.
+\newblock \DOIprefix\doi{10.1109/TCST.2012.2221093}.
+%Type = Incollection
+\bibitem[{Erhard and Strauch(2013b)}]{erhard2013b}
+\bibinfo{author}{Erhard, M.}, \bibinfo{author}{Strauch, H.},
+  \bibinfo{year}{2013}b.
+\newblock \bibinfo{title}{Theory and experimental validation of a simple
+  comprehensible model of tethered kite dynamics used for controller design},
+  in: \bibinfo{editor}{Ahrens, U.}, \bibinfo{editor}{Diehl, M.},
+  \bibinfo{editor}{Schmehl, R.} (Eds.), \bibinfo{booktitle}{Airborne Wind
+  Energy}. \bibinfo{publisher}{Springer}, \bibinfo{address}{Berlin,
+  Heidelberg}. Green Energy and Technology, pp. \bibinfo{pages}{141--165}.
+\newblock \DOIprefix\doi{10.1007/978-3-642-39965-7_8}.
+%Type = Misc
+\bibitem[{{European Commission}(2016)}]{eu2016delreg2071}
+\bibinfo{author}{{European Commission}}, \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Commission delegated regulation ({EU}) 2016/2071 of
+  22 september 2016 amending regulation ({EU}) 2015/757 of the european
+  parliament and of the council as regards the methods for monitoring carbon
+  dioxide emissions and the rules for monitoring other relevant information}.
+\newblock \URLprefix \url{https://eur-lex.europa.eu/eli/reg_del/2016/2071/oj}.
+  \bibinfo{note}{official Journal of the European Union, L 320, 26 November
+  2016, pp. 1--4}.
+%Type = Techreport
+\bibitem[{{European Maritime Safety Agency}(2023)}]{emsa2023}
+\bibinfo{author}{{European Maritime Safety Agency}}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Potential of Wind-Assisted Propulsion for Shipping}.
+\newblock \bibinfo{type}{Technical Report}. European Maritime Safety Agency.
+  \bibinfo{address}{Lisbon}.
+%Type = Misc
+\bibitem[{{European Parliament and Council of the European
+  Union}(2023a)}]{eu2023ets}
+\bibinfo{author}{{European Parliament and Council of the European Union}},
+  \bibinfo{year}{2023}a.
+\newblock \bibinfo{title}{Directive ({EU}) 2023/959 of the european parliament
+  and of the council of 10 may 2023 amending directive 2003/87/{EC}
+  establishing a system for greenhouse gas emission allowance trading within
+  the union and decision ({EU}) 2015/1814 concerning the establishment and
+  operation of a market stability reserve for the union greenhouse gas emission
+  trading system}.
+\newblock \URLprefix \url{https://eur-lex.europa.eu/eli/dir/2023/959/oj}.
+  \bibinfo{note}{official Journal of the European Union, L 130, 16 May 2023,
+  pp. 134--202}.
+%Type = Misc
+\bibitem[{{European Parliament and Council of the European
+  Union}(2023b)}]{eu2023fueleu}
+\bibinfo{author}{{European Parliament and Council of the European Union}},
+  \bibinfo{year}{2023}b.
+\newblock \bibinfo{title}{Regulation ({EU}) 2023/1805 of the european
+  parliament and of the council of 13 september 2023 on the use of renewable
+  and low-carbon fuels in maritime transport, and amending directive
+  2009/16/{EC}}.
+\newblock \URLprefix \url{https://eur-lex.europa.eu/eli/reg/2023/1805/oj}.
+  \bibinfo{note}{official Journal of the European Union, L 234, 22 September
+  2023, pp. 48--100}.
+%Type = Misc
+\bibitem[{{Euroseas Ltd.}(2026)}]{euroseas2026feeder}
+\bibinfo{author}{{Euroseas Ltd.}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Euroseas announces expansion of its feeder
+  containership newbuilding program ordering two 2800 teu high-reefer vessels
+  and two 1800 teu vessels}.
+\newblock \URLprefix
+  \url{https://cyprusshippingnews.com/2026/05/05/euroseas-announces-expansion-of-its-feeder-containership-newbuilding-program-ordering-two-2800-teu-high-reefer-vessels-and-two-1800-teu-vessels/}.
+  \bibinfo{note}{news item, 5 May 2026}.
+%Type = Manual
+\bibitem[{{Eurostat}(2019)}]{eurostat_maritime_manual}
+\bibinfo{author}{{Eurostat}}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Reference Manual on Maritime Transport Statistics,
+  Version 4.1}.
+\newblock \bibinfo{organization}{Eurostat}.
+\newblock \URLprefix
+  \url{https://www.trafa.se/globalassets/styrdokument/statistik/reference-manual-on-maritime-transport-statistics.pdf}.
+%Type = Misc
+\bibitem[{{Eurostat}(2026a)}]{eurostat_mar_mg_am_cwhc}
+\bibinfo{author}{{Eurostat}}, \bibinfo{year}{2026}a.
+\newblock \bibinfo{title}{Country level -- gross weight of goods handled in
+  main ports, by type of cargo (mar\_mg\_am\_cwhc)}.
+\newblock \URLprefix
+  \url{https://ec.europa.eu/eurostat/databrowser/view/mar_mg_am_cwhc/default/table}.
+  \bibinfo{note}{dataset, EU27, large containers, 2015--2024}.
+%Type = Misc
+\bibitem[{{Eurostat}(2026b)}]{eurostat_mar_mg_am_cvh}
+\bibinfo{author}{{Eurostat}}, \bibinfo{year}{2026}b.
+\newblock \bibinfo{title}{Country level -- volume (in {TEUs}) of containers
+  handled in main ports, by loading status (mar\_mg\_am\_cvh)}.
+\newblock \URLprefix
+  \url{https://ec.europa.eu/eurostat/databrowser/view/mar_mg_am_cvh/default/table}.
+  \bibinfo{note}{dataset, EU27, 2010--2024, retrieved 1 November 2026}.
+%Type = Misc
+\bibitem[{{Extremtextil}(2026)}]{extremtextil_prices_2026}
+\bibinfo{author}{{Extremtextil}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Product pages for kite cloth and sailcloth}.
+\newblock \URLprefix \url{https://www.extremtextil.de}. \bibinfo{note}{retail
+  web shop, Dresden, prices incl. 19\,\% VAT, retrieved 1 November 2026}.
+%Type = Techreport
+\bibitem[{Faber et~al.(2020)Faber, Hanayama, Zhang, Pereda, Comer
+  et~al.}]{faber2020}
+\bibinfo{author}{Faber, J.}, \bibinfo{author}{Hanayama, S.},
+  \bibinfo{author}{Zhang, S.}, \bibinfo{author}{Pereda, P.},
+  \bibinfo{author}{Comer, B.}, et~al., \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Fourth {IMO} Greenhouse Gas Study 2020}.
+\newblock \bibinfo{type}{Technical Report}. International Maritime
+  Organization. \bibinfo{address}{London}.
+\newblock \URLprefix
+  \url{https://www.imo.org/en/OurWork/Environment/Pages/Fourth-IMO-Greenhouse-Gas-Study-2020.aspx}.
+%Type = Incollection
+\bibitem[{Faggiani and Schmehl(2018)}]{faggiani2018}
+\bibinfo{author}{Faggiani, P.}, \bibinfo{author}{Schmehl, R.},
+  \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Design and economics of a pumping kite wind park},
+  in: \bibinfo{booktitle}{Airborne Wind Energy: Advances in Technology
+  Development and Research}. \bibinfo{publisher}{Springer}, pp.
+  \bibinfo{pages}{391--411}.
+%Type = Article
+\bibitem[{Fagiano et~al.(2022)Fagiano, Quack, Bauer, Carnel and
+  Oland}]{fagiano2022autonomous}
+\bibinfo{author}{Fagiano, L.}, \bibinfo{author}{Quack, M.},
+  \bibinfo{author}{Bauer, F.}, \bibinfo{author}{Carnel, L.},
+  \bibinfo{author}{Oland, E.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Autonomous airborne wind energy systems:
+  Accomplishments and challenges}.
+\newblock \bibinfo{journal}{Annual Review of Control, Robotics, and Autonomous
+  Systems} \bibinfo{volume}{5}, \bibinfo{pages}{603--631}.
+\newblock \DOIprefix\doi{10.1146/annurev-control-042820-124658}.
+%Type = Article
+\bibitem[{Fagiano and Schnez(2017)}]{fagiano2017takeoff}
+\bibinfo{author}{Fagiano, L.}, \bibinfo{author}{Schnez, S.},
+  \bibinfo{year}{2017}.
+\newblock \bibinfo{title}{On the take-off of airborne wind energy systems based
+  on rigid wings}.
+\newblock \bibinfo{journal}{Renewable Energy}
+  \DOIprefix\doi{10.1016/j.renene.2017.02.023}.
+%Type = Article
+\bibitem[{Farkas et~al.(2017)Farkas, Degiuli and Marti{\'c}}]{farkas2017}
+\bibinfo{author}{Farkas, A.}, \bibinfo{author}{Degiuli, N.},
+  \bibinfo{author}{Marti{\'c}, I.}, \bibinfo{year}{2017}.
+\newblock \bibinfo{title}{Numerical simulation of viscous flow around a tanker
+  model}.
+\newblock \bibinfo{journal}{Brodogradnja} \bibinfo{volume}{68},
+  \bibinfo{pages}{109--125}.
+\newblock \DOIprefix\doi{10.21278/brod68208}.
+%Type = Incollection
+\bibitem[{Fechner and Schmehl(2013)}]{fechner2013}
+\bibinfo{author}{Fechner, U.}, \bibinfo{author}{Schmehl, R.},
+  \bibinfo{year}{2013}.
+\newblock \bibinfo{title}{Model-based efficiency analysis of wind power
+  conversion by a pumping kite power system}, in: \bibinfo{editor}{Ahrens, U.},
+  \bibinfo{editor}{Diehl, M.}, \bibinfo{editor}{Schmehl, R.} (Eds.),
+  \bibinfo{booktitle}{Airborne Wind Energy}. \bibinfo{publisher}{Springer},
+  \bibinfo{address}{Berlin, Heidelberg}. Green Energy and Technology, pp.
+  \bibinfo{pages}{249--269}.
+\newblock \DOIprefix\doi{10.1007/978-3-642-39965-7_14}.
+%Type = Misc
+\bibitem[{{Federal Aviation Administration}(1996)}]{faa1996}
+\bibinfo{author}{{Federal Aviation Administration}}, \bibinfo{year}{1996}.
+\newblock \bibinfo{title}{1-g stall speed as the basis for compliance with part
+  25 of the federal aviation regulations; proposed rule}.
+\newblock \URLprefix
+  \url{https://www.govinfo.gov/content/pkg/FR-1996-01-18/html/96-415.htm}.
+  \bibinfo{note}{federal Register 61(12), 1260--1268, Docket No. 28404, Notice
+  No. 95-17}.
+%Type = Manual
+\bibitem[{{Federal Aviation Administration}(2001)}]{faa2001}
+\bibinfo{author}{{Federal Aviation Administration}}, \bibinfo{year}{2001}.
+\newblock \bibinfo{title}{Acceptable Methods, Techniques, and Practices:
+  Aircraft Inspection and Repair}.
+\newblock \bibinfo{note}{Advisory Circular 43.13-1B with Change 1, Chapter 2,
+  Fabric Covering}.
+%Type = Misc
+\bibitem[{Flynn(2015)}]{flynn2015}
+\bibinfo{author}{Flynn, D.}, \bibinfo{year}{2015}.
+\newblock \bibinfo{title}{How long do sails last?}
+\newblock \bibinfo{howpublished}{Cruising World}.
+%Type = Inproceedings
+\bibitem[{Folkersma et~al.(2020)Folkersma, Schmehl and
+  Vir\'{e}}]{folkersma2020}
+\bibinfo{author}{Folkersma, M.}, \bibinfo{author}{Schmehl, R.},
+  \bibinfo{author}{Vir\'{e}, A.}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Steady-state aeroelasticity of a ram-air wing for
+  airborne wind energy applications}, in: \bibinfo{booktitle}{Journal of
+  Physics: Conference Series}, p. \bibinfo{pages}{032018}.
+\newblock \DOIprefix\doi{10.1088/1742-6596/1618/3/032018}.
+%Type = Incollection
+\bibitem[{Fritz(2013)}]{fritz2013}
+\bibinfo{author}{Fritz, F.}, \bibinfo{year}{2013}.
+\newblock \bibinfo{title}{Application of an automated kite system for ship
+  propulsion and power generation}, in: \bibinfo{editor}{Ahrens, U.},
+  \bibinfo{editor}{Diehl, M.}, \bibinfo{editor}{Schmehl, R.} (Eds.),
+  \bibinfo{booktitle}{Airborne Wind Energy}. \bibinfo{publisher}{Springer},
+  \bibinfo{address}{Berlin, Heidelberg}. Green Energy and Technology, pp.
+  \bibinfo{pages}{359--372}.
+\newblock \DOIprefix\doi{10.1007/978-3-642-39965-7_20}.
+%Type = Article
+\bibitem[{Gangnant et~al.(2026)Gangnant, Maiboom and Tauzia}]{gangnant2026}
+\bibinfo{author}{Gangnant, P.}, \bibinfo{author}{Maiboom, A.},
+  \bibinfo{author}{Tauzia, X.}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{New developments of {PMS}-integrated weather routing
+  for wind-assisted ship equipped with energy storage system and
+  hydro-generation ability}.
+\newblock \bibinfo{journal}{Journal of Sailing Technology}
+  \bibinfo{volume}{11}, \bibinfo{pages}{433--452}.
+\newblock \DOIprefix\doi{10.5957/jst/2026.11.1.433}.
+%Type = Misc
+\bibitem[{{gCaptain}(2021a)}]{gcaptain2021seazhoushan}
+\bibinfo{author}{{gCaptain}}, \bibinfo{year}{2021}a.
+\newblock \bibinfo{title}{Newbuild {Vale} {VLOC} revealed as bulk carrier
+  getting five tilting rotor sails}.
+\newblock \URLprefix
+  \url{https://gcaptain.com/newbuild-vale-vloc-revealed-as-bulk-carrier-getting-five-tilting-rotor-sails}.
+  \bibinfo{note}{news item, 13 May 2021}.
+%Type = Misc
+\bibitem[{{gCaptain}(2021b)}]{gcaptain2021vplp}
+\bibinfo{author}{{gCaptain}}, \bibinfo{year}{2021}b.
+\newblock \bibinfo{title}{Wind-assisted containership receives class approval
+  in principle}.
+\newblock \URLprefix
+  \url{https://gcaptain.com/wind-assisted-containership-receives-class-approval-in-principle/}.
+  \bibinfo{note}{news item, 18 May 2021}.
+%Type = Misc
+\bibitem[{{Grand Port Maritime de la Guadeloupe}(2025)}]{gpmg2026droitsdeport}
+\bibinfo{author}{{Grand Port Maritime de la Guadeloupe}}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Droits de port 2026, tarif n\textsuperscript{o} 45}.
+\newblock \URLprefix
+  \url{https://guadeloupe-portcaraibes.com/wp-content/uploads/2025/12/GPMG_DP45-2026.pdf}.
+  \bibinfo{note}{port tariff, applicable from 1 January 2026}.
+%Type = Article
+\bibitem[{Guan et~al.(2022)Guan, Zhu, Sinsky, Fu, Li, Zhou, Xue, Hou, Peng,
+  Nageswararao, Tallapragada, Hamill, Whitaker, Bates, Pegion, Frederick,
+  Rosencrans and Kumar}]{guan2022}
+\bibinfo{author}{Guan, H.}, \bibinfo{author}{Zhu, Y.}, \bibinfo{author}{Sinsky,
+  E.}, \bibinfo{author}{Fu, B.}, \bibinfo{author}{Li, W.},
+  \bibinfo{author}{Zhou, X.}, \bibinfo{author}{Xue, X.}, \bibinfo{author}{Hou,
+  D.}, \bibinfo{author}{Peng, J.}, \bibinfo{author}{Nageswararao, M.M.},
+  \bibinfo{author}{Tallapragada, V.}, \bibinfo{author}{Hamill, T.M.},
+  \bibinfo{author}{Whitaker, J.S.}, \bibinfo{author}{Bates, G.},
+  \bibinfo{author}{Pegion, P.}, \bibinfo{author}{Frederick, S.},
+  \bibinfo{author}{Rosencrans, M.}, \bibinfo{author}{Kumar, A.},
+  \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{{GEFSv12} reforecast dataset for supporting
+  subseasonal and hydrometeorological applications}.
+\newblock \bibinfo{journal}{Monthly Weather Review} \bibinfo{volume}{150},
+  \bibinfo{pages}{647--665}.
+\newblock \DOIprefix\doi{10.1175/MWR-D-21-0245.1}.
+%Type = Inproceedings
+\bibitem[{Guzelbulut et~al.(2024)Guzelbulut, Sugimoto, Fujita and
+  Suzuki}]{guzelbulut2024arrangement}
+\bibinfo{author}{Guzelbulut, C.}, \bibinfo{author}{Sugimoto, T.},
+  \bibinfo{author}{Fujita, Y.}, \bibinfo{author}{Suzuki, K.},
+  \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{A comparison of different arrangement of multiple
+  rotor sails}, in: \bibinfo{booktitle}{Conference Proceedings of the Japan
+  Society of Naval Architects and Ocean Engineers}, pp.
+  \bibinfo{pages}{509--511}.
+\newblock \DOIprefix\doi{10.14856/conf.39.0_509}.
+%Type = Article
+\bibitem[{van Hagen et~al.(2023)van Hagen, Petrick, Wilhelm and
+  Schmehl}]{vanhagen2023}
+\bibinfo{author}{van Hagen, L.}, \bibinfo{author}{Petrick, K.},
+  \bibinfo{author}{Wilhelm, S.}, \bibinfo{author}{Schmehl, R.},
+  \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Life-cycle assessment of a multi-megawatt airborne
+  wind energy system}.
+\newblock \bibinfo{journal}{Energies} \bibinfo{volume}{16},
+  \bibinfo{pages}{1750}.
+\newblock \DOIprefix\doi{10.3390/en16041750}.
+%Type = Phdthesis
+\bibitem[{Hagiwara(1989)}]{hagiwara1989}
+\bibinfo{author}{Hagiwara, H.}, \bibinfo{year}{1989}.
+\newblock \bibinfo{title}{Weather routing of (sail-assisted) motor vessels}.
+\newblock Ph.D. thesis. Delft University of Technology.
+\newblock \URLprefix
+  \url{https://resolver.tudelft.nl/uuid:a6112879-4298-40a6-91c7-d9a431a674c7}.
+%Type = Article
+\bibitem[{Han et~al.(2025)Han, Kwon, Choi and Lee}]{han2025}
+\bibinfo{author}{Han, W.}, \bibinfo{author}{Kwon, W.}, \bibinfo{author}{Choi,
+  D.}, \bibinfo{author}{Lee, K.}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Numerical investigation of spin ratio optimization
+  for a single-rotor sail and aerodynamic performance evaluation of multi-rotor
+  sail systems based on wake interaction characteristics}.
+\newblock \bibinfo{journal}{Processes} \bibinfo{volume}{13},
+  \bibinfo{pages}{4035}.
+\newblock \DOIprefix\doi{10.3390/pr13124035}.
+%Type = Manual
+\bibitem[{{Hapag-Lloyd}(2016)}]{hapaglloyd_container_spec}
+\bibinfo{author}{{Hapag-Lloyd}}, \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Container Specification}.
+\newblock \bibinfo{organization}{Hapag-Lloyd AG}. \bibinfo{address}{Hamburg}.
+\newblock \URLprefix
+  \url{https://www.hapag-lloyd.com/content/dam/website/downloads/press_and_media/publications/15211_Container_Specification_engl_Gesamt_web.pdf}.
+%Type = Techreport
+\bibitem[{Hartman(1933)}]{hartman1933}
+\bibinfo{author}{Hartman, E.P.}, \bibinfo{year}{1933}.
+\newblock \bibinfo{title}{Negative Thrust and Torque Characteristics of an
+  Adjustable-Pitch Metal Propeller}.
+\newblock \bibinfo{type}{NACA Report} \bibinfo{number}{464}. National Advisory
+  Committee for Aeronautics.
+\newblock \URLprefix \url{https://ntrs.nasa.gov/citations/19930091538}.
+%Type = Article
+\bibitem[{Hasselmann et~al.(1973)Hasselmann, Barnett, Bouws, Carlson,
+  Cartwright, Enke, Ewing, Gienapp, Hasselmann, Kruseman, Meerburg, M{\"u}ller,
+  Olbers, Richter, Sell and Walden}]{hasselmann1973}
+\bibinfo{author}{Hasselmann, K.}, \bibinfo{author}{Barnett, T.P.},
+  \bibinfo{author}{Bouws, E.}, \bibinfo{author}{Carlson, H.},
+  \bibinfo{author}{Cartwright, D.E.}, \bibinfo{author}{Enke, K.},
+  \bibinfo{author}{Ewing, J.A.}, \bibinfo{author}{Gienapp, H.},
+  \bibinfo{author}{Hasselmann, D.E.}, \bibinfo{author}{Kruseman, P.},
+  \bibinfo{author}{Meerburg, A.}, \bibinfo{author}{M{\"u}ller, P.},
+  \bibinfo{author}{Olbers, D.J.}, \bibinfo{author}{Richter, K.},
+  \bibinfo{author}{Sell, W.}, \bibinfo{author}{Walden, H.},
+  \bibinfo{year}{1973}.
+\newblock \bibinfo{title}{Measurements of wind-wave growth and swell decay
+  during the {Joint North Sea Wave Project} ({JONSWAP})}.
+\newblock \bibinfo{journal}{Erg{\"a}nzungsheft zur Deutschen Hydrographischen
+  Zeitschrift, Reihe A} , \bibinfo{pages}{1--95}.
+%Type = Techreport
+\bibitem[{Healy and Graichen(2019)}]{healy2019}
+\bibinfo{author}{Healy, S.}, \bibinfo{author}{Graichen, J.},
+  \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Impact of slow steaming for different types of ships
+  carrying bulk cargo}.
+\newblock \bibinfo{type}{Technical Report}. {\"O}ko-Institut.
+  \bibinfo{address}{Berlin}.
+%Type = Article
+\bibitem[{Hersbach et~al.(2020)}]{hersbach2020}
+\bibinfo{author}{Hersbach, H.}, et~al., \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{The {ERA5} global reanalysis}.
+\newblock \bibinfo{journal}{Quarterly Journal of the Royal Meteorological
+  Society} \bibinfo{volume}{146}, \bibinfo{pages}{1999--2049}.
+\newblock \DOIprefix\doi{10.1002/qj.3803}.
+%Type = Misc
+\bibitem[{{H{\"o}egh Autoliners}(2026)}]{hoegh_aurora_class}
+\bibinfo{author}{{H{\"o}egh Autoliners}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{The aurora class}.
+\newblock \URLprefix \url{https://www.hoeghautoliners.com/aurora-class}.
+  \bibinfo{note}{web page, accessed 1 November 2026}.
+%Type = Techreport
+\bibitem[{Hoffschildt et~al.(1999)Hoffschildt, Bidlot, Hansen and
+  Janssen}]{hoffschildt1999}
+\bibinfo{author}{Hoffschildt, M.}, \bibinfo{author}{Bidlot, J.R.},
+  \bibinfo{author}{Hansen, B.}, \bibinfo{author}{Janssen, P.A.E.M.},
+  \bibinfo{year}{1999}.
+\newblock \bibinfo{title}{Potential benefit of ensemble forecasts for ship
+  routing}.
+\newblock \bibinfo{type}{Technical Memorandum} \bibinfo{number}{287}. European
+  Centre for Medium-Range Weather Forecasts.
+\newblock \URLprefix
+  \url{https://www.ecmwf.int/sites/default/files/elibrary/1999/74830-potential-benefit-ensemble-forecasts-ship-routing.pdf}.
+%Type = Misc
+\bibitem[{H{\"o}ltkemeier(2008)}]{konstruktionspraxis_skysails}
+\bibinfo{author}{H{\"o}ltkemeier, K.U.}, \bibinfo{year}{2008}.
+\newblock \bibinfo{title}{{SkySails} -- das segelschiff der zukunft}.
+\newblock \bibinfo{howpublished}{Konstruktionspraxis}.
+\newblock \URLprefix
+  \url{https://www.konstruktionspraxis.vogel.de/skysails-das-segelschiff-der-zukunft-a-151397/}.
+%Type = Article
+\bibitem[{Holtrop(1984)}]{holtrop1984}
+\bibinfo{author}{Holtrop, J.}, \bibinfo{year}{1984}.
+\newblock \bibinfo{title}{A statistical re-analysis of resistance and
+  propulsion data}.
+\newblock \bibinfo{journal}{International Shipbuilding Progress}
+  \bibinfo{volume}{31}, \bibinfo{pages}{272--276}.
+%Type = Article
+\bibitem[{Holtrop and Mennen(1982)}]{holtrop1982}
+\bibinfo{author}{Holtrop, J.}, \bibinfo{author}{Mennen, G.G.J.},
+  \bibinfo{year}{1982}.
+\newblock \bibinfo{title}{An approximate power prediction method}.
+\newblock \bibinfo{journal}{International Shipbuilding Progress}
+  \bibinfo{volume}{29}, \bibinfo{pages}{166--170}.
+\newblock \DOIprefix\doi{10.3233/ISP-1982-2933501}.
+%Type = Article
+\bibitem[{Humeau et~al.(2018)Humeau, Davies, Smeets, Engels, Govaert, Vlasblom
+  and Jacquemin}]{humeau2018}
+\bibinfo{author}{Humeau, C.}, \bibinfo{author}{Davies, P.},
+  \bibinfo{author}{Smeets, P.}, \bibinfo{author}{Engels, T.A.P.},
+  \bibinfo{author}{Govaert, L.E.}, \bibinfo{author}{Vlasblom, M.},
+  \bibinfo{author}{Jacquemin, F.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Tension fatigue failure prediction for {HMPE} fibre
+  ropes}.
+\newblock \bibinfo{journal}{Polymer Testing} \bibinfo{volume}{65},
+  \bibinfo{pages}{497--504}.
+\newblock \DOIprefix\doi{10.1016/j.polymertesting.2017.12.014}.
+%Type = Misc
+\bibitem[{Hunt(2022)}]{hunt2022}
+\bibinfo{author}{Hunt, T.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{{UV} and you: Tent fabrics and sun damage}.
+\newblock \bibinfo{howpublished}{SlingFin,
+  \url{https://www.slingfin.com/blogs/the-beta/uv-and-u-tent-fabrics-and-sun-damage}}.
+%Type = Techreport
+\bibitem[{{IEDOM}(2025)}]{iedom2025guadeloupe}
+\bibinfo{author}{{IEDOM}}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Guadeloupe: Rapport annuel {\'e}conomique 2024}.
+\newblock \bibinfo{type}{Technical Report}. Institut d'{\'e}mission des
+  d{\'e}partements d'outre-mer. \bibinfo{address}{Paris}.
+\newblock \URLprefix
+  \url{https://www.iedom.fr/IMG/pdf/guadeloupe_-_rapport_annuel_economique_2024_-_iedom.pdf}.
+%Type = Misc
+\bibitem[{{India Seatrade News}(2025)}]{indiaseatrade2025evergreen}
+\bibinfo{author}{{India Seatrade News}}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Evergreen sets world record price with latest megamax
+  orders}.
+\newblock \URLprefix
+  \url{https://indiaseatradenews.com/evergreen-sets-world-record-price-with-latest-megamax-orders/}.
+  \bibinfo{note}{news item, 27 March 2025}.
+%Type = Misc
+\bibitem[{{International Maritime Organization}(2008)}]{imo2008iscode}
+\bibinfo{author}{{International Maritime Organization}}, \bibinfo{year}{2008}.
+\newblock \bibinfo{title}{Resolution {MSC}.267(85): Adoption of the
+  international code on intact stability, 2008 (2008 {IS} code)}.
+\newblock \URLprefix
+  \url{https://wwwcdn.imo.org/localresources/en/KnowledgeCentre/IndexofIMOResolutions/MSCResolutions/MSC.267(85).pdf}.
+  \bibinfo{note}{adopted by the Maritime Safety Committee on 4 December 2008;
+  in force 1 July 2010}.
+%Type = Misc
+\bibitem[{{International Transport Workers'
+  Federation}(2025)}]{ilo2025wagescale}
+\bibinfo{author}{{International Transport Workers' Federation}},
+  \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{{ITF} {ILO} minimum wage scale: Using joint {ITF/ISF}
+  interpretation of the {ILO} recommended minimum wage for an {AB}, rates
+  applicable from 1st january 2025}.
+\newblock \URLprefix
+  \url{https://www.itfseafarers.org/en/resources/ilo-minimum-wage-1-january-2025-consolidated-interpretation}.
+  \bibinfo{note}{datasheet, ILO minimum wage 1 January 2025, consolidated
+  interpretation}.
+%Type = Techreport
+\bibitem[{{IRENA}(2021)}]{irena2021ship}
+\bibinfo{author}{{IRENA}}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{A Pathway to Decarbonise the Shipping Sector by
+  2050}.
+\newblock \bibinfo{type}{Technical Report}. International Renewable Energy
+  Agency. \bibinfo{address}{Abu Dhabi}.
+\newblock \URLprefix
+  \url{https://www.irena.org/publications/2021/Oct/A-Pathway-to-Decarbonise-the-Shipping-Sector-by-2050}.
+%Type = Techreport
+\bibitem[{{IRENA} and {Methanol Institute}(2021)}]{irena2021methanol}
+\bibinfo{author}{{IRENA}}, \bibinfo{author}{{Methanol Institute}},
+  \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Innovation Outlook: Renewable Methanol}.
+\newblock \bibinfo{type}{Technical Report}. International Renewable Energy
+  Agency. \bibinfo{address}{Abu Dhabi}.
+\newblock \URLprefix
+  \url{https://www.irena.org/publications/2021/Jan/Innovation-Outlook-Renewable-Methanol}.
+%Type = Inproceedings
+\bibitem[{{ITTC Specialist Committee on Wind Powered and Wind Assisted
+  Ships}(2024)}]{ittc2024wps}
+\bibinfo{author}{{ITTC Specialist Committee on Wind Powered and Wind Assisted
+  Ships}}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Report of the wind powered and wind assisted ships
+  committee}, in: \bibinfo{booktitle}{Proceedings of the 30th International
+  Towing Tank Conference, Volume 1}, \bibinfo{organization}{International
+  Towing Tank Conference}, \bibinfo{address}{Hobart, Australia}.
+\newblock \URLprefix
+  \url{https://www.ittc.info/media/12074/13-wind-powered-and-wind-assisted-ships.pdf}.
+%Type = Misc
+\bibitem[{{Japan Ship Exporters' Association}(2024)}]{jsea2024sameij_tsuneishi}
+\bibinfo{author}{{Japan Ship Exporters' Association}}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Shipbuilding and marine engineering in japan 2024:
+  Tsuneishi shipbuilding}.
+\newblock \URLprefix
+  \url{https://www.jsea.or.jp/wp_2022/wp-content/themes/nihon_senpaku/img/publications/sameij_2024/by-builder/Tsuneishi%20Shipbuilding.pdf}.
+  \bibinfo{note}{latest ships built in Japan, DEFENDER 82,400 DWT KAMSARMAX, p.
+  39}.
+%Type = Article
+\bibitem[{Jensen et~al.(2004)Jensen, Mansour and Olsen}]{jensen2004}
+\bibinfo{author}{Jensen, J.J.}, \bibinfo{author}{Mansour, A.E.},
+  \bibinfo{author}{Olsen, A.S.}, \bibinfo{year}{2004}.
+\newblock \bibinfo{title}{Estimation of ship motions using closed-form
+  expressions}.
+\newblock \bibinfo{journal}{Ocean Engineering} \bibinfo{volume}{31},
+  \bibinfo{pages}{61--85}.
+\newblock \DOIprefix\doi{10.1016/S0029-8018(03)00108-2}.
+%Type = Misc
+\bibitem[{Johannesen and Heine(2021)}]{johannesen2021wartsila}
+\bibinfo{author}{Johannesen, P.}, \bibinfo{author}{Heine, U.},
+  \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Dispelling the myth of high losses in modern
+  electrically enhanced propulsion systems}.
+\newblock \bibinfo{howpublished}{W{\"a}rtsil{\"a} Insights}.
+\newblock \URLprefix
+  \url{https://www.wartsila.com/insights/article/dispelling-the-myth-of-high-losses-in-modern-electrically-enhanced-propulsion-systems}.
+  \bibinfo{note}{article, 17 November 2021}.
+%Type = Inproceedings
+\bibitem[{Johnson et~al.(2018)Johnson, Silva and Solis}]{johnson2018}
+\bibinfo{author}{Johnson, W.}, \bibinfo{author}{Silva, C.},
+  \bibinfo{author}{Solis, E.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Concept vehicles for {VTOL} air taxi operations}, in:
+  \bibinfo{booktitle}{AHS Technical Conference on Aeromechanics Design for
+  Transformative Vertical Flight}, \bibinfo{address}{San Francisco}.
+%Type = Misc
+\bibitem[{{Jones Airfoils}(2026)}]{jonesairfoils_icarex}
+\bibinfo{author}{{Jones Airfoils}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Cloth -- icarex polyester}.
+\newblock \URLprefix \url{https://jonesairfoils.com/products/icarex}.
+  \bibinfo{note}{product page, read 1 November 2026}.
+%Type = Article
+\bibitem[{Joshi et~al.(2024)Joshi, Schmehl and Kruijff}]{joshi2024powercurve}
+\bibinfo{author}{Joshi, R.}, \bibinfo{author}{Schmehl, R.},
+  \bibinfo{author}{Kruijff, M.}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Power curve modelling and scaling of fixed-wing
+  ground-generation airborne wind energy systems}.
+\newblock \bibinfo{journal}{Wind Energy Science} \bibinfo{volume}{9},
+  \bibinfo{pages}{2195--2215}.
+\newblock \DOIprefix\doi{10.5194/wes-9-2195-2024}.
+%Type = Article
+\bibitem[{Joshi et~al.(2025)Joshi, von Terzi and Schmehl}]{joshi2025}
+\bibinfo{author}{Joshi, R.}, \bibinfo{author}{von Terzi, D.},
+  \bibinfo{author}{Schmehl, R.}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{System design and scaling trends in airborne wind
+  energy demonstrated for a ground-generation concept}.
+\newblock \bibinfo{journal}{Wind Energy Science} \bibinfo{volume}{10},
+  \bibinfo{pages}{695--718}.
+\newblock \DOIprefix\doi{10.5194/wes-10-695-2025}.
+%Type = Techreport
+\bibitem[{Junge et~al.(2023)Junge, Lohss, R{\"o}ben, Heide and
+  Kessler}]{skypower100_tib}
+\bibinfo{author}{Junge, P.}, \bibinfo{author}{Lohss, M.},
+  \bibinfo{author}{R{\"o}ben, O.}, \bibinfo{author}{Heide, D.},
+  \bibinfo{author}{Kessler, A.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Abschlussbericht Verbundvorhaben {SkyPower100}:
+  Pilotanlage zur Energieerzeugung aus H{\"o}henwind (public part)}.
+\newblock \bibinfo{type}{Schlussbericht} \bibinfo{number}{01180363/1;
+  0324217A-D}. SkySails Power GmbH, Leibniz Universit{\"a}t Hannover, Omexom,
+  EnBW.
+\newblock \bibinfo{note}{Published via TIB Hannover}.
+%Type = Phdthesis
+\bibitem[{Kalverla(2019)}]{kalverla2020thesis}
+\bibinfo{author}{Kalverla, P.C.}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Characterisation of offshore winds for energy
+  applications}.
+\newblock Ph.D. thesis. Wageningen University.
+\newblock \DOIprefix\doi{10.18174/498797}.
+%Type = Article
+\bibitem[{Kanchiralla et~al.(2022)Kanchiralla, Brynolf, Malmgren, Hansson and
+  Grahn}]{kanchiralla2022}
+\bibinfo{author}{Kanchiralla, F.M.}, \bibinfo{author}{Brynolf, S.},
+  \bibinfo{author}{Malmgren, E.}, \bibinfo{author}{Hansson, J.},
+  \bibinfo{author}{Grahn, M.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Life-cycle assessment and costing of fuels and
+  propulsion systems in future fossil-free shipping}.
+\newblock \bibinfo{journal}{Environmental Science \& Technology}
+  \bibinfo{volume}{56}, \bibinfo{pages}{12517--12531}.
+\newblock \DOIprefix\doi{10.1021/acs.est.2c03016}.
+%Type = Techreport
+\bibitem[{Karvonen and Jousilahti(2020)}]{karvonen2020}
+\bibinfo{author}{Karvonen, T.}, \bibinfo{author}{Jousilahti, J.P.},
+  \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Alusliikenteen yksikk{\"o}kustannukset 2018 [Unit
+  costs of ship traffic 2018]}.
+\newblock \bibinfo{type}{V{\"a}yl{\"a}viraston julkaisuja}
+  \bibinfo{number}{49/2020}. V{\"a}yl{\"a}virasto (Finnish Transport
+  Infrastructure Agency). \bibinfo{address}{Helsinki}.
+%Type = Misc
+\bibitem[{Kefeli(2026)}]{steelorbis2026eua}
+\bibinfo{author}{Kefeli, E.}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{{EU} carbon prices seen rising in 2026-27, volatility
+  to persist}.
+\newblock \bibinfo{howpublished}{SteelOrbis}.
+\newblock \URLprefix
+  \url{https://www.steelorbis.com/steel-news/latest-news/eu-carbon-prices-seen-rising-in-2026-27-volatility-to-persist-1433865.htm}.
+  \bibinfo{note}{news item, 4 February 2026}.
+%Type = Article
+\bibitem[{Kim and Lee(2021)}]{kim2021}
+\bibinfo{author}{Kim, S.H.}, \bibinfo{author}{Lee, C.K.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Estimation of maneuverability of trawl fishing vessel
+  using an analytical method}.
+\newblock \bibinfo{journal}{Journal of Marine Science and Engineering}
+  \bibinfo{volume}{9}, \bibinfo{pages}{854}.
+\newblock \DOIprefix\doi{10.3390/jmse9080854}.
+%Type = Misc
+\bibitem[{{Kitepower}(2024)}]{kitepower2024}
+\bibinfo{author}{{Kitepower}}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{New powerful ways: The {Kitepower Falcon} 100\,kw,
+  product summary}.
+%Type = Misc
+\bibitem[{{Knud E. Hansen}(2019)}]{keh_12500teu}
+\bibinfo{author}{{Knud E. Hansen}}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{12500 {TEU} ultra large container vessel, ref. {KEH}
+  01016}.
+\newblock \URLprefix \url{https://www.knudehansen.com}. \bibinfo{note}{design
+  reference sheet}.
+%Type = Misc
+\bibitem[{{Knud E. Hansen}(2022)}]{keh_8600ceu_df_pctc}
+\bibinfo{author}{{Knud E. Hansen}}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{8,600 {CEU} {DF} {PCTC}, ref. 22014}.
+\newblock \URLprefix
+  \url{https://www.knudehansen.com/wp-content/uploads/2025/11/8600-CEU-DF-PCTC-22014.pdf}.
+%Type = Misc
+\bibitem[{{Knud E. Hansen}(2025)}]{keh_future_way}
+\bibinfo{author}{{Knud E. Hansen}}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Future way \& way forward: 6,500 {CEU} {DF} {PCC} for
+  {Wallenius Marine}, ref. 21023}.
+\newblock \URLprefix \url{https://www.knudehansen.com}. \bibinfo{note}{design
+  reference sheet, 26 June 2025}.
+%Type = Misc
+\bibitem[{Konrad(2009)}]{noaa2009}
+\bibinfo{author}{Konrad, J.}, \bibinfo{year}{2009}.
+\newblock \bibinfo{title}{{SkySails}}.
+\newblock \bibinfo{howpublished}{Mariners Weather Log, April 2009}.
+\newblock \URLprefix \url{https://vos.noaa.gov/MWL/apr_09/skysails.shtml}.
+%Type = Article
+\bibitem[{Kramer and Steen(2022)}]{kramer2022}
+\bibinfo{author}{Kramer, J.V.}, \bibinfo{author}{Steen, S.},
+  \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Sail-induced resistance on a wind-powered cargo
+  ship}.
+\newblock \bibinfo{journal}{Ocean Engineering} \bibinfo{volume}{261},
+  \bibinfo{pages}{111688}.
+\newblock \DOIprefix\doi{10.1016/j.oceaneng.2022.111688}.
+%Type = Misc
+\bibitem[{{Kubicek Balloons}(2026)}]{kubicek2026}
+\bibinfo{author}{{Kubicek Balloons}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Fabric specifications: {Kubicek Polyester Light},
+  {Kubicek Polyester} and {Kubicek Polyester Resist}}.
+\newblock
+  \bibinfo{howpublished}{\url{https://kubicekballoons.com/en/kubicek-polyester/},
+  read 2 November 2026}.
+%Type = Misc
+\bibitem[{Kuuskoski(2018)}]{kuuskoski2018}
+\bibinfo{author}{Kuuskoski, J.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Norsepower rotor sails: proven fuel saving and
+  emission reduction technology}.
+\newblock \bibinfo{howpublished}{Presentation, Naples Shipping Week}.
+\newblock \URLprefix
+  \url{https://2020.nsweek.com/wp-content/uploads/2018/10/Jukka_Norsepower.pdf}.
+%Type = Article
+\bibitem[{Kytariolou and Themelis(2026)}]{kytariolou2026}
+\bibinfo{author}{Kytariolou, A.}, \bibinfo{author}{Themelis, N.},
+  \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Weather routing optimisation for ships with
+  wind-assisted propulsion}.
+\newblock \bibinfo{journal}{Journal of Marine Science and Engineering}
+  \bibinfo{volume}{14}, \bibinfo{pages}{148}.
+\newblock \DOIprefix\doi{10.3390/jmse14020148}.
+%Type = Article
+\bibitem[{Lafond et~al.(2018)Lafond, Bailey, Bakker, Rebois, Zadourian,
+  McSharry and Farmer}]{lafond2018}
+\bibinfo{author}{Lafond, F.}, \bibinfo{author}{Bailey, A.G.},
+  \bibinfo{author}{Bakker, J.D.}, \bibinfo{author}{Rebois, D.},
+  \bibinfo{author}{Zadourian, R.}, \bibinfo{author}{McSharry, P.},
+  \bibinfo{author}{Farmer, J.D.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{How well do experience curves predict technological
+  progress? a method for making distributional forecasts}.
+\newblock \bibinfo{journal}{Technological Forecasting and Social Change}
+  \bibinfo{volume}{128}, \bibinfo{pages}{104--117}.
+\newblock \DOIprefix\doi{10.1016/j.techfore.2017.11.001}.
+%Type = Article
+\bibitem[{Leith(1974)}]{leith1974}
+\bibinfo{author}{Leith, C.E.}, \bibinfo{year}{1974}.
+\newblock \bibinfo{title}{Theoretical skill of {Monte Carlo} forecasts}.
+\newblock \bibinfo{journal}{Monthly Weather Review} \bibinfo{volume}{102},
+  \bibinfo{pages}{409--418}.
+\newblock \DOIprefix\doi{10.1175/1520-0493(1974)102<0409:TSOMCF>2.0.CO;2}.
+%Type = Inproceedings
+\bibitem[{Leloup et~al.(2013)Leloup, Roncin, Bles, Leroux, Jochum and
+  Parlier}]{leloup2013}
+\bibinfo{author}{Leloup, R.}, \bibinfo{author}{Roncin, K.},
+  \bibinfo{author}{Bles, G.}, \bibinfo{author}{Leroux, J.B.},
+  \bibinfo{author}{Jochum, C.}, \bibinfo{author}{Parlier, Y.},
+  \bibinfo{year}{2013}.
+\newblock \bibinfo{title}{A novel modeling for performance assessment of kites
+  as auxiliary propulsion device for merchant ships}, in:
+  \bibinfo{booktitle}{International Conference on Computer Applications in
+  Shipbuilding (ICCAS)}, \bibinfo{publisher}{RINA}, \bibinfo{address}{Busan}.
+\newblock \bibinfo{note}{HAL hal-00925134}.
+%Type = Masterthesis
+\bibitem[{Leskinen and K\"{a}ll(2024)}]{leskinen2024}
+\bibinfo{author}{Leskinen, B.}, \bibinfo{author}{K\"{a}ll, G.},
+  \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Algorithms for Wind-Powered Cargo Ship Routing: A
+  Framed Quadtree Approach with Graph Weight Interpolation}.
+\newblock Master's thesis. Chalmers University of Technology and University of
+  Gothenburg. \bibinfo{address}{Gothenburg}.
+%Type = Manual
+\bibitem[{{Lindstrand Balloons}()}]{lindstrand_mm}
+\bibinfo{author}{{Lindstrand Balloons}}, .
+\newblock \bibinfo{title}{Hot Air Balloon Maintenance Manual}.
+\newblock \bibinfo{note}{Issue 1.9, Amendment 9}.
+%Type = Techreport
+\bibitem[{{Lloyd's Register} and {UMAS}(2020)}]{lrumas2020}
+\bibinfo{author}{{Lloyd's Register}}, \bibinfo{author}{{UMAS}},
+  \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Techno-economic Assessment of Zero-Carbon Fuels}.
+\newblock \bibinfo{type}{Technical Report}. Lloyd's Register.
+  \bibinfo{address}{London}.
+%Type = Inproceedings
+\bibitem[{Lodi et~al.(2008)Lodi, Bueno, Zornberg and Correia}]{lodi2008}
+\bibinfo{author}{Lodi, P.C.}, \bibinfo{author}{Bueno, B.S.},
+  \bibinfo{author}{Zornberg, J.G.}, \bibinfo{author}{Correia, N.S.},
+  \bibinfo{year}{2008}.
+\newblock \bibinfo{title}{Analysis of mechanical and physical properties on
+  geotextiles after weathering exposure}, in: \bibinfo{booktitle}{Proceedings
+  of EuroGeo4}.
+\newblock \bibinfo{note}{Paper 203}.
+%Type = Article
+\bibitem[{Loyd(1980)}]{loyd1980}
+\bibinfo{author}{Loyd, M.L.}, \bibinfo{year}{1980}.
+\newblock \bibinfo{title}{Crosswind kite power}.
+\newblock \bibinfo{journal}{Journal of Energy} \bibinfo{volume}{4},
+  \bibinfo{pages}{106--111}.
+\newblock \DOIprefix\doi{10.2514/3.48021}.
+%Type = Incollection
+\bibitem[{Luchsinger(2013)}]{luchsinger2013}
+\bibinfo{author}{Luchsinger, R.H.}, \bibinfo{year}{2013}.
+\newblock \bibinfo{title}{Pumping cycle kite power}, in:
+  \bibinfo{editor}{Ahrens, U.}, \bibinfo{editor}{Diehl, M.},
+  \bibinfo{editor}{Schmehl, R.} (Eds.), \bibinfo{booktitle}{Airborne Wind
+  Energy}. \bibinfo{publisher}{Springer}, \bibinfo{address}{Berlin,
+  Heidelberg}. Green Energy and Technology, pp. \bibinfo{pages}{47--64}.
+\newblock \DOIprefix\doi{10.1007/978-3-642-39965-7_3}.
+%Type = Misc
+\bibitem[{Lynn(2007)}]{lynn2007}
+\bibinfo{author}{Lynn, P.}, \bibinfo{year}{2007}.
+\newblock \bibinfo{title}{How long does a big kite last?}
+\newblock \bibinfo{howpublished}{Gomberg Kite Productions, statement of 3 July
+  2007,
+  \url{https://web.archive.org/web/2016/http://www.gombergkites.com/faq/faq-life.html}}.
+%Type = Incollection
+\bibitem[{Maa{\ss} and Erhard(2013)}]{maass2013}
+\bibinfo{author}{Maa{\ss}, J.}, \bibinfo{author}{Erhard, M.},
+  \bibinfo{year}{2013}.
+\newblock \bibinfo{title}{Software system architecture for control of tethered
+  kites}, in: \bibinfo{editor}{Ahrens, U.}, \bibinfo{editor}{Diehl, M.},
+  \bibinfo{editor}{Schmehl, R.} (Eds.), \bibinfo{booktitle}{Airborne Wind
+  Energy}. \bibinfo{publisher}{Springer}, \bibinfo{address}{Berlin,
+  Heidelberg}. Green Energy and Technology, pp. \bibinfo{pages}{599--609}.
+\newblock \DOIprefix\doi{10.1007/978-3-642-39965-7_35}.
+%Type = Misc
+\bibitem[{{Makani Technologies LLC}(2020)}]{makani2020code}
+\bibinfo{author}{{Makani Technologies LLC}}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Makani code release}.
+\newblock \bibinfo{howpublished}{Source code and configuration, commit
+  1d66923}.
+\newblock \URLprefix \url{https://github.com/google/makani}.
+%Type = Article
+\bibitem[{Malmek et~al.(2024)Malmek, Larsson, Werner, Ringsberg, Bensow and
+  Finnsg{\aa}rd}]{malmek2024}
+\bibinfo{author}{Malmek, K.}, \bibinfo{author}{Larsson, L.},
+  \bibinfo{author}{Werner, S.}, \bibinfo{author}{Ringsberg, J.W.},
+  \bibinfo{author}{Bensow, R.}, \bibinfo{author}{Finnsg{\aa}rd, C.},
+  \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Rapid aerodynamic method for predicting the
+  performance of interacting wing sails}.
+\newblock \bibinfo{journal}{Ocean Engineering} \bibinfo{volume}{293},
+  \bibinfo{pages}{116596}.
+\newblock \DOIprefix\doi{10.1016/j.oceaneng.2023.116596}.
+%Type = Techreport
+\bibitem[{{MAN Energy Solutions}(2019)}]{man2019mr}
+\bibinfo{author}{{MAN Energy Solutions}}, \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Propulsion of 46,000--50,000 dwt {MR} Tankers}.
+\newblock \bibinfo{type}{Technical Report} \bibinfo{number}{5510-0224-00ppr}.
+  MAN Energy Solutions. \bibinfo{address}{Copenhagen}.
+%Type = Techreport
+\bibitem[{{MAN Energy Solutions}(2022)}]{man2022bulk}
+\bibinfo{author}{{MAN Energy Solutions}}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Propulsion Trends in Bulk Carriers}.
+\newblock \bibinfo{type}{Technical Report} \bibinfo{number}{5510-0237-01ppr}.
+  MAN Energy Solutions. \bibinfo{address}{Copenhagen}.
+\newblock \URLprefix
+  \url{https://man-es.com/docs/default-source/marine/tools/propulsion-trends-in-bulk-carriers.pdf}.
+%Type = Techreport
+\bibitem[{{MAN Energy Solutions}(2023)}]{man2011}
+\bibinfo{author}{{MAN Energy Solutions}}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Basic principles of ship propulsion}.
+\newblock \bibinfo{type}{Technical Report} \bibinfo{number}{5510-0004-05}. MAN
+  Energy Solutions. \bibinfo{address}{Copenhagen}.
+%Type = Manual
+\bibitem[{{MAN Energy Solutions}(2024a)}]{man2024l2131}
+\bibinfo{author}{{MAN Energy Solutions}}, \bibinfo{year}{2024}a.
+\newblock \bibinfo{title}{{L21/31} Project Guide -- Marine: Four-stroke
+  {GenSet} Compliant with {IMO} {Tier} {III}}.
+\newblock \bibinfo{organization}{MAN Energy Solutions}.
+\newblock \URLprefix
+  \url{https://man-es.com/applications/projectguides/4stroke/manualcontent/PG_M-III_L2131.pdf}.
+  \bibinfo{note}{{E}dition of 16 September 2024}.
+%Type = Techreport
+\bibitem[{{MAN Energy Solutions}(2024b)}]{man2024container}
+\bibinfo{author}{{MAN Energy Solutions}}, \bibinfo{year}{2024}b.
+\newblock \bibinfo{title}{Propulsion Trends in Container Vessels}.
+\newblock \bibinfo{type}{Technical Report} \bibinfo{number}{5510-0239-01ppr}.
+  MAN Energy Solutions. \bibinfo{address}{Copenhagen}.
+%Type = Article
+\bibitem[{Mannarini et~al.(2024)Mannarini, Salinas, Carelli, Petacco and
+  Orovi\'{c}}]{mannarini2024}
+\bibinfo{author}{Mannarini, G.}, \bibinfo{author}{Salinas, M.L.},
+  \bibinfo{author}{Carelli, L.}, \bibinfo{author}{Petacco, N.},
+  \bibinfo{author}{Orovi\'{c}, J.}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{{VISIR-2}: ship weather routing in {Python}}.
+\newblock \bibinfo{journal}{Geoscientific Model Development}
+  \bibinfo{volume}{17}, \bibinfo{pages}{4355--4382}.
+\newblock \DOIprefix\doi{10.5194/gmd-17-4355-2024}.
+%Type = Article
+\bibitem[{Mannarini et~al.(2020)Mannarini, Subramani, Lermusiaux and
+  Pinardi}]{mannarini2020}
+\bibinfo{author}{Mannarini, G.}, \bibinfo{author}{Subramani, D.N.},
+  \bibinfo{author}{Lermusiaux, P.F.J.}, \bibinfo{author}{Pinardi, N.},
+  \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Graph-search and differential equations for
+  time-optimal vessel route planning in dynamic ocean waves}.
+\newblock \bibinfo{journal}{IEEE Transactions on Intelligent Transportation
+  Systems} \bibinfo{volume}{21}, \bibinfo{pages}{3581--3593}.
+\newblock \DOIprefix\doi{10.1109/TITS.2019.2935614}.
+%Type = Techreport
+\bibitem[{Mao et~al.(2020)Mao, Rutherford, Osipova and Comer}]{mao2020icct}
+\bibinfo{author}{Mao, X.}, \bibinfo{author}{Rutherford, D.},
+  \bibinfo{author}{Osipova, L.}, \bibinfo{author}{Comer, B.},
+  \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Refueling assessment of a zero-emission container
+  corridor between {China} and the {United States}: Could hydrogen replace
+  fossil fuels?}
+\newblock \bibinfo{type}{Working Paper} \bibinfo{number}{2020-05}.
+  International Council on Clean Transportation.
+\newblock \URLprefix
+  \url{https://theicct.org/wp-content/uploads/2021/06/Zero-emission-container-corridor-hydrogen-3.5.2020.pdf}.
+%Type = Techreport
+\bibitem[{{MARIN}(2025)}]{marin2025waps}
+\bibinfo{author}{{MARIN}}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Regulatory review: stability of wind-propelled
+  vessels -- Background and literature review}.
+\newblock \bibinfo{type}{Report} \bibinfo{number}{77001-1-SEA}. Maritime
+  Research Institute Netherlands. \bibinfo{address}{Wageningen}.
+\newblock \URLprefix
+  \url{https://www.marin.nl/api/marin/downloads/get-download/8920/3/3301/block_files_ifyt8miegj613/maeVpPssBQj326TOMYUjlRBpEww=/77001-1-SEA_Final_voor%20publicatie.pdf}.
+  \bibinfo{note}{version 1.1, final, June 2025; ordered by Ministerie van
+  Infrastructuur en Waterstaat}.
+%Type = Misc
+\bibitem[{{Marine Log}(2020)}]{marinelog2020scconnector}
+\bibinfo{author}{{Marine Log}}, \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Sea-cargo to retrofit {RO/RO} with tilting rotor
+  sails}.
+\newblock \URLprefix
+  \url{https://www.marinelog.com/technology/sea-cargo-to-retrofit-ro-ro-with-tilting-rotor-sails/}.
+  \bibinfo{note}{news item, 29 June 2020}.
+%Type = Article
+\bibitem[{Marjanovi{\'c} et~al.(2026)Marjanovi{\'c}, Prpi{\'c}-Or{\v{s}}i{\'c}
+  and Val{\v{c}}i{\'c}}]{marjanovic2026}
+\bibinfo{author}{Marjanovi{\'c}, M.},
+  \bibinfo{author}{Prpi{\'c}-Or{\v{s}}i{\'c}, J.},
+  \bibinfo{author}{Val{\v{c}}i{\'c}, M.}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Waypoint-sequencing model predictive control for ship
+  weather routing under forecast uncertainty}.
+\newblock \bibinfo{journal}{Journal of Marine Science and Engineering}
+  \bibinfo{volume}{14}, \bibinfo{pages}{118}.
+\newblock \DOIprefix\doi{10.3390/jmse14020118}.
+%Type = Misc
+\bibitem[{{Marlow Ropes}(2024)}]{marlow_d12_78}
+\bibinfo{author}{{Marlow Ropes}}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{D12 75 \& 78}.
+\newblock \URLprefix
+  \url{https://shop.marlowropes.com/content/files/datasheets/defence/datasheets%20with%20iso%2014001/d12%2075%20and%2078%20%20datasheet%202024%20correct.pdf}.
+  \bibinfo{note}{datasheet, Dyneema SK75/SK78 12-strand rope with ArmourCoat
+  polyurethane coating}.
+%Type = Inproceedings
+\bibitem[{Marzi et~al.(2024)Marzi, Harries, Schwarz, Scharf, Demmich and
+  Pontius}]{marzi2024}
+\bibinfo{author}{Marzi, J.}, \bibinfo{author}{Harries, S.},
+  \bibinfo{author}{Schwarz, B.}, \bibinfo{author}{Scharf, M.},
+  \bibinfo{author}{Demmich, K.}, \bibinfo{author}{Pontius, M.},
+  \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{{MariData} -- digital twin for optimal vessel
+  operations impacting ship design}, in: \bibinfo{booktitle}{Proceedings of the
+  15th International Marine Design Conference (IMDC-2024)},
+  \bibinfo{address}{Amsterdam}.
+\newblock \DOIprefix\doi{10.59490/imdc.2024.875}.
+%Type = Phdthesis
+\bibitem[{Ma{\'s}lanka(2023)}]{maslanka2023thesis}
+\bibinfo{author}{Ma{\'s}lanka, P.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Numerical modeling and sensitivity of aerodynamic
+  characteristics to shape and material properties of paraglider}.
+\newblock Ph.D. thesis. Lodz University of Technology.
+%Type = Article
+\bibitem[{Ma{\'s}lanka et~al.(2023)Ma{\'s}lanka, Aleksieiev, Korycki, Kaziur
+  and D{\k{a}}browska}]{maslanka2023}
+\bibinfo{author}{Ma{\'s}lanka, P.}, \bibinfo{author}{Aleksieiev, A.},
+  \bibinfo{author}{Korycki, R.}, \bibinfo{author}{Kaziur, P.},
+  \bibinfo{author}{D{\k{a}}browska, A.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Influence of material degradation on deformation of
+  paraglider during flight}.
+\newblock \bibinfo{journal}{Materials} \bibinfo{volume}{16},
+  \bibinfo{pages}{5396}.
+\newblock \DOIprefix\doi{10.3390/ma16155396}.
+%Type = Article
+\bibitem[{Mason et~al.(2023)Mason, Larkin and Gallego-Schmid}]{mason2023}
+\bibinfo{author}{Mason, J.}, \bibinfo{author}{Larkin, A.},
+  \bibinfo{author}{Gallego-Schmid, A.}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Mitigating stochastic uncertainty from weather
+  routing for ships with wind propulsion}.
+\newblock \bibinfo{journal}{Ocean Engineering} \bibinfo{volume}{281},
+  \bibinfo{pages}{114674}.
+\newblock \DOIprefix\doi{10.1016/j.oceaneng.2023.114674}.
+%Type = Masterthesis
+\bibitem[{Mboumba~Mboumba(2022)}]{mboumba2022}
+\bibinfo{author}{Mboumba~Mboumba, D.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Analysis of wind assisted ship propulsion through
+  {3D}-computational fluid dynamics: application of rigid wind sails on a bulk
+  carrier}.
+\newblock Master's thesis. World Maritime University.
+  \bibinfo{address}{Malm\"o, Sweden}.
+\newblock \URLprefix \url{https://commons.wmu.se/all_dissertations/2061}.
+%Type = Misc
+\bibitem[{{Meriaura Group}(2024)}]{meriaura2024ecotrader}
+\bibinfo{author}{{Meriaura Group}}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Inside information: Meriaura orders two
+  bio-oil-powered cargo ships from the dutch royal bodewes shipyard}.
+\newblock \URLprefix
+  \url{https://inderes.dk/releases/inside-information-meriaura-orders-two-bio-oil-powered-cargo-ships-from-the-dutch-royal-bodewes-shipyard}.
+  \bibinfo{note}{company announcement, 15 April 2024}.
+%Type = Misc
+\bibitem[{{Mills Manufacturing}(2026)}]{mills_g12_web}
+\bibinfo{author}{{Mills Manufacturing}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{{G-12} cargo parachute assembly}.
+\newblock \URLprefix
+  \url{https://www.millsmanufacturing.com/products/g-12-parachute/}.
+  \bibinfo{note}{company web page, retrieved 6 November 2026}.
+%Type = Article
+\bibitem[{Mittendorf et~al.(2022)Mittendorf, Nielsen, Bingham and
+  Liu}]{mittendorf2022}
+\bibinfo{author}{Mittendorf, M.}, \bibinfo{author}{Nielsen, U.D.},
+  \bibinfo{author}{Bingham, H.B.}, \bibinfo{author}{Liu, S.},
+  \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Towards the uncertainty quantification of
+  semi-empirical formulas applied to the added resistance of ships in waves of
+  arbitrary heading}.
+\newblock \bibinfo{journal}{Ocean Engineering} \bibinfo{volume}{251},
+  \bibinfo{pages}{111040}.
+\newblock \DOIprefix\doi{10.1016/j.oceaneng.2022.111040}.
+%Type = Misc
+\bibitem[{{MPC Container Ships ASA}(2025)}]{mpcc2025hantong}
+\bibinfo{author}{{MPC Container Ships ASA}}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{{MPCC} orders four container ship newbuildings with
+  long-term charters}.
+\newblock \URLprefix
+  \url{https://www.hellenicshippingnews.com/mpcc-orders-four-container-ship-newbuildings-with-long-term-charters/}.
+  \bibinfo{note}{news item, 17 November 2025}.
+%Type = Article
+\bibitem[{Murphy and Epstein(1989)}]{murphy1989}
+\bibinfo{author}{Murphy, A.H.}, \bibinfo{author}{Epstein, E.S.},
+  \bibinfo{year}{1989}.
+\newblock \bibinfo{title}{Skill scores and correlation coefficients in model
+  verification}.
+\newblock \bibinfo{journal}{Monthly Weather Review} \bibinfo{volume}{117},
+  \bibinfo{pages}{572--581}.
+\newblock \DOIprefix\doi{10.1175/1520-0493(1989)117<0572:SSACCI>2.0.CO;2}.
+%Type = Techreport
+\bibitem[{{Mærsk Mc-Kinney Møller Center for Zero Carbon
+  Shipping}(2021a)}]{mmmczcs2021its}
+\bibinfo{author}{{Mærsk Mc-Kinney Møller Center for Zero Carbon Shipping}},
+  \bibinfo{year}{2021}a.
+\newblock \bibinfo{title}{Industry Transition Strategy}.
+\newblock \bibinfo{type}{Technical Report}. Mærsk Mc-Kinney Møller Center for
+  Zero Carbon Shipping. \bibinfo{address}{Copenhagen}.
+%Type = Techreport
+\bibitem[{{Mærsk Mc-Kinney Møller Center for Zero Carbon
+  Shipping}(2021b)}]{mmmczcs2021fuel}
+\bibinfo{author}{{Mærsk Mc-Kinney Møller Center for Zero Carbon Shipping}},
+  \bibinfo{year}{2021}b.
+\newblock \bibinfo{title}{Position Paper: Fuel Option Scenarios}.
+\newblock \bibinfo{type}{Technical Report}. Mærsk Mc-Kinney Møller Center for
+  Zero Carbon Shipping. \bibinfo{address}{Copenhagen}.
+%Type = Incollection
+\bibitem[{{National Geospatial-Intelligence Agency}(2024)}]{bowditch2024}
+\bibinfo{author}{{National Geospatial-Intelligence Agency}},
+  \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Weather routing}, in: \bibinfo{booktitle}{The
+  American Practical Navigator ({Bowditch}), Pub. No. 9}.
+  \bibinfo{publisher}{National Geospatial-Intelligence Agency},
+  \bibinfo{address}{Springfield, VA}. volume~\bibinfo{volume}{1}.
+  chapter~\bibinfo{chapter}{42}, pp. \bibinfo{pages}{727--738}.
+%Type = Misc
+\bibitem[{{National Maritime Research Institute}(2015)}]{t2015}
+\bibinfo{author}{{National Maritime Research Institute}}, \bibinfo{year}{2015}.
+\newblock \bibinfo{title}{Tokyo 2015 workshop on {CFD} in ship hydrodynamics:
+  hull data, conditions and towing-tank data of the {JBC} and {KCS}}.
+\newblock \URLprefix \url{https://t2015.nmri.go.jp/}.
+%Type = Manual
+\bibitem[{{National Renewable Energy Laboratory}(2026)}]{wisdem_csm}
+\bibinfo{author}{{National Renewable Energy Laboratory}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{{WISDEM} 2.0 Documentation: {NREL} Cost and Scaling
+  Model (Theory; {NREL} Cost and Scaling Model Example)}.
+\newblock \bibinfo{organization}{National Renewable Energy Laboratory}.
+  \bibinfo{address}{Golden, CO}.
+\newblock \URLprefix
+  \url{https://wisdem.readthedocs.io/en/master/wisdem/nrelcsm/theory.html}.
+  \bibinfo{note}{software documentation, accessed 17 November 2026}.
+%Type = Misc
+\bibitem[{{Norsepower}(2025)}]{norsepower2025}
+\bibinfo{author}{{Norsepower}}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Norsepower rotor sail: Saving fuel -- and the
+  planet}.
+\newblock \URLprefix
+  \url{https://www.norsepower.com/app/uploads/2025/04/Norsepower-Brochure-91.pdf}.
+  \bibinfo{note}{brochure 2025-03-86-ENG, 16 April 2025}.
+%Type = Article
+\bibitem[{Nosraty et~al.(2013)Nosraty, Asgharian~Jeddi and
+  Saremi}]{nosraty2013}
+\bibinfo{author}{Nosraty, H.}, \bibinfo{author}{Asgharian~Jeddi, A.A.},
+  \bibinfo{author}{Saremi, R.}, \bibinfo{year}{2013}.
+\newblock \bibinfo{title}{Investigation of fatigue behavior of polyester
+  filament woven fabrics under cyclic loading}.
+\newblock \bibinfo{journal}{Journal of Textiles and Polymers}
+  \bibinfo{volume}{1}, \bibinfo{pages}{43--52}.
+%Type = Manual
+\bibitem[{{NOVA}(2010)}]{nova_prion}
+\bibinfo{author}{{NOVA}}, \bibinfo{year}{2010}.
+\newblock \bibinfo{title}{PRION manual}.
+\newblock \bibinfo{organization}{NOVA Vertriebsgesellschaft m.b.H.}.
+  \bibinfo{address}{Terfens, Austria}.
+\newblock \URLprefix
+  \url{https://www.nova.eu/fileadmin/user_upload/glider/Manuals/Prion_HANDBUCHvers1_0english.pdf}.
+  \bibinfo{note}{version 1.3}.
+%Type = Manual
+\bibitem[{{NOVA}(2011)}]{nova_mentor2}
+\bibinfo{author}{{NOVA}}, \bibinfo{year}{2011}.
+\newblock \bibinfo{title}{MENTOR 2 manual}.
+\newblock \bibinfo{organization}{NOVA Vertriebsgesellschaft m.b.H.}.
+  \bibinfo{address}{Terfens, Austria}.
+\newblock \URLprefix
+  \url{https://www.nova.eu/fileadmin/user_upload/glider/Manuals/Mentor2_V11_012011eng.pdf}.
+  \bibinfo{note}{version 1.1, January 2011}.
+%Type = Misc
+\bibitem[{{NOVA Performance Paragliders}(2026)}]{nova_mentor6}
+\bibinfo{author}{{NOVA Performance Paragliders}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{{MENTOR} 6: technical data}.
+\newblock \URLprefix \url{https://www.nova.eu/en/gliders/mentor-6/}.
+  \bibinfo{note}{product page, accessed 1 November 2026}.
+%Type = Misc
+\bibitem[{{Oceanbird}(2026)}]{oceanbird2026wing560}
+\bibinfo{author}{{Oceanbird}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Wing 560}.
+\newblock \URLprefix \url{https://www.theoceanbird.com/wing-560}.
+  \bibinfo{note}{product page, accessed 17 November 2026}.
+%Type = Misc
+\bibitem[{{OceanWings}(2025)}]{oceanwings2025}
+\bibinfo{author}{{OceanWings}}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Canop{\'e}e: 2 years of wind-powered shipping
+  performance}.
+\newblock \bibinfo{howpublished}{Press release}.
+\newblock \URLprefix
+  \url{https://www.oceanwings.com/news/two-years-four-oceanwings-one-clear-result-wind-propulsion-delivers}.
+%Type = Misc
+\bibitem[{{OceanWings}(2026)}]{oceanwings2026web}
+\bibinfo{author}{{OceanWings}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{{OW RE}: Rigid elevator wingsail}.
+\newblock \URLprefix
+  \url{https://www.oceanwings.com/product/ow-re-rigid-elevator-wingsail}.
+  \bibinfo{note}{product page, accessed 17 November 2026}.
+%Type = Article
+\bibitem[{Oehler and Schmehl(2019)}]{oehler2019}
+\bibinfo{author}{Oehler, J.}, \bibinfo{author}{Schmehl, R.},
+  \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Aerodynamic characterization of a soft kite by in
+  situ flow measurement}.
+\newblock \bibinfo{journal}{Wind Energy Science} \bibinfo{volume}{4},
+  \bibinfo{pages}{1--21}.
+\newblock \DOIprefix\doi{10.5194/wes-4-1-2019}.
+%Type = Misc
+\bibitem[{{Onmanorama}(2023)}]{onmanorama2023udupi}
+\bibinfo{author}{{Onmanorama}}, \bibinfo{year}{2023}.
+\newblock \bibinfo{title}{Udupi cochin shipyard bags norwegian order to build
+  six new-gen cargo vessels}.
+\newblock \URLprefix
+  \url{https://www.onmanorama.com/news/business/2023/06/15/cochin-shypyard-udupi-norwegian-order-vessels.html}.
+  \bibinfo{note}{news item, 15 June 2023}.
+%Type = Article
+\bibitem[{Ortigosa et~al.(2009)Ortigosa, L{\'o}pez and
+  Garc{\'i}a}]{ortigosa2009}
+\bibinfo{author}{Ortigosa, I.}, \bibinfo{author}{L{\'o}pez, R.},
+  \bibinfo{author}{Garc{\'i}a, J.}, \bibinfo{year}{2009}.
+\newblock \bibinfo{title}{Prediction of total resistance coefficients using
+  neural networks}.
+\newblock \bibinfo{journal}{Journal of Maritime Research} \bibinfo{volume}{6},
+  \bibinfo{pages}{15--26}.
+%Type = Manual
+\bibitem[{{Ozone Paragliders}(2012)}]{ozone_ultralite3}
+\bibinfo{author}{{Ozone Paragliders}}, \bibinfo{year}{2012}.
+\newblock \bibinfo{title}{Ultralite 3 Pilots Manual}. \bibinfo{edition}{version
+  1.0} ed.
+\newblock \bibinfo{organization}{Ozone}.
+\newblock \URLprefix
+  \url{https://www.flyozone.com/paragliders/products/gliders/ultralite-3}.
+  \bibinfo{note}{august 2012}.
+%Type = Manual
+\bibitem[{{Ozone Paragliders}(2021)}]{ozone_ultralite4}
+\bibinfo{author}{{Ozone Paragliders}}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Ultralite 4 Pilots Manual}. \bibinfo{edition}{en
+  v1.3} ed.
+\newblock \bibinfo{organization}{Ozone}.
+\newblock \URLprefix
+  \url{https://www.flyozone.com/paragliders/products/gliders/ultralite-4}.
+  \bibinfo{note}{july 2021}.
+%Type = Misc
+\bibitem[{Parganas(2025)}]{breakwave2025demolition}
+\bibinfo{author}{Parganas, Y.}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Demolition activity}.
+\newblock \bibinfo{howpublished}{Breakwave Advisors Insights}.
+\newblock \URLprefix
+  \url{https://www.breakwaveadvisors.com/insights/2025/1/29/demolition-activity}.
+  \bibinfo{note}{news item, 29 January 2025}.
+%Type = Incollection
+\bibitem[{Paulig et~al.(2013)Paulig, Bungart and Specht}]{paulig2013}
+\bibinfo{author}{Paulig, X.}, \bibinfo{author}{Bungart, M.},
+  \bibinfo{author}{Specht, B.}, \bibinfo{year}{2013}.
+\newblock \bibinfo{title}{Conceptual design of textile kites considering
+  overall system performance}, in: \bibinfo{editor}{Ahrens, U.},
+  \bibinfo{editor}{Diehl, M.}, \bibinfo{editor}{Schmehl, R.} (Eds.),
+  \bibinfo{booktitle}{Airborne Wind Energy}. \bibinfo{publisher}{Springer},
+  \bibinfo{address}{Berlin, Heidelberg}. Green Energy and Technology, pp.
+  \bibinfo{pages}{547--562}.
+\newblock \DOIprefix\doi{10.1007/978-3-642-39965-7_32}.
+%Type = Inproceedings
+\bibitem[{Podeur et~al.(2016)Podeur, Merdrignac, Behrel, Roncin, Fonti, Jochum,
+  Parlier and Renaud}]{podeur2016}
+\bibinfo{author}{Podeur, V.}, \bibinfo{author}{Merdrignac, D.},
+  \bibinfo{author}{Behrel, M.}, \bibinfo{author}{Roncin, K.},
+  \bibinfo{author}{Fonti, C.}, \bibinfo{author}{Jochum, C.},
+  \bibinfo{author}{Parlier, Y.}, \bibinfo{author}{Renaud, P.},
+  \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Simulation de voyage au long cours pour le calcul
+  d'{\'e}conomies de carburant : application {\`a} la propulsion par
+  cerf-volant [voyage simulation for fuel economy assessment: practical
+  application to kite auxiliary propulsion for merchant ship]}, in:
+  \bibinfo{booktitle}{15{\`e}mes Journ{\'e}es de l'Hydrodynamique},
+  \bibinfo{address}{Brest, France}.
+\newblock \URLprefix
+  \url{https://actesjh.ec-nantes.fr/images/15JH/Articles/podeur.pdf}.
+%Type = Article
+\bibitem[{Poland et~al.(2026)Poland, van Spronsen, Gaunaa and
+  Schmehl}]{poland2025}
+\bibinfo{author}{Poland, J.A.W.}, \bibinfo{author}{van Spronsen, J.M.},
+  \bibinfo{author}{Gaunaa, M.}, \bibinfo{author}{Schmehl, R.},
+  \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Wind tunnel load measurements of a leading-edge
+  inflatable kite rigid-scale model}.
+\newblock \bibinfo{journal}{Wind Energy Science} \bibinfo{volume}{11},
+  \bibinfo{pages}{911--936}.
+\newblock \DOIprefix\doi{10.5194/wes-11-911-2026}.
+%Type = Manual
+\bibitem[{{Porcher Sport}(2006)}]{porcher2006skytex_tds}
+\bibinfo{author}{{Porcher Sport}}, \bibinfo{year}{2006}.
+\newblock \bibinfo{title}{Technical data sheets: {Skytex} 27 to 55 and {SR}
+  fabrics}.
+%Type = Misc
+\bibitem[{{Port of Antwerp-Bruges}(2024)}]{portantwerpbruges2024_ceu}
+\bibinfo{author}{{Port of Antwerp-Bruges}}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{How many cars will fit on a ship? room for 9,100
+  cars}.
+\newblock \URLprefix
+  \url{https://www.portofantwerpbruges.com/en/news/how-many-cars-will-fit-ship-room-9100-cars}.
+  \bibinfo{note}{news item, 22 November 2024}.
+%Type = Misc
+\bibitem[{{Port of Rotterdam Authority}(2025)}]{portofrotterdam2026tariffs}
+\bibinfo{author}{{Port of Rotterdam Authority}}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{General terms and conditions including port tariffs:
+  Port tariffs 2026}.
+\newblock \URLprefix
+  \url{https://www.portofrotterdam.com/sites/default/files/2025-12/port-tariffs-and-conditions-port-of%20-rotterdam-2026.pdf}.
+  \bibinfo{note}{port tariff, Havenbedrijf Rotterdam N.V.}
+%Type = Techreport
+\bibitem[{{Q-Lab}(2026)}]{qlab2026}
+\bibinfo{author}{{Q-Lab}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Natural Outdoor Weathering Testing}.
+\newblock \bibinfo{type}{Technical Report}. Q-Lab Corporation.
+\newblock \URLprefix \url{https://www.q-lab.com}.
+%Type = Article
+\bibitem[{Reche-Vilanova et~al.(2021)Reche-Vilanova, Hansen and
+  Bingham}]{rechevilanova2021}
+\bibinfo{author}{Reche-Vilanova, M.}, \bibinfo{author}{Hansen, H.},
+  \bibinfo{author}{Bingham, H.B.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Performance prediction program for wind-assisted
+  cargo ships}.
+\newblock \bibinfo{journal}{Journal of Sailing Technology} \bibinfo{volume}{6},
+  \bibinfo{pages}{91--117}.
+\newblock \DOIprefix\doi{10.5957/jst/2021.6.1.91}.
+%Type = Phdthesis
+\bibitem[{van Reen(2026)}]{vanreen2026}
+\bibinfo{author}{van Reen, S.}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Aerodynamic performance and layout optimisation of
+  symmetrically cambered wing sails for wind-assisted ship propulsion}.
+\newblock \bibinfo{type}{Licentiate thesis}. Chalmers University of Technology.
+  \bibinfo{address}{Gothenburg, Sweden}.
+%Type = Misc
+\bibitem[{{Riviera News}(2024)}]{riviera2024windwing}
+\bibinfo{author}{{Riviera News}}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Bulk carrier's wind-assisted propulsion system drops
+  energy consumption by more than 30\%}.
+\newblock \bibinfo{howpublished}{Riviera Maritime Media}.
+\newblock \URLprefix
+  \url{https://www.rivieramm.com/news-content-hub/dnv-validates-bars-windwings-tests-80833}.
+  \bibinfo{note}{news item, 17 May 2024}.
+%Type = Misc
+\bibitem[{Rodrigue et~al.(2022)Rodrigue, Notteboom and
+  Pallis}]{rodrigue2024porteconomics}
+\bibinfo{author}{Rodrigue, J.P.}, \bibinfo{author}{Notteboom, T.},
+  \bibinfo{author}{Pallis, A.}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Value of containerized trade, 2020}.
+\newblock \bibinfo{howpublished}{Port Economics, Management and Policy (web
+  edition)}.
+\newblock \URLprefix
+  \url{https://porteconomicsmanagement.org/pemp/contents/part1/maritime-shipping-and-international-trade/value-containerized-trade/}.
+  \bibinfo{note}{web page, added 1 January 2022}.
+%Type = Incollection
+\bibitem[{Ruiterkamp and Sieberling(2013)}]{ruiterkamp2013}
+\bibinfo{author}{Ruiterkamp, R.}, \bibinfo{author}{Sieberling, S.},
+  \bibinfo{year}{2013}.
+\newblock \bibinfo{title}{Description and preliminary test results of a six
+  degrees of freedom rigid wing pumping system}, in: \bibinfo{editor}{Ahrens,
+  U.}, \bibinfo{editor}{Diehl, M.}, \bibinfo{editor}{Schmehl, R.} (Eds.),
+  \bibinfo{booktitle}{Airborne Wind Energy}. \bibinfo{publisher}{Springer},
+  \bibinfo{address}{Berlin, Heidelberg}, pp. \bibinfo{pages}{443--458}.
+\newblock \DOIprefix\doi{10.1007/978-3-642-39965-7_26}.
+%Type = Techreport
+\bibitem[{Saetra(2004)}]{saetra2004}
+\bibinfo{author}{Saetra, {\O}.}, \bibinfo{year}{2004}.
+\newblock \bibinfo{title}{Ensemble shiprouting}.
+\newblock \bibinfo{type}{Technical Memorandum} \bibinfo{number}{435}. European
+  Centre for Medium-Range Weather Forecasts.
+\newblock \URLprefix
+  \url{https://www.ecmwf.int/sites/default/files/elibrary/2004/12056-ensemble-shiprouting.pdf}.
+%Type = Misc
+\bibitem[{{Sailrite Enterprises}(2026)}]{sailrite_dacron_prices_2026}
+\bibinfo{author}{{Sailrite Enterprises}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Product pages for dacron sailcloth}.
+\newblock \URLprefix \url{https://www.sailrite.com}. \bibinfo{note}{retail web
+  shop, retrieved 1 November 2026}.
+%Type = Article
+\bibitem[{Schelbergen et~al.(2020)Schelbergen, Kalverla, Schmehl and
+  Watson}]{schelbergen2020}
+\bibinfo{author}{Schelbergen, M.}, \bibinfo{author}{Kalverla, P.C.},
+  \bibinfo{author}{Schmehl, R.}, \bibinfo{author}{Watson, S.J.},
+  \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Clustering wind profile shapes to estimate airborne
+  wind energy production}.
+\newblock \bibinfo{journal}{Wind Energy Science} \bibinfo{volume}{5},
+  \bibinfo{pages}{1097--1120}.
+\newblock \DOIprefix\doi{10.5194/wes-5-1097-2020}.
+%Type = Misc
+\bibitem[{Schuler(2024)}]{gcaptain2024pyxis}
+\bibinfo{author}{Schuler, M.}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Wind-assisted propulsion trial off to promising
+  start}.
+\newblock \bibinfo{howpublished}{gCaptain}.
+\newblock \URLprefix
+  \url{https://gcaptain.com/wind-assisted-propulsion-trial-off-to-promising-start/}.
+  \bibinfo{note}{news item, 13 March 2024}.
+%Type = Article
+\bibitem[{Shao et~al.(2012)Shao, Zhou and Thong}]{shao2012}
+\bibinfo{author}{Shao, W.}, \bibinfo{author}{Zhou, P.}, \bibinfo{author}{Thong,
+  S.K.}, \bibinfo{year}{2012}.
+\newblock \bibinfo{title}{Development of a novel forward dynamic programming
+  method for weather routing}.
+\newblock \bibinfo{journal}{Journal of Marine Science and Technology}
+  \bibinfo{volume}{17}, \bibinfo{pages}{239--251}.
+\newblock \DOIprefix\doi{10.1007/s00773-011-0152-z}.
+%Type = Misc
+\bibitem[{Sharpe and Hansman(2025)}]{sharpe2025}
+\bibinfo{author}{Sharpe, P.}, \bibinfo{author}{Hansman, R.J.},
+  \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{{NeuralFoil}: An airfoil aerodynamics analysis tool
+  using physics-informed machine learning}.
+\newblock \bibinfo{howpublished}{arXiv:2503.16323}.
+\newblock \DOIprefix\doi{10.48550/arXiv.2503.16323}.
+%Type = Misc
+\bibitem[{{Ship \& Bunker}(2026)}]{shipandbunker2026rotterdam}
+\bibinfo{author}{{Ship \& Bunker}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Rotterdam bunker prices}.
+\newblock \URLprefix
+  \url{https://shipandbunker.com/prices/emea/nwe/nl-rtm-rotterdam}.
+  \bibinfo{note}{price data, accessed 17 November 2026}.
+%Type = Misc
+\bibitem[{{ShipUniverse}(2026)}]{shipuniverse2026kobc}
+\bibinfo{author}{{ShipUniverse}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Secondhand ship market outlook: Tankers lead asset
+  surge as 2027 supply risks build}.
+\newblock \URLprefix
+  \url{https://www.shipuniverse.com/news/secondhand-ship-market-outlook-tankers-lead-asset-surge-as-2027-supply-risks-build/}.
+  \bibinfo{note}{news item, 8 October 2026}.
+%Type = Inproceedings
+\bibitem[{Silva et~al.(2018)Silva, Johnson, Antcliff and Patterson}]{silva2018}
+\bibinfo{author}{Silva, C.}, \bibinfo{author}{Johnson, W.R.},
+  \bibinfo{author}{Antcliff, K.R.}, \bibinfo{author}{Patterson, M.D.},
+  \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{{VTOL} urban air mobility concept vehicles for
+  technology development}, in: \bibinfo{booktitle}{2018 Aviation Technology,
+  Integration, and Operations Conference}, \bibinfo{publisher}{AIAA}.
+\newblock \DOIprefix\doi{10.2514/6.2018-3847}.
+%Type = Misc
+\bibitem[{{SKY Paragliders}(2017)}]{skycz2017}
+\bibinfo{author}{{SKY Paragliders}}, \bibinfo{year}{2017}.
+\newblock \bibinfo{title}{Alexandre paux' philosophy. why are we different from
+  the crowd?}
+\newblock \URLprefix \url{https://sky-cz.com/en/o-vyvoji}.
+  \bibinfo{note}{company web page, 1 July 2017}.
+%Type = Misc
+\bibitem[{{SkySails Group}(2018)}]{skysails2018}
+\bibinfo{author}{{SkySails Group}}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Towing kite technology}.
+\newblock \bibinfo{howpublished}{Slide deck, MTCC Caribbean workshop}.
+\newblock \URLprefix
+  \url{https://utt.edu.tt/mtcc-caribbean/resources/2nd_eastern_regional/technology_providers/SkySails-Towing-Kite-Technology.pdf}.
+%Type = Article
+\bibitem[{Sommerfeld et~al.(2022)Sommerfeld, D{\"o}renk{\"a}mper, De~Schutter
+  and Crawford}]{sommerfeld2022scaling}
+\bibinfo{author}{Sommerfeld, M.}, \bibinfo{author}{D{\"o}renk{\"a}mper, M.},
+  \bibinfo{author}{De~Schutter, J.}, \bibinfo{author}{Crawford, C.},
+  \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Scaling effects of fixed-wing ground-generation
+  airborne wind energy systems}.
+\newblock \bibinfo{journal}{Wind Energy Science} \bibinfo{volume}{7},
+  \bibinfo{pages}{1847--1868}.
+\newblock \DOIprefix\doi{10.5194/wes-7-1847-2022}.
+%Type = Misc
+\bibitem[{{Spliethoff Group}(2021)}]{spliethoff2021}
+\bibinfo{author}{{Spliethoff Group}}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Norsepower rotor sail onboard mv estraden}.
+\newblock \bibinfo{howpublished}{Sustainability Report, Edition 1}.
+\newblock \URLprefix
+  \url{https://spliethoff-group.foleon.com/spliethoff-group-sustainability-report/spliethoff-group-sustainability-report-edition-1/norsepower-rotor-sail-onboard-mv-estraden}.
+%Type = Article
+\bibitem[{Sripad and Viswanathan(2021)}]{sripad2021}
+\bibinfo{author}{Sripad, S.}, \bibinfo{author}{Viswanathan, V.},
+  \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{The promise of energy-efficient battery-powered urban
+  aircraft}.
+\newblock \bibinfo{journal}{Proceedings of the National Academy of Sciences}
+  \bibinfo{volume}{118}, \bibinfo{pages}{e2111164118}.
+\newblock \DOIprefix\doi{10.1073/pnas.2111164118}.
+%Type = Inproceedings
+\bibitem[{Stevens et~al.(2018)Stevens, Yee and Pang}]{stevens2018}
+\bibinfo{author}{Stevens, G.}, \bibinfo{author}{Yee, T.W.},
+  \bibinfo{author}{Pang, S.N.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Correlation between standard accelerated {UV} tests
+  and onsite {UV} degradation for high strength woven polyester reinforcement
+  geotextiles in {New Zealand}}, in: \bibinfo{booktitle}{Proceedings of the
+  11th International Conference on Geosynthetics}, \bibinfo{address}{Seoul}.
+%Type = Article
+\bibitem[{Sun et~al.(2022)Sun, Tang, Liu, Zhou and Wei}]{sun2022}
+\bibinfo{author}{Sun, W.}, \bibinfo{author}{Tang, S.}, \bibinfo{author}{Liu,
+  X.}, \bibinfo{author}{Zhou, S.}, \bibinfo{author}{Wei, J.},
+  \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{An improved ship weather routing framework for {CII}
+  reduction accounting for wind-assisted rotors}.
+\newblock \bibinfo{journal}{Journal of Marine Science and Engineering}
+  \bibinfo{volume}{10}, \bibinfo{pages}{1979}.
+\newblock \DOIprefix\doi{10.3390/jmse10121979}.
+%Type = Techreport
+\bibitem[{{SUP'AIR-VLD}(2016)}]{supair2016}
+\bibinfo{author}{{SUP'AIR-VLD}}, \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Information: Longevity of {SUP'AIR} gliders}.
+\newblock \bibinfo{type}{Technical Report}. SUP'AIR-VLD.
+\newblock \bibinfo{note}{Revision of 5 July 2016}.
+%Type = Article
+\bibitem[{Szafran and Kramarski(2018)}]{szafran2018}
+\bibinfo{author}{Szafran, K.}, \bibinfo{author}{Kramarski, I.},
+  \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Fatigue degradation of the structure of parachute
+  systems}.
+\newblock \bibinfo{journal}{Fatigue of Aircraft Structures} ,
+  \bibinfo{pages}{93--103}\DOIprefix\doi{10.2478/fas-2018-0009}.
+%Type = Article
+\bibitem[{Szafran and Kramarski(2019)}]{szafran2019}
+\bibinfo{author}{Szafran, K.S.}, \bibinfo{author}{Kramarski, I.},
+  \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Fatigue degradation of the ram-air parachute canopy
+  structure}.
+\newblock \bibinfo{journal}{Fatigue of Aircraft Structures} ,
+  \bibinfo{pages}{103--112}\DOIprefix\doi{10.2478/fas-2019-0010}.
+%Type = Article
+\bibitem[{Tam\'as and Koltai(2020)}]{tamas2020}
+\bibinfo{author}{Tam\'as, A.}, \bibinfo{author}{Koltai, T.},
+  \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Application of learning curves in operations
+  management decisions}.
+\newblock \bibinfo{journal}{Periodica Polytechnica Social and Management
+  Sciences} \bibinfo{volume}{28}, \bibinfo{pages}{81--90}.
+\newblock \DOIprefix\doi{10.3311/PPso.14136}.
+%Type = Techreport
+\bibitem[{{Tension Technology International}(2006)}]{tti2006}
+\bibinfo{author}{{Tension Technology International}}, \bibinfo{year}{2006}.
+\newblock \bibinfo{title}{Durability of polyester ropes, extension to study
+  ({MMS} Project 344)}.
+\newblock \bibinfo{type}{Technical Report} \bibinfo{number}{TTI-SJB-2005-321}.
+  Tension Technology International for NEL and the US Minerals Management
+  Service.
+%Type = Misc
+\bibitem[{{The Maritime Executive}(2022)}]{maritimeexecutive2022}
+\bibinfo{author}{{The Maritime Executive}}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Reederei gerdes orders second {Damen} combi freighter
+  3850}.
+\newblock \URLprefix
+  \url{https://maritime-executive.com/corporate/reederei-gerdes-orders-second-damen-combi-freighter-3850}.
+  \bibinfo{note}{news item, 1 July 2022}.
+%Type = Misc
+\bibitem[{{The Maritime Executive}(2024)}]{maritimeexecutive2024sohar}
+\bibinfo{author}{{The Maritime Executive}}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Anemoi completes installation of rotor sails onboard
+  {Vale} {VLOC}}.
+\newblock \URLprefix
+  \url{https://maritime-executive.com/corporate/anemoi-completes-installation-of-rotor-sails-onboard-vale-vloc}.
+  \bibinfo{note}{news item, 17 December 2024}.
+%Type = Misc
+\bibitem[{Thedens(2016)}]{thedens2015_awesco_slides}
+\bibinfo{author}{Thedens, P.}, \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Durable structure reinforcement for large traction
+  kites}.
+\newblock \bibinfo{howpublished}{AWESCO First Internal Research Review, ESR10,
+  SkySails and TU Delft}.
+\newblock \bibinfo{note}{Presentation slides}.
+%Type = Article
+\bibitem[{Tillig and Ringsberg(2020)}]{tillig2020}
+\bibinfo{author}{Tillig, F.}, \bibinfo{author}{Ringsberg, J.W.},
+  \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Design, operation and analysis of wind-assisted cargo
+  ships}.
+\newblock \bibinfo{journal}{Ocean Engineering} \bibinfo{volume}{211},
+  \bibinfo{pages}{107603}.
+\newblock \DOIprefix\doi{10.1016/j.oceaneng.2020.107603}.
+%Type = Article
+\bibitem[{Tillig et~al.(2020)Tillig, Ringsberg, Psaraftis and
+  Zis}]{tillig2020b}
+\bibinfo{author}{Tillig, F.}, \bibinfo{author}{Ringsberg, J.W.},
+  \bibinfo{author}{Psaraftis, H.N.}, \bibinfo{author}{Zis, T.},
+  \bibinfo{year}{2020}.
+\newblock \bibinfo{title}{Reduced environmental impact of marine transport
+  through speed reduction and wind assisted propulsion}.
+\newblock \bibinfo{journal}{Transportation Research Part D: Transport and
+  Environment} \bibinfo{volume}{83}, \bibinfo{pages}{102380}.
+\newblock \DOIprefix\doi{10.1016/j.trd.2020.102380}.
+%Type = Misc
+\bibitem[{Tinsley(2016)}]{tinsley_navigator_hoegh_target}
+\bibinfo{author}{Tinsley, D.}, \bibinfo{year}{2016}.
+\newblock \bibinfo{title}{Raising the bar in vehicle carrier design}.
+\newblock \bibinfo{howpublished}{Navigator Magazine}.
+\newblock \URLprefix
+  \url{https://navigatormagazine.fi/news/raising-the-bar-in-vehicle-carrier-design/}.
+  \bibinfo{note}{news item, 6 January 2016}.
+%Type = Article
+\bibitem[{Traut et~al.(2014)Traut, Gilbert, Walsh, Bows, Filippone, Stansby and
+  Wood}]{traut2014}
+\bibinfo{author}{Traut, M.}, \bibinfo{author}{Gilbert, P.},
+  \bibinfo{author}{Walsh, C.}, \bibinfo{author}{Bows, A.},
+  \bibinfo{author}{Filippone, A.}, \bibinfo{author}{Stansby, P.},
+  \bibinfo{author}{Wood, R.}, \bibinfo{year}{2014}.
+\newblock \bibinfo{title}{Propulsive power contribution of a kite and a
+  {Flettner} rotor on selected shipping routes}.
+\newblock \bibinfo{journal}{Applied Energy} \bibinfo{volume}{113},
+  \bibinfo{pages}{362--372}.
+\newblock \DOIprefix\doi{10.1016/j.apenergy.2013.07.026}.
+%Type = Misc
+\bibitem[{Trauthwein(2015)}]{marinelink2015_adelta2300}
+\bibinfo{author}{Trauthwein, G.}, \bibinfo{year}{2015}.
+\newblock \bibinfo{title}{Ship of the future: Container feeder}.
+\newblock \bibinfo{howpublished}{Marine Link}.
+\newblock \URLprefix
+  \url{https://www.marinelink.com/news/container-future-feeder396172}.
+  \bibinfo{note}{news item, 13 August 2015}.
+%Type = Misc
+\bibitem[{{Tsuneishi Shipbuilding}(2015a)}]{tsuneishi2015medimatsuura}
+\bibinfo{author}{{Tsuneishi Shipbuilding}}, \bibinfo{year}{2015}a.
+\newblock \bibinfo{title}{Delivered the group's 217th ``{KAMSARMAX}'' bulk
+  carrier}.
+\newblock \URLprefix
+  \url{https://www.mynewsdesk.com/tsuneishi-holdings-corporation/news/delivered-the-group-s-217th-kamsarmax-bulk-carrier-tsuneishi-shipbuilding-co-ltd-128055}.
+  \bibinfo{note}{news item, 24 August 2015}.
+%Type = Misc
+\bibitem[{{Tsuneishi Shipbuilding}(2015b)}]{tsuneishi_kamsarmax82}
+\bibinfo{author}{{Tsuneishi Shipbuilding}}, \bibinfo{year}{2015}b.
+\newblock \bibinfo{title}{{TSUNEISHI SHIPBUILDING}'s original {D/W} 82,000 mt
+  type bulk carrier ``{KAMSARMAX BC}'' 200 ships built in 9 years and 11
+  months}.
+\newblock \URLprefix \url{https://newscast.jp/news/0731680}.
+  \bibinfo{note}{news item, 8 January 2015}.
+%Type = Misc
+\bibitem[{{Tsuneishi Shipbuilding}(2018)}]{tsuneishi2018launch}
+\bibinfo{author}{{Tsuneishi Shipbuilding}}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{July 6th, 2018, {TSUNEISHI SHIPBUILDING}, 81,600 bulk
+  carrier launching ceremony, open to the public}.
+\newblock \URLprefix
+  \url{https://www.japantimes.co.jp/comfacts/july-6th-2018-tsuneishi-shipbuilding-81600-bulk-carrier-launching-ceremony-open-to-the-public}.
+  \bibinfo{note}{news item, July 2018}.
+%Type = Techreport
+\bibitem[{{U.S. Department of Commerce, Bureau of Industry and
+  Security}(2004)}]{bis2004}
+\bibinfo{author}{{U.S. Department of Commerce, Bureau of Industry and
+  Security}}, \bibinfo{year}{2004}.
+\newblock \bibinfo{title}{National Security Assessment of the {U.S.} Aerial
+  Delivery Equipment Industry: A Joint Assessment with {U.S. Army} Soldier
+  Biological and Chemical Command}.
+\newblock \bibinfo{type}{Technical Report}. Office of Strategic Industries and
+  Economic Security, Strategic Analysis Division. \bibinfo{address}{Washington,
+  DC}.
+\newblock \URLprefix
+  \url{https://www.bis.gov/media/documents/air-delivery-final-may26-04-mac-printfinal10.pdf}.
+%Type = Article
+\bibitem[{{\"U}z{\"u}mc{\"u} et~al.(2024){\"U}z{\"u}mc{\"u}, Sar{\i} and
+  Temel}]{uzumcu2024}
+\bibinfo{author}{{\"U}z{\"u}mc{\"u}, M.B.}, \bibinfo{author}{Sar{\i}, B.},
+  \bibinfo{author}{Temel, E.}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Effect of {UV} exposure on the mechanical properties
+  of polyurethane-coated fabrics}.
+\newblock \bibinfo{journal}{Tekstil ve Konfeksiyon} \bibinfo{volume}{34},
+  \bibinfo{pages}{51--68}.
+\newblock \DOIprefix\doi{10.32710/tekstilvekonfeksiyon.1168629}.
+%Type = Incollection
+\bibitem[{Vander~Lind(2013)}]{vanderlind2013}
+\bibinfo{author}{Vander~Lind, D.}, \bibinfo{year}{2013}.
+\newblock \bibinfo{title}{Analysis and flight test validation of high
+  performance airborne wind turbines}, in: \bibinfo{editor}{Ahrens, U.},
+  \bibinfo{editor}{Diehl, M.}, \bibinfo{editor}{Schmehl, R.} (Eds.),
+  \bibinfo{booktitle}{Airborne Wind Energy}. \bibinfo{publisher}{Springer},
+  \bibinfo{address}{Berlin, Heidelberg}, pp. \bibinfo{pages}{473--490}.
+\newblock \DOIprefix\doi{10.1007/978-3-642-39965-7_28}.
+%Type = Misc
+\bibitem[{Ventura(2010)}]{ventura_estimation}
+\bibinfo{author}{Ventura, M.}, \bibinfo{year}{2010}.
+\newblock \bibinfo{title}{Estimation methods for basic ship design}.
+\newblock \bibinfo{howpublished}{Lecture slides SD-1.3.1, Ship Design I,
+  Instituto Superior T\'ecnico, Lisbon}.
+\newblock \URLprefix
+  \url{https://web.archive.org/web/20230923094101id_/http://www.mar.ist.utl.pt/mventura/Projecto-Navios-I/EN/SD-1.3.1-Estimation%20Methods.pdf}.
+%Type = Article
+\bibitem[{van~der Vlugt et~al.(2019)van~der Vlugt, Bley, Noom and
+  Schmehl}]{vandervlugt2019}
+\bibinfo{author}{van~der Vlugt, R.}, \bibinfo{author}{Bley, A.},
+  \bibinfo{author}{Noom, M.}, \bibinfo{author}{Schmehl, R.},
+  \bibinfo{year}{2019}.
+\newblock \bibinfo{title}{Quasi-steady model of a pumping kite power system}.
+\newblock \bibinfo{journal}{Renewable Energy} \bibinfo{volume}{131},
+  \bibinfo{pages}{83--99}.
+\newblock \DOIprefix\doi{10.1016/j.renene.2018.07.023}.
+%Type = Misc
+\bibitem[{{Wagenborg Shipping}(2024)}]{wagenborg2024ferus4300}
+\bibinfo{author}{{Wagenborg Shipping}}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Ferus 4.300-class: technical information}.
+\newblock \URLprefix
+  \url{https://wagenborg.com/media/vw1cr35s/2024-ferus-4300-class.pdf}.
+  \bibinfo{note}{datasheet, 4,300 dwcc general cargo ships Scheldebank,
+  Skagenbank and Steenbank, built by Ferus Smit 2005--2007}.
+%Type = Article
+\bibitem[{Wang et~al.(2021)Wang, Lang and Mao}]{wang2021}
+\bibinfo{author}{Wang, H.}, \bibinfo{author}{Lang, X.}, \bibinfo{author}{Mao,
+  W.}, \bibinfo{year}{2021}.
+\newblock \bibinfo{title}{Voyage optimization combining genetic algorithm and
+  dynamic programming for fuel/emissions reduction}.
+\newblock \bibinfo{journal}{Transportation Research Part D: Transport and
+  Environment} \bibinfo{volume}{90}, \bibinfo{pages}{102670}.
+\newblock \DOIprefix\doi{10.1016/j.trd.2020.102670}.
+%Type = Article
+\bibitem[{Wang et~al.(2024)Wang, Li, Zuo, Yuan and Wu}]{wang2024}
+\bibinfo{author}{Wang, H.}, \bibinfo{author}{Li, C.}, \bibinfo{author}{Zuo,
+  C.}, \bibinfo{author}{Yuan, J.}, \bibinfo{author}{Wu, B.},
+  \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{Computational fluid dynamics investigation of the
+  spacing of the aerodynamic characteristics for multiple wingsails on ships}.
+\newblock \bibinfo{journal}{Journal of Marine Science and Engineering}
+  \bibinfo{volume}{12}, \bibinfo{pages}{985}.
+\newblock \DOIprefix\doi{10.3390/jmse12060985}.
+%Type = Article
+\bibitem[{Wang and He(2018)}]{wang2018}
+\bibinfo{author}{Wang, L.}, \bibinfo{author}{He, W.}, \bibinfo{year}{2018}.
+\newblock \bibinfo{title}{Analytical study on deformation and structural safety
+  of parafoil}.
+\newblock \bibinfo{journal}{International Journal of Aerospace Engineering}
+  \bibinfo{volume}{2018}, \bibinfo{pages}{8924983}.
+\newblock \DOIprefix\doi{10.1155/2018/8924983}.
+%Type = Misc
+\bibitem[{{W{\"a}rtsil{\"a}}(2022)}]{wartsila2022w32methanol}
+\bibinfo{author}{{W{\"a}rtsil{\"a}}}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{W{\"a}rtsil{\"a} {W32} methanol launch webinar}.
+\newblock \URLprefix
+  \url{https://www.wartsila.com/insights/article/wartsila-w32-methanol-launch-webinar}.
+  \bibinfo{note}{news item, 10 May 2022}.
+%Type = Misc
+\bibitem[{{W{\"a}rtsil{\"a}}(2024)}]{wartsila2024w20}
+\bibinfo{author}{{W{\"a}rtsil{\"a}}}, \bibinfo{year}{2024}.
+\newblock \bibinfo{title}{W{\"a}rtsil{\"a} 20: Flexibility and reliability for
+  a wide range of vessel applications}.
+\newblock \URLprefix
+  \url{https://brandhub.wartsila.com/m/37d4d432c0137850/original/Wartsila-20-brochure.pdf}.
+  \bibinfo{note}{brochure, April 2024}.
+%Type = Article
+\bibitem[{Wei and Zhou(2012)}]{wei2012}
+\bibinfo{author}{Wei, S.}, \bibinfo{author}{Zhou, P.}, \bibinfo{year}{2012}.
+\newblock \bibinfo{title}{Development of a {3D} dynamic programming method for
+  weather routing}.
+\newblock \bibinfo{journal}{TransNav, International Journal on Marine
+  Navigation and Safety of Sea Transportation} \bibinfo{volume}{6},
+  \bibinfo{pages}{79--85}.
+%Type = Article
+\bibitem[{Wendling and Lagemann(2025)}]{wendling2025}
+\bibinfo{author}{Wendling, A.}, \bibinfo{author}{Lagemann, B.},
+  \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{How to discretise a ship's voyage when optimising for
+  high fractions of wind propulsion?}
+\newblock \bibinfo{journal}{Journal of Sailing Technology}
+  \bibinfo{volume}{10}, \bibinfo{pages}{352--388}.
+\newblock \DOIprefix\doi{10.5957/jst/2025.10.1.352}.
+%Type = Misc
+\bibitem[{{Wilhelmsen Ships Service}(2022)}]{wilhelmsen2022}
+\bibinfo{author}{{Wilhelmsen Ships Service}}, \bibinfo{year}{2022}.
+\newblock \bibinfo{title}{Mooring ropes retirement guidelines: {Acera}
+  {daGama}}.
+\newblock \bibinfo{howpublished}{Technical guideline}.
+\newblock \URLprefix
+  \url{https://www.wilhelmsen.com/globalassets/ships-service/ropes/documents/ropes-retirement-guidelines---acera-dagama-112022.pdf}.
+%Type = Misc
+\bibitem[{{WirtschaftsWoche}(2008)}]{wiwo2008}
+\bibinfo{author}{{WirtschaftsWoche}}, \bibinfo{year}{2008}.
+\newblock \bibinfo{title}{Schifffahrt: Drachen an bord: Frachter mit
+  zus{\"a}tzlichem windantrieb}.
+\newblock \URLprefix
+  \url{https://www.wiwo.de/technologie/schifffahrt-drachen-an-bord-frachter-mit-zusaetzlichem-windantrieb/5344342.html}.
+%Type = Misc
+\bibitem[{{World Bank}(2026)}]{worldbank2026}
+\bibinfo{author}{{World Bank}}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{World bank commodities price data (the pink sheet)}.
+\newblock \URLprefix
+  \url{https://thedocs.worldbank.org/en/doc/74e8be41ceb20fa0da750cda2f6b9e4e-0050012026/related/CMO-Pink-Sheet-October-2026.pdf}.
+  \bibinfo{note}{monthly prices, October 2026 edition, 2 October 2026}.
+%Type = Article
+\bibitem[{Xu et~al.(2025)Xu, Malmek and Bensow}]{xu2025}
+\bibinfo{author}{Xu, K.}, \bibinfo{author}{Malmek, K.},
+  \bibinfo{author}{Bensow, R.E.}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Numerical investigation of multiple wingsails
+  interaction under different apparent wind angles}.
+\newblock \bibinfo{journal}{Ocean Engineering} \bibinfo{volume}{336},
+  \bibinfo{pages}{121712}.
+\newblock \DOIprefix\doi{10.1016/j.oceaneng.2025.121712}.
+%Type = Article
+\bibitem[{Yao(2026)}]{yao2026}
+\bibinfo{author}{Yao, H.D.}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{Regime-dependent thrust-driven aerodynamic
+  optimization of a two-element wingsail with a {Bayesian--URANS} approach}.
+\newblock \bibinfo{journal}{Ocean Engineering} \bibinfo{volume}{362},
+  \bibinfo{pages}{126337}.
+\newblock \DOIprefix\doi{10.1016/j.oceaneng.2026.126337}.
+%Type = Article
+\bibitem[{Y\'epez et~al.(2025)Y\'epez, Ormaza and Flores}]{yepez2025}
+\bibinfo{author}{Y\'epez, R.I.}, \bibinfo{author}{Ormaza, M.F.},
+  \bibinfo{author}{Flores, D.I.}, \bibinfo{year}{2025}.
+\newblock \bibinfo{title}{Modelling learning in technical vocational education
+  through power law: a study of textile garment machinery operation}.
+\newblock \bibinfo{journal}{Journal of Technical Education and Training}
+  \bibinfo{volume}{17}, \bibinfo{pages}{119--127}.
+\newblock \DOIprefix\doi{10.30880/jtet.2025.17.02.008}.
+%Type = Misc
+\bibitem[{Yermolenko(2026)}]{gmkcenter2026eua}
+\bibinfo{author}{Yermolenko, H.}, \bibinfo{year}{2026}.
+\newblock \bibinfo{title}{European carbon prices rose to {\texteuro}82/t in
+  july}.
+\newblock \bibinfo{howpublished}{GMK Center}.
+\newblock \URLprefix
+  \url{https://gmk.center/en/news/european-carbon-prices-rose-to-e82-t-in-july/}.
+  \bibinfo{note}{news item, 16 July 2026}.
+
+\end{thebibliography}
