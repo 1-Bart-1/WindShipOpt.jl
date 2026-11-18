@@ -1304,7 +1304,7 @@ loading_port_dues:
   low: 0.38
   high: 1.31
   unit: EUR/GT
-  reason: "Port dues of a loading call at Rotterdam for a loaded bulk carrier, tanker or unscheduled general cargo ship: EUR 0.314/GT, plus EUR 0.596 per tonne of cargo capped at 133.3 % of the gross tonnage, plus a sustainability part of EUR 0.067/GT before the ESI discount, 1.18 in all [@portofrotterdam2026tariffs, Annex 1, Tables 1-3 and section 1.4(A)]. The low bound is what container ships pay, 0.38 in the tariff's own examples [@portofrotterdam2026tariffs, Annex 2, Examples 2-3]; the high bound adds the waste fee of a coaster of 2,500 GT."
+  reason: "Port dues of a loading call at Rotterdam for a loaded bulk carrier, tanker or unscheduled general cargo ship: EUR 0.314/GT, plus EUR 0.596 per tonne of cargo capped at 133.3 % of the gross tonnage, plus a sustainability part of EUR 0.067/GT before the ESI discount, 1.18 in all [@portofrotterdam2026tariffs, Annex 1, Tables 1-3 and section 1.4(A)]. The low bound stands in for a call that pays less, taking what container ships pay, 0.38 in the tariff's own examples [@portofrotterdam2026tariffs, Annex 2, Examples 2-3]; the high bound adds the waste fee of a coaster of 2,500 GT, EUR 220 plus 0.05/GT [@portofrotterdam2026tariffs, Annex 1, section 3.1]."
 discharge_port_dues:
   value: 0.1524
   low: 0.1524
@@ -1470,7 +1470,7 @@ cargo_per_ceu:
   low: 1.15
   high: 1.6
   unit: t
-  reason: "Cargo per CEU of car-deck space: a PCTC hull of 8,600 CEU is optimised for 8,000-15,000 t of payload [@keh_8600ceu_df_pctc], 1.3 t at its design deadweight; new EU cars weigh 1.56 t in running order [@icct2025_eea_brief, EEA data] and take about 1.33 CEU, 1.17 t/CEU; the 6,500 CEU Future Way's 12,600 t deadweight at design draught [@keh_future_way] gives 1.94 t/CEU, and ~1.6 less the ~2,100 t its full LNG, gas oil and fresh water tanks of 2,300, 1,000 and 230 m^3 hold, our estimate."
+  reason: "Cargo per CEU of car-deck space: a PCTC hull of 8,600 CEU is optimised for 8,000-15,000 t of payload [@keh_8600ceu_df_pctc], 1.3 t at its design deadweight; new EU cars weigh 1.56 t in running order [@icct2025_eea_brief, EEA data] and take about 1.33 CEU, 1.17 t/CEU; the 6,500 CEU Future Way's 12,600 t deadweight at design draught [@keh_future_way] gives 1.94 t/CEU; less the ~2,100 t its full LNG, gas oil and fresh water tanks of 2,300, 1,000 and 230 m^3 hold, our estimate, it gives ~1.6."
 ceu_volume:
   value: 24.0
   low: 17.0
