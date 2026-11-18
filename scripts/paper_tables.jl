@@ -156,11 +156,15 @@ input_words = Dict("e" => "e-", "teu" => "TEU", "ceu" => "CEU", "usd" => "USD",
 """
     input_label(name)
 
-Name of the input `name` as the input table prints it, in words rather than as a key.
+Name of the input `name` as the input table prints it, in words rather than as a key; the
+rigid kite's rotors are printed as propellers.
 """
-input_label(name) = replace(join([get(input_words, word, word)
-                                  for word in split(string(name), "_")], " "),
-    "e- " => "e-", r"^rigid " => "rigid kite ")
+function input_label(name)
+    label = replace(join([get(input_words, word, word)
+                          for word in split(string(name), "_")], " "), "e- " => "e-")
+    startswith(label, "rigid ") || return label
+    return replace(label, r"^rigid " => "rigid kite ", "rotor" => "propeller")
+end
 
 """
     write_input_row(io, entry, name)

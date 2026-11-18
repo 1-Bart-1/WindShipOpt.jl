@@ -3751,15 +3751,16 @@ end
           "\\newcommand{\\NumSavingOilKite}{4}\n"
 end
 
-@testset "every number the paper and its extended abstract print from the numbers step \
-          is one it wrote" begin
+@testset "every number the paper and its extended abstract print from the numbers steps \
+          is one they wrote" begin
     paper = joinpath(PaperRuns.root, "paper")
     texts = [joinpath(directory, name) for directory in (paper, joinpath(paper, "sections"))
              for name in readdir(directory) if endswith(name, ".tex")]
     used = Set(m.match for text in texts
                for m in eachmatch(r"\\Num[A-Za-z]+", read(text, String)))
-    defined = Set(m[1] for m in eachmatch(r"\\newcommand\{(\\Num[A-Za-z]+)\}",
-        read(joinpath(paper, "sections", "numbers.tex"), String)))
+    defined = Set(m[1] for name in ("numbers.tex", "rigid_numbers.tex")
+                  for m in eachmatch(r"\\newcommand\{(\\Num[A-Za-z]+)\}",
+                      read(joinpath(paper, "sections", name), String)))
     @test !isempty(used)
     @test used ⊆ defined
 end
@@ -4116,6 +4117,8 @@ end
 
 @testset "an input prints under its name in words, the rigid kite named only as a prefix" begin
     @test PaperData.input_label(:e_ammonia_price) == "e-ammonia price"
+    @test PaperData.input_label(:rigid_rotor_fill) == "rigid kite propeller fill"
+    @test PaperData.input_label(:rotor_max_wind) == "rotor max wind"
     @test PaperData.input_label(:cargo_per_teu) == "cargo per TEU"
     @test PaperData.input_label(:rigid_hover_minutes) == "rigid kite hover minutes"
     @test PaperData.input_label(:mast_rigid_share) == "mast rigid share"
