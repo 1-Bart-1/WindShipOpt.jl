@@ -35,6 +35,18 @@ rule_width = pt(0.5)
 line_width = pt(1)
 "figure units of the size of data markers"
 marker_size = pt(4)
+"text attributes of the white halo that keeps a label legible over hatching or lines"
+halo = (; glowcolor=:white, glowwidth=pt(1.5))
+"linear light of an sRGB channel value `c` in 0 to 1"
+linear_channel(c) = c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055)^2.4
+"WCAG relative luminance of `colour`"
+function luminance(colour)
+    rgb = convert(RGBf, colour)
+    return 0.2126linear_channel(rgb.r) + 0.7152linear_channel(rgb.g) +
+           0.0722linear_channel(rgb.b)
+end
+"black or white, whichever contrasts more with a solid fill of `colour`"
+text_colour(colour) = (luminance(colour) + 0.05)^2 > 1.05 * 0.05 ? :black : :white
 set_theme!(fontsize=text_size, linewidth=line_width, markersize=marker_size,
     figure_padding=(pt(3), pt(6), pt(3), pt(3)), rowgap=pt(8), colgap=pt(10),
     fonts=(; regular=paper_font("regular"), italic=paper_font("italic"),
@@ -57,8 +69,6 @@ drive_labels = [string(drive) => Dict(:vlsfo => "VLSFO", :ammonia => "e-ammonia"
 "(drive, panel title) of the panels (a), (b) of a figure with one panel per drive"
 drive_panels = [(drive, "($(Char('a' + k - 1))) $label")
                 for (k, (drive, label)) in enumerate(drive_labels)]
-"each rig with its area column in designs.csv"
-rig_area_columns = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
 
 """
     kite_figure()
@@ -928,12 +938,13 @@ function winner_map_figure()
 end
 
 """
-    fleet_share_panel!(axis, splits, measure)
+    fleet_share_panel!(axis, splits, measure, label)
 
 Stacked bar per drive of the share [%] of `measure` (`:bill` or `:saved`) of each band of
-`splits`, a Vector of drive name and [`fleet_split`](@ref), the first drive on top.
+`splits`, a Vector of drive name and [`fleet_split`](@ref), the first drive on top, each
+band written with `label(share, billions)`.
 """
-function fleet_share_panel!(axis, splits, measure)
+function fleet_share_panel!(axis, splits, measure, label)
     colours = fleet_colours()
     for (i, (_, split)) in enumerate(splits)
         total = fleet_total(split, measure)
@@ -941,12 +952,14 @@ function fleet_share_panel!(axis, splits, measure)
         for band in fleet_bands
             share = 100getfield(split[band], measure) / total
             share > 0 || continue
-            poly!(axis, Rect2f(left, i - 0.32, share, 0.64); color=colours[band],
+            fill = colours[band]
+            poly!(axis, Rect2f(left, i - 0.35, share, 0.7); color=fill,
                 strokecolor=:white, strokewidth=0.5)
-            share >= 6 && text!(axis, left + share / 2, i;
-                text=fleet_band_label(share, 1e-9getfield(split[band], measure)),
-                align=(:center, :center),
-                color=band in ("level", "none") ? :black : :white)
+            hatched = fill isa Makie.AbstractPattern
+            billions = 1e-9getfield(split[band], measure)
+            text!(axis, left + share / 2, i; text=label(share, billions),
+                align=(:center, :center), fontsize=note_size,
+                color=hatched ? :black : text_colour(fill), (hatched ? halo : (;))...)
             left += share
         end
     end
@@ -954,10 +967,34 @@ function fleet_share_panel!(axis, splits, measure)
     ylims!(axis, length(splits) + 0.5, 0.5)
 end
 
-"label of a band of `share` [%] and `billions` [USD] of a bar, the dollars only if they fit"
-function fleet_band_label(share, billions)
-    share < 14 && return @sprintf("%.0f%%", share)
-    return @sprintf("%.0f%%\n%.*f bn", share, billions < 10 ? 1 : 0, billions)
+"label of a band of `share` [%] of the cost carried, empty where it does not fit"
+cost_band_label(share, _) = share < 4 ? "" : percent_text(share)
+
+"label of a band of `share` [%] and `billions` [USD a year] saved, short where narrow"
+function saving_band_label(share, billions)
+    share < 4 && return ""
+    share < 15 && return percent_text(share)
+    return string("USD ", billions_text(billions), " bn, ", percent_text(share))
+end
+
+"`share` [%] in whole per cent, set as the paper sets it"
+percent_text(share) = @sprintf("%.0f\u2009%%", share)
+
+"`billions` [USD] with one decimal below ten, else whole"
+billions_text(billions) = @sprintf("%.*f", billions < 10 ? 1 : 0, billions)
+
+"""
+    fleet_total_label(name, split, measure)
+
+Label of the bar of drive `name` of a [`fleet_split`](@ref): the total of `measure` and, for
+the saving, its share of the cost of carrying the cargo.
+"""
+function fleet_total_label(name, split, measure)
+    total = fleet_total(split, measure)
+    label = string(name, "\nUSD ", billions_text(1e-9total), " bn")
+    measure == :saved || return label
+    share = percent_text(100total / fleet_total(split, :bill))
+    return string(label, ",\n", share, " of (a)")
 end
 
 """
@@ -976,30 +1013,38 @@ fleet_colours() = Dict("kite" => palette[1], "wings" => palette[2], "rotors" => 
 """
     fleet_share_figure()
 
-Share [%] and dollars of each band of [`fleet_bands`](@ref) in the yearly cost of carrying
-the fleet's cargo (a) and in the yearly saving (b) on each drive, each total in the row's
-label.
+The yearly cost of carrying the fleet's cargo split by the rig that lowers it most (a),
+and the yearly cost the rigs save there split by rig (b), a bar per drive with its total.
 """
 function fleet_share_figure()
     table = class_table()
     splits = [(drive, fleet_split_of(table, drive)) for (drive, _) in drive_labels]
-    figure = Figure(size=(page_width, 175))
-    panels = ((:bill, "(a) yearly cost of carrying the cargo [%, USD]"),
-        (:saved, "(b) yearly cost saved by the rigs [%, USD]"))
-    for (k, (measure, title)) in enumerate(panels)
-        labels = [string(label, "\n",
-                      @sprintf("USD %.0f bn", 1e-9fleet_total(split, measure)))
-                  for ((_, label), (_, split)) in zip(drive_labels, splits)]
-        axis = Axis(figure[1, k]; title, yticks=(eachindex(splits), labels),
-            xticks=0:25:100, ygridvisible=false, ytickalign=0, yticksize=0)
-        fleet_share_panel!(axis, splits, measure)
+    figure = Figure(size=(page_width, 250))
+    classes = length(first(fleet_work()))
+    panels = ((:bill, cost_band_label, "(a) How much of shipping each rig suits: the \
+               yearly cost of carrying the cargo of the $classes classes, by the rig that \
+               lowers it most"),
+        (:saved, saving_band_label, "(b) How much each rig saves there: the part of \
+                 the cost in (a) that the rigs take out, by rig"))
+    for (k, (measure, label, title)) in enumerate(panels)
+        ticks = [fleet_total_label(name, split, measure) for ((_, name), (_, split)) in
+                 zip(drive_labels, splits)]
+        axis = Axis(figure[k, 1]; title, yticks=(eachindex(splits), ticks),
+            xticks=0:25:100, xticklabelsvisible=k == length(panels),
+            xlabel=k == length(panels) ? "share of each bar [%]" : "", ytickalign=0,
+            yticksize=0)
+        fleet_share_panel!(axis, splits, measure, label)
     end
+    shown = [band for band in fleet_bands
+             if any(getfield(split[band], measure) > 0
+                    for (_, split) in splits, (measure, _, _) in panels)]
     colours = fleet_colours()
     names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "rotors",
-        "level" => "level within the error", "none" => "no rig saves beyond the error")
-    Legend(figure[2, 1:2], [PolyElement(color=colours[band]) for band in fleet_bands],
-        [names[band] for band in fleet_bands]; orientation=:horizontal)
-    rowgap!(figure.layout, 1, 2)
+        "level" => "two rigs level within the error",
+        "none" => "no rig saves beyond the error")
+    Legend(figure[3, 1], [PolyElement(color=colours[band]) for band in shown],
+        [names[band] for band in shown]; orientation=:horizontal)
+    rowgap!(figure.layout, 2, pt(3))
     save(joinpath(figures, "fleet_share.pdf"), figure; pt_per_unit=print_scale)
 end
 
@@ -1068,18 +1113,6 @@ Months [-] from 1 January of the year of `date` to `date`.
 year_months(date) = 12 * (dayofyear(date) - 1) / daysinyear(date)
 
 """
-    best_cost(designs, drive, length, column_name)
-
-Lowest cost per tonne-km on the route to Guadeloupe of the base designs of one drive and
-length with the rig of `column_name` (any size), or without a rig for `nothing`; `NaN`
-where none was run.
-"""
-function best_cost(designs, drive, length, column_name)
-    k = cheapest_design(designs, drive, length, column_name)
-    return isnothing(k) ? NaN : designs["cost"][k]
-end
-
-"""
     spread_labels(positions, gap)
 
 `positions` moved apart where needed so that neighbours stand at least `gap` apart, in the
@@ -1124,34 +1157,6 @@ function premium_figure()
     xlims!(axis, first(lengths) - 5, last(lengths) + 28)
     ylims!(axis, 0, nothing)
     save(joinpath(figures, "premium.pdf"), figure; pt_per_unit=print_scale)
-end
-
-"""
-    premium_closed(designs, drive, length, column_name)
-
-Share [%] of the cost premium of `drive` over VLSFO without a rig, at one ship length,
-that the best size of the rig of `column_name` closes.
-"""
-function premium_closed(designs, drive, length, column_name)
-    fossil = best_cost(designs, "vlsfo", length, nothing)
-    bare = best_cost(designs, drive, length, nothing)
-    return 100 * (bare - best_cost(designs, drive, length, column_name)) / (bare - fossil)
-end
-
-"""
-    cheapest_design(designs, drive, length, column)
-
-Row of designs.csv with the lowest cost among the base designs of `drive` and `length`
-that carry only the rig of area `column`, or none for `nothing`; `nothing` if there is
-none.
-"""
-function cheapest_design(designs, drive, length, column)
-    rig_columns = ("kite_area", "wing_area", "rotor_area")
-    chosen = [k for k in rows(designs, "scenario" => "base", "drive" => drive,
-                  "length" => length)
-              if all((name == column) == (designs[name][k] > 0) for name in rig_columns)]
-    isempty(chosen) && return nothing
-    return chosen[argmin(designs["cost"][chosen])]
 end
 
 """
@@ -1229,7 +1234,7 @@ which together make the saving if the ship carried its cargo as without a rig.
 function cargo_cost_figure()
     table = read_table(data_file("classes.csv"))
     groups = limit_groups(table)
-    figure = Figure(size=(page_width, 235))
+    figure = Figure(size=(page_width, 250))
     largest = maximum(length.(last.(groups)))
     axes = map(enumerate(groups)) do (column, (limit, names))
         axis = Axis(figure[1, column]; title="($(Char('a' + column - 1))) $limit-limited",
