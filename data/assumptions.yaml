@@ -529,31 +529,25 @@ rigid_aspect_ratio:
   high: 12.5
   unit: "-"
   reason: "MX2 design: 26 m span on 54 m^2 (Echeverri et al. 2020, Part I, Table 2)."
-rigid_reference_mass:
-  value: 1372.0
-  low: 1372.0
-  high: 1921.0
-  unit: kg
-  reason: "Structure of the MX2 design without its rotors and drives: 1852 kg [@echeverri2020part1, Part I, Table 2] less the 480 kg of nacelles, powertrains, rotors, spinners and booms in Makani's mass roll-up of the 26 m wing, which totals 1854 kg [@echeverri2020part2, Part II, pp.275, 287-288]. The high bound adds the 40 % overrun that M600 showed over its mid-design targets [@echeverri2020part1, Part I, p.265]."
-rigid_reference_area:
-  value: 54.0
-  low: 54.0
-  high: 54.0
-  unit: m^2
-  reason: "Wing area of the MX2 design that the mass law is anchored on."
-rigid_mass_exponent:
-  value: 2.75
-  low: 2.2
-  high: 3.3
-  unit: "-"
-  reason: "Exponent of mass on span at fixed aspect ratio. From Wing 7, the 60 kg wing of 8 m and 3.96 m^2 that flew [@vanderlind2013, Fig. 28.7], to the MX2 anchor it is 2.63 by area and 2.91 by span, which differ by the aspect ratios of 16 and 12.5, and 2.75 lies between; to the built M600 it is 2.87-3.18 [@echeverri2020part1, Part I, Table 1; @echeverri2020part2, Part II]. Designs without rotors give less: about 2.57 for @eijkelhof2020reference and 2.2-2.6 published, the low bound. @sommerfeld2022scaling sweep up to 3.3 as an assumption, the high bound. From so few wings, none of them large, the base is the authors' estimate and not a fit."
+rigid_shell_mass:
+  value: 14.0
+  low: 7.5
+  high: 21.0
+  unit: kg/m^2
+  reason: "Structure per wing area that does not grow with the tether force: skins, flaps, wiring, paint, tail and pylons. With the load mass it returns the 1372 kg of the MX2 design, 1852 kg [@echeverri2020part1, Part I, Table 2] less the 480 kg of nacelles, powertrains, rotors, spinners and booms in Makani's mass build-up of the 26 m wing, which totals 1854 kg [@echeverri2020part2, Part II, pp.275, 287-288]; the split between the two is the one that also returns the 6885 kg of the 150 m^2 design of @eijkelhof2020reference within a tenth. Low bound: the structure of a 4 m^2 kite with rotors, half of 15 kg/m^2, held per area at every size as the lighter of two scaling laws [@aull2020, Sect. 2.4, Tables 1-2]. High bound: the parts of Makani's build-up that no load sizes, 21 kg/m^2."
+rigid_load_mass:
+  value: 0.0063
+  low: 0.0026
+  high: 0.0096
+  unit: kg/kN/m
+  reason: "Structure per unit of tether force limit times span times aspect ratio, the scaling of the spar of a wing held at its centre [@aull2020, Eq. 25]. With the shell mass it returns the MX2 structure, 614 kg of it here. Low bound: the spar caps, shear walls and hardpoints alone of Makani's build-up, 250 kg [@echeverri2020part2, Part II, pp.287-288]. High bound: the load mass that returns MX2 with a shell of 8 kg/m^2, near the wings of 3 to 4 m^2 that flew [@vanderlind2013, Fig. 28.7; @sommerfeld2022scaling, Table 1]. The two high bounds together add half to the MX2 structure, against the 40 % by which M600 overran its mid-design targets [@echeverri2020part1, Part I, p.265]."
 
 rigid_max_force_per_area:
   value: 5.56
   low: 4.6
   high: 7.3
   unit: kN/m^2
-  reason: "MX2 design 250-300 kN on 54 m^2, the top of that here; M600 240 kN on 32.9 m^2 is the high bound [@echeverri2020part1, Part I, Table 1]."
+  reason: "MX2 design 250-300 kN on 54 m^2, the top of that here; M600 240 kN on 32.9 m^2 is the high bound [@echeverri2020part1, Part I, Table 1]. The structure's mass grows with it."
 rigid_max_lift:
   value: 2.0
   low: 1.8

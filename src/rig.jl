@@ -635,23 +635,29 @@ drive_power(hover_power, assumptions::Assumptions) =
     hover_power / assumptions[:rigid_rotor_fill]
 
 """
-    rigid_structure_mass(area, assumptions)
+    rigid_structure_mass(area, max_force, assumptions)
 
-Mass [kg] of the structure of a rigid wing of `area` [m^2], without its rotors and drives.
+Mass [kg] of the structure of a rigid wing of `area` [m^2] that holds a tether force of
+`max_force` [N], without its rotors and drives: a shell that goes with the area and a
+load-bearing part that goes with the force, the span and the aspect ratio.
 """
-rigid_structure_mass(area, assumptions::Assumptions) =
-    assumptions[:rigid_reference_mass] *
-    (area / assumptions[:rigid_reference_area])^(assumptions[:rigid_mass_exponent] / 2)
+function rigid_structure_mass(area, max_force, assumptions::Assumptions)
+    aspect_ratio = assumptions[:rigid_aspect_ratio]
+    span = sqrt(area * aspect_ratio)
+    return assumptions[:rigid_shell_mass] * area +
+           assumptions[:rigid_load_mass] * 1e-3max_force * span * aspect_ratio
+end
 
 """
-    rigid_kite_mass(area, tether_mass, assumptions)
+    rigid_kite_mass(area, max_force, tether_mass, assumptions)
 
-Mass [kg] of a rigid kite of `area` [m^2] with its rotors and the drives that hover it and
-`tether_mass` [kg] with a rotor out, and that hover power [W]. Errors where the drives
-grow faster than the mass they hover, so that no such kite exists.
+Mass [kg] of a rigid kite of `area` [m^2] that holds a tether force of `max_force` [N], with
+its rotors and the drives that hover it and `tether_mass` [kg] with a rotor out, and that
+hover power [W]. Errors where the drives grow faster than the mass they hover, so that no
+such kite exists.
 """
-function rigid_kite_mass(area, tether_mass, assumptions::Assumptions)
-    fixed = rigid_structure_mass(area, assumptions) +
+function rigid_kite_mass(area, max_force, tether_mass, assumptions::Assumptions)
+    fixed = rigid_structure_mass(area, max_force, assumptions) +
             assumptions[:rigid_rotor_mass_per_area] * assumptions[:rigid_rotor_area_ratio] *
             area
     mass = fixed + assumptions[:rigid_drive_reference_mass]
@@ -682,7 +688,7 @@ function rigid_kite_model(area, count, assumptions::Assumptions)
     tether_length = assumptions[:rigid_tether_length_ratio] * span
     tether_mass = assumptions[:rigid_tether_density] * π * tether_diameter^2 / 4 *
                   tether_length
-    mass, hover = rigid_kite_mass(area, tether_mass, assumptions)
+    mass, hover = rigid_kite_mass(area, max_force, tether_mass, assumptions)
     drag = assumptions[:rigid_feathered_rotor_drag] * assumptions[:rigid_rotor_area_ratio] +
            assumptions[:rigid_tether_drag_coefficient] * tether_diameter * tether_length /
            (4area)
