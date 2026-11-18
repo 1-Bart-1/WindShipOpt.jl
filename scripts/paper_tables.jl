@@ -1915,17 +1915,17 @@ ship_kind_words = [:teu => "Container", :ceu => "CarCarrier", :tonne => "Bulk"]
 
 Write the numbers the paper and its extended abstract state as LaTeX macros `\\Num...` to
 paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
-the goals, the `highlight_limit` the paper build checks, and the [`class_numbers`](@ref),
+the goals, the `highlight_limit` the paper build checks, the [`class_numbers`](@ref),
 [`recommendation_numbers`](@ref), [`rig_lead_numbers`](@ref), [`premium_numbers`](@ref),
 [`fleet_share_numbers`](@ref), [`market_numbers`](@ref) and [`type_saving_numbers`](@ref)
-of the class study.
+of the class study, and the [`forecast_numbers`](@ref).
 """
 function numbers_file()
     classes = class_table()
     results = [class_numbers(classes); recommendation_numbers(classes);
                rig_lead_numbers(classes); premium_numbers(classes);
                fleet_share_numbers(classes); market_numbers(classes);
-               type_saving_numbers(classes)]
+               type_saving_numbers(classes); forecast_numbers()]
     draft = paper_run.fidelity != :final
     open(joinpath(sections, "numbers.tex"), "w") do io
         for (name, text) in goal_numbers()
@@ -2046,6 +2046,18 @@ function type_saving_numbers(table)
 end
 
 """
+    forecast_numbers()
+
+Name and text, per rig, of the share [%] of its cost saving the forecast result keeps live,
+with its error, as [`kept_cell`](@ref) gives it.
+"""
+function forecast_numbers()
+    table = read_table(data_file("forecast_result_kept.csv"))
+    return ["ForecastKept" * uppercasefirst(rig) => kept_cell(table, rig, "live")
+            for rig in rig_names]
+end
+
+"""
     recommendation_numbers(table)
 
 Name and text, per kind of ship of `ship_kind_words` and rig, of the [`mean_savings`](@ref)
@@ -2142,15 +2154,19 @@ end
     rig_lead_rows(table)
 
 For each of `ship_types` and drive of the class table `table`: its words and label, the
-[`rig_lead`](@ref) and the canopy life [h] and kites lost a year of [`kite_limits`](@ref).
+[`rig_lead`](@ref), each rig's [`saving_per_ship`](@ref) as `per_ship`, and the canopy life
+[h] and kites lost a year of [`kite_limits`](@ref).
 """
 function rig_lead_rows(table)
     classes = ship_classes()
     cells = Dict(drive => fleet_cells(table, drive) for (drive, _) in drive_words)
     return [begin
                 names = [name for name in class_order(table) if classes[name].type in types]
-                lead = rig_lead(filter(cell -> cell.class in names, cells[drive]))
-                (; word, label, drive, drive_word, lead...,
+                own = filter(cell -> cell.class in names, cells[drive])
+                lead = rig_lead(own)
+                per_ship = Dict(rig => saving_per_ship(table, own, rig)
+                                for rig in rig_names)
+                (; word, label, drive, drive_word, lead..., per_ship,
                     kite_limits(table, names, drive, lead.kite_lead)...)
             end
             for (word, label, types) in ship_types for (drive, drive_word) in drive_words]
@@ -2168,12 +2184,20 @@ life_limit_text(life) = isnan(life) ? "--" : @sprintf("\\num{%.0f}", 100round(li
 
 Name and text, from the [`rig_lead_rows`](@ref) of the class table `table`, of the
 [`verdict_text`](@ref) of each of `verdict_groups`, the [`advice_text`](@ref), the
-[`highlight_text`](@ref), and on container ships per drive where the kite falls behind
-the rotors.
+[`highlight_text`](@ref), per drive the [`answer_text`](@ref), the [`saved_figures`](@ref)
+of the rigs it advises over every ship type and the range of their shares [%] of the cost
+alone, and on container ships per drive where the kite falls behind the rotors.
 """
 function rig_lead_numbers(table)
     rows = rig_lead_rows(table)
     numbers = ["Advice" => advice_text(rows), "HighlightAdvice" => highlight_text(rows)]
+    for (drive, word) in drive_words
+        own = filter(row -> row.drive == drive, rows)
+        saved = reduce(vcat, advised_savings.(own))
+        push!(numbers, "Answer$word" => answer_text(own),
+            "AnswerRange$word" => saved_figures(saved, drive),
+            "AnswerShares$word" => value_range(getproperty.(saved, :share), whole_number))
+    end
     for (word, types, drives) in verdict_groups
         push!(numbers, "Verdict$word" =>
             verdict_text(filter(row -> row.word in types && row.drive in drives, rows)))
@@ -2370,6 +2394,63 @@ function advice_text(rows)
     isempty(differing) || push!(parts, join(differing, ", ", ", and "))
     return join(parts, "; ")
 end
+
+"""
+    value_range(values, format)
+
+Text of `values` by `format`: one value where the lowest and highest read alike, else the
+range they span.
+"""
+function value_range(values, format)
+    low, high = format.(extrema(values))
+    return low == high ? low : "$low to $high"
+end
+
+"""
+    advised_savings(row)
+
+The `per_ship` savings of the rigs rig lead `row` of [`rig_lead_rows`](@ref) advises: the
+rig that leads, both where two are level, none where no rig clearly saves.
+"""
+function advised_savings(row)
+    row.verdict == "none" && return []
+    advised = row.verdict == "leads" ? [row.rig] : rig_pair(row)
+    return [row.per_ship[rig] for rig in advised]
+end
+
+"""
+    saved_figures(saved, drive)
+
+Text of the range of `saved` savings a ship a year: the share [%] of the cost per tonne-km,
+the US dollars and, on VLSFO, the tonnes of CO2.
+"""
+function saved_figures(saved, drive)
+    figures = [value_range(getproperty.(saved, :share), whole_number) * "\\,\\%",
+        "USD~" * value_range(1e-6getproperty.(saved, :saved), two_digits) * " million"]
+    drive == "vlsfo" && push!(figures,
+        value_range(1e-6getproperty.(saved, :carbon), two_digits) * "~t of CO\$_2\$")
+    return listed(figures)
+end
+
+"""
+    answer_clause(row)
+
+Text of the [`advice`](@ref) of rig lead `row` of [`rig_lead_rows`](@ref) on its ship type,
+with the [`saved_figures`](@ref) of its [`advised_savings`](@ref).
+"""
+function answer_clause(row)
+    ships = lowercase(row.label)
+    row.verdict == "none" && return "no rig on $ships, where none clearly saves"
+    return "$(advice(row)) on $ships, $(saved_figures(advised_savings(row), row.drive))"
+end
+
+"""
+    answer_text(rows)
+
+Text of the [`answer_clause`](@ref) of each of rig lead `rows` of one drive, in the order of
+`ship_types`.
+"""
+answer_text(rows) = join(answer_clause.(rows), "; ")
 
 """
     highlight_text(rows)
