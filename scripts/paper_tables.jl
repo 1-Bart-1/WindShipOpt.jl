@@ -1734,8 +1734,9 @@ function routing_value_table()
     end
     open(joinpath(sections, "routing_value_table.tex"), "w") do io
         println(io, "\\begin{tabular}{@{}lllrrrr@{}}\n\\toprule")
-        println(io, " & & Shortest route & Routing & \\multicolumn{3}{c}{Rig / with ",
-            "routing [\\%]} \\\\")
+        println(io, " & & & & \\multicolumn{3}{c}{Rig saves [\\%] against} \\\\")
+        println(io, " & & Shortest route & Routing & \\multicolumn{3}{c}{routed / unrouted} ",
+            "\\\\")
         println(io, "\\cmidrule(lr){5-7}")
         println(io, "Ship & Drive & at [kn] & saves [\\%] & kite & wings & rotors \\\\")
         println(io, "\\midrule")
@@ -1757,48 +1758,50 @@ end
     routing_error(departures, ship, drive, speed)
 
 Standard error [percentage points] of the mean over the departures in `departures` of what
-routing saves `ship` on `drive` against the shortest route at held speed `speed`.
+routing saves `ship` on `drive` against the shortest route at held speed `speed`, each
+departure routed and unrouted paired by its date.
 """
 function routing_error(departures, ship, drive, speed)
     case = ("ship" => ship, "drive" => drive, "rig" => "none")
-    routed = rows(departures, case..., "course" => "routed")
-    unrouted = rows(departures, case..., "speed" => speed)
-    savings = 100 .* (1 .- departures["cost"][routed] ./ departures["cost"][unrouted])
+    cost_on(rows_of) = Dict(departures["departure"][row] => departures["cost"][row]
+                            for row in rows_of)
+    routed = cost_on(rows(departures, case..., "course" => "routed"))
+    unrouted = cost_on(rows(departures, case..., "speed" => speed))
+    keys(routed) == keys(unrouted) ||
+        error("$ship on $drive: routed and unrouted sail different departures")
+    savings = [100(1 - routed[day] / unrouted[day]) for day in keys(routed)]
     return std(savings) / sqrt(length(savings))
 end
 
 """
     routing_value_numbers(table, departures)
 
-Name and text of the [`routing_saving`](@ref)s in whole per cent that the paper quotes: of
-the 140 m ship without a rig on each drive and the range over the reference rigs on
-e-ammonia, both at the routed ship's mean speed, and the range over the classes at that
-speed and, on each drive, at the fleet's mean operating speed; and the number of departures
+Name and text of the [`routing_saving`](@ref)s in whole per cent that the paper quotes, all
+but the last against the routed ship's mean speed: of the 140 m ship without a rig and the
+range over the reference rigs on it, the range over the classes on each drive at that speed
+and at the fleet's mean operating speed; and the number of departures sampled and of those
 the 140 m ship is compared over, from the routing value `table` and its `departures`.
 """
 function routing_value_numbers(table, departures)
     classes = filter(!=("140 m"), unique(table["ship"]))
-    together = [routing_saving(table, "140 m", "ammonia", rig, "same_time")
-                for rig in rig_names]
-    same_time = [routing_saving(table, ship, drive, "none", "same_time")
-                 for ship in classes for (drive, _) in drive_labels]
-    fleet_oil = [routing_saving(table, ship, "vlsfo", "none", "operating")
-                 for ship in classes]
-    fleet_ammonia = [routing_saving(table, ship, "ammonia", "none", "operating")
-                     for ship in classes]
     sailed = rows(departures, "ship" => "140 m")
-    savings = ["RoutingAloneOil" => routing_saving(table, "140 m", "vlsfo", "none",
-            "same_time"),
-        "RoutingAloneAmmonia" => routing_saving(table, "140 m", "ammonia", "none",
-            "same_time"),
-        "RoutingRigLow" => minimum(together), "RoutingRigHigh" => maximum(together),
-        "RoutingClassLow" => minimum(same_time), "RoutingClassHigh" => maximum(same_time),
-        "RoutingFleetOilLow" => minimum(fleet_oil),
-        "RoutingFleetOilHigh" => maximum(fleet_oil),
-        "RoutingFleetAmmoniaLow" => minimum(fleet_ammonia),
-        "RoutingFleetAmmoniaHigh" => maximum(fleet_ammonia)]
-    return [[name => replace(whole_number(saving), "-" => "\\ensuremath{-}")
-             for (name, saving) in savings];
+    savings = []
+    for (drive, name) in ("vlsfo" => "Oil", "ammonia" => "Ammonia")
+        saving(ship, rig, speed) = routing_saving(table, ship, drive, rig, speed)
+        rigs = [saving("140 m", rig, "same_time") for rig in rig_names]
+        same_time = [saving(ship, "none", "same_time") for ship in classes]
+        fleet = [saving(ship, "none", "operating") for ship in classes]
+        push!(savings, "RoutingAlone$name" => saving("140 m", "none", "same_time"),
+            "RoutingRig$(name)Low" => minimum(rigs),
+            "RoutingRig$(name)High" => maximum(rigs),
+            "RoutingClass$(name)Low" => minimum(same_time),
+            "RoutingClass$(name)High" => maximum(same_time),
+            "RoutingFleet$(name)Low" => minimum(fleet),
+            "RoutingFleet$(name)High" => maximum(fleet))
+    end
+    return [[name => replace(whole_number(value), "-" => "\\ensuremath{-}")
+             for (name, value) in savings];
+        "RoutingSampled" => string(length(unique(departures["departure"])));
         "RoutingDepartures" => string(length(unique(departures["departure"][sailed])))]
 end
 

@@ -2837,6 +2837,20 @@ end
     @test [point[1:2] for point in repeated.path] == [point[1:2] for point in leg.path]
 end
 
+@testset "the shortest path through a corridor joins its centres and is no longer than \
+          a routed path" begin
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    leg = route(corridor, table, weather, departure; time_cost=hourly)
+    shortest = WindShipOpt.shortest_corridor(corridor)
+    centre = centre_index(corridor)
+    @test (shortest.lat[1], shortest.lat[end]) == (corridor.lat[1, centre],
+        corridor.lat[end, centre])
+    @test shortest.track_length == corridor.track_length
+    @test all(isfinite, shortest.edge_length[:, 1, WindShipOpt.STRAIGHT_ON])
+    @test sum(shortest.edge_length) <=
+          sum(WindShipOpt.path_corridor(leg, corridor, 1).edge_length)
+end
+
 @testset "a search that cuts off the best path and overruns its limit widens" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
     (; time_step) = WindShipOpt.ROUTER_SETTINGS[]
@@ -4116,18 +4130,21 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 end
 
-@testset "routing and a rig save against the unrouted ship without a rig, per departure" begin
+@testset "routing and a rig save against the unrouted ship without a rig, \
+          per departure" begin
     case = ("140 m", "ammonia")
     table = Dict("ship" => fill(case[1], 3), "drive" => fill(case[2], 3),
         "rig" => ["none", "kite", "none"], "course" => ["routed", "routed", "shortest"],
         "speed" => ["cost", "cost", "same_time"], "cost" => [9.0, 7.0, 10.0])
     @test PaperData.routing_saving(table, case..., "none", "same_time") ≈ 10
     @test PaperData.routing_saving(table, case..., "kite", "same_time") ≈ 30
-    departures = Dict("ship" => fill(case[1], 4), "drive" => fill(case[2], 4),
+    departures(days) = Dict("ship" => fill(case[1], 4), "drive" => fill(case[2], 4),
         "rig" => fill("none", 4), "course" => ["routed", "routed", "shortest", "shortest"],
-        "speed" => ["cost", "cost", "same_time", "same_time"],
-        "cost" => [9.0, 8.0, 10.0, 10.0])
-    @test PaperData.routing_error(departures, case..., "same_time") ≈ 5
+        "speed" => ["cost", "cost", "same_time", "same_time"], "departure" => days,
+        "cost" => [9.0, 8.0, 10.0, 12.0])
+    @test PaperData.routing_error(departures([0, 24, 24, 0]), case..., "same_time") ≈ 2.5
+    @test_throws ErrorException PaperData.routing_error(departures([0, 24, 24, 48]),
+        case..., "same_time")
 end
 
 @testset "a result prints in whole points and a table cell to one decimal, never as -0" begin

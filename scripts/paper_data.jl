@@ -3295,15 +3295,17 @@ end
 Ships of the routing value study, each as its name, its hull length [m] or class and its
 route: the 140 m ship to Guadeloupe and the tramp and the liner of [`study_classes`](@ref).
 """
-routing_value_ships() = [("140 m", 140.0, :caribbean);
-    [(name, ship_classes()[name], route) for (name, _, route) in study_classes]]
+function routing_value_ships()
+    ships = [("140 m", :caribbean); [(name, route) for (name, _, route) in study_classes]]
+    return [(ship, study_hull(ship), route) for (ship, route) in ships]
+end
 
 """
     routing_value_data()
 
 The [`routing_value_ships`](@ref) on each of the [`study_drives`](@ref) without a rig,
-routed for cost and on the [`shortest_corridor`](@ref) of their route at each of their
-[`held_speeds`](@ref), and the 140 m ship with each of the [`reference_rigs`](@ref), routed,
+routed for cost and on the shortest path through the corridors of their route at each of
+their [`held_speeds`](@ref), and the 140 m ship with each of the [`reference_rigs`](@ref), routed,
 each ship and drive over the [`sailable_departures`](@ref) of its ship on the shortest
 route: routing_value.csv, and the cost of each departure: routing_value_departures.csv.
 """
@@ -3346,7 +3348,8 @@ in_group(case, group) = (case.ship, case.drive) == (group.ship, group.drive)
 
 Cases and round trips over `departures` of each ship, with its build, route and drive, in
 `groups`: without a rig, and for the 140 m ship with each of the [`reference_rigs`](@ref),
-routed, then without a rig on the [`shortest_corridor`](@ref) at each [`held_speeds`](@ref).
+routed, then without a rig on the shortest path through their corridors at each
+[`held_speeds`](@ref).
 """
 function routing_value_trips(groups, departures)
     routed = []
@@ -3360,7 +3363,7 @@ function routing_value_trips(groups, departures)
     held = []
     for (case, trip) in zip(routed, routed_trips)
         (case.rig == "none" && !isnothing(trip)) || continue
-        paths = shortest_corridor.(case.corridors)
+        paths = WindShipOpt.shortest_corridor.(case.corridors)
         for (speed, knots) in held_speeds(case, trip)
             push!(held, trip_case(case.design; case.route, case.ship, case.drive, case.rig,
                 case.area, speed, paths, course=:shortest, held_knots=knots))
@@ -3395,39 +3398,6 @@ function held_speeds(case, trip)
     classes = read_table(joinpath(root, "data", "ship_classes.csv"))
     operating = classes["operating_speed"][only(rows(classes, "name" => case.ship))]
     return push!(speeds, "operating" => operating)
-end
-
-"""
-    shortest_corridor(corridor)
-
-[`Corridor`](@ref) of one node per stage along the shortest path through `corridor` from
-the centre of its first stage to the centre of its last, keeping its track length.
-"""
-function shortest_corridor(corridor)
-    stages, laterals = size(corridor.lat)
-    centre = WindShipOpt.centre_index(corridor)
-    distance_to = fill(Inf, stages, laterals)
-    previous = zeros(Int, stages, laterals)
-    distance_to[1, centre] = 0.0
-    steps = WindShipOpt.step_count(corridor)
-    for stage in 1:(stages - 1), lateral in 1:laterals, step in 1:steps
-        next = WindShipOpt.next_lateral(corridor, lateral, step)
-        (1 <= next <= laterals && !isnan(corridor.edge_course[stage, lateral, step])) ||
-            continue
-        through = distance_to[stage, lateral] + corridor.edge_length[stage, lateral, step]
-        through < distance_to[stage + 1, next] || continue
-        distance_to[stage + 1, next] = through
-        previous[stage + 1, next] = lateral
-    end
-    isfinite(distance_to[stages, centre]) || error("no path through the corridor")
-    path = [centre]
-    for stage in stages:-1:2
-        pushfirst!(path, previous[stage, first(path)])
-    end
-    points = [(corridor.lat[stage, lateral], corridor.lon[stage, lateral], 0.0, 0.0, 0.0)
-              for (stage, lateral) in enumerate(path)]
-    leg = WindShipOpt.Leg(0.0, 0.0, 0.0, 0, 0, 0.0, 0.0, points, falses(stages))
-    return WindShipOpt.path_corridor(leg, corridor, 1)
 end
 
 """
