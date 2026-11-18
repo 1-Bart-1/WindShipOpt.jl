@@ -540,8 +540,6 @@ drive_panels = [(drive, "($(Char('a' + k - 1))) $label")
                 for (k, (drive, label)) in enumerate(drive_labels)]
 "each rig with the area [m^2] it is trimmed at on the 140 m VLSFO ship in 10 m/s wind"
 trim_rigs = (("kite", 800.0), ("wings", 800.0), ("rotors", 400.0))
-"each rig with its area column in designs.csv"
-rig_area_columns = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
 
 """
     kite_figure()
@@ -1534,12 +1532,13 @@ winner_shade(colour, saving) = Makie.Colors.weighted_color_mean(
     0.55 + 0.45 * clamp(saving, 0, 40) / 40, RGBf(Makie.to_color(colour)), white)
 
 """
-    fleet_share_panel!(axis, splits, measure)
+    fleet_share_panel!(axis, splits, measure, label)
 
 Stacked bar per drive of the share [%] of `measure` (`:bill` or `:saved`) of each band of
-`splits`, a Vector of drive name and [`fleet_split`](@ref), the first drive on top.
+`splits`, a Vector of drive name and [`fleet_split`](@ref), the first drive on top, each
+band written with `label(share, billions)`.
 """
-function fleet_share_panel!(axis, splits, measure)
+function fleet_share_panel!(axis, splits, measure, label)
     colours = fleet_colours()
     for (i, (_, split)) in enumerate(splits)
         total = fleet_total(split, measure)
@@ -1547,20 +1546,11 @@ function fleet_share_panel!(axis, splits, measure)
         for band in fleet_bands
             share = 100getfield(split[band], measure) / total
             share > 0 || continue
-            fill_rect!(axis, Rect2f(left, i - 0.32, share, 0.64), colours[band];
+            fill_rect!(axis, Rect2f(left, i - 0.35, share, 0.7), colours[band];
                 strokecolor=:white, strokewidth=0.5)
-            label = fleet_band_label(share, 1e-9getfield(split[band], measure))
-            boxed = band in ("level", "none")
-            if share >= 10
-                margin = max(0.8, 0.15share)
-                boxed && poly!(axis, Rect2f(left + margin, i - 0.24, share - 2margin,
-                    0.48); color=:white)
-                text!(axis, left + share / 2, i; text=label, align=(:center, :center),
-                    fontsize=note_size, color=boxed ? :black : :white)
-            elseif share >= 6
-                text!(axis, left + share / 2, i - 0.32; text=label,
-                    align=(:center, :bottom), offset=(0, pt(2)), fontsize=note_size)
-            end
+            billions = 1e-9getfield(split[band], measure)
+            text!(axis, left + share / 2, i; text=label(share, billions),
+                align=(:center, :center), fontsize=note_size)
             left += share
         end
     end
@@ -1568,15 +1558,37 @@ function fleet_share_panel!(axis, splits, measure)
     ylims!(axis, length(splits) + 0.5, 0.5)
 end
 
-"""
-    fleet_band_label(share, billions)
+"share [%] of its bar below which a band of the fleet share figure is too narrow to label"
+least_labelled_share = 4
 
-Label of a band of `share` [%] and `billions` [USD] of a bar, the dollars, an estimate,
-only if they fit.
+"label of a band of `share` [%] of the cost carried, empty where it does not fit"
+cost_band_label(share, _) = share < least_labelled_share ? "" : percent_text(share)
+
+"label of a band of `share` [%] and `billions` [USD a year] saved, short where narrow"
+function saving_band_label(share, billions)
+    share < least_labelled_share && return ""
+    share < 15 && return percent_text(share)
+    return string("USD ", estimate_text(billions), " bn, ", percent_text(share))
+end
+
+"`share` [%] in whole per cent, set as the paper sets it"
+percent_text(share) = @sprintf("%.0f\u2009%%", share)
+
+"`billions` [USD] with one decimal below ten, else whole"
+estimate_text(billions) = @sprintf("%.*f", billions < 10 ? 1 : 0, billions)
+
 """
-function fleet_band_label(share, billions)
-    share < 14 && return @sprintf("%.0f %%", share)
-    return @sprintf("%.0f %%\n%s bn", share, estimate_text(billions))
+    fleet_total_label(name, split, measure)
+
+Label of the bar of drive `name` of a [`fleet_split`](@ref): the total of `measure` and, for
+the saving, its share of the cost of carrying the cargo.
+"""
+function fleet_total_label(name, split, measure)
+    total = fleet_total(split, measure)
+    label = string(name, "\nUSD ", estimate_text(1e-9total), " bn")
+    measure == :saved || return label
+    share = percent_text(100total / fleet_total(split, :bill))
+    return string(label, ",\n", share, " of (a)")
 end
 
 "colour of the rig `rig` of [`rig_names`](@ref)"
@@ -1688,30 +1700,37 @@ hatched_entry(background, stripe) = [PolyElement(color=background);
 """
     fleet_share_figure()
 
-Share [%] and dollars of each band of [`fleet_bands`](@ref) in the yearly cost of carrying
-the fleet's cargo (a) and in the yearly saving (b) on each drive, each total in the row's
-label.
+The yearly cost of carrying the fleet's cargo split by the rig that lowers it most (a),
+and the yearly cost the rigs save there split by rig (b), a bar per drive with its total.
 """
 function fleet_share_figure()
     table = class_table()
     splits = [(drive, fleet_split_of(table, drive)) for (drive, _) in drive_labels]
-    figure = Figure(size=(page_width, 175))
-    panels = ((:bill, "(a) yearly cost of carrying the cargo [%, USD]"),
-        (:saved, "(b) yearly cost saved by the rigs [%, USD]"))
-    for (k, (measure, title)) in enumerate(panels)
-        labels = [string(label, "\nUSD ", estimate_text(1e-9fleet_total(split, measure)),
-                      " bn") for ((_, label), (_, split)) in zip(drive_labels, splits)]
-        axis = Axis(figure[1, k]; title, yticks=(eachindex(splits), labels),
-            xticks=0:25:100, ygridvisible=false, ytickalign=0, yticksize=0)
-        fleet_share_panel!(axis, splits, measure)
+    figure = Figure(size=(page_width, 250))
+    classes = length(first(fleet_work()))
+    panels = ((:bill, cost_band_label, "(a) How much of shipping each rig suits: the \
+               yearly cost of carrying the cargo of the $classes classes, by the rig that \
+               lowers it most"),
+        (:saved, saving_band_label, "(b) How much each rig saves there: the part of \
+                 the cost in (a) that the rigs take out, by rig"))
+    for (k, (measure, label, title)) in enumerate(panels)
+        ticks = [fleet_total_label(name, split, measure) for ((_, name), (_, split)) in
+                 zip(drive_labels, splits)]
+        axis = Axis(figure[k, 1]; title, yticks=(eachindex(splits), ticks),
+            xticks=0:25:100, xticklabelsvisible=k == length(panels),
+            xlabel=k == length(panels) ? "share of each bar [%]" : "", ytickalign=0,
+            yticksize=0)
+        fleet_share_panel!(axis, splits, measure, label)
     end
-    names = Dict((rig_names .=> rig_label.(rig_names))...,
-        "level" => "level within the error", "none" => "no rig saves beyond the error")
     shown = [band for band in fleet_bands
-             if any(getfield(split[band], :bill) > 0 for (_, split) in splits)]
-    Legend(figure[2, 1:2], [band_entry(band) for band in shown],
+             if any(getfield(split[band], measure) > 0
+                    for (_, split) in splits, (measure, _, _) in panels)]
+    names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "rotors",
+        "level" => "two rigs level within the error",
+        "none" => "no rig saves beyond the error")
+    Legend(figure[3, 1], [band_entry(band) for band in shown],
         [names[band] for band in shown]; orientation=:horizontal)
-    rowgap!(figure.layout, 1, 2)
+    rowgap!(figure.layout, 2, pt(3))
     save_figure("fleet_share", figure)
 end
 
@@ -1802,18 +1821,6 @@ departure_costs(table, conditions...) =
     Dict(Date(table["date"][k]) => table["cost"][k] for k in rows(table, conditions...))
 
 """
-    best_cost(designs, drive, length, column_name)
-
-Lowest cost per tonne-km on the route to Guadeloupe of the base designs of one drive and
-length with the rig of `column_name` (any size), or without a rig for `nothing`; `NaN`
-where none was run.
-"""
-function best_cost(designs, drive, length, column_name)
-    k = cheapest_design(designs, drive, length, column_name)
-    return isnothing(k) ? NaN : designs["cost"][k]
-end
-
-"""
     spread_labels(positions, gap)
 
 `positions` moved apart where needed so that neighbours stand at least `gap` apart, in the
@@ -1870,18 +1877,6 @@ function premium_figure()
     save_figure("premium", figure)
 end
 
-"""
-    premium_closed(designs, drive, length, column_name)
-
-Share [%] of the cost premium of `drive` over VLSFO without a rig, at one ship length,
-that the best size of the rig of `column_name` closes.
-"""
-function premium_closed(designs, drive, length, column_name)
-    fossil = best_cost(designs, "vlsfo", length, nothing)
-    bare = best_cost(designs, drive, length, nothing)
-    return 100 * (bare - best_cost(designs, drive, length, column_name)) / (bare - fossil)
-end
-
 "factor on the base value of the input `name` at its `bound`, `:low` or `:high`"
 input_factor(name, bound) =
     getfield(assumptions.entries[name], bound) / assumptions.entries[name].value
@@ -1920,22 +1915,6 @@ crew cost and the cargo interest at `bound`, `:low` or `:high`.
 breakdown_factors(drive, bound) = [input_factor(fuel_price_inputs[drive], bound), 1, 1,
     input_factor(:crew_cost, bound), 1,
     input_factor(:cargo_value, bound) * input_factor(:discount_rate, bound)]
-
-"""
-    cheapest_design(designs, drive, length, column)
-
-Row of designs.csv with the lowest cost among the base designs of `drive` and `length`
-that carry only the rig of area `column`, or none for `nothing`; `nothing` if there is
-none.
-"""
-function cheapest_design(designs, drive, length, column)
-    rig_columns = ("kite_area", "wing_area", "rotor_area")
-    chosen = [k for k in rows(designs, "scenario" => "base", "drive" => drive,
-                  "length" => length)
-              if all((name == column) == (designs[name][k] > 0) for name in rig_columns)]
-    isempty(chosen) && return nothing
-    return chosen[argmin(designs["cost"][chosen])]
-end
 
 """
     breakdown_figure()
@@ -2319,6 +2298,31 @@ end
 rig_entries(markers) = [markers ? [LineElement(; color),
                             MarkerElement(; color, marker=:circle)] :
                         LineElement(; color) for color in palette[eachindex(rig_names)]]
+
+"""
+    doubling_ticks(low, high; base=125)
+
+Ticks of a log axis from `low` to `high` at each doubling of `base`, as values and labels,
+every other one labelled where there are more than eight.
+"""
+function doubling_ticks(low, high; base=125)
+    powers = floor(Int, log2(low / base) + 1e-9):ceil(Int, log2(high / base) - 1e-9)
+    values = [base * 2.0^power for power in powers]
+    step = length(values) > 8 ? 2 : 1
+    labels = [(i - 1) % step == 0 ? @sprintf("%.15g", value) : ""
+              for (i, value) in enumerate(values)]
+    return values, labels
+end
+
+"""
+    doubling_axis(side, low, high; base=125)
+
+Keyword arguments of an `Axis` that draw its `side` (`:x` or `:y`) on a log scale from `low`
+to `high`, with the [`doubling_ticks`](@ref) of `base` and a minor tick between each two.
+"""
+doubling_axis(side, low, high; base=125) = NamedTuple{(Symbol(side, :scale),
+    Symbol(side, :ticks), Symbol(side, :minorticks), Symbol(side, :minorticksvisible))}((
+    log10, doubling_ticks(low, high; base), IntervalsBetween(2), true))
 
 """
 Panels of the situation figure as (title, x label, inputs with their drive, scale of the
@@ -2777,9 +2781,11 @@ function forecast_figure()
     tops = Float64[]
     for (j, (plan, _)) in enumerate(forecast_figure_plans)
         savings = [forecast_saving(table, rig, plan) for rig in rig_names]
+        spreads = [100std(ratios) / sqrt(length(ratios))
+                   for ratios in forecast_ratios.(Ref(table), rig_names, plan)]
         positions = (1:3) .+ (j - (length(forecast_figure_plans) + 1) / 2) * 0.27
-        routed = isfinite.(first.(savings))
-        means, errors = first.(savings[routed]), last.(savings[routed])
+        routed = isfinite.(savings)
+        means, errors = savings[routed], spreads[routed]
         barplot!(axis, positions[routed], means; width=0.25,
             color=[(palette[rig], plan_alphas[j]) for rig in findall(routed)])
         errorbars!(axis, positions[routed], means, errors; color=:black,
@@ -2821,20 +2827,6 @@ end
 "columns of forecast_error.csv in the forecast figure's error panels, with their style"
 forecast_error_lines = (("forecast", (; color=:black)), ("blend", (; color=palette[1])),
     ("climate", (; color=:gray50, linestyle=:dash)))
-
-"""
-    forecast_saving(table, rig, plan)
-
-Mean over the departures of the cost saving [%] of `rig` on `plan`, against the ship
-without a rig on the same plan, with its standard error, `(NaN, NaN)` where the two cannot
-be paired: a departure without a feasible round trip is no row of the table.
-"""
-function forecast_saving(table, rig, plan)
-    cost(name) = table["cost"][rows(table, "rig" => name, "plan" => plan)]
-    length(cost(rig)) == length(cost("none")) || return (NaN, NaN)
-    savings = 100 .* (1 .- cost(rig) ./ cost("none"))
-    return (mean(savings), std(savings) / sqrt(length(savings)))
-end
 
 "rigs of the combination figure with their legend labels and colours"
 combination_rigs = (("kite", "best kite", palette[1]),
@@ -3062,31 +3054,6 @@ function rigid_scaling_figure()
     xlims!(wind_axis, 25, 600)
     save_figure("rigid_scaling", figure)
 end
-
-"""
-    doubling_ticks(low, high; base=125)
-
-Ticks of a log axis from `low` to `high` at each doubling of `base`, as values and labels,
-every other one labelled where there are more than eight.
-"""
-function doubling_ticks(low, high; base=125)
-    powers = floor(Int, log2(low / base) + 1e-9):ceil(Int, log2(high / base) - 1e-9)
-    values = [base * 2.0^power for power in powers]
-    step = length(values) > 8 ? 2 : 1
-    labels = [(i - 1) % step == 0 ? @sprintf("%.15g", value) : ""
-              for (i, value) in enumerate(values)]
-    return values, labels
-end
-
-"""
-    doubling_axis(side, low, high; base=125)
-
-Keyword arguments of an `Axis` that draw its `side` (`:x` or `:y`) on a log scale from `low`
-to `high`, with the [`doubling_ticks`](@ref) of `base` and a minor tick between each two.
-"""
-doubling_axis(side, low, high; base=125) = NamedTuple{(Symbol(side, :scale),
-    Symbol(side, :ticks), Symbol(side, :minorticks), Symbol(side, :minorticksvisible))}((
-    log10, doubling_ticks(low, high; base), IntervalsBetween(2), true))
 
 "rigs of the VTOL kite figure with their legend labels and colours"
 rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
