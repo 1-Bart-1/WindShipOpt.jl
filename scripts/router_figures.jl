@@ -85,7 +85,8 @@ function draw_search_map!(axis, case; colorrange)
     unreached, pruned, kept = [filter(index -> level[index] == value, water)
                                for value in 0:2]
     dot = node_dot(corridor)
-    scatter!(axis, node_points(corridor, unreached); color=unreached_shade, markersize=0.5dot)
+    scatter!(axis, node_points(corridor, unreached); color=unreached_shade,
+        markersize=0.5dot)
     scatter!(axis, node_points(corridor, pruned); color=:transparent, strokecolor=:gray45,
         strokewidth=pt(0.3), markersize=dot)
     nodes = scatter!(axis, node_points(corridor, kept); color=excess[kept],

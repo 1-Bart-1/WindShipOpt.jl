@@ -7,6 +7,18 @@
 # missing one costs, and the numbers the abstracts state. Included by paper.jl.
 
 """
+    write_whole(write, path)
+
+Write to `path` what `write(io)` prints, once it has printed all of it, so a step that
+fails part way leaves the file it had.
+"""
+function write_whole(write, path)
+    buffer = IOBuffer()
+    write(buffer)
+    Base.write(path, take!(buffer))
+end
+
+"""
     whole_number(x)
 
 Text of `x` rounded to a whole number, halves away from zero, never "-0".
@@ -54,7 +66,7 @@ function canopy_life_table()
     lives = read_table(joinpath(root, "data", "canopy_life_statements.csv"))
     columns = ("grade", "cloth", "weight", "life_text", "ends_on", "tension", "strength",
         "dose", "rate")
-    open(joinpath(sections, "canopy_life_table.tex"), "w") do io
+    write_whole(joinpath(sections, "canopy_life_table.tex")) do io
         println(io, "\\begin{tabular}{@{}lllrrlrrrr@{}}\n\\toprule")
         println(io, "Source & Grade & Cloth & \$w\$ & Life \$L\$ & Ends on & \$T/w\$ & ",
             "\$\\sigma_w\$ & \$\\dot D\$ & \$r\$ \\\\")
@@ -168,7 +180,7 @@ value, range, unit and source.
 """
 function input_tables()
     ragged = ">{\\raggedright\\arraybackslash}"
-    open(joinpath(sections, "input_tables.tex"), "w") do io
+    write_whole(joinpath(sections, "input_tables.tex")) do io
         println(io, "\\begin{longtable}{@{}", ragged, "p{3.2cm}rr", ragged, "p{1.3cm}",
             ragged, "p{6.0cm}@{}}")
         println(io, "\\caption{Every input with a range, with its base value, range, unit ",
@@ -199,9 +211,9 @@ input_words = Dict("e" => "e-", "teu" => "TEU", "ceu" => "CEU", "usd" => "USD",
 
 Name of the input `name` as the input table prints it, in words rather than as a key.
 """
-input_label(name) = uppercasefirst(replace(join([get(input_words, word, word)
-                                                 for word in split(string(name), "_")], " "),
-    "e- " => "e-", r"^rigid " => "rigid kite "))
+input_label(name) = replace(join([get(input_words, word, word)
+                                  for word in split(string(name), "_")], " "),
+    "e- " => "e-", r"^rigid " => "rigid kite ")
 
 """
     write_input_row(io, entry, name)
@@ -210,9 +222,10 @@ One row of the input table: name, base value, range, unit and the full source no
 """
 function write_input_row(io, entry, name)
     unit = strip(entry.unit, '"')
-    println(io, latex_escape(input_label(name)), " & ", latex_number(entry.value), " & ",
-        latex_number(entry.low), "--", latex_number(entry.high), " & ",
-        unit == "-" ? "--" : latex_escape(unit), " & ", cited_note(entry.reason), " \\\\")
+    println(io, latex_escape(uppercasefirst(input_label(name))), " & ",
+        latex_number(entry.value), " & ", latex_number(entry.low), "--",
+        latex_number(entry.high), " & ", unit == "-" ? "--" : latex_escape(unit), " & ",
+        cited_note(entry.reason), " \\\\")
 end
 
 """
@@ -296,7 +309,7 @@ function development_table()
     table = read_table(data_file("sensitivity.csv"))
     ships = unique(table["ship"])
     ragged = ">{\\raggedright\\arraybackslash}"
-    open(joinpath(sections, "development_table.tex"), "w") do io
+    write_whole(joinpath(sections, "development_table.tex")) do io
         println(io, "\\begin{longtable}{@{}", ragged, "p{2.5cm}", ragged, "p{2.6cm}rrrr",
             ragged, "p{3.4cm}@{}}")
         println(io, "\\caption{The inputs of the development study by the rig whose ",
@@ -464,7 +477,7 @@ out_of_service_goal() = only(unique(assumptions[Symbol(out_of_service_inputs[rig
 Write the [`goal_rows`](@ref) to paper/sections/goals_table.tex.
 """
 function goals_table()
-    open(joinpath(sections, "goals_table.tex"), "w") do io
+    write_whole(joinpath(sections, "goals_table.tex")) do io
         columns = join(">{\\raggedright\\arraybackslash}p{$(width)\\textwidth}"
                        for width in (0.17, 0.09, 0.27, 0.39))
         println(io, "\\begin{tabular}{@{}", columns, "@{}}\n\\toprule")
@@ -647,7 +660,7 @@ function missed_goals_table()
     lead_scale = column_scale(getproperty.(goal_rows, :lead))
     margins = goal_margins.(goal_rows)
     margin_scales = [column_scale(getindex.(margins, k)) for k in 1:6]
-    open(joinpath(sections, "missed_goals_table.tex"), "w") do io
+    write_whole(joinpath(sections, "missed_goals_table.tex")) do io
         println(io, "\\setlength{\\tabcolsep}{4pt}")
         println(io, "\\textbf{(a)} Each rig at its best size\\par\\smallskip")
         println(io, "\\adjustbox{max width=\\textwidth}{%")
@@ -737,13 +750,13 @@ sources to class_sources.tex.
 function class_dimension_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
     notes = class_source_notes()
-    open(joinpath(sections, "class_sources.tex"), "w") do io
+    write_whole(joinpath(sections, "class_sources.tex")) do io
         for class in classes
             println(io, latex_escape(class.name), " & ", cited_note(notes[class.name]),
                 " \\\\")
         end
     end
-    open(joinpath(sections, "class_table.tex"), "w") do io
+    write_whole(joinpath(sections, "class_table.tex")) do io
         println(io, "\\setlength{\\tabcolsep}{3pt}")
         println(io, "\\begin{tabular}{@{}l", "r"^6, "l", "r"^4, "@{}}")
         println(io, "\\toprule")
@@ -877,7 +890,7 @@ function split_table()
     end
     cells = split_cells(lines)
     trip_scale = column_scale([line.trip for line in lines])
-    open(joinpath(sections, "split_table.tex"), "w") do io
+    write_whole(joinpath(sections, "split_table.tex")) do io
         println(io, "\\begin{tabular}{@{}llrrrrrr}\n\\toprule")
         println(io, " & & Saving & Fuel & Time & Rig and other & Shorter & ",
             "Round trip \\\\")
@@ -936,7 +949,7 @@ function cargo_interest_table()
     end
     cells = split_cells(lines)
     trip_scale = column_scale([line.trip for line in lines])
-    open(joinpath(sections, "cargo_interest_table.tex"), "w") do io
+    write_whole(joinpath(sections, "cargo_interest_table.tex")) do io
         println(io, "\\begin{tabular}{@{}llrrrrrr@{}}\n\\toprule")
         println(io, "Cargo & & Saving & Fuel & Time & Rig and other & Round trip & ",
             "Speed \\\\")
@@ -1083,7 +1096,7 @@ function payback_table()
                              for (drive, _) in drive_labels for rig in rig_names]
                    for class in class_order(table))
     scale = column_scale(1 ./ reduce(vcat, values(medians)))
-    open(joinpath(sections, "payback_table.tex"), "w") do io
+    write_whole(joinpath(sections, "payback_table.tex")) do io
         println(io, "\\begin{tabular}{@{}l", "r"^(3length(drive_labels)), "}")
         println(io, "\\toprule\n & ", drive_header(2))
         println(io, "Class & ", rig_header())
@@ -1336,7 +1349,7 @@ type_saving_table.tex.
 """
 function write_type_savings(table)
     measures = keys(type_saving_columns)
-    open(joinpath(sections, "type_saving_table.tex"), "w") do io
+    write_whole(joinpath(sections, "type_saving_table.tex")) do io
         println(io, "\\begin{tabular}{@{}lll", "r"^length(measures), "@{}}\n\\toprule")
         table_header(io, ["Fuel", "Ship type", "Rig"], type_saving_columns, measures)
         for (drive, label) in drive_labels
@@ -1365,7 +1378,7 @@ market_sales_table.tex.
 """
 function write_market_sales(markets)
     measures = (:ships, :units, :area, :sales)
-    open(joinpath(sections, "market_sales_table.tex"), "w") do io
+    write_whole(joinpath(sections, "market_sales_table.tex")) do io
         println(io, "\\begin{tabular}{@{}ll", "r"^length(measures), "@{}}\n\\toprule")
         table_header(io, ["Fuel", "Rig"], market_columns, measures)
         for (drive, label) in drive_labels
@@ -1394,7 +1407,7 @@ function write_market_types(markets)
     rigs = [rig for rig in rig_names
             if any(market -> fleet_market(market)[rig].high.ships > 0, values(markets))]
     width = length(measures)
-    open(joinpath(sections, "market_sales_type_table.tex"), "w") do io
+    write_whole(joinpath(sections, "market_sales_type_table.tex")) do io
         println(io, "\\begin{tabular}{@{}ll", "r"^(width * length(rigs)),
             "@{}}\n\\toprule")
         heads = ("\\multicolumn{$width}{c}{$rig}" for rig in rigs)
@@ -1431,7 +1444,7 @@ flight_table.tex.
 """
 function flight_table()
     table = read_table(data_file("flight.csv"))
-    open(joinpath(sections, "flight_table.tex"), "w") do io
+    write_whole(joinpath(sections, "flight_table.tex")) do io
         println(io, "\\begin{tabular}{@{}lrrrrrrrrrrrrrrrr@{}}\n\\toprule")
         println(io, "True wind & Time & Could & Up & Pulls & Thrust & ",
             "\\multicolumn{3}{c}{Could at speed [\\%]} & ",
@@ -1496,7 +1509,7 @@ gives: speed_choice_table.tex.
 function speed_choice_table()
     table = read_table(data_file("speed_choice.csv"))
     columns = ("bare", "free", "free_of_rig_cost", "held", "sailing")
-    open(joinpath(sections, "speed_choice_table.tex"), "w") do io
+    write_whole(joinpath(sections, "speed_choice_table.tex")) do io
         println(io, "\\begin{tabular}{@{}llrrrrr@{}}\n\\toprule")
         println(io, "Drive & Rig & No rig & With rig & Rig free of cost & Force held & ",
             "Force alone \\\\\n\\midrule")
@@ -1607,7 +1620,7 @@ of its plans, a column per rig, then under `changes.heading` a row per (plan, la
 """
 function write_kept_table(study, table_name, blocks; changes=nothing)
     table = read_table(study_file(study, "$(study)_kept.csv"))
-    open(joinpath(sections, table_name), "w") do io
+    write_whole(joinpath(sections, table_name)) do io
         println(io, "\\begin{tabular}{@{}lccc@{}}\n\\toprule")
         println(io, "Plan & Kite & Wing sails & Rotors \\\\\n\\midrule")
         for (heading, plans) in blocks
@@ -1659,7 +1672,7 @@ function forecast_hours_table()
         ("Fuel, kite down [GJ]", "fuel_down"), ("Fuel, kite aloft [GJ]", "fuel_up"),
         ("Fuel saved aloft [GJ]", "saved"),
         ("Saved by a speed change within the stretch [USD]", "saved_within_stretch"))
-    open(joinpath(sections, "forecast_hours_table.tex"), "w") do io
+    write_whole(joinpath(sections, "forecast_hours_table.tex")) do io
         println(io, "\\begin{tabular}{@{}l", "c"^length(plans), "@{}}\n\\toprule")
         println(io, "Per round trip & ", join(last.(plans), " & "),
             " \\\\\n\\midrule")
@@ -1804,7 +1817,7 @@ function forecast_live_table()
     table = read_table(study_file(:forecast_live, "forecast_live.csv"))
     saved = Dict(rig => rig_savings(table, rig, forecast_live_plans)
                  for rig in ("kite", "wings", "rotors"))
-    open(joinpath(sections, "forecast_live_table.tex"), "w") do io
+    write_whole(joinpath(sections, "forecast_live_table.tex")) do io
         write_cause_groups(io, forecast_live_groups, saved)
         println(io, "\\bottomrule\n\\end{tabular}")
     end
@@ -1823,7 +1836,7 @@ function forecast_causes_table()
     saved = Dict(rig => forecast_cause_savings(table, rig)
                  for rig in ("kite", "wings", "rotors"))
     margins = read_table(study_file(:forecast_causes, "forecast_margins.csv"))
-    open(joinpath(sections, "forecast_causes_table.tex"), "w") do io
+    write_whole(joinpath(sections, "forecast_causes_table.tex")) do io
         write_cause_groups(io, forecast_cause_groups, saved)
         println(io, "\\midrule\nThe kite [\\%, of its time at sea unless stated] & ",
             "Perfect foresight & Forecast plan & Change & & \\\\\n\\midrule")
@@ -1853,7 +1866,7 @@ function speed_terms_table()
     labels = [("8kn", "\\SI{8}{kn}, fixed"), ("9kn", "\\SI{9}{kn}, fixed"),
         ("10kn", "\\SI{10}{kn}, fixed"), ("same_time", "same time as no rig"),
         ("cost", "speed set by cost")]
-    open(joinpath(sections, "speed_terms_table.tex"), "w") do io
+    write_whole(joinpath(sections, "speed_terms_table.tex")) do io
         println(io, "\\begin{tabular}{@{}llrrrrrr}\n\\toprule")
         println(io, " & & \\multicolumn{3}{c}{Fuel saved [\\%]} & ",
             "\\multicolumn{3}{c}{Time saved [\\%]} \\\\")
@@ -1920,7 +1933,7 @@ our cost-optimal speed: published_table.tex.
 """
 function published_table()
     table = read_table(study_file(:published_terms, "published_terms.csv"))
-    open(joinpath(sections, "published_table.tex"), "w") do io
+    write_whole(joinpath(sections, "published_table.tex")) do io
         println(io, "\\begin{tabular}{@{}llrrrrrl@{}}\n\\toprule")
         println(io, "Study & Our ship & Kite & Speed & Published & ",
             "\\multicolumn{2}{c}{Ours [\\%]} & Covers \\\\")
@@ -2099,7 +2112,7 @@ and on which rig is cheapest by [`part_effect`](@ref), and its known error, to
 paper/sections/fidelity_table.tex.
 """
 function fidelity_table()
-    open(joinpath(sections, "fidelity_table.tex"), "w") do io
+    write_whole(joinpath(sections, "fidelity_table.tex")) do io
         for (; part, varied, model, error, effect) in fidelity_parts()
             if isnothing(effect)
                 @printf(io, "%s {\\itshape (%s)} & %s & -- & -- & -- & -- & %s \\\\\n",
@@ -2139,7 +2152,7 @@ function numbers_file()
                fleet_share_numbers(classes); market_numbers(classes);
                type_saving_numbers(classes); forecast_numbers()]
     draft = paper_run.fidelity != :final
-    open(joinpath(sections, "numbers.tex"), "w") do io
+    write_whole(joinpath(sections, "numbers.tex")) do io
         for (name, text) in goal_numbers()
             print(io, number_macro(name, text, false))
         end
@@ -2718,7 +2731,7 @@ cost savings with its error and whether the best leads or the two are level, and
 the kite falls behind the rotors, in rig_margin_table.tex.
 """
 function rig_margin_table()
-    open(joinpath(sections, "rig_margin_table.tex"), "w") do io
+    write_whole(joinpath(sections, "rig_margin_table.tex")) do io
         println(io, "\\begin{tabular}{@{}llllrlrr@{}}\n\\toprule")
         println(io, " & & & & & & \\multicolumn{2}{c}{Kite behind rotors at} \\\\")
         println(io, "\\cmidrule(l){7-8}")
@@ -2806,7 +2819,7 @@ sea_effect_table.tex.
 function sea_effect_table()
     table = read_table(study_file(:sea_effect, "sea_effect.csv"))
     ships = (first(sea_effect_classes), "140 m", Iterators.drop(sea_effect_classes, 1)...)
-    open(joinpath(sections, "sea_effect_table.tex"), "w") do io
+    write_whole(joinpath(sections, "sea_effect_table.tex")) do io
         println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
         println(io, "Ship & \\multicolumn{2}{c}{Saving [\\%]} & Difference [points] & ",
             "\\multicolumn{2}{c}{Time aloft [\\%]} \\\\")

@@ -156,7 +156,7 @@ function figure_style_file()
     isempty(faults) || error("TikZ figures set their own style:\n", join(faults, "\n"))
     faults = palette_faults()
     isempty(faults) || error("colours of the figure style: ", join(faults, "; "))
-    open(joinpath(root, "paper", "figure_style.tex"), "w") do io
+    write_whole(joinpath(root, "paper", "figure_style.tex")) do io
         println(io, "% Written by the figure_style step from figure_style.toml; edit that.")
         println(io, "\\pdfinclusioncopyfonts=1")
         println(io, "\\usepackage{xcolor}\n\\usepackage{tikz}")
@@ -2076,8 +2076,9 @@ function canopy_life_figure()
     rangebars!(axis, [i], [goal.low], [goal.high]; direction=:x, color=palette[1],
         linewidth=2line_width, whiskerwidth=0)
     scatter!(axis, [derived], [i]; color=palette[1], markersize=7)
-    text!(axis, 1.15goal.high, i; text="$(estimate_text(derived)) " *
-                                       "($(estimate_text(goal.low))–$(estimate_text(goal.high)))",
+    text!(axis, 1.15goal.high, i;
+        text="$(estimate_text(derived)) " *
+             "($(estimate_text(goal.low))–$(estimate_text(goal.high)))",
         align=(:left, :center), fontsize=note_size, color=palette[1])
     entries = [MarkerElement(marker=:rect, color=:white, strokecolor=stated,
             strokewidth=outline_width, markersize=claim_marker_size),
@@ -3114,7 +3115,8 @@ function rigid_kite_figure()
     end
     reference_line!(saving_axis)
     saving_axis.yautolimitmargin = (0.05, 0.3)
-    axislegend(saving_axis, [PolyElement(color=colour) for (_, _, colour) in rigid_kite_rigs],
+    axislegend(saving_axis,
+        [PolyElement(color=colour) for (_, _, colour) in rigid_kite_rigs],
         collect(getindex.(rigid_kite_rigs, 2)); position=:lt)
     colsize!(figure.layout, 1, Relative(0.36))
     save_figure("rigid_kite", figure)
@@ -3320,7 +3322,8 @@ function missed_goals_figure()
                     ("canopy life [h]", log10, doubling_ticks(500, 16000)),
                     (square_metres("canopy price [USD/", "]"), identity,
                         Makie.automatic),
-                    ("out of service [%]", Makie.pseudolog10, [0, 1, 2, 4, 8, 16, 32, 64])))]
+                    ("out of service [%]", Makie.pseudolog10,
+                        [0, 1, 2, 4, 8, 16, 32, 64])))]
         goal_marks!(axes[1], assumptions.entries[:canopy_life])
         goal_marks!(axes[2], WindShipOpt.canopy_price(assumptions),
             canopy_price_range(assumptions, ())...)
@@ -3442,7 +3445,8 @@ function rigid_mass_figure()
             continue
         end
         below = mass < 1.05law  # a point within 5 % of the law is labelled as on it
-        align = below ? (:left, :top) : (published["area"][i] > 10 ? :right : :left, :bottom)
+        align = below ? (:left, :top) :
+                (published["area"][i] > 10 ? :right : :left, :bottom)
         offset = below ? (pt(2.5), -pt(6)) : clear_offset(align, pt(2.5))
         text!(axis, published["area"][i], mass; text=name, align, offset,
             fontsize=note_size, color)

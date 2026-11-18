@@ -4114,6 +4114,18 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 end
 
+@testset "a table step that fails part way leaves the table it had" begin
+    path = joinpath(mktempdir(), "table.tex")
+    write(path, "complete table")
+    @test_throws ErrorException PaperData.write_whole(path) do io
+        println(io, "\\begin{tabular}")
+        error("no data for the next row")
+    end
+    @test read(path, String) == "complete table"
+    PaperData.write_whole(io -> print(io, "new table"), path)
+    @test read(path, String) == "new table"
+end
+
 @testset "a result prints in whole points and a table cell to one decimal, never as -0" begin
     @test PaperData.whole_number(-0.4) == "0"
     @test PaperData.whole_number(12.6) == "13"
@@ -4135,8 +4147,8 @@ end
 @testset "a source note prints each source as a citation of its key" begin
     note = "Kalverla's profile [@kalverla2019, Ch. 2; @schelbergen2020] gives 5 %; @imo2020 too."
     @test PaperData.cited_note(note) == "Kalverla's profile (\\citealp[Ch. 2]{kalverla2019}; " *
-        "\\citealp{schelbergen2020}) gives 5 \\%; \\citet{imo2020} too."
-    @test PaperData.cited_note("no source, 50 %") == "no source, 50 \\%"
+        "\\citealp{schelbergen2020}) gives 5\\,\\%; \\citet{imo2020} too."
+    @test PaperData.cited_note("no source, 50 %") == "no source, 50\\,\\%"
     @test_throws ErrorException PaperData.cited_note("[@a2020; Table 3]")
 end
 
