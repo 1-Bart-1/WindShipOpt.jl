@@ -1283,7 +1283,7 @@ end
     @test working.forced_landings > 0
     @test half.forced_landings ≈ working.forced_landings / 2
     @test half.launches ≈ working.launches / 2
-    dearer = with_value(hard, :kite_forced_landing_loss_probability, 2e-5)
+    dearer = with_value(hard, :kite_forced_landing_loss_probability, 1e-4)
     @test trip_with_share(kite, :kite_out_of_service, 0.5, dearer).cost_per_tonne_km >
           half.cost_per_tonne_km
 end
@@ -1514,11 +1514,16 @@ on_whole_corridor(call) = WindShipOpt.with_router_settings(call,
 "departures [h] a month apart over a year of synthetic weather"
 monthly_departures = 24.0 .* (1:30:331)
 
-@testset "a ship on a long forecast flies its kite about as the plan does" begin
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
-    kite_table = RouteTable(PerformanceTable(ship, assumptions))
+"routing table and hourly time cost of the 85 m methanol ship with a kite of `kite_area`"
+function forecast_kite_routing(kite_area)
+    ship = Ship(ShipDesign(:methanol, 85.0; kite_area), assumptions)
     kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions))
+    return RouteTable(PerformanceTable(ship, assumptions)), kite_hourly
+end
+
+@testset "a ship on a long forecast flies its kite about as the plan does" begin
+    kite_table, kite_hourly = forecast_kite_routing(800.0)
     weather = SyntheticWeather()
     for departure in monthly_departures
         leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
@@ -1528,16 +1533,44 @@ monthly_departures = 24.0 .* (1:30:331)
         end
         @test leg.launches > 0
         @test sailed.launches == leg.launches
-        @test sailed.flight_hours ≈ leg.flight_hours rtol = 0.1
-        @test sailed.objective ≈ leg.objective rtol = 0.01
+        @test sailed.flight_hours ≈ leg.flight_hours rtol = 0.025
+        @test sailed.objective ≈ leg.objective rtol = 1e-3
     end
 end
 
+@testset "a ship re-planning on the weather it planned on keeps the rest of its plan" begin
+    kite_table, kite_hourly = forecast_kite_routing(800.0)
+    weather = SyntheticWeather()
+    for departure in 24.0 .* (301, 331)
+        leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+        stage = findfirst(point -> point[3] >= 24, leg.path)
+        lat, lon, time = leg.path[stage]
+        lateral = WindShipOpt.nearest_lateral(corridor, stage, lat, lon)
+        rest = on_whole_corridor() do
+            planning, first_stage = WindShipOpt.planning_corridor(corridor, stage, lateral)
+            route(planning, kite_table, weather, departure + time; time_cost=kite_hourly,
+                first_stage, first_lateral=lateral, first_aloft=leg.aloft[stage])
+        end
+        @test [point[4] for point in rest.path] ==
+              [0.0; [point[4] for point in leg.path[(stage + 1):end]]]
+        @test rest.aloft == leg.aloft[stage:end]
+    end
+end
+
+@testset "a re-plan weighs the plan a ship holds only where it still arrives in time" begin
+    kite_table, kite_hourly = forecast_kite_routing(800.0)
+    lateral = centre_index(corridor)
+    planning, first_stage = WindShipOpt.planning_corridor(corridor, 1, lateral)
+    held = route(planning, kite_table, SyntheticWeather(), 24.0 * 61; time_cost=kite_hourly,
+        first_stage, first_lateral=lateral)
+    candidates(arrival_by) = WindShipOpt.candidate_plans([nothing], held, planning,
+        first_stage, lateral, arrival_by)
+    @test candidates(Inf) == candidates(held.duration) == [held]
+    @test isempty(candidates(held.duration - 1))
+end
+
 @testset "a kite flying in good wind stays up unless the plan ahead needs it stowed" begin
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
-    kite_table = RouteTable(PerformanceTable(ship, assumptions))
-    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
-        assumptions))
+    kite_table, kite_hourly = forecast_kite_routing(800.0)
     _, homeward = corridors
     weather, departure = SyntheticWeather(), 24.0 * 121
     leg = route(homeward, kite_table, weather, departure; time_cost=kite_hourly)
@@ -1684,10 +1717,7 @@ WindShipOpt.waves(weather::KiteOnlySeas, lat, lon, time) =
     rough_seas(weather, lat, lon, time) ? (5.0, 10.0, weather.course) : (0.0, 0.0, 0.0)
 
 @testset "a ship on a forecast slows where its kite cannot launch as planned" begin
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=800.0), assumptions)
-    kite_table = RouteTable(PerformanceTable(ship, assumptions))
-    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
-        assumptions))
+    kite_table, kite_hourly = forecast_kite_routing(800.0)
     centre, step = centre_index(corridor), WindShipOpt.MAX_LATERAL_STEP + 1
     seas = KiteOnlySeas(SyntheticWeather(), (corridor.lat[1, centre],
             corridor.lon[1, centre]), corridor.edge_course[1, centre, step])
@@ -2705,15 +2735,8 @@ end
     @test waves(known, 40.5, -30.5, known.issued + 18.0) == (0.0, 0.0, 0.0)
 end
 
-function forecast_kite_routing()
-    ship = Ship(ShipDesign(:methanol, 85.0; kite_area=400.0), assumptions)
-    kite_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
-        assumptions))
-    return RouteTable(PerformanceTable(ship, assumptions)), kite_hourly
-end
-
 @testset "a ship re-planning daily on the real weather costs about what a route does" begin
-    kite_table, kite_hourly = forecast_kite_routing()
+    kite_table, kite_hourly = forecast_kite_routing(400.0)
     weather, departure = SyntheticWeather(), 24.0 * 121
     routed = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
     replanned = forecast_route(corridor, kite_table, weather, departure;
@@ -2722,7 +2745,7 @@ end
 end
 
 @testset "a kite that knows the real weather ahead beats one on a short view" begin
-    kite_table, kite_hourly = forecast_kite_routing()
+    kite_table, kite_hourly = forecast_kite_routing(400.0)
     weather, departure = SyntheticWeather(), 24.0 * 121
     options = (; time_cost=kite_hourly, horizon=24.0)
     short_view = forecast_route(corridor, kite_table, weather, departure; options...)
