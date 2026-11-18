@@ -3568,6 +3568,43 @@ end
     @test "--account=research-me" in command.exec && "--partition=p1" in command.exec
 end
 
+@testset "a run resumed on new round-trip code hands out a batch of its own" begin
+    directories = [mktempdir() for _ in handed_cases]
+    store_run(:draft, "code")
+    batch = PaperRuns.write_batch(handed_cases, directories, [24.0])
+    @test PaperRuns.write_batch(handed_cases, directories, [24.0]) == batch
+    PaperRuns.paper_run = PaperRuns.PaperRun(PaperRuns.paper_run.directory, :draft,
+        PaperRuns.paper_run.record, nothing, Dict{Symbol, Vector{Any}}(), "newer code",
+        PaperRuns.StepTally())
+    newer = PaperRuns.write_batch(handed_cases, directories, [24.0])
+    @test newer != batch && PaperRuns.deserialize(newer).trip_model == "newer code"
+end
+
+@testset "the run's own share that fails has ended, as a failed job has" begin
+    failed = Threads.@spawn error("a trip failed")
+    wait(Threads.@spawn try wait(failed) catch end)
+    jobs = PaperRuns.SlurmJobs(PaperRuns.cluster_settings())
+    @test isempty(PaperRuns.running(jobs, Any[failed]))
+end
+
+@testset "run jobs that find their run unmoved are counted until it moves" begin
+    @eval PaperRuns runs_directory = mktempdir()
+    @test PaperRuns.stalled_run_jobs(:draft) == 0
+    directory = joinpath(PaperRuns.runs_directory, "2026-01-01T0000")
+    mkpath(directory)
+    record = Dict("fidelity" => "draft", "finished" => "", "git_branch" => "b",
+        "steps" => [Dict("name" => "designs")])
+    write_record() = open(io -> PaperRuns.TOML.print(io, record),
+        joinpath(directory, "run.toml"), "w")
+    write_record()
+    @test PaperRuns.stalled_run_jobs(:draft) == 0
+    @test PaperRuns.stalled_run_jobs(:draft) == 1
+    @test PaperRuns.stalled_run_jobs(:draft) == 2
+    push!(record["steps"], Dict("name" => "routes"))
+    write_record()
+    @test PaperRuns.stalled_run_jobs(:draft) == 0
+end
+
 @testset "the jobs of a run ask for no more than the cluster allows" begin
     settings = merge(PaperRuns.cluster_settings(),
         Dict("account" => "research-me", "partition" => "p2"))
@@ -3583,7 +3620,7 @@ end
 @testset "a final run's estimate counts the draft's cases and one more size search round" begin
     record = Dict("steps" => [Dict("name" => "patterns"),
         Dict("name" => "classes", "cases" => 26), Dict("name" => "routes", "cases" => 10)])
-    @test PaperRuns.run_counts(record) == [(name="classes", draft=26, final=32.0),
+    @test PaperRuns.run_counts(record, 3) == [(name="classes", draft=26, final=32.0),
         (name="routes", draft=10, final=10.0)]
 end
 

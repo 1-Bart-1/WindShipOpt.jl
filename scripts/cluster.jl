@@ -52,15 +52,20 @@ run_log(id) = joinpath(mkpath(joinpath(root, "output", "slurm")), "run-$id.log")
 
 Run `paper(steps...; fidelity, resume=true)` in this Slurm job, handing round trips to jobs
 of its own, with a successor job queued that resumes the run should this job be ended at
-its wall time, and cancelled once the run finishes or fails.
+its wall time, and cancelled once the run finishes or fails. Stops before that once more
+run jobs in a row than the `retries` of cluster.toml found the run with nothing new done.
 """
 function run_job(fidelity, steps)
+    settings = cluster_settings()
+    stalled = stalled_run_jobs(Symbol(fidelity))
+    stalled > settings["retries"] && error(stalled, " run jobs in a row found the ",
+        fidelity, " run with no step done and no round trip stored since the one before")
     successor = submit_run_job(fidelity, steps; after=ENV["SLURM_JOB_ID"])
-    global case_jobs = SlurmJobs(cluster_settings())
+    global case_jobs = SlurmJobs(settings)
     try
         paper(Symbol.(steps)...; fidelity=Symbol(fidelity), resume=true)
     finally
-        run(`scancel $successor`)
+        success(`scancel $successor`) || println("could not cancel job ", successor)
     end
 end
 

@@ -15,10 +15,25 @@ it is not `departure_step`; nothing for a step sailing the same departures at ev
 step_departure_settings = Dict("sensitivity" => :sensitivity_departure_step,
     "forecast_result" => nothing)
 
-"share of each rig among the cases of the class study: one without a rig per three sizes"
-rig_shares = Dict("none" => 0.1, "kite" => 0.3, "wings" => 0.3, "rotors" => 0.3)
+"""
+    search_cases(rigs, rounds)
 
-"CPU seconds, user and system, this process has used on all its threads"
+Most cases of each ship and route in the size search of [`searched_sizes`](@ref) over
+`rigs` rigs with `rounds` rounds: one without a rig, and for each rig three starting sizes
+and one per round.
+"""
+search_cases(rigs, rounds) = 1 + (3 + rounds) * rigs
+
+"""
+    rig_share(rig, rounds)
+
+Share of the cases of the size search of the reference rigs with `rounds` rounds that
+carry `rig`, "none" for the ship without one.
+"""
+rig_share(rig, rounds) =
+    (rig == "none" ? 1 : 3 + rounds) / search_cases(length(reference_rigs), rounds)
+
+"CPU seconds, user and system, this process has used on all its threads; 64-bit Linux"
 function cpu_seconds()
     usage = zeros(Int64, 18)
     ccall(:getrusage, Cint, (Cint, Ptr{Int64}), 0, usage)
@@ -90,13 +105,14 @@ function trip_costs()
 end
 
 """
-    weighted_cost(costs, sample)
+    weighted_cost(costs, sample, fidelity)
 
 Core seconds per departure of a round trip of `sample` in `costs`, its rigs weighted by
-[`rig_shares`](@ref).
+their [`rig_share`](@ref) in the size search at `fidelity`.
 """
-weighted_cost(costs, sample) =
-    sum(share * costs["$(sample)_$rig"] for (rig, share) in rig_shares)
+weighted_cost(costs, sample, fidelity) =
+    sum(rig_share(rig, fidelities[fidelity].size_rounds) * costs["$(sample)_$rig"]
+        for rig in ["none"; first.(reference_rigs)])
 
 """
     step_departures(name, fidelity)
@@ -110,17 +126,19 @@ function step_departures(name, fidelity)
 end
 
 """
-    run_counts(record)
+    run_counts(record, rigs)
 
 For each data step of the draft run `record` with round trips: its name, its cases at the
-draft and at the final fidelity, the final's one more round of the rig size search adding at
-most a quarter of the draft's cases (three sizes for every thirteen).
+draft and at the final fidelity, the class study's grown by the final's further rounds of
+the size search of `rigs` rigs ([`search_cases`](@ref)).
 """
-function run_counts(record)
+function run_counts(record, rigs)
+    growth = search_cases(rigs, fidelities[:final].size_rounds) /
+             search_cases(rigs, fidelities[:draft].size_rounds)
     return map(filter(step -> haskey(step, "cases"), record["steps"])) do step
-        extra = (fidelities[:final].size_rounds - fidelities[:draft].size_rounds) *
-                (step["name"] == "classes")
-        (name=step["name"], draft=step["cases"], final=step["cases"] * (1 + 3extra / 13))
+        cases = step["cases"]
+        (name=step["name"], draft=cases,
+            final=step["name"] == "classes" ? cases * growth : float(cases))
     end
 end
 
@@ -154,24 +172,24 @@ function print_estimate(; box_cores=20)
     directory, record = counted_run(fidelity_runs(:draft))
     costs = trip_costs()
     settings = cluster_settings()
-    between = extrema(weighted_cost.(Ref(costs), ("class", "development")))
-    forecast_cost = (1, 1) .* (weighted_cost(costs, "live") +
-                               weighted_cost(costs, "development")) ./ 2
-    class_cost = (1, 1) .* weighted_cost(costs, "class")
     println("cases of draft run ", basename(directory), "; core seconds per departure on ",
         costs["processor"], ": ", cost_line(costs))
     for fidelity in (:final, :draft)
         @printf("\n%s run\n%-20s %8s %12s %12s\n", fidelity, "step", "cases",
             "departures", "core hours")
+        cost(sample) = weighted_cost(costs, sample, fidelity)
+        between = extrema(cost.(("class", "development")))
+        forecast = (cost("live") + cost("development")) / 2
         hours = zeros(2)
-        for step in run_counts(record)
+        for step in run_counts(record, length(reference_rigs))
             cases = getproperty(step, fidelity)
             trips = cases * step_departures(step.name, fidelity)
-            cost = step.name == "forecast_result" ? forecast_cost :
-                   step.name == "classes" ? class_cost : between
-            hours .+= trips .* cost ./ 3600
+            low, high = step.name == "forecast_result" ? (forecast, forecast) :
+                        step.name == "classes" ? (cost("class"), cost("class")) : between
+            step_hours = trips .* (low, high) ./ 3600
+            hours .+= step_hours
             @printf("%-20s %8.0f %12.0f %5.0f to %5.0f\n", step.name, cases, trips,
-                (trips .* cost ./ 3600)...)
+                step_hours...)
         end
         @printf("%-20s %34.0f to %5.0f\n", "total", hours...)
         for (place, cores) in (("cluster, jobs of cluster.toml",

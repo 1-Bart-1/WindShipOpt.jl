@@ -54,12 +54,13 @@ shard_count(jobs, count) = clamp(cld(count, cores(jobs)), 1, job_count(jobs))
 
 Write the `cases` with their case-store `directories` over `departures`, and what a job
 needs of the run in use to store their round trips as it would, to a batch file in the run's
-[`jobs_directory`](@ref), unless a stopped run wrote it already; return its path.
+[`jobs_directory`](@ref), unless a stopped run on the same commit and round-trip code wrote
+it already; return its path.
 """
 function write_batch(cases, directories, departures)
     run = paper_run
     path = joinpath(mkpath(jobs_directory(run.directory)),
-        content_hash(directories) * ".bin")
+        content_hash((directories, run.record["git_commit"], run.trip_model)) * ".bin")
     isfile(path) && return path
     record = Dict("git_commit" => run.record["git_commit"],
         "git_dirty" => run.record["git_dirty"])
@@ -146,7 +147,8 @@ function job_trips(jobs, cases, directories, departures)
             handle = handles[shard]
             (isnothing(handle) || handle in alive) && continue
             missed = shard_missing((; cases, directories), shard, shards)
-            fruitless[shard] = length(missed) < length(todo[shard]) ? 0 : fruitless[shard] + 1
+            fruitless[shard] =
+                length(missed) < length(todo[shard]) ? 0 : fruitless[shard] + 1
             todo[shard] = missed
             handles[shard] = isempty(missed) || fruitless[shard] > retries(jobs) ? nothing :
                              launch(jobs, batch, shard, shards)
@@ -216,19 +218,46 @@ end
     running(jobs, handles)
 
 Those of `handles` whose task or job has not ended, every job while the queue cannot be
-read. Throws the error of a task that failed.
+read. A task that failed has ended, as a job that failed has, and its error is printed.
 """
 function running(::SlurmJobs, handles)
     tasks = filter(handle -> handle isa Task, handles)
-    foreach(wait, filter(istaskdone, tasks))
+    for task in filter(istaskfailed, tasks)
+        println("  the run's own share failed:")
+        showerror(stdout, task.result)
+        println()
+    end
     ids = filter(handle -> !(handle isa Task), handles)
     queue = IOBuffer()
-    if success(pipeline(`squeue --me --noheader --format=%i`; stdout=queue))
+    squeue = pipeline(`squeue --me --noheader --format=%i`; stdout=queue)
+    if isempty(ids) || success(squeue)
         ids = filter(in(split(String(take!(queue)))), ids)
     else
         println("  squeue failed at ", floor(now(), Second), "; waiting for every job")
     end
     return [filter(!istaskdone, tasks); ids]
+end
+
+"""
+    stalled_run_jobs(fidelity)
+
+Run jobs in a row, the one calling this included, that found the latest unfinished run at
+`fidelity` with no more steps done or round trips of its batches stored than the run job
+before it did; 0 without such a run.
+"""
+function stalled_run_jobs(fidelity)
+    runs = filter(run -> !is_finished(last(run)), fidelity_runs(fidelity))
+    isempty(runs) && return 0
+    directory, record = first(runs)
+    batches = mkpath(jobs_directory(directory))
+    progress = length(record["steps"]) +
+               sum(stored_count, filter(endswith(".bin"), readdir(batches; join=true));
+        init=0)
+    path = joinpath(batches, "run_jobs.toml")
+    before = isfile(path) ? TOML.parsefile(path) : Dict("progress" => -1, "stalled" => 0)
+    stalled = progress > before["progress"] ? 0 : before["stalled"] + 1
+    open(io -> TOML.print(io, Dict("progress" => progress, "stalled" => stalled)), path, "w")
+    return stalled
 end
 
 """
