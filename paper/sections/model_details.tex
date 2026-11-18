@@ -59,9 +59,9 @@ F_r = \frac{F_y x_\mathrm{h} - M_z}{-L/2 - x_\mathrm{h}}.
 \end{equation}
 The hull then carries $F_y+F_r$ at a leeway
 \begin{equation}
-\beta = \frac{F_y+F_r}{\tfrac12\rho_w V^2 L T Y'_\beta}
+\beta = \frac{F_y+F_r}{\tfrac12\rho_w V^2 L T\,k_\beta Y'_\beta},
 \end{equation}
-and pays an induced drag $R_\beta$ of $(F_y+F_r)\beta$ for the cross-flow share $1.4C_BB/L$ of the slope and half of that for its potential-flow share $\pi T/L$, as for a slender wing. The rudder pays $R_r=F_r^2/(\tfrac12\rho_w V^2 A_r \pi \Lambda_r)$ with an effective aspect ratio $\Lambda_r$ of 1.6 \citep{kramer2022}. The heel is $\phi = (M_x + F_y T/2)/K_\phi$, with the righting stiffness $K_\phi = \Delta g\,GM$ from the displacement $\Delta$ and the metacentric height $GM$, the lever per radian of heel by which the hull rights itself, taken as 7.5\,\% of the beam.
+where the factor $k_\beta$ of \given{1}, with a range of \given{0.5 to 1}, carries the doubt in the regression for these hulls (\cref{sec:drift_check}), and pays an induced drag $R_\beta$ of $(F_y+F_r)\beta$ for the cross-flow share $1.4C_BB/L$ of the slope and half of that for its potential-flow share $\pi T/L$, as for a slender wing. The rudder pays $R_r=F_r^2/(\tfrac12\rho_w V^2 A_r \pi \Lambda_r)$ with an effective aspect ratio $\Lambda_r$ of 1.6 \citep{kramer2022}. The heel is $\phi = (M_x + F_y T/2)/K_\phi$, with the righting stiffness $K_\phi = \Delta g\,GM$ from the displacement $\Delta$ and the metacentric height $GM$, the lever per radian of heel by which the hull rights itself, taken as 7.5\,\% of the beam.
 
 \paragraph{Solving the trim} The engine output a setting needs is $P_D(T_\mathrm{req})/\eta_\mathrm{tr}+P_\mathrm{rig}$. It is evaluated at a few evenly spaced values of the trim, and Brent's method refines the best of them. A kite flown over wings or rotors has two trims, which the Nelder--Mead method refines together from the best scanned pair; one at a time would stall where the rigs together pull the ship and the propeller idles. This finds the optimum to within $5\times10^{-6}$ of the bare ship's engine output, where lists of settings miss it by up to 2.8\,\% for rotors, 1.9\,\% for the kite and 0.5\,\% for wings and show as wiggles in the rig forces over wind angle (\cref{fig:rig_polar}).
 

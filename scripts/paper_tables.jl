@@ -2621,6 +2621,48 @@ function premium_numbers(table)
         "PremiumClosed" => whole_number(100 * (1 - mean(with) / mean(without)))]
 end
 
+"leeway angles [deg] at which [`drift_check_table`](@ref) compares the model with tests"
+drift_check_angles = (3, 6, 9)
+
+"""
+    drift_check_table()
+
+Write to paper/sections/drift_check_table.tex, for each tested hull of
+data/hull_drift_tests.csv at each of [`drift_check_angles`](@ref), the side-force coefficient
+of the published fit and of the model's hull of the same main dimensions, and the induced
+drag coefficient of each at the published side force, both on ½ρV²LT.
+"""
+function drift_check_table()
+    tests = read_table(joinpath(pkgdir(WindShipOpt), "data", "hull_drift_tests.csv"))
+    env = Environment(assumptions)
+    speed = 6.0
+    reference = 0.5env.water_density * speed^2
+    open(joinpath(sections, "drift_check_table.tex"), "w") do io
+        println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
+        println(io, "Hull & Leeway & \\multicolumn{2}{c}{Side force \\(C_Y\\)} & ",
+            "\\multicolumn{2}{c}{Induced drag \\(C_X\\) at that \\(C_Y\\)} \\\\")
+        println(io, "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}")
+        println(io, " & [\\si{\\degree}] & Tests & Model & Tests & Model \\\\\n\\midrule")
+        for (k, name) in enumerate(tests["hull"])
+            hull = Hull(tests["length"][k], tests["beam"][k], tests["draft"][k],
+                tests["block"][k], assumptions)
+            area = hull.length * hull.draft
+            aspect_ratio = 2tests["effective_draft_ratio"][k]^2 * hull.draft / hull.length
+            for angle in drift_check_angles
+                beta = deg2rad(angle)
+                tested = tests["side_force_slope"][k] * beta +
+                         tests["side_force_cubic"][k] * beta^3
+                modelled = WindShipOpt.side_force_slope(hull) * beta
+                _, drag = WindShipOpt.leeway_drag(hull, env, speed, tested * reference * area)
+                @printf(io, "%s & %d & %.4f & %.4f & %.5f & %.5f \\\\\n", name, angle,
+                    tested, modelled, tested^2 / (π * aspect_ratio),
+                    drag / (reference * area))
+            end
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
 """
     sea_effect_table()
 
