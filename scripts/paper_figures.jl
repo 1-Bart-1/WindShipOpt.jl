@@ -489,25 +489,55 @@ function legend_bound_faults(figure)
     return faults
 end
 
-"the gap [figure units] [`tick_faults`](@ref) asks of two tick labels of an axis"
+"the gap [figure units] [`tick_faults`](@ref) asks of two tick labels side by side"
 tick_gap = style_size("tick_gap")
 
 """
     tick_faults(side)
 
-Descriptions of the tick labels of the axis `side` of an `Axis` that come closer to
-another than [`tick_gap`](@ref); none where its tick labels are hidden.
+Descriptions of the tick labels of the axis `side` of an `Axis` whose [`em_boxes`](@ref)
+come closer than [`tick_gap`](@ref) along their lines or overlap across them; none where
+its tick labels are hidden.
 """
 function tick_faults(side)
     plot = side.elements[:ticklabels]
     plot.visible[] || return String[]
-    labels = [(text, Rect2f(Point2f(minimum(box)[1:2]), Vec2f(widths(box)[1:2])))
-              for (text, box) in zip(string.(side.ticklabels[]),
-                  Makie.string_boundingboxes(plot))
-              if !isempty(text)]
+    texts = string.(side.ticklabels[])
+    labels = [(text, box) for (text, box) in zip(texts, em_boxes(plot)) if !isempty(text)]
     return ["tick labels \"$(first(labels[i]))\" and \"$(first(labels[j]))\" touch"
             for i in eachindex(labels) for j in (i + 1):length(labels)
-            if overlaps(last(labels[i]), last(labels[j]), tick_gap)]
+            if overlaps(last(labels[i]), last(labels[j]), Vec2f(tick_gap, 0))]
+end
+
+"""
+    em_boxes(plot)
+
+The boxes [figure units] of the strings of the text plot `plot`, each as wide as its
+glyphs' advance and as tall as their em squares, in the frame its rotation turns it into.
+"""
+function em_boxes(plot)
+    Makie.string_boundingboxes(plot)
+    glyphs = Makie.raw_glyph_boundingboxes(plot)
+    sizes = plot.text_scales[]
+    origins = plot.glyph_origins[]
+    rotations = plot.text_rotation[]
+    return [isempty(block) ? Rect2f(Point2f(position[1:2]), Vec2f(0)) :
+            mapreduce(union, block) do i
+                em_box(glyphs[i], sizes[i][2], position .+ origins[i], rotations[i])
+            end
+            for (block, position) in zip(plot.text_blocks[], plot.markerspace_positions[])]
+end
+
+"""
+    em_box(glyph, size, point, rotation)
+
+The box [figure units] of the em square of a glyph whose unturned line box is `glyph`, of
+font size `size` and origin `point`, in the frame `rotation` turns it into.
+"""
+function em_box(glyph, size, point, rotation)
+    turned = (conj(rotation) * Point3d(point))[1:2]
+    low = minimum(glyph) .+ (0, (widths(glyph)[2] - size) / 2)
+    return Rect2f(Point2f(low .+ turned), Vec2f(widths(glyph)[1], size))
 end
 
 "the boxes [pixels of the scene of `axis`] of the legends of `figure` inside `axis`"
@@ -3258,7 +3288,7 @@ function canopy_price_figure()
         title="(a) canopy price")
     cloth = Axis(figure[1, 2]; xlabel=square_metres("cloth weight [g/", "]"),
         ylabel=square_metres("USD per ", " of cloth"), title="(b) sewn cloth")
-    colsize!(figure.layout, 1, Relative(0.58))
+    colsize!(figure.layout, 1, Relative(0.55))
     cloth_inputs = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
     cases = [("today", WindShipOpt.canopy_price_inputs),
         ("goal, today's cloth", cloth_inputs), ("goal", ())]
