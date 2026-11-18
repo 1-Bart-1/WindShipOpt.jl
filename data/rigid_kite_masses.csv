@@ -5,3 +5,7 @@ name,area,mass_low,mass_high,rotors,source,where
 "Joshi et al., design",20,700,700,false,joshi2025,"smallest design"
 "Joshi et al., design",160,10663,10663,false,joshi2025,"largest design"
 "Eijkelhof et al., reference",150,6885,6885,false,eijkelhof2020reference,"reference design"
+"Ampyx AP2, flown",3,36.8,36.8,false,sommerfeld2022scaling,"Table 1: 5.5 m span"
+"Ampyx AP3, built",12,437,475,false,joshi2024powercurve,"437 kg from its mass model at 42 kN, Sect. 2.2; 475 kg in Table 1"
+"Aull et al., reference",4,60,60,true,aull2020,"Table 1: 18.1 kN"
+"Joshi et al., design",60,2792,2792,false,joshi2025,"Table 10: 3 kN/m2"
