@@ -2382,8 +2382,8 @@ study.
 """
 development_inputs = [
     (input=:canopy_making_cost_per_area, label="canopy making cost", rig="kite",
-        lever="price", reason="Sewing, lines and fittings; a maker lowers them by series " *
-                              "production and by design for making."),
+        lever="price", reason="Sewing, lines and fittings, which a maker lowers by design " *
+                              "for making; they set the canopy's share of the kite's price."),
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
         reason="What a flight hour of the canopy costs; unmeasured, so what development " *
                "has to prove."),
@@ -2404,13 +2404,13 @@ development_inputs = [
         reason="Its launch system, structure and control decide the sea and the winds " *
                "in which it launches, flies and lands; its five limits moved together."),
     (input=:wing_cost_per_area, label="wing sail cost per area", rig="wings", lever="price",
-        reason="Structure and series production set a wing's price."),
+        reason="Structure sets a wing's price, which stands at its build-up."),
     (input=:wing_max_lift_coefficient, label="wing sail maximum lift", rig="wings",
         lever="force", reason="Flap and section design decide a wing's force."),
     (input=:wing_out_of_service, label="wing sail out of service", rig="wings",
         lever="availability", reason="The same reliability lever as for every rig."),
     (input=:rotor_cost_per_area, label="rotor cost per area", rig="rotors", lever="price",
-        reason="Structure and series production set a rotor's price."),
+        reason="Structure sets a rotor's price, which stands at its build-up."),
     (input=:rotor_lift_factor, label="rotor lift", rig="rotors", lever="force",
         reason="Rotor design sets the lift at a given spin; the base is the full-scale " *
                "fit, so the range only reaches down to the CFD value."),

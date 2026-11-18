@@ -133,18 +133,18 @@ off the bow, our own form of these two relations. The limit applies at the kite'
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{canopy_price}
-\caption{Canopy price per projected square metre at a cloth weight of \SI{200}{g/m^2}. (a) Today's price, the goal with cloth still bought at retail, and the goal, each split into cloth, sewing with lines and hardware, and the margin of the market factor. (b) Price of a sewn square metre of cloth against cloth weight, at retail today and from the mill at the goal; the vertical line marks the canopy's cloth weight.}
+\caption{Canopy price per projected square metre at a cloth weight of \SI{200}{g/m^2}. (a) The price as paid today and at the production stage, each split into cloth, sewing with lines and hardware, and the price over that cost. (b) Price of a sewn square metre of cloth against cloth weight at retail; the vertical line marks the canopy's cloth weight.}
 \label{fig:canopy_price}
 \end{figure*}
 
 \paragraph{Canopy price} The price per projected square metre (\cref{fig:canopy_price}) is
 \begin{equation}
-p_\mathrm{canopy} = f_\mathrm{m}\,(r_\mathrm{c}\,c_\mathrm{cloth} + c_\mathrm{make}),
+p_\mathrm{canopy} = f_\mathrm{m}\,\max(1, g)\,(r_\mathrm{c}\,c_\mathrm{cloth} + c_\mathrm{make}),
 \label{eq:canopy_price}
 \end{equation}
-the market factor $f_\mathrm{m}$ of 2 times the cost to make it: $r_\mathrm{c}$ square metres of cloth at a price $c_\mathrm{cloth}$ per sewn square metre, and the making cost $c_\mathrm{make}$ of sewing, bridle and hardware (\cref{app:canopy_price}). The goal of USD~150 keeps the sewing rate, the lines, the hardware and the factor. No mill has quoted the cloth, and sewing falls from 1.5 hours per flat square metre to 1.0, the top of what we infer from one year of US cargo parachute production, with no credit for a sewing robot. We keep the market factor, the factor of the other rigs, though the about 1.6 of airbags suggests it could fall (\cref{sec:costs}).
+the kite's price factor at the production stage of \cref{eq:stage_price} times the cost to make it: $r_\mathrm{c}$ square metres of cloth at a price $c_\mathrm{cloth}$ per sewn square metre, and the making cost $c_\mathrm{make}$ of sewing, bridle and hardware (\cref{app:canopy_price}). Cloth is priced at retail and sewing at 1.5 hours per flat square metre, the hours of a paraglider maker; the learning curve takes the canopy to the stage as it takes every other part of every rig, so the canopy has no price goal of its own.
 
-Sewing hours and cloth per square metre come from paragliders, whose cells, the air-filled chambers between the ribs, are several times narrower than a ship kite's. No source gives hours for either; if a ship kite needs fewer hours and less cloth, its cost saving rises by 0.2 to 1.0 points (\cref{app:seam_cloth}). Wright's law, under which the time per unit falls by a fixed ratio with each doubling of cumulative output, reaches the goal's 1.0 hour from a paraglider series' 1.5 hours in four of eight cases at \num{10000} canopies (\cref{app:learning_curve}), so the goal is a number for a mature series.
+Sewing hours and cloth per square metre come from paragliders, whose cells, the air-filled chambers between the ribs, are several times narrower than a ship kite's. No source gives hours for either; if a ship kite needs fewer hours and less cloth, its cost saving rises by 0.2 to 1.0 points (\cref{app:seam_cloth}).
 
 \begin{figure*}[tbp]
 \centering
