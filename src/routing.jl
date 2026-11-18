@@ -264,6 +264,8 @@ Base.@kwdef struct RouterSettings
     final_time_step::Float64 = 0.25
     "how far the final pass strays in time from the path found [h]"
     final_time_band::Float64 = 24.0
+    "most rows an edge of the search moves sideways"
+    lateral_reach::Int = MAX_LATERAL_STEP
 end
 
 "[`RouterSettings`](@ref) in force"
@@ -748,6 +750,18 @@ function (to_go::CostToGo)(lateral, aloft, stage, time)
     return isnan(lower) || isnan(upper) ? NaN : Inf
 end
 
+"A [`CostToGo`](@ref) times `factor`, for pruning against an upper bound"
+struct DiscountedToGo
+    to_go::CostToGo
+    factor::Float64
+end
+
+(discounted::DiscountedToGo)(lateral, aloft, stage, time) =
+    discounted.factor * discounted.to_go(lateral, aloft, stage, time)
+
+"experiment counters: states expanded, edges sailed, edges skipped by the limit, shared"
+const SEARCH_COUNTS = zeros(Int, 4, 64)
+
 """
     CostToGo(workspace, corridor, table, weather, departure; time_cost, first_stage,
              coastal_penalty)
@@ -817,7 +831,9 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices,
     kite = has_kite(table)
     speed_stride = COST_TO_GO_SPEED_STRIDE * ROUTER_SETTINGS[].search_speed_stride
     best_down, best_up = Inf, Inf
+    reach = ROUTER_SETTINGS[].lateral_reach
     for step in 1:(2MAX_LATERAL_STEP + 1)
+        abs(step - MAX_LATERAL_STEP - 1) > reach && continue
         isnan(corridor.edge_course[stage, lateral, step]) && continue
         next = next_lateral(lateral, step)
         penalty = edge_penalty(corridor, stage, next, coastal_penalty)
@@ -1018,6 +1034,7 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
     start_state!(workspace, (first_lateral, 1, first_aloft + 1, first_stage))
     commanded = commanded_speeds(length(speeds), speed_stride)
     sample_hours = ROUTER_SETTINGS[].edge_sample_hours
+    reach = lateral_count == 1 ? MAX_LATERAL_STEP : ROUTER_SETTINGS[].lateral_reach
     for stage in first_stage:(stage_count - 1), lateral in 1:lateral_count
         corridor.water[stage, lateral] || continue
         lat, lon = corridor.lat[stage, lateral], corridor.lon[stage, lateral]
@@ -1028,12 +1045,14 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
             isfinite(here) || continue
             time = elapsed[lateral, bin, aloft, stage]
             within_limit(to_go, limit, here, lateral, aloft, stage, time) || continue
+            SEARCH_COUNTS[1, Threads.threadid()] += 1
             state = (lateral, bin, aloft, stage)
             sharing = sharing_edges!(workspace, state, to_go, limit, length(commanded))
             node_wind = wind(weather, lat, lon, departure + time)
             node_waves = waves(weather, lat, lon, departure + time)
             daylight = is_daylight(lon, departure + time)
             for step in 1:(2MAX_LATERAL_STEP + 1)
+                abs(step - MAX_LATERAL_STEP - 1) > reach && continue
                 isnan(corridor.edge_course[stage, lateral, step]) && continue
                 next = next_lateral(lateral, step)
                 penalty = edge_penalty(corridor, stage, next, coastal_penalty)
@@ -1047,11 +1066,12 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
                     sails_same(same, speed_index, intervals) && continue
                     edge_within_limit(to_go, limit,
                         here + penalty * time_cost * commanded_hours, next, stage + 1,
-                        time + commanded_hours) || continue
+                        time + commanded_hours) || (SEARCH_COUNTS[3, Threads.threadid()] += 1; continue)
                     index = sharing + (step - 1) * length(commanded) + slot
                     sailed = aloft == 2 && sharing >= 0 ? workspace.shared[index] :
                              UNSAILED
                     if isnan(sailed.hours)
+                        SEARCH_COUNTS[2, Threads.threadid()] += 1
                         hours = sail_edge!(points, start, table, weather, corridor, stage,
                             lateral, step, departure + time, speed_index, sample_hours)
                         sailed = SailedEdge(table, points, hours, aloft == 2, prices)
@@ -1121,11 +1141,11 @@ Whether a state of objective `here` [USD], or an edge that would reach the node 
 there is none or it found no path.
 """
 within_limit(::Nothing, limit, here, lateral, aloft, stage, time) = true
-within_limit(to_go::CostToGo, limit, here, lateral, aloft, stage, time) =
+within_limit(to_go::Union{CostToGo, DiscountedToGo}, limit, here, lateral, aloft, stage, time) =
     !(here + to_go(lateral, aloft, stage, time) > limit)
 
 edge_within_limit(::Nothing, limit, here, next, stage, time) = true
-edge_within_limit(to_go::CostToGo, limit, here, next, stage, time) =
+edge_within_limit(to_go::Union{CostToGo, DiscountedToGo}, limit, here, next, stage, time) =
     !(here + min(to_go(next, 1, stage, time), to_go(next, 2, stage, time)) > limit)
 
 within_limit(band::PassageBand, limit, here, lateral, aloft, stage, time) =
