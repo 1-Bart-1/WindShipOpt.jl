@@ -538,20 +538,33 @@ function angle_sums(name, rig, area)
     out_hourly, back_hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions)
     route_table = RouteTable(table)
-    out_corridor, back_corridor = run_corridors(name)
     sums, legs = Dict{Tuple{String, String}, NTuple{3, Float64}}(), []
     for departure in sampled_departures()
-        out = route(out_corridor, route_table, weather, departure; time_cost=out_hourly)
-        isnothing(out) && continue
-        back_departure = departure + out.duration + port_hours()
-        back = route(back_corridor, route_table, weather, back_departure;
-            time_cost=back_hourly)
-        isnothing(back) && continue
-        add_leg!(sums, LegTrace(table, out, weather, departure), "out")
-        add_leg!(sums, LegTrace(table, back, weather, back_departure), "home")
-        push!(legs, (out, back))
+        trip = out_and_back(route_table, name, departure, (out_hourly, back_hourly))
+        isnothing(trip) && continue
+        add_leg!(sums, LegTrace(table, trip.out, weather, departure), "out")
+        add_leg!(sums, LegTrace(table, trip.back, weather, trip.back_departure), "home")
+        push!(legs, (trip.out, trip.back))
     end
     return sums, rig_cost_per_hour(ship, bare, legs, assumptions)
+end
+
+"""
+    out_and_back(route_table, name, departure, hourly)
+
+The legs `out` and `back` routed on the true weather on route `name` from `departure` [h]
+and after the port call, at time costs `hourly` [USD/h] out and back, and the time
+`back_departure` [h] the return leaves; `nothing` if either leg fails.
+"""
+function out_and_back(route_table, name, departure, hourly)
+    out_corridor, back_corridor = run_corridors(name)
+    out = route(out_corridor, route_table, weather, departure; time_cost=first(hourly))
+    isnothing(out) && return nothing
+    back_departure = departure + out.duration + port_hours()
+    back = route(back_corridor, route_table, weather, back_departure;
+        time_cost=last(hourly))
+    isnothing(back) && return nothing
+    return (; out, back, back_departure)
 end
 
 """
@@ -565,7 +578,7 @@ sea [USD/h]: wind_angle.csv.
 function wind_angle_data()
     cases = vec([(name, rig, area) for name in route_names,
                  (rig, area) in [("none", 0.0); reference_rigs]])
-    Ship(ShipDesign(:ammonia, 140.0; kite_area=Dict(reference_rigs)["kite"]), assumptions)
+    build_kite_tables(Dict(reference_rigs)["kite"])
     results = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         results[k] = angle_sums(cases[k]...)
@@ -576,6 +589,57 @@ function wind_angle_data()
             for ((direction, band), (hours, thrust_hours, work)) in sort(collect(sums))
                 @printf(io, "%s,%s,%.0f,%s,%s,%.2f,%.1f,%.4f,%.2f\n", name, rig, area,
                     direction, band, hours, thrust_hours, work, rig_cost)
+            end
+        end
+    end
+end
+
+"""
+    build_kite_tables(area)
+
+Compute once the pattern tables of the 140 m e-ammonia ship's kite of `area` [m^2], which
+the threads that route it then share.
+"""
+build_kite_tables(area) = (Ship(ShipDesign(:ammonia, 140.0; kite_area=area), assumptions);
+                           nothing)
+
+"""
+    track_seasons()
+
+The winter and the summer departure [h] of the routes figure's tracks, by season.
+"""
+track_seasons() = ("winter" => departures[1],
+    "summer" => departures[findfirst(>=(24 * 181), departures)])
+
+"""
+    route_tracks_data()
+
+The 140 m e-ammonia ship without a rig and with a 3200 m^2 kite routed out and home on
+every route from the [`track_seasons`](@ref): latitude and longitude [°] of each stage of
+each leg, in order: route_tracks.csv. Errors where a leg cannot be routed.
+"""
+function route_tracks_data()
+    cases = vec([(season, name, area) for season in track_seasons(), name in route_names,
+                 area in (0.0, 3200.0)])
+    build_kite_tables(3200.0)
+    trips = Vector{Any}(undef, length(cases))
+    Threads.@threads :greedy for k in eachindex(cases)
+        (_, departure), name, area = cases[k]
+        ship = Ship(ShipDesign(:ammonia, 140.0; kite_area=area), assumptions)
+        hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
+        trips[k] = out_and_back(RouteTable(PerformanceTable(ship, assumptions)), name,
+            departure, hourly)
+        isnothing(trips[k]) &&
+            error("no round trip on $name from $departure h with $area m^2 of kite")
+    end
+    open(run_file("route_tracks.csv"), "w") do io
+        println(io, "season,departure,route,kite_area,direction,lat,lon")
+        for (((season, departure), name, area), trip) in zip(cases, trips)
+            for (direction, leg) in (("out", trip.out), ("back", trip.back))
+                for (lat, lon) in leg.path
+                    @printf(io, "%s,%.0f,%s,%.0f,%s,%.4f,%.4f\n", season, departure,
+                        name, area, direction, lat, lon)
+                end
             end
         end
     end
