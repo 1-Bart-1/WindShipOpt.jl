@@ -1,9 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# What a final and a draft paper run take: the round trips of each data step of the latest
-# draft run, scaled to each fidelity, times the core seconds this machine takes for a sample
-# of round trips at this commit. Included by cluster.jl for `bin/cluster estimate`.
+# What a final and a draft paper run take: the round trips of each data step of the draft
+# run with the most steps, scaled to each fidelity, times the core seconds this machine
+# takes for a sample of round trips at this commit. Included by cluster.jl for
+# `bin/cluster estimate`.
 
 using Printf
 
@@ -52,7 +53,8 @@ function measure_trip_costs()
         StepTally())
     sampled(fidelity) = departures[1:fidelities[fidelity].departure_step:end]
     development(rig, area; plan=false) = trip_case(
-        ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); route=:caribbean, forecast=plan)
+        ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); route=:caribbean,
+        forecast=plan)
     classes = collect(values(ship_classes()))
     rigs = [("none", 0.0); reference_rigs]
     costs = Dict{String, Any}("processor" => processor(), "threads" => Threads.nthreads())
@@ -123,26 +125,41 @@ function run_counts(record)
 end
 
 """
+    counted_run(runs)
+
+The finished run of `runs`, newest first, with the most data steps; the newest of equals.
+"""
+counted_run(runs) = argmax(run -> count(haskey.(last(run)["steps"], "cases")),
+    filter(run -> is_finished(last(run)), runs))
+
+"""
+    cost_line(costs)
+
+The core seconds per departure of each sample in `costs`, by sample name.
+"""
+cost_line(costs) = join([@sprintf("%s %.0f", key, value)
+                         for (key, value) in sort(collect(costs); by=first)
+                         if value isa Number && key != "threads"], ", ")
+
+"""
     print_estimate(; box_cores=20)
 
 Print what a final and a draft run take in core hours on this machine and in days on the
 cluster's jobs of cluster.toml, on one of those jobs alone, and on `box_cores` cores here,
-from the latest finished draft run's cases and [`trip_costs`](@ref): the class study at the
-class sample, the forecast result at the mean of its plan sailed live and with perfect
-foresight, every other step between the development and the class sample.
+from the cases of the [`counted_run`](@ref) of the draft runs and [`trip_costs`](@ref): the
+class study at the class sample, the forecast result at the mean of its plan sailed live and
+with perfect foresight, every other step between the development and the class sample.
 """
 function print_estimate(; box_cores=20)
-    directory, record = first(filter(run -> is_finished(last(run)) &&
-                                                any(haskey.(last(run)["steps"], "cases")),
-        fidelity_runs(:draft)))
+    directory, record = counted_run(fidelity_runs(:draft))
     costs = trip_costs()
     settings = cluster_settings()
     between = extrema(weighted_cost.(Ref(costs), ("class", "development")))
-    forecast_cost = (weighted_cost(costs, "live") + weighted_cost(costs, "development")) / 2
+    forecast_cost = (1, 1) .* (weighted_cost(costs, "live") +
+                               weighted_cost(costs, "development")) ./ 2
+    class_cost = (1, 1) .* weighted_cost(costs, "class")
     println("cases of draft run ", basename(directory), "; core seconds per departure on ",
-        costs["processor"], ": ", join([@sprintf("%s %.0f", key, value)
-                                        for (key, value) in sort(collect(costs))
-                                        if value isa Number && key != "threads"], ", "))
+        costs["processor"], ": ", cost_line(costs))
     for fidelity in (:final, :draft)
         @printf("\n%s run\n%-20s %8s %12s %12s\n", fidelity, "step", "cases",
             "departures", "core hours")
@@ -150,8 +167,8 @@ function print_estimate(; box_cores=20)
         for step in run_counts(record)
             cases = getproperty(step, fidelity)
             trips = cases * step_departures(step.name, fidelity)
-            cost = step.name == "forecast_result" ? forecast_cost .* (1, 1) :
-                   step.name == "classes" ? weighted_cost(costs, "class") .* (1, 1) : between
+            cost = step.name == "forecast_result" ? forecast_cost :
+                   step.name == "classes" ? class_cost : between
             hours .+= trips .* cost ./ 3600
             @printf("%-20s %8.0f %12.0f %5.0f to %5.0f\n", step.name, cases, trips,
                 (trips .* cost ./ 3600)...)

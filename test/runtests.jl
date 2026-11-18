@@ -3587,6 +3587,20 @@ end
         (name="routes", draft=10, final=10.0)]
 end
 
+@testset "the estimate counts the draft run with the most data steps, not the newest" begin
+    run(name, finished, steps...) = (name, Dict{String, Any}("finished" => finished,
+        "steps" => [Dict("name" => step, "cases" => 1) for step in steps]))
+    runs = [run("rerun", "18 Nov", "routing_value"), run("going", "", "a", "b", "c"),
+        run("full", "17 Nov", "classes", "routes"), run("older", "15 Nov", "a", "b")]
+    @test first(PaperRuns.counted_run(runs)) == "full"
+end
+
+@testset "the estimate prints the sample costs beside the processor it names" begin
+    costs = Dict{String, Any}("processor" => "box", "threads" => 12, "class_kite" => 241.9,
+        "development_none" => 35.2)
+    @test PaperRuns.cost_line(costs) == "class_kite 242, development_none 35"
+end
+
 @testset "a final run's parts name every commit and dirty tree they come from" begin
     part(commit, dirty, cases) = ("run", Dict{String, Any}("git_commit" => commit,
         "git_dirty" => dirty, "case_commits" => cases))
