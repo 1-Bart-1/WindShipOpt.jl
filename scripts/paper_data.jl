@@ -1116,6 +1116,58 @@ without a rig and the cost `savings` [%] of its rigs.
 """
 cell_saved(cell, rig) = cell.bill * cell.savings[rig] / 100
 
+"each rig with its area column in designs.csv"
+rig_area_columns = (("kite", "kite_area"), ("wings", "wing_area"), ("rotors", "rotor_area"))
+
+"""
+    best_cost(designs, drive, length, column_name)
+
+Lowest cost per tonne-km on the route to Guadeloupe of the base designs of one drive and
+length with the rig of `column_name` (any size), or without a rig for `nothing`; `NaN`
+where none was run.
+"""
+function best_cost(designs, drive, length, column_name)
+    k = cheapest_design(designs, drive, length, column_name)
+    return isnothing(k) ? NaN : designs["cost"][k]
+end
+
+"""
+    fuel_premium(designs, drive, length, column_name)
+
+How much more [%] the best design of `drive` with the rig of `column_name`, or without a
+rig for `nothing`, costs per tonne-km than the one on VLSFO without a rig, at one length.
+"""
+function fuel_premium(designs, drive, length, column_name)
+    fossil = best_cost(designs, "vlsfo", length, nothing)
+    return 100 * (best_cost(designs, drive, length, column_name) / fossil - 1)
+end
+
+"""
+    premium_closed(designs, drive, length, column_name)
+
+Share [%] of the [`fuel_premium`](@ref) of `drive` without a rig, at one ship length, that
+the best size of the rig of `column_name` closes.
+"""
+premium_closed(designs, drive, length, column_name) =
+    100 * (1 - fuel_premium(designs, drive, length, column_name) /
+               fuel_premium(designs, drive, length, nothing))
+
+"""
+    cheapest_design(designs, drive, length, column)
+
+Row of designs.csv with the lowest cost among the base designs of `drive` and `length`
+that carry only the rig of area `column`, or none for `nothing`; `nothing` if there is
+none.
+"""
+function cheapest_design(designs, drive, length, column)
+    chosen = [k for k in rows(designs, "scenario" => "base", "drive" => drive,
+                  "length" => length)
+              if all((name == column) == (designs[name][k] > 0)
+                     for (_, name) in rig_area_columns)]
+    isempty(chosen) && return nothing
+    return chosen[argmin(designs["cost"][chosen])]
+end
+
 """
     read_table(path)
 

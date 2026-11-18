@@ -4123,6 +4123,23 @@ end
     @test ShipDesign(:vlsfo, 100.0; kite_area=800.0).kite_area == 800
 end
 
+@testset "the fuel premium a rig closes is ranged over the ship lengths it was run at" begin
+    rows = [("base", "vlsfo", 85.0, 0, 0, 0, 1.0), ("base", "ammonia", 85.0, 0, 0, 0, 1.5),
+        ("base", "ammonia", 85.0, 800, 0, 0, 1.2),
+        ("base", "ammonia", 85.0, 1600, 0, 0, 1.25),
+        ("high", "ammonia", 85.0, 800, 0, 0, 1.0),
+        ("base", "ammonia", 85.0, 0, 0, 400, 1.3),
+        ("base", "ammonia", 85.0, 0, 300, 0, 1.4), ("base", "vlsfo", 140.0, 0, 0, 0, 1.0),
+        ("base", "ammonia", 140.0, 0, 0, 0, 1.4),
+        ("base", "ammonia", 140.0, 800, 0, 0, 1.1)]
+    names = ("scenario", "drive", "length", "kite_area", "wing_area", "rotor_area", "cost")
+    designs = Dict(name => getindex.(rows, k) for (k, name) in enumerate(names))
+    @test Dict(PaperData.design_premium_numbers(designs)) == Dict(
+        "DesignPremium" => "40 to 50", "DesignPremiumBestRig" => "20",
+        "DesignPremiumClosedKite" => "60 to 75", "DesignPremiumClosedWings" => "20",
+        "DesignPremiumClosedRotors" => "40")
+end
+
 @testset "a pair's extra saving has its standard error over the departures as noise" begin
     rows = [(route, rig, kite_area, rotor_area, cost)
             for (route, pair_costs) in (("steady", fill(7.0, 4)), ("varying", [7, 8, 7, 8.0]))
