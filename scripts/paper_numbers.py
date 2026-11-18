@@ -7,9 +7,11 @@ output/runs/. Run: python3 -I scripts/paper_numbers.py [section ...], with the s
 names of SECTIONS; all sections without one."""
 import csv
 import os
+import random
 import sys
 import tomllib
 from collections import defaultdict
+from functools import partial
 
 RUNS = os.path.join(os.path.dirname(__file__), "..", "output", "runs")
 STUDY_RUNS = os.path.join(os.path.dirname(__file__), "..", "paper", "study_runs.toml")
@@ -326,10 +328,72 @@ def base_kite_summary():
               f"cost {max(cost) - min(cost):.2f} points")
 
 
+def reduction(rows, name):
+    """Saving [%] of the column `name` of `rows` against their column "without", over the
+    rows where it is a number, and how many it is not."""
+    kept = [r for r in rows if r[name] != "NaN"]
+    return saving(sum(float(r[name]) for r in kept),
+                  sum(float(r["without"]) for r in kept)), len(rows) - len(kept)
+
+
+def router_decision_effects(rows, kite):
+    """Reduction [%] of the searched cost and of that on the path without a rig, the share
+    of the first given up there, and for a `kite` the points that free launches, the
+    stateless search as reported and its path sailed add to the searched reduction."""
+    searched, _ = reduction(rows, "searched")
+    alone, _ = reduction(rows, "alone")
+    effects = {"searched [%]": searched, "path without rig [%]": alone,
+               "share given up": (searched - alone) / searched}
+    if kite:
+        for name in ("free", "stateless", "stateless_sailed"):
+            effects[f"{name} [pt]"] = reduction(rows, name)[0] - searched
+    return effects
+
+
+def departure_spread(rows, statistic, draws=2000):
+    """Standard deviation of each value of the dict `statistic(rows)` over `draws` samples
+    of the departures of `rows`, drawn with replacement."""
+    by_departure = defaultdict(list)
+    for r in rows:
+        by_departure[r["departure"]].append(r)
+    departures = sorted(by_departure)
+    draw = random.Random(1)
+    samples = [statistic([r for d in draw.choices(departures, k=len(departures))
+                          for r in by_departure[d]]) for _ in range(draws)]
+    return {key: mean([(s[key] - mean([t[key] for t in samples])) ** 2
+                       for s in samples]) ** 0.5 for key in samples[0]}
+
+
+def router_decisions_summary():
+    """Reduction of the router's cost against the ship without a rig per rig: searched,
+    held to the path without a rig, and for the kite with free launches and stateless,
+    each with its spread over resampled departures."""
+    print("== router decisions: reduction of the router's cost against no rig, "
+          "± spread over resampled departures")
+    rows = table("router_decisions.csv", "router_decisions")
+    for rig in RIGS:
+        chosen = [r for r in rows if r["rig"] == rig]
+        if not chosen:
+            continue
+        statistic = partial(router_decision_effects, kite=rig == "kite")
+        effects = statistic(chosen)
+        spread = departure_spread(chosen, statistic)
+        _, missing = reduction(chosen, "alone")
+        cheaper = [100 * (float(r["searched"]) - float(r["alone"])) / float(r["without"])
+                   for r in chosen if r["alone"] != "NaN"
+                   and float(r["alone"]) < float(r["searched"])]
+        print(f"{rig:7s} {len(chosen)} passages, path without rig not sailed on {missing}, "
+              f"cheaper on {len(cheaper)}, by at most {max(cheaper, default=0):.2f}% "
+              f"of no rig")
+        for key, value in effects.items():
+            print(f"        {key:24s} {value:7.3f} ± {spread[key]:.3f}")
+
+
 SECTIONS = {"designs": designs_summary, "routes": routes_summary,
             "seasons": seasons_summary, "classes": classes_summary,
             "winners": winners_summary,
             "sizes": sizes_summary, "forecast": forecast_summary, "base_kite": base_kite_summary,
+            "router_decisions": router_decisions_summary,
             "other": other_summaries}
 for section in sys.argv[1:] or SECTIONS:
     SECTIONS[section]()

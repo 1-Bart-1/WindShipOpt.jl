@@ -1,0 +1,81 @@
+% SPDX-FileCopyrightText: 2026 Bart van de Lint
+% SPDX-License-Identifier: AGPL-3.0-or-later
+\documentclass[3p,times,authoryear]{elsarticle}
+
+\input{preamble}
+
+\journal{Applied Energy}
+
+\begin{document}
+
+\begin{frontmatter}
+
+\title{How should a ship's towing kite be designed? Force limit and aspect ratio}
+
+\author[1]{Bart van de Lint\corref{cor1}}
+\ead{bart@vandelint.net}
+\cortext[cor1]{Corresponding author}
+\affiliation[1]{organization={\tbd{Affiliation}}}
+
+\begin{abstract}
+\tbd{Draft.} A towing kite on a cargo ship is today designed with a force limit of about \SI{0.5}{kN} per square metre and a projected aspect ratio of about 3. We ask whether these values are the cheapest for a ship. With the routed cost model of our comparison of towing kites, wing sails and Flettner rotors on cargo ships, we fly kites of other aspect ratios at the same price and kites built for other force limits from other cloth weights, with a canopy life that falls with lighter cloth and higher load, at their best area on three ships. \tbd{A kite built for a lower force limit than the standard saves 1.6 points more of the cost per tonne-kilometre on one of the three ships, at least 3.0 points more on another, whose cheapest limit lies at or below the lowest one tried, and is level on the third. Which cloth is cheapest turns on how much longer heavier cloth lasts at the same load, which is not measured.} \tbd{A higher aspect ratio saves more up to 5 to 8, depending on the ship, if a launch system can handle it at the same cost.}
+\end{abstract}
+
+\begin{keyword}
+wind-assisted ship propulsion \sep towing kite \sep kite design \sep weather routing \sep techno-economics
+\end{keyword}
+
+\end{frontmatter}
+
+\section{Introduction}
+\label{sec:intro}
+
+Our comparison of towing kites, wing sails and Flettner rotors on cargo ships, the main paper this one builds on, fixes the kite's design at today's values: a force limit of \SI{0.5}{kN/m^2} of projected area, at which its canopy goals of life and cloth weight are stated, below the 0.9 to \SI{1.3}{kN/m^2} SkySails designed its kites for and reports from operation if their areas are flat \citep{paulig2013,skypower100_tib}, and a projected aspect ratio of 3, used by industry with no public reference, above the less than 2 of the SkySails kites \citep{paulig2013,folkersma2020}. It moves both only over their ranges as inputs a developer can change. Here we ask what each would be worth if a kite were designed for a ship's routed voyage instead.
+
+\section{Method}
+\label{sec:method}
+
+We use the model of the main paper unchanged: the ship, its rig and its weather routing over three years of ERA5 weather, with the full voyage cost per tonne-kilometre. The ships are the three of its development study: the \SI{140}{m} ship on e-ammonia to Guadeloupe, a Kamsarmax bulk carrier on VLSFO to Tubarão and a Neo-Panamax container ship on e-ammonia to New York, each with the kite size the main paper's class study finds cheapest, the \SI{140}{m} ship with \SI{3200}{m^2}. Every saving is that of the cost per tonne-kilometre against the same ship without a rig.
+
+\section{Aspect ratio of the kite}
+\label{sec:aspect}
+
+The main paper's results use the base aspect ratio of 3, span squared over area. \Cref{fig:aspect} shows what a higher one would be worth if such a kite could be handled at the same cost: the same area, with the launch gear, the tether, the canopy and everything else priced as at the base value, the same canopy mass per area and force limit, the largest tether force allowed, and the polars of a design shape that does not deform. It does not say the kite should fly at that value. On that assumption the cost saving of the base kite on the \SI{140}{m} ship goes from \tbd{12.7}\,\% at aspect ratio 3 to \tbd{17.7}\,\% at 6 and falls to \tbd{15.7}\,\% at 8. On the Neo-Panamax it peaks at 5, \tbd{14.4} against \tbd{12.3}\,\%, and on the Kamsarmax it still rises at 8, from \tbd{4.7} to \tbd{9.9}\,\%. \tbd{Draft numbers, with the kite held at \SIlist{3200;2828;13777}{m^2} on the three ships. The final run replaces them.}
+
+\begin{figure}[tbp]
+\centering
+\plot[\columnwidth]{aspect}
+\caption{What-if: cost saving of the kite at the same area and the same price against its aspect ratio, on the \SI{140}{m} e-ammonia ship to Guadeloupe, a Kamsarmax on VLSFO to Tubarão and a Neo-Panamax container ship on e-ammonia to New York.}
+\label{fig:aspect}
+\end{figure}
+
+\section{Force limit and cloth of the kite}
+\label{sec:force}
+
+Every kite of the main paper's results is built for \SI{0.5}{kN/m^2} from cloth of \SI{200}{g/m^2}, the standard canopy its life goal of \num{3000} flight hours is stated for. A kite built for more force has a thicker tether and bridle, a dearer winch and heavier seams, and it depowers in stronger winds only. Its cloth carries more tension and so lasts less. A lighter cloth costs less and weighs less, so the kite flies in lighter wind, but it lasts less too. Which force limit is cheapest therefore depends on the cloth, and which cloth on how its life falls with its weight.
+
+\paragraph{Canopy life} We take the life from the strength decay of the main paper: the cloth loses strength to sunlight and to wear until it keeps five times the tension of its skin at the force limit,
+\begin{equation}
+\frac{1}{t}=\frac{1}{t_\mathrm{UV}}+\frac{1}{t_\mathrm{wear}},\qquad
+t_\mathrm{UV} = \frac{D_\mathrm{ref}}{\dot D}\left(\frac{w}{w_\mathrm{ref}}\right)^{a}\ln M,\qquad
+t_\mathrm{wear} = \frac{w_\mathrm{ref}}{r}\left(\frac{w}{w_\mathrm{ref}}\right)^{b}\ln M,\qquad
+M=\frac{\sigma_w w}{5pR},
+\label{eq:life}
+\end{equation}
+with cloth weight $w$, $w_\mathrm{ref}=\SI{100}{g/m^2}$, the force limit $p$, the skin radius $R=\SI{0.5}{m}$, the strength $\sigma_w=\SI{170}{N/m}$ per g/m² of new cloth, a UV dose of $D_\mathrm{ref}=\SI{70}{MJ/m^2}$ to $1/e$ of strength at $w_\mathrm{ref}$, growing with weight to the power $a=0.4$, a dose of $\dot D=\SI{0.02}{MJ/m^2}$ per flight hour and a wear rate of $r=\SI{0.13}{g/m^2}$ per flight hour at $w_\mathrm{ref}$. A canopy lasts the main paper's goal times $t$ over its value at \SI{200}{g/m^2} and \SI{0.5}{kN/m^2}, so the goal holds for the standard canopy and every other canopy is scaled from it. The load enters only through $\ln M$, so the life falls slowly with the force limit: the standard cloth lasts \num{3500} hours at \SI{0.3}{kN/m^2} and \num{2400} at \SI{1}{kN/m^2}. The weight enters also through the exponents $a$ and $b$. The wear exponent $b$, how much longer a heavier cloth lasts at the same load, is not measured: a sailmaker's one life for every sail reads as 0 and a balloon maker's lives as 1.5 \citep{flynn2015,kubicek2026}. We take 1 and give the result at 0 and 1.5 as well, with the wear rate refitted so that the standard canopy keeps its life. At $b=1$ cloth of \SI{100}{g/m^2} lasts \num{1300} hours at \SI{0.5}{kN/m^2} and cloth of \SI{283}{g/m^2} \num{4400}; at $b=0$ \num{2200} and \num{3400}, at $b=1.5$ \num{970} and \num{5000}.
+
+\paragraph{The study} \Cref{fig:force_rating} routes the three ships of \cref{fig:aspect} with kites built for \SIrange{0.2}{1}{kN/m^2} from cloth of 100 to \SI{400}{g/m^2}, a factor $\sqrt2$ apart, at $b=1$ on three areas around the ship's own kite, a factor $\sqrt2$ apart, and at $b=0$ and 1.5 on the area nearest it.
+
+\paragraph{Results} The grid locates the cheapest kite on two ships and only bounds it on the third. At $b=1$ the cheapest kite on the Kamsarmax is built for \SI{0.3}{kN/m^2} from cloth of \SI{283}{g/m^2}, which lasts \num{5100} hours by \cref{eq:life}, and the limits and cloths beside it save less. On the Neo-Panamax every limit from 0.2 to \SI{0.5}{kN/m^2} saves within 0.3 points of the best, so the grid cannot tell them apart. On the \SI{140}{m} ship the cheapest kite is built for the lowest limit tried, \SI{0.2}{kN/m^2}, from the standard cloth, which lasts \num{3800} hours. Its saving still grows towards that edge, so its cheapest limit lies at or below \SI{0.2}{kN/m^2}, and its saving is a lower bound. The cheapest kite saves \tbd{17.3}, \tbd{4.7} and \tbd{13.6}\,\% of the cost per tonne-kilometre on the \SI{140}{m} ship, the Kamsarmax and the Neo-Panamax, against \tbd{14.3}, \tbd{3.1} and \tbd{12.9}\,\% for the standard canopy at its best area: at least 3.0 points more on the first ship, 1.6 points more on the second, and level on the Neo-Panamax. Neither lighter nor much heavier cloth pays at $b=1$: at \SI{0.5}{kN/m^2} cloth of \SI{100}{g/m^2} saves 2 to 4 points less than the standard cloth (\cref{fig:force_rating}b), since its canopy is replaced more than twice as often, and cloth of \SI{400}{g/m^2} up to 1.2 points less than the best cloth, since it weighs and costs more than its longer life pays back. A higher limit loses on every ship: at \SI{1}{kN/m^2} the best kite saves 2 to 4 points less than at \SI{0.5}{kN/m^2}. The wear exponent moves the best cloth, not the best limit: at $b=0$ cloth of 100 to \SI{200}{g/m^2} is cheapest, and at $b=1.5$ cloth of 200 to \SI{400}{g/m^2}, at the same limit as at $b=1$ on each ship. On the \SI{140}{m} ship at $b=0$ and the Neo-Panamax at $b=1.5$ the cheapest cloth is the lightest or the heaviest tried, so there the grid bounds the best cloth rather than locating it. \tbd{Draft numbers; differences under one point are within the accuracy of the draft run, which the final run replaces.}
+
+\begin{figure}[tbp]
+\centering
+\plot[\columnwidth]{force_rating}
+\caption{(a) Cost saving of the kite at its best cloth weight and area against the force limit it is built for, on the ships of \cref{fig:aspect}, with the wear exponent $b$ of \cref{eq:life} at 1 (solid), 0 (dashed) and 1.5 (dotted); at $b=1$ over three areas around the ship's own kite, fewer where these pass the largest area searched, and at the bounds of $b$ on the area nearest it. (b) At \SI{0.5}{kN/m^2} and $b=1$, the cost saving at the best area against the cloth weight.}
+\label{fig:force_rating}
+\end{figure}
+
+\bibliographystyle{elsarticle-harv}
+\bibliography{refs,literature}
+
+\end{document}

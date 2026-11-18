@@ -26,13 +26,44 @@ force_rating(assumptions::Assumptions) =
     assumptions[:kite_max_force_per_area] / assumptions[:canopy_cloth_reference_force]
 
 """
-    cloth_weight(assumptions)
+    decay_life(assumptions, weight, force_per_area)
 
-Cloth weight [g/m^2] of a canopy built for the force limit: `canopy_cloth_weight` times the
-[`force_rating`](@ref) to the power `canopy_cloth_force_exponent`.
+Flight hours [h] until cloth of `weight` [g/m^2] loses to UV and wear the strength above
+`canopy_strength_kept` times its skin tension at the force limit `force_per_area`
+[kN/m^2].
 """
-cloth_weight(assumptions::Assumptions) = assumptions[:canopy_cloth_weight] *
-    force_rating(assumptions)^assumptions[:canopy_cloth_force_exponent]
+function decay_life(assumptions::Assumptions, weight, force_per_area)
+    reference_weight = assumptions[:canopy_decay_reference_weight]
+    relative_weight = weight / reference_weight
+    tension = 1e3force_per_area * assumptions[:canopy_skin_radius]
+    margin = assumptions[:canopy_cloth_specific_strength] * weight /
+             (assumptions[:canopy_strength_kept] * tension)
+    uv_life = assumptions[:canopy_uv_reference_dose] / assumptions[:canopy_uv_dose_rate] *
+              relative_weight^assumptions[:canopy_uv_weight_exponent]
+    wear_life = reference_weight / assumptions[:canopy_wear_rate] *
+                relative_weight^assumptions[:canopy_wear_weight_exponent]
+    return log(margin) / (1 / uv_life + 1 / wear_life)
+end
+
+"""
+    reference_decay_life(assumptions)
+
+[`decay_life`](@ref) [h] of the canopy the goal `canopy_life` is stated for, cloth of
+`canopy_cloth_reference_weight` at `canopy_cloth_reference_force`.
+"""
+reference_decay_life(assumptions::Assumptions) =
+    decay_life(assumptions, assumptions[:canopy_cloth_reference_weight],
+        assumptions[:canopy_cloth_reference_force])
+
+"""
+    canopy_lifetime(assumptions)
+
+Flight hours [h] of a canopy of `canopy_cloth_weight` built for `kite_max_force_per_area`:
+the goal `canopy_life` scaled by [`decay_life`](@ref) over [`reference_decay_life`](@ref).
+"""
+canopy_lifetime(assumptions::Assumptions) = assumptions[:canopy_life] *
+    decay_life(assumptions, assumptions[:canopy_cloth_weight],
+        assumptions[:kite_max_force_per_area]) / reference_decay_life(assumptions)
 
 """
     sewn_cloth_price(assumptions, weight)
@@ -45,16 +76,16 @@ sewn_cloth_price(assumptions::Assumptions, weight) = assumptions[:canopy_cloth_b
 """
     Canopy(assumptions)
 
-[`Canopy`](@ref) of [`cloth_weight`](@ref), cloth plus an overhead for mass and cost, with
+[`Canopy`](@ref) of `canopy_cloth_weight`, cloth plus an overhead for mass and cost, with
 the mass overhead of seams, tapes and reinforcements in proportion to the force limit,
-lasting the goal `canopy_life`.
+lasting [`canopy_lifetime`](@ref).
 """
 function Canopy(assumptions::Assumptions)
-    weight = cloth_weight(assumptions)
+    weight = assumptions[:canopy_cloth_weight]
     cloth_area = assumptions[:canopy_cloth_area_ratio]
     return Canopy(1e-3cloth_area * weight +
                   assumptions[:canopy_mass_overhead] * force_rating(assumptions),
         assumptions[:canopy_making_cost_per_area] +
         cloth_area * sewn_cloth_price(assumptions, weight),
-        assumptions[:canopy_life])
+        canopy_lifetime(assumptions))
 end
