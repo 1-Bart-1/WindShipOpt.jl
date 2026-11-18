@@ -2443,22 +2443,20 @@ life_limit_text(life) = isnan(life) ? "--" : @sprintf("\\num{%.0f}", 100round(li
 
 Name and text, from the [`rig_lead_rows`](@ref) of the class table `table`, of the
 [`verdict_text`](@ref) of each of `verdict_groups`, the [`advice_text`](@ref), the
-[`highlight_text`](@ref), the [`places`](@ref) the wing sails are advised, per drive the
-[`answer_text`](@ref), the [`saved_figures`](@ref) of the rigs it advises over every ship
-type and the range of their shares [%] of the cost alone, and on container ships per drive
-where the kite falls behind the rotors.
+[`brief_advice_text`](@ref), the [`highlight_text`](@ref), the [`places`](@ref) the wing
+sails are advised, per drive the [`answer_text`](@ref) and the [`answer_ranges`](@ref),
+and on container ships per drive where the kite falls behind the rotors.
 """
 function rig_lead_numbers(table)
     rows = rig_lead_rows(table)
     wings = filter(row -> row.verdict != "none" && "wings" in advised_rigs(row), rows)
-    numbers = ["Advice" => advice_text(rows), "HighlightAdvice" => highlight_text(rows),
+    numbers = ["Advice" => advice_text(rows), "AdviceBrief" => brief_advice_text(rows),
+        "HighlightAdvice" => highlight_text(rows),
         "WingsAdvised" => isempty(wings) ? "on no ship type" : places(wings, rows)]
     for (drive, word) in drive_words
         own = filter(row -> row.drive == drive, rows)
-        saved = reduce(vcat, advised_savings.(own))
         push!(numbers, "Answer$word" => answer_text(own),
-            "AnswerRange$word" => saved_figures(saved, drive),
-            "AnswerShares$word" => value_range(getproperty.(saved, :share), whole_number))
+            ("Answer$name$word" => text for (name, text) in answer_ranges(own))...)
     end
     for (word, types, drives) in verdict_groups
         push!(numbers, "Verdict$word" =>
@@ -2670,6 +2668,29 @@ function advice_text(rows)
     return join(parts, "; ")
 end
 
+"""
+    brief_advice_text(rows)
+
+Text of the rigs to fit on each ship type of rig lead `rows` on any fuel, by the
+[`advice`](@ref) of each, ship types given the same rigs named together, the most ship
+types last as the other ship types.
+"""
+function brief_advice_text(rows)
+    labels = unique(row.label for row in rows)
+    fitted = [filter(rig -> any(row -> row.label == label && row.verdict != "none" &&
+                                           rig in advised_rigs(row), rows), rig_names)
+              for label in labels]
+    groups = sort(grouped(fitted, labels); by=group -> length(last(group)))
+    texts = String[]
+    for (i, (rigs, names)) in enumerate(groups)
+        rest = length(groups) > 1 && i == length(groups) && length(names) > 1
+        where = rest ? "on the other ship types" : ship_list(names, labels)
+        fit = isempty(rigs) ? "no rig" : join(rig_name.(rigs, false), " or ")
+        push!(texts, "$fit $where")
+    end
+    return listed(texts)
+end
+
 "whether every one of `values` reads alike by `format`"
 reads_alike(values, format) = allequal(format.(values))
 
@@ -2693,6 +2714,23 @@ rig that leads, both where two are level, none where no rig clearly saves.
 function advised_savings(row)
     row.verdict == "none" && return []
     return [row.per_ship[rig] for rig in advised_rigs(row)]
+end
+
+"""
+    answer_ranges(rows)
+
+Name and text, over the [`advised_savings`](@ref) of rig lead `rows` of one drive, of the
+range of their shares [%] of the cost and of their tonnes of CO2 a ship a year, and of the
+fewest and most million US dollars they save a ship a year with the ship types saving them.
+"""
+function answer_ranges(rows)
+    saved = [merge((; ships=row.name), saving) for row in rows
+             for saving in advised_savings(row)]
+    low, high = argmin(saving -> saving.saved, saved), argmax(saving -> saving.saved, saved)
+    return ["Shares" => value_range(getproperty.(saved, :share), whole_number),
+        "Carbon" => value_range(1e-6getproperty.(saved, :carbon), two_digits),
+        "MoneyLow" => two_digits(1e-6low.saved), "MoneyLowShips" => low.ships,
+        "MoneyHigh" => two_digits(1e-6high.saved), "MoneyHighShips" => high.ships]
 end
 
 "the rig that leads in a [`rig_lead`](@ref) `lead`, or the two that are level"

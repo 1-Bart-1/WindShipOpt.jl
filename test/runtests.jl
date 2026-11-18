@@ -4328,7 +4328,8 @@ end
 "rig lead row of the made-up outcome of `rig` against `rival` on ship type `word`"
 function lead_row(word, drive, verdict, margin, rig="kite", rival="rotors")
     label = only(label for (type, label, _) in PaperData.ship_types if type == word)
-    return (; word, label, drive, rig, rival, verdict, margin)
+    return (; word, label, name=lowercase(label), where=PaperData.ship_places, drive, rig,
+        rival, verdict, margin)
 end
 
 "rig lead rows of the draft run: the kite leading or level with the rotors"
@@ -4374,6 +4375,18 @@ end
           "or the rotors on car carriers, bulk carriers and general cargo ships"
 end
 
+@testset "the brief advice names each ship type's rigs on any fuel, most types last" begin
+    @test PaperData.brief_advice_text(draft_leads) ==
+          "the kite on container ships and the kite or the rotors on the other ship types"
+    all_kite = [(; row..., verdict="leads") for row in draft_leads]
+    @test PaperData.brief_advice_text(all_kite) == "the kite on every ship type"
+    no_cars = [row.word == "CarCarrier" ? (; row..., verdict="none") : row
+               for row in draft_leads]
+    @test PaperData.brief_advice_text(no_cars) ==
+          "the kite on container ships, no rig on car carriers and the kite or the " *
+          "rotors on the other ship types"
+end
+
 @testset "the answer gives each ship type its rig and what it saves a ship a year" begin
     saved(share, usd, carbon) = (; saved=usd, share, carbon)
     per_ship = Dict("kite" => saved(14.2, 5.3e6, 9.6e9), "wings" => saved(4.5, 1.7e6, 2.9e9),
@@ -4390,6 +4403,10 @@ end
     @test count("; ", PaperData.answer_text(rows)) == length(rows) - 1
     @test isempty(PaperData.advised_savings((; rows[1]..., verdict="none")))
     saved = reduce(vcat, PaperData.advised_savings.(rows))
+    @test Dict(PaperData.answer_ranges(rows)) == Dict("Shares" => "14",
+        "Carbon" => "\\num{9200} to \\num{9600}", "MoneyLow" => "\\num{4.1}",
+        "MoneyLowShips" => "car carriers", "MoneyHigh" => "\\num{5.3}",
+        "MoneyHighShips" => "container ships")
     @test PaperData.saved_figures(saved, "vlsfo") == "14\\,\\%, USD~\\num{4.1} to " *
                                                      "\\num{5.3} million and \\num{9200} to " *
                                                      "\\num{9600}~t of CO\$_2\$"
