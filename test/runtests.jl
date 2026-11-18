@@ -3785,15 +3785,17 @@ end
           "\\newcommand{\\NumSavingOilKite}{4}\n"
 end
 
-@testset "every number the paper and its extended abstract print from the numbers step \
-          is one it wrote" begin
+@testset "every number the paper and its extended abstract print is one a numbers step \
+          wrote" begin
     paper = joinpath(PaperRuns.root, "paper")
     texts = [joinpath(directory, name) for directory in (paper, joinpath(paper, "sections"))
              for name in readdir(directory) if endswith(name, ".tex")]
     used = Set(m.match for text in texts
                for m in eachmatch(r"\\Num[A-Za-z]+", read(text, String)))
-    defined = Set(m[1] for m in eachmatch(r"\\newcommand\{(\\Num[A-Za-z]+)\}",
-        read(joinpath(paper, "sections", "numbers.tex"), String)))
+    sections = joinpath(paper, "sections")
+    defined = Set(m[1] for name in readdir(sections) if endswith(name, "numbers.tex")
+                  for m in eachmatch(r"\\newcommand\{(\\Num[A-Za-z]+)\}",
+                      read(joinpath(sections, name), String)))
     @test !isempty(used)
     @test used ⊆ defined
 end
