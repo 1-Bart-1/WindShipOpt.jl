@@ -2113,10 +2113,10 @@ end
 """
     side_force_numbers()
 
-Name and text, per rig, from the model-part study: over its e-ammonia ships, how much a side
-force free of leeway and rudder drag would add to the cost saving [% of the saving] and the
-points the hull's side-force slope at its low bound takes from it; over all its ships, the
-median leeway [deg] and the share of hours within half a degree of the limit [%].
+Name and text, per rig, from the model-part study: over its e-ammonia ships, the share of the
+cost saving with a side force free of leeway and rudder drag that this drag takes [%], and
+the points the hull's side-force slope at its low bound takes from the saving; over all its
+ships, the median leeway [deg] and the share of hours within half a degree of the limit [%].
 """
 function side_force_numbers()
     parts = read_table(study_file(:model_parts, "model_parts.csv"))
@@ -2129,12 +2129,12 @@ function side_force_numbers()
     numbers = Pair{String, String}[]
     for rig in rig_names
         name = uppercasefirst(rig)
-        added = [100(saving(ship, rig, "side_force") / saving(ship, rig, "none") - 1)
+        taken = [100(1 - saving(ship, rig, "none") / saving(ship, rig, "side_force"))
                  for ship in ammonia]
         lost = [saving(ship, rig, "none") - saving(ship, rig, "weak_hull")
                 for ship in ammonia]
         sailed = rows(leeway, "rig" => rig)
-        push!(numbers, "SideForce$name" => value_range(added, whole_number),
+        push!(numbers, "SideForce$name" => value_range(taken, whole_number),
             "WeakHull$name" => value_range(lost, whole_number),
             "Leeway$name" => value_range(leeway["median"][sailed], whole_number),
             "LeewayLimit$name" => value_range(100leeway["at_limit"][sailed], whole_number))
