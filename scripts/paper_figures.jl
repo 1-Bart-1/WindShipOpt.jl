@@ -61,16 +61,18 @@ name_pairs(names) = [(first_name, second_name) for (i, first_name) in enumerate(
 """
     palette_faults()
 
-Pairs of colours of [`figure_style`](@ref) meant to be told apart, the rigs, the
-categories beside them, gain and loss, and the box fills, that come closer than
-`least["colour"]` in normal or in some colour-blind vision.
+Pairs of colours meant to be told apart, the rigs, the categories beside them, gain and
+loss, the box fills of [`figure_style`](@ref), the VTOL kite at base and favourable inputs
+and three of its [`vtol_shades`](@ref), that come closer than `least["colour"]` in normal
+or in some colour-blind vision.
 """
 function palette_faults()
     colours = Makie.Colors
     visions = (identity, colours.deuteranopic, colours.protanopic, colours.tritanopic)
     groups = (("rig", style_colour.(["kite", "wings", "rotors", "vtol"])),
         ("category", category_colours), ("cell", style_colour.(["gain", "loss"])),
-        ("fill", style_colour.(collect(keys(figure_style["fills"])); table="fills")))
+        ("fill", style_colour.(collect(keys(figure_style["fills"])); table="fills")),
+        ("VTOL", [style_colour("vtol"), vtol_favourable]), ("VTOL shade", vtol_shades(3)))
     faults = String[]
     for (group, members) in groups, i in eachindex(members), j in (i + 1):length(members)
         colour, other = colours.RGB(members[i]), colours.RGB(members[j])
@@ -245,7 +247,10 @@ function faint_text(line)
 end
 
 "`n` shades of the VTOL kite's pink, light to dark"
-vtol_shades(n) = cgrad(:RdPu, n + 2; categorical=true)[3:end]
+vtol_shades(n) = cgrad(:RdPu)[range(0.4, 0.95; length=n)]
+
+"colour of the VTOL kite with every input at the bound that favours it"
+vtol_favourable = cgrad(:RdPu)[0.6]
 column_width = 334
 page_width = 522
 # points per figure unit, so that a page-wide figure is the 468 pt text width
@@ -454,12 +459,35 @@ function label_faults(figure)
             any(box -> overlaps(box, legend), boxes) &&
                 push!(faults, "a legend overlaps a label")
             for plot in scene.plots
-                (covers_data(scene, plot, legend) || covers_bars(scene, plot, legend)) &&
+                (covers_data(scene, plot, legend) || covers_bars(scene, plot, legend) ||
+                 covers_band(scene, plot, legend)) &&
                     push!(faults, "a legend lies over a $(Makie.plotfunc(plot)) plot")
             end
         end
+        append!(faults, tick_faults(block.xaxis), tick_faults(block.yaxis))
     end
     return unique(faults)
+end
+
+"the gap [figure units] [`tick_faults`](@ref) asks of two tick labels of an axis"
+tick_gap = style_size("tick_gap")
+
+"""
+    tick_faults(side)
+
+Descriptions of the tick labels of the axis `side` of an `Axis` that come closer to
+another than [`tick_gap`](@ref); none where its tick labels are hidden.
+"""
+function tick_faults(side)
+    plot = side.elements[:ticklabels]
+    plot.visible[] || return String[]
+    labels = [(text, Rect2f(Point2f(minimum(box)[1:2]), Vec2f(widths(box)[1:2])))
+              for (text, box) in zip(string.(side.ticklabels[]),
+                  Makie.string_boundingboxes(plot))
+              if !isempty(text)]
+    return ["tick labels \"$(first(labels[i]))\" and \"$(first(labels[j]))\" touch"
+            for i in eachindex(labels) for j in (i + 1):length(labels)
+            if overlaps(last(labels[i]), last(labels[j]), tick_gap)]
 end
 
 "the boxes [pixels of the scene of `axis`] of the legends of `figure` inside `axis`"
@@ -498,9 +526,10 @@ label_texts(plot) = (text = plot.text[]; text isa AbstractVector ? string.(text)
 "clearance [figure units] a label keeps from other labels and from lines and markers"
 label_clearance = style_size("clearance")
 
-"whether the rectangles `box` and `other` come closer than [`label_clearance`](@ref)"
-overlaps(box, other) = all(min.(maximum(box), maximum(other)) .-
-                           max.(minimum(box), minimum(other)) .> -label_clearance)
+"whether the rectangles `box` and `other` come closer than `clearance`"
+overlaps(box, other, clearance=label_clearance) =
+    all(min.(maximum(box), maximum(other)) .- max.(minimum(box), minimum(other)) .>
+        -clearance)
 
 "whether `box` lies within `inside`, to half a point"
 in_axis(box, inside) = all(minimum(box) .>= minimum(inside) .- pt(0.5)) &&
@@ -534,6 +563,25 @@ end
 covers_bars(scene, plot, box) = plot isa Makie.BarPlot &&
     any(bar -> overlaps(pixel_rect(scene, bar), box),
         filter(bar -> bar isa Rect, first(plot.plots)[1][]))
+
+"""
+    covers_band(scene, plot, box)
+
+Whether `box` [pixels of `scene`] lies over the shaded range of `plot`, when it is a band,
+sampled every half point along the band.
+"""
+function covers_band(scene, plot, box)
+    plot isa Makie.Band || return false
+    lower, upper = ([pixel_point(scene, point) for point in plot[side][]] for side in 1:2)
+    for k in 1:(length(lower) - 1)
+        samples = max(1, ceil(Int, abs(lower[k + 1][1] - lower[k][1]) / pt(0.5)))
+        for fraction in (0:samples) ./ samples
+            segment_crosses(lower[k] + (lower[k + 1] - lower[k]) * fraction,
+                upper[k] + (upper[k + 1] - upper[k]) * fraction, box) && return true
+        end
+    end
+    return false
+end
 
 "whether the segment from `start` to `stop` passes through `box`, sampled every half point"
 function segment_crosses(start, stop, box)
@@ -2330,12 +2378,12 @@ rig_entries(markers) = [markers ? [LineElement(; color),
     doubling_ticks(low, high; base=125)
 
 Ticks of a log axis from `low` to `high` at each doubling of `base`, as values and labels,
-every other one labelled where there are more than eight.
+every other one labelled where there are more than seven.
 """
 function doubling_ticks(low, high; base=125)
     powers = floor(Int, log2(low / base) + 1e-9):ceil(Int, log2(high / base) - 1e-9)
     values = [base * 2.0^power for power in powers]
-    step = length(values) > 8 ? 2 : 1
+    step = length(values) > 7 ? 2 : 1
     labels = [(i - 1) % step == 0 ? @sprintf("%.15g", value) : ""
               for (i, value) in enumerate(values)]
     return values, labels
@@ -3001,7 +3049,7 @@ paper_name(name) = replace(name, "rigid" => "VTOL")
 
 "line style of the VTOL kite of each input scenario and mass exponent in the figures"
 function rigid_style(kind, exponent)
-    kind == "rigid favourable" && return (; color=vtol_shades(4)[2], linestyle=:solid)
+    kind == "rigid favourable" && return (; color=vtol_favourable, linestyle=:solid)
     linestyle = exponent == assumptions[:rigid_mass_exponent] ? :solid :
                 exponent == built_wing_exponent ? :dash : :dot
     return (; color=palette[4], linestyle)
@@ -3020,7 +3068,7 @@ and at favourable inputs. Prints the scaling table.
 """
 function rigid_scaling_figure()
     table = read_table(data_file("rigid_scaling.csv"))
-    figure = Figure(size=(page_width, 215))
+    figure = Figure(size=(page_width, 245))
     thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
         xlabel="apparent wind [m/s]", ylabel="thrust [kN]")
     price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s",
@@ -3030,8 +3078,8 @@ function rigid_scaling_figure()
         doubling_axis(:x, 25, 600; base=25)..., xlabel=square_metres("kite area [", "]"),
         ylabel="apparent wind [m/s]")
     base_exponent = assumptions[:rigid_mass_exponent]
-    curves = (("rigid base", 30.0), ("rigid base", 54.0), ("rigid base", 100.0),
-        ("rigid base", 300.0), ("soft", 1000.0))
+    curves = (("rigid base", 54.0), ("rigid base", 100.0), ("rigid base", 300.0),
+        ("soft", 1000.0))
     highest = 0.0
     for (k, (kind, area)) in enumerate(curves)
         exponent = kind == "soft" ? 0.0 : base_exponent
@@ -3072,9 +3120,9 @@ function rigid_scaling_figure()
                 1e-6table["price"][row])
         end
     end
-    axislegend(thrust_axis; position=:lt, orientation=:horizontal, nbanks=3)
-    ylims!(thrust_axis, -0.04highest, 1.65highest)
-    axislegend(price_axis; position=:rt)
+    axislegend(thrust_axis; position=:lt, orientation=:horizontal, nbanks=2)
+    ylims!(thrust_axis, -0.04highest, 1.4highest)
+    Legend(figure[2, 2:3], price_axis; orientation=:horizontal, nbanks=2)
     for axis in (price_axis, wind_axis)
         axis.yautolimitmargin = (0.05, 0.1)
     end
@@ -3086,7 +3134,7 @@ end
 rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
     ("wings", "best wing sails", palette[2]), ("rotors", "best rotors", palette[3]),
     ("rigid base", "VTOL kite", palette[4]),
-    ("rigid favourable", "VTOL kite, favourable inputs", vtol_shades(4)[2]))
+    ("rigid favourable", "VTOL kite, favourable inputs", vtol_favourable))
 
 """
     rigid_kite_figure()
