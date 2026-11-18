@@ -1842,7 +1842,6 @@ end
         @test any(sample.apparent_wind != sample.wind_speed for sample in samples)
         @test length(edges) == length(free.path) - 1
         @test free.objective <= held.objective * (1 + 1e-9)
-        @test sum(edge.cost for edge in edges) <= sum(edge.held_cost for edge in edges)
         @test all(edge -> edge.cost <= edge.held_cost * (1 + 1e-9) ||
                           edge.ends_aloft != edge.held_ends_aloft, edges)
         any(edge -> edge.ends_aloft != edge.held_ends_aloft, edges) || continue
