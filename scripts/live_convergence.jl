@@ -35,7 +35,7 @@ function check_designs(check)
     check == "development" && return (
         [(; check, ship="140m_ammonia", route=:caribbean, rig,
              design=ShipDesign(:ammonia, 140.0; rig_size(rig, area)...))
-         for (rig, area) in [("none", 0.0); reference_rigs]
+         for (rig, area) in reference_rigs_and_none
          if rig in ("none", "kite", "rotors")], ensemble_departures)
     check == "full" && return (
         [(; check, case.ship, case.route, case.rig, case.design)

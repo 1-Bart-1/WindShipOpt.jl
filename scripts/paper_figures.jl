@@ -385,11 +385,12 @@ end
     route_figure()
 
 Weather-routed passages of route_tracks.csv on every route of a 140 m e-ammonia ship
-without a rig and with a 3200 m^2 kite, for a winter and a summer departure, over the 10 m
-wind five days after departure; solid outbound, dashed homeward.
+without a rig and with the reference kite, for a winter and a summer departure, over the
+10 m wind five days after departure; solid outbound, dashed homeward.
 """
 function route_figure()
     tracks = read_table(data_file("route_tracks.csv"))
+    kite_area = Dict(reference_rigs)["kite"]
     figure = Figure(size=(page_width, 255))
     for (column, (season, departure)) in enumerate(track_seasons())
         axis = Axis(figure[1, column]; title="($('a' + column - 1)) $season departure",
@@ -399,7 +400,7 @@ function route_figure()
         draw_land!(axis, mask; lons=-100:0.25:12, lats=-26:0.25:58)
         draw_wind!(axis, weather, departure + 24 * 5; scale=0.4, lons=-98:6:10,
             lats=-24:6:56)
-        for (k, area) in enumerate((0.0, 3200.0)), (i, name) in enumerate(route_names)
+        for (k, area) in enumerate((0.0, kite_area)), (i, name) in enumerate(route_names)
             for (direction, style) in (("out", :solid), ("back", :dash))
                 leg = rows(tracks, "season" => season, "route" => string(name),
                     "kite_area" => area, "direction" => direction)
@@ -424,6 +425,18 @@ function route_figure()
 end
 
 """
+    passage_rows(table, file, rig, area)
+
+Rows of `table`, read from `file`, of the ship with `rig` of `area` [m^2]; errors where
+there are none.
+"""
+function passage_rows(table, file, rig, area)
+    found = rows(table, "rig" => rig, "area" => area)
+    isempty(found) && error("no rows in $file for the $rig of $area m^2")
+    return found
+end
+
+"""
     passage_figure()
 
 One winter outbound passage to Guadeloupe of a 140 m e-ammonia ship without a rig and
@@ -434,7 +447,7 @@ ship, and the speed, rig thrust and fuel power at each sample of the passage.
 function passage_figure()
     tracks = read_table(data_file("passage_tracks.csv"))
     traces = read_table(data_file("passage_traces.csv"))
-    rigs = passage_figure_rigs()
+    rigs = reference_rigs_and_none
     design_colours = [:black; palette[eachindex(rig_names)]]
     figure = Figure(size=(page_width, 360))
     map_axis = Axis(figure[1, 1:2]; aspect=DataAspect(), limits=(-64, 6, 13, 54),
@@ -442,8 +455,7 @@ function passage_figure()
     draw_land!(map_axis, mask)
     draw_wind!(map_axis, weather, departures[1] + 24 * 6; scale=0.3)
     paths = map(rigs) do (rig, area)
-        stages = rows(tracks, "rig" => rig, "area" => area)
-        isempty(stages) && error("no passage track with the $rig of $area m^2")
+        stages = passage_rows(tracks, "passage_tracks.csv", rig, area)
         return tuple.(tracks["lat"][stages], tracks["lon"][stages])
     end
     lines!(map_axis, great_circle(first(paths[1]), last(paths[1]))...; color=:black,
@@ -463,7 +475,7 @@ function passage_figure()
     ylims!(panels[2], 5, 3000)
     panels[2].yticks = [10, 100, 1000]
     for (i, (rig, area)) in enumerate(rigs)
-        samples = rows(traces, "rig" => rig, "area" => area)
+        samples = passage_rows(traces, "passage_traces.csv", rig, area)
         label = rig == "none" ? "no rig" : "$rig $(round(Int, area)) m²"
         thrust = [value >= 5 ? value : NaN for value in traces["rig_thrust"][samples]]
         for (panel, values) in zip(panels, (traces["speed"][samples], thrust,

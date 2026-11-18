@@ -359,6 +359,9 @@ study_hull(ship) = ship == "140 m" ? 140.0 : ship_classes()[ship]
 "reference size of each rig on the 140 m ship"
 reference_rigs = [("kite", 3200.0), ("wings", 1500.0), ("rotors", 800.0)]
 
+"the 140 m ship without a rig, then each of the [`reference_rigs`](@ref)"
+reference_rigs_and_none = [("none", 0.0); reference_rigs]
+
 "the rigs, as named in the output"
 rig_names = ("kite", "wings", "rotors")
 
@@ -577,7 +580,7 @@ sea [USD/h]: wind_angle.csv.
 """
 function wind_angle_data()
     cases = vec([(name, rig, area) for name in route_names,
-                 (rig, area) in [("none", 0.0); reference_rigs]])
+                 (rig, area) in reference_rigs_and_none])
     build_kite_tables(Dict(reference_rigs)["kite"])
     results = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
@@ -614,14 +617,15 @@ track_seasons() = ("winter" => departures[1],
 """
     route_tracks_data()
 
-The 140 m e-ammonia ship without a rig and with a 3200 m^2 kite routed out and home on
+The 140 m e-ammonia ship without a rig and with the reference kite routed out and home on
 every route from the [`track_seasons`](@ref): latitude and longitude [°] of each stage of
 each leg, in order: route_tracks.csv. Errors where a leg cannot be routed.
 """
 function route_tracks_data()
+    kite_area = Dict(reference_rigs)["kite"]
     cases = vec([(season, name, area) for season in track_seasons(), name in route_names,
-                 area in (0.0, 3200.0)])
-    build_kite_tables(3200.0)
+                 area in (0.0, kite_area)])
+    build_kite_tables(kite_area)
     trips = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         (_, departure), name, area = cases[k]
@@ -645,19 +649,16 @@ function route_tracks_data()
     end
 end
 
-"the passage figure's rigs and sizes [m^2], first the ship without a rig"
-passage_figure_rigs() = [("none", 0.0); reference_rigs]
-
 """
     passage_data()
 
-The passage ship with each of the [`passage_figure_rigs`](@ref) routed out to Guadeloupe
-from the first departure: latitude and longitude [°] of each stage of its track,
+The passage ship with each of the [`reference_rigs_and_none`](@ref) routed out to
+Guadeloupe from the first departure: latitude and longitude [°] of each stage of its track,
 passage_tracks.csv, and time [h], speed [kn], rig thrust [kN] and fuel power [MW] at each
 sample of its [`LegTrace`](@ref), passage_traces.csv. Errors where a passage fails.
 """
 function passage_data()
-    rigs = passage_figure_rigs()
+    rigs = reference_rigs_and_none
     ships = [Ship(passage_ship_design(rig, area), assumptions) for (rig, area) in rigs]
     outbound = first(run_corridors(:caribbean))
     departure = departures[1]
@@ -1483,7 +1484,7 @@ keeps per plan with the jackknife standard error over the departures and its dif
 from plan `control`: `name`_kept.csv.
 """
 function write_forecast_plans(name, plans, control; departures=ensemble_departures)
-    rigs = [("none", 0.0); reference_rigs]
+    rigs = reference_rigs_and_none
     cases, trips = [], []
     for departure in departures
         step_cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...);
@@ -1799,7 +1800,7 @@ saving each rig keeps per plan against the plan of [`replanning_control`](@ref):
 forecast_replanning_kept.csv.
 """
 function forecast_replanning_data()
-    rigs = [("none", 0.0); reference_rigs]
+    rigs = reference_rigs_and_none
     cases, trips = [], []
     for departure in ensemble_departures
         step_cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...);
@@ -3240,7 +3241,7 @@ without a rig, and at 8, 9 and 10 kn: speed_terms.csv.
 function speed_terms_data()
     cases = vec([(; route, drive, rig, area) for route in (:caribbean, :new_york),
                  drive in (:ammonia, :vlsfo),
-                 (rig, area) in [("none", 0.0); reference_rigs]])
+                 (rig, area) in reference_rigs_and_none])
     results = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         results[k] = speed_terms(cases[k])
