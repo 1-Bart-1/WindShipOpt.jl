@@ -3237,6 +3237,7 @@ end
 module PaperRuns
 root = pkgdir(Main.WindShipOpt)
 include(joinpath(root, "scripts", "paper_runs.jl"))
+include(joinpath(root, "scripts", "run_estimate.jl"))
 runs_directory = mktempdir()
 end
 
@@ -3543,6 +3544,13 @@ end
     @test parse(Int, option("cpus-per-task")) <= 64
     @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 4
     @test option("dependency") == "afterany:7"
+end
+
+@testset "a final run's estimate counts the draft's cases and one more size search round" begin
+    record = Dict("steps" => [Dict("name" => "patterns"),
+        Dict("name" => "classes", "cases" => 26), Dict("name" => "routes", "cases" => 10)])
+    @test PaperRuns.run_counts(record) == [(name="classes", draft=26, final=32.0),
+        (name="routes", draft=10, final=10.0)]
 end
 
 @testset "a final run's parts name every commit and dirty tree they come from" begin

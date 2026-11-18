@@ -5,6 +5,8 @@
 # draft run, scaled to each fidelity, times the core seconds this machine takes for a sample
 # of round trips at this commit. Included by cluster.jl for `bin/cluster estimate`.
 
+using Printf
+
 """
 Setting of `fidelities` that samples the departures of each data step's round trips, where
 it is not `departure_step`; nothing for a step sailing the same departures at every fidelity
@@ -72,11 +74,11 @@ end
 """
     trip_costs()
 
-[`measure_trip_costs`](@ref) at this commit on this processor, measured once and kept in
-output/estimates/.
+[`measure_trip_costs`](@ref) for this round-trip code on this processor, measured once and
+kept in output/estimates/.
 """
 function trip_costs()
-    name = string(first(git_output("rev-parse", "HEAD"), 7), "-",
+    name = string(trip_model(script_definitions(script_files())), "-",
         content_hash(processor()), ".toml")
     path = joinpath(mkpath(joinpath(root, "output", "estimates")), name)
     isfile(path) && return TOML.parsefile(path)
@@ -125,9 +127,9 @@ end
 
 Print what a final and a draft run take in core hours on this machine and in days on the
 cluster's jobs of cluster.toml, on one of those jobs alone, and on `box_cores` cores here,
-from the latest finished draft run's cases and [`trip_costs`](@ref): the forecast result
-at the mean of its plan sailed live and with perfect foresight, every other step between
-the class and the development sample.
+from the latest finished draft run's cases and [`trip_costs`](@ref): the class study at the
+class sample, the forecast result at the mean of its plan sailed live and with perfect
+foresight, every other step between the development and the class sample.
 """
 function print_estimate(; box_cores=20)
     directory, record = first(filter(run -> is_finished(last(run)) &&
@@ -135,7 +137,7 @@ function print_estimate(; box_cores=20)
         fidelity_runs(:draft)))
     costs = trip_costs()
     settings = cluster_settings()
-    range = extrema(weighted_cost.(Ref(costs), ("class", "development")))
+    between = extrema(weighted_cost.(Ref(costs), ("class", "development")))
     forecast_cost = (weighted_cost(costs, "live") + weighted_cost(costs, "development")) / 2
     println("cases of draft run ", basename(directory), "; core seconds per departure on ",
         costs["processor"], ": ", join([@sprintf("%s %.0f", key, value)
@@ -148,7 +150,8 @@ function print_estimate(; box_cores=20)
         for step in run_counts(record)
             cases = getproperty(step, fidelity)
             trips = cases * step_departures(step.name, fidelity)
-            cost = step.name == "forecast_result" ? forecast_cost .* (1, 1) : range
+            cost = step.name == "forecast_result" ? forecast_cost .* (1, 1) :
+                   step.name == "classes" ? weighted_cost(costs, "class") .* (1, 1) : between
             hours .+= trips .* cost ./ 3600
             @printf("%-20s %8.0f %12.0f %5.0f to %5.0f\n", step.name, cases, trips,
                 (trips .* cost ./ 3600)...)
