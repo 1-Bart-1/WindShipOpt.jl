@@ -24,21 +24,35 @@ At 300 m² the same steps give 4284, 3868 and 3280. A 1000 m² soft kite costs 9
 
 ## Mass law
 
-m = 1372 kg × (S/54)^(κ/2) + m_r A_d + 411 kg × (P_d/1.36 MW)^ε, κ = 2.75 (band 2.2-3.3), with the aspect ratio held; P_d is the hover power over 0.75, solved with the hover power. The routed size study also runs κ = 3.
+m = m_s S + m_F F b AR + m_r A_d + 411 kg × (P_d/1.36 MW)^ε, with S the wing area, F the tether force limit, b the span, AR the aspect ratio, m_s = 14 kg/m² (7.5-21) and m_F = 0.0063 kg per kN m (0.0026-0.0096); P_d is the hover power over 0.75, solved with the hover power.
 
-- Structure: 1852 kg less the 480 kg of nacelles, powertrains, rotors, spinners and booms in Makani's roll-up of the 26 m wing, 1854 kg in all (Part II, pp.275, 287-288).
+- Why this form. The spar caps of a wing held at its centre under a lift F spread over the span weigh ρ F b AR / (12 τ σ), with τ the thickness ratio and σ/ρ the working stress over the density of the caps: the bending moment goes with F b, the depth of the spar with the chord b/AR, and the length with b. Aull et al. (2020, Eq. 21-25) derive the same proportionality. Held at N points along the span that share the load, the caps weigh 1/N² of that. Everything that no load sizes goes with the area. At a fixed force per area and aspect ratio the first part goes with span squared and the second with span cubed.
+- The spar is a small part. Makani's build-up of the 26 m wing (Part II, pp.287-288, total 1854 kg): spar caps 125 kg, shear walls 68, hardpoints 57; main skin 300, second element 103, ribs 90, wire, glue and paint 80, aileron hardware 29, trailing edge 7; empennage 229, pylons 160, fuselage 50, mass balance 36, avionics 26, tip thruster 14; nacelles, powertrains and booms 480. Its example sizes the caps for 250 kN of lift and a root moment of 633 kN m on a spar 0.45 m deep (pp.279-281), 469 MPa in the caps; the formula above gives 107 kg at that stress and depth, 128 kg with the 20 % the sizer adds to the caps (p.276). So 9 % of the structure is spar caps and 18 % is sized by the tether force in a direct way.
+- Bridle. M600 hung from two hardpoints 5.9 m either side of the centre on a 25.66 m span, 0.46 of the half span, with the knot 4.79 m below (Makani code release, config/m600/wing.py; Part I, Table 2). MX2 moved them to about ±1.5 m, "which has the effect of increasing bending loads on the wing" (Part I, p.21, footnote 16), because a small bridle "is extremely important to maneuverability" (Part I, pp.26-27). A wide bridle to two points would cut MX2's caps to a quarter, about 90 kg of 1372 kg. More points add line drag and take roll control away; they cannot remove the shell.
+- Base split. The two coefficients return MX2's 1372 kg of structure: 756 kg of shell and 614 kg of load-bearing structure. The split is the one that also returns two wings of other lineages: 7.5 t against the 6885 kg of the 150 m² design of Eijkelhof et al. (2020; 42.7 m, peak 617 kN at 37 % of its limit), and 206 kg against the 229 kg of carbon composite in Ampyx's AP3 (48.2 % of 475 kg, van Hagen et al. 2023, Table 4; 12 m², 42 kN, Joshi et al. 2024). For M600 (32.9 m², 25.66 m, 240 kN) it gives 1.24 t, against 845 kg of structure, pylons and rotors on a design slide (Part II, p.20) and 1.26 t as built once bridles, motors, controllers and rotors are taken off 1731 kg, wiring and avionics still in it.
+- Low bounds. Shell: half of 15 kg/m², the structure of a 4 m² kite with rotors that Aull et al. (2020, Tables 1-2) hold per area at every size as the lighter of two laws. Load: caps, shear walls and hardpoints of Makani's build-up, 250 kg. Together 658 kg at 54 m², 12 kg/m², and 356 kg at 20 m of span.
+- High bounds. Shell: all of Makani's build-up that no load sizes, 21 kg/m². Load: what returns MX2 with a shell of 8 kg/m², near the small wings that flew. Together 2.07 t at 54 m², half above MX2, against M600's overrun of 40-70 % (Part I, p.265).
+- Published laws. Joshi et al. (2024, Eq. 20), for horizontal launch from Ampyx's part-level model: m = [(0.024 w + 0.1) S² + (1.7 w + 32.5) S - 50] f(AR) with w = F/S in kN/m². At 54 m² and 5.56 kN/m² it gives 2.9 t, of which 0.9 t goes with the force. Sommerfeld et al. (2022) sweep span to the 2.7-3.3 from AP2 (36.8 kg, 5.5 m); van Hagen et al. (2023) use 2.7-3.0. The law here goes with span to the 2.45 at MX2 and to the 2.66 at 300 m².
+- Sailplanes. Noth (2008, ETH thesis 18010, Table 3.1) fits the airframe weight of 415 sailplanes as 5.58 b^3.18 AR^-0.88 N and of the lightest 5 % as 0.44 b^3.10 AR^-0.25 N: 1.9 t and 0.58 t at MX2's span and aspect ratio, 0.84 t and 0.26 t at 20 m. A Standard Cirrus wing weighs 116.5 kg on 10.04 m² (Hoff et al. 2010; EASA.A.278) for a limit lift of about 2 kN/m², against the 5.56 kN/m² here. The thesis is read in part, so the paper does not cite it.
+- Load carried per unit of own weight, whole kite: AP2 5 (1.8 kN, 36.8 kg), AP3 9, M600 14, MX2 16.5 by design, Eijkelhof et al. 25 by design. Makani: "tether tension can easily exceed the weight of the kite by a factor of 10 to 15" (Part I, p.12).
 - Rotors: 65 kg of rotors and spinners on 8 × 4.15 m² for M600 (Part II, p.20; Part I, Table 1), 1.96 kg/m²; base 2.5 for feathering hubs (estimate), high 3.9.
 - Drives: 480 kg less the rotors, 411 kg for 1.2 MW of shaft (Part I, p.184). ε = 0.81 from the motor regression W = 0.5382 Q^0.8129 with controller, inverter and cooling (Johnson et al. 2018, p.5), 1 for motors linear in torque (Part I, p.184). Low bound 241 kg: MX2's 344 kg of motors and controllers (36 + 7 kg × 8, Part II, pp.46-47) at 6.9 kW/kg, NASA's model for motors of about 170 kW (Johnson et al. 2018, p.5), instead.
-- At Makani's design density 0.95 kg/m³, η 0.71 × 0.88 and fixed rotors the law returns 1823 kg for MX2.
-- κ comes from whole wings with rotors and is applied to the structure alone.
+- At Makani's design density 0.95 kg/m³, η 0.71 × 0.88 and fixed rotors the law returns 1820 kg for MX2.
 
-- With on-board rotors, one wing that flew sits far below the anchor: Wing 7, 60 kg on 3.96 m² and 8 m (Vander Lind 2013, Fig. 28.7). To MX2 it gives κ = 2.91 by span and 2.63 by area. Its aspect ratio is 16 against 12.5: at the same area it has more span than MX2's planform and at the same span less area, so the two bracket κ at MX2's planform, and 2.75 lies between them. At κ = 2.75 the law gives 51 kg at Wing 7's area.
-- From Wing 7 to the built M600 (32.9 m², 25.66 m, 1692-1731 kg) it is 2.87-2.88 by span and 3.15-3.18 by area, so the two wings actually built go about as span cubed. That is why κ = 3 runs beside the base.
-- For ground-generation wings Sommerfeld et al. (2022) sweep κ over 2.7-3.3 as an assumption, against AP2 (5.5 m, 36.8 kg). van Hagen et al. (2023) use 2.7-3.0.
-- Joshi et al. (2025, Table 10) give 700 kg at 20 m² to 10663 kg at 160 m² for horizontal-launch designs, about κ 2.5-3.2 between their optima, and state that VTOL "will have a different scaling due to the additional motors" (p.700).
-- Eijkelhof et al. (2020) design a 150 m² wing of 6885 kg, without rotors, against 7.5 t from this law at κ = 2.75 and 8.6 t at κ = 3; from the MX2 anchor it gives κ ≈ 2.57.
-- The PowerPlane of Ampyx, 28 kg on 3 m² and 5.5 m with no rotors (Ruiterkamp and Sieberling 2013, Sect. 26.2), carries 9 kg/m² against 15 for Wing 7; it does not bear on a law for wings with rotors.
-- The M600 came out 40-70 % over its targets (Part I), so the risk is upward; the high bound of the reference mass covers 40 %.
+## What the mass decides
+
+Yearly cost per kN of thrust at 12 m/s on a beam course (3000 flight hours, 150 launches), from the model; a 1000 m² soft kite costs 902 and a 2000 m² one 793.
+
+| Structure | 54 m² | 100 m² | 200 m² |
+| --- | --- | --- | --- |
+| Base | 2435 | 2374 | 2593 |
+| Low bounds | 1782 | 1620 | 1655 |
+| High bounds | 3350 | 3305 | 3693 |
+| No mass at all | 1315 | 1084 | 988 |
+
+- A structure without any mass still costs more than the soft kite: upkeep per flight hour alone is 650-700 per kN, and avionics, perch, winch and launches the rest.
+- From the low bounds at 100 m², the inputs that move it most are the upkeep (-341), the structure's price per kg (-179), the loop radius (-167), the avionics (-134) and the life (-100). Upkeep, avionics, structure price, perch and life together at their favourable bounds bring it to 856.
+- Battery launch. At the low bounds the 54 m² kite weighs 920 kg and hovers on 368 kW, 0.4 kW per kg. Six minutes with half as much again in reserve at 80 % depth and the 150 Wh/kg of an installed pack (Johnson et al. 2018, Table 2) is 1.25 kg of battery per kW; the kite that carries it weighs about 2.1 t and hovers on about 1 MW. A battery beats the conductors only below about 5 kg/m² of kite, under half of the lightest wing above.
 
 ## Wing 7 against this model
 

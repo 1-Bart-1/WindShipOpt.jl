@@ -674,10 +674,10 @@ rigid_max_wind:
   reason: "Authors' estimate, held at the highest apparent wind of the soft kite."
 rigid_structure_cost_per_mass:
   value: 290.0
-  low: 140.0
+  low: 39.0
   high: 400.0
   unit: USD/kg
-  reason: "Carbon composite kite structure EUR 250/kg, at a series of 50 or more without overhead or margin, which the market price factor adds [@joshi2025, p.702]; the bounds are the authors' estimates."
+  reason: "Carbon composite kite structure EUR 250/kg, at a series of 50 or more without overhead or margin, which the market price factor adds [@joshi2025, p.702]. Low bound: material and manufacture of a wind turbine blade, USD 8 and 31 per kg, as applied to the structure of a kite [@aull2020, Table 3]; the high bound is the authors' estimate."
 rigid_structure_cost_per_area:
   value: 232.0
   low: 110.0
