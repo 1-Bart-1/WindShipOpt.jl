@@ -120,7 +120,7 @@ max_froude_number:
   low: 0.25
   high: 0.3
   unit: "-"
-  reason: "Holtrop-Mennen is validated up to about Fn 0.30 for general cargo ships [@holtrop1982]; full coasters sail at Fn 0.23-0.29 [@man2011, coasters at 13-16 kn]."
+  reason: "Full coasters sail at Fn 0.23-0.29 [@man2011, coasters at 13-16 kn], inside the Fn 0.4 up to which the resistance formulas of the model run."
 metacentric_height_ratio:
   value: 0.075
   low: 0.05
@@ -138,7 +138,7 @@ entrance_length_ratio:
   low: 0.15
   high: 0.30
   unit: "-"
-  reason: "Length of the bow entrance over waterline length; the run length of @holtrop1982 gives 0.26 L for the reference hull and the forward centre of buoyancy makes the entrance somewhat shorter."
+  reason: "Length of the bow entrance over waterline length; the run length of @holtrop1982 gives 0.23 L for the reference hull and the forward centre of buoyancy makes the entrance somewhat shorter."
 pitch_gyration_ratio:
   value: 0.25
   low: 0.22
