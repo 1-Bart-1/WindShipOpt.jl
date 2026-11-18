@@ -413,22 +413,22 @@ end
 
 Write each real price of `data/rig_prices.csv` to paper/sections/rig_prices_table.tex: its
 unit, units built by then, price in today's money, build-up price, both as paid and at the
-production stage, and its source; then each rig's price at the stage over its build-up,
-with its range over the learning rate.
+production stage, and the source of the price; then each rig's price at the stage over its
+build-up, with its range over the learning rate.
 """
 function rig_prices_table()
     ragged = ">{\\raggedright\\arraybackslash}"
     as_paid = WindShipOpt.as_paid(assumptions)
     rate = assumptions.entries[:learning_rate]
     open(joinpath(sections, "rig_prices_table.tex"), "w") do io
-        println(io, "\\begin{tabular}{@{}llrlrrrr", ragged, "p{4.6cm}@{}}\n\\toprule")
+        println(io, "\\begin{tabular}{@{}llrlrrrr", ragged, "p{3.4cm}@{}}\n\\toprule")
         println(io, "Rig & Kind & Built & Unit & USD k & Build-up & As paid & ",
             "At stage & Source \\\\\n\\midrule")
         for (kind, name) in rig_kinds, price in WindShipOpt.RIG_PRICES
             price.rig == kind || continue
             unit = kind == :rotor ?
-                   @sprintf("%.0f\\,m \\texttimes{} %.0f\\,m", price.height, price.diameter) :
-                   @sprintf("\\SI{%.0f}{m^2}", price.area)
+                @sprintf("%.0f\\,m \\texttimes{} %.0f\\,m", price.height, price.diameter) :
+                @sprintf("\\SI{%.0f}{m^2}", price.area)
             paid = WindShipOpt.today_price(price, assumptions)
             built = WindShipOpt.bottom_up_price(price, assumptions)
             println(io, name, " & ", price.kind, " ", price.year, " & ",
@@ -436,7 +436,7 @@ function rig_prices_table()
                 latex_number(round(paid / 1e3)), " & ", latex_number(round(built / 1e3)),
                 @sprintf(" & %.2f & %.2f & ", WindShipOpt.stage_ratio(price, as_paid),
                     WindShipOpt.stage_ratio(price, assumptions)),
-                cited_note(price.source), " \\\\")
+                price_citation(price), " \\\\")
         end
         println(io, "\\midrule")
         for (kind, name) in rig_kinds
@@ -450,6 +450,10 @@ function rig_prices_table()
         println(io, "\\bottomrule\n\\end{tabular}")
     end
 end
+
+"citation of the source of `price` itself, the first citation group of its source note"
+price_citation(price) = join(cite_part.(split(
+    match(r"\[([^\]]*)\]", price.source).captures[1], ';')), "; ")
 
 "share of time each rig is out of service at its goal, the same for all [-]"
 out_of_service_goal() = only(unique(assumptions[Symbol(out_of_service_inputs[rig])]
@@ -2071,7 +2075,8 @@ function goal_numbers()
         "CanopyPricePaid" => canopy_price_text(WindShipOpt.as_paid(assumptions)),
         "KitePriceStage" => kite_price_text(rate.value),
         "KitePriceLow" => kite_price_text(rate.high),
-        "KitePriceHigh" => kite_price_text(rate.low), "KitePricePaid" => kite_price_text(0.0),
+        "KitePriceHigh" => kite_price_text(rate.low),
+        "KitePricePaid" => kite_price_text(0.0),
         "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal()),
         "KiteGapBias" => @sprintf("%.1f", kite_gap_bias)]
 end

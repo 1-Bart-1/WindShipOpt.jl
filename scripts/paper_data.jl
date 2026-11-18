@@ -2382,8 +2382,9 @@ study.
 """
 development_inputs = [
     (input=:canopy_making_cost_per_area, label="canopy making cost", rig="kite",
-        lever="price", reason="Sewing, lines and fittings, which a maker lowers by design " *
-                              "for making; they set the canopy's share of the kite's price."),
+        lever="price", reason="Sewing, lines and fittings, which a maker lowers by " *
+                              "design for making; they set the canopy's share of the " *
+                              "kite's price."),
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
         reason="What a flight hour of the canopy costs; unmeasured, so what development " *
                "has to prove."),

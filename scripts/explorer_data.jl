@@ -13,8 +13,8 @@ explorer_inputs = (:vlsfo_price, :e_ammonia_price, :carbon_price, :carbon_covera
     :kite_cycle_damage_probability, :kite_cycle_loss_probability,
     :kite_forced_landing_loss_probability, :kite_out_of_service, :wing_out_of_service,
     :rotor_out_of_service, :kite_crash_rate, :wing_loss_rate, :rotor_loss_rate,
-    :market_price_factor, :learning_rate, :kite_lifetime, :wing_lifetime, :rotor_lifetime, :discount_rate,
-    :availability)
+    :market_price_factor, :learning_rate, :kite_lifetime, :wing_lifetime, :rotor_lifetime,
+    :discount_rate, :availability)
 
 "ships (class, drive, route) whose cheapest design of each rig is rerun at other inputs"
 explorer_check_ships = (("general cargo coaster", :ammonia, :caribbean),

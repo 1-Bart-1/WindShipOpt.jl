@@ -614,7 +614,8 @@ end
     stayed = WindShipOpt.aloft_tally(ship_table, start, point, false, prices)
     @test launched.flight_hours ≈ 4.0 - ship_table.handling_hours
     @test stayed.flight_hours ≈ 4.0
-    @test launched.cost > stayed.cost + ship_table.cycle_cost
+    unworn = ship_table.wear_cost * point.chance * ship_table.handling_hours
+    @test launched.cost + unworn > stayed.cost + ship_table.cycle_cost
     short = kite_point(table, 2.0, ship_table.handling_hours / 2)
     brief = WindShipOpt.aloft_tally(ship_table, start, short, true, prices)
     @test brief.flight_hours ≈ -ship_table.handling_hours / 2

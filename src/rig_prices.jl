@@ -114,7 +114,8 @@ least one, since below its bottom-up price a maker cannot build it. At a `learni
 zero it is the price as paid today.
 """
 function stage_price_factor(rig::Symbol, assumptions)
-    ratios = [log(stage_ratio(price, assumptions)) for price in RIG_PRICES if price.rig == rig]
+    ratios = [log(stage_ratio(price, assumptions))
+              for price in RIG_PRICES if price.rig == rig]
     return max(1.0, exp(mean(ratios)))
 end
 
