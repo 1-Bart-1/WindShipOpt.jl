@@ -85,7 +85,7 @@ function draw_search_map!(axis, case; colorrange)
     unreached, pruned, kept = [filter(index -> level[index] == value, water)
                                for value in 0:2]
     dot = node_dot(corridor)
-    scatter!(axis, node_points(corridor, unreached); color=:gray80, markersize=0.5dot)
+    scatter!(axis, node_points(corridor, unreached); color=unreached_shade, markersize=0.5dot)
     scatter!(axis, node_points(corridor, pruned); color=:transparent, strokecolor=:gray45,
         strokewidth=pt(0.3), markersize=dot)
     nodes = scatter!(axis, node_points(corridor, kept); color=excess[kept],
@@ -193,6 +193,9 @@ edge_style = (; color=(:black, 0.45), linewidth=style_size("dimension"))
 "colour of the nodes a search kept with no estimate onward"
 no_estimate_shade = :gray35
 
+"colour of a node the search did not reach"
+unreached_shade = :gray65
+
 "colour of the hours a kite flies along a passage"
 flight_shade = (palette[1], 0.25)
 
@@ -248,7 +251,7 @@ function router_legend_entries()
         MarkerElement(marker=:circle, color=no_estimate_shade, markersize=pt(3)),
         MarkerElement(marker=:circle, color=:transparent, strokecolor=:gray45,
             strokewidth=pt(0.3), markersize=pt(3)),
-        MarkerElement(marker=:circle, color=:gray80, markersize=pt(1.5))]
+        MarkerElement(marker=:circle, color=unreached_shade, markersize=pt(2.5))]
     labels = ["passage", "kite flying", "edges allowed", "node kept, no estimate",
         "node pruned", "node not reached"]
     return entries, labels

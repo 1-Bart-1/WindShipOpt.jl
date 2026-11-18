@@ -762,11 +762,14 @@ function canopy_tension_figure()
     hlines!(force_axis, mean_force; color=category_colours[1], linestyle=:dash)
     hlines!(force_axis, peak_force; color=category_colours[2], linestyle=:dot)
     lines!(force_axis, times, forces; color=palette[1])
-    text!(force_axis, times[end], mean_force;
-        text=@sprintf("mean %s MN, %s kN/m", estimate_text(mean_force),
+    trough = argmin(forces)
+    first_below = findlast(>=(mean_force), forces[1:trough]) + 1
+    last_below = trough + findfirst(>=(mean_force), forces[trough:end]) - 2
+    text!(force_axis, (times[first_below] + times[last_below]) / 2, mean_force;
+        text=@sprintf("mean %s MN\n%s kN/m", estimate_text(mean_force),
             estimate_text(tension(mean_force))),
-        fontsize=note_size, align=(:right, :top), color=category_colours[1],
-        offset=clear_offset((:right, :top), pt(2)))
+        fontsize=note_size, align=(:center, :bottom), color=category_colours[1],
+        offset=clear_offset((:center, :bottom), pt(2)))
     text!(force_axis, times[1], peak_force;
         text=@sprintf("peak %s MN, %s kN/m\nnew cloth about %s kN/m, %s × peak",
             estimate_text(peak_force), estimate_text(tension(peak_force)),
@@ -1573,9 +1576,6 @@ end
 
 "`share` [%] in whole per cent, set as the paper sets it"
 percent_text(share) = @sprintf("%.0f\u2009%%", share)
-
-"`billions` [USD] with one decimal below ten, else whole"
-estimate_text(billions) = @sprintf("%.*f", billions < 10 ? 1 : 0, billions)
 
 """
     fleet_total_label(name, split, measure)
@@ -3440,9 +3440,9 @@ function rigid_mass_figure()
                 justification=:right)
             continue
         end
-        align = mass < law ? (:left, :top) :
-                (published["area"][i] > 10 ? :right : :left, :bottom)
-        offset = mass < law ? (pt(2.5), -pt(6)) : clear_offset(align, pt(2.5))
+        below = mass < 1.05law  # a point within 5 % of the law is labelled as on it
+        align = below ? (:left, :top) : (published["area"][i] > 10 ? :right : :left, :bottom)
+        offset = below ? (pt(2.5), -pt(6)) : clear_offset(align, pt(2.5))
         text!(axis, published["area"][i], mass; text=name, align, offset,
             fontsize=note_size, color)
     end
