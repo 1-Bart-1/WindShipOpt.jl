@@ -156,11 +156,15 @@ input_words = Dict("e" => "e-", "teu" => "TEU", "ceu" => "CEU", "usd" => "USD",
 """
     input_label(name)
 
-Name of the input `name` as the input table prints it, in words rather than as a key.
+Name of the input `name` as the input table prints it, in words rather than as a key; the
+rigid kite's rotors are printed as propellers.
 """
-input_label(name) = replace(join([get(input_words, word, word)
-                                  for word in split(string(name), "_")], " "),
-    "e- " => "e-", r"^rigid " => "rigid kite ")
+function input_label(name)
+    label = replace(join([get(input_words, word, word)
+                          for word in split(string(name), "_")], " "), "e- " => "e-")
+    startswith(label, "rigid ") || return label
+    return replace(label, r"^rigid " => "rigid kite ", "rotor" => "propeller")
+end
 
 """
     write_input_row(io, entry, name)
@@ -2093,6 +2097,81 @@ function numbers_file()
             print(io, number_macro(name, text, draft))
         end
     end
+end
+
+"`values` [%] rounded to whole points, as one value or as the first and last"
+point_range(values) = let points = sort(unique(round.(Int, values)))
+    length(points) == 1 ? string(only(points)) : "$(first(points)) and $(last(points))"
+end
+
+"what a rig with cost `savings` [%] does to the cost, saving or adding to it, in points"
+saving_phrase(savings) = all(<(0), savings) ?
+                         "adds $(point_range(.-savings))\\,\\% to the cost" :
+                         "saves $(point_range(savings))\\,\\%"
+
+"""
+    rigid_numbers_file()
+
+Write the [`rigid_numbers`](@ref) the paper and its extended abstract state as LaTeX macros
+`\\Num...` to paper/sections/rigid_numbers.tex, marked at draft fidelity.
+"""
+function rigid_numbers_file()
+    draft = paper_run.fidelity != :final
+    open(joinpath(sections, "rigid_numbers.tex"), "w") do io
+        for (name, text) in rigid_numbers()
+            print(io, number_macro(name, text, draft))
+        end
+    end
+end
+
+"row of the kite of `kind` and `area` [m^2] in the scaling `table` at the compared wind"
+scaling_row(table, kind, area) =
+    only(filter(row -> table["area"][row] == area, flying_rows(table, kind)))
+
+"""
+    rigid_numbers()
+
+Name and text of the numbers of the VTOL kite studies: from rigid_scaling.csv the
+cheapest area of the VTOL kite at base inputs, its thrust, price and price per thrust at
+12 m/s and those of a 1000 m^2 soft kite, its yearly cost per kN of thrust against the soft
+kite's, that cost at 54, 200 and 500 m^2, the cheapest area and the cost at
+200 m^2 with the structure growing with the span cubed; from rigid_kite.csv the cost
+savings [%] of the VTOL kite, the soft kite and the rotors on each route.
+"""
+function rigid_numbers()
+    scaling = read_table(data_file("rigid_scaling.csv"))
+    trips = read_table(data_file("rigid_kite.csv"))
+    costs(kind) = Dict(zip(thrust_costs(scaling, kind)...))
+    base, cubed, soft = costs("rigid base"), costs("rigid cubed"), costs("soft")
+    best = cheapest_rigid_area(scaling, "base")
+    rounded(cost) = @sprintf("\\num{%.0f}", round(cost, sigdigits=3))
+    wing = scaling_row(scaling, "rigid base", best)
+    kite = scaling_row(scaling, "soft", 1000.0)
+    per_thrust(row) = rounded(1e3scaling["price"][row] / scaling["thrust"][row])
+    numbers = ["RigidBestArea" => @sprintf("%.0f", best),
+        "RigidBestThrust" => @sprintf("%.0f", 1e-3scaling["thrust"][wing]),
+        "RigidBestPrice" => @sprintf("%.2f", 1e-6scaling["price"][wing]),
+        "RigidBestPricePerThrust" => per_thrust(wing),
+        "RigidSoftThrust" => @sprintf("%.0f", 1e-3scaling["thrust"][kite]),
+        "RigidSoftPricePerThrust" => per_thrust(kite),
+        "RigidBestCost" => rounded(base[best]), "RigidMxTwoCost" => rounded(base[54.0]),
+        "RigidSoftCost" => rounded(round(soft[1000.0], sigdigits=2)),
+        "RigidCostRatio" => @sprintf("%.1f", base[best] / soft[1000.0]),
+        "RigidRiseTwoHundred" => @sprintf("%.0f", 100(base[200.0] / base[best] - 1)),
+        "RigidRiseFiveHundred" => @sprintf("%.0f", 100(base[500.0] / base[best] - 1)),
+        "RigidCubedArea" => @sprintf("%.0f", cheapest_rigid_area(scaling, "cubed")),
+        "RigidCubedTwoHundredCost" => rounded(cubed[200.0])]
+    for (route, word) in zip(pair_routes, ("Guadeloupe", "Bilbao"))
+        savings = [rig_savings(trips, ["kite", "rotors", "rigid base"], "ship" => ship,
+            "route" => string(route)) for ship in pair_classes]
+        for (rig, rig_word) in ("kite" => "Kite", "rotors" => "Rotors")
+            push!(numbers, "RigidRouted$(word)$(rig_word)" =>
+                point_range([saving[rig] for saving in savings]))
+        end
+        push!(numbers, "RigidRouted$(word)Rigid" =>
+            saving_phrase([saving["rigid base"] for saving in savings]))
+    end
+    return numbers
 end
 
 """
