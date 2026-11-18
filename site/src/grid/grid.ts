@@ -77,7 +77,13 @@ export function unitVectors(grid: Grid): UnitVectors {
  * Project `sphere` into `screen` on an orthographic globe facing longitude and latitude
  * `[lon, lat]` [deg], of radius `scale` [px] about the canvas point `centre` [px].
  */
-export function faceGlobe(sphere: UnitVectors, [lon, lat]: [number, number], scale: number, [centreX, centreY]: [number, number], screen: ScreenPoints) {
+export function faceGlobe(
+  sphere: UnitVectors,
+  [lon, lat]: [number, number],
+  scale: number,
+  [centreX, centreY]: [number, number],
+  screen: ScreenPoints,
+) {
   const [lonAngle, latAngle] = [lon, lat].map((degrees) => (degrees * Math.PI) / 180);
   const [cosLon, sinLon, cosLat, sinLat] = [Math.cos(lonAngle), Math.sin(lonAngle), Math.cos(latAngle), Math.sin(latAngle)];
   for (let node = 0; node < sphere.x.length; node++) {

@@ -58,7 +58,7 @@ interface GridLayer extends ShownGrid {
   usable: number[];
   unusable: number[];
   sphere: UnitVectors;
-  /** where each node lies on the canvas [px] in the last drawing */
+  /** where each node lies on the canvas [px], as last projected */
   screen: ScreenPoints;
 }
 
