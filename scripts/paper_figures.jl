@@ -424,52 +424,36 @@ function route_figure()
 end
 
 """
-    figure_passages()
-
-The labelled designs of [`passage_figure`](@ref) and each one's routed leg with its trace.
-"""
-function figure_passages()
-    designs = (("no rig", passage_ship_design("none", 0.0)),
-        ("kite 3200 m²", passage_ship_design("kite", 3200.0)),
-        ("wings 1500 m²", passage_ship_design("wings", 1500.0)),
-        ("rotors 800 m²", passage_ship_design("rotors", 800.0)))
-    outbound = first(run_corridors(:caribbean))
-    legs = map(designs) do (label, design)
-        ship = Ship(design, assumptions)
-        table = PerformanceTable(ship, assumptions)
-        hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
-            assumptions))
-        return traced_passage(table, outbound, departures[1], hourly)
-    end
-    return designs, legs
-end
-
-"""
     passage_figure()
 
 One winter outbound passage to Guadeloupe of a 140 m e-ammonia ship without a rig and
-with each rig: the routed tracks through the corridor's nodes over the 10 m wind six days
-after departure, each in the colour of its ship, and the speed, rig thrust and
-fuel power at each sample of the passage.
+with each rig, from passage_tracks.csv and passage_traces.csv: the routed tracks through
+the corridor's nodes over the 10 m wind six days after departure, each in the colour of its
+ship, and the speed, rig thrust and fuel power at each sample of the passage.
 """
 function passage_figure()
-    designs, legs = figure_passages()
+    tracks = read_table(data_file("passage_tracks.csv"))
+    traces = read_table(data_file("passage_traces.csv"))
+    rigs = passage_figure_rigs()
     design_colours = [:black; palette[eachindex(rig_names)]]
-    departure = departures[1]
     figure = Figure(size=(page_width, 360))
     map_axis = Axis(figure[1, 1:2]; aspect=DataAspect(), limits=(-64, 6, 13, 54),
         xlabel="longitude [°]", ylabel="latitude [°]", title="(a) routed tracks")
     draw_land!(map_axis, mask)
-    draw_wind!(map_axis, weather, departure + 24 * 6; scale=0.3)
-    first_path = first(first(legs)).path
-    lines!(map_axis, great_circle(first_path[1], first_path[end])...; color=:black,
-        linestyle=:dot, linewidth=0.8)
-    tracks = [track_points(leg.path) for (leg, _) in legs]
-    for (i, track) in enumerate(tracks)
-        lines!(map_axis, track; color=design_colours[i],
-            linewidth=pt(1 + 0.9(length(tracks) - i)))
+    draw_wind!(map_axis, weather, departures[1] + 24 * 6; scale=0.3)
+    paths = map(rigs) do (rig, area)
+        stages = rows(tracks, "rig" => rig, "area" => area)
+        isempty(stages) && error("no passage track with the $rig of $area m^2")
+        return tuple.(tracks["lat"][stages], tracks["lon"][stages])
     end
-    scatter!(map_axis, unique(reduce(vcat, tracks)); color=:black, markersize=pt(2.5))
+    lines!(map_axis, great_circle(first(paths[1]), last(paths[1]))...; color=:black,
+        linestyle=:dot, linewidth=0.8)
+    points = track_points.(paths)
+    for (i, track) in enumerate(points)
+        lines!(map_axis, track; color=design_colours[i],
+            linewidth=pt(1 + 0.9(length(points) - i)))
+    end
+    scatter!(map_axis, unique(reduce(vcat, points)); color=:black, markersize=pt(2.5))
     labels = ("speed [kn]", "rig thrust [kN]", "fuel power [MW]")
     titles = ("(b) speed through the water", "(c) rig thrust", "(d) fuel power")
     panels = [Axis(figure[2, column]; ylabel=labels[column], title=titles[column],
@@ -478,13 +462,14 @@ function passage_figure()
               for column in 1:3]
     ylims!(panels[2], 5, 3000)
     panels[2].yticks = [10, 100, 1000]
-    for (i, (label, _)) in enumerate(designs)
-        trace = legs[i][2]
-        thrust = [value >= 5e3 ? value / 1e3 : NaN for value in trace.rig_thrust]
-        for (panel, values) in zip(panels, (trace.speed ./ KNOT, thrust,
-            trace.fuel_power ./ 1e6))
-            stairs!(panel, trace.time ./ 24, values; step=:post, color=design_colours[i],
-                label)
+    for (i, (rig, area)) in enumerate(rigs)
+        samples = rows(traces, "rig" => rig, "area" => area)
+        label = rig == "none" ? "no rig" : "$rig $(round(Int, area)) m²"
+        thrust = [value >= 5 ? value : NaN for value in traces["rig_thrust"][samples]]
+        for (panel, values) in zip(panels, (traces["speed"][samples], thrust,
+            traces["fuel_power"][samples]))
+            stairs!(panel, traces["time"][samples] ./ 24, values; step=:post,
+                color=design_colours[i], label)
         end
     end
     linkxaxes!(panels...)
