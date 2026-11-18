@@ -290,13 +290,16 @@ of the wind window, turns on its smallest radius through the edge direction to t
 heading on the other side when its roll angle about the apparent wind axis leaves
 `centre` ± `half_width` [rad] (zero is horizontal towards positive crosswind, π/2 straight
 up), and flies at `angle_of_attack` [rad] before depowering. A small heading sweeps the
-kite slowly along the edge of the window, a large one flies figure eights through it.
+kite slowly along the edge of the window, a large one flies figure eights through it. With
+a `weave` [rad] each leg, once at its heading, swings between its heading ± `weave` on the
+smallest radius.
 """
 struct SteeringPattern
     centre::Float64
     half_width::Float64
     heading::Float64
     angle_of_attack::Float64
+    weave::Float64
 end
 
 """
@@ -339,6 +342,15 @@ const MAX_PATTERN_STEPS = 2000
 const CYCLE_TOLERANCE = deg2rad(0.1)
 
 """
+    next_swing(swing, target)
+
+Side of its leg heading `target` [rad] a weaving leg turns to once it reaches its aim: -1,
+0 or 1 times the weave, starting at 0 (the heading itself), then away from the edge
+direction, then alternating.
+"""
+next_swing(swing, target) = swing == 0 ? sign(target) : -swing
+
+"""
     PatternForce(model, pattern, wind_speed, max_tension; path=nothing)
 
 Fly `pattern` quasi-steadily in a uniform apparent wind of `wind_speed` [m/s] from its
@@ -355,7 +367,8 @@ function PatternForce(model::KiteModel, pattern::SteeringPattern, wind_speed, ma
     step = model.min_turn_radius / 3
     off_wind = clamp(atan(4cos(pattern.heading)), 0.3, 1.4)
     roll = pattern.centre
-    heading = target = pattern.heading
+    heading = target = aim = pattern.heading
+    swing = 0.0
     switches = 0
     cycle_start = NaN
     total = (0.0, 0.0, 0.0)
@@ -368,7 +381,7 @@ function PatternForce(model::KiteModel, pattern::SteeringPattern, wind_speed, ma
         around = (0.0, -sin(roll), cos(roll))
         direction = cos(heading) .* edge .+ sin(heading) .* around
         left = cos(heading) .* around .- sin(heading) .* edge
-        turn = (sign(target - heading) / model.min_turn_radius) .* left
+        turn = (sign(aim - heading) / model.min_turn_radius) .* left
         point = limited_point(model, pattern.angle_of_attack, wind, radial, direction,
             turn, max_tension)
         isnothing(point) && return NO_PATTERN
@@ -381,13 +394,16 @@ function PatternForce(model::KiteModel, pattern::SteeringPattern, wind_speed, ma
         isnothing(path) || push!(cycle, (; radial, apparent_wind=wind .- ground,
             angle_of_attack=angle, tension, time))
         turned = step / model.min_turn_radius
-        heading = clamp(target, heading - turned, heading + turned)
+        heading = clamp(aim, heading - turned, heading + turned)
+        heading == aim && (swing = next_swing(swing, target))
+        aim = target + swing * pattern.weave
         off_wind += dot3(ground, edge) * time / radius
         roll += dot3(ground, around) * time / (radius * sin(off_wind))
         0 < off_wind < π / 2 || return NO_PATTERN
         if target > 0 && roll > pattern.centre + pattern.half_width ||
            target < 0 && roll < pattern.centre - pattern.half_width
-            target = -target
+            target = aim = -target
+            swing = 0.0
             switches += 1
             iseven(switches) || continue
             if abs(off_wind - cycle_start) < CYCLE_TOLERANCE
@@ -563,15 +579,15 @@ end
     pattern_of(parameters)
 
 [`SteeringPattern`](@ref) from the optimisation `parameters`: centre and half width of
-the roll angle, heading and angle of attack [rad].
+the roll angle, heading, angle of attack and weave [rad].
 """
 pattern_of(parameters) = SteeringPattern(parameters[1], abs(parameters[2]),
-    abs(parameters[3]), parameters[4])
+    abs(parameters[3]), parameters[4], abs(parameters[5]))
 
 """
     flight_pattern(model, parameters)
 
-Pattern of the kind `model` flies from the four optimisation `parameters`.
+Pattern of the kind `model` flies from its optimisation `parameters`.
 """
 flight_pattern(model::KiteModel, parameters) =
     model.flies_loops ? LoopPattern(parameters...) : pattern_of(parameters)
@@ -584,7 +600,8 @@ How far [rad] `pattern` lies outside what `model` can fly, zero where it lies in
 function outside_limits(model::KiteModel, pattern::SteeringPattern)
     return max(model.lowest_angle - pattern.angle_of_attack,
         pattern.angle_of_attack - model.stall_angle, 0.0) +
-           max(MIN_HALF_WIDTH - pattern.half_width, pattern.heading - MAX_HEADING, 0.0)
+           max(MIN_HALF_WIDTH - pattern.half_width, pattern.heading - MAX_HEADING, 0.0) +
+           max(pattern.weave - MAX_WEAVE, 0.0)
 end
 
 function outside_limits(model::KiteModel, still::StillKite)
@@ -647,6 +664,8 @@ end
 const MIN_HALF_WIDTH = deg2rad(2)
 "largest heading off the direction towards the edge of the wind window [rad]"
 const MAX_HEADING = deg2rad(170)
+"largest swing of a weaving leg about its heading [rad]"
+const MAX_WEAVE = deg2rad(45)
 "largest half angle of a loop's cone [rad]"
 const MAX_CONE = deg2rad(40)
 
@@ -669,7 +688,7 @@ sweeps a steered kite can fly; none for a kite that flies loops.
 function flyable_patterns(problem::PatternProblem)
     (; model) = problem
     model.flies_loops && return Vector{Float64}[]
-    grid = ([centre, half_width, heading, angle]
+    grid = ([centre, half_width, heading, angle, 0.0]
             for centre in range(0.1, 3.0; length=10),
                 half_width in (0.05, 0.1, 0.2, 0.4, 0.7, 1.0),
                 heading in range(0.15, 2.9; length=8),
@@ -758,13 +777,15 @@ end
 
 Starting [`SteeringPattern`](@ref) parameters for the search: figure eights through the
 wind window at the roll angle facing the `course` [rad] and halfway to it, and a slow
-sweep along the edge of the window facing the course.
+sweep along the edge of the window facing the course, each with straight and weaving legs.
 """
 function pattern_starts(course)
     facing = max(π / 2 - course, 0.5)
     halfway = max(π / 2 - course / 2, 0.5)
-    return [[facing, 0.4, 1.3, deg2rad(15)], [halfway, 0.1, 1.5, deg2rad(15)],
-        [facing, 0.3, 0.3, deg2rad(15)]]
+    return [[roll, half_width, heading, deg2rad(15), weave]
+            for weave in (0.0, deg2rad(20))
+            for (roll, half_width, heading) in
+                ((facing, 0.4, 1.3), (halfway, 0.1, 1.5), (facing, 0.3, 0.3))]
 end
 
 """
