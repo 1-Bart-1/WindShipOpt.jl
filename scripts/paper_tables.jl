@@ -1713,21 +1713,22 @@ function routing_value_table()
     speed_labels = Dict("same_time" => "as routed", "operating" => "fleet mean")
     lines = []
     for ship in unique(table["ship"]), (drive, drive_label) in drive_labels
-        bare = only(rows(table, "ship" => ship, "drive" => drive, "rig" => "none",
-            "course" => "routed"))
-        for unrouted in rows(table, "ship" => ship, "drive" => drive, "course" => "shortest")
+        case = ("ship" => ship, "drive" => drive)
+        bare = only(rows(table, case..., "rig" => "none", "course" => "routed"))
+        for unrouted in rows(table, case..., "course" => "shortest")
             speed = table["speed"][unrouted]
             routing = routing_saving(table, ship, drive, "none", speed)
             error = routing_error(departures, ship, drive, speed)
             rigs = map(rig_names) do rig
-                rigged = rows(table, "ship" => ship, "drive" => drive, "rig" => rig)
+                rigged = rows(table, case..., "rig" => rig)
                 isempty(rigged) && return "--"
                 alone = 100(1 - table["cost"][only(rigged)] / table["cost"][bare])
                 both = routing_saving(table, ship, drive, rig, speed)
                 return @sprintf("%.0f / %.0f", alone, both)
             end
             knots = parse(Float64, string(table["held_knots"][unrouted]))
-            push!(lines, (ship, drive_label, @sprintf("%.1f, %s", knots, speed_labels[speed]),
+            held = @sprintf("%.1f, %s", knots, speed_labels[speed])
+            push!(lines, (ship, drive_label, held,
                 @sprintf("%.1f \\pm %.1f", routing, error), rigs...))
         end
     end

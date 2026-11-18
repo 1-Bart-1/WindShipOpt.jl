@@ -3308,8 +3308,8 @@ each ship and drive over the [`sailable_departures`](@ref) of its ship on the sh
 route: routing_value.csv, and the cost of each departure: routing_value_departures.csv.
 """
 function routing_value_data()
-    groups = [(; ship, build, route, drive) for (ship, build, route) in routing_value_ships()
-              for drive in study_drives]
+    groups = [(; ship, build, route, drive)
+              for (ship, build, route) in routing_value_ships() for drive in study_drives]
     cases, trips = routing_value_trips(groups, sampled_departures())
     reruns = Dict{Any, Vector{Any}}()
     for group in groups
