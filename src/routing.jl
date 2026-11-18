@@ -404,7 +404,8 @@ Base.@kwdef struct RouterSettings
     kite_states_searched::Bool = false
     "routing speeds, from the lowest routing speed to the ship's top speed"
     routing_speeds::Int = 49
-    "speeds the search skips between those it commands, plus one"
+    "speeds the search skips between those it commands, plus one, where that moves the
+    arrival by no more than a time bin"
     search_speed_stride::Int = 4
     "time between the knots of the [`CostToGo`](@ref) [h]"
     to_go_step::Float64 = 24.0
@@ -996,6 +997,8 @@ struct RouteWorkspace
     shared::Vector{SailedEdge}
     "index in `shared` before the edges of each time bin, -1 where it holds none"
     shared_from::Vector{Int}
+    "routing speed numbers commanded on the edge in hand"
+    commanded::Vector{Int}
 end
 
 """
@@ -1010,7 +1013,7 @@ function RouteWorkspace(lateral_count, bins, stage_count)
         zeros(Int32, shape), zeros(Int32, shape), zeros(Int32, shape), zeros(Int16, shape),
         zeros(Int8, shape), SailedPoint[], Ref(zeros(lateral_count, 0, 2, stage_count)),
         Ref(falses(lateral_count, 0, stage_count)), Vector{SailedPoint}[], SailedEdge[],
-        fill(-1, bins))
+        fill(-1, bins), Int[])
 end
 
 "workspaces not in use, by (lateral count, time bins), shared by the threads that route"
@@ -1045,6 +1048,33 @@ const COST_TO_GO_SPEED_STRIDE = 2
 
 "Indices of every `stride`-th of `count` ascending speeds, ending at the fastest"
 commanded_speeds(count, stride) = (1 + (count - 1) % stride):stride:count
+
+"""
+    commanded_speeds!(commanded, speeds, stride, distance, time_step)
+
+Fill `commanded` with the ascending [`commanded_speeds`](@ref) of `speeds` [m/s] at
+`stride` on an edge of `distance` [m] and the fewest speeds between them that bring
+their arrivals within `time_step` [h] of each other, or as near as neighbouring speeds go.
+"""
+function commanded_speeds!(commanded, speeds, stride, distance, time_step)
+    empty!(commanded)
+    for speed_index in commanded_speeds(length(speeds), stride)
+        while !isempty(commanded) && last(commanded) < speed_index - 1 &&
+            arrival_gap(distance, speeds[last(commanded)], speeds[speed_index]) > time_step
+            slower, faster = last(commanded), last(commanded) + 1
+            while arrival_gap(distance, speeds[slower], speeds[faster + 1]) <= time_step
+                faster += 1
+            end
+            push!(commanded, faster)
+        end
+        push!(commanded, speed_index)
+    end
+    return commanded
+end
+
+"hours [h] by which an edge of `distance` [m] at speed `faster` arrives before one at
+`slower` [m/s]"
+arrival_gap(distance, slower, faster) = distance * (1 / slower - 1 / faster) / 3600
 
 """
     CostToGo
@@ -1571,10 +1601,10 @@ end
 The dynamic programme of [`route`](@ref) in `workspace`, whose bins are the
 [`time_bin`](@ref)s of `time_step` [h], keeping one kite state per node and time bin by
 the [`KiteRule`](@ref) `kite`, or both where it is `nothing`, commanding the
-[`commanded_speeds`](@ref) of `table` at `speed_stride`, skipping states and commanded
-edges outside the [`PassageBand`](@ref) `to_go`, or, with a [`CostToGo`](@ref) `to_go`,
-those whose objective plus it exceeds `limit` [USD]. Returns the [`Leg`](@ref) of the
-[`final_arrival`](@ref) by `arrival_by` [h], or `nothing`.
+[`commanded_speeds!`](@ref) of `table` at `speed_stride` and `time_step`, skipping states
+and commanded edges outside the [`PassageBand`](@ref) `to_go`, or, with a
+[`CostToGo`](@ref) `to_go`, those whose objective plus it exceeds `limit` [USD]. Returns
+the [`Leg`](@ref) of the [`final_arrival`](@ref) by `arrival_by` [h], or `nothing`.
 """
 function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable,
         weather, departure, to_go=nothing, limit=Inf; time_cost, arrival_by=Inf, time_step,
@@ -1587,7 +1617,6 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
     prices = (; fuel=ship_table.ship.fuel.price, time=time_cost)
     fill!(view(cost, :, :, :, first_stage:stage_count), Inf)
     start_state!(workspace, (first_lateral, 1, first_aloft + 1, first_stage))
-    commanded = commanded_speeds(length(speeds), speed_stride)
     for stage in first_stage:(stage_count - 1), lateral in 1:lateral_count
         corridor.water[stage, lateral] || continue
         sample_hours = max(ROUTER_SETTINGS[].edge_sample_hours,
@@ -1602,7 +1631,7 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
             within_limit(to_go, limit, here, lateral, aloft, stage, time) || continue
             state = (lateral, bin, aloft, stage)
             sharing = sharing_edges!(workspace, state, to_go, limit,
-                step_count(corridor) * length(commanded))
+                step_count(corridor) * length(speeds))
             node_wind = wind(weather, lat, lon, departure + time)
             node_waves = waves(weather, lat, lon, departure + time)
             daylight = is_daylight(lon, departure + time)
@@ -1610,17 +1639,19 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
                 isnan(corridor.edge_course[stage, lateral, step]) && continue
                 next = next_lateral(corridor, lateral, step)
                 distance = corridor.edge_length[stage, lateral, step]
+                commanded = commanded_speeds!(workspace.commanded, speeds, speed_stride,
+                    distance, time_step)
                 start = EdgeSample(ship_table, node_wind, node_waves,
                     corridor.edge_course[stage, lateral, step], daylight,
                     wind_spread(weather, departure + time))
                 through = 0
-                for (slot, speed_index) in enumerate(commanded)
+                for speed_index in commanded
                     speed_index <= through && continue
                     commanded_hours = distance / speeds[speed_index] / 3600
                     edge_within_limit(to_go, limit,
                         here + time_cost * commanded_hours, next, stage + 1,
                         time + commanded_hours) || continue
-                    shared = shared_slot(sharing, step, slot, length(commanded))
+                    shared = shared_slot(sharing, step, speed_index, length(speeds))
                     sailed = sailed_edge!(workspace, shared, aloft == 2, table, prices,
                         (; start, weather, corridor, stage, lateral, step, speed_index,
                             sample_hours, time=departure + time))
@@ -1682,14 +1713,14 @@ function sharing_edges!(workspace::RouteWorkspace, state, to_go, limit, edge_cou
 end
 
 """
-    shared_slot(sharing, step, slot, speed_count)
+    shared_slot(sharing, step, speed_index, speed_count)
 
-Index in `workspace.shared` of edge `step` at the commanded speed in place `slot` of
+Index in `workspace.shared` of edge `step` at routing speed number `speed_index` of
 `speed_count`, for a state whose [`sharing_edges!`](@ref) gave `sharing`; 0 where that is
 -1.
 """
-shared_slot(sharing, step, slot, speed_count) =
-    sharing < 0 ? 0 : sharing + (step - 1) * speed_count + slot
+shared_slot(sharing, step, speed_index, speed_count) =
+    sharing < 0 ? 0 : sharing + (step - 1) * speed_count + speed_index
 
 """
     sailed_edge!(workspace, slot, aloft, table, prices, edge)

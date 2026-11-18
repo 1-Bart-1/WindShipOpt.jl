@@ -3708,12 +3708,16 @@ end
         @test final.objective < searched.objective
         @test [point[1:2] for point in final.path] ==
               [point[1:2] for point in searched.path]
+        along = WindShipOpt.path_corridor(searched, outbound, 1)
+        lengths = along.edge_length[:, 1, WindShipOpt.STRAIGHT_ON]
+        commanded = [table.speeds[WindShipOpt.commanded_speeds!(Int[], table.speeds,
+                         no_room_in_time.search_speed_stride, distance,
+                         no_room_in_time.time_step)] for distance in lengths]
         searched_speeds = [point[4] for point in searched.path[2:end]]
         final_speeds = [point[4] for point in final.path[2:end]]
-        commanded = table.speeds[1:WindShipOpt.ROUTER_SETTINGS[].search_speed_stride:end]
-        @test searched_speeds ⊆ commanded
+        @test all(searched_speeds .∈ commanded)
         @test final_speeds ⊆ table.speeds
-        @test !(final_speeds ⊆ commanded)
+        @test !all(final_speeds .∈ commanded)
     end
 end
 
@@ -3807,6 +3811,20 @@ end
         indices = WindShipOpt.commanded_speeds(count, stride)
         @test last(indices) == count && step(indices) == stride && first(indices) <= stride
     end
+end
+
+@testset "the search's speeds on an edge arrive within a time bin or are neighbours" begin
+    speeds = collect(range(2.0, 8.0; length=49))
+    commanded = Int[]
+    for distance in (20e3, 500e3, 3500e3), time_step in (0.25, 1.5, 3.0), stride in 1:4
+        WindShipOpt.commanded_speeds!(commanded, speeds, stride, distance, time_step)
+        @test issubset(WindShipOpt.commanded_speeds(length(speeds), stride), commanded)
+        @test all(>(0), diff(commanded))
+        gaps = -diff(distance ./ speeds[commanded] ./ 3600)
+        @test all(gaps .<= time_step .|| diff(commanded) .== 1)
+    end
+    WindShipOpt.commanded_speeds!(commanded, speeds, 4, 20e3, 3.0)
+    @test commanded == WindShipOpt.commanded_speeds(length(speeds), 4)
 end
 
 @testset "soft and rigid kites both stop depowering where their lift reaches 0.05" begin

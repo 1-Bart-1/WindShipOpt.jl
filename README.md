@@ -22,7 +22,7 @@ Every number the model assumes, with its sensitivity range and the reason for it
 ./bin/run_julia scripts/compare_designs.jl
 ```
 
-The paper's results come from `paper` in `scripts/paper.jl`; [`docs/paper_runs.md`](docs/paper_runs.md) says how a run is kept and how to rerun only what a change made out of date.
+The paper's results come from `paper` in `scripts/paper.jl`; [`docs/paper_runs.md`](docs/paper_runs.md) says how a run is kept and how to rerun only what a change made out of date. [`docs/router_speed.md`](docs/router_speed.md) says what the router does only for speed, why each is safe and what its settings cost to run.
 
 ## Companion explorer
 
