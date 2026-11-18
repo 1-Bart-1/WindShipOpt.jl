@@ -36,8 +36,19 @@ export interface GridView {
   picked?: PickedNode;
 }
 
+/** One shown grid's lines and nodes in longitude and latitude [deg], built once per view. */
+interface GridLayer extends ShownGrid {
+  meshLines: [number, number][][];
+  edgeLines: [number, number][][];
+  rowFolds: [number, number][][];
+  backwardEdges: [number, number][][];
+  usable: [number, number][];
+  unusable: [number, number][];
+}
+
 const topology = land as unknown as Parameters<typeof feature>[0] & { objects: { land: never } };
 const landShape = feature(topology, topology.objects.land) as unknown as GeoJSON.FeatureCollection;
+const graticule = geoGraticule10().coordinates as [number, number][][];
 const pickRadius = 12;
 
 /**
@@ -46,8 +57,8 @@ const pickRadius = 12;
  */
 export class GridMap {
   private context: CanvasRenderingContext2D;
-  private globe = geoOrthographic().clipAngle(90).precision(0.3);
-  private plane = geoEquirectangular().precision(0.3);
+  private globe = geoOrthographic().clipAngle(90).precision(1);
+  private plane = geoEquirectangular().precision(1);
   private projection: GeoProjection = this.globe;
   private path: GeoPath;
   private facing: [number, number] = [-40, 35];
@@ -55,6 +66,8 @@ export class GridMap {
   private width = 0;
   private height = 0;
   private view: GridView = { grids: [], flat: false, mesh: true, unusable: true, allEdges: false, folds: true };
+  private layers: GridLayer[] = [];
+  private frame = 0;
   private drag?: { x: number; y: number; facing: [number, number]; moved: boolean };
   private observer: ResizeObserver;
 
@@ -76,6 +89,7 @@ export class GridMap {
     this.view = view;
     this.projection = view.flat ? this.plane : this.globe;
     this.path = geoPath(this.projection, this.context);
+    this.layers = view.grids.map((shown) => this.layer(shown));
     this.draw();
   }
 
@@ -92,6 +106,7 @@ export class GridMap {
   }
 
   dispose() {
+    cancelAnimationFrame(this.frame);
     this.observer.disconnect();
     this.canvas.removeEventListener("pointerdown", this.pointerDown);
     this.canvas.removeEventListener("pointermove", this.pointerMove);
@@ -106,7 +121,7 @@ export class GridMap {
     this.canvas.width = this.width * ratio;
     this.canvas.height = this.height * ratio;
     this.context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    this.draw();
+    this.render();
   }
 
   private visible(point: [number, number]) {
@@ -138,7 +153,16 @@ export class GridMap {
     return edges.map((edge) => [position(grid, edge.from), position(grid, edge.to)]);
   }
 
+  /** Draw on the next animation frame, once however often it is asked for before then. */
   private draw() {
+    if (this.frame) return;
+    this.frame = requestAnimationFrame(() => {
+      this.frame = 0;
+      this.render();
+    });
+  }
+
+  private render() {
     if (!this.width) return;
     const context = this.context;
     this.place();
@@ -147,7 +171,7 @@ export class GridMap {
     this.path({ type: "Sphere" });
     context.fillStyle = brandColour("sky");
     context.fill();
-    this.stroke(geoGraticule10().coordinates as [number, number][][], brandColour("ink"), 0.5, 0.15);
+    this.stroke(graticule, brandColour("ink"), 0.5, 0.15);
     context.beginPath();
     this.path(landShape);
     context.fillStyle = brandColour("paper-deep");
@@ -155,32 +179,45 @@ export class GridMap {
     context.strokeStyle = brandColour("ink");
     context.lineWidth = 0.6;
     context.stroke();
-    for (const shown of this.view.grids) this.drawGrid(shown);
+    for (const layer of this.layers) this.drawGrid(layer);
     if (this.view.picked) this.drawPicked(this.view.picked);
   }
 
-  private drawGrid({ grid, edges, coarse }: ShownGrid) {
+  private layer(shown: ShownGrid): GridLayer {
+    const { grid, edges } = shown;
+    const nodes = Array.from({ length: grid.kind.length }, (_, node) => node);
+    const ofKind = (kind: string) => nodes.filter((node) => kindOf(grid, node) === kind).map((node) => position(grid, node));
+    return {
+      ...shown,
+      meshLines: this.meshLines(grid),
+      edgeLines: this.view.allEdges ? this.edgeLines(grid, edges) : [],
+      rowFolds: this.rowFoldLines(grid),
+      backwardEdges: this.edgeLines(grid, edges.filter((edge) => edge.backward)),
+      usable: ofKind("w"),
+      unusable: ofKind("x"),
+    };
+  }
+
+  private drawGrid(layer: GridLayer) {
     const { mesh, unusable, allEdges, folds } = this.view;
     const ink = brandColour("ink");
-    if (mesh) this.stroke(this.meshLines(grid), ink, coarse ? 1 : 0.6, 0.3);
-    if (allEdges) this.stroke(this.edgeLines(grid, edges), brandColour("teal"), 0.5, 0.3);
-    const radius = (coarse ? 3.2 : 1.7) * Math.min(Math.sqrt(this.zoom), 1.6);
-    const colours = { w: brandColour("teal"), x: brandColour("mid") };
-    for (let node = 0; node < grid.kind.length; node++) {
-      const kind = kindOf(grid, node);
-      if (kind === "x" && !unusable) continue;
-      const point = position(grid, node);
-      if (!this.visible(point)) continue;
-      const [x, y] = this.projection(point)!;
-      this.context.beginPath();
-      this.context.arc(x, y, radius, 0, 2 * Math.PI);
-      this.context.fillStyle = colours[kind];
-      this.context.fill();
-    }
+    if (mesh) this.stroke(layer.meshLines, ink, layer.coarse ? 1 : 0.6, 0.3);
+    if (allEdges) this.stroke(layer.edgeLines, brandColour("teal"), 0.5, 0.3);
+    const radius = (layer.coarse ? 3.2 : 1.7) * Math.min(Math.sqrt(this.zoom), 1.6);
+    this.dots(layer.usable, radius, brandColour("teal"));
+    if (unusable) this.dots(layer.unusable, radius, brandColour("mid"));
     if (folds) {
-      this.stroke(this.rowFoldLines(grid), brandColour("rust"), coarse ? 3 : 2.2);
-      this.stroke(this.edgeLines(grid, edges.filter((edge) => edge.backward)), brandColour("rust"), 1.4);
+      this.stroke(layer.rowFolds, brandColour("rust"), layer.coarse ? 3 : 2.2);
+      this.stroke(layer.backwardEdges, brandColour("rust"), 1.4);
     }
+  }
+
+  /** Fill a dot of `radius` [px] at each of `points` on the visible side, as one path. */
+  private dots(points: [number, number][], radius: number, colour: string) {
+    this.context.beginPath();
+    this.path.pointRadius(radius)({ type: "MultiPoint", coordinates: points });
+    this.context.fillStyle = colour;
+    this.context.fill();
   }
 
   /** The stage lines across the corridor and the row lines along it. */
