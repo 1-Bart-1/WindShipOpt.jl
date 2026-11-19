@@ -4412,6 +4412,12 @@ end
     @test PaperData.one_decimal(3.46) == "3.5"
 end
 
+@testset "a source note sets a whole power as a superscript, decimals included" begin
+    @test PaperData.latex_escape("211 f^-2.25 at 3 %") ==
+          "211 f\\textsuperscript{-2.25} at 3 \\%"
+    @test PaperData.latex_escape("per m^2. Then") == "per m\\textsuperscript{2}. Then"
+end
+
 @testset "an input prints under its name in words, the rigid kite named only as a prefix" begin
     @test PaperData.input_label(:e_ammonia_price) == "e-ammonia price"
     @test PaperData.input_label(:rigid_rotor_fill) == "rigid kite propeller fill"
