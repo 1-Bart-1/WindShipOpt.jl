@@ -954,7 +954,7 @@ canopy_mass_overhead:
   low: 0.02
   high: 0.19
   unit: kg/m^2
-  reason: "Canopy mass per m^2 of projected area besides its cloth, at a force limit of 0.5 kN/m^2 and in proportion to the force limit, as they carry the load at the bridle attachments: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.24 kg/m^2 projected [@ozone_ultralite3; @ozone_ultralite4; @nova_mentor6] carry 0-20 g/m^2 per flat m^2 besides their cloth, the authors' fit taking their stated weights to include lines and risers; the high bound is about what a 120 kg SkySails kite with lines, 225 m^2 flat, 176 m^2 projected, leaves beyond about 72 kg of cloth and 18 kg of lines, both the authors' estimates [@paulig2013], which load patches for the ~1 t point loads of a ship kite [@thedens2015_awesco_slides] could account for in part."
+  reason: "Canopy mass per m^2 of projected area besides its cloth, at a force limit of 0.5 kN/m^2 and in proportion to the force limit, as they carry the load at the bridle attachments: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.24 kg/m^2 projected [@ozone_ultralite3; @ozone_ultralite4; @nova_mentor6] carry 0-20 g/m^2 per flat m^2 besides their cloth, the authors' fit taking their stated weights to include lines and risers; the high bound covers what a 120 kg SkySails kite with lines, 225 m^2 flat, 176 m^2 projected, leaves beyond about 72 kg of cloth and 18 kg of lines, both the authors' estimates [@paulig2013]: 0.17 kg/m^2 at its force limit of about 0.9 kN/m^2, about 0.09 at the base limit, which load patches for the ~1 t point loads of a ship kite [@thedens2015_awesco_slides] could account for in part."
 canopy_structure_cost:
   value: 45.0
   low: 45.0
