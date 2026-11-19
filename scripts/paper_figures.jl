@@ -2364,21 +2364,29 @@ function situation_cost(table, ship, route, drive, input, value, rig)
 end
 
 """
-    situation_savings(table, ship, route, drive, input)
+    swept_savings(cost, input)
 
-Values of `input`, base included, and the cost saving [%] of the best size of the kite,
-the wings and the rotors at each, as a matrix with one row per rig; NaN where no size is
-feasible.
+[`swept_values`](@ref) of `input` and the cost saving [%] of the kite, the wings and the
+rotors at each, one row per rig, from `cost(value, rig)`, the cost of a case or Inf where
+it has none; NaN where a rig or the ship without one has no cost.
 """
-function situation_savings(table, ship, route, drive, input)
+function swept_savings(cost, input)
     values = swept_values(input)
-    savings = fill(NaN, 3, length(values))
+    savings = fill(NaN, length(rig_names), length(values))
     for (j, value) in enumerate(values), (i, rig) in enumerate(rig_names)
-        bare = situation_cost(table, ship, route, drive, input, value, "none")
-        cost = situation_cost(table, ship, route, drive, input, value, rig)
-        isfinite(cost) && (savings[i, j] = percent_saving(cost, bare))
+        bare, rigged = cost(value, "none"), cost(value, rig)
+        isfinite(bare) && isfinite(rigged) && (savings[i, j] = percent_saving(rigged, bare))
     end
     return values, savings
+end
+
+"""
+    situation_savings(table, ship, route, drive, input)
+
+[`swept_savings`](@ref) of the best size of each rig in situations.csv.
+"""
+situation_savings(table, ship, route, drive, input) = swept_savings(input) do value, rig
+    situation_cost(table, ship, route, drive, input, value, rig)
 end
 
 """
@@ -2562,24 +2570,12 @@ fuel_price_axis = doubling_axis(:x, 15, 120; base=15)
 """
     fuel_savings(table, class, route, drive, input)
 
-[`swept_values`](@ref) of `input` and the cost saving [%] of the kite, the wings and the
-rotors of fuels.csv on `class`, `route` and `drive` at each, one row per rig; NaN where a
-trip failed.
+[`swept_savings`](@ref) of each rig of fuels.csv on `class`, `route` and `drive`.
 """
-function fuel_savings(table, class, route, drive, input)
-    values = swept_values(input)
-    savings = fill(NaN, length(rig_names), length(values))
-    for (j, value) in enumerate(values)
-        costs = Dict(rig => cheapest_row(table, "class" => class, "route" => string(route),
-            "drive" => string(drive), "value" => value, "rig" => rig) for rig in all_rigs)
-        isnothing(costs["none"]) && continue
-        for (i, rig) in enumerate(rig_names)
-            isnothing(costs[rig]) && continue
-            savings[i, j] = percent_saving(table["cost"][costs[rig]],
-                table["cost"][costs["none"]])
-        end
-    end
-    return values, savings
+fuel_savings(table, class, route, drive, input) = swept_savings(input) do value, rig
+    chosen = cheapest_row(table, "class" => class, "route" => string(route),
+        "drive" => string(drive), "value" => value, "rig" => rig)
+    isnothing(chosen) ? Inf : table["cost"][chosen]
 end
 
 """
