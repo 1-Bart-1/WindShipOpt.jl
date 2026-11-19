@@ -2789,8 +2789,8 @@ function side_force_numbers()
         sailed = rows(leeway, "rig" => rig)
         push!(numbers, "SideForce$name" => value_range(taken, whole_number),
             "WeakHull$name" => value_range(lost, whole_number),
-            "Leeway$name" => value_range(leeway["median"][sailed], whole_number),
-            "LeewayLimit$name" => value_range(100leeway["at_limit"][sailed], whole_number))
+            "Leeway$name" => value_range(leeway["median"][sailed], one_decimal),
+            "LeewayLimit$name" => value_range(100leeway["at_limit"][sailed], one_decimal))
     end
     return numbers
 end
@@ -3440,12 +3440,12 @@ function drift_check_table()
     env = Environment(assumptions)
     speed = 6.0
     reference = 0.5env.water_density * speed^2
-    open(joinpath(sections, "drift_check_table.tex"), "w") do io
+    write_whole(joinpath(sections, "drift_check_table.tex")) do io
         println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
         println(io, "Hull & Leeway & \\multicolumn{2}{c}{Side force \\(C_Y\\)} & ",
             "\\multicolumn{2}{c}{Induced drag \\(C_X\\) at that \\(C_Y\\)} \\\\")
         println(io, "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}")
-        println(io, " & [\\si{\\degree}] & Tests & Model & Tests & Model \\\\\n\\midrule")
+        println(io, " & [\\si{\\degree}] & Fit & Model & Fit & Model \\\\\n\\midrule")
         for (k, name) in enumerate(tests["hull"])
             hull = Hull(tests["length"][k], tests["beam"][k], tests["draft"][k],
                 tests["block"][k], assumptions)
@@ -3455,8 +3455,9 @@ function drift_check_table()
                 beta = deg2rad(angle)
                 tested = tests["side_force_slope"][k] * beta +
                          tests["side_force_cubic"][k] * beta^3
-                modelled = WindShipOpt.side_force_slope(hull) * beta
-                _, drag = WindShipOpt.leeway_drag(hull, env, speed, tested * reference * area)
+                leeway, drag = WindShipOpt.leeway_drag(hull, env, speed,
+                    tested * reference * area)
+                modelled = tested * beta / leeway
                 @printf(io, "%s & %d & %.4f & %.4f & %.5f & %.5f \\\\\n", name, angle,
                     tested, modelled, tested^2 / (π * aspect_ratio),
                     drag / (reference * area))
