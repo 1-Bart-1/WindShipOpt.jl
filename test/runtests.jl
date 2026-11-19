@@ -4813,7 +4813,7 @@ end
     @test outcome(stretch(0.1)) != :no_speed
     @test outcome(stretch(WindShipOpt.ROUGH_SEA_HEIGHT)) == :no_speed
     @test last(PaperData.speed_change_outcome(kite_table, stretch(0.1), prices)) >= 0
-    beam_wind = 12.0
+    beam_wind = rig.launch_min_wind + rig.rough_sea_launch_wind - 2.0
     beam_sea(wave_height) = WindShipOpt.SeaCondition(kite_table.table,
         beam_wind / kite_table.table.kite_wind_factor, float(π) / 2, wave_height, 8.0, 0.0)
     sailed_at(index, wave_height) = fill(PaperData.at_speed(kite_table,
@@ -4828,7 +4828,7 @@ end
         [(; point, aloft=false, reason=:wind_low_flight)
          for point in sailed_at(1, wave_height)], (:wind_low_flight,), prices)
     @test edge_pays(1.0)
-    @test !edge_pays(closing_height(beam_sea))
+    @test !edge_pays(WindShipOpt.ROUGH_SEA_HEIGHT)
     record = WindShipOpt.KiteRecord()
     leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
     WindShipOpt.record_plan!(record, leg, corridor, kite_table, weather, departure, prices)
