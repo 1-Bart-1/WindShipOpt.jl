@@ -15,14 +15,37 @@ Design optimisation of wind-assisted coasters for long ocean routes. It compares
 
 Every number the model assumes, with its sensitivity range and the reason for it, is in [`data/assumptions.yaml`](data/assumptions.yaml).
 
-## Running
+## Running the paper
+
+The paper's results come from `paper` in `scripts/paper.jl`, as a draft run (fast, marked as a draft) or a final run (a clean tree on a pushed commit). [`docs/paper_runs.md`](docs/paper_runs.md) says how a run is kept and how to rerun only what a change made out of date; [`docs/router_speed.md`](docs/router_speed.md) says what the router does only for speed and what its settings cost. Results land in `output/runs/<start time>/`, and the figures and tables in `paper/`.
+
+**On a workstation.** Install Julia with [juliaup](https://github.com/JuliaLang/juliaup), then:
 
 ```bash
-./bin/install
-./bin/run_julia scripts/compare_designs.jl
+./bin/install          # the Julia version and packages this repo is on
+./bin/weather          # ERA5 and NOAA forecasts from public stores, no account; some hours, resumable
+cd scripts && julia +$(../bin/julia_version) --project=. -t auto -e 'include("paper.jl"); paper(; fidelity=:draft)'
 ```
 
-The paper's results come from `paper` in `scripts/paper.jl`; [`docs/paper_runs.md`](docs/paper_runs.md) says how a run is kept and how to rerun only what a change made out of date. [`docs/router_speed.md`](docs/router_speed.md) says what the router does only for speed, why each is safe and what its settings cost to run.
+A final run takes days on a workstation, so it belongs on the box or a cluster.
+
+**On the box**, the project's shared server, the weather and the store of routed round trips already exist: link them into the checkout with `ln -s /var/lib/windship/era5 era5` and `ln -s /var/lib/windship/output output`, then start `paper` as above. Runs there share the store, so a later run reuses every round trip an earlier one routed.
+
+**On DelftBlue**, TU Delft's cluster, with your NetID and no other access:
+
+```bash
+ssh <netid>@login.delftblue.tudelft.nl   # from outside TU Delft's network, connect eduVPN first
+tmux                   # the setup's weather download takes hours
+curl -fsSL https://raw.githubusercontent.com/1-Bart-1/WindShipOpt.jl/main/bin/delftblue_setup | bash
+exec bash -l           # puts julia on your PATH
+cd /scratch/$USER/WindShipOpt.jl
+bin/cluster submit final        # or: bin/cluster submit draft
+bin/cluster status
+```
+
+The setup can be rerun and resumes where it stopped; it ends by checking every weather file against the box's and names any that differ. Jobs go to the `innovation` account set in `scripts/cluster.toml`, which allows 24-hour jobs and 4 at once; a run resumes by itself past 24 hours. `/scratch` is cleared of old files, so copy `output/` home after a run, and run `bin/weather` before a run that comes months after the setup. [`docs/paper_runs.md`](docs/paper_runs.md#runs-on-a-slurm-cluster) has the detail.
+
+To try the model on one ship without the paper: `./bin/run_julia scripts/compare_designs.jl`.
 
 ## Companion explorer
 

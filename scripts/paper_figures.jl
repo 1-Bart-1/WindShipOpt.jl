@@ -959,7 +959,7 @@ function canopy_tension_figure()
     skin_radius = assumptions[:canopy_skin_radius]
     tension(force) = 1e3force / area * skin_radius
     strength = assumptions[:canopy_cloth_specific_strength] *
-               assumptions[:canopy_cloth_weight] / 1e3
+               WindShipOpt.cloth_weight(assumptions) / 1e3
     figure = Figure(size=(page_width, 185))
     balance = Axis(figure[1, 1]; autolimitaspect=1, limits=(-2.4, 7.3, -1.7, 2.2),
         title="(a) from tether force to cloth tension")
@@ -2243,74 +2243,6 @@ function cargo_cost_figure()
     Makie.update_state_before_display!(figure)
     axes[2].height = length(last(groups[2])) / largest * height(axes[1].scene.viewport[])
     save_figure("cargo_cost", figure)
-end
-
-"sizes [figure units] of the square of a stated life and the star of an estimated one"
-claim_marker_size, estimate_marker_size = 1.6marker_size, 2.2marker_size
-
-"the label `text` with its m² drawn as [`square_metres`](@ref) does"
-square_metre_label(text) =
-    occursin("m²", text) ? square_metres(String.(split(text, "m²"; limit=2))...) : text
-
-"""
-    canopy_life_figure()
-
-Flight hours of canopies of data/canopy_life_statements.csv as ranges by what stated them,
-the range of the polyester sails shaded, with [`reference_decay_life`](@ref) of the
-canopy's cloth and its range of the assumptions, and the goal.
-"""
-function canopy_life_figure()
-    lives = read_table(joinpath(root, "data", "canopy_life_statements.csv"))
-    goal = assumptions.entries[:canopy_life]
-    order = [findall(==("statement"), lives["kind"]);
-        findall(==("sail_shape"), lives["kind"]); findall(==("small_kite"), lives["kind"])]
-    cloth = round(Int, assumptions[:canopy_cloth_weight])
-    labels = [square_metre_label.(lives["label"][order]);
-        square_metre_label("derived life, $cloth g/m²")]
-    figure = Figure(size=(page_width, 190))
-    axis = Axis(figure[1, 1]; doubling_axis(:x, 62.5, 16000)...,
-        xlabel="flight hours of the canopy",
-        yticks=(eachindex(labels), labels), yreversed=true,
-        limits=((55, 20000), (0.3, length(labels) + 0.7)))
-    goal_marks!(axis, goal; shade=(palette[1], 0.1))
-    sails = filter(row -> startswith(lives["label"][row], "polyester sail"), order)
-    sail_range = (minimum(lives["life_low"][sails]), maximum(lives["life_high"][sails]))
-    sail_shade = (category_colours[3], 0.45)
-    poly!(axis, Rect2f(sail_range[1], 0.5, sail_range[2] - sail_range[1], length(labels));
-        color=sail_shade)
-    text!(axis, goal.value, 0.3; text="goal $(estimate_text(goal.value)) h",
-        align=(:right, :top), offset=(-pt(2), -pt(1)), fontsize=note_size)
-    stated = :gray35
-    for (i, row) in enumerate(order)
-        low, high = lives["life_low"][row], lives["life_high"][row]
-        rangebars!(axis, [i], [low], [high]; direction=:x, color=stated,
-            linewidth=1.4line_width, whiskerwidth=high < 1.1low ? 0 : whisker_width)
-        measured = lives["grade"][row] == "meas"
-        estimated = endswith(lives["life_text"][row], "*")
-        lives["kind"][row] == "statement" && scatter!(axis, [sqrt(low * high)], [i];
-            color=measured || estimated ? stated : :white, strokecolor=stated,
-            strokewidth=estimated ? 0 : outline_width, marker=estimated ? :star5 : :rect,
-            markersize=estimated ? estimate_marker_size : claim_marker_size)
-        text!(axis, high < goal.value < 2.6high ? 1.12goal.value : 1.15high, i;
-            text=replace(rstrip(lives["life_text"][row], '*'), "--" => "–"),
-            align=(:left, :center), fontsize=note_size, color=stated)
-    end
-    derived, i = WindShipOpt.reference_decay_life(assumptions), length(labels)
-    rangebars!(axis, [i], [goal.low], [goal.high]; direction=:x, color=palette[1],
-        linewidth=2line_width, whiskerwidth=0)
-    scatter!(axis, [derived], [i]; color=palette[1], markersize=7)
-    text!(axis, 1.15goal.high, i;
-        text="$(estimate_text(derived)) " *
-             "($(estimate_text(goal.low))–$(estimate_text(goal.high)))",
-        align=(:left, :center), fontsize=note_size, color=palette[1])
-    entries = [MarkerElement(marker=:rect, color=:white, strokecolor=stated,
-            strokewidth=outline_width, markersize=claim_marker_size),
-        MarkerElement(marker=:rect, color=stated, markersize=claim_marker_size),
-        MarkerElement(marker=:star5, color=stated, markersize=estimate_marker_size),
-        PolyElement(color=(palette[1], 0.1)), PolyElement(color=sail_shade)]
-    axislegend(axis, entries, ["claim", "measurement", "hours we estimate",
-            "derived range", "polyester sails' range"]; position=:lt)
-    save_figure("canopy_life", figure)
 end
 
 """
