@@ -5,8 +5,8 @@
 # one passage, each rig's saving against a finer grid per departure, and the time a round
 # trip takes to plan and to sail live.
 #
-#   julia +1.12 --project=scripts -t auto scripts/planner_figures.jl <out_dir>
-#   julia +1.12 --project=scripts scripts/planner_figures.jl --plot <out_dir> <study_dir>
+#   julia +1.13 --project=scripts -t auto scripts/planner_figures.jl <out_dir>
+#   julia +1.13 --project=scripts scripts/planner_figures.jl --plot <out_dir> <study_dir>
 #
 # `draw_outliers` routes and draws each departure a gate comparison flags.
 # The first routes into <out_dir>; the second draws from it and from the gate files of the

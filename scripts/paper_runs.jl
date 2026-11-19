@@ -456,6 +456,7 @@ function open_run(fidelity, names, resume; only=nothing)
     code = code_hash()
     directory, record = resumed ? first(runs) : new_run(fidelity, code)
     record["code_hash"] = code
+    record["julia"] = string(VERSION)
     record["git_commit"] = git_output("rev-parse", "HEAD")
     record["git_branch"] = branch
     record["git_dirty"] = !isempty(changed_files())
@@ -492,9 +493,8 @@ function new_run(fidelity, code)
     isdir(directory) && error("run $directory exists; start the next one a minute later")
     mkpath(directory)
     record = Dict{String, Any}("fidelity" => string(fidelity),
-        "started" => string(started), "finished" => "", "julia" => string(VERSION),
-        "code_hash" => code, "requested" => String[],
-        "steps" => Dict{String, Any}[])
+        "started" => string(started), "finished" => "", "code_hash" => code,
+        "requested" => String[], "steps" => Dict{String, Any}[])
     return directory, record
 end
 
@@ -535,11 +535,12 @@ end
     run_step!(run, name, step)
 
 Run `step` and record in the record of `run` its name, start, duration, the files it wrote,
-the commit and the code it ran ([`step_code`](@ref)), the base value of every input it read
-and the data files it read; and, where it computed round trips, their number,
-the feasible ones, the code of a round trip, the commits and processors that computed them,
-how many are kept from older code and the list of them ([`write_cases`](@ref)). Raise an
-error where the run has an `only` that none of the step's round trips carries.
+the commit, the Julia version and the code it ran ([`step_code`](@ref)), the base value of
+every input it read and the data files it read; and, where it computed round trips, their
+number, the feasible ones, the code of a round trip, the commits and processors that
+computed them, how many are kept from older code and the list of them
+([`write_cases`](@ref)). Raise an error where the run has an `only` that none of the step's
+round trips carries.
 """
 function run_step!(run, name, step)
     println("step ", name)
@@ -555,7 +556,8 @@ function run_step!(run, name, step)
     entry = Dict{String, Any}("name" => string(name), "started" => string(started),
         "seconds" => seconds, "files" => first.(setdiff(file_times(run), before)),
         "code_hash" => run.record["code_hash"], "git_commit" => run.record["git_commit"],
-        "git_dirty" => run.record["git_dirty"], "code" => step_code(run.definitions, step),
+        "git_dirty" => run.record["git_dirty"], "julia" => run.record["julia"],
+        "code" => step_code(run.definitions, step),
         "inputs" => Dict(string(input) => assumptions[input]
                          for input in union(names, tally.inputs)),
         "reads" => tally.reads)
