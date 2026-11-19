@@ -683,9 +683,9 @@ end
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
 end
 
-@testset "a canopy costs its goal price, and USD 234 as built today" begin
+@testset "a canopy costs its goal price, and USD 237 as built today" begin
     @test WindShipOpt.canopy_price(assumptions) ≈ 149.8
-    @test WindShipOpt.canopy_price_today(assumptions) ≈ 234.4
+    @test WindShipOpt.canopy_price_today(assumptions) ≈ 237.2
     cloth = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
     today_cloth = WindShipOpt.with_today(assumptions, cloth)
     @test all(today_cloth[name] == assumptions[Symbol(name, :_today)] for name in cloth)
@@ -693,7 +693,7 @@ end
           assumptions[:canopy_making_cost_per_area]
     weight = assumptions[:canopy_cloth_weight]
     @test WindShipOpt.sewn_cloth_price(assumptions, weight) ≈ 9.4
-    @test WindShipOpt.sewn_cloth_price(today_cloth, weight) ≈ 17.2
+    @test WindShipOpt.sewn_cloth_price(today_cloth, weight) ≈ 17.6
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈ 149.8rig.area
 end
@@ -4283,6 +4283,18 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 end
 
+@testset "a table step that fails part way leaves the table it had" begin
+    path = joinpath(mktempdir(), "table.tex")
+    write(path, "complete table")
+    @test_throws ErrorException PaperData.write_whole(path) do io
+        println(io, "\\begin{tabular}")
+        error("no data for the next row")
+    end
+    @test read(path, String) == "complete table"
+    PaperData.write_whole(io -> print(io, "new table"), path)
+    @test read(path, String) == "new table"
+end
+
 @testset "routing and a rig save against the unrouted ship without a rig, \
           per departure" begin
     case = ("140 m", "ammonia")
@@ -4323,8 +4335,10 @@ end
 @testset "a source note prints each source as a citation of its key" begin
     note = "Kalverla's profile [@kalverla2019, Ch. 2; @schelbergen2020] gives 5 %; @imo2020 too."
     @test PaperData.cited_note(note) == "Kalverla's profile (\\citealp[Ch. 2]{kalverla2019}; " *
-        "\\citealp{schelbergen2020}) gives 5 \\%; \\citet{imo2020} too."
-    @test PaperData.cited_note("no source, 50 %") == "no source, 50 \\%"
+        "\\citealp{schelbergen2020}) gives 5\\,\\%; \\citet{imo2020} too."
+    @test PaperData.cited_note("no source, 50 %") == "no source, 50\\,\\%"
+    @test PaperData.cited_note("Euroseas 1,800 TEU, 12,000 TEU") ==
+          "Euroseas \\num{1800}~TEU, 12\\,000~TEU"
     @test_throws ErrorException PaperData.cited_note("[@a2020; Table 3]")
 end
 
