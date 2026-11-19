@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """List each number typed by hand in the paper's result-bearing text that is neither a
-generated value nor inside \\stale{studies}{...} or \\given{...}, and exit 1 if there is
-one. Run: python3 -I scripts/check_numbers.py [paper directory]"""
+generated value nor inside \\stale{studies}{...}, \\studyresult{studies}{...} or
+\\given{...}, and exit 1 if there is one.
+Run: python3 -I scripts/check_numbers.py [paper directory]"""
 import re
 import sys
 from pathlib import Path
@@ -16,11 +17,11 @@ RESULT_FILES = ("sections/abstract.tex", "sections/highlights.tex",
 
 # Commands whose every argument holds no number of the text: markers, references,
 # file names and layout.
-SKIPPED = {"stale", "given", "cref", "Cref", "ref", "eqref", "label", "cite", "citep",
-           "citet", "citealp", "input", "include", "plot", "includegraphics",
-           "studyrun", "url", "begin", "end", "si", "textsubscript", "textsuperscript",
-           "hspace", "vspace", "setlength", "addtolength", "cmidrule", "rule",
-           "resizebox", "scalebox", "fontsize", "color"}
+SKIPPED = {"stale", "studyresult", "given", "cref", "Cref", "ref", "eqref", "label",
+           "cite", "citep", "citet", "citealp", "input", "include", "plot",
+           "includegraphics", "studyrun", "url", "begin", "end", "si", "textsubscript",
+           "textsuperscript", "hspace", "vspace", "setlength", "addtolength", "cmidrule",
+           "rule", "resizebox", "scalebox", "fontsize", "color"}
 # Commands with the brace arguments, counted from 0, that hold a unit, a count or a colour.
 SKIPPED_ARGUMENTS = {"SI": (1,), "SIrange": (2,), "multicolumn": (0, 1), "href": (0,),
                      "textcolor": (0,)}
@@ -30,7 +31,7 @@ NUMBER = re.compile(r"(?<![A-Za-z0-9.])\d[\d,.]*")
 DIMENSION = re.compile(r"\s*(pt|em|ex|cm|mm|in|bp|\\(text|line|column)width)\b")
 YEAR = re.compile(r"(19|20)\d\d")
 FLOAT = re.compile(r"\\begin\{(table|figure|longtable)\*?\}.*?\\end\{\1\*?\}", re.S)
-FLOAT_MARKER = re.compile(r"\\stale\{[^}]*\}\{\}")
+FLOAT_MARKER = re.compile(r"\\(stale|studyresult)\{[^}]*\}\{\}")
 
 
 def group_end(text, start):
@@ -64,7 +65,7 @@ def arguments(text, index):
 
 
 def masked(text):
-    """`text` with comments, the preamble, floats marked whole by \\stale{studies}{}, units,
+    """`text` with comments, the preamble, floats marked whole by an empty marker, units,
     subscripts, superscripts and the arguments of `SKIPPED` and `SKIPPED_ARGUMENTS`
     blanked: what is left is the typed text whose numbers count."""
     text = re.sub(r"(?<!\\)%[^\n]*", lambda match: " " * len(match.group()), text)

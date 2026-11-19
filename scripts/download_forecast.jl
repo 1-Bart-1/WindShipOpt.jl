@@ -9,7 +9,7 @@
 # (NaN). Run on its own, it downloads the control run of every issue and writes the mean
 # bias of each year's forecasts against ERA5 and their weights in a blend with the
 # climatology of download_era5.jl, both from the other years. Resumable: rerun to
-# continue. forecast_ensemble.jl includes it for the perturbed members.
+# continue.
 using Dates
 using Downloads
 using GRIB
@@ -27,6 +27,7 @@ wave_leads = 12:12:384
 wave_start_hour = 3
 wind_records = Dict("u10" => "ugrd", "v10" => "vgrd")
 wave_records = Dict("height" => "HTSGW", "period" => "PERPW", "direction" => "WWSDIR")
+member = "c00"
 
 function read_bytes(url; range=nothing)
     headers = isnothing(range) ? Pair{String, String}[] :
@@ -58,7 +59,7 @@ end
 
 lead_text(hours) = "$hours hour fcst"
 
-function wind_ranges(date, variable, member)
+function wind_ranges(date, variable)
     stamp = Dates.format(date, "yyyymmdd") * "00"
     files = String[]
     ranges = Tuple{Int, Union{Int, Nothing}}[]
@@ -73,7 +74,7 @@ function wind_ranges(date, variable, member)
     return collect(zip(files, ranges))
 end
 
-function wave_ranges(date, record, member)
+function wave_ranges(date, record)
     stamp = Dates.format(date, "yyyymmdd")
     url = "$wave_store/$(year(date))/$stamp/gridded/gefs.wave.$stamp.$member.global.0p25"
     found = index_ranges("$url.idx", line -> occursin(":$record:surface:", line) &&
@@ -169,9 +170,9 @@ groups = (
     (name="waves", records=wave_records, leads=wave_leads, ranges=wave_ranges,
         regrid=point_sample, finish=direction_components))
 
-function issue_fields(group, date, regrid, shape, member)
+function issue_fields(group, date, regrid, shape)
     variables = sort(collect(keys(group.records)))
-    pieces = [group.ranges(date, group.records[variable], member) for variable in variables]
+    pieces = [group.ranges(date, group.records[variable]) for variable in variables]
     bytes = asyncmap(Iterators.flatten(pieces); ntasks=12) do (url, range)
         read_bytes(url; range)
     end
@@ -204,24 +205,21 @@ function write_complete_issues(done_path, paths, issue_bytes)
 end
 
 """
-    download(group; member="c00", root=output, schedule=issues, wanted=eachindex(schedule))
+    download(group)
 
-Write the issues of `schedule` numbered `wanted` of run `member` of `group` to `root`,
-each at its place in files spanning every issue, so that issues not wanted stay holes that
-read as zero.
-Resumes from the issues listed as done in the file `done` there.
+Write every issue of the control run of `group` to `output`, each at its place in files
+spanning every issue. Resumes from the issues listed as done in the file `done` there.
 """
-function download(group; member="c00", root=output, schedule=issues,
-        wanted=eachindex(schedule))
-    directory = mkpath(joinpath(root, group.name))
+function download(group)
+    directory = mkpath(joinpath(output, group.name))
     grid = TOML.parsefile(joinpath(era5, group.name, "grid.toml"))
     regrid = group.regrid(grid)
     names = sort(collect(keys(group.finish(Dict(name => [zeros(Float32, 1, 1)]
                                                 for name in keys(group.records))))))
     open(joinpath(directory, "grid.toml"), "w") do io
         TOML.print(io, Dict("lats" => grid["lats"], "lons" => grid["lons"],
-            "first_issue" => string(DateTime(first(schedule))),
-            "issue_hours" => Dates.value(Hour(step(schedule))),
+            "first_issue" => string(DateTime(first(issues))),
+            "issue_hours" => Dates.value(Hour(step(issues))),
             "first_lead_hours" => first(group.leads), "step_hours" => step(group.leads),
             "leads" => length(group.leads), "variables" => names))
     end
@@ -232,13 +230,13 @@ function download(group; member="c00", root=output, schedule=issues,
     isfile(done_path) || write_complete_issues(done_path, paths, issue_bytes)
     done = parse.(Int, readlines(done_path))
     files = Dict(name => open(paths[name], "r+") for name in names)
-    foreach(io -> truncate(io, max(filesize(io), length(schedule) * issue_bytes)),
+    foreach(io -> truncate(io, max(filesize(io), length(issues) * issue_bytes)),
         values(files))
     shape = (length(grid["lons"]), length(grid["lats"]))
     open(done_path, "a") do done_file
-        for batch in Iterators.partition(setdiff(collect(wanted), done), 8)
-            fields = fetch.([Threads.@spawn issue_fields(group, schedule[index], regrid,
-                                 shape, member) for index in batch])
+        for batch in Iterators.partition(setdiff(eachindex(issues), done), 8)
+            fields = fetch.([Threads.@spawn issue_fields(group, issues[index], regrid,
+                                 shape) for index in batch])
             for (index, issue) in zip(batch, fields), name in names
                 seek(files[name], (index - 1) * issue_bytes)
                 foreach(field -> write(files[name], Float16.(field)), issue[name])
@@ -246,8 +244,8 @@ function download(group; member="c00", root=output, schedule=issues,
             foreach(flush, values(files))
             println(done_file, join(batch, "\n"))
             flush(done_file)
-            println(group.name, " ", member, " issue ", schedule[last(batch)], "/",
-                length(schedule))
+            println(group.name, " ", member, " issue ", issues[last(batch)], "/",
+                length(issues))
         end
     end
     foreach(close, values(files))
