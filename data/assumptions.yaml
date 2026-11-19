@@ -461,36 +461,6 @@ market_price_factor:
   high: 2.5
   unit: "-"
   reason: "Price over manufacturing cost at which a maker covers its overhead and margin, for wings, rotors and kites alike: full production cost of 1.37 times materials and direct labour, our ratio for the two glass-fibre blades of the NREL blade cost model, 1.36 and 1.38 [@bortolotti2019blade, Tables 23 and 26], over one minus a gross margin of 30 %. The bounds take margins of 13 %, the authors' estimate for a large maker, and 45 %, that of European machinery [@damodaran2026margins]."
-learning_rate:
-  value: 0.12
-  low: 0.05
-  high: 0.19
-  unit: "-"
-  reason: "Fall of a rig's price per doubling of the units of its kind built, the same for every rig: 12 %, the mean both of 12 studies of onshore and of 2 of offshore wind farms, the machines nearest to a rig, and the offshore range, since the onshore one runs from a rise of 11 % to a fall of 32 % [@rubin2015, Table 1]."
-stage_ships:
-  value: 1000.0
-  low: 1000.0
-  high: 1000.0
-  unit: ships
-  reason: "Ships fitted with a rig of a kind at the production stage every rig is priced at, the same for all three."
-kites_per_ship:
-  value: 1.0
-  low: 1.0
-  high: 1.0
-  unit: "-"
-  reason: "Kites a ship carries [@emsa2023, p. 45]."
-rotors_per_ship:
-  value: 3.0
-  low: 3.0
-  high: 3.0
-  unit: "-"
-  reason: "Rotors a ship carries, as wind propulsion units on a bulk carrier or tanker [@emsa2023, Table 5]."
-wings_per_ship:
-  value: 3.0
-  low: 3.0
-  high: 3.0
-  unit: "-"
-  reason: "Wing sails a ship carries, as wind propulsion units on a bulk carrier or tanker [@emsa2023, Table 5]."
 hicp_today:
   value: 128.75
   low: 128.75
@@ -780,12 +750,36 @@ rigid_ship_power_cost:
   high: 0.5
   unit: USD/W
   reason: "Authors' estimate of the ship's supply and converter or battery for the hover peak, at the price of the on-board drive."
-rigid_perch_cost:
-  value: 100000.0
-  low: 50000.0
-  high: 300000.0
-  unit: USD
-  reason: "Authors' estimate of a deck perch and restraint per kite."
+winch_mass_per_force:
+  value: 15.0
+  low: 13.0
+  high: 28.0
+  unit: kg/kN
+  reason: "Mass of a ship kite's winch with its drum, brake and drive, and its tow point, per kN of tether force limit, which the brake and tow point hold at standstill: offshore mooring winches of 600 to 2,050 kN brake holding load and 700 to 1,050 m of rope weigh 13.3 to 16.7 kg/kN [@broehl2018offshore], hydraulic mooring winches of 80 to 1,500 kN 15 to 26 kg/kN and an electric one of 1,500 kN 28 kg/kN [@mordec_deck]; a towing bracket of 4,000 kN weighs 0.4 kg/kN [@boomarine_smit]."
+winch_cost_per_mass:
+  value: 3.9
+  low: 2.9
+  high: 8.3
+  unit: USD/kg
+  reason: "Cost per kg of the kite's winch and tow point, heavy steel that holds a load and turns slowly: the supplier price per kg of a wind turbine's hub, a steel casting [@wisdem_csm]. Bounds: the welded steel tower and the geared yaw system of the same model."
+launch_mast_mass_per_size:
+  value: 0.86
+  low: 0.54
+  high: 1.41
+  unit: t/m
+  reason: "Mass of a ship kite's launch mast and docking head with their seats per m of the square root of projected kite area, as they carry the kite only at launch and landing and grow with its span and chord: the SkySails system of 160-600 m^2 kites weighs about 30 t [@cedelft2016, Annex A.4] at about 1 kN/m^2 [@paulig2013], so 21 t after the winch of a 600 m^2 kite at 15 kg/kN, over 24.5 m. Low bound: the winch at 28 kg/kN; high bound: the 30 t less its winch for the 320 m^2 kite SkySails flew."
+launch_mast_cost_per_mass:
+  value: 8.3
+  low: 3.9
+  high: 12.9
+  unit: USD/kg
+  reason: "Cost per kg of the kite's telescopic launch mast and slewing docking head, geared and slewing machinery on a steel structure: the supplier price per kg of a wind turbine's yaw system [@wisdem_csm]. Bounds: the hub, a steel casting, and the gearbox of the same model."
+control_unit_cost_per_mass:
+  value: 218.0
+  low: 150.0
+  high: 300.0
+  unit: USD/kg
+  reason: "Cost per kg of the airborne control unit: EUR 3,000 for the 16 kg unit of a 100 m^2 kite in series production [@faggiani2018, Tables 16.1 and 16.2], at 1.16 USD/EUR. The bounds are estimates."
 rigid_perch_width:
   value: 8.0
   low: 4.0
@@ -1015,12 +1009,6 @@ kite_aspect_ratio:
   high: 4.0
   unit: "-"
   reason: "Projected span squared over projected area. The base 3 is the authors' estimate. SkySails gave its ship kite a projected aspect ratio below 2 for tolerance to angle of attack and stability at launch and landing [@paulig2013], and a SkySails Power wing has 1.86 [@folkersma2020]; 2.5 is the lowest with a polar. The high bound is the authors' estimate of what a launch system and canopy could handle. Priced as the base kite apart from the canopy, whose rib cloth follows the chord: the tether, the other priced part that follows span, is made cheaper per kg."
-sold_kite_aspect_ratio:
-  value: 1.86
-  low: 1.86
-  high: 1.86
-  unit: "-"
-  reason: "Projected aspect ratio of the ship kites sold, whose canopy is taken off their price: SkySails kept its ship kite below 2 [@paulig2013], and a SkySails Power wing has 1.86 [@folkersma2020]."
 kite_flight_drag:
   value: 0.08
   low: 0.0
@@ -1189,18 +1177,12 @@ tether_lifetime:
   high: 45000.0
   unit: flight hours
   reason: "Flight hours of a 12-strand SK78 tether flown at a fixed length, set by creep and its load peaks [@bosman2013; @humeau2018]. Creep damage summed by Miner's rule over the hours flown at each tension on the routed trips of the 140 m, Kamsarmax and Neo-Panamax ships at 25 °C: 10,000-12,100 h with the power law of @humeau2018 (exponent 4.43, 112 kJ/mol) anchored at 8 years at 20 % of break load and 20 °C [@dsm_sk78_mooring], 22,700-26,100 h with the time-tension-temperature diagram of @bosman2013; the base is their geometric mean, 15,100-17,800 h. Low: the power law at 30 °C with the harshest loads, 4,700-5,500 h; high: the diagram at 20 °C, 39,000-45,000 h. The swing of each figure eight, gusts and the ship's motion in a seaway shorten the creep life by 0-9 % against a steady load at its mean. Bending over the drum and sheaves at launch and landing is charged per launch from the tether bend life. Bending on the tow point disk [@skysails_patent_US11578697] wears only the 0.54 m of rope that rolls on and off it as the kite swings in elevation, in about 180 h on the 71 mm tether of the 3,200 m^2 kite; reeling in that much every 90 to 180 flight hours, at every one to five launches, moves fresh rope there and uses 50 to 100 m of spare rope over this life, 4 to 8 % of the tether, which is left out. Nearest service record: HMPE ship mooring lines, designed for 8,000 mooring hours to 75 % strength at up to 22 % of break load and retired by wear [@wilhelmsen2022]."
-winch_fixed_cost:
-  value: 27000.0
-  low: 11000.0
-  high: 81000.0
+kite_controls_cost:
+  value: 30000.0
+  low: 15000.0
+  high: 60000.0
   unit: USD
-  reason: "Authors' estimate of the manufacturing cost of the motor, drive, sensors, controls, frame and assembly of a holding winch from component prices."
-winch_cost_per_force:
-  value: 0.024
-  low: 0.01
-  high: 0.084
-  unit: USD/N
-  reason: "Authors' estimate of the manufacturing cost per N of brake holding force: drum, brake and frame steel at 5 kg/kN and a gearbox for a quarter of the holding force at the WISDEM gearbox cost of 12.9 USD/kg [@wisdem_csm]."
+  reason: "Authors' estimate of the manufacturing cost of the kite's ship-side controller, wind and tether sensors, bridge interface and software licence: the controls a rotor carries per unit."
 launch_mast_height_ratio:
   value: 1.3
   low: 0.8
@@ -1213,72 +1195,12 @@ launch_mast_max_height:
   high: 60.0
   unit: m
   reason: "Tallest kite launch mast at sea, the 35 m mast of @airseas_seawing_web; larger kites are flown from a mast of this height, beyond any built launch system."
-launch_mast_base_mass:
-  value: 0.5
-  low: 0.3
-  high: 1.0
-  unit: t
-  reason: "Authors' estimate of the launch mast mass that does not scale with the kite: the smallest tube, platform and ladder of a mast that carries a 3 t docking head at 0.5 g."
-launch_mast_mass_coefficient:
-  value: 4.1e-4
-  low: 2.7e-4
-  high: 8.9e-4
-  unit: t/m^(7/3)
-  reason: "Authors' estimate of the steel mass of a telescopic launch mast, the base mass plus this coefficient times area^(2/3) times height^(5/3), for a tubular section that holds a launch pull of a tenth of the tether force; the tether runs to a deck tow point, not over the mast [@erhard2013]."
-launch_mast_steel_cost:
-  value: 2.51
-  low: 1.3
-  high: 5.2
-  unit: USD/kg
-  reason: "Authors' estimate: fabricated tubular steel at 1.93 USD/kg, with 30 % added for the foundation."
-launch_mast_telescope_factor:
-  value: 2.5
-  low: 2.2
-  high: 5.0
-  unit: "-"
-  reason: "Price of the hydraulic telescopic launch mast over the steel cost of a static one: authors' estimate from crane prices of 5.5-17 USD/kg against 1.0-1.6 USD/kg for steel monopoles, both the authors' estimates, the low bound being the cheapest crane per kg. The mast retracts because a kite aloft swings its tether round it; the SkySails ships used a telescopic mast, retracted in flight [@fritz2013]."
-docking_head_cost:
-  value: 37000.0
-  low: 15000.0
-  high: 100000.0
-  unit: USD
-  reason: "Authors' estimate of the manufacturing cost of the slewing ring, gripper, hydraulics, inflation fan or the second winch that guides and reefs a ram-air kite [@maass2013], controls and assembly of the docking head of a 1,000 m^2 kite."
-docking_head_reference_area:
-  value: 1000.0
-  low: 1000.0
-  high: 1000.0
-  unit: m^2
-  reason: "Kite area the docking head cost refers to, that of the Airseas system; the head grows with the square root of kite area, as the mast that carries it does."
-docking_head_area_exponent:
-  value: 0.5
-  low: 0.33
-  high: 1.0
-  unit: "-"
-  reason: "Exponent of the growth of the docking head cost with kite area: authors' estimate, as the launch mast that carries the head grows with the square root of area; the high bound is growth in proportion to canopy area."
-control_unit_cost:
-  value: 11000.0
-  low: 6000.0
-  high: 22000.0
-  unit: USD
-  reason: "Authors' estimate of the manufacturing cost of the flight computer, housing, battery and assembly of a series control unit."
-control_unit_cost_per_area:
-  value: 15.0
-  low: 8.0
-  high: 30.0
-  unit: USD/m^2
-  reason: "Authors' estimate of the manufacturing cost of the three steering actuators, which grow with kite area: 3 x 5 kUSD at 1,000 m^2."
 kite_integration_fraction:
   value: 0.15
   low: 0.10
   high: 0.20
   unit: "-"
   reason: "Installation at the yard over hardware price. EMSA assumes 15 % on a newbuild [@emsa2023, Table 7] and gives no range; our range of 10-20 % spans the lower share EMSA expects on the largest units and on a yard's repeated designs and the higher one of a one-off design."
-kite_mass_per_area:
-  value: 0.05
-  low: 0.01
-  high: 0.15
-  unit: t/m^2
-  reason: "Authors' estimate of the kite with its holding winch and mast; a kite of 300-1,000 m^2 alone weighs under 1 t [@emsa2023]."
 kite_lifetime:
   value: 15.0
   low: 10.0
