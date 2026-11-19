@@ -3344,114 +3344,6 @@ function rigid_kite_figure()
 end
 
 """
-    canopy_price_range(inputs, today)
-
-Lowest and highest [`WindShipOpt.canopy_price`](@ref) [USD/m^2] of `inputs` with each input
-of the price in turn at its low and its high bound, those of the `_today` input for the
-names in `today`.
-"""
-function canopy_price_range(inputs, today)
-    names = (:canopy_cloth_area_ratio, :market_price_factor,
-        WindShipOpt.canopy_price_inputs...)
-    entries = [assumptions.entries[name in today ? Symbol(name, :_today) : name]
-               for name in names]
-    return extrema(WindShipOpt.canopy_price.(one_at_a_time(inputs, names, entries)))
-end
-
-"""
-    retail_cloth_prices()
-
-Cloth weights [g/m^2], prices [USD per m^2 sewn, without VAT, with offcuts] and sources of
-the retail cloths in data/canopy_cloth_prices.csv.
-"""
-function retail_cloth_prices()
-    table = read_table(joinpath(root, "data", "canopy_cloth_prices.csv"))
-    metres = Dict("m" => 1.0, "yd" => 0.9144)
-    dollars = Dict("USD" => 1.0, "EUR" => assumptions[:usd_per_eur])
-    prices = [price * dollars[currency] / (1 + vat) / (metres[per] * width)
-              for (price, currency, per, width, vat) in zip(table["price"],
-        table["currency"], table["per"], table["width"], table["vat"])]
-    return table["weight"], cloth_offcut_factor * prices, table["source"]
-end
-
-"cloth bought per m^2 of cloth sewn into a canopy [-]"
-cloth_offcut_factor = 1.15
-
-"""
-    canopy_price_figure()
-
-(a) Price of a canopy per projected m^2 as built today, at the goal with today's cloth, and
-at the goal, split into cloth, sewing with lines and hardware, and the market margin, with
-the range over the bounds of its inputs; (b) price of a sewn m^2 of cloth against cloth
-weight: the retail prices it rests on, the line through them, and the goal with its range.
-"""
-function canopy_price_figure()
-    figure = Figure(size=(page_width, 175))
-    price = Axis(figure[1, 1]; xlabel=square_metres("price per projected ", " [USD]"),
-        title="(a) canopy price")
-    cloth = Axis(figure[1, 2]; xlabel=square_metres("cloth weight [g/", "]"),
-        ylabel=square_metres("USD per ", " of cloth"), title="(b) sewn cloth")
-    colsize!(figure.layout, 1, Relative(0.55))
-    cloth_inputs = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
-    cases = [("today", WindShipOpt.canopy_price_inputs),
-        ("goal, today's cloth", cloth_inputs), ("goal", ())]
-    parts = ("cloth", "sewing, lines, hardware", "market margin")
-    part_colors = [palette[1], palette[5], style_colour("slate")]
-    for (row, (label, today)) in enumerate(cases)
-        inputs = WindShipOpt.with_today(assumptions, today)
-        making = inputs[:canopy_making_cost_per_area]
-        cost = WindShipOpt.Canopy(inputs).cost_per_area
-        segments = [cost - making, making, (inputs[:market_price_factor] - 1) * cost]
-        barplot!(price, fill(row, 3), segments; stack=1:3, direction=:x,
-            color=part_colors, gap=0.3)
-        text!(price, cumsum(segments) .- segments ./ 2, fill(row - 0.14, 3);
-            text=estimate_text.(segments), align=(:center, :center),
-            fontsize=note_size, color=readable.(:white, part_colors))
-        low, high = canopy_price_range(inputs, today)
-        rangebars!(price, [row + 0.17], [low], [high]; direction=:x, color=:black,
-            linewidth=line_width, whiskerwidth=whisker_width)
-        text!(price, sum(segments), row - 0.14; text=string(estimate_text(sum(segments)),
-                " (", estimate_text(low), "–", estimate_text(high), ")"),
-            align=(:left, :center), offset=clear_offset((:left, :center), pt(3)))
-    end
-    price.yticks = (eachindex(cases), first.(cases))
-    price.yreversed = true
-    xlims!(price, 0, nothing)
-    hideydecorations!(price; ticklabels=false)
-    weights = 0:5:400
-    weight = assumptions[:canopy_cloth_weight]
-    varied = one_at_a_time(assumptions, cloth_inputs)
-    goal_band = [extrema(WindShipOpt.sewn_cloth_price(inputs, cloth_weight)
-                         for inputs in varied) for cloth_weight in weights]
-    band!(cloth, weights, first.(goal_band), last.(goal_band); color=(palette[1], 0.15))
-    sources = (("extremtextil_prices_2026", "extremtextil", :circle),
-        ("sailrite_dacron_prices_2026", "Sailrite", :rect),
-        ("jonesairfoils_icarex", "Jones Airfoils", :diamond))
-    retail_weights, retail_prices, retail_sources = retail_cloth_prices()
-    source_elements = map(sources) do (source, _, marker)
-        chosen = retail_sources .== source
-        scatter!(cloth, retail_weights[chosen], retail_prices[chosen]; marker,
-            color=:white, strokecolor=:black, strokewidth=rule_width)
-        MarkerElement(; marker, color=:white, strokecolor=:black, strokewidth=rule_width)
-    end
-    lines!(cloth, weights, WindShipOpt.sewn_cloth_price.(Ref(WindShipOpt.with_today(
-        assumptions, cloth_inputs)), weights); color=:black)
-    lines!(cloth, weights, WindShipOpt.sewn_cloth_price.(Ref(assumptions), weights);
-        color=palette[1], linestyle=:dash)
-    reference_line!(cloth, weight; vertical=true)
-    ylims!(cloth, 0, nothing)
-    Legend(figure[2, 1], [PolyElement(; color) for color in part_colors],
-        collect(parts); orientation=:horizontal, tellwidth=false, valign=:top)
-    Legend(figure[2, 2], [collect(source_elements); LineElement(; color=:black);
-            [[PolyElement(; color=(palette[1], 0.15)),
-                LineElement(; color=palette[1], linestyle=:dash)]]],
-        [collect(getindex.(sources, 2)); "retail line"; "goal"];
-        orientation=:horizontal, nbanks=2, tellwidth=false, valign=:top)
-    rowgap!(figure.layout, pt(4))
-    save_figure("canopy_price", figure)
-end
-
-"""
     min_wind_figure()
 
 Lowest apparent wind against projected area for the kite of the design aspect ratio: the
@@ -3513,8 +3405,8 @@ end
 Cost saving of each rig against the canopy life, the canopy price and the share out of
 service, for each ship of the development study with its rig sizes held: the kite's saving
 over the swept canopy inputs, the other rigs' at their goals, and every rig's over its
-share out of service. Each goal is a vertical line over the shaded range of its input;
-today's canopy price is dotted over its own range.
+share out of service. Each goal is a vertical line over the shaded range of its input,
+and the canopy price, an estimate, a dotted line over its range.
 """
 function missed_goals_figure()
     sizes = read_table(data_file("goal_sizes.csv"))
@@ -3523,8 +3415,6 @@ function missed_goals_figure()
     prices = read_table(data_file("canopy_price.csv"))
     ships = unique(service["ship"])
     sweeps = ((lives, "life"), (prices, "price"))
-    price_inputs = WindShipOpt.canopy_price_inputs
-    price_today = WindShipOpt.with_today(assumptions, price_inputs)
     service_inputs = [assumptions.entries[Symbol(out_of_service_inputs[rig])]
                       for rig in rig_names]
     service_goal = only(unique(input.value for input in service_inputs))
@@ -3546,11 +3436,8 @@ function missed_goals_figure()
                     ("out of service [%]", Makie.pseudolog10,
                         [0, 1, 2, 4, 8, 16, 32, 64])))]
         goal_marks!(axes[1], assumptions.entries[:canopy_life])
-        goal_marks!(axes[2], WindShipOpt.canopy_price(assumptions),
-            canopy_price_range(assumptions, ())...)
-        goal_marks!(axes[2], WindShipOpt.canopy_price(price_today),
-            canopy_price_range(price_today, price_inputs)...; linestyle=:dot,
-            shade=(palette[1], 0.1))
+        goal_marks!(axes[2], WindShipOpt.canopy_price(assumptions), canopy_price_at(:low),
+            canopy_price_at(:high); linestyle=:dot, shade=(palette[1], 0.1))
         goal_marks!(axes[3], 100service_goal,
             100minimum(input.low for input in service_inputs),
             100maximum(input.high for input in service_inputs))
@@ -3593,7 +3480,7 @@ function missed_goals_figure()
                     LineElement(color=:black, linewidth=goal_width)],
                 [PolyElement(color=(palette[1], 0.1)),
                     LineElement(color=:black, linewidth=goal_width, linestyle=:dot)]],
-            ["goal, its range", "today, its range"]; position=(1, 0.6))
+            ["goal, its range", "estimate, its range"]; position=(1, 0.6))
     end
     save_figure("missed_goals", figure)
 end
