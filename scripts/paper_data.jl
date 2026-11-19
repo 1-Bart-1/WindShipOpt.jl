@@ -2407,7 +2407,7 @@ study.
 """
 development_inputs = [
     (input=:canopy_structure_cost, label="canopy cost", rig="kite",
-        lever="price", reason="Cloth, sewing and bridle, which a maker lowers by " *
+        lever="price", reason="Cloth with its seams and sewing, which a maker lowers by " *
                               "design for making; they set the canopy's share of the " *
                               "kite's price."),
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
@@ -3735,10 +3735,10 @@ function beam_thrust(rig, i)
 end
 
 "the price inputs of the parts and launches of a soft or a VTOL kite"
-kite_price_inputs = (:canopy_structure_cost, :canopy_cloth_price_per_weight,
-    :control_unit_cost, :control_unit_cost_per_area, :docking_head_cost,
-    :launch_mast_mass_coefficient, :launch_mast_steel_cost, :winch_cost_per_force,
-    :winch_fixed_cost, :kite_integration_fraction, :tether_price,
+kite_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost,
+    :canopy_cloth_price_per_weight, :control_unit_cost, :control_unit_cost_per_area,
+    :docking_head_cost, :launch_mast_mass_coefficient, :launch_mast_steel_cost,
+    :winch_cost_per_force, :winch_fixed_cost, :kite_integration_fraction, :tether_price,
     :rigid_avionics_cost, :rigid_drive_cost, :rigid_perch_cost, :rigid_ship_power_cost,
     :rigid_structure_cost_per_area, :rigid_structure_cost_per_mass, :rigid_tether_price,
     :rigid_hover_energy_price, :kite_cycle_course_cost, :kite_cycle_crew_cost,

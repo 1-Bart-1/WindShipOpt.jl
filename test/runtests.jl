@@ -723,7 +723,7 @@ end
           WindShipOpt.bottom_up_price(fixed, assumptions)
 end
 
-@testset "a canopy is the surveyed structure with heavier cloth at the market factor" begin
+@testset "a canopy is the surveyed structure, its fabric grown with its cloth, at the market factor" begin
     proportional = with_value(assumptions, :canopy_cell_width_exponent, 1.0)
     @test WindShipOpt.canopy_cost(proportional, 800.0, 3.0) ≈
           1.16 * 25 / 18 * 53 + 3.5 * 0.031 * 100 rtol = 1e-3
@@ -732,6 +732,12 @@ end
                          WindShipOpt.canopy_cost(assumptions, 800.0, 3.0)
     @test price(800.0, WindShipOpt.as_paid(assumptions)) == price(800.0)
     @test price(200.0) < price(800.0) < price(3000.0)
+    cloth(area) = WindShipOpt.cloth_area_ratio(assumptions, area, 3.0)
+    surveyed_cloth = WindShipOpt.cloth_area_ratio(proportional, 800.0, 3.0)
+    per_cloth = 1.16 * 25 / 18 * 45 / surveyed_cloth + 0.031 * 100
+    @test WindShipOpt.canopy_cost(assumptions, 3000.0, 3.0) -
+          WindShipOpt.canopy_cost(assumptions, 200.0, 3.0) ≈
+          per_cloth * (cloth(3000.0) - cloth(200.0))
     kite = first(sale for sale in WindShipOpt.RIG_PRICES if sale.rig == :kite)
     sold = WindShipOpt.canopy_price(assumptions, kite.area,
         assumptions[:sold_kite_aspect_ratio])

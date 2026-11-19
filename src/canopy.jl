@@ -80,14 +80,20 @@ chord_over_cell_width(assumptions::Assumptions, chord) = assumptions[:canopy_cho
     cloth_area_ratio(assumptions, area, aspect_ratio)
 
 Cloth [m^2] sewn into a ram-air canopy of projected `area` [m^2] and projected
-`aspect_ratio` per m^2 of projected area: on each flat m^2 two skins, and ribs and diagonals
-in proportion to the [`chord_over_cell_width`](@ref) at its mean chord.
+`aspect_ratio` per m^2 of projected area: the [`cell_cloth_ratio`](@ref) of the
+[`chord_over_cell_width`](@ref) at its mean chord.
 """
-function cloth_area_ratio(assumptions::Assumptions, area, aspect_ratio)
-    cells = chord_over_cell_width(assumptions, sqrt(area / aspect_ratio))
-    return assumptions[:canopy_flat_area_ratio] * (assumptions[:canopy_skin_cloth_ratio] +
-            assumptions[:canopy_rib_cloth_ratio] * cells)
-end
+cloth_area_ratio(assumptions::Assumptions, area, aspect_ratio) = cell_cloth_ratio(
+    assumptions, chord_over_cell_width(assumptions, sqrt(area / aspect_ratio)))
+
+"""
+    cell_cloth_ratio(assumptions, cells)
+
+Cloth [m^2] per m^2 of projected area of a ram-air canopy of `cells` chord over cell width:
+on each flat m^2 two skins, and ribs and diagonals in proportion to `cells`.
+"""
+cell_cloth_ratio(assumptions::Assumptions, cells) = assumptions[:canopy_flat_area_ratio] *
+    (assumptions[:canopy_skin_cloth_ratio] + assumptions[:canopy_rib_cloth_ratio] * cells)
 
 "flat over projected area at which `canopy_structure_cost` is stated"
 const SURVEY_FLAT_AREA_RATIO = 25 / 18
@@ -96,18 +102,20 @@ const SURVEY_FLAT_AREA_RATIO = 25 / 18
     canopy_cost(assumptions, area, aspect_ratio)
 
 Cost [USD/m^2] per projected m^2 of the canopy of `canopy_cloth_weight` of a kite of
-projected `area` [m^2] and projected `aspect_ratio`: the surveyed `canopy_structure_cost`
-plus the cloth of its [`cloth_area_ratio`](@ref) priced from `canopy_structure_cloth_weight`
-up to its own weight.
+projected `area` [m^2] and projected `aspect_ratio`: the surveyed `canopy_structure_cost` of
+fabric, seams and sewing in proportion to its [`cloth_area_ratio`](@ref) over that at
+`canopy_chord_cells`, the surveyed `canopy_bridle_cost`, and its cloth priced from
+`canopy_structure_cloth_weight` up to its own weight.
 """
 function canopy_cost(assumptions::Assumptions, area, aspect_ratio)
+    cloth = cloth_area_ratio(assumptions, area, aspect_ratio)
+    surveyed_cloth = cell_cloth_ratio(assumptions, assumptions[:canopy_chord_cells])
     surveyed = assumptions[:usd_per_eur] * SURVEY_FLAT_AREA_RATIO *
-               assumptions[:canopy_structure_cost]
+               (assumptions[:canopy_structure_cost] * cloth / surveyed_cloth +
+                assumptions[:canopy_bridle_cost])
     heavier = assumptions[:canopy_cloth_weight] -
               assumptions[:canopy_structure_cloth_weight]
-    cloth = cloth_area_ratio(assumptions, area, aspect_ratio) *
-            assumptions[:canopy_cloth_price_per_weight] * heavier
-    return surveyed + cloth
+    return surveyed + cloth * assumptions[:canopy_cloth_price_per_weight] * heavier
 end
 
 """
