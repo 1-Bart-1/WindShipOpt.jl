@@ -78,6 +78,11 @@ commit = "2cd7c039d872c970cb7fe79ceb5656084dc87fc1"
 fidelity = "draft"
 run = "2026-11-13T1311"
 
+[today_routing]
+commit = "885d13c86dc3bfd576e076c72fbda065bf98a322"
+fidelity = "draft"
+run = "2026-11-19T0412"
+
 [tow_point]
 commit = "c0c5e04d54b1cefbf627fdaa066b98b1881d0790"
 fidelity = "draft"
