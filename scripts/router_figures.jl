@@ -86,7 +86,7 @@ function draw_search_map!(axis, case; colorrange)
                                for value in 0:2]
     dot = node_dot(corridor)
     scatter!(axis, node_points(corridor, unreached); color=unreached_shade,
-        markersize=0.5dot, markerspace=:data)
+        markersize=unreached_dot * dot, markerspace=:data)
     scatter!(axis, node_points(corridor, pruned); color=:transparent, strokecolor=:gray45,
         strokewidth=pt(0.3), markersize=dot, markerspace=:data)
     nodes = scatter!(axis, node_points(corridor, kept); color=excess[kept],
@@ -107,7 +107,12 @@ end
 "longitude and latitude [deg] of the nodes of `corridor` at `indices`, as points"
 node_points(corridor, indices) = Point2f.(corridor.lon[indices], corridor.lat[indices])
 
-"diameter [deg] of the nodes of `corridor` on a map: a share of the spacing of its rows"
+"""
+    node_dot(corridor)
+
+Diameter [deg] of the nodes of `corridor` on a longitude-latitude map: 0.8 of the spacing
+of its rows in degrees of latitude, so at most that share of their spacing on the map.
+"""
 node_dot(corridor) = 0.8 * corridor.lateral_spacing / 60NAUTICAL_MILE
 
 """
@@ -203,6 +208,9 @@ no_estimate_shade = :gray35
 "colour of a node the search did not reach"
 unreached_shade = :gray55
 
+"diameter of a node the search did not reach, as a share of that of the others"
+unreached_dot = 0.5
+
 "colour of the hours a kite flies along a passage"
 flight_shade = (palette[1], 0.25)
 
@@ -248,17 +256,20 @@ end
 """
     router_legend_entries()
 
-Legend entries and labels of the marks of [`router_panels!`](@ref).
+Legend entries and labels of the marks of [`router_panels!`](@ref), the nodes enlarged
+from the map but in its proportions.
 """
 function router_legend_entries()
+    dot = pt(3)
     entries = [LineElement(color=:black, linewidth=line_width),
         [PolyElement(color=flight_shade),
             LineElement(color=palette[1], linewidth=2line_width)],
         LineElement(; edge_style...),
-        MarkerElement(marker=:circle, color=no_estimate_shade, markersize=pt(3)),
+        MarkerElement(marker=:circle, color=no_estimate_shade, markersize=dot),
         MarkerElement(marker=:circle, color=:transparent, strokecolor=:gray45,
-            strokewidth=pt(0.3), markersize=pt(3)),
-        MarkerElement(marker=:circle, color=unreached_shade, markersize=pt(2.5))]
+            strokewidth=pt(0.3), markersize=dot),
+        MarkerElement(marker=:circle, color=unreached_shade,
+            markersize=unreached_dot * dot)]
     labels = ["passage", "kite flying", "edges allowed", "node kept, no estimate",
         "node pruned", "node not reached"]
     return entries, labels
