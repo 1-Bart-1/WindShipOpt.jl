@@ -4378,6 +4378,7 @@ assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
+include(joinpath(pkgdir(WindShipOpt), "scripts", "explorer_data.jl"))
 end
 
 @testset "a table step that fails part way leaves the table it had" begin
@@ -4474,6 +4475,12 @@ end
     @test PaperData.changed_cost(case, trip) ≈ trip.cost_per_tonne_km
     today = merge(case, (; assumptions=at_today(assumptions)))
     @test PaperData.changed_cost(today, trip) > trip.cost_per_tonne_km
+end
+
+@testset "the explorer gives each input its value known today" begin
+    io = IOBuffer()
+    PaperData.write_json(io, Assumption(3000.0, 1200.0, 6900.0, "h", "", 1200.0))
+    @test occursin("\"today\":1200.0", String(take!(io)))
 end
 
 @testset "routing anew at today's values gains a rig the difference of its savings, \

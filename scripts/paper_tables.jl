@@ -420,8 +420,7 @@ range_text(low, high) = string("(", estimate_text(low), " to ", estimate_text(hi
 input_range(name; scale=1) = range_text(scale * assumptions.entries[name].low,
     scale * assumptions.entries[name].high)
 
-"chance [-] of a kite lost or damaged in one launch and landing, its inputs at `bound`,
-or at their value known today for `:today`"
+"chance [-] of a kite lost or damaged in one launch and landing, its inputs at `bound`"
 cycle_loss(bound) = sum(getfield(assumptions.entries[name], bound)
     for name in (:kite_cycle_damage_probability, :kite_cycle_loss_probability))
 
@@ -982,16 +981,16 @@ in split_table.tex.
 """
 function split_table()
     table = read_table(data_file("classes.csv"))
-    today = fleet_cells.(Ref(read_table(data_file("classes_today.csv"))),
-        first.(drive_labels))
+    today = fleet_savings.(fleet_cells.(Ref(read_table(data_file("classes_today.csv"))),
+        first.(drive_labels)))
     lines = []
-    for ((drive, label), cells) in zip(drive_labels, today),
+    for ((drive, label), today_savings) in zip(drive_labels, today),
         (k, rig) in enumerate(rig_names)
 
         splits = rig_splits(table, drive, rig)
         hours = getproperty.(splits, :hours)
         push!(lines, (; label=k == 1 ? label : "", rig, points=split_points(splits),
-            today=mean(cell.savings[rig] for cell in cells),
+            today=today_savings[rig],
             shorter=100count(<(0), hours) / length(hours), trip=median(hours)))
     end
     cells = split_cells(lines)
@@ -2513,9 +2512,9 @@ function today_numbers(table)
     numbers = Pair{String, String}[]
     for (drive, word) in drive_words
         cells = fleet_cells(table, drive)
+        savings = fleet_savings(cells)
         for rig in rig_names
-            push!(numbers, "Saving$word$(uppercasefirst(rig))" =>
-                whole_number(mean(cell.savings[rig] for cell in cells)))
+            push!(numbers, "Saving$word$(uppercasefirst(rig))" => whole_number(savings[rig]))
         end
         saved = sum(cell.bill * max(0.0, maximum(values(cell.savings))) / 100
                     for cell in cells)
@@ -2629,6 +2628,10 @@ end
 kite_price_text(rate) = @sprintf("%.1f", WindShipOpt.stage_price_factor(:kite,
     with_value(assumptions, :learning_rate, rate)))
 
+"mean cost saving [%] of each rig over fleet `cells`, by rig"
+fleet_savings(cells) = Dict(rig => mean(cell.savings[rig] for cell in cells)
+                            for rig in rig_names)
+
 """
     class_numbers(classes)
 
@@ -2642,7 +2645,7 @@ function class_numbers(classes)
     for (drive, word) in drive_words
         cells = fleet_cells(classes, drive)
         bands = fleet_band.(cells)
-        savings = Dict(rig => mean(cell.savings[rig] for cell in cells) for rig in rig_names)
+        savings = fleet_savings(cells)
         push!(numbers, "Cells$word" => string(length(cells)),
             "Level$word" => string(count(==("level"), bands)),
             "NoRig$word" => string(count(==("none"), bands)),
@@ -2862,7 +2865,7 @@ them [points] with its [`gap_error`](@ref), the `verdict` of the [`fleet_leaders
 the rotors [points].
 """
 function rig_lead(cells)
-    savings = Dict(rig => mean(cell.savings[rig] for cell in cells) for rig in rig_names)
+    savings = fleet_savings(cells)
     ranked = sort(collect(rig_names); by=rig -> -savings[rig])
     leaders = sort(fleet_leaders(savings, cells); by=rig -> -savings[rig])
     rig, rival = first(ranked), length(leaders) > 1 ? leaders[2] : ranked[2]

@@ -16,9 +16,6 @@ struct Assumption
     today::Float64
 end
 
-Assumption(value, low, high, unit, reason) =
-    Assumption(value, low, high, unit, reason, value)
-
 """
     Assumptions()
 
@@ -100,7 +97,8 @@ end
 """
     at_today(assumptions)
 
-Fresh `Assumptions` with every goal at its value as known today.
+Fresh `Assumptions` with every input at its value known today: a goal's own, and any other
+input's base value, which is its value today.
 """
 at_today(assumptions::Assumptions) = Assumptions(
     Dict(name => Assumption(entry.today, entry.low, entry.high, entry.unit, entry.reason,

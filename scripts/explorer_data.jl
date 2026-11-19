@@ -195,8 +195,8 @@ end
 """
     explorer_input_entries(classes, class_names)
 
-The base, low and high values and the unit of each of [`explorer_inputs`](@ref) by name,
-and of the cargo value of each of `class_names`.
+The base, low and high values, the unit and the value known today of each of
+[`explorer_inputs`](@ref) by name, and of the cargo value of each of `class_names`.
 """
 function explorer_input_entries(classes, class_names)
     entries = Dict{String, Any}(string(name) => assumptions.entries[name]
@@ -204,7 +204,7 @@ function explorer_input_entries(classes, class_names)
     for name in class_names
         value = classes[name].cargo_value
         entries[cargo_input(name)] = Assumption(value, value, value, "USD/t",
-            "cargo value of the class")
+            "cargo value of the class", value)
     end
     return entries
 end
@@ -246,7 +246,7 @@ write_json(io, value::Real) = isnan(value) ? print(io, "null") :
                               isinf(value) ? print(io, value > 0 ? "1e999" : "-1e999") :
                               print(io, Float64(value))
 write_json(io, value::Assumption) = write_json(io, (; value.value, value.low, value.high,
-    value.unit))
+    value.unit, value.today))
 write_json(io, value::Union{NamedTuple, AbstractDict}) =
     write_json_entries(io, '{', '}', pairs(value))
 write_json(io, value::Union{AbstractVector, Tuple}) =
