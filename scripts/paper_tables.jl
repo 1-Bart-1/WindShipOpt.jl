@@ -63,7 +63,7 @@ end
 latex_escape(text) = replace(text, "\\" => "\\textbackslash{}", "&" => "\\&", "%" => "\\%",
     "\$" => "\\\$", "#" => "\\#", "_" => "\\_", "~" => "\\textasciitilde{}",
     ">=" => "\\ensuremath{\\geq}", "<=" => "\\ensuremath{\\leq}", ">" => "\\textgreater{}",
-    "<" => "\\textless{}", r"\^(-?\d)" => s"\\textsuperscript{\1}", "^" => "\\^{}")
+    "<" => "\\textless{}", r"\^(-?\d+(?:\.\d+)?)" => s"\\textsuperscript{\1}", "^" => "\\^{}")
 
 "citation in a source note: a bracketed group of `@key, locator` parts, or a bare `@key`"
 citation = r"\[(@[^\]]*)\]|@([A-Za-z0-9_:-]+)"
