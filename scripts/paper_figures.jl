@@ -1200,94 +1200,83 @@ route_savings(table, column, classes, drive, rig) = filter(isfinite,
      for route in unique(table["route"])])
 
 """
-    savings_panel!(axis, table, groups, drive, column, format, fills)
+    lead_text(lead)
 
-Draw on `axis`, per `(label, classes)` of `groups`, each rig's [`mean_savings`](@ref) in
-`column` as a marker with a bar over its [`route_savings`](@ref), a band of its colour of
-`fills` and the largest mean printed with `format`. What was not run is left out, so a
-drive without data leaves `axis` blank.
+Text and colour of the [`rig_lead`](@ref) `lead` beside its row: the rig that leads and its
+margin [points] in its colour, the two rigs that are level, or that no rig clearly saves.
 """
-function savings_panel!(axis, table, groups, drive, column, format, fills)
-    savings = [[route_savings(table, column, classes, drive, kind) for kind in rig_names]
-               for (_, classes) in groups]
-    all_routes = reduce(vcat, reduce(vcat, savings))
-    isempty(all_routes) && return
-    means = [[only(mean_savings(table, (column,), classes, drive, kind))
-              for kind in rig_names] for (_, classes) in groups]
-    span = extrema([all_routes; 0])
-    width = span[2] - span[1]
-    low = span[1] < 0 ? min(span[1] - 0.04 * width, -0.1 * width) : 0.0
-    high = span[2] + 0.35 * width
-    for (i, (group_means, fill)) in enumerate(zip(means, fills))
-        known = filter(isfinite, group_means)
-        isempty(known) && continue
-        fill_rect!(axis, Rect2f(low, i - 0.5, high - low, 1), fill)
-        text!(axis, high, i; text=typeset_minus(Printf.format(format, maximum(known))),
-            align=(:right, :center), fontsize=note_size,
-            offset=clear_offset((:right, :center), pt(2.5)))
-    end
-    low < 0 && reference_line!(axis; vertical=true)
-    hlines!(axis, length(groups) - 1.5; color=:black, linewidth=0.5)
-    for (i, rigs) in enumerate(savings), (j, values) in enumerate(rigs)
-        isempty(values) && continue
-        y = i + (j - 2) * 0.22
-        rangebars!(axis, [y], [minimum(values)], [maximum(values)];
-            direction=:x, color=(palette[j], 0.6))
-        scatter!(axis, [means[i][j]], [y]; color=palette[j])
-    end
-    limits!(axis, low, high, length(groups) + 0.5, 0.5)
-    axis.xticks = Makie.get_tickvalues(
-        Makie.WilkinsonTicks(4; Q=[(1.0, 1.0), (5.0, 0.9), (2.0, 0.7)]), span...)
+function lead_text(lead)
+    lead.verdict == "none" && return ("no rig saves", :black)
+    lead.verdict == "level" &&
+        return ("$(rig_label(lead.rig)) = $(rig_label(lead.rival))", :black)
+    return (@sprintf("%s +%.1f", rig_label(lead.rig), lead.margin), rig_colour(lead.rig))
 end
 
-"""
-    lead_fill(lead)
+"size of the marker of a mean drawn over the bar of its range"
+mean_marker_size = 1.5marker_size
+"colour of the bar of the range of rig `j` of `rig_names` under the marker of its mean"
+range_colour(j) = (palette[j], 0.5)
 
-Fill of a band by the verdict of the [`rig_lead`](@ref) `lead`: the colour of the rig that
-leads, hatched in the colours of the two where they are level, grey where no rig clearly
-saves.
 """
-function lead_fill(lead)
-    lead.verdict == "none" && return (:gray, 0.2)
-    background = (rig_colour(lead.rig), 0.2)
-    lead.verdict == "level" && return level_fill(lead.rig, lead.rival; background)
-    return background
+    savings_panel!(axis, table, groups, drive)
+
+Draw on `axis`, per `(label, classes)` of `groups` of the class table `table` on `drive`,
+a row with a line for each rig: its [`mean_savings`](@ref) of cost as a marker over a thin
+bar spanning its [`route_savings`](@ref), and beside the row the [`lead_text`](@ref) of
+the [`rig_lead`](@ref) over the classes' [`fleet_cells`](@ref).
+"""
+function savings_panel!(axis, table, groups, drive)
+    cells = fleet_cells(table, drive)
+    for (i, (_, classes)) in enumerate(groups)
+        iseven(i) && hspan!(axis, i - 0.5, i + 0.5; color=(:gray, 0.12))
+        for (j, kind) in enumerate(rig_names)
+            y = i + (j - 2) * 0.28
+            values = route_savings(table, "cost", classes, drive, kind)
+            rangebars!(axis, [y], [minimum(values)], [maximum(values)]; direction=:x,
+                color=range_colour(j), linewidth=goal_width, whiskerwidth=0)
+            scatter!(axis, [only(mean_savings(table, ("cost",), classes, drive, kind))],
+                [y]; color=palette[j], markersize=mean_marker_size)
+        end
+    end
+    span = extrema([reduce(vcat, [route_savings(table, "cost", classes, drive, kind)
+                                  for (_, classes) in groups, kind in rig_names]); 0])
+    width = span[2] - span[1]
+    low, high = span[1] - 0.04width, span[2] + 0.5width
+    for (i, (_, classes)) in enumerate(groups)
+        text, color = lead_text(rig_lead(filter(cell -> cell.class in classes, cells)))
+        text!(axis, high, i; text, color, align=(:right, :center), fontsize=note_size,
+            offset=clear_offset((:right, :center), pt(2.5)))
+    end
+    reference_line!(axis; vertical=true)
+    hlines!(axis, length(groups) - 1.5; color=:black, linewidth=rule_width)
+    limits!(axis, low, high, length(groups) + 0.5, 0.5)
+    axis.xticks = Makie.get_tickvalues(
+        Makie.WilkinsonTicks(4; k_min=3, Q=[(1.0, 1.0), (5.0, 0.9), (2.0, 0.7)]), span...)
 end
 
 """
     class_comparison_figure()
 
-Cost saving and fuel saving of the best size of each rig for every ship class and the mean
-of the deadweight-limited and of the space-limited classes, a [`savings_panel!`](@ref) of
-each per drive.
+Cost saving of the best size of each rig for every ship class and the mean of the
+deadweight-limited and of the space-limited classes, a [`savings_panel!`](@ref) per drive.
 """
 function class_comparison_figure()
     table = class_table()
     groups = [[(name, [name]) for name in class_order(table)];
               [("mean, $limit-limited", names) for (limit, names) in limit_groups(table)]]
-    figure = Figure(size=(page_width, 390))
+    figure = Figure(size=(page_width, 400))
     for (k, (drive, title)) in enumerate(drive_panels)
-        Label(figure[1, (2k - 1):2k], title; tellwidth=false)
-        cells = fleet_cells(table, drive)
-        fills = [lead_fill(rig_lead(filter(cell -> cell.class in classes, cells)))
-                 for (_, classes) in groups]
-        fuel_label = drive == "vlsfo" ? rich("fuel, CO", subscript("2"), " saving [%]") :
-                     "fuel saving [%]"
-        panels = (("cost", "cost saving [%]", "%.1f"), ("fuel", fuel_label, "%.0f"))
-        for (offset, (column, xlabel, format)) in enumerate(panels)
-            axis = Axis(figure[2, 2k - 2 + offset]; xlabel,
-                yticks=(eachindex(groups), first.(groups)), yreversed=true,
-                yticklabelsvisible=(k, offset) == (1, 1))
-            savings_panel!(axis, table, groups, drive, column, Printf.Format(format), fills)
-        end
+        axis = Axis(figure[1, k]; title, xlabel="cost saving [%]",
+            yticks=(eachindex(groups), first.(groups)), yreversed=true,
+            yticklabelsvisible=k == 1, ygridvisible=false)
+        savings_panel!(axis, table, groups, drive)
     end
-    rowgap!(figure.layout, 1, 4)
-    Legend(figure[3, 1:2length(drive_panels)],
-        [[LineElement(; color=(palette[j], 0.6), linewidth=rule_width * 2),
-          MarkerElement(; color=palette[j], marker=:circle)]
+    Legend(figure[2, 1:length(drive_panels)],
+        [[LineElement(; color=range_colour(j), linewidth=goal_width),
+          MarkerElement(; color=palette[j], marker=:circle, markersize=mean_marker_size)]
          for j in eachindex(rig_names)], rig_label.(collect(rig_names));
         orientation=:horizontal, tellwidth=false)
-    rowgap!(figure.layout, 2, pt(4))
+    rowgap!(figure.layout, 1, pt(4))
     save_figure("class_comparison", figure)
 end
 
