@@ -53,14 +53,13 @@ study_force_ratings = (0.2, 0.3, 0.5, 0.7, 1.0)
 study_kite_areas = [1600.0 * sqrt(2.0)^k for k in 0:6]
 
 """
-    nearby_kite_areas(kite_area, reach)
+    nearby_kite_areas(kite_area)
 
-Those of [`study_kite_areas`](@ref) within `reach` grid steps of the one nearest
-`kite_area`.
+Those of [`study_kite_areas`](@ref) within one grid step of the one nearest `kite_area`.
 """
-function nearby_kite_areas(kite_area, reach)
+function nearby_kite_areas(kite_area)
     nearest = argmin(abs.(log.(study_kite_areas ./ kite_area)))
-    return study_kite_areas[max(1, nearest - reach):min(end, nearest + reach)]
+    return study_kite_areas[max(1, nearest - 1):min(end, nearest + 1)]
 end
 
 """
@@ -85,7 +84,7 @@ around `kite_area`.
 force_rating_cases(bare, route, ship, kite_area) =
     [trip_case(bare; route, ship, rating=0.0, area=0.0);
      vec([force_rating_case(bare, route, ship, rating, area)
-          for rating in study_force_ratings, area in nearby_kite_areas(kite_area, 1)])]
+          for rating in study_force_ratings, area in nearby_kite_areas(kite_area)])]
 
 """
     force_rating_data()

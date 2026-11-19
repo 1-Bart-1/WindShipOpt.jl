@@ -427,9 +427,9 @@ function goal_rows()
     crew = string("USD~", estimate_text(assumptions[:kite_cycle_crew_cost]), " per cycle ",
         input_range(:kite_cycle_crew_cost))
     return [("Canopy life", "kite", canopy,
-            @sprintf("polyester sails last \\numrange{%.0f}{%.0f} h; none published for a " *
-                     "ship kite; small kites expected 100 to \\num{1000} h", life.low,
-                life.high)),
+            string("polyester sails last ", estimate_text(life.low), " to ",
+                estimate_text(life.high), " h; none published for a ship kite; small ",
+                "kites expected 100 to \\num{1000} h")),
         price_goal_rows()...,
         ("Rig life", "wings", years(:wing_lifetime),
             "stated design life; about 2 years on record"),
