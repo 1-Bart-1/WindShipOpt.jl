@@ -45,7 +45,7 @@ end
 
 A kite on a fixed-length tether as the quasi-steady model sees it: projected area
 [m^2], flying mass [kg], tether length [m], air density [kg/m^3], gravity [m/s^2], its
-polar, the bridle and tether drag added to the polar, the angles of attack it depowers
+polar, the flight and tether drag added to the polar, the angles of attack it depowers
 down to and stalls at [rad], the smallest radius it can turn on through the air [m], and
 whether it flies loops ([`LoopPattern`](@ref)) rather than steered sweeps.
 """

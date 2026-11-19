@@ -443,7 +443,7 @@ soft_kite_mass(area, aspect_ratio, max_force, assumptions::Assumptions) =
     kite_model(area, aspect_ratio, assumptions)
 
 [`KiteModel`](@ref) of a kite of projected `area` [m^2] and `aspect_ratio`, its tether
-force limit [N] and tether diameter [m], with tether and bridle sized for that limit.
+force limit [N] and tether diameter [m], with the tether sized for that limit.
 """
 function kite_model(area, aspect_ratio, assumptions::Assumptions)
     env = Environment(assumptions)
@@ -481,7 +481,7 @@ end
 """
     total_drag_at_lift(aspect_ratio, lift, assumptions)
 
-Drag coefficient of a kite of `aspect_ratio` with its bridle, tether and flight drag, at the
+Drag coefficient of a kite of `aspect_ratio` with its tether and flight drag, at the
 lowest angle of attack reaching the lift coefficient `lift`. It does not depend on the area.
 """
 function total_drag_at_lift(aspect_ratio, lift, assumptions::Assumptions)
