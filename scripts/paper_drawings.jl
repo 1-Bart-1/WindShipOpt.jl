@@ -318,14 +318,13 @@ end
 
 Write to `io` the key of [`force_balance_figure`](@ref), its top right corner at `right`,
 `top` [mm]: the colour of the forces of the water, of the wind on the ship and of each
-rig with their sections, the true wind, and the scales of force and length.
+rig with their sections, and the scales of force and length.
 """
 function force_balance_key(io, right, top)
     scale, metres = force_balance_scale.force, force_balance_scale.length
     entry(colour, text) = (colour, text * "\\inpaper{, " * force_sections[colour] * "}")
     columns = [(108.0, [entry("water", raw"water: $R_\mathrm{cw}$, $R_\mathrm{aw}$, $R_\beta$, $R_r$, $T_\mathrm{req}$, $Y_\mathrm{h}$, $F_r$"),
-            entry("wind", raw"wind on the ship: $R_\mathrm{air}$, $Y$"),
-            ("wind", raw"true wind \SI{10}{m/s} on the beam, ship \SI{10.5}{kn}, calm water")]),
+            entry("wind", raw"wind on the ship: $R_\mathrm{air}$, $Y$")]),
         (42.0, [entry(rig, "\$F_x\$, \$F_y\$ of the " * rig_label(rig))
                 for (rig, _) in trim_rigs])]
     row_y(row) = top - 2.5 - 3.6(row - 1)
