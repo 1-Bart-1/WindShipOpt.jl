@@ -1,0 +1,5 @@
+kind,year,height,diameter,price,currency,installed,retractable,hicp,source
+quoted,2019,18,3,300000,EUR,true,false,104.80,"price: Norsepower's figure per installed unit [@tillig2020b, p. 15]; index: euro area HICP [@eurostat2026hicp]"
+quoted,2019,24,4,500000,EUR,true,false,104.80,"price: Norsepower's figure per installed unit [@tillig2020b, p. 15]; index: euro area HICP [@eurostat2026hicp]"
+quoted,2019,30,5,750000,EUR,true,false,104.80,"price: Norsepower's figure per installed unit [@tillig2020b, p. 15]; index: euro area HICP [@eurostat2026hicp]"
+paid,2025,35,5,1126921,EUR,true,true,128.75,"price: GBP 28 M of export sales for 29 rotors supplied and installed, mostly folding 35 m by 5 m [@maritimeexec2026anemoi; @govuk2026chinavisit], at the mean ECB rates of 2025; index: euro area HICP [@eurostat2026hicp]"
