@@ -150,9 +150,9 @@ The MAN paper _Propulsion trends in tankers_ is listed on the MAN/Everllence sit
 | Maize         | 203.2 USD/t   | World Bank, 2025                                                                                                                                                                 |
 | Soybeans      | 414 USD/t     | World Bank, 2025                                                                                                                                                                 |
 | Crude oil     | 506 USD/t     | Brent 69.0 USD/bbl (World Bank, 2025) x 7.33 bbl/t                                                                                                                               |
-| Containerised | 5,120 USD/t   | 52,239 USD per TEU (Seabury Global Ocean Trade database, 2020, via Rodrigue, Port Economics, Management and Policy) over 10.2 t of goods per loaded TEU (Eurostat EU main ports) |
+| Containerised | 5,340 USD/t   | ~54,500 USD per TEU (UNCTAD-derived, Rodrigue, Port Economics, Management and Policy) over 10.2 t of goods per loaded TEU (Eurostat EU main ports)                                 |
 
-2026 prices are higher: Brent averaged 104 USD/bbl in Q2 2026 (World Bank), so the crude cargo value is the 2025 average. Other per-TEU estimates: UNCTAD-derived ~54,500 USD/TEU (Port Economics), Hoffmann 2017 ~43,500 USD/TEU (LinkedIn comment); Australian import TEU A$33,238, export A$29,350.
+2026 prices are higher: Brent averaged 104 USD/bbl in Q2 2026 (World Bank), so the crude cargo value is the 2025 average. Other per-TEU estimates: 52,239 USD/TEU (Seabury Global Ocean Trade database, 2020, as cited by Port Economics; not read), Hoffmann 2017 ~43,500 USD/TEU (LinkedIn comment); Australian import TEU A$33,238, export A$29,350.
 
 ### Opex and crew
 
