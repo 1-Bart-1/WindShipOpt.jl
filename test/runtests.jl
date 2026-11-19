@@ -529,7 +529,8 @@ end
     @test isfinite(flew.peak_tension)
 end
 
-@testset "a launch needs the rough-sea wind from a rough sea on, a kite stays up in any sea" begin
+@testset "a launch needs the rough-sea wind from a rough sea on, a kite stays up in \
+          any sea" begin
     table, prices = kite_coaster()
     passage(points, aloft) = WindShipOpt.kite_passage(table, points, aloft, prices)
     point(sea; speed_index=6, kwargs...) = kite_point(table, sea, 4.0; speed_index,
@@ -574,9 +575,10 @@ end
     @test isfinite(brief.cost)
 end
 
-@testset "a kite lands inside its limits, outside them only when it can neither stay nor \
-          have landed" begin
+@testset "a landing outside the landing limits loses the kite, so a kite lands inside \
+          them" begin
     table, prices = kite_coaster()
+    forced = table.table.forced_landing_cost
     passage(points) = first(WindShipOpt.kite_passage(table, points, true, prices))
     point(headwind) = kite_point(table, 2.0, 1.0; speed_index=3, headwind)
     rig = table.table.ship.rig
@@ -584,13 +586,12 @@ end
     calm = point(5.0)
     gale = point(rig.landing_max_wind + 2 - speed)
     storm = point(rig.max_wind + 2 - speed)
+    @test forced ≈ WindShipOpt.crash_cost(rig, assumptions)
     @test !WindShipOpt.kite_landable(table.table, speed, gale.headwind, 0.0, 2.0)
     @test WindShipOpt.kite_aloft(table.table, speed, gale.headwind, 0.0)
     @test passage([calm]).forced_landings == 0
-    @test !isfinite(passage([gale]).cost)
-    stranded = passage([storm])
-    @test stranded.forced_landings == 1
-    @test stranded.cost ≈ storm.stowed * 3600 * prices.fuel
+    @test passage([gale]).forced_landings == 1
+    @test passage([storm]).cost ≈ storm.stowed * 3600 * prices.fuel + forced
     landed_first = passage([calm, gale, storm])
     @test isfinite(landed_first.cost) && landed_first.forced_landings == 0
     @test passage([gale, storm]).forced_landings == 1

@@ -131,6 +131,8 @@ struct PerformanceTable{S}
     cycle_cost::Float64
     "time one launch and landing of a kite gives no force on the ship [h]"
     handling_hours::Float64
+    "cost of one landing outside the landing limits [USD]"
+    forced_landing_cost::Float64
     speeds::Vector{Float64}
     max_wind::Float64
     "true wind at a kite's reference height per unit of 10 m wind [-]; zero without a kite"
@@ -191,8 +193,9 @@ function PerformanceTable(ship::Ship, assumptions::Assumptions)
              for speed in speeds, period in periods, heading in headings]
     return PerformanceTable(ship, flown_thrust, stowed_thrust, rig_power, stowed_power,
         LinearTable((speeds, periods, headings), waves), wear_cost(ship.rig, assumptions),
-        cycle_cost(ship.rig, assumptions), handling_hours(ship.rig, assumptions), speeds,
-        last(winds), kite_wind_factor(ship.rig, ship.env))
+        cycle_cost(ship.rig, assumptions), handling_hours(ship.rig, assumptions),
+        forced_landing_cost(ship.rig, assumptions), speeds, last(winds),
+        kite_wind_factor(ship.rig, ship.env))
 end
 
 """
@@ -453,7 +456,7 @@ end
 
 Whether a kite can land inside the landing limits under the arguments of
 [`kite_launchable`](@ref): the apparent wind is within them and the launch wind the sea
-calls for has not risen past them.
+calls for has not risen past them; a landing outside them is a forced one.
 """
 kite_landable(table::PerformanceTable, speed, headwind, crosswind, wave_height) =
     kite_landable(table.ship.rig, speed, headwind, crosswind, wave_height)
