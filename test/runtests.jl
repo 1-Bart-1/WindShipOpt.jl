@@ -4459,11 +4459,10 @@ end
 @testset "every goal takes its value known today and every other input keeps its own" begin
     today = at_today(assumptions)
     goals = [name for (name, entry) in assumptions.entries if entry.today != entry.value]
-    @test :canopy_life in goals && :kite_out_of_service in goals && :learning_rate in goals
+    @test :canopy_life in goals && :kite_out_of_service in goals
     @test all(today[name] == assumptions.entries[name].today for name in goals)
     @test all(today[name] == assumptions[name]
               for name in keys(assumptions.entries) if !(name in goals))
-    @test WindShipOpt.as_paid(assumptions)[:learning_rate] == today[:learning_rate]
 end
 
 @testset "a kite costed on its routes at the goals costs what routing found, and more \

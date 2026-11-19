@@ -448,8 +448,7 @@ learning_rate:
   low: 0.05
   high: 0.19
   unit: "-"
-  today: 0.0
-  reason: "Fall of a rig's price per doubling of the units of its kind built, the same for every rig: 12 %, the mean both of 12 studies of onshore and of 2 of offshore wind farms, the machines nearest to a rig, and the offshore range, since the onshore one runs from a rise of 11 % to a fall of 32 % [@rubin2015, Table 1]. Today: zero, which prices every rig as paid."
+  reason: "Fall of a rig's price per doubling of the units of its kind built, the same for every rig: 12 %, the mean both of 12 studies of onshore and of 2 of offshore wind farms, the machines nearest to a rig, and the offshore range, since the onshore one runs from a rise of 11 % to a fall of 32 % [@rubin2015, Table 1]."
 stage_ships:
   value: 1000.0
   low: 1000.0

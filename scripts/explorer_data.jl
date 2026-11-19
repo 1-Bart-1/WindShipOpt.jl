@@ -30,8 +30,7 @@ on the cargo value of the class).
 function explorer_changes()
     entry(name) = assumptions.entries[name]
     return [("canopy life ×2", (canopy_life=2assumptions[:canopy_life],), 1.0),
-        ("rig prices as paid today",
-            (learning_rate=assumptions.entries[:learning_rate].today,), 1.0),
+        ("rig prices as paid today", (learning_rate=0.0,), 1.0),
         ("fuel −30 %", fuel_prices(0.7), 1.0), ("fuel +30 %", fuel_prices(1.3), 1.0),
         ("carbon price on VLSFO", (carbon_coverage=1.0,), 1.0),
         ("discount rate low", (discount_rate=entry(:discount_rate).low,), 1.0),
