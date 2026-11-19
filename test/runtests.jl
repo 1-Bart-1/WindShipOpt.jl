@@ -2624,6 +2624,25 @@ function small_archive(directory, weather, offset; noise=issue -> 0.0,
     return ForecastArchive(directory, weather, climate)
 end
 
+@testset "an ERA5 archive's wave direction components follow its directions" begin
+    directory = mktempdir()
+    components = small_era5(directory).wave_arrays[3:4]
+    @test all(==(sind(60.0f0)), components[1])
+    @test all(==(cosd(60.0f0)), components[2])
+    write(joinpath(directory, "waves", "direction.f32"), fill(30.0f0, size(components[1])))
+    @test all(==(sind(30.0f0)), ERA5Weather(directory).wave_arrays[3])
+end
+
+@testset "a read-only ERA5 archive holds its wave direction components in memory" begin
+    waves = joinpath(mktempdir(), "waves")
+    small_era5(dirname(waves))
+    rm(joinpath(waves, "direction_east.f32"))
+    chmod(waves, 0o555)
+    @test all(==(sind(60.0f0)), ERA5Weather(dirname(waves)).wave_arrays[3])
+    @test isfile(joinpath(waves, "direction_east.f32")) == iswritable(waves)
+    chmod(waves, 0o755)
+end
+
 @testset "the climatology turns the year halfway between December and January" begin
     directory = mktempdir()
     weather = small_era5(joinpath(directory, "era5"))
@@ -3185,6 +3204,19 @@ end
             @test isequal(getfield(screened_leg, field), getfield(full_leg, field))
         end
     end
+end
+
+@testset "a workspace holds only the rows of states written to" begin
+    workspace = WindShipOpt.RouteWorkspace(3, 4, 2)
+    workspace.cost[2, 3, 1, 1] = 5.0
+    workspace.cost[1, 4, 2, 2] = Inf
+    @test workspace.cost[2, 3, 1, 1] == 5.0
+    @test workspace.cost[1, 3, 1, 1] == Inf
+    @test workspace.elapsed[2, 3, 1, 1] == 0.0
+    @test length(workspace.cost.values) == 3
+    WindShipOpt.empty_states!(workspace)
+    @test all(isinf, workspace.cost)
+    @test isempty(workspace.cost.values)
 end
 
 @testset "a kite aloft leaving a node with the kite down at the same time shares its \
