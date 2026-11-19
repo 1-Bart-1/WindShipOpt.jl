@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Sets up paper runs on a DelftBlue login node: Julia, this repository on /scratch, its
+# packages and the weather. Safe to rerun; every step resumes. Run it inside tmux, since
+# the weather download takes hours. Fetch and start it with:
+#   curl -fsSL https://raw.githubusercontent.com/1-Bart-1/WindShipOpt.jl/main/bin/delftblue_setup | bash
+set -euo pipefail
+
+# One function, so that bash has read all of it before a step can read its standard input.
+setup() {
+    repo=/scratch/$USER/WindShipOpt.jl
+    mkdir -p "$(dirname "$repo")"
+
+    if [ ! -x "$HOME/.juliaup/bin/juliaup" ] && ! command -v juliaup >/dev/null; then
+        curl -fsSL https://install.julialang.org | sh -s -- --yes
+    fi
+    export PATH=$HOME/.juliaup/bin:$PATH
+
+    if [ -d "$repo/.git" ]; then
+        git -C "$repo" pull --ff-only
+    else
+        git clone https://github.com/1-Bart-1/WindShipOpt.jl "$repo"
+    fi
+    cd "$repo"
+
+    juliaup add "$(bin/julia_version)"
+    ./bin/install -y
+    ./bin/weather
+
+    echo
+    echo "Set up in $repo. Log in again, or run: exec bash -l, so julia is on your PATH,"
+    echo "then start a run there with: bin/cluster submit final  (or draft)"
+    echo "Jobs are charged to the account in scripts/cluster.toml; yours:"
+    sacctmgr -n list user "$USER" withassoc format='account%-45' || true
+}
+setup

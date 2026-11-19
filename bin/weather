@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Downloads the weather a paper run reads into era5/atlantic_wide/ from public stores
+# (Google Cloud, NOAA on AWS), with no account, at the lowest CPU priority; resumes where it
+# stopped, and ends by checking every file against the server's (scripts/check_weather.jl).
+set -euo pipefail
+
+repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+major=$("$repo/bin/julia_version")
+weather() {
+    ERA5_REGION=atlantic_wide nice -n 19 julia "+$major" --project="$repo/scripts" -t 4 "$@"
+}
+
+# The forecast's bias and blend weights are computed against the reanalysis and its
+# climate means, so these run in this order.
+weather "$repo/scripts/download_era5.jl"
+ERA5_PRODUCT=climate weather "$repo/scripts/download_era5.jl"
+weather "$repo/scripts/download_forecast.jl"
+weather "$repo/scripts/check_weather.jl"

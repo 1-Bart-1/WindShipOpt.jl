@@ -29,12 +29,14 @@ Car decks: a CEU carries \SI{1.3}{t}, since a PCTC of \num{8600}~CEU is optimise
 
 The two creep laws of \cref{tab:inputs} are the power law of \citet{humeau2018}, anchored at the mooring-line creep life of \citet{dsm_sk78_mooring}, and the diagram of \citet{bosman2013}. Load peaks count in the sum, since the tension fatigue of this rope is creep under the varying load \citep{humeau2018}. They are the swing of each figure eight, gusts at our estimated turbulence intensity of 6\,\% (4 to 10\,\%), and the bow's motion, a tension change of at most 5\,\%.
 
-Bending under load would bind much sooner: pumped over a drum at this design factor a tether fails after about \num{1100} flight hours \citep{bosman2013}, and a rope bent at 20 diameters under a third of its break load lasts about \num{2500} bends \citep{davies2015}. Sea water does not weaken this fibre \citep{dsm_sk78_mooring}.
+Sea water does not weaken this fibre \citep{dsm_sk78_mooring}.
+
+The bending on the tow point disk takes its numbers from the model's patterns and two bending tests. On the \SI{3200}{m^2} kite the figure eights last 60 to \SI{120}{s} at 8 to \SI{16}{m/s} and rise once each from the \SI{8}{\degree} floor by 25 to \SI{35}{\degree}, so $n=40$ an hour, and on a disk of 30 rope diameters, \SI{2.1}{m} on the \SI{71}{mm} tether, an estimate, the swing rolls a stretch $l=\SI{0.54}{m}$ on and off. The kite pulls 0.6 to 1.0 of its force limit on average over a figure eight; at 0.8, 27\,\% of break load, the law of \citet{davies2015}, $211\,(T/T_b)^{-2.25}$ bends over 20 diameters, gives \num{4100} bends, and the factor of 1.77 from 20 to 30 diameters of \citet[Fig.~33.17]{bosman2013} makes $N=\num{7300}$. The stretch then lasts $N/n=180$ flight hours, from 42 at the force limit over 20 diameters in \SI{60}{s} figure eights ($N=\num{2500}$, $n=60$) to 770 at 20\,\% of break load over 30 diameters in \SI{120}{s} ones ($N=\num{23000}$, $n=30$). Moved on by $l$ once it has used half to all of its bends, it takes $n\,l\,L/N$ to twice that of spare rope over a tether life $L$: 47 to \SI{95}{m} at \num{16000} flight hours, 4 to 8\,\% of the \SI{1275}{m} flown. Neither test reaches the \SI{71}{mm} of this tether; ropes of 18 and \SI{24}{mm} last about as long \citep{davies2018}.
 
 \subsection{Tether bending at launch and landing}
 \label{app:tether_bending}
 
-We carry the law of \citet{davies2015}, measured on a \SI{19}{mm} rope over a sheave of 20 rope diameters, down to the reeling tension of about 3\,\% of break load and up to a drum of 40 diameters with the factors of \citet{bosman2013}. As a power law it gives \num{840000} bends, with the slope of Bosman's tests \num{160000}, and we take $N_b=\num{400000}$. The low bound, \num{5500}, reels at 10\,\% of break load over 20 diameters on a \SI{70}{mm} tether with reverse bending. The high bound, \num{6} million, reels at 1.7\,\% over 100 diameters.
+The tether is reeled at the zenith at about a tenth of the force limit, 3.3\,\% of break load, onto a drum of 30 diameters, our estimate. The coated \SI{20}{mm} rope of \citet{bosman2013} lasts \num{2.9} million bends there: \num{450000} at 10\,\% of break load over 30 diameters (Fig.~33.17), carried along the slope of 2.7 of its tests and divided by 3 for the \SI{20}{mm} rope against the \SI{8}{mm} one tested (p.~574). The \SI{19}{mm} rope of \citet{davies2015} lasts \num{450000} bends over 20 diameters. We take $N_b=\num{1000000}$, near their geometric mean, with these two as the range. Both laws are measured at 10\,\% of break load and above, so this is an extrapolation by a factor of 3 in tension.
 
 \subsection{Kite losses and launch cost today and at the goal}
 \label{app:launch_loss}
@@ -49,7 +51,7 @@ The factor of 1.3 in the mast height comes from two masts. The telescopic lift t
 \subsection{Canopy mass against the SkySails kite}
 \label{app:canopy_mass}
 
-The \SI{225}{m^2} flat SkySails kite of \SI{120}{kg} with its lines, \SI{0.68}{kg/m^2} projected \citep{paulig2013}, leaves \SI{0.19}{kg/m^2} beyond our estimates of \SI{66}{kg} of cloth and \SI{18}{kg} of lines. It was built for about \SI{0.9}{kN/m^2} projected, so in proportion to the limit that is about \SI{0.11}{kg/m^2} at the base limit.
+The \SI{225}{m^2} flat SkySails kite of \SI{120}{kg} with its lines, \SI{0.68}{kg/m^2} projected \citep{paulig2013}, leaves \SI{0.17}{kg/m^2} beyond our estimates of \SI{72}{kg} of cloth, sewn as \cref{eq:canopy_cloth} gives at \SI{105}{g/m^2}, and \SI{18}{kg} of lines. It was built for about \SI{0.9}{kN/m^2} projected, so in proportion to the limit that is about \SI{0.09}{kg/m^2} at the base limit, within the high bound of \SI{0.19}{kg/m^2}.
 
 \subsection{Canopy prices}
 \label{app:canopy_price}
@@ -57,14 +59,19 @@ The \SI{225}{m^2} flat SkySails kite of \SI{120}{kg} with its lines, \SI{0.68}{k
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Canopy cost and price by \cref{eq:canopy_price}, USD per projected square metre unless stated. The price is an estimate; its range spans the market factor and the surveyed cost at their bounds (\cref{tab:inputs}).}
+\caption{Canopy cost and price of the \SI{3200}{m^2} kite by \cref{eq:canopy_price}, USD per projected square metre unless stated. The price is an estimate; its range spans the market factor, the surveyed fabric cost, the chord of the surveyed kites and the share of their sewing that grows with the cloth at their bounds (\cref{tab:inputs}).}
 \label{tab:canopy_price}
 \begin{tabular}{@{}lr@{}}
 \toprule
-Surveyed cost, EUR per flat m$^2$ & 53 \\
-Surveyed cost & 85 \\
-Cloth from 100 to \SI{200}{g/m^2} & 11 \\
-Cost & 96 \\
+Surveyed fabric, EUR per flat m$^2$ & 45 \\
+Surveyed bridle, EUR per flat m$^2$ & 8 \\
+Surveyed fabric & 73 \\
+\quad its cloth, \SI{3.5}{m^2} of \SI{100}{g/m^2} & 49 \\
+\quad its sewing, \SI{3.6}{m} of seam per flat m$^2$ & 23 \\
+Cloth, \SI{4.7}{m^2} of \SI{200}{g/m^2} & 80 \\
+Sewing, \SI{2.0}{m} of seam per flat m$^2$ & 13 \\
+Bridle & 13 \\
+Cost & 106 \\
 Price at a market factor of 2 & \NumCanopyPrice \\
 Range & \NumCanopyPriceLow{} to \NumCanopyPriceHigh \\
 \bottomrule
@@ -73,92 +80,45 @@ Range & \NumCanopyPriceLow{} to \NumCanopyPriceHigh \\
 
 The survey states its cost per flat square metre and turns it into one per projected square metre with 25/18 \citep{joshi2024refeconomic}, more than the 1.17 of the kite modelled here (\cref{tab:inputs}); we keep its conversion, which errs towards a more expensive canopy. It gives a single figure without a spread, says the costs leave out overhead in development and manufacturing and the profit margin, and does not say whether its fabric cost includes the sewing. Prices actually paid for ram-air canopies agree with the base. A closed-cell sport kite of \SI{21}{m^2}, made in China, sells without VAT for EUR~\num{2071} with its bags and without lines or bar \citep{varuste2026soul21}. Taking its size as flat area, that is USD~160 per projected square metre at the survey's conversion, and about USD~180 with cloth of \SI{200}{g/m^2} in place of its own of about \SI{40}{g/m^2}, within the 27 to \SI{55}{g/m^2} of kite cloth \citep{porcher2006skytex_tds}. The US Army bought ram-air parafoils of about 265 to \SI{337}{m^2} by our reading of their span and chord, with their airborne guidance unit for USD~\num{85000} to \num{95000} each in lots of 15 to 131 \citep{army2014ma7804,army2016ma7804,army2017ma7804}, about USD~250 to 360 per square metre with the guidance unit. Neither contradicts the survey's figure with the market factor.
 
-\subsection{Seams and cloth of a ship kite}
+\subsection{Cells, seams and cloth of a ship kite}
 \label{app:seam_cloth}
 
-\begin{table}[tbp]
+\begin{figure}[tbp]
 \centering
-\footnotesize
-\caption{Cell layout of a paraglider and of ship kites. The paraglider is an Ozone Rush~5 \tbd{(source to add)}. The SkySails cell count is from \citet{paulig2013}, its cell width and proportion ($\approx$) by our reading, and this kite takes that proportion.}
-\label{tab:seam_cloth}
-\begin{tabular}{@{}lrrr@{}}
-\toprule
-& Paraglider & SkySails \SI{225}{m^2} flat & This kite \SI{800}{m^2} \\
-\midrule
-Flat aspect ratio & 5.55 & -- & 3.76 \\
-Cells & 57 & 22 & 31 \\
-Cell width [m] & 0.21 & $\approx$1.1 & 1.9 \\
-Cell length over width & 10.3 & $\approx$8.1 & 8.1 \\
-Seam per flat m$^2$ [m] & 14 & -- & 2.5--4.5 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\plot{canopy_cells}
+\caption{Chord over cell width of ram-air canopies against their mean chord, both from flat area, flat span and cell count: paragliders \citep{ozone_ultralite3,ozone_ultralite4,nova_prion,advance_alpha8,ozone_geo6,ozone_spyder3,ozone_rush3,nova_mentor2,ozone_rush5,advance_iota_dls,ozone_rush6,ozone_zeno2,ozone_enzo3,advance_pibi,advance_bibeta6,ozone_magnum3,ozone_magnum4}, a traction kite \citep{flysurfer_soul4} and parafoils, a small test canopy \citep{gavrilovski2012}, the MC-4/5 personnel parachute counted rib to rib \citep{schairer2019}, two wind-tunnel models of one cargo parachute \citep{geiger1990} and the DragonFly cargo parachute \citep{airborne_dragonfly}. The sizes of each model line share one cell count, so each line is shown by its largest size. The line is \cref{eq:canopy_cloth} at base inputs, solid over the canopies and dashed beyond them, the band its bounds of $\beta$, and the grey span the chords of the kites of 500 to \SI{16000}{m^2} the class study searches.}
+\label{fig:canopy_cells}
+\end{figure}
 
-\citet{dunker2013} recommends about \SI{115}{kg} at most per subassembly under a sewing machine, so our \SI{600}{kg} canopy of \SI{800}{m^2} takes at least six modules.
+Each model line scales its sizes at a fixed cell count, so within a line the cell width grows with the chord. Across designs it grows more slowly (\cref{fig:canopy_cells}): the slope of the logarithm of the cell width on that of the mean chord is $0.72\pm0.12$ over the 23 models, $0.54\pm0.19$ over the six that are not paragliders, and the chord over the cell width spreads by about a third either side of the line. Builders keep the cell narrower than the section is thick, which shapes the wing more truly at the cost of more lines \citep{dunker2013}; at a thickness of 15\,\% of the chord that is a chord over cell width above about 7. The SkySails kite of \SI{125}{m^2} projected has 38 cells on \SI{15.2}{m} of projected span \citep{folkersma2020}, so they are at least \SI{0.46}{m} wide flat, against \SI{0.63}{m} from \cref{eq:canopy_cloth} at its size; its flat span is not published, so the fit leaves it out. No cell count is published for a canopy larger than \SI{325}{m^2}.
 
-For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre and ribs and diagonals scale with the proportion, giving \SI{3.3}{m^2} per projected square metre at 31 cells (2.9 to 3.9), 3.0 at 22 cells and a floor of 2.4 at no ribs, against the 3.5 the model uses (\cref{tab:inputs}). Cell width is typically below section thickness \citep{dunker2013}, so 3.3 is the more likely. \stale{canopy_price_data}{The spread of the cost savings in \cref{tab:missed_goals} suggests about 0.1 points of cost saving for USD~3 and 0.1 to 0.3 for USD~7.}
+On the \SI{800}{m^2} kite \cref{eq:canopy_cloth} gives about 55 cells \SI{1.0}{m} wide, against 0.12 to \SI{0.35}{m} on paragliders, so it has \SI{3.0}{m} of seam per flat square metre by \cref{eq:canopy_seam}, against \SI{3.6}{m} on the surveyed kites and about \SI{12}{m} on a paraglider of cells \SI{0.21}{m} wide. The price pays the surveyed sewing per metre of seam (\cref{eq:canopy_price}), so the \SI{800}{m^2} kite pays a fifth less for sewing per square metre than the surveyed kites. Its cells are still narrower than the cloth's roll of 1.37 to \SI{1.58}{m} \citep{extremtextil_prices_2026,sailrite_dacron_prices_2026,jonesairfoils_icarex}; from about \SI{2200}{m^2} they are wider, and each skin gets a panel seam across it. No source splits the surveyed cost into cloth and sewing, so the split rests on the retail cloth price; the high end of the price lets all of the sewing grow with the cloth instead, which charges the large kite for seam it does not have. \citet{dunker2013} recommends about \SI{115}{kg} at most per subassembly under a sewing machine, so our \SI{720}{kg} canopy of \SI{800}{m^2} takes at least seven modules.
+
+For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre, and ribs and diagonals \SI{0.101}{m^2} per unit of chord over cell width, which makes \SI{3.0}{m^2} per flat square metre, our estimate for paragliders from their weights \citep{advance_alpha8,nova_prion,nova_mentor2}, at their 9.3. \Cref{eq:canopy_cloth} then gives the \SI{3200}{m^2} kite \SI{4.7}{m^2} of cloth per projected square metre, against 3.5 at $\beta=1$ and a floor of 2.4 with no ribs at all (\cref{tab:canopy_variants}).
 
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Effect of a lower cloth ratio on the canopy price, as a change against the base price of about USD~\NumCanopyPrice{} (\NumCanopyPriceLow{} to \NumCanopyPriceHigh) per projected square metre (\cref{tab:canopy_price}), and on the canopy mass, at the base with in brackets its range when each input in turn takes its low or high bound (\cref{tab:inputs}).}
+\caption{Effect of the cell width growing as fast as the chord or faster, and of less rib cloth or none, on the canopy price of the \SI{3200}{m^2} kite, as a change against its base price of about USD~\NumCanopyPrice{} (\NumCanopyPriceLow{} to \NumCanopyPriceHigh) per projected square metre (\cref{tab:canopy_price}), and on its canopy mass, at the base with in brackets its range when each input in turn takes its low or high bound (\cref{tab:inputs}).}
 \label{tab:canopy_variants}
 \begin{tabular}{@{}lrr@{}}
 \toprule
 Variant & Change of price [USD/m$^2$] & Canopy mass [kg/m$^2$] \\
 \midrule
-Base & 0 & 0.75 (0.65--0.94) \\
-Cloth ratio 3.0 & $-3$ & 0.65 \\
-Cloth ratio 2.4, no ribs & $-7$ & 0.53 \\
+Base & 0 & 0.98 (0.75--1.3) \\
+Cells widening with the chord, $\beta=1$ & $-44$ & 0.75 \\
+Cells widening slower, $\beta=0.5$ & $+74$ & 1.32 \\
+Rib cloth at its low bound & $-25$ & 0.79 \\
+No ribs & $-61$ & 0.53 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Data behind the canopy life}
-\label{app:canopy_life_inputs}
-
-\paragraph{UV} A least-squares fit of the strength loss of polyester without a UV blocker over \SIrange{40}{1500}{g/m^2} gives $a=0.40\pm0.12$ and $D_\mathrm{ref}=\SI{63}{MJ/m^2}$, from outdoor tests with a measured dose between 295 and \SI{385}{nm} \citep{lodi2008,stevens2018}, a roof test \citep{hunt2022}, and lamp tests \citep{ceylan2023,asadi2021,uzumcu2024,dekanic2023} times 3, the gap on the one cloth tested both ways \citep{stevens2018}. The field values alone give 0.42 and \SI{72}{MJ/m^2}. The yearly mean dose in Florida is \SI{320}{MJ/m^2} in that band \citep{qlab2026}.
-
-\paragraph{Wear} The statements span 0.04 to \SI{0.26}{g/m^2/h}. Cloth and sail both work at 0.4 to 3\,\% of their breaking strength. Rope yarns cycled near that load lost 0.4 to 9.2\,\% in $10^6$ cycles \citep{tti2006}, and woven polyester kept its strength over \num{12000} cycles \citep{nosraty2013}. Flutter could supply the rate at about 1\,\% of flight time \citep{doyle2011}, and folds at hundreds of crumples an hour \citep{maslanka2023}.
-
-\paragraph{Exponent $b$} One maker's lives for its balloon cloths imply 1.5 \citep{kubicek2026}, one life for every woven polyester sail implies about 0 \citep{flynn2015}, and the one measurement, on nylon cloths of 34 to \SI{42}{g/m^2}, finds no order with weight \citep{maslanka2023}.
-
-\paragraph{Tension over cloth weight} Wings at $T/w$ of 1 to 3 live from under 130 flying hours as skydiving mains, at \num{1600} jumps \citep{szafran2018} of 5 minutes \citep{szafran2019}, to the unlimited life stated for fully coated aircraft polyester \citep{faa2001}. Folding, opening shock, flutter and UV sort these lives and $T/w$ does not.
-
-\paragraph{End of life} One tandem paraglider fell from about 400 to \SI{29}{s} in the porosity test by 800 hours, against a limit of \SI{25}{s} \citep{supair2016}. Other makers' limits are \SI{18}{s} \citep{dudek2026} and \SI{10}{s} \citep{bgd2026}. A sail keeps its shape for half to two-thirds of its structural life, \numrange{1700}{2700} hours \citep{flynn2015}. The margin of \cref{sec:det_canopy_life} flies \SI{200}{g/m^2} down to 4\,\% of new strength. Aircraft fabric is retired at 70\,\% of the new strength required, by a rule tabulated for cotton and linen \citep{faa2001}, and balloon cloth at a test value of 46 and 27\,\% of new, at most \citep{lindstrand_mm}.
-
-\subsection{Range of the canopy life}
-\label{app:canopy_life_range}
-
-\begin{table}[tbp]
-\centering
-\footnotesize
-\caption{Canopy life at \SI{200}{g/m^2} from the strength decay with one input at each bound, in flight hours, the bound giving the shorter life first. The base retires the cloth at 4\,\% of its new strength, below both retirement strengths of the last row, so both give a shorter life. The goal is \num{3000} hours, with this table's range of \numrange{1200}{6900} hours.}
-\label{tab:canopy_life_range}
-\begin{tabular}{@{}lrr@{}}
-\toprule
-Input changed alone & Shorter life & Longer life \\
-\midrule
-All inputs at base & \multicolumn{2}{c}{\num{3800}} \\
-\addlinespace
-Wear rate $r$ & \num{2200} & \num{6900} \\
-Reference dose $D_\mathrm{ref}$ & \num{3100} & \num{4400} \\
-UV exponent $a$ & \num{3600} & \num{4200} \\
-Dose rate $\dot D$ & \num{3200} & \num{4200} \\
-Cloth strength $\sigma_w$ & \num{3300} & \num{4100} \\
-Kept strength of 8 and 3 times the tension & \num{3300} & \num{4400} \\
-Wear exponent $b$ of 0 and 1.5 & \num{2200} & \num{4900} \\
-Retirement at 70 and 27\,\% of new strength & \num{1200} & \num{2400} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The goal of \num{3000} hours lies below the longest statements and below the life at the low bound of each input of the decay except the wear rate and the wear exponent. The decay reaches it even with a third more wear than we take. The goal lies above the \numrange{1700}{2700} hours a sail keeps its shape \citep{flynn2015} and the life at either retirement strength. A fixed wear life of \num{2000} hours, about the shape life of a sail, gives \num{1800}. With every input at its bound together the life is \num{700} and \num{18000} hours, but no data say how the inputs vary together.
 
 \subsection{Cloth tension data}
 \label{app:cloth_tension}
 
-The \SI{3200}{m^2} kite in \SI{12}{m/s} of apparent wind, \SI{90}{\degree} off downwind, flies a cycle of \SI{82}{s}, with a tether force of 1.12 to \SI{1.60}{MN}, at the force limit for 68\,\% of the cycle, and the cloth carries \SI{237}{N/m} on average. The radius of \SI{0.41}{m} takes the SkySails kite of \SI{125}{m^2} projected, with 38 cells over \SI{15.2}{m} of projected span and a largest chord of \SI{9.26}{m} \citep{folkersma2020}, and a section 15\,\% thick, our assumption.
+\stale{canopy_tension}{The \SI{3200}{m^2} kite in \SI{12}{m/s} of apparent wind, \SI{90}{\degree} off downwind, flies a cycle of \SI{82}{s}, with a tether force of 1.12 to \SI{1.60}{MN}, at the force limit for 68\,\% of the cycle, and the cloth carries \SI{237}{N/m} on average. The radius of \SI{0.41}{m} takes the SkySails kite of \SI{125}{m^2} projected, with 38 cells over \SI{15.2}{m} of projected span and a largest chord of \SI{9.26}{m} \citep{folkersma2020}, and a section 15\,\% thick, our assumption.}
 
 \subsection{VTOL kite data}
 \label{app:vtol_data}
@@ -195,7 +155,7 @@ The performance table holds the fuel power over speed through the water, true wi
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{Every price paid, quoted or estimated for a rig that we have read in full: its kind and year, the units of its kind built by then \citep[Table 2]{emsa2023}, for the rotors of 2025 at least those of Norsepower and Anemoi \citep{portnews2025norsepower,lloydslist2025anemoi}, or, for the kite, the ships named with one \citep{konstruktionspraxis_skysails,cedelft2016} and the kites sold \citep{tonline2012}, the unit, its price in thousands of today's USD by the euro area consumer price index \citep{eurostat2026hicp}, our build-up price of the same unit, for a kite of its hardware without the canopy, the price over the build-up, for a kite less its canopy at the price of \cref{eq:canopy_price}, as paid and moved to the production stage at a learning rate of 12\,\%, and the source of the price. Below, each rig's price at the stage over its build-up by \cref{eq:stage_price}, with its range over learning rates of 19 and 5\,\%.}
+\caption{Every price paid, quoted or estimated for a rig that we have read in full: its kind and year, the units of its kind built by then \citep[Table 2]{emsa2023}, for the rotors of 2025 at least those of Norsepower and Anemoi \citep{portnews2025norsepower,lloydslist2025anemoi}, or, for the kite, the ships named with one \citep{konstruktionspraxis_skysails,cedelft2016} and the kites sold \citep{tonline2012}, the unit, its price in thousands of today's USD by the euro area consumer price index \citep{eurostat2026hicp}, our build-up price of the same unit, for a kite of its hardware without the canopy, the price over the build-up, for a kite less its canopy at the price of \cref{eq:canopy_price} at the projected aspect ratio of 1.86 of a SkySails kite \citep{folkersma2020}, as paid and moved to the production stage at a learning rate of 12\,\%, and the source of the price. Below, each rig's price at the stage over its build-up by \cref{eq:stage_price}, with its range over learning rates of 19 and 5\,\%.}
 \label{tab:rig_prices}
 \InputIfFileExists{sections/rig_prices_table}{}{\tbd{Rig prices table pending: run the rig\_prices\_table step.}}
 \end{table*}

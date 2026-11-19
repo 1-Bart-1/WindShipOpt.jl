@@ -358,16 +358,17 @@ function rig_price_parts(rig::KiteRig{RigidAirframe}, assumptions)
 end
 
 """
-    canopy_price(assumptions)
+    canopy_price(assumptions, area, aspect_ratio)
 
-Price of a canopy per m^2 of projected area [USD/m^2]: its [`canopy_cost`](@ref) times the
-market price factor.
+Price of the canopy of a kite of projected `area` [m^2] and projected `aspect_ratio` per m^2
+of projected area [USD/m^2]: its [`canopy_cost`](@ref) times the market price factor.
 """
-canopy_price(assumptions) = assumptions[:market_price_factor] *
-                            Canopy(assumptions).cost_per_area
+canopy_price(assumptions, area, aspect_ratio) = assumptions[:market_price_factor] *
+    Canopy(assumptions, area, aspect_ratio).cost_per_area
 
 "inputs that together make the canopy's cost"
-canopy_price_inputs = (:canopy_structure_cost, :canopy_cloth_price_per_weight)
+canopy_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost, :canopy_cloth_base_price,
+    :canopy_cloth_price_per_weight)
 
 """
     consumable_costs(rig, assumptions)
@@ -377,7 +378,8 @@ tether at its purchase price.
 """
 function consumable_costs(rig::KiteRig, assumptions)
     tether_mass = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
-    return canopy_price(assumptions) * rig.area, assumptions[:tether_price] * tether_mass
+    canopy = canopy_price(assumptions, rig.area, rig.aspect_ratio) * rig.area
+    return canopy, assumptions[:tether_price] * tether_mass
 end
 
 """
@@ -421,13 +423,13 @@ wear_cost(rig::CombinedRig, assumptions) = wear_cost(rig.kite, assumptions)
 
 function wear_cost(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
-    return canopy / Canopy(assumptions).lifetime + tether / assumptions[:tether_lifetime]
+    return canopy / assumptions[:canopy_life] + tether / assumptions[:tether_lifetime]
 end
 
 """
     with_kite_aspect_ratio(assumptions, aspect_ratio)
 
-`assumptions` with the kite at projected `aspect_ratio` and the tether, the only priced part
+`assumptions` with the kite at projected `aspect_ratio` and the tether, the priced part
 that follows span, cheaper per kg so that it pays what a kite of the aspect ratio of
 `assumptions` pays.
 """
@@ -441,9 +443,9 @@ end
     cycle_cost(rig, assumptions)
 
 Cost of one launch and landing of a kite [USD]: per launch attempt the crew time, the
-expected canopy torn beyond repair and the expected loss at sea of canopy, tether and
-control unit, plus any turn for the launch and the [`tether_bending_cost`](@ref); zero for
-other rigs.
+canopy life its flogging uses up, the expected canopy torn beyond repair and the expected
+loss at sea of canopy, tether and control unit, plus any turn for the launch and the
+[`tether_bending_cost`](@ref); zero for other rigs.
 """
 cycle_cost(rig, assumptions) = 0.0
 cycle_cost(rig::CombinedRig, assumptions) = cycle_cost(rig.kite, assumptions)
@@ -451,7 +453,8 @@ cycle_cost(rig::CombinedRig, assumptions) = cycle_cost(rig.kite, assumptions)
 function cycle_cost(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
     attempt = assumptions[:kite_cycle_crew_cost] +
-              assumptions[:kite_cycle_damage_probability] * canopy +
+              (assumptions[:kite_cycle_canopy_hours] / assumptions[:canopy_life] +
+               assumptions[:kite_cycle_damage_probability]) * canopy +
               assumptions[:kite_cycle_loss_probability] * lost_kite_cost(rig, assumptions)
     return (1 + assumptions[:kite_launch_retry_probability]) * attempt +
            assumptions[:kite_cycle_course_cost] + tether_bending_cost(tether, assumptions)
