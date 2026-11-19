@@ -454,13 +454,49 @@ market_price_factor:
   low: 1.6
   high: 2.5
   unit: "-"
-  reason: "Market price over manufacturing cost for wings, rotors and kites alike: full production cost of 1.37 times materials and direct labour, our ratio for the two glass-fibre blades of the NREL blade cost model, 1.36 and 1.38 [@bortolotti2019blade, Tables 23 and 26], over one minus a gross margin of 30 %. The bounds take margins of 13 %, the authors' estimate for a large maker, and 45 %, that of European machinery [@damodaran2026margins]."
+  reason: "Price over manufacturing cost at which a maker covers its overhead and margin, for wings, rotors and kites alike: full production cost of 1.37 times materials and direct labour, our ratio for the two glass-fibre blades of the NREL blade cost model, 1.36 and 1.38 [@bortolotti2019blade, Tables 23 and 26], over one minus a gross margin of 30 %. The bounds take margins of 13 %, the authors' estimate for a large maker, and 45 %, that of European machinery [@damodaran2026margins]."
+learning_rate:
+  value: 0.12
+  low: 0.05
+  high: 0.19
+  unit: "-"
+  reason: "Fall of a rig's price per doubling of the units of its kind built, the same for every rig: 12 %, the mean both of 12 studies of onshore and of 2 of offshore wind farms, the machines nearest to a rig, and the offshore range, since the onshore one runs from a rise of 11 % to a fall of 32 % [@rubin2015, Table 1]."
+stage_ships:
+  value: 1000.0
+  low: 1000.0
+  high: 1000.0
+  unit: ships
+  reason: "Ships fitted with a rig of a kind at the production stage every rig is priced at, the same for all three."
+kites_per_ship:
+  value: 1.0
+  low: 1.0
+  high: 1.0
+  unit: "-"
+  reason: "Kites a ship carries [@emsa2023, p. 45]."
+rotors_per_ship:
+  value: 3.0
+  low: 3.0
+  high: 3.0
+  unit: "-"
+  reason: "Rotors a ship carries, as wind propulsion units on a bulk carrier or tanker [@emsa2023, Table 5]."
+wings_per_ship:
+  value: 3.0
+  low: 3.0
+  high: 3.0
+  unit: "-"
+  reason: "Wing sails a ship carries, as wind propulsion units on a bulk carrier or tanker [@emsa2023, Table 5]."
+hicp_today:
+  value: 128.75
+  low: 128.75
+  high: 128.75
+  unit: "-"
+  reason: "Euro area consumer price index of 2025, 2015 = 100, that brings a rig price to today's money [@eurostat2026hicp]."
 rotor_unit_cost:
   value: 74000.0
   low: 36000.0
   high: 165000.0
   unit: USD
-  reason: "Manufacturing cost of one rotor's fixed parts: least-squares line through the authors' bottom-up costs of the Norsepower rotor sizes and masses [@norsepower2025, p. 3], composite at the material prices of the NREL blade cost model [@bortolotti2019blade, Tables 1-2] and steel at the authors' cost; times the market price factor it reproduces Norsepower's 2019 prices [@tillig2020b] to within -13 % to +6 %."
+  reason: "Manufacturing cost of one rotor's fixed parts: least-squares line through the authors' bottom-up costs of the Norsepower rotor sizes and masses [@norsepower2025, p. 3], composite at the material prices of the NREL blade cost model [@bortolotti2019blade, Tables 1-2] and steel at the authors' cost."
 rotor_cost_per_area:
   value: 2040.0
   low: 1260.0
@@ -901,42 +937,24 @@ canopy_mass_overhead:
   high: 0.19
   unit: kg/m^2
   reason: "Canopy mass per m^2 of projected area besides its cloth, at a force limit of 0.5 kN/m^2 and in proportion to the force limit, as they carry the load at the bridle attachments: seams, tapes, reinforcements and line attachments. Paragliders of 0.12-0.24 kg/m^2 projected [@ozone_ultralite3; @ozone_ultralite4; @nova_mentor6] carry 0-20 g/m^2 per flat m^2 besides their cloth, the authors' fit taking their stated weights to include lines and risers; the high bound is what a 120 kg SkySails kite with lines, 225 m^2 flat, 176 m^2 projected, leaves beyond about 66 kg of cloth and 18 kg of lines, both the authors' estimates [@paulig2013], which load patches for the ~1 t point loads of a ship kite [@thedens2015_awesco_slides] could account for in part."
-canopy_cloth_base_price:
-  value: 6.0
-  low: 2.0
-  high: 17.0
-  unit: USD/m^2
-  reason: "Goal for the price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: the retail line through polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT on 1 November 2026, 11 USD/m^2 plus 0.031 USD/m^2 per g/m^2 [@extremtextil_prices_2026; @sailrite_dacron_prices_2026; @jonesairfoils_icarex], scaled to USD 9.4 at 200 g/m^2, what a maker buying by the roll and from the mill can reach."
+canopy_structure_cost:
+  value: 53.0
+  low: 53.0
+  high: 80.0
+  unit: EUR/m^2
+  reason: "Cost of a soft kite's structure per m^2 of flat area: fabric with its reinforcements, 45, and bridle lines, 8, for systems of 100 kW-2 MW in a series of 50 or more, without overhead or margin, from a survey of ten makers, suppliers and universities in 2023 [@joshi2024refeconomic, pp.2 and 7]; 25/18 flat m^2 per projected m^2 as there. The survey gives no spread, no money year and no cloth weight, and does not say whether sewing is in the 45. The high bound, the authors' estimate, adds half again for sewing in case it is not; a developers' own account of cost is not taken lower."
+canopy_structure_cloth_weight:
+  value: 100.0
+  low: 50.0
+  high: 200.0
+  unit: g/m^2
+  reason: "Cloth weight canopy_structure_cost is taken to be for, which the survey does not state: the authors' assumption of the slightly above 100 g/m^2 of the SkySails ship kite [@paulig2013], built for about the force per area of the surveyed kites. Bounds: kite and paraglider cloth of 27-55 g/m^2 [@porcher2006skytex_tds] and the canopy's own cloth."
 canopy_cloth_price_per_weight:
-  value: 0.017
+  value: 0.031
   low: 0.006
   high: 0.05
   unit: USD/g
-  reason: "Rise of the goal price of a sewn m^2 of cloth per g/m^2 of cloth weight: the slope of the retail line, 0.031, scaled as the cloth base price; within Dacron sailcloth the price grows with weight to the power 0.6-1.0."
-canopy_making_cost_per_area:
-  value: 42.0
-  low: 16.0
-  high: 179.0
-  unit: USD/m^2
-  reason: "Goal for the manufacturing cost per m^2 of projected area of a ram-air canopy besides its cloth: per flat m^2 1.0 h of sewing at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2. Today 1.5-2.25 h per flat m^2, 50 h of manufacturing per paraglider [@skycz2017] over 22-33 m^2; the US G-12 cargo parachute implies 0.6-1.0 h at series volume if materials take 57 % of sales as in 2000, up to 1.75 h at the 25-50 % of other years [@bis2004]."
-canopy_making_cost_per_area_today:
-  value: 57.0
-  low: 57.0
-  high: 80.0
-  unit: USD/m^2
-  reason: "Manufacturing cost per m^2 of projected area of today's canopy besides its cloth: per flat m^2 1.5 h of sewing, the low end of the 1.5-2.25 h that 50 h per paraglider of 22-33 m^2 give [@skycz2017], at 26 USD/h, 7 USD of bridle lines and 3 USD of reinforcements, tapes and hardware, 1.17 flat m^2 per projected m^2; with 36 g/m^2 cloth and the retail cloth line it matches sport kite retail prices."
-canopy_cloth_base_price_today:
-  value: 11.4
-  low: 8.6
-  high: 14.2
-  unit: USD/m^2
-  reason: "Retail price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: the least-squares line through 12 retail prices of polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT on 1 November 2026 [@extremtextil_prices_2026; @sailrite_dacron_prices_2026; @jonesairfoils_icarex]. The bounds are the 2.8 USD/m^2 scatter of those prices about the line."
-canopy_cloth_price_per_weight_today:
-  value: 0.031
-  low: 0.031
-  high: 0.031
-  unit: USD/g
-  reason: "Rise of the retail price of a sewn m^2 of cloth per g/m^2 of cloth weight, from the same line."
+  reason: "Rise of the price of a sewn m^2 of cloth per g/m^2 of cloth weight, with 15 % offcuts: slope of the least-squares line through the retail prices of polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT on 1 November 2026 [@extremtextil_prices_2026; @sailrite_dacron_prices_2026; @jonesairfoils_icarex]; within Dacron sailcloth the price grows with weight to the power 0.6-1.0."
 control_unit_mass_per_force:
   value: 0.22
   low: 0.15
@@ -1244,7 +1262,7 @@ discount_rate:
   low: 0.06
   high: 0.12
   unit: "-"
-  reason: "The cost of capital of US Shipbuilding & Marine firms was 6.7 % in January 2026 [@damodaran2026wacc]; a small private owner pays more, a startup up to 12 %."
+  reason: "The cost of capital of European Shipbuilding & Marine firms was 7.2 % in US dollars and 6.1 % in euros in January 2026, over 65 firms [@damodaran2026wacc_europe]; a small private owner pays more, a startup up to 12 %."
 hull_lifetime:
   value: 25.0
   low: 20.0
@@ -1307,16 +1325,16 @@ rig_maintenance_fraction:
   reason: "Maintenance and repair of wings, rotors and kite hardware over their price: 2 % a year for every rig but kites, and 5 % for kites with their wear [@emsa2023, p.45 and Table 7], the high bound, as the canopy and tether are charged by wear here; Norsepower's figure for rotors is also 2 % [@tillig2020b, p.15]. The low bound is an estimate."
 depth_draft_ratio:
   value: 1.32
-  low: 1.27
-  high: 1.40
+  low: 1.26
+  high: 1.37
   unit: "-"
   reason: "Moulded depth over draft: our ratios for the CF3850 [@damen2025cf3850], Ferus 4300 [@wagenborg2024ferus4300] and CIP3800 [@conoship2023cip3800] are 1.28, 1.26 and 1.37."
 loading_port_dues:
-  value: 0.381
-  low: 0.25
-  high: 0.381
+  value: 1.18
+  low: 0.38
+  high: 1.31
   unit: EUR/GT
-  reason: "Authors' estimate; the 2026 tariff charges bulk and unscheduled general cargo ships EUR 0.314/GT plus a sustainability part of EUR 0.067/GT before the ESI discount [@portofrotterdam2026tariffs, Tables 1 and 3], leaving out its per-tonne cargo part."
+  reason: "Port dues of a loading call at Rotterdam for a loaded bulk carrier, tanker or unscheduled general cargo ship: EUR 0.314/GT, plus EUR 0.596 per tonne of cargo capped at 133.3 % of the gross tonnage, plus a sustainability part of EUR 0.067/GT before the ESI discount, 1.18 in all [@portofrotterdam2026tariffs, Annex 1, Tables 1-3 and section 1.4(A)]. The low bound stands in for a call that pays less, taking what container ships pay, 0.38 in the tariff's own examples [@portofrotterdam2026tariffs, Annex 2, Examples 2-3]; the high bound adds the waste fee of a coaster of 2,500 GT, EUR 220 plus 0.05/GT [@portofrotterdam2026tariffs, Annex 1, section 3.1]."
 discharge_port_dues:
   value: 0.1524
   low: 0.1524
@@ -1482,7 +1500,7 @@ cargo_per_ceu:
   low: 1.15
   high: 1.6
   unit: t
-  reason: "Cargo per CEU of car-deck space: a PCTC hull of 8,600 CEU is optimised for 8,000-15,000 t of payload [@keh_8600ceu_df_pctc], 1.3 t at its design deadweight; new EU cars weigh 1.56 t in running order [@icct2025_eea_brief, EEA data] and take about 1.33 CEU, 1.17 t/CEU; the 6,500 CEU Future Way's 12,600 t deadweight at design draught [@keh_future_way] gives 1.9 t/CEU, ~1.6 without its fuel and water, the authors' estimate."
+  reason: "Cargo per CEU of car-deck space: a PCTC hull of 8,600 CEU is optimised for 8,000-15,000 t of payload [@keh_8600ceu_df_pctc], 1.3 t at its design deadweight; new EU cars weigh 1.56 t in running order [@icct2025_eea_brief, EEA data] and take about 1.33 CEU, 1.17 t/CEU; the 6,500 CEU Future Way's 12,600 t deadweight at design draught [@keh_future_way] gives 1.94 t/CEU; less the ~2,100 t its full LNG, gas oil and fresh water tanks of 2,300, 1,000 and 230 m^3 hold, our estimate, it gives ~1.6."
 ceu_volume:
   value: 24.0
   low: 17.0
