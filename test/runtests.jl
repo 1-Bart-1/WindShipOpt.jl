@@ -690,7 +690,7 @@ end
                    WindShipOpt.rig_price_parts(rig, assumptions).control_unit
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
           1.05 * (85 + (3.3 / 3000 + 0.00005) * canopy +
-                  0.00005 * (canopy + tether + control_unit)) + 130 + 4 / 400_000 * tether
+                  0.00005 * (canopy + tether + control_unit)) + 130 + 8 / 1_000_000 * tether
     @test WindShipOpt.forced_landing_cost(rig, assumptions) ≈
           0.05 * (canopy + tether + control_unit)
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
@@ -4099,6 +4099,12 @@ end
     @test PaperData.whole_points(2.6) == "3 points"
     @test PaperData.one_decimal(-0.04) == "0.0"
     @test PaperData.one_decimal(3.46) == "3.5"
+end
+
+@testset "a source note sets a whole power as a superscript, decimals included" begin
+    @test PaperData.latex_escape("211 f^-2.25 at 3 %") ==
+          "211 f\\textsuperscript{-2.25} at 3 \\%"
+    @test PaperData.latex_escape("per m^2. Then") == "per m\\textsuperscript{2}. Then"
 end
 
 @testset "an input prints under its name in words, the rigid kite named only as a prefix" begin
