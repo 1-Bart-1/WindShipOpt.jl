@@ -38,11 +38,6 @@ commit = "e3462e72057e789f22434058cae7ee090604e4b3"
 fidelity = "draft"
 run = "2026-11-14T1809"
 
-[launch]
-commit = "1f29f42ef00580aee18e1d329d2bd26b11a6b69d"
-fidelity = "draft"
-run = "2026-11-08T2358"
-
 [model_parts]
 commit = "772a5eeaa45adc58012234c8d29921203e2bea95"
 fidelity = "draft"
