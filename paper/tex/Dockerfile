@@ -3,7 +3,12 @@
 # The TeX Live the paper, the extended abstract and the kite design paper build in:
 # the medium scheme plus the packages they load that it lacks.
 FROM texlive/texlive:latest-medium
-# tlmgr can exit 0 having installed nothing, so the build checks each package landed.
-RUN packages="elsarticle cleveref fontaxes newtx placeins titlesec xurl" \
-    && tlmgr install $packages \
-    && ! tlmgr info --data installed $packages | grep -qx 0
+# A stale mirror makes tlmgr skip a package yet exit 0, so the build checks the local
+# database for each one and retries: every tlmgr run picks its mirror afresh.
+RUN packages="elsarticle cleveref fontaxes newtx placeins titlesec xurl"; \
+    for attempt in 1 2 3; do \
+        tlmgr install $packages; \
+        tlmgr info --only-installed --data installed $packages >/dev/null && exit 0; \
+        echo "tlmgr attempt $attempt left a package uninstalled, named above" >&2; \
+    done; \
+    exit 1
