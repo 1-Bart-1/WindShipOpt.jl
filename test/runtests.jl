@@ -4040,45 +4040,16 @@ end
 end
 
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
-    model, force, diameter, airframe = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
-    @test diameter ≈ 0.0294 rtol=0.01
-    @test airframe.tether_mass ≈ 275 rtol=0.05
+    model, force, _, airframe = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
     @test force ≈ 300e3 rtol=0.01
-    makani_hover = with_value(with_value(assumptions, :rigid_hover_air_density, 0.95),
-        :rigid_hover_efficiency, 0.71)
-    @test WindShipOpt.hover_power(2180.0, 54.0, makani_hover) ≈ 900e3 rtol=0.05
-    makani_rotors = foldl((inputs, (name, value)) -> with_value(inputs, name, value),
-        ((:rigid_hover_efficiency, 0.71 * 0.88), (:rigid_rotor_mass_per_area, 1.96),
-            (:rigid_rotor_area_ratio, 8 * 4.38 / 54)); init=makani_hover)
-    mass, _ = WindShipOpt.rigid_kite_mass(54.0, force, 275.0, makani_rotors)
-    @test mass ≈ 1852 rtol=0.03
-    heavy = foldl((inputs, (name, value)) -> with_value(inputs, name, value),
-        ((:rigid_shell_mass, assumptions.entries[:rigid_shell_mass].high),
-            (:rigid_load_mass, assumptions.entries[:rigid_load_mass].high),
-            (:rigid_drive_mass_exponent, 1.0)); init=assumptions)
-    @test WindShipOpt.rigid_kite_mass(500.0, 500force / 54, 0.0, heavy)[1] > 0
-    @test_throws ErrorException WindShipOpt.rigid_kite_mass(20_000.0, 20_000force / 54,
-        0.0, heavy)
-    tether_drag = assumptions[:rigid_tether_drag_coefficient] * diameter *
-                  model.tether_length / (4 * 54.0)
-    @test tether_drag ≈ 0.152 - 0.123 rtol=0.05
-    polar = WindShipOpt.rigid_polar(assumptions)
-    lift = 1.81
-    angle = lift / (polar.lift[2] / polar.angle_of_attack[2])
-    @test WindShipOpt.polar_value(polar, polar.drag, angle) ≈ 0.123 rtol=0.02
-end
-
-@testset "a rigid wing's structure grows with the force it holds, the span and the area" begin
-    structure(area, force, inputs=assumptions) =
-        WindShipOpt.rigid_structure_mass(area, force, inputs)
-    aspect_ratio = assumptions[:rigid_aspect_ratio]
-    @test structure(54.0, 300e3) ≈ 1372 rtol=0.01
-    @test structure(54.0, 600e3) - structure(54.0, 300e3) ≈
-          assumptions[:rigid_load_mass] * 300 * sqrt(54 * aspect_ratio) * aspect_ratio
-    @test 4structure(54.0, 300e3) < structure(216.0, 1200e3) < 8structure(54.0, 300e3)
-    @test structure(54.0, 0.0) ≈ 54assumptions[:rigid_shell_mass]
-    megawes = with_value(assumptions, :rigid_aspect_ratio, 12.1)
-    @test structure(150.3, 617e3 / 0.37, megawes) ≈ 6885 rtol=0.1
+    @test airframe.mass ≈ 1852 rtol=0.01
+    @test model.tether_length ≈ 300 rtol=0.01
+    @test model.min_turn_radius ≈ 90 rtol=0.01
+    @test airframe.hover_power ≈ 0.87e6 rtol=0.02
+    polar = model.polar
+    angle = 1.81 / (polar.lift[2] / polar.angle_of_attack[2])
+    feathered = 0.0036 * 0.61
+    @test WindShipOpt.polar_value(polar, polar.drag, angle) ≈ 0.152 + feathered rtol=0.02
 end
 
 """
@@ -4137,21 +4108,15 @@ function rigid_fleet(count, assumptions)
         attach_position=0.0, wind_speeds, courses, side_weights, forces, airframe)
 end
 
-@testset "a rigid kite's structure is priced by its own mass, its rotors by their rating" begin
+@testset "a rigid kite's airframe is priced by mass, its supply by hover power" begin
     one = rigid_fleet(1, assumptions)
     (; mass, hover_power) = one.airframe
-    structure = WindShipOpt.rigid_structure_mass(54.0, one.max_force, assumptions)
-    @test structure < mass
-    @test hover_power ≈ WindShipOpt.hover_power(mass + one.airframe.tether_mass, 54.0,
-        assumptions) rtol=1e-5
-    price(inputs) = WindShipOpt.rigid_airframe_price(one, inputs)
-    heavier = with_value(assumptions, :rigid_structure_cost_per_mass,
-        assumptions[:rigid_structure_cost_per_mass] + 1.0)
-    dearer = with_value(assumptions, :rigid_drive_cost, assumptions[:rigid_drive_cost] + 1.0)
     factor = assumptions[:market_price_factor]
-    @test price(heavier) - price(assumptions) ≈ factor * structure
-    @test price(dearer) - price(assumptions) ≈
-          factor * hover_power / assumptions[:rigid_rotor_fill]
+    raised(name) = with_value(assumptions, name, assumptions[name] + 1.0)
+    price(inputs) = first(WindShipOpt.rig_costs(one, inputs))
+    @test price(raised(:rigid_cost_per_mass)) - price(assumptions) ≈ factor * mass
+    @test price(raised(:rigid_ship_power_cost)) - price(assumptions) ≈
+          factor * (1 + assumptions[:kite_integration_fraction]) * hover_power
 end
 
 @testset "rigid kites stand one span apart within the deck" begin
@@ -4183,7 +4148,6 @@ end
     @test 3lone * (1 - induction)^2 ≈ 4induction * (1 - induction)
     @test pull(three) ≈ 3interaction * pull(one)
     @test WindShipOpt.deck_units(three) == 3
-    @test WindShipOpt.deck_footprint(one, assumptions) == assumptions[:rigid_perch_width]
     @test all(WindShipOpt.rig_costs(three, assumptions) .≈
               3 .* WindShipOpt.rig_costs(one, assumptions))
     @test WindShipOpt.wear_cost(three, assumptions) ≈
@@ -4193,16 +4157,12 @@ end
 end
 
 @testset "each launch wears the tether by its bends over drum and sheaves" begin
-    soft = uniform_kite(Hull(140.0, assumptions), assumptions)
-    rigid = rigid_fleet(2, assumptions)
+    kite = uniform_kite(Hull(140.0, assumptions), assumptions)
     halved = with_value(assumptions, :tether_bend_life, assumptions[:tether_bend_life] / 2)
-    for rig in (soft, rigid)
-        _, tether = WindShipOpt.consumable_costs(rig, assumptions)
-        added = WindShipOpt.cycle_cost(rig, halved) -
-                WindShipOpt.cycle_cost(rig, assumptions)
-        @test added ≈
-              tether * assumptions[:tether_bends_per_launch] / assumptions[:tether_bend_life]
-    end
+    _, tether = WindShipOpt.consumable_costs(kite, assumptions)
+    added = WindShipOpt.cycle_cost(kite, halved) - WindShipOpt.cycle_cost(kite, assumptions)
+    @test added ≈
+          tether * assumptions[:tether_bends_per_launch] / assumptions[:tether_bend_life]
 end
 
 @testset "a rigid kite hovers within its own limits and stays up beyond them" begin
@@ -4217,12 +4177,10 @@ end
     @test isfinite(waves)
     @test WindShipOpt.tightened_limits(fleet, 0.2).launch_max_wave_height == 0.8 * waves
     @test fleet.launch_min_wind == fleet.min_flight_wind
-    @test WindShipOpt.handling_hours(fleet, assumptions) ≈
-          assumptions[:rigid_hover_minutes] / 60
-    airframes = WindShipOpt.rigid_airframe_price(fleet, assumptions)
-    _, tethers = WindShipOpt.consumable_costs(fleet, assumptions)
+    @test WindShipOpt.handling_hours(fleet, assumptions) == 0
     @test WindShipOpt.forced_landing_cost(fleet, assumptions) ≈
-          assumptions[:kite_forced_landing_loss_probability] * (airframes + tethers)
+          assumptions[:kite_forced_landing_loss_probability] *
+          WindShipOpt.rigid_airframe_price(fleet, assumptions)
 end
 
 @testset "a rigid wing flies no lower than its loops or a level sweep allow" begin
@@ -4296,13 +4254,12 @@ end
     fleet = rigid_fleet(2, assumptions)
     capital = first(WindShipOpt.rig_costs(fleet, assumptions))
     airframes = WindShipOpt.rigid_airframe_price(fleet, assumptions)
-    _, tethers = WindShipOpt.consumable_costs(fleet, assumptions)
     @test WindShipOpt.rig_maintenance(fleet, capital, raised(:rig_maintenance_fraction)) -
           WindShipOpt.rig_maintenance(fleet, capital, assumptions) ≈
-          0.01 * (capital - airframes - tethers)
+          0.01 * (capital - airframes)
     rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions)
     @test WindShipOpt.upkept_price(WindShipOpt.CombinedRig(fleet, rotors), assumptions) ≈
-          airframes + tethers
+          airframes
 end
 
 @testset "sizes swept stay within what fits and bracket the given size" begin
@@ -4321,11 +4278,10 @@ end
         Dict("kite" => 2.1))
 end
 
-@testset "one rigid kite crashing costs one airframe and half of one tether" begin
+@testset "one rigid kite crashing costs one airframe" begin
     fleet = rigid_fleet(3, assumptions)
-    airframes = WindShipOpt.rigid_airframe_price(fleet, assumptions)
-    _, tethers = WindShipOpt.consumable_costs(fleet, assumptions)
-    @test WindShipOpt.crash_cost(fleet, assumptions) ≈ (airframes + tethers / 2) / 3
+    @test WindShipOpt.crash_cost(fleet, assumptions) ≈
+          WindShipOpt.rigid_airframe_price(fleet, assumptions) / 3
 end
 
 @testset "each rig is measured against the best other, the leader against the second" begin
@@ -4414,10 +4370,9 @@ end
 
 @testset "an input prints under its name in words, the rigid kite named only as a prefix" begin
     @test PaperData.input_label(:e_ammonia_price) == "e-ammonia price"
-    @test PaperData.input_label(:rigid_rotor_fill) == "rigid kite propeller fill"
+    @test PaperData.input_label(:rigid_station_cost) == "rigid kite station cost"
     @test PaperData.input_label(:rotor_max_wind) == "rotor max wind"
     @test PaperData.input_label(:cargo_per_teu) == "cargo per TEU"
-    @test PaperData.input_label(:rigid_hover_minutes) == "rigid kite hover minutes"
     @test PaperData.input_label(:mast_rigid_share) == "mast rigid share"
 end
 

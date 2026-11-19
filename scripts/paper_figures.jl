@@ -63,9 +63,8 @@ name_pairs(names) = [(first_name, second_name) for (i, first_name) in enumerate(
 
 Pairs of colours meant to be told apart, the rigs, the categories beside them, gain and
 loss, the ship's tones beside the rigs, the forces of water, wind and rigs, the box fills
-of [`figure_style`](@ref), the VTOL kite at base and favourable inputs and three of its
-[`vtol_shades`](@ref), that come closer than `least["colour"]` in normal or in some
-colour-blind vision.
+of [`figure_style`](@ref) and the VTOL kite at base and favourable inputs, that come closer
+than `least["colour"]` in normal or in some colour-blind vision.
 """
 function palette_faults()
     colours = Makie.Colors
@@ -75,7 +74,7 @@ function palette_faults()
         ("fill", style_colour.(collect(keys(figure_style["fills"])); table="fills")),
         ("ship", style_colour.(["keel", "topsides", "deck", "kite", "wings", "rotors"])),
         ("force", style_colour.(["water", "wind", "kite", "wings", "rotors"])),
-        ("VTOL", [style_colour("vtol"), vtol_favourable]), ("VTOL shade", vtol_shades(3)))
+        ("VTOL", [style_colour("vtol"), vtol_favourable]))
     faults = String[]
     for (group, members) in groups, i in eachindex(members), j in (i + 1):length(members)
         colour, other = colours.RGB(members[i]), colours.RGB(members[j])
@@ -348,9 +347,6 @@ function faint_text(line)
     end
     return faint
 end
-
-"`n` shades of the VTOL kite's pink, light to dark"
-vtol_shades(n) = cgrad(:RdPu)[range(0.4, 0.95; length=n)]
 
 "colour of the VTOL kite with every input at the bound that favours it"
 vtol_favourable = cgrad(:RdPu)[0.6]
@@ -3198,87 +3194,9 @@ end
 "`name`, a kind of kite or scenario in the rigid kite data, as the paper names it"
 paper_name(name) = replace(name, "rigid" => "VTOL")
 
-"line style of the VTOL kite of each input scenario in the figures"
-function rigid_style(kind)
-    kind == "rigid favourable" && return (; color=vtol_favourable, linestyle=:solid)
-    linestyles = Dict("rigid base" => :solid, "rigid light" => :dash, "rigid heavy" => :dot,
-        "rigid cubed" => :dashdot)
-    return (; color=palette[4], linestyle=linestyles[kind])
-end
-
-"legend label of the VTOL kite of each input scenario"
-rigid_label(kind) = kind == "rigid base" ? "VTOL kite" :
-                    kind == "rigid favourable" ? "VTOL kite, favourable inputs" :
-                    kind == "rigid cubed" ? "VTOL kite, structure with span cubed" :
-                    "VTOL kite, $(replace(kind, "rigid " => "")) structure"
-
-"""
-    rigid_scaling_figure()
-
-Beam thrust of VTOL kites and a soft kite over apparent wind, and price per unit of thrust
-at 12 m/s and the VTOL kites' lowest wind over area, at base inputs, with the structure's
-mass at its bounds and at favourable inputs. Prints the scaling table.
-"""
-function rigid_scaling_figure()
-    table = read_table(data_file("rigid_scaling.csv"))
-    figure = Figure(size=(page_width, 245))
-    thrust_axis = Axis(figure[1, 1]; title="(a) one kite on a beam course",
-        xlabel="apparent wind [m/s]", ylabel="thrust [kN]")
-    price_axis = Axis(figure[1, 2]; title="(b) price at 12 m/s",
-        doubling_axis(:x, 30, 3200; base=25)..., xlabel=square_metres("kite area [", "]"),
-        ylabel="kUSD/kN")
-    wind_axis = Axis(figure[1, 3]; title="(c) lowest wind",
-        doubling_axis(:x, 25, 600; base=25)..., xlabel=square_metres("kite area [", "]"),
-        ylabel="apparent wind [m/s]")
-    curves = (("rigid base", 54.0), ("rigid base", 100.0), ("rigid base", 300.0),
-        ("soft", 1000.0))
-    highest = 0.0
-    for (k, (kind, area)) in enumerate(curves)
-        chosen = rows(table, "kind" => kind, "area" => area)
-        highest = max(highest, 1e-3maximum(table["thrust"][chosen]))
-        lines!(thrust_axis, table["wind"][chosen], 1e-3 .* table["thrust"][chosen];
-            color=kind == "soft" ? palette[1] : vtol_shades(length(curves) - 1)[k],
-            label=square_metres("$(paper_name(kind == "soft" ? kind : "rigid")) " *
-                                "$(round(Int, area)) "))
-    end
-    for kind in ("rigid " .* rigid_scaling_scenarios..., "soft")
-        at_wind = flying_rows(table, kind)
-        areas, thrusts = table["area"][at_wind], table["thrust"][at_wind]
-        style = kind == "soft" ? (; color=palette[1], linestyle=:solid) : rigid_style(kind)
-        label = kind == "soft" ? "soft kite" : rigid_label(kind)
-        if kind in ("rigid base", "soft")
-            low, high = ([first(scaling_costs(scaling_rig(kind, area, inputs), inputs,
-                              bound)) for (area, inputs) in
-                          zip(areas, scaling_inputs.(kind, areas))]
-                         for bound in (:low, :high))
-            band!(price_axis, areas, low ./ thrusts, high ./ thrusts;
-                color=(style.color, 0.15))
-            prices = table["price"][at_wind]
-            @printf("  %s: price %.0f%% to %.0f%% of base\n", paper_name(kind),
-                minimum(100low ./ prices), maximum(100high ./ prices))
-        end
-        lines!(price_axis, areas, table["price"][at_wind] ./ thrusts; label, style...)
-        kind == "soft" || lines!(wind_axis, areas, table["lowest_wind"][at_wind]; style...)
-        kind == "soft" && continue
-        @printf("  %s:\n", paper_name(kind))
-        for (area, row) in zip(areas, at_wind)
-            @printf("  %3.0f m2: span %.0f m, mass %.1f t, stall %.0f m/s, hover %.1f MW, ",
-                area, table["span"][row], 1e-3table["mass"][row], table["stall"][row],
-                1e-6table["hover_power"][row])
-            @printf("flies from %.0f m/s, %.0f kN at 12 m/s, %.2f MUSD\n",
-                table["lowest_wind"][row], 1e-3table["thrust"][row],
-                1e-6table["price"][row])
-        end
-    end
-    Legend(figure[2, 1], thrust_axis; orientation=:horizontal, nbanks=2, valign=:top)
-    ylims!(thrust_axis, -0.04highest, 1.1highest)
-    Legend(figure[2, 2:3], price_axis; orientation=:horizontal, nbanks=3, valign=:top)
-    for axis in (price_axis, wind_axis)
-        axis.yautolimitmargin = (0.05, 0.1)
-    end
-    xlims!(wind_axis, 25, 600)
-    save_figure("rigid_scaling", figure)
-end
+"parts of a kite's yearly cost in rigid_cost.csv, with their legend labels and opacities"
+yearly_parts = (("capital", "capital and maintenance", 1.0),
+    ("flight", "upkeep and wear", 0.6), ("launches", "launches and losses", 0.3))
 
 "rigs of the VTOL kite figure with their legend labels and colours"
 rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
@@ -3289,42 +3207,37 @@ rigid_kite_rigs = (("kite", "best soft kite", palette[1]),
 """
     rigid_kite_figure()
 
-(a) Annual cost per unit of thrust at 12 m/s over area of VTOL kites at base and
-favourable inputs and of soft kites, the routed VTOL kites marked; (b) cost saving against
-no rig on e-ammonia of each rig of `rigid_kite_rigs` on each ship and route of the VTOL
-kite study. Prints both.
+(a) Yearly cost per unit of thrust at 12 m/s on a beam course of one VTOL kite at base and
+favourable inputs and of the soft kite it is compared with, in its `yearly_parts`; (b) cost
+saving against no rig on e-ammonia of each rig of `rigid_kite_rigs` on each ship and route
+of the VTOL kite study. Prints both.
 """
 function rigid_kite_figure()
-    scaling = read_table(data_file("rigid_scaling.csv"))
+    kites = read_table(data_file("rigid_cost.csv"))
     table = read_table(data_file("rigid_kite.csv"))
+    compared = (("rigid base", rich("VTOL"), palette[4]),
+        ("rigid favourable", rich("VTOL,\nfavourable"), vtol_favourable),
+        ("soft", square_metres("soft,\n$(round(Int, rigid_compared_soft_kite)) "),
+            palette[1]))
     figure = Figure(size=(page_width, 210))
     cost_axis = Axis(figure[1, 1]; title="(a) cost a year at 12 m/s",
-        doubling_axis(:x, 30, 3200; base=25)..., xlabel=square_metres("kite area [", "]"),
-        ylabel="USD/kN a year")
+        ylabel="USD/kN a year",
+        xticks=(eachindex(compared), collect(getindex.(compared, 2))))
     groups = vec([(ship, route) for route in pair_routes, ship in pair_classes])
     saving_axis = Axis(figure[1, 2]; title="(b) on e-ammonia", ylabel="cost saving [%]",
         xticks=(eachindex(groups),
             ["$(replace(ship, " bulk carrier" => ""))\n$(route_label(string(route)))"
              for (ship, route) in groups]))
-    all_costs = Float64[]
-    for scenario in rigid_scenarios
-        kind = "rigid " * scenario
-        areas, costs = thrust_costs(scaling, kind)
-        append!(all_costs, costs)
-        lines!(cost_axis, areas, costs; rigid_style(kind)...)
-        routed = argmin(costs)
-        scatter!(cost_axis, areas[routed:routed], costs[routed:routed];
-            color=rigid_style(kind).color)
-        @printf("  %s: USD/kN a year %s at %s m2\n", paper_name(kind),
-            join(round.(Int, costs), ", "), join(round.(Int, areas), ", "))
+    for (k, (kind, _, colour)) in enumerate(compared)
+        row = only(rows(kites, "kind" => kind))
+        costs = [1e3kites[part][row] / kites["thrust"][row]
+                 for (part, _, _) in yearly_parts]
+        barplot!(cost_axis, fill(k, length(costs)), costs; stack=eachindex(costs),
+            color=[(colour, alpha) for (_, _, alpha) in yearly_parts], width=0.6)
+        @printf("  %s: USD/kN a year %s\n", paper_name(kind), join([@sprintf("%s %.0f",
+            part, cost) for ((part, _, _), cost) in zip(yearly_parts, costs)], ", "))
     end
-    soft_areas, soft_costs = thrust_costs(scaling, "soft")
-    lines!(cost_axis, soft_areas, soft_costs; color=palette[1])
-    for (name, value) in pairs(doubling_axis(:y, extrema([all_costs; soft_costs])...))
-        setproperty!(cost_axis, name, value)
-    end
-    @printf("  soft: USD/kN a year %s at %s m2\n", join(round.(Int, soft_costs), ", "),
-        join(round.(Int, soft_areas), ", "))
+    ylims!(cost_axis, 0, nothing)
     names = first.(rigid_kite_rigs)
     for (group, (ship, route)) in enumerate(groups)
         savings = rig_savings(table, names, "ship" => ship, "route" => string(route))
@@ -3336,6 +3249,9 @@ function rigid_kite_figure()
             paper_name(rig), savings[rig]) for rig in names], ", "))
     end
     reference_line!(saving_axis)
+    axislegend(cost_axis, [PolyElement(color=(:gray40, alpha)) for (_, _, alpha) in
+                           yearly_parts], collect(getindex.(yearly_parts, 2));
+        position=:rt, rowgap=0, patchsize=(pt(8), pt(6)))
     Legend(figure[2, 1:2],
         [PolyElement(color=colour) for (_, _, colour) in rigid_kite_rigs],
         collect(getindex.(rigid_kite_rigs, 2)); orientation=:horizontal)
@@ -3537,10 +3453,6 @@ function soft_kite_mass(area, inputs)
     return WindShipOpt.soft_kite_mass(area, aspect_ratio, max_force, inputs)
 end
 
-"mass [kg] of a VTOL kite of `area` [m^2] without its tether in input `scenario`"
-vtol_kite_mass(area, scenario) =
-    last(WindShipOpt.rigid_kite_model(area, 1, rigid_assumptions(scenario, area))).mass
-
 """
     mass_law!(axis, areas, masses, low, high, largest_built, color)
 
@@ -3561,10 +3473,10 @@ status_markers = Dict("flown" => :circle, "built" => :rect, "designed" => :utria
 """
     kite_mass_figure()
 
-Mass per area against area of VTOL kites and soft kites without their tether: each law of
-the model at base inputs between its bounds, the VTOL kite's structure also growing with
-the span cubed, and the published wings and kites of data/kite_masses.csv, its `kind`,
-`status`, `area` [m^2] and `mass_low` to `mass_high` [kg].
+Mass per area against area of VTOL kites and soft kites without their tether: the soft
+kite's law at base inputs between its bounds, the VTOL kite of the model between the bounds
+of its mass per area, and the published wings and kites of data/kite_masses.csv, its
+`kind`, `status`, `area` [m^2] and `mass_low` to `mass_high` [kg].
 """
 function kite_mass_figure()
     published = read_table(joinpath(root, "data", "kite_masses.csv"))
@@ -3576,12 +3488,11 @@ function kite_mass_figure()
         ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 200)))
     flew = published["status"] .!= "designed"
     soft = published["kind"] .== "soft"
-    rigid_areas = exp.(range(log(3), log(1000); length=50))
-    mass_law!(axis, rigid_areas, vtol_kite_mass.(rigid_areas, "base"),
-        vtol_kite_mass.(rigid_areas, "light"), vtol_kite_mass.(rigid_areas, "heavy"),
-        maximum(published["area"][flew .& .!soft]), rigid_colour)
-    lines!(axis, rigid_areas, vtol_kite_mass.(rigid_areas, "cubed") ./ rigid_areas;
-        color=rigid_colour, linestyle=:dot)
+    vtol = assumptions.entries[:rigid_mass_per_area]
+    rangebars!(axis, [assumptions[:rigid_unit_area]], [vtol.low], [vtol.high];
+        color=rigid_colour, linewidth=2)
+    scatter!(axis, [assumptions[:rigid_unit_area]], [vtol.value]; color=rigid_colour,
+        marker=:diamond, markersize=9)
     soft_areas = exp.(range(log(5), log(5000); length=50))
     mass_law!(axis, soft_areas, soft_kite_mass.(soft_areas, Ref(assumptions)),
         soft_kite_mass.(soft_areas, Ref(soft_mass_bound(true))),
@@ -3599,11 +3510,11 @@ function kite_mass_figure()
     statuses = ["flown", "built", "designed"]
     markers = [MarkerElement(color=:black, marker=status_markers[status])
                for status in statuses]
-    entries = [LineElement(color=rigid_colour),
-        LineElement(color=rigid_colour, linestyle=:dot), LineElement(color=soft_colour),
-        LineElement(color=:black, linestyle=:dash), markers...]
-    axislegend(axis, entries, ["VTOL kite", "span cubed", "soft kite", "extrapolated",
-            statuses...]; position=:cc, nbanks=4, rowgap=0, colgap=pt(6),
+    entries = [MarkerElement(color=rigid_colour, marker=:diamond),
+        LineElement(color=soft_colour), LineElement(color=:black, linestyle=:dash),
+        markers...]
+    axislegend(axis, entries, ["VTOL kite", "soft kite", "extrapolated", statuses...];
+        position=:cc, nbanks=3, rowgap=0, colgap=pt(6),
         patchsize=(pt(12), pt(6)))
     save_figure("kite_mass", figure)
 end

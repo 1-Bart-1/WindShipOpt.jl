@@ -390,12 +390,10 @@ end
 What rigid VTOL kites add to a tether and a pattern table.
 """
 struct RigidAirframe
-    "kites in service, a mean where some are down, each with tether, winch and perch"
+    "kites in service, a mean where some are down, each with its station on deck"
     count::Float64
-    "mass of one kite with its rotors, without the tether [kg]"
+    "mass of one kite with its propellers and drives, without the tether [kg]"
     mass::Float64
-    "mass of one tether [kg]"
-    tether_mass::Float64
     "electric power of one kite in hover [W]"
     hover_power::Float64
     "area of the disc of the loop all the kites share [m^2]"
@@ -607,7 +605,8 @@ end
     rigid_polar(assumptions)
 
 Polar of a rigid wing against angle of attack from zero lift: lift-curve slope of a finite
-wing up to the highest lift coefficient, profile drag plus induced drag.
+wing up to the highest lift coefficient, a drag coefficient that holds all but the induced
+drag plus the induced drag of an elliptic wing.
 """
 function rigid_polar(assumptions::Assumptions)
     aspect_ratio = assumptions[:rigid_aspect_ratio]
@@ -615,102 +614,31 @@ function rigid_polar(assumptions::Assumptions)
     highest = assumptions[:rigid_max_lift]
     angles = collect(range(0.0, highest / slope + deg2rad(2); length=25))
     lift = min.(slope .* angles, highest)
-    drag = assumptions[:rigid_profile_drag] .+
-           lift .^ 2 ./ (π * aspect_ratio * assumptions[:rigid_span_efficiency])
+    drag = assumptions[:rigid_drag] .+ lift .^ 2 ./ (π * aspect_ratio)
     return KitePolar(angles, lift, drag)
-end
-
-"""
-    hover_power(mass, area, assumptions)
-
-Electric power [W] that hovers `mass` [kg] of kite and tether on a wing of `area` [m^2] with
-a rotor out: momentum theory on the working share of the rotor discs, at the thrust margin,
-air density and efficiency of the assumptions.
-"""
-function hover_power(mass, area, assumptions::Assumptions)
-    gravity = Environment(assumptions).gravity
-    thrust = assumptions[:rigid_hover_thrust_ratio] * gravity * mass
-    disc = assumptions[:rigid_rotor_area_ratio] * area
-    return sqrt(thrust^3 /
-                (2assumptions[:rigid_hover_air_density] *
-                 assumptions[:rigid_rotor_fill] * disc)) /
-           assumptions[:rigid_hover_efficiency]
-end
-
-"""
-    drive_power(hover_power, assumptions)
-
-Electric power [W] the drives of a rigid kite are rated for: every rotor at the power one
-needs in a hover of `hover_power` [W] with a rotor out.
-"""
-drive_power(hover_power, assumptions::Assumptions) =
-    hover_power / assumptions[:rigid_rotor_fill]
-
-"""
-    rigid_structure_mass(area, max_force, assumptions)
-
-Mass [kg] of the structure of a rigid wing of `area` [m^2] that holds a tether force of
-`max_force` [N], without its rotors and drives: a shell that goes with the area and a
-load-bearing part that goes with the force, the span and the aspect ratio.
-"""
-function rigid_structure_mass(area, max_force, assumptions::Assumptions)
-    aspect_ratio = assumptions[:rigid_aspect_ratio]
-    span = sqrt(area * aspect_ratio)
-    return assumptions[:rigid_shell_mass] * area +
-           assumptions[:rigid_load_mass] * 1e-3max_force * span * aspect_ratio
-end
-
-"""
-    rigid_kite_mass(area, max_force, tether_mass, assumptions)
-
-Mass [kg] of a rigid kite of `area` [m^2] that holds a tether force of `max_force` [N], with
-its rotors and the drives that hover it and `tether_mass` [kg] with a rotor out, and that
-hover power [W]. Errors where the drives grow faster than the mass they hover, so that no
-such kite exists.
-"""
-function rigid_kite_mass(area, max_force, tether_mass, assumptions::Assumptions)
-    fixed = rigid_structure_mass(area, max_force, assumptions) +
-            assumptions[:rigid_rotor_mass_per_area] * assumptions[:rigid_rotor_area_ratio] *
-            area
-    mass = fixed + assumptions[:rigid_drive_reference_mass]
-    power = hover_power(mass + tether_mass, area, assumptions)
-    for _ in 1:100
-        drives = assumptions[:rigid_drive_reference_mass] *
-                 (drive_power(power, assumptions) /
-                  assumptions[:rigid_drive_reference_power])^
-                 assumptions[:rigid_drive_mass_exponent]
-        abs(fixed + drives - mass) < 1e-6mass && return mass, power
-        mass = fixed + drives
-        power = hover_power(mass + tether_mass, area, assumptions)
-    end
-    error("no rigid kite of $area m^2 can carry the drives that hover it")
 end
 
 """
     rigid_kite_model(area, count, assumptions)
 
 [`KiteModel`](@ref) of one rigid VTOL kite of `area` [m^2], its tether force limit [N],
-tether diameter [m] and the [`RigidAirframe`](@ref) of `count` such kites.
+tether diameter [m] at the working stress of the soft kite's rope and the
+[`RigidAirframe`](@ref) of `count` such kites.
 """
 function rigid_kite_model(area, count, assumptions::Assumptions)
     env = Environment(assumptions)
     max_force = 1e3assumptions[:rigid_max_force_per_area] * area
-    tether_diameter = sqrt(4max_force / (π * assumptions[:rigid_tether_stress]))
+    tether_diameter = sqrt(4max_force / (π * assumptions[:tether_stress]))
     span = sqrt(area * assumptions[:rigid_aspect_ratio])
-    tether_length = assumptions[:rigid_tether_length_ratio] * span
-    tether_mass = assumptions[:rigid_tether_density] * π * tether_diameter^2 / 4 *
-                  tether_length
-    mass, hover = rigid_kite_mass(area, max_force, tether_mass, assumptions)
-    drag = assumptions[:rigid_feathered_rotor_drag] * assumptions[:rigid_rotor_area_ratio] +
-           assumptions[:rigid_tether_drag_coefficient] * tether_diameter * tether_length /
-           (4area)
+    mass = assumptions[:rigid_mass_per_area] * area
     polar = rigid_polar(assumptions)
-    model = KiteModel(area, mass + tether_mass / 2, tether_length, env.air_density,
-        env.gravity, polar, drag, lift_angle(polar, 0.05),
+    model = KiteModel(area, mass, assumptions[:rigid_tether_length_ratio] * span,
+        env.air_density, env.gravity, polar, 0.0, lift_angle(polar, 0.05),
         polar.angle_of_attack[argmax(polar.lift)] -
         deg2rad(assumptions[:kite_stall_margin]),
         assumptions[:rigid_min_turn_radius] * span, true)
-    airframe = RigidAirframe(count, mass, tether_mass, hover, π * model.min_turn_radius^2)
+    airframe = RigidAirframe(count, mass, assumptions[:rigid_hover_power_per_mass] * mass,
+        π * model.min_turn_radius^2)
     return model, max_force, tether_diameter, airframe
 end
 
@@ -738,13 +666,13 @@ end
     rigid_wind_limits(lowest_wind, assumptions)
 
 Keywords of [`KiteRig`](@ref) for a rigid kite that flies from `lowest_wind` [m/s]: it can
-launch there too, since its rotors lift it from rest, and hovers within its own limits on
+launch there too, since its propellers lift it from rest, and hovers within its own limits on
 wind and sea in launch and landing.
 """
 function rigid_wind_limits(lowest_wind, assumptions::Assumptions)
     hover_wind = assumptions[:rigid_hover_max_wind]
     hover_waves = assumptions[:rigid_hover_max_wave_height]
-    return (; max_wind=assumptions[:rigid_max_wind], min_flight_wind=lowest_wind,
+    return (; max_wind=assumptions[:kite_max_wind], min_flight_wind=lowest_wind,
         launch_min_wind=lowest_wind, launch_max_wind=hover_wind,
         launch_max_wave_height=hover_waves, night_launch=assumptions[:kite_night_launch] > 0,
         landing_max_wind=hover_wind, landing_max_wave_height=hover_waves)

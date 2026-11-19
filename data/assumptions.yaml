@@ -555,61 +555,46 @@ rotor_mass_per_area:
 # --- rigid VTOL kite ---
 rigid_unit_area:
   value: 54.0
-  low: 30.0
-  high: 100.0
+  low: 54.0
+  high: 54.0
   unit: m^2
-  reason: "Wing area of one kite: the MX2 design of Makani [@echeverri2020part1, Part I, Table 2], within 3 % of the lowest yearly cost per thrust, near 100 m^2, in the authors' scaling of the rigid kite."
+  reason: "Wing area of one kite: the MX2 design of Makani [@echeverri2020part1, Part I, Table 2], the largest wing with propellers designed in full, within 3 % of the lowest yearly cost per thrust, near 100 m^2, in the authors' scaling of the mass of its structure, propellers and drives."
 rigid_aspect_ratio:
   value: 12.5
   low: 12.5
   high: 12.5
   unit: "-"
   reason: "MX2 design: 26 m span on 54 m^2 (Echeverri et al. 2020, Part I, Table 2)."
-rigid_shell_mass:
-  value: 14.0
-  low: 7.5
-  high: 21.0
+rigid_mass_per_area:
+  value: 34.3
+  low: 16.5
+  high: 60.0
   unit: kg/m^2
-  reason: "Structure per wing area that does not grow with the tether force: skins, flaps, wiring, paint, tail and pylons. With the load mass it returns the 1372 kg of the MX2 design, 1852 kg [@echeverri2020part1, Part I, Table 2] less the 480 kg of nacelles, powertrains, propellers, spinners and booms in Makani's mass build-up of the 26 m wing, which totals 1854 kg [@echeverri2020part2, Part II, pp.275, 287-288]; the split between the two is the one that also returns the 6885 kg of the 150 m^2 design of @eijkelhof2020reference within a tenth. Low bound: the structure of a 4 m^2 kite with propellers, half of 15 kg/m^2, held per area at every size as the lighter of two scaling laws [@aull2020, Sect. 2.4, Tables 1-2]. High bound: the parts of Makani's build-up that no load sizes, 21 kg/m^2."
-rigid_load_mass:
-  value: 0.0063
-  low: 0.0026
-  high: 0.0096
-  unit: kg/kN/m
-  reason: "Structure per unit of tether force limit times span times aspect ratio, the scaling of the spar of a wing held at its centre [@aull2020, Eq. 25]. With the shell mass it returns the MX2 structure, 614 kg of it here. Low bound: the spar caps, shear walls and hardpoints alone of Makani's build-up, 250 kg [@echeverri2020part2, Part II, pp.287-288]. High bound: the load mass that returns MX2 with a shell of 8 kg/m^2, near the wings of 3 to 4 m^2 that flew [@vanderlind2013, Fig. 28.7; @sommerfeld2022scaling, Table 1]. The two high bounds together add half to the MX2 structure, against the 40 % by which M600 overran its mid-design targets [@echeverri2020part1, Part I, p.265]."
-
+  reason: "Kite with its propellers and drives, without its tether: 1852 kg on 54 m^2 for MX2 [@echeverri2020part1, Part I, Table 2]. Low bound: a structure at the lightest of built kites, half of 15 kg/m^2 [@aull2020, Tables 1-2] plus the spar caps, shear walls and hardpoints of Makani's build-up [@echeverri2020part2, Part II, pp.287-288], with propellers and drives at their lightest [@johnson2018, p.5] for the hover of the low bound of the hover power. High bound: a structure half above MX2's 1372 kg, as M600 overran its targets by 40 to 70 % [@echeverri2020part1, Part I, p.265], with heavier propellers and drives growing linearly with power."
+rigid_hover_power_per_mass:
+  value: 470.0
+  low: 200.0
+  high: 950.0
+  unit: W/kg
+  reason: "Electric power to hover a kite of MX2 with its 275 kg tether and a propeller out, per kg of kite: momentum theory for 1.25 times the weight on 6 of 8 propellers sweeping 0.61 of the wing [@echeverri2020part1, Part I, Eq. 89 and p.184], in air at sea level, with 0.71 of the shaft power reaching the air and 0.88 of the electric power reaching the shaft [@makani2020code], 0.87 MW. Low bound: the light kite of the low bound of the mass per area, with propellers over the whole wing and the propeller's 0.71 alone; high bound: 1.5 times the weight on propellers over 0.4 of the wing at an efficiency of 0.56."
 rigid_max_force_per_area:
   value: 5.56
   low: 4.6
   high: 7.3
   unit: kN/m^2
-  reason: "MX2 design 250-300 kN on 54 m^2, the top of that here; M600 240 kN on 32.9 m^2 is the high bound [@echeverri2020part1, Part I, Table 1]. The structure's mass grows with it."
+  reason: "MX2 design 250-300 kN on 54 m^2, the top of that here; M600 240 kN on 32.9 m^2 is the high bound [@echeverri2020part1, Part I, Table 1]."
 rigid_max_lift:
   value: 2.0
   low: 1.8
   high: 2.2
   unit: "-"
   reason: "Highest lift coefficient of the MX2 wing, reproducing its static lift speed of 16.7 m/s [@joshi2024powercurve, Table 1]; it flies at CL 1.81 at best performance [@echeverri2020part1, Part I, Table 1]. Wing 7 is specified at CL 2 [@vanderlind2013, Fig. 28.7]."
-rigid_profile_drag:
-  value: 0.03
-  low: 0.02
-  high: 0.054
+rigid_drag:
+  value: 0.07
+  low: 0.054
+  high: 0.127
   unit: "-"
-  reason: "Brings the kite to the CD 0.123 of the MX2 design at CL 1.81 [@echeverri2020part1, Part I, Table 1] with span efficiency 0.9. High bound: M600's parasitic offset of 0.075 from a flight glide, scaled by area to 0.046 on MX2, with the 0.022 of windmilling propellers a glide already holds taken out [@makani2020code]. Wing 7's parasitic drag is 0.06 [@vanderlind2013, Table 28.1], against 0.052 here with the idle propellers."
-
-rigid_span_efficiency:
-  value: 0.9
-  low: 0.8
-  high: 0.95
-  unit: "-"
-  reason: "Authors' estimate for a straight high-aspect-ratio wing."
-rigid_feathered_rotor_drag:
-  value: 0.0036
-  low: 0.0015
-  high: 0.0072
-  unit: "-"
-  reason: "Drag of the stopped propellers on their disc area, blades feathered: 5.8 lb on a 9 ft propeller feathered at 88 degrees at 100 mph, against 94.4 lb locked and 60.1 lb free-wheeling at 17 degrees, 0.058 and 0.037 on the disc [@hartman1933, table p.12], Tc 0.0014 at 88 degrees [@hartman1933, p.6]. Free-wheeling matches the 0.022 on 0.61 of the wing of Makani's propeller table [@makani2020code]. Low bound: propeller hub drag of NASA's lift and cruise concept, 0.0014-0.0019 on the disc of its lift propellers, which stop in cruise [@silva2018, Table 3]; high bound twice the measured value, the authors' estimate for blades a few degrees off feather."
-
+  reason: "Drag coefficient on the wing area beyond the induced drag of an elliptic wing: the CD 0.123 of the MX2 design at CL 1.81 [@echeverri2020part1, Part I, Table 1] less 0.083 induced; 0.0022 of feathered propellers, 0.0036 on their disc [@hartman1933, table p.12]; and 0.029 of the 300 m tether of 29.4 mm with its fluted jacket [@echeverri2020part1, Part I, Table 2]. Low bound: a profile drag lower by 0.01, propeller hubs at 0.0015 on the disc [@silva2018, Table 3] and a span efficiency of 0.95. High bound: M600's parasitic offset of 0.075 from a flight glide, scaled by area to 0.046 on MX2 [@makani2020code], blades a few degrees off feather and the tether as a plain cylinder."
 rigid_min_turn_radius:
   value: 3.46
   low: 2.9
@@ -622,74 +607,6 @@ rigid_tether_length_ratio:
   high: 16.5
   unit: "-"
   reason: "Tether length over span: 300 m on 26 m for MX2; M600 as flown about 16.5 [@echeverri2020part1, Part I, Tables 1 and 2]."
-rigid_tether_stress:
-  value: 440000000.0
-  low: 300000000.0
-  high: 600000000.0
-  unit: Pa
-  reason: "300 kN on the 29.4 mm electrified tether of Makani [@echeverri2020part1, Part I, Table 2]."
-rigid_tether_density:
-  value: 1350.0
-  low: 1200.0
-  high: 1500.0
-  unit: kg/m^3
-  reason: "0.917 kg/m on 29.4 mm with its conductors [@echeverri2020part1, Part I, Table 2]."
-rigid_tether_drag_coefficient:
-  value: 0.7
-  low: 0.7
-  high: 1.1
-  unit: "-"
-  reason: "Fluted jacket of the Makani tether [@echeverri2020part1, Part I, Table 2]; the high bound is the plain cylinder of the soft kite's tether."
-rigid_tether_price:
-  value: 186.0
-  low: 93.0
-  high: 400.0
-  unit: USD/kg
-  reason: "Authors' estimate of an electrified tether at twice the price of plain rope; the low bound is EUR 80/kg for rope [@joshi2025, p.703]."
-rigid_rotor_area_ratio:
-  value: 0.61
-  low: 0.4
-  high: 1.0
-  unit: "-"
-  reason: "Propeller disc area over wing area: about 33 m^2 of propellers on the 54 m^2 of MX2 [@echeverri2020part1, Part I, p.184], held in proportion. Feathered propellers cost little drag, so a kite that only hovers on them pays less for larger ones; the high bound is the top of the 0.3-1 of the wing area given for airborne propellers [@vanderlind2013, Fig. 28.6]."
-rigid_hover_thrust_ratio:
-  value: 1.25
-  low: 1.15
-  high: 1.5
-  unit: "-"
-  reason: "Thrust over weight that hover needs [@echeverri2020part1, Part I, Eq. 89]."
-rigid_rotor_fill:
-  value: 0.75
-  low: 0.75
-  high: 1.0
-  unit: "-"
-  reason: "Share of propellers counted for a propeller out in hover, 6 of 8 [@echeverri2020part1, Part I, Eq. 89]."
-rigid_hover_air_density:
-  value: 1.225
-  low: 0.95
-  high: 1.225
-  unit: kg/m^3
-  reason: "Standard air at sea level, where a ship's kite hovers; the low bound is the design density of Makani's hover sizing [@echeverri2020part1, Part I, Eq. 89]."
-
-rigid_hover_efficiency:
-  value: 0.62
-  low: 0.56
-  high: 0.71
-  unit: "-"
-  reason: "Electric power to hover power: propeller figure 0.71 [@echeverri2020part1, Part I, Eq. 89] times the electrical to shaft efficiency 0.88 of the Makani code release [@makani2020code]; the high bound is the propeller alone."
-
-rigid_hover_minutes:
-  value: 6.0
-  low: 3.0
-  high: 15.0
-  unit: min
-  reason: "Hover in one launch and one landing: a few minutes each while the tether is reeled [@echeverri2020part1, Part I, p.305]."
-rigid_hover_energy_price:
-  value: 0.2
-  low: 0.1
-  high: 0.5
-  unit: USD/kWh
-  reason: "Authors' estimate of electricity from the ship's generators."
 rigid_hover_max_wave_height:
   value: 3.0
   low: 1.5
@@ -702,96 +619,42 @@ rigid_hover_max_wind:
   high: 20.0
   unit: m/s
   reason: "Authors' estimate of the highest apparent wind for a hover launch and landing, above which a landing is forced, held at the launch limit of the soft kite. The one offshore flight hovered in 10 m/s [@echeverri2020part1, Part I, p.392]."
-rigid_max_wind:
-  value: 25.0
-  low: 20.0
-  high: 30.0
-  unit: m/s
-  reason: "Authors' estimate, held at the highest apparent wind of the soft kite."
-rigid_structure_cost_per_mass:
-  value: 290.0
-  low: 39.0
-  high: 400.0
+rigid_cost_per_mass:
+  value: 280.0
+  low: 48.0
+  high: 540.0
   unit: USD/kg
-  reason: "Carbon composite kite structure EUR 250/kg, at a series of 50 or more without overhead or margin, which the market price factor adds [@joshi2025, p.702]. Low bound: material and manufacture of a wind turbine blade, USD 8 and 31 per kg, as applied to the structure of a kite [@aull2020, Table 3]; the high bound is the authors' estimate."
-rigid_structure_cost_per_area:
-  value: 232.0
-  low: 110.0
-  high: 400.0
-  unit: USD/m^2
-  reason: "EUR 200/m^2 of the same model [@joshi2025, p.702]; the bounds are the authors' estimates."
+  reason: "Airframe with its propellers and drives per kg, at a series of 50 or more without overhead or margin, which the market price factor adds: carbon composite structure EUR 250/kg and EUR 200/m^2 [@joshi2025, p.702], and drives at USD 0.10 per W of their rating, two thirds of 0.15 $/W [@bauer2018, p.14], USD 522,000 on the 1852 kg of MX2. Low bound: material and manufacture of a wind turbine blade, USD 8 and 31 per kg [@aull2020, Table 3], with the area price and drives at half the base; high bound: USD 400/kg, 400/m^2 and 0.20 per W, the authors' estimates."
 rigid_avionics_cost:
   value: 174000.0
   low: 17400.0
   high: 250000.0
   unit: USD
   reason: "Avionics of an early commercial kite, with the aviation certification and redundancy that raise it, EUR 150,000; the low bound is the EUR 15,000 of a prototype without them [@joshi2025, p.702], the high bound the authors' estimate."
-rigid_drive_cost:
-  value: 0.1
-  low: 0.05
-  high: 0.2
-  unit: USD/W
-  reason: "On-board drive at two thirds of the 0.15 $/W [@bauer2018, p.14]: three times the retail price per W of a hobby motor, rounded up, for the motor, its drive electronics and the ground electronics, which the ship power cost holds here; the bounds are the authors' estimates."
-rigid_rotor_mass_per_area:
-  value: 2.5
-  low: 1.96
-  high: 3.9
-  unit: kg/m^2
-  reason: "Propellers and spinners per m^2 of disc: 65 kg on 8 propellers of 4.15 m^2 for M600 [@echeverri2020part2, Part II, p.20; @echeverri2020part1, Part I, Table 1], the low bound for fixed-pitch propellers. The base adds the authors' estimate of a quarter for hubs that feather, the high bound doubles the propeller."
-rigid_drive_reference_mass:
-  value: 411.0
-  low: 241.0
-  high: 575.0
-  unit: kg
-  reason: "Motors, controllers, nacelles and booms of MX2: the 480 kg of its powertrain roll-up [@echeverri2020part2, Part II, p.288] less its propellers at the mass per disc area of M600. Low bound: its 344 kg of motors and controllers, 36 kg and 7 kg each for 150 kW [@echeverri2020part2, Part II, pp.46-47], at the 6.9 kW/kg of motor, inverter and cooling of NASA's model for motors of about 170 kW [@johnson2018, p.5], 174 kg; high bound the 40 % overrun of M600 [@echeverri2020part1, Part I, p.265]."
-rigid_drive_reference_power:
-  value: 1364000.0
-  low: 1364000.0
-  high: 1364000.0
-  unit: W
-  reason: "Electric power the drives of MX2 are rated for: 1.2 MW of shaft, eight propellers at the power six need in hover (Echeverri et al. 2020, Part I, p.184), at the electric to shaft efficiency of 0.88 of the Makani code release."
-rigid_drive_mass_exponent:
-  value: 0.81
-  low: 0.81
-  high: 1.0
-  unit: "-"
-  reason: "Exponent of drive mass on rated power at a fixed number of propellers: 0.81 from NASA's motor regression over 64 motors of 15-410 kW, mass as peak torque to the 0.8129, times 1.63 for controller, inverter and cooling [@johnson2018, p.5]; 1.0 where motor mass goes linearly with torque as Makani found for direct drives [@echeverri2020part1, Part I, p.184]."
 rigid_ship_power_cost:
   value: 0.15
   low: 0.08
   high: 0.5
   unit: USD/W
-  reason: "Authors' estimate of the ship's supply and converter or battery for the hover peak, at the price of the on-board drive."
-rigid_perch_cost:
-  value: 100000.0
-  low: 50000.0
-  high: 300000.0
+  reason: "Authors' estimate of the ship's supply and converter or battery for the hover power, at the price of the on-board drive."
+rigid_station_cost:
+  value: 150000.0
+  low: 70000.0
+  high: 450000.0
   unit: USD
-  reason: "Authors' estimate of a deck perch and restraint per kite."
-rigid_perch_width:
-  value: 8.0
-  low: 4.0
-  high: 12.0
-  unit: m
-  reason: "Deck length one perch takes: the M600 perch boom is 7.8 m long on a panel 3.8 m wide, which is the low bound [@echeverri2020part2, Part II, p.58]."
+  reason: "Deck perch and restraint of one kite, the authors' estimate of USD 100,000 (50,000-300,000), and its electrified tether, 275 kg [@echeverri2020part1, Part I, Table 2] at USD 186/kg, twice the EUR 80/kg of rope [@joshi2025, p.703], the authors' estimate (93-400)."
 rigid_station_mass:
   value: 20.0
   low: 10.0
   high: 32.0
   unit: t
   reason: "Winch, drum and perch per kite on the ship. The M600 ground station is 32 t and needs significant weight reduction [@echeverri2020part2, Part II, p.58], which the base value assumes."
-rigid_lifetime:
-  value: 15.0
-  low: 7.0
-  high: 20.0
-  unit: years
-  reason: "Authors' estimate, equal to the soft kite's hardware; M600 flew 22 h in all, so no life is shown [@echeverri2020part1, Part I, p.366]."
 rigid_upkeep_per_area:
-  value: 0.61
-  low: 0.26
-  high: 1.2
+  value: 0.67
+  low: 0.29
+  high: 1.37
   unit: USD/m^2/h
-  reason: "All maintenance of the airframe per flight hour, for 54 m^2: USD 33/h, the most a 1 MW kite system may spend on maintenance per hour of operation at a competitive cost of energy, and USD 14/h, a rough estimate from a light aircraft airframe and two car drivetrains [@echeverri2020part1, Part I, pp.108-110]; the airframe pays no other maintenance."
+  reason: "All maintenance of the airframe per flight hour, for 54 m^2: USD 33/h, the most a 1 MW kite system may spend on maintenance per hour of operation at a competitive cost of energy, and USD 14/h, a rough estimate from a light aircraft airframe and two car drivetrains [@echeverri2020part1, Part I, pp.108-110]; and the wear of its tether, its price over the 16,000 flight hours of the soft kite's, USD 0.06/m^2/h. The airframe pays no other maintenance."
 rigid_cycle_loss_probability:
   value: 0.0001
   low: 0.0001
