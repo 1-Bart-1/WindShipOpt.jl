@@ -114,7 +114,7 @@ function draw_force_balance!(axis, ship, (speed, wind, angle), thrust, force, wi
         coefficients=ship.wave_coefficients)
     bow, stern, side = hull.length / 2, -hull.length / 2, hull.beam / 2
     water = style_colour("water")
-    poly!(axis, rotated.(hull_outline(hull.length, hull.beam), π / 2);
+    poly!(axis, rotated.(hull_outline(hull.length, hull.beam), -π / 2);
         color=style_colour("ship"), strokecolor=:black, strokewidth=rule_width)
     draw_rig!(axis, ship.rig, ship, (speed, wind, angle), colour)
     rudder_tip = stern - 6

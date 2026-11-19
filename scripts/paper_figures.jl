@@ -660,11 +660,9 @@ trim_rigs = (("kite", 800.0), ("wings", 800.0), ("rotors", 400.0))
 """
     kite_figure()
 
-The kite the paper flies, at the design aspect ratio: (a) its planform seen from above
-at 100 m², leading edge at the top and apparent wind down the page, with its projected
-span, and below it the same kite seen from ahead, its arc hanging towards the lines, and
-its lift and drag coefficients (b) and glide ratio (c) in the design shape over angle of
-attack, without bridle and tether.
+The kite the paper flies, at the design aspect ratio and 100 m²: (a) seen from above,
+leading edge at the top, and from ahead, and its lift and drag coefficients (b) and glide
+ratio (c) in the design shape over angle of attack, without bridle and tether.
 """
 function kite_figure()
     aspect_ratio = isinteger(design_aspect_ratio) ? Int(design_aspect_ratio) :
@@ -682,16 +680,17 @@ function kite_figure()
     trailing = -maximum(geometry["te_x"])
     text!(shape, 0, trailing; text="span $(round(span; digits=1)) m",
         align=(:center, :top), offset=(0, -pt(2)), fontsize=note_size)
-    wind = Point2f(0.5span + 1.5, -minimum(geometry["le_x"]))
+    margin = 1
+    wind = Point2f(0.5span + 1.5margin, -minimum(geometry["le_x"]))
     arrows2d!(shape, [wind], [Vec2f(0, trailing - wind[2])]; color=:black,
         shaftwidth=flow_width)
     text!(shape, wind; text="wind", align=(:center, :bottom), offset=(0, pt(1)),
         fontsize=note_size)
-    front = trailing - 4
+    front = trailing - 4margin
     lines!(shape, -geometry["le_y"], geometry["le_z"] .+ front; color=palette[1],
         linewidth=3)
-    limits!(shape, -0.5span - 1, 0.5span + 3, front + minimum(geometry["le_z"]) - 1,
-        wind[2] + 2.5)
+    limits!(shape, -0.5span - margin, wind[1] + 1.5margin,
+        front + minimum(geometry["le_z"]) - margin, wind[2] + 2.5margin)
     angle = "angle of attack [°]"
     coefficients = Axis(figure[1, 2]; xlabel=angle, ylabel="coefficient",
         title="(b) lift and drag")
