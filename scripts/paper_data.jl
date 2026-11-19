@@ -2781,7 +2781,8 @@ function convergence_data()
 end
 
 "model parts the model-part study switches off, one at a time"
-simplified_parts = (:calibration, :waves, :windage, :limits, :rudder)
+simplified_parts = (:calibration, :waves, :windage, :limits, :rudder, :side_force,
+    :weak_hull)
 
 """
     rebuilt(object; changes...)
@@ -2803,7 +2804,9 @@ end
 `ship` with model `part` switched off: `:none` keeps it whole, `:calibration` drops the
 calibration of the hull's calm-water resistance, `:waves` the added resistance in waves,
 `:windage` the air drag of the superstructure, `:limits` the heel, leeway and rudder
-limits, and `:rudder` the drag of the rudder.
+limits, `:rudder` the drag of the rudder, `:side_force` the drag of leeway and rudder
+together, and `:weak_hull` takes the hull's side-force slope at the low bound of
+`hull_side_force_factor`.
 """
 function simplified_ship(ship, part)
     part == :none && return ship
@@ -2820,6 +2823,13 @@ function simplified_ship(ship, part)
     part == :limits &&
         return rebuilt(ship; heel_limit=Inf, leeway_limit=Inf, rudder_max_lift=Inf)
     part == :rudder && return rebuilt(ship; rudder_aspect_ratio=Inf)
+    part == :side_force &&
+        return rebuilt(ship; hull=rebuilt(ship.hull; side_force_factor=Inf),
+            rudder_aspect_ratio=Inf)
+    part == :weak_hull &&
+        return rebuilt(ship;
+            hull=rebuilt(ship.hull;
+                side_force_factor=assumptions.entries[:hull_side_force_factor].low))
     throw(ArgumentError("no model part $part"))
 end
 
@@ -2835,12 +2845,14 @@ year_departures(year) =
     model_parts_data()
 
 Each ship of [`sensitivity_ships`](@ref) without a rig and with each rig, whole and with
-each of [`simplified_parts`](@ref) switched off: model_parts.csv; and whole over the
+each of [`simplified_parts`](@ref) switched off: model_parts.csv; the leeway each rig sails
+at, by [`write_leeway`](@ref): leeway.csv; and whole over the
 [`year_departures`](@ref) of each weather year: weather_years.csv.
 """
 function model_parts_data()
     cases = [case for ship_case in sensitivity_ships(), part in (:none, simplified_parts...)
              for case in rig_cases(ship_case...; part)]
+    write_leeway("leeway.csv")
     write_trips("model_parts.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :rig, :part)
     cases, trips = [], []
@@ -2851,6 +2863,43 @@ function model_parts_data()
         append!(cases, batch)
     end
     write_trips("weather_years.csv", cases, trips, :ship, :rig, :year)
+end
+
+"""
+    write_leeway(name)
+
+Write `name` with the leeway of each rigged ship of [`sensitivity_ships`](@ref), whole, over
+the hours of its [`traced_legs`](@ref): the median and 95th percentile [deg] and the share
+of hours within half a degree of `leeway_limit` [-].
+"""
+function write_leeway(name)
+    cases = [case for ship_case in sensitivity_ships() for case in rig_cases(ship_case...)
+             if case.rig != "none"]
+    traces = fetch.([Threads.@spawn last.(traced_legs(Ship(case.design, assumptions),
+                         case.route)) for case in cases])
+    limit = assumptions[:leeway_limit]
+    open(run_file(name), "w") do io
+        println(io, "ship,rig,median,high,at_limit")
+        for (case, legs) in zip(cases, traces)
+            leeway = rad2deg.(reduce(vcat, (trace.leeway for trace in legs)))
+            hours = reduce(vcat, (trace.hours for trace in legs))
+            @printf(io, "%s,%s,%.2f,%.2f,%.4f\n", case.ship, case.rig,
+                weighted_quantile(leeway, hours, 0.5),
+                weighted_quantile(leeway, hours, 0.95),
+                sum(hours[leeway .>= limit - 0.5]) / sum(hours))
+        end
+    end
+end
+
+"""
+    weighted_quantile(values, weights, share)
+
+The smallest of `values` below which at least `share` of the total `weights` lies.
+"""
+function weighted_quantile(values, weights, share)
+    order = sortperm(values)
+    k = findfirst(>=(share * sum(weights)), cumsum(weights[order]))
+    return values[order[k]]
 end
 
 """

@@ -2,7 +2,9 @@ Calm-water resistance {\itshape (calibration off)} & Holtrop--Mennen, scaled to 
 Added resistance in waves {\itshape (removed)} & SNNM response integrated over the ERA5 wave spectrum, waves from any angle & 0.4 & 1.8 & 1.0 & -- & peak in head waves within the scatter of the data behind SNNM \\
 Windage {\itshape (removed)} & Blendermann's loading functions on the frontal and lateral area, with side force and yaw moment & 0.5 & 1.0 & 1.4 & -- & loading functions by ship type, not measured on these ships \\
 Heel, leeway and rudder limits {\itshape (removed)} & steady balance; side force beyond the limits is shed by trimming the rig & 0.4 & 0.0 & 0.1 & -- & limits are design rules, not measured \\
-Leeway and rudder drag {\itshape (rudder drag off)} & Kijima side force slope; rudder as a lifting line carrying the yaw moment & 0.1 & 0.5 & 1.3 & -- & hull side force from regression, not from tests of these hulls \\
+Rudder drag {\itshape (removed)} & lifting line carrying the yaw moment in the free stream & 0.1 & 0.5 & 1.3 & -- & no wake or propeller slipstream at the rudder \\
+Leeway and rudder drag {\itshape (both removed)} & Kijima side-force slope; induced drag of a slender wing and cross flow & \multicolumn{4}{c}{\stale{model_parts}{}} & regression on merchant-ship models, not on these hulls \\
+Hull side-force slope {\itshape (at its low bound)} & Kijima regression on merchant-ship models in calm water & \multicolumn{4}{c}{\stale{model_parts}{}} & hulls without a skeg tested at 0.4 to 0.5 times it \\
 Propeller and engine {\itshape (not measured)} & actuator disk with viscous loss; engine efficiency falling at part load & -- & -- & -- & -- & no open-water curve of a real propeller \\
 Wind at height {\itshape (not measured)} & one power-law profile from 10\,m, the mean of ERA5 over the region & -- & -- & -- & -- & real shear varies with stability from hour to hour \\
 Wing sail forces {\itshape (maximum lift)} & lifting line with stall, trimmed at each wind; array factor of the units & 0.0 & 4.7 & 0.0 & -- & interference fitted to CFD of three to four sails \\
