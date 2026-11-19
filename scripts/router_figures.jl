@@ -8,48 +8,39 @@
 """
     router_search_data()
 
-The first departure to Guadeloupe of a 140 m e-ammonia ship with a 3200 m^2 kite, routed
-on the corridor of the run in use: per node, stage × lateral, whether the search reached
-none of its states (0), pruned all (1) or searched on one (2) and its
-[`node_excess`](@ref): router_nodes.csv; the limit of the search, as
-[`limit_excess`](@ref): router_search.csv; latitude, longitude [°], hours after departure
-and whether the kite flies at each stage of the path: router_path.csv; and hours after
-departure, speed held [m/s], 10 m wind east and north [m/s] and whether the kite flies along
-it: router_trace.csv. Errors where no passage is found.
+Route the first departure to Guadeloupe of a 140 m e-ammonia ship with a 3200 m^2 kite on
+the corridor of the run in use, recording its search, and save in the run's directory:
+
+  - router_nodes.csv: per node, its stage, lateral, latitude and longitude [°], whether
+    the search reached none of its states (0), pruned all (1) or searched on one (2), and
+    its [`node_excess`](@ref);
+  - router_search.csv: the departure [h] and the [`limit_excess`](@ref) of the search;
+  - router_path.csv: latitude, longitude [°], hours after departure and whether the kite
+    flies, at each stage of the path;
+  - router_trace.csv: hours after departure, speed held [m/s], 10 m wind east and north
+    [m/s] and whether the kite flies, along the path.
+
+Errors where no passage is found.
 """
 function router_search_data()
     ship = Ship(ShipDesign(:ammonia, 140.0; kite_area=3200.0), assumptions)
     table = PerformanceTable(ship, assumptions)
     hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions))
+    corridor, departure = first(run_corridors(:caribbean)), departures[1]
     record = SearchRecord()
-    leg = route(first(run_corridors(:caribbean)), table, weather, departures[1];
-        time_cost=hourly, record)
-    isnothing(leg) && error("no passage to Guadeloupe from $(departures[1]) h")
-    excess, level = node_excess(record), node_map(record)
-    open(run_file("router_nodes.csv"), "w") do io
-        println(io, "stage,lateral,level,excess")
-        for node in CartesianIndices(level)
-            @printf(io, "%d,%d,%d,%.4f\n", Tuple(node)..., level[node], excess[node])
-        end
-    end
-    open(run_file("router_search.csv"), "w") do io
-        println(io, "limit_excess")
-        @printf(io, "%.4f\n", limit_excess(record))
-    end
-    open(run_file("router_path.csv"), "w") do io
-        println(io, "lat,lon,hour,flying")
-        for (lat, lon, hour, _, mode) in leg.path
-            @printf(io, "%.4f,%.4f,%.4f,%d\n", lat, lon, hour, mode == WindShipOpt.FLYING)
-        end
-    end
-    trace = LegTrace(table, leg, weather, departures[1])
-    open(run_file("router_trace.csv"), "w") do io
-        println(io, "hour,speed,wind_east,wind_north,flying")
-        for i in eachindex(trace.time)
-            @printf(io, "%.4f,%.4f,%.4f,%.4f,%d\n", trace.time[i], trace.speed[i],
-                trace.wind_east[i], trace.wind_north[i], trace.flying[i])
-        end
-    end
+    leg = route(corridor, table, weather, departure; time_cost=hourly, record)
+    isnothing(leg) && error("no passage to Guadeloupe from $departure h")
+    nodes = vec(CartesianIndices(corridor.water))
+    write_table("router_nodes.csv"; stage=getindex.(nodes, 1),
+        lateral=getindex.(nodes, 2), lat=corridor.lat[nodes], lon=corridor.lon[nodes],
+        level=node_map(record)[nodes], excess=node_excess(record)[nodes])
+    write_table("router_search.csv"; departure=[departure],
+        limit_excess=[limit_excess(record)])
+    write_table("router_path.csv"; lat=getindex.(leg.path, 1), lon=getindex.(leg.path, 2),
+        hour=getindex.(leg.path, 3), flying=getindex.(leg.path, 5) .== WindShipOpt.FLYING)
+    trace = LegTrace(table, leg, weather, departure)
+    write_table("router_trace.csv"; hour=trace.time, trace.speed, trace.wind_east,
+        trace.wind_north, trace.flying)
 end
 
 """
@@ -64,15 +55,11 @@ run in use: a named tuple of `corridor`, `departure` [h], the `weather`, `excess
 function router_case()
     corridor = first(run_corridors(:caribbean))
     nodes = read_table(data_file("router_nodes.csv"))
-    stages, laterals = Int.(nodes["stage"]), Int.(nodes["lateral"])
-    (maximum(stages), maximum(laterals)) == size(corridor.water) ||
-        error("router_nodes.csv holds $(maximum(stages)) × $(maximum(laterals)) nodes, " *
-              "the run's corridor $(join(size(corridor.water), " × "))")
+    check_router_nodes(nodes, corridor)
+    at = CartesianIndex.(Int.(nodes["stage"]), Int.(nodes["lateral"]))
     excess, level = fill(NaN, size(corridor.water)), zeros(Int, size(corridor.water))
-    for (k, node) in enumerate(CartesianIndex.(stages, laterals))
-        excess[node], level[node] = nodes["excess"][k], nodes["level"][k]
-    end
-    limit = only(read_table(data_file("router_search.csv"))["limit_excess"])
+    excess[at], level[at] = nodes["excess"], nodes["level"]
+    search = read_table(data_file("router_search.csv"))
     stops = read_table(data_file("router_path.csv"))
     path = [(; lat, lon, hour, flying=flying == 1)
             for (lat, lon, hour, flying) in
@@ -81,8 +68,24 @@ function router_case()
     trace = (; time=samples["hour"], speed=samples["speed"],
         wind_east=samples["wind_east"], wind_north=samples["wind_north"],
         flying=samples["flying"] .== 1)
-    return (; corridor, departure=departures[1], weather, excess, level,
-        limit_excess=limit, path, trace)
+    return (; corridor, departure=only(search["departure"]), weather, excess, level,
+        limit_excess=only(search["limit_excess"]), path, trace)
+end
+
+"""
+    check_router_nodes(nodes, corridor)
+
+Error unless the columns `nodes` of router_nodes.csv hold every node of `corridor` once,
+each at its latitude and longitude [°] to the four decimals saved.
+"""
+function check_router_nodes(nodes, corridor)
+    at = CartesianIndex.(Int.(nodes["stage"]), Int.(nodes["lateral"]))
+    sort(at) == vec(CartesianIndices(corridor.water)) ||
+        error("router_nodes.csv holds other nodes than the run's corridor")
+    moved = max(maximum(abs, nodes["lat"] .- corridor.lat[at]),
+        maximum(abs, nodes["lon"] .- corridor.lon[at]))
+    moved <= 1e-4 ||
+        error("router_nodes.csv places nodes up to $(moved)° from the run's corridor")
 end
 
 """
