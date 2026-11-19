@@ -36,10 +36,10 @@ function check_designs(check)
         [(; check, ship="140m_ammonia", route=:caribbean, rig,
              design=ShipDesign(:ammonia, 140.0; rig_size(rig, area)...))
          for (rig, area) in [("none", 0.0); reference_rigs]
-         if rig in ("none", "kite", "rotors")], ensemble_departures)
+         if rig in ("none", "kite", "rotors")], forecast_departures)
     check == "full" && return (
         [(; check, case.ship, case.route, case.rig, case.design)
-         for case in gate_cases()], ensemble_departures[1:3:end])
+         for case in gate_cases()], forecast_departures[1:3:end])
     throw(ArgumentError("check is development or full, not $check"))
 end
 
