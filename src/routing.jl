@@ -2704,11 +2704,12 @@ const KiteSample = @NamedTuple{hours::Float64, lat::Float64, lon::Float64, aloft
     KiteRuleEdge
 
 One edge of a passage as sailed, compared with the same edge from the same state with the
-kite held to the plan: whether each ends aloft, the samples whose state differs, and the
-fuel and rig cost of each [USD].
+kite held to the plan: whether each ends aloft, the samples whose state differs, the fuel
+and rig cost of each [USD] and the forced landings of each.
 """
 const KiteRuleEdge = @NamedTuple{ends_aloft::Bool, held_ends_aloft::Bool,
-    different_samples::Int, samples::Int, cost::Float64, held_cost::Float64}
+    different_samples::Int, samples::Int, cost::Float64, held_cost::Float64,
+    forced_landings::Int, held_forced_landings::Int}
 
 """
     KiteRecord()
@@ -2834,18 +2835,18 @@ point_shares(points) = [point_share(k, length(points)) for k in eachindex(points
 
 """
     record_edge!(record, table, points, shares, live_states, corridor, stage, lateral,
-                 next, start_hours, start_aloft, ends_aloft, targets, prices, cost,
+                 next, start_hours, start_aloft, ends_aloft, targets, prices, tally,
                  keeps_plan, planned_speed, known, departure)
 
 Add to `record` the sailed `points` at `shares` (0 to 1) of the edge from node (`stage`,
 `lateral`) to `next`, entered `start_hours` [h] after departure with the kite up if
-`start_aloft`, and the comparison of that edge, of fuel and rig `cost` [USD], with the
-kite held to `targets`; `planned_speed` [m/s] is the plan's for the edge and `known` what
-it knew, left at `departure` [h]. The kite is up at each point as `live_states` says, or
-where that is `nothing` as the cheapest way to `ends_aloft` has it.
+`start_aloft`, and the comparison of that edge, sailed as `tally`, with the kite held to
+`targets`; `planned_speed` [m/s] is the plan's for the edge and `known` what it knew, left
+at `departure` [h]. The kite is up at each point as `live_states` says, or where that is
+`nothing` as the cheapest way to `ends_aloft` has it.
 """
 function record_edge!(record, table, points, shares, live_states, corridor, stage, lateral,
-        next, start_hours, start_aloft, ends_aloft, targets, prices, cost,
+        next, start_hours, start_aloft, ends_aloft, targets, prices, tally,
         keeps_plan, planned_speed, known, departure)
     held_down, held_up, held_states = held_kite_passage(table, points, start_aloft, targets,
         prices)
@@ -2854,9 +2855,11 @@ function record_edge!(record, table, points, shares, live_states, corridor, stag
              kite_way(table, points, start_aloft, ends_aloft, prices)
     push_samples!(record, table, points, shares, corridor, stage, lateral, next,
         start_hours, states, held_states, planned_speed, prices, targets, known, departure)
+    held = held_up.cost < held_down.cost ? held_up : held_down
     push!(record.edges, (; ends_aloft, held_ends_aloft=isfinite(held_up.cost),
-        different_samples=count(states .!= held_states), samples=length(points), cost,
-        held_cost=min(held_down.cost, held_up.cost)))
+        different_samples=count(states .!= held_states), samples=length(points),
+        tally.cost, held_cost=held.cost, tally.forced_landings,
+        held_forced_landings=held.forced_landings))
 end
 
 """
@@ -2960,7 +2963,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
             blocked && break
             isnothing(record) || record_edge!(record, table, sailed, shares, live_states,
                 corridor, stage, lateral, next, time, start_aloft, aloft, targets,
-                prices, tally.cost, keeps_plan, planned_speed, one_forecast(known),
+                prices, tally, keeps_plan, planned_speed, one_forecast(known),
                 departure)
             objective += edge_objective(tally.cost, hours, prices)
             fuel_energy += tally.energy

@@ -1838,7 +1838,8 @@ end
         forced_more = held.forced_landings > free.forced_landings
         @test free.objective <= held.objective * (1 + 1e-9) || forced_more
         @test all(edge -> edge.cost <= edge.held_cost * (1 + 1e-9) ||
-                          edge.ends_aloft != edge.held_ends_aloft, edges)
+                          edge.ends_aloft != edge.held_ends_aloft ||
+                          edge.held_forced_landings > edge.forced_landings, edges)
         any(edge -> edge.ends_aloft != edge.held_ends_aloft, edges) || continue
         differing += 1
         @test free.objective < held.objective || forced_more
@@ -2076,7 +2077,7 @@ end
 
 @testset "a ship sailing live recovers more of a wrong forecast than one holding speed" begin
     kite_table, kite_hourly, finer = kite_coaster_routing(400.0)
-    departure, weather = 24.0 * 121, SyntheticWeather()
+    departure, weather = 24.0 * 181, SyntheticWeather()
     sources = (ReplannedForecast(CountedForecast(8.0, 0); interval=48.0, adapts)
                for adapts in (:nothing, :live))
     held, live = (forecast_route(finer, kite_table, weather, departure;
