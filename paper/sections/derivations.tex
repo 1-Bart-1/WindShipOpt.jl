@@ -52,17 +52,19 @@ The \SI{225}{m^2} flat SkySails kite of \SI{120}{kg} with its lines, \SI{0.68}{k
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Canopy cost and price of the \SI{3200}{m^2} kite by \cref{eq:canopy_price}, USD per projected square metre unless stated. The price is an estimate; its range spans the market factor and the surveyed fabric cost at their bounds (\cref{tab:inputs}).}
+\caption{Canopy cost and price of the \SI{3200}{m^2} kite by \cref{eq:canopy_price}, USD per projected square metre unless stated. The price is an estimate; its range spans the market factor, the surveyed fabric cost, the chord of the surveyed kites and the share of their sewing that grows with the cloth at their bounds (\cref{tab:inputs}).}
 \label{tab:canopy_price}
 \begin{tabular}{@{}lr@{}}
 \toprule
 Surveyed fabric, EUR per flat m$^2$ & 45 \\
 Surveyed bridle, EUR per flat m$^2$ & 8 \\
-Fabric at the paragliders' proportion & 73 \\
-Fabric at this kite's cloth, 1.33 times & 97 \\
+Surveyed fabric & 73 \\
+\quad its cloth, \SI{3.5}{m^2} of \SI{100}{g/m^2} & 49 \\
+\quad its sewing, \SI{3.6}{m} of seam per flat m$^2$ & 23 \\
+Cloth, \SI{4.7}{m^2} of \SI{200}{g/m^2} & 80 \\
+Sewing, \SI{2.0}{m} of seam per flat m$^2$ & 13 \\
 Bridle & 13 \\
-Cloth from 100 to \SI{200}{g/m^2} & 14 \\
-Cost & 120 \\
+Cost & 106 \\
 Price at a market factor of 2 & \NumCanopyPrice \\
 Range & \NumCanopyPriceLow{} to \NumCanopyPriceHigh \\
 \bottomrule
@@ -83,7 +85,7 @@ The survey states its cost per flat square metre and turns it into one per proje
 
 Each model line scales its sizes at a fixed cell count, so within a line the cell width grows with the chord. Across designs it grows more slowly (\cref{fig:canopy_cells}): the slope of the logarithm of the cell width on that of the mean chord is $0.72\pm0.12$ over the 23 models, $0.54\pm0.19$ over the six that are not paragliders, and the chord over the cell width spreads by about a third either side of the line. Builders keep the cell narrower than the section is thick, which shapes the wing more truly at the cost of more lines \citep{dunker2013}; at a thickness of 15\,\% of the chord that is a chord over cell width above about 7. The SkySails kite of \SI{125}{m^2} projected has 38 cells on \SI{15.2}{m} of projected span \citep{folkersma2020}, so they are at least \SI{0.46}{m} wide flat, against \SI{0.63}{m} from \cref{eq:canopy_cloth} at its size; its flat span is not published, so the fit leaves it out. No cell count is published for a canopy larger than \SI{325}{m^2}.
 
-On the \SI{800}{m^2} kite \cref{eq:canopy_cloth} gives about 55 cells \SI{1.0}{m} wide, against 0.12 to \SI{0.35}{m} on paragliders, so the seams between ribs and skins are about \SI{3}{m} per flat square metre, against about \SI{14}{m} on a paraglider of cells \SI{0.21}{m} wide. The price counts the fabric's seams and sewing with its cloth (\cref{eq:canopy_price}), so the \SI{800}{m^2} kite pays a fifth more for them than at the paragliders' proportion although it has a fifth of their seam per square metre; no source says what share of the surveyed cost follows seam length, so this errs towards a more expensive canopy. \citet{dunker2013} recommends about \SI{115}{kg} at most per subassembly under a sewing machine, so our \SI{720}{kg} canopy of \SI{800}{m^2} takes at least seven modules.
+On the \SI{800}{m^2} kite \cref{eq:canopy_cloth} gives about 55 cells \SI{1.0}{m} wide, against 0.12 to \SI{0.35}{m} on paragliders, so it has \SI{3.0}{m} of seam per flat square metre by \cref{eq:canopy_seam}, against \SI{3.6}{m} on the surveyed kites and about \SI{12}{m} on a paraglider of cells \SI{0.21}{m} wide. The price pays the surveyed sewing per metre of seam (\cref{eq:canopy_price}), so the \SI{800}{m^2} kite pays a fifth less for sewing per square metre than the surveyed kites. Its cells are still narrower than the cloth's roll of 1.37 to \SI{1.58}{m} \citep{extremtextil_prices_2026,sailrite_dacron_prices_2026,jonesairfoils_icarex}; from about \SI{2200}{m^2} they are wider, and each skin gets a panel seam across it. No source splits the surveyed cost into cloth and sewing, so the split rests on the retail cloth price; the high end of the price lets all of the sewing grow with the cloth instead, which charges the large kite for seam it does not have. \citet{dunker2013} recommends about \SI{115}{kg} at most per subassembly under a sewing machine, so our \SI{720}{kg} canopy of \SI{800}{m^2} takes at least seven modules.
 
 For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre, and ribs and diagonals \SI{0.101}{m^2} per unit of chord over cell width, which makes \SI{3.0}{m^2} per flat square metre, our estimate for paragliders from their weights \citep{advance_alpha8,nova_prion,nova_mentor2}, at their 9.3. \Cref{eq:canopy_cloth} then gives the \SI{3200}{m^2} kite \SI{4.7}{m^2} of cloth per projected square metre, against 3.5 at $\beta=1$ and a floor of 2.4 with no ribs at all (\cref{tab:canopy_variants}).
 
@@ -97,10 +99,10 @@ For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre, and ri
 Variant & Change of price [USD/m$^2$] & Canopy mass [kg/m$^2$] \\
 \midrule
 Base & 0 & 0.98 (0.75--1.3) \\
-Cells widening with the chord, $\beta=1$ & $-55$ & 0.75 \\
-Cells widening slower, $\beta=0.5$ & $+82$ & 1.32 \\
-Rib cloth at its low bound & $-22$ & 0.79 \\
-No ribs & $-62$ & 0.53 \\
+Cells widening with the chord, $\beta=1$ & $-44$ & 0.75 \\
+Cells widening slower, $\beta=0.5$ & $+74$ & 1.32 \\
+Rib cloth at its low bound & $-25$ & 0.79 \\
+No ribs & $-61$ & 0.53 \\
 \bottomrule
 \end{tabular}
 \end{table}

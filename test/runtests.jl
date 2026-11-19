@@ -736,19 +736,27 @@ end
           WindShipOpt.bottom_up_price(fixed, assumptions)
 end
 
-@testset "a canopy is the surveyed structure, its fabric grown with its cloth, at the market factor" begin
+@testset "a canopy is the surveyed one with its own cloth and seam, at the market factor" begin
     proportional = with_value(assumptions, :canopy_cell_width_exponent, 1.0)
-    @test WindShipOpt.canopy_cost(proportional, 800.0, 3.0) ≈
+    surveyed_area = 3 * 8.2^2
+    @test WindShipOpt.canopy_cost(proportional, surveyed_area, 3.0) ≈
           1.16 * 25 / 18 * 53 + 3.5 * 0.031 * 100 rtol = 1e-3
     price(area, inputs=assumptions) = WindShipOpt.canopy_price(inputs, area, 3.0)
     @test price(800.0) ≈ assumptions[:market_price_factor] *
                          WindShipOpt.canopy_cost(assumptions, 800.0, 3.0)
-    @test price(200.0) < price(800.0) < price(3000.0)
     cloth(area) = WindShipOpt.cloth_area_ratio(assumptions, area, 3.0)
-    surveyed_cloth = WindShipOpt.cloth_area_ratio(proportional, 800.0, 3.0)
+    surveyed_cloth = WindShipOpt.cloth_area_ratio(proportional, surveyed_area, 3.0)
+    seam(area) = WindShipOpt.seam_area_ratio(assumptions, area, 3.0)
+    sewing(area) = (WindShipOpt.canopy_cost(assumptions, area, 3.0) - 1.16 * 25 / 18 * 8 -
+                    cloth(area) * (11.0 + 0.031 * 200)) / seam(area)
+    surveyed_sewing = 1.16 * 25 / 18 * 45 - surveyed_cloth * (11.0 + 0.031 * 100)
+    @test sewing(200.0) ≈ sewing(3000.0) ≈ surveyed_sewing / ((3 * 9.3 + 2) / 8.2)
+    @test seam(3000.0) < seam(200.0)
+    growing = with_value(assumptions, :canopy_sewing_cloth_share, 1.0)
+    @test price(200.0, growing) < price(800.0, growing) < price(3000.0, growing)
     per_cloth = 1.16 * 25 / 18 * 45 / surveyed_cloth + 0.031 * 100
-    @test WindShipOpt.canopy_cost(assumptions, 3000.0, 3.0) -
-          WindShipOpt.canopy_cost(assumptions, 200.0, 3.0) ≈
+    @test WindShipOpt.canopy_cost(growing, 3000.0, 3.0) -
+          WindShipOpt.canopy_cost(growing, 200.0, 3.0) ≈
           per_cloth * (cloth(3000.0) - cloth(200.0))
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈
@@ -4081,7 +4089,7 @@ end
     proportional = with_value(assumptions, :canopy_cell_width_exponent, 1.0)
     @test ratio(16000.0, proportional) ≈ ratio(reference, assumptions)
     @test WindShipOpt.canopy_price(assumptions, 3000.0, 3.0) >
-          WindShipOpt.canopy_price(assumptions, 200.0, 3.0)
+          WindShipOpt.canopy_price(proportional, 3000.0, 3.0)
 end
 
 @testset "a rigid wing of the MX2 design matches its published numbers" begin

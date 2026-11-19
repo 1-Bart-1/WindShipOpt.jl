@@ -2681,11 +2681,14 @@ end
 """
     canopy_price_at(bound)
 
-[`reference_canopy_price`](@ref) [USD/m^2] with the surveyed structure cost and the market
-price factor at their `bound`, `:low` or `:high`.
+[`reference_canopy_price`](@ref) [USD/m^2] with the surveyed structure cost, the chord of the
+surveyed kites, the share of its sewing growing with the cloth and the market price factor at
+their `bound`, `:low` or `:high`.
 """
-canopy_price_at(bound) = reference_canopy_price(foldl((:canopy_structure_cost,
-        :market_price_factor); init=assumptions) do inputs, name
+canopy_price_at(bound) = reference_canopy_price(foldl(
+    (:canopy_structure_cost, :canopy_structure_chord, :canopy_sewing_cloth_share,
+        :market_price_factor);
+    init=assumptions) do inputs, name
     with_value(inputs, name, getproperty(assumptions.entries[name], bound))
 end)
 
@@ -3784,10 +3787,11 @@ function beam_thrust(rig, i)
 end
 
 "the price inputs of the parts and launches of a soft or a VTOL kite"
-kite_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost,
-    :canopy_cloth_price_per_weight, :kite_deck_mass_per_force, :kite_deck_cost_per_mass,
-    :control_unit_cost_per_mass, :kite_controls_cost, :kite_integration_fraction,
-    :tether_price, :rigid_avionics_cost, :rigid_drive_cost, :rigid_ship_power_cost,
+kite_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost, :canopy_structure_chord,
+    :canopy_sewing_cloth_share, :canopy_cloth_base_price, :canopy_cloth_price_per_weight,
+    :kite_deck_mass_per_force, :kite_deck_cost_per_mass, :control_unit_cost_per_mass,
+    :kite_controls_cost, :kite_integration_fraction, :tether_price,
+    :rigid_avionics_cost, :rigid_drive_cost, :rigid_ship_power_cost,
     :rigid_structure_cost_per_area, :rigid_structure_cost_per_mass, :rigid_tether_price,
     :rigid_hover_energy_price, :kite_cycle_course_cost, :kite_cycle_crew_cost,
     :market_price_factor)

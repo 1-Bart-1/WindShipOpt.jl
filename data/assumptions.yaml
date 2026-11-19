@@ -907,12 +907,42 @@ canopy_bridle_cost:
   high: 8.0
   unit: EUR/m^2
   reason: "Cost of a soft kite's bridle lines per m^2 of flat area, from the same survey as canopy_structure_cost [@joshi2024refeconomic, pp.2 and 7]."
+canopy_sewing_cloth_share:
+  value: 0.0
+  low: 0.0
+  high: 1.0
+  unit: "-"
+  reason: "Share of the surveyed canopy_structure_cost besides its cloth, the sewing, seams, reinforcements and assembly, that grows with the cloth sewn per m^2 rather than with the seam: the authors' estimate takes it to follow the seam, the labour of sewing; the high bound lets all of it grow with the cloth. The survey does not split its cost [@joshi2024refeconomic, p.7]."
+canopy_structure_chord:
+  value: 8.2
+  low: 4.4
+  high: 8.2
+  unit: m
+  reason: "Mean projected chord of the kites canopy_structure_cost is taken to be for, at canopy_chord_cells, which the survey does not state: that of the SkySails kite of 125 m^2 projected on a 15.2 m span [@folkersma2020, Table 1]. Its 38 cells, at least 0.46 m wide flat, make at most 18 per chord, as much seam per m^2 as canopy_chord_cells at the low bound."
+canopy_cell_seams:
+  value: 3.0
+  low: 2.0
+  high: 4.0
+  unit: "-"
+  reason: "Seams a chord long per cell of a ram-air canopy, reinforcements and bridle attachments along them: two joining each rib to the top and bottom skins and one for the diagonals, the authors' estimate; bounds the ribs alone and two for the diagonals."
+canopy_cloth_width:
+  value: 1.5
+  low: 1.37
+  high: 1.58
+  unit: m
+  reason: "Width of the cloth a canopy's skins are sewn from in panels, seamed where a cell is wider: 1.37-1.58 m for the kite cloth and sailcloth of canopy_cloth_price_per_weight [@extremtextil_prices_2026; @sailrite_dacron_prices_2026; @jonesairfoils_icarex]."
 canopy_structure_cloth_weight:
   value: 100.0
   low: 50.0
   high: 200.0
   unit: g/m^2
   reason: "Cloth weight canopy_structure_cost is taken to be for, which the survey does not state: the authors' assumption of the slightly above 100 g/m^2 of the SkySails ship kite [@paulig2013], built for about the force per area of the surveyed kites. Bounds: kite and paraglider cloth of 27-55 g/m^2 [@porcher2006skytex_tds] and the canopy's own cloth."
+canopy_cloth_base_price:
+  value: 11.0
+  low: 2.0
+  high: 17.0
+  unit: USD/m^2
+  reason: "Price of a sewn m^2 of cloth, with 15 % offcuts, at no cloth weight: least-squares line through the retail prices of polyester and nylon kite cloth and Dacron sailcloth of 29-385 g/m^2 ex VAT on 1 November 2026, with 2.9 USD/m^2 scatter [@extremtextil_prices_2026; @sailrite_dacron_prices_2026; @jonesairfoils_icarex]; the low bound is a maker buying by the roll from the mill."
 canopy_cloth_price_per_weight:
   value: 0.031
   low: 0.006
