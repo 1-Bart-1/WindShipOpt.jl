@@ -937,8 +937,8 @@ function today_data()
         for (case, trip) in zip(cases, trips)
             isnothing(trip) && continue
             cost = changed_cost(merge(case, (; assumptions=today)), trip)
-            println(io, join([csv_value(getproperty(case, label)) for label in labels], ","),
-                @sprintf(",%.6f", cost))
+            fields = [csv_value(getproperty(case, label)) for label in labels]
+            println(io, join(fields, ","), @sprintf(",%.6f", cost))
         end
     end
 end
@@ -4080,8 +4080,8 @@ function today_routing_data()
     trips = fetch.([Threads.@spawn round_trips(cases, [departure]) for departure in chosen])
     open(run_file("today_routing.csv"), "w") do io
         println(io, "rig,area,departure,recosted,rerouted")
-        for (departure, departure_trips) in zip(chosen, trips), (k, case) in enumerate(goals)
-            found, again = departure_trips[k], departure_trips[length(goals) + k]
+        for (departure, routed) in zip(chosen, trips), (k, case) in enumerate(goals)
+            found, again = routed[k], routed[length(goals) + k]
             (isnothing(found) || isnothing(again)) && continue
             println(io, join([case.rig, csv_value(case.area), csv_value(departure),
                     @sprintf("%.6f", changed_cost(cases[length(goals) + k], found)),

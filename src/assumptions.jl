@@ -16,7 +16,8 @@ struct Assumption
     today::Float64
 end
 
-Assumption(value, low, high, unit, reason) = Assumption(value, low, high, unit, reason, value)
+Assumption(value, low, high, unit, reason) =
+    Assumption(value, low, high, unit, reason, value)
 
 """
     Assumptions()

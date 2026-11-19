@@ -985,7 +985,9 @@ function split_table()
     today = fleet_cells.(Ref(read_table(data_file("classes_today.csv"))),
         first.(drive_labels))
     lines = []
-    for ((drive, label), cells) in zip(drive_labels, today), (k, rig) in enumerate(rig_names)
+    for ((drive, label), cells) in zip(drive_labels, today),
+        (k, rig) in enumerate(rig_names)
+
         splits = rig_splits(table, drive, rig)
         hours = getproperty.(splits, :hours)
         push!(lines, (; label=k == 1 ? label : "", rig, points=split_points(splits),

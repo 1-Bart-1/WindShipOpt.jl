@@ -96,6 +96,12 @@ export const paperCargoFactor = 1;
 export const changedCount = (data: ExplorerData, changes: Record<string, number>, cargoFactor: number) =>
   changedInputs(data, changes).length + (differs(cargoFactor, paperCargoFactor) ? 1 : 0);
 
+/** Each goal at its value known today, by name: the changes that show what a rig saves today. */
+export const todayInputs = (data: ExplorerData) =>
+  Object.fromEntries(Object.entries(data.inputs)
+    .filter(([, input]) => differs(input.today, input.value))
+    .map(([name, input]) => [name, input.today]));
+
 /** `changes` without `names`, which then take the paper's values. */
 export const resetInputs = (changes: Record<string, number>, names: string[]) =>
   Object.fromEntries(Object.entries(changes).filter(([name]) => !names.includes(name)));
