@@ -75,7 +75,8 @@ study_steps = [:forecast_plans => forecast_plans_data,
     :convergence => convergence_data, :speed_terms => speed_terms_data,
     :published_terms => published_terms_data, :tow_point => tow_point_data,
     :model_parts => model_parts_data, :size_search => size_search_data,
-    :router_decisions => router_decisions_data]
+    :router_decisions => router_decisions_data,
+    :routing_value => routing_value_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
 study_tables = Dict(:forecast_plans => [:forecast_plans_table => forecast_plans_table],
@@ -86,7 +87,8 @@ study_tables = Dict(:forecast_plans => [:forecast_plans_table => forecast_plans_
     :cargo_interest => [:cargo_interest_table => cargo_interest_table],
     :sea_effect => [:sea_effect_table => sea_effect_table],
     :speed_terms => [:speed_terms_table => speed_terms_table],
-    :published_terms => [:published_table => published_table])
+    :published_terms => [:published_table => published_table],
+    :routing_value => [:routing_value_table => routing_value_table])
 
 "every table step of the method studies"
 study_table_steps() = unique(reduce(vcat, values(study_tables)))
@@ -132,7 +134,7 @@ output_steps = [:kite => kite_figure,
     :canopy_life_table => canopy_life_table, :kite_mass => kite_mass_figure,
     :tow_point_figure => tow_point_figure,
     :fleet_share => fleet_share_figure, :numbers => numbers_file,
-    :rigid_numbers => rigid_numbers_file]
+    :figure_style => figure_style_file, :rigid_numbers => rigid_numbers_file]
 
 """
     paper(names...; fidelity, resume=nothing, only=nothing)
