@@ -355,6 +355,13 @@ study_hull(ship) = ship == "140 m" ? 140.0 : ship_classes()[ship]
 "reference size of each rig on the 140 m ship"
 reference_rigs = [("kite", 3200.0), ("wings", 1500.0), ("rotors", 800.0)]
 
+"projected area [m^2] and aspect ratio at `inputs` of the reference kite of the 140 m ship"
+reference_kite_shape(inputs) = (Dict(reference_rigs)["kite"], inputs[:kite_aspect_ratio])
+
+"canopy price [USD/m^2] at `inputs` of the reference kite of the 140 m ship"
+reference_canopy_price(inputs) =
+    WindShipOpt.canopy_price(inputs, reference_kite_shape(inputs)...)
+
 "the rigs, as named in the output"
 rig_names = ("kite", "wings", "rotors")
 
@@ -2400,7 +2407,7 @@ study.
 """
 development_inputs = [
     (input=:canopy_structure_cost, label="canopy cost", rig="kite",
-        lever="price", reason="Cloth, sewing and bridle, which a maker lowers by " *
+        lever="price", reason="Cloth with its seams and sewing, which a maker lowers by " *
                               "design for making; they set the canopy's share of the " *
                               "kite's price."),
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
@@ -2674,10 +2681,10 @@ end
 """
     canopy_price_at(bound)
 
-Canopy price [USD/m^2] with the surveyed structure cost and the market price factor at their
-`bound`, `:low` or `:high`.
+[`reference_canopy_price`](@ref) [USD/m^2] with the surveyed structure cost and the market
+price factor at their `bound`, `:low` or `:high`.
 """
-canopy_price_at(bound) = WindShipOpt.canopy_price(foldl((:canopy_structure_cost,
+canopy_price_at(bound) = reference_canopy_price(foldl((:canopy_structure_cost,
         :market_price_factor); init=assumptions) do inputs, name
     with_value(inputs, name, getproperty(assumptions.entries[name], bound))
 end)
@@ -2689,7 +2696,7 @@ Canopy prices [USD/m^2] the kite is routed at for the missed-goal table: the bas
 top of its range and either side of them, up to where the kite stops paying on every ship.
 """
 function canopy_prices()
-    base = WindShipOpt.canopy_price(assumptions)
+    base = reference_canopy_price(assumptions)
     return sort([base .* [0.5, 0.75, 1.0, 1.25, 2.5, 3.5, 5.0, 7.0];
                  canopy_price_at(:high)])
 end
@@ -2697,14 +2704,14 @@ end
 """
     at_canopy_price(price)
 
-The assumptions with the canopy's cost inputs scaled together until the canopy costs
-`price` [USD/m^2].
+The assumptions with the canopy's cost inputs scaled together until the
+[`reference_canopy_price`](@ref) is `price` [USD/m^2].
 """
 function at_canopy_price(price)
     low, high = 0.0, 20.0
     for _ in 1:60
         middle = (low + high) / 2
-        cost = WindShipOpt.canopy_price(scaled(WindShipOpt.canopy_price_inputs, middle))
+        cost = reference_canopy_price(scaled(WindShipOpt.canopy_price_inputs, middle))
         cost < price ? (low = middle) : (high = middle)
     end
     return scaled(WindShipOpt.canopy_price_inputs, high)
@@ -3728,8 +3735,8 @@ function beam_thrust(rig, i)
 end
 
 "the price inputs of the parts and launches of a soft or a VTOL kite"
-kite_price_inputs = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight,
-    :canopy_making_cost_per_area, :control_unit_cost, :control_unit_cost_per_area,
+kite_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost,
+    :canopy_cloth_price_per_weight, :control_unit_cost, :control_unit_cost_per_area,
     :docking_head_cost, :launch_mast_mass_coefficient, :launch_mast_steel_cost,
     :winch_cost_per_force, :winch_fixed_cost, :kite_integration_fraction, :tether_price,
     :rigid_avionics_cost, :rigid_drive_cost, :rigid_perch_cost, :rigid_ship_power_cost,

@@ -375,6 +375,8 @@ direction and the weight given to side force, its trim. `airframe` is a
 Base.@kwdef struct KiteRig{A}
     "projected area of one kite [m^2]"
     area::Float64
+    "projected aspect ratio of one kite [-]"
+    aspect_ratio::Float64
     "tether diameter [m]"
     tether_diameter::Float64
     tether_length::Float64
@@ -485,7 +487,7 @@ Mass [kg] of a soft kite of projected `area` [m^2] and `aspect_ratio` without it
 canopy, bridle and control unit, sized for `max_force` [N].
 """
 soft_kite_mass(area, aspect_ratio, max_force, assumptions::Assumptions) =
-    Canopy(assumptions).mass_per_area * area +
+    Canopy(assumptions, area, aspect_ratio).mass_per_area * area +
     last(bridle_lines(area, aspect_ratio, max_force, assumptions)) +
     1e-3assumptions[:control_unit_mass_per_force] * max_force
 
@@ -810,8 +812,8 @@ function rigid_kite_rig(total_area, hull::Hull, assumptions::Assumptions;
         side_weights)
     lowest_wind = max(lowest_flying_wind(RIGID_WIND_SPEEDS, forces),
         crosswind_min_wind(model, deg2rad(assumptions[:kite_min_elevation])))
-    return KiteRig(; area, tether_diameter, model.tether_length,
-        reference_height=model.tether_length * sin(deg2rad(25)),
+    return KiteRig(; area, aspect_ratio=assumptions[:rigid_aspect_ratio], tether_diameter,
+        model.tether_length, reference_height=model.tether_length * sin(deg2rad(25)),
         rigid_wind_limits(lowest_wind, assumptions)..., max_force,
         attach_height=assumptions[:kite_attach_height] * hull.length /
                       assumptions[:reference_length],
@@ -833,7 +835,7 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
     tether_length = model.tether_length
     wind_speeds = [3.0:1.0:9.0; 10.5; 12.0:3.0:30.0]
     forces = pattern_table(model, max_force, assumptions, wind_speeds, courses, SIDE_WEIGHTS)
-    return KiteRig(; area, tether_diameter, tether_length,
+    return KiteRig(; area, aspect_ratio, tether_diameter, tether_length,
         reference_height=tether_length * sin(deg2rad(25)),
         max_wind=assumptions[:kite_max_wind],
         min_flight_wind=max(min_flight_wind(model, assumptions),

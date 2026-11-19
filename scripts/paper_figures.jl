@@ -3436,7 +3436,7 @@ function missed_goals_figure()
                     ("out of service [%]", Makie.pseudolog10,
                         [0, 1, 2, 4, 8, 16, 32, 64])))]
         goal_marks!(axes[1], assumptions.entries[:canopy_life])
-        goal_marks!(axes[2], WindShipOpt.canopy_price(assumptions), canopy_price_at(:low),
+        goal_marks!(axes[2], reference_canopy_price(assumptions), canopy_price_at(:low),
             canopy_price_at(:high); linestyle=:dot, shade=(palette[1], 0.1))
         goal_marks!(axes[3], 100service_goal,
             100minimum(input.low for input in service_inputs),
@@ -3508,9 +3508,23 @@ reference_line!(axis, value=0; vertical=false, linestyle=:solid) =
     (vertical ? vlines! : hlines!)(axis, value; color=style_colour("guide"),
         linewidth=rule_width, linestyle)
 
-"inputs of the mass of a soft kite without its tether"
-soft_mass_inputs = (:canopy_cloth_area_ratio, :canopy_mass_overhead,
-    :control_unit_mass_per_force)
+"inputs of the mass of a soft kite without its tether, each with its bound that lightens it"
+soft_mass_inputs = (canopy_flat_area_ratio=:low, canopy_rib_cloth_ratio=:low,
+    canopy_cell_width_exponent=:high, canopy_mass_overhead=:low,
+    control_unit_mass_per_force=:low)
+
+"""
+    soft_mass_bound(lightest)
+
+`assumptions` with every one of [`soft_mass_inputs`](@ref) at the bound that makes a soft
+kite lightest, or heaviest where `lightest` is false.
+"""
+function soft_mass_bound(lightest)
+    return foldl(pairs(soft_mass_inputs); init=assumptions) do inputs, (name, light)
+        bound = lightest ? light : (light == :low ? :high : :low)
+        with_value(inputs, name, getfield(inputs.entries[name], bound))
+    end
+end
 
 """
     soft_kite_mass(area, inputs)
@@ -3570,8 +3584,8 @@ function kite_mass_figure()
         color=rigid_colour, linestyle=:dot)
     soft_areas = exp.(range(log(5), log(5000); length=50))
     mass_law!(axis, soft_areas, soft_kite_mass.(soft_areas, Ref(assumptions)),
-        soft_kite_mass.(soft_areas, Ref(at_bound(assumptions, soft_mass_inputs, :low))),
-        soft_kite_mass.(soft_areas, Ref(at_bound(assumptions, soft_mass_inputs, :high))),
+        soft_kite_mass.(soft_areas, Ref(soft_mass_bound(true))),
+        soft_kite_mass.(soft_areas, Ref(soft_mass_bound(false))),
         maximum(published["area"][flew .& soft]), soft_colour)
     for row in eachindex(published["name"])
         color = published["kind"][row] == "soft" ? soft_colour :
@@ -3592,4 +3606,52 @@ function kite_mass_figure()
             statuses...]; position=:cc, nbanks=4, rowgap=0, colgap=pt(6),
         patchsize=(pt(12), pt(6)))
     save_figure("kite_mass", figure)
+end
+
+"marker of a published canopy of each `kind` in data/canopy_cells.csv"
+canopy_markers = Dict("paraglider" => :circle, "kite" => :rect, "parafoil" => :utriangle)
+
+"""
+    canopy_cells_figure()
+
+Mean chord over cell width against mean chord of the ram-air canopies of
+data/canopy_cells.csv, its `kind`, `flat_area` [m^2], `flat_span` [m] and `cells`, and the
+rule of the model at base inputs between the bounds of `canopy_cell_width_exponent`, with
+the mean chords of the kites the class study searches.
+"""
+function canopy_cells_figure()
+    published = read_table(joinpath(root, "data", "canopy_cells.csv"))
+    chords = published["flat_area"] ./ published["flat_span"]
+    ratios = chords .* published["cells"] ./ published["flat_span"]
+    figure = Figure(size=(column_width, 170))
+    axis = Axis(figure[1, 1]; xscale=log10, yscale=log10, xlabel=L"mean chord $c$ [m]",
+        ylabel=L"chord over cell width $c/w$",
+        xticks=([1, 3, 10, 30, 100], ["1", "3", "10", "30", "100"]),
+        yticks=([3, 5, 10, 20, 40], ["3", "5", "10", "20", "40"]),
+        limits=(nothing, (3, 45)))
+    kite_areas = size_bounds(first(values(ship_classes())))["kite"]
+    kite_chords = sqrt.(collect(kite_areas) ./ assumptions[:kite_aspect_ratio])
+    vspan!(axis, kite_chords...; color=(:gray50, 0.15))
+    line_chords = exp.(range(log(0.8), log(80); length=50))
+    exponent = :canopy_cell_width_exponent
+    bounds = [WindShipOpt.chord_over_cell_width.(
+                  Ref(at_bound(assumptions, (exponent,), bound)), line_chords)
+              for bound in (:low, :high)]
+    band!(axis, line_chords, bounds...; color=(palette[1], 0.18))
+    built = line_chords .<= maximum(chords)
+    rule = WindShipOpt.chord_over_cell_width.(Ref(assumptions), line_chords)
+    lines!(axis, line_chords[built], rule[built]; color=palette[1])
+    lines!(axis, line_chords[.!built], rule[.!built]; color=palette[1], linestyle=:dash)
+    for kind in keys(canopy_markers)
+        shown = published["kind"] .== kind
+        scatter!(axis, chords[shown], ratios[shown]; color=:black,
+            marker=canopy_markers[kind])
+    end
+    kinds = ["paraglider", "kite", "parafoil"]
+    markers = [MarkerElement(color=:black, marker=canopy_markers[kind]) for kind in kinds]
+    entries = [markers..., LineElement(color=palette[1]),
+        PolyElement(color=(:gray50, 0.15))]
+    axislegend(axis, entries, [kinds..., "model", "kites searched"]; position=:lt,
+        nbanks=2, rowgap=0, colgap=pt(6), patchsize=(pt(12), pt(6)))
+    save(joinpath(figures, "canopy_cells.pdf"), figure; pt_per_unit=print_scale)
 end
