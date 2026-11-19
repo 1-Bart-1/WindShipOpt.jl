@@ -66,14 +66,6 @@ canopy_lifetime(assumptions::Assumptions) = assumptions[:canopy_life] *
         assumptions[:kite_max_force_per_area]) / reference_decay_life(assumptions)
 
 """
-    sewn_cloth_price(assumptions, weight)
-
-Price [USD] of one square metre of canopy cloth of `weight` [g/m^2], as sewn into a canopy.
-"""
-sewn_cloth_price(assumptions::Assumptions, weight) = assumptions[:canopy_cloth_base_price] +
-    assumptions[:canopy_cloth_price_per_weight] * weight
-
-"""
     chord_over_cell_width(assumptions, chord)
 
 Chord over cell width [-] of a ram-air canopy of mean `chord` [m]: `canopy_chord_cells` at
@@ -97,20 +89,39 @@ function cloth_area_ratio(assumptions::Assumptions, area, aspect_ratio)
             assumptions[:canopy_rib_cloth_ratio] * cells)
 end
 
+"flat over projected area at which `canopy_structure_cost` is stated"
+const SURVEY_FLAT_AREA_RATIO = 25 / 18
+
+"""
+    canopy_cost(assumptions, area, aspect_ratio)
+
+Cost [USD/m^2] per projected m^2 of the canopy of `canopy_cloth_weight` of a kite of
+projected `area` [m^2] and projected `aspect_ratio`: the surveyed `canopy_structure_cost`
+plus the cloth of its [`cloth_area_ratio`](@ref) priced from `canopy_structure_cloth_weight`
+up to its own weight.
+"""
+function canopy_cost(assumptions::Assumptions, area, aspect_ratio)
+    surveyed = assumptions[:usd_per_eur] * SURVEY_FLAT_AREA_RATIO *
+               assumptions[:canopy_structure_cost]
+    heavier = assumptions[:canopy_cloth_weight] -
+              assumptions[:canopy_structure_cloth_weight]
+    cloth = cloth_area_ratio(assumptions, area, aspect_ratio) *
+            assumptions[:canopy_cloth_price_per_weight] * heavier
+    return surveyed + cloth
+end
+
 """
     Canopy(assumptions, area, aspect_ratio)
 
 [`Canopy`](@ref) of a kite of projected `area` [m^2] and projected `aspect_ratio`, sewn from
-`canopy_cloth_weight` in its [`cloth_area_ratio`](@ref), plus an overhead for mass and cost,
-with the mass overhead of seams, tapes and reinforcements in proportion to the force limit,
-lasting [`canopy_lifetime`](@ref).
+`canopy_cloth_weight` in its [`cloth_area_ratio`](@ref): its cloth plus the mass overhead of
+seams, tapes and reinforcements in proportion to the force limit, at its
+[`canopy_cost`](@ref), lasting [`canopy_lifetime`](@ref).
 """
 function Canopy(assumptions::Assumptions, area, aspect_ratio)
     weight = assumptions[:canopy_cloth_weight]
     cloth_area = cloth_area_ratio(assumptions, area, aspect_ratio)
     return Canopy(1e-3cloth_area * weight +
                   assumptions[:canopy_mass_overhead] * force_rating(assumptions),
-        assumptions[:canopy_making_cost_per_area] +
-        cloth_area * sewn_cloth_price(assumptions, weight),
-        canopy_lifetime(assumptions))
+        canopy_cost(assumptions, area, aspect_ratio), canopy_lifetime(assumptions))
 end

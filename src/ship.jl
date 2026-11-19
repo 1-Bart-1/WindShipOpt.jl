@@ -444,13 +444,17 @@ const KNOT = 1852 / 3600
     HullBalance
 
 Steady response of hull and rudder to a rig force: heel [rad], leeway [rad], rudder lift
-coefficient [-] and the drag of leeway and rudder together [N].
+coefficient [-], the side forces [N, to leeward] of the rudder at the stern and of the
+hull at its lateral centre, and the drag [N] of leeway and of the rudder.
 """
 struct HullBalance
     heel::Float64
     leeway::Float64
     rudder_lift_coefficient::Float64
-    drag::Float64
+    rudder_side_force::Float64
+    hull_side_force::Float64
+    leeway_drag::Float64
+    rudder_drag::Float64
 end
 
 """
@@ -474,11 +478,13 @@ both act at half draft for the heel.
 function HullBalance(ship::Ship, speed, force::RigForce)
     (; hull, env) = ship
     rudder_force = rudder_side_force(hull, force)
-    leeway, induced = leeway_drag(hull, env, speed, abs(force.side + rudder_force))
+    hull_force = -(force.side + rudder_force)
+    leeway, induced = leeway_drag(hull, env, speed, abs(hull_force))
     rudder_load = 0.5env.water_density * speed^2 * ship.rudder_area
     rudder_drag = rudder_force^2 / (rudder_load * π * ship.rudder_aspect_ratio)
     heel = abs(force.heeling_moment + force.side * hull.draft / 2) / ship.righting_stiffness
-    return HullBalance(heel, leeway, abs(rudder_force) / rudder_load, induced + rudder_drag)
+    return HullBalance(heel, leeway, abs(rudder_force) / rudder_load, rudder_force,
+        hull_force, induced, rudder_drag)
 end
 
 """
@@ -500,7 +506,7 @@ function required_thrust(ship::Ship, speed, wind_10m, true_angle, force::RigForc
             max(ship.rudder_max_lift, alone.rudder_lift_coefficient) || return Inf
     end
     return resistance(ship.hull, ship.env, speed; coefficients=ship.wave_coefficients) +
-           balance.drag - force.thrust - hull_force.thrust
+           balance.leeway_drag + balance.rudder_drag - force.thrust - hull_force.thrust
 end
 
 """

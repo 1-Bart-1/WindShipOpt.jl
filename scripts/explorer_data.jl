@@ -8,13 +8,13 @@
 
 "inputs of data/assumptions.yaml a reader of the explorer changes"
 explorer_inputs = (:vlsfo_price, :e_ammonia_price, :carbon_price, :carbon_coverage,
-    :canopy_life, :canopy_making_cost_per_area, :canopy_cloth_base_price,
-    :canopy_cloth_price_per_weight, :tether_price, :tether_lifetime, :kite_cycle_crew_cost,
-    :kite_cycle_damage_probability, :kite_cycle_loss_probability,
-    :kite_forced_landing_loss_probability, :kite_out_of_service, :wing_out_of_service,
+    :canopy_life, :canopy_structure_cost, :canopy_cloth_price_per_weight, :tether_price,
+    :tether_lifetime, :kite_cycle_crew_cost, :kite_cycle_damage_probability,
+    :kite_cycle_loss_probability, :kite_forced_landing_loss_probability,
+    :kite_out_of_service, :wing_out_of_service,
     :rotor_out_of_service, :kite_crash_rate, :wing_loss_rate, :rotor_loss_rate,
-    :market_price_factor, :kite_lifetime, :wing_lifetime, :rotor_lifetime, :discount_rate,
-    :availability)
+    :market_price_factor, :learning_rate, :kite_lifetime, :wing_lifetime, :rotor_lifetime,
+    :discount_rate, :availability)
 
 "ships (class, drive, route) whose cheapest design of each rig is rerun at other inputs"
 explorer_check_ships = (("general cargo coaster", :ammonia, :caribbean),
@@ -29,10 +29,8 @@ on the cargo value of the class).
 """
 function explorer_changes()
     entry(name) = assumptions.entries[name]
-    canopy_today = NamedTuple(name => assumptions[Symbol(name, :_today)]
-                              for name in WindShipOpt.canopy_price_inputs)
     return [("canopy life ×2", (canopy_life=2assumptions[:canopy_life],), 1.0),
-        ("canopy price as built today", canopy_today, 1.0),
+        ("rig prices as paid today", (learning_rate=0.0,), 1.0),
         ("fuel −30 %", fuel_prices(0.7), 1.0), ("fuel +30 %", fuel_prices(1.3), 1.0),
         ("carbon price on VLSFO", (carbon_coverage=1.0,), 1.0),
         ("discount rate low", (discount_rate=entry(:discount_rate).low,), 1.0),
@@ -222,14 +220,12 @@ end
 """
     explorer_input_entries(classes, class_names)
 
-The base, low and high values and the unit of each of [`explorer_inputs`](@ref) and of
-the canopy price inputs as built today by name, and of the cargo value of each of
-`class_names`.
+The base, low and high values and the unit of each of [`explorer_inputs`](@ref) by name,
+and of the cargo value of each of `class_names`.
 """
 function explorer_input_entries(classes, class_names)
-    today = (Symbol(name, :_today) for name in WindShipOpt.canopy_price_inputs)
     entries = Dict{String, Any}(string(name) => assumptions.entries[name]
-                                for name in (explorer_inputs..., today...))
+                                for name in explorer_inputs)
     for name in class_names
         value = classes[name].cargo_value
         entries[cargo_input(name)] = Assumption(value, value, value, "USD/t",
