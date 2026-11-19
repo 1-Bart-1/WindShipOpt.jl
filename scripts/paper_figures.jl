@@ -1212,6 +1212,8 @@ function lead_text(lead)
     return (@sprintf("%s +%.1f", rig_label(lead.rig), lead.margin), rig_colour(lead.rig))
 end
 
+"distance [rows] between the lines of neighbouring rigs within one row"
+lane_offset = 0.28
 "size of the marker of a mean drawn over the bar of its range"
 mean_marker_size = 1.5marker_size
 "colour of the bar of the range of rig `j` of `rig_names` under the marker of its mean"
@@ -1221,21 +1223,22 @@ range_colour(j) = (palette[j], 0.5)
     savings_panel!(axis, table, groups, drive)
 
 Draw on `axis`, per `(label, classes)` of `groups` of the class table `table` on `drive`,
-a row with a line for each rig: its [`mean_savings`](@ref) of cost as a marker over a thin
-bar spanning its [`route_savings`](@ref), and beside the row the [`lead_text`](@ref) of
-the [`rig_lead`](@ref) over the classes' [`fleet_cells`](@ref).
+a row with a line for each rig run there: its [`mean_savings`](@ref) of cost as a marker
+over a thin bar spanning its [`route_savings`](@ref), and beside the row the
+[`lead_text`](@ref) of the [`rig_lead`](@ref) over the classes' [`fleet_cells`](@ref).
 """
 function savings_panel!(axis, table, groups, drive)
     cells = fleet_cells(table, drive)
     for (i, (_, classes)) in enumerate(groups)
         iseven(i) && hspan!(axis, i - 0.5, i + 0.5; color=(:gray, 0.12))
         for (j, kind) in enumerate(rig_names)
-            y = i + (j - 2) * 0.28
+            y = i + (j - 2) * lane_offset
             values = route_savings(table, "cost", classes, drive, kind)
+            isempty(values) && continue
             rangebars!(axis, [y], [minimum(values)], [maximum(values)]; direction=:x,
                 color=range_colour(j), linewidth=goal_width, whiskerwidth=0)
             scatter!(axis, [only(mean_savings(table, ("cost",), classes, drive, kind))],
-                [y]; color=palette[j], markersize=mean_marker_size)
+                [y]; color=palette[j], marker=rig_markers[j], markersize=mean_marker_size)
         end
     end
     span = extrema([reduce(vcat, [route_savings(table, "cost", classes, drive, kind)
@@ -1273,7 +1276,8 @@ function class_comparison_figure()
     end
     Legend(figure[2, 1:length(drive_panels)],
         [[LineElement(; color=range_colour(j), linewidth=goal_width),
-          MarkerElement(; color=palette[j], marker=:circle, markersize=mean_marker_size)]
+          MarkerElement(; color=palette[j], marker=rig_markers[j],
+              markersize=mean_marker_size)]
          for j in eachindex(rig_names)], rig_label.(collect(rig_names));
         orientation=:horizontal, tellwidth=false)
     rowgap!(figure.layout, 1, pt(4))
@@ -1454,7 +1458,7 @@ function tow_point_figure()
             tows = [tow for (tow, _) in markers[2:end] if container || tow != "midship_bay"]
             for (j, tow) in enumerate(tows)
                 values = [saving[tow] - saving["bow"] for saving in savings[i, :]]
-                y = i + (j - (length(tows) + 1) / 2) * 0.28
+                y = i + (j - (length(tows) + 1) / 2) * lane_offset
                 rangebars!(axis, [y], [minimum(values)], [maximum(values)];
                     direction=:x, color=(category_colours[j], 0.6))
                 scatter!(axis, [mean(values)], [y]; color=category_colours[j])
@@ -2659,8 +2663,8 @@ function wind_angle_figure()
         spread = mean(cost(rig) / fixed[(rig, :value)] for rig in ("wings", "rotors"))
         for (j, (rig, _)) in enumerate(rigs)
             work = band_totals(table, rig, "work"; route=name)
-            stacked_bar!(work_axis, i + (j - 2) * 0.28, 100 .* work ./ sum(work), 0.25,
-                palette[j])
+            stacked_bar!(work_axis, i + (j - 2) * lane_offset, 100 .* work ./ sum(work),
+                0.25, palette[j])
             chosen = rows(table, "rig" => rig, "route" => name)
             thrust = sum(table["thrust_hours"][chosen]) / sum(table["hours"][chosen])
             per_day(bound) = 24e-3 * (cost(rig) +
