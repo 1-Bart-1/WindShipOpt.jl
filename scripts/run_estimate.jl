@@ -71,7 +71,7 @@ function measure_trip_costs()
         ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); route=:caribbean,
         forecast=plan)
     classes = collect(values(ship_classes()))
-    rigs = [("none", 0.0); reference_rigs]
+    rigs = reference_rigs_and_none
     costs = Dict{String, Any}("processor" => processor(), "threads" => Threads.nthreads())
     sample_cost([development("none", 0.0)], departures[1:1])
     for (rig, area) in rigs

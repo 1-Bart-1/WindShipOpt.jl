@@ -269,16 +269,6 @@ handling_hours(::KiteRig{RigidAirframe}, assumptions) =
     assumptions[:rigid_hover_minutes] / 60
 
 """
-    OperatingPoint
-
-Fuel power [W] at a tabulated condition and whether the rig is flown there.
-"""
-struct OperatingPoint
-    fuel_power::Float64
-    flying::Bool
-end
-
-"""
     SeaCondition(table, wind, angle, wave_height, wave_period, wave_heading)
 
 Wind and waves on one course as [`KnotWeight`](@ref)s on the grids of the
@@ -325,23 +315,6 @@ extra_launch_wind(table::PerformanceTable, speed, condition::SeaCondition) =
         condition.wave_period, condition.wave_heading)
 
 """
-    lookup(table, speed, wind, angle, wave_height=0.0, wave_period=0.0, wave_heading=0.0)
-
-Cheapest [`OperatingPoint`](@ref): a kite is flown only where the sea allows and the fuel
-it saves is worth more than its wear; wings and rotors always stand and draw their power.
-Fuel power is `Inf` where no option is feasible.
-"""
-function lookup(table::PerformanceTable, speed, wind, angle, wave_height=0.0,
-        wave_period=0.0, wave_heading=0.0)
-    condition = SeaCondition(table, wind, angle, wave_height, wave_period, wave_heading)
-    flown, stowed = edge_fuels(table, speed, KnotWeight(table.speeds, speed), condition)
-    flown === stowed && return OperatingPoint(flown, false)
-    price = table.ship.fuel.price * 3600
-    return flown * price + table.wear_cost < stowed * price ? OperatingPoint(flown, true) :
-           OperatingPoint(stowed, false)
-end
-
-"""
     SpeedSlice
 
 A [`PerformanceTable`](@ref) at one speed, interpolated linearly over the knots of its
@@ -379,11 +352,10 @@ speed_plane(table::LinearTable, speed_weight::KnotWeight) =
 
 """
     edge_fuels(table, speed, slice, condition)
-    edge_fuels(table, speed, speed_weight, condition)
 
 Fuel power [W] with the rig flown and with any kite stowed at `speed` [m/s] from its
-[`SpeedSlice`](@ref) or from its [`KnotWeight`](@ref) on `table.speeds`; the same value for a rig without a kite,
-which always stands, and `Inf` for a kite up in too high a sea.
+[`SpeedSlice`](@ref); the same value for a rig without a kite, which always stands, and
+`Inf` for a kite up in too high a sea.
 """
 edge_fuels(table::PerformanceTable, speed, slice::SpeedSlice, condition::SeaCondition) =
     edge_fuels(table, speed, slice, condition, sea_layer(table, slice, condition)...)
@@ -439,10 +411,6 @@ function trim_resistance(table::PerformanceTable, waves)
     knots = table.flown_thrust.knots[4]
     return clamp(waves, first(knots), last(knots))
 end
-
-edge_fuels(table::PerformanceTable, speed, speed_weight::KnotWeight,
-    condition::SeaCondition) =
-    edge_fuels(table, speed, SpeedSlice(table, speed_weight), condition)
 
 """
     kite_wind_factor(rig, env)
