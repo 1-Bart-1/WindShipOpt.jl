@@ -876,9 +876,14 @@ on `route`, tagged with `labels`.
 """
 function class_case(class::ShipClass, drive, rig, area, route; labels...)
     design = ShipDesign(drive, class; rig_size(rig, area)...)
+    built = Ship(design, assumptions).rig
     return trip_case(design; class=class.name, route, drive, rig, area,
-        units=WindShipOpt.deck_units(Ship(design, assumptions).rig), labels...)
+        units=WindShipOpt.deck_units(built), columns=deck_columns(built), labels...)
 end
+
+"columns the wings or rotors of `rig` stand in, 0 for a rig without them"
+deck_columns(rig::Union{WingRig, WindShipOpt.RotorRig}) = rig.columns
+deck_columns(::Union{WindShipOpt.KiteRig, Nothing}) = 0
 
 """
     classes_data()
@@ -2183,7 +2188,7 @@ function size_search_data()
     append!(trips, round_trips(grid, sampled_departures()))
     append!(cases, grid)
     write_trips("size_search.csv", cases, trips, :class, :route, :drive, :rig, :area,
-        :round)
+        :columns, :round)
 end
 
 "ship classes of the kite-and-rotors and VTOL kite studies"

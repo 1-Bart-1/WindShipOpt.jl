@@ -308,8 +308,8 @@ function draw_plan_rig(io, rig::WingRig, ship, (speed, wind, angle), name, force
     chord = rig.height / assumptions[:wing_aspect_ratio] * force_balance_scale.length
     _, _, apparent = WindShipOpt.centre_wind(rig, ship.env, wind, angle, speed)
     along = chord / 2 .* (sin(apparent), -cos(apparent))
-    for position in WindShipOpt.unit_positions(rig, ship.hull, assumptions)
-        centre = (0.0, position * force_balance_scale.length)
+    for (position, offset) in WindShipOpt.unit_positions(rig, ship.hull, assumptions)
+        centre = (offset, position) .* force_balance_scale.length
         println(io, "\\draw[", name, ", line width=", tex_size("line"), "] ",
             tikz_point((centre .- along)...), " -- ", tikz_point((centre .+ along)...), ";")
     end
@@ -317,8 +317,8 @@ end
 
 function draw_plan_rig(io, rig::WindShipOpt.RotorRig, ship, conditions, name, forces)
     metres = force_balance_scale.length
-    for position in WindShipOpt.unit_positions(rig, ship.hull, assumptions)
-        println(io, "\\fill[", name, "] ", tikz_point(0.0, position * metres),
+    for (position, offset) in WindShipOpt.unit_positions(rig, ship.hull, assumptions)
+        println(io, "\\fill[", name, "] ", tikz_point(offset * metres, position * metres),
             " circle (", @sprintf("%.2f", rig.diameter / 2 * metres), ");")
     end
 end
@@ -408,7 +408,7 @@ height times its chord or diameter, standing at its foot height.
 """
 function draw_side_rig!(axis, rig, hull, offset)
     width = rig isa WingRig ? rig.height / assumptions[:wing_aspect_ratio] : rig.diameter
-    for position in WindShipOpt.unit_positions(rig, hull, assumptions)
+    for (position, _) in WindShipOpt.unit_positions(rig, hull, assumptions)
         poly!(axis, Rect2f(Point2f(offset) + Point2f(position - width / 2,
                     rig.foot_height), Vec2f(width, rig.height));
             color=palette[rig isa WingRig ? 2 : 3],
