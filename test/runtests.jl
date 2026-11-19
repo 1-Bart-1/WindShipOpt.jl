@@ -108,6 +108,19 @@ end
           balance.hull_side_force * centre ≈ 0 atol = 1e-3
 end
 
+@testset "a weaker hull side-force slope drifts and costs more, an infinite one nothing" begin
+    hull = Hull(140.0, assumptions)
+    weak = Hull(; (name => getfield(hull, name) for name in fieldnames(Hull))...,
+        side_force_factor=0.5)
+    free = Hull(; (name => getfield(hull, name) for name in fieldnames(Hull))...,
+        side_force_factor=Inf)
+    env = Environment(assumptions)
+    leeway, drag = WindShipOpt.leeway_drag(hull, env, 6.0, 3e5)
+    @test all(WindShipOpt.leeway_drag(weak, env, 6.0, 3e5) .≈ (2leeway, 2drag))
+    @test WindShipOpt.leeway_drag(free, env, 6.0, 3e5) == (0.0, 0.0)
+    @test WindShipOpt.lateral_centre(weak) == WindShipOpt.lateral_centre(hull)
+end
+
 # DNV Rules for Ships, January 2000, Pt. 3 Ch. 3 Sec. 2, guidance note, p. 9.
 @testset "rudder area follows the DNV 2000 guidance and grows with block coefficient" begin
     hull = Hull(85.0, assumptions)
@@ -1691,10 +1704,10 @@ WindShipOpt.duration(::FollowingSeaWeather) = Inf
 WindShipOpt.wind(::FollowingSeaWeather, lat, lon, time) = (0.0, 14.0)
 WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
 
-@testset "a leg's trace shows the trim the router priced where waves leave the table" begin
+@testset "a leg's trace shows the trim the router priced and the leeway it sails at" begin
     ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=400.0), assumptions)
     table = RouteTable(PerformanceTable(ship, assumptions))
-    trace = WindShipOpt.LegTrace((Float64[] for _ in 1:14)..., (Bool[] for _ in 1:4)...,
+    trace = WindShipOpt.LegTrace((Float64[] for _ in 1:15)..., (Bool[] for _ in 1:4)...,
         Any[])
     calm_sea = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 0.0, 8.0, 0.0)
     point = WindShipOpt.SailedPoint(0.0, 0.0, calm_sea, true,
@@ -1705,6 +1718,10 @@ WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
     priced = last(WindShipOpt.best_trim(ship, ship.rig, only(trace.speed), 14.0,
         only(trace.true_wind_angle), first_knot))
     @test only(trace.rig_thrust) == priced.thrust
+    windage = WindShipOpt.wind_force(ship.windage, ship.env, 14.0,
+        only(trace.true_wind_angle), only(trace.speed))
+    @test only(trace.leeway) ==
+          WindShipOpt.HullBalance(ship, only(trace.speed), priced + windage).leeway > 0
 end
 
 @testset "the stages and the rows of a corridor are spaced apart" begin
@@ -5210,6 +5227,31 @@ end
     @test all(component -> abs(component) < 1e-6,
         force(PaperData.simplified_ship(ship, :windage).windage))
     @test_throws ArgumentError PaperData.rebuilt(ship.windage; not_a_field=0.0)
+end
+
+@testset "a free side force leaves the rig's side force without leeway or rudder drag" begin
+    ship = Ship(ShipDesign(:ammonia, 140.0), PaperData.assumptions)
+    force = RigForce(1e5, 3e5, 3e6, -2e6)
+    drag(balance) = balance.leeway_drag + balance.rudder_drag
+    free = PaperData.simplified_ship(ship, :side_force)
+    @test drag(WindShipOpt.HullBalance(ship, 6.0, force)) > 0
+    @test drag(WindShipOpt.HullBalance(free, 6.0, force)) == 0
+    @test WindShipOpt.HullBalance(PaperData.simplified_ship(ship, :weak_hull), 6.0,
+        force).leeway ≈ 2WindShipOpt.HullBalance(ship, 6.0, force).leeway
+end
+
+@testset "a model part the study's recorded run predates prints stale until it reruns" begin
+    run = mktempdir()
+    write(joinpath(run, "model_parts.csv"),
+        "ship,rig,part,cost\n140 m,none,none,1.0\n140 m,kite,none,0.9\n")
+    @eval PaperData study_file(study, name) = joinpath($run, name)
+    @test PaperData.study_holds(PaperData.switched(:none))
+    @test !PaperData.study_holds(PaperData.switched(:side_force))
+    @test !PaperData.study_holds((:model_parts, "weather_years.csv", "ship", [[()]]))
+    @test all(==("\\stale{model_parts}{}") ∘ last, PaperData.side_force_numbers())
+    @test length(PaperData.side_force_numbers()) == 4length(PaperData.rig_names)
+    @eval PaperData study_file(study, name) = joinpath($run, "missing", name)
+    @test_throws ErrorException PaperData.study_holds(PaperData.switched(:side_force))
 end
 
 @testset "a held-speed kite saving and its bare ship use the same routes" begin

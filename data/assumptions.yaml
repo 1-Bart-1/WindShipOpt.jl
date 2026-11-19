@@ -157,6 +157,12 @@ leeway_limit:
   high: 15.0
   unit: deg
   reason: "Validity limit of the linear hull side-force model; captive tests on wind-assisted hulls cover 0-10 deg and ShipCLEAN reefs at 10 deg rudder angle [@tillig2020]."
+hull_side_force_factor:
+  value: 1.0
+  low: 0.5
+  high: 1.0
+  unit: "-"
+  reason: "Factor on the side-force slope of the Kijima regression, fitted to merchant-ship models in calm water [@kim2021]. Towing-tank tests of 138 m wind-assisted hulls without a skeg, block coefficients 0.72 and 0.83, give 0.4-0.5 times it at 6-9 deg leeway [@vanderkolk2021, Table 3]; low-aspect-ratio wing fits to the same and other hulls also lie below such regressions [@tillig2020]."
 rudder_aspect_ratio:
   value: 1.6
   low: 1.4
