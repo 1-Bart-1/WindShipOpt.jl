@@ -2412,7 +2412,7 @@ development_inputs = [
                "has to prove."),
     (input=:launch_mast_mass_per_size, label="kite launch mast mass", rig="kite",
         lever="price", reason="Its design sets the mass of the launch mast and docking " *
-                              "head, the largest part of the price of the kite's hardware."),
+                              "head, the largest part of the kite's hardware price."),
     (input=:kite_out_of_service, label="kite out of service", rig="kite",
         lever="availability",
         reason="What a maker's reliability work is worth; the same lever for every rig."),
