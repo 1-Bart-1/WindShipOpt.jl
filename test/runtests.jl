@@ -1047,13 +1047,40 @@ end
     for (rig, row_length) in ((WingRig(800.0, hull, assumptions), deck),
         (WindShipOpt.RotorRig(800.0, hull, assumptions; forward_reserve=reserve),
             deck - reserve))
-        positions = WindShipOpt.unit_positions(rig, hull, assumptions)
+        positions = first.(WindShipOpt.unit_positions(rig, hull, assumptions))
+        @test rig.columns == 1
         @test length(positions) == rig.count > 1
         @test sum(positions) / rig.count ≈ rig.centre_position
         @test all(diff(positions) .≈ row_length / rig.count)
     end
     single = WingRig(100.0, hull, assumptions)
-    @test WindShipOpt.unit_positions(single, hull, assumptions) == [single.centre_position]
+    @test WindShipOpt.unit_positions(single, hull, assumptions) ==
+          [(single.centre_position, 0.0)]
+end
+
+@testset "rotors stand in two columns near the deck edges where they lose less" begin
+    hull = Hull(ship_classes()["Capesize bulk carrier"], assumptions)
+    layout(columns, area) =
+        WindShipOpt.column_layout(columns, area, :rotor, hull, assumptions, 0.0)
+    row_max = maximum(area for area in 500.0:100.0:6000.0 if !isnothing(layout(1, area)))
+    rig = WindShipOpt.RotorRig(row_max + 100, hull, assumptions)
+    @test rig.columns == 2 && iseven(rig.count)
+    clearance = assumptions[:rotor_spacing] * rig.diameter
+    @test rig.column_offset ≈ (hull.beam - clearance) / 2
+    positions = WindShipOpt.unit_positions(rig, hull, assumptions)
+    @test length(positions) == rig.count
+    @test sort(unique(last.(positions))) ≈ [-rig.column_offset, rig.column_offset]
+    @test sum(first.(positions)) / rig.count ≈ rig.centre_position
+    for (area, better, worse) in ((500.0, 1, 2), (row_max, 2, 1))
+        @test WindShipOpt.RotorRig(area, hull, assumptions).columns == better
+        @test layout(better, area).interference_factor >
+              layout(worse, area).interference_factor
+    end
+    pair = layout(2, 100.0)
+    @test pair.count == 2 && pair.centre_position ≈ WindShipOpt.lateral_centre(hull)
+    narrow = Hull(140.0, assumptions)
+    @test all(WingRig(area, narrow, assumptions).columns == 1 for area in 400.0:400.0:1600.0
+              if !isnothing(WingRig(area, narrow, assumptions)))
 end
 
 @testset "the rudder cancels the yaw moment about the hull's lateral centre" begin
@@ -1176,6 +1203,17 @@ end
         "Neo-Panamax container ship", "PCTC car carrier"))
     megamax = WindShipOpt.unit_limits(hold("Megamax container ship"))
     @test 0.9 < megamax.deadweight / megamax.space < 1
+end
+
+@testset "rotors that take enough deck slots leave the Megamax space-limited" begin
+    megamax = ship_classes()["Megamax container ship"]
+    hold(area) = WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, megamax; rotor_area=area),
+            assumptions), assumptions)
+    @test WindShipOpt.cargo_limit(hold(1000.0)) == :deadweight
+    rotors = hold(5000.0)
+    @test WindShipOpt.cargo_limit(rotors) == :space
+    @test WindShipOpt.cargo_mass(rotors) ≈
+          WindShipOpt.unit_limits(rotors).space * rotors.unit.cargo
 end
 
 @testset "empty boxes take container slots and tare but carry no cargo" begin
@@ -4275,6 +4313,22 @@ end
 @testset "the model parts measured by the development study read only its inputs" begin
     PaperData.eval(:(departures = 1:8760))
     @test !isempty(PaperData.fidelity_parts())
+end
+
+@testset "holding deck rigs to one row keeps the best size that stands in one row" begin
+    class = ship_classes()["Neo-Panamax container ship"]
+    hull = Hull(class, assumptions)
+    largest = PaperData.largest_rig_area("rotors", hull)
+    columns(area) = PaperData.deck_columns(WindShipOpt.RotorRig(area, hull, assumptions))
+    @test columns(largest) == 2
+    @test columns(100.0) == 1
+    @test PaperData.deck_columns(nothing) == 0
+    table = Dict("rig" => ["none", "kite", "rotors", "rotors"], "columns" => [0, 0, 1, 2],
+        "cost" => [1.0, 0.85, 0.9, 0.8])
+    every, one_row = only(last(PaperData.one_row()))
+    @test PaperData.best_costs(table, every)["rotors"] == 0.8
+    held = PaperData.best_costs(table, one_row)
+    @test held["rotors"] == 0.9 && held["kite"] == 0.85 && held["none"] == 1.0
 end
 
 @testset "a development ship whose rig has no size in the class study stops the run" begin
