@@ -66,26 +66,15 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
 method studies, which choose or check a method or setting, run only by name: each records
 its run for its figures and writes its tables
 """
-study_steps = [:forecast_plans => forecast_plans_data,
-    :forecast_replanning => forecast_replanning_data,
-    :forecast_hours => forecast_hours_data,
-    :forecast_causes => forecast_causes_data,
-    :forecast_live => forecast_live_data,
-    :cargo_interest => cargo_interest_data, :base_kite => base_kite_data,
+study_steps = [:cargo_interest => cargo_interest_data, :base_kite => base_kite_data,
     :launch => launch_data, :sea_effect => sea_effect_data,
     :convergence => convergence_data, :speed_terms => speed_terms_data,
-    :published_terms => published_terms_data, :tow_point => tow_point_data,
-    :model_parts => model_parts_data, :size_search => size_search_data,
-    :router_decisions => router_decisions_data,
+    :published_terms => published_terms_data, :model_parts => model_parts_data,
+    :size_search => size_search_data, :router_decisions => router_decisions_data,
     :routing_value => routing_value_data, :today_routing => today_routing_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
-study_tables = Dict(:forecast_plans => [:forecast_plans_table => forecast_plans_table],
-    :forecast_replanning => [:forecast_replanning_table => forecast_replanning_table],
-    :forecast_hours => [:forecast_hours_table => forecast_hours_table],
-    :forecast_causes => [:forecast_causes_table => forecast_causes_table],
-    :forecast_live => [:forecast_live_table => forecast_live_table],
-    :cargo_interest => [:cargo_interest_table => cargo_interest_table],
+study_tables = Dict(:cargo_interest => [:cargo_interest_table => cargo_interest_table],
     :sea_effect => [:sea_effect_table => sea_effect_table],
     :speed_terms => [:speed_terms_table => speed_terms_table],
     :published_terms => [:published_table => published_table],

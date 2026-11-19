@@ -28,7 +28,6 @@ struct ArchiveGroup
 end
 
 function ArchiveGroup(directory::AbstractString, origin::DateTime)
-    foreach(require_link_target, readdir(directory; join=true))
     grid = TOML.parsefile(joinpath(directory, "grid.toml"))
     lats, lons = Float64.(grid["lats"]), Float64.(grid["lons"])
     leads = grid["leads"]
@@ -57,46 +56,6 @@ function ArchiveGroup(directory::AbstractString, origin::DateTime)
         weights, first_issue, grid["issue_hours"])
 end
 
-"""
-    require_link_target(path)
-
-Error, naming the link and its target, if `path` is a link whose target does not exist.
-"""
-function require_link_target(path)
-    islink(path) && !ispath(path) &&
-        error("forecast archive link $path points to $(readlink(path)), which is gone")
-end
-
-"""
-    link_relative(target, link)
-
-Make `link` a link to `target` by a path relative to the folder of `link`, replacing in one
-step a link already there. Error if `link` is a real file or folder.
-"""
-function link_relative(target, link)
-    islink(link) || !ispath(link) || error("$link is not a link, so it is not replaced")
-    pending = tempname(dirname(link); cleanup=false)
-    symlink(relpath(target, dirname(link)), pending)
-    Base.rename(pending, link)
-end
-
-"""
-    link_control_group(control, folder; calibration=true)
-
-Link the wave period and direction of the archive group in `control`, and its bias and
-blend weights where `calibration`, into the archive group in `folder`, by paths relative to
-`folder`, replacing links already there.
-"""
-function link_control_group(control, folder; calibration=true)
-    shared = ("period.f16", "direction_east.f16", "direction_north.f16")
-    entries = filter(name -> name in shared || calibration &&
-                                 (startswith(name, "bias_") || startswith(name, "weight_")),
-        readdir(control))
-    for entry in entries
-        link_relative(joinpath(control, entry), joinpath(folder, entry))
-    end
-end
-
 issue_time(group::ArchiveGroup, issue) = group.first_issue + group.issue_hours * (issue - 1)
 
 issue_count(group::ArchiveGroup) = minimum(size(field, 4) for field in values(group.fields))
@@ -111,8 +70,8 @@ issued_in(group::ArchiveGroup, issue) =
     ForecastArchive(directory, weather, climate)
 
 Forecasts read from the `wind` and `waves` groups in `directory` written by
-`scripts/download_forecast.jl`, each on its own schedule, on the time axis of `weather`,
-blended with the [`Climatology`](@ref) `climate`.
+`scripts/download_forecast.jl`, issued together, on the time axis of `weather`, blended
+with the [`Climatology`](@ref) `climate`.
 """
 struct ForecastArchive
     wind::ArchiveGroup
@@ -122,53 +81,13 @@ struct ForecastArchive
     climate::Climatology
 end
 
-ForecastArchive(directory::AbstractString, weather::ERA5Weather, climate::Climatology) =
-    ForecastArchive(ArchiveGroup(joinpath(directory, "wind"), weather.origin),
-        ArchiveGroup(joinpath(directory, "waves"), weather.origin), weather.origin, climate)
-
-"""
-    margin_wind(east, north)
-
-East and north wind of the margin, from member winds (lon, lat, lead, member) [m/s]: the
-lower quartile of the member speeds, in the direction of the mean vector.
-"""
-function margin_wind(east, north)
-    mean_east = dropdims(mean(east; dims=4); dims=4)
-    mean_north = dropdims(mean(north; dims=4); dims=4)
-    margin_east, margin_north = copy(mean_east), copy(mean_north)
-    for I in CartesianIndices(mean_east)
-        speeds = [hypot(east[I, member], north[I, member]) for member in axes(east, 4)]
-        norm = hypot(mean_east[I], mean_north[I])
-        scale = any(isnan, speeds) ? NaN32 :
-                norm > 0 ? quantile(speeds, 0.25) / norm : 0.0f0
-        margin_east[I], margin_north[I] = mean_east[I] * scale, mean_north[I] * scale
-    end
-    return margin_east, margin_north
-end
-
-"""
-    margin_height(height)
-
-Wave height of the margin from member heights (lon, lat, lead, member) [m]: the upper
-quartile of the members.
-"""
-function margin_height(height)
-    margin = dropdims(mean(height; dims=4); dims=4)
-    for I in CartesianIndices(margin)
-        heights = [height[I, member] for member in axes(height, 4)]
-        margin[I] = any(isnan, heights) ? NaN32 : quantile(heights, 0.75)
-    end
-    return margin
-end
-
-"""
-    ForecastEnsemble(members)
-
-The [`ForecastArchive`](@ref)s of several runs of one forecast model, each issued every
-day, that [`forecast_route`](@ref) plans on together.
-"""
-struct ForecastEnsemble
-    members::Vector{ForecastArchive}
+function ForecastArchive(directory::AbstractString, weather::ERA5Weather,
+        climate::Climatology)
+    wind, waves = (ArchiveGroup(joinpath(directory, group), weather.origin)
+                   for group in ("wind", "waves"))
+    (wind.first_issue, wind.issue_hours) == (waves.first_issue, waves.issue_hours) ||
+        error("the wind and waves of the forecast archive $directory are issued apart")
+    return ForecastArchive(wind, waves, weather.origin, climate)
 end
 
 issue_time(archive::ForecastArchive, issue) = issue_time(archive.wind, issue)
@@ -185,28 +104,17 @@ latest_issue(group::ArchiveGroup, time) =
         1, issue_count(group))
 
 """
-    last_held_issues(archive, time)
+    last_held_issue(archive, time)
 
-Numbers of the last wind and wave issues of `archive` known at `time` [h] that hold data:
-one issue for both where the groups share a schedule, each on its own otherwise.
+Number of the last issue of `archive` known at `time` [h] whose wind and waves hold data.
 """
-function last_held_issues(archive::ForecastArchive, time)
+function last_held_issue(archive::ForecastArchive, time)
     (; wind, waves) = archive
-    wind_issue, wave_issue = latest_issue(wind, time), latest_issue(waves, time)
-    if wind.issue_hours == waves.issue_hours && wind.first_issue == waves.first_issue
-        issue = min(wind_issue, wave_issue)
-        while issue > 1 && !(issued_in(wind, issue) && issued_in(waves, issue))
-            issue -= 1
-        end
-        return issue, issue
+    issue = min(latest_issue(wind, time), latest_issue(waves, time))
+    while issue > 1 && !(issued_in(wind, issue) && issued_in(waves, issue))
+        issue -= 1
     end
-    while wind_issue > 1 && !issued_in(wind, wind_issue)
-        wind_issue -= 1
-    end
-    while wave_issue > 1 && !issued_in(waves, wave_issue)
-        wave_issue -= 1
-    end
-    return wind_issue, wave_issue
+    return issue
 end
 
 """
@@ -219,45 +127,19 @@ the climatology.
 """
 struct ArchivedForecast
     archive::ForecastArchive
-    "number of the wind issue"
+    "number of the issue"
     issue::Int
-    "time of the wind issue [h]"
+    "time of the issue [h]"
     issued::Float64
-    "number of the wave issue"
-    wave_issue::Int
-    "time of the wave issue [h]"
-    wave_issued::Float64
     "year whose bias and weights it reads"
     year::Int
 end
 
 function ArchivedForecast(archive::ForecastArchive, time)
-    issue, wave_issue = last_held_issues(archive, time)
-    issued, wave_issued = issue_time(archive, issue), issue_time(archive.waves, wave_issue)
+    issue = last_held_issue(archive, time)
     years = keys(archive.wind.bias)
     year = clamp(issue_year(archive, issue), minimum(years), maximum(years))
-    return ArchivedForecast(archive, issue, issued, wave_issue, wave_issued, year)
-end
-
-"""
-    ShortestLead(archive)
-
-Forecast source of a ship that knows, at every time ahead, the forecast of `archive` with
-the shortest lead there: what the forecast model says of the weather, without the error
-that grows with lead.
-"""
-struct ShortestLead
-    archive::ForecastArchive
-end
-
-"""
-    ShortestLeadForecast(archive)
-
-What a [`ShortestLead`](@ref) ship knows: at each time the [`ArchivedForecast`](@ref) of
-`archive` last issued before it.
-"""
-struct ShortestLeadForecast
-    archive::ForecastArchive
+    return ArchivedForecast(archive, issue, issue_time(archive, issue), year)
 end
 
 """
@@ -318,14 +200,8 @@ function known_weather(forecast::ExpectedForecast, weather, time, horizon)
     return UncertainForecast(known, known.issued, forecast.error)
 end
 
-known_weather(forecast::ShortestLead, weather, time, horizon) =
-    ShortestLeadForecast(forecast.archive)
-
 known_weather(forecast::ForecastArchive, weather, time, horizon) =
     ArchivedForecast(forecast, time)
-known_weather(forecast::ForecastEnsemble, weather, time, horizon) =
-    [ArchivedForecast(member, time) for member in forecast.members]
-
 within(group::ArchiveGroup, issued, time) = time - issued <= last_time(group.grid)
 
 issue_arrays(group::ArchiveGroup, issue, names) =
@@ -359,12 +235,12 @@ waves or beyond its last lead.
 """
 function corrected_waves(forecast::ArchivedForecast, lat, lon, time)
     group = forecast.archive.waves
-    within(group, forecast.wave_issued, time) || return NaN, NaN, NaN, NaN, NaN
+    within(group, forecast.issued, time) || return NaN, NaN, NaN, NaN, NaN
     height, period, east, north, height_bias, period_bias, weight = sample(group.grid,
-        (issue_arrays(group, forecast.wave_issue,
+        (issue_arrays(group, forecast.issue,
                 ("height", "period", "direction_east", "direction_north"))...,
             bias_arrays(group, forecast.year, ("height", "period"))...,
-            group.weights[forecast.year]), lat, lon, time - forecast.wave_issued)
+            group.weights[forecast.year]), lat, lon, time - forecast.issued)
     return height - height_bias, period - period_bias, east, north, weight
 end
 
@@ -387,42 +263,6 @@ function waves(forecast::ArchivedForecast, lat, lon, time)
     return wave_values(map((normal, value) -> blend(normal, value, last(known)), climate,
         known[1:4]))
 end
-
-"""
-    ForecastParts(forecast, forecast_wind, forecast_waves)
-
-Forecast source of a ship that plans on the wind of `forecast` where `forecast_wind` and on
-its waves where `forecast_waves`, and on the real weather otherwise.
-"""
-struct ForecastParts{F}
-    forecast::F
-    forecast_wind::Bool
-    forecast_waves::Bool
-end
-
-"What a [`ForecastParts`](@ref) ship knows: each of wind and waves from `known` or `truth`."
-struct PartlyKnownWeather{K, W}
-    known::K
-    truth::W
-    forecast_wind::Bool
-    forecast_waves::Bool
-end
-
-known_weather(parts::ForecastParts, weather, time, horizon) = PartlyKnownWeather(
-    known_weather(parts.forecast, weather, time, horizon), weather, parts.forecast_wind,
-    parts.forecast_waves)
-
-wind(partly::PartlyKnownWeather, lat, lon, time) =
-    wind(partly.forecast_wind ? partly.known : partly.truth, lat, lon, time)
-waves(partly::PartlyKnownWeather, lat, lon, time) =
-    waves(partly.forecast_waves ? partly.known : partly.truth, lat, lon, time)
-wind_spread(partly::PartlyKnownWeather, time) =
-    partly.forecast_wind ? wind_spread(partly.known, time) : 0.0
-
-wind(forecast::ShortestLeadForecast, lat, lon, time) =
-    wind(ArchivedForecast(forecast.archive, time), lat, lon, time)
-waves(forecast::ShortestLeadForecast, lat, lon, time) =
-    waves(ArchivedForecast(forecast.archive, time), lat, lon, time)
 
 """
     scored_issues(group, origin)

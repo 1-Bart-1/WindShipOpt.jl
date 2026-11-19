@@ -21,6 +21,9 @@
 \AtEndDocument{\ifx\stale@left\@empty\else
   \PackageWarningNoLine{stale}{Studies to rerun for stale text:\stale@left}\fi}
 \makeatother
+% \studyresult{studies}{text}: text whose numbers come from the recorded runs (\studyrun) of
+% finished method studies, whose code is gone; shown as is.
+\NewDocumentCommand{\studyresult}{m +m}{#2}
 % \given{text}: an input, literature value or method constant typed in result text; shown as is.
 \newcommand{\given}[1]{#1}
 % \note{text}: a review note shown in the PDF; \notesfalse hides all.

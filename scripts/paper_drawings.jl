@@ -440,7 +440,8 @@ drawn to length.
 """
 function draw_side_kite!(axis, area, hull, offset)
     (; span, deck, mast_top, sag, top) = side_kite(area, hull)
-    foot = Point2f(offset) + Point2f(WindShipOpt.kite_tow_point(hull, assumptions), deck)
+    foot = Point2f(offset) +
+           Point2f(WindShipOpt.launch_mast_position(hull, assumptions), deck)
     mast = foot + Point2f(0, mast_top - deck)
     lines!(axis, [foot, mast]; color=:black, linewidth=1)
     centre = Point2f(foot[1], offset[2] + top)
