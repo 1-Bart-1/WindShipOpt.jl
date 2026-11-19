@@ -2168,14 +2168,14 @@ function fuel_method_numbers()
         gap_shift = max(gap_shift, maximum(moved) - minimum(moved))
     end
     short = table["routed"] .- table["kept"]
-    missed = findall(>(0), short)
+    missed_rigs = sort(unique(table["rig"][findall(>(0), short)]))
     draft = TOML.parsefile(study_runs_path)["fuel_method"]["fidelity"] != "final"
     numbers = ["FuelRepricedShift" => whole_number(shift),
         "FuelRepricedGapShift" => whole_number(gap_shift),
-        "FuelKeptBest" => string(length(short) - length(missed)),
+        "FuelKeptBest" => string(count(<=(0), short)),
         "FuelKeptCases" => string(length(short)),
         "FuelKeptShort" => whole_number(maximum(short)),
-        "FuelKeptShortRigs" => join(rig_label.(sort(unique(table["rig"][missed]))), " and ")]
+        "FuelKeptShortRigs" => join(rig_label.(missed_rigs), " and ")]
     write_whole(joinpath(sections, "fuel_method_numbers.tex")) do io
         for (name, text) in numbers
             print(io, number_macro(name, text, draft))

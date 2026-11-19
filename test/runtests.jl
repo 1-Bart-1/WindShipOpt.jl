@@ -4401,7 +4401,8 @@ end
              for case in cases]
     factor(value) = value == 0 ? 1.0 : value / base_price
     table = Dict{String, Vector}("ship" => fill("140 m", length(lines)),
-        "route" => fill("caribbean", length(lines)), "drive" => fill("ammonia", length(lines)),
+        "route" => fill("caribbean", length(lines)),
+        "drive" => fill("ammonia", length(lines)),
         "input" => [line[1] for line in lines], "value" => [line[2] for line in lines],
         "rig" => [line[3] for line in lines], "area" => [line[4] for line in lines],
         "cost" => [line[5] + line[6] * (factor(line[2]) - 1) for line in lines],
