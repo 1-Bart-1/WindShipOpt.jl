@@ -2,7 +2,7 @@
 \pdfinclusioncopyfonts=1
 \usepackage{xcolor}
 \usepackage{tikz}
-\usetikzlibrary{positioning,arrows.meta,fit}
+\usetikzlibrary{positioning,arrows.meta,fit,backgrounds}
 \definecolor{accent}{HTML}{D55E00}
 \definecolor{accenttext}{HTML}{C05500}
 \definecolor{gain}{HTML}{2166AC}
@@ -92,6 +92,7 @@
   label/.style={font=\fontsize{8}{9.6}\selectfont, inner sep=1pt, preaction={fill=white, draw=white, line width=1.6pt}, append after command={\pgfextra{\figurestylerecord{\tikzlastnode}}}},
   note/.style={label, font=\fontsize{7}{8.4}\selectfont},
   box/.style={draw, rounded corners=2pt, line width=0.5pt},
+  legend box/.style={draw=guide, fill=white, line width=0.5pt, inner sep=2pt, font=\fontsize{7}{8.4}\selectfont},
   cost box/.style={box, fill=costfill},
   data box/.style={box, fill=datafill},
   rig box/.style={box, fill=rigfill},

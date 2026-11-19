@@ -155,7 +155,7 @@ function figure_style_file()
         println(io, "% Written by the figure_style step from figure_style.toml; edit that.")
         println(io, "\\pdfinclusioncopyfonts=1")
         println(io, "\\usepackage{xcolor}\n\\usepackage{tikz}")
-        println(io, "\\usetikzlibrary{positioning,arrows.meta,fit}")
+        println(io, "\\usetikzlibrary{positioning,arrows.meta,fit,backgrounds}")
         for (name, hex) in sort(collect(figure_style["colours"]))
             println(io, "\\definecolor{", name, "}{HTML}{", hex, "}")
             dark = Makie.Colors.hex(readable(style_colour(name), white))
@@ -184,6 +184,8 @@ function figure_style_file()
         println(io, "  note/.style={label, font=", tex_font("note"), "},")
         println(io, "  box/.style={draw, rounded corners=2pt, line width=",
             tex_size("rule"), "},")
+        println(io, "  legend box/.style={draw=guide, fill=white, line width=",
+            tex_size("rule"), ", inner sep=2pt, font=", tex_font("note"), "},")
         for name in sort(collect(keys(figure_style["fills"])))
             println(io, "  ", name, " box/.style={box, fill=", name, "fill},")
         end
