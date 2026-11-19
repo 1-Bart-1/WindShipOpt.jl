@@ -35,7 +35,7 @@ The classes fall into two groups that pay for a rig in different ways (\cref{tab
 \begin{figure*}[tbp]
 \centering
 \input{sections/ship_model}
-\caption{The ship model by its parts, each force where it acts with its section, not to scale: (a) from above, in a wind forward of the beam, with the rig's force where it acts; (b) from astern, the heel and the weight and buoyancy that right the ship. The row of boxes shows how the parts combine into the engine output the rig's trim minimises. Blue forces come from the water, grey from the wind on the ship and black from the rig, any of the three; \cref{fig:force_balance} draws them to scale for each rig.}
+\caption{The ship model by its parts, not to scale, each force where the model applies it and named with the section that defines it. (a) From above in a wind forward of the beam: the propeller's thrust balances the resistances along the ship (\cref{eq:thrust}), and the hull at its lateral centre and the rudder at the stern balance the side forces of rig and wind and their yaw moment about midship. Every yaw moment the model takes is a force times its lever, so each is drawn as a straight arrow with its lever and none as a curved one; the rig's $M_z$ is its side force $F_y$ at its centre of effort. (b) From ahead: the rig's side force acts high on a deck rig and low at the kite's tow point, the hull answers it at half its draught, and the weight $\Delta g$ and the buoyancy to leeward of it right the ship. (c) How the parts combine into the engine output the rig's trim minimises. Blue forces come from the water, grey from the wind on the ship and black from the rig, any of the three, drawn here as two rotors; \cref{fig:force_balance} draws the forces to scale for each rig.}
 \label{fig:ship_model}
 \end{figure*}
 
@@ -88,7 +88,7 @@ The e-ammonia engine burns 5\,\% of its energy as VLSFO pilot fuel, priced and c
 \subsection{Balance of rig forces}
 \label{sec:balance}
 
-A rig adds a thrust $F_x$ along the heading and a side force $F_y$ across it, heels the ship with a moment $M_x$ and turns it with a yaw moment $M_z$, and a rotor draws a power $P_\mathrm{rig}$ to spin; $F_y$, $M_x$ and $M_z$ below include the wind on the ship. The hull answers the side force at a small leeway angle $\beta$, as a low, long wing with an induced drag $R_\beta$, from a regression fitted to model tests \citep{kim2021}. The rudder, sized by the rules of the societies that certify ships \citep{dnv_rudder}, answers the yaw moment with a drag $R_r$ (\cref{fig:ship_model,fig:force_balance}). The propeller must give
+A rig adds a thrust $F_x$ along the heading and a side force $F_y$ across it, heels the ship with a moment $M_x$ and turns it with a yaw moment $M_z$ about midship, and a rotor draws a power $P_\mathrm{rig}$ to spin. The wind on the ship adds its side force $Y$, and $M_x$ and $M_z$ below include its moments. The hull answers the side force at a small leeway angle $\beta$, as a low, long wing with an induced drag $R_\beta$, from a regression fitted to model tests \citep{kim2021}. The rudder, sized by the rules of the societies that certify ships \citep{dnv_rudder}, answers the yaw moment with a drag $R_r$ (\cref{fig:ship_model,fig:force_balance}). The propeller must give
 \begin{equation}
 T_\mathrm{req} = R_\mathrm{cw} + R_\mathrm{air} + R_\mathrm{aw} + R_\beta + R_r - F_x.
 \label{eq:thrust}
@@ -101,20 +101,20 @@ Y'_\beta = \pi\frac{T}{L} + 1.4\,C_B\frac{B}{L},
 \end{equation}
 made non-dimensional with $\tfrac12\rho_w V^2 L T$. The side force acts at $x_\mathrm{h} = N'_\beta L/Y'_\beta = 2T/Y'_\beta$ forward of midship, from the yaw derivative $N'_\beta=2T/L$ of the same regression, fitted to 13 merchant-ship models on even keel with block coefficients of 0.52 to 0.84. The rudder at the stern, sized at the minimum area DNV recommends for a rudder directly behind a propeller, $A_r = TL/100\,[1+50C_B^2(B/L)^2]$ \citep{dnv_rudder}, cancels the yaw moment:
 \begin{equation}
-F_r = \frac{F_y x_\mathrm{h} - M_z}{-L/2 - x_\mathrm{h}}.
+F_r = \frac{(F_y + Y)\, x_\mathrm{h} - M_z}{-L/2 - x_\mathrm{h}}.
 \end{equation}
-The hull then carries $F_y+F_r$ at a leeway
+The hull then carries the side force $Y_\mathrm{h} = -(F_y + Y + F_r)$ at a leeway
 \begin{equation}
-\beta = \frac{F_y+F_r}{\tfrac12\rho_w V^2 L T Y'_\beta}
+\beta = \frac{|Y_\mathrm{h}|}{\tfrac12\rho_w V^2 L T Y'_\beta}
 \end{equation}
-and pays an induced drag $R_\beta$ of $(F_y+F_r)\beta$ for the cross-flow share $1.4C_BB/L$ of the slope and half of that for its potential-flow share $\pi T/L$, as for a slender wing. The rudder pays $R_r=F_r^2/(\tfrac12\rho_w V^2 A_r \pi \Lambda_r)$ with an effective aspect ratio $\Lambda_r$ of 1.6 \citep{kramer2022}. The heel is $\phi = (M_x + F_y T/2)/K_\phi$, with the righting stiffness $K_\phi = \Delta g\,GM$ from the displacement $\Delta$ and the metacentric height $GM$, the lever per radian of heel by which the hull rights itself, taken as 7.5\,\% of the beam.
+and pays an induced drag $R_\beta$ of $|Y_\mathrm{h}|\beta$ for the cross-flow share $1.4C_BB/L$ of the slope and half of that for its potential-flow share $\pi T/L$, as for a slender wing. The rudder pays $R_r=F_r^2/(\tfrac12\rho_w V^2 A_r \pi \Lambda_r)$ with an effective aspect ratio $\Lambda_r$ of 1.6 \citep{kramer2022}. The heel is $\phi = (M_x + (F_y + Y)\,T/2)/K_\phi$, with the righting stiffness $K_\phi = \Delta g\,GM$ from the displacement $\Delta$ and the metacentric height $GM$, the lever per radian of heel by which the hull rights itself, taken as 7.5\,\% of the beam.
 
 \stale{tow_point}{A single wing or rotor stands at the hull's lateral centre, where the hull's own side force acts, and the rudder carries the yaw moment of a row centred at the middle of the deck. The soft kite tows from the foot of its launch mast at the forward end of the deck, as the ship kites built so far do \citep{fritz2013}, which costs almost nothing against a tow point at the lateral centre, and it pulls from low on the ship, so for the same side force it heels the ship less than a deck rig (\cref{fig:ship_model}b; \cref{sec:tow_point}).}
 
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{force_balance}
-\caption{\stale{force_balance}{} Horizontal forces on the \SI{140}{m} ship at \SI{10.5}{kn} in a \SI{10}{m/s} true wind on the beam, seen from above with the bow to the right as in \cref{fig:ship_model}, which names the forces in the same colours, for each rig at its best trim, all to one scale and in kN as the model computes them, with the leeway $\beta$ and heel $\phi$ each rig causes; the wing sails stand along the apparent wind at their mid height. Each arrow starts where its force acts: the rig's at the kite's tow point or at the centre of effort of the wing sails or rotors, the hull's at its lateral centre, the rudder's at the end of the rudder (black) behind the stern and the propeller's at the stern; the wind load and the calm-water resistance are drawn onto the side and the bow they push. The hull's and the rudder's forces lean aft by their drag, and the propeller gives what the rig and the wind load leave of the resistance (\cref{eq:thrust}); a ring marks a force of zero.}
+\caption{Horizontal forces on the \SI{140}{m} ship at \SI{10.5}{kn} in a \SI{10}{m/s} true wind on the beam and calm water, seen from above with the bow up, for each rig at its best trim, as the model solves them, with the symbols and colours of \cref{fig:ship_model}. Hull and rigs are drawn to scale and the forces to one common scale. Each force acts where its arrow starts: the rig's at the kite's tow point, pulling along its tether (dashed), or at the centre of effort of the wing sails or rotors; the wind's side force at its centre, the hull's at its lateral centre and the rudder's at the rudder (black). A force along the ship acts on its centreline and so has no yaw moment; the propeller's thrust is drawn from the propeller and the calm-water resistance from midship. The forces along the ship, those across it and their yaw moments about midship each sum to zero (\cref{eq:thrust}), which the drawing step checks. A dot marks a force shorter than an arrowhead, at the size the key states, with its value in its label; the wave resistance is zero in calm water. The leeway $\beta$ and heel $\phi$ are each rig's.}
 \label{fig:force_balance}
 \end{figure*}
 
@@ -321,7 +321,7 @@ A ship does not plan its passage once. It plans the rest of the passage at depar
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{router}
-\caption{\stale{router}{} The weather router on one winter passage to Guadeloupe of a \SI{140}{m} e-ammonia ship with a \SI{3200}{m^2} kite, on the corridor of the results. (a) The corridor's nodes, coloured by the cheapest passage through each as the search estimated it, its cost so far plus the estimated cost to go, above the passage found; the search went on from the coloured nodes and from the dark ones, for which the estimate found no path onward, pruned every state it reached at the open ones and reached none of the grey dots. Thin lines are the edges each node of the passage may take to the next stage, arrows the \SI{10}{m} wind at a share of the nodes when the passage reached their stage. The passage is blue where the kite flies. (b) Speed held and (c) \SI{10}{m} wind along the passage, shaded where the kite flies. \Cref{fig:passage} shows what each rig does on a winter passage of this ship on this route.}
+\caption{\stale{router}{} The weather router on one winter passage to Guadeloupe of a \SI{140}{m} e-ammonia ship with a \SI{3200}{m^2} kite, on the corridor of the results. (a) Each dot is a node of the corridor, coloured by the cheapest passage through it as the search estimated it, its cost so far plus the estimated cost to go, above the passage found; the search went on from the coloured nodes and from the dark ones, for which the estimate found no path onward, pruned every state it reached at the open ones and reached none of the grey dots. Thin lines are the edges each node of the passage may take to the next stage, arrows the \SI{10}{m} wind at a share of the nodes when the passage reached their stage. The passage is blue where the kite flies. Beneath the map, on one time axis, (b) the speed held and (c) the \SI{10}{m} wind along the passage over the days since departure, shaded where the kite flies. \Cref{fig:passage} shows what each rig does on a winter passage of this ship on this route.}
 \label{fig:router}
 \end{figure*}
 
