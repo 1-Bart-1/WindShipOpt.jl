@@ -121,10 +121,10 @@ end
 
 Row of identical units of `total_area` [m^2] of height times width at `aspect_ratio` on
 `hull`: as few units as `max_height` [m] allows, spread evenly over the deck length for
-rigs less `forward_reserve` [m] at its forward end. Returns the count,
-unit height [m], foot height above the waterline [m], centre of effort forward of
-midship [m] (a single unit stands at the hull's lateral centre) and the spacing in unit
-widths, or `nothing` if the units do not fit `spacing` widths apart.
+rigs less `forward_reserve` [m] at its forward end. Returns the count, unit height [m],
+foot height above the waterline [m], centre of effort forward of midship [m] (a single
+unit stands at the hull's lateral centre) and the spacing in unit widths, or `nothing` if
+the units do not fit `spacing` widths apart.
 """
 function deck_row(total_area, aspect_ratio, max_height, spacing, hull::Hull,
         assumptions::Assumptions, forward_reserve)

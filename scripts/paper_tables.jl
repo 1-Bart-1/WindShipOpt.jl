@@ -216,7 +216,8 @@ input_header = "\\toprule\nInput & Value & Range & Unit & Source \\\\\n\\midrule
 
 "words of an input's name printed otherwise in the input table"
 input_words = Dict("e" => "e-", "teu" => "TEU", "ceu" => "CEU", "usd" => "USD",
-    "eur" => "EUR", "vlsfo" => "VLSFO", "holtrop" => "Holtrop", "froude" => "Froude")
+    "eur" => "EUR", "ets" => "EU ETS", "vlsfo" => "VLSFO", "holtrop" => "Holtrop",
+    "froude" => "Froude")
 
 """
     input_label(name)
@@ -2268,7 +2269,7 @@ fidelity_parts() = [
               "to four rotors",
         effect=varied_inputs(:rotor_lift_factor, :rotor_max_wind)),
     (part="Kite flight", varied="turn radius, aspect ratio, force limit",
-        model="quasi-steady pattern with mass, bridle and tether drag, searched for each " *
+        model="quasi-steady pattern with mass, flight and tether drag, searched for each " *
               "wind and course",
         error="glide ratio of 4 matched to flight data",
         effect=varied_inputs(:kite_min_turn_radius, :kite_aspect_ratio,
