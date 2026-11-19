@@ -153,9 +153,8 @@ csv_value(value::Real) = isinteger(value) ? string(Int(value)) : string(value)
 csv_value(value) = string(value)
 
 "inputs that together make up the cost of one launch and landing of a kite"
-launch_cost_inputs = (:kite_cycle_crew_cost, :kite_cycle_damage_probability,
-    :kite_cycle_loss_probability, :kite_launch_retry_probability, :kite_cycle_course_cost,
-    :kite_launch_minutes, :kite_landing_minutes)
+launch_cost_inputs = (:kite_cycle_crew_cost, :kite_launch_loss_probability,
+    :kite_cycle_course_cost, :kite_launch_minutes, :kite_landing_minutes)
 
 """
     at_bound(inputs, names, bound)
@@ -218,15 +217,14 @@ sea_effect_area(classes_table, ship, route) = ship == "140 m" ? 3200.0 :
     launch_data()
 
 The 140 m e-ammonia ship on every route without a rig, with the reference wings and
-rotors, and with kites of 800, 1,600 and 3,200 m^2 at the low, base and high launch cost,
-with launches by day only and with no rig ever out of service: launch.csv.
+rotors, and with kites of 800, 1,600 and 3,200 m^2 at the low, base and high launch cost
+and with no rig ever out of service: launch.csv.
 """
 function launch_data()
     always_in_service = reduce((changed, input) -> with_value(changed, input, 0.0),
         Symbol.(values(out_of_service_inputs)); init=assumptions)
-    day_only = with_value(assumptions, :kite_night_launch, 0.0)
     cases = []
-    labels = (; launch_cost="value", night=true, service=true)
+    labels = (; launch_cost="value", service=true)
     for route in route_names
         for (rig, area) in (("none", 0.0), ("wings", 1500.0), ("rotors", 800.0))
             design = ShipDesign(:ammonia, 140.0; rig_size(rig, area)...)
@@ -243,13 +241,12 @@ function launch_data()
                     assumptions=launch_cost_assumptions(launch_cost),
                     launch_cost=string(launch_cost)))
             end
-            push!(cases, trip_case(design; kite..., assumptions=day_only, night=false))
             push!(cases, trip_case(design; kite..., assumptions=always_in_service,
                 service=false))
         end
     end
     write_trips("launch.csv", cases, round_trips(cases, sampled_departures()), :route, :rig,
-        :area, :launch_cost, :night, :service)
+        :area, :launch_cost, :service)
 end
 
 """
@@ -521,8 +518,7 @@ function rig_cost_per_hour(ship, bare, legs, case_assumptions)
             ShipCosts(bare, case_assumptions).fixed_annual
     (; rig) = ship
     wear = sum(WindShipOpt.wear_cost(rig, case_assumptions) * leg.flight_hours +
-               WindShipOpt.cycle_cost(rig, case_assumptions) * leg.launches +
-               WindShipOpt.forced_landing_cost(rig, case_assumptions) * leg.forced_landings
+               WindShipOpt.cycle_cost(rig, case_assumptions) * leg.launches
                for pair in legs for leg in pair)
     return (fixed / (8760case_assumptions[:availability]) * hours + wear) / sea_hours
 end
@@ -702,9 +698,7 @@ function cost_parts(ship, trip, case_assumptions)
     return (fuel=1e9trip.fuel_energy * ship.fuel.price,
         wear=WindShipOpt.wear_cost(ship.rig, case_assumptions) * trip.flight_share *
              sea_hours +
-             WindShipOpt.cycle_cost(ship.rig, case_assumptions) * trip.launches +
-             WindShipOpt.forced_landing_cost(ship.rig, case_assumptions) *
-             trip.forced_landings,
+             WindShipOpt.cycle_cost(ship.rig, case_assumptions) * trip.launches,
         port=WindShipOpt.port_costs(ship.hull, case_assumptions),
         crew=crew / trading_hours * hours,
         capital=(costs.fixed_annual - crew) / trading_hours * hours + store,
@@ -1531,8 +1525,7 @@ fast_speed = 12KNOT
 "reasons a kite is down, as [`WindShipOpt.kite_down_reason`](@ref) gives them, per row"
 kite_down_groups = (too_little_wind=(:wind_low_flight, :wind_low_launch),
     no_forward_pull=(:no_thrust,), too_much_wind=(:wind_high_flight, :wind_high_launch),
-    hull_limit=(:hull_limit,), sea=(:sea_launch,), night=(:night,),
-    no_saving=(:no_saving,), chosen=(:chosen,))
+    hull_limit=(:hull_limit,), sea=(:sea_launch,), no_saving=(:no_saving,), chosen=(:chosen,))
 
 """
     forecast_hours_data()
@@ -1655,8 +1648,7 @@ function at_speed(table, point, speed_index)
         point.headwind, point.crosswind)
     sailed, speed = table.speeds[max(point.speed_index, 1)], table.speeds[speed_index]
     return WindShipOpt.SailedPoint(point.headwind, point.crosswind, point.condition,
-        point.daylight, speed_index, flown, stowed, point.hours * sailed / speed,
-        point.time, aloft)
+        speed_index, flown, stowed, point.hours * sailed / speed, point.time, aloft)
 end
 
 "cost [USD] of fuel, rig and time of `points` from a kite `aloft` or down, and its launches"
@@ -1670,13 +1662,12 @@ function launches_and_pulls(table, point)
     isfinite(point.flown) && point.flown !== point.stowed || return false
     speed = table.speeds[point.speed_index]
     return WindShipOpt.kite_launchable(table.table, speed, point.headwind, point.crosswind,
-        point.condition, point.daylight)
+        point.condition.wave_height)
 end
 
 "[`WindShipOpt.SailedPoint`](@ref) `point` with the kite unable to fly there"
 grounded(point) = WindShipOpt.SailedPoint(point.headwind, point.crosswind, point.condition,
-    point.daylight, point.speed_index, point.stowed, point.stowed, point.hours, point.time,
-    0.0)
+    point.speed_index, point.stowed, point.stowed, point.hours, point.time, 0.0)
 
 "`points` at each routing speed of `table`, by [`at_speed`](@ref)"
 speed_options(table, points) = [[at_speed(table, point, speed_index) for point in points]
@@ -2416,6 +2407,10 @@ development_inputs = [
     (input=:kite_out_of_service, label="kite out of service", rig="kite",
         lever="availability",
         reason="What a maker's reliability work is worth; the same lever for every rig."),
+    (input=:kite_launch_loss_probability, label="kites lost per launch", rig="kite",
+        lever="availability",
+        reason="What its launch and landing system's reliability is worth: unmeasured, " *
+               "from today's record to a second layer that saves the kite."),
     (input=:kite_max_force_per_area, label="kite force limit per area", rig="kite",
         lever="force",
         reason=string("Its structure decides the force each m\\textsuperscript{2} may ",
@@ -2535,8 +2530,7 @@ flight drag, and canopy wear and launches free, with those of [`noise_variants`]
 """
 function cargo_kite_variants()
     free = (; canopy_life=1e9, tether_lifetime=1e9, kite_cycle_crew_cost=0.0,
-        kite_cycle_damage_probability=0.0, kite_cycle_loss_probability=0.0,
-        kite_cycle_course_cost=0.0, kite_forced_landing_loss_probability=0.0)
+        kite_launch_loss_probability=0.0, kite_cycle_course_cost=0.0)
     return [("base", 125.0, (;)); ("flat_as_projected", 160.0, (;));
         ("force_0.9", 125.0, (; kite_max_force_per_area=0.9));
         ("no_flight_drag", 125.0, (; kite_flight_drag=0.0));
@@ -3465,7 +3459,7 @@ fixed-speed studies leave out, so that it flies wherever that saves fuel.
 """
 kite_without_running_cost = foldl((inputs, key) -> with_value(inputs, key, 0.0),
     (:market_price_factor, :tether_price, :kite_cycle_crew_cost, :kite_cycle_course_cost,
-        :kite_cycle_loss_probability, :kite_forced_landing_loss_probability);
+        :kite_launch_loss_probability);
     init=assumptions)
 
 """
@@ -3926,12 +3920,10 @@ function stateless_table(table::RouteTable)
     performance = table.table
     rig = WindShipOpt.with_changed(performance.ship.rig; launch_min_wind=0.0,
         launch_max_wind=Inf, launch_max_wave_height=Inf, landing_max_wind=Inf,
-        landing_max_wave_height=Inf, night_launch=true)
-    (; knots, values) = performance.sea_launch_wind
+        landing_max_wave_height=Inf, rough_sea_launch_wind=0.0)
     return WindShipOpt.with_changed(table; table=WindShipOpt.with_changed(performance;
-        ship=WindShipOpt.with_changed(performance.ship; rig),
-        sea_launch_wind=WindShipOpt.LinearTable(knots, zero(values)), cycle_cost=0.0,
-        handling_hours=0.0, forced_landing_cost=0.0))
+        ship=WindShipOpt.with_changed(performance.ship; rig), cycle_cost=0.0,
+        handling_hours=0.0))
 end
 
 """

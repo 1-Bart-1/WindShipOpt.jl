@@ -9,10 +9,9 @@
 "inputs of data/assumptions.yaml a reader of the explorer changes"
 explorer_inputs = (:vlsfo_price, :e_ammonia_price, :carbon_price, :carbon_coverage,
     :canopy_life, :canopy_structure_cost, :canopy_cloth_price_per_weight, :tether_price,
-    :tether_lifetime, :kite_cycle_crew_cost, :kite_cycle_damage_probability,
-    :kite_cycle_loss_probability, :kite_forced_landing_loss_probability,
-    :kite_out_of_service, :wing_out_of_service,
-    :rotor_out_of_service, :kite_crash_rate, :wing_loss_rate, :rotor_loss_rate,
+    :tether_lifetime, :kite_cycle_crew_cost, :kite_launch_loss_probability,
+    :kite_out_of_service, :wing_out_of_service, :rotor_out_of_service, :wing_loss_rate,
+    :rotor_loss_rate,
     :market_price_factor, :learning_rate, :kite_lifetime, :wing_lifetime, :rotor_lifetime,
     :discount_rate, :availability)
 
@@ -41,8 +40,10 @@ function explorer_changes()
                                           for name in (:kite_out_of_service,
                                               :wing_out_of_service, :rotor_out_of_service)),
             1.0),
-        ("one crash or loss per unit and year",
-            (kite_crash_rate=1.0, wing_loss_rate=1.0, rotor_loss_rate=1.0), 1.0)]
+        ("kites lost at the high bound", (kite_launch_loss_probability=entry(
+                :kite_launch_loss_probability).high,), 1.0),
+        ("one wing or rotor lost per unit and year", (wing_loss_rate=1.0, rotor_loss_rate=1.0),
+            1.0)]
 end
 
 """
