@@ -2090,9 +2090,9 @@ WindShipOpt.known_weather(source::FixedForecast, weather, time, horizon) = sourc
                         SyntheticWeather(), departure; time_cost=kite_hourly,
                         forecast=ReplannedForecast(forecast; interval=48.0, adapts)))
                     for departure in departures, adapts in (:nothing, :live))
-    cost(adapts) = sum(fetch(passages[departure, adapts]).objective
-                       for departure in departures)
-    @test cost(:live) < cost(:nothing)
+    held, live = (sum(fetch(passages[departure, adapts]).objective
+                      for departure in departures) for adapts in (:nothing, :live))
+    @test live < held
 end
 
 @testset "a ship sailing live changes speed within an edge, past the plan's speed" begin
