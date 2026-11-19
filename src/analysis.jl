@@ -6,10 +6,11 @@
 
 The ship models at each point the router sailed along a leg: time [h since departure],
 the hours of the leg the point stands for [h], position [deg], course [rad from north],
-10 m wind east and north [m/s], speed held [m/s], true wind angle [rad], apparent wind speed [m/s] and angle off the bow [rad] at the rig's
-height, rig thrust [N], the thrust the rig would give flown at its best trim where it can
-be up [N], fuel power [W], whether a kite flies, launches or lands at the point and whether
-the landing was forced, and the trim setting of the rig carried there.
+10 m wind east and north [m/s], speed held [m/s], true wind angle [rad], apparent wind
+speed [m/s] and angle off the bow [rad] at the rig's height, rig thrust [N], the thrust the
+rig would give flown at its best trim where it can be up [N], fuel power [W], the hull's
+leeway [rad], whether a kite flies, launches or lands at the point and whether the landing
+was forced, and the trim setting of the rig carried there.
 """
 struct LegTrace
     time::Vector{Float64}
@@ -26,6 +27,7 @@ struct LegTrace
     rig_thrust::Vector{Float64}
     available_thrust::Vector{Float64}
     fuel_power::Vector{Float64}
+    leeway::Vector{Float64}
     flying::Vector{Bool}
     launched::Vector{Bool}
     landed::Vector{Bool}
@@ -45,7 +47,7 @@ function LegTrace(table::PerformanceTable, leg::Leg, weather, departure)
     route_table = RouteTable(table)
     corridor = leg_corridor(leg)
     prices = (; fuel=table.ship.fuel.price, time=0.0)
-    trace = LegTrace((Float64[] for _ in 1:14)..., (Bool[] for _ in 1:4)..., Any[])
+    trace = LegTrace((Float64[] for _ in 1:15)..., (Bool[] for _ in 1:4)..., Any[])
     points = SailedPoint[]
     edges = length(leg.path) - 1
     carried = (launched=false, landed=false, forced=false, hours=0.0)
@@ -100,6 +102,7 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     added = trim_resistance(table.table, sea_resistance(slice, sample.condition))
     _, force, trim = trimmed_force(ship, flown ? ship.rig : standing, speed, wind_speed,
         angle, added)
+    windage = wind_force(ship.windage, ship.env, wind_speed, angle, speed)
     aloft = kite_aloft(table.table, speed, point.headwind, point.crosswind)
     available = standing === ship.rig || aloft ?
                 last(best_trim(ship, ship.rig, speed, wind_speed, angle, added)).thrust :
@@ -120,6 +123,7 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     push!(trace.rig_thrust, force.thrust)
     push!(trace.available_thrust, available)
     push!(trace.fuel_power, flown ? point.flown : point.stowed)
+    push!(trace.leeway, HullBalance(ship, speed, force + windage).leeway)
     push!(trace.flying, flying)
     push!(trace.launched, launched)
     push!(trace.landed, landed)

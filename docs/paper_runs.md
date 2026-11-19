@@ -46,12 +46,15 @@ Every cluster setting is in `scripts/cluster.toml`: the account and partition (D
 
 ### Setting it up once, on a DelftBlue login node
 
-Compute nodes have no internet, so Julia, the packages and the weather are fetched on a login node. `bin/delftblue_setup` does all of it: juliaup, the repository on `/scratch` (5 TB, but cleared of old files, so copy the results back after each run), the packages, and the weather through `bin/weather` from public stores. It resumes where it stopped; run it inside `tmux`, since the weather takes hours.
+Compute nodes have no internet, so Julia, the packages and the weather are fetched on a login node. `bin/delftblue_setup` does all of it: juliaup, the repository on `/scratch` (5 TB, but cleared of old files, so copy the results back after each run), the packages, and the weather through `bin/weather` from public stores. It resumes where it stopped and runs at the lowest CPU priority on 4 threads, so the login node stays usable; run it inside `tmux`, since the weather takes hours.
+
+A draft and a final run read four weather folders under `era5/atlantic_wide/`, 13 GB together: the ERA5 wind and wave series (1.2 GB), their climate means (8 MB), and the GEFSv12 control forecast of every day with its bias and blend weights (12 GB). On 4 cores the packages took 13 minutes, the ERA5 series 8, the climate means 10, and the forecast about 29 seconds per day of waves and 11 of wind, some 12 hours for its 1096 days. The forecast ensemble members and the GEFS v11 forecasts that the box also holds are read only by the method studies of the forecast, not by a paper run, so they are not fetched; nor is the box's case store, since a run routes what it does not find there. `bin/weather` ends with `scripts/check_weather.jl`, which hashes each of the 48 files against `data/weather_sha256.toml`, the box's, and names every file missing or different. Delete such a file's folder and run `bin/weather` again.
 
 ```bash
-ssh <netid>@login.delftblue.tudelft.nl
+ssh <netid>@login.delftblue.tudelft.nl   # from outside TU Delft's network, connect eduVPN first
 tmux
 curl -fsSL https://raw.githubusercontent.com/1-Bart-1/WindShipOpt.jl/main/bin/delftblue_setup | bash
+exec bash -l   # puts julia on your PATH
 ```
 
 Without a project account, jobs are charged to `innovation`: 24 hours each and 4 at once in total, so a draft and a final run started together share those 4. With a project account (`research-<faculty>-<department>`, listed at the end of the setup), set it as `account` in `scripts/cluster.toml` and commit it, since a final run needs a clean tree on a pushed commit. `compute-p1` has 48 cores and at most `3996M` per core, `compute-p2` 64 cores and at most `4000M`; keep `cores` at most the partition's.
