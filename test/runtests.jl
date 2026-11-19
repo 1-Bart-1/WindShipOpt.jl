@@ -710,13 +710,20 @@ end
     end
 end
 
-@testset "a kite's bottom-up counts a tow point for its tether force and ship-side controls" begin
-    parts(force) = WindShipOpt.kite_price_parts(1600.0, force, assumptions)
+@testset "a kite's hardware is its deck system and control unit by mass, and its controls" begin
+    parts(force) = WindShipOpt.kite_price_parts(force, assumptions)
+    @test parts(8e5).deck ≈ 800 * assumptions[:kite_deck_mass_per_force] *
+                            assumptions[:kite_deck_cost_per_mass]
+    @test parts(8e5).control_unit ≈ 800 * assumptions[:control_unit_mass_per_force] *
+                                    assumptions[:control_unit_cost_per_mass]
     @test parts(8e5).controls == assumptions[:kite_controls_cost]
-    @test parts(1.6e6).tow_point - parts(8e5).tow_point ≈
-          assumptions[:tow_point_cost_per_force] * 8e5
     @test parts(8e5).integration ≈
           assumptions[:kite_integration_fraction] * (sum(parts(8e5)) - parts(8e5).integration)
+    rig = uniform_kite(Hull(140.0, assumptions), assumptions)
+    tether = WindShipOpt.rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
+    kite = WindShipOpt.soft_kite_mass(rig.area, rig.aspect_ratio, rig.max_force, assumptions)
+    @test WindShipOpt.rig_costs(rig, assumptions)[2] ≈
+          1e-3(1e-3assumptions[:kite_deck_mass_per_force] * rig.max_force + kite + tether)
 end
 
 @testset "a rotor price is set against the build-up of the same unit as sold" begin

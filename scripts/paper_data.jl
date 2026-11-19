@@ -2410,9 +2410,9 @@ development_inputs = [
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
         reason="What a flight hour of the canopy costs; unmeasured, so what development " *
                "has to prove."),
-    (input=:launch_mast_telescope_factor, label="launch mast price", rig="kite",
-        lever="price", reason="Its design sets the price of the launch mast, the largest " *
-                              "and least known part of the kite's hardware."),
+    (input=:kite_deck_mass_per_force, label="kite deck system mass", rig="kite",
+        lever="price", reason="Its design sets the mass of mast, winch and docking head, " *
+                              "which set the price of the kite's hardware."),
     (input=:kite_out_of_service, label="kite out of service", rig="kite",
         lever="availability",
         reason="What a maker's reliability work is worth; the same lever for every rig."),
@@ -3643,7 +3643,7 @@ rigid_low_favours = (:rigid_tether_price, :rigid_tether_density,
     :rigid_tether_drag_coefficient, :rigid_structure_cost_per_mass,
     :rigid_structure_cost_per_area, :rigid_avionics_cost, :rigid_drive_cost,
     :rigid_drive_reference_mass, :rigid_rotor_mass_per_area, :rigid_ship_power_cost,
-    :rigid_perch_cost, :rigid_perch_width, :rigid_station_mass, :rigid_upkeep_per_area,
+    :rigid_perch_width, :rigid_station_mass, :rigid_upkeep_per_area,
     :rigid_cycle_loss_probability, :rigid_feathered_rotor_drag, :rigid_hover_energy_price,
     :rigid_hover_minutes, :rigid_hover_thrust_ratio, :rigid_shell_mass, :rigid_load_mass,
     :rigid_profile_drag, :rigid_min_turn_radius, :kite_out_of_service)
@@ -3736,10 +3736,9 @@ end
 
 "the price inputs of the parts and launches of a soft or a VTOL kite"
 kite_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost,
-    :canopy_cloth_price_per_weight, :control_unit_cost, :control_unit_cost_per_area,
-    :docking_head_cost, :launch_mast_mass_coefficient, :launch_mast_steel_cost,
-    :winch_cost_per_force, :winch_fixed_cost, :kite_integration_fraction, :tether_price,
-    :rigid_avionics_cost, :rigid_drive_cost, :rigid_perch_cost, :rigid_ship_power_cost,
+    :canopy_cloth_price_per_weight, :kite_deck_mass_per_force, :kite_deck_cost_per_mass,
+    :control_unit_cost_per_mass, :kite_controls_cost, :kite_integration_fraction,
+    :tether_price, :rigid_avionics_cost, :rigid_drive_cost, :rigid_ship_power_cost,
     :rigid_structure_cost_per_area, :rigid_structure_cost_per_mass, :rigid_tether_price,
     :rigid_hover_energy_price, :kite_cycle_course_cost, :kite_cycle_crew_cost,
     :market_price_factor)

@@ -274,8 +274,29 @@ function rig_costs(rig::KiteRig, assumptions)
     hardware = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions))
     annuity = capital_recovery(assumptions[:discount_rate], assumptions[:kite_lifetime]) *
               hardware
-    return hardware + canopy + tether, assumptions[:kite_mass_per_area] * rig.area, annuity
+    return hardware + canopy + tether, 1e-3kite_rig_mass(rig, assumptions), annuity
 end
+
+"""
+    kite_rig_mass(rig, assumptions)
+
+Mass [kg] of a soft kite `rig` on the ship: its deck system, the kite with its control unit,
+and its tether.
+"""
+function kite_rig_mass(rig::KiteRig, assumptions)
+    kite = soft_kite_mass(rig.area, rig.aspect_ratio, rig.max_force, assumptions)
+    tether = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
+    return kite_deck_mass(rig.max_force, assumptions) + kite + tether
+end
+
+"""
+    kite_deck_mass(max_force, assumptions)
+
+Mass [kg] of the deck system of a kite of tether force limit `max_force` [N]: launch mast,
+docking head, winch, tow point and their seats.
+"""
+kite_deck_mass(max_force, assumptions) =
+    1e-3assumptions[:kite_deck_mass_per_force] * max_force
 
 function rig_costs(rig::KiteRig{RigidAirframe}, assumptions)
     _, tether = consumable_costs(rig, assumptions)
@@ -291,9 +312,8 @@ end
     rig_price_parts(rig, assumptions)
 
 Manufacturing cost [USD] of each part of the hardware of `rig`: the
-units, their surface and the installation of wings or rotors; the winch, tow point, launch
-mast, docking head, control unit, ship-side controls and integration of a kite, without its
-canopy and tether.
+units, their surface and the installation of wings or rotors; the deck system, control
+unit, ship-side controls and integration of a kite, without its canopy and tether.
 """
 rig_price_parts(::Nothing, assumptions) = (;)
 
@@ -323,40 +343,28 @@ launch_mast_height(area, assumptions) = min(
     assumptions[:launch_mast_height_ratio] * sqrt(area),
     assumptions[:launch_mast_max_height])
 
-rig_price_parts(rig::KiteRig, assumptions) =
-    kite_price_parts(rig.area, rig.max_force, assumptions)
+rig_price_parts(rig::KiteRig, assumptions) = kite_price_parts(rig.max_force, assumptions)
 
 """
-    kite_price_parts(area, max_force, assumptions)
+    kite_price_parts(max_force, assumptions)
 
-[`rig_price_parts`](@ref) of a kite of projected `area` [m^2] and tether force limit
-`max_force` [N].
+[`rig_price_parts`](@ref) of a soft kite of tether force limit `max_force` [N]: its
+[`kite_deck_mass`](@ref) and control unit, each at its cost per kg, and its ship-side
+controls.
 """
-function kite_price_parts(area, max_force, assumptions)
-    mast_height = launch_mast_height(area, assumptions)
-    mast_mass = 1e3 * (assumptions[:launch_mast_base_mass] +
-                 assumptions[:launch_mast_mass_coefficient] * area^(2 / 3) *
-                 mast_height^(5 / 3))
-    parts = (winch=assumptions[:winch_fixed_cost] +
-                   assumptions[:winch_cost_per_force] * max_force,
-        tow_point=assumptions[:tow_point_cost_per_force] * max_force,
-        mast=assumptions[:launch_mast_steel_cost] *
-             assumptions[:launch_mast_telescope_factor] * mast_mass,
-        docking_head=assumptions[:docking_head_cost] *
-                     (area / assumptions[:docking_head_reference_area])^
-                     assumptions[:docking_head_area_exponent],
-        control_unit=assumptions[:control_unit_cost] +
-                     assumptions[:control_unit_cost_per_area] * area,
+function kite_price_parts(max_force, assumptions)
+    control_unit_mass = 1e-3assumptions[:control_unit_mass_per_force] * max_force
+    parts = (deck=assumptions[:kite_deck_cost_per_mass] *
+                  kite_deck_mass(max_force, assumptions),
+        control_unit=assumptions[:control_unit_cost_per_mass] * control_unit_mass,
         controls=assumptions[:kite_controls_cost])
     return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
 end
 
 function rig_price_parts(rig::KiteRig{RigidAirframe}, assumptions)
     (; count, hover_power) = rig.airframe
-    parts = (winch=count * (assumptions[:winch_fixed_cost] +
-                  assumptions[:winch_cost_per_force] * rig.max_force),
-        tow_point=count * assumptions[:tow_point_cost_per_force] * rig.max_force,
-        perch=count * assumptions[:rigid_perch_cost],
+    deck = assumptions[:kite_deck_cost_per_mass] * kite_deck_mass(rig.max_force, assumptions)
+    parts = (deck=count * deck,
         ship_power=count * assumptions[:rigid_ship_power_cost] * hover_power,
         controls=count * assumptions[:kite_controls_cost])
     return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))

@@ -94,56 +94,24 @@ A least-squares line through the three rotors gives the manufacturing cost as **
 
 Throughout, A is projected kite area, the maximum tether force is 0.5 kN/m² × A (`kite_max_force_per_area`), the mast height is 1.0 × √A (`launch_mast_height_ratio`), and canopy flat area is 1.17 × projected area.
 
-### 4.1 Holding winch (estimate from components)
+### 4.1 Hardware by mass
 
-| Part                                                           | Base                                   | Low / high                | Basis                                                                                                                                             |
-| -------------------------------------------------------------- | -------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reeling motor and VFD                                          | 30 kW × 400 = 12.0 kUSD                | 20 kW × 250 / 50 kW × 800 | Estimate: reel-in of the depowered kite at launch and landing only                                                                                |
-| Load cell, encoder, PLC, level wind                            | 10 kUSD                                | 5 / 20                    | Estimate                                                                                                                                          |
-| Base frame                                                     | 1 t × 2.97 = 3.0 kUSD                  | 0.5 t / 2 t               | Estimate                                                                                                                                          |
-| Assembly and test                                              | 80 h × 26 = 2.1 kUSD                   | 40 h / 160 h              | Estimate                                                                                                                                          |
-| **Fixed manufacturing cost**                                   | **27.0 kUSD**                          | 11.2 / 81.0               |                                                                                                                                                   |
-| Drum, brake and frame steel, ∝ holding force                   | 5 kg/kN × 2.97 USD/kg = 14.9 USD/kN    | 3 / 10 kg/kN              | Estimate. No mooring-winch mass per kN was found; the listings give pull and holding loads without weights.                                       |
-| Gearbox for pull = 0.25 × holding force on a 0.7 m drum radius | 0.175 kNm/kN × 50 USD/kNm = 8.8 USD/kN | 30 / 80 USD/kNm           | WISDEM gearbox torque cost; pull ratio and drum size are estimates. Brakes are sized to 80 % of the line's breaking load (Wärtsilä encyclopedia). |
-| **Per-N manufacturing cost**                                   | **0.0236 USD/N**                       | 0.0102 / 0.0837           |                                                                                                                                                   |
+The kite's hardware is priced from masses of a built system at a price per kg, so each input has one line from source to value:
 
-### 4.2 Launch mast and docking head
+| Input | Base | Low / high | From source to value |
+| ----- | ---- | ---------- | -------------------- |
+| Deck system mass (launch mast, docking head, winch, tow point, seats) | 50 kg/kN | 30 / 94 | SkySails system "abt. 30 tons" for "Kite surfaces: 160-600 sqm" (CE Delft 2016, Annex A.4); SkySails kites designed for ~1 kN/m², "A 320 m2 kite designed to provide a pull of up to 320 kN" (Paulig et al. 2013, p.554), so 30 t / 600 kN. High: 30 t / 320 kN, the largest kite flown. Low: estimate. |
+| Deck system cost | 8.3 USD/kg | 3.9 / 12.9 | WISDEM yaw system k_c = 8.3 USD/kg, geared slewing machinery on steel; bounds hub 3.9 and gearbox 12.9 of the same model. |
+| Control unit mass | 0.22 kg/kN | 0.15 / 0.45 | "the appropriate control pod adds 70 kg" for 320 kN (Paulig et al. 2013, p.554); already an input. |
+| Control unit cost | 218 USD/kg | 150 / 300 | Faggiani et al. 2018, Table 16.2: control unit EUR 3,000 in series, Table 16.1: 16 kg; 187.5 EUR/kg × 1.16. Bounds estimate. |
+| Ship-side controls | 30 kUSD | 15 / 60 | The rotor's controls per unit (§3), the shared line of §2. |
+| Installation | 15 % | 10 / 20 | EMSA 2023, p.45, newbuild; it holds "foundations and deck reinforcement" (p.41). |
 
-Mast: a 0.8 m × 12 mm steel tube (237 kg/m, as in `kite_costs_notes.md`) at the tubular unit cost, worked out with the Farkas & Jarmai hours for this smaller tube (16 h/t) and 21 m²/t of painted area. A foundation equal to 30 % of the mast mass (low 20 %, high 50 %, estimate) is added at the stiffened-steel cost. This gives **826 USD per m of height** (low 505, high 1,682).
+Rig mass on the ship is the deck system plus the kite with its pod and the tether: 21 t at 800 m², 88 t at 3,200 m². The CE Delft figure is one mass for the whole range of kite sizes, so scaling it with the tether force prices small kites low and large kites high; the bounds carry that.
 
-| Docking head part                   | Base                  | Low / high               | Basis                                                                           |
-| ----------------------------------- | --------------------- | ------------------------ | ------------------------------------------------------------------------------- |
-| Slewing ring and drives             | 1 t × 8.3 = 8.3 kUSD  | 0.5 t × 4.5 / 2 t × 12.9 | WISDEM yaw system per kg; mass is an estimate                                   |
-| Gripper and arm steel               | 2 t × 2.97 = 5.9 kUSD | 1 t / 3 t                | Estimate                                                                        |
-| Hydraulic power pack and cylinders  | 10 kUSD               | 5 / 20                   | Estimate                                                                        |
-| Inflation fan                       | 3 kUSD                | 2 / 6                    | Estimate; SkySails and Airseas both inflate at the mast (`kite_costs_notes.md`) |
-| Sensors and local controls          | 5 kUSD                | 3 / 10                   | Estimate                                                                        |
-| Assembly and test                   | 200 h × 26 = 5.2 kUSD | 100 h / 400 h            | Estimate                                                                        |
-| **Docking head manufacturing cost** | **37.4 kUSD**         | 14.7 / 100.3             |                                                                                 |
+### 4.2 Installation, every rig
 
-### 4.3 Control unit
-
-The parts are from `kite_costs_notes.md`, with its ×1.5 removed and assembly priced as labour instead.
-
-| Part                                                   | Base                       | Low / high   | Basis                                                                                                                                |
-| ------------------------------------------------------ | -------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Flight computer, IMU, GNSS, radio                      | 3.5 kUSD                   | 2 / 5        | `kite_costs_notes.md` part ranges                                                                                                    |
-| Sealed housing and line attachment                     | 5 kUSD                     | 3 / 10       | same                                                                                                                                 |
-| Buffer battery and power                               | 1 kUSD                     | 0.5 / 2      | Li-ion 108–182 USD/kWh (BNEF, Dec 2025) plus BMS and enclosure                                                                       |
-| Assembly and test                                      | 60 h × 26 = 1.6 kUSD       | 30 h / 120 h | Estimate                                                                                                                             |
-| **Fixed**                                              | **11.1 kUSD**              | 5.7 / 22.3   |                                                                                                                                      |
-| Three steering actuators (servo, drive, gearbox, drum) | **15 USD/m²** of kite area | 8 / 30       | Estimate: 3 × 5 kUSD at 1,000 m²; the steering force scales with kite area. Servos with integrated drives start at USD 698 (Teknic). |
-
-### 4.3a Tow point and ship-side controls
-
-What a fitted kite needs that the parts above do not count, set against what the rotor's build-up holds (§3):
-
-| Part | Base | Low / high | Basis |
-| ---- | ---- | ---------- | ----- |
-| Deck tow point and its seat, ∝ tether force | 5 kg/kN × 2.97 = 14.9 USD/kN (0.015 USD/N) | 2 kg/kN × 1.66 / 10 kg/kN × 6.97 | Estimate. The tether's full force goes to a tow point on the foredeck, not through the mast (`mast_notes.md` §4); its seat is the kite's counterpart of the rotor's foundation. The hull reinforcement under it is in the 15 % installation share, which EMSA (2023, p. 41) says holds "foundations and deck reinforcement". |
-| Ship-side controller, wind and tether sensors, bridge interface, software licence | 30 kUSD | 15 / 60 | The shared "rig controller, sensors, software licence" of §2, which the rotor carries per unit. The winch's PLC and the docking head's local controls only run those machines. |
-
-Left out because no rig counts them: commissioning and crew training (EMSA's EUR 10 k for every WAPS), and development, which the market factor's overhead and margin carry for every rig.
+No public source splits installation from a rig's price (searched 2026-11-19: EMSA 2023, CE Delft 2016, Norsepower, Anemoi, Oceanbird, BAR, Airseas). EMSA (2023, p.45) takes 15 % of asset cost for a newbuild and 10 % more for a retrofit; its installation holds "engineering costs, material costs (e.g., for foundations and deck reinforcement), labour costs (e.g., for preparation and welding), logistics costs, as well as potential costs related to the time required for the installation" (p.41). Norsepower supplies rotor, controls and power supply and supervises; the yard builds the foundation to its specification and does cabling and steel work, 7-14 days of it on a retrofit and 6-12 h per rotor lift (Norsepower web, via the 2026-11-19 search). The checks are installed prices: Norsepower's 2019 figures "per unit" (Tillig et al. 2020) and Anemoi's GBP 28 M for 29 rotors supplied and installed come to 1.0-1.2 of our build-up × 2 with 15 % installation and the foundation in the unit, so real installation is at most about a fifth above ours. The paper's ships are newbuilds. Wings and kites have no installed price to check; the kite's Airseas installation is claimed bolted in 24 h without dry dock.
 
 ### 4.4 Canopy with bridle (consumable)
 
@@ -242,13 +210,6 @@ All inputs are manufacturing cost except `market_price_factor`. The model multip
 | rotor_cost_per_area         | 2,040  | 1,260  | 4,270   | USD/m² (H×D)     | Slope of the same line; ×2.0 reproduces Norsepower's 2019 EUR 300/500/750 k for 18×3/24×4/30×5 m to within −13 % to +6 %.                                             |
 | wing_unit_cost              | 66,000 | 27,000 | 153,000 | USD              | Controls, hydraulic power pack and 600 h of assembly; tilt or retraction excluded because `retractable_rig_premium` prices it.                                        |
 | wing_cost_per_area          | 665    | 310    | 1,760   | USD/m² sail      | 0.13 t/m² (EMSA 2023 Table 4; OceanWings; Oceanbird), 30 % tubular steel, 30 % stiffened steel, 30 % composite, 10 % slewing mechanics at the shared unit costs (§2). |
-| winch_fixed_cost            | 27,000 | 11,000 | 81,000  | USD              | Reeling motor and drive, sensors and PLC, frame and assembly of a holding winch (estimate from component prices).                                                     |
-| winch_cost_per_force        | 0.024  | 0.010  | 0.084   | USD/N            | Drum, brake and frame steel at 5 kg/kN plus a gearbox for 25 % of holding force at WISDEM's 50 USD/kNm (estimate).                                                    |
-| docking_head_cost           | 37,000 | 15,000 | 100,000 | USD              | Slewing ring at WISDEM yaw-system cost, steel gripper, hydraulics, inflation fan, controls and assembly (estimate).                                                   |
-| control_unit_cost           | 11,000 | 6,000  | 22,000  | USD              | Flight computer, housing, battery and assembly, the parts of `kite_costs_notes.md` without its ×1.5.                                                                  |
-| control_unit_cost_per_area  | 15     | 8      | 30      | USD/m²           | Three steering actuators scaling with kite area, 3 × 5 kUSD at 1,000 m² (estimate).                                                                                   |
-| tow_point_cost_per_force    | 0.015  | 0.003  | 0.07    | USD/N            | Deck tow point and its seat, 5 kg/kN of stiffened steel (§4.3a, estimate).                                                                                            |
-| kite_controls_cost          | 30,000 | 15,000 | 60,000  | USD              | Ship-side controller, sensors and software licence, the rotor's controls per unit (§4.3a, estimate).                                                                  |
 | canopy_structure_cost       | 53     | 53     | 80      | EUR/m² flat      | Soft kite fabric with reinforcements 45 and bridle 8 per flat m², series of 50+, no overhead or margin (IEA Wind Task 48 survey, Joshi et al. 2024, p.7), × 25/18 flat per projected; heavier cloth added at `canopy_cloth_price_per_weight` from the assumed 100 g/m² of the surveyed kites; 96 USD/m² projected to make, 192 at the market factor. |
 | tether_price                | 93     | 40     | 300     | USD/kg           | Series purchase price of Dyneema rope, EUR 80/kg (Joshi et al. 2025, p.703); retail small diameters 300–350 USD/kg.                                                             |
 
