@@ -21,8 +21,17 @@ function hull_outline(length, beam)
     return vcat([Point2f(0.8half, stern)], bow, port, [Point2f(-0.8half, stern)])
 end
 
-"`force`'s lever: the distance [m] forward of midship at which its side force acts"
-lever(force) = iszero(force.side) ? 0.0 : force.yaw_moment / force.side
+"""
+    lever(force)
+
+The distance [m] forward of midship at which the side force of `force` acts; error where
+it has a yaw moment and no side force.
+"""
+function lever(force)
+    iszero(force.side) || return force.yaw_moment / force.side
+    iszero(force.yaw_moment) || error("a yaw moment without a side force has no lever")
+    return 0.0
+end
 
 """
     horizontal_forces(ship, rig, speed, wind, angle; waves=0.0)
@@ -40,9 +49,6 @@ function horizontal_forces(ship, rig, speed, wind, angle; waves=0.0)
     air = WindShipOpt.wind_force(ship.windage, env, wind, angle, speed)
     total = sail + air
     balance = WindShipOpt.HullBalance(ship, speed, total)
-    rudder = WindShipOpt.rudder_side_force(hull, total)
-    hull_side = -(total.side + rudder)
-    _, leeway_drag = WindShipOpt.leeway_drag(hull, env, speed, abs(hull_side))
     calm = WindShipOpt.resistance(hull, env, speed; coefficients=ship.wave_coefficients)
     stern = -hull.length / 2
     centre = WindShipOpt.lateral_centre(hull)
@@ -53,10 +59,10 @@ function horizontal_forces(ship, rig, speed, wind, angle; waves=0.0)
         force(raw"Y", 0.0, air.side, lever(air), "wind"),
         force(raw"R_\mathrm{cw}", -calm, 0.0, 0.0, "water"),
         force(raw"R_\mathrm{aw}", -waves, 0.0, 0.0, "water"),
-        force(raw"R_\beta", -leeway_drag, 0.0, centre, "water"),
-        force(raw"Y_\mathrm{h}", 0.0, hull_side, centre, "water"),
-        force(raw"R_r", leeway_drag - balance.drag, 0.0, stern, "water"),
-        force(raw"F_r", 0.0, rudder, stern, "water"),
+        force(raw"R_\beta", -balance.leeway_drag, 0.0, centre, "water"),
+        force(raw"Y_\mathrm{h}", 0.0, balance.hull_side_force, centre, "water"),
+        force(raw"R_r", -balance.rudder_drag, 0.0, stern, "water"),
+        force(raw"F_r", 0.0, balance.rudder_side_force, stern, "water"),
         force(raw"T_\mathrm{req}", thrust, 0.0, stern + propeller_ahead * hull.length,
             "water")]
     return (; forces, balance.leeway, balance.heel)
@@ -191,16 +197,16 @@ function draw_force_panel(io, panel, centreline, top, letter)
 end
 
 """
-    arrow_ends(force, forces, hull)
+    arrow_ends(force)
 
-Tail and head [mm] of the arrow of `force` among `forces` on `hull` in
-[`force_balance_figure`](@ref): from its point, on the centreline at its lever.
+Tail and head [mm] of the arrow of `force` in [`force_balance_figure`](@ref): from its
+point, on the centreline at its lever.
 """
 function arrow_ends(force)
     across = !iszero(force.across)
     reach = (across ? (force.across, 0.0) : (0.0, force.along)) ./ 1e3 .*
             force_balance_scale.force
-    point = (0.0, force.at * hull_scale())
+    point = (0.0, force.at * force_balance_scale.length)
     return point, point .+ reach
 end
 
@@ -223,7 +229,7 @@ function draw_force(io, force, forces)
                    iszero(other.across) == iszero(force.across)]
     zero = abs(value) < 500
     zero && any(other -> abs(other.along + other.across) >= 500, sharing) && return
-    point = (0.0, force.at * hull_scale())
+    point = (0.0, force.at * force_balance_scale.length)
     short = hypot((head .- tail)...) < arrowhead_length()
     if zero
         println(io, "\\draw[", force.colour, ", fill=white, line width=", tex_size("rule"),
@@ -244,9 +250,6 @@ function draw_force(io, force, forces)
         tikz_point(at...), " {", text, "};")
 end
 
-"millimetres per metre of the hull in [`force_balance_figure`](@ref)"
-hull_scale() = force_balance_scale.length
-
 "estimated width [mm] of a force label in [`force_balance_figure`](@ref)"
 label_width = 13.0
 
@@ -264,7 +267,7 @@ function label_place(force, forces, tail, head, mark)
         leeward = force.across > 0
         short = abs(head[1]) < label_width
         crowded = any(forces) do other
-            other !== force && 0 < (other.at - force.at) * hull_scale() < 5 &&
+            other !== force && 0 < (other.at - force.at) * force_balance_scale.length < 5 &&
                 (iszero(other.across) || sign(other.across) == sign(force.across))
         end
         crowded && short &&
@@ -291,8 +294,9 @@ with its tether along the pull of its `forces`, rotors as circles, and wing sail
 chords along the apparent wind at mid height.
 """
 function draw_plan_rig(io, rig::KiteRig, ship, conditions, name, forces)
-    point = (0.0, rig.attach_position * hull_scale())
-    pull = (forces[2].across, forces[1].along)
+    point = (0.0, rig.attach_position * force_balance_scale.length)
+    rig_force(symbol) = only(force for force in forces if force.symbol == symbol)
+    pull = (rig_force(raw"F_y").across, rig_force(raw"F_x").along)
     reach = 30 .* pull ./ hypot(pull...)
     println(io, "\\draw[", name, ", densely dashed, line width=", tex_size("dimension"),
         "] ", tikz_point(point...), " -- ", tikz_point((point .+ reach)...),
@@ -301,20 +305,21 @@ function draw_plan_rig(io, rig::KiteRig, ship, conditions, name, forces)
 end
 
 function draw_plan_rig(io, rig::WingRig, ship, (speed, wind, angle), name, forces)
-    chord = rig.height / assumptions[:wing_aspect_ratio] * hull_scale()
+    chord = rig.height / assumptions[:wing_aspect_ratio] * force_balance_scale.length
     _, _, apparent = WindShipOpt.centre_wind(rig, ship.env, wind, angle, speed)
     along = chord / 2 .* (sin(apparent), -cos(apparent))
     for position in WindShipOpt.unit_positions(rig, ship.hull, assumptions)
-        centre = (0.0, position * hull_scale())
+        centre = (0.0, position * force_balance_scale.length)
         println(io, "\\draw[", name, ", line width=", tex_size("line"), "] ",
             tikz_point((centre .- along)...), " -- ", tikz_point((centre .+ along)...), ";")
     end
 end
 
 function draw_plan_rig(io, rig::WindShipOpt.RotorRig, ship, conditions, name, forces)
+    metres = force_balance_scale.length
     for position in WindShipOpt.unit_positions(rig, ship.hull, assumptions)
-        println(io, "\\fill[", name, "] ", tikz_point(0.0, position * hull_scale()),
-            " circle (", @sprintf("%.2f", rig.diameter / 2 * hull_scale()), ");")
+        println(io, "\\fill[", name, "] ", tikz_point(0.0, position * metres),
+            " circle (", @sprintf("%.2f", rig.diameter / 2 * metres), ");")
     end
 end
 
@@ -323,7 +328,8 @@ end
 
 Write to `io` the key of [`force_balance_figure`](@ref), its top right corner at `right`,
 `top` [mm]: the colour of the forces of the water, of the wind on the ship and of each
-rig with their sections, and the scales of force and length.
+rig with their sections, the dot of a force shorter than an arrowhead, and the scales of
+force and length.
 """
 function force_balance_key(io, right, top)
     scale, metres = force_balance_scale.force, force_balance_scale.length
@@ -343,6 +349,11 @@ function force_balance_key(io, right, top)
         println(io, "\\node[note, anchor=west] at ", tikz_point(x + 5.5, y), " {", text,
             "};")
     end
+    x, y = right - columns[1][1] + 1.5, row_y(length(last(columns[1])) + 1)
+    println(io, "\\filldraw[black, draw=white, line width=", tex_size("rule"), "] ",
+        tikz_point(x + 2.5, y), " circle (0.7);")
+    @printf(io, "\\node[note, anchor=west] at %s {force under \\SI{%.0f}{kN}, its value \
+        in the label};\n", tikz_point(x + 5.5, y), arrowhead_length() / scale)
     rows = maximum(length(last(column)) for column in columns)
     x, y = right - columns[1][1] + 1.5, row_y(rows + 1)
     @printf(io,

@@ -94,7 +94,18 @@ end
     @test together.leeway > WindShipOpt.HullBalance(bare, 7.0, rig).leeway
     @test WindShipOpt.required_thrust(bare, 7.0, 15.0, π / 2, rig) ≈
           WindShipOpt.resistance(bare.hull, bare.env, 7.0;
-              coefficients=bare.wave_coefficients) + together.drag - hull_force.thrust
+              coefficients=bare.wave_coefficients) + together.leeway_drag +
+          together.rudder_drag - hull_force.thrust
+end
+
+@testset "hull and rudder cancel the side force and yaw moment of rig and wind" begin
+    ship = Ship(ShipDesign(:vlsfo, 140.0; kite_area=800.0), assumptions)
+    force = RigForce(1e5, 2e5, 2e6, 3e6)
+    balance = WindShipOpt.HullBalance(ship, 5.4, force)
+    centre = WindShipOpt.lateral_centre(ship.hull)
+    @test force.side + balance.rudder_side_force + balance.hull_side_force ≈ 0 atol = 1e-6
+    @test force.yaw_moment + balance.rudder_side_force * -ship.hull.length / 2 +
+          balance.hull_side_force * centre ≈ 0 atol = 1e-3
 end
 
 # DNV Rules for Ships, January 2000, Pt. 3 Ch. 3 Sec. 2, guidance note, p. 9.
@@ -1021,7 +1032,8 @@ end
     # midship lies 47 m aft of the lateral centre, the bow mast 4 m ahead of it
     @test balance(midship).rudder_lift_coefficient >
           3balance(bow).rudder_lift_coefficient > 0
-    @test balance(midship).drag > balance(bow).drag
+    drag(balance) = balance.leeway_drag + balance.rudder_drag
+    @test drag(balance(midship)) > drag(balance(bow))
 end
 
 @testset "a rig ship is sized near the bare ship in calm water, a kite ship as it" begin
