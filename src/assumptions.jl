@@ -54,6 +54,9 @@ end
 "the record of the innermost [`inputs_read`](@ref) running, or nothing outside one"
 const INPUTS_READ = ScopedValue{Union{Nothing, InputsRead}}(nothing)
 
+"whether `name` is one of the inputs in `assumptions`"
+Base.haskey(assumptions::Assumptions, name::Symbol) = haskey(assumptions.entries, name)
+
 function Base.getindex(assumptions::Assumptions, name::Symbol)
     record = INPUTS_READ[]
     isnothing(record) || @lock record.lock push!(record.names, name)

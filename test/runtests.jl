@@ -3373,6 +3373,14 @@ end
                     for course in (:routed, :common_perfect))
 end
 
+@testset "a stored trip that read an input no longer in the inputs is not taken" begin
+    case = (; assumptions)
+    entry(name) = (; inputs=[name => 1.0], files=Pair{String, String}[])
+    @test PaperRuns.reads_unchanged(entry(:discount_rate),
+        (; assumptions=with_value(assumptions, :discount_rate, 1.0)))
+    @test !PaperRuns.reads_unchanged(entry(:a_retired_input), case)
+end
+
 @testset "the model every stored trip is keyed by covers the ship data tables" begin
     files = normpath.(PaperRuns.model_files())
     @test joinpath(pkgdir(WindShipOpt), "data", "ship_classes.csv") in files
