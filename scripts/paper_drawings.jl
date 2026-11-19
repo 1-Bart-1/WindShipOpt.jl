@@ -461,40 +461,41 @@ function draw_side_sphere!(axis)
     limits!(axis, -0.65, 1.3, -0.4, 1.1)
 end
 
-"`point` turned clockwise by `angle` [rad] about the origin"
-rotated(point, angle) = Point2f(point[1] * cos(angle) + point[2] * sin(angle),
-    -point[1] * sin(angle) + point[2] * cos(angle))
+"`point` turned counterclockwise by `angle` [rad] about the origin"
+rotated(point, angle) = Point2f(point[1] * cos(angle) - point[2] * sin(angle),
+    point[1] * sin(angle) + point[2] * cos(angle))
 
 """
     draw_course_plan!(axis)
 
-Plan view of the wind window as a half disc downwind of the ship, the ship's course `χ`
-off the apparent downwind direction, and the mean tether force with its components along
-and across the course.
+Plan view of the wind window as a half disc downwind of the ship, apparent downwind up the
+page and `y` to its left as in the wind frame, the ship's course `χ` off the apparent
+downwind direction towards `y`, and the mean tether force with its components along and
+across the course.
 """
 function draw_course_plan!(axis)
-    poly!(axis, [Point2f(sin(angle), cos(angle)) for angle in range(-π / 2, π / 2;
-        length=60)]; color=(palette[1], 0.12), strokecolor=:black, strokewidth=0.6)
+    poly!(axis, [polar_point(1, angle) for angle in range(0, π; length=60)];
+        color=(palette[1], 0.12), strokecolor=:black, strokewidth=0.6)
     arrows2d!(axis, [Point2f(0, 0)], [Vec2f(0, 1.2)]; color=:black, shaftwidth=flow_width)
     text!(axis, 0, 1.2; text="apparent downwind", align=(:left, :top),
         offset=clear_offset((:left, :center), pt(4)), fontsize=note_size)
     course = deg2rad(110)
-    heading = Vec2f(sin(course), cos(course))
+    heading = Vec2f(polar_point(1, π / 2 + course))
     poly!(axis, rotated.(hull_outline(0.36, 0.08) .- Point2f(0, 0.18), course);
         color=:gray80, strokecolor=:black, strokewidth=0.6)
     lines!(axis, [Point2f(0, 0), Point2f(1.25heading)]; color=:black, linestyle=:dash,
         linewidth=0.6)
-    text!(axis, Point2f(1.25heading); text="course", align=(:left, :center),
-        offset=clear_offset((:left, :center), pt(3)), fontsize=note_size)
-    lines!(axis, [0.3Point2f(sin(angle), cos(angle)) for angle in range(0, course;
+    text!(axis, Point2f(1.25heading); text="course", align=(:right, :center),
+        offset=clear_offset((:right, :center), pt(3)), fontsize=note_size)
+    lines!(axis, [polar_point(0.3, π / 2 + angle) for angle in range(0, course;
         length=30)]; color=category_colours[2])
-    text!(axis, 0.36Point2f(sin(course / 2), cos(course / 2)); text=L"\chi",
-        align=(:left, :bottom), color=category_colours[2])
-    force = Vec2f(0.68, 0.3)
+    text!(axis, polar_point(0.36, π / 2 + 0.35course); text=L"\chi",
+        align=(:right, :bottom), color=category_colours[2])
+    force = Vec2f(-0.68, 0.3)
     along = sum(force .* heading) * heading
     arrows2d!(axis, [Point2f(0, 0)], [force]; color=palette[1], shaftwidth=force_width)
-    text!(axis, Point2f(force); text=L"\overline{\,\mathbf{F}}", align=(:left, :bottom),
-        offset=clear_offset((:left, :bottom), pt(2)), color=palette[1])
+    text!(axis, Point2f(force); text=L"\overline{\,\mathbf{F}}", align=(:right, :bottom),
+        offset=clear_offset((:right, :bottom), pt(2)), color=palette[1])
     for (vector, label, origin, inside) in (
         (along, L"F_\parallel", Point2f(0, 0), force),
         (force - along, L"F_\perp", Point2f(along), Point2f(0, 0)))
@@ -505,5 +506,7 @@ function draw_course_plan!(axis)
         text!(axis, middle + 0.15outward; text=label, align=(:center, :center),
             color=palette[6])
     end
-    limits!(axis, -1.1, 1.7, -0.75, 1.3)
+    small_arrow!(axis, (1.35, 0.45), (0, 0.2), L"x"; align=(:center, :bottom))
+    small_arrow!(axis, (1.35, 0.45), (-0.2, 0), L"y"; align=(:right, :center))
+    limits!(axis, -1.7, 1.5, -0.75, 1.3)
 end

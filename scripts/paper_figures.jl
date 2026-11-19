@@ -661,8 +661,10 @@ trim_rigs = (("kite", 800.0), ("wings", 800.0), ("rotors", 400.0))
     kite_figure()
 
 The kite the paper flies, at the design aspect ratio: (a) its planform seen from above
-at 100 m², with its projected span, and its lift and drag coefficients (b) and glide
-ratio (c) in the design shape over angle of attack, without bridle and tether.
+at 100 m², leading edge at the top and apparent wind down the page, with its projected
+span, and below it the same kite seen from ahead, its arc hanging towards the lines, and
+its lift and drag coefficients (b) and glide ratio (c) in the design shape over angle of
+attack, without bridle and tether.
 """
 function kite_figure()
     aspect_ratio = isinteger(design_aspect_ratio) ? Int(design_aspect_ratio) :
@@ -670,17 +672,26 @@ function kite_figure()
     geometry = read_table(joinpath(polars, "geometry_ar$aspect_ratio.csv"))
     polar = read_table(joinpath(polars, "kite_ar$aspect_ratio.csv"))
     figure = Figure(size=(page_width, 150))
-    planform = Axis(figure[1, 1]; autolimitaspect=1, title="(a) planform",
-        yreversed=true)
-    hidedecorations!(planform)
-    hidespines!(planform)
-    outline = [Point2f.(geometry["le_y"], geometry["le_x"]);
-        Point2f.(reverse(geometry["te_y"]), reverse(geometry["te_x"]))]
-    poly!(planform, outline; color=palette[1], strokecolor=:black, strokewidth=0.8)
+    shape = Axis(figure[1, 1]; autolimitaspect=1, title="(a) from above and ahead")
+    hidedecorations!(shape)
+    hidespines!(shape)
+    above = [Point2f.(geometry["le_y"], -geometry["le_x"]);
+        Point2f.(reverse(geometry["te_y"]), -reverse(geometry["te_x"]))]
+    poly!(shape, above; color=palette[1], strokecolor=:black, strokewidth=0.8)
     span = maximum(geometry["le_y"]) - minimum(geometry["le_y"])
-    chord_end = maximum([geometry["le_x"]; geometry["te_x"]])
-    text!(planform, 0, chord_end + 0.6; text="span $(round(span; digits=1)) m",
-        align=(:center, :top), fontsize=note_size)
+    trailing = -maximum(geometry["te_x"])
+    text!(shape, 0, trailing; text="span $(round(span; digits=1)) m",
+        align=(:center, :top), offset=(0, -pt(2)), fontsize=note_size)
+    wind = Point2f(0.5span + 1.5, -minimum(geometry["le_x"]))
+    arrows2d!(shape, [wind], [Vec2f(0, trailing - wind[2])]; color=:black,
+        shaftwidth=flow_width)
+    text!(shape, wind; text="wind", align=(:center, :bottom), offset=(0, pt(1)),
+        fontsize=note_size)
+    front = trailing - 4
+    lines!(shape, -geometry["le_y"], geometry["le_z"] .+ front; color=palette[1],
+        linewidth=3)
+    limits!(shape, -0.5span - 1, 0.5span + 3, front + minimum(geometry["le_z"]) - 1,
+        wind[2] + 2.5)
     angle = "angle of attack [°]"
     coefficients = Axis(figure[1, 2]; xlabel=angle, ylabel="coefficient",
         title="(b) lift and drag")
@@ -736,10 +747,10 @@ geometric_mean(values) = exp(sum(log, values) / length(values))
 """
     pattern_figure()
 
-Optimal flight paths seen from the ship over the course off apparent downwind, a ring where
-the kite is held still, nested where still kites share a point, in light and strong
-apparent wind, without side-force weight, and the thrust and side force they put on the
-ship, on one force scale.
+Optimal flight paths seen from the ship looking downwind, positive azimuth to the left,
+over the course off apparent downwind, a ring where the kite is held still, nested where
+still kites share a point, in light and strong apparent wind, without side-force weight,
+and the thrust and side force they put on the ship, on one force scale.
 """
 function pattern_figure()
     paths = read_table(data_file("patterns.csv"))
@@ -753,7 +764,7 @@ function pattern_figure()
         bottom = row == 2
         speed = "apparent wind $(round(Int, wind)) m/s"
         axis = Axis(figure[row, 1]; ylabel="elevation [°]", limits=(-35, 90, 0, 60),
-            xlabel=bottom ? "azimuth off apparent downwind [°]" : "",
+            xreversed=true, xlabel=bottom ? "azimuth off apparent downwind [°]" : "",
             title="($(('a', 'b')[row])) flight paths, $speed")
         held = Dict{NTuple{2, Float64}, Int}()
         for (i, course) in enumerate(courses)
