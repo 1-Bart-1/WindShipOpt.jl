@@ -246,32 +246,32 @@ end
     rig_costs(rig, assumptions)
 
 Capital [USD], mass [t] and annual capital cost [USD/year] of `rig`: its
-[`rig_price_parts`](@ref) times the [`price_factor`](@ref) of its kind, plus a kite's canopy
-and tether, which are written off by wear instead of an annuity.
+[`rig_price_parts`](@ref) times the market price factor, plus a kite's canopy and tether,
+which are written off by wear instead of an annuity.
 """
 rig_costs(::Nothing, assumptions) = (0.0, 0.0, 0.0)
 rig_costs(rig::CombinedRig, assumptions) =
     rig_costs(rig.kite, assumptions) .+ rig_costs(rig.standing, assumptions)
 
 rig_costs(rig::WingRig, assumptions) =
-    deck_rig_costs(rig, assumptions, :wing, :wing_lifetime, :wing_mass_per_area)
+    deck_rig_costs(rig, assumptions, :wing_lifetime, :wing_mass_per_area)
 rig_costs(rig::RotorRig, assumptions) =
-    deck_rig_costs(rig, assumptions, :rotor, :rotor_lifetime, :rotor_mass_per_area)
+    deck_rig_costs(rig, assumptions, :rotor_lifetime, :rotor_mass_per_area)
 
 """
-    deck_rig_costs(rig, assumptions, kind, lifetime, mass_per_area)
+    deck_rig_costs(rig, assumptions, lifetime, mass_per_area)
 
-[`rig_costs`](@ref) of wings or rotors, with their kind and the names of their assumptions.
+[`rig_costs`](@ref) of wings or rotors, with the names of their assumptions.
 """
-function deck_rig_costs(rig, assumptions, kind, lifetime, mass_per_area)
-    capital = price_factor(kind, assumptions) * sum(rig_price_parts(rig, assumptions))
+function deck_rig_costs(rig, assumptions, lifetime, mass_per_area)
+    capital = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions))
     annuity = capital_recovery(assumptions[:discount_rate], assumptions[lifetime]) * capital
     return capital, assumptions[mass_per_area] * total_area(rig), annuity
 end
 
 function rig_costs(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
-    hardware = price_factor(:kite, assumptions) * sum(rig_price_parts(rig, assumptions))
+    hardware = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions))
     annuity = capital_recovery(assumptions[:discount_rate], assumptions[:kite_lifetime]) *
               hardware
     return hardware + canopy + tether, assumptions[:kite_mass_per_area] * rig.area, annuity
@@ -291,8 +291,9 @@ end
     rig_price_parts(rig, assumptions)
 
 Manufacturing cost [USD] of each part of the hardware of `rig`: the
-units, their surface and the installation of wings or rotors; the winch, launch mast,
-docking head, control unit and integration of a kite, without its canopy and tether.
+units, their surface and the installation of wings or rotors; the winch, tow point, launch
+mast, docking head, control unit, ship-side controls and integration of a kite, without its
+canopy and tether.
 """
 rig_price_parts(::Nothing, assumptions) = (;)
 
@@ -338,13 +339,15 @@ function kite_price_parts(area, max_force, assumptions)
                  mast_height^(5 / 3))
     parts = (winch=assumptions[:winch_fixed_cost] +
                    assumptions[:winch_cost_per_force] * max_force,
+        tow_point=assumptions[:tow_point_cost_per_force] * max_force,
         mast=assumptions[:launch_mast_steel_cost] *
              assumptions[:launch_mast_telescope_factor] * mast_mass,
         docking_head=assumptions[:docking_head_cost] *
                      (area / assumptions[:docking_head_reference_area])^
                      assumptions[:docking_head_area_exponent],
         control_unit=assumptions[:control_unit_cost] +
-                     assumptions[:control_unit_cost_per_area] * area)
+                     assumptions[:control_unit_cost_per_area] * area,
+        controls=assumptions[:kite_controls_cost])
     return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
 end
 
@@ -352,8 +355,10 @@ function rig_price_parts(rig::KiteRig{RigidAirframe}, assumptions)
     (; count, hover_power) = rig.airframe
     parts = (winch=count * (assumptions[:winch_fixed_cost] +
                   assumptions[:winch_cost_per_force] * rig.max_force),
+        tow_point=count * assumptions[:tow_point_cost_per_force] * rig.max_force,
         perch=count * assumptions[:rigid_perch_cost],
-        ship_power=count * assumptions[:rigid_ship_power_cost] * hover_power)
+        ship_power=count * assumptions[:rigid_ship_power_cost] * hover_power,
+        controls=count * assumptions[:kite_controls_cost])
     return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
 end
 
@@ -520,7 +525,7 @@ control unit, at market prices [USD].
 function lost_kite_cost(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
     control_unit = rig_price_parts(rig, assumptions).control_unit
-    return canopy + tether + price_factor(:kite, assumptions) * control_unit
+    return canopy + tether + assumptions[:market_price_factor] * control_unit
 end
 
 lost_kite_cost(rig::KiteRig{RigidAirframe}, assumptions) =

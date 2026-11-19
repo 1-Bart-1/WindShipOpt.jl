@@ -748,13 +748,12 @@ tonne_km_per_tonne(name) = tonne_km_per_tonne(run_corridors(name)...)
     designs_data()
 
 The design grid on the route to Guadeloupe: length, the [`study_drives`](@ref) and size of
-each rig, a carbon price on VLSFO, and kites without flight drag and at the prices paid
-today, with the cost per tonne-km split into its parts: designs.csv.
+each rig, a carbon price on VLSFO, and kites without flight drag, with the cost per
+tonne-km split into its parts: designs.csv.
 """
 function designs_data()
     taxed = with_value(assumptions, :carbon_coverage, 1.0)
     rigid = with_value(assumptions, :kite_flight_drag, 0.0)
-    market = WindShipOpt.as_paid(assumptions)
     cases = []
     for length in (85.0, 110.0, 140.0, 170.0, 200.0), drive in study_drives,
         area in (0.0, 400.0, 800.0, 1600.0, 3200.0, 6400.0)
@@ -775,8 +774,6 @@ function designs_data()
     for length in (140.0, 200.0), drive in (:vlsfo, :ammonia), area in (800.0, 3200.0)
         push!(cases, trip_case(ShipDesign(drive, length; kite_area=area);
             assumptions=rigid, scenario="rigid"))
-        push!(cases, trip_case(ShipDesign(drive, length; kite_area=area);
-            assumptions=market, scenario="kite_market"))
     end
     trips = round_trips(cases, sampled_departures())
     work_per_tonne = tonne_km_per_tonne(:caribbean)
@@ -2413,6 +2410,9 @@ development_inputs = [
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
         reason="What a flight hour of the canopy costs; unmeasured, so what development " *
                "has to prove."),
+    (input=:launch_mast_telescope_factor, label="launch mast price", rig="kite",
+        lever="price", reason="Its design sets the price of the launch mast, the largest " *
+                              "and least known part of the kite's hardware."),
     (input=:kite_out_of_service, label="kite out of service", rig="kite",
         lever="availability",
         reason="What a maker's reliability work is worth; the same lever for every rig."),

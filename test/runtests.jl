@@ -686,7 +686,7 @@ end
 @testset "cycle cost sums crew, tear, loss, retry, turn and tether bends" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
-    control_unit = WindShipOpt.price_factor(:kite, assumptions) *
+    control_unit = assumptions[:market_price_factor] *
                    WindShipOpt.rig_price_parts(rig, assumptions).control_unit
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
           1.05 * (85 + 0.00005canopy + 0.00005 * (canopy + tether + control_unit)) + 130 +
@@ -696,28 +696,34 @@ end
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
 end
 
-@testset "every rig is priced at the same stage by one learning rate" begin
-    factor(rig, inputs=assumptions) = WindShipOpt.stage_price_factor(rig, inputs)
-    @test WindShipOpt.stage_units(:kite, assumptions) == 1000
-    @test WindShipOpt.stage_units(:rotor, assumptions) ==
-          WindShipOpt.stage_units(:wing, assumptions) == 3000
-    @test factor(:kite) ≈ 1.77 rtol = 0.01
-    @test factor(:rotor) == factor(:wing) == 1.0
-    fast = with_value(assumptions, :learning_rate, assumptions.entries[:learning_rate].high)
-    @test all(factor(rig, fast) == 1.0 for rig in (:kite, :wing, :rotor))
-    as_paid = with_value(assumptions, :learning_rate, 0.0)
-    kites = filter(price -> price.rig == :kite, WindShipOpt.RIG_PRICES)
-    ratios = [WindShipOpt.hardware_price(price, assumptions) /
-              WindShipOpt.bottom_up_price(price, assumptions) for price in kites]
-    @test factor(:kite, as_paid) ≈ exp(sum(log, ratios) / length(ratios))
-    @test factor(:kite, as_paid) > factor(:kite)
+@testset "every rig's hardware is priced at its bottom-up cost times the market factor" begin
+    hull = Hull(140.0, assumptions)
+    factor = assumptions[:market_price_factor]
+    kite = uniform_kite(hull, assumptions)
+    @test first(WindShipOpt.rig_costs(kite, assumptions)) ≈
+          factor * sum(WindShipOpt.rig_price_parts(kite, assumptions)) +
+          sum(WindShipOpt.consumable_costs(kite, assumptions))
+    for rig_type in (WingRig, WindShipOpt.RotorRig)
+        rig = rig_type(800.0, hull, assumptions)
+        @test first(WindShipOpt.rig_costs(rig, assumptions)) ≈
+              factor * sum(WindShipOpt.rig_price_parts(rig, assumptions))
+    end
 end
 
-@testset "a real price is set against the build-up of the same unit as sold" begin
-    folding = only(price for price in WindShipOpt.RIG_PRICES if price.retractable)
-    fixed = WindShipOpt.RigPrice(folding.rig, folding.kind, folding.year,
-        folding.units_built, folding.height, folding.diameter, folding.area, folding.price,
-        folding.currency, folding.installed, false, folding.hicp, folding.source)
+@testset "a kite's bottom-up counts a tow point for its tether force and ship-side controls" begin
+    parts(force) = WindShipOpt.kite_price_parts(1600.0, force, assumptions)
+    @test parts(8e5).controls == assumptions[:kite_controls_cost]
+    @test parts(1.6e6).tow_point - parts(8e5).tow_point ≈
+          assumptions[:tow_point_cost_per_force] * 8e5
+    @test parts(8e5).integration ≈
+          assumptions[:kite_integration_fraction] * (sum(parts(8e5)) - parts(8e5).integration)
+end
+
+@testset "a rotor price is set against the build-up of the same unit as sold" begin
+    folding = only(price for price in WindShipOpt.ROTOR_PRICES if price.retractable)
+    fixed = WindShipOpt.RotorPrice(folding.kind, folding.year, folding.height,
+        folding.diameter, folding.price, folding.currency, folding.installed, false,
+        folding.hicp, folding.source)
     @test WindShipOpt.bottom_up_price(folding, assumptions) ≈
           (1 + assumptions[:retractable_rig_premium]) *
           WindShipOpt.bottom_up_price(fixed, assumptions)
@@ -730,7 +736,6 @@ end
     price(area, inputs=assumptions) = WindShipOpt.canopy_price(inputs, area, 3.0)
     @test price(800.0) ≈ assumptions[:market_price_factor] *
                          WindShipOpt.canopy_cost(assumptions, 800.0, 3.0)
-    @test price(800.0, WindShipOpt.as_paid(assumptions)) == price(800.0)
     @test price(200.0) < price(800.0) < price(3000.0)
     cloth(area) = WindShipOpt.cloth_area_ratio(assumptions, area, 3.0)
     surveyed_cloth = WindShipOpt.cloth_area_ratio(proportional, 800.0, 3.0)
@@ -738,11 +743,6 @@ end
     @test WindShipOpt.canopy_cost(assumptions, 3000.0, 3.0) -
           WindShipOpt.canopy_cost(assumptions, 200.0, 3.0) ≈
           per_cloth * (cloth(3000.0) - cloth(200.0))
-    kite = first(sale for sale in WindShipOpt.RIG_PRICES if sale.rig == :kite)
-    sold = WindShipOpt.canopy_price(assumptions, kite.area,
-        assumptions[:sold_kite_aspect_ratio])
-    @test WindShipOpt.today_price(kite, assumptions) -
-          WindShipOpt.hardware_price(kite, assumptions) ≈ sold * kite.area
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈
           WindShipOpt.canopy_price(assumptions, rig.area, rig.aspect_ratio) * rig.area
@@ -4266,7 +4266,7 @@ end
     hull = Hull(140.0, assumptions)
     kite = uniform_kite(hull, assumptions)
     canopy, tether = WindShipOpt.consumable_costs(kite, assumptions)
-    control_unit = WindShipOpt.price_factor(:kite, assumptions) *
+    control_unit = assumptions[:market_price_factor] *
                    WindShipOpt.rig_price_parts(kite, assumptions).control_unit
     @test WindShipOpt.crash_cost(kite, assumptions) ≈ control_unit + (canopy + tether) / 2
     for rig_type in (WingRig, WindShipOpt.RotorRig)

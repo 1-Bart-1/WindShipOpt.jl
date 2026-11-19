@@ -443,36 +443,6 @@ market_price_factor:
   high: 2.5
   unit: "-"
   reason: "Price over manufacturing cost at which a maker covers its overhead and margin, for wings, rotors and kites alike: full production cost of 1.37 times materials and direct labour, our ratio for the two glass-fibre blades of the NREL blade cost model, 1.36 and 1.38 [@bortolotti2019blade, Tables 23 and 26], over one minus a gross margin of 30 %. The bounds take margins of 13 %, the authors' estimate for a large maker, and 45 %, that of European machinery [@damodaran2026margins]."
-learning_rate:
-  value: 0.12
-  low: 0.05
-  high: 0.19
-  unit: "-"
-  reason: "Fall of a rig's price per doubling of the units of its kind built, the same for every rig: 12 %, the mean both of 12 studies of onshore and of 2 of offshore wind farms, the machines nearest to a rig, and the offshore range, since the onshore one runs from a rise of 11 % to a fall of 32 % [@rubin2015, Table 1]."
-stage_ships:
-  value: 1000.0
-  low: 1000.0
-  high: 1000.0
-  unit: ships
-  reason: "Ships fitted with a rig of a kind at the production stage every rig is priced at, the same for all three."
-kites_per_ship:
-  value: 1.0
-  low: 1.0
-  high: 1.0
-  unit: "-"
-  reason: "Kites a ship carries [@emsa2023, p. 45]."
-rotors_per_ship:
-  value: 3.0
-  low: 3.0
-  high: 3.0
-  unit: "-"
-  reason: "Rotors a ship carries, as wind propulsion units on a bulk carrier or tanker [@emsa2023, Table 5]."
-wings_per_ship:
-  value: 3.0
-  low: 3.0
-  high: 3.0
-  unit: "-"
-  reason: "Wing sails a ship carries, as wind propulsion units on a bulk carrier or tanker [@emsa2023, Table 5]."
 hicp_today:
   value: 128.75
   low: 128.75
@@ -1015,12 +985,6 @@ kite_aspect_ratio:
   high: 4.0
   unit: "-"
   reason: "Projected span squared over projected area. The base 3 is the authors' estimate. SkySails gave its ship kite a projected aspect ratio below 2 for tolerance to angle of attack and stability at launch and landing [@paulig2013], and a SkySails Power wing has 1.86 [@folkersma2020]; 2.5 is the lowest with a polar. The high bound is the authors' estimate of what a launch system and canopy could handle. Priced as the base kite apart from the canopy, whose rib cloth follows the chord: the tether, the other priced part that follows span, is made cheaper per kg."
-sold_kite_aspect_ratio:
-  value: 1.86
-  low: 1.86
-  high: 1.86
-  unit: "-"
-  reason: "Projected aspect ratio of the ship kites sold, whose canopy is taken off their price: SkySails kept its ship kite below 2 [@paulig2013], and a SkySails Power wing has 1.86 [@folkersma2020]."
 kite_flight_drag:
   value: 0.08
   low: 0.0
@@ -1201,6 +1165,18 @@ winch_cost_per_force:
   high: 0.084
   unit: USD/N
   reason: "Authors' estimate of the manufacturing cost per N of brake holding force: drum, brake and frame steel at 5 kg/kN and a gearbox for a quarter of the holding force at the WISDEM gearbox cost of 12.9 USD/kg [@wisdem_csm]."
+tow_point_cost_per_force:
+  value: 0.015
+  low: 0.003
+  high: 0.07
+  unit: USD/N
+  reason: "Authors' estimate of the manufacturing cost per N of tether force of the deck tow point and its seat, which take the full tether force as the foundation in a rotor's unit cost takes the rotor's: 5 kg/kN of stiffened steel (2-10 kg/kN), as the winch's drum, brake and frame, at the shared stiffened-steel cost of 2.97 USD/kg (1.66-6.97). Deck reinforcement is in the installation share, as for every rig [@emsa2023, p. 41]."
+kite_controls_cost:
+  value: 30000.0
+  low: 15000.0
+  high: 60000.0
+  unit: USD
+  reason: "Authors' estimate of the manufacturing cost of the kite's ship-side controller, wind and tether sensors, bridge interface and software licence: the controls a rotor carries per unit."
 launch_mast_height_ratio:
   value: 1.3
   low: 0.8

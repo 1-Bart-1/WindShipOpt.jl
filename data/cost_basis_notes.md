@@ -134,6 +134,17 @@ The parts are from `kite_costs_notes.md`, with its ×1.5 removed and assembly pr
 | **Fixed**                                              | **11.1 kUSD**              | 5.7 / 22.3   |                                                                                                                                      |
 | Three steering actuators (servo, drive, gearbox, drum) | **15 USD/m²** of kite area | 8 / 30       | Estimate: 3 × 5 kUSD at 1,000 m²; the steering force scales with kite area. Servos with integrated drives start at USD 698 (Teknic). |
 
+### 4.3a Tow point and ship-side controls
+
+What a fitted kite needs that the parts above do not count, set against what the rotor's build-up holds (§3):
+
+| Part | Base | Low / high | Basis |
+| ---- | ---- | ---------- | ----- |
+| Deck tow point and its seat, ∝ tether force | 5 kg/kN × 2.97 = 14.9 USD/kN (0.015 USD/N) | 2 kg/kN × 1.66 / 10 kg/kN × 6.97 | Estimate. The tether's full force goes to a tow point on the foredeck, not through the mast (`mast_notes.md` §4); its seat is the kite's counterpart of the rotor's foundation. The hull reinforcement under it is in the 15 % installation share, which EMSA (2023, p. 41) says holds "foundations and deck reinforcement". |
+| Ship-side controller, wind and tether sensors, bridge interface, software licence | 30 kUSD | 15 / 60 | The shared "rig controller, sensors, software licence" of §2, which the rotor carries per unit. The winch's PLC and the docking head's local controls only run those machines. |
+
+Left out because no rig counts them: commissioning and crew training (EMSA's EUR 10 k for every WAPS), and development, which the market factor's overhead and margin carry for every rig.
+
 ### 4.4 Canopy with bridle (consumable)
 
 | Part, per flat m²                                                                                    | Base       | Low / high             | Basis                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -236,6 +247,8 @@ All inputs are manufacturing cost except `market_price_factor`. The model multip
 | docking_head_cost           | 37,000 | 15,000 | 100,000 | USD              | Slewing ring at WISDEM yaw-system cost, steel gripper, hydraulics, inflation fan, controls and assembly (estimate).                                                   |
 | control_unit_cost           | 11,000 | 6,000  | 22,000  | USD              | Flight computer, housing, battery and assembly, the parts of `kite_costs_notes.md` without its ×1.5.                                                                  |
 | control_unit_cost_per_area  | 15     | 8      | 30      | USD/m²           | Three steering actuators scaling with kite area, 3 × 5 kUSD at 1,000 m² (estimate).                                                                                   |
+| tow_point_cost_per_force    | 0.015  | 0.003  | 0.07    | USD/N            | Deck tow point and its seat, 5 kg/kN of stiffened steel (§4.3a, estimate).                                                                                            |
+| kite_controls_cost          | 30,000 | 15,000 | 60,000  | USD              | Ship-side controller, sensors and software licence, the rotor's controls per unit (§4.3a, estimate).                                                                  |
 | canopy_structure_cost       | 53     | 53     | 80      | EUR/m² flat      | Soft kite fabric with reinforcements 45 and bridle 8 per flat m², series of 50+, no overhead or margin (IEA Wind Task 48 survey, Joshi et al. 2024, p.7), × 25/18 flat per projected; heavier cloth added at `canopy_cloth_price_per_weight` from the assumed 100 g/m² of the surveyed kites; 96 USD/m² projected to make, 192 at the market factor. |
 | tether_price                | 93     | 40     | 300     | USD/kg           | Series purchase price of Dyneema rope, EUR 80/kg (Joshi et al. 2025, p.703); retail small diameters 300–350 USD/kg.                                                             |
 

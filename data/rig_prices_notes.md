@@ -16,11 +16,11 @@ What the public internet holds on the price of Flettner rotors, rigid wing sails
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------- |
 | Rotor     | None as a contract. One maker's sales: Anemoi, GBP 28 M for 29 rotors and audited revenue of GBP 15.1 M in the year it delivered 13 | Norsepower's own list of 2019 for three sizes and its range per installation; two partner budgets of a funded project                                     | 4,900-8,800 USD per m² of height times diameter, supplied and installed, at 3 to 45 rotors built by the maker | 5,700-7,800 USD/m² installed, 6,300 for a folding 35 m x 5 m | 0.73-0.87 of Anemoi 2023-2026; 1.04-1.26 of Norsepower 2019    |
 | Wing sail | None                                                                                                                                | One press figure for WindWings with no origin; the developer's estimate for the Wind Challenger sail; first-unit project budgets with development in them | 1,700-4,700 USD/m², at 1 to 12 wings built by the maker                                                       | 1,500-1,700 USD/m² hardware, 1,900 installed and tilting     | 0.36-0.89 of the product figures; 0.97-1.41 of EMSA's estimate |
-| Kite      | One: Beluga SkySails, EUR 0.5 M for the first 160 m² system                                                                         | The maker's "about EUR 1 M" per system (2009 and 2012) and EUR 1.5-2.5 M (2015)                                                                           | 3,900-4,400 USD/m² of kite for the whole system, at 1 to 10 systems built                                     | 1,160 USD/m² at 160 m², 860 at 320 m²                        | 0.20-0.30                                                      |
+| Kite      | One: Beluga SkySails, EUR 0.5 M for the first 160 m² system                                                                         | The maker's "about EUR 1 M" per system (2009 and 2012) and EUR 1.5-2.5 M (2015)                                                                           | 3,900-4,400 USD/m² of kite for the whole system, at 1 to 10 systems built                                     | hardware 1,430 USD/m² at 160 m², 905 at 320 m²; canopy apart | not used as a check                                            |
 
 Read as: the rotor price of the paper sits inside what rotors sell for today; the wing price sits at the low end of the little that is known; the kite price is a fifth to a third of every price SkySails charged. The three are therefore not at one production stage as the evidence stands. The rotor and wing figures come from makers with 3 to 45 units behind them and the kite figures from a maker with 1 to 10, so some of the kite's gap is stage, and §6 puts a number on how much.
 
-Where the paper's price comes from **[est]**, at the base inputs of `assumptions.yaml` and a market price factor of 2: a rotor is 2 x (74,000 + 2,040 x area) USD, a wing 2 x (66,000 + 665 x area), each times 1.15 installed and times 1.12 more where it tilts, folds or telescopes; a kite system is 2 x 1.15 x (winch + mast + docking head + control unit) plus the canopy at 150 USD per projected m² and the tether at 93 USD/kg, by the formulas of `rig_price_parts` and `consumable_costs` in `src/economics.jl` at a force limit of 0.5 kN/m² and an aspect ratio of 3. That gives:
+Where the paper's price comes from **[est]**, at the base inputs of `assumptions.yaml` and a market price factor of 2: every rig is priced at its build-up times that factor. A rotor is 2 x (74,000 + 2,040 x area) USD, a wing 2 x (66,000 + 665 x area), each times 1.15 installed and times 1.12 more where it tilts, folds or telescopes; a kite's hardware is 2 x 1.15 x (winch + tow point + mast + docking head + control unit + ship-side controls), by `kite_price_parts` in `src/economics.jl` at a force limit of 0.5 kN/m², with its canopy and tether priced on their own. That gives:
 
 | Unit                     | Hardware [kUSD] | Installed [kUSD] | Installed, tilting or folding [kUSD] | Installed [USD/m²] |
 | ------------------------ | --------------- | ---------------- | ------------------------------------ | ------------------ |
@@ -33,13 +33,11 @@ Where the paper's price comes from **[est]**, at the base inputs of `assumptions
 | Wing 795 m²              | 1,189           | 1,368            | 1,532                                | 1,720              |
 | Wing 1,000 m²            | 1,462           | 1,681            | 1,883                                | 1,680              |
 
-| Kite system, projected area | Winch | Mast | Docking head | Control unit | Integration | Canopy | Tether | Total [kUSD] | Total [USD/m²] |
-| --------------------------- | ----- | ---- | ------------ | ------------ | ----------- | ------ | ------ | ------------ | -------------- |
-| 160 m²                      | 58    | 22   | 30           | 27           | 20          | 24     | 4      | 186          | 1,160          |
-| 320 m²                      | 62    | 52   | 42           | 32           | 28          | 48     | 12     | 275          | 860            |
-| 1,000 m²                    | 78    | 199  | 74           | 52           | 60          | 150    | 69     | 682          | 680            |
-
-A SkySails area is flat; at 1.28 flat per projected m² the 160 and 320 m² kites are 125 and 250 m² projected and the paper's totals fall to 167 and 235 kUSD, which lowers the kite ratios above by a tenth.
+| Kite hardware, projected area | Winch | Tow point | Mast | Docking head | Control unit | Controls | Integration | Total [kUSD] | Total [USD/m²] |
+| ----------------------------- | ----- | --------- | ---- | ------------ | ------------ | -------- | ----------- | ------------ | -------------- |
+| 160 m²                        | 58    | 2         | 22   | 30           | 27           | 60       | 30          | 229          | 1,430          |
+| 320 m²                        | 62    | 5         | 52   | 42           | 32           | 60       | 38          | 290          | 905            |
+| 1,000 m²                      | 78    | 15        | 199  | 74           | 52           | 60       | 72          | 550          | 550            |
 
 ## 1. Rotor
 
@@ -132,6 +130,8 @@ The parts that can be checked are priced about as the market prices them. The ga
 Measured learning of wind hardware is 5 to 10 % per doubling, and nothing measured exists for ship equipment built in small series (scrubbers, ballast water systems, cranes, winches) or for towers and steel structures.
 
 ## 6. Stage: what the evidence gives at one stage for all three **[est]**
+
+The paper uses no stage and no learning curve: these sold prices are kept as data, and only the rotors' serve it as a check.
 
 The paper prices every rig at a series of 50 or more units (`paper/sections/costs.tex`), and issue 329 considers a stage of about 1,000 ships fitted. Taking each observed price at the units its maker had built, and one learning rate for all rigs:
 
