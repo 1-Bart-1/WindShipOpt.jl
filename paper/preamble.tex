@@ -3,7 +3,6 @@
 % Packages, colours, references and commands of the main paper and the follow-up paper.
 \usepackage{amsmath}
 \usepackage{graphicx}
-\pdfinclusioncopyfonts=1
 \usepackage[export]{adjustbox}
 \usepackage{booktabs}
 \usepackage{longtable}
@@ -11,13 +10,7 @@
 \usepackage{microtype}
 \usepackage[section,below]{placeins}
 \usepackage{xurl}
-\usepackage{xcolor}
 \usepackage{colortbl}
-\definecolor{gain}{HTML}{2166AC}
-\definecolor{loss}{HTML}{B2182B}
-\definecolor{rigkite}{HTML}{0072B2}
-\definecolor{rigwing}{HTML}{E69F00}
-\definecolor{rigrotor}{HTML}{009E73}
 \usepackage[colorlinks,allcolors={blue!50!black}]{hyperref}
 \usepackage[capitalise]{cleveref}
 \crefname{figure}{Fig.}{Figs.}
@@ -34,11 +27,14 @@
 \Crefrangeformat{appendix}{#3#1#4--#5#2#6}
 \crefrangeformat{subappendix}{#3#1#4--#5#2#6}
 \Crefrangeformat{subappendix}{#3#1#4--#5#2#6}
-\usepackage{tikz}
-\usetikzlibrary{positioning,arrows.meta,fit}
-\tikzset{>={Stealth[length=1.4mm, width=1.1mm]}}
+\input{figure_style}
 
 \input{commands}
+\AddToHook{env/table/begin}{\setlength{\belowcaptionskip}{4pt}}
+\AddToHook{env/table*/begin}{\setlength{\belowcaptionskip}{4pt}}
+% A new page unless a third of the page is left, so a long table does not start at its foot.
+\newcommand{\newpageunlessthirdleft}{\par\begingroup\dimen0=\pagegoal
+  \advance\dimen0-\pagetotal\ifdim\dimen0<0.3\textheight\vfil\newpage\fi\endgroup}
 \setlength{\emergencystretch}{1.5em}
 \renewcommand{\topfraction}{0.9}
 \renewcommand{\bottomfraction}{0.6}
