@@ -109,7 +109,7 @@ The kite's hardware is priced from masses of a built system at a price per kg, s
 | Ship-side controls | 30 kUSD | 15 / 60 | The rotor's controls per unit (§3), the shared line of §2. |
 | Installation | 15 % | 10 / 20 | EMSA 2023, p.45, newbuild; it holds "foundations and deck reinforcement" (p.41). |
 
-Rig mass on the ship is the deck system plus the kite with its pod and the tether: 21 t at 800 m², 88 t at 3,200 m². The CE Delft figure is one mass for the whole range of kite sizes, so scaling it with the tether force prices small kites low and large kites high; the bounds carry that.
+Deck system on these rules, winch plus launch mast: 13 t at 160 m², 30 t at 800 m², 73 t at 3,200 m², 229 t at 16,000 m², at 0.5 kN/m². Check at SkySails' own size, 1 kN/m²: 30 t at 600 m² by construction and 20 t at 320 m², against "abt. 30 tons" for the range; the high bound of the mast gives 30 t at 320 m². Rig mass on the ship adds the kite with its pod and the tether: 31 t at 800 m², 81 t at 3,200 m².
 
 ### 4.2 Installation, every rig
 
