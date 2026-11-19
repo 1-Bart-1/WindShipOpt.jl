@@ -690,7 +690,7 @@ end
                    WindShipOpt.rig_price_parts(rig, assumptions).control_unit
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
           1.05 * (85 + (3.3 / 3000 + 0.00005) * canopy +
-                  0.00005 * (canopy + tether + control_unit)) + 130 + 4 / 400_000 * tether
+                  0.00005 * (canopy + tether + control_unit)) + 130 + 8 / 1_000_000 * tether
     @test WindShipOpt.forced_landing_cost(rig, assumptions) ≈
           0.05 * (canopy + tether + control_unit)
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
