@@ -357,7 +357,7 @@ function development_table()
 end
 
 "the inputs of the development study that are development goals"
-goal_inputs = (:canopy_making_cost_per_area, :canopy_life, :kite_out_of_service,
+goal_inputs = (:canopy_structure_cost, :canopy_life, :kite_out_of_service,
     :wing_out_of_service, :rotor_out_of_service)
 
 """
@@ -630,7 +630,7 @@ function missed_goal_rows()
         WindShipOpt.check_goal_cost(ship, "canopy life", Dict("kite" => goal["kite"]),
             Dict("kite" => curve_cost(life_curve, assumptions[:canopy_life])))
         WindShipOpt.check_goal_cost(ship, "canopy price", Dict("kite" => goal["kite"]),
-            Dict("kite" => curve_cost(price_curve, WindShipOpt.canopy_price(assumptions))))
+            Dict("kite" => curve_cost(price_curve, reference_canopy_price(assumptions))))
         for (; rig, rival, rival_cost, ahead) in WindShipOpt.ranked_rivals(goal)
             curve = curves[rig]
             half_goal = assumptions[:canopy_life] / 2
@@ -736,7 +736,7 @@ out of service: positive where the goal can be missed by that much, negative whe
 falls short of it.
 """
 function goal_margins(row)
-    life, price = assumptions[:canopy_life], WindShipOpt.canopy_price(assumptions)
+    life, price = assumptions[:canopy_life], reference_canopy_price(assumptions)
     share = assumptions[Symbol(out_of_service_inputs[row.rig])]
     return [(life .- row.life) ./ life...; (row.price .- price) ./ price...;
             (row.share .- share)...]
@@ -2612,7 +2612,7 @@ its range over the learning rate, and the share of time out of service; of the
 function goal_numbers()
     rate = assumptions.entries[:learning_rate]
     return ["CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
-        "CanopyPrice" => estimate_text(WindShipOpt.canopy_price(assumptions)),
+        "CanopyPrice" => estimate_text(reference_canopy_price(assumptions)),
         "CanopyPriceLow" => estimate_text(canopy_price_at(:low)),
         "CanopyPriceHigh" => estimate_text(canopy_price_at(:high)),
         "KitePriceStage" => kite_price_text(rate.value),

@@ -101,10 +101,14 @@ stage_units(rig::Symbol, assumptions) =
 """
     hardware_price(price, assumptions)
 
-`price` in today's money less a kite's canopy at its [`canopy_price`](@ref) [USD].
+`price` in today's money less a kite's canopy at its [`canopy_price`](@ref) at
+`sold_kite_aspect_ratio` [USD].
 """
-hardware_price(price::RigPrice, assumptions) = today_price(price, assumptions) -
-    (price.rig == :kite ? canopy_price(assumptions) * price.area : 0.0)
+function hardware_price(price::RigPrice, assumptions)
+    price.rig == :kite || return today_price(price, assumptions)
+    canopy = canopy_price(assumptions, price.area, assumptions[:sold_kite_aspect_ratio])
+    return today_price(price, assumptions) - canopy * price.area
+end
 
 """
     stage_ratio(price, assumptions)
