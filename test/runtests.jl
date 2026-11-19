@@ -1570,7 +1570,8 @@ end
         end
         @test leg.launches > 0
         @test sailed.launches == leg.launches
-        @test sailed.flight_hours ≈ leg.flight_hours rtol = 0.025
+        # a re-plan 0.01 % cheaper than the plan can fly 3 % fewer hours, all near zero gain
+        @test sailed.flight_hours ≈ leg.flight_hours rtol = 0.05
         @test sailed.objective ≈ leg.objective rtol = 1e-3
     end
 end
