@@ -2075,14 +2075,24 @@ function kite_coaster_routing(area)
     return RouteTable(PerformanceTable(ship, assumptions)), kite_hourly, finer
 end
 
-@testset "a ship sailing live recovers more of a wrong forecast than one holding speed" begin
+"Forecast source that always plans on `weather`, whatever the real weather is."
+struct FixedForecast{W}
+    weather::W
+end
+WindShipOpt.known_weather(source::FixedForecast, weather, time, horizon) = source.weather
+
+@testset "over departures a ship sailing live recovers more of a wrong forecast than one \
+          holding speed" begin
     kite_table, kite_hourly, finer = kite_coaster_routing(400.0)
-    departure, weather = 24.0 * 181, SyntheticWeather()
-    sources = (ReplannedForecast(CountedForecast(8.0, 0); interval=48.0, adapts)
-               for adapts in (:nothing, :live))
-    held, live = (forecast_route(finer, kite_table, weather, departure;
-            time_cost=kite_hourly, forecast).objective for forecast in sources)
-    @test live < held
+    departures = 24.0 * 121 .+ 720.0 .* (0:7)
+    forecast = FixedForecast(SyntheticWeather(; seed=2))
+    passages = Dict((departure, adapts) => Threads.@spawn(forecast_route(finer, kite_table,
+                        SyntheticWeather(), departure; time_cost=kite_hourly,
+                        forecast=ReplannedForecast(forecast; interval=48.0, adapts)))
+                    for departure in departures, adapts in (:nothing, :live))
+    cost(adapts) = sum(fetch(passages[departure, adapts]).objective
+                       for departure in departures)
+    @test cost(:live) < cost(:nothing)
 end
 
 @testset "a ship sailing live changes speed within an edge, past the plan's speed" begin
@@ -2131,12 +2141,6 @@ function WindShipOpt.waves(storm::StormBetween, lat, lon, time)
     height, period, direction = WindShipOpt.waves(storm.weather, lat, lon, time)
     return (storm.from <= time < storm.until ? height + 15.0 : height), period, direction
 end
-
-"Forecast source that always plans on `weather`, whatever the real weather is."
-struct FixedForecast{W}
-    weather::W
-end
-WindShipOpt.known_weather(source::FixedForecast, weather, time, horizon) = source.weather
 
 """
 The leg the kite coaster sails live in the real `weather` on a fixed forecast, departing
