@@ -1679,7 +1679,7 @@ end
     planning, first_stage = WindShipOpt.planning_corridor(corridor, 1, lateral)
     held = route(planning, kite_table, SyntheticWeather(), 24.0 * 61; time_cost=kite_hourly,
         first_stage, first_lateral=lateral)
-    candidates(arrival_by) = WindShipOpt.candidate_plans([nothing], held, planning,
+    candidates(arrival_by) = WindShipOpt.candidate_plans(nothing, held, planning,
         first_stage, lateral, arrival_by)
     @test candidates(Inf) == candidates(held.duration) == [held]
     @test isempty(candidates(held.duration - 1))
