@@ -360,15 +360,14 @@ end
 """
     canopy_price(assumptions)
 
-Price of a canopy per m^2 of projected area [USD/m^2]: its manufacturing cost times the
-kite's [`price_factor`](@ref).
+Price of a canopy per m^2 of projected area [USD/m^2]: its [`canopy_cost`](@ref) times the
+market price factor.
 """
-canopy_price(assumptions) = price_factor(:kite, assumptions) *
+canopy_price(assumptions) = assumptions[:market_price_factor] *
                             Canopy(assumptions).cost_per_area
 
-"inputs that together make the canopy's manufacturing cost"
-canopy_price_inputs = (:canopy_making_cost_per_area, :canopy_cloth_base_price,
-    :canopy_cloth_price_per_weight)
+"inputs that together make the canopy's cost"
+canopy_price_inputs = (:canopy_structure_cost, :canopy_cloth_price_per_weight)
 
 """
     consumable_costs(rig, assumptions)

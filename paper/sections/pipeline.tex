@@ -1,9 +1,7 @@
 % SPDX-FileCopyrightText: 2026 Bart van de Lint
 % SPDX-License-Identifier: AGPL-3.0-or-later
 \begin{tikzpicture}[x=1mm, y=1mm,
-  hull/.pic={\fill[ship!80!black] (-4.5,0) -- (4.5,0) -- (3.8,-1.6) -- (-4,-1.6) -- cycle;
-    \fill[ship!80!black] (-4.2,0) rectangle (-3,1.2);},
-  shipwithkite/.pic={\begin{scope}[yshift=-1.5mm, scale=0.75] \pic {hull};
+  shipwithkite/.pic={\begin{scope}[yshift=-1.5mm, scale=0.75] \pic {ship icon};
     \fill[kite] (0.5,7.5) arc[start angle=60, end angle=120, radius=4] -- ++(0,-0.5)
       arc[start angle=120, end angle=60, radius=3.5] -- cycle;
     \draw[kite] (2.5,0) -- (-1.5,7.1); \end{scope}},
@@ -54,7 +52,7 @@
 \pipebox{apparent}{16.5}{-36}{ship}{4}{Apparent wind}{ship speed and true wind give the wind at the rig\inpaper{, \S\ref{sec:deck_rigs}}}{windtriangle}{22}
 \pipebox{rigs}{54.5}{-36}{rig}{5}{Rig forces}{thrust and side force of kite\inpaper{ \S\ref{sec:kite}}, wings or rotors\inpaper{ \S\ref{sec:deck_rigs}}}{polar}{22}
 \pipebox{balance}{92.5}{-36}{ship}{6}{Force balance}{hull, rudder and windage hold the side force: drag and leeway\inpaper{, \S\ref{sec:balance}}}{topview}{22}
-\pipebox{power}{130.5}{-36}{ship}{7}{Required thrust}{hull, air and wave resistance less the rig's thrust\inpaper{, \S\ref{sec:ships}}}{hull}{22}
+\pipebox{power}{130.5}{-36}{ship}{7}{Required thrust}{hull, air and wave resistance less the rig's thrust\inpaper{, \S\ref{sec:ships}}}{ship icon}{22}
 % voyages and cost
 \pipebox{table}{16.5}{-70}{voyage}{8}{Performance table}{required thrust over speed, wind and waves\inpaper{, \S\ref{sec:routes}}}{grid}{26}
 \node[voyage box, minimum width=62mm, minimum height=26mm] (router) at (69,-70) {};
@@ -86,5 +84,5 @@
 \draw[flow] (inputs.east) -- (153,0) |- (cost.east);
 \draw[flow] (cost) -- (search);
 \draw[flow] (search) -- (compare);
-\draw[flow] (search.south) -- (130.5,-125) -| node[note, pos=0.75, rotate=90, anchor=south] {next area} (-5.5,0) -- (design.west);
+\draw[flow] (search.south) -- (130.5,-125) -| node[note, pos=0.75, rotate=90, anchor=south, yshift=0.8mm] {next area} (-5.5,0) -- (design.west);
 \end{tikzpicture}

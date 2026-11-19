@@ -94,7 +94,18 @@ end
     @test together.leeway > WindShipOpt.HullBalance(bare, 7.0, rig).leeway
     @test WindShipOpt.required_thrust(bare, 7.0, 15.0, π / 2, rig) ≈
           WindShipOpt.resistance(bare.hull, bare.env, 7.0;
-              coefficients=bare.wave_coefficients) + together.drag - hull_force.thrust
+              coefficients=bare.wave_coefficients) + together.leeway_drag +
+          together.rudder_drag - hull_force.thrust
+end
+
+@testset "hull and rudder cancel the side force and yaw moment of rig and wind" begin
+    ship = Ship(ShipDesign(:vlsfo, 140.0; kite_area=800.0), assumptions)
+    force = RigForce(1e5, 2e5, 2e6, 3e6)
+    balance = WindShipOpt.HullBalance(ship, 5.4, force)
+    centre = WindShipOpt.lateral_centre(ship.hull)
+    @test force.side + balance.rudder_side_force + balance.hull_side_force ≈ 0 atol = 1e-6
+    @test force.yaw_moment + balance.rudder_side_force * -ship.hull.length / 2 +
+          balance.hull_side_force * centre ≈ 0 atol = 1e-3
 end
 
 # DNV Rules for Ships, January 2000, Pt. 3 Ch. 3 Sec. 2, guidance note, p. 9.
@@ -689,13 +700,13 @@ end
     @test WindShipOpt.stage_units(:kite, assumptions) == 1000
     @test WindShipOpt.stage_units(:rotor, assumptions) ==
           WindShipOpt.stage_units(:wing, assumptions) == 3000
-    @test factor(:kite) ≈ 1.40 rtol = 0.01
+    @test factor(:kite) ≈ 1.77 rtol = 0.01
     @test factor(:rotor) == factor(:wing) == 1.0
     fast = with_value(assumptions, :learning_rate, assumptions.entries[:learning_rate].high)
     @test all(factor(rig, fast) == 1.0 for rig in (:kite, :wing, :rotor))
     as_paid = with_value(assumptions, :learning_rate, 0.0)
     kites = filter(price -> price.rig == :kite, WindShipOpt.RIG_PRICES)
-    ratios = [WindShipOpt.today_price(price, assumptions) /
+    ratios = [WindShipOpt.hardware_price(price, assumptions) /
               WindShipOpt.bottom_up_price(price, assumptions) for price in kites]
     @test factor(:kite, as_paid) ≈ exp(sum(log, ratios) / length(ratios))
     @test factor(:kite, as_paid) > factor(:kite)
@@ -711,14 +722,16 @@ end
           WindShipOpt.bottom_up_price(fixed, assumptions)
 end
 
-@testset "a canopy costs its bottom-up cost times the kite's price factor" begin
-    weight = assumptions[:canopy_cloth_weight]
-    @test WindShipOpt.sewn_cloth_price(assumptions, weight) ≈ 17.2
-    bottom_up = assumptions[:market_price_factor] *
-                WindShipOpt.Canopy(assumptions).cost_per_area
-    @test bottom_up ≈ 234.4
+@testset "a canopy is the surveyed structure with heavier cloth at the market factor" begin
+    @test WindShipOpt.canopy_cost(assumptions) ≈ 1.16 * 25 / 18 * 53 + 3.5 * 0.031 * 100
     @test WindShipOpt.canopy_price(assumptions) ≈
-          WindShipOpt.stage_price_factor(:kite, assumptions) * bottom_up
+          assumptions[:market_price_factor] * WindShipOpt.canopy_cost(assumptions)
+    @test WindShipOpt.canopy_price(WindShipOpt.as_paid(assumptions)) ==
+          WindShipOpt.canopy_price(assumptions)
+    kite = first(price for price in WindShipOpt.RIG_PRICES if price.rig == :kite)
+    @test WindShipOpt.today_price(kite, assumptions) -
+          WindShipOpt.hardware_price(kite, assumptions) ≈
+          WindShipOpt.canopy_price(assumptions) * kite.area
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈
           WindShipOpt.canopy_price(assumptions) * rig.area
@@ -1047,7 +1060,8 @@ end
     # midship lies 47 m aft of the lateral centre, the bow mast 4 m ahead of it
     @test balance(midship).rudder_lift_coefficient >
           3balance(bow).rudder_lift_coefficient > 0
-    @test balance(midship).drag > balance(bow).drag
+    drag(balance) = balance.leeway_drag + balance.rudder_drag
+    @test drag(balance(midship)) > drag(balance(bow))
 end
 
 @testset "a rig ship is sized near the bare ship in calm water, a kite ship as it" begin
@@ -3427,7 +3441,7 @@ store_run(fidelity, trip_model; commit="a", only=nothing) =
         assumptions.entries[name].high))
     directory = mktempdir()
     PaperRuns.stored_trip(() -> routed(assumptions), directory, (; assumptions))
-    dearer_canopy = at_high(:canopy_cloth_base_price)
+    dearer_canopy = at_high(:canopy_structure_cost)
     reused = PaperRuns.stored_entry(directory, dearer_canopy).trip
     rerouted = routed(dearer_canopy.assumptions)
     @test reused.cost_per_tonne_km == rerouted.cost_per_tonne_km

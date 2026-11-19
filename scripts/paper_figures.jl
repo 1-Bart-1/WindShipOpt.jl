@@ -62,9 +62,10 @@ name_pairs(names) = [(first_name, second_name) for (i, first_name) in enumerate(
     palette_faults()
 
 Pairs of colours meant to be told apart, the rigs, the categories beside them, gain and
-loss, the box fills of [`figure_style`](@ref), the VTOL kite at base and favourable inputs
-and three of its [`vtol_shades`](@ref), that come closer than `least["colour"]` in normal
-or in some colour-blind vision.
+loss, the ship's tones beside the rigs, the forces of water, wind and rigs, the box fills
+of [`figure_style`](@ref), the VTOL kite at base and favourable inputs and three of its
+[`vtol_shades`](@ref), that come closer than `least["colour"]` in normal or in some
+colour-blind vision.
 """
 function palette_faults()
     colours = Makie.Colors
@@ -72,6 +73,8 @@ function palette_faults()
     groups = (("rig", style_colour.(["kite", "wings", "rotors", "vtol"])),
         ("category", category_colours), ("cell", style_colour.(["gain", "loss"])),
         ("fill", style_colour.(collect(keys(figure_style["fills"])); table="fills")),
+        ("ship", style_colour.(["keel", "topsides", "deck", "kite", "wings", "rotors"])),
+        ("force", style_colour.(["water", "wind", "kite", "wings", "rotors"])),
         ("VTOL", [style_colour("vtol"), vtol_favourable]), ("VTOL shade", vtol_shades(3)))
     faults = String[]
     for (group, members) in groups, i in eachindex(members), j in (i + 1):length(members)
@@ -84,10 +87,88 @@ function palette_faults()
     return faults
 end
 
-"LaTeX3 code that records the box of each `label` node and stops the build where two meet"
-label_overlap_check = raw"""
+"""
+LaTeX3 code that records the box of each `label` node and each arrow as straight pieces, a
+curve as eight chords, and stops the build where two labels meet or an arrow comes within
+`clearance` of a label
+"""
+label_overlap_check = replace(raw"""
     \ExplSyntaxOn
     \seq_new:N \g_figstyle_labels_seq
+    \seq_new:N \g_figstyle_segments_seq
+    \cs_new_protected:Npn \figurestylesegment #1 #2
+      { \use:e { \exp_not:N \figstyle_segment:w #1 , #2 \exp_not:N \q_stop } }
+    \cs_new_protected:Npn \figurestylecurve #1 #2 #3 #4
+      {
+        \use:e
+          {
+            \exp_not:N \figstyle_curve:w #1 , #2 , #3 , #4 \exp_not:N \q_stop
+          }
+      }
+    \cs_new_protected:Npn \figstyle_curve:w #1 , #2 , #3 , #4 , #5 , #6 , #7 , #8 \q_stop
+      {
+        \tl_set:Nn \l_tmpa_tl { #1 , #2 }
+        \int_step_inline:nn { 8 }
+          {
+            \tl_set:Ne \l_tmpb_tl
+              {
+                \fp_eval:n
+                  {
+                    (1 - ##1/8)^3 * (#1) + 3 * (1 - ##1/8)^2 * ##1/8 * (#3)
+                    + 3 * (1 - ##1/8) * (##1/8)^2 * (#5) + (##1/8)^3 * (#7)
+                  } pt ,
+                \fp_eval:n
+                  {
+                    (1 - ##1/8)^3 * (#2) + 3 * (1 - ##1/8)^2 * ##1/8 * (#4)
+                    + 3 * (1 - ##1/8) * (##1/8)^2 * (#6) + (##1/8)^3 * (#8)
+                  } pt
+              }
+            \figurestylesegment { \l_tmpa_tl } { \l_tmpb_tl }
+            \tl_set_eq:NN \l_tmpa_tl \l_tmpb_tl
+          }
+      }
+    \cs_new_protected:Npn \figstyle_segment:w #1 , #2 , #3 , #4 \q_stop
+      {
+        \fp_compare:nNnT { abs((#3) - (#1)) + abs((#4) - (#2)) } > { 0.1pt }
+          {
+            \seq_gput_right:Nx \g_figstyle_segments_seq
+              {
+                { \dim_to_decimal:n {#1} } { \dim_to_decimal:n {#2} }
+                { \dim_to_decimal:n {#3} } { \dim_to_decimal:n {#4} }
+              }
+          }
+      }
+    \cs_new_protected:Npn \figstyle_clip:nn #1#2
+      {
+        \fp_compare:nNnTF { #1 } = { 0 }
+          { \fp_compare:nNnT { #2 } < { 0 } { \bool_set_false:N \l_figstyle_meets_bool } }
+          {
+            \fp_compare:nNnTF { #1 } < { 0 }
+              { \fp_set:Nn \l_figstyle_enter_fp { max(\l_figstyle_enter_fp, (#2) / (#1)) } }
+              { \fp_set:Nn \l_figstyle_leave_fp { min(\l_figstyle_leave_fp, (#2) / (#1)) } }
+          }
+      }
+    \fp_new:N \l_figstyle_enter_fp
+    \fp_new:N \l_figstyle_leave_fp
+    \bool_new:N \l_figstyle_meets_bool
+    \cs_new_protected:Npn \figstyle_crossing:nnnnnnnn #1#2#3#4#5#6#7#8
+      {
+        \fp_set:Nn \l_figstyle_enter_fp { 0 }
+        \fp_set:Nn \l_figstyle_leave_fp { 1 }
+        \bool_set_true:N \l_figstyle_meets_bool
+        \figstyle_clip:nn { #1 - #3 } { #1 - (#5 - @CLEARANCE@) }
+        \figstyle_clip:nn { #3 - #1 } { (#7 + @CLEARANCE@) - #1 }
+        \figstyle_clip:nn { #2 - #4 } { #2 - (#6 - @CLEARANCE@) }
+        \figstyle_clip:nn { #4 - #2 } { (#8 + @CLEARANCE@) - #2 }
+        \bool_if:NT \l_figstyle_meets_bool
+          {
+            \fp_compare:nNnT { \l_figstyle_enter_fp } < { \l_figstyle_leave_fp }
+              {
+                \PackageError {figurestyle}
+                  { an~arrow~runs~through~the~label~at~(#5pt,~#6pt) } { }
+              }
+          }
+      }
     \cs_new_protected:Npn \figurestylerecord #1
       {
         \group_begin:
@@ -98,10 +179,10 @@ label_overlap_check = raw"""
         \pgfgetlastxy \l_figstyle_bx_tl \l_figstyle_by_tl
         \seq_gput_right:Nx \g_figstyle_labels_seq
           {
-            { \dim_eval:n { \dim_min:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
-            { \dim_eval:n { \dim_min:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
-            { \dim_eval:n { \dim_max:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
-            { \dim_eval:n { \dim_max:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+          { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+          { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+          { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+          { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
           }
         \group_end:
       }
@@ -109,10 +190,13 @@ label_overlap_check = raw"""
       {
         \bool_lazy_all:nT
           {
-            { \dim_compare_p:n { #1 < #7 } } { \dim_compare_p:n { #5 < #3 } }
-            { \dim_compare_p:n { #2 < #8 } } { \dim_compare_p:n { #6 < #4 } }
+            { \fp_compare_p:n { #1 < #7 } } { \fp_compare_p:n { #5 < #3 } }
+            { \fp_compare_p:n { #2 < #8 } } { \fp_compare_p:n { #6 < #4 } }
           }
-          { \PackageError {figurestyle} { labels~overlap~at~(#1,~#2)~and~(#5,~#6) } { } }
+          {
+            \PackageError {figurestyle}
+              { labels~overlap~at~(#1pt,~#2pt)~and~(#5pt,~#6pt) } { }
+          }
       }
     \cs_new_protected:Npn \figurestylecheck
       {
@@ -128,10 +212,17 @@ label_overlap_check = raw"""
                   }
               }
           }
+        \seq_map_inline:Nn \g_figstyle_segments_seq
+          {
+            \seq_map_inline:Nn \g_figstyle_labels_seq
+              { \use:e { \exp_not:N \figstyle_crossing:nnnnnnnn ##1 ####1 } }
+          }
         \seq_gclear:N \g_figstyle_labels_seq
+        \seq_gclear:N \g_figstyle_segments_seq
       }
     \ExplSyntaxOff
-    """
+    """, "@CLEARANCE@" => @sprintf("%.3f", figure_style["sizes"]["clearance"] +
+                                           figure_style["sizes"]["force"] / 2))
 
 "the size `name` of [`figure_style`](@ref) in TeX points"
 tex_size(name) = @sprintf("%gpt", figure_style["sizes"][name])
@@ -155,7 +246,8 @@ function figure_style_file()
         println(io, "% Written by the figure_style step from figure_style.toml; edit that.")
         println(io, "\\pdfinclusioncopyfonts=1")
         println(io, "\\usepackage{xcolor}\n\\usepackage{tikz}")
-        println(io, "\\usetikzlibrary{positioning,arrows.meta,fit}")
+        println(io, "\\usetikzlibrary{positioning,arrows.meta,fit,backgrounds,",
+            "decorations.pathreplacing}")
         for (name, hex) in sort(collect(figure_style["colours"]))
             println(io, "\\definecolor{", name, "}{HTML}{", hex, "}")
             dark = Makie.Colors.hex(readable(style_colour(name), white))
@@ -171,11 +263,17 @@ function figure_style_file()
         println(io, "  every picture/.style={line width=", tex_size("rule"), ", font=",
             tex_font("text"), ", execute at end picture=\\figurestylecheck, ",
             "every node/.style={execute at begin node={\\hyphenpenalty=10000\\relax}}},")
-        println(io, "  force/.style={->, line width=", tex_size("force"), "},")
-        println(io, "  flow/.style={->, line width=", tex_size("flow"), "},")
+        println(io, "  recorded/.style={postaction={decorate, decoration={show path ",
+            "construction, lineto code={\\figurestylesegment{\\tikzinputsegmentfirst}",
+            "{\\tikzinputsegmentlast}}, curveto code={\\figurestylecurve",
+            "{\\tikzinputsegmentfirst}{\\tikzinputsegmentsupporta}",
+            "{\\tikzinputsegmentsupportb}{\\tikzinputsegmentlast}}}}},")
+        println(io, "  force/.style={->, line width=", tex_size("force"), ", recorded},")
+        println(io, "  flow/.style={->, line width=", tex_size("flow"), ", recorded},")
         println(io, "  dimension/.style={<->, guide, line width=", tex_size("dimension"),
             "},")
         println(io, "  leader/.style={guide, line width=", tex_size("dimension"), "},")
+        println(io, "  icon line/.style={line width=", tex_size("flow"), "},")
         println(io, "  crossing/.style={draw=white, line width=", tex_size("crossing"),
             "},")
         println(io, "  label/.style={font=", tex_font("text"), ", inner sep=1pt, ",
@@ -184,6 +282,8 @@ function figure_style_file()
         println(io, "  note/.style={label, font=", tex_font("note"), "},")
         println(io, "  box/.style={draw, rounded corners=2pt, line width=",
             tex_size("rule"), "},")
+        println(io, "  legend box/.style={draw=guide, fill=white, line width=",
+            tex_size("rule"), ", inner sep=2pt, font=", tex_font("note"), "},")
         for name in sort(collect(keys(figure_style["fills"])))
             println(io, "  ", name, " box/.style={box, fill=", name, "fill},")
         end
@@ -195,15 +295,17 @@ function figure_style_file()
             tex_font("note"), "\\bfseries, inner sep=0pt, minimum size=", tex_size("step"),
             "},")
         println(io, "}")
+        println(io, "\\input{figure_pics}")
     end
 end
 
 """
     tikz_style_faults()
 
-Lines of the TikZ figures in paper/sections that set a width, font size, colour or style
-of their own rather than one of [`figure_style_file`](@ref): a colour mixed from one that
-is not in [`figure_style`](@ref) counts, a tint of one that is does not, and so does
+Lines of the TikZ figures in paper/sections and of their shared pictures that set a
+width, font size, colour or style of their own rather than one of
+[`figure_style_file`](@ref): a colour mixed from one that is not in [`figure_style`](@ref)
+counts, a tint of one that is does not, and so does
 [`faint_text`](@ref).
 """
 function tikz_style_faults()
@@ -211,7 +313,8 @@ function tikz_style_faults()
         "\\\\(definecolor|colorlet|tiny|scriptsize|footnotesize|small)\\b"))
     mixed = r"([A-Za-z]+)!\d"
     faults = String[]
-    for file in filter(endswith(".tex"), readdir(sections; join=true))
+    for file in [filter(endswith(".tex"), readdir(sections; join=true));
+                 joinpath(root, "paper", "figure_pics.tex")]
         text = read(file, String)
         occursin("tikzpicture", text) || continue
         for (number, line) in enumerate(split(text, '\n'))
@@ -3240,110 +3343,6 @@ function rigid_kite_figure()
     save_figure("rigid_kite", figure)
 end
 
-"inputs of the canopy's price as paid today, whose bounds span its range"
-canopy_paid_inputs = (:canopy_cloth_area_ratio, :market_price_factor,
-    WindShipOpt.canopy_price_inputs...)
-
-"""
-    canopy_price_range(inputs, names=(canopy_paid_inputs..., :learning_rate))
-
-Lowest and highest [`WindShipOpt.canopy_price`](@ref) [USD/m^2] of `inputs` with each of
-`names` in turn at its low and its high bound; the learning rate is left out of the price
-as paid.
-"""
-canopy_price_range(inputs, names=(canopy_paid_inputs..., :learning_rate)) =
-    extrema(WindShipOpt.canopy_price.(one_at_a_time(inputs, names)))
-
-"""
-    retail_cloth_prices()
-
-Cloth weights [g/m^2], prices [USD per m^2 sewn, without VAT, with offcuts] and sources of
-the retail cloths in data/canopy_cloth_prices.csv.
-"""
-function retail_cloth_prices()
-    table = read_table(joinpath(root, "data", "canopy_cloth_prices.csv"))
-    metres = Dict("m" => 1.0, "yd" => 0.9144)
-    dollars = Dict("USD" => 1.0, "EUR" => assumptions[:usd_per_eur])
-    prices = [price * dollars[currency] / (1 + vat) / (metres[per] * width)
-              for (price, currency, per, width, vat) in zip(table["price"],
-        table["currency"], table["per"], table["width"], table["vat"])]
-    return table["weight"], cloth_offcut_factor * prices, table["source"]
-end
-
-"cloth bought per m^2 of cloth sewn into a canopy [-]"
-cloth_offcut_factor = 1.15
-
-"""
-    canopy_price_figure()
-
-(a) Price of a canopy per projected m^2 as paid today and at the production stage, split
-into cloth, sewing with lines and hardware, and the price over that cost, with the range
-over the bounds of its inputs; (b) price of a sewn m^2 of cloth against cloth weight: the
-retail prices it rests on and the line through them with its range.
-"""
-function canopy_price_figure()
-    figure = Figure(size=(page_width, 175))
-    price = Axis(figure[1, 1]; xlabel=square_metres("price per projected ", " [USD]"),
-        title="(a) canopy price")
-    cloth = Axis(figure[1, 2]; xlabel=square_metres("cloth weight [g/", "]"),
-        ylabel=square_metres("USD per ", " of cloth"), title="(b) sewn cloth")
-    colsize!(figure.layout, 1, Relative(0.55))
-    stage = @sprintf("at %.0f ships", assumptions[:stage_ships])
-    cases = [("as paid today", WindShipOpt.as_paid(assumptions), canopy_paid_inputs),
-        (stage, assumptions, (canopy_paid_inputs..., :learning_rate))]
-    parts = ("cloth", "sewing, lines, hardware", "price over cost")
-    part_colors = [palette[1], palette[5], style_colour("slate")]
-    making = assumptions[:canopy_making_cost_per_area]
-    cost = WindShipOpt.Canopy(assumptions).cost_per_area
-    for (row, (label, inputs, names)) in enumerate(cases)
-        segments = [cost - making, making, WindShipOpt.canopy_price(inputs) - cost]
-        barplot!(price, fill(row, 3), segments; stack=1:3, direction=:x,
-            color=part_colors, gap=0.3)
-        text!(price, cumsum(segments) .- segments ./ 2, fill(row - 0.14, 3);
-            text=estimate_text.(segments), align=(:center, :center),
-            fontsize=note_size, color=readable.(:white, part_colors))
-        low, high = canopy_price_range(inputs, names)
-        rangebars!(price, [row + 0.17], [low], [high]; direction=:x, color=:black,
-            linewidth=line_width, whiskerwidth=whisker_width)
-        text!(price, sum(segments), row - 0.14; text=string(estimate_text(sum(segments)),
-                " (", estimate_text(low), "–", estimate_text(high), ")"),
-            align=(:left, :center), offset=clear_offset((:left, :center), pt(3)))
-    end
-    price.yticks = (eachindex(cases), first.(cases))
-    price.yreversed = true
-    xlims!(price, 0, nothing)
-    hideydecorations!(price; ticklabels=false)
-    weights = 0:5:400
-    weight = assumptions[:canopy_cloth_weight]
-    cloth_inputs = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
-    varied = one_at_a_time(assumptions, cloth_inputs)
-    cloth_band = [extrema(WindShipOpt.sewn_cloth_price(inputs, cloth_weight)
-                          for inputs in varied) for cloth_weight in weights]
-    band!(cloth, weights, first.(cloth_band), last.(cloth_band); color=(palette[1], 0.15))
-    sources = (("extremtextil_prices_2026", "extremtextil", :circle),
-        ("sailrite_dacron_prices_2026", "Sailrite", :rect),
-        ("jonesairfoils_icarex", "Jones Airfoils", :diamond))
-    retail_weights, retail_prices, retail_sources = retail_cloth_prices()
-    source_elements = map(sources) do (source, _, marker)
-        chosen = retail_sources .== source
-        scatter!(cloth, retail_weights[chosen], retail_prices[chosen]; marker,
-            color=:white, strokecolor=:black, strokewidth=rule_width)
-        MarkerElement(; marker, color=:white, strokecolor=:black, strokewidth=rule_width)
-    end
-    lines!(cloth, weights, WindShipOpt.sewn_cloth_price.(Ref(assumptions), weights);
-        color=:black)
-    reference_line!(cloth, weight; vertical=true)
-    ylims!(cloth, 0, nothing)
-    Legend(figure[2, 1], [PolyElement(; color) for color in part_colors],
-        collect(parts); orientation=:horizontal, tellwidth=false, valign=:top)
-    Legend(figure[2, 2], [collect(source_elements);
-            [[PolyElement(; color=(palette[1], 0.15)), LineElement(; color=:black)]]],
-        [collect(getindex.(sources, 2)); "retail line"];
-        orientation=:horizontal, nbanks=2, tellwidth=false, valign=:top)
-    rowgap!(figure.layout, pt(4))
-    save_figure("canopy_price", figure)
-end
-
 """
     min_wind_figure()
 
@@ -3406,8 +3405,8 @@ end
 Cost saving of each rig against the canopy life, the canopy price and the share out of
 service, for each ship of the development study with its rig sizes held: the kite's saving
 over the swept canopy inputs, the other rigs' at their goals, and every rig's over its
-share out of service. Each goal is a vertical line over the shaded range of its input;
-today's canopy price is dotted over its own range.
+share out of service. Each goal is a vertical line over the shaded range of its input,
+and the canopy price, an estimate, a dotted line over its range.
 """
 function missed_goals_figure()
     sizes = read_table(data_file("goal_sizes.csv"))
@@ -3416,7 +3415,6 @@ function missed_goals_figure()
     prices = read_table(data_file("canopy_price.csv"))
     ships = unique(service["ship"])
     sweeps = ((lives, "life"), (prices, "price"))
-    price_paid = WindShipOpt.as_paid(assumptions)
     service_inputs = [assumptions.entries[Symbol(out_of_service_inputs[rig])]
                       for rig in rig_names]
     service_goal = only(unique(input.value for input in service_inputs))
@@ -3438,11 +3436,8 @@ function missed_goals_figure()
                     ("out of service [%]", Makie.pseudolog10,
                         [0, 1, 2, 4, 8, 16, 32, 64])))]
         goal_marks!(axes[1], assumptions.entries[:canopy_life])
-        goal_marks!(axes[2], WindShipOpt.canopy_price(assumptions),
-            canopy_price_range(assumptions)...)
-        goal_marks!(axes[2], WindShipOpt.canopy_price(price_paid),
-            canopy_price_range(price_paid, canopy_paid_inputs)...; linestyle=:dot,
-            shade=(palette[1], 0.1))
+        goal_marks!(axes[2], WindShipOpt.canopy_price(assumptions), canopy_price_at(:low),
+            canopy_price_at(:high); linestyle=:dot, shade=(palette[1], 0.1))
         goal_marks!(axes[3], 100service_goal,
             100minimum(input.low for input in service_inputs),
             100maximum(input.high for input in service_inputs))
@@ -3485,7 +3480,7 @@ function missed_goals_figure()
                     LineElement(color=:black, linewidth=goal_width)],
                 [PolyElement(color=(palette[1], 0.1)),
                     LineElement(color=:black, linewidth=goal_width, linestyle=:dot)]],
-            ["goal, its range", "today, its range"]; position=(1, 0.6))
+            ["goal, its range", "estimate, its range"]; position=(1, 0.6))
     end
     save_figure("missed_goals", figure)
 end

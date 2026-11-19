@@ -72,13 +72,12 @@ end
 
 Bottom-up price [USD] of the unit `price` is for: its manufacturing cost times the market
 price factor, with installation and the retractable rig premium where `price` includes them;
-a kite's with its canopy.
+a kite's without its canopy.
 """
 function bottom_up_price(price::RigPrice, assumptions)
     if price.rig == :kite
         max_force = 1e3assumptions[:kite_max_force_per_area] * price.area
-        cost = sum(kite_price_parts(price.area, max_force, assumptions)) +
-               Canopy(assumptions).cost_per_area * price.area
+        cost = sum(kite_price_parts(price.area, max_force, assumptions))
         return assumptions[:market_price_factor] * cost
     end
     parts = price.rig == :rotor ?
@@ -100,15 +99,24 @@ stage_units(rig::Symbol, assumptions) =
     assumptions[:stage_ships] * assumptions[Symbol(rig, :s_per_ship)]
 
 """
+    hardware_price(price, assumptions)
+
+`price` in today's money less a kite's canopy at its [`canopy_price`](@ref) [USD].
+"""
+hardware_price(price::RigPrice, assumptions) = today_price(price, assumptions) -
+    (price.rig == :kite ? canopy_price(assumptions) * price.area : 0.0)
+
+"""
     stage_ratio(price, assumptions)
 
-`price` in today's money moved along the learning curve to the units built at the
+[`hardware_price`](@ref) of `price` moved along the learning curve to the units built at the
 production stage, over the bottom-up price of the same unit.
 """
 function stage_ratio(price::RigPrice, assumptions)
     exponent = log(1 - assumptions[:learning_rate]) / log(2)
     learning = (stage_units(price.rig, assumptions) / price.units_built)^exponent
-    return learning * today_price(price, assumptions) / bottom_up_price(price, assumptions)
+    return learning * hardware_price(price, assumptions) /
+           bottom_up_price(price, assumptions)
 end
 
 """
