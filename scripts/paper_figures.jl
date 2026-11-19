@@ -2371,7 +2371,7 @@ the wings and the rotors at each, as a matrix with one row per rig; NaN where no
 feasible.
 """
 function situation_savings(table, ship, route, drive, input)
-    values = sort([base_value(input); collect(first(situation_inputs[input]))])
+    values = swept_values(input)
     savings = fill(NaN, 3, length(values))
     for (j, value) in enumerate(values), (i, rig) in enumerate(rig_names)
         bare = situation_cost(table, ship, route, drive, input, value, "none")
@@ -2560,22 +2560,45 @@ fuel_lines = [(:e_ammonia_price, :ammonia, "e-ammonia", :solid),
 fuel_price_axis = doubling_axis(:x, 15, 120; base=15)
 
 """
+    fuel_savings(table, class, route, drive, input)
+
+[`swept_values`](@ref) of `input` and the cost saving [%] of the kite, the wings and the
+rotors of fuels.csv on `class`, `route` and `drive` at each, one row per rig; NaN where a
+trip failed.
+"""
+function fuel_savings(table, class, route, drive, input)
+    values = swept_values(input)
+    savings = fill(NaN, length(rig_names), length(values))
+    for (j, value) in enumerate(values)
+        costs = Dict(rig => cheapest_row(table, "class" => class, "route" => string(route),
+            "drive" => string(drive), "value" => value, "rig" => rig) for rig in all_rigs)
+        isnothing(costs["none"]) && continue
+        for (i, rig) in enumerate(rig_names)
+            isnothing(costs[rig]) && continue
+            savings[i, j] = percent_saving(table["cost"][costs[rig]],
+                table["cost"][costs["none"]])
+        end
+    end
+    return values, savings
+end
+
+"""
     fuel_figure()
 
-Cost saving of the best size of each rig over the fuel price on each ship of the situation
-study, on e-ammonia and on e-methanol, each at the prices of the situation study, with
-each fuel's price range and base value in a strip below. Prints where the lead changes.
+Cost saving of each rig over the fuel price on each ship of the fuel study, on e-ammonia
+and on e-methanol, with each fuel's price range and base value in a strip below. Prints
+where the lead changes.
 """
 function fuel_figure()
-    table = read_table(data_file("situations.csv"))
-    figure = Figure(size=(page_width, 240))
-    axes = map(enumerate(situation_ships)) do (k, (ship, route, _))
-        axis = Axis(figure[1, k]; title="($('a' + k - 1)) $ship, $(route_label(route))",
+    table = read_table(data_file("fuels.csv"))
+    figure = Figure(size=(page_width, 250))
+    axes = map(enumerate(fuel_ships)) do (k, (class, route))
+        axis = Axis(figure[1, k]; title="($('a' + k - 1)) $class\nto $(route_label(route))",
             fuel_price_axis..., ylabel=k == 1 ? "cost saving [%]" : "")
         for (input, drive, label, linestyle) in fuel_lines
-            values, savings = situation_savings(table, ship, route, drive, input)
-            print_leaders("$ship, $label", input, log10.(values), savings, exp10)
-            for rig in 1:3
+            values, savings = fuel_savings(table, class, route, drive, input)
+            print_leaders("$class, $label", input, log10.(values), savings, exp10)
+            for rig in eachindex(rig_names)
                 scatterlines!(axis, values, savings[rig, :]; color=palette[rig], linestyle,
                     markersize=0.8marker_size)
             end
