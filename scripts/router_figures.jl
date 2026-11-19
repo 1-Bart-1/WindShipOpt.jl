@@ -1,50 +1,112 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Figures of what the weather router saw and did on real routed passages: the corridor and
-# the nodes its search kept, the weather met, the states searched and pruned and the
-# passage with its speeds and kite flights.
+# What the weather router saw and did on one routed passage: a data step routes it and
+# saves the nodes its search reached, kept and pruned and the passage with its speeds and
+# kite flights, and the figure draws them on the corridor with the weather met.
 
 """
-    routed_case(design, name, departure; scale, weather=weather, label="")
+    router_search_data()
 
-The outbound passage of `design` on route `name` leaving at `departure` [h], routed in
-`weather` on the corridor at `scale` (8 for a draft, 1 for a final run), as a named tuple
-of `label`, `corridor`, `departure`, `weather`, the [`Leg`](@ref) `leg`, its
-[`SearchRecord`](@ref) `record`, its [`LegTrace`](@ref) `trace` and the `seconds` it took to
-route.
+Route the first departure to Guadeloupe of a 140 m e-ammonia ship with a 3200 m^2 kite on
+the corridor of the run in use, recording its search, and save in the run's directory:
+
+  - router_nodes.csv: per node, its stage, lateral, latitude and longitude [°], whether
+    the search reached none of its states (0), pruned all (1) or searched on one (2), and
+    its [`node_excess`](@ref);
+  - router_search.csv: the departure [h] and the [`limit_excess`](@ref) of the search;
+  - router_path.csv: latitude, longitude [°], hours after departure and whether the kite
+    flies, at each stage of the path;
+  - router_trace.csv: hours after departure, speed held [m/s], 10 m wind east and north
+    [m/s] and whether the kite flies, along the path.
+
+Errors where no passage is found.
 """
-function routed_case(design, name, departure; scale, weather=weather, label="")
-    ship = Ship(design, assumptions)
+function router_search_data()
+    ship = Ship(ShipDesign(:ammonia, 140.0; kite_area=3200.0), assumptions)
     table = PerformanceTable(ship, assumptions)
     hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions))
-    corridor = first(corridors(name, scale))
+    corridor, departure = first(run_corridors(:caribbean)), departures[1]
     record = SearchRecord()
-    seconds = @elapsed leg = route(corridor, table, weather, departure; time_cost=hourly,
-        record)
+    leg = route(corridor, table, weather, departure; time_cost=hourly, record)
+    isnothing(leg) && error("no passage to Guadeloupe from $departure h")
+    nodes = vec(CartesianIndices(corridor.water))
+    write_table("router_nodes.csv"; stage=getindex.(nodes, 1),
+        lateral=getindex.(nodes, 2), lat=corridor.lat[nodes], lon=corridor.lon[nodes],
+        level=node_map(record)[nodes], excess=node_excess(record)[nodes])
+    write_table("router_search.csv"; departure=[departure],
+        limit_excess=[limit_excess(record)])
+    write_table("router_path.csv"; lat=getindex.(leg.path, 1), lon=getindex.(leg.path, 2),
+        hour=getindex.(leg.path, 3), flying=getindex.(leg.path, 5) .== WindShipOpt.FLYING)
     trace = LegTrace(table, leg, weather, departure)
-    return (; label, corridor, departure, weather, leg, record, trace, seconds)
+    write_table("router_trace.csv"; hour=trace.time, trace.speed, trace.wind_east,
+        trace.wind_north, trace.flying)
 end
 
 """
-    path_laterals(corridor, leg)
+    router_case()
 
-Lateral node of `corridor` at each stage of the path of `leg`.
+The passage of [`router_search_data`](@ref) as its files hold it, on the corridor of the
+run in use: a named tuple of `corridor`, `departure` [h], the `weather`, `excess` and
+`level` stage × lateral, `limit_excess` [%], `path`, a vector of named tuples of `lat`,
+`lon` [°], `hour` and `flying`, and `trace`, of `time` [h], `speed` [m/s], `wind_east`,
+`wind_north` [m/s] and `flying`. Errors where the nodes are not those of the corridor.
 """
-path_laterals(corridor, leg) =
-    [WindShipOpt.nearest_lateral(corridor, stage, point[1], point[2])
-     for (stage, point) in enumerate(leg.path)]
+function router_case()
+    corridor = first(run_corridors(:caribbean))
+    nodes = read_table(data_file("router_nodes.csv"))
+    check_router_nodes(nodes, corridor)
+    at = CartesianIndex.(Int.(nodes["stage"]), Int.(nodes["lateral"]))
+    excess, level = fill(NaN, size(corridor.water)), zeros(Int, size(corridor.water))
+    excess[at], level[at] = nodes["excess"], nodes["level"]
+    search = read_table(data_file("router_search.csv"))
+    stops = read_table(data_file("router_path.csv"))
+    path = [(; lat, lon, hour, flying=flying == 1)
+            for (lat, lon, hour, flying) in
+                zip(stops["lat"], stops["lon"], stops["hour"], stops["flying"])]
+    samples = read_table(data_file("router_trace.csv"))
+    trace = (; time=samples["hour"], speed=samples["speed"],
+        wind_east=samples["wind_east"], wind_north=samples["wind_north"],
+        flying=samples["flying"] .== 1)
+    return (; corridor, departure=only(search["departure"]), weather, excess, level,
+        limit_excess=only(search["limit_excess"]), path, trace)
+end
 
 """
-    node_excess(case)
+    check_router_nodes(nodes, corridor)
 
-Least objective of a passage through each water node of the corridor of `case`, as the
-search estimated it, in percent above the objective of the path it found, stage × lateral;
-`NaN` where no state was reached or none has an estimate onward.
+Error unless the columns `nodes` of router_nodes.csv hold every node of `corridor` once,
+each at its latitude and longitude [°] to the four decimals saved.
 """
-function node_excess(case)
-    through = through_node(case.record)
-    excess = 100 .* (through ./ case.record.found.objective .- 1)
+function check_router_nodes(nodes, corridor)
+    at = CartesianIndex.(Int.(nodes["stage"]), Int.(nodes["lateral"]))
+    sort(at) == vec(CartesianIndices(corridor.water)) ||
+        error("router_nodes.csv holds other nodes than the run's corridor")
+    moved = max(maximum(abs, nodes["lat"] .- corridor.lat[at]),
+        maximum(abs, nodes["lon"] .- corridor.lon[at]))
+    moved <= 1e-4 ||
+        error("router_nodes.csv places nodes up to $(moved)° from the run's corridor")
+end
+
+"""
+    path_laterals(corridor, path)
+
+Lateral node of `corridor` at each stage of `path`.
+"""
+path_laterals(corridor, path) =
+    [WindShipOpt.nearest_lateral(corridor, stage, point.lat, point.lon)
+     for (stage, point) in enumerate(path)]
+
+"""
+    node_excess(record)
+
+Least objective of a passage through each node of the search of `record`, as it estimated
+it, in percent above the objective of the path it found, stage × lateral; `NaN` where no
+state was reached or none has an estimate onward.
+"""
+function node_excess(record)
+    through = through_node(record)
+    excess = 100 .* (through ./ record.found.objective .- 1)
     excess[.!isfinite.(through)] .= NaN
     return excess
 end
@@ -53,19 +115,17 @@ end
 limit_excess(record) = 100 * (record.limit / record.found.objective - 1)
 
 """
-    search_levels(record, dims)
+    node_map(record)
 
-Whether the states of `record` grouped over `dims` held none (0), only states the search
-pruned (1) or a state it searched on (2), stage last.
+Whether the states of `record` at each node held none (0), only states the search pruned
+(1) or a state it searched on (2), stage × lateral.
 """
-function search_levels(record, dims)
+function node_map(record)
+    dims = (2, 3)
     kept = any(kept_states(record); dims)
     reached = any(isfinite.(record.cost); dims)
     return permutedims(dropdims(reached .+ kept; dims))
 end
-
-"[`search_levels`](@ref) of each node of `record`, stage × lateral"
-node_map(record) = search_levels(record, (2, 3))
 
 """
     draw_search_map!(axis, case; colorrange)
@@ -78,9 +138,7 @@ passage reached their stage; and the passage, in the kite's colour where the kit
 Returns the plot of the coloured nodes.
 """
 function draw_search_map!(axis, case; colorrange)
-    (; corridor, leg, record) = case
-    excess = node_excess(case)
-    level = node_map(record)
+    (; corridor, excess, level, path) = case
     water = findall(corridor.water)
     unreached, pruned, kept = [filter(index -> level[index] == value, water)
                                for value in 0:2]
@@ -92,13 +150,12 @@ function draw_search_map!(axis, case; colorrange)
     nodes = scatter!(axis, node_points(corridor, kept); color=excess[kept],
         colormap=:viridis, colorrange, nan_color=no_estimate_shade, markersize=dot,
         markerspace=:data)
-    draw_edge_fans!(axis, corridor, leg)
+    draw_edge_fans!(axis, corridor, path)
     draw_met_wind!(axis, case)
-    track = track_points(leg.path)
+    track = track_points(path)
     lines!(axis, track; color=:black, linewidth=line_width)
-    flying = [point[5] == WindShipOpt.FLYING for point in leg.path]
     for i in 2:length(track)
-        flying[i] && lines!(axis, track[(i - 1):i]; color=palette[1],
+        path[i].flying && lines!(axis, track[(i - 1):i]; color=palette[1],
             linewidth=2line_width)
     end
     return nodes
@@ -116,13 +173,13 @@ of its rows in degrees of latitude, so at most that share of their spacing on th
 node_dot(corridor) = 0.8 * corridor.lateral_spacing / 60NAUTICAL_MILE
 
 """
-    draw_edge_fans!(axis, corridor, leg)
+    draw_edge_fans!(axis, corridor, path)
 
-The edges `corridor` allows out of each node of the path of `leg`.
+The edges `corridor` allows out of each node of `path`.
 """
-function draw_edge_fans!(axis, corridor, leg)
+function draw_edge_fans!(axis, corridor, path)
     segments = Point2f[]
-    for (stage, lateral) in enumerate(path_laterals(corridor, leg)[1:(end - 1)])
+    for (stage, lateral) in enumerate(path_laterals(corridor, path)[1:(end - 1)])
         for step in 1:WindShipOpt.step_count(corridor)
             isnan(corridor.edge_course[stage, lateral, step]) && continue
             next = WindShipOpt.next_lateral(corridor, lateral, step)
@@ -141,7 +198,7 @@ each at the hour the passage reached its stage, those whose tip stays within the
 `axis`.
 """
 function draw_met_wind!(axis, case; spacing=240)
-    (; corridor, leg, departure, weather) = case
+    (; corridor, path, departure, weather) = case
     along = corridor.along_centre ./ NAUTICAL_MILE
     lateral_stride = max(1, round(Int, spacing * NAUTICAL_MILE / corridor.lateral_spacing))
     stages = [1]
@@ -153,7 +210,7 @@ function draw_met_wind!(axis, case; spacing=240)
         corridor.water[stage, lateral] || continue
         lat, lon = corridor.lat[stage, lateral], corridor.lon[stage, lateral]
         push!(points, Point2f(lon, lat))
-        push!(vectors, Vec2f(wind(weather, lat, lon, departure + leg.path[stage][3])...))
+        push!(vectors, Vec2f(wind(weather, lat, lon, departure + path[stage].hour)...))
     end
     vectors .*= 0.3f0
     west, east, south, north = axis.limits[]
@@ -241,16 +298,15 @@ end
 excess_label = "best passage through node, % above the one found"
 
 """
-    excess_range(cases)
+    excess_range(case)
 
-Colour range of the [`node_excess`](@ref) of `cases` [%]: from the least, or zero, to the
-widest limit of their searches, or the greatest excess of a search over all states.
+Colour range of the [`node_excess`](@ref) of `case` [%]: from the least, or zero, to the
+limit of its search, or the greatest excess of a search over all states.
 """
-function excess_range(cases)
-    excesses = [filter(isfinite, node_excess(case)) for case in cases]
-    tops = [isfinite(case.record.limit) ? limit_excess(case.record) : maximum(excess)
-            for (case, excess) in zip(cases, excesses)]
-    return (min(0, minimum(minimum.(excesses))), maximum(tops))
+function excess_range(case)
+    excess = filter(isfinite, case.excess)
+    top = isfinite(case.limit_excess) ? case.limit_excess : maximum(excess)
+    return (min(0, minimum(excess)), top)
 end
 
 """
@@ -276,14 +332,13 @@ function router_legend_entries()
 end
 
 """
-    map_limits(cases; pad=1)
+    map_limits(corridor; pad=1)
 
 Longitude and latitude limits (west, east, south, north) [deg] around the water nodes of
-the corridors of `cases`, `pad` [deg] wider on each side.
+`corridor`, `pad` [deg] wider on each side.
 """
-function map_limits(cases; pad=1)
-    lons = reduce(vcat, [case.corridor.lon[case.corridor.water] for case in cases])
-    lats = reduce(vcat, [case.corridor.lat[case.corridor.water] for case in cases])
+function map_limits(corridor; pad=1)
+    lons, lats = corridor.lon[corridor.water], corridor.lat[corridor.water]
     return (floor(minimum(lons)) - pad, ceil(maximum(lons)) + pad,
         floor(minimum(lats)) - pad, ceil(maximum(lats)) + pad)
 end
@@ -291,20 +346,18 @@ end
 """
     router_figure()
 
-The [`router_panels!`](@ref) of one winter passage to Guadeloupe of a 140 m e-ammonia ship
-with a 3200 m^2 kite, on the corridor of the run in use: its map across the page, with
+The [`router_panels!`](@ref) of the [`router_case`](@ref): its map across the page, with
 speed and wind beneath it on one time axis.
 """
 function router_figure()
-    case = routed_case(ShipDesign(:ammonia, 140.0; kite_area=3200.0), :caribbean,
-        departures[1]; scale=run_settings().corridor_scale)
-    limits = map_limits([case])
+    case = router_case()
+    limits = map_limits(case.corridor)
     west, east, south, north = limits
     figure = Figure(size=(page_width, 560))
     time_panels = GridLayout(figure[2, 1:2])
     nodes = router_panels!((; map=figure[1, 1], speed=time_panels[1, 1],
             wind=time_panels[2, 1]), case;
-        limits, colorrange=excess_range([case]),
+        limits, colorrange=excess_range(case),
         titles=(; map="(a) nodes searched and the passage", speed="(b) speed held",
             wind="(c) wind met"))
     Colorbar(figure[1, 2], nodes; label=excess_label)
