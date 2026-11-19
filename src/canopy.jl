@@ -109,14 +109,26 @@ cloth_price(assumptions::Assumptions, weight) = assumptions[:canopy_cloth_base_p
 """
     seam_length(assumptions, chord, cells)
 
-Seam [m] per flat m^2 of a ram-air canopy of mean `chord` [m] and `cells` chord over cell
-width: `canopy_cell_seams` along the chord per cell, the skins' panel seams where a cell is
-wider than `canopy_cloth_width`, and the leading and trailing edges.
+Seam [m] per m^2 of chord times span of a ram-air canopy of mean `chord` [m] and `cells`
+chord over cell width: `canopy_cell_seams` along the chord per cell, the skins' panel seams
+where a cell is wider than `canopy_cloth_width`, and the leading and trailing edges.
 """
 function seam_length(assumptions::Assumptions, chord, cells)
     per_cell_width = cells / chord
     panels = 2 * max(0, 1 / assumptions[:canopy_cloth_width] - per_cell_width)
     return assumptions[:canopy_cell_seams] * per_cell_width + panels + 2 / chord
+end
+
+"""
+    seam_area_ratio(assumptions, area, aspect_ratio)
+
+Seam [m] per m^2 of chord times span of a ram-air canopy of projected `area` [m^2] and
+projected `aspect_ratio`: the [`seam_length`](@ref) at its mean chord and
+[`chord_over_cell_width`](@ref).
+"""
+function seam_area_ratio(assumptions::Assumptions, area, aspect_ratio)
+    chord = sqrt(area / aspect_ratio)
+    return seam_length(assumptions, chord, chord_over_cell_width(assumptions, chord))
 end
 
 """
@@ -127,15 +139,13 @@ projected `area` [m^2] and projected `aspect_ratio`: the surveyed `canopy_struct
 and `canopy_bridle_cost` of a kite of `canopy_structure_chord` at `canopy_chord_cells`, its
 cloth of `canopy_structure_cloth_weight` replaced by the kite's own
 [`cloth_area_ratio`](@ref) at its [`cloth_price`](@ref) and the rest, the sewing, grown with
-the kite's [`seam_length`](@ref), or by `canopy_sewing_cloth_share` with its cloth.
+the kite's [`seam_area_ratio`](@ref), or by `canopy_sewing_cloth_share` with its cloth.
 """
 function canopy_cost(assumptions::Assumptions, area, aspect_ratio)
-    chord = sqrt(area / aspect_ratio)
-    cells = chord_over_cell_width(assumptions, chord)
     surveyed_cells = assumptions[:canopy_chord_cells]
-    cloth = cell_cloth_ratio(assumptions, cells)
+    cloth = cloth_area_ratio(assumptions, area, aspect_ratio)
     surveyed_cloth = cell_cloth_ratio(assumptions, surveyed_cells)
-    seam = seam_length(assumptions, chord, cells)
+    seam = seam_area_ratio(assumptions, area, aspect_ratio)
     surveyed_seam = seam_length(assumptions, assumptions[:canopy_structure_chord],
         surveyed_cells)
     share = assumptions[:canopy_sewing_cloth_share]

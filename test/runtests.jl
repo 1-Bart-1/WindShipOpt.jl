@@ -734,11 +734,7 @@ end
     @test price(800.0, WindShipOpt.as_paid(assumptions)) == price(800.0)
     cloth(area) = WindShipOpt.cloth_area_ratio(assumptions, area, 3.0)
     surveyed_cloth = WindShipOpt.cloth_area_ratio(proportional, surveyed_area, 3.0)
-    function seam(area)
-        chord = sqrt(area / 3.0)
-        WindShipOpt.seam_length(assumptions, chord,
-            WindShipOpt.chord_over_cell_width(assumptions, chord))
-    end
+    seam(area) = WindShipOpt.seam_area_ratio(assumptions, area, 3.0)
     sewing(area) = (WindShipOpt.canopy_cost(assumptions, area, 3.0) - 1.16 * 25 / 18 * 8 -
                     cloth(area) * (11.0 + 0.031 * 200)) / seam(area)
     surveyed_sewing = 1.16 * 25 / 18 * 45 - surveyed_cloth * (11.0 + 0.031 * 100)
