@@ -88,8 +88,9 @@ function palette_faults()
 end
 
 """
-LaTeX3 code that records the box of each `label` node and each straight piece of an arrow,
-and stops the build where two labels meet or an arrow comes within `clearance` of a label
+LaTeX3 code that records the box of each `label` node and each arrow as straight pieces, a
+curve as eight chords, and stops the build where two labels meet or an arrow comes within
+`clearance` of a label
 """
 label_overlap_check = replace(raw"""
     \ExplSyntaxOn
@@ -106,13 +107,25 @@ label_overlap_check = replace(raw"""
       }
     \cs_new_protected:Npn \figstyle_curve:w #1 , #2 , #3 , #4 , #5 , #6 , #7 , #8 \q_stop
       {
-        \tl_set:Ne \l_tmpa_tl
+        \tl_set:Nn \l_tmpa_tl { #1 , #2 }
+        \int_step_inline:nn { 8 }
           {
-            \fp_eval:n { ((#1) + 3 * (#3) + 3 * (#5) + (#7)) / 8 } pt ,
-            \fp_eval:n { ((#2) + 3 * (#4) + 3 * (#6) + (#8)) / 8 } pt
+            \tl_set:Ne \l_tmpb_tl
+              {
+                \fp_eval:n
+                  {
+                    (1 - ##1/8)^3 * (#1) + 3 * (1 - ##1/8)^2 * ##1/8 * (#3)
+                    + 3 * (1 - ##1/8) * (##1/8)^2 * (#5) + (##1/8)^3 * (#7)
+                  } pt ,
+                \fp_eval:n
+                  {
+                    (1 - ##1/8)^3 * (#2) + 3 * (1 - ##1/8)^2 * ##1/8 * (#4)
+                    + 3 * (1 - ##1/8) * (##1/8)^2 * (#6) + (##1/8)^3 * (#8)
+                  } pt
+              }
+            \figurestylesegment { \l_tmpa_tl } { \l_tmpb_tl }
+            \tl_set_eq:NN \l_tmpa_tl \l_tmpb_tl
           }
-        \figurestylesegment { #1 , #2 } { \l_tmpa_tl }
-        \figurestylesegment { \l_tmpa_tl } { #7 , #8 }
       }
     \cs_new_protected:Npn \figstyle_segment:w #1 , #2 , #3 , #4 \q_stop
       {
