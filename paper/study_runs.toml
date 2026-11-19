@@ -58,6 +58,11 @@ commit = "137db7db0582761d353f1b861867849e05b5249a"
 fidelity = "final"
 run = "2026-11-15T2341"
 
+[routing_value]
+commit = "fcf2f80815be45676c2114cf0db727fb4d97fdc8"
+fidelity = "final"
+run = "2026-11-18T1840"
+
 [sea_effect]
 commit = "b3deaea799fb78bb8282719ce80755ee9e6ae1f9"
 fidelity = "draft"

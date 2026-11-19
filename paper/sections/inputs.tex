@@ -3,7 +3,7 @@
 \section{Model inputs}
 \label{sec:inputs}
 
-\Cref{tab:inputs} lists every input with a range, with its base value, bounds, unit and source, or its mark as the authors' estimate. \Cref{tab:development} gives the 20 of them that the development study of \cref{sec:res_inputs} moves, with the reason each is in it. The ship classes are in \cref{tab:classes} of the article, their sources in \cref{tab:class_sources}, the grids, solver settings and constants in \cref{tab:numerics}, and the split of the cargo interest study behind \cref{fig:cargo_interest} in \cref{tab:cargo_interest}. The published regressions (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) keep their published coefficients.
+\Cref{tab:inputs} lists every input with a range, with its base value, bounds, unit and source, or its mark as the authors' estimate. \Cref{tab:development} gives the 16 inputs that the development study of \cref{sec:res_inputs} moves, with the reason each is in it; they are 20 rows of \cref{tab:inputs}, since the study moves the kite's five limits on sea and wind as one input. The ship classes are in \cref{tab:classes}, their sources in \cref{tab:class_sources}, the grids, solver settings and constants in \cref{tab:numerics}, and the split of the cargo interest study behind \cref{fig:cargo_interest} in \cref{tab:cargo_interest}. The published regressions (Holtrop--Mennen, SNNM, Kijima, ShipCLEAN, the DNV rudder area and the 1969 Tonnage Convention) keep their published coefficients.
 
 \paragraph{Inputs outside the development study} The inputs that \cref{tab:development} leaves out are out for one of three reasons. Most belong to the ship or its setting and not to a rig's developer: the hull, propeller and engine coefficients, the ship's dimensions, the port costs, the share the yard adds for installing a rig, the discount rate and the wind shear. Some are set by another maker or have a study of their own. The tether is bought rope, so its working stress, price and life are the rope maker's; the chance of tearing or losing a kite per launch is a goal, and \cref{sec:res_missed} gives how many crashes a year each rig can bear. The rest are moved through an input that stands in for them: the canopy cloth price is part of the canopy's price with its making cost, the maintenance share of a rig is a yearly cost as its time out of service is, the price per unit of a wing sail or rotor moves the same budget as its price per area, the margin of a launch over the wind that lifts the kite sets the lowest launch wind as the weather window does, and the share of emissions a carbon price covers acts on the same fuel bill as the fuel oil price. Launching at night is an operating rule rather than a design. The kite's flight drag, how far a flown canopy falls short of the glide ratio of its design shape, is calibrated on flown kites, and its aspect ratio, priced as the base kite, stands in for its aerodynamic design. Wing sails and rotors are built for the ship's own \given{25} years, so moving their life from \given{20 to 30} years changes their yearly cost far less than canopy life changes a kite's, and wing sails, which trim to any wind, have no weather limit to move. The kite's five limits on sea and wind, the extra launch wind it needs in a sea, its lowest and highest launch wind, its highest landing wind and its highest flying wind, are one input, its weather window, moved together from all narrow to all wide: one launch system, structure and control set them all, so a developer's question is what a wider window is worth, and moved alone each shifts the saving by about a point at most, too little to rank apart from the noise of the routing. The kite has the most inputs because more of it remains to be proven: its canopy, its flight and its launch system, while a wing sail or rotor is a structure already built.
 
@@ -11,9 +11,9 @@
 \setlength{\LTcapwidth}{\textwidth}
 \setlength{\extrarowheight}{1.5pt}
 \InputIfFileExists{sections/input_tables}{}{\tbd{Input tables pending: run the input\_tables step.}}
-\stale{sensitivity}{} \InputIfFileExists{sections/development_table}{}{\tbd{Development table pending: run the development\_table step.}}
 
-\begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{12.2cm}@{}}
+{\setlength{\extrarowheight}{3pt}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{\dimexpr\textwidth-3.4cm-2\tabcolsep\relax}@{}}
 \caption{Sources of the ship class data in \cref{tab:classes}.}
 \label{tab:class_sources}\\
 \toprule
@@ -27,8 +27,8 @@ Class & Sources \\
 \endhead
 \bottomrule
 \endfoot
-\InputIfFileExists{sections/class_sources}{}{}
-\end{longtable}
+\tablerows{sections/class_sources}
+\end{longtable}}
 
 \begin{longtable}{@{}>{\raggedright\arraybackslash}p{4.2cm}>{\raggedright\arraybackslash}p{4.8cm}>{\raggedright\arraybackslash}p{6.6cm}@{}}
 \caption{Grids, solver settings and constants. Corridor spacings are those of the results, which the draft run shares on a sixth of the departures.}
@@ -45,56 +45,56 @@ Setting & Value & Use \\
 \bottomrule
 \endfoot
 \multicolumn{3}{@{}l}{\textit{Performance table}}\\
-speed through the water & 49 speeds evenly from \SI{4}{kn} to the speed at $F_n=0.28$, the same step down to \SI{1.5}{m/s} & thrust and fuel power tables \\
-true wind at \SI{10}{m} & 0 to \SI{30}{m/s}, steps of \SI{1}{m/s} & stronger wind is held at \SI{30}{m/s} \\
-true wind angle & 0 to \SI{180}{\degree}, steps of \SI{7.5}{\degree} & \\
-peak period & 3 to \SI{18}{s}, steps of \SI{1}{s} & table of $R_\mathrm{aw}/H_s^2$ \\
-wave heading & 0 to \SI{180}{\degree}, steps of \SI{15}{\degree} & table of $R_\mathrm{aw}/H_s^2$ \\
-wave frequencies & 0.1 to \SI{6}{rad/s}, 240 points & spectral integral of $R_\mathrm{aw}$ \\
-wing trim & $C_L$ 0 to $C_{L,\max}$ attached, angle of attack 25 to \SI{90}{\degree} stalled, solved continuously & best trim \\
-rotor trim & spin ratio 0 to 4 or the surface-speed limit, solved continuously & best trim \\
+Speed through the water & 49 speeds evenly from \SI{4}{kn} to the speed at $F_n=0.28$, the same step down to \SI{1.5}{m/s} & thrust and fuel power tables \\
+True wind at \SI{10}{m} & 0 to \SI{30}{m/s}, steps of \SI{1}{m/s} & stronger wind is held at \SI{30}{m/s} \\
+True wind angle & 0 to \SI{180}{\degree}, steps of \SI{7.5}{\degree} & thrust and fuel power tables \\
+Peak period & 3 to \SI{18}{s}, steps of \SI{1}{s} & table of $R_\mathrm{aw}/H_s^2$ \\
+Wave heading & 0 to \SI{180}{\degree}, steps of \SI{15}{\degree} & table of $R_\mathrm{aw}/H_s^2$ \\
+Wave frequencies & 0.1 to \SI{6}{rad/s}, 240 points & spectral integral of $R_\mathrm{aw}$ \\
+Wing trim & $C_L$ 0 to $C_{L,\max}$ attached, angle of attack 25 to \SI{90}{\degree} stalled, solved continuously & best trim \\
+Rotor trim & spin ratio 0 to 4 or the surface-speed limit, solved continuously & best trim \\
 \multicolumn{3}{@{}l}{\textit{Kite pattern table}}\\
-apparent wind & 3 to \SI{9}{m/s} in steps of \SI{1}{m/s}, then 10.5, 12 and on to \SI{30}{m/s} in steps of \SI{3}{m/s} & pattern search \\
-course off apparent downwind & 0 to \SI{180}{\degree}, steps of \SI{15}{\degree} & pattern search \\
-side-force weights & 0, 0.25, 0.5, 1, 1.5, 2, 3, read linearly between & kite trim, solved continuously \\
-wind reference elevation & \SI{25}{\degree} on the tether & height of the apparent wind of the table \\
-lowest angle of attack & angle where $C_L$ reaches 0.05 & lower bound of the search \\
-points per pattern & 48 & time average of the tether force \\
-pattern search & Nelder--Mead, 200 iterations, three starts and the best pattern of the next stronger wind speed, or the three best of a grid of \num{3360} patterns where none of those flies & kite patterns \\
+Apparent wind & 3 to \SI{9}{m/s} in steps of \SI{1}{m/s}, then 10.5, 12 and on to \SI{30}{m/s} in steps of \SI{3}{m/s} & pattern search \\
+Course off apparent downwind & 0 to \SI{180}{\degree}, steps of \SI{15}{\degree} & pattern search \\
+Side-force weights & 0, 0.25, 0.5, 1, 1.5, 2, 3, read linearly between & kite trim, solved continuously \\
+Wind reference elevation & \SI{25}{\degree} on the tether & height of the apparent wind of the table \\
+Lowest angle of attack & angle where $C_L$ reaches 0.05 & lower bound of the search \\
+Points per pattern & 48 & time average of the tether force \\
+Pattern search & Nelder--Mead, 200 iterations, three starts and the best pattern of the next stronger wind speed, or the three best of a grid of \num{3360} patterns where none of those flies & kite patterns \\
 \multicolumn{3}{@{}l}{\textit{Corridors and routing}}\\
-ocean stage spacing & \SI{45}{nmi}, at least ten stages over a route's open stretches & corridor stages \\
-coastal stage spacing & \SI{30}{nmi} & fixed paths from Rotterdam to Ushant, through the Florida Strait and into each port, no lateral freedom \\
-lateral node spacing & \SI{11.25}{nmi} & nodes on rows square to the great circle of each open stretch \\
-corridor half width & \SI{2400}{nmi} & reach of the nodes to either side of the track, within \ang{60} of latitude \\
-lateral step & up to 5 rows per stage, \SI{51}{\degree} off the corridor's line & edges between stages \\
-planning grid & every stage and row for \SI{240}{nmi} ahead of the ship; beyond, every fourth row to \SI{480}{nmi} and half as many again each time the distance ahead doubles, on stages far enough apart for an edge to reach the next row kept, weather every \SI{6}{h} & each plan \\
-land check along edges & every \SI{20}{nmi} & removes edges over land \\
-coastal clearance & \SI{45}{nmi}, half a wind cell, on rings at 22.5 and \SI{45}{nmi} of 16 bearings & no open-sea node nearer land \\
-port approach & \SI{90}{nmi}, one wind cell, from a port or the end of a coastal path & open-sea nodes kept near land \\
-island disks & island radius plus about \SI{20}{nmi} & land mask \\
-time bin & \SI{3}{h} & state of the dynamic programme \\
-weather along an edge & at most every \SI{3}{h}, \SI{6}{h} beyond the first \SI{240}{nmi} of a plan & fuel and speed of an edge \\
-states searched & within 3\,\% of a backward estimate of the cost to go at \SI{24}{h} knots, then 6\,\%, then all, if a pass ends above its limit or finds no path; costs at most 0.01 points of cost saving against searching all states, 0.35 for the kite & dynamic programme \\
-longest passage & 50 days & time bins \\
-speeds & every fourth table speed, 13 from \SI{4}{kn} to the ship's maximum & edge choices \\
-final pass & all table speeds, \SI{0.25}{h} bins, \SI{1}{h} on the forecast plan weighing the wind error, within \SI{24}{h} of the path found & passage reported \\
-live sailing & speed and kite chosen every \SI{1}{h} over every fourth table speed and the plan's, on the forecast result & planner on forecasts \\
-re-planning interval & first route node \SI{24}{h} after the last plan; 12 and \SI{6}{h} in the re-planning study & planner on forecasts \\
-plan margin on the kite's limits & \SI{20}{\%} tighter wind limits and more launch wind in a sea, tested & planner on forecasts \\
-forecasts & GEFSv12 reforecast control run and four perturbed members, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead, blended with ERA5's 1991--2016 monthly climatology by a weight fitted per grid point and lead & planner on forecasts \\
-operational forecasts & GEFS operational control run, wind, issued four times a day, mean bias against ERA5 removed and blended with the climatology in the same way; waves from the daily reforecast & re-planning study \\
-departures & every 14 days from 1 January 2017 to 100 days before the end of 2019; every sixth (12) in all runs & weather sample \\
+Ocean stage spacing & \SI{45}{nmi}, at least ten stages over a route's open stretches & corridor stages \\
+Coastal stage spacing & \SI{30}{nmi} & fixed paths from Rotterdam to Ushant, through the Florida Strait and into each port, no lateral freedom \\
+Lateral node spacing & \SI{11.25}{nmi} & nodes on rows square to the great circle of each open stretch \\
+Corridor half width & \SI{2400}{nmi} & reach of the nodes to either side of the track, within \ang{60} of latitude \\
+Lateral step & up to 5 rows per stage, \SI{51}{\degree} off the corridor's line & edges between stages \\
+Planning grid & every stage and row for \SI{240}{nmi} ahead of the ship; beyond, every fourth row to \SI{480}{nmi} and half as many again each time the distance ahead doubles, on stages far enough apart for an edge to reach the next row kept, weather every \SI{6}{h} & each plan \\
+Land check along edges & every \SI{20}{nmi} & removes edges over land \\
+Coastal clearance & \SI{45}{nmi}, half a wind cell, on rings at 22.5 and \SI{45}{nmi} of 16 bearings & no open-sea node nearer land \\
+Port approach & \SI{90}{nmi}, one wind cell, from a port or the end of a coastal path & open-sea nodes kept near land \\
+Island disks & island radius plus about \SI{20}{nmi} & land mask \\
+Time bin & \SI{3}{h} & state of the dynamic programme \\
+Weather along an edge & at most every \SI{3}{h}, \SI{6}{h} beyond the first \SI{240}{nmi} of a plan & fuel and speed of an edge \\
+States searched & within 3\,\% of a backward estimate of the cost to go at \SI{24}{h} knots, then 6\,\%, then all, if a pass ends above its limit or finds no path; costs at most 0.01 points of cost saving against searching all states, 0.35 for the kite & dynamic programme \\
+Longest passage & 50 days & time bins \\
+Speeds & every fourth table speed, 13 from \SI{4}{kn} to the ship's maximum, and on a long edge those between that bring its arrivals within one time bin of each other & edge choices \\
+Final pass & all table speeds, \SI{0.25}{h} bins, \SI{1}{h} on the forecast plan weighing the wind error, within \SI{24}{h} of the path found & passage reported \\
+Live sailing & speed and kite chosen every \SI{1}{h} over every fourth table speed and the plan's, on the forecast result & planner on forecasts \\
+Re-planning interval & first route node \SI{24}{h} after the last plan; 12 and \SI{6}{h} in the re-planning study & planner on forecasts \\
+Plan margin on the kite's limits & \SI{20}{\%} tighter wind limits and more launch wind in a sea, tested & planner on forecasts \\
+Forecasts & GEFSv12 reforecast control run and four perturbed members, wind and waves, issued daily to 16 days, mean bias against ERA5 removed per grid point and lead, blended with ERA5's 1991--2016 monthly climatology by a weight fitted per grid point and lead & planner on forecasts \\
+Operational forecasts & GEFS operational control run, wind, issued four times a day, mean bias against ERA5 removed and blended with the climatology in the same way; waves from the daily reforecast & re-planning study \\
+Departures & every 14 days from 1 January 2017 to 100 days before the end of 2019; every sixth (12) in all runs & weather sample \\
 \multicolumn{3}{@{}l}{\textit{Constants}}\\
-gravitational acceleration & \SI{9.81}{m/s^2} & \\
+Gravitational acceleration & \SI{9.81}{m/s^2} & Froude number and waves \\
 Earth radius & \SI{6371}{km} & great-circle distances \\
-nautical mile & \SI{1852}{m} & \\
-hours in a year & 8760 & annual costs \\
+Nautical mile & \SI{1852}{m} & distances and speeds in knots \\
+Hours in a year & 8760 & annual costs \\
 \end{longtable}}
 
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{\stale{cargo_interest}{} Cost saving of the cheapest size of each rig on e-ammonia at low and at high cargo interest, the mean over the classes and routes, split as in \cref{tab:split}; the median change of the round trip; and the mean speed along the route's track over the days at sea, with and without the rig. \savingerror{} Method study, \studyrun{cargo_interest}.}
+\caption{\stale{cargo_interest}{} Cost saving of the cheapest size of each rig on e-ammonia at low and at high cargo interest, the interest on the cargo's value at the low and the high discount rate of \cref{tab:inputs}, the mean over the classes and routes, split as in \cref{tab:split}; the median change of the round trip; and the mean speed along the route's track over the days at sea, with and without the rig. \savingerror{} Method study, \studyrun{cargo_interest}.}
 \label{tab:cargo_interest}
 \InputIfFileExists{sections/cargo_interest_table}{}{\tbd{Cargo interest table pending: run the cargo\_interest\_table step.}}
 \end{table*}
