@@ -14,7 +14,6 @@ import {
   type Outcome,
 } from "./explorer";
 import {
-  canopyPriceInputs,
   changedCount,
   differs,
   exactInputs,
@@ -64,11 +63,6 @@ function Explorer({ data }: { data: ExplorerData }) {
   const changed = changedCount(data, changes, cargoFactor);
   const change = (name: string, value: number) => setChanges({ ...changes, [name]: value });
   const reset = (names: string[]) => setChanges(resetInputs(changes, names));
-  const setCanopyToday = () =>
-    setChanges({
-      ...changes,
-      ...Object.fromEntries(canopyPriceInputs.map((name) => [name, data.inputs[`${name}_today`].value])),
-    });
 
   return (
     <main className="mx-auto max-w-[1120px] space-y-10 px-5 py-8 md:px-8">
@@ -115,9 +109,7 @@ function Explorer({ data }: { data: ExplorerData }) {
               <legend className="px-1 font-semibold">{group.title}</legend>
               {group.title === "Kite goals" && (
                 <p className="text-sm text-ink">
-                  Canopy price {formatted(values[data.canopy_price.node], 0)} USD/m².{" "}
-                  <button className="underline" onClick={() => reset(canopyPriceInputs)}>Goal</button>{" · "}
-                  <button className="underline" onClick={setCanopyToday}>As built today</button>
+                  Canopy price {formatted(values[data.canopy_price.node], 0)} USD/m².
                 </p>
               )}
               {group.controls.map((control) => (

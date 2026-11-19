@@ -86,11 +86,12 @@ function draw_search_map!(axis, case; colorrange)
                                for value in 0:2]
     dot = node_dot(corridor)
     scatter!(axis, node_points(corridor, unreached); color=unreached_shade,
-        markersize=0.5dot)
+        markersize=unreached_dot * dot, markerspace=:data)
     scatter!(axis, node_points(corridor, pruned); color=:transparent, strokecolor=:gray45,
-        strokewidth=pt(0.3), markersize=dot)
+        strokewidth=pt(0.3), markersize=dot, markerspace=:data)
     nodes = scatter!(axis, node_points(corridor, kept); color=excess[kept],
-        colormap=:viridis, colorrange, nan_color=no_estimate_shade, markersize=dot)
+        colormap=:viridis, colorrange, nan_color=no_estimate_shade, markersize=dot,
+        markerspace=:data)
     draw_edge_fans!(axis, corridor, leg)
     draw_met_wind!(axis, case)
     track = track_points(leg.path)
@@ -106,8 +107,13 @@ end
 "longitude and latitude [deg] of the nodes of `corridor` at `indices`, as points"
 node_points(corridor, indices) = Point2f.(corridor.lon[indices], corridor.lat[indices])
 
-"marker size of the nodes of `corridor` on a map, smaller on a finer grid"
-node_dot(corridor) = pt(clamp(2.5 * corridor.lateral_spacing / 60NAUTICAL_MILE, 1.6, 4))
+"""
+    node_dot(corridor)
+
+Diameter [deg] of the nodes of `corridor` on a longitude-latitude map: 0.8 of the spacing
+of its rows in degrees of latitude, so at most that share of their spacing on the map.
+"""
+node_dot(corridor) = 0.8 * corridor.lateral_spacing / 60NAUTICAL_MILE
 
 """
     draw_edge_fans!(axis, corridor, leg)
@@ -153,7 +159,7 @@ function draw_met_wind!(axis, case; spacing=240)
     west, east, south, north = axis.limits[]
     inside = [west <= tip[1] <= east && south <= tip[2] <= north
               for tip in points .+ vectors]
-    arrows2d!(axis, points[inside], vectors[inside]; color=(:black, 0.55),
+    arrows2d!(axis, points[inside], vectors[inside]; color=style_colour("wind"),
         shaftwidth=rule_width, minshaftlength=0)
 end
 
@@ -202,6 +208,9 @@ no_estimate_shade = :gray35
 "colour of a node the search did not reach"
 unreached_shade = :gray55
 
+"diameter of a node the search did not reach, as a share of that of the others"
+unreached_dot = 0.5
+
 "colour of the hours a kite flies along a passage"
 flight_shade = (palette[1], 0.25)
 
@@ -247,17 +256,20 @@ end
 """
     router_legend_entries()
 
-Legend entries and labels of the marks of [`router_panels!`](@ref).
+Legend entries and labels of the marks of [`router_panels!`](@ref), the nodes enlarged
+from the map but in its proportions.
 """
 function router_legend_entries()
+    dot = pt(3)
     entries = [LineElement(color=:black, linewidth=line_width),
         [PolyElement(color=flight_shade),
             LineElement(color=palette[1], linewidth=2line_width)],
         LineElement(; edge_style...),
-        MarkerElement(marker=:circle, color=no_estimate_shade, markersize=pt(3)),
+        MarkerElement(marker=:circle, color=no_estimate_shade, markersize=dot),
         MarkerElement(marker=:circle, color=:transparent, strokecolor=:gray45,
-            strokewidth=pt(0.3), markersize=pt(3)),
-        MarkerElement(marker=:circle, color=unreached_shade, markersize=pt(2.5))]
+            strokewidth=pt(0.3), markersize=dot),
+        MarkerElement(marker=:circle, color=unreached_shade,
+            markersize=unreached_dot * dot)]
     labels = ["passage", "kite flying", "edges allowed", "node kept, no estimate",
         "node pruned", "node not reached"]
     return entries, labels
@@ -279,21 +291,24 @@ end
 """
     router_figure()
 
-The [`router_panels!`](@ref) of one winter passage to Guadeloupe of a
-140 m e-ammonia ship with a 3200 m^2 kite, on the corridor of the run in use.
+The [`router_panels!`](@ref) of one winter passage to Guadeloupe of a 140 m e-ammonia ship
+with a 3200 m^2 kite, on the corridor of the run in use: its map across the page, with
+speed and wind beneath it on one time axis.
 """
 function router_figure()
     case = routed_case(ShipDesign(:ammonia, 140.0; kite_area=3200.0), :caribbean,
         departures[1]; scale=run_settings().corridor_scale)
-    figure = Figure(size=(page_width, 240))
-    nodes = router_panels!((; map=figure[1:2, 1], speed=figure[1, 3],
-            wind=figure[2, 3]), case;
-        limits=map_limits([case]), colorrange=excess_range([case]),
+    limits = map_limits([case])
+    west, east, south, north = limits
+    figure = Figure(size=(page_width, 560))
+    time_panels = GridLayout(figure[2, 1:2])
+    nodes = router_panels!((; map=figure[1, 1], speed=time_panels[1, 1],
+            wind=time_panels[2, 1]), case;
+        limits, colorrange=excess_range([case]),
         titles=(; map="(a) nodes searched and the passage", speed="(b) speed held",
             wind="(c) wind met"))
-    Colorbar(figure[1:2, 2], nodes; label=excess_label)
-    Legend(figure[3, 1:3], router_legend_entries()...;
-        orientation=:horizontal, nbanks=2)
-    colsize!(figure.layout, 1, Auto(1.25))
+    Colorbar(figure[1, 2], nodes; label=excess_label)
+    Legend(time_panels[1:2, 2], router_legend_entries()...)
+    rowsize!(figure.layout, 1, Aspect(1, (north - south) / (east - west)))
     save_figure("router", figure)
 end
