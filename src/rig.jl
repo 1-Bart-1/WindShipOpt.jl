@@ -511,13 +511,13 @@ function total_drag_at_lift(aspect_ratio, lift, assumptions::Assumptions)
 end
 
 """
-    recalibrated_flight_drag(aspect_ratio, base_aspect_ratio, assumptions; lift=0.8)
+    recalibrated_flight_drag(aspect_ratio, base_aspect_ratio, assumptions)
 
 Flight drag coefficient giving a kite of `aspect_ratio` the glide ratio at lift coefficient
-`lift` that the kite of `base_aspect_ratio` has at the flight drag of `assumptions`.
+0.8 that the kite of `base_aspect_ratio` has at the flight drag of `assumptions`.
 """
-function recalibrated_flight_drag(aspect_ratio, base_aspect_ratio, assumptions::Assumptions;
-    lift=0.8)
+function recalibrated_flight_drag(aspect_ratio, base_aspect_ratio, assumptions::Assumptions)
+    lift = 0.8
     return assumptions[:kite_flight_drag] +
            total_drag_at_lift(base_aspect_ratio, lift, assumptions) -
            total_drag_at_lift(aspect_ratio, lift, assumptions)
@@ -790,13 +790,13 @@ end
 
 """
     KiteRig(area, aspect_ratio, hull, assumptions;
-            attach_position=kite_tow_point(hull, assumptions), courses=KITE_COURSES)
+            attach_position=launch_mast_position(hull, assumptions), courses=KITE_COURSES)
 
 Kite of projected `area` [m^2] and `aspect_ratio` with its pattern table over `courses`
 [rad], towing from `attach_position` [m] forward of midship.
 """
 function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assumptions;
-        attach_position=kite_tow_point(hull, assumptions), courses=KITE_COURSES)
+        attach_position=launch_mast_position(hull, assumptions), courses=KITE_COURSES)
     scale = hull.length / assumptions[:reference_length]
     model, max_force, tether_diameter = kite_model(area, aspect_ratio, assumptions)
     tether_length = model.tether_length
@@ -901,15 +901,6 @@ function launch_mast_position(hull::Hull, assumptions::Assumptions)
     deck_length = assumptions[:deck_length_fraction] * hull.length
     return (deck_length - launch_mast_reserve(assumptions)) / 2
 end
-
-"""
-    kite_tow_point(hull, assumptions)
-
-Distance [m] forward of midship of a soft kite's tow point when it flies alone:
-the share `kite_tow_position` of the way from midship to the [`launch_mast_position`](@ref).
-"""
-kite_tow_point(hull::Hull, assumptions::Assumptions) =
-    assumptions[:kite_tow_position] * launch_mast_position(hull, assumptions)
 
 """
     CombinedRig(kite_area, kite_aspect_ratio, standing_type, standing_area, hull,
