@@ -158,13 +158,26 @@ launch_cost_inputs = (:kite_cycle_crew_cost, :kite_cycle_damage_probability,
     :kite_launch_minutes, :kite_landing_minutes)
 
 """
-    launch_cost_assumptions(bound)
+    at_bound(inputs, names, bound)
 
-Inputs with every one of `launch_cost_inputs` at its `bound` (`:low`, `:high` or `:value`).
+`inputs` with every input of `names` at its `bound` (`:low`, `:high` or `:value`).
 """
-launch_cost_assumptions(bound) = foldl(launch_cost_inputs; init=assumptions) do inputs, name
-    with_value(inputs, name, getfield(assumptions.entries[name], bound))
+at_bound(inputs, names, bound) = foldl(names; init=inputs) do changed, name
+    with_value(changed, name, getfield(changed.entries[name], bound))
 end
+
+"""
+    one_at_a_time(inputs, names, entries=[assumptions.entries[name] for name in names])
+
+`inputs` with each input of `names` in turn at the low and at the high bound of its entry
+of `entries`.
+"""
+one_at_a_time(inputs, names, entries=[assumptions.entries[name] for name in names]) =
+    [with_value(inputs, name, bound) for (name, entry) in zip(names, entries)
+     for bound in (entry.low, entry.high)]
+
+"inputs with every one of `launch_cost_inputs` at its `bound`"
+launch_cost_assumptions(bound) = at_bound(assumptions, launch_cost_inputs, bound)
 
 "the ship classes of the sea effect study, in order of length"
 sea_effect_classes = ("general cargo coaster", "feeder container ship",
@@ -315,20 +328,6 @@ function changed_assumptions(changes)
     return changed
 end
 
-"""
-    kite_market_prices()
-
-The assumptions with every kite hardware and canopy price and the market price factor at
-their high bounds.
-"""
-function kite_market_prices()
-    names = (:winch_fixed_cost, :winch_cost_per_force, :launch_mast_mass_coefficient,
-        :docking_head_cost, :control_unit_cost, :control_unit_cost_per_area,
-        :canopy_making_cost_per_area, :canopy_cloth_base_price,
-        :canopy_cloth_price_per_weight, :market_price_factor)
-    return changed_assumptions(NamedTuple(name => assumptions.entries[name].high
-                                          for name in names))
-end
 
 "design keyword of each rig"
 rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area,
@@ -355,6 +354,13 @@ study_hull(ship) = ship == "140 m" ? 140.0 : ship_classes()[ship]
 
 "reference size of each rig on the 140 m ship"
 reference_rigs = [("kite", 3200.0), ("wings", 1500.0), ("rotors", 800.0)]
+
+"projected area [m^2] and aspect ratio at `inputs` of the reference kite of the 140 m ship"
+reference_kite_shape(inputs) = (Dict(reference_rigs)["kite"], inputs[:kite_aspect_ratio])
+
+"canopy price [USD/m^2] at `inputs` of the reference kite of the 140 m ship"
+reference_canopy_price(inputs) =
+    WindShipOpt.canopy_price(inputs, reference_kite_shape(inputs)...)
 
 "the rigs, as named in the output"
 rig_names = ("kite", "wings", "rotors")
@@ -742,13 +748,13 @@ tonne_km_per_tonne(name) = tonne_km_per_tonne(run_corridors(name)...)
     designs_data()
 
 The design grid on the route to Guadeloupe: length, the [`study_drives`](@ref) and size of
-each rig, a carbon price on VLSFO, and kites without flight drag and at market prices, with
-the cost per tonne-km split into its parts: designs.csv.
+each rig, a carbon price on VLSFO, and kites without flight drag and at the prices paid
+today, with the cost per tonne-km split into its parts: designs.csv.
 """
 function designs_data()
     taxed = with_value(assumptions, :carbon_coverage, 1.0)
     rigid = with_value(assumptions, :kite_flight_drag, 0.0)
-    market = kite_market_prices()
+    market = WindShipOpt.as_paid(assumptions)
     cases = []
     for length in (85.0, 110.0, 140.0, 170.0, 200.0), drive in study_drives,
         area in (0.0, 400.0, 800.0, 1600.0, 3200.0, 6400.0)
@@ -1309,7 +1315,10 @@ Cargo values [USD/t] of the cargo value sweep, those of the classes' iron ore, c
 general cargo, containers and cars, and the deadweight-limited and the space-limited class
 that carry each of them in turn.
 """
-cargo_value_sweep = (values=(100.0, 506.0, 2500.0, 5120.0, 15000.0),
+cargo_value_sweep = (
+    values=Tuple(ship_classes()[name].cargo_value for name in ("Capesize bulk carrier",
+        "Aframax tanker", "general cargo coaster", "Neo-Panamax container ship",
+        "PCTC car carrier")),
     classes=("Kamsarmax bulk carrier", "Neo-Panamax container ship"))
 
 """
@@ -2397,9 +2406,10 @@ condition it is judged against), what kind of lever it is, and the reason it is 
 study.
 """
 development_inputs = [
-    (input=:canopy_making_cost_per_area, label="canopy making cost", rig="kite",
-        lever="price", reason="Sewing, lines and fittings; a maker lowers them by series " *
-                              "production and by design for making."),
+    (input=:canopy_structure_cost, label="canopy cost", rig="kite",
+        lever="price", reason="Cloth with its seams and sewing, which a maker lowers by " *
+                              "design for making; they set the canopy's share of the " *
+                              "kite's price."),
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
         reason="What a flight hour of the canopy costs; unmeasured, so what development " *
                "has to prove."),
@@ -2420,13 +2430,13 @@ development_inputs = [
         reason="Its launch system, structure and control decide the sea and the winds " *
                "in which it launches, flies and lands; its five limits moved together."),
     (input=:wing_cost_per_area, label="wing sail cost per area", rig="wings", lever="price",
-        reason="Structure and series production set a wing's price."),
+        reason="Structure sets a wing's price, which stands at its build-up."),
     (input=:wing_max_lift_coefficient, label="wing sail maximum lift", rig="wings",
         lever="force", reason="Flap and section design decide a wing's force."),
     (input=:wing_out_of_service, label="wing sail out of service", rig="wings",
         lever="availability", reason="The same reliability lever as for every rig."),
     (input=:rotor_cost_per_area, label="rotor cost per area", rig="rotors", lever="price",
-        reason="Structure and series production set a rotor's price."),
+        reason="Structure sets a rotor's price, which stands at its build-up."),
     (input=:rotor_lift_factor, label="rotor lift", rig="rotors", lever="force",
         reason="Rotor design sets the lift at a given spin; the base is the full-scale " *
                "fit, so the range only reaches down to the CFD value."),
@@ -2529,7 +2539,8 @@ function cargo_kite_variants()
         kite_cycle_course_cost=0.0, kite_forced_landing_loss_probability=0.0)
     return [("base", 125.0, (;)); ("flat_as_projected", 160.0, (;));
         ("force_0.9", 125.0, (; kite_max_force_per_area=0.9));
-        ("no_flight_drag", 125.0, (; kite_flight_drag=0.0)); ("free_operation", 125.0, free);
+        ("no_flight_drag", 125.0, (; kite_flight_drag=0.0));
+        ("free_operation", 125.0, free);
         [(name, 125.0, changes)
          for (name, _, changes) in noise_variants(assumptions[:tether_length_ratio],
             assumptions[:kite_min_turn_radius])]]
@@ -2668,15 +2679,42 @@ function canopy_life_data()
 end
 
 """
+    canopy_price_at(bound)
+
+[`reference_canopy_price`](@ref) [USD/m^2] with the surveyed structure cost and the market
+price factor at their `bound`, `:low` or `:high`.
+"""
+canopy_price_at(bound) = reference_canopy_price(foldl((:canopy_structure_cost,
+        :market_price_factor); init=assumptions) do inputs, name
+    with_value(inputs, name, getproperty(assumptions.entries[name], bound))
+end)
+
+"""
     canopy_prices()
 
-Canopy prices [USD/m^2] the kite is routed at for the missed-goal table: the goal, today's
-and either side of them, up to where the kite stops paying on every ship.
+Canopy prices [USD/m^2] the kite is routed at for the missed-goal table: the base price, the
+top of its range and either side of them, up to where the kite stops paying on every ship.
 """
 function canopy_prices()
-    goal = WindShipOpt.canopy_price(assumptions)
-    return sort([goal .* [0.5, 0.75, 1.0, 1.25, 2.5, 3.5, 5.0, 7.0];
-                  WindShipOpt.canopy_price_today(assumptions)])
+    base = reference_canopy_price(assumptions)
+    return sort([base .* [0.5, 0.75, 1.0, 1.25, 2.5, 3.5, 5.0, 7.0];
+                 canopy_price_at(:high)])
+end
+
+"""
+    at_canopy_price(price)
+
+The assumptions with the canopy's cost inputs scaled together until the
+[`reference_canopy_price`](@ref) is `price` [USD/m^2].
+"""
+function at_canopy_price(price)
+    low, high = 0.0, 20.0
+    for _ in 1:60
+        middle = (low + high) / 2
+        cost = reference_canopy_price(scaled(WindShipOpt.canopy_price_inputs, middle))
+        cost < price ? (low = middle) : (high = middle)
+    end
+    return scaled(WindShipOpt.canopy_price_inputs, high)
 end
 
 """
@@ -2686,10 +2724,8 @@ The kite of each ship of [`goal_limit_ships`](@ref) at each of [`canopy_prices`]
 size and every other input held: canopy_price.csv.
 """
 function canopy_price_data()
-    goal = WindShipOpt.canopy_price(assumptions)
-    inputs = WindShipOpt.canopy_price_inputs
     cases = [trip_case(ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...);
-                 assumptions=scaled(inputs, price / goal), route, ship, price)
+                 assumptions=at_canopy_price(price), route, ship, price)
              for (ship, bare, route, areas) in goal_limit_ships(), price in canopy_prices()]
     write_trips("canopy_price.csv", vec(cases),
         round_trips(vec(cases), sampled_departures()), :ship, :price)
@@ -2750,7 +2786,8 @@ A new object of the type of `object` with its fields, those named in `changes` r
 """
 function rebuilt(object; changes...)
     unknown = setdiff(keys(changes), fieldnames(typeof(object)))
-    isempty(unknown) || throw(ArgumentError("$(typeof(object)) has no field $(first(unknown))"))
+    isempty(unknown) ||
+        throw(ArgumentError("$(typeof(object)) has no field $(first(unknown))"))
     fields = (get(changes, name, getfield(object, name))
               for name in fieldnames(typeof(object)))
     return typeof(object).name.wrapper(fields...)
@@ -3561,7 +3598,8 @@ every kite of `grid` both free and priced have a round trip.
 """
 function speed_size_routes(table, grid, drive, knots)
     cases = [("none", 0.0, "priced");
-        vec([("kite", area, pricing) for area in grid.kites, pricing in ("free", "priced")])]
+        vec([("kite", area, pricing)
+             for area in grid.kites, pricing in ("free", "priced")])]
     sailed = [Set(table["route"][rows(table, "ship" => grid.ship, "drive" => drive,
                   "knots" => knots, "rig" => rig, "area" => area, "pricing" => pricing)])
               for (rig, area, pricing) in cases]
@@ -3674,11 +3712,6 @@ rigid_scenarios = ("base", "favourable")
 "input scenarios of the VTOL kite scaling study"
 rigid_scaling_scenarios = ("base", "light", "heavy", "cubed", "favourable")
 
-"`inputs` with each of `names` at its `bound` (`:low` or `:high`)"
-at_bound(inputs, names, bound) = foldl(names; init=inputs) do changed, name
-    with_value(changed, name, getfield(changed.entries[name], bound))
-end
-
 """
     cubed_structure(inputs)
 
@@ -3750,6 +3783,56 @@ function beam_thrust(rig, i)
     return 0.5air_density * rig.wind_speeds[i]^2 * rig.area * force.force[2]
 end
 
+"the price inputs of the parts and launches of a soft or a VTOL kite"
+kite_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost,
+    :canopy_cloth_price_per_weight, :control_unit_cost, :control_unit_cost_per_area,
+    :docking_head_cost, :launch_mast_mass_coefficient, :launch_mast_steel_cost,
+    :winch_cost_per_force, :winch_fixed_cost, :kite_integration_fraction, :tether_price,
+    :rigid_avionics_cost, :rigid_drive_cost, :rigid_perch_cost, :rigid_ship_power_cost,
+    :rigid_structure_cost_per_area, :rigid_structure_cost_per_mass, :rigid_tether_price,
+    :rigid_hover_energy_price, :kite_cycle_course_cost, :kite_cycle_crew_cost,
+    :market_price_factor)
+
+"the price inputs of each rig, the kite's [`kite_price_inputs`](@ref)"
+rig_price_inputs = Dict("kite" => kite_price_inputs,
+    "wings" => (:wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction,
+        :market_price_factor),
+    "rotors" => (:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
+        :market_price_factor))
+
+"""
+    scaling_inputs(kind, area)
+
+Inputs of the kite of `kind` (`"soft"` or `"rigid <scenario>"` of `rigid_scaling_scenarios`)
+and wing `area` [m^2] in the scaling study.
+"""
+scaling_inputs(kind, area) = kind == "soft" ? assumptions :
+                             rigid_assumptions(replace(kind, "rigid " => ""), area)
+
+"""
+    scaling_rig(kind, area, inputs)
+
+The kite of `kind` (`"soft"` or a VTOL kite) and `area` [m^2] of the scaling study on the
+140 m ship, built on `inputs`.
+"""
+function scaling_rig(kind, area, inputs)
+    hull = Hull(study_hull("140 m"), assumptions)
+    kind == "soft" && return KiteRig(area, 3.0, hull, inputs)
+    return WindShipOpt.rigid_kite_rig(area, hull, inputs; courses=[π / 2],
+        side_weights=[0.0])
+end
+
+"""
+    scaling_costs(rig, inputs, bound)
+
+Price and [`annual_kite_cost`](@ref) [USD] of the kite `rig` built on `inputs`, with every
+input of [`kite_price_inputs`](@ref) at its `bound`.
+"""
+function scaling_costs(rig, inputs, bound)
+    priced = at_bound(inputs, kite_price_inputs, bound)
+    return first(WindShipOpt.rig_costs(rig, priced)), annual_kite_cost(rig, priced)
+end
+
 """
     rigid_scaling_data()
 
@@ -3759,31 +3842,27 @@ apparent wind; per area of a soft kite with the canopy at its goal: the last fou
 rigid_scaling.csv.
 """
 function rigid_scaling_data()
-    hull = Hull(study_hull("140 m"), assumptions)
     env = Environment(assumptions)
     open(run_file("rigid_scaling.csv"), "w") do file
         println(file, "kind,area,span,mass,stall,hover_power,lowest_wind,price,annual,",
             "wind,thrust")
-        for scenario in rigid_scaling_scenarios, area in rigid_scaling_areas
-            inputs = rigid_assumptions(scenario, area)
-            rig = WindShipOpt.rigid_kite_rig(area, hull, inputs; courses=[π / 2],
-                side_weights=[0.0])
+        for kind in "rigid " .* rigid_scaling_scenarios, area in rigid_scaling_areas
+            inputs = scaling_inputs(kind, area)
+            rig = scaling_rig(kind, area, inputs)
             (; mass, hover_power) = rig.airframe
             span = sqrt(area * inputs[:rigid_aspect_ratio])
             stall = sqrt(2mass * env.gravity /
                          (env.air_density * area * inputs[:rigid_max_lift]))
-            price = first(WindShipOpt.rig_costs(rig, inputs))
-            annual = annual_kite_cost(rig, inputs)
+            price, annual = scaling_costs(rig, inputs, :value)
             for i in eachindex(rig.wind_speeds)
-                println(file, join(("rigid " * scenario, area, span, mass, stall,
+                println(file, join((kind, area, span, mass, stall,
                         hover_power, rig.min_flight_wind, price, annual,
                         rig.wind_speeds[i], beam_thrust(rig, i)), ","))
             end
         end
         for area in rigid_scaling_soft_kites
-            rig = KiteRig(area, 3.0, hull, assumptions)
-            price = first(WindShipOpt.rig_costs(rig, assumptions))
-            annual = annual_kite_cost(rig, assumptions)
+            rig = scaling_rig("soft", area, assumptions)
+            price, annual = scaling_costs(rig, assumptions, :value)
             for i in eachindex(rig.wind_speeds)
                 println(file, join(("soft", area, 0.0, 0.0, 0.0, 0.0,
                         rig.min_flight_wind, price, annual, rig.wind_speeds[i],

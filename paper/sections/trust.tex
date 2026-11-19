@@ -55,6 +55,7 @@ Stages, rows [nmi] & Kite & Rotors & Gap \\
 
 \begin{table}[tbp]
 \centering
+\footnotesize
 \caption{Share of the cost saving with perfect foresight on the draft's route grid that each rig keeps when re-planned every 24 hours on each plan, on the archived forecasts or, where the row says so, on the real weather, against the ship without a rig on the same plan, for the \SI{140}{m} e-ammonia ship to Guadeloupe, with its standard error over the departures [\%]. \tbd{\stale{forecast_plans}{} Draft, 12 departures.} Method study, \studyrun{forecast_plans}.}
 \label{tab:forecast_plans}
 \InputIfFileExists{sections/forecast_plans_table}{}{\tbd{Forecast plans table pending: run the forecast\_plans\_table step.}}
@@ -113,18 +114,19 @@ These checks say what the model reproduces and where it departs from measurement
 
 \stale{goal_size_data,canopy_price_data,canopy_life_data}{Routing again at each canopy life moves the limits little: on the Neo-Panamax on e-ammonia to New York the limit with the route held is \num{1610} flight hours and the one routed afresh at each life \num{1600}.}
 
-\stale{goal_size_data,canopy_price_data}{\Cref{sec:res_missed} gives what staying at today's canopy price takes from the kite on three ships. On three departures of a draft, the routes changing between the two prices moved these figures by 0.1 points at most. A line through the prices from USD~112 to 375/m$^2$ gave 1.6, 1.6 and 0.7 points against 1.7, 1.6 and 0.8 between the two prices. Leaving out of maintenance the canopy and tether that wear already pays for was worth 0.3, 0.15 and 0.24 points of cost saving on the three ships at today's price.}
+\stale{goal_size_data,canopy_price_data}{\Cref{sec:res_missed} gives what a canopy at the top of its price range takes from the kite on three ships. On three departures of a draft, the routes changing between the two prices moved these figures by 0.1 points at most. A line through the prices from USD~112 to 375/m$^2$ gave 1.6, 1.6 and 0.7 points against 1.7, 1.6 and 0.8 between the two prices. Leaving out of maintenance the canopy and tether that wear already pays for was worth 0.3, 0.15 and 0.24 points of cost saving on the three ships at the price as paid today.}
 
 \begin{table}[tbp]
 \centering
+\footnotesize
 \caption{\given{The chain from true wind to force on the ship, worked by hand independently of the code and from the code, at a ship speed of \SI{5.4}{m/s} and a wind shear exponent of 0.05. Wing sails of \SI{800}{m^2} at $C_L$ 1 and rotors of \SI{400}{m^2} at spin ratio 3 in a wind of \SI{10}{m/s} at \SI{10}{m}. The kite of \SI{800}{m^2}, at its reference height of \SI{269}{m} and with no side weight, in winds at \SI{10}{m} of 5.88, 6.62, 8.83, 11.16 and \SI{13.80}{m/s}, which put its apparent wind on nodes of its pattern table; the hand calculation takes the force coefficients there from the table, which at apparent wind angles of 15 and \SI{30}{\degree} holds the kite still. True wind angle TWA, apparent wind $V_a$ and its angle AWA, thrust $F_x$ and side force $F_y$.}}
 \label{tab:hand}
 \adjustbox{max width=\columnwidth}{\given{%
 \begin{tabular}{@{}lrrrrrrr@{}}
 \toprule
-Rig & TWA & $V_a$ & AWA & \multicolumn{2}{c}{$F_x$ [kN]} & \multicolumn{2}{c}{$F_y$ [kN]} \\
+Rig & TWA [\si{\degree}] & $V_a$ [m/s] & AWA [\si{\degree}] & \multicolumn{2}{c}{$F_x$ [kN]} & \multicolumn{2}{c}{$F_y$ [kN]} \\
 \cmidrule(lr){5-6}\cmidrule(lr){7-8}
- & [\si{\degree}] & [m/s] & [\si{\degree}] & hand & code & hand & code \\
+ & & & & hand & code & hand & code \\
 \midrule
 Wing & 90 & 11.69 & 62.5 & 51.76 & 51.76 & 41.42 & 41.42 \\
 Wing & 45 & 14.69 & 29.9 & 35.14 & 35.14 & 100.99 & 100.99 \\
@@ -134,11 +136,11 @@ Rotor & 90 & 11.76 & 62.7 & 243.77 & 243.77 & 227.31 & 227.31 \\
 Rotor & 45 & 14.77 & 30.0 & 131.59 & 131.59 & 510.60 & 510.60 \\
 Rotor & 150 & 6.37 & 124.9 & 91.93 & 91.93 & $-32.69$ & $-32.69$ \\
 \midrule
-Kite & 26.6 & 12.00 & 15.0 & 0.15 & 0.15 & 64.41 & 64.41 \\
-Kite & 50.2 & 12.00 & 30.0 & 20.16 & 20.16 & 77.49 & 77.49 \\
-Kite & 86.7 & 12.00 & 60.0 & 118.08 & 118.08 & 239.74 & 239.74 \\
-Kite & 114.2 & 12.00 & 90.0 & 246.68 & 246.68 & 205.69 & 205.69 \\
-Kite & 148.6 & 12.00 & 135.0 & 343.90 & 343.90 & 4.26 & 4.26 \\
+Kite & 26.6 & 12.00 & 15.0 & 0.06 & 0.06 & 64.07 & 64.07 \\
+Kite & 50.2 & 12.00 & 30.0 & 20.00 & 20.00 & 77.21 & 77.21 \\
+Kite & 86.7 & 12.00 & 60.0 & 115.45 & 115.45 & 235.41 & 235.41 \\
+Kite & 114.2 & 12.00 & 90.0 & 244.75 & 244.75 & 226.48 & 226.48 \\
+Kite & 148.6 & 12.00 & 135.0 & 348.90 & 348.90 & 46.73 & 46.73 \\
 \bottomrule
 \end{tabular}}}
 \end{table}
@@ -150,11 +152,12 @@ Kite & 148.6 & 12.00 & 135.0 & 343.90 & 343.90 & 4.26 & 4.26 \\
 
 \stale{model_parts,sensitivity,size_search,tow_point,convergence}{No part is detailed far beyond its effect. The heel, leeway and rudder limits move no cost saving by more than 0.4 points, and we keep them because they cost nothing and stop the router from using trims a ship could not hold. Two rounds of the size search lose at most 0.2 points against every size. The rudder drag costs rotors in a row up to 1.3 points. Towing the kite from the bow mast rather than the hull's lateral centre moves its cost saving by 0.1 points on average (\cref{sec:tow_point}). Each weather year alone moves a cost saving by up to 1.7 points, so a longer record would narrow the results without changing which rig is cheapest. Two parts are coarser than their effect warrants, each a candidate for a better model: the kite's launch and sea limits, whose fixed wind limits and extra launch wind in a sea together move its cost saving by up to 1.3 points (\cref{tab:model_detail}), the extra wind alone, with against without, by about 1 point (\cref{tab:sea_effect}), and which rest on one reported pair of wind speeds (a launch envelope measured at sea); and the corridor spacing (a finer or adaptive corridor), which moves the kite's cost saving by up to 1.8 points and decides between the kite and the rotors on the \SI{140}{m} ship, where they lie within 0.7 points of each other. \stale{router_grid}{On the corridor of the results the kite's saving still lies 1.3 points and the rotors' 0.5 below a reference finer in both, so the router is not converged and its error favours the rotors (\cref{sec:routing}).} The one mean power-law wind profile at the kite's height is coarse as well, and its effect is not measured here (better: hourly profiles from the ERA5 model levels).}
 
+\newpageunlessthirdleft
 {\footnotesize
 \setlength{\LTcapwidth}{\textwidth}
 \setlength{\tabcolsep}{3.5pt}
-\setlength{\extrarowheight}{1pt}
-\begin{longtable}{@{}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{3.9cm}rrr>{\raggedright\arraybackslash}p{2.1cm}>{\raggedright\arraybackslash}p{3.5cm}@{}}
+\setlength{\extrarowheight}{3pt}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{3.9cm}rrr@{\hspace{1.5em}}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{3.5cm}@{}}
 \caption{\stale{model_parts,sensitivity,size_search}{} Each part of the model, how its effect is measured, its model, its effect on the cost saving of each rig, the ships where it changes which rig is cheapest, and its known error. The effect is the largest difference in a rig's cost saving, in percentage points, between the model as it stands and the model with the part changed, or with the inputs named at the part moved over their ranges, over the three ships of the development study. The parts switched off and the weather years come from the method study \studyrun{model_parts}, the router from \studyrun{convergence} and the size search from \studyrun{size_search}. \stale{convergence}{}}
 \label{tab:model_detail}\\
 \toprule
@@ -165,12 +168,14 @@ Part & Model & \multicolumn{3}{c}{Saving moved [pt]} & Cheapest rig changes & Kn
 \endfirsthead
 \multicolumn{7}{@{}l}{\cref{tab:model_detail} (continued)}\\
 \toprule
-Part & Model & kite & wings & rotors & Cheapest rig changes & Known error \\
+Part & Model & \multicolumn{3}{c}{Saving moved [pt]} & Cheapest rig changes & Known error \\
+\cmidrule(lr){3-5}
+ & & kite & wings & rotors & & \\
 \midrule
 \endhead
 \bottomrule
 \endfoot
-\InputIfFileExists{sections/fidelity_table}{}{\multicolumn{7}{@{}l}{\tbd{Pending: run the fidelity\_table step.}}\\}
+\tablerows{sections/fidelity_table}
 \end{longtable}}
 
 \subsection{Limits that act on every rig}
@@ -198,7 +203,7 @@ A rig's side force turns the ship unless it acts where the hull's own side force
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{tow_point}
-\caption{\stale{tow_point}{} Fuel (a) and cost (b) saving of each class's kite with its tow point at the hull's lateral centre, at midship with the mast taking the deck slots it takes at the bow, the least it can take there, and at midship with the mast taking one whole deck bay of a container ship, the most, less the same saving with its tow point at the bow, the line at zero; the marker is the mean over the two routes and the bar their range. Classes are sorted by deadweight. Method study, \studyrun{tow_point}.}
+\caption{\stale{tow_point}{} Fuel (a) and cost (b) saving of each class's kite with its tow point at the hull's lateral centre, at midship with the mast taking the deck slots it takes at the bow, the least it can take there, and, on container ships only, at midship with the mast taking one whole deck bay, an estimate of the most it can take, less the same saving with its tow point at the bow, the line at zero; the marker is the mean over the two routes and the bar their range. Classes are sorted by deadweight. Method study, \studyrun{tow_point}.}
 \label{fig:tow_point}
 \end{figure*}
 
@@ -239,7 +244,8 @@ Every wing sail and rotor result, and the kite's on courses across the wind, pas
 
 \begin{table*}[tbp]
 \centering
-\caption{\stale{flight}{} Where the kite works over the 28 cases with a kite, each with its cheapest size, by band of true wind angle: share of the time in the band, share of that time in which the kite could pull, is up and pulls, its mean thrust while up, lulls and upwind drag included, the share of the hours at each ship speed in which it could pull and in which it is up, the speed of the ship without a rig and of the kite ship in that band, and the lowest apparent wind angle (AWA) at which each rig pulls. \tbd{Draft run.}}
+\footnotesize
+\caption{\stale{flight}{} Where the kite works over the 28 cases with a kite, each with its cheapest size, by band of true wind angle: share of the time in the band, share of that time in which the kite could pull, is up and pulls, its mean thrust while up, lulls and upwind drag included, the share of the hours at each ship speed in which it could pull and in which it is up, the speed of the ship without a rig and of the kite ship in that band, and the lowest apparent wind angle (AWA) at which each rig pulls. A dash marks a ship speed the kite ship does not sail in that band. \tbd{Draft run.}}
 \label{tab:flight}
 \adjustbox{max width=\textwidth}{\InputIfFileExists{sections/flight_table}{}{\tbd{Flight table pending: run the flight\_table step.}}}
 \end{table*}
@@ -284,7 +290,8 @@ The kites of \citet{podeur2016} and \citet{leloup2013} pull with a glide ratio o
 
 \begin{table}[tbp]
 \centering
-\caption{\stale{published_terms}{} Published fuel savings of ship kites at fixed speed beside our model at the same speed on the nearest of our ships and on the route to New York: with the kite priced as in the rest of this paper, and free of running cost as in the published studies. Ships, routes, weather and kite models differ, so a row compares terms and not one experiment. \tbd{Draft run.} Method study, \studyrun{published_terms}.}
+\footnotesize
+\caption{\stale{published_terms}{} Published fuel savings of ship kites at fixed speed beside our model at the same speed on the nearest of our ships and on the route to New York: with the kite priced as in the rest of this paper, and free of running cost as in the published studies. Covers says what a published figure stands for where that is narrower than a year of trips. Ships, routes, weather and kite models differ, so a row compares terms and not one experiment. \tbd{Draft run.} Method study, \studyrun{published_terms}.}
 \label{tab:published}
 \adjustbox{max width=\columnwidth}{\InputIfFileExists{sections/published_table}{}{\tbd{Published table pending: run the published\_table step.}}}
 \end{table}
@@ -311,7 +318,7 @@ The kites of \citet{podeur2016} and \citet{leloup2013} pull with a glide ratio o
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{cargo_interest}
-\caption{\stale{cargo_interest}{} What cargo interest does to the rigs on e-ammonia, each the mean over the routes at the best size of the rig: the cost saving on every class at low and high cargo interest (a); and against cargo value on a Kamsarmax bulk carrier and a Neo-Panamax container ship, the cost saving (b), its part from time as in \cref{tab:split} (c) and the speed the rig adds (d). Method study, \studyrun{cargo_interest}.}
+\caption{\stale{cargo_interest}{} What cargo interest does to the rigs on e-ammonia, each the mean over the routes at the best size of the rig: the cost saving on every class at low and high cargo interest (a), the interest on the cargo's value at the low (ring) and high (pale disc) discount rate of \cref{tab:inputs}, a ring on a disc where both give the same saving; and against cargo value on a Kamsarmax bulk carrier and a Neo-Panamax container ship, the cost saving (b), its part from time as in \cref{tab:split} (c) and the speed the rig adds (d). Method study, \studyrun{cargo_interest}.}
 \label{fig:cargo_interest}
 \end{figure*}
 

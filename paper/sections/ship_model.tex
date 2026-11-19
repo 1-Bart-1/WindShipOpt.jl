@@ -1,102 +1,104 @@
 % SPDX-FileCopyrightText: 2026 Bart van de Lint
 % SPDX-License-Identifier: AGPL-3.0-or-later
-\begin{tikzpicture}[x=1mm, y=1mm, font=\footnotesize,
-  water/.style={blue!70!black}, air/.style={black!55}, rig/.style={orange!80!black},
-  force/.style={->, line width=1.1pt},
-  part/.style={align=left, inner sep=1pt},
-  box/.style={draw, rounded corners=2pt, minimum height=17mm, inner sep=0pt},
-  boxtitle/.style={font=\footnotesize\bfseries, anchor=north west, inner sep=0pt},
-  boxtext/.style={align=left, anchor=north west, inner sep=0pt},
-  shipc/.style={fill=blue!8}, rigc/.style={fill=orange!14},
-  arrow/.style={->, semithick},
-]
-% ---- from above, bow to the right; the wind comes from the top
-\node[font=\footnotesize\itshape, anchor=west] at (0,29) {(a) from above};
-\draw[fill=black!8] (20,-5) -- (23,-6) -- (74,-6) .. controls (83,-6) and (88,-3) .. (91,0)
-  .. controls (88,3) and (83,6) .. (74,6) -- (23,6) -- (20,5) -- cycle;
-\fill[black!25] (23.5,-4.5) rectangle (29,4.5);
-\draw[air, ->, thick] (68,27) -- (61,17) node[pos=0.3, right] {apparent wind};
-% leeway: the heading against the course through the water
-\draw[black!50, dotted] (13,0) -- (0,0) node[black!70, anchor=north west, inner sep=1pt, pos=1] {heading};
-\draw[black!50, dashed] (55,0) -- (0,6);
-\draw[black!50] (6,0) arc[start angle=180, end angle=173.7, radius=49];
-\node[black!70] at (3.6,2.1) {$\beta$};
-\node[black!70, anchor=south west, inner sep=1pt] at (0,6) {course};
-% propeller under the stern, rudder behind it
-\fill[black!75] (18.6,0) ellipse (0.55 and 2.8);
-\fill[black!75] (18.6,0) circle (0.8);
-\fill[water] (17.6,0) .. controls (17.2,0.75) and (14.6,0.55) .. (13.4,0)
-  .. controls (14.6,-0.55) and (17.2,-0.75) .. (17.6,0) -- cycle;
-\draw[force] (18.6,0) -- (39,0) node[right, inner sep=1pt] {$T_\mathrm{req}$};
-\draw[force, water] (15.5,0.7) -- (14.0,10.5);
-\node[part, water, anchor=south, align=center] at (14.0,10.8) {rudder: $F_r$, drag $R_r$\inpaper{, \S\ref{sec:balance}}};
-\node[part, anchor=north east, align=right] at (19.4,-4.6) {propeller\inpaper{, \S\ref{sec:ships}}};
-% wind on the ship
-\draw[force, air] (40,19) -- (31,6.5);
-\node[part, air, anchor=east, align=right] at (39,21.5) {wind on ship: $R_\mathrm{air}$,\\ side force, moments\inpaper{, \S\ref{sec:ships}}};
-% rig
-\fill[rig] (50,0) circle (1.3);
-\draw[rig, dashed, ->, semithick] (50,0) -- (62,0) node[above, rig, inner sep=1pt] {$F_x$};
-\draw[rig, dashed, ->, semithick] (50,0) -- (50,-14) node[pos=0.55, left, rig] {$F_y$};
-\draw[force, rig] (50,0) -- (62,-14);
-\node[part, rig, anchor=north, align=center] (riglabel) at (52,-15.5) {rig: $F_x$, $F_y$, $M_x$, $M_z$, $P_\mathrm{rig}$\inpaper{,\\ \S\ref{sec:deck_rigs}, \S\ref{sec:kite}}};
-% hull at leeway
-\draw[force, water] (75.9,-18) -- (74,-6);
-\node[part, water, anchor=west] at (77,-14) {hull at leeway $\beta$:\\ side force, drag $R_\beta$\inpaper{, \S\ref{sec:balance}}};
-% resistances on the bow
-\draw[force, water] (106,2.2) -- (89,2.2);
-\draw[force, water] (106,-2.2) -- (89,-2.2);
-\draw[water, semithick] (106,-4.3) sin (107.25,-3.6) cos (108.5,-4.3) sin (109.75,-5) cos (111,-4.3);
-\node[part, water, anchor=west] at (106,3.6) {$R_\mathrm{cw}$ calm water};
-\node[part, water, anchor=west] at (106,-0.8) {$R_\mathrm{aw}$ waves};
-\node[part, water, anchor=north west] at (106,-6) {\inpaper{\S\ref{sec:ships}}};
-% ---- from astern, heeled to leeward: wing sail or rotor against kite
-\node[font=\footnotesize\itshape, anchor=west] at (122,29) {(b) from astern};
-\begin{scope}[shift={(142,0)}]
-  \fill[blue!6] (-9.5,-9) rectangle (21,0);
-  \begin{scope}[rotate=-8]
-    \draw[fill=black!8] (-8,5) -- (-8,-3) arc[start angle=180, end angle=270, radius=2]
-      -- (6,-5) arc[start angle=270, end angle=360, radius=2] -- (8,5) -- cycle;
-    \fill[black!35] (-0.7,5) rectangle (0.7,27);
-    \coordinate (wing) at (0,18);
-    \coordinate (tow) at (0,5);
-    % centre of gravity at the waterline, metacentre on the mast
-    \draw[black!60, |<->|] (-2.5,0) -- (-2.5,14.4) node[pos=0.6, left, inner sep=1pt] {$GM$};
-    \fill[black] (0,0) circle (0.45);
-    \draw[black, fill=white] (0,14.4) circle (0.45);
-  \end{scope}
-  \draw[black!60, dashed] (0,0) -- (0,25);
-  \draw[black!60] (0,22) arc[start angle=90, end angle=82, radius=22];
-  \node[black!60] at (1.5,24.5) {$\phi$};
-  \draw[black!50, densely dashed] (tow) -- ++(12,8) node[above, black!60, inner sep=1pt] {to kite};
-  \draw[force, rig] (wing) -- ++(10,0);
-  \node[part, rig, anchor=south west] at ([shift={(1.8,0.3)}]wing) {deck rig};
-  \draw[force, rig] (tow) -- ++(8,0);
-  % righting couple: weight down through the centre of gravity, buoyancy up to leeward of it
-  \draw[force] (0,0) -- (0,-4.4) node[pos=0.6, left, inner sep=1pt] {$\Delta g$};
-  \fill[water] (2,-3.4) circle (0.45);
-  \draw[force, water] (2,-3.4) -- (2,1.4) node[pos=0.55, right, water, inner sep=1pt] {$\Delta g$};
-  \draw[force, water] (17.5,-2.5) -- (7.9,-2.5);
-  \draw[black!60, |<->|] (-18.5,-2.5) -- (-18.5,0 |- wing) node[above right, align=left, inner sep=1pt, xshift=-1mm] {deck rig\\ lever};
-  \draw[black!60, |<->|] (-12,-2.5) -- (-12,0 |- tow) node[above, align=center, inner sep=1pt] {kite\\ lever};
-  \node[black!60, anchor=north] at (5,-9.5) {heel $\phi\le\SI{8}{\degree}$\inpaper{, \S\ref{sec:balance}}};
+\begin{tikzpicture}[x=1mm, y=1mm]
+% ---- (a) from above, bow to the right, midship at x = 52; the wind comes from the top
+\node[panel] at (0,34) {(a) From above};
+\begin{scope}[shift={(52,0)}, scale=0.55, transform shape]
+  \pic {ship above};
+  \pic at (-30,0) {rotor above};
+  \pic at (20,0) {rotor above};
+  \fill[keel] (-71,-0.5) rectangle (-69,0.5);
+  \coordinate (rudder) at (-70,0);
+  \coordinate (propeller) at (-66,0);
+  \coordinate (windcentre) at (-10,0);
+  \coordinate (effort) at (-5,0);
+  \coordinate (lateral) at (49,0);
+  \coordinate (bow) at (75,0);
 \end{scope}
-% ---- how the parts combine
-\pgfmathsetmacro{\rowy}{-34}
-\node[box, shipc, minimum width=52mm, anchor=north west] (thrust) at (0,\rowy) {};
-\node[boxtitle] at ([shift={(2,-2)}]thrust.north west) {Required thrust $T_\mathrm{req}$};
-\node[boxtext, text width=49mm] at ([shift={(2,-7)}]thrust.north west) {the resistances less the rig's\\ thrust $F_x$\inpaper{, \cref{eq:thrust}}};
-\node[box, shipc, minimum width=34mm, anchor=north west] (prop) at (56,\rowy) {};
-\node[boxtitle] at ([shift={(2,-2)}]prop.north west) {Propeller};
-\node[boxtext, text width=31mm] at ([shift={(2,-7)}]prop.north west) {ideal disk with a viscous loss\inpaper{, \S\ref{sec:ships}}};
-\node[box, shipc, minimum width=36mm, anchor=north west] (engine) at (94,\rowy) {};
-\node[boxtitle] at ([shift={(2,-2)}]engine.north west) {Engine and fuel};
-\node[boxtext, text width=33mm] at ([shift={(2,-7)}]engine.north west) {output $P$ for propeller, rotor spin $P_\mathrm{rig}$ and hotel load; fuel at part load\inpaper{, \S\ref{sec:ships}}};
-\node[box, rigc, minimum width=30mm, anchor=north west] (trim) at (134,\rowy) {};
-\node[boxtitle] at ([shift={(2,-2)}]trim.north west) {Best trim};
-\node[boxtext, text width=27mm] at ([shift={(2,-7)}]trim.north west) {least $P$ within the limits on $\phi$, $\beta$ and rudder\inpaper{, \S\ref{sec:balance}}};
-\draw[arrow] (thrust) -- (prop);
-\draw[arrow] (prop) -- (engine);
-\draw[arrow] (engine) -- (trim);
-\draw[arrow, rig] (trim.north) -- ++(0,5.5) -| node[pos=0.25, above, font=\scriptsize] {trim of the rig} (riglabel.south);
+\draw[flow, wind] (101,23) -- (95,14);
+\node[label, wind, anchor=south] at (101,24) {apparent wind};
+% leeway: the course through the water against the heading, the centreline
+\draw[guide, dashed] (rudder) -- (0.5,4.6);
+\node[label, anchor=south west] at (0,4.8) {course};
+\draw[guide] ([xshift=-9mm]rudder) arc[start angle=180, end angle=160.6, radius=9];
+\node[label] at (3.2,1.3) {$\beta$};
+% water: rudder, propeller, hull, calm water and waves
+\draw[force, water] (rudder) -- ++(-7.5,0);
+\node[label, watertext, anchor=north] at ([xshift=-4mm, yshift=-1mm]rudder) {$R_r$};
+\draw[force, water] (rudder) -- ++(0,11.5);
+\node[label, watertext, anchor=south west] at ([xshift=-4mm, yshift=12.6mm]rudder) {rudder: $F_r$, $R_r$\inpaper{, \S\ref{sec:balance}}};
+\draw[force, water] (propeller) -- ++(10,0);
+\node[label, watertext, anchor=south] at ([xshift=5mm, yshift=1mm]propeller) {$T_\mathrm{req}$};
+\draw[force, water] (lateral) -- ++(-8,0);
+\node[label, watertext, anchor=south] at ([xshift=-4mm, yshift=1mm]lateral) {$R_\beta$};
+\draw[force, water] ([yshift=-17mm]lateral) -- ([yshift=-6.4mm]lateral);
+\node[label, watertext, anchor=west, align=left] at ([xshift=1mm, yshift=-14.5mm]lateral) {hull at leeway $\beta$:\\ $Y_\mathrm{h}$, $R_\beta$\inpaper{, \S\ref{sec:balance}}};
+\draw[force, water] ([xshift=8.5mm]bow) -- ([xshift=0.3mm]bow);
+\draw[force, water] ([xshift=17mm]bow) -- ([xshift=8.8mm]bow);
+\node[label, watertext, anchor=south] at ([xshift=4.3mm, yshift=1mm]bow) {$R_\mathrm{cw}$};
+\node[label, watertext, anchor=south] at ([xshift=12.9mm, yshift=1mm]bow) {$R_\mathrm{aw}$};
+\node[label, watertext, anchor=north, align=center] at ([xshift=8.6mm, yshift=-1.6mm]bow) {calm water,\\ waves\inpaper{, \S\ref{sec:ships}}};
+% wind on the ship
+\draw[force, wind] (windcentre) -- ++(-6.5,0);
+\node[label, wind, anchor=north] at ([xshift=-3.2mm, yshift=-1mm]windcentre) {$R_\mathrm{air}$};
+\draw[force, wind] ([yshift=17mm]windcentre) -- ([yshift=6.4mm]windcentre);
+\node[label, wind, anchor=south] at ([yshift=18mm]windcentre) {wind on the ship: $Y$, $R_\mathrm{air}$\inpaper{, \S\ref{sec:ships}}};
+% rig, at its centre of effort
+\fill (effort) circle (0.9);
+\draw[force] (effort) -- ++(8.5,0);
+\node[label, anchor=south] at ([xshift=5.5mm, yshift=1mm]effort) {$F_x$};
+\draw[force] (effort) -- ++(0,-12);
+\node[label, anchor=east] at ([xshift=-1mm, yshift=-10mm]effort) {$F_y$};
+\node[label, anchor=north west, align=left] (riglabel) at ([xshift=1.6mm, yshift=-4.5mm]effort) {rig: $F_x$, $F_y$, $M_x$,\\ $M_z$, $P_\mathrm{rig}$\inpaper{, \S\ref{sec:deck_rigs}, \S\ref{sec:kite}}};
+% levers of the side forces about midship
+\draw[leader] ([yshift=-6.4mm]rudder) -- ([yshift=-23mm]rudder);
+\draw[leader] (52,-17) -- (52,-23);
+\draw[leader] ([yshift=-17.4mm]lateral) -- ([yshift=-23mm]lateral);
+\draw[dimension] ([yshift=-21mm]rudder) -- (52,-21) node[label, text=black, midway] {$L/2$};
+\draw[dimension] (52,-21) -- ([yshift=-21mm]lateral) node[label, text=black, midway] {$x_\mathrm{h}$};
+% ---- (b) from ahead, heeled to leeward, the wind from the right: deck rig against kite
+\node[panel] at (119,34) {(b) From ahead};
+\begin{scope}[shift={(146,0)}]
+  \fill[water!25] (-16,-10.5) rectangle (16,0);
+  \begin{scope}[rotate=8, scale=0.7, transform shape]
+    \pic {ship ahead};
+    \pic at (0,9.8) {rotor};
+    \coordinate (effort) at (0,26.8);
+    \coordinate (tow) at (0,9.8);
+  \end{scope}
+  \draw[guide, dashed] (0,25) -- (0,33);
+  \draw[guide] (0,31.5) arc[start angle=90, end angle=98, radius=31.5];
+  \node[label, anchor=west] at (0.6,31.5) {$\phi$};
+  \draw[guide, densely dashed] (tow) -- ++(-12,6) node[label, text=black, anchor=east, pos=1] {to kite};
+  \draw[force] (effort) -- ++(-10,0) node[label, anchor=east, pos=1, xshift=-1mm] {deck rig $F_y$};
+  \draw[force] (tow) -- ++(-9,0) node[label, anchor=east, pos=1, xshift=-1mm] {kite $F_y$};
+  % righting couple: weight down through the centre of gravity, buoyancy up to leeward of it
+  \fill (0,0) circle (0.45);
+  \draw[crossing] (0,0) -- (0,-9) (-2.5,-9) -- (-2.5,-0.4);
+  \draw[force] (0,0) -- (0,-9) node[label, anchor=west, pos=0.85, xshift=1mm] {$\Delta g$};
+  \draw[force, water] (-2.5,-9) -- (-2.5,-0.4) node[label, text=watertext, anchor=east, pos=0.15, xshift=-1mm] {$\Delta g$};
+  \draw[force, water] (-19,-3.2) -- (-8.6,-3.2);
+  \node[label, watertext, anchor=east] at (-19.6,-3.2) {$Y_\mathrm{h}$};
+  \draw[dimension, |<->|] (14,-3.2) -- (14,0 |- effort)
+    node[label, text=black, rotate=90, anchor=north, pos=0.55, xshift=0.8mm] {deck rig};
+  \draw[dimension, |<->|] (9.5,-3.2) -- (9.5,0 |- tow)
+    node[label, text=black, rotate=90, anchor=north, pos=0.5, xshift=0.8mm] {kite};
+  \node[label, anchor=north] at (0,-11) {heel $\phi\le\SI{8}{\degree}$\inpaper{, \S\ref{sec:balance}}};
+\end{scope}
+% ---- (c) how the parts combine
+\node[panel] at (0,-30) {(c) How the parts combine};
+\pgfmathsetmacro{\rowy}{-35}
+% #1 name, #2 x, #3 kind, #4 width, #5 title, #6 what it does
+\newcommand{\partbox}[6]{%
+  \node[#3 box, minimum width=#4mm, minimum height=17mm, anchor=north west] (#1) at (#2,\rowy) {};
+  \node[box title, anchor=north west] at ([shift={(2,-2)}]#1.north west) {#5};
+  \node[box text, anchor=north west, text width=#4mm-4mm] at ([shift={(2,-7)}]#1.north west) {#6};}
+\partbox{thrust}{0}{ship}{36}{Required thrust $T_\mathrm{req}$}{the resistances less the rig's thrust $F_x$\inpaper{, \cref{eq:thrust}}}
+\partbox{prop}{40}{ship}{34}{Propeller}{ideal disk with a viscous loss\inpaper{, \S\ref{sec:ships}}}
+\partbox{engine}{78}{ship}{40}{Engine and fuel}{output $P$ for propeller, rotor spin $P_\mathrm{rig}$ and hotel load; fuel at part load\inpaper{, \S\ref{sec:ships}}}
+\partbox{trim}{122}{rig}{40}{Best trim}{least $P$ within the limits on $\phi$, $\beta$ and rudder\inpaper{, \S\ref{sec:balance}}}
+\draw[flow] (thrust) -- (prop);
+\draw[flow] (prop) -- (engine);
+\draw[flow] (engine) -- (trim);
+\draw[flow] (trim.north) |- (60,-28) node[label, pos=0.75, above, yshift=1mm] {trim of the rig} -- ([yshift=-1mm]60,0 |- riglabel.south);
 \end{tikzpicture}

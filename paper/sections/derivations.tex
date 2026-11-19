@@ -49,7 +49,7 @@ The factor of 1.3 in the mast height comes from two masts. The telescopic lift t
 \subsection{Canopy mass against the SkySails kite}
 \label{app:canopy_mass}
 
-The \SI{225}{m^2} flat SkySails kite of \SI{120}{kg} with its lines, \SI{0.68}{kg/m^2} projected \citep{paulig2013}, leaves \SI{0.19}{kg/m^2} beyond our estimates of \SI{66}{kg} of cloth and \SI{18}{kg} of lines. It was built for about \SI{0.9}{kN/m^2} projected, so in proportion to the limit that is about \SI{0.11}{kg/m^2} at the base limit.
+The \SI{225}{m^2} flat SkySails kite of \SI{120}{kg} with its lines, \SI{0.68}{kg/m^2} projected \citep{paulig2013}, leaves \SI{0.17}{kg/m^2} beyond our estimates of \SI{72}{kg} of cloth, sewn as \cref{eq:canopy_cloth} gives at \SI{105}{g/m^2}, and \SI{18}{kg} of lines. It was built for about \SI{0.9}{kN/m^2} projected, so in proportion to the limit that is about \SI{0.09}{kg/m^2} at the base limit, within the high bound of \SI{0.19}{kg/m^2}.
 
 \subsection{Canopy prices}
 \label{app:canopy_price}
@@ -57,71 +57,58 @@ The \SI{225}{m^2} flat SkySails kite of \SI{120}{kg} with its lines, \SI{0.68}{k
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Canopy price today and at the goal, USD per projected square metre unless stated. Sourced inputs are in \cref{tab:inputs}.}
+\caption{Canopy cost and price of the \SI{3200}{m^2} kite by \cref{eq:canopy_price}, USD per projected square metre unless stated. The price is an estimate; its range spans the market factor and the surveyed fabric cost at their bounds (\cref{tab:inputs}).}
 \label{tab:canopy_price}
-\begin{tabular}{@{}lrr@{}}
+\begin{tabular}{@{}lr@{}}
 \toprule
-& Today & Goal \\
-\midrule
-Cloth, USD per sewn m$^2$ of cloth & 17 & 9.4 \\
-Cloth per projected m$^2$ & 60 & 33 \\
-Sewing, hours per flat m$^2$ & 1.5 & 1.0 \\
-Making cost & 57 & 42 \\
-Cost to make & 117 & 75 \\
-Price at a market factor of 2 & 234 & 150 \\
+Surveyed fabric, EUR per flat m$^2$ & 45 \\
+Surveyed bridle, EUR per flat m$^2$ & 8 \\
+Fabric at the paragliders' proportion & 73 \\
+Fabric at this kite's cloth, 1.33 times & 97 \\
+Bridle & 13 \\
+Cloth from 100 to \SI{200}{g/m^2} & 14 \\
+Cost & 120 \\
+Price at a market factor of 2 & \NumCanopyPrice \\
+Range & \NumCanopyPriceLow{} to \NumCanopyPriceHigh \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Today's hours are the low end of what a maker's 50 hours per paraglider gives \citep{skycz2017}. Polyester sailcloth of 170 to \SI{215}{g/m^2} costs USD~11 to 19 per square metre at retail without VAT \citep{extremtextil_prices_2026,sailrite_dacron_prices_2026}. The goal's 1.0 hour is inferred from the G-12 cargo parachute in a year of stock-building, when a USD~19.2~million order bought \num{5566} complete assemblies \citep{bis2004,mills_g12_web}.
+The survey states its cost per flat square metre and turns it into one per projected square metre with 25/18 \citep{joshi2024refeconomic}, more than the 1.17 of the kite modelled here (\cref{tab:inputs}); we keep its conversion, which errs towards a more expensive canopy. It gives a single figure without a spread, says the costs leave out overhead in development and manufacturing and the profit margin, and does not say whether its fabric cost includes the sewing. Prices actually paid for ram-air canopies agree with the base. A closed-cell sport kite of \SI{21}{m^2}, made in China, sells without VAT for EUR~\num{2071} with its bags and without lines or bar \citep{varuste2026soul21}. Taking its size as flat area, that is USD~160 per projected square metre at the survey's conversion, and about USD~180 with cloth of \SI{200}{g/m^2} in place of its own of about \SI{40}{g/m^2}, within the 27 to \SI{55}{g/m^2} of kite cloth \citep{porcher2006skytex_tds}. The US Army bought ram-air parafoils of about 265 to \SI{337}{m^2} by our reading of their span and chord, with their airborne guidance unit for USD~\num{85000} to \num{95000} each in lots of 15 to 131 \citep{army2014ma7804,army2016ma7804,army2017ma7804}, about USD~250 to 360 per square metre with the guidance unit. Neither contradicts the survey's figure with the market factor.
 
-\subsection{Seams and cloth of a ship kite}
+\subsection{Cells, seams and cloth of a ship kite}
 \label{app:seam_cloth}
 
-\begin{table}[tbp]
+\begin{figure}[tbp]
 \centering
-\footnotesize
-\caption{Cell layout of a paraglider and of ship kites. The paraglider is an Ozone Rush~5 \tbd{(source to add)}. The SkySails cell count is from \citet{paulig2013}, the widths by our reading.}
-\label{tab:seam_cloth}
-\begin{tabular}{@{}lrrr@{}}
-\toprule
-& Paraglider & SkySails \SI{225}{m^2} flat & This kite \SI{800}{m^2} \\
-\midrule
-Flat aspect ratio & 5.55 & -- & 3.76 \\
-Cells & 57 & 22 & 31 \\
-Cell width (m) & 0.21 & 1.1 & 1.9 \\
-Cell length over width & 10.3 & 8.1 & 8.1 \\
-Seam per flat m$^2$ (m) & 14 & -- & 2.5 to 4.5 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\plot{canopy_cells}
+\caption{Chord over cell width of ram-air canopies against their mean chord, both from flat area, flat span and cell count: paragliders \citep{ozone_ultralite3,ozone_ultralite4,nova_prion,advance_alpha8,ozone_geo6,ozone_spyder3,ozone_rush3,nova_mentor2,ozone_rush5,advance_iota_dls,ozone_rush6,ozone_zeno2,ozone_enzo3,advance_pibi,advance_bibeta6,ozone_magnum3,ozone_magnum4}, a traction kite \citep{flysurfer_soul4} and parafoils, a small test canopy \citep{gavrilovski2012}, the MC-4/5 personnel parachute counted rib to rib \citep{schairer2019}, two wind-tunnel models of one cargo parachute \citep{geiger1990} and the DragonFly cargo parachute \citep{airborne_dragonfly}. The sizes of each model line share one cell count, so each line is shown by its largest size. The line is \cref{eq:canopy_cloth} at base inputs, solid over the canopies and dashed beyond them, the band its bounds of $\beta$, and the grey span the chords of the kites of 500 to \SI{16000}{m^2} the class study searches.}
+\label{fig:canopy_cells}
+\end{figure}
 
-No source says what share of the hours follows seam length. At shares of 20, 50 and 80\,\% the 1.5 hours become about 1.3, 0.9 and 0.6 hours, before heavier cloth, load seams and the handling of large panels. \citet{dunker2013} recommends about \SI{115}{kg} at most per subassembly under a sewing machine, so our \SI{600}{kg} canopy of \SI{800}{m^2} takes at least six modules.
+Each model line scales its sizes at a fixed cell count, so within a line the cell width grows with the chord. Across designs it grows more slowly (\cref{fig:canopy_cells}): the slope of the logarithm of the cell width on that of the mean chord is $0.72\pm0.12$ over the 23 models, $0.54\pm0.19$ over the six that are not paragliders, and the chord over the cell width spreads by about a third either side of the line. Builders keep the cell narrower than the section is thick, which shapes the wing more truly at the cost of more lines \citep{dunker2013}; at a thickness of 15\,\% of the chord that is a chord over cell width above about 7. The SkySails kite of \SI{125}{m^2} projected has 38 cells on \SI{15.2}{m} of projected span \citep{folkersma2020}, so they are at least \SI{0.46}{m} wide flat, against \SI{0.63}{m} from \cref{eq:canopy_cloth} at its size; its flat span is not published, so the fit leaves it out. No cell count is published for a canopy larger than \SI{325}{m^2}.
 
-For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre and ribs and diagonals scale with the proportion, giving \SI{3.3}{m^2} per projected square metre at 31 cells (2.9 to 3.9), 3.0 at 22 cells and a floor of 2.4 at no ribs, against the 3.5 the model uses (\cref{tab:inputs}). Cell width is typically below section thickness \citep{dunker2013}, so 3.3 is the more likely. The spread of the cost savings in \cref{tab:missed_goals} suggests 0.2 to 0.4 points of cost saving for USD~9 and 0.4 to 1.0 for USD~24.
+On the \SI{800}{m^2} kite \cref{eq:canopy_cloth} gives about 55 cells \SI{1.0}{m} wide, against 0.12 to \SI{0.35}{m} on paragliders, so the seams between ribs and skins are about \SI{3}{m} per flat square metre, against about \SI{14}{m} on a paraglider of cells \SI{0.21}{m} wide. The price counts the fabric's seams and sewing with its cloth (\cref{eq:canopy_price}), so the \SI{800}{m^2} kite pays a fifth more for them than at the paragliders' proportion although it has a fifth of their seam per square metre; no source says what share of the surveyed cost follows seam length, so this errs towards a more expensive canopy. \citet{dunker2013} recommends about \SI{115}{kg} at most per subassembly under a sewing machine, so our \SI{720}{kg} canopy of \SI{800}{m^2} takes at least seven modules.
+
+For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre, and ribs and diagonals \SI{0.101}{m^2} per unit of chord over cell width, which makes \SI{3.0}{m^2} per flat square metre, our estimate for paragliders from their weights \citep{advance_alpha8,nova_prion,nova_mentor2}, at their 9.3. \Cref{eq:canopy_cloth} then gives the \SI{3200}{m^2} kite \SI{4.7}{m^2} of cloth per projected square metre, against 3.5 at $\beta=1$ and a floor of 2.4 with no ribs at all (\cref{tab:canopy_variants}).
 
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Effect of a lower cloth ratio or fewer sewing hours on the goal price and the canopy mass.}
+\caption{Effect of the cell width growing as fast as the chord or faster, and of less rib cloth or none, on the canopy price of the \SI{3200}{m^2} kite, as a change against its base price of about USD~\NumCanopyPrice{} (\NumCanopyPriceLow{} to \NumCanopyPriceHigh) per projected square metre (\cref{tab:canopy_price}), and on its canopy mass, at the base with in brackets its range when each input in turn takes its low or high bound (\cref{tab:inputs}).}
 \label{tab:canopy_variants}
 \begin{tabular}{@{}lrr@{}}
 \toprule
-Variant & Price (USD/m$^2$) & Canopy mass (kg/m$^2$) \\
+Variant & Change of price [USD/m$^2$] & Canopy mass [kg/m$^2$] \\
 \midrule
-Base & 150 & 0.75 \\
-Cloth ratio 3.0 & $-9$ & 0.65 \\
-Cloth ratio 2.4, no ribs & $-21$ & 0.53 \\
-Sewing 0.8 h & $-12$ & 0.75 \\
-Sewing 0.6 h & $-24$ & 0.75 \\
+Base & 0 & 0.98 (0.75--1.3) \\
+Cells widening with the chord, $\beta=1$ & $-55$ & 0.75 \\
+Cells widening slower, $\beta=0.5$ & $+82$ & 1.32 \\
+Rib cloth at its low bound & $-22$ & 0.79 \\
+No ribs & $-62$ & 0.53 \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-\subsection{Learning curve check of the canopy price}
-\label{app:learning_curve}
-
-For sewing the ratio per doubling is $p=0.93$ for the sewing section of a small shirt workshop over its first few dozen shirts \citep{badri2016} and 0.77 to 0.83 for three textile students with 3 to 12 years of work at the machine, sewing in a zip over 20 cycles \citep{yepez2025}, against the 0.75 to 0.95 called typical of industry \citep{tamas2020}. These runs last hours at most. We take 0.83 and 0.93 as the ends, leaving out the 0.77 of the fastest learner since a check should not rest on one person; with it the fastest case at \num{1000} canopies would be 0.62 rather than 0.80 hours. No maker publishes its volume, so the curve starts at 0.1 and at 1 million flat square metres, a new plant inheriting part of the paraglider experience and the whole history of an established maker. We test no floor and a floor of 0.6 hours, the bottom of the G-12 range, with the curve acting on the time above it. At \num{1000} canopies of \SI{800}{m^2} this gives 0.80 to 1.44 hours per flat square metre and at \num{10000} canopies 0.44 to 1.30 hours. With the floor and $p=0.93$ learning alone never reaches the goal at a volume a fleet would buy. Polyester fibre has $p=0.72$ over 13 years of its industry's cumulative output \citep{lafond2018}, and that output is far more than a fleet buys\tbd{ (source to add: Textile Exchange 2025)}.
 
 \subsection{Data behind the canopy life}
 \label{app:canopy_life_inputs}
@@ -142,12 +129,14 @@ For sewing the ratio per doubling is $p=0.93$ for the sewing section of a small 
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Canopy life at \SI{200}{g/m^2} with one input at each bound, in flight hours.}
+\caption{Canopy life at \SI{200}{g/m^2} from the strength decay with one input at each bound, in flight hours, the bound giving the shorter life first. The base retires the cloth at 4\,\% of its new strength, below both retirement strengths of the last row, so both give a shorter life. The goal is \num{3000} hours, with this table's range of \numrange{1200}{6900} hours.}
 \label{tab:canopy_life_range}
 \begin{tabular}{@{}lrr@{}}
 \toprule
-Input changed alone & Low & High \\
+Input changed alone & Shorter life & Longer life \\
 \midrule
+All inputs at base & \multicolumn{2}{c}{\num{3800}} \\
+\addlinespace
 Wear rate $r$ & \num{2200} & \num{6900} \\
 Reference dose $D_\mathrm{ref}$ & \num{3100} & \num{4400} \\
 UV exponent $a$ & \num{3600} & \num{4200} \\
@@ -165,7 +154,7 @@ The goal of \num{3000} hours lies below the longest statements and below the lif
 \subsection{Cloth tension data}
 \label{app:cloth_tension}
 
-The \SI{3200}{m^2} kite in \SI{12}{m/s} of apparent wind, \SI{90}{\degree} off downwind, flies a cycle of \SI{82}{s}, with a tether force of 1.12 to \SI{1.60}{MN}, at the force limit for 68\,\% of the cycle, and the cloth carries \SI{237}{N/m} on average. The radius of \SI{0.41}{m} takes the SkySails kite of \SI{125}{m^2} projected, with 38 cells over \SI{15.2}{m} of projected span and a largest chord of \SI{9.26}{m} \citep{folkersma2020}, and a section 15\,\% thick, our assumption.
+\stale{canopy_tension}{The \SI{3200}{m^2} kite in \SI{12}{m/s} of apparent wind, \SI{90}{\degree} off downwind, flies a cycle of \SI{82}{s}, with a tether force of 1.12 to \SI{1.60}{MN}, at the force limit for 68\,\% of the cycle, and the cloth carries \SI{237}{N/m} on average. The radius of \SI{0.41}{m} takes the SkySails kite of \SI{125}{m^2} projected, with 38 cells over \SI{15.2}{m} of projected span and a largest chord of \SI{9.26}{m} \citep{folkersma2020}, and a section 15\,\% thick, our assumption.}
 
 \subsection{VTOL kite data}
 \label{app:vtol_data}
@@ -196,7 +185,17 @@ The shell and the load-bearing part of \cref{eq:rigid_mass} cannot both be read 
 
 The performance table holds the fuel power over speed through the water, true wind speed at \SI{10}{m} height, true wind angle and the waves' added resistance, on the grids of \cref{tab:numerics}. The added resistance is tabulated at zero and at $2^{-6}$, $2^{-5}$, \ldots, 1 times the calm-water resistance at the ship's maximum speed. Weather fields are interpolated linearly in space and time over the Atlantic from \SI{35}{\degree S} to \SI{56}{\degree N} and from \SI{100}{\degree W} to \SI{10}{\degree E}.
 
-\subsection{Prices off the production stage}
+\subsection{Rig prices at the production stage}
 \label{app:price_stage}
 
-Every source figure under the market factor is a cost before overhead and margin, and a bought-in part enters at its purchase price, which holds only its supplier's margin. The wing sail's base price covers its controls, hydraulics and assembly. The composite is priced at a wind blade plant making about a thousand blades a year. A rotor lands within 13\,\% below and 6\,\% above Norsepower's 2019 prices of EUR~\num{300000} to \num{750000} per rotor \citep{tillig2020b}, or up to 22\,\% above them if those include installation. The market factor on the tether would add 15\,\% to the wear per flight hour of a \SI{1600}{m^2} kite. The EUR~\num{15000} of a prototype's avionics, our low bound against the EUR~\num{150000} of \citet{joshi2025}, stands for a VTOL kite flown without aviation certification, not an earlier stage. With every kite hardware and canopy price and the market factor at their upper bounds, close to the prices paid so far, the better of an \SI{800}{m^2} and a \SI{3200}{m^2} kite saves \tbd{2}\,\% of the cost on the \SI{140}{m} e-ammonia ship to Guadeloupe and on the \SI{200}{m} ship instead of \tbd{9}\,\% on each, and on VLSFO it \tbd{costs 2 to 3\,\% more than it saves}.
+\begin{table*}[tbp]
+\centering
+\footnotesize
+\caption{Every price paid, quoted or estimated for a rig that we have read in full: its kind and year, the units of its kind built by then \citep[Table 2]{emsa2023}, for the rotors of 2025 at least those of Norsepower and Anemoi \citep{portnews2025norsepower,lloydslist2025anemoi}, or, for the kite, the ships named with one \citep{konstruktionspraxis_skysails,cedelft2016} and the kites sold \citep{tonline2012}, the unit, its price in thousands of today's USD by the euro area consumer price index \citep{eurostat2026hicp}, our build-up price of the same unit, for a kite of its hardware without the canopy, the price over the build-up, for a kite less its canopy at the price of \cref{eq:canopy_price} at the projected aspect ratio of 1.86 of a SkySails kite \citep{folkersma2020}, as paid and moved to the production stage at a learning rate of 12\,\%, and the source of the price. Below, each rig's price at the stage over its build-up by \cref{eq:stage_price}, with its range over learning rates of 19 and 5\,\%.}
+\label{tab:rig_prices}
+\InputIfFileExists{sections/rig_prices_table}{}{\tbd{Rig prices table pending: run the rig\_prices\_table step.}}
+\end{table*}
+
+\Cref{tab:rig_prices} holds every real price of a rig unit we found and read in full. Norsepower's 2019 figures are per installed unit \citep[p.~15]{tillig2020b}, so they are set against our build-up with its 15\,\% for installation; so is Anemoi's, which sold its rotors supplied and installed \citep{maritimeexec2026anemoi}, mostly folding, so with the premium of a retractable rig as well, and is the mean over its 29 rotors of their sales value. The estimates of \citet{emsa2023} are asset costs without installation. Their Table~7 gives a smallest and a largest unit of each kind, which we take at the smallest and largest dimensions of their Table~4. Prices are brought to the euros of 2025 and to dollars at USD~1.16 a euro. A maker's statement of what its rig will cost, a price reported without a buyer or without a source, a project budget that holds the development of a first unit, and a partner's budget in a funded project that may hold more or less than the rig are not prices and are left out: of the figures we found in public sources, these are most, among them every one for a wing sail tied to a product \citep{positivenews2023wind,pbcf2020windmodern}. Every source figure under the market factor is a cost before overhead and margin, and a bought-in part enters at its purchase price, which holds only its supplier's margin; the composite of wing sails and rotors is priced at a wind blade plant making about a thousand blades a year. The market factor on the tether would add 15\,\% to the wear per flight hour of a \SI{1600}{m^2} kite. The EUR~\num{15000} of a prototype's avionics, our low bound against the EUR~\num{150000} of \citet{joshi2025}, stands for a VTOL kite flown without aviation certification, not an earlier stage.
+
+Whether a maker earns back its development at the stage price we can test only for the kite, in a business case of our own: development of USD~100 million before the first sale, \SI{800}{m^2} systems sold at the stage price, hardware with a cost of goods of 70\,\% of its build-up price that falls along the same learning curve from the units built so far, spare canopies at their price, one per \num{3000} flight hours of \num{2000} a year, and a tether every two years, both at a cost of goods of 70\,\% of their price, USD~15 million a year of engineering, sales and service, and a discount rate of 10\,\%. Selling 5, 10, 20, 40, 80, 120, 160 and then 200 systems a year, the maker breaks even after 8 years, with a net present value over 20 years of about USD~410 million; at 2, 5, 10, 15, 20, 30, 40 and then 50 a year it breaks even only after 17 years, at minus USD~79 million. At the build-up, the low end of the kite's price, it breaks even after 11 years at the faster pace and not within 20 years at the slower. No wing sail or rotor maker's development cost and sales are in a source we have read, so for them the test cannot be made; at their build-up they cover their costs and margin. \stale{designs}{With the kite at its price as paid today, the better of an \SI{800}{m^2} and a \SI{3200}{m^2} kite saves \tbd{2}\,\% of the cost on the \SI{140}{m} e-ammonia ship to Guadeloupe and on the \SI{200}{m} ship instead of \tbd{9}\,\% on each, and on VLSFO it \tbd{costs 2 to 3\,\% more than it saves}.}
