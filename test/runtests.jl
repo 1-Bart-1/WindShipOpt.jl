@@ -4578,6 +4578,22 @@ end
     @test !isempty(PaperData.fidelity_parts())
 end
 
+@testset "holding deck rigs to one row keeps the best size that stands in one row" begin
+    class = ship_classes()["Neo-Panamax container ship"]
+    hull = Hull(class, assumptions)
+    largest = PaperData.largest_rig_area("rotors", hull)
+    columns(area) = PaperData.deck_columns(WindShipOpt.RotorRig(area, hull, assumptions))
+    @test columns(largest) == 2
+    @test columns(100.0) == 1
+    @test PaperData.deck_columns(nothing) == 0
+    table = Dict("rig" => ["none", "kite", "rotors", "rotors"], "columns" => [0, 0, 1, 2],
+        "cost" => [1.0, 0.85, 0.9, 0.8])
+    every, one_row = only(last(PaperData.one_row()))
+    @test PaperData.best_costs(table, every)["rotors"] == 0.8
+    held = PaperData.best_costs(table, one_row)
+    @test held["rotors"] == 0.9 && held["kite"] == 0.85 && held["none"] == 1.0
+end
+
 @testset "a development ship whose rig has no size in the class study stops the run" begin
     PaperData.eval(:(best_area(table, class, route, drive, rig) =
         rig == "wings" ? NaN : 100.0))
