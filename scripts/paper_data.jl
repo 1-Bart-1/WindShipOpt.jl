@@ -88,9 +88,11 @@ function round_trips(cases, departures)
     entries = Any[stored_entry(directory, case)
                   for (case, directory) in zip(cases, directories)]
     computed = findall(ismissing, entries)
-    todo = (cases[computed], directories[computed], departures)
-    entries[computed] = handed_out(case_jobs, length(computed)) ?
-                        job_trips(case_jobs, todo...) : compute_trips(todo...)
+    if isempty(computed) || !handed_out(case_jobs, length(cases))
+        entries[computed] = compute_trips(cases[computed], directories[computed], departures)
+    else
+        entries = job_trips(case_jobs, cases, directories, departures)
+    end
     foreach(tally_case!, cases, directories, entries)
     trips = [entry.trip for entry in entries]
     older = count(entry -> entry.model != paper_run.trip_model, entries)
