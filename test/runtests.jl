@@ -267,15 +267,12 @@ end
     @test heavy_wind > light_wind
 end
 
-@testset "a kite built for more force keeps its cloth and wears it out sooner" begin
+@testset "a kite built for more force gets cloth and seams in proportion" begin
     stronger = with_value(assumptions, :kite_max_force_per_area, 1.0)
     base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger), 800.0, 3.0)
-    @test strong_canopy.mass_per_area > base_canopy.mass_per_area
-    @test strong_canopy.cost_per_area == base_canopy.cost_per_area
-    margin = assumptions[:canopy_cloth_specific_strength] *
-             assumptions[:canopy_cloth_weight] / (assumptions[:canopy_strength_kept] *
-              1e3assumptions[:kite_max_force_per_area] * assumptions[:canopy_skin_radius])
-    @test strong_canopy.lifetime ≈ 3000 * log(margin / 2) / log(margin)
+    @test WindShipOpt.cloth_weight(stronger) ≈ 2WindShipOpt.cloth_weight(assumptions)
+    @test strong_canopy.mass_per_area ≈ 2base_canopy.mass_per_area
+    @test strong_canopy.cost_per_area > base_canopy.cost_per_area
     base_model, _, base_tether = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     strong_model, _, strong_tether = WindShipOpt.kite_model(800.0, 3.0, stronger)
     @test strong_model.mass > base_model.mass
@@ -290,16 +287,6 @@ end
         heavier = first(WindShipOpt.kite_model(area, 3.0, extra))
         @test heavier.mass - base.mass ≈ 0.1e-3max_force
     end
-end
-
-@testset "canopy life is the goal at the standard canopy and decays off it" begin
-    @test WindShipOpt.decay_life(assumptions, 200.0, 0.5) ≈ 3812 atol = 1
-    @test WindShipOpt.decay_life(assumptions, 100.0, 0.5) ≈ 1646 atol = 1
-    @test WindShipOpt.canopy_lifetime(assumptions) ≈ 3000
-    goal = with_value(assumptions, :canopy_life, 1200.0)
-    @test WindShipOpt.canopy_lifetime(goal) ≈ 1200
-    lighter = with_value(goal, :canopy_cloth_weight, 100.0)
-    @test WindShipOpt.canopy_lifetime(lighter) ≈ 1200 * 1646 / 3812 rtol = 1e-3
 end
 
 @testset "hulls fuller than Holtrop's range use the formulas at its limit" begin
@@ -683,14 +670,14 @@ WindShipOpt.waves(::SteadyWind, lat, lon, time) = (0.0, 0.0, 0.0)
     @test leg.launches == 0
 end
 
-@testset "cycle cost sums crew, tear, loss, retry, turn and tether bends" begin
+@testset "cycle cost sums crew, flogging, tear, loss, retry, turn and tether bends" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
     control_unit = WindShipOpt.price_factor(:kite, assumptions) *
                    WindShipOpt.rig_price_parts(rig, assumptions).control_unit
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
-          1.05 * (85 + 0.00005canopy + 0.00005 * (canopy + tether + control_unit)) + 130 +
-          4 / 400_000 * tether
+          1.05 * (85 + (3.3 / 3000 + 0.00005) * canopy +
+                  0.00005 * (canopy + tether + control_unit)) + 130 + 4 / 400_000 * tether
     @test WindShipOpt.forced_landing_cost(rig, assumptions) ≈
           0.05 * (canopy + tether + control_unit)
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
@@ -1300,12 +1287,14 @@ end
           assumptions[:kite_flight_drag]
 end
 
-@testset "launch cost at the loss goal is mostly crew and turn" begin
+@testset "launch cost at the loss goal is mostly crew, flogging and turn" begin
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
-    crew_and_turn = (1 + assumptions[:kite_launch_retry_probability]) *
-                    assumptions[:kite_cycle_crew_cost] +
-                    assumptions[:kite_cycle_course_cost]
-    @test crew_and_turn < WindShipOpt.cycle_cost(kite, assumptions) < 1.2crew_and_turn
+    flogging = assumptions[:kite_cycle_canopy_hours] / assumptions[:canopy_life] *
+               first(WindShipOpt.consumable_costs(kite, assumptions))
+    unlost = (1 + assumptions[:kite_launch_retry_probability]) *
+             (assumptions[:kite_cycle_crew_cost] + flogging) +
+             assumptions[:kite_cycle_course_cost]
+    @test unlost < WindShipOpt.cycle_cost(kite, assumptions) < 1.2unlost
 end
 
 @testset "a rig out of service keeps its cost and saves no fuel while down" begin
