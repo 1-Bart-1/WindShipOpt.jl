@@ -14,6 +14,16 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  paper:
+    name: Paper, extended abstract and kite design paper
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the TeX Live image and all three documents in it
+        run: ./bin/build_paper
+
   test:
     name: Test suite
     runs-on: ubuntu-latest
