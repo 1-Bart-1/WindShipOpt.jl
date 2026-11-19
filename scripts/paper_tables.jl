@@ -56,35 +56,6 @@ function two_digits(x)
 end
 
 """
-    canopy_life_table()
-
-Table of the life statements behind the canopy wear rate, from
-data/canopy_life_statements.csv, as canopy_life_table.tex; a cloth given as "same" is the
-one of the row above.
-"""
-function canopy_life_table()
-    lives = read_table(joinpath(root, "data", "canopy_life_statements.csv"))
-    columns = ("grade", "cloth", "weight", "life_text", "ends_on", "tension", "strength",
-        "dose", "rate")
-    write_whole(joinpath(sections, "canopy_life_table.tex")) do io
-        println(io, "\\begin{tabular}{@{}lllrrlrrrr@{}}\n\\toprule")
-        println(io, "Source & Grade & Cloth & \$w\$ & Life \$L\$ & Ends on & \$T/w\$ & ",
-            "\$\\sigma_w\$ & \$\\dot D\$ & \$r\$ \\\\")
-        square = "m\\textsuperscript{2}"
-        println(io, " & & & [g/$square] & [h] & & & & [MJ/$square/h] & [g/$square/h] ",
-            "\\\\\n\\midrule")
-        cloth = ""
-        for row in findall(==("statement"), lives["kind"])
-            lives["cloth"][row] == "same" || (cloth = lives["cloth"][row])
-            cells = (column == "cloth" ? cloth : string(lives[column][row])
-                     for column in columns)
-            println(io, "\\citet{", lives["key"][row], "} & ", join(cells, " & "), " \\\\")
-        end
-        println(io, "\\bottomrule\n\\end{tabular}")
-    end
-end
-
-"""
     latex_escape(text)
 
 `text` with the characters LaTeX treats specially escaped and powers set as superscripts.
@@ -455,11 +426,10 @@ function goal_rows()
     loss = "$(one_in_text(:value)) ($(one_in_text(:low)) to $(one_in_text(:high)))"
     crew = string("USD~", estimate_text(assumptions[:kite_cycle_crew_cost]), " per cycle ",
         input_range(:kite_cycle_crew_cost))
-    derived = string("derived \\num{",
-        estimate_text(WindShipOpt.reference_decay_life(assumptions)), "} h ",
-        range_text(life.low, life.high), ", ")
     return [("Canopy life", "kite", canopy,
-            derived * "on makers' statements; small kites expected 100 to \\num{1000} h"),
+            @sprintf("polyester sails last \\numrange{%.0f}{%.0f} h; none published for a " *
+                     "ship kite; small kites expected 100 to \\num{1000} h", life.low,
+                life.high)),
         price_goal_rows()...,
         ("Rig life", "wings", years(:wing_lifetime),
             "stated design life; about 2 years on record"),
@@ -2277,9 +2247,9 @@ fidelity_parts() = [
         error="extra launch wind scaled on one reported pair of wind speeds",
         effect=varied_inputs(:kite_weather_window)),
     (part="Wear and availability", varied="canopy life, out of service",
-        model="canopy life from UV and wear per flight hour; launch damage and loss; " *
-              "time out of service for every rig",
-        error="canopy wear rate from paragliders, not from towing kites",
+        model="canopy life per flight hour and flogging per launch; launch damage and " *
+              "loss; time out of service for every rig",
+        error="canopy life from polyester sails, not from towing kites",
         effect=varied_inputs(:canopy_life, :kite_out_of_service, :wing_out_of_service,
             :rotor_out_of_service)),
     (part="Rig prices", varied="prices per area",
