@@ -1098,7 +1098,7 @@ function table_fuel(table, speed, wind, angle, wave_height=0.0, wave_period=0.0,
     return first(WindShipOpt.edge_fuels(table, speed, slice, condition))
 end
 
-@testset "rotor ships pay for the spin power in the routing lookup" begin
+@testset "rotor ships pay for the spin power in the router's edge fuels" begin
     ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=300.0), assumptions)
     table = PerformanceTable(ship, assumptions)
     speed, wind, angle = 5.0, 12.0, π / 2
