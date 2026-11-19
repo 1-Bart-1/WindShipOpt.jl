@@ -721,12 +721,12 @@ function extend(tally::EdgeTally, power, hours, wear, mode, launched, prices, cy
 end
 
 """
-    forced_landing(tally, cost)
+    forced_landing(tally)
 
-`tally` followed by a landing outside the landing limits at `cost` [USD].
+`tally` followed by a landing outside the landing limits.
 """
-forced_landing(tally::EdgeTally, cost) = EdgeTally(tally.cost + cost, tally.energy,
-    tally.flight_hours, tally.launches, tally.forced_landings + 1)
+forced_landing(tally::EdgeTally) = EdgeTally(tally.cost, tally.energy, tally.flight_hours,
+    tally.launches, tally.forced_landings + 1)
 
 "speed [m/s] of `table` held at [`SailedPoint`](@ref) `point`, zero where none is"
 sailed_speed(table::RouteTable, point) =
@@ -743,9 +743,10 @@ Cheapest ways through the [`SailedPoint`](@ref)s of an edge on the [`RouteTable`
 point if `aloft`, as [`EdgeTally`](@ref)s. At each point a kite down burns the stowed
 fuel, and cannot be down where only a flying kite holds the speed; where
 [`kite_aloft`](@ref) allows, a kite aloft flies, and where [`kite_launchable`](@ref)
-allows, a kite down may launch. A kite aloft can come down at any point: its cost is part
-of the launch, and outside [`kite_landable`](@ref) it is a [`forced_landing`](@ref). Wings
-and rotors stay down, burning their fuel with the rig standing.
+allows, a kite down may launch. A kite aloft can come down wherever [`kite_landable`](@ref)
+allows, its cost being part of the launch; outside it only as a [`forced_landing`](@ref),
+where the kite can neither stay up nor have come down earlier on the edge. Wings and rotors
+stay down, burning their fuel with the rig standing.
 """
 function kite_passage(table::RouteTable, points, aloft, prices)
     down, up = kite_start(aloft)
@@ -773,13 +774,14 @@ function kite_step(table::RouteTable, point, down, up, prices)
     speed = sailed_speed(table, point)
     (; headwind, crosswind) = point
     (; wave_height) = point.condition
+    stays = point.chance > 0 ?
+            aloft_tally(table.table, up, point, false, prices) : NO_TALLY
     forced = !kite_landable(table.table, speed, headwind, crosswind, wave_height)
-    landing = forced ? forced_landing(up, table.table.forced_landing_cost) : up
+    stranded = !isfinite(down.cost) && !isfinite(stays.cost)
+    landing = !forced ? up : stranded ? forced_landing(up) : NO_TALLY
     landed = landing.cost < down.cost
     next_down = extend(landed ? landing : down, point.stowed, point.hours, 0.0, STOWED,
         false, prices, table.table.cycle_cost)
-    stays = point.chance > 0 ?
-            aloft_tally(table.table, up, point, false, prices) : NO_TALLY
     launches = kite_launchable(table.table, speed, headwind, crosswind, wave_height) ?
                aloft_tally(table.table, down, point, true, prices) : NO_TALLY
     launched = launches.cost < stays.cost

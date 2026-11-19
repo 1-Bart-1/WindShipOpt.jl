@@ -538,17 +538,6 @@ crash_cost(rig::Union{WingRig, RotorRig}, assumptions) =
     first(rig_costs(rig, assumptions)) / deck_units(rig)
 
 """
-    forced_landing_cost(rig, assumptions)
-
-Cost of a kite of `rig` landing once outside the landing limits [USD], taken as the kite
-lost: its [`crash_cost`](@ref); zero for other rigs.
-"""
-forced_landing_cost(rig, assumptions) = 0.0
-forced_landing_cost(rig::CombinedRig, assumptions) =
-    forced_landing_cost(rig.kite, assumptions)
-forced_landing_cost(rig::KiteRig, assumptions) = crash_cost(rig, assumptions)
-
-"""
     time_cost(costs, assumptions, cargo)
 
 Cost of one hour at sea with `cargo` [t] on board [USD/h]: the fixed annual cost spread
@@ -839,12 +828,11 @@ state_mean(quantity, shares, passages) = sum(share * quantity(passage)
 """
     rig_running_cost(rig, passage, assumptions)
 
-Wear, launches and forced landings of `rig` over the round trip of `passage` [USD].
+Wear and launches of `rig` over the round trip of `passage` [USD].
 """
 rig_running_cost(rig, passage::Passages, assumptions) =
     wear_cost(rig, assumptions) * passage.flight_hours +
-    cycle_cost(rig, assumptions) * passage.launches +
-    forced_landing_cost(rig, assumptions) * passage.forced_landings
+    cycle_cost(rig, assumptions) * passage.launches
 
 """
     yearly_crash_cost(rig, assumptions)
