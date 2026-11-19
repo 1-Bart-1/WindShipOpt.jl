@@ -4,7 +4,8 @@
 """
     Assumption
 
-One model assumption: base value, sensitivity bounds, unit and the reason for the value.
+One model assumption: base value, sensitivity bounds, unit, the reason for the value, and
+its value as known today, which differs from the base value only for a goal.
 """
 struct Assumption
     value::Float64
@@ -12,7 +13,10 @@ struct Assumption
     high::Float64
     unit::String
     reason::String
+    today::Float64
 end
+
+Assumption(value, low, high, unit, reason) = Assumption(value, low, high, unit, reason, value)
 
 """
     Assumptions()
@@ -33,7 +37,7 @@ function Assumptions()
     entries = Dict{Symbol, Assumption}()
     for (name, entry) in raw
         entries[Symbol(name)] = Assumption(entry["value"], entry["low"], entry["high"],
-            string(entry["unit"]), entry["reason"])
+            string(entry["unit"]), entry["reason"], get(entry, "today", entry["value"]))
     end
     return Assumptions(entries)
 end
@@ -85,6 +89,15 @@ Fresh `Assumptions` with the base value of `name` replaced by `value`.
 function with_value(assumptions::Assumptions, name::Symbol, value)
     entries = copy(assumptions.entries)
     old = entries[name]
-    entries[name] = Assumption(value, old.low, old.high, old.unit, old.reason)
+    entries[name] = Assumption(value, old.low, old.high, old.unit, old.reason, old.today)
     return Assumptions(entries, assumptions.recorded)
 end
+
+"""
+    at_today(assumptions)
+
+Fresh `Assumptions` with every goal at its value as known today.
+"""
+at_today(assumptions::Assumptions) = Assumptions(
+    Dict(name => Assumption(entry.today, entry.low, entry.high, entry.unit, entry.reason,
+             entry.today) for (name, entry) in assumptions.entries), assumptions.recorded)

@@ -448,7 +448,8 @@ learning_rate:
   low: 0.05
   high: 0.19
   unit: "-"
-  reason: "Fall of a rig's price per doubling of the units of its kind built, the same for every rig: 12 %, the mean both of 12 studies of onshore and of 2 of offshore wind farms, the machines nearest to a rig, and the offshore range, since the onshore one runs from a rise of 11 % to a fall of 32 % [@rubin2015, Table 1]."
+  today: 0.0
+  reason: "Fall of a rig's price per doubling of the units of its kind built, the same for every rig: 12 %, the mean both of 12 studies of onshore and of 2 of offshore wind farms, the machines nearest to a rig, and the offshore range, since the onshore one runs from a rise of 11 % to a fall of 32 % [@rubin2015, Table 1]. Today: zero, which prices every rig as paid."
 stage_ships:
   value: 1000.0
   low: 1000.0
@@ -912,7 +913,8 @@ canopy_life:
   low: 1200.0
   high: 6900.0
   unit: flight hours
-  reason: "Development goal for the life of a canopy of 200 g/m^2 cloth at a force limit of 0.5 kN/m^2: what development can reach, not where things stand today. Reachable and on the careful side of what makers state [@flynn2015; @kubicek2026; @supair2016; @lynn2007]: below the 3,500-4,000 h of their longest statements and the 3,800 h that strength decay under UV and a wear rate from makers' statements gives. Each decay input changed alone gives the bounds."
+  today: 1200.0
+  reason: "Development goal for the life of a canopy of 200 g/m^2 cloth at a force limit of 0.5 kN/m^2: what development can reach, not where things stand today. Reachable and on the careful side of what makers state [@flynn2015; @kubicek2026; @supair2016; @lynn2007]: below the 3,500-4,000 h of their longest statements and the 3,800 h that strength decay under UV and a wear rate from makers' statements gives. Each decay input changed alone gives the bounds. Today: no ship kite's canopy life is published, so the estimate is the low bound, the shortest life the decay gives with one of its inputs at its worst; small sport kites are expected to last 100 to 1,000 h."
 canopy_cloth_area_ratio:
   value: 3.5
   low: 3.0
@@ -1062,13 +1064,15 @@ kite_cycle_damage_probability:
   low: 0.00001
   high: 0.01
   unit: "-"
-  reason: "Goal, half of about 1 in 10,000 per cycle for canopy or kite lost, shared with the loss at sea; the high bound holds the authors' estimate of today's rate. Chance per launch attempt of a tear that ends the canopy. Gradual wear from flogging and folding is in the canopy life."
+  today: 0.00125
+  reason: "Goal, half of about 1 in 10,000 per cycle for canopy or kite lost, shared with the loss at sea; the high bound holds the authors' estimate of today's rate. Chance per launch attempt of a tear that ends the canopy. Gradual wear from flogging and folding is in the canopy life. Today: half the authors' estimate of 0.25 % per launch and landing for the canopy or kite lost, no ship kite having a record."
 kite_cycle_loss_probability:
   value: 0.00005
   low: 0.00001
   high: 0.005
   unit: "-"
-  reason: "Goal, half of about 1 in 10,000 per cycle for canopy or kite lost, shared with the tear; the high bound holds the authors' estimate of today's rate. Chance per launch attempt of losing the kite in the water with its tether and control unit."
+  today: 0.00125
+  reason: "Goal, half of about 1 in 10,000 per cycle for canopy or kite lost, shared with the tear; the high bound holds the authors' estimate of today's rate. Chance per launch attempt of losing the kite in the water with its tether and control unit. Today: half the authors' estimate of 0.25 % per launch and landing for the canopy or kite lost, no ship kite having a record."
 kite_launch_retry_probability:
   value: 0.05
   low: 0.02
@@ -1377,21 +1381,24 @@ wing_out_of_service:
   low: 0.004
   high: 0.15
   unit: "-"
-  reason: "Goal, the same for all rigs: share of round trips with a wing out of service though the wind would allow it; units fail independently. Base: the rotors of the Estraden could be used 97 % of the time, a measure its operator does not define [@spliethoff2021]. Low: 99.6 % operational availability on the Canopee, stated by maker and owner without a definition [@oceanwings2025]. High: the authors' estimate."
+  today: 0.03
+  reason: "Goal, the same for all rigs: share of round trips with a wing out of service though the wind would allow it; units fail independently. Base: the rotors of the Estraden could be used 97 % of the time, a measure its operator does not define [@spliethoff2021]. Low: 99.6 % operational availability on the Canopee, stated by maker and owner without a definition [@oceanwings2025]. High: the authors' estimate. Today: the rotors' record, the base, as no wing sail has one but its maker's statement."
 
 rotor_out_of_service:
   value: 0.03
   low: 0.01
   high: 0.15
   unit: "-"
-  reason: "Goal, the same for all rigs: share of round trips with a rotor out of service though the wind would allow it; units fail independently. Base: the Estraden's rotors could be used 97 % of the time over about six years, a measure its operator does not define [@spliethoff2021]. Low: above 99 % on the Estraden, stated by the maker [@kuuskoski2018]. High: the authors' estimate."
+  today: 0.03
+  reason: "Goal, the same for all rigs: share of round trips with a rotor out of service though the wind would allow it; units fail independently. Base: the Estraden's rotors could be used 97 % of the time over about six years, a measure its operator does not define [@spliethoff2021]. Low: above 99 % on the Estraden, stated by the maker [@kuuskoski2018]. High: the authors' estimate. Today: the Estraden's 97 %, the base."
 
 kite_out_of_service:
   value: 0.03
   low: 0.01
   high: 0.15
   unit: "-"
-  reason: "Goal, the same for all rigs: share of round trips with the kite out of service though the wind and sea would allow it. Base and low bound: the authors' goal, the same as for the rotors; high bound: the authors' estimate."
+  today: 0.15
+  reason: "Goal, the same for all rigs: share of round trips with the kite out of service though the wind and sea would allow it. Base and low bound: the authors' goal, the same as for the rotors; high bound: the authors' estimate. Today: no ship kite has a record, so the authors' estimate, the high bound."
 
 kite_crash_rate:
   value: 0.0

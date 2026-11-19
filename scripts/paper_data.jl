@@ -741,13 +741,12 @@ tonne_km_per_tonne(name) = tonne_km_per_tonne(run_corridors(name)...)
     designs_data()
 
 The design grid on the route to Guadeloupe: length, the [`study_drives`](@ref) and size of
-each rig, a carbon price on VLSFO, and kites without flight drag and at the prices paid
-today, with the cost per tonne-km split into its parts: designs.csv.
+each rig, a carbon price on VLSFO, and kites without flight drag, with the cost per
+tonne-km split into its parts: designs.csv.
 """
 function designs_data()
     taxed = with_value(assumptions, :carbon_coverage, 1.0)
     rigid = with_value(assumptions, :kite_flight_drag, 0.0)
-    market = WindShipOpt.as_paid(assumptions)
     cases = []
     for length in (85.0, 110.0, 140.0, 170.0, 200.0), drive in study_drives,
         area in (0.0, 400.0, 800.0, 1600.0, 3200.0, 6400.0)
@@ -768,8 +767,6 @@ function designs_data()
     for length in (140.0, 200.0), drive in (:vlsfo, :ammonia), area in (800.0, 3200.0)
         push!(cases, trip_case(ShipDesign(drive, length; kite_area=area);
             assumptions=rigid, scenario="rigid"))
-        push!(cases, trip_case(ShipDesign(drive, length; kite_area=area);
-            assumptions=market, scenario="kite_market"))
     end
     trips = round_trips(cases, sampled_departures())
     work_per_tonne = tonne_km_per_tonne(:caribbean)
@@ -910,6 +907,62 @@ function classes_data()
     labels = (:class, :route, :drive, :rig, :area, :units)
     write_trips("classes.csv", cases, trips, labels...)
     write_departures("class_departures.csv", cases, trips, labels...)
+end
+
+"""
+    class_cases(table)
+
+Round-trip case of each row of a class table `table`.
+"""
+function class_cases(table)
+    classes = ship_classes()
+    return [class_case(classes[table["class"][k]], Symbol(table["drive"][k]),
+                table["rig"][k], table["area"][k], Symbol(table["route"][k]))
+            for k in eachindex(table["class"])]
+end
+
+"""
+    today_data()
+
+The cost [USD/tkm] of every design of classes.csv with each goal at its value known today,
+on the routes the class study found at the goals: classes_today.csv.
+"""
+function today_data()
+    cases = class_cases(read_table(data_file("classes.csv")))
+    trips = round_trips(cases, sampled_departures())
+    today = at_today(assumptions)
+    labels = (:class, :route, :drive, :rig, :area)
+    open(run_file("classes_today.csv"), "w") do io
+        println(io, join([collect(string.(labels)); "cost"], ","))
+        for (case, trip) in zip(cases, trips)
+            isnothing(trip) && continue
+            cost = changed_cost(merge(case, (; assumptions=today)), trip)
+            println(io, join([csv_value(getproperty(case, label)) for label in labels], ","),
+                @sprintf(",%.6f", cost))
+        end
+    end
+end
+
+"""
+    recosted(ship, costs, trip, case, inputs)
+
+Cost per tonne-km [USD] of `ship` with [`ShipCosts`](@ref) `costs` on the routes of its
+`trip` for `case`, at `inputs`.
+"""
+recosted(ship, costs, trip, case, inputs) = WindShipOpt.voyage_costs(ship, costs,
+    WindShipOpt.state_rigs(ship.rig, assumptions), trip.passages, case.corridors...,
+    inputs).cheaper
+
+"""
+    changed_cost(case, trip)
+
+Cost per tonne-km [USD] of `case` at its inputs on the routes of `trip`, routed at the
+base inputs.
+"""
+function changed_cost(case, trip)
+    ship = Ship(case.design, case.assumptions)
+    costs = WindShipOpt.ship_costs(ship, case.assumptions)
+    return recosted(ship, costs, trip, case, case.assumptions)
 end
 
 """
@@ -1217,7 +1270,8 @@ Each class and route of class table `table` on `drive`, with the class's transpo
 [tonne-km a year] from [`fleet_work`](@ref) and its ships from [`fleet_ships`](@ref) shared
 equally over the table's routes, the yearly cost `bill` [USD] of that work without a rig,
 the row of the ship without a rig and of the best size of each rig, their cost
-`savings` [%] and the cost of each of their `departures` by rig, `"none"` included.
+`savings` [%] and the cost of each of their `departures` by rig, `"none"` included, or
+nothing where the table holds no departures.
 Errors naming every class and route of `drive` the table lacks a result of a rig for.
 """
 function fleet_cells(table, drive)
@@ -1236,8 +1290,9 @@ function fleet_cells(table, drive)
         reference = table["cost"][bare]
         savings = Dict(rig => percent_saving(table["cost"][row], reference)
                        for (rig, row) in best)
-        departures = Dict(rig => table["departure_costs"][row]
-                          for (rig, row) in ("none" => bare, best...))
+        departures = haskey(table, "departure_costs") ?
+                     Dict(rig => table["departure_costs"][row]
+                          for (rig, row) in ("none" => bare, best...)) : nothing
         push!(cells, (; class, route, work=share, ships=ships[class] / length(routes),
             bill=share * reference, bare, best, savings, departures))
     end
@@ -4004,5 +4059,33 @@ function router_decisions_data()
     open(run_file("router_decisions.csv"), "w") do io
         println(io, join(keys(first(rows)), ","))
         foreach(row -> println(io, join(csv_value.(values(row)), ",")), rows)
+    end
+end
+
+"""
+    today_routing_data()
+
+The 140 m e-ammonia ship to Guadeloupe without a rig and with the kite and the rotors at
+their reference sizes, on each departure of a final run alone: its cost [USD/tkm] with each
+goal at its value known today, costed on the route found at the goals and routed anew:
+today_routing.csv.
+"""
+function today_routing_data()
+    rigs = filter(((rig, _),) -> rig != "wings", reference_rigs)
+    goals = [trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); rig, area)
+             for (rig, area) in [("none", 0.0); rigs]]
+    today = at_today(assumptions)
+    cases = [goals; [merge(case, (; assumptions=today)) for case in goals]]
+    chosen = departures[1:fidelities[:final].departure_step:end]
+    trips = fetch.([Threads.@spawn round_trips(cases, [departure]) for departure in chosen])
+    open(run_file("today_routing.csv"), "w") do io
+        println(io, "rig,area,departure,recosted,rerouted")
+        for (departure, departure_trips) in zip(chosen, trips), (k, case) in enumerate(goals)
+            found, again = departure_trips[k], departure_trips[length(goals) + k]
+            (isnothing(found) || isnothing(again)) && continue
+            println(io, join([case.rig, csv_value(case.area), csv_value(departure),
+                    @sprintf("%.6f", changed_cost(cases[length(goals) + k], found)),
+                    @sprintf("%.6f", again.cost_per_tonne_km)], ","))
+        end
     end
 end

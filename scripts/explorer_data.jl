@@ -30,7 +30,8 @@ on the cargo value of the class).
 function explorer_changes()
     entry(name) = assumptions.entries[name]
     return [("canopy life ×2", (canopy_life=2assumptions[:canopy_life],), 1.0),
-        ("rig prices as paid today", (learning_rate=0.0,), 1.0),
+        ("rig prices as paid today",
+            (learning_rate=assumptions.entries[:learning_rate].today,), 1.0),
         ("fuel −30 %", fuel_prices(0.7), 1.0), ("fuel +30 %", fuel_prices(1.3), 1.0),
         ("carbon price on VLSFO", (carbon_coverage=1.0,), 1.0),
         ("discount rate low", (discount_rate=entry(:discount_rate).low,), 1.0),
@@ -63,11 +64,8 @@ each rig on [`explorer_check_ships`](@ref) at each of [`explorer_changes`](@ref)
 on its base routes and rerouted: explorer.json.
 """
 function explorer_data()
-    table = read_table(data_file("classes.csv"))
     classes = ship_classes()
-    cases = [class_case(classes[table["class"][k]], Symbol(table["drive"][k]),
-                 table["rig"][k], table["area"][k], Symbol(table["route"][k]))
-             for k in eachindex(table["class"])]
+    cases = class_cases(read_table(data_file("classes.csv")))
     trips = round_trips(cases, sampled_departures())
     feasible = findall(!isnothing, trips)
     cases, trips = cases[feasible], trips[feasible]
@@ -141,16 +139,6 @@ function recorded_cost(case, trip, inputs, cargo_value)
 end
 
 """
-    recosted(ship, costs, trip, case, inputs)
-
-Cost per tonne-km [USD] of `ship` with [`ShipCosts`](@ref) `costs` on the routes of its
-`trip` for `case`, at `inputs`.
-"""
-recosted(ship, costs, trip, case, inputs) = WindShipOpt.voyage_costs(ship, costs,
-    WindShipOpt.state_rigs(ship.rig, assumptions), trip.passages, case.corridors...,
-    inputs).cheaper
-
-"""
     explorer_checks(cases, trips)
 
 The cheapest design of each rig and the ship without a rig on each of
@@ -168,18 +156,6 @@ function explorer_checks(cases, trips)
                 recosted=changed_cost(case, trips[k]), rerouted=trip.cost_per_tonne_km)
             for ((k, label, changes, factor), case, trip) in zip(checks, changed, rerouted)
             if !isnothing(trip)]
-end
-
-"""
-    changed_cost(case, trip)
-
-Cost per tonne-km [USD] of `case` at its inputs on the routes of `trip`, routed at the
-base inputs.
-"""
-function changed_cost(case, trip)
-    ship = Ship(case.design, case.assumptions)
-    costs = WindShipOpt.ship_costs(ship, case.assumptions)
-    return recosted(ship, costs, trip, case, case.assumptions)
 end
 
 """

@@ -4401,6 +4401,34 @@ end
     @test ShipDesign(:vlsfo, 100.0; kite_area=800.0).kite_area == 800
 end
 
+@testset "every goal takes its value known today and every other input keeps its own" begin
+    today = at_today(assumptions)
+    goals = [name for (name, entry) in assumptions.entries if entry.today != entry.value]
+    @test :canopy_life in goals && :kite_out_of_service in goals && :learning_rate in goals
+    @test all(today[name] == assumptions.entries[name].today for name in goals)
+    @test all(today[name] == assumptions[name]
+              for name in keys(assumptions.entries) if !(name in goals))
+    @test WindShipOpt.as_paid(assumptions)[:learning_rate] == today[:learning_rate]
+end
+
+@testset "a kite costed on its routes at the goals costs what routing found, and more \
+          at today's values" begin
+    kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
+    trip = round_trip(Ship(kite, assumptions), corridors..., SyntheticWeather(),
+        [24.0 * 31], assumptions)
+    case = (; design=kite, assumptions, corridors)
+    @test PaperData.changed_cost(case, trip) ≈ trip.cost_per_tonne_km
+    today = merge(case, (; assumptions=at_today(assumptions)))
+    @test PaperData.changed_cost(today, trip) > trip.cost_per_tonne_km
+end
+
+@testset "routing anew at today's values gains a rig the difference of its savings, \
+          departure by departure" begin
+    table = Dict("rig" => ["none", "kite", "none", "kite"], "departure" => [0, 0, 24, 24],
+        "recosted" => [10.0, 9.0, 10.0, 8.0], "rerouted" => [10.0, 8.0, 9.0, 7.2])
+    @test PaperData.rerouting_gains(table, "kite") ≈ [10.0, 0.0]
+end
+
 @testset "the fuel premium a rig closes is ranged over the ship lengths it was run at" begin
     rows = [("base", "vlsfo", 85.0, 0, 0, 0, 1.0), ("base", "ammonia", 85.0, 0, 0, 0, 1.5),
         ("base", "ammonia", 85.0, 800, 0, 0, 1.2),

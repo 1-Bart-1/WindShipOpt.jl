@@ -145,6 +145,7 @@ price_factor(rig::Symbol, assumptions) =
 """
     as_paid(assumptions)
 
-Fresh `Assumptions` at a learning rate of zero, which price every rig as paid today.
+Fresh `Assumptions` at today's learning rate of zero, which price every rig as paid today.
 """
-as_paid(assumptions) = with_value(assumptions, :learning_rate, 0.0)
+as_paid(assumptions) = with_value(assumptions, :learning_rate,
+    assumptions.entries[:learning_rate].today)
