@@ -5211,11 +5211,26 @@ end
 @testset "a free side force leaves the rig's side force without leeway or rudder drag" begin
     ship = Ship(ShipDesign(:ammonia, 140.0), PaperData.assumptions)
     force = RigForce(1e5, 3e5, 3e6, -2e6)
+    drag(balance) = balance.leeway_drag + balance.rudder_drag
     free = PaperData.simplified_ship(ship, :side_force)
-    @test WindShipOpt.HullBalance(ship, 6.0, force).drag > 0
-    @test WindShipOpt.HullBalance(free, 6.0, force).drag == 0
+    @test drag(WindShipOpt.HullBalance(ship, 6.0, force)) > 0
+    @test drag(WindShipOpt.HullBalance(free, 6.0, force)) == 0
     @test WindShipOpt.HullBalance(PaperData.simplified_ship(ship, :weak_hull), 6.0,
         force).leeway ≈ 2WindShipOpt.HullBalance(ship, 6.0, force).leeway
+end
+
+@testset "a model part the study's recorded run predates prints stale until it reruns" begin
+    run = mktempdir()
+    write(joinpath(run, "model_parts.csv"),
+        "ship,rig,part,cost\n140 m,none,none,1.0\n140 m,kite,none,0.9\n")
+    @eval PaperData study_file(study, name) = joinpath($run, name)
+    @test PaperData.study_holds(PaperData.switched(:none))
+    @test !PaperData.study_holds(PaperData.switched(:side_force))
+    @test !PaperData.study_holds((:model_parts, "weather_years.csv", "ship", [[()]]))
+    @test all(==("\\stale{model_parts}{}") ∘ last, PaperData.side_force_numbers())
+    @test length(PaperData.side_force_numbers()) == 4length(PaperData.rig_names)
+    @eval PaperData study_file(study, name) = joinpath($run, "missing", name)
+    @test_throws ErrorException PaperData.study_holds(PaperData.switched(:side_force))
 end
 
 @testset "a held-speed kite saving and its bare ship use the same routes" begin

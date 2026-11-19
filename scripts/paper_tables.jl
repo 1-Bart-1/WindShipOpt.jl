@@ -2371,6 +2371,22 @@ function part_effect((study, file, ship_column, groups))
                          for (rigs, swapped) in swaps])
 end
 
+"""
+    study_holds((study, file, ship_column, groups))
+
+Whether the run recorded for method study `study` holds data file `file` with a row of
+every condition set of `groups`; true for a file of the paper run. Errors where that run's
+directory is missing.
+"""
+function study_holds((study, file, ship_column, groups))
+    isnothing(study) && return true
+    path = study_file(study, file)
+    isdir(dirname(path)) || error("the run $(dirname(path)) of study $study is missing")
+    isfile(path) || return false
+    table = read_table(path)
+    return all(!isempty(rows(table, variant...)) for group in groups for variant in group)
+end
+
 "cheapest cost per tonne-km without a rig and of each rig in the `conditions` rows"
 best_costs(table, conditions) = Dict(rig => minimum(table["cost"][rows(table,
     conditions..., "rig" => rig)]; init=Inf) for rig in ("none", rig_names...))
@@ -2380,7 +2396,8 @@ best_costs(table, conditions) = Dict(rig => minimum(table["cost"][rows(table,
 
 Write each of [`fidelity_parts`](@ref) with its model, its effect on each rig's cost saving
 and on which rig is cheapest by [`part_effect`](@ref), and its known error, to
-paper/sections/fidelity_table.tex.
+paper/sections/fidelity_table.tex; an effect the run recorded for its study does not hold
+yet by [`study_holds`](@ref) is marked stale until that study reruns.
 """
 function fidelity_table()
     write_whole(joinpath(sections, "fidelity_table.tex")) do io
@@ -2388,6 +2405,12 @@ function fidelity_table()
             if isnothing(effect)
                 @printf(io, "%s {\\itshape (%s)} & %s & -- & -- & -- & -- & %s \\\\\n",
                     part, varied, model, error)
+                continue
+            end
+            if !study_holds(effect)
+                stale = "\\multicolumn{4}{c}{\\stale{$(first(effect))}{}}"
+                @printf(io, "%s {\\itshape (%s)} & %s & %s & %s \\\\\n",
+                    part, varied, model, stale, error)
                 continue
             end
             spread, swaps = part_effect(effect)
@@ -2740,9 +2763,15 @@ end
 Name and text, per rig, from the model-part study: over its e-ammonia ships, the share of the
 cost saving with a side force free of leeway and rudder drag that this drag takes [%], and
 the points the hull's side-force slope at its low bound takes from the saving; over all its
-ships, the median leeway [deg] and the share of hours within half a degree of the limit [%].
+ships, the median leeway [deg] and the share of hours within half a degree of the limit [%];
+each marked stale until the study reruns where its recorded run does not hold them yet.
 """
 function side_force_numbers()
+    held = study_holds(switched(:side_force)) && study_holds(switched(:weak_hull)) &&
+           isfile(study_file(:model_parts, "leeway.csv"))
+    held || return [name * uppercasefirst(rig) => "\\stale{model_parts}{}"
+                    for rig in rig_names
+                    for name in ("SideForce", "WeakHull", "Leeway", "LeewayLimit")]
     parts = read_table(study_file(:model_parts, "model_parts.csv"))
     leeway = read_table(study_file(:model_parts, "leeway.csv"))
     ammonia = [name for (name, design) in sensitivity_ships() if design.drive == :ammonia]
