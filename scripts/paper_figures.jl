@@ -2633,7 +2633,7 @@ function situations_figure()
             append!(shown, filter(isfinite, savings))
             ship == "140 m" && vlines!(axis, factor * base_value(input); color=:gray50,
                 linewidth=rule_width, ymax=0.88)
-            for rig in 1:3
+            for rig in eachindex(rig_names)
                 lines!(axis, x, savings[rig, :]; color=palette[rig], linestyle)
                 scatter!(axis, x, savings[rig, :]; color=linestyle == :solid ?
                     palette[rig] : :white, strokecolor=palette[rig],
@@ -2663,9 +2663,9 @@ function situations_figure()
     save_figure("situations", figure)
 end
 
-"e-fuels of the fuel figure as (price input, drive, label, line style)"
-fuel_lines = [(:e_ammonia_price, :ammonia, "e-ammonia", :solid),
-    (:e_methanol_price, :methanol, "e-methanol", (:dash, :loose))]
+"label and line style of each drive of `fuel_drives` in the fuel figure"
+fuel_styles = Dict(:ammonia => ("e-ammonia", :solid),
+    :methanol => ("e-methanol", (:dash, :loose)))
 
 "keyword arguments of the fuel price axes of [`fuel_figure`](@ref), log [USD/GJ]"
 fuel_price_axis = doubling_axis(:x, 15, 120; base=15)
@@ -2694,7 +2694,8 @@ function fuel_figure()
     axes = map(enumerate(fuel_ships)) do (k, (class, route))
         axis = Axis(figure[1, k]; title="($('a' + k - 1)) $class\nto $(route_label(route))",
             fuel_price_axis..., ylabel=k == 1 ? "cost saving [%]" : "")
-        for (input, drive, label, linestyle) in fuel_lines
+        for (input, drive) in fuel_drives
+            label, linestyle = fuel_styles[drive]
             values, savings = fuel_savings(table, class, route, drive, input)
             print_leaders("$class, $label", input, log10.(values), savings, exp10)
             for rig in eachindex(rig_names)
@@ -2704,10 +2705,11 @@ function fuel_figure()
         end
         prices = Axis(figure[2, k]; fuel_price_axis..., xlabel="fuel price [USD/GJ]",
             height=pt(14),
-            limits=(nothing, (0.4, length(fuel_lines) + 0.6)), yticksvisible=false,
+            limits=(nothing, (0.4, length(fuel_drives) + 0.6)), yticksvisible=false,
             yticklabelsvisible=false, bottomspinevisible=true, topspinevisible=false,
             leftspinevisible=false, rightspinevisible=false)
-        for (j, (input, _, _, linestyle)) in enumerate(fuel_lines)
+        for (j, (input, drive)) in enumerate(fuel_drives)
+            linestyle = last(fuel_styles[drive])
             price = assumptions.entries[input]
             lines!(prices, [price.low, price.high], [j, j]; color=:black, linestyle,
                 linewidth=pt(0.8))
@@ -2721,9 +2723,9 @@ function fuel_figure()
     rowgap!(figure.layout, 1, pt(3))
     axislegend(axes[2], rig_entries(false), ["kite", "wings", "rotors"];
         position=:lt, orientation=:horizontal)
-    axislegend(axes[1], [LineElement(color=:black, linestyle=style)
-                         for (_, _, _, style) in fuel_lines],
-        [label for (_, _, label, _) in fuel_lines]; position=:rb)
+    styles = [fuel_styles[drive] for (_, drive) in fuel_drives]
+    axislegend(axes[1], [LineElement(; color=:black, linestyle) for (_, linestyle) in styles],
+        first.(styles); position=:rb)
     save_figure("fuels", figure)
 end
 
