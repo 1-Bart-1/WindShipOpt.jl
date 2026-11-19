@@ -42,26 +42,19 @@ A run can hand its round trips to a Slurm cluster such as TU Delft's DelftBlue. 
 
 Every job asks for the same wall time, and a run longer than that carries on by itself. Each run job queues a successor that starts once it ends, and cancels it when the run finishes or fails; a run job ended at its wall time leaves the successor to resume the run from the case store, taking over the computing jobs still running rather than submitting them again. A computing job ended at its wall time or by a node fault loses only the round trips it was computing: the run submits it again, and it computes only what is still missing. Once `retries` launches in a row of a share stored nothing, the run stops with an error naming every case still missing; once more run jobs in a row than `retries` found the run with no step done and no round trip stored since the one before, as a run job the cluster kills for its memory would, the run stops queueing successors. Submitting the run again resumes it: it computes nothing that is stored, and hands out the rest.
 
-Every cluster setting is in `scripts/cluster.toml`: the account and partition, which you must set, the cores and memory of each job, the wall time of every job, how many jobs run at once, the run's own included, and the retries. Where the cluster limits the cores of each job, run `jobs` jobs of the most cores allowed; where it limits the cores of all running jobs together, run one job of all of them, `jobs = 1`, which computes every round trip itself. All jobs of a run use the one partition, so one processor model computes the whole run. A final run takes only round trips computed on the processor it runs on; a draft takes them from any machine, so a draft may mix round trips from a workstation and from the cluster.
+Every cluster setting is in `scripts/cluster.toml`: the account and partition (DelftBlue's `innovation` account on `compute-p2` by default), the cores and memory of each job, the wall time of every job, how many jobs run at once, the run's own included, and the retries. Where the cluster limits the cores of each job, run `jobs` jobs of the most cores allowed; where it limits the cores of all running jobs together, run one job of all of them, `jobs = 1`, which computes every round trip itself. All jobs of a run use the one partition, so one processor model computes the whole run. A final run takes only round trips computed on the processor it runs on; a draft takes them from any machine, so a draft may mix round trips from a workstation and from the cluster.
 
 ### Setting it up once, on a DelftBlue login node
 
-Compute nodes have no internet, so Julia and the packages are installed on a login node. The commands below keep the repository on `/scratch`, which holds 5 TB but is cleared of old files, so copy the results back after each run.
+Compute nodes have no internet, so Julia, the packages and the weather are fetched on a login node. `bin/delftblue_setup` does all of it: juliaup, the repository on `/scratch` (5 TB, but cleared of old files, so copy the results back after each run), the packages, and the weather through `bin/weather` from public stores. It resumes where it stopped; run it inside `tmux`, since the weather takes hours.
 
 ```bash
 ssh <netid>@login.delftblue.tudelft.nl
-curl -fsSL https://install.julialang.org | sh -s -- --yes   # juliaup, in your home
-source ~/.bashrc && juliaup add 1.12
-cd /scratch/$USER && git clone https://github.com/1-Bart-1/WindShipOpt.jl && cd WindShipOpt.jl
-./bin/install -y                                            # installs and precompiles the packages
-sacctmgr list user $USER withassoc format='user%-20,account%-45'   # your accounts
+tmux
+curl -fsSL https://raw.githubusercontent.com/1-Bart-1/WindShipOpt.jl/main/bin/delftblue_setup | bash
 ```
 
-Set `account` (on DelftBlue `research-<faculty>-<department>`; without one a job is charged to `innovation`, limited to 24 hours and 4 jobs) and `partition` (`compute-p1`: 48 cores, at most `3996M` per core; `compute-p2`: 64 cores, at most `4000M`) in `scripts/cluster.toml`, keeping `cores` at most the partition's cores per node, and commit them, since a final run needs a clean tree on a pushed commit. Then copy the weather from the machine that has it:
-
-```bash
-rsync -a era5/ <netid>@login.delftblue.tudelft.nl:/scratch/<netid>/WindShipOpt.jl/era5/
-```
+Without a project account, jobs are charged to `innovation`: 24 hours each and 4 at once in total, so a draft and a final run started together share those 4. With a project account (`research-<faculty>-<department>`, listed at the end of the setup), set it as `account` in `scripts/cluster.toml` and commit it, since a final run needs a clean tree on a pushed commit. `compute-p1` has 48 cores and at most `3996M` per core, `compute-p2` 64 cores and at most `4000M`; keep `cores` at most the partition's.
 
 ### Running
 
