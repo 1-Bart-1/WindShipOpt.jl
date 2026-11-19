@@ -84,10 +84,75 @@ function palette_faults()
     return faults
 end
 
-"LaTeX3 code that records the box of each `label` node and stops the build where two meet"
-label_overlap_check = raw"""
+"""
+LaTeX3 code that records the box of each `label` node and each straight piece of an arrow,
+and stops the build where two labels meet or an arrow comes within `clearance` of a label
+"""
+label_overlap_check = replace(raw"""
     \ExplSyntaxOn
     \seq_new:N \g_figstyle_labels_seq
+    \seq_new:N \g_figstyle_segments_seq
+    \cs_new_protected:Npn \figurestylesegment #1 #2
+      { \use:e { \exp_not:N \figstyle_segment:w #1 , #2 \exp_not:N \q_stop } }
+    \cs_new_protected:Npn \figurestylecurve #1 #2 #3 #4
+      {
+        \use:e
+          {
+            \exp_not:N \figstyle_curve:w #1 , #2 , #3 , #4 \exp_not:N \q_stop
+          }
+      }
+    \cs_new_protected:Npn \figstyle_curve:w #1 , #2 , #3 , #4 , #5 , #6 , #7 , #8 \q_stop
+      {
+        \tl_set:Ne \l_tmpa_tl
+          {
+            \fp_eval:n { ((#1) + 3 * (#3) + 3 * (#5) + (#7)) / 8 } pt ,
+            \fp_eval:n { ((#2) + 3 * (#4) + 3 * (#6) + (#8)) / 8 } pt
+          }
+        \figurestylesegment { #1 , #2 } { \l_tmpa_tl }
+        \figurestylesegment { \l_tmpa_tl } { #7 , #8 }
+      }
+    \cs_new_protected:Npn \figstyle_segment:w #1 , #2 , #3 , #4 \q_stop
+      {
+        \fp_compare:nNnT { abs((#3) - (#1)) + abs((#4) - (#2)) } > { 0.1pt }
+          {
+            \seq_gput_right:Nx \g_figstyle_segments_seq
+              {
+                { \dim_to_decimal:n {#1} } { \dim_to_decimal:n {#2} }
+                { \dim_to_decimal:n {#3} } { \dim_to_decimal:n {#4} }
+              }
+          }
+      }
+    \cs_new_protected:Npn \figstyle_clip:nn #1#2
+      {
+        \fp_compare:nNnTF { #1 } = { 0 }
+          { \fp_compare:nNnT { #2 } < { 0 } { \bool_set_false:N \l_figstyle_meets_bool } }
+          {
+            \fp_compare:nNnTF { #1 } < { 0 }
+              { \fp_set:Nn \l_figstyle_enter_fp { max(\l_figstyle_enter_fp, (#2) / (#1)) } }
+              { \fp_set:Nn \l_figstyle_leave_fp { min(\l_figstyle_leave_fp, (#2) / (#1)) } }
+          }
+      }
+    \fp_new:N \l_figstyle_enter_fp
+    \fp_new:N \l_figstyle_leave_fp
+    \bool_new:N \l_figstyle_meets_bool
+    \cs_new_protected:Npn \figstyle_crossing:nnnnnnnn #1#2#3#4#5#6#7#8
+      {
+        \fp_set:Nn \l_figstyle_enter_fp { 0 }
+        \fp_set:Nn \l_figstyle_leave_fp { 1 }
+        \bool_set_true:N \l_figstyle_meets_bool
+        \figstyle_clip:nn { #1 - #3 } { #1 - (#5 - @CLEARANCE@) }
+        \figstyle_clip:nn { #3 - #1 } { (#7 + @CLEARANCE@) - #1 }
+        \figstyle_clip:nn { #2 - #4 } { #2 - (#6 - @CLEARANCE@) }
+        \figstyle_clip:nn { #4 - #2 } { (#8 + @CLEARANCE@) - #2 }
+        \bool_if:NT \l_figstyle_meets_bool
+          {
+            \fp_compare:nNnT { \l_figstyle_enter_fp } < { \l_figstyle_leave_fp }
+              {
+                \PackageError {figurestyle}
+                  { an~arrow~runs~through~the~label~at~(#5pt,~#6pt) } { }
+              }
+          }
+      }
     \cs_new_protected:Npn \figurestylerecord #1
       {
         \group_begin:
@@ -98,10 +163,10 @@ label_overlap_check = raw"""
         \pgfgetlastxy \l_figstyle_bx_tl \l_figstyle_by_tl
         \seq_gput_right:Nx \g_figstyle_labels_seq
           {
-            { \dim_eval:n { \dim_min:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
-            { \dim_eval:n { \dim_min:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
-            { \dim_eval:n { \dim_max:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
-            { \dim_eval:n { \dim_max:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+            { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+            { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+            { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+            { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
           }
         \group_end:
       }
@@ -109,10 +174,10 @@ label_overlap_check = raw"""
       {
         \bool_lazy_all:nT
           {
-            { \dim_compare_p:n { #1 < #7 } } { \dim_compare_p:n { #5 < #3 } }
-            { \dim_compare_p:n { #2 < #8 } } { \dim_compare_p:n { #6 < #4 } }
+            { \fp_compare_p:n { #1 < #7 } } { \fp_compare_p:n { #5 < #3 } }
+            { \fp_compare_p:n { #2 < #8 } } { \fp_compare_p:n { #6 < #4 } }
           }
-          { \PackageError {figurestyle} { labels~overlap~at~(#1,~#2)~and~(#5,~#6) } { } }
+          { \PackageError {figurestyle} { labels~overlap~at~(#1pt,~#2pt)~and~(#5pt,~#6pt) } { } }
       }
     \cs_new_protected:Npn \figurestylecheck
       {
@@ -128,10 +193,17 @@ label_overlap_check = raw"""
                   }
               }
           }
+        \seq_map_inline:Nn \g_figstyle_segments_seq
+          {
+            \seq_map_inline:Nn \g_figstyle_labels_seq
+              { \use:e { \exp_not:N \figstyle_crossing:nnnnnnnn ##1 ####1 } }
+          }
         \seq_gclear:N \g_figstyle_labels_seq
+        \seq_gclear:N \g_figstyle_segments_seq
       }
     \ExplSyntaxOff
-    """
+    """, "@CLEARANCE@" => @sprintf("%.3f", figure_style["sizes"]["clearance"] +
+                                           figure_style["sizes"]["force"] / 2))
 
 "the size `name` of [`figure_style`](@ref) in TeX points"
 tex_size(name) = @sprintf("%gpt", figure_style["sizes"][name])
@@ -155,7 +227,7 @@ function figure_style_file()
         println(io, "% Written by the figure_style step from figure_style.toml; edit that.")
         println(io, "\\pdfinclusioncopyfonts=1")
         println(io, "\\usepackage{xcolor}\n\\usepackage{tikz}")
-        println(io, "\\usetikzlibrary{positioning,arrows.meta,fit,backgrounds}")
+        println(io, "\\usetikzlibrary{positioning,arrows.meta,fit,backgrounds,decorations.pathreplacing}")
         for (name, hex) in sort(collect(figure_style["colours"]))
             println(io, "\\definecolor{", name, "}{HTML}{", hex, "}")
             dark = Makie.Colors.hex(readable(style_colour(name), white))
@@ -171,8 +243,13 @@ function figure_style_file()
         println(io, "  every picture/.style={line width=", tex_size("rule"), ", font=",
             tex_font("text"), ", execute at end picture=\\figurestylecheck, ",
             "every node/.style={execute at begin node={\\hyphenpenalty=10000\\relax}}},")
-        println(io, "  force/.style={->, line width=", tex_size("force"), "},")
-        println(io, "  flow/.style={->, line width=", tex_size("flow"), "},")
+        println(io, "  recorded/.style={postaction={decorate, decoration={show path ",
+            "construction, lineto code={\\figurestylesegment{\\tikzinputsegmentfirst}",
+            "{\\tikzinputsegmentlast}}, curveto code={\\figurestylecurve",
+            "{\\tikzinputsegmentfirst}{\\tikzinputsegmentsupporta}",
+            "{\\tikzinputsegmentsupportb}{\\tikzinputsegmentlast}}}}},")
+        println(io, "  force/.style={->, line width=", tex_size("force"), ", recorded},")
+        println(io, "  flow/.style={->, line width=", tex_size("flow"), ", recorded},")
         println(io, "  dimension/.style={<->, guide, line width=", tex_size("dimension"),
             "},")
         println(io, "  leader/.style={guide, line width=", tex_size("dimension"), "},")
