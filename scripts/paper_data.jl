@@ -850,7 +850,7 @@ end
     size_bounds(class)
 
 Smallest and largest area [m^2] searched for each rig on `class`: kites of 500 to
-16,000 m^2, wings and rotors of a fifth to all of what fits on deck.
+64,000 m^2, wings and rotors of a fifth to all of what fits on deck.
 """
 function size_bounds(class)
     hull = Hull(class, assumptions)
@@ -865,7 +865,7 @@ end
 Largest area [m^2] of `rig` on `hull`: what fits on deck, for a kite the search bound.
 """
 function largest_rig_area(rig, hull)
-    rig == "kite" && return 16000.0
+    rig == "kite" && return 64000.0
     return largest_area(rig == "wings" ? WingRig : WindShipOpt.RotorRig, hull)
 end
 
@@ -1673,9 +1673,9 @@ development_inputs = [
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
         reason="What a flight hour of the canopy costs; unmeasured, so what development " *
                "has to prove."),
-    (input=:kite_deck_mass_per_force, label="kite deck system mass", rig="kite",
-        lever="price", reason="Its design sets the mass of mast, winch and docking head, " *
-                              "which set the price of the kite's hardware."),
+    (input=:launch_mast_mass_per_size, label="kite launch mast mass", rig="kite",
+        lever="price", reason="Its design sets the mass of the launch mast and docking " *
+                              "head, the largest part of the kite's hardware price."),
     (input=:kite_out_of_service, label="kite out of service", rig="kite",
         lever="availability",
         reason="What a maker's reliability work is worth; the same lever for every rig."),
@@ -2993,7 +2993,8 @@ end
 "the price inputs of the parts and launches of a soft or a VTOL kite"
 kite_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost, :canopy_structure_chord,
     :canopy_sewing_cloth_share, :canopy_cloth_base_price, :canopy_cloth_price_per_weight,
-    :kite_deck_mass_per_force, :kite_deck_cost_per_mass, :control_unit_cost_per_mass,
+    :winch_mass_per_force, :winch_cost_per_mass, :launch_mast_mass_per_size,
+    :launch_mast_cost_per_mass, :control_unit_cost_per_mass,
     :kite_controls_cost, :kite_integration_fraction, :tether_price,
     :rigid_avionics_cost, :rigid_drive_cost, :rigid_ship_power_cost,
     :rigid_structure_cost_per_area, :rigid_structure_cost_per_mass, :rigid_tether_price,

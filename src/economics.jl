@@ -286,17 +286,30 @@ and its tether.
 function kite_rig_mass(rig::KiteRig, assumptions)
     kite = soft_kite_mass(rig.area, rig.aspect_ratio, rig.max_force, assumptions)
     tether = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
-    return kite_deck_mass(rig.max_force, assumptions) + kite + tether
+    return sum(kite_deck_masses(rig.area, rig.max_force, assumptions)) + kite + tether
 end
 
 """
-    kite_deck_mass(max_force, assumptions)
+    kite_deck_masses(area, max_force, assumptions)
 
-Mass [kg] of the deck system of a kite of tether force limit `max_force` [N]: launch mast,
-docking head, winch, tow point and their seats.
+Masses [kg] of the deck system of a kite of projected `area` [m^2] and tether force limit
+`max_force` [N]: its winch with the tow point, which hold that force, and its launch mast
+and docking head with their seats, which grow with the kite's size.
 """
-kite_deck_mass(max_force, assumptions) =
-    1e-3assumptions[:kite_deck_mass_per_force] * max_force
+kite_deck_masses(area, max_force, assumptions) =
+    (winch=1e-3assumptions[:winch_mass_per_force] * max_force,
+        launch_mast=1e3assumptions[:launch_mast_mass_per_size] * sqrt(area))
+
+"""
+    kite_deck_price(area, max_force, assumptions)
+
+Cost [USD] of the [`kite_deck_masses`](@ref), each at its cost per kg.
+"""
+function kite_deck_price(area, max_force, assumptions)
+    (; winch, launch_mast) = kite_deck_masses(area, max_force, assumptions)
+    return assumptions[:winch_cost_per_mass] * winch +
+           assumptions[:launch_mast_cost_per_mass] * launch_mast
+end
 
 function rig_costs(rig::KiteRig{RigidAirframe}, assumptions)
     _, tether = consumable_costs(rig, assumptions)
@@ -343,19 +356,19 @@ launch_mast_height(area, assumptions) = min(
     assumptions[:launch_mast_height_ratio] * sqrt(area),
     assumptions[:launch_mast_max_height])
 
-rig_price_parts(rig::KiteRig, assumptions) = kite_price_parts(rig.max_force, assumptions)
+rig_price_parts(rig::KiteRig, assumptions) =
+    kite_price_parts(rig.area, rig.max_force, assumptions)
 
 """
-    kite_price_parts(max_force, assumptions)
+    kite_price_parts(area, max_force, assumptions)
 
-[`rig_price_parts`](@ref) of a soft kite of tether force limit `max_force` [N]: its
-[`kite_deck_mass`](@ref) and control unit, each at its cost per kg, and its ship-side
-controls.
+[`rig_price_parts`](@ref) of a soft kite of projected `area` [m^2] and tether force limit
+`max_force` [N]: its [`kite_deck_price`](@ref), its control unit at its cost per kg, and
+its ship-side controls.
 """
-function kite_price_parts(max_force, assumptions)
+function kite_price_parts(area, max_force, assumptions)
     control_unit_mass = 1e-3assumptions[:control_unit_mass_per_force] * max_force
-    parts = (deck=assumptions[:kite_deck_cost_per_mass] *
-                  kite_deck_mass(max_force, assumptions),
+    parts = (deck=kite_deck_price(area, max_force, assumptions),
         control_unit=assumptions[:control_unit_cost_per_mass] * control_unit_mass,
         controls=assumptions[:kite_controls_cost])
     return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
@@ -363,7 +376,7 @@ end
 
 function rig_price_parts(rig::KiteRig{RigidAirframe}, assumptions)
     (; count, hover_power) = rig.airframe
-    deck = assumptions[:kite_deck_cost_per_mass] * kite_deck_mass(rig.max_force, assumptions)
+    deck = kite_deck_price(rig.area, rig.max_force, assumptions)
     parts = (deck=count * deck,
         ship_power=count * assumptions[:rigid_ship_power_cost] * hover_power,
         controls=count * assumptions[:kite_controls_cost])

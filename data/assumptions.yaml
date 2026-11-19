@@ -750,18 +750,30 @@ rigid_ship_power_cost:
   high: 0.5
   unit: USD/W
   reason: "Authors' estimate of the ship's supply and converter or battery for the hover peak, at the price of the on-board drive."
-kite_deck_mass_per_force:
-  value: 50.0
-  low: 30.0
-  high: 94.0
+winch_mass_per_force:
+  value: 15.0
+  low: 13.0
+  high: 28.0
   unit: kg/kN
-  reason: "Mass of a ship kite's deck system (launch mast, docking head, winch, tow point and their seats) per kN of tether force limit: the SkySails system of 160-600 m^2 kites weighs about 30 t [@cedelft2016, Annex A.4], and its kites are designed for about 1 kN per m^2, 320 kN for 320 m^2 [@paulig2013], so 30 t for the 600 kN of a 600 m^2 kite. High bound: the same 30 t for the 320 kN of the largest kite SkySails flew; low bound: the authors' estimate for a lighter design."
-kite_deck_cost_per_mass:
+  reason: "Mass of a ship kite's winch with its drum, brake and drive, and its tow point, per kN of tether force limit, which the brake and tow point hold at standstill: offshore mooring winches of 600 to 2,050 kN brake holding load and 700 to 1,050 m of rope weigh 13.3 to 16.7 kg/kN [@broehl2018offshore], hydraulic mooring winches of 80 to 1,500 kN 15 to 26 kg/kN and an electric one of 1,500 kN 28 kg/kN [@mordec_deck]; a towing bracket of 4,000 kN weighs 0.4 kg/kN [@boomarine_smit]."
+winch_cost_per_mass:
+  value: 3.9
+  low: 2.9
+  high: 8.3
+  unit: USD/kg
+  reason: "Cost per kg of the kite's winch and tow point, heavy steel that holds a load and turns slowly: the supplier price per kg of a wind turbine's hub, a steel casting [@wisdem_csm]. Bounds: the welded steel tower and the geared yaw system of the same model."
+launch_mast_mass_per_size:
+  value: 0.86
+  low: 0.54
+  high: 1.41
+  unit: t/m
+  reason: "Mass of a ship kite's launch mast and docking head with their seats per m of the square root of projected kite area, as they carry the kite only at launch and landing and grow with its span and chord: the SkySails system of 160-600 m^2 kites weighs about 30 t [@cedelft2016, Annex A.4] at about 1 kN/m^2 [@paulig2013], so 21 t after the winch of a 600 m^2 kite at 15 kg/kN, over 24.5 m. Low bound: the winch at 28 kg/kN; high bound: the 30 t less its winch for the 320 m^2 kite SkySails flew."
+launch_mast_cost_per_mass:
   value: 8.3
   low: 3.9
   high: 12.9
   unit: USD/kg
-  reason: "Cost per kg of the kite's deck system, geared and slewing machinery on a steel structure: the supplier price per kg of a wind turbine's yaw system [@wisdem_csm]. Bounds: the hub, a steel casting, and the gearbox of the same model."
+  reason: "Cost per kg of the kite's telescopic launch mast and slewing docking head, geared and slewing machinery on a steel structure: the supplier price per kg of a wind turbine's yaw system [@wisdem_csm]. Bounds: the hub, a steel casting, and the gearbox of the same model."
 control_unit_cost_per_mass:
   value: 218.0
   low: 150.0
