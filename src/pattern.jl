@@ -550,15 +550,6 @@ function PatternForce(model::KiteModel, pattern::LoopPattern, wind_speed, max_te
 end
 
 """
-    sphere_position(azimuth, elevation)
-
-Unit position at `azimuth` and `elevation` [rad] in the wind frame (apparent downwind,
-crosswind towards positive azimuth, up).
-"""
-sphere_position(azimuth, elevation) =
-    (cos(elevation) * cos(azimuth), cos(elevation) * sin(azimuth), sin(elevation))
-
-"""
     PatternProblem
 
 Choice of the flight pattern for one condition: the kite, its tether force limit [N],
