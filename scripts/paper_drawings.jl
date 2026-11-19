@@ -62,7 +62,8 @@ function horizontal_forces(ship, rig, speed, wind, angle; waves=0.0)
     return (; forces, balance.leeway, balance.heel)
 end
 
-"share of the length by which [`force_balance_figure`](@ref) draws the propeller ahead of the rudder"
+"share of the length by which [`force_balance_figure`](@ref) draws the propeller ahead of
+the rudder"
 propeller_ahead = 0.04
 
 """
@@ -88,7 +89,8 @@ function check_balance(forces, name)
     tolerance = 1e-9largest
     abs(sums.along) < tolerance && abs(sums.across) < tolerance &&
         abs(sums.yaw) < tolerance * longest ||
-        error(@sprintf("forces on the %s do not balance: %.3g N along, %.3g N across, %.3g N m yaw",
+        error(@sprintf(
+            "forces on the %s do not balance: %.3g N along, %.3g N across, %.3g N m yaw",
             name, sums.along, sums.across, sums.yaw))
     return sums
 end
@@ -179,9 +181,11 @@ function draw_force_panel(io, panel, centreline, top, letter)
     for force in forces
         draw_force(io, force, forces)
     end
-    @printf(io, "\\node[panel, anchor=south west] at %s {(%c) %s %d\\,m\\textsuperscript{2}};\n",
+    @printf(io,
+        "\\node[panel, anchor=south west] at %s {(%c) %s %d\\,m\\textsuperscript{2}};\n",
         tikz_point(-14, top + 4), letter, rig_label(rig), round(Int, area))
-    @printf(io, "\\node[note, anchor=south west] at %s {leeway \$\\beta = %.1f^\\circ\$, heel \$\\phi = %.1f^\\circ\$};\n",
+    @printf(io, "\\node[note, anchor=south west] at %s {leeway \$\\beta = %.1f^\\circ\$, \
+        heel \$\\phi = %.1f^\\circ\$};\n",
         tikz_point(-14, top), rad2deg(leeway), rad2deg(heel))
     println(io, "\\end{scope}")
 end
@@ -206,9 +210,10 @@ arrowhead_length() = figure_style["sizes"]["arrow_length"] * 25.4 / 72.27
 """
     draw_force(io, force, forces)
 
-Write to `io` the mark and label of one of the [`horizontal_forces`](@ref) `forces` in [`force_balance_figure`](@ref): an arrow from its [`arrow_ends`](@ref), a dot
-where that is shorter than an arrowhead, nothing where the force is zero and another acts
-at its point, which then names it too, and a ring where it is zero alone.
+Write to `io` the mark and label of one of the [`horizontal_forces`](@ref) `forces` in
+[`force_balance_figure`](@ref): an arrow from its [`arrow_ends`](@ref), a dot where that
+is shorter than an arrowhead, nothing where the force is zero and another acts at its
+point, which then names it too, and a ring where it is zero alone.
 """
 function draw_force(io, force, forces)
     value = force.along + force.across
@@ -323,7 +328,9 @@ rig with their sections, and the scales of force and length.
 function force_balance_key(io, right, top)
     scale, metres = force_balance_scale.force, force_balance_scale.length
     entry(colour, text) = (colour, text * "\\inpaper{, " * force_sections[colour] * "}")
-    columns = [(108.0, [entry("water", raw"water: $R_\mathrm{cw}$, $R_\mathrm{aw}$, $R_\beta$, $R_r$, $T_\mathrm{req}$, $Y_\mathrm{h}$, $F_r$"),
+    water = raw"water: $R_\mathrm{cw}$, $R_\mathrm{aw}$, $R_\beta$, $R_r$, " *
+        raw"$T_\mathrm{req}$, $Y_\mathrm{h}$, $F_r$"
+    columns = [(108.0, [entry("water", water),
             entry("wind", raw"wind on the ship: $R_\mathrm{air}$, $Y$")]),
         (42.0, [entry(rig, "\$F_x\$, \$F_y\$ of the " * rig_label(rig))
                 for (rig, _) in trim_rigs])]
@@ -333,12 +340,16 @@ function force_balance_key(io, right, top)
         x, y = right - from_right + 1.5, row_y(row)
         println(io, "\\draw[force, ", colour, "] ", tikz_point(x, y), " -- ",
             tikz_point(x + 5, y), ";")
-        println(io, "\\node[note, anchor=west] at ", tikz_point(x + 5.5, y), " {", text, "};")
+        println(io, "\\node[note, anchor=west] at ", tikz_point(x + 5.5, y), " {", text,
+            "};")
     end
-    x, y = right - columns[1][1] + 1.5, row_y(maximum(length(last(column)) for column in columns) + 1)
-    @printf(io, "\\draw[|-|, line width=%s] %s -- %s node[note, anchor=west] {\\SI{100}{kN}};\n",
+    rows = maximum(length(last(column)) for column in columns)
+    x, y = right - columns[1][1] + 1.5, row_y(rows + 1)
+    @printf(io,
+        "\\draw[|-|, line width=%s] %s -- %s node[note, anchor=west] {\\SI{100}{kN}};\n",
         tex_size("rule"), tikz_point(x, y), tikz_point(x + 100scale, y))
-    @printf(io, "\\draw[|-|, line width=%s] %s -- %s node[note, anchor=west] {\\SI{20}{m}};\n",
+    @printf(io,
+        "\\draw[|-|, line width=%s] %s -- %s node[note, anchor=west] {\\SI{20}{m}};\n",
         tex_size("rule"), tikz_point(x + 25, y), tikz_point(x + 25 + 20metres, y))
     println(io, "\\end{scope}")
     println(io, raw"\begin{scope}[on background layer]",

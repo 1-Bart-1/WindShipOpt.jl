@@ -62,9 +62,10 @@ name_pairs(names) = [(first_name, second_name) for (i, first_name) in enumerate(
     palette_faults()
 
 Pairs of colours meant to be told apart, the rigs, the categories beside them, gain and
-loss, the ship's tones beside the rigs, the forces of water, wind and rigs, the box fills of [`figure_style`](@ref), the VTOL kite at base and favourable inputs
-and three of its [`vtol_shades`](@ref), that come closer than `least["colour"]` in normal
-or in some colour-blind vision.
+loss, the ship's tones beside the rigs, the forces of water, wind and rigs, the box fills
+of [`figure_style`](@ref), the VTOL kite at base and favourable inputs and three of its
+[`vtol_shades`](@ref), that come closer than `least["colour"]` in normal or in some
+colour-blind vision.
 """
 function palette_faults()
     colours = Makie.Colors
@@ -165,10 +166,10 @@ label_overlap_check = replace(raw"""
         \pgfgetlastxy \l_figstyle_bx_tl \l_figstyle_by_tl
         \seq_gput_right:Nx \g_figstyle_labels_seq
           {
-            { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
-            { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
-            { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
-            { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+          { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+          { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+          { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+          { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
           }
         \group_end:
       }
@@ -179,7 +180,10 @@ label_overlap_check = replace(raw"""
             { \fp_compare_p:n { #1 < #7 } } { \fp_compare_p:n { #5 < #3 } }
             { \fp_compare_p:n { #2 < #8 } } { \fp_compare_p:n { #6 < #4 } }
           }
-          { \PackageError {figurestyle} { labels~overlap~at~(#1pt,~#2pt)~and~(#5pt,~#6pt) } { } }
+          {
+            \PackageError {figurestyle}
+              { labels~overlap~at~(#1pt,~#2pt)~and~(#5pt,~#6pt) } { }
+          }
       }
     \cs_new_protected:Npn \figurestylecheck
       {
@@ -229,7 +233,8 @@ function figure_style_file()
         println(io, "% Written by the figure_style step from figure_style.toml; edit that.")
         println(io, "\\pdfinclusioncopyfonts=1")
         println(io, "\\usepackage{xcolor}\n\\usepackage{tikz}")
-        println(io, "\\usetikzlibrary{positioning,arrows.meta,fit,backgrounds,decorations.pathreplacing}")
+        println(io, "\\usetikzlibrary{positioning,arrows.meta,fit,backgrounds,",
+            "decorations.pathreplacing}")
         for (name, hex) in sort(collect(figure_style["colours"]))
             println(io, "\\definecolor{", name, "}{HTML}{", hex, "}")
             dark = Makie.Colors.hex(readable(style_colour(name), white))
@@ -284,9 +289,10 @@ end
 """
     tikz_style_faults()
 
-Lines of the TikZ figures in paper/sections and of their shared pictures that set a width, font size, colour or style
-of their own rather than one of [`figure_style_file`](@ref): a colour mixed from one that
-is not in [`figure_style`](@ref) counts, a tint of one that is does not, and so does
+Lines of the TikZ figures in paper/sections and of their shared pictures that set a
+width, font size, colour or style of their own rather than one of
+[`figure_style_file`](@ref): a colour mixed from one that is not in [`figure_style`](@ref)
+counts, a tint of one that is does not, and so does
 [`faint_text`](@ref).
 """
 function tikz_style_faults()

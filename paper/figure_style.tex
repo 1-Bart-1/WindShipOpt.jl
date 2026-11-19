@@ -118,10 +118,10 @@
     \pgfgetlastxy \l_figstyle_bx_tl \l_figstyle_by_tl
     \seq_gput_right:Nx \g_figstyle_labels_seq
       {
-        { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
-        { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
-        { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
-        { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+      { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+      { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+      { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+      { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
       }
     \group_end:
   }
@@ -132,7 +132,10 @@
         { \fp_compare_p:n { #1 < #7 } } { \fp_compare_p:n { #5 < #3 } }
         { \fp_compare_p:n { #2 < #8 } } { \fp_compare_p:n { #6 < #4 } }
       }
-      { \PackageError {figurestyle} { labels~overlap~at~(#1pt,~#2pt)~and~(#5pt,~#6pt) } { } }
+      {
+        \PackageError {figurestyle}
+          { labels~overlap~at~(#1pt,~#2pt)~and~(#5pt,~#6pt) } { }
+      }
   }
 \cs_new_protected:Npn \figurestylecheck
   {
