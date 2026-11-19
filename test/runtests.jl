@@ -710,20 +710,26 @@ end
     end
 end
 
-@testset "a kite's hardware is its deck system and control unit by mass, and its controls" begin
-    parts(force) = WindShipOpt.kite_price_parts(force, assumptions)
-    @test parts(8e5).deck ≈ 800 * assumptions[:kite_deck_mass_per_force] *
-                            assumptions[:kite_deck_cost_per_mass]
-    @test parts(8e5).control_unit ≈ 800 * assumptions[:control_unit_mass_per_force] *
-                                    assumptions[:control_unit_cost_per_mass]
-    @test parts(8e5).controls == assumptions[:kite_controls_cost]
-    @test parts(8e5).integration ≈
-          assumptions[:kite_integration_fraction] * (sum(parts(8e5)) - parts(8e5).integration)
+@testset "a kite's winch grows with its tether force, its launch mast with its size" begin
+    parts(area) = WindShipOpt.kite_price_parts(area, 500area, assumptions)
+    deck = WindShipOpt.kite_deck_masses(800.0, 4e5, assumptions)
+    @test deck.winch ≈ 400 * assumptions[:winch_mass_per_force]
+    @test deck.launch_mast ≈ 1e3assumptions[:launch_mast_mass_per_size] * sqrt(800)
+    @test parts(800.0).deck ≈ assumptions[:winch_cost_per_mass] * deck.winch +
+                              assumptions[:launch_mast_cost_per_mass] * deck.launch_mast
+    @test parts(800.0).control_unit ≈ 400 * assumptions[:control_unit_mass_per_force] *
+                                      assumptions[:control_unit_cost_per_mass]
+    @test parts(800.0).controls == assumptions[:kite_controls_cost]
+    @test parts(800.0).integration ≈ assumptions[:kite_integration_fraction] *
+                                     (sum(parts(800.0)) - parts(800.0).integration)
+    @test 2 < parts(16000.0).deck / parts(3200.0).deck < 3
+    skysails = sum(WindShipOpt.kite_deck_masses(600.0, 6e5, assumptions))
+    @test skysails ≈ 30e3 rtol = 0.02
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     tether = WindShipOpt.rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
     kite = WindShipOpt.soft_kite_mass(rig.area, rig.aspect_ratio, rig.max_force, assumptions)
-    @test WindShipOpt.rig_costs(rig, assumptions)[2] ≈
-          1e-3(1e-3assumptions[:kite_deck_mass_per_force] * rig.max_force + kite + tether)
+    @test WindShipOpt.rig_costs(rig, assumptions)[2] ≈ 1e-3(kite + tether +
+          sum(WindShipOpt.kite_deck_masses(rig.area, rig.max_force, assumptions)))
 end
 
 @testset "a rotor price is set against the build-up of the same unit as sold" begin
