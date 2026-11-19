@@ -997,8 +997,10 @@ struct RouteWorkspace
     shared::Vector{SailedEdge}
     "index in `shared` before the edges of each time bin, -1 where it holds none"
     shared_from::Vector{Int}
-    "routing speed numbers commanded on the edge in hand"
+    "routing speed numbers commanded on the edges from the node in hand, step by step"
     commanded::Vector{Int}
+    "index in `commanded` before the speeds of each step"
+    commanded_from::Vector{Int}
 end
 
 """
@@ -1013,7 +1015,7 @@ function RouteWorkspace(lateral_count, bins, stage_count)
         zeros(Int32, shape), zeros(Int32, shape), zeros(Int32, shape), zeros(Int16, shape),
         zeros(Int8, shape), SailedPoint[], Ref(zeros(lateral_count, 0, 2, stage_count)),
         Ref(falses(lateral_count, 0, stage_count)), Vector{SailedPoint}[], SailedEdge[],
-        fill(-1, bins), Int[])
+        fill(-1, bins), Int[], Int[])
 end
 
 "workspaces not in use, by (lateral count, time bins), shared by the threads that route"
@@ -1052,14 +1054,14 @@ commanded_speeds(count, stride) = (1 + (count - 1) % stride):stride:count
 """
     commanded_speeds!(commanded, speeds, stride, distance, time_step)
 
-Fill `commanded` with the ascending [`commanded_speeds`](@ref) of `speeds` [m/s] at
+Append to `commanded` the ascending [`commanded_speeds`](@ref) of `speeds` [m/s] at
 `stride` on an edge of `distance` [m] and the fewest speeds between them that bring
 their arrivals within `time_step` [h] of each other, or as near as neighbouring speeds go.
 """
 function commanded_speeds!(commanded, speeds, stride, distance, time_step)
-    empty!(commanded)
+    start = length(commanded)
     for speed_index in commanded_speeds(length(speeds), stride)
-        while !isempty(commanded) && last(commanded) < speed_index - 1 &&
+        while length(commanded) > start && last(commanded) < speed_index - 1 &&
             arrival_gap(distance, speeds[last(commanded)], speeds[speed_index]) > time_step
             slower, faster = last(commanded), last(commanded) + 1
             while arrival_gap(distance, speeds[slower], speeds[faster + 1]) <= time_step
@@ -1666,14 +1668,16 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
         lat, lon = corridor.lat[stage, lateral], corridor.lon[stage, lateral]
         empty!(workspace.shared)
         fill!(workspace.shared_from, -1)
+        commanded_edges!(workspace, corridor, speeds, speed_stride, time_step, stage,
+            lateral)
+        (; commanded, commanded_from) = workspace
         for aloft in 1:2, bin in 1:bins
             here = cost[lateral, bin, aloft, stage]
             isfinite(here) || continue
             time = elapsed[lateral, bin, aloft, stage]
             within_limit(to_go, limit, here, lateral, aloft, stage, time) || continue
             state = (lateral, bin, aloft, stage)
-            sharing = sharing_edges!(workspace, state, to_go, limit,
-                step_count(corridor) * length(speeds))
+            sharing = sharing_edges!(workspace, state, to_go, limit, length(commanded))
             node_wind = wind(weather, lat, lon, departure + time)
             node_waves = waves(weather, lat, lon, departure + time)
             daylight = is_daylight(lon, departure + time)
@@ -1681,19 +1685,18 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
                 isnan(corridor.edge_course[stage, lateral, step]) && continue
                 next = next_lateral(corridor, lateral, step)
                 distance = corridor.edge_length[stage, lateral, step]
-                commanded = commanded_speeds!(workspace.commanded, speeds, speed_stride,
-                    distance, time_step)
                 start = EdgeSample(ship_table, node_wind, node_waves,
                     corridor.edge_course[stage, lateral, step], daylight,
                     wind_spread(weather, departure + time))
                 through = 0
-                for speed_index in commanded
+                for slot in (commanded_from[step] + 1):commanded_from[step + 1]
+                    speed_index = commanded[slot]
                     speed_index <= through && continue
                     commanded_hours = distance / speeds[speed_index] / 3600
                     edge_within_limit(to_go, limit,
                         here + time_cost * commanded_hours, next, stage + 1,
                         time + commanded_hours) || continue
-                    shared = shared_slot(sharing, step, speed_index, length(speeds))
+                    shared = shared_slot(sharing, slot)
                     sailed = sailed_edge!(workspace, shared, aloft == 2, table, prices,
                         (; start, weather, corridor, stage, lateral, step, speed_index,
                             sample_hours, time=departure + time))
@@ -1710,6 +1713,28 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
     isfinite(objective) || return nothing
     return traced_leg(workspace, corridor, table, (centre_index(corridor), bin, 1,
         stage_count), first_stage, objective)
+end
+
+"""
+    commanded_edges!(workspace, corridor, speeds, speed_stride, time_step, stage, lateral)
+
+Fill `workspace.commanded` with the [`commanded_speeds!`](@ref) of `speeds` [m/s] at
+`speed_stride` and `time_step` [h] on each step from node (`stage`, `lateral`) of
+`corridor`, and `workspace.commanded_from` with the index before each step's speeds.
+"""
+function commanded_edges!(workspace::RouteWorkspace, corridor, speeds, speed_stride,
+        time_step, stage, lateral)
+    (; commanded, commanded_from) = workspace
+    empty!(commanded)
+    empty!(commanded_from)
+    for step in 1:step_count(corridor)
+        push!(commanded_from, length(commanded))
+        isnan(corridor.edge_course[stage, lateral, step]) && continue
+        commanded_speeds!(commanded, speeds, speed_stride,
+            corridor.edge_length[stage, lateral, step], time_step)
+    end
+    push!(commanded_from, length(commanded))
+    return workspace
 end
 
 """
@@ -1755,14 +1780,12 @@ function sharing_edges!(workspace::RouteWorkspace, state, to_go, limit, edge_cou
 end
 
 """
-    shared_slot(sharing, step, speed_index, speed_count)
+    shared_slot(sharing, slot)
 
-Index in `workspace.shared` of edge `step` at routing speed number `speed_index` of
-`speed_count`, for a state whose [`sharing_edges!`](@ref) gave `sharing`; 0 where that is
--1.
+Index in `workspace.shared` of the edge at place `slot` of `workspace.commanded`, for a
+state whose [`sharing_edges!`](@ref) gave `sharing`; 0 where that is -1.
 """
-shared_slot(sharing, step, speed_index, speed_count) =
-    sharing < 0 ? 0 : sharing + (step - 1) * speed_count + speed_index
+shared_slot(sharing, slot) = sharing < 0 ? 0 : sharing + slot
 
 """
     sailed_edge!(workspace, slot, aloft, table, prices, edge)

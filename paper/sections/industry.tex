@@ -8,7 +8,7 @@
 \begin{table*}[tbp]
 \centering
 \footnotesize
-\caption{\stale{classes}{} Discounted payback time in years of the best size of each rig on each ship class, the median over the six routes, at the base discount rate. A dash marks where the median rig does not pay back within its life. The shorter the payback, the deeper the blue.}
+\caption{\stale{classes}{} Discounted payback time in years of the best size of each rig on each ship class, the median over the six routes, at the base discount rate. A dash marks where the median rig does not pay back within its life. The shorter the payback, the deeper the blue. Payback scales with the rig's price, an estimate with a wide range (\cref{tab:inputs}), so it is given in whole years, below two years to the half year; the kite's holds at its goals.}
 \label{tab:payback}
 \InputIfFileExists{sections/payback_table}{}{\tbd{Payback table pending: run the payback\_table step.}}
 \end{table*}
@@ -18,7 +18,7 @@ A rig narrows the gap between the fuels but does not close it. \stale{designs}{T
 \begin{figure}[tbp]
 \centering
 \plot{premium}
-\caption{\stale{designs}{} Share of the cost premium of an e-ammonia ship over the same ship on VLSFO without a rig that the best size of each rig closes, over ship length on the route to Guadeloupe. At \given{100}\,\% a ship on that fuel with that rig costs as much per tonne-kilometre as a fossil-fuelled ship today.}
+\caption{\stale{designs}{} Share of the cost premium of an e-ammonia ship over the same ship on VLSFO without a rig that the best size of each rig closes, over ship length on the route to Guadeloupe, at the base fuel prices (marker) and over the ranges of the e-ammonia and VLSFO prices of \cref{tab:inputs} (bar); lengths without a marker were not run for that rig. At \given{100}\,\% a ship on that fuel with that rig costs as much per tonne-kilometre as a fossil-fuelled ship today.}
 \label{fig:premium}
 \end{figure}
 
@@ -31,7 +31,7 @@ A rig narrows the gap between the fuels but does not close it. \stale{designs}{T
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{fleet_share}
-\caption{\stale{classes}{} How much of shipping each rig suits and how much it saves there, on VLSFO and e-ammonia, if each rig reaches its goals and each class and route fits the rig that lowers its cost per tonne-kilometre most. (a) The yearly cost of carrying the cargo of the thirteen ship classes, split by that rig: each segment is the part of shipping a rig suits best, measured by what carrying its cargo costs a year, and each bar's total is beside it. (b) The yearly cost the rigs save on those parts, split by rig: the part of the cost in (a) that the rigs take out, with its total and its share of that cost beside each bar. Hatched: two rigs level within the error of their gap (\cref{sec:res_robustness}), so either may be fitted; grey: no rig saves beyond the error, so none is fitted and nothing is saved. Weighted by the 2018 transport work of the IMO size bins the classes stand for \citep{faber2020}. With perfect foresight of the weather.}
+\caption{\stale{classes}{} How much of shipping each rig suits and how much it saves there, on VLSFO and e-ammonia, if each rig reaches its goals and each class and route fits the rig that lowers its cost per tonne-kilometre most. (a) The yearly cost of carrying the cargo of the thirteen ship classes, split by that rig: each segment is the part of shipping a rig suits best, measured by what carrying its cargo costs a year, and each bar's total is beside it. (b) The yearly cost the rigs save on those parts, split by rig: the part of the cost in (a) that the rigs take out, with its total and its share of that cost beside each bar. Dollar totals are rounded to what their estimated inputs allow. Hatched: two rigs level within the error of their gap (\cref{sec:res_robustness}), so either may be fitted; grey: no rig saves beyond the error, so none is fitted and nothing is saved. Weighted by the 2018 transport work of the IMO size bins the classes stand for \citep{faber2020}. With perfect foresight of the weather.}
 \label{fig:fleet_share}
 \end{figure*}
 

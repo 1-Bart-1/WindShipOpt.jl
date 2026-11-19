@@ -81,7 +81,7 @@ The hours are the low end of what a maker's 50 hours per paraglider gives \citep
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Cell layout of a paraglider and of ship kites. The paraglider is an Ozone Rush~5 \tbd{(source to add)}. The SkySails cell count is from \citet{paulig2013}, the widths by our reading.}
+\caption{Cell layout of a paraglider and of ship kites. The paraglider is an Ozone Rush~5 \tbd{(source to add)}. The SkySails cell count is from \citet{paulig2013}, its cell width and proportion ($\approx$) by our reading, and this kite takes that proportion.}
 \label{tab:seam_cloth}
 \begin{tabular}{@{}lrrr@{}}
 \toprule
@@ -89,9 +89,9 @@ The hours are the low end of what a maker's 50 hours per paraglider gives \citep
 \midrule
 Flat aspect ratio & 5.55 & -- & 3.76 \\
 Cells & 57 & 22 & 31 \\
-Cell width (m) & 0.21 & 1.1 & 1.9 \\
-Cell length over width & 10.3 & 8.1 & 8.1 \\
-Seam per flat m$^2$ (m) & 14 & -- & 2.5 to 4.5 \\
+Cell width [m] & 0.21 & $\approx$1.1 & 1.9 \\
+Cell length over width & 10.3 & $\approx$8.1 & 8.1 \\
+Seam per flat m$^2$ [m] & 14 & -- & 2.5--4.5 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -103,13 +103,13 @@ For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre and rib
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Effect of a lower cloth ratio or fewer sewing hours on the canopy price at the production stage and on the canopy mass.}
+\caption{Effect of a lower cloth ratio or fewer sewing hours on the canopy price at the production stage, as a change against its base of USD~\NumCanopyPriceStage{} per projected square metre (\cref{tab:canopy_price}), and on the canopy mass.}
 \label{tab:canopy_variants}
 \begin{tabular}{@{}lrr@{}}
 \toprule
-Variant & Price (USD/m$^2$) & Canopy mass (kg/m$^2$) \\
+Variant & Change of price [USD/m$^2$] & Canopy mass [kg/m$^2$] \\
 \midrule
-Base & 330 & 0.75 \\
+Base, at the production stage & 0 & 0.75 \\
 Cloth ratio 3.0 & $-18$ & 0.65 \\
 Cloth ratio 2.4, no ribs & $-41$ & 0.53 \\
 Sewing 0.8 h & $-46$ & 0.75 \\
@@ -137,12 +137,14 @@ Sewing 0.6 h & $-60$ & 0.75 \\
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{Canopy life at \SI{200}{g/m^2} with one input at each bound, in flight hours.}
+\caption{Canopy life at \SI{200}{g/m^2} from the strength decay with one input at each bound, in flight hours, the bound giving the shorter life first. The base retires the cloth at 4\,\% of its new strength, below both retirement strengths of the last row, so both give a shorter life. The goal is \num{3000} hours, with this table's range of \numrange{1200}{6900} hours.}
 \label{tab:canopy_life_range}
 \begin{tabular}{@{}lrr@{}}
 \toprule
-Input changed alone & Low & High \\
+Input changed alone & Shorter life & Longer life \\
 \midrule
+All inputs at base & \multicolumn{2}{c}{\num{3800}} \\
+\addlinespace
 Wear rate $r$ & \num{2200} & \num{6900} \\
 Reference dose $D_\mathrm{ref}$ & \num{3100} & \num{4400} \\
 UV exponent $a$ & \num{3600} & \num{4200} \\
