@@ -1576,11 +1576,17 @@ end
     trip(class; rig...) = round_trip(Ship(ShipDesign(:ammonia, class; rig...), assumptions),
         corridors..., SyntheticWeather(), departures, assumptions)
     days(trip) = trip.outbound_days + trip.return_days
-    bare, scheduled, free = trip(liner), trip(liner; rotor_area=600.0),
-    trip(tramp; rotor_area=600.0)
+    # Every speed: on every other one the liner's next slower speed can miss its schedule.
+    every_speed = WindShipOpt.RouterSettings(time_step=1.5, search_speed_stride=1,
+        search_margins=(0.12, 0.2))
+    bare, bare_tramp, scheduled, free = WindShipOpt.with_router_settings(every_speed) do
+        return trip(liner), trip(tramp), trip(liner; rotor_area=600.0),
+        trip(tramp; rotor_area=600.0)
+    end
     @test days(free) < 0.99days(bare)
     @test days(free) < days(scheduled) <= days(bare)
-    @test days(trip(tramp)) == days(bare)
+    @test scheduled.fuel_energy < free.fuel_energy
+    @test days(bare_tramp) == days(bare)
 end
 
 @testset "a leg arrives by its time on the least fuel that does" begin
