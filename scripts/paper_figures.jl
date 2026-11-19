@@ -62,7 +62,7 @@ name_pairs(names) = [(first_name, second_name) for (i, first_name) in enumerate(
     palette_faults()
 
 Pairs of colours meant to be told apart, the rigs, the categories beside them, gain and
-loss, the box fills of [`figure_style`](@ref), the VTOL kite at base and favourable inputs
+loss, the ship's tones beside the rigs, the forces of water, wind and rigs, the box fills of [`figure_style`](@ref), the VTOL kite at base and favourable inputs
 and three of its [`vtol_shades`](@ref), that come closer than `least["colour"]` in normal
 or in some colour-blind vision.
 """
@@ -72,6 +72,8 @@ function palette_faults()
     groups = (("rig", style_colour.(["kite", "wings", "rotors", "vtol"])),
         ("category", category_colours), ("cell", style_colour.(["gain", "loss"])),
         ("fill", style_colour.(collect(keys(figure_style["fills"])); table="fills")),
+        ("ship", style_colour.(["keel", "topsides", "deck", "kite", "wings", "rotors"])),
+        ("force", style_colour.(["water", "wind", "kite", "wings", "rotors"])),
         ("VTOL", [style_colour("vtol"), vtol_favourable]), ("VTOL shade", vtol_shades(3)))
     faults = String[]
     for (group, members) in groups, i in eachindex(members), j in (i + 1):length(members)
@@ -253,6 +255,7 @@ function figure_style_file()
         println(io, "  dimension/.style={<->, guide, line width=", tex_size("dimension"),
             "},")
         println(io, "  leader/.style={guide, line width=", tex_size("dimension"), "},")
+        println(io, "  icon line/.style={line width=", tex_size("flow"), "},")
         println(io, "  crossing/.style={draw=white, line width=", tex_size("crossing"),
             "},")
         println(io, "  label/.style={font=", tex_font("text"), ", inner sep=1pt, ",
@@ -274,13 +277,14 @@ function figure_style_file()
             tex_font("note"), "\\bfseries, inner sep=0pt, minimum size=", tex_size("step"),
             "},")
         println(io, "}")
+        println(io, "\\input{figure_pics}")
     end
 end
 
 """
     tikz_style_faults()
 
-Lines of the TikZ figures in paper/sections that set a width, font size, colour or style
+Lines of the TikZ figures in paper/sections and of their shared pictures that set a width, font size, colour or style
 of their own rather than one of [`figure_style_file`](@ref): a colour mixed from one that
 is not in [`figure_style`](@ref) counts, a tint of one that is does not, and so does
 [`faint_text`](@ref).
@@ -290,7 +294,8 @@ function tikz_style_faults()
         "\\\\(definecolor|colorlet|tiny|scriptsize|footnotesize|small)\\b"))
     mixed = r"([A-Za-z]+)!\d"
     faults = String[]
-    for file in filter(endswith(".tex"), readdir(sections; join=true))
+    for file in [filter(endswith(".tex"), readdir(sections; join=true));
+                 joinpath(root, "paper", "figure_pics.tex")]
         text = read(file, String)
         occursin("tikzpicture", text) || continue
         for (number, line) in enumerate(split(text, '\n'))
