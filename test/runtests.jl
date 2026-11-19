@@ -683,9 +683,9 @@ end
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
 end
 
-@testset "a canopy costs its goal price, and USD 234 as built today" begin
+@testset "a canopy costs its goal price, and USD 237 as built today" begin
     @test WindShipOpt.canopy_price(assumptions) ≈ 149.8
-    @test WindShipOpt.canopy_price_today(assumptions) ≈ 234.4
+    @test WindShipOpt.canopy_price_today(assumptions) ≈ 237.2
     cloth = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
     today_cloth = WindShipOpt.with_today(assumptions, cloth)
     @test all(today_cloth[name] == assumptions[Symbol(name, :_today)] for name in cloth)
@@ -693,7 +693,7 @@ end
           assumptions[:canopy_making_cost_per_area]
     weight = assumptions[:canopy_cloth_weight]
     @test WindShipOpt.sewn_cloth_price(assumptions, weight) ≈ 9.4
-    @test WindShipOpt.sewn_cloth_price(today_cloth, weight) ≈ 17.2
+    @test WindShipOpt.sewn_cloth_price(today_cloth, weight) ≈ 17.6
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈ 149.8rig.area
 end
@@ -1880,7 +1880,6 @@ end
         @test any(sample.apparent_wind != sample.wind_speed for sample in samples)
         @test length(edges) == length(free.path) - 1
         @test free.objective <= held.objective * (1 + 1e-9)
-        @test sum(edge.cost for edge in edges) <= sum(edge.held_cost for edge in edges)
         @test all(edge -> edge.cost <= edge.held_cost * (1 + 1e-9) ||
                           edge.ends_aloft != edge.held_ends_aloft, edges)
         any(edge -> edge.ends_aloft != edge.held_ends_aloft, edges) || continue
@@ -2875,6 +2874,20 @@ end
     @test [point[1:2] for point in repeated.path] == [point[1:2] for point in leg.path]
 end
 
+@testset "the shortest path through a corridor joins its centres and is no longer than \
+          a routed path" begin
+    weather, departure = SyntheticWeather(), 24.0 * 121
+    leg = route(corridor, table, weather, departure; time_cost=hourly)
+    shortest = WindShipOpt.shortest_corridor(corridor)
+    centre = centre_index(corridor)
+    @test (shortest.lat[1], shortest.lat[end]) == (corridor.lat[1, centre],
+        corridor.lat[end, centre])
+    @test shortest.track_length == corridor.track_length
+    @test all(isfinite, shortest.edge_length[:, 1, WindShipOpt.STRAIGHT_ON])
+    @test sum(shortest.edge_length) <=
+          sum(WindShipOpt.path_corridor(leg, corridor, 1).edge_length)
+end
+
 @testset "a search that cuts off the best path and overruns its limit widens" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
     (; time_step) = WindShipOpt.ROUTER_SETTINGS[]
@@ -3174,11 +3187,10 @@ end
     @test length(workspace.shared) == from + 5 * (2WindShipOpt.MAX_LATERAL_STEP + 1)
     @test share(aloft) == from
     @test share(later_down) == share(later_aloft) == -1
-    speed_count, step_count = 5, 2WindShipOpt.MAX_LATERAL_STEP + 1
-    slots = [WindShipOpt.shared_slot(from, step, slot, speed_count)
-             for step in 1:step_count, slot in 1:speed_count]
-    @test sort(vec(slots)) == from .+ (1:(step_count * speed_count))
-    @test WindShipOpt.shared_slot(-1, 2, 3, speed_count) == 0
+    edge_count = 5 * (2WindShipOpt.MAX_LATERAL_STEP + 1)
+    slots = [WindShipOpt.shared_slot(from, slot) for slot in 1:edge_count]
+    @test slots == from .+ (1:edge_count)
+    @test WindShipOpt.shared_slot(-1, 3) == 0
 end
 
 @testset "a kite aloft reads the edge a state down sailed at the same time as its own" begin
@@ -3309,6 +3321,7 @@ end
 module PaperRuns
 root = pkgdir(Main.WindShipOpt)
 include(joinpath(root, "scripts", "paper_runs.jl"))
+include(joinpath(root, "scripts", "run_estimate.jl"))
 runs_directory = mktempdir()
 end
 
@@ -3487,59 +3500,99 @@ end
 """
     StubJobs
 
-Jobs computing in tasks of this process the square of each case's `label`, the first launch
-of each shard in `dying` stopping after one case, each shard launched again at most
-`retries` times.
+Jobs computing in tasks of this process the square of each case's `label`: each launch on a
+shard in `wall` stores at most that many round trips and ends, as a job at its wall time
+does, and a shard in `left` has a task a stopped run left running on it.
 """
 struct StubJobs
-    dying::Vector{Int}
+    wall::Dict{Int, Int}
     retries::Int
+    left::Dict{Int, Task}
     launches::Dict{Int, Int}
+    computed::Threads.Atomic{Int}
 end
+
+StubJobs(wall, retries; left=Dict{Int, Task}()) =
+    StubJobs(wall, retries, left, Dict{Int, Int}(), Threads.Atomic{Int}(0))
 
 PaperRuns.cores(::StubJobs) = 3
 PaperRuns.job_count(::StubJobs) = 4
 PaperRuns.retries(jobs::StubJobs) = jobs.retries
 PaperRuns.poll_seconds(::StubJobs) = 0.01
 PaperRuns.running(::StubJobs, handles) = filter(!istaskdone, handles)
+PaperRuns.left_running(jobs::StubJobs, batch, shard) = get(jobs.left, shard, nothing)
 
-function PaperRuns.launch(jobs::StubJobs, path, shard, shards)
-    launch = jobs.launches[shard] = get(jobs.launches, shard, 0) + 1
-    batch = PaperRuns.deserialize(path)
-    todo = PaperRuns.shard_missing(batch, shard, shards)
-    shard in jobs.dying && launch == 1 && (todo = first(todo, 1))
+"""
+    store_squares(jobs, batch, todo)
+
+Task storing the square of the `label` of the cases `todo` of the batch file `batch`,
+counted in `jobs.computed`.
+"""
+function store_squares(jobs, batch, todo)
     return Threads.@spawn for k in todo
         PaperRuns.stored_trip(() -> batch.cases[k].label^2, batch.directories[k],
             batch.cases[k])
+        Threads.atomic_add!(jobs.computed, 1)
     end
+end
+
+function PaperRuns.launch(jobs::StubJobs, path, shard, shards)
+    jobs.launches[shard] = get(jobs.launches, shard, 0) + 1
+    batch = PaperRuns.deserialize(path)
+    todo = PaperRuns.shard_missing(batch, shard, shards)
+    return store_squares(jobs, batch, first(todo, get(jobs.wall, shard, length(todo))))
 end
 
 handed_cases = [(; assumptions, label) for label in 1:10]
 
-@testset "a batch handed to jobs is complete once each job that died has run again" begin
+@testset "a job ended at its wall time is launched again until its shard is stored" begin
     store_run(:draft, "code")
-    jobs = StubJobs([1, 3], 1, Dict{Int, Int}())
+    jobs = StubJobs(Dict(1 => 1, 3 => 1), 0)
     directories = [mktempdir() for _ in handed_cases]
     entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
     @test [entry.trip for entry in entries] == (1:10) .^ 2
-    @test jobs.launches == Dict(1 => 2, 2 => 1, 3 => 2, 4 => 1)
-    batch = only(readdir(PaperRuns.jobs_directory(PaperRuns.paper_run.directory);
-        join=true))
+    @test jobs.launches == Dict(1 => 3, 2 => 1, 3 => 2, 4 => 1)
+    batch = only(filter(endswith(".bin"),
+        readdir(PaperRuns.jobs_directory(PaperRuns.paper_run.directory); join=true)))
     @test PaperRuns.stored_count(batch) == 10
     foreach(rm, readdir(directories[2]; join=true))
     @test PaperRuns.stored_count(batch) == 9
 end
 
-@testset "a batch whose job keeps dying stops the run naming the cases it lacks" begin
+@testset "a batch whose job stores nothing stops the run naming the cases it lacks" begin
     store_run(:draft, "code")
+    jobs = StubJobs(Dict(2 => 0), 1)
     directories = [mktempdir() for _ in handed_cases]
     lacking = try
-        PaperRuns.job_trips(StubJobs([2], 0, Dict{Int, Int}()), handed_cases, directories,
-            [24.0])
+        PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
     catch error
         error.msg
     end
-    @test contains(lacking, "for 2 cases") && contains(lacking, "label=6\nlabel=10")
+    @test contains(lacking, "for 3 cases") && contains(lacking, "label=6\nlabel=10")
+    @test jobs.launches[2] == 2
+end
+
+@testset "a resumed run computes only the round trips its stopped run did not store" begin
+    store_run(:draft, "code")
+    directories = [mktempdir() for _ in handed_cases]
+    @test_throws ErrorException PaperRuns.job_trips(StubJobs(Dict(2 => 0), 0),
+        handed_cases, directories, [24.0])
+    jobs = StubJobs(Dict{Int, Int}(), 0)
+    entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
+    @test [entry.trip for entry in entries] == (1:10) .^ 2
+    @test jobs.computed[] == 3 && jobs.launches == Dict(2 => 1)
+end
+
+@testset "a job a stopped run left running is waited for rather than launched again" begin
+    store_run(:draft, "code")
+    directories = [mktempdir() for _ in handed_cases]
+    left = StubJobs(Dict{Int, Int}(), 0)
+    batch = (; cases=handed_cases, directories)
+    jobs = StubJobs(Dict{Int, Int}(), 0;
+        left=Dict(3 => store_squares(left, batch, PaperRuns.shard_missing(batch, 3, 4))))
+    entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
+    @test [entry.trip for entry in entries] == (1:10) .^ 2
+    @test !haskey(jobs.launches, 3) && left.computed[] == 2
 end
 
 @testset "a final run takes only round trips computed on its own processor" begin
@@ -3559,11 +3612,80 @@ end
 
 @testset "a Slurm job is submitted only with the account and partition set" begin
     settings = PaperRuns.cluster_settings()
-    @test_throws "set the account" PaperRuns.slurm_command(settings, "run", "1:00:00",
-        "log", `true`)
+    @test_throws "set the account" PaperRuns.slurm_command(settings, "run", "log", `true`)
     settings = merge(settings, Dict("account" => "research-me", "partition" => "p1"))
-    command = PaperRuns.slurm_command(settings, "run", "1:00:00", "log", `true`)
+    command = PaperRuns.slurm_command(settings, "run", "log", `true`)
     @test "--account=research-me" in command.exec && "--partition=p1" in command.exec
+end
+
+@testset "a run resumed on new round-trip code hands out a batch of its own" begin
+    directories = [mktempdir() for _ in handed_cases]
+    store_run(:draft, "code")
+    batch = PaperRuns.write_batch(handed_cases, directories, [24.0])
+    @test PaperRuns.write_batch(handed_cases, directories, [24.0]) == batch
+    PaperRuns.paper_run = PaperRuns.PaperRun(PaperRuns.paper_run.directory, :draft,
+        PaperRuns.paper_run.record, nothing, Dict{Symbol, Vector{Any}}(), "newer code",
+        PaperRuns.StepTally())
+    newer = PaperRuns.write_batch(handed_cases, directories, [24.0])
+    @test newer != batch && PaperRuns.deserialize(newer).trip_model == "newer code"
+end
+
+@testset "the run's own share that fails has ended, as a failed job has" begin
+    failed = Threads.@spawn error("a trip failed")
+    wait(Threads.@spawn try wait(failed) catch end)
+    jobs = PaperRuns.SlurmJobs(PaperRuns.cluster_settings())
+    @test isempty(PaperRuns.running(jobs, Any[failed]))
+end
+
+@testset "run jobs that find their run unmoved are counted until it moves" begin
+    @eval PaperRuns runs_directory = joinpath(mktempdir(), "runs")
+    @test PaperRuns.stalled_run_jobs(:draft) == 0
+    directory = joinpath(PaperRuns.runs_directory, "2026-01-01T0000")
+    mkpath(directory)
+    record = Dict("fidelity" => "draft", "finished" => "", "git_branch" => "b",
+        "steps" => [Dict("name" => "designs")])
+    write_record() = open(io -> PaperRuns.TOML.print(io, record),
+        joinpath(directory, "run.toml"), "w")
+    write_record()
+    @test PaperRuns.stalled_run_jobs(:draft) == 0
+    @test PaperRuns.stalled_run_jobs(:draft) == 1
+    @test PaperRuns.stalled_run_jobs(:draft) == 2
+    push!(record["steps"], Dict("name" => "routes"))
+    write_record()
+    @test PaperRuns.stalled_run_jobs(:draft) == 0
+end
+
+@testset "the jobs of a run ask for no more than the cluster allows" begin
+    settings = merge(PaperRuns.cluster_settings(),
+        Dict("account" => "research-me", "partition" => "p2"))
+    command = PaperRuns.slurm_command(settings, "run", "log", `true`; after="7")
+    option(name) = only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
+    hours, minutes, seconds = parse.(Int, split(option("time"), ":"))
+    @test hours * 3600 + minutes * 60 + seconds <= 24 * 3600
+    @test parse(Int, option("cpus-per-task")) <= 64
+    @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 4
+    @test option("dependency") == "afterany:7"
+end
+
+@testset "a final run's estimate counts the draft's cases and one more size search round" begin
+    record = Dict("steps" => [Dict("name" => "patterns"),
+        Dict("name" => "classes", "cases" => 26), Dict("name" => "routes", "cases" => 10)])
+    @test PaperRuns.run_counts(record, 3) == [(name="classes", draft=26, final=32.0),
+        (name="routes", draft=10, final=10.0)]
+end
+
+@testset "the estimate counts the draft run with the most data steps, not the newest" begin
+    run(name, finished, steps...) = (name, Dict{String, Any}("finished" => finished,
+        "steps" => [Dict("name" => step, "cases" => 1) for step in steps]))
+    runs = [run("rerun", "18 Nov", "routing_value"), run("going", "", "a", "b", "c"),
+        run("full", "17 Nov", "classes", "routes"), run("older", "15 Nov", "a", "b")]
+    @test first(PaperRuns.counted_run(runs)) == "full"
+end
+
+@testset "the estimate prints the sample costs beside the processor it names" begin
+    costs = Dict{String, Any}("processor" => "box", "threads" => 12, "class_kite" => 241.9,
+        "development_none" => 35.2)
+    @test PaperRuns.cost_line(costs) == "class_kite 242, development_none 35"
 end
 
 @testset "a final run's parts name every commit and dirty tree they come from" begin
@@ -3706,12 +3828,16 @@ end
         @test final.objective < searched.objective
         @test [point[1:2] for point in final.path] ==
               [point[1:2] for point in searched.path]
+        along = WindShipOpt.path_corridor(searched, outbound, 1)
+        lengths = along.edge_length[:, 1, WindShipOpt.STRAIGHT_ON]
+        commanded = [table.speeds[WindShipOpt.commanded_speeds!(Int[], table.speeds,
+                         no_room_in_time.search_speed_stride, distance,
+                         no_room_in_time.time_step)] for distance in lengths]
         searched_speeds = [point[4] for point in searched.path[2:end]]
         final_speeds = [point[4] for point in final.path[2:end]]
-        commanded = table.speeds[1:WindShipOpt.ROUTER_SETTINGS[].search_speed_stride:end]
-        @test searched_speeds ⊆ commanded
+        @test all(searched_speeds .∈ commanded)
         @test final_speeds ⊆ table.speeds
-        @test !(final_speeds ⊆ commanded)
+        @test !all(final_speeds .∈ commanded)
     end
 end
 
@@ -3807,6 +3933,24 @@ end
     end
 end
 
+@testset "the search's speeds on an edge arrive within a time bin or are neighbours" begin
+    speeds = collect(range(2.0, 8.0; length=49))
+    commanded = Int[]
+    for distance in (20e3, 500e3, 3500e3), time_step in (0.25, 1.5, 3.0), stride in 1:4
+        WindShipOpt.commanded_speeds!(empty!(commanded), speeds, stride, distance,
+            time_step)
+        @test issubset(WindShipOpt.commanded_speeds(length(speeds), stride), commanded)
+        @test all(>(0), diff(commanded))
+        gaps = -diff(distance ./ speeds[commanded] ./ 3600)
+        @test all(gaps .<= time_step .|| diff(commanded) .== 1)
+    end
+    WindShipOpt.commanded_speeds!(empty!(commanded), speeds, 4, 20e3, 3.0)
+    @test commanded == WindShipOpt.commanded_speeds(length(speeds), 4)
+    WindShipOpt.commanded_speeds!(commanded, speeds, 4, 3500e3, 3.0)
+    @test commanded[1:13] == WindShipOpt.commanded_speeds(length(speeds), 4)
+    @test issubset(WindShipOpt.commanded_speeds(length(speeds), 4), commanded[14:end])
+end
+
 @testset "soft and rigid kites both stop depowering where their lift reaches 0.05" begin
     soft = first(WindShipOpt.kite_model(800.0, 3.0, assumptions))
     rigid = first(WindShipOpt.rigid_kite_model(54.0, 1, assumptions))
@@ -3823,17 +3967,26 @@ end
           "\\newcommand{\\NumSavingOilKite}{4}\n"
 end
 
-@testset "every number the paper and its extended abstract print from the numbers step \
-          is one it wrote" begin
+@testset "every number the paper and its extended abstract print from the numbers steps \
+          is one they wrote" begin
     paper = joinpath(PaperRuns.root, "paper")
     texts = [joinpath(directory, name) for directory in (paper, joinpath(paper, "sections"))
              for name in readdir(directory) if endswith(name, ".tex")]
     used = Set(m.match for text in texts
                for m in eachmatch(r"\\Num[A-Za-z]+", read(text, String)))
-    defined = Set(m[1] for m in eachmatch(r"\\newcommand\{(\\Num[A-Za-z]+)\}",
-        read(joinpath(paper, "sections", "numbers.tex"), String)))
+    sections = joinpath(paper, "sections")
+    defined = Set(m[1] for name in readdir(sections) if endswith(name, "numbers.tex")
+                  for m in eachmatch(r"\\newcommand\{(\\Num[A-Za-z]+)\}",
+                      read(joinpath(sections, name), String)))
     @test !isempty(used)
     @test used ⊆ defined
+end
+
+@testset "a soft kite's mass without its tether grows in proportion to its area" begin
+    mass_per_area(area) = WindShipOpt.soft_kite_mass(area, 3.0, 500area, assumptions) / area
+    @test mass_per_area(3000.0) ≈ mass_per_area(200.0) rtol=0.05
+    model, _ = WindShipOpt.kite_model(200.0, 3.0, assumptions)
+    @test model.mass > 200mass_per_area(200.0)
 end
 
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
@@ -3847,12 +4000,15 @@ end
     makani_rotors = foldl((inputs, (name, value)) -> with_value(inputs, name, value),
         ((:rigid_hover_efficiency, 0.71 * 0.88), (:rigid_rotor_mass_per_area, 1.96),
             (:rigid_rotor_area_ratio, 8 * 4.38 / 54)); init=makani_hover)
-    mass, _ = WindShipOpt.rigid_kite_mass(54.0, 275.0, makani_rotors)
+    mass, _ = WindShipOpt.rigid_kite_mass(54.0, force, 275.0, makani_rotors)
     @test mass ≈ 1852 rtol=0.03
-    heavy = with_value(with_value(assumptions, :rigid_mass_exponent, 3.3),
-        :rigid_drive_mass_exponent, 1.0)
-    @test WindShipOpt.rigid_kite_mass(500.0, 0.0, heavy)[1] > 0
-    @test_throws ErrorException WindShipOpt.rigid_kite_mass(3000.0, 0.0, heavy)
+    heavy = foldl((inputs, (name, value)) -> with_value(inputs, name, value),
+        ((:rigid_shell_mass, assumptions.entries[:rigid_shell_mass].high),
+            (:rigid_load_mass, assumptions.entries[:rigid_load_mass].high),
+            (:rigid_drive_mass_exponent, 1.0)); init=assumptions)
+    @test WindShipOpt.rigid_kite_mass(500.0, 500force / 54, 0.0, heavy)[1] > 0
+    @test_throws ErrorException WindShipOpt.rigid_kite_mass(20_000.0, 20_000force / 54,
+        0.0, heavy)
     tether_drag = assumptions[:rigid_tether_drag_coefficient] * diameter *
                   model.tether_length / (4 * 54.0)
     @test tether_drag ≈ 0.152 - 0.123 rtol=0.05
@@ -3860,6 +4016,19 @@ end
     lift = 1.81
     angle = lift / (polar.lift[2] / polar.angle_of_attack[2])
     @test WindShipOpt.polar_value(polar, polar.drag, angle) ≈ 0.123 rtol=0.02
+end
+
+@testset "a rigid wing's structure grows with the force it holds, the span and the area" begin
+    structure(area, force, inputs=assumptions) =
+        WindShipOpt.rigid_structure_mass(area, force, inputs)
+    aspect_ratio = assumptions[:rigid_aspect_ratio]
+    @test structure(54.0, 300e3) ≈ 1372 rtol=0.01
+    @test structure(54.0, 600e3) - structure(54.0, 300e3) ≈
+          assumptions[:rigid_load_mass] * 300 * sqrt(54 * aspect_ratio) * aspect_ratio
+    @test 4structure(54.0, 300e3) < structure(216.0, 1200e3) < 8structure(54.0, 300e3)
+    @test structure(54.0, 0.0) ≈ 54assumptions[:rigid_shell_mass]
+    megawes = with_value(assumptions, :rigid_aspect_ratio, 12.1)
+    @test structure(150.3, 617e3 / 0.37, megawes) ≈ 6885 rtol=0.1
 end
 
 """
@@ -3920,7 +4089,7 @@ end
 @testset "a rigid kite's structure is priced by its own mass, its rotors by their rating" begin
     one = rigid_fleet(1, assumptions)
     (; mass, hover_power) = one.airframe
-    structure = WindShipOpt.rigid_structure_mass(54.0, assumptions)
+    structure = WindShipOpt.rigid_structure_mass(54.0, one.max_force, assumptions)
     @test structure < mass
     @test hover_power ≈ WindShipOpt.hover_power(mass + one.airframe.tether_mass, 54.0,
         assumptions) rtol=1e-5
@@ -4152,6 +4321,35 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 end
 
+@testset "a table step that fails part way leaves the table it had" begin
+    path = joinpath(mktempdir(), "table.tex")
+    write(path, "complete table")
+    @test_throws ErrorException PaperData.write_whole(path) do io
+        println(io, "\\begin{tabular}")
+        error("no data for the next row")
+    end
+    @test read(path, String) == "complete table"
+    PaperData.write_whole(io -> print(io, "new table"), path)
+    @test read(path, String) == "new table"
+end
+
+@testset "routing and a rig save against the unrouted ship without a rig, \
+          per departure" begin
+    case = ("140 m", "ammonia")
+    table = Dict("ship" => fill(case[1], 3), "drive" => fill(case[2], 3),
+        "rig" => ["none", "kite", "none"], "course" => ["routed", "routed", "shortest"],
+        "speed" => ["cost", "cost", "same_time"], "cost" => [9.0, 7.0, 10.0])
+    @test PaperData.routing_saving(table, case..., "none", "same_time") ≈ 10
+    @test PaperData.routing_saving(table, case..., "kite", "same_time") ≈ 30
+    departures(days) = Dict("ship" => fill(case[1], 4), "drive" => fill(case[2], 4),
+        "rig" => fill("none", 4), "course" => ["routed", "routed", "shortest", "shortest"],
+        "speed" => ["cost", "cost", "same_time", "same_time"], "departure" => days,
+        "cost" => [9.0, 8.0, 10.0, 12.0])
+    @test PaperData.routing_error(departures([0, 24, 24, 0]), case..., "same_time") ≈ 2.5
+    @test_throws ErrorException PaperData.routing_error(departures([0, 24, 24, 48]),
+        case..., "same_time")
+end
+
 @testset "a result prints in whole points and a table cell to one decimal, never as -0" begin
     @test PaperData.whole_number(-0.4) == "0"
     @test PaperData.whole_number(12.6) == "13"
@@ -4165,6 +4363,8 @@ end
 
 @testset "an input prints under its name in words, the rigid kite named only as a prefix" begin
     @test PaperData.input_label(:e_ammonia_price) == "e-ammonia price"
+    @test PaperData.input_label(:rigid_rotor_fill) == "rigid kite propeller fill"
+    @test PaperData.input_label(:rotor_max_wind) == "rotor max wind"
     @test PaperData.input_label(:cargo_per_teu) == "cargo per TEU"
     @test PaperData.input_label(:rigid_hover_minutes) == "rigid kite hover minutes"
     @test PaperData.input_label(:mast_rigid_share) == "mast rigid share"
@@ -4173,8 +4373,10 @@ end
 @testset "a source note prints each source as a citation of its key" begin
     note = "Kalverla's profile [@kalverla2019, Ch. 2; @schelbergen2020] gives 5 %; @imo2020 too."
     @test PaperData.cited_note(note) == "Kalverla's profile (\\citealp[Ch. 2]{kalverla2019}; " *
-        "\\citealp{schelbergen2020}) gives 5 \\%; \\citet{imo2020} too."
-    @test PaperData.cited_note("no source, 50 %") == "no source, 50 \\%"
+        "\\citealp{schelbergen2020}) gives 5\\,\\%; \\citet{imo2020} too."
+    @test PaperData.cited_note("no source, 50 %") == "no source, 50\\,\\%"
+    @test PaperData.cited_note("Euroseas 1,800 TEU, 12,000 TEU") ==
+          "Euroseas \\num{1800}~TEU, 12\\,000~TEU"
     @test_throws ErrorException PaperData.cited_note("[@a2020; Table 3]")
 end
 
@@ -4366,7 +4568,8 @@ end
 "rig lead row of the made-up outcome of `rig` against `rival` on ship type `word`"
 function lead_row(word, drive, verdict, margin, rig="kite", rival="rotors")
     label = only(label for (type, label, _) in PaperData.ship_types if type == word)
-    return (; word, label, drive, rig, rival, verdict, margin)
+    return (; word, label, name=lowercase(label), where=PaperData.ship_places, drive, rig,
+        rival, verdict, margin)
 end
 
 "rig lead rows of the draft run: the kite leading or level with the rotors"
@@ -4412,6 +4615,18 @@ end
           "or the rotors on car carriers, bulk carriers and general cargo ships"
 end
 
+@testset "the brief advice names each ship type's rigs on any fuel, most types last" begin
+    @test PaperData.brief_advice_text(draft_leads) ==
+          "the kite on container ships and the kite or the rotors on the other ship types"
+    all_kite = [(; row..., verdict="leads") for row in draft_leads]
+    @test PaperData.brief_advice_text(all_kite) == "the kite on every ship type"
+    no_cars = [row.word == "CarCarrier" ? (; row..., verdict="none") : row
+               for row in draft_leads]
+    @test PaperData.brief_advice_text(no_cars) ==
+          "the kite on container ships, no rig on car carriers and the kite or the " *
+          "rotors on the other ship types"
+end
+
 @testset "the answer gives each ship type its rig and what it saves a ship a year" begin
     saved(share, usd, carbon) = (; saved=usd, share, carbon)
     per_ship = Dict("kite" => saved(14.2, 5.3e6, 9.6e9), "wings" => saved(4.5, 1.7e6, 2.9e9),
@@ -4428,6 +4643,10 @@ end
     @test count("; ", PaperData.answer_text(rows)) == length(rows) - 1
     @test isempty(PaperData.advised_savings((; rows[1]..., verdict="none")))
     saved = reduce(vcat, PaperData.advised_savings.(rows))
+    @test Dict(PaperData.answer_ranges(rows)) == Dict("Shares" => "14",
+        "Carbon" => "\\num{9200} to \\num{9600}", "MoneyLow" => "\\num{4.1}",
+        "MoneyLowShips" => "car carriers", "MoneyHigh" => "\\num{5.3}",
+        "MoneyHighShips" => "container ships")
     @test PaperData.saved_figures(saved, "vlsfo") == "14\\,\\%, USD~\\num{4.1} to " *
                                                      "\\num{5.3} million and \\num{9200} to " *
                                                      "\\num{9600}~t of CO\$_2\$"

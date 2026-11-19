@@ -2,13 +2,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 # Paper runs on a Slurm cluster, with the settings of cluster.toml; bin/cluster calls it.
-# A submitted run is one job running `paper`, which hands each batch of missing round trips
-# to jobs of its own and waits for them. The jobs call this script as `run` and `shard`.
+# A submitted run is one job running `paper`, which computes a share of each batch of round
+# trips and hands the rest to jobs of its own. A run job ended by its wall time leaves a
+# successor that resumes it. The jobs call this script as `run` and `shard`.
 using Printf
 
 command = isempty(ARGS) ? "help" : popfirst!(ARGS)
-if command in ("run", "shard")
+if command in ("run", "shard", "estimate")
     include(joinpath(@__DIR__, "paper.jl"))
+    include(joinpath(@__DIR__, "run_estimate.jl"))
 else
     root = joinpath(@__DIR__, "..")
     include(joinpath(@__DIR__, "paper_runs.jl"))
@@ -25,12 +27,46 @@ function submit_run(fidelity, steps)
         String)
     isempty(strip(queued)) || error("jobs of a paper run are queued or running already: ",
         join(split(queued), ", "))
+    id = submit_run_job(fidelity, steps)
+    println("submitted job ", id, "; its log is ", run_log(id))
+end
+
+"""
+    submit_run_job(fidelity, steps; after=nothing)
+
+Submit a job running `paper(steps...; fidelity, resume=true)`, starting once the job `after`
+has ended where one is given; return its id.
+"""
+function submit_run_job(fidelity, steps; after=nothing)
     settings = cluster_settings()
-    log = joinpath(mkpath(joinpath(root, "output", "slurm")), "run-%j.log")
     job = job_command(settings["cores"], "run", fidelity, steps...)
-    id = strip(read(slurm_command(settings, "windship-run", settings["run_time"], log, job),
+    return strip(read(slurm_command(settings, "windship-run", run_log("%j"), job; after),
         String))
-    println("submitted job ", id, "; its log is ", replace(log, "%j" => id))
+end
+
+"log file of the run job `id`"
+run_log(id) = joinpath(mkpath(joinpath(root, "output", "slurm")), "run-$id.log")
+
+"""
+    run_job(fidelity, steps)
+
+Run `paper(steps...; fidelity, resume=true)` in this Slurm job, handing round trips to jobs
+of its own, with a successor job queued that resumes the run should this job be ended at
+its wall time, and cancelled once the run finishes or fails. Stops before that once more
+run jobs in a row than the `retries` of cluster.toml found the run with nothing new done.
+"""
+function run_job(fidelity, steps)
+    settings = cluster_settings()
+    stalled = stalled_run_jobs(Symbol(fidelity))
+    stalled > settings["retries"] && error(stalled, " run jobs in a row found the ",
+        fidelity, " run with no step done and no round trip stored since the one before")
+    successor = submit_run_job(fidelity, steps; after=ENV["SLURM_JOB_ID"])
+    global case_jobs = SlurmJobs(settings)
+    try
+        paper(Symbol.(steps)...; fidelity=Symbol(fidelity), resume=true)
+    finally
+        success(`scancel $successor`) || println("could not cancel job ", successor)
+    end
 end
 
 """
@@ -81,9 +117,7 @@ function compute_shard(path, shard, shards)
     model = trip_model(script_definitions(script_files()))
     model == batch.trip_model || error("this checkout's round-trip code ", model,
         " is not the run's ", batch.trip_model)
-    todo = shard_missing(batch, shard, shards)
-    println(length(todo), " round trips to compute")
-    compute_trips(batch.cases[todo], batch.directories[todo], batch.departures)
+    shard_trips(path, shard, shards)
 end
 
 if command == "submit"
@@ -91,10 +125,12 @@ if command == "submit"
 elseif command == "status"
     print_jobs_status()
 elseif command == "run"
-    case_jobs = SlurmJobs(cluster_settings())
-    paper(Symbol.(ARGS[2:end])...; fidelity=Symbol(ARGS[1]), resume=true)
+    run_job(ARGS[1], ARGS[2:end])
 elseif command == "shard"
     compute_shard(ARGS[1], parse(Int, ARGS[2]), parse(Int, ARGS[3]))
+elseif command == "estimate"
+    print_estimate(; box_cores=isempty(ARGS) ? 20 : parse(Int, only(ARGS)))
 else
-    println("usage: bin/cluster submit draft|final [step ...] | bin/cluster status")
+    println("usage: bin/cluster submit draft|final [step ...] | bin/cluster status | ",
+        "bin/cluster estimate [box cores]")
 end

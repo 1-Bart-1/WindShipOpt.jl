@@ -12,9 +12,6 @@
 \usepackage{microtype}
 \usepackage[authoryear,round]{natbib}
 \usepackage{xcolor}
-\definecolor{rigkite}{HTML}{0072B2}
-\definecolor{rigwing}{HTML}{E69F00}
-\definecolor{rigrotor}{HTML}{009E73}
 \usepackage[colorlinks,allcolors={blue!50!black}]{hyperref}
 \usepackage[capitalise]{cleveref}
 \crefname{figure}{Fig.}{Figs.}
@@ -25,9 +22,7 @@
 \titleformat*{\section}{\normalsize\bfseries}
 \titlespacing*{\section}{0pt}{1.6ex}{0.6ex}
 \setlength{\parskip}{0.4ex}
-\usepackage{tikz}
-\usetikzlibrary{positioning,arrows.meta,fit}
-\tikzset{>={Stealth[length=1.4mm, width=1.1mm]}}
+\input{figure_style}
 \renewcommand{\topfraction}{0.9}
 \renewcommand{\textfraction}{0.1}
 \renewcommand{\floatpagefraction}{0.75}
@@ -48,7 +43,7 @@
 
 \noindent\textbf{Keywords:} \keywordlist{;}
 
-Shipping emitted \given{\num{1056}} million tonnes of CO$_2$ in 2018 \citep{faber2020}, and the fuels that can end those emissions cost three to four times as much as fuel oil. Wind lets a ship burn less of them, and towing kites, rigid wing sails and Flettner rotors all sail on cargo ships today (\cref{ea:rigs}; \citealp{emsa2023}). But their published savings come from different ships, routes and methods \citep{huang2025}, so an owner cannot tell which rig to fit to which ship, or what it would save.
+\stale{classes}{Thirteen classes of cargo ship carry \NumFleetWorkShare\,\% of the transport work of the bulk, tanker, container, general cargo, gas and large car-carrier fleets \citep{faber2020}. By our model, carrying their cargo on fuel oil costs USD \NumFleetBillOil{} billion and emits \NumFleetEmittedOil{} million tonnes of CO$_2$ a year.} The fuels that can end those emissions cost three to four times as much as fuel oil. Wind lets a ship burn less of them, and towing kites, rigid wing sails and Flettner rotors all sail on cargo ships today (\cref{ea:rigs}; \citealp{emsa2023}). But their published savings come from different ships, routes and methods \citep{huang2025}, so an owner cannot tell which rig to fit to which ship, or what it would save.
 
 We compare the three on one model and one measure, the full cost of carrying a tonne of cargo a kilometre: the ship's capital, crew, port dues and fuel, the rig's price and wear, and the interest on the cargo while it sails. Each rig is sized for the lowest such cost on thirteen ship classes, from an \given{\SI{85}{m}} coaster to the largest container ships \citep{faber2020}, on six Atlantic routes from Rotterdam through three years of real weather \citep{hersbach2020}, and on two fuels: fuel oil (VLSFO) and e-ammonia, the zero-emission fuel that net-zero pathways expect to carry most deep-sea shipping by 2050 \citep{irena2021ship}. Every ship with a rig is compared with the same ship on the same fuel without one. Suction sails, a fourth rig type installed on ships \citep{emsa2023}, are not compared.
 
@@ -61,15 +56,15 @@ We compare the three on one model and one measure, the full cost of carrying a t
 
 \section{Which rig to fit}
 
-\stale{classes}{If each rig reaches the goals of \cref{sec:ea_goals}, \NumAdvice{} (\cref{ea:winner_map}). The rig to fit on e-ammonia and what it saves a ship a year, as a share of its cost per tonne-kilometre and in US dollars, each the mean over the ships of that type and six routes, are: \NumAnswerAmmonia{}. On fuel oil, where fuel is cheap and a rig saves far less, in the same terms and in tonnes of CO$_2$, they are: \NumAnswerOil{}. ``Either'' means the two rigs are level within the error of their gap.}
+\stale{classes}{If each rig reaches the goals of \cref{sec:ea_goals}, the rig to fit is \NumAdviceBrief{}; ship type by ship type, \NumAdvice{} (\cref{ea:winner_map}). Fitted wherever it clearly saves, the rig that lowers each ship's cost most saves the thirteen classes USD \NumFleetSavedOil{} billion and \NumFleetCarbonOil{} million tonnes of CO$_2$ a year on fuel oil, \NumFleetSavedShareOil\,\% of the cost of carrying their cargo. On e-ammonia it saves more, USD \NumFleetSavedAmmonia{} billion of \NumFleetBillAmmonia{} billion a year or \NumFleetSavedShareAmmonia\,\%, as each tonne of fuel saved is worth several times as much. The rig to fit on e-ammonia and what it saves a ship a year, as a share of its cost per tonne-kilometre and in US dollars, each the mean over the ships of that type and six routes, are: \NumAnswerAmmonia{}. On fuel oil, where fuel is cheap and a rig saves far less, in the same terms and in tonnes of CO$_2$, they are: \NumAnswerOil{}. ``Either'' means the two rigs are level within the error of their gap.}
 
-\stale{classes}{\textbf{Container ships.} On e-ammonia the kite saves about \NumSavingAmmoniaContainerKite\,\% of the cost and rotors \NumSavingAmmoniaContainerRotors\,\%; on fuel oil the kite saves about \NumSavingOilContainerKite\,\% of the cost and \NumCarbonContainerKite\,\% of the CO$_2$. So \NumVerdictContainer{}, and the kite is ahead on every route of all four container ships, the largest included.}
+\stale{classes}{\textbf{Container ships.} On e-ammonia the kite saves about \NumSavingAmmoniaContainerKite\,\% of the cost and rotors \NumSavingAmmoniaContainerRotors\,\%; on fuel oil the kite saves about \NumSavingOilContainerKite\,\% of the cost and \NumCarbonContainerKite\,\% of the CO$_2$. So \NumVerdictContainer{}; taken over the container ships on each route, on e-ammonia \NumRouteVerdictAmmoniaContainer{}.}
 
 \stale{classes}{\textbf{Car carriers.} On car carriers \NumVerdictCarCarrier{}. The rotors save \NumSavingAmmoniaCarCarrierRotors\,\% of the cost on e-ammonia, and on fuel oil \NumSavingOilCarCarrierRotors\,\% of the cost and \NumCarbonCarCarrierRotors\,\% of the CO$_2$.}
 
-\stale{classes}{\textbf{Bulk carriers, tankers and general cargo ships.} On e-ammonia the kite saves about \NumSavingAmmoniaBulkKite\,\% of the cost of bulk carriers and tankers and the rotors \NumSavingAmmoniaBulkRotors\,\%; on fuel oil the kite saves \NumSavingOilBulkKite\,\% of the cost and \NumCarbonBulkKite\,\% of the CO$_2$ and the rotors \NumSavingOilBulkRotors\,\% of the cost and \NumCarbonBulkRotors\,\% of the CO$_2$. Over their routes \NumVerdictBulkTankerGeneralCargo{}. On e-ammonia the route decides between them: the kite leads to Bilbao and Houston and the rotors to Tubarão.}
+\stale{classes}{\textbf{Bulk carriers, tankers and general cargo ships.} On e-ammonia the kite saves about \NumSavingAmmoniaBulkKite\,\% of the cost of bulk carriers and tankers and the rotors \NumSavingAmmoniaBulkRotors\,\%; on fuel oil the kite saves \NumSavingOilBulkKite\,\% of the cost and \NumCarbonBulkKite\,\% of the CO$_2$ and the rotors \NumSavingOilBulkRotors\,\% of the cost and \NumCarbonBulkRotors\,\% of the CO$_2$. Over their routes \NumVerdictBulkTankerGeneralCargo{}. Taken over these ships on each route, on e-ammonia \NumRouteVerdictAmmoniaBulk{}.}
 
-\stale{classes}{\textbf{Wing sails are nowhere the best rig.} They save about half as much of the cost as rotors on e-ammonia and \tbd{an eighth} on fuel oil: a square metre of rotor costs about three times a square metre of wing sail and pulls about five times as hard.}
+\stale{classes}{\textbf{Wing sails.} They are the rig to fit \NumWingsAdvised{} and save about \NumWingsShareAmmonia{} as much of the cost as rotors on e-ammonia and \NumWingsShareOil{} on fuel oil: a square metre of rotor costs about three times a square metre of wing sail and pulls about five times as hard.}
 
 \stale{classes}{\textbf{No rig makes zero-emission shipping as cheap as fuel oil.} Averaged over the classes and routes, an e-ammonia ship costs about \NumPremiumNoRig\,\% more per tonne-kilometre than the same ship on fuel oil, and about \NumPremiumBestRig\,\% more with its best rig, which closes about \NumPremiumClosed\,\% of that premium. Of the yearly cost of carrying the cargo of the thirteen classes, the ships on which the kite leads carry \NumFleetShareAmmoniaKite\,\% on e-ammonia and those on which the rotors lead \NumFleetShareAmmoniaRotors\,\%, a rig market of USD~\NumMarketAmmoniaKiteSales{} billion for the kite and \NumMarketAmmoniaRotorsSales{} billion for the rotors; on fuel oil the shares are \NumFleetShareOilKite{} and \NumFleetShareOilRotors\,\% and the markets USD~\NumMarketOilKiteSales{} and \NumMarketOilRotorsSales{} billion.}
 
@@ -84,13 +79,13 @@ We compare the three on one model and one measure, the full cost of carrying a t
 
 \section{Why the best rig differs between ships}
 
-\stale{classes}{A rig costs a ship cargo, and how depends on what fills first (\cref{ea:rigs}). Bulk carriers, tankers and general cargo ships fill their deadweight before their holds, so every tonne of rig is a tonne of cargo lost, while their deck space costs nothing. Rotors pull much harder than a kite per square metre but weigh more, and on these ships kite and rotors come out level or a point or two of cost saving apart on either fuel. Container ships fill their slots first, so what costs them cargo is the slots a rig blocks: rotors and wing sails block many, the kite's single mast few, which keeps the kite ahead of the rotors on both fuels. A car carrier loses no cargo to any rig, and there \tbd{the two are level}.}
+\stale{classes}{A rig costs a ship cargo, and how depends on what fills first (\cref{ea:rigs}). Bulk carriers, tankers and general cargo ships fill their deadweight before their holds, so every tonne of rig is a tonne of cargo lost, while their deck space costs nothing. Rotors pull much harder than a kite per square metre but weigh more, and on these ships \NumVerdictBulkTankerGeneralCargo{}. Container ships fill their slots first, so what costs them cargo is the slots a rig blocks: rotors and wing sails block many, the kite's single mast few, and there \NumVerdictContainer{}. A car carrier loses no cargo to any rig, and there \NumVerdictCarCarrier{}.}
 
 \section{How much each rig saves, and at what size}
 
-\stale{classes}{\Cref{ea:class_comparison} gives each rig's best saving on every class, with its spread over the six routes. The rigs are sized for cost, so the fuel they save is several times their cost saving: on fuel oil the kite and the rotors save \NumCarbonBulkKite\ and \NumCarbonBulkRotors\,\% of the CO$_2$ of bulk carriers, tankers and general cargo ships for \NumSavingOilBulkKite\ and \NumSavingOilBulkRotors\,\% of their cost, on average over their classes and routes. The route spreads the saving more than the class does: on e-ammonia the better of the kite and the rotors saves 20 to 25\,\% of the cost on average to Guadeloupe, Houston and New York, and only 1 to 4\,\% on the short route to Bilbao.}
+\stale{classes}{\Cref{ea:class_comparison} gives each rig's best saving on every class, with its spread over the six routes. The rigs are sized for cost, so the fuel they save is several times their cost saving: on fuel oil the kite and the rotors save \NumCarbonBulkKite\ and \NumCarbonBulkRotors\,\% of the CO$_2$ of bulk carriers, tankers and general cargo ships for \NumSavingOilBulkKite\ and \NumSavingOilBulkRotors\,\% of their cost, on average over their classes and routes. By route, on e-ammonia the best rig on each class cuts its cost per tonne-kilometre, on average over the classes, by \NumRouteSavingsAmmonia{}.}
 
-\stale{classes}{Bulk carriers, tankers and general cargo ships trade voyage by voyage, and on them part of most savings is time. A rig makes speed cheaper and the router sets their speed by cost, so \stale{routes}{most of them sail faster with a rig: a median of less than 1\,\% with a kite and 4\,\% with rotors.} Container ships and car carriers run liner services, so they keep the schedule of the same ship without a rig and take the whole gain as fuel. Every best rig on fuel oil pays back in years rather than months: the kite in 1.4 to 2.8 years, the rotors in 4.5 to 15 and the wing sails in 9.9 to 14 or never. On e-ammonia every rig pays back within a few years.}
+\stale{classes}{Bulk carriers, tankers and general cargo ships trade voyage by voyage, and on them part of most savings is time. A rig makes speed cheaper and the router sets their speed by cost, so \stale{routes}{most of them sail faster with a rig: a median of less than 1\,\% with a kite and 4\,\% with rotors.} Container ships and car carriers run liner services, so they keep the schedule of the same ship without a rig and take the whole gain as fuel. On fuel oil the best kite pays back in \NumPaybackOilKite{}, the rotors in \NumPaybackOilRotors{} and the wing sails in \NumPaybackOilWings{}; on e-ammonia the kite in \NumPaybackAmmoniaKite{}, the rotors in \NumPaybackAmmoniaRotors{} and the wing sails in \NumPaybackAmmoniaWings{}.}
 
 \begin{figure}[!htb]
 \centering
@@ -99,7 +94,7 @@ We compare the three on one model and one measure, the full cost of carrying a t
 \label{ea:class_comparison}
 \end{figure}
 
-\stale{classes}{The best size grows with the ship and with the price of fuel (\cref{ea:class_sizes}), so a rig chosen for fuel oil is smaller than one chosen for e-ammonia. On most large ships the best wing sails and rotors are the most that fit on deck, up to 15 wing sails and 23 rotors on the largest container ship, where no ship today carries more than five units. The best kite reaches the largest size searched, \given{\SI{16000}{m^2}}, on the largest ships, sixteen times the largest ship kite designed, so there its saving is a lower bound.}
+\stale{classes}{The best size grows with the ship and with the price of fuel (\cref{ea:class_sizes}), so a rig chosen for fuel oil is smaller than one chosen for e-ammonia. On most large ships the best wing sails and rotors are the most that fit on deck, up to \NumMostUnitsWings{} wing sails and \NumMostUnitsRotors{} rotors, where no ship today carries more than five units. The best kite reaches the largest size searched, \given{\SI{16000}{m^2}}, on the largest ships, sixteen times the largest ship kite designed, so there its saving is a lower bound.}
 
 \begin{figure}[!htb]
 \centering
@@ -135,11 +130,11 @@ For one moment of a voyage, the ship model (\cref{ea:ship_model}) takes the ship
 \begin{figure}[!htb]
 \centering
 \adjustbox{max width=\textwidth}{\input{sections/ship_model}}
-\caption{The ship model by its parts, each force where it acts, not to scale: (a) from above, a row of deck rigs in a wind forward of the beam; (b) from astern, the heel and the weight and buoyancy that right the ship. Below, how the parts combine into the engine output that the rig's trim minimises. Blue forces come from the water, grey from the wind on the ship and orange from the rig.}
+\caption{The ship model by its parts, each force where it acts, not to scale: (a) from above, in a wind forward of the beam, with the rig's force where it acts; (b) from astern, the heel and the weight and buoyancy that right the ship. Below, how the parts combine into the engine output that the rig's trim minimises. Blue forces come from the water, grey from the wind on the ship and black from the rig, any of the three.}
 \label{ea:ship_model}
 \end{figure}
 
-A weather router then sails each ship on a grid of tracks and speeds through a corridor along its route and keeps the voyage that costs least, trading fuel against time. For a kite it also decides when to launch, fly and land, since each launch costs crew time and wear and a kite cannot fly in every wind and sea. A ship with a rig takes a different route from one without (\cref{ea:routes}): with a kite it seeks the steady winds that the kite flies in.
+A weather router then sails each ship on a grid of tracks and speeds through a corridor along its route and keeps the voyage that costs least, trading fuel against time. For a kite it also decides when to launch, fly and land, since each launch costs crew time and wear and a kite cannot fly in every wind and sea. A ship with a rig takes a different route from one without (\cref{ea:routes}): with a kite it seeks the steady winds that the kite flies in. The ship without a rig that every saving is measured against is routed the same way. Routing alone saves that ship little on these routes: \NumRoutingAloneOil\,\% of the cost per tonne-kilometre on fuel oil and \NumRoutingAloneAmmonia\,\% on e-ammonia, against the same ship holding one speed on the shortest track in the same time at sea, for the \given{\SI{140}{m}} ship to Guadeloupe.
 
 \begin{figure}[!htb]
 \centering
@@ -192,7 +187,7 @@ A weather router then sails each ship on a grid of tracks and speeds through a c
 
 \stale{classes}{\textbf{Rigs larger than any built.} The results assume series-production prices \citep{joshi2025} no kite maker has reached, deck rigs with many more units than any ship carries, kites far larger than any designed, and one wind profile for every region. Held to the rotor counts makers offer today, the kite leads by 1 to 4 points of cost saving on e-ammonia on four of the six bulk carriers and tankers that have a listed count. Every route starts in Rotterdam and lies in the Atlantic, and the hulls' resistance in waves is a mean estimate; these limits act on every rig alike.}
 
-\stale{rigid_kite_data,combination_data}{\textbf{Other kites.} A VTOL kite, a rigid wing that takes off and lands on its own propellers, flies at ship scale but costs \stale{rigid_scaling_data}{about 2.7 times a soft kite's yearly cost per unit of thrust}, and on e-ammonia it saves less than half the cost per tonne-kilometre that a soft kite or rotors save. A kite added to rotors saves at most 2 points more of the cost on e-ammonia.}
+\textbf{Other kites.} A VTOL kite, a rigid wing that takes off and lands on its own propellers, flies at ship scale but costs about \NumRigidCostRatio{} times a soft kite's yearly cost per unit of thrust, and on e-ammonia it saves about half the cost per tonne-kilometre that a soft kite or rotors save to Guadeloupe, and on the short route to Bilbao it \NumRigidRoutedBilbaoRigid{}. \stale{combination_data}{A kite added to rotors saves at most 2 points more of the cost on e-ammonia.}
 
 \section{What the work offers}
 

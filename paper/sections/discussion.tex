@@ -18,7 +18,8 @@ Neither the life of a ship kite's canopy nor how reliably it can be launched and
 
 \begin{table}[tbp]
 \centering
-\caption{\stale{sea_effect}{} The kite's cost saving per tonne-kilometre against the same ship without a rig and its share of the time at sea in the air, with the extra launch wind of \cref{eq:sea_wind} and with no sea effect on the launch, on e-ammonia, averaged over the six routes. \savingerror{} \stale{sea_effect}{Draft run; the \SI{140}{m} ship over four routes, as the router found no passage on New York and Houston.} Method study, \studyrun{sea_effect}.}
+\footnotesize
+\caption{\stale{sea_effect}{} The kite's cost saving per tonne-kilometre against the same ship without a rig and its share of the time at sea in the air, with the extra launch wind of \cref{eq:sea_wind} and with no sea effect on the launch, on e-ammonia, averaged over the six routes. The extra launch wind is an estimate from one reported case; its range, from none to twice the reported rise, is in \cref{tab:development}. \savingerror{} \stale{sea_effect}{Draft run; the \SI{140}{m} ship over four routes, as the router found no passage on New York and Houston.} Method study, \studyrun{sea_effect}.}
 \label{tab:sea_effect}
 \InputIfFileExists{sections/sea_effect_table}{}{\tbd{Sea effect table pending: run the sea\_effect\_table step.}}
 \end{table}
@@ -44,7 +45,7 @@ Classification rules treat the rig as auxiliary, so a ship with a rig down still
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{large_rigs}
-\caption{\stale{classes}{} What the study asks of each ship class against what exists: (a) the best kite area on each drive, the geometric mean over the six routes (marker) and the range over them (bar), against the largest ship kite flown \citep{fritz2013}, its flat area converted at the \given{\SI{125}{m^2}} projected of a \given{\SI{160}{m^2}} SkySails kite \citep{folkersma2020}, the largest designed \citep{airseas_seawing_web} and the largest ram-air cargo parachute \citep{dunker2013}, a band from reading those two as flat to reading them as projected, and the upper bound of the search; (b) the median number of wing sail and rotor units at the best size on e-ammonia, against the most rotors in service on one ship.}
+\caption{\stale{classes}{} What the study asks of each ship class against what exists: (a) the best kite area on each drive, the geometric mean over the six routes (marker) and the range over them (bar), against the largest ship kite flown (line marked flown) \citep{fritz2013}, its flat area converted at the \given{\SI{125}{m^2}} projected of a \given{\SI{160}{m^2}} SkySails kite \citep{folkersma2020}, the largest designed \citep{airseas_seawing_web} and the largest ram-air cargo parachute \citep{dunker2013}, a band marked designed from reading those two as flat to reading them as projected, and the upper bound of the search, where a triangle marks a range cut by that bound; (b) the median number of wing sail and rotor units at the best size on e-ammonia, against the most rotors in service on one ship.}
 \label{fig:large_rigs}
 \end{figure*}
 
