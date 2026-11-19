@@ -423,7 +423,7 @@ wear_cost(rig::CombinedRig, assumptions) = wear_cost(rig.kite, assumptions)
 
 function wear_cost(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
-    return canopy / canopy_lifetime(assumptions) + tether / assumptions[:tether_lifetime]
+    return canopy / assumptions[:canopy_life] + tether / assumptions[:tether_lifetime]
 end
 
 """
@@ -442,16 +442,17 @@ end
 """
     cycle_cost(rig, assumptions)
 
-Cost of one launch and landing of a kite [USD]: the crew time, the expected
-[`crash_cost`](@ref) of a kite lost, any turn for the launch and the
+Cost of one launch and landing of a kite [USD]: the crew time, the canopy life its flogging
+uses up, the expected [`crash_cost`](@ref) of a kite lost, any turn for the launch and the
 [`tether_bending_cost`](@ref); zero for other rigs.
 """
 cycle_cost(rig, assumptions) = 0.0
 cycle_cost(rig::CombinedRig, assumptions) = cycle_cost(rig.kite, assumptions)
 
 function cycle_cost(rig::KiteRig, assumptions)
-    _, tether = consumable_costs(rig, assumptions)
+    canopy, tether = consumable_costs(rig, assumptions)
     return assumptions[:kite_cycle_crew_cost] +
+           assumptions[:kite_cycle_canopy_hours] / assumptions[:canopy_life] * canopy +
            assumptions[:kite_launch_loss_probability] * crash_cost(rig, assumptions) +
            assumptions[:kite_cycle_course_cost] + tether_bending_cost(tether, assumptions)
 end

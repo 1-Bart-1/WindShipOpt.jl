@@ -950,30 +950,89 @@ nearest_lateral(corridor::Corridor, stage, lat, lon) =
         axes(corridor.lat, 2))
 
 """
+    StateRows
+
+Which rows of states, the lateral nodes of one (time bin, aloft, stage), the
+[`StateArray`](@ref)s of one [`RouteWorkspace`](@ref) hold.
+"""
+struct StateRows
+    "number of the row of each (time bin, aloft, stage), 0 where it is not held"
+    row::Array{Int32, 3}
+    "rows held"
+    count::Base.RefValue{Int}
+    "lateral nodes of a row"
+    lateral_count::Int
+end
+
+"""
+    StateArray{T}
+
+A value per state of the routing dynamic programme, indexed (lateral, time bin, kite down
+1 or aloft 2, stage), that holds only the rows of `rows` written to: every other state
+reads `unset`, and writing `unset` to a row not held holds nothing.
+"""
+struct StateArray{T} <: AbstractArray{T, 4}
+    rows::StateRows
+    "values of the rows held, row after row, as far as this array was written to"
+    values::Vector{T}
+    "value of a state not written to"
+    unset::T
+end
+
+StateArray(rows::StateRows, unset) = StateArray(rows, typeof(unset)[], unset)
+
+Base.size(states::StateArray) = (states.rows.lateral_count, size(states.rows.row)...)
+
+function Base.getindex(states::StateArray, lateral::Int, bin::Int, aloft::Int, stage::Int)
+    @boundscheck checkbounds(states, lateral, bin, aloft, stage)
+    (; rows, values) = states
+    index = (rows.row[bin, aloft, stage] - 1) * rows.lateral_count + lateral
+    return 0 < index <= length(values) ? values[index] : states.unset
+end
+
+function Base.setindex!(states::StateArray, value, lateral::Int, bin::Int, aloft::Int,
+        stage::Int)
+    @boundscheck checkbounds(states, lateral, bin, aloft, stage)
+    (; rows, values, unset) = states
+    row = rows.row[bin, aloft, stage]
+    if row == 0
+        isequal(value, unset) && return states
+        row = rows.row[bin, aloft, stage] = (rows.count[] += 1)
+    end
+    held = length(values)
+    if held < row * rows.lateral_count
+        resize!(values, rows.count[] * rows.lateral_count)
+        fill!(view(values, (held + 1):length(values)), unset)
+    end
+    values[(row - 1) * rows.lateral_count + lateral] = value
+    return states
+end
+
+"""
     RouteWorkspace
 
 States of the routing dynamic programme, indexed (lateral, time bin, kite down 1 or aloft
 2, stage).
 """
 struct RouteWorkspace
-    "objective of the best arrival [USD]"
-    cost::Array{Float64, 4}
+    "objective of the best arrival [USD], `Inf` where there is none"
+    cost::StateArray{Float64}
     "hours from departure to the arrival [h]"
-    elapsed::Array{Float64, 4}
+    elapsed::StateArray{Float64}
     "fuel energy up to the arrival [J]"
-    energy::Array{Float64, 4}
+    energy::StateArray{Float64}
     "hours of kite flight up to the arrival [h]"
-    flight_hours::Array{Float64, 4}
+    flight_hours::StateArray{Float64}
     "kite launches up to the arrival"
-    launches::Array{Int32, 4}
+    launches::StateArray{Int32}
     "kite landings outside the landing limits up to the arrival"
-    forced_landings::Array{Int32, 4}
+    forced_landings::StateArray{Int32}
     "state of the previous stage, as the linear index of (bin, lateral, aloft)"
-    parent::Array{Int32, 4}
+    parent::StateArray{Int32}
     "routing speed number of the edge into the state"
-    speed_index::Array{Int16, 4}
+    speed_index::StateArray{Int16}
     "mode of the edge into the state"
-    mode::Array{Int8, 4}
+    mode::StateArray{Int8}
     "the points of the edge in hand"
     points::Vector{SailedPoint}
     "values of the latest [`CostToGo`](@ref), grown to the most time knots asked of it"
@@ -997,15 +1056,30 @@ end
     RouteWorkspace(lateral_count, bins, stage_count)
 
 Workspace for corridors of `lateral_count` nodes per stage, `bins` time bins and up to
-`stage_count` stages.
+`stage_count` stages, holding no state.
 """
 function RouteWorkspace(lateral_count, bins, stage_count)
-    shape = (lateral_count, bins, 2, stage_count)
-    return RouteWorkspace(fill(Inf, shape), zeros(shape), zeros(shape), zeros(shape),
-        zeros(Int32, shape), zeros(Int32, shape), zeros(Int32, shape), zeros(Int16, shape),
-        zeros(Int8, shape), SailedPoint[], Ref(zeros(lateral_count, 0, 2, stage_count)),
+    rows = StateRows(zeros(Int32, bins, 2, stage_count), Ref(0), lateral_count)
+    unset = (Inf, 0.0, 0.0, 0.0, Int32(0), Int32(0), Int32(0), Int16(0), Int8(0))
+    return RouteWorkspace(StateArray.(Ref(rows), unset)..., SailedPoint[],
+        Ref(zeros(lateral_count, 0, 2, stage_count)),
         Ref(falses(lateral_count, 0, stage_count)), Vector{SailedPoint}[], SailedEdge[],
         fill(-1, bins), Int[], Int[])
+end
+
+"""
+    empty_states!(workspace)
+
+Hold no state in `workspace`.
+"""
+function empty_states!(workspace::RouteWorkspace)
+    (; cost, elapsed, energy, flight_hours, launches, forced_landings, parent, speed_index,
+        mode) = workspace
+    fill!(cost.rows.row, 0)
+    cost.rows.count[] = 0
+    foreach(states -> empty!(states.values), (cost, elapsed, energy, flight_hours,
+        launches, forced_landings, parent, speed_index, mode))
+    return workspace
 end
 
 "workspaces not in use, by (lateral count, time bins), shared by the threads that route"
@@ -1648,7 +1722,7 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
     stage_count, lateral_count = size(corridor.lat)
     bins = size(cost, 2)
     prices = (; fuel=ship_table.ship.fuel.price, time=time_cost)
-    fill!(view(cost, :, :, :, first_stage:stage_count), Inf)
+    empty_states!(workspace)
     start_state!(workspace, (first_lateral, 1, first_aloft + 1, first_stage))
     for stage in first_stage:(stage_count - 1), lateral in 1:lateral_count
         corridor.water[stage, lateral] || continue
@@ -1735,7 +1809,7 @@ then charged `time_cost` [USD/h] for that time, else the earliest; `Inf` where n
 function final_arrival(costs, hours, time_cost, arrival_by)
     isinf(arrival_by) && return findmin(costs)
     best, bin, earliest = Inf, 0, 0
-    for i in eachindex(costs, hours)
+    for i in axes(costs, 1)
         isfinite(costs[i]) || continue
         (earliest == 0 || hours[i] < hours[earliest]) && (earliest = i)
         hours[i] <= arrival_by || continue

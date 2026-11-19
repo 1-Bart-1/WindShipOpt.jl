@@ -56,35 +56,6 @@ function two_digits(x)
 end
 
 """
-    canopy_life_table()
-
-Table of the life statements behind the canopy wear rate, from
-data/canopy_life_statements.csv, as canopy_life_table.tex; a cloth given as "same" is the
-one of the row above.
-"""
-function canopy_life_table()
-    lives = read_table(joinpath(root, "data", "canopy_life_statements.csv"))
-    columns = ("grade", "cloth", "weight", "life_text", "ends_on", "tension", "strength",
-        "dose", "rate")
-    write_whole(joinpath(sections, "canopy_life_table.tex")) do io
-        println(io, "\\begin{tabular}{@{}lllrrlrrrr@{}}\n\\toprule")
-        println(io, "Source & Grade & Cloth & \$w\$ & Life \$L\$ & Ends on & \$T/w\$ & ",
-            "\$\\sigma_w\$ & \$\\dot D\$ & \$r\$ \\\\")
-        square = "m\\textsuperscript{2}"
-        println(io, " & & & [g/$square] & [h] & & & & [MJ/$square/h] & [g/$square/h] ",
-            "\\\\\n\\midrule")
-        cloth = ""
-        for row in findall(==("statement"), lives["kind"])
-            lives["cloth"][row] == "same" || (cloth = lives["cloth"][row])
-            cells = (column == "cloth" ? cloth : string(lives[column][row])
-                     for column in columns)
-            println(io, "\\citet{", lives["key"][row], "} & ", join(cells, " & "), " \\\\")
-        end
-        println(io, "\\bottomrule\n\\end{tabular}")
-    end
-end
-
-"""
     latex_escape(text)
 
 `text` with the characters LaTeX treats specially escaped and powers set as superscripts.
@@ -452,11 +423,10 @@ function goal_rows()
     loss = "$(one_in_text(:value)) ($(one_in_text(:low)) to $(one_in_text(:high)))"
     crew = string("USD~", estimate_text(assumptions[:kite_cycle_crew_cost]), " per cycle ",
         input_range(:kite_cycle_crew_cost))
-    derived = string("derived \\num{",
-        estimate_text(WindShipOpt.reference_decay_life(assumptions)), "} h ",
-        range_text(life.low, life.high), ", ")
     return [("Canopy life", "kite", canopy,
-            derived * "on makers' statements; small kites expected 100 to \\num{1000} h"),
+            string("polyester sails last ", estimate_text(life.low), " to ",
+                estimate_text(life.high), " h; none published for a ship kite; small ",
+                "kites expected 100 to \\num{1000} h")),
         price_goal_rows()...,
         ("Rig life", "wings", years(:wing_lifetime),
             "stated design life; about 2 years on record"),
@@ -2239,10 +2209,17 @@ fidelity_parts() = [
     (part="Heel, leeway and rudder limits", varied="removed",
         model="steady balance; side force beyond the limits is shed by trimming the rig",
         error="limits are design rules, not measured", effect=switched(:limits)),
-    (part="Leeway and rudder drag", varied="rudder drag off",
-        model="Kijima side force slope; rudder as a lifting line carrying the yaw moment",
-        error="hull side force from regression, not from tests of these hulls",
-        effect=switched(:rudder)),
+    (part="Rudder drag", varied="removed",
+        model="lifting line carrying the yaw moment in the free stream",
+        error="no wake or propeller slipstream at the rudder", effect=switched(:rudder)),
+    (part="Leeway and rudder drag", varied="both removed",
+        model="Kijima side-force slope; induced drag of a slender wing and cross flow",
+        error="regression on merchant-ship models, not on these hulls",
+        effect=switched(:side_force)),
+    (part="Hull side-force slope", varied="at its low bound",
+        model="Kijima regression on merchant-ship models in calm water",
+        error="hulls without a skeg tested at 0.4 to 0.5 times it",
+        effect=switched(:weak_hull)),
     (part="Propeller and engine", varied="not measured",
         model="actuator disk with viscous loss; engine efficiency falling at part load",
         error="no open-water curve of a real propeller",
@@ -2272,9 +2249,9 @@ fidelity_parts() = [
         error="extra launch wind scaled on one reported pair of wind speeds",
         effect=varied_inputs(:kite_weather_window)),
     (part="Wear and availability", varied="canopy life, out of service",
-        model="canopy life from UV and wear per flight hour; launch damage and loss; " *
-              "time out of service for every rig",
-        error="canopy wear rate from paragliders, not from towing kites",
+        model="canopy life per flight hour and flogging per launch; launch damage and " *
+              "loss; time out of service for every rig",
+        error="canopy life from polyester sails, not from towing kites",
         effect=varied_inputs(:canopy_life, :kite_out_of_service, :wing_out_of_service,
             :rotor_out_of_service)),
     (part="Rig prices", varied="prices per area",
@@ -2359,6 +2336,22 @@ function part_effect((study, file, ship_column, groups))
                          for (rigs, swapped) in swaps])
 end
 
+"""
+    study_holds((study, file, ship_column, groups))
+
+Whether the run recorded for method study `study` holds data file `file` with a row of
+every condition set of `groups`; true for a file of the paper run. Errors where that run's
+directory is missing.
+"""
+function study_holds((study, file, ship_column, groups))
+    isnothing(study) && return true
+    path = study_file(study, file)
+    isdir(dirname(path)) || error("the run $(dirname(path)) of study $study is missing")
+    isfile(path) || return false
+    table = read_table(path)
+    return all(!isempty(rows(table, variant...)) for group in groups for variant in group)
+end
+
 "cheapest cost per tonne-km without a rig and of each rig in the `conditions` rows"
 best_costs(table, conditions) = Dict(rig => minimum(table["cost"][rows(table,
     conditions..., "rig" => rig)]; init=Inf) for rig in ("none", rig_names...))
@@ -2368,7 +2361,8 @@ best_costs(table, conditions) = Dict(rig => minimum(table["cost"][rows(table,
 
 Write each of [`fidelity_parts`](@ref) with its model, its effect on each rig's cost saving
 and on which rig is cheapest by [`part_effect`](@ref), and its known error, to
-paper/sections/fidelity_table.tex.
+paper/sections/fidelity_table.tex; an effect the run recorded for its study does not hold
+yet by [`study_holds`](@ref) is marked stale until that study reruns.
 """
 function fidelity_table()
     write_whole(joinpath(sections, "fidelity_table.tex")) do io
@@ -2376,6 +2370,12 @@ function fidelity_table()
             if isnothing(effect)
                 @printf(io, "%s {\\itshape (%s)} & %s & -- & -- & -- & -- & %s \\\\\n",
                     part, varied, model, error)
+                continue
+            end
+            if !study_holds(effect)
+                stale = "\\multicolumn{4}{c}{\\stale{$(first(effect))}{}}"
+                @printf(io, "%s {\\itshape (%s)} & %s & %s & %s \\\\\n",
+                    part, varied, model, stale, error)
                 continue
             end
             spread, swaps = part_effect(effect)
@@ -2402,8 +2402,8 @@ the goals, the `highlight_limit` the paper build checks, the [`class_numbers`](@
 [`rig_lead_numbers`](@ref), [`route_numbers`](@ref), [`split_numbers`](@ref),
 [`payback_numbers`](@ref), [`premium_numbers`](@ref), [`fleet_share_numbers`](@ref),
 [`market_numbers`](@ref) and [`type_saving_numbers`](@ref) of the class study, the
-[`design_premium_numbers`](@ref) of the design study and the
-[`forecast_numbers`](@ref).
+[`design_premium_numbers`](@ref) of the design study, the [`forecast_numbers`](@ref) and
+the [`side_force_numbers`](@ref).
 """
 function numbers_file()
     classes = class_table()
@@ -2413,7 +2413,7 @@ function numbers_file()
                premium_numbers(classes);
                design_premium_numbers(read_table(data_file("designs.csv")));
                fleet_share_numbers(classes); market_numbers(classes);
-               type_saving_numbers(classes); forecast_numbers()]
+               type_saving_numbers(classes); forecast_numbers(); side_force_numbers()]
     draft = paper_run.fidelity != :final
     write_whole(joinpath(sections, "numbers.tex")) do io
         for (name, text) in goal_numbers()
@@ -2720,6 +2720,44 @@ function forecast_numbers()
             "ForecastFlightShare" => whole_number(100kite_mean("flight_share"));
             "ForecastLaunches" => whole_number(kite_mean("launches"));
             "ForecastForcedLandings" => one_decimal(kite_mean("forced_landings"))]
+end
+
+"""
+    side_force_numbers()
+
+Name and text, per rig, from the model-part study: over its e-ammonia ships, the share of the
+cost saving with a side force free of leeway and rudder drag that this drag takes [%], and
+the points the hull's side-force slope at its low bound takes from the saving; over all its
+ships, the median leeway [deg] and the share of hours within half a degree of the limit [%];
+each marked stale until the study reruns where its recorded run does not hold them yet.
+"""
+function side_force_numbers()
+    held = study_holds(switched(:side_force)) && study_holds(switched(:weak_hull)) &&
+           isfile(study_file(:model_parts, "leeway.csv"))
+    held || return [name * uppercasefirst(rig) => "\\stale{model_parts}{}"
+                    for rig in rig_names
+                    for name in ("SideForce", "WeakHull", "Leeway", "LeewayLimit")]
+    parts = read_table(study_file(:model_parts, "model_parts.csv"))
+    leeway = read_table(study_file(:model_parts, "leeway.csv"))
+    ammonia = [name for (name, design) in sensitivity_ships() if design.drive == :ammonia]
+    cost(ship, rig, part) =
+        only(parts["cost"][rows(parts, "ship" => ship, "rig" => rig, "part" => part)])
+    saving(ship, rig, part) =
+        percent_saving(cost(ship, rig, part), cost(ship, "none", part))
+    numbers = Pair{String, String}[]
+    for rig in rig_names
+        name = uppercasefirst(rig)
+        taken = [100(1 - saving(ship, rig, "none") / saving(ship, rig, "side_force"))
+                 for ship in ammonia]
+        lost = [saving(ship, rig, "none") - saving(ship, rig, "weak_hull")
+                for ship in ammonia]
+        sailed = rows(leeway, "rig" => rig)
+        push!(numbers, "SideForce$name" => value_range(taken, whole_number),
+            "WeakHull$name" => value_range(lost, whole_number),
+            "Leeway$name" => value_range(leeway["median"][sailed], one_decimal),
+            "LeewayLimit$name" => value_range(100leeway["at_limit"][sailed], one_decimal))
+    end
+    return numbers
 end
 
 """
@@ -3349,6 +3387,49 @@ function premium_numbers(table)
     return ["PremiumNoRig" => whole_number(mean(without)),
         "PremiumBestRig" => whole_number(mean(with)),
         "PremiumClosed" => whole_number(100 * (1 - mean(with) / mean(without)))]
+end
+
+"leeway angles [deg] at which [`drift_check_table`](@ref) compares the model with tests"
+drift_check_angles = (3, 6, 9)
+
+"""
+    drift_check_table()
+
+Write to paper/sections/drift_check_table.tex, for each tested hull of
+data/hull_drift_tests.csv at each of [`drift_check_angles`](@ref), the side-force coefficient
+of the published fit and of the model's hull of the same main dimensions, and the induced
+drag coefficient of each at the published side force, both on ½ρV²LT.
+"""
+function drift_check_table()
+    tests = read_table(joinpath(pkgdir(WindShipOpt), "data", "hull_drift_tests.csv"))
+    env = Environment(assumptions)
+    speed = 6.0
+    reference = 0.5env.water_density * speed^2
+    write_whole(joinpath(sections, "drift_check_table.tex")) do io
+        println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
+        println(io, "Hull & Leeway & \\multicolumn{2}{c}{Side force \\(C_Y\\)} & ",
+            "\\multicolumn{2}{c}{Induced drag \\(C_X\\) at that \\(C_Y\\)} \\\\")
+        println(io, "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}")
+        println(io, " & [\\si{\\degree}] & Fit & Model & Fit & Model \\\\\n\\midrule")
+        for (k, name) in enumerate(tests["hull"])
+            hull = Hull(tests["length"][k], tests["beam"][k], tests["draft"][k],
+                tests["block"][k], assumptions)
+            area = hull.length * hull.draft
+            aspect_ratio = 2tests["effective_draft_ratio"][k]^2 * hull.draft / hull.length
+            for angle in drift_check_angles
+                beta = deg2rad(angle)
+                tested = tests["side_force_slope"][k] * beta +
+                         tests["side_force_cubic"][k] * beta^3
+                leeway, drag = WindShipOpt.leeway_drag(hull, env, speed,
+                    tested * reference * area)
+                modelled = tested * beta / leeway
+                @printf(io, "%s & %d & %.4f & %.4f & %.5f & %.5f \\\\\n", name, angle,
+                    tested, modelled, tested^2 / (π * aspect_ratio),
+                    drag / (reference * area))
+            end
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
 end
 
 """

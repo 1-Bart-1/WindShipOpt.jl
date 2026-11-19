@@ -110,46 +110,6 @@ No ribs & $-62$ & 0.53 \\
 \end{tabular}
 \end{table}
 
-\subsection{Data behind the canopy life}
-\label{app:canopy_life_inputs}
-
-\paragraph{UV} A least-squares fit of the strength loss of polyester without a UV blocker over \SIrange{40}{1500}{g/m^2} gives $a=0.40\pm0.12$ and $D_\mathrm{ref}=\SI{63}{MJ/m^2}$, from outdoor tests with a measured dose between 295 and \SI{385}{nm} \citep{lodi2008,stevens2018}, a roof test \citep{hunt2022}, and lamp tests \citep{ceylan2023,asadi2021,uzumcu2024,dekanic2023} times 3, the gap on the one cloth tested both ways \citep{stevens2018}. The field values alone give 0.42 and \SI{72}{MJ/m^2}. The yearly mean dose in Florida is \SI{320}{MJ/m^2} in that band \citep{qlab2026}.
-
-\paragraph{Wear} The statements span 0.04 to \SI{0.26}{g/m^2/h}. Cloth and sail both work at 0.4 to 3\,\% of their breaking strength. Rope yarns cycled near that load lost 0.4 to 9.2\,\% in $10^6$ cycles \citep{tti2006}, and woven polyester kept its strength over \num{12000} cycles \citep{nosraty2013}. Flutter could supply the rate at about 1\,\% of flight time \citep{doyle2011}, and folds at hundreds of crumples an hour \citep{maslanka2023}.
-
-\paragraph{Exponent $b$} One maker's lives for its balloon cloths imply 1.5 \citep{kubicek2026}, one life for every woven polyester sail implies about 0 \citep{flynn2015}, and the one measurement, on nylon cloths of 34 to \SI{42}{g/m^2}, finds no order with weight \citep{maslanka2023}.
-
-\paragraph{Tension over cloth weight} Wings at $T/w$ of 1 to 3 live from under 130 flying hours as skydiving mains, at \num{1600} jumps \citep{szafran2018} of 5 minutes \citep{szafran2019}, to the unlimited life stated for fully coated aircraft polyester \citep{faa2001}. Folding, opening shock, flutter and UV sort these lives and $T/w$ does not.
-
-\paragraph{End of life} One tandem paraglider fell from about 400 to \SI{29}{s} in the porosity test by 800 hours, against a limit of \SI{25}{s} \citep{supair2016}. Other makers' limits are \SI{18}{s} \citep{dudek2026} and \SI{10}{s} \citep{bgd2026}. A sail keeps its shape for half to two-thirds of its structural life, \numrange{1700}{2700} hours \citep{flynn2015}. The margin of \cref{sec:det_canopy_life} flies \SI{200}{g/m^2} down to 4\,\% of new strength. Aircraft fabric is retired at 70\,\% of the new strength required, by a rule tabulated for cotton and linen \citep{faa2001}, and balloon cloth at a test value of 46 and 27\,\% of new, at most \citep{lindstrand_mm}.
-
-\subsection{Range of the canopy life}
-\label{app:canopy_life_range}
-
-\begin{table}[tbp]
-\centering
-\footnotesize
-\caption{Canopy life at \SI{200}{g/m^2} from the strength decay with one input at each bound, in flight hours, the bound giving the shorter life first. The base retires the cloth at 4\,\% of its new strength, below both retirement strengths of the last row, so both give a shorter life. The goal is \num{3000} hours, with this table's range of \numrange{1200}{6900} hours.}
-\label{tab:canopy_life_range}
-\begin{tabular}{@{}lrr@{}}
-\toprule
-Input changed alone & Shorter life & Longer life \\
-\midrule
-All inputs at base & \multicolumn{2}{c}{\num{3800}} \\
-\addlinespace
-Wear rate $r$ & \num{2200} & \num{6900} \\
-Reference dose $D_\mathrm{ref}$ & \num{3100} & \num{4400} \\
-UV exponent $a$ & \num{3600} & \num{4200} \\
-Dose rate $\dot D$ & \num{3200} & \num{4200} \\
-Cloth strength $\sigma_w$ & \num{3300} & \num{4100} \\
-Kept strength of 8 and 3 times the tension & \num{3300} & \num{4400} \\
-Wear exponent $b$ of 0 and 1.5 & \num{2200} & \num{4900} \\
-Retirement at 70 and 27\,\% of new strength & \num{1200} & \num{2400} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The goal of \num{3000} hours lies below the longest statements and below the life at the low bound of each input of the decay except the wear rate and the wear exponent. The decay reaches it even with a third more wear than we take. The goal lies above the \numrange{1700}{2700} hours a sail keeps its shape \citep{flynn2015} and the life at either retirement strength. A fixed wear life of \num{2000} hours, about the shape life of a sail, gives \num{1800}. With every input at its bound together the life is \num{700} and \num{18000} hours, but no data say how the inputs vary together.
 
 \subsection{Cloth tension data}
 \label{app:cloth_tension}
