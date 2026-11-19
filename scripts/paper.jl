@@ -135,7 +135,7 @@ output_steps = [:kite => kite_figure,
     :canopy_cells => canopy_cells_figure,
     :tow_point_figure => tow_point_figure,
     :fleet_share => fleet_share_figure, :numbers => numbers_file,
-    :rigid_numbers => rigid_numbers_file]
+    :figure_style => figure_style_file, :rigid_numbers => rigid_numbers_file]
 
 """
     paper(names...; fidelity, resume=nothing, only=nothing)
