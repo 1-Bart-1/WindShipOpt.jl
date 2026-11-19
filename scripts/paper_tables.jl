@@ -1952,6 +1952,11 @@ fidelity_parts() = [
         error="fit to CFD and full-scale data within its scatter; interference from two " *
               "to four rotors",
         effect=varied_inputs(:rotor_lift_factor, :rotor_max_wind)),
+    (part="Deck layout", varied="one row only",
+        model="one centreline row or two columns abreast, whichever keeps more thrust",
+        error="loss abreast from one wind-tunnel pair of rotors and potential flow of " *
+              "four wing sails",
+        effect=one_row()),
     (part="Kite flight", varied="turn radius, aspect ratio, force limit",
         model="quasi-steady pattern with mass, bridle and tether drag, searched for each " *
               "wind and course",
@@ -1992,6 +1997,10 @@ fidelity_parts() = [
 switched(part) =
     (:model_parts, "model_parts.csv", "ship",
         [[("part" => "none",), ("part" => string(part),)]])
+
+"the best size of every size searched and the best that stands in one row"
+one_row() =
+    (:size_search, "size_search.csv", "class", [[(), ("columns" => <=(1),)]])
 
 "for each of `inputs` of the development study, the base and both of its bounds"
 function varied_inputs(inputs...)

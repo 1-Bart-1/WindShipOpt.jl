@@ -353,12 +353,18 @@ wing_spacing:
   high: 2.0
   unit: chord lengths
   reason: "Closest spacing of wings over their chord at which wings turning about a quarter-chord pivot clear each other, also the closest spacing at which 2D RANS of three wings in line found no further gain [@wang2024]."
+wing_abreast_loss:
+  value: 1.5
+  low: 1.0
+  high: 2.5
+  unit: "-"
+  reason: "Interference loss of two wings abreast over that of two in line at the same spacing, for the two columns of the deck layout: four wings in a square lose 1.5 times what three in a line lose per wing behind another, averaged over 60, 90 and 120 degrees of apparent wind, 2.2 times at 90 degrees [@vanreen2026, Tables 3.2-3.3], with the whole loss of the square, which also holds pairs in line and on the diagonal, put on its pairs abreast; the low bound has no penalty, the authors' estimate."
 deck_length_fraction:
   value: 0.75
   low: 0.65
   high: 0.8
   unit: "-"
-  reason: "Authors' estimate: share of the ship's length between forecastle and deckhouse that a row of rigs can use; an MR tanker has 140 m of upper deck on 182 m [@han2025], a CFD layout of five wing sails on a Kamsarmax spans 165 of 222 m [@mboumba2022]."
+  reason: "Authors' estimate: share of the ship's length between forecastle and deckhouse that a row or column of rigs can use; an MR tanker has 140 m of upper deck on 182 m [@han2025], a CFD layout of five wing sails on a Kamsarmax spans 165 of 222 m [@mboumba2022]."
 max_air_draft:
   value: 45.0
   low: 35.0
@@ -419,6 +425,12 @@ rotor_spacing:
   high: 5.0
   unit: diameters
   reason: "Closest spacing of rotors over their diameter, the closest of the three tested in the wind tunnel by @bordogna2020 (3, 7.5 and 15 diameters); end discs are two diameters wide."
+rotor_abreast_loss:
+  value: 1.6
+  low: 1.0
+  high: 2.25
+  unit: "-"
+  reason: "Interference loss of two rotors abreast over that of two in line at the same spacing, for the two columns of the deck layout: weighted over apparent wind angles a pair 3 diameters apart side by side loses 7-9 % and in tandem 4-6 % in the wind tunnel, since side by side they shade each other in beam winds [@bordogna2020, Figs. 17-18]; four rotors in a square need 0.4 % more power than four in a line over all wind angles [@guzelbulut2024arrangement], the low bound."
 rotor_max_surface_speed:
   value: 47.0
   low: 40.0
