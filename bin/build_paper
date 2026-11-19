@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Builds the paper's TeX Live image from paper/tex/Dockerfile, then the paper, the
+# extended abstract and the kite design paper in it. Stops at the first that fails.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+image="windship-paper-tex:$(sha256sum paper/tex/Dockerfile | cut -c1-12)"
+docker build --quiet --tag "$image" paper/tex >/dev/null
+for dir in paper paper/kite_design; do
+    docker run --rm --volume "$PWD:/repo" --workdir "/repo/$dir" "$image" \
+        latexmk -interaction=nonstopmode -halt-on-error
+done
