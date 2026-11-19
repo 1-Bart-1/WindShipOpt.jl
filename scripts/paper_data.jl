@@ -88,9 +88,11 @@ function round_trips(cases, departures)
     entries = Any[stored_entry(directory, case)
                   for (case, directory) in zip(cases, directories)]
     computed = findall(ismissing, entries)
-    todo = (cases[computed], directories[computed], departures)
-    entries[computed] = handed_out(case_jobs, length(computed)) ?
-                        job_trips(case_jobs, todo...) : compute_trips(todo...)
+    if isempty(computed) || !handed_out(case_jobs, length(cases))
+        entries[computed] = compute_trips(cases[computed], directories[computed], departures)
+    else
+        entries = job_trips(case_jobs, cases, directories, departures)
+    end
     foreach(tally_case!, cases, directories, entries)
     trips = [entry.trip for entry in entries]
     older = count(entry -> entry.model != paper_run.trip_model, entries)
@@ -3291,6 +3293,117 @@ function speed_terms(case)
 end
 
 """
+    routing_value_ships()
+
+Ships of the routing value study, each as its name, its hull length [m] or class and its
+route: the 140 m ship to Guadeloupe and the tramp and the liner of [`study_classes`](@ref).
+"""
+function routing_value_ships()
+    ships = [("140 m", :caribbean); [(name, route) for (name, _, route) in study_classes]]
+    return [(ship, study_hull(ship), route) for (ship, route) in ships]
+end
+
+"""
+    routing_value_data()
+
+The [`routing_value_ships`](@ref) on each of the [`study_drives`](@ref) without a rig,
+routed for cost and on the shortest path through the corridors of their route at each of
+their [`held_speeds`](@ref), and the 140 m ship with each of the [`reference_rigs`](@ref), routed,
+each ship and drive over the [`sailable_departures`](@ref) of its ship on the shortest
+route: routing_value.csv, and the cost of each departure: routing_value_departures.csv.
+"""
+function routing_value_data()
+    groups = [(; ship, build, route, drive)
+              for (ship, build, route) in routing_value_ships() for drive in study_drives]
+    cases, trips = routing_value_trips(groups, sampled_departures())
+    reruns = Dict{Any, Vector{Any}}()
+    for group in groups
+        failed = [case for (case, trip) in zip(cases, trips)
+                  if isnothing(trip) && in_group(case, group)]
+        isempty(failed) && continue
+        push!(get!(reruns, sailable_departures(failed, sampled_departures()), []), group)
+    end
+    for (departures, rerun) in reruns
+        kept = [!any(group -> in_group(case, group), rerun) for case in cases]
+        again = routing_value_trips(rerun, departures)
+        cases, trips = [cases[kept]; first(again)], [trips[kept]; last(again)]
+    end
+    labels = (:ship, :drive, :rig, :area, :course, :speed, :held_knots)
+    write_trips("routing_value.csv", cases, trips, labels...)
+    open(run_file("routing_value_departures.csv"), "w") do io
+        println(io, join([collect(string.(labels)); ["departure", "cost"]], ","))
+        for (case, trip) in zip(cases, trips)
+            isnothing(trip) && continue
+            fields = [csv_value(getproperty(case, label)) for label in labels]
+            for outcome in trip.departures
+                println(io, join([fields; csv_value(outcome.departure);
+                        string(outcome.cost_per_tonne_km)], ","))
+            end
+        end
+    end
+end
+
+"whether `case` is of the ship and drive of `group`"
+in_group(case, group) = (case.ship, case.drive) == (group.ship, group.drive)
+
+"""
+    routing_value_trips(groups, departures)
+
+Cases and round trips over `departures` of each ship, with its build, route and drive, in
+`groups`: without a rig, and for the 140 m ship with each of the [`reference_rigs`](@ref),
+routed, then without a rig on the shortest path through their corridors at each
+[`held_speeds`](@ref).
+"""
+function routing_value_trips(groups, departures)
+    routed = []
+    for (; ship, build, route, drive) in groups
+        for (rig, area) in [("none", 0.0); ship == "140 m" ? reference_rigs : []]
+            design = ShipDesign(drive, build; rig_size(rig, area)...)
+            push!(routed, trip_case(design; route, ship, drive, rig, area, speed="cost"))
+        end
+    end
+    routed_trips = round_trips(routed, departures)
+    held = []
+    for (case, trip) in zip(routed, routed_trips)
+        (case.rig == "none" && !isnothing(trip)) || continue
+        paths = WindShipOpt.shortest_corridor.(case.corridors)
+        for (speed, knots) in held_speeds(case, trip)
+            push!(held, trip_case(case.design; case.route, case.ship, case.drive, case.rig,
+                case.area, speed, paths, course=:shortest, held_knots=knots))
+        end
+    end
+    return [routed; held], [routed_trips; round_trips(held, departures)]
+end
+
+"""
+    sailable_departures(cases, departures)
+
+The `departures` on which the round trip of each of `cases` succeeds alone.
+"""
+function sailable_departures(cases, departures)
+    sails = fetch.([Threads.@spawn all(!isnothing(case_trip(case, [departure]))
+                                       for case in cases) for departure in departures])
+    return departures[sails]
+end
+
+"""
+    held_speeds(case, trip)
+
+Name and speed [kn] of each speed the ship of `case`, routed in `trip`, holds on the
+shortest route: `same_time`, which sails its track in the routed ship's time at sea, and
+for a class `operating`, the fleet's mean operating speed in data/ship_classes.csv.
+"""
+function held_speeds(case, trip)
+    track = sum(corridor.track_length for corridor in case.corridors)
+    hours = 24(trip.outbound_days + trip.return_days)
+    speeds = ["same_time" => round(track / 3600hours / WindShipOpt.KNOT; digits=2)]
+    case.ship == "140 m" && return speeds
+    classes = read_table(joinpath(root, "data", "ship_classes.csv"))
+    operating = classes["operating_speed"][only(rows(classes, "name" => case.ship))]
+    return push!(speeds, "operating" => operating)
+end
+
+"""
 Conditions of published fixed-speed kite studies, each on the nearest ship of ours, on
 VLSFO: the citation key, our ship, the kite area [m^2], the speeds [kn] and the route.
 """
@@ -3495,7 +3608,7 @@ rigid_low_favours = (:rigid_tether_price, :rigid_tether_density,
     :rigid_drive_reference_mass, :rigid_rotor_mass_per_area, :rigid_ship_power_cost,
     :rigid_perch_cost, :rigid_perch_width, :rigid_station_mass, :rigid_upkeep_per_area,
     :rigid_cycle_loss_probability, :rigid_feathered_rotor_drag, :rigid_hover_energy_price,
-    :rigid_hover_minutes, :rigid_hover_thrust_ratio, :rigid_mass_exponent,
+    :rigid_hover_minutes, :rigid_hover_thrust_ratio, :rigid_shell_mass, :rigid_load_mass,
     :rigid_profile_drag, :rigid_min_turn_radius, :kite_out_of_service)
 
 "inputs where the high bound favours a VTOL kite"
@@ -3504,25 +3617,51 @@ rigid_high_favours = (:rigid_lifetime, :rigid_hover_max_wave_height, :rigid_hove
     :rigid_tether_stress, :rigid_rotor_area_ratio, :rigid_rotor_fill,
     :rigid_hover_air_density, :rigid_hover_efficiency)
 
-"input scenarios of the VTOL kite studies"
+"inputs of the mass of a VTOL kite's structure"
+rigid_structure_inputs = (:rigid_shell_mass, :rigid_load_mass)
+
+"input scenarios of the routed VTOL kite study"
 rigid_scenarios = ("base", "favourable")
+
+"input scenarios of the VTOL kite scaling study"
+rigid_scaling_scenarios = ("base", "light", "heavy", "cubed", "favourable")
+
+"`inputs` with each of `names` at its `bound` (`:low` or `:high`)"
+at_bound(inputs, names, bound) = foldl(names; init=inputs) do changed, name
+    with_value(changed, name, getfield(changed.entries[name], bound))
+end
+
+"""
+    cubed_structure(inputs)
+
+`inputs` with the structure's mass all load-bearing, growing with the span cubed at a fixed
+force per area, and equal to the base structure at the base wing area.
+"""
+function cubed_structure(inputs)
+    area = assumptions[:rigid_unit_area]
+    force = 1e3inputs[:rigid_max_force_per_area] * area
+    span = sqrt(area * inputs[:rigid_aspect_ratio])
+    load_mass = WindShipOpt.rigid_structure_mass(area, force, assumptions) /
+                (1e-3force * span * inputs[:rigid_aspect_ratio])
+    return with_value(with_value(inputs, :rigid_shell_mass, 0.0), :rigid_load_mass,
+        load_mass)
+end
 
 """
     rigid_assumptions(scenario, unit)
 
 The assumptions of the VTOL kite studies at a kite of `unit` [m^2]: at base values for
-"base", and for "favourable" with every VTOL kite input at the bound that favours it.
+"base", with the structure's mass at its low bounds for "light", at its high bounds for
+"heavy" and growing with the span cubed for "cubed", and for "favourable" with every VTOL
+kite input at the bound that favours it.
 """
 function rigid_assumptions(scenario, unit)
     base = with_value(assumptions, :rigid_unit_area, unit)
     scenario == "base" && return base
-    for name in rigid_low_favours
-        base = with_value(base, name, base.entries[name].low)
-    end
-    for name in rigid_high_favours
-        base = with_value(base, name, base.entries[name].high)
-    end
-    return base
+    scenario == "light" && return at_bound(base, rigid_structure_inputs, :low)
+    scenario == "heavy" && return at_bound(base, rigid_structure_inputs, :high)
+    scenario == "cubed" && return cubed_structure(base)
+    return at_bound(at_bound(base, rigid_low_favours, :low), rigid_high_favours, :high)
 end
 
 "wing areas [m^2] of the VTOL kite scaling study"
@@ -3563,54 +3702,22 @@ function beam_thrust(rig, i)
     return 0.5air_density * rig.wind_speeds[i]^2 * rig.area * force.force[2]
 end
 
-"mass exponent of the two VTOL kites built, which the scaling study also runs"
-built_wing_exponent = 3.0
-
-"mass exponent [-] of the VTOL kite in input `scenario`"
-rigid_exponent(scenario) = rigid_assumptions(scenario, 0.0)[:rigid_mass_exponent]
-
-"""
-    rigid_scaling_series()
-
-(kind, mass exponent) of each series of VTOL kites in the scaling study: base inputs at
-the base, the built wings' and the high exponent, and favourable inputs.
-"""
-function rigid_scaling_series()
-    exponent = assumptions.entries[:rigid_mass_exponent]
-    return (("rigid base", exponent.value), ("rigid base", built_wing_exponent),
-        ("rigid base", exponent.high), ("rigid favourable", rigid_exponent("favourable")))
-end
-
-"""
-    rigid_scaling_cases()
-
-(kind, area, assumptions) of each VTOL kite of the scaling study: each series of
-[`rigid_scaling_series`](@ref) at each of `rigid_scaling_areas`.
-"""
-function rigid_scaling_cases()
-    cases = []
-    for (kind, exponent) in rigid_scaling_series(), area in rigid_scaling_areas
-        scenario = replace(kind, "rigid " => "")
-        inputs = with_value(rigid_assumptions(scenario, area), :rigid_mass_exponent, exponent)
-        push!(cases, (kind, area, inputs))
-    end
-    return cases
-end
-
 """
     rigid_scaling_data()
 
-Per VTOL kite of [`rigid_scaling_cases`](@ref): span, mass, stall speed, hover power,
-lowest flying wind, price, annual cost and beam thrust over apparent wind; per area of a
-soft kite with the canopy at its goal: the last four: rigid_scaling.csv.
+Per VTOL kite of each of `rigid_scaling_scenarios` and `rigid_scaling_areas`: span, mass,
+stall speed, hover power, lowest flying wind, price, annual cost and beam thrust over
+apparent wind; per area of a soft kite with the canopy at its goal: the last four:
+rigid_scaling.csv.
 """
 function rigid_scaling_data()
     hull = Hull(study_hull("140 m"), assumptions)
     env = Environment(assumptions)
     open(run_file("rigid_scaling.csv"), "w") do file
-        println(file, "kind,area,exponent,span,mass,stall,hover_power,lowest_wind,price,",
-            "annual,wind,thrust")
-        for (kind, area, inputs) in rigid_scaling_cases()
+        println(file, "kind,area,span,mass,stall,hover_power,lowest_wind,price,annual,",
+            "wind,thrust")
+        for scenario in rigid_scaling_scenarios, area in rigid_scaling_areas
+            inputs = rigid_assumptions(scenario, area)
             rig = WindShipOpt.rigid_kite_rig(area, hull, inputs; courses=[π / 2],
                 side_weights=[0.0])
             (; mass, hover_power) = rig.airframe
@@ -3620,8 +3727,8 @@ function rigid_scaling_data()
             price = first(WindShipOpt.rig_costs(rig, inputs))
             annual = annual_kite_cost(rig, inputs)
             for i in eachindex(rig.wind_speeds)
-                println(file, join((kind, area, inputs[:rigid_mass_exponent], span, mass,
-                        stall, hover_power, rig.min_flight_wind, price, annual,
+                println(file, join(("rigid " * scenario, area, span, mass, stall,
+                        hover_power, rig.min_flight_wind, price, annual,
                         rig.wind_speeds[i], beam_thrust(rig, i)), ","))
             end
         end
@@ -3630,7 +3737,7 @@ function rigid_scaling_data()
             price = first(WindShipOpt.rig_costs(rig, assumptions))
             annual = annual_kite_cost(rig, assumptions)
             for i in eachindex(rig.wind_speeds)
-                println(file, join(("soft", area, 0.0, 0.0, 0.0, 0.0, 0.0,
+                println(file, join(("soft", area, 0.0, 0.0, 0.0, 0.0,
                         rig.min_flight_wind, price, annual, rig.wind_speeds[i],
                         beam_thrust(rig, i)), ","))
             end
@@ -3639,21 +3746,20 @@ function rigid_scaling_data()
 end
 
 """
-    flying_rows(table, kind, exponent)
+    flying_rows(table, kind)
 
-Rows of the scaling `table` of the kites of `kind` at mass `exponent` at
-`rigid_compared_wind`, where they fly.
+Rows of the scaling `table` of the kites of `kind` at `rigid_compared_wind`, where they fly.
 """
-flying_rows(table, kind, exponent) = filter(row -> table["thrust"][row] > 0,
-    rows(table, "kind" => kind, "exponent" => exponent, "wind" => rigid_compared_wind))
+flying_rows(table, kind) = filter(row -> table["thrust"][row] > 0,
+    rows(table, "kind" => kind, "wind" => rigid_compared_wind))
 
 """
-    thrust_costs(table, kind, exponent)
+    thrust_costs(table, kind)
 
 Areas [m^2] and annual cost per thrust [USD/kN] of the kites of [`flying_rows`](@ref).
 """
-function thrust_costs(table, kind, exponent)
-    flying = flying_rows(table, kind, exponent)
+function thrust_costs(table, kind)
+    flying = flying_rows(table, kind)
     return table["area"][flying], 1e3 .* table["annual"][flying] ./ table["thrust"][flying]
 end
 
@@ -3664,7 +3770,7 @@ Wing area [m^2] of the VTOL kite of `scenario` with the least annual cost per th
 scaling `table`.
 """
 function cheapest_rigid_area(table, scenario)
-    areas, costs = thrust_costs(table, "rigid " * scenario, rigid_exponent(scenario))
+    areas, costs = thrust_costs(table, "rigid " * scenario)
     return areas[argmin(costs)]
 end
 
