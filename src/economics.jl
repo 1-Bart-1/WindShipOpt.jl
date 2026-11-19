@@ -415,8 +415,8 @@ upkept_price(rig::KiteRig{RigidAirframe}, assumptions) =
 """
     wear_cost(rig, assumptions)
 
-Canopy wear and tether creep per hour the rig is flown [USD/h]; zero for rigs that do not
-wear.
+Canopy wear and tether creep and bending on the tow point per hour the rig is flown
+[USD/h]; zero for rigs that do not wear.
 """
 wear_cost(rig, assumptions) = 0.0
 wear_cost(rig::CombinedRig, assumptions) = wear_cost(rig.kite, assumptions)
