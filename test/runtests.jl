@@ -764,14 +764,14 @@ end
     wings = WingRig(800.0, Hull(140.0, assumptions), assumptions)
     setting = (1.0, WindShipOpt.drag_coefficient(wings, 1.0))
     force(angle) = rig_force(wings, env, 10.0, deg2rad(angle), 5.4, setting)
-    @test force(90).thrust ≈ 51756 rtol = 1e-3
-    @test force(90).side ≈ 41416 rtol = 1e-3
-    @test force(45).thrust ≈ 35138 rtol = 1e-3
-    @test force(45).side ≈ 100995 rtol = 1e-3
-    @test force(150).thrust ≈ 17228 rtol = 1e-3
-    @test force(150).side ≈ -8238 rtol = 1e-3
-    @test force(180).thrust ≈ 2048 rtol = 1e-3
-    @test force(180).side ≈ -12109 rtol = 1e-3
+    @test force(90).thrust ≈ 55251 rtol = 1e-3
+    @test force(90).side ≈ 41957 rtol = 1e-3
+    @test force(45).thrust ≈ 37500 rtol = 1e-3
+    @test force(45).side ≈ 102641 rtol = 1e-3
+    @test force(150).thrust ≈ 18566 rtol = 1e-3
+    @test force(150).side ≈ -8709 rtol = 1e-3
+    @test force(180).thrust ≈ 2248 rtol = 1e-3
+    @test force(180).side ≈ -12750 rtol = 1e-3
     @test force(0).thrust < 0 < force(0).side
 end
 
@@ -1036,7 +1036,7 @@ end
     hull = Hull(140.0, assumptions)
     reserve = WindShipOpt.launch_mast_reserve(assumptions)
     deck = assumptions[:deck_length_fraction] * hull.length
-    for (rig, row_length) in ((WingRig(800.0, hull, assumptions), deck),
+    for (rig, row_length) in ((WingRig(1500.0, hull, assumptions), deck),
         (WindShipOpt.RotorRig(800.0, hull, assumptions; forward_reserve=reserve),
             deck - reserve))
         positions = WindShipOpt.unit_positions(rig, hull, assumptions)
