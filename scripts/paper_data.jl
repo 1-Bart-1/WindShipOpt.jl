@@ -472,6 +472,51 @@ function situations_data()
         :route, :drive, :input, :value, :rig, :area)
 end
 
+"""
+    fuel_method_data()
+
+The [`fuel_method_savings`](@ref) of situations.csv: fuel_method.csv.
+"""
+function fuel_method_data()
+    table = read_table(data_file("situations.csv"))
+    open(run_file("fuel_method.csv"), "w") do io
+        println(io, "ship,price,rig,routed,repriced,kept")
+        for line in fuel_method_savings(table)
+            println(io, join(csv_value.(line), ","))
+        end
+    end
+end
+
+"""
+    fuel_method_savings(table)
+
+For each ship of the e-ammonia price sweep in `table`, situations.csv's columns, each swept
+price and each rig of `rig_names`: ship, price and rig, then the rig's cost saving [%] at
+its best size routed at that price, at its best size on the routes of the base price with
+the fuel re-priced, and at the size best at the base price, routed at that price.
+"""
+function fuel_method_savings(table)
+    input = :e_ammonia_price
+    swept_rows = rows(table, "input" => string(input))
+    studies = unique(zip(table["ship"][swept_rows], table["route"][swept_rows],
+        table["drive"][swept_rows]))
+    savings = []
+    for (ship, route, drive) in studies, price in first(situation_inputs[input])
+        study = ("ship" => ship, "route" => route, "drive" => drive)
+        base = (study..., "input" => "base")
+        swept = (study..., "input" => string(input), "value" => price)
+        routed = rig_savings(table, rig_names, swept...)
+        repriced = rig_savings(fuel_repriced(table, price / base_value(input)), rig_names,
+            base...)
+        for rig in rig_names
+            kept = table["area"][cheapest_row(table, base..., "rig" => rig)]
+            kept_saving = rig_savings(table, (rig,), swept..., "area" => in((0.0, kept)))
+            push!(savings, (ship, price, rig, routed[rig], repriced[rig], kept_saving[rig]))
+        end
+    end
+    return savings
+end
+
 "ship class and route of each panel of the fuel study: a small ship, a bulk carrier and a
 container ship, each on a route of its trade"
 fuel_ships = [("general cargo coaster", :bilbao), ("Kamsarmax bulk carrier", :tubarao),
@@ -1012,6 +1057,18 @@ end
 Saving [%] of `cost` against `reference`.
 """
 percent_saving(cost, reference) = 100 * (1 - cost / reference)
+
+"""
+    fuel_repriced(table, factors)
+
+`table` with the cost of each row at its factor in `factors`, or one factor for all, times
+the price of its fuel, on the fuel it burnt as it was routed.
+"""
+function fuel_repriced(table, factors)
+    repriced = copy(table)
+    repriced["cost"] = table["cost"] .+ table["fuel_cost"] .* (factors .- 1)
+    return repriced
+end
 
 """
     rig_savings(table, rigs, conditions...)
