@@ -23,16 +23,18 @@ class CheckNumbers(unittest.TestCase):
         tex = "saves \\tbd{5 to 8}\\,\\%, \\textcolor{red}{up to \\num{15000}}"
         self.assertEqual(numbers(tex), ["5", "8", "15000"])
 
-    def test_stale_and_given_cover_their_text(self):
+    def test_stale_study_result_and_given_cover_their_text(self):
         tex = ("\\stale{classes,routes}{The kite saves 23\\,\\%} on the "
-               "\\given{\\SI{140}{m}} ship over \\given{12} departures.")
+               "\\given{\\SI{140}{m}} ship over \\given{12} departures; "
+               "\\studyresult{tow_point}{the bow costs 0.02 points}.")
         self.assertEqual(numbers(tex), [])
 
-    def test_only_an_empty_stale_covers_a_whole_float(self):
+    def test_only_an_empty_marker_covers_a_whole_float(self):
         tex = ("\\begin{table}\\caption{\\stale{convergence}{} Error.}\n"
                "\\begin{tabular}{lr} Kite & 1.2 \\\\ \\end{tabular}\\end{table}\n"
                "\\begin{table}\\caption{Error.} 3.4 \\end{table}\n"
-               "\\begin{table}\\caption{\\stale{routes}{Up to 2 points.}} 5.6 \\end{table}")
+               "\\begin{table}\\caption{\\stale{routes}{Up to 2 points.}} 5.6 \\end{table}\n"
+               "\\begin{table}\\caption{\\studyresult{tow_point}{} Saving.} 7.8 \\end{table}")
         self.assertEqual(hand_typed(tex), [(3, "3.4"), (4, "5.6")])
 
     def test_generated_values_references_and_layout_pass(self):
