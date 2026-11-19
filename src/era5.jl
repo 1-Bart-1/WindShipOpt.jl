@@ -57,13 +57,32 @@ function ERA5Weather(directory::AbstractString=joinpath(pkgdir(@__MODULE__), "er
     grid = TOML.parsefile(joinpath(directory, "wind", "grid.toml"))
     origin = DateTime(grid["first_time"])
     waves = GriddedFields(joinpath(directory, "waves"), origin)
-    direction = waves.fields["direction"]
-    waves.fields["direction_east"] = sind.(direction)
-    waves.fields["direction_north"] = cosd.(direction)
+    for (name, component) in ("direction_east" => sind, "direction_north" => cosd)
+        waves.fields[name] = derived_field(component, joinpath(directory, "waves"), name,
+            "direction", waves.fields["direction"])
+    end
     wind = GriddedFields(joinpath(directory, "wind"), origin)
     return ERA5Weather(origin, wind, waves, (wind.fields["u10"], wind.fields["v10"]),
         (waves.fields["height"], waves.fields["period"], waves.fields["direction_east"],
             waves.fields["direction_north"]))
+end
+
+"""
+    derived_field(derive, directory, name, source_name, source)
+
+`derive` of each value of `source`, the field `source_name` of `directory`, memory-mapped
+from the file of the field `name` there, which is written where it is missing or no newer
+than the source's; held in memory where `directory` cannot be written to.
+"""
+function derived_field(derive, directory, name, source_name, source)
+    path, source_path = joinpath.(directory, (name, source_name) .* ".f32")
+    if filesize(path) != sizeof(source) || mtime(path) <= mtime(source_path)
+        iswritable(directory) || return derive.(source)
+        temporary = "$path.$(getpid()).tmp"
+        write(temporary, derive.(source))
+        Base.Filesystem.rename(temporary, path)
+    end
+    return Mmap.mmap(path, Array{Float32, 3}, size(source))
 end
 
 "hours of weather available from the origin [h]"
