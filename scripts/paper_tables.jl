@@ -882,12 +882,14 @@ end
 One row of the design part of the ship class table.
 """
 function write_class_design_row(io, class)
+    (; powertrain) = Ship(ShipDesign(:vlsfo, class), assumptions)
+    engine_power = powertrain.installed_power - powertrain.hotel_load
     println(io, latex_escape(class.name), " & ", latex_number(class.length), " & ",
         dash_cell(class.beam, "\\num{%.1f}"), " & ", dash_cell(class.draft, "\\num{%.1f}"),
         " & ", dash_cell(class.block_coefficient, "\\num{%.2f}"), " & ",
         latex_number(class.deadweight), " & ", unit_capacity(class), " & ",
         limit_label(class), " & ", dash_cell(class.service_speed, "\\num{%.1f}"), " & ",
-        dash_cell(class.power / 1e3, "\\num{%.1f}"), " & ",
+        dash_cell(engine_power / 1e6, "\\num{%.1f}"), " & ",
         dash_cell(Hull(class, assumptions).resistance_factor, "\\num{%.2f}"), " & ",
         dash_cell(class.newbuild_price / 1e6, "\\num{%.1f}"), " \\\\")
 end

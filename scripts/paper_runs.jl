@@ -643,11 +643,12 @@ end
 """
     reads_unchanged(entry, case)
 
-Whether every input the stored `entry` read has the same value in `case.assumptions` and
-every data file it read the same contents now.
+Whether every input the stored `entry` read is still an input of `case.assumptions` with
+the same value, and every data file it read has the same contents now.
 """
 reads_unchanged(entry, case) =
-    all(case.assumptions[name] == value for (name, value) in entry.inputs) &&
+    all(haskey(case.assumptions, name) && case.assumptions[name] == value
+        for (name, value) in entry.inputs) &&
     all(read_hash(name) == hash for (name, hash) in entry.files)
 
 """

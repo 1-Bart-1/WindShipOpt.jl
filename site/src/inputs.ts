@@ -36,7 +36,6 @@ export const inputGroups: { title: string; controls: InputControl[] }[] = [
       control("vlsfo_price", "VLSFO price", "USD/GJ", 5, 40, 0.5),
       control("e_ammonia_price", "e-ammonia price", "USD/GJ", 15, 150, 1),
       control("carbon_price", "Carbon price", "USD/t CO₂", 0, 300, 5),
-      percent("carbon_coverage", "Share of VLSFO emissions priced", 100, 5),
     ],
   },
   {

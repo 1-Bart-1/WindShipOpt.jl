@@ -526,11 +526,14 @@ end
     draw_height(hull, kite_area)
 
 Height [m] above the waterline of the top of what [`ship_classes_figure`](@ref) draws on
-`hull`: the kite of `kite_area` [m^2], or the highest deck rig the air draft allows.
+`hull`: the kite of `kite_area` [m^2], or the tallest deck rig built.
 """
 function draw_height(hull, kite_area)
-    isfinite(kite_area) || return assumptions[:max_air_draft]
-    return max(side_kite(kite_area, hull).top, assumptions[:max_air_draft])
+    scale = hull.length / assumptions[:reference_length]
+    deck_rig = assumptions[:deck_mount_height] * scale +
+               max(assumptions[:wing_max_height], assumptions[:rotor_max_height])
+    isfinite(kite_area) || return deck_rig
+    return max(side_kite(kite_area, hull).top, deck_rig)
 end
 
 """

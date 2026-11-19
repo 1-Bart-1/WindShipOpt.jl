@@ -120,8 +120,8 @@ end
              forward_reserve)
 
 Row of identical units of `total_area` [m^2] of height times width at `aspect_ratio` on
-`hull`: as few units as the air draft and `max_height` [m] allow, spread evenly over the
-deck length for rigs less `forward_reserve` [m] at its forward end. Returns the count,
+`hull`: as few units as `max_height` [m] allows, spread evenly over the deck length for
+rigs less `forward_reserve` [m] at its forward end. Returns the count,
 unit height [m], foot height above the waterline [m], centre of effort forward of
 midship [m] (a single unit stands at the hull's lateral centre) and the spacing in unit
 widths, or `nothing` if the units do not fit `spacing` widths apart.
@@ -130,7 +130,6 @@ function deck_row(total_area, aspect_ratio, max_height, spacing, hull::Hull,
         assumptions::Assumptions, forward_reserve)
     scale = hull.length / assumptions[:reference_length]
     foot_height = assumptions[:deck_mount_height] * scale
-    max_height = min(assumptions[:max_air_draft] - foot_height, max_height)
     count = ceil(Int, total_area / (max_height^2 / aspect_ratio))
     height = sqrt(aspect_ratio * total_area / count)
     width = height / aspect_ratio
@@ -431,31 +430,13 @@ rope_mass(diameter, rope_length, assumptions) =
     assumptions[:tether_rope_density] * π * diameter^2 / 4 * rope_length
 
 """
-    bridle_lines(area, aspect_ratio, max_force, assumptions)
-
-Drag coefficient on the projected area and mass [kg] of a bridle whose lines run from
-the attachment rows of a kite of `area` [m^2] and projected `aspect_ratio` down to the
-control unit, sized for `max_force` [N].
-"""
-function bridle_lines(area, aspect_ratio, max_force, assumptions::Assumptions)
-    span = sqrt(area * aspect_ratio)
-    count = assumptions[:bridle_rows] * aspect_ratio / assumptions[:bridle_spacing]
-    diameter = sqrt(4max_force / (count * π * assumptions[:tether_stress]))
-    line_length = assumptions[:bridle_cascade_factor] * count *
-                  assumptions[:bridle_height_ratio] * span
-    drag = assumptions[:tether_drag_coefficient] * line_length * diameter / area
-    return drag, rope_mass(diameter, line_length, assumptions)
-end
-
-"""
     soft_kite_mass(area, aspect_ratio, max_force, assumptions)
 
 Mass [kg] of a soft kite of projected `area` [m^2] and `aspect_ratio` without its tether:
-canopy, bridle and control unit, sized for `max_force` [N].
+canopy with its bridle and control unit, sized for `max_force` [N].
 """
 soft_kite_mass(area, aspect_ratio, max_force, assumptions::Assumptions) =
     Canopy(assumptions, area, aspect_ratio).mass_per_area * area +
-    last(bridle_lines(area, aspect_ratio, max_force, assumptions)) +
     1e-3assumptions[:control_unit_mass_per_force] * max_force
 
 """
@@ -473,12 +454,11 @@ function kite_model(area, aspect_ratio, assumptions::Assumptions)
     tether_drag = assumptions[:tether_drag_coefficient] * tether_diameter * tether_length /
                   (4area)
     tether_mass = rope_mass(tether_diameter, tether_length, assumptions)
-    bridle_drag, _ = bridle_lines(area, aspect_ratio, max_force, assumptions)
     mass = soft_kite_mass(area, aspect_ratio, max_force, assumptions) + tether_mass / 2
     polar = KitePolar(aspect_ratio)
     stall = argmax(polar.lift)
     model = KiteModel(area, mass, tether_length, env.air_density, env.gravity, polar,
-        assumptions[:kite_flight_drag] + bridle_drag + tether_drag,
+        assumptions[:kite_flight_drag] + tether_drag,
         lift_angle(polar, 0.05),
         polar.angle_of_attack[stall] - deg2rad(assumptions[:kite_stall_margin]),
         assumptions[:kite_min_turn_radius] * span, false)

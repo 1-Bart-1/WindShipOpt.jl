@@ -7,11 +7,10 @@
 # the run of the class study, `paper(:classes, :explorer; fidelity)`, to reuse its trips.
 
 "inputs of data/assumptions.yaml a reader of the explorer changes"
-explorer_inputs = (:vlsfo_price, :e_ammonia_price, :carbon_price, :carbon_coverage,
-    :canopy_life, :canopy_structure_cost, :canopy_cloth_price_per_weight, :tether_price,
-    :tether_lifetime, :kite_cycle_crew_cost, :kite_cycle_damage_probability,
-    :kite_cycle_loss_probability, :kite_forced_landing_loss_probability,
-    :kite_out_of_service, :wing_out_of_service,
+explorer_inputs = (:vlsfo_price, :e_ammonia_price, :carbon_price, :canopy_life,
+    :canopy_structure_cost, :canopy_cloth_price_per_weight, :tether_price, :tether_lifetime,
+    :kite_cycle_crew_cost, :kite_cycle_damage_probability, :kite_cycle_loss_probability,
+    :kite_forced_landing_loss_probability, :kite_out_of_service, :wing_out_of_service,
     :rotor_out_of_service, :kite_crash_rate, :wing_loss_rate, :rotor_loss_rate,
     :market_price_factor, :learning_rate, :kite_lifetime, :wing_lifetime, :rotor_lifetime,
     :discount_rate, :availability)
@@ -32,7 +31,7 @@ function explorer_changes()
     return [("canopy life ×2", (canopy_life=2assumptions[:canopy_life],), 1.0),
         ("rig prices as paid today", (learning_rate=0.0,), 1.0),
         ("fuel −30 %", fuel_prices(0.7), 1.0), ("fuel +30 %", fuel_prices(1.3), 1.0),
-        ("carbon price on VLSFO", (carbon_coverage=1.0,), 1.0),
+        ("carbon price ×2", (carbon_price=2assumptions[:carbon_price],), 1.0),
         ("discount rate low", (discount_rate=entry(:discount_rate).low,), 1.0),
         ("discount rate high", (discount_rate=entry(:discount_rate).high,), 1.0),
         ("cargo value ×2", (;), 2.0),
@@ -134,7 +133,7 @@ Cost per tonne-km [USD] of `case` on the routes of its `trip` at the recorded `i
 with the class's cargo value replaced by `cargo_value`.
 """
 function recorded_cost(case, trip, inputs, cargo_value)
-    ship = Ship(case.design, assumptions)
+    ship = Ship(case.design, assumptions; case.route)
     costs = [WindShipOpt.ShipCosts(costs.capital, costs.fixed_annual, costs.hold,
                  cargo_value) for costs in WindShipOpt.ship_costs(ship, inputs)]
     return recosted(ship, costs, trip, case, inputs)
@@ -177,7 +176,7 @@ Cost per tonne-km [USD] of `case` at its inputs on the routes of `trip`, routed 
 base inputs.
 """
 function changed_cost(case, trip)
-    ship = Ship(case.design, case.assumptions)
+    ship = Ship(case.design, case.assumptions; case.route)
     costs = WindShipOpt.ship_costs(ship, case.assumptions)
     return recosted(ship, costs, trip, case, case.assumptions)
 end

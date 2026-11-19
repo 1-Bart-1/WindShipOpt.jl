@@ -2967,6 +2967,14 @@ const COASTAL_PATHS = Dict(:caribbean => [[(16.15, -61.20)]],
     :tubarao => [[(-20.4, -39.8)]])
 
 """
+Share of the emissions of a voyage between Rotterdam and the port of each route that the
+EU ETS counts: all between ports of Member States, Guadeloupe among them, half to or from a
+port outside the Union.
+"""
+const EU_ETS_SHARES = Dict(:caribbean => 1.0, :bilbao => 1.0, :new_york => 0.5,
+    :dakar => 0.5, :houston => 0.5, :tubarao => 0.5)
+
+"""
     route_paths(route)
 
 The fixed coastal paths (lat, lon) [deg] of `route`, the Channel first; see
