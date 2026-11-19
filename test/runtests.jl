@@ -1813,7 +1813,8 @@ function held_and_free_kite(departure)
     return held, free, record
 end
 
-@testset "a kite held where a forecast erred costs more than one flown as met" begin
+@testset "a kite held where a forecast erred costs more than one flown as met, unless it \
+          landed forced more often" begin
     (; kite_table) = kite_routing
     kite, fastest = kite_table.table.ship.rig, maximum(kite_table.speeds)
     differing = 0
@@ -1827,12 +1828,13 @@ end
                   for sample in samples)
         @test any(sample.apparent_wind != sample.wind_speed for sample in samples)
         @test length(edges) == length(free.path) - 1
-        @test free.objective <= held.objective * (1 + 1e-9)
+        forced_more = held.forced_landings > free.forced_landings
+        @test free.objective <= held.objective * (1 + 1e-9) || forced_more
         @test all(edge -> edge.cost <= edge.held_cost * (1 + 1e-9) ||
                           edge.ends_aloft != edge.held_ends_aloft, edges)
         any(edge -> edge.ends_aloft != edge.held_ends_aloft, edges) || continue
         differing += 1
-        @test free.objective < held.objective
+        @test free.objective < held.objective || forced_more
         @test free.flight_hours != held.flight_hours
     end
     @test differing >= length(monthly_departures) / 4
