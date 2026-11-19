@@ -367,8 +367,8 @@ canopy_price(assumptions, area, aspect_ratio) = assumptions[:market_price_factor
     Canopy(assumptions, area, aspect_ratio).cost_per_area
 
 "inputs that together make the canopy's cost"
-canopy_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost,
-    :canopy_sewing_cloth_share, :canopy_cloth_base_price, :canopy_cloth_price_per_weight)
+canopy_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost, :canopy_cloth_base_price,
+    :canopy_cloth_price_per_weight)
 
 """
     consumable_costs(rig, assumptions)
