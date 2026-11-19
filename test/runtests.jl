@@ -108,6 +108,19 @@ end
           balance.hull_side_force * centre ≈ 0 atol = 1e-3
 end
 
+@testset "a weaker hull side-force slope drifts and costs more, an infinite one nothing" begin
+    hull = Hull(140.0, assumptions)
+    weak = Hull(; (name => getfield(hull, name) for name in fieldnames(Hull))...,
+        side_force_factor=0.5)
+    free = Hull(; (name => getfield(hull, name) for name in fieldnames(Hull))...,
+        side_force_factor=Inf)
+    env = Environment(assumptions)
+    leeway, drag = WindShipOpt.leeway_drag(hull, env, 6.0, 3e5)
+    @test all(WindShipOpt.leeway_drag(weak, env, 6.0, 3e5) .≈ (2leeway, 2drag))
+    @test WindShipOpt.leeway_drag(free, env, 6.0, 3e5) == (0.0, 0.0)
+    @test WindShipOpt.lateral_centre(weak) == WindShipOpt.lateral_centre(hull)
+end
+
 # DNV Rules for Ships, January 2000, Pt. 3 Ch. 3 Sec. 2, guidance note, p. 9.
 @testset "rudder area follows the DNV 2000 guidance and grows with block coefficient" begin
     hull = Hull(85.0, assumptions)
@@ -267,15 +280,12 @@ end
     @test heavy_wind > light_wind
 end
 
-@testset "a kite built for more force keeps its cloth and wears it out sooner" begin
+@testset "a kite built for more force gets cloth and seams in proportion" begin
     stronger = with_value(assumptions, :kite_max_force_per_area, 1.0)
     base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger), 800.0, 3.0)
-    @test strong_canopy.mass_per_area > base_canopy.mass_per_area
-    @test strong_canopy.cost_per_area == base_canopy.cost_per_area
-    margin = assumptions[:canopy_cloth_specific_strength] *
-             assumptions[:canopy_cloth_weight] / (assumptions[:canopy_strength_kept] *
-              1e3assumptions[:kite_max_force_per_area] * assumptions[:canopy_skin_radius])
-    @test strong_canopy.lifetime ≈ 3000 * log(margin / 2) / log(margin)
+    @test WindShipOpt.cloth_weight(stronger) ≈ 2WindShipOpt.cloth_weight(assumptions)
+    @test strong_canopy.mass_per_area ≈ 2base_canopy.mass_per_area
+    @test strong_canopy.cost_per_area > base_canopy.cost_per_area
     base_model, _, base_tether = WindShipOpt.kite_model(800.0, 3.0, assumptions)
     strong_model, _, strong_tether = WindShipOpt.kite_model(800.0, 3.0, stronger)
     @test strong_model.mass > base_model.mass
@@ -290,16 +300,6 @@ end
         heavier = first(WindShipOpt.kite_model(area, 3.0, extra))
         @test heavier.mass - base.mass ≈ 0.1e-3max_force
     end
-end
-
-@testset "canopy life is the goal at the standard canopy and decays off it" begin
-    @test WindShipOpt.decay_life(assumptions, 200.0, 0.5) ≈ 3812 atol = 1
-    @test WindShipOpt.decay_life(assumptions, 100.0, 0.5) ≈ 1646 atol = 1
-    @test WindShipOpt.canopy_lifetime(assumptions) ≈ 3000
-    goal = with_value(assumptions, :canopy_life, 1200.0)
-    @test WindShipOpt.canopy_lifetime(goal) ≈ 1200
-    lighter = with_value(goal, :canopy_cloth_weight, 100.0)
-    @test WindShipOpt.canopy_lifetime(lighter) ≈ 1200 * 1646 / 3812 rtol = 1e-3
 end
 
 @testset "hulls fuller than Holtrop's range use the formulas at its limit" begin
@@ -683,14 +683,14 @@ WindShipOpt.waves(::SteadyWind, lat, lon, time) = (0.0, 0.0, 0.0)
     @test leg.launches == 0
 end
 
-@testset "cycle cost sums crew, tear, loss, retry, turn and tether bends" begin
+@testset "cycle cost sums crew, flogging, tear, loss, retry, turn and tether bends" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
     control_unit = WindShipOpt.price_factor(:kite, assumptions) *
                    WindShipOpt.rig_price_parts(rig, assumptions).control_unit
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
-          1.05 * (85 + 0.00005canopy + 0.00005 * (canopy + tether + control_unit)) + 130 +
-          4 / 400_000 * tether
+          1.05 * (85 + (3.3 / 3000 + 0.00005) * canopy +
+                  0.00005 * (canopy + tether + control_unit)) + 130 + 4 / 400_000 * tether
     @test WindShipOpt.forced_landing_cost(rig, assumptions) ≈
           0.05 * (canopy + tether + control_unit)
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
@@ -1338,12 +1338,14 @@ end
           assumptions[:kite_flight_drag]
 end
 
-@testset "launch cost at the loss goal is mostly crew and turn" begin
+@testset "launch cost at the loss goal is mostly crew, flogging and turn" begin
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
-    crew_and_turn = (1 + assumptions[:kite_launch_retry_probability]) *
-                    assumptions[:kite_cycle_crew_cost] +
-                    assumptions[:kite_cycle_course_cost]
-    @test crew_and_turn < WindShipOpt.cycle_cost(kite, assumptions) < 1.2crew_and_turn
+    flogging = assumptions[:kite_cycle_canopy_hours] / assumptions[:canopy_life] *
+               first(WindShipOpt.consumable_costs(kite, assumptions))
+    unlost = (1 + assumptions[:kite_launch_retry_probability]) *
+             (assumptions[:kite_cycle_crew_cost] + flogging) +
+             assumptions[:kite_cycle_course_cost]
+    @test unlost < WindShipOpt.cycle_cost(kite, assumptions) < 1.2unlost
 end
 
 @testset "a rig out of service keeps its cost and saves no fuel while down" begin
@@ -1740,10 +1742,10 @@ WindShipOpt.duration(::FollowingSeaWeather) = Inf
 WindShipOpt.wind(::FollowingSeaWeather, lat, lon, time) = (0.0, 14.0)
 WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
 
-@testset "a leg's trace shows the trim the router priced where waves leave the table" begin
+@testset "a leg's trace shows the trim the router priced and the leeway it sails at" begin
     ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=400.0), assumptions)
     table = RouteTable(PerformanceTable(ship, assumptions))
-    trace = WindShipOpt.LegTrace((Float64[] for _ in 1:14)..., (Bool[] for _ in 1:4)...,
+    trace = WindShipOpt.LegTrace((Float64[] for _ in 1:15)..., (Bool[] for _ in 1:4)...,
         Any[])
     calm_sea = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 0.0, 8.0, 0.0)
     point = WindShipOpt.SailedPoint(0.0, 0.0, calm_sea, true,
@@ -1754,6 +1756,10 @@ WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
     priced = last(WindShipOpt.best_trim(ship, ship.rig, only(trace.speed), 14.0,
         only(trace.true_wind_angle), first_knot))
     @test only(trace.rig_thrust) == priced.thrust
+    windage = WindShipOpt.wind_force(ship.windage, ship.env, 14.0,
+        only(trace.true_wind_angle), only(trace.speed))
+    @test only(trace.leeway) ==
+          WindShipOpt.HullBalance(ship, only(trace.speed), priced + windage).leeway > 0
 end
 
 @testset "the stages and the rows of a corridor are spaced apart" begin
@@ -2673,6 +2679,25 @@ function small_archive(directory, weather, offset; noise=issue -> 0.0,
     return ForecastArchive(directory, weather, climate)
 end
 
+@testset "an ERA5 archive's wave direction components follow its directions" begin
+    directory = mktempdir()
+    components = small_era5(directory).wave_arrays[3:4]
+    @test all(==(sind(60.0f0)), components[1])
+    @test all(==(cosd(60.0f0)), components[2])
+    write(joinpath(directory, "waves", "direction.f32"), fill(30.0f0, size(components[1])))
+    @test all(==(sind(30.0f0)), ERA5Weather(directory).wave_arrays[3])
+end
+
+@testset "a read-only ERA5 archive holds its wave direction components in memory" begin
+    waves = joinpath(mktempdir(), "waves")
+    small_era5(dirname(waves))
+    rm(joinpath(waves, "direction_east.f32"))
+    chmod(waves, 0o555)
+    @test all(==(sind(60.0f0)), ERA5Weather(dirname(waves)).wave_arrays[3])
+    @test isfile(joinpath(waves, "direction_east.f32")) == iswritable(waves)
+    chmod(waves, 0o755)
+end
+
 @testset "the climatology turns the year halfway between December and January" begin
     directory = mktempdir()
     weather = small_era5(joinpath(directory, "era5"))
@@ -3234,6 +3259,19 @@ end
             @test isequal(getfield(screened_leg, field), getfield(full_leg, field))
         end
     end
+end
+
+@testset "a workspace holds only the rows of states written to" begin
+    workspace = WindShipOpt.RouteWorkspace(3, 4, 2)
+    workspace.cost[2, 3, 1, 1] = 5.0
+    workspace.cost[1, 4, 2, 2] = Inf
+    @test workspace.cost[2, 3, 1, 1] == 5.0
+    @test workspace.cost[1, 3, 1, 1] == Inf
+    @test workspace.elapsed[2, 3, 1, 1] == 0.0
+    @test length(workspace.cost.values) == 3
+    WindShipOpt.empty_states!(workspace)
+    @test all(isinf, workspace.cost)
+    @test isempty(workspace.cost.values)
 end
 
 @testset "a kite aloft leaving a node with the kite down at the same time shares its \
@@ -5243,6 +5281,31 @@ end
     @test all(component -> abs(component) < 1e-6,
         force(PaperData.simplified_ship(ship, :windage).windage))
     @test_throws ArgumentError PaperData.rebuilt(ship.windage; not_a_field=0.0)
+end
+
+@testset "a free side force leaves the rig's side force without leeway or rudder drag" begin
+    ship = Ship(ShipDesign(:ammonia, 140.0), PaperData.assumptions)
+    force = RigForce(1e5, 3e5, 3e6, -2e6)
+    drag(balance) = balance.leeway_drag + balance.rudder_drag
+    free = PaperData.simplified_ship(ship, :side_force)
+    @test drag(WindShipOpt.HullBalance(ship, 6.0, force)) > 0
+    @test drag(WindShipOpt.HullBalance(free, 6.0, force)) == 0
+    @test WindShipOpt.HullBalance(PaperData.simplified_ship(ship, :weak_hull), 6.0,
+        force).leeway ≈ 2WindShipOpt.HullBalance(ship, 6.0, force).leeway
+end
+
+@testset "a model part the study's recorded run predates prints stale until it reruns" begin
+    run = mktempdir()
+    write(joinpath(run, "model_parts.csv"),
+        "ship,rig,part,cost\n140 m,none,none,1.0\n140 m,kite,none,0.9\n")
+    @eval PaperData study_file(study, name) = joinpath($run, name)
+    @test PaperData.study_holds(PaperData.switched(:none))
+    @test !PaperData.study_holds(PaperData.switched(:side_force))
+    @test !PaperData.study_holds((:model_parts, "weather_years.csv", "ship", [[()]]))
+    @test all(==("\\stale{model_parts}{}") ∘ last, PaperData.side_force_numbers())
+    @test length(PaperData.side_force_numbers()) == 4length(PaperData.rig_names)
+    @eval PaperData study_file(study, name) = joinpath($run, "missing", name)
+    @test_throws ErrorException PaperData.study_holds(PaperData.switched(:side_force))
 end
 
 @testset "a held-speed kite saving and its bare ship use the same routes" begin

@@ -1,0 +1,3 @@
+hull,length,beam,draft,block,side_force_slope,side_force_cubic,effective_draft_ratio,source
+"Delft hull 1",138.0,18.0,6.5,0.719,0.09,1.37,0.59,"van der Kolk et al. 2021, Tables 3 and 5: towing-tank fit, bare hull without skeg, Fn 0.21, model scale 1:50"
+"Delft hull 16",138.0,18.0,6.5,0.826,0.11,1.67,0.62,"van der Kolk et al. 2021, Tables 3 and 5: towing-tank fit, bare hull without skeg, Fn 0.21, model scale 1:50"
