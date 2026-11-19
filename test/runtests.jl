@@ -3670,7 +3670,7 @@ end
 end
 
 @testset "a Slurm job is submitted only with the account and partition set" begin
-    settings = PaperRuns.cluster_settings()
+    settings = merge(PaperRuns.cluster_settings(), Dict("account" => "", "partition" => ""))
     @test_throws "set the account" PaperRuns.slurm_command(settings, "run", "log", `true`)
     settings = merge(settings, Dict("account" => "research-me", "partition" => "p1"))
     command = PaperRuns.slurm_command(settings, "run", "log", `true`)
