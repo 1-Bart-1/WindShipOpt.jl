@@ -556,7 +556,7 @@ function run_step!(run, name, step)
     entry = Dict{String, Any}("name" => string(name), "started" => string(started),
         "seconds" => seconds, "files" => first.(setdiff(file_times(run), before)),
         "code_hash" => run.record["code_hash"], "git_commit" => run.record["git_commit"],
-        "git_dirty" => run.record["git_dirty"], "julia" => run.record["julia"],
+        "git_dirty" => run.record["git_dirty"], "julia" => string(VERSION),
         "code" => step_code(run.definitions, step),
         "inputs" => Dict(string(input) => assumptions[input]
                          for input in union(names, tally.inputs)),
