@@ -2143,56 +2143,6 @@ function rigid_kite_figure()
 end
 
 """
-    canopy_price_figure()
-
-(a) Price of a canopy per projected m^2 as paid today and at the production stage, split
-into cloth, sewing with lines and hardware, and the price over that cost; (b) price of a
-sewn m^2 of cloth against cloth weight.
-"""
-function canopy_price_figure()
-    figure = Figure(size=(page_width, 165))
-    price = Axis(figure[1, 1]; xlabel="price per projected m² [USD]",
-        title="(a) canopy price")
-    cloth = Axis(figure[1, 2]; xlabel="cloth weight [g/m²]",
-        ylabel="USD per m² of cloth", title="(b) sewn cloth")
-    colsize!(figure.layout, 1, Relative(0.62))
-    stage = @sprintf("at %.0f ships", assumptions[:stage_ships])
-    cases = [("as paid today", WindShipOpt.as_paid(assumptions)), (stage, assumptions)]
-    parts = ("cloth", "sewing, lines, hardware", "price over cost")
-    part_colors = [palette[1], palette[5], :gray60]
-    making = assumptions[:canopy_making_cost_per_area]
-    cost = WindShipOpt.Canopy(assumptions).cost_per_area
-    for (row, (label, inputs)) in enumerate(cases)
-        segments = [cost - making, making, WindShipOpt.canopy_price(inputs) - cost]
-        barplot!(price, fill(row, 3), segments; stack=1:3, direction=:x,
-            color=part_colors, gap=0.35)
-        text!(price, cumsum(segments) .- segments ./ 2, fill(row, 3);
-            text=[@sprintf("%.0f", segment) for segment in segments],
-            align=(:center, :center), fontsize=note_size, color=:white)
-        text!(price, sum(segments), row; text=@sprintf(" %.0f", sum(segments)),
-            align=(:left, :center))
-    end
-    price.yticks = (eachindex(cases), first.(cases))
-    price.yreversed = true
-    xlims!(price, 0, 1.12 * WindShipOpt.canopy_price(first(cases)[2]))
-    hideydecorations!(price; ticklabels=false)
-    weights = 0:5:400
-    weight = assumptions[:canopy_cloth_weight]
-    line = WindShipOpt.sewn_cloth_price.(Ref(assumptions), weights)
-    lines!(cloth, weights, line; color=:black)
-    sewn = WindShipOpt.sewn_cloth_price(assumptions, weight)
-    scatter!(cloth, weight, sewn; color=:black)
-    text!(cloth, weight, sewn; text=@sprintf("%.1f", sewn), align=(:right, :bottom),
-        offset=(-2, 2), fontsize=note_size)
-    vlines!(cloth, weight; color=:gray, linewidth=0.75)
-    ylims!(cloth, 0, nothing)
-    Legend(figure[2, 1:2], [PolyElement(; color) for color in part_colors],
-        collect(parts); orientation=:horizontal, tellwidth=false)
-    rowgap!(figure.layout, 4)
-    save(joinpath(figures, "canopy_price.pdf"), figure; pt_per_unit=print_scale)
-end
-
-"""
     min_wind_figure()
 
 Lowest apparent wind against projected area for the kite of the design aspect ratio: the
@@ -2235,7 +2185,7 @@ Cost saving of each rig against the canopy life, the canopy price and the share 
 service, for each ship of the development study with its rig sizes held: the kite's saving
 over the swept canopy inputs, the other rigs' at their goals, and every rig's over its
 share out of service. Each goal is a vertical line over the shaded range of its input;
-today's canopy price is dotted.
+the top of the canopy price's range is dotted.
 """
 function missed_goals_figure()
     sizes = read_table(data_file("goal_sizes.csv"))
@@ -2272,7 +2222,7 @@ function missed_goals_figure()
         goal_marks!(axes[1], assumptions.entries[:canopy_life])
         price = WindShipOpt.canopy_price(assumptions)
         vlines!(axes[2], price; color=:black, linewidth=0.75)
-        vlines!(axes[2], WindShipOpt.canopy_price(WindShipOpt.as_paid(assumptions));
+        vlines!(axes[2], canopy_price_at(:high);
             color=:black, linewidth=0.75, linestyle=:dot)
         for (k, rig) in enumerate(rig_names)
             shares, costs = curves[rig]

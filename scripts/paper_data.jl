@@ -2383,8 +2383,8 @@ condition it is judged against), what kind of lever it is, and the reason it is 
 study.
 """
 development_inputs = [
-    (input=:canopy_making_cost_per_area, label="canopy making cost", rig="kite",
-        lever="price", reason="Sewing, lines and fittings, which a maker lowers by " *
+    (input=:canopy_structure_cost, label="canopy cost", rig="kite",
+        lever="price", reason="Cloth, sewing and bridle, which a maker lowers by " *
                               "design for making; they set the canopy's share of the " *
                               "kite's price."),
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
@@ -2655,22 +2655,33 @@ function canopy_life_data()
 end
 
 """
+    canopy_price_at(bound)
+
+Canopy price [USD/m^2] with the surveyed structure cost and the market price factor at their
+`bound`, `:low` or `:high`.
+"""
+canopy_price_at(bound) = WindShipOpt.canopy_price(foldl((:canopy_structure_cost,
+        :market_price_factor); init=assumptions) do inputs, name
+    with_value(inputs, name, getproperty(assumptions.entries[name], bound))
+end)
+
+"""
     canopy_prices()
 
-Canopy prices [USD/m^2] the kite is routed at for the missed-goal table: the goal, the price
-as paid today and either side of them, up to where the kite stops paying on every ship.
+Canopy prices [USD/m^2] the kite is routed at for the missed-goal table: the base price, the
+top of its range and either side of them, up to where the kite stops paying on every ship.
 """
 function canopy_prices()
-    goal = WindShipOpt.canopy_price(assumptions)
-    return sort([goal .* [0.5, 0.75, 1.0, 1.25, 2.5, 3.5, 5.0, 7.0];
-                  WindShipOpt.canopy_price(WindShipOpt.as_paid(assumptions))])
+    base = WindShipOpt.canopy_price(assumptions)
+    return sort([base .* [0.5, 0.75, 1.0, 1.25, 2.5, 3.5, 5.0, 7.0];
+                 canopy_price_at(:high)])
 end
 
 """
     at_canopy_price(price)
 
-The assumptions with the canopy's manufacturing cost inputs scaled together until the
-canopy costs `price` [USD/m^2], the kite's price factor following them.
+The assumptions with the canopy's cost inputs scaled together until the canopy costs
+`price` [USD/m^2].
 """
 function at_canopy_price(price)
     low, high = 0.0, 20.0

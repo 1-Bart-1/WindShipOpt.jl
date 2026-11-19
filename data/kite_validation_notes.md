@@ -341,15 +341,15 @@ sale; 10 % discount rate.
 
 Each year's cash is (sales + spares) × (1 − 0.7·f(n)) − 15 MUSD, with n the units sold so far and f(n) = (min(n + 10, 1000)/1000)^log2(0.85), per unit within a year's sales and 1 at series level. Spares are, for each ship sold in the 15 years before, half a tether and a canopy per canopy life at 2,000 flight h a year. Cash is discounted from the end of its year. This reproduces the first five rows within 2 MUSD. The last four set the canopy price and life in the same sum; hardware and tether stay as above.
 
-At the production stage of the paper (one price rule for every rig, 2026-11-18): an 800 m² system sold at 1.40 times its build-up, 576 kUSD hardware, 263 kUSD canopy and 49 kUSD tether; cost of goods 0.7/1.40 of price at unit 1,000, falling along the paper's 12 % learning curve from the 11 kites built, f(n) = (min(n + 11, 1000)/1000)^log2(0.88); development 100 MUSD unless stated; canopy life 3,000 h. Cash is summed as above with this f(n).
+At the production stage of the paper (one price rule for every rig, 2026-11-19): an 800 m² system whose hardware sells at 1.77 times its build-up, 730 kUSD, with the canopy at its own price from the IEA Wind Task 48 survey times the market factor, 154 kUSD (192 USD/m²), and a 49 kUSD tether. Hardware cost of goods is 0.7/1.77 of its price at unit 1,000, falling along the paper's 12 % learning curve from the 11 kites built, f(n) = (min(n + 11, 1000)/1000)^log2(0.88), per unit sold; canopy and tether cost 0.7 of their price. Spares in a year are sold to every ship sold in the 15 years up to and including that year; development 100 MUSD at the start unless stated; canopy life 3,000 h. Summed this way the 2026-11-18 inputs give year 8 and +624 MUSD, year 15 and −50, year 11 and +117 for the first, third and fourth rows of that day's table, so the sum is within about 50 MUSD of the one behind it.
 
 | Case                                              | Break-even | NPV over 20 years at 10 % |
 | ------------------------------------------------- | ---------- | ------------------------- |
-| Stage price, fast ramp                            | year 8     | +674 MUSD                 |
-| Stage price, fast ramp, development 150 M         | year 8     | +624 MUSD                 |
-| Stage price, slow ramp                            | year 15    | −41 MUSD                  |
-| Build-up price (factor 1.0, low end), fast ramp   | year 11    | +133 MUSD                 |
-| Build-up price, slow ramp                         | not in 20  | −185 MUSD                 |
+| Stage price, fast ramp                            | year 8     | +410 MUSD                 |
+| Stage price, fast ramp, development 150 M         | year 8     | +360 MUSD                 |
+| Stage price, slow ramp                            | year 17    | −79 MUSD                  |
+| Build-up price (factor 1.0, low end), fast ramp   | year 11    | +97 MUSD                  |
+| Build-up price, slow ramp                         | not in 20  | −160 MUSD                 |
 
 Two findings. First, the hardware sale alone never pays back the development: at
 a 30 % gross margin a 427 kUSD system leaves 128 kUSD before fixed costs, and

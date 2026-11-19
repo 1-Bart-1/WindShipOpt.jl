@@ -173,19 +173,12 @@ With its lines and flight drag the kite has a glide ratio $G=3.9$ at every size,
 \label{fig:kite_system}
 \end{figure*}
 
-\paragraph{Canopy} The canopy is sewn from polyester ripstop of \SI{200}{g/m^2}; a kite built for a higher force limit keeps that cloth, gets heavier seams and wears its cloth out sooner. Its life is a goal of \num{3000} flight hours (\cref{sec:canopy_life}). Its price is not a goal: like every part of every rig it is priced where a thousand ships carry the rig (\cref{sec:costs}), USD~\NumCanopyPriceStage{} per projected square metre against USD~\NumCanopyPricePaid{} as paid today (\cref{fig:canopy_price}). The price is
+\paragraph{Canopy} The canopy is sewn from polyester ripstop of \SI{200}{g/m^2}; a kite built for a higher force limit keeps that cloth, gets heavier seams and wears its cloth out sooner. Its life is a goal of \num{3000} flight hours (\cref{sec:canopy_life}), below the \num{5000} that the reference cost model of airborne wind energy takes where no better estimate exists \citep{joshi2024refeconomic}, since no canopy has been measured to last that long and makers' own statements stay below it. Its price is not a goal but an estimate from what kite makers say a canopy costs: in a survey of ten makers, suppliers and universities of airborne wind energy, cloth with its reinforcements costs EUR~45 per flat square metre and the bridle EUR~8, in a series of 50 or more and before overhead and margin \citep{joshi2024refeconomic}. Those kites carry about the force per area of a ship kite, \SI{0.45}{kN} per projected square metre in the design of \citet{faggiani2018} against the 0.5 here, so the figure applies with one adjustment: the survey states no cloth weight, and we take its kites to fly the slightly above \SI{100}{g/m^2} of the SkySails ship kite \citep{paulig2013} and price the heavier cloth of this canopy at the rise of retail cloth prices with weight. The market factor adds the maker's overhead and margin, as for every rig, and nothing is taken from what whole kite systems sold for. The price is
 \begin{equation}
-p_\mathrm{canopy} = f_\mathrm{m}\,\max(1, g)\,(r_\mathrm{c}\,c_\mathrm{cloth} + c_\mathrm{make}),
+p_\mathrm{canopy} = f_\mathrm{m}\,\big(r_\mathrm{f}\,u\,c_\mathrm{s} + r_\mathrm{c}\,k_\mathrm{w}\,(w - w_\mathrm{s})\big),
 \label{eq:canopy_price}
 \end{equation}
-the kite's price factor at the production stage of \cref{eq:stage_price} times the cost to make it: $r_\mathrm{c}$ square metres of cloth at a price $c_\mathrm{cloth}$ per sewn square metre, and the making cost $c_\mathrm{make}$ of sewing, bridle and hardware.
-
-\begin{figure*}[tbp]
-\centering
-\plot[\textwidth]{canopy_price}
-\caption{Canopy price per projected square metre at a cloth weight of \SI{200}{g/m^2}. (a) The price as paid today and at the production stage, each split into cloth, sewing with lines and hardware, and the price over that cost. (b) Price of a sewn square metre of cloth against cloth weight at retail; the vertical line marks the canopy's cloth weight.}
-\label{fig:canopy_price}
-\end{figure*}
+with $c_\mathrm{s}$ the surveyed cost per flat square metre, $r_\mathrm{f}=25/18$ flat square metres per projected one as in the survey, $u$ dollars per euro, $r_\mathrm{c}$ square metres of cloth per projected square metre, $k_\mathrm{w}$ the price of a gram per square metre of cloth weight, and $w$ and $w_\mathrm{s}$ the cloth weights of this canopy and of the surveyed kites. That is USD~\NumCanopyPrice{} per projected square metre, twice the survey's figure in dollars with the heavier cloth. It ranges from USD~\NumCanopyPriceLow{} at the low market factor to USD~\NumCanopyPriceHigh{} at the high one with half again on the survey's figure, in case its fabric leaves out the sewing, which the survey does not say. A sport ram-air kite sells at retail, with its maker's and dealer's margins, for about USD~180 per projected square metre once given this cloth, so the price does not undercut what ram-air canopies sell for (\cref{app:canopy_price}).
 
 \paragraph{Flight} The kite is steered by its heading through the air, as the SkySails autopilot flies it \citep[Sec.~VIII]{erhard2013}. At each instant the model finds the air speed at which lift, drag, weight, tether pull and steering force balance, neglecting the kite's momentum. Where the tether force would exceed the force limit, the kite depowers, lowering its angle of attack.
 

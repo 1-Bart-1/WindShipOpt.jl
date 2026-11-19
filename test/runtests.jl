@@ -689,13 +689,13 @@ end
     @test WindShipOpt.stage_units(:kite, assumptions) == 1000
     @test WindShipOpt.stage_units(:rotor, assumptions) ==
           WindShipOpt.stage_units(:wing, assumptions) == 3000
-    @test factor(:kite) ≈ 1.40 rtol = 0.01
+    @test factor(:kite) ≈ 1.77 rtol = 0.01
     @test factor(:rotor) == factor(:wing) == 1.0
     fast = with_value(assumptions, :learning_rate, assumptions.entries[:learning_rate].high)
     @test all(factor(rig, fast) == 1.0 for rig in (:kite, :wing, :rotor))
     as_paid = with_value(assumptions, :learning_rate, 0.0)
     kites = filter(price -> price.rig == :kite, WindShipOpt.RIG_PRICES)
-    ratios = [WindShipOpt.today_price(price, assumptions) /
+    ratios = [WindShipOpt.hardware_price(price, assumptions) /
               WindShipOpt.bottom_up_price(price, assumptions) for price in kites]
     @test factor(:kite, as_paid) ≈ exp(sum(log, ratios) / length(ratios))
     @test factor(:kite, as_paid) > factor(:kite)
@@ -711,14 +711,16 @@ end
           WindShipOpt.bottom_up_price(fixed, assumptions)
 end
 
-@testset "a canopy costs its bottom-up cost times the kite's price factor" begin
-    weight = assumptions[:canopy_cloth_weight]
-    @test WindShipOpt.sewn_cloth_price(assumptions, weight) ≈ 17.2
-    bottom_up = assumptions[:market_price_factor] *
-                WindShipOpt.Canopy(assumptions).cost_per_area
-    @test bottom_up ≈ 234.4
+@testset "a canopy is the surveyed structure with heavier cloth at the market factor" begin
+    @test WindShipOpt.canopy_cost(assumptions) ≈ 1.16 * 25 / 18 * 53 + 3.5 * 0.031 * 100
     @test WindShipOpt.canopy_price(assumptions) ≈
-          WindShipOpt.stage_price_factor(:kite, assumptions) * bottom_up
+          assumptions[:market_price_factor] * WindShipOpt.canopy_cost(assumptions)
+    @test WindShipOpt.canopy_price(WindShipOpt.as_paid(assumptions)) ==
+          WindShipOpt.canopy_price(assumptions)
+    kite = first(price for price in WindShipOpt.RIG_PRICES if price.rig == :kite)
+    @test WindShipOpt.today_price(kite, assumptions) -
+          WindShipOpt.hardware_price(kite, assumptions) ≈
+          WindShipOpt.canopy_price(assumptions) * kite.area
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈
           WindShipOpt.canopy_price(assumptions) * rig.area
@@ -3427,7 +3429,7 @@ store_run(fidelity, trip_model; commit="a", only=nothing) =
         assumptions.entries[name].high))
     directory = mktempdir()
     PaperRuns.stored_trip(() -> routed(assumptions), directory, (; assumptions))
-    dearer_canopy = at_high(:canopy_cloth_base_price)
+    dearer_canopy = at_high(:canopy_structure_cost)
     reused = PaperRuns.stored_entry(directory, dearer_canopy).trip
     rerouted = routed(dearer_canopy.assumptions)
     @test reused.cost_per_tonne_km == rerouted.cost_per_tonne_km

@@ -109,11 +109,7 @@ function Explorer({ data }: { data: ExplorerData }) {
               <legend className="px-1 font-semibold">{group.title}</legend>
               {group.title === "Kite goals" && (
                 <p className="text-sm text-ink">
-                  Canopy price {formatted(values[data.canopy_price.node], 0)} USD/m².{" "}
-                  <button className="underline" onClick={() => reset(["learning_rate"])}>
-                    At the production stage
-                  </button>{" · "}
-                  <button className="underline" onClick={() => change("learning_rate", 0)}>As paid today</button>
+                  Canopy price {formatted(values[data.canopy_price.node], 0)} USD/m².
                 </p>
               )}
               {group.controls.map((control) => (

@@ -350,8 +350,6 @@ function goal_rows()
                 assumptions[:kite_cycle_loss_probability]
     loss = @sprintf("1 in \\num{%.0f}", 1 / kite_loss)
     crew = @sprintf("USD~%.0f per cycle", assumptions[:kite_cycle_crew_cost])
-    canopy_price(inputs) = @sprintf("USD~%.0f/m\$^2\$",
-        round(WindShipOpt.canopy_price(inputs); sigdigits=2))
     life = assumptions.entries[:canopy_life]
     derived = @sprintf("derived \\num{%.0f} h (\\numrange{%.0f}{%.0f}), ",
         round(WindShipOpt.reference_decay_life(assumptions); sigdigits=2), life.low,
@@ -359,8 +357,6 @@ function goal_rows()
     return [("Canopy life", "kite", canopy,
             derived * "on makers' statements; small kites expected 100 to \\num{1000} h"),
         price_goal_rows()...,
-        ("Canopy price", "kite", canopy_price(assumptions),
-            canopy_price(WindShipOpt.as_paid(assumptions)) * " as paid"),
         ("Rig life", "wings", years(:wing_lifetime),
             "stated design life; about 2 years on record"),
         ("Rig life", "rotors", years(:rotor_lifetime),
@@ -380,8 +376,8 @@ rig_kinds = ((:kite, "kite"), (:wing, "wings"), (:rotor, "rotors"))
 """
     price_goal_rows()
 
-Goal rows of each rig's price at the production stage over its build-up, and today's as
-paid with the real prices it rests on.
+Goal rows of each rig's price at the production stage over its build-up, a kite's without
+its canopy, and today's as paid with the real prices it rests on.
 """
 function price_goal_rows()
     as_paid = WindShipOpt.as_paid(assumptions)
@@ -391,7 +387,7 @@ function price_goal_rows()
             WindShipOpt.stage_units(kind, assumptions))
         today = @sprintf("%.1f times as paid, from %s",
             WindShipOpt.stage_price_factor(kind, as_paid), price_sources(kind))
-        ("Price", name, stage, today)
+        (kind == :kite ? "Hardware price" : "Price", name, stage, today)
     end
 end
 
@@ -496,7 +492,8 @@ of goal_sizes.csv: the [`size_limits`](@ref) of that size against its rival, the
 other rig, and where the rig stops paying and where it comes level with that rival the
 canopy life [h], the canopy price [USD/m^2] and the share out of service [-], that share
 also for all units failing together;
-for the kite its saving [%] at half the canopy life goal and at today's canopy price, and
+for the kite its saving [%] at half the canopy life goal and at the top of the canopy
+price's range, and
 the life and price at which it passes the rig ahead; the points of saving [%] its share out
 of service costs at the goal. Raises an error where the sweeps differ in a rig's goal cost.
 """
@@ -527,12 +524,11 @@ function missed_goal_rows()
             half_goal = assumptions[:canopy_life] / 2
             saving_short = rig == "kite" ?
                            percent_saving(curve_cost(life_curve, half_goal), bare) : NaN
-            today = WindShipOpt.canopy_price(WindShipOpt.as_paid(assumptions))
-            saving_today = rig == "kite" ?
-                           percent_saving(curve_cost(price_curve, today), bare) : NaN
+            dear = curve_cost(price_curve, canopy_price_at(:high))
+            saving_dear = rig == "kite" ? percent_saving(dear, bare) : NaN
             push!(result, (; size_limits(sizes, cheapest[rig], bare, rival, rival_cost)...,
                 saving_short,
-                saving_today, service_points=percent_saving(curve[2][1], bare) -
+                saving_dear, service_points=percent_saving(curve[2][1], bare) -
                                              percent_saving(goal[rig], bare),
                 life=(kite_life_at_cost(rig, life_curve, bare),
                     kite_life_at_cost(rig, life_curve, rival_cost)),
@@ -636,7 +632,8 @@ end
 Write the [`missed_goal_rows`](@ref) as panel (a) and the [`crash_limit_rows`](@ref) as
 panel (b) to paper/sections/missed_goals_table.tex, savings and leads shaded by their sign
 and the limits by their [`goal_margins`](@ref), and print what the text takes from them
-besides: the kite's saving at half the life goal and at today's canopy price, the points
+besides: the kite's saving at half the life goal and at the top of the canopy price's
+range, the points
 each rig's outages cost, the life and price at which the kite passes the rig ahead and the
 share at which all units failing together put a rig level with its rival.
 """
@@ -670,8 +667,8 @@ function missed_goals_table()
                      shaded_cell(row.saving, saving_scale); paper_name(row.rival);
                      shaded_cell(row.lead, lead_scale; format="%+.1f"); limits]
             println(io, join(cells, " & "), " \\\\")
-            @printf("%s, %s: %.1f %% at half the life goal, %.1f %% at today's price, ",
-                row.ship, paper_name(row.rig), row.saving_short, row.saving_today)
+            @printf("%s, %s: %.1f %% at half the life goal, %.1f %% at the top price, ",
+                row.ship, paper_name(row.rig), row.saving_short, row.saving_dear)
             @printf("outages cost %.2f points, passes the next up at %s h, USD %s, ",
                 row.service_points, dash_cell(row.passes, "%.0f"),
                 dash_cell(row.passes_price, "%.0f"))
@@ -2091,7 +2088,7 @@ fidelity_parts() = [
     (part="Rig prices", varied="prices per area",
         model="price per area and per unit, installation, maintenance",
         error="ranges of the quoted and built-up prices",
-        effect=varied_inputs(:canopy_making_cost_per_area, :wing_cost_per_area,
+        effect=varied_inputs(:canopy_structure_cost, :wing_cost_per_area,
             :rotor_cost_per_area)),
     (part="Weather sample", varied="each year alone",
         model="ERA5 2017 to 2019, a departure every 6\\,h",
@@ -2315,16 +2312,17 @@ end
 """
     goal_numbers()
 
-Name and text of the goals the abstracts state: canopy life, the canopy price at the
-production stage and as paid today, the kite's price at the stage over its build-up with
+Name and text of the goals the abstracts state: canopy life, the canopy price with its
+range, the kite's price at the stage over its build-up with
 its range over the learning rate, and the share of time out of service; of the
 [`kite_gap_bias`](@ref); and of the `DRAFT_SPREAD` of a draft result [points].
 """
 function goal_numbers()
     rate = assumptions.entries[:learning_rate]
     return ["CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
-        "CanopyPriceStage" => canopy_price_text(assumptions),
-        "CanopyPricePaid" => canopy_price_text(WindShipOpt.as_paid(assumptions)),
+        "CanopyPrice" => canopy_price_text(WindShipOpt.canopy_price(assumptions)),
+        "CanopyPriceLow" => canopy_price_text(canopy_price_at(:low)),
+        "CanopyPriceHigh" => canopy_price_text(canopy_price_at(:high)),
         "KitePriceStage" => kite_price_text(rate.value),
         "KitePriceLow" => kite_price_text(rate.high),
         "KitePriceHigh" => kite_price_text(rate.low),
@@ -2335,9 +2333,8 @@ function goal_numbers()
          for (part, spread) in pairs(DRAFT_SPREAD))...]
 end
 
-"canopy price [USD/m^2] at `inputs` to two significant digits, as text"
-canopy_price_text(inputs) =
-    @sprintf("%.0f", round(WindShipOpt.canopy_price(inputs); sigdigits=2))
+"canopy price `price` [USD/m^2] to two significant digits, as text"
+canopy_price_text(price) = @sprintf("%.0f", round(price; sigdigits=2))
 
 "the kite's price at the stage over its build-up at learning rate `rate`, as text"
 kite_price_text(rate) = @sprintf("%.1f", WindShipOpt.stage_price_factor(:kite,
