@@ -363,7 +363,7 @@ function uniform_kite(hull, assumptions)
         reference_height=120.0, max_wind=30.0, min_flight_wind=4.0, launch_min_wind=5.0,
         launch_max_wind=17.0,
         launch_max_wave_height=Inf,
-        night_launch=assumptions[:kite_night_launch] > 0, landing_max_wind=20.0,
+        rough_sea_launch_wind=assumptions[:kite_launch_sea_wind], landing_max_wind=20.0,
         landing_max_wave_height=Inf, max_force=1e6,
         attach_height=10.0,
         attach_position=WindShipOpt.launch_mast_position(hull, assumptions),
@@ -388,15 +388,15 @@ function kite_coaster(; kwargs...)
 end
 
 """
-    kite_point(table, wave_height, hours; speed_index=6, headwind=12.0, daylight=true)
+    kite_point(table, wave_height, hours; speed_index=6, headwind=12.0)
 
 [`SailedPoint`](@ref) of `hours` [h] at routing speed number `speed_index` in a 12 m/s wind
 across the ship with `headwind` [m/s] from ahead and waves of `wave_height` [m].
 """
-function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0, daylight=true)
+function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0)
     condition = WindShipOpt.SeaCondition(table.table, 12.0, π / 2, wave_height, 8.0,
         π / 2)
-    sample = WindShipOpt.EdgeSample(condition, headwind, 0.0, daylight)
+    sample = WindShipOpt.EdgeSample(condition, headwind, 0.0)
     held, flown, stowed, chance = WindShipOpt.held_speed(table, speed_index, sample, true)
     return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours, 0.0, chance)
 end
@@ -430,12 +430,13 @@ end
     @test WindShipOpt.crosswind_min_wind(model, elevation) ≈ level rtol = 0.03
     climbing = lowest_steady_wind(model, radial, (-sin(elevation), 0.0, cos(elevation)))
     @test WindShipOpt.climbing_min_wind(model, elevation) ≈ climbing rtol = 0.03
-    @test level < WindShipOpt.static_wind(model.mass, model) < climbing
 end
 
 @testset "a heavy kite that cannot hang at rest still flies once moving" begin
     model, _, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
-    wind = 0.8WindShipOpt.static_wind(model.mass, model)
+    at_rest = sqrt(2model.mass * model.gravity /
+                   (model.air_density * model.area * maximum(model.polar.lift)))
+    wind = 0.8at_rest
     kite = WindShipOpt.KiteAero(model, model.stall_angle)
     elevation = deg2rad(25.0)
     point = WindShipOpt.steering_point(kite, (wind, 0.0, 0.0),
@@ -458,9 +459,8 @@ end
 
 @testset "no pattern flies under the launch wind" begin
     for area in (800.0, 3200.0)
-        model, max_force, tether_diameter = WindShipOpt.kite_model(area, 3.0, assumptions)
-        tether = WindShipOpt.rope_mass(tether_diameter, model.tether_length, assumptions)
-        launch = WindShipOpt.launch_min_wind(model, tether, assumptions)
+        model, max_force, _ = WindShipOpt.kite_model(area, 3.0, assumptions)
+        launch = WindShipOpt.launch_min_wind(model, assumptions)
         @test launch >= WindShipOpt.min_flight_wind(model, assumptions)
         @test launch >= assumptions[:kite_launch_min_wind]
         for course in deg2rad.(0.0:15.0:180.0)
@@ -529,97 +529,37 @@ end
     @test isfinite(flew.peak_tension)
 end
 
-@testset "a launch needs more wind in rougher seas, a kite stays up in any sea" begin
+@testset "a launch needs the rough-sea wind from a rough sea on, a kite stays up in any sea" begin
     table, prices = kite_coaster()
     passage(points, aloft) = WindShipOpt.kite_passage(table, points, aloft, prices)
     point(sea; speed_index=6, kwargs...) = kite_point(table, sea, 4.0; speed_index,
         kwargs...)
     speed = table.speeds[6]
-    calm = point(0.0)
-    @test WindShipOpt.extra_launch_wind(table.table, speed, calm.condition) == 0
-    _, launched = passage([calm], false)
+    rig = table.table.ship.rig
+    rough = WindShipOpt.ROUGH_SEA_HEIGHT
+    @test WindShipOpt.extra_launch_wind(rig, 0.99rough) == 0
+    @test WindShipOpt.extra_launch_wind(rig, rough) == assumptions[:kite_launch_sea_wind]
+    _, launched = passage([point(0.0)], false)
     @test launched.launches == 1
-    rough = point(2.0)
-    wind_rough = WindShipOpt.extra_launch_wind(table.table, speed, rough.condition)
-    @test wind_rough > 0
-    needed = table.table.ship.rig.launch_min_wind + wind_rough
-    apparent(headwind) = hypot(headwind + speed, 0.0)
+    needed = rig.launch_min_wind + assumptions[:kite_launch_sea_wind]
     below = needed - speed - 0.5
-    _, too_little = passage([point(2.0; headwind=below)], false)
+    _, too_little = passage([point(rough; headwind=below)], false)
     @test !isfinite(too_little.cost)
-    @test apparent(below) < needed
-    enough = needed - speed + 0.5
-    _, clears = passage([point(2.0; headwind=enough)], false)
+    _, below_rough = passage([point(0.99rough; headwind=below)], false)
+    @test below_rough.launches == 1
+    _, clears = passage([point(rough; headwind=needed - speed + 0.5)], false)
     @test clears.launches == 1
-    (; launch_min_wind, landing_max_wind) = table.table.ship.rig
-    extreme = 2.0 * (landing_max_wind - launch_min_wind + 1) / wind_rough
-    wild = point(extreme; headwind=10.0)
-    _, closed = passage([wild], false)
-    @test !isfinite(closed.cost)
-    down, stayed = passage([wild], true)
-    @test isfinite(stayed.cost) && stayed.launches == 0
-    @test !WindShipOpt.kite_landable(table.table, speed, 10.0, 0.0, wild.condition)
-    @test isfinite(down.cost) && down.forced_landings == 1
     _, in_gale = passage([point(2.0; headwind=20.0)], false)
     @test !isfinite(in_gale.cost)
     _, kept_up = passage([point(2.0; headwind=20.0)], true)
     @test isfinite(kept_up.cost)
 end
 
-@testset "a short ship's launch mast moves more in the same sea than a long ship's" begin
-    env = Environment(assumptions)
-    function significant_speed(length)
-        hull = Hull(length, assumptions)
-        return WindShipOpt.mast_speed(WindShipOpt.SeakeepingHull(hull, assumptions), env,
-            6.0, 3.0, 9.0, π, WindShipOpt.launch_mast_position(hull, assumptions))
-    end
-    coaster, reference, feeder, neo_panamax =
-        significant_speed.((85.0, 132.0, 165.0, 350.0))
-    @test coaster > reference > feeder > neo_panamax
-    @test neo_panamax < 0.2coaster
-    @test WindShipOpt.mast_speed(WindShipOpt.SeakeepingHull(Hull(132.0, assumptions),
-              assumptions), env, 6.0, 0.0, 9.0, π, 50.0) == 0
-end
-
-@testset "a long wave lifts a hull with it and a short one averages out" begin
-    hull = Hull(132.0, assumptions)
-    long_heave, long_pitch, encounter = WindShipOpt.heave_pitch_response(hull, 9.81, 0.0,
-        0.2, π)
-    @test long_heave ≈ 1 atol = 0.05
-    @test long_pitch ≈ 0.2^2 / 9.81 rtol = 0.1
-    @test encounter ≈ 0.2
-    short_heave, short_pitch, _ = WindShipOpt.heave_pitch_response(hull, 9.81, 0.0, 1.5, π)
-    @test short_heave < 0.05 && short_pitch < 0.05 * 1.5^2 / 9.81
-    @test all(isfinite, WindShipOpt.heave_pitch_response(hull, 9.81, 8.0, 0.8, π / 2))
-    following = WindShipOpt.heave_pitch_response(hull, 9.81, 8.0, 1.0, 0.0)
-    @test all(isfinite, following)
-end
-
-@testset "a wave reaches the hull's draft by its wave number along the hull" begin
-    hull = Hull(132.0, assumptions)
-    frequency = 0.8
-    along_hull = frequency^2 / 9.81
-    head_heave, = WindShipOpt.heave_pitch_response(hull, 9.81, 0.0, frequency, π)
-    beam_heave, = WindShipOpt.heave_pitch_response(hull, 9.81, 0.0, frequency, π / 2)
-    @test head_heave / beam_heave ≈ exp(-along_hull * hull.draft) *
-                                    abs(sinc(along_hull * hull.length / 2π))
-end
-
-@testset "the reference ship in its reference sea needs the reported extra launch wind" begin
-    kite = uniform_kite(Hull(140.0, assumptions), assumptions)
-    factor = WindShipOpt.launch_wind_per_mast_speed(kite, assumptions)
-    @test factor * WindShipOpt.reference_mast_speed(assumptions) ≈
-          assumptions[:kite_launch_sea_wind]
-    none = with_value(assumptions, :kite_launch_sea_wind, 0.0)
-    @test WindShipOpt.launch_wind_per_mast_speed(kite, none) == 0
-end
-
 @testset "launch and landing give no force while they last and the launch pays both" begin
     table, prices = kite_coaster()
     ship_table = table.table
     @test ship_table.handling_hours ≈
-          (1.05 * assumptions[:kite_launch_minutes] +
-           assumptions[:kite_landing_minutes]) / 60
+          (assumptions[:kite_launch_minutes] + assumptions[:kite_landing_minutes]) / 60
     point = kite_point(table, 2.0, 4.0)
     start = WindShipOpt.EdgeTally(0.0, 0.0, 0.0, 0, 0)
     launched = WindShipOpt.aloft_tally(ship_table, start, point, true, prices)
@@ -634,38 +574,26 @@ end
     @test isfinite(brief.cost)
 end
 
-@testset "a landing outside the landing limits is charged as forced, and only then" begin
+@testset "a kite lands inside its limits, outside them only when it can neither stay nor \
+          have landed" begin
     table, prices = kite_coaster()
-    forced = table.table.forced_landing_cost
     passage(points) = first(WindShipOpt.kite_passage(table, points, true, prices))
-    calm = kite_point(table, 2.0, 1.0; speed_index=3)
+    point(headwind) = kite_point(table, 2.0, 1.0; speed_index=3, headwind)
+    rig = table.table.ship.rig
     speed = table.speeds[3]
-    (; launch_min_wind, landing_max_wind) = table.table.ship.rig
-    closing = (landing_max_wind - launch_min_wind + 1) / WindShipOpt.extra_launch_wind(
-        table.table, speed, kite_point(table, 1.0, 1.0; speed_index=3).condition)
-    rising = kite_point(table, closing, 1.0; speed_index=3)
-    storm = kite_point(table, 1.1closing, 1.0; speed_index=3)
-    gale = kite_point(table, 2.0, 1.0; speed_index=3, headwind=22.0)
-    @test isfinite(rising.stowed)
+    calm = point(5.0)
+    gale = point(rig.landing_max_wind + 2 - speed)
+    storm = point(rig.max_wind + 2 - speed)
+    @test !WindShipOpt.kite_landable(table.table, speed, gale.headwind, 0.0, 2.0)
+    @test WindShipOpt.kite_aloft(table.table, speed, gale.headwind, 0.0)
     @test passage([calm]).forced_landings == 0
-    @test passage([rising]).forced_landings == 1
-    @test passage([gale]).forced_landings == 1
-    @test passage([rising]).cost ≈ rising.stowed * 3600 * prices.fuel + forced
-    down = passage([calm, rising, storm])
-    @test isfinite(down.cost) && down.forced_landings == 0
-    @test passage([rising, storm]).forced_landings == 1
-end
-
-@testset "with night launches off a kite launches by day and still lands at night" begin
-    table, prices = kite_coaster(kite_night_launch=0.0)
-    day = kite_point(table, 2.0, 4.0)
-    night = kite_point(table, 2.0, 4.0; daylight=false)
-    @test WindShipOpt.kite_passage(table, [day], false, prices)[2].launches == 1
-    @test !isfinite(WindShipOpt.kite_passage(table, [night], false, prices)[2].cost)
-    @test WindShipOpt.kite_passage(table, [night], true, prices)[1].forced_landings == 0
-    always, _ = kite_coaster()
-    @test WindShipOpt.kite_passage(always, [night], false, prices)[2].launches == 1
-    @test WindShipOpt.is_daylight(0.0, 12.0) && !WindShipOpt.is_daylight(180.0, 12.0)
+    @test !isfinite(passage([gale]).cost)
+    stranded = passage([storm])
+    @test stranded.forced_landings == 1
+    @test stranded.cost ≈ storm.stowed * 3600 * prices.fuel
+    landed_first = passage([calm, gale, storm])
+    @test isfinite(landed_first.cost) && landed_first.forced_landings == 0
+    @test passage([gale, storm]).forced_landings == 1
 end
 
 "steady 12 m/s northerly over a flat sea"
@@ -683,41 +611,58 @@ WindShipOpt.waves(::SteadyWind, lat, lon, time) = (0.0, 0.0, 0.0)
     @test leg.launches == 0
 end
 
-@testset "cycle cost sums crew, flogging, tear, loss, retry, turn and tether bends" begin
+@testset "cycle cost sums crew, flogging, the kite lost, turn and tether bends" begin
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     canopy, tether = WindShipOpt.consumable_costs(rig, assumptions)
-    control_unit = WindShipOpt.price_factor(:kite, assumptions) *
+    control_unit = assumptions[:market_price_factor] *
                    WindShipOpt.rig_price_parts(rig, assumptions).control_unit
     @test WindShipOpt.cycle_cost(rig, assumptions) ≈
-          1.05 * (85 + (3.3 / 3000 + 0.00005) * canopy +
-                  0.00005 * (canopy + tether + control_unit)) + 130 + 8 / 1_000_000 * tether
-    @test WindShipOpt.forced_landing_cost(rig, assumptions) ≈
-          0.05 * (canopy + tether + control_unit)
+          85 + 3.3 / 3000 * canopy + 0.0001 * (control_unit + (canopy + tether) / 2) + 130 +
+          8 / 1_000_000 * tether
     @test WindShipOpt.cycle_cost(nothing, assumptions) == 0
 end
 
-@testset "every rig is priced at the same stage by one learning rate" begin
-    factor(rig, inputs=assumptions) = WindShipOpt.stage_price_factor(rig, inputs)
-    @test WindShipOpt.stage_units(:kite, assumptions) == 1000
-    @test WindShipOpt.stage_units(:rotor, assumptions) ==
-          WindShipOpt.stage_units(:wing, assumptions) == 3000
-    @test factor(:kite) ≈ 1.77 rtol = 0.01
-    @test factor(:rotor) == factor(:wing) == 1.0
-    fast = with_value(assumptions, :learning_rate, assumptions.entries[:learning_rate].high)
-    @test all(factor(rig, fast) == 1.0 for rig in (:kite, :wing, :rotor))
-    as_paid = with_value(assumptions, :learning_rate, 0.0)
-    kites = filter(price -> price.rig == :kite, WindShipOpt.RIG_PRICES)
-    ratios = [WindShipOpt.hardware_price(price, assumptions) /
-              WindShipOpt.bottom_up_price(price, assumptions) for price in kites]
-    @test factor(:kite, as_paid) ≈ exp(sum(log, ratios) / length(ratios))
-    @test factor(:kite, as_paid) > factor(:kite)
+@testset "every rig's hardware is priced at its bottom-up cost times the market factor" begin
+    hull = Hull(140.0, assumptions)
+    factor = assumptions[:market_price_factor]
+    kite = uniform_kite(hull, assumptions)
+    @test first(WindShipOpt.rig_costs(kite, assumptions)) ≈
+          factor * sum(WindShipOpt.rig_price_parts(kite, assumptions)) +
+          sum(WindShipOpt.consumable_costs(kite, assumptions))
+    for rig_type in (WingRig, WindShipOpt.RotorRig)
+        rig = rig_type(800.0, hull, assumptions)
+        @test first(WindShipOpt.rig_costs(rig, assumptions)) ≈
+              factor * sum(WindShipOpt.rig_price_parts(rig, assumptions))
+    end
 end
 
-@testset "a real price is set against the build-up of the same unit as sold" begin
-    folding = only(price for price in WindShipOpt.RIG_PRICES if price.retractable)
-    fixed = WindShipOpt.RigPrice(folding.rig, folding.kind, folding.year,
-        folding.units_built, folding.height, folding.diameter, folding.area, folding.price,
-        folding.currency, folding.installed, false, folding.hicp, folding.source)
+@testset "a kite's winch grows with its tether force, its launch mast with its size" begin
+    parts(area) = WindShipOpt.kite_price_parts(area, 500area, assumptions)
+    deck = WindShipOpt.kite_deck_masses(800.0, 4e5, assumptions)
+    @test deck.winch ≈ 400 * assumptions[:winch_mass_per_force]
+    @test deck.launch_mast ≈ 1e3assumptions[:launch_mast_mass_per_size] * sqrt(800)
+    @test parts(800.0).deck ≈ assumptions[:winch_cost_per_mass] * deck.winch +
+                              assumptions[:launch_mast_cost_per_mass] * deck.launch_mast
+    @test parts(800.0).control_unit ≈ 400 * assumptions[:control_unit_mass_per_force] *
+                                      assumptions[:control_unit_cost_per_mass]
+    @test parts(800.0).controls == assumptions[:kite_controls_cost]
+    @test parts(800.0).integration ≈ assumptions[:kite_integration_fraction] *
+                                     (sum(parts(800.0)) - parts(800.0).integration)
+    @test 2 < parts(16000.0).deck / parts(3200.0).deck < 3
+    skysails = sum(WindShipOpt.kite_deck_masses(600.0, 6e5, assumptions))
+    @test skysails ≈ 30e3 rtol = 0.02
+    rig = uniform_kite(Hull(140.0, assumptions), assumptions)
+    tether = WindShipOpt.rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
+    kite = WindShipOpt.soft_kite_mass(rig.area, rig.aspect_ratio, rig.max_force, assumptions)
+    @test WindShipOpt.rig_costs(rig, assumptions)[2] ≈ 1e-3(kite + tether +
+          sum(WindShipOpt.kite_deck_masses(rig.area, rig.max_force, assumptions)))
+end
+
+@testset "a rotor price is set against the build-up of the same unit as sold" begin
+    folding = only(price for price in WindShipOpt.ROTOR_PRICES if price.retractable)
+    fixed = WindShipOpt.RotorPrice(folding.kind, folding.year, folding.height,
+        folding.diameter, folding.price, folding.currency, folding.installed, false,
+        folding.hicp, folding.source)
     @test WindShipOpt.bottom_up_price(folding, assumptions) ≈
           (1 + assumptions[:retractable_rig_premium]) *
           WindShipOpt.bottom_up_price(fixed, assumptions)
@@ -731,7 +676,6 @@ end
     price(area, inputs=assumptions) = WindShipOpt.canopy_price(inputs, area, 3.0)
     @test price(800.0) ≈ assumptions[:market_price_factor] *
                          WindShipOpt.canopy_cost(assumptions, 800.0, 3.0)
-    @test price(800.0, WindShipOpt.as_paid(assumptions)) == price(800.0)
     cloth(area) = WindShipOpt.cloth_area_ratio(assumptions, area, 3.0)
     surveyed_cloth = WindShipOpt.cloth_area_ratio(proportional, surveyed_area, 3.0)
     seam(area) = WindShipOpt.seam_area_ratio(assumptions, area, 3.0)
@@ -746,11 +690,6 @@ end
     @test WindShipOpt.canopy_cost(growing, 3000.0, 3.0) -
           WindShipOpt.canopy_cost(growing, 200.0, 3.0) ≈
           per_cloth * (cloth(3000.0) - cloth(200.0))
-    kite = first(sale for sale in WindShipOpt.RIG_PRICES if sale.rig == :kite)
-    sold = WindShipOpt.canopy_price(assumptions, kite.area,
-        assumptions[:sold_kite_aspect_ratio])
-    @test WindShipOpt.today_price(kite, assumptions) -
-          WindShipOpt.hardware_price(kite, assumptions) ≈ sold * kite.area
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈
           WindShipOpt.canopy_price(assumptions, rig.area, rig.aspect_ratio) * rig.area
@@ -772,14 +711,14 @@ end
     wings = WingRig(800.0, Hull(140.0, assumptions), assumptions)
     setting = (1.0, WindShipOpt.drag_coefficient(wings, 1.0))
     force(angle) = rig_force(wings, env, 10.0, deg2rad(angle), 5.4, setting)
-    @test force(90).thrust ≈ 51756 rtol = 1e-3
-    @test force(90).side ≈ 41416 rtol = 1e-3
-    @test force(45).thrust ≈ 35138 rtol = 1e-3
-    @test force(45).side ≈ 100995 rtol = 1e-3
-    @test force(150).thrust ≈ 17228 rtol = 1e-3
-    @test force(150).side ≈ -8238 rtol = 1e-3
-    @test force(180).thrust ≈ 2048 rtol = 1e-3
-    @test force(180).side ≈ -12109 rtol = 1e-3
+    @test force(90).thrust ≈ 55251 rtol = 1e-3
+    @test force(90).side ≈ 41957 rtol = 1e-3
+    @test force(45).thrust ≈ 37500 rtol = 1e-3
+    @test force(45).side ≈ 102641 rtol = 1e-3
+    @test force(150).thrust ≈ 18566 rtol = 1e-3
+    @test force(150).side ≈ -8709 rtol = 1e-3
+    @test force(180).thrust ≈ 2248 rtol = 1e-3
+    @test force(180).side ≈ -12750 rtol = 1e-3
     @test force(0).thrust < 0 < force(0).side
 end
 
@@ -805,16 +744,16 @@ end
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 0.0)
-    @test force(5.8751, 26.6411).thrust ≈ 62 atol = 5
-    @test force(5.8751, 26.6411).side ≈ 64068 rtol = 1e-3
-    @test force(6.6205, 50.2378).thrust ≈ 20000 rtol = 1e-3
-    @test force(6.6205, 50.2378).side ≈ 77213 rtol = 1e-3
-    @test force(8.82947, 86.695695).thrust ≈ 115451 rtol = 1e-3
-    @test force(8.82947, 86.695695).side ≈ 235412 rtol = 1e-3
-    @test force(11.161535, 114.227745).thrust ≈ 244745 rtol = 1e-3
-    @test force(11.161535, 114.227745).side ≈ 226482 rtol = 1e-3
-    @test force(13.802571, 148.57094).thrust ≈ 348897 rtol = 1e-3
-    @test force(13.802571, 148.57094).side ≈ 46727 rtol = 1e-3
+    @test force(5.8751, 26.6411).thrust ≈ 111 atol = 5
+    @test force(5.8751, 26.6411).side ≈ 64108 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 20056 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 77235 rtol = 1e-3
+    @test force(8.82947, 86.695695).thrust ≈ 117545 rtol = 1e-3
+    @test force(8.82947, 86.695695).side ≈ 244675 rtol = 1e-3
+    @test force(11.161535, 114.227745).thrust ≈ 244678 rtol = 1e-3
+    @test force(11.161535, 114.227745).side ≈ 202319 rtol = 1e-3
+    @test force(13.802571, 148.57094).thrust ≈ 348557 rtol = 1e-3
+    @test force(13.802571, 148.57094).side ≈ 44703 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
@@ -1044,16 +983,43 @@ end
     hull = Hull(140.0, assumptions)
     reserve = WindShipOpt.launch_mast_reserve(assumptions)
     deck = assumptions[:deck_length_fraction] * hull.length
-    for (rig, row_length) in ((WingRig(800.0, hull, assumptions), deck),
+    for (rig, row_length) in ((WingRig(1500.0, hull, assumptions), deck),
         (WindShipOpt.RotorRig(800.0, hull, assumptions; forward_reserve=reserve),
             deck - reserve))
-        positions = WindShipOpt.unit_positions(rig, hull, assumptions)
+        positions = first.(WindShipOpt.unit_positions(rig, hull, assumptions))
+        @test rig.columns == 1
         @test length(positions) == rig.count > 1
         @test sum(positions) / rig.count ≈ rig.centre_position
         @test all(diff(positions) .≈ row_length / rig.count)
     end
     single = WingRig(100.0, hull, assumptions)
-    @test WindShipOpt.unit_positions(single, hull, assumptions) == [single.centre_position]
+    @test WindShipOpt.unit_positions(single, hull, assumptions) ==
+          [(single.centre_position, 0.0)]
+end
+
+@testset "rotors stand in two columns near the deck edges where they lose less" begin
+    hull = Hull(ship_classes()["Capesize bulk carrier"], assumptions)
+    layout(columns, area) =
+        WindShipOpt.column_layout(columns, area, :rotor, hull, assumptions, 0.0)
+    row_max = maximum(area for area in 500.0:100.0:6000.0 if !isnothing(layout(1, area)))
+    rig = WindShipOpt.RotorRig(row_max + 100, hull, assumptions)
+    @test rig.columns == 2 && iseven(rig.count)
+    clearance = assumptions[:rotor_spacing] * rig.diameter
+    @test rig.column_offset ≈ (hull.beam - clearance) / 2
+    positions = WindShipOpt.unit_positions(rig, hull, assumptions)
+    @test length(positions) == rig.count
+    @test sort(unique(last.(positions))) ≈ [-rig.column_offset, rig.column_offset]
+    @test sum(first.(positions)) / rig.count ≈ rig.centre_position
+    for (area, better, worse) in ((500.0, 1, 2), (row_max, 2, 1))
+        @test WindShipOpt.RotorRig(area, hull, assumptions).columns == better
+        @test layout(better, area).interference_factor >
+              layout(worse, area).interference_factor
+    end
+    pair = layout(2, 100.0)
+    @test pair.count == 2 && pair.centre_position ≈ WindShipOpt.lateral_centre(hull)
+    narrow = Hull(140.0, assumptions)
+    @test all(WingRig(area, narrow, assumptions).columns == 1 for area in 400.0:400.0:1600.0
+              if !isnothing(WingRig(area, narrow, assumptions)))
 end
 
 @testset "the rudder cancels the yaw moment about the hull's lateral centre" begin
@@ -1153,6 +1119,30 @@ end
     @test WindShipOpt.fixed_rig_port_hours(nothing, classes["VLCC"], assumptions) == 0
 end
 
+@testset "retractable wings and rotors stand as tall as they are built, whatever the \
+          air draft" begin
+    hull = Hull(140.0, assumptions)
+    for (rig, area, prefix) in ((WingRig, 1500.0, "wing"),
+        (WindShipOpt.RotorRig, 800.0, "rotor"))
+        max_height = assumptions[Symbol(prefix, "_max_height")]
+        aspect_ratio = assumptions[Symbol(prefix, "_aspect_ratio")]
+        @test rig(area, hull, assumptions).count ==
+              ceil(Int, area / (max_height^2 / aspect_ratio))
+    end
+end
+
+@testset "the EU ETS charges a ship from its threshold tonnage on its route's share" begin
+    large, small = Hull(140.0, assumptions), Hull(85.0, assumptions)
+    coverage(hull, route) = WindShipOpt.carbon_coverage(hull, route, assumptions)
+    @test coverage(large, :caribbean) == coverage(large, :bilbao) == 1
+    @test coverage(large, :new_york) == coverage(large, :tubarao) == 0.5
+    @test coverage(small, :caribbean) == coverage(large, nothing) == 0
+    charge = assumptions[:carbon_price] * assumptions[:vlsfo_carbon_intensity] / 1e9
+    price(route) = Ship(ShipDesign(:vlsfo, 140.0), assumptions; route).fuel.price
+    @test price(:caribbean) - price(nothing) ≈ charge
+    @test price(:new_york) - price(nothing) ≈ charge / 2
+end
+
 @testset "a volume-limited ship's cargo ignores rig mass below the mass limit" begin
     teu = WindShipOpt.CargoUnit(:teu, assumptions)
     feeder(rig_mass) = WindShipOpt.CargoHold(21000.0, 21000.0 - rig_mass, 1600.0, teu)
@@ -1178,6 +1168,17 @@ end
     @test 0.9 < megamax.deadweight / megamax.space < 1
 end
 
+@testset "rotors that take enough deck slots leave the Megamax space-limited" begin
+    megamax = ship_classes()["Megamax container ship"]
+    hold(area) = WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, megamax; rotor_area=area),
+            assumptions), assumptions)
+    @test WindShipOpt.cargo_limit(hold(1000.0)) == :deadweight
+    rotors = hold(6000.0)
+    @test WindShipOpt.cargo_limit(rotors) == :space
+    @test WindShipOpt.cargo_mass(rotors) ≈
+          WindShipOpt.unit_limits(rotors).space * rotors.unit.cargo
+end
+
 @testset "empty boxes take container slots and tare but carry no cargo" begin
     teu = WindShipOpt.CargoUnit(:teu, assumptions)
     loaded = 1 - assumptions[:empty_container_share]
@@ -1193,6 +1194,27 @@ end
         output = powertrain.installed_power - powertrain.hotel_load
         @test output * powertrain.transmission_efficiency ≈ shaft
     end
+end
+
+@testset "a class's two-stroke and the coaster family's four-stroke burn at their own \
+          efficiencies" begin
+    kamsarmax = ship_classes()["Kamsarmax bulk carrier"]
+    for drive in (:vlsfo, :ammonia)
+        efficiency(design) = Ship(design, assumptions).powertrain.peak_efficiency
+        @test efficiency(ShipDesign(drive, kamsarmax)) ==
+              assumptions[:two_stroke_engine_efficiency]
+        @test efficiency(ShipDesign(drive, 140.0)) ==
+              assumptions[:four_stroke_engine_efficiency]
+    end
+end
+
+@testset "the coaster class is the reference coaster, engine and power alike" begin
+    class = Ship(ShipDesign(:vlsfo, ship_classes()["general cargo coaster"]), assumptions)
+    reference = Ship(ShipDesign(:vlsfo, 85.0), assumptions)
+    @test class.powertrain.installed_power ≈ reference.powertrain.installed_power
+    @test class.powertrain.peak_efficiency == reference.powertrain.peak_efficiency
+    @test class.powertrain.transmission_efficiency ==
+          reference.powertrain.transmission_efficiency
 end
 
 @testset "a class hull's calm-water delivered power at service speed matches its \
@@ -1327,8 +1349,7 @@ end
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     flogging = assumptions[:kite_cycle_canopy_hours] / assumptions[:canopy_life] *
                first(WindShipOpt.consumable_costs(kite, assumptions))
-    unlost = (1 + assumptions[:kite_launch_retry_probability]) *
-             (assumptions[:kite_cycle_crew_cost] + flogging) +
+    unlost = assumptions[:kite_cycle_crew_cost] + flogging +
              assumptions[:kite_cycle_course_cost]
     @test unlost < WindShipOpt.cycle_cost(kite, assumptions) < 1.2unlost
 end
@@ -1384,17 +1405,14 @@ end
     end
 end
 
-@testset "a kite out of service makes and pays launches and forced landings pro rata" begin
+@testset "a kite out of service makes and pays launches pro rata" begin
     kite = ShipDesign(:methanol, 85.0; kite_area=800.0)
-    hard = with_value(assumptions, :kite_landing_max_wind, 0.0)
-    cheap = with_value(hard, :kite_forced_landing_loss_probability, 1e-5)
-    working = trip_with_share(kite, :kite_out_of_service, 0.0, cheap)
-    half = trip_with_share(kite, :kite_out_of_service, 0.5, cheap)
-    @test working.forced_landings > 0
-    @test half.forced_landings ≈ working.forced_landings / 2
+    working = trip_with_share(kite, :kite_out_of_service, 0.0)
+    half = trip_with_share(kite, :kite_out_of_service, 0.5)
+    @test working.launches > 0
     @test half.launches ≈ working.launches / 2
-    dearer = with_value(hard, :kite_forced_landing_loss_probability, 1e-4)
-    @test trip_with_share(kite, :kite_out_of_service, 0.5, dearer).cost_per_tonne_km >
+    lossy = with_value(assumptions, :kite_launch_loss_probability, 1e-2)
+    @test trip_with_share(kite, :kite_out_of_service, 0.5, lossy).cost_per_tonne_km >
           half.cost_per_tonne_km
 end
 
@@ -1554,11 +1572,17 @@ end
     trip(class; rig...) = round_trip(Ship(ShipDesign(:ammonia, class; rig...), assumptions),
         corridors..., SyntheticWeather(), departures, assumptions)
     days(trip) = trip.outbound_days + trip.return_days
-    bare, scheduled, free = trip(liner), trip(liner; rotor_area=600.0),
-    trip(tramp; rotor_area=600.0)
+    # Every speed: on every other one the liner's next slower speed can miss its schedule.
+    every_speed = WindShipOpt.RouterSettings(time_step=1.5, search_speed_stride=1,
+        search_margins=(0.12, 0.2))
+    bare, bare_tramp, scheduled, free = WindShipOpt.with_router_settings(every_speed) do
+        return trip(liner), trip(tramp), trip(liner; rotor_area=600.0),
+        trip(tramp; rotor_area=600.0)
+    end
     @test days(free) < 0.99days(bare)
     @test days(free) < days(scheduled) <= days(bare)
-    @test days(trip(tramp)) == days(bare)
+    @test scheduled.fuel_energy < free.fuel_energy
+    @test days(bare_tramp) == days(bare)
 end
 
 @testset "a leg arrives by its time on the least fuel that does" begin
@@ -1733,7 +1757,7 @@ WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
     trace = WindShipOpt.LegTrace((Float64[] for _ in 1:15)..., (Bool[] for _ in 1:4)...,
         Any[])
     calm_sea = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 0.0, 8.0, 0.0)
-    point = WindShipOpt.SailedPoint(0.0, 0.0, calm_sea, true,
+    point = WindShipOpt.SailedPoint(0.0, 0.0, calm_sea,
         searchsortedfirst(table.speeds, 5.0), 0.0, 0.0, 1.0, 24.0 * 31, 0.0)
     WindShipOpt.push_trace_point!(trace, table, FollowingSeaWeather(), 24.0 * 31, 30.0,
         -30.0, π / 2, point, 1.0, true, false, false, false)
@@ -1948,7 +1972,7 @@ end
 
 @testset "a ship sailing live recovers more of a wrong forecast than one holding speed" begin
     kite_table, kite_hourly, finer = kite_coaster_routing(400.0)
-    departure, weather = 24.0 * 121, SyntheticWeather()
+    departure, weather = 24.0 * 181, SyntheticWeather()
     sources = (ReplannedForecast(CountedForecast(8.0, 0); interval=48.0, live)
                for live in (false, true))
     held, live = (forecast_route(finer, kite_table, weather, departure;
@@ -2715,7 +2739,7 @@ end
 @testset "a plan weighing wind error expects a kite that just pulls to fly sometimes" begin
     speed_index = 4
     sample(wind, spread) = WindShipOpt.EdgeSample(kite_route_table.table, (wind, 0.0),
-        (1.0, 6.0, 0.0), 0.0, true, spread)
+        (1.0, 6.0, 0.0), 0.0, spread)
     fuels(wind, spread) = WindShipOpt.expected_fuels(kite_route_table, speed_index,
         sample(wind, spread))
     winds = 0.5:0.5:20.0
@@ -2977,7 +3001,7 @@ end
     table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
         assumptions))
     condition = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 8.0, 6.0, 2π / 3)
-    sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0, true)
+    sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0)
     unpowered = findfirst(i -> !isfinite(last(WindShipOpt.edge_fuels(table, i, condition))),
         eachindex(table.speeds))
     held, flown, stowed, chance = WindShipOpt.held_speed(table, unpowered, sample, false)
@@ -2995,7 +3019,7 @@ end
     table = RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0), assumptions),
         assumptions))
     condition = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 3.0, 7.0, π)
-    sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0, true)
+    sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0)
     powered(i) = isfinite(last(WindShipOpt.edge_fuels(table, i, condition)))
     unpowered = findfirst(!powered, eachindex(table.speeds))
     faster_powered = findnext(powered, eachindex(table.speeds), unpowered)
@@ -3008,7 +3032,7 @@ end
               (held, flown, stowed, chance)
     end
     calm = WindShipOpt.EdgeSample(WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 0.0, 6.0,
-        0.0), 0.0, 0.0, true)
+        0.0), 0.0, 0.0)
     calm_held, calm_flown, calm_stowed, calm_chance = WindShipOpt.held_speed(table,
         unpowered, calm, false)
     calm_point = WindShipOpt.SailedPoint(calm, calm_held, calm_flown, calm_stowed, 1.0, 0.0,
@@ -3025,9 +3049,9 @@ end
     prices = (; fuel=table.table.ship.fuel.price, time=0.0)
     condition = WindShipOpt.SeaCondition(table.table, 8.0, π / 2, 4.0, 8.0, π / 2)
     crosswind, headwind = table.table.kite_wind_factor * 8.0 .* sincos(π / 2)
-    night = WindShipOpt.EdgeSample(condition, headwind, crosswind, false)
+    sample = WindShipOpt.EdgeSample(condition, headwind, crosswind)
     fastest = length(table.speeds)
-    point(aloft) = WindShipOpt.SailedPoint(table, night, fastest, aloft, 1e4, 0.0)
+    point(aloft) = WindShipOpt.SailedPoint(table, sample, fastest, aloft, 1e4, 0.0)
     @test point(false).speed_index < point(true).speed_index
     @test isfinite(point(false).stowed)
     @test isfinite(first(WindShipOpt.kite_passage(table, [point(false)], false,
@@ -3060,6 +3084,14 @@ end
     write_data(rest, :designs)
     PaperRuns.finish_run!(rest)
     @test !is_open()
+end
+
+@testset "a stored trip that read an input the model no longer has is not reused" begin
+    stored(inputs) = (; inputs, files=Pair{String, String}[])
+    case = (; assumptions)
+    @test PaperRuns.reads_unchanged(stored([:air_density => assumptions[:air_density]]),
+        case)
+    @test !PaperRuns.reads_unchanged(stored([:retired_input => 1.0]), case)
 end
 
 @testset "a round trip at a held speed or with a model part off is stored apart" begin
@@ -3899,19 +3931,15 @@ end
     fleet = rigid_fleet(2, assumptions)
     waves = assumptions[:rigid_hover_max_wave_height]
     wind = assumptions[:rigid_hover_max_wind]
-    @test WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves, 0.0)
-    @test !WindShipOpt.kite_landable(fleet, 0.0, wind + 1, 0.0, waves, 0.0)
-    @test !WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves + 0.5, 0.0)
+    @test WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves)
+    @test !WindShipOpt.kite_landable(fleet, 0.0, wind + 1, 0.0, waves)
+    @test !WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves + 0.5)
     @test WindShipOpt.kite_aloft(fleet, 0.0, wind - 1, 0.0)
-    @test WindShipOpt.launch_wind_per_mast_speed(fleet, assumptions) == 0
+    @test WindShipOpt.extra_launch_wind(fleet, waves) == 0
     @test isfinite(waves)
     @test fleet.launch_min_wind == fleet.min_flight_wind
     @test WindShipOpt.handling_hours(fleet, assumptions) ≈
           assumptions[:rigid_hover_minutes] / 60
-    airframes = WindShipOpt.rigid_airframe_price(fleet, assumptions)
-    _, tethers = WindShipOpt.consumable_costs(fleet, assumptions)
-    @test WindShipOpt.forced_landing_cost(fleet, assumptions) ≈
-          assumptions[:kite_forced_landing_loss_probability] * (airframes + tethers)
 end
 
 @testset "a rigid wing flies no lower than its loops or a level sweep allow" begin
@@ -3955,11 +3983,11 @@ end
     hull = Hull(140.0, assumptions)
     kite = uniform_kite(hull, assumptions)
     canopy, tether = WindShipOpt.consumable_costs(kite, assumptions)
-    control_unit = WindShipOpt.price_factor(:kite, assumptions) *
+    control_unit = assumptions[:market_price_factor] *
                    WindShipOpt.rig_price_parts(kite, assumptions).control_unit
     @test WindShipOpt.crash_cost(kite, assumptions) ≈ control_unit + (canopy + tether) / 2
     for rig_type in (WingRig, WindShipOpt.RotorRig)
-        rig = rig_type(800.0, hull, assumptions)
+        rig = rig_type(1200.0, hull, assumptions)
         @test rig.count > 1
         @test WindShipOpt.crash_cost(rig, assumptions) * rig.count ≈
               first(WindShipOpt.rig_costs(rig, assumptions))
@@ -4059,6 +4087,7 @@ assumptions = Main.assumptions
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
+include(joinpath(pkgdir(WindShipOpt), "scripts", "explorer_data.jl"))
 end
 
 @testset "a table step that fails part way leaves the table it had" begin
@@ -4141,6 +4170,39 @@ end
     @test_throws ArgumentError ShipDesign(:vlsfo, 100.0; kite_area=NaN)
     @test_throws ArgumentError ShipDesign(:vlsfo, 100.0; rotor_area=Inf)
     @test ShipDesign(:vlsfo, 100.0; kite_area=800.0).kite_area == 800
+end
+
+@testset "every goal takes its value known today and every other input keeps its own" begin
+    today = at_today(assumptions)
+    goals = [name for (name, entry) in assumptions.entries if entry.today != entry.value]
+    @test :canopy_life in goals && :kite_out_of_service in goals
+    @test all(today[name] == assumptions.entries[name].today for name in goals)
+    @test all(today[name] == assumptions[name]
+              for name in keys(assumptions.entries) if !(name in goals))
+end
+
+@testset "a kite costed on its routes at the goals costs what routing found, and more \
+          at today's values" begin
+    kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
+    trip = round_trip(Ship(kite, assumptions; route=:caribbean), corridors...,
+        SyntheticWeather(), [24.0 * 31], assumptions)
+    case = (; design=kite, assumptions, route=:caribbean, corridors)
+    @test PaperData.changed_cost(case, trip) ≈ trip.cost_per_tonne_km
+    today = merge(case, (; assumptions=at_today(assumptions)))
+    @test PaperData.changed_cost(today, trip) > trip.cost_per_tonne_km
+end
+
+@testset "the explorer gives each input its value known today" begin
+    io = IOBuffer()
+    PaperData.write_json(io, Assumption(3000.0, 1200.0, 6900.0, "h", "", 1200.0))
+    @test occursin("\"today\":1200.0", String(take!(io)))
+end
+
+@testset "routing anew at today's values gains a rig the difference of its savings, \
+          departure by departure" begin
+    table = Dict("rig" => ["none", "kite", "none", "kite"], "departure" => [0, 0, 24, 24],
+        "recosted" => [10.0, 9.0, 10.0, 8.0], "rerouted" => [10.0, 8.0, 9.0, 7.2])
+    @test PaperData.rerouting_gains(table, "kite") ≈ [10.0, 0.0]
 end
 
 @testset "the fuel premium a rig closes is ranged over the ship lengths it was run at" begin
@@ -4233,6 +4295,22 @@ end
 @testset "the model parts measured by the development study read only its inputs" begin
     PaperData.eval(:(departures = 1:8760))
     @test !isempty(PaperData.fidelity_parts())
+end
+
+@testset "holding deck rigs to one row keeps the best size that stands in one row" begin
+    class = ship_classes()["Neo-Panamax container ship"]
+    hull = Hull(class, assumptions)
+    largest = PaperData.largest_rig_area("rotors", hull)
+    columns(area) = PaperData.deck_columns(WindShipOpt.RotorRig(area, hull, assumptions))
+    @test columns(largest) == 2
+    @test columns(100.0) == 1
+    @test PaperData.deck_columns(nothing) == 0
+    table = Dict("rig" => ["none", "kite", "rotors", "rotors"], "columns" => [0, 0, 1, 2],
+        "cost" => [1.0, 0.85, 0.9, 0.8])
+    every, one_row = only(last(PaperData.one_row()))
+    @test PaperData.best_costs(table, every)["rotors"] == 0.8
+    held = PaperData.best_costs(table, one_row)
+    @test held["rotors"] == 0.9 && held["kite"] == 0.85 && held["none"] == 1.0
 end
 
 @testset "a development ship whose rig has no size in the class study stops the run" begin
@@ -4524,7 +4602,7 @@ end
     @test rotors.low.units ≈ 5cell_ships
     @test rotors.low.area ≈ 1000cell_ships
     @test rotors.low.saved ≈ cell_work * 0.02 * 0.1
-    heating_value = WindShipOpt.vlsfo(assumptions).heating_value
+    heating_value = WindShipOpt.vlsfo(assumptions, 0.0).heating_value
     @test rotors.low.fuel ≈ cell_work * 0.01e6 / heating_value
     @test rotors.low.carbon ≈ cell_work * 0.5
     row = only(i for i in eachindex(cases)
@@ -4566,7 +4644,7 @@ end
     rotors = bulk.rigs["rotors"]
     @test rotors.saved * bulk_ships ≈ saved
     @test rotors.share ≈ 100saved / bill
-    heating_value = WindShipOpt.vlsfo(assumptions).heating_value
+    heating_value = WindShipOpt.vlsfo(assumptions, 0.0).heating_value
     @test rotors.fuel * bulk_ships ≈ bulk_work * 0.01e6 / heating_value
     @test rotors.carbon * bulk_ships ≈ bulk_work * 0.5
     @test iszero(bulk.rigs["kite"].saved)
@@ -4692,7 +4770,7 @@ end
     trip = round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
         assumptions)
     names = (:canopy_life, :e_methanol_price, :kite_out_of_service, :discount_rate,
-        :kite_crash_rate)
+        :kite_launch_loss_probability)
     recording = WindShipOpt.Recording()
     cost = WindShipOpt.record(recording) do
         inputs = WindShipOpt.recorded_inputs(assumptions, names)
@@ -4789,11 +4867,11 @@ end
         ShipDesign(:methanol, 85.0; wing_area=400.0),
         ShipDesign(:methanol, 85.0; kite_area=800.0))
 
-        ship = Ship(design, assumptions)
+        ship = Ship(design, assumptions; route=:caribbean)
         trip = round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
             assumptions)
         io = IOBuffer()
-        PaperData.write_costs(io, (; design, assumptions), trip,
+        PaperData.write_costs(io, (; design, assumptions, route=:caribbean), trip,
             trip.cargo * tonne_km_per_tonne)
         hours, parts... = parse.(Float64, split(chomp(String(take!(io))), ',')[2:end])
         @test hours ≈ 24(trip.outbound_days + trip.return_days +

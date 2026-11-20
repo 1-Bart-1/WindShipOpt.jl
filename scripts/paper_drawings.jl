@@ -308,8 +308,8 @@ function draw_plan_rig(io, rig::WingRig, ship, (speed, wind, angle), name, force
     chord = rig.height / assumptions[:wing_aspect_ratio] * force_balance_scale.length
     _, _, apparent = WindShipOpt.centre_wind(rig, ship.env, wind, angle, speed)
     along = chord / 2 .* (sin(apparent), -cos(apparent))
-    for position in WindShipOpt.unit_positions(rig, ship.hull, assumptions)
-        centre = (0.0, position * force_balance_scale.length)
+    for (position, offset) in WindShipOpt.unit_positions(rig, ship.hull, assumptions)
+        centre = (offset, position) .* force_balance_scale.length
         println(io, "\\draw[", name, ", line width=", tex_size("line"), "] ",
             tikz_point((centre .- along)...), " -- ", tikz_point((centre .+ along)...), ";")
     end
@@ -317,8 +317,8 @@ end
 
 function draw_plan_rig(io, rig::WindShipOpt.RotorRig, ship, conditions, name, forces)
     metres = force_balance_scale.length
-    for position in WindShipOpt.unit_positions(rig, ship.hull, assumptions)
-        println(io, "\\fill[", name, "] ", tikz_point(0.0, position * metres),
+    for (position, offset) in WindShipOpt.unit_positions(rig, ship.hull, assumptions)
+        println(io, "\\fill[", name, "] ", tikz_point(offset * metres, position * metres),
             " circle (", @sprintf("%.2f", rig.diameter / 2 * metres), ");")
     end
 end
@@ -408,7 +408,7 @@ height times its chord or diameter, standing at its foot height.
 """
 function draw_side_rig!(axis, rig, hull, offset)
     width = rig isa WingRig ? rig.height / assumptions[:wing_aspect_ratio] : rig.diameter
-    for position in WindShipOpt.unit_positions(rig, hull, assumptions)
+    for (position, _) in WindShipOpt.unit_positions(rig, hull, assumptions)
         poly!(axis, Rect2f(Point2f(offset) + Point2f(position - width / 2,
                     rig.foot_height), Vec2f(width, rig.height));
             color=palette[rig isa WingRig ? 2 : 3],
@@ -527,11 +527,14 @@ end
     draw_height(hull, kite_area)
 
 Height [m] above the waterline of the top of what [`ship_classes_figure`](@ref) draws on
-`hull`: the kite of `kite_area` [m^2], or the highest deck rig the air draft allows.
+`hull`: the kite of `kite_area` [m^2], or the tallest deck rig built.
 """
 function draw_height(hull, kite_area)
-    isfinite(kite_area) || return assumptions[:max_air_draft]
-    return max(side_kite(kite_area, hull).top, assumptions[:max_air_draft])
+    scale = hull.length / assumptions[:reference_length]
+    deck_rig = assumptions[:deck_mount_height] * scale +
+               max(assumptions[:wing_max_height], assumptions[:rotor_max_height])
+    isfinite(kite_area) || return deck_rig
+    return max(side_kite(kite_area, hull).top, deck_rig)
 end
 
 """

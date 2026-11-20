@@ -4,7 +4,8 @@
 """
     Fuel
 
-Fuel burned on board, with its price including any carbon charge.
+Fuel burned on board, with its price including the carbon charge on the share of its
+emissions a carbon price covers.
 """
 struct Fuel{T <: Real}
     "price including carbon charge [USD/J]"
@@ -13,29 +14,38 @@ struct Fuel{T <: Real}
     heating_value::Float64
     "tank-to-wake CO2 [kg/J]"
     carbon_intensity::Float64
+    "share of the emissions the carbon price is paid on [-]"
+    carbon_coverage::Float64
 end
-
-function vlsfo(assumptions::Assumptions)
-    intensity = assumptions[:vlsfo_carbon_intensity]
-    carbon_charge = assumptions[:carbon_price] * assumptions[:carbon_coverage] * intensity
-    return Fuel((assumptions[:vlsfo_price] + carbon_charge) / 1e9,
-        1e6assumptions[:vlsfo_heating_value], intensity * 1e3 / 1e9)
-end
-
-e_methanol(assumptions::Assumptions) = Fuel(assumptions[:e_methanol_price] / 1e9,
-    1e6assumptions[:methanol_heating_value], 0.0)
 
 """
-    e_ammonia(assumptions)
+    vlsfo(assumptions, carbon_coverage)
+
+VLSFO with the carbon price paid on `carbon_coverage` of its emissions.
+"""
+function vlsfo(assumptions::Assumptions, carbon_coverage)
+    intensity = assumptions[:vlsfo_carbon_intensity]
+    carbon_charge = assumptions[:carbon_price] * carbon_coverage * intensity
+    return Fuel((assumptions[:vlsfo_price] + carbon_charge) / 1e9,
+        1e6assumptions[:vlsfo_heating_value], intensity * 1e3 / 1e9, carbon_coverage)
+end
+
+e_methanol(assumptions::Assumptions, carbon_coverage) =
+    Fuel(assumptions[:e_methanol_price] / 1e9, 1e6assumptions[:methanol_heating_value], 0.0,
+        carbon_coverage)
+
+"""
+    e_ammonia(assumptions, carbon_coverage)
 
 E-ammonia burned with a share of VLSFO as pilot fuel, priced and charged for carbon by
-energy share; heating value of ammonia.
+energy share on `carbon_coverage` of the emissions; heating value of ammonia.
 """
-function e_ammonia(assumptions::Assumptions)
+function e_ammonia(assumptions::Assumptions, carbon_coverage)
     pilot = assumptions[:ammonia_pilot_share]
-    oil = vlsfo(assumptions)
+    oil = vlsfo(assumptions, carbon_coverage)
     return Fuel((1 - pilot) * assumptions[:e_ammonia_price] / 1e9 + pilot * oil.price,
-        1e6assumptions[:ammonia_heating_value], pilot * oil.carbon_intensity)
+        1e6assumptions[:ammonia_heating_value], pilot * oil.carbon_intensity,
+        carbon_coverage)
 end
 
 """
@@ -57,8 +67,9 @@ end
 
 Power source, fuel and fuel store of a drive: `:vlsfo` for a mechanical diesel on VLSFO,
 `:methanol` for diesel-electric gensets on e-methanol, `:ammonia` for a mechanical
-dual-fuel engine on e-ammonia with its tank. Tanks without a store sit in the hull and take
-no cargo space.
+dual-fuel engine on e-ammonia with its tank. A mechanical engine is a geared four-stroke on
+the reference coaster family and a [`two_stroke`](@ref) on a class that has one. Tanks
+without a store sit in the hull and take no cargo space.
 """
 Base.@kwdef struct Drive{F <: Fuel}
     fuel::F
@@ -78,34 +89,36 @@ Base.@kwdef struct Drive{F <: Fuel}
 end
 
 """
-    Drive(name, assumptions; shaft=assumptions[:shaft_efficiency])
+    Drive(name, assumptions; class=nothing, carbon_coverage=0)
 
-[`Drive`](@ref) of `name`, its mechanical drives turning the propeller through a shaft of
-efficiency `shaft`.
+[`Drive`](@ref) of `name` on a ship of `class`, or of the reference coaster family where
+`class` is nothing, paying the carbon price on `carbon_coverage` of its emissions.
 """
-Drive(name::Symbol, assumptions::Assumptions; shaft=assumptions[:shaft_efficiency]) =
-    Drive(Val(name), assumptions, shaft)
+Drive(name::Symbol, assumptions::Assumptions; class=nothing, carbon_coverage=0.0) =
+    Drive(Val(name), assumptions, class, carbon_coverage)
 
-Drive(::Val{:vlsfo}, assumptions, shaft) = Drive(; fuel=vlsfo(assumptions),
-    transmission_efficiency=shaft,
-    unit_count=1, peak_efficiency=assumptions[:vlsfo_engine_efficiency],
+Drive(::Val{:vlsfo}, assumptions, class, coverage) = Drive(;
+    fuel=vlsfo(assumptions, coverage),
+    transmission_efficiency=shaft_efficiency(class, assumptions),
+    unit_count=1, peak_efficiency=engine_efficiency(class, assumptions),
     part_load_penalty=assumptions[:part_load_penalty],
     power_cost=assumptions[:mechanical_propulsion_cost])
 
-Drive(::Val{:methanol}, assumptions, shaft) = Drive(; fuel=e_methanol(assumptions),
+Drive(::Val{:methanol}, assumptions, class, coverage) = Drive(;
+    fuel=e_methanol(assumptions, coverage),
     transmission_efficiency=assumptions[:electric_chain_efficiency],
     unit_count=round(Int, assumptions[:genset_count]),
     peak_efficiency=assumptions[:methanol_engine_efficiency],
     part_load_penalty=assumptions[:part_load_penalty],
     power_cost=assumptions[:electric_propulsion_cost])
 
-function Drive(::Val{:ammonia}, assumptions, shaft)
+function Drive(::Val{:ammonia}, assumptions, class, coverage)
     store = FuelStore(; mass_ratio=1 / assumptions[:ammonia_tank_gravimetric_density],
         volume=1 / assumptions[:ammonia_tank_volumetric_density],
         price=assumptions[:ammonia_tank_cost])
-    return Drive(; fuel=e_ammonia(assumptions),
-        transmission_efficiency=shaft,
-        unit_count=1, peak_efficiency=assumptions[:vlsfo_engine_efficiency],
+    return Drive(; fuel=e_ammonia(assumptions, coverage),
+        transmission_efficiency=shaft_efficiency(class, assumptions),
+        unit_count=1, peak_efficiency=engine_efficiency(class, assumptions),
         part_load_penalty=assumptions[:part_load_penalty],
         power_cost=assumptions[:mechanical_propulsion_cost] +
                    assumptions[:ammonia_engine_premium],
@@ -135,8 +148,11 @@ Base.@kwdef struct ShipClass
     deadweight::Float64
     "service speed of the source design [kn]"
     service_speed::Float64
-    "rated power of the source design's main engine [kW]"
+    "rated power of the source design's main engine, NaN where the class is rated as the
+    reference coaster family [kW]"
     power::Float64
+    "whether the main engine is a direct-coupled two-stroke, not a geared four-stroke"
+    two_stroke::Bool
     "fraction of `power` at which the source design makes `service_speed` at the design
     draught with its sea margin, NaN where its power is no design point [-]"
     source_load::Float64
@@ -193,6 +209,7 @@ function ship_classes()
             "restricted_call_share", "fixed_rig_port_hours", "unit_capacity"))
         classes[row["name"]] = ShipClass(; name=row["name"], type=row["type"],
             cargo_unit=Symbol(lowercase(row["cargo_unit"])),
+            two_stroke=Dict("two-stroke" => true, "four-stroke" => false)[row["engine"]],
             liner=(; liner=true, tramp=false)[Symbol(row["service"])], values...)
     end
     return classes
@@ -214,16 +231,29 @@ function Hull(class::ShipClass, assumptions::Assumptions)
         resistance_factor=resistance_calibration(class, holtrop, assumptions))
 end
 
+"whether the mechanical engine of a ship of `class` is a two-stroke; a geared four-stroke on
+the reference coaster family (`class` nothing)"
+two_stroke(class::ShipClass) = class.two_stroke
+two_stroke(::Nothing) = false
+
 """
     shaft_efficiency(class, assumptions)
 
-Efficiency of the shaft from a mechanical engine to the propeller: a direct-coupled
-two-stroke on a ship of `class`, a geared engine on the reference coaster family
-(`class` nothing) [-].
+Efficiency of the shaft from the mechanical engine of a ship of `class` to the propeller:
+direct-coupled for a [`two_stroke`](@ref), geared otherwise [-].
 """
-shaft_efficiency(::ShipClass, assumptions::Assumptions) =
-    assumptions[:direct_shaft_efficiency]
-shaft_efficiency(::Nothing, assumptions::Assumptions) = assumptions[:shaft_efficiency]
+shaft_efficiency(class, assumptions::Assumptions) =
+    assumptions[two_stroke(class) ? :direct_shaft_efficiency : :shaft_efficiency]
+
+"""
+    engine_efficiency(class, assumptions)
+
+Peak efficiency of the mechanical engine of a ship of `class`, a [`two_stroke`](@ref) or a
+four-stroke [-].
+"""
+engine_efficiency(class, assumptions::Assumptions) =
+    assumptions[two_stroke(class) ? :two_stroke_engine_efficiency :
+                :four_stroke_engine_efficiency]
 
 """
     resistance_calibration(class, hull, assumptions)
@@ -342,13 +372,13 @@ struct Ship{R}
 end
 
 """
-    Ship(design, assumptions)
+    Ship(design, assumptions; route=nothing)
 
 Ship for `design`, or `nothing` if its rig does not fit on the hull. Its engines,
 gensets or fuel cells are rated for the [`rated_delivered_power`](@ref) and the hotel
-load.
+load; its fuel pays the carbon price by its [`carbon_coverage`](@ref) on `route`.
 """
-function Ship(design::ShipDesign, assumptions::Assumptions)
+function Ship(design::ShipDesign, assumptions::Assumptions; route=nothing)
     env = Environment(assumptions)
     hull = isnothing(design.class) ? Hull(design.length, assumptions) :
            Hull(design.class, assumptions)
@@ -356,8 +386,8 @@ function Ship(design::ShipDesign, assumptions::Assumptions)
     isnothing(rig) && has_rig(design) && return nothing
     stiffness = displacement_mass(hull, env) * env.gravity *
                 assumptions[:metacentric_height_ratio] * hull.beam
-    drive = Drive(design.drive, assumptions;
-        shaft=shaft_efficiency(design.class, assumptions))
+    drive = Drive(design.drive, assumptions; design.class,
+        carbon_coverage=carbon_coverage(hull, route, assumptions))
     hotel_load = 1e3assumptions[:hotel_load]
     hull_parts = (design, env, hull, WaveCoefficients(hull),
         SeakeepingHull(hull, assumptions), Propeller(design, hull, assumptions))
@@ -392,14 +422,14 @@ with_rig(ship::Ship, rig) = Ship(ship.design, ship.env, ship.hull, ship.wave_coe
 
 Power [W] delivered to the propeller at the rating of the main engine of `ship`: the
 engine power of its class's source design through its [`shaft_efficiency`](@ref), or for
-the reference coaster
-family the calm-water power at the service speed with any kite stowed and the sea and
-engine margins.
+the reference coaster family and a class without that power the calm-water power at the
+service speed with any kite stowed and the sea and engine margins.
 """
 function rated_delivered_power(ship::Ship, assumptions::Assumptions)
     (; class) = ship.design
-    isnothing(class) || return 1e3class.power * shaft_efficiency(class, assumptions)
-    speed = assumptions[:service_speed] * KNOT
+    isnothing(class) || isnan(class.power) ||
+        return 1e3class.power * shaft_efficiency(class, assumptions)
+    speed = (isnothing(class) ? assumptions[:service_speed] : class.service_speed) * KNOT
     calm = delivered_power(ship.propeller, ship.env, speed,
         first(best_trim(ship, standing_rig(ship.rig), speed, 0.0, 0.0)))
     return calm * (1 + assumptions[:sea_margin]) / assumptions[:engine_rating_fraction]

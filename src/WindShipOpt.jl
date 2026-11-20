@@ -18,7 +18,7 @@ using Optim: Optim
 using TOML: TOML
 using YAML: YAML
 
-export Assumption, Assumptions, with_value, inputs_read
+export Assumption, Assumptions, with_value, at_today, inputs_read
 export Environment, Hull, WaveCoefficients, resistance, wetted_surface, form_factor
 export SeakeepingHull, added_resistance, added_resistance_coefficient, jonswap
 export WingRig, KiteRig, RigForce, rig_force, apparent_wind
@@ -51,7 +51,7 @@ include("weather.jl")
 include("era5.jl")
 include("routing.jl")
 include("forecast.jl")
-include("rig_prices.jl")
+include("rotor_prices.jl")
 include("economics.jl")
 include("analysis.jl")
 

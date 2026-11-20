@@ -128,9 +128,9 @@ export class ShipScene {
     const freeboard = Math.max(design.depth - design.draft, 1);
     this.root.add(hullMesh(design, freeboard));
     if (design.rig === "wings") {
-      for (const position of design.positions!) this.addWing(design, position);
+      design.positions!.forEach((position, i) => this.addWing(design, position, design.offsets![i]));
     } else if (design.rig === "rotors") {
-      for (const position of design.positions!) this.addRotor(design, position);
+      design.positions!.forEach((position, i) => this.addRotor(design, position, design.offsets![i]));
     } else if (design.rig === "kite") {
       this.addKite(design);
     }
@@ -149,7 +149,7 @@ export class ShipScene {
     this.controls.update();
   }
 
-  private addWing(design: PassageDesign, position: number) {
+  private addWing(design: PassageDesign, position: number, offset: number) {
     const shape = new THREE.Shape();
     const halfWidth = design.width! / 2;
     const thickness = design.width! * 0.1;
@@ -159,12 +159,12 @@ export class ShipScene {
     const geometry = new THREE.ExtrudeGeometry(shape, { depth: design.height!, bevelEnabled: false, curveSegments: 12 });
     geometry.rotateX(-Math.PI / 2);
     const wing = outlined(new THREE.Mesh(geometry, flat("paper")));
-    wing.position.set(position, design.foot_height!, 0);
+    wing.position.set(position, design.foot_height!, offset);
     this.root.add(wing);
     this.wings.push(wing);
   }
 
-  private addRotor(design: PassageDesign, position: number) {
+  private addRotor(design: PassageDesign, position: number, offset: number) {
     const radius = design.diameter! / 2;
     const body = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, design.height!, 32), flat("paper"));
     const rotor = new THREE.Group();
@@ -174,7 +174,7 @@ export class ShipScene {
     const stripe = new THREE.Mesh(new THREE.BoxGeometry(radius * 0.18, design.height!, radius * 0.06), flat("ink"));
     stripe.position.set(radius * 0.99, 0, 0);
     rotor.add(cap, stripe);
-    rotor.position.set(position, design.foot_height! + design.height! / 2, 0);
+    rotor.position.set(position, design.foot_height! + design.height! / 2, offset);
     this.root.add(rotor);
     this.rotors.push(rotor);
   }

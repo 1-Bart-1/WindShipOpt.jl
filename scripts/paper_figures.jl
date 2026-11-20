@@ -3289,10 +3289,9 @@ end
     min_wind_figure()
 
 Lowest apparent wind against projected area for the kite of the design aspect ratio: the
-crosswind and climbing bounds at the lowest elevation, lift-off with the margin and its
-range over the margin's bounds, and the launch wind the model uses, which is the largest
-of these and the reported launch wind, with its range over the bounds of the margin and of
-the reported launch wind in turn.
+crosswind and climbing bounds at the lowest elevation, and the calm-sea launch wind the
+model uses, the larger of the climbing bound and the reported launch wind, with its range
+over the bounds of the reported launch wind and the elevation in turn.
 """
 function min_wind_figure()
     figure = Figure(size=(column_width, 190))
@@ -3302,29 +3301,21 @@ function min_wind_figure()
     areas = exp.(range(log(500), log(16000); length=40))
     elevation = assumptions.entries[:kite_min_elevation]
     elevations = deg2rad.((elevation.value, elevation.low, elevation.high))
-    bounds = one_at_a_time(assumptions,
-        (:kite_launch_margin, :kite_launch_min_wind, :kite_min_elevation))
+    bounds = one_at_a_time(assumptions, (:kite_launch_min_wind, :kite_min_elevation))
     winds = map(areas) do area
-        model, _, diameter = WindShipOpt.kite_model(area, design_aspect_ratio, assumptions)
-        tether_mass = WindShipOpt.rope_mass(diameter, model.tether_length, assumptions)
-        lift_off = WindShipOpt.static_wind(model.mass - tether_mass / 2, model)
-        launches = [WindShipOpt.launch_min_wind(model, tether_mass, inputs)
-                    for inputs in bounds]
+        model, _, _ = WindShipOpt.kite_model(area, design_aspect_ratio, assumptions)
+        launches = [WindShipOpt.launch_min_wind(model, inputs) for inputs in bounds]
         cross = [WindShipOpt.crosswind_min_wind(model, angle) for angle in elevations]
         climb = [WindShipOpt.climbing_min_wind(model, angle) for angle in elevations]
         (cross=cross[1], cross_low=minimum(cross), cross_high=maximum(cross),
             climb=climb[1], climb_low=minimum(climb), climb_high=maximum(climb),
-            lift=assumptions[:kite_launch_margin] * lift_off,
-            lift_low=assumptions.entries[:kite_launch_margin].low * lift_off,
-            lift_high=assumptions.entries[:kite_launch_margin].high * lift_off,
-            launch=WindShipOpt.launch_min_wind(model, tether_mass, assumptions),
+            launch=WindShipOpt.launch_min_wind(model, assumptions),
             launch_low=minimum(launches), launch_high=maximum(launches))
     end
     launch_colour = :gray60
     band!(axis, areas, getindex.(winds, :launch_low), getindex.(winds, :launch_high);
         color=(launch_colour, 0.25))
-    curves = ((:launch, launch_colour, pt(3.5)), (:lift, category_colours[1], line_width),
-        (:climb, category_colours[2], line_width),
+    curves = ((:launch, launch_colour, pt(3.5)), (:climb, category_colours[2], line_width),
         (:cross, category_colours[3], line_width))
     for (key, color, _) in curves[2:end]
         band!(axis, areas, getindex.(winds, Symbol(key, :_low)),
@@ -3336,8 +3327,8 @@ function min_wind_figure()
     ylims!(axis, 0, 1.35 * maximum(getindex.(winds, :launch_high)))
     entries = [[PolyElement(color=(color, key == :launch ? 0.25 : 0.15)),
                    LineElement(; color, linewidth)] for (key, color, linewidth) in curves]
-    axislegend(axis, entries, ["launch", "lift-off", "climb", "crosswind"]; position=:lt,
-        orientation=:horizontal, nbanks=2)
+    axislegend(axis, entries, ["launch", "climb", "crosswind"]; position=:lt,
+        orientation=:horizontal)
     save_figure("min_wind", figure)
 end
 
