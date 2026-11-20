@@ -4184,9 +4184,9 @@ end
 @testset "a kite costed on its routes at the goals costs what routing found, and more \
           at today's values" begin
     kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
-    trip = round_trip(Ship(kite, assumptions), corridors..., SyntheticWeather(),
-        [24.0 * 31], assumptions)
-    case = (; design=kite, assumptions, corridors)
+    trip = round_trip(Ship(kite, assumptions; route=:caribbean), corridors...,
+        SyntheticWeather(), [24.0 * 31], assumptions)
+    case = (; design=kite, assumptions, route=:caribbean, corridors)
     @test PaperData.changed_cost(case, trip) ≈ trip.cost_per_tonne_km
     today = merge(case, (; assumptions=at_today(assumptions)))
     @test PaperData.changed_cost(today, trip) > trip.cost_per_tonne_km
