@@ -21,6 +21,9 @@
 \AtEndDocument{\ifx\stale@left\@empty\else
   \PackageWarningNoLine{stale}{Studies to rerun for stale text:\stale@left}\fi}
 \makeatother
+% \studyresult{studies}{text}: text whose numbers come from the recorded runs (\studyrun) of
+% finished method studies, whose code is gone; shown as is.
+\NewDocumentCommand{\studyresult}{m +m}{#2}
 % \given{text}: an input, literature value or method constant typed in result text; shown as is.
 \newcommand{\given}[1]{#1}
 % \note{text}: a review note shown in the PDF; \notesfalse hides all.
@@ -30,7 +33,7 @@
 \AddToHook{shipout/foreground}{\put(0,0){\makebox[\paperwidth][c]{\raisebox{\dimexpr-\paperheight+6mm\relax}{\normalfont\scriptsize\color{black!60}\confidential}}}}
 % \keywordlist{separator}: the paper's keywords, joined by the separator.
 \newcommand{\keywordlist}[1]{wind-assisted ship propulsion#1 towing kite#1 airborne wind energy#1 rigid wing sail#1 Flettner rotor#1 weather routing#1 e-ammonia}
-\newcommand{\plot}[2][]{\IfFileExists{figures/#2.pdf}{\includegraphics[max width=\textwidth]{#2}}{\fbox{\parbox[c][3cm][c]{0.9\textwidth}{\centering\tbd{Figure \detokenize{#2} pending data.}}}}}
+\newcommand{\plot}[2][]{\IfFileExists{figures/#2.tex}{\input{figures/#2.tex}}{\IfFileExists{figures/#2.pdf}{\includegraphics[max width=\textwidth]{#2}}{\fbox{\parbox[c][3cm][c]{0.9\textwidth}{\centering\tbd{Figure \detokenize{#2} pending data.}}}}}}
 \graphicspath{{figures/}}
 % \tablerows{file}: the rows of a longtable read from a file, with no empty row after them.
 \makeatletter\newcommand{\tablerows}[1]{\@@input #1 }\makeatother
@@ -41,3 +44,7 @@
 \input{sections/numbers}
 \input{sections/routing_value_numbers}
 \input{sections/rigid_numbers}
+% \todaynum{name}: the number NumToday<name> of the today step or of its routing check, or a mark until they have run.
+\InputIfFileExists{sections/today_numbers}{}{}
+\InputIfFileExists{sections/today_routing_numbers}{}{}
+\newcommand{\todaynum}[1]{\ifcsname NumToday#1\endcsname\csname NumToday#1\endcsname\else\tbd{[today #1]}\fi}

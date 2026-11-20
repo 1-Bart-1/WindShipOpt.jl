@@ -7,14 +7,12 @@
 # the run of the class study, `paper(:classes, :explorer; fidelity)`, to reuse its trips.
 
 "inputs of data/assumptions.yaml a reader of the explorer changes"
-explorer_inputs = (:vlsfo_price, :e_ammonia_price, :carbon_price, :carbon_coverage,
-    :canopy_life, :canopy_making_cost_per_area, :canopy_cloth_base_price,
-    :canopy_cloth_price_per_weight, :tether_price, :tether_lifetime, :kite_cycle_crew_cost,
-    :kite_cycle_damage_probability, :kite_cycle_loss_probability,
-    :kite_forced_landing_loss_probability, :kite_out_of_service, :wing_out_of_service,
-    :rotor_out_of_service, :kite_crash_rate, :wing_loss_rate, :rotor_loss_rate,
-    :market_price_factor, :kite_lifetime, :wing_lifetime, :rotor_lifetime, :discount_rate,
-    :availability)
+explorer_inputs = (:vlsfo_price, :e_ammonia_price, :carbon_price, :canopy_life,
+    :canopy_structure_cost, :canopy_cloth_price_per_weight, :tether_price, :tether_lifetime,
+    :kite_cycle_crew_cost, :kite_launch_loss_probability, :kite_out_of_service,
+    :wing_out_of_service, :rotor_out_of_service, :wing_loss_rate, :rotor_loss_rate,
+    :market_price_factor, :kite_lifetime, :wing_lifetime, :rotor_lifetime,
+    :discount_rate, :availability)
 
 "ships (class, drive, route) whose cheapest design of each rig is rerun at other inputs"
 explorer_check_ships = (("general cargo coaster", :ammonia, :caribbean),
@@ -29,12 +27,9 @@ on the cargo value of the class).
 """
 function explorer_changes()
     entry(name) = assumptions.entries[name]
-    canopy_today = NamedTuple(name => assumptions[Symbol(name, :_today)]
-                              for name in WindShipOpt.canopy_price_inputs)
     return [("canopy life ×2", (canopy_life=2assumptions[:canopy_life],), 1.0),
-        ("canopy price as built today", canopy_today, 1.0),
         ("fuel −30 %", fuel_prices(0.7), 1.0), ("fuel +30 %", fuel_prices(1.3), 1.0),
-        ("carbon price on VLSFO", (carbon_coverage=1.0,), 1.0),
+        ("carbon price ×2", (carbon_price=2assumptions[:carbon_price],), 1.0),
         ("discount rate low", (discount_rate=entry(:discount_rate).low,), 1.0),
         ("discount rate high", (discount_rate=entry(:discount_rate).high,), 1.0),
         ("cargo value ×2", (;), 2.0),
@@ -43,8 +38,10 @@ function explorer_changes()
                                           for name in (:kite_out_of_service,
                                               :wing_out_of_service, :rotor_out_of_service)),
             1.0),
-        ("one crash or loss per unit and year",
-            (kite_crash_rate=1.0, wing_loss_rate=1.0, rotor_loss_rate=1.0), 1.0)]
+        ("kites lost at the high bound", (kite_launch_loss_probability=entry(
+                :kite_launch_loss_probability).high,), 1.0),
+        ("one wing or rotor lost per unit and year", (wing_loss_rate=1.0, rotor_loss_rate=1.0),
+            1.0)]
 end
 
 """
@@ -65,11 +62,8 @@ each rig on [`explorer_check_ships`](@ref) at each of [`explorer_changes`](@ref)
 on its base routes and rerouted: explorer.json.
 """
 function explorer_data()
-    table = read_table(data_file("classes.csv"))
     classes = ship_classes()
-    cases = [class_case(classes[table["class"][k]], Symbol(table["drive"][k]),
-                 table["rig"][k], table["area"][k], Symbol(table["route"][k]))
-             for k in eachindex(table["class"])]
+    cases = class_cases(read_table(data_file("classes.csv")))
     trips = round_trips(cases, sampled_departures())
     feasible = findall(!isnothing, trips)
     cases, trips = cases[feasible], trips[feasible]
@@ -85,7 +79,7 @@ function explorer_data()
         classes=[explorer_class(classes[name]) for name in names],
         routes=[(; name=string(name), label=route_label(name)) for name in route_names],
         canopy_price=(node=outputs.canopy_price - 1,
-            value=WindShipOpt.canopy_price(assumptions)),
+            value=reference_canopy_price(assumptions)),
         designs=[explorer_design(case, trip, design, names)
                  for (case, trip, design) in zip(cases, trips, outputs.designs)],
         nodes=recording.nodes, checks=explorer_checks(cases, trips))
@@ -112,7 +106,7 @@ function recorded_designs(cases, trips, class_names)
                    ammonia_saving=saving_node(bare, case, cost, :ammonia),
                    vlsfo_saving=saving_node(bare, case, cost, :vlsfo))
                for (case, cost) in zip(cases, costs)]
-    return (; canopy_price=WindShipOpt.canopy_price(inputs).node, designs)
+    return (; canopy_price=reference_canopy_price(inputs).node, designs)
 end
 
 """
@@ -136,21 +130,11 @@ Cost per tonne-km [USD] of `case` on the routes of its `trip` at the recorded `i
 with the class's cargo value replaced by `cargo_value`.
 """
 function recorded_cost(case, trip, inputs, cargo_value)
-    ship = Ship(case.design, assumptions)
+    ship = Ship(case.design, assumptions; case.route)
     costs = [WindShipOpt.ShipCosts(costs.capital, costs.fixed_annual, costs.hold,
                  cargo_value) for costs in WindShipOpt.ship_costs(ship, inputs)]
     return recosted(ship, costs, trip, case, inputs)
 end
-
-"""
-    recosted(ship, costs, trip, case, inputs)
-
-Cost per tonne-km [USD] of `ship` with [`ShipCosts`](@ref) `costs` on the routes of its
-`trip` for `case`, at `inputs`.
-"""
-recosted(ship, costs, trip, case, inputs) = WindShipOpt.voyage_costs(ship, costs,
-    WindShipOpt.state_rigs(ship.rig, assumptions), trip.passages, case.corridors...,
-    inputs).cheaper
 
 """
     explorer_checks(cases, trips)
@@ -170,18 +154,6 @@ function explorer_checks(cases, trips)
                 recosted=changed_cost(case, trips[k]), rerouted=trip.cost_per_tonne_km)
             for ((k, label, changes, factor), case, trip) in zip(checks, changed, rerouted)
             if !isnothing(trip)]
-end
-
-"""
-    changed_cost(case, trip)
-
-Cost per tonne-km [USD] of `case` at its inputs on the routes of `trip`, routed at the
-base inputs.
-"""
-function changed_cost(case, trip)
-    ship = Ship(case.design, case.assumptions)
-    costs = WindShipOpt.ship_costs(ship, case.assumptions)
-    return recosted(ship, costs, trip, case, case.assumptions)
 end
 
 """
@@ -222,18 +194,16 @@ end
 """
     explorer_input_entries(classes, class_names)
 
-The base, low and high values and the unit of each of [`explorer_inputs`](@ref) and of
-the canopy price inputs as built today by name, and of the cargo value of each of
-`class_names`.
+The base, low and high values, the unit and the value known today of each of
+[`explorer_inputs`](@ref) by name, and of the cargo value of each of `class_names`.
 """
 function explorer_input_entries(classes, class_names)
-    today = (Symbol(name, :_today) for name in WindShipOpt.canopy_price_inputs)
     entries = Dict{String, Any}(string(name) => assumptions.entries[name]
-                                for name in (explorer_inputs..., today...))
+                                for name in explorer_inputs)
     for name in class_names
         value = classes[name].cargo_value
         entries[cargo_input(name)] = Assumption(value, value, value, "USD/t",
-            "cargo value of the class")
+            "cargo value of the class", value)
     end
     return entries
 end
@@ -275,7 +245,7 @@ write_json(io, value::Real) = isnan(value) ? print(io, "null") :
                               isinf(value) ? print(io, value > 0 ? "1e999" : "-1e999") :
                               print(io, Float64(value))
 write_json(io, value::Assumption) = write_json(io, (; value.value, value.low, value.high,
-    value.unit))
+    value.unit, value.today))
 write_json(io, value::Union{NamedTuple, AbstractDict}) =
     write_json_entries(io, '{', '}', pairs(value))
 write_json(io, value::Union{AbstractVector, Tuple}) =

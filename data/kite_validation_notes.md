@@ -339,12 +339,20 @@ sale; 10 % discount rate.
 | Fast, USD 234/m², canopy life 3,000 h       | year 13                          | —                 | +61 MUSD                  |
 | Fast, USD 150/m², canopy life 3,000 h       | year 14                          | —                 | −18 MUSD                  |
 
-Each year's cash is (sales + spares) × (1 − 0.7·f(n)) − 15 MUSD, with n the units sold so far and f(n) = (min(n + 10, 1000)/1000)^log2(0.85), per unit within a year's sales and 1 at series level. Spares are, for each ship sold in the 15 years before, half a tether and a canopy per canopy life at 2,000 flight h a year. Cash is discounted from the end of its year. This reproduces the first five rows within 2 MUSD. The last four set the canopy price and life in the same sum; hardware and tether stay as above.
+The table above is at the earlier stage price, with cost along a learning curve. Each year's cash is (sales + spares) × (1 − 0.7·f(n)) − 15 MUSD, with n the units sold so far and f(n) = (min(n + 10, 1000)/1000)^log2(0.85), per unit within a year's sales and 1 at series level. Spares are, for each ship sold in the 15 years before, half a tether and a canopy per canopy life at 2,000 flight h a year. Cash is discounted from the end of its year. This reproduces the first five rows within 2 MUSD. The last four set the canopy price and life in the same sum; hardware and tether stay as above.
+
+At the paper's price (every rig at its build-up times the market factor of 2, 2026-11-19): an 800 m² system whose hardware sells at 494 kUSD, its build-up price with the tow point and ship-side controls, with the canopy at its own price, 154 kUSD (192 USD/m²), and a 49 kUSD tether. Cost of goods is 0.7 of the price of hardware, canopy and tether from the first unit, with no learning. Spares in a year are sold to every ship sold in the 15 years up to and including that year; development 100 MUSD at the start; canopy life 3,000 h. Summed this way, the earlier stage price (730 kUSD hardware, cost falling along a 12 % learning curve) gives year 7 and +469 MUSD on the fast ramp and year 15 and −63 on the slow one, against year 8 and +410 and year 17 and −79 from the sum behind the earlier table, so this sum is within about 60 MUSD of that one and a year early.
+
+| Case                                    | Break-even | NPV over 20 years at 10 % |
+| --------------------------------------- | ---------- | ------------------------- |
+| Build-up price, fast ramp               | year 9     | +217 MUSD                 |
+| Build-up price, slow ramp               | year 20    | −111 MUSD                 |
+| Build-up price, fast, no spare canopies, no tether | year 13 | −36 MUSD             |
 
 Two findings. First, the hardware sale alone never pays back the development: at
-a 30 % gross margin a 427 kUSD system leaves 128 kUSD before fixed costs, and
+a 30 % gross margin a 494 kUSD hardware sale leaves 148 kUSD before fixed costs, and
 the business depends on canopy replacements, which over a 15-year ship life are
-worth ~6× the first sale. Second, it only works at ~100–200 systems a year,
+worth ~3× the first sale at a 3,000 h canopy life. Second, it only works at ~100–200 systems a year,
 which is ten times the whole wind-propulsion market's current output of any
 single rig maker (Norsepower: 32 rotors in 13 years). At SkySails' or
 Norsepower's historical pace it does not break even.

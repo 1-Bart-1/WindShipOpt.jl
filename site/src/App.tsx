@@ -14,13 +14,13 @@ import {
   type Outcome,
 } from "./explorer";
 import {
-  canopyPriceInputs,
   changedCount,
   differs,
   exactInputs,
   inputGroups,
   paperCargoFactor,
   resetInputs,
+  todayInputs,
   type InputControl,
 } from "./inputs";
 import { rigColour, RIG_LABELS, type PassageDesign } from "./passages/passages";
@@ -64,11 +64,6 @@ function Explorer({ data }: { data: ExplorerData }) {
   const changed = changedCount(data, changes, cargoFactor);
   const change = (name: string, value: number) => setChanges({ ...changes, [name]: value });
   const reset = (names: string[]) => setChanges(resetInputs(changes, names));
-  const setCanopyToday = () =>
-    setChanges({
-      ...changes,
-      ...Object.fromEntries(canopyPriceInputs.map((name) => [name, data.inputs[`${name}_today`].value])),
-    });
 
   return (
     <main className="mx-auto max-w-[1120px] space-y-10 px-5 py-8 md:px-8">
@@ -76,7 +71,8 @@ function Explorer({ data }: { data: ExplorerData }) {
         <h1 className="text-5xl md:text-7xl leading-[0.9]">Towing kites, wing sails and Flettner rotors on cargo ships</h1>
         <p className="text-ink">
           Pick a ship, a route and a fuel, change the inputs, and see what each rig saves at its best size.
-          Results read: if each rig reaches these goals, it saves this much.
+          Results read: if each rig reaches these goals, it saves this much. Set the goals to what is known
+          today to see what each rig saves now, on the routes found at the goals.
         </p>
         {data.fidelity !== "final" && (
           <p className="rounded-[14px] bg-mustard/30 px-3 py-2 text-sm text-ink">
@@ -104,6 +100,10 @@ function Explorer({ data }: { data: ExplorerData }) {
             {changed === 0 ? "all at the paper's values" : `${changed} changed from the paper's values`}
           </span>
           <span className="rule hidden flex-1 sm:block" />
+          <button className="button"
+            onClick={() => { setChanges(todayInputs(data)); setCargoFactor(paperCargoFactor); }}>
+            Goals at what is known today
+          </button>
           <button className="button" disabled={changed === 0}
             onClick={() => { setChanges({}); setCargoFactor(paperCargoFactor); }}>
             Back to the paper's inputs
@@ -115,9 +115,7 @@ function Explorer({ data }: { data: ExplorerData }) {
               <legend className="px-1 font-semibold">{group.title}</legend>
               {group.title === "Kite goals" && (
                 <p className="text-sm text-ink">
-                  Canopy price {formatted(values[data.canopy_price.node], 0)} USD/m².{" "}
-                  <button className="underline" onClick={() => reset(canopyPriceInputs)}>Goal</button>{" · "}
-                  <button className="underline" onClick={setCanopyToday}>As built today</button>
+                  Canopy price {formatted(values[data.canopy_price.node], 0)} USD/m².
                 </p>
               )}
               {group.controls.map((control) => (
@@ -317,7 +315,7 @@ function Accuracy({ data }: { data: ExplorerData }) {
       <h2 className="text-lg font-semibold">How far to trust a change</h2>
       <p className="text-ink">
         The explorer keeps each design's voyages as the model routed them at the paper's inputs and recomputes
-        their cost with the model's own cost formulas. Crash and loss rates do not steer the router, so they are
+        their cost with the model's own cost formulas. Wing and rotor loss rates do not steer the router, so they are
         exact ({exactInputs.length} inputs). Every other input also changes how the ship is routed; the table gives the
         largest gap between the explorer and a full rerun of the model for {new Set(data.checks.map((check) => check.design)).size} designs.
       </p>

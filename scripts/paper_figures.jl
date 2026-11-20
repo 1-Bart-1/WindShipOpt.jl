@@ -62,9 +62,10 @@ name_pairs(names) = [(first_name, second_name) for (i, first_name) in enumerate(
     palette_faults()
 
 Pairs of colours meant to be told apart, the rigs, the categories beside them, gain and
-loss, the box fills of [`figure_style`](@ref), the VTOL kite at base and favourable inputs
-and three of its [`vtol_shades`](@ref), that come closer than `least["colour"]` in normal
-or in some colour-blind vision.
+loss, the ship's tones beside the rigs, the forces of water, wind and rigs, the box fills
+of [`figure_style`](@ref), the VTOL kite at base and favourable inputs and three of its
+[`vtol_shades`](@ref), that come closer than `least["colour"]` in normal or in some
+colour-blind vision.
 """
 function palette_faults()
     colours = Makie.Colors
@@ -72,6 +73,8 @@ function palette_faults()
     groups = (("rig", style_colour.(["kite", "wings", "rotors", "vtol"])),
         ("category", category_colours), ("cell", style_colour.(["gain", "loss"])),
         ("fill", style_colour.(collect(keys(figure_style["fills"])); table="fills")),
+        ("ship", style_colour.(["keel", "topsides", "deck", "kite", "wings", "rotors"])),
+        ("force", style_colour.(["water", "wind", "kite", "wings", "rotors"])),
         ("VTOL", [style_colour("vtol"), vtol_favourable]), ("VTOL shade", vtol_shades(3)))
     faults = String[]
     for (group, members) in groups, i in eachindex(members), j in (i + 1):length(members)
@@ -84,10 +87,88 @@ function palette_faults()
     return faults
 end
 
-"LaTeX3 code that records the box of each `label` node and stops the build where two meet"
-label_overlap_check = raw"""
+"""
+LaTeX3 code that records the box of each `label` node and each arrow as straight pieces, a
+curve as eight chords, and stops the build where two labels meet or an arrow comes within
+`clearance` of a label
+"""
+label_overlap_check = replace(raw"""
     \ExplSyntaxOn
     \seq_new:N \g_figstyle_labels_seq
+    \seq_new:N \g_figstyle_segments_seq
+    \cs_new_protected:Npn \figurestylesegment #1 #2
+      { \use:e { \exp_not:N \figstyle_segment:w #1 , #2 \exp_not:N \q_stop } }
+    \cs_new_protected:Npn \figurestylecurve #1 #2 #3 #4
+      {
+        \use:e
+          {
+            \exp_not:N \figstyle_curve:w #1 , #2 , #3 , #4 \exp_not:N \q_stop
+          }
+      }
+    \cs_new_protected:Npn \figstyle_curve:w #1 , #2 , #3 , #4 , #5 , #6 , #7 , #8 \q_stop
+      {
+        \tl_set:Nn \l_tmpa_tl { #1 , #2 }
+        \int_step_inline:nn { 8 }
+          {
+            \tl_set:Ne \l_tmpb_tl
+              {
+                \fp_eval:n
+                  {
+                    (1 - ##1/8)^3 * (#1) + 3 * (1 - ##1/8)^2 * ##1/8 * (#3)
+                    + 3 * (1 - ##1/8) * (##1/8)^2 * (#5) + (##1/8)^3 * (#7)
+                  } pt ,
+                \fp_eval:n
+                  {
+                    (1 - ##1/8)^3 * (#2) + 3 * (1 - ##1/8)^2 * ##1/8 * (#4)
+                    + 3 * (1 - ##1/8) * (##1/8)^2 * (#6) + (##1/8)^3 * (#8)
+                  } pt
+              }
+            \figurestylesegment { \l_tmpa_tl } { \l_tmpb_tl }
+            \tl_set_eq:NN \l_tmpa_tl \l_tmpb_tl
+          }
+      }
+    \cs_new_protected:Npn \figstyle_segment:w #1 , #2 , #3 , #4 \q_stop
+      {
+        \fp_compare:nNnT { abs((#3) - (#1)) + abs((#4) - (#2)) } > { 0.1pt }
+          {
+            \seq_gput_right:Nx \g_figstyle_segments_seq
+              {
+                { \dim_to_decimal:n {#1} } { \dim_to_decimal:n {#2} }
+                { \dim_to_decimal:n {#3} } { \dim_to_decimal:n {#4} }
+              }
+          }
+      }
+    \cs_new_protected:Npn \figstyle_clip:nn #1#2
+      {
+        \fp_compare:nNnTF { #1 } = { 0 }
+          { \fp_compare:nNnT { #2 } < { 0 } { \bool_set_false:N \l_figstyle_meets_bool } }
+          {
+            \fp_compare:nNnTF { #1 } < { 0 }
+              { \fp_set:Nn \l_figstyle_enter_fp { max(\l_figstyle_enter_fp, (#2) / (#1)) } }
+              { \fp_set:Nn \l_figstyle_leave_fp { min(\l_figstyle_leave_fp, (#2) / (#1)) } }
+          }
+      }
+    \fp_new:N \l_figstyle_enter_fp
+    \fp_new:N \l_figstyle_leave_fp
+    \bool_new:N \l_figstyle_meets_bool
+    \cs_new_protected:Npn \figstyle_crossing:nnnnnnnn #1#2#3#4#5#6#7#8
+      {
+        \fp_set:Nn \l_figstyle_enter_fp { 0 }
+        \fp_set:Nn \l_figstyle_leave_fp { 1 }
+        \bool_set_true:N \l_figstyle_meets_bool
+        \figstyle_clip:nn { #1 - #3 } { #1 - (#5 - @CLEARANCE@) }
+        \figstyle_clip:nn { #3 - #1 } { (#7 + @CLEARANCE@) - #1 }
+        \figstyle_clip:nn { #2 - #4 } { #2 - (#6 - @CLEARANCE@) }
+        \figstyle_clip:nn { #4 - #2 } { (#8 + @CLEARANCE@) - #2 }
+        \bool_if:NT \l_figstyle_meets_bool
+          {
+            \fp_compare:nNnT { \l_figstyle_enter_fp } < { \l_figstyle_leave_fp }
+              {
+                \PackageError {figurestyle}
+                  { an~arrow~runs~through~the~label~at~(#5pt,~#6pt) } { }
+              }
+          }
+      }
     \cs_new_protected:Npn \figurestylerecord #1
       {
         \group_begin:
@@ -98,10 +179,10 @@ label_overlap_check = raw"""
         \pgfgetlastxy \l_figstyle_bx_tl \l_figstyle_by_tl
         \seq_gput_right:Nx \g_figstyle_labels_seq
           {
-            { \dim_eval:n { \dim_min:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
-            { \dim_eval:n { \dim_min:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
-            { \dim_eval:n { \dim_max:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
-            { \dim_eval:n { \dim_max:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+          { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+          { \dim_to_decimal:n { \dim_min:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
+          { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ax_tl } { \l_figstyle_bx_tl } } }
+          { \dim_to_decimal:n { \dim_max:nn { \l_figstyle_ay_tl } { \l_figstyle_by_tl } } }
           }
         \group_end:
       }
@@ -109,10 +190,13 @@ label_overlap_check = raw"""
       {
         \bool_lazy_all:nT
           {
-            { \dim_compare_p:n { #1 < #7 } } { \dim_compare_p:n { #5 < #3 } }
-            { \dim_compare_p:n { #2 < #8 } } { \dim_compare_p:n { #6 < #4 } }
+            { \fp_compare_p:n { #1 < #7 } } { \fp_compare_p:n { #5 < #3 } }
+            { \fp_compare_p:n { #2 < #8 } } { \fp_compare_p:n { #6 < #4 } }
           }
-          { \PackageError {figurestyle} { labels~overlap~at~(#1,~#2)~and~(#5,~#6) } { } }
+          {
+            \PackageError {figurestyle}
+              { labels~overlap~at~(#1pt,~#2pt)~and~(#5pt,~#6pt) } { }
+          }
       }
     \cs_new_protected:Npn \figurestylecheck
       {
@@ -128,10 +212,17 @@ label_overlap_check = raw"""
                   }
               }
           }
+        \seq_map_inline:Nn \g_figstyle_segments_seq
+          {
+            \seq_map_inline:Nn \g_figstyle_labels_seq
+              { \use:e { \exp_not:N \figstyle_crossing:nnnnnnnn ##1 ####1 } }
+          }
         \seq_gclear:N \g_figstyle_labels_seq
+        \seq_gclear:N \g_figstyle_segments_seq
       }
     \ExplSyntaxOff
-    """
+    """, "@CLEARANCE@" => @sprintf("%.3f", figure_style["sizes"]["clearance"] +
+                                           figure_style["sizes"]["force"] / 2))
 
 "the size `name` of [`figure_style`](@ref) in TeX points"
 tex_size(name) = @sprintf("%gpt", figure_style["sizes"][name])
@@ -155,7 +246,8 @@ function figure_style_file()
         println(io, "% Written by the figure_style step from figure_style.toml; edit that.")
         println(io, "\\pdfinclusioncopyfonts=1")
         println(io, "\\usepackage{xcolor}\n\\usepackage{tikz}")
-        println(io, "\\usetikzlibrary{positioning,arrows.meta,fit}")
+        println(io, "\\usetikzlibrary{positioning,arrows.meta,fit,backgrounds,",
+            "decorations.pathreplacing}")
         for (name, hex) in sort(collect(figure_style["colours"]))
             println(io, "\\definecolor{", name, "}{HTML}{", hex, "}")
             dark = Makie.Colors.hex(readable(style_colour(name), white))
@@ -171,11 +263,17 @@ function figure_style_file()
         println(io, "  every picture/.style={line width=", tex_size("rule"), ", font=",
             tex_font("text"), ", execute at end picture=\\figurestylecheck, ",
             "every node/.style={execute at begin node={\\hyphenpenalty=10000\\relax}}},")
-        println(io, "  force/.style={->, line width=", tex_size("force"), "},")
-        println(io, "  flow/.style={->, line width=", tex_size("flow"), "},")
+        println(io, "  recorded/.style={postaction={decorate, decoration={show path ",
+            "construction, lineto code={\\figurestylesegment{\\tikzinputsegmentfirst}",
+            "{\\tikzinputsegmentlast}}, curveto code={\\figurestylecurve",
+            "{\\tikzinputsegmentfirst}{\\tikzinputsegmentsupporta}",
+            "{\\tikzinputsegmentsupportb}{\\tikzinputsegmentlast}}}}},")
+        println(io, "  force/.style={->, line width=", tex_size("force"), ", recorded},")
+        println(io, "  flow/.style={->, line width=", tex_size("flow"), ", recorded},")
         println(io, "  dimension/.style={<->, guide, line width=", tex_size("dimension"),
             "},")
         println(io, "  leader/.style={guide, line width=", tex_size("dimension"), "},")
+        println(io, "  icon line/.style={line width=", tex_size("flow"), "},")
         println(io, "  crossing/.style={draw=white, line width=", tex_size("crossing"),
             "},")
         println(io, "  label/.style={font=", tex_font("text"), ", inner sep=1pt, ",
@@ -184,6 +282,8 @@ function figure_style_file()
         println(io, "  note/.style={label, font=", tex_font("note"), "},")
         println(io, "  box/.style={draw, rounded corners=2pt, line width=",
             tex_size("rule"), "},")
+        println(io, "  legend box/.style={draw=guide, fill=white, line width=",
+            tex_size("rule"), ", inner sep=2pt, font=", tex_font("note"), "},")
         for name in sort(collect(keys(figure_style["fills"])))
             println(io, "  ", name, " box/.style={box, fill=", name, "fill},")
         end
@@ -195,15 +295,17 @@ function figure_style_file()
             tex_font("note"), "\\bfseries, inner sep=0pt, minimum size=", tex_size("step"),
             "},")
         println(io, "}")
+        println(io, "\\input{figure_pics}")
     end
 end
 
 """
     tikz_style_faults()
 
-Lines of the TikZ figures in paper/sections that set a width, font size, colour or style
-of their own rather than one of [`figure_style_file`](@ref): a colour mixed from one that
-is not in [`figure_style`](@ref) counts, a tint of one that is does not, and so does
+Lines of the TikZ figures in paper/sections and of their shared pictures that set a
+width, font size, colour or style of their own rather than one of
+[`figure_style_file`](@ref): a colour mixed from one that is not in [`figure_style`](@ref)
+counts, a tint of one that is does not, and so does
 [`faint_text`](@ref).
 """
 function tikz_style_faults()
@@ -211,7 +313,8 @@ function tikz_style_faults()
         "\\\\(definecolor|colorlet|tiny|scriptsize|footnotesize|small)\\b"))
     mixed = r"([A-Za-z]+)!\d"
     faults = String[]
-    for file in filter(endswith(".tex"), readdir(sections; join=true))
+    for file in [filter(endswith(".tex"), readdir(sections; join=true));
+                 joinpath(root, "paper", "figure_pics.tex")]
         text = read(file, String)
         occursin("tikzpicture", text) || continue
         for (number, line) in enumerate(split(text, '\n'))
@@ -860,7 +963,7 @@ function canopy_tension_figure()
     skin_radius = assumptions[:canopy_skin_radius]
     tension(force) = 1e3force / area * skin_radius
     strength = assumptions[:canopy_cloth_specific_strength] *
-               assumptions[:canopy_cloth_weight] / 1e3
+               WindShipOpt.cloth_weight(assumptions) / 1e3
     figure = Figure(size=(page_width, 185))
     balance = Axis(figure[1, 1]; autolimitaspect=1, limits=(-2.4, 7.3, -1.7, 2.2),
         title="(a) from tether force to cloth tension")
@@ -2139,74 +2242,6 @@ function cargo_cost_figure()
     save_figure("cargo_cost", figure)
 end
 
-"sizes [figure units] of the square of a stated life and the star of an estimated one"
-claim_marker_size, estimate_marker_size = 1.6marker_size, 2.2marker_size
-
-"the label `text` with its m² drawn as [`square_metres`](@ref) does"
-square_metre_label(text) =
-    occursin("m²", text) ? square_metres(String.(split(text, "m²"; limit=2))...) : text
-
-"""
-    canopy_life_figure()
-
-Flight hours of canopies of data/canopy_life_statements.csv as ranges by what stated them,
-the range of the polyester sails shaded, with [`reference_decay_life`](@ref) of the
-canopy's cloth and its range of the assumptions, and the goal.
-"""
-function canopy_life_figure()
-    lives = read_table(joinpath(root, "data", "canopy_life_statements.csv"))
-    goal = assumptions.entries[:canopy_life]
-    order = [findall(==("statement"), lives["kind"]);
-        findall(==("sail_shape"), lives["kind"]); findall(==("small_kite"), lives["kind"])]
-    cloth = round(Int, assumptions[:canopy_cloth_weight])
-    labels = [square_metre_label.(lives["label"][order]);
-        square_metre_label("derived life, $cloth g/m²")]
-    figure = Figure(size=(page_width, 190))
-    axis = Axis(figure[1, 1]; doubling_axis(:x, 62.5, 16000)...,
-        xlabel="flight hours of the canopy",
-        yticks=(eachindex(labels), labels), yreversed=true,
-        limits=((55, 20000), (0.3, length(labels) + 0.7)))
-    goal_marks!(axis, goal; shade=(palette[1], 0.1))
-    sails = filter(row -> startswith(lives["label"][row], "polyester sail"), order)
-    sail_range = (minimum(lives["life_low"][sails]), maximum(lives["life_high"][sails]))
-    sail_shade = (category_colours[3], 0.45)
-    poly!(axis, Rect2f(sail_range[1], 0.5, sail_range[2] - sail_range[1], length(labels));
-        color=sail_shade)
-    text!(axis, goal.value, 0.3; text="goal $(estimate_text(goal.value)) h",
-        align=(:right, :top), offset=(-pt(2), -pt(1)), fontsize=note_size)
-    stated = :gray35
-    for (i, row) in enumerate(order)
-        low, high = lives["life_low"][row], lives["life_high"][row]
-        rangebars!(axis, [i], [low], [high]; direction=:x, color=stated,
-            linewidth=1.4line_width, whiskerwidth=high < 1.1low ? 0 : whisker_width)
-        measured = lives["grade"][row] == "meas"
-        estimated = endswith(lives["life_text"][row], "*")
-        lives["kind"][row] == "statement" && scatter!(axis, [sqrt(low * high)], [i];
-            color=measured || estimated ? stated : :white, strokecolor=stated,
-            strokewidth=estimated ? 0 : outline_width, marker=estimated ? :star5 : :rect,
-            markersize=estimated ? estimate_marker_size : claim_marker_size)
-        text!(axis, high < goal.value < 2.6high ? 1.12goal.value : 1.15high, i;
-            text=replace(rstrip(lives["life_text"][row], '*'), "--" => "–"),
-            align=(:left, :center), fontsize=note_size, color=stated)
-    end
-    derived, i = WindShipOpt.reference_decay_life(assumptions), length(labels)
-    rangebars!(axis, [i], [goal.low], [goal.high]; direction=:x, color=palette[1],
-        linewidth=2line_width, whiskerwidth=0)
-    scatter!(axis, [derived], [i]; color=palette[1], markersize=7)
-    text!(axis, 1.15goal.high, i;
-        text="$(estimate_text(derived)) " *
-             "($(estimate_text(goal.low))–$(estimate_text(goal.high)))",
-        align=(:left, :center), fontsize=note_size, color=palette[1])
-    entries = [MarkerElement(marker=:rect, color=:white, strokecolor=stated,
-            strokewidth=outline_width, markersize=claim_marker_size),
-        MarkerElement(marker=:rect, color=stated, markersize=claim_marker_size),
-        MarkerElement(marker=:star5, color=stated, markersize=estimate_marker_size),
-        PolyElement(color=(palette[1], 0.1)), PolyElement(color=sail_shade)]
-    axislegend(axis, entries, ["claim", "measurement", "hours we estimate",
-            "derived range", "polyester sails' range"]; position=:lt)
-    save_figure("canopy_life", figure)
-end
-
 """
     large_rigs_figure()
 
@@ -3234,121 +3269,12 @@ function rigid_kite_figure()
 end
 
 """
-    canopy_price_range(inputs, today)
-
-Lowest and highest [`WindShipOpt.canopy_price`](@ref) [USD/m^2] of `inputs` with each input
-of the price in turn at its low and its high bound, those of the `_today` input for the
-names in `today`.
-"""
-function canopy_price_range(inputs, today)
-    names = (:canopy_cloth_area_ratio, :market_price_factor,
-        WindShipOpt.canopy_price_inputs...)
-    entries = [assumptions.entries[name in today ? Symbol(name, :_today) : name]
-               for name in names]
-    return extrema(WindShipOpt.canopy_price.(one_at_a_time(inputs, names, entries)))
-end
-
-"""
-    retail_cloth_prices()
-
-Cloth weights [g/m^2], prices [USD per m^2 sewn, without VAT, with offcuts] and sources of
-the retail cloths in data/canopy_cloth_prices.csv.
-"""
-function retail_cloth_prices()
-    table = read_table(joinpath(root, "data", "canopy_cloth_prices.csv"))
-    metres = Dict("m" => 1.0, "yd" => 0.9144)
-    dollars = Dict("USD" => 1.0, "EUR" => assumptions[:usd_per_eur])
-    prices = [price * dollars[currency] / (1 + vat) / (metres[per] * width)
-              for (price, currency, per, width, vat) in zip(table["price"],
-        table["currency"], table["per"], table["width"], table["vat"])]
-    return table["weight"], cloth_offcut_factor * prices, table["source"]
-end
-
-"cloth bought per m^2 of cloth sewn into a canopy [-]"
-cloth_offcut_factor = 1.15
-
-"""
-    canopy_price_figure()
-
-(a) Price of a canopy per projected m^2 as built today, at the goal with today's cloth, and
-at the goal, split into cloth, sewing with lines and hardware, and the market margin, with
-the range over the bounds of its inputs; (b) price of a sewn m^2 of cloth against cloth
-weight: the retail prices it rests on, the line through them, and the goal with its range.
-"""
-function canopy_price_figure()
-    figure = Figure(size=(page_width, 175))
-    price = Axis(figure[1, 1]; xlabel=square_metres("price per projected ", " [USD]"),
-        title="(a) canopy price")
-    cloth = Axis(figure[1, 2]; xlabel=square_metres("cloth weight [g/", "]"),
-        ylabel=square_metres("USD per ", " of cloth"), title="(b) sewn cloth")
-    colsize!(figure.layout, 1, Relative(0.55))
-    cloth_inputs = (:canopy_cloth_base_price, :canopy_cloth_price_per_weight)
-    cases = [("today", WindShipOpt.canopy_price_inputs),
-        ("goal, today's cloth", cloth_inputs), ("goal", ())]
-    parts = ("cloth", "sewing, lines, hardware", "market margin")
-    part_colors = [palette[1], palette[5], style_colour("slate")]
-    for (row, (label, today)) in enumerate(cases)
-        inputs = WindShipOpt.with_today(assumptions, today)
-        making = inputs[:canopy_making_cost_per_area]
-        cost = WindShipOpt.Canopy(inputs).cost_per_area
-        segments = [cost - making, making, (inputs[:market_price_factor] - 1) * cost]
-        barplot!(price, fill(row, 3), segments; stack=1:3, direction=:x,
-            color=part_colors, gap=0.3)
-        text!(price, cumsum(segments) .- segments ./ 2, fill(row - 0.14, 3);
-            text=estimate_text.(segments), align=(:center, :center),
-            fontsize=note_size, color=readable.(:white, part_colors))
-        low, high = canopy_price_range(inputs, today)
-        rangebars!(price, [row + 0.17], [low], [high]; direction=:x, color=:black,
-            linewidth=line_width, whiskerwidth=whisker_width)
-        text!(price, sum(segments), row - 0.14; text=string(estimate_text(sum(segments)),
-                " (", estimate_text(low), "–", estimate_text(high), ")"),
-            align=(:left, :center), offset=clear_offset((:left, :center), pt(3)))
-    end
-    price.yticks = (eachindex(cases), first.(cases))
-    price.yreversed = true
-    xlims!(price, 0, nothing)
-    hideydecorations!(price; ticklabels=false)
-    weights = 0:5:400
-    weight = assumptions[:canopy_cloth_weight]
-    varied = one_at_a_time(assumptions, cloth_inputs)
-    goal_band = [extrema(WindShipOpt.sewn_cloth_price(inputs, cloth_weight)
-                         for inputs in varied) for cloth_weight in weights]
-    band!(cloth, weights, first.(goal_band), last.(goal_band); color=(palette[1], 0.15))
-    sources = (("extremtextil_prices_2026", "extremtextil", :circle),
-        ("sailrite_dacron_prices_2026", "Sailrite", :rect),
-        ("jonesairfoils_icarex", "Jones Airfoils", :diamond))
-    retail_weights, retail_prices, retail_sources = retail_cloth_prices()
-    source_elements = map(sources) do (source, _, marker)
-        chosen = retail_sources .== source
-        scatter!(cloth, retail_weights[chosen], retail_prices[chosen]; marker,
-            color=:white, strokecolor=:black, strokewidth=rule_width)
-        MarkerElement(; marker, color=:white, strokecolor=:black, strokewidth=rule_width)
-    end
-    lines!(cloth, weights, WindShipOpt.sewn_cloth_price.(Ref(WindShipOpt.with_today(
-        assumptions, cloth_inputs)), weights); color=:black)
-    lines!(cloth, weights, WindShipOpt.sewn_cloth_price.(Ref(assumptions), weights);
-        color=palette[1], linestyle=:dash)
-    reference_line!(cloth, weight; vertical=true)
-    ylims!(cloth, 0, nothing)
-    Legend(figure[2, 1], [PolyElement(; color) for color in part_colors],
-        collect(parts); orientation=:horizontal, tellwidth=false, valign=:top)
-    Legend(figure[2, 2], [collect(source_elements); LineElement(; color=:black);
-            [[PolyElement(; color=(palette[1], 0.15)),
-                LineElement(; color=palette[1], linestyle=:dash)]]],
-        [collect(getindex.(sources, 2)); "retail line"; "goal"];
-        orientation=:horizontal, nbanks=2, tellwidth=false, valign=:top)
-    rowgap!(figure.layout, pt(4))
-    save_figure("canopy_price", figure)
-end
-
-"""
     min_wind_figure()
 
 Lowest apparent wind against projected area for the kite of the design aspect ratio: the
-crosswind and climbing bounds at the lowest elevation, lift-off with the margin and its
-range over the margin's bounds, and the launch wind the model uses, which is the largest
-of these and the reported launch wind, with its range over the bounds of the margin and of
-the reported launch wind in turn.
+crosswind and climbing bounds at the lowest elevation, and the calm-sea launch wind the
+model uses, the larger of the climbing bound and the reported launch wind, with its range
+over the bounds of the reported launch wind and the elevation in turn.
 """
 function min_wind_figure()
     figure = Figure(size=(column_width, 190))
@@ -3358,29 +3284,21 @@ function min_wind_figure()
     areas = exp.(range(log(500), log(16000); length=40))
     elevation = assumptions.entries[:kite_min_elevation]
     elevations = deg2rad.((elevation.value, elevation.low, elevation.high))
-    bounds = one_at_a_time(assumptions,
-        (:kite_launch_margin, :kite_launch_min_wind, :kite_min_elevation))
+    bounds = one_at_a_time(assumptions, (:kite_launch_min_wind, :kite_min_elevation))
     winds = map(areas) do area
-        model, _, diameter = WindShipOpt.kite_model(area, design_aspect_ratio, assumptions)
-        tether_mass = WindShipOpt.rope_mass(diameter, model.tether_length, assumptions)
-        lift_off = WindShipOpt.static_wind(model.mass - tether_mass / 2, model)
-        launches = [WindShipOpt.launch_min_wind(model, tether_mass, inputs)
-                    for inputs in bounds]
+        model, _, _ = WindShipOpt.kite_model(area, design_aspect_ratio, assumptions)
+        launches = [WindShipOpt.launch_min_wind(model, inputs) for inputs in bounds]
         cross = [WindShipOpt.crosswind_min_wind(model, angle) for angle in elevations]
         climb = [WindShipOpt.climbing_min_wind(model, angle) for angle in elevations]
         (cross=cross[1], cross_low=minimum(cross), cross_high=maximum(cross),
             climb=climb[1], climb_low=minimum(climb), climb_high=maximum(climb),
-            lift=assumptions[:kite_launch_margin] * lift_off,
-            lift_low=assumptions.entries[:kite_launch_margin].low * lift_off,
-            lift_high=assumptions.entries[:kite_launch_margin].high * lift_off,
-            launch=WindShipOpt.launch_min_wind(model, tether_mass, assumptions),
+            launch=WindShipOpt.launch_min_wind(model, assumptions),
             launch_low=minimum(launches), launch_high=maximum(launches))
     end
     launch_colour = :gray60
     band!(axis, areas, getindex.(winds, :launch_low), getindex.(winds, :launch_high);
         color=(launch_colour, 0.25))
-    curves = ((:launch, launch_colour, pt(3.5)), (:lift, category_colours[1], line_width),
-        (:climb, category_colours[2], line_width),
+    curves = ((:launch, launch_colour, pt(3.5)), (:climb, category_colours[2], line_width),
         (:cross, category_colours[3], line_width))
     for (key, color, _) in curves[2:end]
         band!(axis, areas, getindex.(winds, Symbol(key, :_low)),
@@ -3392,8 +3310,8 @@ function min_wind_figure()
     ylims!(axis, 0, 1.35 * maximum(getindex.(winds, :launch_high)))
     entries = [[PolyElement(color=(color, key == :launch ? 0.25 : 0.15)),
                    LineElement(; color, linewidth)] for (key, color, linewidth) in curves]
-    axislegend(axis, entries, ["launch", "lift-off", "climb", "crosswind"]; position=:lt,
-        orientation=:horizontal, nbanks=2)
+    axislegend(axis, entries, ["launch", "climb", "crosswind"]; position=:lt,
+        orientation=:horizontal)
     save_figure("min_wind", figure)
 end
 
@@ -3403,8 +3321,8 @@ end
 Cost saving of each rig against the canopy life, the canopy price and the share out of
 service, for each ship of the development study with its rig sizes held: the kite's saving
 over the swept canopy inputs, the other rigs' at their goals, and every rig's over its
-share out of service. Each goal is a vertical line over the shaded range of its input;
-today's canopy price is dotted over its own range.
+share out of service. Each goal is a vertical line over the shaded range of its input,
+and the canopy price, an estimate, a dotted line over its range.
 """
 function missed_goals_figure()
     sizes = read_table(data_file("goal_sizes.csv"))
@@ -3413,8 +3331,6 @@ function missed_goals_figure()
     prices = read_table(data_file("canopy_price.csv"))
     ships = unique(service["ship"])
     sweeps = ((lives, "life"), (prices, "price"))
-    price_inputs = WindShipOpt.canopy_price_inputs
-    price_today = WindShipOpt.with_today(assumptions, price_inputs)
     service_inputs = [assumptions.entries[Symbol(out_of_service_inputs[rig])]
                       for rig in rig_names]
     service_goal = only(unique(input.value for input in service_inputs))
@@ -3436,11 +3352,8 @@ function missed_goals_figure()
                     ("out of service [%]", Makie.pseudolog10,
                         [0, 1, 2, 4, 8, 16, 32, 64])))]
         goal_marks!(axes[1], assumptions.entries[:canopy_life])
-        goal_marks!(axes[2], WindShipOpt.canopy_price(assumptions),
-            canopy_price_range(assumptions, ())...)
-        goal_marks!(axes[2], WindShipOpt.canopy_price(price_today),
-            canopy_price_range(price_today, price_inputs)...; linestyle=:dot,
-            shade=(palette[1], 0.1))
+        goal_marks!(axes[2], reference_canopy_price(assumptions), canopy_price_at(:low),
+            canopy_price_at(:high); linestyle=:dot, shade=(palette[1], 0.1))
         goal_marks!(axes[3], 100service_goal,
             100minimum(input.low for input in service_inputs),
             100maximum(input.high for input in service_inputs))
@@ -3483,7 +3396,7 @@ function missed_goals_figure()
                     LineElement(color=:black, linewidth=goal_width)],
                 [PolyElement(color=(palette[1], 0.1)),
                     LineElement(color=:black, linewidth=goal_width, linestyle=:dot)]],
-            ["goal, its range", "today, its range"]; position=(1, 0.6))
+            ["goal, its range", "estimate, its range"]; position=(1, 0.6))
     end
     save_figure("missed_goals", figure)
 end
@@ -3511,9 +3424,23 @@ reference_line!(axis, value=0; vertical=false, linestyle=:solid) =
     (vertical ? vlines! : hlines!)(axis, value; color=style_colour("guide"),
         linewidth=rule_width, linestyle)
 
-"inputs of the mass of a soft kite without its tether"
-soft_mass_inputs = (:canopy_cloth_area_ratio, :canopy_mass_overhead,
-    :control_unit_mass_per_force)
+"inputs of the mass of a soft kite without its tether, each with its bound that lightens it"
+soft_mass_inputs = (canopy_flat_area_ratio=:low, canopy_rib_cloth_ratio=:low,
+    canopy_cell_width_exponent=:high, canopy_mass_overhead=:low,
+    control_unit_mass_per_force=:low)
+
+"""
+    soft_mass_bound(lightest)
+
+`assumptions` with every one of [`soft_mass_inputs`](@ref) at the bound that makes a soft
+kite lightest, or heaviest where `lightest` is false.
+"""
+function soft_mass_bound(lightest)
+    return foldl(pairs(soft_mass_inputs); init=assumptions) do inputs, (name, light)
+        bound = lightest ? light : (light == :low ? :high : :low)
+        with_value(inputs, name, getfield(inputs.entries[name], bound))
+    end
+end
 
 """
     soft_kite_mass(area, inputs)
@@ -3573,8 +3500,8 @@ function kite_mass_figure()
         color=rigid_colour, linestyle=:dot)
     soft_areas = exp.(range(log(5), log(5000); length=50))
     mass_law!(axis, soft_areas, soft_kite_mass.(soft_areas, Ref(assumptions)),
-        soft_kite_mass.(soft_areas, Ref(at_bound(assumptions, soft_mass_inputs, :low))),
-        soft_kite_mass.(soft_areas, Ref(at_bound(assumptions, soft_mass_inputs, :high))),
+        soft_kite_mass.(soft_areas, Ref(soft_mass_bound(true))),
+        soft_kite_mass.(soft_areas, Ref(soft_mass_bound(false))),
         maximum(published["area"][flew .& soft]), soft_colour)
     for row in eachindex(published["name"])
         color = published["kind"][row] == "soft" ? soft_colour :
@@ -3595,4 +3522,52 @@ function kite_mass_figure()
             statuses...]; position=:cc, nbanks=4, rowgap=0, colgap=pt(6),
         patchsize=(pt(12), pt(6)))
     save_figure("kite_mass", figure)
+end
+
+"marker of a published canopy of each `kind` in data/canopy_cells.csv"
+canopy_markers = Dict("paraglider" => :circle, "kite" => :rect, "parafoil" => :utriangle)
+
+"""
+    canopy_cells_figure()
+
+Mean chord over cell width against mean chord of the ram-air canopies of
+data/canopy_cells.csv, its `kind`, `flat_area` [m^2], `flat_span` [m] and `cells`, and the
+rule of the model at base inputs between the bounds of `canopy_cell_width_exponent`, with
+the mean chords of the kites the class study searches.
+"""
+function canopy_cells_figure()
+    published = read_table(joinpath(root, "data", "canopy_cells.csv"))
+    chords = published["flat_area"] ./ published["flat_span"]
+    ratios = chords .* published["cells"] ./ published["flat_span"]
+    figure = Figure(size=(column_width, 170))
+    axis = Axis(figure[1, 1]; xscale=log10, yscale=log10, xlabel=L"mean chord $c$ [m]",
+        ylabel=L"chord over cell width $c/w$",
+        xticks=([1, 3, 10, 30, 100], ["1", "3", "10", "30", "100"]),
+        yticks=([3, 5, 10, 20, 40], ["3", "5", "10", "20", "40"]),
+        limits=(nothing, (3, 45)))
+    kite_areas = size_bounds(first(values(ship_classes())))["kite"]
+    kite_chords = sqrt.(collect(kite_areas) ./ assumptions[:kite_aspect_ratio])
+    vspan!(axis, kite_chords...; color=(:gray50, 0.15))
+    line_chords = exp.(range(log(0.8), log(80); length=50))
+    exponent = :canopy_cell_width_exponent
+    bounds = [WindShipOpt.chord_over_cell_width.(
+                  Ref(at_bound(assumptions, (exponent,), bound)), line_chords)
+              for bound in (:low, :high)]
+    band!(axis, line_chords, bounds...; color=(palette[1], 0.18))
+    built = line_chords .<= maximum(chords)
+    rule = WindShipOpt.chord_over_cell_width.(Ref(assumptions), line_chords)
+    lines!(axis, line_chords[built], rule[built]; color=palette[1])
+    lines!(axis, line_chords[.!built], rule[.!built]; color=palette[1], linestyle=:dash)
+    for kind in keys(canopy_markers)
+        shown = published["kind"] .== kind
+        scatter!(axis, chords[shown], ratios[shown]; color=:black,
+            marker=canopy_markers[kind])
+    end
+    kinds = ["paraglider", "kite", "parafoil"]
+    markers = [MarkerElement(color=:black, marker=canopy_markers[kind]) for kind in kinds]
+    entries = [markers..., LineElement(color=palette[1]),
+        PolyElement(color=(:gray50, 0.15))]
+    axislegend(axis, entries, [kinds..., "model", "kites searched"]; position=:lt,
+        nbanks=2, rowgap=0, colgap=pt(6), patchsize=(pt(12), pt(6)))
+    save(joinpath(figures, "canopy_cells.pdf"), figure; pt_per_unit=print_scale)
 end

@@ -1,29 +1,12 @@
 % SPDX-FileCopyrightText: 2026 Bart van de Lint
 % SPDX-License-Identifier: AGPL-3.0-or-later
 \begin{tikzpicture}[x=1mm, y=1mm,
-  drop/.pic={\fill[ship!50!black] (0,3.6) .. controls (3.2,-0.6) and (2.6,-3.6) .. (0,-3.6)
-    .. controls (-2.6,-3.6) and (-3.2,-0.6) .. (0,3.6);},
   worn/.pic={\fill[kite] (150:4.2) arc[start angle=150, end angle=30, radius=4.2]
       -- (30:3.5) arc[start angle=30, end angle=150, radius=3.5] -- cycle;
     \draw[loss] (-0.7,4.6) -- (0.2,3) -- (-0.5,2.2) -- (0.5,0.6);},
-  crane/.pic={\draw[ship!50!black] (-3,-3.5) -- (-3,3.5) -- (3.5,3.5) (-3,1.8) -- (-1,3.5);
-    \draw[ship!50!black] (2.6,3.5) -- (2.6,0.6); \fill[water!60] (1.4,-0.9) rectangle (3.8,0.6);
-    \fill[ship!50!black] (-4,-3.5) rectangle (4,-2.8);},
-  clock/.pic={\draw[ship!50!black, fill=white] (0,0) circle (3.5);
-    \draw[ship!50!black] (0,0) -- (0,2.4) (0,0) -- (1.7,-0.7);},
-  shipcost/.pic={\fill[ship!50!black] (-4.3,0) -- (4.3,0) -- (3.6,-2) -- (-3.8,-2) -- cycle;
-    \fill[ship!50!black] (-3.8,0) rectangle (-2.6,1.2);
-    \draw[accent, fill=white] (1.5,2.4) circle (1.9);
-    \node[text=accenttext, inner sep=0pt] at (1.5,2.4) {\$};},
-  person/.pic={\fill[ship!50!black] (0,2.2) circle (1.4);
-    \fill[ship!50!black] (-2.6,-3.3) -- (-2.6,-1.2) arc[start angle=180, end angle=0, radius=2.6] -- (2.6,-3.3) -- cycle;},
-  wrench/.pic={\fill[ship!50!black, rotate=45] (-4.2,-0.5) rectangle (2,0.5);
-    \fill[ship!50!black] (1.6,1.6) circle (1.6); \fill[white] (2.4,2.4) circle (0.9);},
   interest/.pic={\fill[water!60] (-3.8,-3.2) rectangle (3.8,1.6);
     \node[text=white, inner sep=0pt] at (0,-0.8) {\textbf{\%}};
     \draw[ship!50!black] (0,1.6) -- (0,3.6) (-1.4,3.6) -- (1.4,3.6);},
-  stack/.pic={\foreach \x/\y in {-3.9/-3.4, 0.1/-3.4, -1.9/-0.6}
-    \fill[water!60] (\x,\y) rectangle ++(3.5,2.5);},
   loop/.pic={\fill[ship!50!black] (-3.8,0) circle (0.7) (3.8,0) circle (0.7);
     \draw[flow, accent] (-3.8,0) .. controls (-1.5,3.4) and (1.5,3.4) .. (3.4,0.5);
     \draw[flow, accent] (3.8,0) .. controls (1.5,-3.4) and (-1.5,-3.4) .. (-3.4,-0.5);},
@@ -42,14 +25,14 @@
 \costbox{trip}{63.75}{-26}{cost}{Cost per\\ round trip}{the mean over all departures}{loop}{18}
 \node[circle, draw, fill=white, inner sep=0.6pt] (over) at (104,-26) {$\div$};
 \costbox{work}{145}{-26}{ship}{Cargo work}{$m_c\,(L_\mathrm{out}+f_\mathrm{back}L_\mathrm{back})$}{freight}{18}
-\costbox{fuel}{15}{-53}{voyage}{Fuel}{$p_f E_f$}{drop}{17}
+\costbox{fuel}{15}{-53}{voyage}{Fuel}{$p_f E_f$}{fuel icon}{17}
 \costbox{wear}{47.5}{-53}{voyage}{Kite wear}{$c_w h_\mathrm{fly}$ + launches}{worn}{17}
-\costbox{port}{80}{-53}{data}{Ports}{$C_\mathrm{port}$, two calls}{crane}{17}
-\costbox{time}{112.5}{-53}{voyage}{Time}{$c_t\,(t_\mathrm{sea}+t_\mathrm{port})$}{clock}{17}
-\costbox{cargo}{145}{-53}{ship}{Cargo $m_c$}{deadweight or slots less rig, stores, fuel}{stack}{17}
-\costbox{capital}{47.5}{-83}{data}{Capital}{ship, drive, rig}{shipcost}{15}
-\costbox{crew}{80}{-83}{data}{Crew}{$C_\mathrm{crew}$ a year}{person}{15}
-\costbox{maint}{112.5}{-83}{data}{Maintenance}{$f_m C$}{wrench}{15}
+\costbox{port}{80}{-53}{data}{Ports}{$C_\mathrm{port}$, two calls}{port icon}{17}
+\costbox{time}{112.5}{-53}{voyage}{Time}{$c_t\,(t_\mathrm{sea}+t_\mathrm{port})$}{clock icon}{17}
+\costbox{cargo}{145}{-53}{ship}{Cargo $m_c$}{deadweight or slots less rig, stores, fuel}{container icon}{17}
+\costbox{capital}{47.5}{-83}{data}{Capital}{ship, drive, rig}{money icon}{15}
+\costbox{crew}{80}{-83}{data}{Crew}{$C_\mathrm{crew}$ a year}{crew icon}{15}
+\costbox{maint}{112.5}{-83}{data}{Maintenance}{$f_m C$}{maintenance icon}{15}
 \costbox{interest}{145}{-83}{ship}{Cargo interest}{$m_c\,v_c\,r$}{interest}{15}
 % the quotient
 \draw[flow] (trip) -- (over);
