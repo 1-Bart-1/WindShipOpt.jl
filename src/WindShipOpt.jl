@@ -11,27 +11,25 @@ module WindShipOpt
 
 using Base.ScopedValues: ScopedValue, with
 using Random: Random
-using Statistics: mean, quantile
+using Statistics: mean
 using Dates: DateTime, Dates
 using Mmap: Mmap
 using Optim: Optim
 using TOML: TOML
 using YAML: YAML
 
-export Assumption, Assumptions, with_value, inputs_read
+export Assumption, Assumptions, with_value, at_today, inputs_read
 export Environment, Hull, WaveCoefficients, resistance, wetted_surface, form_factor
 export SeakeepingHull, added_resistance, added_resistance_coefficient, jonswap
 export WingRig, KiteRig, RigForce, rig_force, apparent_wind
 export Propeller, Powertrain, delivered_power
 export ShipDesign, Ship, Fuel, fuel_power
-export PerformanceTable, RouteTable, lookup
+export PerformanceTable, RouteTable
 export LandMask, GridMask, north_atlantic_mask, SyntheticWeather, ERA5Weather, wind, waves
 export Corridor, return_corridor, route_corridors, centre_index, Leg, route
 export SearchRecord, kept_states, through_node
-export ForecastWeather, ForecastArchive, ForecastEnsemble, ArchivedForecast, PlannedKite,
-       KiteMargin, ForecastError, ExpectedForecast
-export ReplannedForecast, ForecastParts, ForesightKite, PerfectForecast,
-       ShortestLead
+export ForecastWeather, ForecastArchive, ArchivedForecast, ForecastError, ExpectedForecast
+export ReplannedForecast
 export forecast_route
 export write_forecast_bias, write_forecast_weights, Climatology, ShipClass, ship_classes
 export ShipCosts, RoundTrip, round_trip, KNOT, NAUTICAL_MILE
@@ -53,7 +51,7 @@ include("weather.jl")
 include("era5.jl")
 include("routing.jl")
 include("forecast.jl")
-include("rig_prices.jl")
+include("rotor_prices.jl")
 include("economics.jl")
 include("analysis.jl")
 

@@ -10,7 +10,8 @@
 # - "north_sea": Rotterdam to Norway and Iceland
 # - "atlantic_wide": the Atlantic from Brazil and the US Gulf to Europe
 # Wind: WeatherBench2's 1.5° 6-hourly copy (small chunks). Waves: ARCO-ERA5 0.25° hourly,
-# thinned to 0.5° and 12-hourly. Resumable: rerun to continue.
+# thinned to 0.5° and 12-hourly. Resumable: rerun to continue; a climatology already
+# written is kept.
 using Blosc
 using Dates
 using Downloads
@@ -180,9 +181,12 @@ end
     write_climate(source, group)
 
 Write the mean of [`climate_fields`](@ref) over the times of `source` per (lon, lat,
-calendar month) to `climate/<group>/`, NaN where no time holds data.
+calendar month) to `climate/<group>/`, NaN where no time holds data, unless that folder
+holds its `grid.toml`, written last.
 """
 function write_climate(source::Source, group)
+    directory = joinpath(output, "climate", group)
+    isfile(joinpath(directory, "grid.toml")) && return println(group, " climate complete")
     shape = (length(source.lons), length(source.lats), 12)
     totals, counts = Dict{String, Array{Float64, 3}}(), Dict{String, Array{Int, 3}}()
     names = sort(collect(keys(source.variables)))
@@ -202,7 +206,7 @@ function write_climate(source::Source, group)
         end
         println(group, " chunk ", last(batch), "/", length(source.chunks))
     end
-    directory = mkpath(joinpath(output, "climate", group))
+    mkpath(directory)
     for (name, total) in totals
         write(joinpath(directory, "$name.f32"), Float32.(total ./ counts[name]))
     end
