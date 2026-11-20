@@ -1716,7 +1716,7 @@ development_inputs = [
         rig="condition", lever="condition",
         reason="Not for a developer to change: how a canopy's cells widen with its " *
                "chord, unmeasured beyond 325 m\\textsuperscript{2}, which sets the " *
-               "cloth and sewing a ship kite's canopy takes."),
+               "cloth, its weight and the sewing a ship kite's canopy takes."),
 ]
 
 """

@@ -506,7 +506,7 @@ end
 @testset "a kite without flight drag flies where every fixed start misses" begin
     low_drag = WindShipOpt.with_value(assumptions, :kite_flight_drag, 0.0)
     aspect_ratio = assumptions[:kite_aspect_ratio]
-    model, max_force, _ = WindShipOpt.kite_model(13777.0, aspect_ratio, low_drag)
+    model, max_force, _ = WindShipOpt.kite_model(8000.0, aspect_ratio, low_drag)
     course = deg2rad(120.0)
     flown = only(WindShipOpt.compute_pattern_table(model, max_force, low_drag, [15.0],
         [course], [0.0]))
@@ -521,7 +521,7 @@ end
 
 @testset "the pattern grid is only searched where no fixed start flies" begin
     aspect_ratio = assumptions[:kite_aspect_ratio]
-    model, max_force, _ = WindShipOpt.kite_model(13777.0, aspect_ratio, assumptions)
+    model, max_force, _ = WindShipOpt.kite_model(8000.0, aspect_ratio, assumptions)
     course = deg2rad(120.0)
     problem = WindShipOpt.PatternProblem(model, max_force,
         deg2rad(assumptions[:kite_min_elevation]), 15.0, course, 0.0)
@@ -711,7 +711,7 @@ end
     end
 end
 
-@testset "a kite's winch grows with its force, its launch mast with its size and is cheaper" begin
+@testset "a kite's winch grows with its force, its cheaper launch mast with its size" begin
     parts(area) = WindShipOpt.kite_price_parts(area, 500area, assumptions)
     deck = WindShipOpt.kite_deck_masses(800.0, 4e5, assumptions)
     @test deck.winch ≈ 400 * assumptions[:winch_mass_per_force]
@@ -764,8 +764,8 @@ end
     growing = with_value(assumptions, :canopy_sewing_cloth_share, 1.0)
     @test price(200.0, growing) < price(800.0, growing) < price(3000.0, growing)
     sewing_per_cloth(area) = (WindShipOpt.canopy_cost(growing, area, 3.0) -
-                              1.16 * 25 / 18 * 8 - cloth(area) * (11.0 + 0.031 * weight(area))) /
-                             cloth(area)
+                              1.16 * 25 / 18 * 8 -
+                              cloth(area) * (11.0 + 0.031 * weight(area))) / cloth(area)
     @test sewing_per_cloth(200.0) ≈ sewing_per_cloth(3000.0) ≈
           surveyed_sewing / surveyed_cloth
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
@@ -3828,14 +3828,15 @@ soft_mass_per_area(area, inputs) =
     @test model.mass > 200soft_mass_per_area(200.0, assumptions)
 end
 
-@testset "a canopy's cloth grows with its cell width, carrying the same tension per weight" begin
+@testset "a canopy's cloth grows with its cell width, keeping its tension per weight" begin
     reference = assumptions[:canopy_cloth_reference_chord]
     @test WindShipOpt.cloth_weight(assumptions, reference) ≈
           assumptions[:canopy_cloth_weight]
     cell_width(chord) = chord / WindShipOpt.chord_over_cell_width(assumptions, chord)
     for chord in (4.0, 16.0, 40.0)
         @test WindShipOpt.cloth_weight(assumptions, chord) /
-              assumptions[:canopy_cloth_weight] ≈ cell_width(chord) / cell_width(reference)
+              assumptions[:canopy_cloth_weight] ≈
+              cell_width(chord) / cell_width(reference)
     end
 end
 
