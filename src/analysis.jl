@@ -56,8 +56,7 @@ function LegTrace(table::PerformanceTable, leg::Leg, weather, departure)
         next_lat, next_lon, _, speed = leg.path[i + 1]
         course = corridor.edge_course[i, 1, STRAIGHT_ON]
         start = EdgeSample(table, wind(weather, lat, lon, departure + time),
-            waves(weather, lat, lon, departure + time), course,
-            is_daylight(lon, departure + time))
+            waves(weather, lat, lon, departure + time), course)
         sail_edge!(points, start, route_table, weather, corridor, i, 1, STRAIGHT_ON,
             departure + time, searchsortedfirst(route_table.speeds, speed), leg.aloft[i])
         flights = kite_flights(route_table, points, leg.aloft[i], leg.aloft[i + 1], prices)
@@ -97,7 +96,7 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     standing = standing_rig(ship.rig)
     flown = flying || standing === ship.rig
     sample = EdgeSample(table.table, (east, north), waves(weather, lat, lon, point.time),
-        course, is_daylight(lon, point.time))
+        course)
     slice = SpeedSlice(table.table, KnotWeight(table.table.speeds, speed))
     added = trim_resistance(table.table, sea_resistance(slice, sample.condition))
     _, force, trim = trimmed_force(ship, flown ? ship.rig : standing, speed, wind_speed,

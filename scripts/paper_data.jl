@@ -134,11 +134,6 @@ csv_value(value::AbstractString) = occursin(' ', value) ? "\"$value\"" : value
 csv_value(value::Real) = isinteger(value) ? string(Int(value)) : string(value)
 csv_value(value) = string(value)
 
-"inputs that together make up the cost of one launch and landing of a kite"
-launch_cost_inputs = (:kite_cycle_crew_cost, :kite_cycle_damage_probability,
-    :kite_cycle_loss_probability, :kite_launch_retry_probability, :kite_cycle_course_cost,
-    :kite_launch_minutes, :kite_landing_minutes)
-
 """
     at_bound(inputs, names, bound)
 
@@ -157,9 +152,6 @@ of `entries`.
 one_at_a_time(inputs, names, entries=[assumptions.entries[name] for name in names]) =
     [with_value(inputs, name, bound) for (name, entry) in zip(names, entries)
      for bound in (entry.low, entry.high)]
-
-"inputs with every one of `launch_cost_inputs` at its `bound`"
-launch_cost_assumptions(bound) = at_bound(assumptions, launch_cost_inputs, bound)
 
 "the ship classes of the sea effect study, in order of length"
 sea_effect_classes = ("general cargo coaster", "feeder container ship",
@@ -195,44 +187,6 @@ end
 "kite area [m^2] of `ship` in the sea effect study on `route`, read from `classes_table`"
 sea_effect_area(classes_table, ship, route) = ship == "140 m" ? 3200.0 :
     best_area(classes_table, ship, string(route), "vlsfo", "kite")
-
-"""
-    launch_data()
-
-The 140 m e-ammonia ship on every route without a rig, with the reference wings and
-rotors, and with kites of 800, 1,600 and 3,200 m^2 at the low, base and high launch cost,
-with launches by day only and with no rig ever out of service: launch.csv.
-"""
-function launch_data()
-    always_in_service = reduce((changed, input) -> with_value(changed, input, 0.0),
-        Symbol.(values(out_of_service_inputs)); init=assumptions)
-    day_only = with_value(assumptions, :kite_night_launch, 0.0)
-    cases = []
-    labels = (; launch_cost="value", night=true, service=true)
-    for route in route_names
-        for (rig, area) in (("none", 0.0), ("wings", 1500.0), ("rotors", 800.0))
-            design = ShipDesign(:ammonia, 140.0; rig_size(rig, area)...)
-            push!(cases, trip_case(design; labels..., route, rig, area))
-            rig == "none" && continue
-            push!(cases, trip_case(design; labels..., assumptions=always_in_service, route,
-                rig, area, service=false))
-        end
-        for area in (800.0, 1600.0, 3200.0)
-            design = ShipDesign(:ammonia, 140.0; rig_size("kite", area)...)
-            kite = (; labels..., route, rig="kite", area)
-            for launch_cost in (:low, :value, :high)
-                push!(cases, trip_case(design; kite...,
-                    assumptions=launch_cost_assumptions(launch_cost),
-                    launch_cost=string(launch_cost)))
-            end
-            push!(cases, trip_case(design; kite..., assumptions=day_only, night=false))
-            push!(cases, trip_case(design; kite..., assumptions=always_in_service,
-                service=false))
-        end
-    end
-    write_trips("launch.csv", cases, round_trips(cases, sampled_departures()), :route, :rig,
-        :area, :launch_cost, :night, :service)
-end
 
 """
     patterns_data()
@@ -503,8 +457,7 @@ function rig_cost_per_hour(ship, bare, legs, case_assumptions)
             ShipCosts(bare, case_assumptions).fixed_annual
     (; rig) = ship
     wear = sum(WindShipOpt.wear_cost(rig, case_assumptions) * leg.flight_hours +
-               WindShipOpt.cycle_cost(rig, case_assumptions) * leg.launches +
-               WindShipOpt.forced_landing_cost(rig, case_assumptions) * leg.forced_landings
+               WindShipOpt.cycle_cost(rig, case_assumptions) * leg.launches
                for pair in legs for leg in pair)
     return (fixed / (8760case_assumptions[:availability]) * hours + wear) / sea_hours
 end
@@ -685,9 +638,7 @@ function cost_parts(ship, trip, case_assumptions)
     return (fuel=1e9trip.fuel_energy * ship.fuel.price,
         wear=WindShipOpt.wear_cost(ship.rig, case_assumptions) * trip.flight_share *
              sea_hours +
-             WindShipOpt.cycle_cost(ship.rig, case_assumptions) * trip.launches +
-             WindShipOpt.forced_landing_cost(ship.rig, case_assumptions) *
-             trip.forced_landings,
+             WindShipOpt.cycle_cost(ship.rig, case_assumptions) * trip.launches,
         port=WindShipOpt.port_costs(ship.hull, case_assumptions),
         crew=crew / trading_hours * hours,
         capital=(costs.fixed_annual - crew) / trading_hours * hours + store,
@@ -897,6 +848,62 @@ function classes_data()
     labels = (:class, :route, :drive, :rig, :area, :units)
     write_trips("classes.csv", cases, trips, labels...)
     write_departures("class_departures.csv", cases, trips, labels...)
+end
+
+"""
+    class_cases(table)
+
+Round-trip case of each row of a class table `table`.
+"""
+function class_cases(table)
+    classes = ship_classes()
+    return [class_case(classes[table["class"][k]], Symbol(table["drive"][k]),
+                table["rig"][k], table["area"][k], Symbol(table["route"][k]))
+            for k in eachindex(table["class"])]
+end
+
+"""
+    today_data()
+
+The cost [USD/tkm] of every design of classes.csv with each goal at its value known today,
+on the routes the class study found at the goals: classes_today.csv.
+"""
+function today_data()
+    cases = class_cases(read_table(data_file("classes.csv")))
+    trips = round_trips(cases, sampled_departures())
+    today = at_today(assumptions)
+    labels = (:class, :route, :drive, :rig, :area)
+    open(run_file("classes_today.csv"), "w") do io
+        println(io, join([collect(string.(labels)); "cost"], ","))
+        for (case, trip) in zip(cases, trips)
+            isnothing(trip) && continue
+            cost = changed_cost(merge(case, (; assumptions=today)), trip)
+            fields = [csv_value(getproperty(case, label)) for label in labels]
+            println(io, join(fields, ","), @sprintf(",%.6f", cost))
+        end
+    end
+end
+
+"""
+    recosted(ship, costs, trip, case, inputs)
+
+Cost per tonne-km [USD] of `ship` with [`ShipCosts`](@ref) `costs` on the routes of its
+`trip` for `case`, at `inputs`.
+"""
+recosted(ship, costs, trip, case, inputs) = WindShipOpt.voyage_costs(ship, costs,
+    WindShipOpt.state_rigs(ship.rig, assumptions), trip.passages, case.corridors...,
+    inputs).cheaper
+
+"""
+    changed_cost(case, trip)
+
+Cost per tonne-km [USD] of `case` at its inputs on the routes of `trip`, routed at the
+base inputs.
+"""
+function changed_cost(case, trip)
+    ship = Ship(case.design, case.assumptions; case.route)
+    costs = WindShipOpt.ship_costs(ship, case.assumptions)
+    return recosted(ship, costs, trip, case, case.assumptions)
 end
 
 """
@@ -1204,7 +1211,8 @@ Each class and route of class table `table` on `drive`, with the class's transpo
 [tonne-km a year] from [`fleet_work`](@ref) and its ships from [`fleet_ships`](@ref) shared
 equally over the table's routes, the yearly cost `bill` [USD] of that work without a rig,
 the row of the ship without a rig and of the best size of each rig, their cost
-`savings` [%] and the cost of each of their `departures` by rig, `"none"` included.
+`savings` [%] and the cost of each of their `departures` by rig, `"none"` included, or
+nothing where the table holds no departures.
 Errors naming every class and route of `drive` the table lacks a result of a rig for.
 """
 function fleet_cells(table, drive)
@@ -1223,8 +1231,9 @@ function fleet_cells(table, drive)
         reference = table["cost"][bare]
         savings = Dict(rig => percent_saving(table["cost"][row], reference)
                        for (rig, row) in best)
-        departures = Dict(rig => table["departure_costs"][row]
-                          for (rig, row) in ("none" => bare, best...))
+        departures = haskey(table, "departure_costs") ?
+                     Dict(rig => table["departure_costs"][row]
+                          for (rig, row) in ("none" => bare, best...)) : nothing
         push!(cells, (; class, route, work=share, ships=ships[class] / length(routes),
             bill=share * reference, bare, best, savings, departures))
     end
@@ -1675,6 +1684,10 @@ development_inputs = [
     (input=:kite_out_of_service, label="kite out of service", rig="kite",
         lever="availability",
         reason="What a maker's reliability work is worth; the same lever for every rig."),
+    (input=:kite_launch_loss_probability, label="kites lost per launch", rig="kite",
+        lever="availability",
+        reason="What its launch and landing system's reliability is worth: unmeasured, " *
+               "from today's record to a second layer that saves the kite."),
     (input=:kite_max_force_per_area, label="kite force limit per area", rig="kite",
         lever="force",
         reason=string("Its structure decides the force each m\\textsuperscript{2} may ",
@@ -1803,8 +1816,7 @@ flight drag, and canopy wear and launches free, with those of [`noise_variants`]
 """
 function cargo_kite_variants()
     free = (; canopy_life=1e9, tether_lifetime=1e9, kite_cycle_crew_cost=0.0,
-        kite_cycle_damage_probability=0.0, kite_cycle_loss_probability=0.0,
-        kite_cycle_course_cost=0.0, kite_forced_landing_loss_probability=0.0)
+        kite_launch_loss_probability=0.0, kite_cycle_course_cost=0.0)
     return [("base", 125.0, (;)); ("flat_as_projected", 160.0, (;));
         ("force_0.9", 125.0, (; kite_max_force_per_area=0.9));
         ("no_flight_drag", 125.0, (; kite_flight_drag=0.0));
@@ -2737,7 +2749,7 @@ fixed-speed studies leave out, so that it flies wherever that saves fuel.
 """
 kite_without_running_cost = foldl((inputs, key) -> with_value(inputs, key, 0.0),
     (:market_price_factor, :tether_price, :kite_cycle_crew_cost, :kite_cycle_course_cost,
-        :kite_cycle_loss_probability, :kite_forced_landing_loss_probability);
+        :kite_launch_loss_probability);
     init=assumptions)
 
 """
@@ -3190,12 +3202,10 @@ function stateless_table(table::RouteTable)
     performance = table.table
     rig = WindShipOpt.with_changed(performance.ship.rig; launch_min_wind=0.0,
         launch_max_wind=Inf, launch_max_wave_height=Inf, landing_max_wind=Inf,
-        landing_max_wave_height=Inf, night_launch=true)
-    (; knots, values) = performance.sea_launch_wind
+        landing_max_wave_height=Inf, rough_sea_launch_wind=0.0)
     return WindShipOpt.with_changed(table; table=WindShipOpt.with_changed(performance;
-        ship=WindShipOpt.with_changed(performance.ship; rig),
-        sea_launch_wind=WindShipOpt.LinearTable(knots, zero(values)), cycle_cost=0.0,
-        handling_hours=0.0, forced_landing_cost=0.0))
+        ship=WindShipOpt.with_changed(performance.ship; rig), cycle_cost=0.0,
+        handling_hours=0.0))
 end
 
 """
@@ -3275,5 +3285,33 @@ function router_decisions_data()
     open(run_file("router_decisions.csv"), "w") do io
         println(io, join(keys(first(rows)), ","))
         foreach(row -> println(io, join(csv_value.(values(row)), ",")), rows)
+    end
+end
+
+"""
+    today_routing_data()
+
+The 140 m e-ammonia ship to Guadeloupe without a rig and with the kite and the rotors at
+their reference sizes, on each departure of a final run alone: its cost [USD/tkm] with each
+goal at its value known today, costed on the route found at the goals and routed anew:
+today_routing.csv.
+"""
+function today_routing_data()
+    rigs = filter(((rig, _),) -> rig != "wings", reference_rigs)
+    goals = [trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); rig, area)
+             for (rig, area) in [("none", 0.0); rigs]]
+    today = at_today(assumptions)
+    cases = [goals; [merge(case, (; assumptions=today)) for case in goals]]
+    chosen = departures[1:fidelities[:final].departure_step:end]
+    trips = fetch.([Threads.@spawn round_trips(cases, [departure]) for departure in chosen])
+    open(run_file("today_routing.csv"), "w") do io
+        println(io, "rig,area,departure,recosted,rerouted")
+        for (departure, routed) in zip(chosen, trips), (k, case) in enumerate(goals)
+            found, again = routed[k], routed[length(goals) + k]
+            (isnothing(found) || isnothing(again)) && continue
+            println(io, join([case.rig, csv_value(case.area), csv_value(departure),
+                    @sprintf("%.6f", changed_cost(cases[length(goals) + k], found)),
+                    @sprintf("%.6f", again.cost_per_tonne_km)], ","))
+        end
     end
 end
