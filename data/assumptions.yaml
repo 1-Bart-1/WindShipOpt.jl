@@ -769,11 +769,11 @@ launch_mast_mass_per_size:
   unit: t/m
   reason: "Mass of a ship kite's launch mast and docking head with their seats per m of the square root of projected kite area, as they carry the kite only at launch and landing and grow with its span and chord: the SkySails system of 160-600 m^2 kites weighs about 30 t [@cedelft2016, Annex A.4] at about 1 kN/m^2 [@paulig2013], so 21 t after the winch of a 600 m^2 kite at 15 kg/kN, over 24.5 m. Low bound: the winch at 28 kg/kN; high bound: the 30 t less its winch for the 320 m^2 kite SkySails flew."
 launch_mast_cost_per_mass:
-  value: 8.3
-  low: 3.9
-  high: 12.9
+  value: 2.9
+  low: 1.9
+  high: 3.9
   unit: USD/kg
-  reason: "Cost per kg of the kite's telescopic launch mast and slewing docking head, geared and slewing machinery on a steel structure: the supplier price per kg of a wind turbine's yaw system [@wisdem_csm]. Bounds: the hub, a steel casting, and the gearbox of the same model."
+  reason: "Cost per kg of the kite's launch mast and docking head, mostly a welded steel tube that lifts the kite only at launch and landing and carries no tether force: the supplier price per kg of a wind turbine's welded steel tower [@wisdem_csm]. Low bound: the authors' manufacturing cost of welded tubular steel, as the rotor's tower is priced, from plate, waste, painting and labour in the steel cost model of WISDEM. High bound: the hub of the same model, a steel casting, which also holds a fifth of the mass as the slewing docking head at the 8.3 USD/kg of its yaw system."
 control_unit_cost_per_mass:
   value: 218.0
   low: 150.0
@@ -852,13 +852,19 @@ canopy_cloth_weight:
   low: 200.0
   high: 200.0
   unit: g/m^2
-  reason: "Weight of the polyester ripstop the canopy is sewn from at the reference force limit; the cloth grows in proportion to the force limit, so it carries the same tension per weight and keeps the canopy life, as woven polyester sails of any weight, each sized to its load, are given one life [@flynn2015]. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+  reason: "Weight of the polyester ripstop the canopy is sewn from at the reference force limit and cell width; the cloth grows in proportion to the force limit and to the cell width, so it carries the same tension per weight and keeps the canopy life, as woven polyester sails of any weight, each sized to its load, are given one life [@flynn2015]. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
 canopy_cloth_reference_force:
   value: 0.5
   low: 0.5
   high: 0.5
   unit: kN/m^2
   reason: "Force limit at which canopy_cloth_weight and canopy_mass_overhead are stated, the base kite_max_force_per_area."
+canopy_cloth_reference_chord:
+  value: 8.2
+  low: 8.2
+  high: 8.2
+  unit: m
+  reason: "Mean projected chord at whose cell width canopy_cloth_weight is stated: that of the SkySails kite of 125 m^2 projected on a 15.2 m span [@folkersma2020, Table 1], the ship kite whose cloth canopy_cloth_weight is set against."
 canopy_cloth_specific_strength:
   value: 170.0
   low: 170.0

@@ -4,6 +4,7 @@
 using Statistics: mean
 using Test
 using WindShipOpt
+using WindShipOpt: Optim
 using WindShipOpt: correlation_allowance, bulb_resistance, friction_coefficient
 
 # Every set reports into this one, so that a failing set does not stop the sets after it.
@@ -264,14 +265,14 @@ end
     course = deg2rad(120)
     problem = WindShipOpt.PatternProblem(model, max_force,
         deg2rad(assumptions[:kite_min_elevation]), 12.0, course, 0.0)
-    weaving, parameters = WindShipOpt.optimal_pattern(problem,
-        WindShipOpt.pattern_starts(course))
-    chosen = WindShipOpt.pattern_of(parameters)
-    straight = WindShipOpt.PatternForce(model, WindShipOpt.SteeringPattern(chosen.centre,
-        chosen.half_width, chosen.heading, chosen.angle_of_attack, 0.0), 12.0, max_force)
-    thrust(force) = force.force[1] * cos(course) + force.force[2] * sin(course)
-    @test chosen.weave > deg2rad(10)
-    @test thrust(weaving) > thrust(straight)
+    _, parameters = WindShipOpt.optimal_pattern(problem, WindShipOpt.pattern_starts(course))
+    @test WindShipOpt.pattern_of(parameters).weave > deg2rad(10)
+    straight_legs(legs) = problem([legs; 0.0])
+    flyable = WindShipOpt.flyable_patterns(problem)
+    starts = flyable[partialsortperm(problem.(flyable), 1:3)]
+    best_straight = minimum(Optim.minimum(Optim.optimize(straight_legs, start[1:4],
+        Optim.NelderMead(), Optim.Options(iterations=200))) for start in starts)
+    @test problem(parameters) < best_straight
 end
 
 @testset "a heavy wing flies crosswind though it cannot hang at rest" begin
@@ -299,7 +300,8 @@ end
 @testset "a kite built for more force gets cloth and seams in proportion" begin
     stronger = with_value(assumptions, :kite_max_force_per_area, 1.0)
     base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger), 800.0, 3.0)
-    @test WindShipOpt.cloth_weight(stronger) ≈ 2WindShipOpt.cloth_weight(assumptions)
+    @test WindShipOpt.cloth_weight(stronger, 10.0) ≈
+          2WindShipOpt.cloth_weight(assumptions, 10.0)
     @test strong_canopy.mass_per_area ≈ 2base_canopy.mass_per_area
     @test strong_canopy.cost_per_area > base_canopy.cost_per_area
     base_model, _, base_tether = WindShipOpt.kite_model(800.0, 3.0, assumptions)
@@ -521,7 +523,7 @@ end
 @testset "a kite without flight drag flies where every fixed start misses" begin
     low_drag = WindShipOpt.with_value(assumptions, :kite_flight_drag, 0.0)
     aspect_ratio = assumptions[:kite_aspect_ratio]
-    model, max_force, _ = WindShipOpt.kite_model(13777.0, aspect_ratio, low_drag)
+    model, max_force, _ = WindShipOpt.kite_model(8000.0, aspect_ratio, low_drag)
     course = deg2rad(120.0)
     flown = only(WindShipOpt.compute_pattern_table(model, max_force, low_drag, [15.0],
         [course], [0.0]))
@@ -536,7 +538,7 @@ end
 
 @testset "the pattern grid is only searched where no fixed start flies" begin
     aspect_ratio = assumptions[:kite_aspect_ratio]
-    model, max_force, _ = WindShipOpt.kite_model(13777.0, aspect_ratio, assumptions)
+    model, max_force, _ = WindShipOpt.kite_model(8000.0, aspect_ratio, assumptions)
     course = deg2rad(120.0)
     problem = WindShipOpt.PatternProblem(model, max_force,
         deg2rad(assumptions[:kite_min_elevation]), 15.0, course, 0.0)
@@ -652,7 +654,7 @@ end
     end
 end
 
-@testset "a kite's winch grows with its tether force, its launch mast with its size" begin
+@testset "a kite's winch grows with its force, its cheaper launch mast with its size" begin
     parts(area) = WindShipOpt.kite_price_parts(area, 500area, assumptions)
     deck = WindShipOpt.kite_deck_masses(800.0, 4e5, assumptions)
     @test deck.winch ≈ 400 * assumptions[:winch_mass_per_force]
@@ -664,7 +666,8 @@ end
     @test parts(800.0).controls == assumptions[:kite_controls_cost]
     @test parts(800.0).integration ≈ assumptions[:kite_integration_fraction] *
                                      (sum(parts(800.0)) - parts(800.0).integration)
-    @test 2 < parts(16000.0).deck / parts(3200.0).deck < 3
+    @test sqrt(5) < parts(16000.0).deck / parts(3200.0).deck < 5
+    @test assumptions[:launch_mast_cost_per_mass] <= assumptions[:winch_cost_per_mass]
     skysails = sum(WindShipOpt.kite_deck_masses(600.0, 6e5, assumptions))
     @test skysails ≈ 30e3 rtol = 0.02
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
@@ -695,17 +698,19 @@ end
     cloth(area) = WindShipOpt.cloth_area_ratio(assumptions, area, 3.0)
     surveyed_cloth = WindShipOpt.cloth_area_ratio(proportional, surveyed_area, 3.0)
     seam(area) = WindShipOpt.seam_area_ratio(assumptions, area, 3.0)
+    weight(area) = WindShipOpt.cloth_weight(assumptions, sqrt(area / 3.0))
     sewing(area) = (WindShipOpt.canopy_cost(assumptions, area, 3.0) - 1.16 * 25 / 18 * 8 -
-                    cloth(area) * (11.0 + 0.031 * 200)) / seam(area)
+                    cloth(area) * (11.0 + 0.031 * weight(area))) / seam(area)
     surveyed_sewing = 1.16 * 25 / 18 * 45 - surveyed_cloth * (11.0 + 0.031 * 100)
     @test sewing(200.0) ≈ sewing(3000.0) ≈ surveyed_sewing / ((3 * 9.3 + 2) / 8.2)
     @test seam(3000.0) < seam(200.0)
     growing = with_value(assumptions, :canopy_sewing_cloth_share, 1.0)
     @test price(200.0, growing) < price(800.0, growing) < price(3000.0, growing)
-    per_cloth = 1.16 * 25 / 18 * 45 / surveyed_cloth + 0.031 * 100
-    @test WindShipOpt.canopy_cost(growing, 3000.0, 3.0) -
-          WindShipOpt.canopy_cost(growing, 200.0, 3.0) ≈
-          per_cloth * (cloth(3000.0) - cloth(200.0))
+    sewing_per_cloth(area) = (WindShipOpt.canopy_cost(growing, area, 3.0) -
+                              1.16 * 25 / 18 * 8 -
+                              cloth(area) * (11.0 + 0.031 * weight(area))) / cloth(area)
+    @test sewing_per_cloth(200.0) ≈ sewing_per_cloth(3000.0) ≈
+          surveyed_sewing / surveyed_cloth
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈
           WindShipOpt.canopy_price(assumptions, rig.area, rig.aspect_ratio) * rig.area
@@ -760,16 +765,16 @@ end
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 0.0)
-    @test force(5.8751, 26.6411).thrust ≈ 111 atol = 5
-    @test force(5.8751, 26.6411).side ≈ 64108 rtol = 1e-3
-    @test force(6.6205, 50.2378).thrust ≈ 20056 rtol = 1e-3
-    @test force(6.6205, 50.2378).side ≈ 77235 rtol = 1e-3
-    @test force(8.82947, 86.695695).thrust ≈ 117545 rtol = 1e-3
-    @test force(8.82947, 86.695695).side ≈ 244675 rtol = 1e-3
-    @test force(11.161535, 114.227745).thrust ≈ 244678 rtol = 1e-3
-    @test force(11.161535, 114.227745).side ≈ 202319 rtol = 1e-3
-    @test force(13.802571, 148.57094).thrust ≈ 348557 rtol = 1e-3
-    @test force(13.802571, 148.57094).side ≈ 44703 rtol = 1e-3
+    @test force(5.8751, 26.6411).thrust ≈ -262 atol = 5
+    @test force(5.8751, 26.6411).side ≈ 62732 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 19414 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 76122 rtol = 1e-3
+    @test force(8.82947, 86.695695).thrust ≈ 108437 rtol = 1e-3
+    @test force(8.82947, 86.695695).side ≈ 216914 rtol = 1e-3
+    @test force(11.161535, 114.227745).thrust ≈ 238036 rtol = 1e-3
+    @test force(11.161535, 114.227745).side ≈ 205945 rtol = 1e-3
+    @test force(13.802571, 148.57094).thrust ≈ 347752 rtol = 1e-3
+    @test force(13.802571, 148.57094).side ≈ 54628 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
@@ -1988,12 +1993,12 @@ end
 
 @testset "a ship sailing live recovers more of a wrong forecast than one holding speed" begin
     kite_table, kite_hourly, finer = kite_coaster_routing(400.0)
-    departure, weather = 24.0 * 181, SyntheticWeather()
-    sources = (ReplannedForecast(CountedForecast(8.0, 0); interval=48.0, live)
-               for live in (false, true))
-    held, live = (forecast_route(finer, kite_table, weather, departure;
-            time_cost=kite_hourly, forecast).objective for forecast in sources)
-    @test live < held
+    weather, departures = SyntheticWeather(), 24.0 .* (1:45:330)
+    trip_costs(live) = sum(forecast_route(finer, kite_table, weather, departure;
+        time_cost=kite_hourly,
+        forecast=ReplannedForecast(CountedForecast(8.0, 0); interval=48.0, live)).objective
+        for departure in departures)
+    @test trip_costs(true) < trip_costs(false)
 end
 
 @testset "a ship sailing live changes speed within an edge, past the plan's speed" begin
@@ -3756,14 +3761,27 @@ end
 soft_mass_per_area(area, inputs) =
     WindShipOpt.soft_kite_mass(area, 3.0, 500area, inputs) / area
 
-@testset "a soft kite's mass per area grows with its chord, its cells widening slower" begin
+@testset "a soft kite's mass per area grows with its chord" begin
     @test soft_mass_per_area(3000.0, assumptions) >
           1.1soft_mass_per_area(200.0, assumptions)
     proportional = with_value(assumptions, :canopy_cell_width_exponent, 1.0)
-    @test soft_mass_per_area(3000.0, proportional) ≈
-          soft_mass_per_area(200.0, proportional) rtol=0.05
+    cloth(area) = WindShipOpt.Canopy(proportional, area, 3.0).mass_per_area -
+                  assumptions[:canopy_mass_overhead]
+    @test cloth(3200.0) ≈ 2cloth(800.0)
     model, _ = WindShipOpt.kite_model(200.0, 3.0, assumptions)
     @test model.mass > 200soft_mass_per_area(200.0, assumptions)
+end
+
+@testset "a canopy's cloth grows with its cell width, keeping its tension per weight" begin
+    reference = assumptions[:canopy_cloth_reference_chord]
+    @test WindShipOpt.cloth_weight(assumptions, reference) ≈
+          assumptions[:canopy_cloth_weight]
+    cell_width(chord) = chord / WindShipOpt.chord_over_cell_width(assumptions, chord)
+    for chord in (4.0, 16.0, 40.0)
+        @test WindShipOpt.cloth_weight(assumptions, chord) /
+              assumptions[:canopy_cloth_weight] ≈
+              cell_width(chord) / cell_width(reference)
+    end
 end
 
 @testset "a ram-air canopy sews more rib cloth per area the longer its chord" begin

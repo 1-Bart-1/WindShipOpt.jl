@@ -24,14 +24,17 @@ force_rating(assumptions::Assumptions) =
     assumptions[:kite_max_force_per_area] / assumptions[:canopy_cloth_reference_force]
 
 """
-    cloth_weight(assumptions)
+    cloth_weight(assumptions, chord)
 
-Weight [g/m^2] of the canopy cloth: `canopy_cloth_weight` times the
-[`force_rating`](@ref), so that the cloth carries the same tension per weight at any force
-limit.
+Weight [g/m^2] of the cloth of a ram-air canopy of mean `chord` [m]: `canopy_cloth_weight`
+times the [`force_rating`](@ref) and its cell width over that at
+`canopy_cloth_reference_chord`, so that the cloth carries the same tension per weight at any
+force limit and cell width.
 """
-cloth_weight(assumptions::Assumptions) =
-    assumptions[:canopy_cloth_weight] * force_rating(assumptions)
+cloth_weight(assumptions::Assumptions, chord) =
+    assumptions[:canopy_cloth_weight] * force_rating(assumptions) *
+    (chord / assumptions[:canopy_cloth_reference_chord])^
+    assumptions[:canopy_cell_width_exponent]
 
 """
     chord_over_cell_width(assumptions, chord)
@@ -122,8 +125,9 @@ function canopy_cost(assumptions::Assumptions, area, aspect_ratio)
              surveyed_cloth * cloth_price(assumptions,
                  assumptions[:canopy_structure_cloth_weight])
     growth = (1 - share) * seam / surveyed_seam + share * cloth / surveyed_cloth
+    weight = cloth_weight(assumptions, sqrt(area / aspect_ratio))
     return sewing * growth + per_flat_area * assumptions[:canopy_bridle_cost] +
-           cloth * cloth_price(assumptions, cloth_weight(assumptions))
+           cloth * cloth_price(assumptions, weight)
 end
 
 """
@@ -136,7 +140,8 @@ of seams, tapes and reinforcements in proportion to the force limit, at its
 """
 function Canopy(assumptions::Assumptions, area, aspect_ratio)
     cloth_area = cloth_area_ratio(assumptions, area, aspect_ratio)
-    return Canopy(1e-3cloth_area * cloth_weight(assumptions) +
+    weight = cloth_weight(assumptions, sqrt(area / aspect_ratio))
+    return Canopy(1e-3cloth_area * weight +
                   assumptions[:canopy_mass_overhead] * force_rating(assumptions),
         canopy_cost(assumptions, area, aspect_ratio))
 end
