@@ -315,7 +315,7 @@ function Accuracy({ data }: { data: ExplorerData }) {
       <h2 className="text-lg font-semibold">How far to trust a change</h2>
       <p className="text-ink">
         The explorer keeps each design's voyages as the model routed them at the paper's inputs and recomputes
-        their cost with the model's own cost formulas. Crash and loss rates do not steer the router, so they are
+        their cost with the model's own cost formulas. Wing and rotor loss rates do not steer the router, so they are
         exact ({exactInputs.length} inputs). Every other input also changes how the ship is routed; the table gives the
         largest gap between the explorer and a full rerun of the model for {new Set(data.checks.map((check) => check.design)).size} designs.
       </p>

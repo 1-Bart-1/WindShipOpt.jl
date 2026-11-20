@@ -67,7 +67,7 @@ method studies, which choose or check a method or setting, run only by name: eac
 its run for its figures and writes its tables
 """
 study_steps = [:cargo_interest => cargo_interest_data, :base_kite => base_kite_data,
-    :launch => launch_data, :sea_effect => sea_effect_data,
+    :sea_effect => sea_effect_data,
     :convergence => convergence_data, :speed_terms => speed_terms_data,
     :published_terms => published_terms_data, :model_parts => model_parts_data,
     :size_search => size_search_data, :router_decisions => router_decisions_data,

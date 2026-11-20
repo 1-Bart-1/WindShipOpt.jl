@@ -474,43 +474,33 @@ struct EdgeSample
     headwind::Float64
     "true wind at the kite's reference height from abeam [m/s]"
     crosswind::Float64
-    "whether the sun is up there"
-    daylight::Bool
     "10 m true wind speed [m/s]"
     wind_speed::Float64
     "standard error of that speed the plan weighs [m/s]; 0 for a wind taken as known"
     spread::Float64
 end
 
-EdgeSample(condition::SeaCondition, headwind, crosswind, daylight) =
-    EdgeSample(condition, headwind, crosswind, daylight, 0.0, 0.0)
-
-"""
-    is_daylight(lon, time)
-
-Whether `time` [h from midnight UTC] falls between 06:00 and 18:00 local solar time at
-longitude `lon` [deg].
-"""
-is_daylight(lon, time) = 6 <= mod(time + lon / 15, 24) < 18
+EdgeSample(condition::SeaCondition, headwind, crosswind) =
+    EdgeSample(condition, headwind, crosswind, 0.0, 0.0)
 
 """
     EdgeSample(table, (east, north), (wave_height, wave_period, wave_from), course,
-               daylight, spread=0.0)
+               spread=0.0)
 
 [`EdgeSample`](@ref) for the [`PerformanceTable`](@ref) `table` of a 10 m wind [m/s] and
-the [`waves`](@ref) on `course` [rad from north], `daylight` saying whether the sun is up
-and `spread` the standard error of the wind speed [m/s].
+the [`waves`](@ref) on `course` [rad from north], `spread` the standard error of the wind
+speed [m/s].
 """
 function EdgeSample(table::PerformanceTable, (east, north), (wave_height, wave_period,
-            wave_from), course, daylight, spread=0.0)
+            wave_from), course, spread=0.0)
     wind_speed = hypot(east, north)
     angle = true_wind_angle(east, north, wind_speed, course)
     condition = SeaCondition(table, wind_speed, angle, wave_height, wave_period,
         wave_heading(wave_from, course))
     table.kite_wind_factor > 0 ||
-        return EdgeSample(condition, 0.0, 0.0, daylight, wind_speed, spread)
+        return EdgeSample(condition, 0.0, 0.0, wind_speed, spread)
     crosswind, headwind = table.kite_wind_factor * wind_speed .* sincos(angle)
-    return EdgeSample(condition, headwind, crosswind, daylight, wind_speed, spread)
+    return EdgeSample(condition, headwind, crosswind, wind_speed, spread)
 end
 
 """
@@ -524,8 +514,7 @@ function EdgeSample(table::PerformanceTable, weather, corridor, stage, lateral, 
     lat, lon = edge_point(corridor, stage, lateral, next_lateral(corridor, lateral, step),
         share)
     return EdgeSample(table, wind(weather, lat, lon, time), waves(weather, lat, lon, time),
-        corridor.edge_course[stage, lateral, step], is_daylight(lon, time),
-        wind_spread(weather, time))
+        corridor.edge_course[stage, lateral, step], wind_spread(weather, time))
 end
 
 """
@@ -625,8 +614,6 @@ struct SailedPoint
     crosswind::Float64
     "sea condition there"
     condition::SeaCondition
-    "whether the sun is up there"
-    daylight::Bool
     "routing speed number held there; 0 where not even the lowest can be held"
     speed_index::Int
     "fuel power with the rig flown at the held speed [W]; on an uncertain wind its expected
@@ -649,8 +636,8 @@ end
 [`SailedPoint`](@ref) of the [`EdgeSample`](@ref) `sample`.
 """
 SailedPoint(sample::EdgeSample, held, flown, stowed, hours, time, chance) =
-    SailedPoint(sample.headwind, sample.crosswind, sample.condition, sample.daylight,
-        held, flown, stowed, hours, time, chance)
+    SailedPoint(sample.headwind, sample.crosswind, sample.condition, held, flown, stowed,
+        hours, time, chance)
 
 """
     SailedPoint(table, sample, speed_index, aloft, distance, time)
@@ -734,12 +721,12 @@ function extend(tally::EdgeTally, power, hours, wear, mode, launched, prices, cy
 end
 
 """
-    forced_landing(tally, cost)
+    forced_landing(tally)
 
-`tally` followed by a landing outside the landing limits at `cost` [USD].
+`tally` followed by a landing outside the landing limits.
 """
-forced_landing(tally::EdgeTally, cost) = EdgeTally(tally.cost + cost, tally.energy,
-    tally.flight_hours, tally.launches, tally.forced_landings + 1)
+forced_landing(tally::EdgeTally) = EdgeTally(tally.cost, tally.energy, tally.flight_hours,
+    tally.launches, tally.forced_landings + 1)
 
 "speed [m/s] of `table` held at [`SailedPoint`](@ref) `point`, zero where none is"
 sailed_speed(table::RouteTable, point) =
@@ -753,9 +740,10 @@ Cheapest ways through the [`SailedPoint`](@ref)s of an edge on the [`RouteTable`
 point if `aloft`, as [`EdgeTally`](@ref)s. At each point a kite down burns the stowed
 fuel, and cannot be down where only a flying kite holds the speed; where
 [`kite_aloft`](@ref) allows, a kite aloft flies, and where [`kite_launchable`](@ref)
-allows, a kite down may launch. A kite aloft can come down at any point: its cost is part
-of the launch, and outside [`kite_landable`](@ref) it is a [`forced_landing`](@ref). Wings
-and rotors stay down, burning their fuel with the rig standing.
+allows, a kite down may launch. A kite aloft can come down wherever [`kite_landable`](@ref)
+allows, its cost being part of the launch; outside it only as a [`forced_landing`](@ref),
+where the kite can neither stay up nor have come down earlier on the edge. Wings and rotors
+stay down, burning their fuel with the rig standing.
 """
 function kite_passage(table::RouteTable, points, aloft, prices)
     down, up = kite_start(aloft)
@@ -781,16 +769,18 @@ there, whether the way aloft launches it there and whether a landing there is fo
 """
 function kite_step(table::RouteTable, point, down, up, prices)
     speed = sailed_speed(table, point)
-    (; headwind, crosswind, daylight, condition) = point
-    forced = !kite_landable(table.table, speed, headwind, crosswind, condition)
-    landing = forced ? forced_landing(up, table.table.forced_landing_cost) : up
+    (; headwind, crosswind) = point
+    (; wave_height) = point.condition
+    stays = point.chance > 0 ?
+            aloft_tally(table.table, up, point, false, prices) : NO_TALLY
+    forced = !kite_landable(table.table, speed, headwind, crosswind, wave_height)
+    stranded = !isfinite(down.cost) && !isfinite(stays.cost)
+    landing = !forced ? up : stranded ? forced_landing(up) : NO_TALLY
     landed = landing.cost < down.cost
     next_down = extend(landed ? landing : down, point.stowed, point.hours, 0.0, STOWED,
         false, prices, table.table.cycle_cost)
-    stays = point.chance > 0 ?
-            aloft_tally(table.table, up, point, false, prices) : NO_TALLY
-    launches = kite_launchable(table.table, speed, headwind, crosswind, condition,
-        daylight) ? aloft_tally(table.table, down, point, true, prices) : NO_TALLY
+    launches = kite_launchable(table.table, speed, headwind, crosswind, wave_height) ?
+               aloft_tally(table.table, down, point, true, prices) : NO_TALLY
     launched = launches.cost < stays.cost
     return next_down, launched ? launches : stays, landed, launched, forced
 end
@@ -1320,7 +1310,6 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices, 
     lat, lon = corridor.lat[stage, lateral], corridor.lon[stage, lateral]
     node_wind = wind(weather, lat, lon, departure + time)
     node_waves = waves(weather, lat, lon, departure + time)
-    daylight = is_daylight(lon, departure + time)
     kite = has_kite(table)
     speed_stride = COST_TO_GO_SPEED_STRIDE * ROUTER_SETTINGS[].search_speed_stride
     sample_hours = max(ROUTER_SETTINGS[].to_go_sample_hours, corridor.sample_hours[stage])
@@ -1329,7 +1318,7 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices, 
         isnan(corridor.edge_course[stage, lateral, step]) && continue
         next = next_lateral(corridor, lateral, step)
         start = EdgeSample(table.table, node_wind, node_waves,
-            corridor.edge_course[stage, lateral, step], daylight,
+            corridor.edge_course[stage, lateral, step],
             wind_spread(weather, departure + time))
         arrival = (; prices, next, stage=stage + 1, time)
         through = 0
@@ -1714,13 +1703,12 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
             sharing = sharing_edges!(workspace, state, to_go, limit, length(commanded))
             node_wind = wind(weather, lat, lon, departure + time)
             node_waves = waves(weather, lat, lon, departure + time)
-            daylight = is_daylight(lon, departure + time)
             for step in 1:step_count(corridor)
                 isnan(corridor.edge_course[stage, lateral, step]) && continue
                 next = next_lateral(corridor, lateral, step)
                 distance = corridor.edge_length[stage, lateral, step]
                 start = EdgeSample(ship_table, node_wind, node_waves,
-                    corridor.edge_course[stage, lateral, step], daylight,
+                    corridor.edge_course[stage, lateral, step],
                     wind_spread(weather, departure + time))
                 through = 0
                 for slot in (commanded_from[step] + 1):commanded_from[step + 1]

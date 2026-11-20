@@ -391,12 +391,9 @@ range_text(low, high) = string("(", estimate_text(low), " to ", estimate_text(hi
 input_range(name; scale=1) = range_text(scale * assumptions.entries[name].low,
     scale * assumptions.entries[name].high)
 
-"chance [-] of a kite lost or damaged in one launch and landing, its inputs at `bound`"
-cycle_loss(bound) = sum(getfield(assumptions.entries[name], bound)
-    for name in (:kite_cycle_damage_probability, :kite_cycle_loss_probability))
-
-"[`cycle_loss`](@ref) at `bound` as one in so many cycles, in LaTeX"
-one_in_text(bound) = @sprintf("1 in \\num{%s}", estimate_text(1 / cycle_loss(bound)))
+"the chance of a kite lost per launch at `bound` as one in so many launches, in LaTeX"
+one_in_text(bound) = @sprintf("1 in \\num{%s}",
+    estimate_text(1 / getfield(assumptions.entries[:kite_launch_loss_probability], bound)))
 
 """
     service_range()
@@ -439,11 +436,9 @@ function goal_rows()
         ("Rig life", "rotors", years(:rotor_lifetime),
             "stated design life; about 8 years on record"),
         ("Out of service", "all", service, service_today),
-        ("Crash in flight", "kite", "none", "no crash record published for a ship kite"),
         ("Unit lost", "wings, rotors", "none", "none reported, and no duty to report one"),
-        ("Lost per launch and landing", "kite", loss,
-            "$(estimate_text(100cycle_loss(:today)))\\,\\%, our estimate " *
-            "(up to $(estimate_text(100cycle_loss(:high)))\\,\\%); no record for a ship"),
+        ("Kite lost per launch", "kite", loss,
+            "no loss count published; SkySails' flights show at best $(one_in_text(:today))"),
         ("Launch and landing crew", "kite", crew,
             "an estimate, not a goal: no source gives crew time per launch")]
 end
