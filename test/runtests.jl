@@ -1977,12 +1977,12 @@ end
 
 @testset "a ship sailing live recovers more of a wrong forecast than one holding speed" begin
     kite_table, kite_hourly, finer = kite_coaster_routing(400.0)
-    departure, weather = 24.0 * 181, SyntheticWeather()
-    sources = (ReplannedForecast(CountedForecast(8.0, 0); interval=48.0, live)
-               for live in (false, true))
-    held, live = (forecast_route(finer, kite_table, weather, departure;
-            time_cost=kite_hourly, forecast).objective for forecast in sources)
-    @test live < held
+    weather, departures = SyntheticWeather(), 24.0 .* (1:45:330)
+    trip_costs(live) = sum(forecast_route(finer, kite_table, weather, departure;
+        time_cost=kite_hourly,
+        forecast=ReplannedForecast(CountedForecast(8.0, 0); interval=48.0, live)).objective
+        for departure in departures)
+    @test trip_costs(true) < trip_costs(false)
 end
 
 @testset "a ship sailing live changes speed within an edge, past the plan's speed" begin
