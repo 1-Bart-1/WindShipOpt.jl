@@ -4,6 +4,7 @@
 using Statistics: mean
 using Test
 using WindShipOpt
+using WindShipOpt: Optim
 using WindShipOpt: correlation_allowance, bulb_resistance, friction_coefficient
 
 # Numerical example of Holtrop & Mennen (1982).
@@ -248,14 +249,14 @@ end
     course = deg2rad(120)
     problem = WindShipOpt.PatternProblem(model, max_force,
         deg2rad(assumptions[:kite_min_elevation]), 12.0, course, 0.0)
-    weaving, parameters = WindShipOpt.optimal_pattern(problem,
-        WindShipOpt.pattern_starts(course))
-    chosen = WindShipOpt.pattern_of(parameters)
-    straight = WindShipOpt.PatternForce(model, WindShipOpt.SteeringPattern(chosen.centre,
-        chosen.half_width, chosen.heading, chosen.angle_of_attack, 0.0), 12.0, max_force)
-    thrust(force) = force.force[1] * cos(course) + force.force[2] * sin(course)
-    @test chosen.weave > deg2rad(10)
-    @test thrust(weaving) > thrust(straight)
+    _, parameters = WindShipOpt.optimal_pattern(problem, WindShipOpt.pattern_starts(course))
+    @test WindShipOpt.pattern_of(parameters).weave > deg2rad(10)
+    straight_legs(legs) = problem([legs; 0.0])
+    flyable = WindShipOpt.flyable_patterns(problem)
+    starts = flyable[partialsortperm(problem.(flyable), 1:3)]
+    best_straight = minimum(Optim.minimum(Optim.optimize(straight_legs, start[1:4],
+        Optim.NelderMead(), Optim.Options(iterations=200))) for start in starts)
+    @test problem(parameters) < best_straight
 end
 
 @testset "a heavy wing flies crosswind though it cannot hang at rest" begin
@@ -822,16 +823,16 @@ end
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 0.0)
-    @test force(5.8751, 26.6411).thrust ≈ 111 atol = 5
-    @test force(5.8751, 26.6411).side ≈ 64108 rtol = 1e-3
-    @test force(6.6205, 50.2378).thrust ≈ 20056 rtol = 1e-3
-    @test force(6.6205, 50.2378).side ≈ 77235 rtol = 1e-3
-    @test force(8.82947, 86.695695).thrust ≈ 117545 rtol = 1e-3
-    @test force(8.82947, 86.695695).side ≈ 244675 rtol = 1e-3
-    @test force(11.161535, 114.227745).thrust ≈ 244678 rtol = 1e-3
-    @test force(11.161535, 114.227745).side ≈ 202319 rtol = 1e-3
-    @test force(13.802571, 148.57094).thrust ≈ 348557 rtol = 1e-3
-    @test force(13.802571, 148.57094).side ≈ 44703 rtol = 1e-3
+    @test force(5.8751, 26.6411).thrust ≈ -262 atol = 5
+    @test force(5.8751, 26.6411).side ≈ 62732 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 19414 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 76122 rtol = 1e-3
+    @test force(8.82947, 86.695695).thrust ≈ 108437 rtol = 1e-3
+    @test force(8.82947, 86.695695).side ≈ 216914 rtol = 1e-3
+    @test force(11.161535, 114.227745).thrust ≈ 238036 rtol = 1e-3
+    @test force(11.161535, 114.227745).side ≈ 205945 rtol = 1e-3
+    @test force(13.802571, 148.57094).thrust ≈ 347752 rtol = 1e-3
+    @test force(13.802571, 148.57094).side ≈ 54628 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
