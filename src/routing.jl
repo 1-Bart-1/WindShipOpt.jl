@@ -569,8 +569,10 @@ function certain_fuels(table::RouteTable, speed_index, condition, headwind, cros
     return flown, stowed, Float64(aloft)
 end
 
-"nodes of the three-point Gauss rule for a standard normal variable, and their weights"
-const SPREAD_NODES, SPREAD_WEIGHTS = (-sqrt(3.0), 0.0, sqrt(3.0)), (1 / 6, 2 / 3, 1 / 6)
+"nodes of the three-point Gauss rule for a standard normal variable"
+const SPREAD_NODES = (-sqrt(3.0), 0.0, sqrt(3.0))
+"weights of the [`SPREAD_NODES`](@ref)"
+const SPREAD_WEIGHTS = (1 / 6, 2 / 3, 1 / 6)
 
 """
     expected_fuels(table, speed_index, sample)
@@ -2581,8 +2583,10 @@ const CORRIDOR_HALF_WIDTH = 2400.0
 "waypoints from Rotterdam through the Channel to Ushant (latitude, longitude) [deg]"
 const CHANNEL = [(51.98, 4.05), (51.05, 1.60), (50.05, -1.50), (48.80, -6.00)]
 
-"stage and row spacing of a corridor at scale 1 [nmi]"
-const OCEAN_SPACING, LATERAL_SPACING = 45.0, 11.25
+"stage spacing of a corridor at scale 1 [nmi]"
+const OCEAN_SPACING = 45.0
+"row spacing of a corridor at scale 1 [nmi]"
+const LATERAL_SPACING = 11.25
 
 "fewest open-ocean stages of a corridor whose stages are `OCEAN_SPACING` apart"
 const MIN_OCEAN_STAGES = 10
@@ -2599,6 +2603,14 @@ const COASTAL_PATHS = Dict(:caribbean => [[(16.15, -61.20)]],
     :new_york => [[(40.3, -72.5)]], :bilbao => [[(43.6, -3.0)]],
     :dakar => [[(14.6, -17.6)]], :houston => [FLORIDA_STRAIT, [(28.8, -94.5)]],
     :tubarao => [[(-20.4, -39.8)]])
+
+"""
+Share of the emissions of a voyage between Rotterdam and the port of each route that the
+EU ETS counts: all between ports of Member States, Guadeloupe among them, half to or from a
+port outside the Union.
+"""
+const EU_ETS_SHARES = Dict(:caribbean => 1.0, :bilbao => 1.0, :new_york => 0.5,
+    :dakar => 0.5, :houston => 0.5, :tubarao => 0.5)
 
 """
     route_paths(route)

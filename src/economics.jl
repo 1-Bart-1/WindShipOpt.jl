@@ -231,6 +231,18 @@ function gross_tonnage(hull::Hull, assumptions::Assumptions)
 end
 
 """
+    carbon_coverage(hull, route, assumptions)
+
+Share of the emissions of a ship of `hull` on `route` that the carbon price is paid on:
+the route's [`EU_ETS_SHARES`](@ref) from a gross tonnage of `ets_gross_tonnage` up, none
+below it or where `route` is nothing.
+"""
+carbon_coverage(hull::Hull, ::Nothing, assumptions::Assumptions) = 0.0
+carbon_coverage(hull::Hull, route::Symbol, assumptions::Assumptions) =
+    gross_tonnage(hull, assumptions) >= assumptions[:ets_gross_tonnage] ?
+    EU_ETS_SHARES[route] : 0.0
+
+"""
     port_costs(hull, assumptions)
 
 Dues and services [USD] of one call at the loading port, charged per gross tonnage, and
@@ -903,7 +915,8 @@ function voyage_costs(ship::Ship, costs, rigs, passages, outbound, inbound, assu
                    for (share, rig, passage) in zip(shares, rigs, passages)
                    if !isnothing(passage))
     running_cost = state_mean(passage -> passage.energy, shares, passages) *
-                   Drive(ship.design.drive, assumptions).fuel.price + rig_cost +
+                   Drive(ship.design.drive, assumptions;
+                       ship.fuel.carbon_coverage).fuel.price + rig_cost +
                    port_costs(ship.hull, assumptions) +
                    store_round_trip_cost(store.price, round_trip_hours, assumptions) +
                    yearly_crash_cost(ship.rig, assumptions) * round_trip_hours /
