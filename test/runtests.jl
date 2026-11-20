@@ -3773,8 +3773,9 @@ end
 
 @testset "a canopy keeps the surveyed kite's cells and cloth at every size" begin
     surveyed_width = assumptions[:canopy_structure_chord] / assumptions[:canopy_chord_cells]
+    cell_width(chord) = chord / WindShipOpt.chord_over_cell_width(assumptions, chord)
     for chord in (4.0, 16.0, 40.0)
-        @test chord / WindShipOpt.chord_over_cell_width(assumptions, chord) ≈ surveyed_width
+        @test cell_width(chord) ≈ surveyed_width
     end
     @test WindShipOpt.cloth_weight(assumptions) ≈ assumptions[:canopy_cloth_weight]
 end
