@@ -47,7 +47,8 @@ include("paper_tables.jl")
 
 "data steps of the results in the order they run, each writing one or two data files"
 data_steps = [:patterns => patterns_data, :designs => designs_data,
-    :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
+    :routes => routes_data, :classes => classes_data, :today => today_data,
+    :forecast => forecast_data,
     :forecast_result => forecast_result_data, :sensitivity => sensitivity_data,
     :goal_size_data => goal_size_data,
     :availability_data => availability_data,
@@ -66,18 +67,19 @@ method studies, which choose or check a method or setting, run only by name: eac
 its run for its figures and writes its tables
 """
 study_steps = [:cargo_interest => cargo_interest_data, :base_kite => base_kite_data,
-    :launch => launch_data, :sea_effect => sea_effect_data,
+    :sea_effect => sea_effect_data,
     :convergence => convergence_data, :speed_terms => speed_terms_data,
     :published_terms => published_terms_data, :model_parts => model_parts_data,
     :size_search => size_search_data, :router_decisions => router_decisions_data,
-    :routing_value => routing_value_data]
+    :routing_value => routing_value_data, :today_routing => today_routing_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
 study_tables = Dict(:cargo_interest => [:cargo_interest_table => cargo_interest_table],
     :sea_effect => [:sea_effect_table => sea_effect_table],
     :speed_terms => [:speed_terms_table => speed_terms_table],
     :published_terms => [:published_table => published_table],
-    :routing_value => [:routing_value_table => routing_value_table])
+    :routing_value => [:routing_value_table => routing_value_table],
+    :today_routing => [:today_routing_numbers => today_routing_numbers_file])
 
 "every table step of the method studies"
 study_table_steps() = unique(reduce(vcat, values(study_tables)))
@@ -125,6 +127,7 @@ output_steps = [:kite => kite_figure,
     :canopy_cells => canopy_cells_figure,
     :tow_point_figure => tow_point_figure,
     :fleet_share => fleet_share_figure, :numbers => numbers_file,
+    :today_numbers => today_numbers_file,
     :figure_style => figure_style_file, :rigid_numbers => rigid_numbers_file]
 
 """

@@ -187,7 +187,8 @@ input_header = "\\toprule\nInput & Value & Range & Unit & Source \\\\\n\\midrule
 
 "words of an input's name printed otherwise in the input table"
 input_words = Dict("e" => "e-", "teu" => "TEU", "ceu" => "CEU", "usd" => "USD",
-    "eur" => "EUR", "vlsfo" => "VLSFO", "holtrop" => "Holtrop", "froude" => "Froude")
+    "eur" => "EUR", "ets" => "EU ETS", "vlsfo" => "VLSFO", "holtrop" => "Holtrop",
+    "froude" => "Froude")
 
 """
     input_label(name)
@@ -390,12 +391,9 @@ range_text(low, high) = string("(", estimate_text(low), " to ", estimate_text(hi
 input_range(name; scale=1) = range_text(scale * assumptions.entries[name].low,
     scale * assumptions.entries[name].high)
 
-"chance [-] of a kite lost or damaged in one launch and landing, its inputs at `bound`"
-cycle_loss(bound) = sum(getfield(assumptions.entries[name], bound)
-    for name in (:kite_cycle_damage_probability, :kite_cycle_loss_probability))
-
-"[`cycle_loss`](@ref) at `bound` as one in so many cycles, in LaTeX"
-one_in_text(bound) = @sprintf("1 in \\num{%s}", estimate_text(1 / cycle_loss(bound)))
+"the chance of a kite lost per launch at `bound` as one in so many launches, in LaTeX"
+one_in_text(bound) = @sprintf("1 in \\num{%s}",
+    estimate_text(1 / getfield(assumptions.entries[:kite_launch_loss_probability], bound)))
 
 """
     service_range()
@@ -414,8 +412,8 @@ end
 """
     goal_rows()
 
-The goals behind the results as (goal, rigs, value, what is known today), each value read
-from the input that holds it.
+The goals behind the results as (goal, rigs, value, what is known today), each value and
+each value known today read from the input that holds it.
 """
 function goal_rows()
     life = assumptions.entries[:canopy_life]
@@ -425,21 +423,22 @@ function goal_rows()
     loss = "$(one_in_text(:value)) ($(one_in_text(:low)) to $(one_in_text(:high)))"
     crew = string("USD~", estimate_text(assumptions[:kite_cycle_crew_cost]), " per cycle ",
         input_range(:kite_cycle_crew_cost))
-    return [("Canopy life", "kite", canopy,
-            string("polyester sails last ", estimate_text(life.low), " to ",
-                estimate_text(life.high), " h; none published for a ship kite; small ",
-                "kites expected 100 to \\num{1000} h")),
+    life_today = string("\\num{", estimate_text(life.today), "} h, our estimate: none ",
+        "published for a ship kite; polyester sails last ", estimate_text(life.low), " to ",
+        estimate_text(life.high), " h; small kites expected 100 to \\num{1000} h")
+    service_today = @sprintf("kite %.0f\\,\\%%, our estimate, as none has a record; %s",
+        100assumptions.entries[:kite_out_of_service].today,
+        @sprintf("wings and rotors %.0f\\,\\%%, one rotor operator's record",
+            100assumptions.entries[:rotor_out_of_service].today))
+    return [("Canopy life", "kite", canopy, life_today),
         ("Rig life", "wings", years(:wing_lifetime),
             "stated design life; about 2 years on record"),
         ("Rig life", "rotors", years(:rotor_lifetime),
             "stated design life; about 8 years on record"),
-        ("Out of service", "all", service,
-            "one rotor operator's 97\\,\\%; nothing for kites"),
-        ("Crash in flight", "kite", "none", "no crash record published for a ship kite"),
+        ("Out of service", "all", service, service_today),
         ("Unit lost", "wings, rotors", "none", "none reported, and no duty to report one"),
-        ("Lost per launch and landing", "kite", loss,
-            "our estimate 0.25\\,\\% " *
-            "(up to $(estimate_text(100cycle_loss(:high)))\\,\\%); no record for a ship"),
+        ("Kite lost per launch", "kite", loss,
+            "no loss count published; SkySails' flights show at best $(one_in_text(:today))"),
         ("Launch and landing crew", "kite", crew,
             "an estimate, not a goal: no source gives crew time per launch")]
 end
@@ -794,12 +793,14 @@ end
 One row of the design part of the ship class table.
 """
 function write_class_design_row(io, class)
+    (; powertrain) = Ship(ShipDesign(:vlsfo, class), assumptions)
+    engine_power = powertrain.installed_power - powertrain.hotel_load
     println(io, latex_escape(class.name), " & ", latex_number(class.length), " & ",
         dash_cell(class.beam, "\\num{%.1f}"), " & ", dash_cell(class.draft, "\\num{%.1f}"),
         " & ", dash_cell(class.block_coefficient, "\\num{%.2f}"), " & ",
         latex_number(class.deadweight), " & ", unit_capacity(class), " & ",
         limit_label(class), " & ", dash_cell(class.service_speed, "\\num{%.1f}"), " & ",
-        dash_cell(class.power / 1e3, "\\num{%.1f}"), " & ",
+        dash_cell(engine_power / 1e6, "\\num{%.1f}"), " & ",
         dash_cell(Hull(class, assumptions).resistance_factor, "\\num{%.2f}"), " & ",
         dash_cell(class.newbuild_price / 1e6, "\\num{%.1f}"), " \\\\")
 end
@@ -883,29 +884,37 @@ end
 
 Tabular of the cost saving of the cheapest size of each rig with each drive, the mean
 over the classes and routes, split by [`saving_split`](@ref) into fuel, time and the
-rest, with the share of round trips the rig shortens and their median change, in
-split_table.tex.
+rest, with the same saving with each goal at its value known today from
+classes_today.csv, and the share of round trips the rig shortens and their median change,
+in split_table.tex.
 """
 function split_table()
     table = read_table(data_file("classes.csv"))
+    today = fleet_savings.(fleet_cells.(Ref(read_table(data_file("classes_today.csv"))),
+        first.(drive_labels)))
     lines = []
-    for (drive, label) in drive_labels, (k, rig) in enumerate(rig_names)
+    for ((drive, label), today_savings) in zip(drive_labels, today),
+        (k, rig) in enumerate(rig_names)
+
         splits = rig_splits(table, drive, rig)
         hours = getproperty.(splits, :hours)
         push!(lines, (; label=k == 1 ? label : "", rig, points=split_points(splits),
+            today=today_savings[rig],
             shorter=100count(<(0), hours) / length(hours), trip=median(hours)))
     end
     cells = split_cells(lines)
+    today_scale = column_scale([line.today for line in lines])
     trip_scale = column_scale([line.trip for line in lines])
     write_whole(joinpath(sections, "split_table.tex")) do io
-        println(io, "\\begin{tabular}{@{}llrrrrrr}\n\\toprule")
-        println(io, " & & Saving & Fuel & Time & Rig and other & Shorter & ",
+        println(io, "\\begin{tabular}{@{}llrrrrrrr}\n\\toprule")
+        println(io, " & & Saving & Fuel & Time & Rig and other & Today & Shorter & ",
             "Round trip \\\\")
         println(io, "Drive & Rig & [\\%] & [points] & [points] & [points] & [\\%] & ",
-            "[\\%] \\\\\n\\midrule")
+            "[\\%] & [\\%] \\\\\n\\midrule")
         for (line, shaded) in zip(lines, cells)
-            @printf(io, "%s & %s & %s & %.0f & %s \\\\\n", line.label, line.rig, shaded,
-                line.shorter, shaded_cell(-line.trip, trip_scale; shown=line.trip))
+            @printf(io, "%s & %s & %s & %s & %.0f & %s \\\\\n", line.label, line.rig,
+                shaded, shaded_cell(line.today, today_scale), line.shorter,
+                shaded_cell(-line.trip, trip_scale; shown=line.trip))
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
@@ -1708,6 +1717,47 @@ function routing_value_table()
 end
 
 """
+    today_routing_numbers_file()
+
+Write to paper/sections/today_routing_numbers.tex, from the today routing study, by how many
+points routing anew with each goal at its value known today raises the cost saving of the
+kite, of the rotors and the kite's lead over the rotors against costing so the routes found
+at the goals, each with its standard error over the departures, and how many departures.
+"""
+function today_routing_numbers_file()
+    table = read_table(study_file(:today_routing, "today_routing.csv"))
+    gains = Dict(rig => rerouting_gains(table, rig) for rig in ("kite", "rotors"))
+    error_text(gains) = error_cell(mean(gains), std(gains) / sqrt(length(gains)); finest=2)
+    draft = TOML.parsefile(study_runs_path)["today_routing"]["fidelity"] != "final"
+    numbers = ["TodayRoutingKite" => error_text(gains["kite"]),
+        "TodayRoutingRotors" => error_text(gains["rotors"]),
+        "TodayRoutingGap" => error_text(gains["kite"] .- gains["rotors"]),
+        "TodayRoutingDepartures" => string(length(gains["kite"]))]
+    write_whole(joinpath(sections, "today_routing_numbers.tex")) do io
+        for (name, text) in numbers
+            print(io, number_macro(name, text, draft))
+        end
+    end
+end
+
+"""
+    rerouting_gains(table, rig)
+
+Points [%] of cost saving that routing anew at today's values gains `rig` on each departure
+of the today routing `table` over costing at them the route found at the goals, in date
+order.
+"""
+function rerouting_gains(table, rig)
+    by_day(rig, column) = Dict(table["departure"][row] => table[column][row]
+                               for row in rows(table, "rig" => rig))
+    saving(column) = let bare = by_day("none", column)
+        Dict(day => percent_saving(cost, bare[day]) for (day, cost) in by_day(rig, column))
+    end
+    recosted, rerouted = saving("recosted"), saving("rerouted")
+    return [rerouted[day] - recosted[day] for day in sort(collect(keys(rerouted)))]
+end
+
+"""
     routing_error(departures, ship, drive, speed)
 
 Standard error [percentage points] of the mean over the departures in `departures` of what
@@ -1900,7 +1950,7 @@ fidelity_parts() = [
               "four wing sails",
         effect=one_row()),
     (part="Kite flight", varied="turn radius, aspect ratio, force limit",
-        model="quasi-steady pattern with mass, bridle and tether drag, searched for each " *
+        model="quasi-steady pattern with mass, flight and tether drag, searched for each " *
               "wind and course",
         error="glide ratio of 4 matched to flight data",
         effect=varied_inputs(:kite_min_turn_radius, :kite_aspect_ratio,
@@ -2092,6 +2142,47 @@ function numbers_file()
     end
 end
 
+"""
+    today_numbers_file()
+
+Write the [`today_numbers`](@ref) of classes_today.csv as LaTeX macros `\\NumToday...` to
+paper/sections/today_numbers.tex, marked at draft fidelity.
+"""
+function today_numbers_file()
+    numbers = today_numbers(read_table(data_file("classes_today.csv")))
+    write_whole(joinpath(sections, "today_numbers.tex")) do io
+        for (name, text) in numbers
+            print(io, number_macro(name, text, paper_run.fidelity != :final))
+        end
+    end
+end
+
+"""
+    today_numbers(table)
+
+Name and text, per drive of the class table `table` costed with each goal at its value
+known today, of the mean over the classes and routes of the cost saving [%] of the best
+size of each rig, and of what the rig that lowers each ship's cost most saves the fleet a
+year, fitted wherever it saves: the cost [billion USD] and its share [%] of the yearly
+cost of carrying the fleet's cargo.
+"""
+function today_numbers(table)
+    numbers = Pair{String, String}[]
+    for (drive, word) in drive_words
+        cells = fleet_cells(table, drive)
+        savings = fleet_savings(cells)
+        for rig in rig_names
+            push!(numbers, "Saving$word$(uppercasefirst(rig))" => whole_number(savings[rig]))
+        end
+        saved = sum(cell.bill * max(0.0, maximum(values(cell.savings))) / 100
+                    for cell in cells)
+        bill = sum(cell.bill for cell in cells)
+        push!(numbers, "FleetSaved$word" => two_digits(1e-9saved),
+            "FleetSavedShare$word" => whole_number(100saved / bill))
+    end
+    return ["Today" * name => text for (name, text) in numbers]
+end
+
 "`values` [%] rounded to whole points, as one value or as the first and last"
 point_range(values) = let points = sort(unique(round.(Int, values)))
     length(points) == 1 ? string(only(points)) : "$(first(points)) and $(last(points))"
@@ -2182,6 +2273,10 @@ function goal_numbers()
          for (part, spread) in pairs(DRAFT_SPREAD))...]
 end
 
+"mean cost saving [%] of each rig over fleet `cells`, by rig"
+fleet_savings(cells) = Dict(rig => mean(cell.savings[rig] for cell in cells)
+                            for rig in rig_names)
+
 """
     class_numbers(classes)
 
@@ -2195,7 +2290,7 @@ function class_numbers(classes)
     for (drive, word) in drive_words
         cells = fleet_cells(classes, drive)
         bands = fleet_band.(cells)
-        savings = Dict(rig => mean(cell.savings[rig] for cell in cells) for rig in rig_names)
+        savings = fleet_savings(cells)
         push!(numbers, "Cells$word" => string(length(cells)),
             "Level$word" => string(count(==("level"), bands)),
             "NoRig$word" => string(count(==("none"), bands)),
@@ -2453,7 +2548,7 @@ them [points] with its [`gap_error`](@ref), the `verdict` of the [`fleet_leaders
 the rotors [points].
 """
 function rig_lead(cells)
-    savings = Dict(rig => mean(cell.savings[rig] for cell in cells) for rig in rig_names)
+    savings = fleet_savings(cells)
     ranked = sort(collect(rig_names); by=rig -> -savings[rig])
     leaders = sort(fleet_leaders(savings, cells); by=rig -> -savings[rig])
     rig, rival = first(ranked), length(leaders) > 1 ? leaders[2] : ranked[2]

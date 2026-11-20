@@ -230,6 +230,18 @@ function gross_tonnage(hull::Hull, assumptions::Assumptions)
 end
 
 """
+    carbon_coverage(hull, route, assumptions)
+
+Share of the emissions of a ship of `hull` on `route` that the carbon price is paid on:
+the route's [`EU_ETS_SHARES`](@ref) from a gross tonnage of `ets_gross_tonnage` up, none
+below it or where `route` is nothing.
+"""
+carbon_coverage(hull::Hull, ::Nothing, assumptions::Assumptions) = 0.0
+carbon_coverage(hull::Hull, route::Symbol, assumptions::Assumptions) =
+    gross_tonnage(hull, assumptions) >= assumptions[:ets_gross_tonnage] ?
+    EU_ETS_SHARES[route] : 0.0
+
+"""
     port_costs(hull, assumptions)
 
 Dues and services [USD] of one call at the loading port, charged per gross tonnage, and
@@ -467,9 +479,8 @@ end
 """
     cycle_cost(rig, assumptions)
 
-Cost of one launch and landing of a kite [USD]: per launch attempt the crew time, the
-canopy life its flogging uses up, the expected canopy torn beyond repair and the expected
-loss at sea of canopy, tether and control unit, plus any turn for the launch and the
+Cost of one launch and landing of a kite [USD]: the crew time, the canopy life its flogging
+uses up, the expected [`crash_cost`](@ref) of a kite lost, any turn for the launch and the
 [`tether_bending_cost`](@ref); zero for other rigs.
 """
 cycle_cost(rig, assumptions) = 0.0
@@ -477,11 +488,9 @@ cycle_cost(rig::CombinedRig, assumptions) = cycle_cost(rig.kite, assumptions)
 
 function cycle_cost(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
-    attempt = assumptions[:kite_cycle_crew_cost] +
-              (assumptions[:kite_cycle_canopy_hours] / assumptions[:canopy_life] +
-               assumptions[:kite_cycle_damage_probability]) * canopy +
-              assumptions[:kite_cycle_loss_probability] * lost_kite_cost(rig, assumptions)
-    return (1 + assumptions[:kite_launch_retry_probability]) * attempt +
+    return assumptions[:kite_cycle_crew_cost] +
+           assumptions[:kite_cycle_canopy_hours] / assumptions[:canopy_life] * canopy +
+           assumptions[:kite_launch_loss_probability] * crash_cost(rig, assumptions) +
            assumptions[:kite_cycle_course_cost] + tether_bending_cost(tether, assumptions)
 end
 
@@ -539,7 +548,7 @@ lost_kite_cost(rig::KiteRig{RigidAirframe}, assumptions) =
 """
     crash_cost(rig, assumptions)
 
-Cost [USD] of one kite crashed or one wing or rotor lost, beyond the wear already charged:
+Cost [USD] of one kite, wing or rotor lost, beyond the wear already charged:
 a kite's control unit or airframe and half of its canopy and tether, on average halfway
 through their life when lost, or the price of one wing or rotor with its installation.
 """
@@ -549,18 +558,6 @@ crash_cost(rig::KiteRig, assumptions) =
 
 crash_cost(rig::Union{WingRig, RotorRig}, assumptions) =
     first(rig_costs(rig, assumptions)) / deck_units(rig)
-
-"""
-    forced_landing_cost(rig, assumptions)
-
-Expected cost of the kites of `rig` landing once outside the landing limits [USD], the
-chance of losing them then times their cost; zero for other rigs.
-"""
-forced_landing_cost(rig, assumptions) = 0.0
-forced_landing_cost(rig::CombinedRig, assumptions) =
-    forced_landing_cost(rig.kite, assumptions)
-forced_landing_cost(rig::KiteRig, assumptions) =
-    assumptions[:kite_forced_landing_loss_probability] * lost_kite_cost(rig, assumptions)
 
 """
     time_cost(costs, assumptions, cargo)
@@ -852,26 +849,24 @@ state_mean(quantity, shares, passages) = sum(share * quantity(passage)
 """
     rig_running_cost(rig, passage, assumptions)
 
-Wear, launches and forced landings of `rig` over the round trip of `passage` [USD].
+Wear and launches of `rig` over the round trip of `passage` [USD].
 """
 rig_running_cost(rig, passage::Passages, assumptions) =
     wear_cost(rig, assumptions) * passage.flight_hours +
-    cycle_cost(rig, assumptions) * passage.launches +
-    forced_landing_cost(rig, assumptions) * passage.forced_landings
+    cycle_cost(rig, assumptions) * passage.launches
 
 """
     yearly_crash_cost(rig, assumptions)
 
-Expected cost of crashed kites and lost wings or rotors of `rig` per year [USD/year], at
-the crash rate of each unit.
+Expected cost of lost wings or rotors of `rig` per year [USD/year], at the loss rate of
+each unit; a lost kite is charged per launch in [`cycle_cost`](@ref).
 """
 yearly_crash_cost(rig, assumptions) = 0.0
 yearly_crash_cost(rig::CombinedRig, assumptions) =
-    yearly_crash_cost(rig.kite, assumptions) + yearly_crash_cost(rig.standing, assumptions)
-yearly_crash_cost(rig::Union{KiteRig, WingRig, RotorRig}, assumptions) =
+    yearly_crash_cost(rig.standing, assumptions)
+yearly_crash_cost(rig::Union{WingRig, RotorRig}, assumptions) =
     crash_rate(rig, assumptions) * deck_units(rig) * crash_cost(rig, assumptions)
 
-crash_rate(::KiteRig, assumptions) = assumptions[:kite_crash_rate]
 crash_rate(::WingRig, assumptions) = assumptions[:wing_loss_rate]
 crash_rate(::RotorRig, assumptions) = assumptions[:rotor_loss_rate]
 
@@ -902,7 +897,8 @@ function voyage_costs(ship::Ship, costs, rigs, passages, outbound, inbound, assu
                    for (share, rig, passage) in zip(shares, rigs, passages)
                    if !isnothing(passage))
     running_cost = state_mean(passage -> passage.energy, shares, passages) *
-                   Drive(ship.design.drive, assumptions).fuel.price + rig_cost +
+                   Drive(ship.design.drive, assumptions;
+                       ship.fuel.carbon_coverage).fuel.price + rig_cost +
                    port_costs(ship.hull, assumptions) +
                    store_round_trip_cost(store.price, round_trip_hours, assumptions) +
                    yearly_crash_cost(ship.rig, assumptions) * round_trip_hours /
