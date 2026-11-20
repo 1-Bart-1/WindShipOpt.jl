@@ -57,6 +57,8 @@ function Base.getindex(assumptions::Assumptions, name::Symbol)
            get(() -> assumptions.entries[name].value, recorded, name)
 end
 
+Base.haskey(assumptions::Assumptions, name::Symbol) = haskey(assumptions.entries, name)
+
 """
     inputs_read(f)
 

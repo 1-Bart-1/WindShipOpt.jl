@@ -35,7 +35,7 @@ Round trip of `case` over `departures`, or `nothing` where its ship does not exi
 passage fails.
 """
 function case_trip(case, departures)
-    ship = Ship(case.design, case.assumptions)
+    ship = Ship(case.design, case.assumptions; case.route)
     isnothing(ship) && return nothing
     ship = simplified_ship(ship, case.part)
     return round_trip(ship, case.corridors..., weather, departures, case.assumptions;
@@ -470,8 +470,9 @@ Routed round trips over the sampled departures of a 140 m e-ammonia ship with `a
 direction and true-wind-angle band, and the rig cost per hour at sea [USD/h].
 """
 function angle_sums(name, rig, area)
-    ship = Ship(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...), assumptions)
-    bare = Ship(ShipDesign(:ammonia, 140.0), assumptions)
+    ship = Ship(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...), assumptions;
+        route=name)
+    bare = Ship(ShipDesign(:ammonia, 140.0), assumptions; route=name)
     table = PerformanceTable(ship, assumptions)
     out_hourly, back_hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
         assumptions)
@@ -552,7 +553,7 @@ function route_tracks_data()
     trips = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         (_, departure), name, area = cases[k]
-        ship = Ship(ShipDesign(:ammonia, 140.0; kite_area=area), assumptions)
+        ship = Ship(ShipDesign(:ammonia, 140.0; kite_area=area), assumptions; route=name)
         hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
         trips[k] = out_and_back(RouteTable(PerformanceTable(ship, assumptions)), name,
             departure, hourly)
@@ -655,7 +656,7 @@ The [`cost_columns`](@ref) of `trip` of `case` over its `tonne_km`, each after a
 ending the row.
 """
 function write_costs(io, case, trip, tonne_km)
-    ship = Ship(case.design, case.assumptions)
+    ship = Ship(case.design, case.assumptions; case.route)
     @printf(io, ",%.2f", trip_hours(ship, trip, case.assumptions))
     for part in cost_parts(ship, trip, case.assumptions)
         @printf(io, ",%.6f", part / tonne_km)
@@ -681,11 +682,10 @@ tonne_km_per_tonne(name) = tonne_km_per_tonne(run_corridors(name)...)
     designs_data()
 
 The design grid on the route to Guadeloupe: length, the [`study_drives`](@ref) and size of
-each rig, a carbon price on VLSFO, and kites without flight drag, with the cost per
-tonne-km split into its parts: designs.csv.
+each rig, and kites without flight drag, with the cost per tonne-km split into its parts:
+designs.csv.
 """
 function designs_data()
-    taxed = with_value(assumptions, :carbon_coverage, 1.0)
     rigid = with_value(assumptions, :kite_flight_drag, 0.0)
     cases = []
     for length in (85.0, 110.0, 140.0, 170.0, 200.0), drive in study_drives,
@@ -699,10 +699,6 @@ function designs_data()
 
         push!(cases, trip_case(ShipDesign(drive, length; rig_size(rig, area)...);
             scenario="base"))
-    end
-    for length in (85.0, 140.0, 170.0, 200.0), area in (0.0, 1600.0, 3200.0)
-        push!(cases, trip_case(ShipDesign(:vlsfo, length; kite_area=area);
-            assumptions=taxed, scenario="carbon"))
     end
     for length in (140.0, 200.0), drive in (:vlsfo, :ammonia), area in (800.0, 3200.0)
         push!(cases, trip_case(ShipDesign(drive, length; kite_area=area);
@@ -1667,6 +1663,15 @@ development_inputs = [
                "emission fuel."),
     (input=:vlsfo_price, label="fuel oil price", rig="condition", lever="condition",
         reason="Not for a developer to change: the fuel bill a rig cuts on fuel oil."),
+    (input=:wind_shear_exponent, label="wind shear exponent", rig="condition",
+        lever="condition",
+        reason="Not for a developer to change: how much stronger the wind blows at a " *
+               "kite's height than on deck, which sets what flying high is worth."),
+    (input=:canopy_cell_width_exponent, label="canopy cell width exponent",
+        rig="condition", lever="condition",
+        reason="Not for a developer to change: how a canopy's cells widen with its " *
+               "chord, unmeasured beyond 325 m\\textsuperscript{2}, which sets the " *
+               "cloth and sewing a ship kite's canopy takes."),
 ]
 
 """
@@ -2340,7 +2345,7 @@ Hours of a case of [`flight_data`](@ref) by band of true wind angle and ship spe
 """
 function flight_bins(case)
     ship = Ship(ShipDesign(case.drive, case.length; rig_size(case.rig, case.area)...),
-        assumptions)
+        assumptions; case.route)
     bins = Dict{Tuple{Int, Int}, typeof(empty_flight_bin)}()
     for (_, trace) in traced_legs(ship, case.route)
         add_flight_hours!(bins, trace)
@@ -2451,13 +2456,14 @@ function speed_choice_data()
     open(run_file("speed_choice.csv"), "w") do io
         println(io, "drive,rig,area,wind,angle,bare,free,free_of_rig_cost,held,sailing")
         for drive in (:ammonia, :vlsfo)
-            bare = Ship(ShipDesign(drive, 140.0), assumptions)
+            bare = Ship(ShipDesign(drive, 140.0), assumptions; route=:caribbean)
             hourly = first(WindShipOpt.leg_time_costs(ShipCosts(bare, assumptions),
                 assumptions))
             for (rig, area) in reference_rigs, wind in (6.0, 10.0, 14.0),
                 angle in (60, 90, 120, 150)
 
-                ship = Ship(ShipDesign(drive, 140.0; rig_size(rig, area)...), assumptions)
+                ship = Ship(ShipDesign(drive, 140.0; rig_size(rig, area)...), assumptions;
+                    route=:caribbean)
                 ship_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
                     assumptions))
                 base = economic_speed(bare, hourly, wind, deg2rad(angle))
@@ -2539,7 +2545,7 @@ Rows of [`speed_terms_data`](@ref) for one case: the terms and their
 """
 function speed_terms(case)
     ship = Ship(ShipDesign(case.drive, 140.0; rig_size(case.rig, case.area)...),
-        assumptions)
+        assumptions; case.route)
     table = PerformanceTable(ship, assumptions)
     hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
     free = RouteTable(table)
@@ -2695,7 +2701,7 @@ kite_without_running_cost = foldl((inputs, key) -> with_value(inputs, key, 0.0),
 `inputs`, its time priced as in the rest of the paper.
 """
 function fixed_speed_voyage(hull, kite_area, inputs, knots, name)
-    ship = Ship(ShipDesign(:vlsfo, hull; kite_area), inputs)
+    ship = Ship(ShipDesign(:vlsfo, hull; kite_area), inputs; route=name)
     hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
     return fixed_speed_sums(PerformanceTable(ship, inputs), knots, name, hourly)
 end
@@ -3114,8 +3120,9 @@ The route tables of `ship` on `drive` with `area` [m^2] of `rig` and without a r
 time price [USD/h] of each leg of the ship with the rig, and the corridors of `route`.
 """
 function router_decision_case(ship, drive, rig, area, route)
-    rigged = Ship(ShipDesign(drive, study_hull(ship); rig_size(rig, area)...), assumptions)
-    bare = Ship(ShipDesign(drive, study_hull(ship)), assumptions)
+    rigged = Ship(ShipDesign(drive, study_hull(ship); rig_size(rig, area)...), assumptions;
+        route)
+    bare = Ship(ShipDesign(drive, study_hull(ship)), assumptions; route)
     hourly = WindShipOpt.leg_time_costs(first(WindShipOpt.ship_costs(rigged, assumptions)),
         assumptions)
     table = RouteTable(PerformanceTable(rigged, assumptions))
