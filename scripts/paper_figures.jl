@@ -959,7 +959,8 @@ function canopy_tension_figure()
     skin_radius = assumptions[:canopy_skin_radius]
     tension(force) = 1e3force / area * skin_radius
     strength = assumptions[:canopy_cloth_specific_strength] *
-               WindShipOpt.cloth_weight(assumptions) / 1e3
+               WindShipOpt.cloth_weight(assumptions,
+                   assumptions[:canopy_cloth_reference_chord]) / 1e3
     figure = Figure(size=(page_width, 185))
     balance = Axis(figure[1, 1]; autolimitaspect=1, limits=(-2.4, 7.3, -1.7, 2.2),
         title="(a) from tether force to cloth tension")
@@ -3349,7 +3350,7 @@ reference_line!(axis, value=0; vertical=false, linestyle=:solid) =
 
 "inputs of the mass of a soft kite without its tether, each with its bound that lightens it"
 soft_mass_inputs = (canopy_flat_area_ratio=:low, canopy_rib_cloth_ratio=:low,
-    canopy_cell_width_exponent=:high, canopy_mass_overhead=:low,
+    canopy_cell_width_exponent=:low, canopy_mass_overhead=:low,
     control_unit_mass_per_force=:low)
 
 """

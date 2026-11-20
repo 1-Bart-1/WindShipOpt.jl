@@ -154,9 +154,7 @@ leg_allocations(table, weather, corridor) =
     allocations(() -> route(corridor, table, weather, 24.0; time_cost=100.0))
 
 "a table of the 85 m methanol ship with the rig of each of the `sizes` keywords"
-rig_table(; sizes...) =
-    RouteTable(PerformanceTable(Ship(ShipDesign(:methanol, 85.0; sizes...), Assumptions()),
-        Assumptions()))
+rig_table(; sizes...) = shared_route_table(ShipDesign(:methanol, 85.0; sizes...))
 
 rig_tables = (bare=rig_table(), wings=rig_table(wing_area=400.0),
     rotors=rig_table(rotor_area=200.0), kite=rig_table(kite_area=800.0),
