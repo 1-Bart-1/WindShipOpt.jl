@@ -187,7 +187,8 @@ input_header = "\\toprule\nInput & Value & Range & Unit & Source \\\\\n\\midrule
 
 "words of an input's name printed otherwise in the input table"
 input_words = Dict("e" => "e-", "teu" => "TEU", "ceu" => "CEU", "usd" => "USD",
-    "eur" => "EUR", "vlsfo" => "VLSFO", "holtrop" => "Holtrop", "froude" => "Froude")
+    "eur" => "EUR", "ets" => "EU ETS", "vlsfo" => "VLSFO", "holtrop" => "Holtrop",
+    "froude" => "Froude")
 
 """
     input_label(name)
@@ -793,12 +794,14 @@ end
 One row of the design part of the ship class table.
 """
 function write_class_design_row(io, class)
+    (; powertrain) = Ship(ShipDesign(:vlsfo, class), assumptions)
+    engine_power = powertrain.installed_power - powertrain.hotel_load
     println(io, latex_escape(class.name), " & ", latex_number(class.length), " & ",
         dash_cell(class.beam, "\\num{%.1f}"), " & ", dash_cell(class.draft, "\\num{%.1f}"),
         " & ", dash_cell(class.block_coefficient, "\\num{%.2f}"), " & ",
         latex_number(class.deadweight), " & ", unit_capacity(class), " & ",
         limit_label(class), " & ", dash_cell(class.service_speed, "\\num{%.1f}"), " & ",
-        dash_cell(class.power / 1e3, "\\num{%.1f}"), " & ",
+        dash_cell(engine_power / 1e6, "\\num{%.1f}"), " & ",
         dash_cell(Hull(class, assumptions).resistance_factor, "\\num{%.2f}"), " & ",
         dash_cell(class.newbuild_price / 1e6, "\\num{%.1f}"), " \\\\")
 end
@@ -1948,7 +1951,7 @@ fidelity_parts() = [
               "four wing sails",
         effect=one_row()),
     (part="Kite flight", varied="turn radius, aspect ratio, force limit",
-        model="quasi-steady pattern with mass, bridle and tether drag, searched for each " *
+        model="quasi-steady pattern with mass, flight and tether drag, searched for each " *
               "wind and course",
         error="glide ratio of 4 matched to flight data",
         effect=varied_inputs(:kite_min_turn_radius, :kite_aspect_ratio,

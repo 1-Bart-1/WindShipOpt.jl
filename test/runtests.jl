@@ -711,14 +711,14 @@ end
     wings = WingRig(800.0, Hull(140.0, assumptions), assumptions)
     setting = (1.0, WindShipOpt.drag_coefficient(wings, 1.0))
     force(angle) = rig_force(wings, env, 10.0, deg2rad(angle), 5.4, setting)
-    @test force(90).thrust ≈ 51756 rtol = 1e-3
-    @test force(90).side ≈ 41416 rtol = 1e-3
-    @test force(45).thrust ≈ 35138 rtol = 1e-3
-    @test force(45).side ≈ 100995 rtol = 1e-3
-    @test force(150).thrust ≈ 17228 rtol = 1e-3
-    @test force(150).side ≈ -8238 rtol = 1e-3
-    @test force(180).thrust ≈ 2048 rtol = 1e-3
-    @test force(180).side ≈ -12109 rtol = 1e-3
+    @test force(90).thrust ≈ 55251 rtol = 1e-3
+    @test force(90).side ≈ 41957 rtol = 1e-3
+    @test force(45).thrust ≈ 37500 rtol = 1e-3
+    @test force(45).side ≈ 102641 rtol = 1e-3
+    @test force(150).thrust ≈ 18566 rtol = 1e-3
+    @test force(150).side ≈ -8709 rtol = 1e-3
+    @test force(180).thrust ≈ 2248 rtol = 1e-3
+    @test force(180).side ≈ -12750 rtol = 1e-3
     @test force(0).thrust < 0 < force(0).side
 end
 
@@ -744,16 +744,16 @@ end
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 0.0)
-    @test force(5.8751, 26.6411).thrust ≈ 62 atol = 5
-    @test force(5.8751, 26.6411).side ≈ 64068 rtol = 1e-3
-    @test force(6.6205, 50.2378).thrust ≈ 20000 rtol = 1e-3
-    @test force(6.6205, 50.2378).side ≈ 77213 rtol = 1e-3
-    @test force(8.82947, 86.695695).thrust ≈ 115451 rtol = 1e-3
-    @test force(8.82947, 86.695695).side ≈ 235412 rtol = 1e-3
-    @test force(11.161535, 114.227745).thrust ≈ 244745 rtol = 1e-3
-    @test force(11.161535, 114.227745).side ≈ 226482 rtol = 1e-3
-    @test force(13.802571, 148.57094).thrust ≈ 348897 rtol = 1e-3
-    @test force(13.802571, 148.57094).side ≈ 46727 rtol = 1e-3
+    @test force(5.8751, 26.6411).thrust ≈ 111 atol = 5
+    @test force(5.8751, 26.6411).side ≈ 64108 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 20056 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 77235 rtol = 1e-3
+    @test force(8.82947, 86.695695).thrust ≈ 117545 rtol = 1e-3
+    @test force(8.82947, 86.695695).side ≈ 244675 rtol = 1e-3
+    @test force(11.161535, 114.227745).thrust ≈ 244678 rtol = 1e-3
+    @test force(11.161535, 114.227745).side ≈ 202319 rtol = 1e-3
+    @test force(13.802571, 148.57094).thrust ≈ 348557 rtol = 1e-3
+    @test force(13.802571, 148.57094).side ≈ 44703 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
@@ -983,7 +983,7 @@ end
     hull = Hull(140.0, assumptions)
     reserve = WindShipOpt.launch_mast_reserve(assumptions)
     deck = assumptions[:deck_length_fraction] * hull.length
-    for (rig, row_length) in ((WingRig(800.0, hull, assumptions), deck),
+    for (rig, row_length) in ((WingRig(1500.0, hull, assumptions), deck),
         (WindShipOpt.RotorRig(800.0, hull, assumptions; forward_reserve=reserve),
             deck - reserve))
         positions = first.(WindShipOpt.unit_positions(rig, hull, assumptions))
@@ -1119,6 +1119,30 @@ end
     @test WindShipOpt.fixed_rig_port_hours(nothing, classes["VLCC"], assumptions) == 0
 end
 
+@testset "retractable wings and rotors stand as tall as they are built, whatever the \
+          air draft" begin
+    hull = Hull(140.0, assumptions)
+    for (rig, area, prefix) in ((WingRig, 1500.0, "wing"),
+        (WindShipOpt.RotorRig, 800.0, "rotor"))
+        max_height = assumptions[Symbol(prefix, "_max_height")]
+        aspect_ratio = assumptions[Symbol(prefix, "_aspect_ratio")]
+        @test rig(area, hull, assumptions).count ==
+              ceil(Int, area / (max_height^2 / aspect_ratio))
+    end
+end
+
+@testset "the EU ETS charges a ship from its threshold tonnage on its route's share" begin
+    large, small = Hull(140.0, assumptions), Hull(85.0, assumptions)
+    coverage(hull, route) = WindShipOpt.carbon_coverage(hull, route, assumptions)
+    @test coverage(large, :caribbean) == coverage(large, :bilbao) == 1
+    @test coverage(large, :new_york) == coverage(large, :tubarao) == 0.5
+    @test coverage(small, :caribbean) == coverage(large, nothing) == 0
+    charge = assumptions[:carbon_price] * assumptions[:vlsfo_carbon_intensity] / 1e9
+    price(route) = Ship(ShipDesign(:vlsfo, 140.0), assumptions; route).fuel.price
+    @test price(:caribbean) - price(nothing) ≈ charge
+    @test price(:new_york) - price(nothing) ≈ charge / 2
+end
+
 @testset "a volume-limited ship's cargo ignores rig mass below the mass limit" begin
     teu = WindShipOpt.CargoUnit(:teu, assumptions)
     feeder(rig_mass) = WindShipOpt.CargoHold(21000.0, 21000.0 - rig_mass, 1600.0, teu)
@@ -1149,7 +1173,7 @@ end
     hold(area) = WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, megamax; rotor_area=area),
             assumptions), assumptions)
     @test WindShipOpt.cargo_limit(hold(1000.0)) == :deadweight
-    rotors = hold(5000.0)
+    rotors = hold(6000.0)
     @test WindShipOpt.cargo_limit(rotors) == :space
     @test WindShipOpt.cargo_mass(rotors) ≈
           WindShipOpt.unit_limits(rotors).space * rotors.unit.cargo
@@ -1170,6 +1194,27 @@ end
         output = powertrain.installed_power - powertrain.hotel_load
         @test output * powertrain.transmission_efficiency ≈ shaft
     end
+end
+
+@testset "a class's two-stroke and the coaster family's four-stroke burn at their own \
+          efficiencies" begin
+    kamsarmax = ship_classes()["Kamsarmax bulk carrier"]
+    for drive in (:vlsfo, :ammonia)
+        efficiency(design) = Ship(design, assumptions).powertrain.peak_efficiency
+        @test efficiency(ShipDesign(drive, kamsarmax)) ==
+              assumptions[:two_stroke_engine_efficiency]
+        @test efficiency(ShipDesign(drive, 140.0)) ==
+              assumptions[:four_stroke_engine_efficiency]
+    end
+end
+
+@testset "the coaster class is the reference coaster, engine and power alike" begin
+    class = Ship(ShipDesign(:vlsfo, ship_classes()["general cargo coaster"]), assumptions)
+    reference = Ship(ShipDesign(:vlsfo, 85.0), assumptions)
+    @test class.powertrain.installed_power ≈ reference.powertrain.installed_power
+    @test class.powertrain.peak_efficiency == reference.powertrain.peak_efficiency
+    @test class.powertrain.transmission_efficiency ==
+          reference.powertrain.transmission_efficiency
 end
 
 @testset "a class hull's calm-water delivered power at service speed matches its \
@@ -1527,11 +1572,17 @@ end
     trip(class; rig...) = round_trip(Ship(ShipDesign(:ammonia, class; rig...), assumptions),
         corridors..., SyntheticWeather(), departures, assumptions)
     days(trip) = trip.outbound_days + trip.return_days
-    bare, scheduled, free = trip(liner), trip(liner; rotor_area=600.0),
-    trip(tramp; rotor_area=600.0)
+    # Every speed: on every other one the liner's next slower speed can miss its schedule.
+    every_speed = WindShipOpt.RouterSettings(time_step=1.5, search_speed_stride=1,
+        search_margins=(0.12, 0.2))
+    bare, bare_tramp, scheduled, free = WindShipOpt.with_router_settings(every_speed) do
+        return trip(liner), trip(tramp), trip(liner; rotor_area=600.0),
+        trip(tramp; rotor_area=600.0)
+    end
     @test days(free) < 0.99days(bare)
     @test days(free) < days(scheduled) <= days(bare)
-    @test days(trip(tramp)) == days(bare)
+    @test scheduled.fuel_energy < free.fuel_energy
+    @test days(bare_tramp) == days(bare)
 end
 
 @testset "a leg arrives by its time on the least fuel that does" begin
@@ -3035,6 +3086,14 @@ end
     @test !is_open()
 end
 
+@testset "a stored trip that read an input the model no longer has is not reused" begin
+    stored(inputs) = (; inputs, files=Pair{String, String}[])
+    case = (; assumptions)
+    @test PaperRuns.reads_unchanged(stored([:air_density => assumptions[:air_density]]),
+        case)
+    @test !PaperRuns.reads_unchanged(stored([:retired_input => 1.0]), case)
+end
+
 @testset "a round trip at a held speed or with a model part off is stored apart" begin
     @eval PaperRuns weather_name = "synthetic"
     case_at(held_knots, part; course=:routed) = (; design=ShipDesign(:vlsfo, 100.0),
@@ -3045,14 +3104,6 @@ end
                     for part in (:none, :waves, :windage))
     @test allunique(PaperRuns.case_directory(case_at(nothing, :none; course), [24.0])
                     for course in (:routed, :common_perfect))
-end
-
-@testset "a stored trip that read an input no longer in the inputs is not taken" begin
-    case = (; assumptions)
-    entry(name) = (; inputs=[name => 1.0], files=Pair{String, String}[])
-    @test PaperRuns.reads_unchanged(entry(:discount_rate),
-        (; assumptions=with_value(assumptions, :discount_rate, 1.0)))
-    @test !PaperRuns.reads_unchanged(entry(:a_retired_input), case)
 end
 
 @testset "the model every stored trip is keyed by covers the ship data tables" begin
@@ -3936,7 +3987,7 @@ end
                    WindShipOpt.rig_price_parts(kite, assumptions).control_unit
     @test WindShipOpt.crash_cost(kite, assumptions) ≈ control_unit + (canopy + tether) / 2
     for rig_type in (WingRig, WindShipOpt.RotorRig)
-        rig = rig_type(800.0, hull, assumptions)
+        rig = rig_type(1200.0, hull, assumptions)
         @test rig.count > 1
         @test WindShipOpt.crash_cost(rig, assumptions) * rig.count ≈
               first(WindShipOpt.rig_costs(rig, assumptions))
@@ -4551,7 +4602,7 @@ end
     @test rotors.low.units ≈ 5cell_ships
     @test rotors.low.area ≈ 1000cell_ships
     @test rotors.low.saved ≈ cell_work * 0.02 * 0.1
-    heating_value = WindShipOpt.vlsfo(assumptions).heating_value
+    heating_value = WindShipOpt.vlsfo(assumptions, 0.0).heating_value
     @test rotors.low.fuel ≈ cell_work * 0.01e6 / heating_value
     @test rotors.low.carbon ≈ cell_work * 0.5
     row = only(i for i in eachindex(cases)
@@ -4593,7 +4644,7 @@ end
     rotors = bulk.rigs["rotors"]
     @test rotors.saved * bulk_ships ≈ saved
     @test rotors.share ≈ 100saved / bill
-    heating_value = WindShipOpt.vlsfo(assumptions).heating_value
+    heating_value = WindShipOpt.vlsfo(assumptions, 0.0).heating_value
     @test rotors.fuel * bulk_ships ≈ bulk_work * 0.01e6 / heating_value
     @test rotors.carbon * bulk_ships ≈ bulk_work * 0.5
     @test iszero(bulk.rigs["kite"].saved)
@@ -4816,11 +4867,11 @@ end
         ShipDesign(:methanol, 85.0; wing_area=400.0),
         ShipDesign(:methanol, 85.0; kite_area=800.0))
 
-        ship = Ship(design, assumptions)
+        ship = Ship(design, assumptions; route=:caribbean)
         trip = round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
             assumptions)
         io = IOBuffer()
-        PaperData.write_costs(io, (; design, assumptions), trip,
+        PaperData.write_costs(io, (; design, assumptions, route=:caribbean), trip,
             trip.cargo * tonne_km_per_tonne)
         hours, parts... = parse.(Float64, split(chomp(String(take!(io))), ',')[2:end])
         @test hours ≈ 24(trip.outbound_days + trip.return_days +
