@@ -82,9 +82,7 @@ def designs_summary():
     for r in rows:
         if r["scenario"] == "base":
             continue
-        key = ("carbon" if r["scenario"] == "carbon" else "base", r["drive"],
-               r["length"])
-        reference = bare.get(key)
+        reference = bare.get(("base", r["drive"], r["length"]))
         if reference:
             area = float(r["kite_area"]) + float(r["wing_area"]) + float(r["rotor_area"])
             print(f"{r['scenario']:22s} {r['drive']:8s} {r['length']:>4s} area {area:5.0f}"
