@@ -12,7 +12,7 @@ explorer_inputs = (:vlsfo_price, :e_ammonia_price, :carbon_price, :canopy_life,
     :kite_cycle_crew_cost, :kite_cycle_damage_probability, :kite_cycle_loss_probability,
     :kite_forced_landing_loss_probability, :kite_out_of_service, :wing_out_of_service,
     :rotor_out_of_service, :kite_crash_rate, :wing_loss_rate, :rotor_loss_rate,
-    :market_price_factor, :learning_rate, :kite_lifetime, :wing_lifetime, :rotor_lifetime,
+    :market_price_factor, :kite_lifetime, :wing_lifetime, :rotor_lifetime,
     :discount_rate, :availability)
 
 "ships (class, drive, route) whose cheapest design of each rig is rerun at other inputs"
@@ -29,7 +29,6 @@ on the cargo value of the class).
 function explorer_changes()
     entry(name) = assumptions.entries[name]
     return [("canopy life ×2", (canopy_life=2assumptions[:canopy_life],), 1.0),
-        ("rig prices as paid today", (learning_rate=0.0,), 1.0),
         ("fuel −30 %", fuel_prices(0.7), 1.0), ("fuel +30 %", fuel_prices(1.3), 1.0),
         ("carbon price ×2", (carbon_price=2assumptions[:carbon_price],), 1.0),
         ("discount rate low", (discount_rate=entry(:discount_rate).low,), 1.0),
