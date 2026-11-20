@@ -47,7 +47,8 @@ include("paper_tables.jl")
 
 "data steps of the results in the order they run, each writing one or two data files"
 data_steps = [:patterns => patterns_data, :designs => designs_data,
-    :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
+    :routes => routes_data, :classes => classes_data, :today => today_data,
+    :forecast => forecast_data,
     :forecast_result => forecast_result_data, :sensitivity => sensitivity_data,
     :goal_size_data => goal_size_data,
     :availability_data => availability_data,
@@ -65,30 +66,20 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
 method studies, which choose or check a method or setting, run only by name: each records
 its run for its figures and writes its tables
 """
-study_steps = [:forecast_plans => forecast_plans_data,
-    :forecast_replanning => forecast_replanning_data,
-    :forecast_hours => forecast_hours_data,
-    :forecast_causes => forecast_causes_data,
-    :forecast_live => forecast_live_data,
-    :cargo_interest => cargo_interest_data, :base_kite => base_kite_data,
-    :launch => launch_data, :sea_effect => sea_effect_data,
+study_steps = [:cargo_interest => cargo_interest_data, :base_kite => base_kite_data,
+    :sea_effect => sea_effect_data,
     :convergence => convergence_data, :speed_terms => speed_terms_data,
-    :published_terms => published_terms_data, :tow_point => tow_point_data,
-    :model_parts => model_parts_data, :size_search => size_search_data,
-    :router_decisions => router_decisions_data,
-    :routing_value => routing_value_data]
+    :published_terms => published_terms_data, :model_parts => model_parts_data,
+    :size_search => size_search_data, :router_decisions => router_decisions_data,
+    :routing_value => routing_value_data, :today_routing => today_routing_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
-study_tables = Dict(:forecast_plans => [:forecast_plans_table => forecast_plans_table],
-    :forecast_replanning => [:forecast_replanning_table => forecast_replanning_table],
-    :forecast_hours => [:forecast_hours_table => forecast_hours_table],
-    :forecast_causes => [:forecast_causes_table => forecast_causes_table],
-    :forecast_live => [:forecast_live_table => forecast_live_table],
-    :cargo_interest => [:cargo_interest_table => cargo_interest_table],
+study_tables = Dict(:cargo_interest => [:cargo_interest_table => cargo_interest_table],
     :sea_effect => [:sea_effect_table => sea_effect_table],
     :speed_terms => [:speed_terms_table => speed_terms_table],
     :published_terms => [:published_table => published_table],
-    :routing_value => [:routing_value_table => routing_value_table])
+    :routing_value => [:routing_value_table => routing_value_table],
+    :today_routing => [:today_routing_numbers => today_routing_numbers_file])
 
 "every table step of the method studies"
 study_table_steps() = unique(reduce(vcat, values(study_tables)))
@@ -115,9 +106,10 @@ output_steps = [:kite => kite_figure,
     :wind_angle_figure => wind_angle_figure,
     :sensitivity_figure => sensitivity_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
-    :rig_prices_table => rig_prices_table,
+    :rotor_prices_table => rotor_prices_table,
     :development_table => development_table,
     :class_table => class_dimension_table, :fidelity_table => fidelity_table,
+    :drift_check_table => drift_check_table,
     :split_table => split_table,
     :payback_table => payback_table, :market_table => market_table,
     :goals_table => goals_table,
@@ -131,11 +123,11 @@ output_steps = [:kite => kite_figure,
     :force_balance => force_balance_figure, :ship_classes => ship_classes_figure,
     :kite_frames => kite_frames_figure, :router => router_figure,
     :missed_goals => missed_goals_figure, :cargo_cost => cargo_cost_figure,
-    :canopy_life_figure => canopy_life_figure, :large_rigs => large_rigs_figure,
-    :canopy_life_table => canopy_life_table, :kite_mass => kite_mass_figure,
+    :large_rigs => large_rigs_figure, :kite_mass => kite_mass_figure,
     :canopy_cells => canopy_cells_figure,
     :tow_point_figure => tow_point_figure,
     :fleet_share => fleet_share_figure, :numbers => numbers_file,
+    :today_numbers => today_numbers_file,
     :figure_style => figure_style_file, :rigid_numbers => rigid_numbers_file]
 
 """

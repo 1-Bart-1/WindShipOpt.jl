@@ -60,6 +60,8 @@ Base.@kwdef struct Hull
     appendage_form_factor::Float64
     "factor on the Holtrop calm-water resistance calibrating it to a source design [-]"
     resistance_factor::Float64 = 1.0
+    "factor on the side-force slope of [`side_force_slope`](@ref) under leeway [-]"
+    side_force_factor::Float64 = 1.0
     "largest prismatic coefficient the Holtrop formulas are evaluated at [-]"
     max_prismatic::Float64 = 1.0
     "waterline length, on which the Holtrop formulas are evaluated [m]"
@@ -85,7 +87,8 @@ end
 
 Hull of the given main dimensions [m] and block coefficient on `length`, with the form
 ratios of the reference coaster, its centre of buoyancy [% of length] unless given, and
-the factor on its calm-water resistance. Its form terms take `waterline_length` and stop at
+the factor on its calm-water resistance, and the factor `hull_side_force_factor` on its
+side-force slope. Its form terms take `waterline_length` and stop at
 the prismatic coefficient `holtrop_max_prismatic`, while its displacement stays that of
 `block`.
 """
@@ -101,6 +104,7 @@ function Hull(length, beam, draft, block, assumptions::Assumptions;
         midship_coefficient=midship,
         waterplane_coefficient=0.763 * (prismatic + 0.34),
         centre_of_buoyancy, resistance_factor, max_prismatic,
+        side_force_factor=assumptions[:hull_side_force_factor],
         bulb_area=assumptions[:bulb_area_ratio] * beam * draft * midship,
         bulb_height=assumptions[:bulb_height_ratio] * draft,
         appendage_area=assumptions[:appendage_area_ratio] * length * draft,
@@ -296,12 +300,13 @@ rudder_area(hull::Hull) =
     leeway_drag(hull, env, speed, side_force)
 
 Leeway angle [rad] and induced drag [N] needed for the hull to carry a side force [N],
-from the linear side-force slope: the potential-flow share of the side force costs half
-of side force times leeway, as for a slender wing, and the cross-flow share all of it.
+from the linear side-force slope times the hull's `side_force_factor`: the potential-flow
+share of the side force costs half of side force times leeway, as for a slender wing, and
+the cross-flow share all of it.
 """
 function leeway_drag(hull::Hull, env::Environment, speed, side_force)
     reference_force = 0.5env.water_density * speed^2 * hull.length * hull.draft *
-                      side_force_slope(hull)
+                      hull.side_force_factor * side_force_slope(hull)
     leeway = side_force / reference_force
     potential = π * hull.draft / hull.length
     induced = (0.5potential + (side_force_slope(hull) - potential)) / side_force_slope(hull)

@@ -3,7 +3,8 @@
 
 import { evaluate, type RecordedNode } from "./recording";
 
-export type Input = { value: number; low: number; high: number; unit: string };
+/** An input: the paper's value, its range, its unit and, for a goal, its value known today. */
+export type Input = { value: number; low: number; high: number; unit: string; today: number };
 
 export type Design = {
   class: number;

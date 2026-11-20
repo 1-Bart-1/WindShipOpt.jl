@@ -963,7 +963,7 @@ function canopy_tension_figure()
     skin_radius = assumptions[:canopy_skin_radius]
     tension(force) = 1e3force / area * skin_radius
     strength = assumptions[:canopy_cloth_specific_strength] *
-               assumptions[:canopy_cloth_weight] / 1e3
+               WindShipOpt.cloth_weight(assumptions) / 1e3
     figure = Figure(size=(page_width, 185))
     balance = Axis(figure[1, 1]; autolimitaspect=1, limits=(-2.4, 7.3, -1.7, 2.2),
         title="(a) from tether force to cloth tension")
@@ -2249,74 +2249,6 @@ function cargo_cost_figure()
     save_figure("cargo_cost", figure)
 end
 
-"sizes [figure units] of the square of a stated life and the star of an estimated one"
-claim_marker_size, estimate_marker_size = 1.6marker_size, 2.2marker_size
-
-"the label `text` with its m² drawn as [`square_metres`](@ref) does"
-square_metre_label(text) =
-    occursin("m²", text) ? square_metres(String.(split(text, "m²"; limit=2))...) : text
-
-"""
-    canopy_life_figure()
-
-Flight hours of canopies of data/canopy_life_statements.csv as ranges by what stated them,
-the range of the polyester sails shaded, with [`reference_decay_life`](@ref) of the
-canopy's cloth and its range of the assumptions, and the goal.
-"""
-function canopy_life_figure()
-    lives = read_table(joinpath(root, "data", "canopy_life_statements.csv"))
-    goal = assumptions.entries[:canopy_life]
-    order = [findall(==("statement"), lives["kind"]);
-        findall(==("sail_shape"), lives["kind"]); findall(==("small_kite"), lives["kind"])]
-    cloth = round(Int, assumptions[:canopy_cloth_weight])
-    labels = [square_metre_label.(lives["label"][order]);
-        square_metre_label("derived life, $cloth g/m²")]
-    figure = Figure(size=(page_width, 190))
-    axis = Axis(figure[1, 1]; doubling_axis(:x, 62.5, 16000)...,
-        xlabel="flight hours of the canopy",
-        yticks=(eachindex(labels), labels), yreversed=true,
-        limits=((55, 20000), (0.3, length(labels) + 0.7)))
-    goal_marks!(axis, goal; shade=(palette[1], 0.1))
-    sails = filter(row -> startswith(lives["label"][row], "polyester sail"), order)
-    sail_range = (minimum(lives["life_low"][sails]), maximum(lives["life_high"][sails]))
-    sail_shade = (category_colours[3], 0.45)
-    poly!(axis, Rect2f(sail_range[1], 0.5, sail_range[2] - sail_range[1], length(labels));
-        color=sail_shade)
-    text!(axis, goal.value, 0.3; text="goal $(estimate_text(goal.value)) h",
-        align=(:right, :top), offset=(-pt(2), -pt(1)), fontsize=note_size)
-    stated = :gray35
-    for (i, row) in enumerate(order)
-        low, high = lives["life_low"][row], lives["life_high"][row]
-        rangebars!(axis, [i], [low], [high]; direction=:x, color=stated,
-            linewidth=1.4line_width, whiskerwidth=high < 1.1low ? 0 : whisker_width)
-        measured = lives["grade"][row] == "meas"
-        estimated = endswith(lives["life_text"][row], "*")
-        lives["kind"][row] == "statement" && scatter!(axis, [sqrt(low * high)], [i];
-            color=measured || estimated ? stated : :white, strokecolor=stated,
-            strokewidth=estimated ? 0 : outline_width, marker=estimated ? :star5 : :rect,
-            markersize=estimated ? estimate_marker_size : claim_marker_size)
-        text!(axis, high < goal.value < 2.6high ? 1.12goal.value : 1.15high, i;
-            text=replace(rstrip(lives["life_text"][row], '*'), "--" => "–"),
-            align=(:left, :center), fontsize=note_size, color=stated)
-    end
-    derived, i = WindShipOpt.reference_decay_life(assumptions), length(labels)
-    rangebars!(axis, [i], [goal.low], [goal.high]; direction=:x, color=palette[1],
-        linewidth=2line_width, whiskerwidth=0)
-    scatter!(axis, [derived], [i]; color=palette[1], markersize=7)
-    text!(axis, 1.15goal.high, i;
-        text="$(estimate_text(derived)) " *
-             "($(estimate_text(goal.low))–$(estimate_text(goal.high)))",
-        align=(:left, :center), fontsize=note_size, color=palette[1])
-    entries = [MarkerElement(marker=:rect, color=:white, strokecolor=stated,
-            strokewidth=outline_width, markersize=claim_marker_size),
-        MarkerElement(marker=:rect, color=stated, markersize=claim_marker_size),
-        MarkerElement(marker=:star5, color=stated, markersize=estimate_marker_size),
-        PolyElement(color=(palette[1], 0.1)), PolyElement(color=sail_shade)]
-    axislegend(axis, entries, ["claim", "measurement", "hours we estimate",
-            "derived range", "polyester sails' range"]; position=:lt)
-    save_figure("canopy_life", figure)
-end
-
 """
     large_rigs_figure()
 
@@ -3368,10 +3300,9 @@ end
     min_wind_figure()
 
 Lowest apparent wind against projected area for the kite of the design aspect ratio: the
-crosswind and climbing bounds at the lowest elevation, lift-off with the margin and its
-range over the margin's bounds, and the launch wind the model uses, which is the largest
-of these and the reported launch wind, with its range over the bounds of the margin and of
-the reported launch wind in turn.
+crosswind and climbing bounds at the lowest elevation, and the calm-sea launch wind the
+model uses, the larger of the climbing bound and the reported launch wind, with its range
+over the bounds of the reported launch wind and the elevation in turn.
 """
 function min_wind_figure()
     figure = Figure(size=(column_width, 190))
@@ -3381,29 +3312,21 @@ function min_wind_figure()
     areas = exp.(range(log(500), log(16000); length=40))
     elevation = assumptions.entries[:kite_min_elevation]
     elevations = deg2rad.((elevation.value, elevation.low, elevation.high))
-    bounds = one_at_a_time(assumptions,
-        (:kite_launch_margin, :kite_launch_min_wind, :kite_min_elevation))
+    bounds = one_at_a_time(assumptions, (:kite_launch_min_wind, :kite_min_elevation))
     winds = map(areas) do area
-        model, _, diameter = WindShipOpt.kite_model(area, design_aspect_ratio, assumptions)
-        tether_mass = WindShipOpt.rope_mass(diameter, model.tether_length, assumptions)
-        lift_off = WindShipOpt.static_wind(model.mass - tether_mass / 2, model)
-        launches = [WindShipOpt.launch_min_wind(model, tether_mass, inputs)
-                    for inputs in bounds]
+        model, _, _ = WindShipOpt.kite_model(area, design_aspect_ratio, assumptions)
+        launches = [WindShipOpt.launch_min_wind(model, inputs) for inputs in bounds]
         cross = [WindShipOpt.crosswind_min_wind(model, angle) for angle in elevations]
         climb = [WindShipOpt.climbing_min_wind(model, angle) for angle in elevations]
         (cross=cross[1], cross_low=minimum(cross), cross_high=maximum(cross),
             climb=climb[1], climb_low=minimum(climb), climb_high=maximum(climb),
-            lift=assumptions[:kite_launch_margin] * lift_off,
-            lift_low=assumptions.entries[:kite_launch_margin].low * lift_off,
-            lift_high=assumptions.entries[:kite_launch_margin].high * lift_off,
-            launch=WindShipOpt.launch_min_wind(model, tether_mass, assumptions),
+            launch=WindShipOpt.launch_min_wind(model, assumptions),
             launch_low=minimum(launches), launch_high=maximum(launches))
     end
     launch_colour = :gray60
     band!(axis, areas, getindex.(winds, :launch_low), getindex.(winds, :launch_high);
         color=(launch_colour, 0.25))
-    curves = ((:launch, launch_colour, pt(3.5)), (:lift, category_colours[1], line_width),
-        (:climb, category_colours[2], line_width),
+    curves = ((:launch, launch_colour, pt(3.5)), (:climb, category_colours[2], line_width),
         (:cross, category_colours[3], line_width))
     for (key, color, _) in curves[2:end]
         band!(axis, areas, getindex.(winds, Symbol(key, :_low)),
@@ -3415,8 +3338,8 @@ function min_wind_figure()
     ylims!(axis, 0, 1.35 * maximum(getindex.(winds, :launch_high)))
     entries = [[PolyElement(color=(color, key == :launch ? 0.25 : 0.15)),
                    LineElement(; color, linewidth)] for (key, color, linewidth) in curves]
-    axislegend(axis, entries, ["launch", "lift-off", "climb", "crosswind"]; position=:lt,
-        orientation=:horizontal, nbanks=2)
+    axislegend(axis, entries, ["launch", "climb", "crosswind"]; position=:lt,
+        orientation=:horizontal)
     save_figure("min_wind", figure)
 end
 
