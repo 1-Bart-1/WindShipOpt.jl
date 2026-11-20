@@ -1970,13 +1970,23 @@ function kite_coaster_routing(area)
     return RouteTable(PerformanceTable(ship, assumptions)), kite_hourly, finer
 end
 
-@testset "a ship sailing live recovers more of a wrong forecast than one holding speed" begin
+"Forecast source that always plans on `weather`, whatever the real weather is."
+struct FixedForecast{W}
+    weather::W
+end
+WindShipOpt.known_weather(source::FixedForecast, weather, time, horizon) = source.weather
+
+@testset "over departures a ship sailing live recovers more of a wrong forecast than one \
+          holding speed" begin
     kite_table, kite_hourly, finer = kite_coaster_routing(400.0)
-    departure, weather = 24.0 * 181, SyntheticWeather()
-    sources = (ReplannedForecast(CountedForecast(8.0, 0); interval=48.0, live)
-               for live in (false, true))
-    held, live = (forecast_route(finer, kite_table, weather, departure;
-            time_cost=kite_hourly, forecast).objective for forecast in sources)
+    departures = 24.0 * 121 .+ 720.0 .* (0:7)
+    forecast = FixedForecast(SyntheticWeather(; seed=2))
+    passages = Dict((departure, live) => Threads.@spawn(forecast_route(finer, kite_table,
+                        SyntheticWeather(), departure; time_cost=kite_hourly,
+                        forecast=ReplannedForecast(forecast; interval=48.0, live)))
+                    for departure in departures, live in (false, true))
+    held, live = (sum(fetch(passages[departure, live]).objective
+                      for departure in departures) for live in (false, true))
     @test live < held
 end
 
@@ -2026,12 +2036,6 @@ function WindShipOpt.waves(storm::StormBetween, lat, lon, time)
     height, period, direction = WindShipOpt.waves(storm.weather, lat, lon, time)
     return (storm.from <= time < storm.until ? height + 15.0 : height), period, direction
 end
-
-"Forecast source that always plans on `weather`, whatever the real weather is."
-struct FixedForecast{W}
-    weather::W
-end
-WindShipOpt.known_weather(source::FixedForecast, weather, time, horizon) = source.weather
 
 """
 The leg the kite coaster sails live in the real `weather` on a fixed forecast, departing
