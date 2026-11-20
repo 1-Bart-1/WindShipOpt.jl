@@ -730,13 +730,12 @@ tonne_km_per_tonne(name) = tonne_km_per_tonne(run_corridors(name)...)
     designs_data()
 
 The design grid on the route to Guadeloupe: length, the [`study_drives`](@ref) and size of
-each rig, a carbon price on VLSFO, and kites without flight drag and at the prices paid
-today, with the cost per tonne-km split into its parts: designs.csv.
+each rig, a carbon price on VLSFO, and kites without flight drag, with the cost per
+tonne-km split into its parts: designs.csv.
 """
 function designs_data()
     taxed = with_value(assumptions, :carbon_coverage, 1.0)
     rigid = with_value(assumptions, :kite_flight_drag, 0.0)
-    market = WindShipOpt.as_paid(assumptions)
     cases = []
     for length in (85.0, 110.0, 140.0, 170.0, 200.0), drive in study_drives,
         area in (0.0, 400.0, 800.0, 1600.0, 3200.0, 6400.0)
@@ -757,8 +756,6 @@ function designs_data()
     for length in (140.0, 200.0), drive in (:vlsfo, :ammonia), area in (800.0, 3200.0)
         push!(cases, trip_case(ShipDesign(drive, length; kite_area=area);
             assumptions=rigid, scenario="rigid"))
-        push!(cases, trip_case(ShipDesign(drive, length; kite_area=area);
-            assumptions=market, scenario="kite_market"))
     end
     trips = round_trips(cases, sampled_departures())
     work_per_tonne = tonne_km_per_tonne(:caribbean)
@@ -853,7 +850,7 @@ end
     size_bounds(class)
 
 Smallest and largest area [m^2] searched for each rig on `class`: kites of 500 to
-16,000 m^2, wings and rotors of a fifth to all of what fits on deck.
+64,000 m^2, wings and rotors of a fifth to all of what fits on deck.
 """
 function size_bounds(class)
     hull = Hull(class, assumptions)
@@ -868,7 +865,7 @@ end
 Largest area [m^2] of `rig` on `hull`: what fits on deck, for a kite the search bound.
 """
 function largest_rig_area(rig, hull)
-    rig == "kite" && return 16000.0
+    rig == "kite" && return 64000.0
     return largest_area(rig == "wings" ? WingRig : WindShipOpt.RotorRig, hull)
 end
 
@@ -880,9 +877,14 @@ on `route`, tagged with `labels`.
 """
 function class_case(class::ShipClass, drive, rig, area, route; labels...)
     design = ShipDesign(drive, class; rig_size(rig, area)...)
+    built = Ship(design, assumptions).rig
     return trip_case(design; class=class.name, route, drive, rig, area,
-        units=WindShipOpt.deck_units(Ship(design, assumptions).rig), labels...)
+        units=WindShipOpt.deck_units(built), columns=deck_columns(built), labels...)
 end
+
+"columns the wings or rotors of `rig` stand in, 0 for a rig without them"
+deck_columns(rig::Union{WingRig, WindShipOpt.RotorRig}) = rig.columns
+deck_columns(::Union{WindShipOpt.KiteRig, Nothing}) = 0
 
 """
     classes_data()
@@ -1671,6 +1673,9 @@ development_inputs = [
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
         reason="What a flight hour of the canopy costs; unmeasured, so what development " *
                "has to prove."),
+    (input=:launch_mast_mass_per_size, label="kite launch mast mass", rig="kite",
+        lever="price", reason="Its design sets the mass of the launch mast and docking " *
+                              "head, the largest part of the kite's hardware price."),
     (input=:kite_out_of_service, label="kite out of service", rig="kite",
         lever="availability",
         reason="What a maker's reliability work is worth; the same lever for every rig."),
@@ -2178,7 +2183,7 @@ function size_search_data()
     append!(trips, round_trips(grid, sampled_departures()))
     append!(cases, grid)
     write_trips("size_search.csv", cases, trips, :class, :route, :drive, :rig, :area,
-        :round)
+        :columns, :round)
 end
 
 "ship classes of the kite-and-rotors and VTOL kite studies"
@@ -2894,7 +2899,7 @@ rigid_low_favours = (:rigid_tether_price, :rigid_tether_density,
     :rigid_tether_drag_coefficient, :rigid_structure_cost_per_mass,
     :rigid_structure_cost_per_area, :rigid_avionics_cost, :rigid_drive_cost,
     :rigid_drive_reference_mass, :rigid_rotor_mass_per_area, :rigid_ship_power_cost,
-    :rigid_perch_cost, :rigid_perch_width, :rigid_station_mass, :rigid_upkeep_per_area,
+    :rigid_perch_width, :rigid_station_mass, :rigid_upkeep_per_area,
     :rigid_cycle_loss_probability, :rigid_feathered_rotor_drag, :rigid_hover_energy_price,
     :rigid_hover_minutes, :rigid_hover_thrust_ratio, :rigid_shell_mass, :rigid_load_mass,
     :rigid_profile_drag, :rigid_min_turn_radius, :kite_out_of_service)
@@ -2988,10 +2993,10 @@ end
 "the price inputs of the parts and launches of a soft or a VTOL kite"
 kite_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost, :canopy_structure_chord,
     :canopy_sewing_cloth_share, :canopy_cloth_base_price, :canopy_cloth_price_per_weight,
-    :control_unit_cost, :control_unit_cost_per_area, :docking_head_cost,
-    :launch_mast_mass_coefficient, :launch_mast_steel_cost, :winch_cost_per_force,
-    :winch_fixed_cost, :kite_integration_fraction, :tether_price,
-    :rigid_avionics_cost, :rigid_drive_cost, :rigid_perch_cost, :rigid_ship_power_cost,
+    :winch_mass_per_force, :winch_cost_per_mass, :launch_mast_mass_per_size,
+    :launch_mast_cost_per_mass, :control_unit_cost_per_mass,
+    :kite_controls_cost, :kite_integration_fraction, :tether_price,
+    :rigid_avionics_cost, :rigid_drive_cost, :rigid_ship_power_cost,
     :rigid_structure_cost_per_area, :rigid_structure_cost_per_mass, :rigid_tether_price,
     :rigid_hover_energy_price, :kite_cycle_course_cost, :kite_cycle_crew_cost,
     :market_price_factor)

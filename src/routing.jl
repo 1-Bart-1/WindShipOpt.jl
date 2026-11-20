@@ -582,8 +582,7 @@ end
 
 "nodes of the three-point Gauss rule for a standard normal variable"
 const SPREAD_NODES = (-sqrt(3.0), 0.0, sqrt(3.0))
-
-"weights of the three-point Gauss rule at [`SPREAD_NODES`](@ref)"
+"weights of the [`SPREAD_NODES`](@ref)"
 const SPREAD_WEIGHTS = (1 / 6, 2 / 3, 1 / 6)
 
 """
@@ -2598,7 +2597,6 @@ const CHANNEL = [(51.98, 4.05), (51.05, 1.60), (50.05, -1.50), (48.80, -6.00)]
 
 "stage spacing of a corridor at scale 1 [nmi]"
 const OCEAN_SPACING = 45.0
-
 "row spacing of a corridor at scale 1 [nmi]"
 const LATERAL_SPACING = 11.25
 

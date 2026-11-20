@@ -51,7 +51,7 @@ include("weather.jl")
 include("era5.jl")
 include("routing.jl")
 include("forecast.jl")
-include("rig_prices.jl")
+include("rotor_prices.jl")
 include("economics.jl")
 include("analysis.jl")
 

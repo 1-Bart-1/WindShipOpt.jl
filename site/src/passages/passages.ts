@@ -15,6 +15,7 @@ export interface PassageDesign {
   width?: number;
   diameter?: number;
   positions?: number[];
+  offsets?: number[];
   span?: number;
   tether_length?: number;
   attach_height?: number;
