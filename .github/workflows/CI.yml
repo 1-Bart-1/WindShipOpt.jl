@@ -59,8 +59,22 @@ jobs:
           cp "Manifest-v$version.toml.default" "Manifest-v$version.toml"
           julia --project=. -e 'using Pkg; Pkg.instantiate()'
 
+      # A table's file name hashes its kite and the source of src/pattern.jl, so a kept one stays valid.
+      - name: Restore the kite pattern tables of earlier runs
+        uses: actions/cache/restore@v6
+        with:
+          path: output/pattern_tables
+          key: pattern-tables-${{ hashFiles('src/pattern.jl') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: pattern-tables-${{ hashFiles('src/pattern.jl') }}-
+
       - name: Run the test suite
         run: julia --project=. -e 'using Pkg; Pkg.test()'
         env:
           JULIA_NUM_THREADS: auto
-          JULIA_TEST_FAILFAST: 'true'
+
+      - name: Keep the kite pattern tables for later runs, red or green
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: output/pattern_tables
+          key: pattern-tables-${{ hashFiles('src/pattern.jl') }}-${{ github.run_id }}-${{ github.run_attempt }}
