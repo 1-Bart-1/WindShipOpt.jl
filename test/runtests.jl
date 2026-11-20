@@ -283,7 +283,8 @@ end
 @testset "a kite built for more force gets cloth and seams in proportion" begin
     stronger = with_value(assumptions, :kite_max_force_per_area, 1.0)
     base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger), 800.0, 3.0)
-    @test WindShipOpt.cloth_weight(stronger) ≈ 2WindShipOpt.cloth_weight(assumptions)
+    @test WindShipOpt.cloth_weight(stronger, 10.0) ≈
+          2WindShipOpt.cloth_weight(assumptions, 10.0)
     @test strong_canopy.mass_per_area ≈ 2base_canopy.mass_per_area
     @test strong_canopy.cost_per_area > base_canopy.cost_per_area
     base_model, _, base_tether = WindShipOpt.kite_model(800.0, 3.0, assumptions)
@@ -710,7 +711,7 @@ end
     end
 end
 
-@testset "a kite's winch grows with its tether force, its launch mast with its size" begin
+@testset "a kite's winch grows with its force, its launch mast with its size and is cheaper" begin
     parts(area) = WindShipOpt.kite_price_parts(area, 500area, assumptions)
     deck = WindShipOpt.kite_deck_masses(800.0, 4e5, assumptions)
     @test deck.winch ≈ 400 * assumptions[:winch_mass_per_force]
@@ -722,7 +723,8 @@ end
     @test parts(800.0).controls == assumptions[:kite_controls_cost]
     @test parts(800.0).integration ≈ assumptions[:kite_integration_fraction] *
                                      (sum(parts(800.0)) - parts(800.0).integration)
-    @test 2 < parts(16000.0).deck / parts(3200.0).deck < 3
+    @test sqrt(5) < parts(16000.0).deck / parts(3200.0).deck < 5
+    @test assumptions[:launch_mast_cost_per_mass] <= assumptions[:winch_cost_per_mass]
     skysails = sum(WindShipOpt.kite_deck_masses(600.0, 6e5, assumptions))
     @test skysails ≈ 30e3 rtol = 0.02
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
@@ -753,17 +755,19 @@ end
     cloth(area) = WindShipOpt.cloth_area_ratio(assumptions, area, 3.0)
     surveyed_cloth = WindShipOpt.cloth_area_ratio(proportional, surveyed_area, 3.0)
     seam(area) = WindShipOpt.seam_area_ratio(assumptions, area, 3.0)
+    weight(area) = WindShipOpt.cloth_weight(assumptions, sqrt(area / 3.0))
     sewing(area) = (WindShipOpt.canopy_cost(assumptions, area, 3.0) - 1.16 * 25 / 18 * 8 -
-                    cloth(area) * (11.0 + 0.031 * 200)) / seam(area)
+                    cloth(area) * (11.0 + 0.031 * weight(area))) / seam(area)
     surveyed_sewing = 1.16 * 25 / 18 * 45 - surveyed_cloth * (11.0 + 0.031 * 100)
     @test sewing(200.0) ≈ sewing(3000.0) ≈ surveyed_sewing / ((3 * 9.3 + 2) / 8.2)
     @test seam(3000.0) < seam(200.0)
     growing = with_value(assumptions, :canopy_sewing_cloth_share, 1.0)
     @test price(200.0, growing) < price(800.0, growing) < price(3000.0, growing)
-    per_cloth = 1.16 * 25 / 18 * 45 / surveyed_cloth + 0.031 * 100
-    @test WindShipOpt.canopy_cost(growing, 3000.0, 3.0) -
-          WindShipOpt.canopy_cost(growing, 200.0, 3.0) ≈
-          per_cloth * (cloth(3000.0) - cloth(200.0))
+    sewing_per_cloth(area) = (WindShipOpt.canopy_cost(growing, area, 3.0) -
+                              1.16 * 25 / 18 * 8 - cloth(area) * (11.0 + 0.031 * weight(area))) /
+                             cloth(area)
+    @test sewing_per_cloth(200.0) ≈ sewing_per_cloth(3000.0) ≈
+          surveyed_sewing / surveyed_cloth
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
     @test first(WindShipOpt.consumable_costs(rig, assumptions)) ≈
           WindShipOpt.canopy_price(assumptions, rig.area, rig.aspect_ratio) * rig.area
@@ -3813,14 +3817,26 @@ end
 soft_mass_per_area(area, inputs) =
     WindShipOpt.soft_kite_mass(area, 3.0, 500area, inputs) / area
 
-@testset "a soft kite's mass per area grows with its chord, its cells widening slower" begin
+@testset "a soft kite's mass per area grows with its chord" begin
     @test soft_mass_per_area(3000.0, assumptions) >
           1.1soft_mass_per_area(200.0, assumptions)
     proportional = with_value(assumptions, :canopy_cell_width_exponent, 1.0)
-    @test soft_mass_per_area(3000.0, proportional) ≈
-          soft_mass_per_area(200.0, proportional) rtol=0.05
+    cloth(area) = WindShipOpt.Canopy(proportional, area, 3.0).mass_per_area -
+                  assumptions[:canopy_mass_overhead]
+    @test cloth(3200.0) ≈ 2cloth(800.0)
     model, _ = WindShipOpt.kite_model(200.0, 3.0, assumptions)
     @test model.mass > 200soft_mass_per_area(200.0, assumptions)
+end
+
+@testset "a canopy's cloth grows with its cell width, carrying the same tension per weight" begin
+    reference = assumptions[:canopy_cloth_reference_chord]
+    @test WindShipOpt.cloth_weight(assumptions, reference) ≈
+          assumptions[:canopy_cloth_weight]
+    cell_width(chord) = chord / WindShipOpt.chord_over_cell_width(assumptions, chord)
+    for chord in (4.0, 16.0, 40.0)
+        @test WindShipOpt.cloth_weight(assumptions, chord) /
+              assumptions[:canopy_cloth_weight] ≈ cell_width(chord) / cell_width(reference)
+    end
 end
 
 @testset "a ram-air canopy sews more rib cloth per area the longer its chord" begin
