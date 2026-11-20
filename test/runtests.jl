@@ -4915,11 +4915,11 @@ end
         ShipDesign(:methanol, 85.0; wing_area=400.0),
         ShipDesign(:methanol, 85.0; kite_area=800.0))
 
-        ship = Ship(design, assumptions)
+        ship = Ship(design, assumptions; route=:caribbean)
         trip = round_trip(ship, corridors..., SyntheticWeather(), [24.0 * 31, 24.0 * 200],
             assumptions)
         io = IOBuffer()
-        PaperData.write_costs(io, (; design, assumptions), trip,
+        PaperData.write_costs(io, (; design, assumptions, route=:caribbean), trip,
             trip.cargo * tonne_km_per_tonne)
         hours, parts... = parse.(Float64, split(chomp(String(take!(io))), ',')[2:end])
         @test hours ≈ 24(trip.outbound_days + trip.return_days +
