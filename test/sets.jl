@@ -1746,7 +1746,7 @@ end
 end
 
 @testset "a liner keeps the time of its ship without a rig and takes the gain as fuel" begin
-    liner = ship_classes()["feeder container ship"]
+    liner = ship_classes()["Panamax container ship"]
     tramp = ShipClass(; (name => getfield(liner, name) for name in fieldnames(ShipClass))...,
         liner=false)
     departures = [24.0 * 31, 24.0 * 200]
@@ -1757,8 +1757,8 @@ end
     every_speed = WindShipOpt.RouterSettings(time_step=1.5, search_speed_stride=1,
         search_margins=(0.12, 0.2))
     bare, bare_tramp, scheduled, free = WindShipOpt.with_router_settings(every_speed) do
-        return trip(liner), trip(tramp), trip(liner; rotor_area=600.0),
-        trip(tramp; rotor_area=600.0)
+        return trip(liner), trip(tramp), trip(liner; rotor_area=500.0),
+        trip(tramp; rotor_area=500.0)
     end
     @test days(free) < 0.99days(bare)
     @test days(free) < days(scheduled) <= days(bare)
@@ -1767,8 +1767,8 @@ end
 end
 
 @testset "a leg arrives by its time on the least fuel that does" begin
-    ship = Ship(ShipDesign(:ammonia, ship_classes()["feeder container ship"];
-        rotor_area=600.0), assumptions)
+    ship = Ship(ShipDesign(:ammonia, ship_classes()["Panamax container ship"];
+        rotor_area=500.0), assumptions)
     table = RouteTable(PerformanceTable(ship, assumptions))
     time_cost = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions))
     sail(arrival_by) = route(first(corridors), table, SyntheticWeather(), 24.0 * 31;

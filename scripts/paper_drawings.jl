@@ -675,8 +675,9 @@ Height [m] above the waterline of the top of what [`ship_classes_figure`](@ref) 
 """
 function draw_height(hull, kite_area)
     scale = hull.length / assumptions[:reference_length]
-    deck_rig = assumptions[:deck_mount_height] * scale +
-               max(assumptions[:wing_max_height], assumptions[:rotor_max_height])
+    tallest_built = max(assumptions[:wing_reference_height],
+                        assumptions[:rotor_reference_height])
+    deck_rig = assumptions[:deck_mount_height] * scale + tallest_built
     isfinite(kite_area) || return deck_rig
     return max(side_kite(kite_area, hull).top, deck_rig)
 end
