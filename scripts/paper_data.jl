@@ -267,7 +267,7 @@ end
 
 "design keyword of each rig"
 rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area,
-    "rigid kite" => :rigid_kite_area)
+    "rigid kite" => :rigid_kite_area, "suction" => :suction_area)
 
 """
     rig_size(rig, area)
@@ -778,32 +778,31 @@ function write_departures(name, cases, trips, columns...)
 end
 
 """
-    largest_area(rig_type, hull; forward_reserve=0)
+    largest_area(rig_type, hull; forward_reserve=0, kwargs...)
 
-Largest total area [m^2] of `rig_type` (WingRig or RotorRig) that fits on `hull` behind
-`forward_reserve` [m] of deck, to the nearest 10 m^2.
+Largest total area [m^2] of `rig_type` (WingRig or RotorRig, built with `kwargs`) that fits
+on `hull` behind `forward_reserve` [m] of deck, to the nearest 10 m^2.
 """
-function largest_area(rig_type, hull; forward_reserve=0.0)
+function largest_area(rig_type, hull; forward_reserve=0.0, kwargs...)
     low, high = 0.0, 20000.0
     while high - low > 10
         middle = (low + high) / 2
-        rig = rig_type(middle, hull, assumptions; forward_reserve)
+        rig = rig_type(middle, hull, assumptions; forward_reserve, kwargs...)
         isnothing(rig) ? (high = middle) : (low = middle)
     end
     return low
 end
 
 """
-    size_bounds(class)
+    size_bounds(class, rigs=rig_names)
 
-Smallest and largest area [m^2] searched for each rig on `class`: kites of 500 to
-64,000 m^2, wings and rotors of a fifth to all of what fits on deck.
+Smallest and largest area [m^2] searched for each of `rigs` on `class`: kites of 500 to
+64,000 m^2, wings, rotors and suction sails of a fifth to all of what fits on deck.
 """
-function size_bounds(class)
+function size_bounds(class, rigs=rig_names)
     hull = Hull(class, assumptions)
-    return Dict("kite" => (500.0, largest_rig_area("kite", hull)),
-        (rig => (0.2largest_rig_area(rig, hull), largest_rig_area(rig, hull))
-         for rig in ("wings", "rotors"))...)
+    return Dict(rig => (rig == "kite" ? 500.0 : 0.2largest_rig_area(rig, hull),
+                    largest_rig_area(rig, hull)) for rig in rigs)
 end
 
 """
@@ -813,6 +812,7 @@ Largest area [m^2] of `rig` on `hull`: what fits on deck, for a kite the search 
 """
 function largest_rig_area(rig, hull)
     rig == "kite" && return 64000.0
+    rig == "suction" && return largest_area(WingRig, hull; unit=:suction)
     return largest_area(rig == "wings" ? WingRig : WindShipOpt.RotorRig, hull)
 end
 
@@ -1249,19 +1249,19 @@ The [`fleet_split`](@ref) of the [`fleet_cells`](@ref) of class table `table` on
 fleet_split_of(table, drive) = fleet_split(fleet_cells(table, drive))
 
 """
-    searched_sizes(ships, rounds)
+    searched_sizes(ships, rounds; rigs=rig_names)
 
 Cases and round trips of each (class, drive, route) of `ships` without a rig and of the
-search for the cheapest size of each rig: three starting sizes, then `rounds` more sizes
-from [`next_size`](@ref). Each case is tagged with the `round` that added it, 0 for the
-starting sizes.
+search for the cheapest size of each of `rigs`: three starting sizes, then `rounds` more
+sizes from [`next_size`](@ref). Each case is tagged with the `round` that added it, 0 for
+the starting sizes.
 """
-function searched_sizes(ships, rounds)
+function searched_sizes(ships, rounds; rigs=rig_names)
     sampled = sampled_departures()
     cases, searches = [], Dict{Tuple, Vector{Tuple{Float64, Float64}}}()
     for (class, drive, route) in ships
         push!(cases, class_case(class, drive, "none", 0.0, route; round=0))
-        for (rig, (lower, upper)) in size_bounds(class)
+        for (rig, (lower, upper)) in size_bounds(class, rigs)
             searches[(class, drive, rig, route)] = Tuple{Float64, Float64}[]
             for area in (lower, sqrt(lower * upper), upper)
                 push!(cases, class_case(class, drive, rig, area, route; round=0))
@@ -1274,7 +1274,7 @@ function searched_sizes(ships, rounds)
         batch = []
         for ((class, drive, rig, route), points) in searches
             count(point -> isfinite(last(point)), points) >= 2 || continue
-            area = next_size(points, size_bounds(class)[rig]...)
+            area = next_size(points, size_bounds(class, rigs)[rig]...)
             any(point -> first(point) ≈ area, points) && continue
             push!(batch, class_case(class, drive, rig, area, route; round))
         end
@@ -3055,6 +3055,109 @@ function rigid_kite_data()
     end
     write_trips("rigid_kite.csv", cases, round_trips(cases, sampled_departures()), :ship,
         :route, :drive, :rig)
+end
+
+"inputs where the low bound favours a suction sail"
+suction_low_favours = (:suction_drag_coefficient, :suction_fan_power_per_area,
+    :suction_mass_per_area, :suction_cost_per_mass)
+
+"inputs where the high bound favours a suction sail"
+suction_high_favours = (:suction_max_lift_coefficient,)
+
+"input scenarios of the suction sail studies"
+suction_scenarios = ("base", "favourable", "unfavourable")
+
+"""
+    suction_assumptions(scenario)
+
+The assumptions of the suction sail studies: at base values for "base", and with every
+input of [`suction_low_favours`](@ref) and [`suction_high_favours`](@ref) at the bound
+that favours the suction sail for "favourable", at the other bound for "unfavourable".
+"""
+function suction_assumptions(scenario)
+    scenario == "base" && return assumptions
+    low, high = scenario == "favourable" ? (:low, :high) : (:high, :low)
+    return at_bound(at_bound(assumptions, suction_low_favours, low), suction_high_favours,
+        high)
+end
+
+"""
+    tallest_unit(unit, inputs)
+
+One wing sail (`unit` `:wing`) or suction sail (`:suction`) of the tallest built, on the
+140 m ship at `inputs`.
+"""
+function tallest_unit(unit, inputs)
+    area = inputs[Symbol(unit, :_max_height)]^2 / inputs[Symbol(unit, :_aspect_ratio)]
+    return WingRig(area, Hull(study_hull("140 m"), assumptions), inputs; unit)
+end
+
+"""
+    suction_cost_data()
+
+One suction sail of the tallest built for each of `suction_scenarios` and one wing sail of
+the tallest built, each at its goals: its area [m^2], price [USD], capital recovery and
+maintenance a year [USD], thrust at its highest lift [N] and fan power [W] on a beam course
+in `rigid_compared_wind` of apparent wind: suction_cost.csv.
+"""
+function suction_cost_data()
+    sails = [["suction " * scenario => (:suction, suction_assumptions(scenario))
+              for scenario in suction_scenarios]; "wings" => (:wing, assumptions)]
+    air_density = Environment(assumptions).air_density
+    open(run_file("suction_cost.csv"), "w") do file
+        println(file, "kind,area,height,price,capital,thrust,fan_power")
+        for (kind, (unit, inputs)) in sails
+            rig = tallest_unit(unit, inputs)
+            capital, _, annuity = WindShipOpt.rig_costs(rig, inputs)
+            yearly = annuity + WindShipOpt.rig_maintenance(rig, capital, inputs)
+            load = 0.5air_density * rigid_compared_wind^2 * rig.area
+            setting = (rig.max_lift_coefficient,
+                WindShipOpt.drag_coefficient(rig, rig.max_lift_coefficient))
+            println(file, join((kind, rig.area, rig.height, capital, yearly,
+                    load * rig.max_lift_coefficient,
+                    WindShipOpt.fan_power(rig, setting, rigid_compared_wind)), ","))
+        end
+    end
+end
+
+"""
+    suction_sail_data()
+
+Each class of `pair_classes` on each of `pair_routes` on e-ammonia: the search for the
+cheapest size of suction sails at base inputs, suction_search.csv; and without a rig, with
+each other rig at its best size in classes.csv and with suction sails of their cheapest
+size for each of `suction_scenarios`, suction_sail.csv.
+"""
+function suction_sail_data()
+    classes = ship_classes()
+    ships = [(classes[name], :ammonia, route) for name in pair_classes, route in pair_routes]
+    search, trips = searched_sizes(vec(ships), run_settings().size_rounds;
+        rigs=("suction",))
+    write_trips("suction_search.csv", search, trips, :class, :route, :drive, :rig, :area,
+        :units, :round)
+    classes_table = read_table(data_file("classes.csv"))
+    cases = []
+    for (class, drive, route) in ships
+        searched = [(case.area, trip.cost_per_tonne_km)
+                    for (case, trip) in zip(search, trips)
+                    if !isnothing(trip) && case.rig == "suction" &&
+                       case.class == class.name && case.route == route]
+        best = first(argmin(last, searched))
+        push!(cases, class_case(class, drive, "none", 0.0, route))
+        for rig in rig_names
+            area = best_area(classes_table, class.name, string(route), "ammonia", rig)
+            push!(cases, class_case(class, drive, rig, area, route))
+        end
+        for scenario in suction_scenarios
+            design = ShipDesign(drive, class; suction_area=best)
+            built = Ship(design, assumptions).rig
+            push!(cases, trip_case(design; assumptions=suction_assumptions(scenario),
+                class=class.name, route, drive, rig="suction " * scenario, area=best,
+                units=WindShipOpt.deck_units(built)))
+        end
+    end
+    write_trips("suction_sail.csv", cases, round_trips(cases, sampled_departures()),
+        :class, :route, :drive, :rig, :area, :units)
 end
 
 "ship, drive, and kite, wing sail and rotor areas [m^2] of the router decisions study"
