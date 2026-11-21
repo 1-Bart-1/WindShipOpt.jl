@@ -7,9 +7,6 @@ using WindShipOpt
 using WindShipOpt: Optim
 using WindShipOpt: correlation_allowance, bulb_resistance, friction_coefficient
 
-# Every set reports into this one, so that a failing set does not stop the sets after it.
-Test.push_testset(Test.DefaultTestSet("WindShipOpt"; verbose=true))
-
 # Numerical example of Holtrop & Mennen (1982).
 const PAPER_ENV = Environment(; water_density=1025.0, water_viscosity=1.1883e-6)
 const PAPER_HULL = Hull(; length=205.0, beam=32.0, draft=10.0, displacement_volume=37500.0,
@@ -4950,5 +4947,3 @@ end
 end
 
 include("hot_path_checks.jl")
-
-Test.finish(Test.pop_testset())
