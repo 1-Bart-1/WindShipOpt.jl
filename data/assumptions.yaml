@@ -28,7 +28,7 @@ wind_shear_exponent:
   low: 0.04
   high: 0.08
   unit: "-"
-  reason: "Exponent of the mean power-law wind profile over the sea from 10 m to kite height: matches the mean ERA5 model-level profiles [@hersbach2020] over the study region in 2018 (1.12, 1.18 and 1.22 times the 10 m wind at 100, 270 and 540 m; the authors' analysis of ERA5). The low bound is the trade-wind belt (1.17 at 540 m), the high bound the North Atlantic north of 40 deg N and the IJmuiden lidar, which follow a logarithmic profile with 0.2 mm roughness up to 315 m [@kalverla2020thesis, Ch. 2; @schelbergen2020]."
+  reason: "Exponent of the power-law wind profile over the sea from 10 m to the mid height of wing sails and rotors, on which a kite ship's performance table is also built; the kite itself takes the ERA5 wind at its own height. ERA5 [@hersbach2020] over the sea of the study region, 2017-2019, gives on average 1.15 times the 10 m wind at 100 m, an exponent of 0.06; 0.05 in the trade-wind belt (10-25 deg N) and 0.09 north of 40 deg N, which bound the range (the authors' analysis of the fields the model reads)."
 
 # --- reference hull, geometrically scaled with length ---
 reference_length:

@@ -1932,8 +1932,10 @@ fidelity_parts() = [
         error="no open-water curve of a real propeller",
         effect=nothing),
     (part="Wind at height", varied="not measured",
-        model="one power-law profile from 10\\,m, the mean of ERA5 over the region",
-        error="real shear varies with stability from hour to hour",
+        model="kite: ERA5 at its height, hourly; deck rigs: one power-law profile from " *
+              "10\\,m",
+        error="ERA5 pressure levels some hundreds of metres apart; deck rigs' shear " *
+              "varies with stability",
         effect=nothing),
     (part="Wing sail forces", varied="maximum lift",
         model="lifting line with stall, trimmed at each wind; array factor of the units",

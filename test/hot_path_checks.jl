@@ -123,16 +123,18 @@ end
 """
     gridded_weather(directory)
 
-[`ERA5Weather`](@ref) of constant sea state and wind on a small grid written to `directory`.
+[`ERA5Weather`](@ref) of constant sea state and wind, aloft too, on a small grid written to
+`directory`.
 """
 function gridded_weather(directory)
     grid = (; lats=collect(0.0:1.5:75.0), lons=collect(-90.0:1.5:15.0))
     for (group, step, names) in (("wind", 6, ("u10", "v10")),
+        ("aloft", 6, ("speed_100", "speed_1000")),
         ("waves", 1, ("height", "period", "direction")))
         mkpath(joinpath(directory, group))
         open(joinpath(directory, group, "grid.toml"), "w") do io
             TOML.print(io, Dict("lats" => grid.lats, "lons" => grid.lons,
-                "step_hours" => step,
+                "step_hours" => step, "heights" => [100, 1000],
                 "first_time" => "2017-01-01T00:00:00", "variables" => collect(names)))
         end
         for name in names
