@@ -22,16 +22,18 @@
     \end{scope}
     \foreach \x in {-50,-37,-24,-11,2,15,28,41} \fill[ship] (\x,7.8) rectangle ++(12,0.9);
     \fill[ship] (-71,7.8) rectangle (-57,22);},
-  % the ship from ahead: the bow's flared stem before the midship section behind it
+  % the ship from ahead, heeled by #1 [deg] in a frame turned by as much: its midship
+  % section with round bilges, dark below the level waterline, topsides above it and the
+  % deck on top
   ship ahead/.pic={
-    \fill[keel!70] (-10.87,0) -- (-10.87,-7.06) arc[start angle=180, end angle=270, radius=2]
-      -- (8.87,-9.06) arc[start angle=270, end angle=360, radius=2] -- (10.87,0) -- cycle;
-    \fill[topsides!70] (-10.87,0) rectangle (10.87,6.6);
-    \fill[keel] (-0.6,-9.06) -- (0.6,-9.06) .. controls (3,-6) and (5.5,-2) .. (6.2,0)
-      -- (-6.2,0) .. controls (-5.5,-2) and (-3,-6) .. cycle;
-    \fill[topsides] (-6.2,0) .. controls (-8.5,4) and (-10.2,7) .. (-10.87,8.6)
-      -- (10.87,8.6) .. controls (10.2,7) and (8.5,4) .. (6.2,0) -- cycle;
-    \fill[deck] (-10.87,8.6) rectangle (10.87,9.8);},
+    \begin{scope}
+      \clip (-10.87,7.8) -- (-10.87,-7.06) arc[start angle=180, end angle=270, radius=2]
+        -- (8.87,-9.06) arc[start angle=270, end angle=360, radius=2] -- (10.87,7.8)
+        -- cycle;
+      \fill[topsides] (-11,-9.1) rectangle (11,6.6);
+      \fill[deck] (-11,6.6) rectangle (11,7.8);
+      \fill[keel, rotate=-#1] (-12,-11) rectangle (12,0);
+    \end{scope}},
   % the ship from above: deck inside its bulwark, hatch covers amidships, deckhouse aft
   ship above/.pic={
     \fill[topsides] (-73,-8.7) -- (40,-10.87) .. controls (62,-10.87) and (72,-6) .. (75,0)
@@ -68,14 +70,17 @@
     \fill[wings] (7.05,0) .. controls (7.05,1.4) and (4,1.9) .. (1,1.6) -- (-2.8,0.9)
       -- (-2.8,-0.9) -- (1,-1.6) .. controls (4,-1.9) and (7.05,-1.4) .. cycle;
     \fill[wings!55] (-3.5,0.7) -- (-7.05,0.15) -- (-7.05,-0.15) -- (-3.5,-0.7) -- cycle;},
-  % a soft kite: its canopy's arc, centred on the origin, and its bridle lines meeting at the
-  % control unit, from whose foot 18 m below the origin the tether runs
+  % a soft kite: its canopy's arc, centred on the origin, and its bridle lines, hiding what
+  % lies behind them, meeting at the control unit, from whose foot 15 m below the origin the
+  % tether runs
   kite/.pic={
-    \fill[kite] (0,-13) ++(150:14) arc[start angle=150, end angle=30, radius=14]
+    \fill[white] (0,-10) -- ++(40:12) arc[start angle=40, end angle=140, radius=12]
+      -- cycle;
+    \fill[kite] (0,-10) ++(150:14) arc[start angle=150, end angle=30, radius=14]
       -- ++(30:-2) arc[start angle=30, end angle=150, radius=12] -- cycle;
-    \draw[kite] (0,-13) ++(140:12) -- (0,-13) -- ++(40:12) (0,-13) ++(110:12) -- (0,-13)
+    \draw[kite] (0,-10) ++(140:12) -- (0,-10) -- ++(40:12) (0,-10) ++(110:12) -- (0,-10)
       -- ++(70:12);
-    \fill[keel] (-2,-18) rectangle (2,-13);},
+    \fill[keel] (-2,-15) rectangle (2,-10);},
   % the kite's telescopic launch mast, 35 m up from the deck at its foot, the origin, dashed
   % as it stands only for launch and landing, with the docking head that grips the kite on top
   launch mast/.pic={
