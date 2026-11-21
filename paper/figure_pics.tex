@@ -72,8 +72,9 @@
     \draw[kite] (0,-13) ++(140:12) -- (0,-13) -- ++(40:12) (0,-13) ++(110:12) -- (0,-13)
       -- ++(70:12);
     \fill[keel] (-2,-18) rectangle (2,-13);},
-  % the kite's telescopic launch mast, 35 m up from the deck at its foot, the origin
-  launch mast/.pic={\fill[keel] (-0.6,0) rectangle (0.6,35);},
+  % the kite's telescopic launch mast, 35 m up from the deck at its foot, the origin, dashed
+  % as it stands only for launch and landing
+  launch mast/.pic={\draw[keel, densely dashed, fill=white] (-1.5,0) rectangle (1.5,35);},
   % icons
   fuel icon/.pic={
     \fill[icon] (-3.2,-3.6) rectangle (1,3.4);
