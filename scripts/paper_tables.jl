@@ -1825,6 +1825,38 @@ function routing_saving(table, ship, drive, rig, speed)
 end
 
 """
+    fuel_method_numbers()
+
+What re-pricing the routes of the base e-ammonia price, rather than routing each price,
+does to the savings of the fuel method study, and how the size best at the base price
+fares at the others, as `\\Num...` macros: fuel_method_numbers.tex.
+"""
+function fuel_method_numbers()
+    table = read_table(study_file(:fuel_method, "fuel_method.csv"))
+    shift = maximum(abs.(table["repriced"] .- table["routed"]))
+    gap_shift = 0.0
+    for ship in unique(table["ship"]), price in unique(table["price"])
+        case = rows(table, "ship" => ship, "price" => price)
+        moved = table["repriced"][case] .- table["routed"][case]
+        gap_shift = max(gap_shift, maximum(moved) - minimum(moved))
+    end
+    short = table["routed"] .- table["kept"]
+    missed_rigs = sort(unique(table["rig"][findall(>(0), short)]))
+    draft = TOML.parsefile(study_runs_path)["fuel_method"]["fidelity"] != "final"
+    numbers = ["FuelRepricedShift" => whole_number(shift),
+        "FuelRepricedGapShift" => whole_number(gap_shift),
+        "FuelKeptBest" => string(count(<=(0), short)),
+        "FuelKeptCases" => string(length(short)),
+        "FuelKeptShort" => whole_number(maximum(short)),
+        "FuelKeptShortRigs" => join(rig_label.(missed_rigs), " and ")]
+    write_whole(joinpath(sections, "fuel_method_numbers.tex")) do io
+        for (name, text) in numbers
+            print(io, number_macro(name, text, draft))
+        end
+    end
+end
+
+"""
     speed_term_savings(table, drive, terms, column)
 
 Saving [%] in `column` of kite, wings and rotors on `terms` against the ship without a rig,
