@@ -89,7 +89,7 @@ website_steps = [:explorer => explorer_data, :passages => passages_data,
     :grids => grids_data]
 
 "figure and table steps, each reading the data files and writing one output"
-output_steps = [:kite => kite_figure,
+output_steps = [:kite => kite_figure, :deck_rigs => deck_rig_figure,
     :wind_load => wind_load_figure,
     :capital => capital_figure, :patterns_figure => pattern_figure,
     :canopy_tension_figure => canopy_tension_figure,
