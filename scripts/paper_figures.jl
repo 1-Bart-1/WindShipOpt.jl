@@ -851,7 +851,8 @@ function deck_rig_figure()
     polar = Axis(figure[1, 1]; xlabel=L"C_D", ylabel=L"C_L",
         title="(a) wing sail, over its trim")
     attached, stalled = WindShipOpt.trim_ranges(wing, ship.env, 10.0, π / 2, 5.0)
-    for (trim, style, label) in ((attached, :solid, "attached"), (stalled, :dash, "stalled"))
+    for (trim, style, label) in
+        ((attached, :solid, "attached"), (stalled, :dash, "stalled"))
         settings = WindShipOpt.trim_setting.(Ref(wing), Ref(trim),
             range(trim.low, trim.high; length=100))
         lines!(polar, last.(settings), first.(settings); color=palette[2],
