@@ -2216,7 +2216,7 @@ power and prices of one VTOL kite at base inputs, the thrust, price per thrust a
 cost per thrust of it and of the soft kite it is compared with, the share of the VTOL
 kite's yearly cost its upkeep takes, their ratio, and the VTOL kite's yearly cost per
 thrust at favourable inputs; from rigid_kite.csv the cost savings [%] of the VTOL kite at
-base and favourable inputs, the soft kite and the rotors on each route.
+base and favourable inputs and the soft kite on each route, and the rotors to Guadeloupe.
 """
 function rigid_numbers()
     kites = read_table(data_file("rigid_cost.csv"))
@@ -2241,11 +2241,13 @@ function rigid_numbers()
         "RigidCostRatio" => @sprintf("%.1f", per_thrust(yearly(wing), wing) /
                                              per_thrust(yearly(kite), kite)),
         "RigidFavourableCost" => rounded(per_thrust(yearly(favourable), favourable))]
-    for (route, word) in zip(pair_routes, ("Guadeloupe", "Bilbao"))
+    favourable_rig = "rigid favourable" => "Favourable"
+    compared = (("kite" => "Kite", "rotors" => "Rotors", favourable_rig),
+        ("kite" => "Kite", favourable_rig))
+    for (route, word, rigs) in zip(pair_routes, ("Guadeloupe", "Bilbao"), compared)
         savings = [rig_savings(trips, ["kite", "rotors", "rigid base", "rigid favourable"],
             "ship" => ship, "route" => string(route)) for ship in pair_classes]
-        for (rig, rig_word) in ("kite" => "Kite", "rotors" => "Rotors",
-            "rigid favourable" => "Favourable")
+        for (rig, rig_word) in rigs
             push!(numbers, "RigidRouted$(word)$(rig_word)" =>
                 point_range([saving[rig] for saving in savings]))
         end
