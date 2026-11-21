@@ -217,6 +217,8 @@ input_derivations = Dict(
     :source_sea_margin => "app:calm_calibration",
     :wing_abreast_loss => "sec:det_deck", :deck_length_fraction => "sec:det_deck",
     :rotor_abreast_loss => "sec:det_deck",
+    (Symbol(unit, :_, name) => "app:size_laws" for unit in (:wing, :rotor, :suction)
+     for name in (:mass_exponent, :reference_height))...,
     :rotor_unit_cost => "app:prices", :rotor_cost_per_area => "app:prices",
     :rigid_mass_per_area => "sec:det_rigid", :rigid_hover_power_per_mass => "sec:det_rigid",
     :rigid_drag => "sec:det_rigid", :rigid_min_turn_radius => "sec:det_rigid",
