@@ -49,21 +49,29 @@
   rotor above/.pic={
     \fill[rotors!45] (0,0) circle (4.6);
     \fill[rotors] (0,0) circle (2.89);},
-  % a wing sail from the side: its main element and the flap behind it, leading edge forward
+  % a wing sail from the side: one wing, leading edge forward, its flap aft of the hinge line
   wing/.pic={
-    \fill[wings] (-2.8,0.4) -- (7.05,0.4) -- (7.05,26.8) .. controls (6.2,28.3) and (-2,28.3) ..
-      (-2.8,26.8) -- cycle;
-    \fill[wings!55] (-7.05,0.4) rectangle (-3.5,26.8);},
+    \path[save path=\wingoutline] (-7.05,0.4) -- (7.05,0.4) -- (7.05,26.8)
+      .. controls (6.2,28.3) and (-6.2,28.3) .. (-7.05,26.8) -- cycle;
+    \fill[wings, use path=\wingoutline];
+    \begin{scope}
+      \clip[use path=\wingoutline];
+      \fill[wings!55] (-7.05,0) rectangle (-3.2,29);
+    \end{scope}
+    \draw[wingstext] (-3.2,0.4) -- (-3.2,27.8);},
   % a wing sail from above: the aerofoil section with its flap, leading edge to the right
   wing above/.pic={
     \fill[wings] (7.05,0) .. controls (7.05,1.4) and (4,1.9) .. (1,1.6) -- (-2.8,0.9)
       -- (-2.8,-0.9) -- (1,-1.6) .. controls (4,-1.9) and (7.05,-1.4) .. cycle;
     \fill[wings!55] (-3.5,0.7) -- (-7.05,0.15) -- (-7.05,-0.15) -- (-3.5,-0.7) -- cycle;},
-  % a soft kite: its canopy's arc and the bridle lines meeting at the tether, the origin
+  % a soft kite: its canopy's arc, centred on the origin, and its bridle lines meeting at the
+  % control unit, from whose foot 18 m below the origin the tether runs
   kite/.pic={
-    \fill[kite] (150:14) arc[start angle=150, end angle=30, radius=14]
-      -- (30:12) arc[start angle=30, end angle=150, radius=12] -- cycle;
-    \draw[kite] (140:12) -- (0,0) -- (40:12) (110:12) -- (0,0) -- (70:12);},
+    \fill[kite] (0,-13) ++(150:14) arc[start angle=150, end angle=30, radius=14]
+      -- ++(30:-2) arc[start angle=30, end angle=150, radius=12] -- cycle;
+    \draw[kite] (0,-13) ++(140:12) -- (0,-13) -- ++(40:12) (0,-13) ++(110:12) -- (0,-13)
+      -- ++(70:12);
+    \fill[keel] (-2,-18) rectangle (2,-13);},
   % the kite's telescopic launch mast, 35 m up from the deck at its foot, the origin
   launch mast/.pic={\fill[keel] (-0.6,0) rectangle (0.6,35);},
   % icons
