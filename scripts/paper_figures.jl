@@ -1846,8 +1846,11 @@ band_entry(band) = fill_entry(fleet_colours()[band])
 fleet_colours() = Dict("kite" => palette[1], "wings" => palette[2], "rotors" => palette[3],
     "level" => level_fill("kite", "rotors"), "none" => RGBf(0.8, 0.8, 0.8))
 
-"pitch and width [figure units] of the stripes of [`hatch!`](@ref)"
-hatch_pitch, hatch_width = style_size("hatch_pitch"), style_size("hatch_width")
+"pitch [figure units] of the stripes of [`hatch!`](@ref)"
+hatch_pitch = style_size("hatch_pitch")
+
+"width [figure units] of the stripes of [`hatch!`](@ref)"
+hatch_width = style_size("hatch_width")
 
 """
     hatch!(axis, rect, stripe)
@@ -3454,8 +3457,7 @@ reference_line!(axis, value=0; vertical=false, linestyle=:solid) =
 
 "inputs of the mass of a soft kite without its tether, each with its bound that lightens it"
 soft_mass_inputs = (canopy_flat_area_ratio=:low, canopy_rib_cloth_ratio=:low,
-    canopy_cell_width_exponent=:high, canopy_mass_overhead=:low,
-    control_unit_mass_per_force=:low)
+    canopy_mass_overhead=:low, control_unit_mass_per_force=:low)
 
 """
     soft_mass_bound(lightest)
@@ -3515,9 +3517,9 @@ function kite_mass_figure()
     rigid_colour, soft_colour = palette[4], palette[1]
     figure = Figure(size=(column_width, 200))
     axis = Axis(figure[1, 1]; doubling_axis(:x, 2.5, 5120; base=2.5)...,
-        doubling_axis(:y, 0.125, 128; base=0.125)...,
+        doubling_axis(:y, 0.125, 512; base=0.125)...,
         xlabel=square_metres("projected area [", "]"),
-        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 200)))
+        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 1200)))
     flew = published["status"] .!= "designed"
     soft = published["kind"] .== "soft"
     rigid_areas = exp.(range(log(3), log(1000); length=50))
@@ -3547,7 +3549,7 @@ function kite_mass_figure()
         LineElement(color=rigid_colour, linestyle=:dot), LineElement(color=soft_colour),
         LineElement(color=:black, linestyle=:dash), markers...]
     axislegend(axis, entries, ["VTOL kite", "span cubed", "soft kite", "extrapolated",
-            statuses...]; position=:cc, nbanks=4, rowgap=0, colgap=pt(6),
+            statuses...]; position=:lt, nbanks=4, rowgap=0, colgap=pt(6),
         patchsize=(pt(12), pt(6)))
     save_figure("kite_mass", figure)
 end
@@ -3560,7 +3562,7 @@ canopy_markers = Dict("paraglider" => :circle, "kite" => :rect, "parafoil" => :u
 
 Mean chord over cell width against mean chord of the ram-air canopies of
 data/canopy_cells.csv, its `kind`, `flat_area` [m^2], `flat_span` [m] and `cells`, and the
-rule of the model at base inputs between the bounds of `canopy_cell_width_exponent`, with
+rule of the model at base inputs between the bounds of `canopy_structure_chord`, solid over
 the mean chords of the kites the class study searches.
 """
 function canopy_cells_figure()
@@ -3571,21 +3573,22 @@ function canopy_cells_figure()
     axis = Axis(figure[1, 1]; xscale=log10, yscale=log10, xlabel=L"mean chord $c$ [m]",
         ylabel=L"chord over cell width $c/w$",
         xticks=([1, 3, 10, 30, 100], ["1", "3", "10", "30", "100"]),
-        yticks=([3, 5, 10, 20, 40], ["3", "5", "10", "20", "40"]),
-        limits=(nothing, (3, 45)))
+        yticks=([1, 3, 10, 30, 100], ["1", "3", "10", "30", "100"]),
+        limits=(nothing, (0.8, 300)))
     kite_areas = size_bounds(first(values(ship_classes())))["kite"]
     kite_chords = sqrt.(collect(kite_areas) ./ assumptions[:kite_aspect_ratio])
     vspan!(axis, kite_chords...; color=(:gray50, 0.15))
-    line_chords = exp.(range(log(0.8), log(80); length=50))
-    exponent = :canopy_cell_width_exponent
+    line_chords = sort([exp.(range(log(0.8), log(160); length=60)); kite_chords...])
+    surveyed = (:canopy_structure_chord,)
     bounds = [WindShipOpt.chord_over_cell_width.(
-                  Ref(at_bound(assumptions, (exponent,), bound)), line_chords)
+                  Ref(at_bound(assumptions, surveyed, bound)), line_chords)
               for bound in (:low, :high)]
     band!(axis, line_chords, bounds...; color=(palette[1], 0.18))
-    built = line_chords .<= maximum(chords)
     rule = WindShipOpt.chord_over_cell_width.(Ref(assumptions), line_chords)
-    lines!(axis, line_chords[built], rule[built]; color=palette[1])
-    lines!(axis, line_chords[.!built], rule[.!built]; color=palette[1], linestyle=:dash)
+    searched = minimum(kite_chords) .<= line_chords .<= maximum(kite_chords)
+    beyond = .!(minimum(kite_chords) .< line_chords .< maximum(kite_chords))
+    lines!(axis, line_chords, ifelse.(searched, rule, NaN); color=palette[1])
+    lines!(axis, line_chords, ifelse.(beyond, rule, NaN); color=palette[1], linestyle=:dash)
     for kind in keys(canopy_markers)
         shown = published["kind"] .== kind
         scatter!(axis, chords[shown], ratios[shown]; color=:black,

@@ -1776,11 +1776,6 @@ development_inputs = [
         lever="condition",
         reason="Not for a developer to change: how much stronger the wind blows at a " *
                "kite's height than on deck, which sets what flying high is worth."),
-    (input=:canopy_cell_width_exponent, label="canopy cell width exponent",
-        rig="condition", lever="condition",
-        reason="Not for a developer to change: how a canopy's cells widen with its " *
-               "chord, unmeasured beyond 325 m\\textsuperscript{2}, which sets the " *
-               "cloth and sewing a ship kite's canopy takes."),
 ]
 
 """

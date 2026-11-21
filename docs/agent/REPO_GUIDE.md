@@ -29,7 +29,7 @@ This repository holds a ship and rig cost model, and a paper built on it: "Towin
 
 ## Running
 
-- Use Julia 1.12, with `Manifest-v1.12.toml.default` and `scripts/Manifest-v1.12.toml.default` copied to `Manifest-v1.12.toml` next to them.
+- Use Julia 1.13, with `Manifest-v1.13.toml.default` and `scripts/Manifest-v1.13.toml.default` copied to `Manifest-v1.13.toml` next to them.
 - `paper(names...; fidelity, resume)` in `scripts/paper.jl` runs the studies. Each run writes to `output/runs/<stamp>/`, with its code hash and commit in `run.toml`, and stores its round trips in `output/cases/`, which every run shares. `paper_status(; fidelity)` lists the steps a change made out of date, which `paper` then reruns; [`docs/paper_runs.md`](../paper_runs.md) has the workflow.
 - A final run refuses a dirty tree or an unpushed commit.
 - A paper run computes the results only. A method study, which chooses or checks a method or setting, is one of `study_steps` and runs by name, `paper(:sea_effect; fidelity=:draft)`: that records its run in `paper/study_runs.toml` and writes its tables, whose captions name the run and commit through `\studyrun`. Commit both with the tables.
