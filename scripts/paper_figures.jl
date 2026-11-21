@@ -837,6 +837,63 @@ Geometric mean of the positive numbers `values`.
 geometric_mean(values) = exp(sum(log, values) / length(values))
 
 """
+    deck_rig_figure()
+
+Write paper/figures/deck_rigs.pdf: the model of the deck rigs, (a) the wing sail's lift
+over drag at each trim, attached and stalled, (b) the rotor's lift, drag and spin power
+over spin ratio, and (c) the thrust factor of wings and rotors in one row and in two
+columns over their number, at the closest spacing.
+"""
+function deck_rig_figure()
+    ship = Ship(ShipDesign(:vlsfo, 140.0; rig_size("wings", 800.0)...), assumptions)
+    wing = ship.rig
+    figure = Figure(size=(page_width, 170))
+    polar = Axis(figure[1, 1]; xlabel=L"C_D", ylabel=L"C_L",
+        title="(a) wing sail, over its trim")
+    attached, stalled = WindShipOpt.trim_ranges(wing, ship.env, 10.0, π / 2, 5.0)
+    for (trim, style, label) in
+        ((attached, :solid, "attached"), (stalled, :dash, "stalled"))
+        settings = WindShipOpt.trim_setting.(Ref(wing), Ref(trim),
+            range(trim.low, trim.high; length=100))
+        lines!(polar, last.(settings), first.(settings); color=palette[2],
+            linestyle=style, label)
+    end
+    axislegend(polar; position=:rt)
+    spins = range(0, WindShipOpt.MAX_SPIN_RATIO; length=100)
+    coefficients = WindShipOpt.rotor_coefficients.(spins)
+    rotor = Axis(figure[1, 2]; xlabel=L"spin ratio $\alpha$", ylabel="coefficient",
+        title="(b) rotor, over its spin")
+    lift = assumptions[:rotor_lift_factor] .* first.(coefficients)
+    lines!(rotor, spins, lift; color=palette[3], label=L"C_L")
+    lines!(rotor, spins, getindex.(coefficients, 2); color=palette[3], linestyle=:dash,
+        label=L"C_D")
+    lines!(rotor, spins, last.(coefficients); color=palette[3], linestyle=:dot,
+        label=L"C_{P,\mathrm{spin}}")
+    axislegend(rotor; position=:lt)
+    shading = Axis(figure[1, 3]; xlabel=L"units $n$", ylabel=L"thrust factor $f$",
+        title="(c) shading at the closest spacing", xticks=2:2:8,
+        limits=(nothing, (0.45, 1.0)))
+    for (unit, colour) in ((:wing, palette[2]), (:rotor, palette[3]))
+        setting(name) = assumptions[Symbol(unit, name)]
+        spacing, decay = setting(:_spacing), setting(:_interference_decay)
+        amplitude = setting(:_interference_amplitude)
+        abreast = setting(:_abreast_loss) * amplitude
+        counts = 2:2:8
+        row = WindShipOpt.array_factor.(counts, spacing, amplitude, decay)
+        columns = WindShipOpt.array_factor.(counts .÷ 2, spacing, amplitude, decay) .*
+                  WindShipOpt.array_factor(2, spacing, abreast, decay)
+        scatterlines!(shading, counts, row; color=colour, markersize=marker_size)
+        scatterlines!(shading, counts, columns; color=colour, linestyle=:dash,
+            markersize=marker_size)
+    end
+    elements = [LineElement(; color=palette[2]), LineElement(; color=palette[3]),
+        LineElement(; color=:black), LineElement(; color=:black, linestyle=:dash)]
+    axislegend(shading, elements, ["wing sails", "rotors", "one row", "two columns"];
+        position=:lb)
+    save_figure("deck_rigs", figure)
+end
+
+"""
     pattern_figure()
 
 Optimal flight paths seen from the ship over the course off apparent downwind, a ring where
