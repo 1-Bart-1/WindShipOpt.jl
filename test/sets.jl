@@ -4242,7 +4242,7 @@ end
     @test PaperData.rerouting_gains(table, "kite") ≈ [10.0, 0.0]
 end
 
-@testset "the fuel premium a rig closes is ranged over the ship lengths it was run at" begin
+@testset "the e-ammonia premium is ranged over the ship lengths it was run at" begin
     rows = [("base", "vlsfo", 85.0, 0, 0, 0, 1.0), ("base", "ammonia", 85.0, 0, 0, 0, 1.5),
         ("base", "ammonia", 85.0, 800, 0, 0, 1.2),
         ("base", "ammonia", 85.0, 1600, 0, 0, 1.25),
@@ -4254,9 +4254,7 @@ end
     names = ("scenario", "drive", "length", "kite_area", "wing_area", "rotor_area", "cost")
     designs = Dict(name => getindex.(rows, k) for (k, name) in enumerate(names))
     @test Dict(PaperData.design_premium_numbers(designs)) == Dict(
-        "DesignPremium" => "40 to 50", "DesignPremiumBestRig" => "20",
-        "DesignPremiumClosedKite" => "60 to 75", "DesignPremiumClosedWings" => "20",
-        "DesignPremiumClosedRotors" => "40")
+        "DesignPremium" => "40 to 50", "DesignPremiumBestRig" => "20")
 end
 
 @testset "a pair's extra saving has its standard error over the departures as noise" begin
@@ -4504,10 +4502,12 @@ end
     @test count("; ", PaperData.answer_text(rows)) == length(rows) - 1
     @test isempty(PaperData.advised_savings((; rows[1]..., verdict="none")))
     saved = reduce(vcat, PaperData.advised_savings.(rows))
-    @test Dict(PaperData.answer_ranges(rows)) == Dict("Shares" => "14",
-        "Carbon" => "\\num{9200} to \\num{9600}", "MoneyLow" => "\\num{4.1}",
+    ranges = Dict("Shares" => "14", "MoneyLow" => "\\num{4.1}",
         "MoneyLowShips" => "car carriers", "MoneyHigh" => "\\num{5.3}",
         "MoneyHighShips" => "container ships")
+    @test Dict(PaperData.answer_ranges(rows, "vlsfo")) ==
+          merge(ranges, Dict("Carbon" => "\\num{9200} to \\num{9600}"))
+    @test Dict(PaperData.answer_ranges(rows, "ammonia")) == ranges
     @test PaperData.saved_figures(saved, "vlsfo") == "14\\,\\%, USD~\\num{4.1} to " *
                                                      "\\num{5.3} million and \\num{9200} to " *
                                                      "\\num{9600}~t of CO\$_2\$"
