@@ -3554,7 +3554,7 @@ function canopy_cells_figure()
     kite_areas = size_bounds(first(values(ship_classes())))["kite"]
     kite_chords = sqrt.(collect(kite_areas) ./ assumptions[:kite_aspect_ratio])
     vspan!(axis, kite_chords...; color=(:gray50, 0.15))
-    line_chords = exp.(range(log(0.8), log(160); length=60))
+    line_chords = sort([exp.(range(log(0.8), log(160); length=60)); kite_chords...])
     surveyed = (:canopy_structure_chord,)
     bounds = [WindShipOpt.chord_over_cell_width.(
                   Ref(at_bound(assumptions, surveyed, bound)), line_chords)
@@ -3562,9 +3562,9 @@ function canopy_cells_figure()
     band!(axis, line_chords, bounds...; color=(palette[1], 0.18))
     rule = WindShipOpt.chord_over_cell_width.(Ref(assumptions), line_chords)
     searched = minimum(kite_chords) .<= line_chords .<= maximum(kite_chords)
+    beyond = .!(minimum(kite_chords) .< line_chords .< maximum(kite_chords))
     lines!(axis, line_chords, ifelse.(searched, rule, NaN); color=palette[1])
-    lines!(axis, line_chords, ifelse.(searched, NaN, rule); color=palette[1],
-        linestyle=:dash)
+    lines!(axis, line_chords, ifelse.(beyond, rule, NaN); color=palette[1], linestyle=:dash)
     for kind in keys(canopy_markers)
         shown = published["kind"] .== kind
         scatter!(axis, chords[shown], ratios[shown]; color=:black,
