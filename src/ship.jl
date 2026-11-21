@@ -208,8 +208,9 @@ function ship_classes()
         values = Dict(Symbol(name) => parse(Float64, row[name]) for name in ("length",
             "beam", "draft", "block_coefficient", "deadweight", "service_speed",
             "power", "source_load", "centre_of_buoyancy", "propeller_diameter_ratio",
-            "newbuild_price", "cargo_value", "deck_tiers", "bridge_position", "air_draft_limit",
-            "restricted_call_share", "fixed_rig_port_hours", "unit_capacity"))
+            "newbuild_price", "cargo_value", "deck_tiers", "bridge_position",
+            "air_draft_limit", "restricted_call_share", "fixed_rig_port_hours",
+            "unit_capacity"))
         classes[row["name"]] = ShipClass(; name=row["name"], type=row["type"],
             cargo_unit=Symbol(lowercase(row["cargo_unit"])),
             two_stroke=Dict("two-stroke" => true, "four-stroke" => false)[row["engine"]],

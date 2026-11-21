@@ -1225,7 +1225,8 @@ end
     port_hours(class) = WindShipOpt.fixed_rig_port_hours(rotors(class), classes[class],
         assumptions)
     coaster = ship_classes()["general cargo coaster"]
-    small = WindShipOpt.RotorRig(200.0, Hull(coaster, assumptions), assumptions; in_column=2)
+    small = WindShipOpt.RotorRig(200.0, Hull(coaster, assumptions), assumptions;
+        in_column=2)
     @test WindShipOpt.fixed_rig_port_hours(small, coaster, assumptions) == Inf
     bow = WindShipOpt.RotorRig(150.0, Hull(classes["Panamax container ship"], assumptions),
         assumptions)
@@ -1299,9 +1300,12 @@ end
 bow_area(width, unit) = width^2 * assumptions[Symbol(unit, :_aspect_ratio)]
 
 "whether one wing sail or rotor `unit` of `area` [m^2] stands at the bow of ship `class`"
-bow_fits(area, unit, class) = !isnothing(unit == :rotor ?
-                                         WindShipOpt.RotorRig(area, Hull(class, assumptions),
-    assumptions) : WingRig(area, Hull(class, assumptions), assumptions))
+function bow_fits(area, unit, class)
+    hull = Hull(class, assumptions)
+    rig = unit == :rotor ? WindShipOpt.RotorRig(area, hull, assumptions) :
+          WingRig(area, hull, assumptions)
+    return !isnothing(rig)
+end
 
 @testset "a container ship's one rig unit stands at its bow and blocks no slot" begin
     megamax = ship_classes()["Megamax container ship"]
