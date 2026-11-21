@@ -49,7 +49,7 @@ loss = "B2182B" # a loss in table cells
 # `<name> box`; each told apart from the others in colour-blind vision
 ship = "BCCEDD" # models the ship: hull, propeller, engine, cargo
 rig = "FFDEA3" # models the rig
-voyage = "869B8B" # comes from the routed voyages
+voyage = "80C8A8" # comes from the routed voyages
 cost = "E8B4B5" # a cost
 data = "EEEEEE" # data or an input
 

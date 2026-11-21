@@ -40,6 +40,8 @@
       .. controls (70,5.5) and (61,9.9) .. (40,9.9) -- (-72,7.9) -- cycle;
     \foreach \x in {-50,-37,-24,-11,2,15,28,41} \fill[ship] (\x,-7.5) rectangle ++(12,15);
     \fill[ship] (-71,-7.6) rectangle (-57,7.6);},
+  % the rudder from above, its axis 70 m aft of midship
+  rudder above/.pic={\fill[keel] (-71,-0.5) rectangle (-69,0.5);},
   % a Flettner rotor from the side or ahead: its cylinder between two end plates
   rotor/.pic={
     \fill[rotors] (-2.89,0.4) rectangle (2.89,34.2);
