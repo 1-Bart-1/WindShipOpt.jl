@@ -220,12 +220,13 @@ end
 
 Hull of the main dimensions and centre of buoyancy of ship `class`, with the waterline
 length `waterline_length_ratio` times its length, its calm-water resistance calibrated to
-the source design by [`resistance_calibration`](@ref).
+the source design by [`resistance_calibration`](@ref) and its container tiers on deck.
 """
 function Hull(class::ShipClass, assumptions::Assumptions)
     dimensions = (class.length, class.beam, class.draft, class.block_coefficient)
     form = (; class.centre_of_buoyancy,
-        waterline_length=assumptions[:waterline_length_ratio] * class.length)
+        waterline_length=assumptions[:waterline_length_ratio] * class.length,
+        deck_cargo_height=class.deck_tiers * assumptions[:container_tier_height])
     holtrop = Hull(dimensions..., assumptions; form...)
     return Hull(dimensions..., assumptions; form...,
         resistance_factor=resistance_calibration(class, holtrop, assumptions))
@@ -376,7 +377,8 @@ end
 """
     Ship(design, assumptions; route=nothing)
 
-Ship for `design`, or `nothing` if its rig does not fit on the hull. Its engines,
+Ship for `design`, its wings, rotors or suction sails in their [`cheapest_layout`](@ref),
+or `nothing` if its rig does not fit on the hull. Its engines,
 gensets or fuel cells are rated for the [`rated_delivered_power`](@ref) and the hotel
 load; its fuel pays the carbon price by its [`carbon_coverage`](@ref) on `route`.
 """
@@ -384,8 +386,6 @@ function Ship(design::ShipDesign, assumptions::Assumptions; route=nothing)
     env = Environment(assumptions)
     hull = isnothing(design.class) ? Hull(design.length, assumptions) :
            Hull(design.class, assumptions)
-    rig = design_rig(design, hull, assumptions)
-    isnothing(rig) && has_rig(design) && return nothing
     stiffness = displacement_mass(hull, env) * env.gravity *
                 assumptions[:metacentric_height_ratio] * hull.beam
     drive = Drive(design.drive, assumptions; design.class,
@@ -393,19 +393,21 @@ function Ship(design::ShipDesign, assumptions::Assumptions; route=nothing)
     hotel_load = 1e3assumptions[:hotel_load]
     hull_parts = (design, env, hull, WaveCoefficients(hull),
         SeakeepingHull(hull, assumptions), Propeller(design, hull, assumptions))
-    other_parts = (rig, drive.fuel, Windage(design, hull, assumptions), stiffness,
+    other_parts = (drive.fuel, Windage(design, hull, assumptions), stiffness,
         deg2rad(assumptions[:heel_limit]), deg2rad(assumptions[:leeway_limit]),
         rudder_area(hull), assumptions[:rudder_aspect_ratio], assumptions[:rudder_max_lift],
         assumptions[:max_froude_number] * sqrt(env.gravity * hull.length))
     unlimited = Powertrain(; installed_power=Inf, unit_count=1, peak_efficiency=1.0,
         part_load_penalty=0.0, drive.transmission_efficiency, hotel_load)
-    delivered = rated_delivered_power(Ship(hull_parts..., unlimited, other_parts...),
-        assumptions)
+    bare = Ship(hull_parts..., unlimited, nothing, other_parts...)
+    rig = cheapest_layout(bare, assumptions)
+    isnothing(rig) && has_rig(design) && return nothing
+    delivered = rated_delivered_power(with_rig(bare, rig), assumptions)
     powertrain = Powertrain(;
         installed_power=delivered / drive.transmission_efficiency + hotel_load,
         drive.unit_count, drive.peak_efficiency, drive.part_load_penalty,
         drive.transmission_efficiency, hotel_load, drive.min_load)
-    return Ship(hull_parts..., powertrain, other_parts...)
+    return Ship(hull_parts..., powertrain, rig, other_parts...)
 end
 
 """
@@ -420,6 +422,14 @@ with_rig(ship::Ship, rig) = Ship(ship.design, ship.env, ship.hull, ship.wave_coe
     ship.max_speed)
 
 """
+    service_speed(ship, assumptions)
+
+Service speed [m/s] of the class of `ship`, or of the reference coaster family.
+"""
+service_speed(ship::Ship, assumptions::Assumptions) = KNOT * (isnothing(ship.design.class) ?
+    assumptions[:service_speed] : ship.design.class.service_speed)
+
+"""
     rated_delivered_power(ship, assumptions)
 
 Power [W] delivered to the propeller at the rating of the main engine of `ship`: the
@@ -431,7 +441,7 @@ function rated_delivered_power(ship::Ship, assumptions::Assumptions)
     (; class) = ship.design
     isnothing(class) || isnan(class.power) ||
         return 1e3class.power * shaft_efficiency(class, assumptions)
-    speed = (isnothing(class) ? assumptions[:service_speed] : class.service_speed) * KNOT
+    speed = service_speed(ship, assumptions)
     calm = delivered_power(ship.propeller, ship.env, speed,
         first(best_trim(ship, standing_rig(ship.rig), speed, 0.0, 0.0)))
     return calm * (1 + assumptions[:sea_margin]) / assumptions[:engine_rating_fraction]
@@ -450,12 +460,20 @@ Projected aspect ratio of the kite of `design`: its own, else the assumption
 kite_aspect_ratio(design::ShipDesign, assumptions::Assumptions) =
     something(design.kite_aspect_ratio, assumptions[:kite_aspect_ratio])
 
-function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions)
+"""
+    design_rig(design, hull, assumptions; columns=1, in_column=1)
+
+Rig of `design` on `hull`, its wings, rotors or suction sails `columns` times `in_column`
+units, or `nothing` where they do not fit.
+"""
+function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions; columns=1,
+        in_column=1)
+    layout = (; columns, in_column)
     if design.suction_area > 0
         any(>(0), (design.wing_area, design.kite_area, design.rotor_area,
             design.rigid_kite_area)) &&
             throw(ArgumentError("suction sails stand alone on a design"))
-        return WingRig(design.suction_area, hull, assumptions; unit=:suction)
+        return WingRig(design.suction_area, hull, assumptions; unit=:suction, layout...)
     end
     if design.rigid_kite_area > 0
         any(>(0), (design.wing_area, design.kite_area, design.rotor_area)) &&
@@ -468,12 +486,39 @@ function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions)
                                    (RotorRig, design.rotor_area)
     if design.kite_area > 0
         aspect_ratio = kite_aspect_ratio(design, assumptions)
+        standing_area > 0 && hull.deck_cargo_height > 0 &&
+            throw(ArgumentError("a ship with deck cargo carries one rig, at its bow"))
         standing_area > 0 && return CombinedRig(design.kite_area, aspect_ratio,
-            standing_type, standing_area, hull, assumptions)
+            standing_type, standing_area, hull, assumptions; layout...)
         return KiteRig(design.kite_area, aspect_ratio, hull, assumptions)
     end
-    standing_area > 0 && return standing_type(standing_area, hull, assumptions)
+    standing_area > 0 && return standing_type(standing_area, hull, assumptions; layout...)
     return nothing
+end
+
+"""
+    standing_unit(design)
+
+Area [m^2] of the wings, rotors or suction sails of `design` and their unit, `:wing`,
+`:rotor` or `:suction`; no area where it has none.
+"""
+function standing_unit(design::ShipDesign)
+    design.suction_area > 0 && return design.suction_area, :suction
+    design.rotor_area > 0 && return design.rotor_area, :rotor
+    return design.wing_area, :wing
+end
+
+"""
+    layout_counts(design, hull, assumptions)
+
+[`layout_counts`](@ref) of the wings, rotors or suction sails of `design` on `hull`, behind
+the launch mast of a kite flown over them; the one layout of a design without them.
+"""
+function layout_counts(design::ShipDesign, hull::Hull, assumptions::Assumptions)
+    area, unit = standing_unit(design)
+    area > 0 || return [(1, 1)]
+    reserve = design.kite_area > 0 ? launch_mast_reserve(assumptions) : 0.0
+    return layout_counts(area, unit, hull, assumptions, reserve)
 end
 
 const KNOT = 1852 / 3600
