@@ -4952,11 +4952,15 @@ end
 
 @testset "a model part the study's recorded run predates prints stale until it reruns" begin
     run = mktempdir()
-    write(joinpath(run, "model_parts.csv"),
-        "ship,rig,part,cost\n140 m,none,none,1.0\n140 m,kite,none,0.9\n")
+    rigs = ["none", PaperData.rig_names...]
+    write(joinpath(run, "model_parts.csv"), "ship,rig,part,cost\n",
+        join(("140 m,$rig,none,1.0\n" for rig in rigs)))
     @eval PaperData study_file(study, name) = joinpath($run, name)
     @test PaperData.study_holds(PaperData.switched(:none))
     @test !PaperData.study_holds(PaperData.switched(:side_force))
+    write(joinpath(run, "model_parts.csv"), "ship,rig,part,cost\n",
+        join(("140 m,$rig,none,1.0\n" for rig in rigs[1:(end - 1)])))
+    @test !PaperData.study_holds(PaperData.switched(:none))
     @test !PaperData.study_holds((:model_parts, "weather_years.csv", "ship", [[()]]))
     @test all(==("\\stale{model_parts}{}") ∘ last, PaperData.side_force_numbers())
     @test length(PaperData.side_force_numbers()) == 4length(PaperData.rig_names)

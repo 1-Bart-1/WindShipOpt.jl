@@ -81,7 +81,8 @@ function palette_faults()
     groups = (("rig", style_colour.(["kite", "wings", "rotors", "vtol", "suction"])),
         ("category", category_colours), ("cell", style_colour.(["gain", "loss"])),
         ("fill", style_colour.(collect(keys(figure_style["fills"])); table="fills")),
-        ("ship", style_colour.(["keel", "topsides", "deck", "kite", "wings", "rotors"])),
+        ("ship", style_colour.(["keel", "topsides", "deck", "kite", "wings", "rotors",
+            "suction"])),
         ("force", style_colour.(["water", "wind", "kite", "wings", "rotors"])),
         ("VTOL", [style_colour("vtol"), vtol_favourable]))
     faults = String[]
@@ -872,7 +873,7 @@ drive_labels = [string(drive) => Dict(:vlsfo => "VLSFO", :ammonia => "e-ammonia"
 drive_panels = [(drive, "($(Char('a' + k - 1))) $label")
                 for (k, (drive, label)) in enumerate(drive_labels)]
 "each rig with the area [m^2] it is trimmed at on the 140 m VLSFO ship in 10 m/s wind"
-trim_rigs = (("kite", 800.0), ("wings", 800.0), ("rotors", 400.0), ("suction", 400.0))
+trim_rigs = (("kite", 800.0), ("wings", 800.0), ("rotors", 400.0))
 
 """
     kite_figure()
@@ -975,7 +976,7 @@ function deck_rig_figure()
     axislegend(polar, [LineElement(; color=rig_colour("wings")),
             LineElement(; color=rig_colour("suction")), LineElement(; color=:black),
             LineElement(; color=:black, linestyle=:dash)],
-        ["wing sail", "suction sail", "attached", "stalled"]; position=:rb)
+        ["wing", "suction", "attached", "stalled"]; position=(0.98, 0.12))
     spins = range(0, WindShipOpt.MAX_SPIN_RATIO; length=100)
     coefficients = WindShipOpt.rotor_coefficients.(spins)
     rotor = Axis(figure[1, 2]; xlabel=L"spin ratio $\alpha$", ylabel="coefficient",
@@ -2761,8 +2762,9 @@ function situations_figure()
              for (_, _, linestyle) in situation_ships]
     Legend(figure[2, 3:4],
         [rig_entries(true); ships; LineElement(color=:gray50, linewidth=rule_width)],
-        ["best " .* rig_label.(collect(rig_names)); "140 m, Guadeloupe",
-            "Kamsarmax, Tubarão", "base input"]; tellheight=false, tellwidth=false,
+        ["best " .* rig_label.(collect(rig_names));
+            ["140 m, Guadeloupe", "Kamsarmax, Tubarão", "base input"]];
+        tellheight=false, tellwidth=false,
         halign=:left, valign=:bottom)
     save_figure("situations", figure)
 end

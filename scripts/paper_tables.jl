@@ -2078,18 +2078,24 @@ end
 """
     study_holds((study, file, ship_column, groups))
 
-Whether the run recorded for method study `study` holds data file `file` with a row of
-every condition set of `groups`; true for a file of the paper run. Errors where that run's
-directory is missing.
+Whether data file `file` of the run recorded for method study `study`, or of the paper run
+where `study` is `nothing`, holds a row of every condition set of `groups` and of every
+rig. Errors where a method study's run directory is missing.
 """
 function study_holds((study, file, ship_column, groups))
-    isnothing(study) && return true
-    path = study_file(study, file)
-    isdir(dirname(path)) || error("the run $(dirname(path)) of study $study is missing")
+    path = isnothing(study) ? data_file(file) : study_file(study, file)
+    isnothing(study) || isdir(dirname(path)) ||
+        error("the run $(dirname(path)) of study $study is missing")
     isfile(path) || return false
     table = read_table(path)
-    return all(!isempty(rows(table, variant...)) for group in groups for variant in group)
+    return all(has_rows(table, variant) for group in groups for variant in group) &&
+           all(rig -> has_rows(table, ("rig" => rig,)), rig_names)
 end
+
+"whether `table` has the columns of `conditions` and a row that meets them all"
+has_rows(table, conditions) =
+    all(condition -> haskey(table, first(condition)), conditions) &&
+    !isempty(rows(table, conditions...))
 
 "cheapest cost per tonne-km without a rig and of each rig in the `conditions` rows"
 best_costs(table, conditions) = Dict(rig => minimum(table["cost"][rows(table,
@@ -2112,8 +2118,9 @@ function fidelity_table()
                 continue
             end
             if !study_holds(effect)
+                study = something(first(effect), first(splitext(effect[2])))
                 stale = string("\\multicolumn{", length(rig_names) + 1, "}{c}{\\stale{",
-                    first(effect), "}{}}")
+                    study, "}{}}")
                 println(io, label, " & ", stale, " & ", error, " \\\\")
                 continue
             end
