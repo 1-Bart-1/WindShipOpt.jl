@@ -4165,31 +4165,6 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "explorer_data.jl"))
 end
 
-@testset "suction sails fail the screen only where the best rig leads them beyond the \
-          error of the gap" begin
-    rigs = ["none", PaperData.rig_names..., "suction base", "suction favourable",
-        "suction unfavourable"]
-    wave = [0.01 * sin(k) for k in 1:12]
-    function screened(suction_cost)
-        cost = Dict("none" => 1.0, "kite" => 0.9, "wings" => 0.85, "rotors" => 0.8,
-            "suction base" => suction_cost, "suction favourable" => suction_cost - 0.05,
-            "suction unfavourable" => suction_cost + 0.05)
-        departures = Dict{String, Vector}("class" => fill("140 m", 12length(rigs)),
-            "rig" => repeat(rigs; inner=12),
-            "date" => repeat(string.(1:12); outer=length(rigs)),
-            "cost" => [cost[rig] + wave[k] for rig in rigs for k in 1:12])
-        trips = Dict{String, Vector}("class" => ["140 m"], "rig" => ["suction base"],
-            "units" => [8.0])
-        return PaperData.suction_screen(trips, departures, "140 m")
-    end
-    behind, level = screened(0.9), screened(0.8)
-    @test behind.best == level.best == "rotors"
-    @test behind.savings["rotors"] ≈ 20.0 rtol = 1e-2
-    @test behind.trails
-    @test !level.trails
-    @test behind.units == 8
-end
-
 @testset "a table step that fails part way leaves the table it had" begin
     path = joinpath(mktempdir(), "table.tex")
     write(path, "complete table")
@@ -4352,7 +4327,7 @@ end
         @test !isempty(entry.reason)
     end
     for rig in PaperData.rig_names
-        levers = [entry.lever for entry in inputs if entry.rig == rig]
+        levers = [entry.lever for entry in inputs if rig in PaperData.lever_rigs(entry)]
         @test "price" in levers && "force" in levers && "availability" in levers
     end
 end
@@ -4410,6 +4385,30 @@ end
     @test PaperData.best_costs(table, every)["rotors"] == 0.8
     held = PaperData.best_costs(table, one_row)
     @test held["rotors"] == 0.9 && held["kite"] == 0.85 && held["none"] == 1.0
+end
+
+@testset "suction sails are searched from a fifth to all of the deck their tallest units \
+          fill" begin
+    class = ship_classes()["Kamsarmax bulk carrier"]
+    hull = Hull(class, assumptions)
+    lower, upper = PaperData.size_bounds(class)["suction"]
+    @test lower ≈ 0.2upper
+    full = PaperData.deck_rig("suction", upper, hull)
+    @test full.unit == :suction && PaperData.deck_rig_name(full) == "suction"
+    @test full.height <= assumptions[:suction_max_height]
+    @test isnothing(PaperData.deck_rig("suction", upper + 20, hull))
+    @test upper > PaperData.largest_rig_area("wings", hull)
+end
+
+@testset "every rig has its name, life, availability and price inputs" begin
+    rigs = Set(PaperData.rig_names)
+    for names in (PaperData.rig_keywords, PaperData.lifetime_inputs,
+        PaperData.out_of_service_inputs, PaperData.rig_price_inputs,
+        PaperData.rig_subjects, PaperData.rig_short_names)
+        @test issubset(rigs, keys(names))
+    end
+    @test issubset(PaperData.deck_rig_names, PaperData.rig_names)
+    @test issubset(rigs, first.(PaperData.reference_rigs))
 end
 
 @testset "a development ship whose rig has no size in the class study stops the run" begin

@@ -265,7 +265,8 @@ rig_costs(rig::CombinedRig, assumptions) =
     rig_costs(rig.kite, assumptions) .+ rig_costs(rig.standing, assumptions)
 
 rig_costs(rig::WingRig, assumptions) =
-    deck_rig_costs(rig, assumptions, :wing_lifetime, Symbol(rig.unit, :_mass_per_area))
+    deck_rig_costs(rig, assumptions, Symbol(rig.unit, :_lifetime),
+        Symbol(rig.unit, :_mass_per_area))
 rig_costs(rig::RotorRig, assumptions) =
     deck_rig_costs(rig, assumptions, :rotor_lifetime, :rotor_mass_per_area)
 
@@ -729,7 +730,8 @@ store_round_trip_cost(price, hours, assumptions::Assumptions) =
 
 Share of the round trips [-] that a unit of `rig` sails out of service.
 """
-out_of_service_share(::WingRig, assumptions) = assumptions[:wing_out_of_service]
+out_of_service_share(rig::WingRig, assumptions) =
+    assumptions[Symbol(rig.unit, :_out_of_service)]
 out_of_service_share(::RotorRig, assumptions) = assumptions[:rotor_out_of_service]
 out_of_service_share(::KiteRig, assumptions) = assumptions[:kite_out_of_service]
 

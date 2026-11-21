@@ -59,7 +59,6 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :abatement_data => abatement_data,
     :combination_data => combination_data,
     :rigid_cost_data => rigid_cost_data, :rigid_kite_data => rigid_kite_data,
-    :suction_cost_data => suction_cost_data, :suction_sail_data => suction_sail_data,
     :flight => flight_data, :speed_choice => speed_choice_data,
     :speed_size => speed_size_data]
 
@@ -117,7 +116,7 @@ output_steps = [:kite => kite_figure, :deck_rigs => deck_rig_figure,
     :missed_goals_table => missed_goals_table,
     :rig_margin_table => rig_margin_table,
     :abatement => abatement_figure, :combination => combination_figure,
-    :rigid_kite => rigid_kite_figure, :suction_sail => suction_sail_figure,
+    :rigid_kite => rigid_kite_figure,
     :flight_table => flight_table, :speed_choice_table => speed_choice_table,
     :speed_size_figure => speed_size_figure,
     :min_wind => min_wind_figure,
@@ -129,8 +128,7 @@ output_steps = [:kite => kite_figure, :deck_rigs => deck_rig_figure,
     :tow_point_figure => tow_point_figure,
     :fleet_share => fleet_share_figure, :numbers => numbers_file,
     :today_numbers => today_numbers_file,
-    :figure_style => figure_style_file, :rigid_numbers => rigid_numbers_file,
-    :suction_numbers => suction_numbers_file]
+    :figure_style => figure_style_file, :rigid_numbers => rigid_numbers_file]
 
 """
     paper(names...; fidelity, resume=nothing, only=nothing)

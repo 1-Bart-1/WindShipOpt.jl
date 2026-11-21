@@ -323,7 +323,7 @@ function passage_design(case)
     offsets(unit) = last.(WindShipOpt.unit_positions(unit, hull, assumptions))
     if rig isa WindShipOpt.WingRig
         return (; common..., count=rig.count, height=rig.height,
-            foot_height=rig.foot_height, width=rig.height / assumptions[:wing_aspect_ratio],
+            foot_height=rig.foot_height, width=rig.area / rig.height,
             positions=positions(rig), offsets=offsets(rig))
     elseif rig isa WindShipOpt.RotorRig
         return (; common..., count=rig.count, height=rig.height,

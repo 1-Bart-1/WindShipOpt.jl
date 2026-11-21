@@ -450,6 +450,12 @@ suction_cost_per_mass:
   high: 8.3
   unit: USD/kg
   reason: "Manufacturing cost of a suction sail with its foundation per kg, priced as a wing sail is: the wing sail's 665 USD/m^2 on its 0.25 t/m^2, 2.7 USD/kg, and fans and motors at the rotor's USD 400 per kW of drive, 470 W/m^2 on 300 kg/m^2, 0.6 USD/kg. Bounds: the wing sail's low and high cost per m^2 on the same mass, 1.2 and 7.0 USD/kg, with drives at 250 and 800 USD/kW."
+suction_lifetime:
+  value: 25.0
+  low: 20.0
+  high: 30.0
+  unit: years
+  reason: "Goal: the design life of a wing sail, whose structure a suction sail shares, as no maker of suction sails states one; the range is the wing sail's."
 rotor_aspect_ratio:
   value: 6.0
   low: 5.0
@@ -1167,6 +1173,13 @@ wing_out_of_service:
   unit: "-"
   today: 0.03
   reason: "Goal, the same for all rigs: share of round trips with a wing out of service though the wind would allow it; units fail independently. Base: the rotors of the Estraden could be used 97 % of the time, a measure its operator does not define [@spliethoff2021]. Low: 99.6 % operational availability on the Canopee, stated by maker and owner without a definition [@oceanwings2025]. High: the authors' estimate. Today: the rotors' record, the base, as no wing sail has one but its maker's statement."
+suction_out_of_service:
+  value: 0.03
+  low: 0.004
+  high: 0.15
+  unit: "-"
+  today: 0.03
+  reason: "Goal, the same for all rigs: share of round trips with a suction sail out of service though the wind would allow it; units fail independently. Base, low and high as for wing sails; today the rotors' record, as no suction sail has one."
 
 rotor_out_of_service:
   value: 0.03
