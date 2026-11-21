@@ -829,10 +829,10 @@ headline drive, the last of [`study_drives`](@ref), in the class table `table`.
 """
 function write_size_guesses(table)
     drive = string(last(study_drives))
-    keys = unique(zip(table["class"], table["rig"], table["route"]))
+    searches = unique(zip(table["class"], table["rig"], table["route"]))
     open(size_guess_file, "w") do io
         println(io, "class,rig,route,area")
-        for (class, rig, route) in sort(filter(key -> key[2] != "none", keys))
+        for (class, rig, route) in sort(filter(search -> search[2] != "none", searches))
             row = cheapest_row(table, class, route, drive, rig)
             isnothing(row) || println(io, csv_value(class), ",", rig, ",", route, ",",
                 table["area"][row])
@@ -1314,18 +1314,27 @@ function searched_sizes(ships)
     headline = last(study_drives)
     on_headline = Set((class, route)
                       for (class, drive, route) in ships if drive == headline)
-    follows((class, drive, route)) = drive != headline && (class, route) in on_headline
+    follows = [drive != headline && (class, route) in on_headline
+               for (class, drive, route) in ships]
     cases = Any[class_case(class, drive, "none", 0.0, route; round=0)
                 for (class, drive, route) in ships]
     trips = round_trips(cases, sampled_departures())
     guesses = size_guesses()
-    guess((class, drive, rig, route)) = get(guesses, (class.name, rig, route),
-        sqrt(prod(size_bounds(class)[rig])))
-    found = searched_rigs!(cases, trips, filter(!follows, ships), guess)
-    searched_rigs!(cases, trips, filter(follows, ships),
+    found = searched_rigs!(cases, trips, ships[.!follows],
+        key -> guessed_size(guesses, key...))
+    searched_rigs!(cases, trips, ships[follows],
         ((class, drive, rig, route),) -> found[(class, headline, rig, route)])
     return cases, trips
 end
+
+"""
+    guessed_size(guesses, class, drive, rig, route)
+
+Area [m^2] of `rig` on `class` and `route` in `guesses` of [`size_guesses`](@ref), or the
+geometric middle of its [`size_bounds`](@ref) where they hold none.
+"""
+guessed_size(guesses, class, drive, rig, route) =
+    get(() -> sqrt(prod(size_bounds(class)[rig])), guesses, (class.name, rig, route))
 
 """
     searched_rigs!(cases, trips, ships, guess)
