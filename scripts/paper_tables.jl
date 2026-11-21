@@ -65,28 +65,35 @@ latex_escape(text) = replace(text, "\\" => "\\textbackslash{}", "&" => "\\&", "%
     ">=" => "\\ensuremath{\\geq}", "<=" => "\\ensuremath{\\leq}", ">" => "\\textgreater{}",
     "<" => "\\textless{}", r"\^(-?\d+(?:\.\d+)?)" => s"\\textsuperscript{\1}", "^" => "\\^{}")
 
-"citation in a source note: a bracketed group of `@key, locator` parts, or a bare `@key`"
-citation = r"\[(@[^\]]*)\]|@([A-Za-z0-9_:-]+)"
+"""
+citation in a source note: a bracketed group of `@key, locator` parts, or a bare `@key`
+with an optional locator in brackets after it, `@key [locator]`
+"""
+citation = r"\[(@[^\]]*)\]|@([A-Za-z0-9_-]+)(?: \[([^\]@]*)\])?"
 
 """
     cited_note(note)
 
 Source `note` for LaTeX: the text typeset by [`latex_prose`](@ref), a bracketed group
 `[@key, locator; @key]` set in parentheses as `\\citealp` citations and a bare `@key` as
-`\\citet{key}`.
+`\\citet{key}`, or `\\citet[locator]{key}` as `@key [locator]`.
 """
 function cited_note(note)
     parts = String[]
     start = 1
     for found in eachmatch(citation, note)
         push!(parts, latex_prose(note[start:prevind(note, found.offset)]))
-        push!(parts, isnothing(found[1]) ? string("\\citet{", found[2], "}") :
+        push!(parts, isnothing(found[1]) ? author_citation(found[2], found[3]) :
                      string("(", join(cite_part.(split(found[1], ";")), "; "), ")"))
         start = found.offset + ncodeunits(found.match)
     end
     push!(parts, latex_prose(note[start:end]))
     return join(parts)
 end
+
+"`\\citet` of `key`, with `locator` where it is not nothing"
+author_citation(key, locator) = isnothing(locator) ? string("\\citet{", key, "}") :
+                                string("\\citet[", latex_escape(locator), "]{", key, "}")
 
 """
     cite_part(part)
@@ -164,10 +171,11 @@ value, range, unit and source.
 function input_tables()
     ragged = ">{\\raggedright\\arraybackslash}"
     write_whole(joinpath(sections, "input_tables.tex")) do io
-        println(io, "\\begin{longtable}{@{}", ragged, "p{3.2cm}rr", ragged, "p{1.3cm}",
-            ragged, "p{6.0cm}@{}}")
-        println(io, "\\caption{Every input with a range, with its base value, range, unit ",
-            "and source.}\n\\label{tab:inputs}\\\\")
+        println(io, "\\begin{longtable}{@{}", ragged, "p{3.4cm}rr", ragged, "p{1.4cm}",
+            ragged, "p{5.8cm}@{}}")
+        println(io, "\\caption{Every input with a range: its base value, range, unit and ",
+            "source, with the appendix that derives it where one does. The published ",
+            "code gives the full reasoning behind each value.}\n\\label{tab:inputs}\\\\")
         println(io, input_header, "\n\\endfirsthead")
         println(io, "\\multicolumn{5}{@{}l}{\\cref{tab:inputs} (continued)}\\\\")
         println(io, input_header, "\n\\endhead\n\\bottomrule\n\\endfoot")
@@ -202,17 +210,56 @@ function input_label(name)
     return replace(label, r"^rigid " => "rigid kite ")
 end
 
+"the appendix section, by its label, that derives each input which has one"
+input_derivations = Dict(
+    :waterline_length_ratio => "sec:det_ships",
+    :propeller_diameter_ratio => "sec:det_ships", :part_load_penalty => "sec:det_ships",
+    :source_sea_margin => "app:calm_calibration",
+    :wing_max_height => "sec:det_deck", :wing_abreast_loss => "sec:det_deck",
+    :deck_length_fraction => "sec:det_deck", :rotor_max_height => "sec:det_deck",
+    :rotor_abreast_loss => "sec:det_deck", :wing_pedestal_width => "sec:det_deck",
+    :rotor_unit_cost => "app:prices", :rotor_cost_per_area => "app:prices",
+    :rigid_mass_per_area => "sec:det_rigid", :rigid_hover_power_per_mass => "sec:det_rigid",
+    :rigid_drag => "sec:det_rigid", :rigid_min_turn_radius => "sec:det_rigid",
+    :rigid_tether_length_ratio => "sec:det_rigid",
+    :rigid_hover_max_wave_height => "sec:det_rigid",
+    :rigid_cost_per_mass => "sec:det_rigid", :rigid_avionics_cost => "sec:det_rigid",
+    :rigid_tether_cost => "sec:det_rigid", :rigid_station_mass => "sec:det_rigid",
+    :rigid_upkeep_per_area => "sec:det_rigid",
+    :tether_stress => "sec:det_kite", :tether_length_ratio => "sec:det_kite",
+    :kite_min_turn_radius => "sec:det_kite", :control_unit_mass_per_force => "sec:det_kite",
+    :kite_flight_drag => "sec:det_kite", :kite_landing_max_wind => "sec:det_kite",
+    :kite_launch_sea_wind => "sec:det_kite", :kite_launch_max_wind => "sec:det_kite",
+    :kite_max_wind => "sec:det_kite",
+    :canopy_life => "sec:det_canopy_life",
+    :canopy_rib_cloth_ratio => "app:seam_cloth",
+    :canopy_sewing_cloth_share => "app:seam_cloth",
+    :canopy_structure_chord => "app:seam_cloth",
+    :canopy_mass_overhead => "app:canopy_mass",
+    :canopy_structure_cost => "app:canopy_price",
+    :kite_aspect_ratio => "app:kite_aspect",
+    :kite_launch_min_wind => "sec:det_min_wind",
+    :kite_launch_loss_probability => "app:launch_loss",
+    :tether_bend_life => "app:tether_bending",
+    :tether_lifetime => "app:tether_life",
+    :cargo_per_teu => "app:cargo_units", :teu_tare_mass => "app:cargo_units",
+    :empty_container_share => "app:cargo_units", :teu_volume => "app:cargo_units",
+    :cargo_per_ceu => "app:cargo_units", :ceu_volume => "app:cargo_units")
+
 """
     write_input_row(io, entry, name)
 
-One row of the input table: name, base value, range, unit and the full source note.
+One row of the input table: name, base value, range, unit and the source line, pointing to
+the appendix of [`input_derivations`](@ref) that derives it where one does.
 """
 function write_input_row(io, entry, name)
     unit = strip(entry.unit, '"')
+    derivation = haskey(input_derivations, name) ?
+                 string("; \\cref{", input_derivations[name], "}") : ""
     println(io, latex_escape(uppercasefirst(input_label(name))), " & ",
         latex_number(entry.value), " & ", latex_number(entry.low), "--",
         latex_number(entry.high), " & ", unit == "-" ? "--" : latex_escape(unit), " & ",
-        cited_note(entry.reason), " \\\\")
+        cited_note(entry.source), derivation, " \\\\")
 end
 
 """
@@ -758,18 +805,10 @@ crash_cell(crashes) = isnan(crashes) ? "--" : @sprintf("%.2g", crashes)
     class_dimension_table()
 
 Write the main data, cargo and port inputs and wind areas of the ship classes to
-class_table.tex, a dagger on estimates and ∞ for an infinite fixed-rig delay, and their
-sources to class_sources.tex.
+class_table.tex, a dagger on estimates and ∞ for an infinite fixed-rig delay.
 """
 function class_dimension_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
-    notes = class_source_notes()
-    write_whole(joinpath(sections, "class_sources.tex")) do io
-        for class in classes
-            println(io, latex_escape(class.name), " & ", cited_note(notes[class.name]),
-                " \\\\")
-        end
-    end
     write_whole(joinpath(sections, "class_table.tex")) do io
         println(io, "\\setlength{\\tabcolsep}{3pt}")
         println(io, "\\begin{tabular}{@{}l", "r"^6, "l", "r"^4, "@{}}")
@@ -866,26 +905,6 @@ unit_capacity(class) = isfinite(class.unit_capacity) ?
 "space" otherwise.
 """
 limit_label(class) = string(WindShipOpt.cargo_limit(class, assumptions))
-
-"""
-    class_source_notes()
-
-Source note of each ship class by name from the class file, without the references to
-the project's own notes, with the currency of its prices in millions and the unit of its
-lengths overall.
-"""
-function class_source_notes()
-    lines = readlines(joinpath(root, "data", "ship_classes.csv"))
-    header = WindShipOpt.csv_fields(first(lines))
-    notes = Dict{String, String}()
-    for line in lines[2:end]
-        row = Dict(zip(header, WindShipOpt.csv_fields(line)))
-        notes[row["name"]] = replace(row["source"], r" \([^()]*notes\)" => "",
-            r"(?<![\w.])(\d+(?:\.\d+)?) M\b" => s"USD \1 M",
-            r"\bLOA (\d+(?:\.\d+)?)" => s"LOA \1 m")
-    end
-    return notes
-end
 
 """
     split_table()
@@ -2005,7 +2024,7 @@ fidelity_parts() = [
               "to 2.4 points",
         effect=corridor_grids()),
     (part="Rig size search", varied="every size",
-        model="three sizes, then two by interpolation",
+        model="from a guess until both neighbours of the best cost more",
         error="the loss against the best of every size, shown here",
         effect=size_search_grid()),
 ]

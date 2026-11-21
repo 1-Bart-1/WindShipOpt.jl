@@ -83,14 +83,14 @@ We compare the three on one model and one measure, the full cost of carrying a t
 
 \section{How much each rig saves, and at what size}
 
-\stale{classes}{\Cref{ea:class_comparison} gives each rig's best saving on every class, with its spread over the six routes. The rigs are sized for cost, so the fuel they save is several times their cost saving: on fuel oil the kite and the rotors save \NumCarbonBulkKite\ and \NumCarbonBulkRotors\,\% of the CO$_2$ of bulk carriers, tankers and general cargo ships for \NumSavingOilBulkKite\ and \NumSavingOilBulkRotors\,\% of their cost, on average over their classes and routes. By route, on e-ammonia the best rig on each class cuts its cost per tonne-kilometre, on average over the classes, by \NumRouteSavingsAmmonia{}.}
+\stale{classes}{\Cref{ea:class_comparison} gives each rig's best cost saving on every class, its spread over the six routes and which rig leads by how much. The rigs are sized for cost, so the fuel they save is several times their cost saving: on fuel oil the kite and the rotors save \NumCarbonBulkKite\ and \NumCarbonBulkRotors\,\% of the CO$_2$ of bulk carriers, tankers and general cargo ships for \NumSavingOilBulkKite\ and \NumSavingOilBulkRotors\,\% of their cost, on average over their classes and routes. By route, on e-ammonia the best rig on each class cuts its cost per tonne-kilometre, on average over the classes, by \NumRouteSavingsAmmonia{}.}
 
 \stale{classes}{Bulk carriers, tankers and general cargo ships trade voyage by voyage, and on them part of most savings is time. A rig makes speed cheaper and the router sets their speed by cost, so \stale{routes}{most of them sail faster with a rig: a median of less than 1\,\% with a kite and 4\,\% with rotors.} Container ships and car carriers run liner services, so they keep the schedule of the same ship without a rig and take the whole gain as fuel. On fuel oil the best kite pays back in \NumPaybackOilKite{}, the rotors in \NumPaybackOilRotors{} and the wing sails in \NumPaybackOilWings{}; on e-ammonia the kite in \NumPaybackAmmoniaKite{}, the rotors in \NumPaybackAmmoniaRotors{} and the wing sails in \NumPaybackAmmoniaWings{}.}
 
 \begin{figure}[!htb]
 \centering
-\adjustbox{max width=0.85\textwidth}{\plot[\textwidth]{class_comparison}}
-\caption{\stale{classes}{} Cost saving and fuel saving of the best size of each rig for the thirteen ship classes and for the mean of the deadweight-limited and of the space-limited classes, on fuel oil (a) and e-ammonia (b), in per cent of the same ship without a rig on the same fuel: the mean over the six routes (marker) and the range over them (bar). The band across a row, the same in both panels of a fuel, has the colour of the rig that leads on cost, hatched where two are level and grey where no rig clearly saves; the number is the largest mean in that panel. On fuel oil the CO$_2$ saved equals the fuel energy saved.}
+\plot[\textwidth]{class_comparison}
+\caption{\stale{classes}{} Cost saving of the best size of each rig for the thirteen ship classes and for the mean of the deadweight-limited and of the space-limited classes, on fuel oil (a) and e-ammonia (b), in per cent of the cost per tonne-kilometre of the same ship without a rig on the same fuel. Each rig has a line of its own in every row: the mean over the six routes (marker) and the range over them (bar). Beside each row stands the rig that leads on cost with its lead over the next rig in points, or the two rigs that are level where the gap does not clear its error over the departures and the router's bias.}
 \label{ea:class_comparison}
 \end{figure}
 
@@ -103,14 +103,14 @@ We compare the three on one model and one measure, the full cost of carrying a t
 \label{ea:class_sizes}
 \end{figure}
 
-\section{The fuel decides how much, not which}
+\section{What the e-fuel and its price change}
 
-\stale{situations_data}{Wind pays far more against an e-fuel than against fuel oil, but the rig that saves most hardly moves with the fuel's price or kind (\cref{ea:fuels}). Over e-fuel prices from \given{30 to \SI{120}{USD/GJ}} every rig's saving grows steadily and the leader stays ahead: the kite on the \SI{140}{m} ship and the rotors on a Kamsarmax, and e-methanol at the same price as e-ammonia gives savings within 2 points of it and the same order of rigs. E-fuels differ mainly in what the engine and tank cost, which every rig shares.}
+Wind pays far more against an e-fuel than against fuel oil (\cref{ea:fuels}). \stale{fuels_data}{\tbd{On a small coaster to Bilbao, a Kamsarmax bulk carrier to Tubarão and a Panamax container ship to New York: which rig saves most over e-fuel prices from 30 to 120 USD/GJ, whether that changes with the price or the e-fuel, and how far e-methanol moves the savings from e-ammonia's at the same price.}} E-fuels differ mainly in what the engine and tank cost, which every rig shares. Each price is routed again, since the router sets the ship's speed and the kite's flying by cost.
 
 \begin{figure}[!htb]
 \centering
-\adjustbox{max width=0.75\textwidth}{\plot[\textwidth]{fuels}}
-\caption{\stale{situations_data}{} Cost saving of the best size of each rig over the price of the e-fuel on a \given{\SI{140}{m}} ship to Guadeloupe (a) and a Kamsarmax bulk carrier to Tubarão (b), on e-ammonia in a dual-fuel engine (solid) and on e-methanol in a diesel-electric drive (dashed).}
+\plot[\textwidth]{fuels}
+\caption{\stale{fuels_data}{} Cost saving of each rig, at its best size on e-ammonia at the base price, over the price of the e-fuel on an \given{\SI{85}{m}} general cargo coaster to Bilbao (a), a Kamsarmax bulk carrier to Tubarão (b) and a Panamax container ship to New York (c), on e-ammonia in a dual-fuel engine (solid) and on e-methanol in a diesel-electric drive (dashed).}
 \label{ea:fuels}
 \end{figure}
 

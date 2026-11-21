@@ -3567,11 +3567,11 @@ end
     @test all(name -> isdefined(JobTrips, name), (:shard_trips, :trip_case, :case_trip))
 end
 
-@testset "a final run's estimate counts the draft's cases and one more size search round" begin
+@testset "a run's estimate counts the cases of each data step of the draft run" begin
     record = Dict("steps" => [Dict("name" => "patterns"),
         Dict("name" => "classes", "cases" => 26), Dict("name" => "routes", "cases" => 10)])
-    @test PaperRuns.run_counts(record, 3) == [(name="classes", draft=26, final=32.0),
-        (name="routes", draft=10, final=10.0)]
+    @test PaperRuns.run_counts(record) == [(name="classes", cases=26),
+        (name="routes", cases=10)]
 end
 
 @testset "the estimate counts the draft run with the most data steps, not the newest" begin
@@ -3665,14 +3665,43 @@ module SizeSearch
 include(joinpath(pkgdir(Main.WindShipOpt), "scripts", "size_search.jl"))
 end
 
+@testset "the size grid holds both bounds and no step within half a step of them" begin
+    grid = SizeSearch.size_grid(500.0, 2441.4)
+    @test first(grid) == 500.0 && last(grid) == 2441.4
+    @test all(diff(log2.(grid)) .> 0.125)
+    @test 2.0^(45 / 4) ∉ grid
+end
+
 @testset "a size search whose best is a bound next tries the size just inside it" begin
-    step = 2^0.25
-    @test SizeSearch.next_size([(500.0, 3.0), (2828.0, 2.0), (16000.0, 1.0)], 500.0,
-        16000.0) ≈ SizeSearch.snap_area(16000 / step)
-    @test SizeSearch.next_size([(500.0, 1.0), (2828.0, 2.0), (16000.0, 3.0)], 500.0,
-        16000.0) ≈ SizeSearch.snap_area(500 * step)
-    @test SizeSearch.next_size([(13777.0, 2.0), (16000.0, 1.0)], 500.0, 16000.0) ≈
-          SizeSearch.snap_area(sqrt(13777 * 16000))
+    grid = SizeSearch.size_grid(500.0, 16000.0)
+    @test SizeSearch.next_size([(500.0, 3.0), (2828.4, 2.0), (16000.0, 1.0)], grid) ≈
+          grid[end - 1]
+    @test SizeSearch.next_size([(500.0, 1.0), (2828.4, 2.0), (16000.0, 3.0)], grid) ≈
+          grid[2]
+end
+
+@testset "a size search confirms its cheapest size once both neighbours cost more" begin
+    grid = SizeSearch.size_grid(500.0, 16000.0)
+    @test isnothing(SizeSearch.next_size([(grid[k], cost) for (k, cost) in
+                                          ((7, 2.0), (8, 1.0), (9, 3.0))], grid))
+    @test isnothing(SizeSearch.next_size([(grid[1], 1.0), (grid[2], 2.0)], grid))
+    @test SizeSearch.next_size([(grid[7], 2.0), (grid[8], 1.0), (grid[11], 3.0)], grid) ∈
+          grid[9:10]
+    @test isnothing(SizeSearch.next_size([(grid[7], Inf), (grid[8], Inf)], grid))
+end
+
+@testset "a size search from a guess far off still finds the cheapest size" begin
+    grid = SizeSearch.size_grid(500.0, 64000.0)
+    for best in (500.0, 3000.0, 20000.0, 64000.0), guess in (500.0, 4000.0, 64000.0)
+        cost(area) = (log(area / best))^2
+        points = [(area, cost(area)) for area in SizeSearch.start_sizes(guess, grid)]
+        while (area = SizeSearch.next_size(points, grid)) !== nothing
+            @test all(point -> !(first(point) ≈ area), points)
+            push!(points, (area, cost(area)))
+        end
+        @test first(points[argmin(last.(points))]) ≈
+              grid[SizeSearch.nearest_step(grid, best)]
+    end
 end
 
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
@@ -4064,7 +4093,7 @@ end
 @testset "a rigid kite hovers within its own limits and stays up beyond them" begin
     fleet = rigid_fleet(2, assumptions)
     waves = assumptions[:rigid_hover_max_wave_height]
-    wind = assumptions[:rigid_hover_max_wind]
+    wind = assumptions[:kite_launch_max_wind]
     @test WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves)
     @test !WindShipOpt.kite_landable(fleet, 0.0, wind + 1, 0.0, waves)
     @test !WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves + 0.5)
@@ -4222,6 +4251,25 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "explorer_data.jl"))
 end
 
+@testset "the fuel study sizes each rig as the class study does on e-ammonia" begin
+    # route, drive, rig, area, cost; the VLSFO and Bilbao rows must not be chosen
+    runs = [("tubarao", "ammonia", "kite", 1600.0, 0.0050),
+        ("tubarao", "ammonia", "kite", 3200.0, 0.0048),
+        ("tubarao", "vlsfo", "kite", 6400.0, 0.0040),
+        ("tubarao", "ammonia", "wings", 3600.0, 0.0049),
+        ("tubarao", "ammonia", "suction", 1600.0, 0.0049),
+        ("tubarao", "ammonia", "rotors", 1890.0, 0.0047),
+        ("bilbao", "ammonia", "rotors", 850.0, 0.0045)]
+    classes = Dict{String, Vector}("class" => fill("Kamsarmax bulk carrier", length(runs)),
+        (name => [run[k] for run in runs]
+         for (k, name) in enumerate(("route", "drive", "rig", "area", "cost")))...)
+    @test PaperData.fuel_sizes(classes, "Kamsarmax bulk carrier", :tubarao) ==
+          Dict("none" => 0.0, "kite" => 3200.0, "wings" => 3600.0, "suction" => 1600.0,
+        "rotors" => 1890.0)
+    @test PaperData.swept_values(:e_methanol_price) ==
+          sort([Main.assumptions[:e_methanol_price], 40.0, 90.0, 120.0])
+end
+
 @testset "a table step that fails part way leaves the table it had" begin
     path = joinpath(mktempdir(), "table.tex")
     write(path, "complete table")
@@ -4280,6 +4328,8 @@ end
     note = "Kalverla's profile [@kalverla2019, Ch. 2; @schelbergen2020] gives 5 %; @imo2020 too."
     @test PaperData.cited_note(note) == "Kalverla's profile (\\citealp[Ch. 2]{kalverla2019}; " *
         "\\citealp{schelbergen2020}) gives 5\\,\\%; \\citet{imo2020} too."
+    @test PaperData.cited_note("@lrumas2020 [Table B21]; @imo2020: two-stroke") ==
+          "\\citet[Table B21]{lrumas2020}; \\citet{imo2020}: two-stroke"
     @test PaperData.cited_note("no source, 50 %") == "no source, 50\\,\\%"
     @test PaperData.cited_note("Euroseas 1,800 TEU, 12,000 TEU") ==
           "Euroseas \\num{1800}~TEU, 12\\,000~TEU"
@@ -4489,6 +4539,21 @@ end
     @test issorted(names) && allunique(names)
     entries = (assumptions.entries[name] for name in names)
     @test all(entry -> entry.low != entry.high, entries)
+end
+
+@testset "every input names its source in one short line" begin
+    for entry in values(assumptions.entries)
+        @test 0 < length(entry.source) <= 80 && !occursin('\n', entry.source)
+    end
+end
+
+@testset "the input table points only to appendix sections the paper has" begin
+    paper_sections = joinpath(pkgdir(WindShipOpt), "paper", "sections")
+    labels = Set(found[1] for file in readdir(paper_sections; join=true)
+                 for found in eachmatch(r"\\label\{([^}]*)\}", read(file, String)))
+    for (name, label) in PaperData.input_derivations
+        @test haskey(assumptions, name) && label in labels
+    end
 end
 
 """

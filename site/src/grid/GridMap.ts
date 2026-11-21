@@ -1,11 +1,24 @@
 // SPDX-FileCopyrightText: 2026 Bart van de Lint
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { geoDistance, geoEquirectangular, geoGraticule10, geoOrthographic, geoPath, type GeoPath, type GeoProjection } from "d3-geo";
+import { geoEquirectangular, geoGraticule10, geoOrthographic, geoPath, type GeoPath, type GeoProjection } from "d3-geo";
 import { feature } from "topojson-client";
 import land from "world-atlas/land-110m.json";
 import { brandColour } from "../brand";
-import { edgesFrom, kindOf, position, type Edge, type Grid, type RoutesThrough } from "./grid";
+import {
+  edgesFrom,
+  faceGlobe,
+  horizon,
+  kindOf,
+  position,
+  screenPoints,
+  unitVectors,
+  type Edge,
+  type Grid,
+  type RoutesThrough,
+  type ScreenPoints,
+  type UnitVectors,
+} from "./grid";
 
 /** One grid on the map with its edges, coarse grids drawn with larger nodes. */
 export interface ShownGrid {
@@ -36,15 +49,18 @@ export interface GridView {
   picked?: PickedNode;
 }
 
-/** One shown grid's lines and nodes in longitude and latitude [deg], built once per view. */
+/** One shown grid's lines and nodes as lists of node numbers, built once per view. */
 interface GridLayer extends ShownGrid {
-  meshLines: [number, number][][];
+  meshLines: number[][];
   /** empty unless the view shows every edge */
-  edgeLines: [number, number][][];
-  rowFolds: [number, number][][];
-  backwardEdges: [number, number][][];
-  usable: [number, number][];
-  unusable: [number, number][];
+  edgeLines: number[][];
+  rowFolds: number[][];
+  backwardEdges: number[][];
+  usable: number[];
+  unusable: number[];
+  sphere: UnitVectors;
+  /** where each node lies on the canvas [px], as last projected */
+  screen: ScreenPoints;
 }
 
 /** The last full drawing and the view it shows, moved and scaled in place during a gesture. */
@@ -59,6 +75,9 @@ const landShape = feature(topology, topology.objects.land) as unknown as GeoJSON
 const graticule = geoGraticule10().coordinates as [number, number][][];
 const pickRadius = 12;
 const settleDelay = 150; // [ms] after the last wheel event before the map is drawn in full again
+
+/** Each of `edges` as the line through its two nodes. */
+const edgeLines = (edges: Edge[]) => edges.map((edge) => [edge.from, edge.to]);
 
 /**
  * Router grids on a canvas, as an orthographic globe or a flat longitude and latitude map;
@@ -137,10 +156,6 @@ export class GridMap {
     this.render();
   }
 
-  private visible(point: [number, number]) {
-    return this.view.flat || geoDistance(point, this.facing) < Math.PI / 2;
-  }
-
   private place() {
     const [lon, lat] = this.facing;
     const centre: [number, number] = [this.width / 2, this.height / 2];
@@ -151,10 +166,9 @@ export class GridMap {
     this.plane.rotate([-lon, 0]).center([0, lat]).scale((this.width / (2 * Math.PI)) * this.zoom).translate(centre);
   }
 
-  private stroke(lines: [number, number][][], colour: string, width: number, alpha = 1) {
+  /** Stroke the path begun on the canvas. */
+  private stroke(colour: string, width: number, alpha = 1) {
     const context = this.context;
-    context.beginPath();
-    this.path({ type: "MultiLineString", coordinates: lines });
     context.globalAlpha = alpha;
     context.strokeStyle = colour;
     context.lineWidth = width;
@@ -162,8 +176,51 @@ export class GridMap {
     context.globalAlpha = 1;
   }
 
-  private edgeLines(grid: Grid, edges: Edge[]) {
-    return edges.map((edge) => [position(grid, edge.from), position(grid, edge.to)]);
+  /** Project every node of `layer` once, into its screen points. */
+  private project({ grid, sphere, screen }: GridLayer) {
+    if (!this.view.flat) return faceGlobe(sphere, this.globe, screen);
+    for (let node = 0; node < grid.kind.length; node++) {
+      [screen.x[node], screen.y[node]] = this.projection(position(grid, node))!;
+      screen.facing[node] = 1;
+    }
+  }
+
+  /**
+   * Stroke the polylines through the nodes of `lines` in `layer`, as one path, cut where they
+   * pass the globe's horizon or the flat map's edge.
+   */
+  private strokeNodes(layer: GridLayer, lines: number[][], colour: string, width: number, alpha = 1) {
+    const { screen } = layer;
+    const { x, y, facing } = screen;
+    const context = this.context;
+    context.beginPath();
+    for (const line of lines) {
+      let penDown = false;
+      for (let i = 1; i < line.length; i++) {
+        const [from, to] = [line[i - 1], line[i]];
+        if (facing[from] <= 0 && facing[to] <= 0) {
+          penDown = false;
+          continue;
+        }
+        if (!penDown) context.moveTo(...(facing[from] > 0 ? [x[from], y[from]] as const : horizon(screen, to, from, this.globe)));
+        if (this.view.flat) this.acrossEdge(screen, from, to);
+        penDown = facing[to] > 0;
+        context.lineTo(...(penDown ? [x[to], y[to]] as const : horizon(screen, from, to, this.globe)));
+      }
+    }
+    this.stroke(colour, width, alpha);
+  }
+
+  /** Where the flat map's step from node `from` to `to` crosses its edge, draw to it and lift the pen to the other edge. */
+  private acrossEdge({ x, y }: ScreenPoints, from: number, to: number) {
+    const mapWidth = 2 * Math.PI * this.plane.scale();
+    const jump = x[to] - x[from];
+    if (Math.abs(jump) <= mapWidth / 2) return;
+    const shift = Math.sign(jump) * mapWidth;
+    const edge = this.plane.translate()[0] - shift / 2;
+    const edgeY = y[from] + ((edge - x[from]) / (jump - shift)) * (y[to] - y[from]);
+    this.context.lineTo(edge, edgeY);
+    this.context.moveTo(edge + shift, edgeY);
   }
 
   /**
@@ -226,99 +283,109 @@ export class GridMap {
     this.path({ type: "Sphere" });
     context.fillStyle = brandColour("sky");
     context.fill();
-    this.stroke(graticule, brandColour("ink"), 0.5, 0.15);
+    context.beginPath();
+    this.path({ type: "MultiLineString", coordinates: graticule });
+    this.stroke(brandColour("ink"), 0.5, 0.15);
     context.beginPath();
     this.path(landShape);
     context.fillStyle = brandColour("paper-deep");
     context.fill();
-    context.strokeStyle = brandColour("ink");
-    context.lineWidth = 0.6;
-    context.stroke();
-    for (const layer of this.layers) this.drawGrid(layer);
+    this.stroke(brandColour("ink"), 0.6);
+    for (const layer of this.layers) {
+      this.project(layer);
+      this.drawGrid(layer);
+    }
     if (this.view.picked) this.drawPicked(this.view.picked);
   }
 
   private layer(shown: ShownGrid): GridLayer {
     const { grid, edges } = shown;
-    const nodes = Array.from({ length: grid.kind.length }, (_, node) => node);
-    const ofKind = (kind: string) => nodes.filter((node) => kindOf(grid, node) === kind).map((node) => position(grid, node));
+    const count = grid.kind.length;
+    const nodes = Array.from({ length: count }, (_, node) => node);
+    const ofKind = (kind: string) => nodes.filter((node) => kindOf(grid, node) === kind);
     return {
       ...shown,
       meshLines: this.meshLines(grid),
-      edgeLines: this.view.allEdges ? this.edgeLines(grid, edges) : [],
+      edgeLines: this.view.allEdges ? edgeLines(edges) : [],
       rowFolds: this.rowFoldLines(grid),
-      backwardEdges: this.edgeLines(grid, edges.filter((edge) => edge.backward)),
+      backwardEdges: edgeLines(edges.filter((edge) => edge.backward)),
       usable: ofKind("w"),
       unusable: ofKind("x"),
+      sphere: unitVectors(grid),
+      screen: screenPoints(count),
     };
   }
 
   private drawGrid(layer: GridLayer) {
     const { mesh, unusable, allEdges, folds } = this.view;
     const ink = brandColour("ink");
-    if (mesh) this.stroke(layer.meshLines, ink, layer.coarse ? 1 : 0.6, 0.3);
-    if (allEdges) this.stroke(layer.edgeLines, brandColour("teal"), 0.5, 0.3);
+    if (mesh) this.strokeNodes(layer, layer.meshLines, ink, layer.coarse ? 1 : 0.6, 0.3);
+    if (allEdges) this.strokeNodes(layer, layer.edgeLines, brandColour("teal"), 0.5, 0.3);
     const radius = (layer.coarse ? 3.2 : 1.7) * Math.min(Math.sqrt(this.zoom), 1.6);
-    this.dots(layer.usable, radius, brandColour("teal"));
-    if (unusable) this.dots(layer.unusable, radius, brandColour("mid"));
+    this.dots(layer, layer.usable, radius, brandColour("teal"));
+    if (unusable) this.dots(layer, layer.unusable, radius, brandColour("mid"));
     if (folds) {
-      this.stroke(layer.rowFolds, brandColour("rust"), layer.coarse ? 3 : 2.2);
-      this.stroke(layer.backwardEdges, brandColour("rust"), 1.4);
+      this.strokeNodes(layer, layer.rowFolds, brandColour("rust"), layer.coarse ? 3 : 2.2);
+      this.strokeNodes(layer, layer.backwardEdges, brandColour("rust"), 1.4);
     }
   }
 
-  /** Fill a dot of `radius` [px] at each of `points` on the visible side, as one path. */
-  private dots(points: [number, number][], radius: number, colour: string) {
-    this.context.beginPath();
-    this.path.pointRadius(radius)({ type: "MultiPoint", coordinates: points });
-    this.context.fillStyle = colour;
-    this.context.fill();
+  /** Fill a dot of `radius` [px] at each of the `nodes` of `layer` on the near side, as one path. */
+  private dots({ screen: { x, y, facing } }: GridLayer, nodes: number[], radius: number, colour: string) {
+    const context = this.context;
+    context.beginPath();
+    for (const node of nodes) {
+      if (facing[node] <= 0) continue;
+      context.moveTo(x[node], y[node]);
+      context.lineTo(x[node], y[node]);
+    }
+    context.lineCap = "round";
+    this.stroke(colour, 2 * radius);
+    context.lineCap = "butt";
   }
 
   /** The stage lines across the corridor and the row lines along it. */
   private meshLines(grid: Grid) {
-    const lines: [number, number][][] = [];
+    const lines: number[][] = [];
     for (let stage = 0; stage < grid.stages; stage++)
-      lines.push(Array.from({ length: grid.laterals }, (_, lateral) => position(grid, stage * grid.laterals + lateral)));
+      lines.push(Array.from({ length: grid.laterals }, (_, lateral) => stage * grid.laterals + lateral));
     for (let lateral = 0; lateral < grid.laterals; lateral++)
-      lines.push(Array.from({ length: grid.stages }, (_, stage) => position(grid, stage * grid.laterals + lateral)));
+      lines.push(Array.from({ length: grid.stages }, (_, stage) => stage * grid.laterals + lateral));
     return lines;
   }
 
   /** Steps of the row lines between usable nodes that run backwards. */
   private rowFoldLines(grid: Grid) {
-    const lines: [number, number][][] = [];
+    const lines: number[][] = [];
     for (let node = 0; node + grid.laterals < grid.kind.length; node++)
       if (grid.row_backward[node] && kindOf(grid, node) !== "x" && kindOf(grid, node + grid.laterals) !== "x")
-        lines.push([position(grid, node), position(grid, node + grid.laterals)]);
+        lines.push([node, node + grid.laterals]);
     return lines;
   }
 
   private drawPicked({ spacing, node, routes }: PickedNode) {
-    const shown = this.view.grids.find((each) => each.spacing === spacing);
-    if (!shown) return;
+    const layer = this.layers.find((each) => each.spacing === spacing);
+    if (!layer) return;
     const orange = brandColour("orange");
-    this.stroke(this.edgeLines(shown.grid, routes.edges), orange, 1, 0.55);
-    this.stroke(this.edgeLines(shown.grid, edgesFrom(shown.grid, node)), orange, 3);
-    const point = position(shown.grid, node);
-    if (!this.visible(point)) return;
-    const [x, y] = this.projection(point)!;
+    this.strokeNodes(layer, edgeLines(routes.edges), orange, 1, 0.55);
+    this.strokeNodes(layer, edgeLines(edgesFrom(layer.grid, node)), orange, 3);
+    const { x, y, facing } = layer.screen;
+    if (facing[node] <= 0) return;
     this.context.beginPath();
-    this.context.arc(x, y, 7, 0, 2 * Math.PI);
-    this.context.strokeStyle = brandColour("rust");
-    this.context.lineWidth = 2.5;
-    this.context.stroke();
+    this.context.arc(x[node], y[node], 7, 0, 2 * Math.PI);
+    this.stroke(brandColour("rust"), 2.5);
   }
 
+  /** The shown node nearest the canvas position `x`, `y` [px], within the pick radius. */
   private nodeAt(x: number, y: number) {
     let best: GridNode | undefined;
     let nearest = pickRadius;
-    for (const { spacing, grid } of this.view.grids)
+    this.place();
+    for (const layer of this.layers) this.project(layer);
+    for (const { spacing, grid, screen } of this.layers)
       for (let node = 0; node < grid.kind.length; node++) {
-        const point = position(grid, node);
-        if ((kindOf(grid, node) === "x" && !this.view.unusable) || !this.visible(point)) continue;
-        const [px, py] = this.projection(point)!;
-        const distance = Math.hypot(px - x, py - y);
+        if ((kindOf(grid, node) === "x" && !this.view.unusable) || screen.facing[node] <= 0) continue;
+        const distance = Math.hypot(screen.x[node] - x, screen.y[node] - y);
         if (distance < nearest) {
           nearest = distance;
           best = { spacing, node };

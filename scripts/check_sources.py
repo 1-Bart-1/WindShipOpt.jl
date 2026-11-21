@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """Check paper/sources.csv against the citations in paper/sections and the held files,
-and that the notes of the input and class source tables name every source by its key.
+and that the notes of the input table name every source by its key.
 
 Usage: scripts/check_sources.py [source_dir], where source_dir defaults to
 /var/lib/windship/literature_pdfs. Prints each problem and exits 1 if there are any.
@@ -16,11 +16,12 @@ from pathlib import Path
 
 PAPER = Path(__file__).resolve().parent.parent / "paper"
 SOURCE_DIR = Path("/var/lib/windship/literature_pdfs")
-STATUSES = {"read_in_full", "partial", "abstract_only", "held_unread", "missing"}
+STATUSES = {"read_in_full", "own", "partial", "abstract_only", "held_unread", "missing"}
+CITABLE = {"read_in_full", "own"}
 NEEDS_FILE = {"read_in_full", "held_unread"}
 CITE = re.compile(r"\\[A-Za-z]*cite[A-Za-z]*\*?(?:\[[^\]]*\])*\{([^}]*)\}")
 COMMENT = re.compile(r"(?<!\\)%.*")
-NOTE_TABLES = ("input_tables.tex", "class_sources.tex")
+NOTE_TABLES = ("input_tables.tex",)
 SPACE = re.compile(r"(?:\s|~|\\textasciitilde\{\})+")
 YEAR = r"(?<!\{)(?:1[89]|20)\d\d[a-z]?\b"
 NOT_A_MONTH = r"(?!(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\b)"
@@ -88,7 +89,7 @@ def problems(paper, source_dir):
     for key in sorted(cited_keys(paper / "sections")):
         if key not in status_of:
             found.append(f"{key}: cited but has no row")
-        elif status_of[key] != "read_in_full":
+        elif status_of[key] not in CITABLE:
             found.append(f"{key}: cited but {status_of[key]}")
     return found + free_text_sources(paper / "sections")
 

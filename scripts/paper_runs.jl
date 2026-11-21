@@ -16,13 +16,11 @@ include("case_jobs.jl")
 
 """
 Settings of each fidelity of the paper: the corridor scale, the step between sampled
-departures, that step in the sensitivity study and the rounds of the rig size search.
+departures and that step in the sensitivity study.
 """
 fidelities = Dict(
-    :draft => (corridor_scale=1.0, departure_step=36, sensitivity_departure_step=12,
-        size_rounds=1),
-    :final => (corridor_scale=1.0, departure_step=6, sensitivity_departure_step=6,
-        size_rounds=2))
+    :draft => (corridor_scale=1.0, departure_step=36, sensitivity_departure_step=12),
+    :final => (corridor_scale=1.0, departure_step=6, sensitivity_departure_step=6))
 
 """
 Spread of a draft result about the final run's on the 140 m e-ammonia ship to Guadeloupe,
@@ -36,12 +34,11 @@ function draft_marker()
     ratio = fidelities[:draft].departure_step ÷ fidelities[:final].departure_step
     kite, rotors, gap = round.(Int, values(DRAFT_SPREAD))
     illustrative_saving = 23
-    return "\\tbd{These are draft results from a quick run: one in $ratio of the final " *
-           "run's departures, and one round of the rig size search instead of two. On " *
-           "the 140\\,m e-ammonia ship to Guadeloupe, two times in three a draft cost " *
-           "saving lies within $kite percentage points of the final run's for the kite " *
-           "and $rotors for the rotors, as often above as below, so a " *
-           "$illustrative_saving\\,\\% kite saving may read " *
+    return "\\tbd{These are draft results from a quick run on one in $ratio of the " *
+           "final run's departures. On the 140\\,m e-ammonia ship to Guadeloupe, two " *
+           "times in three a draft cost saving lies within $kite percentage points of " *
+           "the final run's for the kite and $rotors for the rotors, as often above as " *
+           "below, so a $illustrative_saving\\,\\% kite saving may read " *
            "$(illustrative_saving - kite) to $(illustrative_saving + kite)\\,\\%. The " *
            "kite's lead over the rotors lies within $gap percentage points of the final " *
            "run's lead, so a smaller lead between two rigs is not yet settled.}\n"
