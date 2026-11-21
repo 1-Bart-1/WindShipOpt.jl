@@ -189,6 +189,8 @@ A weather router then sails each ship on a grid of tracks and speeds through a c
 
 \stale{rigid_cost_data,rigid_kite_data,classes}{\textbf{Other kites.} A VTOL kite, a rigid wing that takes off and lands on its own propellers, flies at ship scale but costs about \NumRigidCostRatio{} times a soft kite's yearly cost per unit of thrust, and on e-ammonia it saves about half the cost per tonne-kilometre that a soft kite or rotors save to Guadeloupe, and on the short route to Bilbao it \NumRigidRoutedBilbaoRigid{}.} \stale{combination_data}{A kite added to rotors saves at most 2 points more of the cost on e-ammonia.}
 
+\textbf{Suction sails.} A suction sail, a thick wing whose fan holds the flow attached to more than twice a wing sail's lift, pulls more from each metre of deck but costs \NumSuctionCostRatio{} times a wing sail's yearly cost per unit of thrust. Screened at its best size on a \SI{140}{m} ship, a feeder container ship and a Kamsarmax bulk carrier to Guadeloupe on e-ammonia, it \NumSuctionScreenResult{} the screen against the best of the three rigs.
+
 \section{What the work offers}
 
 The model is open: its code, every input with its range and source, and the scripts behind every figure are available at \tbd{repository URL}, and a companion website at \tbd{website URL} lets readers change the assumptions themselves. A rig maker can put in its own prices, lives and forces and see where its rig leads and by how much; a shipowner can see which rig suits a class, route and fuel, and what the result rests on; a researcher can replace any part, from the kite's aerodynamics to the router. We welcome measured canopy lives, launch records and service data, the inputs on which the comparison now turns.

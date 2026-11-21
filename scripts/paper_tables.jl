@@ -2344,7 +2344,7 @@ function suction_numbers()
                 whole_number(savings["suction unfavourable"]),
             "SuctionScreen$(word)Best" => whole_number(savings[best]),
             "SuctionScreen$(word)BestRig" => rig_words[best],
-            "SuctionScreen$(word)Units" => string(screen.units),
+            "SuctionScreen$(word)Units" => string(round(Int, screen.units)),
             "SuctionScreen$(word)Error" => @sprintf("%.1f", screen.error),
             "SuctionScreen$(word)Verdict" => screen.trails ? "trails it clearly" :
                                              "is level with it or ahead"])

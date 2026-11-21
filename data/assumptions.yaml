@@ -407,7 +407,7 @@ suction_max_lift_coefficient:
   low: 4.3
   high: 6.0
   unit: "-"
-  reason: "Highest lift of the VentiFoil, the one point of lift and drag its maker gave to the WASP project, at 22 degrees [@wasp2023wp3, Fig. 3]; its maker does not publish the polar [@ghorbani2024suction, p.27]. Low: the total force coefficient of 4.9 measured by strain gauges on two VentiFoils at sea [@ghorbani2024suction, Fig. 12] with the drag of the base, sqrt(4.9^2 - 2.4^2) = 4.3. High: the lift coefficient of 6 a digital twin of the same ship took from the maker's data [@wasp2023wp3, p.25]."
+  reason: "Highest lift of the VentiFoil, the one point of lift and drag its maker gave to the WASP project, at 22 degrees [@wasp2023wp3, Fig. 3]; its maker does not publish the polar [@ghorbani2024suction, p.31]. Low: the total force coefficient of 4.9 measured by strain gauges on two VentiFoils at sea [@ghorbani2024suction, Fig. 12] with the drag of the base, sqrt(4.9^2 - 2.4^2) = 4.3. High: the lift coefficient of 6 a digital twin of the same ship took from the maker's data [@wasp2023wp3, p.25]."
 suction_drag_coefficient:
   value: 2.4
   low: 1.7
@@ -419,7 +419,7 @@ suction_fan_power_per_area:
   low: 370.0
   high: 470.0
   unit: W/m^2
-  reason: "Fan power of a VentiFoil per m^2 of its chord times span at the highest wind it works in: two 7.5 kW ventilators [@conoship2022econowind] on two foils of 10.3 m by 1.55 m mean chord, 32 m^2. It falls with the cube of the apparent wind below that, as its maker models it [@smeets2024ventofoil, Eq. 3.4]. Low: the 11 kW ventilator of each 10 m by 3 m VentiFoil on the Frisian Sea [@ghorbani2023twin, p.6; @werner2022frisian, Table 3]."
+  reason: "Fan power of a VentiFoil per m^2 of its chord times span at the highest wind it works in: two 7.5 kW ventilators [@conoship2022econowind] on two foils of 10.3 m by 1.55 m mean chord, 32 m^2. It falls with the cube of the apparent wind below that, as its maker models it [@smeets2024ventofoil, Eq. 3.4]. Low: the 11 kW ventilator of each 10 m by 3 m VentiFoil on the Frisian Sea [@ghorbani2023twin, Sec. 2.2; @werner2022frisian, Table 3]."
 suction_max_wind:
   value: 17.0
   low: 17.0
