@@ -63,10 +63,10 @@ Surveyed bridle, EUR per flat m$^2$ & 8 \\
 Surveyed fabric & 73 \\
 \quad its cloth, \SI{3.5}{m^2} of \SI{100}{g/m^2} & 49 \\
 \quad its sewing, \SI{3.6}{m} of seam per flat m$^2$ & 23 \\
-Cloth, \SI{4.7}{m^2} of \SI{540}{g/m^2} & 129 \\
-Sewing, \SI{2.0}{m} of seam per flat m$^2$ & 13 \\
+Cloth, \SI{6.8}{m^2} of \SI{200}{g/m^2} & 117 \\
+Sewing, \SI{3.5}{m} of seam per flat m$^2$ & 22 \\
 Bridle & 13 \\
-Cost & 155 \\
+Cost & 151 \\
 Price at a market factor of 2 & \NumCanopyPrice \\
 Range & \NumCanopyPriceLow{} to \NumCanopyPriceHigh \\
 \bottomrule
@@ -81,30 +81,29 @@ The survey states its cost per flat square metre and turns it into one per proje
 \begin{figure}[tbp]
 \centering
 \plot{canopy_cells}
-\caption{Chord over cell width of ram-air canopies against their mean chord, both from flat area, flat span and cell count: paragliders \citep{ozone_ultralite3,ozone_ultralite4,nova_prion,advance_alpha8,ozone_geo6,ozone_spyder3,ozone_rush3,nova_mentor2,ozone_rush5,advance_iota_dls,ozone_rush6,ozone_zeno2,ozone_enzo3,advance_pibi,advance_bibeta6,ozone_magnum3,ozone_magnum4}, a traction kite \citep{flysurfer_soul4} and parafoils, a small test canopy \citep{gavrilovski2012}, the MC-4/5 personnel parachute counted rib to rib \citep{schairer2019}, two wind-tunnel models of one cargo parachute \citep{geiger1990} and the DragonFly cargo parachute \citep{airborne_dragonfly}. The sizes of each model line share one cell count, so each line is shown by its largest size. The line is \cref{eq:canopy_cloth} at base inputs, solid over the canopies and dashed beyond them, the band its bounds of $\beta$, and the grey span the chords of the kites of 500 to \SI{64000}{m^2} the class study searches.}
+\caption{Chord over cell width of ram-air canopies against their mean chord, both from flat area, flat span and cell count: paragliders \citep{ozone_ultralite3,ozone_ultralite4,nova_prion,advance_alpha8,ozone_geo6,ozone_spyder3,ozone_rush3,nova_mentor2,ozone_rush5,advance_iota_dls,ozone_rush6,ozone_zeno2,ozone_enzo3,advance_pibi,advance_bibeta6,ozone_magnum3,ozone_magnum4}, a traction kite \citep{flysurfer_soul4} and parafoils, a small test canopy \citep{gavrilovski2012}, the MC-4/5 personnel parachute counted rib to rib \citep{schairer2019}, two wind-tunnel models of one cargo parachute \citep{geiger1990} and the DragonFly cargo parachute \citep{airborne_dragonfly}. The sizes of each model line share one cell count, so each line is shown by its largest size. The line is \cref{eq:canopy_cloth}, the cells of the surveyed kites at every size, solid over the chords of the kites of 500 to \SI{64000}{m^2} the class study searches, shaded grey, and dashed beyond them; the band spans the bounds of the surveyed kites' chord.}
 \label{fig:canopy_cells}
 \end{figure}
 
-Each model line scales its sizes at a fixed cell count, so within a line the cell width grows with the chord. Across designs it grows more slowly (\cref{fig:canopy_cells}): the slope of the logarithm of the cell width on that of the mean chord is $0.72\pm0.12$ over the 23 models, $0.54\pm0.19$ over the six that are not paragliders, and the chord over the cell width spreads by about a third either side of the line. Builders keep the cell narrower than the section is thick, which shapes the wing more truly at the cost of more lines \citep{dunker2013}; at a thickness of 15\,\% of the chord that is a chord over cell width above about 7. The SkySails kite of \SI{125}{m^2} projected has 38 cells on \SI{15.2}{m} of projected span \citep{folkersma2020}, so they are at least \SI{0.46}{m} wide flat, against \SI{0.63}{m} from \cref{eq:canopy_cloth} at its size; its flat span is not published, so the fit leaves it out. No cell count is published for a canopy larger than \SI{325}{m^2}.
+Each model line scales its sizes at a fixed cell count, so within a line the cell width grows with the chord. Across designs it grows more slowly (\cref{fig:canopy_cells}): the slope of the logarithm of the cell width on that of the mean chord is $0.72\pm0.12$ over the 23 models and $0.54\pm0.19$ over the six that are not paragliders. Builders keep the cell narrower than the section is thick, which shapes the wing more truly at the cost of more lines \citep{dunker2013}; at a thickness of 15\,\% of the chord that is a chord over cell width above about 7. These canopies fly at about a tenth of a ship kite's force per area, on cloth of 27 to \SI{55}{g/m^2} \citep{porcher2006skytex_tds} with strength to spare, so wider cells cost them little. A ship kite's cloth is sized to its tension, so the model keeps the cells of the surveyed kites at every size and adds cells as the chord grows. The SkySails kite of \SI{125}{m^2} projected has 38 cells on \SI{15.2}{m} of projected span \citep{folkersma2020}, so they are at least \SI{0.46}{m} wide flat, narrower than the \SI{0.88}{m} of \cref{eq:canopy_cloth}; the low bound of the surveyed chord takes cells that narrow. No cell count is published for a canopy larger than \SI{325}{m^2}.
 
-On the \SI{800}{m^2} kite \cref{eq:canopy_cloth} gives about 55 cells \SI{1.0}{m} wide, against 0.12 to \SI{0.35}{m} on paragliders, so it has \SI{3.0}{m} of seam per flat square metre by \cref{eq:canopy_seam}, against \SI{3.6}{m} on the surveyed kites and about \SI{12}{m} on a paraglider of cells \SI{0.21}{m} wide. The price pays the surveyed sewing per metre of seam (\cref{eq:canopy_price}), so the \SI{800}{m^2} kite pays a fifth less for sewing per square metre than the surveyed kites. Its cells are still narrower than the cloth's roll of 1.37 to \SI{1.58}{m} \citep{extremtextil_prices_2026,sailrite_dacron_prices_2026,jonesairfoils_icarex}; from about \SI{2200}{m^2} they are wider, and each skin gets a panel seam across it. No source splits the surveyed cost into cloth and sewing, so the split rests on the retail cloth price; the high end of the price lets all of the sewing grow with the cloth instead, which charges the large kite for seam it does not have. \citet{dunker2013} recommends about \SI{115}{kg} at most per subassembly under a sewing machine, so our \SI{1160}{kg} canopy of \SI{800}{m^2} takes at least eleven modules.
+On the \SI{800}{m^2} kite \cref{eq:canopy_cloth} gives about 56 cells \SI{0.88}{m} wide, against 0.12 to \SI{0.35}{m} on paragliders, so it has \SI{3.5}{m} of seam per flat square metre by \cref{eq:canopy_seam}, against \SI{3.6}{m} on the surveyed kites and about \SI{12}{m} on a paraglider of cells \SI{0.21}{m} wide. The price pays the surveyed sewing per metre of seam (\cref{eq:canopy_price}), so every kite pays about the surveyed sewing per square metre. No source splits the surveyed cost into cloth and sewing, so the split rests on the retail cloth price; the high end of the price lets all of the sewing grow with the cloth instead, which charges the large kite for seam it does not have. \citet{dunker2013} recommends about \SI{115}{kg} at most per subassembly under a sewing machine, so our \SI{770}{kg} canopy of \SI{800}{m^2} takes at least seven modules.
 
-For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre, and ribs and diagonals \SI{0.101}{m^2} per unit of chord over cell width, which makes \SI{3.0}{m^2} per flat square metre, our estimate for paragliders from their weights \citep{advance_alpha8,nova_prion,nova_mentor2}, at their 9.3. \Cref{eq:canopy_cloth} then gives the \SI{3200}{m^2} kite \SI{4.7}{m^2} of cloth per projected square metre, against 3.5 at $\beta=1$ and a floor of 2.4 with no ribs at all (\cref{tab:canopy_variants}).
+For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre, and ribs and diagonals \SI{0.101}{m^2} per unit of chord over cell width, which makes \SI{3.0}{m^2} per flat square metre, our estimate for paragliders from their weights \citep{advance_alpha8,nova_prion,nova_mentor2}, at their 9.3. \Cref{eq:canopy_cloth} then gives the \SI{3200}{m^2} kite \SI{6.8}{m^2} of cloth per projected square metre, against a floor of 2.4 with no ribs at all (\cref{tab:canopy_variants}).
 
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{\stale{numbers}{} Effect of the cell width growing as fast as the chord or faster, and of less rib cloth or none, on the canopy price of the \SI{3200}{m^2} kite, as a change against its base price of about USD~\NumCanopyPrice{} (\NumCanopyPriceLow{} to \NumCanopyPriceHigh) per projected square metre (\cref{tab:canopy_price}), and on its canopy mass, at the base with in brackets its range when each input in turn takes its low or high bound (\cref{tab:inputs}).}
+\caption{\stale{numbers}{} Effect of narrower cells, and of less rib cloth or none, on the canopy price of the \SI{3200}{m^2} kite, as a change against its base price of about USD~\NumCanopyPrice{} (\NumCanopyPriceLow{} to \NumCanopyPriceHigh) per projected square metre (\cref{tab:canopy_price}), and on its canopy mass, at the base with in brackets its range when each input in turn takes its low or high bound (\cref{tab:inputs}).}
 \label{tab:canopy_variants}
 \begin{tabular}{@{}lrr@{}}
 \toprule
 Variant & Change of price [USD/m$^2$] & Canopy mass [kg/m$^2$] \\
 \midrule
-Base & 0 & 2.57 (2.06--3.49) \\
-Cells widening with the chord, $\beta=1$ & $-13$ & 2.84 \\
-Cells widening slower, $\beta=0.5$ & $+54$ & 2.59 \\
-Rib cloth at its low bound & $-45$ & 2.06 \\
-No ribs & $-109$ & 1.35 \\
+Base & 0 & 1.41 (1.04--2.16) \\
+Cells of the SkySails kite, \SI{0.47}{m} wide & $+130$ & 2.16 \\
+Rib cloth at its low bound & $-50$ & 1.04 \\
+No ribs & $-121$ & 0.53 \\
 \bottomrule
 \end{tabular}
 \end{table}

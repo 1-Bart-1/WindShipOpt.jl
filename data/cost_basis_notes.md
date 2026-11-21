@@ -134,7 +134,7 @@ The paraglider check uses the same bill of materials with Vietnamese labour of 2
 
 ### 4.5 Canopy price goal at series volume
 
-Section 4.3 is today's estimate, USD 234.4 per projected m² at 200 g/m²: (57 + 3.5 × (11 + 0.031 × 200)) × 2. The goal in `assumptions.yaml` is USD 150 at 3.5 m² of cloth per projected m²: (42 + 3.5 × 9.4) × 2 = 149.8. The cloth per projected m² follows the cell width (`canopy_cell_width_exponent`): 3.9 on a 200 m² kite and 4.66 on the 3200 m² kite, whose goal is (42 + 4.66 × 9.4) × 2 = 171.5 at 200 g/m²; the model's cloth also grows with the cell width, to 540 g/m² on that kite. Conversions below are ours. Marketplace figures are asking prices.
+Section 4.3 is today's estimate, USD 234.4 per projected m² at 200 g/m²: (57 + 3.5 × (11 + 0.031 × 200)) × 2. The goal in `assumptions.yaml` is USD 150 at 3.5 m² of cloth per projected m²: (42 + 3.5 × 9.4) × 2 = 149.8. The cloth per projected m² grows with the chord, as every kite keeps the surveyed kite's cells and adds rib cloth: 3.5 on a 200 m² kite and 6.78 on the 3200 m² kite, whose goal is (42 + 6.78 × 9.4) × 2 = 211.5 at 200 g/m². Conversions below are ours. Marketplace figures are asking prices.
 
 **Cloth: USD 9.4 per sewn m² against 17.2, that is USD 8.2 per m² before 15 % offcuts.** Our range is USD 5–10 per m² before offcuts at thousands of m² a year and USD 2.5–6 at millions. A fleet of 200 systems a year at 800–3,200 m² takes 0.5–2 million m² for its first canopies alone. We stay in the upper range because this has to be cloth that lasts in sun.
 

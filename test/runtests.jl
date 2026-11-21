@@ -300,8 +300,7 @@ end
 @testset "a kite built for more force gets cloth and seams in proportion" begin
     stronger = with_value(assumptions, :kite_max_force_per_area, 1.0)
     base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger), 800.0, 3.0)
-    @test WindShipOpt.cloth_weight(stronger, 10.0) ≈
-          2WindShipOpt.cloth_weight(assumptions, 10.0)
+    @test WindShipOpt.cloth_weight(stronger) ≈ 2WindShipOpt.cloth_weight(assumptions)
     @test strong_canopy.mass_per_area ≈ 2base_canopy.mass_per_area
     @test strong_canopy.cost_per_area > base_canopy.cost_per_area
     base_model, _, base_tether = WindShipOpt.kite_model(800.0, 3.0, assumptions)
@@ -688,19 +687,18 @@ end
 end
 
 @testset "a canopy is the surveyed one with its own cloth and seam, at the market factor" begin
-    proportional = with_value(assumptions, :canopy_cell_width_exponent, 1.0)
     surveyed_area = 3 * 8.2^2
-    @test WindShipOpt.canopy_cost(proportional, surveyed_area, 3.0) ≈
+    @test WindShipOpt.canopy_cost(assumptions, surveyed_area, 3.0) ≈
           1.16 * 25 / 18 * 53 + 3.5 * 0.031 * 100 rtol = 1e-3
     price(area, inputs=assumptions) = WindShipOpt.canopy_price(inputs, area, 3.0)
     @test price(800.0) ≈ assumptions[:market_price_factor] *
                          WindShipOpt.canopy_cost(assumptions, 800.0, 3.0)
     cloth(area) = WindShipOpt.cloth_area_ratio(assumptions, area, 3.0)
-    surveyed_cloth = WindShipOpt.cloth_area_ratio(proportional, surveyed_area, 3.0)
+    surveyed_cloth = cloth(surveyed_area)
     seam(area) = WindShipOpt.seam_area_ratio(assumptions, area, 3.0)
-    weight(area) = WindShipOpt.cloth_weight(assumptions, sqrt(area / 3.0))
+    weight = WindShipOpt.cloth_weight(assumptions)
     sewing(area) = (WindShipOpt.canopy_cost(assumptions, area, 3.0) - 1.16 * 25 / 18 * 8 -
-                    cloth(area) * (11.0 + 0.031 * weight(area))) / seam(area)
+                    cloth(area) * (11.0 + 0.031 * weight)) / seam(area)
     surveyed_sewing = 1.16 * 25 / 18 * 45 - surveyed_cloth * (11.0 + 0.031 * 100)
     @test sewing(200.0) ≈ sewing(3000.0) ≈ surveyed_sewing / ((3 * 9.3 + 2) / 8.2)
     @test seam(3000.0) < seam(200.0)
@@ -708,7 +706,7 @@ end
     @test price(200.0, growing) < price(800.0, growing) < price(3000.0, growing)
     sewing_per_cloth(area) = (WindShipOpt.canopy_cost(growing, area, 3.0) -
                               1.16 * 25 / 18 * 8 -
-                              cloth(area) * (11.0 + 0.031 * weight(area))) / cloth(area)
+                              cloth(area) * (11.0 + 0.031 * weight)) / cloth(area)
     @test sewing_per_cloth(200.0) ≈ sewing_per_cloth(3000.0) ≈
           surveyed_sewing / surveyed_cloth
     rig = uniform_kite(Hull(140.0, assumptions), assumptions)
@@ -765,16 +763,16 @@ end
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 0.0)
-    @test force(5.8751, 26.6411).thrust ≈ -262 atol = 5
-    @test force(5.8751, 26.6411).side ≈ 62732 rtol = 1e-3
-    @test force(6.6205, 50.2378).thrust ≈ 19414 rtol = 1e-3
-    @test force(6.6205, 50.2378).side ≈ 76122 rtol = 1e-3
-    @test force(8.82947, 86.695695).thrust ≈ 108437 rtol = 1e-3
-    @test force(8.82947, 86.695695).side ≈ 216914 rtol = 1e-3
-    @test force(11.161535, 114.227745).thrust ≈ 238036 rtol = 1e-3
-    @test force(11.161535, 114.227745).side ≈ 205945 rtol = 1e-3
-    @test force(13.802571, 148.57094).thrust ≈ 347752 rtol = 1e-3
-    @test force(13.802571, 148.57094).side ≈ 54628 rtol = 1e-3
+    @test force(5.8751, 26.6411).thrust ≈ 70 atol = 5
+    @test force(5.8751, 26.6411).side ≈ 63954 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 19985 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 77111 rtol = 1e-3
+    @test force(8.82947, 86.695695).thrust ≈ 116174 rtol = 1e-3
+    @test force(8.82947, 86.695695).side ≈ 245100 rtol = 1e-3
+    @test force(11.161535, 114.227745).thrust ≈ 245078 rtol = 1e-3
+    @test force(11.161535, 114.227745).side ≈ 207740 rtol = 1e-3
+    @test force(13.802571, 148.57094).thrust ≈ 346940 rtol = 1e-3
+    @test force(13.802571, 148.57094).side ≈ 11658 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
@@ -3101,6 +3099,18 @@ end
     @test !is_open()
 end
 
+@testset "a step resumed on another Julia records the version it ran on" begin
+    @eval PaperRuns runs_directory = mktempdir()
+    run = PaperRuns.open_run(:draft, [:designs], false)
+    run.record["julia"] = "1.12.7"
+    PaperRuns.write_record(run)
+    resumed = PaperRuns.open_run(:draft, [:designs], true)
+    PaperRuns.run_step!(resumed, :designs, () -> nothing)
+    record = PaperRuns.TOML.parsefile(joinpath(resumed.directory, "run.toml"))
+    @test record["julia"] == string(VERSION)
+    @test only(record["steps"])["julia"] == string(VERSION)
+end
+
 @testset "a stored trip that read an input the model no longer has is not reused" begin
     stored(inputs) = (; inputs, files=Pair{String, String}[])
     case = (; assumptions)
@@ -3761,43 +3771,34 @@ end
 soft_mass_per_area(area, inputs) =
     WindShipOpt.soft_kite_mass(area, 3.0, 500area, inputs) / area
 
-@testset "a soft kite's mass per area grows with its chord" begin
+@testset "a soft kite's mass per area grows with its chord, in its ribs" begin
     @test soft_mass_per_area(3000.0, assumptions) >
           1.1soft_mass_per_area(200.0, assumptions)
-    proportional = with_value(assumptions, :canopy_cell_width_exponent, 1.0)
-    cloth(area) = WindShipOpt.Canopy(proportional, area, 3.0).mass_per_area -
-                  assumptions[:canopy_mass_overhead]
-    @test cloth(3200.0) ≈ 2cloth(800.0)
+    skins = 1e-3WindShipOpt.cloth_weight(assumptions) *
+            assumptions[:canopy_flat_area_ratio] * assumptions[:canopy_skin_cloth_ratio]
+    ribs(area) = WindShipOpt.Canopy(assumptions, area, 3.0).mass_per_area -
+                 assumptions[:canopy_mass_overhead] - skins
+    @test ribs(3200.0) ≈ 2ribs(800.0)
     model, _ = WindShipOpt.kite_model(200.0, 3.0, assumptions)
     @test model.mass > 200soft_mass_per_area(200.0, assumptions)
 end
 
-@testset "a canopy's cloth grows with its cell width, keeping its tension per weight" begin
-    reference = assumptions[:canopy_cloth_reference_chord]
-    @test WindShipOpt.cloth_weight(assumptions, reference) ≈
-          assumptions[:canopy_cloth_weight]
+@testset "a canopy keeps the surveyed kite's cells and cloth at every size" begin
+    surveyed_width = assumptions[:canopy_structure_chord] / assumptions[:canopy_chord_cells]
     cell_width(chord) = chord / WindShipOpt.chord_over_cell_width(assumptions, chord)
     for chord in (4.0, 16.0, 40.0)
-        @test WindShipOpt.cloth_weight(assumptions, chord) /
-              assumptions[:canopy_cloth_weight] ≈
-              cell_width(chord) / cell_width(reference)
+        @test cell_width(chord) ≈ surveyed_width
     end
+    @test WindShipOpt.cloth_weight(assumptions) ≈ assumptions[:canopy_cloth_weight]
 end
 
 @testset "a ram-air canopy sews more rib cloth per area the longer its chord" begin
     ratio(area, inputs) = WindShipOpt.cloth_area_ratio(inputs, area, 3.0)
     @test ratio(200.0, assumptions) < ratio(800.0, assumptions) < ratio(3000.0, assumptions)
-    chord = assumptions[:canopy_reference_chord]
-    reference = 3.0 * chord^2
-    @test WindShipOpt.chord_over_cell_width(assumptions, chord) ≈
-          assumptions[:canopy_chord_cells]
-    @test ratio(reference, assumptions) ≈ assumptions[:canopy_flat_area_ratio] *
+    chord = assumptions[:canopy_structure_chord]
+    @test ratio(3.0 * chord^2, assumptions) ≈ assumptions[:canopy_flat_area_ratio] *
           (assumptions[:canopy_skin_cloth_ratio] +
            assumptions[:canopy_rib_cloth_ratio] * assumptions[:canopy_chord_cells])
-    proportional = with_value(assumptions, :canopy_cell_width_exponent, 1.0)
-    @test ratio(16000.0, proportional) ≈ ratio(reference, assumptions)
-    @test WindShipOpt.canopy_price(assumptions, 3000.0, 3.0) >
-          WindShipOpt.canopy_price(proportional, 3000.0, 3.0)
 end
 
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
