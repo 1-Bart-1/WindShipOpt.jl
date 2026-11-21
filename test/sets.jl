@@ -4636,7 +4636,7 @@ end
 end
 
 @testset "a ship type where the best rig does not clearly save has no leader" begin
-    savings = Dict("kite" => 1.0, "wings" => 0.2, "rotors" => -0.5)
+    savings = Dict("kite" => 1.0, "wings" => 0.2, "rotors" => -0.5, "suction" => 0.1)
     lead = PaperData.rig_lead([fleet_cell(1.0, savings, Dict("kite" => 2.0))])
     @test lead.verdict == "none"
     @test PaperData.rig_lead([fleet_cell(1.0, savings)]).verdict == "leads"
