@@ -516,6 +516,31 @@ end
     @test WindShipOpt.read_pattern_table(path, size(forces)) == forces
 end
 
+@testset "a process asking for a pattern table another is computing reads that one" begin
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    path = joinpath(mktempdir(), "table.bin")
+    other = WindShipOpt.trymkpidlock("$path.pid")
+    waiting = Threads.@spawn WindShipOpt.load_pattern_table(model, max_force, assumptions,
+        [7.3], [deg2rad(60.0)], [0.0], path)
+    sleep(3.0)
+    @test !istaskdone(waiting)
+    stored = fill(WindShipOpt.PatternForce((1.0, 2.0, 3.0), 4.0, 5.0), 1, 1, 1)
+    WindShipOpt.write_pattern_table(path, stored)
+    close(other)
+    @test fetch(waiting) == stored
+end
+
+@testset "a pattern table whose lock a dead node left is computed after all" begin
+    model, max_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
+    path = joinpath(mktempdir(), "table.bin")
+    write("$path.pid", "4242 a-node-that-died")
+    run(`touch -d "10 minutes ago" $path.pid`)
+    forces = @test_logs (:warn, r"stale pidfile") WindShipOpt.load_pattern_table(model,
+        max_force, assumptions, [7.3], [deg2rad(60.0)], [0.0], path)
+    @test isfinite(only(forces).peak_tension)
+    @test readdir(dirname(path)) == ["table.bin"]
+end
+
 @testset "a kite without flight drag flies where every fixed start misses" begin
     low_drag = WindShipOpt.with_value(assumptions, :kite_flight_drag, 0.0)
     aspect_ratio = assumptions[:kite_aspect_ratio]
@@ -3508,6 +3533,15 @@ end
     @test parse(Int, option("cpus-per-task")) <= 64
     @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 4
     @test option("dependency") == "afterany:7"
+end
+
+module JobTrips
+include(joinpath(pkgdir(Main.WindShipOpt), "scripts", "trips.jl"))
+end
+
+@testset "a job computing round trips loads their code without the plotting packages" begin
+    @test !any(package -> nameof(package) == :CairoMakie, Base.loaded_modules_array())
+    @test all(name -> isdefined(JobTrips, name), (:shard_trips, :trip_case, :case_trip))
 end
 
 @testset "a final run's estimate counts the draft's cases and one more size search round" begin

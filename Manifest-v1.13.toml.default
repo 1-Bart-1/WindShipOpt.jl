@@ -2,7 +2,7 @@
 
 julia_version = "1.13.4"
 manifest_format = "2.1"
-project_hash = "9d3f72ce2500ed865e7d6c756e041dadd7d5257f"
+project_hash = "65e863ca693c99e652489541000632e6d059448f"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -232,6 +232,10 @@ git-tree-sha1 = "c49898e8438c828577f04b92fc9368c388ac783c"
 registries = "General"
 uuid = "4e289a0a-7415-4d19-859d-a7e5c4648b56"
 version = "1.0.7"
+
+[[deps.FileWatching]]
+uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
+version = "1.11.0"
 
 [[deps.FillArrays]]
 deps = ["LinearAlgebra"]
@@ -548,7 +552,7 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 version = "1.11.0"
 
 [[deps.WindShipOpt]]
-deps = ["Dates", "Mmap", "Optim", "Random", "Statistics", "TOML", "YAML"]
+deps = ["Dates", "FileWatching", "Mmap", "Optim", "Random", "Statistics", "TOML", "YAML"]
 path = "."
 uuid = "af4f4564-3121-48a2-9343-5e03b1d5231d"
 version = "0.1.0"

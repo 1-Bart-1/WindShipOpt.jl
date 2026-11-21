@@ -22,20 +22,12 @@
 # and table steps LaTeX to paper/sections/; draft results are marked in the paper. The
 # LaTeX build is separate.
 using CairoMakie
-using Dates
-using Printf
-using Statistics
-using WindShipOpt
 
-include("setup.jl")
+include("trips.jl")
 include("map_plotting.jl")
 
-root = joinpath(@__DIR__, "..")
 sections = mkpath(joinpath(root, "paper", "sections"))
 
-include("paper_runs.jl")
-include("size_search.jl")
-include("paper_data.jl")
 include("explorer_data.jl")
 include("passages_data.jl")
 include("grids_data.jl")

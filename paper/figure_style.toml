@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Sizes and colours of every figure of the paper, read by scripts/paper_figures.jl and
-# written by its figure_style step to paper/figure_style.tex for the TikZ figures.
+# Sizes, colours and icons of every figure of the paper, read by scripts/paper_figures.jl
+# and written by its figure_style step to paper/figure_style.tex for the TikZ figures.
 
 [sizes] # [pt] as printed
 text = 8.0 # labels, ticks, legends and panel titles
@@ -14,6 +14,8 @@ outline = 0.7 # outline of a hollow marker
 whisker = 3.0 # end mark of a range bar
 force = 1.3 # shaft of an arrow that draws a force
 flow = 0.6 # shaft of an arrow that links boxes or steps
+icon = 1.0 # stroke of an icon
+icon_size = 26.0 # side of the square an icon is drawn in
 dimension = 0.4 # dimension lines and leaders to a label
 arrow_length = 4.0 # arrowhead length, the same on every arrow
 arrow_width = 3.2 # arrowhead width
@@ -58,3 +60,21 @@ data = "EEEEEE" # data or an input
 text = 4.5 # WCAG contrast of any text against what lies behind it
 colour = 10.0 # CIEDE2000 difference of two colours meant to be told apart, in normal and
 # colour-blind vision
+
+[icons] # the Tabler icon, paper/icons/<name>.svg, that stands for each concept, the TikZ
+# picture `<concept> icon`
+fuel = "gas-station"
+time = "clock"
+port = "anchor"
+cargo = "packages"
+"cargo work" = "package-export"
+capital = "coins"
+crew = "users"
+maintenance = "tool"
+interest = "percentage"
+"round trip" = "arrows-exchange"
+cost = "receipt"
+inputs = "files"
+table = "table"
+weather = "wind"
+"kite wear" = "parachute"
