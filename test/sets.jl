@@ -3463,6 +3463,15 @@ end
     @test option("dependency") == "afterany:7"
 end
 
+module JobTrips
+include(joinpath(pkgdir(Main.WindShipOpt), "scripts", "trips.jl"))
+end
+
+@testset "a job computing round trips loads their code without the plotting packages" begin
+    @test !any(package -> nameof(package) == :CairoMakie, Base.loaded_modules_array())
+    @test all(name -> isdefined(JobTrips, name), (:shard_trips, :trip_case, :case_trip))
+end
+
 @testset "a final run's estimate counts the draft's cases and one more size search round" begin
     record = Dict("steps" => [Dict("name" => "patterns"),
         Dict("name" => "classes", "cases" => 26), Dict("name" => "routes", "cases" => 10)])
