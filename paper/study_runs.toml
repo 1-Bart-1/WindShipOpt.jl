@@ -38,6 +38,11 @@ commit = "e3462e72057e789f22434058cae7ee090604e4b3"
 fidelity = "draft"
 run = "2026-11-14T1809"
 
+[measured_savings]
+commit = "a096d59241686f446bc2f33fbf17dcb838a6810e"
+fidelity = "draft"
+run = "2026-11-21T1507"
+
 [model_parts]
 commit = "772a5eeaa45adc58012234c8d29921203e2bea95"
 fidelity = "draft"
