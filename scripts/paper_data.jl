@@ -291,6 +291,9 @@ study_hull(ship) = ship == "140 m" ? 140.0 : ship_classes()[ship]
 "reference size of each rig on the 140 m ship"
 reference_rigs = [("kite", 3200.0), ("wings", 1500.0), ("rotors", 800.0)]
 
+"the 140 m ship without a rig, then each of the [`reference_rigs`](@ref)"
+reference_rigs_and_none = [("none", 0.0); reference_rigs]
+
 "projected area [m^2] and aspect ratio at `inputs` of the reference kite of the 140 m ship"
 reference_kite_shape(inputs) = (Dict(reference_rigs)["kite"], inputs[:kite_aspect_ratio])
 
@@ -567,7 +570,7 @@ sea [USD/h]: wind_angle.csv.
 """
 function wind_angle_data()
     cases = vec([(name, rig, area) for name in route_names,
-                 (rig, area) in [("none", 0.0); reference_rigs]])
+                 (rig, area) in reference_rigs_and_none])
     results = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         results[k] = angle_sums(cases[k]...)
@@ -594,13 +597,14 @@ track_seasons() = ("winter" => departures[1],
 """
     route_tracks_data()
 
-The 140 m e-ammonia ship without a rig and with a 3200 m^2 kite routed out and home on
+The 140 m e-ammonia ship without a rig and with the reference kite routed out and home on
 every route from the [`track_seasons`](@ref): latitude and longitude [°] of each stage of
 each leg, in order: route_tracks.csv. Errors where a leg cannot be routed.
 """
 function route_tracks_data()
+    kite_area = Dict(reference_rigs)["kite"]
     cases = vec([(season, name, area) for season in track_seasons(), name in route_names,
-                 area in (0.0, 3200.0)])
+                 area in (0.0, kite_area)])
     trips = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         (_, departure), name, area = cases[k]
@@ -620,6 +624,44 @@ function route_tracks_data()
                         name, area, direction, lat, lon)
                 end
             end
+        end
+    end
+end
+
+"""
+    passage_data()
+
+The passage ship with each of the [`reference_rigs_and_none`](@ref) routed out to
+Guadeloupe from the first departure: latitude and longitude [°] of each stage of its track,
+passage_tracks.csv, and time [h], speed [kn], rig thrust [kN] and fuel power [MW] at each
+sample of its [`LegTrace`](@ref), passage_traces.csv. Errors where a passage fails.
+"""
+function passage_data()
+    rigs = reference_rigs_and_none
+    ships = [Ship(passage_ship_design(rig, area), assumptions) for (rig, area) in rigs]
+    outbound = first(run_corridors(:caribbean))
+    departure = departures[1]
+    legs = Vector{Any}(undef, length(rigs))
+    Threads.@threads :greedy for k in eachindex(rigs)
+        table = PerformanceTable(ships[k], assumptions)
+        hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ships[k], assumptions),
+            assumptions))
+        leg = route(outbound, table, weather, departure; time_cost=hourly)
+        isnothing(leg) && error("no passage to Guadeloupe with the $(rigs[k])")
+        legs[k] = (; leg, trace=LegTrace(table, leg, weather, departure))
+    end
+    open(run_file("passage_tracks.csv"), "w") do io
+        println(io, "rig,area,lat,lon")
+        for ((rig, area), (; leg)) in zip(rigs, legs), (lat, lon) in leg.path
+            @printf(io, "%s,%.0f,%.4f,%.4f\n", rig, area, lat, lon)
+        end
+    end
+    open(run_file("passage_traces.csv"), "w") do io
+        println(io, "rig,area,time,speed,rig_thrust,fuel_power")
+        for ((rig, area), (; trace)) in zip(rigs, legs), i in eachindex(trace.time)
+            @printf(io, "%s,%.0f,%.4f,%.4f,%.4f,%.5f\n", rig, area, trace.time[i],
+                trace.speed[i] / KNOT, trace.rig_thrust[i] / 1e3,
+                trace.fuel_power[i] / 1e6)
         end
     end
 end
@@ -1492,7 +1534,7 @@ it keeps on the live plan with its jackknife standard error over the departures:
 forecast_result_kept.csv.
 """
 function forecast_result_data()
-    rigs = [("none", 0.0); reference_rigs]
+    rigs = reference_rigs_and_none
     cases, trips = [], []
     for departure in forecast_departures
         step_cases = vec([trip_case(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...);
@@ -2379,19 +2421,6 @@ function combination_data()
 end
 
 """
-    traced_passage(table, corridor, departure, hourly)
-
-The [`Leg`](@ref) routed through `corridor` from `departure` [h] on the
-[`PerformanceTable`](@ref) `table` at time cost `hourly` [USD/h], and its
-[`LegTrace`](@ref).
-"""
-function traced_passage(table, corridor, departure, hourly)
-    leg = route(corridor, table, weather, departure; time_cost=hourly)
-    isnothing(leg) && return nothing, nothing
-    return leg, LegTrace(table, leg, weather, departure)
-end
-
-"""
     traced_round_trip(table, route_table, name, departure, hourly)
 
 The legs `out` and `back` [`route_round_trip`](@ref) finds on route `name` from `departure`
@@ -2643,7 +2672,7 @@ without a rig, and at 8, 9 and 10 kn: speed_terms.csv.
 function speed_terms_data()
     cases = vec([(; route, drive, rig, area) for route in (:caribbean, :new_york),
                  drive in (:ammonia, :vlsfo),
-                 (rig, area) in [("none", 0.0); reference_rigs]])
+                 (rig, area) in reference_rigs_and_none])
     results = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
         results[k] = speed_terms(cases[k])

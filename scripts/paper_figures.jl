@@ -1285,12 +1285,13 @@ end
     route_figure()
 
 Weather-routed passages of route_tracks.csv on every route of a 140 m e-ammonia ship
-without a rig and with a 3200 m^2 kite, for a winter and a summer departure, over the 10 m
-wind five days after departure with a reference arrow; solid outbound, dashed homeward.
+without a rig and with the reference kite, for a winter and a summer departure, over the
+10 m wind five days after departure with a reference arrow; solid outbound, dashed homeward.
 """
 function route_figure()
     route_colours = category_colours[[1, 2, 3, 4, 6, 5]]
     tracks = read_table(data_file("route_tracks.csv"))
+    kite_area = Dict(reference_rigs)["kite"]
     wind_scale, reference_wind = 0.4, 10
     figure = Figure(size=(page_width, 255))
     for (column, (season, departure)) in enumerate(track_seasons())
@@ -1301,7 +1302,7 @@ function route_figure()
         draw_land!(axis, mask; lons=-100:0.25:12, lats=-26:0.25:60)
         draw_wind!(axis, weather, departure + 24 * 5; scale=wind_scale, lons=-96:6:6,
             lats=-22:6:50)
-        for (k, area) in enumerate((0.0, 3200.0))
+        for (k, area) in enumerate((0.0, kite_area))
             for (i, name) in reverse(collect(enumerate(route_names))),
                 (direction, style) in (("out", :solid), ("back", :dash))
                 leg = rows(tracks, "season" => season, "route" => string(name),
@@ -1332,53 +1333,51 @@ function route_figure()
 end
 
 """
-    figure_passages()
+    passage_rows(table, file, rig, area)
 
-The labelled designs of [`passage_figure`](@ref) and each one's routed leg with its trace.
+Rows of `table`, read from `file`, of the ship with `rig` of `area` [m^2]; errors where
+there are none.
 """
-function figure_passages()
-    designs = (("no rig", passage_ship_design("none", 0.0)),
-        (square_metres("kite 3200 "), passage_ship_design("kite", 3200.0)),
-        (square_metres("wing sails 1500 "), passage_ship_design("wings", 1500.0)),
-        (square_metres("rotors 800 "), passage_ship_design("rotors", 800.0)))
-    outbound = first(run_corridors(:caribbean))
-    legs = map(designs) do (label, design)
-        ship = Ship(design, assumptions)
-        table = PerformanceTable(ship, assumptions)
-        hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
-            assumptions))
-        return traced_passage(table, outbound, departures[1], hourly)
-    end
-    return designs, legs
+function passage_rows(table, file, rig, area)
+    found = rows(table, "rig" => rig, "area" => area)
+    isempty(found) && error("no rows in $file for the $rig of $area m^2")
+    return found
 end
 
 """
     passage_figure()
 
 One winter outbound passage to Guadeloupe of a 140 m e-ammonia ship without a rig and
-with each rig: the routed tracks through the corridor's nodes over the 10 m wind six days
-after departure, each in the colour of its ship, and the speed, rig thrust and
-fuel power at each sample of the passage.
+with each rig, from passage_tracks.csv and passage_traces.csv: the routed tracks through
+the corridor's nodes over the 10 m wind six days after departure, each in the colour of its
+ship, and the speed, rig thrust and fuel power at each sample of the passage.
 """
 function passage_figure()
-    designs, legs = figure_passages()
+    tracks = read_table(data_file("passage_tracks.csv"))
+    traces = read_table(data_file("passage_traces.csv"))
+    rigs = reference_rigs_and_none
     design_colours = [:black; palette[eachindex(rig_names)]]
-    departure = departures[1]
+    names = [rig == "none" ? "no rig" :
+             square_metres("$(rig_label(rig)) $(round(Int, area)) ")
+             for (rig, area) in rigs]
     figure = Figure(size=(page_width, 410))
     map_axis = Axis(figure[1, 1:3]; aspect=DataAspect(), limits=(-64, 10, 13, 56),
         xlabel="longitude [°]", ylabel="latitude [°]", title="(a) routed tracks")
     draw_land!(map_axis, mask)
     wind_scale = 0.3
-    draw_wind!(map_axis, weather, departure + 24 * 6; scale=wind_scale)
-    first_path = first(first(legs)).path
-    lines!(map_axis, great_circle(first_path[1], first_path[end])...; color=:black,
-        linestyle=:dot, linewidth=0.8)
-    tracks = [track_points(leg.path) for (leg, _) in legs]
-    for (i, track) in enumerate(tracks)
-        lines!(map_axis, track; color=design_colours[i],
-            linewidth=pt(1 + 0.9(length(tracks) - i)))
+    draw_wind!(map_axis, weather, departures[1] + 24 * 6; scale=wind_scale)
+    paths = map(rigs) do (rig, area)
+        stages = passage_rows(tracks, "passage_tracks.csv", rig, area)
+        return tuple.(tracks["lat"][stages], tracks["lon"][stages])
     end
-    scatter!(map_axis, unique(reduce(vcat, tracks)); color=:black, markersize=pt(2.5))
+    lines!(map_axis, great_circle(first(paths[1]), last(paths[1]))...; color=:black,
+        linestyle=:dot, linewidth=0.8)
+    points = track_points.(paths)
+    for (i, track) in enumerate(points)
+        lines!(map_axis, track; color=design_colours[i],
+            linewidth=pt(1 + 0.9(length(points) - i)))
+    end
+    scatter!(map_axis, unique(reduce(vcat, points)); color=:black, markersize=pt(2.5))
     labels = ("speed [kn]", "rig thrust [kN]", "fuel power [MW]")
     titles = ("(b) speed through the water", "(c) rig thrust", "(d) fuel power")
     panels = [Axis(figure[3, column]; ylabel=labels[column], title=titles[column],
@@ -1388,19 +1387,19 @@ function passage_figure()
               for column in 1:3]
     ylims!(panels[2], 3, 3000)
     panels[2].yticks = [10, 100, 1000]
-    for (i, (label, _)) in enumerate(designs)
-        trace = legs[i][2]
-        thrust = [value >= 5e3 ? value / 1e3 : NaN for value in trace.rig_thrust]
-        for (panel, values) in zip(panels, (trace.speed ./ KNOT, thrust,
-            trace.fuel_power ./ 1e6))
-            stairs!(panel, trace.time ./ 24, values; step=:post, color=design_colours[i],
-                label)
+    for (i, (rig, area)) in enumerate(rigs)
+        samples = passage_rows(traces, "passage_traces.csv", rig, area)
+        thrust = [value >= 5 ? value : NaN for value in traces["rig_thrust"][samples]]
+        for (panel, values) in zip(panels, (traces["speed"][samples], thrust,
+            traces["fuel_power"][samples]))
+            stairs!(panel, traces["time"][samples] ./ 24, values; step=:post,
+                color=design_colours[i])
         end
     end
     linkxaxes!(panels...)
     legend = Legend(figure[2, 1:3],
-        [[LineElement(; color=design_colours[i]) for i in eachindex(designs)];
-         PolyElement(; color=(:grey, 0.55))], [collect(first.(designs)); "land"];
+        [[LineElement(; color=design_colours[i]) for i in eachindex(rigs)];
+         PolyElement(; color=(:grey, 0.55))], [names; "land"];
         orientation=:horizontal, tellwidth=false)
     key_size = (10wind_scale + 2.8 * 3, 3) .+ 0.4
     key = Axis(figure[2, 1:3]; tellwidth=false, tellheight=false,
