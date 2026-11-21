@@ -4149,6 +4149,23 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "explorer_data.jl"))
 end
 
+@testset "the fuel study sizes each rig as the class study does on e-ammonia" begin
+    # route, drive, rig, area, cost; the VLSFO and Bilbao rows must not be chosen
+    runs = [("tubarao", "ammonia", "kite", 1600.0, 0.0050),
+        ("tubarao", "ammonia", "kite", 3200.0, 0.0048),
+        ("tubarao", "vlsfo", "kite", 6400.0, 0.0040),
+        ("tubarao", "ammonia", "wings", 3600.0, 0.0049),
+        ("tubarao", "ammonia", "rotors", 1890.0, 0.0047),
+        ("bilbao", "ammonia", "rotors", 850.0, 0.0045)]
+    classes = Dict{String, Vector}("class" => fill("Kamsarmax bulk carrier", length(runs)),
+        (name => [run[k] for run in runs]
+         for (k, name) in enumerate(("route", "drive", "rig", "area", "cost")))...)
+    @test PaperData.fuel_sizes(classes, "Kamsarmax bulk carrier", :tubarao) ==
+          Dict("none" => 0.0, "kite" => 3200.0, "wings" => 3600.0, "rotors" => 1890.0)
+    @test PaperData.swept_values(:e_methanol_price) ==
+          sort([Main.assumptions[:e_methanol_price], 40.0, 90.0, 120.0])
+end
+
 @testset "a table step that fails part way leaves the table it had" begin
     path = joinpath(mktempdir(), "table.tex")
     write(path, "complete table")

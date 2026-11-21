@@ -2567,21 +2567,29 @@ function situation_cost(table, ship, route, drive, input, value, rig)
 end
 
 """
-    situation_savings(table, ship, route, drive, input)
+    swept_savings(cost, input)
 
-Values of `input`, base included, and the cost saving [%] of the best size of the kite,
-the wings and the rotors at each, as a matrix with one row per rig; NaN where no size is
-feasible.
+[`swept_values`](@ref) of `input` and the cost saving [%] of the kite, the wings and the
+rotors at each, one row per rig, from `cost(value, rig)`, the cost of a case or Inf where
+it has none; NaN where a rig or the ship without one has no cost.
 """
-function situation_savings(table, ship, route, drive, input)
-    values = sort([base_value(input); collect(first(situation_inputs[input]))])
-    savings = fill(NaN, 3, length(values))
+function swept_savings(cost, input)
+    values = swept_values(input)
+    savings = fill(NaN, length(rig_names), length(values))
     for (j, value) in enumerate(values), (i, rig) in enumerate(rig_names)
-        bare = situation_cost(table, ship, route, drive, input, value, "none")
-        cost = situation_cost(table, ship, route, drive, input, value, rig)
-        isfinite(cost) && (savings[i, j] = percent_saving(cost, bare))
+        bare, rigged = cost(value, "none"), cost(value, rig)
+        isfinite(bare) && isfinite(rigged) && (savings[i, j] = percent_saving(rigged, bare))
     end
     return values, savings
+end
+
+"""
+    situation_savings(table, ship, route, drive, input)
+
+[`swept_savings`](@ref) of the best size of each rig in situations.csv.
+"""
+situation_savings(table, ship, route, drive, input) = swept_savings(input) do value, rig
+    situation_cost(table, ship, route, drive, input, value, rig)
 end
 
 """
@@ -2725,7 +2733,7 @@ function situations_figure()
             append!(shown, filter(isfinite, savings))
             ship == "140 m" && vlines!(axis, factor * base_value(input); color=:gray50,
                 linewidth=rule_width, ymax=0.88)
-            for rig in 1:3
+            for rig in eachindex(rig_names)
                 lines!(axis, x, savings[rig, :]; color=palette[rig], linestyle)
                 scatter!(axis, x, savings[rig, :]; color=linestyle == :solid ?
                     palette[rig] : :white, strokecolor=palette[rig],
@@ -2755,40 +2763,53 @@ function situations_figure()
     save_figure("situations", figure)
 end
 
-"e-fuels of the fuel figure as (price input, drive, label, line style)"
-fuel_lines = [(:e_ammonia_price, :ammonia, "e-ammonia", :solid),
-    (:e_methanol_price, :methanol, "e-methanol", (:dash, :loose))]
+"label and line style of each drive of `fuel_drives` in the fuel figure"
+fuel_styles = Dict(:ammonia => ("e-ammonia", :solid),
+    :methanol => ("e-methanol", (:dash, :loose)))
 
 "keyword arguments of the fuel price axes of [`fuel_figure`](@ref), log [USD/GJ]"
 fuel_price_axis = doubling_axis(:x, 15, 120; base=15)
 
 """
+    fuel_savings(table, class, route, drive, input)
+
+[`swept_savings`](@ref) of each rig of fuels.csv on `class`, `route` and `drive`.
+"""
+fuel_savings(table, class, route, drive, input) = swept_savings(input) do value, rig
+    chosen = cheapest_row(table, "class" => class, "route" => string(route),
+        "drive" => string(drive), "value" => value, "rig" => rig)
+    isnothing(chosen) ? Inf : table["cost"][chosen]
+end
+
+"""
     fuel_figure()
 
-Cost saving of the best size of each rig over the fuel price on each ship of the situation
-study, on e-ammonia and on e-methanol, each at the prices of the situation study, with
-each fuel's price range and base value in a strip below. Prints where the lead changes.
+Cost saving of each rig over the fuel price on each ship of the fuel study, on e-ammonia
+and on e-methanol, with each fuel's price range and base value in a strip below. Prints
+where the lead changes.
 """
 function fuel_figure()
-    table = read_table(data_file("situations.csv"))
-    figure = Figure(size=(page_width, 240))
-    axes = map(enumerate(situation_ships)) do (k, (ship, route, _))
-        axis = Axis(figure[1, k]; title="($('a' + k - 1)) $ship, $(route_label(route))",
+    table = read_table(data_file("fuels.csv"))
+    figure = Figure(size=(page_width, 250))
+    axes = map(enumerate(fuel_ships)) do (k, (class, route))
+        axis = Axis(figure[1, k]; title="($('a' + k - 1)) $class\nto $(route_label(route))",
             fuel_price_axis..., ylabel=k == 1 ? "cost saving [%]" : "")
-        for (input, drive, label, linestyle) in fuel_lines
-            values, savings = situation_savings(table, ship, route, drive, input)
-            print_leaders("$ship, $label", input, log10.(values), savings, exp10)
-            for rig in 1:3
+        for (input, drive) in fuel_drives
+            label, linestyle = fuel_styles[drive]
+            values, savings = fuel_savings(table, class, route, drive, input)
+            print_leaders("$class, $label", input, log10.(values), savings, exp10)
+            for rig in eachindex(rig_names)
                 scatterlines!(axis, values, savings[rig, :]; color=palette[rig], linestyle,
                     markersize=0.8marker_size)
             end
         end
         prices = Axis(figure[2, k]; fuel_price_axis..., xlabel="fuel price [USD/GJ]",
             height=pt(14),
-            limits=(nothing, (0.4, length(fuel_lines) + 0.6)), yticksvisible=false,
+            limits=(nothing, (0.4, length(fuel_drives) + 0.6)), yticksvisible=false,
             yticklabelsvisible=false, bottomspinevisible=true, topspinevisible=false,
             leftspinevisible=false, rightspinevisible=false)
-        for (j, (input, _, _, linestyle)) in enumerate(fuel_lines)
+        for (j, (input, drive)) in enumerate(fuel_drives)
+            linestyle = last(fuel_styles[drive])
             price = assumptions.entries[input]
             lines!(prices, [price.low, price.high], [j, j]; color=:black, linestyle,
                 linewidth=pt(0.8))
@@ -2802,9 +2823,9 @@ function fuel_figure()
     rowgap!(figure.layout, 1, pt(3))
     axislegend(axes[2], rig_entries(false), ["kite", "wings", "rotors"];
         position=:lt, orientation=:horizontal)
-    axislegend(axes[1], [LineElement(color=:black, linestyle=style)
-                         for (_, _, _, style) in fuel_lines],
-        [label for (_, _, label, _) in fuel_lines]; position=:rb)
+    styles = [fuel_styles[drive] for (_, drive) in fuel_drives]
+    axislegend(axes[1], [LineElement(; color=:black, linestyle) for (_, linestyle) in styles],
+        first.(styles); position=:rb)
     save_figure("fuels", figure)
 end
 

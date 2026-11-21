@@ -360,15 +360,12 @@ situation_sizes = Dict(
 """
 Ship, route, drive and inputs of each part of the situation study: every input on the
 140 m reference ship to Guadeloupe and all but the cargo value on a Kamsarmax to Tubarão,
-and on both the price of each fuel on its own drive, e-methanol included as the other
-e-fuel.
+and on both the price of each fuel on its own drive.
 """
 situation_studies = [("140 m", :caribbean, :vlsfo, [:vlsfo_price]),
     ("140 m", :caribbean, :ammonia, [:e_ammonia_price, :cargo_value, :discount_rate,
         :wing_lifetime, :wing_price, :rotor_max_surface_speed]),
-    ("140 m", :caribbean, :methanol, [:e_methanol_price]),
     ("Kamsarmax bulk carrier", :tubarao, :vlsfo, [:vlsfo_price]),
-    ("Kamsarmax bulk carrier", :tubarao, :methanol, [:e_methanol_price]),
     ("Kamsarmax bulk carrier", :tubarao, :ammonia, [:e_ammonia_price, :discount_rate,
         :wing_lifetime, :wing_price, :rotor_max_surface_speed])]
 
@@ -408,6 +405,60 @@ function situations_data()
     cases = [case for ((ship, route, drive), names) in inputs for input in names
              for case in situation_cases(ship, route, drive, input)]
     write_trips("situations.csv", cases, round_trips(cases, sampled_departures()), :ship,
+        :route, :drive, :input, :value, :rig, :area)
+end
+
+"ship class and route of each panel of the fuel study: a small ship, a bulk carrier and a
+container ship, each on a route of its trade"
+fuel_ships = [("general cargo coaster", :bilbao), ("Kamsarmax bulk carrier", :tubarao),
+    ("Panamax container ship", :new_york)]
+
+"e-fuels of the fuel study as (price input, drive)"
+fuel_drives = [(:e_ammonia_price, :ammonia), (:e_methanol_price, :methanol)]
+
+"""
+    swept_values(input)
+
+Values of `input` in the situation study, its base value included, in ascending order.
+"""
+swept_values(input) = sort([base_value(input); collect(first(situation_inputs[input]))])
+
+"""
+    fuel_sizes(classes, class_name, route)
+
+Area [m^2] of each rig of `all_rigs` on `class_name` and `route` in the fuel study: the size
+that costs least on e-ammonia in `classes`, the class study's table, and 0 for "none".
+"""
+fuel_sizes(classes, class_name, route) = Dict(rig => rig == "none" ? 0.0 :
+    classes["area"][cheapest_row(classes, class_name, string(route), "ammonia", rig)]
+                                              for rig in all_rigs)
+
+"""
+    fuel_cases(classes, class, route)
+
+Cases of the fuel study on `class` and `route`: the ship without a rig and with each rig at
+its [`fuel_sizes`](@ref), at every [`swept_values`](@ref) of the price of each e-fuel of
+`fuel_drives` on its own drive.
+"""
+function fuel_cases(classes, class, route)
+    areas = fuel_sizes(classes, class.name, route)
+    return [class_case(class, drive, rig, areas[rig], route;
+                assumptions=situation_assumptions(input, value), input, value)
+            for (input, drive) in fuel_drives for value in swept_values(input)
+            for rig in all_rigs]
+end
+
+"""
+    fuels_data()
+
+The fuel study: the cost of every case of [`fuel_cases`](@ref) on each ship of
+`fuel_ships`: fuels.csv.
+"""
+function fuels_data()
+    classes = read_table(data_file("classes.csv"))
+    cases = [case for (name, route) in fuel_ships
+             for case in fuel_cases(classes, ship_classes()[name], route)]
+    write_trips("fuels.csv", cases, round_trips(cases, sampled_departures()), :class,
         :route, :drive, :input, :value, :rig, :area)
 end
 
