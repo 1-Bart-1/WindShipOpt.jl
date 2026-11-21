@@ -4,11 +4,12 @@ Numbers behind the `rigid_*` inputs of `assumptions.yaml`. The rig is one wing w
 
 ## Inputs of the model
 
-The model is MX2 at 54 m², every input a number at that design. The sections below hold the evidence; this one says how each input is made of it. The values come from a build-up of MX2 part by part (the structure law, momentum theory and the drive mass law below, and separate prices of structure, drives and tether), run at 54 m² with every input at base, at the bound that favours the kite, and with the mass inputs at their high bounds.
+The model is MX2 at 54 m², every input a number at that design, sized away from it by the mass exponent. The sections below hold the evidence; this one says how each input is made of it. The values come from a build-up of MX2 part by part (the structure law, momentum theory and the drive mass law below, and separate prices of structure, drives and tether), run at 54 m² with every input at base, at the bound that favours the kite, and with the mass inputs at their high bounds.
 
 | Input | Base | Low | High | Made of |
 | --- | --- | --- | --- | --- |
-| `rigid_mass_per_area` | 34.3 | 16.5 | 60 | MX2's 1852 kg on 54 m²; the build-up gave 1804 kg at sea level. Bounds: every mass and hover input favourable; structure, propellers and drives at their high bounds. |
+| `rigid_mass` | 1852 | 891 | 3240 | MX2's 1852 kg on 54 m²; the build-up gave 1804 kg at sea level. Bounds: every mass and hover input favourable (16.5 kg/m²); structure, propellers and drives at their high bounds (60 kg/m²). |
+| `rigid_mass_exponent` | 2.5 | 2.2 | 3.1 | Mass grows with the span to this power from MX2, at its aspect ratio: 2.4 at MX2's size and 2.6 at 200 m² by the structure law (shell per area, load-bearing part with the span cubed); 2.2 to 3.1 over wings built and designed. |
 | `rigid_hover_power_per_mass` | 470 | 200 | 950 | Momentum theory below, 873 kW for 1852 kg with the 275 kg tether. Low: the light kite with the favourable hover inputs (175 kW on 889 kg). High: thrust 1.5, disc 0.4, efficiency 0.56, density 0.95, at base mass. |
 | `rigid_drag` | 0.070 | 0.054 | 0.127 | 0.123 − 0.083 induced (elliptic) + 0.0022 feathered propellers + 0.029 tether (0.7 × 29.4 mm × 300 m / 4 / 54 m²). Bounds: profile, span efficiency, propeller and tether drag at their bounds. |
 | `rigid_cost_per_mass` | 280 | 48 | 540 | Structure 290 USD/kg × 1370 kg + 232 USD/m² × 54 m² + drives 0.10 USD/W × 1.13 MW = 522k USD, over 1852 kg. |

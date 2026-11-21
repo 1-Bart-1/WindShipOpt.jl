@@ -108,7 +108,7 @@ Drive(::Val{:methanol}, assumptions, class, coverage) = Drive(;
     fuel=e_methanol(assumptions, coverage),
     transmission_efficiency=assumptions[:electric_chain_efficiency],
     unit_count=round(Int, assumptions[:genset_count]),
-    peak_efficiency=assumptions[:methanol_engine_efficiency],
+    peak_efficiency=assumptions[:four_stroke_engine_efficiency],
     part_load_penalty=assumptions[:part_load_penalty],
     power_cost=assumptions[:electric_propulsion_cost])
 

@@ -696,11 +696,11 @@ end
     rigid_wind_limits(lowest_wind, assumptions)
 
 Keywords of [`KiteRig`](@ref) for a rigid kite that flies from `lowest_wind` [m/s]: it can
-launch there too, since its propellers lift it from rest, and hovers within its own limits on
-wind and sea in launch and landing.
+launch there too, since its propellers lift it from rest, and hovers in launch and landing up
+to the soft kite's launch wind and its own wave height.
 """
 function rigid_wind_limits(lowest_wind, assumptions::Assumptions)
-    hover_wind = assumptions[:rigid_hover_max_wind]
+    hover_wind = assumptions[:kite_launch_max_wind]
     hover_waves = assumptions[:rigid_hover_max_wave_height]
     return (; max_wind=assumptions[:kite_max_wind], min_flight_wind=lowest_wind,
         launch_min_wind=lowest_wind, launch_max_wind=hover_wind,
