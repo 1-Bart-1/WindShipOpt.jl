@@ -2409,17 +2409,23 @@ function write_fields(directory, values, steps, grid)
     end
 end
 
-"ERA5 of steady wind and waves on a 2 by 2 grid from 2017-12-29, the east wind rising."
+"""
+ERA5 of steady wind and waves on a 2 by 2 grid from 2017-12-29, the east wind rising, the
+wind 6 m/s at 100 m and 12 m/s at 1000 m.
+"""
 function small_era5(directory)
     square = (lats=[40.0, 41.0], lons=[-31.0, -30.0])
     truth = Dict("u10" => step -> 5.0f0 + 0.01f0 * step, "v10" => step -> -2.0f0,
+        "speed_100" => step -> 6.0f0, "speed_1000" => step -> 12.0f0,
         "height" => step -> 2.0f0, "period" => step -> 8.0f0, "direction" => step -> 60.0f0)
     for (group, names, step_hours) in (("wind", ["u10", "v10"], 6),
+        ("aloft", ["speed_100", "speed_1000"], 6),
         ("waves", ["direction", "height", "period"], 12))
         write_fields(joinpath(directory, group),
             (name, step) -> fill(truth[name](step), 2, 2), 2000 ÷ step_hours,
             Dict("lats" => square.lats, "lons" => square.lons, "step_hours" => step_hours,
-                "first_time" => "2017-12-29T00:00:00", "variables" => names))
+                "first_time" => "2017-12-29T00:00:00", "variables" => names,
+                "heights" => [100, 1000]))
     end
     return ERA5Weather(directory)
 end
@@ -2760,6 +2766,22 @@ end
 end
 
 kite_route_table = shared_route_table(ShipDesign(:methanol, 85.0; kite_area=400.0))
+
+@testset "a kite takes the ERA5 wind aloft at its own height, its ship the table there" begin
+    weather = small_era5(mktempdir())
+    table = kite_route_table.table
+    height = table.kite_height
+    expected = 6 + 6 * log(height / 100) / log(10)
+    edge = (2, centre_index(corridor), WindShipOpt.STRAIGHT_ON, 0.0, 100.0)
+    sample = WindShipOpt.EdgeSample(table, weather, corridor, edge...)
+    @test 100 < height < 1000
+    @test hypot(sample.headwind, sample.crosswind) ≈ expected
+    @test sample.wind_speed ≈ expected / table.kite_wind_factor
+    rotors = shared_route_table(ShipDesign(:methanol, 85.0; rotor_area=200.0)).table
+    stood = WindShipOpt.EdgeSample(rotors, weather, corridor, edge...)
+    @test stood.wind_speed ≈ hypot(wind(weather, 40.5, -30.5, 100.0)...)
+    @test stood.headwind == stood.crosswind == 0
+end
 
 @testset "a kite ship's search keeps one kite state per node and time, down at port" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
