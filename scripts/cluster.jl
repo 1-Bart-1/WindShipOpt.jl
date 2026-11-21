@@ -8,9 +8,11 @@
 using Printf
 
 command = isempty(ARGS) ? "help" : popfirst!(ARGS)
-if command in ("run", "shard", "estimate")
-    include(joinpath(@__DIR__, "paper.jl"))
+if command in ("shard", "estimate")
+    include(joinpath(@__DIR__, "trips.jl"))
     include(joinpath(@__DIR__, "run_estimate.jl"))
+elseif command == "run"
+    include(joinpath(@__DIR__, "paper.jl"))
 else
     root = joinpath(@__DIR__, "..")
     include(joinpath(@__DIR__, "paper_runs.jl"))
