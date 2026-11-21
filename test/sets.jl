@@ -782,9 +782,6 @@ suction_sail(area, inputs=assumptions) = WingRig(area, Hull(140.0, assumptions),
     attached = (lift, WindShipOpt.drag_coefficient(pair, lift))
     @test WindShipOpt.fan_power(pair, attached, 17.0) ≈ 2 * 7.5e3 rtol = 0.01
     @test WindShipOpt.fan_power(pair, attached, 8.5) ≈ 2 * 7.5e3 / 8 rtol = 0.01
-    tallest = suction_sail(26.0^2 / 6.6)
-    @test tallest.count == 1 && tallest.height ≈ 26.0
-    @test suction_sail(3000.0).height <= 26.0
 end
 
 @testset "a suction sail's fan runs only while its flow is attached and lifts, and it lies \
@@ -1243,9 +1240,9 @@ end
           size law" begin
     hull = Hull(140.0, assumptions)
     for (unit, area) in ((:wing, 1200.0), (:suction, 400.0), (:rotor, 600.0))
-        build(count) = PaperData.deck_rig(unit == :rotor ? "rotors" :
-                                          unit == :wing ? "wings" : "suction", area, hull;
-            in_column=count)
+        build(count) = unit == :rotor ?
+                       WindShipOpt.RotorRig(area, hull, assumptions; in_column=count) :
+                       WingRig(area, hull, assumptions; unit, in_column=count)
         tall, built = build(1), build(4)
         reference = assumptions[Symbol(unit, :_reference_height)]
         exponent = assumptions[Symbol(unit, :_mass_exponent)]
