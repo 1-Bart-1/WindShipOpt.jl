@@ -1977,8 +1977,8 @@ function measured_table()
                 row.true_angle, row.apparent_angle, row.spin_ratio, row.thrust_measured,
                 row.thrust_model, measured_net, copenhagen_net(row))
         end
-        println(io, "\\bottomrule\n\\end{tabular} \\\\[12pt]")
-        println(io, "\\textbf{(b)} \\\\\n\\begin{tabular}{@{}lllrrrr@{}}\n\\toprule")
+        println(io, "\\bottomrule\n\\end{tabular} \\\\")
+        println(io, "\\rule{0pt}{4ex}\\textbf{(b)} \\\\\n\\begin{tabular}{@{}lllrrrr@{}}\n\\toprule")
         println(io, "Ship & Our ship & Rig & \\multicolumn{2}{c}{Measured} & ",
             "\\multicolumn{2}{c}{Ours} \\\\")
         println(io, "\\cmidrule(lr){4-5}\\cmidrule(lr){6-7}")
