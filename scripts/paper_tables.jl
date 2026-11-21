@@ -1980,7 +1980,7 @@ fidelity_parts() = [
               "to 2.4 points",
         effect=corridor_grids()),
     (part="Rig size search", varied="every size",
-        model="three sizes, then two by interpolation",
+        model="from a guess until both neighbours of the best cost more",
         error="the loss against the best of every size, shown here",
         effect=size_search_grid()),
 ]

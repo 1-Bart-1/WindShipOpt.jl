@@ -3472,11 +3472,11 @@ end
     @test all(name -> isdefined(JobTrips, name), (:shard_trips, :trip_case, :case_trip))
 end
 
-@testset "a final run's estimate counts the draft's cases and one more size search round" begin
+@testset "a run's estimate counts the cases of each data step of the draft run" begin
     record = Dict("steps" => [Dict("name" => "patterns"),
         Dict("name" => "classes", "cases" => 26), Dict("name" => "routes", "cases" => 10)])
-    @test PaperRuns.run_counts(record, 3) == [(name="classes", draft=26, final=32.0),
-        (name="routes", draft=10, final=10.0)]
+    @test PaperRuns.run_counts(record) == [(name="classes", cases=26),
+        (name="routes", cases=10)]
 end
 
 @testset "the estimate counts the draft run with the most data steps, not the newest" begin
@@ -3570,14 +3570,43 @@ module SizeSearch
 include(joinpath(pkgdir(Main.WindShipOpt), "scripts", "size_search.jl"))
 end
 
+@testset "the size grid holds both bounds and no step within half a step of them" begin
+    grid = SizeSearch.size_grid(500.0, 2441.4)
+    @test first(grid) == 500.0 && last(grid) == 2441.4
+    @test all(diff(log2.(grid)) .> 0.125)
+    @test 2.0^(45 / 4) ∉ grid
+end
+
 @testset "a size search whose best is a bound next tries the size just inside it" begin
-    step = 2^0.25
-    @test SizeSearch.next_size([(500.0, 3.0), (2828.0, 2.0), (16000.0, 1.0)], 500.0,
-        16000.0) ≈ SizeSearch.snap_area(16000 / step)
-    @test SizeSearch.next_size([(500.0, 1.0), (2828.0, 2.0), (16000.0, 3.0)], 500.0,
-        16000.0) ≈ SizeSearch.snap_area(500 * step)
-    @test SizeSearch.next_size([(13777.0, 2.0), (16000.0, 1.0)], 500.0, 16000.0) ≈
-          SizeSearch.snap_area(sqrt(13777 * 16000))
+    grid = SizeSearch.size_grid(500.0, 16000.0)
+    @test SizeSearch.next_size([(500.0, 3.0), (2828.4, 2.0), (16000.0, 1.0)], grid) ≈
+          grid[end - 1]
+    @test SizeSearch.next_size([(500.0, 1.0), (2828.4, 2.0), (16000.0, 3.0)], grid) ≈
+          grid[2]
+end
+
+@testset "a size search confirms its cheapest size once both neighbours cost more" begin
+    grid = SizeSearch.size_grid(500.0, 16000.0)
+    @test isnothing(SizeSearch.next_size([(grid[k], cost) for (k, cost) in
+                                          ((7, 2.0), (8, 1.0), (9, 3.0))], grid))
+    @test isnothing(SizeSearch.next_size([(grid[1], 1.0), (grid[2], 2.0)], grid))
+    @test SizeSearch.next_size([(grid[7], 2.0), (grid[8], 1.0), (grid[11], 3.0)], grid) ∈
+          grid[9:10]
+    @test isnothing(SizeSearch.next_size([(grid[7], Inf), (grid[8], Inf)], grid))
+end
+
+@testset "a size search from a guess far off still finds the cheapest size" begin
+    grid = SizeSearch.size_grid(500.0, 64000.0)
+    for best in (500.0, 3000.0, 20000.0, 64000.0), guess in (500.0, 4000.0, 64000.0)
+        cost(area) = (log(area / best))^2
+        points = [(area, cost(area)) for area in SizeSearch.start_sizes(guess, grid)]
+        while (area = SizeSearch.next_size(points, grid)) !== nothing
+            @test all(point -> !(first(point) ≈ area), points)
+            push!(points, (area, cost(area)))
+        end
+        @test first(points[argmin(last.(points))]) ≈
+              grid[SizeSearch.nearest_step(grid, best)]
+    end
 end
 
 @testset "the paper's draft marker stays until a final call redraws every figure" begin
