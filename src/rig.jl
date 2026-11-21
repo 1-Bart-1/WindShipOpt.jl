@@ -167,15 +167,19 @@ middle of the free forecastle length `bow_room` times the hull length that ends 
 bay. The stacks shade it in apparent winds from astern whose line to it crosses them, and
 it keeps the [`shadow_share`](@ref) of its load there. `nothing` where the circle it
 sweeps, the width of a rotor or 1.5 chords of a wing turning about its quarter chord,
-exceeds the free length.
+exceeds the free length, or where its width hides more than `blind_sector_limit` [deg] of
+the view ahead from the bridge.
 """
 function bow_layout(total_area, unit, hull::Hull, assumptions::Assumptions)
     height, width = unit_size(total_area, 1, unit, assumptions)
     room = assumptions[:bow_room] * hull.length
     sweep = unit == :rotor ? width : assumptions[:wing_spacing] * width
     sweep <= room || return nothing
+    from_bow = assumptions[:bow_unit_position] * hull.length
+    blind_sector = 2atan(width / 2, hull.bridge_distance - from_bow)
+    blind_sector <= deg2rad(assumptions[:blind_sector_limit]) || return nothing
     return (; count=1, columns=1, height, foot_height=foot_height(hull, assumptions),
-        centre_position=(0.5 - assumptions[:bow_unit_position]) * hull.length,
+        centre_position=hull.length / 2 - from_bow,
         column_offset=0.0, interference_factor=1.0,
         shadow_share=shadow_share(height / hull.deck_cargo_height, assumptions),
         shadow_angle=π - atan(hull.beam / 2, room / 2))

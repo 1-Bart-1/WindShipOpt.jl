@@ -445,6 +445,13 @@ bow_room:
   unit: "-"
   source: "Authors' estimate: forecastle less its mooring gear"
   reason: "Length along the forecastle free for one rig unit between the anchor and mooring gear and the first bay of containers, over the ship's length: a forecastle of 0.07-0.10 L [@cfr46_part42, 42.20-70] less the windlasses and mooring winches at its fore end; authors' estimate, 12 m on a 300 m ship, where Maersk fits a 5 m rotor [@maritimeexec2026maersk]."
+blind_sector_limit:
+  value: 5.0
+  low: 5.0
+  high: 5.0
+  unit: deg
+  source: "@cfr33_164 [(a)(1)]: SOLAS V/22 blind sectors"
+  reason: "Widest view ahead from the bridge that one obstruction forward of the beam may hide within 10 degrees either side of dead ahead, the SOLAS limit on navigation bridge visibility [@cfr33_164, (a)(1)], which a unit on the centreline at the bow falls within."
 shadow_calm_height:
   value: 0.6
   low: 0.5

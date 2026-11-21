@@ -171,6 +171,9 @@ Base.@kwdef struct ShipClass
     unit_capacity::Float64
     "container tiers on deck, zero for ships without deck cargo"
     deck_tiers::Float64
+    "distance of the bridge front aft of the bow over the length, NaN where no rig stands
+    ahead of it [-]"
+    bridge_position::Float64
     "lowest bridge or canal clearance on common calls of the class [m]"
     air_draft_limit::Float64
     "share of port calls lost to a fixed rig above `air_draft_limit` [-]"
@@ -205,7 +208,7 @@ function ship_classes()
         values = Dict(Symbol(name) => parse(Float64, row[name]) for name in ("length",
             "beam", "draft", "block_coefficient", "deadweight", "service_speed",
             "power", "source_load", "centre_of_buoyancy", "propeller_diameter_ratio",
-            "newbuild_price", "cargo_value", "deck_tiers", "air_draft_limit",
+            "newbuild_price", "cargo_value", "deck_tiers", "bridge_position", "air_draft_limit",
             "restricted_call_share", "fixed_rig_port_hours", "unit_capacity"))
         classes[row["name"]] = ShipClass(; name=row["name"], type=row["type"],
             cargo_unit=Symbol(lowercase(row["cargo_unit"])),
@@ -220,13 +223,16 @@ end
 
 Hull of the main dimensions and centre of buoyancy of ship `class`, with the waterline
 length `waterline_length_ratio` times its length, its calm-water resistance calibrated to
-the source design by [`resistance_calibration`](@ref) and its container tiers on deck.
+the source design by [`resistance_calibration`](@ref), its container tiers on deck and its
+bridge.
 """
 function Hull(class::ShipClass, assumptions::Assumptions)
     dimensions = (class.length, class.beam, class.draft, class.block_coefficient)
     form = (; class.centre_of_buoyancy,
         waterline_length=assumptions[:waterline_length_ratio] * class.length,
-        deck_cargo_height=class.deck_tiers * assumptions[:container_tier_height])
+        deck_cargo_height=class.deck_tiers * assumptions[:container_tier_height],
+        bridge_distance=isnan(class.bridge_position) ? Inf :
+                        class.bridge_position * class.length)
     holtrop = Hull(dimensions..., assumptions; form...)
     return Hull(dimensions..., assumptions; form...,
         resistance_factor=resistance_calibration(class, holtrop, assumptions))

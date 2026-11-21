@@ -1295,6 +1295,14 @@ end
     @test 0.9 < megamax.deadweight / megamax.space < 1
 end
 
+"area [m^2] of one wing sail or rotor `unit` of `width` [m], its chord or diameter"
+bow_area(width, unit) = width^2 * assumptions[Symbol(unit, :_aspect_ratio)]
+
+"whether one wing sail or rotor `unit` of `area` [m^2] stands at the bow of ship `class`"
+bow_fits(area, unit, class) = !isnothing(unit == :rotor ?
+                                         WindShipOpt.RotorRig(area, Hull(class, assumptions),
+    assumptions) : WingRig(area, Hull(class, assumptions), assumptions))
+
 @testset "a container ship's one rig unit stands at its bow and blocks no slot" begin
     megamax = ship_classes()["Megamax container ship"]
     hull = Hull(megamax, assumptions)
@@ -1309,16 +1317,29 @@ end
     end
     @test WindShipOpt.launch_mast_position(hull, assumptions) ≈
           (0.5 - assumptions[:bow_unit_position]) * megamax.length
-    room = assumptions[:bow_room] * megamax.length
-    wing_area(chord) = chord^2 * assumptions[:wing_aspect_ratio]
-    sweep_chord = room / assumptions[:wing_spacing]
-    @test !isnothing(WingRig(0.99wing_area(sweep_chord), hull, assumptions))
-    @test isnothing(WingRig(1.01wing_area(sweep_chord), hull, assumptions))
-    rotor_area(diameter) = diameter^2 * assumptions[:rotor_aspect_ratio]
-    @test !isnothing(WindShipOpt.RotorRig(0.99rotor_area(room), hull, assumptions))
-    @test isnothing(WindShipOpt.RotorRig(1.01rotor_area(room), hull, assumptions))
+    @test WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, megamax; kite_area=1000.0),
+        assumptions), assumptions).slots == megamax.unit_capacity
     @test_throws ArgumentError Ship(ShipDesign(:vlsfo, megamax; kite_area=1000.0,
         rotor_area=400.0), assumptions)
+    feeder = ship_classes()["feeder container ship"]
+    room = assumptions[:bow_room] * feeder.length
+    sweep_chord = room / assumptions[:wing_spacing]
+    @test bow_fits(0.99bow_area(sweep_chord, :wing), :wing, feeder)
+    @test !bow_fits(1.01bow_area(sweep_chord, :wing), :wing, feeder)
+    @test bow_fits(0.99bow_area(room, :rotor), :rotor, feeder)
+    @test !bow_fits(1.01bow_area(room, :rotor), :rotor, feeder)
+end
+
+# By hand: 5 degrees seen from 0.31 L aft of the bow, the unit 0.06 L aft of it, L = 398 m.
+@testset "a bow unit hides at most five degrees of the view ahead from the bridge" begin
+    megamax = ship_classes()["Megamax container ship"]
+    widest = 2 * (0.31 - 0.06) * 398 * tand(2.5)
+    @test widest ≈ 8.69 atol = 0.01
+    for unit in (:rotor, :wing)
+        @test bow_fits(0.99bow_area(widest, unit), unit, megamax)
+        @test !bow_fits(1.01bow_area(widest, unit), unit, megamax)
+    end
+    @test Hull(ship_classes()["VLCC"], assumptions).bridge_distance == Inf
 end
 
 # Expected shares are the integral of the squared wind profile of tab:shadow by hand.
