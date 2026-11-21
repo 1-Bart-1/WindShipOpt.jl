@@ -127,53 +127,6 @@ function node_map(record)
     return permutedims(dropdims(reached .+ kept; dims))
 end
 
-"""
-    draw_search_map!(axis, case; colorrange)
-
-The water nodes of the corridor of `case` within the limits of a longitude-latitude `axis`,
-coloured by [`node_excess`](@ref) within `colorrange` where
-the search kept a state, dark where it kept one with no estimate onward, open where it
-pruned all, faint where it reached none; the edges allowed from each node of the passage;
-the 10 m wind at a share of the nodes when the passage reached their stage; and the
-passage, in the kite's colour where the kite flies. Returns the plot of the coloured nodes
-and whether any `no_estimate`, `pruned` or `unreached` node is drawn, as a named tuple.
-"""
-function draw_search_map!(axis, case; colorrange)
-    (; corridor, excess, level, path) = case
-    water = filter(index -> within(axis.limits[], corridor.lon[index], corridor.lat[index]),
-        findall(corridor.water))
-    unreached, pruned, kept = [filter(index -> level[index] == value, water)
-                               for value in 0:2]
-    dot = node_dot(corridor)
-    scatter!(axis, node_points(corridor, unreached); color=unreached_shade,
-        markersize=unreached_dot * dot, markerspace=:data)
-    scatter!(axis, node_points(corridor, pruned); color=:transparent, strokecolor=:gray45,
-        strokewidth=pt(0.3), markersize=dot, markerspace=:data)
-    nodes = scatter!(axis, node_points(corridor, kept); color=excess[kept],
-        colormap=:viridis, colorrange, nan_color=no_estimate_shade, markersize=dot,
-        markerspace=:data)
-    draw_edge_fans!(axis, corridor, path)
-    draw_met_wind!(axis, case)
-    draw_track!(axis, path)
-    drawn = (; no_estimate=any(isnan, excess[kept]), pruned=!isempty(pruned),
-        unreached=!isempty(unreached))
-    return nodes, drawn
-end
-
-"""
-    draw_track!(axis, path; width=line_width)
-
-The track of `path` at line `width`, twice as wide in the kite's colour where it flies.
-"""
-function draw_track!(axis, path; width=line_width)
-    track = track_points(path)
-    lines!(axis, track; color=:black, linewidth=width)
-    for i in 2:length(track)
-        path[i].flying && lines!(axis, track[(i - 1):i]; color=palette[1],
-            linewidth=2width)
-    end
-end
-
 "longitude and latitude [deg] of the nodes of `corridor` at `indices`, as points"
 node_points(corridor, indices) = Point2f.(corridor.lon[indices], corridor.lat[indices])
 
@@ -184,6 +137,14 @@ Diameter [deg] of the nodes of `corridor` on a longitude-latitude map: 0.8 of th
 of its rows in degrees of latitude, so at most that share of their spacing on the map.
 """
 node_dot(corridor) = 0.8 * corridor.lateral_spacing / 60NAUTICAL_MILE
+
+"""
+    stage_dot(corridor)
+
+Diameter [deg] of the nodes of `corridor` on a map too small to tell them apart: 0.8 of the
+median spacing of its stages in degrees of latitude, so the nodes join into one field.
+"""
+stage_dot(corridor) = 0.8 * median(diff(corridor.along_centre)) / 60NAUTICAL_MILE
 
 """
     draw_edge_fans!(axis, corridor, path)
@@ -204,13 +165,13 @@ function draw_edge_fans!(axis, corridor, path)
 end
 
 """
-    draw_met_wind!(axis, case; spacing=90)
+    draw_met_wind!(axis, case; spacing)
 
 10 m wind arrows at the water nodes of the corridor of `case` about `spacing` [nmi] apart,
 each at the hour the passage reached its stage and 15 m/s as long as `spacing`, those whose
 tip stays within the limits of `axis`.
 """
-function draw_met_wind!(axis, case; spacing=90)
+function draw_met_wind!(axis, case; spacing)
     (; corridor, path, departure, weather) = case
     along = corridor.along_centre ./ NAUTICAL_MILE
     lateral_stride = max(1, round(Int, spacing * NAUTICAL_MILE / corridor.lateral_spacing))
@@ -232,23 +193,22 @@ function draw_met_wind!(axis, case; spacing=90)
 end
 
 """
-    draw_passage!(speed_axis, wind_axis, case; days)
+    draw_passage!(speed_axis, wind_axis, case; window_days)
 
-Speed held and 10 m wind speed along the passage of `case` from the first to the last of
-`days` since departure, with the hours the kite flies shaded.
+Speed held and 10 m wind speed along the passage of `case` by days since departure, with
+the hours the kite flies shaded and the first and last of `window_days` marked.
 """
-function draw_passage!(speed_axis, wind_axis, case; days)
+function draw_passage!(speed_axis, wind_axis, case; window_days)
     (; trace) = case
-    time = trace.time ./ 24
-    shown = [i for i in eachindex(time)
-             if time[i] <= days[2] && (i == lastindex(time) || time[i + 1] >= days[1])]
+    days = trace.time ./ 24
     for axis in (speed_axis, wind_axis)
-        draw_flights!(axis, time[shown], trace.flying[shown])
-        xlims!(axis, days...)
+        draw_flights!(axis, days, trace.flying)
+        vlines!(axis, collect(window_days); color=window_colour, linewidth=line_width)
+        xlims!(axis, 0, last(days))
     end
-    stairs!(speed_axis, time[shown], trace.speed[shown] ./ KNOT; step=:post, color=:black)
-    stairs!(wind_axis, time[shown],
-        hypot.(trace.wind_east[shown], trace.wind_north[shown]); step=:post, color=:black)
+    stairs!(speed_axis, days, trace.speed ./ KNOT; step=:post, color=:black)
+    stairs!(wind_axis, days, hypot.(trace.wind_east, trace.wind_north); step=:post,
+        color=:black)
 end
 
 """
@@ -285,54 +245,104 @@ unreached_dot = 0.5
 "colour of the hours a kite flies along a passage"
 flight_shade = (palette[1], 0.25)
 
+"colour of the frame of the zoomed window and of its days on the time axis"
+window_colour = style_colour("accent")
+
+"""
+    draw_search_map!(axis, case; colorrange, dot=node_dot(case.corridor))
+
+The water nodes of the corridor of `case` within the limits of a longitude-latitude `axis`,
+`dot` [deg] across, coloured by [`node_excess`](@ref) within `colorrange` on a square-root
+scale where the search kept a state, dark where it kept one with no estimate onward, open
+where it pruned all, faint where it reached none, and over them the passage, in the kite's
+colour where the kite flies. Returns the plot of the coloured nodes and whether any
+`no_estimate`, `pruned` or `unreached` node is drawn, as a named tuple.
+"""
+function draw_search_map!(axis, case; colorrange, dot=node_dot(case.corridor))
+    (; corridor, excess, level, path) = case
+    water = filter(index -> within(axis.limits[], corridor.lon[index], corridor.lat[index]),
+        findall(corridor.water))
+    unreached, pruned, kept = [filter(index -> level[index] == value, water)
+                               for value in 0:2]
+    scatter!(axis, node_points(corridor, unreached); color=unreached_shade,
+        markersize=unreached_dot * dot, markerspace=:data)
+    scatter!(axis, node_points(corridor, pruned); color=:transparent, strokecolor=:gray45,
+        strokewidth=pt(0.3), markersize=dot, markerspace=:data)
+    nodes = scatter!(axis, node_points(corridor, kept); color=excess[kept],
+        colormap=:viridis, colorscale=sqrt, colorrange, nan_color=no_estimate_shade,
+        markersize=dot,
+        markerspace=:data)
+    draw_track!(axis, path)
+    drawn = (; no_estimate=any(isnan, excess[kept]), pruned=!isempty(pruned),
+        unreached=!isempty(unreached))
+    return nodes, drawn
+end
+
+"""
+    draw_track!(axis, path)
+
+The track of `path`, twice as wide in the kite's colour where it flies.
+"""
+function draw_track!(axis, path)
+    track = track_points(path)
+    lines!(axis, track; color=:black, linewidth=line_width)
+    for i in 2:length(track)
+        path[i].flying && lines!(axis, track[(i - 1):i]; color=palette[1],
+            linewidth=2line_width)
+    end
+end
+
+"""
+    map_axis(position, limits, title)
+
+A longitude-latitude axis at `position` within `limits` (west, east, south, north) [deg],
+with land drawn.
+"""
+function map_axis(position, limits, title)
+    axis = Axis(position; aspect=DataAspect(), limits, title, xlabel="longitude [°]",
+        ylabel="latitude [°]")
+    draw_land!(axis, mask; lons=limits[1]:0.25:limits[2], lats=limits[3]:0.25:limits[4])
+    return axis
+end
+
 """
     router_panels!(positions, case; window, colorrange, titles)
 
-Axes at the grid `positions` of a figure, a named tuple of `map`, `locator`, `speed` and
-`wind`, with the `titles` named alike: the [`draw_search_map!`](@ref) of `case` within
-`window` (west, east, south, north) [deg] and `colorrange`, the [`draw_locator!`](@ref) of
-that window and the [`draw_passage!`](@ref) over the [`window_days`](@ref). Returns what
-[`draw_search_map!`](@ref) returns.
+Axes at the grid `positions` of a figure, a named tuple of `overview`, `zoom`, `speed` and
+`wind`, with the `titles` named alike: the [`draw_search_map!`](@ref) of `case` over its
+whole corridor with the frame of `window` (west, east, south, north) [deg], and within
+`window` with the edges and the wind met, both within `colorrange`; and its
+[`draw_passage!`](@ref) with the [`window_days`](@ref) marked. Returns the plot of the
+coloured nodes and what both maps drew, as [`draw_search_map!`](@ref) names it.
 """
 function router_panels!(positions, case; window, colorrange, titles)
-    map_axis = Axis(positions.map; aspect=DataAspect(), limits=window, title=titles.map,
-        xlabel="longitude [°]", ylabel="latitude [°]")
-    locator_axis = Axis(positions.locator; aspect=DataAspect(),
-        limits=map_limits(case.corridor), title=titles.locator)
-    hidedecorations!(locator_axis)
-    speed_axis = Axis(positions.speed; title=titles.speed, ylabel="speed [kn]",
-        xticklabelsvisible=false)
-    wind_axis = Axis(positions.wind; title=titles.wind, xlabel="days since departure",
-        ylabel="10 m wind [m/s]")
-    linkxaxes!(speed_axis, wind_axis)
-    draw_land!(map_axis, mask; lons=window[1]:0.25:window[2],
-        lats=window[3]:0.25:window[4])
-    drawn = draw_search_map!(map_axis, case; colorrange)
-    draw_locator!(locator_axis, case, window)
-    draw_passage!(speed_axis, wind_axis, case; days=window_days(case.path, window))
-    return drawn
-end
-
-"""
-    draw_locator!(axis, case, window)
-
-Land, the water nodes of the corridor of `case` as one faint area, its passage and the
-frame of `window` (west, east, south, north) [deg] on a longitude-latitude `axis`.
-"""
-function draw_locator!(axis, case, window)
-    (; corridor, path) = case
-    whole = axis.limits[]
-    draw_land!(axis, mask; lons=whole[1]:0.5:whole[2], lats=whole[3]:0.5:whole[4])
-    scatter!(axis, node_points(corridor, findall(corridor.water)); color=unreached_shade,
-        markersize=2node_dot(corridor), markerspace=:data, rasterize=4)
-    draw_track!(axis, path; width=line_width / 2)
+    whole = search_limits(case)
+    overview = map_axis(positions.overview, whole, titles.overview)
+    overview.xticks = WilkinsonTicks(4)
+    nodes, overview_drawn = draw_search_map!(overview, case; colorrange,
+        dot=stage_dot(case.corridor))
     west, east, south, north = window
-    poly!(axis, Rect2f(west, south, east - west, north - south); color=:transparent,
-        strokecolor=:black, strokewidth=rule_width)
+    poly!(overview, Rect2f(west, south, east - west, north - south); color=:transparent,
+        strokecolor=window_colour, strokewidth=line_width)
+    zoom = map_axis(positions.zoom, window, titles.zoom)
+    zoom.yticks = WilkinsonTicks(4; Q=[(1, 1.0), (2, 1.0), (5, 1.0)])
+    zoom.leftspinecolor = zoom.rightspinecolor = zoom.topspinecolor =
+        zoom.bottomspinecolor = window_colour
+    draw_edge_fans!(zoom, case.corridor, case.path)
+    _, zoom_drawn = draw_search_map!(zoom, case; colorrange)
+    draw_met_wind!(zoom, case; spacing=6 * (east - west))
+    speed_axis = Axis(positions.speed; title=titles.speed, ylabel="speed [kn]",
+        xticklabelsvisible=false, yticks=WilkinsonTicks(3))
+    wind_axis = Axis(positions.wind; title=titles.wind, xlabel="days since departure",
+        ylabel="10 m wind [m/s]", yticks=WilkinsonTicks(3))
+    linkxaxes!(speed_axis, wind_axis)
+    draw_passage!(speed_axis, wind_axis, case; window_days=window_days(case.path, window))
+    drawn = map(|, overview_drawn, zoom_drawn)
+    return nodes, drawn
 end
 
 "label of the colour bar of [`node_excess`](@ref)"
-excess_label = "best passage through node, % above the one found"
+excess_label = "best passage through node,\n% above the one found"
 
 """
     excess_range(case)
@@ -358,25 +368,30 @@ function router_legend_entries(drawn)
         [PolyElement(color=flight_shade),
             LineElement(color=palette[1], linewidth=2line_width)],
         LineElement(; edge_style...),
+        LineElement(color=window_colour, linewidth=line_width),
+        MarkerElement(marker='→', color=style_colour("wind"), markersize=pt(9)),
         MarkerElement(marker=:circle, color=no_estimate_shade, markersize=dot),
         MarkerElement(marker=:circle, color=:transparent, strokecolor=:gray45,
             strokewidth=pt(0.3), markersize=dot),
         MarkerElement(marker=:circle, color=unreached_shade,
             markersize=unreached_dot * dot)]
-    labels = ["passage", "kite flying", "edges allowed", "node kept, no estimate",
-        "node pruned", "node not reached"]
-    shown = [true, true, true, drawn.no_estimate, drawn.pruned, drawn.unreached]
+    labels = ["passage", "kite flying", "edges allowed", "zoomed window",
+        "10 m wind as passed", "node kept, no estimate", "node pruned", "node not reached"]
+    shown = [true, true, true, true, true, drawn.no_estimate, drawn.pruned,
+        drawn.unreached]
     return entries[shown], labels[shown]
 end
 
 """
-    map_limits(corridor; pad=1)
+    search_limits(case; pad=1)
 
-Longitude and latitude limits (west, east, south, north) [deg] around the water nodes of
-`corridor`, `pad` [deg] wider on each side.
+Longitude and latitude limits (west, east, south, north) [deg] around the nodes of the
+corridor of `case` its search reached, `pad` [deg] wider on each side.
 """
-function map_limits(corridor; pad=1)
-    lons, lats = corridor.lon[corridor.water], corridor.lat[corridor.water]
+function search_limits(case; pad=1)
+    (; corridor, level) = case
+    reached = findall(level .> 0)
+    lons, lats = corridor.lon[reached], corridor.lat[reached]
     return (floor(minimum(lons)) - pad, ceil(maximum(lons)) + pad,
         floor(minimum(lats)) - pad, ceil(maximum(lats)) + pad)
 end
@@ -396,28 +411,32 @@ end
 north) [deg]"
 within(window, lon, lat) = window[1] <= lon <= window[2] && window[3] <= lat <= window[4]
 
-"width over height of `window` (west, east, south, north) [deg]"
-window_aspect(window) = (window[2] - window[1]) / (window[4] - window[3])
+"height over width of `limits` (west, east, south, north) [deg]"
+map_height(limits) = (limits[4] - limits[3]) / (limits[2] - limits[1])
 
 """
-    router_figure(; window=(-58, -40, 17, 32))
+    router_figure(; window=(-59, -41, 24, 31))
 
-The [`router_panels!`](@ref) of the [`router_case`](@ref) within `window` (west, east,
-south, north) [deg]: its map across the page beside the colour bar, with speed and wind
-beneath it on one time axis beside the legend and the locator.
+The [`router_panels!`](@ref) of the [`router_case`](@ref): the overview of its search beside
+the legend and colour bar, the zoom into `window` (west, east, south, north) [deg] across
+the page, and speed and wind beneath them on one time axis.
 """
-function router_figure(; window=(-58, -40, 17, 32))
+function router_figure(; window=(-59, -41, 24, 31))
     case = router_case()
-    figure = Figure(size=(page_width, 600))
-    lower = GridLayout(figure[2, 1:2])
-    nodes, drawn = router_panels!((; map=figure[1, 1], locator=lower[2, 2],
-            speed=lower[1, 1], wind=lower[2, 1]), case;
-        window, colorrange=excess_range(case),
-        titles=(; map="(a) nodes searched and the passage", speed="(b) speed held",
-            wind="(c) wind met", locator="(d) the whole passage"))
-    Colorbar(figure[1, 2], nodes; label=excess_label)
-    Legend(lower[1, 2], router_legend_entries(drawn)...)
-    rowsize!(figure.layout, 1, Aspect(1, 1 / window_aspect(window)))
-    colsize!(lower, 2, Aspect(2, window_aspect(map_limits(case.corridor))))
+    colorrange = excess_range(case)
+    figure = Figure(size=(page_width, 605))
+    top = GridLayout(figure[1, 1])
+    nodes, drawn = router_panels!((; overview=top[1:2, 1], zoom=figure[2, 1],
+            speed=figure[3, 1], wind=figure[4, 1]), case;
+        window, colorrange,
+        titles=(; overview="(a) the corridor searched",
+            zoom="(b) its nodes, edges and wind",
+            speed="(c) speed held", wind="(d) wind met"))
+    Legend(top[1, 2], router_legend_entries(drawn)...; valign=:top)
+    Colorbar(top[2, 2], nodes; label=excess_label, vertical=false, flipaxis=false,
+        valign=:bottom, ticks=filter(<=(colorrange[2]), [0, 1, 3, 6, 10, 15, 20, 30, 50]))
+    rowsize!(figure.layout, 1, Fixed(130))
+    rowsize!(figure.layout, 2, Aspect(1, map_height(window)))
+    foreach(row -> rowsize!(figure.layout, row, Fixed(42)), 3:4)
     save_figure("router", figure)
 end
