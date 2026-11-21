@@ -2722,9 +2722,13 @@ function held_speeds(case, trip)
     hours = 24(trip.outbound_days + trip.return_days)
     speeds = ["same_time" => round(track / 3600hours / WindShipOpt.KNOT; digits=2)]
     case.ship == "140 m" && return speeds
+    return push!(speeds, "operating" => operating_speed(case.ship))
+end
+
+"fleet's mean operating speed [kn] of the class named `ship` in data/ship_classes.csv"
+function operating_speed(ship)
     classes = read_table(joinpath(root, "data", "ship_classes.csv"))
-    operating = classes["operating_speed"][only(rows(classes, "name" => case.ship))]
-    return push!(speeds, "operating" => operating)
+    return classes["operating_speed"][only(rows(classes, "name" => ship))]
 end
 
 """
@@ -2861,10 +2865,9 @@ function measured_savings_data()
             println(io, join(copenhagen_row(true_angle), ","))
         end
     end
-    classes = read_table(joinpath(root, "data", "ship_classes.csv"))
     cases = []
     for (source, name, ship, rig, area, route) in measured_ships
-        knots = classes["operating_speed"][only(rows(classes, "name" => ship))]
+        knots = operating_speed(ship)
         scale = run_settings().corridor_scale
         paths = WindShipOpt.shortest_corridor.(corridors(route, scale))
         for (case_rig, case_area) in (("none", 0.0), (rig, area))
