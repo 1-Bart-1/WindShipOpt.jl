@@ -8,6 +8,22 @@ Every round trip a step routes is kept in the case store, `output/cases/`, which
 
 `run.toml` says for every step what made it: the commit and whether the tree was dirty, the hash of each definition its code reaches (`model` for the model files), the base value of every input it read, the content hash and run of every data file it read, and for its round trips how many there are, which commit and processor computed them, and how many it kept from older code. `cases/<step>.csv` in the run lists each round trip of the step by its labels, with its case-store directory, the commit and tree that computed it, its round-trip code and its processor, so a sliced draft says which class, route or rig rests on which commit.
 
+## Where a run is kept
+
+Every run is also kept on GitHub, so that no run lives only on the machine that ran it. Each commit has one release, a prerelease tagged `run-<commit>`, holding one archive per fidelity, `draft.tar.gz` and `final.tar.gz`. The archive holds every run at that fidelity whose clean tree was at that commit, under `runs/`, and the round trips those runs use, under `cases/`. A run uploads it after each step, every 30 minutes while its round trips compute, and when it finishes; each upload replaces the archive, and the old one is deleted only once the new one is in. A run on a dirty tree or an unpushed commit is kept only on its machine, with a warning, since its code is in no commit; once the commit is pushed, the next upload goes through. Uploading uses `gh` where it is installed and signed in, and otherwise curl with a token in `GITHUB_TOKEN` (the README says how to make one). Without either, the run warns and goes on.
+
+A run resumes from its release on any machine. Before `paper` opens a run, unless `resume=false`, it downloads the archive of the checked-out commit and fidelity and takes from it every run of this branch that is missing here, or here with fewer steps done, and every stored round trip missing here. It then resumes as it would locally: the run must be on this branch, and a stored round trip counts only where it was computed by the current code from the same inputs. A run started at another commit is not fetched.
+
+To read a run's results without running anything, download its archive, which is public, and unpack it into a folder of its own:
+
+```bash
+commit=<the commit>
+mkdir -p kept && curl -fL https://github.com/1-Bart-1/WindShipOpt.jl/releases/download/run-$commit/draft.tar.gz | tar -xz -C kept
+ls kept/runs   # the data files and run.toml of each run; kept/cases holds its round trips
+```
+
+The release list on GitHub, or `gh release list`, shows which commits have kept runs.
+
 ## Rerunning what changed
 
 ```julia
@@ -64,9 +80,12 @@ Without a project account, jobs are charged to `innovation`: 24 hours each and 4
 ```bash
 bin/cluster submit draft            # a draft run of every step; `final` for a final run
 bin/cluster submit draft classes    # or only the steps named
+bin/cluster keep                    # in tmux: upload the runs to GitHub while their jobs run
 bin/cluster status                  # jobs queued, and what the latest run of each fidelity has done
 ```
 
 `bin/cluster estimate [cores]` prints what a final and a draft run take, in core hours and in days on the cluster's jobs, on one job, and on a workstation of `cores` cores (20 by default). It takes the cases of each step from the finished draft run with the most steps, scales them to each fidelity's departures and rounds of the rig size search, and prices them at the core seconds per departure of a sample of round trips it times on the machine it runs on: one case of each ship class with each rig, and the 140 m e-ammonia ship to Guadeloupe with each rig, with perfect foresight and sailed live. The sample takes some hours on every core it is given, so time it on a workstation or inside a job (`srun --account=<account> --partition=<partition> --cpus-per-task=64 --time=8:00:00 bin/cluster estimate`), never on a login node. It is kept in `output/estimates/` per round-trip code and processor and timed again only when either changes.
 
-`status` lists the jobs, each run's steps done and still to do, and for each batch how many of its round trips are stored. The run's log is `output/slurm/run-<job>.log` and each job's log sits beside its batch in `output/jobs/<run>/`. A run that stopped, at its wall time or naming the cases still missing, is finished by submitting it again with the same command. Bring the run and the case store home with `rsync -a <netid>@login.delftblue.tudelft.nl:/scratch/<netid>/WindShipOpt.jl/output/ output/`. Pull on the cluster before submitting a final run, so it runs the commit you mean.
+`status` lists the jobs, each run's steps done and still to do, and for each batch how many of its round trips are stored. The run's log is `output/slurm/run-<job>.log` and each job's log sits beside its batch in `output/jobs/<run>/`. A run that stopped, at its wall time or naming the cases still missing, is finished by submitting it again with the same command. Pull on the cluster before submitting a final run, so it runs the commit you mean.
+
+Compute nodes reach no internet, so the login node does the run's talking to GitHub. `submit` first fetches the run kept in the release of the checked-out commit, so a run whose `/scratch` was cleared resumes from there. `bin/cluster keep`, left running in `tmux` on the login node, uploads the latest run of each fidelity every 30 minutes while jobs of a paper run are queued or running, and once more when they have ended; the run jobs try too, and warn when they cannot. Any machine then has the run as [Where a run is kept](#where-a-run-is-kept) says, and `rsync -a <netid>@login.delftblue.tudelft.nl:/scratch/<netid>/WindShipOpt.jl/output/ output/` still copies the whole of `output/`.

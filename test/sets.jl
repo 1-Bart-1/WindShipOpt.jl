@@ -3438,6 +3438,116 @@ end
     @test option("dependency") == "afterany:7"
 end
 
+"""
+    StubReleases
+
+Releases standing in for GitHub's: each asset a file in `directory`, under its tag.
+"""
+struct StubReleases
+    directory::String
+end
+
+PaperRuns.replace_asset(releases::StubReleases, tag, commit, name, path) =
+    cp(path, joinpath(mkpath(joinpath(releases.directory, tag)), name); force=true)
+
+function PaperRuns.download_asset(releases::StubReleases, tag, name, path)
+    asset = joinpath(releases.directory, tag, name)
+    isfile(asset) && cp(asset, path; force=true)
+    return isfile(asset)
+end
+
+"""
+    on_new_machine()
+
+Give the runs and the case store empty directories, as on a machine that has neither.
+"""
+function on_new_machine()
+    output = mktempdir()
+    @eval PaperRuns runs_directory = joinpath($output, "runs")
+    @eval PaperRuns cases_directory = joinpath($output, "cases")
+end
+
+"""
+    written_run(name, commit, dirty; branch="b", steps=0)
+
+Directory of a draft run `name` of `commit`, with a dirty tree where `dirty`, on `branch`,
+recording `steps` steps done.
+"""
+function written_run(name, commit, dirty; branch="b", steps=0)
+    directory = mkpath(joinpath(PaperRuns.runs_directory, name))
+    record = Dict("fidelity" => "draft", "finished" => "", "git_commit" => commit,
+        "git_dirty" => dirty, "git_branch" => branch,
+        "steps" => [Dict("name" => "step $k") for k in 1:steps])
+    open(io -> PaperRuns.TOML.print(io, record), joinpath(directory, "run.toml"), "w")
+    return directory
+end
+
+"""
+    stored_files(store, names)
+
+Touch the case-store entries `names` in the store `store`.
+"""
+stored_files(store, names) =
+    foreach(name -> touch(joinpath(mkpath(joinpath(PaperRuns.cases_directory, store)),
+        name)), names)
+
+@testset "a commit's archive holds its clean runs and the round trips they use" begin
+    on_new_machine()
+    kept = written_run("2026-01-01T0000", "c", false)
+    written_run("2026-01-01T0001", "c", true)
+    written_run("2026-01-01T0002", "d", false)
+    mkpath(joinpath(kept, "cases"))
+    write(joinpath(kept, "cases", "classes.csv"), "case,store,commit,dirty,trip_model," *
+        "processor\n\"class=a, b\",\"s1\",\"c\",\"false\",\"m1\",\"cpu\"\n")
+    write(joinpath(kept, "cases", "stores.csv"), "store,trip_model\n\"s2\",\"m3\"\n")
+    stored_files("s1", ["m1-1.bin", "m2-1.bin"])
+    stored_files("s2", ["m3-1.bin", "m3-2.bin", "m1-1.bin"])
+    archive = joinpath(mktempdir(), "draft.tar.gz")
+    PaperRuns.write_archive(archive, :draft, "c", mktempdir())
+    members = filter(!endswith("/"), readlines(`tar -tzf $archive`))
+    @test sort(members) == ["./cases/s1/m1-1.bin", "./cases/s2/m3-1.bin",
+        "./cases/s2/m3-2.bin", "./runs/2026-01-01T0000/cases/classes.csv",
+        "./runs/2026-01-01T0000/cases/stores.csv", "./runs/2026-01-01T0000/run.toml"]
+end
+
+@testset "a run cut short resumes from its release on a machine without it" begin
+    on_new_machine()
+    releases = StubReleases(mktempdir())
+    run = PaperRuns.open_run(:draft, [:designs, :routes], false)
+    run.record["git_dirty"] = false
+    PaperRuns.run_step!(run, :designs, () -> touch(joinpath(run.directory, "designs.csv")))
+    PaperRuns.paper_run = run
+    store = joinpath(PaperRuns.cases_directory, "store")
+    PaperRuns.note_stores(run, [store])
+    PaperRuns.stored_trip(() -> 4.0, store, (; assumptions))
+    PaperRuns.keep_runs(releases, :draft, run.record["git_commit"])
+    on_new_machine()
+    PaperRuns.run_releases = releases
+    resumed = PaperRuns.open_run(:draft, [:designs, :routes], true)
+    PaperRuns.run_releases = nothing
+    @test basename(resumed.directory) == basename(run.directory)
+    @test PaperRuns.step_done(resumed, :designs) && !PaperRuns.step_done(resumed, :routes)
+    PaperRuns.paper_run = resumed
+    @test PaperRuns.stored_entry(joinpath(PaperRuns.cases_directory, "store"),
+        (; assumptions)).trip == 4.0
+end
+
+@testset "a kept run never takes over another branch's run or a local one further on" begin
+    on_new_machine()
+    fetched = PaperRuns.runs_directory
+    for (name, branch, steps) in [("other", "a", 1), ("ahead", "b", 1), ("behind", "b", 2)]
+        written_run(name, "c", false; branch, steps)
+    end
+    on_new_machine()
+    written_run("ahead", "c", false; steps=2)
+    written_run("behind", "c", false; steps=1)
+    PaperRuns.merge_runs(fetched, :draft, "c", "b")
+    steps(name) = length(PaperRuns.TOML.parsefile(
+        joinpath(PaperRuns.runs_directory, name, "run.toml"))["steps"])
+    @test !isdir(joinpath(PaperRuns.runs_directory, "other"))
+    @test steps("ahead") == 2 && steps("behind") == 2
+end
+
 @testset "a final run's estimate counts the draft's cases and one more size search round" begin
     record = Dict("steps" => [Dict("name" => "patterns"),
         Dict("name" => "classes", "cases" => 26), Dict("name" => "routes", "cases" => 10)])
