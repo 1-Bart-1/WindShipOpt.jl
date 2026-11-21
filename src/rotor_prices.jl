@@ -66,7 +66,7 @@ price factor, with installation and the retractable rig premium where `price` in
 """
 function bottom_up_price(price::RotorPrice, assumptions)
     parts = deck_price_parts(1, price.height * price.diameter, assumptions,
-        :rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction)
+        :rotor_unit_cost, assumptions[:rotor_cost_per_area], :rotor_installation_fraction)
     cost = parts.units + parts.surface + (price.installed ? parts.installation : 0.0)
     premium = price.retractable ? 1 + assumptions[:retractable_rig_premium] : 1.0
     return assumptions[:market_price_factor] * premium * cost

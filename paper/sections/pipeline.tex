@@ -1,7 +1,7 @@
 % SPDX-FileCopyrightText: 2026 Bart van de Lint
 % SPDX-License-Identifier: AGPL-3.0-or-later
 \begin{tikzpicture}[x=1mm, y=1mm,
-  shipwithkite/.pic={\begin{scope}[yshift=-1.5mm, scale=0.75] \pic {ship icon};
+  shipwithkite/.pic={\begin{scope}[yshift=-1.5mm, scale=0.75] \pic {small ship};
     \fill[kite] (0.5,7.5) arc[start angle=60, end angle=120, radius=4] -- ++(0,-0.5)
       arc[start angle=120, end angle=60, radius=3.5] -- cycle;
     \draw[kite] (2.5,0) -- (-1.5,7.1); \end{scope}},
@@ -15,27 +15,15 @@
   windtriangle/.pic={\draw[->, wind] (-4,2.5) -- (2,2.5);
     \draw[->, guide] (2,2.5) -- (2,-3);
     \draw[->, accent] (-4,2.5) -- (1.8,-2.8);},
-  grid/.pic={\foreach \i in {0,...,3} \draw[guide] (-4,-3+2*\i) -- (4,-3+2*\i);
-    \foreach \i in {0,...,4} \draw[guide] (-4+2*\i,-3) -- (-4+2*\i,3);
-    \fill[accent!50] (-2,-1) rectangle (0,1);},
   route/.pic={\foreach \x in {-4,-2,...,4} \foreach \y in {-3,-1.5,...,3}
       \fill[guide] (\x,\y) circle (0.25);
     \draw[accent] (-4,0) -- (-2,1.5) -- (0,1.5) -- (2,-1.5) -- (4,0);},
-  weathermap/.pic={\draw[guide, fill=white] (-4.5,-3.5) rectangle (4.5,3.5);
-    \foreach \x/\y in {-3/2, 0/2.2, 2.5/1.5, -2.5/-1, 0.5/-1.5, 3/-2}
-      \draw[->, wind] (\x,\y) -- ++(1.4,-0.6);
-    \fill[ship] (2.8,3.5) -- (4.5,3.5) -- (4.5,0.5) -- (3.5,1.5) -- cycle;},
-  costbar/.pic={\fill[ship!80!black] (-4,-1) rectangle (-1.2,1);
-    \fill[ship] (-1.2,-1) rectangle (0.2,1); \fill[accent!50] (0.2,-1) rectangle (2.6,1);
-    \fill[loss!50] (2.6,-1) rectangle (4,1);},
   search/.pic={\draw[guide, ->] (-4,-3) -- (4.5,-3); \draw[guide, ->] (-4,-3) -- (-4,3.5);
     \draw[accent] (-3.5,2.5) .. controls (-1,-3) and (1,-3) .. (3.8,2);
     \fill[accent] (0,-1.6) circle (0.6);},
   bars/.pic={\foreach \x/\h/\c in {-3/3/kite, -1/2/wings, 1/3.6/rotors}
       \fill[\c] (\x,-3) rectangle ++(1.5,\h);
     \draw[guide] (-4,-3) -- (4,-3);},
-  pages/.pic={\draw[fill=white] (-3,-3.5) rectangle (2,3); \draw[fill=white] (-2,-2.5) rectangle (3,4);
-    \foreach \y in {2.5,1.5,0.5,-0.5,-1.5} \draw[guide] (-1.4,\y) -- (2.4,\y);},
 ]
 % #1 name, (#2,#3) centre, #4 kind, #5 step, #6 title, #7 what it does, #8 picture,
 % #9 height [mm]
@@ -47,21 +35,21 @@
   \pic[scale=0.75] at ([shift={(-5,-4.6)}]#1.north east) {#8};}
 % inputs
 \pipebox{design}{16.5}{0}{data}{1}{Design}{ship class, drive and one rig with its area\inpaper{, \S\ref{sec:ships}}}{shipwithkite}{22}
-\pipebox{inputs}{130.5}{0}{data}{3}{Inputs}{prices, lives and goals, each with its range and source\inpaper{, \cref{sec:inputs}}}{pages}{22}
+\pipebox{inputs}{130.5}{0}{data}{3}{Inputs}{prices, lives and goals, each with its range and source\inpaper{, \cref{sec:inputs}}}{inputs icon}{22}
 % one operating point
 \pipebox{apparent}{16.5}{-36}{ship}{4}{Apparent wind}{ship speed and true wind give the wind at the rig\inpaper{, \S\ref{sec:deck_rigs}}}{windtriangle}{22}
 \pipebox{rigs}{54.5}{-36}{rig}{5}{Rig forces}{thrust and side force of kite\inpaper{ \S\ref{sec:kite}}, wings or rotors\inpaper{ \S\ref{sec:deck_rigs}}}{polar}{22}
 \pipebox{balance}{92.5}{-36}{ship}{6}{Force balance}{hull, rudder and windage hold the side force: drag and leeway\inpaper{, \S\ref{sec:balance}}}{topview}{22}
-\pipebox{power}{130.5}{-36}{ship}{7}{Required thrust}{hull, air and wave resistance less the rig's thrust\inpaper{, \S\ref{sec:ships}}}{ship icon}{22}
+\pipebox{power}{130.5}{-36}{ship}{7}{Required thrust}{hull, air and wave resistance less the rig's thrust\inpaper{, \S\ref{sec:ships}}}{small ship}{22}
 % voyages and cost
-\pipebox{table}{16.5}{-70}{voyage}{8}{Performance table}{required thrust over speed, wind and waves\inpaper{, \S\ref{sec:routes}}}{grid}{26}
+\pipebox{table}{16.5}{-70}{voyage}{8}{Performance table}{required thrust over speed, wind and waves\inpaper{, \S\ref{sec:routes}}}{table icon}{26}
 \node[voyage box, minimum width=62mm, minimum height=26mm] (router) at (69,-70) {};
 \node[step number] at ([shift={(2.8,-2.8)}]router.north west) {9};
 \node[box title, anchor=north west] at ([shift={(5.8,-1.3)}]router.north west) {Weather router};
 \node[box text, anchor=north west, text width=58mm] at ([shift={(2,-8.3)}]router.north west) {sails tracks and speeds through the corridor, with fuel from propeller and engine, and keeps the cheapest voyage (fuel, price of time, kite launches and wear), giving its route, fuel and hours\inpaper{, \S\ref{sec:routing}}};
 \pic[scale=0.75] at ([shift={(-5,-4.6)}]router.north east) {route};
-\pipebox{cost}{130.5}{-70}{cost}{10}{Cost per tonne-km}{all departures: fuel, capital, crew, ports, wear, cargo interest\inpaper{, \S\ref{sec:cost_model}}}{costbar}{26}
-\pipebox{weather}{54.5}{-110}{data}{2}{Weather}{hourly wind and waves 2017--2019 on six routes\inpaper{, \S\ref{sec:routes}}}{weathermap}{22}
+\pipebox{cost}{130.5}{-70}{cost}{10}{Cost per tonne-km}{all departures: fuel, capital, crew, ports, wear, cargo interest\inpaper{, \S\ref{sec:cost_model}}}{cost icon}{26}
+\pipebox{weather}{54.5}{-110}{data}{2}{Weather}{hourly wind and waves 2017--2019 on six routes\inpaper{, \S\ref{sec:routes}}}{weather icon}{22}
 \pipebox{compare}{92.5}{-110}{cost}{12}{Comparison}{saving of the best size against the same ship without a rig\inpaper{, \S\ref{sec:results}}}{bars}{22}
 \pipebox{search}{130.5}{-110}{cost}{11}{Rig-size search}{next area until the cost is lowest\inpaper{, \S\ref{sec:deck_rigs}}}{search}{22}
 % loops

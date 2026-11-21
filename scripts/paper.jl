@@ -22,20 +22,12 @@
 # and table steps LaTeX to paper/sections/; draft results are marked in the paper. The
 # LaTeX build is separate.
 using CairoMakie
-using Dates
-using Printf
-using Statistics
-using WindShipOpt
 
-include("setup.jl")
+include("trips.jl")
 include("map_plotting.jl")
 
-root = joinpath(@__DIR__, "..")
 sections = mkpath(joinpath(root, "paper", "sections"))
 
-include("paper_runs.jl")
-include("size_search.jl")
-include("paper_data.jl")
 include("explorer_data.jl")
 include("passages_data.jl")
 include("grids_data.jl")
@@ -55,6 +47,7 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :canopy_life_data => canopy_life_data, :canopy_price_data => canopy_price_data,
     :situations_data => situations_data,
     :wind_angle_data => wind_angle_data, :route_tracks => route_tracks_data,
+    :router_search => router_search_data,
     :canopy_tension => canopy_tension_data,
     :abatement_data => abatement_data,
     :combination_data => combination_data,

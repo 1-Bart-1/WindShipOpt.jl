@@ -267,7 +267,7 @@ end
 
 "design keyword of each rig"
 rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area,
-    "rigid kite" => :rigid_kite_area)
+    "rigid kite" => :rigid_kite_area, "suction" => :suction_area)
 
 """
     rig_size(rig, area)
@@ -289,7 +289,8 @@ Length of the 140 m reference ship, or the ship class of name `ship`, for a desi
 study_hull(ship) = ship == "140 m" ? 140.0 : ship_classes()[ship]
 
 "reference size of each rig on the 140 m ship"
-reference_rigs = [("kite", 3200.0), ("wings", 1500.0), ("rotors", 800.0)]
+reference_rigs = [("kite", 3200.0), ("wings", 1500.0), ("rotors", 800.0),
+    ("suction", 800.0)]
 
 "projected area [m^2] and aspect ratio at `inputs` of the reference kite of the 140 m ship"
 reference_kite_shape(inputs) = (Dict(reference_rigs)["kite"], inputs[:kite_aspect_ratio])
@@ -299,7 +300,10 @@ reference_canopy_price(inputs) =
     WindShipOpt.canopy_price(inputs, reference_kite_shape(inputs)...)
 
 "the rigs, as named in the output"
-rig_names = ("kite", "wings", "rotors")
+rig_names = ("kite", "wings", "rotors", "suction")
+
+"the rigs that stand on deck, as named in the output"
+deck_rig_names = ("wings", "rotors", "suction")
 
 "the ship without a rig and the rigs, as named in the output"
 all_rigs = ("none", rig_names...)
@@ -353,9 +357,11 @@ situation_inputs = Dict(:vlsfo_price => ((8.0, 12.0, 22.0, 30.0), all_rigs),
 "rig sizes [m^2] of each ship of the situation study"
 situation_sizes = Dict(
     "140 m" => Dict("kite" => (800.0, 1600.0, 3200.0, 6400.0),
-        "wings" => (800.0, 1500.0, 2400.0), "rotors" => (400.0, 800.0, 1600.0)),
+        "wings" => (800.0, 1500.0, 2400.0), "rotors" => (400.0, 800.0, 1600.0),
+        "suction" => (400.0, 800.0, 1600.0)),
     "Kamsarmax bulk carrier" => Dict("kite" => (1600.0, 3200.0, 6400.0),
-        "wings" => (1600.0, 2400.0, 3600.0), "rotors" => (850.0, 1200.0, 1890.0)))
+        "wings" => (1600.0, 2400.0, 3600.0), "rotors" => (850.0, 1200.0, 1890.0),
+        "suction" => (850.0, 1200.0, 1890.0)))
 
 """
 Ship, route, drive and inputs of each part of the situation study: every input on the
@@ -778,17 +784,29 @@ function write_departures(name, cases, trips, columns...)
 end
 
 """
-    largest_area(rig_type, hull; forward_reserve=0)
+    deck_rig(rig, area, hull; forward_reserve=0)
 
-Largest total area [m^2] of `rig_type` (WingRig or RotorRig) that fits on `hull` behind
+The wings, suction sails or rotors `rig` of `area` [m^2] in all on `hull` behind
+`forward_reserve` [m] of deck, or `nothing` where they do not fit.
+"""
+function deck_rig(rig, area, hull; forward_reserve=0.0)
+    rig == "rotors" && return WindShipOpt.RotorRig(area, hull, assumptions; forward_reserve)
+    unit = rig == "suction" ? :suction : :wing
+    return WingRig(area, hull, assumptions; forward_reserve, unit)
+end
+
+"""
+    largest_area(rig, hull; forward_reserve=0)
+
+Largest total area [m^2] of the [`deck_rig`](@ref) `rig` that fits on `hull` behind
 `forward_reserve` [m] of deck, to the nearest 10 m^2.
 """
-function largest_area(rig_type, hull; forward_reserve=0.0)
+function largest_area(rig, hull; forward_reserve=0.0)
     low, high = 0.0, 20000.0
     while high - low > 10
         middle = (low + high) / 2
-        rig = rig_type(middle, hull, assumptions; forward_reserve)
-        isnothing(rig) ? (high = middle) : (low = middle)
+        fits = !isnothing(deck_rig(rig, middle, hull; forward_reserve))
+        fits ? (low = middle) : (high = middle)
     end
     return low
 end
@@ -797,13 +815,13 @@ end
     size_bounds(class)
 
 Smallest and largest area [m^2] searched for each rig on `class`: kites of 500 to
-64,000 m^2, wings and rotors of a fifth to all of what fits on deck.
+64,000 m^2, deck rigs of a fifth to all of what fits on deck.
 """
 function size_bounds(class)
     hull = Hull(class, assumptions)
     return Dict("kite" => (500.0, largest_rig_area("kite", hull)),
         (rig => (0.2largest_rig_area(rig, hull), largest_rig_area(rig, hull))
-         for rig in ("wings", "rotors"))...)
+         for rig in deck_rig_names)...)
 end
 
 """
@@ -813,7 +831,7 @@ Largest area [m^2] of `rig` on `hull`: what fits on deck, for a kite the search 
 """
 function largest_rig_area(rig, hull)
     rig == "kite" && return 64000.0
-    return largest_area(rig == "wings" ? WingRig : WindShipOpt.RotorRig, hull)
+    return largest_area(rig, hull)
 end
 
 """
@@ -828,6 +846,10 @@ function class_case(class::ShipClass, drive, rig, area, route; labels...)
     return trip_case(design; class=class.name, route, drive, rig, area,
         units=WindShipOpt.deck_units(built), columns=deck_columns(built), labels...)
 end
+
+"name in the output of the wings, suction sails or rotors `rig`"
+deck_rig_name(rig::WingRig) = rig.unit == :suction ? "suction" : "wings"
+deck_rig_name(::WindShipOpt.RotorRig) = "rotors"
 
 "columns the wings or rotors of `rig` stand in, 0 for a rig without them"
 deck_columns(rig::Union{WingRig, WindShipOpt.RotorRig}) = rig.columns
@@ -1041,7 +1063,7 @@ function gap_error(cells, weights, rig, rival)
 end
 
 "bands of the fleet's cost split by rig, in the order drawn"
-fleet_bands = ("kite", "level", "rotors", "wings", "none")
+fleet_bands = ("kite", "level", "rotors", "wings", "suction", "none")
 
 """
     fleet_leaders(savings, cells, weights=ones(length(cells)))
@@ -1146,6 +1168,25 @@ function cheapest_design(designs, drive, length, column)
     isempty(chosen) && return nothing
     return chosen[argmin(designs["cost"][chosen])]
 end
+
+"""
+    write_table(name; columns...)
+
+Write the equal-length `columns` to `name` in the directory of the run in use, headed by
+their names; integers and booleans as integers, other numbers to four decimals.
+"""
+function write_table(name; columns...)
+    open(run_file(name), "w") do io
+        println(io, join(keys(columns), ","))
+        for row in zip(values(columns)...)
+            println(io, join(table_field.(row), ","))
+        end
+    end
+end
+
+"`value` as a field of [`write_table`](@ref)"
+table_field(value::Integer) = string(Int(value))
+table_field(value::Real) = @sprintf("%.4f", value)
 
 """
     read_table(path)
@@ -1588,7 +1629,9 @@ Inputs of the development study that move several assumptions together, each wit
 end of every assumption's range that its high bound takes.
 """
 joint_inputs = (kite_weather_window=(kite_launch_sea_wind=:low, kite_launch_min_wind=:low,
-    kite_launch_max_wind=:high, kite_landing_max_wind=:high, kite_max_wind=:high),)
+        kite_launch_max_wind=:high, kite_landing_max_wind=:high, kite_max_wind=:high),
+    rig_out_of_service=(kite_out_of_service=:high, wing_out_of_service=:high,
+        rotor_out_of_service=:high, suction_out_of_service=:high))
 
 """
     bound_assumptions(name, bound)
@@ -1681,9 +1724,6 @@ development_inputs = [
     (input=:launch_mast_mass_per_size, label="kite launch mast mass", rig="kite",
         lever="price", reason="Its design sets the mass of the launch mast and docking " *
                               "head, the largest part of the kite's hardware price."),
-    (input=:kite_out_of_service, label="kite out of service", rig="kite",
-        lever="availability",
-        reason="What a maker's reliability work is worth; the same lever for every rig."),
     (input=:kite_launch_loss_probability, label="kites lost per launch", rig="kite",
         lever="availability",
         reason="What its launch and landing system's reliability is worth: unmeasured, " *
@@ -1705,8 +1745,12 @@ development_inputs = [
         reason="Structure sets a wing's price, which stands at its build-up."),
     (input=:wing_max_lift_coefficient, label="wing sail maximum lift", rig="wings",
         lever="force", reason="Flap and section design decide a wing's force."),
-    (input=:wing_out_of_service, label="wing sail out of service", rig="wings",
-        lever="availability", reason="The same reliability lever as for every rig."),
+    (input=:suction_cost_per_mass, label="suction sail cost per mass", rig="suction",
+        lever="price", reason="Structure and fans set a suction sail's price, which " *
+                              "stands at its build-up."),
+    (input=:suction_max_lift_coefficient, label="suction sail maximum lift",
+        rig="suction", lever="force",
+        reason="Section, slots and fan decide how far the flow stays attached."),
     (input=:rotor_cost_per_area, label="rotor cost per area", rig="rotors", lever="price",
         reason="Structure sets a rotor's price, which stands at its build-up."),
     (input=:rotor_lift_factor, label="rotor lift", rig="rotors", lever="force",
@@ -1714,8 +1758,10 @@ development_inputs = [
                "fit, so the range only reaches down to the CFD value."),
     (input=:rotor_max_wind, label="rotor highest wind", rig="rotors", lever="weather",
         reason="Up to which wind its drive and structure let a rotor keep spinning."),
-    (input=:rotor_out_of_service, label="rotor out of service", rig="rotors",
-        lever="availability", reason="The same reliability lever as for every rig."),
+    (input=:rig_out_of_service, label="out of service", rig="every rig",
+        lever="availability",
+        reason="What a maker's reliability work is worth: one goal for every rig, moved " *
+               "for all at once."),
     (input=:e_ammonia_price, label="e-ammonia price", rig="condition", lever="condition",
         reason="Not for a developer to change: the fuel bill a rig cuts on the zero-" *
                "emission fuel."),
@@ -1850,7 +1896,8 @@ end
 
 "input of each rig holding the share of its units' round trips out of service"
 out_of_service_inputs = Dict("kite" => "kite_out_of_service",
-    "wings" => "wing_out_of_service", "rotors" => "rotor_out_of_service")
+    "wings" => "wing_out_of_service", "rotors" => "rotor_out_of_service",
+    "suction" => "suction_out_of_service")
 
 """
     service_shares(rig)
@@ -2016,8 +2063,8 @@ abatement_ships = (("140 m", :caribbean), ("Kamsarmax bulk carrier", :tubarao))
     abatement_data()
 
 Each ship of `abatement_ships` on each drive without a rig and with every rig over its
-range of sizes, kites from 400 to 12,800 m^2 and wings and rotors from a tenth to all of
-the deck capacity: abatement.csv.
+range of sizes, kites from 400 to 12,800 m^2 and deck rigs from a tenth to all of the deck
+capacity: abatement.csv.
 """
 function abatement_data()
     cases = []
@@ -2025,8 +2072,7 @@ function abatement_data()
         hull = Ship(ShipDesign(drive, study_hull(ship)), assumptions).hull
         fractions = [0.1, 0.2, 0.35, 0.5, 0.7, 1.0]
         sizes = Dict("none" => [0.0], "kite" => [400.0 * 2^(k / 2) for k in 0:10],
-            "wings" => fractions .* largest_area(WingRig, hull),
-            "rotors" => fractions .* largest_area(WindShipOpt.RotorRig, hull))
+            (rig => fractions .* largest_area(rig, hull) for rig in deck_rig_names)...)
         for rig in all_rigs, area in sizes[rig]
             design = ShipDesign(drive, study_hull(ship); rig_size(rig, area)...)
             push!(cases, trip_case(design; route, ship, drive, rig, area))
@@ -2295,7 +2341,7 @@ function combination_data()
         hull = Hull(class, assumptions)
         kite = best_area(classes_table, name, string(route), string(drive), "kite")
         rotors = best_area(classes_table, name, string(route), string(drive), "rotors")
-        room = largest_area(WindShipOpt.RotorRig, hull;
+        room = largest_area("rotors", hull;
             forward_reserve=WindShipOpt.launch_mast_reserve(assumptions))
         for (rig, kite_area, rotor_area) in
             [("none", 0.0, 0.0); pair_sizes(kite, rotors, kites, (0.2room, room))]
@@ -2980,7 +3026,9 @@ rig_price_inputs = Dict("kite" => kite_price_inputs,
     "wings" => (:wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction,
         :market_price_factor),
     "rotors" => (:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
-        :market_price_factor))
+        :market_price_factor),
+    "suction" => (:wing_unit_cost, :suction_cost_per_mass, :suction_mass_per_area,
+        :wing_installation_fraction, :market_price_factor))
 
 """
     compared_kite(kind, inputs)

@@ -401,6 +401,61 @@ wing_lifetime:
   high: 30.0
   unit: years
   reason: "Oceanbird designs the Wing 560 for 25 years [@oceanbird2026wing560] and BAR states a 25-year operational life for WindWings [@bar2026windwings]; @emsa2023 takes more than 20 years for wind-propulsion assets."
+# --- suction sail ---
+suction_max_lift_coefficient:
+  value: 4.9
+  low: 4.3
+  high: 6.0
+  unit: "-"
+  reason: "Highest lift of the VentiFoil, the one point of lift and drag its maker gave to the WASP project, at 22 degrees [@wasp2023wp3, Fig. 3]; its maker does not publish the polar [@ghorbani2024suction, p.31]. Low: the total force coefficient of 4.9 measured by strain gauges on two VentiFoils at sea [@ghorbani2024suction, Fig. 12] with the drag of the base, sqrt(4.9^2 - 2.4^2) = 4.3. High: the lift coefficient of 6 a digital twin of the same ship took from the maker's data [@wasp2023wp3, p.25]."
+suction_drag_coefficient:
+  value: 2.4
+  low: 1.7
+  high: 2.9
+  unit: "-"
+  reason: "Drag of the VentiFoil at its highest lift, the maker's point [@wasp2023wp3, Fig. 3]; drag rises with the square of lift to it. Low: Cousteau's suction section at its highest suction, drag 1.409 over lift 8.394 [@vangelderen2026, Fig. 3.10], at the base lift, 0.82, plus the induced drag of a wing of aspect ratio 6.6 at the wing sails' endplate factor and span efficiency, 4.9^2 / (pi 6.6 x 1.4 x 0.9) = 0.92, together 1.7; high: the authors' estimate, as far above the base."
+suction_fan_power_per_area:
+  value: 470.0
+  low: 370.0
+  high: 470.0
+  unit: W/m^2
+  reason: "Fan power of a VentiFoil per m^2 of its chord times span at the highest wind it works in: two 7.5 kW ventilators [@conoship2022econowind] on two foils of 10.3 m by 1.55 m mean chord, 32 m^2. It falls with the cube of the apparent wind below that, as its maker models it [@smeets2024ventofoil, Eq. 3.4]. Low: the 11 kW ventilator of each 10 m by 3 m VentiFoil on the Frisian Sea [@ghorbani2023twin, Sec. 2.2; @werner2022frisian, Table 3]."
+suction_max_wind:
+  value: 17.0
+  low: 17.0
+  high: 17.0
+  unit: m/s
+  reason: "Highest apparent wind a VentiFoil works in [@conoship2022econowind], above which it lies down; its fans reach their full power there."
+suction_aspect_ratio:
+  value: 6.6
+  low: 6.6
+  high: 6.6
+  unit: "-"
+  reason: "Span over mean chord of a VentiFoil: 10.3 m over 1.80 to 1.30 m [@conoship2022econowind]."
+suction_max_height:
+  value: 26.0
+  low: 26.0
+  high: 26.0
+  unit: m
+  reason: "Height of the tallest suction sails built: four 26 m eSAILs on the Atlantic Orchard [@offshoreenergy2025orchard]."
+suction_mass_per_area:
+  value: 0.30
+  low: 0.30
+  high: 0.60
+  unit: t/m^2
+  reason: "Suction sail with its foundation per m^2: the eConowind unit, two aluminium VentiFoils of 32 m^2 in all in a steel 40 ft container, weighs 9.6 t [@conoship2022econowind]. High: twice that, as wing sails go from 0.13 t/m^2 for small hard sails to 0.27 for the largest [@emsa2023, Table 4; @riviera2024windwing; @bar2026windwings], for a taller sail that carries more than twice a wing sail's force per m^2."
+suction_cost_per_mass:
+  value: 3.3
+  low: 1.6
+  high: 8.3
+  unit: USD/kg
+  reason: "Manufacturing cost of a suction sail with its foundation per kg, priced as a wing sail is: the wing sail's 665 USD/m^2 on its 0.25 t/m^2, 2.7 USD/kg, and fans and motors at the rotor's USD 400 per kW of drive, 470 W/m^2 on 300 kg/m^2, 0.6 USD/kg. Bounds: the wing sail's low and high cost per m^2 on the same mass, 1.2 and 7.0 USD/kg, with drives at 250 and 800 USD/kW."
+suction_lifetime:
+  value: 25.0
+  low: 20.0
+  high: 30.0
+  unit: years
+  reason: "Goal: the design life of a wing sail, whose structure a suction sail shares, as no maker of suction sails states one; the range is the wing sail's."
 rotor_aspect_ratio:
   value: 6.0
   low: 5.0
@@ -1118,6 +1173,13 @@ wing_out_of_service:
   unit: "-"
   today: 0.03
   reason: "Goal, the same for all rigs: share of round trips with a wing out of service though the wind would allow it; units fail independently. Base: the rotors of the Estraden could be used 97 % of the time, a measure its operator does not define [@spliethoff2021]. Low: 99.6 % operational availability on the Canopee, stated by maker and owner without a definition [@oceanwings2025]. High: the authors' estimate. Today: the rotors' record, the base, as no wing sail has one but its maker's statement."
+suction_out_of_service:
+  value: 0.03
+  low: 0.004
+  high: 0.15
+  unit: "-"
+  today: 0.03
+  reason: "Goal, the same for all rigs: share of round trips with a suction sail out of service though the wind would allow it; units fail independently. Base, low and high as for wing sails; today the rotors' record, as no suction sail has one."
 
 rotor_out_of_service:
   value: 0.03

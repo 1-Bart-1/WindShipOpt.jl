@@ -13,6 +13,7 @@ using Base.ScopedValues: ScopedValue, with
 using Random: Random
 using Statistics: mean
 using Dates: DateTime, Dates
+using FileWatching.Pidfile: trymkpidlock
 using Mmap: Mmap
 using Optim: Optim
 using TOML: TOML

@@ -23,9 +23,11 @@
   \node[panel] at (-28,44) {(a) Towing kite};
   \pic {sea};
   \pic[scale=0.27] at (8.7,2.1) {launch mast};
-  \draw[kite!45, densely dashed] plot[smooth cycle, tension=1] coordinates {(2.5,39.7) (7,43.2) (11.5,39.7) (16,35.5) (20.5,39) (16,42.9) (11.5,38.3) (7,34.8)};
-  \coordinate (canopy) at (13.8,37.6);
-  \draw[kite, shorten >=0.27*18mm] (8.7,2.1) -- (canopy);
+  % the figure eight, the kite at the outer end of its right lobe, flying up
+  \coordinate (canopy) at (11,37.6);
+  \draw[kite!45, densely dashed] plot[variable=\t, domain=0:360, samples=145]
+    ([shift={({9*sin(\t)-9},{4.5*sin(2*\t)})}]canopy);
+  \draw[kite, shorten >=0.27*15mm] (8.7,2.1) -- (canopy);
   \path (8.7,2.1) -- (canopy) pic[pos=0.5, sloped] {tether break}
     pic[pos=1, sloped, rotate=-90, scale=0.27] {kite};
   \draw[force, kite] (8.7,2.1) -- ++(5,0);
