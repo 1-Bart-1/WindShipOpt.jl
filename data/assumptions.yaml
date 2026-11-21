@@ -549,8 +549,8 @@ suction_mass_exponent:
   low: 2.5
   high: 3.2
   unit: "-"
-  source: "Geometric similarity; @econowind2026ventofoil: 18 and 35 m units"
-  reason: "Exponent k of the suction sail's mass on its height beyond the tallest built, mass per m^2 growing as height^(k-2): geometric similarity at equal stress gives 3; one maker's 18 m and 35 m VentoFoils, 7 t and 58 t [@econowind2026ventofoil], give 3.2, the high bound; low: the advanced wind-turbine blade, 2.53 [@fingersh2006]."
+  source: "Geometric similarity; @econowind2026vf3; @econowind2026vf5: 18 and 35 m units"
+  reason: "Exponent k of the suction sail's mass on its height beyond the tallest built, mass per m^2 growing as height^(k-2): geometric similarity at equal stress gives 3; one maker's 18 m and 35 m VentoFoils, 7 t and 58 t [@econowind2026vf3; @econowind2026vf5], give 3.2, the high bound; low: the advanced wind-turbine blade, 2.53 [@fingersh2006]."
 suction_mass_per_area:
   value: 0.30
   low: 0.30
