@@ -1,11 +1,10 @@
 % SPDX-FileCopyrightText: 2026 Bart van de Lint
 % SPDX-License-Identifier: AGPL-3.0-or-later
 % The pictures every schematic figure shares: the paper's 140 m ship from the side, from
-% ahead and from above, its rigs, and the icons that stand for a concept. Ships and rigs
-% are drawn in metres, the origin at midship on the waterline (from the side and from
-% above, bow to the right) or on the centreline at the waterline (from ahead), so that a
-% figure scales them with `scale` [mm per m] and `transform shape`; icons are drawn in
-% millimetres about their centre, about 8 mm across.
+% ahead and from above, and its rigs. They are drawn in metres, the origin at midship on
+% the waterline (from the side and from above, bow to the right) or on the centreline at
+% the waterline (from ahead), so that a figure scales them with `scale` [mm per m] and
+% `transform shape`. The icons that stand for a concept come from the figure style.
 \tikzset{
   % the ship from the side: dark below the waterline, topsides above it, light bulwark
   ship side/.pic={
@@ -81,34 +80,6 @@
   launch mast/.pic={
     \draw[keel, densely dashed] (0,0) -- (0,33.4);
     \fill[keel] (-2,33.4) -- (2,33.4) -- (3.4,35.2) -- (-3.4,35.2) -- cycle;},
-  % icons
-  fuel icon/.pic={
-    \fill[icon] (-3.2,-3.6) rectangle (1,3.4);
-    \fill[white] (-2.4,0.8) rectangle (0.2,2.6);
-    \fill[icon] (-3.8,-4) rectangle (1.6,-3.4);
-    \draw[icon, icon line] (1,1.6) -- (2.2,1.6) -- (2.6,1.2) -- (2.6,-2.2)
-      .. controls (2.6,-2.9) and (3.5,-2.9) .. (3.5,-2.2) -- (3.5,0.6) -- (2.8,2.2);},
-  clock icon/.pic={
-    \draw[icon, icon line, fill=white] (0,0) circle (3.6);
-    \draw[icon, icon line] (0,2.4) -- (0,0) -- (1.8,-0.8);},
-  port icon/.pic={
-    \draw[icon, icon line] (0,2.8) circle (0.8) (0,2) -- (0,-3.6) (-1.8,1.2) -- (1.8,1.2)
-      (-3.4,-1.2) .. controls (-3,-3.4) and (-1.2,-3.6) .. (0,-3.6)
-      .. controls (1.2,-3.6) and (3,-3.4) .. (3.4,-1.2);
-    \fill[icon] (-3.4,-1.2) -- (-3.9,-0.4) -- (-2.6,-0.8) -- cycle
-      (3.4,-1.2) -- (3.9,-0.4) -- (2.6,-0.8) -- cycle;},
-  container icon/.pic={
-    \fill[icon] (-4,-2.6) rectangle (4,2.6);
-    \foreach \x in {-2.8,-1.4,...,2.9} \fill[white] (\x-0.25,-1.9) rectangle (\x+0.25,1.9);},
-  money icon/.pic={
-    \draw[icon, icon line, fill=white] (0,0) circle (3.6);
-    \node[inner sep=0pt, text=icon, font=\bfseries] at (0,0) {\$};},
-  crew icon/.pic={
-    \fill[icon] (0,2.2) circle (1.4);
-    \fill[icon] (-2.6,-3.3) -- (-2.6,-1.2) arc[start angle=180, end angle=0, radius=2.6]
-      -- (2.6,-3.3) -- cycle;},
-  maintenance icon/.pic={
-    \fill[icon, rotate=45] (-4.2,-0.5) rectangle (2,0.5);
-    \fill[icon] (1.6,1.6) circle (1.6); \fill[white] (2.4,2.4) circle (0.9);},
-  ship icon/.pic={\pic[scale=0.055] {ship side};},
+  % the ship from the side, 8 mm long, the size of an icon
+  small ship/.pic={\pic[scale=0.055] {ship side};},
 }

@@ -230,6 +230,113 @@ tex_font(name) = @sprintf("\\fontsize{%g}{%g}\\selectfont", figure_style["sizes"
     1.2figure_style["sizes"][name])
 
 """
+    icon_path(d)
+
+The SVG path data `d` of an icon as a TikZ path in the icon's own units, each arc as
+cubic Bézier curves.
+"""
+function icon_path(d)
+    tikz = IOBuffer()
+    point(x, y) = @sprintf("(%.3f,%.3f)", x, y)
+    curve(c1, c2, to) = print(tikz, " .. controls ", point(c1...), " and ", point(c2...),
+        " .. ", point(to...))
+    tokens = [match.match for match in eachmatch(r"[A-Za-z]|-?(\d+\.?\d*|\.\d+)", d)]
+    arity = Dict('M' => 2, 'L' => 2, 'H' => 1, 'V' => 1, 'C' => 6, 'S' => 4, 'A' => 7,
+        'Z' => 0)
+    current, start, control = (0.0, 0.0), (0.0, 0.0), (0.0, 0.0)
+    command, i = 'M', 1
+    while i <= length(tokens)
+        if isletter(tokens[i][1])
+            command = tokens[i][1]
+            i += 1
+        end
+        relative = islowercase(command)
+        offset = relative ? current : (0.0, 0.0)
+        upper = uppercase(command)
+        haskey(arity, upper) || error("icon path command $command is not supported")
+        numbers = parse.(Float64, tokens[i:(i + arity[upper] - 1)])
+        i += arity[upper]
+        if upper == 'M'
+            current = start = control = Tuple(numbers .+ offset)
+            print(tikz, " ", point(current...))
+            command = relative ? 'l' : 'L'
+        elseif upper in ('L', 'H', 'V')
+            current = upper == 'H' ? (numbers[1] + offset[1], current[2]) :
+                      upper == 'V' ? (current[1], numbers[1] + offset[2]) :
+                      Tuple(numbers .+ offset)
+            control = current
+            print(tikz, " -- ", point(current...))
+        elseif upper in ('C', 'S')
+            first_control = upper == 'C' ? Tuple(numbers[1:2] .+ offset) :
+                            2 .* current .- control
+            control = Tuple(numbers[(end - 3):(end - 2)] .+ offset)
+            current = Tuple(numbers[(end - 1):end] .+ offset)
+            curve(first_control, control, current)
+        elseif upper == 'A'
+            to = Tuple(numbers[6:7] .+ offset)
+            for (c1, c2, stop) in arc_curves(current, to, numbers[1:5]...)
+                curve(c1, c2, stop)
+            end
+            current = control = to
+        else
+            print(tikz, " -- cycle")
+            current = control = start
+        end
+    end
+    return String(take!(tikz))
+end
+
+"""
+    arc_curves(from, to, rx, ry, rotation, large, sweep)
+
+The SVG elliptical arc from `from` to `to` as cubic Bézier curves of at most a quarter
+turn each: the control points and end of each.
+"""
+function arc_curves(from, to, rx, ry, rotation, large, sweep)
+    from == to && return []
+    φ = deg2rad(rotation)
+    rotate(x, y) = (cos(φ) * x - sin(φ) * y, sin(φ) * x + cos(φ) * y)
+    x1, y1 = cos(φ) * (from[1] - to[1]) / 2 + sin(φ) * (from[2] - to[2]) / 2,
+             -sin(φ) * (from[1] - to[1]) / 2 + cos(φ) * (from[2] - to[2]) / 2
+    scale = max(1, sqrt(x1^2 / rx^2 + y1^2 / ry^2))
+    rx, ry = scale * rx, scale * ry
+    root = sqrt(max(0, (rx^2 * ry^2 - rx^2 * y1^2 - ry^2 * x1^2) /
+                       (rx^2 * y1^2 + ry^2 * x1^2)))
+    root *= large == sweep ? -1 : 1
+    cx, cy = root * rx * y1 / ry, -root * ry * x1 / rx
+    centre = rotate(cx, cy) .+ (from .+ to) ./ 2
+    angle(u, v) = atan(v, u)
+    θ1 = angle((x1 - cx) / rx, (y1 - cy) / ry)
+    Δθ = mod(angle((-x1 - cx) / rx, (-y1 - cy) / ry) - θ1, 2π)
+    sweep == 0 && Δθ > 0 && (Δθ -= 2π)
+    pieces = ceil(Int, abs(Δθ) / (π / 2) - 1e-9)
+    step = Δθ / pieces
+    handle = 4 / 3 * tan(step / 4)
+    on_ellipse(θ) = rotate(rx * cos(θ), ry * sin(θ)) .+ centre
+    tangent(θ) = rotate(-rx * sin(θ), ry * cos(θ))
+    return [(on_ellipse(θ1 + (k - 1) * step) .+ handle .* tangent(θ1 + (k - 1) * step),
+             on_ellipse(θ1 + k * step) .- handle .* tangent(θ1 + k * step),
+             on_ellipse(θ1 + k * step)) for k in 1:pieces]
+end
+
+"""
+    icon_pics(io)
+
+Write to `io` the TikZ picture `<concept> icon` of each icon of [`figure_style`](@ref):
+the outline of its SVG in paper/icons/, `icon_size` across, centred on the origin and
+drawn in the colour and line weight of an icon.
+"""
+function icon_pics(io)
+    unit = @sprintf("%.4gpt", figure_style["sizes"]["icon_size"] / 24)
+    for (concept, name) in sort(collect(figure_style["icons"]))
+        svg = read(joinpath(root, "paper", "icons", name * ".svg"), String)
+        paths = [icon_path(found[1]) for found in eachmatch(r"<path d=\"([^\"]+)\"", svg)]
+        println(io, "  ", concept, " icon/.pic={\\draw[icon, icon line, x=", unit,
+            ", y=-", unit, ", shift={(-12,-12)}]", join(paths), ";},")
+    end
+end
+
+"""
     figure_style_file()
 
 Write [`figure_style`](@ref) to paper/figure_style.tex as xcolor colours and TikZ styles,
@@ -272,7 +379,8 @@ function figure_style_file()
         println(io, "  dimension/.style={<->, guide, line width=", tex_size("dimension"),
             "},")
         println(io, "  leader/.style={guide, line width=", tex_size("dimension"), "},")
-        println(io, "  icon line/.style={line width=", tex_size("flow"), "},")
+        println(io, "  icon line/.style={line width=", tex_size("icon"),
+            ", line cap=round, line join=round},")
         println(io, "  crossing/.style={draw=white, line width=", tex_size("crossing"),
             "},")
         println(io, "  label/.style={font=", tex_font("text"), ", inner sep=1pt, ",
@@ -293,6 +401,7 @@ function figure_style_file()
         println(io, "  step number/.style={circle, fill=black, text=white, font=",
             tex_font("note"), "\\bfseries, inner sep=0pt, minimum size=", tex_size("step"),
             "},")
+        icon_pics(io)
         println(io, "}")
         println(io, "\\input{figure_pics}")
     end
