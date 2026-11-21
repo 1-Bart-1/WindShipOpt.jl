@@ -1148,6 +1148,25 @@ function cheapest_design(designs, drive, length, column)
 end
 
 """
+    write_table(name; columns...)
+
+Write the equal-length `columns` to `name` in the directory of the run in use, headed by
+their names; integers and booleans as integers, other numbers to four decimals.
+"""
+function write_table(name; columns...)
+    open(run_file(name), "w") do io
+        println(io, join(keys(columns), ","))
+        for row in zip(values(columns)...)
+            println(io, join(table_field.(row), ","))
+        end
+    end
+end
+
+"`value` as a field of [`write_table`](@ref)"
+table_field(value::Integer) = string(Int(value))
+table_field(value::Real) = @sprintf("%.4f", value)
+
+"""
     read_table(path)
 
 Columns of a CSV file with a header line, as a Dict of name to vector; numbers parsed
@@ -1691,7 +1710,7 @@ development_inputs = [
     (input=:kite_max_force_per_area, label="kite force limit per area", rig="kite",
         lever="force",
         reason=string("Its structure decides the force each m\\textsuperscript{2} may ",
-            "carry; its cloth stays and lasts less at a higher limit.")),
+            "carry; cloth, seams, tether and winch grow with it.")),
     (input=:kite_min_turn_radius, label="kite smallest turn radius", rig="kite",
         lever="force", reason="Steering and control decide how tight, and so how " *
                               "powerful, a pattern can be."),
@@ -1796,7 +1815,6 @@ function base_kite_variants()
         ("recalibrated", low_aspect_ratio, (; kite_flight_drag=recalibrated));
         ("tether_15.5", design_aspect_ratio, (; tether_length_ratio=15.5));
         ("tether_19.7", design_aspect_ratio, (; tether_length_ratio=19.7));
-        ("force_0.9", design_aspect_ratio, (; kite_max_force_per_area=0.9));
         ("overhead_0.19", design_aspect_ratio, (; canopy_mass_overhead=0.19));
         noise_variants(assumptions[:tether_length_ratio],
             assumptions[:kite_min_turn_radius])]
@@ -1806,14 +1824,13 @@ end
     cargo_kite_variants()
 
 Variants of the kite that flew on cargo ships, as (name, projected area [m^2], changed
-inputs): the base, its flat size read as projected, the force limit of its design load, no
-flight drag, and canopy wear and launches free, with those of [`noise_variants`](@ref).
+inputs): the base, its flat size read as projected, no flight drag, and canopy wear and
+launches free, with those of [`noise_variants`](@ref).
 """
 function cargo_kite_variants()
     free = (; canopy_life=1e9, tether_lifetime=1e9, kite_cycle_crew_cost=0.0,
         kite_launch_loss_probability=0.0, kite_cycle_course_cost=0.0)
     return [("base", 125.0, (;)); ("flat_as_projected", 160.0, (;));
-        ("force_0.9", 125.0, (; kite_max_force_per_area=0.9));
         ("no_flight_drag", 125.0, (; kite_flight_drag=0.0));
         ("free_operation", 125.0, free);
         [(name, 125.0, changes)

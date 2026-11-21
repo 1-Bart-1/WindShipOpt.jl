@@ -31,8 +31,8 @@ wind_shear_exponent:
   low: 0.04
   high: 0.08
   unit: "-"
-  source: "Authors' fit to ERA5 profiles [@hersbach2020] over the study region"
-  reason: "Exponent of the mean power-law wind profile over the sea from 10 m to kite height: matches the mean ERA5 model-level profiles [@hersbach2020] over the study region in 2018 (1.12, 1.18 and 1.22 times the 10 m wind at 100, 270 and 540 m; the authors' analysis of ERA5). The low bound is the trade-wind belt (1.17 at 540 m), the high bound the North Atlantic north of 40 deg N and the IJmuiden lidar, which follow a logarithmic profile with 0.2 mm roughness up to 315 m [@kalverla2020thesis, Ch. 2; @schelbergen2020]."
+  source: "Authors' fit to ERA5 [@hersbach2020] over the study region's sea"
+  reason: "Exponent of the power-law wind profile over the sea from 10 m to the mid height of wing sails and rotors, on which a kite ship's performance table is also built; the kite itself takes the ERA5 wind at its own height. ERA5 [@hersbach2020] over the sea of the study region, 2017-2019, gives on average 1.15 times the 10 m wind at 100 m, an exponent of 0.06; 0.05 in the trade-wind belt (10-25 deg N) and 0.09 north of 40 deg N, which bound the range (the authors' analysis of the fields the model reads)."
 
 # --- reference hull, geometrically scaled with length ---
 reference_length:
@@ -820,19 +820,19 @@ kite_stall_margin:
   source: "Authors' estimate: bridle trim margin for gusts"
   reason: "Authors' estimate: margin below the angle of maximum lift that the bridle trim keeps in gusts."
 canopy_cloth_weight:
-  value: 200.0
-  low: 200.0
-  high: 200.0
+  value: 100.0
+  low: 100.0
+  high: 100.0
   unit: g/m^2
-  source: "Authors' estimate: about twice the cloth SkySails flew"
-  reason: "Weight of the polyester ripstop the canopy is sewn from at the reference force limit, on cells as wide as those of every kite (canopy_structure_chord); the cloth grows in proportion to the force limit, so it carries the same tension per weight and keeps the canopy life, as woven polyester sails of any weight, each sized to its load, are given one life [@flynn2015]. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+  source: "@paulig2013 [p. 561]: the cloth SkySails flew at its design load"
+  reason: "What SkySails flew: the polyester ripstop of its 160 kN ship kite, fabric of slightly above 100 g/m^2 at the reference force limit, its design load [@paulig2013, p. 561], on cells as wide as those of every kite (canopy_structure_chord). The cloth grows in proportion to the force limit, so it carries the same tension per weight and keeps the canopy life, as woven polyester sails of any weight, each sized to its load, are given one life [@flynn2015]. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
 canopy_cloth_reference_force:
-  value: 0.5
-  low: 0.5
-  high: 0.5
+  value: 0.9
+  low: 0.9
+  high: 0.9
   unit: kN/m^2
   source: "Set to the base force limit per area"
-  reason: "Force limit at which canopy_cloth_weight and canopy_mass_overhead are stated, the base kite_max_force_per_area."
+  reason: "Force limit at which canopy_cloth_weight and canopy_mass_overhead are stated: the design load per projected m^2 of the SkySails kite whose cloth canopy_cloth_weight is, the base kite_max_force_per_area."
 canopy_cloth_specific_strength:
   value: 170.0
   low: 170.0
@@ -884,12 +884,12 @@ canopy_chord_cells:
   source: "Authors' fit to 23 ram-air canopies"
   reason: "Chord over cell width of the kite canopy_structure_cost is taken to be for, whose cell width every kite keeps: 9.3 at 2.5 m mean chord, the centre of the line fitted through 23 ram-air canopy models: 17 paragliders of 7.4-13.4 (median 9.7) [@ozone_ultralite3; @ozone_ultralite4; @nova_prion; @advance_alpha8; @ozone_geo6; @ozone_spyder3; @ozone_rush3; @nova_mentor2; @ozone_rush5; @advance_iota_dls; @ozone_rush6; @ozone_zeno2; @ozone_enzo3; @advance_pibi; @advance_bibeta6; @ozone_magnum3; @ozone_magnum4] and a traction kite and five parafoils of 4.4-16 (median 10.1) [@flysurfer_soul4; @gavrilovski2012; @schairer2019; @geiger1990; @airborne_dragonfly]."
 canopy_mass_overhead:
-  value: 0.05
-  low: 0.02
+  value: 0.09
+  low: 0.04
   high: 0.19
   unit: kg/m^2
   source: "Authors' fit to paragliders [@ozone_ultralite3; @nova_mentor6]"
-  reason: "Canopy mass per m^2 of projected area besides its cloth, at a force limit of 0.5 kN/m^2 and in proportion to the force limit, as they carry the load at the bridle attachments: seams, tapes, reinforcements, line attachments and the bridle lines. Paragliders of 0.12-0.24 kg/m^2 projected [@ozone_ultralite3; @ozone_ultralite4; @nova_mentor6] carry 0-20 g/m^2 per flat m^2 besides their cloth, the authors' fit taking their stated weights to include lines and risers; the high bound is about what a 120 kg SkySails kite with lines, 225 m^2 flat, 176 m^2 projected, leaves beyond about 72 kg of cloth and 18 kg of lines, both the authors' estimates [@paulig2013], which load patches for the ~1 t point loads of a ship kite [@thedens2015_awesco_slides] could account for in part."
+  reason: "Canopy mass per m^2 of projected area besides its cloth, at the reference force limit and in proportion to the force limit, as they carry the load at the bridle attachments: seams, tapes, reinforcements, line attachments and the bridle lines. Paragliders of 0.12-0.24 kg/m^2 projected [@ozone_ultralite3; @ozone_ultralite4; @nova_mentor6] carry 0-20 g/m^2 per flat m^2 besides their cloth, the authors' fit of 0.05 kg/m^2 at 0.5 kN/m^2 taking their stated weights to include lines and risers; the high bound is about what a 120 kg SkySails kite with lines, 225 m^2 flat, 176 m^2 projected, leaves beyond about 72 kg of cloth and 18 kg of lines, both the authors' estimates [@paulig2013], which load patches for the ~1 t point loads of a ship kite [@thedens2015_awesco_slides] could account for in part."
 canopy_structure_cost:
   value: 45.0
   low: 45.0
@@ -931,7 +931,7 @@ canopy_structure_cloth_weight:
   high: 200.0
   unit: g/m^2
   source: "Authors' estimate: the cloth SkySails flew [@paulig2013]"
-  reason: "Cloth weight canopy_structure_cost is taken to be for, which the survey does not state: the authors' assumption of the slightly above 100 g/m^2 of the SkySails ship kite [@paulig2013], built for about the force per area of the surveyed kites. Bounds: kite and paraglider cloth of 27-55 g/m^2 [@porcher2006skytex_tds] and the canopy's own cloth."
+  reason: "Cloth weight canopy_structure_cost is taken to be for, which the survey does not state: the authors' assumption of the slightly above 100 g/m^2 of the SkySails ship kite [@paulig2013], the cloth of the base canopy. Bounds: kite and paraglider cloth of 27-55 g/m^2 [@porcher2006skytex_tds] and the canopy's own cloth."
 canopy_cloth_base_price:
   value: 11.0
   low: 2.0
@@ -1046,12 +1046,12 @@ kite_max_wind:
   source: "Authors' estimate; @noaa2009: SkySails design up to Beaufort 8"
   reason: "Authors' estimate; SkySails ship kites were designed for winds up to Beaufort 8 [@noaa2009]."
 kite_max_force_per_area:
-  value: 0.5
-  low: 0.4
-  high: 1.0
+  value: 0.9
+  low: 0.5
+  high: 1.3
   unit: kN/m^2
-  source: "@faggiani2018 [Table 16.1]; @kitepower2024: pumping kite designs"
-  reason: "Maximum wing loading on the projected area. A pumping kite design takes a maximum wing loading of 450 N/m^2 [@faggiani2018, Table 16.1]; Kitepower Falcon 3.5 t on 60-80 m^2 [@kitepower2024] (0.43-0.57 kN/m^2). SkySails design load on flat area: 160 kN on 225 m^2, about 0.7 kN/m^2 [@paulig2013], 0.9 on the projected area at 1.28 flat over projected [@folkersma2020]. The high bound is the wing load of up to 1 kN/m^2 in SkySails' operating experience [@skypower100_tib, sec. I.4]. Cloth, seams and reinforcements follow the limit, so the canopy keeps its life and the bounds carry its mass and price."
+  source: "@paulig2013 [p. 561]: SkySails' design load per projected area"
+  reason: "Maximum tether force per projected m^2, what SkySails flew: its ship kite's design load of 160 kN on a flat area of 225 m^2 [@paulig2013, p. 561], 176 m^2 projected at the 1.28 flat over projected of a SkySails kite [@folkersma2020, Table 1]. Its 320 kN kite, 400 m^2 flat [@paulig2013, p. 554; @skysails2018], carries 1.0. The high bound reads SkySails' wing loads of up to 1 kN/m^2 [@skypower100_tib, sec. I.4] on the flat area; the low bound is the pumping kites designed for 0.45 [@faggiani2018, Table 16.1] and 0.43-0.57 kN/m^2 [@kitepower2024]. Cloth, seams and reinforcements follow the limit, so the canopy keeps its life and the bounds carry its mass and price."
 kite_attach_height:
   value: 10.0
   low: 6.0
