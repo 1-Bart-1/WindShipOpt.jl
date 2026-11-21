@@ -1148,6 +1148,25 @@ function cheapest_design(designs, drive, length, column)
 end
 
 """
+    write_table(name; columns...)
+
+Write the equal-length `columns` to `name` in the directory of the run in use, headed by
+their names; integers and booleans as integers, other numbers to four decimals.
+"""
+function write_table(name; columns...)
+    open(run_file(name), "w") do io
+        println(io, join(keys(columns), ","))
+        for row in zip(values(columns)...)
+            println(io, join(table_field.(row), ","))
+        end
+    end
+end
+
+"`value` as a field of [`write_table`](@ref)"
+table_field(value::Integer) = string(Int(value))
+table_field(value::Real) = @sprintf("%.4f", value)
+
+"""
     read_table(path)
 
 Columns of a CSV file with a header line, as a Dict of name to vector; numbers parsed
