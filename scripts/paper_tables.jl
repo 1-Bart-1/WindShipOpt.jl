@@ -2271,19 +2271,49 @@ function suction_numbers_file()
 end
 
 """
+    suction_screen(trips, departures, ship)
+
+The screen of the suction sail on `ship` from the tables of suction_sail.csv `trips` and
+suction_departures.csv `departures`: the cost savings [%] of its rigs over their
+departures, the best of the soft kite, wing sails and rotors, and whether that rig
+[`leads`](@ref) the suction sails at base inputs clearly, with the error of the gap.
+"""
+function suction_screen(trips, departures, ship)
+    rigs = ["none", rig_names..., ("suction " .* suction_scenarios)...]
+    costs = Dict(rig => departures["cost"][sort(rows(departures, "class" => ship,
+                     "rig" => rig); by=row -> departures["date"][row])] for rig in rigs)
+    cell = (; departures=costs)
+    n = length(costs["none"])
+    savings = Dict(rig => departure_saving(cell, rig, 1:n) for rig in rigs)
+    best = argmax(rig -> savings[rig], rig_names)
+    error = gap_error([cell], [1.0], best, "suction base")
+    units = only(trips["units"][rows(trips, "class" => ship, "rig" => "suction base")])
+    return (; savings, best, units, error=first(error),
+        trails=leads(best, "suction base", savings[best] - savings["suction base"], error))
+end
+
+"the ships of `suction_screen_ships` as the macros of the suction numbers name them"
+suction_screen_words = ("Development", "Container", "Bulk")
+
+"each main rig as the text of the paper names it"
+rig_words = Dict("kite" => "the soft kite", "wings" => "wing sails", "rotors" => "rotors")
+
+"""
     suction_numbers()
 
 Name and text of the numbers of the suction sail studies: from suction_cost.csv the area,
 price, thrust, fan power and yearly cost per thrust of one suction sail of the tallest
-built at base inputs, its price and yearly cost per thrust at favourable and unfavourable
-inputs, the thrust and both costs per thrust of one wing sail of the tallest built, and
-the ratio of their yearly costs; from suction_sail.csv the units and cost savings [%] of
-suction sails of their cheapest size in each scenario, and of the soft kite, wing sails
-and rotors, on each route.
+built at base inputs, its yearly cost per thrust at favourable and unfavourable inputs,
+the thrust, price and costs per thrust of one wing sail of the tallest built, and the
+ratio of their yearly costs; for each ship of the screen ([`suction_screen`](@ref)) the
+units and cost savings [%] of the suction sails in each scenario, the best other rig and
+its saving, the error of their gap and whether the suction sails trail it clearly; and
+whether they pass the screen, trailing clearly on no ship.
 """
 function suction_numbers()
     sails = read_table(data_file("suction_cost.csv"))
     trips = read_table(data_file("suction_sail.csv"))
+    departures = read_table(data_file("suction_departures.csv"))
     row(kind) = only(rows(sails, "kind" => kind))
     rounded(value) = @sprintf("\\num{%.0f}", round(value, sigdigits=3))
     per_thrust(column, row) = 1e3sails[column][row] / sails["thrust"][row]
@@ -2304,22 +2334,23 @@ function suction_numbers()
         push!(numbers, "Suction$(uppercasefirst(scenario))Cost" =>
             rounded(per_thrust("capital", row("suction " * scenario))))
     end
-    compared = ["kite", "wings", "rotors", ("suction " .* suction_scenarios)...]
-    for (route, word) in zip(pair_routes, ("Guadeloupe", "Bilbao"))
-        conditions(class) = ("class" => class, "route" => string(route))
-        savings = [rig_savings(trips, compared, conditions(class)...)
-                   for class in pair_classes]
-        for (rig, rig_word) in ("kite" => "Kite", "wings" => "Wings", "rotors" => "Rotors",
-            "suction favourable" => "Favourable", "suction unfavourable" => "Unfavourable")
-            push!(numbers, "SuctionRouted$(word)$(rig_word)" =>
-                point_range([saving[rig] for saving in savings]))
-        end
-        push!(numbers, "SuctionRouted$(word)Suction" =>
-            saving_phrase([saving["suction base"] for saving in savings]))
-        units = [only(trips["units"][rows(trips, conditions(class)...,
-                     "rig" => "suction base")]) for class in pair_classes]
-        push!(numbers, "SuctionRouted$(word)Units" => point_range(units))
+    screens = [suction_screen(trips, departures, ship) for ship in suction_screen_ships]
+    for (word, screen) in zip(suction_screen_words, screens)
+        (; savings, best) = screen
+        append!(numbers, [
+            "SuctionScreen$(word)Suction" => whole_number(savings["suction base"]),
+            "SuctionScreen$(word)Favourable" => whole_number(savings["suction favourable"]),
+            "SuctionScreen$(word)Unfavourable" =>
+                whole_number(savings["suction unfavourable"]),
+            "SuctionScreen$(word)Best" => whole_number(savings[best]),
+            "SuctionScreen$(word)BestRig" => rig_words[best],
+            "SuctionScreen$(word)Units" => string(screen.units),
+            "SuctionScreen$(word)Error" => @sprintf("%.1f", screen.error),
+            "SuctionScreen$(word)Verdict" => screen.trails ? "trails it clearly" :
+                                             "is level with it or ahead"])
     end
+    push!(numbers, "SuctionScreenResult" =>
+        all(screen -> screen.trails, screens) ? "fails" : "passes")
     return numbers
 end
 

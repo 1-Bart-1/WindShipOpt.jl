@@ -3198,9 +3198,8 @@ function rigid_kite_figure()
 end
 
 "rigs of the suction sail figure's savings with their legend labels and colours"
-suction_sail_rigs = (("kite", "best soft kite", palette[1]),
-    ("wings", "best wing sails", palette[2]), ("rotors", "best rotors", palette[3]),
-    ("suction base", "best suction sails", suction_colour))
+suction_sail_rigs = (("kite", "soft kite", palette[1]), ("wings", "wing sails", palette[2]),
+    ("rotors", "rotors", palette[3]), ("suction base", "suction sails", suction_colour))
 
 """
     suction_sail_figure()
@@ -3208,7 +3207,7 @@ suction_sail_rigs = (("kite", "best soft kite", palette[1]),
 (a) Yearly capital and maintenance cost per unit of thrust at 12 m/s on a beam course of
 one suction sail and one wing sail of the tallest built, the suction sail with a bar from
 its favourable to its unfavourable inputs; (b) cost saving against no rig on e-ammonia of
-each rig of `suction_sail_rigs` on each ship and route of the suction sail study, the
+each rig of `suction_sail_rigs` on each ship of `suction_screen_ships` to Guadeloupe, the
 suction sails with the same bar. Prints both.
 """
 function suction_sail_figure()
@@ -3220,11 +3219,10 @@ function suction_sail_figure()
     figure = Figure(size=(page_width, 200))
     cost_axis = Axis(figure[1, 1]; title="(a) one sail, 12 m/s",
         ylabel="USD/kN a year", xticks=(1:2, ["suction\nsail", "wing\nsail"]))
-    groups = vec([(class, route) for route in pair_routes, class in pair_classes])
-    saving_axis = Axis(figure[1, 2]; title="(b) on e-ammonia", ylabel="cost saving [%]",
-        xticks=(eachindex(groups),
-            ["$(replace(class, " bulk carrier" => ""))\n$(route_label(string(route)))"
-             for (class, route) in groups]))
+    saving_axis = Axis(figure[1, 2]; title="(b) to Guadeloupe on e-ammonia",
+        ylabel="cost saving [%]", xticks=(eachindex(suction_screen_ships),
+            replace.(collect(suction_screen_ships), " container ship" => "\ncontainer ship",
+                " bulk carrier" => "\nbulk carrier")))
     barplot!(cost_axis, [1, 2], yearly.(["suction base", "wings"]); width=0.6,
         color=[suction_colour, palette[2]])
     rangebars!(cost_axis, [1], [yearly("suction favourable")],
@@ -3234,8 +3232,8 @@ function suction_sail_figure()
     @printf("  USD/kN a year: suction %.0f (%.0f to %.0f), wing %.0f\n",
         yearly.(["suction base", "suction favourable", "suction unfavourable", "wings"])...)
     names = [first.(suction_sail_rigs); "suction favourable"; "suction unfavourable"]
-    for (group, (class, route)) in enumerate(groups)
-        savings = rig_savings(table, names, "class" => class, "route" => string(route))
+    for (group, ship) in enumerate(suction_screen_ships)
+        savings = rig_savings(table, names, "class" => ship)
         for (k, (rig, _, colour)) in enumerate(suction_sail_rigs)
             barplot!(saving_axis, [group + 0.2(k - 2.5)], [savings[rig]]; width=0.18,
                 color=colour)
@@ -3243,8 +3241,8 @@ function suction_sail_figure()
         rangebars!(saving_axis, [group + 0.3], [savings["suction unfavourable"]],
             [savings["suction favourable"]]; color=:black, linewidth=goal_width,
             whiskerwidth=whisker_width)
-        @printf("  %s, %s: %s\n", class, route, join([@sprintf("%s %.1f %%", rig,
-            savings[rig]) for rig in names], ", "))
+        @printf("  %s: %s\n", ship, join([@sprintf("%s %.1f %%", rig, savings[rig])
+                                           for rig in names], ", "))
     end
     reference_line!(saving_axis)
     Legend(figure[2, 1:2],

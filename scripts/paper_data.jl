@@ -817,17 +817,21 @@ function largest_rig_area(rig, hull)
 end
 
 """
-    class_case(class, drive, rig, area, route; labels...)
+    class_case(ship, drive, rig, area, route; labels...)
 
-Round-trip case of `class` with `drive` and `area` [m^2] of `rig` ("none" for no rig)
-on `route`, tagged with `labels`.
+Round-trip case of `ship`, a ship class or the length [m] of a scaled reference ship, with
+`drive` and `area` [m^2] of `rig` ("none" for no rig) on `route`, tagged with `labels`.
 """
-function class_case(class::ShipClass, drive, rig, area, route; labels...)
-    design = ShipDesign(drive, class; rig_size(rig, area)...)
+function class_case(ship, drive, rig, area, route; labels...)
+    design = ShipDesign(drive, ship; rig_size(rig, area)...)
     built = Ship(design, assumptions).rig
-    return trip_case(design; class=class.name, route, drive, rig, area,
+    return trip_case(design; class=ship_label(ship), route, drive, rig, area,
         units=WindShipOpt.deck_units(built), columns=deck_columns(built), labels...)
 end
+
+"name of `ship` in the output: a class's name, or the length of a reference ship"
+ship_label(class::ShipClass) = class.name
+ship_label(length::Real) = "$(round(Int, length)) m"
 
 "columns the wings or rotors of `rig` stand in, 0 for a rig without them"
 deck_columns(rig::Union{WingRig, WindShipOpt.RotorRig}) = rig.columns
@@ -1251,7 +1255,8 @@ fleet_split_of(table, drive) = fleet_split(fleet_cells(table, drive))
 """
     searched_sizes(ships, rounds; rigs=rig_names)
 
-Cases and round trips of each (class, drive, route) of `ships` without a rig and of the
+Cases and round trips of each (ship, drive, route) of `ships`, the ship a class or the
+length of a reference ship, without a rig and of the
 search for the cheapest size of each of `rigs`: three starting sizes, then `rounds` more
 sizes from [`next_size`](@ref). Each case is tagged with the `round` that added it, 0 for
 the starting sizes.
@@ -1287,13 +1292,14 @@ end
 """
     record_sizes!(searches, cases, trips)
 
-Fill each size search, keyed by ship class, drive, rig and route, with the (area, cost)
-of every case run for it; infeasible trips cost `Inf`.
+Fill each size search, keyed by ship class or reference length, drive, rig and route, with
+the (area, cost) of every case run for it; infeasible trips cost `Inf`.
 """
 function record_sizes!(searches, cases, trips)
     foreach(empty!, values(searches))
     for (case, trip) in zip(cases, trips)
-        key = (case.design.class, case.drive, case.rig, case.route)
+        ship = something(case.design.class, case.design.length)
+        key = (ship, case.drive, case.rig, case.route)
         haskey(searches, key) || continue
         push!(searches[key], (case.area, isnothing(trip) ? Inf : trip.cost_per_tonne_km))
     end
@@ -3120,44 +3126,60 @@ function suction_cost_data()
     end
 end
 
+"ships the suction sail is screened on to Guadeloupe on e-ammonia: the development case,
+a container ship and a bulk carrier"
+suction_screen_ships = ("140 m", "feeder container ship", "Kamsarmax bulk carrier")
+
+"""
+    screened_rig_area(classes_table, ship, rig)
+
+Area [m^2] of `rig` on `ship` to Guadeloupe on e-ammonia that the suction sail is screened
+against: its best size in the class table `classes_table`, on the 140 m ship its reference
+size.
+"""
+screened_rig_area(classes_table, ship::ShipClass, rig) =
+    best_area(classes_table, ship.name, "caribbean", "ammonia", rig)
+screened_rig_area(classes_table, ship::Real, rig) = Dict(reference_rigs)[rig]
+
 """
     suction_sail_data()
 
-Each class of `pair_classes` on each of `pair_routes` on e-ammonia: the search for the
+Each ship of [`suction_screen_ships`](@ref) to Guadeloupe on e-ammonia: the search for the
 cheapest size of suction sails at base inputs, suction_search.csv; and without a rig, with
-each other rig at its best size in classes.csv and with suction sails of their cheapest
-size for each of `suction_scenarios`, suction_sail.csv.
+each other rig at its [`screened_rig_area`](@ref) and with suction sails of their
+cheapest size for each of `suction_scenarios`, suction_sail.csv, with each departure,
+suction_departures.csv.
 """
 function suction_sail_data()
-    classes = ship_classes()
-    ships = [(classes[name], :ammonia, route) for name in pair_classes, route in pair_routes]
-    search, trips = searched_sizes(vec(ships), run_settings().size_rounds;
-        rigs=("suction",))
+    ships = [(study_hull(name), :ammonia, :caribbean) for name in suction_screen_ships]
+    search, trips = searched_sizes(ships, run_settings().size_rounds; rigs=("suction",))
     write_trips("suction_search.csv", search, trips, :class, :route, :drive, :rig, :area,
         :units, :round)
     classes_table = read_table(data_file("classes.csv"))
     cases = []
-    for (class, drive, route) in ships
+    for (ship, drive, route) in ships
         searched = [(case.area, trip.cost_per_tonne_km)
                     for (case, trip) in zip(search, trips)
                     if !isnothing(trip) && case.rig == "suction" &&
-                       case.class == class.name && case.route == route]
+                       case.class == ship_label(ship)]
         best = first(argmin(last, searched))
-        push!(cases, class_case(class, drive, "none", 0.0, route))
+        push!(cases, class_case(ship, drive, "none", 0.0, route))
         for rig in rig_names
-            area = best_area(classes_table, class.name, string(route), "ammonia", rig)
-            push!(cases, class_case(class, drive, rig, area, route))
+            area = screened_rig_area(classes_table, ship, rig)
+            push!(cases, class_case(ship, drive, rig, area, route))
         end
+        design = ShipDesign(drive, ship; suction_area=best)
+        units = WindShipOpt.deck_units(Ship(design, assumptions).rig)
         for scenario in suction_scenarios
-            design = ShipDesign(drive, class; suction_area=best)
-            built = Ship(design, assumptions).rig
             push!(cases, trip_case(design; assumptions=suction_assumptions(scenario),
-                class=class.name, route, drive, rig="suction " * scenario, area=best,
-                units=WindShipOpt.deck_units(built)))
+                class=ship_label(ship), route, drive, rig="suction " * scenario,
+                area=best, units))
         end
     end
-    write_trips("suction_sail.csv", cases, round_trips(cases, sampled_departures()),
-        :class, :route, :drive, :rig, :area, :units)
+    trips = round_trips(cases, sampled_departures())
+    write_trips("suction_sail.csv", cases, trips, :class, :route, :drive, :rig, :area,
+        :units)
+    write_departures("suction_departures.csv", cases, trips, :class, :route, :rig)
 end
 
 "ship, drive, and kite, wing sail and rotor areas [m^2] of the router decisions study"
