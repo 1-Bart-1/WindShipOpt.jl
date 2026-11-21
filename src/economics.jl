@@ -265,7 +265,8 @@ rig_costs(rig::CombinedRig, assumptions) =
     rig_costs(rig.kite, assumptions) .+ rig_costs(rig.standing, assumptions)
 
 rig_costs(rig::WingRig, assumptions) =
-    deck_rig_costs(rig, assumptions, :wing_lifetime, :wing_mass_per_area)
+    deck_rig_costs(rig, assumptions, Symbol(rig.unit, :_lifetime),
+        Symbol(rig.unit, :_mass_per_area))
 rig_costs(rig::RotorRig, assumptions) =
     deck_rig_costs(rig, assumptions, :rotor_lifetime, :rotor_mass_per_area)
 
@@ -342,19 +343,31 @@ for the hover, ship-side controls and integration of VTOL kites, without their a
 rig_price_parts(::Nothing, assumptions) = (;)
 
 rig_price_parts(rig::WingRig, assumptions) = deck_price_parts(rig.count, total_area(rig),
-    assumptions, :wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction)
+    assumptions, :wing_unit_cost, surface_cost(rig, assumptions),
+    :wing_installation_fraction)
 rig_price_parts(rig::RotorRig, assumptions) = deck_price_parts(rig.count, total_area(rig),
-    assumptions, :rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction)
+    assumptions, :rotor_unit_cost, assumptions[:rotor_cost_per_area],
+    :rotor_installation_fraction)
+
+"""
+    surface_cost(rig::WingRig, assumptions)
+
+Manufacturing cost [USD/m^2] of the wings of `rig` per m^2: that of wing sails, or the
+mass of suction sails per m^2 at their cost per kg.
+"""
+surface_cost(rig::WingRig, assumptions) = rig.unit == :suction ?
+    1e3assumptions[:suction_mass_per_area] * assumptions[:suction_cost_per_mass] :
+    assumptions[:wing_cost_per_area]
 
 """
     deck_price_parts(count, area, assumptions, unit_cost, cost_per_area, fraction)
 
-[`rig_price_parts`](@ref) of `count` wings or rotors of `area` [m^2] in all, with the names
-of their assumptions.
+[`rig_price_parts`](@ref) of `count` wings or rotors of `area` [m^2] in all at
+`cost_per_area` [USD/m^2], with the names of their other assumptions.
 """
 function deck_price_parts(count, area, assumptions, unit_cost, cost_per_area, fraction)
     units = count * assumptions[unit_cost]
-    surface = assumptions[cost_per_area] * area
+    surface = cost_per_area * area
     return (; units, surface, installation=assumptions[fraction] * (units + surface))
 end
 
@@ -717,7 +730,8 @@ store_round_trip_cost(price, hours, assumptions::Assumptions) =
 
 Share of the round trips [-] that a unit of `rig` sails out of service.
 """
-out_of_service_share(::WingRig, assumptions) = assumptions[:wing_out_of_service]
+out_of_service_share(rig::WingRig, assumptions) =
+    assumptions[Symbol(rig.unit, :_out_of_service)]
 out_of_service_share(::RotorRig, assumptions) = assumptions[:rotor_out_of_service]
 out_of_service_share(::KiteRig, assumptions) = assumptions[:kite_out_of_service]
 

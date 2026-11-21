@@ -276,7 +276,7 @@ end
 
 """
     ShipDesign(drive, length; wing_area=0, kite_area=0, kite_aspect_ratio=nothing,
-        rotor_area=0)
+        rotor_area=0, rigid_kite_area=0, suction_area=0)
     ShipDesign(drive, class::ShipClass; kwargs...)
 
 Design point of the optimization. `drive` names a [`Drive`](@ref): `:vlsfo`, `:methanol`
@@ -284,7 +284,8 @@ or `:ammonia`. A positive `wing_area` adds rigid wings of that total area [m^2],
 positive `kite_area` a towing kite of that projected area and projected
 `kite_aspect_ratio`, by default the assumption `kite_aspect_ratio`, a positive
 `rigid_kite_area` rigid VTOL kites of about that total area, a positive `rotor_area`
-Flettner rotors of that total height times diameter. A kite may fly over wings or rotors as
+Flettner rotors of that total height times diameter, a positive `suction_area` suction
+sails of that total area, which stand alone. A kite may fly over wings or rotors as
 a [`CombinedRig`](@ref); wings and rotors exclude each other. A rig area that is not finite
 is an `ArgumentError`. With a `class` the hull, engine power, price and cargo value are
 those of the class, otherwise the reference coaster is scaled to `length`.
@@ -298,13 +299,14 @@ Base.@kwdef struct ShipDesign
     kite_aspect_ratio::Union{Nothing, Float64} = nothing
     rotor_area::Float64 = 0.0
     rigid_kite_area::Float64 = 0.0
+    suction_area::Float64 = 0.0
     class::Union{Nothing, ShipClass} = nothing
     function ShipDesign(drive, length, wing_area, kite_area, kite_aspect_ratio, rotor_area,
-            rigid_kite_area, class)
-        all(isfinite, (wing_area, kite_area, rotor_area, rigid_kite_area)) ||
+            rigid_kite_area, suction_area, class)
+        all(isfinite, (wing_area, kite_area, rotor_area, rigid_kite_area, suction_area)) ||
             throw(ArgumentError("a rig area must be finite"))
         return new(drive, length, wing_area, kite_area, kite_aspect_ratio, rotor_area,
-            rigid_kite_area, class)
+            rigid_kite_area, suction_area, class)
     end
 end
 
@@ -437,7 +439,7 @@ end
 
 has_rig(design::ShipDesign) =
     any(>(0), (design.wing_area, design.kite_area, design.rotor_area,
-        design.rigid_kite_area))
+        design.rigid_kite_area, design.suction_area))
 
 """
     kite_aspect_ratio(design, assumptions)
@@ -449,6 +451,12 @@ kite_aspect_ratio(design::ShipDesign, assumptions::Assumptions) =
     something(design.kite_aspect_ratio, assumptions[:kite_aspect_ratio])
 
 function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions)
+    if design.suction_area > 0
+        any(>(0), (design.wing_area, design.kite_area, design.rotor_area,
+            design.rigid_kite_area)) &&
+            throw(ArgumentError("suction sails stand alone on a design"))
+        return WingRig(design.suction_area, hull, assumptions; unit=:suction)
+    end
     if design.rigid_kite_area > 0
         any(>(0), (design.wing_area, design.kite_area, design.rotor_area)) &&
             throw(ArgumentError("rigid kites fly alone on a design"))
