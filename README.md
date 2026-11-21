@@ -39,13 +39,11 @@ tmux                   # the setup's weather download takes hours
 curl -fsSL https://raw.githubusercontent.com/1-Bart-1/WindShipOpt.jl/main/bin/delftblue_setup | bash
 exec bash -l           # puts julia on your PATH
 cd /scratch/$USER/WindShipOpt.jl
-echo 'export GITHUB_TOKEN=<token>' >> ~/.bashrc && exec bash -l   # once: the token below
 bin/cluster submit final        # or: bin/cluster submit draft
-bin/cluster keep                # in tmux, while the run goes: keeps it on GitHub
 bin/cluster status
 ```
 
-The setup can be rerun and resumes where it stopped; it ends by checking every weather file against the box's and names any that differ. Jobs go to the `innovation` account set in `scripts/cluster.toml`, which allows 24-hour jobs and 4 at once; a run resumes by itself past 24 hours. `/scratch` is cleared of old files, so every run is kept in a release of its commit on GitHub, from which any machine resumes or reads it ([`docs/paper_runs.md`](docs/paper_runs.md#where-a-run-is-kept)). Uploading needs a token with write access to this repository's releases: as a collaborator, make a classic personal access token with the `public_repo` scope at <https://github.com/settings/tokens>, and put it in `GITHUB_TOKEN` as above. Without one, a run warns that it is kept only on DelftBlue and goes on. Run `bin/weather` before a run that comes months after the setup. [`docs/paper_runs.md`](docs/paper_runs.md#runs-on-a-slurm-cluster) has the detail.
+The setup can be rerun and resumes where it stopped; it ends by checking every weather file against the box's and names any that differ. Jobs go to the `innovation` account set in `scripts/cluster.toml`, which allows 24-hour jobs and 4 at once; a run resumes by itself past 24 hours. `/scratch` is cleared of old files, so after a run, and now and then during one, keep it on GitHub from a laptop or the box with `bin/runs push <run> <netid>@login.delftblue.tudelft.nl:/scratch/<netid>/WindShipOpt.jl`; `bin/runs pull <run> <same checkout>` puts it back to continue it there. Nobody signs in to GitHub on DelftBlue. Run `bin/weather` before a run that comes months after the setup. [`docs/paper_runs.md`](docs/paper_runs.md#runs-on-a-slurm-cluster) has the detail.
 
 To try the model on one ship without the paper: `./bin/run_julia scripts/compare_designs.jl`.
 

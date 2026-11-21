@@ -16,12 +16,11 @@
 # only by name: paper/study_runs.toml records the run each comes from, which its figures
 # read and the paper names with its commit, and its tables are written only then.
 # Data steps write CSV files to a run directory output/runs/<start time>/ with the record
-# run.toml and the finished round trips, so that a run cut short resumes, and each run is
-# kept in a release of its commit on GitHub, from which it resumes on any machine; without
-# `resume` paper() asks whether to continue an unfinished run. A final run needs a clean
-# tree on a pushed commit; run.toml records the commit. Figure steps write PDFs to
-# paper/figures/ and table steps LaTeX to paper/sections/; draft results are marked in the
-# paper. The LaTeX build is separate.
+# run.toml and the finished round trips, so that a run cut short resumes; without `resume`
+# paper() asks whether to continue an unfinished run. A final run needs a clean tree on a
+# pushed commit; run.toml records the commit. Figure steps write PDFs to paper/figures/
+# and table steps LaTeX to paper/sections/; draft results are marked in the paper. The
+# LaTeX build is separate.
 using CairoMakie
 using Dates
 using Printf
@@ -35,7 +34,6 @@ root = joinpath(@__DIR__, "..")
 sections = mkpath(joinpath(root, "paper", "sections"))
 
 include("paper_runs.jl")
-include("github_releases.jl")
 include("size_search.jl")
 include("paper_data.jl")
 include("explorer_data.jl")
@@ -137,10 +135,9 @@ output_steps = [:kite => kite_figure, :deck_rigs => deck_rig_figure,
 
 Run the named steps, or every data step of the results and then every figure and table
 step when no name is given, at `fidelity` (:draft or :final); `:data` and `:figures` run all
-steps of that kind. Any step but figures and tables alone runs in a new or resumed run, kept
-on GitHub ([`keep_run`](@ref)): `resume` true takes the latest unfinished run at `fidelity`
-on this git branch, after fetching those kept for this commit, false none, and nothing asks
-on stdin.
+steps of that kind. Any step but figures and tables alone runs in a new or resumed run:
+`resume` true takes the latest unfinished run at `fidelity` on this git branch, false none,
+and nothing asks on stdin.
 Steps that run has done are skipped, and it counts as finished once every step asked of it
 is done. Round trips the case store holds for the code and inputs are reused. A draft with
 `only`, labels and their values such as `(class="handysize", route=:caribbean)`, computes
@@ -164,7 +161,6 @@ when all of them are among the figure and table steps `outputs`.
 """
 function run_steps(steps, outputs; fidelity, resume, only=nothing)
     haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
-    global run_releases = default_releases()
     global paper_run = all(in(outputs), first.(steps)) ? PaperRun(fidelity) :
                        open_run(fidelity, first.(steps), resume; only)
     for (name, step) in steps

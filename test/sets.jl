@@ -3073,6 +3073,7 @@ module PaperRuns
 root = pkgdir(Main.WindShipOpt)
 include(joinpath(root, "scripts", "paper_runs.jl"))
 include(joinpath(root, "scripts", "run_estimate.jl"))
+include(joinpath(root, "scripts", "run_releases.jl"))
 runs_directory = mktempdir()
 end
 
@@ -3441,43 +3442,46 @@ end
 """
     StubReleases
 
-Releases standing in for GitHub's: each asset a file in `directory`, under its tag.
+Releases standing in for GitHub's: each asset a file with its label, by tag and name.
 """
 struct StubReleases
-    directory::String
+    assets::Dict{Tuple{String, String}, Tuple{String, String}}
 end
 
-PaperRuns.replace_asset(releases::StubReleases, tag, commit, name, path) =
-    cp(path, joinpath(mkpath(joinpath(releases.directory, tag)), name); force=true)
+StubReleases() = StubReleases(Dict{Tuple{String, String}, Tuple{String, String}}())
 
-function PaperRuns.download_asset(releases::StubReleases, tag, name, path)
-    asset = joinpath(releases.directory, tag, name)
-    isfile(asset) && cp(asset, path; force=true)
-    return isfile(asset)
+PaperRuns.run_assets(releases::StubReleases) =
+    [PaperRuns.RunAsset(tag, name, label) for ((tag, name), (label, _)) in releases.assets]
+
+PaperRuns.replace_asset(releases::StubReleases, tag, commit, name, label, path) =
+    releases.assets[(tag, name)] = (label, cp(path, tempname()))
+
+PaperRuns.download_asset(releases::StubReleases, tag, name, path) =
+    cp(last(releases.assets[(tag, name)]), path)
+
+"""
+    in_checkout(checkout=mktempdir())
+
+Path of the repository `checkout`, made the one whose runs and case store are in use.
+"""
+function in_checkout(checkout=mktempdir())
+    @eval PaperRuns runs_directory = joinpath($checkout, "output", "runs")
+    @eval PaperRuns cases_directory = joinpath($checkout, "output", "cases")
+    return checkout
 end
 
 """
-    on_new_machine()
+    written_run(name, steps; commit="c", fidelity="draft", study=false)
 
-Give the runs and the case store empty directories, as on a machine that has neither.
+Write run `name` of `commit` at `fidelity` with `steps` steps done, one of them a method
+study's record where `study`, in the checkout in use.
 """
-function on_new_machine()
-    output = mktempdir()
-    @eval PaperRuns runs_directory = joinpath($output, "runs")
-    @eval PaperRuns cases_directory = joinpath($output, "cases")
-end
-
-"""
-    written_run(name, commit, dirty; branch="b", steps=0)
-
-Directory of a draft run `name` of `commit`, with a dirty tree where `dirty`, on `branch`,
-recording `steps` steps done.
-"""
-function written_run(name, commit, dirty; branch="b", steps=0)
+function written_run(name, steps; commit="c", fidelity="draft", study=false)
+    names = [study ? "sea_effect_record" : "classes"; ["step $k" for k in 2:steps]]
+    record = Dict("fidelity" => fidelity, "finished" => "", "git_commit" => commit,
+        "git_dirty" => false, "git_branch" => "b",
+        "steps" => [Dict("name" => name) for name in names[1:steps]])
     directory = mkpath(joinpath(PaperRuns.runs_directory, name))
-    record = Dict("fidelity" => "draft", "finished" => "", "git_commit" => commit,
-        "git_dirty" => dirty, "git_branch" => branch,
-        "steps" => [Dict("name" => "step $k") for k in 1:steps])
     open(io -> PaperRuns.TOML.print(io, record), joinpath(directory, "run.toml"), "w")
     return directory
 end
@@ -3485,46 +3489,44 @@ end
 """
     stored_files(store, names)
 
-Touch the case-store entries `names` in the store `store`.
+Write the case-store entries `names` in the store `store` of the checkout in use.
 """
-stored_files(store, names) =
-    foreach(name -> touch(joinpath(mkpath(joinpath(PaperRuns.cases_directory, store)),
-        name)), names)
+stored_files(store, names) = foreach(name -> write(joinpath(mkpath(joinpath(
+    PaperRuns.cases_directory, store)), name), name), names)
 
-@testset "a commit's archive holds its clean runs and the round trips they use" begin
-    on_new_machine()
-    kept = written_run("2026-01-01T0000", "c", false)
-    written_run("2026-01-01T0001", "c", true)
-    written_run("2026-01-01T0002", "d", false)
-    mkpath(joinpath(kept, "cases"))
-    write(joinpath(kept, "cases", "classes.csv"), "case,store,commit,dirty,trip_model," *
-        "processor\n\"class=a, b\",\"s1\",\"c\",\"false\",\"m1\",\"cpu\"\n")
-    write(joinpath(kept, "cases", "stores.csv"), "store,trip_model\n\"s2\",\"m3\"\n")
+@testset "a pushed run carries the round trips it uses and no others" begin
+    checkout = in_checkout()
+    directory = written_run("2026-01-01T0000", 1)
+    mkpath(joinpath(directory, "cases"))
+    write(joinpath(directory, "cases", "classes.csv"), "case,store,commit,dirty," *
+        "trip_model,processor\n\"class=a, b\",\"s1\",\"c\",\"false\",\"m1\",\"cpu\"\n")
+    write(joinpath(directory, "cases", "stores.csv"), "store,trip_model\n\"s2\",\"m3\"\n")
     stored_files("s1", ["m1-1.bin", "m2-1.bin"])
     stored_files("s2", ["m3-1.bin", "m3-2.bin", "m1-1.bin"])
-    archive = joinpath(mktempdir(), "draft.tar.gz")
-    PaperRuns.write_archive(archive, :draft, "c", mktempdir())
-    members = filter(!endswith("/"), readlines(`tar -tzf $archive`))
-    @test sort(members) == ["./cases/s1/m1-1.bin", "./cases/s2/m3-1.bin",
-        "./cases/s2/m3-2.bin", "./runs/2026-01-01T0000/cases/classes.csv",
-        "./runs/2026-01-01T0000/cases/stores.csv", "./runs/2026-01-01T0000/run.toml"]
+    stored_files("s3", ["m1-1.bin"])
+    releases = StubReleases()
+    PaperRuns.push_run(releases, "2026-01-01T0000", checkout)
+    label, archive = releases.assets[("run-c", "draft.tar.gz")]
+    @test label == "run 2026-01-01T0000, 1 steps"
+    @test sort(filter(!endswith("/"), readlines(`tar -tzf $archive`))) ==
+          ["cases/s1/m1-1.bin", "cases/s2/m3-1.bin", "cases/s2/m3-2.bin",
+           "runs/2026-01-01T0000/cases/classes.csv",
+           "runs/2026-01-01T0000/cases/stores.csv", "runs/2026-01-01T0000/run.toml"]
 end
 
-@testset "a run cut short resumes from its release on a machine without it" begin
-    on_new_machine()
-    releases = StubReleases(mktempdir())
+@testset "a run pulled onto a machine without it resumes there with its round trips" begin
+    first_machine = in_checkout()
     run = PaperRuns.open_run(:draft, [:designs, :routes], false)
-    run.record["git_dirty"] = false
     PaperRuns.run_step!(run, :designs, () -> touch(joinpath(run.directory, "designs.csv")))
     PaperRuns.paper_run = run
     store = joinpath(PaperRuns.cases_directory, "store")
     PaperRuns.note_stores(run, [store])
     PaperRuns.stored_trip(() -> 4.0, store, (; assumptions))
-    PaperRuns.keep_runs(releases, :draft, run.record["git_commit"])
-    on_new_machine()
-    PaperRuns.run_releases = releases
+    releases = StubReleases()
+    PaperRuns.push_run(releases, basename(run.directory), first_machine)
+    second_machine = in_checkout()
+    PaperRuns.pull_runs(releases, basename(run.directory), second_machine)
     resumed = PaperRuns.open_run(:draft, [:designs, :routes], true)
-    PaperRuns.run_releases = nothing
     @test basename(resumed.directory) == basename(run.directory)
     @test PaperRuns.step_done(resumed, :designs) && !PaperRuns.step_done(resumed, :routes)
     PaperRuns.paper_run = resumed
@@ -3532,20 +3534,36 @@ end
         (; assumptions)).trip == 4.0
 end
 
-@testset "a kept run never takes over another branch's run or a local one further on" begin
-    on_new_machine()
-    fetched = PaperRuns.runs_directory
-    for (name, branch, steps) in [("other", "a", 1), ("ahead", "b", 1), ("behind", "b", 2)]
-        written_run(name, "c", false; branch, steps)
-    end
-    on_new_machine()
-    written_run("ahead", "c", false; steps=2)
-    written_run("behind", "c", false; steps=1)
-    PaperRuns.merge_runs(fetched, :draft, "c", "b")
-    steps(name) = length(PaperRuns.TOML.parsefile(
-        joinpath(PaperRuns.runs_directory, name, "run.toml"))["steps"])
-    @test !isdir(joinpath(PaperRuns.runs_directory, "other"))
-    @test steps("ahead") == 2 && steps("behind") == 2
+@testset "a commit keeps its most complete run, and a pull never undoes steps" begin
+    checkout = in_checkout()
+    written_run("2026-01-01T0000", 2)
+    written_run("2026-01-01T0001", 2)
+    written_run("2026-01-01T0002", 3)
+    releases = StubReleases()
+    PaperRuns.push_run(releases, "2026-01-01T0000", checkout)
+    @test_throws "keeps run 2026-01-01T0000" PaperRuns.push_run(releases,
+        "2026-01-01T0001", checkout)
+    PaperRuns.push_run(releases, "2026-01-01T0002", checkout)
+    @test first(releases.assets[("run-c", "draft.tar.gz")]) ==
+          "run 2026-01-01T0002, 3 steps"
+    written_run("2026-01-01T0002", 4)
+    PaperRuns.pull_runs(releases, "c", checkout)
+    @test length(PaperRuns.TOML.parsefile(joinpath(PaperRuns.runs_directory,
+        "2026-01-01T0002", "run.toml"))["steps"]) == 4
+end
+
+@testset "a back-fill keeps a commit's named or most complete run, no unnamed study" begin
+    in_checkout()
+    written_run("2026-01-01T0000", 3)
+    written_run("2026-01-01T0001", 1; study=true)
+    written_run("2026-01-01T0002", 2; study=true)
+    written_run("2026-01-01T0003", 2; commit="d")
+    written_run("2026-01-01T0004", 5; commit="d")
+    written_run("2026-01-01T0005", 1; commit="d", fidelity="final")
+    studies = Dict("sea_effect" => Dict("run" => "2026-01-01T0001"))
+    kept, skipped = PaperRuns.backfill_runs(PaperRuns.runs_directory, studies)
+    @test kept == ["2026-01-01T0001", "2026-01-01T0004", "2026-01-01T0005"]
+    @test first.(skipped) == ["2026-01-01T0000", "2026-01-01T0002", "2026-01-01T0003"]
 end
 
 @testset "a final run's estimate counts the draft's cases and one more size search round" begin

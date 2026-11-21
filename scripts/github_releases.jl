@@ -1,146 +1,79 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# The releases on GitHub that keep the paper runs (run_releases.jl), written through the
-# GitHub CLI where it is installed, else through curl with the token in GITHUB_TOKEN, and
-# read from their public address. Included by paper.jl and cluster.jl.
+# The releases on GitHub that keep the paper runs (run_releases.jl): written through the
+# GitHub CLI as it is signed in, read from their public address. Included by runs.jl.
 using Downloads
-using JSON
 
-"repository whose releases keep the paper runs"
-RESULTS_REPOSITORY = "1-Bart-1/WindShipOpt.jl"
+"""
+    GitHubReleases
 
-"releases of `repository` written through the GitHub CLI, `gh`, as it is signed in"
-struct GhReleases
+The releases of a repository on GitHub.
+"""
+struct GitHubReleases
+    "owner/name of the repository"
     repository::String
 end
 
-"releases of `repository` written through curl with the token in GITHUB_TOKEN"
-struct CurlReleases
-    repository::String
-end
+"the releases of this repository, which keep its paper runs"
+paper_releases = GitHubReleases("1-Bart-1/WindShipOpt.jl")
 
 """
-    default_releases()
+    gh_api(releases, path, arguments...; jq=".")
 
-The releases of [`RESULTS_REPOSITORY`](@ref) through `gh` where it is installed, else
-through curl.
+Lines of what `jq` selects from the answer of `gh api` with `arguments` on `path` under
+the repository of `releases`; nothing where the answer is 404.
 """
-default_releases() = isnothing(Sys.which("gh")) ? CurlReleases(RESULTS_REPOSITORY) :
-                     GhReleases(RESULTS_REPOSITORY)
-
-function replace_asset(releases::Union{GhReleases, CurlReleases}, tag, commit, name, path)
-    release = github_api(releases, "GET", "releases/tags/$tag")
-    if isnothing(release)
-        release = github_api(releases, "POST", "releases"; body=Dict("tag_name" => tag,
-            "target_commitish" => commit, "name" => "Paper runs at $(first(commit, 7))",
-            "body" => "The paper runs of commit $commit, one archive per fidelity. " *
-                      "docs/paper_runs.md says how to fetch one and resume from it.",
-            "prerelease" => true, "make_latest" => "false"))
-    end
-    earlier = Dict(asset["name"] => asset["id"] for asset in release["assets"])
-    part = name * ".part"
-    haskey(earlier, part) && delete_asset(releases, earlier[part])
-    uploaded = upload_file(releases, release, path, part)
-    haskey(earlier, name) && delete_asset(releases, earlier[name])
-    github_api(releases, "PATCH", "releases/assets/$uploaded"; body=Dict("name" => name))
-end
-
-"delete the asset of id `asset` from the releases of `releases`"
-delete_asset(releases, asset) = github_api(releases, "DELETE", "releases/assets/$asset")
-
-"""
-    github_api(releases, method, path; body=nothing)
-
-Answer of GitHub's REST API to `method` on `path` under the repository of `releases`, with
-`body` sent as JSON: the parsed JSON, or nothing where it is empty or the API answers 404.
-"""
-function github_api(releases::GhReleases, method, path; body=nothing)
+function gh_api(releases::GitHubReleases, path, arguments...; jq=".")
     output, errors = IOBuffer(), IOBuffer()
-    input = isnothing(body) ? `` : `--input -`
-    command = `gh api -X $method repos/$(releases.repository)/$path $input`
-    stdin = IOBuffer(isnothing(body) ? "" : JSON.json(body))
-    if !success(pipeline(command; stdin, stdout=output, stderr=errors))
+    command = `gh api repos/$(releases.repository)/$path $arguments --jq $jq`
+    if !success(pipeline(command; stdout=output, stderr=errors))
         message = String(take!(errors))
         contains(message, "HTTP 404") && return nothing
-        error("gh api $method $path: ", message)
+        error("gh api $path: ", message)
     end
-    return parsed_json(String(take!(output)))
+    return split(String(take!(output)), '\n'; keepempty=false)
 end
 
-function github_api(releases::CurlReleases, method, path; body=nothing)
+function run_assets(releases::GitHubReleases)
+    jq = """.[] | select(.tag_name | startswith("run-")) | .tag_name as \$tag |
+        .assets[] | [\$tag, .name, .label] | @tsv"""
+    return [RunAsset(split(line, '\t')...)
+            for line in gh_api(releases, "releases", "--paginate"; jq)]
+end
+
+function replace_asset(releases::GitHubReleases, tag, commit, name, label, path)
+    release = gh_api(releases, "releases/tags/$tag"; jq=".id")
+    if isnothing(release)
+        release = gh_api(releases, "releases", "-X", "POST", "-f", "tag_name=$tag",
+            "-f", "target_commitish=$commit", "-f", "name=Paper run of $(first(commit, 7))",
+            "-f", "body=docs/paper_runs.md says how to pull a run from here.",
+            "-F", "prerelease=true", "-f", "make_latest=false"; jq=".id")
+    end
+    part = name * ".part"
+    earlier = asset_ids(releases, only(release))
+    haskey(earlier, part) && delete_asset(releases, earlier[part])
     mktempdir() do scratch
-        data = isnothing(body) ? nothing : joinpath(scratch, "body.json")
-        isnothing(data) || write(data, JSON.json(body))
-        return curl_json(method,
-            "https://api.github.com/repos/$(releases.repository)/$path", data,
-            "application/json")
+        upload = joinpath(scratch, part)
+        symlink(abspath(path), upload)
+        run(`gh release upload $tag $(upload * "#" * label) -R $(releases.repository)`)
     end
-end
-
-"parsed JSON of `text`, or nothing where it is empty"
-parsed_json(text) = isempty(strip(text)) ? nothing : JSON.parse(text)
-
-"""
-    curl_json(method, url, data, content_type)
-
-Parsed JSON answer of `method` on `url` with the file `data`, of `content_type`, as its
-body where it is not nothing, sent by curl with the token in GITHUB_TOKEN; nothing where the
-answer is empty or 404.
-"""
-function curl_json(method, url, data, content_type)
-    token = get(ENV, "GITHUB_TOKEN", "")
-    isempty(token) && error("GITHUB_TOKEN is not set; the README's section on DelftBlue ",
-        "says how to set it")
-    mktempdir() do scratch
-        answer = joinpath(scratch, "answer")
-        config = """
-            header = "Authorization: Bearer $token"
-            header = "Accept: application/vnd.github+json"
-            header = "Content-Type: $content_type"
-            """
-        body = isnothing(data) ? `` : `--data-binary @$data`
-        command = `curl -sS --connect-timeout 20 -X $method -o $answer -w "%{http_code}"
-            -K - $body $url`
-        status = parse(Int, read(pipeline(command; stdin=IOBuffer(config)), String))
-        text = isfile(answer) ? read(answer, String) : ""
-        status == 404 && return nothing
-        status < 300 || error("GitHub answered $status to $method $url: $text")
-        return parsed_json(text)
-    end
+    haskey(earlier, name) && delete_asset(releases, earlier[name])
+    uploaded = asset_ids(releases, only(release))[part]
+    gh_api(releases, "releases/assets/$uploaded", "-X", "PATCH", "-f", "name=$name",
+        "-f", "label=$label")
 end
 
 """
-    upload_file(releases, release, path, name)
+    asset_ids(releases, release)
 
-Upload the file at `path` as the asset `name` of `release`, a release as the API gives it;
-return the id of the new asset.
+The id of each asset of the release of id `release` of `releases`, by its name.
 """
-function upload_file(releases::GhReleases, release, path, name)
-    mktempdir() do scratch
-        named = joinpath(scratch, name)
-        symlink(abspath(path), named)
-        run(`gh release upload $(release["tag_name"]) $named -R $(releases.repository)`)
-    end
-    assets = github_api(releases, "GET", "releases/$(release["id"])")["assets"]
-    return only(asset["id"] for asset in assets if asset["name"] == name)
-end
+asset_ids(releases, release) = Dict(reverse.(Tuple.(split.(gh_api(releases,
+    "releases/$release"; jq=".assets[] | [(.id | tostring), .name] | @tsv"), '\t'))))
 
-function upload_file(releases::CurlReleases, release, path, name)
-    url = "https://uploads.github.com/repos/$(releases.repository)/releases/" *
-          "$(release["id"])/assets?name=$name"
-    return curl_json("POST", url, path, "application/gzip")["id"]
-end
+"delete the asset of id `asset` from the releases of `releases`"
+delete_asset(releases, asset) = gh_api(releases, "releases/assets/$asset", "-X", "DELETE")
 
-function download_asset(releases::Union{GhReleases, CurlReleases}, tag, name, path)
-    url = "https://github.com/$(releases.repository)/releases/download/$tag/$name"
-    try
-        Downloads.download(url, path)
-        return true
-    catch error
-        error isa Downloads.RequestError || rethrow()
-        reason = error.response.status == 0 ? error.message : error.response.message
-        println("no ", name, " in release ", tag, ": ", reason)
-        return false
-    end
-end
+download_asset(releases::GitHubReleases, tag, name, path) = Downloads.download(
+    "https://github.com/$(releases.repository)/releases/download/$tag/$name", path)

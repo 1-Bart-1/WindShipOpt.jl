@@ -142,7 +142,6 @@ function job_trips(jobs, cases, directories, departures)
     lacking = Int[]
     while any(!isnothing, handles)
         sleep(poll_seconds(jobs))
-        keep_run(paper_run; every=KEEP_MINUTES)
         alive = running(jobs, filter(!isnothing, handles))
         for shard in 1:shards
             handle = handles[shard]

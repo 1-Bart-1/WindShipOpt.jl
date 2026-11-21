@@ -1,192 +1,138 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Keeps each paper run as an asset of a release of its commit, so that no run lives only on
-# the machine that ran it: the runs of a commit at one fidelity, with the round trips they
-# use, go into one archive that replaces the last one after each step, every KEEP_MINUTES
-# while round trips compute, and at the end. A run resumes from that archive on any machine.
-# Included by paper_runs.jl; github_releases.jl reaches GitHub, test/sets.jl stands in for
-# it.
-
-"minutes between uploads of the run in use while its round trips compute"
-KEEP_MINUTES = 30
+# Keeps paper runs as assets of GitHub releases, so that no run lives only on the machine
+# that ran it. Each commit has one release, tagged run-<commit>, with at most one run per
+# fidelity: an archive of the run's directory and the round trips it uses, labelled with
+# the run's name and steps done. A run is copied with rsync from a checkout, here or on a
+# cluster, and back. Included by runs.jl after paper_runs.jl; github_releases.jl reaches
+# GitHub, and test/sets.jl stands in for it.
 
 "largest archive a release takes [B]"
 ASSET_LIMIT = 2^31
 
-"where the run in use keeps its results, or nothing to keep them only here"
-run_releases = nothing
-
-"time the run in use was last kept, or this process started"
-last_kept = Ref(now())
-
-"lock held while the run in use is kept, so that one thread uploads at a time"
-keeping = ReentrantLock()
-
 "tag of the release keeping the runs of `commit`"
 release_tag(commit) = "run-$commit"
 
-"name of the asset holding the runs at `fidelity`"
+"name of the asset holding the run at `fidelity`"
 asset_name(fidelity) = "$fidelity.tar.gz"
 
-"""
-    replace_asset(releases, tag, commit, name, path)
+"label of the asset holding run `name` of record `record`: its name and steps done"
+run_label(name, record) = "run $name, $(length(record["steps"])) steps"
 
-Upload the file at `path` as the asset `name` of the release `tag` of `releases`, made as a
-prerelease of `commit` where there is none, replacing the asset of that name only once the
-new one is uploaded.
+"""
+    labelled_run(label)
+
+Name and steps done of the run an asset labelled `label` ([`run_label`](@ref)) holds.
+"""
+function labelled_run(label)
+    found = match(r"^run (\S+), (\d+) steps$", label)
+    isnothing(found) && error("no run in the asset label \"$label\"")
+    return found[1], parse(Int, found[2])
+end
+
+"""
+    RunAsset
+
+An asset of a release keeping a run.
+"""
+struct RunAsset
+    "tag of its release"
+    tag::String
+    "file name, [`asset_name`](@ref)"
+    name::String
+    "label, [`run_label`](@ref)"
+    label::String
+end
+
+"""
+    run_assets(releases)
+
+Every [`RunAsset`](@ref) of the releases of `releases` that keep runs.
+"""
+function run_assets end
+
+"""
+    replace_asset(releases, tag, commit, name, label, path)
+
+Upload the file at `path` as the asset `name` labelled `label` of the release `tag` of
+`releases`, made as a prerelease of `commit` where there is none, replacing the asset of
+that name only once the new one is uploaded.
 """
 function replace_asset end
 
 """
     download_asset(releases, tag, name, path)
 
-Download the asset `name` of the release `tag` of `releases` to `path`; whether there was
-one to download, saying why where not.
+Download the asset `name` of the release `tag` of `releases` to `path`.
 """
 function download_asset end
 
 """
-    keep_run(run; every=0)
+    push_run(releases, name, checkout=root)
 
-Keep the runs at the fidelity and commit of `run` in [`run_releases`](@ref) as
-[`keep_commit`](@ref) does, unless no run is open, or the last upload was less than `every`
-minutes ago or another thread is uploading, where `every` is not 0.
+Copy run `name` and the round trips it uses from the repository `checkout`, a path here or
+`user@host:path`, and upload them as the asset of its fidelity in the release of its
+commit, unless that holds another run with at least as many steps done.
 """
-function keep_run(run; every=0)
-    (isnothing(run_releases) || isnothing(run.directory)) && return
-    now() - last_kept[] < Minute(every) && return
-    every == 0 ? lock(keeping) : trylock(keeping) || return
-    try
-        last_kept[] = now()
-        keep_commit(run_releases, run.fidelity, run.record["git_commit"],
-            run.record["git_dirty"])
-    finally
-        unlock(keeping)
-    end
-end
-
-"""
-    keep_commit(releases, fidelity, commit, dirty)
-
-Keep the runs at `fidelity` of `commit` in `releases` ([`keep_runs`](@ref)) where the tree
-is clean (`dirty` false) and `commit` pushed; otherwise warn that they stay only here.
-"""
-function keep_commit(releases, fidelity, commit, dirty)
-    dirty && return @warn "the $fidelity run is kept only on this machine: the tree " *
-                          "differs from commit $commit" maxlog = 1
-    is_pushed(commit) || return @warn "the $fidelity run is kept only on this machine " *
-                                      "until commit $commit is pushed" maxlog = 1
-    keep_runs(releases, fidelity, commit)
-end
-
-"""
-    keep_runs(releases, fidelity, commit)
-
-Upload the archive of the clean runs at `fidelity` of `commit` ([`write_archive`](@ref))
-to `releases` as the asset of that fidelity in the release of `commit`, replacing the one
-there; warn instead of failing where that cannot be done.
-"""
-function keep_runs(releases, fidelity, commit)
-    try
-        mktempdir(mkpath(dirname(runs_directory))) do scratch
-            archive = joinpath(scratch, asset_name(fidelity))
-            write_archive(archive, fidelity, commit, scratch)
-            size = filesize(archive)
-            size < ASSET_LIMIT || error("its archive of ", Base.format_bytes(size),
-                " is over GitHub's limit")
-            replace_asset(releases, release_tag(commit), commit, asset_name(fidelity),
-                archive)
-            println("  kept the $fidelity runs of ", first(commit, 7), " in release ",
-                release_tag(commit), " (", Base.format_bytes(size), ")")
+function push_run(releases, name, checkout=root)
+    mktempdir() do scratch
+        copy_run(checkout, name, scratch)
+        record = TOML.parsefile(joinpath(scratch, "runs", name, "run.toml"))
+        tag, asset = release_tag(record["git_commit"]), asset_name(record["fidelity"])
+        for kept in run_assets(releases)
+            (kept.tag, kept.name) == (tag, asset) || continue
+            other, steps = labelled_run(kept.label)
+            other != name && steps >= length(record["steps"]) &&
+                error("release $tag keeps run $other with $steps steps at ",
+                    record["fidelity"], " fidelity; run $name has no more")
         end
-    catch error
-        @warn "the $fidelity run is kept only on this machine: " * sprint(showerror, error)
+        archive = joinpath(scratch, asset)
+        run(`tar -czf $archive -C $scratch runs cases`)
+        size = filesize(archive)
+        size < ASSET_LIMIT || error("the archive of run $name, ",
+            Base.format_bytes(size), ", is over GitHub's limit")
+        replace_asset(releases, tag, record["git_commit"], asset, run_label(name, record),
+            archive)
+        println("pushed run ", name, " (", Base.format_bytes(size), ") to release ", tag)
     end
 end
 
 """
-    write_archive(path, fidelity, commit, scratch)
+    copy_run(checkout, name, scratch)
 
-Write to `path` a gzipped tar of the run directories at `fidelity` whose clean tree was at
-`commit`, under runs/, and the case-store entries they use ([`run_entries`](@ref)), under
-cases/, gathered in the directory `scratch`.
+Copy with rsync run `name` of the repository `checkout` to runs/ in the directory
+`scratch`, and the case-store entries it uses ([`run_entries`](@ref)) to cases/.
 """
-function write_archive(path, fidelity, commit, scratch)
-    directories = [directory for (directory, record) in fidelity_runs(fidelity)
-                   if get(record, "git_commit", "") == commit &&
-                      !get(record, "git_dirty", true)]
-    isempty(directories) && error("no clean $fidelity run of commit $commit")
-    staging = mkpath(joinpath(scratch, "staging"))
-    for directory in directories, (folder, _, files) in walkdir(directory)
-        for file in filter(!endswith(".tmp"), files)
-            source = joinpath(folder, file)
-            gather(source, joinpath(staging, "runs", relpath(source, runs_directory)))
+function copy_run(checkout, name, scratch)
+    occursin(r"^[\w.-]+$", name) || throw(ArgumentError("no run named $name"))
+    run(`rsync -a $checkout/output/runs/$name $(mkpath(joinpath(scratch, "runs")))`)
+    entries = run_entries(joinpath(scratch, "runs", name))
+    cases = mkpath(joinpath(scratch, "cases"))
+    isempty(entries) && return
+    filters = joinpath(scratch, "entries.txt")
+    open(filters, "w") do io
+        for (store, model) in entries
+            println(io, "+ /$store/\n+ /$store/$model-*.bin")
         end
+        println(io, "- *")
     end
-    for entry in run_entries(directories)
-        gather(entry, joinpath(staging, "cases", relpath(entry, cases_directory)))
-    end
-    run(`tar -czf $path -C $staging .`)
+    run(`rsync -a --filter=". $filters" $checkout/output/cases/ $cases`)
 end
 
 """
-    gather(source, target)
+    run_entries(directory)
 
-Hard-link the file `source` to `target`, or copy it where the file system cannot link.
+Case stores the run in `directory` uses, each with the round-trip code of the entries it
+takes, as its case records ([`write_cases`](@ref)) and stores in progress
+([`note_stores`](@ref)) list them.
 """
-function gather(source, target)
-    mkpath(dirname(target))
-    try
-        hardlink(source, target)
-    catch
-        cp(source, target)
-    end
-end
-
-"""
-    run_entries(directories)
-
-Paths of the case-store entries the runs in `directories` use: in each store their case
-records ([`write_cases`](@ref)) and stores in progress ([`note_stores`](@ref)) list, the
-entries of the round-trip code listed with it.
-"""
-function run_entries(directories)
-    listed = Set{Tuple{String, String}}()
-    for directory in directories
-        records = joinpath(directory, "cases")
-        isdir(records) || continue
-        for file in filter(endswith(".csv"), readdir(records; join=true))
-            union!(listed, (row["store"], row["trip_model"]) for row in csv_rows(file))
-        end
-    end
-    entries = String[]
-    for (store, model) in listed
-        directory = joinpath(cases_directory, store)
-        isdir(directory) || continue
-        append!(entries, filter(file -> startswith(basename(file), model * "-") &&
-                                        endswith(file, ".bin"),
-            readdir(directory; join=true)))
-    end
-    return entries
-end
-
-"""
-    note_stores(run, directories)
-
-Add to cases/stores.csv in the directory of `run` the case stores `directories` its round
-trips are about to come from, with its round-trip code, so that an archive taken before the
-step ends holds them.
-"""
-function note_stores(run, directories)
-    isnothing(run.directory) && return
-    path = joinpath(mkpath(joinpath(run.directory, "cases")), "stores.csv")
-    @lock run.tally.lock open(path, "a") do io
-        position(io) == 0 && println(io, "store,trip_model")
-        for directory in unique(directories)
-            println(io, csv_field(basename(directory)), ",", csv_field(run.trip_model))
-        end
-    end
+function run_entries(directory)
+    records = joinpath(directory, "cases")
+    isdir(records) || return Set{Tuple{String, String}}()
+    return Set((row["store"], row["trip_model"])
+               for file in readdir(records; join=true) if endswith(file, ".csv")
+               for row in csv_rows(file))
 end
 
 """
@@ -209,65 +155,82 @@ quoted_fields(line) = [replace(field.captures[1], "\"\"" => "\"")
                        for field in eachmatch(r"\"((?:[^\"]|\"\")*)\"", line)]
 
 """
-    fetch_runs(releases, fidelity)
+    pull_runs(releases, wanted, checkout=root)
 
-Bring the runs at `fidelity` kept in `releases` for the commit checked out here into this
-machine's runs and case store, where they are on this branch: a run missing here, or here
-with fewer steps done, is taken from the release, and every case-store entry missing here
-is added. Warn instead of failing where that cannot be done.
+Download the runs kept in `releases` whose name is `wanted`, or whose commit starts with
+it, into the repository `checkout`, a path here or `user@host:path` ([`place_run`]
+(@ref)).
 """
-function fetch_runs(releases, fidelity)
-    commit = git_output("rev-parse", "HEAD")
-    try
-        mktempdir(mkpath(dirname(runs_directory))) do scratch
-            archive = joinpath(scratch, asset_name(fidelity))
-            download_asset(releases, release_tag(commit), asset_name(fidelity), archive) ||
-                return
+function pull_runs(releases, wanted, checkout=root)
+    assets = filter(run_assets(releases)) do asset
+        endswith(asset.name, ".tar.gz") &&
+            (first(labelled_run(asset.label)) == wanted ||
+             startswith(asset.tag, release_tag(wanted)))
+    end
+    isempty(assets) && error("no release keeps a run named $wanted or of commit $wanted")
+    for asset in assets
+        mktempdir() do scratch
+            archive = joinpath(scratch, asset.name)
+            download_asset(releases, asset.tag, asset.name, archive)
             run(`tar -xzf $archive -C $scratch`)
-            merge_runs(joinpath(scratch, "runs"), fidelity, commit,
-                git_output("rev-parse", "--abbrev-ref", "HEAD"))
-            merge_entries(joinpath(scratch, "cases"))
+            place_run(scratch, labelled_run(asset.label)..., checkout)
         end
-    catch error
-        @warn "no $fidelity run fetched from its release: " * sprint(showerror, error)
     end
 end
 
 """
-    merge_runs(fetched, fidelity, commit, branch)
+    place_run(scratch, name, steps, checkout)
 
-Move each run directory in `fetched` at `fidelity` of `commit` on `branch` into the runs
-directory where it has no run of that name, or one with fewer steps done.
+Copy run `name`, with `steps` steps done, from runs/ in `scratch` into the repository
+`checkout` where it has no such run or one with fewer steps done, and add to its case store
+the entries in cases/ that it lacks.
 """
-function merge_runs(fetched, fidelity, commit, branch)
-    isdir(fetched) || return
-    mkpath(runs_directory)
-    for name in readdir(fetched)
-        record = TOML.parsefile(joinpath(fetched, name, "run.toml"))
-        (record["fidelity"], record["git_commit"], record["git_branch"]) ==
-        (string(fidelity), commit, branch) || continue
-        here = joinpath(runs_directory, name)
-        record_here = joinpath(here, "run.toml")
-        isfile(record_here) &&
-            length(TOML.parsefile(record_here)["steps"]) >= length(record["steps"]) &&
-            continue
-        mv(joinpath(fetched, name), here; force=true)
-        println("fetched run ", name, " from release ", release_tag(commit))
+function place_run(scratch, name, steps, checkout)
+    there = mkpath(joinpath(scratch, "there"))
+    record = `rsync -a $checkout/output/runs/$name/run.toml $there`
+    if success(pipeline(record; stderr=devnull)) &&
+       length(TOML.parsefile(joinpath(there, "run.toml"))["steps"]) >= steps
+        println("run ", name, " is there with as many steps done; left as it is")
+    else
+        run(`rsync -a -R --delete $scratch/./runs/$name/ $checkout/output`)
+        println("pulled run ", name, " into ", checkout)
     end
+    run(`rsync -a --ignore-existing $scratch/cases $checkout/output`)
 end
 
 """
-    merge_entries(fetched)
+    backfill_runs(directory=runs_directory, studies=TOML.parsefile(study_runs_path))
 
-Move into the case store each entry of the case stores in `fetched` that it lacks.
+The runs in `directory` worth keeping, and those skipped, each with why: of the runs at one
+commit and fidelity the one named in `studies`, else the one with most steps done; a
+method study's run that `studies` does not name is skipped.
 """
-function merge_entries(fetched)
-    isdir(fetched) || return
-    for store in readdir(fetched), file in readdir(joinpath(fetched, store))
-        endswith(file, ".bin") || continue
-        here = joinpath(cases_directory, store, file)
-        isfile(here) && continue
-        mkpath(dirname(here))
-        mv(joinpath(fetched, store, file), here)
+function backfill_runs(directory=runs_directory, studies=TOML.parsefile(study_runs_path))
+    named = Set(study["run"] for study in values(studies))
+    candidates = Dict{Tuple{String, String}, Vector{Tuple{Bool, Int, String}}}()
+    skipped = Pair{String, String}[]
+    for name in readdir(directory)
+        path = joinpath(directory, name, "run.toml")
+        isfile(path) || continue
+        record = TOML.parsefile(path)
+        study = any(step -> endswith(step["name"], "_record"), record["steps"])
+        if study && !(name in named)
+            push!(skipped, name => "a method study's run the paper does not read")
+        elseif !haskey(record, "git_commit")
+            push!(skipped, name => "its record names no commit")
+        else
+            runs = get!(candidates, (record["git_commit"], record["fidelity"]), [])
+            push!(runs, (name in named, length(record["steps"]), name))
+        end
     end
+    kept = String[]
+    for ((commit, fidelity), runs) in candidates
+        sort!(runs; rev=true)
+        push!(kept, last(first(runs)))
+        for (_, _, name) in runs[2:end]
+            push!(skipped, name => "run $(last(first(runs))) is kept for its $fidelity " *
+                                   "at $(first(commit, 7))")
+        end
+    end
+    return sort(kept), sort(skipped)
 end

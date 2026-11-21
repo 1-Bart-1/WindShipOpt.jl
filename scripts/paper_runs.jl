@@ -4,8 +4,7 @@
 # Runs of the paper: each data-making call of `paper` keeps its data files and its record
 # run.toml in output/runs/<start time>/, and every round trip it computes in the case store
 # output/cases/ that all runs share, so that a run cut short resumes where it stopped and
-# a rerun computes only the round trips a change touched; run_releases.jl keeps them on
-# GitHub. Included by paper.jl.
+# a rerun computes only the round trips a change touched. Included by paper.jl.
 using Base.ScopedValues: ScopedValue, with
 using Dates
 using Serialization
@@ -14,7 +13,6 @@ using WindShipOpt: inputs_read
 
 include("step_code.jl")
 include("case_jobs.jl")
-include("run_releases.jl")
 
 """
 Settings of each fidelity of the paper: the corridor scale, the step between sampled
@@ -433,29 +431,23 @@ function check_final_commit()
     isempty(changed) || error("a final run needs a clean tree; these files differ from ",
         "the commit: ", join(strip.(changed), "; "))
     commit = git_output("rev-parse", "HEAD")
-    is_pushed(commit) ||
+    isempty(git_output("branch", "--remotes", "--contains", commit)) &&
         error("a final run needs a pushed commit; $commit is on no remote branch")
 end
-
-"whether `commit` is on a remote branch"
-is_pushed(commit) = !isempty(git_output("branch", "--remotes", "--contains", commit))
 
 """
     open_run(fidelity, names, resume; only=nothing)
 
 The run to make steps `names` in: the latest unfinished run at `fidelity` on this git branch
 if `resume` is true, or nothing and confirmed on stdin; otherwise, or without one, a new
-run. Unless `resume` is false, the runs kept in [`run_releases`](@ref) for this commit are
-fetched first ([`fetch_runs`](@ref)). A final run needs a clean tree on a pushed commit and
-computes every case; a draft computes with its code only the cases whose labels match
-`only`, where given.
+run. A final run needs a clean tree on a pushed commit and computes every case; a draft
+computes with its code only the cases whose labels match `only`, where given.
 """
 function open_run(fidelity, names, resume; only=nothing)
     if fidelity == :final
         isnothing(only) || throw(ArgumentError("a final run computes every case"))
         check_final_commit()
     end
-    resume == false || isnothing(run_releases) || fetch_runs(run_releases, fidelity)
     branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
     runs = filter(run -> !is_finished(last(run)) && last(run)["git_branch"] == branch,
         fidelity_runs(fidelity))
@@ -547,8 +539,8 @@ the commit, the Julia version and the code it ran ([`step_code`](@ref)), the bas
 every input it read and the data files it read; and, where it computed round trips, their
 number, the feasible ones, the code of a round trip, the commits and processors that
 computed them, how many are kept from older code and the list of them
-([`write_cases`](@ref)); then keep the run ([`keep_run`](@ref)). Raise an error where the
-run has an `only` that none of the step's round trips carries.
+([`write_cases`](@ref)). Raise an error where the run has an `only` that none of the step's
+round trips carries.
 """
 function run_step!(run, name, step)
     println("step ", name)
@@ -579,7 +571,6 @@ function run_step!(run, name, step)
     filter!(earlier -> earlier["name"] != string(name), run.record["steps"])
     push!(run.record["steps"], entry)
     write_record(run)
-    keep_run(run)
 end
 
 """
@@ -597,15 +588,13 @@ end
 """
     finish_run!(run)
 
-Mark `run` finished at the current time in its record, once every step asked of it is done,
-and keep it ([`keep_run`](@ref)).
+Mark `run` finished at the current time in its record, once every step asked of it is done.
 """
 function finish_run!(run)
     isnothing(run.directory) && return
     all(name -> step_done(run, name), run.record["requested"]) || return
     run.record["finished"] = string(floor(now(), Second))
     write_record(run)
-    keep_run(run)
 end
 
 """
@@ -669,8 +658,7 @@ reads_unchanged(entry, case) =
 
 Round trip `compute()` returns for `case`, stored in the case store `directory` through a
 temporary file with the values in `case.assumptions` of the inputs it read, the data files
-it read, the seconds it took, the code that computed it, its commit and processor; then keep
-the run in use once [`KEEP_MINUTES`](@ref) have passed since it was last kept.
+it read, the seconds it took, the code that computed it, its commit and processor.
 """
 function stored_trip(compute, directory, case)
     files = Dict{String, String}()
@@ -685,7 +673,6 @@ function stored_trip(compute, directory, case)
     temporary = tempname(directory; cleanup=false)
     serialize(temporary, entry)
     mv(temporary, entry_file(directory, entry); force=true)
-    keep_run(paper_run; every=KEEP_MINUTES)
     return entry
 end
 
@@ -773,6 +760,24 @@ function write_cases(run, name, made)
         end
     end
     return path
+end
+
+"""
+    note_stores(run, directories)
+
+Add to cases/stores.csv in the directory of `run` the case stores `directories` its round
+trips are about to come from, with its round-trip code, so that a copy of the run taken
+before the step ends ([`run_entries`](@ref)) holds the round trips stored so far.
+"""
+function note_stores(run, directories)
+    isnothing(run.directory) && return
+    path = joinpath(mkpath(joinpath(run.directory, "cases")), "stores.csv")
+    @lock run.tally.lock open(path, "a") do io
+        position(io) == 0 && println(io, "store,trip_model")
+        for directory in unique(directories)
+            println(io, csv_field(basename(directory)), ",", csv_field(run.trip_model))
+        end
+    end
 end
 
 """

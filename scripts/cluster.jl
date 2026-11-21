@@ -4,9 +4,7 @@
 # Paper runs on a Slurm cluster, with the settings of cluster.toml; bin/cluster calls it.
 # A submitted run is one job running `paper`, which computes a share of each batch of round
 # trips and hands the rest to jobs of its own. A run job ended by its wall time leaves a
-# successor that resumes it. The jobs call this script as `run` and `shard`. Compute nodes
-# reach no internet, so the login node fetches a run kept in its commit's release before
-# submitting it, and `keep` uploads the runs from there while their jobs run.
+# successor that resumes it. The jobs call this script as `run` and `shard`.
 using Printf
 
 command = isempty(ARGS) ? "help" : popfirst!(ARGS)
@@ -16,21 +14,19 @@ if command in ("run", "shard", "estimate")
 else
     root = joinpath(@__DIR__, "..")
     include(joinpath(@__DIR__, "paper_runs.jl"))
-    include(joinpath(@__DIR__, "github_releases.jl"))
 end
 
 """
     submit_run(fidelity, steps)
 
 Submit the job running `paper(steps...; fidelity, resume=true)` with jobs computing its
-round trips, unless a job of a paper run is queued or running already, once the runs kept
-in the release of this commit are fetched ([`fetch_runs`](@ref)).
+round trips, unless a job of a paper run is queued or running already.
 """
 function submit_run(fidelity, steps)
-    queued = paper_jobs()
-    isempty(queued) || error("jobs of a paper run are queued or running already: ",
-        join(queued, ", "))
-    fetch_runs(default_releases(), Symbol(fidelity))
+    queued = read(`squeue --me --noheader --name=windship-run,windship-cases --format=%i`,
+        String)
+    isempty(strip(queued)) || error("jobs of a paper run are queued or running already: ",
+        join(split(queued), ", "))
     id = submit_run_job(fidelity, steps)
     println("submitted job ", id, "; its log is ", run_log(id))
 end
@@ -46,33 +42,6 @@ function submit_run_job(fidelity, steps; after=nothing)
     job = job_command(settings["cores"], "run", fidelity, steps...)
     return strip(read(slurm_command(settings, "windship-run", run_log("%j"), job; after),
         String))
-end
-
-"ids of this user's jobs of paper runs queued or running"
-paper_jobs() =
-    split(read(`squeue --me --noheader --name=windship-run,windship-cases --format=%i`,
-        String))
-
-"""
-    keep_cluster_runs()
-
-Keep the latest run at each fidelity in the releases of its commit ([`keep_commit`](@ref))
-every [`KEEP_MINUTES`](@ref) while jobs of a paper run are queued or running, and once more
-when they have ended.
-"""
-function keep_cluster_runs()
-    releases = default_releases()
-    while true
-        running = !isempty(paper_jobs())
-        for fidelity in keys(fidelities)
-            runs = fidelity_runs(fidelity)
-            isempty(runs) && continue
-            record = last(first(runs))
-            keep_commit(releases, fidelity, record["git_commit"], record["git_dirty"])
-        end
-        running || return
-        sleep(60 * KEEP_MINUTES)
-    end
 end
 
 "log file of the run job `id`"
@@ -155,8 +124,6 @@ if command == "submit"
     submit_run(ARGS[1], ARGS[2:end])
 elseif command == "status"
     print_jobs_status()
-elseif command == "keep"
-    keep_cluster_runs()
 elseif command == "run"
     run_job(ARGS[1], ARGS[2:end])
 elseif command == "shard"
@@ -164,6 +131,6 @@ elseif command == "shard"
 elseif command == "estimate"
     print_estimate(; box_cores=isempty(ARGS) ? 20 : parse(Int, only(ARGS)))
 else
-    println("usage: bin/cluster submit draft|final [step ...] | bin/cluster keep | ",
-        "bin/cluster status | bin/cluster estimate [box cores]")
+    println("usage: bin/cluster submit draft|final [step ...] | bin/cluster status | ",
+        "bin/cluster estimate [box cores]")
 end
