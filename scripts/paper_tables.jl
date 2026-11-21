@@ -2212,20 +2212,19 @@ end
     rigid_numbers()
 
 Name and text of the numbers of the VTOL kite studies: from rigid_cost.csv the mass, hover
-power and prices of one VTOL kite at base inputs, the thrust, price per thrust and yearly
-cost per thrust of it and of the soft kite it is compared with, the share of the VTOL
-kite's yearly cost its upkeep takes, their ratio, and the VTOL kite's yearly cost per
-thrust at favourable inputs; from rigid_kite.csv the cost savings [%] of the VTOL kite at
-base and favourable inputs and the soft kite on each route, and the rotors to Guadeloupe.
+power and prices of one VTOL kite at base inputs, the thrust and price per thrust of it and
+of the soft kite it is compared with, and the ratio of their yearly costs per thrust; from
+rigid_kite.csv the cost saving of the VTOL kite at base inputs on each route.
 """
 function rigid_numbers()
     kites = read_table(data_file("rigid_cost.csv"))
     trips = read_table(data_file("rigid_kite.csv"))
     row(kind) = only(rows(kites, "kind" => kind))
     rounded(value) = @sprintf("\\num{%.0f}", round(value, sigdigits=3))
-    yearly(row) = sum(kites[part][row] for part in ("capital", "flight", "launches"))
     per_thrust(value, row) = 1e3value / kites["thrust"][row]
-    wing, favourable, kite = row("rigid base"), row("rigid favourable"), row("soft")
+    yearly(row) = per_thrust(sum(kites[part][row] for part in ("capital", "flight",
+        "launches")), row)
+    wing, kite = row("rigid base"), row("soft")
     numbers = ["RigidMass" => @sprintf("%.2f", 1e-3kites["mass"][wing]),
         "RigidHover" => @sprintf("%.2f", 1e-6kites["hover_power"][wing]),
         "RigidAirframePrice" => @sprintf("%.2f", 1e-6kites["airframe"][wing]),
@@ -2235,24 +2234,11 @@ function rigid_numbers()
         "RigidPricePerThrust" => rounded(per_thrust(kites["price"][wing], wing)),
         "RigidSoftThrust" => @sprintf("%.0f", 1e-3kites["thrust"][kite]),
         "RigidSoftPricePerThrust" => rounded(per_thrust(kites["price"][kite], kite)),
-        "RigidCost" => rounded(per_thrust(yearly(wing), wing)),
-        "RigidUpkeepShare" => @sprintf("%.0f", 100kites["flight"][wing] / yearly(wing)),
-        "RigidSoftCost" => rounded(per_thrust(yearly(kite), kite)),
-        "RigidCostRatio" => @sprintf("%.1f", per_thrust(yearly(wing), wing) /
-                                             per_thrust(yearly(kite), kite)),
-        "RigidFavourableCost" => rounded(per_thrust(yearly(favourable), favourable))]
-    favourable_rig = "rigid favourable" => "Favourable"
-    compared = (("kite" => "Kite", "rotors" => "Rotors", favourable_rig),
-        ("kite" => "Kite", favourable_rig))
-    for (route, word, rigs) in zip(pair_routes, ("Guadeloupe", "Bilbao"), compared)
-        savings = [rig_savings(trips, ["kite", "rotors", "rigid base", "rigid favourable"],
-            "ship" => ship, "route" => string(route)) for ship in pair_classes]
-        for (rig, rig_word) in rigs
-            push!(numbers, "RigidRouted$(word)$(rig_word)" =>
-                point_range([saving[rig] for saving in savings]))
-        end
-        push!(numbers, "RigidRouted$(word)Rigid" =>
-            saving_phrase([saving["rigid base"] for saving in savings]))
+        "RigidCostRatio" => @sprintf("%.1f", yearly(wing) / yearly(kite))]
+    for (route, word) in zip(pair_routes, ("Guadeloupe", "Bilbao"))
+        savings = [rig_savings(trips, ["rigid base"], "ship" => ship,
+            "route" => string(route))["rigid base"] for ship in pair_classes]
+        push!(numbers, "RigidRouted$(word)Rigid" => saving_phrase(savings))
     end
     return numbers
 end
