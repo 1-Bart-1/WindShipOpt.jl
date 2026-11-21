@@ -283,7 +283,7 @@ Design point of the optimization. `drive` names a [`Drive`](@ref): `:vlsfo`, `:m
 or `:ammonia`. A positive `wing_area` adds rigid wings of that total area [m^2], a
 positive `kite_area` a towing kite of that projected area and projected
 `kite_aspect_ratio`, by default the assumption `kite_aspect_ratio`, a positive
-`rigid_kite_area` rigid VTOL kites of about that total area, a positive `rotor_area`
+`rigid_kite_area` a rigid VTOL kite of that area, a positive `rotor_area`
 Flettner rotors of that total height times diameter, a positive `suction_area` suction
 sails of that total area, which stand alone. A kite may fly over wings or rotors as
 a [`CombinedRig`](@ref); wings and rotors exclude each other. A rig area that is not finite
@@ -459,7 +459,7 @@ function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions)
     end
     if design.rigid_kite_area > 0
         any(>(0), (design.wing_area, design.kite_area, design.rotor_area)) &&
-            throw(ArgumentError("rigid kites fly alone on a design"))
+            throw(ArgumentError("a rigid kite flies alone on a design"))
         return rigid_kite_rig(design.rigid_kite_area, hull, assumptions)
     end
     design.wing_area > 0 && design.rotor_area > 0 &&
