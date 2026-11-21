@@ -1,6 +1,21 @@
-# Rigid VTOL kite: scaling and launch evidence
+# Rigid VTOL kite: inputs, scaling and launch evidence
 
 Numbers behind the `rigid_*` inputs of `assumptions.yaml`. The rig is one wing with on-board propellers on an electrified tether. It pulls rather than generates, so the propellers are feathered in flight and work only in launch and landing.
+
+## Inputs of the model
+
+The model is MX2 at 54 m², every input a number at that design. The sections below hold the evidence; this one says how each input is made of it. The values come from a build-up of MX2 part by part (the structure law, momentum theory and the drive mass law below, and separate prices of structure, drives and tether), run at 54 m² with every input at base, at the bound that favours the kite, and with the mass inputs at their high bounds.
+
+| Input | Base | Low | High | Made of |
+| --- | --- | --- | --- | --- |
+| `rigid_mass_per_area` | 34.3 | 16.5 | 60 | MX2's 1852 kg on 54 m²; the build-up gave 1804 kg at sea level. Bounds: every mass and hover input favourable; structure, propellers and drives at their high bounds. |
+| `rigid_hover_power_per_mass` | 470 | 200 | 950 | Momentum theory below, 873 kW for 1852 kg with the 275 kg tether. Low: the light kite with the favourable hover inputs (175 kW on 889 kg). High: thrust 1.5, disc 0.4, efficiency 0.56, density 0.95, at base mass. |
+| `rigid_drag` | 0.070 | 0.054 | 0.127 | 0.123 − 0.083 induced (elliptic) + 0.0022 feathered propellers + 0.029 tether (0.7 × 29.4 mm × 300 m / 4 / 54 m²). Bounds: profile, span efficiency, propeller and tether drag at their bounds. |
+| `rigid_cost_per_mass` | 280 | 48 | 540 | Structure 290 USD/kg × 1370 kg + 232 USD/m² × 54 m² + drives 0.10 USD/W × 1.13 MW = 522k USD, over 1852 kg. |
+| `rigid_tether_cost` | 51k | 26k | 110k | Tether 275 kg × 186 USD/kg (93-400). The rest of the station is the soft kite's winch, launch mast and ship-side controls at the kite's 300 kN and 54 m²: 70k + 30k. |
+| `rigid_upkeep_per_area` | 0.67 | 0.29 | 1.37 | Airframe upkeep 0.61 (0.26-1.2) + tether wear 51k / 16,000 h / 54 m² = 0.06. |
+
+Dropped as too small to move the answer: the hover's energy, 6 min at 844 kW and 0.20 USD/kWh, USD 17 a launch; its time, 6 min of no thrust a launch, under 0.5 % of the flight hours; the tether's bending per launch; the perch's deck width, which costs cargo only on a container ship, where the VTOL kite is not routed; and half the tether's weight in flight, 7 % of the flying mass. The flight limit and life are the soft kite's (`kite_max_wind`, `kite_lifetime`), equal to the values the VTOL kite had.
 
 ## Reference design
 
@@ -22,7 +37,7 @@ At 300 m² the same steps give 4284, 3868 and 3280. A 1000 m² soft kite costs 9
 - Tether: the M600 tether, which MX2 takes over, is rated 1 MW (Part II, p.40), about MX2's hover, so the conductors stay. A battery for an 850 kW peak at the 1.5 kW/kg estimated for a car pack (Sripad and Viswanathan 2021, SI) weighs about 560 kg, twice the whole tether.
 - Aspect ratio: generating and pulling both maximise CL (CL/CD)², so 12.5 stays.
 
-## Mass law
+## Mass law (evidence for the size and the mass bounds; not in the model)
 
 m = m_s S + m_F F b AR + m_r A_d + 411 kg × (P_d/1.36 MW)^ε, with S the wing area, F the tether force limit, b the span, AR the aspect ratio, m_s = 14 kg/m² (7.5-21) and m_F = 0.0063 kg per kN m (0.0026-0.0096); P_d is the hover power over 0.75, solved with the hover power.
 
@@ -41,7 +56,7 @@ m = m_s S + m_F F b AR + m_r A_d + 411 kg × (P_d/1.36 MW)^ε, with S the wing a
 - Drives: 480 kg less the propellers, 411 kg for 1.2 MW of shaft (Part I, p.184). ε = 0.81 from the motor regression W = 0.5382 Q^0.8129 with controller, inverter and cooling (Johnson et al. 2018, p.5), 1 for motors linear in torque (Part I, p.184). Low bound 241 kg: MX2's 344 kg of motors and controllers (36 + 7 kg × 8, Part II, pp.46-47) at 6.9 kW/kg, NASA's model for motors of about 170 kW (Johnson et al. 2018, p.5), instead.
 - At Makani's design density 0.95 kg/m³, η 0.71 × 0.88 and fixed-pitch propellers the law returns 1820 kg for MX2.
 
-## What the mass decides
+## What the mass decides (from the build-up model)
 
 Yearly cost per kN of thrust at 12 m/s on a beam course (3000 flight hours, 150 launches), from the model; a 1000 m² soft kite costs 902 and a 2000 m² one 793.
 
@@ -93,7 +108,7 @@ Against it: the one offshore flight, from a moored spar buoy in 10 m/s and 1 m w
 
 ## Prices
 
-There is no public price for a rigid kite. Structure, avionics and rope come from Joshi et al. (2025, pp.702-703), at a series of 50 or more without margin, so the paper's market price factor applies; EUR at 1.16 USD. Its avionics figure is for early commercial production with aviation certification and redundancy, which raise it from the EUR 15,000 of a prototype; the prototype figure is the low bound, a kite flown without that certification. The drive is two thirds of the 0.15 $/W of Bauer et al. (2018, p.14), three times a hobby motor's retail price per W for the motor, its drive electronics and the ground electronics; the ground third is the ship-side power here. Upkeep per flight hour is all of the airframe's maintenance (Echeverri et al. 2020, Part I, pp.108-110 printed), so its price pays no maintenance share. The perch, ship-side power, lifetime and loss per cycle are our own estimates and carry wide bounds. `cost_basis_notes.md` section 7 checks each against the common production stage.
+There is no public price for a rigid kite. Structure, avionics and rope come from Joshi et al. (2025, pp.702-703), at a series of 50 or more without margin, so the paper's market price factor applies; EUR at 1.16 USD. Its avionics figure is for early commercial production with aviation certification and redundancy, which raise it from the EUR 15,000 of a prototype; the prototype figure is the low bound, a kite flown without that certification. The drive is two thirds of the 0.15 $/W of Bauer et al. (2018, p.14), three times a hobby motor's retail price per W for the motor, its drive electronics and the ground electronics; the ground third is the ship-side power here. Upkeep per flight hour is all of the airframe's maintenance (Echeverri et al. 2020, Part I, pp.108-110 printed), so its price pays no maintenance share. No deck system for a rigid kite has been built, so the winch, launch mast and ship-side controls are the soft kite's at the same force and area. The ship-side power, lifetime and loss per cycle are our own estimates and carry wide bounds. `cost_basis_notes.md` section 7 checks each against the common production stage.
 
 ## Not used
 

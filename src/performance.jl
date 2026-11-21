@@ -212,15 +212,14 @@ end
 """
     handling_hours(rig, assumptions)
 
-Time [h] one launch and one landing of a kite give no force on the ship; zero for other
-rigs.
+Time [h] one launch and one landing of a soft kite give no force on the ship; zero for
+other rigs and for a VTOL kite, whose hover takes a few minutes.
 """
 handling_hours(rig, assumptions) = 0.0
 handling_hours(rig::CombinedRig, assumptions) = handling_hours(rig.kite, assumptions)
 handling_hours(::KiteRig, assumptions) =
     (assumptions[:kite_launch_minutes] + assumptions[:kite_landing_minutes]) / 60
-handling_hours(::KiteRig{RigidAirframe}, assumptions) =
-    assumptions[:rigid_hover_minutes] / 60
+handling_hours(::KiteRig{RigidAirframe}, assumptions) = 0.0
 
 """
     SeaCondition(table, wind, angle, wave_height, wave_period, wave_heading)
