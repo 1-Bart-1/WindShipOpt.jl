@@ -299,13 +299,13 @@ function development_table()
     write_whole(joinpath(sections, "development_table.tex")) do io
         println(io, "\\begin{longtable}{@{}", ragged, "p{2.5cm}", ragged, "p{2.6cm}rrrr",
             ragged, "p{3.4cm}@{}}")
-        println(io, "\\caption{The inputs of the development study by the rig whose ",
-            "developer can change them: base value and range; the gain of a rig's saving ",
-            "at the better end of the range and its loss at the worse end, in percentage ",
-            "points, in cost per tonne-km on each ship and the largest of each in ",
-            "CO\\textsubscript{2} per tonne-km over the ships; and why the input is in ",
-            "the study. Values are estimates, conditions or goals (g), to two digits, and ",
-            "the gains and losses model output, to a tenth of a point; ",
+        println(io, "\\caption{\\stale{sensitivity}{} The inputs of the development study ",
+            "by the rig whose developer can change them: base value and range; the gain ",
+            "of a rig's saving at the better end of the range and its loss at the worse ",
+            "end, in percentage points, in cost per tonne-km on each ship and the largest ",
+            "of each in CO\\textsubscript{2} per tonne-km over the ships; and why the input ",
+            "is in the study. Values are estimates, conditions or goals (g), to two ",
+            "digits, and the gains and losses model output, to a tenth of a point; ",
             "\\cref{tab:goals} gives what is known today against each goal. ",
             "\\savingerror}\n",
             "\\label{tab:development}\\\\")
@@ -1932,8 +1932,10 @@ fidelity_parts() = [
         error="no open-water curve of a real propeller",
         effect=nothing),
     (part="Wind at height", varied="not measured",
-        model="one power-law profile from 10\\,m, the mean of ERA5 over the region",
-        error="real shear varies with stability from hour to hour",
+        model="kite: ERA5 at its height, hourly; deck rigs: one power-law profile from " *
+              "10\\,m",
+        error="ERA5 pressure levels some hundreds of metres apart; deck rigs' shear " *
+              "varies with stability",
         effect=nothing),
     (part="Wing sail forces", varied="maximum lift",
         model="lifting line with stall, trimmed at each wind; array factor of the units",

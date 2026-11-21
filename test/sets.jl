@@ -295,7 +295,8 @@ end
 end
 
 @testset "a kite built for more force gets cloth and seams in proportion" begin
-    stronger = with_value(assumptions, :kite_max_force_per_area, 1.0)
+    stronger = with_value(assumptions, :kite_max_force_per_area,
+        2assumptions[:kite_max_force_per_area])
     base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger), 800.0, 3.0)
     @test WindShipOpt.cloth_weight(stronger) ≈ 2WindShipOpt.cloth_weight(assumptions)
     @test strong_canopy.mass_per_area ≈ 2base_canopy.mass_per_area
@@ -710,15 +711,15 @@ end
 
 @testset "a canopy is the surveyed one with its own cloth and seam, at the market factor" begin
     surveyed_area = 3 * 8.2^2
+    weight = WindShipOpt.cloth_weight(assumptions)
     @test WindShipOpt.canopy_cost(assumptions, surveyed_area, 3.0) ≈
-          1.16 * 25 / 18 * 53 + 3.5 * 0.031 * 100 rtol = 1e-3
+          1.16 * 25 / 18 * 53 + 3.5 * 0.031 * (weight - 100) rtol = 1e-3
     price(area, inputs=assumptions) = WindShipOpt.canopy_price(inputs, area, 3.0)
     @test price(800.0) ≈ assumptions[:market_price_factor] *
                          WindShipOpt.canopy_cost(assumptions, 800.0, 3.0)
     cloth(area) = WindShipOpt.cloth_area_ratio(assumptions, area, 3.0)
     surveyed_cloth = cloth(surveyed_area)
     seam(area) = WindShipOpt.seam_area_ratio(assumptions, area, 3.0)
-    weight = WindShipOpt.cloth_weight(assumptions)
     sewing(area) = (WindShipOpt.canopy_cost(assumptions, area, 3.0) - 1.16 * 25 / 18 * 8 -
                     cloth(area) * (11.0 + 0.031 * weight)) / seam(area)
     surveyed_sewing = 1.16 * 25 / 18 * 45 - surveyed_cloth * (11.0 + 0.031 * 100)
@@ -785,16 +786,16 @@ end
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 0.0)
-    @test force(5.8751, 26.6411).thrust ≈ 70 atol = 5
-    @test force(5.8751, 26.6411).side ≈ 63954 rtol = 1e-3
-    @test force(6.6205, 50.2378).thrust ≈ 19985 rtol = 1e-3
-    @test force(6.6205, 50.2378).side ≈ 77111 rtol = 1e-3
-    @test force(8.82947, 86.695695).thrust ≈ 116174 rtol = 1e-3
-    @test force(8.82947, 86.695695).side ≈ 245100 rtol = 1e-3
-    @test force(11.161535, 114.227745).thrust ≈ 245078 rtol = 1e-3
-    @test force(11.161535, 114.227745).side ≈ 207740 rtol = 1e-3
-    @test force(13.802571, 148.57094).thrust ≈ 346940 rtol = 1e-3
-    @test force(13.802571, 148.57094).side ≈ 11658 rtol = 1e-3
+    @test force(5.8751, 26.6411).thrust ≈ -71 atol = 5
+    @test force(5.8751, 26.6411).side ≈ 64157 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 19892 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 77328 rtol = 1e-3
+    @test force(8.82947, 86.695695).thrust ≈ 117916 rtol = 1e-3
+    @test force(8.82947, 86.695695).side ≈ 327789 rtol = 1e-3
+    @test force(11.161535, 114.227745).thrust ≈ 307520 rtol = 1e-3
+    @test force(11.161535, 114.227745).side ≈ 348944 rtol = 1e-3
+    @test force(13.802571, 148.57094).thrust ≈ 566713 rtol = 1e-3
+    @test force(13.802571, 148.57094).side ≈ 214685 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).
@@ -2409,17 +2410,23 @@ function write_fields(directory, values, steps, grid)
     end
 end
 
-"ERA5 of steady wind and waves on a 2 by 2 grid from 2017-12-29, the east wind rising."
+"""
+ERA5 of steady wind and waves on a 2 by 2 grid from 2017-12-29, the east wind rising, the
+wind 6 m/s at 100 m and 12 m/s at 1000 m.
+"""
 function small_era5(directory)
     square = (lats=[40.0, 41.0], lons=[-31.0, -30.0])
     truth = Dict("u10" => step -> 5.0f0 + 0.01f0 * step, "v10" => step -> -2.0f0,
+        "speed_100" => step -> 6.0f0, "speed_1000" => step -> 12.0f0,
         "height" => step -> 2.0f0, "period" => step -> 8.0f0, "direction" => step -> 60.0f0)
     for (group, names, step_hours) in (("wind", ["u10", "v10"], 6),
+        ("aloft", ["speed_100", "speed_1000"], 6),
         ("waves", ["direction", "height", "period"], 12))
         write_fields(joinpath(directory, group),
             (name, step) -> fill(truth[name](step), 2, 2), 2000 ÷ step_hours,
             Dict("lats" => square.lats, "lons" => square.lons, "step_hours" => step_hours,
-                "first_time" => "2017-12-29T00:00:00", "variables" => names))
+                "first_time" => "2017-12-29T00:00:00", "variables" => names,
+                "heights" => [100, 1000]))
     end
     return ERA5Weather(directory)
 end
@@ -2760,6 +2767,22 @@ end
 end
 
 kite_route_table = shared_route_table(ShipDesign(:methanol, 85.0; kite_area=400.0))
+
+@testset "a kite takes the ERA5 wind aloft at its own height, its ship the table there" begin
+    weather = small_era5(mktempdir())
+    table = kite_route_table.table
+    height = table.kite_height
+    expected = 6 + 6 * log(height / 100) / log(10)
+    edge = (2, centre_index(corridor), WindShipOpt.STRAIGHT_ON, 0.0, 100.0)
+    sample = WindShipOpt.EdgeSample(table, weather, corridor, edge...)
+    @test 100 < height < 1000
+    @test hypot(sample.headwind, sample.crosswind) ≈ expected
+    @test sample.wind_speed ≈ expected / table.kite_wind_factor
+    rotors = shared_route_table(ShipDesign(:methanol, 85.0; rotor_area=200.0)).table
+    stood = WindShipOpt.EdgeSample(rotors, weather, corridor, edge...)
+    @test stood.wind_speed ≈ hypot(wind(weather, 40.5, -30.5, 100.0)...)
+    @test stood.headwind == stood.crosswind == 0
+end
 
 @testset "a kite ship's search keeps one kite state per node and time, down at port" begin
     weather, departure = SyntheticWeather(), 24.0 * 31

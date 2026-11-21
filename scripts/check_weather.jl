@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Check the weather a draft and a final run read, era5/atlantic_wide/{wind, waves,
+# Check the weather a draft and a final run read, era5/atlantic_wide/{wind, aloft, waves,
 # climate, forecast}/, against data/weather_sha256.toml, the hashes of the files the
 # project's server ran on: prints each file that is missing or differs and exits 1 if any
 # does. With --write, writes that list from the files present instead.
@@ -10,7 +10,7 @@ using TOML
 
 era5 = joinpath(@__DIR__, "..", "era5", "atlantic_wide")
 manifest = joinpath(@__DIR__, "..", "data", "weather_sha256.toml")
-folders = ("wind", "waves", "climate", "forecast")
+folders = ("wind", "aloft", "waves", "climate", "forecast")
 
 """
     weather_hash(file)
