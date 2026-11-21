@@ -493,9 +493,10 @@ EdgeSample(condition::SeaCondition, headwind, crosswind) =
 kite's reference height from the same direction, `spread` the standard error of the wind
 speed [m/s]. A kite's ship takes its whole table at the 10 m wind that gives `kite_wind`.
 """
-function EdgeSample(table::PerformanceTable, (east, north), (wave_height, wave_period,
+function EdgeSample(table::PerformanceTable, wind_10m, (wave_height, wave_period,
             wave_from), course, spread=0.0;
-        kite_wind=table.kite_wind_factor * hypot(east, north))
+        kite_wind=table.kite_wind_factor * hypot(wind_10m...))
+    east, north = wind_10m
     wind_speed = hypot(east, north)
     angle = true_wind_angle(east, north, wind_speed, course)
     table_wind = table.kite_wind_factor > 0 ? kite_wind / table.kite_wind_factor :
