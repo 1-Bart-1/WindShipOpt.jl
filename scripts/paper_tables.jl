@@ -2256,6 +2256,74 @@ function rigid_numbers()
 end
 
 """
+    suction_numbers_file()
+
+Write the [`suction_numbers`](@ref) the paper states as LaTeX macros `\\Num...` to
+paper/sections/suction_numbers.tex, marked at draft fidelity.
+"""
+function suction_numbers_file()
+    draft = paper_run.fidelity != :final
+    open(joinpath(sections, "suction_numbers.tex"), "w") do io
+        for (name, text) in suction_numbers()
+            print(io, number_macro(name, text, draft))
+        end
+    end
+end
+
+"""
+    suction_numbers()
+
+Name and text of the numbers of the suction sail studies: from suction_cost.csv the area,
+price, thrust, fan power and yearly cost per thrust of one suction sail of the tallest
+built at base inputs, its price and yearly cost per thrust at favourable and unfavourable
+inputs, the thrust and both costs per thrust of one wing sail of the tallest built, and
+the ratio of their yearly costs; from suction_sail.csv the units and cost savings [%] of
+suction sails of their cheapest size in each scenario, and of the soft kite, wing sails
+and rotors, on each route.
+"""
+function suction_numbers()
+    sails = read_table(data_file("suction_cost.csv"))
+    trips = read_table(data_file("suction_sail.csv"))
+    row(kind) = only(rows(sails, "kind" => kind))
+    rounded(value) = @sprintf("\\num{%.0f}", round(value, sigdigits=3))
+    per_thrust(column, row) = 1e3sails[column][row] / sails["thrust"][row]
+    base, wing = row("suction base"), row("wings")
+    numbers = ["SuctionUnitArea" => @sprintf("%.0f", sails["area"][base]),
+        "SuctionUnitPrice" => @sprintf("%.2f", 1e-6sails["price"][base]),
+        "SuctionThrust" => @sprintf("%.0f", 1e-3sails["thrust"][base]),
+        "SuctionFanPower" => @sprintf("%.0f", 1e-3sails["fan_power"][base]),
+        "SuctionPricePerThrust" => rounded(per_thrust("price", base)),
+        "SuctionCost" => rounded(per_thrust("capital", base)),
+        "SuctionWingPrice" => @sprintf("%.2f", 1e-6sails["price"][wing]),
+        "SuctionWingThrust" => @sprintf("%.0f", 1e-3sails["thrust"][wing]),
+        "SuctionWingPricePerThrust" => rounded(per_thrust("price", wing)),
+        "SuctionWingCost" => rounded(per_thrust("capital", wing)),
+        "SuctionCostRatio" => @sprintf("%.1f", per_thrust("capital", base) /
+                                               per_thrust("capital", wing))]
+    for scenario in ("favourable", "unfavourable")
+        push!(numbers, "Suction$(uppercasefirst(scenario))Cost" =>
+            rounded(per_thrust("capital", row("suction " * scenario))))
+    end
+    compared = ["kite", "wings", "rotors", ("suction " .* suction_scenarios)...]
+    for (route, word) in zip(pair_routes, ("Guadeloupe", "Bilbao"))
+        conditions(class) = ("class" => class, "route" => string(route))
+        savings = [rig_savings(trips, compared, conditions(class)...)
+                   for class in pair_classes]
+        for (rig, rig_word) in ("kite" => "Kite", "wings" => "Wings", "rotors" => "Rotors",
+            "suction favourable" => "Favourable", "suction unfavourable" => "Unfavourable")
+            push!(numbers, "SuctionRouted$(word)$(rig_word)" =>
+                point_range([saving[rig] for saving in savings]))
+        end
+        push!(numbers, "SuctionRouted$(word)Suction" =>
+            saving_phrase([saving["suction base"] for saving in savings]))
+        units = [only(trips["units"][rows(trips, conditions(class)...,
+                     "rig" => "suction base")]) for class in pair_classes]
+        push!(numbers, "SuctionRouted$(word)Units" => point_range(units))
+    end
+    return numbers
+end
+
+"""
     goal_numbers()
 
 Name and text of the goals the abstracts state: canopy life, the canopy price with its

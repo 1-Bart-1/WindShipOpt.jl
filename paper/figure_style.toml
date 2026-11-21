@@ -30,6 +30,7 @@ kite = "0072B2"
 wings = "E69F00"
 rotors = "009E73"
 vtol = "882255"
+suction = "AA4499"
 water = "6CC4F0" # forces of the water: hull, rudder, propeller
 wind = "555555" # the wind and the wind load on the ship
 ship = "BFBFBF" # the hull drawn in plan or side view

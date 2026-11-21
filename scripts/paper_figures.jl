@@ -69,7 +69,7 @@ than `least["colour"]` in normal or in some colour-blind vision.
 function palette_faults()
     colours = Makie.Colors
     visions = (identity, colours.deuteranopic, colours.protanopic, colours.tritanopic)
-    groups = (("rig", style_colour.(["kite", "wings", "rotors", "vtol"])),
+    groups = (("rig", style_colour.(["kite", "wings", "rotors", "vtol", "suction"])),
         ("category", category_colours), ("cell", style_colour.(["gain", "loss"])),
         ("fill", style_colour.(collect(keys(figure_style["fills"])); table="fills")),
         ("ship", style_colour.(["keel", "topsides", "deck", "kite", "wings", "rotors"])),
@@ -3126,6 +3126,9 @@ function speed_size_figure()
     save_figure("speed_size", figure)
 end
 
+"colour of the suction sail"
+suction_colour = style_colour("suction")
+
 "`name`, a kind of kite or scenario in the rigid kite data, as the paper names it"
 paper_name(name) = replace(name, "rigid" => "VTOL")
 
@@ -3192,6 +3195,63 @@ function rigid_kite_figure()
         collect(getindex.(rigid_kite_rigs, 2)); orientation=:horizontal)
     colsize!(figure.layout, 1, Relative(0.36))
     save_figure("rigid_kite", figure)
+end
+
+"rigs of the suction sail figure's savings with their legend labels and colours"
+suction_sail_rigs = (("kite", "best soft kite", palette[1]),
+    ("wings", "best wing sails", palette[2]), ("rotors", "best rotors", palette[3]),
+    ("suction base", "best suction sails", suction_colour))
+
+"""
+    suction_sail_figure()
+
+(a) Yearly capital and maintenance cost per unit of thrust at 12 m/s on a beam course of
+one suction sail and one wing sail of the tallest built, the suction sail with a bar from
+its favourable to its unfavourable inputs; (b) cost saving against no rig on e-ammonia of
+each rig of `suction_sail_rigs` on each ship and route of the suction sail study, the
+suction sails with the same bar. Prints both.
+"""
+function suction_sail_figure()
+    sails = read_table(data_file("suction_cost.csv"))
+    table = read_table(data_file("suction_sail.csv"))
+    yearly(kind) = let row = only(rows(sails, "kind" => kind))
+        1e3sails["capital"][row] / sails["thrust"][row]
+    end
+    figure = Figure(size=(page_width, 200))
+    cost_axis = Axis(figure[1, 1]; title="(a) one sail, 12 m/s",
+        ylabel="USD/kN a year", xticks=(1:2, ["suction\nsail", "wing\nsail"]))
+    groups = vec([(class, route) for route in pair_routes, class in pair_classes])
+    saving_axis = Axis(figure[1, 2]; title="(b) on e-ammonia", ylabel="cost saving [%]",
+        xticks=(eachindex(groups),
+            ["$(replace(class, " bulk carrier" => ""))\n$(route_label(string(route)))"
+             for (class, route) in groups]))
+    barplot!(cost_axis, [1, 2], yearly.(["suction base", "wings"]); width=0.6,
+        color=[suction_colour, palette[2]])
+    rangebars!(cost_axis, [1], [yearly("suction favourable")],
+        [yearly("suction unfavourable")]; color=:black, linewidth=goal_width,
+        whiskerwidth=whisker_width)
+    ylims!(cost_axis, 0, nothing)
+    @printf("  USD/kN a year: suction %.0f (%.0f to %.0f), wing %.0f\n",
+        yearly.(["suction base", "suction favourable", "suction unfavourable", "wings"])...)
+    names = [first.(suction_sail_rigs); "suction favourable"; "suction unfavourable"]
+    for (group, (class, route)) in enumerate(groups)
+        savings = rig_savings(table, names, "class" => class, "route" => string(route))
+        for (k, (rig, _, colour)) in enumerate(suction_sail_rigs)
+            barplot!(saving_axis, [group + 0.2(k - 2.5)], [savings[rig]]; width=0.18,
+                color=colour)
+        end
+        rangebars!(saving_axis, [group + 0.3], [savings["suction unfavourable"]],
+            [savings["suction favourable"]]; color=:black, linewidth=goal_width,
+            whiskerwidth=whisker_width)
+        @printf("  %s, %s: %s\n", class, route, join([@sprintf("%s %.1f %%", rig,
+            savings[rig]) for rig in names], ", "))
+    end
+    reference_line!(saving_axis)
+    Legend(figure[2, 1:2],
+        [PolyElement(color=colour) for (_, _, colour) in suction_sail_rigs],
+        collect(getindex.(suction_sail_rigs, 2)); orientation=:horizontal)
+    colsize!(figure.layout, 1, Relative(0.3))
+    save_figure("suction_sail", figure)
 end
 
 """
