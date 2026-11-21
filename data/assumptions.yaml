@@ -769,11 +769,11 @@ launch_mast_mass_per_size:
   unit: t/m
   reason: "Mass of a ship kite's launch mast and docking head with their seats per m of the square root of projected kite area, as they carry the kite only at launch and landing and grow with its span and chord: the SkySails system of 160-600 m^2 kites weighs about 30 t [@cedelft2016, Annex A.4] at about 1 kN/m^2 [@paulig2013], so 21 t after the winch of a 600 m^2 kite at 15 kg/kN, over 24.5 m. Low bound: the winch at 28 kg/kN; high bound: the 30 t less its winch for the 320 m^2 kite SkySails flew."
 launch_mast_cost_per_mass:
-  value: 8.3
-  low: 3.9
-  high: 12.9
+  value: 2.9
+  low: 1.9
+  high: 3.9
   unit: USD/kg
-  reason: "Cost per kg of the kite's telescopic launch mast and slewing docking head, geared and slewing machinery on a steel structure: the supplier price per kg of a wind turbine's yaw system [@wisdem_csm]. Bounds: the hub, a steel casting, and the gearbox of the same model."
+  reason: "Cost per kg of the kite's launch mast and docking head, mostly a welded steel tube that lifts the kite only at launch and landing and carries no tether force: the supplier price per kg of a wind turbine's welded steel tower [@wisdem_csm]. Low bound: the authors' manufacturing cost of welded tubular steel, as the rotor's tower is priced, from plate, waste, painting and labour in the steel cost model of WISDEM. High bound: the hub of the same model, a steel casting, which also holds a fifth of the mass as the slewing docking head at the 8.3 USD/kg of its yaw system."
 control_unit_cost_per_mass:
   value: 218.0
   low: 150.0
@@ -852,7 +852,7 @@ canopy_cloth_weight:
   low: 200.0
   high: 200.0
   unit: g/m^2
-  reason: "Weight of the polyester ripstop the canopy is sewn from at the reference force limit; the cloth grows in proportion to the force limit, so it carries the same tension per weight and keeps the canopy life, as woven polyester sails of any weight, each sized to its load, are given one life [@flynn2015]. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+  reason: "Weight of the polyester ripstop the canopy is sewn from at the reference force limit, on cells as wide as those of every kite (canopy_structure_chord); the cloth grows in proportion to the force limit, so it carries the same tension per weight and keeps the canopy life, as woven polyester sails of any weight, each sized to its load, are given one life [@flynn2015]. The SkySails ship kite of 160 kN flew fabric slightly above 100 g/m^2, chosen comparably heavy for stowing and UV (Paulig et al. 2013); kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
 canopy_cloth_reference_force:
   value: 0.5
   low: 0.5
@@ -901,19 +901,7 @@ canopy_chord_cells:
   low: 9.3
   high: 9.3
   unit: "-"
-  reason: "Mean chord over cell width of ram-air canopies at canopy_reference_chord, on the line fitted through 23 canopy models: 17 paragliders of 7.4-13.4 (median 9.7) [@ozone_ultralite3; @ozone_ultralite4; @nova_prion; @advance_alpha8; @ozone_geo6; @ozone_spyder3; @ozone_rush3; @nova_mentor2; @ozone_rush5; @advance_iota_dls; @ozone_rush6; @ozone_zeno2; @ozone_enzo3; @advance_pibi; @advance_bibeta6; @ozone_magnum3; @ozone_magnum4] and a traction kite and five parafoils of 4.4-16 (median 10.1) [@flysurfer_soul4; @gavrilovski2012; @schairer2019; @geiger1990; @airborne_dragonfly]."
-canopy_reference_chord:
-  value: 2.5
-  low: 2.5
-  high: 2.5
-  unit: m
-  reason: "Mean chord at which canopy_chord_cells is stated, the centre of the 23 canopy models it is fitted to."
-canopy_cell_width_exponent:
-  value: 0.72
-  low: 0.5
-  high: 1.0
-  unit: "-"
-  reason: "Power of the mean chord that the cell width of a ram-air canopy grows with: 0.72 +- 0.12 across the 23 canopy models of 3 to 325 m^2 flat of canopy_chord_cells, from paragliders to a cargo parafoil, the least-squares slope of the logarithm of cell width on that of mean chord; 0.54 +- 0.19 across the 6 that are not paragliders; 1 within every model line, whose sizes scale at a fixed cell count, and between the 300 and 1200 ft^2 parafoil models of one design [@geiger1990]. The MegaFly cargo parafoil of 836 m^2 sews 3.9 m^2 of cloth per m^2 of canopy [@dunker2007]; at a flat aspect ratio of 3 the rule gives it 3.7, a fixed proportion 3.0."
+  reason: "Chord over cell width of the kite canopy_structure_cost is taken to be for, whose cell width every kite keeps: 9.3 at 2.5 m mean chord, the centre of the line fitted through 23 ram-air canopy models: 17 paragliders of 7.4-13.4 (median 9.7) [@ozone_ultralite3; @ozone_ultralite4; @nova_prion; @advance_alpha8; @ozone_geo6; @ozone_spyder3; @ozone_rush3; @nova_mentor2; @ozone_rush5; @advance_iota_dls; @ozone_rush6; @ozone_zeno2; @ozone_enzo3; @advance_pibi; @advance_bibeta6; @ozone_magnum3; @ozone_magnum4] and a traction kite and five parafoils of 4.4-16 (median 10.1) [@flysurfer_soul4; @gavrilovski2012; @schairer2019; @geiger1990; @airborne_dragonfly]."
 canopy_mass_overhead:
   value: 0.05
   low: 0.02
@@ -943,19 +931,13 @@ canopy_structure_chord:
   low: 4.4
   high: 8.2
   unit: m
-  reason: "Mean projected chord of the kites canopy_structure_cost is taken to be for, at canopy_chord_cells, which the survey does not state: that of the SkySails kite of 125 m^2 projected on a 15.2 m span [@folkersma2020, Table 1]. Its 38 cells, at least 0.46 m wide flat, make at most 18 per chord, as much seam per m^2 as canopy_chord_cells at the low bound."
+  reason: "Mean projected chord of the kites canopy_structure_cost is taken to be for, at canopy_chord_cells, which sets the cell width every kite keeps, 0.88 m; the survey does not state it: that of the SkySails kite of 125 m^2 projected on a 15.2 m span [@folkersma2020, Table 1]. Its 38 cells, at least 0.46 m wide flat, make at most 18 per chord, as much seam per m^2 as canopy_chord_cells at the low bound."
 canopy_cell_seams:
   value: 3.0
   low: 2.0
   high: 4.0
   unit: "-"
   reason: "Seams a chord long per cell of a ram-air canopy, reinforcements and bridle attachments along them: two joining each rib to the top and bottom skins and one for the diagonals, the authors' estimate; bounds the ribs alone and two for the diagonals."
-canopy_cloth_width:
-  value: 1.5
-  low: 1.37
-  high: 1.58
-  unit: m
-  reason: "Width of the cloth a canopy's skins are sewn from in panels, seamed where a cell is wider: 1.37-1.58 m for the kite cloth and sailcloth of canopy_cloth_price_per_weight [@extremtextil_prices_2026; @sailrite_dacron_prices_2026; @jonesairfoils_icarex]."
 canopy_structure_cloth_weight:
   value: 100.0
   low: 50.0

@@ -3,9 +3,9 @@
 
 # Error and run time of the planner per fidelity, on the gate's development cases:
 #
-#   julia +1.12 --project=. -t auto scripts/router_grid_study.jl <out_dir> [entry...]
-#   julia +1.12 --project=. -t auto scripts/router_grid_study.jl --table <out_dir> <entry>
-#   julia +1.12 --project=. scripts/router_grid_study.jl --draft <out_dir> <final> <today> \
+#   julia +1.13 --project=. -t auto scripts/router_grid_study.jl <out_dir> [entry...]
+#   julia +1.13 --project=. -t auto scripts/router_grid_study.jl --table <out_dir> <entry>
+#   julia +1.13 --project=. scripts/router_grid_study.jl --draft <out_dir> <final> <today> \
 #       <entry...>
 #
 # Routes each named entry of `STUDY`, or all of them, into <out_dir>/<entry>, skipping cases

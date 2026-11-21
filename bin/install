@@ -39,7 +39,7 @@ install_project() {
     else
         cp "$project/Manifest-v$major.toml.default" "$project/Manifest-v$major.toml"
     fi
-    julia "+$major" --project="$project" -e "using Pkg; $action; Pkg.precompile()"
+    julia "+$major" --project="$project" -e "using Pkg; $action; Pkg.precompile(; strict=true)"
 }
 
 install_project .
