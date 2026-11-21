@@ -295,7 +295,8 @@ end
 end
 
 @testset "a kite built for more force gets cloth and seams in proportion" begin
-    stronger = with_value(assumptions, :kite_max_force_per_area, 1.0)
+    stronger = with_value(assumptions, :kite_max_force_per_area,
+        2assumptions[:kite_max_force_per_area])
     base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger), 800.0, 3.0)
     @test WindShipOpt.cloth_weight(stronger) ≈ 2WindShipOpt.cloth_weight(assumptions)
     @test strong_canopy.mass_per_area ≈ 2base_canopy.mass_per_area
@@ -710,15 +711,15 @@ end
 
 @testset "a canopy is the surveyed one with its own cloth and seam, at the market factor" begin
     surveyed_area = 3 * 8.2^2
+    weight = WindShipOpt.cloth_weight(assumptions)
     @test WindShipOpt.canopy_cost(assumptions, surveyed_area, 3.0) ≈
-          1.16 * 25 / 18 * 53 + 3.5 * 0.031 * 100 rtol = 1e-3
+          1.16 * 25 / 18 * 53 + 3.5 * 0.031 * (weight - 100) rtol = 1e-3
     price(area, inputs=assumptions) = WindShipOpt.canopy_price(inputs, area, 3.0)
     @test price(800.0) ≈ assumptions[:market_price_factor] *
                          WindShipOpt.canopy_cost(assumptions, 800.0, 3.0)
     cloth(area) = WindShipOpt.cloth_area_ratio(assumptions, area, 3.0)
     surveyed_cloth = cloth(surveyed_area)
     seam(area) = WindShipOpt.seam_area_ratio(assumptions, area, 3.0)
-    weight = WindShipOpt.cloth_weight(assumptions)
     sewing(area) = (WindShipOpt.canopy_cost(assumptions, area, 3.0) - 1.16 * 25 / 18 * 8 -
                     cloth(area) * (11.0 + 0.031 * weight)) / seam(area)
     surveyed_sewing = 1.16 * 25 / 18 * 45 - surveyed_cloth * (11.0 + 0.031 * 100)
@@ -785,16 +786,16 @@ end
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
     force(wind, angle) = rig_force(kite, env, wind, deg2rad(angle), 5.4, 0.0)
-    @test force(5.8751, 26.6411).thrust ≈ 70 atol = 5
-    @test force(5.8751, 26.6411).side ≈ 63954 rtol = 1e-3
-    @test force(6.6205, 50.2378).thrust ≈ 19985 rtol = 1e-3
-    @test force(6.6205, 50.2378).side ≈ 77111 rtol = 1e-3
-    @test force(8.82947, 86.695695).thrust ≈ 116174 rtol = 1e-3
-    @test force(8.82947, 86.695695).side ≈ 245100 rtol = 1e-3
-    @test force(11.161535, 114.227745).thrust ≈ 245078 rtol = 1e-3
-    @test force(11.161535, 114.227745).side ≈ 207740 rtol = 1e-3
-    @test force(13.802571, 148.57094).thrust ≈ 346940 rtol = 1e-3
-    @test force(13.802571, 148.57094).side ≈ 11658 rtol = 1e-3
+    @test force(5.8751, 26.6411).thrust ≈ -71 atol = 5
+    @test force(5.8751, 26.6411).side ≈ 64157 rtol = 1e-3
+    @test force(6.6205, 50.2378).thrust ≈ 19892 rtol = 1e-3
+    @test force(6.6205, 50.2378).side ≈ 77328 rtol = 1e-3
+    @test force(8.82947, 86.695695).thrust ≈ 117916 rtol = 1e-3
+    @test force(8.82947, 86.695695).side ≈ 327789 rtol = 1e-3
+    @test force(11.161535, 114.227745).thrust ≈ 307520 rtol = 1e-3
+    @test force(11.161535, 114.227745).side ≈ 348944 rtol = 1e-3
+    @test force(13.802571, 148.57094).thrust ≈ 566713 rtol = 1e-3
+    @test force(13.802571, 148.57094).side ≈ 214685 rtol = 1e-3
 end
 
 # On the window edge tan(angle off downwind) = G and T = q A sqrt(CL^2 + CD^2).

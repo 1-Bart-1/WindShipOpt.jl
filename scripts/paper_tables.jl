@@ -299,13 +299,13 @@ function development_table()
     write_whole(joinpath(sections, "development_table.tex")) do io
         println(io, "\\begin{longtable}{@{}", ragged, "p{2.5cm}", ragged, "p{2.6cm}rrrr",
             ragged, "p{3.4cm}@{}}")
-        println(io, "\\caption{The inputs of the development study by the rig whose ",
-            "developer can change them: base value and range; the gain of a rig's saving ",
-            "at the better end of the range and its loss at the worse end, in percentage ",
-            "points, in cost per tonne-km on each ship and the largest of each in ",
-            "CO\\textsubscript{2} per tonne-km over the ships; and why the input is in ",
-            "the study. Values are estimates, conditions or goals (g), to two digits, and ",
-            "the gains and losses model output, to a tenth of a point; ",
+        println(io, "\\caption{\\stale{sensitivity}{} The inputs of the development study ",
+            "by the rig whose developer can change them: base value and range; the gain ",
+            "of a rig's saving at the better end of the range and its loss at the worse ",
+            "end, in percentage points, in cost per tonne-km on each ship and the largest ",
+            "of each in CO\\textsubscript{2} per tonne-km over the ships; and why the input ",
+            "is in the study. Values are estimates, conditions or goals (g), to two ",
+            "digits, and the gains and losses model output, to a tenth of a point; ",
             "\\cref{tab:goals} gives what is known today against each goal. ",
             "\\savingerror}\n",
             "\\label{tab:development}\\\\")
