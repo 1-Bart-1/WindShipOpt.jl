@@ -847,6 +847,63 @@ Geometric mean of the positive numbers `values`.
 geometric_mean(values) = exp(sum(log, values) / length(values))
 
 """
+    deck_rig_figure()
+
+Write paper/figures/deck_rigs.pdf: the model of the deck rigs, (a) the wing sail's lift
+over drag at each trim, attached and stalled, (b) the rotor's lift, drag and spin power
+over spin ratio, and (c) the thrust factor of wings and rotors in one row and in two
+columns over their number, at the closest spacing.
+"""
+function deck_rig_figure()
+    ship = Ship(ShipDesign(:vlsfo, 140.0; rig_size("wings", 800.0)...), assumptions)
+    wing = ship.rig
+    figure = Figure(size=(page_width, 170))
+    polar = Axis(figure[1, 1]; xlabel=L"C_D", ylabel=L"C_L",
+        title="(a) wing sail, over its trim")
+    attached, stalled = WindShipOpt.trim_ranges(wing, ship.env, 10.0, π / 2, 5.0)
+    for (trim, style, label) in
+        ((attached, :solid, "attached"), (stalled, :dash, "stalled"))
+        settings = WindShipOpt.trim_setting.(Ref(wing), Ref(trim),
+            range(trim.low, trim.high; length=100))
+        lines!(polar, last.(settings), first.(settings); color=palette[2],
+            linestyle=style, label)
+    end
+    axislegend(polar; position=:rt)
+    spins = range(0, WindShipOpt.MAX_SPIN_RATIO; length=100)
+    coefficients = WindShipOpt.rotor_coefficients.(spins)
+    rotor = Axis(figure[1, 2]; xlabel=L"spin ratio $\alpha$", ylabel="coefficient",
+        title="(b) rotor, over its spin")
+    lift = assumptions[:rotor_lift_factor] .* first.(coefficients)
+    lines!(rotor, spins, lift; color=palette[3], label=L"C_L")
+    lines!(rotor, spins, getindex.(coefficients, 2); color=palette[3], linestyle=:dash,
+        label=L"C_D")
+    lines!(rotor, spins, last.(coefficients); color=palette[3], linestyle=:dot,
+        label=L"C_{P,\mathrm{spin}}")
+    axislegend(rotor; position=:lt)
+    shading = Axis(figure[1, 3]; xlabel=L"units $n$", ylabel=L"thrust factor $f$",
+        title="(c) shading at the closest spacing", xticks=2:2:8,
+        limits=(nothing, (0.45, 1.0)))
+    for (unit, colour) in ((:wing, palette[2]), (:rotor, palette[3]))
+        setting(name) = assumptions[Symbol(unit, name)]
+        spacing, decay = setting(:_spacing), setting(:_interference_decay)
+        amplitude = setting(:_interference_amplitude)
+        abreast = setting(:_abreast_loss) * amplitude
+        counts = 2:2:8
+        row = WindShipOpt.array_factor.(counts, spacing, amplitude, decay)
+        columns = WindShipOpt.array_factor.(counts .÷ 2, spacing, amplitude, decay) .*
+                  WindShipOpt.array_factor(2, spacing, abreast, decay)
+        scatterlines!(shading, counts, row; color=colour, markersize=marker_size)
+        scatterlines!(shading, counts, columns; color=colour, linestyle=:dash,
+            markersize=marker_size)
+    end
+    elements = [LineElement(; color=palette[2]), LineElement(; color=palette[3]),
+        LineElement(; color=:black), LineElement(; color=:black, linestyle=:dash)]
+    axislegend(shading, elements, ["wing sails", "rotors", "one row", "two columns"];
+        position=:lb)
+    save_figure("deck_rigs", figure)
+end
+
+"""
     pattern_figure()
 
 Optimal flight paths seen from the ship looking downwind, positive azimuth to the left,
@@ -1856,8 +1913,11 @@ band_entry(band) = fill_entry(fleet_colours()[band])
 fleet_colours() = Dict("kite" => palette[1], "wings" => palette[2], "rotors" => palette[3],
     "level" => level_fill("kite", "rotors"), "none" => RGBf(0.8, 0.8, 0.8))
 
-"pitch and width [figure units] of the stripes of [`hatch!`](@ref)"
-hatch_pitch, hatch_width = style_size("hatch_pitch"), style_size("hatch_width")
+"pitch [figure units] of the stripes of [`hatch!`](@ref)"
+hatch_pitch = style_size("hatch_pitch")
+
+"width [figure units] of the stripes of [`hatch!`](@ref)"
+hatch_width = style_size("hatch_width")
 
 """
     hatch!(axis, rect, stripe)
@@ -3443,8 +3503,7 @@ reference_line!(axis, value=0; vertical=false, linestyle=:solid) =
 
 "inputs of the mass of a soft kite without its tether, each with its bound that lightens it"
 soft_mass_inputs = (canopy_flat_area_ratio=:low, canopy_rib_cloth_ratio=:low,
-    canopy_cell_width_exponent=:high, canopy_mass_overhead=:low,
-    control_unit_mass_per_force=:low)
+    canopy_mass_overhead=:low, control_unit_mass_per_force=:low)
 
 """
     soft_mass_bound(lightest)
@@ -3504,9 +3563,9 @@ function kite_mass_figure()
     rigid_colour, soft_colour = palette[4], palette[1]
     figure = Figure(size=(column_width, 200))
     axis = Axis(figure[1, 1]; doubling_axis(:x, 2.5, 5120; base=2.5)...,
-        doubling_axis(:y, 0.125, 128; base=0.125)...,
+        doubling_axis(:y, 0.125, 512; base=0.125)...,
         xlabel=square_metres("projected area [", "]"),
-        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 200)))
+        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 1200)))
     flew = published["status"] .!= "designed"
     soft = published["kind"] .== "soft"
     rigid_areas = exp.(range(log(3), log(1000); length=50))
@@ -3536,7 +3595,7 @@ function kite_mass_figure()
         LineElement(color=rigid_colour, linestyle=:dot), LineElement(color=soft_colour),
         LineElement(color=:black, linestyle=:dash), markers...]
     axislegend(axis, entries, ["VTOL kite", "span cubed", "soft kite", "extrapolated",
-            statuses...]; position=:cc, nbanks=4, rowgap=0, colgap=pt(6),
+            statuses...]; position=:lt, nbanks=4, rowgap=0, colgap=pt(6),
         patchsize=(pt(12), pt(6)))
     save_figure("kite_mass", figure)
 end
@@ -3549,7 +3608,7 @@ canopy_markers = Dict("paraglider" => :circle, "kite" => :rect, "parafoil" => :u
 
 Mean chord over cell width against mean chord of the ram-air canopies of
 data/canopy_cells.csv, its `kind`, `flat_area` [m^2], `flat_span` [m] and `cells`, and the
-rule of the model at base inputs between the bounds of `canopy_cell_width_exponent`, with
+rule of the model at base inputs between the bounds of `canopy_structure_chord`, solid over
 the mean chords of the kites the class study searches.
 """
 function canopy_cells_figure()
@@ -3560,21 +3619,22 @@ function canopy_cells_figure()
     axis = Axis(figure[1, 1]; xscale=log10, yscale=log10, xlabel=L"mean chord $c$ [m]",
         ylabel=L"chord over cell width $c/w$",
         xticks=([1, 3, 10, 30, 100], ["1", "3", "10", "30", "100"]),
-        yticks=([3, 5, 10, 20, 40], ["3", "5", "10", "20", "40"]),
-        limits=(nothing, (3, 45)))
+        yticks=([1, 3, 10, 30, 100], ["1", "3", "10", "30", "100"]),
+        limits=(nothing, (0.8, 300)))
     kite_areas = size_bounds(first(values(ship_classes())))["kite"]
     kite_chords = sqrt.(collect(kite_areas) ./ assumptions[:kite_aspect_ratio])
     vspan!(axis, kite_chords...; color=(:gray50, 0.15))
-    line_chords = exp.(range(log(0.8), log(80); length=50))
-    exponent = :canopy_cell_width_exponent
+    line_chords = sort([exp.(range(log(0.8), log(160); length=60)); kite_chords...])
+    surveyed = (:canopy_structure_chord,)
     bounds = [WindShipOpt.chord_over_cell_width.(
-                  Ref(at_bound(assumptions, (exponent,), bound)), line_chords)
+                  Ref(at_bound(assumptions, surveyed, bound)), line_chords)
               for bound in (:low, :high)]
     band!(axis, line_chords, bounds...; color=(palette[1], 0.18))
-    built = line_chords .<= maximum(chords)
     rule = WindShipOpt.chord_over_cell_width.(Ref(assumptions), line_chords)
-    lines!(axis, line_chords[built], rule[built]; color=palette[1])
-    lines!(axis, line_chords[.!built], rule[.!built]; color=palette[1], linestyle=:dash)
+    searched = minimum(kite_chords) .<= line_chords .<= maximum(kite_chords)
+    beyond = .!(minimum(kite_chords) .< line_chords .< maximum(kite_chords))
+    lines!(axis, line_chords, ifelse.(searched, rule, NaN); color=palette[1])
+    lines!(axis, line_chords, ifelse.(beyond, rule, NaN); color=palette[1], linestyle=:dash)
     for kind in keys(canopy_markers)
         shown = published["kind"] .== kind
         scatter!(axis, chords[shown], ratios[shown]; color=:black,
