@@ -1773,8 +1773,8 @@ development_inputs = [
         reason="What a maker's reliability work is worth: one goal for every rig, moved " *
                "for all at once."),
     (input=:fuel_price, label="fuel price", rig="condition", lever="condition",
-        reason="Not for a developer to change: the fuel bill a rig cuts, e-ammonia and " *
-               "fuel oil moved together, each on its own drive."),
+        reason="Not for a developer to change: the fuel bill a rig cuts, with the prices " *
+               "of e-ammonia and fuel oil moved together."),
     (input=:wind_shear_exponent, label="wind shear exponent", rig="condition",
         lever="condition",
         reason="Not for a developer to change: how much stronger the wind blows at a " *
