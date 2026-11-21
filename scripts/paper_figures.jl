@@ -3530,9 +3530,9 @@ function kite_mass_figure()
     rigid_colour, soft_colour = style_colour("vtol"), palette[1]
     figure = Figure(size=(column_width, 200))
     axis = Axis(figure[1, 1]; doubling_axis(:x, 2.5, 5120; base=2.5)...,
-        doubling_axis(:y, 0.125, 512; base=0.125)...,
+        doubling_axis(:y, 0.125, 2048; base=0.125)...,
         xlabel=square_metres("projected area [", "]"),
-        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 1200)))
+        ylabel=square_metres("mass per area [kg/", "]"), limits=(nothing, (0.08, 3000)))
     flew = published["status"] .!= "designed"
     soft = published["kind"] .== "soft"
     rigid_areas = exp.(range(log(10), log(2000); length=50))
