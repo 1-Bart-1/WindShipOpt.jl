@@ -5,7 +5,7 @@
 # and compares each rig's cost saving against the same ship without a rig with the saving
 # extrapolated from it and a reference run, by the repository's accuracy-for-speed standard.
 #
-#   julia +1.12 --project=. -t auto scripts/router_gate.jl [--reference] <out_dir> \
+#   julia +1.13 --project=. -t auto scripts/router_gate.jl [--reference] <out_dir> \
 #       [reference_dir]
 #
 # Runs `gate_cases` at the default fidelity into <out_dir>/gate.csv, a line per departure of

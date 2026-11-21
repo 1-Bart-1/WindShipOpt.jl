@@ -1,39 +1,25 @@
 % SPDX-FileCopyrightText: 2026 Bart van de Lint
 % SPDX-License-Identifier: AGPL-3.0-or-later
-\begin{tikzpicture}[x=1mm, y=1mm,
-  worn/.pic={\fill[kite] (150:4.2) arc[start angle=150, end angle=30, radius=4.2]
-      -- (30:3.5) arc[start angle=30, end angle=150, radius=3.5] -- cycle;
-    \draw[loss] (-0.7,4.6) -- (0.2,3) -- (-0.5,2.2) -- (0.5,0.6);},
-  interest/.pic={\fill[water!60] (-3.8,-3.2) rectangle (3.8,1.6);
-    \node[text=white, inner sep=0pt] at (0,-0.8) {\textbf{\%}};
-    \draw[ship!50!black] (0,1.6) -- (0,3.6) (-1.4,3.6) -- (1.4,3.6);},
-  loop/.pic={\fill[ship!50!black] (-3.8,0) circle (0.7) (3.8,0) circle (0.7);
-    \draw[flow, accent] (-3.8,0) .. controls (-1.5,3.4) and (1.5,3.4) .. (3.4,0.5);
-    \draw[flow, accent] (3.8,0) .. controls (1.5,-3.4) and (-1.5,-3.4) .. (-3.4,-0.5);},
-  freight/.pic={\fill[water!60] (-4,-1.2) rectangle (-0.8,1.2);
-    \draw[flow] (0,0) -- (4.2,0);},
-  costbar/.pic={\fill[accent!60] (-4,-1) rectangle (-0.6,1); \fill[ship] (-0.6,-1) rectangle (2,1);
-    \fill[water!60] (2,-1) rectangle (4,1);},
-]
+\begin{tikzpicture}[x=1mm, y=1mm]
 % #1 name, (#2,#3) centre, #4 kind, #5 title, #6 what it is, #7 picture, #8 height [mm]
 \newcommand{\costbox}[8]{%
   \node[#4 box, minimum width=30mm, minimum height=#8mm] (#1) at (#2,#3) {};
   \node[box title, anchor=north west, text width=19mm] at ([shift={(2,-1.8)}]#1.north west) {#5};
   \node[box text, anchor=north west, text width=26mm] at ([shift={(2,-9.6)}]#1.north west) {#6};
   \pic[scale=0.8] at ([shift={(-5.4,-4.8)}]#1.north east) {#7};}
-\costbox{tkm}{104}{0}{cost}{Cost per\\ tonne-km}{$c_\mathrm{tkm}$}{costbar}{15}
-\costbox{trip}{63.75}{-26}{cost}{Cost per\\ round trip}{the mean over all departures}{loop}{18}
+\costbox{tkm}{104}{0}{cost}{Cost per\\ tonne-km}{$c_\mathrm{tkm}$}{cost icon}{15}
+\costbox{trip}{63.75}{-26}{cost}{Cost per\\ round trip}{the mean over all departures}{round trip icon}{18}
 \node[circle, draw, fill=white, inner sep=0.6pt] (over) at (104,-26) {$\div$};
-\costbox{work}{145}{-26}{ship}{Cargo work}{$m_c\,(L_\mathrm{out}+f_\mathrm{back}L_\mathrm{back})$}{freight}{18}
+\costbox{work}{145}{-26}{ship}{Cargo work}{$m_c\,(L_\mathrm{out}+f_\mathrm{back}L_\mathrm{back})$}{cargo work icon}{18}
 \costbox{fuel}{15}{-53}{voyage}{Fuel}{$p_f E_f$}{fuel icon}{17}
-\costbox{wear}{47.5}{-53}{voyage}{Kite wear}{$c_w h_\mathrm{fly}$ + launches}{worn}{17}
+\costbox{wear}{47.5}{-53}{voyage}{Kite wear}{$c_w h_\mathrm{fly}$ + launches}{kite wear icon}{17}
 \costbox{port}{80}{-53}{data}{Ports}{$C_\mathrm{port}$, two calls}{port icon}{17}
-\costbox{time}{112.5}{-53}{voyage}{Time}{$c_t\,(t_\mathrm{sea}+t_\mathrm{port})$}{clock icon}{17}
-\costbox{cargo}{145}{-53}{ship}{Cargo $m_c$}{deadweight or slots less rig, stores, fuel}{container icon}{17}
-\costbox{capital}{47.5}{-83}{data}{Capital}{ship, drive, rig}{money icon}{15}
+\costbox{time}{112.5}{-53}{voyage}{Time}{$c_t\,(t_\mathrm{sea}+t_\mathrm{port})$}{time icon}{17}
+\costbox{cargo}{145}{-53}{ship}{Cargo $m_c$}{deadweight or slots less rig, stores, fuel}{cargo icon}{17}
+\costbox{capital}{47.5}{-83}{data}{Capital}{ship, drive, rig}{capital icon}{15}
 \costbox{crew}{80}{-83}{data}{Crew}{$C_\mathrm{crew}$ a year}{crew icon}{15}
 \costbox{maint}{112.5}{-83}{data}{Maintenance}{$f_m C$}{maintenance icon}{15}
-\costbox{interest}{145}{-83}{ship}{Cargo interest}{$m_c\,v_c\,r$}{interest}{15}
+\costbox{interest}{145}{-83}{ship}{Cargo interest}{$m_c\,v_c\,r$}{interest icon}{15}
 % the quotient
 \draw[flow] (trip) -- (over);
 \draw[flow] (work) -- (over);

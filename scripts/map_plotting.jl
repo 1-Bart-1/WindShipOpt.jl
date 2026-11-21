@@ -14,7 +14,7 @@ Grey land of `mask` at the grid points `lons` and `lats` [deg] on a longitude-la
 function draw_land!(axis, mask; lons=-75:0.25:10, lats=5:0.25:56)
     land = [is_land(mask, lat, lon) for lon in lons, lat in lats]
     heatmap!(axis, lons, lats, land; colormap=[:transparent, (:grey, 0.55)],
-        rasterize=4)
+        colorrange=(0, 1), rasterize=4)
 end
 
 "style of the 10 m wind arrows of [`draw_wind!`](@ref) and of their key"

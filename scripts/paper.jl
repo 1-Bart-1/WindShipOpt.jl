@@ -22,20 +22,12 @@
 # and table steps LaTeX to paper/sections/; draft results are marked in the paper. The
 # LaTeX build is separate.
 using CairoMakie
-using Dates
-using Printf
-using Statistics
-using WindShipOpt
 
-include("setup.jl")
+include("trips.jl")
 include("map_plotting.jl")
 
-root = joinpath(@__DIR__, "..")
 sections = mkpath(joinpath(root, "paper", "sections"))
 
-include("paper_runs.jl")
-include("size_search.jl")
-include("paper_data.jl")
 include("explorer_data.jl")
 include("passages_data.jl")
 include("grids_data.jl")
@@ -47,18 +39,19 @@ include("paper_tables.jl")
 
 "data steps of the results in the order they run, each writing one or two data files"
 data_steps = [:patterns => patterns_data, :designs => designs_data,
-    :routes => routes_data, :classes => classes_data, :forecast => forecast_data,
+    :routes => routes_data, :classes => classes_data, :today => today_data,
+    :forecast => forecast_data,
     :forecast_result => forecast_result_data, :sensitivity => sensitivity_data,
     :goal_size_data => goal_size_data,
     :availability_data => availability_data,
     :canopy_life_data => canopy_life_data, :canopy_price_data => canopy_price_data,
     :situations_data => situations_data,
     :wind_angle_data => wind_angle_data, :route_tracks => route_tracks_data,
-    :passage_data => passage_data,
+    :passage_data => passage_data, :router_search => router_search_data,
     :canopy_tension => canopy_tension_data,
     :abatement_data => abatement_data,
     :combination_data => combination_data,
-    :rigid_scaling_data => rigid_scaling_data, :rigid_kite_data => rigid_kite_data,
+    :rigid_cost_data => rigid_cost_data, :rigid_kite_data => rigid_kite_data,
     :flight => flight_data, :speed_choice => speed_choice_data,
     :speed_size => speed_size_data]
 
@@ -67,18 +60,19 @@ method studies, which choose or check a method or setting, run only by name: eac
 its run for its figures and writes its tables
 """
 study_steps = [:cargo_interest => cargo_interest_data, :base_kite => base_kite_data,
-    :launch => launch_data, :sea_effect => sea_effect_data,
+    :sea_effect => sea_effect_data,
     :convergence => convergence_data, :speed_terms => speed_terms_data,
     :published_terms => published_terms_data, :model_parts => model_parts_data,
     :size_search => size_search_data, :router_decisions => router_decisions_data,
-    :routing_value => routing_value_data]
+    :routing_value => routing_value_data, :today_routing => today_routing_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
 study_tables = Dict(:cargo_interest => [:cargo_interest_table => cargo_interest_table],
     :sea_effect => [:sea_effect_table => sea_effect_table],
     :speed_terms => [:speed_terms_table => speed_terms_table],
     :published_terms => [:published_table => published_table],
-    :routing_value => [:routing_value_table => routing_value_table])
+    :routing_value => [:routing_value_table => routing_value_table],
+    :today_routing => [:today_routing_numbers => today_routing_numbers_file])
 
 "every table step of the method studies"
 study_table_steps() = unique(reduce(vcat, values(study_tables)))
@@ -88,7 +82,7 @@ website_steps = [:explorer => explorer_data, :passages => passages_data,
     :grids => grids_data]
 
 "figure and table steps, each reading the data files and writing one output"
-output_steps = [:kite => kite_figure,
+output_steps = [:kite => kite_figure, :deck_rigs => deck_rig_figure,
     :wind_load => wind_load_figure,
     :capital => capital_figure, :patterns_figure => pattern_figure,
     :canopy_tension_figure => canopy_tension_figure,
@@ -105,7 +99,7 @@ output_steps = [:kite => kite_figure,
     :wind_angle_figure => wind_angle_figure,
     :sensitivity_figure => sensitivity_figure,
     :forecast_figure => forecast_figure, :input_tables => input_tables,
-    :rig_prices_table => rig_prices_table,
+    :rotor_prices_table => rotor_prices_table,
     :development_table => development_table,
     :class_table => class_dimension_table, :fidelity_table => fidelity_table,
     :drift_check_table => drift_check_table,
@@ -115,7 +109,7 @@ output_steps = [:kite => kite_figure,
     :missed_goals_table => missed_goals_table,
     :rig_margin_table => rig_margin_table,
     :abatement => abatement_figure, :combination => combination_figure,
-    :rigid_scaling => rigid_scaling_figure, :rigid_kite => rigid_kite_figure,
+    :rigid_kite => rigid_kite_figure,
     :flight_table => flight_table, :speed_choice_table => speed_choice_table,
     :speed_size_figure => speed_size_figure,
     :min_wind => min_wind_figure,
@@ -126,6 +120,7 @@ output_steps = [:kite => kite_figure,
     :canopy_cells => canopy_cells_figure,
     :tow_point_figure => tow_point_figure,
     :fleet_share => fleet_share_figure, :numbers => numbers_file,
+    :today_numbers => today_numbers_file,
     :figure_style => figure_style_file, :rigid_numbers => rigid_numbers_file]
 
 """
