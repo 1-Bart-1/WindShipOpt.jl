@@ -66,6 +66,8 @@ Base.@kwdef struct Hull
     max_prismatic::Float64 = 1.0
     "waterline length, on which the Holtrop formulas are evaluated [m]"
     waterline_length::Float64 = length
+    "height of the containers stacked on deck [m]"
+    deck_cargo_height::Float64 = 0.0
 end
 
 """
@@ -83,23 +85,23 @@ end
 
 """
     Hull(length, beam, draft, block, assumptions; centre_of_buoyancy, resistance_factor=1,
-        waterline_length=length)
+        waterline_length=length, deck_cargo_height=0)
 
 Hull of the given main dimensions [m] and block coefficient on `length`, with the form
 ratios of the reference coaster, its centre of buoyancy [% of length] unless given, and
 the factor on its calm-water resistance, and the factor `hull_side_force_factor` on its
 side-force slope. Its form terms take `waterline_length` and stop at
 the prismatic coefficient `holtrop_max_prismatic`, while its displacement stays that of
-`block`.
+`block`; `deck_cargo_height` [m] of containers stand on its deck.
 """
 function Hull(length, beam, draft, block, assumptions::Assumptions;
         centre_of_buoyancy=assumptions[:centre_of_buoyancy], resistance_factor=1.0,
-        waterline_length=length)
+        waterline_length=length, deck_cargo_height=0.0)
     midship = assumptions[:midship_coefficient]
     max_prismatic = assumptions[:holtrop_max_prismatic]
     prismatic = prismatic_coefficient(block * length / waterline_length, midship,
         max_prismatic)
-    return Hull(; length, beam, draft, waterline_length,
+    return Hull(; length, beam, draft, waterline_length, deck_cargo_height,
         displacement_volume=length * beam * draft * block,
         midship_coefficient=midship,
         waterplane_coefficient=0.763 * (prismatic + 0.34),
