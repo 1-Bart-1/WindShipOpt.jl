@@ -49,16 +49,18 @@
   rotor above/.pic={
     \fill[rotors!45] (0,0) circle (4.6);
     \fill[rotors] (0,0) circle (2.89);},
-  % a wing sail from the side: one wing, leading edge forward, its flap aft of the hinge line
+  % a wing sail from the side, 40 m tall: one wing tapering to its rounded tip, its leading
+  % edge forward and its flap aft of the hinge line
   wing/.pic={
-    \path[save path=\wingoutline] (-7.05,0.4) -- (7.05,0.4) -- (7.05,26.8)
-      .. controls (6.2,28.3) and (-6.2,28.3) .. (-7.05,26.8) -- cycle;
+    \path[save path=\wingoutline] (-7.05,0.4) -- (7.05,0.4) -- (6.4,35.4)
+      .. controls (6.3,39) and (5,40.4) .. (2.6,40.4) -- (-3.8,40.4)
+      .. controls (-4.9,40.4) and (-5.5,40) .. (-5.6,39.2) -- cycle;
     \fill[wings, use path=\wingoutline];
     \begin{scope}
       \clip[use path=\wingoutline];
-      \fill[wings!55] (-7.05,0) rectangle (-3.2,29);
+      \fill[wings!55] (-8,0) -- (-3.2,0) -- (-2.3,41) -- (-8,41) -- cycle;
     \end{scope}
-    \draw[wingstext] (-3.2,0.4) -- (-3.2,27.8);},
+    \draw[wingstext] (-3.2,0.4) -- (-2.32,40.4);},
   % a wing sail from above: the aerofoil section with its flap, leading edge to the right
   wing above/.pic={
     \fill[wings] (7.05,0) .. controls (7.05,1.4) and (4,1.9) .. (1,1.6) -- (-2.8,0.9)
@@ -73,8 +75,10 @@
       -- ++(70:12);
     \fill[keel] (-2,-18) rectangle (2,-13);},
   % the kite's telescopic launch mast, 35 m up from the deck at its foot, the origin, dashed
-  % as it stands only for launch and landing
-  launch mast/.pic={\draw[keel, densely dashed, fill=white] (-1.5,0) rectangle (1.5,35);},
+  % as it stands only for launch and landing, with the docking head that grips the kite on top
+  launch mast/.pic={
+    \draw[keel, densely dashed] (0,0) -- (0,33.4);
+    \fill[keel] (-2,33.4) -- (2,33.4) -- (3.4,35.2) -- (-3.4,35.2) -- cycle;},
   % icons
   fuel icon/.pic={
     \fill[icon] (-3.2,-3.6) rectangle (1,3.4);
