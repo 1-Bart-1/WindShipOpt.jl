@@ -17,7 +17,8 @@ using WindShipOpt: CargoHold, cargo_limit, design_rig, unit_limits, with_rig
 assumptions = Assumptions()
 
 "rig areas of the class study by rig name, as `ShipDesign` keywords"
-area_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area)
+area_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area,
+    "suction" => :suction_area)
 
 """
 Rotor units Anemoi offers per class: Rotor Sails brochure, April 2024, Table A (Ultramax,
@@ -137,7 +138,7 @@ function cargo_groups(run)
             ours = [row for row in rows if row.class == name && row.drive == drive]
             bare = Dict(row.route => row for row in ours if row.rig == "none")
             line = @sprintf("%-28s %-10s", name, limit)
-            for rig in ("kite", "wings", "rotors")
+            for rig in keys(area_keywords)
                 sizes = [row for row in ours if row.rig == rig]
                 best = [cheapest[(name, drive, route, rig)] for route in keys(bare)]
                 now = [saving(row, bare[row.route]) for row in best]
@@ -147,7 +148,7 @@ function cargo_groups(run)
                     parse(Float64, row.area))) for (g, row) in zip(gross, best)]
                 line *= @sprintf(" | %s %5.1f charge %4.2f other %5.1f", rig,
                     100mean(now), 100(mean(gross) - mean(now)), 100mean(other))
-                if rig != "kite" && haskey(offered_units, name)
+                if rig in ("wings", "rotors") && haskey(offered_units, name)
                     line *= @sprintf(" at %d units %5.1f", offered_units[name],
                         100offered_saving(sizes, bare, offered_units[name]))
                 end
@@ -181,7 +182,7 @@ function recommendation(run)
                                               parse(Float64, getfield(reference, column)))
     for drive in unique(row.drive for row in rows), name in sort(unique(values(groups)))
         println("== ", drive, ", ", name)
-        for rig in ("kite", "wings", "rotors")
+        for rig in keys(area_keywords)
             cases = [(row, bare[(row.class, drive, row.route)],
                       bare[(row.class, "vlsfo", row.route)])
                      for ((class, case_drive, _, case_rig), row) in cheapest
@@ -200,7 +201,7 @@ function recommendation(run)
         for ((class, case_drive, route), reference) in bare
             (groups[class] == name && case_drive == drive) || continue
             rig = argmin(rig -> parse(Float64, cheapest[(class, drive, route, rig)].cost),
-                ("kite", "wings", "rotors"))
+                keys(area_keywords))
             wins[(route, rig)] = get(wins, (route, rig), 0) + 1
         end
         println("best rig by route: ", join(sort(["$route $rig $count"

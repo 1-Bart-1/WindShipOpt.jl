@@ -669,8 +669,9 @@ end
     @test first(WindShipOpt.rig_costs(kite, assumptions)) ≈
           factor * sum(WindShipOpt.rig_price_parts(kite, assumptions)) +
           sum(WindShipOpt.consumable_costs(kite, assumptions))
-    for rig_type in (WingRig, WindShipOpt.RotorRig)
-        rig = rig_type(800.0, hull, assumptions)
+    for rig in (WingRig(800.0, hull, assumptions),
+        WingRig(800.0, hull, assumptions; unit=:suction),
+        WindShipOpt.RotorRig(800.0, hull, assumptions))
         @test first(WindShipOpt.rig_costs(rig, assumptions)) ≈
               factor * sum(WindShipOpt.rig_price_parts(rig, assumptions))
     end
@@ -762,6 +763,77 @@ end
     @test force(180).thrust ≈ 2248 rtol = 1e-3
     @test force(180).side ≈ -12750 rtol = 1e-3
     @test force(0).thrust < 0 < force(0).side
+end
+
+"one suction sail of `area` [m^2] on the 140 m ship, at `inputs`"
+suction_sail(area, inputs=assumptions) =
+    WingRig(area, Hull(140.0, assumptions), inputs; unit=:suction)
+
+@testset "a suction sail of the VentiFoil's shape holds its published lift, drag and fan \
+          power" begin
+    pair = suction_sail(32.0)
+    @test pair.count == 1
+    @test pair.height ≈ sqrt(32.0 * 6.6)
+    lift = pair.max_lift_coefficient
+    @test lift == 4.9
+    @test WindShipOpt.drag_coefficient(pair, lift) ≈ 2.4
+    @test WindShipOpt.drag_coefficient(pair, 0.0) ==
+          assumptions[:wing_profile_drag_coefficient]
+    attached = (lift, WindShipOpt.drag_coefficient(pair, lift))
+    @test WindShipOpt.fan_power(pair, attached, 17.0) ≈ 2 * 7.5e3 rtol = 0.01
+    @test WindShipOpt.fan_power(pair, attached, 8.5) ≈ 2 * 7.5e3 / 8 rtol = 0.01
+    tallest = suction_sail(26.0^2 / 6.6)
+    @test tallest.count == 1 && tallest.height ≈ 26.0
+    @test suction_sail(3000.0).height <= 26.0
+end
+
+@testset "a suction sail's fan runs only while its flow is attached and lifts, and it lies \
+          down above its highest wind" begin
+    env = Environment(assumptions)
+    sails = suction_sail(800.0)
+    force(setting, wind) = rig_force(sails, env, wind, π / 2, 5.0, setting)
+    lifting = (3.0, WindShipOpt.drag_coefficient(sails, 3.0))
+    stalled = WindShipOpt.trim_setting(sails, WindShipOpt.TrimRange(25.0, 90.0, 5, 2), 60.0)
+    @test force(lifting, 10.0).power > 0
+    @test force((0.0, WindShipOpt.drag_coefficient(sails, 0.0)), 10.0).power == 0
+    @test force(stalled, 10.0).power == 0
+    @test rig_force(WingRig(800.0, Hull(140.0, assumptions), assumptions), env, 10.0,
+        π / 2, 5.0, (1.5, 0.1)).power == 0
+    calm = WindShipOpt.trim_ranges(sails, env, 8.0, π / 2, 5.0)
+    storm = WindShipOpt.trim_ranges(sails, env, 25.0, π / 2, 5.0)
+    @test first(calm).high == sails.max_lift_coefficient
+    @test only(storm).high == 0
+end
+
+@testset "a suction sail is priced and weighed as a wing sail with its own mass and cost \
+          per kg" begin
+    sails = suction_sail(800.0)
+    wings = WingRig(800.0, Hull(140.0, assumptions), assumptions)
+    parts = WindShipOpt.rig_price_parts(sails, assumptions)
+    @test parts.units == sails.count * assumptions[:wing_unit_cost]
+    @test parts.surface ≈ 800 * 1e3assumptions[:suction_mass_per_area] *
+                          assumptions[:suction_cost_per_mass]
+    @test parts.installation ≈ assumptions[:wing_installation_fraction] *
+                               (parts.units + parts.surface)
+    @test WindShipOpt.rig_costs(sails, assumptions)[2] ≈
+          800 * assumptions[:suction_mass_per_area]
+    @test WindShipOpt.rig_price_parts(wings, assumptions).surface ≈
+          800 * assumptions[:wing_cost_per_area]
+    heavier = with_value(assumptions, :suction_mass_per_area, 0.6)
+    @test WindShipOpt.rig_price_parts(suction_sail(800.0, heavier), heavier).surface ≈
+          2parts.surface
+end
+
+@testset "suction sails stand alone on a design and keep the wing sails' spacing" begin
+    hull = Hull(140.0, assumptions)
+    ship = Ship(ShipDesign(:ammonia, 140.0; suction_area=800.0), assumptions)
+    @test ship.rig isa WingRig && ship.rig.unit == :suction
+    @test_throws ArgumentError Ship(ShipDesign(:ammonia, 140.0; suction_area=800.0,
+        wing_area=800.0), assumptions)
+    largest = maximum(area for area in 100.0:100.0:8000.0
+                      if !isnothing(WingRig(area, hull, assumptions; unit=:suction)))
+    wider = with_value(assumptions, :wing_spacing, 2assumptions[:wing_spacing])
+    @test isnothing(WingRig(largest, hull, wider; unit=:suction))
 end
 
 # Expected forces are the hand calculation of tab:hand in paper/sections/trust.tex.
@@ -4076,8 +4148,9 @@ end
     control_unit = assumptions[:market_price_factor] *
                    WindShipOpt.rig_price_parts(kite, assumptions).control_unit
     @test WindShipOpt.crash_cost(kite, assumptions) ≈ control_unit + (canopy + tether) / 2
-    for rig_type in (WingRig, WindShipOpt.RotorRig)
-        rig = rig_type(1200.0, hull, assumptions)
+    for rig in (WingRig(1200.0, hull, assumptions),
+        WingRig(1200.0, hull, assumptions; unit=:suction),
+        WindShipOpt.RotorRig(1200.0, hull, assumptions))
         @test rig.count > 1
         @test WindShipOpt.crash_cost(rig, assumptions) * rig.count ≈
               first(WindShipOpt.rig_costs(rig, assumptions))
@@ -4184,13 +4257,15 @@ end
         ("tubarao", "ammonia", "kite", 3200.0, 0.0048),
         ("tubarao", "vlsfo", "kite", 6400.0, 0.0040),
         ("tubarao", "ammonia", "wings", 3600.0, 0.0049),
+        ("tubarao", "ammonia", "suction", 1600.0, 0.0049),
         ("tubarao", "ammonia", "rotors", 1890.0, 0.0047),
         ("bilbao", "ammonia", "rotors", 850.0, 0.0045)]
     classes = Dict{String, Vector}("class" => fill("Kamsarmax bulk carrier", length(runs)),
         (name => [run[k] for run in runs]
          for (k, name) in enumerate(("route", "drive", "rig", "area", "cost")))...)
     @test PaperData.fuel_sizes(classes, "Kamsarmax bulk carrier", :tubarao) ==
-          Dict("none" => 0.0, "kite" => 3200.0, "wings" => 3600.0, "rotors" => 1890.0)
+          Dict("none" => 0.0, "kite" => 3200.0, "wings" => 3600.0, "suction" => 1600.0,
+        "rotors" => 1890.0)
     @test PaperData.swept_values(:e_methanol_price) ==
           sort([Main.assumptions[:e_methanol_price], 40.0, 90.0, 120.0])
 end
@@ -4359,7 +4434,7 @@ end
         @test !isempty(entry.reason)
     end
     for rig in PaperData.rig_names
-        levers = [entry.lever for entry in inputs if entry.rig == rig]
+        levers = [entry.lever for entry in inputs if rig in PaperData.lever_rigs(entry)]
         @test "price" in levers && "force" in levers && "availability" in levers
     end
 end
@@ -4417,6 +4492,30 @@ end
     @test PaperData.best_costs(table, every)["rotors"] == 0.8
     held = PaperData.best_costs(table, one_row)
     @test held["rotors"] == 0.9 && held["kite"] == 0.85 && held["none"] == 1.0
+end
+
+@testset "suction sails are searched from a fifth to all of the deck their tallest units \
+          fill" begin
+    class = ship_classes()["Kamsarmax bulk carrier"]
+    hull = Hull(class, assumptions)
+    lower, upper = PaperData.size_bounds(class)["suction"]
+    @test lower ≈ 0.2upper
+    full = PaperData.deck_rig("suction", upper, hull)
+    @test full.unit == :suction && PaperData.deck_rig_name(full) == "suction"
+    @test full.height <= assumptions[:suction_max_height]
+    @test isnothing(PaperData.deck_rig("suction", upper + 20, hull))
+    @test upper > PaperData.largest_rig_area("wings", hull)
+end
+
+@testset "every rig has its name, life, availability and price inputs" begin
+    rigs = Set(PaperData.rig_names)
+    for names in (PaperData.rig_keywords, PaperData.lifetime_inputs,
+        PaperData.out_of_service_inputs, PaperData.rig_price_inputs,
+        PaperData.rig_subjects, PaperData.rig_short_names)
+        @test issubset(rigs, keys(names))
+    end
+    @test issubset(PaperData.deck_rig_names, PaperData.rig_names)
+    @test issubset(rigs, first.(PaperData.reference_rigs))
 end
 
 @testset "a development ship whose rig has no size in the class study stops the run" begin
@@ -4625,7 +4724,7 @@ end
 end
 
 @testset "a ship type where the best rig does not clearly save has no leader" begin
-    savings = Dict("kite" => 1.0, "wings" => 0.2, "rotors" => -0.5)
+    savings = Dict("kite" => 1.0, "wings" => 0.2, "rotors" => -0.5, "suction" => 0.1)
     lead = PaperData.rig_lead([fleet_cell(1.0, savings, Dict("kite" => 2.0))])
     @test lead.verdict == "none"
     @test PaperData.rig_lead([fleet_cell(1.0, savings)]).verdict == "leads"
@@ -4941,11 +5040,15 @@ end
 
 @testset "a model part the study's recorded run predates prints stale until it reruns" begin
     run = mktempdir()
-    write(joinpath(run, "model_parts.csv"),
-        "ship,rig,part,cost\n140 m,none,none,1.0\n140 m,kite,none,0.9\n")
+    rigs = ["none", PaperData.rig_names...]
+    write(joinpath(run, "model_parts.csv"), "ship,rig,part,cost\n",
+        join(("140 m,$rig,none,1.0\n" for rig in rigs)))
     @eval PaperData study_file(study, name) = joinpath($run, name)
     @test PaperData.study_holds(PaperData.switched(:none))
     @test !PaperData.study_holds(PaperData.switched(:side_force))
+    write(joinpath(run, "model_parts.csv"), "ship,rig,part,cost\n",
+        join(("140 m,$rig,none,1.0\n" for rig in rigs[1:(end - 1)])))
+    @test !PaperData.study_holds(PaperData.switched(:none))
     @test !PaperData.study_holds((:model_parts, "weather_years.csv", "ship", [[()]]))
     @test all(==("\\stale{model_parts}{}") ∘ last, PaperData.side_force_numbers())
     @test length(PaperData.side_force_numbers()) == 4length(PaperData.rig_names)

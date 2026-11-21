@@ -465,7 +465,7 @@ mid height; nothing for a kite.
 draw_plan_rig(io, rig::KiteRig, ship, conditions) = nothing
 
 function draw_plan_rig(io, rig::WingRig, ship, (speed, wind, angle))
-    chord = rig.height / assumptions[:wing_aspect_ratio]
+    chord = rig.area / rig.height
     _, _, apparent = WindShipOpt.centre_wind(rig, ship.env, wind, angle, speed)
     for (position, offset) in WindShipOpt.unit_positions(rig, ship.hull, assumptions)
         @printf(io, "\\pic[rotate=%.2f, scale=%.3f] at (%.2f,%.2f) {wing above};\n",
@@ -552,11 +552,11 @@ Side view of the wing or rotor `rig` on `hull` shifted by `offset` [m]: each uni
 height times its chord or diameter, standing at its foot height.
 """
 function draw_side_rig!(axis, rig, hull, offset)
-    width = rig isa WingRig ? rig.height / assumptions[:wing_aspect_ratio] : rig.diameter
+    width = rig isa WingRig ? rig.area / rig.height : rig.diameter
     for (position, _) in WindShipOpt.unit_positions(rig, hull, assumptions)
         poly!(axis, Rect2f(Point2f(offset) + Point2f(position - width / 2,
                     rig.foot_height), Vec2f(width, rig.height));
-            color=palette[rig isa WingRig ? 2 : 3],
+            color=rig_colour(deck_rig_name(rig)),
             strokewidth=0)
     end
 end
@@ -600,8 +600,8 @@ end
     ship_classes_figure()
 
 The standard ship classes in deadweight order, side by side to one scale, each with the
-geometric mean over the routes of the best size of a kite, of wings and of rotors on
-VLSFO, laid out as the model lays them out.
+geometric mean over the routes of the best size of each rig on VLSFO, laid out as the
+model lays them out.
 """
 function ship_classes_figure()
     table = read_table(data_file("classes.csv"))
@@ -616,7 +616,7 @@ function ship_classes_figure()
     margin = 55.0
     tops = cumsum([kite_top + hull.draft + margin
                    for (kite_top, (_, hull, _)) in zip(kite_tops, rows)])
-    width = 3longest + 2gap
+    width = length(rig_names) * longest + (length(rig_names) - 1) * gap
     figure = Figure(size=(page_width, page_width * (last(tops) + 20) / (1.45width)))
     axis = Axis(figure[1, 1]; aspect=DataAspect())
     hidedecorations!(axis)
@@ -630,8 +630,7 @@ function ship_classes_figure()
             if kind == "kite"
                 draw_side_kite!(axis, area, hull, offset)
             else
-                rig = kind == "wings" ? WingRig(area, hull, assumptions) :
-                      WindShipOpt.RotorRig(area, hull, assumptions)
+                rig = deck_rig(kind, area, hull)
                 isnothing(rig) || draw_side_rig!(axis, rig, hull, offset)
             end
             text!(axis, offset[1] - hull.length / 2, y - hull.draft;
@@ -769,11 +768,11 @@ function draw_window!(axis)
         align=(:right, :center))
     small_arrow!(axis, kite, 0.3along, L"\hat{\mathbf{e}}_\itphi"; align=(:left, :center))
     small_arrow!(axis, kite, 0.32 * (cos(heading) * outward + sin(heading) * along),
-        L"\hat{\mathbf{h}}"; color=palette[6], align=(:center, :bottom))
+        L"\hat{\mathbf{h}}"; color=style_colour("accent"), align=(:center, :bottom))
     lines!(axis, [kite + 0.12 * (cos(angle) * outward + sin(angle) * along)
-                  for angle in range(0, heading; length=12)]; color=palette[6])
+                  for angle in range(0, heading; length=12)]; color=style_colour("accent"))
     text!(axis, kite + 0.2 * (cos(heading / 2) * outward + sin(heading / 2) * along);
-        text=L"\itpsi", align=(:center, :center), color=palette[6])
+        text=L"\itpsi", align=(:center, :center), color=style_colour("accent"))
     scatter!(axis, [kite]; color=palette[1], markersize=8)
     small_arrow!(axis, (1.5, 0.28), (-0.2, 0), L"y"; align=(:right, :bottom))
     small_arrow!(axis, (1.5, 0.28), (0, 0.2), L"z"; align=(:center, :bottom))
@@ -849,12 +848,13 @@ function draw_course_plan!(axis)
     for (vector, label, origin, inside) in (
         (along, L"F_\parallel", Point2f(0, 0), force),
         (force - along, L"F_\perp", Point2f(along), Point2f(0, 0)))
-        arrows2d!(axis, [origin], [vector]; color=palette[6], shaftwidth=force_width)
+        arrows2d!(axis, [origin], [vector]; color=style_colour("accent"),
+            shaftwidth=force_width)
         normal = Vec2f(vector[2], -vector[1]) / hypot(vector...)
         middle = origin + 0.75vector
         outward = sum(normal .* (inside - middle)) > 0 ? -normal : normal
         text!(axis, middle + 0.15outward; text=label, align=(:center, :center),
-            color=palette[6])
+            color=style_colour("accent"))
     end
     small_arrow!(axis, (1.35, 0.45), (0, 0.2), L"x"; align=(:center, :bottom))
     small_arrow!(axis, (1.35, 0.45), (-0.2, 0), L"y"; align=(:right, :center))

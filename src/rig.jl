@@ -91,9 +91,12 @@ array_factor(count, spacing, amplitude, decay) =
 """
     WingRig
 
-Set of identical rigid wing sails on deck.
+Set of identical rigid wing sails on deck: plain wing sails, or suction sails whose fan
+holds the flow attached to a higher lift.
 """
 Base.@kwdef struct WingRig
+    "`:wing` for wing sails, `:suction` for suction sails, naming their assumptions"
+    unit::Symbol = :wing
     "number of wings"
     count::Int
     "columns the wings stand in, one on the centreline or two abreast [-]"
@@ -112,11 +115,15 @@ Base.@kwdef struct WingRig
     effective_aspect_ratio::Float64
     max_lift_coefficient::Float64
     profile_drag_coefficient::Float64
-    separation_drag_factor::Float64
-    span_efficiency::Float64
+    "drag coefficient per lift coefficient squared, above the profile drag [-]"
+    lift_drag_factor::Float64
     "normal-force coefficient of the stalled wing across the flow [-]"
     stalled_drag_coefficient::Float64
     interference_factor::Float64
+    "fan power per m^2 of wing at the highest apparent wind the wings work in [W/m^2]"
+    fan_power_per_area::Float64 = 0.0
+    "highest apparent wind the wings work in, above which they lie down [m/s]"
+    max_wind::Float64 = Inf
 end
 
 """
@@ -138,18 +145,22 @@ end
 """
     column_layout(columns, total_area, unit, hull, assumptions, forward_reserve)
 
-Layout of identical `unit`s, `:wing` or `:rotor`, of `total_area` [m^2] of height times
-width on `hull` in `columns` columns, one on the centreline or two abreast with half the
-closest spacing clear of the deck edges: as few as the tallest unit built allows, each column spread over the deck length for rigs less `forward_reserve` [m] at its
+Layout of identical `unit`s, `:wing`, `:suction` or `:rotor`, of `total_area` [m^2] of
+height times width on `hull` in `columns` columns, one on the centreline or two abreast
+with half the closest spacing clear of the deck edges: as few as the tallest unit built
+allows, each column spread over the deck length for rigs less `forward_reserve` [m] at its
 forward end. Returns the count, unit height [m], foot height above the waterline [m],
 centre of effort forward of midship [m] (units abreast of each other alone stand at the
 hull's lateral centre), column offset from the centreline [m] and interference factor:
 [`array_factor`](@ref) in line times that of a pair abreast, which loses the unit's
 abreast loss times as much. `nothing` where units stand closer than the closest spacing.
+Suction sails take their own aspect ratio and tallest height, and stand and interfere as
+wing sails do.
 """
 function column_layout(columns, total_area, unit, hull::Hull, assumptions::Assumptions,
         forward_reserve)
     setting(name) = assumptions[Symbol(unit, name)]
+    arrangement(name) = assumptions[Symbol(unit == :suction ? :wing : unit, name)]
     aspect_ratio = setting(:_aspect_ratio)
     foot_height =
         assumptions[:deck_mount_height] * hull.length / assumptions[:reference_length]
@@ -159,16 +170,16 @@ function column_layout(columns, total_area, unit, hull::Hull, assumptions::Assum
     count = columns * in_column
     height = sqrt(aspect_ratio * total_area / count)
     width = height / aspect_ratio
-    clearance = setting(:_spacing) * width
+    clearance = arrangement(:_spacing) * width
     column_offset = columns == 1 ? 0.0 : (hull.beam - clearance) / 2
     in_column * clearance <= deck_length || return nothing
     columns == 1 || 2column_offset >= clearance || return nothing
-    amplitude = setting(:_interference_amplitude)
-    decay = setting(:_interference_decay)
+    amplitude = arrangement(:_interference_amplitude)
+    decay = arrangement(:_interference_decay)
     interference_factor =
         array_factor(in_column, deck_length / in_column / width, amplitude, decay) *
-        array_factor(columns, 2column_offset / width, setting(:_abreast_loss) * amplitude,
-            decay)
+        array_factor(columns, 2column_offset / width,
+            arrangement(:_abreast_loss) * amplitude, decay)
     centre_position = in_column == 1 ? lateral_centre(hull) : -forward_reserve / 2
     return (; count, columns, height, foot_height, centre_position, column_offset,
         interference_factor)
@@ -191,39 +202,65 @@ function unit_positions(rig, hull::Hull, assumptions::Assumptions)
 end
 
 """
-    WingRig(total_area, hull, assumptions; forward_reserve=0)
+    WingRig(total_area, hull, assumptions; forward_reserve=0, unit=:wing)
 
-Wing rig of `total_area` [m^2] on `hull` laid out by [`deck_layout`](@ref), or `nothing`
-if the wings do not fit at the closest spacing.
+Wing sails, or suction sails for `unit` `:suction`, of `total_area` [m^2] on `hull` laid
+out by [`deck_layout`](@ref), or `nothing` if they do not fit at the closest spacing. A
+suction sail's drag rises with the square of its lift to its drag at its highest lift.
 """
 function WingRig(total_area::Real, hull::Hull, assumptions::Assumptions;
-        forward_reserve=0.0)
-    layout = deck_layout(total_area, :wing, hull, assumptions, forward_reserve)
+        forward_reserve=0.0, unit=:wing)
+    layout = deck_layout(total_area, unit, hull, assumptions, forward_reserve)
     isnothing(layout) && return nothing
-    return WingRig(; layout.count, layout.columns, area=total_area / layout.count,
+    profile = assumptions[:wing_profile_drag_coefficient]
+    effective_aspect_ratio =
+        assumptions[:wing_endplate_factor] * assumptions[Symbol(unit, :_aspect_ratio)]
+    max_lift_coefficient = assumptions[Symbol(unit, :_max_lift_coefficient)]
+    suction = unit == :suction
+    lift_drag_factor = suction ?
+        (assumptions[:suction_drag_coefficient] - profile) / max_lift_coefficient^2 :
+        assumptions[:wing_separation_drag_factor] +
+        1 / (π * effective_aspect_ratio * assumptions[:wing_span_efficiency])
+    return WingRig(; unit, layout.count, layout.columns, area=total_area / layout.count,
         layout.height, layout.foot_height, layout.centre_position, layout.column_offset,
-        effective_aspect_ratio=assumptions[:wing_endplate_factor] *
-                               assumptions[:wing_aspect_ratio],
-        max_lift_coefficient=assumptions[:wing_max_lift_coefficient],
-        profile_drag_coefficient=assumptions[:wing_profile_drag_coefficient],
-        separation_drag_factor=assumptions[:wing_separation_drag_factor],
+        effective_aspect_ratio, max_lift_coefficient, profile_drag_coefficient=profile,
+        lift_drag_factor,
         stalled_drag_coefficient=assumptions[:wing_stalled_drag_coefficient],
-        span_efficiency=assumptions[:wing_span_efficiency], layout.interference_factor)
+        layout.interference_factor,
+        fan_power_per_area=suction ? assumptions[:suction_fan_power_per_area] : 0.0,
+        max_wind=suction ? assumptions[:suction_max_wind] : Inf)
 end
 
 total_area(rig::WingRig) = rig.count * rig.area
 
-function drag_coefficient(rig::WingRig, lift_coefficient)
-    induced = 1 / (π * rig.effective_aspect_ratio * rig.span_efficiency)
-    return rig.profile_drag_coefficient +
-           (rig.separation_drag_factor + induced) * lift_coefficient^2
+drag_coefficient(rig::WingRig, lift_coefficient) =
+    rig.profile_drag_coefficient + rig.lift_drag_factor * lift_coefficient^2
+
+"""
+    stalled(rig::WingRig, (lift, drag))
+
+Whether the trim `(lift, drag)` of [`trim_setting`](@ref) is stalled, not attached.
+"""
+stalled(rig::WingRig, (lift, drag)) = drag > drag_coefficient(rig, lift) + 1e-9
+
+"""
+    fan_power(rig::WingRig, setting, speed)
+
+Power [W] the fans of suction sails draw at the trim `setting` in apparent wind `speed`
+[m/s]: their power at the highest wind they work in times the cube of the share of it,
+while the flow is attached and lifts; none for wing sails.
+"""
+function fan_power(rig::WingRig, setting, speed)
+    first(setting) > 0 && !stalled(rig, setting) || return 0.0
+    return rig.fan_power_per_area * total_area(rig) * min(speed / rig.max_wind, 1.0)^3
 end
 
 """
     rig_force(rig::WingRig, env, wind_10m, true_angle, ship_speed, setting)
 
 Wing force at the trim `setting`, a lift and drag coefficient pair from
-[`trim_setting`](@ref), with the apparent wind taken at the wing's mid height.
+[`trim_setting`](@ref), with the apparent wind taken at the wing's mid height, and the
+[`fan_power`](@ref) of suction sails.
 """
 function rig_force(rig::WingRig, env::Environment, wind_10m, true_angle, ship_speed,
         setting)
@@ -232,18 +269,23 @@ function rig_force(rig::WingRig, env::Environment, wind_10m, true_angle, ship_sp
     load = 0.5env.air_density * speed^2 * total_area(rig)
     thrust = load * rig.interference_factor * (lift * sin(angle) - drag * cos(angle))
     side = load * (lift * cos(angle) + drag * sin(angle))
-    return RigForce(thrust, side, side * centre_height, side * rig.centre_position)
+    return RigForce(thrust, side, side * centre_height, side * rig.centre_position,
+        fan_power(rig, setting, speed))
 end
 
 """
     trim_ranges(rig, env, wind_10m, true_angle, ship_speed)
 
 [`TrimRange`](@ref)s of the trims `rig` can take in that wind at `ship_speed` [m/s]: for
-wings the lift coefficient in attached flow and the angle of attack [deg] stalled, for
-rotors the spin ratio, for a kite the weight of side force against thrust.
+wings the lift coefficient in attached flow and the angle of attack [deg] stalled, or no
+lift where the apparent wind exceeds their highest, for rotors the spin ratio, for a kite
+the weight of side force against thrust.
 """
-trim_ranges(rig::WingRig, env, wind_10m, true_angle, ship_speed) =
-    (TrimRange(0.0, rig.max_lift_coefficient, 5, 1), TrimRange(25.0, 90.0, 5, 2))
+function trim_ranges(rig::WingRig, env, wind_10m, true_angle, ship_speed)
+    _, speed, _ = centre_wind(rig, env, wind_10m, true_angle, ship_speed)
+    speed > rig.max_wind && return (TrimRange(0.0, 0.0, 1, 1),)
+    return (TrimRange(0.0, rig.max_lift_coefficient, 5, 1), TrimRange(25.0, 90.0, 5, 2))
+end
 
 """
     trim_setting(rig, trim_range, value)
