@@ -797,18 +797,10 @@ crash_cell(crashes) = isnan(crashes) ? "--" : @sprintf("%.2g", crashes)
     class_dimension_table()
 
 Write the main data, cargo and port inputs and wind areas of the ship classes to
-class_table.tex, a dagger on estimates and ∞ for an infinite fixed-rig delay, and their
-sources to class_sources.tex.
+class_table.tex, a dagger on estimates and ∞ for an infinite fixed-rig delay.
 """
 function class_dimension_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
-    notes = class_source_notes()
-    write_whole(joinpath(sections, "class_sources.tex")) do io
-        for class in classes
-            println(io, latex_escape(class.name), " & ", cited_note(notes[class.name]),
-                " \\\\")
-        end
-    end
     write_whole(joinpath(sections, "class_table.tex")) do io
         println(io, "\\setlength{\\tabcolsep}{3pt}")
         println(io, "\\begin{tabular}{@{}l", "r"^6, "l", "r"^4, "@{}}")
@@ -905,26 +897,6 @@ unit_capacity(class) = isfinite(class.unit_capacity) ?
 "space" otherwise.
 """
 limit_label(class) = string(WindShipOpt.cargo_limit(class, assumptions))
-
-"""
-    class_source_notes()
-
-Source note of each ship class by name from the class file, without the references to
-the project's own notes, with the currency of its prices in millions and the unit of its
-lengths overall.
-"""
-function class_source_notes()
-    lines = readlines(joinpath(root, "data", "ship_classes.csv"))
-    header = WindShipOpt.csv_fields(first(lines))
-    notes = Dict{String, String}()
-    for line in lines[2:end]
-        row = Dict(zip(header, WindShipOpt.csv_fields(line)))
-        notes[row["name"]] = replace(row["source"], r" \([^()]*notes\)" => "",
-            r"(?<![\w.])(\d+(?:\.\d+)?) M\b" => s"USD \1 M",
-            r"\bLOA (\d+(?:\.\d+)?)" => s"LOA \1 m")
-    end
-    return notes
-end
 
 """
     split_table()
