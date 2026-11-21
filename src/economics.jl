@@ -198,7 +198,8 @@ from six directions evenly spread from ahead to astern.
 """
 function layout_winds(assumptions::Assumptions)
     scale = assumptions[:layout_mean_wind] / sqrt(π / 2)
-    speeds = [scale * sqrt(-2log(1 - quantile)) for quantile in (0.125, 0.375, 0.625, 0.875)]
+    quarters = (0.125, 0.375, 0.625, 0.875)
+    speeds = [scale * sqrt(-2log(1 - quantile)) for quantile in quarters]
     return [(speed, deg2rad(angle)) for speed in speeds for angle in 15:30:165]
 end
 

@@ -238,14 +238,14 @@ end
 """
     column_layout(columns, in_column, total_area, unit, hull, assumptions, forward_reserve)
 
-Layout of `columns` times `in_column` identical `unit`s of `total_area` [m^2] of height times
-width on `hull`, in one row on the centreline or two columns abreast with half the closest
-spacing clear of the deck edges, each column spread over the deck length for rigs less
-`forward_reserve` [m] at its forward end. Returns the count, unit height [m], foot height
-above the waterline [m], centre of effort forward of midship [m] (units abreast of each other
-alone stand at the hull's lateral centre), column offset from the centreline [m],
-interference factor, [`array_factor`](@ref) in line times that of a pair abreast, which
-loses the unit's abreast loss times as much, and no shadow. `nothing` where units
+Layout of `columns` times `in_column` identical `unit`s of `total_area` [m^2] of height
+times width on `hull`, in one row on the centreline or two columns abreast with half the
+closest spacing clear of the deck edges, each column spread over the deck length for rigs
+less `forward_reserve` [m] at its forward end. Returns the count, unit height [m], foot
+height above the waterline [m], centre of effort forward of midship [m] (units abreast of
+each other alone stand at the hull's lateral centre), column offset from the centreline
+[m], interference factor, [`array_factor`](@ref) in line times that of a pair abreast,
+which loses the unit's abreast loss times as much, and no shadow. `nothing` where units
 stand closer than the closest spacing. Suction sails stand and interfere as wing sails do.
 """
 function column_layout(columns, in_column, total_area, unit, hull::Hull,
