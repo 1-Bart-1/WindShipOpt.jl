@@ -5,5 +5,5 @@ using Test
 
 # Every set reports into this one, so that a failing set does not stop the sets after it.
 @testset "WindShipOpt" verbose=true begin
-    include("testsets.jl")
+    include("sets.jl")
 end
