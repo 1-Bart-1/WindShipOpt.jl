@@ -2915,7 +2915,7 @@ rigid_low_favours = (:rigid_mass_per_area, :rigid_hover_power_per_mass, :rigid_d
 
 "inputs where the high bound favours a VTOL kite"
 rigid_high_favours = (:rigid_max_lift, :rigid_max_force_per_area,
-    :rigid_hover_max_wave_height, :rigid_hover_max_wind, :kite_max_wind, :kite_lifetime)
+    :rigid_hover_max_wave_height, :kite_launch_max_wind, :kite_max_wind, :kite_lifetime)
 
 "input scenarios of the VTOL kite studies"
 rigid_scenarios = ("base", "favourable")

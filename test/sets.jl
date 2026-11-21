@@ -3969,7 +3969,7 @@ end
 @testset "a rigid kite hovers within its own limits and stays up beyond them" begin
     fleet = rigid_fleet(2, assumptions)
     waves = assumptions[:rigid_hover_max_wave_height]
-    wind = assumptions[:rigid_hover_max_wind]
+    wind = assumptions[:kite_launch_max_wind]
     @test WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves)
     @test !WindShipOpt.kite_landable(fleet, 0.0, wind + 1, 0.0, waves)
     @test !WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves + 0.5)
@@ -4184,6 +4184,8 @@ end
     note = "Kalverla's profile [@kalverla2019, Ch. 2; @schelbergen2020] gives 5 %; @imo2020 too."
     @test PaperData.cited_note(note) == "Kalverla's profile (\\citealp[Ch. 2]{kalverla2019}; " *
         "\\citealp{schelbergen2020}) gives 5\\,\\%; \\citet{imo2020} too."
+    @test PaperData.cited_note("@lrumas2020 [Table B21]; @imo2020: two-stroke") ==
+          "\\citet[Table B21]{lrumas2020}; \\citet{imo2020}: two-stroke"
     @test PaperData.cited_note("no source, 50 %") == "no source, 50\\,\\%"
     @test PaperData.cited_note("Euroseas 1,800 TEU, 12,000 TEU") ==
           "Euroseas \\num{1800}~TEU, 12\\,000~TEU"
@@ -4369,6 +4371,21 @@ end
     @test issorted(names) && allunique(names)
     entries = (assumptions.entries[name] for name in names)
     @test all(entry -> entry.low != entry.high, entries)
+end
+
+@testset "every input names its source in one short line" begin
+    for entry in values(assumptions.entries)
+        @test 0 < length(entry.source) <= 80 && !occursin('\n', entry.source)
+    end
+end
+
+@testset "the input table points only to appendix sections the paper has" begin
+    paper_sections = joinpath(pkgdir(WindShipOpt), "paper", "sections")
+    labels = Set(found[1] for file in readdir(paper_sections; join=true)
+                 for found in eachmatch(r"\\label\{([^}]*)\}", read(file, String)))
+    for (name, label) in PaperData.input_derivations
+        @test haskey(assumptions, name) && label in labels
+    end
 end
 
 """
