@@ -899,6 +899,40 @@ function size_bounds(class)
          for rig in ("wings", "rotors"))...)
 end
 
+"guessed cheapest rig sizes of the class study, data/size_guesses.csv"
+size_guess_file = joinpath(@__DIR__, "..", "data", "size_guesses.csv")
+
+"""
+    size_guesses()
+
+Guessed cheapest area [m^2] of each rig on each ship class and route, keyed by class name,
+rig and route, from `size_guess_file`.
+"""
+function size_guesses()
+    table = read_table(size_guess_file)
+    return Dict((class, rig, Symbol(route)) => area for (class, rig, route, area) in
+                zip(table["class"], table["rig"], table["route"], table["area"]))
+end
+
+"""
+    write_size_guesses(table)
+
+Write to `size_guess_file` the cheapest area of each rig on each class and route on the
+headline drive, the last of [`study_drives`](@ref), in the class table `table`.
+"""
+function write_size_guesses(table)
+    drive = string(last(study_drives))
+    searches = unique(zip(table["class"], table["rig"], table["route"]))
+    open(size_guess_file, "w") do io
+        println(io, "class,rig,route,area")
+        for (class, rig, route) in sort(filter(search -> search[2] != "none", searches))
+            row = cheapest_row(table, class, route, drive, rig)
+            isnothing(row) || println(io, csv_value(class), ",", rig, ",", route, ",",
+                table["area"][row])
+        end
+    end
+end
+
 """
     largest_rig_area(rig, hull)
 
@@ -930,14 +964,14 @@ deck_columns(::Union{WindShipOpt.KiteRig, Nothing}) = 0
     classes_data()
 
 The standard ship classes on every route with the [`study_drives`](@ref) without a rig,
-and with the cheapest size of each rig found by [`searched_sizes`](@ref) in `size_rounds`
-rounds: classes.csv, and each departure of them: class_departures.csv.
+and with the cheapest size of each rig found by [`searched_sizes`](@ref): classes.csv, and
+each departure of them: class_departures.csv.
 """
 function classes_data()
     ships = [(class, drive, route)
              for class in values(ship_classes()), drive in study_drives,
                  route in route_names]
-    cases, trips = searched_sizes(vec(ships), run_settings().size_rounds)
+    cases, trips = searched_sizes(vec(ships))
     labels = (:class, :route, :drive, :rig, :area, :units)
     write_trips("classes.csv", cases, trips, labels...)
     write_departures("class_departures.csv", cases, trips, labels...)
@@ -1361,39 +1395,69 @@ The [`fleet_split`](@ref) of the [`fleet_cells`](@ref) of class table `table` on
 fleet_split_of(table, drive) = fleet_split(fleet_cells(table, drive))
 
 """
-    searched_sizes(ships, rounds)
+    searched_sizes(ships)
 
 Cases and round trips of each (class, drive, route) of `ships` without a rig and of the
-search for the cheapest size of each rig: three starting sizes, then `rounds` more sizes
-from [`next_size`](@ref). Each case is tagged with the `round` that added it, 0 for the
-starting sizes.
+search for the cheapest size of each rig ([`searched_rigs!`](@ref)): on the headline drive,
+the last of [`study_drives`](@ref), from its [`size_guesses`](@ref); on another drive from
+the cheapest size the headline drive's search found for the same ship, rig and route,
+where `ships` holds it, else from the guess as well.
 """
-function searched_sizes(ships, rounds)
-    sampled = sampled_departures()
-    cases, searches = [], Dict{Tuple, Vector{Tuple{Float64, Float64}}}()
-    for (class, drive, route) in ships
-        push!(cases, class_case(class, drive, "none", 0.0, route; round=0))
-        for (rig, (lower, upper)) in size_bounds(class)
-            searches[(class, drive, rig, route)] = Tuple{Float64, Float64}[]
-            for area in (lower, sqrt(lower * upper), upper)
-                push!(cases, class_case(class, drive, rig, area, route; round=0))
-            end
-        end
-    end
-    trips = round_trips(cases, sampled)
-    for round in 1:rounds
-        record_sizes!(searches, cases, trips)
-        batch = []
-        for ((class, drive, rig, route), points) in searches
-            count(point -> isfinite(last(point)), points) >= 2 || continue
-            area = next_size(points, size_bounds(class)[rig]...)
-            any(point -> first(point) ≈ area, points) && continue
-            push!(batch, class_case(class, drive, rig, area, route; round))
-        end
-        append!(trips, round_trips(batch, sampled))
-        append!(cases, batch)
-    end
+function searched_sizes(ships)
+    headline = last(study_drives)
+    on_headline = Set((class, route)
+                      for (class, drive, route) in ships if drive == headline)
+    follows = [drive != headline && (class, route) in on_headline
+               for (class, drive, route) in ships]
+    cases = Any[class_case(class, drive, "none", 0.0, route; round=0)
+                for (class, drive, route) in ships]
+    trips = round_trips(cases, sampled_departures())
+    guesses = size_guesses()
+    found = searched_rigs!(cases, trips, ships[.!follows],
+        key -> guessed_size(guesses, key...))
+    searched_rigs!(cases, trips, ships[follows],
+        ((class, drive, rig, route),) -> found[(class, headline, rig, route)])
     return cases, trips
+end
+
+"""
+    guessed_size(guesses, class, drive, rig, route)
+
+Area [m^2] of `rig` on `class` and `route` in `guesses` of [`size_guesses`](@ref), or the
+geometric middle of its [`size_bounds`](@ref) where they hold none.
+"""
+guessed_size(guesses, class, drive, rig, route) =
+    get(() -> sqrt(prod(size_bounds(class)[rig])), guesses, (class.name, rig, route))
+
+"""
+    searched_rigs!(cases, trips, ships, guess)
+
+Search the cheapest size of each rig of [`size_bounds`](@ref) on each (class, drive, route)
+of `ships`, adding the cases tried and their round trips to `cases` and `trips`: the
+[`start_sizes`](@ref) about the area `guess` gives for each (class, drive, rig, route),
+then in rounds the [`next_size`](@ref) of every search until each is confirmed. Each case
+is tagged with the `round` that added it, 0 for the starting sizes. Returns the cheapest
+area [m^2] of each search.
+"""
+function searched_rigs!(cases, trips, ships, guess)
+    grids = Dict((class, drive, rig, route) => size_grid(bounds...)
+                 for (class, drive, route) in ships for (rig, bounds) in size_bounds(class))
+    batch = [class_case(key[1:3]..., area, key[4]; round=0)
+             for (key, grid) in grids for area in start_sizes(guess(key), grid)]
+    searches = Dict(key => Tuple{Float64, Float64}[] for key in keys(grids))
+    round = 0
+    while !isempty(batch)
+        append!(trips, round_trips(batch, sampled_departures()))
+        append!(cases, batch)
+        record_sizes!(searches, cases, trips)
+        round += 1
+        batch = []
+        for (key, points) in searches
+            area = next_size(points, grids[key])
+            isnothing(area) || push!(batch, class_case(key[1:3]..., area, key[4]; round))
+        end
+    end
+    return Dict(key => first(points[argmin(last.(points))]) for (key, points) in searches)
 end
 
 """
@@ -1489,7 +1553,7 @@ function cargo_interest_data()
              for name in cargo_value_sweep.classes, value in cargo_value_sweep.values]
     ships = [(class, last(study_drives), route) for class in [vec(own); vec(swept)],
                  route in route_names]
-    cases, trips = searched_sizes(vec(ships), run_settings().size_rounds)
+    cases, trips = searched_sizes(vec(ships))
     labelled = [merge(case, (; cargo_value=case.design.class.cargo_value,
                     sailed_km=sum(corridor -> corridor.track_length, case.corridors) / 1e3))
                 for case in cases]
@@ -2288,18 +2352,18 @@ end
 """
     size_search_data()
 
-Each ship of [`study_classes`](@ref) with the search of [`searched_sizes`](@ref) over
-two rounds, and with each rig at every size of [`snap_area`](@ref) within its
-[`size_bounds`](@ref), tagged round -1: size_search.csv.
+Each ship of [`study_classes`](@ref) with the search of [`searched_sizes`](@ref), and with
+each rig at every size of the [`size_grid`](@ref) of its [`size_bounds`](@ref), tagged
+round -1: size_search.csv.
 """
 function size_search_data()
     classes = ship_classes()
     ships = [(classes[name], drive, route) for (name, drive, route) in study_classes]
-    cases, trips = searched_sizes(ships, 2)
+    cases, trips = searched_sizes(ships)
     grid = []
     for (class, drive, route) in ships, (rig, (lower, upper)) in size_bounds(class)
-        for step in ceil(Int, 4log2(lower)):floor(Int, 4log2(upper))
-            push!(grid, class_case(class, drive, rig, 2.0^(step / 4), route; round=-1))
+        for area in size_grid(lower, upper)
+            push!(grid, class_case(class, drive, rig, area, route; round=-1))
         end
     end
     append!(trips, round_trips(grid, sampled_departures()))
