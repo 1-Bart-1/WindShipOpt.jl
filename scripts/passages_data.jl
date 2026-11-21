@@ -47,7 +47,8 @@ Angle [rad] between the chord and the apparent wind of a wing at the trim `(lift
 force direction when stalled.
 """
 function wing_incidence(rig::WindShipOpt.WingRig, (lift, drag))
-    WindShipOpt.stalled(rig, (lift, drag)) && return atan(drag - rig.profile_drag_coefficient, lift)
+    WindShipOpt.stalled(rig, (lift, drag)) &&
+        return atan(drag - rig.profile_drag_coefficient, lift)
     ratio = rig.effective_aspect_ratio
     return lift * (ratio + 2) / (2π * ratio)
 end
