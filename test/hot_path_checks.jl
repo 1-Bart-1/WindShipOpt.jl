@@ -32,11 +32,13 @@ end
     scan_code!(found, pending, code, signature)
 
 Add the signature of the method `code` to `found` if it dispatches at run time or reads a
-field of a value of no concrete type, and the signatures it calls to `pending`.
+field of a value of no concrete type, and the signatures it calls to `pending`, leaving out
+the statements of [`throwing_statements`](@ref).
 """
 function scan_code!(found, pending, code, signature)
-    for statement in code.code
-        statement isa Expr || continue
+    throwing = throwing_statements(code)
+    for (index, statement) in enumerate(code.code)
+        statement isa Expr && !(index in throwing) || continue
         if statement.head === :invoke
             target = statement.args[1]
             instance = target isa Core.CodeInstance ? target.def : target
@@ -47,6 +49,26 @@ function scan_code!(found, pending, code, signature)
         end
     end
 end
+
+"""
+    throwing_statements(code)
+
+Indices of the statements of `code` from which every path ends in a throw.
+"""
+function throwing_statements(code)
+    blocks = Core.Compiler.compute_basic_blocks(code.code).blocks
+    throws = [is_unreachable(code.code[last(block.stmts)]) for block in blocks]
+    while true
+        found = findall(i -> !throws[i] && !isempty(blocks[i].succs) &&
+                             all(throws[blocks[i].succs]), eachindex(blocks))
+        isempty(found) && break
+        throws[found] .= true
+    end
+    return Set(index for i in findall(throws) for index in blocks[i].stmts)
+end
+
+"whether `statement` is the end of a path that threw"
+is_unreachable(statement) = statement isa Core.ReturnNode && !isdefined(statement, :val)
 
 """
     callee_value(code, callee)
@@ -170,6 +192,7 @@ coarse_corridor = first(corridors)
     stable(x) = 2 * barrier(x)
     splatted(values) = barrier(values...)
     reads_first(box) = box[].first + 1
+    checked(box, n) = n < 0 ? throw(ArgumentError(string("negative ", box[]))) : n + 1
     @test !isempty(dynamic_calls(unstable, (Base.RefValue{Any},)))
     @test !isempty(dynamic_calls(reads_first, (Base.RefValue{Pair{Int}},)))
     @test isempty(dynamic_calls(reads_first, (Base.RefValue{Pair{Int, Int}},)))
@@ -177,6 +200,7 @@ coarse_corridor = first(corridors)
     @test !isempty(dynamic_calls(splatted, (Vector{Int},)))
     @test isempty(dynamic_calls(stable, (Int,)))
     @test isempty(dynamic_calls(splatted, (Tuple{Int},)))
+    @test isempty(dynamic_calls(checked, (Base.RefValue{Any}, Int)))
 end
 
 @testset "the allocation check counts allocations and not the compiling of the call" begin

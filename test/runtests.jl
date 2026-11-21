@@ -3099,6 +3099,18 @@ end
     @test !is_open()
 end
 
+@testset "a step resumed on another Julia records the version it ran on" begin
+    @eval PaperRuns runs_directory = mktempdir()
+    run = PaperRuns.open_run(:draft, [:designs], false)
+    run.record["julia"] = "1.12.7"
+    PaperRuns.write_record(run)
+    resumed = PaperRuns.open_run(:draft, [:designs], true)
+    PaperRuns.run_step!(resumed, :designs, () -> nothing)
+    record = PaperRuns.TOML.parsefile(joinpath(resumed.directory, "run.toml"))
+    @test record["julia"] == string(VERSION)
+    @test only(record["steps"])["julia"] == string(VERSION)
+end
+
 @testset "a stored trip that read an input the model no longer has is not reused" begin
     stored(inputs) = (; inputs, files=Pair{String, String}[])
     case = (; assumptions)

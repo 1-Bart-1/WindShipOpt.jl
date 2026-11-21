@@ -1846,8 +1846,11 @@ band_entry(band) = fill_entry(fleet_colours()[band])
 fleet_colours() = Dict("kite" => palette[1], "wings" => palette[2], "rotors" => palette[3],
     "level" => level_fill("kite", "rotors"), "none" => RGBf(0.8, 0.8, 0.8))
 
-"pitch and width [figure units] of the stripes of [`hatch!`](@ref)"
-hatch_pitch, hatch_width = style_size("hatch_pitch"), style_size("hatch_width")
+"pitch [figure units] of the stripes of [`hatch!`](@ref)"
+hatch_pitch = style_size("hatch_pitch")
+
+"width [figure units] of the stripes of [`hatch!`](@ref)"
+hatch_width = style_size("hatch_width")
 
 """
     hatch!(axis, rect, stripe)
