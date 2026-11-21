@@ -295,7 +295,8 @@ end
 end
 
 @testset "a kite built for more force gets cloth and seams in proportion" begin
-    stronger = with_value(assumptions, :kite_max_force_per_area, 1.0)
+    stronger = with_value(assumptions, :kite_max_force_per_area,
+        2assumptions[:kite_max_force_per_area])
     base_canopy, strong_canopy = WindShipOpt.Canopy.((assumptions, stronger), 800.0, 3.0)
     @test WindShipOpt.cloth_weight(stronger) ≈ 2WindShipOpt.cloth_weight(assumptions)
     @test strong_canopy.mass_per_area ≈ 2base_canopy.mass_per_area
@@ -685,15 +686,15 @@ end
 
 @testset "a canopy is the surveyed one with its own cloth and seam, at the market factor" begin
     surveyed_area = 3 * 8.2^2
+    weight = WindShipOpt.cloth_weight(assumptions)
     @test WindShipOpt.canopy_cost(assumptions, surveyed_area, 3.0) ≈
-          1.16 * 25 / 18 * 53 + 3.5 * 0.031 * 100 rtol = 1e-3
+          1.16 * 25 / 18 * 53 + 3.5 * 0.031 * (weight - 100) rtol = 1e-3
     price(area, inputs=assumptions) = WindShipOpt.canopy_price(inputs, area, 3.0)
     @test price(800.0) ≈ assumptions[:market_price_factor] *
                          WindShipOpt.canopy_cost(assumptions, 800.0, 3.0)
     cloth(area) = WindShipOpt.cloth_area_ratio(assumptions, area, 3.0)
     surveyed_cloth = cloth(surveyed_area)
     seam(area) = WindShipOpt.seam_area_ratio(assumptions, area, 3.0)
-    weight = WindShipOpt.cloth_weight(assumptions)
     sewing(area) = (WindShipOpt.canopy_cost(assumptions, area, 3.0) - 1.16 * 25 / 18 * 8 -
                     cloth(area) * (11.0 + 0.031 * weight)) / seam(area)
     surveyed_sewing = 1.16 * 25 / 18 * 45 - surveyed_cloth * (11.0 + 0.031 * 100)
