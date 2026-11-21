@@ -24,28 +24,23 @@ force_rating(assumptions::Assumptions) =
     assumptions[:kite_max_force_per_area] / assumptions[:canopy_cloth_reference_force]
 
 """
-    cloth_weight(assumptions, chord)
+    cloth_weight(assumptions)
 
-Weight [g/m^2] of the cloth of a ram-air canopy of mean `chord` [m]: `canopy_cloth_weight`
-times the [`force_rating`](@ref) and its cell width over that at
-`canopy_cloth_reference_chord`, so that the cloth carries the same tension per weight at any
-force limit and cell width.
+Weight [g/m^2] of the canopy cloth: `canopy_cloth_weight` times the
+[`force_rating`](@ref), so that the cloth carries the same tension per weight at any force
+limit.
 """
-cloth_weight(assumptions::Assumptions, chord) =
-    assumptions[:canopy_cloth_weight] * force_rating(assumptions) *
-    (chord / assumptions[:canopy_cloth_reference_chord])^
-    assumptions[:canopy_cell_width_exponent]
+cloth_weight(assumptions::Assumptions) =
+    assumptions[:canopy_cloth_weight] * force_rating(assumptions)
 
 """
     chord_over_cell_width(assumptions, chord)
 
-Chord over cell width [-] of a ram-air canopy of mean `chord` [m]: `canopy_chord_cells` at
-`canopy_reference_chord`, the cell width growing with the chord to the power
-`canopy_cell_width_exponent`.
+Chord over cell width [-] of a ram-air canopy of mean `chord` [m], its cells as wide as
+those of the surveyed kite, `canopy_chord_cells` at `canopy_structure_chord`.
 """
-chord_over_cell_width(assumptions::Assumptions, chord) = assumptions[:canopy_chord_cells] *
-    (chord / assumptions[:canopy_reference_chord])^
-    (1 - assumptions[:canopy_cell_width_exponent])
+chord_over_cell_width(assumptions::Assumptions, chord) =
+    assumptions[:canopy_chord_cells] * chord / assumptions[:canopy_structure_chord]
 
 """
     cloth_area_ratio(assumptions, area, aspect_ratio)
@@ -81,14 +76,11 @@ cloth_price(assumptions::Assumptions, weight) = assumptions[:canopy_cloth_base_p
     seam_length(assumptions, chord, cells)
 
 Seam [m] per m^2 of chord times span of a ram-air canopy of mean `chord` [m] and `cells`
-chord over cell width: `canopy_cell_seams` along the chord per cell, the skins' panel seams
-where a cell is wider than `canopy_cloth_width`, and the leading and trailing edges.
+chord over cell width: `canopy_cell_seams` along the chord per cell, and the leading and
+trailing edges.
 """
-function seam_length(assumptions::Assumptions, chord, cells)
-    per_cell_width = cells / chord
-    panels = 2 * max(0, 1 / assumptions[:canopy_cloth_width] - per_cell_width)
-    return assumptions[:canopy_cell_seams] * per_cell_width + panels + 2 / chord
-end
+seam_length(assumptions::Assumptions, chord, cells) =
+    (assumptions[:canopy_cell_seams] * cells + 2) / chord
 
 """
     seam_area_ratio(assumptions, area, aspect_ratio)
@@ -125,9 +117,8 @@ function canopy_cost(assumptions::Assumptions, area, aspect_ratio)
              surveyed_cloth * cloth_price(assumptions,
                  assumptions[:canopy_structure_cloth_weight])
     growth = (1 - share) * seam / surveyed_seam + share * cloth / surveyed_cloth
-    weight = cloth_weight(assumptions, sqrt(area / aspect_ratio))
     return sewing * growth + per_flat_area * assumptions[:canopy_bridle_cost] +
-           cloth * cloth_price(assumptions, weight)
+           cloth * cloth_price(assumptions, cloth_weight(assumptions))
 end
 
 """
@@ -140,8 +131,7 @@ of seams, tapes and reinforcements in proportion to the force limit, at its
 """
 function Canopy(assumptions::Assumptions, area, aspect_ratio)
     cloth_area = cloth_area_ratio(assumptions, area, aspect_ratio)
-    weight = cloth_weight(assumptions, sqrt(area / aspect_ratio))
-    return Canopy(1e-3cloth_area * weight +
+    return Canopy(1e-3cloth_area * cloth_weight(assumptions) +
                   assumptions[:canopy_mass_overhead] * force_rating(assumptions),
         canopy_cost(assumptions, area, aspect_ratio))
 end
