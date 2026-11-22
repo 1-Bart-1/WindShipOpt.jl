@@ -547,14 +547,17 @@ end
     aspect_ratio = assumptions[:kite_aspect_ratio]
     model, max_force, _ = WindShipOpt.kite_model(8000.0, aspect_ratio, low_drag)
     course = deg2rad(120.0)
-    flown = only(WindShipOpt.compute_pattern_table(model, max_force, low_drag, [15.0],
+    flown = only(WindShipOpt.compute_pattern_table(model, max_force, low_drag, [18.0],
         [course], [0.0]))
     thrust = flown.force[1] * cos(course) + flown.force[2] * sin(course)
     @test isfinite(flown.peak_tension)
     @test thrust > 0
     problem = WindShipOpt.PatternProblem(model, max_force,
-        deg2rad(low_drag[:kite_min_elevation]), 15.0, course, 0.0)
-    force, _ = WindShipOpt.optimal_pattern(problem, WindShipOpt.pattern_starts(course))
+        deg2rad(low_drag[:kite_min_elevation]), 18.0, course, 0.0)
+    starts = WindShipOpt.pattern_starts(course)
+    missed, _ = WindShipOpt.optimal_pattern(problem, starts, () -> [])
+    @test !isfinite(missed.peak_tension)
+    force, _ = WindShipOpt.optimal_pattern(problem, starts)
     @test force.peak_tension == flown.peak_tension
 end
 
