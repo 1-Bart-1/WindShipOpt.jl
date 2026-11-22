@@ -501,6 +501,9 @@ struct UnpoweredCells
     cells::Array{Bool, 3}
     "whether each (wind, angle) cell is unpowered at every added resistance"
     planes::Matrix{Bool}
+    "whether each (wind, angle) cell is unpowered with any kite stowed at every added
+    resistance"
+    stowed_planes::Matrix{Bool}
     "whether waves of any height add resistance anywhere in each (period, heading) cell"
     resisting_waves::Matrix{Bool}
 end
@@ -542,21 +545,22 @@ raise.
 """
 function UnpoweredCells(table::PerformanceTable, slice::SpeedSlice)
     cells = Base.OneTo.(size(slice.trims) .- 1)
-    unpowered = Array{Bool, 3}(undef, length.(cells))
+    flown = Array{Bool, 3}(undef, length.(cells))
+    stowed = similar(flown)
     for cell in CartesianIndices(cells)
         corners = view(slice.trims, CartesianIndices(UnitRange.(Tuple(cell),
             Tuple(cell) .+ 1)))
         lowest = reduce((least, corner) -> min.(least, corner), corners)
-        (; propeller) = slice
-        unpowered[cell] = !isfinite(lowered_fuel(table, propeller, lowest[1], lowest[3])) &&
-            (table.stowed_thrust === table.flown_thrust ||
-             !isfinite(lowered_fuel(table, propeller, lowest[2], lowest[4])))
+        flown[cell] = !isfinite(lowered_fuel(table, slice.propeller, lowest[1], lowest[3]))
+        stowed[cell] = table.stowed_thrust === table.flown_thrust ? flown[cell] :
+            !isfinite(lowered_fuel(table, slice.propeller, lowest[2], lowest[4]))
     end
+    unpowered = flown .& stowed
     periods, headings = Base.OneTo.(size(slice.wave_resistance) .- 1)
     resisting_waves = [all(>=(0), view(slice.wave_resistance, i:(i + 1), j:(j + 1)))
                        for i in periods, j in headings]
     return UnpoweredCells(unpowered, dropdims(all(unpowered; dims=3); dims=3),
-        resisting_waves)
+        dropdims(all(stowed; dims=3); dims=3), resisting_waves)
 end
 
 "Fuel power [W] at `thrust` and `rig_power` less a rounding margin of interpolation"
@@ -588,14 +592,17 @@ end
 const HELD_SPEED_TIME_FACTOR = 20
 
 """
-    screened_out(table, speed_index, condition)
+    screened_out(table, speed_index, condition; stowed=false)
 
 Whether the engines of the [`RouteTable`](@ref) `table` provably power nothing at routing
-speed number `speed_index` in `condition`, whatever added resistance its waves bring.
+speed number `speed_index` in `condition`, whatever added resistance its waves bring: with
+the rig flown or stowed, or with `stowed` with any kite stowed.
 """
-function screened_out(table::RouteTable, speed_index, condition::SeaCondition)
+function screened_out(table::RouteTable, speed_index, condition::SeaCondition;
+        stowed=false)
     unpowered = table.unpowered[speed_index]
-    @inbounds return unpowered.planes[condition.wind.index, condition.angle.index] &&
+    planes = stowed ? unpowered.stowed_planes : unpowered.planes
+    @inbounds return planes[condition.wind.index, condition.angle.index] &&
         unpowered.resisting_waves[condition.wave_period.index,
             condition.wave_heading.index]
 end

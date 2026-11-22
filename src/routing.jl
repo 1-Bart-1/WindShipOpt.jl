@@ -574,15 +574,19 @@ Returns it with the [`expected_fuels`](@ref) and chance of flying there; speed n
 none holds.
 """
 function held_speed(table::RouteTable, speed_index, sample, aloft)
-    flying = (0, Inf, Inf, 0.0)
+    condition = sea_condition(sample)
     for i in speed_index:-1:1
+        aloft || !screened_out(table, i, condition; stowed=true) || continue
         flown, stowed, chance = expected_fuels(table, i, sample)
         isfinite(stowed) && return i, flown, stowed, chance
-        isfinite(flown) && chance > 0 || continue
-        aloft && return i, flown, stowed, chance
-        first(flying) == 0 && (flying = (i, flown, stowed, chance))
+        aloft && isfinite(flown) && chance > 0 && return i, flown, stowed, chance
     end
-    return flying
+    (aloft || !has_kite(table)) && return 0, Inf, Inf, 0.0
+    for i in speed_index:-1:1
+        flown, stowed, chance = expected_fuels(table, i, sample)
+        isfinite(flown) && chance > 0 && return i, flown, stowed, chance
+    end
+    return 0, Inf, Inf, 0.0
 end
 
 """
@@ -668,6 +672,10 @@ struct SharedStart
         return new(sample, fuels)
     end
 end
+
+"[`SeaCondition`](@ref) of an [`EdgeSample`](@ref) or [`SharedStart`](@ref)"
+sea_condition(sample::EdgeSample) = sample.condition
+sea_condition(start::SharedStart) = start.sample.condition
 
 function expected_fuels(table::RouteTable, speed_index, start::SharedStart)
     (; fuels, found) = start.fuels
