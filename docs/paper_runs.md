@@ -36,7 +36,7 @@ paper(:classes; fidelity=:draft, only=(route=(:caribbean, :new_york), drive=:amm
 
 A final run needs a clean tree on a pushed commit, and it takes from the case store only round trips computed at that commit with a clean tree, so every part of it comes from one commit. `paper_status(; fidelity=:final)` prints the commit of each step's data and ends by saying whether every step and round trip comes from one clean commit, naming the commits where not.
 
-The class study's rig size search starts on e-ammonia from the best sizes in `data/size_guesses.csv`, and on VLSFO from the best size e-ammonia found. The guesses are committed with the code, so a run's commit fixes them as it fixes every input, and the search routes on until the sizes either side of the best cost more, so the best size is confirmed by routing rather than taken from the guess. After a class study whose inputs moved, refresh them from its table, `write_size_guesses(read_table("output/runs/<run>/classes.csv"))`, and commit the file.
+The class study's rig size search starts on e-ammonia from each doubling of the smallest size of every rig and from its largest size, and on VLSFO from the best size e-ammonia found. It refines every valley among the sizes routed until the sizes either side of it cost more, so the best size is confirmed by routing, and it needs no guess to keep up to date when the inputs move.
 
 ## Runs on a Slurm cluster
 
