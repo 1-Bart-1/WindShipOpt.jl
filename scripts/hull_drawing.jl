@@ -137,14 +137,35 @@ function bottom_height(form, x)
 end
 
 """
+    superellipse_fullness(m)
+
+Area [-] of the quarter superellipse `(y/b)^m + (depth fraction)^m = 1` over its breadth
+`b` by depth.
+"""
+function superellipse_fullness(m)
+    steps = range(0, 1; length=2001)
+    breadths = (1 .- steps .^ m) .^ (1 / m)
+    return (sum(breadths) - (breadths[1] + breadths[end]) / 2) * step(steps)
+end
+
+"exponents of the superellipse sections and their fullness, from a V to a square"
+section_table = let exponents = exp.(range(log(0.8), log(400); length=600))
+    (exponents=exponents, fullness=superellipse_fullness.(exponents))
+end
+
+"""
     section_exponent(fullness)
 
-Exponent `m` of the section `y = b (1 - (depth fraction)^m)` whose area is `fullness`
-times its breadth by depth.
+Exponent `m` of the superellipse section `(y/b)^m + (depth fraction)^m = 1` whose area is
+`fullness` times its breadth `b` by depth.
 """
 function section_exponent(fullness)
-    fullness = clamp(fullness, 0.45, 0.995)
-    return fullness / (1 - fullness)
+    (; exponents) = section_table
+    table = section_table.fullness
+    wanted = clamp(fullness, first(table), last(table))
+    i = clamp(searchsortedlast(table, wanted), 1, length(table) - 1)
+    share = (wanted - table[i]) / (table[i+1] - table[i])
+    return exponents[i] + share * (exponents[i+1] - exponents[i])
 end
 
 """
@@ -172,17 +193,46 @@ function underwater_half_breadth(form, x, z)
         area = form.midship_coefficient * 2form.half_beam * form.draft *
                unit_fall(end_fraction(form, x), form.area_exponent)
         exponent = section_exponent(area / (2breadth * depth))
-        hull = breadth * (1 - (-z / depth)^exponent)
+        hull = breadth * (1 - (-z / depth)^exponent)^(1 / exponent)
     end
     return max(hull, bulb_half_breadth(form, x, z))
 end
+
+"""
+    topside_half_breadth(form, x, z)
+
+Half breadth [m] of the side above the waterline at `x` and `z` [m], flaring from the
+waterline's to the deck's at the top of the main deck's bulwark and upright above it, up
+the forecastle, or over its whole height where the stem starts above that; zero outside
+the side.
+"""
+function topside_half_breadth(form, x, z)
+    start = max(bottom_height(form, x), 0.0)
+    top = deck_height(form, x) + bulwark.height
+    start <= z <= top || return 0.0
+    breadth = waterline_half_breadth(form, x)
+    flare_top = start < knuckle_height(form) ? knuckle_height(form) : top
+    fraction = min((z - start) / (flare_top - start), 1.0)
+    return breadth + (deck_half_breadth(form, x) - breadth) * fraction^flare_exponent
+end
+
+"height [m] above the waterline of the top of the main deck's bulwark, where the flare ends"
+knuckle_height(form) = form.freeboard + bulwark.height
+
+"x [m] of the foremost point of the hull, the stem or the bulb"
+foremost(form) = max(form.stem, form.bulb[1] + form.bulb[2])
+
+"half breadth [m] of the hull at `x` and `z` [m], zero outside it"
+half_breadth(form, x, z) =
+    z <= 0 ? underwater_half_breadth(form, x, z) : topside_half_breadth(form, x, z)
 
 """
     station(form, x; below=10, above=5)
 
 Points `(y, z)` [m] of the port half of the section at `x` [m] from its lowest point up
 to the top of the bulwark: `below` steps under the waterline, closer near the keel, and
-seven more through the bulb, and `above` over the topsides.
+seven more through the bulb, and `above` over the topsides with one more at the top of
+the main deck's bulwark.
 """
 function station(form, x; below=10, above=5)
     (centre, along, _, up) = form.bulb
@@ -194,13 +244,10 @@ function station(form, x; below=10, above=5)
     underwater = [(underwater_half_breadth(form, x, z), z)
                   for z in sort(vcat(keel_levels, bulb_levels))]
     start = max(bottom_height(form, x), 0.0)
-    breadth = waterline_half_breadth(form, x)
     top = deck_height(form, x) + bulwark.height
-    topsides = map(0:above) do step
-        fraction = step / above
-        (breadth + (deck_half_breadth(form, x) - breadth) * fraction^flare_exponent,
-            start + (top - start) * fraction)
-    end
+    knuckle = clamp(knuckle_height(form), start, top)
+    levels = sort(vcat(range(start, top; length=above + 1), knuckle))
+    topsides = [(topside_half_breadth(form, x, z), z) for z in levels]
     return vcat(underwater, topsides)
 end
 
@@ -247,7 +294,7 @@ end
 "x positions [m] of the stations drawn of `form`: close over the ends, the midbody whole"
 function stations(form)
     (midbody_aft, midbody_forward) = form.midbody
-    forward = max(form.stem, form.bulb[1] + form.bulb[2])
+    forward = foremost(form)
     aft = range(form.transom, midbody_aft; length=26)
     bow = range(midbody_forward, forward; length=40)
     return sort(unique(vcat(aft, bow, form.forecastle - 1e-6, form.forecastle)))
@@ -390,16 +437,17 @@ end
 hatch_length = 15.0
 
 """
-    ship_faces(form, hull, type)
+    deck_faces(form, hull, type)
 
-Faces of the ship of `form`, `hull` and ship `type`: hull, rudder and deckhouse with its
-wheelhouse across the beam, at the bridge of `hull` or aft; hatch covers up to the rigs'
-foot height and the containers of `hull` stacked on them, on all but tankers; and on a
-vehicle carrier its car decks closed up to the height of its windage, the wheelhouse on top.
+Faces of what the ship of `form`, `hull` and ship `type` carries outside its hull: rudder
+and deckhouse with its wheelhouse across the beam, at the bridge of `hull` or aft; hatch
+covers up to the rigs' foot height and the containers of `hull` stacked on them, on all but
+tankers; and on a vehicle carrier its car decks closed up to the height of its windage,
+the wheelhouse on top.
 """
-function ship_faces(form, hull, type)
+function deck_faces(form, hull, type)
     (; length, draft, bridge_distance) = hull
-    faces = hull_faces(form)
+    faces = Face[]
     if type == "vehicle carrier"
         top = WindShipOpt.Windage(type, length, hull.beam, 0, assumptions).lateral_area /
               length
@@ -454,15 +502,89 @@ end
     deckhouse_faces(form, length, aft, floor, top)
 
 Faces of the deckhouse of the ship of `form` and `length` [m] from `aft` [m], standing on
-`floor` [m], its wheelhouse across the beam reaching up to `top` [m].
+`floor` [m], its wheelhouse across the beam reaching up to `top` [m] with its front
+windows.
 """
 function deckhouse_faces(form, length, aft, floor, top)
     house_half = 0.9deck_half_breadth(form, aft)
-    wheelhouse = top - 0.02length
-    return [box_faces((aft, -house_half, floor),
-            (aft + 0.08length, house_half, wheelhouse), "ship");
+    (wheelhouse, front) = (top - 0.02length, aft + 0.08length)
+    faces = [box_faces((aft, -house_half, floor), (front, house_half, wheelhouse), "ship");
         box_faces((aft + 0.05length, -form.half_beam, wheelhouse),
-            (aft + 0.08length, form.half_beam, top), "ship")]
+            (front, form.half_beam, top), "ship")]
+    panes = 9
+    width = 2house_half / panes
+    (low, high) = (top - 0.015length, top - 0.006length)
+    for pane in 0:panes-1
+        (left, right) = (-house_half + pane * width + 0.1, -house_half + (pane + 1) * width)
+        push!(faces, Face([(front + 0.01, left, low), (front + 0.01, right, low),
+                (front + 0.01, right, high), (front + 0.01, left, high)], "keel"))
+    end
+    return faces
+end
+
+"faces of the ship of `form`, `hull` and ship `type`: its hull and what it carries"
+ship_faces(form, hull, type) = vcat(hull_faces(form), deck_faces(form, hull, type))
+
+"""
+    section_outline(form)
+
+Points `(y, z)` [m] of the hull of `form` seen from ahead, its widest breadth at each
+height, from the top of the port bulwark down round the keel to the starboard one.
+"""
+function section_outline(form)
+    xs = range(form.transom, foremost(form); length=800)
+    (knuckle, top) = (knuckle_height(form), form.foot_height + bulwark.height)
+    levels = sort(unique(vcat(-form.draft * cospi.(range(0, 0.5; length=40)),
+        range(0, knuckle; length=10), range(knuckle + 1e-6, top; length=10))))
+    port = [(maximum(x -> half_breadth(form, x, z), xs), z) for z in reverse(levels)]
+    return vcat(port, [(-y, z) for (y, z) in reverse(port)])
+end
+
+"""
+    bow_brightness(form, y, z)
+
+Brightness [-] seen from ahead of the foremost hull of `form` at breadth `y` and height
+`z` [m], or of the midbody's side where the bow is narrower than `y`.
+"""
+function bow_brightness(form, y, z)
+    xs = range(foremost(form), form.midbody[2]; length=2000)
+    x = xs[something(findfirst(x -> half_breadth(form, x, z) >= abs(y), xs), end)]
+    step = 0.05
+    along = (half_breadth(form, x + step, z) - half_breadth(form, x - step, z)) / 2step
+    up = (half_breadth(form, x, z + step) - half_breadth(form, x, z - step)) / 2step
+    normal = (-along, sign(y), -up) ./ hypot(along, sign(y), up)
+    return brightness(dot3((normal[2], normal[3], normal[1]), light))
+end
+
+"""
+    bow_shades(form, colour, heights; columns=40, blur=0.3)
+
+Colours across the hull of `form` seen from ahead, from starboard to port at `columns`
+evenly spaced breadths: the figure style `colour` at the brightness of the bow averaged
+over `heights` [m] and over a Gaussian across the breadth of `blur` times the half beam.
+"""
+function bow_shades(form, colour, heights; columns=40, blur=0.3)
+    breadths = range(-form.half_beam, form.half_beam; length=columns)
+    levels = [sum(z -> bow_brightness(form, y, z), heights) / length(heights)
+              for y in breadths]
+    return map(breadths) do y
+        weights = exp.(-((breadths .- y) ./ (blur * form.half_beam)) .^ 2 ./ 2)
+        shade(colour, sum(weights .* levels) / sum(weights))
+    end
+end
+
+"""
+    tikz_shading(io, name, colours)
+
+Declare the PGF horizontal shading `name` running through `colours` from left to right
+across the path it fills.
+"""
+function tikz_shading(io, name, colours)
+    stops = ["color($(round(25 + 50(i - 1) / (length(colours) - 1); digits=2))bp)=($colour)"
+             for (i, colour) in enumerate(colours)]
+    println(io, "\\pgfdeclarehorizontalshading{$name}{100bp}{",
+        "color(0bp)=($(first(colours))); ", join(stops, "; "),
+        "; color(100bp)=($(last(colours)))}")
 end
 
 """
@@ -639,24 +761,36 @@ end
     ship_pictures_file()
 
 Write paper/figure_ship.tex: the 140 m ship of the model as the TikZ pictures `ship side`,
-`ship above` and `ship ahead`, the last heeled by its argument [deg] with the keel colour
-below the level waterline, in metres about midship on the waterline, with each view's
-faces in paper/ship/, and the macros of its foot height and its bow, once
-[`check_drawn_hull`](@ref) passes.
+`ship above` and `ship ahead`, the last its hull as one shaded section heeled by the
+pic's argument [deg] with the keel colour below the level waterline, in metres about
+midship on the waterline, with each view's faces in paper/ship/, and the macros of its
+foot height and its bow, once [`check_drawn_hull`](@ref) passes.
 """
 function ship_pictures_file()
     hull = Hull(140.0, assumptions)
     check_drawn_hull(paper_ship, hull)
     faces = ship_faces(paper_ship, hull, "general cargo")
     folder = mkpath(joinpath(root, "paper", "ship"))
-    for view in keys(views)
+    for view in (:side, :above)
         write_whole(io -> tikz_faces(io, projected(faces, view)),
             joinpath(folder, "$view.tex"))
     end
+    deck = deck_faces(paper_ship, hull, "general cargo")
+    write_whole(io -> tikz_faces(io, projected(deck, :ahead)),
+        joinpath(folder, "ahead.tex"))
+    (; draft, freeboard) = paper_ship
     write_whole(joinpath(root, "paper", "figure_ship.tex")) do io
         println(io, "% Written by the ship_pictures step of scripts/paper.jl.")
         @printf(io, "\\def\\shipfoot{%.2f}\n\\def\\shipbow{%.2f}\n", paper_ship.foot_height,
             paper_ship.stem)
+        tikz_shading(io, "hull topsides", bow_shades(paper_ship, "topsides",
+            range(0.1freeboard, knuckle_height(paper_ship); length=8)))
+        tikz_shading(io, "hull keel", bow_shades(paper_ship, "keel",
+            range(-0.9draft, -0.1draft; length=8)))
+        print(io, "\\def\\hullsection{")
+        outline = section_outline(paper_ship)
+        join(io, (@sprintf("(%.2f,%.2f)", point...) for point in outline), " -- ")
+        println(io, " -- cycle}")
         print(io, raw"""
         \def\hullface#1{\pgfsetfillcolor{#1}\pgfsetstrokecolor{#1}}
         \def\hullmove#1#2{\pgfpathmoveto{\pgfqpointxy{#1}{#2}}}
@@ -666,10 +800,11 @@ function ship_pictures_file()
           ship side/.pic={\begin{scope}[hull face]\input{ship/side}\end{scope}},
           ship above/.pic={\begin{scope}[hull face]\input{ship/above}\end{scope}},
           ship ahead/.pic={
-            \begin{scope}[hull face]\colorlet{keel}{topsides}\input{ship/ahead}\end{scope}
-            \begin{scope}[hull face]\colorlet{topsides}{keel}\colorlet{deck}{keel}
-              \colorlet{ship}{keel}\clip[rotate=-#1] (-40,-30) rectangle (40,0);
-              \input{ship/ahead}\end{scope}},
+            \begin{scope}[hull face]\input{ship/ahead}\end{scope}
+            \begin{scope}\clip[rotate=-#1] (-40,0) rectangle (40,40);
+              \shade[shading=hull topsides] \hullsection;\end{scope}
+            \begin{scope}\clip[rotate=-#1] (-40,-30) rectangle (40,0);
+              \shade[shading=hull keel] \hullsection;\end{scope}},
         }
         """)
     end
