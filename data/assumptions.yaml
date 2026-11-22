@@ -457,7 +457,7 @@ camera_system_cost:
   low: 40000.0
   high: 100000.0
   unit: USD
-  source: "@thegpsstore2026flir: stabilised thermal and visible camera; @imo2012circ1350 [para. 4]: redundancy"
+  source: "@thegpsstore2026flir: camera price; @imo2012circ1350 [para. 4]: redundancy"
   reason: "Cost of the camera system watching the view one deck unit hides from the bridge: two stabilised marine cameras with thermal and low-light channels, the redundancy IMO asks of cameras that show the ship's side from the bridge wing [@imo2012circ1350, para. 4], at 24,995 USD each [@thegpsstore2026flir]; authors' estimate of the bounds, the cameras at a fifth below that retail price and the high bound with their screens and cabling."
 wing_design_wind:
   value: 20.6
