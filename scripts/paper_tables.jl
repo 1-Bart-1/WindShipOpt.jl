@@ -165,30 +165,27 @@ latex_number(value) = string("\\num{", isinteger(value) && abs(value) < 1e6 ? In
 """
     input_tables()
 
-Write [`ranged_inputs`](@ref) to paper/sections/input_tables.tex as one longtable with
-value, range, unit and source.
+Write every input, sorted by name, to paper/sections/input_tables.tex as one longtable
+with value, range, unit and source.
 """
 function input_tables()
     ragged = ">{\\raggedright\\arraybackslash}"
     write_whole(joinpath(sections, "input_tables.tex")) do io
         println(io, "\\begin{longtable}{@{}", ragged, "p{3.4cm}rr", ragged, "p{1.4cm}",
             ragged, "p{5.8cm}@{}}")
-        println(io, "\\caption{Every input with a range: its base value, range, unit and ",
-            "source, with the appendix that derives it where one does. The published ",
+        println(io, "\\caption{Every input: its base value, its range where data give ",
+            "one, unit and source, with the appendix that derives it where one does. ",
+            "\\textsuperscript{e}~The authors' estimate, with no range. The published ",
             "code gives the full reasoning behind each value.}\n\\label{tab:inputs}\\\\")
         println(io, input_header, "\n\\endfirsthead")
         println(io, "\\multicolumn{5}{@{}l}{\\cref{tab:inputs} (continued)}\\\\")
         println(io, input_header, "\n\\endhead\n\\bottomrule\n\\endfoot")
-        for (name, entry) in ranged_inputs()
+        for (name, entry) in sort!(collect(assumptions.entries); by=first)
             write_input_row(io, entry, name)
         end
         println(io, "\\end{longtable}")
     end
 end
-
-"every input with a range as (name, entry), sorted by name"
-ranged_inputs() = sort!([pair for pair in assumptions.entries
-                         if pair.second.low != pair.second.high]; by=first)
 
 "header row of the input table"
 input_header = "\\toprule\nInput & Value & Range & Unit & Source \\\\\n\\midrule"
@@ -250,17 +247,21 @@ input_derivations = Dict(
 """
     write_input_row(io, entry, name)
 
-One row of the input table: name, base value, range, unit and the source line, pointing to
-the appendix of [`input_derivations`](@ref) that derives it where one does.
+One row of the input table: name, base value marked where it is an estimate, range where
+it has one, unit and the source line, pointing to the appendix of
+[`input_derivations`](@ref) that derives it where one does.
 """
 function write_input_row(io, entry, name)
     unit = strip(entry.unit, '"')
     derivation = haskey(input_derivations, name) ?
                  string("; \\cref{", input_derivations[name], "}") : ""
+    range = entry.low == entry.high ? "" :
+            string(latex_number(entry.low), "--", latex_number(entry.high))
+    mark = entry.estimate ? "\\textsuperscript{e}" : ""
     println(io, latex_escape(uppercasefirst(input_label(name))), " & ",
-        latex_number(entry.value), " & ", latex_number(entry.low), "--",
-        latex_number(entry.high), " & ", unit == "-" ? "--" : latex_escape(unit), " & ",
-        cited_note(entry.source), derivation, " \\\\")
+        latex_number(entry.value), mark, " & ", range, " & ",
+        unit == "-" ? "--" : latex_escape(unit), " & ", cited_note(entry.source), derivation,
+        " \\\\")
 end
 
 """
@@ -1993,27 +1994,25 @@ fidelity_parts() = [
         error="loss abreast from one wind-tunnel pair of rotors and potential flow of " *
               "four wing sails",
         effect=one_row()),
-    (part="Kite flight", varied="turn radius, aspect ratio, force limit",
+    (part="Kite flight", varied="turn radius, force limit",
         model="quasi-steady pattern with mass, flight and tether drag, searched for each " *
               "wind and course",
         error="glide ratio of 4 matched to flight data",
-        effect=varied_inputs(:kite_min_turn_radius, :kite_aspect_ratio,
-            :kite_max_force_per_area)),
-    (part="Kite launch and sea limits", varied="wind limits, extra launch wind in a sea",
+        effect=varied_inputs(:kite_min_turn_radius, :kite_max_force_per_area)),
+    (part="Kite launch and sea limits", varied="estimates, not varied",
         model="fixed wind limits for launch, flight and landing; launch wind raised with " *
               "the launch mast's motion in the sea",
         error="extra launch wind scaled on one reported pair of wind speeds",
-        effect=varied_inputs(:kite_weather_window)),
+        effect=nothing),
     (part="Wear and availability", varied="canopy life, out of service",
         model="canopy life per flight hour and flogging per launch; launch damage and " *
               "loss; time out of service for every rig",
         error="canopy life from polyester sails, not from towing kites",
         effect=varied_inputs(:canopy_life, :rig_out_of_service)),
-    (part="Rig prices", varied="prices per area",
+    (part="Rig prices", varied="estimates, not varied",
         model="price per area and per unit, installation, maintenance",
-        error="ranges of the quoted and built-up prices",
-        effect=varied_inputs(:canopy_structure_cost, :wing_cost_per_area,
-            :rotor_cost_per_area, :suction_cost_per_mass)),
+        error="built up from material and part prices, with no published spread",
+        effect=nothing),
     (part="Weather sample", varied="each year alone",
         model="ERA5 2017 to 2019, a departure every 6\\,h",
         error="three years against a climate", effect=weather_years()),

@@ -1806,26 +1806,20 @@ end
 Inputs of the development study that move several assumptions together, each with the
 end of every assumption's range that its high bound takes.
 """
-joint_inputs = (kite_weather_window=(kite_launch_sea_wind=:low, kite_launch_min_wind=:low,
-        kite_launch_max_wind=:high, kite_landing_max_wind=:high, kite_max_wind=:high),
-    rig_out_of_service=(kite_out_of_service=:high, wing_out_of_service=:high,
-        rotor_out_of_service=:high, suction_out_of_service=:high),
+joint_inputs = (rig_out_of_service=(wing_out_of_service=:high, rotor_out_of_service=:high,
+        suction_out_of_service=:high),
     fuel_price=(e_ammonia_price=:high, vlsfo_price=:high))
 
 """
     bound_assumptions(name, bound)
 
-The assumptions with input `name` at its `bound` (:low or :high), the kite's aspect ratio
-at the price of the base kite and each of [`joint_inputs`](@ref) by
-[`moved_together`](@ref).
+The assumptions with input `name` at its `bound` (:low or :high), and each of
+[`joint_inputs`](@ref) by [`moved_together`](@ref).
 """
 function bound_assumptions(name, bound)
     haskey(joint_inputs, name) && return moved_together(joint_inputs[name], bound)
     entry = assumptions.entries[name]
-    value = bound == :low ? entry.low : entry.high
-    name == :kite_aspect_ratio &&
-        return WindShipOpt.with_kite_aspect_ratio(assumptions, value)
-    return with_value(assumptions, name, value)
+    return with_value(assumptions, name, bound == :low ? entry.low : entry.high)
 end
 
 """
@@ -1893,10 +1887,6 @@ condition it is judged against), what kind of lever it is, and the reason it is 
 study.
 """
 development_inputs = [
-    (input=:canopy_structure_cost, label="canopy cost", rig="kite",
-        lever="price", reason="Cloth with its seams, sewing and bridle, which a maker " *
-                              "lowers by design for making; they set the canopy's share " *
-                              "of the kite's price."),
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
         reason="What a flight hour of the canopy costs; unmeasured, so what development " *
                "has to prove."),
@@ -1905,8 +1895,8 @@ development_inputs = [
                               "head, the largest part of the kite's hardware price."),
     (input=:kite_launch_loss_probability, label="kites lost per launch", rig="kite",
         lever="availability",
-        reason="What its launch and landing system's reliability is worth: unmeasured, " *
-               "from today's record to a second layer that saves the kite."),
+        reason="What its launch and landing system's reliability is worth: from today's " *
+               "record to the goal."),
     (input=:kite_max_force_per_area, label="kite force limit per area", rig="kite",
         lever="force",
         reason=string("Its structure decides the force each m\\textsuperscript{2} may ",
@@ -1914,24 +1904,11 @@ development_inputs = [
     (input=:kite_min_turn_radius, label="kite smallest turn radius", rig="kite",
         lever="force", reason="Steering and control decide how tight, and so how " *
                               "powerful, a pattern can be."),
-    (input=:kite_aspect_ratio, label="kite aspect ratio", rig="kite", lever="force",
-        reason="The shape of the wing, fixed at today's in the results; a slenderer kite " *
-               "glides better if launch and canopy can handle it, priced as the base."),
-    (input=:kite_weather_window, label="kite weather window", rig="kite", lever="weather",
-        reason="Its launch system, structure and control decide the sea and the winds " *
-               "in which it launches, flies and lands; its five limits moved together."),
-    (input=:wing_cost_per_area, label="wing sail cost per area", rig="wings", lever="price",
-        reason="Structure sets a wing's price, which stands at its build-up."),
     (input=:wing_max_lift_coefficient, label="wing sail maximum lift", rig="wings",
         lever="force", reason="Flap and section design decide a wing's force."),
-    (input=:suction_cost_per_mass, label="suction sail cost per mass", rig="suction",
-        lever="price", reason="Structure and fans set a suction sail's price, which " *
-                              "stands at its build-up."),
     (input=:suction_max_lift_coefficient, label="suction sail maximum lift",
         rig="suction", lever="force",
         reason="Section, slots and fan decide how far the flow stays attached."),
-    (input=:rotor_cost_per_area, label="rotor cost per area", rig="rotors", lever="price",
-        reason="Structure sets a rotor's price, which stands at its build-up."),
     (input=:rotor_lift_factor, label="rotor lift", rig="rotors", lever="force",
         reason="Rotor design sets the lift at a given spin; the base is the full-scale " *
                "fit, so the range only reaches down to the CFD value."),
@@ -1946,7 +1923,7 @@ development_inputs = [
     (input=:rig_out_of_service, label="out of service", rig="every rig",
         lever="availability",
         reason="What a maker's reliability work is worth: one goal for every rig, moved " *
-               "for all at once."),
+               "for all at once from what operators record to what makers state."),
     (input=:fuel_price, label="fuel price", rig="condition", lever="condition",
         reason="Not for a developer to change: the fuel bill a rig cuts, with the prices " *
                "of e-ammonia and fuel oil moved together."),

@@ -4422,7 +4422,7 @@ end
 
 @testset "the explorer gives each input its value known today" begin
     io = IOBuffer()
-    PaperData.write_json(io, Assumption(3000.0, 1200.0, 6900.0, "h", "", 1200.0))
+    PaperData.write_json(io, Assumption(3000.0, 1200.0, 6900.0, "h", "", 1200.0, false))
     @test occursin("\"today\":1200.0", String(take!(io)))
 end
 
@@ -4597,11 +4597,19 @@ end
     @test isnan(gain) && isnan(loss)
 end
 
-@testset "the input table lists every ranged input once, in the order of its name" begin
-    names = first.(PaperData.ranged_inputs())
-    @test issorted(names) && allunique(names)
-    entries = (assumptions.entries[name] for name in names)
-    @test all(entry -> entry.low != entry.high, entries)
+@testset "the input table gives a range only where data do, and marks each estimate" begin
+    row(name) = sprint(PaperData.write_input_row, assumptions.entries[name], name)
+    @test occursin("\\textsuperscript{e} &  & ", row(:crew_cost))
+    @test occursin(r"& \S+--\S+ &", row(:canopy_life))
+    @test !occursin("textsuperscript", row(:canopy_life))
+end
+
+@testset "an input has a range only where data give one, and an estimate has none" begin
+    for (name, entry) in assumptions.entries
+        @test entry.low <= entry.value <= entry.high
+        @test !entry.estimate || entry.low == entry.high
+        startswith(entry.source, "Authors' estimate") && @test entry.estimate
+    end
 end
 
 @testset "every input names its source in one short line" begin
