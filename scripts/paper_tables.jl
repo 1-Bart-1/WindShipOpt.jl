@@ -354,8 +354,10 @@ function development_table()
             "of a rig's saving at the better end of the range and its loss at the worse ",
             "end, in percentage points, in cost per tonne-km on each ship and the largest ",
             "of each in CO\\textsubscript{2} per tonne-km over the ships; and why the input ",
-            "is in the study. Values are estimates, conditions or goals (g), to two ",
-            "digits, and the gains and losses model output, to a tenth of a point; ",
+            "is in the study. Each range comes from data, or for a goal (g) from what is ",
+            "known today; inputs that are the authors' estimates have no range and are not ",
+            "in the study. Values to two digits, and the gains and losses model output, ",
+            "to a tenth of a point; ",
             "\\cref{tab:goals} gives what is known today against each goal. ",
             "\\savingerror}\n",
             "\\label{tab:development}\\\\")
@@ -378,7 +380,7 @@ function development_table()
 end
 
 "the inputs of the development study that are development goals"
-goal_inputs = (:canopy_structure_cost, :canopy_life, :kite_out_of_service,
+goal_inputs = (:canopy_life, :kite_launch_loss_probability, :kite_out_of_service,
     :wing_out_of_service, :rotor_out_of_service, :suction_out_of_service)
 
 """
@@ -441,6 +443,9 @@ years(name) = string(@sprintf("%.0f years", assumptions[name]), " ", input_range
 "the range from `low` to `high` as estimates, in brackets"
 range_text(low, high) = string("(", estimate_text(low), " to ", estimate_text(high), ")")
 
+"whether the input `name` has a range"
+ranged_input(name) = assumptions.entries[name].low != assumptions.entries[name].high
+
 "the range of the input `name`, `scale` times its bounds as estimates, in brackets"
 input_range(name; scale=1) = range_text(scale * assumptions.entries[name].low,
     scale * assumptions.entries[name].high)
@@ -452,12 +457,13 @@ one_in_text(bound) = @sprintf("1 in \\num{%s}",
 """
     service_range()
 
-The ranges [%] of the out of service inputs of [`rig_names`](@ref): one for the rigs that
-share it, then each other rig's with its name.
+The ranges [%] of the out of service inputs of [`rig_names`](@ref) that have one: one for
+the rigs that share it, then each other rig's with its name.
 """
 function service_range()
+    ranged = filter(rig -> ranged_input(Symbol(out_of_service_inputs[rig])), rig_names)
     ranges = [rig => input_range(Symbol(out_of_service_inputs[rig]); scale=100)[2:(end - 1)]
-              for rig in rig_names]
+              for rig in ranged]
     common = argmax(range -> count(==(range), last.(ranges)), last.(ranges))
     others = ["$(rig_label(rig)) $range" for (rig, range) in ranges if range != common]
     return "(" * join([common; others], "; ") * ")"
@@ -474,9 +480,8 @@ function goal_rows()
     canopy = @sprintf("\\num{%.0f} h (\\numrange{%.0f}{%.0f}) at %.0f g/m\$^2\$",
         life.value, life.low, life.high, assumptions[:canopy_cloth_weight])
     service = @sprintf("%.0f\\,\\%% %s", 100out_of_service_goal(), service_range())
-    loss = "$(one_in_text(:value)) ($(one_in_text(:low)) to $(one_in_text(:high)))"
-    crew = string("USD~", estimate_text(assumptions[:kite_cycle_crew_cost]), " per cycle ",
-        input_range(:kite_cycle_crew_cost))
+    loss = one_in_text(:value)
+    crew = string("USD~", estimate_text(assumptions[:kite_cycle_crew_cost]), " per cycle")
     life_today = string("\\num{", estimate_text(life.today), "} h, our estimate: none ",
         "published for a ship kite; polyester sails last ", estimate_text(life.low), " to ",
         estimate_text(life.high), " h; small kites expected 100 to \\num{1000} h")
@@ -599,11 +604,8 @@ function missed_goal_rows()
             half_goal = assumptions[:canopy_life] / 2
             saving_short = rig == "kite" ?
                            percent_saving(curve_cost(life_curve, half_goal), bare) : NaN
-            dear = curve_cost(price_curve, canopy_price_at(:high))
-            saving_dear = rig == "kite" ? percent_saving(dear, bare) : NaN
             push!(result, (; size_limits(sizes, cheapest[rig], bare, rival, rival_cost)...,
-                saving_short,
-                saving_dear, service_points=percent_saving(curve[2][1], bare) -
+                saving_short, service_points=percent_saving(curve[2][1], bare) -
                                              percent_saving(goal[rig], bare),
                 life=(kite_life_at_cost(rig, life_curve, bare),
                     kite_life_at_cost(rig, life_curve, rival_cost)),
@@ -624,9 +626,8 @@ end
 
 Of the trip in `row` of the goal_sizes.csv `table`: ship, rig, area [m^2], cost saving [%],
 the `rival` rig and the points of saving [%] by which the rig leads it at `rival_cost`,
-cost of one crash [USD] and its range over the bounds of [`rig_price_inputs`](@ref), the
-crashes a year at which it stops paying for itself against the cost per tonne-km `bare`
-and comes level with its rival, and flight hours a year.
+cost of one crash [USD], the crashes a year at which it stops paying for itself against the
+cost per tonne-km `bare` and comes level with its rival, and flight hours a year.
 """
 function size_limits(table, row, bare, rival, rival_cost)
     ship, rig, area, cost = table["ship"][row], table["rig"][row], table["area"][row],
@@ -635,10 +636,8 @@ function size_limits(table, row, bare, rival, rival_cost)
         rig_size(rig, area)...)
     built = Ship(design, assumptions).rig
     crash = WindShipOpt.crash_cost(built, assumptions)
-    crash_range = [WindShipOpt.crash_cost(built,
-        at_bound(assumptions, rig_price_inputs[rig], bound)) for bound in (:low, :high)]
     work, trips = yearly_trips(table, row, table["route"][row])
-    return (; ship, rig, area, crash, crash_range, saving=percent_saving(cost, bare), rival,
+    return (; ship, rig, area, crash, saving=percent_saving(cost, bare), rival,
         lead=percent_saving(cost, bare) - percent_saving(rival_cost, bare),
         crashes=(crash_limit(cost, bare, work, crash),
             crash_limit(cost, rival_cost, work, crash)),
@@ -749,8 +748,8 @@ function missed_goals_table()
                      shaded_cell(row.saving, saving_scale); rig_label(row.rival);
                      shaded_cell(row.lead, lead_scale; format="\\(%+.1f\\)"); limits]
             println(io, join(cells, " & "), " \\\\")
-            @printf("%s, %s: %.1f %% at half the life goal, %.1f %% at the top price, ",
-                row.ship, rig_label(row.rig), row.saving_short, row.saving_dear)
+            @printf("%s, %s: %.1f %% at half the life goal, ", row.ship, rig_label(row.rig),
+                row.saving_short)
             @printf("outages cost %.2f points, passes the next up at %s h, USD %s, ",
                 row.service_points, dash_cell(row.passes, "%.0f"),
                 dash_cell(row.passes_price, "%.0f"))
@@ -775,8 +774,7 @@ function missed_goals_table()
             flight = row.rig == "kite" ? @sprintf("%.0f", row.flight_hours) : "--"
             crashes = [shaded_cell(sqrt(row.crashes[k]), sqrt(crash_scales[k]);
                            shown=row.crashes[k], format="%.2g") for k in 1:2]
-            crash = @sprintf("%s (%s--%s)",
-                estimate_text.([row.crash; row.crash_range] ./ 1e3)...)
+            crash = estimate_text(row.crash / 1e3)
             @printf(io, "%s & %s & %s & %s & %s & %s & %s & %s & %s \\\\\n",
                 short_ship(row.ship), rig_label(row.rig), estimate_text(row.area),
                 shaded_cell(row.saving, saving_scale), rig_label(row.rival), crash,
@@ -2252,8 +2250,6 @@ range, and the share of time out of service; of the
 function goal_numbers()
     return ["CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
         "CanopyPrice" => estimate_text(reference_canopy_price(assumptions)),
-        "CanopyPriceLow" => estimate_text(canopy_price_at(:low)),
-        "CanopyPriceHigh" => estimate_text(canopy_price_at(:high)),
         "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal()),
         "KiteGapBias" => @sprintf("%.1f", kite_gap_bias),
         ("DraftSpread" * uppercasefirst(string(part)) => one_decimal(spread)

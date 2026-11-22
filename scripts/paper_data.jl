@@ -135,15 +135,6 @@ csv_value(value::Real) = isinteger(value) ? string(Int(value)) : string(value)
 csv_value(value) = string(value)
 
 """
-    at_bound(inputs, names, bound)
-
-`inputs` with every input of `names` at its `bound` (`:low`, `:high` or `:value`).
-"""
-at_bound(inputs, names, bound) = foldl(names; init=inputs) do changed, name
-    with_value(changed, name, getfield(changed.entries[name], bound))
-end
-
-"""
     one_at_a_time(inputs, names, entries=[assumptions.entries[name] for name in names])
 
 `inputs` with each input of `names` in turn at the low and at the high bound of its entry
@@ -2159,25 +2150,13 @@ function canopy_life_data()
 end
 
 """
-    canopy_price_at(bound)
-
-[`reference_canopy_price`](@ref) [USD/m^2] with the surveyed structure cost and the market
-price factor at their `bound`, `:low` or `:high`.
-"""
-canopy_price_at(bound) = reference_canopy_price(
-    at_bound(assumptions, (:canopy_structure_cost, :market_price_factor), bound))
-
-"""
     canopy_prices()
 
-Canopy prices [USD/m^2] the kite is routed at for the missed-goal table: the base price, the
-top of its range and either side of them, up to where the kite stops paying on every ship.
+Canopy prices [USD/m^2] the kite is routed at for the missed-goal table: the base price and
+either side of it, up to where the kite stops paying on every ship.
 """
-function canopy_prices()
-    base = reference_canopy_price(assumptions)
-    return sort([base .* [0.5, 0.75, 1.0, 1.25, 2.5, 3.5, 5.0, 7.0];
-                 canopy_price_at(:high)])
-end
+canopy_prices() = reference_canopy_price(assumptions) .* [0.5, 0.75, 1.0, 1.25, 1.5, 2.5, 3.5,
+    5.0, 7.0]
 
 """
     at_canopy_price(price)
@@ -3093,25 +3072,6 @@ function speed_size_data()
         end
     end
 end
-
-"the price inputs of the parts and launches of a soft kite"
-kite_price_inputs = (:canopy_structure_cost, :canopy_cloth_base_price,
-    :canopy_cloth_price_per_weight, :winch_mass_per_force, :winch_cost_per_mass,
-    :launch_mast_mass_per_size, :launch_mast_cost_per_mass, :control_unit_cost_per_mass,
-    :kite_controls_cost, :kite_integration_fraction, :tether_price, :kite_cycle_course_cost,
-    :kite_cycle_crew_cost, :market_price_factor)
-
-"the price inputs of each rig, the kite's [`kite_price_inputs`](@ref)"
-rig_price_inputs = Dict("kite" => kite_price_inputs,
-    "wings" => (:wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction,
-        :market_price_factor),
-    "rotors" => (:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
-        :market_price_factor),
-    "suction" => (:wing_unit_cost, :suction_cost_per_mass, :suction_mass_per_area,
-        :wing_installation_fraction, :market_price_factor),
-    "vtol" => (:rigid_mass, :rigid_cost_per_mass, :rigid_avionics_cost, :rigid_tether_cost,
-        :rigid_ship_power_cost, :winch_cost_per_mass, :launch_mast_cost_per_mass,
-        :kite_controls_cost, :kite_integration_fraction, :market_price_factor))
 
 "ship, drive, and kite, wing sail and rotor areas [m^2] of the router decisions study"
 router_decision_ships = (("140 m", :ammonia, (1600.0, 1500.0, 800.0)),

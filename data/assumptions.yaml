@@ -981,11 +981,9 @@ kite_landing_max_wind:
   reason: "Highest apparent wind for a landing that is not forced: the stowage of a full-size land kite was designed for up to 20 m/s [@skypower100_tib], which also calls landing more time-critical than launch."
 kite_launch_sea_wind:
   value: 5.0
-  low: 0.0
-  high: 10.0
   unit: m/s
   source: "@paulig2013: SkySails launch wind in rough against calm sea"
-  reason: "Extra apparent wind a launch needs in a rough sea, significant wave height from 2.5 m (sea state 5 of the World Meteorological Organization), against the calm-sea value. SkySails ships: about 5 m/s in perfect conditions, while rough sea and bad weather might require 10 m/s [@paulig2013]; the base takes the whole 5 m/s step for the sea, though bad weather is part of it. The low bound is no effect of the sea; the high bound doubles it."
+  reason: "Extra apparent wind a launch needs in a rough sea, significant wave height from 2.5 m (sea state 5 of the World Meteorological Organization), against the calm-sea value. SkySails ships: about 5 m/s in perfect conditions, while rough sea and bad weather might require 10 m/s [@paulig2013]; the value takes the whole 5 m/s step for the sea, though bad weather is part of it."
 kite_launch_min_wind:
   value: 5.0
   low: 3.0
