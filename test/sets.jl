@@ -189,7 +189,7 @@ end
 
 @testset "steps of a flown cycle give its force and peak and its own apparent wind" begin
     soft, soft_force, _ = WindShipOpt.kite_model(800.0, 3.0, assumptions)
-    rigid, rigid_force, = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
+    rigid, rigid_force, = WindShipOpt.rigid_kite_model(54.0, assumptions)
     straight = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15), 0.0)
     weaving = WindShipOpt.SteeringPattern(π / 2, 0.4, 1.3, deg2rad(15), deg2rad(20))
     loop = WindShipOpt.LoopPattern(π / 2, 0.8, 0.3, deg2rad(8))
@@ -3981,7 +3981,7 @@ end
 
 @testset "soft and rigid kites both stop depowering where their lift reaches 0.05" begin
     soft = first(WindShipOpt.kite_model(800.0, 3.0, assumptions))
-    rigid = first(WindShipOpt.rigid_kite_model(54.0, 1, assumptions))
+    rigid = first(WindShipOpt.rigid_kite_model(54.0, assumptions))
     for model in (soft, rigid)
         @test WindShipOpt.polar_value(model.polar, model.polar.lift, model.lowest_angle) ≈
               0.05
@@ -4045,7 +4045,7 @@ end
 end
 
 @testset "a rigid wing of the MX2 design matches its published numbers" begin
-    model, force, _, airframe = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
+    model, force, _, airframe = WindShipOpt.rigid_kite_model(54.0, assumptions)
     @test force ≈ 300e3 rtol=0.01
     @test airframe.mass ≈ 1852 rtol=0.01
     @test model.tether_length ≈ 300 rtol=0.01
@@ -4073,8 +4073,8 @@ function best_thrust(model, force, wind_speed)
 end
 
 @testset "a rigid wing loops within its tether limit and needs more wind as it grows" begin
-    small, small_force, = WindShipOpt.rigid_kite_model(30.0, 1, assumptions)
-    large, large_force, = WindShipOpt.rigid_kite_model(300.0, 1, assumptions)
+    small, small_force, = WindShipOpt.rigid_kite_model(30.0, assumptions)
+    large, large_force, = WindShipOpt.rigid_kite_model(300.0, assumptions)
     @test first(best_thrust(small, small_force, 6.0)) > 0
     @test first(best_thrust(large, large_force, 6.0)) == 0
     thrust, pattern_force = best_thrust(large, large_force, 14.0)
@@ -4085,36 +4085,58 @@ end
 end
 
 @testset "a wing stalling at the top of its loop does not fly the loop" begin
-    model, = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
+    model, = WindShipOpt.rigid_kite_model(54.0, assumptions)
     stall = sqrt(2model.mass * model.gravity /
                  (model.air_density * model.area * maximum(model.polar.lift)))
     @test WindShipOpt.holds_speed(model, 2stall, 0.0)
     @test !WindShipOpt.holds_speed(model, 2stall, 4stall^2 / model.gravity)
 end
 
-"""
-    rigid_fleet(count, assumptions)
+@testset "a VTOL kite's mass grows from MX2's with its span to the mass exponent" begin
+    @test WindShipOpt.rigid_kite_mass(54.0, assumptions) == assumptions[:rigid_mass]
+    span_doubled = WindShipOpt.rigid_kite_mass(4 * 54.0, assumptions)
+    @test span_doubled ≈ 2^assumptions[:rigid_mass_exponent] * assumptions[:rigid_mass]
+    cubed = with_value(assumptions, :rigid_mass_exponent, 3.0)
+    model, force, _, airframe = WindShipOpt.rigid_kite_model(216.0, cubed)
+    @test airframe.mass ≈ 8assumptions[:rigid_mass]
+    @test airframe.hover_power ≈ assumptions[:rigid_hover_power_per_mass] * airframe.mass
+    @test force ≈ 4e3assumptions[:rigid_max_force_per_area] * 54.0
+end
 
-Rigid kites of 54 m^2 with a two-point force table of 100 kN downwind per kite at every
-wind speed.
+@testset "a VTOL kite's perch fits while its span is within the deck" begin
+    hull = PAPER_HULL
+    largest = WindShipOpt.largest_rigid_kite_area(hull, assumptions)
+    @test sqrt(largest * assumptions[:rigid_aspect_ratio]) ≈
+          assumptions[:deck_length_fraction] * hull.length
+    rig = WindShipOpt.rigid_kite_rig(largest, hull, assumptions; courses=[π / 2],
+        side_weights=[0.0])
+    @test rig.area == largest
+    @test isnothing(WindShipOpt.rigid_kite_rig(1.01largest, hull, assumptions))
+end
+
 """
-function rigid_fleet(count, assumptions)
-    model, max_force, tether_diameter, airframe = WindShipOpt.rigid_kite_model(54.0, count,
+    rigid_test_kite(assumptions; area=54.0)
+
+Rigid kite of `area` [m^2] with a two-point force table of 100 kN downwind at every wind
+speed.
+"""
+function rigid_test_kite(assumptions; area=54.0)
+    model, max_force, tether_diameter, airframe = WindShipOpt.rigid_kite_model(area,
         assumptions)
     wind_speeds = [5.0, 30.0]
     courses = [0.0, π]
     side_weights = [0.0]
     forces = [WindShipOpt.PatternForce(
-                  (1e5 / (0.5 * model.air_density * speed^2 * 54.0), 0.0, 0.0), 1.0, 0.5)
+                  (1e5 / (0.5 * model.air_density * speed^2 * area), 0.0, 0.0), 1.0, 0.5)
               for speed in wind_speeds, _ in courses, _ in side_weights]
-    return KiteRig(; area=54.0, aspect_ratio=assumptions[:rigid_aspect_ratio],
+    return KiteRig(; area, aspect_ratio=assumptions[:rigid_aspect_ratio],
         tether_diameter, model.tether_length, reference_height=10.0,
         WindShipOpt.rigid_wind_limits(5.0, assumptions)..., max_force, attach_height=10.0,
         attach_position=0.0, wind_speeds, courses, side_weights, forces, airframe)
 end
 
 @testset "a rigid kite's airframe is priced by mass, its supply by hover power" begin
-    one = rigid_fleet(1, assumptions)
+    one = rigid_test_kite(assumptions)
     (; mass, hover_power) = one.airframe
     factor = assumptions[:market_price_factor]
     raised(name) = with_value(assumptions, name, assumptions[name] + 1.0)
@@ -4125,48 +4147,16 @@ end
 end
 
 @testset "a rigid kite's station is a soft kite's deck system and controls, and its tether" begin
-    one = rigid_fleet(1, assumptions)
+    one, large = rigid_test_kite(assumptions), rigid_test_kite(assumptions; area=216.0)
     parts = WindShipOpt.rig_price_parts(one, assumptions)
     @test parts.deck ≈ WindShipOpt.kite_deck_price(one.area, one.max_force, assumptions)
     @test parts.controls == assumptions[:kite_controls_cost]
     @test parts.tether == assumptions[:rigid_tether_cost]
-end
-
-@testset "rigid kites stand one span apart within the deck" begin
-    hull = PAPER_HULL
-    span = sqrt(54.0 * assumptions[:rigid_aspect_ratio])
-    room = floor(Int, assumptions[:deck_length_fraction] * hull.length / span)
-    @test WindShipOpt.rigid_kites_fit(room, hull, assumptions)
-    @test !WindShipOpt.rigid_kites_fit(room + 1, hull, assumptions)
-    @test isnothing(WindShipOpt.rigid_kite_rig((room + 1) * 54.0, hull, assumptions))
-end
-
-"lone kite's force over dynamic pressure [m^2] at 12 m/s true wind dead astern at 5 m/s"
-function lone_force_area(rig, env)
-    wind = WindShipOpt.wind_at_height(env, 12.0, rig.reference_height)
-    speed = first(WindShipOpt.apparent_wind(wind, π, 5.0))
-    return rig_force(rig, env, 12.0, π, 5.0, 0.0).thrust / (0.5env.air_density * speed^2)
-end
-
-@testset "more rigid kites weigh and cost in proportion and pull less per kite" begin
-    env = Environment(assumptions)
-    one, three = rigid_fleet(1, assumptions), rigid_fleet(3, assumptions)
-    pull(rig) = rig_force(rig, env, 12.0, π, 5.0, 0.0).thrust
-    force_area = lone_force_area(one, env)
-    @test WindShipOpt.loop_interaction(one, force_area) ≈ 1
-    interaction = WindShipOpt.loop_interaction(three, force_area)
-    @test interaction < 1
-    lone = force_area / three.airframe.loop_area
-    induction = 3lone / (4 + 3lone)
-    @test 3lone * (1 - induction)^2 ≈ 4induction * (1 - induction)
-    @test pull(three) ≈ 3interaction * pull(one)
-    @test WindShipOpt.deck_units(three) == 3
-    @test all(WindShipOpt.rig_costs(three, assumptions) .≈
-              3 .* WindShipOpt.rig_costs(one, assumptions))
-    @test WindShipOpt.wear_cost(three, assumptions) ≈
-          3WindShipOpt.wear_cost(one, assumptions)
-    @test WindShipOpt.cycle_cost(three, assumptions) ≈
-          3WindShipOpt.cycle_cost(one, assumptions)
+    @test WindShipOpt.rig_price_parts(large, assumptions).tether ≈ 8parts.tether
+    tether = WindShipOpt.rope_mass(large.tether_diameter, large.tether_length, assumptions)
+    @test 1e3WindShipOpt.rig_costs(large, assumptions)[2] ≈
+          sum(WindShipOpt.kite_deck_masses(large.area, large.max_force, assumptions)) +
+          large.airframe.mass + tether
 end
 
 @testset "each launch wears the tether by its bends over drum and sheaves" begin
@@ -4179,7 +4169,7 @@ end
 end
 
 @testset "a rigid kite hovers within its own limits and stays up beyond them" begin
-    fleet = rigid_fleet(2, assumptions)
+    fleet = rigid_test_kite(assumptions)
     waves = assumptions[:rigid_hover_max_wave_height]
     wind = assumptions[:kite_launch_max_wind]
     @test WindShipOpt.kite_landable(fleet, 0.0, wind - 1, 0.0, waves)
@@ -4196,7 +4186,7 @@ end
     hull = Hull(140.0, assumptions)
     rig = WindShipOpt.rigid_kite_rig(54.0, hull, assumptions; courses=[π / 2],
         side_weights=[0.0])
-    model, = WindShipOpt.rigid_kite_model(54.0, 1, assumptions)
+    model, = WindShipOpt.rigid_kite_model(54.0, assumptions)
     elevation = deg2rad(assumptions[:kite_min_elevation])
     @test rig.min_flight_wind >= WindShipOpt.crosswind_min_wind(model, elevation)
     @test rig.min_flight_wind < WindShipOpt.climbing_min_wind(model, elevation)
@@ -4204,29 +4194,11 @@ end
     @test isnothing(below) || !isfinite(rig.forces[below, 1, 1].peak_tension)
 end
 
-@testset "a failed rigid kite grounds itself and leaves the others flying" begin
+@testset "a failed VTOL kite leaves the ship sailing without a rig" begin
     changed = with_value(assumptions, :kite_out_of_service, 0.1)
-    fleet = rigid_fleet(4, changed)
-    env = Environment(changed)
-    states = WindShipOpt.service_states(fleet, changed)
-    @test first(first(states)) ≈ 0.9^4
-    share, down = last(states)
-    @test share ≈ 1 - 0.9^4
-    kites_in_service = sum(first(state) * WindShipOpt.kite_count(last(state))
-                           for state in states)
-    @test kites_in_service ≈ 0.9 * 4
-    flying = WindShipOpt.kite_count(down) / 4
-    pull(rig) = rig_force(rig, env, 12.0, π, 5.0, 0.0).thrust
-    force_area = lone_force_area(rigid_fleet(1, changed), env)
-    @test pull(down) ≈ WindShipOpt.kite_count(down) *
-                       WindShipOpt.loop_interaction(down, force_area) *
-                       pull(rigid_fleet(1, changed))
-    @test WindShipOpt.wear_cost(down, changed) ≈
-          flying * WindShipOpt.wear_cost(fleet, changed)
-    @test WindShipOpt.cycle_cost(down, changed) ≈
-          flying * WindShipOpt.cycle_cost(fleet, changed)
-    lone = rigid_fleet(1, changed)
-    @test isnothing(last(last(WindShipOpt.service_states(lone, changed))))
+    states = WindShipOpt.service_states(rigid_test_kite(changed), changed)
+    @test first(last(states)) ≈ 0.1
+    @test isnothing(last(last(states)))
 end
 
 @testset "one crash costs a control unit, half the wearing parts, or one deck unit" begin
@@ -4261,7 +4233,7 @@ end
               0.01 * (costs(ship, assumptions).capital - rig_capital)
         @test maintenance_of(ship, :rig_maintenance_fraction) ≈ 0.01 * (rig_capital - worn)
     end
-    fleet = rigid_fleet(2, assumptions)
+    fleet = rigid_test_kite(assumptions)
     capital = first(WindShipOpt.rig_costs(fleet, assumptions))
     airframes = WindShipOpt.rigid_airframe_price(fleet, assumptions)
     @test WindShipOpt.rig_maintenance(fleet, capital, raised(:rig_maintenance_fraction)) -
@@ -4288,10 +4260,10 @@ end
         Dict("kite" => 2.1))
 end
 
-@testset "one rigid kite crashing costs one airframe" begin
-    fleet = rigid_fleet(3, assumptions)
-    @test WindShipOpt.crash_cost(fleet, assumptions) ≈
-          WindShipOpt.rigid_airframe_price(fleet, assumptions) / 3
+@testset "a rigid kite crashing costs its airframe" begin
+    kite = rigid_test_kite(assumptions)
+    @test WindShipOpt.crash_cost(kite, assumptions) ≈
+          WindShipOpt.rigid_airframe_price(kite, assumptions)
 end
 
 @testset "each rig is measured against the best other, the leader against the second" begin
@@ -4347,13 +4319,15 @@ end
         ("tubarao", "ammonia", "wings", 3600.0, 0.0049),
         ("tubarao", "ammonia", "suction", 1600.0, 0.0049),
         ("tubarao", "ammonia", "rotors", 1890.0, 0.0047),
+        ("tubarao", "ammonia", "vtol", 80.0, 0.0050),
+        ("tubarao", "ammonia", "vtol", 160.0, 0.0051),
         ("bilbao", "ammonia", "rotors", 850.0, 0.0045)]
     classes = Dict{String, Vector}("class" => fill("Kamsarmax bulk carrier", length(runs)),
         (name => [run[k] for run in runs]
          for (k, name) in enumerate(("route", "drive", "rig", "area", "cost")))...)
     @test PaperData.fuel_sizes(classes, "Kamsarmax bulk carrier", :tubarao) ==
           Dict("none" => 0.0, "kite" => 3200.0, "wings" => 3600.0, "suction" => 1600.0,
-        "rotors" => 1890.0)
+              "rotors" => 1890.0, "vtol" => 80.0)
     @test PaperData.swept_values(:e_methanol_price) ==
           sort([Main.assumptions[:e_methanol_price], 40.0, 90.0, 120.0])
 end
@@ -4593,6 +4567,24 @@ end
     @test PaperData.size_bounds(class)["rotors"][2] > upper
 end
 
+@testset "a VTOL kite is searched from 20 m^2 to the largest whose perch fits" begin
+    class = ship_classes()["Kamsarmax bulk carrier"]
+    lower, upper = PaperData.size_bounds(class)["vtol"]
+    @test lower == 20.0
+    hull = Hull(class, assumptions)
+    @test upper ≈ WindShipOpt.largest_rigid_kite_area(hull, assumptions)
+    @test PaperData.rig_size("vtol", upper) == (; rigid_kite_area=upper)
+end
+
+@testset "a VTOL kite on a container ship perches across its bow" begin
+    hull = Hull(ship_classes()["Neo-Panamax container ship"], assumptions)
+    @test WindShipOpt.largest_rigid_kite_area(hull, assumptions) ≈
+          hull.beam^2 / assumptions[:rigid_aspect_ratio]
+    rig = WindShipOpt.rigid_kite_rig(80.0, hull, assumptions; courses=[π / 2],
+        side_weights=[0.0])
+    @test rig.attach_position ≈ WindShipOpt.launch_mast_position(hull, assumptions)
+end
+
 @testset "every rig has its name, life, availability and price inputs" begin
     rigs = Set(PaperData.rig_names)
     for names in (PaperData.rig_keywords, PaperData.lifetime_inputs,
@@ -4810,7 +4802,8 @@ end
 end
 
 @testset "a ship type where the best rig does not clearly save has no leader" begin
-    savings = Dict("kite" => 1.0, "wings" => 0.2, "rotors" => -0.5, "suction" => 0.1)
+    savings = Dict("kite" => 1.0, "wings" => 0.2, "rotors" => -0.5, "suction" => 0.1,
+        "vtol" => 0.0)
     lead = PaperData.rig_lead([fleet_cell(1.0, savings, Dict("kite" => 2.0))])
     @test lead.verdict == "none"
     @test PaperData.rig_lead([fleet_cell(1.0, savings)]).verdict == "leads"
