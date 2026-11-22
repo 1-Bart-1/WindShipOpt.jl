@@ -40,15 +40,20 @@ step_count(fields::GriddedFields) = fields.steps
 """
     ERA5Weather(directory)
 
-ERA5 10 m wind and sea state read from `directory`, with time in hours after the first
-stored wind field.
+ERA5 10 m wind, wind speed aloft and sea state read from `directory`, with time in hours
+after the first stored wind field.
 """
 struct ERA5Weather
     origin::DateTime
     wind::GriddedFields
+    aloft::GriddedFields
     waves::GriddedFields
     "east and north 10 m wind [m/s] per (longitude, latitude, time)"
     wind_arrays::NTuple{2, Array{Float32, 3}}
+    "heights of the wind speeds aloft [m], ascending"
+    aloft_heights::Vector{Float64}
+    "wind speed [m/s] at each of `aloft_heights`, same axes"
+    aloft_arrays::Vector{Array{Float32, 3}}
     "wave height [m], peak period [s] and east and north direction components, same axes"
     wave_arrays::NTuple{4, Array{Float32, 3}}
 end
@@ -62,7 +67,10 @@ function ERA5Weather(directory::AbstractString=joinpath(pkgdir(@__MODULE__), "er
             "direction", waves.fields["direction"])
     end
     wind = GriddedFields(joinpath(directory, "wind"), origin)
-    return ERA5Weather(origin, wind, waves, (wind.fields["u10"], wind.fields["v10"]),
+    aloft = GriddedFields(joinpath(directory, "aloft"), origin)
+    heights = TOML.parsefile(joinpath(directory, "aloft", "grid.toml"))["heights"]
+    return ERA5Weather(origin, wind, aloft, waves, (wind.fields["u10"], wind.fields["v10"]),
+        Float64.(heights), [aloft.fields["speed_$height"] for height in heights],
         (waves.fields["height"], waves.fields["period"], waves.fields["direction_east"],
             waves.fields["direction_north"]))
 end
@@ -86,7 +94,8 @@ function derived_field(derive, directory, name, source_name, source)
 end
 
 "hours of weather available from the origin [h]"
-duration(weather::ERA5Weather) = min(last_time(weather.wind), last_time(weather.waves))
+duration(weather::ERA5Weather) =
+    min(last_time(weather.wind), last_time(weather.aloft), last_time(weather.waves))
 
 last_time(fields::GriddedFields) =
     fields.time_offset + (step_count(fields) - 1) * fields.step_hours
@@ -136,6 +145,32 @@ weighted_sum(totals, weight, values) = map((total, value) -> total + weight * va
 
 wind(weather::ERA5Weather, lat, lon, time) =
     sample(weather.wind, weather.wind_arrays, lat, lon, time)
+
+"""
+    wind_aloft(weather, lat, lon, time, height)
+
+ERA5 wind speed [m/s] at `height` [m] above the sea, by [`log_height_value`](@ref) between
+the stored heights.
+"""
+function wind_aloft(weather::ERA5Weather, lat, lon, time, height)
+    heights = weather.aloft_heights
+    i = clamp(searchsortedlast(heights, height), 1, length(heights) - 1)
+    speeds = sample(weather.aloft, (weather.aloft_arrays[i], weather.aloft_arrays[i + 1]),
+        lat, lon, time)
+    return log_height_value(view(heights, i:(i + 1)), speeds, height)
+end
+
+"""
+    log_height_value(heights, values, height)
+
+Value at `height` of the profile of `values` at the ascending `heights`, linear in the
+logarithm of height between them and held at their ends.
+"""
+function log_height_value(heights, values, height)
+    i = clamp(searchsortedlast(heights, height), 1, length(heights) - 1)
+    share = clamp(log(height / heights[i]) / log(heights[i + 1] / heights[i]), 0, 1)
+    return (1 - share) * values[i] + share * values[i + 1]
+end
 
 """
     waves(weather, lat, lon, time)

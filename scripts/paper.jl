@@ -22,20 +22,12 @@
 # and table steps LaTeX to paper/sections/; draft results are marked in the paper. The
 # LaTeX build is separate.
 using CairoMakie
-using Dates
-using Printf
-using Statistics
-using WindShipOpt
 
-include("setup.jl")
+include("trips.jl")
 include("map_plotting.jl")
 
-root = joinpath(@__DIR__, "..")
 sections = mkpath(joinpath(root, "paper", "sections"))
 
-include("paper_runs.jl")
-include("size_search.jl")
-include("paper_data.jl")
 include("explorer_data.jl")
 include("passages_data.jl")
 include("grids_data.jl")
@@ -55,10 +47,10 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :canopy_life_data => canopy_life_data, :canopy_price_data => canopy_price_data,
     :situations_data => situations_data, :fuels_data => fuels_data,
     :wind_angle_data => wind_angle_data, :route_tracks => route_tracks_data,
+    :passage_data => passage_data, :router_search => router_search_data,
     :canopy_tension => canopy_tension_data,
     :abatement_data => abatement_data,
     :combination_data => combination_data,
-    :rigid_scaling_data => rigid_scaling_data, :rigid_kite_data => rigid_kite_data,
     :flight => flight_data, :speed_choice => speed_choice_data,
     :speed_size => speed_size_data]
 
@@ -91,7 +83,7 @@ website_steps = [:explorer => explorer_data, :passages => passages_data,
     :grids => grids_data]
 
 "figure and table steps, each reading the data files and writing one output"
-output_steps = [:kite => kite_figure,
+output_steps = [:kite => kite_figure, :deck_rigs => deck_rig_figure,
     :wind_load => wind_load_figure,
     :capital => capital_figure, :patterns_figure => pattern_figure,
     :canopy_tension_figure => canopy_tension_figure,
@@ -118,7 +110,6 @@ output_steps = [:kite => kite_figure,
     :missed_goals_table => missed_goals_table,
     :rig_margin_table => rig_margin_table,
     :abatement => abatement_figure, :combination => combination_figure,
-    :rigid_scaling => rigid_scaling_figure, :rigid_kite => rigid_kite_figure,
     :flight_table => flight_table, :speed_choice_table => speed_choice_table,
     :speed_size_figure => speed_size_figure,
     :min_wind => min_wind_figure,
@@ -126,11 +117,12 @@ output_steps = [:kite => kite_figure,
     :kite_frames => kite_frames_figure, :router => router_figure,
     :missed_goals => missed_goals_figure, :cargo_cost => cargo_cost_figure,
     :large_rigs => large_rigs_figure, :kite_mass => kite_mass_figure,
+    :deck_mass => deck_mass_figure,
     :canopy_cells => canopy_cells_figure,
     :tow_point_figure => tow_point_figure,
     :fleet_share => fleet_share_figure, :numbers => numbers_file,
     :today_numbers => today_numbers_file,
-    :figure_style => figure_style_file, :rigid_numbers => rigid_numbers_file]
+    :figure_style => figure_style_file]
 
 """
     paper(names...; fidelity, resume=nothing, only=nothing)

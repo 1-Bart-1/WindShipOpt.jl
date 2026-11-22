@@ -47,7 +47,7 @@ function aspect_data()
 end
 
 "force limits of the kite in the force rating study [kN/m^2]"
-study_force_ratings = (0.2, 0.3, 0.5, 0.7, 1.0)
+study_force_ratings = (0.3, 0.5, 0.7, 0.9, 1.3)
 
 "kite areas of the force rating study [m^2]"
 study_kite_areas = [1600.0 * sqrt(2.0)^k for k in 0:6]

@@ -133,8 +133,11 @@ struct PerformanceTable{S}
     handling_hours::Float64
     speeds::Vector{Float64}
     max_wind::Float64
-    "true wind at a kite's reference height per unit of 10 m wind [-]; zero without a kite"
+    "true wind at a kite's reference height per unit of 10 m wind on the profile the table
+    is built on [-]; zero without a kite"
     kite_wind_factor::Float64
+    "reference height of a kite [m]; zero without a kite"
+    kite_height::Float64
 end
 
 "lowest speed of a [`PerformanceTable`](@ref) [m/s]"
@@ -192,7 +195,7 @@ function PerformanceTable(ship::Ship, assumptions::Assumptions)
     return PerformanceTable(ship, flown_thrust, stowed_thrust, rig_power, stowed_power,
         LinearTable((speeds, periods, headings), waves), wear_cost(ship.rig, assumptions),
         cycle_cost(ship.rig, assumptions), handling_hours(ship.rig, assumptions), speeds,
-        last(winds), kite_wind_factor(ship.rig, ship.env))
+        last(winds), kite_wind_factor(ship.rig, ship.env), kite_height(ship.rig))
 end
 
 """
@@ -212,15 +215,14 @@ end
 """
     handling_hours(rig, assumptions)
 
-Time [h] one launch and one landing of a kite give no force on the ship; zero for other
-rigs.
+Time [h] one launch and one landing of a soft kite give no force on the ship; zero for
+other rigs and for a VTOL kite, whose hover takes a few minutes.
 """
 handling_hours(rig, assumptions) = 0.0
 handling_hours(rig::CombinedRig, assumptions) = handling_hours(rig.kite, assumptions)
 handling_hours(::KiteRig, assumptions) =
     (assumptions[:kite_launch_minutes] + assumptions[:kite_landing_minutes]) / 60
-handling_hours(::KiteRig{RigidAirframe}, assumptions) =
-    assumptions[:rigid_hover_minutes] / 60
+handling_hours(::KiteRig{RigidAirframe}, assumptions) = 0.0
 
 """
     SeaCondition(table, wind, angle, wave_height, wave_period, wave_heading)
@@ -379,6 +381,11 @@ without a kite.
 kite_wind_factor(rig, env) = 0.0
 kite_wind_factor(rig::KiteRig, env) = wind_at_height(env, 1.0, rig.reference_height)
 kite_wind_factor(rig::CombinedRig, env) = kite_wind_factor(rig.kite, env)
+
+"reference height of the kite of `rig` [m]; zero for rigs without a kite"
+kite_height(rig) = 0.0
+kite_height(rig::KiteRig) = rig.reference_height
+kite_height(rig::CombinedRig) = kite_height(rig.kite)
 
 """
     kite_aloft(table, speed, headwind, crosswind)

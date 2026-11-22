@@ -44,6 +44,12 @@ SPDX-FileCopyrightText = "2012-2014 B. Jackowski, P. Strzelczyk and P. Pianowski
 SPDX-License-Identifier = "LPPL-1.3c+"
 
 [[annotations]]
+path = "paper/icons/*.svg"
+precedence = "override"
+SPDX-FileCopyrightText = "2020-2026 Paweł Kuna"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = "data/fonts/GUST-FONT-LICENSE.txt"
 precedence = "override"
 SPDX-FileCopyrightText = "2006 GUST, the Polish TeX Users Group"

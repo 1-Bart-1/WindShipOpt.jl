@@ -29,7 +29,7 @@
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{class_comparison}
-\caption{\stale{classes}{} Cost saving and fuel saving of the best size of each rig for the thirteen ship classes and for the mean of the deadweight-limited and of the space-limited classes, with a VLSFO (a) and an e-ammonia (b) drive, in percent of the same ship without a rig on the same fuel: the mean over the six routes (marker) and the range over them (bar). The band across a row, the same in both panels of a drive, gives the verdict on cost by the rule of \cref{sec:res_robustness}: the colour of the rig that leads, hatched in the colours of the two where they are level, grey where no rig clearly saves. The number is the largest mean in that panel. The fuel saving is the fuel energy; on VLSFO the tank-to-wake CO$_2$ saved equals it.}
+\caption{\stale{classes}{} Cost saving of the best size of each rig for the thirteen ship classes and for the mean of the deadweight-limited and of the space-limited classes, with a VLSFO (a) and an e-ammonia (b) drive, in percent of the cost per tonne-kilometre of the same ship without a rig on the same fuel. Each rig has a line of its own in every row: the mean over the six routes (marker) and the range over them (bar). Beside each row, by the rule of \cref{sec:res_robustness}, stands the rig that leads on cost with its lead over the next rig in points, or the two rigs that are level.}
 \label{fig:class_comparison}
 \end{figure*}
 
@@ -40,7 +40,7 @@
 \label{fig:winner_map}
 \end{figure*}
 
-\stale{classes}{The rigs are sized for cost, so the fuel they save is several times their cost saving (\cref{fig:class_comparison}): on VLSFO the kite saves the bulk carriers, tankers and general cargo ships \NumSavingOilBulkKite\,\% of their cost and \NumCarbonBulkKite\,\% of their CO$_2$. We give CO$_2$ tank-to-wake, what leaves the ship's stack, and only for VLSFO, where it is the fuel saved times a fixed factor; on e-ammonia only the VLSFO pilot emits it, \given{5}\,\% of what the same energy of VLSFO would. A well-to-wake figure, which would also count making the fuel, depends on how the hydrogen is produced and on nitrous oxide and slip on the engine, so we give none. The fuel energy saved carries over to any such account in proportion.}
+\stale{classes}{The rigs are sized for cost, so the fuel they save is several times their cost saving: on VLSFO the kite saves the bulk carriers, tankers and general cargo ships \NumSavingOilBulkKite\,\% of their cost and \NumCarbonBulkKite\,\% of their CO$_2$. We give CO$_2$ tank-to-wake, what leaves the ship's stack, and only for VLSFO, where it is the fuel saved times a fixed factor; on e-ammonia only the VLSFO pilot emits it, \given{5}\,\% of what the same energy of VLSFO would. A well-to-wake figure, which would also count making the fuel, depends on how the hydrogen is produced and on nitrous oxide and slip on the engine, so we give none. The fuel energy saved carries over to any such account in proportion.}
 
 \stale{classes}{On a tramp part of each cost saving is time, since a rig makes speed cheaper and the router sets speed by cost (\cref{sec:res_speed}); the container ships and the car carrier keep the schedule of the ship without a rig, so on them it is fuel alone (\cref{sec:routing}). Time matters on e-ammonia, where it adds \NumSplitTimeAmmoniaKite{} points to the kite's cost saving and \NumSplitTimeAmmoniaRotors{} to the rotors', and hardly on VLSFO, where the rigs are smaller (\cref{tab:split}). The fuel saved alone falls short of the rig's own cost for \NumFuelShort{}.}
 
@@ -135,7 +135,7 @@ Where the kite flies follows from these angles (\cref{tab:flight}). It is rarely
 \begin{figure*}[tbp]
 \centering
 \plot[\textwidth]{class_sizes}
-\caption{\stale{classes}{} The rig area that lowers the cost per tonne-kilometre most for each ship class with a VLSFO (a) and an e-ammonia (b) drive: the geometric mean over the six routes (marker) and the range over them (bar). Beside each panel is the median number of units of each rig at that size, in a column with the rig's name at its foot, in the colour of its marker and bar; a kite rig is one kite. Kites were searched from \given{\SIrange{500}{16000}{m^2}} (the upper bound dashed), wing sails and rotors from a fifth to all of what fits on deck. Where a bound was the best size searched, the search also tried the size one step inside it.}
+\caption{\stale{classes}{} The rig area that lowers the cost per tonne-kilometre most for each ship class with a VLSFO (a) and an e-ammonia (b) drive: the geometric mean over the six routes (marker) and the range over them (bar). Beside each panel is the median number of units of each rig at that size, in a column with the rig's name at its foot, in the colour of its marker and bar; a kite rig is one kite. Kites were searched from \given{\SIrange{500}{16000}{m^2}} (the upper bound dashed), VTOL kites from \given{\SI{20}{m^2}} to the largest whose span fits the deck, wing sails and rotors from a fifth to all of what fits on deck. Where a bound was the best size searched, the search also tried the size one step inside it.}
 \label{fig:class_sizes}
 \end{figure*}
 
@@ -176,24 +176,3 @@ Each price is routed again rather than charging the new price for the fuel burnt
 \label{sec:res_combination}
 
 \stale{combination_data,classes,base_kite}{Adding a kite to rotors adds little, because in a moderate wind either rig alone covers most of the power the ship needs at the speed the router picks, while each keeps its full capital and yearly cost. The pairing looks promising: kite and rotors pull best at different wind angles (\cref{fig:rig_polar}), and a kite needs only a launch mast at the forward end of the deck. Flown together on the Handysize and the Kamsarmax bulk carriers to Guadeloupe and Bilbao (\cref{app:combination}), a kite added to rotors is worth 1 and 2 points of cost saving on e-ammonia on the Kamsarmax and the Handysize, clear of the noise only on the Handysize to Guadeloupe, and nothing on VLSFO.}
-
-\subsection{VTOL kites are too expensive at ship scale}
-\label{sec:res_rigid}
-
-\stale{rigid_scaling_data,rigid_kite_data,classes}{That leaves the fourth rig. If it reaches its goals, a VTOL kite flies at ship scale, but on e-ammonia it saves about half the cost per tonne-kilometre that a soft kite or rotors save (\cref{fig:rigid_kite}). Its thrust costs too much: over a year of \NumCanopyLifeGoal{} flight hours and \given{150} launches at \given{\SI{12}{m/s}} of apparent wind on a beam course, each kite at its goals, it costs about \NumRigidCostRatio{} times what a soft kite costs for each unit of thrust. Its wing costs several times a soft kite of the same thrust to buy, and its life of \given{15} years against a canopy of \NumCanopyLifeGoal{} flight hours closes only part of that gap. Nor can it grow out of the gap. At a fixed force per area the load-bearing part of its structure grows with the cube of the span and the shell only with its square, and the heavier wing needs more wind to reach the top of its circle, so the cost per kilonewton is lowest near \NumRigidBestArea{}\,m$^2$, barely below that of the \given{\SI{54}{m^2}} of MX2, and rises beyond it (\cref{fig:rigid_scaling}). Were the whole structure to grow with the span cubed, the cheapest size would be smaller still, \NumRigidCubedArea{}\,m$^2$. The speed of the ship does not close the gap either, since wind from ahead gives drag and not thrust.}
-
-\begin{figure*}[tbp]
-\centering
-\plot[\textwidth]{rigid_scaling}
-\caption{\stale{rigid_scaling_data}{} VTOL kites and soft kites over size, each at its goals: (a) thrust of one kite on a beam course over the apparent wind, (b) price per unit of thrust at \given{\SI{12}{m/s}} of apparent wind, of VTOL kites at base inputs, with the structure's mass at its low and its high bounds, with the whole structure growing with the span cubed and with every input at the bound that favours it, and of soft kites; the shading spans the prices of their parts and launches, which are estimates, all at their low to all at their high bounds of \cref{tab:inputs}, for the VTOL kite at base inputs and the soft kite; and (c) the lowest apparent wind in which a VTOL kite flies its loops. Wings that do not fly at \given{\SI{12}{m/s}} are left out.}
-\label{fig:rigid_scaling}
-\end{figure*}
-
-\begin{figure*}[tbp]
-\centering
-\plot[\textwidth]{rigid_kite}
-\caption{\stale{classes,rigid_kite_data,rigid_scaling_data}{} VTOL kites against the other rigs, each at its goals: (a) cost over a year of \NumCanopyLifeGoal{} flight hours and \given{150} launches per unit of thrust at \given{\SI{12}{m/s}} of apparent wind on a beam course, of VTOL kites at base inputs and with every input at the bound that favours it, and of soft kites, shaded where they rest on estimated prices, as in \cref{fig:rigid_scaling}, a dot marking the VTOL kite routed in (b); (b) cost saving per tonne-kilometre against the ship without a rig on e-ammonia, of the best size of the soft kite, wing sails and rotors from the class study and of that one VTOL kite, on the Handysize and the Kamsarmax bulk carrier to Guadeloupe and Bilbao. \tbd{Draft run.}}
-\label{fig:rigid_kite}
-\end{figure*}
-
-\stale{rigid_kite_data,classes}{Routed at the size cheapest per unit of thrust on the Handysize and the Kamsarmax bulk carriers on e-ammonia, the VTOL kite \NumRigidRoutedGuadeloupeRigid{} of the cost per tonne-kilometre to Guadeloupe, and to Bilbao it \NumRigidRoutedBilbaoRigid{} (\cref{fig:rigid_kite}). It competes only with every one of its \given{36} inputs at the bound that favours it at once, which is everything going right for one rig and no prediction (\cref{sec:det_rigid}). Adding it at base inputs changes no leader among the rigs, so it is left out of every other study.}

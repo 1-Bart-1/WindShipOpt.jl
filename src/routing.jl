@@ -474,7 +474,8 @@ struct EdgeSample
     headwind::Float64
     "true wind at the kite's reference height from abeam [m/s]"
     crosswind::Float64
-    "10 m true wind speed [m/s]"
+    "true wind speed on the table's wind axis [m/s]: the 10 m wind, or with a kite the 10 m
+    wind that gives the kite its wind on the table's profile"
     wind_speed::Float64
     "standard error of that speed the plan weighs [m/s]; 0 for a wind taken as known"
     spread::Float64
@@ -485,22 +486,52 @@ EdgeSample(condition::SeaCondition, headwind, crosswind) =
 
 """
     EdgeSample(table, (east, north), (wave_height, wave_period, wave_from), course,
-               spread=0.0)
+               spread=0.0; kite_wind=table.kite_wind_factor * hypot(east, north))
 
-[`EdgeSample`](@ref) for the [`PerformanceTable`](@ref) `table` of a 10 m wind [m/s] and
-the [`waves`](@ref) on `course` [rad from north], `spread` the standard error of the wind
-speed [m/s].
+[`EdgeSample`](@ref) for the [`PerformanceTable`](@ref) `table` of a 10 m wind [m/s], the
+[`waves`](@ref) on `course` [rad from north] and a true wind `kite_wind` [m/s] at the
+kite's reference height from the same direction, `spread` the standard error of the wind
+speed [m/s]. A kite's ship takes its whole table at the 10 m wind that gives `kite_wind`.
 """
-function EdgeSample(table::PerformanceTable, (east, north), (wave_height, wave_period,
-            wave_from), course, spread=0.0)
+function EdgeSample(table::PerformanceTable, wind_10m, (wave_height, wave_period,
+            wave_from), course, spread=0.0;
+        kite_wind=table.kite_wind_factor * hypot(wind_10m...))
+    east, north = wind_10m
     wind_speed = hypot(east, north)
     angle = true_wind_angle(east, north, wind_speed, course)
-    condition = SeaCondition(table, wind_speed, angle, wave_height, wave_period,
+    table_wind = table.kite_wind_factor > 0 ? kite_wind / table.kite_wind_factor :
+                 wind_speed
+    condition = SeaCondition(table, table_wind, angle, wave_height, wave_period,
         wave_heading(wave_from, course))
-    table.kite_wind_factor > 0 ||
-        return EdgeSample(condition, 0.0, 0.0, wind_speed, spread)
-    crosswind, headwind = table.kite_wind_factor * wind_speed .* sincos(angle)
-    return EdgeSample(condition, headwind, crosswind, wind_speed, spread)
+    crosswind, headwind = kite_wind .* sincos(angle)
+    return EdgeSample(condition, headwind, crosswind, table_wind, spread)
+end
+
+"""
+    kite_wind(weather, table, lat, lon, time, (east, north))
+
+True wind speed [m/s] at the reference height of the kite of the [`PerformanceTable`](@ref)
+`table` at (`lat`, `lon`) and `time` [h]: the ERA5 wind aloft where `weather` holds it, else
+the 10 m wind (`east`, `north`) on the table's profile; zero without a kite.
+"""
+kite_wind(weather, table::PerformanceTable, lat, lon, time, (east, north)) =
+    table.kite_wind_factor * hypot(east, north)
+kite_wind(weather::ERA5Weather, table::PerformanceTable, lat, lon, time, wind_10m) =
+    table.kite_height > 0 ? wind_aloft(weather, lat, lon, time, table.kite_height) : 0.0
+kite_wind(forecast::ForecastWeather, table::PerformanceTable, lat, lon, time, wind_10m) =
+    kite_wind(forecast.weather, table, lat, lon, forecast_time(forecast, time), wind_10m)
+
+"""
+    EdgeSample(table, weather, lat, lon, time, course, spread=wind_spread(weather, time))
+
+[`EdgeSample`](@ref) for `table` at (`lat`, `lon`) and `time` [h] on `course` [rad from
+north] in `weather`.
+"""
+function EdgeSample(table::PerformanceTable, weather, lat, lon, time, course,
+        spread=wind_spread(weather, time))
+    wind_10m = wind(weather, lat, lon, time)
+    return EdgeSample(table, wind_10m, waves(weather, lat, lon, time), course, spread;
+        kite_wind=kite_wind(weather, table, lat, lon, time, wind_10m))
 end
 
 """
@@ -513,8 +544,8 @@ function EdgeSample(table::PerformanceTable, weather, corridor, stage, lateral, 
         share, time)
     lat, lon = edge_point(corridor, stage, lateral, next_lateral(corridor, lateral, step),
         share)
-    return EdgeSample(table, wind(weather, lat, lon, time), waves(weather, lat, lon, time),
-        corridor.edge_course[stage, lateral, step], wind_spread(weather, time))
+    return EdgeSample(table, weather, lat, lon, time,
+        corridor.edge_course[stage, lateral, step])
 end
 
 """
@@ -1312,6 +1343,7 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices, 
     lat, lon = corridor.lat[stage, lateral], corridor.lon[stage, lateral]
     node_wind = wind(weather, lat, lon, departure + time)
     node_waves = waves(weather, lat, lon, departure + time)
+    node_kite = kite_wind(weather, table.table, lat, lon, departure + time, node_wind)
     kite = has_kite(table)
     speed_stride = COST_TO_GO_SPEED_STRIDE * ROUTER_SETTINGS[].search_speed_stride
     sample_hours = max(ROUTER_SETTINGS[].to_go_sample_hours, corridor.sample_hours[stage])
@@ -1321,7 +1353,7 @@ function fill_knot!(to_go, points, corridor, table, weather, departure, prices, 
         next = next_lateral(corridor, lateral, step)
         start = EdgeSample(table.table, node_wind, node_waves,
             corridor.edge_course[stage, lateral, step],
-            wind_spread(weather, departure + time))
+            wind_spread(weather, departure + time); kite_wind=node_kite)
         arrival = (; prices, next, stage=stage + 1, time)
         through = 0
         for speed_index in commanded_speeds(length(table.speeds), speed_stride)
@@ -1705,13 +1737,15 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
             sharing = sharing_edges!(workspace, state, to_go, limit, length(commanded))
             node_wind = wind(weather, lat, lon, departure + time)
             node_waves = waves(weather, lat, lon, departure + time)
+            node_kite = kite_wind(weather, ship_table, lat, lon, departure + time,
+                node_wind)
             for step in 1:step_count(corridor)
                 isnan(corridor.edge_course[stage, lateral, step]) && continue
                 next = next_lateral(corridor, lateral, step)
                 distance = corridor.edge_length[stage, lateral, step]
                 start = EdgeSample(ship_table, node_wind, node_waves,
                     corridor.edge_course[stage, lateral, step],
-                    wind_spread(weather, departure + time))
+                    wind_spread(weather, departure + time); kite_wind=node_kite)
                 through = 0
                 for slot in (commanded_from[step] + 1):commanded_from[step + 1]
                     speed_index = commanded[slot]
