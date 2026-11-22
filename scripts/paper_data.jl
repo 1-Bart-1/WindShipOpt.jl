@@ -2155,8 +2155,8 @@ end
 Canopy prices [USD/m^2] the kite is routed at for the missed-goal table: the base price and
 either side of it, up to where the kite stops paying on every ship.
 """
-canopy_prices() = reference_canopy_price(assumptions) .* [0.5, 0.75, 1.0, 1.25, 1.5, 2.5, 3.5,
-    5.0, 7.0]
+canopy_prices() =
+    reference_canopy_price(assumptions) .* [0.5, 0.75, 1.0, 1.25, 1.5, 2.5, 3.5, 5.0, 7.0]
 
 """
     at_canopy_price(price)

@@ -2412,8 +2412,9 @@ end
 Factors on the parts of the [`breakdown_figure`](@ref) with the fuel price of `drive` and
 the cargo interest at `bound`, `:low` or `:high`.
 """
-breakdown_factors(drive, bound) = [input_factor(fuel_price_inputs[drive], bound), 1, 1, 1, 1,
-    input_factor(:cargo_value, bound) * input_factor(:discount_rate, bound)]
+breakdown_factors(drive, bound) =
+    [input_factor(fuel_price_inputs[drive], bound), 1, 1, 1, 1,
+        input_factor(:cargo_value, bound) * input_factor(:discount_rate, bound)]
 
 """
     breakdown_figure()
@@ -3447,8 +3448,9 @@ function min_wind_figure()
         lines!(axis, areas, getindex.(winds, key); color, linewidth)
     end
     ylims!(axis, 0, 1.35 * maximum(getindex.(winds, :launch_high)))
-    entries = [k == 1 ? [PolyElement(color=(color, 0.25)), LineElement(; color, linewidth)] :
-               LineElement(; color, linewidth) for (k, (_, color, linewidth)) in enumerate(curves)]
+    entries = [key == :launch ?
+               [PolyElement(color=(color, 0.25)), LineElement(; color, linewidth)] :
+               LineElement(; color, linewidth) for (key, color, linewidth) in curves]
     axislegend(axis, entries, ["launch", "climb", "crosswind"]; position=:lt,
         orientation=:horizontal)
     save_figure("min_wind", figure)

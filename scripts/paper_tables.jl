@@ -260,8 +260,8 @@ function write_input_row(io, entry, name)
     mark = entry.estimate ? "\\textsuperscript{e}" : ""
     println(io, latex_escape(uppercasefirst(input_label(name))), " & ",
         latex_number(entry.value), mark, " & ", range, " & ",
-        unit == "-" ? "--" : latex_escape(unit), " & ", cited_note(entry.source), derivation,
-        " \\\\")
+        unit == "-" ? "--" : latex_escape(unit), " & ", cited_note(entry.source),
+        derivation, " \\\\")
 end
 
 """
@@ -354,10 +354,10 @@ function development_table()
             "of a rig's saving at the better end of the range and its loss at the worse ",
             "end, in percentage points, in cost per tonne-km on each ship and the largest ",
             "of each in CO\\textsubscript{2} per tonne-km over the ships; and why the input ",
-            "is in the study. Each range comes from data, or for a goal (g) from what is ",
-            "known today; inputs that are the authors' estimates have no range and are not ",
-            "in the study. Values to two digits, and the gains and losses model output, ",
-            "to a tenth of a point; ",
+            "is in the study. Each range comes from data, or for a goal (g) from what ",
+            "is known today; inputs that are the authors' estimates have no range and ",
+            "are not in the study. Values to two digits, and the gains and losses model ",
+            "output, to a tenth of a point; ",
             "\\cref{tab:goals} gives what is known today against each goal. ",
             "\\savingerror}\n",
             "\\label{tab:development}\\\\")
