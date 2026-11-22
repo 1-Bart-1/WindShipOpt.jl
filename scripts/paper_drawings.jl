@@ -596,11 +596,14 @@ function ship_classes_figure()
     longest = maximum(classes[name].length for name in names)
     gap = 0.22longest
     rows = [drawn_class(name, classes[name], table, routes_seen) for name in names]
-    margin = 75.0
+    width = length(rig_names) * longest + (length(rig_names) - 1) * gap
+    metres_per_unit = 1.45width / page_width
+    margin = (pt(2) + line_height(note_size) + 3label_clearance) * metres_per_unit
     tops = cumsum([draw_height(hull, faces, first(areas), rigs) + hull.draft + margin
                    for (_, hull, _, faces, areas, rigs) in rows])
-    width = length(rig_names) * longest + (length(rig_names) - 1) * gap
-    figure = Figure(size=(page_width, page_width * (last(tops) + 20) / (1.45width)))
+    top = 10 + (line_height(text_size) + 3label_clearance) * metres_per_unit
+    bottom = -last(tops) - 15
+    figure = Figure(size=(page_width, (top - bottom) / metres_per_unit))
     axis = Axis(figure[1, 1]; aspect=DataAspect())
     hidedecorations!(axis)
     hidespines!(axis)
@@ -629,9 +632,13 @@ function ship_classes_figure()
     lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
     text!(axis, bar + Point2f(50, 0); text="100 m", align=(:center, :bottom),
         offset=(0, 2), fontsize=note_size)
-    limits!(axis, -0.36width, 1.02width, -last(tops) - 15, 80)
+    limits!(axis, -0.36width, 1.02width, bottom, top)
     save_figure("ship_classes", figure)
 end
+
+"figure units of a line of text of `size`, from its lowest descender to its top"
+line_height(size) =
+    widths(Makie.text_bb("lg", Makie.to_font(paper_font("regular")), size))[2]
 
 """
     drawn_class(name, class, table, routes)
