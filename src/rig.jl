@@ -128,6 +128,10 @@ Base.@kwdef struct WingRig
     shadow_share::Float64 = 1.0
     "apparent wind angle off the bow beyond which deck cargo shades the wings [rad]"
     shadow_angle::Float64 = π
+    "height of the supports the wings stand on above the deck, zero on deck [m]"
+    pedestal_height::Float64 = 0.0
+    "what each raised wing stands on: `:column`, `:frame` or `:container`"
+    pedestal::Symbol = :column
     "wings watched by a camera system for the view they hide from the bridge [-]"
     camera_units::Int = 0
 end
@@ -137,16 +141,15 @@ end
 
 Layout of `columns` times `in_column` identical `unit`s, `:wing`, `:suction` or `:rotor`, of
 `total_area` [m^2] on `hull`: [`column_layout`](@ref) where no containers stand on its deck;
-there one unit at the bow, [`bow_layout`](@ref), or rotors in pairs above the stacks,
-[`raised_layout`](@ref), and `nothing` for other units in pairs.
+there one unit at the bow, [`bow_layout`](@ref), or units in pairs above the stacks,
+[`raised_layout`](@ref).
 """
 function deck_layout(total_area, unit, hull::Hull, assumptions::Assumptions,
         forward_reserve, columns, in_column)
     hull.deck_cargo_height > 0 || return column_layout(columns, in_column, total_area, unit,
         hull, assumptions, forward_reserve)
     columns == 1 && return bow_layout(total_area, unit, hull, assumptions)
-    unit == :rotor || return nothing
-    return raised_layout(in_column, total_area, hull, assumptions, forward_reserve)
+    return raised_layout(in_column, total_area, unit, hull, assumptions, forward_reserve)
 end
 
 """
@@ -191,23 +194,23 @@ function bow_layout(total_area, unit, hull::Hull, assumptions::Assumptions)
 end
 
 """
-    raised_layout(in_column, total_area, hull, assumptions, forward_reserve)
+    raised_layout(in_column, total_area, unit, hull, assumptions, forward_reserve)
 
-`in_column` pairs of rotors of `total_area` [m^2] in all on `hull`, abreast and spread along
-the deck as in [`column_layout`](@ref), each on a pedestal in the gap between two bays of
-containers whose top stands `pedestal_clearance` above the stacks, in their free wind. A
-camera system watches the view each rotor that [`camera_units`](@ref) counts hides.
+`in_column` pairs of `unit`s of `total_area` [m^2] in all on `hull`, abreast and spread
+along the deck as in [`column_layout`](@ref), each on a support whose top stands
+`pedestal_clearance` above the stacks, in their free wind. A camera system watches the view
+each unit that [`camera_units`](@ref) counts hides.
 """
-function raised_layout(in_column, total_area, hull::Hull, assumptions::Assumptions,
+function raised_layout(in_column, total_area, unit, hull::Hull, assumptions::Assumptions,
         forward_reserve)
-    layout = column_layout(2, in_column, total_area, :rotor, hull, assumptions,
+    layout = column_layout(2, in_column, total_area, unit, hull, assumptions,
         forward_reserve)
     isnothing(layout) && return nothing
     pedestal_height = hull.deck_cargo_height + assumptions[:pedestal_clearance]
-    diameter = layout.height / assumptions[:rotor_aspect_ratio]
+    width = last(unit_size(total_area, layout.count, unit, assumptions))
     return (; layout..., foot_height=layout.foot_height + pedestal_height, pedestal_height,
-        camera_units=camera_units(unit_positions(layout, hull, assumptions), diameter,
-            hull, assumptions))
+        camera_units=camera_units(unit_positions(layout, hull, assumptions), width, hull,
+            assumptions))
 end
 
 """
@@ -269,7 +272,7 @@ end
 Columns and units per column of every layout [`deck_layout`](@ref) may give `unit`s of
 `total_area` [m^2] on `hull`, fewest units first for each count of columns: up to
 [`most_in_column`](@ref) in one row or two columns; where containers stand on its deck one
-unit at the bow, and for rotors also pairs above the stacks.
+unit at the bow or pairs above the stacks.
 """
 function layout_counts(total_area, unit, hull::Hull, assumptions::Assumptions,
         forward_reserve)
@@ -277,7 +280,7 @@ function layout_counts(total_area, unit, hull::Hull, assumptions::Assumptions,
                         for in_column in 1:most_in_column(columns, total_area, unit, hull,
                             assumptions, forward_reserve)]
     hull.deck_cargo_height > 0 || return [on_deck(1); on_deck(2)]
-    return unit == :rotor ? [(1, 1); on_deck(2)] : [(1, 1)]
+    return [(1, 1); on_deck(2)]
 end
 
 """
@@ -363,7 +366,7 @@ function WingRig(total_area::Real, hull::Hull, assumptions::Assumptions;
         layout.interference_factor,
         fan_power_per_area=suction ? assumptions[:suction_fan_power_per_area] : 0.0,
         max_wind=suction ? assumptions[:suction_max_wind] : Inf, layout.shadow_share,
-        layout.shadow_angle, layout.camera_units)
+        layout.shadow_angle, layout.pedestal_height, layout.camera_units)
 end
 
 total_area(rig::WingRig) = rig.count * rig.area
@@ -500,10 +503,14 @@ end
 """
     with_pedestal(rig, pedestal)
 
-`rig` with its raised rotors on `pedestal`, `:column` or `:frame`.
+`rig` with its raised wings or rotors on `pedestal`, `:column` or `:frame`.
 """
-with_pedestal(rig::RotorRig, pedestal) = RotorRig(;
-    (name => getfield(rig, name) for name in fieldnames(RotorRig))..., pedestal)
+with_pedestal(rig::T, pedestal) where {T <: Union{WingRig, RotorRig}} =
+    T(; (name => getfield(rig, name) for name in fieldnames(T))..., pedestal)
+
+"width [m] of each unit of `rig`: a wing's mean chord, a rotor's diameter"
+unit_width(rig::WingRig) = rig.area / rig.height
+unit_width(rig::RotorRig) = rig.diameter
 
 total_area(rig::RotorRig) = rig.count * rig.height * rig.diameter
 
@@ -577,6 +584,23 @@ rotor_peak_pressure(rig::RotorRig, air_density) =
         lift, drag, _ = rotor_coefficients(max_spin_ratio(rig, speed))
         return 0.5air_density * speed^2 * hypot(rig.lift_factor * lift, drag)
     end
+
+"""
+    peak_force(rig, assumptions)
+
+Highest force [N] on each unit of `rig` while it works: a rotor's
+[`rotor_peak_pressure`](@ref) on its height times diameter; a wing's lift and drag at its
+highest lift in the apparent wind it lies down in, at most `wing_design_wind`.
+"""
+peak_force(rig::RotorRig, assumptions) =
+    rig.height * rig.diameter * rotor_peak_pressure(rig, assumptions[:air_density])
+
+function peak_force(rig::WingRig, assumptions)
+    speed = min(rig.max_wind, assumptions[:wing_design_wind])
+    lift = rig.max_lift_coefficient
+    return 0.5assumptions[:air_density] * speed^2 * rig.area *
+           hypot(lift, drag_coefficient(rig, lift))
+end
 
 """
     KiteRig

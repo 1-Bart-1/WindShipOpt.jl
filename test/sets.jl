@@ -1311,8 +1311,8 @@ function bow_fits(area, unit, class)
     return !isnothing(rig)
 end
 
-@testset "a container ship's rig stands at its bow, or its rotors in raised pairs, and \
-          blocks no slot" begin
+@testset "a container ship's rig stands at its bow or in raised pairs, and blocks no slot \
+          but under a frame or container" begin
     megamax = ship_classes()["Megamax container ship"]
     hull = Hull(megamax, assumptions)
     for design in (ShipDesign(:vlsfo, megamax; suction_area=200.0),
@@ -1323,13 +1323,18 @@ end
               (0.5 - assumptions[:bow_unit_position]) * megamax.length
         @test WindShipOpt.CargoHold(ship, assumptions).slots == megamax.unit_capacity
     end
-    @test WindShipOpt.layout_counts(400.0, :wing, hull, assumptions, 0.0) == [(1, 1)]
-    @test isnothing(WingRig(400.0, hull, assumptions; columns=2))
-    counts = WindShipOpt.layout_counts(400.0, :rotor, hull, assumptions, 0.0)
-    @test first(counts) == (1, 1) && length(counts) > 2
-    @test all(==(2) ∘ first, counts[2:end])
-    rotors = Ship(ShipDesign(:vlsfo, megamax; rotor_area=1500.0), assumptions)
-    @test WindShipOpt.CargoHold(rotors, assumptions).slots == megamax.unit_capacity
+    for unit in (:wing, :suction, :rotor)
+        counts = WindShipOpt.layout_counts(400.0, unit, hull, assumptions, 0.0)
+        @test first(counts) == (1, 1) && length(counts) > 2
+        @test all(==(2) ∘ first, counts[2:end])
+    end
+    for design in (ShipDesign(:vlsfo, megamax; suction_area=600.0),
+        ShipDesign(:vlsfo, megamax; wing_area=1600.0))
+        raised = Ship(design, assumptions)
+        @test WindShipOpt.raised(raised.rig)
+        @test WindShipOpt.CargoHold(raised, assumptions).slots == megamax.unit_capacity -
+              WindShipOpt.blocked_slots(raised.rig, megamax, assumptions)
+    end
     @test WindShipOpt.launch_mast_position(hull, assumptions) ≈
           (0.5 - assumptions[:bow_unit_position]) * megamax.length
     @test WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, megamax; kite_area=1000.0),
@@ -1458,6 +1463,37 @@ end
     megamax = ship_classes()["Megamax container ship"]
     @test WindShipOpt.lost_cargo_cost(Ship(ShipDesign(:ammonia, megamax), assumptions),
         frame, assumptions) == 0
+end
+
+# By hand, a raised wing sail of 400 m^2, 28.3 x 14.1 m, at its highest lift in 20.6 m/s:
+# 0.5 * 1.225 * 20.6^2 * 400 * hypot(CL, CD) is its peak force. A containerised suction sail
+# of 40 m^2, 16.2 m tall and 12 t: factored wind 66 kN and roll 1.3 * 12 t * 3 = 46.8 kN on
+# an arm of 2.5 + 8.1 m pull a twistlock by 112.8 kN * 10.6 / 4.876 - 12 t * 9.81 / 4 = 216
+# kN, within its 250 kN; one of 50 m^2, 18.2 m and 15 t, by 298 kN.
+@testset "raised wing and suction sails stand on supports sized for their own loads" begin
+    class = ship_classes()["Megamax container ship"]
+    hull = Hull(class, assumptions)
+    wings = WingRig(1600.0, hull, assumptions; columns=2, in_column=2)
+    @test WindShipOpt.raised(wings)
+    @test WindShipOpt.unit_width(wings) ≈ 14.14 rtol = 1e-3
+    lift = wings.max_lift_coefficient
+    @test WindShipOpt.peak_force(wings, assumptions) ≈
+          0.5assumptions[:air_density] * assumptions[:wing_design_wind]^2 * 400 *
+          hypot(lift, WindShipOpt.drag_coefficient(wings, lift))
+    rotors = WindShipOpt.RotorRig(1600.0, hull, assumptions; columns=2, in_column=2)
+    @test WindShipOpt.pedestal_mass(wings, assumptions) > 0
+    @test WindShipOpt.fixed_rig_port_hours(wings, class, assumptions) == Inf
+    @test !WindShipOpt.container_holds(wings, assumptions)
+    @test !WindShipOpt.container_holds(rotors, assumptions)
+    suction(unit_area) = WingRig(4unit_area, Hull(ship_classes()["feeder container ship"],
+            assumptions), assumptions; unit=:suction, columns=2, in_column=2)
+    @test WindShipOpt.container_holds(suction(40.0), assumptions)
+    @test !WindShipOpt.container_holds(suction(50.0), assumptions)
+    boxed = WindShipOpt.with_pedestal(suction(40.0), :container)
+    feeder = ship_classes()["feeder container ship"]
+    @test WindShipOpt.pedestal_mass(boxed, assumptions) == 0
+    @test WindShipOpt.blocked_slots(boxed, feeder, assumptions) == 8
+    @test WindShipOpt.fixed_rig_port_hours(boxed, feeder, assumptions) == 0
 end
 
 # Norsepower's 35 x 5 m rotor gives a maximum continuous thrust of 350 kN.
@@ -4676,20 +4712,23 @@ end
     @test held["rotors"] == 0.9 && held["kite"] == 0.85 && held["none"] == 1.0
 end
 
-@testset "deck rigs are searched up to what fits on deck, at the bow of a container \
-          ship" begin
-    class = ship_classes()["Neo-Panamax container ship"]
+@testset "deck rigs are searched up to what fits on a container ship's deck, and not \
+          where their smallest size does not" begin
+    class = ship_classes()["feeder container ship"]
     hull = Hull(class, assumptions)
     lower, upper = PaperData.size_bounds(class)["suction"]
     @test lower == PaperData.smallest_deck_rig_area
-    full = PaperData.deck_rig("suction", upper, hull)
-    @test full.unit == :suction && PaperData.deck_rig_name(full) == "suction"
-    @test isnothing(PaperData.deck_rig("suction", upper + 20, hull))
-    @test PaperData.size_bounds(class)["rotors"][2] > upper
-    feeder = ship_classes()["feeder container ship"]
-    @test !PaperData.deck_rig_fits("wings", PaperData.smallest_deck_rig_area,
-        Hull(feeder, assumptions))
-    @test !haskey(PaperData.size_bounds(feeder), "wings")
+    @test PaperData.deck_rig_fits("suction", upper, hull)
+    @test !PaperData.deck_rig_fits("suction", upper + 20, hull)
+    raised = PaperData.deck_rig("suction", 200.0, hull; columns=2)
+    @test PaperData.deck_rig_name(raised) == "suction"
+    smallest = PaperData.smallest_deck_rig_area
+    try
+        PaperData.smallest_deck_rig_area = 2upper
+        @test !haskey(PaperData.size_bounds(class), "suction")
+    finally
+        PaperData.smallest_deck_rig_area = smallest
+    end
 end
 
 @testset "a VTOL kite is searched from 20 m^2 to the largest whose perch fits" begin
