@@ -876,46 +876,64 @@ function write_departures(name, cases, trips, columns...)
     end
 end
 
+"unit of the wings, suction sails or rotors `rig`, as the model names it"
+deck_unit(rig) = rig == "rotors" ? :rotor : rig == "suction" ? :suction : :wing
+
 """
-    deck_rig(rig, area, hull; forward_reserve=0)
+    deck_rig(rig, area, hull; forward_reserve=0, columns=1, in_column=1)
 
 The wings, suction sails or rotors `rig` of `area` [m^2] in all on `hull` behind
-`forward_reserve` [m] of deck, or `nothing` where they do not fit.
+`forward_reserve` [m] of deck, `columns` times `in_column` units, or `nothing` where they do
+not fit.
 """
-function deck_rig(rig, area, hull; forward_reserve=0.0)
-    rig == "rotors" && return WindShipOpt.RotorRig(area, hull, assumptions; forward_reserve)
-    unit = rig == "suction" ? :suction : :wing
-    return WingRig(area, hull, assumptions; forward_reserve, unit)
+function deck_rig(rig, area, hull; forward_reserve=0.0, columns=1, in_column=1)
+    layout = (; forward_reserve, columns, in_column)
+    rig == "rotors" && return WindShipOpt.RotorRig(area, hull, assumptions; layout...)
+    return WingRig(area, hull, assumptions; unit=deck_unit(rig), layout...)
 end
+
+"""
+    deck_rig_fits(rig, area, hull; forward_reserve=0)
+
+Whether the wings, suction sails or rotors `rig` of `area` [m^2] in all fit on `hull`
+behind `forward_reserve` [m] of deck in any of their [`layout_counts`](@ref).
+"""
+deck_rig_fits(rig, area, hull; forward_reserve=0.0) =
+    any(!isnothing(deck_rig(rig, area, hull; forward_reserve, columns, in_column))
+        for (columns, in_column) in WindShipOpt.layout_counts(area, deck_unit(rig), hull,
+            assumptions, forward_reserve))
 
 """
     largest_area(rig, hull; forward_reserve=0)
 
-Largest total area [m^2] of the [`deck_rig`](@ref) `rig` that fits on `hull` behind
-`forward_reserve` [m] of deck, to the nearest 10 m^2.
+Largest total area [m^2], up to 20,000 m^2, of the wings, suction sails or rotors `rig`
+that fit on `hull` behind `forward_reserve` [m] of deck ([`deck_rig_fits`](@ref)), to the
+nearest 10 m^2.
 """
 function largest_area(rig, hull; forward_reserve=0.0)
     low, high = 0.0, 20000.0
     while high - low > 10
         middle = (low + high) / 2
-        fits = !isnothing(deck_rig(rig, middle, hull; forward_reserve))
-        fits ? (low = middle) : (high = middle)
+        deck_rig_fits(rig, middle, hull; forward_reserve) ? (low = middle) : (high = middle)
     end
     return low
 end
+
+"smallest area [m^2] of wings, suction sails or rotors a size search tries"
+smallest_deck_rig_area = 50.0
 
 """
     size_bounds(class)
 
 Smallest and largest area [m^2] searched for each rig on `class`: kites of 500 to
-64,000 m^2, VTOL kites of 20 m^2 to the largest whose perch fits, deck rigs of a fifth to
-all of what fits on deck.
+64,000 m^2, VTOL kites of 20 m^2 to the largest whose perch fits, deck rigs from
+`smallest_deck_rig_area` to all of what fits on deck.
 """
 function size_bounds(class)
     hull = Hull(class, assumptions)
     return Dict("kite" => (500.0, largest_rig_area("kite", hull)),
         "vtol" => (20.0, largest_rig_area("vtol", hull)),
-        (rig => (0.2largest_rig_area(rig, hull), largest_rig_area(rig, hull))
+        (rig => (smallest_deck_rig_area, largest_rig_area(rig, hull))
          for rig in deck_rig_names)...)
 end
 
@@ -2226,16 +2244,16 @@ abatement_ships = (("140 m", :caribbean), ("Kamsarmax bulk carrier", :tubarao))
     abatement_data()
 
 Each ship of `abatement_ships` on each drive without a rig and with every rig over its
-range of sizes, kites from 400 to 12,800 m^2 and deck rigs from a tenth to all of the deck
-capacity: abatement.csv.
+range of sizes, kites from 400 to 12,800 m^2 and deck rigs from 100 to 3,200 m^2 as far as
+they fit on deck: abatement.csv.
 """
 function abatement_data()
     cases = []
     for (ship, route) in abatement_ships, drive in study_drives
         hull = Ship(ShipDesign(drive, study_hull(ship)), assumptions).hull
-        fractions = [0.1, 0.2, 0.35, 0.5, 0.7, 1.0]
         sizes = Dict("none" => [0.0], "kite" => [400.0 * 2^(k / 2) for k in 0:10],
-            (rig => fractions .* largest_area(rig, hull) for rig in deck_rig_names)...)
+            (rig => filter(<=(largest_area(rig, hull)), [100.0 * 2^(k / 2) for k in 0:10])
+             for rig in deck_rig_names)...)
         for rig in all_rigs, area in sizes[rig]
             design = ShipDesign(drive, study_hull(ship); rig_size(rig, area)...)
             push!(cases, trip_case(design; route, ship, drive, rig, area))
@@ -2507,7 +2525,8 @@ function combination_data()
         room = largest_area("rotors", hull;
             forward_reserve=WindShipOpt.launch_mast_reserve(assumptions))
         for (rig, kite_area, rotor_area) in
-            [("none", 0.0, 0.0); pair_sizes(kite, rotors, kites, (0.2room, room))]
+            [("none", 0.0, 0.0);
+             pair_sizes(kite, rotors, kites, (smallest_deck_rig_area, room))]
             design = ShipDesign(drive, class; kite_area, rotor_area)
             push!(cases, trip_case(design; route, ship=name, drive, rig, kite_area,
                 rotor_area))

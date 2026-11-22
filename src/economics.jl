@@ -85,8 +85,7 @@ cargo_limit(class::ShipClass, assumptions::Assumptions) =
     CargoHold(ship, assumptions)
 
 Hold of `ship`: its class's deadweight less the rig mass and the stores, and its class's
-unit capacity less the slots the rig blocks; the reference coaster family fills its
-deadweight.
+unit capacity, which no rig blocks; the reference coaster family fills its deadweight.
 """
 function CargoHold(ship::Ship, assumptions::Assumptions)
     (; class) = ship.design
@@ -98,7 +97,7 @@ function CargoHold(ship::Ship, assumptions::Assumptions)
     else
         deadweight = class.deadweight
         unit = CargoUnit(class.cargo_unit, assumptions)
-        slots = class.unit_capacity - blocked_slots(ship.rig, class, assumptions)
+        slots = class.unit_capacity
     end
     payload = deadweight - rig_mass - assumptions[:stores_mass]
     return CargoHold(deadweight, payload, slots, unit)
@@ -166,6 +165,90 @@ ship_costs(ship::Ship, assumptions::Assumptions) =
     (ShipCosts(ship, assumptions), ShipCosts(ship, assumptions; retractable=false))
 
 """
+    layout_score(ship, rig, assumptions)
+
+Yearly cost [USD/year] of the wings, rotors or suction sails of `rig` on `ship` over the
+mean power [W] they save: their annuity and maintenance, with the retractable rig premium
+where a fixed rig would cost the ship port time, over the mean of their thrust times the
+service speed less the power they draw, at the best trim in the [`layout_winds`](@ref).
+Inf where they save none.
+"""
+function layout_score(ship::Ship, rig, assumptions::Assumptions)
+    standing = standing_rig(rig)
+    capital, _, annuity = rig_costs(standing, assumptions)
+    fixed_delay = fixed_rig_port_hours(standing, ship.design.class, assumptions) > 0
+    price_factor = 1 + fixed_delay * assumptions[:retractable_rig_premium]
+    yearly = price_factor * annuity +
+             rig_maintenance(standing, price_factor * capital, assumptions)
+    speed = service_speed(ship, assumptions)
+    winds = layout_winds(assumptions)
+    saved = sum(winds) do (wind_10m, true_angle)
+        _, force = best_trim(ship, standing, speed, wind_10m, true_angle)
+        return force.thrust * speed - force.power
+    end / length(winds)
+    return saved > 0 ? yearly / saved : Inf
+end
+
+"""
+    layout_winds(assumptions)
+
+True winds at 10 m [m/s] and their angles off the bow [rad] a layout is scored in: the
+midpoints of four equal quarters of a Rayleigh distribution of mean `layout_mean_wind`, each
+from six directions evenly spread from ahead to astern.
+"""
+function layout_winds(assumptions::Assumptions)
+    scale = assumptions[:layout_mean_wind] / sqrt(π / 2)
+    quarters = (0.125, 0.375, 0.625, 0.875)
+    speeds = [scale * sqrt(-2log(1 - quantile)) for quantile in quarters]
+    return [(speed, deg2rad(angle)) for speed in speeds for angle in 15:30:165]
+end
+
+"""
+    cheapest_layout(ship, assumptions)
+
+Rig of the design of `ship` in the layout of its [`layout_counts`](@ref) with the lowest
+[`layout_score`](@ref) on `ship`, which carries no rig yet; for each count of columns more
+units are tried until two in a row score worse than the fewest scored best. `nothing` where
+no layout fits.
+"""
+function cheapest_layout(ship::Ship, assumptions::Assumptions)
+    (; design, hull) = ship
+    counts = layout_counts(design, hull, assumptions)
+    length(counts) == 1 && return design_rig(design, hull, assumptions;
+        columns=counts[1][1], in_column=counts[1][2])
+    best, lowest = nothing, Inf
+    for columns in 1:2
+        rig, score = cheapest_in_columns(ship, columns,
+            [last(count) for count in counts if first(count) == columns], assumptions)
+        score < lowest && ((best, lowest) = (rig, score))
+    end
+    return best
+end
+
+"""
+    cheapest_in_columns(ship, columns, in_columns, assumptions)
+
+Rig of the design of `ship` in `columns` columns of the count of `in_columns`, tried in
+order, with the lowest [`layout_score`](@ref), and that score; the search stops once two
+counts in a row fit and score worse than the best.
+"""
+function cheapest_in_columns(ship::Ship, columns, in_columns, assumptions::Assumptions)
+    best, lowest, worse = nothing, Inf, 0
+    for in_column in in_columns
+        rig = design_rig(ship.design, ship.hull, assumptions; columns, in_column)
+        isnothing(rig) && continue
+        score = layout_score(ship, rig, assumptions)
+        if score < lowest || isnothing(best)
+            best, lowest, worse = rig, score, 0
+        else
+            worse += 1
+            worse == 2 && break
+        end
+    end
+    return best, lowest
+end
+
+"""
     fixed_rig_port_hours(rig, class, assumptions)
 
 Mean extra time per port call [h] of a `rig` fixed on deck: the cargo-handling delay of
@@ -188,34 +271,10 @@ function fixed_rig_port_hours(rig::Union{WingRig, RotorRig}, class::ShipClass,
                                          assumptions[:restricted_call_days]
 end
 
-"""
-    blocked_slots(rig, class, assumptions)
-
-TEU slots that a rig takes from the deck of a container ship: every wing, rotor or kite
-mast blocks the on-deck stack of the rows it covers over one 40 ft bay, all tiers up,
-while the holds below stay in use; a kite over a standing rig blocks both.
-"""
-function blocked_slots(rig, class::ShipClass, assumptions)
-    footprint = deck_footprint(rig, assumptions)
-    rows = ceil((footprint + assumptions[:deck_rig_clearance]) /
-                assumptions[:container_row_pitch])
-    return deck_units(rig) * bay_slots(rows, class)
-end
-
-"TEU slots in `rows` rows of the deck stack of `class` over one 40 ft bay, all tiers up"
-bay_slots(rows, class::ShipClass) = 2rows * class.deck_tiers
-
-blocked_slots(rig::CombinedRig, class::ShipClass, assumptions) =
-    blocked_slots(rig.kite, class, assumptions) +
-    blocked_slots(rig.standing, class, assumptions)
-
-deck_footprint(rig::RotorRig, assumptions) = rig.diameter
-deck_footprint(::WingRig, assumptions) = assumptions[:wing_pedestal_width]
-deck_footprint(::KiteRig, assumptions) = assumptions[:launch_mast_width]
+"units a rig stands on deck: wings, rotors, kites and their sum over a combined rig"
 deck_units(rig::Union{WingRig, RotorRig}) = rig.count
 deck_units(rig::KiteRig) = 1
 deck_units(rig::CombinedRig) = deck_units(rig.kite) + deck_units(rig.standing)
-deck_footprint(::Nothing, assumptions) = 0.0
 deck_units(::Nothing) = 0
 
 """
@@ -264,21 +323,28 @@ rig_costs(::Nothing, assumptions) = (0.0, 0.0, 0.0)
 rig_costs(rig::CombinedRig, assumptions) =
     rig_costs(rig.kite, assumptions) .+ rig_costs(rig.standing, assumptions)
 
-rig_costs(rig::WingRig, assumptions) =
-    deck_rig_costs(rig, assumptions, Symbol(rig.unit, :_lifetime),
-        Symbol(rig.unit, :_mass_per_area))
-rig_costs(rig::RotorRig, assumptions) =
-    deck_rig_costs(rig, assumptions, :rotor_lifetime, :rotor_mass_per_area)
-
-"""
-    deck_rig_costs(rig, assumptions, lifetime, mass_per_area)
-
-[`rig_costs`](@ref) of wings or rotors, with the names of their assumptions.
-"""
-function deck_rig_costs(rig, assumptions, lifetime, mass_per_area)
+function rig_costs(rig::Union{WingRig, RotorRig}, assumptions)
+    setting(name) = assumptions[Symbol(deck_unit(rig), name)]
     capital = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions))
-    annuity = capital_recovery(assumptions[:discount_rate], assumptions[lifetime]) * capital
-    return capital, assumptions[mass_per_area] * total_area(rig), annuity
+    annuity = capital_recovery(assumptions[:discount_rate], setting(:_lifetime)) * capital
+    mass = setting(:_mass_per_area) * size_factor(rig, assumptions) * total_area(rig)
+    return capital, mass, annuity
+end
+
+"unit of the wings, rotors or suction sails of `rig`, naming their assumptions"
+deck_unit(rig::WingRig) = rig.unit
+deck_unit(::RotorRig) = :rotor
+
+"""
+    size_factor(rig, assumptions)
+
+Growth [-] of the mass and price per m^2 of the units of the wings, rotors or suction sails
+`rig` over those of the tallest built, their reference height h0: (h / h0)^(k - 2) for
+units of height h above it, k their mass exponent, and 1 up to it.
+"""
+function size_factor(rig::Union{WingRig, RotorRig}, assumptions)
+    setting(name) = assumptions[Symbol(deck_unit(rig), name)]
+    return max(rig.height / setting(:_reference_height), 1.0)^(setting(:_mass_exponent) - 2)
 end
 
 function rig_costs(rig::KiteRig, assumptions)
@@ -346,10 +412,11 @@ for the hover, ship-side controls and integration of VTOL kites, without their a
 rig_price_parts(::Nothing, assumptions) = (;)
 
 rig_price_parts(rig::WingRig, assumptions) = deck_price_parts(rig.count, total_area(rig),
-    assumptions, :wing_unit_cost, surface_cost(rig, assumptions),
-    :wing_installation_fraction)
+    assumptions, :wing_unit_cost, size_factor(rig, assumptions) *
+    surface_cost(rig, assumptions), :wing_installation_fraction)
 rig_price_parts(rig::RotorRig, assumptions) = deck_price_parts(rig.count, total_area(rig),
-    assumptions, :rotor_unit_cost, assumptions[:rotor_cost_per_area],
+    assumptions, :rotor_unit_cost,
+    size_factor(rig, assumptions) * assumptions[:rotor_cost_per_area],
     :rotor_installation_fraction)
 
 """

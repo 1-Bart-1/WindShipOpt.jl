@@ -1688,7 +1688,7 @@ tier; `cargo` itself on ships without a deck stack or that fill their deadweight
 function midship_bay_cargo(class, cargo)
     class.cargo_unit == :teu || return cargo
     rows = floor(class.beam / assumptions[:container_row_pitch])
-    slots = class.unit_capacity - WindShipOpt.bay_slots(rows, class)
+    slots = class.unit_capacity - 2rows * class.deck_tiers
     return min(cargo, slots * WindShipOpt.CargoUnit(:teu, assumptions).cargo)
 end
 
@@ -2581,8 +2581,8 @@ end
 """
     swept_savings(cost, input)
 
-[`swept_values`](@ref) of `input` and the cost saving [%] of the kite, the wings and the
-rotors at each, one row per rig, from `cost(value, rig)`, the cost of a case or Inf where
+[`swept_values`](@ref) of `input` and the cost saving [%] of each rig of `rig_names` at
+each, one row per rig, from `cost(value, rig)`, the cost of a case or Inf where
 it has none; NaN where a rig or the ship without one has no cost.
 """
 function swept_savings(cost, input)
@@ -2907,8 +2907,8 @@ function wind_angle_figure()
         spread = mean(cost(rig) / fixed[(rig, :value)] for rig in deck_rig_names)
         for (j, (rig, _)) in enumerate(rigs)
             work = band_totals(table, rig, "work"; route=name)
-            stacked_bar!(work_axis, i + rig_offset(j, 0.28), 100 .* work ./ sum(work),
-                rig_bar_width(0.28), palette[j])
+            stacked_bar!(work_axis, i + rig_offset(j, lane_offset), 100 .* work ./ sum(work),
+                rig_bar_width(lane_offset), palette[j])
             chosen = rows(table, "rig" => rig, "route" => name)
             thrust = sum(table["thrust_hours"][chosen]) / sum(table["hours"][chosen])
             per_day(bound) = 24e-3 * (cost(rig) +
@@ -3019,7 +3019,7 @@ function abatement_figure()
     save_figure("abatement", figure)
 end
 
-"marker of each rig, in the order of `rig_names`, told apart by shape"
+"markers of the rigs, in the order of `rig_names`, told apart by shape"
 rig_markers = (:circle, :rect, :utriangle, :diamond, :dtriangle)
 
 "marker size [figure units] of a rig of `area` [m²], growing with its logarithm"
@@ -3517,17 +3517,17 @@ function soft_kite_mass(area, inputs)
 end
 
 """
-    mass_law!(axis, areas, masses, low, high, largest_built, color)
+    mass_law!(axis, sizes, per_area, low, high, largest_built, color)
 
-The mass per area of a law over `areas` [m^2] between its `low` and `high` bounds, solid up
-to the `largest_built` wing [m^2] and dashed beyond it.
+The mass per area `per_area` of a law over `sizes` between its `low` and `high` bounds,
+solid up to the `largest_built` size and dashed beyond it.
 """
-function mass_law!(axis, areas, masses, low, high, largest_built, color)
-    band!(axis, areas, low ./ areas, high ./ areas; color=(color, 0.18))
-    built = areas .<= largest_built
-    lines!(axis, areas[built], masses[built] ./ areas[built]; color)
-    beyond = findfirst(.!built) - 1:lastindex(areas)
-    lines!(axis, areas[beyond], masses[beyond] ./ areas[beyond]; color, linestyle=:dash)
+function mass_law!(axis, sizes, per_area, low, high, largest_built, color)
+    band!(axis, sizes, low, high; color=(color, 0.18))
+    built = sizes .<= largest_built
+    lines!(axis, sizes[built], per_area[built]; color)
+    beyond = findfirst(.!built) - 1:lastindex(sizes)
+    lines!(axis, sizes[beyond], per_area[beyond]; color, linestyle=:dash)
 end
 
 "marker of a published wing or kite that flew, was built, or was only designed"
@@ -3559,16 +3559,16 @@ function kite_mass_figure()
     flew = published["status"] .!= "designed"
     soft = published["kind"] .== "soft"
     rigid_areas = exp.(range(log(10), log(2000); length=50))
-    rigid_masses = [WindShipOpt.rigid_kite_mass.(rigid_areas, Ref(inputs))
-                    for inputs in rigid_mass_bounds()]
-    base_masses = WindShipOpt.rigid_kite_mass.(rigid_areas, Ref(assumptions))
-    mass_law!(axis, rigid_areas, base_masses, min.(rigid_masses...), max.(rigid_masses...),
-        assumptions[:rigid_reference_area], rigid_colour)
+    rigid_per_area(inputs) = WindShipOpt.rigid_kite_mass.(rigid_areas, Ref(inputs)) ./
+                             rigid_areas
+    bounds = rigid_per_area.(rigid_mass_bounds())
+    mass_law!(axis, rigid_areas, rigid_per_area(assumptions), min.(bounds...),
+        max.(bounds...), assumptions[:rigid_reference_area], rigid_colour)
     soft_areas = exp.(range(log(5), log(5000); length=50))
-    mass_law!(axis, soft_areas, soft_kite_mass.(soft_areas, Ref(assumptions)),
-        soft_kite_mass.(soft_areas, Ref(soft_mass_bound(true))),
-        soft_kite_mass.(soft_areas, Ref(soft_mass_bound(false))),
-        maximum(published["area"][flew .& soft]), soft_colour)
+    per_area(inputs) = soft_kite_mass.(soft_areas, Ref(inputs)) ./ soft_areas
+    mass_law!(axis, soft_areas, per_area(assumptions), per_area(soft_mass_bound(true)),
+        per_area(soft_mass_bound(false)), maximum(published["area"][flew .& soft]),
+        soft_colour)
     for row in eachindex(published["name"])
         color = published["kind"][row] == "soft" ? soft_colour :
                 published["kind"][row] == "propellers" ? rigid_colour : category_colours[2]
@@ -3588,6 +3588,43 @@ function kite_mass_figure()
         position=:lt, nbanks=3, rowgap=0, colgap=pt(6),
         patchsize=(pt(12), pt(6)))
     save_figure("kite_mass", figure)
+end
+
+"""
+    deck_mass_figure()
+
+Mass per area against unit height of the wing sails, rotors and suction sails: each size
+law at base inputs between the bounds of its mass exponent, solid up to the tallest unit
+built and dashed beyond, and the built units of data/deck_unit_masses.csv, their `unit`,
+`height` [m], `width` [m] and `mass` [t].
+"""
+function deck_mass_figure()
+    built = read_table(joinpath(root, "data", "deck_unit_masses.csv"))
+    figure = Figure(size=(column_width, 200))
+    axis = Axis(figure[1, 1]; doubling_axis(:x, 10, 160; base=10)...,
+        doubling_axis(:y, 0.0625, 2; base=0.0625)..., xlabel="unit height [m]",
+        ylabel=rich("mass per area [t/m", superscript("2"), "]"),
+        limits=((9, 170), (0.06, 2.2)))
+    heights = exp.(range(log(9), log(170); length=60))
+    for (unit, rig) in ((:wing, "wings"), (:rotor, "rotors"), (:suction, "suction"))
+        setting(name) = assumptions[Symbol(unit, name)]
+        reference = setting(:_reference_height)
+        exponent = assumptions.entries[Symbol(unit, :_mass_exponent)]
+        law(k) = setting(:_mass_per_area) .* max.(heights ./ reference, 1.0) .^ (k - 2)
+        mass_law!(axis, heights, law(exponent.value), law(exponent.low),
+            law(exponent.high), reference, style_colour(rig))
+        rows = built["unit"] .== String(unit)
+        scatter!(axis, built["height"][rows],
+            built["mass"][rows] ./ (built["height"][rows] .* built["width"][rows]);
+            color=style_colour(rig))
+    end
+    entries = [[LineElement(color=style_colour(rig)),
+                   MarkerElement(color=style_colour(rig), marker=:circle)]
+               for rig in ("wings", "rotors", "suction")]
+    axislegend(axis, [entries..., LineElement(color=:black, linestyle=:dash)],
+        ["wing sail", "rotor", "suction sail", "extrapolated"]; position=:lt, nbanks=2,
+        rowgap=0, colgap=pt(6), patchsize=(pt(12), pt(6)))
+    save_figure("deck_mass", figure)
 end
 
 "marker of a published canopy of each `kind` in data/canopy_cells.csv"
