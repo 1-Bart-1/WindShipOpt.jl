@@ -1,46 +1,13 @@
 % SPDX-FileCopyrightText: 2026 Bart van de Lint
 % SPDX-License-Identifier: AGPL-3.0-or-later
 % The pictures every schematic figure shares: the paper's 140 m ship from the side, from
-% ahead and from above, and its rigs. They are drawn in metres, the origin at midship on
-% the waterline (from the side and from above, bow to the right) or on the centreline at
-% the waterline (from ahead), so that a figure scales them with `scale` [mm per m] and
-% `transform shape`. The icons that stand for a concept come from the figure style.
+% ahead and from above, drawn from the model's hull in figure_ship.tex, and its rigs. They
+% are drawn in metres, the origin at midship on the waterline (from the side and from
+% above, bow to the right) or on the centreline at the waterline (from ahead), so that a
+% figure scales them with `scale` [mm per m] and `transform shape`. The icons that stand
+% for a concept come from the figure style.
+\input{figure_ship}
 \tikzset{
-  % the ship from the side: dark below the waterline, topsides above it, light bulwark
-  ship side/.pic={
-    \begin{scope}
-      \clip (-73,7.8) -- (-73,1.5) .. controls (-72.5,-3.5) and (-68,-7.5) .. (-61,-9.06)
-        -- (60,-9.06) .. controls (66,-9.06) and (69.5,-7) .. (70,-3.5)
-        .. controls (70.3,-1) .. (70.8,0) .. controls (72.2,4) and (73.6,7) .. (75,9.8)
-        -- (55,9.8) -- (53,7.8) -- cycle;
-      \fill[keel] (-80,-12) rectangle (80,0);
-      \fill[topsides] (-80,0) rectangle (80,6.6);
-      \fill[deck] (-80,6.6) rectangle (80,7.8);
-      \fill[topsides] (53,6.6) -- (55,8.6) -- (80,8.6) -- (80,6.6) -- cycle;
-      \fill[deck] (55,8.6) rectangle (80,9.8);
-    \end{scope}
-    \foreach \x in {-50,-37,-24,-11,2,15,28,41} \fill[ship] (\x,7.8) rectangle ++(12,0.9);
-    \fill[ship] (-71,7.8) rectangle (-57,22);},
-  % the ship from ahead, heeled by #1 [deg] in a frame turned by as much: its midship
-  % section with round bilges, dark below the level waterline, topsides above it and the
-  % deck on top
-  ship ahead/.pic={
-    \begin{scope}
-      \clip (-10.87,7.8) -- (-10.87,-7.06) arc[start angle=180, end angle=270, radius=2]
-        -- (8.87,-9.06) arc[start angle=270, end angle=360, radius=2] -- (10.87,7.8)
-        -- cycle;
-      \fill[topsides] (-11,-9.1) rectangle (11,6.6);
-      \fill[deck] (-11,6.6) rectangle (11,7.8);
-      \fill[keel, rotate=-#1] (-12,-11) rectangle (12,0);
-    \end{scope}},
-  % the ship from above: deck inside its bulwark, hatch covers amidships, deckhouse aft
-  ship above/.pic={
-    \fill[topsides] (-73,-8.7) -- (40,-10.87) .. controls (62,-10.87) and (72,-6) .. (75,0)
-      .. controls (72,6) and (62,10.87) .. (40,10.87) -- (-73,8.7) -- cycle;
-    \fill[deck] (-72,-7.9) -- (40,-9.9) .. controls (61,-9.9) and (70,-5.5) .. (73,0)
-      .. controls (70,5.5) and (61,9.9) .. (40,9.9) -- (-72,7.9) -- cycle;
-    \foreach \x in {-50,-37,-24,-11,2,15,28,41} \fill[ship] (\x,-7.5) rectangle ++(12,15);
-    \fill[ship] (-71,-7.6) rectangle (-57,7.6);},
   % the rudder from above, its axis 70 m aft of midship
   rudder above/.pic={\fill[keel] (-71,-0.5) rectangle (-69,0.5);},
   % a Flettner rotor from the side or ahead: its cylinder between two end plates
