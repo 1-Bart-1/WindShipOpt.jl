@@ -454,18 +454,18 @@ blind_sector_limit:
   reason: "Widest view from the conning position that one obstruction forward of the beam may hide within 10 degrees either side of dead ahead, the SOLAS limit on navigation bridge visibility [@dma2019solas, SOLAS V/22.1.2]; the model watches every deck unit forward of the bridge that hides more with a camera system, also off to the side, where SOLAS allows 10 degrees."
 camera_system_cost:
   value: 50000.0
-  low: 40000.0
-  high: 100000.0
+  low: 50000.0
+  high: 50000.0
   unit: USD
   source: "@thegpsstore2026flir: camera price; @imo2012circ1350 [para. 4]: redundancy"
-  reason: "Cost of the camera system watching the view one deck unit hides from the bridge: two stabilised marine cameras with thermal and low-light channels, the redundancy IMO asks of cameras that show the ship's side from the bridge wing [@imo2012circ1350, para. 4], at 24,995 USD each [@thegpsstore2026flir]; authors' estimate of the bounds, the cameras at a fifth below that retail price and the high bound with their screens and cabling."
+  reason: "Cost of the camera system watching the view one deck unit hides from the bridge: two stabilised marine cameras with thermal and low-light channels, the redundancy IMO asks of cameras that show the ship's side from the bridge wing [@imo2012circ1350, para. 4], at 24,995 USD each [@thegpsstore2026flir]."
 wing_design_wind:
   value: 20.6
   low: 17.0
-  high: 22.0
+  high: 20.6
   unit: m/s
   source: "@bar2026windwingscontrol: WindWings produce thrust up to 40 knots"
-  reason: "Highest apparent wind a raised wing sail's support is sized for working: WindWings produce thrust up to 40 knots, 20.6 m/s, and feather above it [@bar2026windwingscontrol]. Low bound: the 17 m/s a VentiFoil works in [@conoship2022econowind]; high bound: authors' estimate."
+  reason: "Highest apparent wind a raised wing sail's support is sized for working: WindWings produce thrust up to 40 knots, 20.6 m/s, and feather above it [@bar2026windwingscontrol]. Low bound: the 17 m/s a VentiFoil works in [@conoship2022econowind]."
 twistlock_working_load:
   value: 250.0
   low: 210.0
@@ -475,15 +475,15 @@ twistlock_working_load:
   reason: "Pull a twistlock holding a containerised suction sail's frame to the stack below may carry: 250 kN in tension, the safe working load of a fully automatic twistlock type-approved by DNV, which breaks at 500 kN [@macgregor2023acv1]. Low bound: its 210 kN in shear."
 bay_gap:
   value: 1.5
-  low: 1.0
-  high: 2.0
+  low: 1.5
+  high: 1.5
   unit: m
   source: "@souadji2012 [Tables A.6.2-A.6.3]: two frames between 40 ft bays"
-  reason: "Length along the ship of the gap between two 40 ft bays of containers, where the lashing bridges stand and a rotor pedestal can: two frames of 0.76 m in a 3100 TEU design, which takes 16 frames for each 12.19 m bay [@souadji2012, Tables A.6.2-A.6.3]; authors' estimate of the bounds."
+  reason: "Length along the ship of the gap between two 40 ft bays of containers, where the lashing bridges stand and a rotor pedestal can: two frames of 0.76 m in a 3100 TEU design, which takes 16 frames for each 12.19 m bay [@souadji2012, Tables A.6.2-A.6.3]."
 pedestal_clearance:
   value: 2.5
-  low: 1.5
-  high: 4.0
+  low: 2.5
+  high: 2.5
   unit: m
   source: "Authors' estimate: hatch covers and lashing clearance"
   reason: "Height of a rotor pedestal's top above the top of the container stacks counted from the deck: the hatch coaming and covers the stacks stand on, and the clearance over the top tier; authors' estimate."
@@ -503,11 +503,11 @@ rig_inertia_load_factor:
   reason: "Load factor on the inertial force of a wind propulsion unit in the ship's accelerations in operation at sea [@bv2026nr206, Sec 4, Tab 2]; the low bound where the accelerations come from a direct calculation."
 rig_design_acceleration:
   value: 3.0
-  low: 2.0
-  high: 5.0
+  low: 3.0
+  high: 3.0
   unit: m/s^2
   source: "@marin2025feeder [Table 2-1, p. 10]: roll of a rotor feeder in operation"
-  reason: "Acceleration across the ship of a raised rotor's mass while it works: the weight's share at MARIN's highest roll of its six-rotor feeder at the rotors' highest working wind, 9-10 degrees [@marin2025feeder, p. 10], g sin 10 degrees = 1.7 m/s^2, plus the roll's acceleration at its 18.3 s period [@marin2025feeder, Table 2-1] 30-60 m above the roll axis, 0.6-1.2 m/s^2; authors' estimate of the bounds, the high bound towards the 25-year motions a unit stowed for a storm meets."
+  reason: "Acceleration across the ship of a raised rotor's mass while it works: the weight's share at MARIN's highest roll of its six-rotor feeder at the rotors' highest working wind, 9-10 degrees [@marin2025feeder, p. 10], g sin 10 degrees = 1.7 m/s^2, plus the roll's acceleration at its 18.3 s period [@marin2025feeder, Table 2-1] 30-60 m above the roll axis, 0.6-1.2 m/s^2."
 pedestal_allowable_stress:
   value: 268.0
   low: 250.0
@@ -517,8 +517,8 @@ pedestal_allowable_stress:
   reason: "Highest stress in the steel of a rotor pedestal under its factored loads: yield over 1.02 times 1.3 for the beams of a wind propulsion unit's structure [@bv2026nr206, Sec 5, 4.4.1], with S355's yield of 355 MPa up to 16 mm thick; the low bound at its 335 MPa up to 63 mm [@constructalia2026s355]."
 pedestal_stiffener_share:
   value: 0.2
-  low: 0.1
-  high: 0.4
+  low: 0.2
+  high: 0.2
   unit: "-"
   source: "Authors' estimate: stiffened plating"
   reason: "Mass of the stiffeners that keep a rotor pedestal's plating from buckling, over that of the plating; authors' estimate for flat bars at the spacing of ship plating."
@@ -538,25 +538,25 @@ steel_modulus:
   reason: "Young's modulus of the carbon steel of a wind propulsion system's structure, with a Poisson's ratio of 0.3 [@bv2026nr206, Sec 5, Tab 1, Note 1]."
 pedestal_stiffener_spacing:
   value: 0.76
-  low: 0.6
-  high: 0.8
+  low: 0.76
+  high: 0.76
   unit: m
   source: "@souadji2012 [Tables A.6.2-A.6.3]: frame spacing"
-  reason: "Spacing of the stiffeners on a rotor pedestal's wall, the width of a plate panel that must not buckle: the 0.76 m frame spacing of a 3100 TEU design [@souadji2012, Tables A.6.2-A.6.3]; authors' estimate of the bounds."
+  reason: "Spacing of the stiffeners on a rotor pedestal's wall, the width of a plate panel that must not buckle: the 0.76 m frame spacing of a 3100 TEU design [@souadji2012, Tables A.6.2-A.6.3]."
 pedestal_min_frequency:
   value: 0.3
-  low: 0.2
-  high: 0.5
+  low: 0.3
+  high: 0.3
   unit: Hz
   source: "Authors' estimate: above the ship's motions in waves"
   reason: "Lowest first natural frequency of a raised rotor on its pedestal, kept above the ship's motions: a tenth above waves met every 4 s, the shortest that move a ship of 150 m or more, and far above MARIN's 18.3 s roll [@marin2025feeder, Table 2-1]; authors' estimate."
 cross_deck_depth:
   value: 4.0
-  low: 2.5
-  high: 4.5
+  low: 4.0
+  high: 4.0
   unit: m
   source: "@souadji2012 [nomenclature, Sec 4.3.3]: second deck under the cross deck"
-  reason: "Depth of the cross deck between two hatches, from the upper deck down to the second deck, where the cross tier and the transverse bulkhead below it take a rotor pedestal's foot load: in a 3100 TEU design, 18.7 m deep, the stringers stand a tier apart, 2.595 m, from 4.295 m, so the second deck lies at 14.68 m, 4.0 m below the deck [@souadji2012]; authors' estimate of the bounds."
+  reason: "Depth of the cross deck between two hatches, from the upper deck down to the second deck, where the cross tier and the transverse bulkhead below it take a rotor pedestal's foot load: in a 3100 TEU design, 18.7 m deep, the stringers stand a tier apart, 2.595 m, from 4.295 m, so the second deck lies at 14.68 m, 4.0 m below the deck [@souadji2012]."
 shadow_calm_height:
   value: 0.6
   low: 0.5
