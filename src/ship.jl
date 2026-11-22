@@ -81,8 +81,6 @@ Base.@kwdef struct Drive{F <: Fuel}
     peak_efficiency::Float64
     "efficiency loss coefficient at part load [-]"
     part_load_penalty::Float64
-    "lowest load a running unit holds [-]"
-    min_load::Float64 = 0.0
     "price of the power source and its transmission [USD/kW]"
     power_cost::Float64
     store::FuelStore = FuelStore()
@@ -413,7 +411,7 @@ function Ship(design::ShipDesign, assumptions::Assumptions; route=nothing)
     powertrain = Powertrain(;
         installed_power=delivered / drive.transmission_efficiency + hotel_load,
         drive.unit_count, drive.peak_efficiency, drive.part_load_penalty,
-        drive.transmission_efficiency, hotel_load, drive.min_load)
+        drive.transmission_efficiency, hotel_load)
     return Ship(hull_parts..., powertrain, rig, other_parts...)
 end
 

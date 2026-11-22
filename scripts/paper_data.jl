@@ -2547,7 +2547,7 @@ The legs `out` and `back` [`route_round_trip`](@ref) finds on route `name` from 
 """
 function traced_round_trip(table, route_table, name, departure, hourly)
     trip = WindShipOpt.route_round_trip(route_table, run_corridors(name)..., weather,
-        departure, port_hours(), hourly, Inf, nothing)
+        departure, port_hours(), hourly, nothing)
     isnothing(trip) && return nothing
     out, back = trip
     back_departure = departure + out.duration + port_hours()
@@ -2772,7 +2772,7 @@ function speed_term_sums(table, name, hourly, durations)
         schedule = isnothing(durations) ? (Inf, Inf) :
                    (durations[2k - 1], durations[2k])
         pair = WindShipOpt.route_round_trip(table, corridors_of_route..., weather,
-            departure, port_hours(), hourly, Inf, nothing; schedule)
+            departure, port_hours(), hourly, nothing; schedule)
         isnothing(pair) && return nothing
         append!(legs, pair)
     end
