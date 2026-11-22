@@ -361,8 +361,8 @@ function pedestal_mass(rig::RotorRig, assumptions)
            rotor_peak_pressure(rig, assumptions[:air_density])
     inertia = assumptions[:rig_inertia_load_factor] * arm * 1e3unit_mass(rig, assumptions) *
               assumptions[:rig_design_acceleration]
-    wall = (wind / (depth * (depth / 3 + width)) + inertia / (width * (width / 3 + depth))) /
-           (1e6assumptions[:pedestal_allowable_stress])
+    bending = wind / (depth * (depth / 3 + width)) + inertia / (width * (width / 3 + depth))
+    wall = bending / (1e6assumptions[:pedestal_allowable_stress])
     plating = 2(depth + width) * wall * rig.pedestal_height
     return 1e-3(1 + assumptions[:pedestal_stiffener_share]) * assumptions[:steel_density] *
            plating
@@ -439,9 +439,10 @@ end
     rig_price_parts(rig, assumptions)
 
 Manufacturing cost [USD] of each part of the hardware of `rig`: the units, their surface,
-the installation, the rotors' pedestals and the camera systems of wings or rotors; the deck system, control unit, ship-side controls
-and integration of a kite, without its canopy and tether; the deck system, tether, supply
-for the hover, ship-side controls and integration of VTOL kites, without their airframes.
+the installation, the rotors' pedestals and the camera systems of wings or rotors; the
+deck system, control unit, ship-side controls and integration of a kite, without its
+canopy and tether; the deck system, tether, supply for the hover, ship-side controls and
+integration of VTOL kites, without their airframes.
 """
 rig_price_parts(::Nothing, assumptions) = (;)
 

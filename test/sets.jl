@@ -1326,7 +1326,8 @@ end
     @test WindShipOpt.layout_counts(400.0, :wing, hull, assumptions, 0.0) == [(1, 1)]
     @test isnothing(WingRig(400.0, hull, assumptions; columns=2))
     counts = WindShipOpt.layout_counts(400.0, :rotor, hull, assumptions, 0.0)
-    @test first(counts) == (1, 1) && all(==(2) ∘ first, counts[2:end]) && length(counts) > 2
+    @test first(counts) == (1, 1) && length(counts) > 2
+    @test all(==(2) ∘ first, counts[2:end])
     rotors = Ship(ShipDesign(:vlsfo, megamax; rotor_area=1500.0), assumptions)
     @test WindShipOpt.CargoHold(rotors, assumptions).slots == megamax.unit_capacity
     @test WindShipOpt.launch_mast_position(hull, assumptions) ≈
@@ -1372,7 +1373,8 @@ end
     on_deck = WindShipOpt.RotorRig(600.0, Hull(feeder.length, assumptions), assumptions;
         columns=2, in_column=3)
     @test pairs.count == 6
-    @test pairs.pedestal_height ≈ hull.deck_cargo_height + assumptions[:pedestal_clearance]
+    @test pairs.pedestal_height ≈
+          hull.deck_cargo_height + assumptions[:pedestal_clearance]
     @test pairs.foot_height ≈ on_deck.foot_height + pairs.pedestal_height
     clearance = assumptions[:rotor_spacing] * pairs.diameter
     @test pairs.shadow_share == 1 && pairs.column_offset ≈ (feeder.beam - clearance) / 2
@@ -1385,15 +1387,17 @@ end
                   assumptions[:welded_steel_cost_per_mass]
 end
 
-# By hand, two pairs of 30 x 5 m rotors on the Megamax: 1885 Pa peak, arm 25.91 + 2.5 + 15 m;
-# wind 1.7 * 1885 * 150 * 43.41 = 20.87 MNm on 1.5 * (0.5 + 5) = 8.25 m^2, inertia
+# By hand, two pairs of 30 x 5 m rotors on the Megamax: 1885 Pa peak, arm 25.91 + 2.5 + 15
+# m; wind 1.7 * 1885 * 150 * 43.41 = 20.87 MNm on 1.5 * (0.5 + 5) = 8.25 m^2, inertia
 # 1.3 * 69 t * 3 * 43.41 = 11.68 MNm on 5 * (5/3 + 1.5) = 15.83 m^2: a 12.19 mm wall at
 # 268 MPa, 1.2 * 7850 * 2 * 6.5 * 0.01219 * 28.41 = 42.4 t.
-@testset "a rotor pedestal's wall carries its factored moments at the allowable stress" begin
+@testset "a rotor pedestal's wall carries its factored moments at the allowable \
+          stress" begin
     hull = Hull(ship_classes()["Megamax container ship"], assumptions)
     rotors = WindShipOpt.RotorRig(600.0, hull, assumptions; columns=2, in_column=2)
     @test rotors.height ≈ 30 && rotors.diameter ≈ 5
-    @test WindShipOpt.rotor_peak_pressure(rotors, assumptions[:air_density]) ≈ 1885 rtol = 1e-3
+    peak = WindShipOpt.rotor_peak_pressure(rotors, assumptions[:air_density])
+    @test peak ≈ 1885 rtol = 1e-3
     @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 42.4 rtol = 2e-3
 end
 
