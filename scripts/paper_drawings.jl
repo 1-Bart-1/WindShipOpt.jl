@@ -596,12 +596,15 @@ function ship_classes_figure()
     longest = maximum(classes[name].length for name in names)
     gap = 0.22longest
     rows = [drawn_class(name, classes[name], table, routes_seen) for name in names]
+    no_data = [all(!isfinite, areas[column] for (_, _, _, _, areas, _) in rows)
+               for column in eachindex(rig_names)]
     width = length(rig_names) * longest + (length(rig_names) - 1) * gap
     metres_per_unit = 1.45width / page_width
     margin = (pt(2) + line_height(note_size) + 3label_clearance) * metres_per_unit
     tops = cumsum([draw_height(hull, faces, first(areas), rigs) + hull.draft + margin
                    for (_, hull, _, faces, areas, rigs) in rows])
-    top = 10 + (line_height(text_size) + 3label_clearance) * metres_per_unit
+    note_line = any(no_data) ? line_height(note_size) + pt(1) : 0.0
+    top = 10 + (line_height(text_size) + note_line + 3label_clearance) * metres_per_unit
     bottom = -last(tops) - 15
     figure = Figure(size=(page_width, (top - bottom) / metres_per_unit))
     axis = Axis(figure[1, 1]; aspect=DataAspect())
@@ -612,21 +615,24 @@ function ship_classes_figure()
         for (column, (kind, area, rig)) in enumerate(zip(rig_names, areas, rigs))
             offset = ((column - 1) * (longest + gap) + longest / 2, y)
             draw_ship!(axis, faces, offset)
+            no_data[column] && continue
+            text!(axis, offset[1] - hull.length / 2, y - hull.draft;
+                text=cell_label(kind, area, rig), align=(:left, :top),
+                offset=(0, -pt(2)), fontsize=note_size, color=:gray40)
             isfinite(area) || continue
             if kind == "kite"
                 draw_side_kite!(axis, area, hull, offset)
             else
                 isnothing(rig) || draw_side_rig!(axis, rig, hull, form, offset)
             end
-            text!(axis, offset[1] - hull.length / 2, y - hull.draft;
-                text=area_label(area), align=(:left, :top), offset=(0, -pt(2)),
-                fontsize=note_size, color=:gray40)
         end
         text!(axis, -0.09longest, y; text=name, align=(:right, :center))
     end
     for (column, title) in enumerate(rig_label.(rig_names))
-        text!(axis, (column - 1) * (longest + gap) + longest / 2, 10; text=title,
-            align=(:center, :bottom))
+        centre = (column - 1) * (longest + gap) + longest / 2
+        text!(axis, centre, 10; text=title, align=(:center, :bottom), offset=(0, note_line))
+        no_data[column] && text!(axis, centre, 10; text="no data yet",
+            align=(:center, :bottom), fontsize=note_size, color=:gray40)
     end
     bar = Point2f(-0.25width, -last(tops) + 10)
     lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
@@ -656,9 +662,19 @@ function drawn_class(name, class, table, routes)
     return (name, hull, form, faces, areas, built_rig.(Ref(class), rig_names, areas))
 end
 
-"`area` [m^2] as a LaTeX label to three significant digits, its digits grouped"
-area_label(area) =
-    L"%$(digit_groups(string(Int(round(area; sigdigits=3)))))\,\mathrm{m^2}"
+"""
+    cell_label(kind, area, rig)
+
+Label under a ship in [`ship_classes_figure`](@ref): the `area` [m^2] of rig `kind` to three
+significant digits, its digits grouped, in parentheses where the model builds no deck `rig`
+of it, or "no data yet" where the study has no area.
+"""
+function cell_label(kind, area, rig)
+    isfinite(area) || return "no data yet"
+    digits = digit_groups(string(Int(round(area; sigdigits=3))))
+    built = kind == "kite" || !isnothing(rig)
+    return built ? L"%$(digits)\,\mathrm{m^2}" : L"(%$(digits)\,\mathrm{m^2})"
+end
 
 """
     mean_best_area(table, class, routes, rig)
