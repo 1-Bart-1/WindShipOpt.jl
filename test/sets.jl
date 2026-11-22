@@ -4435,7 +4435,8 @@ end
     @test PaperData.changed_cost(today, trip) > trip.cost_per_tonne_km
 end
 
-@testset "a change of only what a route costs is recosted on the base route, its fuel kept" begin
+@testset "a change of only what a route costs is recosted on the base route, its fuel \
+          kept" begin
     longer = with_value(assumptions, :canopy_life, 6000.0)
     @test PaperData.changed_inputs(longer) == [:canopy_life]
     @test PaperData.cost_only(longer)

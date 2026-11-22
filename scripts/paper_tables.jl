@@ -3253,7 +3253,8 @@ function recosting_numbers_file()
         "Smallest" => one_decimal(minimum(mean, gaps)),
         "Spread" => one_decimal(maximum(gap -> length(gap) > 1 ? std(gap) : 0.0, gaps)),
         "Departures" => string(length(unique(table["departure"]))),
-        "CanopyLife" => one_decimal(recosting_error(table, "canopy_life", shortest, "kite")),
+        "CanopyLife" => one_decimal(recosting_error(table, "canopy_life", shortest,
+            "kite")),
         "ShortestLife" => @sprintf("%.0f", first(canopy_lives))]
     write_whole(joinpath(sections, "recosting_numbers.tex")) do io
         for (name, text) in numbers

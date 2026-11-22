@@ -3420,7 +3420,8 @@ on the routes at the base inputs and routed anew, recosting_bias.csv.
 function recosting_bias_data()
     designs = [(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...), rig)
                for (rig, area) in reference_rigs_and_none]
-    base = [trip_case(design; rig, change="base", relative=0.0) for (design, rig) in designs]
+    base = [trip_case(design; rig, change="base", relative=0.0)
+            for (design, rig) in designs]
     changed = [trip_case(design; assumptions=inputs, rig, change=name, relative)
                for (name, relative, inputs) in recosting_changes()
                for (design, rig) in designs]
