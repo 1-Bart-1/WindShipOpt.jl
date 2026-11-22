@@ -2,9 +2,7 @@
 % SPDX-License-Identifier: AGPL-3.0-or-later
 \begin{tikzpicture}[x=1mm, y=1mm,
   shipwithkite/.pic={\begin{scope}[yshift=-1.5mm, scale=0.75] \pic {small ship};
-    \fill[kite] (0.5,7.5) arc[start angle=60, end angle=120, radius=4] -- ++(0,-0.5)
-      arc[start angle=120, end angle=60, radius=3.5] -- cycle;
-    \draw[kite] (2.5,0) -- (-1.5,7.1); \end{scope}},
+    \draw[kite] (2.5,0) -- (-1.4,3.6); \pic[scale=4.2] at (-1.4,3.6) {kite}; \end{scope}},
   polar/.pic={\draw[guide, ->] (-4,-3.5) -- (4.5,-3.5); \draw[guide, ->] (-4,-3.5) -- (-4,4);
     \draw[accent] (-3.6,-3.2) .. controls (-1,4) and (1.5,3.5) .. (4,-1);},
   topview/.pic={\draw[fill=white] (0,-4.5) .. controls (1.6,-3) and (1.6,3) .. (0,4.5)

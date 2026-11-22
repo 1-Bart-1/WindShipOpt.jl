@@ -4,8 +4,8 @@
 % ahead and from above, drawn from the model's hull in figure_ship.tex, and its rigs. They
 % are drawn in metres, the origin at midship on the waterline (from the side and from
 % above, bow to the right) or on the centreline at the waterline (from ahead), so that a
-% figure scales them with `scale` [mm per m] and `transform shape`. The icons that stand
-% for a concept come from the figure style.
+% figure scales them with `scale` [mm per m] and `transform shape`. The soft kite, `kite`,
+% and the icons that stand for a concept come from the figure style.
 \input{figure_ship}
 \tikzset{
   % the rudder from above, its axis 70 m aft of midship
@@ -36,17 +36,6 @@
     \fill[wings] (7.05,0) .. controls (7.05,1.4) and (4,1.9) .. (1,1.6) -- (-2.8,0.9)
       -- (-2.8,-0.9) -- (1,-1.6) .. controls (4,-1.9) and (7.05,-1.4) .. cycle;
     \fill[wings!55] (-3.5,0.7) -- (-7.05,0.15) -- (-7.05,-0.15) -- (-3.5,-0.7) -- cycle;},
-  % a soft kite: its canopy's arc, centred on the origin, and its bridle lines, hiding what
-  % lies behind them, meeting at the control unit, from whose foot 15 m below the origin the
-  % tether runs
-  kite/.pic={
-    \fill[white] (0,-10) -- ++(40:12) arc[start angle=40, end angle=140, radius=12]
-      -- cycle;
-    \fill[kite] (0,-10) ++(150:14) arc[start angle=150, end angle=30, radius=14]
-      -- ++(30:-2) arc[start angle=30, end angle=150, radius=12] -- cycle;
-    \draw[kite] (0,-10) ++(140:12) -- (0,-10) -- ++(40:12) (0,-10) ++(110:12) -- (0,-10)
-      -- ++(70:12);
-    \fill[keel] (-2,-15) rectangle (2,-10);},
   % the kite's telescopic launch mast, 35 m up from the deck at its foot, the origin, dashed
   % as it stands only for launch and landing, with the docking head that grips the kite on top
   launch mast/.pic={
