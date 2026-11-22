@@ -5,7 +5,7 @@
 # environment:
 #
 #     include("paper.jl")
-#     paper(; fidelity=:final)                 # every step: data, then figures and tables
+#     paper(; fidelity=:final)                 # every step: data, figures and tables, site
 #     paper(; fidelity=:draft)                 # the same, faster and marked as a draft
 #     paper(:designs, :routes; fidelity=:draft)  # only these steps
 #     paper(:figures; fidelity=:final)         # all figures from the latest final data
@@ -19,8 +19,9 @@
 # run.toml and the finished round trips, so that a run cut short resumes; without `resume`
 # paper() asks whether to continue an unfinished run. A final run needs a clean tree on a
 # pushed commit; run.toml records the commit. Figure steps write PDFs to paper/figures/
-# and table steps LaTeX to paper/sections/; draft results are marked in the paper. The
-# LaTeX build is separate.
+# and table steps LaTeX to paper/sections/; draft results are marked in the paper. Site
+# steps then pack the run's results into the companion website's data in the run
+# directory, routing nothing of their own. The LaTeX build is separate.
 using CairoMakie
 
 include("trips.jl")
@@ -64,7 +65,8 @@ study_steps = [:cargo_interest => cargo_interest_data, :base_kite => base_kite_d
     :convergence => convergence_data, :speed_terms => speed_terms_data,
     :published_terms => published_terms_data, :model_parts => model_parts_data,
     :size_search => size_search_data, :router_decisions => router_decisions_data,
-    :routing_value => routing_value_data, :today_routing => today_routing_data]
+    :routing_value => routing_value_data, :today_routing => today_routing_data,
+    :recosting => recosting_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
 study_tables = Dict(:cargo_interest => [:cargo_interest_table => cargo_interest_table],
@@ -72,14 +74,14 @@ study_tables = Dict(:cargo_interest => [:cargo_interest_table => cargo_interest_
     :speed_terms => [:speed_terms_table => speed_terms_table],
     :published_terms => [:published_table => published_table],
     :routing_value => [:routing_value_table => routing_value_table],
-    :today_routing => [:today_routing_numbers => today_routing_numbers_file])
+    :today_routing => [:today_routing_numbers => today_routing_numbers_file],
+    :recosting => [:recosting_table => recosting_table])
 
 "every table step of the method studies"
 study_table_steps() = unique(reduce(vcat, values(study_tables)))
 
-"steps outside the paper, run only by name: the data of the companion website"
-website_steps = [:explorer => explorer_data, :passages => passages_data,
-    :grids => grids_data]
+"steps packing the run's results into the companion website's data, after the others"
+site_steps = [:explorer => explorer_data, :grids => grids_data]
 
 "figure and table steps, each reading the data files and writing one output"
 output_steps = [:kite => kite_figure, :deck_rigs => deck_rig_figure,
@@ -126,11 +128,11 @@ output_steps = [:kite => kite_figure, :deck_rigs => deck_rig_figure,
 """
     paper(names...; fidelity, resume=nothing, only=nothing)
 
-Run the named steps, or every data step of the results and then every figure and table
-step when no name is given, at `fidelity` (:draft or :final); `:data` and `:figures` run all
-steps of that kind. Any step but figures and tables alone runs in a new or resumed run:
-`resume` true takes the latest unfinished run at `fidelity` on this git branch, false none,
-and nothing asks on stdin.
+Run the named steps, or every data step of the results, every figure and table step and
+then every site step when no name is given, at `fidelity` (:draft or :final); `:data`,
+`:figures` and `:site` run all steps of that kind. Any step but figures and tables alone
+runs in a new or resumed run: `resume` true takes the latest unfinished run at `fidelity` on
+this git branch, false none, and nothing asks on stdin.
 Steps that run has done are skipped, and it counts as finished once every step asked of it
 is done. Round trips the case store holds for the code and inputs are reused. A draft with
 `only`, labels and their values such as `(class="handysize", route=:caribbean)`, computes
@@ -138,7 +140,7 @@ only the cases carrying them and keeps the latest stored round trip of the other
 code. A final run errors on a dirty tree or unpushed commit.
 """
 function paper(names::Symbol...; fidelity, resume=nothing, only=nothing)
-    steps = isempty(names) ? [data_steps; output_steps] :
+    steps = isempty(names) ? [data_steps; output_steps; site_steps] :
             [step for name in names for step in selected_steps(name)]
     run_steps(steps, first.([output_steps; study_table_steps()]); fidelity, resume, only)
     mark_fidelity(joinpath(sections, "fidelity.tex"), fidelity, first.(steps),
@@ -170,18 +172,19 @@ end
     selected_steps(name)
 
 The steps `name` stands for: all data steps for `:data`, all figure and table steps for
-`:figures`, for a method study the study, its record and its tables, otherwise the one step
-of that name.
+`:figures`, all site steps for `:site`, for a method study the study, its record and its
+tables, otherwise the one step of that name.
 """
 function selected_steps(name)
     name == :data && return data_steps
     name == :figures && return output_steps
+    name == :site && return site_steps
     for (study, step) in study_steps
         study == name && return [study => step;
                                  Symbol(study, :_record) => () -> record_study(study);
                                  get(study_tables, study, [])]
     end
-    steps = [data_steps; study_table_steps(); output_steps; website_steps]
+    steps = [data_steps; study_table_steps(); output_steps; site_steps]
     matches = filter(step -> first(step) == name, steps)
     isempty(matches) && throw(ArgumentError("no paper step $name"))
     return matches

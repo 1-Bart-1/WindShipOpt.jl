@@ -527,7 +527,8 @@ end
 
 Routed round trips over the sampled departures of a 140 m e-ammonia ship with `area`
 [m^2] of `rig` on route `name`, as hours, thrust-hours [kN h] and rig work [GJ] per
-direction and true-wind-angle band, and the rig cost per hour at sea [USD/h].
+direction and true-wind-angle band, the rig cost per hour at sea [USD/h], and by departure
+number its legs with their [`LegTrace`](@ref)s, `nothing` where a leg fails.
 """
 function angle_sums(name, rig, area)
     ship = Ship(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...), assumptions;
@@ -538,14 +539,17 @@ function angle_sums(name, rig, area)
         assumptions)
     route_table = RouteTable(table)
     sums, legs = Dict{Tuple{String, String}, NTuple{3, Float64}}(), []
-    for departure in sampled_departures()
+    traced = map(sampled_departures()) do departure
         trip = out_and_back(route_table, name, departure, (out_hourly, back_hourly))
-        isnothing(trip) && continue
-        add_leg!(sums, LegTrace(table, trip.out, weather, departure), "out")
-        add_leg!(sums, LegTrace(table, trip.back, weather, trip.back_departure), "home")
+        isnothing(trip) && return nothing
+        out_trace = LegTrace(table, trip.out, weather, departure)
+        back_trace = LegTrace(table, trip.back, weather, trip.back_departure)
+        add_leg!(sums, out_trace, "out")
+        add_leg!(sums, back_trace, "home")
         push!(legs, (trip.out, trip.back))
+        return (; trip..., departure, out_trace, back_trace)
     end
-    return sums, rig_cost_per_hour(ship, bare, legs, assumptions)
+    return sums, rig_cost_per_hour(ship, bare, legs, assumptions), traced
 end
 
 """
@@ -572,7 +576,8 @@ end
 The 140 m e-ammonia ship without a rig and with the reference size of each rig, routed
 out and home on every route: hours at sea, thrust-hours [kN h] and rig work [GJ] per
 true-wind-angle band summed over the sampled departures, and the rig cost per hour at
-sea [USD/h]: wind_angle.csv.
+sea [USD/h]: wind_angle.csv; and the site's passages of these round trips
+([`write_passages`](@ref)).
 """
 function wind_angle_data()
     cases = vec([(name, rig, area) for name in route_names,
@@ -590,6 +595,7 @@ function wind_angle_data()
             end
         end
     end
+    write_passages(cases, last.(results))
 end
 
 """
@@ -3287,6 +3293,61 @@ function today_routing_data()
             println(io, join([case.rig, csv_value(case.area), csv_value(departure),
                     @sprintf("%.6f", changed_cost(cases[length(goals) + k], found)),
                     @sprintf("%.6f", again.cost_per_tonne_km)], ","))
+        end
+    end
+end
+
+"""
+    recosting_points()
+
+Each input the explorer may offer with the drive of the ship it is checked on and each value
+it is checked at: its low, high and today values other than its base, or one per year for
+an input whose range is its base alone, such as a loss rate the input table holds at zero.
+"""
+function recosting_points()
+    drives = Dict(:vlsfo_price => :vlsfo, :carbon_price => :vlsfo)
+    points = []
+    for name in (explorer_inputs..., :cargo_value)
+        entry = assumptions.entries[name]
+        values = setdiff(unique((entry.low, entry.high, entry.today)), entry.value)
+        for value in (isempty(values) ? [1.0] : values)
+            push!(points, (name, get(drives, name, :ammonia), value))
+        end
+    end
+    return points
+end
+
+"""
+    recosting_data()
+
+The 140 m ship to Guadeloupe on each of the [`study_drives`](@ref) without a rig and with
+each of the [`reference_rigs`](@ref), and each of them at each of the
+[`recosting_points`](@ref) whose input its round trip reads: its cost [USD/tkm] costed on
+the routes found at the base inputs and routed anew, recosting.csv.
+"""
+function recosting_data()
+    departure_list = sampled_departures()
+    base = [trip_case(ShipDesign(drive, 140.0; rig_size(rig, area)...); drive, rig, area)
+            for drive in study_drives for (rig, area) in reference_rigs_and_none]
+    base_trips = round_trips(base, departure_list)
+    read = [Set(first.(stored_entry(case_directory(case, departure_list), case).inputs))
+            for case in base]
+    changed = [(name, value, k,
+                   merge(base[k], (; assumptions=with_value(assumptions, name, value))))
+               for (name, drive, value) in recosting_points() for k in eachindex(base)
+               if base[k].drive == drive && name in read[k] && !isnothing(base_trips[k])]
+    rerouted = round_trips(last.(changed), departure_list)
+    open(run_file("recosting.csv"), "w") do io
+        println(io, "drive,input,value,rig,area,recosted,rerouted")
+        for (case, trip) in zip(base, base_trips)
+            isnothing(trip) && continue
+            @printf(io, "%s,base,0,%s,%.0f,%.6f,%.6f\n", case.drive, case.rig, case.area,
+                trip.cost_per_tonne_km, trip.cost_per_tonne_km)
+        end
+        for ((name, value, k, case), trip) in zip(changed, rerouted)
+            isnothing(trip) && continue
+            @printf(io, "%s,%s,%g,%s,%.0f,%.6f,%.6f\n", case.drive, name, value, case.rig,
+                case.area, changed_cost(case, base_trips[k]), trip.cost_per_tonne_km)
         end
     end
 end

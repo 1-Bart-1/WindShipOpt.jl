@@ -3217,3 +3217,55 @@ sea_effect_flight(table, ship, sea) =
 sea_effect_rows(table, ship, route, rig, sea) =
     findall(i -> table["ship"][i] == ship && table["route"][i] == route &&
                  table["rig"][i] == rig && table["sea"][i] == sea, eachindex(table["ship"]))
+
+"limits [percentage points] of the repo's accuracy standard: on a rig's saving, on a gap"
+recosting_limits = (saving=3.0, gap=1.0)
+
+"""
+    recosting_table()
+
+Write site/src/recosting.json from the recosting study: for each input, at each value
+checked, the largest difference [points] between a rig's saving costed on the base routes
+and routed anew, and that of the gap between two rigs, and whether every value keeps both
+within [`recosting_limits`](@ref); with the study's run, fidelity, commit and departures.
+"""
+function recosting_table()
+    table = read_table(study_file(:recosting, "recosting.csv"))
+    run = TOML.parsefile(study_runs_path)["recosting"]
+    checked = unique(zip(table["drive"], table["input"], table["value"]))
+    names = unique(input for (_, input, _) in checked if input != "base")
+    inputs = map(names) do name
+        values = [recosting_differences(table, drive, input, value)
+                  for (drive, input, value) in checked if input == name]
+        kept = all(row.saving <= recosting_limits.saving && row.gap <= recosting_limits.gap
+                   for row in values)
+        (; name, values, kept)
+    end
+    step = fidelities[Symbol(run["fidelity"])].departure_step
+    document = (; run=run["run"], fidelity=run["fidelity"], commit=run["commit"],
+        departures=length(departures[1:step:end]), limits=recosting_limits, inputs)
+    open(io -> write_json(io, document), joinpath(root, "site", "src", "recosting.json"),
+        "w")
+end
+
+"""
+    recosting_differences(table, drive, input, value)
+
+At `input` changed to `value` on the ship of `drive` in the recosting `table`: the largest
+difference [points] between a rig's saving costed on the base routes and routed anew, and
+the largest such difference of the gap between two rigs; a rig the study did not reroute,
+as its round trip does not read the input, has its base cost both ways.
+"""
+function recosting_differences(table, drive, input, value)
+    cost(rig, column) = let changed = rows(table, "drive" => drive, "input" => input,
+            "value" => value, "rig" => rig)
+        isempty(changed) ? table[column][only(rows(table, "drive" => drive,
+            "input" => "base", "rig" => rig))] : table[column][only(changed)]
+    end
+    rigs = setdiff(unique(table["rig"][rows(table, "drive" => drive)]), ["none"])
+    differences = [percent_saving(cost(rig, "recosted"), cost("none", "recosted")) -
+                   percent_saving(cost(rig, "rerouted"), cost("none", "rerouted"))
+                   for rig in rigs]
+    return (; value, saving=maximum(abs, differences),
+        gap=maximum(differences) - minimum(differences))
+end

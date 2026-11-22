@@ -22,13 +22,13 @@ export interface Grid {
   row_backward: number[];
 }
 
-/** grids.json: the grid of every route at each spacing, keyed by spacing and route name. */
+/** grids.json: the grid of every route the run routes on, keyed by route name. */
 export interface GridData {
+  fidelity: string;
   git_commit: string;
   weather: string;
   routes: { name: string; label: string }[];
-  spacings: string[];
-  grids: Record<string, Record<string, Grid>>;
+  grids: Record<string, Grid>;
 }
 
 /** Open water or unusable. */

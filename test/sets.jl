@@ -5026,6 +5026,26 @@ end
     @test all(abs(spin) <= 400 for spin in exported.columns.trim.spin)
 end
 
+@testset "a site passage is a routed round trip, out and back over the hours it spans" begin
+    design = ShipDesign(:methanol, 85.0; rotor_area=100.0)
+    routing = shared_route_table(design)
+    outbound, inbound = corridors
+    weather = SyntheticWeather()
+    departure = 24.0 * 31
+    out = route(outbound, routing, weather, departure; time_cost=300.0)
+    back_departure = departure + out.duration + 24.0
+    back = route(inbound, routing, weather, back_departure; time_cost=300.0)
+    trip = (; out, back, departure, back_departure,
+        out_trace=LegTrace(routing.table, out, weather, departure),
+        back_trace=LegTrace(routing.table, back, weather, back_departure))
+    case = (; index=2, ship=Ship(design, assumptions), patterns=nothing)
+    recorded = PaperData.recorded_round_trip(case, trip, 3)
+    @test [leg.direction for leg in recorded.legs] == ["out", "back"]
+    @test all(leg.design == 2 && leg.departure == 2 for leg in recorded.legs)
+    @test [leg.start for leg in recorded.legs] == [departure, back_departure]
+    @test recorded.span == (departure, back_departure + back.duration)
+end
+
 @testset "a kite's recorded pattern flies on the lee side in the ship's frame" begin
     model, max_force, _ = WindShipOpt.kite_model(500.0, assumptions[:kite_aspect_ratio],
         assumptions)

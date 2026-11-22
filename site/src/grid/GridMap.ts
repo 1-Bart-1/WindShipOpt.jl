@@ -20,27 +20,21 @@ import {
   type UnitVectors,
 } from "./grid";
 
-/** One grid on the map with its edges, coarse grids drawn with larger nodes. */
+/** The grid on the map with its edges. */
 export interface ShownGrid {
-  spacing: string;
   grid: Grid;
   edges: Edge[];
-  coarse: boolean;
 }
 
-/** A node of the grid at `spacing`. */
-export interface GridNode {
-  spacing: string;
+/** A node of the grid with the routes through it. */
+export interface PickedNode {
   node: number;
-}
-
-export interface PickedNode extends GridNode {
   routes: RoutesThrough;
 }
 
 /** What the map draws, on a globe or flat. */
 export interface GridView {
-  grids: ShownGrid[];
+  grid?: ShownGrid;
   flat: boolean;
   mesh: boolean;
   unusable: boolean;
@@ -49,7 +43,7 @@ export interface GridView {
   picked?: PickedNode;
 }
 
-/** One shown grid's lines and nodes as lists of node numbers, built once per view. */
+/** The shown grid's lines and nodes as lists of node numbers, built once per view. */
 interface GridLayer extends ShownGrid {
   meshLines: number[][];
   /** empty unless the view shows every edge */
@@ -80,7 +74,7 @@ const settleDelay = 150; // [ms] after the last wheel event before the map is dr
 const edgeLines = (edges: Edge[]) => edges.map((edge) => [edge.from, edge.to]);
 
 /**
- * Router grids on a canvas, as an orthographic globe or a flat longitude and latitude map;
+ * A router grid on a canvas, as an orthographic globe or a flat longitude and latitude map;
  * drag turns or pans it, the wheel zooms, a click picks a node.
  */
 export class GridMap {
@@ -93,8 +87,8 @@ export class GridMap {
   private zoom = 1;
   private width = 0;
   private height = 0;
-  private view: GridView = { grids: [], flat: false, mesh: true, unusable: true, allEdges: false, folds: true };
-  private layers: GridLayer[] = [];
+  private view: GridView = { flat: false, mesh: true, unusable: true, allEdges: false, folds: true };
+  private layer?: GridLayer;
   private frame = 0;
   private snapshot: Snapshot = { image: document.createElement("canvas"), facing: [0, 0], zoom: 1 };
   private gesture = false;
@@ -104,7 +98,7 @@ export class GridMap {
 
   constructor(
     private canvas: HTMLCanvasElement,
-    private onPick: (picked: GridNode | undefined) => void,
+    private onPick: (node: number | undefined) => void,
   ) {
     this.context = canvas.getContext("2d")!;
     this.path = geoPath(this.projection, this.context);
@@ -120,7 +114,7 @@ export class GridMap {
     this.view = view;
     this.projection = view.flat ? this.plane : this.globe;
     this.path = geoPath(this.projection, this.context);
-    this.layers = view.grids.map((shown) => this.layer(shown));
+    this.layer = view.grid && this.layerOf(view.grid);
     this.draw();
   }
 
@@ -291,14 +285,13 @@ export class GridMap {
     context.fillStyle = brandColour("paper-deep");
     context.fill();
     this.stroke(brandColour("ink"), 0.6);
-    for (const layer of this.layers) {
-      this.project(layer);
-      this.drawGrid(layer);
-    }
-    if (this.view.picked) this.drawPicked(this.view.picked);
+    if (!this.layer) return;
+    this.project(this.layer);
+    this.drawGrid(this.layer);
+    if (this.view.picked) this.drawPicked(this.layer, this.view.picked);
   }
 
-  private layer(shown: ShownGrid): GridLayer {
+  private layerOf(shown: ShownGrid): GridLayer {
     const { grid, edges } = shown;
     const count = grid.kind.length;
     const nodes = Array.from({ length: count }, (_, node) => node);
@@ -319,13 +312,13 @@ export class GridMap {
   private drawGrid(layer: GridLayer) {
     const { mesh, unusable, allEdges, folds } = this.view;
     const ink = brandColour("ink");
-    if (mesh) this.strokeNodes(layer, layer.meshLines, ink, layer.coarse ? 1 : 0.6, 0.3);
+    if (mesh) this.strokeNodes(layer, layer.meshLines, ink, 0.6, 0.3);
     if (allEdges) this.strokeNodes(layer, layer.edgeLines, brandColour("teal"), 0.5, 0.3);
-    const radius = (layer.coarse ? 3.2 : 1.7) * Math.min(Math.sqrt(this.zoom), 1.6);
+    const radius = 1.7 * Math.min(Math.sqrt(this.zoom), 1.6);
     this.dots(layer, layer.usable, radius, brandColour("teal"));
     if (unusable) this.dots(layer, layer.unusable, radius, brandColour("mid"));
     if (folds) {
-      this.strokeNodes(layer, layer.rowFolds, brandColour("rust"), layer.coarse ? 3 : 2.2);
+      this.strokeNodes(layer, layer.rowFolds, brandColour("rust"), 2.2);
       this.strokeNodes(layer, layer.backwardEdges, brandColour("rust"), 1.4);
     }
   }
@@ -363,9 +356,7 @@ export class GridMap {
     return lines;
   }
 
-  private drawPicked({ spacing, node, routes }: PickedNode) {
-    const layer = this.layers.find((each) => each.spacing === spacing);
-    if (!layer) return;
+  private drawPicked(layer: GridLayer, { node, routes }: PickedNode) {
     const orange = brandColour("orange");
     this.strokeNodes(layer, edgeLines(routes.edges), orange, 1, 0.55);
     this.strokeNodes(layer, edgeLines(edgesFrom(layer.grid, node)), orange, 3);
@@ -378,19 +369,20 @@ export class GridMap {
 
   /** The shown node nearest the canvas position `x`, `y` [px], within the pick radius. */
   private nodeAt(x: number, y: number) {
-    let best: GridNode | undefined;
+    if (!this.layer) return undefined;
+    let best: number | undefined;
     let nearest = pickRadius;
     this.place();
-    for (const layer of this.layers) this.project(layer);
-    for (const { spacing, grid, screen } of this.layers)
-      for (let node = 0; node < grid.kind.length; node++) {
-        if ((kindOf(grid, node) === "x" && !this.view.unusable) || screen.facing[node] <= 0) continue;
-        const distance = Math.hypot(screen.x[node] - x, screen.y[node] - y);
-        if (distance < nearest) {
-          nearest = distance;
-          best = { spacing, node };
-        }
+    this.project(this.layer);
+    const { grid, screen } = this.layer;
+    for (let node = 0; node < grid.kind.length; node++) {
+      if ((kindOf(grid, node) === "x" && !this.view.unusable) || screen.facing[node] <= 0) continue;
+      const distance = Math.hypot(screen.x[node] - x, screen.y[node] - y);
+      if (distance < nearest) {
+        nearest = distance;
+        best = node;
       }
+    }
     return best;
   }
 
