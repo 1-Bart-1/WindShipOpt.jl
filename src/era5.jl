@@ -287,9 +287,13 @@ on_grid(mask::GridMask, lat, lon) =
     first(mask.lats) <= lat <= last(mask.lats) && first(mask.lons) <= lon <= last(mask.lons)
 
 function is_land(mask::GridMask, lat, lon)
-    on_island(mask.islands, lat, lon) && return true
     on_grid(mask, lat, lon) || return true
-    i = argmin(abs.(mask.lons .- lon))
-    j = argmin(abs.(mask.lats .- lat))
-    return mask.land[i, j]
+    mask.land[nearest_index(mask.lons, lon), nearest_index(mask.lats, lat)] && return true
+    return on_island(mask.islands, lat, lon)
+end
+
+"index of the knot of the ascending `axis` nearest `value` within it, the lower on a tie"
+function nearest_index(axis::Vector{Float64}, value)
+    i = interval_index(axis, value)
+    return value - axis[i] <= axis[i + 1] - value ? i : i + 1
 end

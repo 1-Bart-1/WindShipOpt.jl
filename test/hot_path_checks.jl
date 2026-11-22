@@ -238,6 +238,17 @@ end
     end
 end
 
+@testset "a weather grid's land check reads the nearest cell and allocates nothing" begin
+    lats, lons = collect(0.0:1.5:30.0), collect(-40.0:1.5:-10.0)
+    land = falses(length(lons), length(lats))
+    land[findfirst(==(-25.0), lons), findfirst(==(15.0), lats)] = true
+    mask = GridMask(lats, lons, land, WindShipOpt.Island[])
+    @test WindShipOpt.is_land(mask, 15.7, -25.7)
+    @test WindShipOpt.is_land(mask, 15.75, -24.25)
+    @test !WindShipOpt.is_land(mask, 15.76, -25.0)
+    @test allocations(() -> WindShipOpt.is_land(mask, 15.7, -25.7)) == 0
+end
+
 @testset "a routed leg makes the same few allocations at any corridor scale" begin
     leg_counts = [leg_allocations(table, gridded, coarse_corridor) for table in rig_tables]
     @test all(<=(40), leg_counts)
