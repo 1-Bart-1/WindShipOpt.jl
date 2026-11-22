@@ -567,12 +567,13 @@ trapezoid_weight(k, count) = (k == 1 || k == count ? 0.5 : 1.0) / (count - 1)
     held_speed(table, speed_index, sample, aloft)
 
 Highest routing speed number up to `speed_index` of the [`RouteTable`](@ref) `table`
-that the ship can hold at the [`EdgeSample`](@ref) `sample` with the rig stowed or, on an
-edge begun with a kite `aloft`, with a kite flying where it can; begun with it down, a
-flying kite holds a speed only where the stowed rig holds none. Returns it with the
-[`expected_fuels`](@ref) and chance of flying there; speed number 0 if none holds.
+that the ship can hold at the [`EdgeSample`](@ref) or [`SharedStart`](@ref) `sample` with
+the rig stowed or, on an edge begun with a kite `aloft`, with a kite flying where it can;
+begun with it down, a flying kite holds a speed only where the stowed rig holds none.
+Returns it with the [`expected_fuels`](@ref) and chance of flying there; speed number 0 if
+none holds.
 """
-function held_speed(table::RouteTable, speed_index, sample::EdgeSample, aloft)
+function held_speed(table::RouteTable, speed_index, sample, aloft)
     flying = (0, Inf, Inf, 0.0)
     for i in speed_index:-1:1
         flown, stowed, chance = expected_fuels(table, i, sample)
@@ -636,6 +637,45 @@ function expected_fuels(table::RouteTable, speed_index, sample::EdgeSample)
 end
 
 """
+    StartFuels()
+
+The [`expected_fuels`](@ref) found so far at each routing speed of one
+[`EdgeSample`](@ref), for the edges that start from it to share.
+"""
+struct StartFuels
+    "fuel power flown and stowed [W] and chance of flying [-] at each routing speed number,
+    where `found`"
+    fuels::Vector{NTuple{3, Float64}}
+    found::Vector{Bool}
+end
+
+StartFuels() = StartFuels(NTuple{3, Float64}[], Bool[])
+
+"""
+    SharedStart(fuels, table, sample)
+
+The [`EdgeSample`](@ref) `sample` the edges from a node start from, with the
+[`StartFuels`](@ref) `fuels` they share there, cleared for the speeds of the
+[`RouteTable`](@ref) `table`.
+"""
+struct SharedStart
+    sample::EdgeSample
+    fuels::StartFuels
+    function SharedStart(fuels::StartFuels, table::RouteTable, sample::EdgeSample)
+        resize!(fuels.fuels, length(table.speeds))
+        fill!(resize!(fuels.found, length(table.speeds)), false)
+        return new(sample, fuels)
+    end
+end
+
+function expected_fuels(table::RouteTable, speed_index, start::SharedStart)
+    (; fuels, found) = start.fuels
+    found[speed_index] && return fuels[speed_index]
+    found[speed_index] = true
+    return fuels[speed_index] = expected_fuels(table, speed_index, start.sample)
+end
+
+"""
     SailedPoint
 
 One [`EdgeSample`](@ref) of an edge as sailed, with what a kite needs to know of it.
@@ -671,6 +711,8 @@ end
 SailedPoint(sample::EdgeSample, held, flown, stowed, hours, time, chance) =
     SailedPoint(sample.headwind, sample.crosswind, sample.condition, held, flown, stowed,
         hours, time, chance)
+SailedPoint(start::SharedStart, held, flown, stowed, hours, time, chance) =
+    SailedPoint(start.sample, held, flown, stowed, hours, time, chance)
 
 """
     SailedPoint(table, sample, speed_index, aloft, distance, time)
@@ -679,8 +721,7 @@ SailedPoint(sample::EdgeSample, held, flown, stowed, hours, time, chance) =
 `table`, at the [`held_speed`](@ref) of an edge begun with a kite `aloft` or down, standing
 for `distance` [m] of the edge, reached at `time` [h].
 """
-function SailedPoint(table::RouteTable, sample::EdgeSample, speed_index, aloft, distance,
-        time)
+function SailedPoint(table::RouteTable, sample, speed_index, aloft, distance, time)
     held, flown, stowed, chance = held_speed(table, speed_index, sample, aloft)
     hours = held == 0 ? Inf : distance / table.speeds[held] / 3600
     return SailedPoint(sample, held, flown, stowed, hours, time, chance)
@@ -1043,6 +1084,8 @@ struct RouteWorkspace
     commanded::Vector{Int}
     "index in `commanded` before the speeds of each step"
     commanded_from::Vector{Int}
+    "fuels found at the start of the edges from the node in hand"
+    start_fuels::StartFuels
 end
 
 """
@@ -1057,7 +1100,7 @@ function RouteWorkspace(lateral_count, bins, stage_count)
     return RouteWorkspace(StateArray.(Ref(rows), unset)..., SailedPoint[],
         Ref(zeros(lateral_count, 0, 2, stage_count)),
         Ref(falses(lateral_count, 0, stage_count)), Vector{SailedPoint}[], SailedEdge[],
-        fill(-1, bins), Int[], Int[])
+        fill(-1, bins), Int[], Int[], StartFuels())
 end
 
 """
@@ -1743,9 +1786,9 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
                 isnan(corridor.edge_course[stage, lateral, step]) && continue
                 next = next_lateral(corridor, lateral, step)
                 distance = corridor.edge_length[stage, lateral, step]
-                start = EdgeSample(ship_table, node_wind, node_waves,
-                    corridor.edge_course[stage, lateral, step],
-                    wind_spread(weather, departure + time); kite_wind=node_kite)
+                start = SharedStart(workspace.start_fuels, table, EdgeSample(ship_table,
+                    node_wind, node_waves, corridor.edge_course[stage, lateral, step],
+                    wind_spread(weather, departure + time); kite_wind=node_kite))
                 through = 0
                 for slot in (commanded_from[step] + 1):commanded_from[step + 1]
                     speed_index = commanded[slot]
