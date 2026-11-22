@@ -2716,7 +2716,7 @@ life_limit_text(life) = isnan(life) ? "--" : @sprintf("\\num{%.0f}", 100round(li
 Name and text, from the [`rig_lead_rows`](@ref) of the class table `table`, of the
 [`verdict_text`](@ref) of each of `verdict_groups`, the [`advice_text`](@ref), the
 [`brief_advice_text`](@ref), the [`highlight_text`](@ref), the [`places`](@ref) the wing
-sails are advised, per drive the [`answer_text`](@ref) and the [`answer_ranges`](@ref),
+sails are advised, per drive the [`answer_ranges`](@ref),
 and on container ships per drive where the kite falls behind the rotors.
 """
 function rig_lead_numbers(table)
@@ -2727,8 +2727,7 @@ function rig_lead_numbers(table)
         "WingsAdvised" => isempty(wings) ? "on no ship type" : places(wings, rows)]
     for (drive, word) in drive_words
         own = filter(row -> row.drive == drive, rows)
-        push!(numbers, "Answer$word" => answer_text(own),
-            ("Answer$name$word" => text for (name, text) in answer_ranges(own))...)
+        push!(numbers, ("Answer$name$word" => text for (name, text) in answer_ranges(own))...)
     end
     for (word, types, drives) in verdict_groups
         push!(numbers, "Verdict$word" =>
@@ -3009,40 +3008,6 @@ end
 
 "the rig that leads in a [`rig_lead`](@ref) `lead`, or the two that are level"
 advised_rigs(lead) = lead.verdict == "leads" ? [lead.rig] : rig_pair(lead)
-
-"""
-    saved_figures(saved, drive)
-
-Text of the range of `saved` savings a ship a year: the share [%] of the cost per tonne-km,
-the US dollars and, on VLSFO, the tonnes of CO2.
-"""
-function saved_figures(saved, drive)
-    figures = [value_range(getproperty.(saved, :share), whole_number) * "\\,\\%",
-        "USD~" * value_range(1e-6getproperty.(saved, :saved), two_digits) * " million"]
-    drive == "vlsfo" && push!(figures,
-        value_range(1e-6getproperty.(saved, :carbon), two_digits) * "~t of CO\$_2\$")
-    return listed(figures)
-end
-
-"""
-    answer_clause(row)
-
-Text of the [`advice`](@ref) of rig lead `row` of [`rig_lead_rows`](@ref) on its ship type,
-with the [`saved_figures`](@ref) of its [`advised_savings`](@ref).
-"""
-function answer_clause(row)
-    ships = lowercase(row.label)
-    row.verdict == "none" && return "no rig on $ships, where none clearly saves"
-    return "$(advice(row)) on $ships, $(saved_figures(advised_savings(row), row.drive))"
-end
-
-"""
-    answer_text(rows)
-
-Text of the [`answer_clause`](@ref) of each of rig lead `rows` of one drive, in the order of
-`ship_types`.
-"""
-answer_text(rows) = join(answer_clause.(rows), "; ")
 
 """
     highlight_text(rows)
