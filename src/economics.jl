@@ -85,7 +85,8 @@ cargo_limit(class::ShipClass, assumptions::Assumptions) =
     CargoHold(ship, assumptions)
 
 Hold of `ship`: its class's deadweight less the rig mass and the stores, and its class's
-unit capacity, which no rig blocks; the reference coaster family fills its deadweight.
+unit capacity less the [`blocked_slots`](@ref) of its rig; the reference coaster family
+fills its deadweight.
 """
 function CargoHold(ship::Ship, assumptions::Assumptions)
     (; class) = ship.design
@@ -97,7 +98,7 @@ function CargoHold(ship::Ship, assumptions::Assumptions)
     else
         deadweight = class.deadweight
         unit = CargoUnit(class.cargo_unit, assumptions)
-        slots = class.unit_capacity
+        slots = class.unit_capacity - blocked_slots(ship.rig, class, assumptions)
     end
     payload = deadweight - rig_mass - assumptions[:stores_mass]
     return CargoHold(deadweight, payload, slots, unit)
@@ -169,9 +170,9 @@ ship_costs(ship::Ship, assumptions::Assumptions) =
 
 Yearly cost [USD/year] of the wings, rotors or suction sails of `rig` on `ship` over the
 mean power [W] they save: their annuity and maintenance, with the retractable rig premium
-where a fixed rig would cost the ship port time, over the mean of their thrust times the
-service speed less the power they draw, at the best trim in the [`layout_winds`](@ref).
-Inf where they save none.
+where a fixed rig would cost the ship port time, and the [`lost_cargo_cost`](@ref), over
+the mean of their thrust times the service speed less the power they draw, at the best trim
+in the [`layout_winds`](@ref). Inf where they save none.
 """
 function layout_score(ship::Ship, rig, assumptions::Assumptions)
     standing = standing_rig(rig)
@@ -179,7 +180,8 @@ function layout_score(ship::Ship, rig, assumptions::Assumptions)
     fixed_delay = fixed_rig_port_hours(standing, ship.design.class, assumptions) > 0
     price_factor = 1 + fixed_delay * assumptions[:retractable_rig_premium]
     yearly = price_factor * annuity +
-             rig_maintenance(standing, price_factor * capital, assumptions)
+             rig_maintenance(standing, price_factor * capital, assumptions) +
+             lost_cargo_cost(ship, standing, assumptions)
     speed = service_speed(ship, assumptions)
     winds = layout_winds(assumptions)
     saved = sum(winds) do (wind_10m, true_angle)
@@ -187,6 +189,24 @@ function layout_score(ship::Ship, rig, assumptions::Assumptions)
         return force.thrust * speed - force.power
     end / length(winds)
     return saved > 0 ? yearly / saved : Inf
+end
+
+"""
+    lost_cargo_cost(ship, rig, assumptions)
+
+Yearly cost [USD/year] of the cargo that the class of `ship` no longer carries beside the
+[`blocked_slots`](@ref) of `rig`: the fixed annual cost of its ship without a rig times the
+share of its cargo they take, none where it fills its deadweight first.
+"""
+function lost_cargo_cost(ship::Ship, rig, assumptions::Assumptions)
+    (; drive, class) = ship.design
+    isnothing(class) && return 0.0
+    blocked = blocked_slots(rig, class, assumptions)
+    blocked > 0 || return 0.0
+    costs = ShipCosts(Ship(ShipDesign(drive, class), assumptions), assumptions)
+    (; deadweight, payload, slots, unit) = costs.hold
+    left = cargo_mass(CargoHold(deadweight, payload, slots - blocked, unit))
+    return costs.fixed_annual * (1 - left / cargo_mass(costs.hold))
 end
 
 """
@@ -229,15 +249,16 @@ end
     cheapest_in_columns(ship, columns, in_columns, assumptions)
 
 Rig of the design of `ship` in `columns` columns of the count of `in_columns`, tried in
-order, with the lowest [`layout_score`](@ref), and that score; the search stops once two
-counts in a row fit and score worse than the best.
+order, raised rotors on the [`cheapest_pedestal`](@ref), with the lowest
+[`layout_score`](@ref), and that score; the search stops once two counts in a row fit and
+score worse than the best.
 """
 function cheapest_in_columns(ship::Ship, columns, in_columns, assumptions::Assumptions)
     best, lowest, worse = nothing, Inf, 0
     for in_column in in_columns
         rig = design_rig(ship.design, ship.hull, assumptions; columns, in_column)
         isnothing(rig) && continue
-        score = layout_score(ship, rig, assumptions)
+        rig, score = cheapest_pedestal(ship, rig, assumptions)
         if score < lowest || isnothing(best)
             best, lowest, worse = rig, score, 0
         else
@@ -246,6 +267,19 @@ function cheapest_in_columns(ship::Ship, columns, in_columns, assumptions::Assum
         end
     end
     return best, lowest
+end
+
+"""
+    cheapest_pedestal(ship, rig, assumptions)
+
+`rig` on whichever of a column or a frame gives its raised rotors the lower
+[`layout_score`](@ref) on `ship`, and that score; `rig` as it is where it stands on deck.
+"""
+function cheapest_pedestal(ship::Ship, rig, assumptions::Assumptions)
+    rig isa RotorRig && raised(rig) || return rig, layout_score(ship, rig, assumptions)
+    supports = (with_pedestal(rig, :column), with_pedestal(rig, :frame))
+    scores = [layout_score(ship, support, assumptions) for support in supports]
+    return supports[argmin(scores)], minimum(scores)
 end
 
 """
@@ -345,55 +379,171 @@ unit_mass(rig::Union{WingRig, RotorRig}, assumptions) =
 """
     pedestal_mass(rig, assumptions)
 
-Steel mass [t] of the pedestal under each rotor of `rig`, zero for units on deck: a
-stiffened box column, `bay_gap` deep along the ship and as wide as the rotor, from the deck
-to the rotor foot, its wall continued down through the cross deck as its foundation, of the
-[`pedestal_wall`](@ref) thickness.
+Steel mass [t] of what each rotor of `rig` stands on, zero for units on deck: a
+[`column_mass`](@ref) or a [`frame_mass`](@ref), by `rig.pedestal`.
 """
 pedestal_mass(::WingRig, assumptions) = 0.0
 
 function pedestal_mass(rig::RotorRig, assumptions)
     rig.pedestal_height > 0 || return 0.0
-    length = rig.pedestal_height + assumptions[:cross_deck_depth]
-    return 1e-3pedestal_wall_mass(rig, assumptions) * length * pedestal_wall(rig, assumptions)
+    return rig.pedestal == :frame ? frame_mass(rig, assumptions) :
+           column_mass(rig, assumptions)
 end
 
-"mass [kg] per m of height and m of wall thickness of the pedestals of `rig`"
-pedestal_wall_mass(rig::RotorRig, assumptions) =
-    (1 + assumptions[:pedestal_stiffener_share]) * assumptions[:steel_density] *
-    2(assumptions[:bay_gap] + rig.diameter)
+"length [m] of a 40 ft container, the bay a frame's beam spans"
+const FORTY_FOOT = 12.192
+
+"""
+    rotor_loads(rig, assumptions)
+
+Factored loads [N] on each raised rotor of `rig` at its mid height: its peak wind force
+times `rig_wind_load_factor`, its mass in the design acceleration across the ship and its
+weight, each times `rig_inertia_load_factor`; and the rotor's mass [kg].
+"""
+function rotor_loads(rig::RotorRig, assumptions)
+    mass = 1e3unit_mass(rig, assumptions)
+    inertia_factor = assumptions[:rig_inertia_load_factor]
+    wind = assumptions[:rig_wind_load_factor] * rig.height * rig.diameter *
+           rotor_peak_pressure(rig, assumptions[:air_density])
+    return (; wind, roll=inertia_factor * mass * assumptions[:rig_design_acceleration],
+        weight=inertia_factor * mass * Environment(assumptions).gravity, mass)
+end
+
+"""
+    box_moduli(depth, width)
+
+Section moduli [m^2, per m of wall] of a thin-walled box `depth` [m] along the bending
+plane and `width` [m] across it, bent in its depth and in its width, and its perimeter [m].
+"""
+box_moduli(depth, width) =
+    (; along=depth * (depth / 3 + width), across=width * (width / 3 + depth),
+        perimeter=2(depth + width))
+
+"""
+    steel_wall(stress_load, assumptions)
+
+Wall thickness [m] that carries `stress_load` [N/m], stress times thickness, at the
+allowable stress, and whose plating between stiffeners does not buckle under it.
+"""
+function steel_wall(stress_load, assumptions)
+    buckling_stiffness = π^2 * 1e6assumptions[:steel_modulus] / (3(1 - 0.3^2))
+    return max(stress_load / (1e6assumptions[:pedestal_allowable_stress]),
+        cbrt(stress_load * assumptions[:pedestal_stiffener_spacing]^2 / buckling_stiffness))
+end
+
+"""
+    sway_wall(rotor_mass, height, arm, bending, wall_mass, assumptions)
+
+Wall thickness [m] at which `rotor_mass` [kg], `arm` [m] above the top of cantilevers
+`height` [m] tall of bending stiffness `bending` [m^3] times the thickness and of mass
+`wall_mass` [kg/m^2] per m of height and of thickness, sways at `pedestal_min_frequency`;
+Inf where no wall does.
+"""
+function sway_wall(rotor_mass, height, arm, bending, wall_mass, assumptions)
+    omega = 2π * assumptions[:pedestal_min_frequency]
+    compliance = pedestal_compliance(height, arm)
+    wall = omega^2 * compliance * rotor_mass /
+           (1e6assumptions[:steel_modulus] * bending -
+            omega^2 * compliance * 0.24wall_mass * height)
+    return wall > 0 ? wall : Inf
+end
+
+"mass [kg] per m of member and m of wall thickness of a stiffened box of `perimeter` [m]"
+box_wall_mass(perimeter, assumptions) =
+    (1 + assumptions[:pedestal_stiffener_share]) * assumptions[:steel_density] * perimeter
+
+"""
+    column_mass(rig, assumptions)
+
+Steel mass [t] of a column under each raised rotor of `rig`: a stiffened box `bay_gap` deep
+along the ship and as wide as the rotor, from the deck to the rotor foot, its wall
+continued down through the cross deck as its foundation, of the [`pedestal_wall`](@ref)
+thickness.
+"""
+function column_mass(rig::RotorRig, assumptions)
+    perimeter = box_moduli(assumptions[:bay_gap], rig.diameter).perimeter
+    return 1e-3box_wall_mass(perimeter, assumptions) *
+           (rig.pedestal_height + assumptions[:cross_deck_depth]) *
+           pedestal_wall(rig, assumptions)
+end
 
 """
     pedestal_wall(rig, assumptions)
 
-Wall thickness [m] of the pedestal under each rotor of `rig`, the thickest of three: the
-wall that carries, at the allowable stress, the moments at the deck about the rotor's mid
-height of its peak wind force along the ship and of its mass in the design acceleration
-across it, each times its load factor; the wall whose plating between stiffeners does not
-buckle under them; and the wall that holds the first natural frequency of the pedestal
-along the ship, with the rotor on top, at `pedestal_min_frequency`.
+Wall thickness [m] of the column under each raised rotor of `rig`, the thickest of two:
+the [`steel_wall`](@ref) under the moments at the deck about the rotor's mid height of its
+factored wind force along the ship and roll across it; and the [`sway_wall`](@ref) along
+the ship, with the rotor on top.
 """
 function pedestal_wall(rig::RotorRig, assumptions)
-    depth, width = assumptions[:bay_gap], rig.diameter
+    (; wind, roll, mass) = rotor_loads(rig, assumptions)
+    box = box_moduli(assumptions[:bay_gap], rig.diameter)
     arm = rig.pedestal_height + rig.height / 2
-    rotor_mass = 1e3unit_mass(rig, assumptions)
-    wind = assumptions[:rig_wind_load_factor] * arm * rig.height * rig.diameter *
-           rotor_peak_pressure(rig, assumptions[:air_density])
-    inertia = assumptions[:rig_inertia_load_factor] * arm * rotor_mass *
-              assumptions[:rig_design_acceleration]
-    load = wind / (depth * (depth / 3 + width)) + inertia / (width * (width / 3 + depth))
-    modulus = 1e6assumptions[:steel_modulus]
-    strength = load / (1e6assumptions[:pedestal_allowable_stress])
-    buckling = cbrt(load * assumptions[:pedestal_stiffener_spacing]^2 /
-                    (π^2 * modulus / (3(1 - 0.3^2))))
-    omega = 2π * assumptions[:pedestal_min_frequency]
-    compliance = pedestal_compliance(rig.pedestal_height, rig.height / 2)
-    bending = depth^2 * (width / 2 + depth / 6)
-    stiffness = omega^2 * compliance * rotor_mass /
-                (modulus * bending -
-                 omega^2 * compliance * 0.24pedestal_wall_mass(rig, assumptions) *
-                 rig.pedestal_height)
-    return max(strength, buckling, stiffness > 0 ? stiffness : Inf)
+    stress_load = wind * arm / box.along + roll * arm / box.across
+    bending = assumptions[:bay_gap] * box.along / 2
+    return max(steel_wall(stress_load, assumptions),
+        sway_wall(mass, rig.pedestal_height, rig.height / 2, bending,
+            box_wall_mass(box.perimeter, assumptions), assumptions))
+end
+
+"""
+    frame_mass(rig, assumptions)
+
+Steel mass [t] of a frame under each raised rotor of `rig`: two legs in the gaps at both
+ends of a 40 ft bay, continued through the cross deck as their foundation, and a beam
+across their tops over the stacks that carries the rotor at its middle, all stiffened boxes
+of the column's section, of the [`frame_walls`](@ref) thicknesses.
+"""
+function frame_mass(rig::RotorRig, assumptions)
+    perimeter = box_moduli(assumptions[:bay_gap], rig.diameter).perimeter
+    (; leg, beam) = frame_walls(rig, assumptions)
+    legs = 2leg * (rig.pedestal_height + assumptions[:cross_deck_depth])
+    return 1e-3box_wall_mass(perimeter, assumptions) *
+           (legs + beam * (FORTY_FOOT + assumptions[:bay_gap]))
+end
+
+"""
+    frame_walls(rig, assumptions)
+
+Wall thicknesses [m] of the legs and the beam of the frame under each raised rotor of
+`rig`, from the moments at the legs' feet and the beam's middle with the rotor's factored
+wind force along the ship or across it and its roll across it, its weight on the beam, as a
+portal along the ship and two cantilevers across it; the legs also sway across the ship no
+slower than `pedestal_min_frequency`.
+"""
+function frame_walls(rig::RotorRig, assumptions)
+    (; wind, roll, weight, mass) = rotor_loads(rig, assumptions)
+    depth = assumptions[:bay_gap]
+    box = box_moduli(depth, rig.diameter)
+    height, arm, span = rig.pedestal_height, rig.height / 2, FORTY_FOOT + depth
+    shear_area = 2depth * rig.diameter
+    leg_along = wind * (height + arm) / (span * box.perimeter) +
+                wind * height / 4box.along + roll * (height + arm) / 2box.across
+    leg_across = (wind + roll) * (height + arm) / 2box.across
+    beam(along, across) = hypot(
+        (weight * span / 4 + along * arm / 2) / box.along + across * span / 4box.across,
+        sqrt(3) * across * arm / 2shear_area)
+    bending = 2rig.diameter * box.across / 2
+    leg = max(steel_wall(max(leg_along, leg_across), assumptions),
+        sway_wall(mass, height, arm, bending, 2box_wall_mass(box.perimeter, assumptions),
+            assumptions))
+    return (; leg, beam=steel_wall(max(beam(wind, roll), beam(0.0, wind + roll)),
+        assumptions))
+end
+
+"""
+    blocked_slots(rig, class, assumptions)
+
+TEU slots on the deck of `class` that the cranes cannot work under `rig`: below each
+frame's beam, the rows the rotor's diameter covers over one 40 ft bay, through all deck
+tiers; none for other rigs.
+"""
+blocked_slots(rig, class, assumptions) = 0.0
+
+function blocked_slots(rig::RotorRig, class::ShipClass, assumptions)
+    raised(rig) && rig.pedestal == :frame || return 0.0
+    rows = ceil(rig.diameter / assumptions[:container_row_pitch])
+    return rig.count * 2rows * class.deck_tiers
 end
 
 """

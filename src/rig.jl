@@ -470,6 +470,8 @@ Base.@kwdef struct RotorRig
     shadow_angle::Float64 = π
     "height of the pedestals the rotors stand on above the deck, zero on deck [m]"
     pedestal_height::Float64 = 0.0
+    "what each raised rotor stands on, `:column` or `:frame` ([`pedestal_mass`](@ref))"
+    pedestal::Symbol = :column
     "rotors watched by a camera system for the view they hide from the bridge [-]"
     camera_units::Int = 0
 end
@@ -494,6 +496,14 @@ function RotorRig(total_area::Real, hull::Hull, assumptions::Assumptions;
         layout.shadow_share, layout.shadow_angle, layout.pedestal_height,
         layout.camera_units)
 end
+
+"""
+    with_pedestal(rig, pedestal)
+
+`rig` with its raised rotors on `pedestal`, `:column` or `:frame`.
+"""
+with_pedestal(rig::RotorRig, pedestal) = RotorRig(;
+    (name => getfield(rig, name) for name in fieldnames(RotorRig))..., pedestal)
 
 total_area(rig::RotorRig) = rig.count * rig.height * rig.diameter
 

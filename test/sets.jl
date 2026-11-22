@@ -1410,6 +1410,56 @@ end
     @test WindShipOpt.pedestal_wall(tall, assumptions) ≈ 34.6e-3 rtol = 2e-3
 end
 
+# By hand, the frame under each of the same 30 x 5 m rotors: legs 28.41 m tall and 13.69 m
+# apart, arm 15 m; factored wind 1.7 * 1885 * 150 = 480.8 kN, roll 1.3 * 69 t * 3 = 269.1 kN,
+# weight 1.3 * 69 t * 9.81 = 880.0 kN. Legs, wind across: (480.8 + 269.1) kN * 43.41 / 2 /
+# 15.83 = 1.028 MN/m, above the 0.900 MN/m of wind along; it buckles below
+# cbrt(1.028e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 9.27 mm. Beam, wind along: 880.0 kN *
+# 13.69 / 4 + 480.8 kN * 15 / 2 = 6.62 MNm on 8.25 m^2, roll 269.1 kN * 13.69 / 4 on 15.83
+# m^2 and its torsion 269.1 kN * 15 / 2 on 2 * 1.5 * 5 m^2: 0.891 MN/m, 8.84 mm; 1.2 * 7850 *
+# 13 * (2 * 9.27e-3 * 32.41 + 8.84e-3 * 13.69) = 88.4 t. Its beam spans two of the
+# Megamax's 2.5 m rows over the bay, through ten tiers of two TEU: 40 slots a rotor.
+@testset "a frame carries a raised rotor over a bay and takes the slots below its beam" begin
+    class = ship_classes()["Megamax container ship"]
+    hull = Hull(class, assumptions)
+    rotors = WindShipOpt.RotorRig(600.0, hull, assumptions; columns=2, in_column=2)
+    @test rotors.pedestal == :column
+    frame = WindShipOpt.with_pedestal(rotors, :frame)
+    walls = WindShipOpt.frame_walls(frame, assumptions)
+    @test walls.leg ≈ 9.27e-3 rtol = 2e-3
+    @test walls.beam ≈ 8.84e-3 rtol = 2e-3
+    @test WindShipOpt.pedestal_mass(frame, assumptions) ≈ 88.4 rtol = 2e-3
+    @test WindShipOpt.blocked_slots(frame, class, assumptions) == 4 * 40
+    @test WindShipOpt.blocked_slots(rotors, class, assumptions) == 0
+    bare = Ship(ShipDesign(:ammonia, class), assumptions)
+    hold(rig) = WindShipOpt.CargoHold(WindShipOpt.with_rig(bare, rig), assumptions)
+    @test hold(rotors).slots == class.unit_capacity
+    @test hold(frame).slots == class.unit_capacity - 160
+end
+
+@testset "raised rotors stand on the column or frame of least cost per power saved" begin
+    for (name, area) in (("Neo-Panamax container ship", 600.0),
+        ("Megamax container ship", 1200.0))
+        class = ship_classes()[name]
+        bare = Ship(ShipDesign(:ammonia, class), assumptions)
+        rotors = WindShipOpt.RotorRig(area, Hull(class, assumptions), assumptions;
+            columns=2, in_column=1)
+        rig, score = WindShipOpt.cheapest_pedestal(bare, rotors, assumptions)
+        scores = [WindShipOpt.layout_score(bare, WindShipOpt.with_pedestal(rotors, pedestal),
+                      assumptions) for pedestal in (:column, :frame)]
+        @test score == minimum(scores)
+        @test rig.pedestal == (:column, :frame)[argmin(scores)]
+    end
+    neo = ship_classes()["Neo-Panamax container ship"]
+    bare = Ship(ShipDesign(:ammonia, neo), assumptions)
+    frame = WindShipOpt.with_pedestal(WindShipOpt.RotorRig(600.0, Hull(neo, assumptions),
+        assumptions; columns=2, in_column=1), :frame)
+    @test WindShipOpt.lost_cargo_cost(bare, frame, assumptions) > 0
+    megamax = ship_classes()["Megamax container ship"]
+    @test WindShipOpt.lost_cargo_cost(Ship(ShipDesign(:ammonia, megamax), assumptions),
+        frame, assumptions) == 0
+end
+
 # Norsepower's 35 x 5 m rotor gives a maximum continuous thrust of 350 kN.
 @testset "a rotor's peak force is that of the largest built rotor" begin
     rotor = WindShipOpt.RotorRig(175.0, Hull(140.0, assumptions), assumptions)
