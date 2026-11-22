@@ -58,8 +58,6 @@ function KnotWeight(knots::Knots, value)
     return KnotWeight(i, 1 - fraction, fraction)
 end
 
-KnotWeight(knots::AbstractVector, value) = KnotWeight(Knots(knots), value)
-
 """
     interval_index(knots, value, i)
 

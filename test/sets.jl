@@ -3015,6 +3015,20 @@ end
 "Value `share` of the way through interval `i` of `knots`"
 place_in_cell(knots, i, share) = knots[i] + share * (knots[i + 1] - knots[i])
 
+@testset "a knot weight finds the interval a search finds, on even and doubling \
+          knots" begin
+    for values in (collect(0.0:0.25:6.0), 1.6e6 .* WindShipOpt.ADDED_RESISTANCE_SHARES)
+        knots = WindShipOpt.Knots(values)
+        for i in 1:(length(values) - 1), share in (0.0, 0.3, 0.999, 1.0)
+            weight = WindShipOpt.KnotWeight(knots, place_in_cell(values, i, share))
+            @test weight.index == (share == 0 && i > 1 ? i - 1 : i)
+            @test weight.upper ≈ (share == 0 && i > 1 ? 1.0 : share) atol = 1e-12
+        end
+        @test WindShipOpt.KnotWeight(knots, -1.0).index == 1
+        @test WindShipOpt.KnotWeight(knots, 2last(values)).upper == 1.0
+    end
+end
+
 @testset "a cell the router screens out is unpowered anywhere inside it" begin
     shares = (0.0, 0.5, 1.0)
     for route_table in (table, kite_route_table)
