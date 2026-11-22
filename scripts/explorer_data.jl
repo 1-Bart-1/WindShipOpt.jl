@@ -113,15 +113,17 @@ end
     explorer_input_entries(classes, class_names)
 
 The base, low and high values, the unit and the value known today of each of
-[`explorer_inputs`](@ref) by name, and of the cargo value of each of `class_names`.
+[`explorer_inputs`](@ref) by name, and of the cargo value of each of `class_names`, its
+range that of the input `cargo_value` in proportion.
 """
 function explorer_input_entries(classes, class_names)
     entries = Dict{String, Any}(string(name) => assumptions.entries[name]
                                 for name in explorer_inputs)
+    cargo = assumptions.entries[:cargo_value]
     for name in class_names
         value = classes[name].cargo_value
-        entries[cargo_input(name)] = Assumption(value, value, value, "USD/t",
-            "cargo value of the class", value)
+        entries[cargo_input(name)] = Assumption(value, value * cargo.low / cargo.value,
+            value * cargo.high / cargo.value, "USD/t", "cargo value of the class", value)
     end
     return entries
 end
