@@ -543,13 +543,6 @@ pedestal_min_frequency:
   unit: Hz
   source: "Authors' estimate: above the ship's motions in waves"
   reason: "Lowest first natural frequency of a raised rotor on its pedestal, kept above the ship's motions: a tenth above waves met every 4 s, the shortest that move a ship of 150 m or more, and far above MARIN's 18.3 s roll [@marin2025feeder, Table 2-1]; authors' estimate."
-cross_deck_depth:
-  value: 4.0
-  low: 4.0
-  high: 4.0
-  unit: m
-  source: "@souadji2012 [nomenclature, Sec 4.3.3]: second deck under the cross deck"
-  reason: "Depth of the cross deck between two hatches, from the upper deck down to the second deck, where the cross tier and the transverse bulkhead below it take a rotor pedestal's foot load: in a 3100 TEU design, 18.7 m deep, the stringers stand a tier apart, 2.595 m, from 4.295 m, so the second deck lies at 14.68 m, 4.0 m below the deck [@souadji2012]."
 layout_mean_wind:
   value: 8.0
   low: 7.0

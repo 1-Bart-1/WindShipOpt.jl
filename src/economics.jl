@@ -456,15 +456,13 @@ box_wall_mass(perimeter, assumptions) =
     column_mass(rig, assumptions)
 
 Steel mass [t] of a column under each raised unit of `rig`: a stiffened box `bay_gap` deep
-along the ship and as wide as the unit, from the deck to the unit's foot, its wall
-continued down through the cross deck as its foundation, of the [`pedestal_wall`](@ref)
-thickness.
+along the ship and as wide as the unit, from the deck to the unit's foot, of the
+[`pedestal_wall`](@ref) thickness.
 """
 function column_mass(rig::Union{WingRig, RotorRig}, assumptions)
     perimeter = box_moduli(assumptions[:bay_gap], unit_width(rig)).perimeter
     return 1e-3box_wall_mass(perimeter, assumptions) *
-           (rig.pedestal_height + assumptions[:cross_deck_depth]) *
-           pedestal_wall(rig, assumptions)
+           rig.pedestal_height * pedestal_wall(rig, assumptions)
 end
 
 """
@@ -490,14 +488,13 @@ end
     frame_mass(rig, assumptions)
 
 Steel mass [t] of a frame under each raised unit of `rig`: two legs in the gaps at both
-ends of a 40 ft bay, continued through the cross deck as their foundation, and a beam
-across their tops over the stacks that carries the unit at its middle, all stiffened boxes
+ends of a 40 ft bay and a beam across their tops over the stacks that carries the unit at its middle, all stiffened boxes
 of the column's section, of the [`frame_walls`](@ref) thicknesses.
 """
 function frame_mass(rig::Union{WingRig, RotorRig}, assumptions)
     perimeter = box_moduli(assumptions[:bay_gap], unit_width(rig)).perimeter
     (; leg, beam) = frame_walls(rig, assumptions)
-    legs = 2leg * (rig.pedestal_height + assumptions[:cross_deck_depth])
+    legs = 2leg * rig.pedestal_height
     return 1e-3box_wall_mass(perimeter, assumptions) *
            (legs + beam * (FORTY_FOOT + assumptions[:bay_gap]))
 end

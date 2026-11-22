@@ -1370,7 +1370,7 @@ end
 # 1.3 * 69 t * 3 * 43.41 = 11.68 MNm on 5 * (5/3 + 1.5) = 15.83 m^2: 3.267 MN/m, a 12.19 mm
 # wall at 268 MPa, which buckles between stiffeners 0.76 m apart below
 # cbrt(3.267e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 13.63 mm; 1.2 * 7850 * 2 * 6.5 * 0.01363 *
-# (28.41 + 4) = 54.1 t. One pair of 60 x 10 m rotors, 361.4 t each, at 0.3 Hz: compliance
+# 28.41 = 47.4 t. One pair of 60 x 10 m rotors, 361.4 t each, at 0.3 Hz: compliance
 # 28.41^3 / 3 + 30 * 28.41^2 + 30^2 * 28.41 = 57427 m^3, section 1.5^2 * (5 + 0.25) =
 # 11.81 m^2 per m of wall, (0.6 pi)^2 * 57427 * 361.4e3 / (206e9 * 11.81 - (0.6 pi)^2 *
 # 57427 * 0.24 * 216660 * 28.41) = 34.6 mm, thicker than the 33.0 mm strength asks.
@@ -1382,7 +1382,7 @@ end
     peak = WindShipOpt.rotor_peak_pressure(rotors, assumptions[:air_density])
     @test peak ≈ 1885 rtol = 1e-3
     @test WindShipOpt.pedestal_wall(rotors, assumptions) ≈ 13.63e-3 rtol = 2e-3
-    @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 54.1 rtol = 2e-3
+    @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 47.4 rtol = 2e-3
     tall = WindShipOpt.RotorRig(1200.0, hull, assumptions; columns=2, in_column=1)
     @test tall.height ≈ 60 && tall.diameter ≈ 10
     @test WindShipOpt.pedestal_wall(tall, assumptions) ≈ 34.6e-3 rtol = 2e-3
@@ -1395,7 +1395,7 @@ end
 # cbrt(1.028e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 9.27 mm. Beam, wind along: 880.0 kN *
 # 13.69 / 4 + 480.8 kN * 15 / 2 = 6.62 MNm on 8.25 m^2, roll 269.1 kN * 13.69 / 4 on 15.83
 # m^2 and its torsion 269.1 kN * 15 / 2 on 2 * 1.5 * 5 m^2: 0.891 MN/m, 8.84 mm; 1.2 * 7850 *
-# 13 * (2 * 9.27e-3 * 32.41 + 8.84e-3 * 13.69) = 88.4 t. Its beam spans two of the
+# 13 * (2 * 9.27e-3 * 28.41 + 8.84e-3 * 13.69) = 79.3 t. Its beam spans two of the
 # Megamax's 2.5 m rows over the bay, through ten tiers of two TEU: 40 slots a rotor.
 @testset "a frame carries a raised rotor over a bay and takes the slots below its beam" begin
     class = ship_classes()["Megamax container ship"]
@@ -1406,7 +1406,7 @@ end
     walls = WindShipOpt.frame_walls(frame, assumptions)
     @test walls.leg ≈ 9.27e-3 rtol = 2e-3
     @test walls.beam ≈ 8.84e-3 rtol = 2e-3
-    @test WindShipOpt.pedestal_mass(frame, assumptions) ≈ 88.4 rtol = 2e-3
+    @test WindShipOpt.pedestal_mass(frame, assumptions) ≈ 79.3 rtol = 2e-3
     @test WindShipOpt.blocked_slots(frame, class, assumptions) == 4 * 40
     @test WindShipOpt.blocked_slots(rotors, class, assumptions) == 0
     bare = Ship(ShipDesign(:ammonia, class), assumptions)
