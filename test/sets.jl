@@ -1880,38 +1880,49 @@ sailed_on_planned_weather(kite_table, kite_hourly, weather, departure) =
             horizon=24.0 * 100)
     end
 
+"`call()` with a final pass that tries every speed of `table` along the path found"
+every_final_speed(call, table) = WindShipOpt.with_router_settings(call,
+    WindShipOpt.with_changed(WindShipOpt.ROUTER_SETTINGS[];
+        final_speed_window=length(table.speeds)))
+
 @testset "a ship on a long forecast flies its kite about as the plan does" begin
     kite_table, kite_hourly = forecast_kite_routing(800.0)
     weather = SyntheticWeather()
-    for departure in monthly_departures
-        leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
-        sailed = sailed_on_planned_weather(kite_table, kite_hourly, weather, departure)
-        @test leg.launches > 0
-        flies_as_planned = sailed.launches == leg.launches &&
-                           isapprox(sailed.flight_hours, leg.flight_hours; rtol=0.025)
-        @test flies_as_planned || sailed.objective < leg.objective
-        @test sailed.objective ≈ leg.objective rtol = 1e-3
+    every_final_speed(kite_table) do
+        for departure in monthly_departures
+            leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+            sailed = sailed_on_planned_weather(kite_table, kite_hourly, weather, departure)
+            @test leg.launches > 0
+            flies_as_planned = sailed.launches == leg.launches &&
+                               isapprox(sailed.flight_hours, leg.flight_hours; rtol=0.025)
+            @test flies_as_planned || sailed.objective < leg.objective
+            @test sailed.objective ≈ leg.objective rtol = 1e-3
+        end
     end
 end
 
 @testset "a ship re-planning on the weather it planned on keeps the rest of its plan" begin
     kite_table, kite_hourly = forecast_kite_routing(800.0)
     weather = SyntheticWeather()
-    for departure in 24.0 .* (301, 331)
-        leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
-        stage = findfirst(point -> point[3] >= 24, leg.path)
-        lat, lon, time = leg.path[stage]
-        lateral = WindShipOpt.nearest_lateral(corridor, stage, lat, lon)
-        rest = on_whole_corridor() do
-            planning, first_stage = WindShipOpt.planning_corridor(corridor, stage, lateral)
-            route(planning, kite_table, weather, departure + time; time_cost=kite_hourly,
-                first_stage, first_lateral=lateral, first_aloft=leg.aloft[stage])
+    every_final_speed(kite_table) do
+        for departure in 24.0 .* (301, 331)
+            leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+            stage = findfirst(point -> point[3] >= 24, leg.path)
+            lat, lon, time = leg.path[stage]
+            lateral = WindShipOpt.nearest_lateral(corridor, stage, lat, lon)
+            rest = on_whole_corridor() do
+                planning, first_stage = WindShipOpt.planning_corridor(corridor, stage,
+                    lateral)
+                route(planning, kite_table, weather, departure + time;
+                    time_cost=kite_hourly, first_stage, first_lateral=lateral,
+                    first_aloft=leg.aloft[stage])
+            end
+            keeps_plan = [point[4] for point in rest.path] ==
+                         [0.0; [point[4] for point in leg.path[(stage + 1):end]]] &&
+                         rest.aloft == leg.aloft[stage:end]
+            @test keeps_plan || sailed_on_planned_weather(kite_table, kite_hourly, weather,
+                departure).objective < leg.objective
         end
-        keeps_plan = [point[4] for point in rest.path] ==
-                     [0.0; [point[4] for point in leg.path[(stage + 1):end]]] &&
-                     rest.aloft == leg.aloft[stage:end]
-        @test keeps_plan || sailed_on_planned_weather(kite_table, kite_hourly, weather,
-            departure).objective < leg.objective
     end
 end
 
@@ -3937,7 +3948,8 @@ monthly_passages(table, corridors, settings) =
     _, back = corridors
     backs = fill(back, length(monthly_departures))
     searched = WindShipOpt.ROUTER_SETTINGS[]
-    room_in_time = WindShipOpt.with_changed(searched; final_time_band=96.0)
+    room_in_time = WindShipOpt.with_changed(searched; final_time_band=96.0,
+        final_speed_window=searched.routing_speeds)
     every_speed = WindShipOpt.with_changed(room_in_time; search_speed_stride=1)
     every_speed_by_default = WindShipOpt.with_changed(searched; search_speed_stride=1)
     for design in (ShipDesign(:methanol, 85.0; wing_area=400.0),

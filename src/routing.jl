@@ -418,7 +418,10 @@ Base.@kwdef struct RouterSettings
     "`final_time_step` of a plan that weighs the wind error of its forecast [h]"
     weighed_final_time_step::Float64 = 1.0
     "how far the final pass strays in time from the path found [h]"
-    final_time_band::Float64 = 24.0
+    final_time_band::Float64 = 6.0
+    "routing speeds the final pass commands to either side of the speed the path found
+    commands on each edge"
+    final_speed_window::Int = 2
     "longest time between the weather samples along an edge of the [`CostToGo`](@ref) [h]"
     to_go_sample_hours::Float64 = 6.0
     "how far ahead of the ship a plan keeps every stage and row of its corridor [nmi]"
@@ -1153,15 +1156,19 @@ const COST_TO_GO_SPEED_STRIDE = 2
 commanded_speeds(count, stride) = (1 + (count - 1) % stride):stride:count
 
 """
-    commanded_speeds!(commanded, speeds, stride, distance, time_step)
+    commanded_speeds!(commanded, speeds, stride, distance, time_step,
+                      window=eachindex(speeds))
 
 Append to `commanded` the ascending [`commanded_speeds`](@ref) of `speeds` [m/s] at
-`stride` on an edge of `distance` [m] and the fewest speeds between them that bring
-their arrivals within `time_step` [h] of each other, or as near as neighbouring speeds go.
+`stride` within the speed numbers `window` on an edge of `distance` [m] and the fewest
+speeds between them that bring their arrivals within `time_step` [h] of each other, or as
+near as neighbouring speeds go.
 """
-function commanded_speeds!(commanded, speeds, stride, distance, time_step)
+function commanded_speeds!(commanded, speeds, stride, distance, time_step,
+        window=eachindex(speeds))
     start = length(commanded)
     for speed_index in commanded_speeds(length(speeds), stride)
+        speed_index in window || continue
         while length(commanded) > start && last(commanded) < speed_index - 1 &&
             arrival_gap(distance, speeds[last(commanded)], speeds[speed_index]) > time_step
             slower, faster = last(commanded), last(commanded) + 1
@@ -1517,15 +1524,21 @@ function arrival_value(rule::KiteRule, aloft, stage)
 end
 
 """
-    PassageBand(elapsed, width)
+    PassageBand(path, width, speeds, speed_window)
 
-The states within `width` [h] of the hours `elapsed` at each stage of a path.
+The states within `width` [h] of the time at each stage of `path`, a [`Leg`](@ref)'s, and
+on the edge from each stage the routing `speeds` [m/s] within `speed_window` of the one
+the path commands there.
 """
 struct PassageBand
-    "hours from departure at each stage of the path [h]"
-    elapsed::Vector{Float64}
+    "(latitude, longitude, hours from departure, commanded speed, mode) at each stage"
+    path::Vector{NTuple{5, Float64}}
     "half-width of the band [h]"
     width::Float64
+    "routing speeds [m/s], ascending"
+    speeds::Vector{Float64}
+    "routing speeds tried to either side of the one the path commands"
+    speed_window::Int
 end
 
 """
@@ -1623,17 +1636,17 @@ final_time_step(weather) = ROUTER_SETTINGS[].final_time_step
     final_pass(leg, corridor, table, weather, departure; time_cost, arrival_by=Inf,
                first_stage, first_aloft)
 
-The cheaper of `leg` and the [`route_pass`](@ref) along its path at all speeds of `table`,
-on the bins of [`final_time_step`](@ref) and within the band in time of
-`ROUTER_SETTINGS`, of those arriving by `arrival_by` [h] or no later than `leg`.
+The cheaper of `leg` and the [`route_pass`](@ref) along its path at the speeds of `table`
+within the final speed window of `ROUTER_SETTINGS` of those `leg` commands, on the bins of
+[`final_time_step`](@ref) and within the band in time of `ROUTER_SETTINGS`, of those arriving by `arrival_by` [h] or no later than `leg`.
 """
 function final_pass(leg::Leg, corridor, table, weather, departure; time_cost,
         arrival_by=Inf, first_stage, first_aloft)
     time_step = final_time_step(weather)
     workspace = acquire_workspace(1, bin_count(time_step), length(leg.path))
     try
-        band = PassageBand([point[3] for point in leg.path],
-            ROUTER_SETTINGS[].final_time_band)
+        band = PassageBand(leg.path, ROUTER_SETTINGS[].final_time_band, table.speeds,
+            ROUTER_SETTINGS[].final_speed_window)
         refined = route_pass(workspace, path_corridor(leg, corridor, first_stage), table,
             weather, departure, band; time_cost, arrival_by, time_step, first_stage=1,
             first_lateral=1, first_aloft, speed_stride=1)
@@ -1770,7 +1783,7 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
         empty!(workspace.shared)
         fill!(workspace.shared_from, -1)
         commanded_edges!(workspace, corridor, speeds, speed_stride, time_step, stage,
-            lateral)
+            lateral, speed_window(to_go, stage, length(speeds)))
         (; commanded, commanded_from) = workspace
         for aloft in 1:2, bin in 1:bins
             here = cost[lateral, bin, aloft, stage]
@@ -1818,14 +1831,16 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
 end
 
 """
-    commanded_edges!(workspace, corridor, speeds, speed_stride, time_step, stage, lateral)
+    commanded_edges!(workspace, corridor, speeds, speed_stride, time_step, stage, lateral,
+                     window)
 
 Fill `workspace.commanded` with the [`commanded_speeds!`](@ref) of `speeds` [m/s] at
-`speed_stride` and `time_step` [h] on each step from node (`stage`, `lateral`) of
-`corridor`, and `workspace.commanded_from` with the index before each step's speeds.
+`speed_stride` and `time_step` [h] within the speed numbers `window` on each step from node
+(`stage`, `lateral`) of `corridor`, and `workspace.commanded_from` with the index before
+each step's speeds.
 """
 function commanded_edges!(workspace::RouteWorkspace, corridor, speeds, speed_stride,
-        time_step, stage, lateral)
+        time_step, stage, lateral, window)
     (; commanded, commanded_from) = workspace
     empty!(commanded)
     empty!(commanded_from)
@@ -1833,7 +1848,7 @@ function commanded_edges!(workspace::RouteWorkspace, corridor, speeds, speed_str
         push!(commanded_from, length(commanded))
         isnan(corridor.edge_course[stage, lateral, step]) && continue
         commanded_speeds!(commanded, speeds, speed_stride,
-            corridor.edge_length[stage, lateral, step], time_step)
+            corridor.edge_length[stage, lateral, step], time_step, window)
     end
     push!(commanded_from, length(commanded))
     return workspace
@@ -2027,8 +2042,21 @@ within_limit(band::PassageBand, limit, here, lateral, aloft, stage, time) =
 edge_within_limit(band::PassageBand, limit, here, next, stage, time) =
     in_band(band, stage, time)
 
+"""
+    speed_window(to_go, stage, count)
+
+Routing speed numbers of `count` the edges from `stage` may command: those of the
+[`PassageBand`](@ref) `to_go`, else all.
+"""
+speed_window(to_go, stage, count) = 1:count
+
+function speed_window(band::PassageBand, stage, count)
+    found = clamp(searchsortedfirst(band.speeds, band.path[stage + 1][4]), 1, count)
+    return max(found - band.speed_window, 1):min(found + band.speed_window, count)
+end
+
 "whether `time` [h] lies within the [`PassageBand`](@ref) `band` at `stage`"
-in_band(band::PassageBand, stage, time) = abs(time - band.elapsed[stage]) <= band.width
+in_band(band::PassageBand, stage, time) = abs(time - band.path[stage][3]) <= band.width
 
 """
     start_state!(workspace, start)
