@@ -565,37 +565,13 @@ end
 """
     RigidAirframe
 
-What rigid VTOL kites add to a tether and a pattern table.
+What a rigid VTOL kite adds to a tether and a pattern table.
 """
 struct RigidAirframe
-    "kites in service, a mean where some are down, each with its station on deck"
-    count::Float64
-    "mass of one kite with its propellers and drives, without the tether [kg]"
+    "mass of the kite with its propellers and drives, without the tether [kg]"
     mass::Float64
-    "electric power of one kite in hover [W]"
+    "electric power of the kite in hover [W]"
     hover_power::Float64
-    "area of the disc of the loop all the kites share [m^2]"
-    loop_area::Float64
-end
-
-"kites flying from one ship"
-kite_count(::KiteRig) = 1
-kite_count(rig::KiteRig{RigidAirframe}) = rig.airframe.count
-
-"""
-    loop_interaction(rig, force_area)
-
-Force of each kite of `rig` over that of a lone kite, where a lone kite in the free stream
-makes `force_area` [m^2], its force over dynamic pressure: momentum theory on the disc of
-one shared loop gives each kite (1 - a)^2 of it, with a = C / (4 + C) for the disc's free
-stream thrust coefficient C.
-"""
-loop_interaction(::KiteRig, force_area) = 1.0
-
-function loop_interaction(rig::KiteRig{RigidAirframe}, force_area)
-    (; count, loop_area) = rig.airframe
-    lone = force_area / loop_area
-    return ((4 + lone) / (4 + count * lone))^2
 end
 
 """
@@ -765,26 +741,38 @@ function rigid_polar(assumptions::Assumptions)
 end
 
 """
-    rigid_kite_model(area, count, assumptions)
+    rigid_kite_mass(area, assumptions)
 
-[`KiteModel`](@ref) of one rigid VTOL kite of `area` [m^2], its tether force limit [N],
-tether diameter [m] at the working stress of the soft kite's rope and the
-[`RigidAirframe`](@ref) of `count` such kites.
+Mass [kg] of a rigid VTOL kite of `area` [m^2] with its propellers and drives, without the
+tether: that of MX2, grown with the span to the power of the mass exponent at a fixed aspect
+ratio.
 """
-function rigid_kite_model(area, count, assumptions::Assumptions)
+rigid_kite_mass(area, assumptions::Assumptions) = assumptions[:rigid_mass] *
+    (area / assumptions[:rigid_reference_area])^(assumptions[:rigid_mass_exponent] / 2)
+
+"span [m] of a rigid VTOL kite of `area` [m^2]"
+rigid_span(area, assumptions::Assumptions) = sqrt(area * assumptions[:rigid_aspect_ratio])
+
+"""
+    rigid_kite_model(area, assumptions)
+
+[`KiteModel`](@ref) of a rigid VTOL kite of `area` [m^2], its tether force limit [N],
+tether diameter [m] at the working stress of the soft kite's rope and its
+[`RigidAirframe`](@ref).
+"""
+function rigid_kite_model(area, assumptions::Assumptions)
     env = Environment(assumptions)
     max_force = 1e3assumptions[:rigid_max_force_per_area] * area
     tether_diameter = sqrt(4max_force / (π * assumptions[:tether_stress]))
-    span = sqrt(area * assumptions[:rigid_aspect_ratio])
-    mass = assumptions[:rigid_mass_per_area] * area
+    span = rigid_span(area, assumptions)
+    mass = rigid_kite_mass(area, assumptions)
     polar = rigid_polar(assumptions)
     model = KiteModel(area, mass, assumptions[:rigid_tether_length_ratio] * span,
         env.air_density, env.gravity, polar, 0.0, lift_angle(polar, 0.05),
         polar.angle_of_attack[argmax(polar.lift)] -
         deg2rad(assumptions[:kite_stall_margin]),
         assumptions[:rigid_min_turn_radius] * span, true)
-    airframe = RigidAirframe(count, mass, assumptions[:rigid_hover_power_per_mass] * mass,
-        π * model.min_turn_radius^2)
+    airframe = RigidAirframe(mass, assumptions[:rigid_hover_power_per_mass] * mass)
     return model, max_force, tether_diameter, airframe
 end
 
@@ -825,30 +813,29 @@ function rigid_wind_limits(lowest_wind, assumptions::Assumptions)
 end
 
 """
-    rigid_kites_fit(count, hull, assumptions)
+    largest_rigid_kite_area(hull, assumptions)
 
-Whether `count` perches of rigid kites of the unit area of the assumptions stand one span
-apart along the deck of `hull`.
+Area [m^2] of the largest rigid VTOL kite whose perch fits on `hull`: its span the deck
+length the rig may use, or the beam where containers stand on its deck and the perch lies
+across the forecastle.
 """
-function rigid_kites_fit(count, hull::Hull, assumptions::Assumptions)
-    span = sqrt(assumptions[:rigid_unit_area] * assumptions[:rigid_aspect_ratio])
-    return count * span <= assumptions[:deck_length_fraction] * hull.length
+function largest_rigid_kite_area(hull::Hull, assumptions::Assumptions)
+    span = hull.deck_cargo_height > 0 ? hull.beam :
+           assumptions[:deck_length_fraction] * hull.length
+    return span^2 / assumptions[:rigid_aspect_ratio]
 end
 
 """
-    rigid_kite_rig(total_area, hull, assumptions; courses=KITE_COURSES,
-                   side_weights=SIDE_WEIGHTS)
+    rigid_kite_rig(area, hull, assumptions; courses=KITE_COURSES, side_weights=SIDE_WEIGHTS)
 
-Rigid VTOL kites of about `total_area` [m^2] together on `hull`, each of the unit area of
-the assumptions and with a pattern table over `courses` [rad] and `side_weights`, or
-`nothing` where they do not fit ([`rigid_kites_fit`](@ref)).
+Rigid VTOL kite of `area` [m^2] on `hull` with a pattern table over `courses` [rad] and
+`side_weights`, towing from the hull's lateral centre, or from the bow where containers
+stand on its deck; `nothing` where it is larger than [`largest_rigid_kite_area`](@ref).
 """
-function rigid_kite_rig(total_area, hull::Hull, assumptions::Assumptions;
+function rigid_kite_rig(area, hull::Hull, assumptions::Assumptions;
         courses=KITE_COURSES, side_weights=SIDE_WEIGHTS)
-    area = assumptions[:rigid_unit_area]
-    count = max(round(Int, total_area / area), 1)
-    rigid_kites_fit(count, hull, assumptions) || return nothing
-    model, max_force, tether_diameter, airframe = rigid_kite_model(area, count, assumptions)
+    area <= largest_rigid_kite_area(hull, assumptions) || return nothing
+    model, max_force, tether_diameter, airframe = rigid_kite_model(area, assumptions)
     forces = pattern_table(model, max_force, assumptions, RIGID_WIND_SPEEDS, courses,
         side_weights)
     lowest_wind = max(lowest_flying_wind(RIGID_WIND_SPEEDS, forces),
@@ -858,8 +845,9 @@ function rigid_kite_rig(total_area, hull::Hull, assumptions::Assumptions;
         rigid_wind_limits(lowest_wind, assumptions)..., max_force,
         attach_height=assumptions[:kite_attach_height] * hull.length /
                       assumptions[:reference_length],
-        attach_position=lateral_centre(hull), wind_speeds=RIGID_WIND_SPEEDS, courses,
-        side_weights, forces, airframe)
+        attach_position=hull.deck_cargo_height > 0 ?
+                        launch_mast_position(hull, assumptions) : lateral_centre(hull),
+        wind_speeds=RIGID_WIND_SPEEDS, courses, side_weights, forces, airframe)
 end
 
 """
@@ -906,9 +894,8 @@ end
     rig_force(rig::KiteRig, env, wind_10m, true_angle, ship_speed, side_weight)
 
 Force of the best pattern for `side_weight`, interpolated in newtons over apparent wind
-speed, course and side weight, reduced by [`loop_interaction`](@ref), held to the tether
-limit and summed over the kites; no force where the kite cannot fly or the wind is below
-the table.
+speed, course and side weight and held to the tether limit; no force where the kite cannot
+fly or the wind is below the table.
 """
 function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_speed,
         side_weight)
@@ -932,9 +919,7 @@ function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_sp
         downwind += weight * load * force[1]
         crosswind += weight * load * force[2]
     end
-    lone = hypot(downwind, crosswind)
-    interaction = loop_interaction(rig, lone / (0.5env.air_density * speed^2))
-    limit = kite_count(rig) * min(interaction, rig.max_force / lone)
+    limit = min(1.0, rig.max_force / hypot(downwind, crosswind))
     thrust = limit * (crosswind * sin(angle) - downwind * cos(angle))
     side = limit * (crosswind * cos(angle) + downwind * sin(angle))
     return RigForce(thrust, side, side * rig.attach_height, side * rig.attach_position)

@@ -273,7 +273,7 @@ end
 
 "units a rig stands on deck: wings, rotors, kites and their sum over a combined rig"
 deck_units(rig::Union{WingRig, RotorRig}) = rig.count
-deck_units(rig::KiteRig) = kite_count(rig)
+deck_units(rig::KiteRig) = 1
 deck_units(rig::CombinedRig) = deck_units(rig.kite) + deck_units(rig.standing)
 deck_units(::Nothing) = 0
 
@@ -358,14 +358,19 @@ end
 """
     kite_rig_mass(rig, assumptions)
 
-Mass [kg] of a soft kite `rig` on the ship: its deck system, the kite with its control unit,
-and its tether.
+Mass [kg] of a kite `rig` on the ship: its deck system, the kite with its control unit or
+airframe, and its tether.
 """
 function kite_rig_mass(rig::KiteRig, assumptions)
-    kite = soft_kite_mass(rig.area, rig.aspect_ratio, rig.max_force, assumptions)
     tether = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
-    return sum(kite_deck_masses(rig.area, rig.max_force, assumptions)) + kite + tether
+    return sum(kite_deck_masses(rig.area, rig.max_force, assumptions)) +
+           kite_mass(rig, assumptions) + tether
 end
+
+"mass [kg] of the kite of `rig` without its tether"
+kite_mass(rig::KiteRig, assumptions) =
+    soft_kite_mass(rig.area, rig.aspect_ratio, rig.max_force, assumptions)
+kite_mass(rig::KiteRig{RigidAirframe}, assumptions) = rig.airframe.mass
 
 """
     kite_deck_masses(area, max_force, assumptions)
@@ -390,12 +395,10 @@ function kite_deck_price(area, max_force, assumptions)
 end
 
 function rig_costs(rig::KiteRig{RigidAirframe}, assumptions)
-    (; count, mass) = rig.airframe
     capital = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions)) +
               rigid_airframe_price(rig, assumptions)
     recovery = capital_recovery(assumptions[:discount_rate], assumptions[:kite_lifetime])
-    tonnes = count * (assumptions[:rigid_station_mass] + 1e-3 * mass)
-    return capital, tonnes, recovery * capital
+    return capital, 1e-3kite_rig_mass(rig, assumptions), recovery * capital
 end
 
 """
@@ -466,11 +469,10 @@ function kite_price_parts(area, max_force, assumptions)
 end
 
 function rig_price_parts(rig::KiteRig{RigidAirframe}, assumptions)
-    (; count, hover_power) = rig.airframe
-    deck = kite_deck_price(rig.area, rig.max_force, assumptions)
-    parts = (deck=count * deck, tether=count * assumptions[:rigid_tether_cost],
-        ship_power=count * assumptions[:rigid_ship_power_cost] * hover_power,
-        controls=count * assumptions[:kite_controls_cost])
+    parts = (deck=kite_deck_price(rig.area, rig.max_force, assumptions),
+        tether=rigid_tether_cost(rig.area, assumptions),
+        ship_power=assumptions[:rigid_ship_power_cost] * rig.airframe.hover_power,
+        controls=assumptions[:kite_controls_cost])
     return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
 end
 
@@ -586,34 +588,41 @@ tether_bending_cost(tether, assumptions) =
 """
     rigid_airframe_price(rig, assumptions)
 
-Market price of the kites of `rig` alone: the airframe with its propellers and drives by
+Market price of the kite of `rig` alone: the airframe with its propellers and drives by
 its mass, and avionics [USD].
 """
-function rigid_airframe_price(rig::KiteRig{RigidAirframe}, assumptions)
-    (; count, mass) = rig.airframe
-    one = assumptions[:rigid_cost_per_mass] * mass + assumptions[:rigid_avionics_cost]
-    return assumptions[:market_price_factor] * count * one
-end
+rigid_airframe_price(rig::KiteRig{RigidAirframe}, assumptions) =
+    assumptions[:market_price_factor] * (assumptions[:rigid_cost_per_mass] *
+     rig.airframe.mass + assumptions[:rigid_avionics_cost])
+
+"""
+    rigid_tether_cost(area, assumptions)
+
+Manufacturing cost [USD] of the electrified tether of a rigid VTOL kite of `area` [m^2]:
+that of MX2, grown with the force it holds times its length.
+"""
+rigid_tether_cost(area, assumptions) = assumptions[:rigid_tether_cost] *
+    (area / assumptions[:rigid_reference_area])^1.5
 
 consumable_costs(::KiteRig{RigidAirframe}, assumptions) = (0.0, 0.0)
 
 wear_cost(rig::KiteRig{RigidAirframe}, assumptions) =
-    assumptions[:rigid_upkeep_per_area] * rig.area * rig.airframe.count
+    assumptions[:rigid_upkeep_per_area] * rig.area
 
 """
     cycle_cost(rig::KiteRig{RigidAirframe}, assumptions)
 
-Cost of launching and landing all kites of `rig` once [USD]: crew time and the expected
+Cost of launching and landing the kite of `rig` once [USD]: crew time and the expected
 loss of a kite.
 """
 cycle_cost(rig::KiteRig{RigidAirframe}, assumptions) =
-    rig.airframe.count * assumptions[:kite_cycle_crew_cost] +
+    assumptions[:kite_cycle_crew_cost] +
     assumptions[:rigid_cycle_loss_probability] * lost_kite_cost(rig, assumptions)
 
 """
     lost_kite_cost(rig, assumptions)
 
-Cost of the kites of `rig` lost in the water with their tethers and, on a soft kite, its
+Cost of the kite of `rig` lost in the water with its tether and, on a soft kite, its
 control unit, at market prices [USD].
 """
 function lost_kite_cost(rig::KiteRig, assumptions)
@@ -633,8 +642,7 @@ a kite's control unit or airframe and half of its canopy and tether, on average 
 through their life when lost, or the price of one wing or rotor with its installation.
 """
 crash_cost(rig::KiteRig, assumptions) =
-    (lost_kite_cost(rig, assumptions) - sum(consumable_costs(rig, assumptions)) / 2) /
-    kite_count(rig)
+    lost_kite_cost(rig, assumptions) - sum(consumable_costs(rig, assumptions)) / 2
 
 crash_cost(rig::Union{WingRig, RotorRig}, assumptions) =
     first(rig_costs(rig, assumptions)) / deck_units(rig)
@@ -823,14 +831,6 @@ end
 
 down_rig(rig::Union{WingRig, RotorRig}, working_share) = DownRig(rig, working_share)
 down_rig(::KiteRig, working_share) = nothing
-
-function down_rig(rig::KiteRig{RigidAirframe}, working_share)
-    deck_units(rig) > 1 || return nothing
-    (; count, mass, hover_power, loop_area) = rig.airframe
-    airframe = RigidAirframe(working_share * count, mass, hover_power, loop_area)
-    parts = (getfield(rig, name) for name in fieldnames(KiteRig) if name != :airframe)
-    return KiteRig(parts..., airframe)
-end
 
 """
     service_states(rig, assumptions)
