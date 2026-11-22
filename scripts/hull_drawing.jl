@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# The paper's ship drawn from its own hull: a hull surface with the model's main dimensions
-# and form coefficients, deck, hatches and deckhouse, shaded and projected orthographically
-# from the side, from above and from ahead as the TikZ pictures of paper/figure_ship.tex.
+# The paper's ships drawn from their own hulls: a hull surface with the model's main
+# dimensions and form coefficients, deck, hatches, deck cargo and deckhouse, shaded and
+# projected orthographically: the 140 m ship from the side, from above and from ahead as
+# the TikZ pictures of paper/figure_ship.tex, and each ship class from the side in the
+# ship classes figure.
 # Included by paper.jl.
 
 """
@@ -384,33 +386,83 @@ function box_faces(low, high, colour)
         Face([(x1, y2, z1), (x1, y1, z1), (x1, y1, z2), (x1, y2, z2)], colour)]
 end
 
-"""
-    ship_faces(form, length)
+"length [m] of one hatch cover with the gap to the next"
+hatch_length = 15.0
 
-Faces of the ship of `form` and `length` [m]: hull, the hatch covers up to the rigs'
-foot height, a deckhouse aft with its wheelhouse across the beam, and the rudder.
 """
-function ship_faces(form, length)
-    half = length / 2
-    (; freeboard, foot_height, half_beam, draft) = form
+    ship_faces(form, hull, type)
+
+Faces of the ship of `form`, `hull` and ship `type`: hull, rudder and deckhouse with its
+wheelhouse across the beam, at the bridge of `hull` or aft; hatch covers up to the rigs'
+foot height and the containers of `hull` stacked on them, on all but tankers; and on a
+vehicle carrier its car decks closed up to the height of its windage, the wheelhouse on top.
+"""
+function ship_faces(form, hull, type)
+    (; length, draft, bridge_distance) = hull
     faces = hull_faces(form)
-    hatch_aft, hatch_forward = -half + 0.2length, form.forecastle - 0.03length
-    panels = 6
+    if type == "vehicle carrier"
+        top = WindShipOpt.Windage(type, length, hull.beam, 0, assumptions).lateral_area /
+              length
+        aft, forward = form.transom + 0.01length, form.forecastle
+        breadth = min(deck_half_breadth(form, aft), deck_half_breadth(form, forward))
+        append!(faces, box_faces((aft, -breadth, form.freeboard), (forward, breadth, top),
+            "ship"))
+        append!(faces, deckhouse_faces(form, length, forward - 0.08length, top,
+            top + 0.04length))
+    else
+        house_aft = isfinite(bridge_distance) ?
+                    length / 2 - bridge_distance - 0.08length : -length / 2 + 0.02length
+        house_top = max(form.freeboard + 10length / 85,
+            form.foot_height + hull.deck_cargo_height + 0.02length)
+        type in ("oil product tanker", "crude oil tanker") ||
+            append!(faces, hatch_faces(form, hull, (house_aft, house_aft + 0.08length)))
+        append!(faces, deckhouse_faces(form, length, house_aft, form.freeboard, house_top))
+    end
+    return append!(faces, box_faces((form.rudder - 0.015length, -0.004length, -0.95draft),
+        (form.rudder + 0.015length, 0.004length, -counter_depth * draft), "keel"))
+end
+
+"""
+    hatch_faces(form, hull, house)
+
+Faces of the hatch covers of the ship of `form` and `hull` up to its rigs' foot height,
+from a fifth of its length forward of the stern to its forecastle, each with the containers
+of `hull` stacked on it, leaving out those under the deckhouse from `house[1]` to `house[2]`
+[m].
+"""
+function hatch_faces(form, hull, house)
+    (; length, deck_cargo_height) = hull
+    hatch_aft, hatch_forward = -length / 2 + 0.2length, form.forecastle - 0.03length
+    panels = max(1, round(Int, (hatch_forward - hatch_aft) / hatch_length))
     pitch = (hatch_forward - hatch_aft) / panels
+    faces = Face[]
     for panel in 0:panels-1
         aft = hatch_aft + panel * pitch
-        append!(faces, box_faces((aft, -0.75half_beam, freeboard),
-            (aft + pitch - 0.004length, 0.75half_beam, foot_height), "ship"))
+        forward = aft + pitch - 0.004length
+        forward > house[1] && aft < house[2] && continue
+        append!(faces, box_faces((aft, -0.75form.half_beam, form.freeboard),
+            (forward, 0.75form.half_beam, form.foot_height), "ship"))
+        deck_cargo_height > 0 || continue
+        breadth = 0.95min(deck_half_breadth(form, aft), deck_half_breadth(form, forward))
+        append!(faces, box_faces((aft, -breadth, form.foot_height),
+            (forward, breadth, form.foot_height + deck_cargo_height), "ship"))
     end
-    house_aft, house_top = -half + 0.02length, freeboard + 10length / 85
-    house_half = 0.9deck_half_breadth(form, house_aft)
-    append!(faces, box_faces((house_aft, -house_half, freeboard),
-        (house_aft + 0.08length, house_half, house_top - 0.02length), "ship"))
-    append!(faces, box_faces((house_aft + 0.05length, -half_beam, house_top - 0.02length),
-        (house_aft + 0.08length, half_beam, house_top), "ship"))
-    append!(faces, box_faces((form.rudder - 0.015length, -0.004length, -0.95draft),
-        (form.rudder + 0.015length, 0.004length, -counter_depth * draft), "keel"))
     return faces
+end
+
+"""
+    deckhouse_faces(form, length, aft, floor, top)
+
+Faces of the deckhouse of the ship of `form` and `length` [m] from `aft` [m], standing on
+`floor` [m], its wheelhouse across the beam reaching up to `top` [m].
+"""
+function deckhouse_faces(form, length, aft, floor, top)
+    house_half = 0.9deck_half_breadth(form, aft)
+    wheelhouse = top - 0.02length
+    return [box_faces((aft, -house_half, floor),
+            (aft + 0.08length, house_half, wheelhouse), "ship");
+        box_faces((aft + 0.05length, -form.half_beam, wheelhouse),
+            (aft + 0.08length, form.half_beam, top), "ship")]
 end
 
 """
@@ -451,22 +503,34 @@ function brightness(lit)
 end
 
 """
-    shade(colour, brightness)
+    shade_mix(brightness)
 
-xcolor expression of the figure style `colour` at `brightness` [-]: mixed with black below
-1 and with white above it, in steps of 3 %.
+Share [%] of a colour at `brightness` [-] and the colour it is mixed with: black below 1
+and white above it, in steps of 3 %.
 """
-function shade(colour, brightness)
+function shade_mix(brightness)
     level = round(Int, 100brightness / 3) * 3
-    level <= 100 && return "$(colour)!$(level)!black"
-    return "$(colour)!$(200 - level)!white"
+    return level <= 100 ? (level, "black") : (200 - level, "white")
+end
+
+"xcolor expression of the figure style `colour` at `brightness` [-] by [`shade_mix`](@ref)"
+function shade(colour, brightness)
+    share, other = shade_mix(brightness)
+    return "$(colour)!$(share)!$(other)"
+end
+
+"Makie colour of the figure style `colour` at `brightness` [-] by [`shade_mix`](@ref)"
+function shaded(colour, brightness)
+    share, other = shade_mix(brightness)
+    return Makie.Colors.weighted_color_mean(share / 100, style_colour(colour),
+        parse(Makie.Colors.Colorant, other))
 end
 
 """
     projected(faces, view)
 
 The faces in `faces` seen in `view`, back to front, as their corners across and up the
-page [m] and their shaded colour.
+page [m], their figure style colour and their [`brightness`](@ref).
 """
 function projected(faces, view)
     right, up, towards = views[view]
@@ -479,7 +543,7 @@ function projected(faces, view)
         normal = face_normal(face)
         lit = dot3((dot3(normal, right), dot3(normal, up), dot3(normal, towards)), light)
         corners = [(dot3(corner, right), dot3(corner, up)) for corner in face.corners]
-        (corners, shade(face.colour, brightness(lit)))
+        (corners, face.colour, brightness(lit))
     end
 end
 
@@ -545,12 +609,29 @@ end
 
 "`faces` drawn by the PGF macros of paper/figure_ship.tex, each on one line"
 function tikz_faces(io, faces)
-    for (corners, colour) in faces
-        print(io, "\\hullface{", colour, "}")
+    for (corners, colour, brightness) in faces
+        print(io, "\\hullface{", shade(colour, brightness), "}")
         for (i, corner) in enumerate(corners)
             @printf(io, "\\hull%s{%.2f}{%.2f}", i == 1 ? "move" : "line", corner...)
         end
         println(io, "\\hullfill")
+    end
+end
+
+"""
+    check_drawn_hull(form, hull)
+
+Error unless the block, midship and waterplane coefficients of the drawn `form` are within
+1 % of those of `hull`.
+"""
+function check_drawn_hull(form, hull)
+    drawn = drawn_coefficients(form, hull)
+    model = (block=WindShipOpt.block_coefficient(hull), midship=hull.midship_coefficient,
+        waterplane=hull.waterplane_coefficient)
+    for name in keys(model)
+        abs(drawn[name] / model[name] - 1) < 0.01 ||
+            error("the $(hull.length) m drawn hull's $name coefficient $(drawn[name]) is ",
+                "not the model's ", model[name])
     end
 end
 
@@ -560,23 +641,13 @@ end
 Write paper/figure_ship.tex: the 140 m ship of the model as the TikZ pictures `ship side`,
 `ship above` and `ship ahead`, the last heeled by its argument [deg] with the keel colour
 below the level waterline, in metres about midship on the waterline, with each view's
-faces in paper/ship/, and the macros of its foot height and its bow; error unless the
-drawn hull's block, midship and waterplane coefficients are within 1 % of the model's.
+faces in paper/ship/, and the macros of its foot height and its bow, once
+[`check_drawn_hull`](@ref) passes.
 """
 function ship_pictures_file()
     hull = Hull(140.0, assumptions)
-    drawn = drawn_coefficients(paper_ship, hull)
-    model = (block=WindShipOpt.block_coefficient(hull), midship=hull.midship_coefficient,
-        waterplane=hull.waterplane_coefficient)
-    @printf("drawn hull: block %.3f (%.3f), midship %.3f (%.3f), waterplane %.3f (%.3f)\n",
-        drawn.block, model.block, drawn.midship, model.midship, drawn.waterplane,
-        model.waterplane)
-    for name in keys(model)
-        abs(drawn[name] / model[name] - 1) < 0.01 ||
-            error("the drawn hull's $name coefficient $(drawn[name]) is not the model's ",
-                model[name])
-    end
-    faces = ship_faces(paper_ship, hull.length)
+    check_drawn_hull(paper_ship, hull)
+    faces = ship_faces(paper_ship, hull, "general cargo")
     folder = mkpath(joinpath(root, "paper", "ship"))
     for view in keys(views)
         write_whole(io -> tikz_faces(io, projected(faces, view)),

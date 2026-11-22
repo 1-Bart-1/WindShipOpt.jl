@@ -354,8 +354,8 @@ end
 Anchor and point [mm] of the label of `force` among `forces`. Across the ship: past the
 head of an arrow shorter than its label, else against the hull above the arrow, or below
 it where another force across to the same side acts just forward, or, with none such,
-where a force along the ship leaves the same point. Along the ship: to windward of the hull, level with the head
-of the arrow or just above a mark.
+where a force along the ship leaves the same point. Along the ship: to windward of the
+hull, level with the head of the arrow or just above a mark.
 """
 function label_place(force, forces)
     tail, head = arrow_ends(force)
@@ -512,47 +512,33 @@ function force_balance_key(io, left, top)
 end
 
 """
-    hull_profile(hull, deck_height)
+    draw_ship!(axis, faces, offset)
 
-Points of `hull` seen from the side, bow to the right and midship at the origin: keel at
-the draft below the waterline, deck at `deck_height` [m] above it, a raked bow and a
-transom stern.
+The ship whose faces [`projected`](@ref) returns as `faces`, shifted by `offset` [m], each
+face in its shade with a seam of the same colour.
 """
-function hull_profile(hull, deck_height)
-    half = hull.length / 2
-    return Point2f[(-half, deck_height), (half + 0.03hull.length, deck_height),
-        (half, 0), (half - 0.02hull.length, -hull.draft), (-half + 0.04hull.length,
-            -hull.draft), (-half, -0.3hull.draft)]
+function draw_ship!(axis, faces, offset)
+    polygons = [[Point2f(corner .+ offset) for corner in corners]
+                for (corners, _, _) in faces]
+    colours = [shaded(colour, brightness) for (_, colour, brightness) in faces]
+    poly!(axis, polygons; color=colours, strokecolor=colours,
+        strokewidth=pt(figure_style["sizes"]["seam"]))
 end
 
 """
-    draw_ship!(axis, hull, offset)
+    draw_side_rig!(axis, rig, hull, form, offset)
 
-Side view of `hull` shifted by `offset` [m]: hull and a deckhouse aft, 10 m tall at the
-reference length, with the deck at the height above the waterline at which the model
-stands rigs on it.
+Side view of the wing or rotor `rig` on `hull` of lines `form` shifted by `offset` [m]:
+each unit as its height times its chord or diameter, standing at its foot height on a
+foundation of its width from the deck below it.
 """
-function draw_ship!(axis, hull, offset)
-    scale = hull.length / assumptions[:reference_length]
-    deck = assumptions[:deck_mount_height] * scale
-    house = 10.0scale
-    poly!(axis, hull_profile(hull, deck) .+ Point2f(offset); color=:gray80,
-        strokecolor=:black, strokewidth=0.5)
-    half = hull.length / 2
-    poly!(axis, Rect2f(Point2f(offset) + Point2f(-half + 0.02hull.length, deck),
-            Vec2f(0.08hull.length, house)); color=:gray80, strokecolor=:black,
-        strokewidth=0.5)
-end
-
-"""
-    draw_side_rig!(axis, rig, hull, offset)
-
-Side view of the wing or rotor `rig` on `hull` shifted by `offset` [m]: each unit as its
-height times its chord or diameter, standing at its foot height.
-"""
-function draw_side_rig!(axis, rig, hull, offset)
+function draw_side_rig!(axis, rig, hull, form, offset)
     width = rig isa WingRig ? rig.area / rig.height : rig.diameter
     for (position, _) in WindShipOpt.unit_positions(rig, hull, assumptions)
+        deck = deck_height(form, position)
+        poly!(axis, Rect2f(Point2f(offset) + Point2f(position - width / 2, deck),
+                Vec2f(width, max(rig.foot_height - deck, 0.0)));
+            color=style_colour("ship"), strokewidth=0)
         poly!(axis, Rect2f(Point2f(offset) + Point2f(position - width / 2,
                     rig.foot_height), Vec2f(width, rig.height));
             color=rig_colour(deck_rig_name(rig)),
@@ -609,35 +595,31 @@ function ship_classes_figure()
     routes_seen = unique(table["route"])
     longest = maximum(classes[name].length for name in names)
     gap = 0.22longest
-    rows = map(names) do name
-        areas = [mean_best_area(table, name, routes_seen, kind) for kind in rig_names]
-        return (name, Hull(classes[name], assumptions), areas,
-            built_rig.(Ref(classes[name]), rig_names, areas))
-    end
+    rows = [drawn_class(name, classes[name], table, routes_seen) for name in names]
     margin = 75.0
-    tops = cumsum([draw_height(hull, first(areas), rigs) + hull.draft + margin
-                   for (_, hull, areas, rigs) in rows])
+    tops = cumsum([draw_height(hull, faces, first(areas), rigs) + hull.draft + margin
+                   for (_, hull, _, faces, areas, rigs) in rows])
     width = length(rig_names) * longest + (length(rig_names) - 1) * gap
     figure = Figure(size=(page_width, page_width * (last(tops) + 20) / (1.45width)))
     axis = Axis(figure[1, 1]; aspect=DataAspect())
     hidedecorations!(axis)
     hidespines!(axis)
-    for (row, (name, hull, areas, rigs)) in enumerate(rows)
+    for (row, (name, hull, form, faces, areas, rigs)) in enumerate(rows)
         y = -tops[row] + hull.draft + margin
         for (column, (kind, area, rig)) in enumerate(zip(rig_names, areas, rigs))
             offset = ((column - 1) * (longest + gap) + longest / 2, y)
-            draw_ship!(axis, hull, offset)
+            draw_ship!(axis, faces, offset)
             isfinite(area) || continue
             if kind == "kite"
                 draw_side_kite!(axis, area, hull, offset)
             else
-                isnothing(rig) || draw_side_rig!(axis, rig, hull, offset)
+                isnothing(rig) || draw_side_rig!(axis, rig, hull, form, offset)
             end
             text!(axis, offset[1] - hull.length / 2, y - hull.draft;
                 text=area_label(area), align=(:left, :top), offset=(0, -pt(2)),
                 fontsize=note_size, color=:gray40)
         end
-        text!(axis, -0.06longest, y; text=name, align=(:right, :center))
+        text!(axis, -0.09longest, y; text=name, align=(:right, :center))
     end
     for (column, title) in enumerate(rig_label.(rig_names))
         text!(axis, (column - 1) * (longest + gap) + longest / 2, 10; text=title,
@@ -649,6 +631,22 @@ function ship_classes_figure()
         offset=(0, 2), fontsize=note_size)
     limits!(axis, -0.36width, 1.02width, -last(tops) - 15, 80)
     save_figure("ship_classes", figure)
+end
+
+"""
+    drawn_class(name, class, table, routes)
+
+What [`ship_classes_figure`](@ref) draws of ship `class` called `name`: its hull, its lines,
+their faces seen from the side, and the area of each rig of [`mean_best_area`](@ref) over
+`routes` in `table` with the rig the model builds of it.
+"""
+function drawn_class(name, class, table, routes)
+    areas = [mean_best_area(table, name, routes, kind) for kind in rig_names]
+    hull = Hull(class, assumptions)
+    form = HullForm(hull, assumptions)
+    check_drawn_hull(form, hull)
+    faces = projected(ship_faces(form, hull, class.type), :side)
+    return (name, hull, form, faces, areas, built_rig.(Ref(class), rig_names, areas))
 end
 
 "`area` [m^2] as a LaTeX label to three significant digits, its digits grouped"
@@ -680,13 +678,14 @@ function built_rig(class, kind, area)
 end
 
 """
-    draw_height(hull, kite_area, rigs)
+    draw_height(hull, faces, kite_area, rigs)
 
-Height [m] above the waterline of the top of what [`ship_classes_figure`](@ref) draws on
-`hull`: the kite of `kite_area` [m^2] and the deck `rigs`.
+Height [m] above the waterline of the top of what [`ship_classes_figure`](@ref) draws of
+`hull`: its projected `faces`, the kite of `kite_area` [m^2] and the deck `rigs`.
 """
-function draw_height(hull, kite_area, rigs)
-    tops = Float64[rig.foot_height + rig.height for rig in rigs if !isnothing(rig)]
+function draw_height(hull, faces, kite_area, rigs)
+    tops = [maximum(last, corners) for (corners, _, _) in faces]
+    append!(tops, rig.foot_height + rig.height for rig in rigs if !isnothing(rig))
     isfinite(kite_area) && push!(tops, side_kite(kite_area, hull).top)
     return maximum(tops; init=0.0)
 end
