@@ -3185,11 +3185,11 @@ kite_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost, :canopy_struct
 "the price inputs of each rig, the kite's [`kite_price_inputs`](@ref)"
 rig_price_inputs = Dict("kite" => kite_price_inputs,
     "wings" => (:wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction,
-        :market_price_factor),
+        :camera_system_cost, :market_price_factor),
     "rotors" => (:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
-        :market_price_factor),
+        :welded_steel_cost_per_mass, :camera_system_cost, :market_price_factor),
     "suction" => (:wing_unit_cost, :suction_cost_per_mass, :suction_mass_per_area,
-        :wing_installation_fraction, :market_price_factor))
+        :wing_installation_fraction, :camera_system_cost, :market_price_factor))
 
 """
     compared_kite(kind, inputs)
