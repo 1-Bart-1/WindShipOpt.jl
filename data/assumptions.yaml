@@ -515,6 +515,34 @@ steel_density:
   unit: kg/m^3
   source: "@joshi2025 [Table 6]: steel"
   reason: "Density of steel [@joshi2025, Table 6]."
+steel_modulus:
+  value: 206000.0
+  low: 206000.0
+  high: 206000.0
+  unit: MPa
+  source: "@bv2026nr206 [Sec 5, Tab 1, Note 1]: carbon steel"
+  reason: "Young's modulus of the carbon steel of a wind propulsion system's structure, with a Poisson's ratio of 0.3 [@bv2026nr206, Sec 5, Tab 1, Note 1]."
+pedestal_stiffener_spacing:
+  value: 0.76
+  low: 0.6
+  high: 0.8
+  unit: m
+  source: "@souadji2012 [Tables A.6.2-A.6.3]: frame spacing"
+  reason: "Spacing of the stiffeners on a rotor pedestal's wall, the width of a plate panel that must not buckle: the 0.76 m frame spacing of a 3100 TEU design [@souadji2012, Tables A.6.2-A.6.3]; authors' estimate of the bounds."
+pedestal_min_frequency:
+  value: 0.3
+  low: 0.2
+  high: 0.5
+  unit: Hz
+  source: "Authors' estimate: above the ship's motions in waves"
+  reason: "Lowest first natural frequency of a raised rotor on its pedestal, kept above the ship's motions: a tenth above waves met every 4 s, the shortest that move a ship of 150 m or more, and far above MARIN's 18.3 s roll [@marin2025feeder, Table 2-1]; authors' estimate."
+cross_deck_depth:
+  value: 4.0
+  low: 2.5
+  high: 4.5
+  unit: m
+  source: "@souadji2012 [nomenclature, Sec 4.3.3]: second deck under the cross deck"
+  reason: "Depth of the cross deck between two hatches, from the upper deck down to the second deck, where the cross tier and the transverse bulkhead below it take a rotor pedestal's foot load: in a 3100 TEU design, 18.7 m deep, the stringers stand a tier apart, 2.595 m, from 4.295 m, so the second deck lies at 14.68 m, 4.0 m below the deck [@souadji2012]; authors' estimate of the bounds."
 shadow_calm_height:
   value: 0.6
   low: 0.5

@@ -347,26 +347,62 @@ unit_mass(rig::Union{WingRig, RotorRig}, assumptions) =
 
 Steel mass [t] of the pedestal under each rotor of `rig`, zero for units on deck: a
 stiffened box column, `bay_gap` deep along the ship and as wide as the rotor, from the deck
-to the rotor foot. At the allowable stress, its wall at the deck carries the moments, about
-the rotor's mid height, of the rotor's peak wind force along the ship and of its mass in the
-design acceleration across it, each times its load factor.
+to the rotor foot, its wall continued down through the cross deck as its foundation, of the
+[`pedestal_wall`](@ref) thickness.
 """
 pedestal_mass(::WingRig, assumptions) = 0.0
 
 function pedestal_mass(rig::RotorRig, assumptions)
     rig.pedestal_height > 0 || return 0.0
+    length = rig.pedestal_height + assumptions[:cross_deck_depth]
+    return 1e-3pedestal_wall_mass(rig, assumptions) * length * pedestal_wall(rig, assumptions)
+end
+
+"mass [kg] per m of height and m of wall thickness of the pedestals of `rig`"
+pedestal_wall_mass(rig::RotorRig, assumptions) =
+    (1 + assumptions[:pedestal_stiffener_share]) * assumptions[:steel_density] *
+    2(assumptions[:bay_gap] + rig.diameter)
+
+"""
+    pedestal_wall(rig, assumptions)
+
+Wall thickness [m] of the pedestal under each rotor of `rig`, the thickest of three: the
+wall that carries, at the allowable stress, the moments at the deck about the rotor's mid
+height of its peak wind force along the ship and of its mass in the design acceleration
+across it, each times its load factor; the wall whose plating between stiffeners does not
+buckle under them; and the wall that holds the first natural frequency of the pedestal
+along the ship, with the rotor on top, at `pedestal_min_frequency`.
+"""
+function pedestal_wall(rig::RotorRig, assumptions)
     depth, width = assumptions[:bay_gap], rig.diameter
     arm = rig.pedestal_height + rig.height / 2
+    rotor_mass = 1e3unit_mass(rig, assumptions)
     wind = assumptions[:rig_wind_load_factor] * arm * rig.height * rig.diameter *
            rotor_peak_pressure(rig, assumptions[:air_density])
-    inertia = assumptions[:rig_inertia_load_factor] * arm * 1e3unit_mass(rig, assumptions) *
+    inertia = assumptions[:rig_inertia_load_factor] * arm * rotor_mass *
               assumptions[:rig_design_acceleration]
-    bending = wind / (depth * (depth / 3 + width)) + inertia / (width * (width / 3 + depth))
-    wall = bending / (1e6assumptions[:pedestal_allowable_stress])
-    plating = 2(depth + width) * wall * rig.pedestal_height
-    return 1e-3(1 + assumptions[:pedestal_stiffener_share]) * assumptions[:steel_density] *
-           plating
+    load = wind / (depth * (depth / 3 + width)) + inertia / (width * (width / 3 + depth))
+    modulus = 1e6assumptions[:steel_modulus]
+    strength = load / (1e6assumptions[:pedestal_allowable_stress])
+    buckling = cbrt(load * assumptions[:pedestal_stiffener_spacing]^2 /
+                    (π^2 * modulus / (3(1 - 0.3^2))))
+    omega = 2π * assumptions[:pedestal_min_frequency]
+    compliance = pedestal_compliance(rig.pedestal_height, rig.height / 2)
+    bending = depth^2 * (width / 2 + depth / 6)
+    stiffness = omega^2 * compliance * rotor_mass /
+                (modulus * bending -
+                 omega^2 * compliance * 0.24pedestal_wall_mass(rig, assumptions) *
+                 rig.pedestal_height)
+    return max(strength, buckling, stiffness > 0 ? stiffness : Inf)
 end
+
+"""
+    pedestal_compliance(height, arm)
+
+Deflection [m^4, times the bending stiffness EI] of a cantilever column `height` [m] tall
+under a unit force on a rigid extension `arm` [m] above its top, at that force.
+"""
+pedestal_compliance(height, arm) = height^3 / 3 + arm * height^2 + arm^2 * height
 
 "unit of the wings, rotors or suction sails of `rig`, naming their assumptions"
 deck_unit(rig::WingRig) = rig.unit
