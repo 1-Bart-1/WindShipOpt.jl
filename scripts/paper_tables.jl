@@ -220,12 +220,13 @@ input_derivations = Dict(
     (Symbol(unit, :_, name) => "app:size_laws" for unit in (:wing, :rotor, :suction)
      for name in (:mass_exponent, :reference_height))...,
     :rotor_unit_cost => "app:prices", :rotor_cost_per_area => "app:prices",
-    :rigid_mass_per_area => "sec:det_rigid", :rigid_hover_power_per_mass => "sec:det_rigid",
+    :rigid_mass => "sec:det_rigid", :rigid_mass_exponent => "sec:det_rigid",
+    :rigid_hover_power_per_mass => "sec:det_rigid",
     :rigid_drag => "sec:det_rigid", :rigid_min_turn_radius => "sec:det_rigid",
     :rigid_tether_length_ratio => "sec:det_rigid",
     :rigid_hover_max_wave_height => "sec:det_rigid",
     :rigid_cost_per_mass => "sec:det_rigid", :rigid_avionics_cost => "sec:det_rigid",
-    :rigid_tether_cost => "sec:det_rigid", :rigid_station_mass => "sec:det_rigid",
+    :rigid_tether_cost => "sec:det_rigid",
     :rigid_upkeep_per_area => "sec:det_rigid",
     :tether_stress => "sec:det_kite", :tether_length_ratio => "sec:det_kite",
     :kite_min_turn_radius => "sec:det_kite", :control_unit_mass_per_force => "sec:det_kite",
@@ -331,7 +332,7 @@ end
 
 "heading of each group of the development table, by the rig of its inputs"
 development_groups = ["kite" => "Kite", "wings" => "Wing sails", "rotors" => "Rotors",
-    "suction" => "Suction sails", "every rig" => "Every rig",
+    "suction" => "Suction sails", "vtol" => "VTOL kite", "every rig" => "Every rig",
     "condition" => "Conditions"]
 
 """
@@ -683,7 +684,7 @@ function crash_limit_rows()
             limits = [size_limits(table, row, bare, rival, rival_cost) for row in swept]
             sizes = [@sprintf("%.0f m²: %.1f %%, %s/year", limit.area, limit.saving,
                          crash_cell(first(limit.crashes))) for limit in limits]
-            println(ship, ", ", paper_name(rig), " by size: ", join(sizes, "; "))
+            println(ship, ", ", rig_label(rig), " by size: ", join(sizes, "; "))
         end
     end
     return result
@@ -744,12 +745,12 @@ function missed_goals_table()
                      100 .* row.share...]
             limits = [shaded_cell(margin[k], margin_scales[k]; shown=shown[k],
                           format="%.0f") for k in 1:6]
-            cells = [short_ship(row.ship); table_rig(row.rig); estimate_text(row.area);
-                     shaded_cell(row.saving, saving_scale); table_rig(row.rival);
+            cells = [short_ship(row.ship); rig_label(row.rig); estimate_text(row.area);
+                     shaded_cell(row.saving, saving_scale); rig_label(row.rival);
                      shaded_cell(row.lead, lead_scale; format="\\(%+.1f\\)"); limits]
             println(io, join(cells, " & "), " \\\\")
             @printf("%s, %s: %.1f %% at half the life goal, %.1f %% at the top price, ",
-                row.ship, paper_name(row.rig), row.saving_short, row.saving_dear)
+                row.ship, rig_label(row.rig), row.saving_short, row.saving_dear)
             @printf("outages cost %.2f points, passes the next up at %s h, USD %s, ",
                 row.service_points, dash_cell(row.passes, "%.0f"),
                 dash_cell(row.passes_price, "%.0f"))
@@ -777,16 +778,14 @@ function missed_goals_table()
             crash = @sprintf("%s (%s--%s)",
                 estimate_text.([row.crash; row.crash_range] ./ 1e3)...)
             @printf(io, "%s & %s & %s & %s & %s & %s & %s & %s & %s \\\\\n",
-                short_ship(row.ship), table_rig(row.rig), estimate_text(row.area),
-                shaded_cell(row.saving, saving_scale), table_rig(row.rival), crash,
+                short_ship(row.ship), rig_label(row.rig), estimate_text(row.area),
+                shaded_cell(row.saving, saving_scale), rig_label(row.rival), crash,
                 crashes..., flight)
         end
         println(io, "\\bottomrule\n\\end{tabular}}")
     end
 end
 
-"`rig` as a table names it"
-table_rig(rig) = rig_label(paper_name(rig))
 
 "`ship` without its type, for a table column"
 short_ship(ship) = replace(ship, " bulk carrier" => "", " container ship" => "")
@@ -1237,7 +1236,7 @@ end
 
 "input of each rig holding its life [years]"
 lifetime_inputs = Dict("kite" => :kite_lifetime, "wings" => :wing_lifetime,
-    "rotors" => :rotor_lifetime, "suction" => :suction_lifetime)
+    "rotors" => :rotor_lifetime, "suction" => :suction_lifetime, "vtol" => :kite_lifetime)
 
 """
     payback_years(table, class, drive, route, rig)
@@ -2246,56 +2245,6 @@ saving_phrase(savings) = all(<(0), savings) ?
                          "saves $(point_range(savings))\\,\\%"
 
 """
-    rigid_numbers_file()
-
-Write the [`rigid_numbers`](@ref) the paper and its extended abstract state as LaTeX macros
-`\\Num...` to paper/sections/rigid_numbers.tex, marked at draft fidelity.
-"""
-function rigid_numbers_file()
-    draft = paper_run.fidelity != :final
-    open(joinpath(sections, "rigid_numbers.tex"), "w") do io
-        for (name, text) in rigid_numbers()
-            print(io, number_macro(name, text, draft))
-        end
-    end
-end
-
-"""
-    rigid_numbers()
-
-Name and text of the numbers of the VTOL kite studies: from rigid_cost.csv the mass, hover
-power and prices of one VTOL kite at base inputs, the thrust and price per thrust of it and
-of the soft kite it is compared with, and the ratio of their yearly costs per thrust; from
-rigid_kite.csv the cost saving of the VTOL kite at base inputs on each route.
-"""
-function rigid_numbers()
-    kites = read_table(data_file("rigid_cost.csv"))
-    trips = read_table(data_file("rigid_kite.csv"))
-    row(kind) = only(rows(kites, "kind" => kind))
-    rounded(value) = @sprintf("\\num{%.0f}", round(value, sigdigits=3))
-    per_thrust(value, row) = 1e3value / kites["thrust"][row]
-    yearly(row) = per_thrust(sum(kites[part][row] for part in ("capital", "flight",
-        "launches")), row)
-    wing, kite = row("rigid base"), row("soft")
-    numbers = ["RigidMass" => @sprintf("%.2f", 1e-3kites["mass"][wing]),
-        "RigidHover" => @sprintf("%.2f", 1e-6kites["hover_power"][wing]),
-        "RigidAirframePrice" => @sprintf("%.2f", 1e-6kites["airframe"][wing]),
-        "RigidStationPrice" => @sprintf("%.2f", 1e-6kites["station"][wing]),
-        "RigidPrice" => @sprintf("%.2f", 1e-6kites["price"][wing]),
-        "RigidThrust" => @sprintf("%.0f", 1e-3kites["thrust"][wing]),
-        "RigidPricePerThrust" => rounded(per_thrust(kites["price"][wing], wing)),
-        "RigidSoftThrust" => @sprintf("%.0f", 1e-3kites["thrust"][kite]),
-        "RigidSoftPricePerThrust" => rounded(per_thrust(kites["price"][kite], kite)),
-        "RigidCostRatio" => @sprintf("%.1f", yearly(wing) / yearly(kite))]
-    for (route, word) in zip(pair_routes, ("Guadeloupe", "Bilbao"))
-        savings = [rig_savings(trips, ["rigid base"], "ship" => ship,
-            "route" => string(route))["rigid base"] for ship in pair_classes]
-        push!(numbers, "RigidRouted$(word)Rigid" => saving_phrase(savings))
-    end
-    return numbers
-end
-
-"""
     goal_numbers()
 
 Name and text of the goals the abstracts state: canopy life, the canopy price with its
@@ -2767,7 +2716,7 @@ life_limit_text(life) = isnan(life) ? "--" : @sprintf("\\num{%.0f}", 100round(li
 Name and text, from the [`rig_lead_rows`](@ref) of the class table `table`, of the
 [`verdict_text`](@ref) of each of `verdict_groups`, the [`advice_text`](@ref), the
 [`brief_advice_text`](@ref), the [`highlight_text`](@ref), the [`places`](@ref) the wing
-sails are advised, per drive the [`answer_text`](@ref) and the [`answer_ranges`](@ref),
+sails are advised, per drive the [`answer_ranges`](@ref),
 and on container ships per drive where the kite falls behind the rotors.
 """
 function rig_lead_numbers(table)
@@ -2778,8 +2727,7 @@ function rig_lead_numbers(table)
         "WingsAdvised" => isempty(wings) ? "on no ship type" : places(wings, rows)]
     for (drive, word) in drive_words
         own = filter(row -> row.drive == drive, rows)
-        push!(numbers, "Answer$word" => answer_text(own),
-            ("Answer$name$word" => text for (name, text) in answer_ranges(own))...)
+        push!(numbers, ("Answer$name$word" => text for (name, text) in answer_ranges(own))...)
     end
     for (word, types, drives) in verdict_groups
         push!(numbers, "Verdict$word" =>
@@ -2815,7 +2763,8 @@ highlight_limit = 85
 
 "names of the rigs in the text, with the verb a rig leads by"
 rig_subjects = Dict("kite" => ("the kite", "leads"), "wings" => ("the wing sails", "lead"),
-    "rotors" => ("the rotors", "lead"), "suction" => ("the suction sails", "lead"))
+    "rotors" => ("the rotors", "lead"), "suction" => ("the suction sails", "lead"),
+    "vtol" => ("the VTOL kite", "leads"))
 
 """
     listed(items)
@@ -2948,7 +2897,7 @@ rig_name(rig, short) = short ? rig_short_names[rig] : first(rig_subjects[rig])
 
 "names of the rigs in the shortest text"
 rig_short_names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "rotors",
-    "suction" => "suction sails")
+    "suction" => "suction sails", "vtol" => "VTOL kite")
 
 """
     advice(lead; short=false)
@@ -3059,40 +3008,6 @@ end
 
 "the rig that leads in a [`rig_lead`](@ref) `lead`, or the two that are level"
 advised_rigs(lead) = lead.verdict == "leads" ? [lead.rig] : rig_pair(lead)
-
-"""
-    saved_figures(saved, drive)
-
-Text of the range of `saved` savings a ship a year: the share [%] of the cost per tonne-km,
-the US dollars and, on VLSFO, the tonnes of CO2.
-"""
-function saved_figures(saved, drive)
-    figures = [value_range(getproperty.(saved, :share), whole_number) * "\\,\\%",
-        "USD~" * value_range(1e-6getproperty.(saved, :saved), two_digits) * " million"]
-    drive == "vlsfo" && push!(figures,
-        value_range(1e-6getproperty.(saved, :carbon), two_digits) * "~t of CO\$_2\$")
-    return listed(figures)
-end
-
-"""
-    answer_clause(row)
-
-Text of the [`advice`](@ref) of rig lead `row` of [`rig_lead_rows`](@ref) on its ship type,
-with the [`saved_figures`](@ref) of its [`advised_savings`](@ref).
-"""
-function answer_clause(row)
-    ships = lowercase(row.label)
-    row.verdict == "none" && return "no rig on $ships, where none clearly saves"
-    return "$(advice(row)) on $ships, $(saved_figures(advised_savings(row), row.drive))"
-end
-
-"""
-    answer_text(rows)
-
-Text of the [`answer_clause`](@ref) of each of rig lead `rows` of one drive, in the order of
-`ship_types`.
-"""
-answer_text(rows) = join(answer_clause.(rows), "; ")
 
 """
     highlight_text(rows)

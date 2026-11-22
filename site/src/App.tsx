@@ -68,7 +68,7 @@ function Explorer({ data }: { data: ExplorerData }) {
   return (
     <main className="mx-auto max-w-[1120px] space-y-10 px-5 py-8 md:px-8">
       <header className="space-y-2">
-        <h1 className="text-5xl md:text-7xl leading-[0.9]">Towing kites, wing sails, Flettner rotors and suction sails on cargo ships</h1>
+        <h1 className="text-5xl md:text-7xl leading-[0.9]">Towing kites, wing sails, Flettner rotors, suction sails and VTOL kites on cargo ships</h1>
         <p className="text-ink">
           Pick a ship, a route and a fuel, change the inputs, and see what each rig saves at its best size.
           Results read: if each rig reaches these goals, it saves this much. Set the goals to what is known
