@@ -215,9 +215,10 @@ input_derivations = Dict(
     :waterline_length_ratio => "sec:det_ships",
     :propeller_diameter_ratio => "sec:det_ships", :part_load_penalty => "sec:det_ships",
     :source_sea_margin => "app:calm_calibration",
-    :wing_max_height => "sec:det_deck", :wing_abreast_loss => "sec:det_deck",
-    :deck_length_fraction => "sec:det_deck", :rotor_max_height => "sec:det_deck",
-    :rotor_abreast_loss => "sec:det_deck", :wing_pedestal_width => "sec:det_deck",
+    :wing_abreast_loss => "sec:det_deck", :deck_length_fraction => "sec:det_deck",
+    :rotor_abreast_loss => "sec:det_deck",
+    (Symbol(unit, :_, name) => "app:size_laws" for unit in (:wing, :rotor, :suction)
+     for name in (:mass_exponent, :reference_height))...,
     :rotor_unit_cost => "app:prices", :rotor_cost_per_area => "app:prices",
     :rigid_mass => "sec:det_rigid", :rigid_mass_exponent => "sec:det_rigid",
     :rigid_hover_power_per_mass => "sec:det_rigid",
