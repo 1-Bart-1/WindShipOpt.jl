@@ -431,20 +431,13 @@ deck_length_fraction:
   unit: "-"
   source: "Authors' estimate; @han2025; @mboumba2022: published deck layouts"
   reason: "Authors' estimate: share of the ship's length between forecastle and deckhouse that a row or column of rigs can use; an MR tanker has 140 m of upper deck on 182 m [@han2025], a CFD layout of five wing sails on a Kamsarmax spans 165 of 222 m [@mboumba2022]."
-bow_unit_position:
+bow_mast_position:
   value: 0.06
-  low: 0.05
-  high: 0.08
-  unit: "-"
-  source: "@cfr46_part42 [42.20-70]: forecastle at least 0.07 L; authors' estimate"
-  reason: "Distance of the one unit on a container ship from the bow over the ship's length: on the forecastle, which the load line rules make at least 0.07 L long where it gives the bow height [@cfr46_part42, 42.20-70], behind the anchor and mooring gear at its fore end; authors' estimate, Maersk's 35 m rotor stands there on a 300 m ship [@maritimeexec2026maersk]."
-bow_room:
-  value: 0.04
-  low: 0.03
+  low: 0.06
   high: 0.06
   unit: "-"
-  source: "Authors' estimate: forecastle less its mooring gear"
-  reason: "Length along the forecastle free for one rig unit between the anchor and mooring gear and the first bay of containers, over the ship's length: a forecastle of 0.07-0.10 L [@cfr46_part42, 42.20-70] less the windlasses and mooring winches at its fore end; authors' estimate, 12 m on a 300 m ship, where Maersk fits a 5 m rotor [@maritimeexec2026maersk]."
+  source: "@cfr46_part42 [42.20-70]: forecastle at least 0.07 L; authors' estimate"
+  reason: "Distance of a kite's launch mast on a container ship from the bow over the ship's length: on the forecastle, ahead of the first bay of containers, which the load line rules make at least 0.07 L long where it gives the bow height [@cfr46_part42, 42.20-70], behind the anchor and mooring gear at its fore end; authors' estimate, where Maersk's 35 m rotor stands on a 300 m ship [@maritimeexec2026maersk]."
 blind_sector_limit:
   value: 5.0
   low: 5.0
@@ -557,20 +550,6 @@ cross_deck_depth:
   unit: m
   source: "@souadji2012 [nomenclature, Sec 4.3.3]: second deck under the cross deck"
   reason: "Depth of the cross deck between two hatches, from the upper deck down to the second deck, where the cross tier and the transverse bulkhead below it take a rotor pedestal's foot load: in a 3100 TEU design, 18.7 m deep, the stringers stand a tier apart, 2.595 m, from 4.295 m, so the second deck lies at 14.68 m, 4.0 m below the deck [@souadji2012]."
-shadow_calm_height:
-  value: 0.6
-  low: 0.5
-  high: 0.8
-  unit: "-"
-  source: "@hosker1981; @krajnovic2002 [Fig. 7]: wake of a block"
-  reason: "Height over the stack height below which the lee of the container stacks is calm: a block's cavity is as tall as the block and as long as 1.75 W/H/(1 + 0.25 W/H) heights, over two for a stack the ship's beam wide [@hosker1981], so a bow unit stands inside it; one height behind a cube the mean wind is near zero up to half its height and 0.35 of the free wind at 0.75 [@krajnovic2002, Fig. 7]."
-shadow_free_height:
-  value: 1.3
-  low: 1.2
-  high: 1.5
-  unit: "-"
-  source: "@krajnovic2002 [Fig. 7]: wake of a block"
-  reason: "Height over the stack height from which the wind in the lee of the container stacks is free: one height behind a cube the mean wind is 0.6 of the free wind at its height, 0.9 at 1.25 times it and free from 1.5 [@krajnovic2002, Fig. 7]; between the calm and the free height it rises linearly."
 layout_mean_wind:
   value: 8.0
   low: 7.0

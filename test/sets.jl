@@ -1228,10 +1228,6 @@ end
     small = WindShipOpt.RotorRig(200.0, Hull(coaster, assumptions), assumptions;
         in_column=2)
     @test WindShipOpt.fixed_rig_port_hours(small, coaster, assumptions) == Inf
-    bow = WindShipOpt.RotorRig(150.0, Hull(classes["Panamax container ship"], assumptions),
-        assumptions)
-    @test WindShipOpt.fixed_rig_port_hours(bow, classes["Panamax container ship"],
-        assumptions) == 0
     raised = WindShipOpt.RotorRig(150.0, Hull(classes["Panamax container ship"],
             assumptions), assumptions; columns=2)
     @test WindShipOpt.fixed_rig_port_hours(raised, classes["Panamax container ship"],
@@ -1300,72 +1296,49 @@ end
     @test 0.9 < megamax.deadweight / megamax.space < 1
 end
 
-"area [m^2] of one wing sail or rotor `unit` of `width` [m], its chord or diameter"
-bow_area(width, unit) = width^2 * assumptions[Symbol(unit, :_aspect_ratio)]
-
-"whether one wing sail or rotor `unit` of `area` [m^2] stands at the bow of ship `class`"
-function bow_fits(area, unit, class)
-    hull = Hull(class, assumptions)
-    rig = unit == :rotor ? WindShipOpt.RotorRig(area, hull, assumptions) :
-          WingRig(area, hull, assumptions)
-    return !isnothing(rig)
-end
-
-@testset "a container ship's rig stands at its bow or in raised pairs, and blocks no slot \
-          but under a frame or container" begin
+@testset "a container ship's deck rig stands in raised pairs, and blocks no slot but \
+          under a frame or container" begin
     megamax = ship_classes()["Megamax container ship"]
     hull = Hull(megamax, assumptions)
-    for design in (ShipDesign(:vlsfo, megamax; suction_area=200.0),
-        ShipDesign(:vlsfo, megamax; wing_area=150.0))
-        ship = Ship(design, assumptions)
-        @test ship.rig.count == 1
-        @test ship.rig.centre_position ≈
-              (0.5 - assumptions[:bow_unit_position]) * megamax.length
-        @test WindShipOpt.CargoHold(ship, assumptions).slots == megamax.unit_capacity
-    end
     for unit in (:wing, :suction, :rotor)
         counts = WindShipOpt.layout_counts(400.0, unit, hull, assumptions, 0.0)
-        @test first(counts) == (1, 1) && length(counts) > 2
-        @test all(==(2) ∘ first, counts[2:end])
+        @test !isempty(counts) && all(==(2) ∘ first, counts)
     end
-    for design in (ShipDesign(:vlsfo, megamax; suction_area=600.0),
+    for design in (ShipDesign(:vlsfo, megamax; suction_area=200.0),
+        ShipDesign(:vlsfo, megamax; wing_area=150.0),
+        ShipDesign(:vlsfo, megamax; suction_area=600.0),
         ShipDesign(:vlsfo, megamax; wing_area=1600.0))
         raised = Ship(design, assumptions)
-        @test WindShipOpt.raised(raised.rig)
+        @test WindShipOpt.raised(raised.rig) && raised.rig.columns == 2
         @test WindShipOpt.CargoHold(raised, assumptions).slots == megamax.unit_capacity -
               WindShipOpt.blocked_slots(raised.rig, megamax, assumptions)
     end
     @test WindShipOpt.launch_mast_position(hull, assumptions) ≈
-          (0.5 - assumptions[:bow_unit_position]) * megamax.length
+          (0.5 - assumptions[:bow_mast_position]) * megamax.length
     @test WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, megamax; kite_area=1000.0),
         assumptions), assumptions).slots == megamax.unit_capacity
     @test_throws ArgumentError Ship(ShipDesign(:vlsfo, megamax; kite_area=1000.0,
         rotor_area=400.0), assumptions)
-    feeder = ship_classes()["feeder container ship"]
-    room = assumptions[:bow_room] * feeder.length
-    sweep_chord = room / assumptions[:wing_spacing]
-    @test bow_fits(0.99bow_area(sweep_chord, :wing), :wing, feeder)
-    @test !bow_fits(1.01bow_area(sweep_chord, :wing), :wing, feeder)
-    @test bow_fits(0.99bow_area(room, :rotor), :rotor, feeder)
-    @test !bow_fits(1.01bow_area(room, :rotor), :rotor, feeder)
 end
 
-# By hand: 5 degrees seen from 0.31 L aft of the bow, the unit 0.06 L aft of it, L = 398 m.
+# By hand: 5 degrees seen from 0.31 L aft of the bow by a unit 0.06 L aft of it, L = 398 m.
+# Four pairs of 10 m rotors on the Megamax: the forward pair stands 111.9 - 75.6 m ahead of
+# the bridge and 15.8 m off the centreline, hiding 2 atan(5 / 39.6) = 14.4 degrees each.
 @testset "a unit hiding more of the bridge's view than SOLAS allows carries a camera \
           system" begin
     megamax = ship_classes()["Megamax container ship"]
     hull = Hull(megamax, assumptions)
     widest = 2 * (0.31 - 0.06) * 398 * tand(2.5)
     @test widest ≈ 8.69 atol = 0.01
-    for unit in (:rotor, :wing)
-        build(area) = unit == :rotor ? WindShipOpt.RotorRig(area, hull, assumptions) :
-                      WingRig(area, hull, assumptions)
-        clear, hiding = build(0.99bow_area(widest, unit)), build(1.01bow_area(widest, unit))
-        @test clear.camera_units == 0 && hiding.camera_units == 1
-        cameras(rig) = WindShipOpt.rig_price_parts(rig, assumptions).cameras
-        @test cameras(clear) == 0
-        @test cameras(hiding) == assumptions[:camera_system_cost]
-    end
+    ahead = [((0.5 - 0.06) * 398, 0.0)]
+    @test WindShipOpt.camera_units(ahead, 0.99widest, hull, assumptions) == 0
+    @test WindShipOpt.camera_units(ahead, 1.01widest, hull, assumptions) == 1
+    rotors(in_column) = WindShipOpt.RotorRig(1200.0in_column, hull, assumptions;
+        columns=2, in_column)
+    cameras(rig) = WindShipOpt.rig_price_parts(rig, assumptions).cameras
+    @test rotors(4).camera_units == 2
+    @test cameras(rotors(4)) == 2assumptions[:camera_system_cost]
+    @test rotors(2).camera_units == 0 && cameras(rotors(2)) == 0
     vlcc = Hull(ship_classes()["VLCC"], assumptions)
     @test vlcc.bridge_distance == Inf
     @test WindShipOpt.RotorRig(800.0, vlcc, assumptions; in_column=4).camera_units == 0
@@ -1382,7 +1355,7 @@ end
           hull.deck_cargo_height + assumptions[:pedestal_clearance]
     @test pairs.foot_height ≈ on_deck.foot_height + pairs.pedestal_height
     clearance = assumptions[:rotor_spacing] * pairs.diameter
-    @test pairs.shadow_share == 1 && pairs.column_offset ≈ (feeder.beam - clearance) / 2
+    @test pairs.column_offset ≈ (feeder.beam - clearance) / 2
     @test WindShipOpt.raised(pairs) && !WindShipOpt.raised(on_deck)
     mass(rig) = WindShipOpt.rig_costs(rig, assumptions)[2]
     @test mass(pairs) ≈ mass(on_deck) + 6WindShipOpt.pedestal_mass(pairs, assumptions)
@@ -1501,27 +1474,6 @@ end
     rotor = WindShipOpt.RotorRig(175.0, Hull(140.0, assumptions), assumptions)
     peak = WindShipOpt.rotor_peak_pressure(rotor, assumptions[:air_density]) * 175
     @test peak ≈ 350e3 rtol = 0.1
-end
-
-# Expected shares are the integral of the squared wind profile of tab:shadow by hand.
-@testset "the container stacks shade a bow unit's lower part in winds from astern" begin
-    @test WindShipOpt.shadow_share(1.3, assumptions) ≈ 0.7 / 3 / 1.3
-    @test WindShipOpt.shadow_share(2.0, assumptions) ≈ (0.7 + 0.7 / 3) / 2
-    @test WindShipOpt.shadow_share(0.5, assumptions) == 0
-    neo = ship_classes()["Neo-Panamax container ship"]
-    hull = Hull(neo, assumptions)
-    rotor = WindShipOpt.RotorRig(300.0, hull, assumptions)
-    @test rotor.shadow_share ≈
-          WindShipOpt.shadow_share(rotor.height / hull.deck_cargo_height, assumptions)
-    gap = assumptions[:bow_room] * neo.length / 2
-    @test rotor.shadow_angle ≈ π - atan(neo.beam / 2, gap)
-    env = Environment(assumptions)
-    force(angle) = rig_force(rotor, env, 10.0, angle, 0.0, 3.0)
-    open_rotor = WindShipOpt.RotorRig(300.0, Hull(neo.length, assumptions), assumptions)
-    @test force(π / 2).thrust ≈ rig_force(open_rotor, env, 10.0, π / 2, 0.0, 3.0).thrust
-    astern, open_astern = force(3π / 4), rig_force(open_rotor, env, 10.0, 3π / 4, 0.0, 3.0)
-    @test astern.thrust ≈ rotor.shadow_share * open_astern.thrust
-    @test astern.power ≈ rotor.shadow_share * open_astern.power
 end
 
 @testset "a deck rig takes the unit count of least yearly cost per power saved" begin

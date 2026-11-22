@@ -124,10 +124,6 @@ Base.@kwdef struct WingRig
     fan_power_per_area::Float64 = 0.0
     "highest apparent wind the wings work in, above which they lie down [m/s]"
     max_wind::Float64 = Inf
-    "share of their wind load the wings keep in the shadow of deck cargo [-]"
-    shadow_share::Float64 = 1.0
-    "apparent wind angle off the bow beyond which deck cargo shades the wings [rad]"
-    shadow_angle::Float64 = π
     "height of the supports the wings stand on above the deck, zero on deck [m]"
     pedestal_height::Float64 = 0.0
     "what each raised wing stands on: `:column`, `:frame` or `:container`"
@@ -140,15 +136,13 @@ end
     deck_layout(total_area, unit, hull, assumptions, forward_reserve, columns, in_column)
 
 Layout of `columns` times `in_column` identical `unit`s, `:wing`, `:suction` or `:rotor`, of
-`total_area` [m^2] on `hull`: [`column_layout`](@ref) where no containers stand on its deck;
-there one unit at the bow, [`bow_layout`](@ref), or units in pairs above the stacks,
-[`raised_layout`](@ref).
+`total_area` [m^2] on `hull`: [`column_layout`](@ref) where no containers stand on its deck,
+there `in_column` pairs above the stacks, [`raised_layout`](@ref).
 """
 function deck_layout(total_area, unit, hull::Hull, assumptions::Assumptions,
         forward_reserve, columns, in_column)
     hull.deck_cargo_height > 0 || return column_layout(columns, in_column, total_area, unit,
         hull, assumptions, forward_reserve)
-    columns == 1 && return bow_layout(total_area, unit, hull, assumptions)
     return raised_layout(in_column, total_area, unit, hull, assumptions, forward_reserve)
 end
 
@@ -167,31 +161,6 @@ end
 "deck mount height [m] above the waterline of a deck rig on `hull`"
 foot_height(hull::Hull, assumptions::Assumptions) =
     assumptions[:deck_mount_height] * hull.length / assumptions[:reference_length]
-
-"""
-    bow_layout(total_area, unit, hull, assumptions)
-
-One `unit` of `total_area` [m^2] on the forecastle of `hull`, ahead of the containers on its
-deck, blocking none: its centre `bow_unit_position` times the length aft of the bow, in the
-middle of the free forecastle length `bow_room` times the hull length that ends at the first
-bay. The stacks shade it in apparent winds from astern whose line to it crosses them, and
-it keeps the [`shadow_share`](@ref) of its load there. A camera system watches the view it
-hides from the bridge where [`camera_units`](@ref) counts it. `nothing` where the circle it
-sweeps, the width of a rotor or 1.5 chords of a wing turning about its quarter chord,
-exceeds the free length.
-"""
-function bow_layout(total_area, unit, hull::Hull, assumptions::Assumptions)
-    height, width = unit_size(total_area, 1, unit, assumptions)
-    room = assumptions[:bow_room] * hull.length
-    sweep = unit == :rotor ? width : assumptions[:wing_spacing] * width
-    sweep <= room || return nothing
-    centre_position = hull.length / 2 - assumptions[:bow_unit_position] * hull.length
-    return (; count=1, columns=1, height, foot_height=foot_height(hull, assumptions),
-        centre_position, column_offset=0.0, interference_factor=1.0,
-        shadow_share=shadow_share(height / hull.deck_cargo_height, assumptions),
-        shadow_angle=π - atan(hull.beam / 2, room / 2), pedestal_height=0.0,
-        camera_units=camera_units([(centre_position, 0.0)], width, hull, assumptions))
-end
 
 """
     raised_layout(in_column, total_area, unit, hull, assumptions, forward_reserve)
@@ -228,21 +197,6 @@ function camera_units(positions, width, hull::Hull, assumptions::Assumptions)
     end
 end
 
-"""
-    shadow_share(relative_height, assumptions)
-
-Share [-] of its wind load a unit `relative_height` times as tall as the container stacks
-behind it keeps in their lee: the wind there is still below `shadow_calm_height` times the
-stack height and rises linearly to the free wind at `shadow_free_height` times it, and the
-load follows its square averaged over the unit's height.
-"""
-function shadow_share(relative_height, assumptions::Assumptions)
-    calm, free = assumptions[:shadow_calm_height], assumptions[:shadow_free_height]
-    top = clamp(relative_height, calm, free)
-    ramp = (top - calm)^3 / (3(free - calm)^2)
-    return (ramp + max(relative_height - free, 0.0)) / relative_height
-end
-
 "unit whose spacing and interference `unit` takes: suction sails those of wing sails"
 arrangement_unit(unit) = unit == :suction ? :wing : unit
 
@@ -271,16 +225,16 @@ end
 
 Columns and units per column of every layout [`deck_layout`](@ref) may give `unit`s of
 `total_area` [m^2] on `hull`, fewest units first for each count of columns: up to
-[`most_in_column`](@ref) in one row or two columns; where containers stand on its deck one
-unit at the bow or pairs above the stacks.
+[`most_in_column`](@ref) in one row or two columns, only two where containers stand on its
+deck.
 """
 function layout_counts(total_area, unit, hull::Hull, assumptions::Assumptions,
         forward_reserve)
     on_deck(columns) = [(columns, in_column)
                         for in_column in 1:most_in_column(columns, total_area, unit, hull,
                             assumptions, forward_reserve)]
-    hull.deck_cargo_height > 0 || return [on_deck(1); on_deck(2)]
-    return [(1, 1); on_deck(2)]
+    hull.deck_cargo_height > 0 && return on_deck(2)
+    return [on_deck(1); on_deck(2)]
 end
 
 """
@@ -293,7 +247,7 @@ less `forward_reserve` [m] at its forward end. Returns the count, unit height [m
 height above the waterline [m], centre of effort forward of midship [m] (units abreast of
 each other alone stand at the hull's lateral centre), column offset from the centreline
 [m], interference factor, [`array_factor`](@ref) in line times that of a pair abreast,
-which loses the unit's abreast loss times as much, and no shadow. `nothing` where units
+which loses the unit's abreast loss times as much. `nothing` where units
 stand closer than the closest spacing. Suction sails stand and interfere as wing sails do.
 """
 function column_layout(columns, in_column, total_area, unit, hull::Hull,
@@ -315,8 +269,8 @@ function column_layout(columns, in_column, total_area, unit, hull::Hull,
             arrangement(:_abreast_loss) * amplitude, decay)
     centre_position = in_column == 1 ? lateral_centre(hull) : -forward_reserve / 2
     return (; count, columns, height, foot_height=foot_height(hull, assumptions),
-        centre_position, column_offset, interference_factor, shadow_share=1.0,
-        shadow_angle=float(π), pedestal_height=0.0, camera_units=0)
+        centre_position, column_offset, interference_factor, pedestal_height=0.0,
+        camera_units=0)
 end
 
 """
@@ -365,8 +319,8 @@ function WingRig(total_area::Real, hull::Hull, assumptions::Assumptions;
         stalled_drag_coefficient=assumptions[:wing_stalled_drag_coefficient],
         layout.interference_factor,
         fan_power_per_area=suction ? assumptions[:suction_fan_power_per_area] : 0.0,
-        max_wind=suction ? assumptions[:suction_max_wind] : Inf, layout.shadow_share,
-        layout.shadow_angle, layout.pedestal_height, layout.camera_units)
+        max_wind=suction ? assumptions[:suction_max_wind] : Inf, layout.pedestal_height,
+        layout.camera_units)
 end
 
 total_area(rig::WingRig) = rig.count * rig.area
@@ -404,7 +358,7 @@ function rig_force(rig::WingRig, env::Environment, wind_10m, true_angle, ship_sp
         setting)
     lift, drag = setting
     centre_height, speed, angle = centre_wind(rig, env, wind_10m, true_angle, ship_speed)
-    load = 0.5env.air_density * speed^2 * total_area(rig) * shade(rig, angle)
+    load = 0.5env.air_density * speed^2 * total_area(rig)
     thrust = load * rig.interference_factor * (lift * sin(angle) - drag * cos(angle))
     side = load * (lift * cos(angle) + drag * sin(angle))
     return RigForce(thrust, side, side * centre_height, side * rig.centre_position,
@@ -467,10 +421,6 @@ Base.@kwdef struct RotorRig
     lift_factor::Float64
     "thrust of the set over the sum of single rotors [-]"
     interference_factor::Float64
-    "share of their wind load the rotors keep in the shadow of deck cargo [-]"
-    shadow_share::Float64 = 1.0
-    "apparent wind angle off the bow beyond which deck cargo shades the rotors [rad]"
-    shadow_angle::Float64 = π
     "height of the pedestals the rotors stand on above the deck, zero on deck [m]"
     pedestal_height::Float64 = 0.0
     "what each raised rotor stands on, `:column` or `:frame` ([`pedestal_mass`](@ref))"
@@ -496,8 +446,7 @@ function RotorRig(total_area::Real, hull::Hull, assumptions::Assumptions;
         max_wind=assumptions[:rotor_max_wind],
         max_surface_speed=assumptions[:rotor_max_surface_speed],
         lift_factor=assumptions[:rotor_lift_factor], layout.interference_factor,
-        layout.shadow_share, layout.shadow_angle, layout.pedestal_height,
-        layout.camera_units)
+        layout.pedestal_height, layout.camera_units)
 end
 
 """
@@ -513,10 +462,6 @@ unit_width(rig::WingRig) = rig.area / rig.height
 unit_width(rig::RotorRig) = rig.diameter
 
 total_area(rig::RotorRig) = rig.count * rig.height * rig.diameter
-
-"share [-] of its wind load the deck rig `rig` keeps in an apparent wind from `angle` [rad]"
-shade(rig::Union{WingRig, RotorRig}, angle) =
-    angle > rig.shadow_angle ? rig.shadow_share : 1.0
 
 """
     rotor_coefficients(spin_ratio)
@@ -544,7 +489,7 @@ function rig_force(rig::RotorRig, env::Environment, wind_10m, true_angle, ship_s
         spin_ratio)
     centre_height, speed, angle = centre_wind(rig, env, wind_10m, true_angle, ship_speed)
     spin_ratio <= max_spin_ratio(rig, speed) || return UNREACHABLE_RIG_FORCE
-    load = 0.5env.air_density * speed^2 * total_area(rig) * shade(rig, angle)
+    load = 0.5env.air_density * speed^2 * total_area(rig)
     fitted_lift, drag, power = rotor_coefficients(spin_ratio)
     lift = rig.lift_factor * fitted_lift
     thrust = load * rig.interference_factor * (lift * sin(angle) - drag * cos(angle))
@@ -1045,13 +990,13 @@ launch_mast_reserve(assumptions::Assumptions) =
 """
     launch_mast_position(hull, assumptions)
 
-Distance [m] forward of midship of the launch mast: at the bow, where [`bow_layout`](@ref)
-stands a unit, on a hull with containers on deck, else at the middle of its
+Distance [m] forward of midship of the launch mast: `bow_mast_position` times the length
+aft of the bow on a hull with containers on deck, else at the middle of its
 [`launch_mast_reserve`](@ref) at the forward end of the deck for rigs.
 """
 function launch_mast_position(hull::Hull, assumptions::Assumptions)
     hull.deck_cargo_height > 0 &&
-        return (0.5 - assumptions[:bow_unit_position]) * hull.length
+        return (0.5 - assumptions[:bow_mast_position]) * hull.length
     deck_length = rig_deck_length(hull, assumptions, 0.0)
     return (deck_length - launch_mast_reserve(assumptions)) / 2
 end

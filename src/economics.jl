@@ -229,13 +229,12 @@ end
 Rig of the design of `ship` in the layout of its [`layout_counts`](@ref) with the lowest
 [`layout_score`](@ref) on `ship`, which carries no rig yet; for each count of columns more
 units are tried until two in a row score worse than the fewest scored best. `nothing` where
-no layout fits.
+no layout fits; the design's rig as it is where it has no wings, rotors or suction sails.
 """
 function cheapest_layout(ship::Ship, assumptions::Assumptions)
     (; design, hull) = ship
+    first(standing_unit(design)) > 0 || return design_rig(design, hull, assumptions)
     counts = layout_counts(design, hull, assumptions)
-    length(counts) == 1 && return design_rig(design, hull, assumptions;
-        columns=counts[1][1], in_column=counts[1][2])
     best, lowest = nothing, Inf
     for columns in 1:2
         rig, score = cheapest_in_columns(ship, columns,
