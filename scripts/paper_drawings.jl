@@ -610,27 +610,28 @@ function ship_classes_figure()
     routes_seen = unique(table["route"])
     longest = maximum(classes[name].length for name in names)
     gap = 0.22longest
-    rows = [(name, Hull(classes[name], assumptions), [mean_best_area(table, name,
-        routes_seen, kind) for kind in rig_names]) for name in names]
-    kite_tops = [draw_height(hull, first(areas)) for (_, hull, areas) in rows]
-    margin = 55.0
-    tops = cumsum([kite_top + hull.draft + margin
-                   for (kite_top, (_, hull, _)) in zip(kite_tops, rows)])
+    rows = map(names) do name
+        areas = [mean_best_area(table, name, routes_seen, kind) for kind in rig_names]
+        return (name, Hull(classes[name], assumptions), areas,
+            built_rig.(Ref(classes[name]), rig_names, areas))
+    end
+    margin = 75.0
+    tops = cumsum([draw_height(hull, first(areas), rigs) + hull.draft + margin
+                   for (_, hull, areas, rigs) in rows])
     width = length(rig_names) * longest + (length(rig_names) - 1) * gap
     figure = Figure(size=(page_width, page_width * (last(tops) + 20) / (1.45width)))
     axis = Axis(figure[1, 1]; aspect=DataAspect())
     hidedecorations!(axis)
     hidespines!(axis)
-    for (row, (name, hull, areas)) in enumerate(rows)
+    for (row, (name, hull, areas, rigs)) in enumerate(rows)
         y = -tops[row] + hull.draft + margin
-        for (column, (kind, area)) in enumerate(zip(rig_names, areas))
+        for (column, (kind, area, rig)) in enumerate(zip(rig_names, areas, rigs))
             offset = ((column - 1) * (longest + gap) + longest / 2, y)
             draw_ship!(axis, hull, offset)
             isfinite(area) || continue
             if kind == "kite"
                 draw_side_kite!(axis, area, hull, offset)
             else
-                rig = deck_rig(kind, area, hull)
                 isnothing(rig) || draw_side_rig!(axis, rig, hull, offset)
             end
             text!(axis, offset[1] - hull.length / 2, y - hull.draft;
@@ -668,17 +669,27 @@ function mean_best_area(table, class, routes, rig)
 end
 
 """
-    draw_height(hull, kite_area)
+    built_rig(class, kind, area)
+
+Rig the model builds of `area` [m^2] of rig `kind` on a VLSFO ship of `class`, in the layout
+it chooses; `nothing` for the kite, an area not searched or one that does not fit.
+"""
+function built_rig(class, kind, area)
+    (kind == "kite" || !isfinite(area)) && return nothing
+    ship = Ship(ShipDesign(:vlsfo, class; rig_size(kind, area)...), assumptions)
+    return isnothing(ship) ? nothing : ship.rig
+end
+
+"""
+    draw_height(hull, kite_area, rigs)
 
 Height [m] above the waterline of the top of what [`ship_classes_figure`](@ref) draws on
-`hull`: the kite of `kite_area` [m^2], or the tallest deck rig built.
+`hull`: the kite of `kite_area` [m^2] and the deck `rigs`.
 """
-function draw_height(hull, kite_area)
-    scale = hull.length / assumptions[:reference_length]
-    deck_rig = assumptions[:deck_mount_height] * scale +
-               max(assumptions[:wing_max_height], assumptions[:rotor_max_height])
-    isfinite(kite_area) || return deck_rig
-    return max(side_kite(kite_area, hull).top, deck_rig)
+function draw_height(hull, kite_area, rigs)
+    tops = Float64[rig.foot_height + rig.height for rig in rigs if !isnothing(rig)]
+    isfinite(kite_area) && push!(tops, side_kite(kite_area, hull).top)
+    return maximum(tops; init=0.0)
 end
 
 """
