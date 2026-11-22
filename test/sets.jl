@@ -4435,6 +4435,38 @@ end
     @test PaperData.changed_cost(today, trip) > trip.cost_per_tonne_km
 end
 
+@testset "a change of only what a route costs is recosted on the base route, its fuel kept" begin
+    longer = with_value(assumptions, :canopy_life, 6000.0)
+    @test PaperData.changed_inputs(longer) == [:canopy_life]
+    @test PaperData.cost_only(longer)
+    @test !PaperData.cost_only(with_value(assumptions, :kite_max_force_per_area, 1.0))
+    @test !PaperData.cost_only(with_value(assumptions, :rotor_out_of_service, 0.1))
+    kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
+    trip = round_trip(Ship(kite, assumptions; route=:caribbean), corridors...,
+        SyntheticWeather(), [24.0 * 31], assumptions)
+    case = (; design=kite, assumptions=longer, route=:caribbean, corridors)
+    recosted = PaperData.recosted_trip(case, trip)
+    @test recosted.cost_per_tonne_km ≈ PaperData.changed_cost(case, trip)
+    @test recosted.cost_per_tonne_km < trip.cost_per_tonne_km
+    @test recosted.fuel_per_tonne_km == trip.fuel_per_tonne_km
+    @test isempty(recosted.departures)
+    @test_throws ArgumentError PaperData.recosted_trips(
+        [merge(case, (; assumptions=with_value(assumptions, :kite_max_wind, 20.0)))],
+        [24.0 * 31])
+end
+
+@testset "the gain of routing anew is measured per departure and grows with the square \
+          of the change" begin
+    table = Dict("change" => ["x", "x", "x", "x"], "relative" => fill(0.5, 4),
+        "rig" => ["none", "kite", "none", "kite"], "departure" => [0, 0, 24, 24],
+        "cost_recosted" => [10.0, 8.0, 10.0, 8.0], "cost_rerouted" => [9.0, 7.0, 10.0, 7.5])
+    @test PaperData.recosting_gap(table, "x", "kite") ≈ [100 * (1 - 7 / 9) - 20, 5.0]
+    gain = sum(PaperData.recosting_gap(table, "x", "kite")) / 2
+    @test PaperData.recosting_error(table, "x", 0.5, "kite") ≈ gain
+    @test PaperData.recosting_error(table, "x", -1.0, "kite") ≈ 4gain
+    @test PaperData.recosting_error(table, "y", 1.0, "kite") == 0.0
+end
+
 @testset "the explorer gives each input its value known today" begin
     io = IOBuffer()
     PaperData.write_json(io, Assumption(3000.0, 1200.0, 6900.0, "h", "", 1200.0))

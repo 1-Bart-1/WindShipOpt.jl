@@ -54,7 +54,7 @@ data_steps = [:patterns => patterns_data, :designs => designs_data,
     :abatement_data => abatement_data,
     :combination_data => combination_data,
     :flight => flight_data, :speed_choice => speed_choice_data,
-    :speed_size => speed_size_data]
+    :speed_size => speed_size_data, :recosting_bias => recosting_bias_data]
 
 """
 method studies, which choose or check a method or setting, run only by name: each records
@@ -121,6 +121,7 @@ output_steps = [:kite => kite_figure, :deck_rigs => deck_rig_figure,
     :tow_point_figure => tow_point_figure,
     :fleet_share => fleet_share_figure, :numbers => numbers_file,
     :today_numbers => today_numbers_file,
+    :recosting_numbers => recosting_numbers_file,
     :figure_style => figure_style_file, :ship_pictures => ship_pictures_file]
 
 """

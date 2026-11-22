@@ -1074,10 +1074,10 @@ recosted(ship, costs, trip, case, inputs) = WindShipOpt.voyage_costs(ship, costs
     changed_cost(case, trip)
 
 Cost per tonne-km [USD] of `case` at its inputs on the routes of `trip`, routed at the
-base inputs.
+base inputs, its ship laid out as it was routed.
 """
 function changed_cost(case, trip)
-    ship = Ship(case.design, case.assumptions; case.route)
+    ship = Ship(case.design, assumptions; case.route)
     costs = WindShipOpt.ship_costs(ship, case.assumptions)
     return recosted(ship, costs, trip, case, case.assumptions)
 end
@@ -1979,12 +1979,76 @@ function rig_cases(ship, bare, route, areas; labels...)
 end
 
 """
+inputs that change only what a route costs, not what the ship or rig can do: a case moving
+only these is recosted on the routes of its design at the base inputs
+"""
+cost_only_inputs = Set([WindShipOpt.canopy_price_inputs...; :canopy_life; :tether_price;
+    :tether_lifetime; :kite_cycle_crew_cost; :kite_launch_loss_probability;
+    :kite_out_of_service; :wing_loss_rate; :rotor_loss_rate; :wing_cost_per_area;
+    :suction_cost_per_mass; :rotor_cost_per_area; :market_price_factor; :kite_lifetime;
+    :wing_lifetime; :rotor_lifetime; :suction_lifetime; :discount_rate; :cargo_value])
+
+"names of the inputs `inputs` holds at another value than the base assumptions"
+changed_inputs(inputs) =
+    [name for name in keys(assumptions.entries) if inputs[name] != assumptions[name]]
+
+"whether `inputs` move only [`cost_only_inputs`](@ref) from the base assumptions"
+cost_only(inputs) = all(in(cost_only_inputs), changed_inputs(inputs))
+
+"""
+    recosted_trips(cases, departures)
+
+Round trips of `cases`, each moving only [`cost_only_inputs`](@ref): the design of each
+routed once at the base inputs over `departures`, then costed at the case's inputs on those
+routes ([`recosted_trip`](@ref)). Errors on a case moving any other input.
+"""
+function recosted_trips(cases, departures)
+    all(case -> cost_only(case.assumptions), cases) ||
+        throw(ArgumentError("a recosted case moves an input that changes the ship or rig"))
+    bases = [merge(case, (; assumptions)) for case in cases]
+    directories = [case_directory(case, departures) for case in bases]
+    routed = unique(i -> directories[i], eachindex(bases))
+    trips = Dict(zip(directories[routed], round_trips(bases[routed], departures)))
+    return [recosted_trip(case, trips[directory])
+            for (case, directory) in zip(cases, directories)]
+end
+
+"""
+    recosted_trip(case, trip)
+
+`trip` with its cost per tonne-km at the inputs of `case` on its routes
+([`changed_cost`](@ref)), its fuel, CO2 and times as routed and no outcome per departure;
+`nothing` where `trip` is.
+"""
+recosted_trip(case, trip) = isnothing(trip) ? nothing :
+    rebuilt(trip; cost_per_tonne_km=changed_cost(case, trip),
+    departures=empty(trip.departures))
+
+"""
+    swept_trips(cases, departures)
+
+Round trips of `cases` over `departures`: recosted on the routes at the base inputs
+([`recosted_trips`](@ref)) where a case moves only [`cost_only_inputs`](@ref), routed anew
+where it moves any other.
+"""
+function swept_trips(cases, departures)
+    recosted = findall(case -> cost_only(case.assumptions), cases)
+    rerouted = setdiff(eachindex(cases), recosted)
+    trips = Vector{Any}(nothing, length(cases))
+    trips[rerouted] = round_trips(cases[rerouted], departures)
+    trips[recosted] = recosted_trips(cases[recosted], departures)
+    return trips
+end
+
+"""
     sensitivity_data()
 
 Every ship of [`sensitivity_ships`](@ref) without a rig and with each rig, at the base
 inputs and with each of [`development_inputs`](@ref) at its low and high bound, over the
-[`sensitivity_departures`](@ref): sensitivity.csv. The base trips are routed first, so a
-changed case whose trip never reads its input reuses them.
+[`sensitivity_departures`](@ref): sensitivity.csv. A bound moving only
+[`cost_only_inputs`](@ref) is recosted on the base routes, any other routed anew
+([`swept_trips`](@ref)); the base trips are routed first, so a changed case whose trip
+never reads its input reuses them.
 """
 function sensitivity_data()
     cases = []
@@ -1999,7 +2063,7 @@ function sensitivity_data()
     changed = setdiff(eachindex(cases), base)
     trips = Vector{Any}(nothing, length(cases))
     trips[base] = round_trips(cases[base], sensitivity_departures())
-    trips[changed] = round_trips(cases[changed], sensitivity_departures())
+    trips[changed] = swept_trips(cases[changed], sensitivity_departures())
     write_trips("sensitivity.csv", cases, trips, :ship, :rig, :input, :bound)
 end
 
@@ -2100,8 +2164,9 @@ end
 """
     availability_data()
 
-Each ship of [`goal_limit_ships`](@ref) with each rig at its [`service_shares`](@ref):
-availability.csv.
+Each ship of [`goal_limit_ships`](@ref) with each rig at its [`service_shares`](@ref),
+the kite recosted on its routes at the base inputs and the deck rigs, whose units down
+change what the rest can do, routed anew ([`swept_trips`](@ref)): availability.csv.
 """
 function availability_data()
     cases = []
@@ -2114,8 +2179,8 @@ function availability_data()
                 assumptions=with_value(assumptions, input, share), route, ship, rig, share))
         end
     end
-    write_trips("availability.csv", cases, round_trips(cases, sampled_departures()), :ship,
-        :rig, :share)
+    write_trips("availability.csv", cases, swept_trips(cases, sampled_departures()),
+        :ship, :rig, :share)
 end
 
 """
@@ -2177,14 +2242,14 @@ canopy_lives = (500.0, 750.0, 1000.0, 1500.0, 2000.0, 3000.0, 4000.0, 6000.0, 80
     canopy_life_data()
 
 The kite of each ship of [`goal_limit_ships`](@ref) at each of `canopy_lives`, its size
-and every other input held: canopy_life.csv.
+and every other input held, recosted on its routes at the base inputs: canopy_life.csv.
 """
 function canopy_life_data()
     cases = [trip_case(ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...);
                  assumptions=with_value(assumptions, :canopy_life, life), route, ship, life)
              for (ship, bare, route, areas) in goal_limit_ships(), life in canopy_lives]
     write_trips("canopy_life.csv", vec(cases),
-        round_trips(vec(cases), sampled_departures()), :ship, :life)
+        recosted_trips(vec(cases), sampled_departures()), :ship, :life)
 end
 
 """
@@ -2233,14 +2298,15 @@ end
     canopy_price_data()
 
 The kite of each ship of [`goal_limit_ships`](@ref) at each of [`canopy_prices`](@ref), its
-size and every other input held: canopy_price.csv.
+size and every other input held, recosted on its routes at the base inputs:
+canopy_price.csv.
 """
 function canopy_price_data()
     cases = [trip_case(ShipDesign(; bare.drive, bare.length, bare.class, areas.kite...);
                  assumptions=at_canopy_price(price), route, ship, price)
              for (ship, bare, route, areas) in goal_limit_ships(), price in canopy_prices()]
     write_trips("canopy_price.csv", vec(cases),
-        round_trips(vec(cases), sampled_departures()), :ship, :price)
+        recosted_trips(vec(cases), sampled_departures()), :ship, :price)
 end
 
 "ships of the abatement study as (name, route)"
@@ -3295,4 +3361,116 @@ function today_routing_data()
                     @sprintf("%.6f", again.cost_per_tonne_km)], ","))
         end
     end
+end
+
+"""
+    bound_change(name, bound)
+
+Relative change [-] of input `name` of [`development_inputs`](@ref) at `bound`, of the first
+of its inputs where it moves several.
+"""
+function bound_change(name, bound)
+    measure = haskey(joint_inputs, name) ? first(keys(joint_inputs[name])) : name
+    return bound_assumptions(name, bound)[measure] / assumptions[measure] - 1
+end
+
+"""
+    recosting_changes()
+
+Each change the paper recosts rather than routes anew, at the end of its range where its
+recosting bias is measured, as (name, relative change [-], assumptions): each of the
+[`development_inputs`](@ref) moving only [`cost_only_inputs`](@ref) at the bound farther
+from its base, and the kite's share out of service and the canopy price at the top of
+their ranges.
+"""
+function recosting_changes()
+    changes = []
+    for entry in development_inputs
+        bounds = [(bound_change(entry.input, bound), bound_assumptions(entry.input, bound))
+                  for bound in (:low, :high)]
+        all(cost_only ∘ last, bounds) || continue
+        push!(changes, (string(entry.input), argmax(abs ∘ first, bounds)...))
+    end
+    service = assumptions.entries[:kite_out_of_service]
+    push!(changes, ("kite_out_of_service", service.high / service.value - 1,
+        with_value(assumptions, :kite_out_of_service, service.high)))
+    price = canopy_price_at(:high)
+    push!(changes, ("canopy_price", price / reference_canopy_price(assumptions) - 1,
+        at_canopy_price(price)))
+    return changes
+end
+
+"""
+    recosting_departures()
+
+The three departures [h] the recosting bias is measured on: the first of the winter, of the
+spring and of the summer.
+"""
+recosting_departures() = [departures[findfirst(>=(24.0 * day), departures)]
+                          for day in (0, 90, 181)]
+
+"""
+    recosting_bias_data()
+
+The 140 m e-ammonia ship to Guadeloupe without a rig and with each of the
+[`reference_rigs`](@ref), at the base inputs and at each of [`recosting_changes`](@ref), on
+each of the [`recosting_departures`](@ref) alone: its cost [USD/tkm] and CO2 [g/tkm] costed
+on the routes at the base inputs and routed anew, recosting_bias.csv.
+"""
+function recosting_bias_data()
+    designs = [(ShipDesign(:ammonia, 140.0; rig_size(rig, area)...), rig)
+               for (rig, area) in reference_rigs_and_none]
+    base = [trip_case(design; rig, change="base", relative=0.0) for (design, rig) in designs]
+    changed = [trip_case(design; assumptions=inputs, rig, change=name, relative)
+               for (name, relative, inputs) in recosting_changes()
+               for (design, rig) in designs]
+    cases = [base; changed]
+    chosen = recosting_departures()
+    routed = fetch.([Threads.@spawn (round_trips(cases, [departure]),
+                         recosted_trips(changed, [departure])) for departure in chosen])
+    open(run_file("recosting_bias.csv"), "w") do io
+        println(io, "change,relative,rig,departure,cost_recosted,cost_rerouted,",
+            "carbon_recosted,carbon_rerouted")
+        for (departure, (rerouted, recosted)) in zip(chosen, routed)
+            kept = [rerouted[eachindex(base)]; recosted]
+            for (case, again, trip) in zip(cases, rerouted, kept)
+                (isnothing(again) || isnothing(trip)) && continue
+                @printf(io, "%s,%.6f,%s,%.0f,%.6f,%.6f,%.4f,%.4f\n", case.change,
+                    case.relative, case.rig, departure, trip.cost_per_tonne_km,
+                    again.cost_per_tonne_km, trip.carbon_per_tonne_km,
+                    again.carbon_per_tonne_km)
+            end
+        end
+    end
+end
+
+"""
+    recosting_gap(table, change, rig; column="cost")
+
+Points of saving of `column` (`"cost"` or `"carbon"`) per tonne-km that routing anew gains
+`rig` over recosting at `change` in the recosting_bias.csv `table`, on each departure the
+table holds both for `rig` and the ship without a rig, in its order.
+"""
+function recosting_gap(table, change, rig; column="cost")
+    days(name) = rows(table, "change" => change, "rig" => name)
+    bare = Dict(table["departure"][row] => row for row in days("none"))
+    saving(row, kind) = percent_saving(table["$(column)_$kind"][row],
+        table["$(column)_$kind"][bare[table["departure"][row]]])
+    return [saving(row, "rerouted") - saving(row, "recosted")
+            for row in days(rig) if haskey(bare, table["departure"][row])]
+end
+
+"""
+    recosting_error(table, change, relative, rig; column="cost")
+
+One-sided error [points] of the saving of `rig` recosted at `relative` change [-] of
+`change`: the mean over the departures of its [`recosting_gap`](@ref), scaled by the
+square of `relative` over the change the table measured it at; zero for a change the
+table does not hold.
+"""
+function recosting_error(table, change, relative, rig; column="cost")
+    gaps = recosting_gap(table, change, rig; column)
+    isempty(gaps) && return 0.0
+    measured = table["relative"][first(rows(table, "change" => change))]
+    return mean(gaps) * (relative / measured)^2
 end

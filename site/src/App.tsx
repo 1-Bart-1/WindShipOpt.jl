@@ -314,12 +314,12 @@ function Accuracy() {
       <h2 className="text-lg font-semibold">How far to trust a change</h2>
       <p className="max-w-3xl text-ink">
         The explorer keeps each design's voyages as the paper's run routed them and recomputes their cost with the
-        model's own cost formulas. The router chose each voyage as the cheapest at the paper's inputs, so a small change
-        of an input moves the cheapest cost, to first order, by just what recosting the same voyage gives. Routing again
-        could only find a cheaper voyage, and what it gains grows with the square of the change. The explorer therefore
-        never shows a rig cheaper than the model would, and it offers only inputs that change what a voyage costs, not
-        where or how fast the ship can sail, each over its range in the paper. Fuel and carbon prices also shift the
-        speed the ship picks, so they move at most {formatted(100 * moderateChange, 0)} % from the paper's values.
+        model's own cost formulas. The router chose each leg as the cheapest at the paper's inputs, so a moderate change
+        of an input moves the cheapest cost, to first order, by just what recosting the same leg gives; routing again
+        could save a little more, growing with the square of the change. The explorer therefore offers only inputs that
+        change what a voyage costs, not what the ship or a rig can do, each over its range in the paper. Fuel and carbon
+        prices also shift the speed the ship picks, so they move at most {formatted(100 * moderateChange, 0)} % from the
+        paper's values.
       </p>
     </section>
   );
