@@ -381,6 +381,7 @@ function figure_style_file()
         println(io, "  leader/.style={guide, line width=", tex_size("dimension"), "},")
         println(io, "  icon line/.style={line width=", tex_size("icon"),
             ", line cap=round, line join=round},")
+        println(io, "  hull face/.style={line width=", tex_size("seam"), ", line join=round},")
         println(io, "  crossing/.style={draw=white, line width=", tex_size("crossing"),
             "},")
         println(io, "  label/.style={font=", tex_font("text"), ", inner sep=1pt, ",

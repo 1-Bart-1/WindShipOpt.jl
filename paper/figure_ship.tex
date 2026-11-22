@@ -1,0 +1,16 @@
+% Written by the ship_pictures step of scripts/paper.jl.
+\def\shipfoot{6.59}
+\def\shipbow{73.50}
+\def\hullface#1{\pgfsetfillcolor{#1}\pgfsetstrokecolor{#1}}
+\def\hullmove#1#2{\pgfpathmoveto{\pgfqpointxy{#1}{#2}}}
+\def\hullline#1#2{\pgfpathlineto{\pgfqpointxy{#1}{#2}}}
+\def\hullfill{\pgfpathclose\pgfusepath{fill,stroke}}
+\tikzset{
+  ship side/.pic={\begin{scope}[hull face]\input{ship/side}\end{scope}},
+  ship above/.pic={\begin{scope}[hull face]\input{ship/above}\end{scope}},
+  ship ahead/.pic={
+    \begin{scope}[hull face]\colorlet{keel}{topsides}\input{ship/ahead}\end{scope}
+    \begin{scope}[hull face]\colorlet{topsides}{keel}\colorlet{deck}{keel}
+      \colorlet{ship}{keel}\clip[rotate=-#1] (-40,-30) rectangle (40,0);
+      \input{ship/ahead}\end{scope}},
+}

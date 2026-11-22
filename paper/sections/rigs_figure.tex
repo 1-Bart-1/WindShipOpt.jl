@@ -22,15 +22,15 @@
 \begin{scope}[shift={(0,0)}]
   \node[panel] at (-28,44) {(a) Towing kite};
   \pic {sea};
-  \pic[scale=0.27] at (8.7,2.1) {launch mast};
+  \pic[scale=0.27] at (8.7,{0.27*\shipfoot}) {launch mast};
   % the figure eight, the kite at the outer end of its right lobe, flying up
   \coordinate (canopy) at (11,37.6);
   \draw[kite!45, densely dashed] plot[variable=\t, domain=0:360, samples=145]
     ([shift={({9*sin(\t)-9},{4.5*sin(2*\t)})}]canopy);
-  \draw[kite, shorten >=0.27*15mm] (8.7,2.1) -- (canopy);
-  \path (8.7,2.1) -- (canopy) pic[pos=0.5, sloped] {tether break}
+  \draw[kite, shorten >=0.27*15mm] (8.7,{0.27*\shipfoot}) -- (canopy);
+  \path (8.7,{0.27*\shipfoot}) -- (canopy) pic[pos=0.5, sloped] {tether break}
     pic[pos=1, sloped, rotate=-90, scale=0.27] {kite};
-  \draw[force, kite] (8.7,2.1) -- ++(5,0);
+  \draw[force, kite] (8.7,{0.27*\shipfoot}) -- ++(5,0);
   \node[label, kite, anchor=south east, align=right] at (7.2,3.4) {pulls at the bow,\\ low on the ship};
   \draw[dimension] (22.5,0) -- (22.5,0 |- canopy) node[midway, note, text=black, rotate=90, anchor=south, align=center] {flies about \SI{270}{m} up\\ (210--\SI{420}{m})};
   \node[note, anchor=north west, text width=52mm, align=left] at (-28,-18) {\textcolor{kite}{\textbf{Gives}} a strong pull: the wind high up, multiplied by flying figure eights. \textbf{Takes} almost no deck space, but a launch and landing every flight, and its canopy wears out.};
@@ -40,7 +40,7 @@
   \node[panel] at (-28,44) {(b) Wing sails};
   \pic {sea};
   \foreach \x in {-14,-4,6} {
-    \pic[scale=0.27] at (\x,2.1) {wing};
+    \pic[scale=0.27] at (\x,{0.27*\shipfoot}) {wing};
     \draw[force, wings] (\x+2,7.6) -- ++(4,0);}
   \draw[dimension] (22.5,0) -- (22.5,13) node[note, text=black, anchor=south east, align=right, xshift=1.5mm] {units up to\\ \SI{40}{m} tall\\ (35--\SI{45}{m})};
   \node[label, wingstext, anchor=south west, align=left] at (-27,13.4) {pulls at mid height,\\ tens of metres up};
@@ -51,7 +51,7 @@
   \node[panel] at (-28,44) {(c) Flettner rotors};
   \pic {sea};
   \foreach \x in {-14,-4,6} {
-    \pic[scale=0.27] at (\x,2.1) {rotor};
+    \pic[scale=0.27] at (\x,{0.27*\shipfoot}) {rotor};
     \draw[flow] (\x-1.3,9.6) arc[start angle=180, end angle=355, x radius=1.3, y radius=0.5];
     \draw[force, rotors] (\x+0.8,6.7) -- ++(4,0);}
   \draw[dimension] (22.5,0) -- (22.5,11.6) node[note, text=black, anchor=south east, align=right, xshift=1.5mm] {units up to\\ \SI{35}{m} tall\\ (30--\SI{40}{m})};

@@ -34,6 +34,7 @@ include("grids_data.jl")
 include("cargo_groups.jl")
 include("paper_figures.jl")
 include("paper_drawings.jl")
+include("hull_drawing.jl")
 include("router_figures.jl")
 include("paper_tables.jl")
 
@@ -121,7 +122,8 @@ output_steps = [:kite => kite_figure, :deck_rigs => deck_rig_figure,
     :tow_point_figure => tow_point_figure,
     :fleet_share => fleet_share_figure, :numbers => numbers_file,
     :today_numbers => today_numbers_file,
-    :figure_style => figure_style_file, :rigid_numbers => rigid_numbers_file]
+    :figure_style => figure_style_file, :ship_pictures => ship_pictures_file,
+    :rigid_numbers => rigid_numbers_file]
 
 """
     paper(names...; fidelity, resume=nothing, only=nothing)

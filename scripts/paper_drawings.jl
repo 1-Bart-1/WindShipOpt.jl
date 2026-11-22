@@ -131,14 +131,13 @@ label_width = 13.0
 label_pitch = 3.4
 
 """
-sizes [m] of the pictures of paper/figure_pics.tex that [`force_balance_figure`](@ref)
-scales and lays its labels around: the ship's half beam and the bow's reach forward of
-midship, the wing sail's chord and the rotor's diameter
+sizes [m] of the rig pictures of paper/figure_pics.tex that [`force_balance_figure`](@ref)
+scales: the wing sail's chord and the rotor's diameter
 """
-picture_sizes = (half_beam=10.87, bow=75.0, wing_chord=14.1, rotor_diameter=5.78)
+picture_sizes = (wing_chord=14.1, rotor_diameter=5.78)
 
 "half the beam [mm] of the ship as [`force_balance_figure`](@ref) draws it"
-half_beam() = picture_sizes.half_beam * force_balance_scale.length
+half_beam() = paper_ship.half_beam * force_balance_scale.length
 
 """
     force_balance_figure()
@@ -182,7 +181,7 @@ Height [mm] above midship that the bow, the arrows and the tether of `panel` rea
 """
 function panel_top(panel)
     heads = [arrow_ends(force)[2][2] for force in panel.forces]
-    return max(maximum(heads), picture_sizes.bow * force_balance_scale.length,
+    return max(maximum(heads), paper_ship.stem * force_balance_scale.length,
         tether_end(panel.ship.rig, panel.forces)[2])
 end
 
