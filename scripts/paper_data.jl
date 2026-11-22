@@ -1894,9 +1894,9 @@ study.
 """
 development_inputs = [
     (input=:canopy_structure_cost, label="canopy cost", rig="kite",
-        lever="price", reason="Cloth with its seams and sewing, which a maker lowers by " *
-                              "design for making; they set the canopy's share of the " *
-                              "kite's price."),
+        lever="price", reason="Cloth with its seams, sewing and bridle, which a maker " *
+                              "lowers by design for making; they set the canopy's share " *
+                              "of the kite's price."),
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
         reason="What a flight hour of the canopy costs; unmeasured, so what development " *
                "has to prove."),
