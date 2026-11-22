@@ -254,7 +254,8 @@ end
 Mean extra time per port call [h] of a `rig` fixed on deck: the cargo-handling delay of
 `class`, plus the lost calls of a ship whose air draft in ballast exceeds the class
 limit. Inf where a fixed rig prevents cargo handling, as on the reference coaster when
-`class` is `nothing`; zero for kites and ships without a rig, and that of the
+`class` is `nothing` and for rotors raised above the stacks, which stand in the cranes'
+way; zero for kites and ships without a rig, and that of the
 [`standing_rig`](@ref) for a kite over a standing rig.
 """
 fixed_rig_port_hours(rig, class, assumptions) = 0.0
@@ -264,12 +265,17 @@ fixed_rig_port_hours(::Union{WingRig, RotorRig}, ::Nothing, assumptions) = Inf
 
 function fixed_rig_port_hours(rig::Union{WingRig, RotorRig}, class::ShipClass,
         assumptions)
+    raised(rig) && return Inf
     ballast_rise = (1 - assumptions[:ballast_draft_fraction]) * class.draft
     air_draft = rig.foot_height + rig.height + ballast_rise
     air_draft > class.air_draft_limit || return class.fixed_rig_port_hours
     return class.fixed_rig_port_hours + 24class.restricted_call_share *
                                          assumptions[:restricted_call_days]
 end
+
+"whether the units of `rig` stand on pedestals above the deck cargo"
+raised(rig::RotorRig) = rig.pedestal_height > 0
+raised(::WingRig) = false
 
 "units a rig stands on deck: wings, rotors, kites and their sum over a combined rig"
 deck_units(rig::Union{WingRig, RotorRig}) = rig.count
@@ -324,11 +330,42 @@ rig_costs(rig::CombinedRig, assumptions) =
     rig_costs(rig.kite, assumptions) .+ rig_costs(rig.standing, assumptions)
 
 function rig_costs(rig::Union{WingRig, RotorRig}, assumptions)
-    setting(name) = assumptions[Symbol(deck_unit(rig), name)]
+    lifetime = assumptions[Symbol(deck_unit(rig), :_lifetime)]
     capital = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions))
-    annuity = capital_recovery(assumptions[:discount_rate], setting(:_lifetime)) * capital
-    mass = setting(:_mass_per_area) * size_factor(rig, assumptions) * total_area(rig)
-    return capital, mass, annuity
+    annuity = capital_recovery(assumptions[:discount_rate], lifetime) * capital
+    mass = unit_mass(rig, assumptions) + pedestal_mass(rig, assumptions)
+    return capital, rig.count * mass, annuity
+end
+
+"mass [t] of one wing, rotor or suction sail of `rig` with its foundation on deck"
+unit_mass(rig::Union{WingRig, RotorRig}, assumptions) =
+    assumptions[Symbol(deck_unit(rig), :_mass_per_area)] * size_factor(rig, assumptions) *
+    total_area(rig) / rig.count
+
+"""
+    pedestal_mass(rig, assumptions)
+
+Steel mass [t] of the pedestal under each rotor of `rig`, zero for units on deck: a
+stiffened box column, `bay_gap` deep along the ship and as wide as the rotor, from the deck
+to the rotor foot. At the allowable stress, its wall at the deck carries the moments, about
+the rotor's mid height, of the rotor's peak wind force along the ship and of its mass in the
+design acceleration across it, each times its load factor.
+"""
+pedestal_mass(::WingRig, assumptions) = 0.0
+
+function pedestal_mass(rig::RotorRig, assumptions)
+    rig.pedestal_height > 0 || return 0.0
+    depth, width = assumptions[:bay_gap], rig.diameter
+    arm = rig.pedestal_height + rig.height / 2
+    wind = assumptions[:rig_wind_load_factor] * arm * rig.height * rig.diameter *
+           rotor_peak_pressure(rig, assumptions[:air_density])
+    inertia = assumptions[:rig_inertia_load_factor] * arm * 1e3unit_mass(rig, assumptions) *
+              assumptions[:rig_design_acceleration]
+    wall = (wind / (depth * (depth / 3 + width)) + inertia / (width * (width / 3 + depth))) /
+           (1e6assumptions[:pedestal_allowable_stress])
+    plating = 2(depth + width) * wall * rig.pedestal_height
+    return 1e-3(1 + assumptions[:pedestal_stiffener_share]) * assumptions[:steel_density] *
+           plating
 end
 
 "unit of the wings, rotors or suction sails of `rig`, naming their assumptions"
@@ -386,7 +423,7 @@ Cost [USD] of the [`kite_deck_masses`](@ref), each at its cost per kg.
 function kite_deck_price(area, max_force, assumptions)
     (; winch, launch_mast) = kite_deck_masses(area, max_force, assumptions)
     return assumptions[:winch_cost_per_mass] * winch +
-           assumptions[:launch_mast_cost_per_mass] * launch_mast
+           assumptions[:welded_steel_cost_per_mass] * launch_mast
 end
 
 function rig_costs(rig::KiteRig{RigidAirframe}, assumptions)
@@ -401,20 +438,25 @@ end
 """
     rig_price_parts(rig, assumptions)
 
-Manufacturing cost [USD] of each part of the hardware of `rig`: the units, their surface
-and the installation of wings or rotors; the deck system, control unit, ship-side controls
+Manufacturing cost [USD] of each part of the hardware of `rig`: the units, their surface,
+the installation, the rotors' pedestals and the camera systems of wings or rotors; the deck system, control unit, ship-side controls
 and integration of a kite, without its canopy and tether; the deck system, tether, supply
 for the hover, ship-side controls and integration of VTOL kites, without their airframes.
 """
 rig_price_parts(::Nothing, assumptions) = (;)
 
-rig_price_parts(rig::WingRig, assumptions) = deck_price_parts(rig.count, total_area(rig),
-    assumptions, :wing_unit_cost, size_factor(rig, assumptions) *
-    surface_cost(rig, assumptions), :wing_installation_fraction)
-rig_price_parts(rig::RotorRig, assumptions) = deck_price_parts(rig.count, total_area(rig),
-    assumptions, :rotor_unit_cost,
-    size_factor(rig, assumptions) * assumptions[:rotor_cost_per_area],
-    :rotor_installation_fraction)
+rig_price_parts(rig::WingRig, assumptions) = (;
+    deck_price_parts(rig.count, total_area(rig), assumptions, :wing_unit_cost,
+        size_factor(rig, assumptions) * surface_cost(rig, assumptions),
+        :wing_installation_fraction)...,
+    cameras=rig.camera_units * assumptions[:camera_system_cost])
+rig_price_parts(rig::RotorRig, assumptions) = (;
+    deck_price_parts(rig.count, total_area(rig), assumptions, :rotor_unit_cost,
+        size_factor(rig, assumptions) * assumptions[:rotor_cost_per_area],
+        :rotor_installation_fraction)...,
+    pedestals=1e3rig.count * pedestal_mass(rig, assumptions) *
+              assumptions[:welded_steel_cost_per_mass],
+    cameras=rig.camera_units * assumptions[:camera_system_cost])
 
 """
     surface_cost(rig::WingRig, assumptions)

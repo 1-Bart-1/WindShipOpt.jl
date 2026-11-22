@@ -3178,7 +3178,7 @@ end
 kite_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost, :canopy_structure_chord,
     :canopy_sewing_cloth_share, :canopy_cloth_base_price, :canopy_cloth_price_per_weight,
     :winch_mass_per_force, :winch_cost_per_mass, :launch_mast_mass_per_size,
-    :launch_mast_cost_per_mass, :control_unit_cost_per_mass, :kite_controls_cost,
+    :welded_steel_cost_per_mass, :control_unit_cost_per_mass, :kite_controls_cost,
     :kite_integration_fraction, :tether_price, :kite_cycle_course_cost,
     :kite_cycle_crew_cost, :market_price_factor)
 

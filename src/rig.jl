@@ -128,19 +128,26 @@ Base.@kwdef struct WingRig
     shadow_share::Float64 = 1.0
     "apparent wind angle off the bow beyond which deck cargo shades the wings [rad]"
     shadow_angle::Float64 = π
+    "wings watched by a camera system for the view they hide from the bridge [-]"
+    camera_units::Int = 0
 end
 
 """
     deck_layout(total_area, unit, hull, assumptions, forward_reserve, columns, in_column)
 
 Layout of `columns` times `in_column` identical `unit`s, `:wing`, `:suction` or `:rotor`, of
-`total_area` [m^2] on `hull`: [`bow_layout`](@ref) where containers stand on its deck, else
-[`column_layout`](@ref).
+`total_area` [m^2] on `hull`: [`column_layout`](@ref) where no containers stand on its deck;
+there one unit at the bow, [`bow_layout`](@ref), or rotors in pairs above the stacks,
+[`raised_layout`](@ref), and `nothing` for other units in pairs.
 """
-deck_layout(total_area, unit, hull::Hull, assumptions::Assumptions, forward_reserve,
-    columns, in_column) = hull.deck_cargo_height > 0 ?
-    bow_layout(total_area, unit, hull, assumptions) :
-    column_layout(columns, in_column, total_area, unit, hull, assumptions, forward_reserve)
+function deck_layout(total_area, unit, hull::Hull, assumptions::Assumptions,
+        forward_reserve, columns, in_column)
+    hull.deck_cargo_height > 0 || return column_layout(columns, in_column, total_area, unit,
+        hull, assumptions, forward_reserve)
+    columns == 1 && return bow_layout(total_area, unit, hull, assumptions)
+    unit == :rotor || return nothing
+    return raised_layout(in_column, total_area, hull, assumptions, forward_reserve)
+end
 
 """
     unit_size(total_area, count, unit, assumptions)
@@ -165,24 +172,57 @@ One `unit` of `total_area` [m^2] on the forecastle of `hull`, ahead of the conta
 deck, blocking none: its centre `bow_unit_position` times the length aft of the bow, in the
 middle of the free forecastle length `bow_room` times the hull length that ends at the first
 bay. The stacks shade it in apparent winds from astern whose line to it crosses them, and
-it keeps the [`shadow_share`](@ref) of its load there. `nothing` where the circle it
+it keeps the [`shadow_share`](@ref) of its load there. A camera system watches the view it
+hides from the bridge where [`camera_units`](@ref) counts it. `nothing` where the circle it
 sweeps, the width of a rotor or 1.5 chords of a wing turning about its quarter chord,
-exceeds the free length, or where its width hides more than `blind_sector_limit` [deg] of
-the view ahead from the bridge.
+exceeds the free length.
 """
 function bow_layout(total_area, unit, hull::Hull, assumptions::Assumptions)
     height, width = unit_size(total_area, 1, unit, assumptions)
     room = assumptions[:bow_room] * hull.length
     sweep = unit == :rotor ? width : assumptions[:wing_spacing] * width
     sweep <= room || return nothing
-    from_bow = assumptions[:bow_unit_position] * hull.length
-    blind_sector = 2atan(width / 2, hull.bridge_distance - from_bow)
-    blind_sector <= deg2rad(assumptions[:blind_sector_limit]) || return nothing
+    centre_position = hull.length / 2 - assumptions[:bow_unit_position] * hull.length
     return (; count=1, columns=1, height, foot_height=foot_height(hull, assumptions),
-        centre_position=hull.length / 2 - from_bow,
-        column_offset=0.0, interference_factor=1.0,
+        centre_position, column_offset=0.0, interference_factor=1.0,
         shadow_share=shadow_share(height / hull.deck_cargo_height, assumptions),
-        shadow_angle=π - atan(hull.beam / 2, room / 2))
+        shadow_angle=π - atan(hull.beam / 2, room / 2), pedestal_height=0.0,
+        camera_units=camera_units([(centre_position, 0.0)], width, hull, assumptions))
+end
+
+"""
+    raised_layout(in_column, total_area, hull, assumptions, forward_reserve)
+
+`in_column` pairs of rotors of `total_area` [m^2] in all on `hull`, abreast and spread along
+the deck as in [`column_layout`](@ref), each on a pedestal in the gap between two bays of
+containers whose top stands `pedestal_clearance` above the stacks, in their free wind. A
+camera system watches the view each rotor that [`camera_units`](@ref) counts hides.
+"""
+function raised_layout(in_column, total_area, hull::Hull, assumptions::Assumptions,
+        forward_reserve)
+    layout = column_layout(2, in_column, total_area, :rotor, hull, assumptions,
+        forward_reserve)
+    isnothing(layout) && return nothing
+    pedestal_height = hull.deck_cargo_height + assumptions[:pedestal_clearance]
+    diameter = layout.height / assumptions[:rotor_aspect_ratio]
+    return (; layout..., foot_height=layout.foot_height + pedestal_height, pedestal_height,
+        camera_units=camera_units(unit_positions(layout, hull, assumptions), diameter,
+            hull, assumptions))
+end
+
+"""
+    camera_units(positions, width, hull, assumptions)
+
+Number of units of `width` [m] at `positions`, [m] forward of midship and off the
+centreline, that stand forward of the bridge of `hull` and hide more than
+`blind_sector_limit` [deg] of its view, each watched by a camera system.
+"""
+function camera_units(positions, width, hull::Hull, assumptions::Assumptions)
+    bridge = hull.length / 2 - hull.bridge_distance
+    limit = deg2rad(assumptions[:blind_sector_limit])
+    return count(positions) do (along, across)
+        along > bridge && 2atan(width / 2, hypot(along - bridge, across)) > limit
+    end
 end
 
 """
@@ -227,16 +267,17 @@ end
     layout_counts(total_area, unit, hull, assumptions, forward_reserve)
 
 Columns and units per column of every layout [`deck_layout`](@ref) may give `unit`s of
-`total_area` [m^2] on `hull`, fewest units first for each count of columns: one unit at the
-bow where containers stand on its deck, else up to [`most_in_column`](@ref) in one row or
-two columns.
+`total_area` [m^2] on `hull`, fewest units first for each count of columns: up to
+[`most_in_column`](@ref) in one row or two columns; where containers stand on its deck one
+unit at the bow, and for rotors also pairs above the stacks.
 """
 function layout_counts(total_area, unit, hull::Hull, assumptions::Assumptions,
         forward_reserve)
-    hull.deck_cargo_height > 0 && return [(1, 1)]
-    return [(columns, in_column) for columns in 1:2
-            for in_column in 1:most_in_column(columns, total_area, unit, hull,
-                assumptions, forward_reserve)]
+    on_deck(columns) = [(columns, in_column)
+                        for in_column in 1:most_in_column(columns, total_area, unit, hull,
+                            assumptions, forward_reserve)]
+    hull.deck_cargo_height > 0 || return [on_deck(1); on_deck(2)]
+    return unit == :rotor ? [(1, 1); on_deck(2)] : [(1, 1)]
 end
 
 """
@@ -272,7 +313,7 @@ function column_layout(columns, in_column, total_area, unit, hull::Hull,
     centre_position = in_column == 1 ? lateral_centre(hull) : -forward_reserve / 2
     return (; count, columns, height, foot_height=foot_height(hull, assumptions),
         centre_position, column_offset, interference_factor, shadow_share=1.0,
-        shadow_angle=float(π))
+        shadow_angle=float(π), pedestal_height=0.0, camera_units=0)
 end
 
 """
@@ -322,7 +363,7 @@ function WingRig(total_area::Real, hull::Hull, assumptions::Assumptions;
         layout.interference_factor,
         fan_power_per_area=suction ? assumptions[:suction_fan_power_per_area] : 0.0,
         max_wind=suction ? assumptions[:suction_max_wind] : Inf, layout.shadow_share,
-        layout.shadow_angle)
+        layout.shadow_angle, layout.camera_units)
 end
 
 total_area(rig::WingRig) = rig.count * rig.area
@@ -427,6 +468,10 @@ Base.@kwdef struct RotorRig
     shadow_share::Float64 = 1.0
     "apparent wind angle off the bow beyond which deck cargo shades the rotors [rad]"
     shadow_angle::Float64 = π
+    "height of the pedestals the rotors stand on above the deck, zero on deck [m]"
+    pedestal_height::Float64 = 0.0
+    "rotors watched by a camera system for the view they hide from the bridge [-]"
+    camera_units::Int = 0
 end
 
 """
@@ -446,7 +491,8 @@ function RotorRig(total_area::Real, hull::Hull, assumptions::Assumptions;
         max_wind=assumptions[:rotor_max_wind],
         max_surface_speed=assumptions[:rotor_max_surface_speed],
         lift_factor=assumptions[:rotor_lift_factor], layout.interference_factor,
-        layout.shadow_share, layout.shadow_angle)
+        layout.shadow_share, layout.shadow_angle, layout.pedestal_height,
+        layout.camera_units)
 end
 
 total_area(rig::RotorRig) = rig.count * rig.height * rig.diameter
@@ -508,6 +554,19 @@ function trim_ranges(rig::RotorRig, env, wind_10m, true_angle, ship_speed)
 end
 
 trim_setting(::RotorRig, ::TrimRange, value) = value
+
+"""
+    rotor_peak_pressure(rig, air_density)
+
+Highest force [N/m^2] on each m^2 of height times diameter of the rotors of `rig` while
+they spin, lift and drag together, in apparent winds up to the one they stop in, each at
+the highest spin ratio it allows.
+"""
+rotor_peak_pressure(rig::RotorRig, air_density) =
+    maximum(range(0.1, rig.max_wind, 200)) do speed
+        lift, drag, _ = rotor_coefficients(max_spin_ratio(rig, speed))
+        return 0.5air_density * speed^2 * hypot(rig.lift_factor * lift, drag)
+    end
 
 """
     KiteRig

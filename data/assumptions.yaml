@@ -450,8 +450,71 @@ blind_sector_limit:
   low: 5.0
   high: 5.0
   unit: deg
-  source: "@cfr33_164 [(a)(1)]: SOLAS V/22 blind sectors"
-  reason: "Widest view ahead from the bridge that one obstruction forward of the beam may hide within 10 degrees either side of dead ahead, the SOLAS limit on navigation bridge visibility [@cfr33_164, (a)(1)], which a unit on the centreline at the bow falls within."
+  source: "@dma2019solas [SOLAS V/22.1.2]: blind sectors"
+  reason: "Widest view from the conning position that one obstruction forward of the beam may hide within 10 degrees either side of dead ahead, the SOLAS limit on navigation bridge visibility [@dma2019solas, SOLAS V/22.1.2]; the model watches every deck unit forward of the bridge that hides more with a camera system, also off to the side, where SOLAS allows 10 degrees."
+camera_system_cost:
+  value: 50000.0
+  low: 40000.0
+  high: 100000.0
+  unit: USD
+  source: "@thegpsstore2026flir: stabilised thermal and visible camera; @imo2012circ1350 [para. 4]: redundancy"
+  reason: "Cost of the camera system watching the view one deck unit hides from the bridge: two stabilised marine cameras with thermal and low-light channels, the redundancy IMO asks of cameras that show the ship's side from the bridge wing [@imo2012circ1350, para. 4], at 24,995 USD each [@thegpsstore2026flir]; authors' estimate of the bounds, the cameras at a fifth below that retail price and the high bound with their screens and cabling."
+bay_gap:
+  value: 1.5
+  low: 1.0
+  high: 2.0
+  unit: m
+  source: "@souadji2012 [Tables A.6.2-A.6.3]: two frames between 40 ft bays"
+  reason: "Length along the ship of the gap between two 40 ft bays of containers, where the lashing bridges stand and a rotor pedestal can: two frames of 0.76 m in a 3100 TEU design, which takes 16 frames for each 12.19 m bay [@souadji2012, Tables A.6.2-A.6.3]; authors' estimate of the bounds."
+pedestal_clearance:
+  value: 2.5
+  low: 1.5
+  high: 4.0
+  unit: m
+  source: "Authors' estimate: hatch covers and lashing clearance"
+  reason: "Height of a rotor pedestal's top above the top of the container stacks counted from the deck: the hatch coaming and covers the stacks stand on, and the clearance over the top tier; authors' estimate."
+rig_wind_load_factor:
+  value: 1.7
+  low: 1.5
+  high: 1.7
+  unit: "-"
+  source: "@bv2026nr206 [Sec 4, Tab 2]: wind load factor in operation"
+  reason: "Load factor on the wind force of a wind propulsion unit in operation at sea for sizing its supporting structure, which covers gusts [@bv2026nr206, Sec 4, Tab 2]; the low bound with an approved automatic release of the load."
+rig_inertia_load_factor:
+  value: 1.3
+  low: 1.15
+  high: 1.3
+  unit: "-"
+  source: "@bv2026nr206 [Sec 4, Tab 2]: acceleration factor in operation"
+  reason: "Load factor on the inertial force of a wind propulsion unit in the ship's accelerations in operation at sea [@bv2026nr206, Sec 4, Tab 2]; the low bound where the accelerations come from a direct calculation."
+rig_design_acceleration:
+  value: 3.0
+  low: 2.0
+  high: 5.0
+  unit: m/s^2
+  source: "@marin2025feeder [Table 2-1, p. 10]: roll of a rotor feeder in operation"
+  reason: "Acceleration across the ship of a raised rotor's mass while it works: the weight's share at MARIN's highest roll of its six-rotor feeder at the rotors' highest working wind, 9-10 degrees [@marin2025feeder, p. 10], g sin 10 degrees = 1.7 m/s^2, plus the roll's acceleration at its 18.3 s period [@marin2025feeder, Table 2-1] 30-60 m above the roll axis, 0.6-1.2 m/s^2; authors' estimate of the bounds, the high bound towards the 25-year motions a unit stowed for a storm meets."
+pedestal_allowable_stress:
+  value: 268.0
+  low: 250.0
+  high: 268.0
+  unit: MPa
+  source: "@bv2026nr206 [Sec 5, 4.4.1]; @constructalia2026s355: S355 steel"
+  reason: "Highest stress in the steel of a rotor pedestal under its factored loads: yield over 1.02 times 1.3 for the beams of a wind propulsion unit's structure [@bv2026nr206, Sec 5, 4.4.1], with S355's yield of 355 MPa up to 16 mm thick; the low bound at its 335 MPa up to 63 mm [@constructalia2026s355]."
+pedestal_stiffener_share:
+  value: 0.2
+  low: 0.1
+  high: 0.4
+  unit: "-"
+  source: "Authors' estimate: stiffened plating"
+  reason: "Mass of the stiffeners that keep a rotor pedestal's plating from buckling, over that of the plating; authors' estimate for flat bars at the spacing of ship plating."
+steel_density:
+  value: 7850.0
+  low: 7850.0
+  high: 7850.0
+  unit: kg/m^3
+  source: "@joshi2025 [Table 6]: steel"
+  reason: "Density of steel [@joshi2025, Table 6]."
 shadow_calm_height:
   value: 0.6
   low: 0.5
@@ -854,13 +917,13 @@ launch_mast_mass_per_size:
   unit: t/m
   source: "@cedelft2016 [Annex A.4]: SkySails system mass less its winch"
   reason: "Mass of a ship kite's launch mast and docking head with their seats per m of the square root of projected kite area, as they carry the kite only at launch and landing and grow with its span and chord: the SkySails system of 160-600 m^2 kites weighs about 30 t [@cedelft2016, Annex A.4] at about 1 kN/m^2 [@paulig2013], so 21 t after the winch of a 600 m^2 kite at 15 kg/kN, over 24.5 m. Low bound: the winch at 28 kg/kN; high bound: the 30 t less its winch for the 320 m^2 kite SkySails flew."
-launch_mast_cost_per_mass:
+welded_steel_cost_per_mass:
   value: 2.9
   low: 1.9
   high: 3.9
   unit: USD/kg
   source: "@wisdem_csm: supplier price of a wind turbine's welded steel tower"
-  reason: "Cost per kg of the kite's launch mast and docking head, mostly a welded steel tube that lifts the kite only at launch and landing and carries no tether force: the supplier price per kg of a wind turbine's welded steel tower [@wisdem_csm]. Low bound: the authors' manufacturing cost of welded tubular steel, as the rotor's tower is priced, from plate, waste, painting and labour in the steel cost model of WISDEM. High bound: the hub of the same model, a steel casting, which also holds a fifth of the mass as the slewing docking head at the 8.3 USD/kg of its yaw system."
+  reason: "Cost per kg of welded steel structure on deck, a kite's launch mast and docking head and a raised rotor's pedestal: the supplier price per kg of a wind turbine's welded steel tower [@wisdem_csm]. Low bound: the authors' manufacturing cost of welded tubular steel, as the rotor's tower is priced, from plate, waste, painting and labour in the steel cost model of WISDEM. High bound: the hub of the same model, a steel casting, which also holds a fifth of the mass of a kite's slewing docking head at the 8.3 USD/kg of its yaw system."
 control_unit_cost_per_mass:
   value: 218.0
   low: 150.0
