@@ -4662,6 +4662,10 @@ end
     @test full.unit == :suction && PaperData.deck_rig_name(full) == "suction"
     @test isnothing(PaperData.deck_rig("suction", upper + 20, hull))
     @test PaperData.size_bounds(class)["rotors"][2] > upper
+    feeder = ship_classes()["feeder container ship"]
+    @test !PaperData.deck_rig_fits("wings", PaperData.smallest_deck_rig_area,
+        Hull(feeder, assumptions))
+    @test !haskey(PaperData.size_bounds(feeder), "wings")
 end
 
 @testset "every rig has its name, life, availability and price inputs" begin
