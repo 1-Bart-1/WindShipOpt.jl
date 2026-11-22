@@ -494,7 +494,7 @@ function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions; co
     if design.kite_area > 0
         aspect_ratio = kite_aspect_ratio(design, assumptions)
         standing_area > 0 && hull.deck_cargo_height > 0 &&
-            throw(ArgumentError("a ship with deck cargo carries a kite or a deck rig, not both"))
+            throw(ArgumentError("a ship with deck cargo carries a kite or a deck rig"))
         standing_area > 0 && return CombinedRig(design.kite_area, aspect_ratio,
             standing_type, standing_area, hull, assumptions; layout...)
         return KiteRig(design.kite_area, aspect_ratio, hull, assumptions)
