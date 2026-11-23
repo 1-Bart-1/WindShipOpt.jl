@@ -1032,7 +1032,7 @@ fuel saved falls short of the rig's own cost, "no rig" where it never does.
 function split_numbers(table)
     numbers = Pair{String, String}[]
     short = String[]
-    for (drive, word) in drive_words, rig in rig_names
+    for (drive, word) in drive_words, (_, rig) in study_rigs(table)
         _, fuel, time, rest = split_points(rig_splits(table, drive, rig))
         name = word * uppercasefirst(rig)
         push!(numbers, "SplitFuel$name" => whole_number(fuel),

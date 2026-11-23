@@ -2567,9 +2567,9 @@ function large_rigs_figure()
     rows = (-1.2, length(names) + 0.7)
     figure = Figure(size=(page_width, 225))
     areas = Axis(figure[1, 1]; title="(a) best kite area",
-        doubling_axis(:x, 125, 32000)..., xlabel=square_metres("projected area [", "]"),
+        doubling_axis(:x, 125, bound)..., xlabel=square_metres("projected area [", "]"),
         yticks=(eachindex(names), names), yreversed=true,
-        limits=((100, 40000), rows))
+        limits=((100, 1.4bound), rows))
     units = Axis(figure[1, 2]; title="(b) deck units at the best size", xlabel="units",
         yticks=(eachindex(names), names), yreversed=true, yticklabelsvisible=false,
         limits=((0, nothing), rows))
@@ -2580,8 +2580,8 @@ function large_rigs_figure()
         text!(areas, area, first(rows); text=label, align=(:right, :top),
             offset=(-gap, -gap), fontsize=note_size, color=:gray35)
     end
-    text!(areas, bound, foot; text="upper bound of the search", rotation=π / 2,
-        align=(:left, :top), offset=(gap, 0), fontsize=note_size, color=:gray35)
+    text!(areas, bound, first(rows); text="upper bound of the search", rotation=π / 2,
+        align=(:right, :bottom), offset=(-gap, -gap), fontsize=note_size, color=:gray35)
     for (k, (drive, _)) in enumerate(drive_panels)
         for (i, name) in enumerate(names)
             values = filter(isfinite, [best_area(table, name, route, drive, "kite")
@@ -2764,10 +2764,13 @@ function print_leaders(name, input, positions, savings, to_value)
                                                 leads], ", "))
 end
 
-"legend entries of the best size of each rig: a line, with a marker where `markers`"
-rig_entries(markers) = [markers ? [LineElement(; color),
-                            MarkerElement(; color, marker=:circle)] :
-                        LineElement(; color) for color in palette[eachindex(rig_names)]]
+"""
+legend entries of the best size of each rig of `rigs`, pairs of index in `rig_names` and
+name: a line, with a marker where `markers`
+"""
+rig_entries(markers, rigs) = [markers ? [LineElement(; color),
+                                  MarkerElement(; color, marker=:circle)] :
+                              LineElement(; color) for color in palette[first.(rigs)]]
 
 """
     doubling_ticks(low, high; base=125)
@@ -2889,9 +2892,10 @@ function situations_figure()
         MarkerElement(color=linestyle == :solid ? :black : :white, strokecolor=:black,
             strokewidth=rule_width, marker=:circle)]
              for (_, _, linestyle) in situation_ships]
+    rigs = study_rigs(table)
     Legend(figure[2, 3:4],
-        [rig_entries(true); ships; LineElement(color=:gray50, linewidth=rule_width)],
-        ["best " .* rig_label.(collect(rig_names));
+        [rig_entries(true, rigs); ships; LineElement(color=:gray50, linewidth=rule_width)],
+        ["best " .* rig_label.(last.(rigs));
             ["140 m, Guadeloupe", "Kamsarmax, Tubarão", "base input"]];
         tellheight=false, tellwidth=false,
         halign=:left, valign=:bottom)
@@ -2956,7 +2960,8 @@ function fuel_figure()
         return axis
     end
     rowgap!(figure.layout, 1, pt(3))
-    axislegend(axes[2], rig_entries(false), collect(rig_label.(rig_names));
+    rigs = study_rigs(table)
+    axislegend(axes[2], rig_entries(false, rigs), rig_label.(last.(rigs));
         position=:lt, orientation=:horizontal)
     styles = [fuel_styles[drive] for (_, drive) in fuel_drives]
     axislegend(axes[1], [LineElement(; color=:black, linestyle) for (_, linestyle) in styles],
@@ -3248,10 +3253,8 @@ end
 forecast_figure_plans = (("false", "perfect foresight"),
     ("live", "re-planned on the forecasts"))
 
-"the `k`th of one strip per rig, from the left, of the unit square of a legend patch"
-rig_patch(k) = let n = length(rig_names)
-    Point2f[((k - 1) / n, 0), (k / n, 0), (k / n, 1), ((k - 1) / n, 1)]
-end
+"the `k`th of `n` strips, from the left, of the unit square of a legend patch"
+rig_patch(k, n) = Point2f[((k - 1) / n, 0), (k / n, 0), (k / n, 1), ((k - 1) / n, 1)]
 
 """
     forecast_figure()
@@ -3264,21 +3267,22 @@ climatology and of the climatology; (d) the forecast's mean weight in the blend.
 """
 function forecast_figure()
     table = read_table(data_file("forecast_result.csv"))
+    rigs = study_rigs(table)
     figure = Figure(size=(page_width, 300))
-    axis = Axis(figure[1, 1]; xticks=(eachindex(rig_names), collect(rig_label.(rig_names))),
+    axis = Axis(figure[1, 1]; xticks=(eachindex(rigs), rig_label.(last.(rigs))),
         ylabel="cost saving [%]", title="(a) saving")
     plan_alphas = (1.0, 0.6, 0.3)[eachindex(forecast_figure_plans)]
     tops = Float64[]
     for (j, (plan, _)) in enumerate(forecast_figure_plans)
-        savings = [forecast_saving(table, rig, plan) for rig in rig_names]
+        savings = [forecast_saving(table, rig, plan) for (_, rig) in rigs]
         spreads = [100std(ratios) / sqrt(length(ratios))
-                   for ratios in forecast_ratios.(Ref(table), rig_names, plan)]
-        positions = eachindex(rig_names) .+
+                   for ratios in forecast_ratios.(Ref(table), last.(rigs), plan)]
+        positions = eachindex(rigs) .+
                     (j - (length(forecast_figure_plans) + 1) / 2) * 0.27
         routed = isfinite.(savings)
         means, errors = savings[routed], spreads[routed]
         barplot!(axis, positions[routed], means; width=0.25,
-            color=[(palette[rig], plan_alphas[j]) for rig in findall(routed)])
+            color=[(palette[k], plan_alphas[j]) for (k, _) in rigs[routed]])
         errorbars!(axis, positions[routed], means, errors; color=:black,
             whiskerwidth=pt(3), linewidth=rule_width)
         append!(tops, means .+ errors)
@@ -3287,8 +3291,9 @@ function forecast_figure()
             rotation=pi / 2, align=(:left, :center), fontsize=note_size, color=:gray30)
     end
     ylims!(axis, 0, 1.7 * maximum(tops))
-    axislegend(axis, [[PolyElement(color=(palette[rig], alpha), points=rig_patch(rig))
-                       for rig in eachindex(rig_names)] for alpha in plan_alphas],
+    axislegend(axis, [[PolyElement(color=(palette[k], alpha),
+                           points=rig_patch(slot, length(rigs)))
+                       for (slot, (k, _)) in enumerate(rigs)] for alpha in plan_alphas],
         collect(last.(forecast_figure_plans)); position=:lt)
     errors = read_table(data_file("forecast_error.csv"))
     days = errors["lead_days"]
