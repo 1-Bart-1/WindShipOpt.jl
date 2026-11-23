@@ -1886,7 +1886,7 @@ published_savings = [("podeur2016", 16.0, "\\citet{podeur2016}", "12.1", ""),
     ("leloup2013", 15.5, "\\citet{leloup2013}", "26.6", "one crossing"),
     ("cedelft2016", 10.5, "\\citet{cedelft2016}", "2--15", ""),
     ("cedelft2016", 12.3, "\\citet{cedelft2016}", "1--9", ""),
-    ("traut2014", 11.2, "\\citet{traut2014}", "1--32", "")]
+    ("traut2014", 11.2, "\\citet{traut2014}", "6", "power share on one route")]
 
 """
     published_table()
@@ -2158,7 +2158,8 @@ paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draf
 the goals, the `highlight_limit` the paper build checks, the [`class_numbers`](@ref),
 [`class_range_numbers`](@ref), [`recommendation_numbers`](@ref),
 [`rig_lead_numbers`](@ref), [`route_numbers`](@ref), [`split_numbers`](@ref),
-[`payback_numbers`](@ref), [`premium_numbers`](@ref), [`fleet_share_numbers`](@ref),
+[`payback_numbers`](@ref), [`premium_numbers`](@ref), [`unit_cost_numbers`](@ref),
+[`fleet_share_numbers`](@ref),
 [`market_numbers`](@ref) and [`type_saving_numbers`](@ref) of the class study, the
 [`design_premium_numbers`](@ref) of the design study, the [`forecast_numbers`](@ref) and
 the [`side_force_numbers`](@ref).
@@ -2168,7 +2169,7 @@ function numbers_file()
     results = [class_numbers(classes); class_range_numbers(classes);
                recommendation_numbers(classes); rig_lead_numbers(classes);
                route_numbers(classes); split_numbers(classes); payback_numbers(classes);
-               premium_numbers(classes);
+               premium_numbers(classes); unit_cost_numbers(classes);
                design_premium_numbers(read_table(data_file("designs.csv")));
                fleet_share_numbers(classes); market_numbers(classes);
                type_saving_numbers(classes); forecast_numbers(); side_force_numbers()]
@@ -2320,6 +2321,29 @@ function class_range_numbers(table)
                                        for (drive, _) in drive_words])
         push!(numbers, "MostUnits$(uppercasefirst(rig))" =>
             whole_number(maximum(table["units"][cheapest])))
+    end
+    return numbers
+end
+
+"""
+    unit_cost_numbers(table)
+
+Name and text, from the class table `table`, of the range over the container ships and the
+routes of the cost per TEU-kilometre [US cents] of the ship without a rig on VLSFO, and of
+that range per car-kilometre for the car carrier.
+"""
+function unit_cost_numbers(table)
+    classes = read_table(joinpath(root, "data", "ship_classes.csv"))
+    numbers = Pair{String, String}[]
+    for (unit, name) in (("TEU", "TeuKm"), ("CEU", "CarKm"))
+        cents = Float64[]
+        for i in rows(classes, "cargo_unit" => unit), route in unique(table["route"])
+            bare = cheapest_row(table, classes["name"][i], route, "vlsfo", "none")
+            isnothing(bare) && continue
+            push!(cents,
+                100table["cost"][bare] * table["cargo"][bare] / classes["unit_capacity"][i])
+        end
+        push!(numbers, "CostPer$name" => value_range(cents, two_digits))
     end
     return numbers
 end
