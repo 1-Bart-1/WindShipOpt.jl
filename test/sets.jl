@@ -724,8 +724,8 @@ end
     @test parts(800.0).control_unit ≈ 400 * assumptions[:control_unit_mass_per_force] *
                                       assumptions[:control_unit_cost_per_mass]
     @test parts(800.0).controls == assumptions[:kite_controls_cost]
-    @test parts(800.0).integration ≈ assumptions[:kite_integration_fraction] *
-                                     (sum(parts(800.0)) - parts(800.0).integration)
+    @test parts(800.0).installation ≈ assumptions[:installation_fraction] *
+                                      (sum(parts(800.0)) - parts(800.0).installation)
     @test sqrt(5) < parts(16000.0).deck / parts(3200.0).deck < 5
     @test assumptions[:welded_steel_cost_per_mass] <= assumptions[:winch_cost_per_mass]
     skysails = sum(WindShipOpt.kite_deck_masses(600.0, 6e5, assumptions))
@@ -753,6 +753,30 @@ end
                    assumptions[:tether_stress]
     @test tether ≈ 7.6e3 rtol = 0.005
     @test assumptions[:tether_price] * tether ≈ 7.1e5 rtol = 0.005
+end
+
+@testset "the paper's worked examples of a wing sail, suction sails and raised rotors \
+          hold" begin
+    price(rig) = assumptions[:market_price_factor] *
+                 sum(WindShipOpt.rig_price_parts(rig, assumptions))
+    mass(rig) = WindShipOpt.rig_costs(rig, assumptions)[2]
+    wing = Ship(ShipDesign(:ammonia, 140.0; wing_area=800.0), assumptions).rig
+    @test wing.count == 1 && wing.height == assumptions[:wing_reference_height]
+    @test price(wing) ≈ 2.01e6 rtol = 0.005
+    @test mass(wing) ≈ 200 rtol = 0.005
+    suction = Ship(ShipDesign(:ammonia, 140.0; suction_area=400.0), assumptions).rig
+    @test suction.count == 3
+    @test suction.height ≈ 29.7 atol = 0.05
+    @test WindShipOpt.size_factor(suction, assumptions) ≈ 1.14 atol = 0.005
+    @test price(suction) ≈ 1.90e6 rtol = 0.005
+    @test mass(suction) ≈ 137 rtol = 0.005
+    megamax = Hull(ship_classes()["Megamax container ship"], assumptions)
+    rotors = WindShipOpt.RotorRig(600.0, megamax, assumptions; columns=2, in_column=2)
+    @test rotors.count == 4 && rotors.height == 30 && rotors.pedestal == :column
+    @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 47.0 rtol = 0.005
+    @test rotors.camera_units == 0
+    @test price(rotors) ≈ 4.75e6 rtol = 0.005
+    @test mass(rotors) ≈ 464 rtol = 0.005
 end
 
 @testset "a rotor price is set against the build-up of the same unit as sold" begin
@@ -849,24 +873,27 @@ end
     @test only(storm).high == 0
 end
 
-@testset "a suction sail is priced and weighed as a wing sail with its own mass and cost \
-          per kg" begin
+@testset "wing and suction sails are priced per kg they put on deck, suction sails with \
+          their fans" begin
     sails = suction_sail(800.0)
     wings = WingRig(800.0, Hull(140.0, assumptions), assumptions; in_column=2)
     @test sails.height <= assumptions[:suction_reference_height]
+    @test wings.height <= assumptions[:wing_reference_height]
     parts = WindShipOpt.rig_price_parts(sails, assumptions)
+    fans = 1e-3assumptions[:suction_fan_power_per_area] *
+           assumptions[:suction_fan_cost_per_power]
     @test parts.units == sails.count * assumptions[:wing_unit_cost]
-    @test parts.surface ≈ 800 * 1e3assumptions[:suction_mass_per_area] *
-                          assumptions[:suction_cost_per_mass]
-    @test parts.installation ≈ assumptions[:wing_installation_fraction] *
-                               (parts.units + parts.surface)
+    @test parts.surface ≈ 800 * (1e3assumptions[:suction_mass_per_area] *
+                                 assumptions[:wing_cost_per_mass] + fans)
+    @test parts.installation ≈ assumptions[:installation_fraction] *
+                               (sum(parts) - parts.installation)
     @test WindShipOpt.rig_costs(sails, assumptions)[2] ≈
           800 * assumptions[:suction_mass_per_area]
     @test WindShipOpt.rig_price_parts(wings, assumptions).surface ≈
-          800 * assumptions[:wing_cost_per_area]
+          800e3assumptions[:wing_mass_per_area] * assumptions[:wing_cost_per_mass]
     heavier = with_value(assumptions, :suction_mass_per_area, 0.6)
-    @test WindShipOpt.rig_price_parts(suction_sail(800.0, heavier), heavier).surface ≈
-          2parts.surface
+    @test WindShipOpt.rig_price_parts(suction_sail(800.0, heavier), heavier).surface -
+          parts.surface ≈ 800 * 300 * assumptions[:wing_cost_per_mass]
 end
 
 @testset "suction sails stand alone on a design and keep the wing sails' spacing" begin
@@ -1307,8 +1334,10 @@ end
         mass(rig) = WindShipOpt.rig_costs(rig, assumptions)[2]
         @test mass(built) ≈ area * assumptions[Symbol(unit, :_mass_per_area)]
         @test mass(tall) ≈ growth * mass(built)
-        surface(rig) = WindShipOpt.rig_price_parts(rig, assumptions).surface
-        @test surface(tall) ≈ growth * surface(built)
+        fans = unit == :suction ? 1e-3area * assumptions[:suction_fan_power_per_area] *
+                                  assumptions[:suction_fan_cost_per_power] : 0.0
+        structure(rig) = WindShipOpt.rig_price_parts(rig, assumptions).surface - fans
+        @test structure(tall) ≈ growth * structure(built)
     end
 end
 
@@ -4402,7 +4431,7 @@ end
     price(inputs) = first(WindShipOpt.rig_costs(one, inputs))
     @test price(raised(:rigid_cost_per_mass)) - price(assumptions) ≈ factor * mass
     @test price(raised(:rigid_ship_power_cost)) - price(assumptions) ≈
-          factor * (1 + assumptions[:kite_integration_fraction]) * hover_power
+          factor * (1 + assumptions[:installation_fraction]) * hover_power
 end
 
 @testset "a rigid kite's station is a soft kite's deck system and controls, and its tether" begin

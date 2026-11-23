@@ -325,7 +325,7 @@ function scaled(names, factor)
 end
 
 "inputs of the situation study that stand for a factor on several assumptions at once"
-scaled_inputs = Dict(:wing_price => (:wing_unit_cost, :wing_cost_per_area))
+scaled_inputs = Dict(:wing_price => (:wing_unit_cost, :wing_cost_per_mass))
 
 """
     situation_assumptions(input, value)
@@ -1938,13 +1938,13 @@ development_inputs = [
     (input=:kite_weather_window, label="kite weather window", rig="kite", lever="weather",
         reason="Its launch system, structure and control decide the sea and the winds " *
                "in which it launches, flies and lands; its five limits moved together."),
-    (input=:wing_cost_per_area, label="wing sail cost per area", rig="wings", lever="price",
-        reason="Structure sets a wing's price, which stands at its build-up."),
+    (input=:wing_cost_per_mass, label="wing sail cost per mass", rig="wings", lever="price",
+        reason="Structure sets a wing's price per kg, which stands at its build-up."),
     (input=:wing_max_lift_coefficient, label="wing sail maximum lift", rig="wings",
         lever="force", reason="Flap and section design decide a wing's force."),
-    (input=:suction_cost_per_mass, label="suction sail cost per mass", rig="suction",
-        lever="price", reason="Structure and fans set a suction sail's price, which " *
-                              "stands at its build-up."),
+    (input=:suction_mass_per_area, label="suction sail mass per area", rig="suction",
+        lever="price", reason="Structure sets a suction sail's mass and, at a wing " *
+                              "sail's cost per kg, its price."),
     (input=:suction_max_lift_coefficient, label="suction sail maximum lift",
         rig="suction", lever="force",
         reason="Section, slots and fan decide how far the flow stays attached."),
@@ -3233,21 +3233,22 @@ end
 kite_price_inputs = (:canopy_structure_cost, :canopy_cloth_base_price,
     :canopy_cloth_price_per_weight, :winch_mass_per_force, :winch_cost_per_mass,
     :launch_mast_mass_per_size, :welded_steel_cost_per_mass, :control_unit_cost_per_mass,
-    :kite_controls_cost, :kite_integration_fraction, :tether_price, :kite_cycle_course_cost,
+    :kite_controls_cost, :installation_fraction, :tether_price, :kite_cycle_course_cost,
     :kite_cycle_crew_cost, :market_price_factor)
 
 "the price inputs of each rig, the kite's [`kite_price_inputs`](@ref)"
 rig_price_inputs = Dict("kite" => kite_price_inputs,
-    "wings" => (:wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction,
-        :welded_steel_cost_per_mass, :camera_system_cost, :market_price_factor),
-    "rotors" => (:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
-        :welded_steel_cost_per_mass, :camera_system_cost, :market_price_factor),
-    "suction" => (:wing_unit_cost, :suction_cost_per_mass, :suction_mass_per_area,
-        :wing_installation_fraction, :welded_steel_cost_per_mass, :camera_system_cost,
+    "wings" => (:wing_unit_cost, :wing_cost_per_mass, :wing_mass_per_area,
+        :installation_fraction, :welded_steel_cost_per_mass, :camera_system_cost,
         :market_price_factor),
+    "rotors" => (:rotor_unit_cost, :rotor_cost_per_area, :installation_fraction,
+        :welded_steel_cost_per_mass, :camera_system_cost, :market_price_factor),
+    "suction" => (:wing_unit_cost, :wing_cost_per_mass, :suction_mass_per_area,
+        :suction_fan_cost_per_power, :installation_fraction, :welded_steel_cost_per_mass,
+        :camera_system_cost, :market_price_factor),
     "vtol" => (:rigid_mass, :rigid_cost_per_mass, :rigid_avionics_cost, :rigid_tether_cost,
         :rigid_ship_power_cost, :winch_cost_per_mass, :welded_steel_cost_per_mass,
-        :kite_controls_cost, :kite_integration_fraction, :market_price_factor))
+        :kite_controls_cost, :installation_fraction, :market_price_factor))
 
 "ship, drive, and kite, wing sail and rotor areas [m^2] of the router decisions study"
 router_decision_ships = (("140 m", :ammonia, (1600.0, 1500.0, 800.0)),
