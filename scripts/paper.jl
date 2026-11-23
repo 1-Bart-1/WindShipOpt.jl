@@ -129,7 +129,7 @@ output_steps = [:kite => kite_figure, :deck_rigs => deck_rig_figure,
     :figure_style => figure_style_file, :ship_pictures => ship_pictures_file]
 
 """
-    paper(names...; fidelity, resume=nothing, only=nothing)
+    paper(names...; fidelity, resume=nothing, only=nothing, source=nothing)
 
 Run the named steps, or every data step of the results and then every figure and table
 step when no name is given, at `fidelity` (:draft or :final); `:data` and `:figures` run all
@@ -142,13 +142,14 @@ ends with an error naming each that failed and why. Round trips the case store h
 the code and inputs are reused. A draft with `only`, labels and their values such as
 `(class="handysize", route=:caribbean)`, computes only the cases carrying them and keeps
 the latest stored round trip of the others, of any code. A final run errors on a dirty
-tree or unpushed commit.
+tree or unpushed commit. Figure and table steps alone read the run named `source`, such
+as "2026-11-20T2000", before any other.
 """
-function paper(names::Symbol...; fidelity, resume=nothing, only=nothing)
+function paper(names::Symbol...; fidelity, resume=nothing, only=nothing, source=nothing)
     steps = isempty(names) ? [data_steps; output_steps] :
             [step for name in names for step in selected_steps(name)]
     failed = run_steps(steps, first.([output_steps; study_table_steps()]); fidelity,
-        resume, only)
+        resume, only, source)
     mark_fidelity(joinpath(sections, "fidelity.tex"), fidelity, first.(steps),
         first.(output_steps))
     check_drawn(failed)
