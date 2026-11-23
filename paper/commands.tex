@@ -46,4 +46,5 @@
 % \todaynum{name}: the number NumToday<name> of the today step or of its routing check, or a mark until they have run.
 \InputIfFileExists{sections/today_numbers}{}{}
 \InputIfFileExists{sections/today_routing_numbers}{}{}
+\InputIfFileExists{sections/measured_numbers}{}{}
 \newcommand{\todaynum}[1]{\ifcsname NumToday#1\endcsname\csname NumToday#1\endcsname\else\tbd{[today #1]}\fi}
