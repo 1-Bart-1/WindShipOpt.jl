@@ -1,19 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Download ERA5 for one region into era5/<group>/ (North Atlantic) or
-# era5/<region>/<group>/, one Float32 file per variable plus grid.toml: the 10 m wind, the
-# wind speed aloft and the waves. With
-# ERA5_PRODUCT=climate it writes instead the monthly means of 1991-2016 per cell (lon, lat,
-# month) to era5/<region>/climate/<group>/, from every other wind chunk and a wave field
-# every 102 h. The region is the ERA5_REGION environment variable:
-# - "atlantic" (default): Rotterdam to the Caribbean
-# - "north_sea": Rotterdam to Norway and Iceland
-# - "atlantic_wide": the Atlantic from Brazil and the US Gulf to Europe
-# Wind: WeatherBench2's 1.5° 6-hourly copy (small chunks); aloft, the speed at fixed heights
-# from its 10 m wind and pressure levels. Waves: ARCO-ERA5 0.25° hourly,
-# thinned to 0.5° and 12-hourly. Resumable: rerun to continue; a climatology already
-# written is kept.
+# Download ERA5 for the Atlantic from Brazil and the US Gulf to Europe into
+# era5/atlantic_wide/<group>/, one Float32 file per variable plus grid.toml: the 10 m wind,
+# the wind speed aloft and the waves. With ERA5_PRODUCT=climate it writes instead the
+# monthly means of 1991-2016 per cell (lon, lat, month) to
+# era5/atlantic_wide/climate/<group>/, from every other wind chunk and a wave field every
+# 102 h. Wind: WeatherBench2's 1.5° 6-hourly copy (small chunks); aloft, the speed at fixed
+# heights from its 10 m wind and pressure levels. Waves: ARCO-ERA5 0.25° hourly, thinned to
+# 0.5° and 12-hourly. Resumable: rerun to continue; a climatology already written is kept.
 using Blosc
 using Dates
 using Downloads
@@ -29,12 +24,9 @@ aloft_heights = 100:100:1200
 aloft_levels = (1000, 925, 850, 700)
 standard_gravity = 9.80665
 climate_years = 1991:2016
-region = get(ENV, "ERA5_REGION", "atlantic")
-lat_range, lon_range, subdirectory = Dict(
-    "atlantic" => ((5.0, 56.0), (-75.0, 10.0), ""),
-    "north_sea" => ((50.0, 67.0), (-25.0, 14.0), "north_sea"),
-    "atlantic_wide" => ((-35.0, 56.0), (-100.0, 10.0), "atlantic_wide"))[region]
-output = joinpath(@__DIR__, "..", "era5", subdirectory)
+lat_range = (-35.0, 56.0)
+lon_range = (-100.0, 10.0)
+output = joinpath(@__DIR__, "..", "era5", "atlantic_wide")
 
 function fetch(url)
     for attempt in 1:6

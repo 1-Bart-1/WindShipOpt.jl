@@ -111,16 +111,13 @@ Base.@kwdef struct Powertrain
     transmission_efficiency::Float64
     "constant electrical consumption on board [W]"
     hotel_load::Float64
-    "lowest load a running unit holds unless one unit alone carries less [-]"
-    min_load::Float64 = 0.0
 end
 
 """
     fuel_power(powertrain, delivered)
 
-Fuel energy rate [W] to supply `delivered` propeller power [W] plus the hotel load with
-the most efficient number of running units that carry the load at no less than their
-minimum load, or `Inf` above the installed power.
+Fuel energy rate [W] to supply `delivered` propeller power [W] plus the hotel load on the
+fewest units that carry it, sharing the load equally, or `Inf` above the installed power.
 """
 function fuel_power(powertrain::Powertrain, delivered)
     output = delivered / powertrain.transmission_efficiency + powertrain.hotel_load

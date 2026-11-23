@@ -69,7 +69,7 @@ struct ERA5Weather
     wave_arrays::NTuple{4, Array{Float32, 3}}
 end
 
-function ERA5Weather(directory::AbstractString=joinpath(pkgdir(@__MODULE__), "era5"))
+function ERA5Weather(directory::AbstractString)
     grid = TOML.parsefile(joinpath(directory, "wind", "grid.toml"))
     origin = DateTime(grid["first_time"])
     waves = GriddedFields(joinpath(directory, "waves"), origin)
