@@ -1263,12 +1263,14 @@ function canopy_tension_figure()
     hlines!(force_axis, mean_force; color=category_colours[1], linestyle=:dash)
     hlines!(force_axis, peak_force; color=category_colours[2], linestyle=:dot)
     lines!(force_axis, times, forces; color=palette[1])
-    above = longest_run(forces .>= mean_force)
-    text!(force_axis, (times[first(above)] + times[last(above)]) / 2, mean_force;
+    trough = argmin(forces)
+    first_below = findlast(>=(mean_force), forces[1:trough]) + 1
+    last_below = trough + findfirst(>=(mean_force), forces[trough:end]) - 2
+    text!(force_axis, (times[first_below] + times[last_below]) / 2, mean_force;
         text=@sprintf("mean %s MN\n%s kN/m", estimate_text(mean_force),
             estimate_text(tension(mean_force))),
-        fontsize=note_size, align=(:center, :top), color=category_colours[1],
-        offset=clear_offset((:center, :top), pt(2)))
+        fontsize=note_size, align=(:center, :bottom), color=category_colours[1],
+        offset=clear_offset((:center, :bottom), pt(2)))
     text!(force_axis, times[1], peak_force;
         text=@sprintf("peak %s MN, %s kN/m\nnew cloth about %s kN/m, %s × peak",
             estimate_text(peak_force), estimate_text(tension(peak_force)),
@@ -1278,14 +1280,6 @@ function canopy_tension_figure()
         offset=clear_offset((:left, :bottom), pt(2)))
     colsize!(figure.layout, 1, Relative(0.52))
     save_figure("canopy_tension", figure)
-end
-
-"the indices of the longest unbroken run of `true` in `flags`"
-function longest_run(flags)
-    starts = findall(k -> flags[k] && (k == 1 || !flags[k - 1]), eachindex(flags))
-    runs = [start:(something(findnext(!, flags, start), length(flags) + 1) - 1)
-            for start in starts]
-    return runs[argmax(length.(runs))]
 end
 
 """
@@ -2304,12 +2298,12 @@ departure_costs(table, conditions...) =
     Dict(Date(table["date"][k]) => table["cost"][k] for k in rows(table, conditions...))
 
 """
-    spread_labels(positions, gap, low, high)
+    spread_labels(positions, gap)
 
 `positions` moved apart where needed so that neighbours stand at least `gap` apart, in the
-same order, each group centred where it was and then pushed within `low` to `high`.
+same order, each group centred where it was.
 """
-function spread_labels(positions, gap, low, high)
+function spread_labels(positions, gap)
     order = sortperm(positions)
     placed = positions[order]
     for _ in eachindex(placed), i in 2:length(placed)
@@ -2318,9 +2312,6 @@ function spread_labels(positions, gap, low, high)
         placed[i - 1] -= overlap / 2
         placed[i] += overlap / 2
     end
-    count = length(placed)
-    placed .= min.(placed, high .- (count .- (1:count)) .* gap)
-    placed .= max.(placed, low .+ (0:(count - 1)) .* gap)
     return placed[invperm(order)]
 end
 
@@ -3388,7 +3379,6 @@ function speed_size_figure()
         ("fuel saved [GJ/round trip]", "free", :fuel), ("cost saved [%]", "priced",
             :cost_percent))
     designs = [(grid, string(drive)) for grid in speed_size_grid for drive in grid.drives]
-    labelled = []
     for (row, (grid, drive)) in enumerate(designs)
         shades = cgrad(:Blues, length(grid.kites) + 3; categorical=true)
         for (column, (label, pricing, quantity)) in enumerate(panels)
@@ -3411,30 +3401,15 @@ function speed_size_figure()
                 append!(drawn, values)
             end
             column == length(panels) || continue
-            margin = 0.05 * (maximum(drawn) - minimum(drawn))
-            low, high = minimum(drawn) - margin, maximum(drawn) + margin
-            ylims!(axis, low, high)
+            spread = spread_labels(ends, 0.13 * (maximum(drawn) - minimum(drawn)))
+            for (k, area) in enumerate(grid.kites)
+                text!(axis, last(grid.speeds), spread[k];
+                    text=square_metres("$(round(Int, area)) "), color=shades[k + 3],
+                    fontsize=note_size, align=(:left, :center), offset=(5, 0))
+            end
             xlims!(axis, first(grid.speeds) - 0.3,
                 last(grid.speeds) + 0.55 * (last(grid.speeds) - first(grid.speeds)))
-            push!(labelled, (axis, grid, shades, ends, low, high))
         end
-    end
-    Makie.update_state_before_display!(figure)
-    for (axis, grid, shades, ends, low, high) in labelled
-        anchors = Point2f.(last(grid.speeds), ends)
-        label = text!(axis, anchors;
-            text=[square_metres("$(round(Int, area)) ") for area in grid.kites],
-            color=shades[(1:length(grid.kites)) .+ 3], fontsize=note_size,
-            align=(:left, :center), offset=(5, 0))
-        reach = maximum(zip(Makie.string_boundingboxes(label), anchors)) do (box, anchor)
-            centre = pixel_point(axis.scene, anchor)[2]
-            max(centre - minimum(box)[2], maximum(box)[2] - centre)
-        end
-        per_unit = (high - low) / height(axis.scene.viewport[])
-        half = reach * per_unit
-        spread = spread_labels(ends, 2half + label_clearance * per_unit, low + half,
-            high - half)
-        label[1] = Point2f.(last(grid.speeds), spread)
     end
     save_figure("speed_size", figure)
 end
