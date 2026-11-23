@@ -135,10 +135,10 @@ steps of that kind. Any step but figures and tables alone runs in a new or resum
 and nothing asks on stdin.
 Steps that run has done are skipped, and it counts as finished once every data step asked
 of it is done. A figure or table step that fails leaves the others to run, and the call
-ends with an error naming each that failed and why. Round trips the case store holds for the code and inputs are reused. A draft with
-`only`, labels and their values such as `(class="handysize", route=:caribbean)`, computes
-only the cases carrying them and keeps the latest stored round trip of the others, of any
-code. A final run errors on a dirty tree or unpushed commit.
+ends with an error naming each that failed and why. Round trips the case store holds for
+the code and inputs are reused. A draft with `only`, labels and their values such as
+`(class="handysize", route=:caribbean)`, computes only the cases carrying them and keeps
+the latest stored round trip of the others, of any code. A final run errors on a dirty tree or unpushed commit.
 """
 function paper(names::Symbol...; fidelity, resume=nothing, only=nothing)
     steps = isempty(names) ? [data_steps; output_steps] :
