@@ -21,6 +21,10 @@ paper(:figures; fidelity=:draft)          # redraw the figures and tables from t
 
 A `\stale{<steps>}{...}` marker in the paper names the steps whose rerun it waits for. Once `paper_status` lists a step as current, the text the marker covers can be rewritten from its data and the marker removed.
 
+## A figure or table that fails to draw
+
+A figure or table that fails, on its label check or anything else, stops no other step. The run keeps its data, finishes once every data step is done, and `paper` ends with an error naming each figure and table that failed and why. Once the code is fixed, `paper(:canopy_tension_figure; fidelity=:final)`, or `paper(:figures; fidelity=:final)` for all of them, redraws from that run's data without routing anything. A run that stopped in a figure before figures stopped nothing is still unfinished: `paper(; fidelity=:final, resume=true)` on its branch, or `bin/cluster submit final` there, skips every data step it has and draws the rest.
+
 ## Rerunning one slice of a step in a draft
 
 After a change to the model, a draft can be brought up to date one ship class, route, fuel or rig at a time:

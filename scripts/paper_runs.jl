@@ -433,6 +433,61 @@ function check_final_commit()
 end
 
 """
+    run_steps(steps, outputs; fidelity, resume, only=nothing)
+
+Run `steps` at `fidelity` in a new or resumed run as [`paper`](@ref) does, or without a run
+when all of them are among the figure and table steps `outputs`. A step of `outputs` that
+fails leaves the steps after it to run; return the name of each such step with its error.
+"""
+function run_steps(steps, outputs; fidelity, resume, only=nothing)
+    haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
+    global paper_run = all(in(outputs), first.(steps)) ? PaperRun(fidelity) :
+                       open_run(fidelity, first.(steps), resume; only)
+    failed = Pair{Symbol, String}[]
+    for (name, step) in steps
+        if step_done(paper_run, name)
+            println("step ", name, " already done")
+        elseif name in outputs
+            why = drawing_error(() -> run_step!(paper_run, name, step))
+            isnothing(why) || push!(failed, name => why)
+        else
+            run_step!(paper_run, name, step)
+        end
+    end
+    finish_run!(paper_run, outputs)
+    return failed
+end
+
+"""
+    drawing_error(draw)
+
+Call `draw` and return the message of the error it raises, printed, or nothing; an
+interrupt is raised on.
+"""
+function drawing_error(draw)
+    try
+        draw()
+        return nothing
+    catch exception
+        exception isa InterruptException && rethrow()
+        why = sprint(showerror, exception)
+        println("  failed to draw: ", why)
+        return why
+    end
+end
+
+"""
+    check_drawn(failed)
+
+Raise an error listing each figure and table step of `failed` with why it failed to draw.
+"""
+function check_drawn(failed)
+    isempty(failed) && return
+    error("failed to draw, every other step done:\n",
+        join(("  $name: $why" for (name, why) in failed), "\n"))
+end
+
+"""
     open_run(fidelity, names, resume; only=nothing)
 
 The run to make steps `names` in: the latest unfinished run at `fidelity` on this git branch
@@ -583,13 +638,15 @@ function file_times(run)
 end
 
 """
-    finish_run!(run)
+    finish_run!(run, outputs)
 
-Mark `run` finished at the current time in its record, once every step asked of it is done.
+Mark `run` finished at the current time in its record, once every step asked of it but the
+figure and table steps `outputs` is done.
 """
-function finish_run!(run)
+function finish_run!(run, outputs)
     isnothing(run.directory) && return
-    all(name -> step_done(run, name), run.record["requested"]) || return
+    data = filter(name -> Symbol(name) ∉ outputs, run.record["requested"])
+    all(name -> step_done(run, name), data) || return
     run.record["finished"] = string(floor(now(), Second))
     write_record(run)
 end
