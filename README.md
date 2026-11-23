@@ -43,7 +43,7 @@ bin/cluster submit final        # or: bin/cluster submit draft
 bin/cluster status
 ```
 
-The setup can be rerun and resumes where it stopped; it ends by checking every weather file against the box's and names any that differ. Jobs go to the `innovation` account set in `scripts/cluster.toml`, which allows 24-hour jobs and 4 at once; a run resumes by itself past 24 hours. `/scratch` is cleared of old files, so copy `output/` home after a run, and run `bin/weather` before a run that comes months after the setup. [`docs/paper_runs.md`](docs/paper_runs.md#runs-on-a-slurm-cluster) has the detail.
+The setup can be rerun and resumes where it stopped; it ends by checking every weather file against the box's and names any that differ. Jobs go to the research account `research-ae-fpt` set in `scripts/cluster.toml`, which allows up to 64 jobs at once; the run uses 16 of 24 hours each and resumes by itself past that. `/scratch` is cleared of old files, so copy `output/` home after a run, and run `bin/weather` before a run that comes months after the setup. [`docs/paper_runs.md`](docs/paper_runs.md#runs-on-a-slurm-cluster) has the detail.
 
 To try the model on one ship without the paper: `./bin/run_julia scripts/compare_designs.jl`.
 
@@ -74,4 +74,4 @@ Runs on ERA5 wind and waves when `era5/atlantic_wide/` exists, otherwise on synt
 
 ## Licence
 
-Everything here is © 2026 Bart van de Lint under the [GNU Affero General Public License v3.0 or later](LICENSES/AGPL-3.0-or-later.txt): the code, the paper, the data notes and the inputs. A few files belong to others and keep their own licence: the TeX Gyre Termes fonts in `data/fonts/` (LPPL 1.3c or later), the Eurostat extract in `data/market/` (CC BY 4.0, source: Eurostat), the tables taken from the Fourth IMO GHG Study 2020 and UNCTAD's Review of Maritime Transport (all rights reserved by their publishers), and `bin/reuse_lint` (MIT). The repository follows the [REUSE specification](https://reuse.software): every file's copyright and licence is in its header or in [`REUSE.toml`](REUSE.toml), the licence texts are in [`LICENSES/`](LICENSES/), and `./bin/reuse_lint` checks it.
+Everything here is © 2026 Bart van de Lint under the [GNU Affero General Public License v3.0 or later](LICENSES/AGPL-3.0-or-later.txt): the code, the paper, the data notes and the inputs. A few files belong to others and keep their own licence: the TeX Gyre Termes fonts in `data/fonts/` (LPPL 1.3c or later), the tables taken from the Fourth IMO GHG Study 2020 in `data/market/` (all rights reserved by the IMO), and `bin/reuse_lint` (MIT). The repository follows the [REUSE specification](https://reuse.software): every file's copyright and licence is in its header or in [`REUSE.toml`](REUSE.toml), the licence texts are in [`LICENSES/`](LICENSES/), and `./bin/reuse_lint` checks it.

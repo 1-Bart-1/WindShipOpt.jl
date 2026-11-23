@@ -287,15 +287,14 @@ end
 """
     Leg
 
-Optimal passage along a corridor: fuel energy [J], fuel cost [USD], hours a kite flew
-patterns, its launches and forced landings, duration [h], the objective the router
-minimises [USD], the path as (latitude, longitude, time [h], commanded speed [m/s], mode)
-per stage, the mode of the edge into the stage being the one the kite spent most of the
-edge in: 0 down and 1 flying, and whether the kite is aloft on arrival at each stage.
+Optimal passage along a corridor: fuel energy [J], hours a kite flew patterns, its
+launches and forced landings, duration [h], the objective the router minimises [USD], the
+path as (latitude, longitude, time [h], commanded speed [m/s], mode) per stage, the mode of
+the edge into the stage being the one the kite spent most of the edge in: 0 down and 1
+flying, and whether the kite is aloft on arrival at each stage.
 """
 struct Leg
     fuel_energy::Float64
-    fuel_cost::Float64
     flight_hours::Float64
     launches::Int
     forced_landings::Int
@@ -308,37 +307,11 @@ end
 # kite down or flying patterns, as the mode of an edge
 const STOWED, FLYING = 0, 1
 
-"""
-    ForecastWeather(weather, issue_time, horizon)
-
-What a router knows at `issue_time` [h]: `weather` up to `horizon` [h] ahead, and beyond
-that the weather of the same date in another year.
-"""
-struct ForecastWeather{W}
-    weather::W
-    issue_time::Float64
-    horizon::Float64
-end
-
 "hours between the forecasts a ship plans on, and that it holds when no plan leaves it [h]"
 const FORECAST_INTERVAL = 6.0
 
 "longest a ship on a forecast holds at one node before its passage fails [h]"
 const LONGEST_HOLD = 72.0
-
-"hours in the year by which a forecast beyond its horizon shifts the time [h]"
-const FORECAST_SHIFT = 8760.0
-
-function forecast_time(forecast::ForecastWeather, time)
-    time - forecast.issue_time <= forecast.horizon && return time
-    shifted = time + FORECAST_SHIFT
-    return shifted <= duration(forecast.weather) ? shifted : time - FORECAST_SHIFT
-end
-
-wind(forecast::ForecastWeather, lat, lon, time) =
-    wind(forecast.weather, lat, lon, forecast_time(forecast, time))
-waves(forecast::ForecastWeather, lat, lon, time) =
-    waves(forecast.weather, lat, lon, forecast_time(forecast, time))
 
 """
     MetWeather(known, weather, lat, lon, time)
@@ -406,7 +379,7 @@ Base.@kwdef struct RouterSettings
     routing_speeds::Int = 49
     "speeds the search skips between those it commands, plus one, where that moves the
     arrival by no more than a time bin"
-    search_speed_stride::Int = 4
+    search_speed_stride::Int = 8
     "time between the knots of the [`CostToGo`](@ref) [h]"
     to_go_step::Float64 = 24.0
     "hours past its re-plan interval within which a ship sailing live computes the
@@ -418,7 +391,7 @@ Base.@kwdef struct RouterSettings
     "`final_time_step` of a plan that weighs the wind error of its forecast [h]"
     weighed_final_time_step::Float64 = 1.0
     "how far the final pass strays in time from the path found [h]"
-    final_time_band::Float64 = 24.0
+    final_time_band::Float64 = 6.0
     "longest time between the weather samples along an edge of the [`CostToGo`](@ref) [h]"
     to_go_sample_hours::Float64 = 6.0
     "how far ahead of the ship a plan keeps every stage and row of its corridor [nmi]"
@@ -481,9 +454,6 @@ struct EdgeSample
     spread::Float64
 end
 
-EdgeSample(condition::SeaCondition, headwind, crosswind) =
-    EdgeSample(condition, headwind, crosswind, 0.0, 0.0)
-
 """
     EdgeSample(table, (east, north), (wave_height, wave_period, wave_from), course,
                spread=0.0; kite_wind=table.kite_wind_factor * hypot(east, north))
@@ -498,12 +468,12 @@ function EdgeSample(table::PerformanceTable, wind_10m, (wave_height, wave_period
         kite_wind=table.kite_wind_factor * hypot(wind_10m...))
     east, north = wind_10m
     wind_speed = hypot(east, north)
-    angle = true_wind_angle(east, north, wind_speed, course)
+    cosine = true_wind_cosine(east, north, wind_speed, course)
     table_wind = table.kite_wind_factor > 0 ? kite_wind / table.kite_wind_factor :
                  wind_speed
-    condition = SeaCondition(table, table_wind, angle, wave_height, wave_period,
+    condition = SeaCondition(table, table_wind, acos(cosine), wave_height, wave_period,
         wave_heading(wave_from, course))
-    crosswind, headwind = kite_wind .* sincos(angle)
+    crosswind, headwind = kite_wind * sqrt(1 - cosine^2), kite_wind * cosine
     return EdgeSample(condition, headwind, crosswind, table_wind, spread)
 end
 
@@ -518,8 +488,6 @@ kite_wind(weather, table::PerformanceTable, lat, lon, time, (east, north)) =
     table.kite_wind_factor * hypot(east, north)
 kite_wind(weather::ERA5Weather, table::PerformanceTable, lat, lon, time, wind_10m) =
     table.kite_height > 0 ? wind_aloft(weather, lat, lon, time, table.kite_height) : 0.0
-kite_wind(forecast::ForecastWeather, table::PerformanceTable, lat, lon, time, wind_10m) =
-    kite_wind(forecast.weather, table, lat, lon, forecast_time(forecast, time), wind_10m)
 
 """
     EdgeSample(table, weather, lat, lon, time, course, spread=wind_spread(weather, time))
@@ -567,21 +535,26 @@ trapezoid_weight(k, count) = (k == 1 || k == count ? 0.5 : 1.0) / (count - 1)
     held_speed(table, speed_index, sample, aloft)
 
 Highest routing speed number up to `speed_index` of the [`RouteTable`](@ref) `table`
-that the ship can hold at the [`EdgeSample`](@ref) `sample` with the rig stowed or, on an
-edge begun with a kite `aloft`, with a kite flying where it can; begun with it down, a
-flying kite holds a speed only where the stowed rig holds none. Returns it with the
-[`expected_fuels`](@ref) and chance of flying there; speed number 0 if none holds.
+that the ship can hold at the [`EdgeSample`](@ref) or [`SharedStart`](@ref) `sample` with
+the rig stowed or, on an edge begun with a kite `aloft`, with a kite flying where it can;
+begun with it down, a flying kite holds a speed only where the stowed rig holds none.
+Returns it with the [`expected_fuels`](@ref) and chance of flying there; speed number 0 if
+none holds.
 """
-function held_speed(table::RouteTable, speed_index, sample::EdgeSample, aloft)
-    flying = (0, Inf, Inf, 0.0)
+function held_speed(table::RouteTable, speed_index, sample, aloft)
+    condition = sea_condition(sample)
     for i in speed_index:-1:1
+        aloft || !screened_out(table, i, condition; stowed=true) || continue
         flown, stowed, chance = expected_fuels(table, i, sample)
         isfinite(stowed) && return i, flown, stowed, chance
-        isfinite(flown) && chance > 0 || continue
-        aloft && return i, flown, stowed, chance
-        first(flying) == 0 && (flying = (i, flown, stowed, chance))
+        aloft && isfinite(flown) && chance > 0 && return i, flown, stowed, chance
     end
-    return flying
+    (aloft || !has_kite(table)) && return 0, Inf, Inf, 0.0
+    for i in speed_index:-1:1
+        flown, stowed, chance = expected_fuels(table, i, sample)
+        isfinite(flown) && chance > 0 && return i, flown, stowed, chance
+    end
+    return 0, Inf, Inf, 0.0
 end
 
 """
@@ -594,8 +567,8 @@ Fuel power [W] with the rig flown and with any kite stowed at routing speed numb
 wind, else 0.0.
 """
 function certain_fuels(table::RouteTable, speed_index, condition, headwind, crosswind,
-        sea=sea_layer(table, speed_index, condition))
-    flown, stowed = edge_fuels(table, speed_index, condition, sea)
+        sea...)
+    flown, stowed = edge_fuels(table, speed_index, condition, sea...)
     aloft = kite_aloft(table.table, table.speeds[speed_index], headwind, crosswind)
     return flown, stowed, Float64(aloft)
 end
@@ -615,10 +588,11 @@ stay up in one of the winds burns the stowed fuel there.
 """
 function expected_fuels(table::RouteTable, speed_index, sample::EdgeSample)
     (; spread, wind_speed, condition, headwind, crosswind) = sample
+    spread > 0 ||
+        return certain_fuels(table, speed_index, condition, headwind, crosswind)
     sea = sea_layer(table, speed_index, condition)
     flown, stowed, aloft = certain_fuels(table, speed_index, condition, headwind,
         crosswind, sea)
-    spread > 0 || return flown, stowed, aloft
     expected_flown, expected_stowed, chance = 0.0, 0.0, 0.0
     for (node, weight) in zip(SPREAD_NODES, SPREAD_WEIGHTS)
         wind = max(wind_speed + node * spread, 0.0)
@@ -633,6 +607,49 @@ function expected_fuels(table::RouteTable, speed_index, sample::EdgeSample)
         chance += weight * up
     end
     return expected_flown, expected_stowed, chance
+end
+
+"""
+    StartFuels()
+
+The [`expected_fuels`](@ref) found so far at each routing speed of one
+[`EdgeSample`](@ref), for the edges that start from it to share.
+"""
+struct StartFuels
+    "fuel power flown and stowed [W] and chance of flying [-] at each routing speed number,
+    where `found`"
+    fuels::Vector{NTuple{3, Float64}}
+    found::Vector{Bool}
+end
+
+StartFuels() = StartFuels(NTuple{3, Float64}[], Bool[])
+
+"""
+    SharedStart(fuels, table, sample)
+
+The [`EdgeSample`](@ref) `sample` the edges from a node start from, with the
+[`StartFuels`](@ref) `fuels` they share there, cleared for the speeds of the
+[`RouteTable`](@ref) `table`.
+"""
+struct SharedStart
+    sample::EdgeSample
+    fuels::StartFuels
+    function SharedStart(fuels::StartFuels, table::RouteTable, sample::EdgeSample)
+        resize!(fuels.fuels, length(table.speeds))
+        fill!(resize!(fuels.found, length(table.speeds)), false)
+        return new(sample, fuels)
+    end
+end
+
+"[`SeaCondition`](@ref) of an [`EdgeSample`](@ref) or [`SharedStart`](@ref)"
+sea_condition(sample::EdgeSample) = sample.condition
+sea_condition(start::SharedStart) = start.sample.condition
+
+function expected_fuels(table::RouteTable, speed_index, start::SharedStart)
+    (; fuels, found) = start.fuels
+    found[speed_index] && return fuels[speed_index]
+    found[speed_index] = true
+    return fuels[speed_index] = expected_fuels(table, speed_index, start.sample)
 end
 
 """
@@ -671,6 +688,8 @@ end
 SailedPoint(sample::EdgeSample, held, flown, stowed, hours, time, chance) =
     SailedPoint(sample.headwind, sample.crosswind, sample.condition, held, flown, stowed,
         hours, time, chance)
+SailedPoint(start::SharedStart, held, flown, stowed, hours, time, chance) =
+    SailedPoint(start.sample, held, flown, stowed, hours, time, chance)
 
 """
     SailedPoint(table, sample, speed_index, aloft, distance, time)
@@ -679,8 +698,7 @@ SailedPoint(sample::EdgeSample, held, flown, stowed, hours, time, chance) =
 `table`, at the [`held_speed`](@ref) of an edge begun with a kite `aloft` or down, standing
 for `distance` [m] of the edge, reached at `time` [h].
 """
-function SailedPoint(table::RouteTable, sample::EdgeSample, speed_index, aloft, distance,
-        time)
+function SailedPoint(table::RouteTable, sample, speed_index, aloft, distance, time)
     held, flown, stowed, chance = held_speed(table, speed_index, sample, aloft)
     hours = held == 0 ? Inf : distance / table.speeds[held] / 3600
     return SailedPoint(sample, held, flown, stowed, hours, time, chance)
@@ -1043,6 +1061,8 @@ struct RouteWorkspace
     commanded::Vector{Int}
     "index in `commanded` before the speeds of each step"
     commanded_from::Vector{Int}
+    "fuels found at the start of the edges from the node in hand"
+    start_fuels::StartFuels
 end
 
 """
@@ -1057,7 +1077,7 @@ function RouteWorkspace(lateral_count, bins, stage_count)
     return RouteWorkspace(StateArray.(Ref(rows), unset)..., SailedPoint[],
         Ref(zeros(lateral_count, 0, 2, stage_count)),
         Ref(falses(lateral_count, 0, stage_count)), Vector{SailedPoint}[], SailedEdge[],
-        fill(-1, bins), Int[], Int[])
+        fill(-1, bins), Int[], Int[], StartFuels())
 end
 
 """
@@ -1437,7 +1457,7 @@ function route(corridor::Corridor, table::RouteTable, weather, departure; time_c
         leg, limit = searched_leg(workspace, corridor, table, weather, departure, to_go,
             limits, kite; options...)
         isnothing(record) || record!(record, workspace, size(corridor.lat, 1),
-            (; to_go, estimate, limits, limit, found=leg, time_step))
+            (; to_go, estimate, limits, limit, found=leg))
         isnothing(leg) && return nothing
         return final_pass(leg, corridor, table, weather, departure; time_cost, arrival_by,
             first_stage, first_aloft)
@@ -1629,8 +1649,8 @@ What a [`route`](@ref) search kept: its [`CostToGo`](@ref) and the estimate it g
 departure [USD], the limits tried [USD] and the one whose pass gave the path (`Inf` for a
 pass over all states), the objective [USD] and hours after departure of the best arrival
 at each state of that pass (lateral × time bin × kite down 1 or aloft 2 × stage; `Inf`
-where none arrived), the length of its time bins [h], and the [`Leg`](@ref) it found
-before the [`final_pass`](@ref), `nothing` where none arrived.
+where none arrived), and the [`Leg`](@ref) it found before the [`final_pass`](@ref),
+`nothing` where none arrived.
 """
 mutable struct SearchRecord
     to_go::CostToGo{Nothing}
@@ -1639,7 +1659,6 @@ mutable struct SearchRecord
     limit::Float64
     cost::Array{Float64, 4}
     elapsed::Array{Float64, 4}
-    time_step::Float64
     found::Union{Leg, Nothing}
     SearchRecord() = new()
 end
@@ -1657,7 +1676,7 @@ function record!(record::SearchRecord, workspace, stage_count, search)
     record.limits = collect(search.limits)
     record.cost = workspace.cost[:, :, :, 1:stage_count]
     record.elapsed = workspace.elapsed[:, :, :, 1:stage_count]
-    record.time_step, record.found = search.time_step, search.found
+    record.found = search.found
     return record
 end
 
@@ -1743,9 +1762,9 @@ function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteT
                 isnan(corridor.edge_course[stage, lateral, step]) && continue
                 next = next_lateral(corridor, lateral, step)
                 distance = corridor.edge_length[stage, lateral, step]
-                start = EdgeSample(ship_table, node_wind, node_waves,
-                    corridor.edge_course[stage, lateral, step],
-                    wind_spread(weather, departure + time); kite_wind=node_kite)
+                start = SharedStart(workspace.start_fuels, table, EdgeSample(ship_table,
+                    node_wind, node_waves, corridor.edge_course[stage, lateral, step],
+                    wind_spread(weather, departure + time); kite_wind=node_kite))
                 through = 0
                 for slot in (commanded_from[step] + 1):commanded_from[step + 1]
                     speed_index = commanded[slot]
@@ -2074,8 +2093,7 @@ function traced_leg(workspace::RouteWorkspace, corridor, table, final, first_sta
         stage -= 1
     end
     energy = workspace.energy[final...]
-    return Leg(energy, energy * table.table.ship.fuel.price,
-        workspace.flight_hours[final...], workspace.launches[final...],
+    return Leg(energy, workspace.flight_hours[final...], workspace.launches[final...],
         workspace.forced_landings[final...], elapsed[final...], objective, path, aloft_path)
 end
 
@@ -2163,7 +2181,7 @@ with_changed(item; changes...) =
     typeof(item).name.wrapper((get(changes, name, getfield(item, name))
                                for name in fieldnames(typeof(item)))...)
 
-known_weather(::Nothing, weather, time, horizon) = ForecastWeather(weather, time, horizon)
+known_weather(::Nothing, weather, time) = weather
 
 """
     ReplannedForecast(forecast; interval=24.0, live=false)
@@ -2278,7 +2296,7 @@ function rest_of_plan(plan::Leg, i)
     path = [(first_lat, first_lon, 0.0, 0.0, 0.0);
             [(lat, lon, time - start, speed, mode)
              for (lat, lon, time, speed, mode) in plan.path[(i + 1):end]]]
-    return Leg(NaN, NaN, NaN, 0, 0, plan.duration - start, NaN, path, plan.aloft[i:end])
+    return Leg(NaN, NaN, 0, 0, plan.duration - start, NaN, path, plan.aloft[i:end])
 end
 
 """
@@ -2504,16 +2522,16 @@ end
 
 """
     forecast_route(corridor, table, weather, departure; time_cost, arrival_by=Inf,
-                   horizon=Inf, forecast=nothing, live_steps=nothing)
+                   forecast=nothing, live_steps=nothing)
 
 Passage of a ship that plans by [`forecast_plan`](@ref), weighing the rest of the plan it
 holds, on the [`RouteTable`](@ref) `table` on its [`planning_corridor`](@ref) and re-plans
 at the first node 24 hours or more after the last plan or past the plan's near part, on
 `forecast`: a [`ForecastArchive`](@ref), an [`ExpectedForecast`](@ref), the real weather
-known `horizon` hours ahead where `nothing`, or a [`ReplannedForecast`](@ref) with its own
-interval that may sail live. It sails each plan in the real `weather` until the next
-re-plan by [`sail_planned_edge!`](@ref), launching and landing the kite where the real
-weather of an edge and the [`plan_values`](@ref) ahead make that cheapest, or live by
+where `nothing`, or a [`ReplannedForecast`](@ref) with its own interval that may sail
+live. It sails each plan in the real `weather` until the next re-plan by
+[`sail_planned_edge!`](@ref), launching and landing the kite where the real weather of an
+edge and the [`plan_values`](@ref) ahead make that cheapest, or live by
 [`sail_live_edge!`](@ref). Fuel, flight hours and objective are those of the real weather.
 Where no plan leaves its node or the real weather stops the next edge, the ship holds there
 with the kite stowed on its hotel load until the next forecast, 6 h later, and plans again;
@@ -2523,7 +2541,7 @@ sailed live, it holds where it is on an edge it has left. Each plan arrives `arr
 holding 72 h at one node or on one edge.
 """
 function forecast_route(corridor::Corridor, table::RouteTable, weather, departure;
-        time_cost, arrival_by=Inf, horizon=Inf, forecast=nothing, live_steps=nothing)
+        time_cost, arrival_by=Inf, forecast=nothing, live_steps=nothing)
     ship_table = table.table
     prices = (; fuel=ship_table.ship.fuel.price, time=time_cost)
     stage_count = size(corridor.lat, 1)
@@ -2539,7 +2557,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
     live = replanned.live
     rest, to_go = nothing, nothing
     while stage < stage_count
-        known = known_weather(replanned.forecast, weather, departure + time, horizon)
+        known = known_weather(replanned.forecast, weather, departure + time)
         planning, plan_stage, sailable = planning_corridor(corridor, stage, lateral)
         plan, values = forecast_plan(known, planning, table, departure + time, prices;
             arrival_by=arrival_by - time, first_stage=plan_stage, first_lateral=lateral,
@@ -2596,8 +2614,8 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
         held += FORECAST_INTERVAL
         aloft = false
     end
-    return Leg(fuel_energy, fuel_energy * prices.fuel, flight_hours, launches,
-        forced_landings, time, objective, path, aloft_path)
+    return Leg(fuel_energy, flight_hours, launches, forced_landings, time, objective, path,
+        aloft_path)
 end
 
 """
@@ -2605,10 +2623,14 @@ end
 
 Angle [rad, 0..π] between the ship's course and the direction the wind comes from.
 """
-function true_wind_angle(east, north, wind_speed, course)
-    wind_speed > 0 || return 0.0
-    from_east, from_north = -east / wind_speed, -north / wind_speed
-    return acos(clamp(from_east * sin(course) + from_north * cos(course), -1.0, 1.0))
+true_wind_angle(east, north, wind_speed, course) =
+    acos(true_wind_cosine(east, north, wind_speed, course))
+
+"cosine of the [`true_wind_angle`](@ref); 1 in a calm"
+function true_wind_cosine(east, north, wind_speed, course)
+    wind_speed > 0 || return 1.0
+    sine, cosine = sincos(course)
+    return clamp(-(east * sine + north * cosine) / wind_speed, -1.0, 1.0)
 end
 
 "distance the route may stray to either side of its reference track [nmi]"
@@ -2656,24 +2678,22 @@ route_paths(route) = [[CHANNEL]; COASTAL_PATHS[route]]
 
 """
     route_corridors(route, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
-                    lateral_spacing=LATERAL_SPACING * scale,
-                    min_ocean_stages=MIN_OCEAN_STAGES * OCEAN_SPACING / ocean_spacing)
+                    lateral_spacing=LATERAL_SPACING * scale)
 
 Outbound and return corridors between Rotterdam and the port of `route`: `:caribbean`
 (Guadeloupe), `:new_york`, `:bilbao`, `:dakar`, `:houston` or `:tubarao` (Brazil), the same
 band both ways. Each runs through the Channel to Ushant and on through the route's
 `COASTAL_PATHS`, crossing the open sea between them on great circles.
 `ocean_spacing` and `lateral_spacing` are the stage and row spacing [nmi], both shrunk
-alike where the crossings would otherwise have fewer than `min_ocean_stages` stages in all;
+alike where the crossings are shorter than `MIN_OCEAN_STAGES` stages at `OCEAN_SPACING`;
 the band reaches `CORRIDOR_HALF_WIDTH` to either side.
 """
 function route_corridors(route::Symbol, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
-        lateral_spacing=LATERAL_SPACING * scale,
-        min_ocean_stages=MIN_OCEAN_STAGES * OCEAN_SPACING / ocean_spacing)
+        lateral_spacing=LATERAL_SPACING * scale)
     paths = route_paths(route)
     crossings = sum(distance(last(from)..., first(to)...)
                     for (from, to) in zip(paths[1:(end - 1)], paths[2:end])) / NAUTICAL_MILE
-    shrink = min(1.0, crossings / (min_ocean_stages * ocean_spacing))
+    shrink = min(1.0, crossings / (MIN_OCEAN_STAGES * OCEAN_SPACING))
     lateral_spacing *= shrink
     outbound = Corridor(paths, mask; ocean_spacing=ocean_spacing * shrink,
         lateral_spacing,

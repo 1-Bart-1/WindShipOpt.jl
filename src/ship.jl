@@ -81,8 +81,6 @@ Base.@kwdef struct Drive{F <: Fuel}
     peak_efficiency::Float64
     "efficiency loss coefficient at part load [-]"
     part_load_penalty::Float64
-    "lowest load a running unit holds [-]"
-    min_load::Float64 = 0.0
     "price of the power source and its transmission [USD/kW]"
     power_cost::Float64
     store::FuelStore = FuelStore()
@@ -413,7 +411,7 @@ function Ship(design::ShipDesign, assumptions::Assumptions; route=nothing)
     powertrain = Powertrain(;
         installed_power=delivered / drive.transmission_efficiency + hotel_load,
         drive.unit_count, drive.peak_efficiency, drive.part_load_penalty,
-        drive.transmission_efficiency, hotel_load, drive.min_load)
+        drive.transmission_efficiency, hotel_load)
     return Ship(hull_parts..., powertrain, rig, other_parts...)
 end
 
@@ -450,7 +448,7 @@ function rated_delivered_power(ship::Ship, assumptions::Assumptions)
         return 1e3class.power * shaft_efficiency(class, assumptions)
     speed = service_speed(ship, assumptions)
     calm = delivered_power(ship.propeller, ship.env, speed,
-        first(best_trim(ship, standing_rig(ship.rig), speed, 0.0, 0.0)))
+        best_trim(ship, standing_rig(ship.rig), speed, 0.0, 0.0).thrust)
     return calm * (1 + assumptions[:sea_margin]) / assumptions[:engine_rating_fraction]
 end
 
@@ -494,7 +492,7 @@ function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions; co
     if design.kite_area > 0
         aspect_ratio = kite_aspect_ratio(design, assumptions)
         standing_area > 0 && hull.deck_cargo_height > 0 &&
-            throw(ArgumentError("a ship with deck cargo carries one rig, at its bow"))
+            throw(ArgumentError("a ship with deck cargo carries a kite or a deck rig"))
         standing_area > 0 && return CombinedRig(design.kite_area, aspect_ratio,
             standing_type, standing_area, hull, assumptions; layout...)
         return KiteRig(design.kite_area, aspect_ratio, hull, assumptions)
@@ -687,30 +685,19 @@ end
 """
     best_trim(ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
 
-Required propeller thrust [N] and rig force of `ship` carrying `rig`, its own rig or a
-part of it, at the trim that needs the least engine output, propeller and rig power
-together, solved over the continuous [`trim_ranges`](@ref) by [`best_on_range`](@ref);
-`Inf` thrust where no trim keeps the hull inside its limits. The thrust includes
-`added_resistance` [N] of waves, which the trim works against as well: a rig that has more
-thrust to give than calm water asks for keeps it for the waves.
+Required propeller `thrust` [N], rig `force` and trim `setting` of `ship` carrying `rig`,
+its own rig or a part of it, at the trim that needs the least engine output, propeller and
+rig power together, solved over the continuous [`trim_ranges`](@ref) by
+[`best_on_range`](@ref); `Inf` thrust where no trim keeps the hull inside its limits, and
+setting `nothing` without a rig. The thrust includes `added_resistance` [N] of waves, which
+the trim works against as well: a rig that has more thrust to give than calm water asks for
+keeps it for the waves.
 """
+best_trim(ship::Ship, ::Nothing, speed, wind_10m, true_angle, added_resistance=0.0) = (;
+    thrust=required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE) +
+           added_resistance, force=NO_RIG_FORCE, setting=nothing)
+
 function best_trim(ship::Ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
-    thrust, force, _ = trimmed_force(ship, rig, speed, wind_10m, true_angle,
-        added_resistance)
-    return thrust, force
-end
-
-"""
-    trimmed_force(ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
-
-Required propeller thrust [N], rig force and trim setting of [`best_trim`](@ref); the
-setting is `nothing` without a rig.
-"""
-trimmed_force(ship::Ship, ::Nothing, speed, wind_10m, true_angle, added_resistance=0.0) =
-    required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE) + added_resistance,
-    NO_RIG_FORCE, nothing
-
-function trimmed_force(ship::Ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
     output = TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance)
     ranges = trim_ranges(rig, ship.env, wind_10m, true_angle, speed)
     best = RangeSetting(rig, first(ranges))(first(ranges).low)
@@ -758,12 +745,12 @@ const JOINT_TRIM_ITERATIONS = 200
 const JOINT_TRIM_TOLERANCE = 1e-2
 
 """
-    trimmed_force(ship, rig::CombinedRig, speed, wind_10m, true_angle, added_resistance=0.0)
+    best_trim(ship, rig::CombinedRig, speed, wind_10m, true_angle, added_resistance=0.0)
 
-[`trimmed_force`](@ref) of kite and standing rig together: the best pair of their scanned
+[`best_trim`](@ref) of kite and standing rig together: the best pair of their scanned
 trim values, refined by the Nelder-Mead method in both at once.
 """
-function trimmed_force(ship::Ship, rig::CombinedRig, speed, wind_10m, true_angle,
+function best_trim(ship::Ship, rig::CombinedRig, speed, wind_10m, true_angle,
         added_resistance=0.0)
     output = TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance)
     kite = RangeSetting(rig.kite,
@@ -793,10 +780,10 @@ end
     trim_result(output, setting)
 
 Required thrust [N], rig force and `setting` of [`TrimOutput`](@ref) `output`, as
-[`trimmed_force`](@ref) returns them.
+[`best_trim`](@ref) returns them.
 """
 function trim_result(output::TrimOutput, setting)
     point = trim_point(output, setting)
-    return isfinite(point.output) ? (point.thrust, point.force, setting) :
-           (Inf, NO_RIG_FORCE, setting)
+    isfinite(point.output) || return (; thrust=Inf, force=NO_RIG_FORCE, setting)
+    return (; point.thrust, point.force, setting)
 end

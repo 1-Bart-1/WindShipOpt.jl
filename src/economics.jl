@@ -85,7 +85,8 @@ cargo_limit(class::ShipClass, assumptions::Assumptions) =
     CargoHold(ship, assumptions)
 
 Hold of `ship`: its class's deadweight less the rig mass and the stores, and its class's
-unit capacity, which no rig blocks; the reference coaster family fills its deadweight.
+unit capacity less the [`blocked_slots`](@ref) of its rig; the reference coaster family
+fills its deadweight.
 """
 function CargoHold(ship::Ship, assumptions::Assumptions)
     (; class) = ship.design
@@ -97,7 +98,7 @@ function CargoHold(ship::Ship, assumptions::Assumptions)
     else
         deadweight = class.deadweight
         unit = CargoUnit(class.cargo_unit, assumptions)
-        slots = class.unit_capacity
+        slots = class.unit_capacity - blocked_slots(ship.rig, class, assumptions)
     end
     payload = deadweight - rig_mass - assumptions[:stores_mass]
     return CargoHold(deadweight, payload, slots, unit)
@@ -169,9 +170,9 @@ ship_costs(ship::Ship, assumptions::Assumptions) =
 
 Yearly cost [USD/year] of the wings, rotors or suction sails of `rig` on `ship` over the
 mean power [W] they save: their annuity and maintenance, with the retractable rig premium
-where a fixed rig would cost the ship port time, over the mean of their thrust times the
-service speed less the power they draw, at the best trim in the [`layout_winds`](@ref).
-Inf where they save none.
+where a fixed rig would cost the ship port time, and the [`lost_cargo_cost`](@ref), over
+the mean of their thrust times the service speed less the power they draw, at the best trim
+in the [`layout_winds`](@ref). Inf where they save none.
 """
 function layout_score(ship::Ship, rig, assumptions::Assumptions)
     standing = standing_rig(rig)
@@ -179,7 +180,8 @@ function layout_score(ship::Ship, rig, assumptions::Assumptions)
     fixed_delay = fixed_rig_port_hours(standing, ship.design.class, assumptions) > 0
     price_factor = 1 + fixed_delay * assumptions[:retractable_rig_premium]
     yearly = price_factor * annuity +
-             rig_maintenance(standing, price_factor * capital, assumptions)
+             rig_maintenance(standing, price_factor * capital, assumptions) +
+             lost_cargo_cost(ship, standing, assumptions)
     speed = service_speed(ship, assumptions)
     winds = layout_winds(assumptions)
     saved = sum(winds) do (wind_10m, true_angle)
@@ -187,6 +189,24 @@ function layout_score(ship::Ship, rig, assumptions::Assumptions)
         return force.thrust * speed - force.power
     end / length(winds)
     return saved > 0 ? yearly / saved : Inf
+end
+
+"""
+    lost_cargo_cost(ship, rig, assumptions)
+
+Yearly cost [USD/year] of the cargo that the class of `ship` no longer carries beside the
+[`blocked_slots`](@ref) of `rig`: the fixed annual cost of its ship without a rig times the
+share of its cargo they take, none where it fills its deadweight first.
+"""
+function lost_cargo_cost(ship::Ship, rig, assumptions::Assumptions)
+    (; drive, class) = ship.design
+    isnothing(class) && return 0.0
+    blocked = blocked_slots(rig, class, assumptions)
+    blocked > 0 || return 0.0
+    costs = ShipCosts(Ship(ShipDesign(drive, class), assumptions), assumptions)
+    (; deadweight, payload, slots, unit) = costs.hold
+    left = cargo_mass(CargoHold(deadweight, payload, slots - blocked, unit))
+    return costs.fixed_annual * (1 - left / cargo_mass(costs.hold))
 end
 
 """
@@ -209,13 +229,12 @@ end
 Rig of the design of `ship` in the layout of its [`layout_counts`](@ref) with the lowest
 [`layout_score`](@ref) on `ship`, which carries no rig yet; for each count of columns more
 units are tried until two in a row score worse than the fewest scored best. `nothing` where
-no layout fits.
+no layout fits; the design's rig as it is where it has no wings, rotors or suction sails.
 """
 function cheapest_layout(ship::Ship, assumptions::Assumptions)
     (; design, hull) = ship
+    first(standing_unit(design)) > 0 || return design_rig(design, hull, assumptions)
     counts = layout_counts(design, hull, assumptions)
-    length(counts) == 1 && return design_rig(design, hull, assumptions;
-        columns=counts[1][1], in_column=counts[1][2])
     best, lowest = nothing, Inf
     for columns in 1:2
         rig, score = cheapest_in_columns(ship, columns,
@@ -229,15 +248,16 @@ end
     cheapest_in_columns(ship, columns, in_columns, assumptions)
 
 Rig of the design of `ship` in `columns` columns of the count of `in_columns`, tried in
-order, with the lowest [`layout_score`](@ref), and that score; the search stops once two
-counts in a row fit and score worse than the best.
+order, raised units on the [`cheapest_pedestal`](@ref), with the lowest
+[`layout_score`](@ref), and that score; the search stops once two counts in a row fit and
+score worse than the best.
 """
 function cheapest_in_columns(ship::Ship, columns, in_columns, assumptions::Assumptions)
     best, lowest, worse = nothing, Inf, 0
     for in_column in in_columns
         rig = design_rig(ship.design, ship.hull, assumptions; columns, in_column)
         isnothing(rig) && continue
-        score = layout_score(ship, rig, assumptions)
+        rig, score = cheapest_pedestal(ship, rig, assumptions)
         if score < lowest || isnothing(best)
             best, lowest, worse = rig, score, 0
         else
@@ -249,13 +269,31 @@ function cheapest_in_columns(ship::Ship, columns, in_columns, assumptions::Assum
 end
 
 """
+    cheapest_pedestal(ship, rig, assumptions)
+
+`rig` on whichever of a column, a frame or, where [`container_holds`](@ref), a container
+gives its raised units the lower [`layout_score`](@ref) on `ship`, and that score; `rig` as
+it is where it stands on deck.
+"""
+function cheapest_pedestal(ship::Ship, rig, assumptions::Assumptions)
+    rig isa Union{WingRig, RotorRig} && raised(rig) ||
+        return rig, layout_score(ship, rig, assumptions)
+    supports = [with_pedestal(rig, pedestal) for pedestal in (:column, :frame, :container)
+                if pedestal != :container || container_holds(rig, assumptions)]
+    scores = [layout_score(ship, support, assumptions) for support in supports]
+    return supports[argmin(scores)], minimum(scores)
+end
+
+"""
     fixed_rig_port_hours(rig, class, assumptions)
 
 Mean extra time per port call [h] of a `rig` fixed on deck: the cargo-handling delay of
 `class`, plus the lost calls of a ship whose air draft in ballast exceeds the class
 limit. Inf where a fixed rig prevents cargo handling, as on the reference coaster when
-`class` is `nothing`; zero for kites and ships without a rig, and that of the
-[`standing_rig`](@ref) for a kite over a standing rig.
+`class` is `nothing` and for units raised above the stacks on a column or frame, which
+stand in the cranes' way; zero for kites, ships without a rig and units in containers,
+which are lifted like a box, and that of the [`standing_rig`](@ref) for a kite over a
+standing rig.
 """
 fixed_rig_port_hours(rig, class, assumptions) = 0.0
 fixed_rig_port_hours(rig::CombinedRig, class, assumptions) =
@@ -264,12 +302,16 @@ fixed_rig_port_hours(::Union{WingRig, RotorRig}, ::Nothing, assumptions) = Inf
 
 function fixed_rig_port_hours(rig::Union{WingRig, RotorRig}, class::ShipClass,
         assumptions)
+    raised(rig) && return rig.pedestal == :container ? 0.0 : Inf
     ballast_rise = (1 - assumptions[:ballast_draft_fraction]) * class.draft
     air_draft = rig.foot_height + rig.height + ballast_rise
     air_draft > class.air_draft_limit || return class.fixed_rig_port_hours
     return class.fixed_rig_port_hours + 24class.restricted_call_share *
                                          assumptions[:restricted_call_days]
 end
+
+"whether the units of `rig` stand on pedestals above the deck cargo"
+raised(rig::Union{WingRig, RotorRig}) = rig.pedestal_height > 0
 
 "units a rig stands on deck: wings, rotors, kites and their sum over a combined rig"
 deck_units(rig::Union{WingRig, RotorRig}) = rig.count
@@ -324,12 +366,224 @@ rig_costs(rig::CombinedRig, assumptions) =
     rig_costs(rig.kite, assumptions) .+ rig_costs(rig.standing, assumptions)
 
 function rig_costs(rig::Union{WingRig, RotorRig}, assumptions)
-    setting(name) = assumptions[Symbol(deck_unit(rig), name)]
+    lifetime = assumptions[Symbol(deck_unit(rig), :_lifetime)]
     capital = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions))
-    annuity = capital_recovery(assumptions[:discount_rate], setting(:_lifetime)) * capital
-    mass = setting(:_mass_per_area) * size_factor(rig, assumptions) * total_area(rig)
-    return capital, mass, annuity
+    annuity = capital_recovery(assumptions[:discount_rate], lifetime) * capital
+    mass = unit_mass(rig, assumptions) + pedestal_mass(rig, assumptions)
+    return capital, rig.count * mass, annuity
 end
+
+"mass [t] of one wing, rotor or suction sail of `rig` with its foundation on deck"
+unit_mass(rig::Union{WingRig, RotorRig}, assumptions) =
+    assumptions[Symbol(deck_unit(rig), :_mass_per_area)] * size_factor(rig, assumptions) *
+    total_area(rig) / rig.count
+
+"""
+    pedestal_mass(rig, assumptions)
+
+Steel mass [t] of what each raised unit of `rig` stands on, by `rig.pedestal`: a
+[`column_mass`](@ref) or a [`frame_mass`](@ref); zero for units on deck and in a container,
+which is their own foundation.
+"""
+function pedestal_mass(rig::Union{WingRig, RotorRig}, assumptions)
+    rig.pedestal_height > 0 && rig.pedestal != :container || return 0.0
+    return rig.pedestal == :frame ? frame_mass(rig, assumptions) :
+           column_mass(rig, assumptions)
+end
+
+"length [m] of a 40 ft container, the bay a frame's beam spans"
+const FORTY_FOOT = 12.192
+
+"""
+    unit_loads(rig, assumptions)
+
+Factored loads [N] on each raised unit of `rig` at its mid height: its [`peak_force`](@ref)
+times `rig_wind_load_factor`, its mass in the design acceleration across the ship and its
+weight, each times `rig_inertia_load_factor`; and the unit's mass [kg].
+"""
+function unit_loads(rig, assumptions)
+    mass = 1e3unit_mass(rig, assumptions)
+    inertia_factor = assumptions[:rig_inertia_load_factor]
+    wind = assumptions[:rig_wind_load_factor] * peak_force(rig, assumptions)
+    return (; wind, roll=inertia_factor * mass * assumptions[:rig_design_acceleration],
+        weight=inertia_factor * mass * Environment(assumptions).gravity, mass)
+end
+
+"""
+    box_moduli(depth, width)
+
+Section moduli [m^2, per m of wall] of a thin-walled box `depth` [m] along the bending
+plane and `width` [m] across it, bent in its depth and in its width, and its perimeter [m].
+"""
+box_moduli(depth, width) =
+    (; along=depth * (depth / 3 + width), across=width * (width / 3 + depth),
+        perimeter=2(depth + width))
+
+"""
+    steel_wall(stress_load, assumptions)
+
+Wall thickness [m] that carries `stress_load` [N/m], stress times thickness, at the
+allowable stress, and whose plating between stiffeners does not buckle under it.
+"""
+function steel_wall(stress_load, assumptions)
+    buckling_stiffness = π^2 * 1e6assumptions[:steel_modulus] / (3(1 - 0.3^2))
+    return max(stress_load / (1e6assumptions[:pedestal_allowable_stress]),
+        cbrt(stress_load * assumptions[:pedestal_stiffener_spacing]^2 / buckling_stiffness))
+end
+
+"""
+    sway_wall(mass, height, arm, bending, wall_mass, assumptions)
+
+Wall thickness [m] at which a unit of `mass` [kg], `arm` [m] above the top of cantilevers
+`height` [m] tall of bending stiffness `bending` [m^3] times the thickness and of mass
+`wall_mass` [kg/m^2] per m of height and of thickness, sways at `pedestal_min_frequency`;
+Inf where no wall does.
+"""
+function sway_wall(mass, height, arm, bending, wall_mass, assumptions)
+    omega = 2π * assumptions[:pedestal_min_frequency]
+    compliance = pedestal_compliance(height, arm)
+    wall = omega^2 * compliance * mass /
+           (1e6assumptions[:steel_modulus] * bending -
+            omega^2 * compliance * 0.24wall_mass * height)
+    return wall > 0 ? wall : Inf
+end
+
+"mass [kg] per m of member and m of wall thickness of a stiffened box of `perimeter` [m]"
+box_wall_mass(perimeter, assumptions) =
+    (1 + assumptions[:pedestal_stiffener_share]) * assumptions[:steel_density] * perimeter
+
+"""
+    column_mass(rig, assumptions)
+
+Steel mass [t] of a column under each raised unit of `rig`: a stiffened box `bay_gap` deep
+along the ship and as wide as the unit, from the deck to the unit's foot, of the
+[`pedestal_wall`](@ref) thickness.
+"""
+function column_mass(rig::Union{WingRig, RotorRig}, assumptions)
+    perimeter = box_moduli(assumptions[:bay_gap], unit_width(rig)).perimeter
+    return 1e-3box_wall_mass(perimeter, assumptions) *
+           rig.pedestal_height * pedestal_wall(rig, assumptions)
+end
+
+"""
+    pedestal_wall(rig, assumptions)
+
+Wall thickness [m] of the column under each raised unit of `rig`, the thickest of two:
+the [`steel_wall`](@ref) under the moments at the deck about the unit's mid height of its
+factored wind force along the ship and roll across it; and the [`sway_wall`](@ref) along
+the ship, with the unit on top.
+"""
+function pedestal_wall(rig::Union{WingRig, RotorRig}, assumptions)
+    (; wind, roll, mass) = unit_loads(rig, assumptions)
+    box = box_moduli(assumptions[:bay_gap], unit_width(rig))
+    arm = rig.pedestal_height + rig.height / 2
+    stress_load = wind * arm / box.along + roll * arm / box.across
+    bending = assumptions[:bay_gap] * box.along / 2
+    return max(steel_wall(stress_load, assumptions),
+        sway_wall(mass, rig.pedestal_height, rig.height / 2, bending,
+            box_wall_mass(box.perimeter, assumptions), assumptions))
+end
+
+"""
+    frame_mass(rig, assumptions)
+
+Steel mass [t] of a frame under each raised unit of `rig`: two legs in the gaps at both
+ends of a 40 ft bay and a beam across their tops over the stacks that carries the unit at its middle, all stiffened boxes
+of the column's section, of the [`frame_walls`](@ref) thicknesses.
+"""
+function frame_mass(rig::Union{WingRig, RotorRig}, assumptions)
+    perimeter = box_moduli(assumptions[:bay_gap], unit_width(rig)).perimeter
+    (; leg, beam) = frame_walls(rig, assumptions)
+    legs = 2leg * rig.pedestal_height
+    return 1e-3box_wall_mass(perimeter, assumptions) *
+           (legs + beam * (FORTY_FOOT + assumptions[:bay_gap]))
+end
+
+"""
+    frame_walls(rig, assumptions)
+
+Wall thicknesses [m] of the legs and the beam of the frame under each raised unit of
+`rig`, from the moments at the legs' feet and the beam's middle with the unit's factored
+wind force along the ship or across it and its roll across it, its weight on the beam, as a
+portal along the ship and two cantilevers across it; the legs also sway across the ship no
+slower than `pedestal_min_frequency`.
+"""
+function frame_walls(rig::Union{WingRig, RotorRig}, assumptions)
+    (; wind, roll, weight, mass) = unit_loads(rig, assumptions)
+    depth = assumptions[:bay_gap]
+    width = unit_width(rig)
+    box = box_moduli(depth, width)
+    height, arm, span = rig.pedestal_height, rig.height / 2, FORTY_FOOT + depth
+    leg_along = wind * (height + arm) / (span * box.perimeter) +
+                wind * height / 4box.along + roll * (height + arm) / 2box.across
+    leg_across = (wind + roll) * (height + arm) / 2box.across
+    bending = width * box.across
+    leg = max(steel_wall(max(leg_along, leg_across), assumptions),
+        sway_wall(mass, height, arm, bending, 2box_wall_mass(box.perimeter, assumptions),
+            assumptions))
+    beam_load(along, across) =
+        frame_beam_load(along, across, weight, span, arm, box, 2depth * width)
+    return (; leg, beam=steel_wall(max(beam_load(wind, roll), beam_load(0.0, wind + roll)),
+        assumptions))
+end
+
+"""
+    frame_beam_load(along, across, weight, span, arm, box, shear_area)
+
+Stress times thickness [N/m] at the middle of a frame's beam of `span` [m] and section `box`
+([`box_moduli`](@ref)) under a unit of `weight` [N] and forces `along` and `across` the
+ship [N] `arm` [m] above it: bending and, as von Mises adds it, the torsion of the force
+across on the box's enclosed `shear_area` [m^2] twice over.
+"""
+frame_beam_load(along, across, weight, span, arm, box, shear_area) = hypot(
+    (weight * span / 4 + along * arm / 2) / box.along + across * span / 4box.across,
+    sqrt(3) * across * arm / 2shear_area)
+
+"""
+    blocked_slots(rig, class, assumptions)
+
+TEU slots on the deck of `class` that `rig` takes from cargo: below each frame's beam, the
+rows the unit's width covers over one 40 ft bay through all deck tiers, which the cranes
+cannot work; the 40 ft slot of the top tier each container stands in; none for other rigs.
+"""
+blocked_slots(rig, class, assumptions) = 0.0
+
+function blocked_slots(rig::Union{WingRig, RotorRig}, class::ShipClass, assumptions)
+    raised(rig) || return 0.0
+    rig.pedestal == :container && return 2.0rig.count
+    rig.pedestal == :frame || return 0.0
+    rows = ceil(unit_width(rig) / assumptions[:container_row_pitch])
+    return rig.count * 2rows * class.deck_tiers
+end
+
+"""
+    container_holds(rig, assumptions)
+
+Whether each unit of `rig` may stand in a 40 ft container on the stacks, held by its four
+twistlocks: suction sails alone, where the factored moment of their wind force and roll
+across the 8 ft box, from their mid height above the twistlocks, less the weight of the
+unit with its container, pulls each twistlock on one side by no more than
+`twistlock_working_load`.
+"""
+function container_holds(rig, assumptions)
+    rig isa WingRig && rig.unit == :suction || return false
+    (; wind, roll, mass) = unit_loads(rig, assumptions)
+    arm = assumptions[:pedestal_clearance] + rig.height / 2
+    weight = mass * Environment(assumptions).gravity
+    pull = (wind + roll) * arm / 2EIGHT_FOOT - weight / 4
+    return pull <= 1e3assumptions[:twistlock_working_load]
+end
+
+"width [m] of a standard container, 8 ft"
+const EIGHT_FOOT = 2.438
+
+"""
+    pedestal_compliance(height, arm)
+
+Deflection [m^4, times the bending stiffness EI] of a cantilever column `height` [m] tall
+under a unit force on a rigid extension `arm` [m] above its top, at that force.
+"""
+pedestal_compliance(height, arm) = height^3 / 3 + arm * height^2 + arm^2 * height
 
 "unit of the wings, rotors or suction sails of `rig`, naming their assumptions"
 deck_unit(rig::WingRig) = rig.unit
@@ -391,7 +645,7 @@ Cost [USD] of the [`kite_deck_masses`](@ref), each at its cost per kg.
 function kite_deck_price(area, max_force, assumptions)
     (; winch, launch_mast) = kite_deck_masses(area, max_force, assumptions)
     return assumptions[:winch_cost_per_mass] * winch +
-           assumptions[:launch_mast_cost_per_mass] * launch_mast
+           assumptions[:welded_steel_cost_per_mass] * launch_mast
 end
 
 function rig_costs(rig::KiteRig{RigidAirframe}, assumptions)
@@ -404,20 +658,30 @@ end
 """
     rig_price_parts(rig, assumptions)
 
-Manufacturing cost [USD] of each part of the hardware of `rig`: the units, their surface
-and the installation of wings or rotors; the deck system, control unit, ship-side controls
-and integration of a kite, without its canopy and tether; the deck system, tether, supply
-for the hover, ship-side controls and integration of VTOL kites, without their airframes.
+Manufacturing cost [USD] of each part of the hardware of `rig`: the units, their surface,
+the installation, the supports of raised units and the camera systems of wings or rotors;
+the deck system, control unit, ship-side controls and integration of a kite, without its
+canopy and tether; the deck system, tether, supply for the hover, ship-side controls and
+integration of VTOL kites, without their airframes.
 """
 rig_price_parts(::Nothing, assumptions) = (;)
 
-rig_price_parts(rig::WingRig, assumptions) = deck_price_parts(rig.count, total_area(rig),
-    assumptions, :wing_unit_cost, size_factor(rig, assumptions) *
-    surface_cost(rig, assumptions), :wing_installation_fraction)
-rig_price_parts(rig::RotorRig, assumptions) = deck_price_parts(rig.count, total_area(rig),
-    assumptions, :rotor_unit_cost,
-    size_factor(rig, assumptions) * assumptions[:rotor_cost_per_area],
-    :rotor_installation_fraction)
+rig_price_parts(rig::WingRig, assumptions) = (;
+    deck_price_parts(rig.count, total_area(rig), assumptions, :wing_unit_cost,
+        size_factor(rig, assumptions) * surface_cost(rig, assumptions),
+        :wing_installation_fraction)...,
+    raised_parts(rig, assumptions)...)
+rig_price_parts(rig::RotorRig, assumptions) = (;
+    deck_price_parts(rig.count, total_area(rig), assumptions, :rotor_unit_cost,
+        size_factor(rig, assumptions) * assumptions[:rotor_cost_per_area],
+        :rotor_installation_fraction)...,
+    raised_parts(rig, assumptions)...)
+
+"cost [USD] of the supports of the raised units and of the camera systems of `rig`"
+raised_parts(rig::Union{WingRig, RotorRig}, assumptions) = (;
+    pedestals=1e3rig.count * pedestal_mass(rig, assumptions) *
+              assumptions[:welded_steel_cost_per_mass],
+    cameras=rig.camera_units * assumptions[:camera_system_cost])
 
 """
     surface_cost(rig::WingRig, assumptions)
@@ -486,7 +750,7 @@ canopy_price(assumptions, area, aspect_ratio) = assumptions[:market_price_factor
     Canopy(assumptions, area, aspect_ratio).cost_per_area
 
 "inputs that together make the canopy's cost"
-canopy_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost, :canopy_cloth_base_price,
+canopy_price_inputs = (:canopy_structure_cost, :canopy_cloth_base_price,
     :canopy_cloth_price_per_weight)
 
 """
@@ -759,20 +1023,20 @@ end
 
 """
     route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly,
-                     horizon, forecast; schedule=(Inf, Inf))
+                     forecast; schedule=(Inf, Inf))
 
 Outbound and return [`Leg`](@ref) of [`forecast_route`](@ref) on the [`RouteTable`](@ref)
 `table` for one departure at the outbound and return time costs `hourly` [USD/h], each
 arriving by its time [h] in `schedule`, or `nothing` if either fails, planned on
-`forecast`, or on the real weather known `horizon` [h] ahead where that is `nothing`.
+`forecast`, or on the real weather where that is `nothing`.
 """
 function route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly,
-        horizon, forecast; schedule=(Inf, Inf))
+        forecast; schedule=(Inf, Inf))
     out = forecast_route(outbound, table, weather, departure; time_cost=first(hourly),
-        arrival_by=first(schedule), horizon, forecast)
+        arrival_by=first(schedule), forecast)
     isnothing(out) && return nothing
     back = forecast_route(inbound, table, weather, departure + out.duration + port_hours;
-        time_cost=last(hourly), arrival_by=last(schedule), horizon, forecast)
+        time_cost=last(hourly), arrival_by=last(schedule), forecast)
     isnothing(back) && return nothing
     return out, back
 end
@@ -880,7 +1144,7 @@ end
 
 """
     service_passages(ship, outbound, inbound, weather, departures, assumptions, hourly,
-                     port_hours, horizon, forecast, held_knots;
+                     port_hours, forecast, held_knots;
                      schedules=Iterators.repeated((Inf, Inf)))
 
 [`Passages`](@ref) of `ship` on the round trip of each of `departures`; `nothing` if any
@@ -888,13 +1152,13 @@ passage is infeasible. The router holds `held_knots` [kn] by [`held_speed_table`
 or chooses speed where `nothing`, each round trip keeping its leg times in `schedules`.
 """
 function service_passages(ship::Ship, outbound, inbound, weather, departures, assumptions,
-        hourly, port_hours, horizon, forecast, held_knots;
+        hourly, port_hours, forecast, held_knots;
         schedules=Iterators.repeated((Inf, Inf)))
     table = PerformanceTable(ship, assumptions)
     route_table = isnothing(held_knots) ? RouteTable(table) :
                   held_speed_table(table, held_knots)
     legs = fetch.([Threads.@spawn route_round_trip(route_table, outbound, inbound, weather,
-                       departure, port_hours, hourly, horizon, forecast; schedule)
+                       departure, port_hours, hourly, forecast; schedule)
                    for (departure, schedule) in zip(departures, schedules)])
     any(isnothing, legs) && return nothing
     largest_leg = maximum(max(out.fuel_energy, back.fuel_energy) for (out, back) in legs)
@@ -998,24 +1262,22 @@ function voyage_costs(ship::Ship, costs, rigs, passages, outbound, inbound, assu
 end
 
 """
-    round_trip(ship, outbound, inbound, weather, departures, assumptions; horizon=Inf,
+    round_trip(ship, outbound, inbound, weather, departures, assumptions;
                forecast=nothing, held_knots=nothing)
 
 Route `ship` out along `outbound` and back along `inbound` for each departure time
 [h] in each of its [`service_states`](@ref) with a share, and turn the result averaged
 over the departures and the states into the cost per tonne-km of the transport service
 by [`voyage_costs`](@ref), and that of each departure with the same ship by
-[`departure_outcome`](@ref). With a finite forecast `horizon` [h] the router knows the
-weather only that far ahead, with a [`ForecastArchive`](@ref) `forecast` it re-plans daily
-on its forecasts, and with `held_knots` [kn] the ship holds that speed instead of choosing
-by cost. A ship of a liner class keeps the [`liner_schedules`](@ref) where it chooses its
-speed. Wings and rotors are fixed or retractable, whichever costs less. The router
-prices time at the hold's cargo before the fuel store. Returns `nothing` if any passage
-is infeasible or the fuel store leaves no cargo.
+[`departure_outcome`](@ref). With a [`ForecastArchive`](@ref) `forecast` the router
+re-plans daily on its forecasts, and with `held_knots` [kn] the ship holds that speed
+instead of choosing by cost. A ship of a liner class keeps the [`liner_schedules`](@ref)
+where it chooses its speed. Wings and rotors are fixed or retractable, whichever costs
+less. The router prices time at the hold's cargo before the fuel store. Returns `nothing`
+if any passage is infeasible or the fuel store leaves no cargo.
 """
 function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
-        departures, assumptions::Assumptions; horizon=Inf, forecast=nothing,
-        held_knots=nothing)
+        departures, assumptions::Assumptions; forecast=nothing, held_knots=nothing)
     port_hours = 24assumptions[:port_time_per_call]
     costs = ship_costs(ship, assumptions)
     hourly = leg_time_costs(first(costs), assumptions)
@@ -1023,13 +1285,13 @@ function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
     scheduled = isnothing(held_knots) && keeps_schedule(ship)
     schedules = scheduled ?
                 liner_schedules(ship, outbound, inbound, weather, departures, assumptions,
-        port_hours, horizon, forecast) : Iterators.repeated((Inf, Inf))
+        port_hours, forecast) : Iterators.repeated((Inf, Inf))
     isnothing(schedules) && return nothing
     states = service_states(ship.rig, assumptions)
     services = [share > 0 ?
                 service_passages(with_rig(ship, rig), outbound, inbound, weather,
-                    departures, assumptions, router_hourly, port_hours, horizon,
-                    forecast, held_knots; schedules) : nothing
+                    departures, assumptions, router_hourly, port_hours, forecast,
+                    held_knots; schedules) : nothing
                 for (share, rig) in states]
     any(isnothing(service) && share > 0
         for ((share, _), service) in zip(states, services)) && return nothing
@@ -1069,17 +1331,17 @@ keeps_schedule(ship::Ship) =
 
 """
     liner_schedules(ship, outbound, inbound, weather, departures, assumptions, port_hours,
-                    horizon, forecast)
+                    forecast)
 
 Outbound and return times [h] of each of `departures` of `ship` without its rig, routed
 for cost as [`round_trip`](@ref) routes it, or `nothing` if a passage fails.
 """
 function liner_schedules(ship, outbound, inbound, weather, departures, assumptions,
-        port_hours, horizon, forecast)
+        port_hours, forecast)
     bare = with_rig(ship, nothing)
     hourly = leg_time_costs(ShipCosts(bare, assumptions), assumptions)
     passages = service_passages(bare, outbound, inbound, weather, departures, assumptions,
-        hourly, port_hours, horizon, forecast, nothing)
+        hourly, port_hours, forecast, nothing)
     isnothing(passages) && return nothing
     return [(passage.out_hours, passage.back_hours) for passage in passages]
 end

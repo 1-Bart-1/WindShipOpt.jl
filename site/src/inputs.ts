@@ -42,7 +42,7 @@ export const inputGroups: { title: string; controls: InputControl[] }[] = [
     title: "Kite goals",
     controls: [
       control("canopy_life", "Canopy life", "flight h", 250, 16000, 250),
-      control("canopy_structure_cost", "Canopy fabric cost per flat m², as surveyed", "EUR/m²", 20, 150, 1),
+      control("canopy_structure_cost", "Canopy fabric and bridle cost per flat m², as surveyed", "EUR/m²", 20, 150, 1),
       control("canopy_cloth_price_per_weight", "Cloth price per weight", "USD/g", 0.005, 0.06, 0.001),
       control("tether_price", "Tether price", "USD/kg", 20, 300, 5),
       control("tether_lifetime", "Tether life", "flight h", 1000, 40000, 500),

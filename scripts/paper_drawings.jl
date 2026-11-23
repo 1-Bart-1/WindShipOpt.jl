@@ -131,14 +131,13 @@ label_width = 13.0
 label_pitch = 3.4
 
 """
-sizes [m] of the pictures of paper/figure_pics.tex that [`force_balance_figure`](@ref)
-scales and lays its labels around: the ship's half beam and the bow's reach forward of
-midship, the wing sail's chord and the rotor's diameter
+sizes [m] of the rig pictures of paper/figure_pics.tex that [`force_balance_figure`](@ref)
+scales: the wing sail's chord and the rotor's diameter
 """
-picture_sizes = (half_beam=10.87, bow=75.0, wing_chord=14.1, rotor_diameter=5.78)
+picture_sizes = (wing_chord=14.1, rotor_diameter=5.78)
 
 "half the beam [mm] of the ship as [`force_balance_figure`](@ref) draws it"
-half_beam() = picture_sizes.half_beam * force_balance_scale.length
+half_beam() = paper_ship.half_beam * force_balance_scale.length
 
 """
     force_balance_figure()
@@ -182,7 +181,7 @@ Height [mm] above midship that the bow, the arrows and the tether of `panel` rea
 """
 function panel_top(panel)
     heads = [arrow_ends(force)[2][2] for force in panel.forces]
-    return max(maximum(heads), picture_sizes.bow * force_balance_scale.length,
+    return max(maximum(heads), paper_ship.stem * force_balance_scale.length,
         tether_end(panel.ship.rig, panel.forces)[2])
 end
 
@@ -355,8 +354,8 @@ end
 Anchor and point [mm] of the label of `force` among `forces`. Across the ship: past the
 head of an arrow shorter than its label, else against the hull above the arrow, or below
 it where another force across to the same side acts just forward, or, with none such,
-where a force along the ship leaves the same point. Along the ship: to windward of the hull, level with the head
-of the arrow or just above a mark.
+where a force along the ship leaves the same point. Along the ship: to windward of the
+hull, level with the head of the arrow or just above a mark.
 """
 function label_place(force, forces)
     tail, head = arrow_ends(force)
@@ -513,47 +512,33 @@ function force_balance_key(io, left, top)
 end
 
 """
-    hull_profile(hull, deck_height)
+    draw_ship!(axis, faces, offset)
 
-Points of `hull` seen from the side, bow to the right and midship at the origin: keel at
-the draft below the waterline, deck at `deck_height` [m] above it, a raked bow and a
-transom stern.
+The ship whose faces [`projected`](@ref) returns as `faces`, shifted by `offset` [m], each
+face in its shade with a seam of the same colour.
 """
-function hull_profile(hull, deck_height)
-    half = hull.length / 2
-    return Point2f[(-half, deck_height), (half + 0.03hull.length, deck_height),
-        (half, 0), (half - 0.02hull.length, -hull.draft), (-half + 0.04hull.length,
-            -hull.draft), (-half, -0.3hull.draft)]
+function draw_ship!(axis, faces, offset)
+    polygons = [[Point2f(corner .+ offset) for corner in corners]
+                for (corners, _, _) in faces]
+    colours = [shaded(colour, brightness) for (_, colour, brightness) in faces]
+    poly!(axis, polygons; color=colours, strokecolor=colours,
+        strokewidth=pt(figure_style["sizes"]["seam"]))
 end
 
 """
-    draw_ship!(axis, hull, offset)
+    draw_side_rig!(axis, rig, hull, form, offset)
 
-Side view of `hull` shifted by `offset` [m]: hull and a deckhouse aft, 10 m tall at the
-reference length, with the deck at the height above the waterline at which the model
-stands rigs on it.
+Side view of the wing or rotor `rig` on `hull` of lines `form` shifted by `offset` [m]:
+each unit as its height times its chord or diameter, standing at its foot height on a
+foundation of its width from the deck below it.
 """
-function draw_ship!(axis, hull, offset)
-    scale = hull.length / assumptions[:reference_length]
-    deck = assumptions[:deck_mount_height] * scale
-    house = 10.0scale
-    poly!(axis, hull_profile(hull, deck) .+ Point2f(offset); color=:gray80,
-        strokecolor=:black, strokewidth=0.5)
-    half = hull.length / 2
-    poly!(axis, Rect2f(Point2f(offset) + Point2f(-half + 0.02hull.length, deck),
-            Vec2f(0.08hull.length, house)); color=:gray80, strokecolor=:black,
-        strokewidth=0.5)
-end
-
-"""
-    draw_side_rig!(axis, rig, hull, offset)
-
-Side view of the wing or rotor `rig` on `hull` shifted by `offset` [m]: each unit as its
-height times its chord or diameter, standing at its foot height.
-"""
-function draw_side_rig!(axis, rig, hull, offset)
+function draw_side_rig!(axis, rig, hull, form, offset)
     width = rig isa WingRig ? rig.area / rig.height : rig.diameter
     for (position, _) in WindShipOpt.unit_positions(rig, hull, assumptions)
+        deck = deck_height(form, position)
+        poly!(axis, Rect2f(Point2f(offset) + Point2f(position - width / 2, deck),
+                Vec2f(width, max(rig.foot_height - deck, 0.0)));
+            color=style_colour("ship"), strokewidth=0)
         poly!(axis, Rect2f(Point2f(offset) + Point2f(position - width / 2,
                     rig.foot_height), Vec2f(width, rig.height));
             color=rig_colour(deck_rig_name(rig)),
@@ -565,35 +550,53 @@ end
     side_kite(area, hull)
 
 Heights [m] above the waterline and span [m] of the side view of a kite of projected
-`area` [m^2] at the design aspect ratio on `hull`: its deck, launch mast top, the sag of the
-canopy's arc and the canopy's top, drawn just above the mast.
+`area` [m^2] at the design aspect ratio on `hull`: its deck, launch mast top, the foot of
+its control unit, drawn just above the mast, and the top of its canopy.
 """
 function side_kite(area, hull)
     span = sqrt(area * design_aspect_ratio)
     deck = assumptions[:deck_mount_height] * hull.length / assumptions[:reference_length]
     mast_top = deck + WindShipOpt.launch_mast_height(area, assumptions)
-    sag = 0.15span
-    return (; span, deck, mast_top, sag, top=mast_top + 20 + sag)
+    foot = mast_top + 20
+    return (; span, deck, mast_top, foot, top=foot + last(kite_extent) * span)
 end
 
 """
     draw_side_kite!(axis, area, hull, offset)
 
 Side view of the kite of [`side_kite`](@ref) towed by `hull` shifted by `offset` [m]: its
-launch mast at the towing point and the canopy, to scale across its span, on a tether not
+launch mast at the towing point and the kite seen from ahead, to scale, on a tether not
 drawn to length.
 """
 function draw_side_kite!(axis, area, hull, offset)
-    (; span, deck, mast_top, sag, top) = side_kite(area, hull)
-    foot = Point2f(offset) +
-           Point2f(WindShipOpt.launch_mast_position(hull, assumptions), deck)
-    mast = foot + Point2f(0, mast_top - deck)
-    lines!(axis, [foot, mast]; color=:black, linewidth=1)
-    centre = Point2f(foot[1], offset[2] + top)
-    arc = [centre + Point2f(span / 2 * sin(t), sag * cos(t) - sag)
-           for t in range(-π / 2, π / 2; length=24)]
-    lines!(axis, arc; color=palette[1], linewidth=2)
-    lines!(axis, [mast, centre]; color=:gray50, linewidth=0.6, linestyle=:dash)
+    (; span, deck, mast_top, foot) = side_kite(area, hull)
+    mast_foot = Point2f(offset) +
+                Point2f(WindShipOpt.launch_mast_position(hull, assumptions), deck)
+    mast = mast_foot + Point2f(0, mast_top - deck)
+    lines!(axis, [mast_foot, mast]; color=:black, linewidth=1)
+    kite_foot = Point2f(mast_foot[1], offset[2] + foot)
+    lines!(axis, [mast, kite_foot]; color=:gray50, linewidth=0.6, linestyle=:dash)
+    draw_kite!(axis, kite_foot, span)
+end
+
+"""
+    draw_kite!(axis, foot, span; colour=style_colour("kite"))
+
+Draw on `axis` the kite of [`kite_parts`](@ref) seen from ahead, `span` across in the
+axis's units, the foot of its control unit at `foot`, in `colour`.
+"""
+function draw_kite!(axis, foot, span; colour=style_colour("kite"))
+    for (class, subpaths) in kite_parts
+        name, share, size = kite_part_styles[class]
+        base = name == "rig" ? colour : name == "white" ? white : style_colour(name)
+        tint = Makie.Colors.weighted_color_mean(share, base, white)
+        for subpath in subpaths
+            points = [Point2f(foot) + Point2f(x, -y) * span / 100
+                      for (x, y) in polyline(subpath)]
+            isnothing(size) ? poly!(axis, points; color=tint, strokewidth=0) :
+            lines!(axis, points; color=tint, linewidth=style_size(size))
+        end
+    end
 end
 
 """
@@ -610,51 +613,86 @@ function ship_classes_figure()
     routes_seen = unique(table["route"])
     longest = maximum(classes[name].length for name in names)
     gap = 0.22longest
-    rows = map(names) do name
-        areas = [mean_best_area(table, name, routes_seen, kind) for kind in rig_names]
-        return (name, Hull(classes[name], assumptions), areas,
-            built_rig.(Ref(classes[name]), rig_names, areas))
-    end
-    margin = 75.0
-    tops = cumsum([draw_height(hull, first(areas), rigs) + hull.draft + margin
-                   for (_, hull, areas, rigs) in rows])
+    rows = [drawn_class(name, classes[name], table, routes_seen) for name in names]
+    no_data = [all(!isfinite, areas[column] for (_, _, _, _, areas, _) in rows)
+               for column in eachindex(rig_names)]
     width = length(rig_names) * longest + (length(rig_names) - 1) * gap
-    figure = Figure(size=(page_width, page_width * (last(tops) + 20) / (1.45width)))
+    metres_per_unit = 1.45width / page_width
+    margin = (pt(2) + line_height(note_size) + 3label_clearance) * metres_per_unit
+    tops = cumsum([draw_height(hull, faces, first(areas), rigs) + hull.draft + margin
+                   for (_, hull, _, faces, areas, rigs) in rows])
+    note_line = any(no_data) ? line_height(note_size) + pt(1) : 0.0
+    top = 10 + (line_height(text_size) + note_line + 3label_clearance) * metres_per_unit
+    bottom = -last(tops) - 15
+    figure = Figure(size=(page_width, (top - bottom) / metres_per_unit))
     axis = Axis(figure[1, 1]; aspect=DataAspect())
     hidedecorations!(axis)
     hidespines!(axis)
-    for (row, (name, hull, areas, rigs)) in enumerate(rows)
+    for (row, (name, hull, form, faces, areas, rigs)) in enumerate(rows)
         y = -tops[row] + hull.draft + margin
         for (column, (kind, area, rig)) in enumerate(zip(rig_names, areas, rigs))
             offset = ((column - 1) * (longest + gap) + longest / 2, y)
-            draw_ship!(axis, hull, offset)
+            draw_ship!(axis, faces, offset)
+            no_data[column] && continue
+            text!(axis, offset[1] - hull.length / 2, y - hull.draft;
+                text=cell_label(kind, area, rig), align=(:left, :top),
+                offset=(0, -pt(2)), fontsize=note_size, color=:gray40)
             isfinite(area) || continue
             if kind == "kite"
                 draw_side_kite!(axis, area, hull, offset)
             else
-                isnothing(rig) || draw_side_rig!(axis, rig, hull, offset)
+                isnothing(rig) || draw_side_rig!(axis, rig, hull, form, offset)
             end
-            text!(axis, offset[1] - hull.length / 2, y - hull.draft;
-                text=area_label(area), align=(:left, :top), offset=(0, -pt(2)),
-                fontsize=note_size, color=:gray40)
         end
-        text!(axis, -0.06longest, y; text=name, align=(:right, :center))
+        text!(axis, -0.09longest, y; text=name, align=(:right, :center))
     end
     for (column, title) in enumerate(rig_label.(rig_names))
-        text!(axis, (column - 1) * (longest + gap) + longest / 2, 10; text=title,
-            align=(:center, :bottom))
+        centre = (column - 1) * (longest + gap) + longest / 2
+        text!(axis, centre, 10; text=title, align=(:center, :bottom), offset=(0, note_line))
+        no_data[column] && text!(axis, centre, 10; text="no data yet",
+            align=(:center, :bottom), fontsize=note_size, color=:gray40)
     end
     bar = Point2f(-0.25width, -last(tops) + 10)
     lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
     text!(axis, bar + Point2f(50, 0); text="100 m", align=(:center, :bottom),
         offset=(0, 2), fontsize=note_size)
-    limits!(axis, -0.36width, 1.02width, -last(tops) - 15, 80)
+    limits!(axis, -0.36width, 1.02width, bottom, top)
     save_figure("ship_classes", figure)
 end
 
-"`area` [m^2] as a LaTeX label to three significant digits, its digits grouped"
-area_label(area) =
-    L"%$(digit_groups(string(Int(round(area; sigdigits=3)))))\,\mathrm{m^2}"
+"figure units of a line of text of `size`, from its lowest descender to its top"
+line_height(size) =
+    widths(Makie.text_bb("lg", Makie.to_font(paper_font("regular")), size))[2]
+
+"""
+    drawn_class(name, class, table, routes)
+
+What [`ship_classes_figure`](@ref) draws of ship `class` called `name`: its hull, its lines,
+their faces seen from the side, and the area of each rig of [`mean_best_area`](@ref) over
+`routes` in `table` with the rig the model builds of it.
+"""
+function drawn_class(name, class, table, routes)
+    areas = [mean_best_area(table, name, routes, kind) for kind in rig_names]
+    hull = Hull(class, assumptions)
+    form = HullForm(hull, assumptions)
+    check_drawn_hull(form, hull)
+    faces = projected(ship_faces(form, hull, class.type), :side)
+    return (name, hull, form, faces, areas, built_rig.(Ref(class), rig_names, areas))
+end
+
+"""
+    cell_label(kind, area, rig)
+
+Label under a ship in [`ship_classes_figure`](@ref): the `area` [m^2] of rig `kind` to three
+significant digits, its digits grouped, in parentheses where the model builds no deck `rig`
+of it, or "no data yet" where the study has no area.
+"""
+function cell_label(kind, area, rig)
+    isfinite(area) || return "no data yet"
+    digits = digit_groups(string(Int(round(area; sigdigits=3))))
+    built = kind == "kite" || !isnothing(rig)
+    return built ? L"%$(digits)\,\mathrm{m^2}" : L"(%$(digits)\,\mathrm{m^2})"
+end
 
 """
     mean_best_area(table, class, routes, rig)
@@ -681,13 +719,14 @@ function built_rig(class, kind, area)
 end
 
 """
-    draw_height(hull, kite_area, rigs)
+    draw_height(hull, faces, kite_area, rigs)
 
-Height [m] above the waterline of the top of what [`ship_classes_figure`](@ref) draws on
-`hull`: the kite of `kite_area` [m^2] and the deck `rigs`.
+Height [m] above the waterline of the top of what [`ship_classes_figure`](@ref) draws of
+`hull`: its projected `faces`, the kite of `kite_area` [m^2] and the deck `rigs`.
 """
-function draw_height(hull, kite_area, rigs)
-    tops = Float64[rig.foot_height + rig.height for rig in rigs if !isnothing(rig)]
+function draw_height(hull, faces, kite_area, rigs)
+    tops = [maximum(last, corners) for (corners, _, _) in faces]
+    append!(tops, rig.foot_height + rig.height for rig in rigs if !isnothing(rig))
     isfinite(kite_area) && push!(tops, side_kite(kite_area, hull).top)
     return maximum(tops; init=0.0)
 end
