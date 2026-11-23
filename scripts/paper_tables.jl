@@ -216,7 +216,7 @@ input_derivations = Dict(
     :rotor_abreast_loss => "sec:det_deck",
     (Symbol(unit, :_, name) => "app:size_laws" for unit in (:wing, :rotor, :suction)
      for name in (:mass_exponent, :reference_height))...,
-    :rotor_unit_cost => "app:prices", :rotor_cost_per_area => "app:prices",
+    :rotor_unit_cost => "sec:val_cost", :rotor_cost_per_area => "sec:val_cost",
     :rigid_mass => "sec:det_rigid", :rigid_mass_exponent => "sec:det_rigid",
     :rigid_hover_power_per_mass => "sec:det_rigid",
     :rigid_drag => "sec:det_rigid", :rigid_min_turn_radius => "sec:det_rigid",
@@ -585,16 +585,16 @@ function missed_goal_rows()
     result = []
     for ship in unique(sizes["ship"])
         bare = bare_cost(sizes, ship)
-        cheapest = Dict(rig => cheapest_size(sizes, ship, rig) for rig in rig_names)
-        goal = Dict(rig => sizes["cost"][cheapest[rig]] for rig in rig_names)
-        curves = Dict(rig => share_costs(service, ship, rig) for rig in rig_names)
+        rigs = last.(study_rigs(sizes))
+        cheapest = Dict(rig => cheapest_size(sizes, ship, rig) for rig in rigs)
+        goal = Dict(rig => sizes["cost"][cheapest[rig]] for rig in rigs)
+        curves = Dict(rig => share_costs(service, ship, rig) for rig in rigs)
         picked = rows(lives, "ship" => ship)
         life_curve = lives["life"][picked], lives["cost"][picked]
         priced = rows(prices, "ship" => ship)
         price_curve = prices["price"][priced], prices["cost"][priced]
         WindShipOpt.check_goal_cost(ship, "out of service", goal, Dict(rig => curve_cost(
-            curves[rig], assumptions[Symbol(out_of_service_inputs[rig])])
-                                                                      for rig in rig_names))
+            curves[rig], assumptions[Symbol(out_of_service_inputs[rig])]) for rig in rigs))
         WindShipOpt.check_goal_cost(ship, "canopy life", Dict("kite" => goal["kite"]),
             Dict("kite" => curve_cost(life_curve, assumptions[:canopy_life])))
         WindShipOpt.check_goal_cost(ship, "canopy price", Dict("kite" => goal["kite"]),
@@ -666,8 +666,9 @@ function crash_limit_rows()
     result = []
     for ship in unique(table["ship"])
         bare = bare_cost(table, ship)
-        cheapest = Dict(rig => cheapest_size(table, ship, rig) for rig in rig_names)
-        goal = Dict(rig => table["cost"][cheapest[rig]] for rig in rig_names)
+        rigs = last.(study_rigs(table))
+        cheapest = Dict(rig => cheapest_size(table, ship, rig) for rig in rigs)
+        goal = Dict(rig => table["cost"][cheapest[rig]] for rig in rigs)
         for (; rig, rival, rival_cost) in WindShipOpt.ranked_rivals(goal)
             push!(result, size_limits(table, cheapest[rig], bare, rival, rival_cost))
             rig == "kite" || continue
@@ -799,6 +800,7 @@ class_table.tex, a dagger on estimates and ∞ for an infinite fixed-rig delay.
 """
 function class_dimension_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
+    notes = class_source_notes()
     write_whole(joinpath(sections, "class_table.tex")) do io
         println(io, "\\setlength{\\tabcolsep}{3pt}")
         println(io, "\\begin{tabular}{@{}l", "r"^6, "l", "r"^4, "@{}}")
@@ -863,6 +865,18 @@ function write_class_cargo_row(io, class, estimated)
         latex_number(round(100class.restricted_call_share; digits=1)), " & ", delay, " & ",
         latex_number(round(Int, round(windage.frontal_area; sigdigits=3))), " & ",
         latex_number(round(Int, round(windage.lateral_area; sigdigits=3))), " \\\\")
+end
+
+"""
+    class_source_notes()
+
+Source note of each ship class by name, from the class file.
+"""
+function class_source_notes()
+    lines = readlines(joinpath(root, "data", "ship_classes.csv"))
+    header = WindShipOpt.csv_fields(first(lines))
+    rows = [Dict(zip(header, WindShipOpt.csv_fields(line))) for line in lines[2:end]]
+    return Dict(row["name"] => row["source"] for row in rows)
 end
 
 """
@@ -973,7 +987,7 @@ function cargo_interest_table()
         level_table = interest_level_rows(table, factor)
         push!(lines, (; level, rig="no rig", points=fill(NaN, 4), trip=NaN,
             speed=mean_sailing_speed(level_table, drive, "none")))
-        for rig in rig_names
+        for (_, rig) in study_rigs(table)
             splits = rig_splits(level_table, drive, rig)
             push!(lines, (; level="", rig, points=split_points(splits),
                 trip=median(getproperty.(splits, :hours)),
@@ -1017,7 +1031,7 @@ fuel saved falls short of the rig's own cost, "no rig" where it never does.
 function split_numbers(table)
     numbers = Pair{String, String}[]
     short = String[]
-    for (drive, word) in drive_words, rig in rig_names
+    for (drive, word) in drive_words, (_, rig) in study_rigs(table)
         _, fuel, time, rest = split_points(rig_splits(table, drive, rig))
         name = word * uppercasefirst(rig)
         push!(numbers, "SplitFuel$name" => whole_number(fuel),
@@ -1329,7 +1343,7 @@ function type_savings(table, drive)
     savings = []
     for type in sort(unique(classes[cell.class].type for cell in cells))
         own = filter(cell -> classes[cell.class].type == type, cells)
-        rigs = Dict(rig => saving_per_ship(table, own, rig) for rig in rig_names)
+        rigs = Dict(rig => saving_per_ship(table, own, rig) for (_, rig) in study_rigs(table))
         leaders = fleet_leaders(Dict(rig => saving.share for (rig, saving) in rigs), own,
             [cell.bill for cell in own])
         push!(savings, (; type, rigs, leaders))
@@ -1446,7 +1460,7 @@ function write_type_savings(table)
             println(io, "\\midrule")
             for (k, (; type, rigs, leaders)) in enumerate(type_savings(table, drive))
                 k > 1 && println(io, "\\addlinespace")
-                for (j, rig) in enumerate(rig_names)
+                for (j, (_, rig)) in enumerate(study_rigs(table))
                     cells = [text(scale * rigs[rig][measure])
                         for (measure, (scale, _, _, text)) in pairs(type_saving_columns)]
                     name = rig in leaders ? "\\textbf{$rig}" : rig
@@ -1603,10 +1617,11 @@ function speed_choice_table()
         println(io, "\\begin{tabular}{@{}llrrrrr@{}}\n\\toprule")
         println(io, "Drive & Rig & No rig & With rig & Rig free of cost & Force held & ",
             "Force alone \\\\\n\\midrule")
-        for (drive, drive_label) in drive_labels[1:2], rig in rig_names
+        rigs = filter(!=("none"), last.(study_rigs(table)))
+        for (drive, drive_label) in drive_labels[1:2], rig in rigs
             found = rows(table, "drive" => drive, "rig" => rig)
             cells = (@sprintf("%.1f", median(table[column][found])) for column in columns)
-            println(io, rig == first(rig_names) ? drive_label : "", " & ", rig, " & ",
+            println(io, rig == first(rigs) ? drive_label : "", " & ", rig, " & ",
                 join(cells, " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
@@ -1741,6 +1756,21 @@ function routing_value_table()
             print(io, number_macro(name, text, draft))
         end
     end
+end
+
+"""
+    error_cell(value, standard_error; finest)
+
+LaTeX of `value` with its `standard_error`, the error to two significant digits and to
+`finest` decimals at the finest, and the value to the same place.
+"""
+function error_cell(value, standard_error; finest)
+    magnitude = standard_error > 0 ?
+                floor(Int, log10(round(standard_error; sigdigits=2))) : 0
+    digits = min(finest, 1 - magnitude)
+    format = Printf.Format("\\(%.$(max(digits, 0))f \\pm %.$(max(digits, 0))f\\)")
+    return Printf.format(format, round(value; digits) + 0.0,
+        round(standard_error; digits) + 0.0)
 end
 
 """
@@ -1913,6 +1943,134 @@ function published_table()
                     saving("fuel_free"), scope), " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
+What each ship of [`measured_ships`](@ref) is reported to save at sea, by citation key: the
+fuel saving [%] and the fuel saved per day at sea [t].
+"""
+measured_reports = Dict("lr2025trlady" => ("9.1", "1.9"),
+    "norsepower2019pelican" => ("8.2", "--"), "gcaptain2024pyxis" => ("14", "3"),
+    "mol2024shofu" => ("5--8", "--"))
+
+"""
+    measured_voyage(table, source)
+
+Fuel saving [%] per departure and fuel saved per day at sea [t] per departure of the ship of
+`source` in the measured savings `table`, in date order.
+"""
+function measured_voyage(table, source)
+    energy(rig) = Dict(table["departure"][row] => table["fuel_energy"][row]
+                       for row in rows(table, "source" => source) if
+                       (table["rig"][row] == "none") == (rig == :bare))
+    bare, rigged = energy(:bare), energy(:rigged)
+    days = table["days"][first(rows(table, "source" => source))]
+    departures = sort(collect(keys(rigged)))
+    savings = [percent_saving(rigged[day], bare[day]) for day in departures]
+    tonnes = [(bare[day] - rigged[day]) / days / assumptions[:vlsfo_heating_value]
+              for day in departures]
+    return savings, tonnes
+end
+
+"""
+    copenhagen_net(row)
+
+Net power saving [%] our rotor gives at a point of [`copenhagen_trial`](@ref): the one
+measured, with the gross saving scaled by our thrust over the measured and our spin power in
+place of the stated one, over the ship's power without the rotor implied by Table 9.
+"""
+function copenhagen_net(row)
+    trial = copenhagen_trial
+    baseline = sum(point[2] for point in trial.points) /
+               sum(point[3] for point in trial.points) * 100
+    _, gross, _, net = only(point for point in trial.points if point[1] == row.true_angle)
+    change = gross * (row.thrust_model / row.thrust_measured - 1) -
+             (row.spin_power - trial.spin_power)
+    return net + 100change / baseline
+end
+
+"""
+    measured_table()
+
+Our model beside rotors and wing sails measured at sea: the thrust and net power saving of
+the Copenhagen's rotor at the points of its speed trial, and the fuel saving of each of
+[`measured_ships`](@ref) on the nearest of our ships at fixed speed and course, with its
+standard error over the departures: measured_table.tex.
+"""
+function measured_table()
+    copenhagen = read_table(study_file(:measured_savings, "copenhagen.csv"))
+    voyages = read_table(study_file(:measured_savings, "measured_savings.csv"))
+    error_text(values) = error_cell(mean(values), std(values) / sqrt(length(values));
+        finest=1)
+    write_whole(joinpath(sections, "measured_table.tex")) do io
+        println(io, "\\textbf{(a)} \\\\\n\\begin{tabular}{@{}rrrrrrr@{}}\n\\toprule")
+        println(io, "\\multicolumn{2}{c}{Wind angle [\\si{\\degree}]} & Spin & ",
+            "\\multicolumn{2}{c}{Thrust coefficient} & ",
+            "\\multicolumn{2}{c}{Net saving [\\%]} \\\\")
+        println(io, "\\cmidrule(lr){1-2}\\cmidrule(lr){4-5}\\cmidrule(lr){6-7}")
+        println(io, "true & apparent & ratio & measured & ours & measured & ours \\\\")
+        println(io, "\\midrule")
+        for i in eachindex(copenhagen["true_angle"])
+            row = (; (Symbol(name) => copenhagen[name][i] for name in keys(copenhagen))...)
+            measured_net = only(point[4] for point in copenhagen_trial.points
+                                if point[1] == row.true_angle)
+            @printf(io, "%.0f & %.0f & %.1f & %.1f & %.1f & %.0f & %.0f \\\\\n",
+                row.true_angle, row.apparent_angle, row.spin_ratio, row.thrust_measured,
+                row.thrust_model, measured_net, copenhagen_net(row))
+        end
+        println(io, "\\bottomrule\n\\end{tabular} \\\\")
+        println(io, "\\rule{0pt}{4ex}\\textbf{(b)} \\\\\n\\begin{tabular}{@{}lllrrrr@{}}\n\\toprule")
+        println(io, "Ship & Our ship & Rig & \\multicolumn{2}{c}{Measured} & ",
+            "\\multicolumn{2}{c}{Ours} \\\\")
+        println(io, "\\cmidrule(lr){4-5}\\cmidrule(lr){6-7}")
+        println(io, " & & [\\si{m^2}] & [\\%] & [t/d] & [\\%] & [t/d] \\\\\n\\midrule")
+        for (source, name, ship, rig, area, _) in measured_ships
+            savings, tonnes = measured_voyage(voyages, source)
+            percent, per_day = measured_reports[source]
+            println(io, join(("$name \\citep{$source}", ship,
+                    @sprintf("%s %.0f", rig, area), percent, per_day,
+                    error_text(savings), error_text(tonnes)), " & "), " \\\\")
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
+    measured_numbers_file()
+
+Write to paper/sections/measured_numbers.tex, from the measured savings study, by how much
+our rotor's thrust departs from the Copenhagen's measured [%] at small apparent wind angles
+at most, abeam and aft, the range of points by which our fuel saving exceeds that measured
+with rotors, by how many it falls short of the Pyxis Ocean's, and the fuel our
+Kamsarmax burns per day at sea without a rig [t].
+"""
+function measured_numbers_file()
+    copenhagen = read_table(study_file(:measured_savings, "copenhagen.csv"))
+    voyages = read_table(study_file(:measured_savings, "measured_savings.csv"))
+    excess = 100(copenhagen["thrust_model"] ./ copenhagen["thrust_measured"] .- 1)
+    by_angle = Dict(zip(copenhagen["true_angle"], excess))
+    bow = maximum(abs, excess[copenhagen["apparent_angle"] .< 50])
+    rotor_gaps = [mean(first(measured_voyage(voyages, source))) -
+                  parse(Float64, first(measured_reports[source]))
+                  for (source, _, _, rig) in measured_ships if rig == "rotors"]
+    pyxis_gap = parse(Float64, first(measured_reports["gcaptain2024pyxis"])) -
+                mean(first(measured_voyage(voyages, "gcaptain2024pyxis")))
+    bare = rows(voyages, "source" => "lr2025trlady", "rig" => "none")
+    bare_tonnes = mean(voyages["fuel_energy"][bare]) / voyages["days"][first(bare)] /
+                  assumptions[:vlsfo_heating_value]
+    draft = TOML.parsefile(study_runs_path)["measured_savings"]["fidelity"] != "final"
+    numbers = ["CopenhagenThrustBow" => @sprintf("%.0f", bow),
+        "CopenhagenThrustBeam" => @sprintf("%.0f", by_angle[102.0]),
+        "CopenhagenThrustAft" => @sprintf("%.0f", by_angle[142.0]),
+        "MeasuredRotorGap" => join(
+            unique(@sprintf("%.0f", gap) for gap in extrema(rotor_gaps)), " to "),
+        "MeasuredPyxisGap" => @sprintf("%.0f", pyxis_gap),
+        "MeasuredBareKamsarmax" => @sprintf("%.0f", bare_tonnes)]
+    write_whole(joinpath(sections, "measured_numbers.tex")) do io
+        for (name, text) in numbers
+            print(io, number_macro(name, text, draft))
+        end
     end
 end
 
@@ -2152,7 +2310,8 @@ ship_kind_words = [:teu => "Container", :ceu => "CarCarrier", :tonne => "Bulk"]
 
 Write the numbers the paper and its extended abstract state as LaTeX macros `\\Num...` to
 paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
-the goals, the `highlight_limit` the paper build checks, the [`class_numbers`](@ref),
+the goals, the `highlight_limit` the paper build checks, the run the results come from
+([`results_run_words`](@ref)), the [`class_numbers`](@ref),
 [`class_range_numbers`](@ref), [`recommendation_numbers`](@ref),
 [`rig_lead_numbers`](@ref), [`route_numbers`](@ref), [`split_numbers`](@ref),
 [`payback_numbers`](@ref), [`premium_numbers`](@ref), [`fleet_share_numbers`](@ref),
@@ -2175,6 +2334,7 @@ function numbers_file()
             print(io, number_macro(name, text, false))
         end
         print(io, number_macro("HighlightLimit", string(highlight_limit), false))
+        print(io, number_macro("ResultsRun", results_run_words(), false))
         for (name, text) in results
             print(io, number_macro(name, text, draft))
         end
@@ -2238,9 +2398,9 @@ function goal_numbers()
          for (part, spread) in pairs(DRAFT_SPREAD))...]
 end
 
-"mean cost saving [%] of each rig over fleet `cells`, by rig"
+"mean cost saving [%] of each rig of fleet `cells` over them, by rig"
 fleet_savings(cells) = Dict(rig => mean(cell.savings[rig] for cell in cells)
-                            for rig in rig_names)
+                            for rig in keys(first(cells).savings))
 
 """
     class_numbers(classes)
@@ -2260,7 +2420,7 @@ function class_numbers(classes)
             "Level$word" => string(count(==("level"), bands)),
             "NoRig$word" => string(count(==("none"), bands)),
             "WingsShare$word" => fraction_text(savings["wings"] / savings["rotors"]))
-        for rig in rig_names
+        for (_, rig) in study_rigs(classes)
             name = word * uppercasefirst(rig)
             push!(numbers, "Saving$name" => whole_number(savings[rig]),
                 "Leads$name" => string(count(==(rig), bands)))
@@ -2297,7 +2457,7 @@ save; and per deck rig the most units of any cheapest size.
 function class_range_numbers(table)
     classes = class_order(table)
     numbers = Pair{String, String}[]
-    for (drive, word) in drive_words, rig in rig_names
+    for (drive, word) in drive_words, (_, rig) in study_rigs(table)
         fuel = [class_saving(table, "fuel", class, drive, rig) for class in classes]
         push!(numbers, "FuelRange$word$(uppercasefirst(rig))" =>
             value_range(filter(isfinite, fuel), whole_number))
@@ -2308,7 +2468,7 @@ function class_range_numbers(table)
     best = maximum(filter(isfinite, collect(values(wings))))
     push!(numbers, "WingsBestOil" => whole_number(best),
         "WingsLossClassesOil" => isempty(losing) ? "no class" : "the " * listed(losing))
-    for rig in deck_rig_names
+    for rig in filter(in(table["rig"]), deck_rig_names)
         cheapest = filter(!isnothing, [cheapest_row(table, class, route, drive, rig)
                                        for class in classes
                                        for route in unique(table["route"])
@@ -2370,7 +2530,9 @@ function market_numbers(table)
     numbers = Pair{String, String}[]
     for (drive, word) in drive_words
         market = fleet_market(cell_markets(table, drive))
-        for rig in (rig_names..., "any"), measure in (:ships, :sales, :saved, :carbon)
+        for rig in (last.(study_rigs(table))..., "any"),
+            measure in (:ships, :sales, :saved, :carbon)
+
             name = string("Market", word, uppercasefirst(rig),
                 uppercasefirst(string(measure)))
             push!(numbers, name => market_range(market[rig], measure))
@@ -2400,7 +2562,7 @@ function type_saving_numbers(table)
         isempty(losing) ? "no ship type" : listed(losing) * " ships")
     for (drive, word) in drive_words, (; type, rigs) in type_savings(table, drive)
         type_word = join(uppercasefirst.(split(type)))
-        for rig in rig_names
+        for (_, rig) in study_rigs(table)
             name = string("TypeSaving", word, type_word, uppercasefirst(rig))
             (; saved, share, carbon) = rigs[rig]
             push!(numbers, "$(name)Cost" => two_digits(1e-6saved),
@@ -2424,10 +2586,11 @@ function forecast_numbers()
     result = read_table(data_file("forecast_result.csv"))
     kite = rows(result, "rig" => "kite", "plan" => "live")
     kite_mean(column) = mean(result[column][kite])
+    rigs = last.(study_rigs(result))
     return [["ForecastKept" * uppercasefirst(rig) => kept_cell(kept, rig, "live")
-             for rig in rig_names];
+             for rig in rigs];
             ["ForecastSaving" * uppercasefirst(rig) =>
-                 whole_number(forecast_saving(result, rig, "live")) for rig in rig_names];
+                 whole_number(forecast_saving(result, rig, "live")) for rig in rigs];
             "ForecastLeadLive" => forecast_lead_cell(result, "live");
             "ForecastLeadPerfect" => forecast_lead_cell(result, "false");
             "ForecastFlightShare" => whole_number(100kite_mean("flight_share"));
@@ -2483,7 +2646,7 @@ tank-to-wake CO2 [%] on VLSFO.
 function recommendation_numbers(table)
     classes = ship_classes()
     numbers = Pair{String, String}[]
-    for (unit, kind) in ship_kind_words, rig in rig_names
+    for (unit, kind) in ship_kind_words, (_, rig) in study_rigs(table)
         names = [name for name in class_order(table) if classes[name].cargo_unit == unit]
         name = kind * uppercasefirst(rig)
         for (drive, word) in drive_words
@@ -2514,7 +2677,7 @@ the rotors [points].
 """
 function rig_lead(cells)
     savings = fleet_savings(cells)
-    ranked = sort(collect(rig_names); by=rig -> -savings[rig])
+    ranked = sort(collect(keys(savings)); by=rig -> -savings[rig])
     leaders = sort(fleet_leaders(savings, cells); by=rig -> -savings[rig])
     rig, rival = first(ranked), length(leaders) > 1 ? leaders[2] : ranked[2]
     margin = savings[rig] - savings[rival]
@@ -2582,7 +2745,7 @@ function rig_lead_rows(table)
                 own = filter(cell -> cell.class in names, cells[drive])
                 lead = rig_lead(own)
                 per_ship = Dict(rig => saving_per_ship(table, own, rig)
-                                for rig in rig_names)
+                                for (_, rig) in study_rigs(table))
                 (; word, label, name=lowercase(label), where=ship_places, drive,
                     drive_word, lead..., per_ship,
                     kite_limits(table, names, drive, lead.kite_lead)...)
@@ -2677,7 +2840,8 @@ Cost saving [%] of the cheapest size of the rig that saves most on one class, dr
 route of the class table `table`.
 """
 best_saving(table, class, drive, route) =
-    maximum(cheapest_saving(table, "cost", class, drive, route, rig) for rig in rig_names)
+    maximum(cheapest_saving(table, "cost", class, drive, route, rig)
+            for (_, rig) in study_rigs(table))
 
 """
     life_limit_text(life)

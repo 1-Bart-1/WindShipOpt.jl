@@ -66,7 +66,8 @@ study_steps = [:cargo_interest => cargo_interest_data, :base_kite => base_kite_d
     :convergence => convergence_data, :speed_terms => speed_terms_data,
     :published_terms => published_terms_data, :model_parts => model_parts_data,
     :size_search => size_search_data, :router_decisions => router_decisions_data,
-    :routing_value => routing_value_data, :today_routing => today_routing_data]
+    :routing_value => routing_value_data, :today_routing => today_routing_data,
+    :measured_savings => measured_savings_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
 study_tables = Dict(:cargo_interest => [:cargo_interest_table => cargo_interest_table],
@@ -74,7 +75,9 @@ study_tables = Dict(:cargo_interest => [:cargo_interest_table => cargo_interest_
     :speed_terms => [:speed_terms_table => speed_terms_table],
     :published_terms => [:published_table => published_table],
     :routing_value => [:routing_value_table => routing_value_table],
-    :today_routing => [:today_routing_numbers => today_routing_numbers_file])
+    :today_routing => [:today_routing_numbers => today_routing_numbers_file],
+    :measured_savings => [:measured_table => measured_table,
+        :measured_numbers => measured_numbers_file])
 
 "every table step of the method studies"
 study_table_steps() = unique(reduce(vcat, values(study_tables)))
@@ -126,7 +129,7 @@ output_steps = [:kite => kite_figure, :deck_rigs => deck_rig_figure,
     :figure_style => figure_style_file, :ship_pictures => ship_pictures_file]
 
 """
-    paper(names...; fidelity, resume=nothing, only=nothing)
+    paper(names...; fidelity, resume=nothing, only=nothing, source=nothing)
 
 Run the named steps, or every data step of the results and then every figure and table
 step when no name is given, at `fidelity` (:draft or :final); `:data` and `:figures` run all
@@ -139,13 +142,14 @@ ends with an error naming each that failed and why. Round trips the case store h
 the code and inputs are reused. A draft with `only`, labels and their values such as
 `(class="handysize", route=:caribbean)`, computes only the cases carrying them and keeps
 the latest stored round trip of the others, of any code. A final run errors on a dirty
-tree or unpushed commit.
+tree or unpushed commit. Figure and table steps alone read the run named `source`, such
+as "2026-11-20T2000", before any other.
 """
-function paper(names::Symbol...; fidelity, resume=nothing, only=nothing)
+function paper(names::Symbol...; fidelity, resume=nothing, only=nothing, source=nothing)
     steps = isempty(names) ? [data_steps; output_steps] :
             [step for name in names for step in selected_steps(name)]
     failed = run_steps(steps, first.([output_steps; study_table_steps()]); fidelity,
-        resume, only)
+        resume, only, source)
     mark_fidelity(joinpath(sections, "fidelity.tex"), fidelity, first.(steps),
         first.(output_steps))
     check_drawn(failed)
