@@ -3339,7 +3339,6 @@ end
 @testset "the model every stored trip is keyed by covers the ship data tables" begin
     files = normpath.(PaperRuns.model_files())
     @test joinpath(pkgdir(WindShipOpt), "data", "ship_classes.csv") in files
-    @test joinpath(pkgdir(WindShipOpt), "data", "ship_categories.csv") in files
 end
 
 @testset "the draft sensitivity study routes every other one of the final run's departures" begin

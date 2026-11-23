@@ -9,7 +9,7 @@ set -euo pipefail
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 major=$("$repo/bin/julia_version")
 weather() {
-    ERA5_REGION=atlantic_wide nice -n 19 julia "+$major" --project="$repo/scripts" -t 4 "$@"
+    nice -n 19 julia "+$major" --project="$repo/scripts" -t 4 "$@"
 }
 
 # The forecast's bias and blend weights are computed against the reanalysis and its

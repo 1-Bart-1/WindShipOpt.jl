@@ -2234,16 +2234,6 @@ function today_numbers(table)
     return ["Today" * name => text for (name, text) in numbers]
 end
 
-"`values` [%] rounded to whole points, as one value or as the first and last"
-point_range(values) = let points = sort(unique(round.(Int, values)))
-    length(points) == 1 ? string(only(points)) : "$(first(points)) and $(last(points))"
-end
-
-"what a rig with cost `savings` [%] does to the cost, saving or adding to it, in points"
-saving_phrase(savings) = all(<(0), savings) ?
-                         "adds $(point_range(.-savings))\\,\\% to the cost" :
-                         "saves $(point_range(savings))\\,\\%"
-
 """
     goal_numbers()
 

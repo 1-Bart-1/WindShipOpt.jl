@@ -3,13 +3,12 @@
 
 # Download the forecasts a ship could have routed on: a run of NOAA's GEFSv12 reforecast,
 # issued daily at 00 UTC, with its 10 m wind and its WAVEWATCH III sea state out to 16
-# days, into era5/<region>/forecast/{wind,waves}/ on the grids of the ERA5 data of the same
-# region (ERA5_REGION, as for download_era5.jl). Wind is averaged over each 1.5° cell,
-# waves are sampled at the 0.5° points. An issue the archive holds incomplete is left empty
-# (NaN). Run on its own, it downloads the control run of every issue and writes the mean
-# bias of each year's forecasts against ERA5 and their weights in a blend with the
-# climatology of download_era5.jl, both from the other years. Resumable: rerun to
-# continue.
+# days, into era5/atlantic_wide/forecast/{wind,waves}/ on the grids of the ERA5 data of
+# download_era5.jl. Wind is averaged over each 1.5° cell, waves are sampled at the 0.5°
+# points. An issue the archive holds incomplete is left empty (NaN). Run on its own, it
+# downloads the control run of every issue and writes the mean bias of each year's
+# forecasts against ERA5 and their weights in a blend with the climatology of
+# download_era5.jl, both from the other years. Resumable: rerun to continue.
 using Dates
 using Downloads
 using GRIB
@@ -19,8 +18,7 @@ using WindShipOpt
 wind_store = "https://noaa-gefs-retrospective.s3.amazonaws.com/GEFSv12/reforecast"
 wave_store = "https://noaa-nws-gefswaves-reforecast-pds.s3.amazonaws.com/GEFSv12/reforecast"
 issues = Date(2016, 12, 31):Day(1):Date(2019, 12, 31)
-region = get(ENV, "ERA5_REGION", "atlantic")
-era5 = joinpath(@__DIR__, "..", "era5", region == "atlantic" ? "" : region)
+era5 = joinpath(@__DIR__, "..", "era5", "atlantic_wide")
 output = joinpath(era5, "forecast")
 wind_leads = 6:6:384
 wave_leads = 12:12:384

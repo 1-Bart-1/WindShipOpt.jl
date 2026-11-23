@@ -63,10 +63,6 @@ function readable(colour, background)
     return first(mix for mix in mixes if contrast(mix, background) >= least["text"])
 end
 
-"each unordered pair of two different entries of `names`"
-name_pairs(names) = [(first_name, second_name) for (i, first_name) in enumerate(names)
-                     for second_name in names[(i + 1):end]]
-
 """
     palette_faults()
 
