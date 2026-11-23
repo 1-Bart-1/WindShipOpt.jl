@@ -37,7 +37,7 @@ Ship & Calm-water resistance & tank tests of a bulk carrier, a tanker and a cont
  & Engine fuel at part load & MAN L21/31 test-bed fuel curves \citep{man2024l2131} & $+1$ to $+7$\,\% at 50 to 85\,\% load \\
  & Share of the fuel saving the side force takes & ships with rotors and sails modelled with it \citep{tillig2019,kramer2022} & \cref{sec:val_drift} \\
 \addlinespace
-Rigs & Rotor thrust & speed trial of the ferry Copenhagen \citep{werner2023copenhagen} & $-8$ to $+8$\,\% with the wind ahead, $+30$ to $+45$\,\% abeam and aft \\
+Rigs & Rotor thrust & speed trial of the ferry Copenhagen \citep{werner2023copenhagen} & within \NumCopenhagenThrustBow\,\% with the wind ahead, $+$\NumCopenhagenThrustBeam{} to $+$\NumCopenhagenThrustAft\,\% abeam and aft \\
  & Wing sail highest lift & wind tunnel and CFD of a two-element wing \citep{wright2024wingsail} & $+5$ to $+11$\,\%, the flap held \\
  & Suction sail force & strain gauges on two VentiFoils at sea \citep{ghorbani2024suction}, which set it & 0 \\
  & Losses between deck rigs & wind tunnel and CFD of 2 to 5 units \citep{bordogna2020,mboumba2022,guzelbulut2024arrangement} & $-7$ to $+8$ points of thrust kept \\
@@ -45,8 +45,8 @@ Rigs & Rotor thrust & speed trial of the ferry Copenhagen \citep{werner2023copen
  & Kite flying height & SkySails' ship kites \citep{noaa2009} & inside their 100 to \SI{300}{m} \\
  & VTOL kite lowest wind & Makani's Wing~7 power curve \citep{vanderlind2013} & $+1.2$\,m/s \\
 \addlinespace
-Saving & Rotors' fuel saving & two ships over months of service \citep{lr2025trlady,norsepower2019pelican} & $+1$ to $+3$ points \\
- & Wing sails' fuel saving & two ships \citep{gcaptain2024pyxis,mol2024shofu} & $-4$ points, and below a range \\
+Saving & Rotors' fuel saving & two ships over months of service \citep{lr2025trlady,norsepower2019pelican} & $+$\NumMeasuredRotorGap{} points \\
+ & Wing sails' fuel saving & two ships \citep{gcaptain2024pyxis,mol2024shofu} & $-$\NumMeasuredPyxisGap{} points, and below a range \\
  & Kite's fuel saving & Beluga SkySails \citep{wintecc2009_record} & well below \\
 \bottomrule
 \end{tabular}}
