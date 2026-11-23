@@ -138,7 +138,8 @@ of it is done. A figure or table step that fails leaves the others to run, and t
 ends with an error naming each that failed and why. Round trips the case store holds for
 the code and inputs are reused. A draft with `only`, labels and their values such as
 `(class="handysize", route=:caribbean)`, computes only the cases carrying them and keeps
-the latest stored round trip of the others, of any code. A final run errors on a dirty tree or unpushed commit.
+the latest stored round trip of the others, of any code. A final run errors on a dirty
+tree or unpushed commit.
 """
 function paper(names::Symbol...; fidelity, resume=nothing, only=nothing)
     steps = isempty(names) ? [data_steps; output_steps] :
