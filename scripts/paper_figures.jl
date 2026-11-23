@@ -627,8 +627,12 @@ clear_offset(align, gap) = (Dict(:left => gap, :center => 0, :right => -gap)[ali
 "`value` rounded as an estimate is written, to two significant digits"
 rounded_estimate(value) = round(value; sigdigits=2)
 
-"`value` as an estimate is written: to two significant digits, with no trailing zero"
-estimate_text(value) = @sprintf("%.15g", rounded_estimate(value))
+"`value` as an estimate is written: to two significant digits, both shown"
+function estimate_text(value)
+    rounded = rounded_estimate(value)
+    iszero(rounded) && return "0"
+    return @sprintf("%.*f", max(0, 1 - floor(Int, log10(abs(rounded)))), rounded)
+end
 
 "figure units of the halo in the background colour behind each dark label"
 halo_width = style_size("halo")
