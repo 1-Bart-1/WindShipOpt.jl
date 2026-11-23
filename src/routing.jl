@@ -379,7 +379,7 @@ Base.@kwdef struct RouterSettings
     routing_speeds::Int = 49
     "speeds the search skips between those it commands, plus one, where that moves the
     arrival by no more than a time bin"
-    search_speed_stride::Int = 4
+    search_speed_stride::Int = 8
     "time between the knots of the [`CostToGo`](@ref) [h]"
     to_go_step::Float64 = 24.0
     "hours past its re-plan interval within which a ship sailing live computes the
