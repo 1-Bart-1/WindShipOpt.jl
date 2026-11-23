@@ -1935,8 +1935,8 @@ development_inputs = [
     (input=:rotor_cost_per_area, label="rotor cost per area", rig="rotors", lever="price",
         reason="Structure sets a rotor's price, which stands at its build-up."),
     (input=:rotor_lift_factor, label="rotor lift", rig="rotors", lever="force",
-        reason="Rotor design sets the lift at a given spin; the base is the full-scale " *
-               "fit, so the range only reaches down to the CFD value."),
+        reason="Rotor design sets the lift at a given spin; CFD and full-scale data " *
+               "bound it."),
     (input=:rotor_max_wind, label="rotor highest wind", rig="rotors", lever="weather",
         reason="Up to which wind its drive and structure let a rotor keep spinning."),
     (input=:rigid_mass, label="VTOL kite mass", rig="vtol", lever="price",

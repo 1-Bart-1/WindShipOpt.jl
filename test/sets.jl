@@ -366,6 +366,13 @@ end
     @test 0 < power < 0.5
 end
 
+# Han et al. (2025, Table 1): CFD of a rotor of aspect ratio 6 with an end disc gives 7.70.
+@testset "a rotor lifts as CFD of its shape gives at spin ratio 2.5" begin
+    rotors = WindShipOpt.RotorRig(800.0, Hull(140.0, assumptions), assumptions)
+    lift, _, _ = WindShipOpt.rotor_coefficients(2.5)
+    @test rotors.lift_factor * lift ≈ 7.70 rtol = 0.01
+end
+
 """
     uniform_kite(hull, assumptions)
 
