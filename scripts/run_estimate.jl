@@ -59,7 +59,7 @@ function measure_trip_costs()
     global paper_run = PaperRun(mktempdir(), :draft,
         Dict{String, Any}("git_commit" => git_output("rev-parse", "HEAD"),
             "git_dirty" => true), nothing, Dict{Symbol, Vector{Any}}(), "estimate",
-        StepTally(), nothing)
+        StepTally())
     sampled(fidelity) = departures[1:fidelities[fidelity].departure_step:end]
     development(rig, area; plan=false) = trip_case(
         ShipDesign(:ammonia, 140.0; rig_size(rig, area)...); route=:caribbean,

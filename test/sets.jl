@@ -3387,6 +3387,23 @@ end
     @test PaperRuns.data_file("study.csv") == other
 end
 
+@testset "figure and table steps read their source run before a finished one" begin
+    function run_with(name, finished)
+        directory = joinpath(PaperRuns.runs_directory, name)
+        mkpath(directory)
+        touch(joinpath(directory, "data.csv"))
+        record = Dict("fidelity" => "final", "finished" => finished, "git_branch" => "other")
+        open(io -> PaperRuns.TOML.print(io, record), joinpath(directory, "run.toml"), "w")
+        return joinpath(directory, "data.csv")
+    end
+    unfinished = run_with("2026-02-01T0000", "")
+    finished = run_with("2026-01-01T0000", "done")
+    PaperRuns.paper_run = PaperRuns.PaperRun(:final)
+    @test PaperRuns.data_file("data.csv") == finished
+    PaperRuns.paper_run = PaperRuns.PaperRun(:final; source="2026-02-01T0000")
+    @test PaperRuns.data_file("data.csv") == unfinished
+end
+
 """
     store_run(fidelity, trip_model; commit="a", only=nothing)
 
@@ -4906,6 +4923,16 @@ end
     bands = PaperData.fleet_band.(cells)
     @test count(==("rotors"), bands) == count(==("level"), bands) == 1
     @test count(==("none"), bands) == length(bands) - 2
+end
+
+@testset "a run of three rigs leads and sums over those three alone" begin
+    (; table, class, drive) = market_class_table()
+    held = findall(in(("none", "kite", "wings", "rotors")), table["rig"])
+    three = Dict{String, Vector}(name => column[held] for (name, column) in table)
+    cells = PaperData.fleet_cells(three, drive)
+    @test all(Set(keys(cell.savings)) == Set(("kite", "wings", "rotors")) for cell in cells)
+    lead = PaperData.rig_lead(filter(cell -> cell.class == class, cells))
+    @test (lead.rig, lead.rival, lead.verdict) == ("rotors", "wings", "leads")
 end
 
 @testset "a ship type's saving per ship is what each rig saves it, over its ships" begin

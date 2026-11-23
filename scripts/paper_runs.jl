@@ -126,6 +126,10 @@ mutable struct PaperRun
     source::Union{Nothing, String}
 end
 
+"the run in `directory` with nothing read before it"
+PaperRun(directory, fidelity, record, only, definitions, trip_model, tally) =
+    PaperRun(directory, fidelity, record, only, definitions, trip_model, tally, nothing)
+
 """
     PaperRun(fidelity; source=nothing)
 
@@ -488,7 +492,7 @@ function open_run(fidelity, names, resume; only=nothing)
     record["requested"] = union(record["requested"], string.(names))
     definitions = script_definitions(script_files())
     run = PaperRun(directory, fidelity, record, only, definitions,
-        trip_model(definitions), StepTally(), nothing)
+        trip_model(definitions), StepTally())
     write_record(run)
     println(resumed ? "resuming" : "new", " run ", directory)
     return run
