@@ -142,8 +142,8 @@ ends with an error naming each that failed and why. Round trips the case store h
 the code and inputs are reused. A draft with `only`, labels and their values such as
 `(class="handysize", route=:caribbean)`, computes only the cases carrying them and keeps
 the latest stored round trip of the others, of any code. A final run errors on a dirty
-tree or unpushed commit. Figure and table steps alone read the run named `source`, such as
-"2026-11-20T2000", before any other.
+tree or unpushed commit. Figure and table steps alone read the run named `source`, such
+as "2026-11-20T2000", before any other.
 """
 function paper(names::Symbol...; fidelity, resume=nothing, only=nothing, source=nothing)
     steps = isempty(names) ? [data_steps; output_steps] :

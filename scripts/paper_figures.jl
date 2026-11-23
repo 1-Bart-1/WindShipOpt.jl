@@ -3220,9 +3220,9 @@ function sensitivity_figure()
             string(entry.input))...)), ships))
     end
     figure = Figure(size=(page_width, page_width))
-    columns = [("cost", "change of cost saving [points]"),
-        ("carbon", rich("change of CO", subscript("2"), " saving [points]"))]
-    for (column, (name, label)) in enumerate(columns)
+    columns = [("cost", "change of cost saving [points]", 2),
+        ("carbon", rich("change of CO", subscript("2"), " saving [points]"), 5)]
+    for (column, (name, label, step)) in enumerate(columns)
         changes = [change for (levers, rig) in zip(panels, rigs) for entry in levers
                    for ship in ships
                    for change in bound_changes(table, ship, rig, string(entry.input);
@@ -3239,6 +3239,7 @@ function sensitivity_figure()
                 yticks=(eachindex(levers), [entry.label for entry in levers]),
                 yticksvisible=column == 1, yticklabelsvisible=column == 1,
                 xlabel=row == length(rigs) ? label : "",
+                xticks=step * (ceil(low / step):floor(high / step)),
                 limits=((low - margin, high + margin), (0.4, length(levers) + 0.6)))
             development_panel!(axis, table, ships, levers, rig, name)
             rowsize!(figure.layout, row, Fixed(length(levers) * input_row_height))

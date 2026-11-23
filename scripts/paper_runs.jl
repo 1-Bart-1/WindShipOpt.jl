@@ -468,9 +468,8 @@ end
     run_steps(steps, outputs; fidelity, resume, only=nothing, source=nothing)
 
 Run `steps` at `fidelity` in a new or resumed run as [`paper`](@ref) does, or without a run,
-reading `source` first, when all of them are among the figure and table steps `outputs`. A
-step of `outputs` that fails leaves the steps after it to run; return the name of each such
-step with its error.
+reading `source` first, when all of them are among the figure and table steps `outputs`. A step of `outputs` that
+fails leaves the steps after it to run; return the name of each such step with its error.
 """
 function run_steps(steps, outputs; fidelity, resume, only=nothing, source=nothing)
     haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
