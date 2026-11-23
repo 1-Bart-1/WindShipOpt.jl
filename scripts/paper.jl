@@ -19,9 +19,11 @@
 # run.toml and the finished round trips, so that a run cut short resumes; without `resume`
 # paper() asks whether to continue an unfinished run. A final run needs a clean tree on a
 # pushed commit; run.toml records the commit. Figure steps write PDFs to paper/figures/
-# and table steps LaTeX to paper/sections/; draft results are marked in the paper. Site
-# steps then pack the run's results into the companion website's data in the run
-# directory, routing nothing of their own. The LaTeX build is separate.
+# and table steps LaTeX to paper/sections/; draft results are marked in the paper. A figure
+# or table that fails to draw stops no other step: paper() ends by naming each with why, and
+# once fixed `paper(:<its step>; fidelity)` draws it from the run's data. Site steps then
+# pack the run's results into the companion website's data in the run directory, routing
+# nothing of their own. The LaTeX build is separate.
 using CairoMakie
 
 include("trips.jl")
@@ -132,39 +134,22 @@ then every site step when no name is given, at `fidelity` (:draft or :final); `:
 `:figures` and `:site` run all steps of that kind. Any step but figures and tables alone
 runs in a new or resumed run: `resume` true takes the latest unfinished run at `fidelity` on
 this git branch, false none, and nothing asks on stdin.
-Steps that run has done are skipped, and it counts as finished once every step asked of it
-is done. Round trips the case store holds for the code and inputs are reused. A draft with
-`only`, labels and their values such as `(class="handysize", route=:caribbean)`, computes
-only the cases carrying them and keeps the latest stored round trip of the others, of any
-code. A final run errors on a dirty tree or unpushed commit.
+Steps that run has done are skipped, and it counts as finished once every data and site
+step asked of it is done. A figure or table step that fails leaves the others to run, and
+the call ends with an error naming each that failed and why. Round trips the case store
+holds for the code and inputs are reused. A draft with `only`, labels and their values such
+as `(class="handysize", route=:caribbean)`, computes only the cases carrying them and keeps
+the latest stored round trip of the others, of any code. A final run errors on a dirty tree
+or unpushed commit.
 """
 function paper(names::Symbol...; fidelity, resume=nothing, only=nothing)
     steps = isempty(names) ? [data_steps; output_steps; site_steps] :
             [step for name in names for step in selected_steps(name)]
-    run_steps(steps, first.([output_steps; study_table_steps()]); fidelity, resume, only)
+    failed = run_steps(steps, first.([output_steps; study_table_steps()]); fidelity,
+        resume, only)
     mark_fidelity(joinpath(sections, "fidelity.tex"), fidelity, first.(steps),
         first.(output_steps))
-    return nothing
-end
-
-"""
-    run_steps(steps, outputs; fidelity, resume, only=nothing)
-
-Run `steps` at `fidelity` in a new or resumed run as [`paper`](@ref) does, or without a run
-when all of them are among the figure and table steps `outputs`.
-"""
-function run_steps(steps, outputs; fidelity, resume, only=nothing)
-    haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
-    global paper_run = all(in(outputs), first.(steps)) ? PaperRun(fidelity) :
-                       open_run(fidelity, first.(steps), resume; only)
-    for (name, step) in steps
-        if step_done(paper_run, name)
-            println("step ", name, " already done")
-            continue
-        end
-        run_step!(paper_run, name, step)
-    end
-    finish_run!(paper_run)
+    check_drawn(failed)
 end
 
 """

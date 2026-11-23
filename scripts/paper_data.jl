@@ -933,14 +933,16 @@ smallest_deck_rig_area = 50.0
 
 Smallest and largest area [m^2] searched for each rig on `class`: kites of 500 to
 64,000 m^2, VTOL kites of 20 m^2 to the largest whose perch fits, deck rigs from
-`smallest_deck_rig_area` to all of what fits on deck.
+`smallest_deck_rig_area` to all of what fits on deck, and none of a rig where not even its
+smallest size fits.
 """
 function size_bounds(class)
     hull = Hull(class, assumptions)
+    smallest = Dict("vtol" => 20.0,
+        (rig => smallest_deck_rig_area for rig in deck_rig_names)...)
+    bounds = (rig => (area, largest_rig_area(rig, hull)) for (rig, area) in smallest)
     return Dict("kite" => (500.0, largest_rig_area("kite", hull)),
-        "vtol" => (20.0, largest_rig_area("vtol", hull)),
-        (rig => (smallest_deck_rig_area, largest_rig_area(rig, hull))
-         for rig in deck_rig_names)...)
+        (rig => (lower, upper) for (rig, (lower, upper)) in bounds if lower <= upper)...)
 end
 
 "guessed cheapest rig sizes of the class study, data/size_guesses.csv"
@@ -1943,8 +1945,8 @@ development_inputs = [
     (input=:rotor_cost_per_area, label="rotor cost per area", rig="rotors", lever="price",
         reason="Structure sets a rotor's price, which stands at its build-up."),
     (input=:rotor_lift_factor, label="rotor lift", rig="rotors", lever="force",
-        reason="Rotor design sets the lift at a given spin; the base is the full-scale " *
-               "fit, so the range only reaches down to the CFD value."),
+        reason="Rotor design sets the lift at a given spin; CFD and full-scale data " *
+               "bound it."),
     (input=:rotor_max_wind, label="rotor highest wind", rig="rotors", lever="weather",
         reason="Up to which wind its drive and structure let a rotor keep spinning."),
     (input=:rigid_mass, label="VTOL kite mass", rig="vtol", lever="price",
@@ -3199,20 +3201,21 @@ end
 "the price inputs of the parts and launches of a soft kite"
 kite_price_inputs = (:canopy_structure_cost, :canopy_cloth_base_price,
     :canopy_cloth_price_per_weight, :winch_mass_per_force, :winch_cost_per_mass,
-    :launch_mast_mass_per_size, :launch_mast_cost_per_mass, :control_unit_cost_per_mass,
+    :launch_mast_mass_per_size, :welded_steel_cost_per_mass, :control_unit_cost_per_mass,
     :kite_controls_cost, :kite_integration_fraction, :tether_price, :kite_cycle_course_cost,
     :kite_cycle_crew_cost, :market_price_factor)
 
 "the price inputs of each rig, the kite's [`kite_price_inputs`](@ref)"
 rig_price_inputs = Dict("kite" => kite_price_inputs,
     "wings" => (:wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction,
-        :market_price_factor),
+        :welded_steel_cost_per_mass, :camera_system_cost, :market_price_factor),
     "rotors" => (:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
-        :market_price_factor),
+        :welded_steel_cost_per_mass, :camera_system_cost, :market_price_factor),
     "suction" => (:wing_unit_cost, :suction_cost_per_mass, :suction_mass_per_area,
-        :wing_installation_fraction, :market_price_factor),
+        :wing_installation_fraction, :welded_steel_cost_per_mass, :camera_system_cost,
+        :market_price_factor),
     "vtol" => (:rigid_mass, :rigid_cost_per_mass, :rigid_avionics_cost, :rigid_tether_cost,
-        :rigid_ship_power_cost, :winch_cost_per_mass, :launch_mast_cost_per_mass,
+        :rigid_ship_power_cost, :winch_cost_per_mass, :welded_steel_cost_per_mass,
         :kite_controls_cost, :kite_integration_fraction, :market_price_factor))
 
 "ship, drive, and kite, wing sail and rotor areas [m^2] of the router decisions study"
