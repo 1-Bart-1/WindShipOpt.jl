@@ -290,7 +290,7 @@ study_hull(ship) = ship == "140 m" ? 140.0 : ship_classes()[ship]
 
 "reference size of each rig on the 140 m ship"
 reference_rigs = [("kite", 3200.0), ("wings", 1500.0), ("rotors", 800.0),
-    ("suction", 800.0), ("vtol", 200.0), ("lei", 200.0)]
+    ("suction", 800.0), ("vtol", 200.0), ("lei", 700.0)]
 
 "the 140 m ship without a rig, then each of the [`reference_rigs`](@ref)"
 reference_rigs_and_none = [("none", 0.0); reference_rigs]
@@ -365,11 +365,11 @@ situation_sizes = Dict(
     "140 m" => Dict("kite" => (800.0, 1600.0, 3200.0, 6400.0),
         "wings" => (800.0, 1500.0, 2400.0), "rotors" => (400.0, 800.0, 1600.0),
         "suction" => (400.0, 800.0, 1600.0), "vtol" => (100.0, 200.0, 400.0),
-        "lei" => (100.0, 200.0, 400.0)),
+        "lei" => (350.0, 700.0, 1400.0)),
     "Kamsarmax bulk carrier" => Dict("kite" => (1600.0, 3200.0, 6400.0),
         "wings" => (1600.0, 2400.0, 3600.0), "rotors" => (850.0, 1200.0, 1890.0),
         "suction" => (850.0, 1200.0, 1890.0), "vtol" => (200.0, 400.0, 800.0),
-        "lei" => (200.0, 400.0, 800.0)))
+        "lei" => (700.0, 1400.0, 2800.0)))
 
 """
 Ship, route, drive and inputs of each part of the situation study: every input on the
