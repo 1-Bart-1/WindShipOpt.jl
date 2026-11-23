@@ -1905,49 +1905,6 @@ function speed_term_savings(table, drive, terms, column)
 end
 
 """
-What published fixed-speed kite studies report for each row of published_terms.csv: the
-citation key, the speed [kn], its label in the table, the fuel saving they state [%] and
-what it covers where that is narrower than a year of trips.
-"""
-published_savings = [("podeur2016", 16.0, "\\citet{podeur2016}", "12.1", ""),
-    ("podeur2016", 19.0, "\\citet{podeur2016}", "6.6", ""),
-    ("bentin2018", 13.0, "\\citet{bentin2018}", "19--29", "routed"),
-    ("leloup2013", 8.0, "\\citet{leloup2013}", "23.5", "downwind in one wind"),
-    ("leloup2013", 15.5, "\\citet{leloup2013}", "26.6", "one crossing"),
-    ("cedelft2016", 10.5, "\\citet{cedelft2016}", "2--15", ""),
-    ("cedelft2016", 12.3, "\\citet{cedelft2016}", "1--9", ""),
-    ("traut2014", 11.2, "\\citet{traut2014}", "6", "power share on one route")]
-
-"""
-    published_table()
-
-Published fuel savings of kites at fixed speed beside our model at that speed on the nearest
-of our ships, priced and free of the kite's running cost, and the routed saving and time of
-our cost-optimal speed: published_table.tex.
-"""
-function published_table()
-    table = read_table(study_file(:published_terms, "published_terms.csv"))
-    write_whole(joinpath(sections, "published_table.tex")) do io
-        println(io, "\\begin{tabular}{@{}llrrrrrl@{}}\n\\toprule")
-        println(io, "Study & Our ship & Kite & Speed & Published & ",
-            "\\multicolumn{2}{c}{Ours [\\%]} & Covers \\\\")
-        println(io, "\\cmidrule(lr){6-7}")
-        println(io, " & & [\\si{m^2}] & [kn] & [\\%] & priced & free & \\\\\n\\midrule")
-        for (source, knots, label, published, scope) in published_savings
-            found = rows(table, "source" => source, "speed" => knots)
-            isempty(found) && continue
-            i = only(found)
-            saving(column) = @sprintf("%.1f",
-                100(1 - table[column][i] / table["fuel_bare"][i]))
-            println(io, join((label, table["ship"][i], @sprintf("%.0f", table["area"][i]),
-                    @sprintf("%g", knots), published, saving("fuel_kite"),
-                    saving("fuel_free"), scope), " & "), " \\\\")
-        end
-        println(io, "\\bottomrule\n\\end{tabular}")
-    end
-end
-
-"""
 What each ship of [`measured_ships`](@ref) is reported to save at sea, by citation key: the
 fuel saving [%] and the fuel saved per day at sea [t].
 """

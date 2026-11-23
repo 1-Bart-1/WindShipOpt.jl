@@ -2960,75 +2960,13 @@ function operating_speed(ship)
 end
 
 """
-Conditions of published fixed-speed kite studies, each on the nearest ship of ours, on
-VLSFO: the citation key, our ship, the kite area [m^2], the speeds [kn] and the route.
-"""
-published_voyages = [
-    ("podeur2016", "feeder container ship", 800.0, (16.0, 19.0), :new_york),
-    ("bentin2018", "Handysize bulk carrier", 800.0, (13.0,), :new_york),
-    ("leloup2013", "MR product tanker", 320.0, (8.0, 15.5), :new_york),
-    ("cedelft2016", "Handysize bulk carrier", 400.0, (10.5, 12.3), :new_york),
-    ("traut2014", "Handysize bulk carrier", 500.0, (11.2,), :new_york)]
-
-"""
-Inputs with the kite flown free of canopy, tether and handling costs, which the published
-fixed-speed studies leave out, so that it flies wherever that saves fuel.
+Inputs with the kite flown free of canopy, tether and handling costs, so that it flies
+wherever that saves fuel.
 """
 kite_without_running_cost = foldl((inputs, key) -> with_value(inputs, key, 0.0),
     (:market_price_factor, :tether_price, :kite_cycle_crew_cost, :kite_cycle_course_cost,
         :kite_launch_loss_probability);
     init=assumptions)
-
-"""
-    fixed_speed_voyage(hull, kite_area, inputs, knots, name)
-
-[`fixed_speed_sums`](@ref) of the VLSFO ship on `hull` with `kite_area` [m^2] of kite under
-`inputs`, its time priced as in the rest of the paper.
-"""
-function fixed_speed_voyage(hull, kite_area, inputs, knots, name)
-    ship = Ship(ShipDesign(:vlsfo, hull; kite_area), inputs; route=name)
-    hourly = WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)
-    return fixed_speed_sums(PerformanceTable(ship, inputs), knots, name, hourly)
-end
-
-"""
-    published_voyage_rows(source, ship_name, area, knots, name)
-
-Row of published_terms.csv: fuel [GJ] of the ship at `knots` [kn] on route `name` without a
-kite, with it priced as in our model and free of running cost, hours without and with it and
-flight hours of the priced and the free kite; `nothing` if a passage fails.
-"""
-function published_voyage_rows(source, ship_name, area, knots, name)
-    hull = study_hull(ship_name)
-    sums = [fixed_speed_voyage(hull, kite_area, inputs, knots, name)
-            for (kite_area, inputs) in ((0.0, assumptions), (area, assumptions),
-                (area, kite_without_running_cost))]
-    any(isnothing, sums) && return nothing
-    bare, priced, free = sums
-    return (source, ship_name, area, knots, name, bare[1], priced[1], free[1], bare[2],
-        priced[2], priced[3], free[3])
-end
-
-"""
-    published_terms_data()
-
-Our model on the terms of published kite studies, each at its fixed speed on the nearest
-of our ships: published_terms.csv.
-"""
-function published_terms_data()
-    cases = [(source, ship, area, knots, name)
-             for (source, ship, area, speeds, name) in published_voyages
-             for knots in speeds]
-    results = Vector{Any}(undef, length(cases))
-    Threads.@threads :greedy for k in eachindex(cases)
-        results[k] = published_voyage_rows(cases[k]...)
-    end
-    open(run_file("published_terms.csv"), "w") do io
-        println(io, "source,ship,area,speed,route,fuel_bare,fuel_kite,fuel_free,",
-            "hours_bare,hours_kite,flight_hours,flight_hours_free")
-        foreach(row -> println(io, join(row, ",")), filter(!isnothing, results))
-    end
-end
 
 """
 Speed trial of the ferry Copenhagen with one 30 m by 5 m rotor (Werner and Nisbet 2023,

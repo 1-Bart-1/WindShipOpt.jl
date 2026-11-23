@@ -64,7 +64,7 @@ its run for its figures and writes its tables
 study_steps = [:cargo_interest => cargo_interest_data, :base_kite => base_kite_data,
     :sea_effect => sea_effect_data,
     :convergence => convergence_data, :speed_terms => speed_terms_data,
-    :published_terms => published_terms_data, :model_parts => model_parts_data,
+    :model_parts => model_parts_data,
     :size_search => size_search_data, :router_decisions => router_decisions_data,
     :routing_value => routing_value_data, :today_routing => today_routing_data,
     :measured_savings => measured_savings_data]
@@ -73,7 +73,6 @@ study_steps = [:cargo_interest => cargo_interest_data, :base_kite => base_kite_d
 study_tables = Dict(:cargo_interest => [:cargo_interest_table => cargo_interest_table],
     :sea_effect => [:sea_effect_table => sea_effect_table],
     :speed_terms => [:speed_terms_table => speed_terms_table],
-    :published_terms => [:published_table => published_table],
     :routing_value => [:routing_value_table => routing_value_table],
     :today_routing => [:today_routing_numbers => today_routing_numbers_file],
     :measured_savings => [:measured_table => measured_table,
