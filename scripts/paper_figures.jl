@@ -1533,23 +1533,6 @@ function passage_figure()
 end
 
 """
-    wind_key!(axis, corner, speed, scale, height)
-
-A white box of `height` [deg] with its lower left at `corner` [deg] in the map `axis`,
-holding a wind arrow of `speed` [m/s] at the `scale` [deg per m/s] of
-[`draw_wind!`](@ref), labelled with that speed.
-"""
-function wind_key!(axis, corner, speed, scale, height)
-    poly!(axis, Rect2f(corner, Vec2f(speed * scale + 2.8height, height)); color=:white,
-        strokecolor=:gray55, strokewidth=rule_width)
-    start = corner .+ Point2f(height / 3, height / 2)
-    arrows2d!(axis, [start], [Vec2f(speed * scale, 0)]; wind_arrow_style...)
-    text!(axis, start .+ Point2f(speed * scale, 0); text="$speed m/s",
-        align=(:left, :center), offset=clear_offset((:left, :center), pt(2.5)),
-        fontsize=note_size)
-end
-
-"""
     class_order(table)
 
 Classes of the class table sorted by deadweight.

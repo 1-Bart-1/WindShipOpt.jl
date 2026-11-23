@@ -167,9 +167,9 @@ end
 """
     draw_met_wind!(axis, case; spacing)
 
-10 m wind arrows at the water nodes of the corridor of `case` about `spacing` [nmi] apart,
-each at the hour the passage reached its stage and 15 m/s as long as `spacing`, those whose
-tip stays within the limits of `axis`.
+Arrows of the wind 10 m above the sea at the water nodes of the corridor of `case` about
+`spacing` [nmi] apart, each at the hour the passage reached its stage and at the
+[`met_wind_scale`](@ref) of `spacing`, those whose tip stays within the limits of `axis`.
 """
 function draw_met_wind!(axis, case; spacing)
     (; corridor, path, departure, weather) = case
@@ -186,11 +186,19 @@ function draw_met_wind!(axis, case; spacing)
         push!(points, Point2f(lon, lat))
         push!(vectors, Vec2f(wind(weather, lat, lon, departure + path[stage].hour)...))
     end
-    vectors .*= Float32(spacing / 60 / 15)
+    vectors .*= Float32(met_wind_scale(spacing))
     inside = [within(axis.limits[], tip...) for tip in points .+ vectors]
-    arrows2d!(axis, points[inside], vectors[inside]; color=style_colour("wind"),
-        shaftwidth=rule_width, minshaftlength=0)
+    arrows2d!(axis, points[inside], vectors[inside]; met_wind_style...)
 end
+
+"style of the arrows of [`draw_met_wind!`](@ref) and of their key"
+met_wind_style = (; color=style_colour("wind"), shaftwidth=rule_width, minshaftlength=0)
+
+"scale [deg per m/s] of wind arrows `spacing` [nmi] apart: 15 m/s as long as `spacing`"
+met_wind_scale(spacing) = spacing / 60 / 15
+
+"spacing [nmi] of the wind arrows in a zoom into `window` (west, east, south, north) [deg]"
+met_wind_spacing(window) = 6 * (window[2] - window[1])
 
 """
     draw_passage!(speed_axis, wind_axis, case; window_days)
@@ -313,7 +321,8 @@ Axes at the grid `positions` of a figure, a named tuple of `overview`, `zoom`, `
 whole corridor with the frame of `window` (west, east, south, north) [deg], and within
 `window` with the edges and the wind met, both within `colorrange`; and its
 [`draw_passage!`](@ref) with the [`window_days`](@ref) marked. Returns the plot of the
-coloured nodes and what both maps drew, as [`draw_search_map!`](@ref) names it.
+coloured nodes, what both maps drew, as [`draw_search_map!`](@ref) names it, and the zoomed
+axis.
 """
 function router_panels!(positions, case; window, colorrange, titles)
     whole = search_limits(case)
@@ -330,15 +339,32 @@ function router_panels!(positions, case; window, colorrange, titles)
         zoom.bottomspinecolor = window_colour
     draw_edge_fans!(zoom, case.corridor, case.path)
     _, zoom_drawn = draw_search_map!(zoom, case; colorrange)
-    draw_met_wind!(zoom, case; spacing=6 * (east - west))
+    draw_met_wind!(zoom, case; spacing=met_wind_spacing(window))
     speed_axis = Axis(positions.speed; title=titles.speed, ylabel="speed [kn]",
         xticklabelsvisible=false, yticks=WilkinsonTicks(3))
     wind_axis = Axis(positions.wind; title=titles.wind, xlabel="days since departure",
-        ylabel="10 m wind [m/s]", yticks=WilkinsonTicks(3))
+        ylabel="wind [m/s]", yticks=WilkinsonTicks(3))
     linkxaxes!(speed_axis, wind_axis)
     draw_passage!(speed_axis, wind_axis, case; window_days=window_days(case.path, window))
     drawn = map(|, overview_drawn, zoom_drawn)
-    return nodes, drawn
+    return nodes, drawn, zoom
+end
+
+"""
+    met_wind_key!(position, scale)
+
+A borderless axis at the grid `position`, at its left, holding the [`wind_key!`](@ref)
+of a 10 m/s wind at the `scale` [deg per m/s] of [`draw_met_wind!`](@ref), 0.5° high; its
+width and height are yet to be set to its limits at the scale of the map it keys.
+"""
+function met_wind_key!(position, scale)
+    speed, height = 10, 0.5
+    key = Axis(position; tellwidth=false, halign=:left,
+        limits=(-0.05, speed * scale + 2.8height + 0.05, -0.05, height + 0.05))
+    hidedecorations!(key)
+    hidespines!(key)
+    wind_key!(key, Point2f(0, 0), speed, scale, height; style=met_wind_style)
+    return key
 end
 
 "label of the colour bar of [`node_excess`](@ref)"
@@ -376,7 +402,8 @@ function router_legend_entries(drawn)
         MarkerElement(marker=:circle, color=unreached_shade,
             markersize=unreached_dot * dot)]
     labels = ["passage", "kite flying", "edges allowed", "zoomed window",
-        "10 m wind as passed", "node kept, no estimate", "node pruned", "node not reached"]
+        "wind at 10 m height, as met", "node kept, no estimate", "node pruned",
+        "node not reached"]
     shown = [true, true, true, true, true, drawn.no_estimate, drawn.pruned,
         drawn.unreached]
     return entries[shown], labels[shown]
@@ -418,25 +445,31 @@ map_height(limits) = (limits[4] - limits[3]) / (limits[2] - limits[1])
     router_figure(; window=(-59, -41, 24, 31))
 
 The [`router_panels!`](@ref) of the [`router_case`](@ref): the overview of its search beside
-the legend and colour bar, the zoom into `window` (west, east, south, north) [deg] across
-the page, and speed and wind beneath them on one time axis.
+the legend, the key of the wind arrows and the colour bar, the zoom into `window` (west,
+east, south, north) [deg] across the page, and speed and wind beneath them on one time axis.
 """
 function router_figure(; window=(-59, -41, 24, 31))
     case = router_case()
     colorrange = excess_range(case)
     figure = Figure(size=(page_width, 605))
     top = GridLayout(figure[1, 1])
-    nodes, drawn = router_panels!((; overview=top[1:2, 1], zoom=figure[2, 1],
+    nodes, drawn, zoom = router_panels!((; overview=top[1:3, 1], zoom=figure[2, 1],
             speed=figure[3, 1], wind=figure[4, 1]), case;
         window, colorrange,
         titles=(; overview="(a) the corridor searched",
             zoom="(b) its nodes, edges and wind",
-            speed="(c) speed held", wind="(d) wind met"))
+            speed="(c) speed held", wind="(d) wind met at 10 m height"))
     Legend(top[1, 2], router_legend_entries(drawn)...; valign=:top)
-    Colorbar(top[2, 2], nodes; label=excess_label, vertical=false, flipaxis=false,
+    key = met_wind_key!(top[2, 2], met_wind_scale(met_wind_spacing(window)))
+    Colorbar(top[3, 2], nodes; label=excess_label, vertical=false, flipaxis=false,
         valign=:bottom, ticks=filter(<=(colorrange[2]), [0, 1, 3, 6, 10, 15, 20, 30, 50]))
+    rowgap!(top, 2, pt(3))
     rowsize!(figure.layout, 1, Fixed(130))
     rowsize!(figure.layout, 2, Aspect(1, map_height(window)))
     foreach(row -> rowsize!(figure.layout, row, Fixed(42)), 3:4)
+    Makie.colorbuffer(figure)
+    map_scale = widths(zoom.scene.viewport[])[1] / widths(zoom.finallimits[])[1]
+    west, east, south, north = key.limits[]
+    key.width, key.height = (east - west, north - south) .* map_scale
     save_figure("router", figure)
 end
