@@ -703,6 +703,24 @@ end
           sum(WindShipOpt.kite_deck_masses(rig.area, rig.max_force, assumptions)))
 end
 
+@testset "the paper's worked example of the 3200 m^2 kite's hardware and tether holds" begin
+    area = 3200.0
+    force = 1e3assumptions[:kite_max_force_per_area] * area
+    @test force ≈ 2.88e6
+    hardware = assumptions[:market_price_factor] *
+               sum(WindShipOpt.kite_price_parts(area, force, assumptions))
+    @test hardware ≈ 1.10e6 rtol = 0.005
+    @test sum(WindShipOpt.kite_deck_masses(area, force, assumptions)) ≈ 92e3 rtol = 0.005
+    aspect_ratio = assumptions[:kite_aspect_ratio]
+    _, _, tether_diameter = WindShipOpt.kite_model(area, aspect_ratio, assumptions)
+    tether_length = assumptions[:tether_length_ratio] * sqrt(aspect_ratio * area)
+    tether = WindShipOpt.rope_mass(tether_diameter, tether_length, assumptions)
+    @test tether ≈ assumptions[:tether_rope_density] * force * tether_length /
+                   assumptions[:tether_stress]
+    @test tether ≈ 7.6e3 rtol = 0.005
+    @test assumptions[:tether_price] * tether ≈ 7.1e5 rtol = 0.005
+end
+
 @testset "a rotor price is set against the build-up of the same unit as sold" begin
     folding = only(price for price in WindShipOpt.ROTOR_PRICES if price.retractable)
     fixed = WindShipOpt.RotorPrice(folding.kind, folding.year, folding.height,
