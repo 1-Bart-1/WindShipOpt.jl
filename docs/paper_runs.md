@@ -15,7 +15,10 @@ include("scripts/paper.jl")
 stale = paper_status(; fidelity=:draft)   # print each step's state, return the out-of-date ones
 paper(stale...; fidelity=:draft)          # rerun exactly those
 paper(:figures; fidelity=:draft)          # redraw the figures and tables from the new data
+paper(:figures; fidelity=:final, source="2026-11-20T2000")  # from that run first
 ```
+
+Figure and table steps take `source`, a run they read before any other. A run counts as finished only once every step asked of it is done, so a run whose figure steps failed would otherwise be read only after every finished run of its fidelity, older ones included. The figures and tables draw only the rigs the run holds.
 
 `paper_status` lists every data step and method study with the run and commit its data come from, and says why one is out of date: its code or the model changed, an input it read has another value, a data file it read was rewritten, it kept round trips from older code, or it reads a data file of a step that is out of date. It also says whether the step's round trips route again or are stored. The steps come back in the order they run, so the class study reruns before the studies that read its rig sizes.
 
