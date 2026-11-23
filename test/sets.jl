@@ -3958,16 +3958,22 @@ end
     held = WindShipOpt.held_speed_table(table, 11.3)
     @test last(held.speeds) ≈ 11.3KNOT
     @test held.speeds[1:(end - 1)] == filter(<(11.3KNOT), RouteTable(table).speeds)
-    for count in 1:12, stride in 1:4
+    for count in 1:12, stride in (1, 2, 4, 8)
         indices = WindShipOpt.commanded_speeds(count, stride)
         @test last(indices) == count && step(indices) == stride && first(indices) <= stride
     end
 end
 
+@testset "by default the search commands 7 of 49 speeds, the lowest and the top" begin
+    (; routing_speeds, search_speed_stride) = WindShipOpt.RouterSettings()
+    @test WindShipOpt.commanded_speeds(routing_speeds, search_speed_stride) == 1:8:49
+end
+
 @testset "the search's speeds on an edge arrive within a time bin or are neighbours" begin
     speeds = collect(range(2.0, 8.0; length=49))
     commanded = Int[]
-    for distance in (20e3, 500e3, 3500e3), time_step in (0.25, 1.5, 3.0), stride in 1:4
+    for distance in (20e3, 500e3, 3500e3), time_step in (0.25, 1.5, 3.0),
+        stride in (1, 2, 4, 8)
         WindShipOpt.commanded_speeds!(empty!(commanded), speeds, stride, distance,
             time_step)
         @test issubset(WindShipOpt.commanded_speeds(length(speeds), stride), commanded)
