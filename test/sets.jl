@@ -5221,6 +5221,8 @@ end
     @test PaperData.payback_text([2.0, NaN]) == "\\stale{classes}{}"
     @test PaperData.payback_text([2.0, Inf, Inf]) ==
           "\\num{2.0} years, and on 2 classes never"
+    @test PaperData.payback_cell(NaN, 1.0) == "\\stale{classes}{}"
+    @test PaperData.payback_cell(Inf, 1.0) == "--"
 end
 
 @testset "a rig size the class study did not run is an error, not a ship without a rig" begin

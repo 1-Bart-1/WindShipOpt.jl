@@ -1118,26 +1118,25 @@ function saving_split(table, class, route, drive, rig)
 end
 
 """
-    drive_header(first_column)
+    drive_header(first_column, rigs)
 
-Header row of one group of rig columns per drive, the first group starting at table
+Header row of one group of columns of `rigs` per drive, the first group starting at table
 column `first_column`, with a rule under each group.
 """
-function drive_header(first_column)
-    starts = first_column .+ length(rig_names) .* (0:(length(drive_labels) - 1))
-    return string(join((rig_group(label) for (_, label) in drive_labels), " & "),
-        " \\\\\n", join(rig_rule.(starts)))
+function drive_header(first_column, rigs)
+    starts = first_column .+ length(rigs) .* (0:(length(drive_labels) - 1))
+    return string(join((rig_group(label, rigs) for (_, label) in drive_labels), " & "),
+        " \\\\\n", join(rig_rule.(starts, Ref(rigs))))
 end
 
-"header cell `title` over one column per rig"
-rig_group(title) = "\\multicolumn{$(length(rig_names))}{c}{$title}"
+"header cell `title` over one column per rig of `rigs`"
+rig_group(title, rigs) = "\\multicolumn{$(length(rigs))}{c}{$title}"
 
-"rule under one column per rig, from table column `start`"
-rig_rule(start) = "\\cmidrule(lr){$start-$(start + length(rig_names) - 1)}"
+"rule under one column per rig of `rigs`, from table column `start`"
+rig_rule(start, rigs) = "\\cmidrule(lr){$start-$(start + length(rigs) - 1)}"
 
-"header cells of the rigs of every drive group"
-rig_header() = string(join(repeat(collect(rig_names), length(drive_labels)), " & "),
-    " \\\\")
+"header cells of `rigs` in every drive group"
+rig_header(rigs) = string(join(repeat(collect(rigs), length(drive_labels)), " & "), " \\\\")
 
 """
     mean_savings(table, columns, classes, drive, rig; routes=unique(table["route"]))
@@ -1177,26 +1176,29 @@ where the rig does not pay back within its life.
 """
 function payback_table()
     table = read_table(data_file("classes.csv"))
+    rigs = last.(study_rigs(table))
     medians = Dict(class => [median_payback([payback_years(table, class, drive, route, rig)
                                              for route in unique(table["route"])])
-                             for (drive, _) in drive_labels for rig in rig_names]
+                             for (drive, _) in drive_labels for rig in rigs]
                    for class in class_order(table))
     scale = column_scale(1 ./ reduce(vcat, values(medians)))
     write_whole(joinpath(sections, "payback_table.tex")) do io
-        columns = length(rig_names) * length(drive_labels)
-        println(io, "\\begin{tabular}{@{}l", "r"^columns, "}")
-        println(io, "\\toprule\n & ", drive_header(2))
-        println(io, "Class & ", rig_header())
+        println(io, "\\begin{tabular}{@{}l", "r"^(length(rigs) * length(drive_labels)), "}")
+        println(io, "\\toprule\n & ", drive_header(2, rigs))
+        println(io, "Class & ", rig_header(rigs))
         println(io, "\\midrule")
         for class in class_order(table)
-            cells = [shaded_cell(1 / years, scale; shown=payback_shown(years),
-                         format=payback_shown(years) < 2 ? "%.1f" : "%.0f")
-                     for years in medians[class]]
+            cells = [payback_cell(years, scale) for years in medians[class]]
             println(io, latex_escape(class), " & ", join(cells, " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
 end
+
+"table cell of payback `years`, shaded on `scale`; a stale marker where it is unpriced"
+payback_cell(years, scale) = isnan(years) ? "\\stale{classes}{}" :
+    shaded_cell(1 / years, scale; shown=payback_shown(years),
+        format=payback_shown(years) < 2 ? "%.1f" : "%.0f")
 
 "payback `years` as the table gives it: to the half year below two years, else whole"
 payback_shown(years) = years < 2 ? round(2years) / 2 : round(years)
@@ -1712,9 +1714,9 @@ function speed_terms_table()
         ("cost", "speed set by cost")]
     write_whole(joinpath(sections, "speed_terms_table.tex")) do io
         println(io, "\\begin{tabular}{@{}ll", "r"^2length(rig_names), "}\n\\toprule")
-        println(io, " & & ", rig_group("Fuel saved [\\%]"), " & ",
-            rig_group("Time saved [\\%]"), " \\\\")
-        println(io, rig_rule(3), rig_rule(3 + length(rig_names)))
+        println(io, " & & ", rig_group("Fuel saved [\\%]", rig_names), " & ",
+            rig_group("Time saved [\\%]", rig_names), " \\\\")
+        println(io, rig_rule(3, rig_names), rig_rule(3 + length(rig_names), rig_names))
         println(io, "Drive & Terms & ", join([rig_names...; rig_names...], " & "), " \\\\")
         println(io, "\\midrule")
         lines = [(drive_label, label, speed_term_savings(table, drive, terms, "fuel"),
@@ -1766,10 +1768,10 @@ function routing_value_table()
     end
     write_whole(joinpath(sections, "routing_value_table.tex")) do io
         println(io, "\\begin{tabular}{@{}lllr", "r"^length(rig_names), "@{}}\n\\toprule")
-        println(io, " & & & & ", rig_group("Rig saves [\\%] against"), " \\\\")
-        println(io, " & & Shortest route & Routing & ", rig_group("routed / unrouted"),
-            " \\\\")
-        println(io, rig_rule(5))
+        println(io, " & & & & ", rig_group("Rig saves [\\%] against", rig_names), " \\\\")
+        println(io, " & & Shortest route & Routing & ",
+            rig_group("routed / unrouted", rig_names), " \\\\")
+        println(io, rig_rule(5, rig_names))
         println(io, "Ship & Drive & at [kn] & saves [\\%] & ", join(rig_names, " & "),
             " \\\\")
         println(io, "\\midrule")
