@@ -1567,16 +1567,6 @@ function passage_figure()
 end
 
 """
-    deck_label(class)
-
-"cargo on deck" where `class` stacks cargo on its weather deck, "free deck" otherwise.
-"""
-deck_label(class) = class.deck_tiers > 0 ? "cargo on deck" : "free deck"
-
-"sort key of `class`: a free deck before cargo on deck, then deadweight"
-deck_order(class) = (class.deck_tiers > 0, class.deadweight)
-
-"""
     class_order(table)
 
 Classes of the class table, sorted by [`deck_order`](@ref).
@@ -2578,7 +2568,7 @@ function large_rigs_figure()
     designed = (1000 / flat_per_projected, 1040)
     marks = ((flown, "flown"), (first(designed), "designed"))
     rotors_in_service = 5
-    foot, gap, cut_size = length(names) + 0.5, pt(3), pt(5)
+    gap, cut_size = pt(3), pt(5)
     rows = (-1.2, length(names) + 0.7)
     figure = Figure(size=(page_width, 225))
     areas = Axis(figure[1, 1]; title="(a) best kite area",
@@ -2614,9 +2604,8 @@ function large_rigs_figure()
         end
     end
     reference_line!(units, rotors_in_service; vertical=true)
-    text!(units, rotors_in_service, foot; text="most rotors in service",
-        rotation=π / 2, align=(:left, :bottom), offset=(-gap, 0), fontsize=note_size,
-        color=:gray35)
+    text!(units, rotors_in_service, first(rows); text="most rotors in service",
+        align=(:left, :top), offset=(gap, -gap), fontsize=note_size, color=:gray35)
     deck_rigs = filter(in(table["rig"]), deck_rig_names)
     for (i, name) in enumerate(names), (j, rig) in enumerate(deck_rigs)
         scatter!(units, [median_units(table, name, "ammonia", rig)],
@@ -2630,7 +2619,7 @@ function large_rigs_figure()
         position=(0.75, 1))
     axislegend(units, [MarkerElement(marker=:circle, color=rig_colour(rig))
                        for rig in deck_rigs],
-        collect(rig_label.(deck_rigs)); position=:rt, orientation=:horizontal)
+        collect(rig_label.(deck_rigs)); position=(1, 0.2), orientation=:horizontal)
     save_figure("large_rigs", figure)
 end
 

@@ -73,13 +73,13 @@ If each rig reaches the goals of \cref{sec:ea_goals}, the rig to fit is \NumAdvi
 \begin{figure}[!htb]
 \centering
 \adjustbox{max width=0.85\textwidth}{\plot[\textwidth]{winner_map}}
-\caption{The rig that lowers the cost per tonne-kilometre most for each ship class and route, ships that fill their deadweight first in the top row and ships that fill their space first below, with a fuel-oil (VLSFO, a) and an e-ammonia drive (b). The number is the best cost saving in per cent and the shade grows with it. Hatched cells are level: the gap between the two best rigs does not clear its error over the sampled departures, or, where the deck rig is ahead, also the \NumKiteGapBias{} points by which the router understates the kite. In grey cells no rig clearly saves.}
+\caption{The rig that lowers the cost per tonne-kilometre most for each ship class and route, ships with a free deck in the top row and ships with containers on deck below, with a fuel-oil (VLSFO, a) and an e-ammonia drive (b). The number is the best cost saving in per cent and the shade grows with it. Hatched cells are level: the gap between the two best rigs does not clear its error over the sampled departures, or, where the deck rig is ahead, also the \NumKiteGapBias{} points by which the router understates the kite. In grey cells no rig clearly saves.}
 \label{ea:winner_map}
 \end{figure}
 
 \section{Why the best rig differs between ships}
 
-A rig costs a ship cargo, and how depends on what fills first (\cref{ea:rigs}). Bulk carriers, tankers and general cargo ships fill their deadweight before their holds, so every tonne of rig is a tonne of cargo lost, while their deck space costs nothing. Rotors pull much harder than a kite per square metre but weigh more, and on these ships \NumVerdictBulkTankerGeneralCargo{}. Container ships fill their slots first, so what costs them cargo is the slots a rig blocks: in this run rotors and wing sails blocked many, the kite's single mast few, and there \NumVerdictContainer{}. A car carrier loses no cargo to any rig, and there \NumVerdictCarCarrier{}.
+What decides between the kite and the deck rigs is whether the ship's deck is free (\cref{ea:rigs}). Bulk carriers, tankers, general cargo ships and car carriers carry their cargo below a free weather deck, where a deck rig stands on the deck itself. Most of them fill their deadweight before their holds, so every tonne of rig is a tonne of cargo lost while the deck costs nothing; rotors pull much harder than a kite per square metre but weigh more, and on these ships \NumVerdictBulkTankerGeneralCargo{}. A car carrier fills its car decks first and loses no cargo to any rig, and there \NumVerdictCarCarrier{}. Container ships stack containers on deck, so a deck rig must stand above the stacks on supports, lower for the cranes and carry cameras for the view it hides, while the kite needs only its mast at the bow. The supports block slots: in this run rotors and wing sails blocked many, the kite's single mast few, and there \NumVerdictContainer{}.
 
 \section{How much each rig saves, and at what size}
 
@@ -90,7 +90,7 @@ Bulk carriers, tankers and general cargo ships trade voyage by voyage, and on th
 \begin{figure}[!htb]
 \centering
 \plot[\textwidth]{class_comparison}
-\caption{Cost saving of the best size of each rig for the thirteen ship classes and for the mean of the deadweight-limited and of the space-limited classes, on fuel oil (a) and e-ammonia (b), in per cent of the cost per tonne-kilometre of the same ship without a rig on the same fuel. Each rig has a line of its own in every row: the mean over the six routes (marker) and the range over them (bar). Beside each row stands the rig that leads on cost with its lead over the next rig in points, or the two rigs that are level where the gap does not clear its error over the departures and the router's bias.}
+\caption{Cost saving of the best size of each rig for the thirteen ship classes and for the mean of the classes with a free deck and of those with containers on deck, on fuel oil (a) and e-ammonia (b), in per cent of the cost per tonne-kilometre of the same ship without a rig on the same fuel. Each rig has a line of its own in every row: the mean over the six routes (marker) and the range over them (bar). Beside each row stands the rig that leads on cost with its lead over the next rig in points, or the two rigs that are level where the gap does not clear its error over the departures and the router's bias.}
 \label{ea:class_comparison}
 \end{figure}
 

@@ -1082,6 +1082,16 @@ function changed_cost(case, trip)
 end
 
 """
+    deck_label(class)
+
+"cargo on deck" where `class` stacks cargo on its weather deck, "free deck" otherwise.
+"""
+deck_label(class) = class.deck_tiers > 0 ? "cargo on deck" : "free deck"
+
+"sort key of `class`: a free deck before cargo on deck, then deadweight"
+deck_order(class) = (class.deck_tiers > 0, class.deadweight)
+
+"""
     class_table()
 
 Columns of classes.csv with the cost [USD/tkm] of each departure of each row, in date order,
