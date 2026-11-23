@@ -41,13 +41,40 @@ Propeller(hull::Hull, assumptions::Assumptions) =
 Power [W] delivered to the propeller to make the ship produce a net forward force of
 `required_thrust` [N] at `speed` [m/s]; zero when the rig alone is enough.
 """
-function delivered_power(propeller::Propeller, env::Environment, speed, required_thrust)
-    required_thrust > 0 || return 0.0
-    thrust = required_thrust / (1 - propeller.thrust_deduction)
+delivered_power(propeller::Propeller, env::Environment, speed, required_thrust) =
+    delivered_power(PropellerLoad(propeller, env, speed), required_thrust)
+
+"""
+    PropellerLoad(propeller, env, speed)
+
+What [`delivered_power`](@ref) needs of `propeller` at ship `speed` [m/s].
+"""
+struct PropellerLoad
+    "propeller thrust per unit of net forward force [-]"
+    thrust_factor::Float64
+    "reciprocal of the dynamic pressure of the inflow times the disk area [1/N]"
+    inverse_disk_load::Float64
+    "inflow speed over twice the viscous efficiency [m/s]"
+    ideal_power_factor::Float64
+end
+
+function PropellerLoad(propeller::Propeller, env::Environment, speed)
     inflow = speed * (1 - propeller.wake_fraction)
-    loading = thrust / (0.5env.water_density * propeller.disk_area * inflow^2)
-    efficiency = propeller.viscous_efficiency * 2 / (1 + sqrt(1 + loading))
-    return thrust * inflow / efficiency
+    return PropellerLoad(1 / (1 - propeller.thrust_deduction),
+        1 / (0.5env.water_density * propeller.disk_area * inflow^2),
+        inflow / (2propeller.viscous_efficiency))
+end
+
+"""
+    delivered_power(load, required_thrust)
+
+[`delivered_power`](@ref) of the [`PropellerLoad`](@ref) `load`.
+"""
+function delivered_power(load::PropellerLoad, required_thrust)
+    required_thrust > 0 || return 0.0
+    thrust = required_thrust * load.thrust_factor
+    loading = thrust * load.inverse_disk_load
+    return thrust * load.ideal_power_factor * (1 + sqrt(1 + loading))
 end
 
 """
@@ -95,10 +122,10 @@ fewest units that carry it, sharing the load equally, or `Inf` above the install
 function fuel_power(powertrain::Powertrain, delivered)
     output = delivered / powertrain.transmission_efficiency + powertrain.hotel_load
     output <= powertrain.installed_power || return Inf
-    unit_power = powertrain.installed_power / powertrain.unit_count
-    fewest = ceil(Int, output / unit_power)
+    units = output * powertrain.unit_count / powertrain.installed_power
+    fewest = ceil(units)
     fewest <= powertrain.unit_count || return Inf
-    return output / unit_efficiency(powertrain, output / (fewest * unit_power))
+    return output / unit_efficiency(powertrain, units / fewest)
 end
 
 unit_efficiency(powertrain::Powertrain, load) =

@@ -14,29 +14,58 @@ struct KnotWeight
 end
 
 """
+    Knots(values)
+
+Ascending knot vector with what [`KnotWeight`](@ref) needs to place a value without a
+search: the reciprocal width of each interval, and the interval holding the start of each
+step of the narrowest width from the first knot.
+"""
+struct Knots <: AbstractVector{Float64}
+    values::Vector{Float64}
+    "reciprocal of the width of each interval"
+    inverse_widths::Vector{Float64}
+    "reciprocal of the narrowest interval's width"
+    inverse_step::Float64
+    "interval holding the start of each step of the narrowest width from the first knot"
+    step_intervals::Vector{Int}
+end
+
+function Knots(values::AbstractVector)
+    values = collect(Float64, values)
+    widths = diff(values)
+    step = minimum(widths)
+    starts = first(values) .+ step .* (0:floor(Int, (last(values) - first(values)) / step))
+    return Knots(values, inv.(widths), inv(step),
+        [min(searchsortedlast(values, start), length(widths)) for start in starts])
+end
+
+Base.size(knots::Knots) = size(knots.values)
+Base.@propagate_inbounds Base.getindex(knots::Knots, i::Int) = knots.values[i]
+
+"""
     KnotWeight(knots, value)
 
 Weights of `value` in the sorted `knots`, held at the end knot beyond the grid; a value
 on an interior knot lies at the top of the interval below it.
 """
-function KnotWeight(knots::Vector{Float64}, value)
-    value = min(max(first(knots), value), last(knots))
-    i = interval_index(knots, value)
-    lower, upper = knots[i], knots[i + 1]
-    fraction = (value - lower) / (upper - lower)
+function KnotWeight(knots::Knots, value)
+    (; values, step_intervals) = knots
+    value = min(max(first(values), value), last(values))
+    step = clamp(unsafe_trunc(Int, (value - first(values)) * knots.inverse_step) + 1, 1,
+        length(step_intervals))
+    i = interval_index(values, value, step_intervals[step])
+    fraction = (value - values[i]) * knots.inverse_widths[i]
     return KnotWeight(i, 1 - fraction, fraction)
 end
 
 """
-    interval_index(knots, value)
+    interval_index(knots, value, i)
 
 Number of `knots` below `value`, clamped to the intervals of `knots`: the index
-`searchsortedfirst(knots, value) - 1` would give.
+`searchsortedfirst(knots, value) - 1` would give, searched from interval `i`.
 """
-function interval_index(knots::Vector{Float64}, value)
+function interval_index(knots::Vector{Float64}, value, i)
     last_interval = length(knots) - 1
-    spacing = (last(knots) - first(knots)) / last_interval
-    i = clamp(unsafe_trunc(Int, (value - first(knots)) / spacing) + 1, 1, last_interval)
     while i < last_interval && knots[i + 1] < value
         i += 1
     end
@@ -54,9 +83,12 @@ held flat beyond the grid. Called on as many coordinates or on their
 [`KnotWeight`](@ref)s.
 """
 struct LinearTable{N}
-    knots::NTuple{N, Vector{Float64}}
+    knots::NTuple{N, Knots}
     values::Array{Float64, N}
 end
+
+LinearTable(knots::NTuple{N, AbstractVector}, values::Array{Float64, N}) where {N} =
+    LinearTable(map(Knots, knots), values)
 
 (table::LinearTable)(coordinates::Real...) =
     table(map(KnotWeight, table.knots, coordinates)...)
@@ -287,19 +319,25 @@ struct SpeedSlice
     trims::Array{NTuple{4, Float64}, 3}
     "added resistance over H_s^2 [N/m^2] at (period knot, heading knot)"
     wave_resistance::Matrix{Float64}
+    "the ship's propeller at this speed"
+    propeller::PropellerLoad
 end
 
 """
-    SpeedSlice(table, speed_weight)
+    SpeedSlice(table, speed)
 
-[`SpeedSlice`](@ref) of `table` at the speed of `speed_weight` on `table.speeds`.
+[`SpeedSlice`](@ref) of `table` at `speed` [m/s].
 """
-SpeedSlice(table::PerformanceTable, speed_weight::KnotWeight) = SpeedSlice(
-    tuple.(speed_plane(table.flown_thrust, speed_weight),
-        speed_plane(table.stowed_thrust, speed_weight),
-        speed_plane(table.rig_power, speed_weight),
-        speed_plane(table.stowed_power, speed_weight)),
-    speed_plane(table.wave_resistance, speed_weight))
+function SpeedSlice(table::PerformanceTable, speed)
+    speed_weight = KnotWeight(table.flown_thrust.knots[1], speed)
+    return SpeedSlice(
+        tuple.(speed_plane(table.flown_thrust, speed_weight),
+            speed_plane(table.stowed_thrust, speed_weight),
+            speed_plane(table.rig_power, speed_weight),
+            speed_plane(table.stowed_power, speed_weight)),
+        speed_plane(table.wave_resistance, speed_weight),
+        PropellerLoad(table.ship.propeller, table.ship.env, speed))
+end
 
 """
     speed_plane(table, speed_weight)
@@ -312,30 +350,30 @@ speed_plane(table::LinearTable, speed_weight::KnotWeight) =
     speed_weight.lower .* selectdim(table.values, 1, speed_weight.index)
 
 """
-    edge_fuels(table, speed, slice, condition)
+    edge_fuels(table, slice, condition)
 
-Fuel power [W] with the rig flown and with any kite stowed at `speed` [m/s] from its
-[`SpeedSlice`](@ref); the same value for a rig without a kite, which always stands, and
-`Inf` for a kite up in too high a sea.
+Fuel power [W] with the rig flown and with any kite stowed at the speed of the
+[`SpeedSlice`](@ref) `slice`; the same value for a rig without a kite, which always
+stands, and `Inf` for a kite up in too high a sea.
 """
-edge_fuels(table::PerformanceTable, speed, slice::SpeedSlice, condition::SeaCondition) =
-    edge_fuels(table, speed, slice, condition, sea_layer(table, slice, condition)...)
+edge_fuels(table::PerformanceTable, slice::SpeedSlice, condition::SeaCondition) =
+    edge_fuels(table, slice, condition, sea_layer(table, slice, condition)...)
 
 """
-    edge_fuels(table, speed, slice, condition, waves, layer)
+    edge_fuels(table, slice, condition, waves, layer)
 
 [`edge_fuels`](@ref) where `waves` [N] is the added resistance of `condition` and `layer`
 its [`KnotWeight`](@ref) on the added-resistance knots of `table`.
 """
-function edge_fuels(table::PerformanceTable, speed, slice::SpeedSlice,
-        condition::SeaCondition, waves, layer::KnotWeight)
+function edge_fuels(table::PerformanceTable, slice::SpeedSlice, condition::SeaCondition,
+        waves, layer::KnotWeight)
     (; wind, angle, wave_height) = condition
     outside = waves - trim_resistance(table, waves)
     flown_thrust, stowed_thrust, rig_power, stowed_power = layer_value(slice.trims, wind,
         angle, layer)
-    flown = fuel_power(table, speed, flown_thrust + outside, rig_power)
+    flown = fuel_power(table, slice.propeller, flown_thrust + outside, rig_power)
     table.stowed_thrust === table.flown_thrust && return flown, flown
-    stowed = fuel_power(table, speed, stowed_thrust + outside, stowed_power)
+    stowed = fuel_power(table, slice.propeller, stowed_thrust + outside, stowed_power)
     return flown, stowed
 end
 
@@ -424,11 +462,16 @@ kite_landable(rig::KiteRig, speed, headwind, crosswind, wave_height) =
     rig.launch_min_wind + extra_launch_wind(rig, wave_height) <= rig.landing_max_wind &&
     hypot(headwind + speed, crosswind) <= rig.landing_max_wind
 
-function fuel_power(table::PerformanceTable, speed, thrust, rig_power)
-    (; ship) = table
-    delivered = delivered_power(ship.propeller, ship.env, speed, thrust)
-    return fuel_power(ship.powertrain,
-        delivered + rig_power * ship.powertrain.transmission_efficiency)
+"""
+    fuel_power(table, propeller, thrust, rig_power)
+
+Fuel power [W] of the ship of `table` making a net forward force `thrust` [N] with its
+[`PropellerLoad`](@ref) `propeller` while its rig draws `rig_power` [W].
+"""
+function fuel_power(table::PerformanceTable, propeller::PropellerLoad, thrust, rig_power)
+    (; powertrain) = table.ship
+    return fuel_power(powertrain, delivered_power(propeller, thrust) +
+                                  rig_power * powertrain.transmission_efficiency)
 end
 
 """
@@ -470,27 +513,28 @@ has_kite(table::RouteTable) = table.table.stowed_thrust !== table.table.flown_th
 [`RouteTable`](@ref) of `table` at `speeds` [m/s], ascending.
 """
 function RouteTable(table::PerformanceTable, speeds=routing_speeds(table))
-    slices = [SpeedSlice(table, KnotWeight(table.speeds, speed)) for speed in speeds]
-    return RouteTable(table, speeds, slices, UnpoweredCells.(Ref(table), speeds, slices))
+    slices = [SpeedSlice(table, speed) for speed in speeds]
+    return RouteTable(table, speeds, slices, UnpoweredCells.(Ref(table), slices))
 end
 
 """
-    UnpoweredCells(table, speed, slice)
+    UnpoweredCells(table, slice)
 
-[`UnpoweredCells`](@ref) of the [`SpeedSlice`](@ref) `slice` at `speed` [m/s]: thrust and
-rig power interpolate between a cell's corners, and fuel power is finite only below a limit
-that both raise.
+[`UnpoweredCells`](@ref) of the [`SpeedSlice`](@ref) `slice`: thrust and rig power
+interpolate between a cell's corners, and fuel power is finite only below a limit that both
+raise.
 """
-function UnpoweredCells(table::PerformanceTable, speed, slice::SpeedSlice)
+function UnpoweredCells(table::PerformanceTable, slice::SpeedSlice)
     cells = Base.OneTo.(size(slice.trims) .- 1)
     unpowered = Array{Bool, 3}(undef, length.(cells))
     for cell in CartesianIndices(cells)
         corners = view(slice.trims, CartesianIndices(UnitRange.(Tuple(cell),
             Tuple(cell) .+ 1)))
         lowest = reduce((least, corner) -> min.(least, corner), corners)
-        unpowered[cell] = !isfinite(lowered_fuel(table, speed, lowest[1], lowest[3])) &&
+        (; propeller) = slice
+        unpowered[cell] = !isfinite(lowered_fuel(table, propeller, lowest[1], lowest[3])) &&
             (table.stowed_thrust === table.flown_thrust ||
-             !isfinite(lowered_fuel(table, speed, lowest[2], lowest[4])))
+             !isfinite(lowered_fuel(table, propeller, lowest[2], lowest[4])))
     end
     periods, headings = Base.OneTo.(size(slice.wave_resistance) .- 1)
     resisting_waves = [all(>=(0), view(slice.wave_resistance, i:(i + 1), j:(j + 1)))
@@ -500,8 +544,8 @@ function UnpoweredCells(table::PerformanceTable, speed, slice::SpeedSlice)
 end
 
 "Fuel power [W] at `thrust` and `rig_power` less a rounding margin of interpolation"
-function lowered_fuel(table::PerformanceTable, speed, thrust, rig_power)
-    return fuel_power(table, speed, thrust - abs(thrust) * 1e-12,
+function lowered_fuel(table::PerformanceTable, propeller::PropellerLoad, thrust, rig_power)
+    return fuel_power(table, propeller, thrust - abs(thrust) * 1e-12,
         rig_power - abs(rig_power) * 1e-12)
 end
 
@@ -562,12 +606,17 @@ end
 [`edge_fuels`](@ref) at routing speed number `speed_index` of `table`, given the added
 resistance `waves` [N] of the sea of `condition` and its [`KnotWeight`](@ref) `layer`.
 """
+function edge_fuels(table::RouteTable, speed_index, condition::SeaCondition)
+    screened_out(table, speed_index, condition) && return Inf, Inf
+    return edge_fuels(table, speed_index, condition,
+        sea_layer(table, speed_index, condition))
+end
+
 function edge_fuels(table::RouteTable, speed_index, condition::SeaCondition,
-        (waves, layer)=sea_layer(table, speed_index, condition))
+        (waves, layer))
     screened_out(table, speed_index, condition) && return Inf, Inf
     screened_out(table, speed_index, condition, waves, layer) && return Inf, Inf
-    return edge_fuels(table.table, table.speeds[speed_index], table.slices[speed_index],
-        condition, waves, layer)
+    return edge_fuels(table.table, table.slices[speed_index], condition, waves, layer)
 end
 
 "[`sea_layer`](@ref) at routing speed number `speed_index` of the [`RouteTable`](@ref) `table`"

@@ -1177,10 +1177,17 @@ the wind and waves given.
 """
 function table_fuel(table, speed, wind, angle, wave_height=0.0, wave_period=0.0,
         wave_heading=0.0)
-    slice = WindShipOpt.SpeedSlice(table, WindShipOpt.KnotWeight(table.speeds, speed))
+    slice = WindShipOpt.SpeedSlice(table, speed)
     condition = WindShipOpt.SeaCondition(table, wind, angle, wave_height, wave_period,
         wave_heading)
-    return first(WindShipOpt.edge_fuels(table, speed, slice, condition))
+    return first(WindShipOpt.edge_fuels(table, slice, condition))
+end
+
+"Fuel power [W] of the ship of `table` at `speed` [m/s] making `thrust` [N] while its rig
+draws `rig_power` [W]"
+function speed_fuel(table, speed, thrust, rig_power)
+    propeller = WindShipOpt.PropellerLoad(table.ship.propeller, table.ship.env, speed)
+    return WindShipOpt.fuel_power(table, propeller, thrust, rig_power)
 end
 
 @testset "rotor ships pay for the spin power in the router's edge fuels" begin
@@ -1190,8 +1197,7 @@ end
     power = table.rig_power(speed, wind, angle, 0.0)
     @test power > 0
     @test table_fuel(table, speed, wind, angle) ≈
-          WindShipOpt.fuel_power(table, speed, table.flown_thrust(speed, wind, angle, 0.0),
-              power)
+          speed_fuel(table, speed, table.flown_thrust(speed, wind, angle, 0.0), power)
 end
 
 @testset "a bare ship's routing fuel adds the waves' resistance, following seas' negative too" begin
@@ -1202,8 +1208,8 @@ end
         waves = height^2 * table.wave_resistance(speed, period, heading)
         @test (waves < 0) == (heading < π / 2)
         @test table_fuel(table, speed, wind, angle, height, period, heading) ≈
-              WindShipOpt.fuel_power(table, speed,
-                  table.flown_thrust(speed, wind, angle, 0.0) + waves, 0.0)
+              speed_fuel(table, speed, table.flown_thrust(speed, wind, angle, 0.0) + waves,
+                  0.0)
     end
 end
 
@@ -1441,7 +1447,7 @@ end
         speed = class.service_speed * KNOT
         @test isfinite(table_fuel(table, speed, 0.0, 0.0))
         next_to_infeasible = 1e-3WindShipOpt.INFEASIBLE_THRUST
-        @test isinf(WindShipOpt.fuel_power(table, speed, next_to_infeasible, 0.0))
+        @test isinf(speed_fuel(table, speed, next_to_infeasible, 0.0))
     end
 end
 
@@ -2989,6 +2995,20 @@ end
 "Value `share` of the way through interval `i` of `knots`"
 place_in_cell(knots, i, share) = knots[i] + share * (knots[i + 1] - knots[i])
 
+@testset "a knot weight finds the interval a search finds, on even and doubling \
+          knots" begin
+    for values in (collect(0.0:0.25:6.0), 1.6e6 .* WindShipOpt.ADDED_RESISTANCE_SHARES)
+        knots = WindShipOpt.Knots(values)
+        for i in 1:(length(values) - 1), share in (0.0, 0.3, 0.999, 1.0)
+            weight = WindShipOpt.KnotWeight(knots, place_in_cell(values, i, share))
+            @test weight.index == (share == 0 && i > 1 ? i - 1 : i)
+            @test weight.upper ≈ (share == 0 && i > 1 ? 1.0 : share) atol = 1e-12
+        end
+        @test WindShipOpt.KnotWeight(knots, -1.0).index == 1
+        @test WindShipOpt.KnotWeight(knots, 2last(values)).upper == 1.0
+    end
+end
+
 @testset "a cell the router screens out is unpowered anywhere inside it" begin
     shares = (0.0, 0.5, 1.0)
     for route_table in (table, kite_route_table)
@@ -2996,7 +3016,7 @@ place_in_cell(knots, i, share) = knots[i] + share * (knots[i + 1] - knots[i])
         winds, angles, resistances = performance.flown_thrust.knots[2:4]
         screened, powered = 0, 0
         for speed_index in eachindex(route_table.speeds)
-            speed, slice = route_table.speeds[speed_index], route_table.slices[speed_index]
+            slice = route_table.slices[speed_index]
             cells = route_table.unpowered[speed_index].cells
             planes = route_table.unpowered[speed_index].planes
             @test all(.!planes .| dropdims(all(cells; dims=3); dims=3))
@@ -3010,7 +3030,7 @@ place_in_cell(knots, i, share) = knots[i] + share * (knots[i + 1] - knots[i])
                         place_in_cell(angles, k, angle_share), 0.0, 8.0, 1.0)
                     waves = place_in_cell(resistances, l, layer_share)
                     layer = WindShipOpt.KnotWeight(resistances, waves)
-                    powered += WindShipOpt.edge_fuels(performance, speed, slice, condition,
+                    powered += WindShipOpt.edge_fuels(performance, slice, condition,
                         waves, layer) != (Inf, Inf)
                 end
             end
@@ -3053,7 +3073,7 @@ end
         _, periods, headings = performance.wave_resistance.knots
         rescued, wrong = 0, 0
         for speed_index in eachindex(route_table.speeds)
-            speed, slice = route_table.speeds[speed_index], route_table.slices[speed_index]
+            slice = route_table.slices[speed_index]
             least, knot = findmin(slice.wave_resistance)
             least < 0 || continue
             cells = route_table.unpowered[speed_index].cells
@@ -3062,7 +3082,7 @@ end
                 condition = WindShipOpt.SeaCondition(performance,
                     place_in_cell(winds, j, 0.5), place_in_cell(angles, k, 0.5), 12.0,
                     periods[knot[1]], headings[knot[2]])
-                full = WindShipOpt.edge_fuels(performance, speed, slice, condition)
+                full = WindShipOpt.edge_fuels(performance, slice, condition)
                 rescued += any(isfinite, full)
                 wrong += !isequal(WindShipOpt.edge_fuels(route_table, speed_index,
                     condition), full)

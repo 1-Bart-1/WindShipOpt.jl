@@ -391,7 +391,7 @@ Base.@kwdef struct RouterSettings
     "`final_time_step` of a plan that weighs the wind error of its forecast [h]"
     weighed_final_time_step::Float64 = 1.0
     "how far the final pass strays in time from the path found [h]"
-    final_time_band::Float64 = 24.0
+    final_time_band::Float64 = 6.0
     "longest time between the weather samples along an edge of the [`CostToGo`](@ref) [h]"
     to_go_sample_hours::Float64 = 6.0
     "how far ahead of the ship a plan keeps every stage and row of its corridor [nmi]"
@@ -468,12 +468,12 @@ function EdgeSample(table::PerformanceTable, wind_10m, (wave_height, wave_period
         kite_wind=table.kite_wind_factor * hypot(wind_10m...))
     east, north = wind_10m
     wind_speed = hypot(east, north)
-    angle = true_wind_angle(east, north, wind_speed, course)
+    cosine = true_wind_cosine(east, north, wind_speed, course)
     table_wind = table.kite_wind_factor > 0 ? kite_wind / table.kite_wind_factor :
                  wind_speed
-    condition = SeaCondition(table, table_wind, angle, wave_height, wave_period,
+    condition = SeaCondition(table, table_wind, acos(cosine), wave_height, wave_period,
         wave_heading(wave_from, course))
-    crosswind, headwind = kite_wind .* sincos(angle)
+    crosswind, headwind = kite_wind * sqrt(1 - cosine^2), kite_wind * cosine
     return EdgeSample(condition, headwind, crosswind, table_wind, spread)
 end
 
@@ -563,8 +563,8 @@ Fuel power [W] with the rig flown and with any kite stowed at routing speed numb
 wind, else 0.0.
 """
 function certain_fuels(table::RouteTable, speed_index, condition, headwind, crosswind,
-        sea=sea_layer(table, speed_index, condition))
-    flown, stowed = edge_fuels(table, speed_index, condition, sea)
+        sea...)
+    flown, stowed = edge_fuels(table, speed_index, condition, sea...)
     aloft = kite_aloft(table.table, table.speeds[speed_index], headwind, crosswind)
     return flown, stowed, Float64(aloft)
 end
@@ -584,10 +584,11 @@ stay up in one of the winds burns the stowed fuel there.
 """
 function expected_fuels(table::RouteTable, speed_index, sample::EdgeSample)
     (; spread, wind_speed, condition, headwind, crosswind) = sample
+    spread > 0 ||
+        return certain_fuels(table, speed_index, condition, headwind, crosswind)
     sea = sea_layer(table, speed_index, condition)
     flown, stowed, aloft = certain_fuels(table, speed_index, condition, headwind,
         crosswind, sea)
-    spread > 0 || return flown, stowed, aloft
     expected_flown, expected_stowed, chance = 0.0, 0.0, 0.0
     for (node, weight) in zip(SPREAD_NODES, SPREAD_WEIGHTS)
         wind = max(wind_speed + node * spread, 0.0)
@@ -2614,10 +2615,14 @@ end
 
 Angle [rad, 0..π] between the ship's course and the direction the wind comes from.
 """
-function true_wind_angle(east, north, wind_speed, course)
-    wind_speed > 0 || return 0.0
-    from_east, from_north = -east / wind_speed, -north / wind_speed
-    return acos(clamp(from_east * sin(course) + from_north * cos(course), -1.0, 1.0))
+true_wind_angle(east, north, wind_speed, course) =
+    acos(true_wind_cosine(east, north, wind_speed, course))
+
+"cosine of the [`true_wind_angle`](@ref); 1 in a calm"
+function true_wind_cosine(east, north, wind_speed, course)
+    wind_speed > 0 || return 1.0
+    sine, cosine = sincos(course)
+    return clamp(-(east * sine + north * cosine) / wind_speed, -1.0, 1.0)
 end
 
 "distance the route may stray to either side of its reference track [nmi]"

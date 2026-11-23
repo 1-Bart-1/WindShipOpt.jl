@@ -95,7 +95,7 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     speed = table.speeds[max(point.speed_index, 1)]
     standing = standing_rig(ship.rig)
     flown = flying || standing === ship.rig
-    slice = SpeedSlice(table.table, KnotWeight(table.table.speeds, speed))
+    slice = SpeedSlice(table.table, speed)
     added = trim_resistance(table.table, sea_resistance(slice, sample.condition))
     _, force, trim = best_trim(ship, flown ? ship.rig : standing, speed, wind_speed,
         angle, added)
