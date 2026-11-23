@@ -1624,7 +1624,7 @@ end
         ShipDesign(:methanol, 85.0; rotor_area=200.0))
         ship = Ship(design, assumptions)
         down = WindShipOpt.DownRig(ship.rig, 0.0)
-        bare_thrust = first(WindShipOpt.best_trim(ship, nothing, 5.0, 10.0, 0.0))
+        bare_thrust = WindShipOpt.best_trim(ship, nothing, 5.0, 10.0, 0.0).thrust
         down_thrust, force = WindShipOpt.best_trim(ship, down, 5.0, 10.0, 0.0)
         @test down_thrust > bare_thrust
         @test force.thrust < 0
@@ -1687,10 +1687,10 @@ end
 
 @testset "a canopy price limit lies where the cost reaches the level, and only there" begin
     prices, costs = [75.0, 150.0, 300.0], [1.0, 1.5, 2.5]
-    @test WindShipOpt.price_at_cost(prices, costs, 2.0) ≈ 225
-    @test isnan(WindShipOpt.price_at_cost(prices, costs, 1.0))
-    @test isnan(WindShipOpt.price_at_cost(prices, costs, 3.0))
-    @test isnan(WindShipOpt.price_at_cost(prices, costs, NaN))
+    @test WindShipOpt.input_at_cost(prices, costs, 2.0) ≈ 225
+    @test isnan(WindShipOpt.input_at_cost(prices, costs, 1.0))
+    @test isnan(WindShipOpt.input_at_cost(prices, costs, 3.0))
+    @test isnan(WindShipOpt.input_at_cost(prices, costs, NaN))
 end
 
 @testset "a canopy life limit lies where the cost reaches the level, and only there" begin
@@ -1966,8 +1966,8 @@ WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
     WindShipOpt.push_trace_point!(trace, table, FollowingSeaWeather(), 24.0 * 31, 30.0,
         -30.0, π / 2, point, 1.0, true, false, false, false)
     first_knot = first(table.table.flown_thrust.knots[4])
-    priced = last(WindShipOpt.best_trim(ship, ship.rig, only(trace.speed), 14.0,
-        only(trace.true_wind_angle), first_knot))
+    priced = WindShipOpt.best_trim(ship, ship.rig, only(trace.speed), 14.0,
+        only(trace.true_wind_angle), first_knot).force
     @test only(trace.rig_thrust) == priced.thrust
     windage = WindShipOpt.wind_force(ship.windage, ship.env, 14.0,
         only(trace.true_wind_angle), only(trace.speed))
@@ -4962,7 +4962,7 @@ end
     cost(knots) = PaperData.mile_cost(ship, knots, hourly, wind, angle, nothing, wear)
     @test cost(PaperData.economic_speed(ship, hourly, wind, angle)) <=
           (1 + 1e-7) * minimum(cost, 4.0:0.01:(ship.max_speed / WindShipOpt.KNOT))
-    force = last(WindShipOpt.best_trim(ship, ship.rig, 5.0, wind, angle))
+    force = WindShipOpt.best_trim(ship, ship.rig, 5.0, wind, angle).force
     sailing = PaperData.sailing_speed(ship, force, wind, angle)
     @test sailing > 4
     @test abs(WindShipOpt.required_thrust(ship, sailing * WindShipOpt.KNOT, wind, angle,

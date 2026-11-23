@@ -2735,8 +2735,8 @@ function speed_choice_data()
                 ship_hourly = first(WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions),
                     assumptions))
                 base = economic_speed(bare, hourly, wind, deg2rad(angle))
-                force = last(WindShipOpt.best_trim(ship, ship.rig, base * KNOT, wind,
-                    deg2rad(angle)))
+                force = WindShipOpt.best_trim(ship, ship.rig, base * KNOT, wind,
+                    deg2rad(angle)).force
                 println(io, join((drive, rig, area, wind, angle, base,
                         economic_speed(ship, ship_hourly, wind, deg2rad(angle)),
                         economic_speed(ship, hourly, wind, deg2rad(angle); wear=0.0),

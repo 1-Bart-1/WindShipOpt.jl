@@ -97,12 +97,12 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     flown = flying || standing === ship.rig
     slice = SpeedSlice(table.table, KnotWeight(table.table.speeds, speed))
     added = trim_resistance(table.table, sea_resistance(slice, sample.condition))
-    _, force, trim = trimmed_force(ship, flown ? ship.rig : standing, speed, wind_speed,
+    _, force, trim = best_trim(ship, flown ? ship.rig : standing, speed, wind_speed,
         angle, added)
     windage = wind_force(ship.windage, ship.env, wind_speed, angle, speed)
     aloft = kite_aloft(table.table, speed, point.headwind, point.crosswind)
     available = standing === ship.rig || aloft ?
-                last(best_trim(ship, ship.rig, speed, wind_speed, angle, added)).thrust :
+                best_trim(ship, ship.rig, speed, wind_speed, angle, added).force.thrust :
                 0.0
     apparent, apparent_angle = apparent_wind(
         wind_at_height(ship.env, wind_speed, rig_height(ship.rig)), angle, speed)
@@ -143,13 +143,13 @@ function share_at_cost(shares, costs, cost)
 end
 
 """
-    price_at_cost(prices, costs, cost)
+    input_at_cost(inputs, costs, cost)
 
-Price at which the rising `costs` over ascending `prices` reach `cost`, linearly between the
-points; `NaN` if within none of `prices`.
+Input, such as a price or a share out of service, at which the rising `costs` over ascending
+`inputs` reach `cost`, linearly between the points; `NaN` if they start at or above it.
 """
-price_at_cost(prices, costs, cost) =
-    costs[1] < cost ? share_at_cost(prices, costs, cost) : NaN
+input_at_cost(inputs, costs, cost) =
+    costs[1] < cost ? share_at_cost(inputs, costs, cost) : NaN
 
 """
     ranked_rivals(costs)
