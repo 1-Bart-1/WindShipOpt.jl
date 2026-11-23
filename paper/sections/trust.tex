@@ -96,7 +96,7 @@ Stages, rows [nmi] & Kite & Rotors & Gap \\
 These checks say what the model reproduces and where it departs from measurements.
 
 \begin{itemize}
-\item \textbf{Force chain worked by hand.} \Cref{tab:hand} follows the wind through shear and the ship's speed to the apparent wind at the rig and the force along the course, calculated without the code. Thrust, side force and spin power agree to the digits printed. The \given{\SI{800}{m^2}} kite in \given{\SI{12}{m/s}} of apparent wind pulls \given{\SI{64.2}{kN}} by hand and in the code, and its thrust falls to nothing at an apparent wind angle of \given{\SI{15}{\degree}}, the upwind limit of its glide ratio, where its table holds it still. Taking the kite's wind at an elevation of \given{15} or \given{\SI{8}{\degree}} instead of \given{\SI{25}{\degree}} \stale{base_kite}{lowers its cost saving by 0.4 to 2.9 points on the \SI{140}{m} ship, and half rather than a quarter of the tether's drag acting at the kite changes it by $-2.0$ to $+0.6$ points.}
+\item \textbf{Force chain worked by hand.} \Cref{tab:hand} follows the wind through shear and the ship's speed to the apparent wind at the rig and the force along the course, calculated without the code. Thrust, side force and spin power agree to the digits printed. The \given{\SI{800}{m^2}} kite in \given{\SI{12}{m/s}} of apparent wind pulls \given{\SI{63.8}{kN}} by hand and in the code, and its thrust falls to nothing at an apparent wind angle of \given{\SI{15}{\degree}}, the upwind limit of its glide ratio, where its table holds it still. Taking the kite's wind at an elevation of \given{15} or \given{\SI{8}{\degree}} instead of \given{\SI{25}{\degree}} \stale{base_kite}{lowers its cost saving by 0.4 to 2.9 points on the \SI{140}{m} ship, and half rather than a quarter of the tether's drag acting at the kite changes it by $-2.0$ to $+0.6$ points.}
 \item \textbf{Calm-water resistance.} The wetted surface, friction coefficient and wave-resistance coefficients of the worked example of \citet{holtrop1982} come out within \given{0.2}\,\%, its bulb resistance within \given{5}\,\% and its correlation allowance within \given{0.5}\,\%; its total resistance is \given{1.2}\,\% higher, since we use the later form factor and wave term of \citet{holtrop1984}. Against towing-tank tests at model scale, without the correlation allowance that only the full-size ship carries, the method lies \given{0.3}\,\% above the Japan Bulk Carrier, a Capesize-like hull, at its design speed \citep{t2015}, \given{2 to 5}\,\% above a Panamax tanker of block coefficient \given{0.80} between \given{10} and \given{\SI{16}{kn}} at full scale and \given{10}\,\% above at \given{\SI{17}{kn}} \citep{farkas2017}, and \given{2 to 3}\,\% above the KCS container ship between \given{10} and \given{\SI{14}{kn}} and \given{6 to 10}\,\% from \given{18} to its service speed of \given{\SI{24}{kn}} \citep{t2015}. Its resistance thus grows \given{2 to 7}\,\% too fast between \given{\SI{10}{kn}} and service speed on these hulls.
 \item \textbf{Calibrated class power.} Every standard class except the coaster is brought to the calm-water delivered power of its source design through a resistance factor $f_R$ of \given{0.80} to \given{1.05} (\cref{app:calm_calibration}). Uncalibrated, on the MR tanker whose source design MAN powers by Holtrop and Mennen \citep{man2019mr}, the model needs \given{4}\,\% more power than MAN at \given{14.0, 14.5 and \SI{15.1}{kn}} alike.
 \item \textbf{Coaster power.} The \given{\SI{85}{m}} coaster gets \given{\SIrange{700}{1500}{kW}} installed. The Damen Combi Freighter \given{3850}, \given{\SI{89.7}{m}} overall and carrying \given{\num{3830}}~t, has a \given{\SI{1104}{kW}} main engine for \given{\SI{11.8}{kn}} \citep{maritimeexecutive2022}.
@@ -136,11 +136,11 @@ Rotor & 90 & 11.76 & 62.7 & 243.77 & 243.77 & 227.31 & 227.31 \\
 Rotor & 45 & 14.77 & 30.0 & 131.59 & 131.59 & 510.60 & 510.60 \\
 Rotor & 150 & 6.37 & 124.9 & 91.93 & 91.93 & $-32.69$ & $-32.69$ \\
 \midrule
-Kite & 26.6 & 12.00 & 15.0 & $-0.07$ & $-0.07$ & 64.16 & 64.16 \\
-Kite & 50.2 & 12.00 & 30.0 & 19.89 & 19.89 & 77.33 & 77.33 \\
-Kite & 86.7 & 12.00 & 60.0 & 117.92 & 117.92 & 327.79 & 327.79 \\
-Kite & 114.2 & 12.00 & 90.0 & 307.52 & 307.52 & 348.94 & 348.94 \\
-Kite & 148.6 & 12.00 & 135.0 & 566.71 & 566.71 & 214.68 & 214.68 \\
+Kite & 26.6 & 12.00 & 15.0 & $-0.18$ & $-0.18$ & 63.76 & 63.76 \\
+Kite & 50.2 & 12.00 & 30.0 & 19.71 & 19.71 & 77.01 & 77.01 \\
+Kite & 86.7 & 12.00 & 60.0 & 116.49 & 116.49 & 320.58 & 320.58 \\
+Kite & 114.2 & 12.00 & 90.0 & 305.01 & 305.01 & 346.98 & 346.98 \\
+Kite & 148.6 & 12.00 & 135.0 & 557.07 & 557.07 & 184.31 & 184.31 \\
 \bottomrule
 \end{tabular}}}
 \end{table}
@@ -157,20 +157,20 @@ Kite & 148.6 & 12.00 & 135.0 & 566.71 & 566.71 & 214.68 & 214.68 \\
 \setlength{\LTcapwidth}{\textwidth}
 \setlength{\tabcolsep}{3.5pt}
 \setlength{\extrarowheight}{3pt}
-\begin{longtable}{@{}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{3.4cm}rrrr@{\hspace{1.5em}}>{\raggedright\arraybackslash}p{2.5cm}>{\raggedright\arraybackslash}p{3.5cm}@{}}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{2.2cm}>{\raggedright\arraybackslash}p{2.9cm}rrrrr@{\hspace{1.5em}}>{\raggedright\arraybackslash}p{2.4cm}>{\raggedright\arraybackslash}p{3.3cm}@{}}
 \caption{\stale{model_parts,sensitivity,size_search}{} Each part of the model, how its effect is measured, its model, its effect on the cost saving of each rig, the ships where it changes which rig is cheapest, and its known error. The effect is the largest difference in a rig's cost saving, in percentage points, between the model as it stands and the model with the part changed, or with the inputs named at the part moved over their ranges, over the three ships of the development study, and for the size search and the deck layout over the two ships on which every size is routed. The parts switched off and the weather years come from the method study \studyrun{model_parts}, the router from \studyrun{convergence} and the size search from \studyrun{size_search}. \stale{convergence}{}}
 \label{tab:model_detail}\\
 \toprule
-Part & Model & \multicolumn{4}{c}{Saving moved [pt]} & Cheapest rig changes & Known error \\
-\cmidrule(lr){3-6}
- & & kite & wings & rotors & suction & & \\
+Part & Model & \multicolumn{5}{c}{Saving moved [pt]} & Cheapest rig changes & Known error \\
+\cmidrule(lr){3-7}
+ & & kite & wings & rotors & suction & VTOL & & \\
 \midrule
 \endfirsthead
-\multicolumn{8}{@{}l}{\cref{tab:model_detail} (continued)}\\
+\multicolumn{9}{@{}l}{\cref{tab:model_detail} (continued)}\\
 \toprule
-Part & Model & \multicolumn{4}{c}{Saving moved [pt]} & Cheapest rig changes & Known error \\
-\cmidrule(lr){3-6}
- & & kite & wings & rotors & suction & & \\
+Part & Model & \multicolumn{5}{c}{Saving moved [pt]} & Cheapest rig changes & Known error \\
+\cmidrule(lr){3-7}
+ & & kite & wings & rotors & suction & VTOL & & \\
 \midrule
 \endhead
 \bottomrule
@@ -198,7 +198,7 @@ The limits below act on the ship with and without a rig, and on all rigs alike, 
 
 A rig's side force turns the ship unless it acts where the hull's own side force acts, at the hull's lateral centre about a third of the length forward of midship, and the rudder holds any moment left over at the cost of drag. A single wing sail or rotor stands at that centre, so its side force costs only leeway and heel, while a row or two columns are centred at midship and the rudder carries its yaw moment. The literature differs on how much this matters: on a cargo ship modelled from CFD the position of the sails changed the resistance by only \given{1} to \given{2}\,\% \citep{kramer2022}, while ShipCLEAN gains several points of fuel saving by moving rotors aft \citep{tillig2020}. We use the effective rudder aspect ratio of about \given{1.6} that \citet{kramer2022} derive from CFD, rather than the doubling often assumed because the hull above the rudder acts as a mirror plane.
 
-\studyresult{tow_point}{The kite's side force acts where its tether meets the ship. Ahead of the hull's lateral centre it turns the bow to leeward, aft of it the stern, and the rudder holds the difference at the cost of its drag (\cref{sec:balance}). We tow every soft kite from the foot of its launch mast at the forward end of the deck, ahead of the lateral centre by \given{2} to \given{10}\,\% of the length, as the ship kites built so far do \citep{fritz2013} and kite studies assume \citep{traut2014}. The VTOL kite tows from the lateral centre. The kite pulls from low on the ship, so for the same side force it heels the ship less than a deck rig (\cref{fig:ship_model}b). To see what the bow costs, we flew each class's best kite on e-ammonia with its tow point at the bow, the lateral centre and midship, on the westerly and trade-wind routes (\cref{fig:tow_point}). Only the rudder load changes between them in the model.}
+\studyresult{tow_point}{The kite's side force acts where its tether meets the ship. Ahead of the hull's lateral centre it turns the bow to leeward, aft of it the stern, and the rudder holds the difference at the cost of its drag (\cref{sec:balance}). We tow every soft kite from the foot of its launch mast at the forward end of the deck, ahead of the lateral centre by \given{2} to \given{10}\,\% of the length, as the ship kites built so far do \citep{fritz2013} and kite studies assume \citep{traut2014}. The VTOL kite tows from the lateral centre, and on a container ship from its perch at the bow. The kite pulls from low on the ship, so for the same side force it heels the ship less than a deck rig (\cref{fig:ship_model}b). To see what the bow costs, we flew each class's best kite on e-ammonia with its tow point at the bow, the lateral centre and midship, on the westerly and trade-wind routes (\cref{fig:tow_point}). Only the rudder load changes between them in the model.}
 
 \begin{figure*}[tbp]
 \centering

@@ -228,12 +228,23 @@ No paper I found sweeps waterline length continuously for several rigs at once w
 - **Laursen et al. (WASP study)** is the EMSA 2023 report itself (emsa2023).
 - **Mason et al. "Quantifying voyage optimisation with wind propulsion for short-term CO2 mitigation in shipping"**: dataset (Mendeley, DOI 10.17632/5ss54b9bwh) found, journal article not confirmed; mason2023 used instead.
 
-## 10. Remarks on the current draft
+## 10. Errors found in the sources (do not cite these numbers)
+
+- Lu & Ringsberg 2020: Route 2 rotor saving "107.9 t" (text) vs 75.5 t from Table 2 **[calc]**; the annual "1755 t" inherits it; projected rotor area "108 m2" for an 18 × 3 m rotor (54 m²); Tables 3–6 route labels and times (p. 255–256).
+- Tillig OE: abstract 30 %/14 % vs Table 6 36.0 %/21.1 % after position optimisation; "approximately 2.5%" from rpm control vs 2.3 and 1.2 points reported (p. 17, 21).
+- Tillig TRD p. 16: "12 to 16 kn will increase the forces from the rotors by about 40%" vs (16/12)² = 1.78 **[calc]**.
+- Dhainaut p. 118: "14%" for three rotors per side vs about 11 % (140 h) and 18 % (160 h) read from Fig. 12.
+- Podeur: round-trip 6.6 % (Tableau 7) vs 6.7 % (abstract); ε 12.2° vs 12.02°.
+- Bentin 2016: abstract says "branch and bound", the method section an A* search; weekly vs daily departures.
+- Huang & Souppez 2025 p. 266: mean ship speed "24.97 kn" called "a more sensible ship speed"; do not cite.
+- Penloup 2021 p. 180: text says linear area scaling, Eq. 13 prints √(A_k/320).
+
+## 11. Remarks on the current draft
 
 - `checks.tex` says "Ships that flew towing kites reported savings of 5 to 10 % \citep{emsa2023}". EMSA does not give that range: it quotes 10–35 % from Beluga SkySails trials (via Díaz 2020) and 10–15 % from the provider. The 5 % average and 10–12 % North Atlantic figures are from the EU LIFE WINTECC record. Suggest: "MS Beluga SkySails saved 5 % on its average route mix and 10–12 % on North Atlantic routes \citep{wintecc2009_record}." Our 6.7 % on Rotterdam–Guadeloupe sits inside that range.
 - Leloup's kite model and Penloup's DOE both treat the maximum wing load as the binding limit; that backs our 0.5 kN/m² cap and the finding that a 160 m² kite saturates.
 
-## 11. Comparison table
+## 12. Comparison table
 
 | Paper             | Kite                                   | Wing    | Rotor         | Other              | Ships                                   | Routes                | Weather data         | Routing | Speed optimised   | Leeway/heel balance      | Economics              | Fuel scenario                         | Savings found                    |
 | ----------------- | -------------------------------------- | ------- | ------------- | ------------------ | --------------------------------------- | --------------------- | -------------------- | ------- | ----------------- | ------------------------ | ---------------------- | ------------------------------------- | -------------------------------- |
@@ -257,7 +268,7 @@ No paper I found sweeps waterline length continuously for several rigs at once w
 | wintecc2009_record | yes                                    | –       | –             | –                  | Beluga SkySails                         | operation             | –                    | no      | no                | –                        | payback                | 430–700 EUR/t                         | 5 % avg, 10–12 % N Atl           |
 | **this paper**    | **160–3200 m², VSM + optimised eight** | **yes** | **yes**       | –                  | **85–200 m LWL**                        | **4 N Atlantic**      | **ERA5 2017–19**     | **DP**  | **yes**           | **leeway, heel, rudder** | **full cost per t·km** | **VLSFO vs e-methanol, carbon price** | –                                |
 
-## 12. Gap analysis
+## 13. Gap analysis
 
 Each candidate gap, checked against what exists.
 
@@ -275,7 +286,7 @@ Each candidate gap, checked against what exists.
 
 **Also worth stating:** the routed savings are upper bounds (mason2023: forecast uncertainty removes 10–20 % of the routing gain), and the drive may matter (thiaucourt2026, not yet read). The 160 m² reproduction of the SkySails figure (wintecc2009_record: 5 % average, 10–12 % North Atlantic) is a validation that earlier kite comparisons lacked.
 
-## 13. Draft "Related work"
+## 14. Draft "Related work"
 
 Wind-assisted propulsion is again on cargo ships, and a recent review counts more than a hundred installations \citep{kolodziejski2025}. The published savings spread widely. A systematic review finds a mean CO$_2$ reduction of 17\,\%, with half the studies between 7.5 and 22.5\,\% \citep{huang2025}. The spread comes from different ships, speeds, routes and methods, so two studies rarely compare \citep{emsa2023,huang2025}. Fleet-wide retrofits would save 6 to 9\,\% of fuel \citep{mason2026}.
 

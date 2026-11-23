@@ -13,7 +13,7 @@
   \coordinate (windcentre) at (-10,0);
   \coordinate (effort) at (-5,0);
   \coordinate (lateral) at (49,0);
-  \coordinate (bow) at (75,0);
+  \coordinate (bow) at (\shipbow,0);
 \end{scope}
 \draw[flow, wind] (101,23) -- (95,14);
 \node[label, wind, anchor=south] at (101,24) {apparent wind};
@@ -63,9 +63,9 @@
   \pgfmathsetmacro{\heel}{8}
   \begin{scope}[rotate=\heel, scale=0.7, transform shape]
     \pic {ship ahead=\heel};
-    \pic at (0,7.8) {rotor};
-    \coordinate (effort) at (0,24.8);
-    \coordinate (tow) at (0,7.8);
+    \pic at (0,\shipfoot) {rotor};
+    \coordinate (effort) at (0,{\shipfoot+17});
+    \coordinate (tow) at (0,\shipfoot);
   \end{scope}
   \draw[guide, dashed] (0,25) -- (0,33);
   \draw[guide] (0,31.5) arc[start angle=90, end angle=90+\heel, radius=31.5];

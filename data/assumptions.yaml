@@ -431,41 +431,118 @@ deck_length_fraction:
   unit: "-"
   source: "Authors' estimate; @han2025; @mboumba2022: published deck layouts"
   reason: "Authors' estimate: share of the ship's length between forecastle and deckhouse that a row or column of rigs can use; an MR tanker has 140 m of upper deck on 182 m [@han2025], a CFD layout of five wing sails on a Kamsarmax spans 165 of 222 m [@mboumba2022]."
-bow_unit_position:
+bow_mast_position:
   value: 0.06
-  low: 0.05
-  high: 0.08
-  unit: "-"
-  source: "@cfr46_part42 [42.20-70]: forecastle at least 0.07 L; authors' estimate"
-  reason: "Distance of the one unit on a container ship from the bow over the ship's length: on the forecastle, which the load line rules make at least 0.07 L long where it gives the bow height [@cfr46_part42, 42.20-70], behind the anchor and mooring gear at its fore end; authors' estimate, Maersk's 35 m rotor stands there on a 300 m ship [@maritimeexec2026maersk]."
-bow_room:
-  value: 0.04
-  low: 0.03
+  low: 0.06
   high: 0.06
   unit: "-"
-  source: "Authors' estimate: forecastle less its mooring gear"
-  reason: "Length along the forecastle free for one rig unit between the anchor and mooring gear and the first bay of containers, over the ship's length: a forecastle of 0.07-0.10 L [@cfr46_part42, 42.20-70] less the windlasses and mooring winches at its fore end; authors' estimate, 12 m on a 300 m ship, where Maersk fits a 5 m rotor [@maritimeexec2026maersk]."
+  source: "@cfr46_part42 [42.20-70]: forecastle at least 0.07 L; authors' estimate"
+  reason: "Distance of a kite's launch mast on a container ship from the bow over the ship's length: on the forecastle, ahead of the first bay of containers, which the load line rules make at least 0.07 L long where it gives the bow height [@cfr46_part42, 42.20-70], behind the anchor and mooring gear at its fore end; authors' estimate, where Maersk's 35 m rotor stands on a 300 m ship [@maritimeexec2026maersk]."
 blind_sector_limit:
   value: 5.0
   low: 5.0
   high: 5.0
   unit: deg
-  source: "@cfr33_164 [(a)(1)]: SOLAS V/22 blind sectors"
-  reason: "Widest view ahead from the bridge that one obstruction forward of the beam may hide within 10 degrees either side of dead ahead, the SOLAS limit on navigation bridge visibility [@cfr33_164, (a)(1)], which a unit on the centreline at the bow falls within."
-shadow_calm_height:
-  value: 0.6
-  low: 0.5
-  high: 0.8
-  unit: "-"
-  source: "@hosker1981; @krajnovic2002 [Fig. 7]: wake of a block"
-  reason: "Height over the stack height below which the lee of the container stacks is calm: a block's cavity is as tall as the block and as long as 1.75 W/H/(1 + 0.25 W/H) heights, over two for a stack the ship's beam wide [@hosker1981], so a bow unit stands inside it; one height behind a cube the mean wind is near zero up to half its height and 0.35 of the free wind at 0.75 [@krajnovic2002, Fig. 7]."
-shadow_free_height:
-  value: 1.3
-  low: 1.2
+  source: "@dma2019solas [SOLAS V/22.1.2]: blind sectors"
+  reason: "Widest view from the conning position that one obstruction forward of the beam may hide within 10 degrees either side of dead ahead, the SOLAS limit on navigation bridge visibility [@dma2019solas, SOLAS V/22.1.2]; the model watches every deck unit forward of the bridge that hides more with a camera system, also off to the side, where SOLAS allows 10 degrees."
+camera_system_cost:
+  value: 50000.0
+  low: 50000.0
+  high: 50000.0
+  unit: USD
+  source: "@thegpsstore2026flir: camera price; @imo2012circ1350 [para. 4]: redundancy"
+  reason: "Cost of the camera system watching the view one deck unit hides from the bridge: two stabilised marine cameras with thermal and low-light channels, the redundancy IMO asks of cameras that show the ship's side from the bridge wing [@imo2012circ1350, para. 4], at 24,995 USD each [@thegpsstore2026flir]."
+wing_design_wind:
+  value: 20.6
+  low: 17.0
+  high: 20.6
+  unit: m/s
+  source: "@bar2026windwingscontrol: WindWings produce thrust up to 40 knots"
+  reason: "Highest apparent wind a raised wing sail's support is sized for working: WindWings produce thrust up to 40 knots, 20.6 m/s, and feather above it [@bar2026windwingscontrol]. Low bound: the 17 m/s a VentiFoil works in [@conoship2022econowind]."
+twistlock_working_load:
+  value: 250.0
+  low: 210.0
+  high: 250.0
+  unit: kN
+  source: "@macgregor2023acv1: safe working load of a twistlock in tension"
+  reason: "Pull a twistlock holding a containerised suction sail's frame to the stack below may carry: 250 kN in tension, the safe working load of a fully automatic twistlock type-approved by DNV, which breaks at 500 kN [@macgregor2023acv1]. Low bound: its 210 kN in shear."
+bay_gap:
+  value: 1.5
+  low: 1.5
   high: 1.5
+  unit: m
+  source: "@souadji2012 [Tables A.6.2-A.6.3]: two frames between 40 ft bays"
+  reason: "Length along the ship of the gap between two 40 ft bays of containers, where the lashing bridges stand and a rotor pedestal can: two frames of 0.76 m in a 3100 TEU design, which takes 16 frames for each 12.19 m bay [@souadji2012, Tables A.6.2-A.6.3]."
+pedestal_clearance:
+  value: 2.5
+  low: 2.5
+  high: 2.5
+  unit: m
+  source: "Authors' estimate: hatch covers and lashing clearance"
+  reason: "Height of a rotor pedestal's top above the top of the container stacks counted from the deck: the hatch coaming and covers the stacks stand on, and the clearance over the top tier; authors' estimate."
+rig_wind_load_factor:
+  value: 1.7
+  low: 1.5
+  high: 1.7
   unit: "-"
-  source: "@krajnovic2002 [Fig. 7]: wake of a block"
-  reason: "Height over the stack height from which the wind in the lee of the container stacks is free: one height behind a cube the mean wind is 0.6 of the free wind at its height, 0.9 at 1.25 times it and free from 1.5 [@krajnovic2002, Fig. 7]; between the calm and the free height it rises linearly."
+  source: "@bv2026nr206 [Sec 4, Tab 2]: wind load factor in operation"
+  reason: "Load factor on the wind force of a wind propulsion unit in operation at sea for sizing its supporting structure, which covers gusts [@bv2026nr206, Sec 4, Tab 2]; the low bound with an approved automatic release of the load."
+rig_inertia_load_factor:
+  value: 1.3
+  low: 1.15
+  high: 1.3
+  unit: "-"
+  source: "@bv2026nr206 [Sec 4, Tab 2]: acceleration factor in operation"
+  reason: "Load factor on the inertial force of a wind propulsion unit in the ship's accelerations in operation at sea [@bv2026nr206, Sec 4, Tab 2]; the low bound where the accelerations come from a direct calculation."
+rig_design_acceleration:
+  value: 3.0
+  low: 3.0
+  high: 3.0
+  unit: m/s^2
+  source: "@marin2025feeder [Table 2-1, p. 10]: roll of a rotor feeder in operation"
+  reason: "Acceleration across the ship of a raised rotor's mass while it works: the weight's share at MARIN's highest roll of its six-rotor feeder at the rotors' highest working wind, 9-10 degrees [@marin2025feeder, p. 10], g sin 10 degrees = 1.7 m/s^2, plus the roll's acceleration at its 18.3 s period [@marin2025feeder, Table 2-1] 30-60 m above the roll axis, 0.6-1.2 m/s^2."
+pedestal_allowable_stress:
+  value: 268.0
+  low: 250.0
+  high: 268.0
+  unit: MPa
+  source: "@bv2026nr206 [Sec 5, 4.4.1]; @constructalia2026s355: S355 steel"
+  reason: "Highest stress in the steel of a rotor pedestal under its factored loads: yield over 1.02 times 1.3 for the beams of a wind propulsion unit's structure [@bv2026nr206, Sec 5, 4.4.1], with S355's yield of 355 MPa up to 16 mm thick; the low bound at its 335 MPa up to 63 mm [@constructalia2026s355]."
+pedestal_stiffener_share:
+  value: 0.2
+  low: 0.2
+  high: 0.2
+  unit: "-"
+  source: "Authors' estimate: stiffened plating"
+  reason: "Mass of the stiffeners that keep a rotor pedestal's plating from buckling, over that of the plating; authors' estimate for flat bars at the spacing of ship plating."
+steel_density:
+  value: 7850.0
+  low: 7850.0
+  high: 7850.0
+  unit: kg/m^3
+  source: "@joshi2025 [Table 6]: steel"
+  reason: "Density of steel [@joshi2025, Table 6]."
+steel_modulus:
+  value: 206000.0
+  low: 206000.0
+  high: 206000.0
+  unit: MPa
+  source: "@bv2026nr206 [Sec 5, Tab 1, Note 1]: carbon steel"
+  reason: "Young's modulus of the carbon steel of a wind propulsion system's structure, with a Poisson's ratio of 0.3 [@bv2026nr206, Sec 5, Tab 1, Note 1]."
+pedestal_stiffener_spacing:
+  value: 0.76
+  low: 0.76
+  high: 0.76
+  unit: m
+  source: "@souadji2012 [Tables A.6.2-A.6.3]: frame spacing"
+  reason: "Spacing of the stiffeners on a rotor pedestal's wall, the width of a plate panel that must not buckle: the 0.76 m frame spacing of a 3100 TEU design [@souadji2012, Tables A.6.2-A.6.3]."
+pedestal_min_frequency:
+  value: 0.3
+  low: 0.3
+  high: 0.3
+  unit: Hz
+  source: "Authors' estimate: above the ship's motions in waves"
+  reason: "Lowest first natural frequency of a raised rotor on its pedestal, kept above the ship's motions: a tenth above waves met every 4 s, the shortest that move a ship of 150 m or more, and far above MARIN's 18.3 s roll [@marin2025feeder, Table 2-1]; authors' estimate."
 layout_mean_wind:
   value: 8.0
   low: 7.0
@@ -742,13 +819,13 @@ rotor_mass_per_area:
   reason: "Mass per m^2 of height times diameter of the tallest rotor built, a Norsepower 35 x 5 m rotor of 56 t with its 24 t foundation [@norsepower2025, p. 3]; low: the same without foundation; high: the smallest rotors, 34 t for 18 x 3 m [@emsa2023, Table 4], whose fixed parts weigh most per m^2."
 
 # --- rigid VTOL kite ---
-rigid_unit_area:
+rigid_reference_area:
   value: 54.0
   low: 54.0
   high: 54.0
   unit: m^2
   source: "@echeverri2020part1 [Part I, Table 2]: Makani's MX2 design"
-  reason: "Wing area of one kite: the MX2 design of Makani [@echeverri2020part1, Part I, Table 2], the largest wing with propellers designed in full, within 3 % of the lowest yearly cost per thrust, near 100 m^2, in the authors' scaling of the mass of its structure, propellers and drives."
+  reason: "Wing area of the design the kite is scaled from: the MX2 design of Makani [@echeverri2020part1, Part I, Table 2], the largest wing with propellers designed in full."
 rigid_aspect_ratio:
   value: 12.5
   low: 12.5
@@ -756,13 +833,20 @@ rigid_aspect_ratio:
   unit: "-"
   source: "@echeverri2020part1 [Part I, Table 2]: Makani's MX2 design"
   reason: "MX2 design: 26 m span on 54 m^2 (Echeverri et al. 2020, Part I, Table 2)."
-rigid_mass_per_area:
-  value: 34.3
-  low: 16.5
-  high: 60.0
-  unit: kg/m^2
+rigid_mass:
+  value: 1852.0
+  low: 891.0
+  high: 3240.0
+  unit: kg
   source: "@echeverri2020part1 [Part I, Table 2]: MX2 design without tether"
-  reason: "Kite with its propellers and drives, without its tether: 1852 kg on 54 m^2 for MX2 [@echeverri2020part1, Part I, Table 2]. Low bound: a structure at the lightest of built kites, half of 15 kg/m^2 [@aull2020, Tables 1-2] plus the spar caps, shear walls and hardpoints of Makani's build-up [@echeverri2020part2, Part II, pp.287-288], with propellers and drives at their lightest [@johnson2018, p.5] for the hover of the low bound of the hover power. High bound: a structure half above MX2's 1372 kg, as M600 overran its targets by 40 to 70 % [@echeverri2020part1, Part I, p.265], with heavier propellers and drives growing linearly with power."
+  reason: "Kite of the reference area with its propellers and drives, without its tether: 1852 kg for MX2 [@echeverri2020part1, Part I, Table 2]. Low bound, 16.5 kg/m^2: a structure at the lightest of built kites, half of 15 kg/m^2 [@aull2020, Tables 1-2] plus the spar caps, shear walls and hardpoints of Makani's build-up [@echeverri2020part2, Part II, pp.287-288], with propellers and drives at their lightest [@johnson2018, p.5] for the hover of the low bound of the hover power. High bound, 60 kg/m^2: a structure half above MX2's 1372 kg, as M600 overran its targets by 40 to 70 % [@echeverri2020part1, Part I, p.265], with heavier propellers and drives growing linearly with power."
+rigid_mass_exponent:
+  value: 2.5
+  low: 2.2
+  high: 3.1
+  unit: "-"
+  source: "@sommerfeld2022scaling; @vanhagen2023; @noth2008: wings built and designed"
+  reason: "Power of the span to which the kite's mass grows at a fixed aspect ratio and force per area: wings built and designed show 2.2 to 3.1 [@sommerfeld2022scaling; @vanhagen2023; @noth2008], about 2.5 near MX2's size and 2.3 to 2.7 between Ampyx's AP3 and the 300 m^2 design of @vanhagen2023."
 rigid_hover_power_per_mass:
   value: 470.0
   low: 200.0
@@ -854,13 +938,13 @@ launch_mast_mass_per_size:
   unit: t/m
   source: "@cedelft2016 [Annex A.4]: SkySails system mass less its winch"
   reason: "Mass of a ship kite's launch mast and docking head with their seats per m of the square root of projected kite area, as they carry the kite only at launch and landing and grow with its span and chord: the SkySails system of 160-600 m^2 kites weighs about 30 t [@cedelft2016, Annex A.4] at about 1 kN/m^2 [@paulig2013], so 21 t after the winch of a 600 m^2 kite at 15 kg/kN, over 24.5 m. Low bound: the winch at 28 kg/kN; high bound: the 30 t less its winch for the 320 m^2 kite SkySails flew."
-launch_mast_cost_per_mass:
+welded_steel_cost_per_mass:
   value: 2.9
   low: 1.9
   high: 3.9
   unit: USD/kg
   source: "@wisdem_csm: supplier price of a wind turbine's welded steel tower"
-  reason: "Cost per kg of the kite's launch mast and docking head, mostly a welded steel tube that lifts the kite only at launch and landing and carries no tether force: the supplier price per kg of a wind turbine's welded steel tower [@wisdem_csm]. Low bound: the authors' manufacturing cost of welded tubular steel, as the rotor's tower is priced, from plate, waste, painting and labour in the steel cost model of WISDEM. High bound: the hub of the same model, a steel casting, which also holds a fifth of the mass as the slewing docking head at the 8.3 USD/kg of its yaw system."
+  reason: "Cost per kg of welded steel structure on deck, a kite's launch mast and docking head and a raised rotor's pedestal: the supplier price per kg of a wind turbine's welded steel tower [@wisdem_csm]. Low bound: the authors' manufacturing cost of welded tubular steel, as the rotor's tower is priced, from plate, waste, painting and labour in the steel cost model of WISDEM. High bound: the hub of the same model, a steel casting, which also holds a fifth of the mass of a kite's slewing docking head at the 8.3 USD/kg of its yaw system."
 control_unit_cost_per_mass:
   value: 218.0
   low: 150.0
@@ -874,14 +958,7 @@ rigid_tether_cost:
   high: 110000.0
   unit: USD
   source: "Authors' estimate: twice the price of rope [@joshi2025, p. 703]"
-  reason: "Electrified tether of one kite, 275 kg [@echeverri2020part1, Part I, Table 2] at USD 186/kg, twice the EUR 80/kg of rope [@joshi2025, p.703], the authors' estimate (93-400)."
-rigid_station_mass:
-  value: 20.0
-  low: 10.0
-  high: 32.0
-  unit: t
-  source: "@echeverri2020part2 [Part II, p. 58]: M600 station, lightened"
-  reason: "Winch, drum and perch per kite on the ship. The M600 ground station is 32 t and needs significant weight reduction [@echeverri2020part2, Part II, p.58], which the base value assumes."
+  reason: "Electrified tether of MX2, 275 kg [@echeverri2020part1, Part I, Table 2] at USD 186/kg, twice the EUR 80/kg of rope [@joshi2025, p.703], the authors' estimate (93-400)."
 rigid_upkeep_per_area:
   value: 0.67
   low: 0.29
@@ -945,7 +1022,7 @@ canopy_cloth_weight:
   high: 100.0
   unit: g/m^2
   source: "@paulig2013 [p. 561]: the cloth SkySails flew at its design load"
-  reason: "What SkySails flew: the polyester ripstop of its 160 kN ship kite, fabric of slightly above 100 g/m^2 at the reference force limit, its design load [@paulig2013, p. 561], on cells as wide as those of every kite (canopy_structure_chord). The cloth grows in proportion to the force limit, so it carries the same tension per weight and keeps the canopy life, as woven polyester sails of any weight, each sized to its load, are given one life [@flynn2015]. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
+  reason: "What SkySails flew: the polyester ripstop of its 160 kN ship kite, fabric of slightly above 100 g/m^2 at the reference force limit, its design load [@paulig2013, p. 561], on its cells of canopy_cell_width. The cloth grows in proportion to the force limit, so it carries the same tension per weight and keeps the canopy life, as woven polyester sails of any weight, each sized to its load, are given one life [@flynn2015]. Kite and paraglider cloth weighs 27-55 g/m^2 (Porcher 2006), woven Dacron sailcloth 130-400 g/m^2."
 canopy_cloth_reference_force:
   value: 0.9
   low: 0.9
@@ -961,12 +1038,12 @@ canopy_cloth_specific_strength:
   source: "Published canopy and sail cloth strengths"
   reason: "Strength of new canopy cloth per unit cloth weight, for the cloth tension check, within the 110-210 of canopy and sail cloth data (Porcher 2006, Ambroziak and Klosowski 2018)."
 canopy_skin_radius:
-  value: 0.5
-  low: 0.5
-  high: 0.5
+  value: 0.41
+  low: 0.41
+  high: 0.41
   unit: m
-  source: "Cell equilibrium on the SkySails kite [@wang2018], rounded up"
-  reason: "Radius the canopy skin bulges to between ribs, which sets its tension as pressure times radius in the cloth tension check: 0.41 m from the cell equilibrium of Wang and He 2018 on the SkySails kite, rounded up."
+  source: "Cell equilibrium on the SkySails kite [@wang2018]"
+  reason: "Radius the canopy skin bulges to between ribs, which sets its tension as pressure times radius in the cloth tension check: 0.41 m from the cell equilibrium of Wang and He 2018 on the SkySails kite, whose cells of canopy_cell_width every kite keeps."
 canopy_life:
   value: 3000.0
   low: 1500.0
@@ -996,13 +1073,13 @@ canopy_rib_cloth_ratio:
   unit: "-"
   source: "Authors' estimate from paraglider weights [@advance_alpha8; @nova_mentor2]"
   reason: "Cloth of the ribs and diagonals per flat m^2 per unit of chord over cell width: profile ribs of 0.15 chord thickness [@dunker2013] and their diagonals make 3.0 m^2 of cloth per flat m^2 with the skins at the paragliders' 9.3 (2.6-3.7); paragliders weigh 0.18-0.24 kg per flat m^2 [@advance_alpha8; @nova_prion; @nova_mentor2], the Alpha 8 with 38-40 g/m^2 cloth."
-canopy_chord_cells:
-  value: 9.3
-  low: 9.3
-  high: 9.3
-  unit: "-"
-  source: "Authors' fit to 23 ram-air canopies"
-  reason: "Chord over cell width of the kite canopy_structure_cost is taken to be for, whose cell width every kite keeps: 9.3 at 2.5 m mean chord, the centre of the line fitted through 23 ram-air canopy models: 17 paragliders of 7.4-13.4 (median 9.7) [@ozone_ultralite3; @ozone_ultralite4; @nova_prion; @advance_alpha8; @ozone_geo6; @ozone_spyder3; @ozone_rush3; @nova_mentor2; @ozone_rush5; @advance_iota_dls; @ozone_rush6; @ozone_zeno2; @ozone_enzo3; @advance_pibi; @advance_bibeta6; @ozone_magnum3; @ozone_magnum4] and a traction kite and five parafoils of 4.4-16 (median 10.1) [@flysurfer_soul4; @gavrilovski2012; @schairer2019; @geiger1990; @airborne_dragonfly]."
+canopy_cell_width:
+  value: 0.5
+  low: 0.46
+  high: 0.51
+  unit: m
+  source: "@folkersma2020 [Table 1 and sec. 2.2]: the SkySails kite"
+  reason: "Flat width of a canopy cell, which every kite keeps: that of the SkySails kite whose cloth and chord the canopy price rests on, 38 cells on 160 m^2 flat, 125 m^2 projected, 15.2 m projected span and 9.26 m largest chord [@folkersma2020, Table 1 and sec. 2.2]. Its flat span is the flat area over its mean chord, 19.5 m at the 8.2 m of canopy_structure_chord, so 0.51 m a cell, rounded to 0.5; at least the flat area over the largest chord, 17.3 m, so at least 0.46 m. The high bound takes the mean chord unchanged by the arch."
 canopy_mass_overhead:
   value: 0.09
   low: 0.04
@@ -1011,47 +1088,19 @@ canopy_mass_overhead:
   source: "Authors' fit to paragliders [@ozone_ultralite3; @nova_mentor6]"
   reason: "Canopy mass per m^2 of projected area besides its cloth, at the reference force limit and in proportion to the force limit, as they carry the load at the bridle attachments: seams, tapes, reinforcements, line attachments and the bridle lines. Paragliders of 0.12-0.24 kg/m^2 projected [@ozone_ultralite3; @ozone_ultralite4; @nova_mentor6] carry 0-20 g/m^2 per flat m^2 besides their cloth, the authors' fit of 0.05 kg/m^2 at 0.5 kN/m^2 taking their stated weights to include lines and risers; the high bound is about what a 120 kg SkySails kite with lines, 225 m^2 flat, 176 m^2 projected, leaves beyond about 72 kg of cloth and 18 kg of lines, both the authors' estimates [@paulig2013], which load patches for the ~1 t point loads of a ship kite [@thedens2015_awesco_slides] could account for in part."
 canopy_structure_cost:
-  value: 45.0
-  low: 45.0
-  high: 68.0
+  value: 53.0
+  low: 53.0
+  high: 76.0
   unit: EUR/m^2
   source: "@joshi2024refeconomic [pp. 2 and 7]: survey of makers and suppliers"
-  reason: "Cost of a soft kite's fabric with its reinforcements per m^2 of flat area, for systems of 100 kW-2 MW in a series of 50 or more, without overhead or margin, from a survey of ten makers, suppliers and universities in 2023 [@joshi2024refeconomic, pp.2 and 7]; 25/18 flat m^2 per projected m^2 as there. The survey gives no spread, no money year, no cloth weight and no cell layout, and does not say whether sewing is in the 45. The high bound, the authors' estimate, adds half again for sewing in case it is not; a developers' own account of cost is not taken lower."
-canopy_bridle_cost:
-  value: 8.0
-  low: 8.0
-  high: 8.0
-  unit: EUR/m^2
-  source: "@joshi2024refeconomic [pp. 2 and 7]: same survey as the canopy fabric"
-  reason: "Cost of a soft kite's bridle lines per m^2 of flat area, from the same survey as canopy_structure_cost [@joshi2024refeconomic, pp.2 and 7]."
-canopy_sewing_cloth_share:
-  value: 0.0
-  low: 0.0
-  high: 1.0
-  unit: "-"
-  source: "Authors' estimate: sewing follows the seam"
-  reason: "Share of the surveyed canopy_structure_cost besides its cloth, the sewing, seams, reinforcements and assembly, that grows with the cloth sewn per m^2 rather than with the seam: the authors' estimate takes it to follow the seam, the labour of sewing; the high bound lets all of it grow with the cloth. The survey does not split its cost [@joshi2024refeconomic, p.7]."
+  reason: "Cost of a soft kite's fabric with its reinforcements, 45, and its bridle lines, 8, per m^2 of flat area, for systems of 100 kW-2 MW in a series of 50 or more, without overhead or margin, from a survey of ten makers, suppliers and universities in 2023 [@joshi2024refeconomic, pp.2 and 7]; 25/18 flat m^2 per projected m^2 as there. The survey gives no spread, no money year, no cloth weight and no cell layout, and does not say whether sewing is in the fabric's 45. The high bound, the authors' estimate, adds half again to the fabric for sewing in case it is not; a developers' own account of cost is not taken lower."
 canopy_structure_chord:
   value: 8.2
-  low: 4.4
+  low: 8.2
   high: 8.2
   unit: m
   source: "Authors' estimate: the SkySails kite [@folkersma2020, Table 1]"
-  reason: "Mean projected chord of the kites canopy_structure_cost is taken to be for, at canopy_chord_cells, which sets the cell width every kite keeps, 0.88 m; the survey does not state it: that of the SkySails kite of 125 m^2 projected on a 15.2 m span [@folkersma2020, Table 1]. Its 38 cells, at least 0.46 m wide flat, make at most 18 per chord, as much seam per m^2 as canopy_chord_cells at the low bound."
-canopy_cell_seams:
-  value: 3.0
-  low: 2.0
-  high: 4.0
-  unit: "-"
-  source: "Authors' estimate: two per rib and one for the diagonals"
-  reason: "Seams a chord long per cell of a ram-air canopy, reinforcements and bridle attachments along them: two joining each rib to the top and bottom skins and one for the diagonals, the authors' estimate; bounds the ribs alone and two for the diagonals."
-canopy_structure_cloth_weight:
-  value: 100.0
-  low: 50.0
-  high: 200.0
-  unit: g/m^2
-  source: "Authors' estimate: the cloth SkySails flew [@paulig2013]"
-  reason: "Cloth weight canopy_structure_cost is taken to be for, which the survey does not state: the authors' assumption of the slightly above 100 g/m^2 of the SkySails ship kite [@paulig2013], the cloth of the base canopy. Bounds: kite and paraglider cloth of 27-55 g/m^2 [@porcher2006skytex_tds] and the canopy's own cloth."
+  reason: "Mean projected chord of the kites canopy_structure_cost is taken to be for, which the survey does not state: that of the SkySails kite of 125 m^2 projected on a 15.2 m span [@folkersma2020, Table 1], whose cloth canopy_cloth_weight and cells canopy_cell_width are."
 canopy_cloth_base_price:
   value: 11.0
   low: 2.0
