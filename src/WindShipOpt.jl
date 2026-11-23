@@ -29,7 +29,7 @@ export PerformanceTable, RouteTable
 export LandMask, GridMask, north_atlantic_mask, SyntheticWeather, ERA5Weather, wind, waves
 export Corridor, return_corridor, route_corridors, centre_index, Leg, route
 export SearchRecord, kept_states, through_node
-export ForecastWeather, ForecastArchive, ArchivedForecast, ForecastError, ExpectedForecast
+export ForecastArchive, ArchivedForecast, ForecastError, ExpectedForecast
 export ReplannedForecast
 export forecast_route
 export write_forecast_bias, write_forecast_weights, Climatology, ShipClass, ship_classes
