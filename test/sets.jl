@@ -1982,17 +1982,26 @@ sailed_on_planned_weather(kite_table, kite_hourly, weather, departure) =
         forecast_route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
     end
 
+"""
+the result of `call()` by a planner whose final pass re-times the path found by up to a day,
+the reference its default band is checked against
+"""
+on_day_wide_final_pass(call) = WindShipOpt.with_router_settings(call,
+    WindShipOpt.with_changed(WindShipOpt.ROUTER_SETTINGS[]; final_time_band=24.0))
+
 @testset "a ship on the real weather flies its kite about as the plan does" begin
     kite_table, kite_hourly = forecast_kite_routing(800.0)
     weather = SyntheticWeather()
-    for departure in monthly_departures
-        leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
-        sailed = sailed_on_planned_weather(kite_table, kite_hourly, weather, departure)
-        @test leg.launches > 0
-        flies_as_planned = sailed.launches == leg.launches &&
-                           isapprox(sailed.flight_hours, leg.flight_hours; rtol=0.025)
-        @test flies_as_planned || sailed.objective < leg.objective
-        @test sailed.objective ≈ leg.objective rtol = 1e-3
+    on_day_wide_final_pass() do
+        for departure in monthly_departures
+            leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+            sailed = sailed_on_planned_weather(kite_table, kite_hourly, weather, departure)
+            @test leg.launches > 0
+            flies_as_planned = sailed.launches == leg.launches &&
+                               isapprox(sailed.flight_hours, leg.flight_hours; rtol=0.025)
+            @test flies_as_planned || sailed.objective < leg.objective
+            @test sailed.objective ≈ leg.objective rtol = 1e-3
+        end
     end
 end
 
