@@ -63,10 +63,6 @@ function readable(colour, background)
     return first(mix for mix in mixes if contrast(mix, background) >= least["text"])
 end
 
-"each unordered pair of two different entries of `names`"
-name_pairs(names) = [(first_name, second_name) for (i, first_name) in enumerate(names)
-                     for second_name in names[(i + 1):end]]
-
 """
     palette_faults()
 
@@ -1304,8 +1300,8 @@ function rig_polar_figure()
     for (i, (rig, area)) in enumerate(trim_rigs)
         ship = Ship(ShipDesign(:vlsfo, 140.0; rig_size(rig, area)...), assumptions)
         label = labels[i]
-        forces = [last(WindShipOpt.best_trim(ship, ship.rig, 10.5KNOT, 10.0,
-                      deg2rad(angle))) for angle in angles]
+        forces = [WindShipOpt.best_trim(ship, ship.rig, 10.5KNOT, 10.0,
+                      deg2rad(angle)).force for angle in angles]
         lines!(thrust, angles, [force.thrust for force in forces] ./ 1e3;
             color=palette[i], label)
         lines!(side, angles, abs.([force.side for force in forces]) ./ 1e3;
@@ -1534,23 +1530,6 @@ function passage_figure()
     key.halign = (maximum(legend.layoutobservables.computedbbox[])[1] + pt(6)) /
                  (total - key.width[])
     save_figure("passage", figure)
-end
-
-"""
-    wind_key!(axis, corner, speed, scale, height)
-
-A white box of `height` [deg] with its lower left at `corner` [deg] in the map `axis`,
-holding a wind arrow of `speed` [m/s] at the `scale` [deg per m/s] of
-[`draw_wind!`](@ref), labelled with that speed.
-"""
-function wind_key!(axis, corner, speed, scale, height)
-    poly!(axis, Rect2f(corner, Vec2f(speed * scale + 2.8height, height)); color=:white,
-        strokecolor=:gray55, strokewidth=rule_width)
-    start = corner .+ Point2f(height / 3, height / 2)
-    arrows2d!(axis, [start], [Vec2f(speed * scale, 0)]; wind_arrow_style...)
-    text!(axis, start .+ Point2f(speed * scale, 0); text="$speed m/s",
-        align=(:left, :center), offset=clear_offset((:left, :center), pt(2.5)),
-        fontsize=note_size)
 end
 
 """
