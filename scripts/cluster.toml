@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Slurm settings of the paper runs on a cluster, read by scripts/cluster.jl.
-account = "innovation" # Slurm account to charge: innovation or research-<faculty>-<department> on DelftBlue
+account = "research-ae-fpt" # Slurm account to charge: research-<faculty>-<department> or innovation on DelftBlue
 partition = "compute-p2" # the one partition every job of a run uses: compute-p1 or compute-p2
 cores = 64 # [-] cores of each job, the run's own and each computing round trips
 memory_per_core = "3800M" # memory per core, as Slurm's --mem-per-cpu
 wall_time = "24:00:00" # wall time of every job, hours:minutes:seconds
-jobs = 4 # [-] jobs running at once, the run's own included
+jobs = 16 # [-] jobs running at once, the run's own included
 retries = 2 # [-] launches in a row of a job that stored nothing new, before the run stops
