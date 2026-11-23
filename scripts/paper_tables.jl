@@ -800,6 +800,7 @@ class_table.tex, a dagger on estimates and ∞ for an infinite fixed-rig delay.
 """
 function class_dimension_table()
     classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
+    notes = class_source_notes()
     write_whole(joinpath(sections, "class_table.tex")) do io
         println(io, "\\setlength{\\tabcolsep}{3pt}")
         println(io, "\\begin{tabular}{@{}l", "r"^6, "l", "r"^4, "@{}}")
@@ -864,6 +865,18 @@ function write_class_cargo_row(io, class, estimated)
         latex_number(round(100class.restricted_call_share; digits=1)), " & ", delay, " & ",
         latex_number(round(Int, round(windage.frontal_area; sigdigits=3))), " & ",
         latex_number(round(Int, round(windage.lateral_area; sigdigits=3))), " \\\\")
+end
+
+"""
+    class_source_notes()
+
+Source note of each ship class by name, from the class file.
+"""
+function class_source_notes()
+    lines = readlines(joinpath(root, "data", "ship_classes.csv"))
+    header = WindShipOpt.csv_fields(first(lines))
+    rows = [Dict(zip(header, WindShipOpt.csv_fields(line))) for line in lines[2:end]]
+    return Dict(row["name"] => row["source"] for row in rows)
 end
 
 """
@@ -2155,7 +2168,8 @@ ship_kind_words = [:teu => "Container", :ceu => "CarCarrier", :tonne => "Bulk"]
 
 Write the numbers the paper and its extended abstract state as LaTeX macros `\\Num...` to
 paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
-the goals, the `highlight_limit` the paper build checks, the [`class_numbers`](@ref),
+the goals, the `highlight_limit` the paper build checks, the run the results come from
+([`results_run_words`](@ref)), the [`class_numbers`](@ref),
 [`class_range_numbers`](@ref), [`recommendation_numbers`](@ref),
 [`rig_lead_numbers`](@ref), [`route_numbers`](@ref), [`split_numbers`](@ref),
 [`payback_numbers`](@ref), [`premium_numbers`](@ref), [`fleet_share_numbers`](@ref),
@@ -2178,6 +2192,7 @@ function numbers_file()
             print(io, number_macro(name, text, false))
         end
         print(io, number_macro("HighlightLimit", string(highlight_limit), false))
+        print(io, number_macro("ResultsRun", results_run_words(), false))
         for (name, text) in results
             print(io, number_macro(name, text, draft))
         end
