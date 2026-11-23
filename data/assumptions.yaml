@@ -619,7 +619,7 @@ suction_max_wind:
   low: 17.0
   high: 22.0
   unit: m/s
-  source: "@smeets2024ventofoil [Fig. 3.11]: cut-out of the VentoFoil maker's fan power curve"
+  source: "@smeets2024ventofoil [Fig. 3.11]: cut-out of the VentoFoil maker's fan curve"
   reason: "Highest apparent wind a VentoFoil works in, above which it is folded down and its fans stop: 22 m/s on its maker's curve [@smeets2024ventofoil, Sec. 3.1.11 and Fig. 3.11]. Low: the eConowind unit's foldable VentiFoils, which lie down above 17 m/s [@conoship2022econowind]."
 suction_aspect_ratio:
   value: 6.6
