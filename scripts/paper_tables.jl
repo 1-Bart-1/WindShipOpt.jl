@@ -987,7 +987,7 @@ function cargo_interest_table()
         level_table = interest_level_rows(table, factor)
         push!(lines, (; level, rig="no rig", points=fill(NaN, 4), trip=NaN,
             speed=mean_sailing_speed(level_table, drive, "none")))
-        for rig in rig_names
+        for (_, rig) in study_rigs(table)
             splits = rig_splits(level_table, drive, rig)
             push!(lines, (; level="", rig, points=split_points(splits),
                 trip=median(getproperty.(splits, :hours)),
