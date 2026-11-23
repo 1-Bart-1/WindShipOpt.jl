@@ -1345,21 +1345,21 @@ end
 """
     type_savings(table, drive)
 
-Each ship type of the [`fleet_cells`](@ref) of class table `table` on `drive`, with the
-yearly saving per ship of the best size of each rig on average over the type's ships, in
-cost [USD], as a share of the cost without a rig [%], in fuel [kg] and in CO2 [g], and
-its [`fleet_leaders`](@ref) on the cost share as its `leaders`.
+Each kind of ship of `ship_types`, its word and label, with the yearly
+[`saving_per_ship`](@ref) of the best size of each rig in the class table `table` on
+`drive` and its cost saving `share` [%], the mean over the kind's [`fleet_cells`](@ref),
+and the [`fleet_leaders`](@ref) of those shares as its `leaders`.
 """
 function type_savings(table, drive)
     classes = ship_classes()
     cells = fleet_cells(table, drive)
     savings = []
-    for type in sort(unique(classes[cell.class].type for cell in cells))
-        own = filter(cell -> classes[cell.class].type == type, cells)
-        rigs = Dict(rig => saving_per_ship(table, own, rig) for (_, rig) in study_rigs(table))
-        leaders = fleet_leaders(Dict(rig => saving.share for (rig, saving) in rigs), own,
-            [cell.bill for cell in own])
-        push!(savings, (; type, rigs, leaders))
+    for (word, label, types) in ship_types
+        own = filter(cell -> classes[cell.class].type in types, cells)
+        shares = fleet_savings(own)
+        rigs = Dict(rig => (; saving_per_ship(table, own, rig)..., share=shares[rig])
+                    for (_, rig) in study_rigs(table))
+        push!(savings, (; word, label, rigs, leaders=fleet_leaders(shares, own)))
     end
     return savings
 end
@@ -1368,14 +1368,13 @@ end
     saving_per_ship(table, cells, rig)
 
 The [`cell_saving`](@ref) of `rig` summed over `cells` of class table `table`, per ship of
-those cells, with the cost saved as a `share` [%] of their cost without a rig.
+those cells: the cost `saved` [USD], `fuel` [kg] and `carbon` [g].
 """
 function saving_per_ship(table, cells, rig)
     (; saved, fuel, carbon) = mapreduce(cell -> cell_saving(table, cell, rig),
         (one, other) -> map(+, one, other), cells)
     ships = sum(cell.ships for cell in cells)
-    return (; saved=saved / ships, share=100saved / sum(cell.bill for cell in cells),
-        fuel=fuel / ships, carbon=carbon / ships)
+    return (; saved=saved / ships, fuel=fuel / ships, carbon=carbon / ships)
 end
 
 """
@@ -1469,16 +1468,16 @@ function write_type_savings(table)
     write_whole(joinpath(sections, "type_saving_table.tex")) do io
         println(io, "\\begin{tabular}{@{}lll", "r"^length(measures), "@{}}\n\\toprule")
         table_header(io, ["Fuel", "Ship type", "Rig"], type_saving_columns, measures)
-        for (drive, label) in drive_labels
+        for (drive, drive_label) in drive_labels
             println(io, "\\midrule")
-            for (k, (; type, rigs, leaders)) in enumerate(type_savings(table, drive))
+            for (k, (; label, rigs, leaders)) in enumerate(type_savings(table, drive))
                 k > 1 && println(io, "\\addlinespace")
                 for (j, (_, rig)) in enumerate(study_rigs(table))
                     cells = [text(scale * rigs[rig][measure])
                         for (measure, (scale, _, _, text)) in pairs(type_saving_columns)]
                     name = rig in leaders ? "\\textbf{$rig}" : rig
-                    println(io, k == j == 1 ? label : "", " & ", j == 1 ? type : "", " & ",
-                        name, " & ", join(cells, " & "), " \\\\")
+                    println(io, k == j == 1 ? drive_label : "", " & ", j == 1 ? label : "",
+                        " & ", name, " & ", join(cells, " & "), " \\\\")
                 end
             end
         end
@@ -2509,9 +2508,10 @@ class_saving(table, column, class, drive, rig) =
     fleet_share_numbers(table)
 
 Name and text, per drive of the class table `table`, of each band's share [%] of the
-yearly cost of carrying the fleet's cargo, the total of that cost [billion USD] and the
-tank-to-wake CO2 that carrying it without a rig emits [million t a year], and the shares
-of the IMO transport work and of shipping's CO2 the classes carry.
+yearly cost of carrying the fleet's cargo, a stale marker for a rig the class study does
+not hold, the total of that cost [billion USD] and the tank-to-wake CO2 that carrying it
+without a rig emits [million t a year], and the shares of the IMO transport work and of
+shipping's CO2 in the IMO inventory the classes' size bins carry.
 """
 function fleet_share_numbers(table)
     numbers = Pair{String, String}[]
@@ -2523,8 +2523,9 @@ function fleet_share_numbers(table)
         push!(numbers, "FleetBill$word" => whole_number(bill / 1e9),
             "FleetEmitted$word" => two_digits(1e-12emitted))
         for band in fleet_bands
-            name = word * uppercasefirst(band)
-            push!(numbers, "FleetShare$name" => whole_number(100split[band].bill / bill))
+            unrun = band in rig_names && band ∉ last.(study_rigs(table))
+            share = unrun ? "\\stale{classes}{}" : whole_number(100split[band].bill / bill)
+            push!(numbers, "FleetShare$(word)$(uppercasefirst(band))" => share)
         end
     end
     _, work_share = fleet_work()
@@ -2573,14 +2574,12 @@ VLSFO.
 """
 function type_saving_numbers(table)
     numbers = Pair{String, String}[]
-    losing = [type for (; type, rigs) in type_savings(table, "vlsfo")
+    losing = [lowercase(label) for (; label, rigs) in type_savings(table, "vlsfo")
               if rigs["wings"].share < 0]
-    push!(numbers, "WingsLossTypesOil" =>
-        isempty(losing) ? "no ship type" : listed(losing) * " ships")
-    for (drive, word) in drive_words, (; type, rigs) in type_savings(table, drive)
-        type_word = join(uppercasefirst.(split(type)))
+    push!(numbers, "WingsLossTypesOil" => isempty(losing) ? "no ship type" : listed(losing))
+    for (drive, drive_word) in drive_words, (; word, rigs) in type_savings(table, drive)
         for (_, rig) in study_rigs(table)
-            name = string("TypeSaving", word, type_word, uppercasefirst(rig))
+            name = string("TypeSaving", drive_word, word, uppercasefirst(rig))
             (; saved, share, carbon) = rigs[rig]
             push!(numbers, "$(name)Cost" => two_digits(1e-6saved),
                 "$(name)Share" => whole_number(share),
