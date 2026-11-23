@@ -58,7 +58,7 @@ Time bin & \SI{3}{h} & state of the dynamic programme \\
 Weather along an edge & at most every \SI{3}{h}, \SI{6}{h} beyond the first \SI{240}{nmi} of a plan & fuel and speed of an edge \\
 States searched & within 3\,\% of a backward estimate of the cost to go at \SI{24}{h} knots, then 6\,\%, then all, if a pass ends above its limit or finds no path; costs at most 0.01 points of cost saving against searching all states, 0.35 for the kite & dynamic programme \\
 Longest passage & 50 days & time bins \\
-Speeds & every fourth table speed, 13 from \SI{4}{kn} to the ship's maximum, and on a long edge those between that bring its arrivals within one time bin of each other & edge choices \\
+Speeds & every eighth table speed, 7 from \SI{4}{kn} to the ship's maximum, every sixteenth in the backward estimate, and on a long edge those between that bring its arrivals within one time bin of each other & edge choices \\
 Final pass & all table speeds, \SI{0.25}{h} bins, \SI{1}{h} on the forecast plan weighing the wind error, within \SI{6}{h} of the path found & passage reported \\
 Live sailing & speed and kite chosen every \SI{1}{h} over every fourth table speed and the plan's, on the forecast result & planner on forecasts \\
 Re-planning interval & first route node \SI{24}{h} after the last plan; 12 and \SI{6}{h} in the re-planning study & planner on forecasts \\

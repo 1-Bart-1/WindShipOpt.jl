@@ -67,4 +67,24 @@ The final pass still tries every speed on quarter-hour bins, but only within 6 h
 
 The search for the speed held at a point skips, on an edge begun with the kite down, every speed whose table cell the engines cannot power with the kite stowed, before reading the table there. Such an edge takes the fastest speed it holds with the kite stowed, and a flying kite only where no speed holds stowed, so the speeds a flying kite could hold above it were read for nothing; where no speed holds stowed, a second pass finds the fastest a flying kite holds. The held speed is the same as before at every call, over the 58 million calls of one round trip with each rig. On one round trip to Guadeloupe (departure 4032 h) the table is read 1.30 times per point with the kite, where it was 1.83, and 1.25 times with rotors as before; counting the speeds ruled out without reading it, 1.54 and 1.25 speeds per point, where they were 2.71 and 1.95. Over the calls of one leg, recorded and replayed in the same process, the search takes 0.74 to 0.76 times as long with the kite and 0.94 to 0.98 times with rotors, allocating nothing either way.
 
+## A coarser search
+
+A perfect-foresight passage is already planned coarse to fine. Each plan keeps every stage and row for 240 nmi ahead of the ship and sparser rows beyond, and the ship re-plans once it has sailed the near part. On the 14-day kite passage to Guadeloupe leaving at 2016 h it plans 17 times, each on 140 to 437 of the corridor's 10,884 nodes, and the search keeps 10 to 80 states per stage. A coarse pass over the whole corridor with a fine band around its path would therefore save little, and taking the search limit from a coarser corridor was already rejected (above). After the final pass was cut to 6 h, a profile of two round trips with the kite and with rotors puts 37 to 43 % of the routing time in the cost to go, 33 % in the search and 18.5 % in the final pass.
+
+The margins stay at 3 % and 6 %. On the 12 development departures, about 2,100 searches, we searched every passage again within 12 %, then 24 %. That search's best path ran more than 1 % above the estimate at departure in 5.5 % of searches without a rig, 18.6 % with the kite and 24.6 % with rotors, and more than 3 % in 0.5, 6.1 and 6.1 %. A 3 % pass that cuts off the best path often keeps a worse one within its limit rather than retrying, so a lower margin would cost accuracy, not only retries.
+
+Each setting that coarsens the search was tried alone on the development case and compared with the reference grid, extrapolated from both:
+
+| Setting                                    | Kite  | Rotors | Kite's gap to rotors |
+| ------------------------------------------ | ----: | -----: | -------------------: |
+| as in use                                  | −1.19 | −0.62  | −0.57                |
+| far rows every eighth                      | −2.81 | −0.62  | −2.19                |
+| fine part 160 nmi                          | −1.84 | −0.87  | −0.97                |
+| cost-to-go knots 48 h                      | −0.68 | −1.25  | +0.58                |
+| every eighth speed                         | −0.93 | −0.74  | −0.18                |
+| every eighth speed, knots 48 h             | −0.78 | −1.14  | +0.36                |
+| every sixteenth speed                      | −1.04 | −1.47  | +0.44                |
+
+Far rows every eighth fail the standard. Of the rest, every eighth speed took the least processor time, 419 s against 474 s for the 160 nmi fine part and 480 s for 48 h knots, so the search now commands every eighth table speed and the cost to go every sixteenth. On the lean full check (every rig, the 140 m ship to Guadeloupe, Houston, New York and Bilbao and the Kamsarmax to Tubarão, 12 departures each), against every fourth speed, no saving moves by more than 0.48 points and no gap between two rigs by more than 0.53, and every case is completed; the check took 14.6 thousand processor seconds against 16.6 thousand. Every sixteenth speed took 14.0 thousand but moved the New York kite's saving by 1.74 points and the Kamsarmax kite's by 1.33. One round trip to Guadeloupe (departure 2016 h, warm, five pairs on the quiet shared machine, median) takes 18.6 s against 23.0 s with the kite (0.81×) and 19.6 s against 21.2 s with rotors (0.92×), allocating 0.86 GB against 0.89 GB and 0.85 GB against 0.84 GB.
+
 Each pull request into `main` times a leg routed with rotors and one with a kite, as a round trip routes them, against `main` on the same runner, and the comparison is posted on the pull request (`benchmark/benchmarks.jl`, run by AirspeedVelocity.jl). The weather there is a small grid of smoothly varying wind and waves, so the times are for comparing two versions, not for the run time of the paper's cases. The test suite checks that what runs per edge and per leg does not allocate (`test/hot_path_checks.jl`).
