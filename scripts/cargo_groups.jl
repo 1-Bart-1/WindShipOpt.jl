@@ -7,7 +7,7 @@
 # rotors with no more units than the makers offer for bulk carriers and tankers; and per
 # group of ships the rig to recommend. In the scripts environment:
 #
-#     include("cargo_groups.jl")
+#     include("paper.jl")
 #     cargo_groups("../output/runs/<run>"); recommendation("../output/runs/<run>")
 using Printf
 using Statistics: mean
@@ -183,6 +183,7 @@ function recommendation(run)
                       bare[(row.class, "vlsfo", row.route)])
                      for ((class, case_drive, _, case_rig), row) in cheapest
                      if groups[class] == name && case_drive == drive && case_rig == rig]
+            isempty(cases) && continue
             carbon = drive == "vlsfo" ?
                      mean([relative(row, own, :carbon) for (row, own, _) in cases]) : NaN
             @printf("%-6s saving %5.1f %% CO2 %5.1f %% cost against bare VLSFO %+5.1f %%\n",
@@ -196,8 +197,10 @@ function recommendation(run)
         wins = Dict{Tuple{String, String}, Int}()
         for ((class, case_drive, route), reference) in bare
             (groups[class] == name && case_drive == drive) || continue
+            run_rigs = [rig for rig in keys(area_keywords)
+                        if haskey(cheapest, (class, drive, route, rig))]
             rig = argmin(rig -> parse(Float64, cheapest[(class, drive, route, rig)].cost),
-                keys(area_keywords))
+                run_rigs)
             wins[(route, rig)] = get(wins, (route, rig), 0) + 1
         end
         println("best rig by route: ", join(sort(["$route $rig $count"
