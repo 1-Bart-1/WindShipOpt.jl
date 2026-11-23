@@ -1165,6 +1165,13 @@ on the development case
 kite_gap_bias = 1.6
 
 """
+Points by which picking the number of rotors by the layout score, rather than routing every
+count, understates the rotors' cost saving against the kite's: the most measured, on the
+general cargo coaster to New York
+"""
+rotor_count_bias = 1.3
+
+"""
     lead_factor(n)
 
 Quantile of Student's t with `n - 1` degrees of freedom at the coverage of one standard
@@ -1176,14 +1183,17 @@ function lead_factor(n)
 end
 
 """
-    leads(rig, rival, gap, (error, n))
+    leads(rig, rival, gap, (error, n), count_bias)
 
 Whether `rig` saves clearly more than `rival` ("none" for no rig): its `gap` [points] of
 cost saving over it exceeds the `error` [points] of that gap over `n` departures times the
-[`lead_factor`](@ref), plus the [`kite_gap_bias`](@ref) where `rival` is the kite.
+[`lead_factor`](@ref), plus the [`kite_gap_bias`](@ref) where `rival` is the kite and the
+`count_bias` [points] of the run where the kite leads the rotors.
 """
-function leads(rig, rival, gap, (error, n))
-    return gap > lead_factor(n) * error + (rival == "kite" ? kite_gap_bias : 0.0)
+function leads(rig, rival, gap, (error, n), count_bias)
+    bias = rival == "kite" ? kite_gap_bias :
+           rig == "kite" && rival == "rotors" ? count_bias : 0.0
+    return gap > lead_factor(n) * error + bias
 end
 
 """
@@ -1220,13 +1230,13 @@ fleet_bands = ("kite", "level", "rotors", "wings", "suction", "vtol", "none")
     fleet_leaders(savings, cells, weights=ones(length(cells)))
 
 Rigs of the cost `savings` [%], each the `weights`-weighted mean over fleet `cells`, that
-are level with the best: the best and each rig it does not clearly [`leads`](@ref); none
-where the best does not clearly save.
+are level with the best: the best and each rig it does not clearly [`leads`](@ref) by the
+`count_bias` of the cells' run; none where the best does not clearly save.
 """
 function fleet_leaders(savings, cells, weights=ones(length(cells)))
     best = argmax(rig -> savings[rig], keys(savings))
     clear(rival) = leads(best, rival, savings[best] - get(savings, rival, 0.0),
-        gap_error(cells, weights, best, rival))
+        gap_error(cells, weights, best, rival), first(cells).count_bias)
     clear("none") || return String[]
     return [rig for rig in keys(savings) if rig == best || !clear(rig)]
 end
@@ -1397,17 +1407,17 @@ function fleet_ships()
 end
 
 """
-    fleet_cells(table, drive)
+    fleet_cells(table, drive; count_bias=results_count_bias())
 
 Each class and route of class table `table` on `drive`, with the class's transport work
 [tonne-km a year] from [`fleet_work`](@ref) and its ships from [`fleet_ships`](@ref) shared
 equally over the table's routes, the yearly cost `bill` [USD] of that work without a rig,
 the row of the ship without a rig and of the best size of each rig the table holds, their cost
-`savings` [%] and the cost of each of their `departures` by rig, `"none"` included, or
-nothing where the table holds no departures.
+`savings` [%], the cost of each of their `departures` by rig, `"none"` included, or
+nothing where the table holds no departures, and the `count_bias` [points] of their run.
 Errors naming every class and route of `drive` the table lacks a result of a rig for.
 """
-function fleet_cells(table, drive)
+function fleet_cells(table, drive; count_bias=results_count_bias())
     work, _ = fleet_work()
     ships = fleet_ships()
     routes = unique(table["route"])
@@ -1428,7 +1438,7 @@ function fleet_cells(table, drive)
                      Dict(rig => table["departure_costs"][row]
                           for (rig, row) in ("none" => bare, best...)) : nothing
         push!(cells, (; class, route, work=share, ships=ships[class] / length(routes),
-            bill=share * reference, bare, best, savings, departures))
+            bill=share * reference, bare, best, savings, departures, count_bias))
     end
     isempty(absent) || throw(ArgumentError("no $drive results for " * join(absent, ", ")))
     return cells

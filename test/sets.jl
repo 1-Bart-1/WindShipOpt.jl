@@ -3320,6 +3320,12 @@ end
     @test only(record["steps"])["julia"] == string(VERSION)
 end
 
+@testset "a run picked its unit counts by the score where its class step read it" begin
+    record(inputs) = Dict("steps" => [Dict("name" => "classes", "inputs" => inputs)])
+    @test PaperRuns.counts_by_score(record(Dict("layout_mean_wind" => 8.0)))
+    @test !PaperRuns.counts_by_score(record(Dict("air_density" => 1.225)))
+end
+
 @testset "a stored trip that read an input the model no longer has is not reused" begin
     stored(inputs) = (; inputs, files=Pair{String, String}[])
     case = (; assumptions)
@@ -4315,6 +4321,7 @@ end
 module PaperData
 using Printf, Statistics, WindShipOpt
 assumptions = Main.assumptions
+results_count_bias() = 0.0
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
@@ -4645,15 +4652,16 @@ end
 end
 
 """
-    fleet_cell(bill, savings, wobble=Dict())
+    fleet_cell(bill, savings, wobble=Dict(); count_bias=0.0)
 
 Fleet cell of `bill` with the cost `savings` [%] of its rigs over two departures, each
-rig's saving on one departure `wobble[rig]` points below and on the other above it.
+rig's saving on one departure `wobble[rig]` points below and on the other above it, of a
+run of `count_bias` [points].
 """
-function fleet_cell(bill, savings, wobble=Dict())
+function fleet_cell(bill, savings, wobble=Dict(); count_bias=0.0)
     costs(rig, saving) = (1 - saving / 100) .+ [1, -1] .* get(wobble, rig, 0.0) ./ 100
     return (; bill, savings, departures=Dict("none" => [1.0, 1.0],
-        (rig => costs(rig, saving) for (rig, saving) in savings)...))
+        (rig => costs(rig, saving) for (rig, saving) in savings)...), count_bias)
 end
 
 @testset "a gap's error over departures cancels what the rigs' weather shares" begin
@@ -4667,16 +4675,19 @@ end
     @test first(PaperData.gap_error([shared, apart], [3.0, 1.0], "kite", "rotors")) ≈ 1.5
 end
 
-@testset "a rig leads only by more than its gap's error and the router's bias" begin
+@testset "a rig leads only by more than its gap's error and the method's biases" begin
     @test PaperData.lead_factor(2) ≈ 1.837 atol=0.04
     @test PaperData.lead_factor(12) ≈ 1.0476 atol=0.001
     @test PaperData.lead_factor(10^6) ≈ 1 atol=1e-5
-    bias = PaperData.kite_gap_bias
-    @test PaperData.leads("kite", "rotors", 0.5, (0.2, 12))
-    @test !PaperData.leads("kite", "rotors", 0.5, (0.5, 12))
-    @test !PaperData.leads("rotors", "kite", bias, (0.0, 12))
-    @test PaperData.leads("rotors", "kite", bias + 0.1, (0.0, 12))
-    @test PaperData.leads("rotors", "wings", 0.1, (0.0, 12))
+    bias, count_bias = PaperData.kite_gap_bias, PaperData.rotor_count_bias
+    @test PaperData.leads("kite", "rotors", 0.5, (0.2, 12), 0.0)
+    @test !PaperData.leads("kite", "rotors", 0.5, (0.5, 12), 0.0)
+    @test !PaperData.leads("rotors", "kite", bias, (0.0, 12), count_bias)
+    @test PaperData.leads("rotors", "kite", bias + 0.1, (0.0, 12), count_bias)
+    @test PaperData.leads("rotors", "wings", 0.1, (0.0, 12), count_bias)
+    @test !PaperData.leads("kite", "rotors", count_bias, (0.0, 12), count_bias)
+    @test PaperData.leads("kite", "rotors", count_bias + 0.1, (0.0, 12), count_bias)
+    @test PaperData.leads("kite", "wings", 0.1, (0.0, 12), count_bias)
 end
 
 @testset "a fleet's cost goes to the clear leader, or to level within the error" begin
@@ -4687,6 +4698,10 @@ end
     @test band(rigs(5.0, 4.0, 2.0), Dict("kite" => 1.0, "wings" => 0.0)) == "level"
     @test band(rigs(2.0, 2.0, 3.0 + bias)) == "rotors"
     @test band(rigs(3.0, 2.0, 3.0 + bias)) == "level"
+    scored(savings) = PaperData.fleet_band(fleet_cell(1.0, savings;
+        count_bias=PaperData.rotor_count_bias))
+    @test band(rigs(4.0, 2.0, 3.0)) == "kite"
+    @test scored(rigs(4.0, 2.0, 3.0)) == "level"
     @test band(rigs(1.0, -1.0, 0.0), Dict("kite" => 1.0)) == "none"
     split = PaperData.fleet_split([fleet_cell(100.0, rigs(10.0, 0.0, 2.0)),
         fleet_cell(50.0, rigs(4.0, 0.0, 4.0)),

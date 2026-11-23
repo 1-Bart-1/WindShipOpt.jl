@@ -331,10 +331,36 @@ run_words(run, fidelity, commit) =
 [`run_words`](@ref) of the run whose class study the results read.
 """
 function results_run_words()
-    directory = dirname(resolved_data_file("classes.csv"))
-    record = TOML.parsefile(joinpath(directory, "run.toml"))
+    directory, record = results_run()
     commit = step_entry(record, "classes")["git_commit"]
     return run_words(basename(directory), record["fidelity"], commit)
+end
+
+"""
+    counts_by_score(record)
+
+Whether the run of `record` picked the number of each deck rig's units by the layout score:
+whether its class step read the score's mean wind.
+"""
+counts_by_score(record) =
+    haskey(step_entry(record, "classes")["inputs"], "layout_mean_wind")
+
+"""
+    results_count_bias()
+
+The [`rotor_count_bias`](@ref) where the run whose class study the results read picked the
+number of rotors by the layout score ([`counts_by_score`](@ref)); else zero.
+"""
+results_count_bias() = counts_by_score(last(results_run())) ? rotor_count_bias : 0.0
+
+"""
+    results_run()
+
+Directory and record of the run whose class study the results read.
+"""
+function results_run()
+    directory = dirname(resolved_data_file("classes.csv"))
+    return directory, TOML.parsefile(joinpath(directory, "run.toml"))
 end
 
 """

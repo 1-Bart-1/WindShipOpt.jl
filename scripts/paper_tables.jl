@@ -2246,8 +2246,8 @@ end
     goal_numbers()
 
 Name and text of the goals the abstracts state: canopy life, the canopy price with its
-range, and the share of time out of service; of the
-[`kite_gap_bias`](@ref); and of the `DRAFT_SPREAD` of a draft result [points].
+range, and the share of time out of service; of the [`kite_gap_bias`](@ref) and the
+[`rotor_count_bias`](@ref); and of the `DRAFT_SPREAD` of a draft result [points].
 """
 function goal_numbers()
     return ["CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
@@ -2256,6 +2256,7 @@ function goal_numbers()
         "CanopyPriceHigh" => estimate_text(canopy_price_at(:high)),
         "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal()),
         "KiteGapBias" => @sprintf("%.1f", kite_gap_bias),
+        "RotorCountBias" => @sprintf("%.1f", rotor_count_bias),
         ("DraftSpread" * uppercasefirst(string(part)) => one_decimal(spread)
          for (part, spread) in pairs(DRAFT_SPREAD))...]
 end
