@@ -299,10 +299,30 @@ and commit it comes from, as the `\\studyrunis` definitions captions read.
 function study_sources(runs)
     open(joinpath(sections, "study_runs.tex"), "w") do io
         for (study, run) in sort(collect(runs); by=first)
-            println(io, "\\studyrunis{", study, "}{run ", run["run"], " at ",
-                run["fidelity"], " fidelity, commit ", first(run["commit"], 7), "}")
+            println(io, "\\studyrunis{", study, "}{",
+                run_words(run["run"], run["fidelity"], run["commit"]), "}")
         end
     end
+end
+
+"""
+    run_words(run, fidelity, commit)
+
+The run `run`, its `fidelity` and the short hash of `commit` as the paper names them.
+"""
+run_words(run, fidelity, commit) =
+    string("run ", run, " at ", fidelity, " fidelity, commit ", first(commit, 7))
+
+"""
+    results_run_words()
+
+[`run_words`](@ref) of the run whose class study the results read.
+"""
+function results_run_words()
+    directory = dirname(resolved_data_file("classes.csv"))
+    record = TOML.parsefile(joinpath(directory, "run.toml"))
+    commit = step_entry(record, "classes")["git_commit"]
+    return run_words(basename(directory), record["fidelity"], commit)
 end
 
 """
