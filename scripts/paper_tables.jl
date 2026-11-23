@@ -925,24 +925,25 @@ limit_label(class) = string(WindShipOpt.cargo_limit(class, assumptions))
 """
     split_table()
 
-Tabular of the cost saving of the cheapest size of each rig with each drive, the mean
-over the classes and routes, split by [`saving_split`](@ref) into fuel, time and the
-rest, with the same saving with each goal at its value known today from
-classes_today.csv, and the share of round trips the rig shortens and their median change,
-in split_table.tex.
+Tabular of the cost saving of the cheapest size of each rig the class study holds with
+each drive, the mean over the classes and routes, split by [`saving_split`](@ref) into
+fuel, time and the rest, with the same saving with each goal at its value known today from
+classes_today.csv, dashes where no run has it, and the share of round trips the rig
+shortens and their median change, in split_table.tex.
 """
 function split_table()
     table = read_table(data_file("classes.csv"))
-    today = fleet_savings.(fleet_cells.(Ref(read_table(data_file("classes_today.csv"))),
-        first.(drive_labels)))
+    today = isnothing(latest_step("today")) ? fill(Dict(), length(drive_labels)) :
+            fleet_savings.(fleet_cells.(Ref(read_table(data_file("classes_today.csv"))),
+                first.(drive_labels)))
     lines = []
     for ((drive, label), today_savings) in zip(drive_labels, today),
-        (k, rig) in enumerate(rig_names)
+        (k, rig) in enumerate(last.(study_rigs(table)))
 
         splits = rig_splits(table, drive, rig)
         hours = getproperty.(splits, :hours)
         push!(lines, (; label=k == 1 ? label : "", rig, points=split_points(splits),
-            today=today_savings[rig],
+            today=get(today_savings, rig, NaN),
             shorter=100count(<(0), hours) / length(hours), trip=median(hours)))
     end
     cells = split_cells(lines)
