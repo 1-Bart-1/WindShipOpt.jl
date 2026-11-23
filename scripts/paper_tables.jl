@@ -3346,10 +3346,10 @@ sea_effect_rows(table, ship, route, rig, sea) =
     recosting_numbers_file()
 
 Write to paper/sections/recosting_numbers.tex, from the recosting bias step, the largest
-and the smallest mean points of cost saving routing anew gained a rig over recosting at
-the measured end of a recosted input, the largest spread of that gain over the departures
-as a standard deviation, the departures, and the kite's mean gain scaled to the shortest
-canopy life of the missed-goal sweep on the 140 m ship.
+mean points of cost saving routing anew gained a rig over recosting at the measured end of
+a recosted input, the largest spread of that gain over the departures as a standard
+deviation, the departures, and the kite's error scaled to the shortest canopy life of the
+missed-goal sweep on the 140 m ship.
 """
 function recosting_numbers_file()
     table = read_table(data_file("recosting_bias.csv"))
@@ -3359,7 +3359,6 @@ function recosting_numbers_file()
     filter!(!isempty, gaps)
     shortest = first(canopy_lives) / assumptions[:canopy_life] - 1
     numbers = ["Largest" => one_decimal(maximum(mean, gaps)),
-        "Smallest" => one_decimal(minimum(mean, gaps)),
         "Spread" => one_decimal(maximum(gap -> length(gap) > 1 ? std(gap) : 0.0, gaps)),
         "Departures" => string(length(unique(table["departure"]))),
         "CanopyLife" => one_decimal(recosting_error(table, "canopy_life", shortest,

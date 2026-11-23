@@ -3561,14 +3561,15 @@ end
 """
     recosting_error(table, change, relative, rig; column="cost")
 
-One-sided error [points] of the saving of `rig` recosted at `relative` change [-] of
-`change`: the mean over the departures of its [`recosting_gap`](@ref), scaled by the
-square of `relative` over the change the table measured it at; zero for a change the
+Error [points] of the saving of `rig` recosted at `relative` change [-] of `change`: the
+mean over the departures of its [`recosting_gap`](@ref), at least zero for the cost, scaled
+by the square of `relative` over the change the table measured it at; zero for a change the
 table does not hold.
 """
 function recosting_error(table, change, relative, rig; column="cost")
     gaps = recosting_gap(table, change, rig; column)
     isempty(gaps) && return 0.0
     measured = table["relative"][first(rows(table, "change" => change))]
-    return mean(gaps) * (relative / measured)^2
+    gain = column == "cost" ? max(mean(gaps), 0.0) : mean(gaps)
+    return gain * (relative / measured)^2
 end

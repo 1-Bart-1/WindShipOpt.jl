@@ -4693,6 +4693,17 @@ end
     @test PaperData.recosting_error(table, "y", 1.0, "kite") == 0.0
 end
 
+@testset "routing anew that costs more than recosting on average is router scatter and \
+          sets no cost error" begin
+    costs = (; cost_recosted=[10.0, 8.0, 10.0, 8.0], cost_rerouted=[10.0, 8.5, 10.0, 8.2])
+    table = Dict("change" => fill("x", 4), "relative" => fill(0.5, 4),
+        "rig" => ["none", "kite", "none", "kite"], "departure" => [0, 0, 24, 24],
+        "cost_recosted" => costs.cost_recosted, "cost_rerouted" => costs.cost_rerouted,
+        "carbon_recosted" => costs.cost_recosted, "carbon_rerouted" => costs.cost_rerouted)
+    @test PaperData.recosting_error(table, "x", 0.5, "kite") == 0.0
+    @test PaperData.recosting_error(table, "x", 0.5, "kite"; column="carbon") < 0.0
+end
+
 @testset "the explorer gives each input its value known today" begin
     io = IOBuffer()
     PaperData.write_json(io, Assumption(3000.0, 1200.0, 6900.0, "h", "", 1200.0))
