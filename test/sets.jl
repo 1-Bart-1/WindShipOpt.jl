@@ -3279,7 +3279,7 @@ include(joinpath(root, "scripts", "run_estimate.jl"))
 runs_directory = mktempdir()
 end
 
-@testset "a run counts as finished only once every step it was asked for is done" begin
+@testset "a run counts as finished only once every data step it was asked for is done" begin
     write_data(run, name) = PaperRuns.run_step!(run, name,
         () -> touch(joinpath(run.directory, "$name.csv")))
     is_open() = !PaperRuns.is_finished(last(only(PaperRuns.fidelity_runs(:draft))))
@@ -3287,16 +3287,31 @@ end
     write_data(run, :designs)
     @test is_open()
     narrower = PaperRuns.open_run(:draft, [:designs], true)
-    PaperRuns.finish_run!(narrower)
+    PaperRuns.finish_run!(narrower, [])
     @test is_open()
     rest = PaperRuns.open_run(:draft, [:routes], true)
     write_data(rest, :routes)
     rm(joinpath(rest.directory, "designs.csv"))
-    PaperRuns.finish_run!(rest)
+    PaperRuns.finish_run!(rest, [])
     @test is_open()
     write_data(rest, :designs)
-    PaperRuns.finish_run!(rest)
+    PaperRuns.finish_run!(rest, [])
     @test !is_open()
+end
+
+@testset "a figure that fails to draw keeps the run's data and the other figures" begin
+    @eval PaperRuns runs_directory = mktempdir()  # runs are named by the minute they start
+    drawn = Symbol[]
+    steps = [:designs => () -> touch(PaperRuns.run_file("designs.csv")),
+        :overlap => () -> error("labels of figure overlap: \"a\" overlaps \"b\""),
+        :breakdown => () -> push!(drawn, :breakdown)]
+    failed = redirect_stdout(devnull) do
+        PaperRuns.run_steps(steps, [:overlap, :breakdown]; fidelity=:draft, resume=false)
+    end
+    @test only(failed) == (:overlap => "labels of figure overlap: \"a\" overlaps \"b\"")
+    @test drawn == [:breakdown]
+    @test PaperRuns.is_finished(PaperRuns.paper_run.record)
+    @test_throws "overlap: labels of figure overlap" PaperRuns.check_drawn(failed)
 end
 
 @testset "a step resumed on another Julia records the version it ran on" begin
