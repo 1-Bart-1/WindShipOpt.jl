@@ -174,5 +174,5 @@ function kite_design(names::Symbol...; fidelity, resume=nothing)
     unknown = setdiff(names, first.(all_steps))
     isempty(unknown) || throw(ArgumentError("no kite design step $(join(unknown, ", "))"))
     steps = isempty(names) ? all_steps : filter(step -> first(step) in names, all_steps)
-    run_steps(steps, first.(kite_design_figure_steps); fidelity, resume)
+    check_drawn(run_steps(steps, first.(kite_design_figure_steps); fidelity, resume))
 end

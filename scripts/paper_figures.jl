@@ -1924,11 +1924,13 @@ end
     unit_count_axis(cell, rigs, row_limits)
 
 Axis in `cell` with one column per rig of `rigs`, pairs of index in `rig_names` and name,
-its rows `row_limits` matching the axis beside it.
+named upright in the rig's colour and just wide enough to keep the names apart, its rows
+`row_limits` matching the axis beside it.
 """
 function unit_count_axis(cell, rigs, row_limits)
-    return Axis(cell; width=pt(24length(rigs)), xlabel="number of units",
-        xticks=(eachindex(rigs), last.(rigs)), xticksvisible=false,
+    return Axis(cell; width=length(rigs) * (text_size + tick_gap),
+        xlabel="number of units", xticks=(eachindex(rigs), last.(rigs)),
+        xticksvisible=false, xticklabelrotation=π / 2,
         xticklabelcolor=palette[first.(rigs)],
         yticksvisible=false, yticklabelsvisible=false, yreversed=true,
         limits=((0.5, length(rigs) + 0.5), row_limits))
@@ -1938,9 +1940,9 @@ end
     class_size_figure()
 
 Best area of each rig for every ship class and drive, the geometric mean over the routes
-as a marker and the range over the routes as a bar, with the largest kite searched, and
-beside each panel the median number of units of each rig at its best size, each column
-named in the rig's colour.
+as a marker and the range over the routes as a bar, with the largest kite searched as a
+dashed line named in the legend, and beside each panel the median number of units of each
+rig at its best size, each column named in the rig's colour.
 """
 function class_size_figure()
     table = read_table(data_file("classes.csv"))
@@ -1960,9 +1962,6 @@ function class_size_figure()
             yticks=(eachindex(names), names), yreversed=true,
             yticklabelsvisible=column == 1, limits=((100, area_limit), row_limits))
         vlines!(axis, kite_bound; color=palette[1], linestyle=:dash, linewidth=rule_width)
-        text!(axis, kite_bound, row_limits[1]; text="kite search\nbound",
-            align=(:right, :top), offset=(-pt(2), -pt(1)), fontsize=note_size,
-            color=palette[1])
         rigs = study_rigs(table)
         counts = unit_count_axis(figure[1, 2 * column], rigs, row_limits)
         colgap!(figure.layout, 2 * column - 1, pt(4))
@@ -1978,6 +1977,8 @@ function class_size_figure()
                 fontsize=note_size, align=(:center, :center), color=palette[j])
         end
     end
+    Legend(figure[2, 1:4], [LineElement(color=palette[1], linestyle=:dash,
+            linewidth=rule_width)], ["largest kite searched"]; orientation=:horizontal)
     save_figure("class_sizes", figure)
 end
 
@@ -3014,25 +3015,21 @@ function wind_angle_figure()
         stacked_bar!(time_axis, i + offset, 100 .* hours ./ sum(hours), 0.36, :gray25)
     end
     thrust_axis = Axis(figure[1, 2]; title="(b) mean thrust, all routes",
-        ylabel="thrust [kN]",
+        ylabel="thrust [kN]", yautolimitmargin=(0, 0.05),
         xticks=(eachindex(angle_bands), ["$(round(Int, low))–$(round(Int, high))°\n$name"
                                          for (name, low, high) in angle_bands]))
-    highest = 0.0
     for (slot, (rig, _)) in enumerate(rigs)
         thrust = band_totals(table, rig, "thrust_hours") ./ band_totals(table, rig, "hours")
         barplot!(thrust_axis, eachindex(angle_bands) .+ rig_offset(slot, length(rigs), 0.27),
             thrust; width=rig_bar_width(0.27, length(rigs)), color=rig_colour(rig))
-        highest = max(highest, maximum(thrust))
     end
-    ylims!(thrust_axis, 0, 1.45highest)
     work_axis = Axis(figure[2, 1]; title="(c) share of each rig’s work by band",
         ylabel="share of work [%]", xticks=ticks, xticklabelrotation=π / 6)
     cost_axis = Axis(figure[2, 2]; title="(d) mean thrust per rig cost",
         ylabel="thrust per cost\n[kN per 1000 USD/day]", xticks=ticks,
-        xticklabelrotation=π / 6)
+        xticklabelrotation=π / 6, yautolimitmargin=(0, 0.05))
     fixed = Dict((rig, bound) => rig_fixed_cost(rig, area, bound)
-                 for (rig, area) in rigs for bound in (:value, :low, :high))
-    highest = 0.0
+                 for (rig, area) in reference_rigs for bound in (:value, :low, :high))
     for (i, name) in enumerate(names)
         cost(rig) = first(table["rig_cost"][rows(table, "rig" => rig, "route" => name)])
         spread = mean(cost(rig) / fixed[(rig, :value)]
@@ -3052,18 +3049,17 @@ function wind_angle_figure()
             bounds = thrust ./ per_day.((:high, :low))
             rangebars!(cost_axis, [x], [bounds[1]], [bounds[2]]; color=:black,
                 linewidth=rule_width, whiskerwidth=pt(2.5))
-            highest = max(highest, bounds[2])
         end
     end
-    ylims!(cost_axis, 0, 1.08highest)
     hidexdecorations!(time_axis; ticks=false, ticklabels=false)
-    Legend(figure[3, 1:2], [PolyElement(color=(:gray25, alpha)) for alpha in band_alphas],
+    Legend(figure[3, 1:2], [PolyElement(color=rig_colour(rig)) for (rig, _) in rigs],
+        [square_metres("$(rig_label(rig)) $area ") for (rig, area) in rigs];
+        orientation=:horizontal)
+    Legend(figure[4, 1:2], [PolyElement(color=(:gray25, alpha)) for alpha in band_alphas],
         ["$name $(round(Int, low))–$(round(Int, high))°"
          for (name, low, high) in angle_bands],
         "true wind angle, darkest upwind in each colour";
         orientation=:horizontal, titleposition=:left)
-    axislegend(thrust_axis, [PolyElement(color=rig_colour(rig)) for (rig, _) in rigs],
-        [square_metres("$(rig_label(rig)) $area ") for (rig, area) in rigs]; position=:lt)
     save_figure("wind_angle", figure)
 end
 
@@ -3199,6 +3195,9 @@ function development_panel!(axis, table, ships, levers, rig, column)
     end
 end
 
+"height [figure units] of the row of one input in the sensitivity figure"
+input_row_height = pt(12)
+
 """
     sensitivity_figure()
 
@@ -3220,7 +3219,7 @@ function sensitivity_figure()
         sort!(levers; by=entry -> maximum(ship -> abs(-(bound_changes(table, ship, rig,
             string(entry.input))...)), ships))
     end
-    figure = Figure(size=(page_width, 500))
+    figure = Figure(size=(page_width, page_width))
     columns = [("cost", "change of cost saving [points]", 2),
         ("carbon", rich("change of CO", subscript("2"), " saving [points]"), 5)]
     for (column, (name, label, step)) in enumerate(columns)
@@ -3243,13 +3242,14 @@ function sensitivity_figure()
                 xticks=step * (ceil(low / step):floor(high / step)),
                 limits=((low - margin, high + margin), (0.4, length(levers) + 0.6)))
             development_panel!(axis, table, ships, levers, rig, name)
-            rowsize!(figure.layout, row, Auto(length(levers)))
+            rowsize!(figure.layout, row, Fixed(length(levers) * input_row_height))
         end
     end
     Legend(figure[length(rigs) + 1, 1:2],
         [[PolyElement(color=category_colours[j]) for j in eachindex(ships)];
             [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
         [short_ship.(ships); "high end of range"]; orientation=:horizontal)
+    resize_to_layout!(figure)
     save_figure("sensitivity", figure)
 end
 
