@@ -2173,7 +2173,8 @@ fidelity_parts() = [
               "to 2.4 points",
         effect=corridor_grids()),
     (part="Rig size search", varied="every size",
-        model="from a guess until both neighbours of the best cost more",
+        model="from each doubling of area until both neighbours of each valley's best " *
+              "cost more",
         error="the loss against the best of every size, shown here",
         effect=size_search_grid()),
 ]
