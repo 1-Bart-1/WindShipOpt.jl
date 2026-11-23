@@ -952,20 +952,27 @@ control_unit_cost_per_mass:
   unit: USD/kg
   source: "@faggiani2018 [Tables 16.1 and 16.2]: control unit in series"
   reason: "Cost per kg of the airborne control unit: EUR 3,000 for the 16 kg unit of a 100 m^2 kite in series production [@faggiani2018, Tables 16.1 and 16.2], at 1.16 USD/EUR. The bounds are estimates."
-rigid_tether_cost:
-  value: 51000.0
-  low: 26000.0
-  high: 110000.0
-  unit: USD
+rigid_tether_price:
+  value: 186.0
+  low: 93.0
+  high: 400.0
+  unit: USD/kg
   source: "Authors' estimate: twice the price of rope [@joshi2025, p. 703]"
-  reason: "Electrified tether of MX2, 275 kg [@echeverri2020part1, Part I, Table 2] at USD 186/kg, twice the EUR 80/kg of rope [@joshi2025, p.703], the authors' estimate (93-400)."
+  reason: "Purchase price of the electrified tether, its strength member with the conductors and their insulation, paid to the cable maker without the market price factor: twice the EUR 80/kg of rope bought in series [@joshi2025, p.703], the authors' estimate. Low bound: the rope alone; high bound: the authors' estimate for a short series of a special cable."
+rigid_tether_mass_per_force_length:
+  value: 3.06
+  low: 3.06
+  high: 3.06
+  unit: kg/kN/km
+  source: "@echeverri2020part1 [Part I, Table 2]: MX2's tether"
+  reason: "Mass of the electrified tether per kN of tether force limit and km of length: MX2's 300 m tether of 275 kg, rated for its 300 kN [@echeverri2020part1, Part I, Table 2]. Its conductors make it 1.5 times as heavy as a rope of the soft kite's for that force and length."
 rigid_upkeep_per_area:
-  value: 0.67
-  low: 0.29
-  high: 1.37
+  value: 0.61
+  low: 0.26
+  high: 1.2
   unit: USD/m^2/h
-  source: "@echeverri2020part1 [pp. 108-110]: most a kite may spend, plus tether wear"
-  reason: "All maintenance of the airframe per flight hour, for 54 m^2: USD 33/h, the most a 1 MW kite system may spend on maintenance per hour of operation at a competitive cost of energy, and USD 14/h, a rough estimate from a light aircraft airframe and two car drivetrains [@echeverri2020part1, Part I, pp.108-110]; and the wear of its tether, its price over the 16,000 flight hours of the soft kite's, USD 0.06/m^2/h. The airframe pays no other maintenance."
+  source: "@echeverri2020part1 [pp. 108-110]: most a kite may spend on maintenance"
+  reason: "All maintenance of the airframe per flight hour, for 54 m^2: USD 33/h, the most a 1 MW kite system may spend on maintenance per hour of operation at a competitive cost of energy, and USD 14/h, a rough estimate from a light aircraft airframe and two car drivetrains [@echeverri2020part1, Part I, pp.108-110]. The airframe pays no other maintenance; the tether wears out over its life as the soft kite's does."
 rigid_cycle_loss_probability:
   value: 0.0001
   low: 0.0001

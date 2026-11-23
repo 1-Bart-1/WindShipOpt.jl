@@ -4359,17 +4359,41 @@ end
           factor * (1 + assumptions[:kite_integration_fraction]) * hover_power
 end
 
-@testset "a rigid kite's station is a soft kite's deck system and controls, and its tether" begin
-    one, large = rigid_test_kite(assumptions), rigid_test_kite(assumptions; area=216.0)
-    parts = WindShipOpt.rig_price_parts(one, assumptions)
-    @test parts.deck ≈ WindShipOpt.kite_deck_price(one.area, one.max_force, assumptions)
-    @test parts.controls == assumptions[:kite_controls_cost]
-    @test parts.tether == assumptions[:rigid_tether_cost]
-    @test WindShipOpt.rig_price_parts(large, assumptions).tether ≈ 8parts.tether
-    tether = WindShipOpt.rope_mass(large.tether_diameter, large.tether_length, assumptions)
-    @test 1e3WindShipOpt.rig_costs(large, assumptions)[2] ≈
-          sum(WindShipOpt.kite_deck_masses(large.area, large.max_force, assumptions)) +
-          large.airframe.mass + tether
+@testset "the paper's worked example of the 216 m^2 VTOL kite's price and mass holds" begin
+    kite = rigid_test_kite(assumptions; area=216.0)
+    @test kite.max_force ≈ 1200.96e3
+    @test kite.tether_length ≈ 597.6 rtol = 0.001
+    @test kite.airframe.mass ≈ 10.48e3 rtol = 0.005
+    @test kite.airframe.hover_power ≈ 4.92e6 rtol = 0.005
+    @test WindShipOpt.rigid_airframe_price(kite, assumptions) ≈ 6.21e6 rtol = 0.005
+    parts = WindShipOpt.rig_price_parts(kite, assumptions)
+    @test assumptions[:market_price_factor] * sum(parts) ≈ 2.01e6 rtol = 0.005
+    tether = WindShipOpt.tether_mass(kite, assumptions)
+    @test tether ≈ 2.20e3 rtol = 0.005
+    @test WindShipOpt.consumable_costs(kite, assumptions) ==
+          (0.0, assumptions[:rigid_tether_price] * tether)
+    @test assumptions[:rigid_tether_price] * tether ≈ 4.08e5 rtol = 0.005
+    deck = sum(WindShipOpt.kite_deck_masses(kite.area, kite.max_force, assumptions))
+    @test deck ≈ 30.65e3 rtol = 0.005
+    price, mass = WindShipOpt.rig_costs(kite, assumptions)
+    @test price ≈ 8.64e6 rtol = 0.005
+    @test 1e3mass ≈ deck + kite.airframe.mass + tether
+end
+
+@testset "a VTOL kite's tether is bought with no market factor and worn by its life" begin
+    kite = rigid_test_kite(assumptions)
+    price(inputs) = first(WindShipOpt.rig_costs(kite, inputs))
+    _, tether = WindShipOpt.consumable_costs(kite, assumptions)
+    raised = with_value(assumptions, :rigid_tether_price,
+        assumptions[:rigid_tether_price] + 1.0)
+    @test price(raised) - price(assumptions) ≈ WindShipOpt.tether_mass(kite, assumptions)
+    @test WindShipOpt.wear_cost(kite, assumptions) ≈
+          assumptions[:rigid_upkeep_per_area] * kite.area +
+          tether / assumptions[:tether_lifetime]
+    _, _, annuity = WindShipOpt.rig_costs(kite, assumptions)
+    recovery = WindShipOpt.capital_recovery(assumptions[:discount_rate],
+        assumptions[:kite_lifetime])
+    @test annuity ≈ recovery * (price(assumptions) - tether)
 end
 
 @testset "each launch wears the tether by its bends over drum and sheaves" begin
@@ -4449,12 +4473,13 @@ end
     fleet = rigid_test_kite(assumptions)
     capital = first(WindShipOpt.rig_costs(fleet, assumptions))
     airframes = WindShipOpt.rigid_airframe_price(fleet, assumptions)
+    _, tether = WindShipOpt.consumable_costs(fleet, assumptions)
     @test WindShipOpt.rig_maintenance(fleet, capital, raised(:rig_maintenance_fraction)) -
           WindShipOpt.rig_maintenance(fleet, capital, assumptions) ≈
-          0.01 * (capital - airframes)
+          0.01 * (capital - airframes - tether)
     rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions)
     @test WindShipOpt.upkept_price(WindShipOpt.CombinedRig(fleet, rotors), assumptions) ≈
-          airframes
+          airframes + tether
 end
 
 @testset "sizes swept stay within what fits and bracket the given size" begin
@@ -4593,7 +4618,7 @@ end
 
 @testset "an input prints under its name in words, the rigid kite named only as a prefix" begin
     @test PaperData.input_label(:e_ammonia_price) == "e-ammonia price"
-    @test PaperData.input_label(:rigid_tether_cost) == "rigid kite tether cost"
+    @test PaperData.input_label(:rigid_tether_price) == "rigid kite tether price"
     @test PaperData.input_label(:rotor_max_wind) == "rotor max wind"
     @test PaperData.input_label(:cargo_per_teu) == "cargo per TEU"
     @test PaperData.input_label(:mast_rigid_share) == "mast rigid share"
