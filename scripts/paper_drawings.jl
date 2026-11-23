@@ -603,26 +603,24 @@ end
     ship_classes_figure()
 
 The standard ship classes in deadweight order, side by side to one scale, each with the
-geometric mean over the routes of the best size of each rig on VLSFO, laid out as the
-model lays them out.
+geometric mean over the routes of the best size on VLSFO of each rig the class study holds,
+laid out as the model lays them out.
 """
 function ship_classes_figure()
     table = read_table(data_file("classes.csv"))
     names = class_order(table)
     classes = ship_classes()
     routes_seen = unique(table["route"])
+    kinds = last.(study_rigs(table))
     longest = maximum(classes[name].length for name in names)
     gap = 0.22longest
-    rows = [drawn_class(name, classes[name], table, routes_seen) for name in names]
-    no_data = [all(!isfinite, areas[column] for (_, _, _, _, areas, _) in rows)
-               for column in eachindex(rig_names)]
-    width = length(rig_names) * longest + (length(rig_names) - 1) * gap
+    rows = [drawn_class(name, classes[name], table, routes_seen, kinds) for name in names]
+    width = length(kinds) * longest + (length(kinds) - 1) * gap
     metres_per_unit = 1.45width / page_width
     margin = (pt(2) + line_height(note_size) + 3label_clearance) * metres_per_unit
     tops = cumsum([draw_height(hull, faces, first(areas), rigs) + hull.draft + margin
                    for (_, hull, _, faces, areas, rigs) in rows])
-    note_line = any(no_data) ? line_height(note_size) + pt(1) : 0.0
-    top = 10 + (line_height(text_size) + note_line + 3label_clearance) * metres_per_unit
+    top = 10 + (line_height(text_size) + 3label_clearance) * metres_per_unit
     bottom = -last(tops) - 15
     figure = Figure(size=(page_width, (top - bottom) / metres_per_unit))
     axis = Axis(figure[1, 1]; aspect=DataAspect())
@@ -630,10 +628,9 @@ function ship_classes_figure()
     hidespines!(axis)
     for (row, (name, hull, form, faces, areas, rigs)) in enumerate(rows)
         y = -tops[row] + hull.draft + margin
-        for (column, (kind, area, rig)) in enumerate(zip(rig_names, areas, rigs))
+        for (column, (kind, area, rig)) in enumerate(zip(kinds, areas, rigs))
             offset = ((column - 1) * (longest + gap) + longest / 2, y)
             draw_ship!(axis, faces, offset)
-            no_data[column] && continue
             text!(axis, offset[1] - hull.length / 2, y - hull.draft;
                 text=cell_label(kind, area, rig), align=(:left, :top),
                 offset=(0, -pt(2)), fontsize=note_size, color=:gray40)
@@ -646,11 +643,9 @@ function ship_classes_figure()
         end
         text!(axis, -0.09longest, y; text=name, align=(:right, :center))
     end
-    for (column, title) in enumerate(rig_label.(rig_names))
+    for (column, title) in enumerate(rig_label.(kinds))
         centre = (column - 1) * (longest + gap) + longest / 2
-        text!(axis, centre, 10; text=title, align=(:center, :bottom), offset=(0, note_line))
-        no_data[column] && text!(axis, centre, 10; text="no data yet",
-            align=(:center, :bottom), fontsize=note_size, color=:gray40)
+        text!(axis, centre, 10; text=title, align=(:center, :bottom))
     end
     bar = Point2f(-0.25width, -last(tops) + 10)
     lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
@@ -665,19 +660,19 @@ line_height(size) =
     widths(Makie.text_bb("lg", Makie.to_font(paper_font("regular")), size))[2]
 
 """
-    drawn_class(name, class, table, routes)
+    drawn_class(name, class, table, routes, kinds)
 
 What [`ship_classes_figure`](@ref) draws of ship `class` called `name`: its hull, its lines,
-their faces seen from the side, and the area of each rig of [`mean_best_area`](@ref) over
-`routes` in `table` with the rig the model builds of it.
+their faces seen from the side, and the area of each rig of `kinds` of
+[`mean_best_area`](@ref) over `routes` in `table` with the rig the model builds of it.
 """
-function drawn_class(name, class, table, routes)
-    areas = [mean_best_area(table, name, routes, kind) for kind in rig_names]
+function drawn_class(name, class, table, routes, kinds)
+    areas = [mean_best_area(table, name, routes, kind) for kind in kinds]
     hull = Hull(class, assumptions)
     form = HullForm(hull, assumptions)
     check_drawn_hull(form, hull)
     faces = projected(ship_faces(form, hull, class.type), :side)
-    return (name, hull, form, faces, areas, built_rig.(Ref(class), rig_names, areas))
+    return (name, hull, form, faces, areas, built_rig.(Ref(class), kinds, areas))
 end
 
 """

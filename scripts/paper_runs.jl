@@ -122,15 +122,27 @@ mutable struct PaperRun
     trip_model::String
     "what the step in progress computed and read"
     tally::StepTally
+    "directory of the run read before any other, or nothing"
+    source::Union{Nothing, String}
 end
 
-"""
-    PaperRun(fidelity)
+"the run in `directory` with nothing read before it"
+PaperRun(directory, fidelity, record, only, definitions, trip_model, tally) =
+    PaperRun(directory, fidelity, record, only, definitions, trip_model, tally, nothing)
 
-A run at `fidelity` with no directory, for figure and table steps alone.
 """
-PaperRun(fidelity) = PaperRun(nothing, fidelity, Dict{String, Any}(), nothing,
-    Dict{Symbol, Vector{Any}}(), "", StepTally())
+    PaperRun(fidelity; source=nothing)
+
+A run at `fidelity` with no directory, for figure and table steps alone, reading the run
+named `source` first where one is given.
+"""
+function PaperRun(fidelity; source=nothing)
+    directory = isnothing(source) ? nothing : joinpath(runs_directory, source)
+    record = isnothing(directory) ? Dict{String, Any}() :
+             TOML.parsefile(joinpath(directory, "run.toml"))
+    return PaperRun(nothing, fidelity, record, nothing, Dict{Symbol, Vector{Any}}(), "",
+        StepTally(), directory)
+end
 
 "the run in use, set by `paper`"
 paper_run = nothing
@@ -227,15 +239,15 @@ end
     reading_order()
 
 Directories and records of the runs data are read from, in the order they are looked in:
-the run in use, then the finished runs of its fidelity, this branch's before any other's,
-latest first, then the unfinished ones.
+the run in use or its source, then the finished runs of its fidelity, this branch's before
+any other's, latest first, then the unfinished ones.
 """
 function reading_order()
     branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
     runs = sort(fidelity_runs(paper_run.fidelity);
         by=run -> get(last(run), "git_branch", "") != branch)
-    current = isnothing(paper_run.directory) ? [] :
-              [(paper_run.directory, paper_run.record)]
+    directory = something(paper_run.directory, paper_run.source, missing)
+    current = ismissing(directory) ? [] : [(directory, paper_run.record)]
     return [current; filter(is_finished ∘ last, runs);
             filter(!is_finished ∘ last, runs)]
 end
@@ -299,10 +311,30 @@ and commit it comes from, as the `\\studyrunis` definitions captions read.
 function study_sources(runs)
     open(joinpath(sections, "study_runs.tex"), "w") do io
         for (study, run) in sort(collect(runs); by=first)
-            println(io, "\\studyrunis{", study, "}{run ", run["run"], " at ",
-                run["fidelity"], " fidelity, commit ", first(run["commit"], 7), "}")
+            println(io, "\\studyrunis{", study, "}{",
+                run_words(run["run"], run["fidelity"], run["commit"]), "}")
         end
     end
+end
+
+"""
+    run_words(run, fidelity, commit)
+
+The run `run`, its `fidelity` and the short hash of `commit` as the paper names them.
+"""
+run_words(run, fidelity, commit) =
+    string("run ", run, " at ", fidelity, " fidelity, commit ", first(commit, 7))
+
+"""
+    results_run_words()
+
+[`run_words`](@ref) of the run whose class study the results read.
+"""
+function results_run_words()
+    directory = dirname(resolved_data_file("classes.csv"))
+    record = TOML.parsefile(joinpath(directory, "run.toml"))
+    commit = step_entry(record, "classes")["git_commit"]
+    return run_words(basename(directory), record["fidelity"], commit)
 end
 
 """
@@ -430,6 +462,64 @@ function check_final_commit()
     commit = git_output("rev-parse", "HEAD")
     isempty(git_output("branch", "--remotes", "--contains", commit)) &&
         error("a final run needs a pushed commit; $commit is on no remote branch")
+end
+
+"""
+    run_steps(steps, outputs; fidelity, resume, only=nothing, source=nothing)
+
+Run `steps` at `fidelity` in a new or resumed run as [`paper`](@ref) does, or without a run,
+reading `source` first, when all of them are among the figure and table steps `outputs`. A step of `outputs` that
+fails leaves the steps after it to run; return the name of each such step with its error.
+"""
+function run_steps(steps, outputs; fidelity, resume, only=nothing, source=nothing)
+    haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
+    outputs_only = all(in(outputs), first.(steps))
+    outputs_only || isnothing(source) ||
+        throw(ArgumentError("only figure and table steps read a source run"))
+    global paper_run = outputs_only ? PaperRun(fidelity; source) :
+                       open_run(fidelity, first.(steps), resume; only)
+    failed = Pair{Symbol, String}[]
+    for (name, step) in steps
+        if step_done(paper_run, name)
+            println("step ", name, " already done")
+        elseif name in outputs
+            why = drawing_error(() -> run_step!(paper_run, name, step))
+            isnothing(why) || push!(failed, name => why)
+        else
+            run_step!(paper_run, name, step)
+        end
+    end
+    finish_run!(paper_run, outputs)
+    return failed
+end
+
+"""
+    drawing_error(draw)
+
+Call `draw` and return the message of the error it raises, printed, or nothing; an
+interrupt is raised on.
+"""
+function drawing_error(draw)
+    try
+        draw()
+        return nothing
+    catch exception
+        exception isa InterruptException && rethrow()
+        why = sprint(showerror, exception)
+        println("  failed to draw: ", why)
+        return why
+    end
+end
+
+"""
+    check_drawn(failed)
+
+Raise an error listing each figure and table step of `failed` with why it failed to draw.
+"""
+function check_drawn(failed)
+    isempty(failed) && return
+    error("failed to draw, every other step done:\n",
+        join(("  $name: $why" for (name, why) in failed), "\n"))
 end
 
 """
@@ -583,13 +673,15 @@ function file_times(run)
 end
 
 """
-    finish_run!(run)
+    finish_run!(run, outputs)
 
-Mark `run` finished at the current time in its record, once every step asked of it is done.
+Mark `run` finished at the current time in its record, once every step asked of it but the
+figure and table steps `outputs` is done.
 """
-function finish_run!(run)
+function finish_run!(run, outputs)
     isnothing(run.directory) && return
-    all(name -> step_done(run, name), run.record["requested"]) || return
+    data = filter(name -> Symbol(name) ∉ outputs, run.record["requested"])
+    all(name -> step_done(run, name), data) || return
     run.record["finished"] = string(floor(now(), Second))
     write_record(run)
 end
