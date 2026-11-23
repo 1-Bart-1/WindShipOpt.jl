@@ -121,7 +121,7 @@ end
 """
     cargo_groups(run)
 
-Print, per drive and class sorted by deadweight, the limit the class fills first and for
+Print, per drive and class in [`deck_order`](@ref), the limit the class fills first and for
 each rig its mean saving over the routes, the points its cargo costs, and its saving under
 the other limit; then the saving of wings and rotors at the units offered.
 """
@@ -129,7 +129,7 @@ function cargo_groups(run)
     rows = class_rows(run)
     cheapest = cheapest_rows(rows)
     classes = ship_classes()
-    names = sort(unique(row.class for row in rows); by=name -> classes[name].deadweight)
+    names = sort(unique(row.class for row in rows); by=name -> deck_order(classes[name]))
     for drive in unique(row.drive for row in rows)
         println("== ", drive, ": saving, cargo charge and saving under the other limit [%]")
         for name in names
@@ -161,20 +161,16 @@ end
 """
     recommendation(run)
 
-Print, per drive and group of classes (deadweight-limited, space-limited container ships,
-the Megamax and the car carrier), each rig's mean saving over classes and routes, its CO2
-saving where the fuel emits it and its cost against the same ship on VLSFO without a rig,
-that cost without a rig, and the rig that saves most on each route, counted over the
-classes of the group.
+Print, per drive and [`deck_label`](@ref) group of classes, each rig's mean saving over
+classes and routes, its CO2 saving where the fuel emits it and its cost against the same
+ship on VLSFO without a rig, that cost without a rig, and the rig that saves most on each
+route, counted over the classes of the group.
 """
 function recommendation(run)
     rows = class_rows(run)
     classes = ship_classes()
-    group(name) = classes[name].cargo_unit == :ceu ? "car carrier" :
-                  classes[name].cargo_unit == :teu ?
-                  string("container, ", cargo_limit(classes[name], assumptions)) :
-                  "deadweight"
-    groups = Dict(name => group(name) for name in unique(row.class for row in rows))
+    groups = Dict(name => deck_label(classes[name])
+                  for name in unique(row.class for row in rows))
     bare = Dict((row.class, row.drive, row.route) => row
                 for row in rows if row.rig == "none")
     cheapest = cheapest_rows(rows)

@@ -608,8 +608,8 @@ laid out as the model lays them out.
 """
 function ship_classes_figure()
     table = read_table(data_file("classes.csv"))
-    names = class_order(table)
     classes = ship_classes()
+    names = sort(unique(table["class"]); by=name -> classes[name].deadweight)
     routes_seen = unique(table["route"])
     kinds = last.(study_rigs(table))
     longest = maximum(classes[name].length for name in names)
