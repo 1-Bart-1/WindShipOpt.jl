@@ -1894,9 +1894,9 @@ study.
 """
 development_inputs = [
     (input=:canopy_structure_cost, label="canopy cost", rig="kite",
-        lever="price", reason="Cloth with its seams and sewing, which a maker lowers by " *
-                              "design for making; they set the canopy's share of the " *
-                              "kite's price."),
+        lever="price", reason="Cloth with its seams, sewing and bridle, which a maker " *
+                              "lowers by design for making; they set the canopy's share " *
+                              "of the kite's price."),
     (input=:canopy_life, label="canopy life", rig="kite", lever="life",
         reason="What a flight hour of the canopy costs; unmeasured, so what development " *
                "has to prove."),
@@ -2184,16 +2184,11 @@ end
 """
     canopy_price_at(bound)
 
-[`reference_canopy_price`](@ref) [USD/m^2] with the surveyed structure cost, the chord of the
-surveyed kites, the share of its sewing growing with the cloth and the market price factor at
-their `bound`, `:low` or `:high`.
+[`reference_canopy_price`](@ref) [USD/m^2] with the surveyed structure cost and the market
+price factor at their `bound`, `:low` or `:high`.
 """
-canopy_price_at(bound) = reference_canopy_price(foldl(
-    (:canopy_structure_cost, :canopy_structure_chord, :canopy_sewing_cloth_share,
-        :market_price_factor);
-    init=assumptions) do inputs, name
-    with_value(inputs, name, getproperty(assumptions.entries[name], bound))
-end)
+canopy_price_at(bound) = reference_canopy_price(
+    at_bound(assumptions, (:canopy_structure_cost, :market_price_factor), bound))
 
 """
     canopy_prices()
@@ -3123,11 +3118,10 @@ function speed_size_data()
 end
 
 "the price inputs of the parts and launches of a soft kite"
-kite_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost, :canopy_structure_chord,
-    :canopy_sewing_cloth_share, :canopy_cloth_base_price, :canopy_cloth_price_per_weight,
-    :winch_mass_per_force, :winch_cost_per_mass, :launch_mast_mass_per_size,
-    :launch_mast_cost_per_mass, :control_unit_cost_per_mass, :kite_controls_cost,
-    :kite_integration_fraction, :tether_price, :kite_cycle_course_cost,
+kite_price_inputs = (:canopy_structure_cost, :canopy_cloth_base_price,
+    :canopy_cloth_price_per_weight, :winch_mass_per_force, :winch_cost_per_mass,
+    :launch_mast_mass_per_size, :launch_mast_cost_per_mass, :control_unit_cost_per_mass,
+    :kite_controls_cost, :kite_integration_fraction, :tether_price, :kite_cycle_course_cost,
     :kite_cycle_crew_cost, :market_price_factor)
 
 "the price inputs of each rig, the kite's [`kite_price_inputs`](@ref)"
