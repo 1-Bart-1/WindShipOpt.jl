@@ -3229,7 +3229,7 @@ rig_price_inputs = Dict("kite" => kite_price_inputs,
     "suction" => (:wing_unit_cost, :suction_cost_per_mass, :suction_mass_per_area,
         :wing_installation_fraction, :welded_steel_cost_per_mass, :camera_system_cost,
         :market_price_factor),
-    "vtol" => (:rigid_mass, :rigid_cost_per_mass, :rigid_avionics_cost, :rigid_tether_cost,
+    "vtol" => (:rigid_mass, :rigid_cost_per_mass, :rigid_avionics_cost, :rigid_tether_price,
         :rigid_ship_power_cost, :winch_cost_per_mass, :welded_steel_cost_per_mass,
         :kite_controls_cost, :kite_integration_fraction, :market_price_factor))
 

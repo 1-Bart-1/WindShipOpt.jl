@@ -615,11 +615,21 @@ end
 Mass [kg] of a kite `rig` on the ship: its deck system, the kite with its control unit or
 airframe, and its tether.
 """
-function kite_rig_mass(rig::KiteRig, assumptions)
-    tether = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
-    return sum(kite_deck_masses(rig.area, rig.max_force, assumptions)) +
-           kite_mass(rig, assumptions) + tether
-end
+kite_rig_mass(rig::KiteRig, assumptions) =
+    sum(kite_deck_masses(rig.area, rig.max_force, assumptions)) +
+    kite_mass(rig, assumptions) + tether_mass(rig, assumptions)
+
+"""
+    tether_mass(rig, assumptions)
+
+Mass [kg] of the tether of a kite `rig`: rope of its diameter and length, or for VTOL kites
+an electrified tether at its mass per force limit and length.
+"""
+tether_mass(rig::KiteRig, assumptions) =
+    rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
+tether_mass(rig::KiteRig{RigidAirframe}, assumptions) =
+    assumptions[:rigid_tether_mass_per_force_length] * rig.max_force * rig.tether_length /
+    1e6
 
 "mass [kg] of the kite of `rig` without its tether"
 kite_mass(rig::KiteRig, assumptions) =
@@ -649,10 +659,12 @@ function kite_deck_price(area, max_force, assumptions)
 end
 
 function rig_costs(rig::KiteRig{RigidAirframe}, assumptions)
-    capital = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions)) +
-              rigid_airframe_price(rig, assumptions)
-    recovery = capital_recovery(assumptions[:discount_rate], assumptions[:kite_lifetime])
-    return capital, 1e-3kite_rig_mass(rig, assumptions), recovery * capital
+    _, tether = consumable_costs(rig, assumptions)
+    hardware = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions)) +
+               rigid_airframe_price(rig, assumptions)
+    annuity = capital_recovery(assumptions[:discount_rate], assumptions[:kite_lifetime]) *
+              hardware
+    return hardware + tether, 1e-3kite_rig_mass(rig, assumptions), annuity
 end
 
 """
@@ -661,8 +673,8 @@ end
 Manufacturing cost [USD] of each part of the hardware of `rig`: the units, their surface,
 the installation, the supports of raised units and the camera systems of wings or rotors;
 the deck system, control unit, ship-side controls and integration of a kite, without its
-canopy and tether; the deck system, tether, supply for the hover, ship-side controls and
-integration of VTOL kites, without their airframes.
+canopy and tether; the deck system, supply for the hover, ship-side controls and
+integration of VTOL kites, without their airframes and tethers.
 """
 rig_price_parts(::Nothing, assumptions) = (;)
 
@@ -734,7 +746,6 @@ end
 
 function rig_price_parts(rig::KiteRig{RigidAirframe}, assumptions)
     parts = (deck=kite_deck_price(rig.area, rig.max_force, assumptions),
-        tether=rigid_tether_cost(rig.area, assumptions),
         ship_power=assumptions[:rigid_ship_power_cost] * rig.airframe.hover_power,
         controls=assumptions[:kite_controls_cost])
     return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
@@ -757,13 +768,15 @@ canopy_price_inputs = (:canopy_structure_cost, :canopy_cloth_base_price,
     consumable_costs(rig, assumptions)
 
 Price of one canopy and one tether [USD]: the canopy at its [`canopy_price`](@ref), the
-tether at its purchase price; none for VTOL kites, whose tethers are in their station.
+tether at its purchase price per kg; no canopy for VTOL kites.
 """
 function consumable_costs(rig::KiteRig, assumptions)
-    tether_mass = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
     canopy = canopy_price(assumptions, rig.area, rig.aspect_ratio) * rig.area
-    return canopy, assumptions[:tether_price] * tether_mass
+    return canopy, assumptions[:tether_price] * tether_mass(rig, assumptions)
 end
+
+consumable_costs(rig::KiteRig{RigidAirframe}, assumptions) =
+    (0.0, assumptions[:rigid_tether_price] * tether_mass(rig, assumptions))
 
 """
     worn_part_price(rig, assumptions)
@@ -793,7 +806,7 @@ Price [USD] of the parts of `rig` that wear or upkeep per flight hour pays for.
 upkept_price(rig, assumptions) = worn_part_price(rig, assumptions)
 upkept_price(rig::CombinedRig, assumptions) = upkept_price(rig.kite, assumptions)
 upkept_price(rig::KiteRig{RigidAirframe}, assumptions) =
-    rigid_airframe_price(rig, assumptions)
+    rigid_airframe_price(rig, assumptions) + worn_part_price(rig, assumptions)
 
 """
     wear_cost(rig, assumptions)
@@ -859,19 +872,9 @@ rigid_airframe_price(rig::KiteRig{RigidAirframe}, assumptions) =
     assumptions[:market_price_factor] * (assumptions[:rigid_cost_per_mass] *
      rig.airframe.mass + assumptions[:rigid_avionics_cost])
 
-"""
-    rigid_tether_cost(area, assumptions)
-
-Manufacturing cost [USD] of the electrified tether of a rigid VTOL kite of `area` [m^2]:
-that of MX2, grown with the force it holds times its length.
-"""
-rigid_tether_cost(area, assumptions) = assumptions[:rigid_tether_cost] *
-    (area / assumptions[:rigid_reference_area])^1.5
-
-consumable_costs(::KiteRig{RigidAirframe}, assumptions) = (0.0, 0.0)
-
 wear_cost(rig::KiteRig{RigidAirframe}, assumptions) =
-    assumptions[:rigid_upkeep_per_area] * rig.area
+    assumptions[:rigid_upkeep_per_area] * rig.area +
+    last(consumable_costs(rig, assumptions)) / assumptions[:tether_lifetime]
 
 """
     cycle_cost(rig::KiteRig{RigidAirframe}, assumptions)
@@ -881,13 +884,13 @@ loss of a kite.
 """
 cycle_cost(rig::KiteRig{RigidAirframe}, assumptions) =
     assumptions[:kite_cycle_crew_cost] +
-    assumptions[:rigid_cycle_loss_probability] * lost_kite_cost(rig, assumptions)
+    assumptions[:rigid_cycle_loss_probability] * crash_cost(rig, assumptions)
 
 """
     lost_kite_cost(rig, assumptions)
 
-Cost of the kite of `rig` lost in the water with its tether and, on a soft kite, its
-control unit, at market prices [USD].
+Cost of the soft kite of `rig` lost in the water with its canopy, tether and control unit,
+at market prices [USD].
 """
 function lost_kite_cost(rig::KiteRig, assumptions)
     canopy, tether = consumable_costs(rig, assumptions)
@@ -895,18 +898,17 @@ function lost_kite_cost(rig::KiteRig, assumptions)
     return canopy + tether + assumptions[:market_price_factor] * control_unit
 end
 
-lost_kite_cost(rig::KiteRig{RigidAirframe}, assumptions) =
-    rigid_airframe_price(rig, assumptions)
-
 """
     crash_cost(rig, assumptions)
 
-Cost [USD] of one kite, wing or rotor lost, beyond the wear already charged:
-a kite's control unit or airframe and half of its canopy and tether, on average halfway
-through their life when lost, or the price of one wing or rotor with its installation.
+Cost [USD] of one kite, wing or rotor lost, beyond the wear already charged: a soft kite's
+control unit and half of its canopy and tether, on average halfway through their life when
+lost, a VTOL kite's airframe, or the price of one wing or rotor with its installation.
 """
 crash_cost(rig::KiteRig, assumptions) =
     lost_kite_cost(rig, assumptions) - sum(consumable_costs(rig, assumptions)) / 2
+crash_cost(rig::KiteRig{RigidAirframe}, assumptions) =
+    rigid_airframe_price(rig, assumptions)
 
 crash_cost(rig::Union{WingRig, RotorRig}, assumptions) =
     first(rig_costs(rig, assumptions)) / deck_units(rig)
