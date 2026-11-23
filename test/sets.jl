@@ -366,6 +366,13 @@ end
     @test 0 < power < 0.5
 end
 
+# Han et al. (2025, Table 1): CFD of a rotor of aspect ratio 6 with an end disc gives 7.70.
+@testset "a rotor lifts as CFD of its shape gives at spin ratio 2.5" begin
+    rotors = WindShipOpt.RotorRig(800.0, Hull(140.0, assumptions), assumptions)
+    lift, _, _ = WindShipOpt.rotor_coefficients(2.5)
+    @test rotors.lift_factor * lift ≈ 7.70 rtol = 0.01
+end
+
 """
     uniform_kite(hull, assumptions)
 
@@ -789,7 +796,7 @@ suction_sail(area, inputs=assumptions) = WingRig(area, Hull(140.0, assumptions),
     @test pair.height ≈ sqrt(32.0 * 6.6)
     lift = pair.max_lift_coefficient
     @test lift == 4.9
-    @test WindShipOpt.drag_coefficient(pair, lift) ≈ 2.4
+    @test WindShipOpt.drag_coefficient(pair, lift) ≈ 0.84
     @test WindShipOpt.drag_coefficient(pair, 0.0) ==
           assumptions[:wing_profile_drag_coefficient]
     attached = (lift, WindShipOpt.drag_coefficient(pair, lift))
@@ -853,15 +860,15 @@ end
     env = Environment(assumptions)
     rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions; in_column=2)
     beam = rig_force(rotors, env, 10.0, π / 2, 5.4, 3.0)
-    @test beam.thrust ≈ 243775 rtol = 1e-3
-    @test beam.side ≈ 227311 rtol = 1e-3
+    @test beam.thrust ≈ 232396 rtol = 1e-3
+    @test beam.side ≈ 221389 rtol = 1e-3
     @test beam.power ≈ 118305 rtol = 1e-3
     close_hauled = rig_force(rotors, env, 10.0, π / 4, 5.4, 3.0)
-    @test close_hauled.thrust ≈ 131591 rtol = 1e-3
-    @test close_hauled.side ≈ 510601 rtol = 1e-3
+    @test close_hauled.thrust ≈ 121487 rtol = 1e-3
+    @test close_hauled.side ≈ 492992 rtol = 1e-3
     broad = rig_force(rotors, env, 10.0, 5π / 6, 5.4, 3.0)
-    @test broad.thrust ≈ 91931 rtol = 1e-3
-    @test broad.side ≈ -32685 rtol = 1e-3
+    @test broad.thrust ≈ 88849 rtol = 1e-3
+    @test broad.side ≈ -30519 rtol = 1e-3
     @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.UNREACHABLE_RIG_FORCE
 end
 
