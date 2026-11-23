@@ -317,6 +317,33 @@ end
     end
 end
 
+@testset "the part-load law burns 1 to 7 % more than MAN L21/31 curves at half to 85 % load" begin
+    # Specific fuel at 100, 85, 75, 50 and 25 % load [g/kWh], MAN L21/31, p. 137, Tables 1-4.
+    curves = ([192.1, 188.9, 188.8, 192.5, 206.2], [197.1, 194.6, 195.2, 201.7, 223.0],
+        [189.1, 185.4, 182.6, 186.5, 202.0], [192.7, 189.5, 187.1, 193.0, 214.0],
+        [193.1, 190.9, 191.7, 195.5, 215.3], [198.1, 196.6, 198.2, 204.8, 232.9],
+        [199.9, 197.6, 196.7, 198.2, 214.9])
+    loads = [1.0, 0.85, 0.75, 0.5, 0.25]
+    engine = WindShipOpt.Powertrain(; installed_power=1e6, unit_count=1,
+        peak_efficiency=0.44, part_load_penalty=assumptions[:part_load_penalty],
+        transmission_efficiency=1.0, hotel_load=0.0)
+    model = [1 / WindShipOpt.unit_efficiency(engine, load) for load in loads]
+    gaps = [100 * (model ./ model[1]) ./ (curve ./ curve[1]) .- 100 for curve in curves]
+    middle = [gap[load] for gap in gaps for load in 2:4]
+    @test 1 < minimum(middle) && maximum(middle) < 7
+    @test all(gap -> -4.5 < gap[5] < 6, gaps)
+end
+
+@testset "a soft kite weighs within 5 % of the two SkySails kites" begin
+    # Projected area [m^2] and mass with lines [kg], data/kite_masses.csv.
+    for (area, built) in ((176.0, 120.0), (312.5, 250.0))
+        max_force = 1e3assumptions[:kite_max_force_per_area] * area
+        mass = WindShipOpt.soft_kite_mass(area, assumptions[:kite_aspect_ratio], max_force,
+            assumptions)
+        @test abs(mass / built - 1) < 0.05
+    end
+end
+
 @testset "hulls fuller than Holtrop's range use the formulas at its limit" begin
     env = Environment(assumptions)
     classes = ship_classes()
@@ -768,7 +795,7 @@ end
     @test WindShipOpt.wear_cost(rig, shorter) - flown ≈ canopy / assumptions[:canopy_life]
 end
 
-# Expected forces are the hand calculation of tab:hand in paper/sections/trust.tex.
+# Expected forces are a hand calculation worked independently of the code.
 @testset "wing force follows true wind, shear and ship speed as worked by hand" begin
     env = Environment(assumptions)
     wings = WingRig(800.0, Hull(140.0, assumptions), assumptions)
@@ -855,7 +882,7 @@ end
         in_column=most(assumptions) + 1))
 end
 
-# Expected forces are the hand calculation of tab:hand in paper/sections/trust.tex.
+# Expected forces are a hand calculation worked independently of the code.
 @testset "rotor force and spin power follow the apparent wind as worked by hand" begin
     env = Environment(assumptions)
     rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions; in_column=2)
@@ -872,7 +899,7 @@ end
     @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.UNREACHABLE_RIG_FORCE
 end
 
-# Expected forces are the hand calculation of tab:hand in paper/sections/trust.tex.
+# Expected forces are a hand calculation worked independently of the code.
 @testset "kite force turns from the wind's frame onto the course as worked by hand" begin
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
@@ -1391,38 +1418,40 @@ end
                   assumptions[:welded_steel_cost_per_mass]
 end
 
-# By hand, two pairs of 30 x 5 m rotors on the Megamax: 1885 Pa peak, arm 25.91 + 2.5 + 15
-# m; wind 1.7 * 1885 * 150 * 43.41 = 20.87 MNm on 1.5 * (0.5 + 5) = 8.25 m^2, inertia
-# 1.3 * 69 t * 3 * 43.41 = 11.68 MNm on 5 * (5/3 + 1.5) = 15.83 m^2: 3.267 MN/m, a 12.19 mm
-# wall at 268 MPa, which buckles between stiffeners 0.76 m apart below
-# cbrt(3.267e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 13.63 mm; 1.2 * 7850 * 2 * 6.5 * 0.01363 *
-# 28.41 = 47.4 t. One pair of 60 x 10 m rotors, 361.4 t each, at 0.3 Hz: compliance
-# 28.41^3 / 3 + 30 * 28.41^2 + 30^2 * 28.41 = 57427 m^3, section 1.5^2 * (5 + 0.25) =
-# 11.81 m^2 per m of wall, (0.6 pi)^2 * 57427 * 361.4e3 / (206e9 * 11.81 - (0.6 pi)^2 *
-# 57427 * 0.24 * 216660 * 28.41) = 34.6 mm, thicker than the 33.0 mm strength asks.
+# By hand, two pairs of 30 x 5 m rotors on the Megamax: at the 20 m/s they stop in, spin
+# ratio 47 / 20 = 2.35, lift 0.96 * 7.468 and drag 1.855 give a peak of 0.5 * 1.225 * 20^2 *
+# hypot(7.169, 1.855) = 1814 Pa; arm 25.91 + 2.5 + 15 m; wind 1.7 * 1814 * 150 * 43.41 =
+# 20.08 MNm on 1.5 * (0.5 + 5) = 8.25 m^2, inertia 1.3 * 69 t * 3 * 43.41 = 11.68 MNm on
+# 5 * (5/3 + 1.5) = 15.83 m^2: 3.172 MN/m, an 11.84 mm wall at 268 MPa, which buckles
+# between stiffeners 0.76 m apart below cbrt(3.172e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) =
+# 13.50 mm; 1.2 * 7850 * 2 * 6.5 * 0.01350 * 28.41 = 46.97 t. One pair of 60 x 10 m rotors,
+# 361.4 t each, at 0.3 Hz: compliance 28.41^3 / 3 + 30 * 28.41^2 + 30^2 * 28.41 = 57427 m^3,
+# section 1.5^2 * (5 + 0.25) = 11.81 m^2 per m of wall, (0.6 pi)^2 * 57427 * 361.4e3 /
+# (206e9 * 11.81 - (0.6 pi)^2 * 57427 * 0.24 * 216660 * 28.41) = 34.6 mm, thicker than the
+# 32.0 mm strength asks.
 @testset "a rotor pedestal's wall carries its factored moments without buckling and \
           keeps the rotor's sway above the ship's motions" begin
     hull = Hull(ship_classes()["Megamax container ship"], assumptions)
     rotors = WindShipOpt.RotorRig(600.0, hull, assumptions; columns=2, in_column=2)
     @test rotors.height ≈ 30 && rotors.diameter ≈ 5
     peak = WindShipOpt.rotor_peak_pressure(rotors, assumptions[:air_density])
-    @test peak ≈ 1885 rtol = 1e-3
-    @test WindShipOpt.pedestal_wall(rotors, assumptions) ≈ 13.63e-3 rtol = 2e-3
-    @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 47.4 rtol = 2e-3
+    @test peak ≈ 1814 rtol = 1e-3
+    @test WindShipOpt.pedestal_wall(rotors, assumptions) ≈ 13.50e-3 rtol = 2e-3
+    @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 46.97 rtol = 2e-3
     tall = WindShipOpt.RotorRig(1200.0, hull, assumptions; columns=2, in_column=1)
     @test tall.height ≈ 60 && tall.diameter ≈ 10
     @test WindShipOpt.pedestal_wall(tall, assumptions) ≈ 34.6e-3 rtol = 2e-3
 end
 
 # By hand, the frame under each of the same 30 x 5 m rotors: legs 28.41 m tall and 13.69 m
-# apart, arm 15 m; factored wind 1.7 * 1885 * 150 = 480.8 kN, roll 1.3 * 69 t * 3 = 269.1 kN,
-# weight 1.3 * 69 t * 9.81 = 880.0 kN. Legs, wind across: (480.8 + 269.1) kN * 43.41 / 2 /
-# 15.83 = 1.028 MN/m, above the 0.900 MN/m of wind along; it buckles below
-# cbrt(1.028e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 9.27 mm. Beam, wind along: 880.0 kN *
-# 13.69 / 4 + 480.8 kN * 15 / 2 = 6.62 MNm on 8.25 m^2, roll 269.1 kN * 13.69 / 4 on 15.83
-# m^2 and its torsion 269.1 kN * 15 / 2 on 2 * 1.5 * 5 m^2: 0.891 MN/m, 8.84 mm; 1.2 * 7850 *
-# 13 * (2 * 9.27e-3 * 28.41 + 8.84e-3 * 13.69) = 79.3 t. Its beam spans two of the
-# Megamax's 2.5 m rows over the bay, through ten tiers of two TEU: 40 slots a rotor.
+# apart, arm 15 m; factored wind 1.7 * 1814 * 150 = 462.7 kN, roll 1.3 * 69 t * 3 =
+# 269.1 kN, weight 1.3 * 69 t * 9.81 = 880.0 kN. Legs, wind across: (462.7 + 269.1) kN *
+# 43.41 / 2 / 15.83 = 1.003 MN/m, above the 0.880 MN/m of wind along; it buckles below
+# cbrt(1.003e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 9.20 mm. Beam, wind along: 880.0 kN *
+# 13.69 / 4 + 462.7 kN * 15 / 2 = 6.48 MNm on 8.25 m^2, roll 269.1 kN * 13.69 / 4 on
+# 15.83 m^2 and its torsion 269.1 kN * 15 / 2 on 2 * 1.5 * 5 m^2: 0.875 MN/m, 8.79 mm;
+# 1.2 * 7850 * 13 * (2 * 9.20e-3 * 28.41 + 8.79e-3 * 13.69) = 78.75 t. Its beam spans two
+# of the Megamax's 2.5 m rows over the bay, through ten tiers of two TEU: 40 slots a rotor.
 @testset "a frame carries a raised rotor over a bay and takes the slots below its beam" begin
     class = ship_classes()["Megamax container ship"]
     hull = Hull(class, assumptions)
@@ -1430,9 +1459,9 @@ end
     @test rotors.pedestal == :column
     frame = WindShipOpt.with_pedestal(rotors, :frame)
     walls = WindShipOpt.frame_walls(frame, assumptions)
-    @test walls.leg ≈ 9.27e-3 rtol = 2e-3
-    @test walls.beam ≈ 8.84e-3 rtol = 2e-3
-    @test WindShipOpt.pedestal_mass(frame, assumptions) ≈ 79.3 rtol = 2e-3
+    @test walls.leg ≈ 9.20e-3 rtol = 2e-3
+    @test walls.beam ≈ 8.79e-3 rtol = 2e-3
+    @test WindShipOpt.pedestal_mass(frame, assumptions) ≈ 78.75 rtol = 2e-3
     @test WindShipOpt.blocked_slots(frame, class, assumptions) == 4 * 40
     @test WindShipOpt.blocked_slots(rotors, class, assumptions) == 0
     bare = Ship(ShipDesign(:ammonia, class), assumptions)
@@ -3613,6 +3642,23 @@ end
     @test PaperRuns.data_file("study.csv") == other
 end
 
+@testset "figure and table steps read their source run before a finished one" begin
+    function run_with(name, finished)
+        directory = joinpath(PaperRuns.runs_directory, name)
+        mkpath(directory)
+        touch(joinpath(directory, "data.csv"))
+        record = Dict("fidelity" => "final", "finished" => finished, "git_branch" => "other")
+        open(io -> PaperRuns.TOML.print(io, record), joinpath(directory, "run.toml"), "w")
+        return joinpath(directory, "data.csv")
+    end
+    unfinished = run_with("2026-02-01T0000", "")
+    finished = run_with("2026-01-01T0000", "done")
+    PaperRuns.paper_run = PaperRuns.PaperRun(:final)
+    @test PaperRuns.data_file("data.csv") == finished
+    PaperRuns.paper_run = PaperRuns.PaperRun(:final; source="2026-02-01T0000")
+    @test PaperRuns.data_file("data.csv") == unfinished
+end
+
 """
     store_run(fidelity, trip_model; commit="a", only=nothing)
 
@@ -5189,6 +5235,16 @@ end
     bands = PaperData.fleet_band.(cells)
     @test count(==("rotors"), bands) == count(==("level"), bands) == 1
     @test count(==("none"), bands) == length(bands) - 2
+end
+
+@testset "a run of three rigs leads and sums over those three alone" begin
+    (; table, class, drive) = market_class_table()
+    held = findall(in(("none", "kite", "wings", "rotors")), table["rig"])
+    three = Dict{String, Vector}(name => column[held] for (name, column) in table)
+    cells = PaperData.fleet_cells(three, drive)
+    @test all(Set(keys(cell.savings)) == Set(("kite", "wings", "rotors")) for cell in cells)
+    lead = PaperData.rig_lead(filter(cell -> cell.class == class, cells))
+    @test (lead.rig, lead.rival, lead.verdict) == ("rotors", "wings", "leads")
 end
 
 @testset "a ship type's saving per ship is what each rig saves it, over its ships" begin
