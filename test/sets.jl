@@ -1585,12 +1585,24 @@ end
     hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(bare, assumptions),
         assumptions)
     passages = [WindShipOpt.service_passages(ship, outbound, inbound, SyntheticWeather(),
-                    [24.0 * 31, 24.0 * 200], assumptions, hourly,
-                    24assumptions[:port_time_per_call], Inf, nothing, nothing)
+                    [24.0 * 31, 24.0 * 200], assumptions, hourly, Inf, nothing, nothing)
                 for ship in (bare, WindShipOpt.with_rig(kite, down))]
     @test first(passages) == last(passages)
     kite_hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(kite, changed), changed)
     @test all(kite_hourly .> hourly)
+end
+
+@testset "the return leg leaves at its scheduled time whatever the outbound takes" begin
+    design = ShipDesign(:methanol, 85.0; kite_area=400.0)
+    routing = shared_route_table(design)
+    outbound, inbound = corridors
+    turnaround = WindShipOpt.turnaround_hours(routing.table.ship, outbound, assumptions)
+    trip(out_cost) = WindShipOpt.route_round_trip(routing, outbound, inbound,
+        SyntheticWeather(), 24.0 * 31, turnaround, (out_cost, 300.0), Inf, nothing)
+    (slow_out, slow_back), (fast_out, fast_back) = trip(30.0), trip(3000.0)
+    @test fast_out.duration < slow_out.duration
+    @test fast_back.duration == slow_back.duration
+    @test fast_back.fuel_energy == slow_back.fuel_energy
 end
 
 @testset "departure costs with the year's ship average to the round trip's cost" begin
@@ -5066,7 +5078,8 @@ end
     weather = SyntheticWeather()
     departure = 24.0 * 31
     out = route(outbound, routing, weather, departure; time_cost=300.0)
-    back_departure = departure + out.duration + 24.0
+    back_departure = departure +
+                     WindShipOpt.turnaround_hours(routing.table.ship, outbound, assumptions)
     back = route(inbound, routing, weather, back_departure; time_cost=300.0)
     trip = (; out, back, departure, back_departure,
         out_trace=LegTrace(routing.table, out, weather, departure),

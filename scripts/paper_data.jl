@@ -556,14 +556,14 @@ end
     out_and_back(route_table, name, departure, hourly)
 
 The legs `out` and `back` routed on the true weather on route `name` from `departure` [h]
-and after the port call, at time costs `hourly` [USD/h] out and back, and the time
+and after the [`turnaround`](@ref), at time costs `hourly` [USD/h] out and back, and the time
 `back_departure` [h] the return leaves; `nothing` if either leg fails.
 """
 function out_and_back(route_table, name, departure, hourly)
     out_corridor, back_corridor = run_corridors(name)
     out = route(out_corridor, route_table, weather, departure; time_cost=first(hourly))
     isnothing(out) && return nothing
-    back_departure = departure + out.duration + port_hours()
+    back_departure = departure + turnaround(route_table, out_corridor)
     back = route(back_corridor, route_table, weather, back_departure;
         time_cost=last(hourly))
     isnothing(back) && return nothing
@@ -1723,6 +1723,10 @@ end
 "hours a ship spends per port call [h]"
 port_hours() = 24assumptions[:port_time_per_call]
 
+"[`turnaround_hours`](@ref) [h] of the ship of `route_table` through `outbound`"
+turnaround(route_table, outbound) =
+    WindShipOpt.turnaround_hours(route_table.table.ship, outbound, assumptions)
+
 "columns of forecast_error.csv after the lead, in the order `add_forecast_errors!` adds"
 forecast_error_columns = Tuple("$(quantity)_$kind" for quantity in ("wind", "height")
                                for kind in ("forecast", "blend", "climate", "weight"))
@@ -2618,11 +2622,13 @@ The legs `out` and `back` [`route_round_trip`](@ref) finds on route `name` from 
 [`LegTrace`](@ref) of each leg; `nothing` if either leg fails.
 """
 function traced_round_trip(table, route_table, name, departure, hourly)
-    trip = WindShipOpt.route_round_trip(route_table, run_corridors(name)..., weather,
-        departure, port_hours(), hourly, Inf, nothing)
+    outbound, inbound = run_corridors(name)
+    hours = turnaround(route_table, outbound)
+    trip = WindShipOpt.route_round_trip(route_table, outbound, inbound, weather, departure,
+        hours, hourly, Inf, nothing)
     isnothing(trip) && return nothing
     out, back = trip
-    back_departure = departure + out.duration + port_hours()
+    back_departure = departure + hours
     return (; out, back, back_departure, out_trace=LegTrace(table, out, weather, departure),
         back_trace=LegTrace(table, back, weather, back_departure))
 end
@@ -2844,7 +2850,8 @@ function speed_term_sums(table, name, hourly, durations)
         schedule = isnothing(durations) ? (Inf, Inf) :
                    (durations[2k - 1], durations[2k])
         pair = WindShipOpt.route_round_trip(table, corridors_of_route..., weather,
-            departure, port_hours(), hourly, Inf, nothing; schedule)
+            departure, turnaround(table, first(corridors_of_route)), hourly, Inf, nothing;
+            schedule)
         isnothing(pair) && return nothing
         append!(legs, pair)
     end
@@ -3262,14 +3269,14 @@ Each leg of the round trip of `case` from `departure`, planned as in the results
 for the ship without a rig, for the rig, and for the rig held to the path planned without
 it; for a kite also its free-launch plan charged for each launch it makes, and the plan of
 [`stateless_table`](@ref) as reported and with the real kite held to its path. Every
-variant of a leg starts when the rig's searched plan of the leg before arrives in port.
-Stops at a leg the planner cannot sail.
+variant of the return leaves after the [`turnaround`](@ref). Stops at a leg the planner
+cannot sail.
 """
 function router_decision_passages(case, departure)
     rows = NamedTuple[]
-    start = departure
     kite = case.rig == "kite"
-    for (leg, corridor, time_cost) in zip(("out", "back"), case.corridors, case.hourly)
+    for (leg, corridor, time_cost, start) in zip(("out", "back"), case.corridors,
+        case.hourly, (departure, departure + turnaround(case.table, first(case.corridors))))
         searched = leg_plan(case.table, corridor, start, time_cost)
         without = leg_plan(case.bare, corridor, start, time_cost)
         (isnothing(searched) || isnothing(without)) && break
@@ -3287,7 +3294,6 @@ function router_decision_passages(case, departure)
                 time_cost),
             searched_launches=searched.launches,
             free_launches=isnothing(free) ? -1 : free.launches))
-        start += searched.duration + 24assumptions[:port_time_per_call]
     end
     return rows
 end
