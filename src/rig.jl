@@ -1004,6 +1004,11 @@ standing_rig(rig::Union{WingRig, RotorRig}) = rig
 standing_rig(rig::CombinedRig) = rig.standing
 standing_rig(::Union{KiteRig, Nothing}) = nothing
 
+"the kite of `rig`: a kite itself, the kite of a [`CombinedRig`](@ref), else `nothing`"
+kite_rig(rig) = nothing
+kite_rig(rig::KiteRig) = rig
+kite_rig(rig::CombinedRig) = rig.kite
+
 """
     DownRig
 

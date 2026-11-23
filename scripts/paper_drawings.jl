@@ -550,35 +550,53 @@ end
     side_kite(area, hull)
 
 Heights [m] above the waterline and span [m] of the side view of a kite of projected
-`area` [m^2] at the design aspect ratio on `hull`: its deck, launch mast top, the sag of the
-canopy's arc and the canopy's top, drawn just above the mast.
+`area` [m^2] at the design aspect ratio on `hull`: its deck, launch mast top, the foot of
+its control unit, drawn just above the mast, and the top of its canopy.
 """
 function side_kite(area, hull)
     span = sqrt(area * design_aspect_ratio)
     deck = assumptions[:deck_mount_height] * hull.length / assumptions[:reference_length]
     mast_top = deck + WindShipOpt.launch_mast_height(area, assumptions)
-    sag = 0.15span
-    return (; span, deck, mast_top, sag, top=mast_top + 20 + sag)
+    foot = mast_top + 20
+    return (; span, deck, mast_top, foot, top=foot + last(kite_extent) * span)
 end
 
 """
     draw_side_kite!(axis, area, hull, offset)
 
 Side view of the kite of [`side_kite`](@ref) towed by `hull` shifted by `offset` [m]: its
-launch mast at the towing point and the canopy, to scale across its span, on a tether not
+launch mast at the towing point and the kite seen from ahead, to scale, on a tether not
 drawn to length.
 """
 function draw_side_kite!(axis, area, hull, offset)
-    (; span, deck, mast_top, sag, top) = side_kite(area, hull)
-    foot = Point2f(offset) +
-           Point2f(WindShipOpt.launch_mast_position(hull, assumptions), deck)
-    mast = foot + Point2f(0, mast_top - deck)
-    lines!(axis, [foot, mast]; color=:black, linewidth=1)
-    centre = Point2f(foot[1], offset[2] + top)
-    arc = [centre + Point2f(span / 2 * sin(t), sag * cos(t) - sag)
-           for t in range(-π / 2, π / 2; length=24)]
-    lines!(axis, arc; color=palette[1], linewidth=2)
-    lines!(axis, [mast, centre]; color=:gray50, linewidth=0.6, linestyle=:dash)
+    (; span, deck, mast_top, foot) = side_kite(area, hull)
+    mast_foot = Point2f(offset) +
+                Point2f(WindShipOpt.launch_mast_position(hull, assumptions), deck)
+    mast = mast_foot + Point2f(0, mast_top - deck)
+    lines!(axis, [mast_foot, mast]; color=:black, linewidth=1)
+    kite_foot = Point2f(mast_foot[1], offset[2] + foot)
+    lines!(axis, [mast, kite_foot]; color=:gray50, linewidth=0.6, linestyle=:dash)
+    draw_kite!(axis, kite_foot, span)
+end
+
+"""
+    draw_kite!(axis, foot, span; colour=style_colour("kite"))
+
+Draw on `axis` the kite of [`kite_parts`](@ref) seen from ahead, `span` across in the
+axis's units, the foot of its control unit at `foot`, in `colour`.
+"""
+function draw_kite!(axis, foot, span; colour=style_colour("kite"))
+    for (class, subpaths) in kite_parts
+        name, share, size = kite_part_styles[class]
+        base = name == "rig" ? colour : name == "white" ? white : style_colour(name)
+        tint = Makie.Colors.weighted_color_mean(share, base, white)
+        for subpath in subpaths
+            points = [Point2f(foot) + Point2f(x, -y) * span / 100
+                      for (x, y) in polyline(subpath)]
+            isnothing(size) ? poly!(axis, points; color=tint, strokewidth=0) :
+            lines!(axis, points; color=tint, linewidth=style_size(size))
+        end
+    end
 end
 
 """

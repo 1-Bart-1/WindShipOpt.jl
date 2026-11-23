@@ -486,7 +486,7 @@ canopy_price(assumptions, area, aspect_ratio) = assumptions[:market_price_factor
     Canopy(assumptions, area, aspect_ratio).cost_per_area
 
 "inputs that together make the canopy's cost"
-canopy_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost, :canopy_cloth_base_price,
+canopy_price_inputs = (:canopy_structure_cost, :canopy_cloth_base_price,
     :canopy_cloth_price_per_weight)
 
 """
@@ -769,21 +769,21 @@ turnaround_hours(ship::Ship, outbound, assumptions::Assumptions) =
 
 """
     route_round_trip(table, outbound, inbound, weather, departure, turnaround, hourly,
-                     horizon, forecast; schedule=(Inf, Inf))
+                     forecast; schedule=(Inf, Inf))
 
 Outbound and return [`Leg`](@ref) of [`forecast_route`](@ref) on the [`RouteTable`](@ref)
 `table` for one departure, the return leaving `turnaround` [h] after it, at the outbound
 and return time costs `hourly` [USD/h], each arriving by its time [h] in `schedule`, or
-`nothing` if either fails, planned on `forecast`, or on the real weather known `horizon`
-[h] ahead where that is `nothing`.
+`nothing` if either fails, planned on `forecast`, or on the real weather where that is
+`nothing`.
 """
 function route_round_trip(table, outbound, inbound, weather, departure, turnaround, hourly,
-        horizon, forecast; schedule=(Inf, Inf))
+        forecast; schedule=(Inf, Inf))
     out = forecast_route(outbound, table, weather, departure; time_cost=first(hourly),
-        arrival_by=first(schedule), horizon, forecast)
+        arrival_by=first(schedule), forecast)
     isnothing(out) && return nothing
     back = forecast_route(inbound, table, weather, departure + turnaround;
-        time_cost=last(hourly), arrival_by=last(schedule), horizon, forecast)
+        time_cost=last(hourly), arrival_by=last(schedule), forecast)
     isnothing(back) && return nothing
     return out, back
 end
@@ -891,8 +891,7 @@ end
 
 """
     service_passages(ship, outbound, inbound, weather, departures, assumptions, hourly,
-                     horizon, forecast, held_knots;
-                     schedules=Iterators.repeated((Inf, Inf)))
+                     forecast, held_knots; schedules=Iterators.repeated((Inf, Inf)))
 
 [`Passages`](@ref) of `ship` on the round trip of each of `departures`, the return leaving
 after the [`turnaround_hours`](@ref); `nothing` if any passage is infeasible. The router
@@ -900,14 +899,13 @@ holds `held_knots` [kn] by [`held_speed_table`](@ref), or chooses speed where `n
 each round trip keeping its leg times in `schedules`.
 """
 function service_passages(ship::Ship, outbound, inbound, weather, departures, assumptions,
-        hourly, horizon, forecast, held_knots;
-        schedules=Iterators.repeated((Inf, Inf)))
+        hourly, forecast, held_knots; schedules=Iterators.repeated((Inf, Inf)))
     table = PerformanceTable(ship, assumptions)
     route_table = isnothing(held_knots) ? RouteTable(table) :
                   held_speed_table(table, held_knots)
     turnaround = turnaround_hours(ship, outbound, assumptions)
     legs = fetch.([Threads.@spawn route_round_trip(route_table, outbound, inbound, weather,
-                       departure, turnaround, hourly, horizon, forecast; schedule)
+                       departure, turnaround, hourly, forecast; schedule)
                    for (departure, schedule) in zip(departures, schedules)])
     any(isnothing, legs) && return nothing
     largest_leg = maximum(max(out.fuel_energy, back.fuel_energy) for (out, back) in legs)
@@ -1011,7 +1009,7 @@ function voyage_costs(ship::Ship, costs, rigs, passages, outbound, inbound, assu
 end
 
 """
-    round_trip(ship, outbound, inbound, weather, departures, assumptions; horizon=Inf,
+    round_trip(ship, outbound, inbound, weather, departures, assumptions;
                forecast=nothing, held_knots=nothing)
 
 Route `ship` out along `outbound` and back along `inbound`, leaving a fixed
@@ -1019,30 +1017,28 @@ Route `ship` out along `outbound` and back along `inbound`, leaving a fixed
 [`service_states`](@ref) with a share, and turn the result averaged
 over the departures and the states into the cost per tonne-km of the transport service
 by [`voyage_costs`](@ref), and that of each departure with the same ship by
-[`departure_outcome`](@ref). With a finite forecast `horizon` [h] the router knows the
-weather only that far ahead, with a [`ForecastArchive`](@ref) `forecast` it re-plans daily
-on its forecasts, and with `held_knots` [kn] the ship holds that speed instead of choosing
-by cost. A ship of a liner class keeps the [`liner_schedules`](@ref) where it chooses its
-speed. Wings and rotors are fixed or retractable, whichever costs less. The router
-prices time at the hold's cargo before the fuel store. Returns `nothing` if any passage
-is infeasible or the fuel store leaves no cargo.
+[`departure_outcome`](@ref). With a [`ForecastArchive`](@ref) `forecast` the router
+re-plans daily on its forecasts, and with `held_knots` [kn] the ship holds that speed
+instead of choosing by cost. A ship of a liner class keeps the [`liner_schedules`](@ref)
+where it chooses its speed. Wings and rotors are fixed or retractable, whichever costs
+less. The router prices time at the hold's cargo before the fuel store. Returns `nothing`
+if any passage is infeasible or the fuel store leaves no cargo.
 """
 function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
-        departures, assumptions::Assumptions; horizon=Inf, forecast=nothing,
-        held_knots=nothing)
+        departures, assumptions::Assumptions; forecast=nothing, held_knots=nothing)
     costs = ship_costs(ship, assumptions)
     hourly = leg_time_costs(first(costs), assumptions)
     router_hourly = isnothing(held_knots) ? hourly : HELD_SPEED_TIME_FACTOR .* hourly
     scheduled = isnothing(held_knots) && keeps_schedule(ship)
     schedules = scheduled ?
                 liner_schedules(ship, outbound, inbound, weather, departures, assumptions,
-        horizon, forecast) : Iterators.repeated((Inf, Inf))
+        forecast) : Iterators.repeated((Inf, Inf))
     isnothing(schedules) && return nothing
     states = service_states(ship.rig, assumptions)
     services = [share > 0 ?
                 service_passages(with_rig(ship, rig), outbound, inbound, weather,
-                    departures, assumptions, router_hourly, horizon, forecast,
-                    held_knots; schedules) : nothing
+                    departures, assumptions, router_hourly, forecast, held_knots;
+                    schedules) : nothing
                 for (share, rig) in states]
     any(isnothing(service) && share > 0
         for ((share, _), service) in zip(states, services)) && return nothing
@@ -1081,18 +1077,17 @@ keeps_schedule(ship::Ship) =
     !isnothing(ship.rig) && !isnothing(ship.design.class) && ship.design.class.liner
 
 """
-    liner_schedules(ship, outbound, inbound, weather, departures, assumptions, horizon,
-                    forecast)
+    liner_schedules(ship, outbound, inbound, weather, departures, assumptions, forecast)
 
 Outbound and return times [h] of each of `departures` of `ship` without its rig, routed
 for cost as [`round_trip`](@ref) routes it, or `nothing` if a passage fails.
 """
 function liner_schedules(ship, outbound, inbound, weather, departures, assumptions,
-        horizon, forecast)
+        forecast)
     bare = with_rig(ship, nothing)
     hourly = leg_time_costs(ShipCosts(bare, assumptions), assumptions)
     passages = service_passages(bare, outbound, inbound, weather, departures, assumptions,
-        hourly, horizon, forecast, nothing)
+        hourly, forecast, nothing)
     isnothing(passages) && return nothing
     return [(passage.out_hours, passage.back_hours) for passage in passages]
 end
