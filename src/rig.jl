@@ -120,8 +120,10 @@ Base.@kwdef struct WingRig
     "normal-force coefficient of the stalled wing across the flow [-]"
     stalled_drag_coefficient::Float64
     interference_factor::Float64
-    "fan power per m^2 of wing at the highest apparent wind the wings work in [W/m^2]"
+    "full fan power per m^2 of wing, drawn from the fan's rated wind up [W/m^2]"
     fan_power_per_area::Float64 = 0.0
+    "apparent wind from which the fans draw their full power [m/s]"
+    fan_rated_wind::Float64 = Inf
     "highest apparent wind the wings work in, above which they lie down [m/s]"
     max_wind::Float64 = Inf
     "height of the supports the wings stand on above the deck, zero on deck [m]"
@@ -319,6 +321,7 @@ function WingRig(total_area::Real, hull::Hull, assumptions::Assumptions;
         stalled_drag_coefficient=assumptions[:wing_stalled_drag_coefficient],
         layout.interference_factor,
         fan_power_per_area=suction ? assumptions[:suction_fan_power_per_area] : 0.0,
+        fan_rated_wind=suction ? assumptions[:suction_fan_rated_wind] : Inf,
         max_wind=suction ? assumptions[:suction_max_wind] : Inf, layout.pedestal_height,
         layout.camera_units)
 end
@@ -339,12 +342,12 @@ stalled(rig::WingRig, (lift, drag)) = drag > drag_coefficient(rig, lift) + 1e-9
     fan_power(rig::WingRig, setting, speed)
 
 Power [W] the fans of suction sails draw at the trim `setting` in apparent wind `speed`
-[m/s]: their power at the highest wind they work in times the cube of the share of it,
-while the flow is attached and lifts; none for wing sails.
+[m/s]: their full power from their rated wind up, falling with the cube of the wind below
+it, while the flow is attached and lifts; none for wing sails.
 """
 function fan_power(rig::WingRig, setting, speed)
     first(setting) > 0 && !stalled(rig, setting) || return 0.0
-    return rig.fan_power_per_area * total_area(rig) * min(speed / rig.max_wind, 1.0)^3
+    return rig.fan_power_per_area * total_area(rig) * min(speed / rig.fan_rated_wind, 1.0)^3
 end
 
 """

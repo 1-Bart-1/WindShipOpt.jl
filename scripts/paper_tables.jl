@@ -2128,8 +2128,8 @@ fidelity_parts() = [
         error="interference fitted to CFD of three to four sails",
         effect=varied_inputs(:wing_max_lift_coefficient)),
     (part="Suction sail forces", varied="maximum lift",
-        model="the wing sail's, drag rising to the maker's one point at maximum lift and " *
-              "fan power with the cube of the apparent wind",
+        model="the wing sail's, drag rising to full-scale CFD at maximum lift and fan " *
+              "power on the maker's curve",
         error="one published point of lift and drag; lift bounded by sea trials and a " *
               "digital twin",
         effect=varied_inputs(:suction_max_lift_coefficient)),
