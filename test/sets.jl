@@ -3171,6 +3171,70 @@ end
     end
 end
 
+@testset "a wind and angle screened out with the kite stowed leave it unpowered anywhere \
+          inside" begin
+    shares = (0.0, 0.5, 1.0)
+    performance = kite_route_table.table
+    winds, angles, resistances = performance.flown_thrust.knots[2:4]
+    screened, powered = 0, 0
+    for speed_index in eachindex(kite_route_table.speeds)
+        slice = kite_route_table.slices[speed_index]
+        planes = kite_route_table.unpowered[speed_index].stowed_planes
+        for plane in CartesianIndices(planes), layer in 1:(length(resistances) - 1)
+            planes[plane] || continue
+            screened += 1
+            j, k = Tuple(plane)
+            for wind_share in shares, angle_share in shares, layer_share in shares
+                condition = WindShipOpt.SeaCondition(performance,
+                    place_in_cell(winds, j, wind_share),
+                    place_in_cell(angles, k, angle_share), 0.0, 8.0, 1.0)
+                waves = place_in_cell(resistances, layer, layer_share)
+                powered += isfinite(last(WindShipOpt.edge_fuels(performance, slice,
+                    condition, waves, WindShipOpt.KnotWeight(resistances, waves))))
+            end
+        end
+    end
+    @test screened > 0
+    @test powered == 0
+end
+
+"""
+    tried_held_speed(table, speed_index, sample, aloft)
+
+The [`held_speed`](@ref) found by reading the fuels at every routing speed up to
+`speed_index`.
+"""
+function tried_held_speed(table, speed_index, sample, aloft)
+    fuels = [WindShipOpt.expected_fuels(table, i, sample) for i in 1:speed_index]
+    stowed = [isfinite(stowed_fuel) for (_, stowed_fuel, _) in fuels]
+    flying = [isfinite(flown_fuel) && chance > 0 for (flown_fuel, _, chance) in fuels]
+    held = something(findlast(stowed .| aloft .& flying), findlast(flying), 0)
+    return held == 0 ? (0, Inf, Inf, 0.0) : (held, fuels[held]...)
+end
+
+@testset "the held speed is the fastest the stowed rig holds, or a flying kite where \
+          none does or the kite is up" begin
+    for route_table in (table, kite_route_table)
+        commanded = length(route_table.speeds)
+        wrong, passed_over = 0, 0
+        for wind in 0.0:3.0:30.0, angle in range(0, π; length=7), wave_height in (0, 3, 7)
+            condition = WindShipOpt.SeaCondition(route_table.table, wind, angle,
+                wave_height, 8.0, angle)
+            sample = WindShipOpt.EdgeSample(condition, wind * cos(angle),
+                wind * sin(angle), wind, 0.0)
+            for aloft in (false, true)
+                held = WindShipOpt.held_speed(route_table, commanded, sample, aloft)
+                wrong += !isequal(held, tried_held_speed(route_table, commanded, sample,
+                    aloft))
+                passed_over += first(held) < first(tried_held_speed(route_table,
+                    commanded, sample, true))
+            end
+        end
+        @test wrong == 0
+        @test passed_over > 0 || route_table === table
+    end
+end
+
 @testset "waves marked as resisting add resistance anywhere in their cell" begin
     shares = (0.0, 0.5, 1.0)
     for route_table in (table, kite_route_table)
@@ -3229,7 +3293,8 @@ end
     for route_table in (table, kite_route_table)
         unscreened = RouteTable(route_table.table, route_table.speeds, route_table.slices,
             [WindShipOpt.UnpoweredCells(fill(false, size(marks.cells)),
-                 fill(false, size(marks.planes)), marks.resisting_waves)
+                 fill(false, size(marks.planes)), fill(false, size(marks.planes)),
+                 marks.resisting_waves)
              for marks in route_table.unpowered])
         centre, straight = centre_index(corridor), WindShipOpt.MAX_LATERAL_STEP + 1
         samples = [WindShipOpt.EdgeSample(route_table.table, weather, corridor, stage,
