@@ -234,9 +234,8 @@ input_derivations = Dict(
     :kite_launch_sea_wind => "sec:det_kite", :kite_launch_max_wind => "sec:det_kite",
     :kite_max_wind => "sec:det_kite",
     :canopy_life => "sec:det_canopy_life",
-    :canopy_rib_cloth_ratio => "app:seam_cloth",
-    :canopy_sewing_cloth_share => "app:seam_cloth",
-    :canopy_structure_chord => "app:seam_cloth",
+    :canopy_rib_cloth_ratio => "app:canopy_cells",
+    :canopy_cell_width => "app:canopy_cells",
     :canopy_mass_overhead => "app:canopy_mass",
     :canopy_structure_cost => "app:canopy_price",
     :kite_aspect_ratio => "app:kite_aspect",
@@ -557,7 +556,7 @@ kite_life_at_cost(rig, curve, cost) =
 "canopy price [USD/m^2] at which `rig` reaches `cost` on the (prices, costs) `curve`; kite
 only"
 kite_price_at_cost(rig, curve, cost) =
-    rig == "kite" ? WindShipOpt.price_at_cost(curve..., cost) : NaN
+    rig == "kite" ? WindShipOpt.input_at_cost(curve..., cost) : NaN
 
 """
     missed_goal_rows()
@@ -611,9 +610,10 @@ function missed_goal_rows()
                 price=(kite_price_at_cost(rig, price_curve, bare),
                     kite_price_at_cost(rig, price_curve, rival_cost)),
                 passes_price=kite_price_at_cost(rig, price_curve, ahead),
-                share=(share_limit(curve, bare), share_limit(curve, rival_cost)),
-                whole_behind=share_limit(([0.0, 1.0], [curve[2][1], curve[2][end]]),
-                    rival_cost)))
+                share=(WindShipOpt.input_at_cost(curve..., bare),
+                    WindShipOpt.input_at_cost(curve..., rival_cost)),
+                whole_behind=WindShipOpt.input_at_cost([0.0, 1.0],
+                    [curve[2][1], curve[2][end]], rival_cost)))
         end
     end
     return result
@@ -644,15 +644,6 @@ function size_limits(table, row, bare, rival, rival_cost)
             crash_limit(cost, rival_cost, work, crash)),
         flight_hours=table["flight_share"][row] * 24table["days"][row] * trips)
 end
-
-"""
-    share_limit(curve, target)
-
-Share out of service [-] at which the (shares, costs) `curve` reaches the cost per tonne-km
-`target`; `NaN` where it starts at or above it, so that no share is left.
-"""
-share_limit(curve, target) =
-    curve[2][1] < target ? WindShipOpt.share_at_cost(curve..., target) : NaN
 
 """
     crash_limit(cost, target, work, crash)
@@ -2233,16 +2224,6 @@ function today_numbers(table)
     end
     return ["Today" * name => text for (name, text) in numbers]
 end
-
-"`values` [%] rounded to whole points, as one value or as the first and last"
-point_range(values) = let points = sort(unique(round.(Int, values)))
-    length(points) == 1 ? string(only(points)) : "$(first(points)) and $(last(points))"
-end
-
-"what a rig with cost `savings` [%] does to the cost, saving or adding to it, in points"
-saving_phrase(savings) = all(<(0), savings) ?
-                         "adds $(point_range(.-savings))\\,\\% to the cost" :
-                         "saves $(point_range(savings))\\,\\%"
 
 """
     goal_numbers()

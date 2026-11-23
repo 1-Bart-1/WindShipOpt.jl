@@ -195,13 +195,12 @@ CostToGo(held, corridor::Corridor, table::RouteTable,
     forecast::UncertainForecast, departure; options...) =
     CostToGo(held, corridor, table, forecast.known, departure; options...)
 
-function known_weather(forecast::ExpectedForecast, weather, time, horizon)
-    known = known_weather(forecast.forecast, weather, time, horizon)
+function known_weather(forecast::ExpectedForecast, weather, time)
+    known = known_weather(forecast.forecast, weather, time)
     return UncertainForecast(known, known.issued, forecast.error)
 end
 
-known_weather(forecast::ForecastArchive, weather, time, horizon) =
-    ArchivedForecast(forecast, time)
+known_weather(forecast::ForecastArchive, weather, time) = ArchivedForecast(forecast, time)
 within(group::ArchiveGroup, issued, time) = time - issued <= last_time(group.grid)
 
 issue_arrays(group::ArchiveGroup, issue, names) =

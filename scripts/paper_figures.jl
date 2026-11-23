@@ -63,10 +63,6 @@ function readable(colour, background)
     return first(mix for mix in mixes if contrast(mix, background) >= least["text"])
 end
 
-"each unordered pair of two different entries of `names`"
-name_pairs(names) = [(first_name, second_name) for (i, first_name) in enumerate(names)
-                     for second_name in names[(i + 1):end]]
-
 """
     palette_faults()
 
@@ -239,16 +235,14 @@ tex_font(name) = @sprintf("\\fontsize{%g}{%g}\\selectfont", figure_style["sizes"
     1.2figure_style["sizes"][name])
 
 """
-    icon_path(d)
+    svg_paths(d)
 
-The SVG path data `d` of an icon as a TikZ path in the icon's own units, each arc as
-cubic Bézier curves.
+The SVG path data `d` as subpaths in absolute coordinates, each a named tuple of its
+`start`, its `segments`, each the end of a line or the two control points and end of a
+cubic Bézier curve, every arc as such curves, and whether it is `closed`.
 """
-function icon_path(d)
-    tikz = IOBuffer()
-    point(x, y) = @sprintf("(%.3f,%.3f)", x, y)
-    curve(c1, c2, to) = print(tikz, " .. controls ", point(c1...), " and ", point(c2...),
-        " .. ", point(to...))
+function svg_paths(d)
+    subpaths = []
     tokens = [match.match for match in eachmatch(r"[A-Za-z]|-?(\d+\.?\d*|\.\d+)", d)]
     arity = Dict('M' => 2, 'L' => 2, 'H' => 1, 'V' => 1, 'C' => 6, 'S' => 4, 'A' => 7,
         'Z' => 0)
@@ -262,37 +256,80 @@ function icon_path(d)
         relative = islowercase(command)
         offset = relative ? current : (0.0, 0.0)
         upper = uppercase(command)
-        haskey(arity, upper) || error("icon path command $command is not supported")
+        haskey(arity, upper) || error("SVG path command $command is not supported")
         numbers = parse.(Float64, tokens[i:(i + arity[upper] - 1)])
         i += arity[upper]
+        segments = isempty(subpaths) ? [] : last(subpaths).segments
         if upper == 'M'
             current = start = control = Tuple(numbers .+ offset)
-            print(tikz, " ", point(current...))
+            push!(subpaths, (; start, segments=[], closed=Ref(false)))
             command = relative ? 'l' : 'L'
         elseif upper in ('L', 'H', 'V')
             current = upper == 'H' ? (numbers[1] + offset[1], current[2]) :
                       upper == 'V' ? (current[1], numbers[1] + offset[2]) :
                       Tuple(numbers .+ offset)
             control = current
-            print(tikz, " -- ", point(current...))
+            push!(segments, (current,))
         elseif upper in ('C', 'S')
             first_control = upper == 'C' ? Tuple(numbers[1:2] .+ offset) :
                             2 .* current .- control
             control = Tuple(numbers[(end - 3):(end - 2)] .+ offset)
             current = Tuple(numbers[(end - 1):end] .+ offset)
-            curve(first_control, control, current)
+            push!(segments, (first_control, control, current))
         elseif upper == 'A'
             to = Tuple(numbers[6:7] .+ offset)
-            for (c1, c2, stop) in arc_curves(current, to, numbers[1:5]...)
-                curve(c1, c2, stop)
-            end
+            append!(segments, arc_curves(current, to, numbers[1:5]...))
             current = control = to
         else
-            print(tikz, " -- cycle")
+            last(subpaths).closed[] = true
             current = control = start
         end
     end
+    return subpaths
+end
+
+"""
+    tikz_path(subpaths)
+
+The [`svg_paths`](@ref) `subpaths` as a TikZ path in their own units.
+"""
+function tikz_path(subpaths)
+    tikz = IOBuffer()
+    point(x, y) = @sprintf("(%.3f,%.3f)", x, y)
+    for (; start, segments, closed) in subpaths
+        print(tikz, " ", point(start...))
+        for segment in segments
+            length(segment) == 1 ? print(tikz, " -- ", point(segment[1]...)) :
+            print(tikz, " .. controls ", point(segment[1]...), " and ",
+                point(segment[2]...), " .. ", point(segment[3]...))
+        end
+        closed[] && print(tikz, " -- cycle")
+    end
     return String(take!(tikz))
+end
+
+"""
+    polyline(subpath; samples=16)
+
+The points along an [`svg_paths`](@ref) `subpath`, each curve at `samples` points, back to
+its start where it is closed.
+"""
+function polyline(subpath; samples=16)
+    points = [subpath.start]
+    for segment in subpath.segments
+        if length(segment) == 1
+            push!(points, segment[1])
+        else
+            from = last(points)
+            c1, c2, to = segment
+            for s in range(0, 1; length=samples)[2:end]
+                push!(points, (1 - s)^3 .* from .+ 3(1 - s)^2 * s .* c1 .+
+                              3(1 - s) * s^2 .* c2 .+ s^3 .* to)
+            end
+        end
+    end
+    subpath.closed[] && push!(points, subpath.start)
+    return points
 end
 
 """
@@ -339,10 +376,71 @@ function icon_pics(io)
     unit = @sprintf("%.4gpt", figure_style["sizes"]["icon_size"] / 24)
     for (concept, name) in sort(collect(figure_style["icons"]))
         svg = read(joinpath(root, "paper", "icons", name * ".svg"), String)
-        paths = [icon_path(found[1]) for found in eachmatch(r"<path d=\"([^\"]+)\"", svg)]
+        paths = [tikz_path(svg_paths(found[1]))
+                 for found in eachmatch(r"<path d=\"([^\"]+)\"", svg)]
         println(io, "  ", concept, " icon/.pic={\\draw[icon, icon line, x=", unit,
             ", y=-", unit, ", shift={(-12,-12)}]", join(paths), ";},")
     end
+end
+
+"the paper's soft kite seen from ahead, 100 across with y down and the foot of its control
+unit at the origin"
+kite_svg = read(joinpath(root, "paper", "drawings", "kite.svg"), String)
+
+"""
+    kite_parts
+
+The parts of [`kite_svg`](@ref) but its backdrop, in the order drawn: the class of each
+and its [`svg_paths`](@ref).
+"""
+kite_parts = [(found[1], svg_paths(found[2]))
+              for found in eachmatch(r"<path class=\"(\w+)\"[^>]* d=\"([^\"]+)\"", kite_svg)
+              if found[1] != "backdrop"]
+
+"""
+    kite_part_styles
+
+How each part of [`kite_parts`](@ref) is drawn: its colour, `rig` for the colour the kite
+is drawn in, the share of that colour in a tint of it with white, and the size of
+[`figure_style`](@ref) it is stroked with, or `nothing` where it is filled.
+"""
+kite_part_styles = Dict("canopy" => ("rig", 1.0, nothing),
+    "intakes" => ("rig", 0.55, nothing), "cells" => ("white", 1.0, "cell"),
+    "bridle" => ("rig", 1.0, "bridle"), "tether" => ("rig", 1.0, "rule"),
+    "unit" => ("keel", 1.0, nothing))
+
+"extent of the drawn kite of [`kite_parts`](@ref), below and above its foot, over its span"
+kite_extent = extrema(-point[2] / 100 for (_, subpaths) in kite_parts
+                      for subpath in subpaths for point in polyline(subpath))
+
+"""
+    kite_pics(io)
+
+Write to `io` the TikZ picture `kite` of [`kite_parts`](@ref), 1 across, the foot of its
+control unit at the origin, in the colour of its argument, `kite` by default; `kite
+backdrop`, the white behind its bridle that hides what lies behind the kite; and the `kite
+wear icon`, the kite in the colour of an icon, as wide as an icon's drawing.
+"""
+function kite_pics(io)
+    scope = "\\begin{scope}[xscale=0.01, yscale=-0.01]"
+    println(io, "  kite/.pic={", scope)
+    for (class, subpaths) in kite_parts
+        colour, share, size = kite_part_styles[class]
+        colour == "rig" && (colour = share == 1 ? "#1" : "#1!$(round(Int, 100share))")
+        command = isnothing(size) ? "\\fill[$colour]" :
+                  "\\draw[$colour, line width=$(tex_size(size)), line join=round]"
+        println(io, "    ", command, tikz_path(subpaths), ";")
+    end
+    println(io, "  \\end{scope}},")
+    println(io, "  pics/kite/.default=kite,")
+    backdrop = match(r"class=\"backdrop\"[^>]* d=\"([^\"]+)\"", kite_svg)[1]
+    println(io, "  kite backdrop/.pic={", scope, "\\fill[white]",
+        tikz_path(svg_paths(backdrop)), ";\\end{scope}},")
+    span = figure_style["sizes"]["icon_size"] * 20 / 24
+    shift = -sum(kite_extent) / 2 * span
+    size = @sprintf("%.3gpt", span)
+    println(io, "  kite wear icon/.pic={\\pic[x=", size, ", y=", size, ", yshift=",
+        @sprintf("%.3gpt", shift), "] {kite=icon};},")
 end
 
 """
@@ -390,6 +488,7 @@ function figure_style_file()
         println(io, "  leader/.style={guide, line width=", tex_size("dimension"), "},")
         println(io, "  icon line/.style={line width=", tex_size("icon"),
             ", line cap=round, line join=round},")
+        println(io, "  hull face/.style={line width=", tex_size("seam"), ", line join=round},")
         println(io, "  crossing/.style={draw=white, line width=", tex_size("crossing"),
             "},")
         println(io, "  label/.style={font=", tex_font("text"), ", inner sep=1pt, ",
@@ -411,6 +510,7 @@ function figure_style_file()
             tex_font("note"), "\\bfseries, inner sep=0pt, minimum size=", tex_size("step"),
             "},")
         icon_pics(io)
+        kite_pics(io)
         println(io, "}")
         println(io, "\\input{figure_pics}")
     end
@@ -1200,8 +1300,8 @@ function rig_polar_figure()
     for (i, (rig, area)) in enumerate(trim_rigs)
         ship = Ship(ShipDesign(:vlsfo, 140.0; rig_size(rig, area)...), assumptions)
         label = labels[i]
-        forces = [last(WindShipOpt.best_trim(ship, ship.rig, 10.5KNOT, 10.0,
-                      deg2rad(angle))) for angle in angles]
+        forces = [WindShipOpt.best_trim(ship, ship.rig, 10.5KNOT, 10.0,
+                      deg2rad(angle)).force for angle in angles]
         lines!(thrust, angles, [force.thrust for force in forces] ./ 1e3;
             color=palette[i], label)
         lines!(side, angles, abs.([force.side for force in forces]) ./ 1e3;
@@ -1430,23 +1530,6 @@ function passage_figure()
     key.halign = (maximum(legend.layoutobservables.computedbbox[])[1] + pt(6)) /
                  (total - key.width[])
     save_figure("passage", figure)
-end
-
-"""
-    wind_key!(axis, corner, speed, scale, height)
-
-A white box of `height` [deg] with its lower left at `corner` [deg] in the map `axis`,
-holding a wind arrow of `speed` [m/s] at the `scale` [deg per m/s] of
-[`draw_wind!`](@ref), labelled with that speed.
-"""
-function wind_key!(axis, corner, speed, scale, height)
-    poly!(axis, Rect2f(corner, Vec2f(speed * scale + 2.8height, height)); color=:white,
-        strokecolor=:gray55, strokewidth=rule_width)
-    start = corner .+ Point2f(height / 3, height / 2)
-    arrows2d!(axis, [start], [Vec2f(speed * scale, 0)]; wind_arrow_style...)
-    text!(axis, start .+ Point2f(speed * scale, 0); text="$speed m/s",
-        align=(:left, :center), offset=clear_offset((:left, :center), pt(2.5)),
-        fontsize=note_size)
 end
 
 """
@@ -3490,7 +3573,7 @@ reference_line!(axis, value=0; vertical=false, linestyle=:solid) =
 
 "inputs of the mass of a soft kite without its tether, each with its bound that lightens it"
 soft_mass_inputs = (canopy_flat_area_ratio=:low, canopy_rib_cloth_ratio=:low,
-    canopy_mass_overhead=:low, control_unit_mass_per_force=:low)
+    canopy_cell_width=:high, canopy_mass_overhead=:low, control_unit_mass_per_force=:low)
 
 """
     soft_mass_bound(lightest)
@@ -3635,8 +3718,8 @@ canopy_markers = Dict("paraglider" => :circle, "kite" => :rect, "parafoil" => :u
 
 Mean chord over cell width against mean chord of the ram-air canopies of
 data/canopy_cells.csv, its `kind`, `flat_area` [m^2], `flat_span` [m] and `cells`, and the
-rule of the model at base inputs between the bounds of `canopy_structure_chord`, solid over
-the mean chords of the kites the class study searches.
+rule of the model, the cells of `canopy_cell_width` at every chord between its bounds, solid
+over the mean chords of the kites the class study searches.
 """
 function canopy_cells_figure()
     published = read_table(joinpath(root, "data", "canopy_cells.csv"))
@@ -3652,12 +3735,10 @@ function canopy_cells_figure()
     kite_chords = sqrt.(collect(kite_areas) ./ assumptions[:kite_aspect_ratio])
     vspan!(axis, kite_chords...; color=(:gray50, 0.15))
     line_chords = sort([exp.(range(log(0.8), log(160); length=60)); kite_chords...])
-    surveyed = (:canopy_structure_chord,)
-    bounds = [WindShipOpt.chord_over_cell_width.(
-                  Ref(at_bound(assumptions, surveyed, bound)), line_chords)
-              for bound in (:low, :high)]
-    band!(axis, line_chords, bounds...; color=(palette[1], 0.18))
-    rule = WindShipOpt.chord_over_cell_width.(Ref(assumptions), line_chords)
+    width = assumptions.entries[:canopy_cell_width]
+    band!(axis, line_chords, line_chords ./ width.high, line_chords ./ width.low;
+        color=(palette[1], 0.18))
+    rule = line_chords ./ width.value
     searched = minimum(kite_chords) .<= line_chords .<= maximum(kite_chords)
     beyond = .!(minimum(kite_chords) .< line_chords .< maximum(kite_chords))
     lines!(axis, line_chords, ifelse.(searched, rule, NaN); color=palette[1])
