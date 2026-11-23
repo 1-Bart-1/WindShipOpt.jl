@@ -1402,7 +1402,7 @@ end
 Each class and route of class table `table` on `drive`, with the class's transport work
 [tonne-km a year] from [`fleet_work`](@ref) and its ships from [`fleet_ships`](@ref) shared
 equally over the table's routes, the yearly cost `bill` [USD] of that work without a rig,
-the row of the ship without a rig and of the best size of each rig, their cost
+the row of the ship without a rig and of the best size of each rig the table holds, their cost
 `savings` [%] and the cost of each of their `departures` by rig, `"none"` included, or
 nothing where the table holds no departures.
 Errors naming every class and route of `drive` the table lacks a result of a rig for.
@@ -1414,7 +1414,8 @@ function fleet_cells(table, drive)
     cells, absent = [], String[]
     for class in keys(work), route in routes
         bare = cheapest_row(table, class, route, drive, "none")
-        best = Dict(rig => cheapest_row(table, class, route, drive, rig) for rig in rig_names)
+        best = Dict(rig => cheapest_row(table, class, route, drive, rig)
+                    for (_, rig) in study_rigs(table))
         if isnothing(bare) || any(isnothing, values(best))
             push!(absent, "$class on $route")
             continue

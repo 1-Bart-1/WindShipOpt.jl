@@ -84,7 +84,7 @@ The run a job computes the round trips of `batch` ([`write_batch`](@ref)) in: th
 wrote it, without its definitions.
 """
 batch_run(batch) = PaperRun(batch.directory, batch.fidelity, batch.record, batch.only,
-    Dict{Symbol, Vector{Any}}(), batch.trip_model, StepTally())
+    Dict{Symbol, Vector{Any}}(), batch.trip_model, StepTally(), nothing)
 
 """
     stored_count(path)

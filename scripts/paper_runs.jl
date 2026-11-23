@@ -122,15 +122,23 @@ mutable struct PaperRun
     trip_model::String
     "what the step in progress computed and read"
     tally::StepTally
+    "directory of the run read before any other, or nothing"
+    source::Union{Nothing, String}
 end
 
 """
-    PaperRun(fidelity)
+    PaperRun(fidelity; source=nothing)
 
-A run at `fidelity` with no directory, for figure and table steps alone.
+A run at `fidelity` with no directory, for figure and table steps alone, reading the run
+named `source` first where one is given.
 """
-PaperRun(fidelity) = PaperRun(nothing, fidelity, Dict{String, Any}(), nothing,
-    Dict{Symbol, Vector{Any}}(), "", StepTally())
+function PaperRun(fidelity; source=nothing)
+    directory = isnothing(source) ? nothing : joinpath(runs_directory, source)
+    record = isnothing(directory) ? Dict{String, Any}() :
+             TOML.parsefile(joinpath(directory, "run.toml"))
+    return PaperRun(nothing, fidelity, record, nothing, Dict{Symbol, Vector{Any}}(), "",
+        StepTally(), directory)
+end
 
 "the run in use, set by `paper`"
 paper_run = nothing
@@ -227,15 +235,15 @@ end
     reading_order()
 
 Directories and records of the runs data are read from, in the order they are looked in:
-the run in use, then the finished runs of its fidelity, this branch's before any other's,
-latest first, then the unfinished ones.
+the run in use or its source, then the finished runs of its fidelity, this branch's before
+any other's, latest first, then the unfinished ones.
 """
 function reading_order()
     branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
     runs = sort(fidelity_runs(paper_run.fidelity);
         by=run -> get(last(run), "git_branch", "") != branch)
-    current = isnothing(paper_run.directory) ? [] :
-              [(paper_run.directory, paper_run.record)]
+    directory = something(paper_run.directory, paper_run.source, missing)
+    current = ismissing(directory) ? [] : [(directory, paper_run.record)]
     return [current; filter(is_finished ∘ last, runs);
             filter(!is_finished ∘ last, runs)]
 end
@@ -480,7 +488,7 @@ function open_run(fidelity, names, resume; only=nothing)
     record["requested"] = union(record["requested"], string.(names))
     definitions = script_definitions(script_files())
     run = PaperRun(directory, fidelity, record, only, definitions,
-        trip_model(definitions), StepTally())
+        trip_model(definitions), StepTally(), nothing)
     write_record(run)
     println(resumed ? "resuming" : "new", " run ", directory)
     return run

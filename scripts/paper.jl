@@ -124,7 +124,7 @@ output_steps = [:kite => kite_figure, :deck_rigs => deck_rig_figure,
     :figure_style => figure_style_file, :ship_pictures => ship_pictures_file]
 
 """
-    paper(names...; fidelity, resume=nothing, only=nothing)
+    paper(names...; fidelity, resume=nothing, only=nothing, source=nothing)
 
 Run the named steps, or every data step of the results and then every figure and table
 step when no name is given, at `fidelity` (:draft or :final); `:data` and `:figures` run all
@@ -135,26 +135,31 @@ Steps that run has done are skipped, and it counts as finished once every step a
 is done. Round trips the case store holds for the code and inputs are reused. A draft with
 `only`, labels and their values such as `(class="handysize", route=:caribbean)`, computes
 only the cases carrying them and keeps the latest stored round trip of the others, of any
-code. A final run errors on a dirty tree or unpushed commit.
+code. A final run errors on a dirty tree or unpushed commit. Figure and table steps alone
+read the run named `source`, such as "2026-11-20T2000", before any other.
 """
-function paper(names::Symbol...; fidelity, resume=nothing, only=nothing)
+function paper(names::Symbol...; fidelity, resume=nothing, only=nothing, source=nothing)
     steps = isempty(names) ? [data_steps; output_steps] :
             [step for name in names for step in selected_steps(name)]
-    run_steps(steps, first.([output_steps; study_table_steps()]); fidelity, resume, only)
+    run_steps(steps, first.([output_steps; study_table_steps()]); fidelity, resume, only,
+        source)
     mark_fidelity(joinpath(sections, "fidelity.tex"), fidelity, first.(steps),
         first.(output_steps))
     return nothing
 end
 
 """
-    run_steps(steps, outputs; fidelity, resume, only=nothing)
+    run_steps(steps, outputs; fidelity, resume, only=nothing, source=nothing)
 
-Run `steps` at `fidelity` in a new or resumed run as [`paper`](@ref) does, or without a run
-when all of them are among the figure and table steps `outputs`.
+Run `steps` at `fidelity` in a new or resumed run as [`paper`](@ref) does, or without a run,
+reading `source` first, when all of them are among the figure and table steps `outputs`.
 """
-function run_steps(steps, outputs; fidelity, resume, only=nothing)
+function run_steps(steps, outputs; fidelity, resume, only=nothing, source=nothing)
     haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
-    global paper_run = all(in(outputs), first.(steps)) ? PaperRun(fidelity) :
+    outputs_only = all(in(outputs), first.(steps))
+    outputs_only || isnothing(source) ||
+        throw(ArgumentError("only figure and table steps read a source run"))
+    global paper_run = outputs_only ? PaperRun(fidelity; source) :
                        open_run(fidelity, first.(steps), resume; only)
     for (name, step) in steps
         if step_done(paper_run, name)
