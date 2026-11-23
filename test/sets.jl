@@ -317,6 +317,33 @@ end
     end
 end
 
+@testset "the part-load law burns 1 to 7 % more than MAN L21/31 curves at half to 85 % load" begin
+    # Specific fuel at 100, 85, 75, 50 and 25 % load [g/kWh], MAN L21/31, p. 137, Tables 1-4.
+    curves = ([192.1, 188.9, 188.8, 192.5, 206.2], [197.1, 194.6, 195.2, 201.7, 223.0],
+        [189.1, 185.4, 182.6, 186.5, 202.0], [192.7, 189.5, 187.1, 193.0, 214.0],
+        [193.1, 190.9, 191.7, 195.5, 215.3], [198.1, 196.6, 198.2, 204.8, 232.9],
+        [199.9, 197.6, 196.7, 198.2, 214.9])
+    loads = [1.0, 0.85, 0.75, 0.5, 0.25]
+    engine = WindShipOpt.Powertrain(; installed_power=1e6, unit_count=1,
+        peak_efficiency=0.44, part_load_penalty=assumptions[:part_load_penalty],
+        transmission_efficiency=1.0, hotel_load=0.0)
+    model = [1 / WindShipOpt.unit_efficiency(engine, load) for load in loads]
+    gaps = [100 * (model ./ model[1]) ./ (curve ./ curve[1]) .- 100 for curve in curves]
+    middle = [gap[load] for gap in gaps for load in 2:4]
+    @test 1 < minimum(middle) && maximum(middle) < 7
+    @test all(gap -> -4.5 < gap[5] < 6, gaps)
+end
+
+@testset "a soft kite weighs within 5 % of the two SkySails kites" begin
+    # Projected area [m^2] and mass with lines [kg], data/kite_masses.csv.
+    for (area, built) in ((176.0, 120.0), (312.5, 250.0))
+        max_force = 1e3assumptions[:kite_max_force_per_area] * area
+        mass = WindShipOpt.soft_kite_mass(area, assumptions[:kite_aspect_ratio], max_force,
+            assumptions)
+        @test abs(mass / built - 1) < 0.05
+    end
+end
+
 @testset "hulls fuller than Holtrop's range use the formulas at its limit" begin
     env = Environment(assumptions)
     classes = ship_classes()
@@ -364,6 +391,13 @@ end
     @test lift ≈ 9.5 atol = 0.1
     @test 2 < drag < 3
     @test 0 < power < 0.5
+end
+
+# Han et al. (2025, Table 1): CFD of a rotor of aspect ratio 6 with an end disc gives 7.70.
+@testset "a rotor lifts as CFD of its shape gives at spin ratio 2.5" begin
+    rotors = WindShipOpt.RotorRig(800.0, Hull(140.0, assumptions), assumptions)
+    lift, _, _ = WindShipOpt.rotor_coefficients(2.5)
+    @test rotors.lift_factor * lift ≈ 7.70 rtol = 0.01
 end
 
 """
@@ -703,6 +737,24 @@ end
           sum(WindShipOpt.kite_deck_masses(rig.area, rig.max_force, assumptions)))
 end
 
+@testset "the paper's worked example of the 3200 m^2 kite's hardware and tether holds" begin
+    area = 3200.0
+    force = 1e3assumptions[:kite_max_force_per_area] * area
+    @test force ≈ 2.88e6
+    hardware = assumptions[:market_price_factor] *
+               sum(WindShipOpt.kite_price_parts(area, force, assumptions))
+    @test hardware ≈ 1.10e6 rtol = 0.005
+    @test sum(WindShipOpt.kite_deck_masses(area, force, assumptions)) ≈ 92e3 rtol = 0.005
+    aspect_ratio = assumptions[:kite_aspect_ratio]
+    _, _, tether_diameter = WindShipOpt.kite_model(area, aspect_ratio, assumptions)
+    tether_length = assumptions[:tether_length_ratio] * sqrt(aspect_ratio * area)
+    tether = WindShipOpt.rope_mass(tether_diameter, tether_length, assumptions)
+    @test tether ≈ assumptions[:tether_rope_density] * force * tether_length /
+                   assumptions[:tether_stress]
+    @test tether ≈ 7.6e3 rtol = 0.005
+    @test assumptions[:tether_price] * tether ≈ 7.1e5 rtol = 0.005
+end
+
 @testset "a rotor price is set against the build-up of the same unit as sold" begin
     folding = only(price for price in WindShipOpt.ROTOR_PRICES if price.retractable)
     fixed = WindShipOpt.RotorPrice(folding.kind, folding.year, folding.height,
@@ -743,7 +795,7 @@ end
     @test WindShipOpt.wear_cost(rig, shorter) - flown ≈ canopy / assumptions[:canopy_life]
 end
 
-# Expected forces are the hand calculation of tab:hand in paper/sections/trust.tex.
+# Expected forces are a hand calculation worked independently of the code.
 @testset "wing force follows true wind, shear and ship speed as worked by hand" begin
     env = Environment(assumptions)
     wings = WingRig(800.0, Hull(140.0, assumptions), assumptions)
@@ -771,7 +823,7 @@ suction_sail(area, inputs=assumptions) = WingRig(area, Hull(140.0, assumptions),
     @test pair.height ≈ sqrt(32.0 * 6.6)
     lift = pair.max_lift_coefficient
     @test lift == 4.9
-    @test WindShipOpt.drag_coefficient(pair, lift) ≈ 2.4
+    @test WindShipOpt.drag_coefficient(pair, lift) ≈ 0.84
     @test WindShipOpt.drag_coefficient(pair, 0.0) ==
           assumptions[:wing_profile_drag_coefficient]
     attached = (lift, WindShipOpt.drag_coefficient(pair, lift))
@@ -830,24 +882,24 @@ end
         in_column=most(assumptions) + 1))
 end
 
-# Expected forces are the hand calculation of tab:hand in paper/sections/trust.tex.
+# Expected forces are a hand calculation worked independently of the code.
 @testset "rotor force and spin power follow the apparent wind as worked by hand" begin
     env = Environment(assumptions)
     rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions; in_column=2)
     beam = rig_force(rotors, env, 10.0, π / 2, 5.4, 3.0)
-    @test beam.thrust ≈ 243775 rtol = 1e-3
-    @test beam.side ≈ 227311 rtol = 1e-3
+    @test beam.thrust ≈ 232396 rtol = 1e-3
+    @test beam.side ≈ 221389 rtol = 1e-3
     @test beam.power ≈ 118305 rtol = 1e-3
     close_hauled = rig_force(rotors, env, 10.0, π / 4, 5.4, 3.0)
-    @test close_hauled.thrust ≈ 131591 rtol = 1e-3
-    @test close_hauled.side ≈ 510601 rtol = 1e-3
+    @test close_hauled.thrust ≈ 121487 rtol = 1e-3
+    @test close_hauled.side ≈ 492992 rtol = 1e-3
     broad = rig_force(rotors, env, 10.0, 5π / 6, 5.4, 3.0)
-    @test broad.thrust ≈ 91931 rtol = 1e-3
-    @test broad.side ≈ -32685 rtol = 1e-3
+    @test broad.thrust ≈ 88849 rtol = 1e-3
+    @test broad.side ≈ -30519 rtol = 1e-3
     @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.UNREACHABLE_RIG_FORCE
 end
 
-# Expected forces are the hand calculation of tab:hand in paper/sections/trust.tex.
+# Expected forces are a hand calculation worked independently of the code.
 @testset "kite force turns from the wind's frame onto the course as worked by hand" begin
     env = Environment(assumptions)
     kite = Ship(ShipDesign(:methanol, 140.0; kite_area=800.0), assumptions).rig
@@ -1366,38 +1418,40 @@ end
                   assumptions[:welded_steel_cost_per_mass]
 end
 
-# By hand, two pairs of 30 x 5 m rotors on the Megamax: 1885 Pa peak, arm 25.91 + 2.5 + 15
-# m; wind 1.7 * 1885 * 150 * 43.41 = 20.87 MNm on 1.5 * (0.5 + 5) = 8.25 m^2, inertia
-# 1.3 * 69 t * 3 * 43.41 = 11.68 MNm on 5 * (5/3 + 1.5) = 15.83 m^2: 3.267 MN/m, a 12.19 mm
-# wall at 268 MPa, which buckles between stiffeners 0.76 m apart below
-# cbrt(3.267e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 13.63 mm; 1.2 * 7850 * 2 * 6.5 * 0.01363 *
-# 28.41 = 47.4 t. One pair of 60 x 10 m rotors, 361.4 t each, at 0.3 Hz: compliance
-# 28.41^3 / 3 + 30 * 28.41^2 + 30^2 * 28.41 = 57427 m^3, section 1.5^2 * (5 + 0.25) =
-# 11.81 m^2 per m of wall, (0.6 pi)^2 * 57427 * 361.4e3 / (206e9 * 11.81 - (0.6 pi)^2 *
-# 57427 * 0.24 * 216660 * 28.41) = 34.6 mm, thicker than the 33.0 mm strength asks.
+# By hand, two pairs of 30 x 5 m rotors on the Megamax: at the 20 m/s they stop in, spin
+# ratio 47 / 20 = 2.35, lift 0.96 * 7.468 and drag 1.855 give a peak of 0.5 * 1.225 * 20^2 *
+# hypot(7.169, 1.855) = 1814 Pa; arm 25.91 + 2.5 + 15 m; wind 1.7 * 1814 * 150 * 43.41 =
+# 20.08 MNm on 1.5 * (0.5 + 5) = 8.25 m^2, inertia 1.3 * 69 t * 3 * 43.41 = 11.68 MNm on
+# 5 * (5/3 + 1.5) = 15.83 m^2: 3.172 MN/m, an 11.84 mm wall at 268 MPa, which buckles
+# between stiffeners 0.76 m apart below cbrt(3.172e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) =
+# 13.50 mm; 1.2 * 7850 * 2 * 6.5 * 0.01350 * 28.41 = 46.97 t. One pair of 60 x 10 m rotors,
+# 361.4 t each, at 0.3 Hz: compliance 28.41^3 / 3 + 30 * 28.41^2 + 30^2 * 28.41 = 57427 m^3,
+# section 1.5^2 * (5 + 0.25) = 11.81 m^2 per m of wall, (0.6 pi)^2 * 57427 * 361.4e3 /
+# (206e9 * 11.81 - (0.6 pi)^2 * 57427 * 0.24 * 216660 * 28.41) = 34.6 mm, thicker than the
+# 32.0 mm strength asks.
 @testset "a rotor pedestal's wall carries its factored moments without buckling and \
           keeps the rotor's sway above the ship's motions" begin
     hull = Hull(ship_classes()["Megamax container ship"], assumptions)
     rotors = WindShipOpt.RotorRig(600.0, hull, assumptions; columns=2, in_column=2)
     @test rotors.height ≈ 30 && rotors.diameter ≈ 5
     peak = WindShipOpt.rotor_peak_pressure(rotors, assumptions[:air_density])
-    @test peak ≈ 1885 rtol = 1e-3
-    @test WindShipOpt.pedestal_wall(rotors, assumptions) ≈ 13.63e-3 rtol = 2e-3
-    @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 47.4 rtol = 2e-3
+    @test peak ≈ 1814 rtol = 1e-3
+    @test WindShipOpt.pedestal_wall(rotors, assumptions) ≈ 13.50e-3 rtol = 2e-3
+    @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 46.97 rtol = 2e-3
     tall = WindShipOpt.RotorRig(1200.0, hull, assumptions; columns=2, in_column=1)
     @test tall.height ≈ 60 && tall.diameter ≈ 10
     @test WindShipOpt.pedestal_wall(tall, assumptions) ≈ 34.6e-3 rtol = 2e-3
 end
 
 # By hand, the frame under each of the same 30 x 5 m rotors: legs 28.41 m tall and 13.69 m
-# apart, arm 15 m; factored wind 1.7 * 1885 * 150 = 480.8 kN, roll 1.3 * 69 t * 3 = 269.1 kN,
-# weight 1.3 * 69 t * 9.81 = 880.0 kN. Legs, wind across: (480.8 + 269.1) kN * 43.41 / 2 /
-# 15.83 = 1.028 MN/m, above the 0.900 MN/m of wind along; it buckles below
-# cbrt(1.028e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 9.27 mm. Beam, wind along: 880.0 kN *
-# 13.69 / 4 + 480.8 kN * 15 / 2 = 6.62 MNm on 8.25 m^2, roll 269.1 kN * 13.69 / 4 on 15.83
-# m^2 and its torsion 269.1 kN * 15 / 2 on 2 * 1.5 * 5 m^2: 0.891 MN/m, 8.84 mm; 1.2 * 7850 *
-# 13 * (2 * 9.27e-3 * 28.41 + 8.84e-3 * 13.69) = 79.3 t. Its beam spans two of the
-# Megamax's 2.5 m rows over the bay, through ten tiers of two TEU: 40 slots a rotor.
+# apart, arm 15 m; factored wind 1.7 * 1814 * 150 = 462.7 kN, roll 1.3 * 69 t * 3 =
+# 269.1 kN, weight 1.3 * 69 t * 9.81 = 880.0 kN. Legs, wind across: (462.7 + 269.1) kN *
+# 43.41 / 2 / 15.83 = 1.003 MN/m, above the 0.880 MN/m of wind along; it buckles below
+# cbrt(1.003e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 9.20 mm. Beam, wind along: 880.0 kN *
+# 13.69 / 4 + 462.7 kN * 15 / 2 = 6.48 MNm on 8.25 m^2, roll 269.1 kN * 13.69 / 4 on
+# 15.83 m^2 and its torsion 269.1 kN * 15 / 2 on 2 * 1.5 * 5 m^2: 0.875 MN/m, 8.79 mm;
+# 1.2 * 7850 * 13 * (2 * 9.20e-3 * 28.41 + 8.79e-3 * 13.69) = 78.75 t. Its beam spans two
+# of the Megamax's 2.5 m rows over the bay, through ten tiers of two TEU: 40 slots a rotor.
 @testset "a frame carries a raised rotor over a bay and takes the slots below its beam" begin
     class = ship_classes()["Megamax container ship"]
     hull = Hull(class, assumptions)
@@ -1405,9 +1459,9 @@ end
     @test rotors.pedestal == :column
     frame = WindShipOpt.with_pedestal(rotors, :frame)
     walls = WindShipOpt.frame_walls(frame, assumptions)
-    @test walls.leg ≈ 9.27e-3 rtol = 2e-3
-    @test walls.beam ≈ 8.84e-3 rtol = 2e-3
-    @test WindShipOpt.pedestal_mass(frame, assumptions) ≈ 79.3 rtol = 2e-3
+    @test walls.leg ≈ 9.20e-3 rtol = 2e-3
+    @test walls.beam ≈ 8.79e-3 rtol = 2e-3
+    @test WindShipOpt.pedestal_mass(frame, assumptions) ≈ 78.75 rtol = 2e-3
     @test WindShipOpt.blocked_slots(frame, class, assumptions) == 4 * 40
     @test WindShipOpt.blocked_slots(rotors, class, assumptions) == 0
     bare = Ship(ShipDesign(:ammonia, class), assumptions)
@@ -3153,6 +3207,70 @@ end
     end
 end
 
+@testset "a wind and angle screened out with the kite stowed leave it unpowered anywhere \
+          inside" begin
+    shares = (0.0, 0.5, 1.0)
+    performance = kite_route_table.table
+    winds, angles, resistances = performance.flown_thrust.knots[2:4]
+    screened, powered = 0, 0
+    for speed_index in eachindex(kite_route_table.speeds)
+        slice = kite_route_table.slices[speed_index]
+        planes = kite_route_table.unpowered[speed_index].stowed_planes
+        for plane in CartesianIndices(planes), layer in 1:(length(resistances) - 1)
+            planes[plane] || continue
+            screened += 1
+            j, k = Tuple(plane)
+            for wind_share in shares, angle_share in shares, layer_share in shares
+                condition = WindShipOpt.SeaCondition(performance,
+                    place_in_cell(winds, j, wind_share),
+                    place_in_cell(angles, k, angle_share), 0.0, 8.0, 1.0)
+                waves = place_in_cell(resistances, layer, layer_share)
+                powered += isfinite(last(WindShipOpt.edge_fuels(performance, slice,
+                    condition, waves, WindShipOpt.KnotWeight(resistances, waves))))
+            end
+        end
+    end
+    @test screened > 0
+    @test powered == 0
+end
+
+"""
+    tried_held_speed(table, speed_index, sample, aloft)
+
+The [`held_speed`](@ref) found by reading the fuels at every routing speed up to
+`speed_index`.
+"""
+function tried_held_speed(table, speed_index, sample, aloft)
+    fuels = [WindShipOpt.expected_fuels(table, i, sample) for i in 1:speed_index]
+    stowed = [isfinite(stowed_fuel) for (_, stowed_fuel, _) in fuels]
+    flying = [isfinite(flown_fuel) && chance > 0 for (flown_fuel, _, chance) in fuels]
+    held = something(findlast(stowed .| aloft .& flying), findlast(flying), 0)
+    return held == 0 ? (0, Inf, Inf, 0.0) : (held, fuels[held]...)
+end
+
+@testset "the held speed is the fastest the stowed rig holds, or a flying kite where \
+          none does or the kite is up" begin
+    for route_table in (table, kite_route_table)
+        commanded = length(route_table.speeds)
+        wrong, passed_over = 0, 0
+        for wind in 0.0:3.0:30.0, angle in range(0, π; length=7), wave_height in (0, 3, 7)
+            condition = WindShipOpt.SeaCondition(route_table.table, wind, angle,
+                wave_height, 8.0, angle)
+            sample = WindShipOpt.EdgeSample(condition, wind * cos(angle),
+                wind * sin(angle), wind, 0.0)
+            for aloft in (false, true)
+                held = WindShipOpt.held_speed(route_table, commanded, sample, aloft)
+                wrong += !isequal(held, tried_held_speed(route_table, commanded, sample,
+                    aloft))
+                passed_over += first(held) < first(tried_held_speed(route_table,
+                    commanded, sample, true))
+            end
+        end
+        @test wrong == 0
+        @test passed_over > 0 || route_table === table
+    end
+end
+
 @testset "waves marked as resisting add resistance anywhere in their cell" begin
     shares = (0.0, 0.5, 1.0)
     for route_table in (table, kite_route_table)
@@ -3211,7 +3329,8 @@ end
     for route_table in (table, kite_route_table)
         unscreened = RouteTable(route_table.table, route_table.speeds, route_table.slices,
             [WindShipOpt.UnpoweredCells(fill(false, size(marks.cells)),
-                 fill(false, size(marks.planes)), marks.resisting_waves)
+                 fill(false, size(marks.planes)), fill(false, size(marks.planes)),
+                 marks.resisting_waves)
              for marks in route_table.unpowered])
         centre, straight = centre_index(corridor), WindShipOpt.MAX_LATERAL_STEP + 1
         samples = [WindShipOpt.EdgeSample(route_table.table, weather, corridor, stage,
@@ -3397,7 +3516,7 @@ include(joinpath(root, "scripts", "run_estimate.jl"))
 runs_directory = mktempdir()
 end
 
-@testset "a run counts as finished only once every step it was asked for is done" begin
+@testset "a run counts as finished only once every data step it was asked for is done" begin
     write_data(run, name) = PaperRuns.run_step!(run, name,
         () -> touch(joinpath(run.directory, "$name.csv")))
     is_open() = !PaperRuns.is_finished(last(only(PaperRuns.fidelity_runs(:draft))))
@@ -3405,16 +3524,31 @@ end
     write_data(run, :designs)
     @test is_open()
     narrower = PaperRuns.open_run(:draft, [:designs], true)
-    PaperRuns.finish_run!(narrower)
+    PaperRuns.finish_run!(narrower, [])
     @test is_open()
     rest = PaperRuns.open_run(:draft, [:routes], true)
     write_data(rest, :routes)
     rm(joinpath(rest.directory, "designs.csv"))
-    PaperRuns.finish_run!(rest)
+    PaperRuns.finish_run!(rest, [])
     @test is_open()
     write_data(rest, :designs)
-    PaperRuns.finish_run!(rest)
+    PaperRuns.finish_run!(rest, [])
     @test !is_open()
+end
+
+@testset "a figure that fails to draw keeps the run's data and the other figures" begin
+    @eval PaperRuns runs_directory = mktempdir()  # runs are named by the minute they start
+    drawn = Symbol[]
+    steps = [:designs => () -> touch(PaperRuns.run_file("designs.csv")),
+        :overlap => () -> error("labels of figure overlap: \"a\" overlaps \"b\""),
+        :breakdown => () -> push!(drawn, :breakdown)]
+    failed = redirect_stdout(devnull) do
+        PaperRuns.run_steps(steps, [:overlap, :breakdown]; fidelity=:draft, resume=false)
+    end
+    @test only(failed) == (:overlap => "labels of figure overlap: \"a\" overlaps \"b\"")
+    @test drawn == [:breakdown]
+    @test PaperRuns.is_finished(PaperRuns.paper_run.record)
+    @test_throws "overlap: labels of figure overlap" PaperRuns.check_drawn(failed)
 end
 
 @testset "a step resumed on another Julia records the version it ran on" begin
@@ -3494,6 +3628,23 @@ end
     @test PaperRuns.data_file("study.csv") == own
     rm(own)
     @test PaperRuns.data_file("study.csv") == other
+end
+
+@testset "figure and table steps read their source run before a finished one" begin
+    function run_with(name, finished)
+        directory = joinpath(PaperRuns.runs_directory, name)
+        mkpath(directory)
+        touch(joinpath(directory, "data.csv"))
+        record = Dict("fidelity" => "final", "finished" => finished, "git_branch" => "other")
+        open(io -> PaperRuns.TOML.print(io, record), joinpath(directory, "run.toml"), "w")
+        return joinpath(directory, "data.csv")
+    end
+    unfinished = run_with("2026-02-01T0000", "")
+    finished = run_with("2026-01-01T0000", "done")
+    PaperRuns.paper_run = PaperRuns.PaperRun(:final)
+    @test PaperRuns.data_file("data.csv") == finished
+    PaperRuns.paper_run = PaperRuns.PaperRun(:final; source="2026-02-01T0000")
+    @test PaperRuns.data_file("data.csv") == unfinished
 end
 
 """
@@ -4111,16 +4262,22 @@ end
     held = WindShipOpt.held_speed_table(table, 11.3)
     @test last(held.speeds) ≈ 11.3KNOT
     @test held.speeds[1:(end - 1)] == filter(<(11.3KNOT), RouteTable(table).speeds)
-    for count in 1:12, stride in 1:4
+    for count in 1:12, stride in (1, 2, 4, 8)
         indices = WindShipOpt.commanded_speeds(count, stride)
         @test last(indices) == count && step(indices) == stride && first(indices) <= stride
     end
 end
 
+@testset "by default the search commands 7 of 49 speeds, the lowest and the top" begin
+    (; routing_speeds, search_speed_stride) = WindShipOpt.RouterSettings()
+    @test WindShipOpt.commanded_speeds(routing_speeds, search_speed_stride) == 1:8:49
+end
+
 @testset "the search's speeds on an edge arrive within a time bin or are neighbours" begin
     speeds = collect(range(2.0, 8.0; length=49))
     commanded = Int[]
-    for distance in (20e3, 500e3, 3500e3), time_step in (0.25, 1.5, 3.0), stride in 1:4
+    for distance in (20e3, 500e3, 3500e3), time_step in (0.25, 1.5, 3.0),
+        stride in (1, 2, 4, 8)
         WindShipOpt.commanded_speeds!(empty!(commanded), speeds, stride, distance,
             time_step)
         @test issubset(WindShipOpt.commanded_speeds(length(speeds), stride), commanded)
@@ -5066,6 +5223,16 @@ end
     bands = PaperData.fleet_band.(cells)
     @test count(==("rotors"), bands) == count(==("level"), bands) == 1
     @test count(==("none"), bands) == length(bands) - 2
+end
+
+@testset "a run of three rigs leads and sums over those three alone" begin
+    (; table, class, drive) = market_class_table()
+    held = findall(in(("none", "kite", "wings", "rotors")), table["rig"])
+    three = Dict{String, Vector}(name => column[held] for (name, column) in table)
+    cells = PaperData.fleet_cells(three, drive)
+    @test all(Set(keys(cell.savings)) == Set(("kite", "wings", "rotors")) for cell in cells)
+    lead = PaperData.rig_lead(filter(cell -> cell.class == class, cells))
+    @test (lead.rig, lead.rival, lead.verdict) == ("rotors", "wings", "leads")
 end
 
 @testset "a ship type's saving per ship is what each rig saves it, over its ships" begin
