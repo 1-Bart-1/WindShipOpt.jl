@@ -1931,7 +1931,7 @@ end
     end
     @test days(free) < 0.99days(bare)
     @test days(free) < days(scheduled) <= days(bare)
-    @test scheduled.fuel_energy < free.fuel_energy
+    @test scheduled.fuel_energy < bare.fuel_energy
     @test days(bare_tramp) == days(bare)
 end
 
