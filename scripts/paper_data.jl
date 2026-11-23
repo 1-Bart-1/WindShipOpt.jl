@@ -918,14 +918,16 @@ smallest_deck_rig_area = 50.0
 
 Smallest and largest area [m^2] searched for each rig on `class`: kites of 500 to
 64,000 m^2, VTOL kites of 20 m^2 to the largest whose perch fits, deck rigs from
-`smallest_deck_rig_area` to all of what fits on deck.
+`smallest_deck_rig_area` to all of what fits on deck, and none of a rig where not even its
+smallest size fits.
 """
 function size_bounds(class)
     hull = Hull(class, assumptions)
+    smallest = Dict("vtol" => 20.0,
+        (rig => smallest_deck_rig_area for rig in deck_rig_names)...)
+    bounds = (rig => (area, largest_rig_area(rig, hull)) for (rig, area) in smallest)
     return Dict("kite" => (500.0, largest_rig_area("kite", hull)),
-        "vtol" => (20.0, largest_rig_area("vtol", hull)),
-        (rig => (smallest_deck_rig_area, largest_rig_area(rig, hull))
-         for rig in deck_rig_names)...)
+        (rig => (lower, upper) for (rig, (lower, upper)) in bounds if lower <= upper)...)
 end
 
 "guessed cheapest rig sizes of the class study, data/size_guesses.csv"
