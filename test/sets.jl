@@ -3085,7 +3085,7 @@ end
             condition = WindShipOpt.SeaCondition(route_table.table, wind, angle,
                 wave_height, 8.0, angle)
             sample = WindShipOpt.EdgeSample(condition, wind * cos(angle),
-                wind * sin(angle))
+                wind * sin(angle), wind, 0.0)
             for aloft in (false, true)
                 held = WindShipOpt.held_speed(route_table, commanded, sample, aloft)
                 wrong += !isequal(held, tried_held_speed(route_table, commanded, sample,
