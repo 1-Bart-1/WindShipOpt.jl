@@ -3901,11 +3901,15 @@ end
     settings = merge(PaperRuns.cluster_settings(),
         Dict("account" => "research-me", "partition" => "p2"))
     command = PaperRuns.slurm_command(settings, "run", "log", `true`; after="7")
-    option(name) = only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
+    option(name) =
+        only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
     hours, minutes, seconds = parse.(Int, split(option("time"), ":"))
     @test hours * 3600 + minutes * 60 + seconds <= 24 * 3600
     @test parse(Int, option("cpus-per-task")) <= 64
-    @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 4
+    # DelftBlue's jobs of one user at once, by the share the account belongs to
+    jobs_at_once = Dict("research" => 64, "innovation" => 4)
+    share = first(split(settings["account"], "-"))
+    @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= jobs_at_once[share]
     @test option("dependency") == "afterany:7"
 end
 
