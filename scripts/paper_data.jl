@@ -267,7 +267,7 @@ end
 
 "design keyword of each rig"
 rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area,
-    "vtol" => :rigid_kite_area, "suction" => :suction_area)
+    "vtol" => :rigid_kite_area, "suction" => :suction_area, "lei" => :lei_kite_area)
 
 """
     rig_size(rig, area)
@@ -290,7 +290,7 @@ study_hull(ship) = ship == "140 m" ? 140.0 : ship_classes()[ship]
 
 "reference size of each rig on the 140 m ship"
 reference_rigs = [("kite", 3200.0), ("wings", 1500.0), ("rotors", 800.0),
-    ("suction", 800.0), ("vtol", 200.0)]
+    ("suction", 800.0), ("vtol", 200.0), ("lei", 200.0)]
 
 "the 140 m ship without a rig, then each of the [`reference_rigs`](@ref)"
 reference_rigs_and_none = [("none", 0.0); reference_rigs]
@@ -303,7 +303,7 @@ reference_canopy_price(inputs) =
     WindShipOpt.canopy_price(inputs, reference_kite_shape(inputs)...)
 
 "the rigs, as named in the output"
-rig_names = ("kite", "wings", "rotors", "suction", "vtol")
+rig_names = ("kite", "wings", "rotors", "suction", "vtol", "lei")
 
 "the rigs that stand on deck, as named in the output"
 deck_rig_names = ("wings", "rotors", "suction")
@@ -361,10 +361,12 @@ situation_inputs = Dict(:vlsfo_price => ((8.0, 12.0, 22.0, 30.0), all_rigs),
 situation_sizes = Dict(
     "140 m" => Dict("kite" => (800.0, 1600.0, 3200.0, 6400.0),
         "wings" => (800.0, 1500.0, 2400.0), "rotors" => (400.0, 800.0, 1600.0),
-        "suction" => (400.0, 800.0, 1600.0), "vtol" => (100.0, 200.0, 400.0)),
+        "suction" => (400.0, 800.0, 1600.0), "vtol" => (100.0, 200.0, 400.0),
+        "lei" => (100.0, 200.0, 400.0)),
     "Kamsarmax bulk carrier" => Dict("kite" => (1600.0, 3200.0, 6400.0),
         "wings" => (1600.0, 2400.0, 3600.0), "rotors" => (850.0, 1200.0, 1890.0),
-        "suction" => (850.0, 1200.0, 1890.0), "vtol" => (200.0, 400.0, 800.0)))
+        "suction" => (850.0, 1200.0, 1890.0), "vtol" => (200.0, 400.0, 800.0),
+        "lei" => (200.0, 400.0, 800.0)))
 
 """
 Ship, route, drive and inputs of each part of the situation study: every input on the
@@ -926,13 +928,14 @@ smallest_deck_rig_area = 50.0
     size_bounds(class)
 
 Smallest and largest area [m^2] searched for each rig on `class`: kites of 500 to
-64,000 m^2, VTOL kites of 20 m^2 to the largest whose perch fits, deck rigs from
+64,000 m^2, VTOL kites of 20 m^2 to the largest whose perch fits, leading-edge inflatable
+kites of 20 m^2 to the largest that can be launched, deck rigs from
 `smallest_deck_rig_area` to all of what fits on deck, and none of a rig where not even its
 smallest size fits.
 """
 function size_bounds(class)
     hull = Hull(class, assumptions)
-    smallest = Dict("vtol" => 20.0,
+    smallest = Dict("vtol" => 20.0, "lei" => 20.0,
         (rig => smallest_deck_rig_area for rig in deck_rig_names)...)
     bounds = (rig => (area, largest_rig_area(rig, hull)) for (rig, area) in smallest)
     return Dict("kite" => (500.0, largest_rig_area("kite", hull)),
@@ -976,11 +979,13 @@ end
 """
     largest_rig_area(rig, hull)
 
-Largest area [m^2] of `rig` on `hull`: what fits on deck, for a kite the search bound.
+Largest area [m^2] of `rig` on `hull`: what fits on deck, for a kite the search bound, for
+a leading-edge inflatable kite the largest that can be launched.
 """
 function largest_rig_area(rig, hull)
     rig == "kite" && return 64000.0
     rig == "vtol" && return WindShipOpt.largest_rigid_kite_area(hull, assumptions)
+    rig == "lei" && return WindShipOpt.largest_lei_kite_area(assumptions)
     return largest_area(rig, hull)
 end
 
@@ -1213,7 +1218,7 @@ function gap_error(cells, weights, rig, rival)
 end
 
 "bands of the fleet's cost split by rig, in the order drawn"
-fleet_bands = ("kite", "level", "rotors", "wings", "suction", "vtol", "none")
+fleet_bands = ("kite", "level", "rotors", "wings", "suction", "vtol", "lei", "none")
 
 """
     fleet_leaders(savings, cells, weights=ones(length(cells)))
@@ -2080,7 +2085,8 @@ end
 "input of each rig holding the share of its units' round trips out of service"
 out_of_service_inputs = Dict("kite" => "kite_out_of_service",
     "wings" => "wing_out_of_service", "rotors" => "rotor_out_of_service",
-    "suction" => "suction_out_of_service", "vtol" => "kite_out_of_service")
+    "suction" => "suction_out_of_service", "vtol" => "kite_out_of_service",
+    "lei" => "kite_out_of_service")
 
 """
     service_shares(rig)
@@ -3126,8 +3132,8 @@ kite_price_inputs = (:canopy_structure_cost, :canopy_cloth_base_price,
     :kite_controls_cost, :kite_integration_fraction, :tether_price, :kite_cycle_course_cost,
     :kite_cycle_crew_cost, :market_price_factor)
 
-"the price inputs of each rig, the kite's [`kite_price_inputs`](@ref)"
-rig_price_inputs = Dict("kite" => kite_price_inputs,
+"the price inputs of each rig, the soft kites' [`kite_price_inputs`](@ref)"
+rig_price_inputs = Dict("kite" => kite_price_inputs, "lei" => kite_price_inputs,
     "wings" => (:wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction,
         :welded_steel_cost_per_mass, :camera_system_cost, :market_price_factor),
     "rotors" => (:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,

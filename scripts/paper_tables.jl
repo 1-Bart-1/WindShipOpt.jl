@@ -202,12 +202,13 @@ input_words = Dict("e" => "e-", "teu" => "TEU", "ceu" => "CEU", "usd" => "USD",
     input_label(name)
 
 Name of the input `name` as the input table prints it, in words rather than as a key, with
-the rigid kite's prefix as "rigid kite".
+the rigid kite's prefix as "rigid kite" and the leading-edge inflatable kite's as
+"LEI kite".
 """
 function input_label(name)
     label = replace(join([get(input_words, word, word)
                           for word in split(string(name), "_")], " "), "e- " => "e-")
-    return replace(label, r"^rigid " => "rigid kite ")
+    return replace(label, r"^rigid " => "rigid kite ", r"^lei " => "LEI kite ")
 end
 
 "the appendix section, by its label, that derives each input which has one"
@@ -228,6 +229,8 @@ input_derivations = Dict(
     :rigid_cost_per_mass => "sec:det_rigid", :rigid_avionics_cost => "sec:det_rigid",
     :rigid_tether_cost => "sec:det_rigid",
     :rigid_upkeep_per_area => "sec:det_rigid",
+    (name => "sec:det_lei" for name in (:lei_flight_drag, :lei_tube_mass,
+        :lei_tube_surface, :lei_max_force_per_area))...,
     :tether_stress => "sec:det_kite", :tether_length_ratio => "sec:det_kite",
     :kite_min_turn_radius => "sec:det_kite", :control_unit_mass_per_force => "sec:det_kite",
     :kite_flight_drag => "sec:det_kite", :kite_landing_max_wind => "sec:det_kite",
@@ -331,7 +334,8 @@ end
 
 "heading of each group of the development table, by the rig of its inputs"
 development_groups = ["kite" => "Kite", "wings" => "Wing sails", "rotors" => "Rotors",
-    "suction" => "Suction sails", "vtol" => "VTOL kite", "every rig" => "Every rig",
+    "suction" => "Suction sails", "vtol" => "VTOL kite", "lei" => "LEI kite",
+    "every rig" => "Every rig",
     "condition" => "Conditions"]
 
 """
@@ -1227,7 +1231,8 @@ end
 
 "input of each rig holding its life [years]"
 lifetime_inputs = Dict("kite" => :kite_lifetime, "wings" => :wing_lifetime,
-    "rotors" => :rotor_lifetime, "suction" => :suction_lifetime, "vtol" => :kite_lifetime)
+    "rotors" => :rotor_lifetime, "suction" => :suction_lifetime, "vtol" => :kite_lifetime,
+    "lei" => :kite_lifetime)
 
 """
     payback_years(table, class, drive, route, rig)
@@ -2745,7 +2750,7 @@ highlight_limit = 85
 "names of the rigs in the text, with the verb a rig leads by"
 rig_subjects = Dict("kite" => ("the kite", "leads"), "wings" => ("the wing sails", "lead"),
     "rotors" => ("the rotors", "lead"), "suction" => ("the suction sails", "lead"),
-    "vtol" => ("the VTOL kite", "leads"))
+    "vtol" => ("the VTOL kite", "leads"), "lei" => ("the LEI kite", "leads"))
 
 """
     listed(items)
@@ -2878,7 +2883,7 @@ rig_name(rig, short) = short ? rig_short_names[rig] : first(rig_subjects[rig])
 
 "names of the rigs in the shortest text"
 rig_short_names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "rotors",
-    "suction" => "suction sails", "vtol" => "VTOL kite")
+    "suction" => "suction sails", "vtol" => "VTOL kite", "lei" => "LEI kite")
 
 """
     advice(lead; short=false)

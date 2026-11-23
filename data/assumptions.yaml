@@ -1022,8 +1022,8 @@ lei_tube_mass:
   low: 0.36
   high: 0.36
   unit: kg/m^2
-  source: "@schwoll2012 [Table 2-1]: the V2 kite's weighed parts"
-  reason: "Mass of the inflated tubes per projected m^2 of the V2 kite: Dacron shells and bladders of the leading edge and struts, 6.02 of its 11.49 kg [@schwoll2012, Table 2-1], on 16.7 m^2 projected."
+  source: "@schwoll2012 [Table 2-1]: the V2 kite's parts"
+  reason: "Mass of the inflated tubes per projected m^2 of the V2 kite: Dacron shells and bladders of the leading edge and struts, 6.02 kg as their fabric areas times their weights per m^2, of the 11.49 kg the whole kite weighs without its control unit [@schwoll2012, Table 2-1], on 16.7 m^2 projected."
 lei_tube_surface:
   value: 0.89
   low: 0.89
