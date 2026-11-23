@@ -302,7 +302,8 @@ end
 
 The rigs whose saving an entry of [`development_inputs`](@ref) moves.
 """
-lever_rigs(entry) = entry.rig in rig_names ? (entry.rig,) : rig_names
+lever_rigs(entry) = entry.rig in rig_names ? (entry.rig,) :
+                    entry.rig == "soft kites" ? ("kite", "lei") : rig_names
 
 """
     lever_gain_loss(table, ship, entry; column="cost")
@@ -333,9 +334,9 @@ function effect_cell((gain, loss))
 end
 
 "heading of each group of the development table, by the rig of its inputs"
-development_groups = ["kite" => "Kite", "wings" => "Wing sails", "rotors" => "Rotors",
-    "suction" => "Suction sails", "vtol" => "VTOL kite", "lei" => "LEI kite",
-    "every rig" => "Every rig",
+development_groups = ["soft kites" => "Both soft kites", "kite" => "Kite",
+    "wings" => "Wing sails", "rotors" => "Rotors",
+    "suction" => "Suction sails", "vtol" => "VTOL kite", "every rig" => "Every rig",
     "condition" => "Conditions"]
 
 """
@@ -2153,7 +2154,7 @@ fidelity_parts() = [
               "wind and course",
         error="glide ratio of 4 matched to flight data",
         effect=varied_inputs(:kite_min_turn_radius, :kite_aspect_ratio,
-            :kite_max_force_per_area)),
+            :soft_kite_force_per_area)),
     (part="Kite launch and sea limits", varied="wind limits, extra launch wind in a sea",
         model="fixed wind limits for launch, flight and landing; launch wind raised with " *
               "the launch mast's motion in the sea",

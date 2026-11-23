@@ -4580,13 +4580,15 @@ end
         ("tubarao", "ammonia", "rotors", 1890.0, 0.0047),
         ("tubarao", "ammonia", "vtol", 80.0, 0.0050),
         ("tubarao", "ammonia", "vtol", 160.0, 0.0051),
+        ("tubarao", "ammonia", "lei", 400.0, 0.0049),
+        ("tubarao", "ammonia", "lei", 800.0, 0.0050),
         ("bilbao", "ammonia", "rotors", 850.0, 0.0045)]
     classes = Dict{String, Vector}("class" => fill("Kamsarmax bulk carrier", length(runs)),
         (name => [run[k] for run in runs]
          for (k, name) in enumerate(("route", "drive", "rig", "area", "cost")))...)
     @test PaperData.fuel_sizes(classes, "Kamsarmax bulk carrier", :tubarao) ==
           Dict("none" => 0.0, "kite" => 3200.0, "wings" => 3600.0, "suction" => 1600.0,
-              "rotors" => 1890.0, "vtol" => 80.0)
+              "rotors" => 1890.0, "vtol" => 80.0, "lei" => 400.0)
     @test PaperData.swept_values(:e_methanol_price) ==
           sort([Main.assumptions[:e_methanol_price], 40.0, 90.0, 120.0])
 end

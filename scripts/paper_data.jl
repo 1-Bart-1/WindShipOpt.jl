@@ -1831,6 +1831,7 @@ end of every assumption's range that its high bound takes.
 """
 joint_inputs = (kite_weather_window=(kite_launch_sea_wind=:low, kite_launch_min_wind=:low,
         kite_launch_max_wind=:high, kite_landing_max_wind=:high, kite_max_wind=:high),
+    soft_kite_force_per_area=(kite_max_force_per_area=:high, lei_max_force_per_area=:high),
     rig_out_of_service=(kite_out_of_service=:high, wing_out_of_service=:high,
         rotor_out_of_service=:high, suction_out_of_service=:high),
     fuel_price=(e_ammonia_price=:high, vlsfo_price=:high))
@@ -1911,36 +1912,37 @@ end
     development_inputs
 
 The inputs of the development study as (input, label, rig, lever, reason): the input,
-its name in the paper, the rig whose developer can change it (or `"condition"` for a
-condition it is judged against), what kind of lever it is, and the reason it is in the
-study.
+its name in the paper, the rig whose developer can change it (`"soft kites"` for both
+soft kites, `"every rig"` for all, `"condition"` for a condition it is judged against),
+what kind of lever it is, and the reason it is in the study.
 """
 development_inputs = [
-    (input=:canopy_structure_cost, label="canopy cost", rig="kite",
+    (input=:canopy_structure_cost, label="canopy cost", rig="soft kites",
         lever="price", reason="Cloth with its seams, sewing and bridle, which a maker " *
                               "lowers by design for making; they set the canopy's share " *
                               "of the kite's price."),
-    (input=:canopy_life, label="canopy life", rig="kite", lever="life",
+    (input=:canopy_life, label="canopy life", rig="soft kites", lever="life",
         reason="What a flight hour of the canopy costs; unmeasured, so what development " *
                "has to prove."),
-    (input=:launch_mast_mass_per_size, label="kite launch mast mass", rig="kite",
+    (input=:launch_mast_mass_per_size, label="kite launch mast mass", rig="soft kites",
         lever="price", reason="Its design sets the mass of the launch mast and docking " *
                               "head, the largest part of the kite's hardware price."),
-    (input=:kite_launch_loss_probability, label="kites lost per launch", rig="kite",
+    (input=:kite_launch_loss_probability, label="kites lost per launch", rig="soft kites",
         lever="availability",
         reason="What its launch and landing system's reliability is worth: unmeasured, " *
                "from today's record to a second layer that saves the kite."),
-    (input=:kite_max_force_per_area, label="kite force limit per area", rig="kite",
-        lever="force",
+    (input=:soft_kite_force_per_area, label="soft kite force limit per area",
+        rig="soft kites", lever="force",
         reason=string("Its structure decides the force each m\\textsuperscript{2} may ",
-            "carry; cloth, seams, tether and winch grow with it.")),
-    (input=:kite_min_turn_radius, label="kite smallest turn radius", rig="kite",
+            "carry; cloth, seams, tubes, tether and winch grow with it.")),
+    (input=:kite_min_turn_radius, label="kite smallest turn radius", rig="soft kites",
         lever="force", reason="Steering and control decide how tight, and so how " *
                               "powerful, a pattern can be."),
     (input=:kite_aspect_ratio, label="kite aspect ratio", rig="kite", lever="force",
         reason="The shape of the wing, fixed at today's in the results; a slenderer kite " *
                "glides better if launch and canopy can handle it, priced as the base."),
-    (input=:kite_weather_window, label="kite weather window", rig="kite", lever="weather",
+    (input=:kite_weather_window, label="kite weather window", rig="soft kites",
+        lever="weather",
         reason="Its launch system, structure and control decide the sea and the winds " *
                "in which it launches, flies and lands; its five limits moved together."),
     (input=:wing_cost_per_area, label="wing sail cost per area", rig="wings", lever="price",
