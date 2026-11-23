@@ -543,18 +543,18 @@ wing_lifetime:
 # --- suction sail ---
 suction_max_lift_coefficient:
   value: 4.9
-  low: 4.3
+  low: 4.8
   high: 6.0
   unit: "-"
-  source: "@wasp2023wp3 [Fig. 3]: the VentiFoil maker's one point"
-  reason: "Highest lift of the VentiFoil, the one point of lift and drag its maker gave to the WASP project, at 22 degrees [@wasp2023wp3, Fig. 3]; its maker does not publish the polar [@ghorbani2024suction, p.31]. Low: the total force coefficient of 4.9 measured by strain gauges on two VentiFoils at sea [@ghorbani2024suction, Fig. 12] with the drag of the base, sqrt(4.9^2 - 2.4^2) = 4.3. High: the lift coefficient of 6 a digital twin of the same ship took from the maker's data [@wasp2023wp3, p.25]."
+  source: "@ghorbani2024suction [Fig. 12]: two VentiFoils measured at sea"
+  reason: "Highest lift of the VentiFoil: strain gauges on two VentiFoils at sea measured a total force coefficient of 4.9 [@ghorbani2024suction, Fig. 12], the lift of its maker's one point [@wasp2023wp3, Fig. 3]. Low: full-scale CFD of one VentiFoil, 4.84 [@lagendijk2018, Table 5.1]; high: the lift coefficient of 6 a digital twin of the same ship took from the maker's data [@wasp2023wp3, p.25]."
 suction_drag_coefficient:
-  value: 2.4
-  low: 1.7
+  value: 0.84
+  low: 0.81
   high: 2.4
   unit: "-"
-  source: "@wasp2023wp3 [Fig. 3]: the VentiFoil's drag at its highest lift"
-  reason: "Drag of the VentiFoil at its highest lift, the maker's point [@wasp2023wp3, Fig. 3]; drag rises with the square of lift to it. Low: Cousteau's suction section at its highest suction, drag 1.409 over lift 8.394 [@vangelderen2026, Fig. 3.10], at the base lift, 0.82, plus the induced drag of a wing of aspect ratio 6.6 at the wing sails' endplate factor and span efficiency, 4.9^2 / (pi 6.6 x 1.4 x 0.9) = 0.92, together 1.7."
+  source: "@lagendijk2018 [Table 5.1]: full-scale CFD of one VentiFoil"
+  reason: "Drag of the VentiFoil near its highest lift, from full-scale CFD of one VentiFoil, CD 0.838 at CL 4.84 [@lagendijk2018, Table 5.1], whose total force coefficient of 4.91 is what strain gauges measured at sea [@ghorbani2024suction, Fig. 12]; drag rises with the square of lift to it. Low: the same with end plates, 0.81 [@lagendijk2018, Table 5.1]; high: the maker's one point, 2.4 at lift 4.9, whose source gives it with high uncertainty [@wasp2023wp3, Fig. 3]."
 suction_fan_power_per_area:
   value: 470.0
   low: 370.0
@@ -596,7 +596,7 @@ suction_cost_per_mass:
   unit: USD/kg
   estimate: true
   source: "Authors' estimate: wing sail build-up plus fans at the rotor's drive price"
-  reason: "Manufacturing cost of a suction sail with its foundation per kg, priced as a wing sail is: the wing sail's 665 USD/m^2 on its 0.25 t/m^2, 2.7 USD/kg, and fans and motors at the rotor's USD 400 per kW of drive, 470 W/m^2 on 300 kg/m^2, 0.6 USD/kg. Bounds: the wing sail's low and high cost per m^2 on the same mass, 1.2 and 7.0 USD/kg, with drives at 250 and 800 USD/kW."
+  reason: "Manufacturing cost of a suction sail with its foundation per kg, priced as a wing sail is: the wing sail's 665 USD/m^2 on its 0.25 t/m^2, 2.7 USD/kg, and fans and motors at the rotor's USD 400 per kW of drive, 470 W/m^2 on 300 kg/m^2, 0.6 USD/kg."
 suction_lifetime:
   value: 25.0
   low: 20.0
@@ -652,12 +652,12 @@ rotor_max_surface_speed:
   source: "@emsa2023: Norsepower 30 x 5 m rotor at 180 rpm"
   reason: "Norsepower 30x5 m at 180 rpm [@emsa2023]; Eco Flettner 18x3 m at its maximum of 280 rpm [@ecoflettner2026rotor] gives 44 m/s."
 rotor_lift_factor:
-  value: 1.0
+  value: 0.96
   low: 0.89
   high: 1.0
   unit: "-"
-  source: "@tillig2020: ShipCLEAN fit corrected with full-scale data"
-  reason: "Factor on the lift of the ShipCLEAN rotor fit, CL 9.5 at spin ratio 3 corrected with full-scale measurements [@tillig2020]; CFD gives about 8.5 at spin ratio 3 and aspect ratio 6 [@tillig2020, sec. 3.5], the low bound."
+  source: "@han2025 [Table 1]: CFD of a rotor of aspect ratio 6 with an end disc"
+  reason: "Factor on the lift of the ShipCLEAN rotor fit: CFD of a 17.9 x 3 m rotor with an end disc of twice its diameter on a deck gives CL 7.70 at spin ratio 2.5 [@han2025, Table 1], 0.96 of the fit's 7.99. Low: the CFD the fit started from, about 8.5 at spin ratio 3 against the fit's 9.5 [@tillig2020, sec. 3.5]; high: the fit itself, its lift raised to full-scale measurements on one ferry [@tillig2020]."
 rotor_interference_amplitude:
   value: 0.38
   low: 0.0
@@ -1036,7 +1036,7 @@ kite_flight_drag:
   high: 0.12
   unit: "-"
   source: "Fitted to the glide ratio kites fly [@vandervlugt2019; @erhard2013b]"
-  reason: "Drag on the projected area that the design-shape model lacks in flight: bridle, deformation, control unit and steering. The V3 wing reaches L/D 8.6 in the wind tunnel [@poland2025] but 3.6-4.0 in traction with bridle and control unit [@vandervlugt2019], 3.9 fitted on a 160 m^2 SkySails kite and 4-5 with tether [@erhard2013b], 4-5 for SkySails towing kites [@paulig2013]; 0.085 brings the aspect-ratio-3 kite to 4 at CL 0.8; 0 is a kite that keeps its design shape in flight."
+  reason: "Drag on the projected area that the design-shape model lacks in flight: bridle, deformation, control unit and steering. The V3 wing reaches L/D 8-8.5 in the wind tunnel [@poland2025] but 3.6-4.0 in traction with bridle and control unit, tether excluded [@vandervlugt2019]; a 160 m^2 SkySails kite flew 3.9 with tether, which its makers call low since the wind was measured far below it, and they give 4-5 [@erhard2013b]; 0.085 brings the aspect-ratio-3 kite to 4.1 at CL 0.8 without tether and 3.9 with it; 0 is a kite that keeps its design shape in flight."
 kite_landing_max_wind:
   value: 20.0
   unit: m/s

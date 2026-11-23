@@ -366,6 +366,13 @@ end
     @test 0 < power < 0.5
 end
 
+# Han et al. (2025, Table 1): CFD of a rotor of aspect ratio 6 with an end disc gives 7.70.
+@testset "a rotor lifts as CFD of its shape gives at spin ratio 2.5" begin
+    rotors = WindShipOpt.RotorRig(800.0, Hull(140.0, assumptions), assumptions)
+    lift, _, _ = WindShipOpt.rotor_coefficients(2.5)
+    @test rotors.lift_factor * lift ≈ 7.70 rtol = 0.01
+end
+
 """
     uniform_kite(hull, assumptions)
 
@@ -789,7 +796,7 @@ suction_sail(area, inputs=assumptions) = WingRig(area, Hull(140.0, assumptions),
     @test pair.height ≈ sqrt(32.0 * 6.6)
     lift = pair.max_lift_coefficient
     @test lift == 4.9
-    @test WindShipOpt.drag_coefficient(pair, lift) ≈ 2.4
+    @test WindShipOpt.drag_coefficient(pair, lift) ≈ 0.84
     @test WindShipOpt.drag_coefficient(pair, 0.0) ==
           assumptions[:wing_profile_drag_coefficient]
     attached = (lift, WindShipOpt.drag_coefficient(pair, lift))
@@ -853,15 +860,15 @@ end
     env = Environment(assumptions)
     rotors = WindShipOpt.RotorRig(400.0, Hull(140.0, assumptions), assumptions; in_column=2)
     beam = rig_force(rotors, env, 10.0, π / 2, 5.4, 3.0)
-    @test beam.thrust ≈ 243775 rtol = 1e-3
-    @test beam.side ≈ 227311 rtol = 1e-3
+    @test beam.thrust ≈ 232396 rtol = 1e-3
+    @test beam.side ≈ 221389 rtol = 1e-3
     @test beam.power ≈ 118305 rtol = 1e-3
     close_hauled = rig_force(rotors, env, 10.0, π / 4, 5.4, 3.0)
-    @test close_hauled.thrust ≈ 131591 rtol = 1e-3
-    @test close_hauled.side ≈ 510601 rtol = 1e-3
+    @test close_hauled.thrust ≈ 121487 rtol = 1e-3
+    @test close_hauled.side ≈ 492992 rtol = 1e-3
     broad = rig_force(rotors, env, 10.0, 5π / 6, 5.4, 3.0)
-    @test broad.thrust ≈ 91931 rtol = 1e-3
-    @test broad.side ≈ -32685 rtol = 1e-3
+    @test broad.thrust ≈ 88849 rtol = 1e-3
+    @test broad.side ≈ -30519 rtol = 1e-3
     @test rig_force(rotors, env, 10.0, 0.0, 5.4, 3.0) == WindShipOpt.UNREACHABLE_RIG_FORCE
 end
 
@@ -3171,6 +3178,70 @@ end
     end
 end
 
+@testset "a wind and angle screened out with the kite stowed leave it unpowered anywhere \
+          inside" begin
+    shares = (0.0, 0.5, 1.0)
+    performance = kite_route_table.table
+    winds, angles, resistances = performance.flown_thrust.knots[2:4]
+    screened, powered = 0, 0
+    for speed_index in eachindex(kite_route_table.speeds)
+        slice = kite_route_table.slices[speed_index]
+        planes = kite_route_table.unpowered[speed_index].stowed_planes
+        for plane in CartesianIndices(planes), layer in 1:(length(resistances) - 1)
+            planes[plane] || continue
+            screened += 1
+            j, k = Tuple(plane)
+            for wind_share in shares, angle_share in shares, layer_share in shares
+                condition = WindShipOpt.SeaCondition(performance,
+                    place_in_cell(winds, j, wind_share),
+                    place_in_cell(angles, k, angle_share), 0.0, 8.0, 1.0)
+                waves = place_in_cell(resistances, layer, layer_share)
+                powered += isfinite(last(WindShipOpt.edge_fuels(performance, slice,
+                    condition, waves, WindShipOpt.KnotWeight(resistances, waves))))
+            end
+        end
+    end
+    @test screened > 0
+    @test powered == 0
+end
+
+"""
+    tried_held_speed(table, speed_index, sample, aloft)
+
+The [`held_speed`](@ref) found by reading the fuels at every routing speed up to
+`speed_index`.
+"""
+function tried_held_speed(table, speed_index, sample, aloft)
+    fuels = [WindShipOpt.expected_fuels(table, i, sample) for i in 1:speed_index]
+    stowed = [isfinite(stowed_fuel) for (_, stowed_fuel, _) in fuels]
+    flying = [isfinite(flown_fuel) && chance > 0 for (flown_fuel, _, chance) in fuels]
+    held = something(findlast(stowed .| aloft .& flying), findlast(flying), 0)
+    return held == 0 ? (0, Inf, Inf, 0.0) : (held, fuels[held]...)
+end
+
+@testset "the held speed is the fastest the stowed rig holds, or a flying kite where \
+          none does or the kite is up" begin
+    for route_table in (table, kite_route_table)
+        commanded = length(route_table.speeds)
+        wrong, passed_over = 0, 0
+        for wind in 0.0:3.0:30.0, angle in range(0, π; length=7), wave_height in (0, 3, 7)
+            condition = WindShipOpt.SeaCondition(route_table.table, wind, angle,
+                wave_height, 8.0, angle)
+            sample = WindShipOpt.EdgeSample(condition, wind * cos(angle),
+                wind * sin(angle), wind, 0.0)
+            for aloft in (false, true)
+                held = WindShipOpt.held_speed(route_table, commanded, sample, aloft)
+                wrong += !isequal(held, tried_held_speed(route_table, commanded, sample,
+                    aloft))
+                passed_over += first(held) < first(tried_held_speed(route_table,
+                    commanded, sample, true))
+            end
+        end
+        @test wrong == 0
+        @test passed_over > 0 || route_table === table
+    end
+end
+
 @testset "waves marked as resisting add resistance anywhere in their cell" begin
     shares = (0.0, 0.5, 1.0)
     for route_table in (table, kite_route_table)
@@ -3229,7 +3300,8 @@ end
     for route_table in (table, kite_route_table)
         unscreened = RouteTable(route_table.table, route_table.speeds, route_table.slices,
             [WindShipOpt.UnpoweredCells(fill(false, size(marks.cells)),
-                 fill(false, size(marks.planes)), marks.resisting_waves)
+                 fill(false, size(marks.planes)), fill(false, size(marks.planes)),
+                 marks.resisting_waves)
              for marks in route_table.unpowered])
         centre, straight = centre_index(corridor), WindShipOpt.MAX_LATERAL_STEP + 1
         samples = [WindShipOpt.EdgeSample(route_table.table, weather, corridor, stage,
@@ -3415,7 +3487,7 @@ include(joinpath(root, "scripts", "run_estimate.jl"))
 runs_directory = mktempdir()
 end
 
-@testset "a run counts as finished only once every step it was asked for is done" begin
+@testset "a run counts as finished only once every data step it was asked for is done" begin
     write_data(run, name) = PaperRuns.run_step!(run, name,
         () -> touch(joinpath(run.directory, "$name.csv")))
     is_open() = !PaperRuns.is_finished(last(only(PaperRuns.fidelity_runs(:draft))))
@@ -3423,16 +3495,31 @@ end
     write_data(run, :designs)
     @test is_open()
     narrower = PaperRuns.open_run(:draft, [:designs], true)
-    PaperRuns.finish_run!(narrower)
+    PaperRuns.finish_run!(narrower, [])
     @test is_open()
     rest = PaperRuns.open_run(:draft, [:routes], true)
     write_data(rest, :routes)
     rm(joinpath(rest.directory, "designs.csv"))
-    PaperRuns.finish_run!(rest)
+    PaperRuns.finish_run!(rest, [])
     @test is_open()
     write_data(rest, :designs)
-    PaperRuns.finish_run!(rest)
+    PaperRuns.finish_run!(rest, [])
     @test !is_open()
+end
+
+@testset "a figure that fails to draw keeps the run's data and the other figures" begin
+    @eval PaperRuns runs_directory = mktempdir()  # runs are named by the minute they start
+    drawn = Symbol[]
+    steps = [:designs => () -> touch(PaperRuns.run_file("designs.csv")),
+        :overlap => () -> error("labels of figure overlap: \"a\" overlaps \"b\""),
+        :breakdown => () -> push!(drawn, :breakdown)]
+    failed = redirect_stdout(devnull) do
+        PaperRuns.run_steps(steps, [:overlap, :breakdown]; fidelity=:draft, resume=false)
+    end
+    @test only(failed) == (:overlap => "labels of figure overlap: \"a\" overlaps \"b\"")
+    @test drawn == [:breakdown]
+    @test PaperRuns.is_finished(PaperRuns.paper_run.record)
+    @test_throws "overlap: labels of figure overlap" PaperRuns.check_drawn(failed)
 end
 
 @testset "a step resumed on another Julia records the version it ran on" begin

@@ -774,8 +774,7 @@ function label_faults(figure)
             any(box -> overlaps(box, legend), boxes) &&
                 push!(faults, "a legend overlaps a label")
             for plot in scene.plots
-                (covers_data(scene, plot, legend) || covers_bars(scene, plot, legend) ||
-                 covers_band(scene, plot, legend)) &&
+                legend_covers(scene, plot, legend) &&
                     push!(faults, "a legend lies over a $(Makie.plotfunc(plot)) plot")
             end
         end
@@ -862,6 +861,31 @@ function axis_legends(figure, axis)
              if block isa Legend]
     return [Rect2f(minimum(box) .- minimum(viewport), widths(box)) for box in boxes
             if in_axis(box, viewport)]
+end
+
+"whether a legend of box `box` [pixels of `scene`] lies over the data of `plot`"
+legend_covers(scene, plot, box) = covers_data(scene, plot, box) ||
+                                  covers_bars(scene, plot, box) ||
+                                  covers_band(scene, plot, box)
+
+"""
+    clear_axislegend(figure, axes, contents...; kwargs...)
+
+An `axislegend` of `contents` and `kwargs` in the first corner, top right first, of the
+first of `axes` where it covers no data and no other legend, or in the top right of the
+first where none is clear.
+"""
+function clear_axislegend(figure, axes, contents...; kwargs...)
+    for position in (:rt, :lt, :rb, :lb), axis in axes
+        others = axis_legends(figure, axis)
+        legend = axislegend(axis, contents...; position, kwargs...)
+        Makie.update_state_before_display!(figure)
+        box = only(setdiff(axis_legends(figure, axis), others))
+        any(plot -> legend_covers(axis.scene, plot, box), axis.scene.plots) ||
+            any(other -> overlaps(box, other), others) || return legend
+        delete!(legend)
+    end
+    return axislegend(first(axes), contents...; position=:rt, kwargs...)
 end
 
 "whether `box` [pixels of `scene`] lies on a white rectangle drawn in `scene`"
@@ -1263,14 +1287,12 @@ function canopy_tension_figure()
     hlines!(force_axis, mean_force; color=category_colours[1], linestyle=:dash)
     hlines!(force_axis, peak_force; color=category_colours[2], linestyle=:dot)
     lines!(force_axis, times, forces; color=palette[1])
-    trough = argmin(forces)
-    first_below = findlast(>=(mean_force), forces[1:trough]) + 1
-    last_below = trough + findfirst(>=(mean_force), forces[trough:end]) - 2
-    text!(force_axis, (times[first_below] + times[last_below]) / 2, mean_force;
+    above = longest_run(forces .>= mean_force)
+    text!(force_axis, (times[first(above)] + times[last(above)]) / 2, mean_force;
         text=@sprintf("mean %s MN\n%s kN/m", estimate_text(mean_force),
             estimate_text(tension(mean_force))),
-        fontsize=note_size, align=(:center, :bottom), color=category_colours[1],
-        offset=clear_offset((:center, :bottom), pt(2)))
+        fontsize=note_size, align=(:center, :top), color=category_colours[1],
+        offset=clear_offset((:center, :top), pt(2)))
     text!(force_axis, times[1], peak_force;
         text=@sprintf("peak %s MN, %s kN/m\nnew cloth about %s kN/m, %s × peak",
             estimate_text(peak_force), estimate_text(tension(peak_force)),
@@ -1280,6 +1302,14 @@ function canopy_tension_figure()
         offset=clear_offset((:left, :bottom), pt(2)))
     colsize!(figure.layout, 1, Relative(0.52))
     save_figure("canopy_tension", figure)
+end
+
+"the indices of the longest unbroken run of `true` in `flags`"
+function longest_run(flags)
+    starts = findall(k -> flags[k] && (k == 1 || !flags[k - 1]), eachindex(flags))
+    runs = [start:(something(findnext(!, flags, start), length(flags) + 1) - 1)
+            for start in starts]
+    return runs[argmax(length.(runs))]
 end
 
 """
@@ -1889,11 +1919,13 @@ end
 """
     unit_count_axis(cell, row_limits)
 
-Axis in `cell` with one column per rig, its rows `row_limits` matching the axis beside it.
+Axis in `cell` with one column per rig, named upright in the rig's colour and just wide
+enough to keep the names apart, its rows `row_limits` matching the axis beside it.
 """
 function unit_count_axis(cell, row_limits)
-    return Axis(cell; width=pt(24length(rig_names)), xlabel="number of units",
-        xticks=(eachindex(rig_names), collect(rig_names)), xticksvisible=false,
+    return Axis(cell; width=length(rig_names) * (text_size + tick_gap),
+        xlabel="number of units", xticks=(eachindex(rig_names), collect(rig_names)),
+        xticksvisible=false, xticklabelrotation=π / 2,
         xticklabelcolor=palette[eachindex(rig_names)],
         yticksvisible=false, yticklabelsvisible=false, yreversed=true,
         limits=((0.5, length(rig_names) + 0.5), row_limits))
@@ -1903,9 +1935,9 @@ end
     class_size_figure()
 
 Best area of each rig for every ship class and drive, the geometric mean over the routes
-as a marker and the range over the routes as a bar, with the largest kite searched, and
-beside each panel the median number of units of each rig at its best size, each column
-named in the rig's colour.
+as a marker and the range over the routes as a bar, with the largest kite searched as a
+dashed line named in the legend, and beside each panel the median number of units of each
+rig at its best size, each column named in the rig's colour.
 """
 function class_size_figure()
     table = read_table(data_file("classes.csv"))
@@ -1925,9 +1957,6 @@ function class_size_figure()
             yticks=(eachindex(names), names), yreversed=true,
             yticklabelsvisible=column == 1, limits=((100, area_limit), row_limits))
         vlines!(axis, kite_bound; color=palette[1], linestyle=:dash, linewidth=rule_width)
-        text!(axis, kite_bound, row_limits[1]; text="kite search\nbound",
-            align=(:right, :top), offset=(-pt(2), -pt(1)), fontsize=note_size,
-            color=palette[1])
         counts = unit_count_axis(figure[1, 2 * column], row_limits)
         colgap!(figure.layout, 2 * column - 1, pt(4))
         for (j, kind) in enumerate(rig_names), (i, name) in enumerate(names)
@@ -1942,6 +1971,8 @@ function class_size_figure()
                 fontsize=note_size, align=(:center, :center), color=palette[j])
         end
     end
+    Legend(figure[2, 1:4], [LineElement(color=palette[1], linestyle=:dash,
+            linewidth=rule_width)], ["largest kite searched"]; orientation=:horizontal)
     save_figure("class_sizes", figure)
 end
 
@@ -2300,12 +2331,12 @@ departure_costs(table, conditions...) =
     Dict(Date(table["date"][k]) => table["cost"][k] for k in rows(table, conditions...))
 
 """
-    spread_labels(positions, gap)
+    spread_labels(positions, gap, low, high)
 
 `positions` moved apart where needed so that neighbours stand at least `gap` apart, in the
-same order, each group centred where it was.
+same order, each group centred where it was and then pushed within `low` to `high`.
 """
-function spread_labels(positions, gap)
+function spread_labels(positions, gap, low, high)
     order = sortperm(positions)
     placed = positions[order]
     for _ in eachindex(placed), i in 2:length(placed)
@@ -2314,6 +2345,9 @@ function spread_labels(positions, gap)
         placed[i - 1] -= overlap / 2
         placed[i] += overlap / 2
     end
+    count = length(placed)
+    placed .= min.(placed, high .- (count .- (1:count)) .* gap)
+    placed .= max.(placed, low .+ (0:(count - 1)) .* gap)
     return placed[invperm(order)]
 end
 
@@ -2966,23 +3000,19 @@ function wind_angle_figure()
         stacked_bar!(time_axis, i + offset, 100 .* hours ./ sum(hours), 0.36, :gray25)
     end
     thrust_axis = Axis(figure[1, 2]; title="(b) mean thrust, all routes",
-        ylabel="thrust [kN]",
+        ylabel="thrust [kN]", yautolimitmargin=(0, 0.05),
         xticks=(eachindex(angle_bands), ["$(round(Int, low))–$(round(Int, high))°\n$name"
                                          for (name, low, high) in angle_bands]))
-    highest = 0.0
     for (j, (rig, _)) in enumerate(rigs)
         thrust = band_totals(table, rig, "thrust_hours") ./ band_totals(table, rig, "hours")
         barplot!(thrust_axis, eachindex(angle_bands) .+ rig_offset(j, 0.27), thrust;
             width=rig_bar_width(0.27), color=palette[j])
-        highest = max(highest, maximum(thrust))
     end
-    ylims!(thrust_axis, 0, 1.45highest)
     work_axis = Axis(figure[2, 1]; title="(c) share of each rig’s work by band",
         ylabel="share of work [%]", xticks=ticks, xticklabelrotation=π / 6)
     cost_axis = Axis(figure[2, 2]; title="(d) mean thrust per rig cost",
         ylabel="thrust per cost\n[kN per 1000 USD/day]", xticks=ticks,
-        xticklabelrotation=π / 6)
-    highest = 0.0
+        xticklabelrotation=π / 6, yautolimitmargin=(0, 0.05))
     for (i, name) in enumerate(names)
         cost(rig) = first(table["rig_cost"][rows(table, "rig" => rig, "route" => name)])
         for (j, (rig, _)) in enumerate(rigs)
@@ -2991,21 +3021,19 @@ function wind_angle_figure()
                 rig_bar_width(lane_offset), palette[j])
             chosen = rows(table, "rig" => rig, "route" => name)
             thrust = sum(table["thrust_hours"][chosen]) / sum(table["hours"][chosen])
-            per_cost = thrust / (24e-3 * cost(rig))
-            barplot!(cost_axis, [i + rig_offset(j, 0.27)], [per_cost];
+            barplot!(cost_axis, [i + rig_offset(j, 0.27)], [thrust / (24e-3 * cost(rig))];
                 width=rig_bar_width(0.27), color=palette[j])
-            highest = max(highest, per_cost)
         end
     end
-    ylims!(cost_axis, 0, 1.08highest)
     hidexdecorations!(time_axis; ticks=false, ticklabels=false)
-    Legend(figure[3, 1:2], [PolyElement(color=(:gray25, alpha)) for alpha in band_alphas],
+    Legend(figure[3, 1:2], [PolyElement(color=palette[j]) for j in eachindex(rigs)],
+        [square_metres("$(rig_label(rig)) $area ") for (rig, area) in rigs];
+        orientation=:horizontal)
+    Legend(figure[4, 1:2], [PolyElement(color=(:gray25, alpha)) for alpha in band_alphas],
         ["$name $(round(Int, low))–$(round(Int, high))°"
          for (name, low, high) in angle_bands],
         "true wind angle, darkest upwind in each colour";
         orientation=:horizontal, titleposition=:left)
-    axislegend(thrust_axis, [PolyElement(color=palette[j]) for j in eachindex(rigs)],
-        [square_metres("$(rig_label(rig)) $area ") for (rig, area) in rigs]; position=:lt)
     save_figure("wind_angle", figure)
 end
 
@@ -3068,16 +3096,16 @@ function abatement_figure()
                 1.08 * maximum(saved_all), minimum(first.(limits)), maximum(last.(limits)))
         end
     end
-    axislegend(panels[1, 1],
+    clear_axislegend(figure, panels,
         [[LineElement(color=(palette[k], 0.6), linewidth=0.9),
           MarkerElement(color=palette[k], marker=rig_markers[k])]
          for k in eachindex(rig_names)],
-        collect(rig_label.(rig_names)); position=:rt)
+        collect(rig_label.(rig_names)))
     key_areas = (200, 800, 3200, 12800)
-    axislegend(panels[1, 2],
+    clear_axislegend(figure, panels[:, [2, 1]],
         [MarkerElement(color=:gray40, marker=:circle, markersize=area_marker_size(area))
          for area in key_areas], ["$area" for area in key_areas], L"\mathrm{m^2}";
-        position=:rt, orientation=:horizontal, titleposition=:left)
+        orientation=:horizontal, titleposition=:left)
     save_figure("abatement", figure)
 end
 
@@ -3128,6 +3156,9 @@ function development_panel!(axis, table, ships, levers, rig, column)
     end
 end
 
+"height [figure units] of the row of one input in the sensitivity figure"
+input_row_height = pt(12)
+
 """
     sensitivity_figure()
 
@@ -3145,10 +3176,10 @@ function sensitivity_figure()
         sort!(levers; by=entry -> maximum(ship -> abs(-(bound_changes(table, ship, rig,
             string(entry.input))...)), ships))
     end
-    figure = Figure(size=(page_width, 500))
-    columns = [("cost", "change of cost saving [points]", 2),
-        ("carbon", rich("change of CO", subscript("2"), " saving [points]"), 5)]
-    for (column, (name, label, step)) in enumerate(columns)
+    figure = Figure(size=(page_width, page_width))
+    columns = [("cost", "change of cost saving [points]"),
+        ("carbon", rich("change of CO", subscript("2"), " saving [points]"))]
+    for (column, (name, label)) in enumerate(columns)
         changes = [change for (levers, rig) in zip(panels, rig_names) for entry in levers
                    for ship in ships
                    for change in bound_changes(table, ship, rig, string(entry.input);
@@ -3165,16 +3196,16 @@ function sensitivity_figure()
                 yticks=(eachindex(levers), [entry.label for entry in levers]),
                 yticksvisible=column == 1, yticklabelsvisible=column == 1,
                 xlabel=row == length(rig_names) ? label : "",
-                xticks=step * (ceil(low / step):floor(high / step)),
                 limits=((low - margin, high + margin), (0.4, length(levers) + 0.6)))
             development_panel!(axis, table, ships, levers, rig, name)
-            rowsize!(figure.layout, row, Auto(length(levers)))
+            rowsize!(figure.layout, row, Fixed(length(levers) * input_row_height))
         end
     end
     Legend(figure[length(rig_names) + 1, 1:2],
         [[PolyElement(color=category_colours[j]) for j in eachindex(ships)];
             [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
         [short_ship.(ships); "high end of range"]; orientation=:horizontal)
+    resize_to_layout!(figure)
     save_figure("sensitivity", figure)
 end
 
@@ -3359,6 +3390,7 @@ function speed_size_figure()
         ("fuel saved [GJ/round trip]", "free", :fuel), ("cost saved [%]", "priced",
             :cost_percent))
     designs = [(grid, string(drive)) for grid in speed_size_grid for drive in grid.drives]
+    labelled = []
     for (row, (grid, drive)) in enumerate(designs)
         shades = cgrad(:Blues, length(grid.kites) + 3; categorical=true)
         for (column, (label, pricing, quantity)) in enumerate(panels)
@@ -3381,17 +3413,43 @@ function speed_size_figure()
                 append!(drawn, values)
             end
             column == length(panels) || continue
-            spread = spread_labels(ends, 0.13 * (maximum(drawn) - minimum(drawn)))
-            for (k, area) in enumerate(grid.kites)
-                text!(axis, last(grid.speeds), spread[k];
-                    text=square_metres("$(round(Int, area)) "), color=shades[k + 3],
-                    fontsize=note_size, align=(:left, :center), offset=(5, 0))
-            end
+            margin = 0.05 * (maximum(drawn) - minimum(drawn))
+            ylims!(axis, minimum(drawn) - margin, maximum(drawn) + margin)
             xlims!(axis, first(grid.speeds) - 0.3,
                 last(grid.speeds) + 0.55 * (last(grid.speeds) - first(grid.speeds)))
+            push!(labelled, (axis, grid, shades, ends))
         end
     end
+    Makie.update_state_before_display!(figure)
+    for (axis, grid, shades, ends) in labelled
+        end_labels!(axis, last(grid.speeds), ends,
+            [square_metres("$(round(Int, area)) ") for area in grid.kites],
+            shades[(1:length(grid.kites)) .+ 3])
+    end
     save_figure("speed_size", figure)
+end
+
+"""
+    end_labels!(axis, x, ends, texts, colours)
+
+Labels `texts` in `colours` right of the line ends at `x` and heights `ends` in `axis`,
+moved apart where they would touch and kept within its limits; the figure laid out.
+"""
+function end_labels!(axis, x, ends, texts, colours)
+    anchors = Point2f.(x, ends)
+    label = text!(axis, anchors; text=texts, color=colours, fontsize=note_size,
+        align=(:left, :center), offset=(5, 0))
+    reach = maximum(zip(Makie.string_boundingboxes(label), anchors)) do (box, anchor)
+        centre = pixel_point(axis.scene, anchor)[2]
+        max(centre - minimum(box)[2], maximum(box)[2] - centre)
+    end
+    limits = axis.finallimits[]
+    low, high = minimum(limits)[2], maximum(limits)[2]
+    per_unit = (high - low) / height(axis.scene.viewport[])
+    half = reach * per_unit
+    spread = spread_labels(ends, 2half + label_clearance * per_unit, low + half,
+        high - half)
+    label[1] = Point2f.(x, spread)
 end
 
 """

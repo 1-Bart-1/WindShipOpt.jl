@@ -21,6 +21,10 @@ paper(:figures; fidelity=:draft)          # redraw the figures and tables from t
 
 A `\stale{<steps>}{...}` marker in the paper names the steps whose rerun it waits for. Once `paper_status` lists a step as current, the text the marker covers can be rewritten from its data and the marker removed.
 
+## A figure or table that fails to draw
+
+A figure or table that fails, on its label check or anything else, stops no other step. The run keeps its data, finishes once every data step is done, and `paper` ends with an error naming each figure and table that failed and why. Once the code is fixed, `paper(:canopy_tension_figure; fidelity=:final)`, or `paper(:figures; fidelity=:final)` for all of them, redraws from that run's data without routing anything. A run that stopped in a figure before figures stopped nothing is still unfinished: `paper(; fidelity=:final, resume=true)` on its branch, or `bin/cluster submit final` there, skips every data step it has and draws the rest.
+
 ## Rerunning one slice of a step in a draft
 
 After a change to the model, a draft can be brought up to date one ship class, route, fuel or rig at a time:
@@ -46,7 +50,7 @@ Every job asks for the same wall time, and a run longer than that carries on by 
 
 A job computing round trips loads only what routing needs, without the plotting packages, and on the box starts its first round trip 10 seconds after Julia starts; it then spends 10 to 16 seconds compiling each rig's code the first time it routes that rig. A kite whose flight-pattern table is not yet in `output/pattern_tables/` builds it first, about 12 minutes on 4 cores, and every later job reads it from there. A job's share holds about one round trip per core, so a job stores nothing unless its wall time outlasts the longest round trip of its share. On the box a class case with a kite takes 8 minutes on one core in a draft (2 departures) and 48 minutes on average in a final run (12 departures): an hour serves a draft, while a final run needs four hours or more. `bin/cluster estimate`, run inside a job, gives these times on the cluster's own processor.
 
-Every cluster setting is in `scripts/cluster.toml`: the account and partition (DelftBlue's `innovation` account on `compute-p2` by default), the cores and memory of each job, the wall time of every job, how many jobs run at once, the run's own included, and the retries. Where the cluster limits the cores of each job, run `jobs` jobs of the most cores allowed; where it limits the cores of all running jobs together, run one job of all of them, `jobs = 1`, which computes every round trip itself. All jobs of a run use the one partition, so one processor model computes the whole run. A final run takes only round trips computed on the processor it runs on; a draft takes them from any machine, so a draft may mix round trips from a workstation and from the cluster.
+Every cluster setting is in `scripts/cluster.toml`: the account and partition (DelftBlue's research account `research-ae-fpt` on `compute-p2` by default), the cores and memory of each job, the wall time of every job, how many jobs run at once, the run's own included, and the retries. Where the cluster limits the cores of each job, run `jobs` jobs of the most cores allowed; where it limits the cores of all running jobs together, run one job of all of them, `jobs = 1`, which computes every round trip itself. All jobs of a run use the one partition, so one processor model computes the whole run. A final run takes only round trips computed on the processor it runs on; a draft takes them from any machine, so a draft may mix round trips from a workstation and from the cluster.
 
 ### Setting it up once, on a DelftBlue login node
 
@@ -61,7 +65,7 @@ curl -fsSL https://raw.githubusercontent.com/1-Bart-1/WindShipOpt.jl/main/bin/de
 exec bash -l   # puts julia on your PATH
 ```
 
-Without a project account, jobs are charged to `innovation`: 24 hours each and 4 at once in total, so a draft and a final run started together share those 4. With a project account (`research-<faculty>-<department>`, listed at the end of the setup), set it as `account` in `scripts/cluster.toml` and commit it, since a final run needs a clean tree on a pushed commit. `compute-p1` has 48 cores and at most `3996M` per core, `compute-p2` 64 cores and at most `4000M`; keep `cores` at most the partition's.
+Jobs are charged to the research account `research-ae-fpt` (faculty AE, department FPT): a job may run up to 120 hours, and up to 64 jobs of one user run at once. The run uses 16 jobs of 64 cores. It asks each for 24 hours, which Slurm schedules sooner than a longer job, and resumes by itself past that. Without a research account, set `account = "innovation"` and `jobs = 4`: 24 hours a job and 4 jobs at once, and a draft and a final run started together share those 4. The setup lists your accounts at its end. Commit any change to `scripts/cluster.toml`, since a final run needs a clean tree on a pushed commit. `compute-p1` has 48 cores and at most `3996M` per core, `compute-p2` 64 cores and at most `4000M`; keep `cores` at most the partition's.
 
 ### Running
 
