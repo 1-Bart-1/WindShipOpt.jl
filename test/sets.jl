@@ -1391,38 +1391,40 @@ end
                   assumptions[:welded_steel_cost_per_mass]
 end
 
-# By hand, two pairs of 30 x 5 m rotors on the Megamax: 1885 Pa peak, arm 25.91 + 2.5 + 15
-# m; wind 1.7 * 1885 * 150 * 43.41 = 20.87 MNm on 1.5 * (0.5 + 5) = 8.25 m^2, inertia
-# 1.3 * 69 t * 3 * 43.41 = 11.68 MNm on 5 * (5/3 + 1.5) = 15.83 m^2: 3.267 MN/m, a 12.19 mm
-# wall at 268 MPa, which buckles between stiffeners 0.76 m apart below
-# cbrt(3.267e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 13.63 mm; 1.2 * 7850 * 2 * 6.5 * 0.01363 *
-# 28.41 = 47.4 t. One pair of 60 x 10 m rotors, 361.4 t each, at 0.3 Hz: compliance
-# 28.41^3 / 3 + 30 * 28.41^2 + 30^2 * 28.41 = 57427 m^3, section 1.5^2 * (5 + 0.25) =
-# 11.81 m^2 per m of wall, (0.6 pi)^2 * 57427 * 361.4e3 / (206e9 * 11.81 - (0.6 pi)^2 *
-# 57427 * 0.24 * 216660 * 28.41) = 34.6 mm, thicker than the 33.0 mm strength asks.
+# By hand, two pairs of 30 x 5 m rotors on the Megamax: at the 20 m/s they stop in, spin
+# ratio 47 / 20 = 2.35, lift 0.96 * 7.468 and drag 1.855 give a peak of 0.5 * 1.225 * 20^2 *
+# hypot(7.169, 1.855) = 1814 Pa; arm 25.91 + 2.5 + 15 m; wind 1.7 * 1814 * 150 * 43.41 =
+# 20.08 MNm on 1.5 * (0.5 + 5) = 8.25 m^2, inertia 1.3 * 69 t * 3 * 43.41 = 11.68 MNm on
+# 5 * (5/3 + 1.5) = 15.83 m^2: 3.172 MN/m, an 11.84 mm wall at 268 MPa, which buckles
+# between stiffeners 0.76 m apart below cbrt(3.172e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) =
+# 13.50 mm; 1.2 * 7850 * 2 * 6.5 * 0.01350 * 28.41 = 46.97 t. One pair of 60 x 10 m rotors,
+# 361.4 t each, at 0.3 Hz: compliance 28.41^3 / 3 + 30 * 28.41^2 + 30^2 * 28.41 = 57427 m^3,
+# section 1.5^2 * (5 + 0.25) = 11.81 m^2 per m of wall, (0.6 pi)^2 * 57427 * 361.4e3 /
+# (206e9 * 11.81 - (0.6 pi)^2 * 57427 * 0.24 * 216660 * 28.41) = 34.6 mm, thicker than the
+# 32.0 mm strength asks.
 @testset "a rotor pedestal's wall carries its factored moments without buckling and \
           keeps the rotor's sway above the ship's motions" begin
     hull = Hull(ship_classes()["Megamax container ship"], assumptions)
     rotors = WindShipOpt.RotorRig(600.0, hull, assumptions; columns=2, in_column=2)
     @test rotors.height ≈ 30 && rotors.diameter ≈ 5
     peak = WindShipOpt.rotor_peak_pressure(rotors, assumptions[:air_density])
-    @test peak ≈ 1885 rtol = 1e-3
-    @test WindShipOpt.pedestal_wall(rotors, assumptions) ≈ 13.63e-3 rtol = 2e-3
-    @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 47.4 rtol = 2e-3
+    @test peak ≈ 1814 rtol = 1e-3
+    @test WindShipOpt.pedestal_wall(rotors, assumptions) ≈ 13.50e-3 rtol = 2e-3
+    @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 46.97 rtol = 2e-3
     tall = WindShipOpt.RotorRig(1200.0, hull, assumptions; columns=2, in_column=1)
     @test tall.height ≈ 60 && tall.diameter ≈ 10
     @test WindShipOpt.pedestal_wall(tall, assumptions) ≈ 34.6e-3 rtol = 2e-3
 end
 
 # By hand, the frame under each of the same 30 x 5 m rotors: legs 28.41 m tall and 13.69 m
-# apart, arm 15 m; factored wind 1.7 * 1885 * 150 = 480.8 kN, roll 1.3 * 69 t * 3 = 269.1 kN,
-# weight 1.3 * 69 t * 9.81 = 880.0 kN. Legs, wind across: (480.8 + 269.1) kN * 43.41 / 2 /
-# 15.83 = 1.028 MN/m, above the 0.900 MN/m of wind along; it buckles below
-# cbrt(1.028e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 9.27 mm. Beam, wind along: 880.0 kN *
-# 13.69 / 4 + 480.8 kN * 15 / 2 = 6.62 MNm on 8.25 m^2, roll 269.1 kN * 13.69 / 4 on 15.83
-# m^2 and its torsion 269.1 kN * 15 / 2 on 2 * 1.5 * 5 m^2: 0.891 MN/m, 8.84 mm; 1.2 * 7850 *
-# 13 * (2 * 9.27e-3 * 28.41 + 8.84e-3 * 13.69) = 79.3 t. Its beam spans two of the
-# Megamax's 2.5 m rows over the bay, through ten tiers of two TEU: 40 slots a rotor.
+# apart, arm 15 m; factored wind 1.7 * 1814 * 150 = 462.7 kN, roll 1.3 * 69 t * 3 =
+# 269.1 kN, weight 1.3 * 69 t * 9.81 = 880.0 kN. Legs, wind across: (462.7 + 269.1) kN *
+# 43.41 / 2 / 15.83 = 1.003 MN/m, above the 0.880 MN/m of wind along; it buckles below
+# cbrt(1.003e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 9.20 mm. Beam, wind along: 880.0 kN *
+# 13.69 / 4 + 462.7 kN * 15 / 2 = 6.48 MNm on 8.25 m^2, roll 269.1 kN * 13.69 / 4 on
+# 15.83 m^2 and its torsion 269.1 kN * 15 / 2 on 2 * 1.5 * 5 m^2: 0.875 MN/m, 8.79 mm;
+# 1.2 * 7850 * 13 * (2 * 9.20e-3 * 28.41 + 8.79e-3 * 13.69) = 78.75 t. Its beam spans two
+# of the Megamax's 2.5 m rows over the bay, through ten tiers of two TEU: 40 slots a rotor.
 @testset "a frame carries a raised rotor over a bay and takes the slots below its beam" begin
     class = ship_classes()["Megamax container ship"]
     hull = Hull(class, assumptions)
@@ -1430,9 +1432,9 @@ end
     @test rotors.pedestal == :column
     frame = WindShipOpt.with_pedestal(rotors, :frame)
     walls = WindShipOpt.frame_walls(frame, assumptions)
-    @test walls.leg ≈ 9.27e-3 rtol = 2e-3
-    @test walls.beam ≈ 8.84e-3 rtol = 2e-3
-    @test WindShipOpt.pedestal_mass(frame, assumptions) ≈ 79.3 rtol = 2e-3
+    @test walls.leg ≈ 9.20e-3 rtol = 2e-3
+    @test walls.beam ≈ 8.79e-3 rtol = 2e-3
+    @test WindShipOpt.pedestal_mass(frame, assumptions) ≈ 78.75 rtol = 2e-3
     @test WindShipOpt.blocked_slots(frame, class, assumptions) == 4 * 40
     @test WindShipOpt.blocked_slots(rotors, class, assumptions) == 0
     bare = Ship(ShipDesign(:ammonia, class), assumptions)
