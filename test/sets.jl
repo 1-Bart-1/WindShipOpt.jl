@@ -1873,17 +1873,26 @@ sailed_on_planned_weather(kite_table, kite_hourly, weather, departure) =
         forecast_route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
     end
 
+"""
+the result of `call()` by a planner whose final pass re-times the path found by up to a day,
+the reference its default band is checked against
+"""
+on_day_wide_final_pass(call) = WindShipOpt.with_router_settings(call,
+    WindShipOpt.with_changed(WindShipOpt.ROUTER_SETTINGS[]; final_time_band=24.0))
+
 @testset "a ship on the real weather flies its kite about as the plan does" begin
     kite_table, kite_hourly = forecast_kite_routing(800.0)
     weather = SyntheticWeather()
-    for departure in monthly_departures
-        leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
-        sailed = sailed_on_planned_weather(kite_table, kite_hourly, weather, departure)
-        @test leg.launches > 0
-        flies_as_planned = sailed.launches == leg.launches &&
-                           isapprox(sailed.flight_hours, leg.flight_hours; rtol=0.025)
-        @test flies_as_planned || sailed.objective < leg.objective
-        @test sailed.objective ≈ leg.objective rtol = 1e-3
+    on_day_wide_final_pass() do
+        for departure in monthly_departures
+            leg = route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
+            sailed = sailed_on_planned_weather(kite_table, kite_hourly, weather, departure)
+            @test leg.launches > 0
+            flies_as_planned = sailed.launches == leg.launches &&
+                               isapprox(sailed.flight_hours, leg.flight_hours; rtol=0.025)
+            @test flies_as_planned || sailed.objective < leg.objective
+            @test sailed.objective ≈ leg.objective rtol = 1e-3
+        end
     end
 end
 
@@ -3964,16 +3973,22 @@ end
     held = WindShipOpt.held_speed_table(table, 11.3)
     @test last(held.speeds) ≈ 11.3KNOT
     @test held.speeds[1:(end - 1)] == filter(<(11.3KNOT), RouteTable(table).speeds)
-    for count in 1:12, stride in 1:4
+    for count in 1:12, stride in (1, 2, 4, 8)
         indices = WindShipOpt.commanded_speeds(count, stride)
         @test last(indices) == count && step(indices) == stride && first(indices) <= stride
     end
 end
 
+@testset "by default the search commands 7 of 49 speeds, the lowest and the top" begin
+    (; routing_speeds, search_speed_stride) = WindShipOpt.RouterSettings()
+    @test WindShipOpt.commanded_speeds(routing_speeds, search_speed_stride) == 1:8:49
+end
+
 @testset "the search's speeds on an edge arrive within a time bin or are neighbours" begin
     speeds = collect(range(2.0, 8.0; length=49))
     commanded = Int[]
-    for distance in (20e3, 500e3, 3500e3), time_step in (0.25, 1.5, 3.0), stride in 1:4
+    for distance in (20e3, 500e3, 3500e3), time_step in (0.25, 1.5, 3.0),
+        stride in (1, 2, 4, 8)
         WindShipOpt.commanded_speeds!(empty!(commanded), speeds, stride, distance,
             time_step)
         @test issubset(WindShipOpt.commanded_speeds(length(speeds), stride), commanded)
