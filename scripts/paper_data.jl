@@ -1830,6 +1830,9 @@ joint_inputs = (kite_weather_window=(kite_launch_sea_wind=:low, kite_launch_min_
         rotor_out_of_service=:high, suction_out_of_service=:high),
     fuel_price=(e_ammonia_price=:high, vlsfo_price=:high))
 
+"the assumptions an input `name` of the development study moves together, else itself"
+input_members(name) = haskey(joint_inputs, name) ? keys(joint_inputs[name]) : (name,)
+
 """
     bound_assumptions(name, bound)
 

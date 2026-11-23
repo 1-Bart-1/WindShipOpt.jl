@@ -875,9 +875,7 @@ function step_reasons(entry, code)
         push!(reasons, "the model changed: src/, data/, setup.jl or the packages")
     others = setdiff(changed, ["model"])
     isempty(others) || push!(reasons, "its code changed: " * join(others, ", "))
-    inputs = sort([name for (name, value) in entry["inputs"]
-                   if !haskey(assumptions.entries, Symbol(name)) ||
-                      assumptions[Symbol(name)] != value])
+    inputs = changed_inputs(entry)
     isempty(inputs) || push!(reasons, "inputs changed: " * join(inputs, ", "))
     for (file, read) in sort(collect(entry["reads"]); by=first)
         now_read = try
@@ -895,6 +893,24 @@ function step_reasons(entry, code)
     older > 0 && push!(reasons, "$older round trips kept from older code")
     return reasons
 end
+
+"""
+    changed_inputs(entry)
+
+Names of the inputs the step of run-record `entry` read at another base value than the
+assumptions now give, or that are no longer assumptions.
+"""
+changed_inputs(entry) = sort([name for (name, value) in entry["inputs"]
+                              if !haskey(assumptions.entries, Symbol(name)) ||
+                                 assumptions[Symbol(name)] != value])
+
+"""
+    data_step(name, step)
+
+The entry of step `step` in the record of the run whose data file `name` is read.
+"""
+data_step(name, step) = step_entry(
+    TOML.parsefile(joinpath(dirname(resolved_data_file(name)), "run.toml")), step)
 
 """
     step_location(name)

@@ -322,11 +322,16 @@ function signed_points(change)
     return typeset_minus(@sprintf("%+.1f", change), "\$-\$")
 end
 
-"the LaTeX cell of a gain and a loss in points, draft-marked; dashes without trips"
-function effect_cell((gain, loss))
+"""
+    effect_cell((gain, loss); moved=false)
+
+The LaTeX cell of a gain and a loss in points, dashes without trips; marked to be confirmed
+in a draft run or where its input `moved` since the run.
+"""
+function effect_cell((gain, loss); moved=false)
     isnan(gain) && return "--"
     text = string(signed_points(gain), "/", signed_points(loss))
-    return paper_run.fidelity == :final ? text : "\\tbd{$text}"
+    return paper_run.fidelity == :final && !moved ? text : "\\tbd{$text}"
 end
 
 "heading of each group of the development table, by the rig of its inputs"
@@ -344,6 +349,7 @@ the CO2 saving, and the reason the input is in the study.
 function development_table()
     table = read_table(data_file("sensitivity.csv"))
     ships = unique(table["ship"])
+    moved = Symbol.(changed_inputs(data_step("sensitivity.csv", "sensitivity")))
     ragged = ">{\\raggedright\\arraybackslash}"
     write_whole(joinpath(sections, "development_table.tex")) do io
         println(io, "\\begin{longtable}{@{}", ragged, "p{2.5cm}", ragged, "p{2.6cm}rrrr",
@@ -354,7 +360,8 @@ function development_table()
             "end, in percentage points, in cost per tonne-km on each ship and the largest ",
             "of each in CO\\textsubscript{2} per tonne-km over the ships; and why the input ",
             "is in the study. Values are estimates, conditions or goals (g), to two ",
-            "digits, and the gains and losses model output, to a tenth of a point; ",
+            "digits, and the gains and losses model output, to a tenth of a point, ",
+            "in red where the study took another base value of its input; ",
             "\\cref{tab:goals} gives what is known today against each goal. ",
             "\\savingerror}\n",
             "\\label{tab:development}\\\\")
@@ -369,7 +376,7 @@ function development_table()
             rig == first(first(development_groups)) || println(io, "\\addlinespace")
             println(io, "\\multicolumn{7}{@{}l}{\\textit{", heading, "}}\\\\*")
             for entry in filter(entry -> entry.rig == rig, development_inputs)
-                write_lever_row(io, table, ships, entry)
+                write_lever_row(io, table, ships, entry, moved)
             end
         end
         println(io, "\\end{longtable}")
@@ -381,16 +388,20 @@ goal_inputs = (:canopy_structure_cost, :canopy_life, :kite_out_of_service,
     :wing_out_of_service, :rotor_out_of_service, :suction_out_of_service)
 
 """
-    write_lever_row(io, table, ships, entry)
+    write_lever_row(io, table, ships, entry, moved)
 
-One row of the development table.
+One row of the development table, its cells marked where an input it varies is one of
+`moved`.
 """
-function write_lever_row(io, table, ships, entry)
+function write_lever_row(io, table, ships, entry, moved)
+    marked = !isdisjoint(input_members(entry.input), moved)
     carbons = [lever_gain_loss(table, ship, entry; column="carbon") for ship in ships]
     carbon = (maximum(first, carbons), minimum(last, carbons))
+    cells = [effect_cell(lever_gain_loss(table, ship, entry); moved=marked)
+             for ship in ships]
     println(io, uppercasefirst(entry.label), " & ", range_cell(entry.input), " & ",
-        join([effect_cell(lever_gain_loss(table, ship, entry)) for ship in ships], " & "),
-        " & ", effect_cell(carbon), " & ", entry.reason, " \\\\")
+        join(cells, " & "), " & ", effect_cell(carbon; moved=marked), " & ", entry.reason,
+        " \\\\")
 end
 
 """
@@ -401,7 +412,7 @@ unit, marked where it is a goal, that of every assumption one of [`joint_inputs`
 moves where they share it, else how many it moves.
 """
 function range_cell(input)
-    members = haskey(joint_inputs, input) ? keys(joint_inputs[input]) : (input,)
+    members = input_members(input)
     ranges = unique((entry.value, entry.low, entry.high, entry.unit)
                     for entry in getindex.(Ref(assumptions.entries), members))
     length(ranges) == 1 ||

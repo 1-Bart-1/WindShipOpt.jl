@@ -1929,7 +1929,7 @@ named upright in the rig's colour and just wide enough to keep the names apart, 
 """
 function unit_count_axis(cell, rigs, row_limits)
     return Axis(cell; width=length(rigs) * (text_size + tick_gap),
-        xlabel="number of units", xticks=(eachindex(rigs), last.(rigs)),
+        xlabel="number\nof units", xticks=(eachindex(rigs), last.(rigs)),
         xticksvisible=false, xticklabelrotation=π / 2,
         xticklabelcolor=palette[first.(rigs)],
         yticksvisible=false, yticklabelsvisible=false, yreversed=true,
@@ -3029,7 +3029,7 @@ function wind_angle_figure()
         ylabel="thrust per cost\n[kN per 1000 USD/day]", xticks=ticks,
         xticklabelrotation=π / 6, yautolimitmargin=(0, 0.05))
     fixed = Dict((rig, bound) => rig_fixed_cost(rig, area, bound)
-                 for (rig, area) in reference_rigs for bound in (:value, :low, :high))
+                 for (rig, area) in rigs for bound in (:value, :low, :high))
     for (i, name) in enumerate(names)
         cost(rig) = first(table["rig_cost"][rows(table, "rig" => rig, "route" => name)])
         spread = mean(cost(rig) / fixed[(rig, :value)]
