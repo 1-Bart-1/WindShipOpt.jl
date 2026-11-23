@@ -974,6 +974,64 @@ rigid_cycle_loss_probability:
   source: "Development goal; @echeverri2020part1: M600 lost all four kites"
   reason: "Goal: one kite lost in 10,000 launches and landings, not a measured rate; the authors' estimate of today's rate is 0.0005. M600 lost all four crosswind kites in twenty crosswind flights [@echeverri2020part1, Part I, p.261]: SN2 and SN5 in hover, SN4 in a hard glide landing and SN3 in a mid-air breakup [@echeverri2020part1, Part I, pp.262-263], so three of the four at the end of a flight."
 
+# --- leading-edge inflatable kite ---
+lei_aspect_ratio:
+  value: 3.55
+  low: 3.55
+  high: 3.55
+  unit: "-"
+  source: "@poland2025 [Table 1]: the TU Delft V3 kite"
+  reason: "Projected span squared over projected area of the TU Delft V3 kite, whose measured polar the kite flies: 1.278 m width on 0.46 m^2 planform area of its 1:6.5 scale model [@poland2025, Table 1]. Every size keeps this shape."
+lei_flat_area_ratio:
+  value: 1.28
+  low: 1.28
+  high: 1.28
+  unit: "-"
+  source: "@poland2025 [Table 1]: the TU Delft V3 kite"
+  reason: "Canopy cloth per projected m^2 of the single skin of a leading-edge inflatable kite: flat over projected area of the V3 kite, 0.59 over 0.46 m^2 on its scale model [@poland2025, Table 1]."
+lei_flight_drag:
+  value: 0.1
+  low: 0.1
+  high: 0.1
+  unit: "-"
+  source: "Fitted to the glide ratio the V3 kite flies [@vandervlugt2019]"
+  reason: "Drag on the projected area that the wind-tunnel polar of a rigid V3 model [@poland2025] lacks in flight: bridle, deformation, control unit and steering. The V3 kite flies at L/D 3.6-4.0 in traction with bridle and control unit [@vandervlugt2019], the flights kite_flight_drag is fitted to; the value gives it with its tether the ram-air kite's glide ratio of 3.9 at CL 0.8."
+lei_max_force_per_area:
+  value: 0.5
+  low: 0.3
+  high: 0.57
+  unit: kN/m^2
+  source: "@kitepower2024; @faggiani2018 [Table 16.1]: pumping LEI kites"
+  reason: "Maximum tether force per projected m^2 of a leading-edge inflatable kite: the 0.43-0.57 kN/m^2 that pumping kites are designed for [@kitepower2024] and the 0.45 of a 100 m^2 design [@faggiani2018, Table 16.1]. The low bound is the 5 kN the V2 kite of 16.7 m^2 projected was limited to [@vandervlugt2013, p. 409]. The tubes and the skin's cloth follow the limit."
+lei_reference_area:
+  value: 16.7
+  low: 16.7
+  high: 16.7
+  unit: m^2
+  source: "@vandervlugt2013 [p. 405]: the TU Delft V2 kite"
+  reason: "Projected area of the TU Delft V2 kite, 25 m^2 flat [@vandervlugt2013, p. 405], whose tubes lei_tube_mass weighs."
+lei_reference_force_per_area:
+  value: 0.3
+  low: 0.3
+  high: 0.3
+  unit: kN/m^2
+  source: "@vandervlugt2013 [p. 409]: the V2 kite's force limit"
+  reason: "Force limit per projected m^2 that the tubes of lei_tube_mass are built for: 5 kN on the 16.7 m^2 of the V2 kite [@vandervlugt2013, p. 409], above which it collapses."
+lei_tube_mass:
+  value: 0.36
+  low: 0.36
+  high: 0.36
+  unit: kg/m^2
+  source: "@schwoll2012 [Table 2-1]: the V2 kite's weighed parts"
+  reason: "Mass of the inflated tubes per projected m^2 of the V2 kite: Dacron shells and bladders of the leading edge and struts, 6.02 of its 11.49 kg [@schwoll2012, Table 2-1], on 16.7 m^2 projected."
+lei_tube_surface:
+  value: 0.89
+  low: 0.89
+  high: 0.89
+  unit: m^2/m^2
+  source: "@schwoll2012 [p. 21]: the V2 kite's tubes"
+  reason: "Surface of the tubes per projected m^2 of a leading-edge inflatable kite: 8.7 m^2 of leading edge and 6.1 m^2 of struts on the 16.7 m^2 projected of the V2 kite [@schwoll2012, p. 21], held at every size by its shape."
+
 tether_drag_coefficient:
   value: 1.1
   low: 1.0

@@ -623,7 +623,7 @@ end
 
 "mass [kg] of the kite of `rig` without its tether"
 kite_mass(rig::KiteRig, assumptions) =
-    soft_kite_mass(rig.area, rig.aspect_ratio, rig.max_force, assumptions)
+    soft_kite_mass(rig.area, rig.aspect_ratio, rig.max_force, assumptions, rig.airframe)
 kite_mass(rig::KiteRig{RigidAirframe}, assumptions) = rig.airframe.mass
 
 """
@@ -741,13 +741,15 @@ function rig_price_parts(rig::KiteRig{RigidAirframe}, assumptions)
 end
 
 """
-    canopy_price(assumptions, area, aspect_ratio)
+    canopy_price(assumptions, area, aspect_ratio, frame=nothing)
 
-Price of the canopy of a kite of projected `area` [m^2] and projected `aspect_ratio` per m^2
-of projected area [USD/m^2]: its [`canopy_cost`](@ref) times the market price factor.
+Price of the canopy of a soft kite of projected `area` [m^2], projected `aspect_ratio` and
+`frame` per m^2 of projected area [USD/m^2]: the cost of its [`kite_canopy`](@ref) times
+the market price factor.
 """
-canopy_price(assumptions, area, aspect_ratio) = assumptions[:market_price_factor] *
-    Canopy(assumptions, area, aspect_ratio).cost_per_area
+canopy_price(assumptions, area, aspect_ratio, frame=nothing) =
+    assumptions[:market_price_factor] *
+    kite_canopy(assumptions, area, aspect_ratio, frame).cost_per_area
 
 "inputs that together make the canopy's cost"
 canopy_price_inputs = (:canopy_structure_cost, :canopy_cloth_base_price,
@@ -761,7 +763,7 @@ tether at its purchase price; none for VTOL kites, whose tethers are in their st
 """
 function consumable_costs(rig::KiteRig, assumptions)
     tether_mass = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
-    canopy = canopy_price(assumptions, rig.area, rig.aspect_ratio) * rig.area
+    canopy = canopy_price(assumptions, rig.area, rig.aspect_ratio, rig.airframe) * rig.area
     return canopy, assumptions[:tether_price] * tether_mass
 end
 
