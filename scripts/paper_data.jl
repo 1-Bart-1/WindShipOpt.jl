@@ -305,6 +305,9 @@ reference_canopy_price(inputs) =
 "the rigs, as named in the output"
 rig_names = ("kite", "wings", "rotors", "suction", "vtol")
 
+"index in `rig_names` and name of each rig that the study table `table` has"
+study_rigs(table) = [(j, rig) for (j, rig) in enumerate(rig_names) if rig in table["rig"]]
+
 "the rigs that stand on deck, as named in the output"
 deck_rig_names = ("wings", "rotors", "suction")
 
@@ -1528,6 +1531,18 @@ cargo_value_sweep = (
         "Aframax tanker", "general cargo coaster", "Neo-Panamax container ship",
         "PCTC car carrier")),
     classes=("Kamsarmax bulk carrier", "Neo-Panamax container ship"))
+
+"""
+    swept_cargo_values(table)
+
+Cargo values [USD/t] of the cargo value sweep in the cargo_interest.csv `table`: those
+that every class of [`cargo_value_sweep`](@ref) carries.
+"""
+function swept_cargo_values(table)
+    carried = [table["cargo_value"][rows(table, "class" => class)]
+               for class in cargo_value_sweep.classes]
+    return sort(intersect(carried...))
+end
 
 """
     with_cargo_value(class, value)

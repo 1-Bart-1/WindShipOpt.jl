@@ -1655,12 +1655,12 @@ end
     sweep_measures(table, drive, rig, class)
 
 The cost saving [%], its part from time [points] and the speed the rig adds [kn], each the
-mean over the routes, of the cheapest size of `rig` on `drive` for `class` at each value of
-[`cargo_value_sweep`](@ref), as three vectors.
+mean over the routes, of the cheapest size of `rig` on `drive` for `class` at each of the
+[`swept_cargo_values`](@ref) of `table`, as three vectors.
 """
 function sweep_measures(table, drive, rig, class)
     saving, time, speed = (Float64[] for _ in 1:3)
-    for value in cargo_value_sweep.values
+    for value in swept_cargo_values(table)
         kept = rows(table, "class" => class, "cargo_value" => value)
         value_table = table_rows(table, kept)
         points = split_points(rig_splits(value_table, drive, rig))
@@ -1681,7 +1681,7 @@ a ring shows two equal savings.
 """
 function interest_classes_panel!(axis, table, drive, names)
     reference_line!(axis; vertical=true)
-    for (j, kind) in enumerate(rig_names), level in (:high, :low)
+    for (j, kind) in study_rigs(table), level in (:high, :low)
         factor = cargo_interest_factors()[level]
         level_table = interest_level_rows(table, factor)
         y = eachindex(names) .+ rig_offset(j, 0.22)
@@ -1707,7 +1707,7 @@ function cargo_interest_figure()
     classes_axis = Axis(figure[1:3, 1]; title="(a) cargo interest",
         xlabel="cost saving [%]", yticks=(eachindex(names), names), yreversed=true)
     interest_classes_panel!(classes_axis, table, drive, names)
-    values = collect(cargo_value_sweep.values)
+    values = swept_cargo_values(table)
     sweep_axes = [Axis(figure[i, 2]; title, ylabel,
                       doubling_axis(:x, extrema(values)...; base=100)...,
                       xlabel=i == 3 ? "cargo value [USD/t]" : "", xticklabelsvisible=i == 3,
@@ -1717,9 +1717,8 @@ function cargo_interest_figure()
         ("(c) part of the saving from time", "time [points]"),
         ("(d) speed the rig adds", "speed [kn]")))]
     class_styles = (:solid, :dash)
-    for (j, kind) in enumerate(rig_names),
-        (name, style) in zip(cargo_value_sweep.classes, class_styles)
-
+    rigs = study_rigs(table)
+    for (j, kind) in rigs, (name, style) in zip(cargo_value_sweep.classes, class_styles)
         for (axis, measure) in zip(sweep_axes, sweep_measures(table, drive, kind, name))
             lines!(axis, values, measure; color=palette[j], linestyle=style)
             scatter!(axis, values, measure; color=palette[j], strokecolor=:white,
@@ -1728,8 +1727,7 @@ function cargo_interest_figure()
     end
     reference_line!.(sweep_axes[2:3])
     linkxaxes!(sweep_axes...)
-    rig_entries = [MarkerElement(; color=palette[j], marker=:circle)
-                   for j in eachindex(rig_names)]
+    rig_entries = [MarkerElement(; color=palette[j], marker=:circle) for (j, _) in rigs]
     rate = assumptions.entries[:discount_rate]
     level_entries = [MarkerElement(; interest_marker(level, :black)...)
                      for level in keys(cargo_interest_factors())]
@@ -1737,7 +1735,7 @@ function cargo_interest_figure()
                      for style in class_styles]
     blank = MarkerElement(; color=:transparent, marker=:circle)
     Legend(figure[4, 1:2], [rig_entries, [level_entries; blank], [class_entries; blank]],
-        [collect(rig_label.(rig_names)),
+        [[rig_label(rig) for (_, rig) in rigs],
             [["$(round(Int, 100bound)) %" for bound in (rate.low, rate.high)]; " "],
             [collect(cargo_value_sweep.classes); " "]],
         ["rig", "discount rate (a)", "ship (b to d)"]; orientation=:horizontal,
@@ -2603,10 +2601,11 @@ cost of a dual-fuel e-ammonia engine, and the rig, with the range of each part o
 bounds of the inputs one at a time; the fuel tank, sized by the route, is left out.
 """
 function capital_figure()
+    areas = Dict("kite" => 1600.0, "wings" => 800.0, "rotors" => 400.0,
+        "suction" => 400.0, "vtol" => 100.0)
     cases = [("VLSFO", :vlsfo, (;)); ("e-ammonia", :ammonia, (;));
-        [("+ $(rig_label(rig)) $(round(Int, area)) ", :ammonia, rig_size(rig, area))
-         for (rig, area) in (("kite", 1600.0), ("wings", 800.0), ("rotors", 400.0),
-             ("suction", 400.0))]]
+        [("+ $(rig_label(rig)) $(round(Int, areas[rig])) ", :ammonia,
+          rig_size(rig, areas[rig])) for rig in rig_names]]
     labels = Any[]
     values = Matrix{Float64}(undef, 0, 3)
     lows, highs = similar(values), similar(values)
