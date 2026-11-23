@@ -411,7 +411,7 @@ across the ship with `headwind` [m/s] from ahead and waves of `wave_height` [m].
 function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0)
     condition = WindShipOpt.SeaCondition(table.table, 12.0, π / 2, wave_height, 8.0,
         π / 2)
-    sample = WindShipOpt.EdgeSample(condition, headwind, 0.0)
+    sample = WindShipOpt.EdgeSample(condition, headwind, 0.0, 0.0, 0.0)
     held, flown, stowed, chance = WindShipOpt.held_speed(table, speed_index, sample, true)
     return WindShipOpt.SailedPoint(sample, held, flown, stowed, hours, 0.0, chance)
 end
@@ -1586,7 +1586,7 @@ end
         assumptions)
     passages = [WindShipOpt.service_passages(ship, outbound, inbound, SyntheticWeather(),
                     [24.0 * 31, 24.0 * 200], assumptions, hourly,
-                    24assumptions[:port_time_per_call], Inf, nothing, nothing)
+                    24assumptions[:port_time_per_call], nothing, nothing)
                 for ship in (bare, WindShipOpt.with_rig(kite, down))]
     @test first(passages) == last(passages)
     kite_hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(kite, changed), changed)
@@ -1833,11 +1833,10 @@ end
     @test rest.fuel_energy < leg.fuel_energy
 end
 
-@testset "a ship re-planning on a long forecast sails close to perfect foresight" begin
+@testset "a ship re-planning on the real weather sails close to perfect foresight" begin
     weather, departure = SyntheticWeather(), 24.0 * 31
     leg = route(corridor, table, weather, departure; time_cost=hourly)
-    sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly,
-        horizon=24.0 * 100)
+    sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly)
     @test length(sailed.path) == size(corridor.lat, 1)
     @test sailed.path[end][1:2] == leg.path[end][1:2]
     @test sailed.objective ≈ leg.objective rtol = 0.01
@@ -1870,11 +1869,10 @@ and sails cheaper.
 """
 sailed_on_planned_weather(kite_table, kite_hourly, weather, departure) =
     on_whole_corridor() do
-        forecast_route(corridor, kite_table, weather, departure; time_cost=kite_hourly,
-            horizon=24.0 * 100)
+        forecast_route(corridor, kite_table, weather, departure; time_cost=kite_hourly)
     end
 
-@testset "a ship on a long forecast flies its kite about as the plan does" begin
+@testset "a ship on the real weather flies its kite about as the plan does" begin
     kite_table, kite_hourly = forecast_kite_routing(800.0)
     weather = SyntheticWeather()
     for departure in monthly_departures
@@ -1943,7 +1941,6 @@ struct GaleWeather
     calm::SyntheticWeather
     calm_from::Float64
 end
-WindShipOpt.duration(::GaleWeather) = Inf
 WindShipOpt.wind(weather::GaleWeather, lat, lon, time) =
     time < weather.calm_from ? (45.0, 45.0) : WindShipOpt.wind(weather.calm, lat, lon, time)
 WindShipOpt.waves(weather::GaleWeather, lat, lon, time) =
@@ -1951,7 +1948,6 @@ WindShipOpt.waves(weather::GaleWeather, lat, lon, time) =
 
 "Steady wind from the south on a sea whose waves push a ship heading east along."
 struct FollowingSeaWeather end
-WindShipOpt.duration(::FollowingSeaWeather) = Inf
 WindShipOpt.wind(::FollowingSeaWeather, lat, lon, time) = (0.0, 14.0)
 WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
 
@@ -1995,6 +1991,12 @@ end
     @test size(finer_stages.lat, 2) == size(coarse.lat, 2)
 end
 
+"Forecast source that always plans on `weather`, whatever the real weather is."
+struct FixedForecast{W}
+    weather::W
+end
+WindShipOpt.known_weather(source::FixedForecast, weather, time) = source.weather
+
 @testset "a ship on a forecast holds through a gale it cannot sail in" begin
     corridor, _ = route_corridors(:caribbean, north_atlantic_mask(); ocean_spacing=720.0,
         lateral_spacing=480.0)
@@ -2005,16 +2007,16 @@ end
     ship = table.table.ship
     hotel = 3600WindShipOpt.fuel_power(ship.powertrain, 0.0) * ship.fuel.price
     held = 12.0 * (hotel + hourly)
-    for (horizon, tolerance) in ((72.0, 0.005), (0.0, 0.02))
+    calm = FixedForecast(SyntheticWeather())
+    for (forecast, tolerance) in ((nothing, 0.005), (calm, 0.02))
         sailed = forecast_route(corridor, table, weather, departure; time_cost=hourly,
-            horizon)
+            forecast)
         @test length(sailed.path) == size(corridor.lat, 1)
         @test sailed.path[2][3] > 12.0
         @test sailed.objective - held ≈ after.objective rtol = tolerance
     end
     endless = GaleWeather(SyntheticWeather(), Inf)
-    @test isnothing(forecast_route(corridor, table, endless, departure; time_cost=hourly,
-        horizon=72.0))
+    @test isnothing(forecast_route(corridor, table, endless, departure; time_cost=hourly))
 end
 
 """
@@ -2027,7 +2029,6 @@ struct PassingGale
     from::Float64
     until::Float64
 end
-WindShipOpt.duration(::PassingGale) = Inf
 gale_at(weather::PassingGale, lat, lon, time) = weather.from <= time < weather.until &&
     WindShipOpt.distance(lat, lon, weather.place...) < NAUTICAL_MILE
 WindShipOpt.wind(weather::PassingGale, lat, lon, time) =
@@ -2053,17 +2054,16 @@ WindShipOpt.waves(weather::PassingGale, lat, lon, time) =
 end
 
 """
-Synthetic weather with, before the same date a year on, 5 m head seas and a wind 60 degrees
-off the bow on the first edge from `start`, in which only a kite flying holds more than
-4 kn, yet the seas forbid launching it.
+Synthetic weather with 5 m head seas and a wind 60 degrees off the bow on the first edge
+from `start`, in which only a kite flying holds more than 4 kn, yet the seas forbid
+launching it.
 """
 struct KiteOnlySeas
     calm::SyntheticWeather
     start::NTuple{2, Float64}
     course::Float64
 end
-WindShipOpt.duration(::KiteOnlySeas) = Inf
-rough_seas(weather::KiteOnlySeas, lat, lon, time) = time < WindShipOpt.FORECAST_SHIFT &&
+rough_seas(weather::KiteOnlySeas, lat, lon, time) =
     WindShipOpt.distance(lat, lon, weather.start...) < 200NAUTICAL_MILE
 WindShipOpt.wind(weather::KiteOnlySeas, lat, lon, time) =
     rough_seas(weather, lat, lon, time) ?
@@ -2078,7 +2078,7 @@ WindShipOpt.waves(weather::KiteOnlySeas, lat, lon, time) =
     seas = KiteOnlySeas(SyntheticWeather(), (corridor.lat[1, centre],
             corridor.lon[1, centre]), corridor.edge_course[1, centre, step])
     sailed = forecast_route(corridor, kite_table, seas, 24.0 * 31; time_cost=kite_hourly,
-        horizon=0.0)
+        forecast=FixedForecast(SyntheticWeather()))
     @test length(sailed.path) == size(corridor.lat, 1)
     edge_hours = sailed.path[2][3] - sailed.path[1][3]
     @test corridor.edge_length[1, centre, step] / (edge_hours * 3600) < 5KNOT
@@ -2114,7 +2114,6 @@ struct BiasedWeather{W}
     weather::W
     east::Float64
 end
-WindShipOpt.duration(biased::BiasedWeather) = WindShipOpt.duration(biased.weather)
 function WindShipOpt.wind(biased::BiasedWeather, lat, lon, time)
     east, north = WindShipOpt.wind(biased.weather, lat, lon, time)
     return east + biased.east, north
@@ -2130,7 +2129,7 @@ mutable struct CountedForecast
     error::Float64
     plans::Int
 end
-function WindShipOpt.known_weather(source::CountedForecast, weather, time, horizon)
+function WindShipOpt.known_weather(source::CountedForecast, weather, time)
     source.plans += 1
     return BiasedWeather(weather, source.error)
 end
@@ -2205,7 +2204,6 @@ struct ChangedAfter{W}
     weather::W
     cut::Float64
 end
-WindShipOpt.duration(changed::ChangedAfter) = WindShipOpt.duration(changed.weather)
 function WindShipOpt.wind(changed::ChangedAfter, lat, lon, time)
     east, north = WindShipOpt.wind(changed.weather, lat, lon, time)
     return time < changed.cut ? (east, north) : (east + 6.0, north - 4.0)
@@ -2221,19 +2219,12 @@ struct StormBetween{W}
     from::Float64
     until::Float64
 end
-WindShipOpt.duration(storm::StormBetween) = WindShipOpt.duration(storm.weather)
 WindShipOpt.wind(storm::StormBetween, lat, lon, time) =
     WindShipOpt.wind(storm.weather, lat, lon, time)
 function WindShipOpt.waves(storm::StormBetween, lat, lon, time)
     height, period, direction = WindShipOpt.waves(storm.weather, lat, lon, time)
     return (storm.from <= time < storm.until ? height + 15.0 : height), period, direction
 end
-
-"Forecast source that always plans on `weather`, whatever the real weather is."
-struct FixedForecast{W}
-    weather::W
-end
-WindShipOpt.known_weather(source::FixedForecast, weather, time, horizon) = source.weather
 
 """
 The leg the kite coaster sails live in the real `weather` on a fixed forecast, departing
@@ -2542,17 +2533,6 @@ end
     @test WindShipOpt.near_land(mask, 15.0, -26.0, clearance)
 end
 
-@testset "a forecast beyond its horizon reads the same date in another year" begin
-    known = ForecastWeather(SyntheticWeather(), 100.0, 48.0)
-    @test WindShipOpt.wind(known, 40.0, -30.0, 120.0) ==
-          WindShipOpt.wind(known.weather, 40.0, -30.0, 120.0)
-    beyond = 160.0
-    @test WindShipOpt.wind(known, 40.0, -30.0, beyond) ==
-          WindShipOpt.wind(known.weather, 40.0, -30.0, beyond + WindShipOpt.FORECAST_SHIFT)
-    @test WindShipOpt.wind(known, 40.0, -30.0, beyond) !=
-          WindShipOpt.wind(known.weather, 40.0, -30.0, beyond)
-end
-
 """
     write_fields(directory, values, steps, grid)
 
@@ -2804,7 +2784,7 @@ end
     leg = route(corridor, table, weather, departure; time_cost=hourly)
     fixed = WindShipOpt.path_corridor(leg, corridor, 1)
     on_course = forecast_route(fixed, table, weather, departure; time_cost=hourly,
-        horizon=24.0)
+        forecast=FixedForecast(SyntheticWeather(; seed=2)))
     @test [point[1:2] for point in on_course.path] == [point[1:2] for point in leg.path]
     repeated = route(fixed, table, weather, departure; time_cost=hourly)
     @test [point[1:2] for point in repeated.path] == [point[1:2] for point in leg.path]
@@ -3221,7 +3201,7 @@ end
 @testset "a faster speed counts as sailed the same only where it is sampled alike" begin
     table = shared_route_table(ShipDesign(:methanol, 85.0))
     condition = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 8.0, 6.0, 2π / 3)
-    sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0)
+    sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0, 0.0, 0.0)
     unpowered = findfirst(i -> !isfinite(last(WindShipOpt.edge_fuels(table, i, condition))),
         eachindex(table.speeds))
     held, flown, stowed, chance = WindShipOpt.held_speed(table, unpowered, sample, false)
@@ -3238,7 +3218,7 @@ end
           powers" begin
     table = shared_route_table(ShipDesign(:methanol, 85.0))
     condition = WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 3.0, 7.0, π)
-    sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0)
+    sample = WindShipOpt.EdgeSample(condition, 0.0, 0.0, 0.0, 0.0)
     powered(i) = isfinite(last(WindShipOpt.edge_fuels(table, i, condition)))
     unpowered = findfirst(!powered, eachindex(table.speeds))
     faster_powered = findnext(powered, eachindex(table.speeds), unpowered)
@@ -3251,7 +3231,7 @@ end
               (held, flown, stowed, chance)
     end
     calm = WindShipOpt.EdgeSample(WindShipOpt.SeaCondition(table.table, 0.0, 0.0, 0.0, 6.0,
-        0.0), 0.0, 0.0)
+        0.0), 0.0, 0.0, 0.0, 0.0)
     calm_held, calm_flown, calm_stowed, calm_chance = WindShipOpt.held_speed(table,
         unpowered, calm, false)
     calm_point = WindShipOpt.SailedPoint(calm, calm_held, calm_flown, calm_stowed, 1.0, 0.0,
@@ -3267,7 +3247,7 @@ end
     prices = (; fuel=table.table.ship.fuel.price, time=0.0)
     condition = WindShipOpt.SeaCondition(table.table, 8.0, π / 2, 4.0, 8.0, π / 2)
     crosswind, headwind = table.table.kite_wind_factor * 8.0 .* sincos(π / 2)
-    sample = WindShipOpt.EdgeSample(condition, headwind, crosswind)
+    sample = WindShipOpt.EdgeSample(condition, headwind, crosswind, 0.0, 0.0)
     fastest = length(table.speeds)
     point(aloft) = WindShipOpt.SailedPoint(table, sample, fastest, aloft, 1e4, 0.0)
     @test point(false).speed_index < point(true).speed_index
