@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Bart van de Lint -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- The paper's soft kite seen from ahead, 100 across: its ram-air canopy with its cells and
+the lighter cell intakes along its leading edge; its bridle, straight lines from twelve
+attachments spread evenly along the span that join in threes and run on to the control
+unit, whose foot is the origin; and the start of the tether, on a backdrop that hides
+what lies behind the bridle. Each path's class names the part; the figure style gives
+each part its colour and line weight. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-52 -81 104 91">
+  <path class="backdrop" fill="white" d="M -37.97 -35.26 A 43 25 0 1 1 37.97 -35.26 L 2.5 -6 L -2.5 -6 Z"/>
+  <path class="bridle" fill="none" stroke="currentColor" d="M -37.97 -35.26 L -34.36 -37.83 M -42.98 -46.18 L -34.36 -37.83 M -39.03 -57.50 L -34.36 -37.83 M -29.56 -65.16 L -15.15 -58.05 M -18.19 -69.65 L -15.15 -58.05 M -6.13 -71.75 L -15.15 -58.05 M -34.36 -37.83 L -1.50 -6.00 M -15.15 -58.05 L -1.50 -6.00 M 37.97 -35.27 L 34.36 -37.84 M 42.98 -46.19 L 34.36 -37.84 M 39.02 -57.50 L 34.36 -37.84 M 29.55 -65.16 L 15.14 -58.05 M 18.18 -69.65 L 15.14 -58.05 M 6.12 -71.75 L 15.14 -58.05 M 34.36 -37.84 L 1.50 -6.00 M 15.14 -58.05 L 1.50 -6.00"/>
+  <path class="tether" fill="none" stroke="currentColor" d="M 0 0 L 0 8"/>
+  <path class="canopy" d="M -44.15 -31.98 A 50 32 0 1 1 44.15 -31.98 L 37.97 -35.26 A 43 25 0 1 0 -37.97 -35.26 Z"/>
+  <path class="intakes" fill="gray" d="M -40.44 -33.95 A 45.8 27.8 0 1 1 40.44 -33.95 L 37.97 -35.26 A 43 25 0 1 0 -37.97 -35.26 Z"/>
+  <path class="cells" fill="none" stroke="white" d="M -42.79 -49.49 L -49.75 -50.19 M -33.21 -62.88 L -38.62 -67.32 M -12.47 -70.93 L -14.50 -77.62 M 12.47 -70.93 L 14.50 -77.62 M 33.21 -62.88 L 38.62 -67.32 M 42.79 -49.49 L 49.75 -50.19"/>
+  <path class="unit" d="M -2.5 -6 L 2.5 -6 L 2.5 0 L -2.5 0 Z"/>
+</svg>

@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 Bart van de Lint
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# Times benchmark/benchmarks.jl on main and on the pull request on the same runner and
+# posts the comparison, time and memory, as a comment on the pull request.
+name: Benchmark
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bench:
+    name: Router benchmark against main
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Read the Julia version the tracked manifest names
+        id: julia
+        run: echo "version=$(./bin/julia_version)" >> "$GITHUB_OUTPUT"
+
+      # The script is taken from the pull request for both, since main may not have it yet.
+      - uses: MilesCranmer/AirspeedVelocity.jl@action-v1
+        with:
+          julia-version: ${{ steps.julia.outputs.version }}
+          bench-on: ${{ github.event.pull_request.head.sha }}

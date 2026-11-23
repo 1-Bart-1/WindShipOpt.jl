@@ -4,7 +4,21 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { gridsPath } from "../../data";
-import { edgesFrom, foldCentre, formatCount, gridCounts, gridEdges, routesThrough, type Grid, type GridData } from "./grid";
+import { geoOrthographic } from "d3-geo";
+import {
+  edgesFrom,
+  faceGlobe,
+  foldCentre,
+  formatCount,
+  gridCounts,
+  gridEdges,
+  horizon,
+  routesThrough,
+  screenPoints,
+  unitVectors,
+  type Grid,
+  type GridData,
+} from "./grid";
 
 // Three stages of three rows: one start node, a fan, and the port in the middle of the last stage.
 const grid: Grid = {
@@ -46,6 +60,31 @@ describe("the grid page", () => {
     expect(formatCount(0)).toBe("No");
     expect(formatCount(12345)).toBe("12,345");
     expect(formatCount(3.2e41)).toBe("3.2 × 10^41");
+  });
+
+  const globeFacing = ([lon, lat]: [number, number]) => geoOrthographic().rotate([-lon, -lat]).scale(100).translate([400, 300]);
+
+  it("shows a node facing the viewer at the globe's centre and a node a quarter turn east at its right edge", () => {
+    const nodes: Grid = { ...grid, lon: [-4000, 5000, 14000], lat: [3000, 0, 0], kind: "www" };
+    const screen = screenPoints(3);
+    faceGlobe(unitVectors(nodes), globeFacing([-40, 30]), screen);
+    expect(screen.x[0]).toBeCloseTo(400);
+    expect(screen.y[0]).toBeCloseTo(300);
+    expect(screen.facing[0]).toBeCloseTo(1);
+    faceGlobe(unitVectors(nodes), globeFacing([-40, 0]), screen);
+    expect([screen.x[1], screen.y[1], screen.facing[1]].map((value) => +value.toFixed(9))).toEqual([500, 300, 0]);
+    expect(screen.facing[2]).toBeLessThan(0);
+  });
+
+  it("cuts a line passing behind the globe where its great circle meets the globe's edge", () => {
+    // Two points of the great circle through 0° 45° N and 90° E 0°, which meets the edge at 90° E 0°.
+    const nodes: Grid = { ...grid, lon: [8289, 10443], lat: [705, -1400], kind: "ww" };
+    const globe = globeFacing([0, 0]);
+    const screen = screenPoints(2);
+    faceGlobe(unitVectors(nodes), globe, screen);
+    const [x, y] = horizon(screen, 0, 1, globe);
+    expect(x).toBeCloseTo(500, 1);
+    expect(y).toBeCloseTo(300, 1);
   });
 
   const path = gridsPath();

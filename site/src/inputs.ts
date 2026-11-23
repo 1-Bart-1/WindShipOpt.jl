@@ -42,7 +42,7 @@ export const inputGroups: { title: string; controls: InputControl[] }[] = [
     title: "Kite goals",
     controls: [
       control("canopy_life", "Canopy life", "flight h", 250, 16000, 250),
-      control("canopy_structure_cost", "Canopy fabric cost per flat m², as surveyed", "EUR/m²", 20, 150, 1),
+      control("canopy_structure_cost", "Canopy fabric and bridle cost per flat m², as surveyed", "EUR/m²", 20, 150, 1),
       control("canopy_cloth_price_per_weight", "Cloth price per weight", "USD/g", 0.005, 0.06, 0.001),
       control("tether_price", "Tether price", "USD/kg", 20, 300, 5),
       control("tether_lifetime", "Tether life", "flight h", 1000, 40000, 500),
@@ -57,11 +57,13 @@ export const inputGroups: { title: string; controls: InputControl[] }[] = [
       percent("kite_out_of_service", "Kite out of service", 50, 0.5),
       percent("wing_out_of_service", "Wing out of service", 50, 0.5),
       percent("rotor_out_of_service", "Rotor out of service", 50, 0.5),
-      control("wing_loss_rate", "Wings lost", "per wing·year", 0, 2, 0.02),
+      percent("suction_out_of_service", "Suction sail out of service", 50, 0.5),
+      control("wing_loss_rate", "Wings or suction sails lost", "per unit·year", 0, 2, 0.02),
       control("rotor_loss_rate", "Rotors lost", "per rotor·year", 0, 2, 0.02),
       control("market_price_factor", "Market price over cost", "×", 1, 3.5, 0.05),
       control("wing_lifetime", "Wing life", "years", 10, 40, 1),
       control("rotor_lifetime", "Rotor life", "years", 10, 40, 1),
+      control("suction_lifetime", "Suction sail life", "years", 10, 40, 1),
     ],
   },
   {
