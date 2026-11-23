@@ -2163,7 +2163,7 @@ fidelity_parts() = [
         model="price per area and per unit, installation, maintenance",
         error="ranges of the quoted and built-up prices",
         effect=varied_inputs(:canopy_structure_cost, :wing_cost_per_mass,
-            :rotor_cost_per_area, :suction_fan_cost_per_power)),
+            :rotor_cost_per_area, :suction_mass_per_area)),
     (part="Weather sample", varied="each year alone",
         model="ERA5 2017 to 2019, a departure every 6\\,h",
         error="three years against a climate", effect=weather_years()),

@@ -569,7 +569,7 @@ wing_cost_per_mass:
   low: 2.4
   high: 8.4
   unit: USD/kg
-  source: "Authors' estimate: build-up at blade material prices [@bortolotti2019blade] and welded steel [@wisdem_csm]"
+  source: "Authors' estimate: blade materials [@bortolotti2019blade], steel [@wisdem_csm]"
   reason: "Manufacturing cost per kg of a wing sail with its foundation on deck: a hard sail of 0.13 t/m^2 with its foundation [@emsa2023, Table 4], near the 45 t for 363 m^2 of the OceanWings OW RE [@oceanwings2026web], costs 665 USD/m^2 (steel at the authors' cost, composite at the material prices of the NREL blade cost model [@bortolotti2019blade, Tables 1-2], slewing parts at the yaw-system cost of @wisdem_csm), and the 0.12 t/m^2 of steel by which the tallest wings' masts and foundations are heavier at 2.9 USD/kg, a wind turbine's welded tower [@wisdem_csm]: 1013 USD on 250 kg. Bounds: 310 USD/m^2 on 0.10 t/m^2 with the rest at 1.9 USD/kg, and 1760 USD/m^2 on 0.16 t/m^2 with the rest at 3.9 USD/kg."
 installation_fraction:
   value: 0.15
