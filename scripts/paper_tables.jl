@@ -633,7 +633,7 @@ function size_limits(table, row, bare, rival, rival_cost)
     table["cost"][row]
     design = ShipDesign(Symbol(table["drive"][row]), study_hull(ship);
         rig_size(rig, area)...)
-    built = Ship(design, assumptions).rig
+    built = Ship(design, assumptions; route=Symbol(table["route"][row])).rig
     crash = WindShipOpt.crash_cost(built, assumptions)
     crash_range = [WindShipOpt.crash_cost(built,
         at_bound(assumptions, rig_price_inputs[rig], bound)) for bound in (:low, :high)]
