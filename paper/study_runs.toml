@@ -8,6 +8,11 @@ commit = "d0d42df88865b39e8987e7b358eee80bf0d5b3e2"
 fidelity = "draft"
 run = "2026-11-09T1430"
 
+[fabric_wing]
+commit = "17bad5e46984346d4c55a85a6b044a319875be06"
+fidelity = "draft"
+run = "2026-11-24T1745"
+
 [forecast_causes]
 commit = "3cd96bb5ddb0897310bb974c731c2e893e2ff14c"
 fidelity = "draft"
