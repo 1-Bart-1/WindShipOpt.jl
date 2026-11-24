@@ -35,11 +35,58 @@ Round trip of `case` over `departures`, or `nothing` where its ship does not exi
 passage fails.
 """
 function case_trip(case, departures)
+    routing = case_routing(case)
+    departed = fetch.([Threads.@spawn departure_trip(routing, case, departure)
+                       for departure in departures])
+    return combined_trip(case, departures, departed)
+end
+
+"""
+    case_ship(case)
+
+The ship of `case` with its model part switched off, or `nothing` where it does not exist.
+"""
+function case_ship(case)
     ship = Ship(case.design, case.assumptions; case.route)
+    return isnothing(ship) ? nothing : simplified_ship(ship, case.part)
+end
+
+"""
+    case_routing(case)
+
+What routing one departure of `case` takes: the [`DepartureRouting`](@ref) of its ship and
+what it plans on; `nothing` where its ship does not exist.
+"""
+function case_routing(case)
+    ship = case_ship(case)
     isnothing(ship) && return nothing
-    ship = simplified_ship(ship, case.part)
-    return round_trip(ship, case.corridors..., weather, departures, case.assumptions;
-        forecast=forecast_source(case.forecast), held_knots=case.held_knots)
+    routing = WindShipOpt.DepartureRouting(ship, first(case.corridors), case.assumptions;
+        case.held_knots)
+    return (; routing, forecast=forecast_source(case.forecast))
+end
+
+"""
+    departure_trip(routing, case, departure)
+
+The [`departure_passages`](@ref) of `case` from `departure` [h] by its
+[`case_routing`](@ref) `routing`; `nothing` where its ship does not exist or a passage
+fails.
+"""
+departure_trip(routing, case, departure) = isnothing(routing) ? nothing :
+    WindShipOpt.departure_passages(routing.routing, case.corridors..., weather, departure;
+        routing.forecast)
+
+"""
+    combined_trip(case, departures, departed)
+
+Round trip of `case` from the [`departure_trip`](@ref) `departed` of each of `departures`,
+or `nothing` where its ship does not exist or a passage failed.
+"""
+function combined_trip(case, departures, departed)
+    ship = case_ship(case)
+    isnothing(ship) && return nothing
+    return WindShipOpt.combine_departures(ship, case.corridors..., departures,
+        case.assumptions, departed)
 end
 
 """
@@ -62,19 +109,18 @@ expected_forecast() = ExpectedForecast(forecast_archive, forecast_error())
     round_trips(cases, departures)
 
 Round trips of all `cases`, taking those the case store holds for the run in use
-([`stored_entry`](@ref)) and computing the others, by the jobs of `case_jobs` where
-[`handed_out`](@ref) says so, else here ([`compute_trips`](@ref)).
+([`stored_entry`](@ref)) and combining the others from their departures, which the jobs of
+`case_jobs` route where [`handed_out`](@ref) says so, else this process
+([`compute_trips`](@ref)).
 """
 function round_trips(cases, departures)
     directories = [case_directory(case, departures) for case in cases]
     entries = Any[stored_entry(directory, case)
                   for (case, directory) in zip(cases, directories)]
     computed = findall(ismissing, entries)
-    if isempty(computed) || !handed_out(case_jobs, length(cases))
-        entries[computed] = compute_trips(cases[computed], directories[computed], departures)
-    else
-        entries = job_trips(case_jobs, cases, directories, departures)
-    end
+    handed_out(case_jobs, length(computed) * length(departures)) &&
+        job_trips(case_jobs, cases, directories, departures)
+    entries[computed] = compute_trips(cases[computed], directories[computed], departures)
     foreach(tally_case!, cases, directories, entries)
     trips = [entry.trip for entry in entries]
     older = count(entry -> entry.model != paper_run.trip_model, entries)
@@ -87,15 +133,40 @@ end
 """
     compute_trips(cases, directories, departures)
 
-Case-store entries of the round trips of `cases` over `departures`, computed on the threads
-of this process and stored in `directories`.
+Case-store entries of the round trips of `cases` over `departures`, combined on the threads
+of this process from their departures ([`departure_entries`](@ref)) and stored in
+`directories`.
 """
 function compute_trips(cases, directories, departures)
     entries = Vector{Any}(undef, length(cases))
     Threads.@threads :greedy for k in eachindex(cases)
-        entries[k] = stored_trip(() -> case_trip(cases[k], departures), directories[k],
-            cases[k])
+        departed = departure_entries(cases[k], departures,
+            departure_directory.(directories[k], departures))
+        entries[k] = stored_trip(directories[k], cases[k];
+            seconds=sum(entry.seconds for entry in departed)) do
+            foreach(entry -> replay_reads(entry, cases[k]), departed)
+            combined_trip(cases[k], departures, [entry.trip for entry in departed])
+        end
     end
+    return entries
+end
+
+"""
+    departure_entries(case, departures, directories)
+
+Case-store entries of the [`departure_trip`](@ref) of `case` from each of `departures`,
+taking those the case store holds in `directories` for the run in use and routing the
+others in parallel, each stored as it ends with the inputs and files its routing read.
+"""
+function departure_entries(case, departures, directories)
+    entries = Any[departure_entry(directory, case) for directory in directories]
+    missed = findall(ismissing, entries)
+    isempty(missed) && return entries
+    routing, reads = with_reads(() -> case_routing(case), case)
+    entries[missed] = fetch.([Threads.@spawn stored_trip(directories[k], case) do
+                                  replay_reads(reads, case)
+                                  departure_trip(routing, case, departures[k])
+                              end for k in missed])
     return entries
 end
 
