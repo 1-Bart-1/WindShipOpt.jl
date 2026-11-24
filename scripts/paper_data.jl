@@ -327,9 +327,10 @@ function changed_assumptions(changes)
 end
 
 
-"design keyword of each rig"
+"design keyword of each rig, and of the single-skin kite routed on the 140 m ship alone"
 rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area,
-    "vtol" => :rigid_kite_area, "suction" => :suction_area, "lei" => :lei_kite_area)
+    "vtol" => :rigid_kite_area, "suction" => :suction_area, "lei" => :lei_kite_area,
+    "single" => :single_skin_kite_area)
 
 """
     rig_size(rig, area)
