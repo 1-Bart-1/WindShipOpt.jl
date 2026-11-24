@@ -9,6 +9,7 @@ using Base.ScopedValues: ScopedValue, with
 using Dates
 using Serialization
 using TOML
+using YAML
 using WindShipOpt: inputs_read
 
 include("step_code.jl")
@@ -903,6 +904,25 @@ assumptions now give, or that are no longer assumptions.
 changed_inputs(entry) = sort([name for (name, value) in entry["inputs"]
                               if !haskey(assumptions.entries, Symbol(name)) ||
                                  assumptions[Symbol(name)] != value])
+
+"""
+    moved_ranges(entry)
+
+Names of the inputs the step of run-record `entry` read whose range the assumptions now
+give differs from the one at the commit it ran on.
+"""
+function moved_ranges(entry)
+    then = YAML.load(git_output("show", entry["git_commit"] * ":data/assumptions.yaml"))
+    return sort([name for name in keys(entry["inputs"])
+                 if haskey(then, name) && range_moved(then[name], Symbol(name))])
+end
+
+"whether input `name` now has another range than `written` in data/assumptions.yaml gave"
+function range_moved(written, name)
+    haskey(assumptions, name) || return false
+    now, value = assumptions.entries[name], written["value"]
+    return (get(written, "low", value), get(written, "high", value)) != (now.low, now.high)
+end
 
 """
     data_step(name, step)

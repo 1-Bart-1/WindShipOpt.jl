@@ -350,7 +350,8 @@ the CO2 saving, and the reason the input is in the study.
 function development_table()
     table = read_table(data_file("sensitivity.csv"))
     ships = unique(table["ship"])
-    moved = Symbol.(changed_inputs(data_step("sensitivity.csv", "sensitivity")))
+    step = data_step("sensitivity.csv", "sensitivity")
+    moved = Symbol.(union(changed_inputs(step), moved_ranges(step)))
     ragged = ">{\\raggedright\\arraybackslash}"
     write_whole(joinpath(sections, "development_table.tex")) do io
         println(io, "\\begin{longtable}{@{}", ragged, "p{2.5cm}", ragged, "p{2.6cm}rrrr",
@@ -364,7 +365,7 @@ function development_table()
             "is known today; inputs that are the authors' estimates have no range and ",
             "are not in the study. Values to two digits, and the gains and losses model ",
             "output, to a tenth of a point, in red where the study took another base ",
-            "value of its input; ",
+            "value or range of its input; ",
             "\\cref{tab:goals} gives what is known today against each goal. ",
             "\\savingerror}\n",
             "\\label{tab:development}\\\\")

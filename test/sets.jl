@@ -4005,6 +4005,20 @@ end
     @test isempty(reasons[:speed_size])
 end
 
+@testset "a study's effect is marked once its input's range moved since the run" begin
+    entry = Dict{String, Any}("git_commit" => "HEAD",
+        "inputs" => Dict("wind_shear_exponent" => assumptions[:wind_shear_exponent]))
+    @eval PaperRuns assumptions = $assumptions
+    @test isempty(PaperRuns.moved_ranges(entry))
+    entries = copy(assumptions.entries)
+    shear = entries[:wind_shear_exponent]
+    entries[:wind_shear_exponent] = WindShipOpt.Assumption(shear.value, shear.low,
+        shear.high + 0.01, shear.unit, shear.source, shear.today, shear.estimate)
+    @eval PaperRuns assumptions = $(WindShipOpt.Assumptions(entries))
+    @test PaperRuns.moved_ranges(entry) == ["wind_shear_exponent"]
+    @test isempty(PaperRuns.changed_inputs(entry))
+    @eval PaperRuns assumptions = $assumptions
+end
 
 @testset "an input read in a task spawned while recording is recorded" begin
     value, names = inputs_read(() -> fetch(Threads.@spawn assumptions[:discount_rate]))
