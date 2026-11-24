@@ -1596,9 +1596,9 @@ end
 """
     searched_leg(workspace, corridor, table, weather, departure, to_go, limits; options...)
 
-The [`Leg`](@ref) of the first [`route_pass`](@ref) under `limits` [USD] that ends within its limit and by the `arrival_by` of `options`, and
-that limit, else of a pass over all states, which is `nothing` if no path arrives, and
-`Inf`.
+The [`Leg`](@ref) of the first [`route_pass`](@ref) under `limits` [USD] that ends within
+its limit and by the `arrival_by` of `options`, and that limit, else of a pass over all
+states, which is `nothing` if no path arrives, and `Inf`.
 """
 function searched_leg(workspace, corridor, table, weather, departure, to_go, limits;
         options...)
@@ -1688,12 +1688,12 @@ end
                first_aloft, speed_stride)
 
 The dynamic programme of [`route`](@ref) in `workspace`, whose bins are the
-[`time_bin`](@ref)s of `time_step` [h], keeping the kite down and aloft at each node and
-time bin, commanding the
-[`commanded_speeds!`](@ref) of `table` at `speed_stride` and `time_step`, skipping states
-and commanded edges outside the [`PassageBand`](@ref) `to_go`, or, with a
-[`CostToGo`](@ref) `to_go`, those whose objective plus it exceeds `limit` [USD]. Returns
-the [`Leg`](@ref) of the [`final_arrival`](@ref) by `arrival_by` [h], or `nothing`.
+[`time_bin`](@ref)s of `time_step` [h], keeping the cheapest arrival with the kite down
+and aloft at each node and time bin, commanding the [`commanded_speeds!`](@ref) of `table`
+at `speed_stride` and `time_step`, skipping states and commanded edges outside the
+[`PassageBand`](@ref) `to_go`, or, with a [`CostToGo`](@ref) `to_go`, those whose
+objective plus it exceeds `limit` [USD]. Returns the [`Leg`](@ref) of the
+[`final_arrival`](@ref) by `arrival_by` [h], or `nothing`.
 """
 function route_pass(workspace::RouteWorkspace, corridor::Corridor, table::RouteTable,
         weather, departure, to_go=nothing, limit=Inf; time_cost, arrival_by=Inf, time_step,
