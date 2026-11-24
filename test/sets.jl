@@ -4843,6 +4843,11 @@ end
     @test PaperData.one_decimal(3.46) == "3.5"
 end
 
+@testset "a range of results prints a negative end with a minus sign, one value alike" begin
+    @test PaperData.value_range([-2.7, 0.6], PaperData.whole_number) == "\$-\$3 to 1"
+    @test PaperData.value_range([1.2, 0.8], PaperData.whole_number) == "1"
+end
+
 @testset "a source note sets a whole power as a superscript, decimals included" begin
     @test PaperData.latex_escape("211 f^-2.25 at 3 %") ==
           "211 f\\textsuperscript{-2.25} at 3 \\%"

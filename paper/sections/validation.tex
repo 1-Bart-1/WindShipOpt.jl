@@ -31,9 +31,9 @@ Ship & Calm-water resistance & tank tests of a bulk carrier, a tanker and a cont
  & Calm-water power, uncalibrated & source designs of the classes \citep{man2019mr,man2022bulk,man2024container} & $-6$ to $+32$\,\%; one factor per class removes it \\
  & Coaster engine & Conoship CIP3800 and Damen Combi Freighter 3850 & $+11$\,\% \\
  & Added resistance in waves & \num{1127} model-test samples \citep{mittendorf2022} & inside their scatter \\
- & Hull side force at leeway & tank tests of two hulls without a skeg \citep{vanderkolk2021} & about $+100$\,\% \\
+ & Hull side force at leeway & tank tests of two hulls without a skeg \citep{vanderkolk2021} & $+40$ to $+70$\,\% \\
  & Drag of the leeway & the same tests, carried to full scale \citep{kramer2022b} & about $-50$\,\% \\
- & Centre of the hull's side force & tanker tests and CFD \citep{kramer2022,tillig2020} & 0.1 to 0.2 lengths too far aft \\
+ & Centre of the hull's side force & captive tests of a tanker \citep{toxopeus2011} & within the scatter of repeated runs \\
  & Hull forces at heel & CFD of a cargo ship heeled \SI{20}{\degree} \citep{kramer2022b} & none modelled; side force 7 to 20\,\% lower there \\
  & Engine fuel at part load & MAN L21/31 test-bed fuel curves \citep{man2024l2131} & $+1$ to $+7$\,\% at 50 to 85\,\% load \\
  & Share of the fuel saving the side force takes & ships with rotors and sails modelled with it \citep{tillig2019,kramer2022} & \cref{sec:val_drift} \\
@@ -112,7 +112,7 @@ Every wing sail and rotor result, and the kite's on courses across the wind, pas
 
 \textbf{Heel: supported as small.} The model takes no effect of heel on the hull's forces. At \given{\SI{20}{\degree}} of heel CFD of a cargo ship finds the side force \given{7}\,\% lower at \given{\SI{6}{\degree}} of drift and almost \given{20}\,\% lower at \given{\SI{9}{\degree}}, and the resistance \given{2.8} and \given{3.9}\,\% higher \citep{kramer2022b}; at our limit of \given{\SI{8}{\degree}} the effect is a fraction of that, and it would lower the deck rigs' savings slightly.
 
-\textbf{The ship as a whole.} Studies that compare a free side force with a priced one find that it takes \given{8 to 26}\,\% of the fuel saving: a tanker with rotors keeps \given{12, 18 and 20}\,\% of fuel saving instead of \given{14, 23 and 27}\,\% at \given{300, 600 and \SI{900}{m^2}} \citep{tillig2019}, and a cargo ship with sails \given{17 to 65}\,\% instead of \given{21 to 71}\,\% \citep{kramer2022}. In our model it takes \NumSideForceKite\,\% of the kite's cost saving on e-ammonia, \NumSideForceWings\,\% of the wing sails' and \NumSideForceRotors\,\% of the rotors'.
+\textbf{The ship as a whole.} Studies that compare a free side force with a priced one find that it takes \given{8 to 26}\,\% of the fuel saving: a tanker with rotors keeps \given{12, 18 and 20}\,\% of fuel saving instead of \given{14, 23 and 27}\,\% at \given{300, 600 and \SI{900}{m^2}} \citep{tillig2019}, and a cargo ship with sails \given{17 to 65}\,\% instead of \given{21 to 71}\,\% \citep{kramer2022}. In our model it takes \NumSideForceRotors\,\% of the rotors' cost saving on e-ammonia, inside that range, and \NumSideForceWings\,\% of the wing sails', inside it on the \given{\SI{140}{m}} ship and above it on the Neo-Panamax container ship. The kite's saving moves by \NumSideForceKite\,\%, no more than the router's scatter.
 
 \begin{table}[tbp]
 \centering

@@ -2926,11 +2926,11 @@ reads_alike(values, format) = allequal(format.(values))
 """
     value_range(values, format)
 
-Text of `values` by `format`: one value where they [`reads_alike`](@ref), else the range
-they span.
+Text of `values` by `format`, a negative one with a minus sign: one value where they
+[`reads_alike`](@ref), else the range they span.
 """
 function value_range(values, format)
-    low, high = format.(extrema(values))
+    low, high = typeset_minus.(format.(extrema(values)), "\$-\$")
     return reads_alike(values, format) ? low : "$low to $high"
 end
 
