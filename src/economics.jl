@@ -241,8 +241,8 @@ end
     lost_cargo_cost(ship, rig, prices, assumptions)
 
 Yearly cost [USD/year] of the cargo `ship` no longer carries for the mass of `rig`: the
-yearly cost of the ship without a rig at `prices`,
-a [`LayoutPrices`](@ref), times the share of its cargo they take.
+yearly cost of the ship without a rig at `prices`, a [`LayoutPrices`](@ref), times the
+share of its cargo the rig takes.
 """
 function lost_cargo_cost(ship::Ship, rig, prices::LayoutPrices, assumptions::Assumptions)
     left, full = (cargo_mass(CargoHold(with_rig(ship, held), assumptions))
@@ -292,8 +292,8 @@ end
     cheapest_in_columns(ship, columns, in_columns, prices, assumptions)
 
 Rig of the design of `ship` in `columns` columns of the count of `in_columns`, tried in
-order, with the lowest [`layout_score`](@ref) at `prices`, and that score; the search stops once two counts in a
-row fit and score worse than the best.
+order, with the lowest [`layout_score`](@ref) at `prices`, and that score; the search
+stops once two counts in a row fit and score worse than the best.
 """
 function cheapest_in_columns(ship::Ship, columns, in_columns, prices::LayoutPrices,
         assumptions::Assumptions)
@@ -416,7 +416,8 @@ function unit_loads(rig, assumptions)
     mass = 1e3unit_mass(rig, assumptions)
     inertia_factor = assumptions[:rig_inertia_load_factor]
     wind = assumptions[:rig_wind_load_factor] * peak_force(rig, assumptions)
-    return (; wind, roll=inertia_factor * mass * assumptions[:rig_design_acceleration], mass)
+    roll = inertia_factor * mass * assumptions[:rig_design_acceleration]
+    return (; wind, roll, mass)
 end
 
 """
