@@ -170,14 +170,21 @@ leeway_limit:
   high: 15.0
   unit: deg
   source: "@tillig2020: range of captive tests on wind-assisted hulls"
-  reason: "Validity limit of the linear hull side-force model; captive tests on wind-assisted hulls cover 0-10 deg and ShipCLEAN reefs at 10 deg rudder angle [@tillig2020]."
+  reason: "Validity limit of the hull side-force model; captive tests on wind-assisted hulls cover 0-10 deg and ShipCLEAN reefs at 10 deg rudder angle [@tillig2020]."
 hull_side_force_factor:
-  value: 1.0
-  low: 0.5
+  value: 0.55
+  low: 0.32
   high: 1.0
   unit: "-"
-  source: "Kijima regression [@kim2021]; @vanderkolk2021: tank tests lower"
-  reason: "Factor on the side-force slope of the Kijima regression, fitted to merchant-ship models in calm water [@kim2021]. Towing-tank tests of 138 m wind-assisted hulls without a skeg, block coefficients 0.72 and 0.83, give 0.4-0.5 times it at 6-9 deg leeway [@vanderkolk2021, Table 3]; low-aspect-ratio wing fits to the same and other hulls also lie below such regressions [@tillig2020]."
+  source: "@toxopeus2011: KVLCC2M tests; @vanderkolk2021 low; Kijima [@kim2021] high"
+  reason: "Factor on the side-force slope of the Kijima regression [@kim2021]. Fitting f Y'_b (b + q b^3) to the NMRI captive tests of the KVLCC2M tanker at 3-12 deg leeway [@toxopeus2011, pp. 54 and 155-156] gives 0.55 on its linear term; towing-tank fits of 138 m wind-assisted hulls without a skeg, block coefficients 0.72 and 0.83, give 0.32 and 0.37 [@vanderkolk2021, Table 3]; 1 is the regression itself."
+hull_side_force_cubic:
+  value: 11.0
+  low: 11.0
+  high: 15.0
+  unit: "1/rad^2"
+  source: "@toxopeus2011: NMRI tank tests of the KVLCC2M tanker; @vanderkolk2021 high"
+  reason: "Cubic term q of the hull side force f Y'_b (b + q b^3) over leeway b: the same fit to the KVLCC2M tests gives 11 [@toxopeus2011, pp. 155-156]; the fits of the two 138 m hulls give 15 [@vanderkolk2021, Table 3]."
 rudder_aspect_ratio:
   value: 1.6
   low: 1.4
@@ -191,6 +198,11 @@ rudder_max_lift:
   estimate: true
   source: "Authors' estimate: below stall, keeping some for steering"
   reason: "Authors' estimate: highest rudder lift coefficient spent on balancing the rig; free-stream rudder sections stall near 1.2-1.4 and some lift is kept for steering in waves."
+rudder_wake_fraction:
+  value: 0.19
+  unit: "-"
+  source: "@kramer2022: CFD of two wind-powered cargo ships"
+  reason: "Wake fraction of the flow reaching the rudder at no drift and no thrust, from CFD of two wind-powered cargo hulls [@kramer2022, sec. 4.1.3]."
 deck_mount_height:
   value: 4.0
   unit: m
@@ -432,13 +444,6 @@ wing_design_wind:
   unit: m/s
   source: "@bar2026windwingscontrol: WindWings produce thrust up to 40 knots"
   reason: "Highest apparent wind a raised wing sail's support is sized for working: WindWings produce thrust up to 40 knots, 20.6 m/s, and feather above it [@bar2026windwingscontrol]. Low bound: the 17 m/s a VentiFoil works in [@conoship2022econowind]."
-twistlock_working_load:
-  value: 250.0
-  low: 210.0
-  high: 250.0
-  unit: kN
-  source: "@macgregor2023acv1: safe working load of a twistlock in tension"
-  reason: "Pull a twistlock holding a containerised suction sail's frame to the stack below may carry: 250 kN in tension, the safe working load of a fully automatic twistlock type-approved by DNV, which breaks at 500 kN [@macgregor2023acv1]. Low bound: its 210 kN in shear."
 bay_gap:
   value: 1.5
   unit: m
@@ -765,12 +770,12 @@ rigid_aspect_ratio:
   source: "@echeverri2020part1 [Part I, Table 2]: Makani's MX2 design"
   reason: "MX2 design: 26 m span on 54 m^2 (Echeverri et al. 2020, Part I, Table 2)."
 rigid_mass:
-  value: 1852.0
+  value: 1854.0
   low: 891.0
   high: 3240.0
   unit: kg
-  source: "@echeverri2020part1 [Part I, Table 2]: MX2 design without tether"
-  reason: "Kite of the reference area with its propellers and drives, without its tether: 1852 kg for MX2 [@echeverri2020part1, Part I, Table 2]. Low bound, 16.5 kg/m^2: a structure at the lightest of built kites, half of 15 kg/m^2 [@aull2020, Tables 1-2] plus the spar caps, shear walls and hardpoints of Makani's build-up [@echeverri2020part2, Part II, pp.287-288], with propellers and drives at their lightest [@johnson2018, p.5] for the hover of the low bound of the hover power. High bound, 60 kg/m^2: a structure half above MX2's 1372 kg, as M600 overran its targets by 40 to 70 % [@echeverri2020part1, Part I, p.265], with heavier propellers and drives growing linearly with power."
+  source: "@echeverri2020part2 [Part II, pp.287-288]: MX2 build-up without tether"
+  reason: "Kite of the reference area with its propellers and drives, without its tether: 1854 kg for MX2 in Makani's build-up [@echeverri2020part2, Part II, pp.287-288]. Low bound, 16.5 kg/m^2: a structure at the lightest of built kites, half of 15 kg/m^2 [@aull2020, Tables 1-2] plus the spar caps, shear walls and hardpoints of Makani's build-up [@echeverri2020part2, Part II, pp.287-288], with propellers and drives at their lightest [@johnson2018, p.5] for the hover of the low bound of the hover power. High bound, 60 kg/m^2: a structure half above MX2's 1374 kg, as M600 overran its targets by 40 to 70 % [@echeverri2020part1, Part I, p.265], with heavier propellers and drives growing linearly with power."
 rigid_mass_exponent:
   value: 2.5
   low: 2.2
@@ -831,7 +836,7 @@ rigid_cost_per_mass:
   unit: USD/kg
   estimate: true
   source: "@joshi2025 [p. 702]; @bauer2018: composite structure and drives of MX2"
-  reason: "Airframe with its propellers and drives per kg, at a series of 50 or more without overhead or margin, which the market price factor adds: carbon composite structure EUR 250/kg and EUR 200/m^2 [@joshi2025, p.702], and drives at USD 0.10 per W of their rating, two thirds of 0.15 $/W [@bauer2018, p.14], USD 522,000 on the 1852 kg of MX2; the two thirds are the authors' estimate. A wind turbine blade costs USD 8 and 31 per kg in material and manufacture [@aull2020, Table 3]."
+  reason: "Airframe with its propellers and drives per kg, at a series of 50 or more without overhead or margin, which the market price factor adds: carbon composite structure EUR 250/kg and EUR 200/m^2 [@joshi2025, p.702], and drives at USD 0.10 per W of their rating, two thirds of 0.15 $/W [@bauer2018, p.14], USD 524,000 on the 1854 kg of MX2; the two thirds are the authors' estimate. A wind turbine blade costs USD 8 and 31 per kg in material and manufacture [@aull2020, Table 3]."
 rigid_avionics_cost:
   value: 174000.0
   low: 17400.0
@@ -940,6 +945,21 @@ lei_tube_surface:
   unit: m^2/m^2
   source: "@schwoll2012 [p. 21]: the V2 kite's tubes"
   reason: "Surface of the tubes per projected m^2 of a leading-edge inflatable kite: 8.7 m^2 of leading edge and 6.1 m^2 of struts on the 16.7 m^2 projected of the V2 kite [@schwoll2012, p. 21], held at every size by its shape."
+
+# --- single-skin kite ---
+single_skin_glide_factor:
+  value: 0.72
+  low: 0.63
+  high: 0.86
+  unit: "-"
+  source: "@maughmer1979 [Figs. 9-10]; @maslanka2024 [Table 5]"
+  reason: "Best glide ratio of a single-skin wing over that of the same wing with two skins. In the wind tunnel a wing of aspect ratio 8.5 with a partial lower skin reached 13.3 and 14 where the same wing with a full lower skin reached 18.5 and 19.2 [@maughmer1979, Figs. 9-10], 0.72-0.73; without a lower skin it reached 11.7 and 12.8, 0.63-0.67, the low bound. CFD of a single-skin paraglider gives 11.27 against 13.17 for the double-skin one [@maslanka2024, Table 5], 0.86, the high bound. Single-skin kites keep a closed or partly closed leading edge, as the partial lower skin does."
+single_skin_line_ratio:
+  value: 1.5
+  unit: "-"
+  estimate: true
+  source: "Authors' estimate from @niviuk_skin3; @niviuk_ikumap: line length per area"
+  reason: "Bridle line, tapes and attachment tabs of a single-skin canopy per projected m^2 over those of a ram-air canopy, applied to canopy_mass_overhead: with no ribs to spread the load, the single-skin Niviuk Skin 3 carries 251-282 m of line on 16-20 m^2 flat, 14.1-15.7 m/m^2 [@niviuk_skin3, p. 2], where the double-skin Niviuk Ikuma P carries 220-247 m on 21-26.5 m^2, 9.3-10.5 m/m^2 [@niviuk_ikumap, p. 2]."
 
 tether_drag_coefficient:
   value: 1.1

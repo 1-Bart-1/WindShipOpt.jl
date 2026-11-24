@@ -48,10 +48,10 @@ function horizontal_forces(ship, rig, speed, wind, angle; waves=0.0)
     thrust, sail = WindShipOpt.best_trim(ship, ship.rig, speed, wind, angle, waves)
     air = WindShipOpt.wind_force(ship.windage, env, wind, angle, speed)
     total = sail + air
-    balance = WindShipOpt.HullBalance(ship, speed, total)
     calm = WindShipOpt.resistance(hull, env, speed; coefficients=ship.wave_coefficients)
+    balance = WindShipOpt.HullBalance(ship, speed, total, calm + waves)
     stern = -hull.length / 2
-    centre = WindShipOpt.lateral_centre(hull)
+    centre = balance.lateral_centre
     force(symbol, along, across, at, colour) = (; symbol, along, across, at, colour)
     forces = [force(raw"F_x", sail.thrust, 0.0, lever(sail), rig),
         force(raw"F_y", 0.0, sail.side, lever(sail), rig),
@@ -176,13 +176,27 @@ end
 """
     panel_top(panel)
 
-Height [mm] above midship that the bow, the arrows and the tether of `panel` reach in
-[`force_balance_figure`](@ref).
+Height [mm] above midship that the bow, the arrows, their labels and the tether of
+`panel` reach in [`force_balance_figure`](@ref).
 """
 function panel_top(panel)
     heads = [arrow_ends(force)[2][2] for force in panel.forces]
-    return max(maximum(heads), paper_ship.stem * force_balance_scale.length,
+    labels = [label_top(force, panel.forces) for force in panel.forces]
+    return max(maximum(heads), maximum(labels),
+        paper_ship.stem * force_balance_scale.length,
         tether_end(panel.ship.rig, panel.forces)[2])
+end
+
+"""
+    label_top(force, forces)
+
+Height [mm] of the top of the label of `force` among `forces` from its
+[`label_place`](@ref): a label's pitch above a south anchor, half of it above a centred one.
+"""
+function label_top(force, forces)
+    anchor, (_, level) = label_place(force, forces)
+    startswith(anchor, "north") && return level
+    return level + (startswith(anchor, "south") ? label_pitch : label_pitch / 2)
 end
 
 """
@@ -354,26 +368,48 @@ end
 Anchor and point [mm] of the label of `force` among `forces`. Across the ship: past the
 head of an arrow shorter than its label, else against the hull above the arrow, or below
 it where another force across to the same side acts just forward, or, with none such,
-where a force along the ship leaves the same point. Along the ship: to windward of the
-hull, level with the head of the arrow or just above a mark.
+where a force along the ship leaves the same point or has its label beside that place,
+then a label's pitch below that label.
+Along the ship: to windward of the hull at its [`along_label_level`](@ref).
 """
 function label_place(force, forces)
     tail, head = arrow_ends(force)
-    if !iszero(force.across)
-        side = sign(force.across)
-        towards = side > 0 ? "west" : "east"
-        label_past_head(force, forces) && return towards, head .+ (side * 0.8, 0.0)
-        other = beside(force, forces)
-        thrust_here = any(forces) do other
-            other.along > 0 &&
-                abs(other.at - force.at) * force_balance_scale.length < label_pitch
-        end
-        below = other === nothing ? thrust_here : other.at > force.at
-        return (below ? "north " : "south ") * towards,
-        (side * (half_beam() + 0.8), head[2] + (below ? -0.7 : 0.7))
+    iszero(force.across) &&
+        return "east", (-half_beam() - 0.8, along_label_level(force, forces))
+    side = sign(force.across)
+    towards = side > 0 ? "west" : "east"
+    label_past_head(force, forces) && return towards, head .+ (side * 0.8, 0.0)
+    other = beside(force, forces)
+    thrust_here = any(forces) do other
+        other.along > 0 &&
+            abs(other.at - force.at) * force_balance_scale.length < label_pitch
     end
+    levels = [along_label_level(other, forces) for other in forces
+              if side < 0 && iszero(other.across) && !is_resistance(other)]
+    clash = filter(level -> abs(level - (head[2] + 0.7 + label_pitch / 2)) < label_pitch,
+        levels)
+    below = other === nothing ? thrust_here || !isempty(clash) : other.at > force.at
+    level = below ? min(head[2] - 0.7, minimum(clash; init=Inf) - label_pitch) :
+            head[2] + 0.7
+    return (below ? "north " : "south ") * towards, (side * (half_beam() + 0.8), level)
+end
+
+"""
+    along_label_level(force, forces)
+
+Height [mm] of the label of the force along the ship `force` among `forces`: level with the
+head of its arrow, or just above a mark, and just below the arrow of a force across the
+ship to windward that would run through it.
+"""
+function along_label_level(force, forces)
+    tail, head = arrow_ends(force)
     level = mark_style(force) == :arrow ? head[2] - 2 : tail[2] + 1.8
-    return "east", (-half_beam() - 0.8, level)
+    for other in forces
+        other.across < 0 || continue
+        arrow = first(arrow_ends(other))[2]
+        abs(arrow - level) < label_pitch / 2 && (level = arrow - label_pitch / 2 - 0.5)
+    end
+    return level
 end
 
 """
@@ -602,7 +638,7 @@ end
 """
     ship_classes_figure()
 
-The standard ship classes in deadweight order, side by side to one scale, each with the
+The standard ship classes in [`class_order`](@ref), side by side to one scale, each with the
 geometric mean over the routes of the best size on VLSFO of each rig the class study holds,
 laid out as the model lays them out.
 """
@@ -647,7 +683,7 @@ function ship_classes_figure()
         centre = (column - 1) * (longest + gap) + longest / 2
         text!(axis, centre, 10; text=title, align=(:center, :bottom))
     end
-    bar = Point2f(-0.25width, -last(tops) + 10)
+    bar = Point2f(-0.25width, 10)
     lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
     text!(axis, bar + Point2f(50, 0); text="100 m", align=(:center, :bottom),
         offset=(0, 2), fontsize=note_size)
