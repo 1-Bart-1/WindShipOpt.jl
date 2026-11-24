@@ -638,7 +638,7 @@ end
 """
     ship_classes_figure()
 
-The standard ship classes in deadweight order, side by side to one scale, each with the
+The standard ship classes in [`class_order`](@ref), side by side to one scale, each with the
 geometric mean over the routes of the best size on VLSFO of each rig the class study holds,
 laid out as the model lays them out.
 """
@@ -683,7 +683,7 @@ function ship_classes_figure()
         centre = (column - 1) * (longest + gap) + longest / 2
         text!(axis, centre, 10; text=title, align=(:center, :bottom))
     end
-    bar = Point2f(-0.25width, -last(tops) + 10)
+    bar = Point2f(-0.25width, 10)
     lines!(axis, [bar, bar + Point2f(100, 0)]; color=:black, linewidth=1.5)
     text!(axis, bar + Point2f(50, 0); text="100 m", align=(:center, :bottom),
         offset=(0, 2), fontsize=note_size)

@@ -4709,6 +4709,17 @@ end
           sort([Main.assumptions[:e_methanol_price], 40.0, 90.0, 120.0])
 end
 
+@testset "ship classes group by cargo on deck, free deck first, each by deadweight" begin
+    classes = sort(collect(values(ship_classes())); by=PaperData.deck_order)
+    labels = PaperData.deck_label.(classes)
+    on_deck = [class.name for class in classes if class.deck_tiers > 0]
+    @test findlast(==("free deck"), labels) < findfirst(==("cargo on deck"), labels)
+    @test on_deck == ["feeder container ship", "Panamax container ship",
+        "Neo-Panamax container ship", "Megamax container ship"]
+    @test PaperData.deck_label(ship_classes()["PCTC car carrier"]) == "free deck"
+    @test issorted([class.deadweight for class in classes if class.deck_tiers == 0])
+end
+
 @testset "a table step that fails part way leaves the table it had" begin
     path = joinpath(mktempdir(), "table.tex")
     write(path, "complete table")
