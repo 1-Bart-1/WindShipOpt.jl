@@ -4815,7 +4815,7 @@ end
 @testset "a change of only what a route costs is recosted on the base route, its fuel \
           kept" begin
     longer = with_value(assumptions, :canopy_life, 6000.0)
-    @test PaperData.changed_inputs(longer) == [:canopy_life]
+    @test PaperData.off_base_inputs(longer) == [:canopy_life]
     @test PaperData.cost_only(longer)
     @test !PaperData.cost_only(with_value(assumptions, :kite_max_force_per_area, 1.0))
     @test !PaperData.cost_only(with_value(assumptions, :rotor_out_of_service, 0.1))

@@ -2103,11 +2103,11 @@ cost_only_inputs = Set([WindShipOpt.canopy_price_inputs...; :canopy_life; :tethe
     :wing_lifetime; :rotor_lifetime; :suction_lifetime; :discount_rate; :cargo_value])
 
 "names of the inputs `inputs` holds at another value than the base assumptions"
-changed_inputs(inputs) =
+off_base_inputs(inputs) =
     [name for name in keys(assumptions.entries) if inputs[name] != assumptions[name]]
 
 "whether `inputs` move only [`cost_only_inputs`](@ref) from the base assumptions"
-cost_only(inputs) = all(in(cost_only_inputs), changed_inputs(inputs))
+cost_only(inputs) = all(in(cost_only_inputs), off_base_inputs(inputs))
 
 """
     recosted_trips(cases, departures)
