@@ -62,14 +62,16 @@ expected_forecast() = ExpectedForecast(forecast_archive, forecast_error())
     round_trips(cases, departures)
 
 Round trips of all `cases`, taking those the case store holds for the run in use
-([`stored_entry`](@ref)) and computing the others, by the jobs of `case_jobs` where
-[`handed_out`](@ref) says so, else here ([`compute_trips`](@ref)).
+([`stored_entry`](@ref)) and computing the others, their kite pattern tables first
+([`build_pattern_tables`](@ref)), by the jobs of `case_jobs` where [`handed_out`](@ref)
+says so, else here ([`compute_trips`](@ref)).
 """
 function round_trips(cases, departures)
     directories = [case_directory(case, departures) for case in cases]
     entries = Any[stored_entry(directory, case)
                   for (case, directory) in zip(cases, directories)]
     computed = findall(ismissing, entries)
+    build_pattern_tables(cases[computed])
     if isempty(computed) || !handed_out(case_jobs, length(cases))
         entries[computed] = compute_trips(cases[computed], directories[computed], departures)
     else

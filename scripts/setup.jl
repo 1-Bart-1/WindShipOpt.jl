@@ -6,7 +6,8 @@
 # its land mask and all routes when it is there, and the synthetic weather, whose time
 # zero is 1 January, with the Caribbean route otherwise; the forecasts are those
 # download_forecast.jl wrote to era5/atlantic_wide/forecast/. Corridors are built on first
-# use by `corridors`, at a scale relative to stages of 90 nmi.
+# use by `corridors`, at a scale relative to stages of 90 nmi, and the kite pattern tables
+# of a batch of cases at once by `build_pattern_tables`.
 using Dates
 using WindShipOpt
 
@@ -56,4 +57,17 @@ function corridors(name, scale)
                 lateral_spacing=WindShipOpt.LATERAL_SPACING * lateral_scale),
             corridor_cache, (name, Float64(stage_scale), Float64(lateral_scale)))
     end
+end
+
+"""
+    build_pattern_tables(cases)
+
+Build side by side on this process's threads the ship of each of `cases` (with a `design`,
+`assumptions` and `route`) that flies a kite, so that every kite pattern table they need and
+the disk cache lacks is computed before any of them is routed.
+"""
+function build_pattern_tables(cases)
+    kites = filter(case -> WindShipOpt.flies_kite(case.design), cases)
+    foreach(wait, [Threads.@spawn Ship(case.design, case.assumptions; case.route)
+                   for case in kites])
 end
