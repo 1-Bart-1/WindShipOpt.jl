@@ -1,5 +1,5 @@
 \begin{longtable}{@{}>{\raggedright\arraybackslash}p{3.4cm}rr>{\raggedright\arraybackslash}p{1.4cm}>{\raggedright\arraybackslash}p{5.8cm}@{}}
-\caption{Every input with a range: its base value, range, unit and source, with the appendix that derives it where one does. The published code gives the full reasoning behind each value.}
+\caption{Every input: its base value, its range where data give one, unit and source, with the appendix that derives it where one does. \textsuperscript{e}~The authors' estimate, with no range. The published code gives the full reasoning behind each value.}
 \label{tab:inputs}\\
 \toprule
 Input & Value & Range & Unit & Source \\
@@ -17,40 +17,50 @@ Ammonia engine premium & \num{190} & \num{90}--\num{300} & USD/kW & \citet[Table
 Ammonia heating value & \num{18.6} & \num{18.6}--\num{18.8} & MJ/kg & \citet[Table 3]{irena2021ship}: lower heating value \\
 Ammonia pilot share & \num{0.05} & \num{0.05}--\num{0.15} & -- & \citet[p. 53]{mmmczcs2021fuel}: diesel-cycle two-stroke \\
 Ammonia tank cost & \num{1.62} & \num{0.8}--\num{2.5} & USD/kg & \citet[Table 3]{kanchiralla2022}: per kWh stored, converted \\
-Ammonia tank gravimetric density & \num{0.5} & \num{0.33}--\num{0.7} & -- & Authors' estimate \\
+Ammonia tank gravimetric density & \num{0.5}\textsuperscript{e} &  & -- & Authors' estimate \\
 Ammonia tank volumetric density & \num{600} & \num{500}--\num{680} & kg/m\textsuperscript{3} & \citet[p. 55]{mmmczcs2021fuel}: tank 3.6 times a fuel-oil tank of the same energy \\
-Appendage area ratio & \num{0.02} & \num{0.015}--\num{0.03} & -- & Authors' estimate: rudder area over length times draught \\
+Appendage area ratio & \num{0.02}\textsuperscript{e} &  & -- & Authors' estimate: rudder area over length times draught \\
 Appendage form factor & \num{1.5} & \num{1.3}--\num{2} & -- & \citet{holtrop1982}: rudder behind skeg \\
-Availability & \num{0.92} & \num{0.88}--\num{0.95} & -- & Authors' estimate: dry-docking every 2.5 years plus repairs \\
+Availability & \num{0.92}\textsuperscript{e} &  & -- & Authors' estimate: dry-docking every 2.5 years plus repairs \\
 Backhaul fraction & \num{0.3} & \num{0.15}--\num{0.5} & -- & \citet[p. 133]{iedom2025guadeloupe}: Guadeloupe's goods out over goods in \\
-Ballast draft fraction & \num{0.55} & \num{0.45}--\num{0.65} & -- & Authors' estimate: bulk carriers and tankers in ballast \\
-Block coefficient & \num{0.83} & \num{0.78}--\num{0.87} & -- & \citet{man2011}: coasters; fits the deadweight of built coasters \\
-Bulb area ratio & \num{0.06} & \num{0}--\num{0.1} & -- & Authors' estimate \\
-Bulb height ratio & \num{0.4} & \num{0.3}--\num{0.6} & -- & Authors' estimate \\
+Ballast draft fraction & \num{0.55}\textsuperscript{e} &  & -- & Authors' estimate: bulk carriers and tankers in ballast \\
+Bay gap & \num{1.5} &  & m & \citet[Tables A.6.2-A.6.3]{souadji2012}: two frames between 40 ft bays \\
+Blind sector limit & \num{5} &  & deg & \citet[SOLAS V/22.1.2]{dma2019solas}: blind sectors \\
+Block coefficient & \num{0.83} &  & -- & \citet{man2011}: coasters; fits the deadweight of built coasters \\
+Bow mast position & \num{0.06}\textsuperscript{e} &  & -- & \citet[42.20-70]{cfr46_part42}: forecastle at least 0.07 L; authors' estimate \\
+Bulb area ratio & \num{0.06}\textsuperscript{e} &  & -- & Authors' estimate \\
+Bulb height ratio & \num{0.4}\textsuperscript{e} &  & -- & Authors' estimate \\
+Camera system cost & \num{50000} &  & USD & \citet{thegpsstore2026flir}: camera price; \citet[para. 4]{imo2012circ1350}: redundancy \\
 Canopy cell width & \num{0.5} & \num{0.46}--\num{0.51} & m & \citet[Table 1 and sec. 2.2]{folkersma2020}: the SkySails kite; \cref{app:canopy_cells} \\
 Canopy cloth base price & \num{11} & \num{2}--\num{17} & USD/m\textsuperscript{2} & Fit to retail kite and sail cloth prices (\citealp{extremtextil_prices_2026}) \\
 Canopy cloth price per weight & \num{0.031} & \num{0.006}--\num{0.05} & USD/g & Slope of a fit to retail cloth prices (\citealp{extremtextil_prices_2026}) \\
+Canopy cloth reference force & \num{0.9} &  & kN/m\textsuperscript{2} & Set to the base force limit per area \\
+Canopy cloth specific strength & \num{170} &  & N/m per g/m\textsuperscript{2} & Published canopy and sail cloth strengths \\
+Canopy cloth weight & \num{100} &  & g/m\textsuperscript{2} & \citet[p. 561]{paulig2013}: the cloth SkySails flew at its design load \\
 Canopy flat area ratio & \num{1.17} & \num{1.17}--\num{1.28} & -- & \citet{ozone_ultralite4}; \citet{advance_alpha8}: built paragliders \\
 Canopy life & \num{3000} & \num{1500}--\num{4000} & flight hours & Development goal; \citet{flynn2015}: well-kept sails at sea; \cref{sec:det_canopy_life} \\
-Canopy mass overhead & \num{0.09} & \num{0.04}--\num{0.19} & kg/m\textsuperscript{2} & Authors' fit to paragliders (\citealp{ozone_ultralite3}; \citealp{nova_mentor6}); \cref{app:canopy_mass} \\
-Canopy rib cloth ratio & \num{0.101} & \num{0.059}--\num{0.177} & -- & Authors' estimate from paraglider weights (\citealp{advance_alpha8}; \citealp{nova_mentor2}); \cref{app:canopy_cells} \\
-Canopy structure cost & \num{53} & \num{53}--\num{76} & EUR/m\textsuperscript{2} & \citet[pp. 2 and 7]{joshi2024refeconomic}: survey of makers and suppliers; \cref{app:canopy_price} \\
+Canopy mass overhead & \num{0.09} &  & kg/m\textsuperscript{2} & Authors' fit to paragliders (\citealp{ozone_ultralite3}; \citealp{nova_mentor6}); \cref{app:canopy_mass} \\
+Canopy rib cloth ratio & \num{0.101}\textsuperscript{e} &  & -- & Authors' estimate from paraglider weights (\citealp{advance_alpha8}; \citealp{nova_mentor2}); \cref{app:canopy_cells} \\
+Canopy skin cloth ratio & \num{2.05}\textsuperscript{e} &  & -- & Authors' estimate: skins round the nose and bulging between ribs \\
+Canopy skin radius & \num{0.41} &  & m & Cell equilibrium on the SkySails kite (\citealp{wang2018}) \\
+Canopy structure chord & \num{8.2}\textsuperscript{e} &  & m & Authors' estimate: the SkySails kite (\citealp[Table 1]{folkersma2020}) \\
+Canopy structure cost & \num{53} &  & EUR/m\textsuperscript{2} & \citet[pp. 2 and 7]{joshi2024refeconomic}: survey of makers and suppliers; \cref{app:canopy_price} \\
 Carbon price & \num{90} & \num{60}--\num{130} & USD/tCO2 & \citet{gmkcenter2026eua}; \citet{steelorbis2026eua}: EU allowance trades and forecasts \\
-Cargo per CEU & \num{1.3} & \num{1.15}--\num{1.6} & t & \citet{keh_8600ceu_df_pctc}: design payload of an \num{8600}~CEU car carrier; \cref{app:cargo_units} \\
+Cargo per CEU & \num{1.3} &  & t & \citet{keh_8600ceu_df_pctc}: design payload of an \num{8600}~CEU car carrier; \cref{app:cargo_units} \\
 Cargo per TEU & \num{10.2} & \num{8}--\num{14} & t & \citet{eurostat_mar_mg_am_cwhc}; \citet{eurostat_mar_mg_am_cvh}: EU ports 2015--2024; \cref{app:cargo_units} \\
-Cargo value & \num{2500} & \num{1500}--\num{4000} & USD/t & Authors' estimate from Guadeloupe's imports (\citealp{iedom2025guadeloupe}) \\
+Cargo value & \num{2500} & \num{1900}--\num{3700} & USD/t & \citet{iedom2025guadeloupe}: Guadeloupe's imports per tonne \\
 Centre of buoyancy & \num{2} & \num{0.5}--\num{3} & \% of L forward of midships & Schneekluth's regression (\citealp{ventura_estimation}): full hulls \\
 CEU volume & \num{24} & \num{17}--\num{30} & m\textsuperscript{3} & \citet{keh_8600ceu_df_pctc}: deck area per CEU times deck height; \cref{app:cargo_units} \\
-Container row pitch & \num{2.5} & \num{2.45}--\num{2.55} & m & Authors' estimate: rows across Panamax and post-Panamax beams \\
+Container row pitch & \num{2.5}\textsuperscript{e} &  & m & Authors' estimate: rows across Panamax and post-Panamax beams \\
 Container stowage fraction & \num{0.77} & \num{0.7}--\num{0.85} & -- & \citet{blendermann1993}: side view of a container ship \\
 Container tier height & \num{2.591} & \num{2.591}--\num{2.896} & m & \citet[p. 4]{hapaglloyd_container_spec}: standard ISO container \\
-Control unit cost per mass & \num{218} & \num{150}--\num{300} & USD/kg & \citet[Tables 16.1 and 16.2]{faggiani2018}: control unit in series \\
-Control unit mass per force & \num{0.22} & \num{0.15}--\num{0.45} & kg/kN & \citet{paulig2013}: the steering pod of a 320 kN SkySails kite; \cref{sec:det_kite} \\
-Crew cost & \num{500000} & \num{350000}--\num{800000} & USD/year & Authors' estimate: mixed crew of seven on low-cost terms \\
-Crew cost exponent & \num{0.15} & \num{0}--\num{0.3} & -- & Authors' estimate: bulk carrier crew against the coaster's \\
-Deck length fraction & \num{0.75} & \num{0.65}--\num{0.8} & -- & Authors' estimate; \citet{han2025}; \citet{mboumba2022}: published deck layouts; \cref{sec:det_deck} \\
-Deck mount height & \num{4} & \num{3}--\num{5} & m & Built coasters' freeboard (\citealp{damen2025cf3850}) plus coaming, estimated \\
-Deck rig clearance & \num{1} & \num{0.5}--\num{2} & m & Authors' estimate: lashing and access \\
+Control unit cost per mass & \num{218} &  & USD/kg & \citet[Tables 16.1 and 16.2]{faggiani2018}: control unit in series \\
+Control unit mass per force & \num{0.22} &  & kg/kN & \citet{paulig2013}: the steering pod of a 320 kN SkySails kite; \cref{sec:det_kite} \\
+Crew cost & \num{500000}\textsuperscript{e} &  & USD/year & Authors' estimate: mixed crew of seven on low-cost terms \\
+Crew cost exponent & \num{0.15}\textsuperscript{e} &  & -- & Authors' estimate: bulk carrier crew against the coaster's \\
+Deck length fraction & \num{0.75} & \num{0.74}--\num{0.77} & -- & \citet{han2025}; \citet{mboumba2022}: published deck layouts; \cref{sec:det_deck} \\
+Deck mount height & \num{4}\textsuperscript{e} &  & m & Built coasters' freeboard (\citealp{damen2025cf3850}) plus coaming, estimated \\
+Deck rig clearance & \num{1}\textsuperscript{e} &  & m & Authors' estimate: lashing and access \\
 Depth draft ratio & \num{1.32} & \num{1.26}--\num{1.37} & -- & \citet{damen2025cf3850}; \citet{conoship2023cip3800}: built coasters \\
 Direct shaft efficiency & \num{0.99} & \num{0.98}--\num{0.99} & -- & \citet[p. 24]{man2011}: short shaft of a two-stroke \\
 Discharge port dues & \num{0.1524} & \num{0.1524}--\num{0.6135} & EUR/m\textsuperscript{3} & \citet[Art. 1-1]{gpmg2026droitsdeport}: general cargo ship at Guadeloupe \\
@@ -58,161 +68,179 @@ Discount rate & \num{0.08} & \num{0.06}--\num{0.12} & -- & \citet{damodaran2026w
 E-ammonia price & \num{47} & \num{30}--\num{82} & USD/GJ & \citet[Table B3]{lrumas2020}: e-ammonia bunkered in 2030, low end \\
 E-methanol price & \num{60} & \num{40}--\num{120} & USD/GJ & \citet[Annex 3]{irena2021methanol}: current e-methanol production cost \\
 Electric chain efficiency & \num{0.9} & \num{0.85}--\num{0.93} & -- & \citet{johannesen2021wartsila}: losses of an electric plant \\
-Electric propulsion cost & \num{900} & \num{750}--\num{1300} & USD/kW & \citet{eu2019dieselelectric}: inland gensets and motor; plus methanol premium \\
+Electric propulsion cost & \num{900} &  & USD/kW & \citet{eu2019dieselelectric}: inland gensets and motor; plus methanol premium \\
 Empty container share & \num{0.188} & \num{0.16}--\num{0.188} & -- & \citet{eurostat_mar_mg_am_cvh}: EU main ports in 2024; \cref{app:cargo_units} \\
 Engine rating fraction & \num{0.9} & \num{0.75}--\num{0.9} & -- & \citet{man2011}: historical engine margin \\
 Entrance length ratio & \num{0.22} & \num{0.15}--\num{0.3} & -- & \citet{holtrop1982}: run length, shortened for the forward buoyancy \\
 EU ETS gross tonnage & \num{5000} & \num{400}--\num{5000} & GT & \citet[recital 30]{eu2023ets}: smaller ships are left out of the EU ETS \\
 Four stroke engine efficiency & \num{0.44} & \num{0.42}--\num{0.45} & -- & \citet[p. 4]{wartsila2024w20}: Wartsila 20, on diesel or methanol \\
-Fuel reserve factor & \num{1.3} & \num{1.15}--\num{1.4} & -- & Authors' estimate: tank over the largest leg's consumption \\
-Genset count & \num{3} & \num{2}--\num{4} & -- & Authors' estimate; \citet{damen2025cf3850}: two gensets and emergency set \\
+Fuel reserve factor & \num{1.3}\textsuperscript{e} &  & -- & Authors' estimate: tank over the largest leg's consumption \\
+Genset count & \num{3}\textsuperscript{e} &  & -- & Authors' estimate; \citet{damen2025cf3850}: two gensets and emergency set \\
 Heel limit & \num{8} & \num{5}--\num{12} & deg & \citet{tillig2020}: ShipCLEAN reefs sails above this heel \\
+Hicp today & \num{128.75} &  & -- & \citet{eurostat2026hicp}: euro area consumer prices, 2025 \\
 Holtrop max prismatic & \num{0.85} & \num{0.85}--\num{1} & -- & \citet{ortigosa2009}: top of the Holtrop-Mennen range of validity \\
-Hotel load & \num{60} & \num{40}--\num{100} & kW & Authors' estimate; \citet{damen2025cf3850}: service genset size \\
+Hotel load & \num{60}\textsuperscript{e} &  & kW & Authors' estimate; \citet{damen2025cf3850}: service genset size \\
 Hull lifetime & \num{25} & \num{20}--\num{30} & years & \citet{breakwave2025demolition}: average ship demolition age \\
 Hull side force factor & \num{1} & \num{0.5}--\num{1} & -- & Kijima regression (\citealp{kim2021}); \citet{vanderkolk2021}: tank tests lower \\
-Kite aspect ratio & \num{3} & \num{2.5}--\num{4} & -- & Authors' estimate, above the SkySails kites (\citealp{paulig2013}); \cref{app:kite_aspect} \\
-Kite attach height & \num{10} & \num{6}--\num{15} & m & Authors' estimate: tether attached on the bow mast \\
-Kite controls cost & \num{30000} & \num{15000}--\num{60000} & USD & Authors' estimate: the controls a rotor carries \\
-Kite cycle canopy hours & \num{3.3} & \num{1.7}--\num{8.3} & flight hours & \citet{northsails_durability}: flogging wear, for 2 min per launch \\
-Kite cycle course cost & \num{130} & \num{0}--\num{900} & USD & Authors' estimate: lost sea time at hire and fuel cost \\
-Kite cycle crew cost & \num{85} & \num{20}--\num{380} & USD & Authors' estimate: three crew for 1.5 h (\citealp{ilo2025wagescale}) \\
+Kite aspect ratio & \num{3}\textsuperscript{e} &  & -- & Authors' estimate, above the SkySails kites (\citealp{paulig2013}); \cref{app:kite_aspect} \\
+Kite attach height & \num{10}\textsuperscript{e} &  & m & Authors' estimate: tether attached on the bow mast \\
+Kite controls cost & \num{30000}\textsuperscript{e} &  & USD & Authors' estimate: the controls a rotor carries \\
+Kite cycle canopy hours & \num{3.3}\textsuperscript{e} &  & flight hours & \citet{northsails_durability}: flogging wear, for 2 min per launch \\
+Kite cycle course cost & \num{130}\textsuperscript{e} &  & USD & Authors' estimate: lost sea time at hire and fuel cost \\
+Kite cycle crew cost & \num{85}\textsuperscript{e} &  & USD & Authors' estimate: three crew for 1.5 h (\citealp{ilo2025wagescale}) \\
 Kite flight drag & \num{0.085} & \num{0}--\num{0.12} & -- & Fitted to the glide ratio kites fly (\citealp{vandervlugt2019}; \citealp{erhard2013b}); \cref{sec:det_kite} \\
-Kite integration fraction & \num{0.15} & \num{0.1}--\num{0.2} & -- & \citet[Table 7]{emsa2023}: yard installation on a newbuild \\
-Kite landing max wind & \num{20} & \num{15}--\num{25} & m/s & \citet{skypower100_tib}: stowage design of the SkySails land kite; \cref{sec:det_kite} \\
-Kite landing minutes & \num{30} & \num{15}--\num{60} & min & Authors' estimate; (\citealp{konstruktionspraxis_skysails}; \citealp{skypower100_tib}) \\
-Kite launch loss probability & \num{0.0001} & \num{1.0e-5}--\num{0.0025} & -- & Development goal; \citet{usaf2022mq9}: recent loss rate of the MQ-9; \cref{app:launch_loss} \\
-Kite launch max wind & \num{17} & \num{13}--\num{20} & m/s & Authors' estimate: one Beaufort step below the flight limit; \cref{sec:det_kite} \\
-Kite launch min wind & \num{5} & \num{3}--\num{7} & m/s & \citet{paulig2013}: SkySails ship launches in perfect conditions; \cref{sec:det_min_wind} \\
-Kite launch minutes & \num{26} & \num{15}--\num{55} & min & Authors' estimate; \citet{konstruktionspraxis_skysails}: SkySails launches \\
-Kite launch sea wind & \num{5} & \num{0}--\num{10} & m/s & \citet{paulig2013}: SkySails launch wind in rough against calm sea; \cref{sec:det_kite} \\
-Kite lifetime & \num{15} & \num{10}--\num{20} & years & Authors' estimate: launch mast, winch and control unit \\
+Kite integration fraction & \num{0.15} &  & -- & \citet[Table 7]{emsa2023}: yard installation on a newbuild \\
+Kite landing max wind & \num{20} &  & m/s & \citet{skypower100_tib}: stowage design of the SkySails land kite; \cref{sec:det_kite} \\
+Kite landing minutes & \num{30} & \num{25}--\num{35} & min & \citet{konstruktionspraxis_skysails}; \citet{skypower100_tib}: SkySails landings \\
+Kite launch loss probability & \num{0.0001} & \num{0.0001}--\num{0.0025} & -- & Development goal; \citet{usaf2022mq9}: recent loss rate of the MQ-9; \cref{app:launch_loss} \\
+Kite launch max wind & \num{17}\textsuperscript{e} &  & m/s & Authors' estimate: one Beaufort step below the flight limit; \cref{sec:det_kite} \\
+Kite launch min wind & \num{5} & \num{3}--\num{5.4} & m/s & \citet{paulig2013}: SkySails ship launches in perfect conditions; \cref{sec:det_min_wind} \\
+Kite launch minutes & \num{26}\textsuperscript{e} &  & min & Authors' estimate; \citet{konstruktionspraxis_skysails}: SkySails launches \\
+Kite launch sea wind & \num{5} &  & m/s & \citet{paulig2013}: SkySails launch wind in rough against calm sea; \cref{sec:det_kite} \\
+Kite lifetime & \num{15}\textsuperscript{e} &  & years & Authors' estimate: launch mast, winch and control unit \\
 Kite max force per area & \num{0.9} & \num{0.5}--\num{1.3} & kN/m\textsuperscript{2} & \citet[p. 561]{paulig2013}: SkySails' design load per projected area \\
-Kite max wind & \num{25} & \num{20}--\num{30} & m/s & Authors' estimate; \citet{noaa2009}: SkySails design up to Beaufort 8; \cref{sec:det_kite} \\
-Kite min elevation & \num{8} & \num{5}--\num{15} & deg & Authors' estimate: clear of the waves and the superstructure \\
+Kite max wind & \num{25}\textsuperscript{e} &  & m/s & Authors' estimate; \citet{noaa2009}: SkySails design up to Beaufort 8; \cref{sec:det_kite} \\
+Kite min elevation & \num{8}\textsuperscript{e} &  & deg & Authors' estimate: clear of the waves and the superstructure \\
 Kite min turn radius & \num{2.3} & \num{1.5}--\num{4.3} & -- & \citet[Eq. 7]{erhard2013}: SkySails turn rate law; \cref{sec:det_kite} \\
-Kite out of service & \num{0.03} & \num{0.01}--\num{0.15} & -- & Development goal: the same as for the rotors \\
-Kite stall margin & \num{2} & \num{1}--\num{4} & deg & Authors' estimate: bridle trim margin for gusts \\
-Launch mast height ratio & \num{1.3} & \num{0.8}--\num{2} & -- & \citet{nextnature2007kiteship}; \citet{airseas_seawing_web}: built launch masts \\
+Kite out of service & \num{0.03} &  & -- & Development goal: the same as for the rotors \\
+Kite stall margin & \num{2}\textsuperscript{e} &  & deg & Authors' estimate: bridle trim margin for gusts \\
+Launch mast height ratio & \num{1.3} & \num{1.11}--\num{1.34} & -- & \citet{nextnature2007kiteship}; \citet{airseas_seawing_web}: built launch masts \\
 Launch mast mass per size & \num{0.86} & \num{0.54}--\num{1.41} & t/m & \citet[Annex A.4]{cedelft2016}: SkySails system mass less its winch \\
 Launch mast max height & \num{35} & \num{29}--\num{60} & m & \citet{airseas_seawing_web}: tallest kite launch mast at sea \\
-Launch mast width & \num{1} & \num{0.6}--\num{2.5} & m & Authors' estimate: mast tube with its foundation \\
-Layout mean wind & \num{8} & \num{7}--\num{9} & m/s & Authors' estimate: mean 10~m wind on the routes, ERA5 \\
+Launch mast width & \num{1}\textsuperscript{e} &  & m & Authors' estimate: mast tube with its foundation \\
+Layout mean wind & \num{8}\textsuperscript{e} &  & m/s & Authors' estimate: mean 10~m wind on the routes, ERA5 \\
 Leeway limit & \num{10} & \num{6}--\num{15} & deg & \citet{tillig2020}: range of captive tests on wind-assisted hulls \\
-Lightship fraction & \num{0.28} & \num{0.25}--\num{0.32} & -- & Authors' estimate: deadweight share of coasters \\
+Lightship fraction & \num{0.28}\textsuperscript{e} &  & -- & Authors' estimate: deadweight share of coasters \\
 Loading port dues & \num{1.18} & \num{0.38}--\num{1.31} & EUR/GT & \citet[Annex 1]{portofrotterdam2026tariffs}: loaded bulk carrier at Rotterdam \\
-Maintenance fraction & \num{0.03} & \num{0.02}--\num{0.05} & 1/year & Authors' estimate: hull and drive alone \\
-Market price factor & \num{2} & \num{1.6}--\num{2.5} & -- & Blade overhead (\citealp[Tables 23 and 26]{bortolotti2019blade}) and 30\,\% margin \\
+Maintenance fraction & \num{0.03}\textsuperscript{e} &  & 1/year & Authors' estimate: hull and drive alone \\
+Market price factor & \num{2}\textsuperscript{e} &  & -- & Authors' estimate: blade overhead (\citealp{bortolotti2019blade}) and 30\,\% margin \\
 Max Froude number & \num{0.28} & \num{0.25}--\num{0.3} & -- & \citet{man2011}: service speeds of full coasters \\
-Mechanical propulsion cost & \num{500} & \num{350}--\num{700} & USD/kW & Authors' estimate: medium-speed engine, gearbox, shaft and propeller \\
-Metacentric height ratio & \num{0.075} & \num{0.05}--\num{0.1} & -- & Authors' estimate: above the IMO and DNV minimums \\
-Midship coefficient & \num{0.99} & \num{0.98}--\num{0.995} & -- & Kerlen's regression (\citealp{ventura_estimation}) \\
+Mechanical propulsion cost & \num{500}\textsuperscript{e} &  & USD/kW & Authors' estimate: medium-speed engine, gearbox, shaft and propeller \\
+Metacentric height ratio & \num{0.075}\textsuperscript{e} &  & -- & Authors' estimate: above the IMO and DNV minimums \\
+Methanol heating value & \num{19.9} &  & MJ/kg & Standard lower heating value of methanol \\
+Midship coefficient & \num{0.99}\textsuperscript{e} &  & -- & Kerlen's regression (\citealp{ventura_estimation}) \\
 Newbuild price & \num{1.19e7} & \num{1.0e7}--\num{2.0e7} & USD & \citet{onmanorama2023udupi}; \citet{shipuniverse2026kobc}: fit to Asian-built ships \\
 Newbuild price exponent & \num{0.4} & \num{0.22}--\num{0.46} & -- & Power-law fit of newbuild price over deadweight \\
-Part load penalty & \num{0.2} & \num{0.1}--\num{0.3} & -- & Authors' fit to (\citealp[p. 137]{man2024l2131}): medium-speed engine; \cref{sec:det_ships} \\
+Newbuild reference deadweight & \num{3800} &  & t & Udupi Cochin series the newbuild price is quoted at \\
+Part load penalty & \num{0.2} & \num{0.13}--\num{0.27} & -- & Authors' fit to (\citealp[p. 137]{man2024l2131}): medium-speed engine; \cref{sec:det_ships} \\
 Pedestal allowable stress & \num{268} & \num{250}--\num{268} & MPa & \citet[Sec 5, 4.4.1]{bv2026nr206}; \citet{constructalia2026s355}: S355 steel \\
-Pitch gyration ratio & \num{0.25} & \num{0.22}--\num{0.28} & -- & Authors' estimate: usual value for cargo ships \\
-Port service cost & \num{5000} & \num{2000}--\num{15000} & USD & Authors' estimate: pilotage, towage, mooring and agency \\
-Port time per call & \num{2} & \num{1}--\num{4} & days & Authors' estimate, the same for every ship size \\
+Pedestal clearance & \num{2.5}\textsuperscript{e} &  & m & Authors' estimate: hatch covers and lashing clearance \\
+Pedestal min frequency & \num{0.3}\textsuperscript{e} &  & Hz & Authors' estimate: above the ship's motions in waves \\
+Pedestal stiffener share & \num{0.2}\textsuperscript{e} &  & -- & Authors' estimate: stiffened plating \\
+Pedestal stiffener spacing & \num{0.76} &  & m & \citet[Tables A.6.2-A.6.3]{souadji2012}: frame spacing \\
+Pitch gyration ratio & \num{0.25}\textsuperscript{e} &  & -- & Authors' estimate: usual value for cargo ships \\
+Port service cost & \num{5000}\textsuperscript{e} &  & USD & Authors' estimate: pilotage, towage, mooring and agency \\
+Port time per call & \num{2}\textsuperscript{e} &  & days & Authors' estimate, the same for every ship size \\
 Propeller diameter ratio & \num{0.5} & \num{0.45}--\num{0.65} & -- & \citet{damen2025cf3850}; \citet{wagenborg2024ferus4300}: built coasters; \cref{sec:det_ships} \\
-Propeller viscous efficiency & \num{0.8} & \num{0.72}--\num{0.85} & -- & Authors' estimate: reproduces open-water efficiency of \citet{man2011} \\
+Propeller viscous efficiency & \num{0.8}\textsuperscript{e} &  & -- & Authors' estimate: reproduces open-water efficiency of \citet{man2011} \\
 Reference beam & \num{13.2} & \num{12.5}--\num{14} & m & \citet{conoship2023cip3800}; \citet{damen2025cf3850}: built coasters \\
 Reference draft & \num{5.5} & \num{5.25}--\num{5.95} & m & \citet{damen2025cf3850}; \citet{conoship2023cip3800}: built coasters \\
 Reference length & \num{85} & \num{84}--\num{88} & m & \citet{damen2025cf3850}; \citet{conoship2023cip3800}: built coasters \\
-Restricted call days & \num{2} & \num{1}--\num{3} & days & Authors' estimate: waiting for tide or moving to other cargo \\
-Retractable rig premium & \num{0.12} & \num{0.08}--\num{0.2} & -- & Authors' estimate: hydraulics, hinge and foundation steel \\
+Restricted call days & \num{2}\textsuperscript{e} &  & days & Authors' estimate: waiting for tide or moving to other cargo \\
+Retractable rig premium & \num{0.12}\textsuperscript{e} &  & -- & Authors' estimate: hydraulics, hinge and foundation steel \\
+Rig design acceleration & \num{3} &  & m/s\textsuperscript{2} & \citet[Table 2-1, p. 10]{marin2025feeder}: roll of a rotor feeder in operation \\
 Rig inertia load factor & \num{1.3} & \num{1.15}--\num{1.3} & -- & \citet[Sec 4, Tab 2]{bv2026nr206}: acceleration factor in operation \\
-Rig maintenance fraction & \num{0.02} & \num{0.01}--\num{0.05} & 1/year & \citet[p. 45]{emsa2023}; \citet[p. 15]{tillig2020b}: rigs other than kites \\
+Rig maintenance fraction & \num{0.02} &  & 1/year & \citet[p. 45]{emsa2023}; \citet[p. 15]{tillig2020b}: rigs other than kites \\
 Rig wind load factor & \num{1.7} & \num{1.5}--\num{1.7} & -- & \citet[Sec 4, Tab 2]{bv2026nr206}: wind load factor in operation \\
-Rigid kite avionics cost & \num{174000} & \num{17400}--\num{250000} & USD & \citet[p. 702]{joshi2025}: certified avionics of an early commercial kite; \cref{sec:det_rigid} \\
-Rigid kite cost per mass & \num{280} & \num{48}--\num{540} & USD/kg & \citet[p. 702]{joshi2025}; \citet{bauer2018}: composite structure and drives of MX2; \cref{sec:det_rigid} \\
-Rigid kite cycle loss probability & \num{0.0001} & \num{0.0001}--\num{0.005} & -- & Development goal; \citet{echeverri2020part1}: M600 lost all four kites \\
+Rigid kite aspect ratio & \num{12.5} &  & -- & \citet[Part I, Table 2]{echeverri2020part1}: Makani's MX2 design \\
+Rigid kite avionics cost & \num{174000} & \num{17400}--\num{174000} & USD & \citet[p. 702]{joshi2025}: certified avionics of an early commercial kite; \cref{sec:det_rigid} \\
+Rigid kite cost per mass & \num{280}\textsuperscript{e} &  & USD/kg & \citet[p. 702]{joshi2025}; \citet{bauer2018}: composite structure and drives of MX2; \cref{sec:det_rigid} \\
+Rigid kite cycle loss probability & \num{0.0001} &  & -- & Development goal; \citet{echeverri2020part1}: M600 lost all four kites \\
 Rigid kite drag & \num{0.07} & \num{0.054}--\num{0.127} & -- & MX2 drag less induced (\citealp[Part I, Table 1]{echeverri2020part1}); \cref{sec:det_rigid} \\
-Rigid kite hover max wave height & \num{3} & \num{1.5}--\num{4} & m & Authors' estimate; one offshore hover lost the kite (\citealp{echeverri2020part1}); \cref{sec:det_rigid} \\
+Rigid kite hover max wave height & \num{3}\textsuperscript{e} &  & m & Authors' estimate; one offshore hover lost the kite (\citealp{echeverri2020part1}); \cref{sec:det_rigid} \\
 Rigid kite hover power per mass & \num{470} & \num{200}--\num{950} & W/kg & Momentum theory on MX2 (\citealp[Part I, Eq. 89]{echeverri2020part1}); \cref{sec:det_rigid} \\
 Rigid kite mass & \num{1852} & \num{891}--\num{3240} & kg & \citet[Part I, Table 2]{echeverri2020part1}: MX2 design without tether; \cref{sec:det_rigid} \\
 Rigid kite mass exponent & \num{2.5} & \num{2.2}--\num{3.1} & -- & \citet{sommerfeld2022scaling}; \citet{vanhagen2023}; \citet{noth2008}: wings built and designed; \cref{sec:det_rigid} \\
 Rigid kite max force per area & \num{5.56} & \num{4.6}--\num{7.3} & kN/m\textsuperscript{2} & \citet[Part I, Table 1]{echeverri2020part1}: MX2 design force \\
 Rigid kite max lift & \num{2} & \num{1.8}--\num{2.2} & -- & \citet[Table 1]{joshi2024powercurve}: MX2 static lift speed \\
 Rigid kite min turn radius & \num{3.46} & \num{2.9}--\num{6.25} & -- & \citet{echeverri2020part1}: Makani's MX2 design; \cref{sec:det_rigid} \\
-Rigid kite ship power cost & \num{0.15} & \num{0.08}--\num{0.5} & USD/W & Authors' estimate: at the price of the on-board drive \\
-Rigid kite tether cost & \num{51000} & \num{26000}--\num{110000} & USD & Authors' estimate: twice the price of rope (\citealp[p. 703]{joshi2025}); \cref{sec:det_rigid} \\
+Rigid kite reference area & \num{54} &  & m\textsuperscript{2} & \citet[Part I, Table 2]{echeverri2020part1}: Makani's MX2 design \\
+Rigid kite ship power cost & \num{0.15}\textsuperscript{e} &  & USD/W & Authors' estimate: at the price of the on-board drive \\
+Rigid kite tether cost & \num{51000}\textsuperscript{e} &  & USD & Authors' estimate: twice the price of rope (\citealp[p. 703]{joshi2025}); \cref{sec:det_rigid} \\
 Rigid kite tether length ratio & \num{11.5} & \num{10}--\num{16.5} & -- & \citet[Part I, Table 2]{echeverri2020part1}: MX2 design, 300~m on 26~m span; \cref{sec:det_rigid} \\
-Rigid kite upkeep per area & \num{0.67} & \num{0.29}--\num{1.37} & USD/m\textsuperscript{2}/h & \citet[pp. 108-110]{echeverri2020part1}: most a kite may spend, plus tether wear; \cref{sec:det_rigid} \\
+Rigid kite upkeep per area & \num{0.67} & \num{0.32}--\num{0.67} & USD/m\textsuperscript{2}/h & \citet[pp. 108-110]{echeverri2020part1}: most a kite may spend, plus tether wear; \cref{sec:det_rigid} \\
 Rotor abreast loss & \num{1.6} & \num{1}--\num{2.25} & -- & \citet[Figs. 17-18]{bordogna2020}: wind-tunnel pairs abreast and in tandem; \cref{sec:det_deck} \\
 Rotor aspect ratio & \num{6} & \num{5}--\num{7} & -- & \citet{tillig2020}: rotor of the ShipCLEAN fit; \citet{norsepower2025}: built sizes \\
-Rotor cost per area & \num{2040} & \num{1260}--\num{4270} & USD/m\textsuperscript{2} & Authors' build-up: slope of the line of rotor costs; \cref{app:prices} \\
-Rotor installation fraction & \num{0.15} & \num{0.1}--\num{0.2} & -- & \citet[Table 7]{emsa2023}: installation on a newbuild, foundation excluded \\
+Rotor cost per area & \num{2040}\textsuperscript{e} &  & USD/m\textsuperscript{2} & Authors' build-up: slope of the line of rotor costs; \cref{sec:val_cost} \\
+Rotor installation fraction & \num{0.15} &  & -- & \citet[Table 7]{emsa2023}: installation on a newbuild, foundation excluded \\
 Rotor interference amplitude & \num{0.38} & \num{0}--\num{0.65} & -- & Fitted to the \citet{bordogna2020} wind-tunnel pair and \citet{han2025} \\
 Rotor interference decay & \num{2.72} & \num{1.8}--\num{3.5} & diameters & Fitted to the worst wind angle of the \citet{bordogna2020} pair \\
 Rotor lifetime & \num{25} & \num{20}--\num{30} & years & \citet{anemoi_deploy}: maker's design life \\
 Rotor lift factor & \num{0.96} & \num{0.89}--\num{1} & -- & \citet[Table 1]{han2025}: CFD of a rotor of aspect ratio 6 with an end disc \\
+Rotor loss rate & \num{0} &  & 1/year & Development goal: no rotor lost in service \\
 Rotor mass exponent & \num{2.5} & \num{2}--\num{3} & -- & \citet[blade and tower mass]{fingersh2006}; \citet[p. 3]{norsepower2025}; \cref{app:size_laws} \\
 Rotor mass per area & \num{0.46} & \num{0.32}--\num{0.63} & t/m\textsuperscript{2} & \citet[p. 3]{norsepower2025}: 35 \ensuremath{\times} 5~m rotor with its foundation \\
 Rotor max surface speed & \num{47} & \num{40}--\num{50} & m/s & \citet{emsa2023}: Norsepower 30 \ensuremath{\times} 5~m rotor at 180 rpm \\
 Rotor max wind & \num{20} & \num{15}--\num{25} & m/s & \citet[Table 3]{tillig2020}: wind above which rotors stop \\
-Rotor out of service & \num{0.03} & \num{0.01}--\num{0.15} & -- & Development goal; \citet{spliethoff2021}: the Estraden's rotors over six years \\
+Rotor out of service & \num{0.03} & \num{0.01}--\num{0.03} & -- & Development goal; \citet{spliethoff2021}: the Estraden's rotors over six years \\
+Rotor reference height & \num{35} &  & m & \citet{maritimeexecutive2024sohar}: tallest rotors built; \cref{app:size_laws} \\
 Rotor spacing & \num{3} & \num{2.5}--\num{5} & diameters & \citet{bordogna2020}: closest spacing tested in the wind tunnel \\
-Rotor unit cost & \num{74000} & \num{36000}--\num{165000} & USD & Authors' build-up of Norsepower rotors (\citealp[p. 3]{norsepower2025}); \cref{app:prices} \\
+Rotor unit cost & \num{74000}\textsuperscript{e} &  & USD & Authors' build-up of Norsepower rotors (\citealp[p. 3]{norsepower2025}); \cref{sec:val_cost} \\
 Rudder aspect ratio & \num{1.6} & \num{1.4}--\num{3} & -- & \citet{kramer2022}: CFD of a wind-powered cargo ship \\
-Rudder max lift & \num{1} & \num{0.8}--\num{1.3} & -- & Authors' estimate: below stall, keeping some for steering \\
+Rudder max lift & \num{1}\textsuperscript{e} &  & -- & Authors' estimate: below stall, keeping some for steering \\
 Sea margin & \num{0.15} & \num{0.1}--\num{0.3} & -- & \citet{man2011}: historical sea margin \\
 Service speed & \num{10.5} & \num{9.5}--\num{12} & kn & \citet{conoship2023cip3800}; \citet{damen2025cf3850}: built coasters \\
 Shaft efficiency & \num{0.96} & \num{0.95}--\num{0.97} & -- & \citet{man2011}: shaft with reduction gear \\
 Source sea margin & \num{0.15} & \num{0.1}--\num{0.25} & -- & \citet{man2022bulk}: sea margin in the MAN source designs; \cref{app:calm_calibration} \\
-Stores mass & \num{50} & \num{30}--\num{80} & t & Authors' estimate \\
-Suction cost per mass & \num{3.2} & \num{1.5}--\num{8.1} & USD/kg & Authors' estimate: wing sail build-up plus fans at the rotor's drive price \\
+Steel density & \num{7850} &  & kg/m\textsuperscript{3} & \citet[Table 6]{joshi2025}: steel \\
+Steel modulus & \num{206000} &  & MPa & \citet[Sec 5, Tab 1, Note 1]{bv2026nr206}: carbon steel \\
+Stores mass & \num{50}\textsuperscript{e} &  & t & Authors' estimate \\
+Suction aspect ratio & \num{6.6} &  & -- & \citet{conoship2022econowind}: VentiFoil span and chord \\
+Suction cost per mass & \num{3.2}\textsuperscript{e} &  & USD/kg & Authors' estimate: wing sail build-up plus fans at the rotor's drive price \\
 Suction drag coefficient & \num{0.84} & \num{0.81}--\num{2.4} & -- & \citet[Table 5.1]{lagendijk2018}: full-scale CFD of one VentiFoil \\
 Suction fan power per area & \num{400} & \num{370}--\num{470} & W/m\textsuperscript{2} & \citet[Fig. 3.11]{smeets2024ventofoil}: the VentoFoil maker's fan power curve \\
+Suction fan rated wind & \num{14} &  & m/s & \citet[Fig. 3.11]{smeets2024ventofoil}: the VentoFoil maker's fan power curve \\
 Suction lifetime & \num{25} & \num{20}--\num{30} & years & Development goal: a wing sail's design life \\
 Suction mass exponent & \num{3} & \num{2.5}--\num{3.2} & -- & Geometric similarity; \citet{econowind2026vf3}; \citet{econowind2026vf5}: 18 and 35~m units; \cref{app:size_laws} \\
 Suction mass per area & \num{0.3} & \num{0.3}--\num{0.6} & t/m\textsuperscript{2} & \citet{conoship2022econowind}: eConowind unit in its container \\
 Suction max lift coefficient & \num{4.9} & \num{4.8}--\num{6} & -- & \citet[Fig. 12]{ghorbani2024suction}: two VentiFoils measured at sea \\
 Suction max wind & \num{22} & \num{17}--\num{22} & m/s & \citet[Fig. 3.11]{smeets2024ventofoil}: cut-out of the VentoFoil maker's fan curve \\
-Suction out of service & \num{0.03} & \num{0.004}--\num{0.15} & -- & Development goal; \citet{spliethoff2021}: the Estraden's rotors \\
-Tether bend life & \num{1.0e6} & \num{400000}--\num{3.0e6} & bends & Authors' estimate near the geometric mean of \citet{bosman2013} and \citet{davies2015}; \cref{app:tether_bending} \\
+Suction out of service & \num{0.03} & \num{0.004}--\num{0.03} & -- & Development goal; \citet{spliethoff2021}: the Estraden's rotors \\
+Suction reference height & \num{26} &  & m & \citet{offshoreenergy2025orchard}: tallest suction sails built; \cref{app:size_laws} \\
+Tether bend life & \num{1.0e6} & \num{450000}--\num{2.9e6} & bends & \citet{bosman2013}; \citet{davies2015}: bending tests of HMPE rope; \cref{app:tether_bending} \\
 Tether bends per launch & \num{8} & \num{4}--\num{10} & -- & \citet{skysails_patent_US11578697}: drum, two rollers and tow point disk \\
 Tether drag coefficient & \num{1.1} & \num{1}--\num{1.2} & -- & \citet[Table 1]{vandervlugt2019}: cylinder at tether Reynolds numbers \\
-Tether length ratio & \num{13} & \num{10}--\num{20} & -- & \citet[Fig. 18]{erhard2013}; \citet{paulig2013}: tethers SkySails flew; \cref{sec:det_kite} \\
+Tether length ratio & \num{13} & \num{13}--\num{19.7} & -- & \citet[Fig. 18]{erhard2013}; \citet{paulig2013}: tethers SkySails flew; \cref{sec:det_kite} \\
 Tether lifetime & \num{16000} & \num{4700}--\num{45000} & flight hours & Creep laws of \citet{humeau2018} and \citet{bosman2013} over the routed trips; \cref{app:tether_life} \\
-Tether price & \num{93} & \num{40}--\num{300} & USD/kg & \citet[p. 703]{joshi2025}: Dyneema rope bought in series of 50 or more \\
-Tether rope density & \num{830} & \num{590}--\num{1130} & kg/m\textsuperscript{3} & \citet[Table 33.4]{bosman2013}: coated 12-strand rope at nominal diameter \\
+Tether price & \num{93} &  & USD/kg & \citet[p. 703]{joshi2025}: Dyneema rope bought in series of 50 or more \\
+Tether rope density & \num{830} & \num{615}--\num{1130} & kg/m\textsuperscript{3} & \citet[Table 33.4]{bosman2013}: coated 12-strand rope at nominal diameter \\
 Tether stress & \num{4.0e8} & \num{3.0e8}--\num{4.8e8} & Pa & \citet[Table 33.4]{bosman2013}: HMPE rope at design factor 3; \cref{sec:det_kite} \\
 TEU tare mass & \num{1.85} & \num{1.85}--\num{2.3} & t & \citet{hapaglloyd_container_spec}: half a 40 ft dry container; \cref{app:cargo_units} \\
 TEU volume & \num{38.3} & \num{33.2}--\num{38.3} & m\textsuperscript{3} & \citet[p. 5]{mao2020icct}: external box of a standard TEU; \cref{app:cargo_units} \\
 Thrust deduction ratio & \num{0.6} & \num{0.5}--\num{0.75} & -- & \citet{man2011}: over the wake fraction \\
 Twistlock working load & \num{250} & \num{210}--\num{250} & kN & \citet{macgregor2023acv1}: safe working load of a twistlock in tension \\
 Two stroke engine efficiency & \num{0.51} & \num{0.48}--\num{0.53} & -- & \citet[Table 19]{faber2020}: fuel consumption of engines since 2001 \\
-USD per EUR & \num{1.16} & \num{1.05}--\num{1.2} & USD/EUR & Authors' estimate for 2026 \\
+USD per EUR & \num{1.16}\textsuperscript{e} &  & USD/EUR & Authors' estimate for 2026 \\
 VLSFO carbon intensity & \num{0.076} & \num{0.076}--\num{0.077} & tCO2/GJ & \citet[Annex]{eu2016delreg2071}: EU default for heavy fuel oil \\
-VLSFO heating value & \num{41} & \num{40.5}--\num{41.5} & MJ/kg & Authors' estimate \\
+VLSFO heating value & \num{41}\textsuperscript{e} &  & MJ/kg & Authors' estimate \\
 VLSFO price & \num{16} & \num{12}--\num{19} & USD/GJ & \citet{shipandbunker2026rotterdam}: Rotterdam VLSFO in 2026 \\
-Water density & \num{1025} & \num{1020}--\num{1028} & kg/m\textsuperscript{3} & Authors' estimate: sea water at 15 °C \\
-Water viscosity & \num{1.19e-6} & \num{1.05e-6}--\num{1.35e-6} & m\textsuperscript{2}/s & Authors' estimate: sea water at 15 °C \\
+Water density & \num{1025}\textsuperscript{e} &  & kg/m\textsuperscript{3} & Authors' estimate: sea water at 15 °C \\
+Water viscosity & \num{1.19e-6}\textsuperscript{e} &  & m\textsuperscript{2}/s & Authors' estimate: sea water at 15 °C \\
 Waterline length ratio & \num{1.03} & \num{1.02}--\num{1.04} & -- & \citet[p. 7]{man2011}: waterline over length between perpendiculars; \cref{sec:det_ships} \\
 Wave peakedness & \num{3.3} & \num{1}--\num{5} & -- & \citet{hasselmann1973}: mean of the JONSWAP measurements \\
 Welded steel cost per mass & \num{2.9} & \num{1.9}--\num{3.9} & USD/kg & \citet{wisdem_csm}: supplier price of a wind turbine's welded steel tower \\
 Winch cost per mass & \num{3.9} & \num{2.9}--\num{8.3} & USD/kg & \citet{wisdem_csm}: supplier price of a wind turbine's cast hub \\
 Winch mass per force & \num{15} & \num{13}--\num{28} & kg/kN & \citet{broehl2018offshore}: offshore mooring winches per kN of brake load \\
-Wind shear exponent & \num{0.05} & \num{0.04}--\num{0.08} & -- & Authors' fit to ERA5 (\citealp{hersbach2020}) over the study region's sea \\
-Wing abreast loss & \num{1.5} & \num{1}--\num{2.5} & -- & \citet[Tables 3.2-3.3]{vanreen2026}: four wings square against three in line; \cref{sec:det_deck} \\
+Wind shear exponent & \num{0.05} & \num{0.05}--\num{0.09} & -- & Authors' fit to ERA5 (\citealp{hersbach2020}) over the study region's sea \\
+Wing abreast loss & \num{1.5}\textsuperscript{e} &  & -- & \citet[Tables 3.2-3.3]{vanreen2026}: four wings square against three in line; \cref{sec:det_deck} \\
 Wing aspect ratio & \num{2} & \num{1.5}--\num{4} & -- & \citet{bar2026windwings}; \citet{oceanbird2026wing560}: installed wings \\
-Wing cost per area & \num{665} & \num{310}--\num{1760} & USD/m\textsuperscript{2} & Authors' estimate: build-up at blade material prices (\citealp{bortolotti2019blade}) \\
+Wing cost per area & \num{665}\textsuperscript{e} &  & USD/m\textsuperscript{2} & Authors' estimate: build-up at blade material prices (\citealp{bortolotti2019blade}) \\
 Wing design wind & \num{20.6} & \num{17}--\num{20.6} & m/s & \citet{bar2026windwingscontrol}: WindWings produce thrust up to 40 knots \\
-Wing endplate factor & \num{1.4} & \num{1.1}--\num{2} & -- & Authors' calculation: induced drag with a gap at the deck \\
-Wing installation fraction & \num{0.15} & \num{0.1}--\num{0.2} & -- & \citet[Table 7]{emsa2023}: installation on a newbuild \\
-Wing interference amplitude & \num{0.3} & \num{0.15}--\num{0.72} & -- & Authors' estimate: a third of the \citet{malmek2024} loss, after \citet{vanreen2026} \\
-Wing interference decay & \num{2.86} & \num{2}--\num{4} & chord lengths & Authors' estimate: loss under 1\,\% at 10 chords, as in \citet{wang2024} \\
+Wing endplate factor & \num{1.4}\textsuperscript{e} &  & -- & Authors' calculation: induced drag with a gap at the deck \\
+Wing installation fraction & \num{0.15} &  & -- & \citet[Table 7]{emsa2023}: installation on a newbuild \\
+Wing interference amplitude & \num{0.3}\textsuperscript{e} &  & -- & Authors' estimate: a third of the \citet{malmek2024} loss, after \citet{vanreen2026} \\
+Wing interference decay & \num{2.86}\textsuperscript{e} &  & chord lengths & Authors' estimate: loss under 1\,\% at 10 chords, as in \citet{wang2024} \\
 Wing lifetime & \num{25} & \num{20}--\num{30} & years & \citet{oceanbird2026wing560}; \citet{bar2026windwings}: makers' design life \\
+Wing loss rate & \num{0} &  & 1/year & Development goal: no wing lost in service \\
 Wing mass exponent & \num{3} & \num{2.5}--\num{3.5} & -- & Geometric similarity; \citet[blade mass]{fingersh2006}; built wings; \cref{app:size_laws} \\
 Wing mass per area & \num{0.25} & \num{0.12}--\num{0.36} & t/m\textsuperscript{2} & \citet{riviera2024windwing}; \citet{oceanbird2026wing560}: built wings with foundation \\
 Wing max lift coefficient & \num{2} & \num{1.6}--\num{2.5} & -- & \citet{yao2026}: two-element section; \citet{bar2026windwings}: three-element claim \\
-Wing out of service & \num{0.03} & \num{0.004}--\num{0.15} & -- & Development goal; \citet{spliethoff2021}: the Estraden's rotors \\
+Wing out of service & \num{0.03} & \num{0.004}--\num{0.03} & -- & Development goal; \citet{spliethoff2021}: the Estraden's rotors \\
 Wing profile drag coefficient & \num{0.02} & \num{0.015}--\num{0.03} & -- & Thick flapped section, checked against (\citealp[Table 2]{yao2026}) \\
 Wing reference height & \num{40} & \num{37.5}--\num{40} & m & \citet{alfalaval2026oceanbird}: tallest wing sail built; \cref{app:size_laws} \\
 Wing separation drag factor & \num{0.03} & \num{0.01}--\num{0.05} & -- & Fitted to two-element section drag (\citealp[Tables 2 and 6]{yao2026}) \\
 Wing spacing & \num{1.5} & \num{1.2}--\num{2} & chord lengths & Wings turning about quarter chord clear each other; \citet{wang2024} \\
-Wing span efficiency & \num{0.9} & \num{0.8}--\num{0.95} & -- & Authors' estimate: tapered wing \\
-Wing stalled drag coefficient & \num{1.2} & \num{1}--\num{1.4} & -- & Authors' estimate: flat plates of aspect ratio 2--5 across the flow \\
-Wing unit cost & \num{66000} & \num{27000}--\num{153000} & USD & Authors' estimate: controls, power pack and assembly hours \\
+Wing span efficiency & \num{0.9}\textsuperscript{e} &  & -- & Authors' estimate: tapered wing \\
+Wing stalled drag coefficient & \num{1.2}\textsuperscript{e} &  & -- & Authors' estimate: flat plates of aspect ratio 2--5 across the flow \\
+Wing unit cost & \num{66000}\textsuperscript{e} &  & USD & Authors' estimate: controls, power pack and assembly hours \\
 \end{longtable}
