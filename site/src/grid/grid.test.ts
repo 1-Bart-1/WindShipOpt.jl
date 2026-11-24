@@ -91,15 +91,14 @@ describe("the grid page", () => {
   it.runIf(path)("lead every exported edge to a usable node of the next stage, and every start to the port", () => {
     const data: GridData = JSON.parse(readFileSync(path!, "utf8"));
     const astray: string[] = [];
-    for (const spacing of data.spacings)
-      for (const route of data.routes) {
-        const each = data.grids[spacing][route.name];
-        for (let node = 0; node < each.kind.length; node++)
-          for (const edge of edgesFrom(each, node))
-            if (Math.floor(edge.to / each.laterals) !== Math.floor(node / each.laterals) + 1 || each.kind[edge.to] === "x")
-              astray.push(`${spacing} ${route.name} ${node}→${edge.to}`);
-        expect(routesThrough(each, (each.laterals - 1) / 2).count).toBeGreaterThan(0);
-      }
+    for (const route of data.routes) {
+      const each = data.grids[route.name];
+      for (let node = 0; node < each.kind.length; node++)
+        for (const edge of edgesFrom(each, node))
+          if (Math.floor(edge.to / each.laterals) !== Math.floor(node / each.laterals) + 1 || each.kind[edge.to] === "x")
+            astray.push(`${route.name} ${node}→${edge.to}`);
+      expect(routesThrough(each, (each.laterals - 1) / 2).count).toBeGreaterThan(0);
+    }
     expect(astray).toEqual([]);
   });
 });
