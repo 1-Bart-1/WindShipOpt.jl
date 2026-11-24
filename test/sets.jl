@@ -5230,22 +5230,24 @@ draft_leads = [lead_row("Container", "vlsfo", "leads", 4.1),
           "e-ammonia"
 end
 
-@testset "the advice gives one sentence per fuel, the most ship types last" begin
+@testset "the finding names the rig that saves most, one sentence per fuel" begin
     @test PaperData.advice_text(draft_leads) ==
-          "On e-ammonia, fit the kite on container ships and tankers and either the kite " *
-          "or the rotors on the other ship types. On fuel oil, fit the kite on container " *
-          "ships and general cargo ships and either the kite or the rotors on the other " *
-          "ship types."
+          "On e-ammonia, the rig that saves most is the kite on container ships and " *
+          "tankers and either the kite or the rotors on the other ship types. On fuel " *
+          "oil, the rig that saves most is the kite on container ships and general cargo " *
+          "ships and either the kite or the rotors on the other ship types."
     all_kite = [(; row..., verdict="leads") for row in draft_leads]
-    @test PaperData.advice_text(all_kite) == "On both fuels, fit the kite on every ship type."
+    @test PaperData.advice_text(all_kite) ==
+          "On both fuels, the rig that saves most is the kite on every ship type."
     no_cars = [row.word == "CarCarrier" ? (; row..., verdict="none") : row
                for row in draft_leads if row.drive == "vlsfo"]
     @test PaperData.advice_text(no_cars) ==
-          "On fuel oil, fit no rig on car carriers, the kite on container ships and " *
-          "general cargo ships, and either the kite or the rotors on the other ship types."
+          "On fuel oil, no rig clearly saves on car carriers, and elsewhere the rig that " *
+          "saves most is the kite on container ships and general cargo ships and either " *
+          "the kite or the rotors on the other ship types."
 end
 
-@testset "the answer gives the range of what the rig to fit saves a ship a year" begin
+@testset "the answer gives the range of what the best rig saves a ship a year" begin
     saved(share, usd, carbon) = (; saved=usd, share, carbon)
     per_ship = Dict("kite" => saved(14.2, 5.3e6, 9.6e9), "wings" => saved(4.5, 1.7e6, 2.9e9),
         "rotors" => saved(13.8, 4.1e6, 9.2e9))
@@ -5253,8 +5255,13 @@ end
     @test isempty(PaperData.advised_savings((; rows[1]..., verdict="none")))
     @test Dict(PaperData.answer_ranges(rows)) == Dict("Shares" => "14",
         "Carbon" => "\\num{9200} to \\num{9600}", "MoneyLow" => "\\num{4.1}",
-        "MoneyLowShips" => "car carriers", "MoneyHigh" => "\\num{5.3}",
-        "MoneyHighShips" => "container ships")
+        "MoneyHigh" => "\\num{5.3}")
+end
+
+@testset "a run is named by its fidelity and its commit, linked on GitHub" begin
+    commit = "770761c42391458d077c2ace9ccab85eb606de94"
+    @test PaperRuns.run_words("final", commit) == "final run of commit " *
+          "\\href{https://github.com/1-Bart-1/WindShipOpt.jl/commit/$commit}{770761c}"
 end
 
 @testset "the forecast lead of the kite over the rotors is signed and paired" begin

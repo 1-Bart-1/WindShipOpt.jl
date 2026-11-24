@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { loadJson } from "../load";
 import { edgesFrom, foldCentre, formatCount, gridCounts, gridEdges, kindOf, position, routesThrough, type Grid, type GridData } from "./grid";
 import { GridMap, type PickedNode } from "./GridMap";
+import { CommitLink } from "../CommitLink";
 
 type Layer = "mesh" | "unusable" | "allEdges" | "folds";
 
@@ -112,7 +113,7 @@ function Grids({ data, route }: { data: GridData; route: string }) {
         </aside>
       </div>
       <p className="font-mono text-xs text-ink-light">
-        The grid of the {data.fidelity} run at commit {data.git_commit.slice(0, 7)}; land mask of the weather: {data.weather}.
+        The grid of the {data.fidelity} run of commit <CommitLink commit={data.git_commit} />; land mask of the weather: {data.weather}.
       </p>
     </section>
   );

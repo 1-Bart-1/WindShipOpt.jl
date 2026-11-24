@@ -6,27 +6,19 @@
 \newcommand{\NumDraftSpreadRotors}{3.7}
 \newcommand{\NumDraftSpreadGap}{2.8}
 \newcommand{\NumHighlightLimit}{85}
-\newcommand{\NumResultsRun}{run 2026-11-20T2000 at final fidelity, commit 770761c}
+\newcommand{\NumResultsRun}{final run of commit \href{https://github.com/1-Bart-1/WindShipOpt.jl/commit/770761c42391458d077c2ace9ccab85eb606de94}{770761c}}
 \newcommand{\NumTrailing}{The wing sails save at most 19\,\% of the cost and come no closer to the best rig than 1 point: a square metre of wing sail pulls about a fifth as hard as one of rotor, so on the deck they can take they save less fuel\inpaper{ (\cref{sec:res_forces})}.}
 \newcommand{\NumTrailingSummary}{The wing sails trail the leader on every class, route and fuel}
-\newcommand{\NumCellsOil}{78}
-\newcommand{\NumLevelOil}{33}
-\newcommand{\NumNoRigOil}{4}
 \newcommand{\NumSavingOilKite}{5}
-\newcommand{\NumLeadsOilKite}{23}
 \newcommand{\NumSavingOilRotors}{6}
-\newcommand{\NumLeadsOilRotors}{18}
-\newcommand{\NumCellsAmmonia}{78}
-\newcommand{\NumLevelAmmonia}{20}
-\newcommand{\NumNoRigAmmonia}{0}
 \newcommand{\NumSavingAmmoniaKite}{12}
-\newcommand{\NumLeadsAmmoniaKite}{12}
 \newcommand{\NumSavingAmmoniaRotors}{15}
-\newcommand{\NumLeadsAmmoniaRotors}{46}
-\newcommand{\NumKiteShareBulkTankerOil}{81}
-\newcommand{\NumRotorLeadBulkTankerOil}{2}
-\newcommand{\NumKiteShareBulkTankerAmmonia}{79}
-\newcommand{\NumRotorLeadBulkTankerAmmonia}{5}
+\newcommand{\NumKiteShareFreeDeckOil}{76}
+\newcommand{\NumRotorLeadFreeDeckOil}{2}
+\newcommand{\NumRotorShareSlotsFirstOil}{35}
+\newcommand{\NumKiteShareFreeDeckAmmonia}{76}
+\newcommand{\NumRotorLeadFreeDeckAmmonia}{4}
+\newcommand{\NumRotorShareSlotsFirstAmmonia}{91}
 \newcommand{\NumFuelRangeOilKite}{14 to 35}
 \newcommand{\NumFuelRangeOilRotors}{17 to 50}
 \newcommand{\NumFuelRangeAmmoniaKite}{30 to 49}
@@ -50,21 +42,17 @@
 \newcommand{\NumSavingOilBulkRotors}{7}
 \newcommand{\NumSavingAmmoniaBulkRotors}{19}
 \newcommand{\NumCarbonBulkRotors}{43}
-\newcommand{\NumAdvice}{On e-ammonia, fit either the kite or the rotors on container ships and the rotors on the other ship types. On fuel oil, fit the kite on container ships, the rotors on tankers, and either the kite or the rotors on the other ship types.}
+\newcommand{\NumAdvice}{On e-ammonia, the rig that saves most is either the kite or the rotors on container ships and the rotors on the other ship types. On fuel oil, the rig that saves most is the kite on container ships, the rotors on tankers, and either the kite or the rotors on the other ship types.}
 \newcommand{\NumHighlightAdviceOil}{On fuel oil: kite on container ships, rotors on tankers, kite or rotors elsewhere.}
 \newcommand{\NumAnswerSharesOil}{2 to 8}
 \newcommand{\NumAnswerCarbonOil}{\num{680} to \num{8800}}
 \newcommand{\NumAnswerMoneyLowOil}{\num{0.047}}
-\newcommand{\NumAnswerMoneyLowShipsOil}{general cargo ships}
 \newcommand{\NumAnswerMoneyHighOil}{\num{1.2}}
-\newcommand{\NumAnswerMoneyHighShipsOil}{car carriers}
 \newcommand{\NumHighlightAdviceAmmonia}{On e-ammonia: kite or rotors on container ships, rotors elsewhere.}
 \newcommand{\NumAnswerSharesAmmonia}{9 to 20}
 \newcommand{\NumAnswerCarbonAmmonia}{\num{49} to \num{460}}
 \newcommand{\NumAnswerMoneyLowAmmonia}{\num{0.48}}
-\newcommand{\NumAnswerMoneyLowShipsAmmonia}{general cargo ships}
 \newcommand{\NumAnswerMoneyHighAmmonia}{\num{3.9}}
-\newcommand{\NumAnswerMoneyHighShipsAmmonia}{car carriers}
 \newcommand{\NumVerdictContainer}{the kite and the rotors are level, less than 1 point apart, on e-ammonia, and the kite leads the rotors by 1 point on fuel oil}
 \newcommand{\NumVerdictCarCarrier}{the rotors lead the kite by 4 points on e-ammonia, and the kite and the rotors are level, 2 points apart, on fuel oil}
 \newcommand{\NumVerdictGeneralCargo}{the rotors lead the kite by 2 points on e-ammonia, and the kite and the rotors are level, less than 1 point apart, on fuel oil}
@@ -80,23 +68,7 @@
 \newcommand{\NumKiteLifeLimitAmmoniaContainer}{--}
 \newcommand{\NumKiteLossLimitAmmoniaContainer}{--}
 \newcommand{\NumRouteSavingsOil}{10\,\% to New York, 9\,\% to Guadeloupe, 8\,\% to Houston, 6\,\% to Tubarão, 3\,\% to Dakar and 1\,\% to Bilbao}
-\newcommand{\NumRouteVerdictOilContainer}{the kite leads the rotors by 1 to 2 points to Guadeloupe, New York, Bilbao, Dakar and Houston, and the kite and the rotors are level, less than 1 point apart, to Tubarão}
-\newcommand{\NumRouteVerdictOilCarCarrier}{the rotors lead the kite by 3 points to Guadeloupe and Tubarão, and the kite and the rotors are level, at most 2 points apart, to New York, Bilbao, Dakar and Houston}
-\newcommand{\NumRouteVerdictOilBulk}{the kite and the rotors are level, at most 2 points apart, to Guadeloupe, New York, Dakar and Houston; the kite leads the rotors by 1 point to Bilbao; and the rotors lead the kite by 5 points to Tubarão}
 \newcommand{\NumRouteSavingsAmmonia}{20\,\% to New York, 19\,\% to Guadeloupe, 19\,\% to Houston, 19\,\% to Tubarão, 13\,\% to Dakar and 4\,\% to Bilbao}
-\newcommand{\NumRouteVerdictAmmoniaContainer}{the kite and the rotors are level, at most 1 point apart, to Guadeloupe, New York and Dakar; the kite leads the rotors by 1 to 2 points to Bilbao and Houston; and the rotors lead the kite by 3 points to Tubarão}
-\newcommand{\NumRouteVerdictAmmoniaCarCarrier}{the rotors lead the kite by 3 to 9 points to Guadeloupe, New York, Dakar, Houston and Tubarão, and the kite and the rotors are level, 1 point apart, to Bilbao}
-\newcommand{\NumRouteVerdictAmmoniaBulk}{the rotors lead the kite by 4 to 10 points to Guadeloupe, New York, Dakar, Houston and Tubarão, and the kite and the rotors are level, less than 1 point apart, to Bilbao}
-\newcommand{\NumKiteFlightBilbao}{19 to 34}
-\newcommand{\NumKiteFlightOcean}{18 to 61}
-\newcommand{\NumSplitFuelOilKite}{9}
-\newcommand{\NumSplitTimeOilKite}{1}
-\newcommand{\NumSplitFuelOilRotors}{11}
-\newcommand{\NumSplitTimeOilRotors}{1}
-\newcommand{\NumSplitFuelAmmoniaKite}{15}
-\newcommand{\NumSplitTimeAmmoniaKite}{3}
-\newcommand{\NumSplitFuelAmmoniaRotors}{18}
-\newcommand{\NumSplitTimeAmmoniaRotors}{4}
 \newcommand{\NumFuelShort}{no rig}
 \newcommand{\NumPaybackOilKite}{\num{2.0} to \num{4.6} years}
 \newcommand{\NumPaybackOilRotors}{\num{4.3} to \num{9.4} years}

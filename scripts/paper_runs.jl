@@ -323,8 +323,9 @@ end
 
 A run of `fidelity` named by its `commit`, as a link to that commit on GitHub.
 """
-run_words(fidelity, commit) = string(fidelity, " run of commit \\href{",
-    "https://github.com/1-Bart-1/WindShipOpt.jl/commit/", commit, "}{", first(commit, 7), "}")
+run_words(fidelity, commit) =
+    string(fidelity, " run of commit \\href{https://github.com/1-Bart-1/WindShipOpt.jl/",
+        "commit/", commit, "}{", first(commit, 7), "}")
 
 """
     results_run_words()
