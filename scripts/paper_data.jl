@@ -1164,7 +1164,7 @@ cheapest_row(table, class, route, drive, rig) = cheapest_row(table, "class" => c
 """
 Points by which the router understates the kite's cost saving against a deck rig's: the
 kite's lead over the rotors at the results' grid against the converged grid, extrapolated
-on the development case
+on the development case, the same on either fuel
 """
 kite_gap_bias = 1.6
 
