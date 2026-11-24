@@ -16,7 +16,16 @@ struct GriddedFields
     "stored times common to all fields"
     steps::Int
     fields::Dict{String, Array{Float32, 3}}
+    "reciprocal spacing of the longitudes and latitudes [1/deg] and of the times [1/h]"
+    inverse_spacings::NTuple{3, Float64}
 end
+
+GriddedFields(lats, lons, time_offset, step_hours, steps, fields) =
+    GriddedFields(lats, lons, time_offset, step_hours, steps, fields,
+        (inverse_spacing(lons), inverse_spacing(lats), 1 / step_hours))
+
+"reciprocal of the spacing of the equally spaced `axis`; zero for a single value"
+inverse_spacing(axis) = length(axis) > 1 ? 1 / (axis[2] - axis[1]) : 0.0
 
 function GriddedFields(directory::AbstractString, origin::DateTime)
     grid = TOML.parsefile(joinpath(directory, "grid.toml"))
@@ -40,20 +49,27 @@ step_count(fields::GriddedFields) = fields.steps
 """
     ERA5Weather(directory)
 
-ERA5 10 m wind and sea state read from `directory`, with time in hours after the first
-stored wind field.
+ERA5 10 m wind, wind speed aloft and sea state read from `directory`, with time in hours
+after the first stored wind field.
 """
 struct ERA5Weather
     origin::DateTime
     wind::GriddedFields
+    aloft::GriddedFields
     waves::GriddedFields
     "east and north 10 m wind [m/s] per (longitude, latitude, time)"
     wind_arrays::NTuple{2, Array{Float32, 3}}
+    "heights of the wind speeds aloft [m], ascending"
+    aloft_heights::Vector{Float64}
+    "logarithms of `aloft_heights` [log m]"
+    aloft_levels::Knots
+    "wind speed [m/s] at each of `aloft_heights`, same axes"
+    aloft_arrays::Vector{Array{Float32, 3}}
     "wave height [m], peak period [s] and east and north direction components, same axes"
     wave_arrays::NTuple{4, Array{Float32, 3}}
 end
 
-function ERA5Weather(directory::AbstractString=joinpath(pkgdir(@__MODULE__), "era5"))
+function ERA5Weather(directory::AbstractString)
     grid = TOML.parsefile(joinpath(directory, "wind", "grid.toml"))
     origin = DateTime(grid["first_time"])
     waves = GriddedFields(joinpath(directory, "waves"), origin)
@@ -62,7 +78,11 @@ function ERA5Weather(directory::AbstractString=joinpath(pkgdir(@__MODULE__), "er
             "direction", waves.fields["direction"])
     end
     wind = GriddedFields(joinpath(directory, "wind"), origin)
-    return ERA5Weather(origin, wind, waves, (wind.fields["u10"], wind.fields["v10"]),
+    aloft = GriddedFields(joinpath(directory, "aloft"), origin)
+    heights = TOML.parsefile(joinpath(directory, "aloft", "grid.toml"))["heights"]
+    return ERA5Weather(origin, wind, aloft, waves, (wind.fields["u10"], wind.fields["v10"]),
+        Float64.(heights), Knots(log.(heights)),
+        [aloft.fields["speed_$height"] for height in heights],
         (waves.fields["height"], waves.fields["period"], waves.fields["direction_east"],
             waves.fields["direction_north"]))
 end
@@ -86,13 +106,14 @@ function derived_field(derive, directory, name, source_name, source)
 end
 
 "hours of weather available from the origin [h]"
-duration(weather::ERA5Weather) = min(last_time(weather.wind), last_time(weather.waves))
+duration(weather::ERA5Weather) =
+    min(last_time(weather.wind), last_time(weather.aloft), last_time(weather.waves))
 
 last_time(fields::GriddedFields) =
     fields.time_offset + (step_count(fields) - 1) * fields.step_hours
 
-function cell(axis::Vector{Float64}, value)
-    position = clamp((value - first(axis)) / (axis[2] - axis[1]) + 1, 1, length(axis))
+function cell(axis::Vector{Float64}, inverse_spacing, value)
+    position = clamp((value - first(axis)) * inverse_spacing + 1, 1, length(axis))
     index = min(floor(Int, position), length(axis) - 1)
     return index, position - index
 end
@@ -101,7 +122,7 @@ end
 of the way to the next"
 function time_cell(fields::GriddedFields, time)
     steps = step_count(fields)
-    position = clamp((time - fields.time_offset) / fields.step_hours + 1, 1, steps)
+    position = clamp((time - fields.time_offset) * fields.inverse_spacings[3] + 1, 1, steps)
     k = min(floor(Int, position), steps - 1)
     return k, position - k
 end
@@ -113,20 +134,23 @@ Trilinear interpolation of each array in the tuple `arrays`, leaving land points
 out of the weighting; NaN where all corners are land.
 """
 function sample(fields::GriddedFields, arrays::Tuple, lat, lon, time)
-    i, x = cell(fields.lons, lon)
-    j, y = cell(fields.lats, lat)
+    i, x = cell(fields.lons, fields.inverse_spacings[1], lon)
+    j, y = cell(fields.lats, fields.inverse_spacings[2], lat)
     k, t = time_cell(fields, time)
     totals = map(_ -> 0.0, arrays)
-    weight_sum = 0.0
+    weight_sum, land = 0.0, false
     for (dk, wt) in ((0, 1 - t), (1, t)), (dj, wy) in ((0, 1 - y), (1, y)),
         (di, wx) in ((0, 1 - x), (1, x))
 
         corner = corner_values(arrays, i + di, j + dj, k + dk)
-        any(isnan, corner) && continue
+        if any(isnan, corner)
+            land = true
+            continue
+        end
         totals = weighted_sum(totals, wx * wy * wt, corner)
         weight_sum += wx * wy * wt
     end
-    return totals ./ weight_sum
+    return land ? totals ./ weight_sum : totals
 end
 
 corner_values(arrays, i, j, k) = map(array -> Float64(@inbounds array[i, j, k]), arrays)
@@ -136,6 +160,32 @@ weighted_sum(totals, weight, values) = map((total, value) -> total + weight * va
 
 wind(weather::ERA5Weather, lat, lon, time) =
     sample(weather.wind, weather.wind_arrays, lat, lon, time)
+
+"""
+    wind_aloft(weather, lat, lon, time, height)
+
+ERA5 wind speed [m/s] at `height` [m] above the sea, linear in the logarithm of height
+between the stored heights and held at their ends.
+"""
+function wind_aloft(weather::ERA5Weather, lat, lon, time, height)
+    level = KnotWeight(weather.aloft_levels, log(height))
+    lower, upper = sample(weather.aloft,
+        (weather.aloft_arrays[level.index], weather.aloft_arrays[level.index + 1]),
+        lat, lon, time)
+    return level.lower * lower + level.upper * upper
+end
+
+"""
+    log_height_value(heights, values, height)
+
+Value at `height` of the profile of `values` at the ascending `heights`, linear in the
+logarithm of height between them and held at their ends.
+"""
+function log_height_value(heights, values, height)
+    i = clamp(searchsortedlast(heights, height), 1, length(heights) - 1)
+    share = clamp(log(height / heights[i]) / log(heights[i + 1] / heights[i]), 0, 1)
+    return (1 - share) * values[i] + share * values[i + 1]
+end
 
 """
     waves(weather, lat, lon, time)
@@ -252,9 +302,13 @@ on_grid(mask::GridMask, lat, lon) =
     first(mask.lats) <= lat <= last(mask.lats) && first(mask.lons) <= lon <= last(mask.lons)
 
 function is_land(mask::GridMask, lat, lon)
-    on_island(mask.islands, lat, lon) && return true
     on_grid(mask, lat, lon) || return true
-    i = argmin(abs.(mask.lons .- lon))
-    j = argmin(abs.(mask.lats .- lat))
-    return mask.land[i, j]
+    mask.land[nearest_index(mask.lons, lon), nearest_index(mask.lats, lat)] && return true
+    return on_island(mask.islands, lat, lon)
+end
+
+"index of the knot of the ascending `axis` nearest `value` within it, the lower on a tie"
+function nearest_index(axis::Vector{Float64}, value)
+    i, _ = cell(axis, inverse_spacing(axis), value)
+    return value - axis[i] <= axis[i + 1] - value ? i : i + 1
 end

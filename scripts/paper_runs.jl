@@ -9,6 +9,7 @@ using Base.ScopedValues: ScopedValue, with
 using Dates
 using Serialization
 using TOML
+using YAML
 using WindShipOpt: inputs_read
 
 include("step_code.jl")
@@ -16,13 +17,11 @@ include("case_jobs.jl")
 
 """
 Settings of each fidelity of the paper: the corridor scale, the step between sampled
-departures, that step in the sensitivity study and the rounds of the rig size search.
+departures and that step in the sensitivity study.
 """
 fidelities = Dict(
-    :draft => (corridor_scale=1.0, departure_step=36, sensitivity_departure_step=12,
-        size_rounds=1),
-    :final => (corridor_scale=1.0, departure_step=6, sensitivity_departure_step=6,
-        size_rounds=2))
+    :draft => (corridor_scale=1.0, departure_step=36, sensitivity_departure_step=12),
+    :final => (corridor_scale=1.0, departure_step=6, sensitivity_departure_step=6))
 
 """
 Spread of a draft result about the final run's on the 140 m e-ammonia ship to Guadeloupe,
@@ -36,12 +35,11 @@ function draft_marker()
     ratio = fidelities[:draft].departure_step ÷ fidelities[:final].departure_step
     kite, rotors, gap = round.(Int, values(DRAFT_SPREAD))
     illustrative_saving = 23
-    return "\\tbd{These are draft results from a quick run: one in $ratio of the final " *
-           "run's departures, and one round of the rig size search instead of two. On " *
-           "the 140\\,m e-ammonia ship to Guadeloupe, two times in three a draft cost " *
-           "saving lies within $kite percentage points of the final run's for the kite " *
-           "and $rotors for the rotors, as often above as below, so a " *
-           "$illustrative_saving\\,\\% kite saving may read " *
+    return "\\tbd{These are draft results from a quick run on one in $ratio of the " *
+           "final run's departures. On the 140\\,m e-ammonia ship to Guadeloupe, two " *
+           "times in three a draft cost saving lies within $kite percentage points of " *
+           "the final run's for the kite and $rotors for the rotors, as often above as " *
+           "below, so a $illustrative_saving\\,\\% kite saving may read " *
            "$(illustrative_saving - kite) to $(illustrative_saving + kite)\\,\\%. The " *
            "kite's lead over the rotors lies within $gap percentage points of the final " *
            "run's lead, so a smaller lead between two rigs is not yet settled.}\n"
@@ -125,15 +123,27 @@ mutable struct PaperRun
     trip_model::String
     "what the step in progress computed and read"
     tally::StepTally
+    "directory of the run read before any other, or nothing"
+    source::Union{Nothing, String}
 end
 
-"""
-    PaperRun(fidelity)
+"the run in `directory` with nothing read before it"
+PaperRun(directory, fidelity, record, only, definitions, trip_model, tally) =
+    PaperRun(directory, fidelity, record, only, definitions, trip_model, tally, nothing)
 
-A run at `fidelity` with no directory, for figure and table steps alone.
 """
-PaperRun(fidelity) = PaperRun(nothing, fidelity, Dict{String, Any}(), nothing,
-    Dict{Symbol, Vector{Any}}(), "", StepTally())
+    PaperRun(fidelity; source=nothing)
+
+A run at `fidelity` with no directory, for figure and table steps alone, reading the run
+named `source` first where one is given.
+"""
+function PaperRun(fidelity; source=nothing)
+    directory = isnothing(source) ? nothing : joinpath(runs_directory, source)
+    record = isnothing(directory) ? Dict{String, Any}() :
+             TOML.parsefile(joinpath(directory, "run.toml"))
+    return PaperRun(nothing, fidelity, record, nothing, Dict{Symbol, Vector{Any}}(), "",
+        StepTally(), directory)
+end
 
 "the run in use, set by `paper`"
 paper_run = nothing
@@ -230,15 +240,15 @@ end
     reading_order()
 
 Directories and records of the runs data are read from, in the order they are looked in:
-the run in use, then the finished runs of its fidelity, this branch's before any other's,
-latest first, then the unfinished ones.
+the run in use or its source, then the finished runs of its fidelity, this branch's before
+any other's, latest first, then the unfinished ones.
 """
 function reading_order()
     branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
     runs = sort(fidelity_runs(paper_run.fidelity);
         by=run -> get(last(run), "git_branch", "") != branch)
-    current = isnothing(paper_run.directory) ? [] :
-              [(paper_run.directory, paper_run.record)]
+    directory = something(paper_run.directory, paper_run.source, missing)
+    current = ismissing(directory) ? [] : [(directory, paper_run.record)]
     return [current; filter(is_finished ∘ last, runs);
             filter(!is_finished ∘ last, runs)]
 end
@@ -302,10 +312,30 @@ and commit it comes from, as the `\\studyrunis` definitions captions read.
 function study_sources(runs)
     open(joinpath(sections, "study_runs.tex"), "w") do io
         for (study, run) in sort(collect(runs); by=first)
-            println(io, "\\studyrunis{", study, "}{run ", run["run"], " at ",
-                run["fidelity"], " fidelity, commit ", first(run["commit"], 7), "}")
+            println(io, "\\studyrunis{", study, "}{",
+                run_words(run["run"], run["fidelity"], run["commit"]), "}")
         end
     end
+end
+
+"""
+    run_words(run, fidelity, commit)
+
+The run `run`, its `fidelity` and the short hash of `commit` as the paper names them.
+"""
+run_words(run, fidelity, commit) =
+    string("run ", run, " at ", fidelity, " fidelity, commit ", first(commit, 7))
+
+"""
+    results_run_words()
+
+[`run_words`](@ref) of the run whose class study the results read.
+"""
+function results_run_words()
+    directory = dirname(resolved_data_file("classes.csv"))
+    record = TOML.parsefile(joinpath(directory, "run.toml"))
+    commit = step_entry(record, "classes")["git_commit"]
+    return run_words(basename(directory), record["fidelity"], commit)
 end
 
 """
@@ -433,6 +463,64 @@ function check_final_commit()
     commit = git_output("rev-parse", "HEAD")
     isempty(git_output("branch", "--remotes", "--contains", commit)) &&
         error("a final run needs a pushed commit; $commit is on no remote branch")
+end
+
+"""
+    run_steps(steps, outputs; fidelity, resume, only=nothing, source=nothing)
+
+Run `steps` at `fidelity` in a new or resumed run as [`paper`](@ref) does, or without a run,
+reading `source` first, when all of them are among the figure and table steps `outputs`. A step of `outputs` that
+fails leaves the steps after it to run; return the name of each such step with its error.
+"""
+function run_steps(steps, outputs; fidelity, resume, only=nothing, source=nothing)
+    haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
+    outputs_only = all(in(outputs), first.(steps))
+    outputs_only || isnothing(source) ||
+        throw(ArgumentError("only figure and table steps read a source run"))
+    global paper_run = outputs_only ? PaperRun(fidelity; source) :
+                       open_run(fidelity, first.(steps), resume; only)
+    failed = Pair{Symbol, String}[]
+    for (name, step) in steps
+        if step_done(paper_run, name)
+            println("step ", name, " already done")
+        elseif name in outputs
+            why = drawing_error(() -> run_step!(paper_run, name, step))
+            isnothing(why) || push!(failed, name => why)
+        else
+            run_step!(paper_run, name, step)
+        end
+    end
+    finish_run!(paper_run, outputs)
+    return failed
+end
+
+"""
+    drawing_error(draw)
+
+Call `draw` and return the message of the error it raises, printed, or nothing; an
+interrupt is raised on.
+"""
+function drawing_error(draw)
+    try
+        draw()
+        return nothing
+    catch exception
+        exception isa InterruptException && rethrow()
+        why = sprint(showerror, exception)
+        println("  failed to draw: ", why)
+        return why
+    end
+end
+
+"""
+    check_drawn(failed)
+
+Raise an error listing each figure and table step of `failed` with why it failed to draw.
+"""
+function check_drawn(failed)
+    isempty(failed) && return
+    error("failed to draw, every other step done:\n",
+        join(("  $name: $why" for (name, why) in failed), "\n"))
 end
 
 """
@@ -586,13 +674,15 @@ function file_times(run)
 end
 
 """
-    finish_run!(run)
+    finish_run!(run, outputs)
 
-Mark `run` finished at the current time in its record, once every step asked of it is done.
+Mark `run` finished at the current time in its record, once every step asked of it but the
+figure and table steps `outputs` is done.
 """
-function finish_run!(run)
+function finish_run!(run, outputs)
     isnothing(run.directory) && return
-    all(name -> step_done(run, name), run.record["requested"]) || return
+    data = filter(name -> Symbol(name) ∉ outputs, run.record["requested"])
+    all(name -> step_done(run, name), data) || return
     run.record["finished"] = string(floor(now(), Second))
     write_record(run)
 end
@@ -804,9 +894,7 @@ function step_reasons(entry, code)
         push!(reasons, "the model changed: src/, data/, setup.jl or the packages")
     others = setdiff(changed, ["model"])
     isempty(others) || push!(reasons, "its code changed: " * join(others, ", "))
-    inputs = sort([name for (name, value) in entry["inputs"]
-                   if !haskey(assumptions.entries, Symbol(name)) ||
-                      assumptions[Symbol(name)] != value])
+    inputs = changed_inputs(entry)
     isempty(inputs) || push!(reasons, "inputs changed: " * join(inputs, ", "))
     for (file, read) in sort(collect(entry["reads"]); by=first)
         now_read = try
@@ -824,6 +912,43 @@ function step_reasons(entry, code)
     older > 0 && push!(reasons, "$older round trips kept from older code")
     return reasons
 end
+
+"""
+    changed_inputs(entry)
+
+Names of the inputs the step of run-record `entry` read at another base value than the
+assumptions now give, or that are no longer assumptions.
+"""
+changed_inputs(entry) = sort([name for (name, value) in entry["inputs"]
+                              if !haskey(assumptions.entries, Symbol(name)) ||
+                                 assumptions[Symbol(name)] != value])
+
+"""
+    moved_ranges(entry)
+
+Names of the inputs the step of run-record `entry` read whose range the assumptions now
+give differs from the one at the commit it ran on.
+"""
+function moved_ranges(entry)
+    then = YAML.load(git_output("show", entry["git_commit"] * ":data/assumptions.yaml"))
+    return sort([name for name in keys(entry["inputs"])
+                 if haskey(then, name) && range_moved(then[name], Symbol(name))])
+end
+
+"whether input `name` now has another range than `written` in data/assumptions.yaml gave"
+function range_moved(written, name)
+    haskey(assumptions, name) || return false
+    now, value = assumptions.entries[name], written["value"]
+    return (get(written, "low", value), get(written, "high", value)) != (now.low, now.high)
+end
+
+"""
+    data_step(name, step)
+
+The entry of step `step` in the record of the run whose data file `name` is read.
+"""
+data_step(name, step) = step_entry(
+    TOML.parsefile(joinpath(dirname(resolved_data_file(name)), "run.toml")), step)
 
 """
     step_location(name)

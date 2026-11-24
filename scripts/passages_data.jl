@@ -1,10 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Data step of the route view of the companion explorer in site/: the routed passages of
-# the passage figure's ship, each with the state of its ship and rig at every point the
-# router sailed. Included by paper.jl after paper_data.jl; run it as
-# `paper(:passages; fidelity)`.
+# The route view of the companion explorer in site/: the passages the wind angle step routes
+# for the passage figure's ship, each with the state of its ship and rig at every point the
+# router sailed. Included by paper.jl after paper_data.jl.
 
 "the drive and length [m] of the ship the passage figure and the site show"
 passage_ship = (drive=:ammonia, length=140.0)
@@ -17,11 +16,8 @@ The [`ShipDesign`](@ref) of the passage ship carrying `rig` of `area` [m²].
 passage_ship_design(rig, area) = ShipDesign(passage_ship.drive, passage_ship.length;
     rig_size(rig, area)...)
 
-"the rigs and sizes [m²] the site shows, each size the passage figure draws among them"
-passage_rigs = [("none", 0.0), ("kite", 800.0), ("kite", 1600.0), ("kite", 3200.0),
-    ("kite", 6400.0), ("wings", 500.0), ("wings", 1000.0), ("wings", 1500.0),
-    ("wings", 2000.0), ("rotors", 200.0), ("rotors", 400.0), ("rotors", 800.0),
-    ("rotors", 1200.0)]
+"the rigs the site draws"
+site_rigs = ("none", "kite", "wings", "rotors")
 
 "samples along the closed cycle of a recorded kite pattern, equal in time"
 pattern_samples = 16
@@ -47,8 +43,8 @@ Angle [rad] between the chord and the apparent wind of a wing at the trim `(lift
 force direction when stalled.
 """
 function wing_incidence(rig::WindShipOpt.WingRig, (lift, drag))
-    stalled = drag > WindShipOpt.drag_coefficient(rig, lift) + 1e-9
-    stalled && return atan(drag - rig.profile_drag_coefficient, lift)
+    WindShipOpt.stalled(rig, (lift, drag)) &&
+        return atan(drag - rig.profile_drag_coefficient, lift)
     ratio = rig.effective_aspect_ratio
     return lift * (ratio + 2) / (2π * ratio)
 end
@@ -248,44 +244,32 @@ function flight_event(trace, i)
 end
 
 """
-    passage_cases()
+    passage_case(index, rig, area)
 
-The ships of [`passage_rigs`](@ref) that fit, each with its [`PerformanceTable`](@ref) and
-[`RouteTable`](@ref), time costs and, for a kite, its [`kite_patterns`](@ref).
+The passage ship carrying `area` [m²] of `rig`, numbered `index` from zero, with its
+[`Ship`](@ref) and, for a kite, its [`kite_patterns`](@ref).
 """
-function passage_cases()
-    cases = []
-    for (rig, area) in passage_rigs
-        design = passage_ship_design(rig, area)
-        ship = Ship(design, assumptions)
-        isnothing(ship) && continue
-        model = rig == "kite" ?
-                first(WindShipOpt.kite_model(area,
-                    WindShipOpt.kite_aspect_ratio(design, assumptions), assumptions)) :
-                nothing
-        patterns = isnothing(model) ? nothing : kite_patterns(ship, model)
-        table = PerformanceTable(ship, assumptions)
-        push!(cases, (; index=length(cases), rig, area, design, ship, patterns, table,
-            route_table=RouteTable(table),
-            hourly=WindShipOpt.leg_time_costs(ShipCosts(ship, assumptions), assumptions)))
-    end
-    return cases
+function passage_case(index, rig, area)
+    design = passage_ship_design(rig, area)
+    ship = Ship(design, assumptions)
+    patterns = rig == "kite" ?
+               kite_patterns(ship, first(WindShipOpt.kite_model(area,
+                   WindShipOpt.kite_aspect_ratio(design, assumptions), assumptions))) :
+               nothing
+    return (; index, rig, area, design, ship, patterns)
 end
 
 """
-    routed_round_trip(case, name, k, departure)
+    recorded_round_trip(case, trip, k)
 
-The recorded outbound and return legs of `case` on route `name` of departure number `k`,
-leaving at `departure` [h], and the times they span [h], or `nothing` if either fails.
+The recorded outbound and return legs of `case` on the traced round trip `trip` of
+departure number `k` ([`angle_sums`](@ref)), and the times they span [h].
 """
-function routed_round_trip(case, name, k, departure)
-    trip = traced_round_trip(case.table, case.route_table, name, departure, case.hourly)
-    isnothing(trip) && return nothing
-    return (; legs=[recorded_leg(case, trip.out, trip.out_trace, "out", k - 1, departure),
-            recorded_leg(case, trip.back, trip.back_trace, "back", k - 1,
-                trip.back_departure)],
-        span=(departure, trip.back_departure + trip.back.duration))
-end
+recorded_round_trip(case, trip, k) = (;
+    legs=[recorded_leg(case, trip.out, trip.out_trace, "out", k - 1, trip.departure),
+        recorded_leg(case, trip.back, trip.back_trace, "back", k - 1,
+            trip.back_departure)],
+    span=(trip.departure, trip.back_departure + trip.back.duration))
 
 """
     wind_frames(legs, span)
@@ -323,7 +307,7 @@ function passage_design(case)
     offsets(unit) = last.(WindShipOpt.unit_positions(unit, hull, assumptions))
     if rig isa WindShipOpt.WingRig
         return (; common..., count=rig.count, height=rig.height,
-            foot_height=rig.foot_height, width=rig.height / assumptions[:wing_aspect_ratio],
+            foot_height=rig.foot_height, width=rig.area / rig.height,
             positions=positions(rig), offsets=offsets(rig))
     elseif rig isa WindShipOpt.RotorRig
         return (; common..., count=rig.count, height=rig.height,
@@ -347,41 +331,43 @@ departure_label(hours) = hasproperty(weather, :origin) ?
     string(Date(weather.origin + Hour(round(Int, hours)))) : "day $(round(Int, hours / 24))"
 
 """
-    passages_data()
+    write_passages(cases, traced)
 
-The passages of [`passage_cases`](@ref) on every route over the sampled departures, one
+Write the passages of the wind angle step's `cases`, (route, rig, area), whose rig the site
+draws ([`site_rigs`](@ref)), from their round trips `traced` by departure number: one
 passages-<route>.json each with its winds-<route>.json, and passages.json naming them.
 """
-function passages_data()
-    cases = passage_cases()
+function write_passages(cases, traced)
+    shown = filter(i -> cases[i][2] in site_rigs, eachindex(cases))
+    designs = unique([cases[i][2:3] for i in shown])
+    passage_cases = [passage_case(k - 1, designs[k]...) for k in eachindex(designs)]
     departure_list = sampled_departures()
-    port_hours = 24assumptions[:port_time_per_call]
-    work = [(route, case, k) for route in route_names, case in cases
-            for k in eachindex(departure_list)]
-    results = Vector{Any}(nothing, length(work))
-    Threads.@threads :greedy for i in eachindex(work)
-        route, case, k = work[i]
-        results[i] = routed_round_trip(case, route, k, departure_list[k])
-    end
     for route in route_names
-        write_route_files(route, departure_list, work, results)
+        routed = []
+        for i in shown
+            first(cases[i]) == route || continue
+            case = passage_cases[findfirst(==(cases[i][2:3]), designs)]
+            for (k, trip) in enumerate(traced[i])
+                isnothing(trip) || push!(routed, (k, recorded_round_trip(case, trip, k)))
+            end
+        end
+        write_route_files(route, departure_list, routed)
     end
     index = (; fidelity=string(paper_run.fidelity),
         git_commit=paper_run.record["git_commit"], weather=weather_name,
         routes=[(; name=string(name), label=route_label(name)) for name in route_names],
         departures=[(; hours, label=departure_label(hours)) for hours in departure_list],
-        designs=passage_design.(cases), pattern_samples, port_hours)
+        designs=passage_design.(passage_cases), pattern_samples, port_hours=port_hours())
     write_named_json("passages.json", index)
 end
 
 """
-    write_route_files(route, departure_list, work, results)
+    write_route_files(route, departure_list, routed)
 
-Write passages-<route>.json and winds-<route>.json from the `results` of `work`.
+Write passages-<route>.json and winds-<route>.json from the recorded round trips `routed`
+on `route`, each with its departure number.
 """
-function write_route_files(route, departure_list, work, results)
-    routed = [(k, results[i]) for (i, (name, _, k)) in enumerate(work)
-              if name == route && !isnothing(results[i])]
+function write_route_files(route, departure_list, routed)
     legs = [leg for (_, result) in routed for leg in result.legs]
     write_named_json("passages-$route.json", (; route=string(route), legs))
     winds = [departure_winds(routed, index) for index in eachindex(departure_list)]

@@ -85,8 +85,7 @@ cargo_limit(class::ShipClass, assumptions::Assumptions) =
     CargoHold(ship, assumptions)
 
 Hold of `ship`: its class's deadweight less the rig mass and the stores, and its class's
-unit capacity less the slots the rig blocks; the reference coaster family fills its
-deadweight.
+unit capacity; the reference coaster family fills its deadweight.
 """
 function CargoHold(ship::Ship, assumptions::Assumptions)
     (; class) = ship.design
@@ -98,7 +97,7 @@ function CargoHold(ship::Ship, assumptions::Assumptions)
     else
         deadweight = class.deadweight
         unit = CargoUnit(class.cargo_unit, assumptions)
-        slots = class.unit_capacity - blocked_slots(ship.rig, class, assumptions)
+        slots = class.unit_capacity
     end
     payload = deadweight - rig_mass - assumptions[:stores_mass]
     return CargoHold(deadweight, payload, slots, unit)
@@ -166,13 +165,162 @@ ship_costs(ship::Ship, assumptions::Assumptions) =
     (ShipCosts(ship, assumptions), ShipCosts(ship, assumptions; retractable=false))
 
 """
+    LayoutPrices(ship, route, assumptions)
+
+What fuel and cargo are worth to `ship` on `route`, `nothing` meaning the mean route, in
+the year it sails at its service speed for its [`sailing_hours`](@ref), for scoring the
+layout of a deck rig.
+"""
+struct LayoutPrices
+    "fuel saved per watt of thrust times service speed over a year [USD/(W year)]"
+    thrust_power::Float64
+    "fuel burnt per watt of power drawn by the rig over a year [USD/(W year)]"
+    rig_power::Float64
+    "fixed annual cost and calm-water fuel of the ship without a rig [USD/year]"
+    ship_yearly::Float64
+end
+
+function LayoutPrices(ship::Ship, route, assumptions::Assumptions)
+    (; drive, length, class) = ship.design
+    bare = Ship(ShipDesign(drive, length; class), assumptions; route)
+    (; powertrain, fuel) = bare
+    speed = service_speed(bare, assumptions)
+    calm = best_trim(bare, nothing, speed, 0.0, 0.0).thrust
+    delivered = delivered_power(bare.propeller, bare.env, speed, calm)
+    fuel_year = 3600sailing_hours(bare, route, assumptions) * fuel.price
+    rig_power = fuel_year / powertrain.peak_efficiency
+    thrust_power = rig_power * delivered / (calm * speed * powertrain.transmission_efficiency)
+    ship_yearly = ShipCosts(bare, assumptions).fixed_annual +
+                  fuel_year * fuel_power(powertrain, delivered)
+    return LayoutPrices(thrust_power, rig_power, ship_yearly)
+end
+
+"""
+    sailing_hours(ship, route, assumptions)
+
+Hours a year [h] `ship` sails at its service speed on `route`: its trading hours less a
+port call at each end of the passages of [`route_length`](@ref); the mean over the routes
+where `route` is nothing.
+"""
+function sailing_hours(ship::Ship, route::Symbol, assumptions::Assumptions)
+    passages = 2route_length(route) / service_speed(ship, assumptions) / 3600
+    return 8760assumptions[:availability] * passages /
+           (passages + 48assumptions[:port_time_per_call])
+end
+
+sailing_hours(ship::Ship, ::Nothing, assumptions::Assumptions) =
+    mean(sailing_hours(ship, route, assumptions) for route in keys(COASTAL_PATHS))
+
+"""
+    layout_score(ship, rig, prices, assumptions)
+
+Yearly cost [USD/year] of the wings, rotors or suction sails of `rig` on `ship` less the
+fuel they save at `prices`, a [`LayoutPrices`](@ref): their annuity and maintenance, with
+the retractable rig premium where a fixed rig would cost the ship port time, and the
+[`lost_cargo_cost`](@ref), less the mean of their thrust times the service speed and the
+power they draw, each at its price, at the best trim in the [`layout_winds`](@ref).
+"""
+function layout_score(ship::Ship, rig, prices::LayoutPrices, assumptions::Assumptions)
+    standing = standing_rig(rig)
+    capital, _, annuity = rig_costs(standing, assumptions)
+    fixed_delay = fixed_rig_port_hours(standing, ship.design.class, assumptions) > 0
+    price_factor = 1 + fixed_delay * assumptions[:retractable_rig_premium]
+    yearly = price_factor * annuity +
+             rig_maintenance(standing, price_factor * capital, assumptions) +
+             lost_cargo_cost(ship, standing, prices, assumptions)
+    speed = service_speed(ship, assumptions)
+    winds = layout_winds(assumptions)
+    saved = sum(winds) do (wind_10m, true_angle)
+        _, force = best_trim(ship, standing, speed, wind_10m, true_angle)
+        return prices.thrust_power * force.thrust * speed - prices.rig_power * force.power
+    end / length(winds)
+    return yearly - saved
+end
+
+"""
+    lost_cargo_cost(ship, rig, prices, assumptions)
+
+Yearly cost [USD/year] of the cargo `ship` no longer carries for the mass of `rig`: the
+yearly cost of the ship without a rig at `prices`, a [`LayoutPrices`](@ref), times the
+share of its cargo the rig takes.
+"""
+function lost_cargo_cost(ship::Ship, rig, prices::LayoutPrices, assumptions::Assumptions)
+    left, full = (cargo_mass(CargoHold(with_rig(ship, held), assumptions))
+                  for held in (rig, nothing))
+    return prices.ship_yearly * (1 - left / full)
+end
+
+"""
+    layout_winds(assumptions)
+
+True winds at 10 m [m/s] and their angles off the bow [rad] a layout is scored in: the
+midpoints of eight equal parts of a Rayleigh distribution of mean `layout_mean_wind`, each
+from six directions evenly spread from ahead to astern.
+"""
+function layout_winds(assumptions::Assumptions)
+    scale = assumptions[:layout_mean_wind] / sqrt(π / 2)
+    eighths = (1:2:15) ./ 16
+    speeds = [scale * sqrt(-2log(1 - quantile)) for quantile in eighths]
+    return [(speed, deg2rad(angle)) for speed in speeds for angle in 15:30:165]
+end
+
+"""
+    cheapest_layout(ship, route, assumptions)
+
+Rig of the design of `ship` in the layout of its [`layout_counts`](@ref) with the lowest
+[`layout_score`](@ref) on `ship`, which carries no rig yet, at its [`LayoutPrices`](@ref)
+on `route`; for each count of columns more units are tried until two in a row score worse
+than the fewest scored best. `nothing` where no layout fits; the design's rig as it is
+where it has no wings, rotors or suction sails.
+"""
+function cheapest_layout(ship::Ship, route, assumptions::Assumptions)
+    (; design, hull) = ship
+    first(standing_unit(design)) > 0 || return design_rig(design, hull, assumptions)
+    counts = layout_counts(design, hull, assumptions)
+    prices = LayoutPrices(ship, route, assumptions)
+    best, lowest = nothing, Inf
+    for columns in 1:2
+        rig, score = cheapest_in_columns(ship, columns,
+            [last(count) for count in counts if first(count) == columns], prices,
+            assumptions)
+        score < lowest && ((best, lowest) = (rig, score))
+    end
+    return best
+end
+
+"""
+    cheapest_in_columns(ship, columns, in_columns, prices, assumptions)
+
+Rig of the design of `ship` in `columns` columns of the count of `in_columns`, tried in
+order, with the lowest [`layout_score`](@ref) at `prices`, and that score; the search
+stops once two counts in a row fit and score worse than the best.
+"""
+function cheapest_in_columns(ship::Ship, columns, in_columns, prices::LayoutPrices,
+        assumptions::Assumptions)
+    best, lowest, worse = nothing, Inf, 0
+    for in_column in in_columns
+        rig = design_rig(ship.design, ship.hull, assumptions; columns, in_column)
+        isnothing(rig) && continue
+        score = layout_score(ship, rig, prices, assumptions)
+        if score < lowest || isnothing(best)
+            best, lowest, worse = rig, score, 0
+        else
+            worse += 1
+            worse == 2 && break
+        end
+    end
+    return best, lowest
+end
+
+"""
     fixed_rig_port_hours(rig, class, assumptions)
 
 Mean extra time per port call [h] of a `rig` fixed on deck: the cargo-handling delay of
 `class`, plus the lost calls of a ship whose air draft in ballast exceeds the class
 limit. Inf where a fixed rig prevents cargo handling, as on the reference coaster when
-`class` is `nothing`; zero for kites and ships without a rig, and that of the
-[`standing_rig`](@ref) for a kite over a standing rig.
+`class` is `nothing` and for units raised above the stacks, which stand in the cranes' way;
+zero for kites and ships without a rig, and that of the [`standing_rig`](@ref) for a kite
+over a standing rig.
 """
 fixed_rig_port_hours(rig, class, assumptions) = 0.0
 fixed_rig_port_hours(rig::CombinedRig, class, assumptions) =
@@ -181,6 +329,7 @@ fixed_rig_port_hours(::Union{WingRig, RotorRig}, ::Nothing, assumptions) = Inf
 
 function fixed_rig_port_hours(rig::Union{WingRig, RotorRig}, class::ShipClass,
         assumptions)
+    raised(rig) && return Inf
     ballast_rise = (1 - assumptions[:ballast_draft_fraction]) * class.draft
     air_draft = rig.foot_height + rig.height + ballast_rise
     air_draft > class.air_draft_limit || return class.fixed_rig_port_hours
@@ -188,34 +337,13 @@ function fixed_rig_port_hours(rig::Union{WingRig, RotorRig}, class::ShipClass,
                                          assumptions[:restricted_call_days]
 end
 
-"""
-    blocked_slots(rig, class, assumptions)
+"whether the units of `rig` stand on pedestals above the deck cargo"
+raised(rig::Union{WingRig, RotorRig}) = rig.pedestal_height > 0
 
-TEU slots that a rig takes from the deck of a container ship: every wing, rotor or kite
-mast blocks the on-deck stack of the rows it covers over one 40 ft bay, all tiers up,
-while the holds below stay in use; a kite over a standing rig blocks both.
-"""
-function blocked_slots(rig, class::ShipClass, assumptions)
-    footprint = deck_footprint(rig, assumptions)
-    rows = ceil((footprint + assumptions[:deck_rig_clearance]) /
-                assumptions[:container_row_pitch])
-    return deck_units(rig) * bay_slots(rows, class)
-end
-
-"TEU slots in `rows` rows of the deck stack of `class` over one 40 ft bay, all tiers up"
-bay_slots(rows, class::ShipClass) = 2rows * class.deck_tiers
-
-blocked_slots(rig::CombinedRig, class::ShipClass, assumptions) =
-    blocked_slots(rig.kite, class, assumptions) +
-    blocked_slots(rig.standing, class, assumptions)
-
-deck_footprint(rig::RotorRig, assumptions) = rig.diameter
-deck_footprint(::WingRig, assumptions) = assumptions[:wing_pedestal_width]
-deck_footprint(::KiteRig, assumptions) = assumptions[:launch_mast_width]
+"units a rig stands on deck: wings, rotors, kites and their sum over a combined rig"
 deck_units(rig::Union{WingRig, RotorRig}) = rig.count
-deck_units(rig::KiteRig) = kite_count(rig)
+deck_units(rig::KiteRig) = 1
 deck_units(rig::CombinedRig) = deck_units(rig.kite) + deck_units(rig.standing)
-deck_footprint(::Nothing, assumptions) = 0.0
 deck_units(::Nothing) = 0
 
 """
@@ -264,20 +392,132 @@ rig_costs(::Nothing, assumptions) = (0.0, 0.0, 0.0)
 rig_costs(rig::CombinedRig, assumptions) =
     rig_costs(rig.kite, assumptions) .+ rig_costs(rig.standing, assumptions)
 
-rig_costs(rig::WingRig, assumptions) =
-    deck_rig_costs(rig, assumptions, :wing_lifetime, :wing_mass_per_area)
-rig_costs(rig::RotorRig, assumptions) =
-    deck_rig_costs(rig, assumptions, :rotor_lifetime, :rotor_mass_per_area)
-
-"""
-    deck_rig_costs(rig, assumptions, lifetime, mass_per_area)
-
-[`rig_costs`](@ref) of wings or rotors, with the names of their assumptions.
-"""
-function deck_rig_costs(rig, assumptions, lifetime, mass_per_area)
+function rig_costs(rig::Union{WingRig, RotorRig}, assumptions)
+    lifetime = assumptions[Symbol(deck_unit(rig), :_lifetime)]
     capital = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions))
-    annuity = capital_recovery(assumptions[:discount_rate], assumptions[lifetime]) * capital
-    return capital, assumptions[mass_per_area] * total_area(rig), annuity
+    annuity = capital_recovery(assumptions[:discount_rate], lifetime) * capital
+    mass = unit_mass(rig, assumptions) + pedestal_mass(rig, assumptions)
+    return capital, rig.count * mass, annuity
+end
+
+"mass [t] of one wing, rotor or suction sail of `rig` with its foundation on deck"
+unit_mass(rig::Union{WingRig, RotorRig}, assumptions) =
+    assumptions[Symbol(deck_unit(rig), :_mass_per_area)] * size_factor(rig, assumptions) *
+    total_area(rig) / rig.count
+
+"""
+    unit_loads(rig, assumptions)
+
+Factored loads [N] on each raised unit of `rig` at its mid height: its [`peak_force`](@ref)
+times `rig_wind_load_factor` and its mass in the design acceleration across the ship times
+`rig_inertia_load_factor`; and the unit's mass [kg].
+"""
+function unit_loads(rig, assumptions)
+    mass = 1e3unit_mass(rig, assumptions)
+    inertia_factor = assumptions[:rig_inertia_load_factor]
+    wind = assumptions[:rig_wind_load_factor] * peak_force(rig, assumptions)
+    roll = inertia_factor * mass * assumptions[:rig_design_acceleration]
+    return (; wind, roll, mass)
+end
+
+"""
+    box_moduli(depth, width)
+
+Section moduli [m^2, per m of wall] of a thin-walled box `depth` [m] along the bending
+plane and `width` [m] across it, bent in its depth and in its width, and its perimeter [m].
+"""
+box_moduli(depth, width) =
+    (; along=depth * (depth / 3 + width), across=width * (width / 3 + depth),
+        perimeter=2(depth + width))
+
+"""
+    steel_wall(stress_load, assumptions)
+
+Wall thickness [m] that carries `stress_load` [N/m], stress times thickness, at the
+allowable stress, and whose plating between stiffeners does not buckle under it.
+"""
+function steel_wall(stress_load, assumptions)
+    buckling_stiffness = π^2 * 1e6assumptions[:steel_modulus] / (3(1 - 0.3^2))
+    return max(stress_load / (1e6assumptions[:pedestal_allowable_stress]),
+        cbrt(stress_load * assumptions[:pedestal_stiffener_spacing]^2 / buckling_stiffness))
+end
+
+"""
+    sway_wall(mass, height, arm, bending, wall_mass, assumptions)
+
+Wall thickness [m] at which a unit of `mass` [kg], `arm` [m] above the top of a cantilever
+`height` [m] tall of bending stiffness `bending` [m^3] times the thickness and of mass
+`wall_mass` [kg/m^2] per m of height and of thickness, sways at `pedestal_min_frequency`;
+Inf where no wall does.
+"""
+function sway_wall(mass, height, arm, bending, wall_mass, assumptions)
+    omega = 2π * assumptions[:pedestal_min_frequency]
+    compliance = pedestal_compliance(height, arm)
+    wall = omega^2 * compliance * mass /
+           (1e6assumptions[:steel_modulus] * bending -
+            omega^2 * compliance * 0.24wall_mass * height)
+    return wall > 0 ? wall : Inf
+end
+
+"mass [kg] per m of height and m of wall thickness of a stiffened box of `perimeter` [m]"
+box_wall_mass(perimeter, assumptions) =
+    (1 + assumptions[:pedestal_stiffener_share]) * assumptions[:steel_density] * perimeter
+
+"""
+    pedestal_mass(rig, assumptions)
+
+Steel mass [t] of the column under each raised unit of `rig`, zero on deck: a stiffened box
+`bay_gap` deep along the ship and as wide as the unit, from the deck to the unit's foot, of
+the [`pedestal_wall`](@ref) thickness.
+"""
+function pedestal_mass(rig::Union{WingRig, RotorRig}, assumptions)
+    raised(rig) || return 0.0
+    perimeter = box_moduli(assumptions[:bay_gap], unit_width(rig)).perimeter
+    return 1e-3box_wall_mass(perimeter, assumptions) *
+           rig.pedestal_height * pedestal_wall(rig, assumptions)
+end
+
+"""
+    pedestal_wall(rig, assumptions)
+
+Wall thickness [m] of the column under each raised unit of `rig`, the thickest of two:
+the [`steel_wall`](@ref) under the moments at the deck about the unit's mid height of its
+factored wind force along the ship and roll across it; and the [`sway_wall`](@ref) along
+the ship, with the unit on top.
+"""
+function pedestal_wall(rig::Union{WingRig, RotorRig}, assumptions)
+    (; wind, roll, mass) = unit_loads(rig, assumptions)
+    box = box_moduli(assumptions[:bay_gap], unit_width(rig))
+    arm = rig.pedestal_height + rig.height / 2
+    stress_load = wind * arm / box.along + roll * arm / box.across
+    bending = assumptions[:bay_gap] * box.along / 2
+    return max(steel_wall(stress_load, assumptions),
+        sway_wall(mass, rig.pedestal_height, rig.height / 2, bending,
+            box_wall_mass(box.perimeter, assumptions), assumptions))
+end
+
+"""
+    pedestal_compliance(height, arm)
+
+Deflection [m^4, times the bending stiffness EI] of a cantilever column `height` [m] tall
+under a unit force on a rigid extension `arm` [m] above its top, at that force.
+"""
+pedestal_compliance(height, arm) = height^3 / 3 + arm * height^2 + arm^2 * height
+
+"unit of the wings, rotors or suction sails of `rig`, naming their assumptions"
+deck_unit(rig::WingRig) = rig.unit
+deck_unit(::RotorRig) = :rotor
+
+"""
+    size_factor(rig, assumptions)
+
+Growth [-] of the mass and price per m^2 of the units of the wings, rotors or suction sails
+`rig` over those of the tallest built, their reference height h0: (h / h0)^(k - 2) for
+units of height h above it, k their mass exponent, and 1 up to it.
+"""
+function size_factor(rig::Union{WingRig, RotorRig}, assumptions)
+    setting(name) = assumptions[Symbol(deck_unit(rig), name)]
+    return max(rig.height / setting(:_reference_height), 1.0)^(setting(:_mass_exponent) - 2)
 end
 
 function rig_costs(rig::KiteRig, assumptions)
@@ -291,14 +531,19 @@ end
 """
     kite_rig_mass(rig, assumptions)
 
-Mass [kg] of a soft kite `rig` on the ship: its deck system, the kite with its control unit,
-and its tether.
+Mass [kg] of a kite `rig` on the ship: its deck system, the kite with its control unit or
+airframe, and its tether.
 """
 function kite_rig_mass(rig::KiteRig, assumptions)
-    kite = soft_kite_mass(rig.area, rig.aspect_ratio, rig.max_force, assumptions)
     tether = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
-    return sum(kite_deck_masses(rig.area, rig.max_force, assumptions)) + kite + tether
+    return sum(kite_deck_masses(rig.area, rig.max_force, assumptions)) +
+           kite_mass(rig, assumptions) + tether
 end
+
+"mass [kg] of the kite of `rig` without its tether"
+kite_mass(rig::KiteRig, assumptions) =
+    soft_kite_mass(rig.area, rig.aspect_ratio, rig.max_force, assumptions, rig.airframe)
+kite_mass(rig::KiteRig{RigidAirframe}, assumptions) = rig.airframe.mass
 
 """
     kite_deck_masses(area, max_force, assumptions)
@@ -319,43 +564,54 @@ Cost [USD] of the [`kite_deck_masses`](@ref), each at its cost per kg.
 function kite_deck_price(area, max_force, assumptions)
     (; winch, launch_mast) = kite_deck_masses(area, max_force, assumptions)
     return assumptions[:winch_cost_per_mass] * winch +
-           assumptions[:launch_mast_cost_per_mass] * launch_mast
+           assumptions[:welded_steel_cost_per_mass] * launch_mast
 end
 
 function rig_costs(rig::KiteRig{RigidAirframe}, assumptions)
-    (; count, mass) = rig.airframe
     capital = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions)) +
               rigid_airframe_price(rig, assumptions)
     recovery = capital_recovery(assumptions[:discount_rate], assumptions[:kite_lifetime])
-    tonnes = count * (assumptions[:rigid_station_mass] + 1e-3 * mass)
-    return capital, tonnes, recovery * capital
+    return capital, 1e-3kite_rig_mass(rig, assumptions), recovery * capital
 end
 
 """
     rig_price_parts(rig, assumptions)
 
-Manufacturing cost [USD] of each part of the hardware of `rig`: the units, their surface
-and the installation of wings or rotors; the deck system, control unit, ship-side controls
-and integration of a kite, without its canopy and tether; the deck system, tether, supply
-for the hover, ship-side controls and integration of VTOL kites, without their airframes.
+Manufacturing cost [USD] of each part of the hardware of `rig`: the units, their surface,
+the supports of raised units and the camera systems of wings or rotors; the deck system,
+control unit and ship-side controls of a kite, without its canopy and tether; the deck
+system, tether, supply for the hover and ship-side controls of VTOL kites, without their
+airframes; each rig with its installation.
 """
 rig_price_parts(::Nothing, assumptions) = (;)
 
-rig_price_parts(rig::WingRig, assumptions) = deck_price_parts(rig.count, total_area(rig),
-    assumptions, :wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction)
-rig_price_parts(rig::RotorRig, assumptions) = deck_price_parts(rig.count, total_area(rig),
-    assumptions, :rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction)
+rig_price_parts(rig::Union{WingRig, RotorRig}, assumptions) = installed((;
+    units=rig.count * assumptions[Symbol(rig isa RotorRig ? :rotor : :wing, :_unit_cost)],
+    surface=surface_cost(rig, assumptions) * total_area(rig),
+    pedestals=1e3rig.count * pedestal_mass(rig, assumptions) *
+              assumptions[:welded_steel_cost_per_mass],
+    cameras=rig.camera_units * assumptions[:camera_system_cost]), assumptions)
+
+"`parts` [USD] of a rig with their installation at the yard, a fraction of their sum"
+installed(parts, assumptions) =
+    (; parts..., installation=assumptions[:installation_fraction] * sum(parts))
 
 """
-    deck_price_parts(count, area, assumptions, unit_cost, cost_per_area, fraction)
+    surface_cost(rig, assumptions)
 
-[`rig_price_parts`](@ref) of `count` wings or rotors of `area` [m^2] in all, with the names
-of their assumptions.
+Manufacturing cost [USD/m^2] of the units of `rig` per m^2, grown by their
+[`size_factor`](@ref): rotors at their cost per m^2; wing and suction sails at their mass
+per m^2 at the wing sail's cost per kg, with a suction sail's fans at their cost per kW.
 """
-function deck_price_parts(count, area, assumptions, unit_cost, cost_per_area, fraction)
-    units = count * assumptions[unit_cost]
-    surface = assumptions[cost_per_area] * area
-    return (; units, surface, installation=assumptions[fraction] * (units + surface))
+surface_cost(rig::RotorRig, assumptions) =
+    size_factor(rig, assumptions) * assumptions[:rotor_cost_per_area]
+
+function surface_cost(rig::WingRig, assumptions)
+    structure = 1e3assumptions[Symbol(rig.unit, :_mass_per_area)] *
+                size_factor(rig, assumptions) * assumptions[:wing_cost_per_mass]
+    rig.unit == :suction || return structure
+    return structure + 1e-3assumptions[:suction_fan_power_per_area] *
+                       assumptions[:suction_fan_cost_per_power]
 end
 
 """
@@ -382,29 +638,30 @@ function kite_price_parts(area, max_force, assumptions)
     parts = (deck=kite_deck_price(area, max_force, assumptions),
         control_unit=assumptions[:control_unit_cost_per_mass] * control_unit_mass,
         controls=assumptions[:kite_controls_cost])
-    return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
+    return installed(parts, assumptions)
 end
 
 function rig_price_parts(rig::KiteRig{RigidAirframe}, assumptions)
-    (; count, hover_power) = rig.airframe
-    deck = kite_deck_price(rig.area, rig.max_force, assumptions)
-    parts = (deck=count * deck, tether=count * assumptions[:rigid_tether_cost],
-        ship_power=count * assumptions[:rigid_ship_power_cost] * hover_power,
-        controls=count * assumptions[:kite_controls_cost])
-    return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
+    parts = (deck=kite_deck_price(rig.area, rig.max_force, assumptions),
+        tether=rigid_tether_cost(rig.area, assumptions),
+        ship_power=assumptions[:rigid_ship_power_cost] * rig.airframe.hover_power,
+        controls=assumptions[:kite_controls_cost])
+    return installed(parts, assumptions)
 end
 
 """
-    canopy_price(assumptions, area, aspect_ratio)
+    canopy_price(assumptions, area, aspect_ratio, frame=nothing)
 
-Price of the canopy of a kite of projected `area` [m^2] and projected `aspect_ratio` per m^2
-of projected area [USD/m^2]: its [`canopy_cost`](@ref) times the market price factor.
+Price of the canopy of a soft kite of projected `area` [m^2], projected `aspect_ratio` and
+`frame` per m^2 of projected area [USD/m^2]: the cost of its [`kite_canopy`](@ref) times
+the market price factor.
 """
-canopy_price(assumptions, area, aspect_ratio) = assumptions[:market_price_factor] *
-    Canopy(assumptions, area, aspect_ratio).cost_per_area
+canopy_price(assumptions, area, aspect_ratio, frame=nothing) =
+    assumptions[:market_price_factor] *
+    kite_canopy(assumptions, area, aspect_ratio, frame).cost_per_area
 
 "inputs that together make the canopy's cost"
-canopy_price_inputs = (:canopy_structure_cost, :canopy_bridle_cost, :canopy_cloth_base_price,
+canopy_price_inputs = (:canopy_structure_cost, :canopy_cloth_base_price,
     :canopy_cloth_price_per_weight)
 
 """
@@ -415,7 +672,7 @@ tether at its purchase price; none for VTOL kites, whose tethers are in their st
 """
 function consumable_costs(rig::KiteRig, assumptions)
     tether_mass = rope_mass(rig.tether_diameter, rig.tether_length, assumptions)
-    canopy = canopy_price(assumptions, rig.area, rig.aspect_ratio) * rig.area
+    canopy = canopy_price(assumptions, rig.area, rig.aspect_ratio, rig.airframe) * rig.area
     return canopy, assumptions[:tether_price] * tether_mass
 end
 
@@ -506,34 +763,41 @@ tether_bending_cost(tether, assumptions) =
 """
     rigid_airframe_price(rig, assumptions)
 
-Market price of the kites of `rig` alone: the airframe with its propellers and drives by
+Market price of the kite of `rig` alone: the airframe with its propellers and drives by
 its mass, and avionics [USD].
 """
-function rigid_airframe_price(rig::KiteRig{RigidAirframe}, assumptions)
-    (; count, mass) = rig.airframe
-    one = assumptions[:rigid_cost_per_mass] * mass + assumptions[:rigid_avionics_cost]
-    return assumptions[:market_price_factor] * count * one
-end
+rigid_airframe_price(rig::KiteRig{RigidAirframe}, assumptions) =
+    assumptions[:market_price_factor] * (assumptions[:rigid_cost_per_mass] *
+     rig.airframe.mass + assumptions[:rigid_avionics_cost])
+
+"""
+    rigid_tether_cost(area, assumptions)
+
+Manufacturing cost [USD] of the electrified tether of a rigid VTOL kite of `area` [m^2]:
+that of MX2, grown with the force it holds times its length.
+"""
+rigid_tether_cost(area, assumptions) = assumptions[:rigid_tether_cost] *
+    (area / assumptions[:rigid_reference_area])^1.5
 
 consumable_costs(::KiteRig{RigidAirframe}, assumptions) = (0.0, 0.0)
 
 wear_cost(rig::KiteRig{RigidAirframe}, assumptions) =
-    assumptions[:rigid_upkeep_per_area] * rig.area * rig.airframe.count
+    assumptions[:rigid_upkeep_per_area] * rig.area
 
 """
     cycle_cost(rig::KiteRig{RigidAirframe}, assumptions)
 
-Cost of launching and landing all kites of `rig` once [USD]: crew time and the expected
+Cost of launching and landing the kite of `rig` once [USD]: crew time and the expected
 loss of a kite.
 """
 cycle_cost(rig::KiteRig{RigidAirframe}, assumptions) =
-    rig.airframe.count * assumptions[:kite_cycle_crew_cost] +
+    assumptions[:kite_cycle_crew_cost] +
     assumptions[:rigid_cycle_loss_probability] * lost_kite_cost(rig, assumptions)
 
 """
     lost_kite_cost(rig, assumptions)
 
-Cost of the kites of `rig` lost in the water with their tethers and, on a soft kite, its
+Cost of the kite of `rig` lost in the water with its tether and, on a soft kite, its
 control unit, at market prices [USD].
 """
 function lost_kite_cost(rig::KiteRig, assumptions)
@@ -553,8 +817,7 @@ a kite's control unit or airframe and half of its canopy and tether, on average 
 through their life when lost, or the price of one wing or rotor with its installation.
 """
 crash_cost(rig::KiteRig, assumptions) =
-    (lost_kite_cost(rig, assumptions) - sum(consumable_costs(rig, assumptions)) / 2) /
-    kite_count(rig)
+    lost_kite_cost(rig, assumptions) - sum(consumable_costs(rig, assumptions)) / 2
 
 crash_cost(rig::Union{WingRig, RotorRig}, assumptions) =
     first(rig_costs(rig, assumptions)) / deck_units(rig)
@@ -670,21 +933,32 @@ struct RoundTrip
 end
 
 """
-    route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly,
-                     horizon, forecast; schedule=(Inf, Inf))
+    turnaround_hours(ship, outbound, assumptions)
+
+Hours [h] from the departure of a round trip of `ship` to that of its return: the
+`outbound` passage at the service speed and one port call, whatever the outbound takes.
+"""
+turnaround_hours(ship::Ship, outbound, assumptions::Assumptions) =
+    outbound.track_length / service_speed(ship, assumptions) / 3600 +
+    24assumptions[:port_time_per_call]
+
+"""
+    route_round_trip(table, outbound, inbound, weather, departure, turnaround, hourly,
+                     forecast; schedule=(Inf, Inf))
 
 Outbound and return [`Leg`](@ref) of [`forecast_route`](@ref) on the [`RouteTable`](@ref)
-`table` for one departure at the outbound and return time costs `hourly` [USD/h], each
-arriving by its time [h] in `schedule`, or `nothing` if either fails, planned on
-`forecast`, or on the real weather known `horizon` [h] ahead where that is `nothing`.
+`table` for one departure, the return leaving `turnaround` [h] after it, at the outbound
+and return time costs `hourly` [USD/h], each arriving by its time [h] in `schedule`, or
+`nothing` if either fails, planned on `forecast`, or on the real weather where that is
+`nothing`.
 """
-function route_round_trip(table, outbound, inbound, weather, departure, port_hours, hourly,
-        horizon, forecast; schedule=(Inf, Inf))
+function route_round_trip(table, outbound, inbound, weather, departure, turnaround, hourly,
+        forecast; schedule=(Inf, Inf))
     out = forecast_route(outbound, table, weather, departure; time_cost=first(hourly),
-        arrival_by=first(schedule), horizon, forecast)
+        arrival_by=first(schedule), forecast)
     isnothing(out) && return nothing
-    back = forecast_route(inbound, table, weather, departure + out.duration + port_hours;
-        time_cost=last(hourly), arrival_by=last(schedule), horizon, forecast)
+    back = forecast_route(inbound, table, weather, departure + turnaround;
+        time_cost=last(hourly), arrival_by=last(schedule), forecast)
     isnothing(back) && return nothing
     return out, back
 end
@@ -717,7 +991,8 @@ store_round_trip_cost(price, hours, assumptions::Assumptions) =
 
 Share of the round trips [-] that a unit of `rig` sails out of service.
 """
-out_of_service_share(::WingRig, assumptions) = assumptions[:wing_out_of_service]
+out_of_service_share(rig::WingRig, assumptions) =
+    assumptions[Symbol(rig.unit, :_out_of_service)]
 out_of_service_share(::RotorRig, assumptions) = assumptions[:rotor_out_of_service]
 out_of_service_share(::KiteRig, assumptions) = assumptions[:kite_out_of_service]
 
@@ -742,14 +1017,6 @@ end
 
 down_rig(rig::Union{WingRig, RotorRig}, working_share) = DownRig(rig, working_share)
 down_rig(::KiteRig, working_share) = nothing
-
-function down_rig(rig::KiteRig{RigidAirframe}, working_share)
-    deck_units(rig) > 1 || return nothing
-    (; count, mass, hover_power, loop_area) = rig.airframe
-    airframe = RigidAirframe(working_share * count, mass, hover_power, loop_area)
-    parts = (getfield(rig, name) for name in fieldnames(KiteRig) if name != :airframe)
-    return KiteRig(parts..., airframe)
-end
 
 """
     service_states(rig, assumptions)
@@ -799,21 +1066,21 @@ end
 
 """
     service_passages(ship, outbound, inbound, weather, departures, assumptions, hourly,
-                     port_hours, horizon, forecast, held_knots;
-                     schedules=Iterators.repeated((Inf, Inf)))
+                     forecast, held_knots; schedules=Iterators.repeated((Inf, Inf)))
 
-[`Passages`](@ref) of `ship` on the round trip of each of `departures`; `nothing` if any
-passage is infeasible. The router holds `held_knots` [kn] by [`held_speed_table`](@ref),
-or chooses speed where `nothing`, each round trip keeping its leg times in `schedules`.
+[`Passages`](@ref) of `ship` on the round trip of each of `departures`, the return leaving
+after the [`turnaround_hours`](@ref); `nothing` if any passage is infeasible. The router
+holds `held_knots` [kn] by [`held_speed_table`](@ref), or chooses speed where `nothing`,
+each round trip keeping its leg times in `schedules`.
 """
 function service_passages(ship::Ship, outbound, inbound, weather, departures, assumptions,
-        hourly, port_hours, horizon, forecast, held_knots;
-        schedules=Iterators.repeated((Inf, Inf)))
+        hourly, forecast, held_knots; schedules=Iterators.repeated((Inf, Inf)))
     table = PerformanceTable(ship, assumptions)
     route_table = isnothing(held_knots) ? RouteTable(table) :
                   held_speed_table(table, held_knots)
+    turnaround = turnaround_hours(ship, outbound, assumptions)
     legs = fetch.([Threads.@spawn route_round_trip(route_table, outbound, inbound, weather,
-                       departure, port_hours, hourly, horizon, forecast; schedule)
+                       departure, turnaround, hourly, forecast; schedule)
                    for (departure, schedule) in zip(departures, schedules)])
     any(isnothing, legs) && return nothing
     largest_leg = maximum(max(out.fuel_energy, back.fuel_energy) for (out, back) in legs)
@@ -917,38 +1184,36 @@ function voyage_costs(ship::Ship, costs, rigs, passages, outbound, inbound, assu
 end
 
 """
-    round_trip(ship, outbound, inbound, weather, departures, assumptions; horizon=Inf,
+    round_trip(ship, outbound, inbound, weather, departures, assumptions;
                forecast=nothing, held_knots=nothing)
 
-Route `ship` out along `outbound` and back along `inbound` for each departure time
-[h] in each of its [`service_states`](@ref) with a share, and turn the result averaged
+Route `ship` out along `outbound` and back along `inbound`, leaving a fixed
+[`turnaround_hours`](@ref) after the outbound, for each departure time [h] in each of its
+[`service_states`](@ref) with a share, and turn the result averaged
 over the departures and the states into the cost per tonne-km of the transport service
 by [`voyage_costs`](@ref), and that of each departure with the same ship by
-[`departure_outcome`](@ref). With a finite forecast `horizon` [h] the router knows the
-weather only that far ahead, with a [`ForecastArchive`](@ref) `forecast` it re-plans daily
-on its forecasts, and with `held_knots` [kn] the ship holds that speed instead of choosing
-by cost. A ship of a liner class keeps the [`liner_schedules`](@ref) where it chooses its
-speed. Wings and rotors are fixed or retractable, whichever costs less. The router
-prices time at the hold's cargo before the fuel store. Returns `nothing` if any passage
-is infeasible or the fuel store leaves no cargo.
+[`departure_outcome`](@ref). With a [`ForecastArchive`](@ref) `forecast` the router
+re-plans daily on its forecasts, and with `held_knots` [kn] the ship holds that speed
+instead of choosing by cost. A ship of a liner class keeps the [`liner_schedules`](@ref)
+where it chooses its speed. Wings and rotors are fixed or retractable, whichever costs
+less. The router prices time at the hold's cargo before the fuel store. Returns `nothing`
+if any passage is infeasible or the fuel store leaves no cargo.
 """
 function round_trip(ship::Ship, outbound::Corridor, inbound::Corridor, weather,
-        departures, assumptions::Assumptions; horizon=Inf, forecast=nothing,
-        held_knots=nothing)
-    port_hours = 24assumptions[:port_time_per_call]
+        departures, assumptions::Assumptions; forecast=nothing, held_knots=nothing)
     costs = ship_costs(ship, assumptions)
     hourly = leg_time_costs(first(costs), assumptions)
     router_hourly = isnothing(held_knots) ? hourly : HELD_SPEED_TIME_FACTOR .* hourly
     scheduled = isnothing(held_knots) && keeps_schedule(ship)
     schedules = scheduled ?
                 liner_schedules(ship, outbound, inbound, weather, departures, assumptions,
-        port_hours, horizon, forecast) : Iterators.repeated((Inf, Inf))
+        forecast) : Iterators.repeated((Inf, Inf))
     isnothing(schedules) && return nothing
     states = service_states(ship.rig, assumptions)
     services = [share > 0 ?
                 service_passages(with_rig(ship, rig), outbound, inbound, weather,
-                    departures, assumptions, router_hourly, port_hours, horizon,
-                    forecast, held_knots; schedules) : nothing
+                    departures, assumptions, router_hourly, forecast, held_knots;
+                    schedules) : nothing
                 for (share, rig) in states]
     any(isnothing(service) && share > 0
         for ((share, _), service) in zip(states, services)) && return nothing
@@ -987,18 +1252,17 @@ keeps_schedule(ship::Ship) =
     !isnothing(ship.rig) && !isnothing(ship.design.class) && ship.design.class.liner
 
 """
-    liner_schedules(ship, outbound, inbound, weather, departures, assumptions, port_hours,
-                    horizon, forecast)
+    liner_schedules(ship, outbound, inbound, weather, departures, assumptions, forecast)
 
 Outbound and return times [h] of each of `departures` of `ship` without its rig, routed
 for cost as [`round_trip`](@ref) routes it, or `nothing` if a passage fails.
 """
 function liner_schedules(ship, outbound, inbound, weather, departures, assumptions,
-        port_hours, horizon, forecast)
+        forecast)
     bare = with_rig(ship, nothing)
     hourly = leg_time_costs(ShipCosts(bare, assumptions), assumptions)
     passages = service_passages(bare, outbound, inbound, weather, departures, assumptions,
-        hourly, port_hours, horizon, forecast, nothing)
+        hourly, forecast, nothing)
     isnothing(passages) && return nothing
     return [(passage.out_hours, passage.back_hours) for passage in passages]
 end

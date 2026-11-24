@@ -47,7 +47,7 @@ function aspect_data()
 end
 
 "force limits of the kite in the force rating study [kN/m^2]"
-study_force_ratings = (0.2, 0.3, 0.5, 0.7, 1.0)
+study_force_ratings = (0.3, 0.5, 0.7, 0.9, 1.3)
 
 "kite areas of the force rating study [m^2]"
 study_kite_areas = [1600.0 * sqrt(2.0)^k for k in 0:6]
@@ -174,5 +174,5 @@ function kite_design(names::Symbol...; fidelity, resume=nothing)
     unknown = setdiff(names, first.(all_steps))
     isempty(unknown) || throw(ArgumentError("no kite design step $(join(unknown, ", "))"))
     steps = isempty(names) ? all_steps : filter(step -> first(step) in names, all_steps)
-    run_steps(steps, first.(kite_design_figure_steps); fidelity, resume)
+    check_drawn(run_steps(steps, first.(kite_design_figure_steps); fidelity, resume))
 end

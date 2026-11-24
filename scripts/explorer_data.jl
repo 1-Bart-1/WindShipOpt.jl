@@ -1,65 +1,25 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Data step of the companion explorer in site/: the designs of the class study with the
-# cost model recorded over the inputs a reader changes, for the browser to evaluate at
-# other values on the same routes. Included by paper.jl after paper_data.jl; run it in
-# the run of the class study, `paper(:classes, :explorer; fidelity)`, to reuse its trips.
+# Site step of the companion explorer in site/: the designs of the class study with the
+# cost model recorded over the inputs a reader changes, for the browser to recost on the
+# class study's stored round trips. Included by paper.jl after paper_data.jl.
 
 "inputs of data/assumptions.yaml a reader of the explorer changes"
 explorer_inputs = (:vlsfo_price, :e_ammonia_price, :carbon_price, :canopy_life,
     :canopy_structure_cost, :canopy_cloth_price_per_weight, :tether_price, :tether_lifetime,
     :kite_cycle_crew_cost, :kite_launch_loss_probability, :kite_out_of_service,
-    :wing_out_of_service, :rotor_out_of_service, :wing_loss_rate, :rotor_loss_rate,
-    :market_price_factor, :kite_lifetime, :wing_lifetime, :rotor_lifetime,
-    :discount_rate, :availability)
-
-"ships (class, drive, route) whose cheapest design of each rig is rerun at other inputs"
-explorer_check_ships = (("general cargo coaster", :ammonia, :caribbean),
-    ("MR product tanker", :vlsfo, :bilbao), ("Kamsarmax bulk carrier", :vlsfo, :tubarao),
-    ("Neo-Panamax container ship", :ammonia, :new_york))
-
-"""
-    explorer_changes()
-
-Changes at which the checked designs are rerun, as (label, values by input name, factor
-on the cargo value of the class).
-"""
-function explorer_changes()
-    entry(name) = assumptions.entries[name]
-    return [("canopy life ×2", (canopy_life=2assumptions[:canopy_life],), 1.0),
-        ("fuel −30 %", fuel_prices(0.7), 1.0), ("fuel +30 %", fuel_prices(1.3), 1.0),
-        ("carbon price ×2", (carbon_price=2assumptions[:carbon_price],), 1.0),
-        ("discount rate low", (discount_rate=entry(:discount_rate).low,), 1.0),
-        ("discount rate high", (discount_rate=entry(:discount_rate).high,), 1.0),
-        ("cargo value ×2", (;), 2.0),
-        ("rig prices high", (market_price_factor=entry(:market_price_factor).high,), 1.0),
-        ("out of service high", NamedTuple(name => entry(name).high
-                                          for name in (:kite_out_of_service,
-                                              :wing_out_of_service, :rotor_out_of_service)),
-            1.0),
-        ("kites lost at the high bound", (kite_launch_loss_probability=entry(
-                :kite_launch_loss_probability).high,), 1.0),
-        ("one wing or rotor lost per unit and year", (wing_loss_rate=1.0, rotor_loss_rate=1.0),
-            1.0)]
-end
-
-"""
-    fuel_prices(factor)
-
-VLSFO and e-ammonia prices [USD/GJ] at `factor` times their base, by input name.
-"""
-fuel_prices(factor) = (vlsfo_price=factor * assumptions[:vlsfo_price],
-    e_ammonia_price=factor * assumptions[:e_ammonia_price])
+    :wing_out_of_service, :rotor_out_of_service, :suction_out_of_service, :wing_loss_rate,
+    :rotor_loss_rate, :market_price_factor, :kite_lifetime, :wing_lifetime, :rotor_lifetime,
+    :suction_lifetime, :discount_rate, :availability)
 
 """
     explorer_data()
 
 Every design of classes.csv with its cost per tonne-km and its saving against the ship
 without a rig on its own fuel, on e-ammonia and on VLSFO, recorded over
-[`explorer_inputs`](@ref) and the cargo value of each class; and the cheapest design of
-each rig on [`explorer_check_ships`](@ref) at each of [`explorer_changes`](@ref), costed
-on its base routes and rerouted: explorer.json.
+[`explorer_inputs`](@ref) and the cargo value of each class on its stored round trips,
+and their [`explorer_check`](@ref): explorer.json.
 """
 function explorer_data()
     classes = ship_classes()
@@ -82,7 +42,7 @@ function explorer_data()
             value=reference_canopy_price(assumptions)),
         designs=[explorer_design(case, trip, design, names)
                  for (case, trip, design) in zip(cases, trips, outputs.designs)],
-        nodes=recording.nodes, checks=explorer_checks(cases, trips))
+        nodes=recording.nodes, check=explorer_check(cases, trips))
     open(io -> write_json(io, document), run_file("explorer.json"), "w")
 end
 
@@ -137,73 +97,34 @@ function recorded_cost(case, trip, inputs, cargo_value)
 end
 
 """
-    explorer_checks(cases, trips)
+    explorer_check(cases, trips)
 
-The cheapest design of each rig and the ship without a rig on each of
-[`explorer_check_ships`](@ref), at each of [`explorer_changes`](@ref): its index into
-`cases` from zero, the label, the changed inputs and cargo factor, its cost per tonne-km
-on its base routes and rerouted.
+Each of [`explorer_inputs`](@ref) at its high bound, with the cost per tonne-km [USD] the
+model gives each of `cases` there on its round trip of `trips`.
 """
-function explorer_checks(cases, trips)
-    checks = [(k, change...) for k in checked_designs(cases, trips)
-              for change in explorer_changes()]
-    changed = [checked_case(cases[k], changes, factor)
-               for (k, _, changes, factor) in checks]
-    rerouted = round_trips(changed, sampled_departures())
-    return [(design=k - 1, label, changes, cargo_factor=factor,
-                recosted=changed_cost(case, trips[k]), rerouted=trip.cost_per_tonne_km)
-            for ((k, label, changes, factor), case, trip) in zip(checks, changed, rerouted)
-            if !isnothing(trip)]
-end
-
-"""
-    checked_case(case, changes, cargo_factor)
-
-`case` with the inputs `changes` and its class's cargo value times `cargo_factor`.
-"""
-function checked_case(case, changes, cargo_factor)
-    (; class) = case.design
-    changed_class = with_cargo_value(class, cargo_factor * class.cargo_value)
-    design = ShipDesign(; (name => getfield(case.design, name)
-                           for name in fieldnames(ShipDesign))..., class=changed_class)
-    return trip_case(design; assumptions=changed_assumptions(changes), case.route)
-end
-
-"""
-    checked_designs(cases, trips)
-
-Indices of the cheapest design of each rig, and of the ship without a rig, on each of
-[`explorer_check_ships`](@ref).
-"""
-function checked_designs(cases, trips)
-    chosen = Int[]
-    for (class, drive, route) in explorer_check_ships, rig in all_rigs
-        best = 0
-        for k in eachindex(cases)
-            (cases[k].class, cases[k].drive, cases[k].route, cases[k].rig) ==
-            (class, drive, route, rig) || continue
-            if best == 0 || trips[k].cost_per_tonne_km < trips[best].cost_per_tonne_km
-                best = k
-            end
-        end
-        best > 0 && push!(chosen, best)
-    end
-    return chosen
+function explorer_check(cases, trips)
+    changes = NamedTuple(name => assumptions.entries[name].high for name in explorer_inputs)
+    changed = changed_assumptions(changes)
+    return (; changes, costs=[changed_cost(merge(case, (; assumptions=changed)), trip)
+                              for (case, trip) in zip(cases, trips)])
 end
 
 """
     explorer_input_entries(classes, class_names)
 
 The base, low and high values, the unit and the value known today of each of
-[`explorer_inputs`](@ref) by name, and of the cargo value of each of `class_names`.
+[`explorer_inputs`](@ref) by name, and of the cargo value of each of `class_names`, its
+range that of the input `cargo_value` in proportion.
 """
 function explorer_input_entries(classes, class_names)
     entries = Dict{String, Any}(string(name) => assumptions.entries[name]
                                 for name in explorer_inputs)
+    cargo = assumptions.entries[:cargo_value]
     for name in class_names
         value = classes[name].cargo_value
-        entries[cargo_input(name)] = Assumption(value, value, value, "USD/t",
-            "cargo value of the class", value)
+        entries[cargo_input(name)] = Assumption(value, value * cargo.low / cargo.value,
+            value * cargo.high / cargo.value, "USD/t", "cargo value of the class", value,
+            cargo.estimate)
     end
     return entries
 end

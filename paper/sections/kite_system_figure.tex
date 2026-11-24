@@ -13,14 +13,8 @@
   mast/.pic={\fill[ship!40!black] (3,2.8) rectangle (3.8,#1);},
   mast/.default=10,
   winch/.pic={\draw[fill=ship] (4.6,3.5) circle (0.6);},
-  canopy/.pic={
-    \fill[white] ([shift={(0,3.8)}]145:3.7) arc[start angle=145, end angle=35, radius=3.7] -- (0,0) -- cycle;
-    \fill[kite] ([shift={(0,3.8)}]145:3.7) arc[start angle=145, end angle=35, radius=3.7]
-      -- ([shift={(0,3.8)}]35:3.1) arc[start angle=35, end angle=145, radius=3.1] -- cycle;
-    \draw[kite] (0,0) -- ([shift={(0,3.8)}]145:3.1) (0,0) -- ([shift={(0,3.8)}]35:3.1)
-      (0,0) -- ([shift={(0,3.8)}]108:3.1) (0,0) -- ([shift={(0,3.8)}]72:3.1);
-    \fill (-0.5,-0.5) rectangle (0.5,0.5);},
-  eight/.pic={\draw[kite!45, densely dashed] plot[smooth cycle, tension=1] coordinates
+  % shift: from the control pod to the middle of the kite's canopy, so the eight centres on the wing
+  eight/.pic={\draw[kite!45, densely dashed, shift={(0,3.9)}] plot[smooth cycle, tension=1] coordinates
     {(-5.6,0.4) (-2.8,2.4) (0,0.4) (2.8,-2) (5.6,0) (2.8,2.2) (0,-0.4) (-2.8,-2.4)};},
 ]
 % ---- the parts
@@ -29,16 +23,15 @@
   \pic at (0,0) {bow}; \pic at (-1,0.6) {packed}; \pic at (0,0) {hatch};
   \draw[ship!40!black, densely dashed, fill=white] (3,2.8) rectangle (3.8,11);
   \pic at (0,0) {winch};
-  \draw[kite] (4.6,3.5) -- (20,28);
-  \pic[scale=1.4] at (20,28) {canopy};
+  \draw[kite] (4.6,3.5) -- (16,28) pic[pos=1, sloped, rotate=-90, scale=14] {kite};
   \node[note, anchor=south east, align=right] at (3.2,12) {launch mast,\\ telescopic};
   \draw[leader] (-2.5,1.4) -- (-4.6,3.6);
   \node[note, anchor=south east, align=right] at (-4,3.2) {kite stowed\\ below deck};
   \foreach \lx/\ly/\ty/\txt in {
-    24.4/35.4/36/canopy: a ram-air wing,
-    22.5/33.4/31/bridle: lines spreading the pull,
-    20.8/27.6/26/control pod: steers the kite,
-    12.9/16/16/tether: about 13 spans (10--20),
+    24.2/34.6/36/canopy: a ram-air wing,
+    19.1/31.8/31/bridle: lines spreading the pull,
+    16.6/28.2/26/control pod: steers the kite,
+    10.4/16/16/tether: about 13 spans (10--20),
     5.3/3.8/6/{winch at the mast foot,\\ the tow point}}
     {\draw[leader] (\lx,\ly) -- (27,\ty); \node[note, anchor=west, align=left] at (27,\ty) {\txt};}
 \end{scope}
@@ -54,10 +47,10 @@
   \node[step number, fill=#4] at ([shift={(-8.6,6.5)}]#1,#2) {#3};
   \node[note, anchor=north, align=center, text width=22mm] at (#1,#2-3.2) {#5};}
 \cyclestep{103}{30}{1}{black}{Stowed: no thrust and no wear}{\pic[scale=\stepscale] at (-0.3,0.6) {packed}; \pic[scale=\stepscale] at (0,0) {hatch};}
-\cyclestep{126}{30}{2}{black}{Launch below 17\,m/s, more in a rough sea: crew, loss}{\pic[scale=\stepscale] at (0,0) {openhatch}; \pic[scale=\stepscale] at (0,0) {mast=9.4}; \pic[scale=\stepscale] at (3.4,10) {canopy}; \node[note, anchor=west] at (5.2,7.8) {mast};}
-\cyclestep{149}{30}{3}{black}{Climb: tether bends over the winch; no thrust in 2--3}{\pic[scale=\stepscale] at (0,0) {openhatch}; \pic[scale=\stepscale] at (0,0) {mast=9.4}; \draw[kite] (4.6,3.5) -- (9,13); \pic[scale=\stepscale] at (9,13) {canopy};}
-\cyclestep{149}{-1}{4}{kite}{Flight up to 25\,m/s: thrust, canopy and tether wear per hour}{\pic[scale=\stepscale] at (0,0) {hatch}; \draw[kite] (4.6,3.5) -- (9,13.5); \pic[scale=\stepscale] at (9,20.4) {eight}; \pic[scale=\stepscale] at (9,13.5) {canopy}; \node[note, anchor=west] at (8.8,7) {tether};}
-\cyclestep{126}{-1}{5}{black}{Landing below 20\,m/s: crew, tether bends, loss}{\pic[scale=\stepscale] at (0,0) {openhatch}; \pic[scale=\stepscale] at (0,0) {mast=9.4}; \draw[kite, densely dashed] (3.4,9.4) -- (3.4,13.5); \pic[scale=\stepscale] at (3.4,13.5) {canopy}; \node[note, anchor=west, align=left] at (5.8,12.2) {guide\\ line};}
+\cyclestep{126}{30}{2}{black}{Launch below 17\,m/s, more in a rough sea: crew, loss}{\pic[scale=\stepscale] at (0,0) {openhatch}; \pic[scale=\stepscale] at (0,0) {mast=9.4}; \pic[scale=6.5*\stepscale] at (3.4,10) {kite}; \node[note, anchor=west] at (5.2,7.8) {mast};}
+\cyclestep{149}{30}{3}{black}{Climb: tether bends over the winch; no thrust in 2--3}{\pic[scale=\stepscale] at (0,0) {openhatch}; \pic[scale=\stepscale] at (0,0) {mast=9.4}; \draw[kite] (4.6,3.5) -- (8,14) pic[pos=1, sloped, rotate=-90, scale=6.5*\stepscale] {kite};}
+\cyclestep{149}{-1}{4}{kite}{Flight up to 25\,m/s: thrust, canopy and tether wear per hour}{\pic[scale=\stepscale] at (0,0) {hatch}; \draw[kite] (4.6,3.5) -- (8,14) pic[pos=1, sloped, rotate=-90, scale=\stepscale] {eight} pic[pos=1, sloped, rotate=-90, scale=6.5*\stepscale] {kite}; \node[note, anchor=west] at (7.4,7) {tether};}
+\cyclestep{126}{-1}{5}{black}{Landing below 20\,m/s: crew, tether bends, loss}{\pic[scale=\stepscale] at (0,0) {openhatch}; \pic[scale=\stepscale] at (0,0) {mast=9.4}; \draw[kite, densely dashed] (3.4,9.4) -- (3.4,13.5); \pic[scale=6.5*\stepscale] at (3.4,13.5) {kite}; \node[note, anchor=west, align=left] at (5.8,12.2) {guide\\ line};}
 \cyclestep{103}{-1}{6}{black}{Stowed again; no thrust in 5--6}{\pic[scale=\stepscale] at (0,0) {openhatch}; \pic[scale=\stepscale] at (0,0) {mast=6}; \pic[scale=\stepscale] at (1.5,6) {packed};}
 \draw[flow, guide] (111.2,32) -- (116.8,32);
 \draw[flow, guide] (134.2,32) -- (139.8,32);

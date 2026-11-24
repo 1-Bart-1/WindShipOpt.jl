@@ -13,7 +13,7 @@
   \coordinate (windcentre) at (-10,0);
   \coordinate (effort) at (-5,0);
   \coordinate (lateral) at (49,0);
-  \coordinate (bow) at (75,0);
+  \coordinate (bow) at (\shipbow,0);
 \end{scope}
 \draw[flow, wind] (101,23) -- (95,14);
 \node[label, wind, anchor=south] at (101,24) {apparent wind};
@@ -60,14 +60,15 @@
 \node[panel] at (119,34) {(b) From ahead};
 \begin{scope}[shift={(146,0)}]
   \fill[water!25] (-16,-10.5) rectangle (16,0);
-  \begin{scope}[rotate=8, scale=0.7, transform shape]
-    \pic {ship ahead};
-    \pic at (0,9.8) {rotor};
-    \coordinate (effort) at (0,26.8);
-    \coordinate (tow) at (0,9.8);
+  \pgfmathsetmacro{\heel}{8}
+  \begin{scope}[rotate=\heel, scale=0.7, transform shape]
+    \pic {ship ahead=\heel};
+    \pic at (0,\shipfoot) {rotor};
+    \coordinate (effort) at (0,{\shipfoot+17});
+    \coordinate (tow) at (0,\shipfoot);
   \end{scope}
   \draw[guide, dashed] (0,25) -- (0,33);
-  \draw[guide] (0,31.5) arc[start angle=90, end angle=98, radius=31.5];
+  \draw[guide] (0,31.5) arc[start angle=90, end angle=90+\heel, radius=31.5];
   \node[label, anchor=west] at (0.6,31.5) {$\phi$};
   \draw[guide, densely dashed] (tow) -- ++(-12,6) node[label, text=black, anchor=east, pos=1] {to kite};
   \draw[force] (effort) -- ++(-10,0) node[label, anchor=east, pos=1, xshift=-1mm] {deck rig $F_y$};

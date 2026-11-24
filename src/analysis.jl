@@ -55,8 +55,7 @@ function LegTrace(table::PerformanceTable, leg::Leg, weather, departure)
         lat, lon, time = leg.path[i]
         next_lat, next_lon, _, speed = leg.path[i + 1]
         course = corridor.edge_course[i, 1, STRAIGHT_ON]
-        start = EdgeSample(table, wind(weather, lat, lon, departure + time),
-            waves(weather, lat, lon, departure + time), course)
+        start = EdgeSample(table, weather, lat, lon, departure + time, course, 0.0)
         sail_edge!(points, start, route_table, weather, corridor, i, 1, STRAIGHT_ON,
             departure + time, searchsortedfirst(route_table.speeds, speed), leg.aloft[i])
         flights = kite_flights(route_table, points, leg.aloft[i], leg.aloft[i + 1], prices)
@@ -90,21 +89,20 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
         point, hours, flying, launched, landed, forced)
     (; ship) = table.table
     east, north = wind(weather, lat, lon, point.time)
-    wind_speed = hypot(east, north)
-    angle = true_wind_angle(east, north, wind_speed, course)
+    sample = EdgeSample(table.table, weather, lat, lon, point.time, course, 0.0)
+    wind_speed = sample.wind_speed
+    angle = true_wind_angle(east, north, hypot(east, north), course)
     speed = table.speeds[max(point.speed_index, 1)]
     standing = standing_rig(ship.rig)
     flown = flying || standing === ship.rig
-    sample = EdgeSample(table.table, (east, north), waves(weather, lat, lon, point.time),
-        course)
-    slice = SpeedSlice(table.table, KnotWeight(table.table.speeds, speed))
+    slice = SpeedSlice(table.table, speed)
     added = trim_resistance(table.table, sea_resistance(slice, sample.condition))
-    _, force, trim = trimmed_force(ship, flown ? ship.rig : standing, speed, wind_speed,
+    _, force, trim = best_trim(ship, flown ? ship.rig : standing, speed, wind_speed,
         angle, added)
     windage = wind_force(ship.windage, ship.env, wind_speed, angle, speed)
     aloft = kite_aloft(table.table, speed, point.headwind, point.crosswind)
     available = standing === ship.rig || aloft ?
-                last(best_trim(ship, ship.rig, speed, wind_speed, angle, added)).thrust :
+                best_trim(ship, ship.rig, speed, wind_speed, angle, added).force.thrust :
                 0.0
     apparent, apparent_angle = apparent_wind(
         wind_at_height(ship.env, wind_speed, rig_height(ship.rig)), angle, speed)
@@ -145,13 +143,13 @@ function share_at_cost(shares, costs, cost)
 end
 
 """
-    price_at_cost(prices, costs, cost)
+    input_at_cost(inputs, costs, cost)
 
-Price at which the rising `costs` over ascending `prices` reach `cost`, linearly between the
-points; `NaN` if within none of `prices`.
+Input, such as a price or a share out of service, at which the rising `costs` over ascending
+`inputs` reach `cost`, linearly between the points; `NaN` if they start at or above it.
 """
-price_at_cost(prices, costs, cost) =
-    costs[1] < cost ? share_at_cost(prices, costs, cost) : NaN
+input_at_cost(inputs, costs, cost) =
+    costs[1] < cost ? share_at_cost(inputs, costs, cost) : NaN
 
 """
     ranked_rivals(costs)

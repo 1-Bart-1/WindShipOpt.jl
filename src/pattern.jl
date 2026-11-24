@@ -21,8 +21,16 @@ end
 
 Polar of the kite with projected `aspect_ratio` from `data/kite_polars/`.
 """
-function KitePolar(aspect_ratio::Real)
-    name = "kite_ar$(replace(string(float(aspect_ratio)), r"\.0$" => "")).csv"
+KitePolar(aspect_ratio::Real) =
+    polar_file("kite_ar$(replace(string(float(aspect_ratio)), r"\.0$" => "")).csv")
+
+"""
+    polar_file(name)
+
+[`KitePolar`](@ref) in the file `name` of `data/kite_polars/`, with angle of attack [deg],
+lift and drag coefficient in its first three columns.
+"""
+function polar_file(name)
     path = joinpath(pkgdir(@__MODULE__), "data", "kite_polars", name)
     rows = [parse.(Float64, split(line, ',')) for line in readlines(path)[2:end]]
     return KitePolar(deg2rad.(getindex.(rows, 1)), getindex.(rows, 2), getindex.(rows, 3))
@@ -805,7 +813,8 @@ Best pattern force for each apparent wind speed, course and side weight, warm-st
 each speed from the next stronger one. A kite seen before reuses its table: from this
 session, or from the disk cache in output/pattern_tables/, keyed by every field of the
 kite model and the source of this file, so that a change to either computes the tables
-afresh. Threads asking for the same table together wait for one computation of it.
+afresh. Threads and processes asking for the same table together wait for one computation
+of it.
 """
 function pattern_table(model::KiteModel, max_force, assumptions::Assumptions, wind_speeds,
         courses, side_weights)
@@ -825,17 +834,26 @@ end
                        path)
 
 The [`pattern_table`](@ref) read from the disk cache file `path`, or computed and stored
-there.
+there by the one process holding the lock file beside it while the others wait for it. A
+lock not refreshed for [`PATTERN_LOCK_AGE`](@ref), as one its process left on dying, is
+taken over.
 """
 function load_pattern_table(model::KiteModel, max_force, assumptions::Assumptions,
         wind_speeds, courses, side_weights, path)
-    isfile(path) && return read_pattern_table(path,
+    mkpath(dirname(path))
+    while !isfile(path)
+        locked = trymkpidlock("$path.pid"; stale_age=PATTERN_LOCK_AGE) do
+            isfile(path) || write_pattern_table(path, compute_pattern_table(model,
+                max_force, assumptions, wind_speeds, courses, side_weights))
+        end
+        locked === false && sleep(2.0)
+    end
+    return read_pattern_table(path,
         (length(wind_speeds), length(courses), length(side_weights)))
-    forces = compute_pattern_table(model, max_force, assumptions, wind_speeds, courses,
-        side_weights)
-    write_pattern_table(path, forces)
-    return forces
 end
+
+"seconds without a refresh after which a pattern table's lock file is stale"
+const PATTERN_LOCK_AGE = 60.0
 
 """
     solved_patterns(model, max_force, assumptions, wind_speeds, courses, side_weights)
@@ -898,7 +916,6 @@ Store `forces` at `path` as five Float64 per pattern: the force, the peak tensio
 lowest elevation.
 """
 function write_pattern_table(path, forces)
-    mkpath(dirname(path))
     values = [field for force in forces
               for field in (force.force..., force.peak_tension, force.lowest_elevation)]
     temporary = "$path.$(getpid()).tmp"

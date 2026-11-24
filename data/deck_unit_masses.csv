@@ -1,0 +1,12 @@
+name,unit,height,width,mass,includes,source,where
+"Norsepower 20 x 4 m",rotor,20,4,42,"with foundation",norsepower2025,"p. 3: 29 t and 13 t of foundation"
+"Norsepower 24 x 4 m",rotor,24,4,46,"with foundation",norsepower2025,"p. 3: 33 t and 13 t of foundation"
+"Norsepower 28 x 4 m",rotor,28,4,51,"with foundation",norsepower2025,"p. 3: 36 t and 15 t of foundation"
+"Norsepower 30 x 5 m",rotor,30,5,67,"with foundation",norsepower2025,"p. 3: 50 t and 17 t of foundation"
+"Norsepower 35 x 5 m",rotor,35,5,80,"with foundation",norsepower2025,"p. 3: 56 t and 24 t of foundation"
+"OceanWings 363 m2",wing,33,11,45,"unit",oceanwings2026web,"33 x 11 m, 363 m2 of wing, 45 t unit weight"
+"BAR WindWing",wing,37.5,20,200,"each wing",riviera2024windwing,"each wing weighs roughly 200 t; 750 m2"
+"Oceanbird Wing 560",wing,40,14,200,"with foundation",oceanbird2026wing560,"40 x 14 m; wing and foundation about 200 t"
+"eConowind VentiFoil",suction,10.3,1.55,4.8,"in its 40-foot container",conoship2022econowind,"9.6 t for two foils of 16 m2 with the container"
+"VentoFoil 3-series",suction,18,2.8,7,"ex ship works",econowind2026vf3,"18 m upright, 2.8 m chord, 7 t"
+"VentoFoil 5-series",suction,35,5,58,"ex ship works",econowind2026vf5,"35 m upright, 5 m chord, 58 t"

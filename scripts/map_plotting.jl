@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Map layers shared by the route figures: land from the land mask, wind arrows, the nodes
-# of routed tracks and great circles.
+# Map layers shared by the route figures: land from the land mask, wind arrows and their
+# key, the nodes of routed tracks and great circles.
 using WindShipOpt: is_land
 
 """
@@ -14,22 +14,40 @@ Grey land of `mask` at the grid points `lons` and `lats` [deg] on a longitude-la
 function draw_land!(axis, mask; lons=-75:0.25:10, lats=5:0.25:56)
     land = [is_land(mask, lat, lon) for lon in lons, lat in lats]
     heatmap!(axis, lons, lats, land; colormap=[:transparent, (:grey, 0.55)],
-        rasterize=4)
+        colorrange=(0, 1), rasterize=4)
 end
 
-"style of the 10 m wind arrows of [`draw_wind!`](@ref) and of their key"
+"style of the arrows of [`draw_wind!`](@ref) and of their [`wind_key!`](@ref)"
 wind_arrow_style = (; color=(:black, 0.35), shaftwidth=0.6, tiplength=2.8, tipwidth=2.6)
 
 """
     draw_wind!(axis, weather, time; scale, lons=-74:4:8, lats=8:4:54)
 
-10 m wind arrows of `weather` at `time` [h] at the grid points `lons` and `lats` [deg].
+Arrows of the wind 10 m above the sea of `weather` at `time` [h] at the grid points `lons`
+and `lats` [deg].
 """
 function draw_wind!(axis, weather, time; scale, lons=-74:4:8, lats=8:4:54)
     points = [Point2f(lon, lat) for lon in lons for lat in lats]
     vectors = [Vec2f(wind(weather, point[2], point[1], time)...) for point in points]
     arrows2d!(axis, points, vectors .* Float32(scale); wind_arrow_style...,
         minshaftlength=0)
+end
+
+"""
+    wind_key!(axis, corner, speed, scale, height; style=wind_arrow_style)
+
+A white box of `height` [deg] with its lower left at `corner` [deg] in the map `axis`,
+holding a wind arrow of `speed` [m/s] in `style` at `scale` [deg per m/s], labelled with
+that speed.
+"""
+function wind_key!(axis, corner, speed, scale, height; style=wind_arrow_style)
+    poly!(axis, Rect2f(corner, Vec2f(speed * scale + 2.8height, height)); color=:white,
+        strokecolor=:gray55, strokewidth=rule_width)
+    start = corner .+ Point2f(height / 3, height / 2)
+    arrows2d!(axis, [start], [Vec2f(speed * scale, 0)]; style...)
+    text!(axis, start .+ Point2f(speed * scale, 0); text="$speed m/s",
+        align=(:left, :center), offset=clear_offset((:left, :center), pt(2.5)),
+        fontsize=note_size)
 end
 
 """

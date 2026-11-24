@@ -38,6 +38,16 @@ commit = "e3462e72057e789f22434058cae7ee090604e4b3"
 fidelity = "draft"
 run = "2026-11-14T1809"
 
+[lei_kite]
+commit = "ca35a945cb793198905ef1614f21a808f1852906"
+fidelity = "draft"
+run = "2026-11-23T1709"
+
+[measured_savings]
+commit = "bd866f972b02aa7b07e9897dd372ccf840ebe703"
+fidelity = "final"
+run = "2026-11-23T1311"
+
 [model_parts]
 commit = "772a5eeaa45adc58012234c8d29921203e2bea95"
 fidelity = "draft"
@@ -82,3 +92,8 @@ run = "2026-11-19T0412"
 commit = "c0c5e04d54b1cefbf627fdaa066b98b1881d0790"
 fidelity = "draft"
 run = "2026-11-06T2346"
+
+[wind_height]
+commit = "e08e0232fc82f2b6f84195f478727a41bafeeff6"
+fidelity = "draft"
+run = "2026-11-24T1133"

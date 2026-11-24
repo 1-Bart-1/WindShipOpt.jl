@@ -1,80 +1,98 @@
 // SPDX-FileCopyrightText: 2026 Bart van de Lint
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { ExplorerData } from "./explorer";
+import type { ExplorerData, Input } from "./explorer";
 
-/** How the explorer shows one input of the model: label, scale and slider range. */
+/** How the explorer shows one input of the model: label, unit, scale and slider step. */
 export type InputControl = {
   name: string;
   label: string;
   unit: string;
   /** shown value per model value */
   scale: number;
-  min: number;
-  max: number;
   step: number;
+  /** whether the slider keeps to a moderate change, as for a price that shifts the ship's speed */
+  moderate?: boolean;
+  /** upper end [model units] for an input whose range in the paper is its value alone */
+  max?: number;
 };
 
-const control = (
-  name: string,
-  label: string,
-  unit: string,
-  min: number,
-  max: number,
-  step: number,
-  scale = 1,
-): InputControl => ({ name, label, unit, scale, min, max, step });
+const control = (name: string, label: string, unit: string, step: number, scale = 1,
+  options: { moderate?: boolean; max?: number } = {}): InputControl =>
+  ({ name, label, unit, scale, step, ...options });
 
-const percent = (name: string, label: string, max: number, step: number) =>
-  control(name, label, "%", 0, max, step, 100);
+const percent = (name: string, label: string, step: number) => control(name, label, "%", step, 100);
+
+/** Largest change of an input that shifts the ship's speed, as a share of its paper value. */
+export const moderateChange = 0.3;
+
+/**
+ * Slider range [model units] of `input`: its range in the paper with its value known today,
+ * kept within the moderate change where the control asks for it.
+ */
+export function inputRange(input: Input, control: InputControl): [number, number] {
+  let low = Math.min(input.low, input.today, input.value);
+  let high = Math.max(input.high, input.today, input.value, control.max ?? -Infinity);
+  if (control.moderate) {
+    low = Math.max(low, (1 - moderateChange) * input.value);
+    high = Math.min(high, (1 + moderateChange) * input.value);
+  }
+  return [low, high];
+}
+
+/** The controls of `controls` whose slider spans more than one value; an input the paper gives one value is not offered. */
+export const offeredControls = (data: ExplorerData, controls: InputControl[]): InputControl[] =>
+  controls.filter((control) => {
+    const [low, high] = inputRange(data.inputs[control.name], control);
+    return high > low;
+  });
 
 /** The inputs a reader changes, in groups. */
 export const inputGroups: { title: string; controls: InputControl[] }[] = [
   {
     title: "Fuel and carbon",
     controls: [
-      control("vlsfo_price", "VLSFO price", "USD/GJ", 5, 40, 0.5),
-      control("e_ammonia_price", "e-ammonia price", "USD/GJ", 15, 150, 1),
-      control("carbon_price", "Carbon price", "USD/t CO₂", 0, 300, 5),
+      control("vlsfo_price", "VLSFO price", "USD/GJ", 0.5, 1, { moderate: true }),
+      control("e_ammonia_price", "e-ammonia price", "USD/GJ", 1, 1, { moderate: true }),
+      control("carbon_price", "Carbon price", "USD/t CO₂", 5, 1, { moderate: true }),
     ],
   },
   {
     title: "Kite goals",
     controls: [
-      control("canopy_life", "Canopy life", "flight h", 250, 16000, 250),
-      control("canopy_structure_cost", "Canopy fabric cost per flat m², as surveyed", "EUR/m²", 20, 150, 1),
-      control("canopy_cloth_price_per_weight", "Cloth price per weight", "USD/g", 0.005, 0.06, 0.001),
-      control("tether_price", "Tether price", "USD/kg", 20, 300, 5),
-      control("tether_lifetime", "Tether life", "flight h", 1000, 40000, 500),
-      control("kite_cycle_crew_cost", "Crew cost per launch", "USD", 0, 500, 10),
-      percent("kite_launch_loss_probability", "Kite lost per launch", 1, 0.001),
-      control("kite_lifetime", "Kite hardware life", "years", 5, 30, 1),
+      control("canopy_life", "Canopy life", "flight h", 250),
+      control("canopy_structure_cost", "Canopy fabric and bridle cost per flat m², as surveyed", "EUR/m²", 1),
+      control("canopy_cloth_price_per_weight", "Cloth price per weight", "USD/g", 0.001),
+      control("tether_price", "Tether price", "USD/kg", 5),
+      control("tether_lifetime", "Tether life", "flight h", 500),
+      control("kite_cycle_crew_cost", "Crew cost per launch", "USD", 10),
+      percent("kite_launch_loss_probability", "Kite lost per launch", 0.001),
+      control("kite_lifetime", "Kite hardware life", "years", 1),
     ],
   },
   {
     title: "Rig service and price",
     controls: [
-      percent("kite_out_of_service", "Kite out of service", 50, 0.5),
-      percent("wing_out_of_service", "Wing out of service", 50, 0.5),
-      percent("rotor_out_of_service", "Rotor out of service", 50, 0.5),
-      control("wing_loss_rate", "Wings lost", "per wing·year", 0, 2, 0.02),
-      control("rotor_loss_rate", "Rotors lost", "per rotor·year", 0, 2, 0.02),
-      control("market_price_factor", "Market price over cost", "×", 1, 3.5, 0.05),
-      control("wing_lifetime", "Wing life", "years", 10, 40, 1),
-      control("rotor_lifetime", "Rotor life", "years", 10, 40, 1),
+      percent("kite_out_of_service", "Kite out of service", 0.5),
+      percent("wing_out_of_service", "Wing out of service", 0.5),
+      percent("rotor_out_of_service", "Rotor out of service", 0.5),
+      percent("suction_out_of_service", "Suction sail out of service", 0.5),
+      control("wing_loss_rate", "Wings or suction sails lost", "per unit·year", 0.02, 1, { max: 1 }),
+      control("rotor_loss_rate", "Rotors lost", "per rotor·year", 0.02, 1, { max: 1 }),
+      control("market_price_factor", "Market price over cost", "×", 0.05),
+      control("wing_lifetime", "Wing life", "years", 1),
+      control("rotor_lifetime", "Rotor life", "years", 1),
+      control("suction_lifetime", "Suction sail life", "years", 1),
     ],
   },
   {
     title: "Money and time",
     controls: [
-      percent("discount_rate", "Discount rate", 20, 0.5),
-      percent("availability", "Share of the year in trade", 100, 1),
+      percent("discount_rate", "Discount rate", 0.5),
+      percent("availability", "Share of the year in trade", 1),
     ],
   },
 ];
-
-/** Inputs whose change the explorer shows without any routing error. */
-export const exactInputs = ["wing_loss_rate", "rotor_loss_rate"];
 
 /** Whether `value` differs from the paper's `base` by more than rounding. */
 export const differs = (value: number, base: number) =>

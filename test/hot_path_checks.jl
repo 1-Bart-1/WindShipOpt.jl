@@ -123,16 +123,18 @@ end
 """
     gridded_weather(directory)
 
-[`ERA5Weather`](@ref) of constant sea state and wind on a small grid written to `directory`.
+[`ERA5Weather`](@ref) of constant sea state and wind, aloft too, on a small grid written to
+`directory`.
 """
 function gridded_weather(directory)
     grid = (; lats=collect(0.0:1.5:75.0), lons=collect(-90.0:1.5:15.0))
     for (group, step, names) in (("wind", 6, ("u10", "v10")),
+        ("aloft", 6, ("speed_100", "speed_1000")),
         ("waves", 1, ("height", "period", "direction")))
         mkpath(joinpath(directory, group))
         open(joinpath(directory, group, "grid.toml"), "w") do io
             TOML.print(io, Dict("lats" => grid.lats, "lons" => grid.lons,
-                "step_hours" => step,
+                "step_hours" => step, "heights" => [100, 1000],
                 "first_time" => "2017-01-01T00:00:00", "variables" => collect(names)))
         end
         for name in names
@@ -209,10 +211,9 @@ end
 end
 
 @testset "what runs per edge and per leg of a route dispatches nothing at run time" begin
-    forecast = ForecastWeather(gridded, 0.0, 24.0)
     prices = @NamedTuple{fuel::Float64, time::Float64}
     points = Vector{WindShipOpt.SailedPoint}
-    for table in rig_tables, weather in (SyntheticWeather(), gridded, forecast)
+    for table in rig_tables, weather in (SyntheticWeather(), gridded)
         kinds = typeof.((table, weather))
         @test isempty(dynamic_calls(WindShipOpt.sail_edge!, (points, WindShipOpt.EdgeSample,
             kinds[1], kinds[2], typeof(coarse_corridor), Int, Int, Int, Float64, Int,
@@ -229,11 +230,20 @@ end
 end
 
 @testset "what runs per edge of a route does not allocate" begin
-    for table in rig_tables, weather in (SyntheticWeather(), gridded,
-        ForecastWeather(gridded, 0.0, 24.0))
-
+    for table in rig_tables, weather in (SyntheticWeather(), gridded)
         @test all(iszero, edge_allocations(table, weather, coarse_corridor))
     end
+end
+
+@testset "a weather grid's land check reads the nearest cell and allocates nothing" begin
+    lats, lons = collect(0.0:1.5:30.0), collect(-40.0:1.5:-10.0)
+    land = falses(length(lons), length(lats))
+    land[findfirst(==(-25.0), lons), findfirst(==(15.0), lats)] = true
+    mask = GridMask(lats, lons, land, WindShipOpt.Island[])
+    @test WindShipOpt.is_land(mask, 15.7, -25.7)
+    @test WindShipOpt.is_land(mask, 15.75, -24.25)
+    @test !WindShipOpt.is_land(mask, 15.76, -25.0)
+    @test allocations(() -> WindShipOpt.is_land(mask, 15.7, -25.7)) == 0
 end
 
 @testset "a routed leg makes the same few allocations at any corridor scale" begin

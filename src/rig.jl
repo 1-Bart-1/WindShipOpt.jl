@@ -91,9 +91,12 @@ array_factor(count, spacing, amplitude, decay) =
 """
     WingRig
 
-Set of identical rigid wing sails on deck.
+Set of identical rigid wing sails on deck: plain wing sails, or suction sails whose fan
+holds the flow attached to a higher lift.
 """
 Base.@kwdef struct WingRig
+    "`:wing` for wing sails, `:suction` for suction sails, naming their assumptions"
+    unit::Symbol = :wing
     "number of wings"
     count::Int
     "columns the wings stand in, one on the centreline or two abreast [-]"
@@ -112,66 +115,162 @@ Base.@kwdef struct WingRig
     effective_aspect_ratio::Float64
     max_lift_coefficient::Float64
     profile_drag_coefficient::Float64
-    separation_drag_factor::Float64
-    span_efficiency::Float64
+    "drag coefficient per lift coefficient squared, above the profile drag [-]"
+    lift_drag_factor::Float64
     "normal-force coefficient of the stalled wing across the flow [-]"
     stalled_drag_coefficient::Float64
     interference_factor::Float64
+    "full fan power per m^2 of wing, drawn from the fan's rated wind up [W/m^2]"
+    fan_power_per_area::Float64 = 0.0
+    "apparent wind from which the fans draw their full power [m/s]"
+    fan_rated_wind::Float64 = Inf
+    "highest apparent wind the wings work in, above which they lie down [m/s]"
+    max_wind::Float64 = Inf
+    "height of the supports the wings stand on above the deck, zero on deck [m]"
+    pedestal_height::Float64 = 0.0
+    "wings watched by a camera system for the view they hide from the bridge [-]"
+    camera_units::Int = 0
 end
 
 """
-    deck_layout(total_area, unit, hull, assumptions, forward_reserve)
+    deck_layout(total_area, unit, hull, assumptions, forward_reserve, columns, in_column)
 
-[`column_layout`](@ref) of `unit`s of `total_area` [m^2] on `hull` in one row on the
-centreline or in two columns abreast, whichever keeps the larger interference factor, or
-`nothing` if they fit neither way.
+Layout of `columns` times `in_column` identical `unit`s, `:wing`, `:suction` or `:rotor`, of
+`total_area` [m^2] on `hull`: [`column_layout`](@ref) where no containers stand on its deck,
+there `in_column` pairs above the stacks, [`raised_layout`](@ref).
 """
 function deck_layout(total_area, unit, hull::Hull, assumptions::Assumptions,
-        forward_reserve)
-    layouts = filter(!isnothing,
-        [column_layout(columns, total_area, unit, hull, assumptions, forward_reserve)
-         for columns in 1:2])
-    isempty(layouts) && return nothing
-    return argmax(layout -> layout.interference_factor, layouts)
+        forward_reserve, columns, in_column)
+    hull.deck_cargo_height > 0 || return column_layout(columns, in_column, total_area, unit,
+        hull, assumptions, forward_reserve)
+    return raised_layout(in_column, total_area, unit, hull, assumptions, forward_reserve)
 end
 
 """
-    column_layout(columns, total_area, unit, hull, assumptions, forward_reserve)
+    unit_size(total_area, count, unit, assumptions)
 
-Layout of identical `unit`s, `:wing` or `:rotor`, of `total_area` [m^2] of height times
-width on `hull` in `columns` columns, one on the centreline or two abreast with half the
-closest spacing clear of the deck edges: as few as the tallest unit built allows, each column spread over the deck length for rigs less `forward_reserve` [m] at its
-forward end. Returns the count, unit height [m], foot height above the waterline [m],
-centre of effort forward of midship [m] (units abreast of each other alone stand at the
-hull's lateral centre), column offset from the centreline [m] and interference factor:
-[`array_factor`](@ref) in line times that of a pair abreast, which loses the unit's
-abreast loss times as much. `nothing` where units stand closer than the closest spacing.
+Height [m] and width [m] of each of `count` identical `unit`s of `total_area` [m^2] in all,
+at the unit's aspect ratio.
 """
-function column_layout(columns, total_area, unit, hull::Hull, assumptions::Assumptions,
-        forward_reserve)
-    setting(name) = assumptions[Symbol(unit, name)]
-    aspect_ratio = setting(:_aspect_ratio)
-    foot_height =
-        assumptions[:deck_mount_height] * hull.length / assumptions[:reference_length]
-    max_height = setting(:_max_height)
-    deck_length = assumptions[:deck_length_fraction] * hull.length - forward_reserve
-    in_column = ceil(Int, total_area / (max_height^2 / aspect_ratio) / columns)
-    count = columns * in_column
+function unit_size(total_area, count, unit, assumptions::Assumptions)
+    aspect_ratio = assumptions[Symbol(unit, :_aspect_ratio)]
     height = sqrt(aspect_ratio * total_area / count)
-    width = height / aspect_ratio
-    clearance = setting(:_spacing) * width
+    return height, height / aspect_ratio
+end
+
+"deck mount height [m] above the waterline of a deck rig on `hull`"
+foot_height(hull::Hull, assumptions::Assumptions) =
+    assumptions[:deck_mount_height] * hull.length / assumptions[:reference_length]
+
+"""
+    raised_layout(in_column, total_area, unit, hull, assumptions, forward_reserve)
+
+`in_column` pairs of `unit`s of `total_area` [m^2] in all on `hull`, abreast and spread
+along the deck as in [`column_layout`](@ref), each on a column whose top stands
+`pedestal_clearance` above the stacks, in their free wind. A camera system watches the view
+each unit that [`camera_units`](@ref) counts hides.
+"""
+function raised_layout(in_column, total_area, unit, hull::Hull, assumptions::Assumptions,
+        forward_reserve)
+    layout = column_layout(2, in_column, total_area, unit, hull, assumptions,
+        forward_reserve)
+    isnothing(layout) && return nothing
+    pedestal_height = hull.deck_cargo_height + assumptions[:pedestal_clearance]
+    width = last(unit_size(total_area, layout.count, unit, assumptions))
+    return (; layout..., foot_height=layout.foot_height + pedestal_height, pedestal_height,
+        camera_units=camera_units(unit_positions(layout, hull, assumptions), width, hull,
+            assumptions))
+end
+
+"""
+    camera_units(positions, width, hull, assumptions)
+
+Number of units of `width` [m] at `positions`, [m] forward of midship and off the
+centreline, that stand forward of the bridge of `hull` and hide more than
+`blind_sector_limit` [deg] of its view, each watched by a camera system.
+"""
+function camera_units(positions, width, hull::Hull, assumptions::Assumptions)
+    bridge = hull.length / 2 - hull.bridge_distance
+    limit = deg2rad(assumptions[:blind_sector_limit])
+    return count(positions) do (along, across)
+        along > bridge && 2atan(width / 2, hypot(along - bridge, across)) > limit
+    end
+end
+
+"unit whose spacing and interference `unit` takes: suction sails those of wing sails"
+arrangement_unit(unit) = unit == :suction ? :wing : unit
+
+"deck length [m] for rigs on `hull`, less `forward_reserve` [m] at its forward end"
+rig_deck_length(hull::Hull, assumptions::Assumptions, forward_reserve) =
+    assumptions[:deck_length_fraction] * hull.length - forward_reserve
+
+"""
+    most_in_column(columns, total_area, unit, hull, assumptions, forward_reserve)
+
+Most identical `unit`s of `total_area` [m^2] in all, in each of `columns` columns, that
+stand the closest spacing apart along the [`rig_deck_length`](@ref): `in_column` units of
+width w = sqrt(A / (AR columns in_column)) fit while in_column spacing w <= deck length.
+"""
+function most_in_column(columns, total_area, unit, hull::Hull, assumptions::Assumptions,
+        forward_reserve)
+    spacing = assumptions[Symbol(arrangement_unit(unit), :_spacing)]
+    deck_length = rig_deck_length(hull, assumptions, forward_reserve)
+    deck_length > 0 || return 0
+    return floor(Int, deck_length^2 * assumptions[Symbol(unit, :_aspect_ratio)] * columns /
+                      (spacing^2 * total_area))
+end
+
+"""
+    layout_counts(total_area, unit, hull, assumptions, forward_reserve)
+
+Columns and units per column of every layout [`deck_layout`](@ref) may give `unit`s of
+`total_area` [m^2] on `hull`, fewest units first for each count of columns: up to
+[`most_in_column`](@ref) in one row or two columns, only two where containers stand on its
+deck.
+"""
+function layout_counts(total_area, unit, hull::Hull, assumptions::Assumptions,
+        forward_reserve)
+    on_deck(columns) = [(columns, in_column)
+                        for in_column in 1:most_in_column(columns, total_area, unit, hull,
+                            assumptions, forward_reserve)]
+    hull.deck_cargo_height > 0 && return on_deck(2)
+    return [on_deck(1); on_deck(2)]
+end
+
+"""
+    column_layout(columns, in_column, total_area, unit, hull, assumptions, forward_reserve)
+
+Layout of `columns` times `in_column` identical `unit`s of `total_area` [m^2] of height
+times width on `hull`, in one row on the centreline or two columns abreast with half the
+closest spacing clear of the deck edges, each column spread over the deck length for rigs
+less `forward_reserve` [m] at its forward end. Returns the count, unit height [m], foot
+height above the waterline [m], centre of effort forward of midship [m] (units abreast of
+each other alone stand at the hull's lateral centre), column offset from the centreline
+[m], interference factor, [`array_factor`](@ref) in line times that of a pair abreast,
+which loses the unit's abreast loss times as much. `nothing` where units
+stand closer than the closest spacing. Suction sails stand and interfere as wing sails do.
+"""
+function column_layout(columns, in_column, total_area, unit, hull::Hull,
+        assumptions::Assumptions, forward_reserve)
+    in_column <= most_in_column(columns, total_area, unit, hull, assumptions,
+        forward_reserve) || return nothing
+    arrangement(name) = assumptions[Symbol(arrangement_unit(unit), name)]
+    deck_length = rig_deck_length(hull, assumptions, forward_reserve)
+    count = columns * in_column
+    height, width = unit_size(total_area, count, unit, assumptions)
+    clearance = arrangement(:_spacing) * width
     column_offset = columns == 1 ? 0.0 : (hull.beam - clearance) / 2
-    in_column * clearance <= deck_length || return nothing
     columns == 1 || 2column_offset >= clearance || return nothing
-    amplitude = setting(:_interference_amplitude)
-    decay = setting(:_interference_decay)
+    amplitude = arrangement(:_interference_amplitude)
+    decay = arrangement(:_interference_decay)
     interference_factor =
         array_factor(in_column, deck_length / in_column / width, amplitude, decay) *
-        array_factor(columns, 2column_offset / width, setting(:_abreast_loss) * amplitude,
-            decay)
+        array_factor(columns, 2column_offset / width,
+            arrangement(:_abreast_loss) * amplitude, decay)
     centre_position = in_column == 1 ? lateral_centre(hull) : -forward_reserve / 2
-    return (; count, columns, height, foot_height, centre_position, column_offset,
-        interference_factor)
+    return (; count, columns, height, foot_height=foot_height(hull, assumptions),
+        centre_position, column_offset, interference_factor, pedestal_height=0.0,
+        camera_units=0)
 end
 
 """
@@ -191,39 +290,70 @@ function unit_positions(rig, hull::Hull, assumptions::Assumptions)
 end
 
 """
-    WingRig(total_area, hull, assumptions; forward_reserve=0)
+    WingRig(total_area, hull, assumptions; forward_reserve=0, unit=:wing, columns=1,
+            in_column=1)
 
-Wing rig of `total_area` [m^2] on `hull` laid out by [`deck_layout`](@ref), or `nothing`
-if the wings do not fit at the closest spacing.
+Wing sails, or suction sails for `unit` `:suction`, of `total_area` [m^2] on `hull`,
+`columns` times `in_column` of them laid out by [`deck_layout`](@ref), or `nothing` if they
+do not fit. A suction sail's drag rises with the square of its lift to its drag at its
+highest lift.
 """
 function WingRig(total_area::Real, hull::Hull, assumptions::Assumptions;
-        forward_reserve=0.0)
-    layout = deck_layout(total_area, :wing, hull, assumptions, forward_reserve)
+        forward_reserve=0.0, unit=:wing, columns=1, in_column=1)
+    layout = deck_layout(total_area, unit, hull, assumptions, forward_reserve, columns,
+        in_column)
     isnothing(layout) && return nothing
-    return WingRig(; layout.count, layout.columns, area=total_area / layout.count,
+    profile = assumptions[:wing_profile_drag_coefficient]
+    effective_aspect_ratio =
+        assumptions[:wing_endplate_factor] * assumptions[Symbol(unit, :_aspect_ratio)]
+    max_lift_coefficient = assumptions[Symbol(unit, :_max_lift_coefficient)]
+    suction = unit == :suction
+    lift_drag_factor = suction ?
+        (assumptions[:suction_drag_coefficient] - profile) / max_lift_coefficient^2 :
+        assumptions[:wing_separation_drag_factor] +
+        1 / (π * effective_aspect_ratio * assumptions[:wing_span_efficiency])
+    return WingRig(; unit, layout.count, layout.columns, area=total_area / layout.count,
         layout.height, layout.foot_height, layout.centre_position, layout.column_offset,
-        effective_aspect_ratio=assumptions[:wing_endplate_factor] *
-                               assumptions[:wing_aspect_ratio],
-        max_lift_coefficient=assumptions[:wing_max_lift_coefficient],
-        profile_drag_coefficient=assumptions[:wing_profile_drag_coefficient],
-        separation_drag_factor=assumptions[:wing_separation_drag_factor],
+        effective_aspect_ratio, max_lift_coefficient, profile_drag_coefficient=profile,
+        lift_drag_factor,
         stalled_drag_coefficient=assumptions[:wing_stalled_drag_coefficient],
-        span_efficiency=assumptions[:wing_span_efficiency], layout.interference_factor)
+        layout.interference_factor,
+        fan_power_per_area=suction ? assumptions[:suction_fan_power_per_area] : 0.0,
+        fan_rated_wind=suction ? assumptions[:suction_fan_rated_wind] : Inf,
+        max_wind=suction ? assumptions[:suction_max_wind] : Inf, layout.pedestal_height,
+        layout.camera_units)
 end
 
 total_area(rig::WingRig) = rig.count * rig.area
 
-function drag_coefficient(rig::WingRig, lift_coefficient)
-    induced = 1 / (π * rig.effective_aspect_ratio * rig.span_efficiency)
-    return rig.profile_drag_coefficient +
-           (rig.separation_drag_factor + induced) * lift_coefficient^2
+drag_coefficient(rig::WingRig, lift_coefficient) =
+    rig.profile_drag_coefficient + rig.lift_drag_factor * lift_coefficient^2
+
+"""
+    stalled(rig::WingRig, (lift, drag))
+
+Whether the trim `(lift, drag)` of [`trim_setting`](@ref) is stalled, not attached.
+"""
+stalled(rig::WingRig, (lift, drag)) = drag > drag_coefficient(rig, lift) + 1e-9
+
+"""
+    fan_power(rig::WingRig, setting, speed)
+
+Power [W] the fans of suction sails draw at the trim `setting` in apparent wind `speed`
+[m/s]: their full power from their rated wind up, falling with the cube of the wind below
+it, while the flow is attached and lifts; none for wing sails.
+"""
+function fan_power(rig::WingRig, setting, speed)
+    first(setting) > 0 && !stalled(rig, setting) || return 0.0
+    return rig.fan_power_per_area * total_area(rig) * min(speed / rig.fan_rated_wind, 1.0)^3
 end
 
 """
     rig_force(rig::WingRig, env, wind_10m, true_angle, ship_speed, setting)
 
 Wing force at the trim `setting`, a lift and drag coefficient pair from
-[`trim_setting`](@ref), with the apparent wind taken at the wing's mid height.
+[`trim_setting`](@ref), with the apparent wind taken at the wing's mid height, and the
+[`fan_power`](@ref) of suction sails.
 """
 function rig_force(rig::WingRig, env::Environment, wind_10m, true_angle, ship_speed,
         setting)
@@ -232,18 +362,23 @@ function rig_force(rig::WingRig, env::Environment, wind_10m, true_angle, ship_sp
     load = 0.5env.air_density * speed^2 * total_area(rig)
     thrust = load * rig.interference_factor * (lift * sin(angle) - drag * cos(angle))
     side = load * (lift * cos(angle) + drag * sin(angle))
-    return RigForce(thrust, side, side * centre_height, side * rig.centre_position)
+    return RigForce(thrust, side, side * centre_height, side * rig.centre_position,
+        fan_power(rig, setting, speed))
 end
 
 """
     trim_ranges(rig, env, wind_10m, true_angle, ship_speed)
 
 [`TrimRange`](@ref)s of the trims `rig` can take in that wind at `ship_speed` [m/s]: for
-wings the lift coefficient in attached flow and the angle of attack [deg] stalled, for
-rotors the spin ratio, for a kite the weight of side force against thrust.
+wings the lift coefficient in attached flow and the angle of attack [deg] stalled, or no
+lift where the apparent wind exceeds their highest, for rotors the spin ratio, for a kite
+the weight of side force against thrust.
 """
-trim_ranges(rig::WingRig, env, wind_10m, true_angle, ship_speed) =
-    (TrimRange(0.0, rig.max_lift_coefficient, 5, 1), TrimRange(25.0, 90.0, 5, 2))
+function trim_ranges(rig::WingRig, env, wind_10m, true_angle, ship_speed)
+    _, speed, _ = centre_wind(rig, env, wind_10m, true_angle, ship_speed)
+    speed > rig.max_wind && return (TrimRange(0.0, 0.0, 1, 1),)
+    return (TrimRange(0.0, rig.max_lift_coefficient, 5, 1), TrimRange(25.0, 90.0, 5, 2))
+end
 
 """
     trim_setting(rig, trim_range, value)
@@ -287,25 +422,35 @@ Base.@kwdef struct RotorRig
     lift_factor::Float64
     "thrust of the set over the sum of single rotors [-]"
     interference_factor::Float64
+    "height of the pedestals the rotors stand on above the deck, zero on deck [m]"
+    pedestal_height::Float64 = 0.0
+    "rotors watched by a camera system for the view they hide from the bridge [-]"
+    camera_units::Int = 0
 end
 
 """
-    RotorRig(total_area, hull, assumptions; forward_reserve=0)
+    RotorRig(total_area, hull, assumptions; forward_reserve=0, columns=1, in_column=1)
 
-Rotors of `total_area` [m^2] of height times diameter on `hull` laid out by
-[`deck_layout`](@ref), or `nothing` if they do not fit at the closest spacing.
+Rotors of `total_area` [m^2] of height times diameter on `hull`, `columns` times
+`in_column` of them laid out by [`deck_layout`](@ref), or `nothing` if they do not fit.
 """
 function RotorRig(total_area::Real, hull::Hull, assumptions::Assumptions;
-        forward_reserve=0.0)
-    layout = deck_layout(total_area, :rotor, hull, assumptions, forward_reserve)
+        forward_reserve=0.0, columns=1, in_column=1)
+    layout = deck_layout(total_area, :rotor, hull, assumptions, forward_reserve, columns,
+        in_column)
     isnothing(layout) && return nothing
     return RotorRig(; layout.count, layout.columns, layout.height,
         diameter=layout.height / assumptions[:rotor_aspect_ratio], layout.foot_height,
         layout.centre_position, layout.column_offset,
         max_wind=assumptions[:rotor_max_wind],
         max_surface_speed=assumptions[:rotor_max_surface_speed],
-        lift_factor=assumptions[:rotor_lift_factor], layout.interference_factor)
+        lift_factor=assumptions[:rotor_lift_factor], layout.interference_factor,
+        layout.pedestal_height, layout.camera_units)
 end
+
+"width [m] of each unit of `rig`: a wing's mean chord, a rotor's diameter"
+unit_width(rig::WingRig) = rig.area / rig.height
+unit_width(rig::RotorRig) = rig.diameter
 
 total_area(rig::RotorRig) = rig.count * rig.height * rig.diameter
 
@@ -364,12 +509,43 @@ end
 trim_setting(::RotorRig, ::TrimRange, value) = value
 
 """
+    rotor_peak_pressure(rig, air_density)
+
+Highest force [N/m^2] on each m^2 of height times diameter of the rotors of `rig` while
+they spin, lift and drag together, in apparent winds up to the one they stop in, each at
+the highest spin ratio it allows.
+"""
+rotor_peak_pressure(rig::RotorRig, air_density) =
+    maximum(range(0.1, rig.max_wind, 200)) do speed
+        lift, drag, _ = rotor_coefficients(max_spin_ratio(rig, speed))
+        return 0.5air_density * speed^2 * hypot(rig.lift_factor * lift, drag)
+    end
+
+"""
+    peak_force(rig, assumptions)
+
+Highest force [N] on each unit of `rig` while it works: a rotor's
+[`rotor_peak_pressure`](@ref) on its height times diameter; a wing's lift and drag at its
+highest lift in the apparent wind it lies down in, at most `wing_design_wind`.
+"""
+peak_force(rig::RotorRig, assumptions) =
+    rig.height * rig.diameter * rotor_peak_pressure(rig, assumptions[:air_density])
+
+function peak_force(rig::WingRig, assumptions)
+    speed = min(rig.max_wind, assumptions[:wing_design_wind])
+    lift = rig.max_lift_coefficient
+    return 0.5assumptions[:air_density] * speed^2 * rig.area *
+           hypot(lift, drag_coefficient(rig, lift))
+end
+
+"""
     KiteRig
 
 Towing kite on a fixed-length tether from a mast on the bow, with the force of its best
 flight pattern tabulated over apparent wind speed, course off the apparent downwind
 direction and the weight given to side force, its trim. `airframe` is a
-[`RigidAirframe`](@ref) for rigid VTOL kites and `nothing` for a soft kite.
+[`RigidAirframe`](@ref) for rigid VTOL kites, a [`TubeFrame`](@ref) for leading-edge
+inflatable kites and `nothing` for a ram-air kite.
 """
 Base.@kwdef struct KiteRig{A}
     "projected area of one kite [m^2]"
@@ -419,37 +595,13 @@ end
 """
     RigidAirframe
 
-What rigid VTOL kites add to a tether and a pattern table.
+What a rigid VTOL kite adds to a tether and a pattern table.
 """
 struct RigidAirframe
-    "kites in service, a mean where some are down, each with its station on deck"
-    count::Float64
-    "mass of one kite with its propellers and drives, without the tether [kg]"
+    "mass of the kite with its propellers and drives, without the tether [kg]"
     mass::Float64
-    "electric power of one kite in hover [W]"
+    "electric power of the kite in hover [W]"
     hover_power::Float64
-    "area of the disc of the loop all the kites share [m^2]"
-    loop_area::Float64
-end
-
-"kites flying from one ship"
-kite_count(::KiteRig) = 1
-kite_count(rig::KiteRig{RigidAirframe}) = rig.airframe.count
-
-"""
-    loop_interaction(rig, force_area)
-
-Force of each kite of `rig` over that of a lone kite, where a lone kite in the free stream
-makes `force_area` [m^2], its force over dynamic pressure: momentum theory on the disc of
-one shared loop gives each kite (1 - a)^2 of it, with a = C / (4 + C) for the disc's free
-stream thrust coefficient C.
-"""
-loop_interaction(::KiteRig, force_area) = 1.0
-
-function loop_interaction(rig::KiteRig{RigidAirframe}, force_area)
-    (; count, loop_area) = rig.airframe
-    lone = force_area / loop_area
-    return ((4 + lone) / (4 + count * lone))^2
 end
 
 """
@@ -461,35 +613,66 @@ rope_mass(diameter, rope_length, assumptions) =
     assumptions[:tether_rope_density] * π * diameter^2 / 4 * rope_length
 
 """
-    soft_kite_mass(area, aspect_ratio, max_force, assumptions)
+    kite_canopy(assumptions, area, aspect_ratio, frame)
+
+[`Canopy`](@ref) of a soft kite of projected `area` [m^2] and `aspect_ratio`: a ram-air
+canopy where `frame` is `nothing`, a leading-edge inflatable one for a [`TubeFrame`](@ref).
+"""
+kite_canopy(assumptions::Assumptions, area, aspect_ratio, ::Nothing) =
+    Canopy(assumptions, area, aspect_ratio)
+kite_canopy(assumptions::Assumptions, area, aspect_ratio, frame::TubeFrame) =
+    Canopy(assumptions, area, frame)
+
+"tether force limit per projected area [kN/m^2] of a soft kite of `frame`"
+force_per_area(assumptions::Assumptions, ::Nothing) = assumptions[:kite_max_force_per_area]
+force_per_area(assumptions::Assumptions, ::TubeFrame) =
+    assumptions[:lei_max_force_per_area]
+
+"drag coefficient [-] a soft kite of `frame` has in flight beyond its polar and tether"
+flight_drag(assumptions::Assumptions, ::Nothing) = assumptions[:kite_flight_drag]
+flight_drag(assumptions::Assumptions, ::TubeFrame) = assumptions[:lei_flight_drag]
+
+"""
+    kite_polar(aspect_ratio, frame)
+
+[`KitePolar`](@ref) of a ram-air kite of projected `aspect_ratio` where `frame` is
+`nothing`; for a [`TubeFrame`](@ref), the measured polar of a leading-edge inflatable kite
+in `data/kite_polars/lei_v3.csv`.
+"""
+kite_polar(aspect_ratio, ::Nothing) = KitePolar(aspect_ratio)
+kite_polar(aspect_ratio, ::TubeFrame) = polar_file("lei_v3.csv")
+
+"""
+    soft_kite_mass(area, aspect_ratio, max_force, assumptions, frame=nothing)
 
 Mass [kg] of a soft kite of projected `area` [m^2] and `aspect_ratio` without its tether:
-canopy with its bridle and control unit, sized for `max_force` [N].
+its [`kite_canopy`](@ref) with the bridle and its control unit, sized for `max_force` [N].
 """
-soft_kite_mass(area, aspect_ratio, max_force, assumptions::Assumptions) =
-    Canopy(assumptions, area, aspect_ratio).mass_per_area * area +
+soft_kite_mass(area, aspect_ratio, max_force, assumptions::Assumptions, frame=nothing) =
+    kite_canopy(assumptions, area, aspect_ratio, frame).mass_per_area * area +
     1e-3assumptions[:control_unit_mass_per_force] * max_force
 
 """
-    kite_model(area, aspect_ratio, assumptions)
+    kite_model(area, aspect_ratio, assumptions, frame=nothing)
 
-[`KiteModel`](@ref) of a kite of projected `area` [m^2] and `aspect_ratio`, its tether
-force limit [N] and tether diameter [m], with the tether sized for that limit.
+[`KiteModel`](@ref) of a soft kite of projected `area` [m^2], `aspect_ratio` and `frame`,
+its tether force limit [N] and tether diameter [m], with the tether sized for that limit.
 """
-function kite_model(area, aspect_ratio, assumptions::Assumptions)
+function kite_model(area, aspect_ratio, assumptions::Assumptions, frame=nothing)
     env = Environment(assumptions)
-    max_force = 1e3assumptions[:kite_max_force_per_area] * area
+    max_force = 1e3force_per_area(assumptions, frame) * area
     tether_diameter = sqrt(4max_force / (π * assumptions[:tether_stress]))
     span = sqrt(area * aspect_ratio)
     tether_length = assumptions[:tether_length_ratio] * span
     tether_drag = assumptions[:tether_drag_coefficient] * tether_diameter * tether_length /
                   (4area)
     tether_mass = rope_mass(tether_diameter, tether_length, assumptions)
-    mass = soft_kite_mass(area, aspect_ratio, max_force, assumptions) + tether_mass / 2
-    polar = KitePolar(aspect_ratio)
+    mass = soft_kite_mass(area, aspect_ratio, max_force, assumptions, frame) +
+           tether_mass / 2
+    polar = kite_polar(aspect_ratio, frame)
     stall = argmax(polar.lift)
     model = KiteModel(area, mass, tether_length, env.air_density, env.gravity, polar,
-        assumptions[:kite_flight_drag] + tether_drag,
+        flight_drag(assumptions, frame) + tether_drag,
         lift_angle(polar, 0.05),
         polar.angle_of_attack[stall] - deg2rad(assumptions[:kite_stall_margin]),
         assumptions[:kite_min_turn_radius] * span, false)
@@ -619,26 +802,38 @@ function rigid_polar(assumptions::Assumptions)
 end
 
 """
-    rigid_kite_model(area, count, assumptions)
+    rigid_kite_mass(area, assumptions)
 
-[`KiteModel`](@ref) of one rigid VTOL kite of `area` [m^2], its tether force limit [N],
-tether diameter [m] at the working stress of the soft kite's rope and the
-[`RigidAirframe`](@ref) of `count` such kites.
+Mass [kg] of a rigid VTOL kite of `area` [m^2] with its propellers and drives, without the
+tether: that of MX2, grown with the span to the power of the mass exponent at a fixed aspect
+ratio.
 """
-function rigid_kite_model(area, count, assumptions::Assumptions)
+rigid_kite_mass(area, assumptions::Assumptions) = assumptions[:rigid_mass] *
+    (area / assumptions[:rigid_reference_area])^(assumptions[:rigid_mass_exponent] / 2)
+
+"span [m] of a rigid VTOL kite of `area` [m^2]"
+rigid_span(area, assumptions::Assumptions) = sqrt(area * assumptions[:rigid_aspect_ratio])
+
+"""
+    rigid_kite_model(area, assumptions)
+
+[`KiteModel`](@ref) of a rigid VTOL kite of `area` [m^2], its tether force limit [N],
+tether diameter [m] at the working stress of the soft kite's rope and its
+[`RigidAirframe`](@ref).
+"""
+function rigid_kite_model(area, assumptions::Assumptions)
     env = Environment(assumptions)
     max_force = 1e3assumptions[:rigid_max_force_per_area] * area
     tether_diameter = sqrt(4max_force / (π * assumptions[:tether_stress]))
-    span = sqrt(area * assumptions[:rigid_aspect_ratio])
-    mass = assumptions[:rigid_mass_per_area] * area
+    span = rigid_span(area, assumptions)
+    mass = rigid_kite_mass(area, assumptions)
     polar = rigid_polar(assumptions)
     model = KiteModel(area, mass, assumptions[:rigid_tether_length_ratio] * span,
         env.air_density, env.gravity, polar, 0.0, lift_angle(polar, 0.05),
         polar.angle_of_attack[argmax(polar.lift)] -
         deg2rad(assumptions[:kite_stall_margin]),
         assumptions[:rigid_min_turn_radius] * span, true)
-    airframe = RigidAirframe(count, mass, assumptions[:rigid_hover_power_per_mass] * mass,
-        π * model.min_turn_radius^2)
+    airframe = RigidAirframe(mass, assumptions[:rigid_hover_power_per_mass] * mass)
     return model, max_force, tether_diameter, airframe
 end
 
@@ -666,11 +861,11 @@ end
     rigid_wind_limits(lowest_wind, assumptions)
 
 Keywords of [`KiteRig`](@ref) for a rigid kite that flies from `lowest_wind` [m/s]: it can
-launch there too, since its propellers lift it from rest, and hovers within its own limits on
-wind and sea in launch and landing.
+launch there too, since its propellers lift it from rest, and hovers in launch and landing up
+to the soft kite's launch wind and its own wave height.
 """
 function rigid_wind_limits(lowest_wind, assumptions::Assumptions)
-    hover_wind = assumptions[:rigid_hover_max_wind]
+    hover_wind = assumptions[:kite_launch_max_wind]
     hover_waves = assumptions[:rigid_hover_max_wave_height]
     return (; max_wind=assumptions[:kite_max_wind], min_flight_wind=lowest_wind,
         launch_min_wind=lowest_wind, launch_max_wind=hover_wind,
@@ -679,30 +874,29 @@ function rigid_wind_limits(lowest_wind, assumptions::Assumptions)
 end
 
 """
-    rigid_kites_fit(count, hull, assumptions)
+    largest_rigid_kite_area(hull, assumptions)
 
-Whether `count` perches of rigid kites of the unit area of the assumptions stand one span
-apart along the deck of `hull`.
+Area [m^2] of the largest rigid VTOL kite whose perch fits on `hull`: its span the deck
+length the rig may use, or the beam where containers stand on its deck and the perch lies
+across the forecastle.
 """
-function rigid_kites_fit(count, hull::Hull, assumptions::Assumptions)
-    span = sqrt(assumptions[:rigid_unit_area] * assumptions[:rigid_aspect_ratio])
-    return count * span <= assumptions[:deck_length_fraction] * hull.length
+function largest_rigid_kite_area(hull::Hull, assumptions::Assumptions)
+    span = hull.deck_cargo_height > 0 ? hull.beam :
+           assumptions[:deck_length_fraction] * hull.length
+    return span^2 / assumptions[:rigid_aspect_ratio]
 end
 
 """
-    rigid_kite_rig(total_area, hull, assumptions; courses=KITE_COURSES,
-                   side_weights=SIDE_WEIGHTS)
+    rigid_kite_rig(area, hull, assumptions; courses=KITE_COURSES, side_weights=SIDE_WEIGHTS)
 
-Rigid VTOL kites of about `total_area` [m^2] together on `hull`, each of the unit area of
-the assumptions and with a pattern table over `courses` [rad] and `side_weights`, or
-`nothing` where they do not fit ([`rigid_kites_fit`](@ref)).
+Rigid VTOL kite of `area` [m^2] on `hull` with a pattern table over `courses` [rad] and
+`side_weights`, towing from the hull's lateral centre, or from the bow where containers
+stand on its deck; `nothing` where it is larger than [`largest_rigid_kite_area`](@ref).
 """
-function rigid_kite_rig(total_area, hull::Hull, assumptions::Assumptions;
+function rigid_kite_rig(area, hull::Hull, assumptions::Assumptions;
         courses=KITE_COURSES, side_weights=SIDE_WEIGHTS)
-    area = assumptions[:rigid_unit_area]
-    count = max(round(Int, total_area / area), 1)
-    rigid_kites_fit(count, hull, assumptions) || return nothing
-    model, max_force, tether_diameter, airframe = rigid_kite_model(area, count, assumptions)
+    area <= largest_rigid_kite_area(hull, assumptions) || return nothing
+    model, max_force, tether_diameter, airframe = rigid_kite_model(area, assumptions)
     forces = pattern_table(model, max_force, assumptions, RIGID_WIND_SPEEDS, courses,
         side_weights)
     lowest_wind = max(lowest_flying_wind(RIGID_WIND_SPEEDS, forces),
@@ -712,21 +906,58 @@ function rigid_kite_rig(total_area, hull::Hull, assumptions::Assumptions;
         rigid_wind_limits(lowest_wind, assumptions)..., max_force,
         attach_height=assumptions[:kite_attach_height] * hull.length /
                       assumptions[:reference_length],
-        attach_position=lateral_centre(hull), wind_speeds=RIGID_WIND_SPEEDS, courses,
-        side_weights, forces, airframe)
+        attach_position=hull.deck_cargo_height > 0 ?
+                        launch_mast_position(hull, assumptions) : lateral_centre(hull),
+        wind_speeds=RIGID_WIND_SPEEDS, courses, side_weights, forces, airframe)
+end
+
+"""
+    largest_lei_kite_area(assumptions)
+
+Projected area [m^2] of the largest leading-edge inflatable kite that can be launched: the
+one whose launch wind, which its [`tube_mass`](@ref) raises with its size, reaches the
+highest launch wind `kite_launch_max_wind`.
+"""
+function largest_lei_kite_area(assumptions::Assumptions)
+    low, high = 1.0, 1e6
+    for _ in 1:40
+        middle = sqrt(low * high)
+        lei_kite_launchable(middle, assumptions) ? (low = middle) : (high = middle)
+    end
+    return low
+end
+
+"whether a leading-edge inflatable kite of projected `area` [m^2] can be launched"
+function lei_kite_launchable(area, assumptions::Assumptions)
+    model, = kite_model(area, assumptions[:lei_aspect_ratio], assumptions, TubeFrame())
+    return launch_min_wind(model, assumptions) <= assumptions[:kite_launch_max_wind]
+end
+
+"""
+    lei_kite_rig(area, hull, assumptions)
+
+Leading-edge inflatable kite of projected `area` [m^2] on `hull`, launched, flown and towing
+as the ram-air kite; `nothing` where it is larger than [`largest_lei_kite_area`](@ref).
+"""
+function lei_kite_rig(area, hull::Hull, assumptions::Assumptions)
+    area <= largest_lei_kite_area(assumptions) || return nothing
+    return KiteRig(area, assumptions[:lei_aspect_ratio], hull, assumptions;
+        frame=TubeFrame())
 end
 
 """
     KiteRig(area, aspect_ratio, hull, assumptions;
-            attach_position=launch_mast_position(hull, assumptions), courses=KITE_COURSES)
+            attach_position=launch_mast_position(hull, assumptions), courses=KITE_COURSES,
+            frame=nothing)
 
-Kite of projected `area` [m^2] and `aspect_ratio` with its pattern table over `courses`
-[rad], towing from `attach_position` [m] forward of midship.
+Soft kite of projected `area` [m^2], `aspect_ratio` and `frame` with its pattern table over
+`courses` [rad], towing from `attach_position` [m] forward of midship.
 """
 function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assumptions;
-        attach_position=launch_mast_position(hull, assumptions), courses=KITE_COURSES)
+        attach_position=launch_mast_position(hull, assumptions), courses=KITE_COURSES,
+        frame=nothing)
     scale = hull.length / assumptions[:reference_length]
-    model, max_force, tether_diameter = kite_model(area, aspect_ratio, assumptions)
+    model, max_force, tether_diameter = kite_model(area, aspect_ratio, assumptions, frame)
     tether_length = model.tether_length
     wind_speeds = [3.0:1.0:9.0; 10.5; 12.0:3.0:30.0]
     forces = pattern_table(model, max_force, assumptions, wind_speeds, courses, SIDE_WEIGHTS)
@@ -741,7 +972,8 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
         landing_max_wind=assumptions[:kite_landing_max_wind],
         landing_max_wave_height=Inf, max_force,
         attach_height=assumptions[:kite_attach_height] * scale,
-        attach_position, wind_speeds, courses, side_weights=SIDE_WEIGHTS, forces)
+        attach_position, wind_speeds, courses, side_weights=SIDE_WEIGHTS, forces,
+        airframe=frame)
 end
 
 """
@@ -760,9 +992,8 @@ end
     rig_force(rig::KiteRig, env, wind_10m, true_angle, ship_speed, side_weight)
 
 Force of the best pattern for `side_weight`, interpolated in newtons over apparent wind
-speed, course and side weight, reduced by [`loop_interaction`](@ref), held to the tether
-limit and summed over the kites; no force where the kite cannot fly or the wind is below
-the table.
+speed, course and side weight and held to the tether limit; no force where the kite cannot
+fly or the wind is below the table.
 """
 function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_speed,
         side_weight)
@@ -786,9 +1017,7 @@ function rig_force(rig::KiteRig, env::Environment, wind_10m, true_angle, ship_sp
         downwind += weight * load * force[1]
         crosswind += weight * load * force[2]
     end
-    lone = hypot(downwind, crosswind)
-    interaction = loop_interaction(rig, lone / (0.5env.air_density * speed^2))
-    limit = kite_count(rig) * min(interaction, rig.max_force / lone)
+    limit = min(1.0, rig.max_force / hypot(downwind, crosswind))
     thrust = limit * (crosswind * sin(angle) - downwind * cos(angle))
     side = limit * (crosswind * cos(angle) + downwind * sin(angle))
     return RigForce(thrust, side, side * rig.attach_height, side * rig.attach_position)
@@ -821,26 +1050,30 @@ launch_mast_reserve(assumptions::Assumptions) =
 """
     launch_mast_position(hull, assumptions)
 
-Distance [m] forward of midship of the launch mast at the middle of its
+Distance [m] forward of midship of the launch mast: `bow_mast_position` times the length
+aft of the bow on a hull with containers on deck, else at the middle of its
 [`launch_mast_reserve`](@ref) at the forward end of the deck for rigs.
 """
 function launch_mast_position(hull::Hull, assumptions::Assumptions)
-    deck_length = assumptions[:deck_length_fraction] * hull.length
+    hull.deck_cargo_height > 0 &&
+        return (0.5 - assumptions[:bow_mast_position]) * hull.length
+    deck_length = rig_deck_length(hull, assumptions, 0.0)
     return (deck_length - launch_mast_reserve(assumptions)) / 2
 end
 
 """
     CombinedRig(kite_area, kite_aspect_ratio, standing_type, standing_area, hull,
-                assumptions)
+                assumptions; layout...)
 
 Kite of projected `kite_area` [m^2] and `kite_aspect_ratio` towing from a launch mast at
 the forward end of the deck for rigs, over `standing_area` [m^2] of `standing_type`
-(`WingRig` or `RotorRig`) on the deck behind it, or `nothing` if those do not fit.
+(`WingRig` or `RotorRig`) on the deck behind it in the `layout` of its keywords `columns`
+and `in_column`, or `nothing` if those do not fit.
 """
 function CombinedRig(kite_area, kite_aspect_ratio, standing_type, standing_area,
-        hull::Hull, assumptions::Assumptions)
+        hull::Hull, assumptions::Assumptions; layout...)
     standing = standing_type(standing_area, hull, assumptions;
-        forward_reserve=launch_mast_reserve(assumptions))
+        forward_reserve=launch_mast_reserve(assumptions), layout...)
     isnothing(standing) && return nothing
     kite = KiteRig(kite_area, kite_aspect_ratio, hull, assumptions;
         attach_position=launch_mast_position(hull, assumptions))
@@ -868,6 +1101,11 @@ no rig.
 standing_rig(rig::Union{WingRig, RotorRig}) = rig
 standing_rig(rig::CombinedRig) = rig.standing
 standing_rig(::Union{KiteRig, Nothing}) = nothing
+
+"the kite of `rig`: a kite itself, the kite of a [`CombinedRig`](@ref), else `nothing`"
+kite_rig(rig) = nothing
+kite_rig(rig::KiteRig) = rig
+kite_rig(rig::CombinedRig) = rig.kite
 
 """
     DownRig

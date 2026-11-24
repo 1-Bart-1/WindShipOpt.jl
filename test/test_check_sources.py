@@ -44,6 +44,9 @@ class CheckSources(unittest.TestCase):
             rows = f"held,,held.pdf,{HASH},{status}\n" + OTHER
             self.assertEqual(self.check(rows), [f"held: cited but {status}"])
 
+    def test_authors_own_dataset_is_cited_without_a_file(self):
+        self.assertEqual(self.check(HELD + "other,,,,own\n"), [])
+
     def test_uncited_unread_source_passes(self):
         self.assertEqual(self.check(HELD + OTHER + "spare,,,,missing\n"), [])
 
@@ -101,9 +104,9 @@ class CheckSources(unittest.TestCase):
         self.assertEqual(self.check(HELD + OTHER, note=note), [])
 
     def test_missing_note_table_is_reported(self):
-        found = self.check(HELD + OTHER, tables=NOTE_TABLES[:1])
+        found = self.check(HELD + OTHER, tables=())
         self.assertEqual(len(found), 1)
-        self.assertIn(f"{NOTE_TABLES[1]}: no such note table in ", found[0])
+        self.assertIn(f"{NOTE_TABLES[0]}: no such note table in ", found[0])
 
     def test_notes_of_the_paper_name_every_source_by_key(self):
         self.assertEqual(free_text_sources(PAPER / "sections"), [])

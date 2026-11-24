@@ -20,6 +20,8 @@ path = [
     "paper/sections/fidelity.tex",
     "paper/sections/input_tables.tex",
     "paper/figure_style.tex",
+    "paper/figure_ship.tex",
+    "paper/ship/*.tex",
     "paper/sections/*numbers.tex",
     "paper/sections/study_runs.tex",
     "paper/study_runs.toml",
@@ -44,37 +46,25 @@ SPDX-FileCopyrightText = "2012-2014 B. Jackowski, P. Strzelczyk and P. Pianowski
 SPDX-License-Identifier = "LPPL-1.3c+"
 
 [[annotations]]
+path = "paper/icons/*.svg"
+precedence = "override"
+SPDX-FileCopyrightText = "2020-2026 Paweł Kuna"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "data/kite_polars/lei_v3.csv"
+precedence = "override"
+SPDX-FileCopyrightText = "2024 Oriol Cayon, Jelle Poland, TU Delft"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = "data/fonts/GUST-FONT-LICENSE.txt"
 precedence = "override"
 SPDX-FileCopyrightText = "2006 GUST, the Polish TeX Users Group"
 SPDX-License-Identifier = "LPPL-1.3c+"
 
 [[annotations]]
-path = "data/market/eurostat_mar_go_am_2024_2025.csv"
-precedence = "override"
-SPDX-FileCopyrightText = "European Union, 1995-2026, Eurostat"
-SPDX-License-Identifier = "CC-BY-4.0"
-
-[[annotations]]
-path = [
-    "data/market/eurostat_port_partner_flows_2024.csv",
-    "data/market/port_throughput_2024.csv",
-    "data/market/north_europe_route_groups_2024.csv",
-    "data/market/summary_by_*.csv",
-    "data/market/top20_pairs_RTM_ANR_HAM.csv",
-]
-precedence = "override"
-SPDX-FileCopyrightText = ["2026 Bart van de Lint", "European Union, 1995-2026, Eurostat"]
-SPDX-License-Identifier = "AGPL-3.0-or-later AND CC-BY-4.0"
-
-[[annotations]]
 path = "data/market/imo_ghg4_*.csv"
 precedence = "override"
 SPDX-FileCopyrightText = "2020 International Maritime Organization"
 SPDX-License-Identifier = "LicenseRef-IMO-All-Rights-Reserved"
-
-[[annotations]]
-path = "data/market/unctad_tonne_miles_by_cargo.csv"
-precedence = "override"
-SPDX-FileCopyrightText = ["2024-2025 United Nations", "2020 International Maritime Organization"]
-SPDX-License-Identifier = "LicenseRef-UN-All-Rights-Reserved AND LicenseRef-IMO-All-Rights-Reserved"

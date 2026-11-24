@@ -5,6 +5,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import {
   bestDesigns,
   bestRig,
+  cargoInput,
   drives,
   evaluated,
   inputValues,
@@ -16,8 +17,10 @@ import {
 import {
   changedCount,
   differs,
-  exactInputs,
   inputGroups,
+  inputRange,
+  offeredControls,
+  moderateChange,
   paperCargoFactor,
   resetInputs,
   todayInputs,
@@ -64,15 +67,17 @@ function Explorer({ data }: { data: ExplorerData }) {
   const changed = changedCount(data, changes, cargoFactor);
   const change = (name: string, value: number) => setChanges({ ...changes, [name]: value });
   const reset = (names: string[]) => setChanges(resetInputs(changes, names));
+  const cargo = data.inputs[cargoInput(data.classes[ship].name)];
 
   return (
     <main className="mx-auto max-w-[1120px] space-y-10 px-5 py-8 md:px-8">
       <header className="space-y-2">
-        <h1 className="text-5xl md:text-7xl leading-[0.9]">Towing kites, wing sails and Flettner rotors on cargo ships</h1>
+        <h1 className="text-5xl md:text-7xl leading-[0.9]">Towing kites, wing sails, Flettner rotors, suction sails and VTOL kites on cargo ships</h1>
         <p className="text-ink">
           Pick a ship, a route and a fuel, change the inputs, and see what each rig saves at its best size.
           Results read: if each rig reaches these goals, it saves this much. Set the goals to what is known
-          today to see what each rig saves now, on the routes found at the goals.
+          today to see what each rig saves now, on the routes found at the goals. Changed inputs are recosted on the
+          paper's routes; routing again would at most save a little more.
         </p>
         {data.fidelity !== "final" && (
           <p className="rounded-[14px] bg-mustard/30 px-3 py-2 text-sm text-ink">
@@ -118,15 +123,17 @@ function Explorer({ data }: { data: ExplorerData }) {
                   Canopy price {formatted(values[data.canopy_price.node], 0)} USD/m².
                 </p>
               )}
-              {group.controls.map((control) => (
+              {offeredControls(data, group.controls).map((control) => (
                 <Slider key={control.name} control={control}
+                  range={inputRange(data.inputs[control.name], control)}
                   value={changes[control.name] ?? data.inputs[control.name].value}
                   base={data.inputs[control.name].value} onChange={(value) => change(control.name, value)}
                   onReset={() => reset([control.name])} />
               ))}
               {group.title === "Money and time" && (
                 <Slider
-                  control={{ name: "cargo", label: `Cargo value (base ${formatted(data.inputs[`cargo_value:${data.classes[ship].name}`].value, 0)} USD/t)`, unit: "% of base", scale: 100, min: 25, max: 400, step: 5 }}
+                  control={{ name: "cargo", label: `Cargo value (base ${formatted(cargo.value, 0)} USD/t)`, unit: "% of base", scale: 100, step: 5 }}
+                  range={[cargo.low / cargo.value, cargo.high / cargo.value]}
                   value={cargoFactor} base={paperCargoFactor} onChange={setCargoFactor}
                   onReset={() => setCargoFactor(paperCargoFactor)} />
               )}
@@ -138,7 +145,7 @@ function Explorer({ data }: { data: ExplorerData }) {
       <WinnerMap data={data} all={all} drive={drive} onPick={(k, j) => { setShip(k); setRoute(j); }} />
       <PassageView route={data.routes[route].name} />
       <GridView route={data.routes[route].name} />
-      <Accuracy data={data} />
+      <Accuracy />
     </main>
   );
 }
@@ -165,6 +172,8 @@ function Choice<T extends string | number>(props: {
 
 function Slider(props: {
   control: InputControl;
+  /** lowest and highest value [model units] */
+  range: [number, number];
   value: number;
   base: number;
   onChange: (value: number) => void;
@@ -188,7 +197,8 @@ function Slider(props: {
           </button>
         </span>
       </div>
-      <input id={id} type="range" className="w-full" min={control.min} max={control.max} step={control.step}
+      <input id={id} type="range" className="w-full" min={props.range[0] * control.scale} max={props.range[1] * control.scale}
+        step={control.step}
         value={props.value * control.scale}
         onChange={(event) => props.onChange(Number(event.target.value) / control.scale)} />
     </div>
@@ -299,36 +309,19 @@ function WinnerMap(props: { data: ExplorerData; all: Outcome[]; drive: string; o
   );
 }
 
-function Accuracy({ data }: { data: ExplorerData }) {
-  const rows = useMemo(() => {
-    const byLabel = new Map<string, number>();
-    for (const check of data.checks) {
-      const values = evaluated(data, inputValues(data, check.changes, check.cargo_factor));
-      const shown = values[data.designs[check.design].nodes.cost];
-      const drift = (100 * Math.abs(shown - check.rerouted)) / check.rerouted;
-      byLabel.set(check.label, Math.max(byLabel.get(check.label) ?? 0, drift));
-    }
-    return [...byLabel];
-  }, [data]);
+function Accuracy() {
   return (
     <section className="space-y-2 text-sm">
       <h2 className="text-lg font-semibold">How far to trust a change</h2>
-      <p className="text-ink">
-        The explorer keeps each design's voyages as the model routed them at the paper's inputs and recomputes
-        their cost with the model's own cost formulas. Wing and rotor loss rates do not steer the router, so they are
-        exact ({exactInputs.length} inputs). Every other input also changes how the ship is routed; the table gives the
-        largest gap between the explorer and a full rerun of the model for {new Set(data.checks.map((check) => check.design)).size} designs.
+      <p className="max-w-3xl text-ink">
+        The explorer keeps each design's voyages as the paper's run routed them and recomputes their cost with the
+        model's own cost formulas. The router chose each leg as the cheapest at the paper's inputs, so a moderate change
+        of an input moves the cheapest cost, to first order, by just what recosting the same leg gives; routing again
+        could save a little more, growing with the square of the change. The explorer therefore offers only inputs that
+        change what a voyage costs, not what the ship or a rig can do, each over its range in the paper. Fuel and carbon
+        prices also shift the speed the ship picks, so they move at most {formatted(100 * moderateChange, 0)} % from the
+        paper's values.
       </p>
-      <table className="text-sm">
-        <tbody>
-          {rows.map(([label, drift]) => (
-            <tr key={label} className="border-t border-ink/20">
-              <td className="py-1 pr-4">{label}</td>
-              <td className="text-right">{formatted(drift, 2)} % of the cost</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
     </section>
   );
 }
