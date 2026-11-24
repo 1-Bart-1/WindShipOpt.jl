@@ -578,50 +578,40 @@ end
     rig_price_parts(rig, assumptions)
 
 Manufacturing cost [USD] of each part of the hardware of `rig`: the units, their surface,
-the installation, the supports of raised units and the camera systems of wings or rotors;
-the deck system, control unit, ship-side controls and integration of a kite, without its
-canopy and tether; the deck system, tether, supply for the hover, ship-side controls and
-integration of VTOL kites, without their airframes.
+the supports of raised units and the camera systems of wings or rotors; the deck system,
+control unit and ship-side controls of a kite, without its canopy and tether; the deck
+system, tether, supply for the hover and ship-side controls of VTOL kites, without their
+airframes; each rig with its installation.
 """
 rig_price_parts(::Nothing, assumptions) = (;)
 
-rig_price_parts(rig::WingRig, assumptions) = (;
-    deck_price_parts(rig.count, total_area(rig), assumptions, :wing_unit_cost,
-        size_factor(rig, assumptions) * surface_cost(rig, assumptions),
-        :wing_installation_fraction)...,
-    raised_parts(rig, assumptions)...)
-rig_price_parts(rig::RotorRig, assumptions) = (;
-    deck_price_parts(rig.count, total_area(rig), assumptions, :rotor_unit_cost,
-        size_factor(rig, assumptions) * assumptions[:rotor_cost_per_area],
-        :rotor_installation_fraction)...,
-    raised_parts(rig, assumptions)...)
-
-"cost [USD] of the supports of the raised units and of the camera systems of `rig`"
-raised_parts(rig::Union{WingRig, RotorRig}, assumptions) = (;
+rig_price_parts(rig::Union{WingRig, RotorRig}, assumptions) = installed((;
+    units=rig.count * assumptions[Symbol(rig isa RotorRig ? :rotor : :wing, :_unit_cost)],
+    surface=surface_cost(rig, assumptions) * total_area(rig),
     pedestals=1e3rig.count * pedestal_mass(rig, assumptions) *
               assumptions[:welded_steel_cost_per_mass],
-    cameras=rig.camera_units * assumptions[:camera_system_cost])
+    cameras=rig.camera_units * assumptions[:camera_system_cost]), assumptions)
+
+"`parts` [USD] of a rig with their installation at the yard, a fraction of their sum"
+installed(parts, assumptions) =
+    (; parts..., installation=assumptions[:installation_fraction] * sum(parts))
 
 """
-    surface_cost(rig::WingRig, assumptions)
+    surface_cost(rig, assumptions)
 
-Manufacturing cost [USD/m^2] of the wings of `rig` per m^2: that of wing sails, or the
-mass of suction sails per m^2 at their cost per kg.
+Manufacturing cost [USD/m^2] of the units of `rig` per m^2, grown by their
+[`size_factor`](@ref): rotors at their cost per m^2; wing and suction sails at their mass
+per m^2 at the wing sail's cost per kg, with a suction sail's fans at their cost per kW.
 """
-surface_cost(rig::WingRig, assumptions) = rig.unit == :suction ?
-    1e3assumptions[:suction_mass_per_area] * assumptions[:suction_cost_per_mass] :
-    assumptions[:wing_cost_per_area]
+surface_cost(rig::RotorRig, assumptions) =
+    size_factor(rig, assumptions) * assumptions[:rotor_cost_per_area]
 
-"""
-    deck_price_parts(count, area, assumptions, unit_cost, cost_per_area, fraction)
-
-[`rig_price_parts`](@ref) of `count` wings or rotors of `area` [m^2] in all at
-`cost_per_area` [USD/m^2], with the names of their other assumptions.
-"""
-function deck_price_parts(count, area, assumptions, unit_cost, cost_per_area, fraction)
-    units = count * assumptions[unit_cost]
-    surface = cost_per_area * area
-    return (; units, surface, installation=assumptions[fraction] * (units + surface))
+function surface_cost(rig::WingRig, assumptions)
+    structure = 1e3assumptions[Symbol(rig.unit, :_mass_per_area)] *
+                size_factor(rig, assumptions) * assumptions[:wing_cost_per_mass]
+    rig.unit == :suction || return structure
+    return structure + 1e-3assumptions[:suction_fan_power_per_area] *
+                       assumptions[:suction_fan_cost_per_power]
 end
 
 """
@@ -648,7 +638,7 @@ function kite_price_parts(area, max_force, assumptions)
     parts = (deck=kite_deck_price(area, max_force, assumptions),
         control_unit=assumptions[:control_unit_cost_per_mass] * control_unit_mass,
         controls=assumptions[:kite_controls_cost])
-    return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
+    return installed(parts, assumptions)
 end
 
 function rig_price_parts(rig::KiteRig{RigidAirframe}, assumptions)
@@ -656,7 +646,7 @@ function rig_price_parts(rig::KiteRig{RigidAirframe}, assumptions)
         tether=rigid_tether_cost(rig.area, assumptions),
         ship_power=assumptions[:rigid_ship_power_cost] * rig.airframe.hover_power,
         controls=assumptions[:kite_controls_cost])
-    return (; parts..., integration=assumptions[:kite_integration_fraction] * sum(parts))
+    return installed(parts, assumptions)
 end
 
 """
