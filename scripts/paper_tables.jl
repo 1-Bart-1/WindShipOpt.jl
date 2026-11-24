@@ -228,6 +228,7 @@ input_derivations = Dict(
     :rigid_upkeep_per_area => "sec:det_rigid",
     (name => "sec:det_lei" for name in (:lei_flight_drag, :lei_tube_mass,
         :lei_tube_surface, :lei_max_force_per_area))...,
+    :single_skin_glide_factor => "sec:det_single", :single_skin_line_ratio => "sec:det_single",
     :tether_stress => "sec:det_kite", :tether_length_ratio => "sec:det_kite",
     :kite_min_turn_radius => "sec:det_kite", :control_unit_mass_per_force => "sec:det_kite",
     :kite_flight_drag => "sec:det_kite", :kite_landing_max_wind => "sec:det_kite",
