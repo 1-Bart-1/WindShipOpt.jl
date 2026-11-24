@@ -40,6 +40,10 @@ export type ExplorerData = {
 };
 
 export const rigs = ["wings", "rotors", "suction", "kite", "lei", "vtol"] as const;
+
+/** The rigs of `rigs` that `data` holds a design of: those the paper compares. */
+export const shownRigs = (data: ExplorerData) =>
+  rigs.filter((rig) => data.designs.some((design) => design.rig === rig));
 export const drives = ["vlsfo", "ammonia"] as const;
 
 /** Name of the recorded input of the cargo value of class `name`. */

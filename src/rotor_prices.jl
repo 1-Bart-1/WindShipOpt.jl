@@ -65,9 +65,9 @@ Bottom-up price [USD] of the rotor `price` is for: its manufacturing cost times 
 price factor, with installation and the retractable rig premium where `price` includes them.
 """
 function bottom_up_price(price::RotorPrice, assumptions)
-    parts = deck_price_parts(1, price.height * price.diameter, assumptions,
-        :rotor_unit_cost, assumptions[:rotor_cost_per_area], :rotor_installation_fraction)
-    cost = parts.units + parts.surface + (price.installed ? parts.installation : 0.0)
+    cost = assumptions[:rotor_unit_cost] +
+           assumptions[:rotor_cost_per_area] * price.height * price.diameter
+    installation = price.installed ? 1 + assumptions[:installation_fraction] : 1.0
     premium = price.retractable ? 1 + assumptions[:retractable_rig_premium] : 1.0
-    return assumptions[:market_price_factor] * premium * cost
+    return assumptions[:market_price_factor] * premium * installation * cost
 end

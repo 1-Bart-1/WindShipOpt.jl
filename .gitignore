@@ -22,3 +22,4 @@ paper/extended_abstract.*
 paper/kite_design/kite_design.*
 !paper/kite_design/kite_design.tex
 /paper/kite_design/figures/
+paper/main-review*.pdf
