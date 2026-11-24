@@ -28,13 +28,11 @@ test("the site gives the model's canopy price at the paper's inputs", () => {
   expect(gap(values[data.canopy_price.node], data.canopy_price.value)).toBeLessThan(1e-12);
 });
 
-test("the site gives the model's cost at changed inputs on the routes of the paper's", () => {
-  expect(data.checks.length).toBeGreaterThan(0);
-  for (const check of data.checks) {
-    const values = evaluated(data, inputValues(data, check.changes, check.cargo_factor));
-    expect(gap(values[data.designs[check.design].nodes.cost], check.recosted), check.label).toBeLessThan(1e-12);
-  }
-}, 120_000);
+test("the site gives the model's cost of every design at changed inputs on the paper's routes", () => {
+  const values = evaluated(data, inputValues(data, data.check.changes, 1));
+  const worst = Math.max(...data.designs.map((design, k) => gap(values[design.nodes.cost], data.check.costs[k])));
+  expect(worst).toBeLessThan(1e-12);
+});
 
 test("resetting each input, or all at once, gives back exactly the paper's inputs", () => {
   const names = inputGroups.flatMap((group) => group.controls.map((control) => control.name));
