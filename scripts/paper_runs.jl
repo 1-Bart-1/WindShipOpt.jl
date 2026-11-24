@@ -698,6 +698,26 @@ case_directory(case, departures) = joinpath(cases_directory,
         case.held_knots, case.part, departures, weather_name)))
 
 """
+    departure_directory(directory, departure)
+
+Directory of the departure at `departure` [h] of the round trip whose case-store directory
+is `directory`.
+"""
+departure_directory(directory, departure) =
+    joinpath(directory, "departures", string(departure))
+
+"""
+    departure_entry(directory, case)
+
+Entry of the case store `directory` of a departure of `case` that the run in use takes, as
+[`stored_entry`](@ref) gives it but only of the run's own round-trip code, or `missing`.
+"""
+function departure_entry(directory, case)
+    entry = stored_entry(directory, case)
+    return ismissing(entry) || entry.model != paper_run.trip_model ? missing : entry
+end
+
+"""
     in_slice(case, only)
 
 Whether `case` carries every label of `only` at one of its given values, compared as text.
@@ -744,19 +764,17 @@ reads_unchanged(entry, case) =
     all(read_hash(name) == hash for (name, hash) in entry.files)
 
 """
-    stored_trip(compute, directory, case)
+    stored_trip(compute, directory, case; seconds=0.0)
 
 Round trip `compute()` returns for `case`, stored in the case store `directory` through a
-temporary file with the values in `case.assumptions` of the inputs it read, the data files
-it read, the seconds it took, the code that computed it, its commit and processor.
+temporary file with the inputs and data files it read ([`with_reads`](@ref)), the seconds it
+took plus `seconds` spent on the departures it combines, the code that computed it, its
+commit and processor.
 """
-function stored_trip(compute, directory, case)
-    files = Dict{String, String}()
-    seconds = @elapsed (trip, names) = with(() -> inputs_read(compute),
-        files_read_scope => files)
-    inputs = sort([name => case.assumptions[name] for name in names])
+function stored_trip(compute, directory, case; seconds=0.0)
+    elapsed = @elapsed (trip, reads) = with_reads(compute, case)
     record = paper_run.record
-    entry = (; inputs, files=sort(collect(files)), trip, seconds,
+    entry = (; reads.inputs, reads.files, trip, seconds=elapsed + seconds,
         model=paper_run.trip_model, commit=record["git_commit"], dirty=record["git_dirty"],
         processor=processor(), made=now())
     mkpath(directory)
@@ -764,6 +782,32 @@ function stored_trip(compute, directory, case)
     serialize(temporary, entry)
     mv(temporary, entry_file(directory, entry); force=true)
     return entry
+end
+
+"""
+    with_reads(compute, case)
+
+`compute()` and what it read: each input with its value in `case.assumptions` and each data
+file with its content hash, as sorted pairs `inputs` and `files`.
+"""
+function with_reads(compute, case)
+    files = Dict{String, String}()
+    result, names = with(() -> inputs_read(compute), files_read_scope => files)
+    return result, (; inputs=sort([name => case.assumptions[name] for name in names]),
+        files=sort(collect(files)))
+end
+
+"""
+    replay_reads(reads, case)
+
+Read again, in the [`with_reads`](@ref) running, the inputs of `case.assumptions` and the
+data files that `reads` lists, as a round trip resting on what made them read them.
+"""
+function replay_reads(reads, case)
+    foreach(((name, _),) -> case.assumptions[name], reads.inputs)
+    trip_files = files_read_scope[]
+    isnothing(trip_files) ||
+        @lock paper_run.tally.lock merge!(trip_files, Dict(reads.files))
 end
 
 """

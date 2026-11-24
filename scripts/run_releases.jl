@@ -102,7 +102,8 @@ end
     copy_run(checkout, name, scratch)
 
 Copy with rsync run `name` of the repository `checkout` to runs/ in the directory
-`scratch`, and the case-store entries it uses ([`run_entries`](@ref)) to cases/.
+`scratch`, and the case-store entries it uses ([`run_entries`](@ref)), round trips and their
+departures, to cases/.
 """
 function copy_run(checkout, name, scratch)
     occursin(r"^[\w.-]+$", name) || throw(ArgumentError("no run named $name"))
@@ -113,7 +114,8 @@ function copy_run(checkout, name, scratch)
     filters = joinpath(scratch, "entries.txt")
     open(filters, "w") do io
         for (store, model) in entries
-            println(io, "+ /$store/\n+ /$store/$model-*.bin")
+            println(io, "+ /$store/\n+ /$store/$model-*.bin\n+ /$store/departures/\n" *
+                        "+ /$store/departures/*/\n+ /$store/departures/*/$model-*.bin")
         end
         println(io, "- *")
     end

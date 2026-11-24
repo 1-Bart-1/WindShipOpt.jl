@@ -937,7 +937,7 @@ classes_today.csv, dashes where no run has it, and the share of round trips the 
 shortens and their median change, in split_table.tex.
 """
 function split_table()
-    table = read_table(data_file("classes.csv"))
+    table = compared_table()
     today = isnothing(latest_step("today")) ? fill(Dict(), length(drive_labels)) :
             fleet_savings.(fleet_cells.(Ref(read_table(data_file("classes_today.csv"))),
                 first.(drive_labels)))
@@ -1180,7 +1180,7 @@ ship class, the median over the routes, with each drive, in payback_table.tex; a
 where the rig does not pay back within its life.
 """
 function payback_table()
-    table = read_table(data_file("classes.csv"))
+    table = compared_table()
     rigs = last.(study_rigs(table))
     medians = Dict(class => [median_payback([payback_years(table, class, drive, route, rig)
                                              for route in unique(table["route"])])
@@ -1462,7 +1462,7 @@ of the rig sales of each rig's [`fleet_market`](@ref) on each drive, low to high
 in market_sales_table.tex and by ship type in market_sales_type_table.tex.
 """
 function market_table()
-    table = class_table()
+    table = compared_table()
     write_type_savings(table)
     markets = Dict(drive => cell_markets(table, drive) for (drive, _) in drive_labels)
     write_market_sales(markets, last.(study_rigs(table)))
@@ -2213,15 +2213,18 @@ fidelity_parts() = [
         model="steady balance; side force beyond the limits is shed by trimming the rig",
         error="limits are design rules, not measured", effect=switched(:limits)),
     (part="Rudder drag", varied="removed",
-        model="lifting line carrying the yaw moment in the free stream",
-        error="no wake or propeller slipstream at the rudder", effect=switched(:rudder)),
+        model="lifting line carrying the yaw moment in the wake and propeller slipstream",
+        error="wake fraction from CFD of two cargo ships; " *
+              "drag within 10\\,\\% at no thrust",
+        effect=switched(:rudder)),
     (part="Leeway and rudder drag", varied="both removed",
-        model="Kijima side-force slope; induced drag of a slender wing and cross flow",
-        error="regression on merchant-ship models, not on these hulls",
+        model="side force fitted to tank tests of a tanker; " *
+              "induced drag of a slender wing and cross flow",
+        error="one conventional hull tested, not these hulls",
         effect=switched(:side_force)),
     (part="Hull side-force slope", varied="at its low bound",
-        model="Kijima regression on merchant-ship models in calm water",
-        error="hulls without a skeg tested at 0.4 to 0.5 times it",
+        model="Kijima regression times 0.55, fitted to tank tests of a tanker",
+        error="hulls without a skeg tested at 0.32 to 0.37 times the regression",
         effect=switched(:weak_hull)),
     (part="Propeller and engine", varied="not measured",
         model="actuator disk with viscous loss; engine efficiency falling at part load",
@@ -2423,17 +2426,22 @@ ship_kind_words = [:teu => "Container", :ceu => "CarCarrier", :tonne => "Bulk"]
 Write the numbers the paper and its extended abstract state as LaTeX macros `\\Num...` to
 paper/sections/numbers.tex by [`number_macro`](@ref), the results marked at draft fidelity:
 the goals, the `highlight_limit` the paper build checks, the run the results come from
-([`results_run_words`](@ref)), the [`class_numbers`](@ref), [`kite_rotor_numbers`](@ref),
-[`class_range_numbers`](@ref), [`recommendation_numbers`](@ref),
-[`rig_lead_numbers`](@ref), [`route_numbers`](@ref), [`split_numbers`](@ref),
-[`payback_numbers`](@ref), [`premium_numbers`](@ref), [`fleet_share_numbers`](@ref),
-[`market_numbers`](@ref) and [`type_saving_numbers`](@ref) of the class study, the
-[`design_premium_numbers`](@ref) of the design study, the [`forecast_numbers`](@ref) and
+([`results_run_words`](@ref)), the [`trailing_text`](@ref) and [`trailing_summary`](@ref) of
+the class study, and of its [`compared_table`](@ref) the [`class_numbers`](@ref),
+[`kite_rotor_numbers`](@ref), [`class_range_numbers`](@ref),
+[`recommendation_numbers`](@ref), [`rig_lead_numbers`](@ref), [`route_numbers`](@ref),
+[`split_numbers`](@ref), [`payback_numbers`](@ref), [`premium_numbers`](@ref),
+[`fleet_share_numbers`](@ref), [`market_numbers`](@ref) and [`type_saving_numbers`](@ref),
+the [`design_premium_numbers`](@ref) of the design study, the [`forecast_numbers`](@ref) and
 the [`side_force_numbers`](@ref).
 """
 function numbers_file()
-    classes = class_table()
-    results = [class_numbers(classes); kite_rotor_numbers(classes);
+    every_rig = class_table()
+    classes = compared_table(every_rig)
+    every_cell = all_fleet_cells(every_rig)
+    results = ["Trailing" => trailing_text(every_cell);
+               "TrailingSummary" => trailing_summary(every_cell);
+               class_numbers(classes); kite_rotor_numbers(classes);
                class_range_numbers(classes); recommendation_numbers(classes);
                rig_lead_numbers(classes);
                route_numbers(classes); split_numbers(classes); payback_numbers(classes);
@@ -2520,8 +2528,7 @@ fleet_savings(cells) = Dict(rig => mean(cell.savings[rig] for cell in cells)
 
 Name and text, per drive and rig, of the mean over the [`fleet_cells`](@ref) of class and
 route of the class table `classes` of the cost saving [%] of the cheapest size, and the
-count of cells in each [`fleet_band`](@ref); and per drive the [`fraction_text`](@ref) of
-the wing sails' mean saving over the rotors'.
+count of cells in each [`fleet_band`](@ref).
 """
 function class_numbers(classes)
     numbers = Pair{String, String}[]
@@ -2531,8 +2538,7 @@ function class_numbers(classes)
         savings = fleet_savings(cells)
         push!(numbers, "Cells$word" => string(length(cells)),
             "Level$word" => string(count(==("level"), bands)),
-            "NoRig$word" => string(count(==("none"), bands)),
-            "WingsShare$word" => fraction_text(savings["wings"] / savings["rotors"]))
+            "NoRig$word" => string(count(==("none"), bands)))
         for (_, rig) in study_rigs(classes)
             name = word * uppercasefirst(rig)
             push!(numbers, "Saving$name" => whole_number(savings[rig]),
@@ -2565,30 +2571,12 @@ function kite_rotor_numbers(classes)
     return numbers
 end
 
-"fractions [`fraction_text`](@ref) names, with their words"
-fraction_words = (1 / 10 => "a tenth", 1 / 8 => "an eighth", 1 / 6 => "a sixth",
-    1 / 5 => "a fifth", 1 / 4 => "a quarter", 1 / 3 => "a third", 1 / 2 => "half",
-    2 / 3 => "two thirds", 3 / 4 => "three quarters", 1 => "as much")
-
-"""
-    fraction_text(ratio)
-
-Words for `ratio` of one quantity to another: the nearest of the `fraction_words` by
-ratio, "nothing" at or below zero, and "<ratio> times" above 1.25.
-"""
-function fraction_text(ratio)
-    ratio <= 0 && return "nothing"
-    ratio > 1.25 && return one_decimal(ratio) * " times"
-    return last(argmin(fraction -> abs(log(first(fraction) / ratio)), fraction_words))
-end
-
 """
     class_range_numbers(table)
 
 Name and text, from the class table `table`, per drive and rig of the range over the classes
-of the mean over the routes of the fuel saving [%] of the cheapest size; on VLSFO the
-wing sails' largest such cost saving [%] and the classes on which they cost more than they
-save; and per deck rig the most units of any cheapest size.
+of the mean over the routes of the fuel saving [%] of the cheapest size, and per deck rig
+the most units of any cheapest size.
 """
 function class_range_numbers(table)
     classes = class_order(table)
@@ -2598,12 +2586,6 @@ function class_range_numbers(table)
         push!(numbers, "FuelRange$word$(uppercasefirst(rig))" =>
             value_range(filter(isfinite, fuel), whole_number))
     end
-    wings = Dict(class => class_saving(table, "cost", class, "vlsfo", "wings")
-                 for class in classes)
-    losing = [class for class in classes if wings[class] < 0]
-    best = maximum(filter(isfinite, collect(values(wings))))
-    push!(numbers, "WingsBestOil" => whole_number(best),
-        "WingsLossClassesOil" => isempty(losing) ? "no class" : "the " * listed(losing))
     for rig in filter(in(table["rig"]), deck_rig_names)
         cheapest = filter(!isnothing, [cheapest_row(table, class, route, drive, rig)
                                        for class in classes
@@ -2627,9 +2609,9 @@ class_saving(table, column, class, drive, rig) =
 """
     fleet_share_numbers(table)
 
-Name and text, per drive of the class table `table`, of each band's share [%] of the
-yearly cost of carrying the fleet's cargo, a stale marker for a rig the class study does
-not hold, the total of that cost [billion USD] and the tank-to-wake CO2 that carrying it
+Name and text, per drive of the class table `table`, of the share [%] of the yearly cost of
+carrying the fleet's cargo of each band of a rig it holds, of level and of none, the total
+of that cost [billion USD] and the tank-to-wake CO2 that carrying it
 without a rig emits [million t a year], and the shares of the IMO transport work and of
 shipping's CO2 in the IMO inventory the classes' size bins carry.
 """
@@ -2643,9 +2625,9 @@ function fleet_share_numbers(table)
         push!(numbers, "FleetBill$word" => whole_number(bill / 1e9),
             "FleetEmitted$word" => two_digits(1e-12emitted))
         for band in fleet_bands
-            unrun = band in rig_names && band ∉ last.(study_rigs(table))
-            share = unrun ? "\\stale{classes}{}" : whole_number(100split[band].bill / bill)
-            push!(numbers, "FleetShare$(word)$(uppercasefirst(band))" => share)
+            band in rig_names && band ∉ table["rig"] && continue
+            push!(numbers, "FleetShare$(word)$(uppercasefirst(band))" =>
+                whole_number(100split[band].bill / bill))
         end
     end
     _, work_share = fleet_work()
@@ -2689,14 +2671,10 @@ end
 
 Name and text, per drive of the class table `table`, ship type and rig, of the
 [`type_savings`](@ref) per ship a year in cost [USD million], as a share of the cost [%]
-and in CO2 [t]; and the ship types on which the wing sails cost more than they save on
-VLSFO.
+and in CO2 [t].
 """
 function type_saving_numbers(table)
     numbers = Pair{String, String}[]
-    losing = [lowercase(label) for (; label, rigs) in type_savings(table, "vlsfo")
-              if rigs["wings"].share < 0]
-    push!(numbers, "WingsLossTypesOil" => isempty(losing) ? "no ship type" : listed(losing))
     for (drive, drive_word) in drive_words, (; word, rigs) in type_savings(table, drive)
         for (_, rig) in study_rigs(table)
             name = string("TypeSaving", drive_word, word, uppercasefirst(rig))
@@ -2989,16 +2967,13 @@ life_limit_text(life) = isnan(life) ? "--" : @sprintf("\\num{%.0f}", 100round(li
     rig_lead_numbers(table)
 
 Name and text, from the [`rig_lead_rows`](@ref) of the class table `table`, of the
-[`verdict_text`](@ref) of each of `verdict_groups`, the [`advice_text`](@ref), the
-[`places`](@ref) the wing sails are advised, per drive the [`highlight_text`](@ref) and the
-[`answer_ranges`](@ref),
-and on container ships per drive where the kite falls behind the rotors.
+[`verdict_text`](@ref) of each of `verdict_groups`, the [`advice_text`](@ref), per drive
+the [`highlight_text`](@ref) and the [`answer_ranges`](@ref), and on container ships per
+drive where the kite falls behind the rotors.
 """
 function rig_lead_numbers(table)
     rows = rig_lead_rows(table)
-    wings = filter(row -> row.verdict != "none" && "wings" in advised_rigs(row), rows)
-    numbers = ["Advice" => advice_text(rows),
-        "WingsAdvised" => isempty(wings) ? "on no ship type" : places(wings, rows)]
+    numbers = ["Advice" => advice_text(rows)]
     for (drive, word) in drive_words
         push!(numbers, "HighlightAdvice$word" => highlight_text(rows, drive))
         own = filter(row -> row.drive == drive, rows)
@@ -3040,6 +3015,50 @@ highlight_limit = 85
 rig_subjects = Dict("kite" => ("the kite", "leads"), "wings" => ("the wing sails", "lead"),
     "rotors" => ("the rotors", "lead"), "suction" => ("the suction sails", "lead"),
     "vtol" => ("the VTOL kite", "leads"), "lei" => ("the LEI kite", "leads"))
+
+"why each rig the Results explain trails the others where it leads nowhere"
+trailing_reasons = Dict("wings" => "a square metre of wing sail pulls about a fifth as \
+        hard as one of rotor, so on the deck they can take they save less fuel\
+        \\inpaper{ (\\cref{sec:res_forces})}",
+    "lei" => "its tubes' mass grows with \$A^{3/2}\$, so it is heavier and pulls less per \
+        square metre than the ram-air kite at every size, the more so the larger it grows\
+        \\inpaper{ (\\cref{sec:lei_kite})}")
+
+"""
+    trailing_summary(cells)
+
+Sentence naming the [`trailing_rigs`](@ref) of fleet `cells`, or saying there are none.
+"""
+function trailing_summary(cells)
+    subjects = [rig_subjects[rig] for (; rig) in trailing_rigs(cells)]
+    isempty(subjects) && return "No rig trails the leader on every class, route and fuel"
+    singular = length(subjects) == 1 && endswith(last(only(subjects)), "s")
+    trail = singular ? "trails" : "trail"
+    return "$(uppercasefirst(listed(first.(subjects)))) $trail the leader on every class, \
+            route and fuel"
+end
+
+"""
+    trailing_text(cells)
+
+Sentence on each of the [`trailing_rigs`](@ref) of fleet `cells`: its highest cost saving,
+its smallest gap to the best rig and its [`trailing_reasons`](@ref) entry. Errors naming a
+trailing rig without one.
+"""
+function trailing_text(cells)
+    trailing = trailing_rigs(cells)
+    isempty(trailing) && return "Every rig leads, or is level with the leader, somewhere."
+    sentences = map(trailing) do (; rig, saving, gap)
+        subject, verb = rig_subjects[rig]
+        haskey(trailing_reasons, rig) ||
+            error("no reason in `trailing_reasons` why $subject trail the others")
+        saves, comes = endswith(verb, "s") ? ("saves", "comes") : ("save", "come")
+        return "$(uppercasefirst(subject)) $saves at most $(whole_number(saving))\\,\\% \
+                of the cost and $comes no closer to the best rig than \
+                $(whole_points(gap)): $(trailing_reasons[rig])."
+    end
+    return join(sentences, " ")
+end
 
 """
     listed(items)
@@ -3311,7 +3330,7 @@ function rig_margin_table()
         println(io, "\\cmidrule(l){7-8}")
         println(io, "Ship type & Fuel & Best & Next & Margin [points] & Verdict & ",
             "Canopy life [h] & Kites lost [per year] \\\\\n\\midrule")
-        rows_of_types = rig_lead_rows(class_table())
+        rows_of_types = rig_lead_rows(compared_table())
         for (k, row) in enumerate(rows_of_types)
             println(io, join([group_label(getproperty.(rows_of_types, :label), k),
                     Dict(drive_labels)[row.drive], row.rig, row.rival,
@@ -3362,9 +3381,6 @@ drag coefficient of each at the published side force, both on ½ρV²LT.
 """
 function drift_check_table()
     tests = read_table(joinpath(pkgdir(WindShipOpt), "data", "hull_drift_tests.csv"))
-    env = Environment(assumptions)
-    speed = 6.0
-    reference = 0.5env.water_density * speed^2
     write_whole(joinpath(sections, "drift_check_table.tex")) do io
         println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
         println(io, "Hull & Leeway & \\multicolumn{2}{c}{Side force \\(C_Y\\)} & ",
@@ -3374,19 +3390,47 @@ function drift_check_table()
         for (k, name) in enumerate(tests["hull"])
             hull = Hull(tests["length"][k], tests["beam"][k], tests["draft"][k],
                 tests["block"][k], assumptions)
-            area = hull.length * hull.draft
             aspect_ratio = 2tests["effective_draft_ratio"][k]^2 * hull.draft / hull.length
             for angle in drift_check_angles
                 beta = deg2rad(angle)
                 tested = tests["side_force_slope"][k] * beta +
                          tests["side_force_cubic"][k] * beta^3
-                leeway, drag = WindShipOpt.leeway_drag(hull, env, speed,
-                    tested * reference * area)
-                modelled = tested * beta / leeway
+                leeway = WindShipOpt.side_force_leeway(hull, tested)
                 @printf(io, "%s & %d & %.4f & %.4f & %.5f & %.5f \\\\\n", name, angle,
-                    tested, modelled, tested^2 / (π * aspect_ratio),
-                    drag / (reference * area))
+                    tested, WindShipOpt.side_force_coefficient(hull, beta),
+                    tested^2 / (π * aspect_ratio),
+                    WindShipOpt.leeway_drag(hull, tested, leeway))
             end
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
+    centre_check_table()
+
+Write to paper/sections/centre_check_table.tex, for each captive test of
+data/hull_centre_tests.csv, the side force on ½ρV²LT and the distance forward of midship
+where it acts, as a fraction of the length, measured and of the model's hull of the same
+main dimensions at the same leeway.
+"""
+function centre_check_table()
+    tests = read_table(joinpath(pkgdir(WindShipOpt), "data", "hull_centre_tests.csv"))
+    write_whole(joinpath(sections, "centre_check_table.tex")) do io
+        println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
+        println(io, "Hull & Leeway & \\multicolumn{2}{c}{Side force \\(C_Y\\)} & ",
+            "\\multicolumn{2}{c}{Centre \\(x_\\mathrm{h}/L\\)} \\\\")
+        println(io, "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}")
+        println(io, " & [\\si{\\degree}] & Test & Model & Test & Model \\\\\n\\midrule")
+        for (k, name) in enumerate(tests["hull"])
+            hull = Hull(tests["length"][k], tests["beam"][k], tests["draft"][k],
+                tests["block"][k], assumptions)
+            leeway = deg2rad(tests["leeway"][k])
+            @printf(io, "%s & %d & %.4f & %.4f & %.2f & %.2f \\\\\n", name,
+                tests["leeway"][k], tests["side_force"][k],
+                WindShipOpt.side_force_coefficient(hull, leeway),
+                tests["yaw_moment"][k] / tests["side_force"][k],
+                WindShipOpt.lateral_centre(hull, leeway) / hull.length)
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
