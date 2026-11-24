@@ -16,14 +16,14 @@ explorer_inputs = (:vlsfo_price, :e_ammonia_price, :carbon_price, :canopy_life,
 """
     explorer_data()
 
-Every design of classes.csv with its cost per tonne-km and its saving against the ship
-without a rig on its own fuel, on e-ammonia and on VLSFO, recorded over
-[`explorer_inputs`](@ref) and the cargo value of each class on its stored round trips,
-and their [`explorer_check`](@ref): explorer.json.
+Every design of the [`compared_table`](@ref) of the class study with its cost per tonne-km
+and its saving against the ship without a rig on its own fuel, on e-ammonia and on VLSFO,
+recorded over [`explorer_inputs`](@ref) and the cargo value of each class on its stored
+round trips, and their [`explorer_check`](@ref): explorer.json.
 """
 function explorer_data()
     classes = ship_classes()
-    cases = class_cases(read_table(data_file("classes.csv")))
+    cases = class_cases(compared_table())
     trips = round_trips(cases, sampled_departures())
     feasible = findall(!isnothing, trips)
     cases, trips = cases[feasible], trips[feasible]
