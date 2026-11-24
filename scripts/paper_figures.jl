@@ -1569,25 +1569,24 @@ end
 """
     class_order(table)
 
-Classes of the class table sorted by deadweight.
+Classes of the class table, sorted by [`deck_order`](@ref).
 """
 function class_order(table)
     classes = ship_classes()
-    names = unique(table["class"])
-    return sort(names; by=name -> classes[name].deadweight)
+    return sort(unique(table["class"]); by=name -> deck_order(classes[name]))
 end
 
 """
-    limit_groups(table)
+    deck_groups(table)
 
-`(limit, names)` of the deadweight-limited and of the space-limited classes of the class
-table `table`, each sorted by deadweight.
+`(label, names)` of the classes of the class table `table` with a free deck and of those
+with cargo on deck, each sorted by deadweight.
 """
-function limit_groups(table)
+function deck_groups(table)
     classes = ship_classes()
-    return [(limit, [name for name in class_order(table)
-                     if limit_label(classes[name]) == limit])
-            for limit in ("deadweight", "space")]
+    return [(label, [name for name in class_order(table)
+                     if deck_label(classes[name]) == label])
+            for label in ("free deck", "cargo on deck")]
 end
 
 """
@@ -1662,13 +1661,13 @@ end
 """
     class_comparison_figure()
 
-Cost saving of the best size of each rig for every ship class and the mean of the
-deadweight-limited and of the space-limited classes, a [`savings_panel!`](@ref) per drive.
+Cost saving of the best size of each rig for every ship class and the mean of the classes
+with a free deck and of those with cargo on deck, a [`savings_panel!`](@ref) per drive.
 """
 function class_comparison_figure()
     table = compared_table()
     groups = [[(name, [name]) for name in class_order(table)];
-              [("mean, $limit-limited", names) for (limit, names) in limit_groups(table)]]
+              [("mean, $label", names) for (label, names) in deck_groups(table)]]
     figure = Figure(size=(page_width, 400))
     for (k, (drive, title)) in enumerate(drive_panels)
         axis = Axis(figure[1, k]; title, xlabel="cost saving [%]",
@@ -1985,18 +1984,18 @@ end
 """
     winner_map_figure()
 
-The [`fleet_band`](@ref) of every ship class and route, deadweight-limited classes in the
-top row and space-limited ones below, one column per drive, coloured by the rig that
+The [`fleet_band`](@ref) of every ship class and route, classes with a free deck in the top
+row and those with cargo on deck below, one column per drive, coloured by the rig that
 leads, hatched in the colours of the two best where they are level and grey where no rig
 clearly saves, and labelled with the best cost saving [%].
 """
 function winner_map_figure()
     table = compared_table()
-    groups = limit_groups(table)
+    groups = deck_groups(table)
     route_names_seen = route_order
     bands = Set{String}()
     figure = Figure(size=(page_width, 400))
-    for (row, (limit, names)) in enumerate(groups), (column, (drive, title)) in
+    for (row, (label, names)) in enumerate(groups), (column, (drive, title)) in
                                                      enumerate(drive_panels)
         axis = Axis(figure[row, column];
             title=row == 1 ? title : "",
@@ -2006,7 +2005,7 @@ function winner_map_figure()
             yticklabelsvisible=column == 1, xticklabelsvisible=row == length(groups),
             xticksvisible=row == length(groups),
             xticklabelrotation=π / 4)
-        column == 1 && Label(figure[row, 0], "$limit-limited"; rotation=π / 2,
+        column == 1 && Label(figure[row, 0], label; rotation=π / 2,
             tellheight=false)
         cells = fleet_cells(table, drive)
         for (i, route) in enumerate(route_names_seen), (k, name) in enumerate(names)
@@ -2512,20 +2511,21 @@ end
 """
     cargo_cost_figure()
 
-Cost saving of the best size of each rig on e-ammonia for each ship class, per cargo-limit
-group: the saving as it stands, solid, and what the cargo its rig displaces costs, pale,
-which together make the saving if the ship carried its cargo as without a rig.
+Cost saving of the best size of each rig on e-ammonia for each ship class, per
+[`deck_groups`](@ref) group: the saving as it stands, solid, and what the cargo its rig
+displaces costs, pale, which together make the saving if the ship carried its cargo as
+without a rig.
 """
 function cargo_cost_figure()
     table = compared_table()
-    groups = limit_groups(table)
+    groups = deck_groups(table)
     rigs = study_rigs(table)
     figure = Figure(size=(page_width, 235))
     largest = maximum(length.(last.(groups)))
     cells = [figure[1, 1], GridLayout(figure[1, 2])]
-    axes = map(enumerate(groups)) do (column, (limit, names))
+    axes = map(enumerate(groups)) do (column, (label, names))
         axis = Axis(column == 1 ? cells[1] : cells[2][1, 1];
-            title="($(Char('a' + column - 1))) $limit-limited", xlabel="cost saving [%]",
+            title="($(Char('a' + column - 1))) $label", xlabel="cost saving [%]",
             yticks=(eachindex(names), names), yreversed=true,
             limits=(nothing, (0.45, length(names) + 0.55)))
         for (slot, (j, rig)) in enumerate(rigs), (i, name) in enumerate(names)
@@ -2568,7 +2568,7 @@ function large_rigs_figure()
     designed = (1000 / flat_per_projected, 1040)
     marks = ((flown, "flown"), (first(designed), "designed"))
     rotors_in_service = 5
-    foot, gap, cut_size = length(names) + 0.5, pt(3), pt(5)
+    gap, cut_size = pt(3), pt(5)
     rows = (-1.2, length(names) + 0.7)
     figure = Figure(size=(page_width, 225))
     areas = Axis(figure[1, 1]; title="(a) best kite area",
@@ -2604,9 +2604,8 @@ function large_rigs_figure()
         end
     end
     reference_line!(units, rotors_in_service; vertical=true)
-    text!(units, rotors_in_service, foot; text="most rotors in service",
-        rotation=π / 2, align=(:left, :bottom), offset=(-gap, 0), fontsize=note_size,
-        color=:gray35)
+    text!(units, rotors_in_service, first(rows); text="most rotors in service",
+        align=(:left, :top), offset=(gap, -gap), fontsize=note_size, color=:gray35)
     deck_rigs = filter(in(table["rig"]), deck_rig_names)
     for (i, name) in enumerate(names), (j, rig) in enumerate(deck_rigs)
         scatter!(units, [median_units(table, name, "ammonia", rig)],
@@ -2620,7 +2619,7 @@ function large_rigs_figure()
         position=(0.75, 1))
     axislegend(units, [MarkerElement(marker=:circle, color=rig_colour(rig))
                        for rig in deck_rigs],
-        collect(rig_label.(deck_rigs)); position=:rt, orientation=:horizontal)
+        collect(rig_label.(deck_rigs)); position=(1, 0.2), orientation=:horizontal)
     save_figure("large_rigs", figure)
 end
 
