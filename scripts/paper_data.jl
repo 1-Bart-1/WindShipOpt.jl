@@ -930,14 +930,16 @@ smallest_deck_rig_area = 50.0
 
 Smallest and largest area [m^2] searched for each rig on `class`: kites of 500 to
 64,000 m^2, VTOL kites of 20 m^2 to the largest whose perch fits, deck rigs from
-`smallest_deck_rig_area` to all of what fits on deck.
+`smallest_deck_rig_area` to all of what fits on deck, and none of a rig where not even its
+smallest size fits.
 """
 function size_bounds(class)
     hull = Hull(class, assumptions)
+    smallest = Dict("vtol" => 20.0,
+        (rig => smallest_deck_rig_area for rig in deck_rig_names)...)
+    bounds = (rig => (area, largest_rig_area(rig, hull)) for (rig, area) in smallest)
     return Dict("kite" => (500.0, largest_rig_area("kite", hull)),
-        "vtol" => (20.0, largest_rig_area("vtol", hull)),
-        (rig => (smallest_deck_rig_area, largest_rig_area(rig, hull))
-         for rig in deck_rig_names)...)
+        (rig => (lower, upper) for (rig, (lower, upper)) in bounds if lower <= upper)...)
 end
 
 "guessed cheapest rig sizes of the class study, data/size_guesses.csv"
@@ -1959,8 +1961,8 @@ development_inputs = [
     (input=:rotor_cost_per_area, label="rotor cost per area", rig="rotors", lever="price",
         reason="Structure sets a rotor's price, which stands at its build-up."),
     (input=:rotor_lift_factor, label="rotor lift", rig="rotors", lever="force",
-        reason="Rotor design sets the lift at a given spin; the base is the full-scale " *
-               "fit, so the range only reaches down to the CFD value."),
+        reason="Rotor design sets the lift at a given spin; CFD and full-scale data " *
+               "bound it."),
     (input=:rotor_max_wind, label="rotor highest wind", rig="rotors", lever="weather",
         reason="Up to which wind its drive and structure let a rotor keep spinning."),
     (input=:rigid_mass, label="VTOL kite mass", rig="vtol", lever="price",
@@ -2958,9 +2960,13 @@ function held_speeds(case, trip)
     hours = 24(trip.outbound_days + trip.return_days)
     speeds = ["same_time" => round(track / 3600hours / WindShipOpt.KNOT; digits=2)]
     case.ship == "140 m" && return speeds
+    return push!(speeds, "operating" => operating_speed(case.ship))
+end
+
+"fleet's mean operating speed [kn] of the class named `ship` in data/ship_classes.csv"
+function operating_speed(ship)
     classes = read_table(joinpath(root, "data", "ship_classes.csv"))
-    operating = classes["operating_speed"][only(rows(classes, "name" => case.ship))]
-    return push!(speeds, "operating" => operating)
+    return classes["operating_speed"][only(rows(classes, "name" => ship))]
 end
 
 """
@@ -3031,6 +3037,96 @@ function published_terms_data()
         println(io, "source,ship,area,speed,route,fuel_bare,fuel_kite,fuel_free,",
             "hours_bare,hours_kite,flight_hours,flight_hours_free")
         foreach(row -> println(io, join(row, ",")), filter(!isnothing, results))
+    end
+end
+
+"""
+Speed trial of the ferry Copenhagen with one 30 m by 5 m rotor (Werner and Nisbet 2023,
+SSPA report RE40201042-01-00-B): ship speed [kn], true wind at the rotor's mid-span [m/s],
+rotor surface speed at 170 rpm [m/s], rotor area [m^2], its spin power as stated [kW], the
+coefficients of its measured thrust coefficient over the apparent wind angle [deg]
+(Appendix 1, Fig. 8), and per true wind angle [deg] the gross power saving [kW] and [%] and
+the net saving [%] of its Table 9.
+"""
+copenhagen_trial = (knots=16.0, rotor_wind=11.8, surface_speed=π * 5.0 * 170 / 60,
+    area=150.0, spin_power=99.0, thrust_fit=(-2.785, 0.1976, -8.744e-4),
+    points=[(78.0, 1440.0, 27.0, 25.0), (102.0, 1366.0, 25.0, 24.0),
+        (38.0, 548.0, 10.0, 8.0), (142.0, 557.0, 10.0, 9.0)])
+
+"""
+    copenhagen_row(true_angle)
+
+At the true wind angle `true_angle` [deg] of [`copenhagen_trial`](@ref): the apparent wind
+angle [deg] and speed [m/s], the spin ratio, the thrust coefficient of our rotor and the one
+measured, and the spin power of our rotor [kW], with the rotor turning as on the trial.
+"""
+function copenhagen_row(true_angle)
+    trial = copenhagen_trial
+    speed, angle = apparent_wind(trial.rotor_wind, deg2rad(true_angle),
+        trial.knots * WindShipOpt.KNOT)
+    spin_ratio = min(WindShipOpt.MAX_SPIN_RATIO, trial.surface_speed / speed)
+    lift, drag, power = WindShipOpt.rotor_coefficients(spin_ratio)
+    model = assumptions[:rotor_lift_factor] * lift * sin(angle) - drag * cos(angle)
+    measured = evalpoly(rad2deg(angle), trial.thrust_fit)
+    air_density = Environment(assumptions).air_density
+    spin_power = 0.5air_density * speed^3 * trial.area * power / 1e3
+    return (true_angle, rad2deg(angle), speed, spin_ratio, model, measured, spin_power)
+end
+
+"""
+Ships whose fuel saving with rotors or wing sails was measured at sea, each on the nearest
+of our ships on VLSFO: the citation key, the ship, our ship, its rig, the rig area [m^2]
+and our route.
+"""
+measured_ships = [
+    ("lr2025trlady", "TR Lady", "Kamsarmax bulk carrier", "rotors", 360.0, :tubarao),
+    ("norsepower2019pelican", "Maersk Pelican", "Aframax tanker", "rotors", 300.0,
+        :houston),
+    ("gcaptain2024pyxis", "Pyxis Ocean", "Kamsarmax bulk carrier", "wings", 1500.0,
+        :tubarao),
+    ("mol2024shofu", "Shofu Maru", "Aframax tanker", "wings", 800.0, :tubarao)]
+
+"""
+    measured_savings_data()
+
+Our model on the terms of rotors and wing sails measured at sea: the rotor of the ferry
+Copenhagen at the conditions of its speed trial, copenhagen.csv, and each of
+[`measured_ships`](@ref) with and without its rig on the shortest course at its class's
+operating speed, its fuel energy [GJ] per departure and its days at sea per round trip,
+measured_savings.csv.
+"""
+function measured_savings_data()
+    open(run_file("copenhagen.csv"), "w") do io
+        println(io, "true_angle,apparent_angle,apparent_wind,spin_ratio,thrust_model,",
+            "thrust_measured,spin_power")
+        for (true_angle, _...) in copenhagen_trial.points
+            println(io, join(copenhagen_row(true_angle), ","))
+        end
+    end
+    cases = []
+    for (source, name, ship, rig, area, route) in measured_ships
+        knots = operating_speed(ship)
+        scale = run_settings().corridor_scale
+        paths = WindShipOpt.shortest_corridor.(corridors(route, scale))
+        for (case_rig, case_area) in (("none", 0.0), (rig, area))
+            design = ShipDesign(:vlsfo, study_hull(ship); rig_size(case_rig, case_area)...)
+            push!(cases, trip_case(design; route, paths, course=:shortest,
+                held_knots=knots, source, name, ship, rig=case_rig, area=case_area))
+        end
+    end
+    trips = round_trips(cases, sampled_departures())
+    open(run_file("measured_savings.csv"), "w") do io
+        println(io, "source,name,ship,route,rig,area,departure,fuel_energy,days")
+        for (case, trip) in zip(cases, trips)
+            isnothing(trip) && continue
+            tonne_km = trip.cargo * tonne_km_per_tonne(case.corridors...)
+            for outcome in trip.departures
+                println(io, join((case.source, case.name, case.ship, case.route, case.rig,
+                        case.area, outcome.departure,
+                        outcome.fuel_per_tonne_km * tonne_km / 1e3,
+                        trip.outbound_days + trip.return_days), ","))
+            end
+        end
     end
 end
 
@@ -3146,20 +3242,21 @@ end
 "the price inputs of the parts and launches of a soft kite"
 kite_price_inputs = (:canopy_structure_cost, :canopy_cloth_base_price,
     :canopy_cloth_price_per_weight, :winch_mass_per_force, :winch_cost_per_mass,
-    :launch_mast_mass_per_size, :launch_mast_cost_per_mass, :control_unit_cost_per_mass,
+    :launch_mast_mass_per_size, :welded_steel_cost_per_mass, :control_unit_cost_per_mass,
     :kite_controls_cost, :kite_integration_fraction, :tether_price, :kite_cycle_course_cost,
     :kite_cycle_crew_cost, :market_price_factor)
 
 "the price inputs of each rig, the kite's [`kite_price_inputs`](@ref)"
 rig_price_inputs = Dict("kite" => kite_price_inputs,
     "wings" => (:wing_unit_cost, :wing_cost_per_area, :wing_installation_fraction,
-        :market_price_factor),
+        :welded_steel_cost_per_mass, :camera_system_cost, :market_price_factor),
     "rotors" => (:rotor_unit_cost, :rotor_cost_per_area, :rotor_installation_fraction,
-        :market_price_factor),
+        :welded_steel_cost_per_mass, :camera_system_cost, :market_price_factor),
     "suction" => (:wing_unit_cost, :suction_cost_per_mass, :suction_mass_per_area,
-        :wing_installation_fraction, :market_price_factor),
+        :wing_installation_fraction, :welded_steel_cost_per_mass, :camera_system_cost,
+        :market_price_factor),
     "vtol" => (:rigid_mass, :rigid_cost_per_mass, :rigid_avionics_cost, :rigid_tether_cost,
-        :rigid_ship_power_cost, :winch_cost_per_mass, :launch_mast_cost_per_mass,
+        :rigid_ship_power_cost, :winch_cost_per_mass, :welded_steel_cost_per_mass,
         :kite_controls_cost, :kite_integration_fraction, :market_price_factor))
 
 "ship, drive, and kite, wing sail and rotor areas [m^2] of the router decisions study"
