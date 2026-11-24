@@ -1666,7 +1666,7 @@ Cost saving of the best size of each rig for every ship class and the mean of th
 deadweight-limited and of the space-limited classes, a [`savings_panel!`](@ref) per drive.
 """
 function class_comparison_figure()
-    table = class_table()
+    table = compared_table()
     groups = [[(name, [name]) for name in class_order(table)];
               [("mean, $limit-limited", names) for (limit, names) in limit_groups(table)]]
     figure = Figure(size=(page_width, 400))
@@ -1945,7 +1945,7 @@ dashed line named in the legend, and beside each panel the median number of unit
 rig at its best size, each column named in the rig's colour.
 """
 function class_size_figure()
-    table = read_table(data_file("classes.csv"))
+    table = compared_table()
     names = class_order(table)
     routes_seen = unique(table["route"])
     figure = Figure(size=(page_width, 285))
@@ -1991,7 +1991,7 @@ leads, hatched in the colours of the two best where they are level and grey wher
 clearly saves, and labelled with the best cost saving [%].
 """
 function winner_map_figure()
-    table = class_table()
+    table = compared_table()
     groups = limit_groups(table)
     route_names_seen = route_order
     bands = Set{String}()
@@ -2220,7 +2220,7 @@ The yearly cost of carrying the fleet's cargo split by the rig that lowers it mo
 and the yearly cost the rigs save there split by rig (b), a bar per drive with its total.
 """
 function fleet_share_figure()
-    table = class_table()
+    table = compared_table()
     splits = [(drive, fleet_split_of(table, drive)) for (drive, _) in drive_labels]
     figure = Figure(size=(page_width, 250))
     classes = length(first(fleet_work()))
@@ -2517,7 +2517,7 @@ group: the saving as it stands, solid, and what the cargo its rig displaces cost
 which together make the saving if the ship carried its cargo as without a rig.
 """
 function cargo_cost_figure()
-    table = read_table(data_file("classes.csv"))
+    table = compared_table()
     groups = limit_groups(table)
     rigs = study_rigs(table)
     figure = Figure(size=(page_width, 235))

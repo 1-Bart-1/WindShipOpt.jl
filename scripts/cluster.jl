@@ -61,7 +61,7 @@ function run_job(fidelity, steps)
     settings = cluster_settings()
     stalled = stalled_run_jobs(Symbol(fidelity))
     stalled > settings["retries"] && error(stalled, " run jobs in a row found the ",
-        fidelity, " run with no step done and no round trip stored since the one before")
+        fidelity, " run with no step done and no departure stored since the one before")
     successor = submit_run_job(fidelity, steps; after=ENV["SLURM_JOB_ID"])
     global case_jobs = SlurmJobs(settings)
     try
@@ -75,7 +75,7 @@ end
     print_jobs_status()
 
 Print the paper-run jobs queued or running, and for the latest run at each fidelity the
-steps it has done and how many round trips of each of its batches are stored.
+steps it has done and how many departures of each of its batches are stored.
 """
 function print_jobs_status()
     run(`squeue --me --name=windship-run,windship-cases`)
@@ -95,22 +95,22 @@ end
 """
     print_batches(directory)
 
-Print for each batch file in `directory` ([`write_batch`](@ref)) how many of its round
-trips its run finds in the case store ([`stored_count`](@ref)).
+Print for each batch file in `directory` ([`write_batch`](@ref)) how many of its
+departures its run no longer has to route ([`stored_count`](@ref)).
 """
 function print_batches(directory)
     isdir(directory) || return
     for file in filter(endswith(".bin"), readdir(directory; join=true))
         started = floor(unix2datetime(mtime(file)), Second)
-        @printf("  batch of %s UTC: %d of %d round trips stored\n", started,
-            stored_count(file), length(deserialize(file).cases))
+        @printf("  batch of %s UTC: %d of %d departures stored\n", started,
+            stored_count(file), departure_count(deserialize(file)))
     end
 end
 
 """
     compute_shard(path, shard, shards)
 
-Compute into the case store the missing round trips of shard `shard` of `shards` of the
+Route into the case store the missing departures of shard `shard` of `shards` of the
 batch file `path`, as the run that wrote it would.
 """
 function compute_shard(path, shard, shards)
