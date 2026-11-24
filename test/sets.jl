@@ -1612,11 +1612,12 @@ end
 end
 
 # Routed rotor counts at a fixed total area over 12 departures of 2017-2019 on e-ammonia
-# (#490): counts within 0.3 points of the best routed saving.
-@testset "the rotor count is one routing finds within its scatter of the best" begin
+# (#490): counts within 0.3 points of the best routed saving; on the coaster within the
+# 0.9 points one rotor in the rudder's wake flow loses to two (#597).
+@testset "the rotor count is one routing finds near the best" begin
     for (name, area, route, columns, counts) in (
-        ("general cargo coaster", 362.0, :houston, 1, 2:2),
-        ("general cargo coaster", 301.0, :new_york, 1, 2:2),
+        ("general cargo coaster", 362.0, :houston, 1, 1:2),
+        ("general cargo coaster", 301.0, :new_york, 1, 1:2),
         ("Kamsarmax bulk carrier", 1895.0, :houston, 1, 3:8),
         ("Kamsarmax bulk carrier", 1895.0, :new_york, 1, 3:6),
         ("VLCC", 2383.0, :houston, 2, 10:14),
