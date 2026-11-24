@@ -1003,9 +1003,10 @@ trim_rigs = (("kite", 800.0), ("wings", 800.0), ("rotors", 400.0))
 """
     kite_figure()
 
-The kite the paper flies, at the design aspect ratio and 100 m²: (a) seen from above,
-leading edge at the top, and from ahead, and its lift and drag coefficients (b) and glide
-ratio (c) in the design shape over angle of attack, without bridle and tether.
+The kite the paper flies, at the design aspect ratio and 100 m²: (a) seen from above, the
+apparent wind coming onto its leading edge, and from ahead, and its lift and drag
+coefficients (b) and glide ratio (c) in the design shape over angle of attack, without
+bridle and tether.
 """
 function kite_figure()
     aspect_ratio = isinteger(design_aspect_ratio) ? Int(design_aspect_ratio) :
@@ -1020,20 +1021,23 @@ function kite_figure()
         Point2f.(reverse(geometry["te_y"]), -reverse(geometry["te_x"]))]
     poly!(shape, above; color=palette[1], strokecolor=:black, strokewidth=0.8)
     span = maximum(geometry["le_y"]) - minimum(geometry["le_y"])
-    trailing = -maximum(geometry["te_x"])
+    leading, trailing = -minimum(geometry["le_x"]), -maximum(geometry["te_x"])
     text!(shape, 0, trailing; text="span $(round(span; digits=1)) m",
         align=(:center, :top), offset=(0, -pt(2)), fontsize=note_size)
     margin = 1
-    wind = Point2f(0.5span + 1.5margin, -minimum(geometry["le_x"]))
-    arrows2d!(shape, [wind], [Vec2f(0, trailing - wind[2])]; color=:black,
+    text!(shape, Point2f.(0.5span, [leading, trailing]);
+        text=["leading edge", "trailing edge"], align=(:left, :center), offset=(pt(2), 0),
+        fontsize=note_size)
+    wind = Point2f(0, leading + 5margin)
+    arrows2d!(shape, [wind], [Vec2f(0, leading + 0.5margin - wind[2])]; color=:black,
         shaftwidth=flow_width)
-    text!(shape, wind; text="wind", align=(:center, :bottom), offset=(0, pt(1)),
+    text!(shape, wind; text="apparent wind", align=(:left, :center), offset=(pt(2), 0),
         fontsize=note_size)
     front = trailing - 4margin
     lines!(shape, -geometry["le_y"], geometry["le_z"] .+ front; color=palette[1],
         linewidth=3)
-    limits!(shape, -0.5span - margin, wind[1] + 1.5margin,
-        front + minimum(geometry["le_z"]) - margin, wind[2] + 2.5margin)
+    limits!(shape, -0.5span - margin, 0.5span + 10margin,
+        front + minimum(geometry["le_z"]) - margin, wind[2] + 2margin)
     angle = "angle of attack [°]"
     coefficients = Axis(figure[1, 2]; xlabel=angle, ylabel="coefficient",
         title="(b) lift and drag")
@@ -1045,7 +1049,7 @@ function kite_figure()
     glide = Axis(figure[1, 3]; xlabel=angle, ylabel=L"G = C_L/C_D",
         title="(c) glide ratio")
     lines!(glide, polar["alpha"], polar["cl"] ./ polar["cd"]; color=palette[1])
-    colsize!(figure.layout, 1, Relative(0.3))
+    colsize!(figure.layout, 1, Relative(0.36))
     save_figure("kite", figure)
 end
 

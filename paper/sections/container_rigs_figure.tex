@@ -28,7 +28,7 @@
 \draw[leader] (25,12) -- (23,30.6);
 \node[label, anchor=south] at (22,31) {stacks};
 \end{scope}
-% ---- (b) a column, along the ship
+% ---- (b) a column, along the ship, bow to the right
 \begin{scope}[shift={(97,0)}]
   \node[panel] at (-6,40) {(b) Column, side};
   \fill[deck] (-6,4) rectangle (36,5);
@@ -36,27 +36,27 @@
   \pic at (12.4,5) {stack=14.6};
   \fill[slate] (10.6,5) rectangle (12.4,15.6);
   \pic at (11.5,15.6) {raised rotor};
-  \draw[force] (11.5,23.6) -- (2,23.6);
-  \node[label, anchor=south] at (4.6,24.2) {$F_w$};
+  \draw[force] (11.5,23.6) -- (21,23.6);
+  \node[label, anchor=south] at (18.4,24.2) {$F_w$};
   \draw[dimension] (32,5) -- (32,15.6);
   \node[label, anchor=west] at (32.8,10.3) {$H$};
   \draw[dimension] (32,15.6) -- (32,23.6);
   \node[label, anchor=west] at (32.8,19.6) {$h/2$};
-  \draw[guide, densely dashed] (14,23.6) -- (32,23.6);
+  \draw[guide, densely dashed] (21.6,23.6) -- (32,23.6);
   \draw[guide, densely dashed] (14,15.6) -- (32,15.6);
   \draw[leader] (11.5,8) -- (11.5,1.4);
   \node[label, anchor=north] at (11.5,1) {column in the gap $b$ between bays};
 \end{scope}
-% ---- (c) the column's box section, from above
+% ---- (c) the column's box section, from above, bow to the right
 \begin{scope}[shift={(145,0)}]
   \node[panel] at (-2,40) {(c) Section};
   \draw[slate, line width=1.2pt] (0,8) rectangle (6,24);
   \draw[dimension] (0,5.2) -- (6,5.2);
   \node[label, anchor=north] at (3,4.8) {$b$};
-  \draw[dimension] (8.6,8) -- (8.6,24);
-  \node[label, anchor=west] at (9.2,16) {$D$};
-  \draw[force] (3,16) -- (-4,16);
-  \node[label, anchor=south] at (-2.4,16.6) {$F_w$};
+  \draw[dimension] (-2.6,8) -- (-2.6,24);
+  \node[label, anchor=east] at (-3.2,16) {$D$};
+  \draw[force] (3,16) -- (10,16);
+  \node[label, anchor=south] at (9.4,16.6) {$F_w$};
   \draw[force] (3,24.8) -- (3,31);
   \node[label, anchor=west] at (3.6,29.4) {$m a$};
   \draw[leader] (6,21) -- (9.4,27);
