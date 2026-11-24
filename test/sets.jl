@@ -4380,19 +4380,26 @@ end
           "\\newcommand{\\NumSavingOilKite}{4}\n"
 end
 
-@testset "every number the paper and its extended abstract print from the numbers steps \
-          is one they wrote" begin
+@testset "the numbers steps write every number the paper, its extended abstract and its \
+          checks read, and no other" begin
     paper = joinpath(PaperRuns.root, "paper")
-    texts = [joinpath(directory, name) for directory in (paper, joinpath(paper, "sections"))
-             for name in readdir(directory) if endswith(name, ".tex")]
-    used = Set(m.match for text in texts
-               for m in eachmatch(r"\\Num[A-Za-z]+", read(text, String)))
     sections = joinpath(paper, "sections")
+    texts = [joinpath(directory, name) for directory in (paper, sections)
+             for name in readdir(directory)
+             if endswith(name, ".tex") && !endswith(name, "numbers.tex")]
+    tex = join(read.(texts, String))
+    printed = Set(m.match for m in eachmatch(r"\\Num[A-Za-z]+", tex))
+    prefixes = Dict("todaynum" => "Today", "recostnum" => "Recosting")
+    optional = Set(string("\\Num", prefixes[m[1]], m[2])
+                   for m in eachmatch(r"\\(todaynum|recostnum)\{([A-Za-z]+)\}", tex))
+    checked = Set("\\" * m[1] for m in eachmatch(r"\"(Num[A-Za-z]+)\"",
+        read(joinpath(PaperRuns.root, "scripts", "check_highlights.py"), String)))
     defined = Set(m[1] for name in readdir(sections) if endswith(name, "numbers.tex")
                   for m in eachmatch(r"\\newcommand\{(\\Num[A-Za-z]+)\}",
                       read(joinpath(sections, name), String)))
-    @test !isempty(used)
-    @test used ⊆ defined
+    @test !isempty(printed)
+    @test printed ⊆ defined
+    @test defined ⊆ printed ∪ optional ∪ checked
 end
 
 "mass [kg] per projected area of a soft kite of `area` [m^2] without its tether"
@@ -4732,21 +4739,13 @@ end
     @test read(path, String) == "new table"
 end
 
-@testset "routing and a rig save against the unrouted ship without a rig, \
-          per departure" begin
+@testset "routing and a rig save against the unrouted ship without a rig" begin
     case = ("140 m", "ammonia")
     table = Dict("ship" => fill(case[1], 3), "drive" => fill(case[2], 3),
         "rig" => ["none", "kite", "none"], "course" => ["routed", "routed", "shortest"],
         "speed" => ["cost", "cost", "same_time"], "cost" => [9.0, 7.0, 10.0])
     @test PaperData.routing_saving(table, case..., "none", "same_time") ≈ 10
     @test PaperData.routing_saving(table, case..., "kite", "same_time") ≈ 30
-    departures(days) = Dict("ship" => fill(case[1], 4), "drive" => fill(case[2], 4),
-        "rig" => fill("none", 4), "course" => ["routed", "routed", "shortest", "shortest"],
-        "speed" => ["cost", "cost", "same_time", "same_time"], "departure" => days,
-        "cost" => [9.0, 8.0, 10.0, 12.0])
-    @test PaperData.routing_error(departures([0, 24, 24, 0]), case..., "same_time") ≈ 2.5
-    @test_throws ErrorException PaperData.routing_error(departures([0, 24, 24, 48]),
-        case..., "same_time")
 end
 
 @testset "a result prints in whole points and a table cell to one decimal, never as -0" begin
@@ -4880,7 +4879,8 @@ end
     @test PaperData.rerouting_gains(table, "kite") ≈ [10.0, 0.0]
 end
 
-@testset "the fuel premium a rig closes is ranged over the ship lengths it was run at" begin
+@testset "the fuel premium with and without a rig is ranged over the ship lengths it was \
+          run at" begin
     rows = [("base", "vlsfo", 85.0, 0, 0, 0, 1.0), ("base", "ammonia", 85.0, 0, 0, 0, 1.5),
         ("base", "ammonia", 85.0, 800, 0, 0, 1.2),
         ("base", "ammonia", 85.0, 1600, 0, 0, 1.25),
@@ -4892,29 +4892,7 @@ end
     names = ("scenario", "drive", "length", "kite_area", "wing_area", "rotor_area", "cost")
     designs = Dict(name => getindex.(rows, k) for (k, name) in enumerate(names))
     @test Dict(PaperData.design_premium_numbers(designs)) == Dict(
-        "DesignPremium" => "40 to 50", "DesignPremiumBestRig" => "20",
-        "DesignPremiumClosedKite" => "60 to 75", "DesignPremiumClosedWings" => "20",
-        "DesignPremiumClosedRotors" => "40")
-end
-
-@testset "a pair's extra saving has its standard error over the departures as noise" begin
-    rows = [(route, rig, kite_area, rotor_area, cost)
-            for (route, pair_costs) in (("steady", fill(7.0, 4)), ("varying", [7, 8, 7, 8.0]))
-            for (rig, kite_area, rotor_area, costs) in (("none", 0.0, 0.0, fill(10.0, 4)),
-                ("kite", 900.0, 0.0, fill(9.0, 4)), ("rotors", 0.0, 400.0, fill(8.0, 4)),
-                ("kite+rotors", 500.0, 400.0, fill(9.0, 4)),
-                ("kite+rotors", 900.0, 200.0, pair_costs))
-            for cost in costs]
-    column(k) = getindex.(rows, k)
-    table = Dict("ship" => fill("Handysize", length(rows)),
-        "drive" => fill("ammonia", length(rows)), "route" => column(1), "rig" => column(2),
-        "kite_area" => column(3), "rotor_area" => column(4), "cost" => column(5))
-    steady, varying = PaperData.pair_gain_errors(table)
-    @test steady ≈ 0 atol = 1e-12
-    @test varying ≈ sqrt(100 / 3) / 2
-    lost = findlast(row -> row[1:2] == ("varying", "kite"), rows)
-    @test_throws ArgumentError PaperData.pair_gain_errors(
-        Dict(key => deleteat!(copy(values), lost) for (key, values) in table))
+        "DesignPremium" => "40 to 50", "DesignPremiumBestRig" => "20")
 end
 
 @testset "the development study keeps 5 to 20 inputs ranged by data or goals, each with a \
@@ -4939,26 +4917,6 @@ end
 @testset "the development table shows every input of the development study" begin
     @test all(entry -> entry.rig in first.(PaperData.development_groups),
         PaperData.development_inputs)
-end
-
-@testset "the model parts measured by the development study read only its inputs" begin
-    PaperData.eval(:(departures = 1:8760))
-    @test !isempty(PaperData.fidelity_parts())
-end
-
-@testset "holding deck rigs to one row keeps the best size that stands in one row" begin
-    hull = Hull(ship_classes()["Capesize bulk carrier"], assumptions)
-    columns(count) = PaperData.deck_columns(WindShipOpt.RotorRig(800.0, hull, assumptions;
-        columns=count, in_column=2))
-    @test columns(2) == 2
-    @test columns(1) == 1
-    @test PaperData.deck_columns(nothing) == 0
-    table = Dict("rig" => ["none", "kite", "rotors", "rotors"], "columns" => [0, 0, 1, 2],
-        "cost" => [1.0, 0.85, 0.9, 0.8])
-    every, one_row = only(last(PaperData.one_row()))
-    @test PaperData.best_costs(table, every)["rotors"] == 0.8
-    held = PaperData.best_costs(table, one_row)
-    @test held["rotors"] == 0.9 && held["kite"] == 0.85 && held["none"] == 1.0
 end
 
 @testset "deck rigs are searched up to what fits on a container ship's deck, and not \
@@ -5691,29 +5649,10 @@ end
     write(joinpath(run, "model_parts.csv"), "ship,rig,part,cost\n",
         join(("140 m,$rig,none,1.0\n" for rig in rigs[1:(end - 1)])))
     @test !PaperData.study_holds(PaperData.switched(:none))
-    @test !PaperData.study_holds((:model_parts, "weather_years.csv", "ship", [[()]]))
     @test all(==("\\stale{model_parts}{}") ∘ last, PaperData.side_force_numbers())
-    @test length(PaperData.side_force_numbers()) == 4length(PaperData.rig_names)
+    @test length(PaperData.side_force_numbers()) == 4length(PaperData.side_force_rigs)
     @eval PaperData study_file(study, name) = joinpath($run, "missing", name)
     @test_throws ErrorException PaperData.study_holds(PaperData.switched(:side_force))
-end
-
-@testset "a held-speed kite saving and its bare ship use the same routes" begin
-    case(route, rig, area, pricing, fuel) = (; ship="ship", drive="vlsfo", knots=10.0, route,
-        rig, area, pricing, fuel, cost=fuel / 10, flight_share=0.5)
-    kite_cases(area, fuel) = [case("sailed", "kite", area, pricing, fuel)
-                              for pricing in ("free", "priced")]
-    cases = [case("sailed", "none", 0.0, "priced", 100.0);
-        case("no kite trip", "none", 0.0, "priced", 300.0);
-        kite_cases(400.0, 90.0); kite_cases(800.0, 80.0)]
-    table = Dict(string(name) => getproperty.(cases, name) for name in keys(first(cases)))
-    routes = PaperData.speed_size_routes(table, (ship="ship", kites=(400.0, 800.0)),
-        "vlsfo", 10.0)
-    @test routes == ["sailed"]
-    saving = PaperData.speed_size_saving(table, "ship", "vlsfo", routes, "kite", 400.0,
-        "free", 10.0)
-    @test saving.bare_fuel == 100.0
-    @test saving.fuel_percent == 10.0
 end
 
 @testset "the pattern data has rows only where the kite flies or holds still" begin
@@ -5743,23 +5682,10 @@ end
     end
 end
 
-@testset "the interest level rows hold each class at its value times the factor" begin
-    classes = ship_classes()
-    name, other = "Kamsarmax bulk carrier", "Neo-Panamax container ship"
-    factors = PaperData.cargo_interest_factors()
-    value = classes[name].cargo_value
-    table = Dict{String, Vector}("class" => [name, name, name, other],
-        "cargo_value" => [value * factors.low, value * factors.high, 15000.0,
-            classes[other].cargo_value * factors.low],
-        "cost" => [1.0, 2.0, 3.0, 4.0])
-    @test factors.low < 1 < factors.high
-    @test PaperData.interest_level_rows(table, factors.low)["cost"] == [1.0, 4.0]
-    @test PaperData.interest_level_rows(table, factors.high)["cost"] == [2.0]
-end
-
 @testset "a size search keeps apart classes of one name with cargo of different value" begin
     class = ship_classes()["Kamsarmax bulk carrier"]
-    cheap, dear = (PaperData.with_cargo_value(class, value) for value in (100.0, 15000.0))
+    fields = (name => getfield(class, name) for name in fieldnames(ShipClass))
+    cheap, dear = (ShipClass(; fields..., cargo_value=value) for value in (100.0, 15000.0))
     search_key(ship) = (ship, "ammonia", "kite", "tubarao")
     searches = Dict(search_key(ship) => Tuple{Float64, Float64}[] for ship in (cheap, dear))
     cases = [(; design=(; class=ship), class=ship.name, drive="ammonia", rig="kite",
@@ -5768,11 +5694,6 @@ end
     PaperData.record_sizes!(searches, cases, [(; cost_per_tonne_km=1.0), nothing])
     @test searches[search_key(cheap)] == [(1000.0, 1.0)]
     @test searches[search_key(dear)] == [(2000.0, Inf)]
-end
-
-@testset "a ship covering one nautical mile an hour along its track sails at one knot" begin
-    @test PaperData.speed_along_track(24 * 1.852, 1.0) ≈ 1.0
-    @test PaperData.speed_along_track(24 * 1.852, 2.0) ≈ 0.5
 end
 
 include("hot_path_checks.jl")
