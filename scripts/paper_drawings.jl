@@ -651,11 +651,11 @@ geometric mean over the routes of the best size on VLSFO of each rig the class s
 laid out as the model lays them out.
 """
 function ship_classes_figure()
-    table = read_table(data_file("classes.csv"))
+    table = read_classes(data_file("classes.csv"))
     names = class_order(table)
     classes = ship_classes()
     routes_seen = unique(table["route"])
-    kinds = last.(study_rigs(table))
+    kinds = last.(single_rigs(table))
     longest = maximum(classes[name].length for name in names)
     gap = 0.22longest
     rows = [drawn_class(name, classes[name], table, routes_seen, kinds) for name in names]
