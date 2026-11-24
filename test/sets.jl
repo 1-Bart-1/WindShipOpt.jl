@@ -3091,7 +3091,7 @@ end
 
 @testset "router settings refuse a second task while a call under others runs" begin
     entered, release = Base.Event(), Base.Event()
-    other = WindShipOpt.RouterSettings(live_step_hours=0.5)
+    other = WindShipOpt.RouterSettings(time_step=1.5)
     running = Threads.@spawn WindShipOpt.with_router_settings(other) do
         notify(entered)
         wait(release)
