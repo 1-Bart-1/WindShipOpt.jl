@@ -504,8 +504,6 @@ function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions; co
                                    (RotorRig, design.rotor_area)
     if design.kite_area > 0
         aspect_ratio = kite_aspect_ratio(design, assumptions)
-        standing_area > 0 && hull.deck_cargo_height > 0 &&
-            throw(ArgumentError("a ship with deck cargo carries a kite or a deck rig"))
         standing_area > 0 && return CombinedRig(design.kite_area, aspect_ratio,
             standing_type, standing_area, hull, assumptions; layout...)
         return KiteRig(design.kite_area, aspect_ratio, hull, assumptions)
@@ -535,7 +533,7 @@ the launch mast of a kite flown over them; the one layout of a design without th
 function layout_counts(design::ShipDesign, hull::Hull, assumptions::Assumptions)
     area, unit = standing_unit(design)
     area > 0 || return [(1, 1)]
-    reserve = design.kite_area > 0 ? launch_mast_reserve(assumptions) : 0.0
+    reserve = design.kite_area > 0 ? launch_mast_reserve(hull, assumptions) : 0.0
     return layout_counts(area, unit, hull, assumptions, reserve)
 end
 

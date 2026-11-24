@@ -1187,7 +1187,7 @@ end
 
 @testset "kite launch mast takes the forward deck from the rotor row" begin
     hull = Hull(140.0, assumptions)
-    reserve = WindShipOpt.launch_mast_reserve(assumptions)
+    reserve = WindShipOpt.launch_mast_reserve(hull, assumptions)
     alone = WindShipOpt.RotorRig(800.0, hull, assumptions; in_column=4)
     behind = WindShipOpt.RotorRig(800.0, hull, assumptions; forward_reserve=reserve,
         in_column=4)
@@ -1203,7 +1203,7 @@ end
 
 @testset "deck units stand evenly over their row, centred on it" begin
     hull = Hull(140.0, assumptions)
-    reserve = WindShipOpt.launch_mast_reserve(assumptions)
+    reserve = WindShipOpt.launch_mast_reserve(hull, assumptions)
     deck = assumptions[:deck_length_fraction] * hull.length
     for (rig, row_length) in ((WingRig(1500.0, hull, assumptions; in_column=2), deck),
         (WindShipOpt.RotorRig(800.0, hull, assumptions; forward_reserve=reserve,
@@ -1475,6 +1475,21 @@ end
     price = WindShipOpt.rig_price_parts(pairs, assumptions).pedestals
     @test price ≈ 6e3WindShipOpt.pedestal_mass(pairs, assumptions) *
                   assumptions[:welded_steel_cost_per_mass]
+end
+
+@testset "a container ship flies a kite from its bow mast over raised rotor pairs" begin
+    feeder = ship_classes()["feeder container ship"]
+    hull = Hull(feeder, assumptions)
+    @test WindShipOpt.launch_mast_reserve(hull, assumptions) == 0
+    rig = Ship(ShipDesign(:ammonia, feeder; kite_area=1024.0, rotor_area=600.0),
+        assumptions).rig
+    alone = WindShipOpt.RotorRig(600.0, hull, assumptions; columns=rig.standing.columns,
+        in_column=rig.standing.count ÷ rig.standing.columns)
+    @test WindShipOpt.raised(rig.standing) && rig.standing.columns == 2
+    @test rig.standing.centre_position == alone.centre_position
+    @test rig.kite.attach_position ≈ WindShipOpt.launch_mast_position(hull, assumptions)
+    @test rig.kite.attach_position >
+          maximum(first.(WindShipOpt.unit_positions(rig.standing, hull, assumptions)))
 end
 
 # By hand, two pairs of 30 x 5 m rotors on the Megamax: at the 20 m/s they stop in, spin

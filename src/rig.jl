@@ -1044,12 +1044,13 @@ struct CombinedRig{K <: KiteRig, S}
 end
 
 """
-    launch_mast_reserve(assumptions)
+    launch_mast_reserve(hull, assumptions)
 
-Deck length [m] the kite's launch mast takes at the forward end of the deck for rigs.
+Deck length [m] the kite's launch mast takes at the forward end of the deck for rigs on
+`hull`: none on a hull with containers on deck, whose mast stands at its bow.
 """
-launch_mast_reserve(assumptions::Assumptions) =
-    assumptions[:launch_mast_width] + assumptions[:deck_rig_clearance]
+launch_mast_reserve(hull::Hull, assumptions::Assumptions) = hull.deck_cargo_height > 0 ?
+    0.0 : assumptions[:launch_mast_width] + assumptions[:deck_rig_clearance]
 
 """
     launch_mast_position(hull, assumptions)
@@ -1062,22 +1063,22 @@ function launch_mast_position(hull::Hull, assumptions::Assumptions)
     hull.deck_cargo_height > 0 &&
         return (0.5 - assumptions[:bow_mast_position]) * hull.length
     deck_length = rig_deck_length(hull, assumptions, 0.0)
-    return (deck_length - launch_mast_reserve(assumptions)) / 2
+    return (deck_length - launch_mast_reserve(hull, assumptions)) / 2
 end
 
 """
     CombinedRig(kite_area, kite_aspect_ratio, standing_type, standing_area, hull,
                 assumptions; layout...)
 
-Kite of projected `kite_area` [m^2] and `kite_aspect_ratio` towing from a launch mast at
-the forward end of the deck for rigs, over `standing_area` [m^2] of `standing_type`
-(`WingRig` or `RotorRig`) on the deck behind it in the `layout` of its keywords `columns`
-and `in_column`, or `nothing` if those do not fit.
+Kite of projected `kite_area` [m^2] and `kite_aspect_ratio` towing from its
+[`launch_mast_position`](@ref), over `standing_area` [m^2] of `standing_type` (`WingRig` or
+`RotorRig`) behind the [`launch_mast_reserve`](@ref) in the `layout` of its keywords
+`columns` and `in_column`, or `nothing` if those do not fit.
 """
 function CombinedRig(kite_area, kite_aspect_ratio, standing_type, standing_area,
         hull::Hull, assumptions::Assumptions; layout...)
     standing = standing_type(standing_area, hull, assumptions;
-        forward_reserve=launch_mast_reserve(assumptions), layout...)
+        forward_reserve=launch_mast_reserve(hull, assumptions), layout...)
     isnothing(standing) && return nothing
     kite = KiteRig(kite_area, kite_aspect_ratio, hull, assumptions;
         attach_position=launch_mast_position(hull, assumptions))
