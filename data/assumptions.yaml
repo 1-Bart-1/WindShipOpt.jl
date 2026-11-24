@@ -508,6 +508,18 @@ pedestal_min_frequency:
   estimate: true
   source: "Authors' estimate: above the ship's motions in waves"
   reason: "Lowest first natural frequency of a raised rotor on its pedestal, kept above the ship's motions: a tenth above waves met every 4 s, the shortest that move a ship of 150 m or more, and far above MARIN's 18.3 s roll [@marin2025feeder, Table 2-1]; authors' estimate."
+hull_foundation_load_factor:
+  value: 1.15
+  unit: "-"
+  source: "@bv2026nr206 [Sec 8, 4.3.1]: extra factor on the supporting hull structure"
+  reason: "Extra safety factor on a wind propulsion system's factored design loads for the hull structure that supports its foundation [@bv2026nr206, Sec 8, 4.3.1]."
+hull_foundation_depth:
+  value: 4.0
+  low: 3.5
+  high: 4.0
+  unit: m
+  source: "@wasp2023bpm [p. 23]: a newbuild rotor's foundation below deck"
+  reason: "Depth below the deck over which a rig's foundation in the hull carries its loads into the ship's primary structure: the 3.5-4 m foundation below deck of the one newbuild with a rotor whose foundation is reported, the Annika Braren [@wasp2023bpm, p. 23]."
 layout_mean_wind:
   value: 8.0
   unit: m/s
@@ -1223,20 +1235,6 @@ kite_controls_cost:
   estimate: true
   source: "Authors' estimate: the controls a rotor carries"
   reason: "Authors' estimate of the manufacturing cost of the kite's ship-side controller, wind and tether sensors, bridge interface and software licence: the controls a rotor carries per unit."
-launch_mast_height_ratio:
-  value: 1.3
-  low: 1.11
-  high: 1.34
-  unit: "-"
-  source: "@nextnature2007kiteship; @airseas_seawing_web: built launch masts"
-  reason: "Launch mast height over the square root of projected kite area: SkySails 15 m [@nextnature2007kiteship] on its kite of 160 m^2 [@konstruktionspraxis_skysails], 125 m^2 projected at 1.28 flat over projected, 1.34; Airseas 35 m on 1,000 m^2 of stated sail surface [@airseas_seawing_web], 1.11 if projected and 1.25 if flat; the two masts bound the range."
-launch_mast_max_height:
-  value: 35.0
-  low: 29.0
-  high: 60.0
-  unit: m
-  source: "@airseas_seawing_web: tallest kite launch mast at sea"
-  reason: "Tallest kite launch mast at sea, the 35 m mast of @airseas_seawing_web; larger kites are flown from a mast of this height, beyond any built launch system."
 kite_lifetime:
   value: 15.0
   unit: years
