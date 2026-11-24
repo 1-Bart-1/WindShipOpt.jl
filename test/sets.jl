@@ -772,7 +772,7 @@ end
     @test mass(suction) ≈ 137 rtol = 0.005
     megamax = Hull(ship_classes()["Megamax container ship"], assumptions)
     rotors = WindShipOpt.RotorRig(600.0, megamax, assumptions; columns=2, in_column=2)
-    @test rotors.count == 4 && rotors.height == 30 && rotors.pedestal == :column
+    @test rotors.count == 4 && rotors.height == 30 && WindShipOpt.raised(rotors)
     @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 47.0 rtol = 0.005
     @test rotors.camera_units == 0
     @test price(rotors) ≈ 4.75e6 rtol = 0.005
