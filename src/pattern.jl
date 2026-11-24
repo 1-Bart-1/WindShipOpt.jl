@@ -21,8 +21,16 @@ end
 
 Polar of the kite with projected `aspect_ratio` from `data/kite_polars/`.
 """
-function KitePolar(aspect_ratio::Real)
-    name = "kite_ar$(replace(string(float(aspect_ratio)), r"\.0$" => "")).csv"
+KitePolar(aspect_ratio::Real) =
+    polar_file("kite_ar$(replace(string(float(aspect_ratio)), r"\.0$" => "")).csv")
+
+"""
+    polar_file(name)
+
+[`KitePolar`](@ref) in the file `name` of `data/kite_polars/`, with angle of attack [deg],
+lift and drag coefficient in its first three columns.
+"""
+function polar_file(name)
     path = joinpath(pkgdir(@__MODULE__), "data", "kite_polars", name)
     rows = [parse.(Float64, split(line, ',')) for line in readlines(path)[2:end]]
     return KitePolar(deg2rad.(getindex.(rows, 1)), getindex.(rows, 2), getindex.(rows, 3))
