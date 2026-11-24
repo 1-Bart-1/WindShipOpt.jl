@@ -10,7 +10,7 @@ The wings lose for physical reasons, not because their inputs are unfair. The wi
 
 ### What the model does
 
-CD = 0.02 + (0.03 + 1/(π · 2.8 · 0.9)) CL² = 0.02 + 0.156 CL², with CL from 0 to 1.8 in 37 steps (`trim_settings`). This gives L/D 8.5 at CL 0.5, 5.7 at 1.0, 4.0 at 1.5 and 3.4 at 1.8. Induced drag is 81 % of the drag at CL 1.8. The deepest trim is CL 1.8 at CD 0.53, so dead downwind the wing gives at most CD 0.53.
+CD = 0.02 + (0.03 + 1/(π · 2.8 · 0.9)) CL² = 0.02 + 0.156 CL², with CL from 0 to 1.8 in 37 steps. This gives L/D 8.5 at CL 0.5, 5.7 at 1.0, 4.0 at 1.5 and 3.4 at 1.8. Induced drag is 81 % of the drag at CL 1.8. The deepest trim is CL 1.8 at CD 0.53, so dead downwind the wing gives at most CD 0.53.
 
 ### The deck mirror (derived)
 

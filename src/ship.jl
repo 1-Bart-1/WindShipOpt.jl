@@ -282,7 +282,8 @@ end
 
 """
     ShipDesign(drive, length; wing_area=0, kite_area=0, kite_aspect_ratio=nothing,
-        rotor_area=0, rigid_kite_area=0, suction_area=0, lei_kite_area=0)
+        rotor_area=0, rigid_kite_area=0, suction_area=0, lei_kite_area=0,
+        single_skin_kite_area=0)
     ShipDesign(drive, class::ShipClass; kwargs...)
 
 Design point of the optimization. `drive` names a [`Drive`](@ref): `:vlsfo`, `:methanol`
@@ -290,11 +291,11 @@ or `:ammonia`. A positive `wing_area` adds rigid wings of that total area [m^2],
 positive `kite_area` a ram-air towing kite of that projected area and projected
 `kite_aspect_ratio`, by default the assumption `kite_aspect_ratio`, a positive
 `rigid_kite_area` a rigid VTOL kite of that area, a positive `lei_kite_area` a
-leading-edge inflatable kite of that projected area, a positive `rotor_area`
-Flettner rotors of that total height times diameter, a positive `suction_area` suction
-sails of that total area. Suction sails, the VTOL kite and the leading-edge inflatable kite
-stand alone. A kite may fly over wings or rotors as
-a [`CombinedRig`](@ref); wings and rotors exclude each other. A rig area that is not finite
+leading-edge inflatable kite of that projected area, a positive `single_skin_kite_area` a
+single-skin kite of that projected area, a positive `rotor_area` Flettner rotors of that
+total height times diameter, a positive `suction_area` suction sails of that total area.
+The rigs of [`LONE_RIGS`](@ref) stand alone. A kite may fly over wings or rotors as a
+[`CombinedRig`](@ref); wings and rotors exclude each other. A rig area that is not finite
 is an `ArgumentError`. With a `class` the hull, engine power, price and cargo value are
 those of the class, otherwise the reference coaster is scaled to `length`.
 """
@@ -309,15 +310,23 @@ Base.@kwdef struct ShipDesign
     rigid_kite_area::Float64 = 0.0
     suction_area::Float64 = 0.0
     lei_kite_area::Float64 = 0.0
+    single_skin_kite_area::Float64 = 0.0
     class::Union{Nothing, ShipClass} = nothing
     function ShipDesign(drive, length, wing_area, kite_area, kite_aspect_ratio, rotor_area,
-            rigid_kite_area, suction_area, lei_kite_area, class)
+            rigid_kite_area, suction_area, lei_kite_area, single_skin_kite_area, class)
         all(isfinite, (wing_area, kite_area, rotor_area, rigid_kite_area, suction_area,
-            lei_kite_area)) || throw(ArgumentError("a rig area must be finite"))
+            lei_kite_area, single_skin_kite_area)) ||
+            throw(ArgumentError("a rig area must be finite"))
         return new(drive, length, wing_area, kite_area, kite_aspect_ratio, rotor_area,
-            rigid_kite_area, suction_area, lei_kite_area, class)
+            rigid_kite_area, suction_area, lei_kite_area, single_skin_kite_area, class)
     end
 end
+
+"fields of [`ShipDesign`](@ref) holding the area of a rig that stands alone on a design"
+const LONE_RIGS = (:suction_area, :rigid_kite_area, :lei_kite_area, :single_skin_kite_area)
+
+"fields of [`ShipDesign`](@ref) holding the area of a rig"
+const RIG_AREAS = (:wing_area, :kite_area, :rotor_area, LONE_RIGS...)
 
 ShipDesign(drive::Symbol, length::Real; kwargs...) = ShipDesign(; drive, length, kwargs...)
 ShipDesign(drive::Symbol, class::ShipClass; kwargs...) =
@@ -459,9 +468,7 @@ function rated_delivered_power(ship::Ship, assumptions::Assumptions)
     return calm * (1 + assumptions[:sea_margin]) / assumptions[:engine_rating_fraction]
 end
 
-has_rig(design::ShipDesign) =
-    any(>(0), (design.wing_area, design.kite_area, design.rotor_area,
-        design.rigid_kite_area, design.suction_area, design.lei_kite_area))
+has_rig(design::ShipDesign) = any(field -> getfield(design, field) > 0, RIG_AREAS)
 
 """
     kite_aspect_ratio(design, assumptions)
@@ -481,22 +488,12 @@ units, or `nothing` where they do not fit.
 function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions; columns=1,
         in_column=1)
     layout = (; columns, in_column)
-    if design.suction_area > 0
-        any(>(0), (design.wing_area, design.kite_area, design.rotor_area,
-            design.rigid_kite_area, design.lei_kite_area)) &&
-            throw(ArgumentError("suction sails stand alone on a design"))
-        return WingRig(design.suction_area, hull, assumptions; unit=:suction, layout...)
-    end
-    if design.rigid_kite_area > 0
-        any(>(0), (design.wing_area, design.kite_area, design.rotor_area,
-            design.lei_kite_area)) &&
-            throw(ArgumentError("a rigid kite flies alone on a design"))
-        return rigid_kite_rig(design.rigid_kite_area, hull, assumptions)
-    end
-    if design.lei_kite_area > 0
-        any(>(0), (design.wing_area, design.kite_area, design.rotor_area)) &&
-            throw(ArgumentError("a leading-edge inflatable kite flies alone on a design"))
-        return lei_kite_rig(design.lei_kite_area, hull, assumptions)
+    for field in LONE_RIGS
+        area = getfield(design, field)
+        area > 0 || continue
+        count(name -> getfield(design, name) > 0, RIG_AREAS) == 1 ||
+            throw(ArgumentError("the rig of $field stands alone on a design"))
+        return lone_rig(field, area, hull, assumptions; layout...)
     end
     design.wing_area > 0 && design.rotor_area > 0 &&
         throw(ArgumentError("a design carries wings or rotors, not both"))
@@ -512,6 +509,22 @@ function design_rig(design::ShipDesign, hull::Hull, assumptions::Assumptions; co
     end
     standing_area > 0 && return standing_type(standing_area, hull, assumptions; layout...)
     return nothing
+end
+
+"""
+    lone_rig(field, area, hull, assumptions; columns, in_column)
+
+Rig of `area` [m^2] on `hull` that the [`LONE_RIGS`](@ref) `field` of a design names:
+suction sails of `columns` times `in_column` units, a VTOL kite, a leading-edge inflatable
+kite or a single-skin kite.
+"""
+function lone_rig(field, area, hull::Hull, assumptions::Assumptions; layout...)
+    field == :suction_area &&
+        return WingRig(area, hull, assumptions; unit=:suction, layout...)
+    field == :rigid_kite_area && return rigid_kite_rig(area, hull, assumptions)
+    field == :lei_kite_area && return lei_kite_rig(area, hull, assumptions)
+    return KiteRig(area, assumptions[:kite_aspect_ratio], hull, assumptions;
+        frame=SingleSkin())
 end
 
 """
