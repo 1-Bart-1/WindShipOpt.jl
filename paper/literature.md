@@ -1,6 +1,6 @@
 # Literature review: kites, wing sails and rotors on cargo ships
 
-Working notes for the paper "Kites, wing sails or rotors: where each wind-assisted propulsion technology pays on cargo ships, from coasters to Panamax size". BibTeX keys refer to `literature.bib`, or to `refs.bib` where marked (refs). Compiled 2026-10-31.
+Working notes for the paper "Kites, wing sails or rotors: where each wind-assisted propulsion technology pays on cargo ships, from coasters to Panamax size". BibTeX keys refer to `literature.bib`. Compiled 2026-10-31.
 
 **How the entries were verified.** Every DOI below was resolved through doi.org and Crossref, which returned the title, authors, volume and pages used in `literature.bib`. Reports without a DOI were checked on the publisher's own page (EMSA, ICCT, EU LIFE, Tyndall/Manchester, TU Delft repository, Journées de l'Hydrodynamique proceedings). `sources.csv` records what is held and what has been read.
 
@@ -39,7 +39,7 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 - Method: no weather routing; market/barrier analysis with simple economics.
 - Relevance: the only source I found that states a ship-size ranking across kite, rotor and wing. Our result on which rig suits which size can be checked against it.
 
-**emsa2023** (refs) — Laursen, R., Patel, H., Sofiadi, D., Zhu, R., Nelissen, D., Van Seters, D., Pang, E. (ABS, CE Delft, Arcsilea) (2023). _Potential of Wind-Assisted Propulsion for Shipping._ EMSA, Lisbon.
+**emsa2023** — Laursen, R., Patel, H., Sofiadi, D., Zhu, R., Nelissen, D., Van Seters, D., Pang, E. (ABS, CE Delft, Arcsilea) (2023). _Potential of Wind-Assisted Propulsion for Shipping._ EMSA, Lisbon.
 
 - Compares: rotor sails, hard sails, suction wings, kites, soft sails, turbines, by literature review and a break-even techno-economic analysis.
 - Method: computes the main-engine fuel saving each WAPS must reach to cover its annual cost over 15 years, by ship segment and size (e.g. bulk carriers), for newbuild and retrofit, for low/central/high fuel prices, 2023/2030/2050. No voyage simulation, no routing.
@@ -75,7 +75,7 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 
 **tillig2019** — Tillig, F., Ringsberg, J. W. (2019). A 4 DOF simulation model developed for fuel consumption prediction of ships at sea. _Ships and Offshore Structures_ 14(sup1), 112–120. DOI 10.1080/17445302.2018.1559912. The 4-DOF (surge, sway, roll, yaw) extension; the template for our leeway/heel/rudder balance.
 
-**tillig2020** (refs) — Tillig, F., Ringsberg, J. W. (2020). Design, operation and analysis of wind-assisted cargo ships. _Ocean Engineering_ 211, 107603. DOI 10.1016/j.oceaneng.2020.107603.
+**tillig2020** — Tillig, F., Ringsberg, J. W. (2020). Design, operation and analysis of wind-assisted cargo ships. _Ocean Engineering_ 211, 107603. DOI 10.1016/j.oceaneng.2020.107603.
 
 - Flettner rotors only, 11 arrangements, on a tanker (Pacific route) and a RoRo (Baltic route), with low-aspect-ratio wing theory for the hull at drift, aerodynamic interaction and individual rpm control. Fuel saving 30 % (tanker, up to 36 % with centreboards) and 14 % (RoRo, 16.8 % with centreboards); payback times at 500–700 EUR/t. Rpm control adds 1–2 points. Routes fixed; the paper concludes that "sophisticated weather routing" is needed. Source of our rotor coefficients.
 
@@ -106,9 +106,9 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 
 **naaijen2006** — Naaijen, P., Koster, V., Dallinga, R. P. (2006). On the power savings by an auxiliary kite propulsion system. _International Shipbuilding Progress_ 53(4), 255–279. No DOI. Known only through sources read in full: it computes "the fuel savings on a full range of true wind angles for the British Bombardier, a 50000 DWT tanker" with a 320 m² kite (penloup2021 pp. 175, 179), and with Leloup et al. 2016 shows that "the leeway angle ... remains reasonable when the wing is only used as an auxiliary propulsion device" (penloup2021 p. 175). Podeur 2016 reports savings against ship speed and wind for the same tanker and kite, but from Naaijen & Koster 2007, not this paper. Relevance: early ship-kite study with drift; cite only through Penloup.
 
-**dadd2011** (refs) — Dadd, G. M., Hudson, D. A., Shenoi, R. A. (2011). Determination of kite forces using three-dimensional flight trajectories for ship propulsion. _Renewable Energy_ 36(10), 2667–2678. DOI 10.1016/j.renene.2011.01.027. Known through sources read in full: it "improved the calculations with more realistic trajectories using the Wellicome formalism" for a 320 m² kite on the 50 000 DWT British Bombardier (penloup2021 pp. 175, 179); its kite parameters come from tests of a 3 m² Flexifoil Blade III (bigi2018 §3.4). Not cited in the paper.
+**dadd2011** — Dadd, G. M., Hudson, D. A., Shenoi, R. A. (2011). Determination of kite forces using three-dimensional flight trajectories for ship propulsion. _Renewable Energy_ 36(10), 2667–2678. DOI 10.1016/j.renene.2011.01.027. Known through sources read in full: it "improved the calculations with more realistic trajectories using the Wellicome formalism" for a 320 m² kite on the 50 000 DWT British Bombardier (penloup2021 pp. 175, 179); its kite parameters come from tests of a 3 m² Flexifoil Blade III (bigi2018 §3.4). Not cited in the paper.
 
-**erhard2013** (refs) — Erhard, M., Strauch, H. (2013). Control of towing kites for seagoing vessels. _IEEE Transactions on Control Systems Technology_ 21(5), 1629–1640. DOI 10.1109/TCST.2012.2221093. SkySails flight control; operational evidence on glide ratio and flight envelope.
+**erhard2013** — Erhard, M., Strauch, H. (2013). Control of towing kites for seagoing vessels. _IEEE Transactions on Control Systems Technology_ 21(5), 1629–1640. DOI 10.1109/TCST.2012.2221093. SkySails flight control; operational evidence on glide ratio and flight envelope.
 
 **erhard2013b** — Erhard, M., Strauch, H. (2013). Theory and experimental validation of a simple comprehensible model of tethered kite dynamics used for controller design. In Ahrens, Diehl, Schmehl (eds.), _Airborne Wind Energy_, Springer, 141–165. DOI 10.1007/978-3-642-39965-7_8.
 
@@ -118,7 +118,7 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 
 **paulig2013** — Paulig, X., Bungart, M., Specht, B. (2013). Conceptual design of textile kites considering overall system performance. In _Airborne Wind Energy_, Springer, 547–562. DOI 10.1007/978-3-642-39965-7_32. SkySails kite design trade-offs, read in full: areas are flat; 225 m^2, 160 kN, 120 kg with lines, 100 g/m^2 fabric, projected aspect ratio below 2, glide ratio 4-5; 320 m^2, 250 kg, 70 kg pod, 0.9 kg/m tether, 360 m; launch at 5 m/s, 10 m/s in rough sea; no freezing conditions.
 
-**ahrens2013**, **schmehl2018** — the two Springer _Airborne Wind Energy_ volumes (DOIs 10.1007/978-3-642-39965-7 and 10.1007/978-981-10-1947-0). Context for kite aerodynamics and the VSM line of work (cayon2023 in refs).
+**ahrens2013**, **schmehl2018** — the two Springer _Airborne Wind Energy_ volumes (DOIs 10.1007/978-3-642-39965-7 and 10.1007/978-981-10-1947-0). Context for kite aerodynamics and the VSM line of work (cayon2023).
 
 **bosman2013** — Bosman, R., Reid, V., Vlasblom, M., Smeets, P. (2013). Airborne wind energy tethers with high-modulus polyethylene fibers. In _Airborne Wind Energy_, Springer, 563–585. DOI 10.1007/978-3-642-39965-7_33. DSM's design method: design factor 3, nominal and worked-in diameter, breaking load and mass by size, creep and bending life.
 
@@ -132,7 +132,7 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 
 **wilhelmsen2022** — Wilhelmsen Ships Service (2022). Mooring ropes retirement guidelines: Acera daGama. 12-strand HMPE mooring rope designed for 8,000 mooring hours to 75 % of ship design break load, at the OCIMF MEG4 operating range of up to 22 %; retired by wear and inspection. The nearest service record for `tether_lifetime`.
 
-**vanhagen2023** (refs) — van Hagen, L., Petrick, K., Wilhelm, S., Schmehl, R. (2023). Life-cycle assessment of a multi-megawatt airborne wind energy system. _Energies_ 16(4), 1750. DOI 10.3390/en16041750. Ampyx Power 5 MW design: a 900 m fixed tether section of 5 cm and a 300 m drum section of 7.4 cm at 312 MPa on the fibre. The fixed section's 7-year life is a replacement assumption of the study's spreadsheet with no stated basis; the paper gives no flight hours.
+**vanhagen2023** — van Hagen, L., Petrick, K., Wilhelm, S., Schmehl, R. (2023). Life-cycle assessment of a multi-megawatt airborne wind energy system. _Energies_ 16(4), 1750. DOI 10.3390/en16041750. Ampyx Power 5 MW design: a 900 m fixed tether section of 5 cm and a 300 m drum section of 7.4 cm at 312 MPa on the fibre. The fixed section's 7-year life is a replacement assumption of the study's spreadsheet with no stated basis; the paper gives no flight hours.
 
 **dunker2013** — Dunker, S. (2013). Ram-air wing design considerations for airborne wind energy. In _Airborne Wind Energy_, Springer, 517–546. DOI 10.1007/978-3-642-39965-7_31. Ram-air construction from a parachute maker, read in full: cell width, seams and the size limit of a subassembly; glide ratio about the aspect ratio, line rigging, ram-air wings built up to 1,040 m^2, life from degradation factors.
 
@@ -154,7 +154,7 @@ Working notes for the paper "Kites, wing sails or rotors: where each wind-assist
 
 **wintecc2009_record** — EU LIFE public database record of project WINTECC (LIFE06 ENV/D/000479), Beluga Fleet Management and SkySails, 2006–2009. MS Beluga SkySails: **5 % fuel saving (165 t fuel, 530 t CO2 per year) on an average route mix, 10–12 % on North Atlantic and North Pacific routes**; kite pull up to 17 t; 5 % worth 135 000–220 000 EUR/year at 430–700 EUR/t; payback 2–3 years if the average saving were 10 %. The record says the project "achieved" these savings, not how they were obtained, and gives no kite size for the ship; `wiwo2008` gives 160 m². It points to a layman report (`wintecc2009`), which we do not hold. Relevance: **the primary source for our 160 m² validation target**, better than emsa2023 (§10).
 
-**noaa2009** (refs) — NOAA VOS, Mariners Weather Log, April 2009: SkySails operating limits (launch above Beaufort 3).
+**noaa2009** — NOAA VOS, Mariners Weather Log, April 2009: SkySails operating limits (launch above Beaufort 3).
 
 **airseas2023** — Trade press (Container News, Oct 2023): Airseas Seawing (500 m² class, later 1000 m²) on the 5300 dwt ro-ro Ville de Bordeaux; projected 16 % fuel saving from measured traction; company target 20 %. K Line ordered systems for bulkers (Cape Brolga). Not peer reviewed; use only as the current industrial data point.
 
@@ -220,7 +220,7 @@ No paper I found sweeps waterline length continuously for several rigs at once w
 - **Khan et al. (WASP simulation)**: not found under that author list.
 - **Werner et al.**: only "Speed trial verification for a wind assisted ship" (Werner, Nisbet, Hörteborn, Nielsen, RINA Wind Propulsion 2021, rotor on m/v Copenhagen) was found; no routing paper. Left out (conference PDF on the Interreg WASP site only).
 - **Kramer, Steen, Savio 2016** "Drift forces – wingsails vs Flettner rotors" (HISWA): cited by others, proceedings not found.
-- **Ma et al., Mittendorf on WASP routing**: no WASP routing paper by these authors found. (mittendorf2022 in refs is on added resistance.)
+- **Ma et al., Mittendorf on WASP routing**: no WASP routing paper by these authors found. (mittendorf2022 is on added resistance.)
 - **Duport et al. (kite routing)**: not found; the Parlier/Roncin group's voyage work is podeur2016.
 - **Lloyd's Register 2015** wind-powered shipping report: only reproduced in trade press; left out.
 - **ITTC specialist committee report on wind-assisted ships**: not found by search; check ittc.info if wanted.
