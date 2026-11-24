@@ -816,8 +816,8 @@ end
 suction_sail(area, inputs=assumptions) = WingRig(area, Hull(140.0, assumptions), inputs;
     unit=:suction, in_column=ceil(Int, area / 100))
 
-@testset "a suction sail of the VentiFoil's shape holds its published lift, drag and fan \
-          power" begin
+@testset "a suction sail of the VentiFoil's shape holds its published lift and drag, and \
+          its maker's fan power curve" begin
     pair = suction_sail(32.0)
     @test pair.count == 1
     @test pair.height ≈ sqrt(32.0 * 6.6)
@@ -827,8 +827,11 @@ suction_sail(area, inputs=assumptions) = WingRig(area, Hull(140.0, assumptions),
     @test WindShipOpt.drag_coefficient(pair, 0.0) ==
           assumptions[:wing_profile_drag_coefficient]
     attached = (lift, WindShipOpt.drag_coefficient(pair, lift))
-    @test WindShipOpt.fan_power(pair, attached, 17.0) ≈ 2 * 7.5e3 rtol = 0.01
-    @test WindShipOpt.fan_power(pair, attached, 8.5) ≈ 2 * 7.5e3 / 8 rtol = 0.01
+    full_power = 0.40e3 * 32.0
+    @test WindShipOpt.fan_power(pair, attached, 14.0) ≈ full_power rtol = 0.01
+    @test WindShipOpt.fan_power(pair, attached, 21.0) ≈ full_power rtol = 0.01
+    @test WindShipOpt.fan_power(pair, attached, 7.0) ≈ full_power / 8 rtol = 0.01
+    @test pair.max_wind == 22.0
 end
 
 @testset "a suction sail's fan runs only while its flow is attached and lifts, and it lies \
@@ -1470,27 +1473,35 @@ end
     @test hold(frame).slots == class.unit_capacity - 160
 end
 
-@testset "raised rotors stand on the column or frame of least cost per power saved" begin
+@testset "raised rotors stand on the column or frame of least yearly cost less fuel saved" begin
     for (name, area) in (("Neo-Panamax container ship", 600.0),
         ("Megamax container ship", 1200.0))
         class = ship_classes()[name]
         bare = Ship(ShipDesign(:ammonia, class), assumptions)
+        prices = WindShipOpt.LayoutPrices(bare, nothing, assumptions)
         rotors = WindShipOpt.RotorRig(area, Hull(class, assumptions), assumptions;
             columns=2, in_column=1)
-        rig, score = WindShipOpt.cheapest_pedestal(bare, rotors, assumptions)
+        rig, score = WindShipOpt.cheapest_pedestal(bare, rotors, prices, assumptions)
         scores = [WindShipOpt.layout_score(bare, WindShipOpt.with_pedestal(rotors, pedestal),
-                      assumptions) for pedestal in (:column, :frame)]
+                      prices, assumptions) for pedestal in (:column, :frame)]
         @test score == minimum(scores)
         @test rig.pedestal == (:column, :frame)[argmin(scores)]
     end
-    neo = ship_classes()["Neo-Panamax container ship"]
-    bare = Ship(ShipDesign(:ammonia, neo), assumptions)
-    frame = WindShipOpt.with_pedestal(WindShipOpt.RotorRig(600.0, Hull(neo, assumptions),
-        assumptions; columns=2, in_column=1), :frame)
-    @test WindShipOpt.lost_cargo_cost(bare, frame, assumptions) > 0
-    megamax = ship_classes()["Megamax container ship"]
-    @test WindShipOpt.lost_cargo_cost(Ship(ShipDesign(:ammonia, megamax), assumptions),
-        frame, assumptions) == 0
+end
+
+@testset "a deck rig is charged the cargo its mass and blocked slots displace" begin
+    frame = WindShipOpt.with_pedestal(WindShipOpt.RotorRig(600.0,
+            Hull(ship_classes()["Neo-Panamax container ship"], assumptions), assumptions;
+            columns=2, in_column=1), :frame)
+    mass = WindShipOpt.rig_costs(frame, assumptions)[2]
+    for (name, blocks) in (("Megamax container ship", false),
+        ("Neo-Panamax container ship", true))
+        bare = Ship(ShipDesign(:ammonia, ship_classes()[name]), assumptions)
+        prices = WindShipOpt.LayoutPrices(bare, nothing, assumptions)
+        share = mass / WindShipOpt.CargoHold(bare, assumptions).payload
+        cost = WindShipOpt.lost_cargo_cost(bare, frame, prices, assumptions)
+        @test blocks ? cost > share * prices.ship_yearly : cost ≈ share * prices.ship_yearly
+    end
 end
 
 # By hand, a raised wing sail of 400 m^2, 28.3 x 14.1 m, at its highest lift in 20.6 m/s:
@@ -1515,9 +1526,9 @@ end
     @test !WindShipOpt.container_holds(rotors, assumptions)
     suction(unit_area) = WingRig(4unit_area, Hull(ship_classes()["feeder container ship"],
             assumptions), assumptions; unit=:suction, columns=2, in_column=2)
-    @test WindShipOpt.container_holds(suction(40.0), assumptions)
+    @test WindShipOpt.container_holds(suction(30.0), assumptions)
     @test !WindShipOpt.container_holds(suction(50.0), assumptions)
-    boxed = WindShipOpt.with_pedestal(suction(40.0), :container)
+    boxed = WindShipOpt.with_pedestal(suction(30.0), :container)
     feeder = ship_classes()["feeder container ship"]
     @test WindShipOpt.pedestal_mass(boxed, assumptions) == 0
     @test WindShipOpt.blocked_slots(boxed, feeder, assumptions) == 8
@@ -1531,18 +1542,35 @@ end
     @test peak ≈ 350e3 rtol = 0.1
 end
 
-@testset "a deck rig takes the unit count of least yearly cost per power saved" begin
+@testset "a deck rig takes the unit count of least yearly cost less fuel saved" begin
     class = ship_classes()["Kamsarmax bulk carrier"]
     design = ShipDesign(:vlsfo, class; rotor_area=800.0)
     ship = Ship(design, assumptions)
+    prices = WindShipOpt.LayoutPrices(ship, nothing, assumptions)
     score(in_column) = WindShipOpt.layout_score(ship,
-        WindShipOpt.design_rig(design, ship.hull, assumptions; in_column), assumptions)
+        WindShipOpt.design_rig(design, ship.hull, assumptions; in_column), prices, assumptions)
     chosen = ship.rig.count
     @test ship.rig.columns == 1
     @test all(score(chosen) <= score(count) for count in 1:(chosen + 3))
     winds = WindShipOpt.layout_winds(assumptions)
-    @test length(winds) == 24
-    @test sum(first, winds) / 24 ≈ assumptions[:layout_mean_wind] rtol = 0.05
+    @test length(winds) == 48
+    @test sum(first, winds) / 48 ≈ assumptions[:layout_mean_wind] rtol = 0.02
+end
+
+# Routed rotor counts at a fixed total area over 12 departures of 2017-2019 on e-ammonia
+# (#490): counts within 0.3 points of the best routed saving.
+@testset "the rotor count is one routing finds within its scatter of the best" begin
+    for (name, area, route, columns, counts) in (
+        ("general cargo coaster", 362.0, :houston, 1, 2:2),
+        ("general cargo coaster", 301.0, :new_york, 1, 2:2),
+        ("Kamsarmax bulk carrier", 1895.0, :houston, 1, 3:8),
+        ("Kamsarmax bulk carrier", 1895.0, :new_york, 1, 3:6),
+        ("VLCC", 2383.0, :houston, 2, 10:14),
+        ("VLCC", 2383.0, :new_york, 2, 10:14))
+        design = ShipDesign(:ammonia, ship_classes()[name]; rotor_area=area)
+        rig = Ship(design, assumptions; route).rig
+        @test rig.columns == columns && rig.count in counts
+    end
 end
 
 @testset "empty boxes take container slots and tare but carry no cargo" begin
@@ -1749,12 +1777,24 @@ end
     hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(bare, assumptions),
         assumptions)
     passages = [WindShipOpt.service_passages(ship, outbound, inbound, SyntheticWeather(),
-                    [24.0 * 31, 24.0 * 200], assumptions, hourly,
-                    24assumptions[:port_time_per_call], nothing, nothing)
+                    [24.0 * 31, 24.0 * 200], assumptions, hourly, nothing, nothing)
                 for ship in (bare, WindShipOpt.with_rig(kite, down))]
     @test first(passages) == last(passages)
     kite_hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(kite, changed), changed)
     @test all(kite_hourly .> hourly)
+end
+
+@testset "the return leg leaves at its scheduled time whatever the outbound takes" begin
+    design = ShipDesign(:methanol, 85.0; kite_area=400.0)
+    routing = shared_route_table(design)
+    outbound, inbound = corridors
+    turnaround = WindShipOpt.turnaround_hours(routing.table.ship, outbound, assumptions)
+    trip(out_cost) = WindShipOpt.route_round_trip(routing, outbound, inbound,
+        SyntheticWeather(), 24.0 * 31, turnaround, (out_cost, 300.0), nothing)
+    (slow_out, slow_back), (fast_out, fast_back) = trip(30.0), trip(3000.0)
+    @test fast_out.duration < slow_out.duration
+    @test fast_back.duration == slow_back.duration
+    @test fast_back.fuel_energy == slow_back.fuel_energy
 end
 
 @testset "departure costs with the year's ship average to the round trip's cost" begin
@@ -1948,7 +1988,7 @@ end
     end
     @test days(free) < 0.99days(bare)
     @test days(free) < days(scheduled) <= days(bare)
-    @test scheduled.fuel_energy < free.fuel_energy
+    @test scheduled.fuel_energy < bare.fuel_energy
     @test days(bare_tramp) == days(bare)
 end
 
@@ -3563,12 +3603,6 @@ end
     @test only(record["steps"])["julia"] == string(VERSION)
 end
 
-@testset "a run picked its unit counts by the score where its class step read it" begin
-    record(inputs) = Dict("steps" => [Dict("name" => "classes", "inputs" => inputs)])
-    @test PaperRuns.counts_by_score(record(Dict("layout_mean_wind" => 8.0)))
-    @test !PaperRuns.counts_by_score(record(Dict("air_density" => 1.225)))
-end
-
 @testset "a stored trip that read an input the model no longer has is not reused" begin
     stored(inputs) = (; inputs, files=Pair{String, String}[])
     case = (; assumptions)
@@ -3669,17 +3703,16 @@ store_run(fidelity, trip_model; commit="a", only=nothing) =
     rotors = ShipDesign(:methanol, 85.0; rotor_area=200.0)
     routed(inputs) = round_trip(Ship(rotors, inputs), corridors..., SyntheticWeather(),
         [24.0 * 31, 24.0 * 200], inputs)
-    at_high(name) = (; assumptions=with_value(assumptions, name,
-        assumptions.entries[name].high))
+    dearer(name) = (; assumptions=with_value(assumptions, name, 1.5assumptions[name]))
     directory = mktempdir()
     PaperRuns.stored_trip(() -> routed(assumptions), directory, (; assumptions))
-    dearer_canopy = at_high(:canopy_structure_cost)
+    dearer_canopy = dearer(:canopy_structure_cost)
     reused = PaperRuns.stored_entry(directory, dearer_canopy).trip
     rerouted = routed(dearer_canopy.assumptions)
     @test reused.cost_per_tonne_km == rerouted.cost_per_tonne_km
     @test reused.fuel_energy == rerouted.fuel_energy
-    @test ismissing(PaperRuns.stored_entry(directory, at_high(:rotor_unit_cost)))
-    @test ismissing(PaperRuns.stored_entry(directory, at_high(:market_price_factor)))
+    @test ismissing(PaperRuns.stored_entry(directory, dearer(:rotor_unit_cost)))
+    @test ismissing(PaperRuns.stored_entry(directory, dearer(:market_price_factor)))
 end
 
 @testset "only a draft outside its slice keeps round trips of older code" begin
@@ -3909,9 +3942,9 @@ end
     command = PaperRuns.slurm_command(settings, "run", "log", `true`; after="7")
     option(name) = only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
     hours, minutes, seconds = parse.(Int, split(option("time"), ":"))
-    @test hours * 3600 + minutes * 60 + seconds <= 24 * 3600
+    @test hours * 3600 + minutes * 60 + seconds <= 120 * 3600
     @test parse(Int, option("cpus-per-task")) <= 64
-    @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 4
+    @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 64
     @test option("dependency") == "afterany:7"
 end
 
@@ -4010,6 +4043,21 @@ end
     @test reasons[:availability] ==
           ["reads goal_sizes.csv of goal_size, which is out of date"]
     @test isempty(reasons[:speed_size])
+end
+
+@testset "a study's effect is marked once its input's range moved since the run" begin
+    entry = Dict{String, Any}("git_commit" => "HEAD",
+        "inputs" => Dict("wind_shear_exponent" => assumptions[:wind_shear_exponent]))
+    @eval PaperRuns assumptions = $assumptions
+    @test isempty(PaperRuns.moved_ranges(entry))
+    entries = copy(assumptions.entries)
+    shear = entries[:wind_shear_exponent]
+    entries[:wind_shear_exponent] = WindShipOpt.Assumption(shear.value, shear.low,
+        shear.high + 0.01, shear.unit, shear.source, shear.today, shear.estimate)
+    @eval PaperRuns assumptions = $(WindShipOpt.Assumptions(entries))
+    @test PaperRuns.moved_ranges(entry) == ["wind_shear_exponent"]
+    @test isempty(PaperRuns.changed_inputs(entry))
+    @eval PaperRuns assumptions = $assumptions
 end
 
 @testset "an input read in a task spawned while recording is recorded" begin
@@ -4570,7 +4618,6 @@ end
 module PaperData
 using Printf, Statistics, WindShipOpt
 assumptions = Main.assumptions
-results_count_bias() = 0.0
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
@@ -4587,13 +4634,15 @@ end
         ("tubarao", "ammonia", "rotors", 1890.0, 0.0047),
         ("tubarao", "ammonia", "vtol", 80.0, 0.0050),
         ("tubarao", "ammonia", "vtol", 160.0, 0.0051),
+        ("tubarao", "ammonia", "lei", 400.0, 0.0049),
+        ("tubarao", "ammonia", "lei", 800.0, 0.0050),
         ("bilbao", "ammonia", "rotors", 850.0, 0.0045)]
     classes = Dict{String, Vector}("class" => fill("Kamsarmax bulk carrier", length(runs)),
         (name => [run[k] for run in runs]
          for (k, name) in enumerate(("route", "drive", "rig", "area", "cost")))...)
     @test PaperData.fuel_sizes(classes, "Kamsarmax bulk carrier", :tubarao) ==
           Dict("none" => 0.0, "kite" => 3200.0, "wings" => 3600.0, "suction" => 1600.0,
-              "rotors" => 1890.0, "vtol" => 80.0)
+              "rotors" => 1890.0, "vtol" => 80.0, "lei" => 400.0)
     @test PaperData.swept_values(:e_methanol_price) ==
           sort([Main.assumptions[:e_methanol_price], 40.0, 90.0, 120.0])
 end
@@ -4701,9 +4750,53 @@ end
     @test PaperData.changed_cost(today, trip) > trip.cost_per_tonne_km
 end
 
+@testset "a change of only what a route costs is recosted on the base route, its fuel \
+          kept" begin
+    longer = with_value(assumptions, :canopy_life, 6000.0)
+    @test PaperData.changed_inputs(longer) == [:canopy_life]
+    @test PaperData.cost_only(longer)
+    @test !PaperData.cost_only(with_value(assumptions, :kite_max_force_per_area, 1.0))
+    @test !PaperData.cost_only(with_value(assumptions, :rotor_out_of_service, 0.1))
+    kite = ShipDesign(:methanol, 85.0; kite_area=400.0)
+    trip = round_trip(Ship(kite, assumptions; route=:caribbean), corridors...,
+        SyntheticWeather(), [24.0 * 31], assumptions)
+    case = (; design=kite, assumptions=longer, route=:caribbean, corridors)
+    recosted = PaperData.recosted_trip(case, trip)
+    @test recosted.cost_per_tonne_km ≈ PaperData.changed_cost(case, trip)
+    @test recosted.cost_per_tonne_km < trip.cost_per_tonne_km
+    @test recosted.fuel_per_tonne_km == trip.fuel_per_tonne_km
+    @test isempty(recosted.departures)
+    @test_throws ArgumentError PaperData.recosted_trips(
+        [merge(case, (; assumptions=with_value(assumptions, :kite_max_wind, 20.0)))],
+        [24.0 * 31])
+end
+
+@testset "the gain of routing anew is measured per departure and grows with the square \
+          of the change" begin
+    table = Dict("change" => ["x", "x", "x", "x"], "relative" => fill(0.5, 4),
+        "rig" => ["none", "kite", "none", "kite"], "departure" => [0, 0, 24, 24],
+        "cost_recosted" => [10.0, 8.0, 10.0, 8.0], "cost_rerouted" => [9.0, 7.0, 10.0, 7.5])
+    @test PaperData.recosting_gap(table, "x", "kite") ≈ [100 * (1 - 7 / 9) - 20, 5.0]
+    gain = sum(PaperData.recosting_gap(table, "x", "kite")) / 2
+    @test PaperData.recosting_error(table, "x", 0.5, "kite") ≈ gain
+    @test PaperData.recosting_error(table, "x", -1.0, "kite") ≈ 4gain
+    @test PaperData.recosting_error(table, "y", 1.0, "kite") == 0.0
+end
+
+@testset "routing anew that costs more than recosting on average is router scatter and \
+          sets no cost error" begin
+    costs = (; cost_recosted=[10.0, 8.0, 10.0, 8.0], cost_rerouted=[10.0, 8.5, 10.0, 8.2])
+    table = Dict("change" => fill("x", 4), "relative" => fill(0.5, 4),
+        "rig" => ["none", "kite", "none", "kite"], "departure" => [0, 0, 24, 24],
+        "cost_recosted" => costs.cost_recosted, "cost_rerouted" => costs.cost_rerouted,
+        "carbon_recosted" => costs.cost_recosted, "carbon_rerouted" => costs.cost_rerouted)
+    @test PaperData.recosting_error(table, "x", 0.5, "kite") == 0.0
+    @test PaperData.recosting_error(table, "x", 0.5, "kite"; column="carbon") < 0.0
+end
+
 @testset "the explorer gives each input its value known today" begin
     io = IOBuffer()
-    PaperData.write_json(io, Assumption(3000.0, 1200.0, 6900.0, "h", "", 1200.0))
+    PaperData.write_json(io, Assumption(3000.0, 1200.0, 6900.0, "h", "", 1200.0, false))
     @test occursin("\"today\":1200.0", String(take!(io)))
 end
 
@@ -4751,54 +4844,28 @@ end
         Dict(key => deleteat!(copy(values), lost) for (key, values) in table))
 end
 
-@testset "the development study keeps 5 to 20 ranged inputs, each with a reason" begin
+@testset "the development study keeps 5 to 20 inputs ranged by data or goals, each with a \
+          reason" begin
     inputs = PaperData.development_inputs
     @test 5 <= length(inputs) <= 20
     @test allunique(entry.input for entry in inputs)
     for entry in inputs
         low, high = (PaperData.bound_assumptions(entry.input, bound)
                      for bound in (:low, :high))
-        @test any(name -> low[name] != high[name], keys(assumptions.entries))
+        moved = filter(name -> low[name] != high[name], collect(keys(assumptions.entries)))
+        @test !isempty(moved)
+        @test !any(name -> assumptions.entries[name].estimate, moved)
         @test !isempty(entry.reason)
     end
     for rig in PaperData.rig_names
         levers = [entry.lever for entry in inputs if rig in PaperData.lever_rigs(entry)]
-        @test "price" in levers && "force" in levers && "availability" in levers
+        @test "force" in levers && "availability" in levers
     end
 end
 
-@testset "the development study moves the kite's aspect ratio at the base kite's price" begin
-    @test :kite_aspect_ratio in (entry.input for entry in PaperData.development_inputs)
-    base = uniform_kite(Hull(140.0, assumptions), assumptions)
-    for bound in (:low, :high)
-        moved = PaperData.bound_assumptions(:kite_aspect_ratio, bound)
-        @test moved[:kite_aspect_ratio] ==
-              getfield(assumptions.entries[:kite_aspect_ratio], bound)
-        ratio = moved[:kite_aspect_ratio] / assumptions[:kite_aspect_ratio]
-        moved_kite = KiteRig(;
-            (name => getfield(base, name) for name in fieldnames(KiteRig))...,
-            tether_length=base.tether_length * sqrt(ratio))
-        @test collect(WindShipOpt.consumable_costs(moved_kite, moved)) ≈
-              collect(WindShipOpt.consumable_costs(base, assumptions))
-    end
-end
-
-@testset "the kite's weather window moves its five limits together, wide at its high end" begin
-    inputs = [entry.input for entry in PaperData.development_inputs]
-    limits = (:kite_launch_sea_wind, :kite_launch_min_wind, :kite_launch_max_wind,
-        :kite_landing_max_wind, :kite_max_wind)
-    @test :kite_weather_window in inputs && !any(in(inputs), limits)
-    narrow, wide = (PaperData.bound_assumptions(:kite_weather_window, bound)
-                    for bound in (:low, :high))
-    for limit in limits
-        entry = assumptions.entries[limit]
-        @test minmax(narrow[limit], wide[limit]) == (entry.low, entry.high)
-    end
-    @test wide[:kite_launch_sea_wind] < narrow[:kite_launch_sea_wind]
-    @test wide[:kite_launch_min_wind] < narrow[:kite_launch_min_wind]
-    @test wide[:kite_launch_max_wind] > narrow[:kite_launch_max_wind]
-    @test wide[:kite_landing_max_wind] > narrow[:kite_landing_max_wind]
-    @test wide[:kite_max_wind] > narrow[:kite_max_wind]
+@testset "the development table shows every input of the development study" begin
+    @test all(entry -> entry.rig in first.(PaperData.development_groups),
+        PaperData.development_inputs)
 end
 
 @testset "the model parts measured by the development study read only its inputs" begin
@@ -4858,11 +4925,80 @@ end
     @test rig.attach_position ≈ WindShipOpt.launch_mast_position(hull, assumptions)
 end
 
-@testset "every rig has its name, life, availability and price inputs" begin
+@testset "an LEI kite's tubes grow as area^1.5 and with its force per area" begin
+    reference = assumptions[:lei_reference_area]
+    at_reference = with_value(assumptions, :lei_max_force_per_area,
+        assumptions[:lei_reference_force_per_area])
+    @test WindShipOpt.tube_mass(at_reference, reference) ≈ assumptions[:lei_tube_mass]
+    @test 400reference * WindShipOpt.tube_mass(at_reference, 400reference) ≈
+          8000reference * assumptions[:lei_tube_mass]
+    doubled = with_value(at_reference, :lei_max_force_per_area,
+        2assumptions[:lei_reference_force_per_area])
+    @test WindShipOpt.tube_mass(doubled, reference) ≈ 2assumptions[:lei_tube_mass]
+end
+
+@testset "an LEI canopy is one skin and its tubes, priced as a ram-air canopy" begin
+    frame, area = WindShipOpt.TubeFrame(), 200.0
+    rating = assumptions[:lei_max_force_per_area] /
+             assumptions[:canopy_cloth_reference_force]
+    weight = assumptions[:canopy_cloth_weight] * rating
+    tubes = WindShipOpt.tube_mass(assumptions, area)
+    surface = assumptions[:lei_tube_surface]
+    canopy = WindShipOpt.Canopy(assumptions, area, frame)
+    @test canopy.mass_per_area ≈ 1e-3assumptions[:lei_flat_area_ratio] * weight +
+                                 assumptions[:canopy_mass_overhead] * rating + tubes
+    price(weight) = assumptions[:canopy_cloth_base_price] +
+                    assumptions[:canopy_cloth_price_per_weight] * weight
+    @test canopy.cost_per_area ≈ WindShipOpt.sewing_cost(assumptions) +
+                                 assumptions[:lei_flat_area_ratio] * price(weight) +
+                                 surface * price(1e3tubes / surface)
+    @test WindShipOpt.canopy_price(assumptions, area, 3.0, frame) ≈
+          assumptions[:market_price_factor] * canopy.cost_per_area
+end
+
+@testset "an LEI kite flies the measured V3 polar at the ram-air kite's glide ratio" begin
+    lift = 0.8
+    model, force, = WindShipOpt.kite_model(1.0, assumptions[:lei_aspect_ratio], assumptions,
+        WindShipOpt.TubeFrame())
+    polar = model.polar
+    drag = WindShipOpt.polar_value(polar, polar.drag, WindShipOpt.lift_angle(polar, lift))
+    @test lift / (drag + model.extra_drag) ≈
+          lift / WindShipOpt.total_drag_at_lift(3.0, lift, assumptions) rtol = 0.02
+    @test maximum(polar.lift) < maximum(WindShipOpt.KitePolar(3.0).lift)
+    @test force ≈ 1e3assumptions[:lei_max_force_per_area]
+end
+
+@testset "an LEI kite is built up to the largest size that can still launch" begin
+    largest = WindShipOpt.largest_lei_kite_area(assumptions)
+    model, = WindShipOpt.kite_model(largest, assumptions[:lei_aspect_ratio], assumptions,
+        WindShipOpt.TubeFrame())
+    @test WindShipOpt.launch_min_wind(model, assumptions) ≈
+          assumptions[:kite_launch_max_wind] rtol = 1e-6
+    @test isnothing(WindShipOpt.lei_kite_rig(1.01largest, PAPER_HULL, assumptions))
+    @test_throws ArgumentError WindShipOpt.design_rig(
+        ShipDesign(:vlsfo, 140.0; lei_kite_area=200.0, kite_area=800.0), PAPER_HULL,
+        assumptions)
+end
+
+@testset "an LEI kite's station, control unit and tether are a ram-air kite's" begin
+    hull = PAPER_HULL
+    rig = KiteRig(200.0, assumptions[:lei_aspect_ratio], hull, assumptions;
+        courses=[π / 2], frame=WindShipOpt.TubeFrame())
+    @test rig.airframe isa WindShipOpt.TubeFrame
+    @test WindShipOpt.rig_price_parts(rig, assumptions) ==
+          WindShipOpt.kite_price_parts(rig.area, rig.max_force, assumptions)
+    canopy, = WindShipOpt.consumable_costs(rig, assumptions)
+    @test canopy ≈ WindShipOpt.canopy_price(assumptions, rig.area, rig.aspect_ratio,
+        rig.airframe) * rig.area
+    @test WindShipOpt.kite_mass(rig, assumptions) ≈
+          WindShipOpt.Canopy(assumptions, rig.area, rig.airframe).mass_per_area * rig.area +
+          1e-3assumptions[:control_unit_mass_per_force] * rig.max_force
+end
+
+@testset "every rig has its name, life and availability inputs" begin
     rigs = Set(PaperData.rig_names)
     for names in (PaperData.rig_keywords, PaperData.lifetime_inputs,
-        PaperData.out_of_service_inputs, PaperData.rig_price_inputs,
-        PaperData.rig_subjects, PaperData.rig_short_names)
+        PaperData.out_of_service_inputs, PaperData.rig_subjects, PaperData.rig_short_names)
         @test issubset(rigs, keys(names))
     end
     @test issubset(PaperData.deck_rig_names, PaperData.rig_names)
@@ -4885,11 +5021,19 @@ end
     @test isnan(gain) && isnan(loss)
 end
 
-@testset "the input table lists every ranged input once, in the order of its name" begin
-    names = first.(PaperData.ranged_inputs())
-    @test issorted(names) && allunique(names)
-    entries = (assumptions.entries[name] for name in names)
-    @test all(entry -> entry.low != entry.high, entries)
+@testset "the input table gives a range only where data do, and marks each estimate" begin
+    row(name) = sprint(PaperData.write_input_row, assumptions.entries[name], name)
+    @test occursin("\\textsuperscript{e} &  & ", row(:crew_cost))
+    @test occursin(r"& \S+--\S+ &", row(:canopy_life))
+    @test !occursin("textsuperscript", row(:canopy_life))
+end
+
+@testset "an input has a range only where data give one, and an estimate has none" begin
+    for (name, entry) in assumptions.entries
+        @test entry.low <= entry.value <= entry.high
+        @test !entry.estimate || entry.low == entry.high
+        startswith(entry.source, "Authors' estimate") && @test entry.estimate
+    end
 end
 
 @testset "every input names its source in one short line" begin
@@ -4908,16 +5052,15 @@ end
 end
 
 """
-    fleet_cell(bill, savings, wobble=Dict(); count_bias=0.0)
+    fleet_cell(bill, savings, wobble=Dict())
 
 Fleet cell of `bill` with the cost `savings` [%] of its rigs over two departures, each
-rig's saving on one departure `wobble[rig]` points below and on the other above it, of a
-run of `count_bias` [points].
+rig's saving on one departure `wobble[rig]` points below and on the other above it.
 """
-function fleet_cell(bill, savings, wobble=Dict(); count_bias=0.0)
+function fleet_cell(bill, savings, wobble=Dict())
     costs(rig, saving) = (1 - saving / 100) .+ [1, -1] .* get(wobble, rig, 0.0) ./ 100
     return (; bill, savings, departures=Dict("none" => [1.0, 1.0],
-        (rig => costs(rig, saving) for (rig, saving) in savings)...), count_bias)
+        (rig => costs(rig, saving) for (rig, saving) in savings)...))
 end
 
 @testset "a gap's error over departures cancels what the rigs' weather shares" begin
@@ -4931,19 +5074,16 @@ end
     @test first(PaperData.gap_error([shared, apart], [3.0, 1.0], "kite", "rotors")) ≈ 1.5
 end
 
-@testset "a rig leads only by more than its gap's error and the method's biases" begin
+@testset "a rig leads only by more than its gap's error and the router's bias" begin
     @test PaperData.lead_factor(2) ≈ 1.837 atol=0.04
     @test PaperData.lead_factor(12) ≈ 1.0476 atol=0.001
     @test PaperData.lead_factor(10^6) ≈ 1 atol=1e-5
-    bias, count_bias = PaperData.kite_gap_bias, PaperData.rotor_count_bias
-    @test PaperData.leads("kite", "rotors", 0.5, (0.2, 12), 0.0)
-    @test !PaperData.leads("kite", "rotors", 0.5, (0.5, 12), 0.0)
-    @test !PaperData.leads("rotors", "kite", bias, (0.0, 12), count_bias)
-    @test PaperData.leads("rotors", "kite", bias + 0.1, (0.0, 12), count_bias)
-    @test PaperData.leads("rotors", "wings", 0.1, (0.0, 12), count_bias)
-    @test !PaperData.leads("kite", "rotors", count_bias, (0.0, 12), count_bias)
-    @test PaperData.leads("kite", "rotors", count_bias + 0.1, (0.0, 12), count_bias)
-    @test PaperData.leads("kite", "wings", 0.1, (0.0, 12), count_bias)
+    bias = PaperData.kite_gap_bias
+    @test PaperData.leads("kite", "rotors", 0.5, (0.2, 12))
+    @test !PaperData.leads("kite", "rotors", 0.5, (0.5, 12))
+    @test !PaperData.leads("rotors", "kite", bias, (0.0, 12))
+    @test PaperData.leads("rotors", "kite", bias + 0.1, (0.0, 12))
+    @test PaperData.leads("rotors", "wings", 0.1, (0.0, 12))
 end
 
 @testset "a fleet's cost goes to the clear leader, or to level within the error" begin
@@ -4954,10 +5094,6 @@ end
     @test band(rigs(5.0, 4.0, 2.0), Dict("kite" => 1.0, "wings" => 0.0)) == "level"
     @test band(rigs(2.0, 2.0, 3.0 + bias)) == "rotors"
     @test band(rigs(3.0, 2.0, 3.0 + bias)) == "level"
-    scored(savings) = PaperData.fleet_band(fleet_cell(1.0, savings;
-        count_bias=PaperData.rotor_count_bias))
-    @test band(rigs(4.0, 2.0, 3.0)) == "kite"
-    @test scored(rigs(4.0, 2.0, 3.0)) == "level"
     @test band(rigs(1.0, -1.0, 0.0), Dict("kite" => 1.0)) == "none"
     split = PaperData.fleet_split([fleet_cell(100.0, rigs(10.0, 0.0, 2.0)),
         fleet_cell(50.0, rigs(4.0, 0.0, 4.0)),
@@ -5206,29 +5342,38 @@ end
     @test (lead.rig, lead.rival, lead.verdict) == ("rotors", "wings", "leads")
 end
 
-@testset "a ship type's saving per ship is what each rig saves it, over its ships" begin
+@testset "a kind of ship saves per ship over its ships, its share over its classes" begin
     work, _ = PaperData.fleet_work()
     ships = PaperData.fleet_ships()
     (; table, class, drive) = market_class_table()
     classes = PaperData.ship_classes()
     savings = PaperData.type_savings(table, drive)
-    bulk = only(saving for saving in savings if saving.type == "bulk carrier")
+    bulk = only(saving for saving in savings if saving.label == "Bulk carriers")
     bulk_classes = [name for name in keys(work) if classes[name].type == "bulk carrier"]
     bulk_ships = sum(ships[name] for name in bulk_classes)
     bulk_work = sum(work[name] for name in bulk_classes)
     saved = work[class] / 3 * 0.02 * (0.10 + 0.05)
-    bill = 0.01 * bulk_work + 0.01 * work[class]
     rotors = bulk.rigs["rotors"]
     @test rotors.saved * bulk_ships ≈ saved
-    @test rotors.share ≈ 100saved / bill
+    @test rotors.share ≈ (10 + 5) / 3length(bulk_classes)
     heating_value = WindShipOpt.vlsfo(assumptions, 0.0).heating_value
     @test rotors.fuel * bulk_ships ≈ bulk_work * 0.01e6 / heating_value
     @test rotors.carbon * bulk_ships ≈ bulk_work * 0.5
     @test iszero(bulk.rigs["kite"].saved)
     @test bulk.rigs["wings"].share < rotors.share
-    container = only(saving for saving in savings if saving.type == "container")
+    container = only(saving for saving in savings if saving.label == "Container ships")
     @test isempty(container.leaders)
     @test all(saving -> iszero(saving.rigs["rotors"].saved), filter(!=(bulk), savings))
+end
+
+@testset "a payback today's model cannot price is stale, not a number or never" begin
+    @test isnan(PaperData.median_payback([3.0, NaN, Inf]))
+    @test PaperData.median_payback([3.0, 5.0, Inf]) == 5.0
+    @test PaperData.payback_text([2.0, NaN]) == "\\stale{classes}{}"
+    @test PaperData.payback_text([2.0, Inf, Inf]) ==
+          "\\num{2.0} years, and on 2 classes never"
+    @test PaperData.payback_cell(NaN, 1.0) == "\\stale{classes}{}"
+    @test PaperData.payback_cell(Inf, 1.0) == "--"
 end
 
 @testset "a rig size the class study did not run is an error, not a ship without a rig" begin
@@ -5315,6 +5460,27 @@ end
     @test any(<(0), exported.columns.apparent_angle) &&
           any(>(0), exported.columns.apparent_angle)
     @test all(abs(spin) <= 400 for spin in exported.columns.trim.spin)
+end
+
+@testset "a site passage is a routed round trip, out and back over the hours it spans" begin
+    design = ShipDesign(:methanol, 85.0; rotor_area=100.0)
+    routing = shared_route_table(design)
+    outbound, inbound = corridors
+    weather = SyntheticWeather()
+    departure = 24.0 * 31
+    out = route(outbound, routing, weather, departure; time_cost=300.0)
+    back_departure = departure +
+                     WindShipOpt.turnaround_hours(routing.table.ship, outbound, assumptions)
+    back = route(inbound, routing, weather, back_departure; time_cost=300.0)
+    trip = (; out, back, departure, back_departure,
+        out_trace=LegTrace(routing.table, out, weather, departure),
+        back_trace=LegTrace(routing.table, back, weather, back_departure))
+    case = (; index=2, ship=Ship(design, assumptions), patterns=nothing)
+    recorded = PaperData.recorded_round_trip(case, trip, 3)
+    @test [leg.direction for leg in recorded.legs] == ["out", "back"]
+    @test all(leg.design == 2 && leg.departure == 2 for leg in recorded.legs)
+    @test [leg.start for leg in recorded.legs] == [departure, back_departure]
+    @test recorded.span == (departure, back_departure + back.duration)
 end
 
 @testset "a kite's recorded pattern flies on the lee side in the ship's frame" begin

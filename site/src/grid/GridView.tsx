@@ -4,9 +4,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadJson } from "../load";
 import { edgesFrom, foldCentre, formatCount, gridCounts, gridEdges, kindOf, position, routesThrough, type Grid, type GridData } from "./grid";
-import { GridMap, type GridNode, type PickedNode, type ShownGrid } from "./GridMap";
+import { GridMap, type PickedNode } from "./GridMap";
 
-type Shown = "final" | "draft" | "both";
 type Layer = "mesh" | "unusable" | "allEdges" | "folds";
 
 const layerLabels: [Layer, string][] = [
@@ -21,7 +20,7 @@ const degrees = (angle: number, positive: string, negative: string) =>
 
 const kindLabels = { w: "open water", x: "unusable" };
 
-/** The router's corridor grids of `route` on a globe or a flat map, from grids.json; a note where it has none for `route`. */
+/** The router's corridor grid of `route` on a globe or a flat map, from grids.json; a note where it has none for `route`. */
 export function GridView({ route }: { route: string }) {
   const [data, setData] = useState<GridData>();
   useEffect(() => {
@@ -34,7 +33,6 @@ export function GridView({ route }: { route: string }) {
 }
 
 function Grids({ data, route }: { data: GridData; route: string }) {
-  const [shown, setShown] = useState<Shown>("final");
   const [flat, setFlat] = useState(false);
   const [layers, setLayers] = useState<Record<Layer, boolean>>({ mesh: true, unusable: true, allEdges: false, folds: true });
   const [picked, setPicked] = useState<PickedNode>();
@@ -43,21 +41,11 @@ function Grids({ data, route }: { data: GridData; route: string }) {
   const pickRoute = useRef(route);
   pickRoute.current = route;
 
-  const grids: ShownGrid[] = useMemo(
-    () =>
-      data.spacings
-        .filter((spacing) => shown === "both" || shown === spacing)
-        .map((spacing) => {
-          const grid = data.grids[spacing][route];
-          return { spacing, grid, edges: gridEdges(grid), coarse: spacing === "draft" };
-        })
-        .sort((a, b) => Number(a.coarse) - Number(b.coarse)),
-    [data, route, shown],
-  );
+  const grid = useMemo(() => ({ grid: data.grids[route], edges: gridEdges(data.grids[route]) }), [data, route]);
 
   useEffect(() => {
-    const created = new GridMap(canvas.current!, (node?: GridNode) =>
-      setPicked(node && { ...node, routes: routesThrough(data.grids[node.spacing][pickRoute.current], node.node) }),
+    const created = new GridMap(canvas.current!, (node?: number) =>
+      setPicked(node === undefined ? undefined : { node, routes: routesThrough(data.grids[pickRoute.current], node) }),
     );
     setMap(created);
     return () => created.dispose();
@@ -65,13 +53,13 @@ function Grids({ data, route }: { data: GridData; route: string }) {
 
   useEffect(() => {
     setPicked(undefined);
-    const grid = data.grids.final[route];
-    map?.centre(position(grid, Math.floor(grid.kind.length / 2)), 1.4);
+    const shown = data.grids[route];
+    map?.centre(position(shown, Math.floor(shown.kind.length / 2)), 1.4);
   }, [map, data, route]);
 
-  useEffect(() => map?.show({ grids, flat, ...layers, picked }), [map, grids, flat, layers, picked]);
+  useEffect(() => map?.show({ grid, flat, ...layers, picked }), [map, grid, flat, layers, picked]);
 
-  const fold = useMemo(() => grids.map((shown) => foldCentre(shown.grid, shown.edges)).find(Boolean), [grids]);
+  const fold = useMemo(() => foldCentre(grid.grid, grid.edges), [grid]);
   return (
     <section className="space-y-6" aria-label="The router's grid">
       <header className="flex items-center gap-4">
@@ -94,17 +82,6 @@ function Grids({ data, route }: { data: GridData; route: string }) {
         </div>
         <aside className="space-y-5">
           <div className="panel space-y-4">
-            <div className="grid gap-1">
-              <span className="label">Grid</span>
-              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Grid">
-                {(["final", "draft", "both"] as Shown[]).map((name) => (
-                  <button key={name} role="radio" aria-checked={shown === name} className={shown === name ? "button" : "button-outline"}
-                    onClick={() => { setShown(name); setPicked(undefined); }}>
-                    {name[0].toUpperCase() + name.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
             <div className="grid gap-1">
               <span className="label">Map</span>
               <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Map">
@@ -130,12 +107,12 @@ function Grids({ data, route }: { data: GridData; route: string }) {
             </button>
           </div>
           <Legend />
-          <Counts data={data} route={route} />
-          <Picked picked={picked} data={data} route={route} />
+          <Counts grid={data.grids[route]} />
+          <Picked picked={picked} grid={data.grids[route]} />
         </aside>
       </div>
       <p className="font-mono text-xs text-ink-light">
-        Exported at commit {data.git_commit.slice(0, 7)}; land mask of the weather: {data.weather}.
+        The grid of the {data.fidelity} run at commit {data.git_commit.slice(0, 7)}; land mask of the weather: {data.weather}.
       </p>
     </section>
   );
@@ -155,40 +132,32 @@ function Legend() {
   );
 }
 
-function Counts({ data, route }: { data: GridData; route: string }) {
-  const rows = data.spacings.map((spacing) => [spacing, data.grids[spacing][route]] as [string, Grid]);
-  const counts = rows.map(([, grid]) => gridCounts(grid));
-  const line = (label: string, values: (number | string)[]) => (
+function Counts({ grid }: { grid: Grid }) {
+  const counts = gridCounts(grid);
+  const line = (label: string, value: number | string) => (
     <tr key={label}>
       <th className="py-0.5 pr-2 text-left font-normal">{label}</th>
-      {values.map((value, k) => <td key={k} className="text-right">{typeof value === "number" ? value.toLocaleString("en") : value}</td>)}
+      <td className="text-right">{typeof value === "number" ? value.toLocaleString("en") : value}</td>
     </tr>
   );
   return (
     <table className="w-full font-mono text-xs tabular-nums">
-      <thead>
-        <tr className="border-b border-ink">
-          <th />
-          {rows.map(([spacing]) => <th key={spacing} className="text-right font-semibold capitalize">{spacing}</th>)}
-        </tr>
-      </thead>
       <tbody>
-        {line("Stage spacing [nmi]", rows.map(([, grid]) => grid.stage_spacing))}
-        {line("Row spacing [nmi]", rows.map(([, grid]) => grid.lateral_spacing))}
-        {line("Stages × rows", rows.map(([, grid]) => `${grid.stages} × ${grid.laterals}`))}
-        {line("Usable nodes", counts.map((each) => each.usable))}
-        {line("Unusable nodes", counts.map((each) => each.unusable))}
-        {line("Edges", counts.map((each) => each.edges))}
-        {line("Edges run backwards", counts.map((each) => each.backwardEdges))}
-        {line("Row steps run backwards", counts.map((each) => each.backwardRowSteps))}
+        {line("Stage spacing [nmi]", grid.stage_spacing)}
+        {line("Row spacing [nmi]", grid.lateral_spacing)}
+        {line("Stages × rows", `${grid.stages} × ${grid.laterals}`)}
+        {line("Usable nodes", counts.usable)}
+        {line("Unusable nodes", counts.unusable)}
+        {line("Edges", counts.edges)}
+        {line("Edges run backwards", counts.backwardEdges)}
+        {line("Row steps run backwards", counts.backwardRowSteps)}
       </tbody>
     </table>
   );
 }
 
-function Picked({ picked, data, route }: { picked?: PickedNode; data: GridData; route: string }) {
+function Picked({ picked, grid }: { picked?: PickedNode; grid: Grid }) {
   if (!picked) return <p className="text-sm text-ink-light">Click a node on the map.</p>;
-  const grid = data.grids[picked.spacing][route];
   const stage = Math.floor(picked.node / grid.laterals);
   const row = (picked.node % grid.laterals) - (grid.laterals - 1) / 2;
   const [lon, lat] = position(grid, picked.node);
@@ -196,7 +165,7 @@ function Picked({ picked, data, route }: { picked?: PickedNode; data: GridData; 
   return (
     <div className="panel space-y-1 font-mono text-xs">
       <div className="label">Picked node</div>
-      <div>{picked.spacing} grid, stage {stage + 1} of {grid.stages}, row {row > 0 ? "+" : ""}{row} from the centre line</div>
+      <div>Stage {stage + 1} of {grid.stages}, row {row > 0 ? "+" : ""}{row} from the centre line</div>
       <div>{degrees(lat, "N", "S")}, {degrees(lon, "E", "W")}, {kindLabels[kindOf(grid, picked.node)]}</div>
       <div>{onward.length} edges onward, {onward.filter((edge) => edge.backward).length} of them backwards</div>
       <div>{formatCount(picked.routes.count)} routes from Rotterdam to port pass here</div>

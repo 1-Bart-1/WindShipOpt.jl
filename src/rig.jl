@@ -120,8 +120,10 @@ Base.@kwdef struct WingRig
     "normal-force coefficient of the stalled wing across the flow [-]"
     stalled_drag_coefficient::Float64
     interference_factor::Float64
-    "fan power per m^2 of wing at the highest apparent wind the wings work in [W/m^2]"
+    "full fan power per m^2 of wing, drawn from the fan's rated wind up [W/m^2]"
     fan_power_per_area::Float64 = 0.0
+    "apparent wind from which the fans draw their full power [m/s]"
+    fan_rated_wind::Float64 = Inf
     "highest apparent wind the wings work in, above which they lie down [m/s]"
     max_wind::Float64 = Inf
     "height of the supports the wings stand on above the deck, zero on deck [m]"
@@ -319,6 +321,7 @@ function WingRig(total_area::Real, hull::Hull, assumptions::Assumptions;
         stalled_drag_coefficient=assumptions[:wing_stalled_drag_coefficient],
         layout.interference_factor,
         fan_power_per_area=suction ? assumptions[:suction_fan_power_per_area] : 0.0,
+        fan_rated_wind=suction ? assumptions[:suction_fan_rated_wind] : Inf,
         max_wind=suction ? assumptions[:suction_max_wind] : Inf, layout.pedestal_height,
         layout.camera_units)
 end
@@ -339,12 +342,12 @@ stalled(rig::WingRig, (lift, drag)) = drag > drag_coefficient(rig, lift) + 1e-9
     fan_power(rig::WingRig, setting, speed)
 
 Power [W] the fans of suction sails draw at the trim `setting` in apparent wind `speed`
-[m/s]: their power at the highest wind they work in times the cube of the share of it,
-while the flow is attached and lifts; none for wing sails.
+[m/s]: their full power from their rated wind up, falling with the cube of the wind below
+it, while the flow is attached and lifts; none for wing sails.
 """
 function fan_power(rig::WingRig, setting, speed)
     first(setting) > 0 && !stalled(rig, setting) || return 0.0
-    return rig.fan_power_per_area * total_area(rig) * min(speed / rig.max_wind, 1.0)^3
+    return rig.fan_power_per_area * total_area(rig) * min(speed / rig.fan_rated_wind, 1.0)^3
 end
 
 """
@@ -553,7 +556,8 @@ end
 Towing kite on a fixed-length tether from a mast on the bow, with the force of its best
 flight pattern tabulated over apparent wind speed, course off the apparent downwind
 direction and the weight given to side force, its trim. `airframe` is a
-[`RigidAirframe`](@ref) for rigid VTOL kites and `nothing` for a soft kite.
+[`RigidAirframe`](@ref) for rigid VTOL kites, a [`TubeFrame`](@ref) for leading-edge
+inflatable kites and `nothing` for a ram-air kite.
 """
 Base.@kwdef struct KiteRig{A}
     "projected area of one kite [m^2]"
@@ -621,35 +625,66 @@ rope_mass(diameter, rope_length, assumptions) =
     assumptions[:tether_rope_density] * π * diameter^2 / 4 * rope_length
 
 """
-    soft_kite_mass(area, aspect_ratio, max_force, assumptions)
+    kite_canopy(assumptions, area, aspect_ratio, frame)
+
+[`Canopy`](@ref) of a soft kite of projected `area` [m^2] and `aspect_ratio`: a ram-air
+canopy where `frame` is `nothing`, a leading-edge inflatable one for a [`TubeFrame`](@ref).
+"""
+kite_canopy(assumptions::Assumptions, area, aspect_ratio, ::Nothing) =
+    Canopy(assumptions, area, aspect_ratio)
+kite_canopy(assumptions::Assumptions, area, aspect_ratio, frame::TubeFrame) =
+    Canopy(assumptions, area, frame)
+
+"tether force limit per projected area [kN/m^2] of a soft kite of `frame`"
+force_per_area(assumptions::Assumptions, ::Nothing) = assumptions[:kite_max_force_per_area]
+force_per_area(assumptions::Assumptions, ::TubeFrame) =
+    assumptions[:lei_max_force_per_area]
+
+"drag coefficient [-] a soft kite of `frame` has in flight beyond its polar and tether"
+flight_drag(assumptions::Assumptions, ::Nothing) = assumptions[:kite_flight_drag]
+flight_drag(assumptions::Assumptions, ::TubeFrame) = assumptions[:lei_flight_drag]
+
+"""
+    kite_polar(aspect_ratio, frame)
+
+[`KitePolar`](@ref) of a ram-air kite of projected `aspect_ratio` where `frame` is
+`nothing`; for a [`TubeFrame`](@ref), the measured polar of a leading-edge inflatable kite
+in `data/kite_polars/lei_v3.csv`.
+"""
+kite_polar(aspect_ratio, ::Nothing) = KitePolar(aspect_ratio)
+kite_polar(aspect_ratio, ::TubeFrame) = polar_file("lei_v3.csv")
+
+"""
+    soft_kite_mass(area, aspect_ratio, max_force, assumptions, frame=nothing)
 
 Mass [kg] of a soft kite of projected `area` [m^2] and `aspect_ratio` without its tether:
-canopy with its bridle and control unit, sized for `max_force` [N].
+its [`kite_canopy`](@ref) with the bridle and its control unit, sized for `max_force` [N].
 """
-soft_kite_mass(area, aspect_ratio, max_force, assumptions::Assumptions) =
-    Canopy(assumptions, area, aspect_ratio).mass_per_area * area +
+soft_kite_mass(area, aspect_ratio, max_force, assumptions::Assumptions, frame=nothing) =
+    kite_canopy(assumptions, area, aspect_ratio, frame).mass_per_area * area +
     1e-3assumptions[:control_unit_mass_per_force] * max_force
 
 """
-    kite_model(area, aspect_ratio, assumptions)
+    kite_model(area, aspect_ratio, assumptions, frame=nothing)
 
-[`KiteModel`](@ref) of a kite of projected `area` [m^2] and `aspect_ratio`, its tether
-force limit [N] and tether diameter [m], with the tether sized for that limit.
+[`KiteModel`](@ref) of a soft kite of projected `area` [m^2], `aspect_ratio` and `frame`,
+its tether force limit [N] and tether diameter [m], with the tether sized for that limit.
 """
-function kite_model(area, aspect_ratio, assumptions::Assumptions)
+function kite_model(area, aspect_ratio, assumptions::Assumptions, frame=nothing)
     env = Environment(assumptions)
-    max_force = 1e3assumptions[:kite_max_force_per_area] * area
+    max_force = 1e3force_per_area(assumptions, frame) * area
     tether_diameter = sqrt(4max_force / (π * assumptions[:tether_stress]))
     span = sqrt(area * aspect_ratio)
     tether_length = assumptions[:tether_length_ratio] * span
     tether_drag = assumptions[:tether_drag_coefficient] * tether_diameter * tether_length /
                   (4area)
     tether_mass = rope_mass(tether_diameter, tether_length, assumptions)
-    mass = soft_kite_mass(area, aspect_ratio, max_force, assumptions) + tether_mass / 2
-    polar = KitePolar(aspect_ratio)
+    mass = soft_kite_mass(area, aspect_ratio, max_force, assumptions, frame) +
+           tether_mass / 2
+    polar = kite_polar(aspect_ratio, frame)
     stall = argmax(polar.lift)
     model = KiteModel(area, mass, tether_length, env.air_density, env.gravity, polar,
-        assumptions[:kite_flight_drag] + tether_drag,
+        flight_drag(assumptions, frame) + tether_drag,
         lift_angle(polar, 0.05),
         polar.angle_of_attack[stall] - deg2rad(assumptions[:kite_stall_margin]),
         assumptions[:kite_min_turn_radius] * span, false)
@@ -889,16 +924,52 @@ function rigid_kite_rig(area, hull::Hull, assumptions::Assumptions;
 end
 
 """
-    KiteRig(area, aspect_ratio, hull, assumptions;
-            attach_position=launch_mast_position(hull, assumptions), courses=KITE_COURSES)
+    largest_lei_kite_area(assumptions)
 
-Kite of projected `area` [m^2] and `aspect_ratio` with its pattern table over `courses`
-[rad], towing from `attach_position` [m] forward of midship.
+Projected area [m^2] of the largest leading-edge inflatable kite that can be launched: the
+one whose launch wind, which its [`tube_mass`](@ref) raises with its size, reaches the
+highest launch wind `kite_launch_max_wind`.
+"""
+function largest_lei_kite_area(assumptions::Assumptions)
+    low, high = 1.0, 1e6
+    for _ in 1:40
+        middle = sqrt(low * high)
+        lei_kite_launchable(middle, assumptions) ? (low = middle) : (high = middle)
+    end
+    return low
+end
+
+"whether a leading-edge inflatable kite of projected `area` [m^2] can be launched"
+function lei_kite_launchable(area, assumptions::Assumptions)
+    model, = kite_model(area, assumptions[:lei_aspect_ratio], assumptions, TubeFrame())
+    return launch_min_wind(model, assumptions) <= assumptions[:kite_launch_max_wind]
+end
+
+"""
+    lei_kite_rig(area, hull, assumptions)
+
+Leading-edge inflatable kite of projected `area` [m^2] on `hull`, launched, flown and towing
+as the ram-air kite; `nothing` where it is larger than [`largest_lei_kite_area`](@ref).
+"""
+function lei_kite_rig(area, hull::Hull, assumptions::Assumptions)
+    area <= largest_lei_kite_area(assumptions) || return nothing
+    return KiteRig(area, assumptions[:lei_aspect_ratio], hull, assumptions;
+        frame=TubeFrame())
+end
+
+"""
+    KiteRig(area, aspect_ratio, hull, assumptions;
+            attach_position=launch_mast_position(hull, assumptions), courses=KITE_COURSES,
+            frame=nothing)
+
+Soft kite of projected `area` [m^2], `aspect_ratio` and `frame` with its pattern table over
+`courses` [rad], towing from `attach_position` [m] forward of midship.
 """
 function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assumptions;
-        attach_position=launch_mast_position(hull, assumptions), courses=KITE_COURSES)
+        attach_position=launch_mast_position(hull, assumptions), courses=KITE_COURSES,
+        frame=nothing)
     scale = hull.length / assumptions[:reference_length]
-    model, max_force, tether_diameter = kite_model(area, aspect_ratio, assumptions)
+    model, max_force, tether_diameter = kite_model(area, aspect_ratio, assumptions, frame)
     tether_length = model.tether_length
     wind_speeds = [3.0:1.0:9.0; 10.5; 12.0:3.0:30.0]
     forces = pattern_table(model, max_force, assumptions, wind_speeds, courses, SIDE_WEIGHTS)
@@ -913,7 +984,8 @@ function KiteRig(area::Real, aspect_ratio::Real, hull::Hull, assumptions::Assump
         landing_max_wind=assumptions[:kite_landing_max_wind],
         landing_max_wave_height=Inf, max_force,
         attach_height=assumptions[:kite_attach_height] * scale,
-        attach_position, wind_speeds, courses, side_weights=SIDE_WEIGHTS, forces)
+        attach_position, wind_speeds, courses, side_weights=SIDE_WEIGHTS, forces,
+        airframe=frame)
 end
 
 """

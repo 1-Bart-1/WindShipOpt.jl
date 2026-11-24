@@ -4,8 +4,9 @@
 """
     Assumption
 
-One model assumption: base value, sensitivity bounds, unit, its source in one short line,
-and its value as known today, which differs from the base value only for a goal.
+One model assumption: base value, the bounds of its range (both the base value where data
+give no range), unit, its source in one short line, its value as known today, which differs
+from the base value only for a goal, and whether the value is the authors' own estimate.
 """
 struct Assumption
     value::Float64
@@ -14,6 +15,7 @@ struct Assumption
     unit::String
     source::String
     today::Float64
+    estimate::Bool
 end
 
 """
@@ -34,8 +36,10 @@ function Assumptions()
     raw = YAML.load_file(joinpath(pkgdir(@__MODULE__), "data", "assumptions.yaml"))
     entries = Dict{Symbol, Assumption}()
     for (name, entry) in raw
-        entries[Symbol(name)] = Assumption(entry["value"], entry["low"], entry["high"],
-            string(entry["unit"]), entry["source"], get(entry, "today", entry["value"]))
+        value = entry["value"]
+        entries[Symbol(name)] = Assumption(value, get(entry, "low", value),
+            get(entry, "high", value), string(entry["unit"]), entry["source"],
+            get(entry, "today", value), get(entry, "estimate", false))
     end
     return Assumptions(entries)
 end
@@ -90,7 +94,8 @@ Fresh `Assumptions` with the base value of `name` replaced by `value`.
 function with_value(assumptions::Assumptions, name::Symbol, value)
     entries = copy(assumptions.entries)
     old = entries[name]
-    entries[name] = Assumption(value, old.low, old.high, old.unit, old.source, old.today)
+    entries[name] = Assumption(value, old.low, old.high, old.unit, old.source, old.today,
+        old.estimate)
     return Assumptions(entries, assumptions.recorded)
 end
 
@@ -102,4 +107,5 @@ input's base value, which is its value today.
 """
 at_today(assumptions::Assumptions) = Assumptions(
     Dict(name => Assumption(entry.today, entry.low, entry.high, entry.unit, entry.source,
-             entry.today) for (name, entry) in assumptions.entries), assumptions.recorded)
+             entry.today, entry.estimate) for (name, entry) in assumptions.entries),
+    assumptions.recorded)

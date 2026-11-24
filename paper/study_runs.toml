@@ -38,6 +38,11 @@ commit = "e3462e72057e789f22434058cae7ee090604e4b3"
 fidelity = "draft"
 run = "2026-11-14T1809"
 
+[lei_kite]
+commit = "ca35a945cb793198905ef1614f21a808f1852906"
+fidelity = "draft"
+run = "2026-11-23T1709"
+
 [measured_savings]
 commit = "bd866f972b02aa7b07e9897dd372ccf840ebe703"
 fidelity = "final"

@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Bart van de Lint
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-# Data step of the grid page of the companion website in site/: the outbound corridor of
-# every route at draft and final spacing, its nodes and the edges the router may take.
-# Included by paper.jl after explorer_data.jl; run it as `paper(:grids; fidelity)`.
+# Site step of the grid page of the companion website in site/: the outbound corridor the
+# run routes on for every route, its nodes and the edges the router may take. Included by
+# paper.jl after explorer_data.jl.
 
 """
     off_course(course, reference)
@@ -75,18 +75,17 @@ end
 """
     grids_data()
 
-Write grids.json: the [`grid_data`](@ref) of the outbound corridor of every route at the
-corridor scale of each fidelity.
+Write grids.json: the [`grid_data`](@ref) of the outbound corridor of every route as the
+run in use routes it.
 """
 function grids_data()
-    spacings = [:final, :draft]
-    scales = Dict(spacing => fidelities[spacing].corridor_scale for spacing in spacings)
-    grids = Dict(string(spacing) => Dict(string(name) =>
-                     grid_data(first(corridors(name, scales[spacing])), scales[spacing])
-                 for name in route_names) for spacing in spacings)
-    document = (; git_commit=paper_run.record["git_commit"], weather=weather_name,
+    scale = run_settings().corridor_scale
+    grids = Dict(string(name) => grid_data(first(run_corridors(name)), scale)
+                 for name in route_names)
+    document = (; fidelity=string(paper_run.fidelity),
+        git_commit=paper_run.record["git_commit"], weather=weather_name,
         routes=[(; name=string(name), label=route_label(name)) for name in route_names],
-        spacings=string.(spacings), grids)
+        grids)
     write_named_json("grids.json", document)
     println("grids: ", filesize(run_file("grids.json")) ÷ 1000, " kB")
 end

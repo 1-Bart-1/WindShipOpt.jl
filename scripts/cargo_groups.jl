@@ -18,7 +18,7 @@ assumptions = Assumptions()
 
 "rig areas of the class study by rig name, as `ShipDesign` keywords"
 area_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area,
-    "suction" => :suction_area, "vtol" => :rigid_kite_area)
+    "suction" => :suction_area, "vtol" => :rigid_kite_area, "lei" => :lei_kite_area)
 
 """
 Rotor units Anemoi offers per class: Rotor Sails brochure, April 2024, Table A (Ultramax,

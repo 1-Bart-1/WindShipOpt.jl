@@ -9,6 +9,7 @@ using Base.ScopedValues: ScopedValue, with
 using Dates
 using Serialization
 using TOML
+using YAML
 using WindShipOpt: inputs_read
 
 include("step_code.jl")
@@ -331,36 +332,10 @@ run_words(run, fidelity, commit) =
 [`run_words`](@ref) of the run whose class study the results read.
 """
 function results_run_words()
-    directory, record = results_run()
+    directory = dirname(resolved_data_file("classes.csv"))
+    record = TOML.parsefile(joinpath(directory, "run.toml"))
     commit = step_entry(record, "classes")["git_commit"]
     return run_words(basename(directory), record["fidelity"], commit)
-end
-
-"""
-    counts_by_score(record)
-
-Whether the run of `record` picked the number of each deck rig's units by the layout score:
-whether its class step read the score's mean wind.
-"""
-counts_by_score(record) =
-    haskey(step_entry(record, "classes")["inputs"], "layout_mean_wind")
-
-"""
-    results_count_bias()
-
-The [`rotor_count_bias`](@ref) where the run whose class study the results read picked the
-number of rotors by the layout score ([`counts_by_score`](@ref)); else zero.
-"""
-results_count_bias() = counts_by_score(last(results_run())) ? rotor_count_bias : 0.0
-
-"""
-    results_run()
-
-Directory and record of the run whose class study the results read.
-"""
-function results_run()
-    directory = dirname(resolved_data_file("classes.csv"))
-    return directory, TOML.parsefile(joinpath(directory, "run.toml"))
 end
 
 """
@@ -901,9 +876,7 @@ function step_reasons(entry, code)
         push!(reasons, "the model changed: src/, data/, setup.jl or the packages")
     others = setdiff(changed, ["model"])
     isempty(others) || push!(reasons, "its code changed: " * join(others, ", "))
-    inputs = sort([name for (name, value) in entry["inputs"]
-                   if !haskey(assumptions.entries, Symbol(name)) ||
-                      assumptions[Symbol(name)] != value])
+    inputs = changed_inputs(entry)
     isempty(inputs) || push!(reasons, "inputs changed: " * join(inputs, ", "))
     for (file, read) in sort(collect(entry["reads"]); by=first)
         now_read = try
@@ -921,6 +894,43 @@ function step_reasons(entry, code)
     older > 0 && push!(reasons, "$older round trips kept from older code")
     return reasons
 end
+
+"""
+    changed_inputs(entry)
+
+Names of the inputs the step of run-record `entry` read at another base value than the
+assumptions now give, or that are no longer assumptions.
+"""
+changed_inputs(entry) = sort([name for (name, value) in entry["inputs"]
+                              if !haskey(assumptions.entries, Symbol(name)) ||
+                                 assumptions[Symbol(name)] != value])
+
+"""
+    moved_ranges(entry)
+
+Names of the inputs the step of run-record `entry` read whose range the assumptions now
+give differs from the one at the commit it ran on.
+"""
+function moved_ranges(entry)
+    then = YAML.load(git_output("show", entry["git_commit"] * ":data/assumptions.yaml"))
+    return sort([name for name in keys(entry["inputs"])
+                 if haskey(then, name) && range_moved(then[name], Symbol(name))])
+end
+
+"whether input `name` now has another range than `written` in data/assumptions.yaml gave"
+function range_moved(written, name)
+    haskey(assumptions, name) || return false
+    now, value = assumptions.entries[name], written["value"]
+    return (get(written, "low", value), get(written, "high", value)) != (now.low, now.high)
+end
+
+"""
+    data_step(name, step)
+
+The entry of step `step` in the record of the run whose data file `name` is read.
+"""
+data_step(name, step) = step_entry(
+    TOML.parsefile(joinpath(dirname(resolved_data_file(name)), "run.toml")), step)
 
 """
     step_location(name)
