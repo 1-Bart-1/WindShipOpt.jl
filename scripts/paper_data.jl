@@ -1446,6 +1446,47 @@ The [`fleet_split`](@ref) of the [`fleet_cells`](@ref) of class table `table` on
 fleet_split_of(table, drive) = fleet_split(fleet_cells(table, drive))
 
 """
+    shown_rigs(cells)
+
+Rigs, in the order of [`rig_names`](@ref), among the [`fleet_leaders`](@ref) of at least
+one of fleet `cells`.
+"""
+function shown_rigs(cells)
+    leaders = union(String[], (fleet_leaders(cell.savings, [cell]) for cell in cells)...)
+    return [rig for rig in rig_names if rig in leaders]
+end
+
+"""
+    trailing_rigs(cells)
+
+Each rig of fleet `cells` not among their [`shown_rigs`](@ref), in the order of
+[`rig_names`](@ref), with its highest cost `saving` [%] over them and its smallest `gap`
+[points] to the best rig of a cell.
+"""
+function trailing_rigs(cells)
+    shown = shown_rigs(cells)
+    return [(; rig, saving=maximum(cell.savings[rig] for cell in cells),
+                gap=minimum(maximum(values(cell.savings)) - cell.savings[rig]
+                            for cell in cells))
+            for rig in rig_names if haskey(first(cells).savings, rig) && rig ∉ shown]
+end
+
+"[`fleet_cells`](@ref) of class table `table` on each drive it holds"
+all_fleet_cells(table) =
+    reduce(vcat, [fleet_cells(table, drive) for drive in unique(table["drive"])])
+
+"""
+    compared_table(table=class_table())
+
+Rows of class table `table` of the ship without a rig and of the [`shown_rigs`](@ref) of
+its fleet cells on every drive.
+"""
+function compared_table(table=class_table())
+    shown = ("none", shown_rigs(all_fleet_cells(table))...)
+    return table_rows(table, rows(table, "rig" => in(shown)))
+end
+
+"""
     searched_sizes(ships)
 
 Cases and round trips of each (class, drive, route) of `ships` without a rig and of the
