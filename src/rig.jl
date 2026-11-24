@@ -128,8 +128,6 @@ Base.@kwdef struct WingRig
     max_wind::Float64 = Inf
     "height of the supports the wings stand on above the deck, zero on deck [m]"
     pedestal_height::Float64 = 0.0
-    "what each raised wing stands on: `:column`, `:frame` or `:container`"
-    pedestal::Symbol = :column
     "wings watched by a camera system for the view they hide from the bridge [-]"
     camera_units::Int = 0
 end
@@ -168,7 +166,7 @@ foot_height(hull::Hull, assumptions::Assumptions) =
     raised_layout(in_column, total_area, unit, hull, assumptions, forward_reserve)
 
 `in_column` pairs of `unit`s of `total_area` [m^2] in all on `hull`, abreast and spread
-along the deck as in [`column_layout`](@ref), each on a support whose top stands
+along the deck as in [`column_layout`](@ref), each on a column whose top stands
 `pedestal_clearance` above the stacks, in their free wind. A camera system watches the view
 each unit that [`camera_units`](@ref) counts hides.
 """
@@ -426,8 +424,6 @@ Base.@kwdef struct RotorRig
     interference_factor::Float64
     "height of the pedestals the rotors stand on above the deck, zero on deck [m]"
     pedestal_height::Float64 = 0.0
-    "what each raised rotor stands on, `:column` or `:frame` ([`pedestal_mass`](@ref))"
-    pedestal::Symbol = :column
     "rotors watched by a camera system for the view they hide from the bridge [-]"
     camera_units::Int = 0
 end
@@ -451,14 +447,6 @@ function RotorRig(total_area::Real, hull::Hull, assumptions::Assumptions;
         lift_factor=assumptions[:rotor_lift_factor], layout.interference_factor,
         layout.pedestal_height, layout.camera_units)
 end
-
-"""
-    with_pedestal(rig, pedestal)
-
-`rig` with its raised wings or rotors on `pedestal`, `:column` or `:frame`.
-"""
-with_pedestal(rig::T, pedestal) where {T <: Union{WingRig, RotorRig}} =
-    T(; (name => getfield(rig, name) for name in fieldnames(T))..., pedestal)
 
 "width [m] of each unit of `rig`: a wing's mean chord, a rotor's diameter"
 unit_width(rig::WingRig) = rig.area / rig.height
