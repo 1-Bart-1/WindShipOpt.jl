@@ -25,6 +25,9 @@ Text of `x` rounded to a whole number, halves away from zero, never "-0".
 """
 whole_number(x) = string(round(Int, x, RoundNearestTiesAway))
 
+"`text` with its leading hyphen set as `minus`, by default the one the axes print"
+typeset_minus(text, minus="−") = replace(text, r"^-" => minus)
+
 """
     whole_points(x)
 
