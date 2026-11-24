@@ -524,6 +524,52 @@ function goal_rows()
 end
 
 """
+    rotor_prices()
+
+Each price paid or quoted for one Flettner rotor in `data/rotor_prices.csv`: its `kind`,
+`year`, `height` and `diameter` [m], `price` in `currency`, whether it includes installation
+on the ship (`installed`) and a rotor that folds or tilts (`retractable`), the consumer
+price index `hicp` of its year and its `source`.
+"""
+function rotor_prices()
+    lines = readlines(joinpath(pkgdir(WindShipOpt), "data", "rotor_prices.csv"))
+    header = WindShipOpt.csv_fields(first(lines))
+    return map(lines[2:end]) do line
+        row = Dict(zip(header, WindShipOpt.csv_fields(line)))
+        number(name) = parse(Float64, row[name])
+        (; kind=row["kind"], year=parse(Int, row["year"]), height=number("height"),
+            diameter=number("diameter"), price=number("price"), currency=row["currency"],
+            installed=row["installed"] == "true", retractable=row["retractable"] == "true",
+            hicp=number("hicp"), source=row["source"])
+    end
+end
+
+"`price` [USD] of a [`rotor_prices`](@ref) row in today's money, from euros and by the
+price index"
+function today_price(price, assumptions)
+    rate = price.currency == "EUR" ? assumptions[:usd_per_eur] : 1.0
+    return rate * price.price * assumptions[:hicp_today] / price.hicp
+end
+
+"""
+    bottom_up_price(price, assumptions)
+
+Price [USD] the model gives the one rotor on deck that the [`rotor_prices`](@ref) row
+`price` is for: its `rig_price_parts` times the market price factor, without installation
+where `price` leaves it out and with the retractable rig premium where it folds or tilts.
+"""
+function bottom_up_price(price, assumptions)
+    # only the count and size of the rotor enter its price
+    rotor = WindShipOpt.RotorRig(; count=1, columns=1, price.height, price.diameter,
+        foot_height=0.0, centre_position=0.0, column_offset=0.0, max_wind=0.0,
+        max_surface_speed=0.0, lift_factor=0.0, interference_factor=1.0)
+    parts = WindShipOpt.rig_price_parts(rotor, assumptions)
+    cost = price.installed ? sum(parts) : sum(parts) - parts.installation
+    premium = price.retractable ? 1 + assumptions[:retractable_rig_premium] : 1.0
+    return assumptions[:market_price_factor] * premium * cost
+end
+
+"""
     rotor_prices_table()
 
 Write each rotor price of `data/rotor_prices.csv` to paper/sections/rotor_prices_table.tex:
@@ -535,9 +581,9 @@ function rotor_prices_table()
     write_whole(joinpath(sections, "rotor_prices_table.tex")) do io
         println(io, "\\begin{tabular}{@{}llrrr", ragged, "p{4.2cm}@{}}\n\\toprule")
         println(io, "Kind & Rotor & USD k & Build-up & Ratio & Source \\\\\n\\midrule")
-        for price in WindShipOpt.ROTOR_PRICES
-            paid = WindShipOpt.today_price(price, assumptions)
-            built = WindShipOpt.bottom_up_price(price, assumptions)
+        for price in rotor_prices()
+            paid = today_price(price, assumptions)
+            built = bottom_up_price(price, assumptions)
             println(io, price.kind, " ", price.year, " & ",
                 @sprintf("%.0f\\,m \\texttimes{} %.0f\\,m", price.height, price.diameter),
                 " & ", latex_number(round(paid / 1e3)), " & ",

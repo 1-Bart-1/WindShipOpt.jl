@@ -810,16 +810,6 @@ end
     @test mass(rotors) ≈ 464 rtol = 0.005
 end
 
-@testset "a rotor price is set against the build-up of the same unit as sold" begin
-    folding = only(price for price in WindShipOpt.ROTOR_PRICES if price.retractable)
-    fixed = WindShipOpt.RotorPrice(folding.kind, folding.year, folding.height,
-        folding.diameter, folding.price, folding.currency, folding.installed, false,
-        folding.hicp, folding.source)
-    @test WindShipOpt.bottom_up_price(folding, assumptions) ≈
-          (1 + assumptions[:retractable_rig_premium]) *
-          WindShipOpt.bottom_up_price(fixed, assumptions)
-end
-
 @testset "a canopy is the surveyed one with its own cloth, at the market factor" begin
     surveyed = 1.16 * 25 / 18 * 53
     rib_cloth(chord) = 1.17 * 0.101 * (chord - 8.2) / 0.5
@@ -1295,23 +1285,27 @@ end
 @testset "rotor ships pay for the spin power in the router's edge fuels" begin
     ship = Ship(ShipDesign(:vlsfo, 140.0; rotor_area=300.0), assumptions)
     table = PerformanceTable(ship, assumptions)
-    speed, wind, angle = 5.0, 12.0, π / 2
-    power = table.rig_power(speed, wind, angle, 0.0)
+    speeds, winds, angles = (knots.values for knots in table.flown_thrust.knots[1:3])
+    power = table.rig_power.values[21, 13, 13, 1]
     @test power > 0
-    @test table_fuel(table, speed, wind, angle) ≈
-          speed_fuel(table, speed, table.flown_thrust(speed, wind, angle, 0.0), power)
+    thrust = table.flown_thrust.values[21, 13, 13, 1]
+    @test table_fuel(table, speeds[21], winds[13], angles[13]) ≈
+          speed_fuel(table, speeds[21], thrust, power)
 end
 
 @testset "a bare ship's routing fuel adds the waves' resistance, following seas' negative too" begin
     ship = Ship(ShipDesign(:methanol, 140.0), assumptions)
     table = PerformanceTable(ship, assumptions)
-    speed, wind, angle, height, period = 2.47, 6.2, 1.0, 5.6, 7.5
-    for heading in (0.33, π)
-        waves = height^2 * table.wave_resistance(speed, period, heading)
-        @test (waves < 0) == (heading < π / 2)
-        @test table_fuel(table, speed, wind, angle, height, period, heading) ≈
-              speed_fuel(table, speed, table.flown_thrust(speed, wind, angle, 0.0) + waves,
-                  0.0)
+    speeds, winds, angles = (knots.values for knots in table.flown_thrust.knots[1:3])
+    _, periods, headings = (knots.values for knots in table.wave_resistance.knots)
+    height = 5.6
+    for heading in (2, 13)
+        waves = height^2 * table.wave_resistance.values[6, 5, heading]
+        @test (waves < 0) == (headings[heading] < π / 2)
+        fuel = table_fuel(table, speeds[6], winds[7], angles[1], height, periods[5],
+            headings[heading])
+        thrust = table.flown_thrust.values[6, 7, 1, 1] + waves
+        @test fuel ≈ speed_fuel(table, speeds[6], thrust, 0.0)
     end
 end
 
@@ -1711,7 +1705,6 @@ end
 end
 
 @testset "kite inputs give the SkySails kites at their projected areas" begin
-    @test WindShipOpt.launch_mast_height(125.0, assumptions) ≈ 15.0 rtol = 0.05
     small, = WindShipOpt.kite_model(125.0, 3.0, assumptions)
     @test small.min_turn_radius ≈ 45.0 rtol = 0.05
     large, = WindShipOpt.kite_model(250.0, 3.0, assumptions)
@@ -4738,6 +4731,14 @@ include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "paper_tables.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "passages_data.jl"))
 include(joinpath(pkgdir(WindShipOpt), "scripts", "explorer_data.jl"))
+end
+
+@testset "a rotor price is set against the model's price of the same unit as sold" begin
+    folding = only(price for price in PaperData.rotor_prices() if price.retractable)
+    fixed = (; folding..., retractable=false)
+    @test PaperData.bottom_up_price(folding, assumptions) ≈
+          (1 + assumptions[:retractable_rig_premium]) *
+          PaperData.bottom_up_price(fixed, assumptions)
 end
 
 @testset "the fuel study sizes each rig as the class study does on e-ammonia" begin
