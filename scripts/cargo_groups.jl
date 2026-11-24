@@ -7,7 +7,7 @@
 # rotors with no more units than the makers offer for bulk carriers and tankers; and per
 # group of ships the rig to recommend. In the scripts environment:
 #
-#     include("cargo_groups.jl")
+#     include("paper.jl")
 #     cargo_groups("../output/runs/<run>"); recommendation("../output/runs/<run>")
 using Printf
 using Statistics: mean
@@ -121,7 +121,7 @@ end
 """
     cargo_groups(run)
 
-Print, per drive and class sorted by deadweight, the limit the class fills first and for
+Print, per drive and class in [`deck_order`](@ref), the limit the class fills first and for
 each rig its mean saving over the routes, the points its cargo costs, and its saving under
 the other limit; then the saving of wings and rotors at the units offered.
 """
@@ -129,7 +129,7 @@ function cargo_groups(run)
     rows = class_rows(run)
     cheapest = cheapest_rows(rows)
     classes = ship_classes()
-    names = sort(unique(row.class for row in rows); by=name -> classes[name].deadweight)
+    names = sort(unique(row.class for row in rows); by=name -> deck_order(classes[name]))
     for drive in unique(row.drive for row in rows)
         println("== ", drive, ": saving, cargo charge and saving under the other limit [%]")
         for name in names
@@ -161,20 +161,16 @@ end
 """
     recommendation(run)
 
-Print, per drive and group of classes (deadweight-limited, space-limited container ships,
-the Megamax and the car carrier), each rig's mean saving over classes and routes, its CO2
-saving where the fuel emits it and its cost against the same ship on VLSFO without a rig,
-that cost without a rig, and the rig that saves most on each route, counted over the
-classes of the group.
+Print, per drive and [`deck_label`](@ref) group of classes, each rig's mean saving over
+classes and routes, its CO2 saving where the fuel emits it and its cost against the same
+ship on VLSFO without a rig, that cost without a rig, and the rig that saves most on each
+route, counted over the classes of the group.
 """
 function recommendation(run)
     rows = class_rows(run)
     classes = ship_classes()
-    group(name) = classes[name].cargo_unit == :ceu ? "car carrier" :
-                  classes[name].cargo_unit == :teu ?
-                  string("container, ", cargo_limit(classes[name], assumptions)) :
-                  "deadweight"
-    groups = Dict(name => group(name) for name in unique(row.class for row in rows))
+    groups = Dict(name => deck_label(classes[name])
+                  for name in unique(row.class for row in rows))
     bare = Dict((row.class, row.drive, row.route) => row
                 for row in rows if row.rig == "none")
     cheapest = cheapest_rows(rows)
@@ -187,6 +183,7 @@ function recommendation(run)
                       bare[(row.class, "vlsfo", row.route)])
                      for ((class, case_drive, _, case_rig), row) in cheapest
                      if groups[class] == name && case_drive == drive && case_rig == rig]
+            isempty(cases) && continue
             carbon = drive == "vlsfo" ?
                      mean([relative(row, own, :carbon) for (row, own, _) in cases]) : NaN
             @printf("%-6s saving %5.1f %% CO2 %5.1f %% cost against bare VLSFO %+5.1f %%\n",
@@ -200,8 +197,10 @@ function recommendation(run)
         wins = Dict{Tuple{String, String}, Int}()
         for ((class, case_drive, route), reference) in bare
             (groups[class] == name && case_drive == drive) || continue
+            run_rigs = [rig for rig in keys(area_keywords)
+                        if haskey(cheapest, (class, drive, route, rig))]
             rig = argmin(rig -> parse(Float64, cheapest[(class, drive, route, rig)].cost),
-                keys(area_keywords))
+                run_rigs)
             wins[(route, rig)] = get(wins, (route, rig), 0) + 1
         end
         println("best rig by route: ", join(sort(["$route $rig $count"

@@ -132,3 +132,26 @@ function Canopy(assumptions::Assumptions, area, ::TubeFrame)
         sewing_cost(assumptions) + skin * cloth_price(assumptions, skin_weight) +
         surface * cloth_price(assumptions, 1e3tubes / surface))
 end
+
+"""
+    SingleSkin
+
+The canopy of a single-skin kite: one layer of cloth with no ribs and no tubes, held in
+shape by the air and by more bridle lines than a ram-air kite needs.
+"""
+struct SingleSkin end
+
+"""
+    Canopy(assumptions, area, ::SingleSkin)
+
+[`Canopy`](@ref) of a single-skin kite: one skin of [`cloth_weight`](@ref) on each flat m^2,
+the mass overhead of a ram-air canopy grown with its `single_skin_line_ratio` of bridle line,
+at the [`sewing_cost`](@ref) of a soft kite and the skin's [`cloth_price`](@ref).
+"""
+function Canopy(assumptions::Assumptions, area, ::SingleSkin)
+    skin, weight = assumptions[:canopy_flat_area_ratio], cloth_weight(assumptions)
+    overhead = assumptions[:single_skin_line_ratio] * assumptions[:canopy_mass_overhead] *
+               force_rating(assumptions)
+    return Canopy(1e-3skin * weight + overhead,
+        sewing_cost(assumptions) + skin * cloth_price(assumptions, weight))
+end

@@ -228,6 +228,7 @@ input_derivations = Dict(
     :rigid_upkeep_per_area => "sec:det_rigid",
     (name => "sec:det_lei" for name in (:lei_flight_drag, :lei_tube_mass,
         :lei_tube_surface, :lei_max_force_per_area))...,
+    :single_skin_glide_factor => "sec:det_single", :single_skin_line_ratio => "sec:det_single",
     :tether_stress => "sec:det_kite", :tether_length_ratio => "sec:det_kite",
     :kite_min_turn_radius => "sec:det_kite", :control_unit_mass_per_force => "sec:det_kite",
     :kite_flight_drag => "sec:det_kite", :kite_landing_max_wind => "sec:det_kite",
@@ -813,10 +814,11 @@ crash_cell(crashes) = isnan(crashes) ? "--" : @sprintf("%.2g", crashes)
     class_dimension_table()
 
 Write the main data, cargo and port inputs and wind areas of the ship classes to
-class_table.tex, a dagger on estimates and ∞ for an infinite fixed-rig delay.
+class_table.tex in [`deck_order`](@ref) under a heading per [`deck_label`](@ref), a dagger
+on estimates and ∞ for an infinite fixed-rig delay.
 """
 function class_dimension_table()
-    classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
+    classes = sort(collect(values(ship_classes())); by=deck_order)
     notes = class_source_notes()
     write_whole(joinpath(sections, "class_table.tex")) do io
         println(io, "\\setlength{\\tabcolsep}{3pt}")
@@ -826,7 +828,10 @@ function class_dimension_table()
             "Limit & Speed & Power & \$f_R\$ & Price \\\\")
         println(io, " & [m] & [m] & [m] & & [t] & & & [kn] & [MW] & & [MUSD] \\\\")
         println(io, "\\midrule")
-        foreach(class -> write_class_design_row(io, class), classes)
+        for (k, class) in enumerate(classes)
+            write_deck_heading(io, classes, k, 12)
+            write_class_design_row(io, class)
+        end
         println(io, "\\bottomrule\n\\end{tabular}\n\n\\medskip")
         println(io, "\\begin{tabular}{@{}l", "r"^7, "@{}}")
         println(io, "\\toprule")
@@ -836,11 +841,25 @@ function class_dimension_table()
         println(io, " & [USD/t] & tiers & limit [m] & calls [\\%] & delay [h] & ",
             "[m\$^2\$] & [m\$^2\$] \\\\")
         println(io, "\\midrule")
-        for class in classes
+        for (k, class) in enumerate(classes)
+            write_deck_heading(io, classes, k, 8)
             write_class_cargo_row(io, class, estimated_fields(notes[class.name]))
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
+end
+
+"""
+    write_deck_heading(io, classes, k, columns)
+
+A row across the `columns` columns of a table naming the [`deck_label`](@ref) of the `k`th
+of `classes` where it starts a group of equal labels.
+"""
+function write_deck_heading(io, classes, k, columns)
+    heading = group_label(deck_label.(classes), k)
+    isempty(heading) ||
+        println(io, "\\multicolumn{$columns}{@{}l}{\\textit{", uppercasefirst(heading),
+            "}} \\\\")
 end
 
 """
@@ -2170,15 +2189,18 @@ fidelity_parts() = [
         model="steady balance; side force beyond the limits is shed by trimming the rig",
         error="limits are design rules, not measured", effect=switched(:limits)),
     (part="Rudder drag", varied="removed",
-        model="lifting line carrying the yaw moment in the free stream",
-        error="no wake or propeller slipstream at the rudder", effect=switched(:rudder)),
+        model="lifting line carrying the yaw moment in the wake and propeller slipstream",
+        error="wake fraction from CFD of two cargo ships; " *
+              "drag within 10\\,\\% at no thrust",
+        effect=switched(:rudder)),
     (part="Leeway and rudder drag", varied="both removed",
-        model="Kijima side-force slope; induced drag of a slender wing and cross flow",
-        error="regression on merchant-ship models, not on these hulls",
+        model="side force fitted to tank tests of a tanker; " *
+              "induced drag of a slender wing and cross flow",
+        error="one conventional hull tested, not these hulls",
         effect=switched(:side_force)),
     (part="Hull side-force slope", varied="at its low bound",
-        model="Kijima regression on merchant-ship models in calm water",
-        error="hulls without a skeg tested at 0.4 to 0.5 times it",
+        model="Kijima regression times 0.55, fitted to tank tests of a tanker",
+        error="hulls without a skeg tested at 0.32 to 0.37 times the regression",
         effect=switched(:weak_hull)),
     (part="Propeller and engine", varied="not measured",
         model="actuator disk with viscous loss; engine efficiency falling at part load",
@@ -3359,9 +3381,6 @@ drag coefficient of each at the published side force, both on ½ρV²LT.
 """
 function drift_check_table()
     tests = read_table(joinpath(pkgdir(WindShipOpt), "data", "hull_drift_tests.csv"))
-    env = Environment(assumptions)
-    speed = 6.0
-    reference = 0.5env.water_density * speed^2
     write_whole(joinpath(sections, "drift_check_table.tex")) do io
         println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
         println(io, "Hull & Leeway & \\multicolumn{2}{c}{Side force \\(C_Y\\)} & ",
@@ -3371,19 +3390,47 @@ function drift_check_table()
         for (k, name) in enumerate(tests["hull"])
             hull = Hull(tests["length"][k], tests["beam"][k], tests["draft"][k],
                 tests["block"][k], assumptions)
-            area = hull.length * hull.draft
             aspect_ratio = 2tests["effective_draft_ratio"][k]^2 * hull.draft / hull.length
             for angle in drift_check_angles
                 beta = deg2rad(angle)
                 tested = tests["side_force_slope"][k] * beta +
                          tests["side_force_cubic"][k] * beta^3
-                leeway, drag = WindShipOpt.leeway_drag(hull, env, speed,
-                    tested * reference * area)
-                modelled = tested * beta / leeway
+                leeway = WindShipOpt.side_force_leeway(hull, tested)
                 @printf(io, "%s & %d & %.4f & %.4f & %.5f & %.5f \\\\\n", name, angle,
-                    tested, modelled, tested^2 / (π * aspect_ratio),
-                    drag / (reference * area))
+                    tested, WindShipOpt.side_force_coefficient(hull, beta),
+                    tested^2 / (π * aspect_ratio),
+                    WindShipOpt.leeway_drag(hull, tested, leeway))
             end
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
+    centre_check_table()
+
+Write to paper/sections/centre_check_table.tex, for each captive test of
+data/hull_centre_tests.csv, the side force on ½ρV²LT and the distance forward of midship
+where it acts, as a fraction of the length, measured and of the model's hull of the same
+main dimensions at the same leeway.
+"""
+function centre_check_table()
+    tests = read_table(joinpath(pkgdir(WindShipOpt), "data", "hull_centre_tests.csv"))
+    write_whole(joinpath(sections, "centre_check_table.tex")) do io
+        println(io, "\\begin{tabular}{@{}lrrrrr@{}}\n\\toprule")
+        println(io, "Hull & Leeway & \\multicolumn{2}{c}{Side force \\(C_Y\\)} & ",
+            "\\multicolumn{2}{c}{Centre \\(x_\\mathrm{h}/L\\)} \\\\")
+        println(io, "\\cmidrule(lr){3-4}\\cmidrule(lr){5-6}")
+        println(io, " & [\\si{\\degree}] & Test & Model & Test & Model \\\\\n\\midrule")
+        for (k, name) in enumerate(tests["hull"])
+            hull = Hull(tests["length"][k], tests["beam"][k], tests["draft"][k],
+                tests["block"][k], assumptions)
+            leeway = deg2rad(tests["leeway"][k])
+            @printf(io, "%s & %d & %.4f & %.4f & %.2f & %.2f \\\\\n", name,
+                tests["leeway"][k], tests["side_force"][k],
+                WindShipOpt.side_force_coefficient(hull, leeway),
+                tests["yaw_moment"][k] / tests["side_force"][k],
+                WindShipOpt.lateral_centre(hull, leeway) / hull.length)
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end

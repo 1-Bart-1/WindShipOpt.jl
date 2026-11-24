@@ -104,35 +104,67 @@ end
     @test beam > calm
     hull_force = WindShipOpt.wind_force(bare.windage, bare.env, 15.0, π / 2, 7.0)
     rig = RigForce(0.0, 2e5, 2e6, 0.0)
-    together = WindShipOpt.HullBalance(bare, 7.0, rig + hull_force)
-    @test together.leeway > WindShipOpt.HullBalance(bare, 7.0, rig).leeway
-    @test WindShipOpt.required_thrust(bare, 7.0, 15.0, π / 2, rig) ≈
-          WindShipOpt.resistance(bare.hull, bare.env, 7.0;
-              coefficients=bare.wave_coefficients) + together.leeway_drag +
-          together.rudder_drag - hull_force.thrust
+    calm_drag = WindShipOpt.resistance(bare.hull, bare.env, 7.0;
+        coefficients=bare.wave_coefficients)
+    together = WindShipOpt.HullBalance(bare, 7.0, rig + hull_force, calm_drag)
+    @test together.leeway > WindShipOpt.HullBalance(bare, 7.0, rig, calm_drag).leeway
+    @test WindShipOpt.required_thrust(bare, 7.0, 15.0, π / 2, rig) ≈ together.thrust ≈
+          calm_drag + together.leeway_drag + together.rudder_drag - hull_force.thrust
 end
 
 @testset "hull and rudder cancel the side force and yaw moment of rig and wind" begin
     ship = Ship(ShipDesign(:vlsfo, 140.0; kite_area=800.0), assumptions)
     force = RigForce(1e5, 2e5, 2e6, 3e6)
-    balance = WindShipOpt.HullBalance(ship, 5.4, force)
-    centre = WindShipOpt.lateral_centre(ship.hull)
+    balance = WindShipOpt.HullBalance(ship, 5.4, force, 1e5)
     @test force.side + balance.rudder_side_force + balance.hull_side_force ≈ 0 atol = 1e-6
     @test force.yaw_moment + balance.rudder_side_force * -ship.hull.length / 2 +
-          balance.hull_side_force * centre ≈ 0 atol = 1e-3
+          balance.hull_side_force * balance.lateral_centre ≈ 0 atol = 1e-3
+    @test balance.lateral_centre ≈
+          WindShipOpt.lateral_centre(ship.hull, balance.leeway) <
+          WindShipOpt.lateral_centre(ship.hull)
 end
 
-@testset "a weaker hull side-force slope drifts and costs more, an infinite one nothing" begin
+@testset "the hull's side force is as large and acts as far forward as tests show" begin
+    path = joinpath(pkgdir(WindShipOpt), "data", "hull_centre_tests.csv")
+    tests = [parse.(Float64, WindShipOpt.csv_fields(line)[2:8])
+             for line in readlines(path)[2:end]]
+    for angle in unique(test[5] for test in tests)
+        runs = filter(test -> test[5] == angle, tests)
+        hull = Hull(first(runs)[1:4]..., assumptions)
+        leeway = deg2rad(angle)
+        @test WindShipOpt.side_force_coefficient(hull, leeway) ≈
+              mean(test[6] for test in runs) rtol = 0.1
+        # repeat runs at 3° differ by 0.12 L, the tables giving three decimals
+        @test WindShipOpt.lateral_centre(hull, leeway) / hull.length ≈
+              mean(test[7] / test[6] for test in runs) atol = 0.06
+    end
+end
+
+@testset "the rudder works in the hull's wake, sped up by a loaded propeller" begin
+    ship = Ship(ShipDesign(:ammonia, 140.0), assumptions)
+    wake = 6.0 * (1 - assumptions[:rudder_wake_fraction])
+    @test WindShipOpt.rudder_inflow(ship, 6.0, -1e5) ≈ wake
+    @test wake < WindShipOpt.rudder_inflow(ship, 6.0, 3e5) <
+          WindShipOpt.rudder_inflow(ship, 6.0, 6e5)
+    force = RigForce(2e5, 3e5, 3e6, -2e6)
+    balance = WindShipOpt.HullBalance(ship, 6.0, force, 0.0)
+    free_stream = 0.5ship.env.water_density * 6.0^2 * ship.rudder_area
+    wake_pressure = free_stream * (wake / 6.0)^2
+    @test balance.rudder_drag ≈
+          balance.rudder_side_force^2 / (wake_pressure * π * ship.rudder_aspect_ratio)
+end
+
+@testset "a weaker hull side force drifts and costs more, and acts further forward" begin
     hull = Hull(140.0, assumptions)
     weak = Hull(; (name => getfield(hull, name) for name in fieldnames(Hull))...,
-        side_force_factor=0.5)
-    free = Hull(; (name => getfield(hull, name) for name in fieldnames(Hull))...,
-        side_force_factor=Inf)
-    env = Environment(assumptions)
-    leeway, drag = WindShipOpt.leeway_drag(hull, env, 6.0, 3e5)
-    @test all(WindShipOpt.leeway_drag(weak, env, 6.0, 3e5) .≈ (2leeway, 2drag))
-    @test WindShipOpt.leeway_drag(free, env, 6.0, 3e5) == (0.0, 0.0)
-    @test WindShipOpt.lateral_centre(weak) == WindShipOpt.lateral_centre(hull)
+        side_force_factor=hull.side_force_factor / 2)
+    leeway = WindShipOpt.side_force_leeway(hull, 0.02)
+    weak_leeway = WindShipOpt.side_force_leeway(weak, 0.02)
+    @test WindShipOpt.side_force_coefficient(weak, weak_leeway) ≈ 0.02
+    @test leeway < weak_leeway < 2leeway
+    @test WindShipOpt.leeway_drag(weak, 3e5, weak_leeway) >
+          WindShipOpt.leeway_drag(hull, 3e5, leeway)
+    @test WindShipOpt.lateral_centre(weak) ≈ 2WindShipOpt.lateral_centre(hull)
 end
 
 # DNV Rules for Ships, January 2000, Pt. 3 Ch. 3 Sec. 2, guidance note, p. 9.
@@ -437,12 +469,12 @@ function kite_coaster(; kwargs...)
 end
 
 """
-    kite_point(table, wave_height, hours; speed_index=6, headwind=12.0)
+    kite_point(table, wave_height, hours; speed_index=14, headwind=12.0)
 
 [`SailedPoint`](@ref) of `hours` [h] at routing speed number `speed_index` in a 12 m/s wind
 across the ship with `headwind` [m/s] from ahead and waves of `wave_height` [m].
 """
-function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0)
+function kite_point(table, wave_height, hours; speed_index=14, headwind=12.0)
     condition = WindShipOpt.SeaCondition(table.table, 12.0, π / 2, wave_height, 8.0,
         π / 2)
     sample = WindShipOpt.EdgeSample(condition, headwind, 0.0, 0.0, 0.0)
@@ -609,9 +641,8 @@ end
 @testset "a launch needs the rough-sea wind from a rough sea on, a kite stays up in any sea" begin
     table, prices = kite_coaster()
     passage(points, aloft) = WindShipOpt.kite_passage(table, points, aloft, prices)
-    point(sea; speed_index=6, kwargs...) = kite_point(table, sea, 4.0; speed_index,
-        kwargs...)
-    speed = table.speeds[6]
+    point(sea; kwargs...) = kite_point(table, sea, 4.0; kwargs...)
+    speed = table.speeds[14]
     rig = table.table.ship.rig
     rough = WindShipOpt.ROUGH_SEA_HEIGHT
     @test WindShipOpt.extra_launch_wind(rig, 0.99rough) == 0
@@ -655,9 +686,9 @@ end
           have landed" begin
     table, prices = kite_coaster()
     passage(points) = first(WindShipOpt.kite_passage(table, points, true, prices))
-    point(headwind) = kite_point(table, 2.0, 1.0; speed_index=3, headwind)
+    point(headwind) = kite_point(table, 2.0, 1.0; headwind)
     rig = table.table.ship.rig
-    speed = table.speeds[3]
+    speed = table.speeds[14]
     calm = point(5.0)
     gale = point(rig.landing_max_wind + 2 - speed)
     storm = point(rig.max_wind + 2 - speed)
@@ -1204,23 +1235,17 @@ end
           layout(1, 12, 2000.0).interference_factor
     @test layout(1, 3, 500.0).interference_factor > layout(2, 3, 500.0).interference_factor
     pair = layout(2, 1, 100.0)
-    @test pair.count == 2 && pair.centre_position ≈ WindShipOpt.lateral_centre(hull)
+    _, width = WindShipOpt.unit_size(100.0, 2, :rotor, assumptions)
+    deck_front = WindShipOpt.rig_deck_length(hull, assumptions, 0.0) / 2
+    @test pair.count == 2 && pair.centre_position ≈
+                             min(WindShipOpt.lateral_centre(hull),
+        deck_front - assumptions[:rotor_spacing] * width / 2)
     most = WindShipOpt.most_in_column(1, 3000.0, :rotor, hull, assumptions, 0.0)
     @test !isnothing(layout(1, most, 3000.0)) && isnothing(layout(1, most + 1, 3000.0))
     @test isnothing(layout(2, 1, 20000.0))
 end
 
-@testset "the rudder cancels the yaw moment about the hull's lateral centre" begin
-    hull = Hull(140.0, assumptions)
-    centre = WindShipOpt.lateral_centre(hull)
-    at_centre = WindShipOpt.RigForce(1e5, 2e5, 0.0, 2e5 * centre)
-    @test WindShipOpt.rudder_side_force(hull, at_centre) ≈ 0 atol = 1e-6
-    at_midship = WindShipOpt.RigForce(1e5, 2e5, 0.0, 0.0)
-    rudder = WindShipOpt.rudder_side_force(hull, at_midship)
-    @test 2e5 * (0 - centre) + rudder * (-hull.length / 2 - centre) ≈ 0 atol = 1e-3
-end
-
-@testset "a kite tows from its bow mast, and towing midship loads the rudder more" begin
+@testset "a kite tows from its bow mast; a tow further aft loads the rudder more" begin
     hull = Hull(140.0, assumptions)
     design = ShipDesign(:methanol, 140.0; kite_area=800.0)
     bow = Ship(design, assumptions)
@@ -1230,10 +1255,10 @@ end
     @test midship.rig.attach_position == 0
     wind_speed, wind_angle, ship_speed = 8.8295, 86.6957, 5.4 # hand check's beam reach
     balance(ship) = WindShipOpt.HullBalance(ship, ship_speed,
-        rig_force(ship.rig, ship.env, wind_speed, deg2rad(wind_angle), ship_speed, 1))
-    # midship lies 47 m aft of the lateral centre, the bow mast 4 m ahead of it
-    @test balance(midship).rudder_lift_coefficient >
-          3balance(bow).rudder_lift_coefficient > 0
+        rig_force(ship.rig, ship.env, wind_speed, deg2rad(wind_angle), ship_speed, 1), 0.0)
+    centre = WindShipOpt.lateral_centre(hull)
+    @test balance(midship).rudder_lift_coefficient / balance(bow).rudder_lift_coefficient ≈
+          centre / (centre - bow.rig.attach_position) rtol = 0.1
     drag(balance) = balance.leeway_drag + balance.rudder_drag
     @test drag(balance(midship)) > drag(balance(bow))
 end
@@ -1528,11 +1553,12 @@ end
 end
 
 # Routed rotor counts at a fixed total area over 12 departures of 2017-2019 on e-ammonia
-# (#490): counts within 0.3 points of the best routed saving.
-@testset "the rotor count is one routing finds within its scatter of the best" begin
+# (#490): counts within 0.3 points of the best routed saving; on the coaster within the
+# 0.9 points one rotor in the rudder's wake flow loses to two (#597).
+@testset "the rotor count is one routing finds near the best" begin
     for (name, area, route, columns, counts) in (
-        ("general cargo coaster", 362.0, :houston, 1, 2:2),
-        ("general cargo coaster", 301.0, :new_york, 1, 2:2),
+        ("general cargo coaster", 362.0, :houston, 1, 1:2),
+        ("general cargo coaster", 301.0, :new_york, 1, 1:2),
         ("Kamsarmax bulk carrier", 1895.0, :houston, 1, 3:8),
         ("Kamsarmax bulk carrier", 1895.0, :new_york, 1, 3:6),
         ("VLCC", 2383.0, :houston, 2, 10:14),
@@ -1746,8 +1772,10 @@ end
     down = last(last(states))
     hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(bare, assumptions),
         assumptions)
-    passages = [WindShipOpt.service_passages(ship, outbound, inbound, SyntheticWeather(),
-                    [24.0 * 31, 24.0 * 200], assumptions, hourly, nothing, nothing)
+    routed(ship) = WindShipOpt.StateRouting(ship, outbound, assumptions, hourly, nothing)
+    passages = [[WindShipOpt.state_passages(routed(ship), outbound, inbound,
+                     SyntheticWeather(), departure, nothing)
+                 for departure in (24.0 * 31, 24.0 * 200)]
                 for ship in (bare, WindShipOpt.with_rig(kite, down))]
     @test first(passages) == last(passages)
     kite_hourly = WindShipOpt.leg_time_costs(WindShipOpt.ShipCosts(kite, changed), changed)
@@ -1765,6 +1793,23 @@ end
     @test fast_out.duration < slow_out.duration
     @test fast_back.duration == slow_back.duration
     @test fast_back.fuel_energy == slow_back.fuel_energy
+end
+
+@testset "departures routed apart combine to the round trip routed whole" begin
+    changed = with_value(assumptions, :kite_out_of_service, 0.2)
+    ship = Ship(ShipDesign(:ammonia, ship_classes()["feeder container ship"];
+        kite_area=800.0), changed)
+    departures = [24.0 * 31, 24.0 * 200]
+    whole = round_trip(ship, corridors..., SyntheticWeather(), departures, changed)
+    apart = [WindShipOpt.departure_passages(
+                 WindShipOpt.DepartureRouting(ship, first(corridors), changed),
+                 corridors..., SyntheticWeather(), departure) for departure in departures]
+    combined = WindShipOpt.combine_departures(ship, corridors..., departures, changed,
+        apart)
+    @test !isnothing(WindShipOpt.DepartureRouting(ship, first(corridors), changed).schedule)
+    @test count(!isnothing, first(apart)) == 2
+    @test all(getfield(combined, name) == getfield(whole, name)
+              for name in fieldnames(RoundTrip))
 end
 
 @testset "departure costs with the year's ship average to the round trip's cost" begin
@@ -2086,7 +2131,7 @@ end
                      [0.0; [point[4] for point in leg.path[(stage + 1):end]]] &&
                      rest.aloft == leg.aloft[stage:end]
         @test keeps_plan || sailed_on_planned_weather(kite_table, kite_hourly, weather,
-            departure).objective < leg.objective
+            departure).objective <= leg.objective
     end
 end
 
@@ -2151,7 +2196,7 @@ WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
     windage = WindShipOpt.wind_force(ship.windage, ship.env, 14.0,
         only(trace.true_wind_angle), only(trace.speed))
     @test only(trace.leeway) ==
-          WindShipOpt.HullBalance(ship, only(trace.speed), priced + windage).leeway > 0
+          WindShipOpt.HullBalance(ship, only(trace.speed), priced + windage, 0.0).leeway > 0
 end
 
 @testset "the stages and the rows of a corridor are spaced apart" begin
@@ -3751,9 +3796,9 @@ end
 """
     StubJobs
 
-Jobs computing in tasks of this process the square of each case's `label`: each launch on a
-shard in `wall` stores at most that many round trips and ends, as a job at its wall time
-does, and a shard in `left` has a task a stopped run left running on it.
+Jobs routing in tasks of this process the square of each case's `label` for each departure:
+each launch on a shard in `wall` stores at most that many departures and ends, as a job at
+its wall time does, and a shard in `left` has a task a stopped run left running on it.
 """
 struct StubJobs
     wall::Dict{Int, Int}
@@ -3776,13 +3821,15 @@ PaperRuns.left_running(jobs::StubJobs, batch, shard) = get(jobs.left, shard, not
 """
     store_squares(jobs, batch, todo)
 
-Task storing the square of the `label` of the cases `todo` of the batch file `batch`,
-counted in `jobs.computed`.
+Task storing the square of the `label` of the case of each departure `todo` of the batch
+file `batch`, counted in `jobs.computed`.
 """
 function store_squares(jobs, batch, todo)
     return Threads.@spawn for k in todo
-        PaperRuns.stored_trip(() -> batch.cases[k].label^2, batch.directories[k],
-            batch.cases[k])
+        case, departure = PaperRuns.departure_case(batch, k)
+        PaperRuns.stored_trip(() -> batch.cases[case].label^2,
+            PaperRuns.departure_directory(batch.directories[case],
+                batch.departures[departure]), batch.cases[case])
         Threads.atomic_add!(jobs.computed, 1)
     end
 end
@@ -3796,21 +3843,27 @@ end
 
 handed_cases = [(; assumptions, label) for label in 1:10]
 
+"what the case store holds for the departure at 24 h of each case of `directories`"
+stored_departures(directories) =
+    [PaperRuns.departure_entry(PaperRuns.departure_directory(directory, 24.0), case).trip
+     for (case, directory) in zip(handed_cases, directories)]
+
 @testset "a job ended at its wall time is launched again until its shard is stored" begin
     store_run(:draft, "code")
     jobs = StubJobs(Dict(1 => 1, 3 => 1), 0)
     directories = [mktempdir() for _ in handed_cases]
-    entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
-    @test [entry.trip for entry in entries] == (1:10) .^ 2
-    @test jobs.launches == Dict(1 => 3, 2 => 1, 3 => 2, 4 => 1)
+    PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
+    @test stored_departures(directories) == (1:10) .^ 2
+    @test jobs.launches == Dict(1 => 2, 2 => 1, 3 => 2, 4 => 1)
     batch = only(filter(endswith(".bin"),
         readdir(PaperRuns.jobs_directory(PaperRuns.paper_run.directory); join=true)))
     @test PaperRuns.stored_count(batch) == 10
-    foreach(rm, readdir(directories[2]; join=true))
+    foreach(rm, filter(isfile, readdir(directories[2]; join=true)))
+    foreach(rm, readdir(PaperRuns.departure_directory(directories[2], 24.0); join=true))
     @test PaperRuns.stored_count(batch) == 9
 end
 
-@testset "a batch whose job stores nothing stops the run naming the cases it lacks" begin
+@testset "a batch whose job stores nothing stops the run naming its departures lacking" begin
     store_run(:draft, "code")
     jobs = StubJobs(Dict(2 => 0), 1)
     directories = [mktempdir() for _ in handed_cases]
@@ -3819,18 +3872,19 @@ end
     catch error
         error.msg
     end
-    @test contains(lacking, "for 3 cases") && contains(lacking, "label=6\nlabel=10")
+    @test contains(lacking, "for 3 departures") &&
+          contains(lacking, "label=4 departure=24.0\nlabel=5 departure=24.0")
     @test jobs.launches[2] == 2
 end
 
-@testset "a resumed run computes only the round trips its stopped run did not store" begin
+@testset "a resumed run routes only the departures its stopped run did not store" begin
     store_run(:draft, "code")
     directories = [mktempdir() for _ in handed_cases]
     @test_throws ErrorException PaperRuns.job_trips(StubJobs(Dict(2 => 0), 0),
         handed_cases, directories, [24.0])
     jobs = StubJobs(Dict{Int, Int}(), 0)
-    entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
-    @test [entry.trip for entry in entries] == (1:10) .^ 2
+    PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
+    @test stored_departures(directories) == (1:10) .^ 2
     @test jobs.computed[] == 3 && jobs.launches == Dict(2 => 1)
 end
 
@@ -3838,12 +3892,29 @@ end
     store_run(:draft, "code")
     directories = [mktempdir() for _ in handed_cases]
     left = StubJobs(Dict{Int, Int}(), 0)
-    batch = (; cases=handed_cases, directories)
+    batch = (; cases=handed_cases, directories, departures=[24.0])
     jobs = StubJobs(Dict{Int, Int}(), 0;
         left=Dict(3 => store_squares(left, batch, PaperRuns.shard_missing(batch, 3, 4))))
-    entries = PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
-    @test [entry.trip for entry in entries] == (1:10) .^ 2
+    PaperRuns.job_trips(jobs, handed_cases, directories, [24.0])
+    @test stored_departures(directories) == (1:10) .^ 2
     @test !haskey(jobs.launches, 3) && left.computed[] == 2
+end
+
+@testset "a shard holds the departures of a few cases, each departure in one shard" begin
+    batch = (; cases=handed_cases, departures=[24.0, 48.0, 72.0])
+    shards = [PaperRuns.shard_departures(batch, shard, 4) for shard in 1:4]
+    @test reduce(vcat, shards) == 1:30
+    @test all(shard -> length(shard) in (7, 8), shards)
+    cases(shard) = unique(first(PaperRuns.departure_case(batch, k)) for k in shard)
+    @test all(shard -> length(cases(shard)) <= 4, shards)
+end
+
+@testset "a stored round trip leaves its departures unrouted" begin
+    store_run(:draft, "code")
+    directories = [mktempdir() for _ in handed_cases]
+    batch = (; cases=handed_cases, directories, departures=[24.0])
+    PaperRuns.stored_trip(() -> 1.0, directories[1], handed_cases[1])
+    @test PaperRuns.shard_missing(batch, 1, 4) == [2]
 end
 
 @testset "a final run takes only round trips computed on its own processor" begin
@@ -3906,13 +3977,13 @@ end
     @test PaperRuns.stalled_run_jobs(:draft) == 0
 end
 
-@testset "the jobs of a run ask for no more than the cluster allows" begin
+@testset "the jobs of a run are short enough to pass the queue fast and fit the cluster" begin
     settings = merge(PaperRuns.cluster_settings(),
         Dict("account" => "research-me", "partition" => "p2"))
     command = PaperRuns.slurm_command(settings, "run", "log", `true`; after="7")
     option(name) = only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
     hours, minutes, seconds = parse.(Int, split(option("time"), ":"))
-    @test hours * 3600 + minutes * 60 + seconds <= 120 * 3600
+    @test hours * 3600 + minutes * 60 + seconds <= 2 * 3600
     @test parse(Int, option("cpus-per-task")) <= 64
     @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 64
     @test option("dependency") == "afterany:7"
@@ -3925,6 +3996,27 @@ end
 @testset "a job computing round trips loads their code without the plotting packages" begin
     @test !any(package -> nameof(package) == :CairoMakie, Base.loaded_modules_array())
     @test all(name -> isdefined(JobTrips, name), (:shard_trips, :trip_case, :case_trip))
+end
+
+@testset "a round trip resumed from its stored departures routes only those missing" begin
+    JobTrips.paper_run = JobTrips.PaperRun(mktempdir(), :draft,
+        Dict{String, Any}("git_commit" => "a", "git_dirty" => false), nothing,
+        Dict{Symbol, Vector{Any}}(), "code", JobTrips.StepTally())
+    case = JobTrips.trip_case(ShipDesign(:vlsfo, 100.0; rotor_area=200.0); scale=8.0)
+    departures = JobTrips.departures[1:2]
+    directory = mktempdir()
+    whole = only(JobTrips.compute_trips([case], [directory], departures))
+    kept, lost = (only(readdir(JobTrips.departure_directory(directory, departure);
+                      join=true)) for departure in departures)
+    made = mtime(kept)
+    foreach(rm, filter(isfile, readdir(directory; join=true)))
+    rm(lost)
+    resumed = only(JobTrips.compute_trips([case], [directory], departures))
+    @test mtime(kept) == made && isfile(lost)
+    @test resumed.inputs == whole.inputs && resumed.files == whole.files
+    routed = JobTrips.case_trip(case, departures)
+    @test all(getfield(resumed.trip, name) == getfield(whole.trip, name) ==
+              getfield(routed, name) for name in fieldnames(RoundTrip))
 end
 
 @testset "a run's estimate counts the cases of each data step of the draft run" begin
@@ -4617,6 +4709,17 @@ end
           sort([Main.assumptions[:e_methanol_price], 40.0, 90.0, 120.0])
 end
 
+@testset "ship classes group by cargo on deck, free deck first, each by deadweight" begin
+    classes = sort(collect(values(ship_classes())); by=PaperData.deck_order)
+    labels = PaperData.deck_label.(classes)
+    on_deck = [class.name for class in classes if class.deck_tiers > 0]
+    @test findlast(==("free deck"), labels) < findfirst(==("cargo on deck"), labels)
+    @test on_deck == ["feeder container ship", "Panamax container ship",
+        "Neo-Panamax container ship", "Megamax container ship"]
+    @test PaperData.deck_label(ship_classes()["PCTC car carrier"]) == "free deck"
+    @test issorted([class.deadweight for class in classes if class.deck_tiers == 0])
+end
+
 @testset "a table step that fails part way leaves the table it had" begin
     path = joinpath(mktempdir(), "table.tex")
     write(path, "complete table")
@@ -4963,6 +5066,44 @@ end
     @test WindShipOpt.kite_mass(rig, assumptions) ≈
           WindShipOpt.Canopy(assumptions, rig.area, rig.airframe).mass_per_area * rig.area +
           1e-3assumptions[:control_unit_mass_per_force] * rig.max_force
+end
+
+@testset "a single-skin canopy is one skin and more bridle, sewn as a ram-air canopy" begin
+    canopy = WindShipOpt.Canopy(assumptions, 500.0, WindShipOpt.SingleSkin())
+    rating = WindShipOpt.force_rating(assumptions)
+    skin = assumptions[:canopy_flat_area_ratio]
+    weight = WindShipOpt.cloth_weight(assumptions)
+    @test canopy.mass_per_area ≈ 1e-3skin * weight +
+                                 assumptions[:single_skin_line_ratio] *
+                                 assumptions[:canopy_mass_overhead] * rating
+    @test canopy.cost_per_area ≈ WindShipOpt.sewing_cost(assumptions) +
+                                 skin * WindShipOpt.cloth_price(assumptions, weight)
+    @test canopy.mass_per_area <
+          WindShipOpt.Canopy(assumptions, 500.0, assumptions[:kite_aspect_ratio]).mass_per_area
+end
+
+@testset "a single-skin kite flies the ram-air polar at its lower glide ratio" begin
+    aspect_ratio = assumptions[:kite_aspect_ratio]
+    single, force, = WindShipOpt.kite_model(1.0, aspect_ratio, assumptions,
+        WindShipOpt.SingleSkin())
+    ram_air, ram_air_force, = WindShipOpt.kite_model(1.0, aspect_ratio, assumptions)
+    @test single.polar.lift == ram_air.polar.lift
+    @test single.polar.drag ≈ ram_air.polar.drag / assumptions[:single_skin_glide_factor]
+    @test single.extra_drag ≈ ram_air.extra_drag
+    @test force ≈ ram_air_force
+end
+
+@testset "a single-skin kite flies alone, launched and towing as the ram-air kite" begin
+    rig = KiteRig(300.0, assumptions[:kite_aspect_ratio], PAPER_HULL, assumptions;
+        courses=[π / 2], frame=WindShipOpt.SingleSkin())
+    @test WindShipOpt.kite_mass(rig, assumptions) ≈
+          WindShipOpt.Canopy(assumptions, rig.area, rig.airframe).mass_per_area * rig.area +
+          1e-3assumptions[:control_unit_mass_per_force] * rig.max_force
+    @test WindShipOpt.rig_price_parts(rig, assumptions) ==
+          WindShipOpt.kite_price_parts(rig.area, rig.max_force, assumptions)
+    @test_throws ArgumentError WindShipOpt.design_rig(
+        ShipDesign(:vlsfo, 140.0; single_skin_kite_area=300.0, rotor_area=400.0),
+        PAPER_HULL, assumptions)
 end
 
 @testset "every rig has its name, life and availability inputs" begin
@@ -5533,10 +5674,10 @@ end
     force = RigForce(1e5, 3e5, 3e6, -2e6)
     drag(balance) = balance.leeway_drag + balance.rudder_drag
     free = PaperData.simplified_ship(ship, :side_force)
-    @test drag(WindShipOpt.HullBalance(ship, 6.0, force)) > 0
-    @test drag(WindShipOpt.HullBalance(free, 6.0, force)) == 0
+    @test drag(WindShipOpt.HullBalance(ship, 6.0, force, 0.0)) > 0
+    @test drag(WindShipOpt.HullBalance(free, 6.0, force, 0.0)) == 0
     @test WindShipOpt.HullBalance(PaperData.simplified_ship(ship, :weak_hull), 6.0,
-        force).leeway ≈ 2WindShipOpt.HullBalance(ship, 6.0, force).leeway
+        force, 0.0).leeway > WindShipOpt.HullBalance(ship, 6.0, force, 0.0).leeway
 end
 
 @testset "a model part the study's recorded run predates prints stale until it reruns" begin

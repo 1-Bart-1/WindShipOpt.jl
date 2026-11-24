@@ -245,10 +245,11 @@ times width on `hull`, in one row on the centreline or two columns abreast with 
 closest spacing clear of the deck edges, each column spread over the deck length for rigs
 less `forward_reserve` [m] at its forward end. Returns the count, unit height [m], foot
 height above the waterline [m], centre of effort forward of midship [m] (units abreast of
-each other alone stand at the hull's lateral centre), column offset from the centreline
-[m], interference factor, [`array_factor`](@ref) in line times that of a pair abreast,
-which loses the unit's abreast loss times as much. `nothing` where units
-stand closer than the closest spacing. Suction sails stand and interfere as wing sails do.
+each other alone stand at the hull's lateral centre, or as far forward as the deck lets
+them), column offset from the centreline [m], interference factor, [`array_factor`](@ref)
+in line times that of a pair abreast, which loses the unit's abreast loss times as much.
+`nothing` where units stand closer than the closest spacing. Suction sails stand and
+interfere as wing sails do.
 """
 function column_layout(columns, in_column, total_area, unit, hull::Hull,
         assumptions::Assumptions, forward_reserve)
@@ -267,7 +268,9 @@ function column_layout(columns, in_column, total_area, unit, hull::Hull,
         array_factor(in_column, deck_length / in_column / width, amplitude, decay) *
         array_factor(columns, 2column_offset / width,
             arrangement(:_abreast_loss) * amplitude, decay)
-    centre_position = in_column == 1 ? lateral_centre(hull) : -forward_reserve / 2
+    forward_slot = (deck_length - clearance - forward_reserve) / 2
+    centre_position = in_column == 1 ? min(lateral_centre(hull), forward_slot) :
+                      -forward_reserve / 2
     return (; count, columns, height, foot_height=foot_height(hull, assumptions),
         centre_position, column_offset, interference_factor, pedestal_height=0.0,
         camera_units=0)
@@ -545,7 +548,8 @@ Towing kite on a fixed-length tether from a mast on the bow, with the force of i
 flight pattern tabulated over apparent wind speed, course off the apparent downwind
 direction and the weight given to side force, its trim. `airframe` is a
 [`RigidAirframe`](@ref) for rigid VTOL kites, a [`TubeFrame`](@ref) for leading-edge
-inflatable kites and `nothing` for a ram-air kite.
+inflatable kites, a [`SingleSkin`](@ref) for single-skin kites and `nothing` for a ram-air
+kite.
 """
 Base.@kwdef struct KiteRig{A}
     "projected area of one kite [m^2]"
@@ -579,7 +583,7 @@ Base.@kwdef struct KiteRig{A}
     max_force::Float64
     "tether attachment height above the waterline [m]"
     attach_height::Float64
-    "tether attachment distance forward of midship, at the hull's lateral centre [m]"
+    "tether attachment distance forward of midship [m]"
     attach_position::Float64
     "apparent wind speeds of the pattern table [m/s]"
     wind_speeds::Vector{Float64}
@@ -616,31 +620,39 @@ rope_mass(diameter, rope_length, assumptions) =
     kite_canopy(assumptions, area, aspect_ratio, frame)
 
 [`Canopy`](@ref) of a soft kite of projected `area` [m^2] and `aspect_ratio`: a ram-air
-canopy where `frame` is `nothing`, a leading-edge inflatable one for a [`TubeFrame`](@ref).
+canopy where `frame` is `nothing`, a leading-edge inflatable one for a [`TubeFrame`](@ref),
+a single skin for [`SingleSkin`](@ref).
 """
 kite_canopy(assumptions::Assumptions, area, aspect_ratio, ::Nothing) =
     Canopy(assumptions, area, aspect_ratio)
-kite_canopy(assumptions::Assumptions, area, aspect_ratio, frame::TubeFrame) =
-    Canopy(assumptions, area, frame)
+kite_canopy(assumptions::Assumptions, area, aspect_ratio,
+    frame::Union{TubeFrame, SingleSkin}) = Canopy(assumptions, area, frame)
 
 "tether force limit per projected area [kN/m^2] of a soft kite of `frame`"
-force_per_area(assumptions::Assumptions, ::Nothing) = assumptions[:kite_max_force_per_area]
+force_per_area(assumptions::Assumptions, ::Union{Nothing, SingleSkin}) =
+    assumptions[:kite_max_force_per_area]
 force_per_area(assumptions::Assumptions, ::TubeFrame) =
     assumptions[:lei_max_force_per_area]
 
 "drag coefficient [-] a soft kite of `frame` has in flight beyond its polar and tether"
-flight_drag(assumptions::Assumptions, ::Nothing) = assumptions[:kite_flight_drag]
+flight_drag(assumptions::Assumptions, ::Union{Nothing, SingleSkin}) =
+    assumptions[:kite_flight_drag]
 flight_drag(assumptions::Assumptions, ::TubeFrame) = assumptions[:lei_flight_drag]
 
 """
-    kite_polar(aspect_ratio, frame)
+    kite_polar(aspect_ratio, frame, assumptions)
 
 [`KitePolar`](@ref) of a ram-air kite of projected `aspect_ratio` where `frame` is
 `nothing`; for a [`TubeFrame`](@ref), the measured polar of a leading-edge inflatable kite
-in `data/kite_polars/lei_v3.csv`.
+in `data/kite_polars/lei_v3.csv`; for a [`SingleSkin`](@ref), the ram-air polar with its
+drag over `single_skin_glide_factor`.
 """
-kite_polar(aspect_ratio, ::Nothing) = KitePolar(aspect_ratio)
-kite_polar(aspect_ratio, ::TubeFrame) = polar_file("lei_v3.csv")
+kite_polar(aspect_ratio, ::Nothing, assumptions) = KitePolar(aspect_ratio)
+kite_polar(aspect_ratio, ::TubeFrame, assumptions) = polar_file("lei_v3.csv")
+function kite_polar(aspect_ratio, ::SingleSkin, assumptions)
+    (; angle_of_attack, lift, drag) = KitePolar(aspect_ratio)
+    return KitePolar(angle_of_attack, lift, drag / assumptions[:single_skin_glide_factor])
+end
 
 """
     soft_kite_mass(area, aspect_ratio, max_force, assumptions, frame=nothing)
@@ -669,7 +681,7 @@ function kite_model(area, aspect_ratio, assumptions::Assumptions, frame=nothing)
     tether_mass = rope_mass(tether_diameter, tether_length, assumptions)
     mass = soft_kite_mass(area, aspect_ratio, max_force, assumptions, frame) +
            tether_mass / 2
-    polar = kite_polar(aspect_ratio, frame)
+    polar = kite_polar(aspect_ratio, frame, assumptions)
     stall = argmax(polar.lift)
     model = KiteModel(area, mass, tether_length, env.air_density, env.gravity, polar,
         flight_drag(assumptions, frame) + tether_drag,
@@ -890,8 +902,9 @@ end
     rigid_kite_rig(area, hull, assumptions; courses=KITE_COURSES, side_weights=SIDE_WEIGHTS)
 
 Rigid VTOL kite of `area` [m^2] on `hull` with a pattern table over `courses` [rad] and
-`side_weights`, towing from the hull's lateral centre, or from the bow where containers
-stand on its deck; `nothing` where it is larger than [`largest_rigid_kite_area`](@ref).
+`side_weights`, towing from the hull's lateral centre, or from the launch mast where the
+centre lies ahead of it or containers stand on its deck; `nothing` where it is larger than
+[`largest_rigid_kite_area`](@ref).
 """
 function rigid_kite_rig(area, hull::Hull, assumptions::Assumptions;
         courses=KITE_COURSES, side_weights=SIDE_WEIGHTS)
@@ -906,8 +919,8 @@ function rigid_kite_rig(area, hull::Hull, assumptions::Assumptions;
         rigid_wind_limits(lowest_wind, assumptions)..., max_force,
         attach_height=assumptions[:kite_attach_height] * hull.length /
                       assumptions[:reference_length],
-        attach_position=hull.deck_cargo_height > 0 ?
-                        launch_mast_position(hull, assumptions) : lateral_centre(hull),
+        attach_position=min(launch_mast_position(hull, assumptions),
+            hull.deck_cargo_height > 0 ? Inf : lateral_centre(hull)),
         wind_speeds=RIGID_WIND_SPEEDS, courses, side_weights, forces, airframe)
 end
 
