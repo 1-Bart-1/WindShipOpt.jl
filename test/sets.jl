@@ -4005,6 +4005,21 @@ end
     @test isempty(reasons[:speed_size])
 end
 
+@testset "a study's effect is marked once its input's range moved since the run" begin
+    entry = Dict{String, Any}("git_commit" => "HEAD",
+        "inputs" => Dict("wind_shear_exponent" => assumptions[:wind_shear_exponent]))
+    @eval PaperRuns assumptions = $assumptions
+    @test isempty(PaperRuns.moved_ranges(entry))
+    entries = copy(assumptions.entries)
+    shear = entries[:wind_shear_exponent]
+    entries[:wind_shear_exponent] = WindShipOpt.Assumption(shear.value, shear.low,
+        shear.high + 0.01, shear.unit, shear.source, shear.today, shear.estimate)
+    @eval PaperRuns assumptions = $(WindShipOpt.Assumptions(entries))
+    @test PaperRuns.moved_ranges(entry) == ["wind_shear_exponent"]
+    @test isempty(PaperRuns.changed_inputs(entry))
+    @eval PaperRuns assumptions = $assumptions
+end
+
 @testset "an input read in a task spawned while recording is recorded" begin
     value, names = inputs_read(() -> fetch(Threads.@spawn assumptions[:discount_rate]))
     @test value == assumptions[:discount_rate]
@@ -5238,29 +5253,38 @@ end
     @test (lead.rig, lead.rival, lead.verdict) == ("rotors", "wings", "leads")
 end
 
-@testset "a ship type's saving per ship is what each rig saves it, over its ships" begin
+@testset "a kind of ship saves per ship over its ships, its share over its classes" begin
     work, _ = PaperData.fleet_work()
     ships = PaperData.fleet_ships()
     (; table, class, drive) = market_class_table()
     classes = PaperData.ship_classes()
     savings = PaperData.type_savings(table, drive)
-    bulk = only(saving for saving in savings if saving.type == "bulk carrier")
+    bulk = only(saving for saving in savings if saving.label == "Bulk carriers")
     bulk_classes = [name for name in keys(work) if classes[name].type == "bulk carrier"]
     bulk_ships = sum(ships[name] for name in bulk_classes)
     bulk_work = sum(work[name] for name in bulk_classes)
     saved = work[class] / 3 * 0.02 * (0.10 + 0.05)
-    bill = 0.01 * bulk_work + 0.01 * work[class]
     rotors = bulk.rigs["rotors"]
     @test rotors.saved * bulk_ships ≈ saved
-    @test rotors.share ≈ 100saved / bill
+    @test rotors.share ≈ (10 + 5) / 3length(bulk_classes)
     heating_value = WindShipOpt.vlsfo(assumptions, 0.0).heating_value
     @test rotors.fuel * bulk_ships ≈ bulk_work * 0.01e6 / heating_value
     @test rotors.carbon * bulk_ships ≈ bulk_work * 0.5
     @test iszero(bulk.rigs["kite"].saved)
     @test bulk.rigs["wings"].share < rotors.share
-    container = only(saving for saving in savings if saving.type == "container")
+    container = only(saving for saving in savings if saving.label == "Container ships")
     @test isempty(container.leaders)
     @test all(saving -> iszero(saving.rigs["rotors"].saved), filter(!=(bulk), savings))
+end
+
+@testset "a payback today's model cannot price is stale, not a number or never" begin
+    @test isnan(PaperData.median_payback([3.0, NaN, Inf]))
+    @test PaperData.median_payback([3.0, 5.0, Inf]) == 5.0
+    @test PaperData.payback_text([2.0, NaN]) == "\\stale{classes}{}"
+    @test PaperData.payback_text([2.0, Inf, Inf]) ==
+          "\\num{2.0} years, and on 2 classes never"
+    @test PaperData.payback_cell(NaN, 1.0) == "\\stale{classes}{}"
+    @test PaperData.payback_cell(Inf, 1.0) == "--"
 end
 
 @testset "a rig size the class study did not run is an error, not a ship without a rig" begin

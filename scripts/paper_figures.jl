@@ -1929,7 +1929,7 @@ named upright in the rig's colour and just wide enough to keep the names apart, 
 """
 function unit_count_axis(cell, rigs, row_limits)
     return Axis(cell; width=length(rigs) * (text_size + tick_gap),
-        xlabel="number of units", xticks=(eachindex(rigs), last.(rigs)),
+        xlabel="number\nof units", xticks=(eachindex(rigs), last.(rigs)),
         xticksvisible=false, xticklabelrotation=π / 2,
         xticklabelcolor=palette[first.(rigs)],
         yticksvisible=false, yticklabelsvisible=false, yreversed=true,
