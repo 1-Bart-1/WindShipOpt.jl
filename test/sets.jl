@@ -4896,10 +4896,11 @@ end
     @test count(size -> size[1] == "kite+rotors", small_kite) == 2
 end
 
-@testset "a kite with rotors leads only where its gain over each rig alone clears its error" begin
+@testset "a kite with rotors leads only where it gains clearly over each rig alone" begin
     columns = ("ship", "route", "drive", "rig", "kite_area", "rotor_area")
     trips = Dict{String, Vector}(name => Any[] for name in (columns..., "cost"))
-    departures = Dict{String, Vector}(name => Any[] for name in (columns..., "date", "cost"))
+    departures = Dict{String, Vector}(name => Any[]
+                                      for name in (columns..., "date", "cost"))
     function sail!(ship, rig, kite_area, rotor_area, costs)
         labels = (ship, "new_york", "ammonia", rig, kite_area, rotor_area)
         foreach((name, value) -> push!(trips[name], value), columns, labels)
@@ -4911,7 +4912,8 @@ end
         end
     end
     swing = [0.0, 0.02, -0.02, 0.01, -0.01, 0.0]
-    for (ship, kite, rotors, pair) in (("clear", 0.90, 0.88, 0.80), ("level", 0.90, 0.95, 0.89))
+    for (ship, kite, rotors, pair) in
+        (("clear", 0.90, 0.88, 0.80), ("level", 0.90, 0.95, 0.89))
         sail!(ship, "none", 0.0, 0.0, fill(1.0, 6))
         sail!(ship, "kite", 800.0, 0.0, fill(kite, 6))
         sail!(ship, "rotors", 0.0, 400.0, fill(rotors, 6))

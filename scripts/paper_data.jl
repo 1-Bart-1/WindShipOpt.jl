@@ -2443,7 +2443,8 @@ function pair_cells(table)
             fleet_cells(table, string(drive)))
         for class in unique(cell.class for cell in fleet)
             options = filter(cell -> cell.class == class, fleet)
-            best = argmax(cell -> min(cell.savings["kite"], cell.savings["rotors"]), options)
+            weaker(cell) = min(cell.savings["kite"], cell.savings["rotors"])
+            best = argmax(weaker, options)
             push!(cells, (class, best.route, string(drive)))
         end
     end
@@ -2520,18 +2521,19 @@ function pair_leads(trips, departures)
     return map(cells) do (ship, route, drive)
         cell = ("ship" => ship, "route" => route, "drive" => drive)
         best = Dict(rig => cheapest_row(trips, cell..., "rig" => rig) for rig in pair_rigs)
-        dated(row) = rows(departures, cell..., "rig" => trips["rig"][row],
-            "kite_area" => trips["kite_area"][row], "rotor_area" => trips["rotor_area"][row])
+        dated(row) = rows(departures, cell...,
+            (name => trips[name][row] for name in ("rig", "kite_area", "rotor_area"))...)
         costs = Dict(rig => departures["cost"][sort(dated(row);
                          by=i -> departures["date"][i])] for (rig, row) in best)
         reference = trips["cost"][best["none"]]
         savings = Dict(rig => percent_saving(trips["cost"][row], reference)
                        for (rig, row) in best)
-        clear(rig) = leads("kite+rotors", rig, savings["kite+rotors"] - savings[rig],
-            gap_error([(; departures=costs)], [1.0], "kite+rotors", rig))
+        gain(rig) = savings["kite+rotors"] - savings[rig]
+        spread(rig) = gap_error([(; departures=costs)], [1.0], "kite+rotors", rig)
+        clear(rig) = leads("kite+rotors", rig, gain(rig), spread(rig))
         rival = argmax(rig -> savings[rig], ("kite", "rotors"))
-        error, n = gap_error([(; departures=costs)], [1.0], "kite+rotors", rival)
-        (; ship, route, drive, rival, gain=savings["kite+rotors"] - savings[rival], error, n,
+        error, n = spread(rival)
+        (; ship, route, drive, rival, gain=gain(rival), error, n,
             leads=clear("kite") && clear("rotors"))
     end
 end

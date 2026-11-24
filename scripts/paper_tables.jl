@@ -2149,7 +2149,8 @@ function numbers_file()
             print(io, number_macro(name, text, false))
         end
         print(io, number_macro("HighlightLimit", string(highlight_limit), false))
-        print(io, number_macro("ResultsRun", step_run_words("classes", "classes.csv"), false))
+        results_run = step_run_words("classes", "classes.csv")
+        print(io, number_macro("ResultsRun", results_run, false))
         for (name, text) in results
             print(io, number_macro(name, text, draft))
         end
@@ -2390,9 +2391,8 @@ end
     combination_numbers()
 
 Name and text of the kite-and-rotors study by [`pair_leads`](@ref): the run it comes from,
-its number of cases, the cases where the pair clearly leads both rigs alone with the
-largest gain over the better of them and its error [points], and the range of the gains
-[points] elsewhere.
+its number of cases, the cases where the pair clearly leads both rigs alone, the largest
+gain over the better of them and the range of the gains elsewhere, in whole points.
 """
 function combination_numbers()
     cells = pair_leads(read_table(data_file("combination_pairs.csv")),
@@ -2400,11 +2400,12 @@ function combination_numbers()
     leading = filter(cell -> cell.leads, cells)
     others = [cell.gain for cell in cells if !cell.leads]
     best = argmax(cell -> cell.gain, cells)
-    words(cell) = "the $(cell.ship) to $(route_label(cell.route)) on $(fuel_names[cell.drive])"
+    words(cell) =
+        "the $(cell.ship) to $(route_label(cell.route)) on $(fuel_names[cell.drive])"
     return ["CombinationRun" => step_run_words("combination_data", "combination_pairs.csv"),
         "CombinationCases" => string(length(cells)),
         "CombinationLeading" => isempty(leading) ? "none" : listed(words.(leading)),
-        "CombinationBestGain" => error_cell(best.gain, best.error; finest=1),
+        "CombinationBestGain" => whole_points(best.gain),
         "CombinationOtherGains" =>
             "$(whole_number(minimum(others))) to $(whole_number(maximum(others)))"]
 end
