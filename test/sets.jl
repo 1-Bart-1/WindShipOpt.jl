@@ -793,21 +793,21 @@ end
     mass(rig) = WindShipOpt.rig_costs(rig, assumptions)[2]
     wing = Ship(ShipDesign(:ammonia, 140.0; wing_area=800.0), assumptions).rig
     @test wing.count == 1 && wing.height == assumptions[:wing_reference_height]
-    @test price(wing) ≈ 2.01e6 rtol = 0.005
-    @test mass(wing) ≈ 200 rtol = 0.005
+    @test price(wing) ≈ 2.09e6 rtol = 0.005
+    @test mass(wing) ≈ 211 rtol = 0.005
     suction = Ship(ShipDesign(:ammonia, 140.0; suction_area=400.0), assumptions).rig
     @test suction.count == 3
     @test suction.height ≈ 29.7 atol = 0.05
     @test WindShipOpt.size_factor(suction, assumptions) ≈ 1.14 atol = 0.005
-    @test price(suction) ≈ 1.88e6 rtol = 0.005
-    @test mass(suction) ≈ 137 rtol = 0.005
+    @test price(suction) ≈ 1.96e6 rtol = 0.005
+    @test mass(suction) ≈ 149 rtol = 0.005
     megamax = Hull(ship_classes()["Megamax container ship"], assumptions)
     rotors = WindShipOpt.RotorRig(600.0, megamax, assumptions; columns=2, in_column=2)
     @test rotors.count == 4 && rotors.height == 30 && WindShipOpt.raised(rotors)
     @test WindShipOpt.pedestal_mass(rotors, assumptions) ≈ 47.0 rtol = 0.005
     @test rotors.camera_units == 0
-    @test price(rotors) ≈ 4.75e6 rtol = 0.005
-    @test mass(rotors) ≈ 464 rtol = 0.005
+    @test price(rotors) ≈ 4.93e6 rtol = 0.005
+    @test mass(rotors) ≈ 492 rtol = 0.005
 end
 
 @testset "a canopy is the surveyed one with its own cloth, at the market factor" begin
@@ -912,7 +912,8 @@ end
     @test parts.installation ≈ assumptions[:installation_fraction] *
                                (sum(parts) - parts.installation)
     @test WindShipOpt.rig_costs(sails, assumptions)[2] ≈
-          800 * assumptions[:suction_mass_per_area]
+          800 * assumptions[:suction_mass_per_area] +
+          sails.count * WindShipOpt.foundation_mass(sails, assumptions)
     @test WindShipOpt.rig_price_parts(wings, assumptions).surface ≈
           800e3assumptions[:wing_mass_per_area] * assumptions[:wing_cost_per_mass]
     heavier = with_value(assumptions, :suction_mass_per_area, 0.6)
@@ -1353,7 +1354,8 @@ end
         @test WindShipOpt.size_factor(built, assumptions) == 1
         growth = (tall.height / reference)^(exponent - 2)
         @test WindShipOpt.size_factor(tall, assumptions) ≈ growth
-        mass(rig) = WindShipOpt.rig_costs(rig, assumptions)[2]
+        mass(rig) = WindShipOpt.rig_costs(rig, assumptions)[2] -
+                    rig.count * WindShipOpt.foundation_mass(rig, assumptions)
         @test mass(built) ≈ area * assumptions[Symbol(unit, :_mass_per_area)]
         @test mass(tall) ≈ growth * mass(built)
         fans = unit == :suction ? 1e-3area * assumptions[:suction_fan_power_per_area] *
@@ -1464,7 +1466,9 @@ end
     @test pairs.column_offset ≈ (feeder.beam - clearance) / 2
     @test WindShipOpt.raised(pairs) && !WindShipOpt.raised(on_deck)
     mass(rig) = WindShipOpt.rig_costs(rig, assumptions)[2]
-    @test mass(pairs) ≈ mass(on_deck) + 6WindShipOpt.pedestal_mass(pairs, assumptions)
+    support(rig) = WindShipOpt.pedestal_mass(rig, assumptions) +
+                   WindShipOpt.foundation_mass(rig, assumptions)
+    @test mass(pairs) ≈ mass(on_deck) + 6(support(pairs) - support(on_deck))
     @test WindShipOpt.pedestal_mass(on_deck, assumptions) == 0
     price = WindShipOpt.rig_price_parts(pairs, assumptions).pedestals
     @test price ≈ 6e3WindShipOpt.pedestal_mass(pairs, assumptions) *
@@ -1494,6 +1498,31 @@ end
     tall = WindShipOpt.RotorRig(1200.0, hull, assumptions; columns=2, in_column=1)
     @test tall.height ≈ 60 && tall.diameter ≈ 10
     @test WindShipOpt.pedestal_wall(tall, assumptions) ≈ 34.6e-3 rtol = 2e-3
+end
+
+# By hand, the hull under each of those Megamax rotors: the column's 3.172 MN/m at the
+# deck times 1.15 is 3.648 MN/m, a 13.61 mm wall at 268 MPa, which buckles below
+# cbrt(3.648e6 * 0.76^2 / (pi^2 * 206e9 / 2.73)) = 14.14 mm; 1.2 * 7850 * 2 * 6.5 *
+# 0.01414 * 4.0 = 6.93 t.
+@testset "a deck rig's foundation carries its factored moments at the deck into the hull \
+          with the class rule's extra margin" begin
+    megamax = Hull(ship_classes()["Megamax container ship"], assumptions)
+    rotors = WindShipOpt.RotorRig(600.0, megamax, assumptions; columns=2, in_column=2)
+    @test WindShipOpt.foundation_mass(rotors, assumptions) ≈ 6.93 rtol = 2e-3
+    on_deck = WindShipOpt.RotorRig(600.0, Hull(megamax.length, assumptions), assumptions;
+        columns=2, in_column=2)
+    @test 0 < WindShipOpt.foundation_mass(on_deck, assumptions) <
+          WindShipOpt.foundation_mass(rotors, assumptions)
+    wing = Ship(ShipDesign(:ammonia, 140.0; wing_area=800.0), assumptions).rig
+    for rig in (rotors, on_deck, wing)
+        parts = WindShipOpt.rig_price_parts(rig, assumptions)
+        foundation = WindShipOpt.foundation_mass(rig, assumptions)
+        @test parts.foundations ≈ 1e3rig.count * foundation *
+                                  assumptions[:welded_steel_cost_per_mass]
+        @test WindShipOpt.rig_costs(rig, assumptions)[2] ≈ rig.count *
+              (WindShipOpt.unit_mass(rig, assumptions) + foundation +
+               WindShipOpt.pedestal_mass(rig, assumptions))
+    end
 end
 
 @testset "a deck rig is charged the cargo its mass displaces" begin

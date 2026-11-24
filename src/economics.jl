@@ -396,7 +396,8 @@ function rig_costs(rig::Union{WingRig, RotorRig}, assumptions)
     lifetime = assumptions[Symbol(deck_unit(rig), :_lifetime)]
     capital = assumptions[:market_price_factor] * sum(rig_price_parts(rig, assumptions))
     annuity = capital_recovery(assumptions[:discount_rate], lifetime) * capital
-    mass = unit_mass(rig, assumptions) + pedestal_mass(rig, assumptions)
+    mass = unit_mass(rig, assumptions) + pedestal_mass(rig, assumptions) +
+           foundation_mass(rig, assumptions)
     return capital, rig.count * mass, annuity
 end
 
@@ -408,7 +409,7 @@ unit_mass(rig::Union{WingRig, RotorRig}, assumptions) =
 """
     unit_loads(rig, assumptions)
 
-Factored loads [N] on each raised unit of `rig` at its mid height: its [`peak_force`](@ref)
+Factored loads [N] on each unit of `rig` at its mid height: its [`peak_force`](@ref)
 times `rig_wind_load_factor` and its mass in the design acceleration across the ship times
 `rig_inertia_load_factor`; and the unit's mass [kg].
 """
@@ -481,19 +482,53 @@ end
     pedestal_wall(rig, assumptions)
 
 Wall thickness [m] of the column under each raised unit of `rig`, the thickest of two:
-the [`steel_wall`](@ref) under the moments at the deck about the unit's mid height of its
-factored wind force along the ship and roll across it; and the [`sway_wall`](@ref) along
-the ship, with the unit on top.
+the [`steel_wall`](@ref) under its [`deck_stress_load`](@ref); and the
+[`sway_wall`](@ref) along the ship, with the unit on top.
 """
 function pedestal_wall(rig::Union{WingRig, RotorRig}, assumptions)
-    (; wind, roll, mass) = unit_loads(rig, assumptions)
-    box = box_moduli(assumptions[:bay_gap], unit_width(rig))
-    arm = rig.pedestal_height + rig.height / 2
-    stress_load = wind * arm / box.along + roll * arm / box.across
+    box = foot_box(rig, assumptions)
     bending = assumptions[:bay_gap] * box.along / 2
-    return max(steel_wall(stress_load, assumptions),
-        sway_wall(mass, rig.pedestal_height, rig.height / 2, bending,
-            box_wall_mass(box.perimeter, assumptions), assumptions))
+    return max(steel_wall(deck_stress_load(rig, assumptions), assumptions),
+        sway_wall(unit_loads(rig, assumptions).mass, rig.pedestal_height, rig.height / 2,
+            bending, box_wall_mass(box.perimeter, assumptions), assumptions))
+end
+
+"""
+    foot_box(rig, assumptions)
+
+[`box_moduli`](@ref) of the foot of each unit of `rig` at the deck: the column, `bay_gap`
+along the ship, under a raised unit, and a square as wide as the unit on deck.
+"""
+foot_box(rig::Union{WingRig, RotorRig}, assumptions) = box_moduli(
+    raised(rig) ? assumptions[:bay_gap] : unit_width(rig), unit_width(rig))
+
+"""
+    deck_stress_load(rig, assumptions)
+
+Stress load [N/m] at a corner of the [`foot_box`](@ref) of each unit of `rig` at the deck:
+the moments about the unit's mid height of its factored wind force along the ship and roll
+across it.
+"""
+function deck_stress_load(rig::Union{WingRig, RotorRig}, assumptions)
+    (; wind, roll) = unit_loads(rig, assumptions)
+    box = foot_box(rig, assumptions)
+    arm = rig.pedestal_height + rig.height / 2
+    return wind * arm / box.along + roll * arm / box.across
+end
+
+"""
+    foundation_mass(rig, assumptions)
+
+Steel mass [t] of the foundation in the hull under each unit of `rig`: its
+[`foot_box`](@ref) carried `hull_foundation_depth` below the deck, of the
+[`steel_wall`](@ref) under its [`deck_stress_load`](@ref) times
+`hull_foundation_load_factor`.
+"""
+function foundation_mass(rig::Union{WingRig, RotorRig}, assumptions)
+    stress_load = assumptions[:hull_foundation_load_factor] *
+                  deck_stress_load(rig, assumptions)
+    return 1e-3box_wall_mass(foot_box(rig, assumptions).perimeter, assumptions) *
+           assumptions[:hull_foundation_depth] * steel_wall(stress_load, assumptions)
 end
 
 """
@@ -578,10 +613,10 @@ end
     rig_price_parts(rig, assumptions)
 
 Manufacturing cost [USD] of each part of the hardware of `rig`: the units, their surface,
-the supports of raised units and the camera systems of wings or rotors; the deck system,
-control unit and ship-side controls of a kite, without its canopy and tether; the deck
-system, tether, supply for the hover and ship-side controls of VTOL kites, without their
-airframes; each rig with its installation.
+the supports of raised units, the foundations in the hull and the camera systems of wings
+or rotors; the deck system, control unit and ship-side controls of a kite, without its
+canopy and tether; the deck system, tether, supply for the hover and ship-side controls of
+VTOL kites, without their airframes; each rig with its installation.
 """
 rig_price_parts(::Nothing, assumptions) = (;)
 
@@ -590,6 +625,8 @@ rig_price_parts(rig::Union{WingRig, RotorRig}, assumptions) = installed((;
     surface=surface_cost(rig, assumptions) * total_area(rig),
     pedestals=1e3rig.count * pedestal_mass(rig, assumptions) *
               assumptions[:welded_steel_cost_per_mass],
+    foundations=1e3rig.count * foundation_mass(rig, assumptions) *
+                assumptions[:welded_steel_cost_per_mass],
     cameras=rig.camera_units * assumptions[:camera_system_cost]), assumptions)
 
 "`parts` [USD] of a rig with their installation at the yard, a fraction of their sum"
