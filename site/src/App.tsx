@@ -29,6 +29,7 @@ import {
 import { rigColour, RIG_LABELS, type PassageDesign } from "./passages/passages";
 import { PassageView } from "./passages/PassageView";
 import { GridView } from "./grid/GridView";
+import { CommitLink } from "./CommitLink";
 
 const driveLabels: Record<string, string> = {
   vlsfo: "fuel oil (VLSFO)",
@@ -81,7 +82,7 @@ function Explorer({ data }: { data: ExplorerData }) {
         </p>
         {data.fidelity !== "final" && (
           <p className="rounded-[14px] bg-mustard/30 px-3 py-2 text-sm text-ink">
-            Draft results ({data.fidelity} run, commit {data.git_commit.slice(0, 7)}): coarser routing than the
+            Draft results ({data.fidelity} run of commit <CommitLink commit={data.git_commit} />): coarser routing than the
             paper's final numbers.
           </p>
         )}
