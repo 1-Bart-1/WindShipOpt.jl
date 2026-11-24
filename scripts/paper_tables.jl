@@ -647,7 +647,7 @@ function size_limits(table, row, bare, rival, rival_cost)
     table["cost"][row]
     design = ShipDesign(Symbol(table["drive"][row]), study_hull(ship);
         rig_size(rig, area)...)
-    built = Ship(design, assumptions).rig
+    built = Ship(design, assumptions; route=Symbol(table["route"][row])).rig
     crash = WindShipOpt.crash_cost(built, assumptions)
     work, trips = yearly_trips(table, row, table["route"][row])
     return (; ship, rig, area, crash, saving=percent_saving(cost, bare), rival,

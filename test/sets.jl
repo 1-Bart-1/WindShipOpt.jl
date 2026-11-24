@@ -1473,27 +1473,35 @@ end
     @test hold(frame).slots == class.unit_capacity - 160
 end
 
-@testset "raised rotors stand on the column or frame of least cost per power saved" begin
+@testset "raised rotors stand on the column or frame of least yearly cost less fuel saved" begin
     for (name, area) in (("Neo-Panamax container ship", 600.0),
         ("Megamax container ship", 1200.0))
         class = ship_classes()[name]
         bare = Ship(ShipDesign(:ammonia, class), assumptions)
+        prices = WindShipOpt.LayoutPrices(bare, nothing, assumptions)
         rotors = WindShipOpt.RotorRig(area, Hull(class, assumptions), assumptions;
             columns=2, in_column=1)
-        rig, score = WindShipOpt.cheapest_pedestal(bare, rotors, assumptions)
+        rig, score = WindShipOpt.cheapest_pedestal(bare, rotors, prices, assumptions)
         scores = [WindShipOpt.layout_score(bare, WindShipOpt.with_pedestal(rotors, pedestal),
-                      assumptions) for pedestal in (:column, :frame)]
+                      prices, assumptions) for pedestal in (:column, :frame)]
         @test score == minimum(scores)
         @test rig.pedestal == (:column, :frame)[argmin(scores)]
     end
-    neo = ship_classes()["Neo-Panamax container ship"]
-    bare = Ship(ShipDesign(:ammonia, neo), assumptions)
-    frame = WindShipOpt.with_pedestal(WindShipOpt.RotorRig(600.0, Hull(neo, assumptions),
-        assumptions; columns=2, in_column=1), :frame)
-    @test WindShipOpt.lost_cargo_cost(bare, frame, assumptions) > 0
-    megamax = ship_classes()["Megamax container ship"]
-    @test WindShipOpt.lost_cargo_cost(Ship(ShipDesign(:ammonia, megamax), assumptions),
-        frame, assumptions) == 0
+end
+
+@testset "a deck rig is charged the cargo its mass and blocked slots displace" begin
+    frame = WindShipOpt.with_pedestal(WindShipOpt.RotorRig(600.0,
+            Hull(ship_classes()["Neo-Panamax container ship"], assumptions), assumptions;
+            columns=2, in_column=1), :frame)
+    mass = WindShipOpt.rig_costs(frame, assumptions)[2]
+    for (name, blocks) in (("Megamax container ship", false),
+        ("Neo-Panamax container ship", true))
+        bare = Ship(ShipDesign(:ammonia, ship_classes()[name]), assumptions)
+        prices = WindShipOpt.LayoutPrices(bare, nothing, assumptions)
+        share = mass / WindShipOpt.CargoHold(bare, assumptions).payload
+        cost = WindShipOpt.lost_cargo_cost(bare, frame, prices, assumptions)
+        @test blocks ? cost > share * prices.ship_yearly : cost ≈ share * prices.ship_yearly
+    end
 end
 
 # By hand, a raised wing sail of 400 m^2, 28.3 x 14.1 m, at its highest lift in 20.6 m/s:
@@ -1534,18 +1542,35 @@ end
     @test peak ≈ 350e3 rtol = 0.1
 end
 
-@testset "a deck rig takes the unit count of least yearly cost per power saved" begin
+@testset "a deck rig takes the unit count of least yearly cost less fuel saved" begin
     class = ship_classes()["Kamsarmax bulk carrier"]
     design = ShipDesign(:vlsfo, class; rotor_area=800.0)
     ship = Ship(design, assumptions)
+    prices = WindShipOpt.LayoutPrices(ship, nothing, assumptions)
     score(in_column) = WindShipOpt.layout_score(ship,
-        WindShipOpt.design_rig(design, ship.hull, assumptions; in_column), assumptions)
+        WindShipOpt.design_rig(design, ship.hull, assumptions; in_column), prices, assumptions)
     chosen = ship.rig.count
     @test ship.rig.columns == 1
     @test all(score(chosen) <= score(count) for count in 1:(chosen + 3))
     winds = WindShipOpt.layout_winds(assumptions)
-    @test length(winds) == 24
-    @test sum(first, winds) / 24 ≈ assumptions[:layout_mean_wind] rtol = 0.05
+    @test length(winds) == 48
+    @test sum(first, winds) / 48 ≈ assumptions[:layout_mean_wind] rtol = 0.02
+end
+
+# Routed rotor counts at a fixed total area over 12 departures of 2017-2019 on e-ammonia
+# (#490): counts within 0.3 points of the best routed saving.
+@testset "the rotor count is one routing finds within its scatter of the best" begin
+    for (name, area, route, columns, counts) in (
+        ("general cargo coaster", 362.0, :houston, 1, 2:2),
+        ("general cargo coaster", 301.0, :new_york, 1, 2:2),
+        ("Kamsarmax bulk carrier", 1895.0, :houston, 1, 3:8),
+        ("Kamsarmax bulk carrier", 1895.0, :new_york, 1, 3:6),
+        ("VLCC", 2383.0, :houston, 2, 10:14),
+        ("VLCC", 2383.0, :new_york, 2, 10:14))
+        design = ShipDesign(:ammonia, ship_classes()[name]; rotor_area=area)
+        rig = Ship(design, assumptions; route).rig
+        @test rig.columns == columns && rig.count in counts
+    end
 end
 
 @testset "empty boxes take container slots and tare but carry no cargo" begin

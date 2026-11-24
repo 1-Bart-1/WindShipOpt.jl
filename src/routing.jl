@@ -2676,6 +2676,13 @@ The fixed coastal paths (lat, lon) [deg] of `route`, the Channel first; see
 """
 route_paths(route) = [[CHANNEL]; COASTAL_PATHS[route]]
 
+"length [m] of the fixed coastal paths of `route` and the great circles between them"
+function route_length(route)
+    points = reduce(vcat, route_paths(route))
+    return sum(distance(from..., to...)
+               for (from, to) in zip(points[1:(end - 1)], points[2:end]))
+end
+
 """
     route_corridors(route, mask; scale=1, ocean_spacing=OCEAN_SPACING * scale,
                     lateral_spacing=LATERAL_SPACING * scale)

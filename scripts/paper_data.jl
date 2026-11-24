@@ -992,7 +992,7 @@ on `route`, tagged with `labels`.
 """
 function class_case(class::ShipClass, drive, rig, area, route; labels...)
     design = ShipDesign(drive, class; rig_size(rig, area)...)
-    built = Ship(design, assumptions).rig
+    built = Ship(design, assumptions; route).rig
     return trip_case(design; class=class.name, route, drive, rig, area,
         units=WindShipOpt.deck_units(built), columns=deck_columns(built), labels...)
 end

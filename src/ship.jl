@@ -382,8 +382,8 @@ end
 """
     Ship(design, assumptions; route=nothing)
 
-Ship for `design`, its wings, rotors or suction sails in their [`cheapest_layout`](@ref),
-or `nothing` if its rig does not fit on the hull. Its engines,
+Ship for `design`, its wings, rotors or suction sails in their [`cheapest_layout`](@ref)
+on `route`, or `nothing` if its rig does not fit on the hull. Its engines,
 gensets or fuel cells are rated for the [`rated_delivered_power`](@ref) and the hotel
 load; its fuel pays the carbon price by its [`carbon_coverage`](@ref) on `route`.
 """
@@ -405,7 +405,7 @@ function Ship(design::ShipDesign, assumptions::Assumptions; route=nothing)
     unlimited = Powertrain(; installed_power=Inf, unit_count=1, peak_efficiency=1.0,
         part_load_penalty=0.0, drive.transmission_efficiency, hotel_load)
     bare = Ship(hull_parts..., unlimited, nothing, other_parts...)
-    rig = cheapest_layout(bare, assumptions)
+    rig = cheapest_layout(bare, route, assumptions)
     isnothing(rig) && has_rig(design) && return nothing
     delivered = rated_delivered_power(with_rig(bare, rig), assumptions)
     powertrain = Powertrain(;
