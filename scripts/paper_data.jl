@@ -2458,11 +2458,29 @@ function weighted_quantile(values, weights, share)
     return values[order[k]]
 end
 
-"ship classes of the kite-and-rotors study"
-pair_classes = ("Handysize bulk carrier", "Kamsarmax bulk carrier")
+"""
+    pair_cells(table)
 
-"routes of that study: the kite's largest saving and both rigs' smallest in classes.csv"
-pair_routes = (:caribbean, :bilbao)
+Class, route and drive names of the kite-and-rotors study on the class table `table`: for
+each class with containers on deck and each drive, the route where the kite is among the
+[`fleet_leaders`](@ref) and the weaker of the kite and the rotors saves most.
+"""
+function pair_cells(table)
+    classes = ship_classes()
+    cells = []
+    for drive in study_drives
+        fleet = filter(cell -> classes[cell.class].deck_tiers > 0 &&
+                               "kite" in fleet_leaders(cell.savings, [cell]),
+            fleet_cells(table, string(drive)))
+        for class in unique(cell.class for cell in fleet)
+            options = filter(cell -> cell.class == class, fleet)
+            weaker(cell) = min(cell.savings["kite"], cell.savings["rotors"])
+            best = argmax(weaker, options)
+            push!(cells, (class, best.route, string(drive)))
+        end
+    end
+    return cells
+end
 
 """
     nearest_area(areas, area)
@@ -2489,33 +2507,66 @@ end
 """
     combination_data()
 
-Each class of `pair_classes` on each of `pair_routes` on VLSFO and e-ammonia without a rig
-and at each of its [`pair_sizes`](@ref) from classes.csv: combination_pairs.csv per round
-trip and combination_departures.csv per departure.
+Each of the [`pair_cells`](@ref) of the class study without a rig and at each of its
+[`pair_sizes`](@ref) from classes.csv: combination_pairs.csv per round trip and
+combination_departures.csv per departure.
 """
 function combination_data()
-    classes_table = read_table(data_file("classes.csv"))
+    classes_table = class_table()
     kites = unique(classes_table["area"][rows(classes_table, "rig" => "kite")])
     cases = []
-    for name in pair_classes, drive in (:vlsfo, :ammonia), route in pair_routes
+    for (name, route, drive) in pair_cells(classes_table)
         class = ship_classes()[name]
         hull = Hull(class, assumptions)
-        kite = best_area(classes_table, name, string(route), string(drive), "kite")
-        rotors = best_area(classes_table, name, string(route), string(drive), "rotors")
+        kite = best_area(classes_table, name, route, drive, "kite")
+        rotors = best_area(classes_table, name, route, drive, "rotors")
         room = largest_area("rotors", hull;
-            forward_reserve=WindShipOpt.launch_mast_reserve(assumptions))
+            forward_reserve=WindShipOpt.launch_mast_reserve(hull, assumptions))
         for (rig, kite_area, rotor_area) in
             [("none", 0.0, 0.0);
              pair_sizes(kite, rotors, kites, (smallest_deck_rig_area, room))]
-            design = ShipDesign(drive, class; kite_area, rotor_area)
-            push!(cases, trip_case(design; route, ship=name, drive, rig, kite_area,
-                rotor_area))
+            design = ShipDesign(Symbol(drive), class; kite_area, rotor_area)
+            push!(cases, trip_case(design; route=Symbol(route), ship=name,
+                drive=Symbol(drive), rig, kite_area, rotor_area))
         end
     end
     trips = round_trips(cases, sampled_departures())
     labels = (:ship, :route, :drive, :rig, :kite_area, :rotor_area)
     write_trips("combination_pairs.csv", cases, trips, labels...)
     write_departures("combination_departures.csv", cases, trips, labels...)
+end
+
+"rigs of the kite-and-rotors study: without a rig, each alone and the pair"
+pair_rigs = ("none", "kite", "rotors", "kite+rotors")
+
+"""
+    pair_leads(trips, departures)
+
+Each ship, route and drive of the kite-and-rotors study's round `trips` and `departures`
+tables: the `gain` [points] of cost saving of its cheapest pair over its better single
+`rival`, the `error` of that gain over its `n` departures, and whether the pair clearly
+[`leads`](@ref) each rig alone.
+"""
+function pair_leads(trips, departures)
+    cells = unique(zip(trips["ship"], trips["route"], trips["drive"]))
+    return map(cells) do (ship, route, drive)
+        cell = ("ship" => ship, "route" => route, "drive" => drive)
+        best = Dict(rig => cheapest_row(trips, cell..., "rig" => rig) for rig in pair_rigs)
+        dated(row) = rows(departures, cell...,
+            (name => trips[name][row] for name in ("rig", "kite_area", "rotor_area"))...)
+        costs = Dict(rig => departures["cost"][sort(dated(row);
+                         by=i -> departures["date"][i])] for (rig, row) in best)
+        reference = trips["cost"][best["none"]]
+        savings = Dict(rig => percent_saving(trips["cost"][row], reference)
+                       for (rig, row) in best)
+        gain(rig) = savings["kite+rotors"] - savings[rig]
+        spread(rig) = gap_error([(; departures=costs)], [1.0], "kite+rotors", rig)
+        clear(rig) = leads("kite+rotors", rig, gain(rig), spread(rig))
+        rival = argmax(rig -> savings[rig], ("kite", "rotors"))
+        error, n = spread(rival)
+        (; ship, route, drive, rival, gain=gain(rival), error, n,
+            leads=clear("kite") && clear("rotors"))
+    end
 end
 
 """

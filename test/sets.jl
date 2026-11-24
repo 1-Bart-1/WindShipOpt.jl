@@ -1178,7 +1178,7 @@ end
 
 @testset "kite launch mast takes the forward deck from the rotor row" begin
     hull = Hull(140.0, assumptions)
-    reserve = WindShipOpt.launch_mast_reserve(assumptions)
+    reserve = WindShipOpt.launch_mast_reserve(hull, assumptions)
     alone = WindShipOpt.RotorRig(800.0, hull, assumptions; in_column=4)
     behind = WindShipOpt.RotorRig(800.0, hull, assumptions; forward_reserve=reserve,
         in_column=4)
@@ -1194,7 +1194,7 @@ end
 
 @testset "deck units stand evenly over their row, centred on it" begin
     hull = Hull(140.0, assumptions)
-    reserve = WindShipOpt.launch_mast_reserve(assumptions)
+    reserve = WindShipOpt.launch_mast_reserve(hull, assumptions)
     deck = assumptions[:deck_length_fraction] * hull.length
     for (rig, row_length) in ((WingRig(1500.0, hull, assumptions; in_column=2), deck),
         (WindShipOpt.RotorRig(800.0, hull, assumptions; forward_reserve=reserve,
@@ -1423,10 +1423,11 @@ end
     end
     @test WindShipOpt.launch_mast_position(hull, assumptions) ≈
           (0.5 - assumptions[:bow_mast_position]) * megamax.length
-    @test WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, megamax; kite_area=1000.0),
-        assumptions), assumptions).slots == megamax.unit_capacity
-    @test_throws ArgumentError Ship(ShipDesign(:vlsfo, megamax; kite_area=1000.0,
-        rotor_area=400.0), assumptions)
+    for design in (ShipDesign(:vlsfo, megamax; kite_area=1000.0),
+        ShipDesign(:vlsfo, megamax; kite_area=1000.0, rotor_area=400.0))
+        @test WindShipOpt.CargoHold(Ship(design, assumptions), assumptions).slots ==
+              megamax.unit_capacity
+    end
 end
 
 # By hand: 5 degrees seen from 0.31 L aft of the bow by a unit 0.06 L aft of it, L = 398 m.
@@ -1473,6 +1474,21 @@ end
     price = WindShipOpt.rig_price_parts(pairs, assumptions).pedestals
     @test price ≈ 6e3WindShipOpt.pedestal_mass(pairs, assumptions) *
                   assumptions[:welded_steel_cost_per_mass]
+end
+
+@testset "a container ship flies a kite from its bow mast over raised rotor pairs" begin
+    feeder = ship_classes()["feeder container ship"]
+    hull = Hull(feeder, assumptions)
+    @test WindShipOpt.launch_mast_reserve(hull, assumptions) == 0
+    rig = Ship(ShipDesign(:ammonia, feeder; kite_area=1024.0, rotor_area=600.0),
+        assumptions).rig
+    alone = WindShipOpt.RotorRig(600.0, hull, assumptions; columns=rig.standing.columns,
+        in_column=rig.standing.count ÷ rig.standing.columns)
+    @test WindShipOpt.raised(rig.standing) && rig.standing.columns == 2
+    @test rig.standing.centre_position == alone.centre_position
+    @test rig.kite.attach_position ≈ WindShipOpt.launch_mast_position(hull, assumptions)
+    @test rig.kite.attach_position >
+          maximum(first.(WindShipOpt.unit_positions(rig.standing, hull, assumptions)))
 end
 
 # By hand, two pairs of 30 x 5 m rotors on the Megamax: at the 20 m/s they stop in, spin
@@ -4883,6 +4899,35 @@ end
     @test all(pair -> pair[1] in kites, pairs)
     small_kite = PaperData.pair_sizes(500.0, 900.0, kites, (200.0, 800.0))
     @test count(size -> size[1] == "kite+rotors", small_kite) == 2
+end
+
+@testset "a kite with rotors leads only where it gains clearly over each rig alone" begin
+    columns = ("ship", "route", "drive", "rig", "kite_area", "rotor_area")
+    trips = Dict{String, Vector}(name => Any[] for name in (columns..., "cost"))
+    departures = Dict{String, Vector}(name => Any[]
+                                      for name in (columns..., "date", "cost"))
+    function sail!(ship, rig, kite_area, rotor_area, costs)
+        labels = (ship, "new_york", "ammonia", rig, kite_area, rotor_area)
+        foreach((name, value) -> push!(trips[name], value), columns, labels)
+        push!(trips["cost"], sum(costs) / length(costs))
+        for (month, cost) in enumerate(costs)
+            foreach((name, value) -> push!(departures[name], value), columns, labels)
+            push!(departures["date"], "2017-0$month-01")
+            push!(departures["cost"], cost)
+        end
+    end
+    swing = [0.0, 0.02, -0.02, 0.01, -0.01, 0.0]
+    for (ship, kite, rotors, pair) in
+        (("clear", 0.90, 0.88, 0.80), ("level", 0.90, 0.95, 0.89))
+        sail!(ship, "none", 0.0, 0.0, fill(1.0, 6))
+        sail!(ship, "kite", 800.0, 0.0, fill(kite, 6))
+        sail!(ship, "rotors", 0.0, 400.0, fill(rotors, 6))
+        sail!(ship, "kite+rotors", 400.0, 400.0, pair .+ (ship == "level") .* swing)
+        sail!(ship, "kite+rotors", 200.0, 400.0, fill(pair + 0.05, 6))
+    end
+    clear, level = PaperData.pair_leads(trips, departures)
+    @test clear.leads && clear.rival == "rotors" && clear.gain ≈ 8 && clear.n == 6
+    @test !level.leads && level.rival == "kite" && level.gain ≈ 1 && level.error > 0
 end
 
 @testset "a ship with an undefined rig area is refused, never sailed with no rig" begin
