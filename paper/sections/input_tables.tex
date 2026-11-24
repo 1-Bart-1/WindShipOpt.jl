@@ -82,6 +82,7 @@ Holtrop max prismatic & \num{0.85} & \num{0.85}--\num{1} & -- & \citet{ortigosa2
 Hotel load & \num{60}\textsuperscript{e} &  & kW & Authors' estimate; \citet{damen2025cf3850}: service genset size \\
 Hull lifetime & \num{25} & \num{20}--\num{30} & years & \citet{breakwave2025demolition}: average ship demolition age \\
 Hull side force factor & \num{1} & \num{0.5}--\num{1} & -- & Kijima regression (\citealp{kim2021}); \citet{vanderkolk2021}: tank tests lower \\
+Installation fraction & \num{0.15} &  & -- & \citet[Table 7]{emsa2023}: installation on a newbuild \\
 Kite aspect ratio & \num{3}\textsuperscript{e} &  & -- & Authors' estimate, above the SkySails kites (\citealp{paulig2013}); \cref{app:kite_aspect} \\
 Kite attach height & \num{10}\textsuperscript{e} &  & m & Authors' estimate: tether attached on the bow mast \\
 Kite controls cost & \num{30000}\textsuperscript{e} &  & USD & Authors' estimate: the controls a rotor carries \\
@@ -89,7 +90,6 @@ Kite cycle canopy hours & \num{3.3}\textsuperscript{e} &  & flight hours & \cite
 Kite cycle course cost & \num{130}\textsuperscript{e} &  & USD & Authors' estimate: lost sea time at hire and fuel cost \\
 Kite cycle crew cost & \num{85}\textsuperscript{e} &  & USD & Authors' estimate: three crew for 1.5 h (\citealp{ilo2025wagescale}) \\
 Kite flight drag & \num{0.085} & \num{0}--\num{0.12} & -- & Fitted to the glide ratio kites fly (\citealp{vandervlugt2019}; \citealp{erhard2013b}); \cref{sec:det_kite} \\
-Kite integration fraction & \num{0.15} &  & -- & \citet[Table 7]{emsa2023}: yard installation on a newbuild \\
 Kite landing max wind & \num{20} &  & m/s & \citet{skypower100_tib}: stowage design of the SkySails land kite; \cref{sec:det_kite} \\
 Kite landing minutes & \num{30} & \num{25}--\num{35} & min & \citet{konstruktionspraxis_skysails}; \citet{skypower100_tib}: SkySails landings \\
 Kite launch loss probability & \num{0.0001} & \num{0.0001}--\num{0.0025} & -- & Development goal; \citet{usaf2022mq9}: recent loss rate of the MQ-9; \cref{app:launch_loss} \\
@@ -110,6 +110,14 @@ Launch mast max height & \num{35} & \num{29}--\num{60} & m & \citet{airseas_seaw
 Launch mast width & \num{1}\textsuperscript{e} &  & m & Authors' estimate: mast tube with its foundation \\
 Layout mean wind & \num{8}\textsuperscript{e} &  & m/s & Authors' estimate: mean 10~m wind on the routes, ERA5 \\
 Leeway limit & \num{10} & \num{6}--\num{15} & deg & \citet{tillig2020}: range of captive tests on wind-assisted hulls \\
+LEI kite aspect ratio & \num{3.55} &  & -- & \citet[Table 1]{poland2025}: the TU Delft V3 kite \\
+LEI kite flat area ratio & \num{1.28} &  & -- & \citet[Table 1]{poland2025}: the TU Delft V3 kite \\
+LEI kite flight drag & \num{0.1} &  & -- & Fitted to the glide ratio the V3 kite flies (\citealp{vandervlugt2019}); \cref{sec:det_lei} \\
+LEI kite max force per area & \num{0.5} & \num{0.3}--\num{0.57} & kN/m\textsuperscript{2} & \citet{kitepower2024}; \citet[Table 16.1]{faggiani2018}: pumping LEI kites; \cref{sec:det_lei} \\
+LEI kite reference area & \num{16.7} &  & m\textsuperscript{2} & \citet[p. 405]{vandervlugt2013}: the TU Delft V2 kite \\
+LEI kite reference force per area & \num{0.3} &  & kN/m\textsuperscript{2} & \citet[p. 409]{vandervlugt2013}: the V2 kite's force limit \\
+LEI kite tube mass & \num{0.36} &  & kg/m\textsuperscript{2} & \citet[Table 2-1]{schwoll2012}: the V2 kite's parts; \cref{sec:det_lei} \\
+LEI kite tube surface & \num{0.89} &  & m\textsuperscript{2}/m\textsuperscript{2} & \citet[p. 21]{schwoll2012}: the V2 kite's tubes; \cref{sec:det_lei} \\
 Lightship fraction & \num{0.28}\textsuperscript{e} &  & -- & Authors' estimate: deadweight share of coasters \\
 Loading port dues & \num{1.18} & \num{0.38}--\num{1.31} & EUR/GT & \citet[Annex 1]{portofrotterdam2026tariffs}: loaded bulk carrier at Rotterdam \\
 Maintenance fraction & \num{0.03}\textsuperscript{e} &  & 1/year & Authors' estimate: hull and drive alone \\
@@ -162,7 +170,6 @@ Rigid kite upkeep per area & \num{0.67} & \num{0.32}--\num{0.67} & USD/m\textsup
 Rotor abreast loss & \num{1.6} & \num{1}--\num{2.25} & -- & \citet[Figs. 17-18]{bordogna2020}: wind-tunnel pairs abreast and in tandem; \cref{sec:det_deck} \\
 Rotor aspect ratio & \num{6} & \num{5}--\num{7} & -- & \citet{tillig2020}: rotor of the ShipCLEAN fit; \citet{norsepower2025}: built sizes \\
 Rotor cost per area & \num{2040}\textsuperscript{e} &  & USD/m\textsuperscript{2} & Authors' build-up: slope of the line of rotor costs; \cref{sec:val_cost} \\
-Rotor installation fraction & \num{0.15} &  & -- & \citet[Table 7]{emsa2023}: installation on a newbuild, foundation excluded \\
 Rotor interference amplitude & \num{0.38} & \num{0}--\num{0.65} & -- & Fitted to the \citet{bordogna2020} wind-tunnel pair and \citet{han2025} \\
 Rotor interference decay & \num{2.72} & \num{1.8}--\num{3.5} & diameters & Fitted to the worst wind angle of the \citet{bordogna2020} pair \\
 Rotor lifetime & \num{25} & \num{20}--\num{30} & years & \citet{anemoi_deploy}: maker's design life \\
@@ -186,14 +193,15 @@ Steel density & \num{7850} &  & kg/m\textsuperscript{3} & \citet[Table 6]{joshi2
 Steel modulus & \num{206000} &  & MPa & \citet[Sec 5, Tab 1, Note 1]{bv2026nr206}: carbon steel \\
 Stores mass & \num{50}\textsuperscript{e} &  & t & Authors' estimate \\
 Suction aspect ratio & \num{6.6} &  & -- & \citet{conoship2022econowind}: VentiFoil span and chord \\
-Suction cost per mass & \num{3.3}\textsuperscript{e} &  & USD/kg & Authors' estimate: wing sail build-up plus fans at the rotor's drive price \\
 Suction drag coefficient & \num{0.84} & \num{0.81}--\num{2.4} & -- & \citet[Table 5.1]{lagendijk2018}: full-scale CFD of one VentiFoil \\
-Suction fan power per area & \num{470} & \num{370}--\num{470} & W/m\textsuperscript{2} & \citet{conoship2022econowind}: VentiFoil fans at their highest wind \\
+Suction fan cost per power & \num{400}\textsuperscript{e} &  & USD/kW & Authors' estimate: motor and frequency converter of marine type approval \\
+Suction fan power per area & \num{400} & \num{370}--\num{470} & W/m\textsuperscript{2} & \citet[Fig. 3.11]{smeets2024ventofoil}: the VentoFoil maker's fan power curve \\
+Suction fan rated wind & \num{14} &  & m/s & \citet[Fig. 3.11]{smeets2024ventofoil}: the VentoFoil maker's fan power curve \\
 Suction lifetime & \num{25} & \num{20}--\num{30} & years & Development goal: a wing sail's design life \\
 Suction mass exponent & \num{3} & \num{2.5}--\num{3.2} & -- & Geometric similarity; \citet{econowind2026vf3}; \citet{econowind2026vf5}: 18 and 35~m units; \cref{app:size_laws} \\
 Suction mass per area & \num{0.3} & \num{0.3}--\num{0.6} & t/m\textsuperscript{2} & \citet{conoship2022econowind}: eConowind unit in its container \\
 Suction max lift coefficient & \num{4.9} & \num{4.8}--\num{6} & -- & \citet[Fig. 12]{ghorbani2024suction}: two VentiFoils measured at sea \\
-Suction max wind & \num{17} &  & m/s & \citet{conoship2022econowind}: highest wind a VentiFoil works in \\
+Suction max wind & \num{22} & \num{17}--\num{22} & m/s & \citet[Fig. 3.11]{smeets2024ventofoil}: cut-out of the VentoFoil maker's fan curve \\
 Suction out of service & \num{0.03} & \num{0.004}--\num{0.03} & -- & Development goal; \citet{spliethoff2021}: the Estraden's rotors \\
 Suction reference height & \num{26} &  & m & \citet{offshoreenergy2025orchard}: tallest suction sails built; \cref{app:size_laws} \\
 Tether bend life & \num{1.0e6} & \num{450000}--\num{2.9e6} & bends & \citet{bosman2013}; \citet{davies2015}: bending tests of HMPE rope; \cref{app:tether_bending} \\
@@ -223,10 +231,9 @@ Winch mass per force & \num{15} & \num{13}--\num{28} & kg/kN & \citet{broehl2018
 Wind shear exponent & \num{0.05} & \num{0.05}--\num{0.09} & -- & Authors' fit to ERA5 (\citealp{hersbach2020}) over the study region's sea \\
 Wing abreast loss & \num{1.5}\textsuperscript{e} &  & -- & \citet[Tables 3.2-3.3]{vanreen2026}: four wings square against three in line; \cref{sec:det_deck} \\
 Wing aspect ratio & \num{2} & \num{1.5}--\num{4} & -- & \citet{bar2026windwings}; \citet{oceanbird2026wing560}: installed wings \\
-Wing cost per area & \num{665}\textsuperscript{e} &  & USD/m\textsuperscript{2} & Authors' estimate: build-up at blade material prices (\citealp{bortolotti2019blade}) \\
+Wing cost per mass & \num{4.05}\textsuperscript{e} &  & USD/kg & Authors' estimate: blade materials (\citealp{bortolotti2019blade}), steel (\citealp{wisdem_csm}) \\
 Wing design wind & \num{20.6} & \num{17}--\num{20.6} & m/s & \citet{bar2026windwingscontrol}: WindWings produce thrust up to 40 knots \\
 Wing endplate factor & \num{1.4}\textsuperscript{e} &  & -- & Authors' calculation: induced drag with a gap at the deck \\
-Wing installation fraction & \num{0.15} &  & -- & \citet[Table 7]{emsa2023}: installation on a newbuild \\
 Wing interference amplitude & \num{0.3}\textsuperscript{e} &  & -- & Authors' estimate: a third of the \citet{malmek2024} loss, after \citet{vanreen2026} \\
 Wing interference decay & \num{2.86}\textsuperscript{e} &  & chord lengths & Authors' estimate: loss under 1\,\% at 10 chords, as in \citet{wang2024} \\
 Wing lifetime & \num{25} & \num{20}--\num{30} & years & \citet{oceanbird2026wing560}; \citet{bar2026windwings}: makers' design life \\

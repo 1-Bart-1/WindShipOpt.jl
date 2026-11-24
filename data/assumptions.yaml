@@ -522,17 +522,17 @@ wing_unit_cost:
   estimate: true
   source: "Authors' estimate: controls, power pack and assembly hours"
   reason: "Authors' estimate of the manufacturing cost of a wing sail's controls, hydraulic power pack and 600 h of assembly; tilting or retraction is in the retractable rig premium."
-wing_cost_per_area:
-  value: 665.0
-  unit: USD/m^2
+wing_cost_per_mass:
+  value: 4.05
+  unit: USD/kg
   estimate: true
-  source: "Authors' estimate: build-up at blade material prices [@bortolotti2019blade]"
-  reason: "Authors' estimate of the manufacturing cost per m^2 of sail from 0.13 t/m^2 [@emsa2023, Table 4], near the 45 t for 363 m^2 of the OceanWings OW RE [@oceanwings2026web]: steel at the authors' cost, composite at the material prices of the NREL blade cost model [@bortolotti2019blade, Tables 1-2] and slewing parts at the yaw-system cost of @wisdem_csm."
-wing_installation_fraction:
+  source: "Authors' estimate: blade materials [@bortolotti2019blade], steel [@wisdem_csm]"
+  reason: "Manufacturing cost per kg of a wing sail with its foundation on deck: a hard sail of 0.13 t/m^2 with its foundation [@emsa2023, Table 4], near the 45 t for 363 m^2 of the OceanWings OW RE [@oceanwings2026web], costs 665 USD/m^2 (steel at the authors' cost, composite at the material prices of the NREL blade cost model [@bortolotti2019blade, Tables 1-2], slewing parts at the yaw-system cost of @wisdem_csm), and the 0.12 t/m^2 of steel by which the tallest wings' masts and foundations are heavier at 2.9 USD/kg, a wind turbine's welded tower [@wisdem_csm]: 1013 USD on 250 kg."
+installation_fraction:
   value: 0.15
   unit: "-"
   source: "@emsa2023 [Table 7]: installation on a newbuild"
-  reason: "Installation at the yard over unit price. EMSA assumes 15 % on a newbuild [@emsa2023, Table 7] and gives no range."
+  reason: "Installation at the yard over the build-up of every rig, its supports and cameras included. EMSA assumes 15 % on a newbuild [@emsa2023, Table 7] and gives no range."
 wing_lifetime:
   value: 25.0
   low: 20.0
@@ -556,17 +556,24 @@ suction_drag_coefficient:
   source: "@lagendijk2018 [Table 5.1]: full-scale CFD of one VentiFoil"
   reason: "Drag of the VentiFoil near its highest lift, from full-scale CFD of one VentiFoil, CD 0.838 at CL 4.84 [@lagendijk2018, Table 5.1], whose total force coefficient of 4.91 is what strain gauges measured at sea [@ghorbani2024suction, Fig. 12]; drag rises with the square of lift to it. Low: the same with end plates, 0.81 [@lagendijk2018, Table 5.1]; high: the maker's one point, 2.4 at lift 4.9, whose source gives it with high uncertainty [@wasp2023wp3, Fig. 3]."
 suction_fan_power_per_area:
-  value: 470.0
+  value: 400.0
   low: 370.0
   high: 470.0
   unit: W/m^2
-  source: "@conoship2022econowind: VentiFoil fans at their highest wind"
-  reason: "Fan power of a VentiFoil per m^2 of its chord times span at the highest wind it works in: two 7.5 kW ventilators [@conoship2022econowind] on two foils of 10.3 m by 1.55 m mean chord, 32 m^2. It falls with the cube of the apparent wind below that, as its maker models it [@smeets2024ventofoil, Eq. 3.4]. Low: the 11 kW ventilator of each 10 m by 3 m VentiFoil on the Frisian Sea [@ghorbani2023twin, Sec. 2.2; @werner2022frisian, Table 3]."
-suction_max_wind:
-  value: 17.0
+  source: "@smeets2024ventofoil [Fig. 3.11]: the VentoFoil maker's fan power curve"
+  reason: "Full fan power of a VentoFoil per m^2 of its chord times span, drawn from the rated wind up: 0.40 kW/m^2 on its maker's curve [@smeets2024ventofoil, Eq. 3.4 and Fig. 3.11]. Low: the 11 kW ventilator of each 10 m by 3 m VentiFoil on the Frisian Sea [@ghorbani2023twin, Sec. 2.2; @werner2022frisian, Table 3]; high: two 7.5 kW ventilators on the eConowind unit's two foils of 10.3 m by 1.55 m mean chord, 32 m^2 [@conoship2022econowind]."
+suction_fan_rated_wind:
+  value: 14.0
   unit: m/s
-  source: "@conoship2022econowind: highest wind a VentiFoil works in"
-  reason: "Highest apparent wind a VentiFoil works in [@conoship2022econowind], above which it lies down; its fans reach their full power there."
+  source: "@smeets2024ventofoil [Fig. 3.11]: the VentoFoil maker's fan power curve"
+  reason: "Apparent wind from which a VentoFoil's fans draw their full power; below it the power falls with the cube of the apparent wind [@smeets2024ventofoil, Eq. 3.4], read off its maker's curve at 13.8 m/s [@smeets2024ventofoil, Fig. 3.11]."
+suction_max_wind:
+  value: 22.0
+  low: 17.0
+  high: 22.0
+  unit: m/s
+  source: "@smeets2024ventofoil [Fig. 3.11]: cut-out of the VentoFoil maker's fan curve"
+  reason: "Highest apparent wind a VentoFoil works in, above which it is folded down and its fans stop: 22 m/s on its maker's curve [@smeets2024ventofoil, Sec. 3.1.11 and Fig. 3.11]. Low: the eConowind unit's foldable VentiFoils, which lie down above 17 m/s [@conoship2022econowind]."
 suction_aspect_ratio:
   value: 6.6
   unit: "-"
@@ -591,12 +598,12 @@ suction_mass_per_area:
   unit: t/m^2
   source: "@conoship2022econowind: eConowind unit in its container"
   reason: "Suction sail with its foundation per m^2: the eConowind unit, two aluminium VentiFoils of 32 m^2 in all in a steel 40 ft container, weighs 9.6 t [@conoship2022econowind]. High: twice that, as wing sails go from 0.13 t/m^2 for small hard sails to 0.27 for the largest [@emsa2023, Table 4; @riviera2024windwing; @bar2026windwings], for a taller sail that carries more than twice a wing sail's force per m^2."
-suction_cost_per_mass:
-  value: 3.3
-  unit: USD/kg
+suction_fan_cost_per_power:
+  value: 400.0
+  unit: USD/kW
   estimate: true
-  source: "Authors' estimate: wing sail build-up plus fans at the rotor's drive price"
-  reason: "Manufacturing cost of a suction sail with its foundation per kg, priced as a wing sail is: the wing sail's 665 USD/m^2 on its 0.25 t/m^2, 2.7 USD/kg, and fans and motors at the rotor's USD 400 per kW of drive, 470 W/m^2 on 300 kg/m^2, 0.6 USD/kg."
+  source: "Authors' estimate: motor and frequency converter of marine type approval"
+  reason: "Manufacturing cost per kW of a suction sail's fans with their motors and frequency converters, at the price per kW of the drive in the authors' build-up of the Norsepower rotors."
 suction_lifetime:
   value: 25.0
   low: 20.0
@@ -695,11 +702,6 @@ rotor_cost_per_area:
   estimate: true
   source: "Authors' build-up: slope of the line of rotor costs"
   reason: "Manufacturing cost per m^2 of height times diameter, the slope of the line of bottom-up rotor costs that gives the rotor unit cost."
-rotor_installation_fraction:
-  value: 0.15
-  unit: "-"
-  source: "@emsa2023 [Table 7]: installation on a newbuild, foundation excluded"
-  reason: "Installation at the yard over unit price, the foundation being in the unit price. EMSA assumes 15 % on a newbuild [@emsa2023, Table 7] and gives no range."
 rotor_lifetime:
   value: 25.0
   low: 20.0
@@ -894,6 +896,50 @@ rigid_cycle_loss_probability:
   unit: "-"
   source: "Development goal; @echeverri2020part1: M600 lost all four kites"
   reason: "Goal: one kite lost in 10,000 launches and landings, not a measured rate. M600 lost all four crosswind kites in twenty crosswind flights [@echeverri2020part1, Part I, p.261]: SN2 and SN5 in hover, SN4 in a hard glide landing and SN3 in a mid-air breakup [@echeverri2020part1, Part I, pp.262-263], so three of the four at the end of a flight."
+
+# --- leading-edge inflatable kite ---
+lei_aspect_ratio:
+  value: 3.55
+  unit: "-"
+  source: "@poland2025 [Table 1]: the TU Delft V3 kite"
+  reason: "Projected span squared over projected area of the TU Delft V3 kite, whose measured polar the kite flies: 1.278 m width on 0.46 m^2 planform area of its 1:6.5 scale model [@poland2025, Table 1]. Every size keeps this shape."
+lei_flat_area_ratio:
+  value: 1.28
+  unit: "-"
+  source: "@poland2025 [Table 1]: the TU Delft V3 kite"
+  reason: "Canopy cloth per projected m^2 of the single skin of a leading-edge inflatable kite: flat over projected area of the V3 kite, 0.59 over 0.46 m^2 on its scale model [@poland2025, Table 1]."
+lei_flight_drag:
+  value: 0.1
+  unit: "-"
+  source: "Fitted to the glide ratio the V3 kite flies [@vandervlugt2019]"
+  reason: "Drag on the projected area that the wind-tunnel polar of a rigid V3 model [@poland2025] lacks in flight: bridle, deformation, control unit and steering. The V3 kite flies at L/D 3.6-4.0 in traction with bridle and control unit [@vandervlugt2019], the flights kite_flight_drag is fitted to; the value gives it with its tether the ram-air kite's glide ratio of 3.9 at CL 0.8."
+lei_max_force_per_area:
+  value: 0.5
+  low: 0.3
+  high: 0.57
+  unit: kN/m^2
+  source: "@kitepower2024; @faggiani2018 [Table 16.1]: pumping LEI kites"
+  reason: "Maximum tether force per projected m^2 of a leading-edge inflatable kite: the 0.43-0.57 kN/m^2 that pumping kites are designed for [@kitepower2024] and the 0.45 of a 100 m^2 design [@faggiani2018, Table 16.1]. The low bound is the 5 kN the V2 kite of 16.7 m^2 projected was limited to [@vandervlugt2013, p. 409]. The tubes and the skin's cloth follow the limit."
+lei_reference_area:
+  value: 16.7
+  unit: m^2
+  source: "@vandervlugt2013 [p. 405]: the TU Delft V2 kite"
+  reason: "Projected area of the TU Delft V2 kite, 25 m^2 flat [@vandervlugt2013, p. 405], whose tubes lei_tube_mass weighs."
+lei_reference_force_per_area:
+  value: 0.3
+  unit: kN/m^2
+  source: "@vandervlugt2013 [p. 409]: the V2 kite's force limit"
+  reason: "Force limit per projected m^2 that the tubes of lei_tube_mass are built for: 5 kN on the 16.7 m^2 of the V2 kite [@vandervlugt2013, p. 409], above which it collapses."
+lei_tube_mass:
+  value: 0.36
+  unit: kg/m^2
+  source: "@schwoll2012 [Table 2-1]: the V2 kite's parts"
+  reason: "Mass of the inflated tubes per projected m^2 of the V2 kite: Dacron shells and bladders of the leading edge and struts, 6.02 kg as their fabric areas times their weights per m^2, of the 11.49 kg the whole kite weighs without its control unit [@schwoll2012, Table 2-1], on 16.7 m^2 projected."
+lei_tube_surface:
+  value: 0.89
+  unit: m^2/m^2
+  source: "@schwoll2012 [p. 21]: the V2 kite's tubes"
+  reason: "Surface of the tubes per projected m^2 of a leading-edge inflatable kite: 8.7 m^2 of leading edge and 6.1 m^2 of struts on the 16.7 m^2 projected of the V2 kite [@schwoll2012, p. 21], held at every size by its shape."
 
 tether_drag_coefficient:
   value: 1.1
@@ -1171,11 +1217,6 @@ launch_mast_max_height:
   unit: m
   source: "@airseas_seawing_web: tallest kite launch mast at sea"
   reason: "Tallest kite launch mast at sea, the 35 m mast of @airseas_seawing_web; larger kites are flown from a mast of this height, beyond any built launch system."
-kite_integration_fraction:
-  value: 0.15
-  unit: "-"
-  source: "@emsa2023 [Table 7]: yard installation on a newbuild"
-  reason: "Installation at the yard over hardware price. EMSA assumes 15 % on a newbuild [@emsa2023, Table 7] and gives no range."
 kite_lifetime:
   value: 15.0
   unit: years
