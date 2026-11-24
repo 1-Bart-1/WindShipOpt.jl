@@ -1676,13 +1676,22 @@ gives for each (class, drive, rig, route). Returns that cheapest area [m^2] by
 (class, drive, rig, route).
 """
 function searched_rigs!(cases, trips, ships, guess)
-    searches = Dict((class, drive, rig, route) =>
-                        (; grid=size_grid(bounds...), guess=guess((class, drive, rig, route)),
-                            sized=(area, round) -> class_case(class, drive, rig, area, route;
-                                round))
+    searches = Dict(key => rig_search(key, bounds, guess(key))
                     for (class, drive, route) in ships
-                    for (rig, bounds) in size_bounds(class))
+                    for (rig, bounds) in size_bounds(class)
+                    for key in ((class, drive, rig, route),))
     return search_sizes!(cases, trips, searches)
+end
+
+"""
+    rig_search(key, bounds, guess)
+
+Size search of [`search_sizes!`](@ref) for the rig of `key`, a (class, drive, rig, route),
+between the smallest and largest area [m^2] of `bounds` about `guess` [m^2].
+"""
+function rig_search((class, drive, rig, route), bounds, guess)
+    sized(area, round) = class_case(class, drive, rig, area, route; round)
+    return (; grid=size_grid(bounds...), guess, sized)
 end
 
 """
@@ -1786,7 +1795,7 @@ function search_sizes!(cases, trips, searches;
             isnothing(area) || push!(batch, (key, area, search.sized(area, round)))
         end
     end
-    return Dict(key => first(points[key][argmin(last.(points[key]))]) for key in keys(points))
+    return Dict(key => first(tried[argmin(last.(tried))]) for (key, tried) in points)
 end
 
 """

@@ -1393,8 +1393,9 @@ end
 """
     kind_savings(table, cells)
 
-Each rig of the class table `table` with its yearly [`saving_per_ship`](@ref) over fleet
-`cells` and its cost saving `share` [%], the mean over the cells of [`fleet_savings`](@ref).
+Each rig of the class table `table` routed on all fleet `cells` with its yearly
+[`saving_per_ship`](@ref) over them and its cost saving `share` [%], the mean over the
+cells of [`fleet_savings`](@ref).
 """
 function kind_savings(table, cells)
     shares = fleet_savings(cells)
@@ -1510,8 +1511,8 @@ function write_type_savings(table)
             println(io, "\\midrule")
             for (k, (; label, rigs, leaders)) in enumerate(type_savings(table, drive))
                 k > 1 && println(io, "\\addlinespace")
-                for (j, (_, rig)) in enumerate(filter(((_, rig),) -> haskey(rigs, rig),
-                    study_rigs(table)))
+                for (j, rig) in enumerate(rig for (_, rig) in study_rigs(table)
+                                          if haskey(rigs, rig))
                     cells = [text(scale * rigs[rig][measure])
                         for (measure, (scale, _, _, text)) in pairs(type_saving_columns)]
                     name = rig in leaders ? "\\textbf{$rig}" : rig
@@ -2230,8 +2231,8 @@ fleet_savings(cells) = Dict(rig => mean(cell.savings[rig] for cell in cells)
 
 Name and text, per drive and rig, of the mean over the [`fleet_cells`](@ref) of class and
 route of the class table `classes` of the cost saving [%] of the cheapest size, where the
-rig was routed on all of them, and the count of cells it leads, of the count of level cells, and of the count of all cells on e-ammonia
-and of cells no rig saves on VLSFO.
+rig was routed on all of them, and the count of cells it leads, of the count of level
+cells, and of the count of all cells on e-ammonia and of cells no rig saves on VLSFO.
 """
 function class_numbers(classes)
     numbers = Pair{String, String}[]
@@ -2244,7 +2245,8 @@ function class_numbers(classes)
         drive == "vlsfo" && push!(numbers, "NoRig$word" => string(count(==("none"), bands)))
         for (_, rig) in study_rigs(classes)
             name = word * macro_word(rig)
-            haskey(savings, rig) && push!(numbers, "Saving$name" => whole_number(savings[rig]))
+            haskey(savings, rig) &&
+                push!(numbers, "Saving$name" => whole_number(savings[rig]))
             push!(numbers, "Leads$name" => string(count(==(rig), bands)))
         end
     end
