@@ -68,7 +68,8 @@ study_steps = [:cargo_interest => cargo_interest_data, :base_kite => base_kite_d
     :published_terms => published_terms_data, :model_parts => model_parts_data,
     :size_search => size_search_data, :router_decisions => router_decisions_data,
     :routing_value => routing_value_data, :today_routing => today_routing_data,
-    :measured_savings => measured_savings_data, :wind_height => wind_height_data]
+    :measured_savings => measured_savings_data, :wind_height => wind_height_data,
+    :fabric_wing => fabric_wing_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
 study_tables = Dict(:cargo_interest => [:cargo_interest_table => cargo_interest_table],
