@@ -432,13 +432,6 @@ wing_design_wind:
   unit: m/s
   source: "@bar2026windwingscontrol: WindWings produce thrust up to 40 knots"
   reason: "Highest apparent wind a raised wing sail's support is sized for working: WindWings produce thrust up to 40 knots, 20.6 m/s, and feather above it [@bar2026windwingscontrol]. Low bound: the 17 m/s a VentiFoil works in [@conoship2022econowind]."
-twistlock_working_load:
-  value: 250.0
-  low: 210.0
-  high: 250.0
-  unit: kN
-  source: "@macgregor2023acv1: safe working load of a twistlock in tension"
-  reason: "Pull a twistlock holding a containerised suction sail's frame to the stack below may carry: 250 kN in tension, the safe working load of a fully automatic twistlock type-approved by DNV, which breaks at 500 kN [@macgregor2023acv1]. Low bound: its 210 kN in shear."
 bay_gap:
   value: 1.5
   unit: m
