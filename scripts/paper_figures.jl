@@ -1929,7 +1929,7 @@ named upright in the rig's colour and just wide enough to keep the names apart, 
 """
 function unit_count_axis(cell, rigs, row_limits)
     return Axis(cell; width=length(rigs) * (text_size + tick_gap),
-        xlabel="number of units", xticks=(eachindex(rigs), last.(rigs)),
+        xlabel="number\nof units", xticks=(eachindex(rigs), last.(rigs)),
         xticksvisible=false, xticklabelrotation=π / 2,
         xticklabelcolor=palette[first.(rigs)],
         yticksvisible=false, yticklabelsvisible=false, yreversed=true,
@@ -3150,13 +3150,15 @@ end
 rig_label(rig) = get(rig_short_names, rig, rig)
 
 """
-    development_panel!(axis, table, ships, levers, rig, column)
+    development_panel!(axis, table, bias, ships, levers, rig, column)
 
 Bars in `axis` of the change of the saving of `rig` in `column` between the low and high
 bound of each of `levers`, one per ship in the colours of `category_colours`, with the
-high bound marked, and a tick in the ship's colour where neither bound moves it.
+high bound marked, a one-sided whisker at a recosted bound for what routing anew would
+gain by the recosting bias table `bias` ([`recosting_error`](@ref)), and a tick in the
+ship's colour where neither bound moves it.
 """
-function development_panel!(axis, table, ships, levers, rig, column)
+function development_panel!(axis, table, bias, ships, levers, rig, column)
     reference_line!(axis; vertical=true)
     for (k, entry) in enumerate(levers), (j, ship) in enumerate(ships)
         low, high = bound_changes(table, ship, rig, string(entry.input); column)
@@ -3170,6 +3172,13 @@ function development_panel!(axis, table, ships, levers, rig, column)
         barplot!(axis, [y], [high - low]; offset=low, direction=:x, width=0.22,
             color=category_colours[j])
         scatter!(axis, [high], [y]; marker=:vline, color=:black, markersize=pt(7))
+        for (change, bound) in ((low, :low), (high, :high))
+            gain = recosting_error(bias, string(entry.input),
+                bound_change(entry.input, bound), rig; column)
+            abs(gain) > 0.005 || continue
+            errorbars!(axis, [change], [y], [max(-gain, 0.0)], [max(gain, 0.0)];
+                direction=:x, color=:black, whiskerwidth=pt(3), linewidth=rule_width)
+        end
     end
 end
 
@@ -3182,10 +3191,12 @@ input_row_height = pt(12)
 Where development pays: for each rig of the study the inputs of
 [`development_inputs`](@ref) it varied for that rig, largest effect on top, with the change
 of its saving of cost per tonne-km (left) and of CO2 per tonne-km (right) between the
-bounds of each input on each ship of the study, on one scale per column.
+bounds of each input on each ship of the study, on one scale per column, and at a recosted
+bound the one-sided gain of routing anew.
 """
 function sensitivity_figure()
     table = read_table(data_file("sensitivity.csv"))
+    bias = read_table(data_file("recosting_bias.csv"))
     ships = unique(table["ship"])
     rigs = last.(study_rigs(table))
     panels = [filter(entry -> rig in lever_rigs(entry) &&
@@ -3219,14 +3230,16 @@ function sensitivity_figure()
                 xlabel=row == length(rigs) ? label : "",
                 xticks=step * (ceil(low / step):floor(high / step)),
                 limits=((low - margin, high + margin), (0.4, length(levers) + 0.6)))
-            development_panel!(axis, table, ships, levers, rig, name)
+            development_panel!(axis, table, bias, ships, levers, rig, name)
             rowsize!(figure.layout, row, Fixed(length(levers) * input_row_height))
         end
     end
     Legend(figure[length(rigs) + 1, 1:2],
         [[PolyElement(color=category_colours[j]) for j in eachindex(ships)];
-            [MarkerElement(marker=:vline, color=:black, markersize=pt(7))]],
-        [short_ship.(ships); "high end of range"]; orientation=:horizontal)
+            [MarkerElement(marker=:vline, color=:black, markersize=pt(7)),
+                LineElement(color=:black, linewidth=rule_width)]],
+        [short_ship.(ships); "high end of range"; "gain of routing anew"];
+        orientation=:horizontal)
     resize_to_layout!(figure)
     save_figure("sensitivity", figure)
 end
