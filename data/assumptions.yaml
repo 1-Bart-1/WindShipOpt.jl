@@ -508,6 +508,18 @@ pedestal_min_frequency:
   estimate: true
   source: "Authors' estimate: above the ship's motions in waves"
   reason: "Lowest first natural frequency of a raised rotor on its pedestal, kept above the ship's motions: a tenth above waves met every 4 s, the shortest that move a ship of 150 m or more, and far above MARIN's 18.3 s roll [@marin2025feeder, Table 2-1]; authors' estimate."
+hull_foundation_load_factor:
+  value: 1.15
+  unit: "-"
+  source: "@bv2026nr206 [Sec 8, 4.3.1]: extra factor on the supporting hull structure"
+  reason: "Extra safety factor on a wind propulsion system's factored design loads for the hull structure that supports its foundation [@bv2026nr206, Sec 8, 4.3.1]."
+hull_foundation_depth:
+  value: 4.0
+  low: 3.5
+  high: 4.0
+  unit: m
+  source: "@wasp2023bpm [p. 23]: a newbuild rotor's foundation below deck"
+  reason: "Depth below the deck over which a rig's foundation in the hull carries its loads into the ship's primary structure: the 3.5-4 m foundation below deck of the one newbuild with a rotor whose foundation is reported, the Annika Braren [@wasp2023bpm, p. 23]."
 layout_mean_wind:
   value: 8.0
   unit: m/s
