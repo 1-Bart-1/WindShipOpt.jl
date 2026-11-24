@@ -13,6 +13,11 @@ commit = "772a5eeaa45adc58012234c8d29921203e2bea95"
 fidelity = "draft"
 run = "2026-11-13T1457"
 
+[fabric_wing]
+commit = "17bad5e46984346d4c55a85a6b044a319875be06"
+fidelity = "draft"
+run = "2026-11-24T1745"
+
 [forecast_causes]
 commit = "3cd96bb5ddb0897310bb974c731c2e893e2ff14c"
 fidelity = "draft"
@@ -77,6 +82,11 @@ run = "2026-11-10T1342"
 commit = "772a5eeaa45adc58012234c8d29921203e2bea95"
 fidelity = "draft"
 run = "2026-11-13T1457"
+
+[soft_kites]
+commit = "c414efe9288a3efd5ac5ea4383825fc208517bcf"
+fidelity = "draft"
+run = "2026-11-24T1419"
 
 [speed_terms]
 commit = "2cd7c039d872c970cb7fe79ceb5656084dc87fc1"

@@ -329,9 +329,10 @@ function changed_assumptions(changes)
 end
 
 
-"design keyword of each rig"
+"design keyword of each rig, and of the single-skin kite routed on the 140 m ship alone"
 rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area,
-    "vtol" => :rigid_kite_area, "suction" => :suction_area, "lei" => :lei_kite_area)
+    "vtol" => :rigid_kite_area, "suction" => :suction_area, "lei" => :lei_kite_area,
+    "single" => :single_skin_kite_area)
 
 """
     rig_size(rig, area)
@@ -1155,6 +1156,16 @@ function changed_cost(case, trip)
     costs = WindShipOpt.ship_costs(ship, case.assumptions)
     return recosted(ship, costs, trip, case, case.assumptions)
 end
+
+"""
+    deck_label(class)
+
+"cargo on deck" where `class` stacks cargo on its weather deck, "free deck" otherwise.
+"""
+deck_label(class) = class.deck_tiers > 0 ? "cargo on deck" : "free deck"
+
+"sort key of `class`: a free deck before cargo on deck, then deadweight"
+deck_order(class) = (class.deck_tiers > 0, class.deadweight)
 
 """
     class_table()
@@ -2105,11 +2116,11 @@ cost_only_inputs = Set([WindShipOpt.canopy_price_inputs...; :canopy_life; :tethe
     :wing_lifetime; :rotor_lifetime; :suction_lifetime; :discount_rate; :cargo_value])
 
 "names of the inputs `inputs` holds at another value than the base assumptions"
-changed_inputs(inputs) =
+off_base_inputs(inputs) =
     [name for name in keys(assumptions.entries) if inputs[name] != assumptions[name]]
 
 "whether `inputs` move only [`cost_only_inputs`](@ref) from the base assumptions"
-cost_only(inputs) = all(in(cost_only_inputs), changed_inputs(inputs))
+cost_only(inputs) = all(in(cost_only_inputs), off_base_inputs(inputs))
 
 """
     recosted_trips(cases, departures)

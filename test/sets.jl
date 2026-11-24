@@ -4128,6 +4128,60 @@ end
     @test all(name -> isdefined(JobTrips, name), (:shard_trips, :trip_case, :case_trip))
 end
 
+@testset "a session loading trips.jl names the inputs a step read at another value" begin
+    code = Dict("model" => "m")
+    entry = Dict{String, Any}("code" => code, "reads" => Dict(),
+        "inputs" => Dict("discount_rate" => assumptions[:discount_rate]))
+    @test isempty(JobTrips.step_reasons(entry, code))
+    entry["inputs"]["discount_rate"] += 0.01
+    @test JobTrips.step_reasons(entry, code) == ["inputs changed: discount_rate"]
+end
+
+"names of the functions script `file` defines at its top level"
+function defined_functions(file)
+    names = Set{Symbol}()
+    for definition in Meta.parseall(read(file, String)).args
+        definition isa Expr && definition.head === :macrocall &&
+            (definition = last(definition.args))
+        definition isa Expr && definition.head in (:function, :(=)) || continue
+        signature = first(definition.args)
+        while signature isa Expr && signature.head in (:where, :(::))
+            signature = first(signature.args)
+        end
+        signature isa Expr && signature.head === :call || continue
+        first(signature.args) isa Symbol && push!(names, first(signature.args))
+    end
+    return names
+end
+
+"the paths the `include` calls in `expression` name, by their last argument"
+function included_names(expression)
+    expression isa Expr || return String[]
+    if expression.head === :call && first(expression.args) === :include
+        path = last(expression.args)
+        return [path isa Expr ? last(path.args) : path]
+    end
+    return reduce(vcat, included_names.(expression.args); init=String[])
+end
+
+"script `file` and every script it includes, directly or through the ones it includes"
+function included_scripts(file, found=Set{String}())
+    file in found && return found
+    push!(found, file)
+    for name in included_names(Meta.parseall(read(file, String)))
+        included_scripts(joinpath(dirname(file), name), found)
+    end
+    return found
+end
+
+@testset "no two scripts loaded together define a function of the same name" begin
+    scripts = joinpath(pkgdir(WindShipOpt), "scripts")
+    for script in filter(endswith(".jl"), readdir(scripts; join=true))
+        names = reduce(vcat, collect.(defined_functions.(included_scripts(script))))
+        @test isempty([name for name in unique(names) if count(==(name), names) > 1])
+    end
+end
+
 @testset "a round trip resumed from its stored departures routes only those missing" begin
     JobTrips.paper_run = JobTrips.PaperRun(mktempdir(), :draft,
         Dict{String, Any}("git_commit" => "a", "git_dirty" => false), nothing,
@@ -4839,6 +4893,17 @@ end
           sort([Main.assumptions[:e_methanol_price], 40.0, 90.0, 120.0])
 end
 
+@testset "ship classes group by cargo on deck, free deck first, each by deadweight" begin
+    classes = sort(collect(values(ship_classes())); by=PaperData.deck_order)
+    labels = PaperData.deck_label.(classes)
+    on_deck = [class.name for class in classes if class.deck_tiers > 0]
+    @test findlast(==("free deck"), labels) < findfirst(==("cargo on deck"), labels)
+    @test on_deck == ["feeder container ship", "Panamax container ship",
+        "Neo-Panamax container ship", "Megamax container ship"]
+    @test PaperData.deck_label(ship_classes()["PCTC car carrier"]) == "free deck"
+    @test issorted([class.deadweight for class in classes if class.deck_tiers == 0])
+end
+
 @testset "a table step that fails part way leaves the table it had" begin
     path = joinpath(mktempdir(), "table.tex")
     write(path, "complete table")
@@ -4945,7 +5010,7 @@ end
 @testset "a change of only what a route costs is recosted on the base route, its fuel \
           kept" begin
     longer = with_value(assumptions, :canopy_life, 6000.0)
-    @test PaperData.changed_inputs(longer) == [:canopy_life]
+    @test PaperData.off_base_inputs(longer) == [:canopy_life]
     @test PaperData.cost_only(longer)
     @test !PaperData.cost_only(with_value(assumptions, :kite_max_force_per_area, 1.0))
     @test !PaperData.cost_only(with_value(assumptions, :rotor_out_of_service, 0.1))
@@ -5185,6 +5250,44 @@ end
     @test WindShipOpt.kite_mass(rig, assumptions) ≈
           WindShipOpt.Canopy(assumptions, rig.area, rig.airframe).mass_per_area * rig.area +
           1e-3assumptions[:control_unit_mass_per_force] * rig.max_force
+end
+
+@testset "a single-skin canopy is one skin and more bridle, sewn as a ram-air canopy" begin
+    canopy = WindShipOpt.Canopy(assumptions, 500.0, WindShipOpt.SingleSkin())
+    rating = WindShipOpt.force_rating(assumptions)
+    skin = assumptions[:canopy_flat_area_ratio]
+    weight = WindShipOpt.cloth_weight(assumptions)
+    @test canopy.mass_per_area ≈ 1e-3skin * weight +
+                                 assumptions[:single_skin_line_ratio] *
+                                 assumptions[:canopy_mass_overhead] * rating
+    @test canopy.cost_per_area ≈ WindShipOpt.sewing_cost(assumptions) +
+                                 skin * WindShipOpt.cloth_price(assumptions, weight)
+    @test canopy.mass_per_area <
+          WindShipOpt.Canopy(assumptions, 500.0, assumptions[:kite_aspect_ratio]).mass_per_area
+end
+
+@testset "a single-skin kite flies the ram-air polar at its lower glide ratio" begin
+    aspect_ratio = assumptions[:kite_aspect_ratio]
+    single, force, = WindShipOpt.kite_model(1.0, aspect_ratio, assumptions,
+        WindShipOpt.SingleSkin())
+    ram_air, ram_air_force, = WindShipOpt.kite_model(1.0, aspect_ratio, assumptions)
+    @test single.polar.lift == ram_air.polar.lift
+    @test single.polar.drag ≈ ram_air.polar.drag / assumptions[:single_skin_glide_factor]
+    @test single.extra_drag ≈ ram_air.extra_drag
+    @test force ≈ ram_air_force
+end
+
+@testset "a single-skin kite flies alone, launched and towing as the ram-air kite" begin
+    rig = KiteRig(300.0, assumptions[:kite_aspect_ratio], PAPER_HULL, assumptions;
+        courses=[π / 2], frame=WindShipOpt.SingleSkin())
+    @test WindShipOpt.kite_mass(rig, assumptions) ≈
+          WindShipOpt.Canopy(assumptions, rig.area, rig.airframe).mass_per_area * rig.area +
+          1e-3assumptions[:control_unit_mass_per_force] * rig.max_force
+    @test WindShipOpt.rig_price_parts(rig, assumptions) ==
+          WindShipOpt.kite_price_parts(rig.area, rig.max_force, assumptions)
+    @test_throws ArgumentError WindShipOpt.design_rig(
+        ShipDesign(:vlsfo, 140.0; single_skin_kite_area=300.0, rotor_area=400.0),
+        PAPER_HULL, assumptions)
 end
 
 @testset "every rig has its name, life and availability inputs" begin

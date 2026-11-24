@@ -228,6 +228,7 @@ input_derivations = Dict(
     :rigid_upkeep_per_area => "sec:det_rigid",
     (name => "sec:det_lei" for name in (:lei_flight_drag, :lei_tube_mass,
         :lei_tube_surface, :lei_max_force_per_area))...,
+    :single_skin_glide_factor => "sec:det_single", :single_skin_line_ratio => "sec:det_single",
     :tether_stress => "sec:det_kite", :tether_length_ratio => "sec:det_kite",
     :kite_min_turn_radius => "sec:det_kite", :control_unit_mass_per_force => "sec:det_kite",
     :kite_flight_drag => "sec:det_kite", :kite_landing_max_wind => "sec:det_kite",
@@ -813,10 +814,11 @@ crash_cell(crashes) = isnan(crashes) ? "--" : @sprintf("%.2g", crashes)
     class_dimension_table()
 
 Write the main data, cargo and port inputs and wind areas of the ship classes to
-class_table.tex, a dagger on estimates and ∞ for an infinite fixed-rig delay.
+class_table.tex in [`deck_order`](@ref) under a heading per [`deck_label`](@ref), a dagger
+on estimates and ∞ for an infinite fixed-rig delay.
 """
 function class_dimension_table()
-    classes = sort(collect(values(ship_classes())); by=class -> class.deadweight)
+    classes = sort(collect(values(ship_classes())); by=deck_order)
     notes = class_source_notes()
     write_whole(joinpath(sections, "class_table.tex")) do io
         println(io, "\\setlength{\\tabcolsep}{3pt}")
@@ -826,7 +828,10 @@ function class_dimension_table()
             "Limit & Speed & Power & \$f_R\$ & Price \\\\")
         println(io, " & [m] & [m] & [m] & & [t] & & & [kn] & [MW] & & [MUSD] \\\\")
         println(io, "\\midrule")
-        foreach(class -> write_class_design_row(io, class), classes)
+        for (k, class) in enumerate(classes)
+            write_deck_heading(io, classes, k, 12)
+            write_class_design_row(io, class)
+        end
         println(io, "\\bottomrule\n\\end{tabular}\n\n\\medskip")
         println(io, "\\begin{tabular}{@{}l", "r"^7, "@{}}")
         println(io, "\\toprule")
@@ -836,11 +841,25 @@ function class_dimension_table()
         println(io, " & [USD/t] & tiers & limit [m] & calls [\\%] & delay [h] & ",
             "[m\$^2\$] & [m\$^2\$] \\\\")
         println(io, "\\midrule")
-        for class in classes
+        for (k, class) in enumerate(classes)
+            write_deck_heading(io, classes, k, 8)
             write_class_cargo_row(io, class, estimated_fields(notes[class.name]))
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
+end
+
+"""
+    write_deck_heading(io, classes, k, columns)
+
+A row across the `columns` columns of a table naming the [`deck_label`](@ref) of the `k`th
+of `classes` where it starts a group of equal labels.
+"""
+function write_deck_heading(io, classes, k, columns)
+    heading = group_label(deck_label.(classes), k)
+    isempty(heading) ||
+        println(io, "\\multicolumn{$columns}{@{}l}{\\textit{", uppercasefirst(heading),
+            "}} \\\\")
 end
 
 """

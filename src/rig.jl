@@ -548,7 +548,8 @@ Towing kite on a fixed-length tether from a mast on the bow, with the force of i
 flight pattern tabulated over apparent wind speed, course off the apparent downwind
 direction and the weight given to side force, its trim. `airframe` is a
 [`RigidAirframe`](@ref) for rigid VTOL kites, a [`TubeFrame`](@ref) for leading-edge
-inflatable kites and `nothing` for a ram-air kite.
+inflatable kites, a [`SingleSkin`](@ref) for single-skin kites and `nothing` for a ram-air
+kite.
 """
 Base.@kwdef struct KiteRig{A}
     "projected area of one kite [m^2]"
@@ -619,31 +620,39 @@ rope_mass(diameter, rope_length, assumptions) =
     kite_canopy(assumptions, area, aspect_ratio, frame)
 
 [`Canopy`](@ref) of a soft kite of projected `area` [m^2] and `aspect_ratio`: a ram-air
-canopy where `frame` is `nothing`, a leading-edge inflatable one for a [`TubeFrame`](@ref).
+canopy where `frame` is `nothing`, a leading-edge inflatable one for a [`TubeFrame`](@ref),
+a single skin for [`SingleSkin`](@ref).
 """
 kite_canopy(assumptions::Assumptions, area, aspect_ratio, ::Nothing) =
     Canopy(assumptions, area, aspect_ratio)
-kite_canopy(assumptions::Assumptions, area, aspect_ratio, frame::TubeFrame) =
-    Canopy(assumptions, area, frame)
+kite_canopy(assumptions::Assumptions, area, aspect_ratio,
+    frame::Union{TubeFrame, SingleSkin}) = Canopy(assumptions, area, frame)
 
 "tether force limit per projected area [kN/m^2] of a soft kite of `frame`"
-force_per_area(assumptions::Assumptions, ::Nothing) = assumptions[:kite_max_force_per_area]
+force_per_area(assumptions::Assumptions, ::Union{Nothing, SingleSkin}) =
+    assumptions[:kite_max_force_per_area]
 force_per_area(assumptions::Assumptions, ::TubeFrame) =
     assumptions[:lei_max_force_per_area]
 
 "drag coefficient [-] a soft kite of `frame` has in flight beyond its polar and tether"
-flight_drag(assumptions::Assumptions, ::Nothing) = assumptions[:kite_flight_drag]
+flight_drag(assumptions::Assumptions, ::Union{Nothing, SingleSkin}) =
+    assumptions[:kite_flight_drag]
 flight_drag(assumptions::Assumptions, ::TubeFrame) = assumptions[:lei_flight_drag]
 
 """
-    kite_polar(aspect_ratio, frame)
+    kite_polar(aspect_ratio, frame, assumptions)
 
 [`KitePolar`](@ref) of a ram-air kite of projected `aspect_ratio` where `frame` is
 `nothing`; for a [`TubeFrame`](@ref), the measured polar of a leading-edge inflatable kite
-in `data/kite_polars/lei_v3.csv`.
+in `data/kite_polars/lei_v3.csv`; for a [`SingleSkin`](@ref), the ram-air polar with its
+drag over `single_skin_glide_factor`.
 """
-kite_polar(aspect_ratio, ::Nothing) = KitePolar(aspect_ratio)
-kite_polar(aspect_ratio, ::TubeFrame) = polar_file("lei_v3.csv")
+kite_polar(aspect_ratio, ::Nothing, assumptions) = KitePolar(aspect_ratio)
+kite_polar(aspect_ratio, ::TubeFrame, assumptions) = polar_file("lei_v3.csv")
+function kite_polar(aspect_ratio, ::SingleSkin, assumptions)
+    (; angle_of_attack, lift, drag) = KitePolar(aspect_ratio)
+    return KitePolar(angle_of_attack, lift, drag / assumptions[:single_skin_glide_factor])
+end
 
 """
     soft_kite_mass(area, aspect_ratio, max_force, assumptions, frame=nothing)
@@ -672,7 +681,7 @@ function kite_model(area, aspect_ratio, assumptions::Assumptions, frame=nothing)
     tether_mass = rope_mass(tether_diameter, tether_length, assumptions)
     mass = soft_kite_mass(area, aspect_ratio, max_force, assumptions, frame) +
            tether_mass / 2
-    polar = kite_polar(aspect_ratio, frame)
+    polar = kite_polar(aspect_ratio, frame, assumptions)
     stall = argmax(polar.lift)
     model = KiteModel(area, mass, tether_length, env.air_density, env.gravity, polar,
         flight_drag(assumptions, frame) + tether_drag,
