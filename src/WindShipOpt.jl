@@ -16,6 +16,7 @@ using Dates: DateTime, Dates
 using FileWatching.Pidfile: trymkpidlock
 using Mmap: Mmap
 using Optim: Optim
+using PrecompileTools: @compile_workload, @setup_workload
 using TOML: TOML
 using YAML: YAML
 
@@ -55,5 +56,6 @@ include("forecast.jl")
 include("rotor_prices.jl")
 include("economics.jl")
 include("analysis.jl")
+include("precompile.jl")
 
 end

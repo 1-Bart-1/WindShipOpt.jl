@@ -80,6 +80,18 @@ function ERA5Weather(directory::AbstractString)
     wind = GriddedFields(joinpath(directory, "wind"), origin)
     aloft = GriddedFields(joinpath(directory, "aloft"), origin)
     heights = TOML.parsefile(joinpath(directory, "aloft", "grid.toml"))["heights"]
+    return ERA5Weather(origin, wind, aloft, waves, heights)
+end
+
+"""
+    ERA5Weather(origin, wind, aloft, waves, heights)
+
+Weather of the gridded fields `wind` (`u10`, `v10`), `aloft` (`speed_<height>` at each of
+the ascending `heights` [m]) and `waves` (`height`, `period`, `direction_east`,
+`direction_north`), with time in hours after `origin`.
+"""
+function ERA5Weather(origin::DateTime, wind::GriddedFields, aloft::GriddedFields,
+        waves::GriddedFields, heights)
     return ERA5Weather(origin, wind, aloft, waves, (wind.fields["u10"], wind.fields["v10"]),
         Float64.(heights), Knots(log.(heights)),
         [aloft.fields["speed_$height"] for height in heights],

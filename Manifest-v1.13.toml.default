@@ -2,7 +2,7 @@
 
 julia_version = "1.13.4"
 manifest_format = "2.1"
-project_hash = "65e863ca693c99e652489541000632e6d059448f"
+project_hash = "5ed372de44f0015b30defe26c230f95955d0519e"
 
 [[deps.ADTypes]]
 deps = ["PrecompileTools"]
@@ -552,7 +552,7 @@ uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 version = "1.11.0"
 
 [[deps.WindShipOpt]]
-deps = ["Dates", "FileWatching", "Mmap", "Optim", "Random", "Statistics", "TOML", "YAML"]
+deps = ["Dates", "FileWatching", "Mmap", "Optim", "PrecompileTools", "Random", "Statistics", "TOML", "YAML"]
 path = "."
 uuid = "af4f4564-3121-48a2-9343-5e03b1d5231d"
 version = "0.1.0"

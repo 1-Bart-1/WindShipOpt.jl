@@ -576,6 +576,26 @@ end
     @test readdir(dirname(path)) == ["table.bin"]
 end
 
+@testset "a stand-in pattern fills every kite's table, computing and storing none" begin
+    stand_in = WindShipOpt.PatternForce((0.3, 0.8, 0.2), 1.0, 0.3)
+    stored = length(WindShipOpt.PATTERN_TABLES)
+    kites = Base.ScopedValues.with(WindShipOpt.STAND_IN_PATTERN => stand_in) do
+        [Ship(ShipDesign(:ammonia, 140.0; area...), assumptions).rig
+         for area in ((; kite_area=3200.0), (; rigid_kite_area=200.0))]
+    end
+    @test all(all(==(stand_in), kite.forces) for kite in kites)
+    @test length(WindShipOpt.PATTERN_TABLES) == stored
+end
+
+@testset "the precompile workload's weather is a steady north-easterly everywhere" begin
+    weather = WindShipOpt.uniform_weather()
+    for (lat, lon, time) in ((16.0, -61.0, 0.0), (49.0, -5.0, 1000.0))
+        @test all(isapprox.(wind(weather, lat, lon, time), (-8sind(45), -8cosd(45));
+            rtol=1e-6))
+        @test first(waves(weather, lat, lon, time)) ≈ 2.0
+    end
+end
+
 @testset "a kite without flight drag flies where every fixed start misses" begin
     low_drag = WindShipOpt.with_value(assumptions, :kite_flight_drag, 0.0)
     aspect_ratio = assumptions[:kite_aspect_ratio]
