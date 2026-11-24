@@ -68,7 +68,7 @@ study_steps = [:cargo_interest => cargo_interest_data, :base_kite => base_kite_d
     :published_terms => published_terms_data, :model_parts => model_parts_data,
     :size_search => size_search_data, :router_decisions => router_decisions_data,
     :routing_value => routing_value_data, :today_routing => today_routing_data,
-    :measured_savings => measured_savings_data]
+    :measured_savings => measured_savings_data, :wind_height => wind_height_data]
 
 "table steps of each method study, written when it runs or by name from its recorded run"
 study_tables = Dict(:cargo_interest => [:cargo_interest_table => cargo_interest_table],
@@ -78,7 +78,9 @@ study_tables = Dict(:cargo_interest => [:cargo_interest_table => cargo_interest_
     :routing_value => [:routing_value_table => routing_value_table],
     :today_routing => [:today_routing_numbers => today_routing_numbers_file],
     :measured_savings => [:measured_table => measured_table,
-        :measured_numbers => measured_numbers_file])
+        :measured_numbers => measured_numbers_file],
+    :wind_height => [:wind_height_numbers => wind_height_numbers_file,
+        :wind_height_table => wind_height_table])
 
 "every table step of the method studies"
 study_table_steps() = unique(reduce(vcat, values(study_tables)))

@@ -1852,6 +1852,80 @@ function rerouting_gains(table, rig)
 end
 
 """
+    wind_height_numbers_file()
+
+Write to paper/sections/wind_height_numbers.tex, from the wind height study, ERA5's mean
+wind at 500 m per unit of the 10 m wind at sea and along the routes, the power-law exponent
+fitted along the routes with its range over the routes and the seasons, that fitted to the
+cubes, and how many departures the comparison of the kite's wind took.
+"""
+function wind_height_numbers_file()
+    shear = read_table(study_file(:wind_height, "wind_shear.csv"))
+    at(place) = only(rows(shear, "place" => place))
+    seasons = rows(shear, "place" => in(("winter", "spring", "summer", "autumn")))
+    routes = rows(shear, "place" => in(string.(route_names)))
+    exponent(row) = @sprintf("%.3f", shear["exponent"][row])
+    extreme(chosen, pick) = exponent(chosen[pick(shear["exponent"][chosen])])
+    departures = unique(read_table(study_file(:wind_height, "wind_height.csv"))["departure"])
+    draft = TOML.parsefile(study_runs_path)["wind_height"]["fidelity"] != "final"
+    numbers = ["ShearSeaRatio" => @sprintf("%.2f", shear["ratio_500"][at("sea")]),
+        "ShearRouteRatio" => @sprintf("%.2f", shear["ratio_500"][at("routes")]),
+        "ShearExponent" => exponent(at("routes")),
+        "ShearRouteLow" => extreme(routes, argmin), "ShearRouteHigh" => extreme(routes, argmax),
+        "ShearSeasonLow" => extreme(seasons, argmin),
+        "ShearSeasonHigh" => extreme(seasons, argmax),
+        "ShearCubeExponent" => @sprintf("%.3f", shear["cube_exponent"][at("routes")]),
+        "WindHeightDepartures" => string(length(departures))]
+    write_whole(joinpath(sections, "wind_height_numbers.tex")) do io
+        for (name, text) in numbers
+            print(io, number_macro(name, text, draft))
+        end
+    end
+end
+
+"""
+    wind_height_table()
+
+Write to paper/sections/wind_height_table.tex, from the wind height study, the kite's cost
+saving, share of the time aloft and gap to the rotors on ERA5's hourly wind at its height
+and on each power law, and how far each power law moves the saving, paired by departure.
+"""
+function wind_height_table()
+    table = read_table(study_file(:wind_height, "wind_height.csv"))
+    cost(wind, exponent, rig) = Dict(table["departure"][row] => table["cost"][row]
+        for row in rows(table, "wind" => wind, "exponent" => exponent, "rig" => rig))
+    bare, rotors = cost("hourly", 0.0, "none"), cost("hourly", 0.0, "rotors")
+    days = sort(collect(keys(bare)))
+    saving(costs) = percent_saving(sum(costs[day] for day in days), sum(values(bare)))
+    by_day(costs) = [percent_saving(costs[day], bare[day]) for day in days]
+    hourly = cost("hourly", 0.0, "kite")
+    exponents = sort(unique(table["exponent"][rows(table, "wind" => "profile")]))
+    shear = read_table(study_file(:wind_height, "wind_shear.csv"))
+    fitted = only(rows(shear, "place" => "routes"))
+    names = Dict(round(shear["exponent"][fitted]; digits=3) => " (ERA5 fit)",
+        round(shear["cube_exponent"][fitted]; digits=3) => " (fit to the cubes)")
+    write_whole(joinpath(sections, "wind_height_table.tex")) do io
+        println(io, "\\begin{tabular}{@{}lrrrr@{}}\n\\toprule")
+        println(io, "Kite's wind & Saving [\\%] & Time aloft [\\%] & ",
+            "Gap to rotors [points] & Change [points] \\\\\n\\midrule")
+        for (label, wind, exponent) in [("ERA5 at its height, hourly", "hourly", 0.0);
+            [(@sprintf("power law, \\(\\alpha = %.3f\\)%s", exponent,
+                  get(names, exponent, "")), "profile", exponent)
+             for exponent in exponents]]
+            costs = cost(wind, exponent, "kite")
+            aloft = 100 * mean(table["flight_share"][rows(table, "wind" => wind,
+                "exponent" => exponent, "rig" => "kite")])
+            change = by_day(costs) .- by_day(hourly)
+            @printf(io, "%s & %.1f & %.0f & \\(%s\\) & %s \\\\\n", label, saving(costs),
+                aloft, one_decimal(saving(costs) - saving(rotors)),
+                wind == "hourly" ? "--" :
+                error_cell(mean(change), std(change) / sqrt(length(change)); finest=1))
+        end
+        println(io, "\\bottomrule\n\\end{tabular}")
+    end
+end
+
+"""
     routing_error(departures, ship, drive, speed)
 
 Standard error [percentage points] of the mean over the departures in `departures` of what
