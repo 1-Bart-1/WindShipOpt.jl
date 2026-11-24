@@ -3927,6 +3927,28 @@ end
     @test all(name -> isdefined(JobTrips, name), (:shard_trips, :trip_case, :case_trip))
 end
 
+@testset "a batch's kite pattern tables are asked for at once, not one by one" begin
+    tables = WindShipOpt.PATTERN_TABLES
+    session = copy(tables)
+    kites = [(; design=ShipDesign(:methanol, 140.0; kite_area), assumptions,
+                 route=:caribbean) for kite_area in (800.0, 400.0)]
+    found = map(kites) do case
+        empty!(tables)
+        bare = (; case..., design=ShipDesign(:methanol, 140.0))
+        JobTrips.build_pattern_tables([case, bare])
+        return only(tables)
+    end
+    empty!(tables)
+    held = Channel{Nothing}(1)
+    tables[first(found[1])] = Threads.@spawn (take!(held); fetch(last(found[1])))
+    building = Threads.@spawn JobTrips.build_pattern_tables(kites)
+    @test timedwait(() -> haskey(tables, first(found[2])), 30.0) === :ok
+    put!(held, nothing)
+    wait(building)
+    empty!(tables)
+    merge!(tables, session)
+end
+
 @testset "a run's estimate counts the cases of each data step of the draft run" begin
     record = Dict("steps" => [Dict("name" => "patterns"),
         Dict("name" => "classes", "cases" => 26), Dict("name" => "routes", "cases" => 10)])

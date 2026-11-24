@@ -113,10 +113,8 @@ function gate_trips(out_dir, cases, fidelity)
     waiting = filter(case -> (case.ship, case.rig, String(case.route)) ∉ finished, cases)
     isempty(waiting) && return
     sampled = gate_departures()
-    for case in waiting
-        case.design.kite_area > 0 && Ship(case.design, assumptions)
-        corridors(case.route, fidelity.scale)
-    end
+    build_pattern_tables([(; case.design, assumptions, case.route) for case in waiting])
+    foreach(case -> corridors(case.route, fidelity.scale), waiting)
     file_lock = ReentrantLock()
     cpu = cpu_seconds()
     wall = @elapsed WindShipOpt.with_router_settings(fidelity.settings) do

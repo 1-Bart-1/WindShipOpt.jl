@@ -459,6 +459,10 @@ has_rig(design::ShipDesign) =
     any(>(0), (design.wing_area, design.kite_area, design.rotor_area,
         design.rigid_kite_area, design.suction_area, design.lei_kite_area))
 
+"whether `design` flies a soft, leading-edge inflatable or rigid kite"
+flies_kite(design::ShipDesign) =
+    any(>(0), (design.kite_area, design.rigid_kite_area, design.lei_kite_area))
+
 """
     kite_aspect_ratio(design, assumptions)
 
