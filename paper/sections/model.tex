@@ -338,6 +338,22 @@ with one skin of $k_\mathrm{LEI}=1.28$ square metres of the ram-air kite's cloth
 
 \paragraph{Price} Its canopy is priced as the ram-air canopy: the surveyed cost of sewing and bridle per square metre \citep{joshi2024refeconomic} (\cref{eq:canopy_price}), its skin's cloth, and its tubes as cloth whose weight per square metre is the tubes' mass spread over their surface, 0.89 square metres per projected one on the V2 \citep{schwoll2012}. It costs USD~141, 192 and 358 per projected square metre at 20, 100 and \SI{800}{m^2} at market prices, against USD~133, 155 and 225 for the ram-air kite. Its deck system, control unit, controls and integration are priced as the ram-air kite's for its force and size.
 
+\subsection{Single-skin kite}
+\label{sec:single_skin_kite}
+
+The third soft kite is a single skin with neither ribs nor tubes, the type of Flysurfer's PEAK kites and of single-skin paragliders: one layer of cloth held in shape by the air flowing under it and by a bridle attached across the whole canopy. Its leading edge is closed or partly closed, which fills it as it flies \citep{flysurfer_peak5}. It is modelled on the development case alone, to say where it stands against the other two. It keeps the ram-air kite's shape, force limit and pattern, and flies from its mast on its tether, winch, tow point and control unit, with its crew and goals; no single-skin kite has been built larger than \SI{11}{m^2} projected \citep{flysurfer_peak5}, so the sizes a ship needs are an extrapolation.
+
+\paragraph{Lift and drag} Without a lower skin a wing is a thin cambered sheet, which loses glide ratio. In the wind tunnel a wing of aspect ratio 8.5 with a partial lower skin reached a best glide ratio of 13 to 14 where the same wing with a full lower skin reached 18.5 to 19 \citep[Figs.~9--10]{maughmer1979}. The single-skin kite flies the ram-air design shape's polar with its drag divided by that ratio, 0.72, taken from a paraglider wing for want of a kite measured with and without its lower skin: 0.63 without any lower skin \citep{maughmer1979} and 0.86 from CFD of a single-skin paraglider \citep{maslanka2024} bound it. Its bridle, control unit and steering add the ram-air kite's flight drag, so with its tether it flies at a glide ratio of 3.2 at a lift coefficient of 0.8, against 3.9.
+
+\paragraph{Mass and force limit} The canopy is one skin, $k_f$ flat square metres of cloth per projected one, of the ram-air kite's cloth for the same force limit. With no ribs to spread the load the bridle must reach the whole skin: a single-skin paraglider carries 14 to \SI{16}{m} of line per flat square metre \citep{niviuk_skin3}, a double-skin one of the same maker 9 to 10 \citep{niviuk_ikumap}. The mass of lines, tapes and tabs is the ram-air canopy's $m_o$ times $\lambda=1.5$, an estimate from that ratio, so per projected square metre the canopy weighs
+\begin{equation}
+m_\mathrm{SS} = \varphi\,\big(10^{-3}\,w_\mathrm{s}\,k_f + \lambda\,m_o\big),
+\label{eq:single_skin_mass}
+\end{equation}
+with $w_\mathrm{s}$, $m_o$ and $\varphi$ of \cref{eq:canopy_mass}. It is \SI{0.25}{kg/m^2} at every size, two thirds of the ram-air canopy at \SI{10}{m^2} and a third at \SI{800}{m^2}, whose ribs grow with its chord. It takes the ram-air kite's force limit: single-skin paragliders pass the same EN load test as double-skin ones, the first XXLite to a flying weight of \SI{115}{kg} \citep{ozone_xxlite}.
+
+\paragraph{Price} Its canopy is priced as the ram-air canopy, the surveyed cost of sewing and bridle per square metre \citep{joshi2024refeconomic} (\cref{eq:canopy_price}) and its one skin's cloth: USD~81 per projected square metre at every size at market prices, against USD~133, 155 and 225 for the ram-air kite at 20, 100 and \SI{800}{m^2}. Its deck system, control unit, controls and integration are the ram-air kite's.
+
 \subsection{Performance table}
 
 For every speed, wind and sea these models give the fuel power of a ship with its rig at the best setting of \cref{eq:thrust} and, for a kite, also with it stowed; the router reads it from a table made beforehand on the grids of \cref{tab:numerics}. The best setting counts the waves' added resistance, so a rig with thrust to spare puts it against the waves, and waves are assumed not to change the rig forces. Whether a kite is down or flying is left to the router; wing sails and rotors cannot be stowed and stay at their best setting.

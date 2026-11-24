@@ -958,6 +958,21 @@ lei_tube_surface:
   source: "@schwoll2012 [p. 21]: the V2 kite's tubes"
   reason: "Surface of the tubes per projected m^2 of a leading-edge inflatable kite: 8.7 m^2 of leading edge and 6.1 m^2 of struts on the 16.7 m^2 projected of the V2 kite [@schwoll2012, p. 21], held at every size by its shape."
 
+# --- single-skin kite ---
+single_skin_glide_factor:
+  value: 0.72
+  low: 0.63
+  high: 0.86
+  unit: "-"
+  source: "@maughmer1979 [Figs. 9-10]; @maslanka2024 [Table 5]"
+  reason: "Best glide ratio of a single-skin wing over that of the same wing with two skins. In the wind tunnel a wing of aspect ratio 8.5 with a partial lower skin reached 13.3 and 14 where the same wing with a full lower skin reached 18.5 and 19.2 [@maughmer1979, Figs. 9-10], 0.72-0.73; without a lower skin it reached 11.7 and 12.8, 0.63-0.67, the low bound. CFD of a single-skin paraglider gives 11.27 against 13.17 for the double-skin one [@maslanka2024, Table 5], 0.86, the high bound. Single-skin kites keep a closed or partly closed leading edge, as the partial lower skin does."
+single_skin_line_ratio:
+  value: 1.5
+  unit: "-"
+  estimate: true
+  source: "Authors' estimate from @niviuk_skin3; @niviuk_ikumap: line length per area"
+  reason: "Bridle line, tapes and attachment tabs of a single-skin canopy per projected m^2 over those of a ram-air canopy, applied to canopy_mass_overhead: with no ribs to spread the load, the single-skin Niviuk Skin 3 carries 251-282 m of line on 16-20 m^2 flat, 14.1-15.7 m/m^2 [@niviuk_skin3, p. 2], where the double-skin Niviuk Ikuma P carries 220-247 m on 21-26.5 m^2, 9.3-10.5 m/m^2 [@niviuk_ikumap, p. 2]."
+
 tether_drag_coefficient:
   value: 1.1
   low: 1.0

@@ -5085,6 +5085,44 @@ end
           1e-3assumptions[:control_unit_mass_per_force] * rig.max_force
 end
 
+@testset "a single-skin canopy is one skin and more bridle, sewn as a ram-air canopy" begin
+    canopy = WindShipOpt.Canopy(assumptions, 500.0, WindShipOpt.SingleSkin())
+    rating = WindShipOpt.force_rating(assumptions)
+    skin = assumptions[:canopy_flat_area_ratio]
+    weight = WindShipOpt.cloth_weight(assumptions)
+    @test canopy.mass_per_area ≈ 1e-3skin * weight +
+                                 assumptions[:single_skin_line_ratio] *
+                                 assumptions[:canopy_mass_overhead] * rating
+    @test canopy.cost_per_area ≈ WindShipOpt.sewing_cost(assumptions) +
+                                 skin * WindShipOpt.cloth_price(assumptions, weight)
+    @test canopy.mass_per_area <
+          WindShipOpt.Canopy(assumptions, 500.0, assumptions[:kite_aspect_ratio]).mass_per_area
+end
+
+@testset "a single-skin kite flies the ram-air polar at its lower glide ratio" begin
+    aspect_ratio = assumptions[:kite_aspect_ratio]
+    single, force, = WindShipOpt.kite_model(1.0, aspect_ratio, assumptions,
+        WindShipOpt.SingleSkin())
+    ram_air, ram_air_force, = WindShipOpt.kite_model(1.0, aspect_ratio, assumptions)
+    @test single.polar.lift == ram_air.polar.lift
+    @test single.polar.drag ≈ ram_air.polar.drag / assumptions[:single_skin_glide_factor]
+    @test single.extra_drag ≈ ram_air.extra_drag
+    @test force ≈ ram_air_force
+end
+
+@testset "a single-skin kite flies alone, launched and towing as the ram-air kite" begin
+    rig = KiteRig(300.0, assumptions[:kite_aspect_ratio], PAPER_HULL, assumptions;
+        courses=[π / 2], frame=WindShipOpt.SingleSkin())
+    @test WindShipOpt.kite_mass(rig, assumptions) ≈
+          WindShipOpt.Canopy(assumptions, rig.area, rig.airframe).mass_per_area * rig.area +
+          1e-3assumptions[:control_unit_mass_per_force] * rig.max_force
+    @test WindShipOpt.rig_price_parts(rig, assumptions) ==
+          WindShipOpt.kite_price_parts(rig.area, rig.max_force, assumptions)
+    @test_throws ArgumentError WindShipOpt.design_rig(
+        ShipDesign(:vlsfo, 140.0; single_skin_kite_area=300.0, rotor_area=400.0),
+        PAPER_HULL, assumptions)
+end
+
 @testset "every rig has its name, life and availability inputs" begin
     rigs = Set(PaperData.rig_names)
     for names in (PaperData.rig_keywords, PaperData.lifetime_inputs,
