@@ -3951,13 +3951,13 @@ end
     @test PaperRuns.stalled_run_jobs(:draft) == 0
 end
 
-@testset "the jobs of a run ask for no more than the cluster allows" begin
+@testset "the jobs of a run are short enough to pass the queue fast and fit the cluster" begin
     settings = merge(PaperRuns.cluster_settings(),
         Dict("account" => "research-me", "partition" => "p2"))
     command = PaperRuns.slurm_command(settings, "run", "log", `true`; after="7")
     option(name) = only(split(only(filter(startswith("--$name="), command.exec)), "=")[2:end])
     hours, minutes, seconds = parse.(Int, split(option("time"), ":"))
-    @test hours * 3600 + minutes * 60 + seconds <= 120 * 3600
+    @test hours * 3600 + minutes * 60 + seconds <= 2 * 3600
     @test parse(Int, option("cpus-per-task")) <= 64
     @test PaperRuns.shard_count(PaperRuns.SlurmJobs(settings), 10^6) <= 64
     @test option("dependency") == "afterany:7"
