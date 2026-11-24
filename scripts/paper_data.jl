@@ -2504,6 +2504,38 @@ function combination_data()
     write_departures("combination_departures.csv", cases, trips, labels...)
 end
 
+"rigs of the kite-and-rotors study: without a rig, each alone and the pair"
+pair_rigs = ("none", "kite", "rotors", "kite+rotors")
+
+"""
+    pair_leads(trips, departures)
+
+Each ship, route and drive of the kite-and-rotors study's round `trips` and `departures`
+tables: the `gain` [points] of cost saving of its cheapest pair over its better single
+`rival`, the `error` of that gain over its `n` departures, and whether the pair clearly
+[`leads`](@ref) each rig alone.
+"""
+function pair_leads(trips, departures)
+    cells = unique(zip(trips["ship"], trips["route"], trips["drive"]))
+    return map(cells) do (ship, route, drive)
+        cell = ("ship" => ship, "route" => route, "drive" => drive)
+        best = Dict(rig => cheapest_row(trips, cell..., "rig" => rig) for rig in pair_rigs)
+        dated(row) = rows(departures, cell..., "rig" => trips["rig"][row],
+            "kite_area" => trips["kite_area"][row], "rotor_area" => trips["rotor_area"][row])
+        costs = Dict(rig => departures["cost"][sort(dated(row);
+                         by=i -> departures["date"][i])] for (rig, row) in best)
+        reference = trips["cost"][best["none"]]
+        savings = Dict(rig => percent_saving(trips["cost"][row], reference)
+                       for (rig, row) in best)
+        clear(rig) = leads("kite+rotors", rig, savings["kite+rotors"] - savings[rig],
+            gap_error([(; departures=costs)], [1.0], "kite+rotors", rig))
+        rival = argmax(rig -> savings[rig], ("kite", "rotors"))
+        error, n = gap_error([(; departures=costs)], [1.0], "kite+rotors", rival)
+        (; ship, route, drive, rival, gain=savings["kite+rotors"] - savings[rival], error, n,
+            leads=clear("kite") && clear("rotors"))
+    end
+end
+
 """
     traced_round_trip(table, route_table, name, departure, hourly)
 

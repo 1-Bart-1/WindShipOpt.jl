@@ -4896,6 +4896,33 @@ end
     @test count(size -> size[1] == "kite+rotors", small_kite) == 2
 end
 
+@testset "a kite with rotors leads only where its gain over each rig alone clears its error" begin
+    columns = ("ship", "route", "drive", "rig", "kite_area", "rotor_area")
+    trips = Dict{String, Vector}(name => Any[] for name in (columns..., "cost"))
+    departures = Dict{String, Vector}(name => Any[] for name in (columns..., "date", "cost"))
+    function sail!(ship, rig, kite_area, rotor_area, costs)
+        labels = (ship, "new_york", "ammonia", rig, kite_area, rotor_area)
+        foreach((name, value) -> push!(trips[name], value), columns, labels)
+        push!(trips["cost"], sum(costs) / length(costs))
+        for (month, cost) in enumerate(costs)
+            foreach((name, value) -> push!(departures[name], value), columns, labels)
+            push!(departures["date"], "2017-0$month-01")
+            push!(departures["cost"], cost)
+        end
+    end
+    swing = [0.0, 0.02, -0.02, 0.01, -0.01, 0.0]
+    for (ship, kite, rotors, pair) in (("clear", 0.90, 0.88, 0.80), ("level", 0.90, 0.95, 0.89))
+        sail!(ship, "none", 0.0, 0.0, fill(1.0, 6))
+        sail!(ship, "kite", 800.0, 0.0, fill(kite, 6))
+        sail!(ship, "rotors", 0.0, 400.0, fill(rotors, 6))
+        sail!(ship, "kite+rotors", 400.0, 400.0, pair .+ (ship == "level") .* swing)
+        sail!(ship, "kite+rotors", 200.0, 400.0, fill(pair + 0.05, 6))
+    end
+    clear, level = PaperData.pair_leads(trips, departures)
+    @test clear.leads && clear.rival == "rotors" && clear.gain ≈ 8 && clear.n == 6
+    @test !level.leads && level.rival == "kite" && level.gain ≈ 1 && level.error > 0
+end
+
 @testset "a ship with an undefined rig area is refused, never sailed with no rig" begin
     @test_throws ArgumentError ShipDesign(:vlsfo, 100.0; kite_area=NaN)
     @test_throws ArgumentError ShipDesign(:vlsfo, 100.0; rotor_area=Inf)
