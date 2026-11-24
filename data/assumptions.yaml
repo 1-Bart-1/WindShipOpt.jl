@@ -556,17 +556,24 @@ suction_drag_coefficient:
   source: "@lagendijk2018 [Table 5.1]: full-scale CFD of one VentiFoil"
   reason: "Drag of the VentiFoil near its highest lift, from full-scale CFD of one VentiFoil, CD 0.838 at CL 4.84 [@lagendijk2018, Table 5.1], whose total force coefficient of 4.91 is what strain gauges measured at sea [@ghorbani2024suction, Fig. 12]; drag rises with the square of lift to it. Low: the same with end plates, 0.81 [@lagendijk2018, Table 5.1]; high: the maker's one point, 2.4 at lift 4.9, whose source gives it with high uncertainty [@wasp2023wp3, Fig. 3]."
 suction_fan_power_per_area:
-  value: 470.0
+  value: 400.0
   low: 370.0
   high: 470.0
   unit: W/m^2
-  source: "@conoship2022econowind: VentiFoil fans at their highest wind"
-  reason: "Fan power of a VentiFoil per m^2 of its chord times span at the highest wind it works in: two 7.5 kW ventilators [@conoship2022econowind] on two foils of 10.3 m by 1.55 m mean chord, 32 m^2. It falls with the cube of the apparent wind below that, as its maker models it [@smeets2024ventofoil, Eq. 3.4]. Low: the 11 kW ventilator of each 10 m by 3 m VentiFoil on the Frisian Sea [@ghorbani2023twin, Sec. 2.2; @werner2022frisian, Table 3]."
-suction_max_wind:
-  value: 17.0
+  source: "@smeets2024ventofoil [Fig. 3.11]: the VentoFoil maker's fan power curve"
+  reason: "Full fan power of a VentoFoil per m^2 of its chord times span, drawn from the rated wind up: 0.40 kW/m^2 on its maker's curve [@smeets2024ventofoil, Eq. 3.4 and Fig. 3.11]. Low: the 11 kW ventilator of each 10 m by 3 m VentiFoil on the Frisian Sea [@ghorbani2023twin, Sec. 2.2; @werner2022frisian, Table 3]; high: two 7.5 kW ventilators on the eConowind unit's two foils of 10.3 m by 1.55 m mean chord, 32 m^2 [@conoship2022econowind]."
+suction_fan_rated_wind:
+  value: 14.0
   unit: m/s
-  source: "@conoship2022econowind: highest wind a VentiFoil works in"
-  reason: "Highest apparent wind a VentiFoil works in [@conoship2022econowind], above which it lies down; its fans reach their full power there."
+  source: "@smeets2024ventofoil [Fig. 3.11]: the VentoFoil maker's fan power curve"
+  reason: "Apparent wind from which a VentoFoil's fans draw their full power; below it the power falls with the cube of the apparent wind [@smeets2024ventofoil, Eq. 3.4], read off its maker's curve at 13.8 m/s [@smeets2024ventofoil, Fig. 3.11]."
+suction_max_wind:
+  value: 22.0
+  low: 17.0
+  high: 22.0
+  unit: m/s
+  source: "@smeets2024ventofoil [Fig. 3.11]: cut-out of the VentoFoil maker's fan curve"
+  reason: "Highest apparent wind a VentoFoil works in, above which it is folded down and its fans stop: 22 m/s on its maker's curve [@smeets2024ventofoil, Sec. 3.1.11 and Fig. 3.11]. Low: the eConowind unit's foldable VentiFoils, which lie down above 17 m/s [@conoship2022econowind]."
 suction_aspect_ratio:
   value: 6.6
   unit: "-"
@@ -592,11 +599,11 @@ suction_mass_per_area:
   source: "@conoship2022econowind: eConowind unit in its container"
   reason: "Suction sail with its foundation per m^2: the eConowind unit, two aluminium VentiFoils of 32 m^2 in all in a steel 40 ft container, weighs 9.6 t [@conoship2022econowind]. High: twice that, as wing sails go from 0.13 t/m^2 for small hard sails to 0.27 for the largest [@emsa2023, Table 4; @riviera2024windwing; @bar2026windwings], for a taller sail that carries more than twice a wing sail's force per m^2."
 suction_cost_per_mass:
-  value: 3.3
+  value: 3.2
   unit: USD/kg
   estimate: true
   source: "Authors' estimate: wing sail build-up plus fans at the rotor's drive price"
-  reason: "Manufacturing cost of a suction sail with its foundation per kg, priced as a wing sail is: the wing sail's 665 USD/m^2 on its 0.25 t/m^2, 2.7 USD/kg, and fans and motors at the rotor's USD 400 per kW of drive, 470 W/m^2 on 300 kg/m^2, 0.6 USD/kg."
+  reason: "Manufacturing cost of a suction sail with its foundation per kg, priced as a wing sail is: the wing sail's 665 USD/m^2 on its 0.25 t/m^2, 2.7 USD/kg, and fans and motors at the rotor's USD 400 per kW of drive, 400 W/m^2 on 300 kg/m^2, 0.5 USD/kg."
 suction_lifetime:
   value: 25.0
   low: 20.0

@@ -816,8 +816,8 @@ end
 suction_sail(area, inputs=assumptions) = WingRig(area, Hull(140.0, assumptions), inputs;
     unit=:suction, in_column=ceil(Int, area / 100))
 
-@testset "a suction sail of the VentiFoil's shape holds its published lift, drag and fan \
-          power" begin
+@testset "a suction sail of the VentiFoil's shape holds its published lift and drag, and \
+          its maker's fan power curve" begin
     pair = suction_sail(32.0)
     @test pair.count == 1
     @test pair.height ≈ sqrt(32.0 * 6.6)
@@ -827,8 +827,11 @@ suction_sail(area, inputs=assumptions) = WingRig(area, Hull(140.0, assumptions),
     @test WindShipOpt.drag_coefficient(pair, 0.0) ==
           assumptions[:wing_profile_drag_coefficient]
     attached = (lift, WindShipOpt.drag_coefficient(pair, lift))
-    @test WindShipOpt.fan_power(pair, attached, 17.0) ≈ 2 * 7.5e3 rtol = 0.01
-    @test WindShipOpt.fan_power(pair, attached, 8.5) ≈ 2 * 7.5e3 / 8 rtol = 0.01
+    full_power = 0.40e3 * 32.0
+    @test WindShipOpt.fan_power(pair, attached, 14.0) ≈ full_power rtol = 0.01
+    @test WindShipOpt.fan_power(pair, attached, 21.0) ≈ full_power rtol = 0.01
+    @test WindShipOpt.fan_power(pair, attached, 7.0) ≈ full_power / 8 rtol = 0.01
+    @test pair.max_wind == 22.0
 end
 
 @testset "a suction sail's fan runs only while its flow is attached and lifts, and it lies \
@@ -1515,9 +1518,9 @@ end
     @test !WindShipOpt.container_holds(rotors, assumptions)
     suction(unit_area) = WingRig(4unit_area, Hull(ship_classes()["feeder container ship"],
             assumptions), assumptions; unit=:suction, columns=2, in_column=2)
-    @test WindShipOpt.container_holds(suction(40.0), assumptions)
+    @test WindShipOpt.container_holds(suction(30.0), assumptions)
     @test !WindShipOpt.container_holds(suction(50.0), assumptions)
-    boxed = WindShipOpt.with_pedestal(suction(40.0), :container)
+    boxed = WindShipOpt.with_pedestal(suction(30.0), :container)
     feeder = ship_classes()["feeder container ship"]
     @test WindShipOpt.pedestal_mass(boxed, assumptions) == 0
     @test WindShipOpt.blocked_slots(boxed, feeder, assumptions) == 8
