@@ -176,7 +176,7 @@ hull_side_force_factor:
   low: 0.32
   high: 1.0
   unit: "-"
-  source: "@toxopeus2011: NMRI tank tests of the KVLCC2M tanker; @vanderkolk2021 low; Kijima regression [@kim2021] high"
+  source: "@toxopeus2011: KVLCC2M tests; @vanderkolk2021 low; Kijima [@kim2021] high"
   reason: "Factor on the side-force slope of the Kijima regression [@kim2021]. Fitting f Y'_b (b + q b^3) to the NMRI captive tests of the KVLCC2M tanker at 3-12 deg leeway [@toxopeus2011, pp. 54 and 155-156] gives 0.55 on its linear term; towing-tank fits of 138 m wind-assisted hulls without a skeg, block coefficients 0.72 and 0.83, give 0.32 and 0.37 [@vanderkolk2021, Table 3]; 1 is the regression itself."
 hull_side_force_cubic:
   value: 11.0

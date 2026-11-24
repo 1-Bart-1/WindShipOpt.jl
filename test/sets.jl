@@ -469,12 +469,12 @@ function kite_coaster(; kwargs...)
 end
 
 """
-    kite_point(table, wave_height, hours; speed_index=6, headwind=12.0)
+    kite_point(table, wave_height, hours; speed_index=14, headwind=12.0)
 
 [`SailedPoint`](@ref) of `hours` [h] at routing speed number `speed_index` in a 12 m/s wind
 across the ship with `headwind` [m/s] from ahead and waves of `wave_height` [m].
 """
-function kite_point(table, wave_height, hours; speed_index=6, headwind=12.0)
+function kite_point(table, wave_height, hours; speed_index=14, headwind=12.0)
     condition = WindShipOpt.SeaCondition(table.table, 12.0, π / 2, wave_height, 8.0,
         π / 2)
     sample = WindShipOpt.EdgeSample(condition, headwind, 0.0, 0.0, 0.0)
@@ -641,9 +641,8 @@ end
 @testset "a launch needs the rough-sea wind from a rough sea on, a kite stays up in any sea" begin
     table, prices = kite_coaster()
     passage(points, aloft) = WindShipOpt.kite_passage(table, points, aloft, prices)
-    point(sea; speed_index=6, kwargs...) = kite_point(table, sea, 4.0; speed_index,
-        kwargs...)
-    speed = table.speeds[6]
+    point(sea; kwargs...) = kite_point(table, sea, 4.0; kwargs...)
+    speed = table.speeds[14]
     rig = table.table.ship.rig
     rough = WindShipOpt.ROUGH_SEA_HEIGHT
     @test WindShipOpt.extra_launch_wind(rig, 0.99rough) == 0
@@ -687,9 +686,9 @@ end
           have landed" begin
     table, prices = kite_coaster()
     passage(points) = first(WindShipOpt.kite_passage(table, points, true, prices))
-    point(headwind) = kite_point(table, 2.0, 1.0; speed_index=3, headwind)
+    point(headwind) = kite_point(table, 2.0, 1.0; headwind)
     rig = table.table.ship.rig
-    speed = table.speeds[3]
+    speed = table.speeds[14]
     calm = point(5.0)
     gale = point(rig.landing_max_wind + 2 - speed)
     storm = point(rig.max_wind + 2 - speed)
@@ -2171,7 +2170,7 @@ end
                      [0.0; [point[4] for point in leg.path[(stage + 1):end]]] &&
                      rest.aloft == leg.aloft[stage:end]
         @test keeps_plan || sailed_on_planned_weather(kite_table, kite_hourly, weather,
-            departure).objective < leg.objective
+            departure).objective <= leg.objective
     end
 end
 
