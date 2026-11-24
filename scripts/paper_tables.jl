@@ -323,11 +323,16 @@ function signed_points(change)
     return typeset_minus(@sprintf("%+.1f", change), "\$-\$")
 end
 
-"the LaTeX cell of a gain and a loss in points, draft-marked; dashes without trips"
-function effect_cell((gain, loss))
+"""
+    effect_cell((gain, loss); moved=false)
+
+The LaTeX cell of a gain and a loss in points, dashes without trips; marked to be confirmed
+in a draft run or where its input `moved` since the run.
+"""
+function effect_cell((gain, loss); moved=false)
     isnan(gain) && return "--"
     text = string(signed_points(gain), "/", signed_points(loss))
-    return paper_run.fidelity == :final ? text : "\\tbd{$text}"
+    return paper_run.fidelity == :final && !moved ? text : "\\tbd{$text}"
 end
 
 "heading of each group of the development table, by the rig of its inputs"
@@ -345,6 +350,8 @@ the CO2 saving, and the reason the input is in the study.
 function development_table()
     table = read_table(data_file("sensitivity.csv"))
     ships = unique(table["ship"])
+    step = data_step("sensitivity.csv", "sensitivity")
+    moved = Symbol.(union(changed_inputs(step), moved_ranges(step)))
     ragged = ">{\\raggedright\\arraybackslash}"
     write_whole(joinpath(sections, "development_table.tex")) do io
         println(io, "\\begin{longtable}{@{}", ragged, "p{2.5cm}", ragged, "p{2.6cm}rrrr",
@@ -357,7 +364,8 @@ function development_table()
             "is in the study. Each range comes from data, or for a goal (g) from what ",
             "is known today; inputs that are the authors' estimates have no range and ",
             "are not in the study. Values to two digits, and the gains and losses model ",
-            "output, to a tenth of a point; ",
+            "output, to a tenth of a point, in red where the study took another base ",
+            "value or range of its input; ",
             "\\cref{tab:goals} gives what is known today against each goal. ",
             "\\savingerror}\n",
             "\\label{tab:development}\\\\")
@@ -372,7 +380,7 @@ function development_table()
             rig == first(first(development_groups)) || println(io, "\\addlinespace")
             println(io, "\\multicolumn{7}{@{}l}{\\textit{", heading, "}}\\\\*")
             for entry in filter(entry -> entry.rig == rig, development_inputs)
-                write_lever_row(io, table, ships, entry)
+                write_lever_row(io, table, ships, entry, moved)
             end
         end
         println(io, "\\end{longtable}")
@@ -384,16 +392,20 @@ goal_inputs = (:canopy_life, :kite_launch_loss_probability, :kite_out_of_service
     :wing_out_of_service, :rotor_out_of_service, :suction_out_of_service)
 
 """
-    write_lever_row(io, table, ships, entry)
+    write_lever_row(io, table, ships, entry, moved)
 
-One row of the development table.
+One row of the development table, its cells marked where an input it varies is one of
+`moved`.
 """
-function write_lever_row(io, table, ships, entry)
+function write_lever_row(io, table, ships, entry, moved)
+    marked = !isdisjoint(input_members(entry.input), moved)
     carbons = [lever_gain_loss(table, ship, entry; column="carbon") for ship in ships]
     carbon = (maximum(first, carbons), minimum(last, carbons))
+    cells = [effect_cell(lever_gain_loss(table, ship, entry); moved=marked)
+             for ship in ships]
     println(io, uppercasefirst(entry.label), " & ", range_cell(entry.input), " & ",
-        join([effect_cell(lever_gain_loss(table, ship, entry)) for ship in ships], " & "),
-        " & ", effect_cell(carbon), " & ", entry.reason, " \\\\")
+        join(cells, " & "), " & ", effect_cell(carbon; moved=marked), " & ", entry.reason,
+        " \\\\")
 end
 
 """
@@ -404,7 +416,7 @@ unit, marked where it is a goal, that of every assumption one of [`joint_inputs`
 moves where they share it, else how many it moves.
 """
 function range_cell(input)
-    members = haskey(joint_inputs, input) ? keys(joint_inputs[input]) : (input,)
+    members = input_members(input)
     ranges = unique((entry.value, entry.low, entry.high, entry.unit)
                     for entry in getindex.(Ref(assumptions.entries), members))
     length(ranges) == 1 ||
@@ -913,24 +925,25 @@ limit_label(class) = string(WindShipOpt.cargo_limit(class, assumptions))
 """
     split_table()
 
-Tabular of the cost saving of the cheapest size of each rig with each drive, the mean
-over the classes and routes, split by [`saving_split`](@ref) into fuel, time and the
-rest, with the same saving with each goal at its value known today from
-classes_today.csv, and the share of round trips the rig shortens and their median change,
-in split_table.tex.
+Tabular of the cost saving of the cheapest size of each rig the class study holds with
+each drive, the mean over the classes and routes, split by [`saving_split`](@ref) into
+fuel, time and the rest, with the same saving with each goal at its value known today from
+classes_today.csv, dashes where no run has it, and the share of round trips the rig
+shortens and their median change, in split_table.tex.
 """
 function split_table()
     table = read_table(data_file("classes.csv"))
-    today = fleet_savings.(fleet_cells.(Ref(read_table(data_file("classes_today.csv"))),
-        first.(drive_labels)))
+    today = isnothing(latest_step("today")) ? fill(Dict(), length(drive_labels)) :
+            fleet_savings.(fleet_cells.(Ref(read_table(data_file("classes_today.csv"))),
+                first.(drive_labels)))
     lines = []
     for ((drive, label), today_savings) in zip(drive_labels, today),
-        (k, rig) in enumerate(rig_names)
+        (k, rig) in enumerate(last.(study_rigs(table)))
 
         splits = rig_splits(table, drive, rig)
         hours = getproperty.(splits, :hours)
         push!(lines, (; label=k == 1 ? label : "", rig, points=split_points(splits),
-            today=today_savings[rig],
+            today=get(today_savings, rig, NaN),
             shorter=100count(<(0), hours) / length(hours), trip=median(hours)))
     end
     cells = split_cells(lines)
@@ -1105,26 +1118,25 @@ function saving_split(table, class, route, drive, rig)
 end
 
 """
-    drive_header(first_column)
+    drive_header(first_column, rigs)
 
-Header row of one group of rig columns per drive, the first group starting at table
+Header row of one group of columns of `rigs` per drive, the first group starting at table
 column `first_column`, with a rule under each group.
 """
-function drive_header(first_column)
-    starts = first_column .+ length(rig_names) .* (0:(length(drive_labels) - 1))
-    return string(join((rig_group(label) for (_, label) in drive_labels), " & "),
-        " \\\\\n", join(rig_rule.(starts)))
+function drive_header(first_column, rigs)
+    starts = first_column .+ length(rigs) .* (0:(length(drive_labels) - 1))
+    return string(join((rig_group(label, rigs) for (_, label) in drive_labels), " & "),
+        " \\\\\n", join(rig_rule.(starts, Ref(rigs))))
 end
 
-"header cell `title` over one column per rig"
-rig_group(title) = "\\multicolumn{$(length(rig_names))}{c}{$title}"
+"header cell `title` over one column per rig of `rigs`"
+rig_group(title, rigs) = "\\multicolumn{$(length(rigs))}{c}{$title}"
 
-"rule under one column per rig, from table column `start`"
-rig_rule(start) = "\\cmidrule(lr){$start-$(start + length(rig_names) - 1)}"
+"rule under one column per rig of `rigs`, from table column `start`"
+rig_rule(start, rigs) = "\\cmidrule(lr){$start-$(start + length(rigs) - 1)}"
 
-"header cells of the rigs of every drive group"
-rig_header() = string(join(repeat(collect(rig_names), length(drive_labels)), " & "),
-    " \\\\")
+"header cells of `rigs` in every drive group"
+rig_header(rigs) = string(join(repeat(collect(rigs), length(drive_labels)), " & "), " \\\\")
 
 """
     mean_savings(table, columns, classes, drive, rig; routes=unique(table["route"]))
@@ -1164,26 +1176,29 @@ where the rig does not pay back within its life.
 """
 function payback_table()
     table = read_table(data_file("classes.csv"))
+    rigs = last.(study_rigs(table))
     medians = Dict(class => [median_payback([payback_years(table, class, drive, route, rig)
                                              for route in unique(table["route"])])
-                             for (drive, _) in drive_labels for rig in rig_names]
+                             for (drive, _) in drive_labels for rig in rigs]
                    for class in class_order(table))
     scale = column_scale(1 ./ reduce(vcat, values(medians)))
     write_whole(joinpath(sections, "payback_table.tex")) do io
-        columns = length(rig_names) * length(drive_labels)
-        println(io, "\\begin{tabular}{@{}l", "r"^columns, "}")
-        println(io, "\\toprule\n & ", drive_header(2))
-        println(io, "Class & ", rig_header())
+        println(io, "\\begin{tabular}{@{}l", "r"^(length(rigs) * length(drive_labels)), "}")
+        println(io, "\\toprule\n & ", drive_header(2, rigs))
+        println(io, "Class & ", rig_header(rigs))
         println(io, "\\midrule")
         for class in class_order(table)
-            cells = [shaded_cell(1 / years, scale; shown=payback_shown(years),
-                         format=payback_shown(years) < 2 ? "%.1f" : "%.0f")
-                     for years in medians[class]]
+            cells = [payback_cell(years, scale) for years in medians[class]]
             println(io, latex_escape(class), " & ", join(cells, " & "), " \\\\")
         end
         println(io, "\\bottomrule\n\\end{tabular}")
     end
 end
+
+"table cell of payback `years`, shaded on `scale`; a stale marker where it is unpriced"
+payback_cell(years, scale) = isnan(years) ? "\\stale{classes}{}" :
+    shaded_cell(1 / years, scale; shown=payback_shown(years),
+        format=payback_shown(years) < 2 ? "%.1f" : "%.0f")
 
 "payback `years` as the table gives it: to the half year below two years, else whole"
 payback_shown(years) = years < 2 ? round(2years) / 2 : round(years)
@@ -1199,16 +1214,17 @@ function payback_numbers(table)
                 payback_text([median_payback([payback_years(table, class, drive, route, rig)
                                               for route in unique(table["route"])])
                               for class in class_order(table)])
-            for (drive, word) in drive_words for rig in rig_names]
+            for (drive, word) in drive_words for (_, rig) in study_rigs(table)]
 end
 
 """
     payback_text(years)
 
 Text of the range of payback `years` that are finite, and of how many classes never pay
-back where some do not.
+back where some do not; a stale marker where one is unpriced (`NaN`).
 """
 function payback_text(years)
+    any(isnan, years) && return "\\stale{classes}{}"
     never = count(isinf, years)
     never == length(years) && return "never"
     text = value_range(filter(isfinite, years), two_digits) * " years"
@@ -1218,9 +1234,10 @@ end
 """
     median_payback(years)
 
-Median of the payback `years` over the routes, `Inf` when the median rig never pays back.
+Median of the payback `years` over the routes, `Inf` when the median rig never pays back,
+`NaN` where one is unpriced.
 """
-median_payback(years) = sort(years)[cld(length(years), 2)]
+median_payback(years) = any(isnan, years) ? NaN : sort(years)[cld(length(years), 2)]
 
 """
     yearly_trips(table, row, route)
@@ -1247,14 +1264,17 @@ lifetime_inputs = Dict("kite" => :kite_lifetime, "wings" => :wing_lifetime,
 
 Years until the yearly cash saving of the cheapest size of `rig`, before its own capital
 charges and at the transport work of the rig ship, repays the rig's price at the
-discount rate; `Inf` where it never does within the rig's life.
+discount rate; `Inf` where it never does within the rig's life, `NaN` where today's model
+fits no such rig on the hull ([`rig_price`](@ref)).
 """
 function payback_years(table, class, drive, route, rig)
     bare = rows(table, "class" => class, "drive" => drive, "route" => route,
         "rig" => "none")
     best = cheapest_row(table, class, route, drive, rig)
     (isempty(bare) || isnothing(best)) && return Inf
-    price, ship = rig_price(table, best)
+    priced = rig_price(table, best)
+    isnothing(priced) && return NaN
+    price, ship = priced
     rate = assumptions[:discount_rate]
     lifetime = assumptions[lifetime_inputs[rig]]
     charges = WindShipOpt.capital_recovery(rate, lifetime) *
@@ -1271,12 +1291,14 @@ end
     rig_price(table, row)
 
 Price [USD] of the rig of `row` of class table `table`, the capital of its ship less that
-of the same ship without a rig, and that rig ship.
+of the same ship without a rig, and that rig ship; `nothing` where today's model fits the
+rig of `row` on no hull of its class.
 """
 function rig_price(table, row)
     class, drive = ship_classes()[table["class"][row]], Symbol(table["drive"][row])
     ship = Ship(ShipDesign(drive, class; rig_size(table["rig"][row], table["area"][row])...),
         assumptions)
+    isnothing(ship) && return nothing
     retractable = table["retractable"][row] == "true"
     bare = Ship(ShipDesign(drive, class), assumptions)
     price = ShipCosts(ship, assumptions; retractable).capital -
@@ -1332,37 +1354,46 @@ end
 """
     type_savings(table, drive)
 
-Each ship type of the [`fleet_cells`](@ref) of class table `table` on `drive`, with the
-yearly saving per ship of the best size of each rig on average over the type's ships, in
-cost [USD], as a share of the cost without a rig [%], in fuel [kg] and in CO2 [g], and
-its [`fleet_leaders`](@ref) on the cost share as its `leaders`.
+Each kind of ship of `ship_types`, its word and label, with the [`kind_savings`](@ref) of
+each rig in the class table `table` on `drive` over the kind's [`fleet_cells`](@ref) and
+the [`fleet_leaders`](@ref) of their shares as its `leaders`.
 """
 function type_savings(table, drive)
     classes = ship_classes()
     cells = fleet_cells(table, drive)
     savings = []
-    for type in sort(unique(classes[cell.class].type for cell in cells))
-        own = filter(cell -> classes[cell.class].type == type, cells)
-        rigs = Dict(rig => saving_per_ship(table, own, rig) for (_, rig) in study_rigs(table))
-        leaders = fleet_leaders(Dict(rig => saving.share for (rig, saving) in rigs), own,
-            [cell.bill for cell in own])
-        push!(savings, (; type, rigs, leaders))
+    for (word, label, types) in ship_types
+        own = filter(cell -> classes[cell.class].type in types, cells)
+        rigs = kind_savings(table, own)
+        leaders = fleet_leaders(Dict(rig => saving.share for (rig, saving) in rigs), own)
+        push!(savings, (; word, label, rigs, leaders))
     end
     return savings
+end
+
+"""
+    kind_savings(table, cells)
+
+Each rig of the class table `table` with its yearly [`saving_per_ship`](@ref) over fleet
+`cells` and its cost saving `share` [%], the mean over the cells of [`fleet_savings`](@ref).
+"""
+function kind_savings(table, cells)
+    shares = fleet_savings(cells)
+    return Dict(rig => (; saving_per_ship(table, cells, rig)..., share=shares[rig])
+                for (_, rig) in study_rigs(table))
 end
 
 """
     saving_per_ship(table, cells, rig)
 
 The [`cell_saving`](@ref) of `rig` summed over `cells` of class table `table`, per ship of
-those cells, with the cost saved as a `share` [%] of their cost without a rig.
+those cells: the cost `saved` [USD], `fuel` [kg] and `carbon` [g].
 """
 function saving_per_ship(table, cells, rig)
     (; saved, fuel, carbon) = mapreduce(cell -> cell_saving(table, cell, rig),
         (one, other) -> map(+, one, other), cells)
     ships = sum(cell.ships for cell in cells)
-    return (; saved=saved / ships, share=100saved / sum(cell.bill for cell in cells),
-        fuel=fuel / ships, carbon=carbon / ships)
+    return (; saved=saved / ships, fuel=fuel / ships, carbon=carbon / ships)
 end
 
 """
@@ -1428,7 +1459,7 @@ function market_table()
     table = class_table()
     write_type_savings(table)
     markets = Dict(drive => cell_markets(table, drive) for (drive, _) in drive_labels)
-    write_market_sales(markets)
+    write_market_sales(markets, last.(study_rigs(table)))
     write_market_types(markets)
 end
 
@@ -1456,16 +1487,16 @@ function write_type_savings(table)
     write_whole(joinpath(sections, "type_saving_table.tex")) do io
         println(io, "\\begin{tabular}{@{}lll", "r"^length(measures), "@{}}\n\\toprule")
         table_header(io, ["Fuel", "Ship type", "Rig"], type_saving_columns, measures)
-        for (drive, label) in drive_labels
+        for (drive, drive_label) in drive_labels
             println(io, "\\midrule")
-            for (k, (; type, rigs, leaders)) in enumerate(type_savings(table, drive))
+            for (k, (; label, rigs, leaders)) in enumerate(type_savings(table, drive))
                 k > 1 && println(io, "\\addlinespace")
                 for (j, (_, rig)) in enumerate(study_rigs(table))
                     cells = [text(scale * rigs[rig][measure])
                         for (measure, (scale, _, _, text)) in pairs(type_saving_columns)]
                     name = rig in leaders ? "\\textbf{$rig}" : rig
-                    println(io, k == j == 1 ? label : "", " & ", j == 1 ? type : "", " & ",
-                        name, " & ", join(cells, " & "), " \\\\")
+                    println(io, k == j == 1 ? drive_label : "", " & ", j == 1 ? label : "",
+                        " & ", name, " & ", join(cells, " & "), " \\\\")
                 end
             end
         end
@@ -1474,13 +1505,13 @@ function write_type_savings(table)
 end
 
 """
-    write_market_sales(markets)
+    write_market_sales(markets, rigs)
 
 Tabular of the ships, rig units, rig area and sales of the [`fleet_market`](@ref) of each
-rig and the best rig over the [`cell_markets`](@ref) `markets` of each drive:
+of `rigs` and the best rig over the [`cell_markets`](@ref) `markets` of each drive:
 market_sales_table.tex.
 """
-function write_market_sales(markets)
+function write_market_sales(markets, rigs)
     measures = (:ships, :units, :area, :sales)
     write_whole(joinpath(sections, "market_sales_table.tex")) do io
         println(io, "\\begin{tabular}{@{}ll", "r"^length(measures), "@{}}\n\\toprule")
@@ -1488,7 +1519,7 @@ function write_market_sales(markets)
         for (drive, label) in drive_labels
             market = fleet_market(markets[drive])
             println(io, "\\midrule")
-            for (k, rig) in enumerate((rig_names..., "any"))
+            for (k, rig) in enumerate((rigs..., "any"))
                 cells = [market_range(market[rig], measure) for measure in measures]
                 println(io, k == 1 ? label : "", " & ", rig == "any" ? "best rig" : rig,
                     " & ", join(cells, " & "), " \\\\")
@@ -1683,9 +1714,9 @@ function speed_terms_table()
         ("cost", "speed set by cost")]
     write_whole(joinpath(sections, "speed_terms_table.tex")) do io
         println(io, "\\begin{tabular}{@{}ll", "r"^2length(rig_names), "}\n\\toprule")
-        println(io, " & & ", rig_group("Fuel saved [\\%]"), " & ",
-            rig_group("Time saved [\\%]"), " \\\\")
-        println(io, rig_rule(3), rig_rule(3 + length(rig_names)))
+        println(io, " & & ", rig_group("Fuel saved [\\%]", rig_names), " & ",
+            rig_group("Time saved [\\%]", rig_names), " \\\\")
+        println(io, rig_rule(3, rig_names), rig_rule(3 + length(rig_names), rig_names))
         println(io, "Drive & Terms & ", join([rig_names...; rig_names...], " & "), " \\\\")
         println(io, "\\midrule")
         lines = [(drive_label, label, speed_term_savings(table, drive, terms, "fuel"),
@@ -1737,10 +1768,10 @@ function routing_value_table()
     end
     write_whole(joinpath(sections, "routing_value_table.tex")) do io
         println(io, "\\begin{tabular}{@{}lllr", "r"^length(rig_names), "@{}}\n\\toprule")
-        println(io, " & & & & ", rig_group("Rig saves [\\%] against"), " \\\\")
-        println(io, " & & Shortest route & Routing & ", rig_group("routed / unrouted"),
-            " \\\\")
-        println(io, rig_rule(5))
+        println(io, " & & & & ", rig_group("Rig saves [\\%] against", rig_names), " \\\\")
+        println(io, " & & Shortest route & Routing & ",
+            rig_group("routed / unrouted", rig_names), " \\\\")
+        println(io, rig_rule(5, rig_names))
         println(io, "Ship & Drive & at [kn] & saves [\\%] & ", join(rig_names, " & "),
             " \\\\")
         println(io, "\\midrule")
@@ -2492,9 +2523,10 @@ class_saving(table, column, class, drive, rig) =
     fleet_share_numbers(table)
 
 Name and text, per drive of the class table `table`, of each band's share [%] of the
-yearly cost of carrying the fleet's cargo, the total of that cost [billion USD] and the
-tank-to-wake CO2 that carrying it without a rig emits [million t a year], and the shares
-of the IMO transport work and of shipping's CO2 the classes carry.
+yearly cost of carrying the fleet's cargo, a stale marker for a rig the class study does
+not hold, the total of that cost [billion USD] and the tank-to-wake CO2 that carrying it
+without a rig emits [million t a year], and the shares of the IMO transport work and of
+shipping's CO2 in the IMO inventory the classes' size bins carry.
 """
 function fleet_share_numbers(table)
     numbers = Pair{String, String}[]
@@ -2506,8 +2538,9 @@ function fleet_share_numbers(table)
         push!(numbers, "FleetBill$word" => whole_number(bill / 1e9),
             "FleetEmitted$word" => two_digits(1e-12emitted))
         for band in fleet_bands
-            name = word * uppercasefirst(band)
-            push!(numbers, "FleetShare$name" => whole_number(100split[band].bill / bill))
+            unrun = band in rig_names && band ∉ last.(study_rigs(table))
+            share = unrun ? "\\stale{classes}{}" : whole_number(100split[band].bill / bill)
+            push!(numbers, "FleetShare$(word)$(uppercasefirst(band))" => share)
         end
     end
     _, work_share = fleet_work()
@@ -2556,14 +2589,12 @@ VLSFO.
 """
 function type_saving_numbers(table)
     numbers = Pair{String, String}[]
-    losing = [type for (; type, rigs) in type_savings(table, "vlsfo")
+    losing = [lowercase(label) for (; label, rigs) in type_savings(table, "vlsfo")
               if rigs["wings"].share < 0]
-    push!(numbers, "WingsLossTypesOil" =>
-        isempty(losing) ? "no ship type" : listed(losing) * " ships")
-    for (drive, word) in drive_words, (; type, rigs) in type_savings(table, drive)
-        type_word = join(uppercasefirst.(split(type)))
+    push!(numbers, "WingsLossTypesOil" => isempty(losing) ? "no ship type" : listed(losing))
+    for (drive, drive_word) in drive_words, (; word, rigs) in type_savings(table, drive)
         for (_, rig) in study_rigs(table)
-            name = string("TypeSaving", word, type_word, uppercasefirst(rig))
+            name = string("TypeSaving", drive_word, word, uppercasefirst(rig))
             (; saved, share, carbon) = rigs[rig]
             push!(numbers, "$(name)Cost" => two_digits(1e-6saved),
                 "$(name)Share" => whole_number(share),
@@ -2733,8 +2764,8 @@ end
     rig_lead_rows(table)
 
 For each of `ship_types` and drive of the class table `table`: its words and label, its
-name in the text among `ship_places`, the [`rig_lead`](@ref), each rig's
-[`saving_per_ship`](@ref) as `per_ship`, and the canopy life [h] and kites lost a year of
+name in the text among `ship_places`, the [`rig_lead`](@ref), its [`kind_savings`](@ref)
+as `per_ship`, and the canopy life [h] and kites lost a year of
 [`kite_limits`](@ref).
 """
 function rig_lead_rows(table)
@@ -2744,8 +2775,7 @@ function rig_lead_rows(table)
                 names = [name for name in class_order(table) if classes[name].type in types]
                 own = filter(cell -> cell.class in names, cells[drive])
                 lead = rig_lead(own)
-                per_ship = Dict(rig => saving_per_ship(table, own, rig)
-                                for (_, rig) in study_rigs(table))
+                per_ship = kind_savings(table, own)
                 (; word, label, name=lowercase(label), where=ship_places, drive,
                     drive_word, lead..., per_ship,
                     kite_limits(table, names, drive, lead.kite_lead)...)
