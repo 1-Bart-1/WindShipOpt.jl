@@ -5074,6 +5074,23 @@ end
     @test split["rotors"].bill == split["wings"].bill == 0
 end
 
+@testset "a rig is shown where it leads or is level, else given with its best and gap" begin
+    rigs(kite, wings, rotors, suction, lei) = Dict("kite" => kite, "wings" => wings,
+        "rotors" => rotors, "suction" => suction, "lei" => lei)
+    cells = [fleet_cell(1.0, rigs(10.0, 3.0, 4.0, 1.0, 2.0)),
+        fleet_cell(1.0, rigs(5.0, 5.5, 6.0, 1.0, 1.0)),
+        fleet_cell(1.0, rigs(0.0, 2.0, 6.0, 5.5, -1.0), Dict("suction" => 2.0))]
+    @test PaperData.shown_rigs(cells) == ["kite", "rotors", "suction"]
+    @test PaperData.trailing_rigs(cells) ==
+          [(rig="wings", saving=5.5, gap=0.5), (rig="lei", saving=2.0, gap=5.0)]
+    @test PaperData.trailing_summary(cells) ==
+          "The wing sails and the LEI kite trail the leader on every class, route and fuel"
+    @test startswith(PaperData.trailing_text(cells), "The wing sails save at most 6\\,\\% \
+        of the cost and come no closer to the best rig than 1 point: ")
+    @test occursin("The LEI kite saves at most 2\\,\\% of the cost and comes no closer to \
+        the best rig than 5 points: ", PaperData.trailing_text(cells))
+end
+
 "rig lead row of the made-up outcome of `rig` against `rival` on ship type `word`"
 function lead_row(word, drive, verdict, margin, rig="kite", rival="rotors")
     label = only(label for (type, label, _) in PaperData.ship_types if type == word)
