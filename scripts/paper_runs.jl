@@ -897,14 +897,6 @@ function write_cases(run, name, made)
 end
 
 """
-    trip_seconds(case, departures)
-
-Seconds [s] the round trip of `case` over `departures` in the case store took to compute.
-"""
-trip_seconds(case, departures) =
-    stored_entry(case_directory(case, departures), case).seconds
-
-"""
     step_reasons(entry, code)
 
 Why the step of run-record `entry` is out of date against the code `code` it would run now

@@ -314,6 +314,19 @@ const FORECAST_INTERVAL = 6.0
 const LONGEST_HOLD = 72.0
 
 """
+hours past its re-plan interval within which a ship sailing live computes the
+[`CostToGo`](@ref) of each plan on its forecast, reading it beyond them from that of the
+plan before [h]
+"""
+const TO_GO_NEAR_HOURS = 72.0
+
+"time between the choices of speed and kite of a ship sailing live [h]"
+const LIVE_STEP_HOURS = 1.0
+
+"speeds a ship sailing live skips between those it weighs, plus one"
+const LIVE_SPEED_STRIDE = 4
+
+"""
     MetWeather(known, weather, lat, lon, time)
 
 What a ship at (`lat`, `lon`) at `time` [h] expects along its next edge: the forecast
@@ -382,10 +395,6 @@ Base.@kwdef struct RouterSettings
     search_speed_stride::Int = 8
     "time between the knots of the [`CostToGo`](@ref) [h]"
     to_go_step::Float64 = 24.0
-    "hours past its re-plan interval within which a ship sailing live computes the
-    [`CostToGo`](@ref) of each plan on its forecast, reading it beyond them from that of
-    the plan before [h]; `Inf` computes it all"
-    to_go_near_hours::Float64 = 72.0
     "length of the time bins of the final pass along the path found [h]"
     final_time_step::Float64 = 0.25
     "`final_time_step` of a plan that weighs the wind error of its forecast [h]"
@@ -404,10 +413,6 @@ Base.@kwdef struct RouterSettings
     row_doubling_ratio::Float64 = 2.0
     "longest time between the weather samples along an edge beyond `near_distance` [h]"
     far_sample_hours::Float64 = 6.0
-    "time between the choices of speed and kite of a ship sailing live [h]"
-    live_step_hours::Float64 = 1.0
-    "speeds a ship sailing live skips between those it weighs, plus one"
-    live_speed_stride::Int = 4
 end
 
 "[`RouterSettings`](@ref) in force, in every task"
@@ -2397,8 +2402,8 @@ const LiveStep = @NamedTuple{point::SailedPoint, aloft::Bool, share::Float64}
 
 Sail `edge` (`stage`, `lateral`, `step` to node `next` of `corridor`, left with the kite
 `aloft` at `time` [h], with the plan's `speed` [m/s]) in the real `weather` as a ship
-deciding every `live_step_hours` on the weather it meets: at each step's start it holds the
-speed and kite state, over every `live_speed_stride`-th speed and the plan's, whose
+deciding every `LIVE_STEP_HOURS` on the weather it meets: at each step's start it holds the
+speed and kite state, over every `LIVE_SPEED_STRIDE`-th speed and the plan's, whose
 objective over the step in the weather met, plus the rest of the edge at that speed in the
 [`MetWeather`](@ref) of `known` and the cost beyond `next` by the [`NodeToGo`](@ref)
 `beyond` is least ([`rest_of_edge`](@ref)). Where no speed holds over the step and the
@@ -2411,9 +2416,8 @@ can be held at the edge's start, and `nothing` after holding `LONGEST_HOLD` on t
 function sail_live_edge!(steps, points, table::RouteTable, weather, known, beyond,
         corridor, edge, prices)
     (; stage, lateral, step, next, time) = edge
-    (; live_step_hours, live_speed_stride) = ROUTER_SETTINGS[]
     speeds = sort(unique([searchsortedfirst(table.speeds, edge.speed);
-        commanded_speeds(length(table.speeds), live_speed_stride)]))
+        commanded_speeds(length(table.speeds), LIVE_SPEED_STRIDE)]))
     edge_length = corridor.edge_length[stage, lateral, step]
     idle = fuel_power(table.table.ship.powertrain, 0.0)
     share, hours, held, aloft = 0.0, 0.0, 0.0, edge.aloft
@@ -2426,12 +2430,12 @@ function sail_live_edge!(steps, points, table::RouteTable, weather, known, beyon
         met = MetWeather(known, weather, edge_point(corridor, stage, lateral, next,
                 share)..., now)
         before = aloft ? (NO_TALLY, tally) : (tally, NO_TALLY)
-        hold = SailedPoint(sample, 0, Inf, idle, live_step_hours, now, 0.0)
+        hold = SailedPoint(sample, 0, Inf, idle, LIVE_STEP_HOURS, now, 0.0)
         best = (; value=Inf, tally=first(kite_step(table, hold, before..., prices)),
             point=hold, aloft=false, after=share)
         for speed_index in speeds
             point, after = live_point(table, sample, speed_index, aloft, share, edge_length,
-                live_step_hours, now)
+                LIVE_STEP_HOURS, now)
             point.speed_index == 0 && continue
             down, up = kite_step(table, point, before..., prices)
             for (way, ends_aloft) in ((down, false), (up, true))
@@ -2446,7 +2450,7 @@ function sail_live_edge!(steps, points, table::RouteTable, weather, known, beyon
         if !isfinite(best.value)
             share == 0 && return Inf, NO_TALLY, aloft
             held >= LONGEST_HOLD && return nothing
-            held += live_step_hours
+            held += LIVE_STEP_HOURS
         end
         push!(steps, (; point=best.point, aloft=best.aloft, share))
         tally, aloft, share = best.tally, best.aloft, best.after
@@ -2557,7 +2561,7 @@ function forecast_route(corridor::Corridor, table::RouteTable, weather, departur
         to_go = blocked || !live ? nothing :
                 remaining_cost(corridor, table, known, departure + time, prices;
             first_stage=stage, previous=to_go,
-            near_hours=replanned.interval + ROUTER_SETTINGS[].to_go_near_hours)
+            near_hours=replanned.interval + TO_GO_NEAR_HOURS)
         reached = 1
         for i in 2:plan_end
             next_lat, next_lon, _, planned_speed, _ = plan.path[i]
