@@ -316,7 +316,7 @@ function scaled(names, factor)
 end
 
 "inputs of the situation study that stand for a factor on several assumptions at once"
-scaled_inputs = Dict(:wing_price => (:wing_unit_cost, :wing_cost_per_area))
+scaled_inputs = Dict(:wing_price => (:wing_unit_cost, :wing_cost_per_mass))
 
 """
     situation_assumptions(input, value)
@@ -1986,8 +1986,8 @@ only these is recosted on the routes of its design at the base inputs
 """
 cost_only_inputs = Set([WindShipOpt.canopy_price_inputs...; :canopy_life; :tether_price;
     :tether_lifetime; :kite_cycle_crew_cost; :kite_launch_loss_probability;
-    :kite_out_of_service; :wing_loss_rate; :rotor_loss_rate; :wing_cost_per_area;
-    :suction_cost_per_mass; :rotor_cost_per_area; :market_price_factor; :kite_lifetime;
+    :kite_out_of_service; :wing_loss_rate; :rotor_loss_rate; :wing_cost_per_mass;
+    :suction_fan_cost_per_power; :rotor_cost_per_area; :market_price_factor; :kite_lifetime;
     :wing_lifetime; :rotor_lifetime; :suction_lifetime; :discount_rate; :cargo_value])
 
 "names of the inputs `inputs` holds at another value than the base assumptions"
