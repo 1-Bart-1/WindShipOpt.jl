@@ -1427,10 +1427,11 @@ end
     end
     @test WindShipOpt.launch_mast_position(hull, assumptions) ≈
           (0.5 - assumptions[:bow_mast_position]) * megamax.length
-    @test WindShipOpt.CargoHold(Ship(ShipDesign(:vlsfo, megamax; kite_area=1000.0),
-        assumptions), assumptions).slots == megamax.unit_capacity
-    @test_throws ArgumentError Ship(ShipDesign(:vlsfo, megamax; kite_area=1000.0,
-        rotor_area=400.0), assumptions)
+    for design in (ShipDesign(:vlsfo, megamax; kite_area=1000.0),
+        ShipDesign(:vlsfo, megamax; kite_area=1000.0, rotor_area=400.0))
+        @test WindShipOpt.CargoHold(Ship(design, assumptions), assumptions).slots ==
+              megamax.unit_capacity
+    end
 end
 
 # By hand: 5 degrees seen from 0.31 L aft of the bow by a unit 0.06 L aft of it, L = 398 m.
