@@ -758,12 +758,12 @@ rigid_aspect_ratio:
   source: "@echeverri2020part1 [Part I, Table 2]: Makani's MX2 design"
   reason: "MX2 design: 26 m span on 54 m^2 (Echeverri et al. 2020, Part I, Table 2)."
 rigid_mass:
-  value: 1852.0
+  value: 1854.0
   low: 891.0
   high: 3240.0
   unit: kg
-  source: "@echeverri2020part1 [Part I, Table 2]: MX2 design without tether"
-  reason: "Kite of the reference area with its propellers and drives, without its tether: 1852 kg for MX2 [@echeverri2020part1, Part I, Table 2]. Low bound, 16.5 kg/m^2: a structure at the lightest of built kites, half of 15 kg/m^2 [@aull2020, Tables 1-2] plus the spar caps, shear walls and hardpoints of Makani's build-up [@echeverri2020part2, Part II, pp.287-288], with propellers and drives at their lightest [@johnson2018, p.5] for the hover of the low bound of the hover power. High bound, 60 kg/m^2: a structure half above MX2's 1372 kg, as M600 overran its targets by 40 to 70 % [@echeverri2020part1, Part I, p.265], with heavier propellers and drives growing linearly with power."
+  source: "@echeverri2020part2 [Part II, pp.287-288]: MX2 build-up without tether"
+  reason: "Kite of the reference area with its propellers and drives, without its tether: 1854 kg for MX2 in Makani's build-up [@echeverri2020part2, Part II, pp.287-288]. Low bound, 16.5 kg/m^2: a structure at the lightest of built kites, half of 15 kg/m^2 [@aull2020, Tables 1-2] plus the spar caps, shear walls and hardpoints of Makani's build-up [@echeverri2020part2, Part II, pp.287-288], with propellers and drives at their lightest [@johnson2018, p.5] for the hover of the low bound of the hover power. High bound, 60 kg/m^2: a structure half above MX2's 1374 kg, as M600 overran its targets by 40 to 70 % [@echeverri2020part1, Part I, p.265], with heavier propellers and drives growing linearly with power."
 rigid_mass_exponent:
   value: 2.5
   low: 2.2
@@ -824,7 +824,7 @@ rigid_cost_per_mass:
   unit: USD/kg
   estimate: true
   source: "@joshi2025 [p. 702]; @bauer2018: composite structure and drives of MX2"
-  reason: "Airframe with its propellers and drives per kg, at a series of 50 or more without overhead or margin, which the market price factor adds: carbon composite structure EUR 250/kg and EUR 200/m^2 [@joshi2025, p.702], and drives at USD 0.10 per W of their rating, two thirds of 0.15 $/W [@bauer2018, p.14], USD 522,000 on the 1852 kg of MX2; the two thirds are the authors' estimate. A wind turbine blade costs USD 8 and 31 per kg in material and manufacture [@aull2020, Table 3]."
+  reason: "Airframe with its propellers and drives per kg, at a series of 50 or more without overhead or margin, which the market price factor adds: carbon composite structure EUR 250/kg and EUR 200/m^2 [@joshi2025, p.702], and drives at USD 0.10 per W of their rating, two thirds of 0.15 $/W [@bauer2018, p.14], USD 524,000 on the 1854 kg of MX2; the two thirds are the authors' estimate. A wind turbine blade costs USD 8 and 31 per kg in material and manufacture [@aull2020, Table 3]."
 rigid_avionics_cost:
   value: 174000.0
   low: 17400.0

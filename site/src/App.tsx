@@ -10,7 +10,7 @@ import {
   evaluated,
   inputValues,
   outcomes,
-  rigs,
+  shownRigs,
   type ExplorerData,
   type Outcome,
 } from "./explorer";
@@ -96,7 +96,7 @@ function Explorer({ data }: { data: ExplorerData }) {
           options={drives.map((name) => [name, driveLabels[name]])} />
       </section>
 
-      <Results best={best} drive={drive} />
+      <Results best={best} drive={drive} rigs={shownRigs(data)} />
 
       <section className="space-y-4" aria-label="Inputs">
         <div className="sticky top-0 z-20 -mx-2 flex flex-wrap items-center gap-x-4 gap-y-2 bg-paper px-2 py-2">
@@ -205,7 +205,7 @@ function Slider(props: {
   );
 }
 
-function Results({ best, drive }: { best: Map<string, Outcome>; drive: string }) {
+function Results({ best, drive, rigs }: { best: Map<string, Outcome>; drive: string; rigs: readonly string[] }) {
   const winner = bestRig(best);
   const bare = best.get("none");
   const ownFuel = drive !== "ammonia" && drive !== "vlsfo";
