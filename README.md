@@ -43,7 +43,7 @@ bin/cluster submit final        # or: bin/cluster submit draft
 bin/cluster status
 ```
 
-The setup can be rerun and resumes where it stopped; it ends by checking every weather file against the box's and names any that differ. Jobs go to the research account `research-ae-fpt` set in `scripts/cluster.toml`, which allows up to 64 jobs at once; the run uses 16 of 24 hours each and resumes by itself past that. `/scratch` is cleared of old files, so copy `output/` home after a run, and run `bin/weather` before a run that comes months after the setup. [`docs/paper_runs.md`](docs/paper_runs.md#runs-on-a-slurm-cluster) has the detail.
+The setup can be rerun and resumes where it stopped; it ends by checking every weather file against the box's and names any that differ. Jobs go to the research account `research-ae-fpt` set in `scripts/cluster.toml`, which allows up to 64 jobs at once; the run uses all 64, of 6 hours each, and resumes by itself past that. `/scratch` is cleared of old files, so copy `output/` home after a run, and run `bin/weather` before a run that comes months after the setup. [`docs/paper_runs.md`](docs/paper_runs.md#runs-on-a-slurm-cluster) has the detail.
 
 To try the model on one ship without the paper: `./bin/run_julia scripts/compare_designs.jl`.
 

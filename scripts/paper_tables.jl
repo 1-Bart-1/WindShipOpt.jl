@@ -165,30 +165,27 @@ latex_number(value) = string("\\num{", isinteger(value) && abs(value) < 1e6 ? In
 """
     input_tables()
 
-Write [`ranged_inputs`](@ref) to paper/sections/input_tables.tex as one longtable with
-value, range, unit and source.
+Write every input, sorted by name, to paper/sections/input_tables.tex as one longtable
+with value, range, unit and source.
 """
 function input_tables()
     ragged = ">{\\raggedright\\arraybackslash}"
     write_whole(joinpath(sections, "input_tables.tex")) do io
         println(io, "\\begin{longtable}{@{}", ragged, "p{3.4cm}rr", ragged, "p{1.4cm}",
             ragged, "p{5.8cm}@{}}")
-        println(io, "\\caption{Every input with a range: its base value, range, unit and ",
-            "source, with the appendix that derives it where one does. The published ",
+        println(io, "\\caption{Every input: its base value, its range where data give ",
+            "one, unit and source, with the appendix that derives it where one does. ",
+            "\\textsuperscript{e}~The authors' estimate, with no range. The published ",
             "code gives the full reasoning behind each value.}\n\\label{tab:inputs}\\\\")
         println(io, input_header, "\n\\endfirsthead")
         println(io, "\\multicolumn{5}{@{}l}{\\cref{tab:inputs} (continued)}\\\\")
         println(io, input_header, "\n\\endhead\n\\bottomrule\n\\endfoot")
-        for (name, entry) in ranged_inputs()
+        for (name, entry) in sort!(collect(assumptions.entries); by=first)
             write_input_row(io, entry, name)
         end
         println(io, "\\end{longtable}")
     end
 end
-
-"every input with a range as (name, entry), sorted by name"
-ranged_inputs() = sort!([pair for pair in assumptions.entries
-                         if pair.second.low != pair.second.high]; by=first)
 
 "header row of the input table"
 input_header = "\\toprule\nInput & Value & Range & Unit & Source \\\\\n\\midrule"
@@ -250,17 +247,21 @@ input_derivations = Dict(
 """
     write_input_row(io, entry, name)
 
-One row of the input table: name, base value, range, unit and the source line, pointing to
-the appendix of [`input_derivations`](@ref) that derives it where one does.
+One row of the input table: name, base value marked where it is an estimate, range where
+it has one, unit and the source line, pointing to the appendix of
+[`input_derivations`](@ref) that derives it where one does.
 """
 function write_input_row(io, entry, name)
     unit = strip(entry.unit, '"')
     derivation = haskey(input_derivations, name) ?
                  string("; \\cref{", input_derivations[name], "}") : ""
+    range = entry.low == entry.high ? "" :
+            string(latex_number(entry.low), "--", latex_number(entry.high))
+    mark = entry.estimate ? "\\textsuperscript{e}" : ""
     println(io, latex_escape(uppercasefirst(input_label(name))), " & ",
-        latex_number(entry.value), " & ", latex_number(entry.low), "--",
-        latex_number(entry.high), " & ", unit == "-" ? "--" : latex_escape(unit), " & ",
-        cited_note(entry.source), derivation, " \\\\")
+        latex_number(entry.value), mark, " & ", range, " & ",
+        unit == "-" ? "--" : latex_escape(unit), " & ", cited_note(entry.source),
+        derivation, " \\\\")
 end
 
 """
@@ -353,8 +354,10 @@ function development_table()
             "of a rig's saving at the better end of the range and its loss at the worse ",
             "end, in percentage points, in cost per tonne-km on each ship and the largest ",
             "of each in CO\\textsubscript{2} per tonne-km over the ships; and why the input ",
-            "is in the study. Values are estimates, conditions or goals (g), to two ",
-            "digits, and the gains and losses model output, to a tenth of a point; ",
+            "is in the study. Each range comes from data, or for a goal (g) from what ",
+            "is known today; inputs that are the authors' estimates have no range and ",
+            "are not in the study. Values to two digits, and the gains and losses model ",
+            "output, to a tenth of a point; ",
             "\\cref{tab:goals} gives what is known today against each goal. ",
             "\\savingerror}\n",
             "\\label{tab:development}\\\\")
@@ -377,7 +380,7 @@ function development_table()
 end
 
 "the inputs of the development study that are development goals"
-goal_inputs = (:canopy_structure_cost, :canopy_life, :kite_out_of_service,
+goal_inputs = (:canopy_life, :kite_launch_loss_probability, :kite_out_of_service,
     :wing_out_of_service, :rotor_out_of_service, :suction_out_of_service)
 
 """
@@ -440,6 +443,9 @@ years(name) = string(@sprintf("%.0f years", assumptions[name]), " ", input_range
 "the range from `low` to `high` as estimates, in brackets"
 range_text(low, high) = string("(", estimate_text(low), " to ", estimate_text(high), ")")
 
+"whether the input `name` has a range"
+ranged_input(name) = assumptions.entries[name].low != assumptions.entries[name].high
+
 "the range of the input `name`, `scale` times its bounds as estimates, in brackets"
 input_range(name; scale=1) = range_text(scale * assumptions.entries[name].low,
     scale * assumptions.entries[name].high)
@@ -451,12 +457,13 @@ one_in_text(bound) = @sprintf("1 in \\num{%s}",
 """
     service_range()
 
-The ranges [%] of the out of service inputs of [`rig_names`](@ref): one for the rigs that
-share it, then each other rig's with its name.
+The ranges [%] of the out of service inputs of [`rig_names`](@ref) that have one: one for
+the rigs that share it, then each other rig's with its name.
 """
 function service_range()
+    ranged = filter(rig -> ranged_input(Symbol(out_of_service_inputs[rig])), rig_names)
     ranges = [rig => input_range(Symbol(out_of_service_inputs[rig]); scale=100)[2:(end - 1)]
-              for rig in rig_names]
+              for rig in ranged]
     common = argmax(range -> count(==(range), last.(ranges)), last.(ranges))
     others = ["$(rig_label(rig)) $range" for (rig, range) in ranges if range != common]
     return "(" * join([common; others], "; ") * ")"
@@ -473,9 +480,8 @@ function goal_rows()
     canopy = @sprintf("\\num{%.0f} h (\\numrange{%.0f}{%.0f}) at %.0f g/m\$^2\$",
         life.value, life.low, life.high, assumptions[:canopy_cloth_weight])
     service = @sprintf("%.0f\\,\\%% %s", 100out_of_service_goal(), service_range())
-    loss = "$(one_in_text(:value)) ($(one_in_text(:low)) to $(one_in_text(:high)))"
-    crew = string("USD~", estimate_text(assumptions[:kite_cycle_crew_cost]), " per cycle ",
-        input_range(:kite_cycle_crew_cost))
+    loss = one_in_text(:value)
+    crew = string("USD~", estimate_text(assumptions[:kite_cycle_crew_cost]), " per cycle")
     life_today = string("\\num{", estimate_text(life.today), "} h, our estimate: none ",
         "published for a ship kite; polyester sails last ", estimate_text(life.low), " to ",
         estimate_text(life.high), " h; small kites expected 100 to \\num{1000} h")
@@ -598,11 +604,8 @@ function missed_goal_rows()
             half_goal = assumptions[:canopy_life] / 2
             saving_short = rig == "kite" ?
                            percent_saving(curve_cost(life_curve, half_goal), bare) : NaN
-            dear = curve_cost(price_curve, canopy_price_at(:high))
-            saving_dear = rig == "kite" ? percent_saving(dear, bare) : NaN
             push!(result, (; size_limits(sizes, cheapest[rig], bare, rival, rival_cost)...,
-                saving_short,
-                saving_dear, service_points=percent_saving(curve[2][1], bare) -
+                saving_short, service_points=percent_saving(curve[2][1], bare) -
                                              percent_saving(goal[rig], bare),
                 life=(kite_life_at_cost(rig, life_curve, bare),
                     kite_life_at_cost(rig, life_curve, rival_cost)),
@@ -624,9 +627,8 @@ end
 
 Of the trip in `row` of the goal_sizes.csv `table`: ship, rig, area [m^2], cost saving [%],
 the `rival` rig and the points of saving [%] by which the rig leads it at `rival_cost`,
-cost of one crash [USD] and its range over the bounds of [`rig_price_inputs`](@ref), the
-crashes a year at which it stops paying for itself against the cost per tonne-km `bare`
-and comes level with its rival, and flight hours a year.
+cost of one crash [USD], the crashes a year at which it stops paying for itself against the
+cost per tonne-km `bare` and comes level with its rival, and flight hours a year.
 """
 function size_limits(table, row, bare, rival, rival_cost)
     ship, rig, area, cost = table["ship"][row], table["rig"][row], table["area"][row],
@@ -635,10 +637,8 @@ function size_limits(table, row, bare, rival, rival_cost)
         rig_size(rig, area)...)
     built = Ship(design, assumptions).rig
     crash = WindShipOpt.crash_cost(built, assumptions)
-    crash_range = [WindShipOpt.crash_cost(built,
-        at_bound(assumptions, rig_price_inputs[rig], bound)) for bound in (:low, :high)]
     work, trips = yearly_trips(table, row, table["route"][row])
-    return (; ship, rig, area, crash, crash_range, saving=percent_saving(cost, bare), rival,
+    return (; ship, rig, area, crash, saving=percent_saving(cost, bare), rival,
         lead=percent_saving(cost, bare) - percent_saving(rival_cost, bare),
         crashes=(crash_limit(cost, bare, work, crash),
             crash_limit(cost, rival_cost, work, crash)),
@@ -741,8 +741,8 @@ function missed_goals_table()
                      shaded_cell(row.saving, saving_scale); rig_label(row.rival);
                      shaded_cell(row.lead, lead_scale; format="\\(%+.1f\\)"); limits]
             println(io, join(cells, " & "), " \\\\")
-            @printf("%s, %s: %.1f %% at half the life goal, %.1f %% at the top price, ",
-                row.ship, rig_label(row.rig), row.saving_short, row.saving_dear)
+            @printf("%s, %s: %.1f %% at half the life goal, ", row.ship, rig_label(row.rig),
+                row.saving_short)
             @printf("outages cost %.2f points, passes the next up at %s h, USD %s, ",
                 row.service_points, dash_cell(row.passes, "%.0f"),
                 dash_cell(row.passes_price, "%.0f"))
@@ -767,8 +767,7 @@ function missed_goals_table()
             flight = row.rig == "kite" ? @sprintf("%.0f", row.flight_hours) : "--"
             crashes = [shaded_cell(sqrt(row.crashes[k]), sqrt(crash_scales[k]);
                            shown=row.crashes[k], format="%.2g") for k in 1:2]
-            crash = @sprintf("%s (%s--%s)",
-                estimate_text.([row.crash; row.crash_range] ./ 1e3)...)
+            crash = estimate_text(row.crash / 1e3)
             @printf(io, "%s & %s & %s & %s & %s & %s & %s & %s & %s \\\\\n",
                 short_ship(row.ship), rig_label(row.rig), estimate_text(row.area),
                 shaded_cell(row.saving, saving_scale), rig_label(row.rival), crash,
@@ -2143,27 +2142,25 @@ fidelity_parts() = [
         error="loss abreast from one wind-tunnel pair of rotors and potential flow of " *
               "four wing sails",
         effect=one_row()),
-    (part="Kite flight", varied="turn radius, aspect ratio, force limit",
+    (part="Kite flight", varied="turn radius, force limit",
         model="quasi-steady pattern with mass, flight and tether drag, searched for each " *
               "wind and course",
         error="glide ratio of 4 matched to flight data",
-        effect=varied_inputs(:kite_min_turn_radius, :kite_aspect_ratio,
-            :kite_max_force_per_area)),
-    (part="Kite launch and sea limits", varied="wind limits, extra launch wind in a sea",
+        effect=varied_inputs(:kite_min_turn_radius, :kite_max_force_per_area)),
+    (part="Kite launch and sea limits", varied="estimates, not varied",
         model="fixed wind limits for launch, flight and landing; launch wind raised with " *
               "the launch mast's motion in the sea",
         error="extra launch wind scaled on one reported pair of wind speeds",
-        effect=varied_inputs(:kite_weather_window)),
+        effect=nothing),
     (part="Wear and availability", varied="canopy life, out of service",
         model="canopy life per flight hour and flogging per launch; launch damage and " *
               "loss; time out of service for every rig",
         error="canopy life from polyester sails, not from towing kites",
         effect=varied_inputs(:canopy_life, :rig_out_of_service)),
-    (part="Rig prices", varied="prices per area",
+    (part="Rig prices", varied="estimates, not varied",
         model="price per area and per unit, installation, maintenance",
-        error="ranges of the quoted and built-up prices",
-        effect=varied_inputs(:canopy_structure_cost, :wing_cost_per_mass,
-            :rotor_cost_per_area, :suction_mass_per_area)),
+        error="built up from material and part prices, with no published spread",
+        effect=nothing),
     (part="Weather sample", varied="each year alone",
         model="ERA5 2017 to 2019, a departure every 6\\,h",
         error="three years against a climate", effect=weather_years()),
@@ -2395,8 +2392,6 @@ range, and the share of time out of service; of the
 function goal_numbers()
     return ["CanopyLifeGoal" => @sprintf("\\num{%.0f}", assumptions[:canopy_life]),
         "CanopyPrice" => estimate_text(reference_canopy_price(assumptions)),
-        "CanopyPriceLow" => estimate_text(canopy_price_at(:low)),
-        "CanopyPriceHigh" => estimate_text(canopy_price_at(:high)),
         "OutOfServiceGoal" => @sprintf("%.0f", 100out_of_service_goal()),
         "KiteGapBias" => @sprintf("%.1f", kite_gap_bias),
         ("DraftSpread" * uppercasefirst(string(part)) => one_decimal(spread)
