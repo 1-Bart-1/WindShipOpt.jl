@@ -12,7 +12,8 @@ from pathlib import Path
 RESULT_FILES = ("sections/abstract.tex", "sections/highlights.tex",
                 "sections/results.tex", "sections/certainty.tex",
                 "sections/discussion.tex", "sections/industry.tex",
-                "sections/conclusions.tex", "sections/trust.tex",
+                "sections/conclusions.tex", "sections/validation.tex",
+                "sections/convergence.tex",
                 "extended_abstract.tex")
 
 # Commands whose every argument holds no number of the text: markers, references,

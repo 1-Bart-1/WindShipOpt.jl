@@ -9,6 +9,7 @@ using Base.ScopedValues: ScopedValue, with
 using Dates
 using Serialization
 using TOML
+using YAML
 using WindShipOpt: inputs_read
 
 include("step_code.jl")
@@ -465,6 +466,64 @@ function check_final_commit()
 end
 
 """
+    run_steps(steps, outputs; fidelity, resume, only=nothing, source=nothing)
+
+Run `steps` at `fidelity` in a new or resumed run as [`paper`](@ref) does, or without a run,
+reading `source` first, when all of them are among the figure and table steps `outputs`. A step of `outputs` that
+fails leaves the steps after it to run; return the name of each such step with its error.
+"""
+function run_steps(steps, outputs; fidelity, resume, only=nothing, source=nothing)
+    haskey(fidelities, fidelity) || throw(ArgumentError("no fidelity $fidelity"))
+    outputs_only = all(in(outputs), first.(steps))
+    outputs_only || isnothing(source) ||
+        throw(ArgumentError("only figure and table steps read a source run"))
+    global paper_run = outputs_only ? PaperRun(fidelity; source) :
+                       open_run(fidelity, first.(steps), resume; only)
+    failed = Pair{Symbol, String}[]
+    for (name, step) in steps
+        if step_done(paper_run, name)
+            println("step ", name, " already done")
+        elseif name in outputs
+            why = drawing_error(() -> run_step!(paper_run, name, step))
+            isnothing(why) || push!(failed, name => why)
+        else
+            run_step!(paper_run, name, step)
+        end
+    end
+    finish_run!(paper_run, outputs)
+    return failed
+end
+
+"""
+    drawing_error(draw)
+
+Call `draw` and return the message of the error it raises, printed, or nothing; an
+interrupt is raised on.
+"""
+function drawing_error(draw)
+    try
+        draw()
+        return nothing
+    catch exception
+        exception isa InterruptException && rethrow()
+        why = sprint(showerror, exception)
+        println("  failed to draw: ", why)
+        return why
+    end
+end
+
+"""
+    check_drawn(failed)
+
+Raise an error listing each figure and table step of `failed` with why it failed to draw.
+"""
+function check_drawn(failed)
+    isempty(failed) && return
+    error("failed to draw, every other step done:\n",
+        join(("  $name: $why" for (name, why) in failed), "\n"))
+end
+
+"""
     open_run(fidelity, names, resume; only=nothing)
 
 The run to make steps `names` in: the latest unfinished run at `fidelity` on this git branch
@@ -615,13 +674,15 @@ function file_times(run)
 end
 
 """
-    finish_run!(run)
+    finish_run!(run, outputs)
 
-Mark `run` finished at the current time in its record, once every step asked of it is done.
+Mark `run` finished at the current time in its record, once every step asked of it but the
+figure and table steps `outputs` is done.
 """
-function finish_run!(run)
+function finish_run!(run, outputs)
     isnothing(run.directory) && return
-    all(name -> step_done(run, name), run.record["requested"]) || return
+    data = filter(name -> Symbol(name) ∉ outputs, run.record["requested"])
+    all(name -> step_done(run, name), data) || return
     run.record["finished"] = string(floor(now(), Second))
     write_record(run)
 end
@@ -815,9 +876,7 @@ function step_reasons(entry, code)
         push!(reasons, "the model changed: src/, data/, setup.jl or the packages")
     others = setdiff(changed, ["model"])
     isempty(others) || push!(reasons, "its code changed: " * join(others, ", "))
-    inputs = sort([name for (name, value) in entry["inputs"]
-                   if !haskey(assumptions.entries, Symbol(name)) ||
-                      assumptions[Symbol(name)] != value])
+    inputs = changed_inputs(entry)
     isempty(inputs) || push!(reasons, "inputs changed: " * join(inputs, ", "))
     for (file, read) in sort(collect(entry["reads"]); by=first)
         now_read = try
@@ -835,6 +894,43 @@ function step_reasons(entry, code)
     older > 0 && push!(reasons, "$older round trips kept from older code")
     return reasons
 end
+
+"""
+    changed_inputs(entry)
+
+Names of the inputs the step of run-record `entry` read at another base value than the
+assumptions now give, or that are no longer assumptions.
+"""
+changed_inputs(entry) = sort([name for (name, value) in entry["inputs"]
+                              if !haskey(assumptions.entries, Symbol(name)) ||
+                                 assumptions[Symbol(name)] != value])
+
+"""
+    moved_ranges(entry)
+
+Names of the inputs the step of run-record `entry` read whose range the assumptions now
+give differs from the one at the commit it ran on.
+"""
+function moved_ranges(entry)
+    then = YAML.load(git_output("show", entry["git_commit"] * ":data/assumptions.yaml"))
+    return sort([name for name in keys(entry["inputs"])
+                 if haskey(then, name) && range_moved(then[name], Symbol(name))])
+end
+
+"whether input `name` now has another range than `written` in data/assumptions.yaml gave"
+function range_moved(written, name)
+    haskey(assumptions, name) || return false
+    now, value = assumptions.entries[name], written["value"]
+    return (get(written, "low", value), get(written, "high", value)) != (now.low, now.high)
+end
+
+"""
+    data_step(name, step)
+
+The entry of step `step` in the record of the run whose data file `name` is read.
+"""
+data_step(name, step) = step_entry(
+    TOML.parsefile(joinpath(dirname(resolved_data_file(name)), "run.toml")), step)
 
 """
     step_location(name)

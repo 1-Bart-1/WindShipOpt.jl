@@ -10,6 +10,10 @@ Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 WindShipOpt = "af4f4564-3121-48a2-9343-5e03b1d5231d"
+YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
+
+[compat]
+YAML = "0.4"
 
 [sources]
 WindShipOpt = {path = ".."}

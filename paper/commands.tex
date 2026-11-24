@@ -46,4 +46,8 @@
 % \todaynum{name}: the number NumToday<name> of the today step or of its routing check, or a mark until they have run.
 \InputIfFileExists{sections/today_numbers}{}{}
 \InputIfFileExists{sections/today_routing_numbers}{}{}
+\InputIfFileExists{sections/measured_numbers}{}{}
 \newcommand{\todaynum}[1]{\ifcsname NumToday#1\endcsname\csname NumToday#1\endcsname\else\tbd{[today #1]}\fi}
+% \recostnum{name}: the number NumRecosting<name> of the recosting bias step, or a mark until it has run.
+\InputIfFileExists{sections/recosting_numbers}{}{}
+\newcommand{\recostnum}[1]{\ifcsname NumRecosting#1\endcsname\csname NumRecosting#1\endcsname\else\tbd{[recosting #1]}\fi}
