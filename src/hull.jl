@@ -62,6 +62,8 @@ Base.@kwdef struct Hull
     resistance_factor::Float64 = 1.0
     "factor on the side-force slope of [`side_force_slope`](@ref) under leeway [-]"
     side_force_factor::Float64 = 1.0
+    "cubic term of the side force under leeway over its linear term [1/rad^2]"
+    side_force_cubic::Float64 = 0.0
     "largest prismatic coefficient the Holtrop formulas are evaluated at [-]"
     max_prismatic::Float64 = 1.0
     "waterline length, on which the Holtrop formulas are evaluated [m]"
@@ -92,7 +94,7 @@ end
 Hull of the given main dimensions [m] and block coefficient on `length`, with the form
 ratios of the reference coaster, its centre of buoyancy [% of length] unless given, and
 the factor on its calm-water resistance, and the factor `hull_side_force_factor` on its
-side-force slope. Its form terms take `waterline_length` and stop at
+side-force slope and its cubic term `hull_side_force_cubic`. Its form terms take `waterline_length` and stop at
 the prismatic coefficient `holtrop_max_prismatic`, while its displacement stays that of
 `block`; `deck_cargo_height` [m] of containers stand on its deck, and its bridge front
 stands `bridge_distance` [m] aft of the bow.
@@ -110,6 +112,7 @@ function Hull(length, beam, draft, block, assumptions::Assumptions;
         waterplane_coefficient=0.763 * (prismatic + 0.34),
         centre_of_buoyancy, resistance_factor, max_prismatic,
         side_force_factor=assumptions[:hull_side_force_factor],
+        side_force_cubic=assumptions[:hull_side_force_cubic],
         bulb_area=assumptions[:bulb_area_ratio] * beam * draft * midship,
         bulb_height=assumptions[:bulb_height_ratio] * draft,
         appendage_area=assumptions[:appendage_area_ratio] * length * draft,
@@ -284,12 +287,15 @@ side_force_slope(hull::Hull) =
     π * hull.draft / hull.length + 1.4block_coefficient(hull) * hull.beam / hull.length
 
 """
-    lateral_centre(hull)
+    lateral_centre(hull, leeway=0)
 
-Distance [m] forward of midship at which the hull side force under leeway acts: the
-yaw-moment derivative N'_β = 2T/L of Kijima et al. (1990) over [`side_force_slope`](@ref).
+Distance [m] forward of midship at which the hull side force acts at `leeway` [rad]: the
+yaw-moment derivative N'_β = 2T/L of Kijima et al. (1990) over the side force per leeway,
+f Y'_β (1 + q β²).
 """
-lateral_centre(hull::Hull) = 2hull.draft / side_force_slope(hull)
+lateral_centre(hull::Hull, leeway=0.0) =
+    2hull.draft / (hull.side_force_factor * side_force_slope(hull) *
+     (1 + hull.side_force_cubic * leeway^2))
 
 """
     rudder_area(hull)
@@ -302,18 +308,48 @@ rudder_area(hull::Hull) =
     (1 + 50block_coefficient(hull)^2 * (hull.beam / hull.length)^2)
 
 """
-    leeway_drag(hull, env, speed, side_force)
+    side_force_coefficient(hull, leeway)
 
-Leeway angle [rad] and induced drag [N] needed for the hull to carry a side force [N],
-from the linear side-force slope times the hull's `side_force_factor`: the potential-flow
-share of the side force costs half of side force times leeway, as for a slender wing, and
-the cross-flow share all of it.
+Side force of `hull` at `leeway` [rad] on ½ρV²LT: f Y'_β (β + q β³), with f its
+`side_force_factor` and q its `side_force_cubic`.
 """
-function leeway_drag(hull::Hull, env::Environment, speed, side_force)
-    reference_force = 0.5env.water_density * speed^2 * hull.length * hull.draft *
-                      hull.side_force_factor * side_force_slope(hull)
-    leeway = side_force / reference_force
-    potential = π * hull.draft / hull.length
-    induced = (0.5potential + (side_force_slope(hull) - potential)) / side_force_slope(hull)
-    return leeway, induced * side_force * leeway
+side_force_coefficient(hull::Hull, leeway) =
+    hull.side_force_factor * side_force_slope(hull) *
+    (leeway + hull.side_force_cubic * leeway^3)
+
+"""
+    side_force_leeway(hull, coefficient)
+
+Leeway [rad] at which `hull` carries the side-force `coefficient` on ½ρV²LT: the inverse of
+[`side_force_coefficient`](@ref).
+"""
+function side_force_leeway(hull::Hull, coefficient)
+    slope = hull.side_force_factor * side_force_slope(hull)
+    return cubic_root(slope * hull.side_force_cubic, slope, coefficient)
+end
+
+"""
+    leeway_drag(hull, side_force, leeway)
+
+Induced drag [N] of `hull` carrying `side_force` [N] at `leeway` [rad]: the potential-flow
+part of the linear side force costs half of side force times leeway, as for a slender wing,
+and its cross-flow part and the cubic side force all of it.
+"""
+function leeway_drag(hull::Hull, side_force, leeway)
+    linear = 1 - 0.5π * hull.draft / hull.length / side_force_slope(hull)
+    cubic = hull.side_force_cubic * leeway^2
+    return abs(side_force * leeway) * (linear + cubic) / (1 + cubic)
+end
+
+"""
+    cubic_root(cubic, linear, constant)
+
+Real root x of cubic x³ + linear x = constant, for `cubic` >= 0 and `linear` > 0.
+"""
+function cubic_root(cubic, linear, constant)
+    cubic == 0 && return constant / linear
+    third = linear / 3cubic
+    half = abs(constant) / 2cubic
+    root = cbrt(half + sqrt(half^2 + third^3))
+    return copysign(root - third / root, constant)
 end

@@ -120,7 +120,8 @@ function push_trace_point!(trace, table::RouteTable, weather, departure, lat, lo
     push!(trace.rig_thrust, force.thrust)
     push!(trace.available_thrust, available)
     push!(trace.fuel_power, flown ? point.flown : point.stowed)
-    push!(trace.leeway, HullBalance(ship, speed, force + windage).leeway)
+    drag = resistance(ship.hull, ship.env, speed; coefficients=ship.wave_coefficients) + added
+    push!(trace.leeway, HullBalance(ship, speed, force + windage, drag).leeway)
     push!(trace.flying, flying)
     push!(trace.launched, launched)
     push!(trace.landed, landed)

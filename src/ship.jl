@@ -376,6 +376,8 @@ struct Ship{R}
     rudder_area::Float64
     "effective rudder aspect ratio including the hull mirror effect [-]"
     rudder_aspect_ratio::Float64
+    "wake fraction of the flow reaching the rudder [-]"
+    rudder_wake_fraction::Float64
     "highest rudder lift coefficient used to balance the rig [-]"
     rudder_max_lift::Float64
     "highest speed through the water [m/s]"
@@ -403,7 +405,8 @@ function Ship(design::ShipDesign, assumptions::Assumptions; route=nothing)
         SeakeepingHull(hull, assumptions), Propeller(design, hull, assumptions))
     other_parts = (drive.fuel, Windage(design, hull, assumptions), stiffness,
         deg2rad(assumptions[:heel_limit]), deg2rad(assumptions[:leeway_limit]),
-        rudder_area(hull), assumptions[:rudder_aspect_ratio], assumptions[:rudder_max_lift],
+        rudder_area(hull), assumptions[:rudder_aspect_ratio],
+        assumptions[:rudder_wake_fraction], assumptions[:rudder_max_lift],
         assumptions[:max_froude_number] * sqrt(env.gravity * hull.length))
     unlimited = Powertrain(; installed_power=Inf, unit_count=1, peak_efficiency=1.0,
         part_load_penalty=0.0, drive.transmission_efficiency, hotel_load)
@@ -426,7 +429,8 @@ end
 with_rig(ship::Ship, rig) = Ship(ship.design, ship.env, ship.hull, ship.wave_coefficients,
     ship.seakeeping, ship.propeller, ship.powertrain, rig, ship.fuel, ship.windage,
     ship.righting_stiffness, ship.heel_limit,
-    ship.leeway_limit, ship.rudder_area, ship.rudder_aspect_ratio, ship.rudder_max_lift,
+    ship.leeway_limit, ship.rudder_area, ship.rudder_aspect_ratio, ship.rudder_wake_fraction,
+    ship.rudder_max_lift,
     ship.max_speed)
 
 """
@@ -542,7 +546,8 @@ const KNOT = 1852 / 3600
 
 Steady response of hull and rudder to a rig force: heel [rad], leeway [rad], rudder lift
 coefficient [-], the side forces [N, to leeward] of the rudder at the stern and of the
-hull at its lateral centre, and the drag [N] of leeway and of the rudder.
+hull at its lateral centre [m forward of midship], the drag [N] of leeway and of the rudder,
+and the net forward force [N] the propeller makes.
 """
 struct HullBalance
     heel::Float64
@@ -550,60 +555,83 @@ struct HullBalance
     rudder_lift_coefficient::Float64
     rudder_side_force::Float64
     hull_side_force::Float64
+    lateral_centre::Float64
     leeway_drag::Float64
     rudder_drag::Float64
+    thrust::Float64
 end
 
 """
-    rudder_side_force(hull, force)
+    HullBalance(ship, speed, force, drag)
 
-Side force [N] of the rudder at the stern of `hull` that cancels the yaw moment of the rig
-`force` about the hull's lateral centre.
+Balance of the rig `force` at `speed` [m/s] with the hull's `drag` [N] before leeway and
+rudder: the hull carries [`side_force_coefficient`](@ref) at the leeway where it and the
+rudder at the stern cancel side force and yaw moment together, its yaw moment N'_β β ½ρV²L²T
+with N'_β = 2T/L (Kijima et al. 1990); the rudder works in its
+[`rudder_inflow`](@ref), and both act at half draft for the heel.
 """
-function rudder_side_force(hull::Hull, force::RigForce)
-    centre = lateral_centre(hull)
-    return (force.side * centre - force.yaw_moment) / (-hull.length / 2 - centre)
-end
-
-"""
-    HullBalance(ship, speed, force)
-
-Balance of the rig `force` at `speed` [m/s]: the rudder at the stern cancels the yaw
-moment about the hull's lateral centre, the hull carries the rest of the side force, and
-both act at half draft for the heel.
-"""
-function HullBalance(ship::Ship, speed, force::RigForce)
+function HullBalance(ship::Ship, speed, force::RigForce, drag)
     (; hull, env) = ship
-    rudder_force = rudder_side_force(hull, force)
+    pressure = 0.5env.water_density * speed^2
+    side_force = pressure * hull.length * hull.draft * hull.side_force_factor *
+                 side_force_slope(hull)
+    hull_moment = 2pressure * hull.length * hull.draft^2
+    load = -force.side - 2force.yaw_moment / hull.length
+    leeway = isfinite(side_force) ?
+             cubic_root(side_force * hull.side_force_cubic,
+        side_force + 2hull_moment / hull.length, load) : 0.0
+    rudder_force = 2(force.yaw_moment + hull_moment * leeway) / hull.length
     hull_force = -(force.side + rudder_force)
-    leeway, induced = leeway_drag(hull, env, speed, abs(hull_force))
-    rudder_load = 0.5env.water_density * speed^2 * ship.rudder_area
+    induced = leeway_drag(hull, hull_force, leeway)
+    inflow = rudder_inflow(ship, speed, drag + induced - force.thrust)
+    rudder_load = 0.5env.water_density * inflow^2 * ship.rudder_area
     rudder_drag = rudder_force^2 / (rudder_load * π * ship.rudder_aspect_ratio)
     heel = abs(force.heeling_moment + force.side * hull.draft / 2) / ship.righting_stiffness
-    return HullBalance(heel, leeway, abs(rudder_force) / rudder_load, rudder_force,
-        hull_force, induced, rudder_drag)
+    return HullBalance(heel, abs(leeway), abs(rudder_force) / rudder_load, rudder_force,
+        hull_force, lateral_centre(hull, leeway), induced, rudder_drag,
+        drag + induced + rudder_drag - force.thrust)
 end
 
 """
-    required_thrust(ship, speed, wind_10m, true_angle, force)
+    rudder_inflow(ship, speed, thrust)
 
-Net propeller thrust [N] the ship needs at `speed` with the rig delivering `force` and the
-wind on the ship's [`Windage`](@ref) balanced together, or `Inf` if the rig pushes the
-heel, leeway or rudder past its limit, or further past it than the wind on the ship
-alone.
+Inflow speed [m/s] at the rudder of `ship` at `speed` [m/s] while its propeller makes the
+net forward force `thrust` [N]: the speed in the rudder's wake, raised over the share of
+the rudder span behind the propeller as an actuator disk raises it at the disk (Kramer and
+Steen 2022b with κ = 1/2).
 """
-function required_thrust(ship::Ship, speed, wind_10m, true_angle, force::RigForce)
+function rudder_inflow(ship::Ship, speed, thrust)
+    (; propeller) = ship
+    load = PropellerLoad(propeller, ship.env, speed)
+    loading = max(thrust, 0.0) * load.thrust_factor * load.inverse_disk_load
+    rudder_span = sqrt(ship.rudder_aspect_ratio * ship.rudder_area)
+    behind = min(1.0, sqrt(4propeller.disk_area / π) / rudder_span)
+    speedup = (1 + sqrt(1 + loading)) / 2
+    return speed * (1 - ship.rudder_wake_fraction) * sqrt(behind * speedup^2 + 1 - behind)
+end
+
+"""
+    required_thrust(ship, speed, wind_10m, true_angle, force, added_resistance=0)
+
+Net propeller thrust [N] the ship needs at `speed` with the rig delivering `force`, the
+wind on the ship's [`Windage`](@ref) balanced together and `added_resistance` [N] of waves,
+or `Inf` if the rig pushes the heel, leeway or rudder past its limit, or further past it
+than the wind on the ship alone.
+"""
+function required_thrust(ship::Ship, speed, wind_10m, true_angle, force::RigForce,
+        added_resistance=0.0)
     hull_force = wind_force(ship.windage, ship.env, wind_10m, true_angle, speed)
-    balance = HullBalance(ship, speed, force + hull_force)
+    drag = resistance(ship.hull, ship.env, speed; coefficients=ship.wave_coefficients) +
+           added_resistance
+    balance = HullBalance(ship, speed, force + hull_force, drag)
     if force != NO_RIG_FORCE
-        alone = HullBalance(ship, speed, hull_force)
+        alone = HullBalance(ship, speed, hull_force, drag)
         balance.heel <= max(ship.heel_limit, alone.heel) &&
             balance.leeway <= max(ship.leeway_limit, alone.leeway) &&
             balance.rudder_lift_coefficient <=
             max(ship.rudder_max_lift, alone.rudder_lift_coefficient) || return Inf
     end
-    return resistance(ship.hull, ship.env, speed; coefficients=ship.wave_coefficients) +
-           balance.leeway_drag + balance.rudder_drag - force.thrust - hull_force.thrust
+    return balance.thrust
 end
 
 """
@@ -633,8 +661,8 @@ where the rig force exceeds the heel, leeway or rudder limit.
 function trim_point(output::TrimOutput, setting)
     (; ship, speed, wind_10m, true_angle) = output
     force = rig_force(output.rig, ship.env, wind_10m, true_angle, speed, setting)
-    thrust = required_thrust(ship, speed, wind_10m, true_angle, force) +
-             output.added_resistance
+    thrust = required_thrust(ship, speed, wind_10m, true_angle, force,
+        output.added_resistance)
     isfinite(thrust) || return (; output=Inf, thrust, force)
     engine = delivered_power(ship.propeller, ship.env, speed, thrust) /
              ship.powertrain.transmission_efficiency + force.power
@@ -703,8 +731,8 @@ the trim works against as well: a rig that has more thrust to give than calm wat
 keeps it for the waves.
 """
 best_trim(ship::Ship, ::Nothing, speed, wind_10m, true_angle, added_resistance=0.0) = (;
-    thrust=required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE) +
-           added_resistance, force=NO_RIG_FORCE, setting=nothing)
+    thrust=required_thrust(ship, speed, wind_10m, true_angle, NO_RIG_FORCE,
+        added_resistance), force=NO_RIG_FORCE, setting=nothing)
 
 function best_trim(ship::Ship, rig, speed, wind_10m, true_angle, added_resistance=0.0)
     output = TrimOutput(ship, rig, speed, wind_10m, true_angle, added_resistance)

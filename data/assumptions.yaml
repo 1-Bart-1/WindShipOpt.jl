@@ -172,12 +172,19 @@ leeway_limit:
   source: "@tillig2020: range of captive tests on wind-assisted hulls"
   reason: "Validity limit of the linear hull side-force model; captive tests on wind-assisted hulls cover 0-10 deg and ShipCLEAN reefs at 10 deg rudder angle [@tillig2020]."
 hull_side_force_factor:
-  value: 1.0
-  low: 0.5
+  value: 0.55
+  low: 0.32
   high: 1.0
   unit: "-"
-  source: "Kijima regression [@kim2021]; @vanderkolk2021: tank tests lower"
-  reason: "Factor on the side-force slope of the Kijima regression, fitted to merchant-ship models in calm water [@kim2021]. Towing-tank tests of 138 m wind-assisted hulls without a skeg, block coefficients 0.72 and 0.83, give 0.4-0.5 times it at 6-9 deg leeway [@vanderkolk2021, Table 3]; low-aspect-ratio wing fits to the same and other hulls also lie below such regressions [@tillig2020]."
+  source: "@toxopeus2011: NMRI tank tests of the KVLCC2M tanker; @vanderkolk2021 low; Kijima regression [@kim2021] high"
+  reason: "Factor on the side-force slope of the Kijima regression [@kim2021]. Fitting f Y'_b (b + q b^3) to the NMRI captive tests of the KVLCC2M tanker at 3-12 deg leeway [@toxopeus2011, pp. 54 and 155-156] gives 0.55 on its linear term; towing-tank fits of 138 m wind-assisted hulls without a skeg, block coefficients 0.72 and 0.83, give 0.32 and 0.37 [@vanderkolk2021, Table 3]; 1 is the regression itself."
+hull_side_force_cubic:
+  value: 11.0
+  low: 11.0
+  high: 15.0
+  unit: "1/rad^2"
+  source: "@toxopeus2011: NMRI tank tests of the KVLCC2M tanker; @vanderkolk2021 high"
+  reason: "Cubic term q of the hull side force f Y'_b (b + q b^3) over leeway b: the same fit to the KVLCC2M tests gives 11 [@toxopeus2011, pp. 155-156]; the fits of the two 138 m hulls give 15 [@vanderkolk2021, Table 3]."
 rudder_aspect_ratio:
   value: 1.6
   low: 1.4
@@ -191,6 +198,11 @@ rudder_max_lift:
   estimate: true
   source: "Authors' estimate: below stall, keeping some for steering"
   reason: "Authors' estimate: highest rudder lift coefficient spent on balancing the rig; free-stream rudder sections stall near 1.2-1.4 and some lift is kept for steering in waves."
+rudder_wake_fraction:
+  value: 0.19
+  unit: "-"
+  source: "@kramer2022: CFD of two wind-powered cargo ships"
+  reason: "Wake fraction of the flow reaching the rudder at no drift and no thrust, from CFD of two wind-powered cargo hulls [@kramer2022, sec. 4.1.3]."
 deck_mount_height:
   value: 4.0
   unit: m

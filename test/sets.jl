@@ -104,35 +104,62 @@ end
     @test beam > calm
     hull_force = WindShipOpt.wind_force(bare.windage, bare.env, 15.0, π / 2, 7.0)
     rig = RigForce(0.0, 2e5, 2e6, 0.0)
-    together = WindShipOpt.HullBalance(bare, 7.0, rig + hull_force)
-    @test together.leeway > WindShipOpt.HullBalance(bare, 7.0, rig).leeway
-    @test WindShipOpt.required_thrust(bare, 7.0, 15.0, π / 2, rig) ≈
-          WindShipOpt.resistance(bare.hull, bare.env, 7.0;
-              coefficients=bare.wave_coefficients) + together.leeway_drag +
-          together.rudder_drag - hull_force.thrust
+    calm_drag = WindShipOpt.resistance(bare.hull, bare.env, 7.0;
+        coefficients=bare.wave_coefficients)
+    together = WindShipOpt.HullBalance(bare, 7.0, rig + hull_force, calm_drag)
+    @test together.leeway > WindShipOpt.HullBalance(bare, 7.0, rig, calm_drag).leeway
+    @test WindShipOpt.required_thrust(bare, 7.0, 15.0, π / 2, rig) ≈ together.thrust ≈
+          calm_drag + together.leeway_drag + together.rudder_drag - hull_force.thrust
 end
 
 @testset "hull and rudder cancel the side force and yaw moment of rig and wind" begin
     ship = Ship(ShipDesign(:vlsfo, 140.0; kite_area=800.0), assumptions)
     force = RigForce(1e5, 2e5, 2e6, 3e6)
-    balance = WindShipOpt.HullBalance(ship, 5.4, force)
-    centre = WindShipOpt.lateral_centre(ship.hull)
+    balance = WindShipOpt.HullBalance(ship, 5.4, force, 1e5)
     @test force.side + balance.rudder_side_force + balance.hull_side_force ≈ 0 atol = 1e-6
     @test force.yaw_moment + balance.rudder_side_force * -ship.hull.length / 2 +
-          balance.hull_side_force * centre ≈ 0 atol = 1e-3
+          balance.hull_side_force * balance.lateral_centre ≈ 0 atol = 1e-3
+    @test balance.lateral_centre ≈
+          WindShipOpt.lateral_centre(ship.hull, balance.leeway) <
+          WindShipOpt.lateral_centre(ship.hull)
 end
 
-@testset "a weaker hull side-force slope drifts and costs more, an infinite one nothing" begin
+# NMRI captive tests of the KVLCC2M, tabulated by Toxopeus (2011), pp. 155-156: Y' and N'
+# on ½ρV²LT and ½ρV²L²T; the two runs at 3° give a centre of 0.46 and 0.58 L.
+@testset "the hull's side force is as large and acts as far forward as tank tests show" begin
+    kvlcc2m = Hull(320.0, 58.0, 20.8, 0.8098, assumptions)
+    for (angle, side_force, centre) in
+        ((3, 0.0125, 0.52), (6, 0.026, 0.54), (9, 0.046, 0.41), (12, 0.0708, 0.359))
+        leeway = deg2rad(angle)
+        @test WindShipOpt.side_force_coefficient(kvlcc2m, leeway) ≈ side_force rtol = 0.1
+        @test WindShipOpt.lateral_centre(kvlcc2m, leeway) / kvlcc2m.length ≈ centre atol = 0.06
+    end
+end
+
+@testset "the rudder works in the hull's wake, sped up by a loaded propeller" begin
+    ship = Ship(ShipDesign(:ammonia, 140.0), assumptions)
+    wake = 6.0 * (1 - assumptions[:rudder_wake_fraction])
+    @test WindShipOpt.rudder_inflow(ship, 6.0, -1e5) ≈ wake
+    @test wake < WindShipOpt.rudder_inflow(ship, 6.0, 3e5) <
+          WindShipOpt.rudder_inflow(ship, 6.0, 6e5)
+    force = RigForce(2e5, 3e5, 3e6, -2e6)
+    balance = WindShipOpt.HullBalance(ship, 6.0, force, 0.0)
+    free_stream = 0.5ship.env.water_density * 6.0^2 * ship.rudder_area
+    @test balance.rudder_drag ≈ balance.rudder_side_force^2 /
+                                (free_stream * (wake / 6.0)^2 * π * ship.rudder_aspect_ratio)
+end
+
+@testset "a weaker hull side-force slope drifts and costs more, and acts further forward" begin
     hull = Hull(140.0, assumptions)
     weak = Hull(; (name => getfield(hull, name) for name in fieldnames(Hull))...,
-        side_force_factor=0.5)
-    free = Hull(; (name => getfield(hull, name) for name in fieldnames(Hull))...,
-        side_force_factor=Inf)
-    env = Environment(assumptions)
-    leeway, drag = WindShipOpt.leeway_drag(hull, env, 6.0, 3e5)
-    @test all(WindShipOpt.leeway_drag(weak, env, 6.0, 3e5) .≈ (2leeway, 2drag))
-    @test WindShipOpt.leeway_drag(free, env, 6.0, 3e5) == (0.0, 0.0)
-    @test WindShipOpt.lateral_centre(weak) == WindShipOpt.lateral_centre(hull)
+        side_force_factor=hull.side_force_factor / 2)
+    leeway = WindShipOpt.side_force_leeway(hull, 0.02)
+    weak_leeway = WindShipOpt.side_force_leeway(weak, 0.02)
+    @test WindShipOpt.side_force_coefficient(weak, weak_leeway) ≈ 0.02
+    @test leeway < weak_leeway < 2leeway
+    @test WindShipOpt.leeway_drag(weak, 3e5, weak_leeway) >
+          WindShipOpt.leeway_drag(hull, 3e5, leeway)
+    @test WindShipOpt.lateral_centre(weak) ≈ 2WindShipOpt.lateral_centre(hull)
 end
 
 # DNV Rules for Ships, January 2000, Pt. 3 Ch. 3 Sec. 2, guidance note, p. 9.
@@ -1204,20 +1231,14 @@ end
           layout(1, 12, 2000.0).interference_factor
     @test layout(1, 3, 500.0).interference_factor > layout(2, 3, 500.0).interference_factor
     pair = layout(2, 1, 100.0)
-    @test pair.count == 2 && pair.centre_position ≈ WindShipOpt.lateral_centre(hull)
+    _, width = WindShipOpt.unit_size(100.0, 2, :rotor, assumptions)
+    deck_front = WindShipOpt.rig_deck_length(hull, assumptions, 0.0) / 2
+    @test pair.count == 2 && pair.centre_position ≈
+                             min(WindShipOpt.lateral_centre(hull),
+        deck_front - assumptions[:rotor_spacing] * width / 2)
     most = WindShipOpt.most_in_column(1, 3000.0, :rotor, hull, assumptions, 0.0)
     @test !isnothing(layout(1, most, 3000.0)) && isnothing(layout(1, most + 1, 3000.0))
     @test isnothing(layout(2, 1, 20000.0))
-end
-
-@testset "the rudder cancels the yaw moment about the hull's lateral centre" begin
-    hull = Hull(140.0, assumptions)
-    centre = WindShipOpt.lateral_centre(hull)
-    at_centre = WindShipOpt.RigForce(1e5, 2e5, 0.0, 2e5 * centre)
-    @test WindShipOpt.rudder_side_force(hull, at_centre) ≈ 0 atol = 1e-6
-    at_midship = WindShipOpt.RigForce(1e5, 2e5, 0.0, 0.0)
-    rudder = WindShipOpt.rudder_side_force(hull, at_midship)
-    @test 2e5 * (0 - centre) + rudder * (-hull.length / 2 - centre) ≈ 0 atol = 1e-3
 end
 
 @testset "a kite tows from its bow mast, and towing midship loads the rudder more" begin
@@ -1230,8 +1251,7 @@ end
     @test midship.rig.attach_position == 0
     wind_speed, wind_angle, ship_speed = 8.8295, 86.6957, 5.4 # hand check's beam reach
     balance(ship) = WindShipOpt.HullBalance(ship, ship_speed,
-        rig_force(ship.rig, ship.env, wind_speed, deg2rad(wind_angle), ship_speed, 1))
-    # midship lies 47 m aft of the lateral centre, the bow mast 4 m ahead of it
+        rig_force(ship.rig, ship.env, wind_speed, deg2rad(wind_angle), ship_speed, 1), 0.0)
     @test balance(midship).rudder_lift_coefficient >
           3balance(bow).rudder_lift_coefficient > 0
     drag(balance) = balance.leeway_drag + balance.rudder_drag
@@ -2210,7 +2230,7 @@ WindShipOpt.waves(::FollowingSeaWeather, lat, lon, time) = (16.0, 14.0, 1.25π)
     windage = WindShipOpt.wind_force(ship.windage, ship.env, 14.0,
         only(trace.true_wind_angle), only(trace.speed))
     @test only(trace.leeway) ==
-          WindShipOpt.HullBalance(ship, only(trace.speed), priced + windage).leeway > 0
+          WindShipOpt.HullBalance(ship, only(trace.speed), priced + windage, 0.0).leeway > 0
 end
 
 @testset "the stages and the rows of a corridor are spaced apart" begin
@@ -5575,10 +5595,10 @@ end
     force = RigForce(1e5, 3e5, 3e6, -2e6)
     drag(balance) = balance.leeway_drag + balance.rudder_drag
     free = PaperData.simplified_ship(ship, :side_force)
-    @test drag(WindShipOpt.HullBalance(ship, 6.0, force)) > 0
-    @test drag(WindShipOpt.HullBalance(free, 6.0, force)) == 0
+    @test drag(WindShipOpt.HullBalance(ship, 6.0, force, 0.0)) > 0
+    @test drag(WindShipOpt.HullBalance(free, 6.0, force, 0.0)) == 0
     @test WindShipOpt.HullBalance(PaperData.simplified_ship(ship, :weak_hull), 6.0,
-        force).leeway ≈ 2WindShipOpt.HullBalance(ship, 6.0, force).leeway
+        force, 0.0).leeway > WindShipOpt.HullBalance(ship, 6.0, force, 0.0).leeway
 end
 
 @testset "a model part the study's recorded run predates prints stale until it reruns" begin

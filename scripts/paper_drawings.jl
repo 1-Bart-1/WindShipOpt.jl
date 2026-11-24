@@ -48,10 +48,10 @@ function horizontal_forces(ship, rig, speed, wind, angle; waves=0.0)
     thrust, sail = WindShipOpt.best_trim(ship, ship.rig, speed, wind, angle, waves)
     air = WindShipOpt.wind_force(ship.windage, env, wind, angle, speed)
     total = sail + air
-    balance = WindShipOpt.HullBalance(ship, speed, total)
     calm = WindShipOpt.resistance(hull, env, speed; coefficients=ship.wave_coefficients)
+    balance = WindShipOpt.HullBalance(ship, speed, total, calm + waves)
     stern = -hull.length / 2
-    centre = WindShipOpt.lateral_centre(hull)
+    centre = balance.lateral_centre
     force(symbol, along, across, at, colour) = (; symbol, along, across, at, colour)
     forces = [force(raw"F_x", sail.thrust, 0.0, lever(sail), rig),
         force(raw"F_y", 0.0, sail.side, lever(sail), rig),
