@@ -33,12 +33,6 @@ function explorer_changes()
         ("discount rate low", (discount_rate=entry(:discount_rate).low,), 1.0),
         ("discount rate high", (discount_rate=entry(:discount_rate).high,), 1.0),
         ("cargo value ×2", (;), 2.0),
-        ("rig prices high", (market_price_factor=entry(:market_price_factor).high,), 1.0),
-        ("out of service high", NamedTuple(name => entry(name).high
-                                          for name in (:kite_out_of_service,
-                                              :wing_out_of_service, :rotor_out_of_service,
-                                              :suction_out_of_service)),
-            1.0),
         ("kites lost at the high bound", (kite_launch_loss_probability=entry(
                 :kite_launch_loss_probability).high,), 1.0),
         ("one wing or rotor lost per unit and year", (wing_loss_rate=1.0, rotor_loss_rate=1.0),
@@ -204,7 +198,7 @@ function explorer_input_entries(classes, class_names)
     for name in class_names
         value = classes[name].cargo_value
         entries[cargo_input(name)] = Assumption(value, value, value, "USD/t",
-            "cargo value of the class", value)
+            "cargo value of the class", value, false)
     end
     return entries
 end
