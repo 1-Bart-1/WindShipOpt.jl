@@ -2916,17 +2916,17 @@ life_limit_text(life) = isnan(life) ? "--" : @sprintf("\\num{%.0f}", 100round(li
 
 Name and text, from the [`rig_lead_rows`](@ref) of the class table `table`, of the
 [`verdict_text`](@ref) of each of `verdict_groups`, the [`advice_text`](@ref), the
-[`brief_advice_text`](@ref), the [`highlight_text`](@ref), the [`places`](@ref) the wing
-sails are advised, per drive the [`answer_ranges`](@ref),
+[`places`](@ref) the wing sails are advised, per drive the [`highlight_text`](@ref) and the
+[`answer_ranges`](@ref),
 and on container ships per drive where the kite falls behind the rotors.
 """
 function rig_lead_numbers(table)
     rows = rig_lead_rows(table)
     wings = filter(row -> row.verdict != "none" && "wings" in advised_rigs(row), rows)
-    numbers = ["Advice" => advice_text(rows), "AdviceBrief" => brief_advice_text(rows),
-        "HighlightAdvice" => highlight_text(rows),
+    numbers = ["Advice" => advice_text(rows),
         "WingsAdvised" => isempty(wings) ? "on no ship type" : places(wings, rows)]
     for (drive, word) in drive_words
+        push!(numbers, "HighlightAdvice$word" => highlight_text(rows, drive))
         own = filter(row -> row.drive == drive, rows)
         push!(numbers, ("Answer$name$word" => text for (name, text) in answer_ranges(own))...)
     end
@@ -3104,65 +3104,51 @@ rig_short_names = Dict("kite" => "kite", "wings" => "wing sails", "rotors" => "r
     advice(lead; short=false)
 
 Rig to use by a [`rig_lead`](@ref) `lead`: the rig that leads, either of two level, in
-the order of `rig_names`, or no rig; `short` names a rig without its article.
+the order of `rig_names`, or no rig; `short` names a rig without its article and two level
+without "either".
 """
 function advice(lead; short=false)
     lead.verdict == "none" && return "no rig"
     lead.verdict == "leads" && return rig_name(lead.rig, short)
-    return "either " * join(rig_name.(rig_pair(lead), short), " or ")
+    return (short ? "" : "either ") * join(rig_name.(rig_pair(lead), short), " or ")
 end
 
 """
     advice_text(rows)
 
-Text of the [`advice`](@ref) of rig lead `rows` of [`rig_lead_rows`](@ref): first the rigs
-to use whatever the fuel, ship types given the same rig named together, then per ship
-type where the fuel changes the rig, the rig on each fuel.
+Text of the [`advice`](@ref) of rig lead `rows` of [`rig_lead_rows`](@ref) by
+[`fuel_advice_text`](@ref), one sentence per fuel, e-ammonia first, or one for both fuels
+where they advise alike.
 """
 function advice_text(rows)
-    labels = unique(row.label for row in rows)
     drives = sort(unique(row.drive for row in rows); by=drive -> drive != "ammonia")
-    advised = [[advice(only(filter(row -> row.label == label && row.drive == drive, rows)))
-                for drive in drives] for label in labels]
-    same = [all(==(first(rigs)), rigs) for rigs in advised]
-    fuels = length(drives) == 1 ? fuel_names[only(drives)] : "both fuels"
-    common = ["$(first(rigs)) " * ship_list(names, labels)
-              for (rigs, names) in grouped(advised[same], labels[same])]
-    differing, previous = String[], String[]
-    for (rigs, names) in grouped(advised[.!same], labels[.!same])
-        per_fuel = ["$rig on $(fuel_names[drive])" for (rig, drive) in zip(rigs, drives)]
-        on_fuels = previous == reverse(rigs) ? "the other way round" : listed(per_fuel)
-        verb = isempty(differing) ? "use " : ""
-        push!(differing, "$(ship_list(names, labels)) $verb$on_fuels")
-        previous = rigs
-    end
-    parts = String[]
-    isempty(common) || push!(parts, "on $fuels use " * join(common, ", ", ", and "))
-    isempty(differing) || push!(parts, join(differing, ", ", ", and "))
-    return join(parts, "; ")
+    texts = [fuel_advice_text(filter(row -> row.drive == drive, rows)) for drive in drives]
+    length(drives) > 1 && allequal(texts) && return "On both fuels, fit $(first(texts))."
+    return join(["On $(fuel_names[drive]), fit $text." for (drive, text) in zip(drives, texts)],
+        " ")
 end
 
 """
-    brief_advice_text(rows)
+    fuel_advice_text(rows; short=false)
 
-Text of the rigs to fit on each ship type of rig lead `rows` on any fuel, by the
-[`advice`](@ref) of each, ship types given the same rigs named together, the most ship
-types last as the other ship types.
+Text of the rig to fit on each ship type of rig lead `rows` of one drive by its
+[`advice`](@ref), ship types given the same rig named together, the most ship types last
+as the other ship types; `short` names the rigs without their articles and the last ship
+types "elsewhere".
 """
-function brief_advice_text(rows)
-    labels = unique(row.label for row in rows)
-    fitted = [filter(rig -> any(row -> row.label == label && row.verdict != "none" &&
-                                           rig in advised_rigs(row), rows), rig_names)
-              for label in labels]
-    groups = sort(grouped(fitted, labels); by=group -> length(last(group)))
+function fuel_advice_text(rows; short=false)
+    labels = [row.label for row in rows]
+    groups = sort(grouped(advice.(rows; short), labels); by=group -> length(last(group)))
     texts = String[]
-    for (i, (rigs, names)) in enumerate(groups)
-        rest = length(groups) > 1 && i == length(groups) && length(names) > 1
-        where = rest ? "on the other ship types" : ship_list(names, labels)
-        fit = isempty(rigs) ? "no rig" : join(rig_name.(rigs, false), " or ")
-        push!(texts, "$fit $where")
+    for (i, (rig, names)) in enumerate(groups)
+        last_group = length(groups) > 1 && i == length(groups)
+        where = last_group && short ? "elsewhere" :
+                last_group && length(names) > 1 ? "on the other ship types" :
+                ship_list(names, labels)
+        push!(texts, "$rig $where")
     end
-    return listed(texts)
+    short && return join(texts, ", ")
+    return length(texts) > 2 ? join(texts, ", ", ", and ") : join(texts, " and ")
 end
 
 "whether every one of `values` reads alike by `format`"
@@ -3211,30 +3197,25 @@ end
 advised_rigs(lead) = lead.verdict == "leads" ? [lead.rig] : rig_pair(lead)
 
 """
-    highlight_text(rows)
+    highlight_text(rows, drive)
 
-Highlight of the advice of rig lead `rows`: the [`advice_text`](@ref) on both fuels, else
-on e-ammonia, else on e-ammonia in short with the last rig "elsewhere", else with the
-number of ship types per rig, else the rigs best on some ship type on e-ammonia, whichever
-first has at most `highlight_limit` characters; the shortest, with a warning, where none
-has.
+Highlight of the advice of rig lead `rows` on `drive`: its [`advice_text`](@ref), else its
+[`fuel_advice_text`](@ref) in short, else the number of ship types per rig, else the rigs
+best on some ship type, whichever first has at most `highlight_limit` characters; the
+shortest, with a warning, where none has.
 """
-function highlight_text(rows)
-    ammonia = filter(row -> row.drive == "ammonia", rows)
-    groups = last.(grouped(advice.(ammonia), ammonia))
-    rigs = [advice(first(held); short=true) for held in groups]
-    named = [rig * " " * ship_list([row.label for row in held], ammonia)
-             for (rig, held) in zip(rigs, groups)]
-    length(groups) > 1 && (named[end] = last(rigs) * " elsewhere")
-    counts = ["$rig on $(length(held))" for (rig, held) in zip(rigs, groups)]
+function highlight_text(rows, drive)
+    own = filter(row -> row.drive == drive, rows)
+    fuel = fuel_names[drive]
+    groups = last.(grouped(advice.(own), own))
+    counts = ["$(advice(first(held); short=true)) on $(length(held))" for held in groups]
     counts[1] *= length(first(groups)) == 1 ? " ship type" : " ship types"
-    best = Set(rig for row in ammonia if row.verdict != "none" for rig in advised_rigs(row))
+    best = Set(rig for row in own if row.verdict != "none" for rig in advised_rigs(row))
     options = [rig_short_names[rig] for rig in rig_names if rig in best]
-    any(row -> row.verdict == "none", ammonia) && push!(options, "none")
-    sentences = [uppercasefirst(advice_text(rows)) * ".",
-        uppercasefirst(advice_text(ammonia)) * ".", "On e-ammonia: $(join(named, ", ")).",
-        "On e-ammonia: $(join(counts, ", ")).",
-        "On e-ammonia the best rig depends on the ship type: $(join(options, ", ", " or "))."]
+    any(row -> row.verdict == "none", own) && push!(options, "none")
+    sentences = [advice_text(own), "On $fuel: $(fuel_advice_text(own; short=true)).",
+        "On $fuel: $(join(counts, ", ")).",
+        "On $fuel the best rig depends on the ship type: $(join(options, ", ", " or "))."]
     fits = findfirst(sentence -> length(sentence) <= highlight_limit, sentences)
     isnothing(fits) || return sentences[fits]
     shortest = argmin(length, sentences)
