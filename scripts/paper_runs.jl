@@ -327,14 +327,14 @@ run_words(run, fidelity, commit) =
     string("run ", run, " at ", fidelity, " fidelity, commit ", first(commit, 7))
 
 """
-    results_run_words()
+    step_run_words(step, name)
 
-[`run_words`](@ref) of the run whose class study the results read.
+[`run_words`](@ref) of the run whose step `step` wrote the data file `name` the paper reads.
 """
-function results_run_words()
-    directory = dirname(resolved_data_file("classes.csv"))
+function step_run_words(step, name)
+    directory = dirname(resolved_data_file(name))
     record = TOML.parsefile(joinpath(directory, "run.toml"))
-    commit = step_entry(record, "classes")["git_commit"]
+    commit = step_entry(record, step)["git_commit"]
     return run_words(basename(directory), record["fidelity"], commit)
 end
 
@@ -895,14 +895,6 @@ function write_cases(run, name, made)
     end
     return path
 end
-
-"""
-    trip_seconds(case, departures)
-
-Seconds [s] the round trip of `case` over `departures` in the case store took to compute.
-"""
-trip_seconds(case, departures) =
-    stored_entry(case_directory(case, departures), case).seconds
 
 """
     step_reasons(entry, code)
