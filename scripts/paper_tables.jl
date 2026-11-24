@@ -2729,7 +2729,7 @@ function side_force_numbers()
                     for name in ("SideForce", "WeakHull", "Leeway", "LeewayLimit")]
     parts = read_table(study_file(:model_parts, "model_parts.csv"))
     leeway = read_table(study_file(:model_parts, "leeway.csv"))
-    ammonia = [name for (name, design) in sensitivity_ships() if design.drive == :ammonia]
+    ammonia = [name for (name, design) in study_ships() if design.drive == :ammonia]
     cost(ship, rig, part) =
         only(parts["cost"][rows(parts, "ship" => ship, "rig" => rig, "part" => part)])
     saving(ship, rig, part) =

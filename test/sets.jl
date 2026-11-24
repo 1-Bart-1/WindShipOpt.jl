@@ -5073,6 +5073,14 @@ end
     @test_throws ErrorException PaperData.study_areas(nothing, "class", :route, :vlsfo)
 end
 
+@testset "a development ship takes the cheapest feasible size its class search found" begin
+    case(area) = (class="Kamsarmax", route=:tubarao, drive=:vlsfo, rig="wings", area)
+    trips = [(cost_per_tonne_km=2.0,), nothing, (cost_per_tonne_km=1.5,)]
+    table = PaperData.size_table(case.([100.0, 200.0, 300.0]), trips)
+    best = PaperData.cheapest_row(table, "Kamsarmax", "tubarao", "vlsfo", "wings")
+    @test table["area"][best] == 300.0
+end
+
 @testset "a development input's gain and loss are the largest of its rigs with trips" begin
     PaperData.eval(:(bound_changes(table, ship, rig, input; column="cost") =
         rig == "kite" ? (1.0, -2.0) : rig == "wings" ? (NaN, 1.0) : (0.5, 0.0)))
