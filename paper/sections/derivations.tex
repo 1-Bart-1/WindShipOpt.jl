@@ -27,7 +27,7 @@ Car decks: a CEU carries \SI{1.3}{t}, since a PCTC of \num{8600}~CEU is optimise
 \subsection{Deck rigs}
 \label{sec:det_deck}
 
-The 75\,\% of the ship's length is our estimate of the deck a row or column can use, with a range of 65 to 80\,\%, from published layouts \citep{han2025,mboumba2022}; it caps the number of units only on the largest ships and elsewhere moves the thrust by less than 1\,\%. A maker offers 2 to 5 rotors on the bulk carriers and tankers \citep{anemoi2024brochure}, and \stale{classes}{the model lets the best rotor rigs reach 6 to 8 units on the Handysize, Ultramax and Kamsarmax, 13 on the Capesize, and 7, 10 and 16 on the MR, Aframax and VLCC tankers.}
+The 75\,\% of the ship's length is the deck a row or column can use, between the 74 and 77\,\% of two published layouts \citep{han2025,mboumba2022}; it caps the number of units only on the largest ships and elsewhere moves the thrust by less than 1\,\%. A maker offers 2 to 5 rotors on the bulk carriers and tankers \citep{anemoi2024brochure}, and \stale{classes}{the model lets the best rotor rigs reach 6 to 8 units on the Handysize, Ultramax and Kamsarmax, 13 on the Capesize, and 7, 10 and 16 on the MR, Aframax and VLCC tankers.}
 
 Two columns follow \cref{eq:column_factor}. For rotors the low bound of $\beta$ is 1: CFD of four rotors on a tanker found a square only 0.4\,\% worse than a line over all wind angles, the line better in winds from ahead and the square in beam winds \citep{guzelbulut2024arrangement}. For wings $\beta=1.5$ is the loss of four sails in a square over that of three in a line, per sail behind another, averaged over \SIlist{60;90;120}{\degree} of apparent wind, and 2.2 at \SI{90}{\degree} \citep{vanreen2026}; it puts the square's whole loss, which also holds pairs in line and on the diagonal, on its pairs abreast.
 
@@ -77,7 +77,7 @@ A lost \SI{1600}{m^2} kite costs about USD~\num{480000}: its control unit and ha
 
 \paragraph{Canopy cloth}
 \label{app:canopy_mass}
-\stale{base_kite}{ The canopy holds the cloth of \cref{eq:canopy_cloth} in its two skins, ribs and diagonals, plus \SI{0.09}{kg/m^2} of seams, tapes and reinforcements. The one full-scale kite that can be checked, built for the same force limit, leaves \SI{0.17}{kg/m^2} beyond cloth and lines, which is the high bound of this input. At \SI{0.19}{kg/m^2} the cost saving on the three ships of the routing noise check (\cref{sec:routing_noise}) changes by $-1.1$, $-0.6$ and +0.1 points. A kite built for another force limit gets cloth, seams, tapes and reinforcements in proportion to the limit and keeps the canopy life (\cref{sec:canopy_life}). The seams, tapes and reinforcements grow while their cost stays in the surveyed cost of \cref{eq:canopy_price}, so a kite built for twice the limit would pay about 5\,\% more for its canopy than we count.} The \SI{225}{m^2} flat SkySails kite of \SI{120}{kg} with its lines, \SI{0.68}{kg/m^2} projected \citep{paulig2013}, leaves \SI{0.17}{kg/m^2} beyond our estimates of \SI{72}{kg} of cloth, sewn as \cref{eq:canopy_cloth} gives at \SI{105}{g/m^2}, and \SI{18}{kg} of lines. It was built for about \SI{0.9}{kN/m^2} projected, the base limit, so this is about twice the base of \SI{0.09}{kg/m^2} and within its high bound of \SI{0.19}{kg/m^2}; the base is held at the paragliders' fit in proportion to the limit, as the cloth and lines of the SkySails kite are our estimates.
+\stale{base_kite}{ The canopy holds the cloth of \cref{eq:canopy_cloth} in its two skins, ribs and diagonals, plus \SI{0.09}{kg/m^2} of seams, tapes and reinforcements. The one full-scale kite that can be checked, built for the same force limit, leaves \SI{0.17}{kg/m^2} beyond cloth and lines, but its cloth and lines are our estimates, so this input has no range. At \SI{0.19}{kg/m^2} the cost saving on the three ships of the routing noise check (\cref{sec:routing_noise}) changes by $-1.1$, $-0.6$ and +0.1 points. A kite built for another force limit gets cloth, seams, tapes and reinforcements in proportion to the limit and keeps the canopy life (\cref{sec:canopy_life}). The seams, tapes and reinforcements grow while their cost stays in the surveyed cost of \cref{eq:canopy_price}, so a kite built for twice the limit would pay about 5\,\% more for its canopy than we count.} The \SI{225}{m^2} flat SkySails kite of \SI{120}{kg} with its lines, \SI{0.68}{kg/m^2} projected \citep{paulig2013}, leaves \SI{0.17}{kg/m^2} beyond our estimates of \SI{72}{kg} of cloth, sewn as \cref{eq:canopy_cloth} gives at \SI{105}{g/m^2}, and \SI{18}{kg} of lines. It was built for about \SI{0.9}{kN/m^2} projected, the base limit, so this is about twice the base of \SI{0.09}{kg/m^2}; the base is held at the paragliders' fit in proportion to the limit, as the cloth and lines of the SkySails kite are our estimates, and has no range.
 
 \paragraph{Mass over size} A builder scaling a ram-air wing up keeps the area each line carries and adds lines and cells \citep{dunker2013}. The model keeps the cells of the SkySails kite at every size; the built canopies, at a tenth of a ship kite's force per area, widen theirs more slowly than their chord (\cref{app:canopy_cells}). More cells along the chord change more than the cloth, and the model counts only the cloth. Its bridle keeps one count of lines at every size; twice the lines would add 0.002 to the kite's drag coefficient and lower its glide ratio from 3.9 by 1\,\%. The seams of ribs and diagonals run along the chord a few per cell, so at one cell width they stay those of the SkySails kite per square metre at every size, and its price keeps the surveyed sewing per square metre (\cref{eq:canopy_price}), against cells 0.12 to \SI{0.35}{m} wide on paragliders (\cref{app:canopy_cells}). The cloth's tension is the pressure times the radius the skin bulges to between ribs, which follows the cell width, so cells of one width keep the tension per weight the canopy's life is stated at (\cref{sec:cloth_check}). The ribs carry the line loads into the skins under the top skin's shade, so the cloth that sunlight ages first is the top skin, the same on every square metre.
 
@@ -98,16 +98,15 @@ For the cloth, two skins take about \SI{2.05}{m^2} per flat square metre, and ri
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{\stale{numbers}{} Effect of other cells, and of less rib cloth or none, on the canopy price of the \SI{3200}{m^2} kite, as a change against its base price of about USD~\NumCanopyPrice{} (\NumCanopyPriceLow{} to \NumCanopyPriceHigh) per projected square metre (\cref{tab:canopy_price}), and on its canopy mass, at the base with in brackets its range when each input in turn takes its low or high bound (\cref{tab:inputs}).}
+\caption{\stale{numbers}{} Effect of other cells, and of no rib cloth, on the canopy price of the \SI{3200}{m^2} kite, as a change against its base price of about USD~\NumCanopyPrice{} per projected square metre (\cref{tab:canopy_price}), and on its canopy mass, at the base with in brackets its range when each canopy input with a range in turn takes its low or high bound (\cref{tab:inputs}).}
 \label{tab:canopy_variants}
 \begin{tabular}{@{}lrr@{}}
 \toprule
 Variant & Change of price [USD/m$^2$] & Canopy mass [kg/m$^2$] \\
 \midrule
-Base & 0 & 1.10 (0.78--1.68) \\
+Base & 0 & 1.10 (1.09--1.20) \\
 Cells at their low bound, \SI{0.46}{m} wide & $+14$ & 1.17 \\
 Cells of a paraglider's proportion, \SI{0.88}{m} wide & $-70$ & 0.77 \\
-Rib cloth at its low bound & $-68$ & 0.78 \\
 No ribs & $-163$ & 0.33 \\
 \bottomrule
 \end{tabular}
@@ -118,7 +117,7 @@ No ribs & $-163$ & 0.33 \\
 \begin{table}[tbp]
 \centering
 \footnotesize
-\caption{\stale{numbers}{} Canopy cost and price of the \SI{3200}{m^2} kite by \cref{eq:canopy_price}, USD per projected square metre unless stated. The price is an estimate; its range spans the market factor and the surveyed cost at their bounds (\cref{tab:inputs}).}
+\caption{\stale{numbers}{} Canopy cost and price of the \SI{3200}{m^2} kite by \cref{eq:canopy_price}, USD per projected square metre unless stated. The price is an estimate, with no range (\cref{tab:inputs}).}
 \label{tab:canopy_price}
 \begin{tabular}{@{}lr@{}}
 \toprule
@@ -130,12 +129,11 @@ Surveyed cost $S$ & 85 \\
 Cloth, \SI{10.1}{m^2} of \SI{100}{g/m^2} & 143 \\
 Cost & 167 \\
 Price at a market factor of 2 & \NumCanopyPrice \\
-Range & \NumCanopyPriceLow{} to \NumCanopyPriceHigh \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The survey states its cost per flat square metre and turns it into one per projected square metre with 25/18 \citep{joshi2024refeconomic}, more than the 1.17 of the kite modelled here (\cref{tab:inputs}); we keep its conversion, which errs towards a more expensive canopy. It gives a single figure without a spread, says the costs leave out overhead in development and manufacturing and the profit margin, and does not say whether its fabric cost includes the sewing; the high end of the price adds half again to the fabric in case it does not. \Cref{sec:val_cost} sets it against canopies bought.
+The survey states its cost per flat square metre and turns it into one per projected square metre with 25/18 \citep{joshi2024refeconomic}, more than the 1.17 of the kite modelled here (\cref{tab:inputs}); we keep its conversion, which errs towards a more expensive canopy. It gives a single figure without a spread, says the costs leave out overhead in development and manufacturing and the profit margin, and does not say whether its fabric cost includes the sewing, so the price is an estimate with no range. \Cref{sec:val_cost} sets it against canopies bought.
 
 \paragraph{Lowest wind for flight and launch}
 \label{sec:det_min_wind}
@@ -158,7 +156,7 @@ The balance is that of a rigid wing winched up in still air \citep{fagiano2017ta
 \begin{figure}[tbp]
 \centering
 \plot{min_wind}
-\caption{Lowest apparent wind against projected area for the kite of aspect ratio 3 at the lowest elevation, our estimate of \SI{8}{\degree} (5 to \SI{15}{\degree}): the crosswind bound $V_\mathrm{cross}$ (\cref{eq:min_cross}), the climb $V_\mathrm{climb}$ (\cref{eq:min_climb}), and the calm-sea launch wind the model uses, the larger of the climb and the launch wind of \SI{5}{m/s} reported for ships \citep{paulig2013}. Shaded grey is the launch wind with each of its two inputs in turn at its bounds: the reported launch wind from 3 to \SI{7}{m/s} and the elevation. The climb and crosswind curves are shaded over the elevation from 5 to \SI{15}{\degree}, which moves them by under \SI{2}{\percent}, less than their line width.}
+\caption{Lowest apparent wind against projected area for the kite of aspect ratio 3 at the lowest elevation, our estimate of \SI{8}{\degree}, with no range: the crosswind bound $V_\mathrm{cross}$ (\cref{eq:min_cross}), the climb $V_\mathrm{climb}$ (\cref{eq:min_climb}), and the calm-sea launch wind the model uses, the larger of the climb and the launch wind of \SI{5}{m/s} reported for ships \citep{paulig2013}. Shaded grey is the launch wind over the range of the reported launch wind, 3 to \SI{5.4}{m/s} on ships and on land.}
 \label{fig:min_wind}
 \end{figure}
 
@@ -183,6 +181,13 @@ This check of the canopy life's premise feeds no cost (\cref{fig:canopy_tension}
 \caption{\stale{canopy_tension}{} From tether force to cloth tension on the \SI{3200}{m^2} kite at $R=\SI{0.41}{m}$ on cloth of \SI{100}{g/m^2}, the same at every size, as the cells keep their width. (a) The force balance at the force limit of \SI{0.9}{kN/m^2}, what SkySails built its ship kite for, between 0.5 and \SI{1.3}{kN/m^2}. (b) Tether force and area-averaged cloth tension over one optimal cycle in \SI{12}{m/s} of apparent wind, \SI{90}{\degree} off downwind, with the estimated strength of new cloth of \SI{100}{g/m^2}; the cloth grows with the force limit and the cells keep their width, so the margin over the peak holds at every limit and size.}
 \label{fig:canopy_tension}
 \end{figure*}
+
+\subsection{LEI kite}
+\label{sec:det_lei}
+
+\paragraph{Flight drag} The wind-tunnel polar of the V3 model \citep{poland2025} was measured at a tenth of the Reynolds number of the flown kite, about $3\times10^6$, and its lift and drag both grew with the Reynolds number over the range measured, its glide ratio without a clear trend. A rigid model lacks what the ram-air design shape lacks too: the bridle, the deformation of the canopy, the control unit and steering. Its flight drag is fitted as the ram-air kite's is, to the glide ratio of 3.6 to 4.0 that V3 kites flew in traction \citep{vandervlugt2019}: 0.10 gives the kite with its tether the ram-air kite's 3.9 at a lift coefficient of 0.8.
+
+\paragraph{Tubes} The V2 kite's tubes are the 2.07 and 1.45~kg of Dacron shells and the 1.47 and 1.03~kg of bladders of its leading edge and seven struts, their fabric areas of 8.7 and \SI{6.1}{m^2} times their weights per square metre; only the whole kite's 11.49~kg was weighed \citep[Table~2-1]{schwoll2012}. It was inflated to 0.3~bar \citep{schwoll2012}. Its force limit of \SI{5}{kN} in the powered state \citep{vandervlugt2013} on \SI{16.7}{m^2} projected is the \SI{0.30}{kN/m^2} the tube mass is stated at. At the base \SI{0.5}{kN/m^2}, \cref{eq:lei_mass} keeps the V2's shape with a pressure of 0.5~bar.
 
 \subsection{VTOL kite}
 \label{sec:det_rigid}
