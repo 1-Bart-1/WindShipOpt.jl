@@ -1473,27 +1473,35 @@ end
     @test hold(frame).slots == class.unit_capacity - 160
 end
 
-@testset "raised rotors stand on the column or frame of least cost per power saved" begin
+@testset "raised rotors stand on the column or frame of least yearly cost less fuel saved" begin
     for (name, area) in (("Neo-Panamax container ship", 600.0),
         ("Megamax container ship", 1200.0))
         class = ship_classes()[name]
         bare = Ship(ShipDesign(:ammonia, class), assumptions)
+        prices = WindShipOpt.LayoutPrices(bare, nothing, assumptions)
         rotors = WindShipOpt.RotorRig(area, Hull(class, assumptions), assumptions;
             columns=2, in_column=1)
-        rig, score = WindShipOpt.cheapest_pedestal(bare, rotors, assumptions)
+        rig, score = WindShipOpt.cheapest_pedestal(bare, rotors, prices, assumptions)
         scores = [WindShipOpt.layout_score(bare, WindShipOpt.with_pedestal(rotors, pedestal),
-                      assumptions) for pedestal in (:column, :frame)]
+                      prices, assumptions) for pedestal in (:column, :frame)]
         @test score == minimum(scores)
         @test rig.pedestal == (:column, :frame)[argmin(scores)]
     end
-    neo = ship_classes()["Neo-Panamax container ship"]
-    bare = Ship(ShipDesign(:ammonia, neo), assumptions)
-    frame = WindShipOpt.with_pedestal(WindShipOpt.RotorRig(600.0, Hull(neo, assumptions),
-        assumptions; columns=2, in_column=1), :frame)
-    @test WindShipOpt.lost_cargo_cost(bare, frame, assumptions) > 0
-    megamax = ship_classes()["Megamax container ship"]
-    @test WindShipOpt.lost_cargo_cost(Ship(ShipDesign(:ammonia, megamax), assumptions),
-        frame, assumptions) == 0
+end
+
+@testset "a deck rig is charged the cargo its mass and blocked slots displace" begin
+    frame = WindShipOpt.with_pedestal(WindShipOpt.RotorRig(600.0,
+            Hull(ship_classes()["Neo-Panamax container ship"], assumptions), assumptions;
+            columns=2, in_column=1), :frame)
+    mass = WindShipOpt.rig_costs(frame, assumptions)[2]
+    for (name, blocks) in (("Megamax container ship", false),
+        ("Neo-Panamax container ship", true))
+        bare = Ship(ShipDesign(:ammonia, ship_classes()[name]), assumptions)
+        prices = WindShipOpt.LayoutPrices(bare, nothing, assumptions)
+        share = mass / WindShipOpt.CargoHold(bare, assumptions).payload
+        cost = WindShipOpt.lost_cargo_cost(bare, frame, prices, assumptions)
+        @test blocks ? cost > share * prices.ship_yearly : cost ≈ share * prices.ship_yearly
+    end
 end
 
 # By hand, a raised wing sail of 400 m^2, 28.3 x 14.1 m, at its highest lift in 20.6 m/s:
@@ -1534,18 +1542,35 @@ end
     @test peak ≈ 350e3 rtol = 0.1
 end
 
-@testset "a deck rig takes the unit count of least yearly cost per power saved" begin
+@testset "a deck rig takes the unit count of least yearly cost less fuel saved" begin
     class = ship_classes()["Kamsarmax bulk carrier"]
     design = ShipDesign(:vlsfo, class; rotor_area=800.0)
     ship = Ship(design, assumptions)
+    prices = WindShipOpt.LayoutPrices(ship, nothing, assumptions)
     score(in_column) = WindShipOpt.layout_score(ship,
-        WindShipOpt.design_rig(design, ship.hull, assumptions; in_column), assumptions)
+        WindShipOpt.design_rig(design, ship.hull, assumptions; in_column), prices, assumptions)
     chosen = ship.rig.count
     @test ship.rig.columns == 1
     @test all(score(chosen) <= score(count) for count in 1:(chosen + 3))
     winds = WindShipOpt.layout_winds(assumptions)
-    @test length(winds) == 24
-    @test sum(first, winds) / 24 ≈ assumptions[:layout_mean_wind] rtol = 0.05
+    @test length(winds) == 48
+    @test sum(first, winds) / 48 ≈ assumptions[:layout_mean_wind] rtol = 0.02
+end
+
+# Routed rotor counts at a fixed total area over 12 departures of 2017-2019 on e-ammonia
+# (#490): counts within 0.3 points of the best routed saving.
+@testset "the rotor count is one routing finds within its scatter of the best" begin
+    for (name, area, route, columns, counts) in (
+        ("general cargo coaster", 362.0, :houston, 1, 2:2),
+        ("general cargo coaster", 301.0, :new_york, 1, 2:2),
+        ("Kamsarmax bulk carrier", 1895.0, :houston, 1, 3:8),
+        ("Kamsarmax bulk carrier", 1895.0, :new_york, 1, 3:6),
+        ("VLCC", 2383.0, :houston, 2, 10:14),
+        ("VLCC", 2383.0, :new_york, 2, 10:14))
+        design = ShipDesign(:ammonia, ship_classes()[name]; rotor_area=area)
+        rig = Ship(design, assumptions; route).rig
+        @test rig.columns == columns && rig.count in counts
+    end
 end
 
 @testset "empty boxes take container slots and tare but carry no cargo" begin
@@ -4609,13 +4634,15 @@ end
         ("tubarao", "ammonia", "rotors", 1890.0, 0.0047),
         ("tubarao", "ammonia", "vtol", 80.0, 0.0050),
         ("tubarao", "ammonia", "vtol", 160.0, 0.0051),
+        ("tubarao", "ammonia", "lei", 400.0, 0.0049),
+        ("tubarao", "ammonia", "lei", 800.0, 0.0050),
         ("bilbao", "ammonia", "rotors", 850.0, 0.0045)]
     classes = Dict{String, Vector}("class" => fill("Kamsarmax bulk carrier", length(runs)),
         (name => [run[k] for run in runs]
          for (k, name) in enumerate(("route", "drive", "rig", "area", "cost")))...)
     @test PaperData.fuel_sizes(classes, "Kamsarmax bulk carrier", :tubarao) ==
           Dict("none" => 0.0, "kite" => 3200.0, "wings" => 3600.0, "suction" => 1600.0,
-              "rotors" => 1890.0, "vtol" => 80.0)
+              "rotors" => 1890.0, "vtol" => 80.0, "lei" => 400.0)
     @test PaperData.swept_values(:e_methanol_price) ==
           sort([Main.assumptions[:e_methanol_price], 40.0, 90.0, 120.0])
 end
@@ -4836,6 +4863,11 @@ end
     end
 end
 
+@testset "the development table shows every input of the development study" begin
+    @test all(entry -> entry.rig in first.(PaperData.development_groups),
+        PaperData.development_inputs)
+end
+
 @testset "the model parts measured by the development study read only its inputs" begin
     PaperData.eval(:(departures = 1:8760))
     @test !isempty(PaperData.fidelity_parts())
@@ -4891,6 +4923,76 @@ end
     rig = WindShipOpt.rigid_kite_rig(80.0, hull, assumptions; courses=[π / 2],
         side_weights=[0.0])
     @test rig.attach_position ≈ WindShipOpt.launch_mast_position(hull, assumptions)
+end
+
+@testset "an LEI kite's tubes grow as area^1.5 and with its force per area" begin
+    reference = assumptions[:lei_reference_area]
+    at_reference = with_value(assumptions, :lei_max_force_per_area,
+        assumptions[:lei_reference_force_per_area])
+    @test WindShipOpt.tube_mass(at_reference, reference) ≈ assumptions[:lei_tube_mass]
+    @test 400reference * WindShipOpt.tube_mass(at_reference, 400reference) ≈
+          8000reference * assumptions[:lei_tube_mass]
+    doubled = with_value(at_reference, :lei_max_force_per_area,
+        2assumptions[:lei_reference_force_per_area])
+    @test WindShipOpt.tube_mass(doubled, reference) ≈ 2assumptions[:lei_tube_mass]
+end
+
+@testset "an LEI canopy is one skin and its tubes, priced as a ram-air canopy" begin
+    frame, area = WindShipOpt.TubeFrame(), 200.0
+    rating = assumptions[:lei_max_force_per_area] /
+             assumptions[:canopy_cloth_reference_force]
+    weight = assumptions[:canopy_cloth_weight] * rating
+    tubes = WindShipOpt.tube_mass(assumptions, area)
+    surface = assumptions[:lei_tube_surface]
+    canopy = WindShipOpt.Canopy(assumptions, area, frame)
+    @test canopy.mass_per_area ≈ 1e-3assumptions[:lei_flat_area_ratio] * weight +
+                                 assumptions[:canopy_mass_overhead] * rating + tubes
+    price(weight) = assumptions[:canopy_cloth_base_price] +
+                    assumptions[:canopy_cloth_price_per_weight] * weight
+    @test canopy.cost_per_area ≈ WindShipOpt.sewing_cost(assumptions) +
+                                 assumptions[:lei_flat_area_ratio] * price(weight) +
+                                 surface * price(1e3tubes / surface)
+    @test WindShipOpt.canopy_price(assumptions, area, 3.0, frame) ≈
+          assumptions[:market_price_factor] * canopy.cost_per_area
+end
+
+@testset "an LEI kite flies the measured V3 polar at the ram-air kite's glide ratio" begin
+    lift = 0.8
+    model, force, = WindShipOpt.kite_model(1.0, assumptions[:lei_aspect_ratio], assumptions,
+        WindShipOpt.TubeFrame())
+    polar = model.polar
+    drag = WindShipOpt.polar_value(polar, polar.drag, WindShipOpt.lift_angle(polar, lift))
+    @test lift / (drag + model.extra_drag) ≈
+          lift / WindShipOpt.total_drag_at_lift(3.0, lift, assumptions) rtol = 0.02
+    @test maximum(polar.lift) < maximum(WindShipOpt.KitePolar(3.0).lift)
+    @test force ≈ 1e3assumptions[:lei_max_force_per_area]
+end
+
+@testset "an LEI kite is built up to the largest size that can still launch" begin
+    largest = WindShipOpt.largest_lei_kite_area(assumptions)
+    model, = WindShipOpt.kite_model(largest, assumptions[:lei_aspect_ratio], assumptions,
+        WindShipOpt.TubeFrame())
+    @test WindShipOpt.launch_min_wind(model, assumptions) ≈
+          assumptions[:kite_launch_max_wind] rtol = 1e-6
+    @test isnothing(WindShipOpt.lei_kite_rig(1.01largest, PAPER_HULL, assumptions))
+    @test_throws ArgumentError WindShipOpt.design_rig(
+        ShipDesign(:vlsfo, 140.0; lei_kite_area=200.0, kite_area=800.0), PAPER_HULL,
+        assumptions)
+end
+
+@testset "an LEI kite's station, control unit and tether are a ram-air kite's" begin
+    hull = PAPER_HULL
+    rig = KiteRig(200.0, assumptions[:lei_aspect_ratio], hull, assumptions;
+        courses=[π / 2], frame=WindShipOpt.TubeFrame())
+    @test rig.airframe isa WindShipOpt.TubeFrame
+    @test WindShipOpt.rig_price_parts(rig, assumptions) ==
+          WindShipOpt.kite_price_parts(rig.area, rig.max_force, assumptions)
+    canopy, = WindShipOpt.consumable_costs(rig, assumptions)
+    @test canopy ≈ WindShipOpt.canopy_price(assumptions, rig.area, rig.aspect_ratio,
+        rig.airframe) * rig.area
+    @test WindShipOpt.kite_mass(rig, assumptions) ≈
+          WindShipOpt.Canopy(assumptions, rig.area, rig.airframe).mass_per_area * rig.area +
+          1e-3assumptions[:control_unit_mass_per_force] * rig.max_force
 end
 
 @testset "every rig has its name, life and availability inputs" begin

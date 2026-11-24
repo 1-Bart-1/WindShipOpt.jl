@@ -258,7 +258,7 @@ end
 
 "design keyword of each rig"
 rig_keywords = Dict("kite" => :kite_area, "wings" => :wing_area, "rotors" => :rotor_area,
-    "vtol" => :rigid_kite_area, "suction" => :suction_area)
+    "vtol" => :rigid_kite_area, "suction" => :suction_area, "lei" => :lei_kite_area)
 
 """
     rig_size(rig, area)
@@ -281,7 +281,7 @@ study_hull(ship) = ship == "140 m" ? 140.0 : ship_classes()[ship]
 
 "reference size of each rig on the 140 m ship"
 reference_rigs = [("kite", 3200.0), ("wings", 1500.0), ("rotors", 800.0),
-    ("suction", 800.0), ("vtol", 200.0)]
+    ("suction", 800.0), ("vtol", 200.0), ("lei", 700.0)]
 
 "the 140 m ship without a rig, then each of the [`reference_rigs`](@ref)"
 reference_rigs_and_none = [("none", 0.0); reference_rigs]
@@ -294,7 +294,7 @@ reference_canopy_price(inputs) =
     WindShipOpt.canopy_price(inputs, reference_kite_shape(inputs)...)
 
 "the rigs, as named in the output"
-rig_names = ("kite", "wings", "rotors", "suction", "vtol")
+rig_names = ("kite", "wings", "rotors", "suction", "vtol", "lei")
 
 "index in `rig_names` and name of each rig that the study table `table` has"
 study_rigs(table) = [(j, rig) for (j, rig) in enumerate(rig_names) if rig in table["rig"]]
@@ -355,10 +355,12 @@ situation_inputs = Dict(:vlsfo_price => ((8.0, 12.0, 22.0, 30.0), all_rigs),
 situation_sizes = Dict(
     "140 m" => Dict("kite" => (800.0, 1600.0, 3200.0, 6400.0),
         "wings" => (800.0, 1500.0, 2400.0), "rotors" => (400.0, 800.0, 1600.0),
-        "suction" => (400.0, 800.0, 1600.0), "vtol" => (100.0, 200.0, 400.0)),
+        "suction" => (400.0, 800.0, 1600.0), "vtol" => (100.0, 200.0, 400.0),
+        "lei" => (350.0, 700.0, 1400.0)),
     "Kamsarmax bulk carrier" => Dict("kite" => (1600.0, 3200.0, 6400.0),
         "wings" => (1600.0, 2400.0, 3600.0), "rotors" => (850.0, 1200.0, 1890.0),
-        "suction" => (850.0, 1200.0, 1890.0), "vtol" => (200.0, 400.0, 800.0)))
+        "suction" => (850.0, 1200.0, 1890.0), "vtol" => (200.0, 400.0, 800.0),
+        "lei" => (700.0, 1400.0, 2800.0)))
 
 """
 Ship, route, drive and inputs of each part of the situation study: every input on the
@@ -926,13 +928,14 @@ smallest_deck_rig_area = 50.0
     size_bounds(class)
 
 Smallest and largest area [m^2] searched for each rig on `class`: kites of 500 to
-64,000 m^2, VTOL kites of 20 m^2 to the largest whose perch fits, deck rigs from
+64,000 m^2, VTOL kites of 20 m^2 to the largest whose perch fits, leading-edge inflatable
+kites of 20 m^2 to the largest that can be launched, deck rigs from
 `smallest_deck_rig_area` to all of what fits on deck, and none of a rig where not even its
 smallest size fits.
 """
 function size_bounds(class)
     hull = Hull(class, assumptions)
-    smallest = Dict("vtol" => 20.0,
+    smallest = Dict("vtol" => 20.0, "lei" => 20.0,
         (rig => smallest_deck_rig_area for rig in deck_rig_names)...)
     bounds = (rig => (area, largest_rig_area(rig, hull)) for (rig, area) in smallest)
     return Dict("kite" => (500.0, largest_rig_area("kite", hull)),
@@ -976,11 +979,13 @@ end
 """
     largest_rig_area(rig, hull)
 
-Largest area [m^2] of `rig` on `hull`: what fits on deck, for a kite the search bound.
+Largest area [m^2] of `rig` on `hull`: what fits on deck, for a kite the search bound, for
+a leading-edge inflatable kite the largest that can be launched.
 """
 function largest_rig_area(rig, hull)
     rig == "kite" && return 64000.0
     rig == "vtol" && return WindShipOpt.largest_rigid_kite_area(hull, assumptions)
+    rig == "lei" && return WindShipOpt.largest_lei_kite_area(assumptions)
     return largest_area(rig, hull)
 end
 
@@ -992,7 +997,7 @@ on `route`, tagged with `labels`.
 """
 function class_case(class::ShipClass, drive, rig, area, route; labels...)
     design = ShipDesign(drive, class; rig_size(rig, area)...)
-    built = Ship(design, assumptions).rig
+    built = Ship(design, assumptions; route).rig
     return trip_case(design; class=class.name, route, drive, rig, area,
         units=WindShipOpt.deck_units(built), columns=deck_columns(built), labels...)
 end
@@ -1213,7 +1218,7 @@ function gap_error(cells, weights, rig, rival)
 end
 
 "bands of the fleet's cost split by rig, in the order drawn"
-fleet_bands = ("kite", "level", "rotors", "wings", "suction", "vtol", "none")
+fleet_bands = ("kite", "level", "rotors", "wings", "suction", "vtol", "lei", "none")
 
 """
     fleet_leaders(savings, cells, weights=ones(length(cells)))
@@ -1904,18 +1909,18 @@ end
     development_inputs
 
 The inputs of the development study as (input, label, rig, lever, reason): the input,
-its name in the paper, the rig whose developer can change it (or `"condition"` for a
-condition it is judged against), what kind of lever it is, and the reason it is in the
-study.
+its name in the paper, the rig whose developer can change it (`"soft kites"` for both
+soft kites, `"every rig"` for all, `"condition"` for a condition it is judged against),
+what kind of lever it is, and the reason it is in the study.
 """
 development_inputs = [
-    (input=:canopy_life, label="canopy life", rig="kite", lever="life",
+    (input=:canopy_life, label="canopy life", rig="soft kites", lever="life",
         reason="What a flight hour of the canopy costs; unmeasured, so what development " *
                "has to prove."),
-    (input=:launch_mast_mass_per_size, label="kite launch mast mass", rig="kite",
+    (input=:launch_mast_mass_per_size, label="kite launch mast mass", rig="soft kites",
         lever="price", reason="Its design sets the mass of the launch mast and docking " *
                               "head, the largest part of the kite's hardware price."),
-    (input=:kite_launch_loss_probability, label="kites lost per launch", rig="kite",
+    (input=:kite_launch_loss_probability, label="kites lost per launch", rig="soft kites",
         lever="availability",
         reason="What its launch and landing system's reliability is worth: from today's " *
                "record to the goal."),
@@ -1923,7 +1928,11 @@ development_inputs = [
         lever="force",
         reason=string("Its structure decides the force each m\\textsuperscript{2} may ",
             "carry; cloth, seams, tether and winch grow with it.")),
-    (input=:kite_min_turn_radius, label="kite smallest turn radius", rig="kite",
+    (input=:lei_max_force_per_area, label="LEI kite force limit per area", rig="lei",
+        lever="force",
+        reason=string("Its structure decides the force each m\\textsuperscript{2} may ",
+            "carry; cloth, seams, tubes, tether and winch grow with it.")),
+    (input=:kite_min_turn_radius, label="kite smallest turn radius", rig="soft kites",
         lever="force", reason="Steering and control decide how tight, and so how " *
                               "powerful, a pattern can be."),
     (input=:wing_max_lift_coefficient, label="wing sail maximum lift", rig="wings",
@@ -2141,7 +2150,8 @@ end
 "input of each rig holding the share of its units' round trips out of service"
 out_of_service_inputs = Dict("kite" => "kite_out_of_service",
     "wings" => "wing_out_of_service", "rotors" => "rotor_out_of_service",
-    "suction" => "suction_out_of_service", "vtol" => "kite_out_of_service")
+    "suction" => "suction_out_of_service", "vtol" => "kite_out_of_service",
+    "lei" => "kite_out_of_service")
 
 """
     service_shares(rig)

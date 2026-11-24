@@ -15,23 +15,23 @@ struct Canopy{C <: Real}
 end
 
 """
-    force_rating(assumptions)
+    force_rating(assumptions, force_per_area=assumptions[:kite_max_force_per_area])
 
-Force limit `kite_max_force_per_area` over the `canopy_cloth_reference_force` that the
+Force limit `force_per_area` [kN/m^2] over the `canopy_cloth_reference_force` that the
 canopy's cloth weight and mass overhead are stated at [-].
 """
-force_rating(assumptions::Assumptions) =
-    assumptions[:kite_max_force_per_area] / assumptions[:canopy_cloth_reference_force]
+force_rating(assumptions::Assumptions,
+    force_per_area=assumptions[:kite_max_force_per_area]) =
+    force_per_area / assumptions[:canopy_cloth_reference_force]
 
 """
-    cloth_weight(assumptions)
+    cloth_weight(assumptions, rating=force_rating(assumptions))
 
-Weight [g/m^2] of the canopy cloth: `canopy_cloth_weight` times the
-[`force_rating`](@ref), so that the cloth carries the same tension per weight at any force
-limit.
+Weight [g/m^2] of the canopy cloth: `canopy_cloth_weight` times the force `rating`, so
+that the cloth carries the same tension per weight at any force limit.
 """
-cloth_weight(assumptions::Assumptions) =
-    assumptions[:canopy_cloth_weight] * force_rating(assumptions)
+cloth_weight(assumptions::Assumptions, rating=force_rating(assumptions)) =
+    assumptions[:canopy_cloth_weight] * rating
 
 """
     cloth_area_ratio(assumptions, chord)
@@ -59,18 +59,25 @@ cloth_price(assumptions::Assumptions, weight) = assumptions[:canopy_cloth_base_p
     canopy_cost(assumptions, chord)
 
 Cost [USD/m^2] per projected m^2 of the canopy of mean projected `chord` [m]: the surveyed
-`canopy_structure_cost` of a kite of `canopy_structure_chord`, its cloth of
-`canopy_cloth_weight` replaced by the canopy's own [`cloth_area_ratio`](@ref) of
-[`cloth_weight`](@ref) at its [`cloth_price`](@ref).
+[`sewing_cost`](@ref) and its own [`cloth_area_ratio`](@ref) of [`cloth_weight`](@ref) at
+its [`cloth_price`](@ref).
 """
-function canopy_cost(assumptions::Assumptions, chord)
+canopy_cost(assumptions::Assumptions, chord) = sewing_cost(assumptions) +
+    cloth_area_ratio(assumptions, chord) * cloth_price(assumptions, cloth_weight(assumptions))
+
+"""
+    sewing_cost(assumptions)
+
+Cost [USD/m^2] per projected m^2 of a soft kite besides its cloth: the surveyed
+`canopy_structure_cost` less the cloth of a ram-air kite of `canopy_structure_chord` in
+`canopy_cloth_weight`.
+"""
+function sewing_cost(assumptions::Assumptions)
     surveyed = assumptions[:usd_per_eur] * SURVEY_FLAT_AREA_RATIO *
                assumptions[:canopy_structure_cost]
-    surveyed_cloth = cloth_area_ratio(assumptions, assumptions[:canopy_structure_chord]) *
-                     cloth_price(assumptions, assumptions[:canopy_cloth_weight])
-    return surveyed - surveyed_cloth +
-           cloth_area_ratio(assumptions, chord) *
-           cloth_price(assumptions, cloth_weight(assumptions))
+    return surveyed -
+           cloth_area_ratio(assumptions, assumptions[:canopy_structure_chord]) *
+           cloth_price(assumptions, assumptions[:canopy_cloth_weight])
 end
 
 """
@@ -86,4 +93,42 @@ function Canopy(assumptions::Assumptions, area, aspect_ratio)
     return Canopy(1e-3cloth_area_ratio(assumptions, chord) * cloth_weight(assumptions) +
                   assumptions[:canopy_mass_overhead] * force_rating(assumptions),
         canopy_cost(assumptions, chord))
+end
+
+"""
+    TubeFrame
+
+The inflated leading-edge tube and struts that hold the shape of a leading-edge inflatable
+kite, whose canopy is a single skin.
+"""
+struct TubeFrame end
+
+"""
+    tube_mass(assumptions, area)
+
+Mass [kg/m^2] per projected m^2 of the tubes of a leading-edge inflatable kite of projected
+`area` [m^2]: those of the reference kite, grown with the square root of the area and in
+proportion to the force limit per area, as a kite of one shape needs a pressure in
+proportion to its force per area and a tube wall in proportion to pressure times diameter.
+"""
+tube_mass(assumptions::Assumptions, area) = assumptions[:lei_tube_mass] *
+    sqrt(area / assumptions[:lei_reference_area]) *
+    assumptions[:lei_max_force_per_area] / assumptions[:lei_reference_force_per_area]
+
+"""
+    Canopy(assumptions, area, ::TubeFrame)
+
+[`Canopy`](@ref) of a leading-edge inflatable kite of projected `area` [m^2]: one skin of
+[`cloth_weight`](@ref) for its force limit with the mass overhead of a ram-air canopy, and
+its [`tube_mass`](@ref) spread over `lei_tube_surface`, at the [`sewing_cost`](@ref) of a
+soft kite and the [`cloth_price`](@ref) of each.
+"""
+function Canopy(assumptions::Assumptions, area, ::TubeFrame)
+    rating = force_rating(assumptions, assumptions[:lei_max_force_per_area])
+    skin, skin_weight = assumptions[:lei_flat_area_ratio], cloth_weight(assumptions, rating)
+    tubes, surface = tube_mass(assumptions, area), assumptions[:lei_tube_surface]
+    mass = 1e-3skin * skin_weight + assumptions[:canopy_mass_overhead] * rating + tubes
+    return Canopy(mass,
+        sewing_cost(assumptions) + skin * cloth_price(assumptions, skin_weight) +
+        surface * cloth_price(assumptions, 1e3tubes / surface))
 end

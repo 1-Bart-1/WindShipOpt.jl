@@ -52,6 +52,12 @@ SPDX-FileCopyrightText = "2020-2026 Paweł Kuna"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
+path = "data/kite_polars/lei_v3.csv"
+precedence = "override"
+SPDX-FileCopyrightText = "2024 Oriol Cayon, Jelle Poland, TU Delft"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
 path = "data/fonts/GUST-FONT-LICENSE.txt"
 precedence = "override"
 SPDX-FileCopyrightText = "2006 GUST, the Polish TeX Users Group"
